@@ -62,3 +62,11 @@ $RECYCLE.BIN/
 # Note: Root level node_modules should not exist, and safe/ modules are already compressed to .zip
 # ---------------------------------------------------------------------------
 node_modules/
+
+# ---------------------------------------------------------------------------
+# 练习样本构建产物（从源码重建，不入库）
+# ---------------------------------------------------------------------------
+Tool/samples/*.exe
+Tool/samples/*.dll
+Tool/samples/src/*.res
+Tool/samples/src/payload.bin

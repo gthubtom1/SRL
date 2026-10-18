@@ -49,6 +49,40 @@
 
 ---
 
+## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）
+
+> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.7.0）。**
+> 原版的一切能力、体检、案例、知识库完整保留；我们只在其上补了原版没有的场景。
+
+**加了什么（23 → 31 个 MCP 工具，全部纯增量）**：
+
+| 新增能力 | 工具 | 治原版的什么空白 |
+|---|---|---|
+| 协议重放 | `seep_http_replay` | 原版只能被动看 pcap，不能主动构造/重放请求；此工具带 TLS 指纹伪装 + Cookie 会话保持 |
+| 协议取证 | `seep_pcap_extract` | 提取端点/HTTP/TCP 载荷 |
+| 资源剥离 | `seep_pe_resources` | 皮肤包/内嵌 DLL 藏在资源里的样本 |
+| 内存取证 | `seep_mem_strings` | 字符串运行期才解密、磁盘看不到 |
+| 加壳/反调试 | `seep_packer_detect` | 把已有 UNPACKING/ANTI-DEBUG 手册工具化（判壳+反调试+手册路由） |
+| Web 侦察 | `seep_web_recon` | 渗透轻量侦察（只读） |
+| 工具发现 | `seep_ensure_tool` | 四级探测 + 缺工具安装计划 |
+| 反编译入口 | `seep_decompile_auto` | r2 保底 + 高阶引擎告知 |
+
+**怎么保证“不伤原版”**：
+- 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
+- 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
+- 体检从 50 项 → **52 项**（只增不减），新增项就是“扩展资产在位 + 功能自测”。
+
+**怎么回退到纯净原版**：
+```bash
+git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git
+git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何扩展的原版
+```
+
+**以后怎么继续加（给未来任何 AI）**：严格照 [`Tool/docs/MERGE-PLAYBOOK.md`](Tool/docs/MERGE-PLAYBOOK.md) 的流程做——
+它把“这次踩过的坑”全部写成了强制步骤（工具必须接进 SKILL/SOP、必须补 CHANGELOG/版本、必须进体检、必须跑三条验收）。
+
+---
+
 ## 🌟 项目定位
 
 把分散的逆向工具链（Radare2 / JADX / Apktool / Frida / IDA）、战术知识库、提示词工程与实战经验深度组装为一套 **AI Agent 能直接消费并自主驱动的自动化工作台** —— 用户仅需输入自然语言，智能体即可自发展开平台识别、漏洞判型、微创打桩与证据链闭环交付。

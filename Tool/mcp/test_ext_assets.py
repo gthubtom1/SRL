@@ -203,6 +203,15 @@ def main():
     plan = _build_install_plan("sqlmap", entry) if entry else None
     check("install_plan 可构造", bool(plan and plan.get("command")), str(plan)[:120])
 
+    print("=== [15/15] 练习样本（若已构建）能用扩展工具分析 ===")
+    samples_dir = os.path.join(os.path.dirname(HERE), "samples")
+    ad = os.path.join(samples_dir, "antidebug_demo.exe")
+    if os.path.isfile(ad):
+        r = json.loads(S.seep_packer_detect(ad))
+        check("packer_detect 识别反调试样本", len(r.get("antidebug_imports", [])) >= 1, str(r.get("antidebug_imports")))
+    else:
+        print("  [SKIP] 样本未构建（跑 Tool/samples/build.ps1 可重建）")
+
     print(f"\n结果: {PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1
 
