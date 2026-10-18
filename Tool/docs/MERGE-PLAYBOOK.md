@@ -129,7 +129,8 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 
 - **练习样本**放在 `Tool/samples/`，全部**从源码现场编译**（`build.ps1`），构建产物（`*.exe`/`*.res`/`payload.bin`）已 gitignore，不入库。
 - 好处：无版权/恶意软件传播风险、可复现、可审计。
-- **真实第三方样本（带壳/商业/恶意）绝不提交进仓库**：
+- **许可证宽松（MIT/BSD/Apache）的真实样本可收进 `Tool/samples/real/`**：必须带原始 LICENSE、写清来源，随仓库分发（保证换机有真实样本可用）。当前已收 crackerjack(MIT) + MaxXor KeygenMe V7(MIT)。
+- **无许可证 / 恶意样本绝不提交进仓库**：
   1. 放本地 `work/`（已 gitignore）；
   2. 用环境变量 `SEEP_TEST_PE=/path/sample.exe` 喂给测试；
   3. 仓库只保留"怎么采集、怎么喂"的说明，不保留二进制本身。

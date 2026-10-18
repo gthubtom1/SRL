@@ -203,7 +203,7 @@ def main():
     plan = _build_install_plan("sqlmap", entry) if entry else None
     check("install_plan 可构造", bool(plan and plan.get("command")), str(plan)[:120])
 
-    print("=== [15/15] 练习样本（若已构建）能用扩展工具分析 ===")
+    print("=== [15/16] 练习样本（若已构建）能用扩展工具分析 ===")
     samples_dir = os.path.join(os.path.dirname(HERE), "samples")
     ad = os.path.join(samples_dir, "antidebug_demo.exe")
     if os.path.isfile(ad):
@@ -211,6 +211,21 @@ def main():
         check("packer_detect 识别反调试样本", len(r.get("antidebug_imports", [])) >= 1, str(r.get("antidebug_imports")))
     else:
         print("  [SKIP] 样本未构建（跑 Tool/samples/build.ps1 可重建）")
+
+    print("=== [16/16] 真实第三方样本(MIT) 能被扩展工具分析 ===")
+    real = os.path.join(samples_dir, "real")
+    cj = os.path.join(real, "crackerjack", "a.exe")
+    mx = os.path.join(real, "maxxor-keygenme-v7", "KeygenMe V7.exe")
+    if os.path.isfile(cj):
+        rc = json.loads(S.seep_packer_detect(cj))
+        check("crackerjack a.exe 可分析", "packed" in rc, str(rc)[:80])
+    else:
+        print("  [SKIP] crackerjack 样本缺失")
+    if os.path.isfile(mx):
+        rm = json.loads(S.seep_packer_detect(mx))
+        check("KeygenMe V7 识别注入/自修改特征", len(rm.get("injection_imports", [])) >= 1, str(rm.get("injection_imports"))[:80])
+    else:
+        print("  [SKIP] maxxor 样本缺失")
 
     print(f"\n结果: {PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1

@@ -1880,6 +1880,13 @@ _ANTIDEBUG_IMPORTS = {
     "OutputDebugStringA", "OutputDebugStringW", "GetTickCount", "GetTickCount64",
     "QueryPerformanceCounter", "CreateToolhelp32Snapshot", "Process32FirstW",
     "Process32NextW", "FindWindowA", "FindWindowW", "GetForegroundWindow",
+    "BlockInput", "NtClose", "SetUnhandledExceptionFilter", "LoadLibraryA", "LoadLibraryW",
+}
+# 注入/自修改/内存篡改类导入（不一定是反调试，但加壳/保护/注入型样本的强信号）
+_INJECTION_IMPORTS = {
+    "CreateRemoteThread", "WriteProcessMemory", "VirtualAllocEx", "VirtualProtectEx",
+    "OpenProcess", "ReadProcessMemory", "GetProcAddress", "LoadLibraryW", "LoadLibraryA",
+    "VirtualProtect", "VirtualAlloc", "SetThreadContext", "QueueUserAPC",
 }
 # 反虚拟机/沙箱字符串
 _ANTIVM_STRINGS = [b"VMware", b"VirtualBox", b"VBox", b"QEMU", b"Xen", b"Hyper-V",
@@ -1963,6 +1970,8 @@ def seep_packer_detect(binary_path: str) -> str:
     imports = _read_pe_imports(binary_path)
     ad = sorted({n for n in imports if n in _ANTIDEBUG_IMPORTS})
     result["antidebug_imports"] = ad
+    inj = sorted({n for n in imports if n in _INJECTION_IMPORTS})
+    result["injection_imports"] = inj
 
     # 4) 反虚拟机字符串
     av = sorted({s.decode() for s in _ANTIVM_STRINGS if s in blob})
@@ -1974,10 +1983,12 @@ def seep_packer_detect(binary_path: str) -> str:
         result["route"].append("有壳 → 先脱壳：读 MANUAL/UNPACKING.md §一(壳速查) + §二(OEP/Dump)")
     if result["antidebug_imports"]:
         result["route"].append("有反调试导入 → 读 MANUAL/ANTI-DEBUG.md §二(PEB系列) + §七(两击熔断)")
+    if result["injection_imports"]:
+        result["route"].append("有注入/自修改/内存篡改类导入（CreateRemoteThread/WriteProcessMemory/VirtualProtect 等）→ 典型保护/注入型样本，重点看自修改代码与方法 Hook，按 UNPACKING §二 内存 Dump + ANTI-DEBUG §六 代理 DLL")
     if result["antivm_strings"]:
         result["route"].append("有反虚拟机特征 → 优先真机/裸金属，或按 ANTI-DEBUG §四 处理环境检测")
-    if not result["packed"] and not result["antidebug_imports"]:
-        result["route"].append("未检出明显壳/反调试 → 可直接 seep_decompile_auto 反编译")
+    if not result["packed"] and not result["antidebug_imports"] and not result["injection_imports"]:
+        result["route"].append("未检出明显壳/反调试/注入特征 → 可直接 seep_decompile_auto 反编译")
 
     result["manual"] = ["MANUAL/UNPACKING.md", "MANUAL/ANTI-DEBUG.md"]
     result["sections"] = sections
