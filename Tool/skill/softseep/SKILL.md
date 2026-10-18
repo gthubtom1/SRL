@@ -111,15 +111,18 @@ metadata:
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
 | "破解" / "怎么免费用" / "会员怎么搞" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权/许可分析** | 前置门控 → `project-paradigms.md` |
-| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | `windows-sop.md` / `apkseep` |
+| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → `windows-sop.md` / `apkseep` |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
 | "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `project-paradigms.md` |
-| "抓包" / "接口" / "协议" / "请求怎么发的" | **协议分析** | `license-validation.md` §6 |
+| "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |
 | "是不是病毒" / "分析样本" / "行为" / "IOC" | **样本研判** | ida MCP + YARA |
 | "改界面文字" / "关于对话框" / "显示不对" | **UI 伪造** | `ui-verification.md` |
-| "过检测" / "反调试" / "反 hook" / "完整性校验" | **加固对抗** | `defense-in-depth.md` |
+| "过检测" / "反调试" / "反 hook" / "完整性校验" | **加固对抗** | `seep_packer_detect` 识别 → `defense-in-depth.md` |
 | "出个报告" / "整理成果" / "测绘" | **测绘报告** | `project-paradigms.md`（报告模板） |
-| "看看这个 exe" / "分析下这个文件"（无明确动词） | **默认：测绘/分析** | `windows-sop.md` Step 1-2 |
+| "看看这个 exe" / "分析下这个文件"（无明确动词） | **默认：测绘/分析** | `seep_auto_triage` → `windows-sop.md` Step 1-2 |
+| "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
+| "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
+| "这是个什么网站" / "指纹" / "安全头" / "接口发现" | **Web 侦察** | `seep_web_recon` 只读侦察 |
 
 **复合意图**：一句话含多个意图（如"脱壳后破解会员"）⇒ **按依赖顺序串行**：
 脱壳 → 算法还原 → 授权分析 → 补丁 → 报告。
@@ -151,7 +154,7 @@ metadata:
 | | **ida-reverse** | `~/.pi/agent/skills/ida-reverse/SKILL.md` | IDA 自动唤醒 + 联动 |
 | | client-license-validation-bypass | `Tool/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
 | | Tool/safe/skills（5 个） | `Tool/safe/skills/` | radare2 / reverse-engineering / mcp-js-reverse-playbook 等 |
-| **MCP** | **seep**（22 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` | 二进制 + APK + 知识库 |
+| **MCP** | **seep**（31 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳 |
 | | **ida**（~243 工具） | `mcp_ida_*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
@@ -159,6 +162,21 @@ metadata:
 | **知识库** | reverselab | `Tool/reverselab/kb/`（316 文件） | 攻防方法论 |
 | | seep KB | `seep_kb_search` / `_read` / `_checklist` / `_payloads` | 在线检索 |
 | **工具资产** | aotopsy | `Tool/aotopsy/` | Flutter AOT 分析 |
+
+### 扩展工具速查（8 个，按场景直接调）
+
+> 这些是 seep MCP 里的扩展工具，解决原版没有的“资源/内存/协议/加壳/工具发现”场景。**遇到对应场景直接调，不要手搓。**
+
+| 场景 | 调用 | 说明 |
+|---|---|---|
+| 不知道用哪个反编译引擎 / 缺商业工具 | `seep_decompile_auto(path, target, output_mode)` | 按 IDA→Ghidra/REA→R2 降级（无高阶引擎时落 r2 出真伪代码） |
+| 缺工具 / 不知装没装 | `seep_ensure_tool(tool_id, allow_install)` | 四级探测（env→PATH→map→scan）；缺工具给 install_plan |
+| 资源里藏载荷（皮肤包/内嵌 DLL） | `seep_pe_resources(path, extract_dir)` | 枚举 PE 资源树+节熵+容器嗅探，可剥离 |
+| 字符串运行期才解密 | `seep_mem_strings(pid, pattern)` | 只读扫活体进程内存，提 ASCII/UTF-16 + 虚拟地址 |
+| 卡密/授权在云端 | `seep_pcap_extract(pcap, mode)` | 提取端点/HTTP/指定端口 TCP 载荷 |
+| 判壳 / 反调试 / 反虚拟机 | `seep_packer_detect(path)` | 节名/节熵+反调试导入+反虚拟机 → 手册路由 |
+| 协议签到 / 接口重放 / 回包验证 | `seep_http_replay(url, method, headers, cookies, body, impersonate)` | curl_cffi TLS 指纹伪装 + Cookie 会话保持 |
+| Web 目标指纹/安全头/入口发现 | `seep_web_recon(url)` | 只读侦察（不攻击） |
 
 ### 跨平台共通项（判型后仍适用）
 

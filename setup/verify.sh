@@ -70,6 +70,16 @@ test_python_syntax() {
     [ -n "$PY_BIN" ] && (cd "$ROOT" && "$PY_BIN" -c "import ast; ast.parse(open('Tool/mcp/seep_mcp_server.py', encoding='utf-8').read())")
 }
 
+test_ext_assets() {
+    local sp="$TOOL_DIR/mcp/seep_mcp_server.py"
+    local et="$TOOL_DIR/config/engine-tiers.json"
+    local ed="$TOOL_DIR/docs/EXT-ASSETS.md"
+    local mp="$TOOL_DIR/docs/MERGE-PLAYBOOK.md"
+    [ -f "$sp" ] && [ -f "$et" ] && [ -f "$ed" ] && [ -f "$mp" ] && \
+        grep -q 'def seep_ensure_tool' "$sp" && grep -q 'def seep_packer_detect' "$sp" && \
+        grep -q 'def seep_http_replay' "$sp" && grep -q 'def seep_web_recon' "$sp"
+}
+
 test_python_mcp() {
     [ -n "$PY_BIN" ] && "$PY_BIN" -c "import mcp" 2>/dev/null
 }
@@ -132,6 +142,7 @@ fi
 # 5. MCP 自动化服务层与底层工具
 echo -e "\n${WHITE}[5/9] 🔌 MCP 服务引擎与物理内置工具箱 (Native Tools)${RESET}"
 check_item "MCP" "核心服务端脚本 (seep_mcp_server.py 语法自洽)" test_python_syntax
+check_item "MCP" "扩展资产：8 个新工具 + 引擎链 + 文档 (含 protocol/resource/packer)" test_ext_assets
 check_item "工具箱" "Jadx 反编译引擎 (jadx-1.5.6 完整就绪)" test -f "$SAFE_DIR/jadx/lib/jadx-1.5.6-all.jar"
 check_item "工具箱" "Radare2 二进制套件 (跨平台探测系统/内置 r2)" command -v radare2 &>/dev/null || test -f "$SAFE_DIR/radare2/bin/radare2.exe"
 check_item "工具箱" "Apktool 资源拆解重构环境 (apktool.jar)" test -f "$SAFE_DIR/apktool/apktool.jar"

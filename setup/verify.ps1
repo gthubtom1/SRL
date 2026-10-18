@@ -291,6 +291,18 @@ Test-CheckItem "MCP" "扩展资产：8 个新工具 + 声明式引擎链 + 说�
     } else { $false }
 } "扩展资产缺失（新增工具/engine-tiers.json/EXT-ASSETS.md/MERGE-PLAYBOOK.md 任一不见）" "8 工具 + 引擎链 + 文档" "$ToolDir"
 
+Test-CheckItem "MCP" "扩展资产功能自测 (test_ext_assets.py 30 项)" {
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    $tst = Join-Path $ToolDir 'mcp\test_ext_assets.py'
+    if ($py -and (Test-Path $tst)) {
+        Push-Location (Join-Path $ToolDir 'mcp')
+        try {
+            & python test_ext_assets.py 2>&1 | Out-Null
+            $LASTEXITCODE -eq 0
+        } finally { Pop-Location }
+    } else { $false }
+} "扩展资产功能自测未通过（在 Tool/mcp 下跑 python test_ext_assets.py 看详情）" "30 项全过" "$ToolDir\mcp\test_ext_assets.py"
+
 Test-CheckItem "工具箱" "Jadx 反编译引擎 (jadx-1.5.6 完整就绪)" {
     $j = Join-Path $ToolsDir 'jadx\lib\jadx-1.5.6-all.jar'
     $b = Join-Path $ToolsDir 'jadx\bin\jadx.bat'

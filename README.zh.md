@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20工具-23%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP%20工具-31%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/健康体检-52%2F52%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-289%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
@@ -57,7 +57,7 @@
 
 | 痛点 | 解决方案 |
 |---|---|
-| 🔧 **工具链高度碎片化** | 23 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
+| 🔧 **工具链高度碎片化** | 31 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
 | 🧠 **大模型缺乏决断逻辑** | `softseep` 总控：两级自动判型（平台 × 9 类业务）+ 七道门决策树 |
 | 🛡️ **云端模型频繁拒绝** | 三层保险：底座级 `BLOCK_NONE` 注入 + 动态口语合规转译 + 推理级思维重定向 |
 | 📚 **实战经验无法沉淀** | 289 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
@@ -223,7 +223,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP 工具矩阵
 
-自研 `seep` MCP 服务暴露 **23 个原生工具**，分五大功能组：
+自研 `seep` MCP 服务暴露 **31 个原生工具**，分六大功能组：
 
 | 分类 | 工具 | 核心功能 | 上下文控制 |
 |---|---|---|---|
@@ -250,6 +250,14 @@ Seep\ (251 MB)
 | **流水线编排** | `seep_task_init` | 初始化隔离审计沙盒目录 | — |
 | | `seep_auto_triage` | 未知样本全量自动体检 | — |
 | | `seep_gen_security_report` | 三段式合规安全报告生成 | — |
+| **扩展工具**<br>（协议/资源/内存/加壳） | `seep_packer_detect` | 判壳 + 反调试导入 + 反虚拟机 + 手册路由 | — |
+| | `seep_pe_resources` | PE 资源树/节熵/容器嗅探（zstd/zip），可剥离 | — |
+| | `seep_mem_strings` | 只读扫活体进程内存，提 ASCII/UTF-16 字符串 | `max_hits=` |
+| | `seep_pcap_extract` | pcap 端点/HTTP/TCP 载荷提取 | `max_rows=` |
+| | `seep_http_replay` | 请求构造/重放，TLS 指纹伪装 + Cookie 会话保持 | `limit` |
+| | `seep_web_recon` | Web 只读侦察（技术栈/安全头/入口发现） | — |
+| | `seep_decompile_auto` | 反编译入口（r2 保底 + 高阶引擎告知） | `output_mode` |
+| | `seep_ensure_tool` | 工具四级探测 + 缺工具安装计划 | — |
 
 > 💡 **上下文预算控制（v1.1）**：`seep_r2_decompile` 使用 `output_mode=fold` 可减少约 60% Token 消耗；`summary` 模式减少约 90%。使用 `seep_r2_xrefs` 替代原始 `axt` 命令，避免数百条引用直接灌满上下文窗口。
 

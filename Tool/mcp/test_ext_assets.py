@@ -140,29 +140,68 @@ def main():
     print("=== [11/12] seep_packer_detect：非 PE 优雅报错 ===")
     check("非 PE 给 ERROR", "ERROR" in S.seep_packer_detect(os.path.join(HERE, "seep_mcp_server.py")), "")
 
-    print("=== [12/12] seep_http_replay：构造与重放（无网则验证优雅降级）===")
-    try:
-        hr = json.loads(S.seep_http_replay("https://httpbin.org/get", method="GET", timeout=15))
-        check("http_replay 返回结构", "status" in hr or "backend" in hr, str(hr)[:100])
-    except Exception as exc:
-        # 无网络时不能崩，必须返回可读错误字符串
-        r = S.seep_http_replay("http://127.0.0.1:1/", method="GET", timeout=3)
-        check("http_replay 无网时优雅报错", r.strip().startswith("[ERROR]") or r.strip().startswith("{"), r[:100])
+    print("=== [12/14] seep_http_replay：构造与重放（本地回环服务，不依赖外网）===")
+    # 用本地临时 HTTP 服务，零外网依赖
+    import http.server
+    import threading
+    import socket
 
-    print("=== [13/14] seep_web_recon：只读侦察（无网则优雅报错）===")
+    class _H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b'{"ok": true, "path": "%s"}' % self.path.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Set-Cookie", "sid=abc123; Path=/")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def do_POST(self):
+            ln = int(self.headers.get("Content-Length", 0))
+            data = self.rfile.read(ln) if ln else b""
+            body = b'{"ok": true, "echo_len": %d}' % len(data)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), _H)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
     try:
-        wr = json.loads(S.seep_web_recon("https://httpbin.org", timeout=15))
+        base = f"http://127.0.0.1:{port}"
+        hr = json.loads(S.seep_http_replay(base + "/get", method="GET", timeout=10))
+        check("http_replay GET 结构", "status" in hr and hr.get("status") == 200, str(hr)[:100])
+        check("http_replay 拿到 Set-Cookie", bool(hr.get("set_cookies")), str(hr.get("set_cookies"))[:80])
+        hp = json.loads(S.seep_http_replay(base + "/post", method="POST", body='{"a":1}', timeout=10))
+        check("http_replay POST 结构", hp.get("status") == 200, str(hp)[:100])
+    finally:
+        srv.shutdown()
+
+    print("=== [13/14] seep_web_recon：只读侦察（本地回环，不依赖外网）===")
+    srv2 = http.server.HTTPServer(("127.0.0.1", 0), _H)
+    port2 = srv2.server_address[1]
+    t2 = threading.Thread(target=srv2.serve_forever, daemon=True)
+    t2.start()
+    try:
+        wr = json.loads(S.seep_web_recon(f"http://127.0.0.1:{port2}", timeout=10))
         check("web_recon 返回结构", "status" in wr, str(wr)[:100])
-    except Exception as exc:
-        r = S.seep_web_recon("http://127.0.0.1:1/", timeout=3)
-        check("web_recon 无网优雅报错", r.strip().startswith("{") or "error" in r.lower(), r[:100])
+        check("web_recon 有安全头字段", "security_headers_missing" in wr, "")
+    finally:
+        srv2.shutdown()
 
     print("=== [14/14] seep_ensure_tool：缺工具给 install_plan（P4）===")
-    ep = json.loads(S.seep_ensure_tool("sqlmap"))
-    if ep.get("status") == "missing":
-        check("missing 带 install_plan", bool(ep.get("install_plan")), str(ep)[:120])
-    else:
-        print("  [SKIP] 本机已装 sqlmap，跳过 install_plan 断言")
+    ep = json.loads(S.seep_ensure_tool("definitely-nonexistent-tool-zzz"))
+    check("不存在工具 status=missing", ep.get("status") == "missing", str(ep)[:120])
+    # 有声明式条目的工具（无论本机装没装）都应能构造出 install_plan
+    from seep_mcp_server import _load_tool_install, _build_install_plan
+    cfg = _load_tool_install()
+    entry = cfg.get("installable", {}).get("sqlmap")
+    plan = _build_install_plan("sqlmap", entry) if entry else None
+    check("install_plan 可构造", bool(plan and plan.get("command")), str(plan)[:120])
 
     print(f"\n结果: {PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1

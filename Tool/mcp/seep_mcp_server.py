@@ -1466,16 +1466,20 @@ def seep_decompile_auto(
     output_mode: str = "fold",
     limit_tokens: int = 8000,
 ) -> str:
-    """多引擎降级反编译：按 IDA -> Ghidra/REA -> Radare2 的优先级自动选引擎。
+    """反编译入口：自动探测本机引擎，优先给可直接执行的 Radare2 伪代码，并报告更高阶引擎可用性。
 
-    "能力寻址而非名字寻址"：调用方只说"帮我反编译这个函数"，本工具自己探测
-    本机有哪些引擎，按 tier 降级，并把**实际使用的引擎**如实写进输出。
-    重型引擎（IDA/REA）缺失时自动落到 Radare2，绝不因缺商业工具而失败。
+    诚实说明（避免过度承诺）：
+    - 本工具**直接执行**的是 Radare2（内置、永远可用）——它能当场给出真伪代码。
+    - 对 IDA / Ghidra / REA：本工具只**探测它们是否可用并报告**，不在此函数内驱动它们的
+      MCP/CLI harness（那些需各自的 MCP 通道，由 ida-reverse 技能或对应 MCP 工具负责）。
+    - 若本机无 r2 但有高阶引擎，会提示你改用对应引擎的 MCP 工具，而不是伪造结果。
+
+    所以它的定位是：“r2 保底 + 高阶引擎告知”，而非“自动把 IDA/Ghidra 都跑一遍”。
 
     Args:
         binary_path: 目标二进制路径
         target: 函数名或地址（如 'main'、'sym.verify'、'0x401000'）
-        engine: 'auto'（默认，按 tier 降级）| 'ida' | 'ghidra' | 'rea' | 'r2'
+        engine: 'auto'（默认）| 'ida' | 'ghidra' | 'rea' | 'r2'
         output_mode: 传给底层反编译的折叠模式 'full' | 'fold' | 'summary'
         limit_tokens: 输出字符上限
     """

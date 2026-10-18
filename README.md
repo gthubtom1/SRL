@@ -59,7 +59,7 @@ Users provide plain-language technical goals; the agent autonomously performs pl
 
 | Pain Point | Solution |
 |---|---|
-| 🔧 **Toolchain Fragmentation** | 23 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
+| 🔧 **Toolchain Fragmentation** | 31 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
 | 🧠 **Agent Decision Drift** | `softseep` orchestrator: two-stage auto-classification (Platform × 9 Task Types) + 7-gate decision tree |
 | 🛡️ **Model Refusal in Security Audits** | Three-tier mitigation: `BLOCK_NONE` injection + transparent terminology mapping + cognitive redirection |
 | 📚 **Ephemeral Knowledge** | 289 technical field journals + 14 desensitized paradigms + "search KB before executing" enforced discipline |
@@ -90,7 +90,7 @@ User Input (plain language — "bypass the premium check in FooBar.apk")
          │                  │                    │
          ▼                  ▼                    ▼
    seep MCP            IDA Pro MCP         KB Search
-   23 tools            (optional)          289 journals
+   31 tools            (optional)          289 journals
    (Radare2/JADX/                          (Zero-Waste Recon)
     Apktool/Frida)
          │
@@ -179,7 +179,7 @@ Seep\ (251 MB)
 │   │   └── safe-skills\           ← 5 standalone tool packages
 │   │
 │   ├── mcp\                       ← MCP Engine
-│   │   ├── seep_mcp_server.py     ← Core server: 23 native reversing & KB tools
+│   │   ├── seep_mcp_server.py     ← Core server: 31 native reversing & KB tools
 │   │   ├── mcp.json.template      ← Global MCP client configuration template
 │   │   └── Tool\                  ← ⚠️ Hardcoded relative runtime path (do not rename)
 │   │       ├── safe\              ← Pre-bundled cross-platform toolchains
@@ -226,7 +226,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP Tool Matrix
 
-The bundled `seep` MCP server exposes **23 native tools** across five functional groups:
+The bundled `seep` MCP server exposes **31 native tools** across six functional groups:
 
 | Category | Tool | Functionality | Token Mode |
 |---|---|---|---|
@@ -253,6 +253,14 @@ The bundled `seep` MCP server exposes **23 native tools** across five functional
 | **Orchestration** | `seep_task_init` | Initializes isolated audit sandbox directory | — |
 | | `seep_auto_triage` | Automated full-sample health check | — |
 | | `seep_gen_security_report` | Synthesizes 3-part compliance security report | — |
+| **Extensions**<br>(protocol/resource/memory/packer) | `seep_packer_detect` | Packer + anti-debug imports + anti-VM + manual routing | — |
+| | `seep_pe_resources` | PE resource tree / section entropy / container sniff, optional carve | — |
+| | `seep_mem_strings` | Read-only live-process memory string scan (ASCII/UTF-16) | `max_hits=` |
+| | `seep_pcap_extract` | pcap endpoints / HTTP / TCP payload extraction | `max_rows=` |
+| | `seep_http_replay` | Request build/replay, TLS fingerprint spoof + cookie session | `limit` |
+| | `seep_web_recon` | Read-only web recon (stack/security headers/entry discovery) | — |
+| | `seep_decompile_auto` | Decompile entry (r2 fallback + higher-tier engine notice) | `output_mode` |
+| | `seep_ensure_tool` | 4-level tool probing + missing-tool install plan | — |
 
 > 💡 **Context Budget Control** (v1.1): `seep_r2_decompile` with `output_mode=fold` reduces token consumption by ~60%; `summary` mode by ~90%. Use `seep_r2_xrefs` instead of raw `axt` to avoid flooding the context window with hundreds of references.
 

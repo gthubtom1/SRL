@@ -70,6 +70,10 @@ echo -e "\n[4/5] 🐍 安装 Python 协议支持..."
 python3 -m pip install "mcp>=1.20,<1.29" --quiet || {
     echo "⚠️ 自动安装失败，建议手动执行: python3 -m pip install 'mcp>=1.20,<1.29'"
 }
+# 扩展资产可选依赖（缺失时对应工具会优雅降级，不阻断）
+python3 -m pip install pefile curl-cffi zstandard requests --quiet 2>/dev/null || {
+    echo "ℹ️ 扩展资产可选依赖未全部安装（pefile/curl-cffi/zstandard），对应工具会降级但不报错"
+}
 echo "  [√] Python MCP 协议支持就绪"
 
 # 5. Pi Agent 配置同步

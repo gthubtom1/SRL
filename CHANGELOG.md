@@ -10,6 +10,37 @@
 
 ---
 
+## [1.7.0] — 2026-10-19
+
+### 新增（扩展资产，源自 relab2 实战与 REA 降级思想，全部为纯增量）
+
+> 定位：补齐原版在「资源层 / 内存层 / 协议层 / 加壳判型 / 工具发现」上的空白。
+> 全部为**末尾追加 / 新增文件 / 插入段落**，不改任何既有函数体（相对原版 `seep_mcp_server.py` 净删除 0 行）。
+
+- **协议层**：
+  - `seep_http_replay()`：构造/重放 HTTP 请求，curl_cffi TLS 指纹伪装（chrome/safari/edge/ff）+ Cookie 会话保持 + 任意方法/头/体；无 curl_cffi 自动降级 requests。治协议签到/接口重放/回包验证。
+  - `seep_pcap_extract()`：tshark 提取 pcap 端点 / HTTP 请求响应 / 指定端口 TCP 载荷。
+- **资源/内存层**：
+  - `seep_pe_resources()`：枚举 PE 资源树 + 节熵 + 容器嗅探（zstd/zip/pe），可选剥离。治“皮肤包/内嵌 DLL 藏在资源里”。
+  - `seep_mem_strings()`：只读扫活体进程内存，提 ASCII/UTF-16 字符串 + 虚拟地址。治“运行期才解密”。
+- **加壳/反调试**：
+  - `seep_packer_detect()`：节名/节熵判壳 + 反调试导入 + 反虚拟机字符串，直接给“读 UNPACKING.md / ANTI-DEBUG.md 哪一节”的路由（把已有 190+188 行手册工具化）。
+- **工具发现与反编译**：
+  - `seep_ensure_tool()`：四级探测（env→PATH→map→scan，带 deny 规则），缺工具给 `install_plan`；`allow_install=True` 且方法在白名单才自动装。
+  - `seep_decompile_auto()`：反编译入口（r2 保底 + 高阶引擎告知）。
+- **Web 侦察（渗透轻量）**：
+  - `seep_web_recon()`：只读侦察（响应头/技术栈指纹/安全头缺失/常见入口），不攻击；重型渗透走独立 MCP。
+- **声明式配置**：`Tool/config/engine-tiers.json`（引擎降级链）、`Tool/config/tool-install.json`（按需下载清单）。
+- **文档**：`Tool/docs/EXT-ASSETS.md`（资产说明）、`Tool/docs/MERGE-PLAYBOOK.md`（给未来 AI 的融合标准流程）。
+- **接入**：8 个新工具已写入 `softseep/SKILL.md` 判型表 + 扩展工具速查表；协议工具接入 `license-validation.md §6`；判壳工具接入 `windows-sop.md Step 1`。
+- **依赖**：`setup/install-python.ps1` / `install.sh` 新增可选依赖 `pefile / curl-cffi / zstandard / requests`（缺失时对应工具优雅降级，不阻断）。
+
+### 体检
+
+- `setup/verify.ps1` 新增一项“扩展资产在位”校验；工具总数 23 → 31；核心检查 50 → 51 项。
+
+---
+
 ## [Unreleased]
 
 ### 新增

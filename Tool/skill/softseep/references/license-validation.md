@@ -205,6 +205,13 @@ netsh interface ipv4 delete address 1 <c2_ip>                # 收尾必删
 
 ## 6. 握手与响应判定
 
+> **工具接入（先抓包再看、再重放）**：
+> - **抓包/看包**：`seep_pcap_extract(pcap, mode='summary'|'http'|'payload')` → 直接拿端点、HTTP 请求/响应、指定端口 TCP 载荷。
+> - **构造/重放/伪造回包**：`seep_http_replay(url, method, headers, cookies, body, impersonate='chrome', session_file=...)`
+>   → curl_cffi TLS 指纹伪装（绕基础反爬）+ Cookie 会话保持；支持任意方法/头/体。
+>   **典型用法**：先从 pcap 拿到金样请求 → 用 http_replay 原样重放 → 改字段（卡密/令牌）验证响应变化。
+> - **签到的验证码/算法类字段**：先按本手册逆向出算法（§6.3），再用 http_replay 把算出的值带进协议。
+
 ### 6.1 请求/响应样例(案例,示范如何拆解字段角色)
 ```
 GET /verify HTTP/1.1   Host: <ip>:<port>   User-Agent: HTTP-Getter/1.0
