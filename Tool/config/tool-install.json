@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "description": "按需下载工具的声明式安装清单（P4）。seep_ensure_tool 缺工具时读这里给出可执行安装命令；allow_install=True 时对 install.method 属于 pip/winget/npm/go 的自动执行（带确认语义，不无脑下不可信来源）。新增工具只改本文件，不改代码。",
+  "installable": {
+    "floss":       { "method": "pip",     "pkg": "flare-floss",  "verify": "floss", "note": "FLOSS 字符串提取" },
+    "capa":        { "method": "pip",     "pkg": "flare-capa",   "verify": "capa",  "note": "能力识别" },
+    "frida":       { "method": "pip",     "pkg": "frida-tools",  "verify": "frida", "note": "动态插桩" },
+    "binwalk":     { "method": "pip",     "pkg": "binwalk",      "verify": "binwalk", "note": "固件/嵌入解包" },
+    "unblob":      { "method": "pip",     "pkg": "unblob",       "verify": "unblob", "note": "解包（需编译环境）" },
+    "yara":        { "method": "pip",     "pkg": "yara-python",  "verify": "",      "note": "YARA 规则引擎（库）" },
+    "pyinstxtractor": { "method": "pip",  "pkg": "pyinstxtractor","verify": "",     "note": "PyInstaller 解包" },
+    "diec":        { "method": "manual",  "url": "https://github.com/horsicq/Detect-It-Easy/releases", "verify": "diec", "note": "Detect It Easy 判壳（下便携版放 D:\\Tools）" },
+    "x64dbg":      { "method": "winget",  "pkg": "x64dbg.x64dbg", "verify": "x64dbg", "note": "Windows 调试器" },
+    "cdb":         { "method": "winget",  "pkg": "Microsoft.WinDbg", "verify": "cdb", "note": "命令行调试器" },
+    "nmap":        { "method": "winget",  "pkg": "Insecure.Nmap", "verify": "nmap", "note": "端口/服务扫描" },
+    "sqlmap":      { "method": "pip",     "pkg": "sqlmap",       "verify": "sqlmap", "note": "SQL 注入检测" },
+    "dirsearch":   { "method": "pip",     "pkg": "dirsearch",    "verify": "dirsearch", "note": "目录爆破" },
+    "httpx":       { "method": "pip",     "pkg": "httpx",        "verify": "httpx", "note": "HTTP 探测（注意与 python httpx 同名）" },
+    "subfinder":   { "method": "go",      "pkg": "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest", "verify": "subfinder", "note": "子域名枚举" },
+    "mitmproxy":   { "method": "pip",     "pkg": "mitmproxy",    "verify": "mitmdump", "note": "代理抓包" },
+    "curl_cffi":   { "method": "pip",     "pkg": "curl-cffi",    "verify": "", "note": "TLS 指纹伪装（http_replay 用）" },
+    "pefile":      { "method": "pip",     "pkg": "pefile",       "verify": "", "note": "PE 解析（packer_detect/pe_resources 用）" },
+    "zstandard":   { "method": "pip",     "pkg": "zstandard",    "verify": "", "note": "zstd 解压（资源剥离用）" }
+  },
+  "auto_allow_methods": ["pip", "winget", "npm", "go"],
+  "manual_only_methods": ["manual"]
+}

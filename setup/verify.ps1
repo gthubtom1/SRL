@@ -271,21 +271,25 @@ Test-CheckItem "MCP" "核心服务端脚本 (seep_mcp_server.py 语法自洽)" {
             $LASTEXITCODE -eq 0
         } else { $true }
     } else { $false }
-} "seep_mcp_server.py 丢失或存在 Python 语法解析错误" "28 个原生工具定义（含 5 个扩展资产）" "$ToolDir\mcp\seep_mcp_server.py"
+} "seep_mcp_server.py 丢失或存在 Python 语法解析错误" "31 个原生工具定义（含 8 个扩展资产）" "$ToolDir\mcp\seep_mcp_server.py"
 
-Test-CheckItem "MCP" "扩展资产：5 个新工具 + 声明式引擎链 + 说明文档" {
+Test-CheckItem "MCP" "扩展资产：8 个新工具 + 声明式引擎链 + 说明文档" {
     $sp = Join-Path $ToolDir 'mcp\seep_mcp_server.py'
     $et = Join-Path $ToolDir 'config\engine-tiers.json'
     $ed = Join-Path $ToolDir 'docs\EXT-ASSETS.md'
-    if ((Test-Path $sp) -and (Test-Path $et) -and (Test-Path $ed)) {
+    $mp = Join-Path $ToolDir 'docs\MERGE-PLAYBOOK.md'
+    if ((Test-Path $sp) -and (Test-Path $et) -and (Test-Path $ed) -and (Test-Path $mp)) {
         $src = Get-Content -LiteralPath $sp -Raw -Encoding UTF8
         ($src -match 'def seep_ensure_tool') -and
         ($src -match 'def seep_decompile_auto') -and
         ($src -match 'def seep_pe_resources') -and
         ($src -match 'def seep_mem_strings') -and
-        ($src -match 'def seep_pcap_extract')
+        ($src -match 'def seep_pcap_extract') -and
+        ($src -match 'def seep_packer_detect') -and
+        ($src -match 'def seep_http_replay') -and
+        ($src -match 'def seep_web_recon')
     } else { $false }
-} "扩展资产缺失（新增工具/engine-tiers.json/EXT-ASSETS.md 任一不见）" "5 工具 + 引擎链 + 文档" "$ToolDir"
+} "扩展资产缺失（新增工具/engine-tiers.json/EXT-ASSETS.md/MERGE-PLAYBOOK.md 任一不见）" "8 工具 + 引擎链 + 文档" "$ToolDir"
 
 Test-CheckItem "工具箱" "Jadx 反编译引擎 (jadx-1.5.6 完整就绪)" {
     $j = Join-Path $ToolsDir 'jadx\lib\jadx-1.5.6-all.jar'

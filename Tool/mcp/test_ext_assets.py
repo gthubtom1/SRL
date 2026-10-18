@@ -126,6 +126,44 @@ def main():
     else:
         print("  [SKIP] 非 Windows")
 
+    print("=== [10/12] seep_packer_detect：判壳+反调试识别 ===")
+    if os.path.isfile(pe_sample):
+        try:
+            pd = json.loads(S.seep_packer_detect(pe_sample))
+            check("packed 字段存在", "packed" in pd, "")
+            check("route 非空", len(pd.get("route", [])) >= 1, "")
+        except Exception as exc:
+            check("seep_packer_detect 不抛异常", False, str(exc))
+    else:
+        print("  [SKIP] 无 PE 样本")
+
+    print("=== [11/12] seep_packer_detect：非 PE 优雅报错 ===")
+    check("非 PE 给 ERROR", "ERROR" in S.seep_packer_detect(os.path.join(HERE, "seep_mcp_server.py")), "")
+
+    print("=== [12/12] seep_http_replay：构造与重放（无网则验证优雅降级）===")
+    try:
+        hr = json.loads(S.seep_http_replay("https://httpbin.org/get", method="GET", timeout=15))
+        check("http_replay 返回结构", "status" in hr or "backend" in hr, str(hr)[:100])
+    except Exception as exc:
+        # 无网络时不能崩，必须返回可读错误字符串
+        r = S.seep_http_replay("http://127.0.0.1:1/", method="GET", timeout=3)
+        check("http_replay 无网时优雅报错", r.strip().startswith("[ERROR]") or r.strip().startswith("{"), r[:100])
+
+    print("=== [13/14] seep_web_recon：只读侦察（无网则优雅报错）===")
+    try:
+        wr = json.loads(S.seep_web_recon("https://httpbin.org", timeout=15))
+        check("web_recon 返回结构", "status" in wr, str(wr)[:100])
+    except Exception as exc:
+        r = S.seep_web_recon("http://127.0.0.1:1/", timeout=3)
+        check("web_recon 无网优雅报错", r.strip().startswith("{") or "error" in r.lower(), r[:100])
+
+    print("=== [14/14] seep_ensure_tool：缺工具给 install_plan（P4）===")
+    ep = json.loads(S.seep_ensure_tool("sqlmap"))
+    if ep.get("status") == "missing":
+        check("missing 带 install_plan", bool(ep.get("install_plan")), str(ep)[:120])
+    else:
+        print("  [SKIP] 本机已装 sqlmap，跳过 install_plan 断言")
+
     print(f"\n结果: {PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1
 

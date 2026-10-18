@@ -90,6 +90,35 @@ git branch -D feat/relab2-rea-assets
 
 ---
 
+## 五bis、第三批（P1 协议重放 / P2 加壳反调试工具化）
+
+| 资产 | 治什么 | 核心能力 |
+|---|---|---|
+| `seep_http_replay()` | 协议签到 / 接口重放 / 回包验证 | curl_cffi TLS 指纹伪装（chrome/safari/edge/ff）+ Cookie 会话保持 + 任意方法/头/体；无 curl_cffi 自动降级 requests |
+| `seep_packer_detect()` | 加壳 / 反调试样本 | 节名/节熵判壳 + 反调试导入 + 反虚拟机字符串，直接给"该读 UNPACKING.md / ANTI-DEBUG.md 哪一节"的路由 |
+
+**P2 的定位（回应"基于 190+188 行手册是什么意思"）**：
+Seep 原本已有 `MANUAL/ANTI-DEBUG.md`(190行) 和 `MANUAL/UNPACKING.md`(188行)——这两本手册已经写清了"反调试信号怎么判、壳怎么脱"的完整打法。
+所以 P2 **不是从零写新知识**，而是把手册的"判断逻辑"做成一个自动工具 `seep_packer_detect`：一条命令判出"有没有壳、什么壳、有没有反调试"，并**指向手册对应章节**。
+这样智能体不用人肉翻手册，也不重复造轮子——**工具负责判，手册负责打**。
+
+---
+
+## 五ter、第三批续（P3 渗透轻量 / P4 按需下载）
+
+| 资产 | 治什么 | 核心能力 |
+|---|---|---|
+| `seep_web_recon()` | Web/API 逆向前的轻量侦察 | 响应头/技术栈指纹/安全头缺失/常见入口探测（robots/.git/.env）；**只读不攻击**，重型渗透走独立 MCP |
+| `Tool/config/tool-install.json` + `seep_ensure_tool(allow_install)` | 真需要某工具时才装 | 声明式安装清单（pip/winget/npm/go/manual），`allow_install=True` 且方法在白名单才自动执行，装完自动重探 |
+
+**P3 的定位（渗透只补一点点）**：只补"和逆向/协议相关"的那一小块——Web 指纹、接口发现、头分析。
+**不塞扫描器/爆破/利用框架**（那会让主服务臃肿、且与逆向无关）。重型渗透若需要，走独立 MCP（如 pentestMCP），不并入 seep 内核。
+
+**P4 的定位（按需下载，不无脑）**：`seep_ensure_tool` 缺工具时返回 `install_plan`（可执行命令 + 来源）；
+只有显式 `allow_install=True` 且方法属 pip/winget/npm/go 白名单才自动装；`manual` 类（如 IDA 商业软件）永远只给下载链接不自动装。
+
+---
+
 ## 六、资产来源与许可
 
 - `preflight-classify` / `ensure_tool` 四级探测 / 攻坚者五条：源自 relab2 实战（本机项目）。

@@ -170,5 +170,9 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 | 批2 | `seep_pe_resources()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批2 | `seep_mem_strings()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批2 | `seep_pcap_extract()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
+| 批3 | `seep_http_replay()` | 协议重放需求 | `seep_mcp_server.py` | ext 测试覆盖 |
+| 批3 | `seep_packer_detect()` | relab2 + 本仓 UNPACKING/ANTI-DEBUG 手册 | `seep_mcp_server.py` | ext 测试覆盖 |
+| 批3 | `seep_web_recon()` | 渗透轻量侦察需求 | `seep_mcp_server.py` | ext 测试覆盖 |
+| 批3 | `Tool/config/tool-install.json` | P4 按需下载 | `Tool/config/` + `seep_ensure_tool` | ext 测试覆盖 |
 
 > 新批次请在此表追加一行，让下一个 AI 一眼知道"哪些已经融过、从哪来、怎么验的"。

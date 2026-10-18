@@ -1285,6 +1285,53 @@ def _resolve_tool(tool_id: str) -> dict:
     return {"available": False, "command": "", "via": "none"}
 
 
+def _load_tool_install() -> dict:
+    """读声明式安装清单 Tool/config/tool-install.json；缺失返回空结构。"""
+    try:
+        cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "config", "tool-install.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"installable": {}, "auto_allow_methods": ["pip"]}
+
+
+def _build_install_plan(tid: str, entry: dict) -> dict:
+    """把声明式条目转成可读的安装计划（命令 + 说明），供人/智能体确认后执行。"""
+    method = entry.get("method", "")
+    pkg = entry.get("pkg", "")
+    if method == "pip":
+        cmd = f"{sys.executable} -m pip install {pkg}"
+    elif method == "winget":
+        cmd = f"winget install --id {pkg} -e"
+    elif method == "npm":
+        cmd = f"npm install -g {pkg}"
+    elif method == "go":
+        cmd = f"go install {pkg}"
+    elif method == "manual":
+        cmd = f"手动下载：{entry.get('url','')}"
+    else:
+        cmd = ""
+    return {"tool": tid, "method": method, "package": pkg, "command": cmd,
+            "note": entry.get("note", "")}
+
+
+def _install_cmd_for(tid: str, entry: dict) -> list:
+    """把声明式条目转成实际可执行的 argv 列表（仅 pip/winget/npm/go）。"""
+    method = entry.get("method", "")
+    pkg = entry.get("pkg", "")
+    if method == "pip":
+        return [sys.executable, "-m", "pip", "install", pkg]
+    if method == "winget":
+        return ["winget", "install", "--id", pkg, "-e", "--accept-source-agreements",
+                "--accept-package-agreements"]
+    if method == "npm":
+        return ["npm", "install", "-g", pkg]
+    if method == "go":
+        return ["go", "install", pkg]
+    return []
+
+
 @server.tool()
 def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
     """四级探测本机某工具是否可用；缺工具时给出可执行的安装建议（可选自动安装）。
@@ -1320,23 +1367,39 @@ def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
         out["status"] = "available"
         return json.dumps(out, indent=2, ensure_ascii=False)
 
-    # 不可用：给安装建议
+    # 不可用：给安装建议（优先读声明式 tool-install.json，P4 按需下载）
+    cfg = _load_tool_install()
+    entry = cfg.get("installable", {}).get(tid)
     hint = _TOOL_INSTALL_HINTS.get(tid, "未收录该工具的安装方式；请手动安装后加入 PATH。")
     out["status"] = "missing"
     out["install_hint"] = hint
     out["note"] = "四级探测均未命中。若确信已安装，检查它是否在 D:\\Tools 或 PATH；也可设环境变量 SEEP_<TOOL>_PATH 显式指定。"
 
-    if allow_install and tid in ("floss", "capa", "frida", "unblob", "binwalk"):
-        pip_pkg = {"floss": "flare-floss", "capa": "flare-capa", "frida": "frida-tools",
-                   "unblob": "unblob", "binwalk": "binwalk"}[tid]
-        try:
-            p = subprocess.run([sys.executable, "-m", "pip", "install", pip_pkg],
-                               capture_output=True, text=True, encoding="utf-8",
-                               errors="replace", timeout=300)
-            out["install_attempt"] = {"pkg": pip_pkg, "returncode": p.returncode,
-                                      "tail": (p.stdout or p.stderr or "")[-300:]}
-        except Exception as exc:  # noqa: BLE001
-            out["install_attempt"] = {"pkg": pip_pkg, "error": "%s: %s" % (type(exc).__name__, exc)}
+    if entry:
+        out["install_plan"] = _build_install_plan(tid, entry)
+
+    # 自动安装（仅 allow_install 且方法在白名单；manual 永不自动）
+    if allow_install and entry:
+        method = entry.get("method", "")
+        auto_ok = method in (cfg.get("auto_allow_methods") or []) and method != "manual"
+        if auto_ok:
+            cmd = _install_cmd_for(tid, entry)
+            if cmd:
+                try:
+                    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                                       errors="replace", timeout=600)
+                    out["install_attempt"] = {"method": method, "cmd": cmd,
+                                              "returncode": p.returncode,
+                                              "tail": (p.stdout or p.stderr or "")[-400:]}
+                    # 装完重新探测一次
+                    recheck = _resolve_tool(tid)
+                    out["after_install"] = recheck
+                except Exception as exc:  # noqa: BLE001
+                    out["install_attempt"] = {"method": method, "cmd": cmd,
+                                              "error": "%s: %s" % (type(exc).__name__, exc)}
+        else:
+            out["install_attempt"] = {"skipped": f"method={method} 不在自动白名单，需人工/确认安装",
+                                      "plan": out.get("install_plan")}
     return json.dumps(out, indent=2, ensure_ascii=False)
 
 
@@ -1779,6 +1842,358 @@ def seep_pcap_extract(pcap_path: str, host_filter: str = "", mode: str = "summar
                           indent=2, ensure_ascii=False)
 
     return f"[ERROR]: 未知 mode='{mode}'（可选 summary/http/payload）"
+
+
+# ---------------------------------------------------------------------------
+# 扩展资产 第三批（P1 协议重放 / P2 加壳反调试工具化，2026-10 增补）
+# 纯增量：不修改任何既有工具逻辑，只在末尾追加。
+#   seep_http_replay     —— 协议请求构造/重放（curl_cffi TLS 指纹伪装 + Cookie 会话管理）
+#   seep_packer_detect   —— 加壳/反调试静态识别（把 MANUAL 的 ANTI-DEBUG/UNPACKING 手册工具化）
+# 设计依据：MANUAL/ANTI-DEBUG.md（190 行）、MANUAL/UNPACKING.md（188 行）——
+#   手册已讲清"怎么判断、怎么处理"，这里补的是"自动判出来并给路由"，不是重写手册。
+# ---------------------------------------------------------------------------
+
+# 已知壳节名（与 MANUAL/UNPACKING.md §一 对齐）
+_PACKER_SECTIONS = {
+    ".upx0", ".upx1", ".upx2", "UPX0", "UPX1", "UPX2",
+    ".aspack", ".adata", "ASPack",
+    ".nsp0", ".nsp1", ".nsp2",          # NsPack
+    ".themida", ".winlice",             # Themida/WinLicense
+    ".vmp0", ".vmp1", ".vmp2",          # VMProtect
+    ".enigma1", ".enigma2",             # Enigma
+    ".petite", ".pec1", ".pec2",
+    ".mpress1", ".mpress2",             # MPRESS
+    ".yP", ".y0da", ".Gogi", ".GWan",
+    ".packed", ".pack", ".mackt",       # 通用/PECompact
+}
+_PACKER_STRINGS = [b"UPX!", b"UPX0", b"UPX1", b"ASPack", b"Themida", b"VMProtect",
+                   b".vmp", b"Enigma", b"PECompact", b"MPRESS"]
+
+# 反调试相关导入（与 MANUAL/ANTI-DEBUG.md §二 对齐）
+_ANTIDEBUG_IMPORTS = {
+    "IsDebuggerPresent", "CheckRemoteDebuggerPresent", "NtQueryInformationProcess",
+    "NtSetInformationThread", "NtQuerySystemInformation", "NtQueryObject",
+    "OutputDebugStringA", "OutputDebugStringW", "GetTickCount", "GetTickCount64",
+    "QueryPerformanceCounter", "CreateToolhelp32Snapshot", "Process32FirstW",
+    "Process32NextW", "FindWindowA", "FindWindowW", "GetForegroundWindow",
+}
+# 反虚拟机/沙箱字符串
+_ANTIVM_STRINGS = [b"VMware", b"VirtualBox", b"VBox", b"QEMU", b"Xen", b"Hyper-V",
+                   b"vbox", b"SbieDll", b"dbghelp", b"OllyDbg", b"x64dbg", b"WinDbg",
+                   b"Wireshark", b"Process Hacker", b"procmon"]
+
+
+def _read_pe_imports(path: str) -> list:
+    """用 pefile 读导入函数名（失败返回空）。"""
+    try:
+        import pefile
+        pe = pefile.PE(path, fast_load=True)
+        pe.parse_data_directories(directories=[
+            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"]])
+        names = []
+        for entry in getattr(pe, "DIRECTORY_ENTRY_IMPORT", []):
+            for imp in entry.imports:
+                if imp.name:
+                    names.append(imp.name.decode("latin1", "replace"))
+        return names
+    except Exception:
+        return []
+
+
+@server.tool()
+def seep_packer_detect(binary_path: str) -> str:
+    """加壳/反调试静态识别：判壳 + 反调试导入 + 反虚拟机字符串，并给出处置路由。
+
+    这是把 MANUAL/UNPACKING.md（壳速查/OEP/脱壳路径）与 MANUAL/ANTI-DEBUG.md
+    （反调试信号→处置）两本手册**工具化**：不用人肉翻手册，一条命令给出
+    "这是不是壳、什么壳、有没有反调试、下一步该走哪本手册的哪一节"。
+
+    Args:
+        binary_path: PE 文件路径
+    """
+    if not os.path.isfile(binary_path):
+        return f"[ERROR]: file not found: {binary_path}"
+    if not binary_path.lower().endswith((".exe", ".dll", ".sys", ".ocx", ".cpl", ".scr", ".efi")):
+        return f"[ERROR]: seep_packer_detect 仅支持 PE 文件（.exe/.dll/.sys 等），当前: {os.path.basename(binary_path)}"
+
+    result = {
+        "file": os.path.basename(binary_path),
+        "packed": False,
+        "packer_hints": [],
+        "high_entropy_sections": [],
+        "antidebug_imports": [],
+        "antivm_strings": [],
+        "route": [],
+        "manual": [],
+    }
+
+    # 1) 节名/节熵（pefile）
+    sections = []
+    try:
+        import pefile
+        pe = pefile.PE(binary_path, fast_load=True)
+        for s in pe.sections:
+            name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
+            data = s.get_data()
+            ent = _entropy_bytes(data) if data else 0.0
+            sections.append({"name": name, "raw_size": s.SizeOfRawData,
+                             "entropy": round(ent, 2)})
+            if name in _PACKER_SECTIONS:
+                result["packer_hints"].append(f"section:{name}")
+            if ent > 7.0 and s.SizeOfRawData > 512:
+                result["high_entropy_sections"].append(f"{name}({round(ent,2)})")
+    except Exception:
+        pass
+
+    # 2) 壳字符串特征（原始字节）
+    try:
+        with open(binary_path, "rb") as f:
+            blob = f.read(8 * 1024 * 1024)
+        for sig in _PACKER_STRINGS:
+            if sig in blob:
+                result["packer_hints"].append(f"string:{sig.decode('latin1')}")
+    except Exception:
+        blob = b""
+
+    # 3) 反调试导入
+    imports = _read_pe_imports(binary_path)
+    ad = sorted({n for n in imports if n in _ANTIDEBUG_IMPORTS})
+    result["antidebug_imports"] = ad
+
+    # 4) 反虚拟机字符串
+    av = sorted({s.decode() for s in _ANTIVM_STRINGS if s in blob})
+    result["antivm_strings"] = av
+
+    # 5) 判定与路由
+    result["packed"] = bool(result["packer_hints"]) or bool(result["high_entropy_sections"])
+    if result["packed"]:
+        result["route"].append("有壳 → 先脱壳：读 MANUAL/UNPACKING.md §一(壳速查) + §二(OEP/Dump)")
+    if result["antidebug_imports"]:
+        result["route"].append("有反调试导入 → 读 MANUAL/ANTI-DEBUG.md §二(PEB系列) + §七(两击熔断)")
+    if result["antivm_strings"]:
+        result["route"].append("有反虚拟机特征 → 优先真机/裸金属，或按 ANTI-DEBUG §四 处理环境检测")
+    if not result["packed"] and not result["antidebug_imports"]:
+        result["route"].append("未检出明显壳/反调试 → 可直接 seep_decompile_auto 反编译")
+
+    result["manual"] = ["MANUAL/UNPACKING.md", "MANUAL/ANTI-DEBUG.md"]
+    result["sections"] = sections
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_http_replay(
+    url: str,
+    method: str = "GET",
+    headers: str = "{}",
+    cookies: str = "{}",
+    body: str = "",
+    impersonate: str = "chrome",
+    session_file: str = "",
+    timeout: int = 30,
+) -> str:
+    """协议请求构造与重放（最强的协议层能力）：TLS 指纹伪装 + Cookie 会话管理 + 任意方法/头/体。
+
+    为什么用它：普通 requests 的 TLS 指纹会被反爬/风控识别。本工具优先用 curl_cffi
+    伪装 Chrome/Safari/Edge 的 TLS 指纹（绕过基础反爬），并支持把 Cookie 存到 session_file
+    实现"登录态保持 / token 复用"——这正是协议签到、接口重放、回包验证的核心。
+
+    若本机无 curl_cffi，自动降级到 requests（仍可用，只是 TLS 指纹不伪装）。
+
+    Args:
+        url: 目标 URL
+        method: GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS
+        headers: JSON 字符串，如 '{"User-Agent":"...","Referer":"..."}'
+        cookies: JSON 字符串，如 '{"session":"abc"}'
+        body: 请求体（POST/PUT 时用；JSON 直接传字符串，或表单串）
+        impersonate: TLS 指纹伪装目标 chrome/safari/edge/ff（仅 curl_cffi 生效）
+        session_file: 若给出，则把本次响应的 Cookie 合并保存到该文件，下次自动带上（会话保持）
+        timeout: 超时秒数
+    """
+    method = method.upper()
+    try:
+        hdr = json.loads(headers) if headers.strip() else {}
+    except Exception as exc:
+        return f"[ERROR]: headers 不是合法 JSON: {exc}"
+    try:
+        ck = json.loads(cookies) if cookies.strip() else {}
+    except Exception as exc:
+        return f"[ERROR]: cookies 不是合法 JSON: {exc}"
+
+    # 会话 Cookie 合并
+    if session_file and os.path.isfile(session_file):
+        try:
+            with open(session_file, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+            if isinstance(saved, dict):
+                merged = dict(saved)
+                merged.update(ck)
+                ck = merged
+        except Exception:
+            pass
+
+    backend = ""
+    resp_status = None
+    resp_headers = {}
+    resp_text = ""
+    set_cookies = {}
+
+    # 优先 curl_cffi（TLS 指纹伪装）
+    try:
+        from curl_cffi import requests as cffi_requests
+        backend = f"curl_cffi(impersonate={impersonate})"
+        kwargs = {"timeout": timeout, "headers": hdr, "cookies": ck}
+        if impersonate and impersonate not in ("", "none"):
+            kwargs["impersonate"] = impersonate
+        if method in ("POST", "PUT", "PATCH") and body:
+            kwargs["data"] = body
+        r = cffi_requests.request(method, url, **kwargs)
+        resp_status = r.status_code
+        resp_headers = dict(r.headers)
+        resp_text = r.text
+        try:
+            set_cookies = dict(r.cookies.get_dict())
+        except Exception:
+            set_cookies = {}
+    except Exception as exc_cffi:
+        # 降级 requests
+        try:
+            import requests as req
+            backend = f"requests(降级，无TLS伪装；curl_cffi失败:{type(exc_cffi).__name__})"
+            kwargs = {"timeout": timeout, "headers": hdr, "cookies": ck}
+            if method in ("POST", "PUT", "PATCH") and body:
+                kwargs["data"] = body
+            r = req.request(method, url, **kwargs)
+            resp_status = r.status_code
+            resp_headers = dict(r.headers)
+            resp_text = r.text
+            try:
+                set_cookies = r.cookies.get_dict()
+            except Exception:
+                set_cookies = {}
+        except Exception as exc_req:
+            return (f"[ERROR]: 请求失败。curl_cffi: {type(exc_cffi).__name__}: {exc_cffi} | "
+                    f"requests: {type(exc_req).__name__}: {exc_req}")
+
+    # 保存会话 Cookie
+    saved_note = ""
+    if session_file:
+        try:
+            all_ck = dict(ck)
+            all_ck.update(set_cookies)
+            with open(session_file, "w", encoding="utf-8") as f:
+                json.dump(all_ck, f, ensure_ascii=False, indent=2)
+            saved_note = f"cookie 已保存到 {session_file}（{len(all_ck)} 个）"
+        except Exception as exc:
+            saved_note = f"cookie 保存失败: {exc}"
+
+    out = {
+        "backend": backend,
+        "request": {"method": method, "url": url,
+                    "headers": hdr, "cookies": ck,
+                    "body_len": len(body)},
+        "status": resp_status,
+        "response_headers": resp_headers,
+        "set_cookies": set_cookies,
+        "body_preview": resp_text[:2000],
+        "body_len": len(resp_text),
+    }
+    if saved_note:
+        out["session"] = saved_note
+    return json.dumps(out, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# 扩展资产 第三批续（P3 渗透轻量补充，2026-10 增补）
+# 纯增量：不修改任何既有工具逻辑，只在末尾追加。
+#   seep_web_recon       —— Web 目标轻量侦察（指纹/头/目录/技术栈），只读不攻击
+# 设计原则：渗透与逆向/协议相关的那一小部分（Web 指纹、接口发现、头分析），
+#   补一个“轻量侦察”工具即可，不塞扫描器/爆破/利用框架（那会让主服务臃肿、且与逆向无关）。
+#   重型渗透若需要，走独立 MCP（如 pentestMCP），不并入 seep 内核。
+# ---------------------------------------------------------------------------
+
+# 常见技术栈指纹（响应头 + 页面特征）
+_WEB_FINGERPRINTS = {
+    "server": ["nginx", "apache", "iis", "cloudflare", "openresty", "tomcat", "jetty", "caddy"],
+    "framework": ["thinkphp", "spring", "laravel", "django", "flask", "express", "next.js", "nuxt",
+                  "vue", "react", "angular", "jquery", "bootstrap"],
+    "lang": ["php", "asp.net", "java", "python", "node.js", "ruby"],
+    "cdn_waf": ["cloudflare", "akamai", "fastly", "aliyun", "tencent", "waf", "imperva", "sucuri"],
+}
+_SECURITY_HEADERS = ["strict-transport-security", "content-security-policy", "x-frame-options",
+                     "x-content-type-options", "referrer-policy", "permissions-policy",
+                     "x-xss-protection", "access-control-allow-origin"]
+
+
+@server.tool()
+def seep_web_recon(url: str, timeout: int = 15) -> str:
+    """Web 目标轻量侦察（只读、不攻击）：响应头、技术栈指纹、安全头缺失、常见路径探测。
+
+    这是"渗透与逆向/协议相关"的那一小块：在逆向一个 Web/API 目标前，先摸清它是什么技术栈、
+    有没有 WAF、安全头缺什么、有哪些常见入口（robots/sitemap/.git 等）。
+    **只做被动/轻量探测，不做爆破、不做注入、不做利用** —— 重型渗透请用独立 MCP。
+
+    Args:
+        url: 目标 URL（如 https://example.com）
+        timeout: 超时秒数
+    """
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    import urllib.request
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE  # 侦察允许自签，不校验
+
+    def fetch(u):
+        req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (Seep-Recon)"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+                return r.status, dict(r.headers), r.read(200000).decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers) if e.headers else {}, ""
+        except Exception as e:
+            return None, {}, f"[fetch error: {type(e).__name__}: {e}]"
+
+    status, headers, body = fetch(url)
+    if status is None:
+        return json.dumps({"url": url, "error": body}, indent=2, ensure_ascii=False)
+
+    # 技术栈指纹
+    hay = (str(headers).lower() + " " + body[:20000].lower())
+    detected = {}
+    for cat, keys in _WEB_FINGERPRINTS.items():
+        hit = sorted({k for k in keys if k in hay})
+        if hit:
+            detected[cat] = hit
+
+    # 安全头缺失
+    hlow = {k.lower(): v for k, v in headers.items()}
+    missing_sec = [h for h in _SECURITY_HEADERS if h not in hlow]
+    present_sec = [h for h in _SECURITY_HEADERS if h in hlow]
+
+    # 常见入口探测（只读 HEAD/GET，温和）
+    probes = {}
+    base = url.rstrip("/")
+    for path in ["/robots.txt", "/sitemap.xml", "/.git/config", "/.env", "/api/", "/admin/"]:
+        try:
+            st, _, _ = fetch(base + path)
+            probes[path] = st
+        except Exception:
+            probes[path] = None
+
+    return json.dumps({
+        "url": url,
+        "status": status,
+        "server": hlow.get("server", ""),
+        "powered_by": hlow.get("x-powered-by", ""),
+        "detected": detected,
+        "security_headers_present": present_sec,
+        "security_headers_missing": missing_sec,
+        "path_probes": probes,
+        "note": "只读侦察。有 WAF/CDN 指纹 → 后续请求需注意指纹伪装(seep_http_replay impersonate)；"
+                ".git/.env 返回 200 → 高价值信息泄露点，值得深入（属授权范围）。",
+    }, indent=2, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------
