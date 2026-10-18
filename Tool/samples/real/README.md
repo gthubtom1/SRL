@@ -11,6 +11,9 @@
 | `crackerjack/` | [jmcph4/crackerjack](https://github.com/jmcph4/crackerjack) | **MIT** | 4 个 crackme（a~d，难度递增），含源码 `.c` + 编译好的 `.exe` | 基础 PE 反编译、字符串、判壳、`seep_decompile_auto` |
 | `maxxor-keygenme-v7/` | [MaxXor/keygenme-v7](https://github.com/MaxXor/keygenme-v7) | **MIT** | 真实 KeygenMe（自修改代码 + 方法 Hook + 注入类 API），含 `.exe` + 完整 C++ 源码 | `seep_packer_detect` 识别注入/自修改特征；`seep_mem_strings` 内存取证 |
 | `noracodes-crackmes/` | [NoraCodes/crackmes](https://github.com/NoraCodes/crackmes) | 教学用途（作者公开供学习） | 17 个 crackme（crackme01~09 及 e 变体），含源码 `.c` + 编译 `.exe` | 基础 PE 反编译、字符串、判壳、`seep_decompile_auto`、逐级难度练习 |
+| `monologix-crackmes/` | [Monologix/Monologix-Crackmes](https://github.com/Monologix/Monologix-Crackmes) | 教学用途 | 4 个 Windows PE crackme + 3 个 Linux ELF crackme（32/64 位混合） | PE/ELF 双格式、32位/64位、判壳、反编译 |
+| `dotnet-crackmes/` | [mrhery/CrackMe](https://github.com/mrhery/CrackMe) | **GPL-3.0** | 5 个 .NET (CLR) 授权练习（本地文件/枚举/远程/注册码/试用） | .NET 识别、dnSpy/ILSpy 靶子、dotnet 降级链 |
+| `android-apks/` | [ev-flow/apk-samples](https://github.com/ev-flow/apk-samples) | 教学靶场 | 6 个经典 Android 漏洞靶场 APK（DIVA/InsecureBankv2/AndroGoat/allsafe/OVAA/Vuldroid） | `seep_apk_info/decompile/unpack/smali_search` 真实 APK 验证 |
 
 ## 样本策略（个人自用）
 

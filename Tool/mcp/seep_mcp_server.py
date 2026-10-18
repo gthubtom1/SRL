@@ -1943,6 +1943,13 @@ def seep_packer_detect(binary_path: str) -> str:
     try:
         import pefile
         pe = pefile.PE(binary_path, fast_load=True)
+        # CLR/.NET 检测（数据目录第 14 项）
+        try:
+            dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
+            clr = dd[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]]
+            result["has_clr"] = bool(clr.VirtualAddress and clr.Size)
+        except Exception:
+            result["has_clr"] = False
         for s in pe.sections:
             name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
             data = s.get_data()
@@ -1979,6 +1986,8 @@ def seep_packer_detect(binary_path: str) -> str:
 
     # 5) 判定与路由
     result["packed"] = bool(result["packer_hints"]) or bool(result["high_entropy_sections"])
+    if result.get("has_clr"):
+        result["route"].append(".NET/CLR 程序 → 用 dnSpy/ILSpy 反编译看 IL；混淆用 de4dot，加密看 UNPACKING §五")
     if result["packed"]:
         result["route"].append("有壳 → 先脱壳：读 MANUAL/UNPACKING.md §一(壳速查) + §二(OEP/Dump)")
     if result["antidebug_imports"]:
