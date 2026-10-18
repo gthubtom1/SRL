@@ -64,12 +64,13 @@ def main():
     check("missing 状态", m.get("status") == "missing", m.get("status"))
     check("给了 install_hint", bool(m.get("install_hint")), "")
 
-    print("=== [4/4] seep_decompile_auto：自动降级到 r2 出真伪代码 ===")
+    print("=== [4/4] seep_decompile_auto：自动选引擎出真伪代码 ===")
     if os.path.isfile(elf):
         out = S.seep_decompile_auto(elf, target="main", output_mode="summary")
         check("含 engine_used", "engine_used" in out, out[:120])
-        check("降级到 r2", "r2" in out.splitlines()[0] if out else False, out[:120])
-        check("有伪代码/摘要内容", "main" in out or "offset" in out, "")
+        # 有 Ghidra 就用 ghidra，否则降级 r2；两者任一即可（都算真反编译）
+        check("用了真引擎(ghidra 或 r2)", ("ghidra" in out.splitlines()[0]) or ("r2" in out.splitlines()[0]) if out else False, out[:120])
+        check("有伪代码/摘要内容", "main" in out or "offset" in out or "int " in out, "")
     else:
         print("  [SKIP] 无 ELF fixture")
 

@@ -1458,6 +1458,70 @@ def _detect_engine(engine: str) -> dict:
     return {"available": False, "detail": "unknown engine"}
 
 
+def _find_java_home() -> str:
+    """找 JAVA_HOME（Ghidra headless 需要）。"""
+    jh = os.environ.get("JAVA_HOME", "")
+    if jh and os.path.isdir(jh):
+        return jh
+    # 常见位置
+    for base in [r"D:\Tools\runtime", os.path.expanduser("~\\Tools\\runtime"), "/usr/lib/jvm"]:
+        if os.path.isdir(base):
+            for d in os.listdir(base):
+                if d.lower().startswith("jdk"):
+                    p = os.path.join(base, d)
+                    if os.path.isdir(p):
+                        return p
+    return ""
+
+
+def _ghidra_decompile(binary_path: str, target: str, output_mode: str = "fold") -> Optional[str]:
+    """真驱动 Ghidra analyzeHeadless 反编译指定函数；成功返回伪代码字符串，失败返回 None。
+    用本仓自带脚本 Tool/mcp/ghidra_scripts/DecompileToFile.java。"""
+    det = _detect_engine("ghidra")
+    if not det["available"]:
+        return None
+    analyze = det["detail"]
+    if not analyze:
+        return None
+    # Windows 优先用 .bat
+    if sys.platform == "win32" and not analyze.lower().endswith(".bat"):
+        bat = analyze + ".bat"
+        if os.path.isfile(bat):
+            analyze = bat
+    script = os.path.join(BASE_DIR, "ghidra_scripts", "DecompileToFile.java")
+    if not os.path.isfile(script):
+        return None
+    import tempfile
+    proj_dir = tempfile.mkdtemp(prefix="seep_ghidra_")
+    out_c = os.path.join(proj_dir, "decompile_out.c")
+    env = dict(os.environ)
+    jh = _find_java_home()
+    if jh:
+        env["JAVA_HOME"] = jh
+    cmd = [analyze, proj_dir, "seep_proj", "-import", os.path.abspath(binary_path),
+           "-postScript", "DecompileToFile.java", target or "auto", out_c,
+           "-deleteProject", "-scriptPath", os.path.dirname(script)]
+    try:
+        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=300, env=env)
+    except Exception:
+        return None
+    if not os.path.isfile(out_c):
+        return None
+    try:
+        with open(out_c, "r", encoding="utf-8", errors="replace") as f:
+            code = f.read()
+    except Exception:
+        return None
+    if not code.strip() or "decompile failed" in code[:200]:
+        return None
+    # output_mode 粗略处理：summary 只给签名行，fold/full 给代码
+    if output_mode == "summary":
+        lines = [l for l in code.splitlines() if l.startswith("//") or "{" in l or "(" in l][:40]
+        return "\n".join(lines)
+    return code[:12000]
+
+
 @server.tool()
 def seep_decompile_auto(
     binary_path: str,
@@ -1498,9 +1562,21 @@ def seep_decompile_auto(
         if not info["available"]:
             continue
 
-        # IDA / Ghidra / REA 的完整自动化需各自的 MCP/CLI harness；
-        # 这里不伪造结果：若 r2 可用，先降级到 r2 给真伪代码，并在输出里说明高阶引擎可用。
-        if eng in ("ida", "ghidra", "rea"):
+        # Ghidra：真驱动 headless 反编译（若可用）
+        if eng == "ghidra":
+            g = _ghidra_decompile(binary_path, target, output_mode)
+            if g is not None:
+                return (
+                    "[engine_used] ghidra (Ghidra headless)\n"
+                    "[note] 已用 Ghidra analyzeHeadless 真反编译（比 r2 pdc 更准）。\n%s\n%s"
+                    % ("-" * 60, g)
+                )
+            # Ghidra 探测到但跑失败：继续降级
+            tried[-1]["ghidra_run_failed"] = True
+            continue
+
+        # IDA / REA 的完整自动化需各自的 MCP/CLI harness；不伪造结果，降级 r2
+        if eng in ("ida", "rea"):
             if os.path.isfile(R2_EXE):
                 continue
             return json.dumps({
