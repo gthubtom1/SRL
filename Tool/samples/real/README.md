@@ -14,6 +14,8 @@
 | `monologix-crackmes/` | [Monologix/Monologix-Crackmes](https://github.com/Monologix/Monologix-Crackmes) | 教学用途 | 4 个 Windows PE crackme + 3 个 Linux ELF crackme（32/64 位混合） | PE/ELF 双格式、32位/64位、判壳、反编译 |
 | `dotnet-crackmes/` | [mrhery/CrackMe](https://github.com/mrhery/CrackMe) | **GPL-3.0** | 5 个 .NET (CLR) 授权练习（本地文件/枚举/远程/注册码/试用） | .NET 识别、dnSpy/ILSpy 靶子、dotnet 降级链 |
 | `android-apks/` | [ev-flow/apk-samples](https://github.com/ev-flow/apk-samples) | 教学靶场 | 6 个经典 Android 漏洞靶场 APK（DIVA/InsecureBankv2/AndroGoat/allsafe/OVAA/Vuldroid） | `seep_apk_info/decompile/unpack/smali_search` 真实 APK 验证 |
+| `js-obfuscated/` | [kuizuo/js-deobfuscator](https://github.com/kuizuo/js-deobfuscator) | **MIT** | 9 组真实 Web/JS 混淆样本（obfuscator.io + 猫眼/网易/拼多多等真实站点，含 input/output） | JS 逆向、AST 去混淆、js-reverse-mcp 运行时采样 |
+| `protocol-pcaps/` | [wireshark/wireshark](https://github.com/wireshark/wireshark) | **GPL-2.0** | HTTP/HTTP2/WebSocket/DNS/TCP 真实 pcap | `seep_pcap_extract` 三模式验证、`seep_http_replay` 金样重放 |
 
 ## 样本策略（个人自用）
 

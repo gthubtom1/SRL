@@ -70,3 +70,8 @@ Tool/samples/*.exe
 Tool/samples/*.dll
 Tool/samples/src/*.res
 Tool/samples/src/payload.bin
+
+# 反编译/分析产物（运行时生成，不入库）
+Tool/samples/real/**/*_jadx_src/
+Tool/samples/real/**/*_apktool/
+Tool/samples/**/*_jadx_src/
