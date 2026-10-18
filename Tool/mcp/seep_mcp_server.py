@@ -1148,6 +1148,640 @@ JZ   loc_restricted_feature  ; 本地跳转决定受限功能
 
 
 # ---------------------------------------------------------------------------
+# 扩展资产（relab2 / REA 适配版，2026-10 增补）
+# 这两个工具是"增量挂载"：不修改任何既有工具逻辑，只在末尾追加。
+#   seep_ensure_tool      —— 工具四级探测与缺工具自愈建议（源自 relab2 ensure_tool + Bootstrap 四级递进）
+#   seep_decompile_auto   —— 多引擎降级反编译 IDA→REA→R2（源自 REA 的 provider 降级链思想）
+# ---------------------------------------------------------------------------
+
+# 常见工具根（跨平台），用于四级探测的第 3 级
+_TOOL_ROOTS = [
+    os.environ.get("REVERSE_TOOL_ROOT", ""),
+    os.environ.get("SEEP_TOOL_ROOT", ""),
+    r"D:\Tools",
+    r"D:\Tool",
+    os.path.join(os.path.expanduser("~"), "Tools"),
+    "/opt",
+    "/usr/local/bin",
+    "/usr/bin",
+]
+
+# 已知工具别名 -> 可执行文件名候选（解决"目录名 != 工具名"）
+_TOOL_ALIASES = {
+    "ida": ["idat64", "idat", "ida64", "ida"],
+    "ida64": ["ida64", "idat64"],
+    "idat": ["idat64", "idat"],
+    "x64dbg": ["x64dbg", "x96dbg"],
+    "x32dbg": ["x32dbg"],
+    "cdb": ["cdb"],
+    "diec": ["diec"],
+    "die": ["die"],
+    "r2": ["radare2", "r2"],
+    "rabin2": ["rabin2"],
+    "ghidra": ["analyzeHeadless"],
+    "floss": ["floss"],
+    "capa": ["capa"],
+    "pe-sieve": ["pe-sieve", "pe-sieve64"],
+    "tshark": ["tshark"],
+    "jadx": ["jadx", "jadx.bat"],
+    "apktool": ["apktool", "apktool.bat"],
+    "frida": ["frida"],
+    "binwalk": ["binwalk", "binwalk.exe"],
+    "unblob": ["unblob"],
+    "gcc": ["gcc", "gcc.exe"],
+    "python": ["python", "python3"],
+}
+
+# 缺工具时的安装提示（只给建议，不擅自联网安装）
+_TOOL_INSTALL_HINTS = {
+    "ida": "商业软件，需自备 IDA Pro 授权；装好后把 idat64 加入 PATH 或 D:\\Tools。",
+    "x64dbg": "winget install x64dbg.x64dbg  或从 x64dbg.com 下载便携版放到 D:\\Tools。",
+    "cdb": "随 Windows SDK / WinDbg 安装：winget install Microsoft.WinDbg。",
+    "diec": "下载 Detect It Easy (DIE) 便携版，把 diec.exe 放到 D:\\Tools。",
+    "ghidra": "下载 Ghidra 后把 analyzeHeadless 加入 PATH。",
+    "floss": "pip install flare-floss",
+    "capa": "pip install flare-capa",
+    "binwalk": "pip install binwalk 或使用独立可执行版。",
+    "unblob": "pip install unblob（依赖 pyperscan，需编译环境）。",
+    "frida": "pip install frida-tools",
+    "jadx": "下载 jadx release 解压后加入 PATH。",
+    "apktool": "下载 apktool.jar + 包装脚本。",
+    "tshark": "随 Wireshark 安装。",
+    "gcc": "安装 mingw-w64 / Zig / MSVC。",
+}
+
+
+def _deny_tool_path(path: str) -> bool:
+    """第 4 级扫描的 deny 规则：命中即跳过。
+    典型陷阱：IDA 自带裸 python 无 pip 包，误命中会让脚本跑在错解释器上。"""
+    low = path.lower()
+    deny_markers = [
+        "ida pro", "ida\\python", "ida/python", "python27", "python3.8\\python",
+        "\\plugins\\", "\\sdk\\", "node_modules",
+    ]
+    return any(m in low for m in deny_markers)
+
+
+def _scan_tool_roots(name: str, exe_names: list) -> str:
+    """第 4 级：在常见工具根下递归扫描（带 deny 规则），命中即返回。"""
+    wanted = set()
+    for e in exe_names:
+        el = e.lower()
+        wanted.add(el)
+        if not el.endswith(".exe"):
+            wanted.add(el + ".exe")
+    for root in _TOOL_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        try:
+            for dirpath, dirnames, filenames in os.walk(root):
+                depth = dirpath[len(root):].count(os.sep)
+                if depth > 4:
+                    dirnames[:] = []
+                    continue
+                for fn in filenames:
+                    if fn.lower() in wanted:
+                        full = os.path.join(dirpath, fn)
+                        if not _deny_tool_path(full) and os.path.isfile(full):
+                            return full
+        except Exception:
+            continue
+    return ""
+
+
+def _resolve_tool(tool_id: str) -> dict:
+    """四级递进探测：env -> PATH -> map(别名) -> scan。命中即停。
+    返回 {available, command, via}。"""
+    exe_names = _TOOL_ALIASES.get(tool_id.lower(), [tool_id])
+
+    # 第 1 级：环境变量（显式指定，最高优先）
+    env_key = "SEEP_" + re.sub(r"[^A-Z0-9]", "_", tool_id.upper()) + "_PATH"
+    env_val = os.environ.get(env_key, "")
+    if env_val and os.path.isfile(env_val):
+        return {"available": True, "command": env_val, "via": "env"}
+
+    # 第 2 级：PATH（系统安装优先于便携副本）
+    for e in exe_names:
+        w = shutil.which(e)
+        if w:
+            return {"available": True, "command": w, "via": "PATH"}
+
+    # 第 3 级：常见工具根的直接子目录/别名映射（快速命中）
+    for root in _TOOL_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        for e in exe_names:
+            for cand in (os.path.join(root, e), os.path.join(root, "cli", e),
+                         os.path.join(root, "bin", e)):
+                for c2 in (cand, cand + ".exe"):
+                    if os.path.isfile(c2) and not _deny_tool_path(c2):
+                        return {"available": True, "command": c2, "via": "map"}
+
+    # 第 4 级：递归扫描（可信度最低，带 deny 规则）
+    found = _scan_tool_roots(tool_id, exe_names)
+    if found:
+        return {"available": True, "command": found, "via": "scan"}
+
+    return {"available": False, "command": "", "via": "none"}
+
+
+@server.tool()
+def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
+    """四级探测本机某工具是否可用；缺工具时给出可执行的安装建议（可选自动安装）。
+
+    探测顺序（命中即停）：环境变量 -> PATH -> 常见工具根别名 -> 递归扫描（带 deny 规则）。
+    这是"缺工具自愈"的入口：先查有没有，没有就明确告诉你装什么、怎么装，
+    绝不在终端里瞎猜路径、也绝不静默假装成功。
+
+    Args:
+        tool_id: 工具标识，如 'ida' / 'x64dbg' / 'cdb' / 'diec' / 'r2' / 'ghidra' /
+                 'floss' / 'capa' / 'frida' / 'jadx' / 'apktool' / 'tshark' / 'binwalk' / 'gcc'
+        allow_install: 是否允许尝试自动安装（默认 False，只探测 + 给建议；
+                       True 时对少数公开 pip 工具尝试安装，其余仍只给建议）
+    """
+    tid = tool_id.strip().lower()
+    res = _resolve_tool(tid)
+    out = {"tool_id": tid}
+    out.update(res)
+
+    if res["available"]:
+        ver = ""
+        for flag in ("-version", "-v", "--version"):
+            try:
+                p = subprocess.run([res["command"], flag], capture_output=True,
+                                   text=True, encoding="utf-8", errors="replace", timeout=8)
+                txt = (p.stdout or "") + (p.stderr or "")
+                if txt.strip():
+                    ver = txt.strip().splitlines()[0]
+                    break
+            except Exception:
+                continue
+        out["version"] = ver
+        out["status"] = "available"
+        return json.dumps(out, indent=2, ensure_ascii=False)
+
+    # 不可用：给安装建议
+    hint = _TOOL_INSTALL_HINTS.get(tid, "未收录该工具的安装方式；请手动安装后加入 PATH。")
+    out["status"] = "missing"
+    out["install_hint"] = hint
+    out["note"] = "四级探测均未命中。若确信已安装，检查它是否在 D:\\Tools 或 PATH；也可设环境变量 SEEP_<TOOL>_PATH 显式指定。"
+
+    if allow_install and tid in ("floss", "capa", "frida", "unblob", "binwalk"):
+        pip_pkg = {"floss": "flare-floss", "capa": "flare-capa", "frida": "frida-tools",
+                   "unblob": "unblob", "binwalk": "binwalk"}[tid]
+        try:
+            p = subprocess.run([sys.executable, "-m", "pip", "install", pip_pkg],
+                               capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", timeout=300)
+            out["install_attempt"] = {"pkg": pip_pkg, "returncode": p.returncode,
+                                      "tail": (p.stdout or p.stderr or "")[-300:]}
+        except Exception as exc:  # noqa: BLE001
+            out["install_attempt"] = {"pkg": pip_pkg, "error": "%s: %s" % (type(exc).__name__, exc)}
+    return json.dumps(out, indent=2, ensure_ascii=False)
+
+
+def _load_engine_tiers() -> dict:
+    """读声明式引擎降级链（Tool/config/engine-tiers.json）；缺失则用内置默认。"""
+    default = {"chains": {"native": ["ida", "ghidra", "rea", "r2"],
+                          "dotnet": ["ida", "ghidra", "r2"],
+                          "android": ["jadx", "r2"]}}
+    try:
+        cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "config", "engine-tiers.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data.get("chains"), dict):
+            return data
+    except Exception:
+        pass
+    return default
+
+
+def _engine_order_for(binary_path: str) -> list:
+    """按目标类型选降级链：.NET -> dotnet，APK/DEX -> android，其余 -> native。"""
+    chains = _load_engine_tiers().get("chains", {})
+    low = binary_path.lower()
+    if low.endswith((".apk", ".dex", ".jar")):
+        return chains.get("android", ["jadx", "r2"])
+    try:
+        with open(binary_path, "rb") as f:
+            head = f.read(2 * 1024 * 1024)
+        if b"BSJB" in head or b"mscoree" in head or b"_CorExeMain" in head:
+            return chains.get("dotnet", ["ida", "ghidra", "r2"])
+    except Exception:
+        pass
+    return chains.get("native", ["ida", "ghidra", "rea", "r2"])
+
+
+def _detect_engine(engine: str) -> dict:
+    """探测某反编译引擎是否可用。返回 {available, detail}。"""
+    e = engine.lower()
+    if e == "ida":
+        r = _resolve_tool("ida")
+        return {"available": r["available"], "detail": r.get("command", "")}
+    if e == "ghidra":
+        r = _resolve_tool("ghidra")
+        return {"available": r["available"], "detail": r.get("command", "")}
+    if e == "rea":
+        npx = shutil.which("npx")
+        rea_cli = shutil.which("rea")
+        if rea_cli:
+            return {"available": True, "detail": rea_cli}
+        if npx:
+            return {"available": True, "detail": "npx rea-agents (node=%s)" % npx}
+        return {"available": False, "detail": "no npx/rea"}
+    if e == "r2":
+        return {"available": os.path.isfile(R2_EXE), "detail": R2_EXE}
+    return {"available": False, "detail": "unknown engine"}
+
+
+@server.tool()
+def seep_decompile_auto(
+    binary_path: str,
+    target: str = "main",
+    engine: str = "auto",
+    output_mode: str = "fold",
+    limit_tokens: int = 8000,
+) -> str:
+    """多引擎降级反编译：按 IDA -> Ghidra/REA -> Radare2 的优先级自动选引擎。
+
+    "能力寻址而非名字寻址"：调用方只说"帮我反编译这个函数"，本工具自己探测
+    本机有哪些引擎，按 tier 降级，并把**实际使用的引擎**如实写进输出。
+    重型引擎（IDA/REA）缺失时自动落到 Radare2，绝不因缺商业工具而失败。
+
+    Args:
+        binary_path: 目标二进制路径
+        target: 函数名或地址（如 'main'、'sym.verify'、'0x401000'）
+        engine: 'auto'（默认，按 tier 降级）| 'ida' | 'ghidra' | 'rea' | 'r2'
+        output_mode: 传给底层反编译的折叠模式 'full' | 'fold' | 'summary'
+        limit_tokens: 输出字符上限
+    """
+    if not os.path.isfile(binary_path):
+        return f"[ERROR]: Target file does not exist: {binary_path}"
+
+    if engine == "auto":
+        order = _engine_order_for(binary_path)
+    else:
+        order = [engine.lower()]
+
+    tried = []
+    for eng in order:
+        info = _detect_engine(eng)
+        tried.append({"engine": eng, "available": info["available"], "detail": info["detail"]})
+        if not info["available"]:
+            continue
+
+        # IDA / Ghidra / REA 的完整自动化需各自的 MCP/CLI harness；
+        # 这里不伪造结果：若 r2 可用，先降级到 r2 给真伪代码，并在输出里说明高阶引擎可用。
+        if eng in ("ida", "ghidra", "rea"):
+            if os.path.isfile(R2_EXE):
+                continue
+            return json.dumps({
+                "engine_used": eng,
+                "note": "检测到 %s 可用（%s），但需通过其 MCP/CLI harness 驱动；"
+                        "本机无 r2 兜底，请改用 %s 的 MCP 工具反编译 %s。"
+                        % (eng, info["detail"], eng, target),
+                "probed": tried,
+            }, indent=2, ensure_ascii=False)
+
+        if eng == "r2":
+            pseudo = seep_r2_decompile(binary_path, target=target,
+                                       output_mode=output_mode, limit_tokens=limit_tokens)
+            higher = [t["engine"] for t in tried if t["available"] and t["engine"] != "r2"]
+            return (
+                "[engine_used] r2 (Radare2)\n"
+                "[higher_tier_available] %s\n"
+                "[note] 已按 IDA->Ghidra/REA->R2 降级链选到可直接执行的引擎；"
+                "若需更高精度可改用上表所列引擎的 MCP 工具。\n%s\n%s"
+                % (", ".join(higher) if higher else "none", "-" * 60, pseudo)
+            )
+
+    return json.dumps({
+        "engine_used": None,
+        "error": "无任何可用反编译引擎（ida/ghidra/rea/r2 均不可用）",
+        "probed": tried,
+        "hint": "先运行 seep_ensure_tool('r2') 或安装 radare2。",
+    }, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# 扩展资产 第二批（补 Seep 的"动态/资源/协议"盲区，2026-10 增补）
+# 纯增量：不修改任何既有工具逻辑，只在末尾追加。
+#   seep_pe_resources       —— PE 资源/高熵载荷剥离（治"资源里藏着真正功能"的样本）
+#   seep_mem_strings        —— 活体进程内存字符串扫描（治"字符串运行期才解密"的样本）
+#   seep_pcap_extract       —— pcap 协议/端点/载荷提取（治"卡密在云端、需要看回包"的样本）
+# 这些正好覆盖 relab2 实战中 Seep 缺的三块：资源层 / 内存层 / 协议层。
+# ---------------------------------------------------------------------------
+
+def _entropy_bytes(b: bytes) -> float:
+    if not b:
+        return 0.0
+    c = [0] * 256
+    for x in b:
+        c[x] += 1
+    n = len(b)
+    import math
+    return -sum((v / n) * math.log2(v / n) for v in c if v)
+
+
+def _sniff_container(b: bytes) -> str:
+    """识别常见压缩/加密容器头，用于资源剥离时判断下一步怎么解。"""
+    sigs = [
+        (b"\x28\xb5\x2f\xfd", "zstd"),
+        (b"PK\x03\x04", "zip"),
+        (b"7z\xbc\xaf\x27\x1c", "7z"),
+        (b"\x1f\x8b", "gzip"),
+        (b"BZh", "bzip2"),
+        (b"\xfd7zXZ", "xz"),
+        (b"Rar!", "rar"),
+        (b"MZ", "pe"),
+        (b"\x7fELF", "elf"),
+        (b"\x89PNG", "png"),
+        (b"BM", "bmp"),
+        (b"OggS", "ogg"),
+    ]
+    for sig, name in sigs:
+        if b.startswith(sig):
+            return name
+    return "unknown"
+
+
+@server.tool()
+def seep_pe_resources(binary_path: str, min_size: int = 4096, extract_dir: str = "", top: int = 20) -> str:
+    """枚举 PE 资源节与高熵载荷，并对可疑资源做"魔数嗅探"，可选剥离到目录。
+
+    针对"换肤器/皮肤包/内嵌 DLL"这类样本：真正的功能载荷往往不在 .text，
+    而在资源节（如自定义 DATA 资源）里，且常是 zstd/zip 等压缩容器。
+    本工具读 PE 资源树 + 节熵，直接告诉你"哪块资源是高熵、是什么容器"。
+
+    Args:
+        binary_path: PE 文件路径
+        min_size: 只报告不小于该字节数的资源（默认 4096，过滤图标小资源）
+        extract_dir: 若给出，则把命中的资源数据落盘到该目录（默认空=只报告不落盘）
+        top: 最多报告前 N 个最大的资源（默认 20）
+    """
+    if not os.path.isfile(binary_path):
+        return f"[ERROR]: file not found: {binary_path}"
+    if not binary_path.lower().endswith((".exe", ".dll", ".sys", ".ocx", ".cpl", ".scr")):
+        # 仍尝试，但提示
+        pass
+    try:
+        import pefile  # noqa: F401
+    except Exception:
+        return ("[ERROR]: 需要 pefile 库（pip install pefile）。"
+                "或改用 seep_r2_info / seep_auto_triage 获取节信息。")
+    import pefile
+    try:
+        pe = pefile.PE(binary_path, fast_load=True)
+        pe.parse_data_directories(directories=[
+            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]])
+    except Exception as exc:  # noqa: BLE001
+        return f"[ERROR]: pefile 解析失败: {type(exc).__name__}: {exc}"
+
+    # 1) 节熵概览
+    sections = []
+    for s in pe.sections:
+        try:
+            name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
+            data = s.get_data()
+            sections.append({
+                "name": name,
+                "vaddr": hex(s.VirtualAddress),
+                "raw_size": s.SizeOfRawData,
+                "entropy": round(_entropy_bytes(data), 2),
+            })
+        except Exception:
+            continue
+
+    # 2) 资源枚举
+    resources = []
+    def walk(resdir, path):
+        for entry in getattr(resdir, "entries", []):
+            name = entry.name if entry.name is not None else entry.id
+            eid = entry.id
+            newpath = path + [str(name)]
+            if hasattr(entry, "directory"):
+                walk(entry.directory, newpath)
+            elif hasattr(entry, "data"):
+                st = entry.data.struct
+                size = st.Size
+                if size >= min_size:
+                    rva = st.OffsetToData
+                    try:
+                        raw = pe.get_data(rva, size)
+                    except Exception:
+                        raw = b""
+                    resources.append({
+                        "type_id": path[0] if path else "",
+                        "name_id": str(eid) if eid is not None else "",
+                        "path": "/".join(newpath),
+                        "offset_rva": hex(rva),
+                        "size": size,
+                        "entropy": round(_entropy_bytes(raw), 2) if raw else 0,
+                        "container": _sniff_container(raw) if raw else "unknown",
+                        "head_hex": raw[:24].hex(" ") if raw else "",
+                    })
+    try:
+        if hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+            walk(pe.DIRECTORY_ENTRY_RESOURCE, [])
+    except Exception:
+        pass
+
+    resources.sort(key=lambda r: r["size"], reverse=True)
+    resources = resources[:top]
+
+    # 3) 可选落盘
+    written = []
+    if extract_dir:
+        os.makedirs(extract_dir, exist_ok=True)
+        for r in resources:
+            if r["container"] in ("zstd", "zip", "7z", "gzip", "pe", "png", "bmp", "ogg", "unknown"):
+                # 只落高熵或已知容器，跳过明显无关的小图
+                if r["entropy"] < 7.0 and r["container"] == "unknown":
+                    continue
+                try:
+                    raw = pe.get_data(int(r["offset_rva"], 16), r["size"])
+                    safe = re.sub(r"[^\w.\-]", "_", r["path"])
+                    fp = os.path.join(extract_dir, f"res_{r['type_id']}_{safe}.bin")
+                    with open(fp, "wb") as f:
+                        f.write(raw)
+                    written.append(fp)
+                except Exception:
+                    continue
+
+    out = {
+        "file": os.path.basename(binary_path),
+        "sections": sections,
+        "high_entropy_sections": [s["name"] for s in sections if s["entropy"] > 7.0 and s["raw_size"] > 512],
+        "resources": resources,
+        "note": "container=zstd/zip/pe 等高熵资源通常就是真正的功能载荷或皮肤包，优先剥离解析。",
+    }
+    if written:
+        out["extracted"] = written
+    return json.dumps(out, indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: int = 50, encoding: str = "both") -> str:
+    """扫描指定进程的内存，提取可读字符串（治"字符串运行期才解密/只有内存里才有"的样本）。
+
+    很多加壳/反调试样本，磁盘上看不到 URL/卡密提示/密钥，因为它们运行期才解密到内存。
+    本工具用 Windows ReadProcessMemory 逐块扫描（只读，不改目标），把命中的字符串
+    连同所在虚拟地址一起给你，方便回填到反汇编里定位引用。
+
+    Args:
+        pid: 目标进程 ID
+        pattern: 可选，只返回包含该子串的字符串（不区分大小写）
+        min_len: 最短字符串长度（默认 5）
+        max_hits: 最多返回多少条（默认 50）
+        encoding: 'ascii' | 'utf16' | 'both'（默认 both）
+    """
+    if sys.platform != "win32":
+        return "[ERROR]: seep_mem_strings 目前仅支持 Windows（依赖 ReadProcessMemory）。"
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    PROCESS_QUERY_INFORMATION = 0x0400
+    PROCESS_VM_READ = 0x0010
+    h = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, int(pid))
+    if not h:
+        return f"[ERROR]: OpenProcess 失败 pid={pid}，错误码={ctypes.get_last_error()}（需管理员/同架构）"
+
+    class MEMORY_BASIC_INFORMATION(ctypes.Structure):
+        _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
+                    ("AllocationProtect", wintypes.DWORD), ("RegionSize", ctypes.c_size_t),
+                    ("State", wintypes.DWORD), ("Protect", wintypes.DWORD), ("Type", wintypes.DWORD)]
+
+    MEM_COMMIT = 0x1000
+    PAGE_GUARD = 0x100
+    PAGE_NOACCESS = 0x01
+    readable = {0x02, 0x04, 0x08, 0x20, 0x40, 0x80}  # R/RW/COPY/W+X 等
+    addr = 0
+    hits = []
+    pat = pattern.lower()
+    mbi = MEMORY_BASIC_INFORMATION()
+    max_addr = 0x7FFFFFFFFFFF
+    while addr < max_addr and len(hits) < max_hits:
+        res = k32.VirtualQueryEx(h, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi))
+        if not res:
+            break
+        base = mbi.BaseAddress or 0
+        size = mbi.RegionSize or 0
+        prot = mbi.Protect or 0
+        if (mbi.State == MEM_COMMIT and prot not in (PAGE_NOACCESS,) and not (prot & PAGE_GUARD)
+                and (prot & 0xFF) in readable and size <= (64 << 20)):
+            buf = ctypes.create_string_buffer(size)
+            nread = ctypes.c_size_t(0)
+            ok = k32.ReadProcessMemory(h, ctypes.c_void_p(base), buf, size, ctypes.byref(nread))
+            if ok and nread.value:
+                data = buf.raw[:nread.value]
+                # ascii
+                if encoding in ("ascii", "both"):
+                    for m in re.finditer(rb"[\x20-\x7e]{%d,}" % min_len, data):
+                        s = m.group().decode("ascii", "replace")
+                        if not pat or pat in s.lower():
+                            hits.append({"addr": hex(base + m.start()), "enc": "ascii", "s": s[:200]})
+                            if len(hits) >= max_hits:
+                                break
+                # utf16le
+                if encoding in ("utf16", "both") and len(hits) < max_hits:
+                    for m in re.finditer(rb"(?:[\x20-\x7e]\x00){%d,}" % min_len, data):
+                        try:
+                            s = m.group().decode("utf-16le", "replace")
+                        except Exception:
+                            continue
+                        if not pat or pat in s.lower():
+                            hits.append({"addr": hex(base + m.start()), "enc": "utf16", "s": s[:200]})
+                            if len(hits) >= max_hits:
+                                break
+        addr = base + size
+        if size == 0:
+            break
+    k32.CloseHandle(h)
+    return json.dumps({
+        "pid": pid, "pattern": pattern, "hits": hits, "count": len(hits),
+        "note": "addr 为进程虚拟地址，可直接回填到反汇编/反编译里定位引用该字符串的代码。",
+    }, indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_pcap_extract(pcap_path: str, host_filter: str = "", mode: str = "summary",
+                      port: int = 0, max_rows: int = 40) -> str:
+    """从 pcap/pcapng 提取通信端点、HTTP 请求/响应、以及可选端口/主机的 TCP 载荷。
+
+    治"卡密/授权在云端"的样本：先看它连了谁、发了什么、回了什么，
+    往往比死磕本地校验更快（回包伪造 / 协议复刻）。
+
+    Args:
+        pcap_path: pcap/pcapng 文件路径
+        host_filter: 可选，只看与某 IP/域名相关的流量（子串匹配）
+        mode: 'summary'（端点+HTTP 概览）| 'http'（完整 HTTP 请求/响应行）| 'payload'（指定端口的 TCP 载荷）
+        port: mode='payload' 时，只取该端口的 TCP 流（0=不限）
+        max_rows: 最多返回行数（默认 40）
+    """
+    if not os.path.isfile(pcap_path):
+        return f"[ERROR]: pcap not found: {pcap_path}"
+    tshark = shutil.which("tshark") or ""
+    if not tshark:
+        for c in (r"D:\Tools\Wireshark\tshark.exe", r"C:\Program Files\Wireshark\tshark.exe",
+                  "/usr/bin/tshark", "/usr/local/bin/tshark"):
+            if os.path.isfile(c):
+                tshark = c
+                break
+    if not tshark:
+        return ("[ERROR]: 未找到 tshark。安装 Wireshark 后重试，"
+                "或运行 seep_ensure_tool('tshark') 查看安装建议。")
+
+    def run(args):
+        try:
+            p = subprocess.run([tshark, "-r", pcap_path] + args, capture_output=True,
+                               text=True, encoding="utf-8", errors="replace", timeout=120)
+            return (p.stdout or "") + (p.stderr or "")
+        except Exception as exc:  # noqa: BLE001
+            return f"[ERROR]: {type(exc).__name__}: {exc}"
+
+    if mode == "summary":
+        # 会话端点
+        conv = run(["-q", "-z", "conv,tcp"])
+        # HTTP 主机
+        http_hosts = run(["-Y", "http.host", "-T", "fields", "-e", "http.host",
+                          "-e", "http.request.uri"], )
+        lines = [l for l in http_hosts.splitlines() if l.strip()]
+        if host_filter:
+            conv = "\n".join([l for l in conv.splitlines() if host_filter in l or "===" in l or "Filter" in l])
+            lines = [l for l in lines if host_filter in l]
+        return json.dumps({
+            "pcap": os.path.basename(pcap_path),
+            "tcp_conversations": conv.strip().splitlines()[:max_rows],
+            "http_hosts": lines[:max_rows],
+            "note": "有外连 = 云端权威可能。下一步：mode='http' 看请求/响应，或 mode='payload' 看端口载荷。",
+        }, indent=2, ensure_ascii=False)
+
+    if mode == "http":
+        out = run(["-Y", "http.request or http.response",
+                   "-T", "fields", "-e", "ip.dst", "-e", "http.request.method",
+                   "-e", "http.host", "-e", "http.request.uri",
+                   "-e", "http.response.code", "-e", "http.content_type"])
+        lines = [l for l in out.splitlines() if l.strip()]
+        if host_filter:
+            lines = [l for l in lines if host_filter in l]
+        return json.dumps({"http_rows": lines[:max_rows]}, indent=2, ensure_ascii=False)
+
+    if mode == "payload":
+        flt = f"tcp.port=={port}" if port else "tcp.len>0"
+        out = run(["-Y", flt, "-T", "fields", "-e", "ip.src", "-e", "tcp.srcport",
+                   "-e", "ip.dst", "-e", "tcp.dstport", "-e", "tcp.len", "-e", "data.data"])
+        lines = [l for l in out.splitlines() if l.strip()]
+        if host_filter:
+            lines = [l for l in lines if host_filter in l]
+        return json.dumps({"payload_rows": lines[:max_rows],
+                           "note": "data.data 为十六进制载荷，可据此还原协议/伪造回包。"},
+                          indent=2, ensure_ascii=False)
+
+    return f"[ERROR]: 未知 mode='{mode}'（可选 summary/http/payload）"
+
+
+# ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
 def main():
