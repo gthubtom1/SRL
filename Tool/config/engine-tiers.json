@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "description": "反编译引擎降级链（声明式）。seep_decompile_auto 优先读本文件；缺失则用内置默认。未来加/换引擎只改这里，不改代码。",
+  "chains": {
+    "native": ["ida", "ghidra", "rea", "r2"],
+    "dotnet": ["ida", "ghidra", "r2"],
+    "android": ["jadx", "r2"]
+  },
+  "engines": {
+    "ida":    { "tier": 1, "kind": "commercial", "note": "IDA Pro (idat64)，最高精度，需授权" },
+    "ghidra": { "tier": 2, "kind": "opensource", "note": "Ghidra analyzeHeadless" },
+    "rea":    { "tier": 2, "kind": "mcp",        "note": "REA (npx rea-agents)，Ghidra/Hopper 后端" },
+    "r2":     { "tier": 3, "kind": "bundled",    "note": "Radare2，随 Seep 内置，永远可用的兜底" },
+    "jadx":   { "tier": 1, "kind": "bundled",    "note": "JADX，Android DEX/APK 反编译" }
+  }
+}

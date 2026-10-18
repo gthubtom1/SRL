@@ -1148,6 +1148,323 @@ JZ   loc_restricted_feature  ; 本地跳转决定受限功能
 
 
 # ---------------------------------------------------------------------------
+# 扩展资产（relab2 / REA 适配版，2026-10 增补）
+# 这两个工具是"增量挂载"：不修改任何既有工具逻辑，只在末尾追加。
+#   seep_ensure_tool      —— 工具四级探测与缺工具自愈建议（源自 relab2 ensure_tool + Bootstrap 四级递进）
+#   seep_decompile_auto   —— 多引擎降级反编译 IDA→REA→R2（源自 REA 的 provider 降级链思想）
+# ---------------------------------------------------------------------------
+
+# 常见工具根（跨平台），用于四级探测的第 3 级
+_TOOL_ROOTS = [
+    os.environ.get("REVERSE_TOOL_ROOT", ""),
+    os.environ.get("SEEP_TOOL_ROOT", ""),
+    r"D:\Tools",
+    r"D:\Tool",
+    os.path.join(os.path.expanduser("~"), "Tools"),
+    "/opt",
+    "/usr/local/bin",
+    "/usr/bin",
+]
+
+# 已知工具别名 -> 可执行文件名候选（解决"目录名 != 工具名"）
+_TOOL_ALIASES = {
+    "ida": ["idat64", "idat", "ida64", "ida"],
+    "ida64": ["ida64", "idat64"],
+    "idat": ["idat64", "idat"],
+    "x64dbg": ["x64dbg", "x96dbg"],
+    "x32dbg": ["x32dbg"],
+    "cdb": ["cdb"],
+    "diec": ["diec"],
+    "die": ["die"],
+    "r2": ["radare2", "r2"],
+    "rabin2": ["rabin2"],
+    "ghidra": ["analyzeHeadless"],
+    "floss": ["floss"],
+    "capa": ["capa"],
+    "pe-sieve": ["pe-sieve", "pe-sieve64"],
+    "tshark": ["tshark"],
+    "jadx": ["jadx", "jadx.bat"],
+    "apktool": ["apktool", "apktool.bat"],
+    "frida": ["frida"],
+    "binwalk": ["binwalk", "binwalk.exe"],
+    "unblob": ["unblob"],
+    "gcc": ["gcc", "gcc.exe"],
+    "python": ["python", "python3"],
+}
+
+# 缺工具时的安装提示（只给建议，不擅自联网安装）
+_TOOL_INSTALL_HINTS = {
+    "ida": "商业软件，需自备 IDA Pro 授权；装好后把 idat64 加入 PATH 或 D:\\Tools。",
+    "x64dbg": "winget install x64dbg.x64dbg  或从 x64dbg.com 下载便携版放到 D:\\Tools。",
+    "cdb": "随 Windows SDK / WinDbg 安装：winget install Microsoft.WinDbg。",
+    "diec": "下载 Detect It Easy (DIE) 便携版，把 diec.exe 放到 D:\\Tools。",
+    "ghidra": "下载 Ghidra 后把 analyzeHeadless 加入 PATH。",
+    "floss": "pip install flare-floss",
+    "capa": "pip install flare-capa",
+    "binwalk": "pip install binwalk 或使用独立可执行版。",
+    "unblob": "pip install unblob（依赖 pyperscan，需编译环境）。",
+    "frida": "pip install frida-tools",
+    "jadx": "下载 jadx release 解压后加入 PATH。",
+    "apktool": "下载 apktool.jar + 包装脚本。",
+    "tshark": "随 Wireshark 安装。",
+    "gcc": "安装 mingw-w64 / Zig / MSVC。",
+}
+
+
+def _deny_tool_path(path: str) -> bool:
+    """第 4 级扫描的 deny 规则：命中即跳过。
+    典型陷阱：IDA 自带裸 python 无 pip 包，误命中会让脚本跑在错解释器上。"""
+    low = path.lower()
+    deny_markers = [
+        "ida pro", "ida\\python", "ida/python", "python27", "python3.8\\python",
+        "\\plugins\\", "\\sdk\\", "node_modules",
+    ]
+    return any(m in low for m in deny_markers)
+
+
+def _scan_tool_roots(name: str, exe_names: list) -> str:
+    """第 4 级：在常见工具根下递归扫描（带 deny 规则），命中即返回。"""
+    wanted = set()
+    for e in exe_names:
+        el = e.lower()
+        wanted.add(el)
+        if not el.endswith(".exe"):
+            wanted.add(el + ".exe")
+    for root in _TOOL_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        try:
+            for dirpath, dirnames, filenames in os.walk(root):
+                depth = dirpath[len(root):].count(os.sep)
+                if depth > 4:
+                    dirnames[:] = []
+                    continue
+                for fn in filenames:
+                    if fn.lower() in wanted:
+                        full = os.path.join(dirpath, fn)
+                        if not _deny_tool_path(full) and os.path.isfile(full):
+                            return full
+        except Exception:
+            continue
+    return ""
+
+
+def _resolve_tool(tool_id: str) -> dict:
+    """四级递进探测：env -> PATH -> map(别名) -> scan。命中即停。
+    返回 {available, command, via}。"""
+    exe_names = _TOOL_ALIASES.get(tool_id.lower(), [tool_id])
+
+    # 第 1 级：环境变量（显式指定，最高优先）
+    env_key = "SEEP_" + re.sub(r"[^A-Z0-9]", "_", tool_id.upper()) + "_PATH"
+    env_val = os.environ.get(env_key, "")
+    if env_val and os.path.isfile(env_val):
+        return {"available": True, "command": env_val, "via": "env"}
+
+    # 第 2 级：PATH（系统安装优先于便携副本）
+    for e in exe_names:
+        w = shutil.which(e)
+        if w:
+            return {"available": True, "command": w, "via": "PATH"}
+
+    # 第 3 级：常见工具根的直接子目录/别名映射（快速命中）
+    for root in _TOOL_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        for e in exe_names:
+            for cand in (os.path.join(root, e), os.path.join(root, "cli", e),
+                         os.path.join(root, "bin", e)):
+                for c2 in (cand, cand + ".exe"):
+                    if os.path.isfile(c2) and not _deny_tool_path(c2):
+                        return {"available": True, "command": c2, "via": "map"}
+
+    # 第 4 级：递归扫描（可信度最低，带 deny 规则）
+    found = _scan_tool_roots(tool_id, exe_names)
+    if found:
+        return {"available": True, "command": found, "via": "scan"}
+
+    return {"available": False, "command": "", "via": "none"}
+
+
+@server.tool()
+def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
+    """四级探测本机某工具是否可用；缺工具时给出可执行的安装建议（可选自动安装）。
+
+    探测顺序（命中即停）：环境变量 -> PATH -> 常见工具根别名 -> 递归扫描（带 deny 规则）。
+    这是"缺工具自愈"的入口：先查有没有，没有就明确告诉你装什么、怎么装，
+    绝不在终端里瞎猜路径、也绝不静默假装成功。
+
+    Args:
+        tool_id: 工具标识，如 'ida' / 'x64dbg' / 'cdb' / 'diec' / 'r2' / 'ghidra' /
+                 'floss' / 'capa' / 'frida' / 'jadx' / 'apktool' / 'tshark' / 'binwalk' / 'gcc'
+        allow_install: 是否允许尝试自动安装（默认 False，只探测 + 给建议；
+                       True 时对少数公开 pip 工具尝试安装，其余仍只给建议）
+    """
+    tid = tool_id.strip().lower()
+    res = _resolve_tool(tid)
+    out = {"tool_id": tid}
+    out.update(res)
+
+    if res["available"]:
+        ver = ""
+        for flag in ("-version", "-v", "--version"):
+            try:
+                p = subprocess.run([res["command"], flag], capture_output=True,
+                                   text=True, encoding="utf-8", errors="replace", timeout=8)
+                txt = (p.stdout or "") + (p.stderr or "")
+                if txt.strip():
+                    ver = txt.strip().splitlines()[0]
+                    break
+            except Exception:
+                continue
+        out["version"] = ver
+        out["status"] = "available"
+        return json.dumps(out, indent=2, ensure_ascii=False)
+
+    # 不可用：给安装建议
+    hint = _TOOL_INSTALL_HINTS.get(tid, "未收录该工具的安装方式；请手动安装后加入 PATH。")
+    out["status"] = "missing"
+    out["install_hint"] = hint
+    out["note"] = "四级探测均未命中。若确信已安装，检查它是否在 D:\\Tools 或 PATH；也可设环境变量 SEEP_<TOOL>_PATH 显式指定。"
+
+    if allow_install and tid in ("floss", "capa", "frida", "unblob", "binwalk"):
+        pip_pkg = {"floss": "flare-floss", "capa": "flare-capa", "frida": "frida-tools",
+                   "unblob": "unblob", "binwalk": "binwalk"}[tid]
+        try:
+            p = subprocess.run([sys.executable, "-m", "pip", "install", pip_pkg],
+                               capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", timeout=300)
+            out["install_attempt"] = {"pkg": pip_pkg, "returncode": p.returncode,
+                                      "tail": (p.stdout or p.stderr or "")[-300:]}
+        except Exception as exc:  # noqa: BLE001
+            out["install_attempt"] = {"pkg": pip_pkg, "error": "%s: %s" % (type(exc).__name__, exc)}
+    return json.dumps(out, indent=2, ensure_ascii=False)
+
+
+def _load_engine_tiers() -> dict:
+    """读声明式引擎降级链（Tool/config/engine-tiers.json）；缺失则用内置默认。"""
+    default = {"chains": {"native": ["ida", "ghidra", "rea", "r2"],
+                          "dotnet": ["ida", "ghidra", "r2"],
+                          "android": ["jadx", "r2"]}}
+    try:
+        cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "config", "engine-tiers.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data.get("chains"), dict):
+            return data
+    except Exception:
+        pass
+    return default
+
+
+def _engine_order_for(binary_path: str) -> list:
+    """按目标类型选降级链：.NET -> dotnet，APK/DEX -> android，其余 -> native。"""
+    chains = _load_engine_tiers().get("chains", {})
+    low = binary_path.lower()
+    if low.endswith((".apk", ".dex", ".jar")):
+        return chains.get("android", ["jadx", "r2"])
+    try:
+        with open(binary_path, "rb") as f:
+            head = f.read(2 * 1024 * 1024)
+        if b"BSJB" in head or b"mscoree" in head or b"_CorExeMain" in head:
+            return chains.get("dotnet", ["ida", "ghidra", "r2"])
+    except Exception:
+        pass
+    return chains.get("native", ["ida", "ghidra", "rea", "r2"])
+
+
+def _detect_engine(engine: str) -> dict:
+    """探测某反编译引擎是否可用。返回 {available, detail}。"""
+    e = engine.lower()
+    if e == "ida":
+        r = _resolve_tool("ida")
+        return {"available": r["available"], "detail": r.get("command", "")}
+    if e == "ghidra":
+        r = _resolve_tool("ghidra")
+        return {"available": r["available"], "detail": r.get("command", "")}
+    if e == "rea":
+        npx = shutil.which("npx")
+        rea_cli = shutil.which("rea")
+        if rea_cli:
+            return {"available": True, "detail": rea_cli}
+        if npx:
+            return {"available": True, "detail": "npx rea-agents (node=%s)" % npx}
+        return {"available": False, "detail": "no npx/rea"}
+    if e == "r2":
+        return {"available": os.path.isfile(R2_EXE), "detail": R2_EXE}
+    return {"available": False, "detail": "unknown engine"}
+
+
+@server.tool()
+def seep_decompile_auto(
+    binary_path: str,
+    target: str = "main",
+    engine: str = "auto",
+    output_mode: str = "fold",
+    limit_tokens: int = 8000,
+) -> str:
+    """多引擎降级反编译：按 IDA -> Ghidra/REA -> Radare2 的优先级自动选引擎。
+
+    "能力寻址而非名字寻址"：调用方只说"帮我反编译这个函数"，本工具自己探测
+    本机有哪些引擎，按 tier 降级，并把**实际使用的引擎**如实写进输出。
+    重型引擎（IDA/REA）缺失时自动落到 Radare2，绝不因缺商业工具而失败。
+
+    Args:
+        binary_path: 目标二进制路径
+        target: 函数名或地址（如 'main'、'sym.verify'、'0x401000'）
+        engine: 'auto'（默认，按 tier 降级）| 'ida' | 'ghidra' | 'rea' | 'r2'
+        output_mode: 传给底层反编译的折叠模式 'full' | 'fold' | 'summary'
+        limit_tokens: 输出字符上限
+    """
+    if not os.path.isfile(binary_path):
+        return f"[ERROR]: Target file does not exist: {binary_path}"
+
+    if engine == "auto":
+        order = _engine_order_for(binary_path)
+    else:
+        order = [engine.lower()]
+
+    tried = []
+    for eng in order:
+        info = _detect_engine(eng)
+        tried.append({"engine": eng, "available": info["available"], "detail": info["detail"]})
+        if not info["available"]:
+            continue
+
+        # IDA / Ghidra / REA 的完整自动化需各自的 MCP/CLI harness；
+        # 这里不伪造结果：若 r2 可用，先降级到 r2 给真伪代码，并在输出里说明高阶引擎可用。
+        if eng in ("ida", "ghidra", "rea"):
+            if os.path.isfile(R2_EXE):
+                continue
+            return json.dumps({
+                "engine_used": eng,
+                "note": "检测到 %s 可用（%s），但需通过其 MCP/CLI harness 驱动；"
+                        "本机无 r2 兜底，请改用 %s 的 MCP 工具反编译 %s。"
+                        % (eng, info["detail"], eng, target),
+                "probed": tried,
+            }, indent=2, ensure_ascii=False)
+
+        if eng == "r2":
+            pseudo = seep_r2_decompile(binary_path, target=target,
+                                       output_mode=output_mode, limit_tokens=limit_tokens)
+            higher = [t["engine"] for t in tried if t["available"] and t["engine"] != "r2"]
+            return (
+                "[engine_used] r2 (Radare2)\n"
+                "[higher_tier_available] %s\n"
+                "[note] 已按 IDA->Ghidra/REA->R2 降级链选到可直接执行的引擎；"
+                "若需更高精度可改用上表所列引擎的 MCP 工具。\n%s\n%s"
+                % (", ".join(higher) if higher else "none", "-" * 60, pseudo)
+            )
+
+    return json.dumps({
+        "engine_used": None,
+        "error": "无任何可用反编译引擎（ida/ghidra/rea/r2 均不可用）",
+        "probed": tried,
+        "hint": "先运行 seep_ensure_tool('r2') 或安装 radare2。",
+    }, indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
 def main():
