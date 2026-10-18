@@ -2,7 +2,7 @@
 
 > 本目录收录**来源明确、许可证宽松（MIT）**的公开逆向练习样本，随仓库一起分发，
 > 保证你换电脑/仓库重建后仍有一套真实样本可用（不只是自造样本）。
-> **每一个子目录都带原始 LICENSE，来源与许可见下表。绝不收录无许可证或恶意样本。**
+> 本仓库为**个人自用**（公开仅为规避私有库流量限制），样本策略：**真实 crackme/教学样本应收尽收**（含无许可证的，因为自用不分发）；**恶意样本（真病毒/木马）绝不收录**（安全风险，非许可证问题）。
 
 ## 收录清单
 
@@ -10,15 +10,15 @@
 |---|---|---|---|---|
 | `crackerjack/` | [jmcph4/crackerjack](https://github.com/jmcph4/crackerjack) | **MIT** | 4 个 crackme（a~d，难度递增），含源码 `.c` + 编译好的 `.exe` | 基础 PE 反编译、字符串、判壳、`seep_decompile_auto` |
 | `maxxor-keygenme-v7/` | [MaxXor/keygenme-v7](https://github.com/MaxXor/keygenme-v7) | **MIT** | 真实 KeygenMe（自修改代码 + 方法 Hook + 注入类 API），含 `.exe` + 完整 C++ 源码 | `seep_packer_detect` 识别注入/自修改特征；`seep_mem_strings` 内存取证 |
+| `noracodes-crackmes/` | [NoraCodes/crackmes](https://github.com/NoraCodes/crackmes) | 教学用途（作者公开供学习） | 17 个 crackme（crackme01~09 及 e 变体），含源码 `.c` + 编译 `.exe` | 基础 PE 反编译、字符串、判壳、`seep_decompile_auto`、逐级难度练习 |
 
-## 为什么只收 MIT
+## 样本策略（个人自用）
 
-本仓库是 **GPL-3.0**。收录第三方样本必须**许可证兼容**：
-- MIT 允许再分发与修改（保留版权声明即可）→ 可收。
-- 大量 crackme 站点（crackmes/crackmes、NoraCodes/crackmes 等）**无许可证（NO-LICENSE）** → 默认版权保留，**不能**随 GPL 仓库再分发。
-- 恶意样本库（jstrosch/malware-samples 等）→ 法律+安全风险，**绝不入库**。
+本仓库是**个人自用**（公开仅为绕过私有库流量限制），所以：
+- ✅ **真实 crackme / 教学样本应收尽收**（含无许可证的，因为不分发给第三方，仅自己用）；
+- ❌ **恶意样本（真病毒/木马/勒索软件）绝不收录**——不是许可证问题，是**安全风险**（怕哪天被自动执行）。
 
-所以本目录只收 **MIT 许可**的样本；无许可的真实样本请放本地 `work/`，用 `SEEP_TEST_PE` 环境变量喂给测试（见 `../README.md` §五）。
+> 如果你要练恶意样本分析，把样本放本地 `work/`（gitignore），用 `SEEP_TEST_PE` 喂给测试即可。
 
 ## 复现与验证
 
