@@ -73,6 +73,56 @@ def main():
     else:
         print("  [SKIP] 无 ELF fixture")
 
+    print("=== [5/9] seep_pe_resources：真实 PE 资源枚举 ===")
+    pe_sample = r"D:/Project/瓦6.8/换肤程序点我下载6.9版本.exe"
+    if os.path.isfile(pe_sample):
+        try:
+            rp = json.loads(S.seep_pe_resources(pe_sample, min_size=1000000))
+            check("有 resources", len(rp.get("resources", [])) >= 1, "")
+            check("识别到高熵资源", any(x["entropy"] > 7.0 for x in rp.get("resources", [])), "")
+        except Exception as exc:
+            check("seep_pe_resources 不抛异常", False, str(exc))
+    else:
+        print("  [SKIP] 无 PE 样本")
+
+    print("=== [6/9] seep_pe_resources：非 PE 输入优雅报错 ===")
+    rbad = S.seep_pe_resources(os.path.join(HERE, "seep_mcp_server.py"))
+    check("非 PE 给 ERROR", "ERROR" in rbad or "not" in rbad.lower(), rbad[:80])
+
+    print("=== [7/9] seep_pcap_extract：空 pcap 三模式 ===")
+    import struct
+    tmp_pcap = os.path.join(HERE, "_tmp_empty.pcap")
+    with open(tmp_pcap, "wb") as f:
+        f.write(struct.pack('<IHHIIII', 0xa1b2c3d4, 2, 4, 0, 0, 65535, 1))
+    try:
+        for mode in ("summary", "http", "payload"):
+            r = S.seep_pcap_extract(tmp_pcap, mode=mode)
+            check(f"pcap {mode} 可解析", r.strip().startswith("{"), r[:80])
+    finally:
+        try:
+            os.remove(tmp_pcap)
+        except Exception:
+            pass
+
+    print("=== [8/9] seep_pcap_extract：缺失文件优雅报错 ===")
+    check("缺 pcap 给 ERROR", "ERROR" in S.seep_pcap_extract("/no/such.pcap"), "")
+
+    print("=== [9/9] seep_mem_strings：活体进程只读扫描 ===")
+    if sys.platform == "win32":
+        import subprocess as _sp
+        import time as _t
+        proc = _sp.Popen(["notepad.exe"])
+        _t.sleep(1.5)
+        try:
+            mm = json.loads(S.seep_mem_strings(proc.pid, min_len=8, max_hits=5, encoding="ascii"))
+            check("mem_strings 返回结构", "count" in mm, str(mm)[:80])
+        except Exception as exc:
+            check("mem_strings 不抛异常", False, str(exc))
+        finally:
+            proc.terminate()
+    else:
+        print("  [SKIP] 非 Windows")
+
     print(f"\n结果: {PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1
 

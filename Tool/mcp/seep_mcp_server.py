@@ -1465,6 +1465,323 @@ def seep_decompile_auto(
 
 
 # ---------------------------------------------------------------------------
+# 扩展资产 第二批（补 Seep 的"动态/资源/协议"盲区，2026-10 增补）
+# 纯增量：不修改任何既有工具逻辑，只在末尾追加。
+#   seep_pe_resources       —— PE 资源/高熵载荷剥离（治"资源里藏着真正功能"的样本）
+#   seep_mem_strings        —— 活体进程内存字符串扫描（治"字符串运行期才解密"的样本）
+#   seep_pcap_extract       —— pcap 协议/端点/载荷提取（治"卡密在云端、需要看回包"的样本）
+# 这些正好覆盖 relab2 实战中 Seep 缺的三块：资源层 / 内存层 / 协议层。
+# ---------------------------------------------------------------------------
+
+def _entropy_bytes(b: bytes) -> float:
+    if not b:
+        return 0.0
+    c = [0] * 256
+    for x in b:
+        c[x] += 1
+    n = len(b)
+    import math
+    return -sum((v / n) * math.log2(v / n) for v in c if v)
+
+
+def _sniff_container(b: bytes) -> str:
+    """识别常见压缩/加密容器头，用于资源剥离时判断下一步怎么解。"""
+    sigs = [
+        (b"\x28\xb5\x2f\xfd", "zstd"),
+        (b"PK\x03\x04", "zip"),
+        (b"7z\xbc\xaf\x27\x1c", "7z"),
+        (b"\x1f\x8b", "gzip"),
+        (b"BZh", "bzip2"),
+        (b"\xfd7zXZ", "xz"),
+        (b"Rar!", "rar"),
+        (b"MZ", "pe"),
+        (b"\x7fELF", "elf"),
+        (b"\x89PNG", "png"),
+        (b"BM", "bmp"),
+        (b"OggS", "ogg"),
+    ]
+    for sig, name in sigs:
+        if b.startswith(sig):
+            return name
+    return "unknown"
+
+
+@server.tool()
+def seep_pe_resources(binary_path: str, min_size: int = 4096, extract_dir: str = "", top: int = 20) -> str:
+    """枚举 PE 资源节与高熵载荷，并对可疑资源做"魔数嗅探"，可选剥离到目录。
+
+    针对"换肤器/皮肤包/内嵌 DLL"这类样本：真正的功能载荷往往不在 .text，
+    而在资源节（如自定义 DATA 资源）里，且常是 zstd/zip 等压缩容器。
+    本工具读 PE 资源树 + 节熵，直接告诉你"哪块资源是高熵、是什么容器"。
+
+    Args:
+        binary_path: PE 文件路径
+        min_size: 只报告不小于该字节数的资源（默认 4096，过滤图标小资源）
+        extract_dir: 若给出，则把命中的资源数据落盘到该目录（默认空=只报告不落盘）
+        top: 最多报告前 N 个最大的资源（默认 20）
+    """
+    if not os.path.isfile(binary_path):
+        return f"[ERROR]: file not found: {binary_path}"
+    if not binary_path.lower().endswith((".exe", ".dll", ".sys", ".ocx", ".cpl", ".scr")):
+        # 仍尝试，但提示
+        pass
+    try:
+        import pefile  # noqa: F401
+    except Exception:
+        return ("[ERROR]: 需要 pefile 库（pip install pefile）。"
+                "或改用 seep_r2_info / seep_auto_triage 获取节信息。")
+    import pefile
+    try:
+        pe = pefile.PE(binary_path, fast_load=True)
+        pe.parse_data_directories(directories=[
+            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]])
+    except Exception as exc:  # noqa: BLE001
+        return f"[ERROR]: pefile 解析失败: {type(exc).__name__}: {exc}"
+
+    # 1) 节熵概览
+    sections = []
+    for s in pe.sections:
+        try:
+            name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
+            data = s.get_data()
+            sections.append({
+                "name": name,
+                "vaddr": hex(s.VirtualAddress),
+                "raw_size": s.SizeOfRawData,
+                "entropy": round(_entropy_bytes(data), 2),
+            })
+        except Exception:
+            continue
+
+    # 2) 资源枚举
+    resources = []
+    def walk(resdir, path):
+        for entry in getattr(resdir, "entries", []):
+            name = entry.name if entry.name is not None else entry.id
+            eid = entry.id
+            newpath = path + [str(name)]
+            if hasattr(entry, "directory"):
+                walk(entry.directory, newpath)
+            elif hasattr(entry, "data"):
+                st = entry.data.struct
+                size = st.Size
+                if size >= min_size:
+                    rva = st.OffsetToData
+                    try:
+                        raw = pe.get_data(rva, size)
+                    except Exception:
+                        raw = b""
+                    resources.append({
+                        "type_id": path[0] if path else "",
+                        "name_id": str(eid) if eid is not None else "",
+                        "path": "/".join(newpath),
+                        "offset_rva": hex(rva),
+                        "size": size,
+                        "entropy": round(_entropy_bytes(raw), 2) if raw else 0,
+                        "container": _sniff_container(raw) if raw else "unknown",
+                        "head_hex": raw[:24].hex(" ") if raw else "",
+                    })
+    try:
+        if hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
+            walk(pe.DIRECTORY_ENTRY_RESOURCE, [])
+    except Exception:
+        pass
+
+    resources.sort(key=lambda r: r["size"], reverse=True)
+    resources = resources[:top]
+
+    # 3) 可选落盘
+    written = []
+    if extract_dir:
+        os.makedirs(extract_dir, exist_ok=True)
+        for r in resources:
+            if r["container"] in ("zstd", "zip", "7z", "gzip", "pe", "png", "bmp", "ogg", "unknown"):
+                # 只落高熵或已知容器，跳过明显无关的小图
+                if r["entropy"] < 7.0 and r["container"] == "unknown":
+                    continue
+                try:
+                    raw = pe.get_data(int(r["offset_rva"], 16), r["size"])
+                    safe = re.sub(r"[^\w.\-]", "_", r["path"])
+                    fp = os.path.join(extract_dir, f"res_{r['type_id']}_{safe}.bin")
+                    with open(fp, "wb") as f:
+                        f.write(raw)
+                    written.append(fp)
+                except Exception:
+                    continue
+
+    out = {
+        "file": os.path.basename(binary_path),
+        "sections": sections,
+        "high_entropy_sections": [s["name"] for s in sections if s["entropy"] > 7.0 and s["raw_size"] > 512],
+        "resources": resources,
+        "note": "container=zstd/zip/pe 等高熵资源通常就是真正的功能载荷或皮肤包，优先剥离解析。",
+    }
+    if written:
+        out["extracted"] = written
+    return json.dumps(out, indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: int = 50, encoding: str = "both") -> str:
+    """扫描指定进程的内存，提取可读字符串（治"字符串运行期才解密/只有内存里才有"的样本）。
+
+    很多加壳/反调试样本，磁盘上看不到 URL/卡密提示/密钥，因为它们运行期才解密到内存。
+    本工具用 Windows ReadProcessMemory 逐块扫描（只读，不改目标），把命中的字符串
+    连同所在虚拟地址一起给你，方便回填到反汇编里定位引用。
+
+    Args:
+        pid: 目标进程 ID
+        pattern: 可选，只返回包含该子串的字符串（不区分大小写）
+        min_len: 最短字符串长度（默认 5）
+        max_hits: 最多返回多少条（默认 50）
+        encoding: 'ascii' | 'utf16' | 'both'（默认 both）
+    """
+    if sys.platform != "win32":
+        return "[ERROR]: seep_mem_strings 目前仅支持 Windows（依赖 ReadProcessMemory）。"
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    PROCESS_QUERY_INFORMATION = 0x0400
+    PROCESS_VM_READ = 0x0010
+    h = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, int(pid))
+    if not h:
+        return f"[ERROR]: OpenProcess 失败 pid={pid}，错误码={ctypes.get_last_error()}（需管理员/同架构）"
+
+    class MEMORY_BASIC_INFORMATION(ctypes.Structure):
+        _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
+                    ("AllocationProtect", wintypes.DWORD), ("RegionSize", ctypes.c_size_t),
+                    ("State", wintypes.DWORD), ("Protect", wintypes.DWORD), ("Type", wintypes.DWORD)]
+
+    MEM_COMMIT = 0x1000
+    PAGE_GUARD = 0x100
+    PAGE_NOACCESS = 0x01
+    readable = {0x02, 0x04, 0x08, 0x20, 0x40, 0x80}  # R/RW/COPY/W+X 等
+    addr = 0
+    hits = []
+    pat = pattern.lower()
+    mbi = MEMORY_BASIC_INFORMATION()
+    max_addr = 0x7FFFFFFFFFFF
+    while addr < max_addr and len(hits) < max_hits:
+        res = k32.VirtualQueryEx(h, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi))
+        if not res:
+            break
+        base = mbi.BaseAddress or 0
+        size = mbi.RegionSize or 0
+        prot = mbi.Protect or 0
+        if (mbi.State == MEM_COMMIT and prot not in (PAGE_NOACCESS,) and not (prot & PAGE_GUARD)
+                and (prot & 0xFF) in readable and size <= (64 << 20)):
+            buf = ctypes.create_string_buffer(size)
+            nread = ctypes.c_size_t(0)
+            ok = k32.ReadProcessMemory(h, ctypes.c_void_p(base), buf, size, ctypes.byref(nread))
+            if ok and nread.value:
+                data = buf.raw[:nread.value]
+                # ascii
+                if encoding in ("ascii", "both"):
+                    for m in re.finditer(rb"[\x20-\x7e]{%d,}" % min_len, data):
+                        s = m.group().decode("ascii", "replace")
+                        if not pat or pat in s.lower():
+                            hits.append({"addr": hex(base + m.start()), "enc": "ascii", "s": s[:200]})
+                            if len(hits) >= max_hits:
+                                break
+                # utf16le
+                if encoding in ("utf16", "both") and len(hits) < max_hits:
+                    for m in re.finditer(rb"(?:[\x20-\x7e]\x00){%d,}" % min_len, data):
+                        try:
+                            s = m.group().decode("utf-16le", "replace")
+                        except Exception:
+                            continue
+                        if not pat or pat in s.lower():
+                            hits.append({"addr": hex(base + m.start()), "enc": "utf16", "s": s[:200]})
+                            if len(hits) >= max_hits:
+                                break
+        addr = base + size
+        if size == 0:
+            break
+    k32.CloseHandle(h)
+    return json.dumps({
+        "pid": pid, "pattern": pattern, "hits": hits, "count": len(hits),
+        "note": "addr 为进程虚拟地址，可直接回填到反汇编/反编译里定位引用该字符串的代码。",
+    }, indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_pcap_extract(pcap_path: str, host_filter: str = "", mode: str = "summary",
+                      port: int = 0, max_rows: int = 40) -> str:
+    """从 pcap/pcapng 提取通信端点、HTTP 请求/响应、以及可选端口/主机的 TCP 载荷。
+
+    治"卡密/授权在云端"的样本：先看它连了谁、发了什么、回了什么，
+    往往比死磕本地校验更快（回包伪造 / 协议复刻）。
+
+    Args:
+        pcap_path: pcap/pcapng 文件路径
+        host_filter: 可选，只看与某 IP/域名相关的流量（子串匹配）
+        mode: 'summary'（端点+HTTP 概览）| 'http'（完整 HTTP 请求/响应行）| 'payload'（指定端口的 TCP 载荷）
+        port: mode='payload' 时，只取该端口的 TCP 流（0=不限）
+        max_rows: 最多返回行数（默认 40）
+    """
+    if not os.path.isfile(pcap_path):
+        return f"[ERROR]: pcap not found: {pcap_path}"
+    tshark = shutil.which("tshark") or ""
+    if not tshark:
+        for c in (r"D:\Tools\Wireshark\tshark.exe", r"C:\Program Files\Wireshark\tshark.exe",
+                  "/usr/bin/tshark", "/usr/local/bin/tshark"):
+            if os.path.isfile(c):
+                tshark = c
+                break
+    if not tshark:
+        return ("[ERROR]: 未找到 tshark。安装 Wireshark 后重试，"
+                "或运行 seep_ensure_tool('tshark') 查看安装建议。")
+
+    def run(args):
+        try:
+            p = subprocess.run([tshark, "-r", pcap_path] + args, capture_output=True,
+                               text=True, encoding="utf-8", errors="replace", timeout=120)
+            return (p.stdout or "") + (p.stderr or "")
+        except Exception as exc:  # noqa: BLE001
+            return f"[ERROR]: {type(exc).__name__}: {exc}"
+
+    if mode == "summary":
+        # 会话端点
+        conv = run(["-q", "-z", "conv,tcp"])
+        # HTTP 主机
+        http_hosts = run(["-Y", "http.host", "-T", "fields", "-e", "http.host",
+                          "-e", "http.request.uri"], )
+        lines = [l for l in http_hosts.splitlines() if l.strip()]
+        if host_filter:
+            conv = "\n".join([l for l in conv.splitlines() if host_filter in l or "===" in l or "Filter" in l])
+            lines = [l for l in lines if host_filter in l]
+        return json.dumps({
+            "pcap": os.path.basename(pcap_path),
+            "tcp_conversations": conv.strip().splitlines()[:max_rows],
+            "http_hosts": lines[:max_rows],
+            "note": "有外连 = 云端权威可能。下一步：mode='http' 看请求/响应，或 mode='payload' 看端口载荷。",
+        }, indent=2, ensure_ascii=False)
+
+    if mode == "http":
+        out = run(["-Y", "http.request or http.response",
+                   "-T", "fields", "-e", "ip.dst", "-e", "http.request.method",
+                   "-e", "http.host", "-e", "http.request.uri",
+                   "-e", "http.response.code", "-e", "http.content_type"])
+        lines = [l for l in out.splitlines() if l.strip()]
+        if host_filter:
+            lines = [l for l in lines if host_filter in l]
+        return json.dumps({"http_rows": lines[:max_rows]}, indent=2, ensure_ascii=False)
+
+    if mode == "payload":
+        flt = f"tcp.port=={port}" if port else "tcp.len>0"
+        out = run(["-Y", flt, "-T", "fields", "-e", "ip.src", "-e", "tcp.srcport",
+                   "-e", "ip.dst", "-e", "tcp.dstport", "-e", "tcp.len", "-e", "data.data"])
+        lines = [l for l in out.splitlines() if l.strip()]
+        if host_filter:
+            lines = [l for l in lines if host_filter in l]
+        return json.dumps({"payload_rows": lines[:max_rows],
+                           "note": "data.data 为十六进制载荷，可据此还原协议/伪造回包。"},
+                          indent=2, ensure_ascii=False)
+
+    return f"[ERROR]: 未知 mode='{mode}'（可选 summary/http/payload）"
+
+
+# ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
 def main():
