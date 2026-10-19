@@ -428,38 +428,167 @@ def register_mcp(tool_id, apply=False, server_name=None):
 # ---------------------------------------------------------------------------
 # 半自动安装（探测 -> 给命令+来源 -> 确认 -> 装 -> 重探）
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 多途径自适应安装与便携下载引擎
+# ---------------------------------------------------------------------------
+def _detect_local_proxy_port():
+    """快速探测常见的本地 HTTP/SOCKS 代理端口（如 Clash/V2Ray/Surge）。"""
+    import socket
+    for p in (7897, 10808, 7890):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.15)
+            s.connect(("127.0.0.1", p))
+            s.close()
+            return p
+        except Exception:
+            pass
+    return None
+
+
+def _download_and_extract_portable(urls, target_sub, verify_exe=""):
+    """免包管理器绿色便携下载与解压引擎（针对无 winget 的精简版/LTSC Win10 系统）。
+    自动轮询直链与国内加速镜像，使用 Python 原生 zipfile 解压到便携目录。
+    """
+    import urllib.request
+    import zipfile
+    import tempfile
+
+    proxy_port = _detect_local_proxy_port()
+    opener = None
+    if proxy_port:
+        proxy_url = f"http://127.0.0.1:{proxy_port}"
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
+    else:
+        opener = urllib.request.build_opener()
+
+    # 确定安装目标基目录：优先使用 D:\Tools，次选 ~/.seep/tools
+    base_target = r"D:\Tools" if os.path.isdir(r"D:\Tools") or (sys.platform == "win32" and os.path.exists("D:\\")) else os.path.expanduser("~/.seep/tools")
+    final_dir = os.path.join(base_target, target_sub)
+    os.makedirs(final_dir, exist_ok=True)
+
+    downloaded = False
+    last_err = ""
+    for u in urls:
+        if not u:
+            continue
+        try:
+            req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SeepAutoDiscover/1.8"})
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
+                tmp_zip = tf.name
+            with opener.open(req, timeout=40) as resp, open(tmp_zip, "wb") as out_fp:
+                shutil.copyfileobj(resp, out_fp)
+            if os.path.isfile(tmp_zip) and os.path.getsize(tmp_zip) > 1024:
+                with zipfile.ZipFile(tmp_zip, "r") as zf:
+                    zf.extractall(final_dir)
+                try:
+                    os.remove(tmp_zip)
+                except Exception:
+                    pass
+                downloaded = True
+                break
+        except Exception as e:
+            last_err = f"{u} -> {e}"
+            continue
+
+    if not downloaded:
+        return {"success": False, "error": f"所有便携下载镜像均失败: {last_err}"}
+
+    # 递归查找 verify_exe
+    found_exe = ""
+    if verify_exe:
+        v_low = os.path.basename(verify_exe).lower()
+        for root, _, files in os.walk(final_dir):
+            for fn in files:
+                if fn.lower() == v_low:
+                    found_exe = os.path.join(root, fn)
+                    break
+            if found_exe:
+                break
+    else:
+        found_exe = final_dir
+
+    if final_dir not in _COMMON_ROOTS:
+        _COMMON_ROOTS.insert(0, final_dir)
+
+    return {"success": True, "dir": final_dir, "exe": found_exe}
+
+
 def install_plan(tool_id):
-    """把 tool-install.json 的声明式条目转成可读安装计划（命令 + 来源 + 是否可自动）。"""
+    """把 tool-install.json 的声明式条目转成可读安装计划（自动根据系统环境匹配最优途径）。
+    支持多途径自适应：系统无 winget 时自动无缝降级为 portable_zip（绿色直下免安装）。
+    """
     tid = normalize_tool_id(tool_id)
     cfg = _install_table()
     entry = cfg.get("installable", {}).get(tid)
     if not entry:
         return {"tool_id": tid, "has_plan": False,
                 "reason": "tool-install.json 未收录该工具；请手动安装后加入 PATH。"}
-    method = entry.get("method", "")
-    pkg = entry.get("pkg", "")
-    url = entry.get("url", "")
-    if method == "pip":
+
+    # 支持多途径列表 methods
+    methods = entry.get("methods")
+    has_winget = bool(shutil.which("winget"))
+
+    chosen_method = None
+    fallback_methods = []
+
+    if methods and isinstance(methods, list):
+        for m in methods:
+            m_type = m.get("type", "")
+            if m_type == "winget" and not has_winget:
+                # 机器无 winget，跳过作为首选，留作备用
+                fallback_methods.append(m)
+                continue
+            if chosen_method is None:
+                chosen_method = m
+            else:
+                fallback_methods.append(m)
+        if chosen_method is None and methods:
+            chosen_method = methods[0]
+    else:
+        chosen_method = {"type": entry.get("method", ""), "pkg": entry.get("pkg", ""), "url": entry.get("url", "")}
+
+    m_type = chosen_method.get("type", "")
+    pkg = chosen_method.get("pkg", "")
+    url = chosen_method.get("url", "")
+    urls = chosen_method.get("urls", [])
+
+    if m_type == "pip":
         cmd = "%s -m pip install %s" % (sys.executable, pkg)
-    elif method == "winget":
+    elif m_type == "winget":
         cmd = "winget install --id %s -e" % pkg
-    elif method == "npm":
+    elif m_type == "portable_zip":
+        cmd = f"[Python绿色直下] 解压至 D:\\Tools 或 ~/.seep/tools (来源: {urls[0] if urls else '官方Release'})"
+    elif m_type == "npm":
         cmd = "npm install -g %s" % pkg
-    elif method == "go":
+    elif m_type == "go":
         cmd = "go install %s" % pkg
-    elif method == "manual":
+    elif m_type == "manual":
         cmd = "手动下载：%s" % url
     else:
         cmd = ""
-    auto_ok = method in (cfg.get("auto_allow_methods") or []) and method != "manual"
-    return {"tool_id": tid, "has_plan": True, "method": method, "package": pkg,
-            "command": cmd, "source": url or pkg, "auto_allowed": auto_ok,
-            "note": entry.get("note", ""),
-            "hint": "半自动：先看命令与来源 → 用户确认 → 执行 → 重探。绝不无脑全自动。"}
+
+    auto_ok = m_type in (cfg.get("auto_allow_methods") or ["pip", "winget", "portable_zip", "npm", "go"]) and m_type != "manual"
+    return {
+        "tool_id": tid,
+        "has_plan": True,
+        "method": m_type,
+        "package": pkg or (urls[0] if urls else url),
+        "command": cmd,
+        "source": url or (urls[0] if urls else pkg),
+        "auto_allowed": auto_ok,
+        "active_method": chosen_method,
+        "fallback_methods": fallback_methods,
+        "has_winget_on_host": has_winget,
+        "note": chosen_method.get("note", entry.get("note", "")),
+        "hint": "自适应多途径：根据当前系统环境自动匹配最佳途径（无 winget 时自动降级为绿色直下，绝不卡住）。"
+    }
 
 
 def propose_install(tool_id, execute=False):
-    """半自动安装：默认只出计划；execute=True 且方法在白名单才真正执行并重探。"""
+    """半自动安装：默认只出计划；execute=True 且方法在白名单才真正执行并重探。
+    具备错误自动降级能力：若首选包管理器失败，自动尝试绿色便携直下等备用途径。
+    """
     tid = normalize_tool_id(tool_id)
     plan = install_plan(tid)
     if not plan.get("has_plan"):
@@ -471,32 +600,86 @@ def propose_install(tool_id, execute=False):
         plan["executed"] = False
         plan["reason"] = "method=%s 不在自动白名单，需人工/确认安装。" % plan.get("method")
         return plan
+
     method = plan["method"]
-    pkg = plan["package"]
-    if method == "pip":
-        argv = [sys.executable, "-m", "pip", "install", pkg]
-    elif method == "winget":
-        argv = ["winget", "install", "--id", pkg, "-e",
-                "--accept-source-agreements", "--accept-package-agreements"]
-    elif method == "npm":
-        argv = ["npm", "install", "-g", pkg]
-    elif method == "go":
-        argv = ["go", "install", pkg]
-    else:
-        argv = []
-    if not argv:
-        plan["executed"] = False
+    active_cfg = plan.get("active_method", {})
+
+    # 1. 途径：portable_zip（绿色解压，适合无包管理器的 Win10）
+    if method == "portable_zip":
+        urls = active_cfg.get("urls", [])
+        sub = active_cfg.get("target_sub", tid)
+        vexe = active_cfg.get("verify_exe", "")
+        res = _download_and_extract_portable(urls, sub, vexe)
+        plan["executed"] = True
+        plan["download_result"] = res
+        if res.get("success"):
+            if res.get("exe"):
+                record(tid, {"available": True, "command": res["exe"], "via": "portable_zip"})
+            plan["recheck"] = discover(tid)
+        else:
+            plan["error"] = res.get("error")
         return plan
-    try:
-        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=600)
+
+    # 2. 途径：pip
+    if method == "pip":
+        pkg = plan["package"]
+        argv = [sys.executable, "-m", "pip", "install", pkg]
+        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+        if p.returncode != 0:
+            # 自动降级：使用国内清华源重试
+            argv_mirror = [sys.executable, "-m", "pip", "install", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", pkg]
+            p = subprocess.run(argv_mirror, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+
         plan["executed"] = True
         plan["returncode"] = p.returncode
         plan["tail"] = (p.stdout or p.stderr or "")[-400:]
         plan["recheck"] = discover(tid)
-    except Exception as exc:  # noqa: BLE001
+        return plan
+
+    # 3. 途径：winget（若失败且有 portable_zip 则自动降级）
+    if method == "winget":
+        pkg = plan["package"]
+        argv = ["winget", "install", "--id", pkg, "-e", "--accept-source-agreements", "--accept-package-agreements"]
+        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+        
+        # 关键降级：如果 winget 失败且存在 fallback_methods 中的 portable_zip
+        if p.returncode != 0:
+            for fb in plan.get("fallback_methods", []):
+                if fb.get("type") == "portable_zip":
+                    urls = fb.get("urls", [])
+                    sub = fb.get("target_sub", tid)
+                    vexe = fb.get("verify_exe", "")
+                    res = _download_and_extract_portable(urls, sub, vexe)
+                    plan["executed"] = True
+                    plan["winget_failed_fallback_portable"] = res
+                    if res.get("success"):
+                        if res.get("exe"):
+                            record(tid, {"available": True, "command": res["exe"], "via": "portable_zip"})
+                        plan["recheck"] = discover(tid)
+                        return plan
+
+        plan["executed"] = True
+        plan["returncode"] = p.returncode
+        plan["tail"] = (p.stdout or p.stderr or "")[-400:]
+        plan["recheck"] = discover(tid)
+        return plan
+
+    # 4. 其他类型 (npm / go)
+    argv = []
+    if method == "npm":
+        argv = ["npm", "install", "-g", plan["package"]]
+    elif method == "go":
+        argv = ["go", "install", plan["package"]]
+
+    if argv:
+        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+        plan["executed"] = True
+        plan["returncode"] = p.returncode
+        plan["tail"] = (p.stdout or p.stderr or "")[-400:]
+        plan["recheck"] = discover(tid)
+    else:
         plan["executed"] = False
-        plan["error"] = "%s: %s" % (type(exc).__name__, exc)
+
     return plan
 
 

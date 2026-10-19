@@ -6,6 +6,7 @@
 import sys
 import os
 import json
+import shutil
 import subprocess
 
 if sys.platform == "win32":
@@ -302,6 +303,15 @@ def main():
         check("别名 die->diec", T.normalize_tool_id("die") == "diec", "")
         ip = T.install_plan("sqlmap")
         check("安装计划可构造", ip.get("has_plan") is True and bool(ip.get("command")), "")
+        # 测试多途径安装：无 winget 场景下自动降级为 portable_zip
+        orig_w = shutil.which
+        try:
+            shutil.which = lambda c: None if c == "winget" else orig_w(c)
+            ip_die = T.install_plan("diec")
+            check("无 winget 时 diec 自动降级为 portable_zip", ip_die.get("method") == "portable_zip", str(ip_die.get("method")))
+            check("portable_zip 处于 auto_allowed 白名单", ip_die.get("auto_allowed") is True, "")
+        finally:
+            shutil.which = orig_w
         check("状态路径在 ~/.seep 下", ".seep" in T.LOCAL_STATE_PATH and "tools.local.json" in T.LOCAL_STATE_PATH, T.LOCAL_STATE_PATH)
     else:
         check("架构匹配断言", False, "插件未导入")
