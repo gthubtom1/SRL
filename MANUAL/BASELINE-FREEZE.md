@@ -51,6 +51,7 @@ python Tool/mcp/test_seep_mcp.py          # 基线 9/9
 python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
 python Tool/scripts/verify-routing-coherence.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
+python Tool/scripts/smoke-e2e.py                  # 端到端链路 12 项（真实样本）
 powershell -File setup/verify.ps1 -Detailed        # 体检 60 项全绿
 ```
 
@@ -163,3 +164,12 @@ python Tool/scripts/check-budget.py
 
 该脚本会核对：MCP 工具数 ≤45、技能数 ≤12、setup 脚本 ≤22、MANUAL ≤16、
 单文件行数 ≤3200、first-party 文件数 ≤900，任一超限即返回非零。
+
+端到端链路另跑一条（不占预算、约 13 秒）：
+
+```bash
+python Tool/scripts/smoke-e2e.py
+```
+
+它用真实样本把「triage → 判壳 → 画像 → 函数 → 反编译 → KB → 工作区 → 报告 → 工具发现」跑一遍，
+证明**链路连通**（体检只证明"资产在位 / 单元正确"，不证明链路）。

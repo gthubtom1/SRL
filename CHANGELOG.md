@@ -10,6 +10,26 @@
 
 ---
 
+## [1.8.3] — 2026-10-19
+
+> 主题：**补上最后一块架构缺口（端到端链路验收），然后冻结。**
+
+### 新增：`Tool/scripts/smoke-e2e.py`（端到端冒烟）
+
+- **为什么**：体检 60 项 + 三套单测只证明"资产在位 / 单元正确"，**不证明链路连通**。
+  弱模型真正会卡住的地方恰恰是"链条中段断了"（如：triage 出结果 → 判壳 → 反编译，中间某一环报错）。
+- **做什么**：用 `Tool/samples/real/` 里的真实样本（自动挑最小），一次跑完 12 个环节：
+  `auto_triage → 整文件哈希 → packer_detect → r2_info → r2_functions → decompile_auto →
+   kb_search → task_init → gen_security_report → tool_discover`，
+  全部在临时工作区（`SEEP_WORKSPACE`）执行，**不污染仓库**；约 13 秒；不联网、不依赖商业工具。
+- **怎么用**：`python Tool/scripts/smoke-e2e.py`（`--sample` 指定样本，`--keep` 保留现场排障）。
+- **接入**：`FORK-DELTA` §五 与 `BASELINE-FREEZE` 的验收闸门从"五道"扩为"六道"
+  （体检仍 60 项不变，端到端独立一条）。
+
+### 其它
+
+- `VERSION` → **1.8.3**；技能 11 个 / 工具 38 个 / 预算全部在限内。
+
 ## [1.8.2] — 2026-10-19
 
 > 主题：**脱壳闭环落地 + 差分台账（未来接手的 AI 只看一份文件）**。
