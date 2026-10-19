@@ -33,7 +33,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 | 分组 | 工具 |
 | :--- | :--- |
 | 状态环境 (2) | `seep_status` · `seep_ida_status` |
-| 二进制 r2 (8) | `seep_r2_info` · `_cmd` · `_strings` · `_functions` · `_disasm` · `_decompile` · `_diff` · `_asm` |
+| 二进制 r2 (9) | `seep_r2_info` · `_cmd` · `_strings` · `_functions` · `_disasm` · `_decompile` · `_diff` · `_asm` · `_xrefs` |
 | Android (5) | `seep_apk_info` · `_decompile` · `_unpack` · `_smali_search` · `_gen_hook` |
 | 知识库 (4) | `seep_kb_search` · `_read` · `_checklist` · `_payloads` |
 | 流程编排 (3) | `seep_task_init` · `seep_auto_triage` · `seep_gen_security_report` |

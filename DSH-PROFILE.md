@@ -28,9 +28,9 @@ Agent 必须运行根目录校验脚本并向用户输出结构化 Markdown 体�
 powershell -NoProfile -ExecutionPolicy Bypass -File .\check.ps1
 ```
 依次核验并汇报：
-* 📁 核心架构 (Tool/ 完整性，13 大案例工程)
+* 📁 核心架构 (Tool/ 完整性，14 大脱敏工业案例工程)
 * 🛠️ 技能系统 (softseep, apkseep 等 9 个 Skill)
-* 🔌 MCP 服务 (seep, ida, playwright, js-reverse)
+* 🔌 MCP 服务 (seep 37 个原生工具, ida, playwright, js-reverse)
 * 🧠 提示词与 Lab 状态机
 * 🔧 内置工具箱 (Jadx, Radare2, Apktool)
 * 📚 战术知识库 (289篇)
