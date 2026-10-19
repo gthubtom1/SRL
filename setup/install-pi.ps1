@@ -3,7 +3,7 @@
   Seep 工作台 —— 一键配置 Pi Agent 运行环境 (加强版)
   包含：
     1. 备份原 ~/.pi/agent 配置
-    2. 同步 9 个 Skill
+    2. 同步 10 个 Skill
     3. 同步提示词与安全放行扩展
     4. 增量合并 mcp.json（保护已有用户配置，UTF-8 No BOM，反斜杠安全转义）
     5. 配置 settings.json
@@ -56,10 +56,18 @@ if (Test-Path $srcSkills) {
         if ($s.Name -eq 'safe-skills') {
             foreach ($sub in (Get-ChildItem $s.FullName -Directory)) {
                 $dst = Join-Path $SkillsDir $sub.Name
+                # ★ 冲突守卫：safe-skills 的子技能若与顶层技能同名，会静默覆盖顶层那份
+                #   （历史事故：safe-skills/ida-reverse 覆盖了顶层 ida-reverse，
+                #    导致带 13337 全自动唤醒规约的核心技能丢失）。
+                $topLevel = Join-Path $srcSkills $sub.Name
+                if ((Test-Path $topLevel) -and $sub.Name -ne 'safe-skills') {
+                    Write-Warn "safeskills 子技能与顶层技能同名，已跳过以免覆盖: $($sub.Name)"
+                    continue
+                }
                 if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
                 Copy-Item $sub.FullName $dst -Recurse -Force
             }
-            Write-Ok 'safe-skills 5 组 -> ~/.pi/agent/skills/'
+            Write-Ok 'safe-skills 子技能 -> ~/.pi/agent/skills/'
         } elseif ($s.Name -ne 'update') {
             $dst = Join-Path $SkillsDir $s.Name
             if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }

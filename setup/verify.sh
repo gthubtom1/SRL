@@ -168,7 +168,12 @@ test_apkseep_layout() {
     [ -d "$TOOL_DIR/skill/apkseep/scripts" ] || return 1
 }
 check_item "Skill" "移动端逆向全链路 (apkseep 包含 45 篇规范与 56 脚本)" test_apkseep_layout
-check_item "Skill" "IDA Pro 自动化联动 (ida-reverse)" test -f "$TOOL_DIR/skill/ida-reverse/SKILL.md"
+test_ida_reverse_contract() {
+    local f="$TOOL_DIR/skill/ida-reverse/SKILL.md"
+    [ -f "$f" ] || return 1
+    grep -q '13337' "$f"
+}
+check_item "Skill" "IDA Pro 自动化联动 (ida-reverse 含 13337 唤醒规约)" test_ida_reverse_contract
 check_item "Skill" "通用许可/卡密校验突破规范 (license-bypass)" test -f "$TOOL_DIR/skill/client-license-validation-bypass/SKILL.md"
 check_item "Skill" "增量追版与特征迁移技能 (version-migration)" test -f "$TOOL_DIR/skill/version-migration/SKILL.md"
 test_safe_skills_count() {

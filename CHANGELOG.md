@@ -59,6 +59,17 @@
 - **`load-system-prompt.ts` 丢了上游的小写 `system.md` 支持**：二开重写时只认大写。已恢复为**上游超集**
   （项目级/用户级均做大小写变体探测，并兼容 `~/.pi/<name>` 老布局）。
 
+### 修复（技能同名静默覆盖 —— 本轮审查新发现）
+
+- **`safe-skills/ida-reverse` 覆盖了顶层 `ida-reverse`**：两者安装名相同，`install-pi.ps1` 按目录序
+  先装顶层（1 文件的 IDA 全自动唤醒规约）再装 safe-skills（3 文件的辅助版），后者把前者**静默覆盖**——
+  结果机器上 `~/.pi/agent/skills/ida-reverse` 里没有 **13337 端口全自动唤醒规约**，
+  而体检只查"SKILL.md 在不在"，一直是假绿。
+  - 处置：safe-skills 那份**改名 `ida-assistant`**（回归上游 DEPLOYMENT-CHECKLIST 原本设计的 S9 名称），
+    两份共存 → 工作台技能数 **9 → 10**；
+  - 安装器（`install-pi.ps1` / `install.sh`）加**同名冲突守卫**（子技能与顶层同名则跳过并告警）；
+  - 体检加**功能性断言**：`ida-reverse/SKILL.md` 必须含 `13337`（防再次被覆盖后仍假绿）。
+
 ### 新增（与 pi-web 回退功能协同）
 
 - **`input` 钩子加幂等保护**：pi-web 的「回退 + 回填草稿」会把**已改写过的**用户消息（带合规前缀）

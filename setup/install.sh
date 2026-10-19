@@ -104,7 +104,15 @@ if [ -d "$TOOL_DIR/skill" ]; then
             sname=$(basename "$s")
             if [ "$sname" = "safe-skills" ]; then
                 for sub in "$s/"*; do
-                    [ -d "$sub" ] && cp -r "$sub" "$AGENT_DIR/skills/"
+                    [ -d "$sub" ] || continue
+                    subname="$(basename "$sub")"
+                    # ★ 冲突守卫：与顶层技能同名则跳过，避免静默覆盖
+                    #   （历史事故：safe-skills/ida-reverse 覆盖顶层 ida-reverse）
+                    if [ -d "$TOOL_DIR/skill/$subname" ]; then
+                        echo "  [!] safe-skills 子技能与顶层同名，已跳过: $subname"
+                        continue
+                    fi
+                    cp -r "$sub" "$AGENT_DIR/skills/"
                 done
             elif [ "$sname" != "update" ]; then
                 cp -r "$s" "$AGENT_DIR/skills/"

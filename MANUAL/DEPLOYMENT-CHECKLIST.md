@@ -1,4 +1,4 @@
-# MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
+﻿# MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
 
 > **版本**：v1.8.1  
 > **适用范围**：Pi Agent / Claude Code / DeepSeek Harness / Codex / OpenCode  
@@ -22,7 +22,7 @@
 
 ## 二、 官方部署资产核验基准表 (Baseline Manifests)
 
-### 1. 🛠️ 技能系统基准表 (Skills System - 9 大组件)
+### 1. 🛠️ 技能系统基准表 (Skills System - 10 大组件)
 
 目标安装路径以 Pi Agent 规范为例（`~/.pi/agent/skills/`，Windows 下为 `$env:USERPROFILE\.pi\agent\skills\`）：
 
@@ -37,6 +37,7 @@
 | **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/apk-reverse` |
 | **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/radare2` |
 | **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/mcp-js-reverse-playbook` |
+| **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/ida-assistant` |
 
 ---
 

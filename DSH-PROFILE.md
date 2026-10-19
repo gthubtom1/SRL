@@ -1,4 +1,4 @@
-# DeepSeek Harness Profile — Seep 逆向工作台
+﻿# DeepSeek Harness Profile — Seep 逆向工作台
 
 > 将此补丁导入 DSH Profile 目录，或通过 `--patch` 命令行动态挂载。
 > DeepSeek Harness 的 MCP 遵循官方 Cordis Overlay 补丁标准，通过 `@deepseek-ai/dsh-mcp-client` 桥接。
@@ -29,7 +29,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\check.ps1
 ```
 依次核验并汇报：
 * 📁 核心架构 (Tool/ 完整性，14 大脱敏工业案例工程)
-* 🛠️ 技能系统 (softseep, apkseep 等 9 个 Skill)
+* 🛠️ 技能系统 (softseep, apkseep 等 10 个 Skill)
 * 🔌 MCP 服务 (seep 38 个原生工具, ida, playwright, js-reverse)
 * 🧠 提示词与 Lab 状态机
 * 🔧 内置工具箱 (Jadx, Radare2, Apktool)

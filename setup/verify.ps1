@@ -238,9 +238,10 @@ Test-CheckItem "Skill" "移动端逆向全链路 (apkseep 包含 45 篇规范与
     (Test-Path (Join-Path $localSkills 'apkseep\SKILL.md')) -and (Test-Path $r) -and (Test-Path $s)
 } "apkseep 工程不完整" "SKILL.md + 45 refs + 56 scripts" "$localSkills\apkseep"
 
-Test-CheckItem "Skill" "IDA Pro 自动化联动 (ida-reverse)" {
-    Test-Path (Join-Path $localSkills 'ida-reverse\SKILL.md')
-} "ida-reverse 技能缺失" "SKILL.md 在位" "$localSkills\ida-reverse"
+Test-CheckItem "Skill" "IDA Pro 自动化联动 (ida-reverse 含 13337 唤醒规约)" {
+    $f = Join-Path $localSkills 'ida-reverse\SKILL.md'
+    (Test-Path $f) -and (Select-String -Path $f -Pattern '13337' -Quiet)
+} "ida-reverse 技能缺失或被同名 safe-skills 版本覆盖（缺 13337 唤醒规约）" "SKILL.md + 13337 规约" "$localSkills\ida-reverse"
 
 Test-CheckItem "Skill" "通用许可/卡密校验突破规范 (license-bypass)" {
     Test-Path (Join-Path $localSkills 'client-license-validation-bypass\SKILL.md')
