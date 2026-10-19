@@ -116,15 +116,21 @@ def main():
     if sys.platform == "win32":
         import subprocess as _sp
         import time as _t
-        proc = _sp.Popen(["notepad.exe"])
-        _t.sleep(1.5)
+        # 优化：采用 CREATE_NO_WINDOW 纯静默无窗口启动后台假靶机，绝不弹窗打扰用户
+        CREATE_NO_WINDOW = 0x08000000
+        proc = _sp.Popen([sys.executable, "-c", "import time; time.sleep(10)"],
+                         creationflags=CREATE_NO_WINDOW)
+        _t.sleep(0.5)
         try:
             mm = json.loads(S.seep_mem_strings(proc.pid, min_len=8, max_hits=5, encoding="ascii"))
             check("mem_strings 返回结构", "count" in mm, str(mm)[:80])
         except Exception as exc:
             check("mem_strings 不抛异常", False, str(exc))
         finally:
-            proc.terminate()
+            try:
+                proc.terminate()
+            except Exception:
+                pass
     else:
         print("  [SKIP] 非 Windows")
 
