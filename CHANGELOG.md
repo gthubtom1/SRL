@@ -30,6 +30,13 @@
 - **6 个 MCP 工具（薄封装，末尾追加）**：`seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_research` / `seep_tool_register_mcp` / `seep_tool_install` / `seep_tool_state`。
 - **接入**：`softseep/SKILL.md` 新增「工具自动发现与自动适配 MCP（新增 6 个）」速查表。
 
+### 部署健壮性修复（任务B 从零部署审查发现并修好）
+
+- **`setup/verify.sh`**：Python 探测改为「存在且能真正执行」——避开 Windows 上 Microsoft Store 的 `python3` 占位程序（存在但不运行、返回非零，会把自检误判为失败）。
+- **`setup/verify.sh`**：修复 Radare2 检测项（原先直接 `command ... || test` 作为 `check_item` 的命令，`||` 会把 `test -f` 拆成参数导致永远判失败）；包成 `test_radare2()` 函数，现在内置 r2 能正确识别。
+- **`setup/verify.sh`**：新增「工具自动发现插件」体检项（与 verify.ps1 对齐，Linux/macOS 也校验）。
+- **`setup/install.sh`**：同上修复 Python 探测（真正可执行才用，否则回退 `python`），后续 pip 安装统一用 `$PY`。
+
 ### 体检
 
 - `setup/verify.ps1` 追加 2 项：插件+能力表+状态不入库校验、自动发现功能自测。工具总数 31 → 37；核心检查 53 → 55 项。

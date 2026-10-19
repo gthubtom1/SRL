@@ -57,10 +57,11 @@ echo -e "  工作台物理根目录: $ROOT"
 echo -e "  宿主操作系统内核: $(uname -s) $(uname -r) ($(uname -m))"
 echo -e "  基准核验清单规范: MANUAL/DEPLOYMENT-CHECKLIST.md"
 
-# 探测 Python 命令（优先 python3，其次 python）
-if command -v python3 &>/dev/null; then
+# 探测 Python 命令（优先 python3，其次 python；且要求能真正执行——
+# 避开 Windows Store 的 python3 占位程序：它存在但不运行、返回非零，会把自检误判为失败）
+if command -v python3 &>/dev/null && python3 -c "print(1)" &>/dev/null; then
     PY_BIN="python3"
-elif command -v python &>/dev/null; then
+elif command -v python &>/dev/null && python -c "print(1)" &>/dev/null; then
     PY_BIN="python"
 else
     PY_BIN=""
@@ -78,6 +79,16 @@ test_ext_assets() {
     [ -f "$sp" ] && [ -f "$et" ] && [ -f "$ed" ] && [ -f "$mp" ] && \
         grep -q 'def seep_ensure_tool' "$sp" && grep -q 'def seep_packer_detect' "$sp" && \
         grep -q 'def seep_http_replay' "$sp" && grep -q 'def seep_web_recon' "$sp"
+}
+
+test_tool_autodiscover() {
+    local ta="$TOOL_DIR/mcp/tool_autodiscover.py"
+    local tc="$TOOL_DIR/config/tool-capabilities.json"
+    [ -f "$ta" ] && [ -f "$tc" ] && \
+        grep -q 'def discover' "$ta" && grep -q 'def plan_control' "$ta" && \
+        grep -q 'def register_mcp' "$ta" && grep -q 'def research_control' "$ta" && \
+        grep -q '"tools"' "$tc" && \
+        grep -q 'tools.local.json' "$ROOT/.gitignore"
 }
 
 test_python_mcp() {
@@ -143,8 +154,12 @@ fi
 echo -e "\n${WHITE}[5/9] 🔌 MCP 服务引擎与物理内置工具箱 (Native Tools)${RESET}"
 check_item "MCP" "核心服务端脚本 (seep_mcp_server.py 语法自洽)" test_python_syntax
 check_item "MCP" "扩展资产：8 个新工具 + 引擎链 + 文档 (含 protocol/resource/packer)" test_ext_assets
+check_item "MCP" "工具自动发现插件 (tool_autodiscover.py + 能力表 + 状态隔离)" test_tool_autodiscover
 check_item "工具箱" "Jadx 反编译引擎 (jadx-1.5.6 完整就绪)" test -f "$SAFE_DIR/jadx/lib/jadx-1.5.6-all.jar"
-check_item "工具箱" "Radare2 二进制套件 (跨平台探测系统/内置 r2)" command -v radare2 &>/dev/null || test -f "$SAFE_DIR/radare2/bin/radare2.exe"
+test_radare2() {
+    command -v radare2 &>/dev/null || test -f "$SAFE_DIR/radare2/bin/radare2.exe"
+}
+check_item "工具箱" "Radare2 二进制套件 (跨平台探测系统/内置 r2)" test_radare2
 check_item "工具箱" "Apktool 资源拆解重构环境 (apktool.jar)" test -f "$SAFE_DIR/apktool/apktool.jar"
 check_item "工具箱" "Frida/LSPosed 动态插桩模板库 (hook-mcp)" test -d "$SAFE_DIR/hook-mcp/templates"
 check_item "依赖" "Web/JS 逆向调试引擎依赖已解压 (js-reverse-mcp/node_modules)" test -d "$SAFE_DIR/js-reverse-mcp/node_modules" -o -f "$SAFE_DIR/js-reverse-mcp/node_modules.zip"

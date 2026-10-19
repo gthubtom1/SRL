@@ -201,9 +201,10 @@
     }
   },
   "mcp_ecosystem": {
-    "_comment": "已知 MCP 生态注册模板：发现到对应工具时，插件据此生成 mcp.json 注册片段（增量合并，需重启生效）。",
-    "ida":    {"command": "uvx", "args": ["ida-mcp", "stdio"], "transport": "stdio"},
-    "ghidra": {"command": "uvx", "args": ["--from", "git+https://github.com/LaurieWired/GhidraMCP", "ghidra-mcp", "--headless"], "transport": "stdio"},
-    "x64dbg": {"command": "npx", "args": ["-y", "x64dbg-mcp"], "transport": "stdio", "optional": true}
+    "_comment": "已知 MCP 生态注册模板：发现到对应工具时，插件据此生成 mcp.json 注册片段（增量合并，需重启生效）。条目均于 2026-10-19 联网核实存在（npm/PyPI/GitHub）。",
+    "ida":    {"command": "uvx", "args": ["ida-mcp", "stdio"], "transport": "stdio", "verified": "PyPI ida-mcp 存在（HexRays 官方）"},
+    "ghidra": {"command": "uvx", "args": ["--from", "git+https://github.com/LaurieWired/GhidraMCP", "ghidra-mcp", "--headless"], "transport": "stdio", "verified": "GitHub LaurieWired/GhidraMCP"},
+    "x64dbg": {"command": "npx", "args": ["-y", "x64dbg-mcp"], "transport": "stdio", "verified": "npm x64dbg-mcp 1.3.1（ouonet/x64dbg-mcp）", "note": "多数 x64dbg MCP 需 x64dbg GUI 实例配合；无 GUI 时建议改走 cdb headless 或自写脚本。"},
+    "frida":  {"command": "npx", "args": ["-y", "frida-mcp"], "transport": "stdio", "verified": "npm/PyPI frida-mcp 均存在"}
   }
 }

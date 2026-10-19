@@ -17,13 +17,21 @@ echo "  工作台物理根目录: $ROOT"
 echo "  Agent 目标根目录: $AGENT_DIR"
 
 # 1. 基础环境探测
+# 注意：Windows 上 `python3` 可能是 Microsoft Store 占位程序——存在但不运行、返回非零。
+# 因此不仅探测存在，还要验证能真正执行；否则依次回退到 python。
 echo -e "\n[1/5] 🔍 检查基础运行环境..."
-if ! command -v python3 &>/dev/null; then
-    echo "❌ 错误: 未检测到 python3，请先安装 Python 3.11+。"
+PY=""
+if command -v python3 &>/dev/null && python3 -c "print(1)" &>/dev/null; then
+    PY="python3"
+elif command -v python &>/dev/null && python -c "print(1)" &>/dev/null; then
+    PY="python"
+fi
+if [ -z "$PY" ]; then
+    echo "❌ 错误: 未检测到可用的 Python 3.11+（python3/python 均不可执行）。请安装 Python 并勾选 Add to PATH。"
     exit 1
 fi
-PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-echo "  [√] Python 解释器: python3 (v$PY_VER)"
+PY_VER=$($PY -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "  [√] Python 解释器: $PY (v$PY_VER)"
 
 # 2. 离线依赖解压
 echo -e "\n[2/5] 📦 解压内置离线依赖..."
@@ -67,11 +75,11 @@ echo "  [√] 二进制可执行权限设置完成"
 
 # 4. 安装 Python mcp 协议库
 echo -e "\n[4/5] 🐍 安装 Python 协议支持..."
-python3 -m pip install "mcp>=1.20,<1.29" --quiet || {
-    echo "⚠️ 自动安装失败，建议手动执行: python3 -m pip install 'mcp>=1.20,<1.29'"
+$PY -m pip install "mcp>=1.20,<1.29" --quiet || {
+    echo "⚠️ 自动安装失败，建议手动执行: $PY -m pip install 'mcp>=1.20,<1.29'"
 }
 # 扩展资产可选依赖（缺失时对应工具会优雅降级，不阻断）
-python3 -m pip install pefile curl-cffi zstandard requests --quiet 2>/dev/null || {
+$PY -m pip install pefile curl-cffi zstandard requests --quiet 2>/dev/null || {
     echo "ℹ️ 扩展资产可选依赖未全部安装（pefile/curl-cffi/zstandard），对应工具会降级但不报错"
 }
 echo "  [√] Python MCP 协议支持就绪"
