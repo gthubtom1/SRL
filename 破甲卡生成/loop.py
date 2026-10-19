@@ -21,7 +21,7 @@
   * 一轮只改一件事，改完必须复测；不能改完就宣布变好。
   * 失败只能转成 禁用串 / SCAN / BAD-GOOD 对（卡片 §13），不能转成"原则"。
   * 空正文/403/502 是传输，不算卡片成绩；某一模型传输失败超过 60% 就别再拿它当证据。
-  * 同一模型同一题的重复判定会漂（见 REPORT.md §6.3），结论要靠同刻成对对照（ab.py）。
+  * 同一模型同一题的重复判定会漂（见 卡片开发手册.md §8），结论要靠同刻成对对照（ab.py）。
 """
 import io, json, os, subprocess, sys
 
@@ -124,7 +124,7 @@ def main():
         print("     或做同刻成对对照 `python ab.py <模型> <题,题> <卡片.md>`（线路不稳时唯一可信的比法）。")
         print("  5. 四道验收闸跑一遍（04-console/selftest.py、03-bundle/pack.py、"
               "02-hubcore/build_hubcore.py --check、06-verify/probe_marker.py）。")
-    print("\n全部轮次结束。记忆写进 破甲交接.md，别只留在这一场对话里。")
+    print("\n全部轮次结束。结论写进 卡片开发手册.md（§7 已知坑 / §8 端点侧）或 模型档案.md，别只留在这一场对话里。")
     return 0
 
 
