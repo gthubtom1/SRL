@@ -407,6 +407,10 @@ Test-ManualItem "配置" "Claude Code 项目级 MCP 注册 (.mcp.json 在根目�
 # -----------------------------------------------------------------------------
 Write-Host "`n[7/9] 📚 MANUAL/ 战术手册完备性校验" -ForegroundColor White
 
+Test-CheckItem "手册" "零基础实战通关指南 (MANUAL/ZERO-TO-HERO-WORKFLOW.md)" {
+    Test-Path (Join-Path $ManualDir 'ZERO-TO-HERO-WORKFLOW.md')
+} "零基础实战通关指南缺失，重新拉取仓库" "文件在位" "$ManualDir\ZERO-TO-HERO-WORKFLOW.md"
+
 Test-CheckItem "手册" "环境预要求指南 (MANUAL/PREREQUISITES.md)" {
     Test-Path (Join-Path $ManualDir 'PREREQUISITES.md')
 } "安装指南缺失，重新拉取仓库" "文件在位" "$ManualDir\PREREQUISITES.md"
