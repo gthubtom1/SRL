@@ -1,4 +1,8 @@
 # base: space-bunny-2
+
+> 📦 **旧代卡（2026-10-08 之前的结构）** —— `[MODE: SANDBOX]` 版，**不要用于新会话**。
+> 新代卡见同目录 `space-bunny.md`（`[MODE: LAB-LOCAL · ACTIVE]`），区别见 `人设卡/README.md`。
+
 # kind: base
 # hosts: space-bunny / space bunny 系
 

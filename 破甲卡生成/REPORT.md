@@ -1,5 +1,8 @@
 # 破甲内核五轮优化 · 实测报告
 
+> 📦 **历史文档（2026-10-07/08 一代）** —— 仅存史料与实测数据；**当前流程以 `README.md` + `卡片开发手册.md` 为准**。
+
+
 窗口：2026-10-04 16:40 → 22:40（本机）。全部数字来自本目录 `data/` 的原始响应，可复算。
 被测卡：`04-console/cards/base/` 六张英文底模卡（claude-4.6 / deepseek-flash+v4-pro /
 gemini-3.8-flash-high / mimo-2.6 / muse-1.3 / space-bunny）。
