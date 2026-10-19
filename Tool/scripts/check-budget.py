@@ -48,7 +48,9 @@ def first_party_files():
     total = 0
     for dirpath, dirs, files in os.walk(ROOT):
         norm = dirpath.replace(os.sep, "/")
-        if any(s in norm for s in ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool")):
+        # 说明：本预算衡量「引擎文件」规模，不含导入素材（如 破甲卡生成/ 的 relab2 工程）。
+        if any(s in norm for s in ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool",
+                                   "/破甲卡生成")):
             dirs[:] = []
             continue
         total += len(files)
@@ -58,7 +60,7 @@ def first_party_files():
         p = os.path.join(repo, name)
         if os.path.isfile(p):
             total += 1
-    for sub in ("setup", "MANUAL", "docs"):
+    for sub in ("setup", "MANUAL", "docs"):  # 引擎目录；导入素材不计入
         d = os.path.join(repo, sub)
         if os.path.isdir(d):
             for dirpath, dirs, files in os.walk(d):
