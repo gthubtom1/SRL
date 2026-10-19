@@ -34,7 +34,7 @@
    ```
    *产物将完整隔离在 `work/hills-localize/` 下，不污染任何工作区根目录。*
 2. **IDA 自动化辅助分析**：
-   - 使用 `mcp_ida_*` 系列工具或唤醒 IDA Pro；
+   - 使用 `mcp__ida__*` 系列工具或唤醒 IDA Pro；
    - 检索 `License`、`VIP`、`Expire` 等关键函数，提取判断逻辑分支。
 3. **编写免杀代理 DLL 热补丁**：
    - 遵循 `softseep` 战术，优先选取宿主必定隐式引用的系统库（如 `version.dll`、`dinput8.dll`）；

@@ -171,7 +171,6 @@ $packages = @(
     'npm:@narumitw/pi-btw',
     'npm:@narumitw/pi-plan-mode',
     'npm:@narumitw/pi-usage',
-    'npm:pi-mcp-extension',
     'npm:@smoose/pi-themes',
     'npm:pi-tool-display',
     'npm:@juicesharp/rpiv-ask-user-question',
@@ -191,6 +190,14 @@ if (Test-Path $dstSettings) {
 
 $currentPackages = @()
 if ($settings.packages) { $currentPackages = @($settings.packages) }
+# 退役条目：曾与 pi 1.3+ 内置 MCP 抢 /mcp（replaceable 机制会丢弃内置、启动报
+# [Extension issues]）。重跑本脚本时主动剔除，保证从旧版升级上来也能恢复内置。
+$retiredPackages = @('npm:pi-mcp-extension')
+$foundRetired = @($currentPackages | Where-Object { $retiredPackages -contains $_ })
+if ($foundRetired.Count -gt 0) {
+    $currentPackages = @($currentPackages | Where-Object { $retiredPackages -notcontains $_ })
+    Write-Warn ("已剔除退役扩展（与 pi 内置 MCP 抢名）: " + ($foundRetired -join ', '))
+}
 foreach ($pkg in $packages) {
     if ($currentPackages -notcontains $pkg) { $currentPackages += $pkg }
 }
@@ -210,6 +217,24 @@ if (-not $SkipPackages) {
         else { Write-Warn 'pi update 失败，可稍后手动执行：pi update --extensions' }
     } else {
         Write-Warn '未找到 pi 命令，跳过扩展包更新'
+    }
+}
+
+# ---------------------------------------------------------------- 7. 扩展命名冲突自检（pi 的 replaceable 内置）
+# 背景：pi 把部分内置标记为 replaceable（内置 MCP 即其一）。第三方扩展只要注册了同名
+# 工具/命令/旗标（如 /mcp），内置就会被静默顶掉并在启动时打 [Extension issues]。
+# 本步在**装完就报**，而不是等用户看启动横幅。
+$conflictScript = Join-Path $ToolDir 'scripts\check-extension-conflicts.py'
+if (Test-Path $conflictScript) {
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    if ($py) {
+        Write-Info '检查已装扩展是否与 pi 内置抢名（replaceable）...'
+        & python $conflictScript 2>&1 | ForEach-Object { Write-Info $_ }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warn '存在扩展与 pi 内置同名冲突：该扩展会顶掉内置，启动会出现 [Extension issues]。按上面提示处置。'
+        } else {
+            Write-Ok '扩展命名无冲突（pi 内置 MCP 等保持生效）'
+        }
     }
 }
 

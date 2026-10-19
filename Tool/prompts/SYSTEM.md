@@ -115,4 +115,4 @@ SSL Pinning；服务端权威：以 S2S 通知 + 二次验签为唯一凭据，�
 - **自检**：`seep_status`（r2 / jadx / apktool / KB 就绪度）、`seep_ida_status`（IDA MCP 是否在线）。
 - **IDA 不可用不阻塞**：直接用 `seep_r2_info` / `_strings` / `_disasm` / `_functions` / `_decompile` / `_diff` / `_asm`
   ＋ `seep_apk_*` ＋ `seep_kb_*` 承接，并在报告里标注「未使用 IDA 反编译器，伪代码质量受限」。
-- **优先级**：有 `seep_*` 先用（轻量、无需 GUI）→ 需深度反编译/结构体用 `mcp_ida_*` → 需浏览器交互用 playwright。
+- **优先级**：有 `seep_*` 先用（轻量、无需 GUI）→ 需深度反编译/结构体用 `mcp__ida__*` → 需浏览器交互用 playwright。

@@ -10,6 +10,47 @@
 
 ---
 
+## [1.9.1] — 2026-10-20
+
+> 主题：**换回 pi 内置 MCP** —— 退役与 pi 1.3+ 内置抢 `/mcp` 的第三方扩展包，并加"装前命名自检"。
+
+### 修复：启动横幅 `[Extension issues]`
+
+| 现象 | 根因 |
+|---|---|
+| 会话启动打 `[Extension issues]`，提示内置 `mcp` 被替换 | 安装器把 `npm:pi-mcp-extension` 写进 `settings.json` 的 `packages`；它注册 `/mcp`，而 pi 把内置 `mcp` 标为 `replaceable` → 内置被**静默丢弃** |
+| 工具名是 `mcp_<server>_<tool>`（单下划线） | 第三方扩展默认 `toolPrefix: "mcp"`；内置命名是 `mcp__<server>__<tool>` |
+| 外部消费者（pi-web 的只读策略 / 子代理 / 退出登录）静默失效 | 它们按内置 `mcp__` 判定归属，第三方命名不在其识别范围 |
+
+**处置**：从包清单移除该扩展，回到 pi 内置 MCP。老用户升级时由 `merge_agent_config.py` **主动剔除**该退役条目，无需手改配置。
+
+### 新增：扩展命名自检（防复发）
+
+- `Tool/scripts/check-extension-conflicts.py`：
+  - 从**已装 pi 本体**解析 `replaceable` 内置名单（不写死，随 pi 版本走）；
+  - 扫描已装扩展（`<agent>/npm/node_modules/*` 与 `<agent>/extensions/*`）注册的 tool / command / flag 名；
+  - 撞名即报冲突 + 处置建议，**退出码 1**；
+  - 读不到 pi 本体时明确"跳过"，不制造假红。
+- `setup/install-pi.ps1` 装完扩展包后自动执行该断言（不新增体检项，60 项基准不变）。
+
+### 变更
+
+| 位置 | 改动 |
+|---|---|
+| `setup/install-pi.ps1`、`setup/merge_agent_config.py` | 包清单 12 → **11**（移除 `npm:pi-mcp-extension`）；新增 `RETIRED_PACKAGES` 剔除逻辑 |
+| `Tool/docs/DOWNLOADS.md`、`MANUAL/PREREQUISITES.md` | 包数 12 → 11；删除手动安装示例中的该包 |
+| `Tool/prompts/SYSTEM.md`、`Tool/skill/ida-reverse/SKILL.md`、`Tool/skill/softseep/SKILL.md`、`Tool/docs/{DOWNLOADS,MCP-SETUP,TOOLKIT_GUIDE}.md` | 工具命名 `mcp_ida_*` → **`mcp__ida__*`**（12 处） |
+| `Tool/docs/MCP-SETUP.md` §三 | 新增"装任何 pi 扩展前先跑命名自检"，并注明**加 MCP 服务器不触发** |
+| `MANUAL/DEPLOYMENT-CHECKLIST.md` | MCP 段附"附加断言（不计入 60 项）" |
+
+### 升级注意
+
+- 执行 `setup/update.ps1` 后**完全重启会话**：`[Extension issues]` 消失、工具名回到 `mcp__seep__*`。
+- 以后要装任何 pi 扩展，先跑 `python Tool/scripts/check-extension-conflicts.py`（撞名提前拦下，不必等启动横幅）。
+- 往 `mcp.json` 加 MCP 服务器（或用 `seep_tool_register_mcp`）**不受影响**——那是配置，不是扩展。
+
+---
+
 ## [1.9.0] — 2026-10-20
 
 > 主题：**提示词层重构（行为契约变更）** —— 消冲突、去重复、把"常驻手册"改成"按需"。

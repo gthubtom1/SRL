@@ -49,13 +49,19 @@ WORKBENCH_PACKAGES = [
     "npm:@narumitw/pi-btw",
     "npm:@narumitw/pi-plan-mode",
     "npm:@narumitw/pi-usage",
-    "npm:pi-mcp-extension",
     "npm:@smoose/pi-themes",
     "npm:pi-tool-display",
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-playwright",
     "npm:pi-goal-x",
 ]
+
+# 已退役条目：曾随旧版安装器写入，但与 pi 1.3+ 的内置 MCP 抢 `/mcp`
+# （pi 的 replaceable 机制会把内置顶掉，启动报 [Extension issues]）。
+# 合并时主动剔除，保证老用户升级后也能恢复内置。
+RETIRED_PACKAGES = {
+    "npm:pi-mcp-extension",
+}
 
 BACKUP_KEEP = 3
 
@@ -221,16 +227,19 @@ def merge_settings_json(args) -> int:
     if not isinstance(pkgs, list):
         pkgs = []
     added = [p for p in WORKBENCH_PACKAGES if p not in pkgs]
-    merged = pkgs + added
+    retired = [p for p in pkgs if p in RETIRED_PACKAGES]
+    merged = [p for p in pkgs if p not in RETIRED_PACKAGES] + added
 
     log("  settings.json 目标: %s" % dst)
-    log("    packages: 原有 %d，新增 %d，合计 %d" % (len(pkgs), len(added), len(merged)))
+    log("    packages: 原有 %d，新增 %d，退役剔除 %d，合计 %d" % (len(pkgs), len(added), len(retired), len(merged)))
+    for p in retired:
+        log("    [退役] %s —— 与 pi 内置 MCP 抢 /mcp，已移除（恢复内置）" % p)
     cfg["packages"] = merged
 
     if args.dry_run or args.print_only:
         log("  [DRY-RUN] 未写入 settings.json")
         return 0
-    if not added and os.path.isfile(dst):
+    if not added and not retired and os.path.isfile(dst):
         log("    [OK] 已是最新，未改动文件")
         return 0
     bak = backup(dst)

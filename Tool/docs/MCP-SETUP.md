@@ -87,6 +87,24 @@ MCP（工具层）           →  给 agent「实际干活的手」
 
 ---
 
+### 装任何 pi 扩展前：先跑命名自检
+
+pi 把少数内置标为 `replaceable`（当前：`codemode` / `tool-search` / `mcp`）。
+第三方扩展只要注册了**同名**命令/工具/旗标（典型：自己实现 `/mcp`），内置会被**静默丢弃**，启动横幅打 `[Extension issues]`，
+且工具命名从内置的 `mcp__<server>__<tool>` 变成第三方的 `mcp_<server>_<tool>` ——
+所有按 `mcp__` 写死的消费者（如 pi-web 的只读策略 / 子代理 / 退出登录）会**静默失效**。
+
+```bash
+python Tool/scripts/check-extension-conflicts.py      # 有冲突 → 退出码 1，并给出处置
+```
+
+`install-pi.ps1` 在装完扩展包后会自动跑这一步。
+
+> **给本工作台加 MCP 服务器不会触发**：编辑 `mcp.json` 或用 `seep_tool_register_mcp`
+> 只是“加一条服务器配置”，不是“装一个替换内置的扩展”。
+
+---
+
 ## 四、⚠️ 关键约束：`Tool/mcp/Tool/` 不可搬动
 
 `seep_mcp_server.py` **内部硬编码**了运行时目录：
@@ -152,7 +170,7 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 | `seep_apk_decompile` | `Tool/mcp/Tool/safe/jadx/bin/` | "jadx not found" |
 | `seep_apk_unpack` | `Tool/mcp/Tool/safe/apktool/` | "apktool not found" |
 | `seep_apk_gen_hook` | `Tool/mcp/Tool/safe/hook-mcp/templates/` | 模板缺失 |
-| `mcp_ida_*`（约 100 个，随 ida-pro-mcp 版本变化） | 自备 IDA Pro + `Tool/mcp/Tool/safe/ida-pro-mcp/` | "IDA not available" |
+| `mcp__ida__*`（约 100 个，随 ida-pro-mcp 版本变化） | 自备 IDA Pro + `Tool/mcp/Tool/safe/ida-pro-mcp/` | "IDA not available" |
 | playwright 工具 | npx + token | 浏览器不可用 |
 
 **排障口诀**：工具报错 → 看它读哪个目录 → 检查该目录是否存在且非空。

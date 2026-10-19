@@ -66,7 +66,7 @@ IDA Pro **不随包分发**。两种处理：
 
 ---
 
-## 四、pi 扩展包（12 个 npm 包）
+## 四、pi 扩展包（11 个 npm 包）
 
 由 `install-pi.ps1` 写入 `~/.pi/agent/settings.json` 的 `packages` 字段，
 然后执行 `pi update --extensions` 安装：
@@ -78,7 +78,6 @@ npm:@juicesharp/rpiv-todo
 npm:@narumitw/pi-btw
 npm:@narumitw/pi-plan-mode
 npm:@narumitw/pi-usage
-npm:pi-mcp-extension
 npm:@smoose/pi-themes
 npm:pi-tool-display
 npm:@juicesharp/rpiv-ask-user-question
@@ -162,7 +161,7 @@ npm:pi-goal-x
 | **实测版本** | **1.4.0** |
 | **安装** | `pip install ida-pro-mcp` |
 | **目标** | Python site-packages |
-| **服务的工具** | `mcp_ida_*`（约 100 个，随 ida-pro-mcp 版本变化） |
+| **服务的工具** | `mcp__ida__*`（约 100 个，随 ida-pro-mcp 版本变化） |
 | **⚠️ 前置** | **需自备 IDA Pro**（见 `MANUAL/IDA-PRO.md`） |
 
 ---
@@ -184,7 +183,7 @@ npm:pi-goal-x
 
 ---
 
-## 四、pi 扩展包（12 个 npm 包）
+## 四、pi 扩展包（11 个 npm 包）
 
 由 `install-pi.ps1` 写入 `~/.pi/agent/settings.json` 的 `packages` 字段，
 然后执行 `pi update --extensions` 安装：
@@ -196,7 +195,6 @@ npm:@juicesharp/rpiv-todo
 npm:@narumitw/pi-btw
 npm:@narumitw/pi-plan-mode
 npm:@narumitw/pi-usage
-npm:pi-mcp-extension
 npm:@smoose/pi-themes
 npm:pi-tool-display
 npm:@juicesharp/rpiv-ask-user-question
@@ -210,7 +208,7 @@ npm:pi-goal-x
 ```powershell
 pi update --extensions
 # 或逐个装
-pi install npm:pi-mcp-extension
+pi install npm:pi-tool-display
 ```
 
 ---
@@ -315,7 +313,7 @@ powershell -ExecutionPolicy Bypass -File .\verify.ps1
 | 解压本包 | 16 MB |
 | 装工具（jadx 460 + r2 39 + apktool 24 + playwright 45 + ida-pro-mcp 1） | ~570 MB |
 | Python 依赖（mcp + pytest + frida-tools） | ~50 MB |
-| pi 扩展包（12 个） | ~80 MB |
+| pi 扩展包（11 个） | ~80 MB |
 | **合计** | **≈ 700 MB** |
 
 > 若只装核心链路（**跳过 jadx**）：可省 460 MB。

@@ -46,7 +46,7 @@ cd Seep-Reverse-Lab
 | playwright-mcp | `npm i @playwright/mcp` |
 | js-reverse-mcp | 源码 + `npm install && npm run build` |
 | ida-pro-mcp | `pip install ida-pro-mcp` |
-| pi 扩展包（12 个） | `pi update --extensions` |
+| pi 扩展包（11 个） | `pi update --extensions` |
 
 ---
 

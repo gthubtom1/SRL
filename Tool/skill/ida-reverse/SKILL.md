@@ -86,12 +86,12 @@ for i in range(15):
 
 | 战术动作 | 对应 MCP 工具 / API | 产出与用途 |
 |---|---|---|
-| **元数据提取** | `mcp_ida_get_metadata` | 获取目标架构、位宽、编译器与基址信息 |
-| **入口点探测** | `mcp_ida_get_entry_points` | 快速锁定 main / OEP / 初始化入口 |
-| **函数列表枚举** | `mcp_ida_list_functions` | 检索 `verify_license`、`check_vip`、`sub_*` |
-| **C-Like 伪代码反编译** | `mcp_ida_decompile_function` | 获得 Hex-Rays 反编译高质量 C 伪代码 |
-| **交叉引用回溯** | `mcp_ida_get_xrefs_to` / `_from` | 逆向回溯调用链，寻找鉴权判断上游来源 |
-| **结构体/局部变量重命名**| `mcp_ida_set_local_name` | 动态修复混淆符号，增强可读性 |
+| **元数据提取** | `mcp__ida__get_metadata` | 获取目标架构、位宽、编译器与基址信息 |
+| **入口点探测** | `mcp__ida__get_entry_points` | 快速锁定 main / OEP / 初始化入口 |
+| **函数列表枚举** | `mcp__ida__list_functions` | 检索 `verify_license`、`check_vip`、`sub_*` |
+| **C-Like 伪代码反编译** | `mcp__ida__decompile_function` | 获得 Hex-Rays 反编译高质量 C 伪代码 |
+| **交叉引用回溯** | `mcp__ida__get_xrefs_to` / `_from` | 逆向回溯调用链，寻找鉴权判断上游来源 |
+| **结构体/局部变量重命名**| `mcp__ida__set_local_name` | 动态修复混淆符号，增强可读性 |
 
 ---
 
