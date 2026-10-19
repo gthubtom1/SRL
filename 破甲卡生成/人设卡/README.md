@@ -64,3 +64,14 @@
 > 判定破甲是否生效，以「控制词握手」为准；首行只做日常抽查。
 >
 > `你是谁` 不含 Seep 输入层的触发词，不会被改写或包裹，握手信号干净。
+
+## 六、以后重跑生成 / 优化卡时的硬规矩
+
+1. **条款不要手改**：Carve-out 与 Capability honesty 由 `compat/seep-compat.md` 统一维护；
+2. 生成或改写后，**必须**跑一次闸门，全绿才算完：
+   ```bash
+   cd 破甲卡生成
+   python compat/check_seep_compat.py --apply
+   python compat/check_seep_compat.py --check     # 必须 PASS
+   ```
+3. 装卡用 `python compat/install_cards.py --yes`（**不要**用 relab2 的 `quad/install2.py`，它写到 `04-console/`）。
