@@ -319,7 +319,6 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 
 	pi.registerCommand("rules-reload", { description: "强制重新从磁盘加载 PERSONALITY/RULES/SYSTEM", handler: handleReload });
 	pi.registerCommand("prompt-reload", { description: "别名: /rules-reload", handler: handleReload });
-	pi.registerCommand("omp-reload", { description: "别名: /rules-reload", handler: handleReload });
 	pi.registerCommand("rules-status", { description: "查看当前人设卡与提示词装配状态", handler: handleStatus });
 	pi.registerCommand("prompt-status", { description: "别名: /rules-status", handler: handleStatus });
 
