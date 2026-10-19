@@ -30,6 +30,13 @@
 - **6 个 MCP 工具（薄封装，末尾追加）**：`seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_research` / `seep_tool_register_mcp` / `seep_tool_install` / `seep_tool_state`。
 - **接入**：`softseep/SKILL.md` 新增「工具自动发现与自动适配 MCP（新增 6 个）」速查表。
 
+### 全仓逐文件审查修复（任务B 扩展：脚本功能性 bug + 文档数字/版本全量对齐）
+
+- **`setup/install-ida.ps1`**：修复 `$ToolDir` 变量未定义（真实 bug，导致无 `mcp.json` 时回退模板路径拼错）；已补定义。
+- **`setup/update.ps1` / `setup/update.sh`**：修复**升级脚本把 origin 硬编码成原版 `angusdevgo/Seep-Reverse-Lab.git`** 的问题——fork 用户“更新工作台”会去拉原版仓库、把本地优化覆盖/回退。改为**以当前工作副本实际 origin 为准**（原版用户行为不变；无 origin 时回退 `SEEP_REPO_URL`，都没有则跳过而不指向错误仓库）。同时修 `update.ps1` 非 git 分支 `$proxyArgs` 未定义的老 bug。
+- **`setup/verify.ps1`**：Python 解释器检测由“仅存在”改为**真执行 + 校验 >= 3.11**，避开 Windows Store `python3` 占位程序造成的假绿。
+- **文档数字/版本全量对齐**（工具 23/31 → **37**；体检 52/51 → **55**；版本 v1.6/v1.7 → **v1.8.0**）：`README.md` / `README.zh.md`（badge、正文、MCP 矩阵补 6 个 `seep_tool_*`、英文版补“二开增强版”说明、Star History 指回 fork）/ `CLAUDE.md` / `MANUAL/DEPLOYMENT.md` / `MANUAL/DEPLOYMENT-CHECKLIST.md` / `MANUAL/CROSS-PLATFORM.md` / `Tool/docs/PROVENANCE.md` / `Tool/docs/EXT-ASSETS.md` / `Tool/docs/MCP-SETUP.md` / `Tool/docs/HANDOFF-交接文档.md`。
+
 ### 部署健壮性修复（任务B 从零部署审查发现并修好）
 
 - **`setup/verify.sh`**：Python 探测改为「存在且能真正执行」——避开 Windows 上 Microsoft Store 的 `python3` 占位程序（存在但不运行、返回非零，会把自检误判为失败）。
