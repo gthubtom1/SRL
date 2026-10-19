@@ -1,0 +1,397 @@
+{
+  "schemaVersion": "1.0",
+  "description": "声明式『工具能力表』：告诉 AI『发现到某工具后，怎么控制它』。这是本插件唯一的仓库级知识来源——纯声明、可离线、随仓库分发。判断依据全部来自联网检索（GitHub README / 官方文档 / 已知 MCP 生态），绝不靠对二进制执行 -h/--help 现场试探（有些软件没有 -h，一探就崩或返回错误码）。表外未知工具：插件只报『路径已发现』，绝不假装能控制它。",
+  "verified_at": "2026-10-19",
+  "sources_note": "capabilities 字段的每一项均于 2026-10-19 联网核实：mrexodia/ida-pro-mcp、HexRaysSA/ida-mcp、LaurieWired/GhidraMCP、radare2、horsicq/Detect-It-Easy、x64dbg、frida、tshark、jadx、apktool 官方仓库与文档。",
+  "tools": {
+    "ida": {
+      "display": "IDA Pro",
+      "exe_candidates": [
+        "idat64",
+        "idat",
+        "ida64",
+        "ida"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": true,
+        "mcp_detail": "官方 HexRays ida-mcp（uvx ida-mcp stdio，支持无 GUI 的 headless；GUI 插件可选）；社区 mrexodia/ida-pro-mcp（需 IDA GUI 运行）",
+        "headless": true,
+        "headless_detail": "idat64/idat -A -S<script> 批处理；官方 ida-mcp 经 idalib 可完全 headless",
+        "gui": true,
+        "cli": true
+      },
+      "control": {
+        "mcp_register": {
+          "command": "uvx",
+          "args": [
+            "ida-mcp",
+            "stdio"
+          ],
+          "requires": "IDA 9.4+ / idalib / Python3.11+；需商业授权"
+        },
+        "headless_cmd": "idat64 -A -S<decompile_script.py> -o<out> <target>",
+        "gui_cmd": "ida64 <target>"
+      },
+      "install_hint": "商业软件，需自备 IDA Pro 授权；装好后把 idat64 加入 PATH 或 D:\\Tools。",
+      "notes": "本机无 IDA 时自动降级 Radare2。"
+    },
+    "x64dbg": {
+      "display": "x64dbg",
+      "exe_candidates": [
+        "x64dbg",
+        "x96dbg"
+      ],
+      "arch_aware": true,
+      "arch_variants": {
+        "x64": [
+          "x64dbg",
+          "x96dbg"
+        ],
+        "x86": [
+          "x32dbg"
+        ]
+      },
+      "capabilities": {
+        "mcp": true,
+        "mcp_detail": "x64dbg 内置 MCP 插件（Preferences 里启用，HTTP 端点，社区维护）；无独立官方 MCP CLI",
+        "headless": false,
+        "headless_detail": "x64dbg 是 GUI 调试器，无官方 headless；批处理需插件脚本",
+        "gui": true,
+        "cli": true
+      },
+      "control": {
+        "gui_cmd": "x64dbg <target.exe>（按目标位宽选 x32dbg/x64dbg）",
+        "note": "命令行仅支持传入目标与少量开关，调试交互主要在 GUI / 内置脚本引擎"
+      },
+      "install_hint": "winget install x64dbg.x64dbg  或从 x64dbg.com 下载便携版放到 D:\\Tools。",
+      "notes": "按目标 PE 的 machine 字段选 32/64 位：i386->x32dbg，AMD64->x64dbg。"
+    },
+    "cdb": {
+      "display": "CDB (WinDbg CLI)",
+      "exe_candidates": [
+        "cdb"
+      ],
+      "arch_aware": true,
+      "arch_variants": {
+        "x64": [
+          "cdb"
+        ],
+        "x86": [
+          "cdb"
+        ]
+      },
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；可被外层封装",
+        "headless": true,
+        "headless_detail": "cdb -c \"<commands>\" -o <target> 完全命令行/headless，可脚本化调试",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "cdb -c \"<cmd>; q\" -o <target>"
+      },
+      "install_hint": "随 Windows SDK / WinDbg 安装：winget install Microsoft.WinDbg。",
+      "notes": "Windows 上最实用的 headless 调试器。"
+    },
+    "diec": {
+      "display": "Detect It Easy (CLI)",
+      "exe_candidates": [
+        "diec"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": true,
+        "headless_detail": "diec 是 DIE 的命令行批处理版本，适合脚本化判壳/查编译器",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "diec <target>",
+        "note": "diec = Command-line version for batch processing"
+      },
+      "install_hint": "下载 Detect It Easy (DIE) 便携版，把 diec.exe 放到 D:\\Tools。",
+      "notes": "判壳首选轻量 CLI。"
+    },
+    "ghidra": {
+      "display": "Ghidra",
+      "exe_candidates": [
+        "analyzeHeadless"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": true,
+        "mcp_detail": "LaurieWired/GhidraMCP：GUI 插件 + Python MCP；也支持 --headless --binary（PyGhidra，无需 Ghidra GUI）",
+        "headless": true,
+        "headless_detail": "analyzeHeadless <proj> <name> -import <target> -postScript <script>；GhidraMCP 亦可 --headless",
+        "gui": true,
+        "cli": true
+      },
+      "control": {
+        "mcp_register": {
+          "command": "uvx",
+          "args": [
+            "--from",
+            "git+https://github.com/LaurieWired/GhidraMCP",
+            "ghidra-mcp",
+            "--headless"
+          ],
+          "requires": "Ghidra 12.x + PyGhidra + Python3.10-3.13"
+        },
+        "headless_cmd": "analyzeHeadless <proj_dir> <proj_name> -import <target> -postScript <DecompileScript.java> -deleteProject"
+      },
+      "install_hint": "下载 Ghidra 后把 analyzeHeadless 加入 PATH；或设 SEEP_GHIDRA_PATH。",
+      "notes": "Seep 的 seep_decompile_auto 已能真驱动 Ghidra headless。"
+    },
+    "r2": {
+      "display": "Radare2",
+      "exe_candidates": [
+        "radare2",
+        "r2"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": true,
+        "mcp_detail": "社区 r2mcp（r2pipe 封装为 MCP）；亦可直接用 r2pipe 脚本",
+        "headless": true,
+        "headless_detail": "r2 -q -c '<cmds>' <target>；r2 -A -q -c 'pdg' 等，完全 headless",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "r2 -A -q -c '<command>' <target>"
+      },
+      "install_hint": "Seep 已内置 Radare2（Tool/mcp/Tool/safe/radare2）。",
+      "notes": "永远可用的兜底引擎。"
+    },
+    "tshark": {
+      "display": "TShark",
+      "exe_candidates": [
+        "tshark"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP",
+        "headless": true,
+        "headless_detail": "tshark -r <pcap> -Y '<filter>' -T json，完全命令行",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "tshark -r <pcap> -Y '<display filter>' -T json"
+      },
+      "install_hint": "随 Wireshark 安装。",
+      "notes": "协议分析/抓包解析。"
+    },
+    "jadx": {
+      "display": "JADX",
+      "exe_candidates": [
+        "jadx",
+        "jadx.bat"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": true,
+        "headless_detail": "jadx -d <out> <apk>，纯命令行反编译",
+        "gui": true,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "jadx -d <out_dir> <target.apk>"
+      },
+      "install_hint": "下载 jadx release 解压后加入 PATH。",
+      "notes": "Seep 已内置 jadx 1.5.6。"
+    },
+    "apktool": {
+      "display": "Apktool",
+      "exe_candidates": [
+        "apktool",
+        "apktool.bat"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": true,
+        "headless_detail": "apktool d/b，纯命令行",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "apktool d <target.apk> -o <out_dir>"
+      },
+      "install_hint": "下载 apktool.jar + 包装脚本。",
+      "notes": "Seep 已内置 apktool 3.0.3。"
+    },
+    "frida": {
+      "display": "Frida",
+      "exe_candidates": [
+        "frida"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": true,
+        "mcp_detail": "社区 frida-mcp（frida 工具封装为 MCP）；亦可 frida CLI / Python API",
+        "headless": true,
+        "headless_detail": "frida -f <app> -l <script.js> --no-pause，纯命令行插桩",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "frida -U -f <package> -l <hook.js> --no-pause"
+      },
+      "install_hint": "pip install frida-tools",
+      "notes": "动态插桩。"
+    },
+    "x32dbg": {
+      "display": "x32dbg (32-bit)",
+      "exe_candidates": [
+        "x32dbg"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": true,
+        "mcp_detail": "与 x64dbg 同一套 MCP 插件（x64dbg-mcp），HTTP 端点，需在插件里启用",
+        "headless": false,
+        "headless_detail": "GUI 调试器；自动化优先走 x64dbg 脚本命令或 cdb",
+        "gui": true,
+        "cli": true
+      },
+      "control": {
+        "gui_cmd": "x32dbg <target.exe>",
+        "note": "32 位目标专用；脚本命令与 x64dbg 同源"
+      },
+      "install_hint": "随 x64dbg 便携包一起安装（release/x32/x32dbg.exe）",
+      "notes": "按目标 PE 的 machine 字段选择：i386 走 x32dbg"
+    },
+    "binwalk": {
+      "display": "binwalk",
+      "exe_candidates": [
+        "binwalk"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP",
+        "headless": true,
+        "headless_detail": "binwalk -e 提取嵌入文件系统；-A 扫描签名；适合固件/嵌入包",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "binwalk -e <target>"
+      },
+      "install_hint": "pip install binwalk（或 cargo install binwalk）",
+      "notes": "固件/嵌入式提取主力；解包后交 r2 / Ghidra 继续分析"
+    },
+    "capa": {
+      "display": "capa (FLARE)",
+      "exe_candidates": [
+        "capa"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP",
+        "headless": true,
+        "headless_detail": "capa -v 输出能力清单（ATT&CK / MBC 映射）；--json 便于程序消费",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "capa -v --json <target>"
+      },
+      "install_hint": "pip install flare-capa",
+      "notes": "样本研判：产出可读的能力语义，配合 floss / YARA"
+    },
+    "floss": {
+      "display": "FLOSS",
+      "exe_candidates": [
+        "floss"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP",
+        "headless": true,
+        "headless_detail": "floss 提取静态/栈上/解码后的字符串，补静态字符串盲区",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "floss <target>"
+      },
+      "install_hint": "pip install flare-floss",
+      "notes": "运行期才解密字符串的样本：先 floss，再用 seep_mem_strings 看活体"
+    },
+    "pe-sieve": {
+      "display": "PE-sieve",
+      "exe_candidates": [
+        "pe-sieve",
+        "pe-sieve64"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP",
+        "headless": true,
+        "headless_detail": "pe-sieve /pid <pid> /out <dir> 扫描模块篡改并做内存转储（脱壳/查注入）",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "pe-sieve /pid <pid> /out <dir>"
+      },
+      "install_hint": "hasherezade/pe-sieve Releases 下载便携版放到 D:\\Tools",
+      "notes": "脱壳闭环关键件：内存 dump + 模块篡改识别"
+    }
+  },
+  "mcp_ecosystem": {
+    "_comment": "已知 MCP 生态注册模板：发现到对应工具时，插件据此生成 mcp.json 注册片段（增量合并，需重启生效）。条目均于 2026-10-19 联网核实存在（npm/PyPI/GitHub）。",
+    "ida": {
+      "command": "uvx",
+      "args": [
+        "ida-mcp",
+        "stdio"
+      ],
+      "transport": "stdio",
+      "verified": "PyPI ida-mcp 存在（HexRays 官方）"
+    },
+    "ghidra": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/LaurieWired/GhidraMCP",
+        "ghidra-mcp",
+        "--headless"
+      ],
+      "transport": "stdio",
+      "verified": "GitHub LaurieWired/GhidraMCP"
+    },
+    "x64dbg": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "x64dbg-mcp"
+      ],
+      "transport": "stdio",
+      "verified": "npm x64dbg-mcp 1.3.1（ouonet/x64dbg-mcp）",
+      "note": "多数 x64dbg MCP 需 x64dbg GUI 实例配合；无 GUI 时建议改走 cdb headless 或自写脚本。"
+    },
+    "frida": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "frida-mcp"
+      ],
+      "transport": "stdio",
+      "verified": "npm/PyPI frida-mcp 均存在"
+    }
+  }
+}

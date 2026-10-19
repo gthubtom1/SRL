@@ -1,0 +1,5 @@
+// resource.rc —— 给 resource_blob.exe 嵌入自定义资源（本仓库原创，GPL-3.0）
+// 编译：windres resource.rc -O coff -o resource.res
+// 说明：DATA/102 嵌入 src/payload.bin（高熵 blob，模拟皮肤包/载荷）
+
+102 DATA "payload.bin"

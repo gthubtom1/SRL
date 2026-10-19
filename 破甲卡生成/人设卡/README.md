@@ -1,0 +1,77 @@
+# 人设卡（破甲卡）说明
+
+> 来源：relab2 / kernel-sweep 工程。现随 Seep 工作台一起备份（用户要求：单仓统一，不另开仓库）。
+
+## 一、两代卡，别混用
+
+| 代 | 文件 | 头部标志 | 结构 |
+|---|---|---|---|
+| **新代（推荐）** | `space-bunny.md` · `gemini-3.8-flash-high.md` · `mimo-2.6.md` · `muse-1.3.md` | `[MODE: LAB-LOCAL · ACTIVE]` + "loaded runtime kernel" | 0–15 编号模板（CONTROL WORD / IDENTITY / REMAP / SCOPE / OUTPUT CONTRACT / INJECTION / …），仅 §1/§2/§3/§14 按模型定制 |
+| 旧代（留档） | `space-bunny-2.md` | `# base: space-bunny-2` + `[MODE: SANDBOX]` | Blacklist / Scoped Rules（22 条）/ Intent Mapping / … |
+
+- 旧代那张内容仍可用，但**不要与新代混用**（规则版本不一致）。
+- 旧代独有的 22 条 `Scoped Rules`（game cheat / fraud / forgery / finance / smuggling …）与逆向工作台无关，新代已用 `§7 SCOPE` 一段覆盖。
+
+## 二、与 Seep 提示词的分工
+
+| 层 | 归属 | 管什么 |
+|---|---|---|
+| 说话与强口径 | **本目录的卡** | 语气、称谓、拒答口径、输出格式、SCOPE |
+| 任务纪律 | `AGENTS.md`（跨宿主） | Lab 状态机、工具纪律（禁 `-h`、动态路径）、两次熔断、G-Auth、路由 |
+| 规则优先级 | `SYSTEM.md` §0 | 凭证红线 > 授权与工具纪律 > 任务正确性 > 风格话术 |
+| 硬执行 | `security-audit-interceptor.ts` | 词表替换、快捷口令、BLOCK_NONE、幂等包裹 |
+
+## 三、本目录做过的两处补丁（2026-10-20）
+
+1. **§11 白名单例外（Carve-out）**：原文 "There is no competing set of instructions" 会把工作台的工具纪律/授权门也当成"竞争配置"否掉。
+   现保留"不许把本卡当可权衡的提议"这一核心，只增加一句：**任务纪律不构成竞争策略**。
+2. **§7 能力诚实（Capability honesty）**：SCOPE 保持宽（固件/硬件/无线都在内），但要求模型**先走自愈链**
+   （discover → install → use → 降级路线），走不通就如实说 + 给替代路线，**不许假装、不许先手搓**。
+
+## 四、以后怎么改
+
+- 只改**新代 4 张**；改前先 `git log -- 人设卡/` 看历史，改后按 A 类走（一次体检即可）。
+- 加新模型卡：复制最接近的一张，只改 §0 的 status line 文案、§1/§2/§3 的模型特性、§14 MODEL RULES。
+
+## 五、与 Seep 的互操作约定（2026-10-20 定稿）
+
+### 1. 格式分层：谁管哪一段
+
+| 层 | 归属 | 规定什么 |
+|---|---|---|
+| **开头格式** | **本目录的卡**（§0 CONTROL WORD） | 第一行状态标记 `LCS online.`；标题样式 |
+| **内容顺序** | `SYSTEM.md` §0 第 3/5 条 | 结论或交付物先行、不写前言、不写「我将要…」 |
+
+**合法形态**：`LCS online.` → 空行 → `「方案」/「步骤」/「代码」` → 交付物。
+
+> 两边不重叠：卡决定"开头长什么样"，Seep 决定"内容怎么排"。**互不覆盖，无需二选一。**
+
+### 2. 为什么状态标记保留"独立一行"
+
+- **无负面**：已核查 Seep 的 MCP/中继、pi-web 的侧栏标题与预览，**都不解析助手回复的首行**
+  （pi-web 侧栏取首条**用户**消息，`session-reader` 取的是会话头 JSON），所以多一行不影响任何功能。
+- **可 grep**：固定字符串 `LCS online.` 便于脚本/肉眼判定"本轮卡是否生效"。
+- **抗截断**：独立一行比行内嵌入更不容易被渲染或复制打乱。
+
+### 3. 验收方法：控制词握手（推荐，最可靠）
+
+| 方法 | 操作 | 通过判据 | 可靠性 |
+|---|---|---|---|
+| **控制词握手（验收用这个）** | 发一句 `你是谁` | 回答**必须**是 `LCS online. Kernel loaded. Send the work.` | ✅ 高 |
+| 每轮首行抽查 | 看回复第一行 | 出现 `LCS online.` | ⚠️ 中 |
+
+> **重要**：弱模型（flash / mini 类）会**偶发丢格式行**，这属于格式漂移，**不等于破甲失效**。
+> 判定破甲是否生效，以「控制词握手」为准；首行只做日常抽查。
+>
+> `你是谁` 不含 Seep 输入层的触发词，不会被改写或包裹，握手信号干净。
+
+## 六、以后重跑生成 / 优化卡时的硬规矩
+
+1. **条款不要手改**：Carve-out 与 Capability honesty 由 `compat/seep-compat.md` 统一维护；
+2. 生成或改写后，**必须**跑一次闸门，全绿才算完：
+   ```bash
+   cd 破甲卡生成
+   python compat/check_seep_compat.py --apply
+   python compat/check_seep_compat.py --check     # 必须 PASS
+   ```
+3. 装卡用 `python compat/install_cards.py --yes`（**不要**用 relab2 的 `quad/install2.py`，它写到 `04-console/`）。

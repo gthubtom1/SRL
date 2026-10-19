@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "2.0",
+  "meta": {
+    "description": "Seep 任务路由的单一事实源 (Single Source of Truth)。master-route.ps1 与 case-init.ps1 均从此文件读取；一致性由 Tool/scripts/verify-routing-coherence.py 断言（verify.ps1 / verify.sh 已接入）。修改路由规则请只改此文件，勿改散落在 markdown / ps1 里的路由表。",
+    "fallbackId": "R0",
+    "scoring": "每条关键字规则命中后计入候选集；按 priority 数组顺序取『命中分数最高』的为 PRIMARY；分数并列时 priority 靠前者胜出；未命中任何规则时回退 fallbackId。",
+    "skillRoots": [
+      "Tool/skill/<name>/SKILL.md",
+      "Tool/skill/safe-skills/<name>/SKILL.md",
+      "skills/<name>/SKILL.md（旧 reverse-skill 布局兼容）"
+    ],
+    "maintainers": [
+      "改路由后必须跑: python Tool/scripts/verify-routing-coherence.py",
+      "本文件只收录『本包真实内置』的技能；未内置的战术域不要写进来（避免路由指向不存在的 SKILL.md）"
+    ]
+  },
+  "priority": [
+    "R1",
+    "R2",
+    "R9",
+    "R3",
+    "R4",
+    "R5",
+    "R6",
+    "R7",
+    "R8",
+    "R0"
+  ],
+  "routes": {
+    "R1": {
+      "label": "APK / Android 逆向",
+      "skill": "apkseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|签名.?校验|证书.?校验|pinning|root.?检测|so.?层|frida|hook.?安卓",
+          "note": "Android 全链路（DEX/SO/重打包/动态插桩）"
+        }
+      ]
+    },
+    "R2": {
+      "label": "授权 / 许可 / 卡密审计",
+      "skill": "client-license-validation-bypass/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)破解|绕过|卡密|序列号|注册码|激活|许可|licen[cs]e|激活码|会员|订阅|vip|试用|trial|keygen|算号|鉴权|授权",
+          "note": "CWE-602 客户端鉴权脆弱性走查"
+        }
+      ]
+    },
+    "R3": {
+      "label": "跨版本追版 / 特征迁移",
+      "skill": "version-migration/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)追版|新版本|升级后|版本迁移|特征码|aob|sigscan|偏移变化|地址漂移|版本对齐|旧版补丁|新版程序"
+        }
+      ]
+    },
+    "R4": {
+      "label": "IDA Pro 深度反编译",
+      "skill": "ida-reverse/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)\\bida\\b|idat|idalib|hex.?rays|反编译|交叉引用|xref|结构体恢复|伪代码"
+        }
+      ]
+    },
+    "R5": {
+      "label": "Radare2 命令行分析",
+      "skill": "radare2/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)radare2|\\br2\\b|rabin2|radiff2|rasm2|r2pipe|命令行逆向|无头分析|headless"
+        }
+      ]
+    },
+    "R6": {
+      "label": "JS / Web 前端逆向",
+      "skill": "mcp-js-reverse-playbook/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)js.?逆向|javascript|webpack|混淆|obfuscat|ast|补环境|浏览器|playwright|selenium|hook.?js|signature.?js|加密参数"
+        }
+      ]
+    },
+    "R7": {
+      "label": "通用二进制逆向",
+      "skill": "reverse-engineering/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)\\bpe\\b|\\belf\\b|macho|dll|\\.so\\b|逆向|反汇编|脱壳|加壳|upx|vmp|混淆|静态分析"
+        }
+      ]
+    },
+    "R8": {
+      "label": "APK 反编译 / 重打包（通用战术包）",
+      "skill": "apk-reverse/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)解包|反编译.?apk|apk.?反编译|zipalign|apksigner|资源替换|改包"
+        }
+      ]
+    },
+    "R0": {
+      "label": "未命中兜底：总控判型",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i).*",
+          "note": "兜底路由：交给 softseep 总控做两步判型"
+        }
+      ]
+    },
+    "R9": {
+      "label": "加壳/脱壳与内存转储",
+      "skill": "unpack-loop/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)脱壳|加壳|壳|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|dump|转储|oep|iat|反调试|反反调试|scylla|pe-sieve|内存转储"
+        }
+      ]
+    }
+  }
+}
