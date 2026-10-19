@@ -1,4 +1,4 @@
-# MCP 配置与验证 (MCP-SETUP)
+﻿# MCP 配置与验证 (MCP-SETUP)
 
 > 本工作台靠 **3 个 MCP** 提供工具能力。本文说明：**它们是什么、装到哪、怎么验证、出问题怎么办。**
 >
@@ -25,7 +25,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 | MCP | 工具数 | 用途 | 依赖 | 安装方式 |
 | :--- | :---: | :--- | :--- | :--- |
 | **seep** ⭐ | **37** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 + 扩展资产 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
-| **ida** | **~243** | IDA 全套分析链 | **你自备的 IDA Pro** | 脚本装 MCP + 你装 IDA |
+| **ida** | **~100+** | IDA 全套分析链，数量随 ida-pro-mcp 版本变化 | **你自备的 IDA Pro** | 脚本装 MCP + 你装 IDA |
 | **playwright** | — | 浏览器自动化 | npx | 自动（npx 按需拉取） |
 
 ### seep MCP 的 38 个工具
@@ -152,7 +152,7 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 | `seep_apk_decompile` | `Tool/mcp/Tool/safe/jadx/bin/` | "jadx not found" |
 | `seep_apk_unpack` | `Tool/mcp/Tool/safe/apktool/` | "apktool not found" |
 | `seep_apk_gen_hook` | `Tool/mcp/Tool/safe/hook-mcp/templates/` | 模板缺失 |
-| `mcp_ida_*`（~243 个） | 自备 IDA Pro + `Tool/mcp/Tool/safe/ida-pro-mcp/` | "IDA not available" |
+| `mcp_ida_*`（约 100 个，随 ida-pro-mcp 版本变化） | 自备 IDA Pro + `Tool/mcp/Tool/safe/ida-pro-mcp/` | "IDA not available" |
 | playwright 工具 | npx + token | 浏览器不可用 |
 
 **排障口诀**：工具报错 → 看它读哪个目录 → 检查该目录是否存在且非空。
@@ -227,3 +227,24 @@ python seep_mcp_server.py
 ```
 
 若报 `ModuleNotFoundError: mcp` → 重跑 `setup\install-python.ps1`。
+
+---
+
+## 附：MCP「工具数」到底怎么算（三种口径，别混用）
+
+同一个"工具数"在不同语境下含义不同，混用会造成误判。本工作台统一按下面三种口径表述：
+
+| 口径 | 含义 | 本包数值 | 怎么核实 |
+|---|---|---|---|
+| **① 自有工具数** | 我们自己的 `seep` MCP 服务暴露的工具（`@server.tool()` 装饰的函数） | **38** | `grep -c "^@server.tool()" Tool/mcp/seep_mcp_server.py`，或连上 MCP 发 `tools/list` |
+| **② 单个外部 MCP 的工具数** | `ida` / `js-reverse` / `playwright` / `ghidra` **各自进程**暴露的工具，由各自项目决定 | ida 约 100+（随 ida-pro-mcp 版本）/ js-reverse 23（v4.0.5）/ playwright 随版本 | 连上对应 MCP 发 `tools/list`（最权威），或看其源码 / README |
+| **③ 全工作台"可见工具总数"** | ① + 所有② | **不固定**（取决于装了哪几个外部 MCP、什么版本） | 由当前会话的 MCP 客户端汇总 |
+
+**为什么我们只承诺 ①=38**：
+
+- ② 的数字**不属于我们**，会随上游发版变化（同一个包不同版本工具数就不同）；
+- 所以文档里任何"总数"都只应是**参考值**，判定是否可用要跑 `tools/list`，不要背数字。
+
+**反臃肿预算（≤45）约束的是 ①**：即"我们自己新增 MCP 工具"的上限，与外部 MCP 无关。
+
+---

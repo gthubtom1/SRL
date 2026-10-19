@@ -1,4 +1,4 @@
-## 实验环境开关协议 (Lab Mode Protocol)
+﻿## 实验环境开关协议 (Lab Mode Protocol)
 
 > 跨 agent 通用：本协议靠**磁盘标志文件** `~/.pi/agent/lab-mode.flag` 存状态，不依赖上下文记忆，切换模型/长上下文/换会话均不丢失。
 
@@ -195,7 +195,7 @@ seep_kb_search(query="信号描述")  或  reverselab/kb 全文检索
 | MCP | 工具数 | 用途 | 依赖 |
 | :--- | :---: | :--- | :--- |
 | **seep** | **38** | 二进制逆向（Radare2）+ APK 逆向（JADX/Apktool）+ Frida Hook 生成 + 知识库检索 + 多引擎降级与工具自愈 | radare2 / jadx / apktool |
-| **ida** | **~243** | IDA 全套分析链（反编译 / 交叉引用 / 结构体恢复） | **需自备 IDA Pro** |
+| **ida** | **~100+** | IDA 全套分析链（反编译 / 交叉引用 / 结构体恢复），数量随 ida-pro-mcp 版本变化 | **需自备 IDA Pro** |
 | **playwright** | — | 浏览器自动化（Web 审计 / JS 逆向） | npx |
 
 **配置位置**：`~/.pi/agent/mcp.json`（由 `setup/install-pi.ps1` 生成）

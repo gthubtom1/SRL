@@ -1,4 +1,4 @@
-# 下载清单 (DOWNLOADS)
+﻿# 下载清单 (DOWNLOADS)
 
 > ⚠️ **本包已内置全部工具（≈880 MB）—— 正常情况下你不需要下载任何东西。**
 >
@@ -162,7 +162,7 @@ npm:pi-goal-x
 | **实测版本** | **1.4.0** |
 | **安装** | `pip install ida-pro-mcp` |
 | **目标** | Python site-packages |
-| **服务的工具** | `mcp_ida_*`（~243 个） |
+| **服务的工具** | `mcp_ida_*`（约 100 个，随 ida-pro-mcp 版本变化） |
 | **⚠️ 前置** | **需自备 IDA Pro**（见 `MANUAL/IDA-PRO.md`） |
 
 ---

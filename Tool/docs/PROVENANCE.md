@@ -122,7 +122,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
              seep_tool_register_mcp · seep_tool_install · seep_tool_state
 ```
 
-### ② ida MCP（~243 工具）
+### ② ida MCP（约 100 工具，随版本变化）
 
 | 组成 | 位置 | 说明 |
 | :--- | :--- | :--- |
