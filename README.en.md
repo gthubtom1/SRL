@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/MCP%20Tools-37%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/Verifier-56%2F56%20Passed-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
+  <img src="https://img.shields.io/badge/Verifier-58%2F58%20Passed-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/Knowledge%20Base-289%20Journals-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/Paradigms-14%20Cases%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOPs-9%20Tactical%20Guides-red?style=for-the-badge" alt="MANUAL SOPs">
@@ -210,14 +210,14 @@ Seep\ (251 MB)
 │       └── compliance-relay\      ← 🌐 Transport-layer compliance relay (stdlib-only, 3 protocols)
 │
 ├── setup\                         ← Automated install, repair, update, uninstall & verify scripts
-└── MANUAL\                        ← 10 Tactical SOP guides
+└── MANUAL\                        ← 11 Tactical SOP guides
     ├── PREREQUISITES.md           ← Environment & dependency requirements
     ├── IDA-PRO.md                 ← Commercial IDA Pro integration (native idalib + stdio modes)
     ├── ANTI-DEBUG.md              ← Anti-debug bypass dictionary & proxy DLL framework
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP unpacking SOP
     ├── POC-VALIDATION.md          ← Frida self-healing loop & PoC sandbox validation
     ├── DEPLOYMENT.md              ← Comprehensive deployment & multi-Agent setup guide
-    ├── DEPLOYMENT-CHECKLIST.md    ← Official deployment baseline checklist (56 items)
+    ├── DEPLOYMENT-CHECKLIST.md    ← Official deployment baseline checklist (58 items)
     ├── CROSS-PLATFORM.md          ← Cross-platform (Windows/Linux/macOS) execution guide
     ├── COMPLIANCE-RELAY.md        ← Transport-layer compliance relay & auto-retry architecture
     └── MODEL-REFUSAL-MATRIX.md    ← Measured refusal matrix & Gemini-safe prompt reshaping
@@ -363,7 +363,7 @@ Everything affected is backed up to `~/.pi/agent/backup-uninstall-<timestamp>/` 
 
 ### 6. Verify Your Deployment
 
-Run the 9-dimension health verifier (56 checks) against `MANUAL/DEPLOYMENT-CHECKLIST.md` using any of these methods:
+Run the 9-dimension health verifier (58 checks) against `MANUAL/DEPLOYMENT-CHECKLIST.md` using any of these methods:
 
 | Method | Command |
 |---|---|
@@ -372,7 +372,7 @@ Run the 9-dimension health verifier (56 checks) against `MANUAL/DEPLOYMENT-CHECK
 | Agent chat | Send `check` (or `doctor` / `检查`) — agent runs and reports inline |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep Health Verifier Dashboard (56 Checks Passed across 9 Dimensions)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep Health Verifier Dashboard (58 Checks Passed across 9 Dimensions)" width="880">
 </p>
 
 ---

@@ -234,6 +234,10 @@ Test-CheckItem "Skill" "通用许可/卡密校验突破规范 (license-bypass)" 
     Test-Path (Join-Path $localSkills 'client-license-validation-bypass\SKILL.md')
 } "client-license-validation-bypass 技能缺失" "SKILL.md 在位" "$localSkills\client-license-validation-bypass"
 
+Test-CheckItem "Skill" "增量追版与特征迁移技能 (version-migration)" {
+    Test-Path (Join-Path $localSkills 'version-migration\SKILL.md')
+} "version-migration 技能缺失" "SKILL.md 在位" "$localSkills\version-migration"
+
 Test-CheckItem "Skill" "独立战术安全技能包 (safe-skills 5组)" {
     $ss = Join-Path $localSkills 'safe-skills'
     (Test-Path $ss) -and ((Get-ChildItem $ss -Directory).Count -ge 5)
@@ -410,6 +414,10 @@ Write-Host "`n[7/9] 📚 MANUAL/ 战术手册完备性校验" -ForegroundColor W
 Test-CheckItem "手册" "零基础实战通关指南 (MANUAL/ZERO-TO-HERO-WORKFLOW.md)" {
     Test-Path (Join-Path $ManualDir 'ZERO-TO-HERO-WORKFLOW.md')
 } "零基础实战通关指南缺失，重新拉取仓库" "文件在位" "$ManualDir\ZERO-TO-HERO-WORKFLOW.md"
+
+Test-CheckItem "手册" "外挂技能创作标准指南 (MANUAL/SKILL-CREATION-GUIDE.md)" {
+    Test-Path (Join-Path $ManualDir 'SKILL-CREATION-GUIDE.md')
+} "外挂技能创作指南缺失，重新拉取仓库" "文件在位" "$ManualDir\SKILL-CREATION-GUIDE.md"
 
 Test-CheckItem "手册" "环境预要求指南 (MANUAL/PREREQUISITES.md)" {
     Test-Path (Join-Path $ManualDir 'PREREQUISITES.md')

@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/MCP%20工具-37%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/健康体检-56%2F56%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
+  <img src="https://img.shields.io/badge/健康体检-58%2F58%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-289%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOP-10%20份专项手册-red?style=for-the-badge" alt="MANUAL SOPs">
@@ -75,7 +75,7 @@
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
-- 体检从 50 项 → **56 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
+- 体检从 50 项 → **58 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
 **怎么回退到纯净原版**：
 ```bash
@@ -160,7 +160,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 部署完成后，直接在 Agent 对话框发一句大白话：
 
 ```
-lab：分析 FooBar.apk，找到会员验证并绕过
+Lab:帮我逆向授权分析此软件，是否存在跳过激活进行付费功能本地化漏洞，若存在，进行漏洞复现，并输出漏洞报告以及复现原理.md
 ```
 
 Agent 自主完成：
@@ -208,7 +208,7 @@ Seep\ (251 MB)
 ├── CHANGELOG.md                   ← 面向用户的版本变更日志
 │
 ├── Tool\
-│   ├── skill\                     ← 9 大逆向专业技能
+│   ├── skill\                     ← 10 大逆向专业技能
 │   │   ├── softseep\              ← ⭐ 总控调度器（路由 + 8 专题按需库）
 │   │   ├── apkseep\               ← Android 全链路逆向（115 个工程文件）
 │   │   ├── ida-reverse\           ← IDA Pro 自动化联动
@@ -243,7 +243,7 @@ Seep\ (251 MB)
 │       └── compliance-relay\      ← 🌐 链路层合规转译中继（纯标准库，三协议）
 │
 ├── setup\                         ← 安装、修复、更新、卸载与校验脚本集
-└── MANUAL\                        ← 10 份战术专项 SOP 手册
+└── MANUAL\                        ← 11 份战术专项 SOP 手册
     ├── ZERO-TO-HERO-WORKFLOW.md   ← ⭐ 零基础通关指南（手把手从零做出免激活成品）
     ├── PREREQUISITES.md           ← 环境与依赖预要求指南
     ├── IDA-PRO.md                 ← IDA Pro 商业软件接入指南（支持 idalib 原生与传统 stdio 双模式）
@@ -251,7 +251,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP 脱壳 SOP
     ├── POC-VALIDATION.md          ← Frida 自愈循环与 PoC 沙箱验证
     ├── DEPLOYMENT.md              ← 全景部署与多 Agent 集成指南
-    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（56 项）
+    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（58 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
     └── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
@@ -395,7 +395,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 6. 部署完备性校验（9 大维度 56 项全绿）
+### 6. 部署完备性校验（9 大维度 58 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
@@ -406,7 +406,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 56 项全部通过)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 58 项全部通过)" width="880">
 </p>
 
 ---

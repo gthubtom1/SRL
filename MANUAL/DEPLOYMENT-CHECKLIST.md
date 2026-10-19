@@ -28,7 +28,7 @@
 
 | # | 技能名称 (ID) | 宿主安装目标路径 | 官方期望文件/目录数 | 核心入口标识文件 | 可用性判据与验证命令 | 状态判定与指引 |
 |---|---|---|---|---|---|---|
-| **S1** | **`softseep`** ⭐总控 | `~/.pi/agent/skills/softseep/` | `SKILL.md` + 8 篇 `references/` (≥9 项) | `SKILL.md`<br>`references/license-validation.md` | 检查 8 篇 references 齐全，G0-G6 门控完整 | 🟢 **核心**。缺失则总控瘫痪。修复：`powershell setup\install-pi.ps1` |
+| **S1** | **`softseep`** ⭐总控 | `~/.pi/agent/skills/softseep/` | `SKILL.md` + 8 篇 `references/` (≥10 项) | `SKILL.md`<br>`references/license-validation.md` | 检查 8 篇 references 齐全，G0-G6 门控完整 | 🟢 **核心**。缺失则总控瘫痪。修复：`powershell setup\install-pi.ps1` |
 | **S2** | **`apkseep`** | `~/.pi/agent/skills/apkseep/` | `SKILL.md` + 45 refs + 56 scripts (≥115 项) | `SKILL.md`<br>`scripts/doctor.py` | 运行 `python scripts/doctor.py` 无报错 | 🟢 **核心**。安卓全链路专精。修复：重跑 `install-pi.ps1` |
 | **S3** | **`ida-reverse`** | `~/.pi/agent/skills/ida-reverse/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 IDA 13337 端口自动唤醒规约 | 🟢 **核心**。IDA 自动化调度器。修复：重跑 `install-pi.ps1` |
 | **S4** | **`client-license-validation-bypass`** | `~/.pi/agent/skills/client-license-validation-bypass/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 CWE-602 战术树与补丁/算号决策 | 🟢 **核心**。授权审计战术库。修复：重跑 `install-pi.ps1` |

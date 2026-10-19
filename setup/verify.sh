@@ -132,6 +132,7 @@ check_item "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" test
 check_item "Skill" "移动端逆向全链路 (apkseep 包含 45 篇规范与 56 脚本)" test -f "$TOOL_DIR/skill/apkseep/SKILL.md" -a -d "$TOOL_DIR/skill/apkseep/references"
 check_item "Skill" "IDA Pro 自动化联动 (ida-reverse)" test -f "$TOOL_DIR/skill/ida-reverse/SKILL.md"
 check_item "Skill" "通用许可/卡密校验突破规范 (license-bypass)" test -f "$TOOL_DIR/skill/client-license-validation-bypass/SKILL.md"
+check_item "Skill" "增量追版与特征迁移技能 (version-migration)" test -f "$TOOL_DIR/skill/version-migration/SKILL.md"
 check_item "Skill" "独立战术安全技能包 (safe-skills 5组)" test -d "$TOOL_DIR/skill/safe-skills"
 
 # SKILL.md 带 UTF-8 BOM 时，frontmatter 解析器无法识别首行 `---`，技能会被静默跳过（Issue #6）
@@ -175,6 +176,7 @@ check_optn "配置" "Claude Code 项目级 MCP 注册 (.mcp.json 在根目录)" 
 # 7. 战术手册
 echo -e "\n${WHITE}[7/9] 📚 MANUAL/ 战术手册完备性校验${RESET}"
 check_item "手册" "零基础实战通关指南 (MANUAL/ZERO-TO-HERO-WORKFLOW.md)" test -f "$MANUAL_DIR/ZERO-TO-HERO-WORKFLOW.md"
+check_item "手册" "外挂技能创作标准指南 (MANUAL/SKILL-CREATION-GUIDE.md)" test -f "$MANUAL_DIR/SKILL-CREATION-GUIDE.md"
 check_item "手册" "环境预要求指南 (MANUAL/PREREQUISITES.md)" test -f "$MANUAL_DIR/PREREQUISITES.md"
 check_item "手册" "IDA Pro 商业软件接入指南 (MANUAL/IDA-PRO.md)" test -f "$MANUAL_DIR/IDA-PRO.md"
 check_item "手册" "反调试绕过战术手册 (MANUAL/ANTI-DEBUG.md)" test -f "$MANUAL_DIR/ANTI-DEBUG.md"

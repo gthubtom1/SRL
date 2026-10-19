@@ -6,7 +6,7 @@
 
 ## 一、 项目背景与定位
 
-本工程为面向 AI Agent 的**多平台客户端逆向工程与授权流安全审计（CWE-602）工作台**。深度覆盖 Windows PE/DLL、Android APK/DEX/SO、Linux ELF。包含 9 大逆向 Skill、4 大核心 MCP 服务、289+ 篇实战知识库与 14 个脱敏工业架构范式。
+本工程为面向 AI Agent 的**多平台客户端逆向工程与授权流安全审计（CWE-602）工作台**。深度覆盖 Windows PE/DLL、Android APK/DEX/SO、Linux ELF。包含 10 大逆向 Skill、4 大核心 MCP 服务、289+ 篇实战知识库与 14 个脱敏工业架构范式。
 
 ---
 
@@ -112,7 +112,7 @@ Seep\
 ├── DSH-PROFILE.md     ← DeepSeek Harness 接入模板
 │
 ├── Tool\
-│   ├── skill\         9 个 Skill（以 softseep 为总控）
+│   ├── skill\         10 个 Skill（以 softseep 为总控）
 │   ├── mcp\           seep MCP（37 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
 │   ├── prompts\       SYSTEM.md、AGENTS.md 与安全扩展
