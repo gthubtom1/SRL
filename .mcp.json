@@ -17,6 +17,16 @@
         "js-reverse-mcp"
       ],
       "transport": "stdio"
+    },
+    "ghidra": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/LaurieWired/GhidraMCP",
+        "ghidra-mcp",
+        "--headless"
+      ],
+      "transport": "stdio"
     }
   }
 }

@@ -204,12 +204,13 @@ metadata:
 - 任务建档 → `case-init.ps1`
 - 报告生成 → `seep_gen_security_report` / `project-paradigms.md` 报告模板
 
-### 调度纪律（四条）
+### 调度纪律（五条）
 
 1. **门控不可绕过**：先 G-Auth → 再平台判型 → 再类型判型 → 再子能力；
 2. **子 Skill 加载后其纪律同样生效**：apkseep 的 G1-G4 门、ida-reverse 的唤醒规约，与本文件同等强制；
 3. **MCP 优先于手动**：有 `seep_*` / `mcp_ida_*` 工具就用工具，不手搓命令；
-4. **知识库优先于从零手写**：先 `seep_kb_search` 查方法论与现成代码。
+4. **知识库优先于从零手写**：先 `seep_kb_search` 查方法论与现成代码；
+5. **缺工具自动自愈，严禁向用户求助中断任务**：分析推进中若需要任何外部工具（DIE/x64dbg/CDB/Ghidra/TShark 等），优先调用 `seep_tool_discover` 探测；若返回 missing，直接调用 `seep_tool_install(execute=True)` 触发多途径自适应安装（有 winget 走 winget，无 winget 机器自动降级为绿色直下）；若均走不通，立刻按降级链自写 Python 脚本现场分析，**严禁中途向用户伸手要工具而卡死任务**。
 
 ---
 

@@ -383,6 +383,7 @@ def _mcp_entry_for(tool_id):
 
 def register_mcp(tool_id, apply=False, server_name=None):
     """注册工具对应的 MCP 到当前 agent 的 mcp.json（增量合并、绝不删用户条目）。
+    支持多 Agent 宿主协同：同时同步 ~/.pi/agent/mcp.json 与项目根 .mcp.json。
 
     apply=False 时只返回"将要写入的片段 + 目标路径"，不落盘（半自动：先给人看）。
     写入成功后返回 restart_required=True —— 协议层死规矩：MCP 配置需重启会话才生效。
@@ -390,39 +391,53 @@ def register_mcp(tool_id, apply=False, server_name=None):
     tid = normalize_tool_id(tool_id)
     name = server_name or tid
     entry = _mcp_entry_for(tid)
-    path = _agent_mcp_json_path()
+    primary_path = _agent_mcp_json_path()
+    
+    # 收集需要同步的目标文件列表（主路径 + 若项目根存在 .mcp.json 则一并同步）
+    targets = [primary_path]
+    root_mcp = os.path.join(os.path.dirname(_TOOL_DIR), ".mcp.json")
+    if os.path.isfile(root_mcp) and os.path.normpath(root_mcp) != os.path.normpath(primary_path):
+        targets.append(root_mcp)
+
     if not entry:
         return {"tool_id": tid, "registered": False,
                 "reason": "能力表中没有该工具的 MCP 注册方式（表外未知工具不假装能注册）",
-                "target": path}
+                "target": primary_path}
     if not apply:
         return {"tool_id": tid, "registered": False, "preview": True,
-                "server_name": name, "entry": entry, "target": path,
+                "server_name": name, "entry": entry, "targets": targets,
                 "note": "这是将要增量写入的片段；确认后以 apply=True 落盘（需重启会话生效）。"}
 
-    # 增量合并
-    cfg = _load_json(path, {"mcpServers": {}})
-    if not isinstance(cfg, dict):
-        cfg = {"mcpServers": {}}
-    servers = cfg.get("mcpServers")
-    if not isinstance(servers, dict):
-        servers = {}
-        cfg["mcpServers"] = servers
-    existed = name in servers
-    servers[name] = entry
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        if os.path.isfile(path):
-            shutil.copy2(path, path + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-        with open(path, "w", encoding="utf-8") as f:  # UTF-8 无 BOM
-            json.dump(cfg, f, indent=2, ensure_ascii=False)
-    except Exception as exc:  # noqa: BLE001
-        return {"tool_id": tid, "registered": False, "error": "%s: %s" % (type(exc).__name__, exc),
-                "target": path}
+    # 增量合并所有有效目标
+    written_targets = []
+    for p in targets:
+        cfg = _load_json(p, {"mcpServers": {}})
+        if not isinstance(cfg, dict):
+            cfg = {"mcpServers": {}}
+        servers = cfg.get("mcpServers")
+        if not isinstance(servers, dict):
+            servers = {}
+            cfg["mcpServers"] = servers
+        existed = name in servers
+        servers[name] = entry
+        try:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            if os.path.isfile(p):
+                shutil.copy2(p, p + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+            with open(p, "w", encoding="utf-8") as f:  # UTF-8 无 BOM
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            written_targets.append(p)
+        except Exception:
+            continue
+
+    if not written_targets:
+        return {"tool_id": tid, "registered": False, "error": "写入所有目标 mcp.json 均失败",
+                "targets": targets}
+
     return {"tool_id": tid, "registered": True, "server_name": name, "entry": entry,
-            "target": path, "overwrote_existing": existed,
+            "written_targets": written_targets, "overwrote_existing": existed,
             "restart_required": True,
-            "note": "已增量写入 mcp.json（未删除任何用户既有条目）。★ 需重启 Agent 会话后 MCP 才生效。"}
+            "note": "已增量写入 mcp.json（未删除任何用户既有条目，多Agent宿主已协同同步）。★ 需重启 Agent 会话后生效。"}
 
 
 # ---------------------------------------------------------------------------

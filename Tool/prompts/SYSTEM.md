@@ -159,6 +159,7 @@ seep_kb_search(query="信号描述")  或  reverselab/kb 全文检索
 | 逆向/反汇编/脱壳 | 二进制结构分析 | IDA MCP 反编译 → 定位关键函数 |
 | Frida hook 某方法 | 运行时插桩 | seep_apk_gen_hook 自动生成脚本 |
 | 分析这个 PE/APK | 全样本体检 | triage → Ghidra/IDA → IOC → YARA |
+| 缺工具/无调试器/反编译缺失 | 工具自愈与自适应适配 | `seep_tool_discover` 探测 → `seep_tool_install` 多途径安装 → 自写 Py 脚本兜底 |
 | 修改 APK 重签名 | 微创补丁 | apktool b → zipalign → apksigner |
 | 破解哈希/加密 | 密码分析 | 先判算法（MD5/AES/RSA/JWT）再选攻击 |
 

@@ -1334,72 +1334,50 @@ def _install_cmd_for(tid: str, entry: dict) -> list:
 
 @server.tool()
 def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
-    """四级探测本机某工具是否可用；缺工具时给出可执行的安装建议（可选自动安装）。
+    """探测本机某工具是否可用；缺工具时给出多途径自适应安装建议（可选自动安装）。
 
-    探测顺序（命中即停）：环境变量 -> PATH -> 常见工具根别名 -> 递归扫描（带 deny 规则）。
-    这是"缺工具自愈"的入口：先查有没有，没有就明确告诉你装什么、怎么装，
-    绝不在终端里瞎猜路径、也绝不静默假装成功。
+    统一复用 tool_autodiscover 六层递进发现（环境变量 -> PATH -> 常用目录 -> 注册表 -> 递归扫描 -> 别名）。
+    绝不使用 -h/-v 等参数盲目试探二进制（防止特定程序崩溃或挂死）。
+    支持多途径自适应安装（无 winget 时自动降级为绿色直下，绝不卡住）。
 
     Args:
         tool_id: 工具标识，如 'ida' / 'x64dbg' / 'cdb' / 'diec' / 'r2' / 'ghidra' /
-                 'floss' / 'capa' / 'frida' / 'jadx' / 'apktool' / 'tshark' / 'binwalk' / 'gcc'
-        allow_install: 是否允许尝试自动安装（默认 False，只探测 + 给建议；
-                       True 时对少数公开 pip 工具尝试安装，其余仍只给建议）
+                 'floss' / 'capa' / 'frida' / 'jadx' / 'apktool' / 'tshark' / 'binwalk'
+        allow_install: 是否允许尝试自动安装（默认 False 只探测并给计划；
+                       True 时执行自适应多途径安装并自动重探）
     """
+    tad = _autodiscover()
     tid = tool_id.strip().lower()
+
+    if tad is not None:
+        disc = tad.discover(tid)
+        out = {"tool_id": tid}
+        out.update(disc)
+
+        if disc.get("available"):
+            out["status"] = "available"
+            return json.dumps(out, indent=2, ensure_ascii=False)
+
+        # 不可用：出安装计划
+        out["status"] = "missing"
+        plan = tad.install_plan(tid)
+        out["install_plan"] = plan
+        out["install_hint"] = _TOOL_INSTALL_HINTS.get(tid, plan.get("note") or "请手动安装后加入 PATH。")
+
+        if allow_install and plan.get("has_plan") and plan.get("auto_allowed"):
+            exec_res = tad.propose_install(tid, execute=True)
+            out["install_attempt"] = exec_res
+            if exec_res.get("executed") and exec_res.get("recheck", {}).get("available"):
+                out["status"] = "available"
+                out["after_install"] = exec_res.get("recheck")
+
+        return json.dumps(out, indent=2, ensure_ascii=False)
+
+    # 兜底回退：若插件未载入
     res = _resolve_tool(tid)
     out = {"tool_id": tid}
     out.update(res)
-
-    if res["available"]:
-        ver = ""
-        for flag in ("-version", "-v", "--version"):
-            try:
-                p = subprocess.run([res["command"], flag], capture_output=True,
-                                   text=True, encoding="utf-8", errors="replace", timeout=8)
-                txt = (p.stdout or "") + (p.stderr or "")
-                if txt.strip():
-                    ver = txt.strip().splitlines()[0]
-                    break
-            except Exception:
-                continue
-        out["version"] = ver
-        out["status"] = "available"
-        return json.dumps(out, indent=2, ensure_ascii=False)
-
-    # 不可用：给安装建议（优先读声明式 tool-install.json，P4 按需下载）
-    cfg = _load_tool_install()
-    entry = cfg.get("installable", {}).get(tid)
-    hint = _TOOL_INSTALL_HINTS.get(tid, "未收录该工具的安装方式；请手动安装后加入 PATH。")
-    out["status"] = "missing"
-    out["install_hint"] = hint
-    out["note"] = "四级探测均未命中。若确信已安装，检查它是否在 D:\\Tools 或 PATH；也可设环境变量 SEEP_<TOOL>_PATH 显式指定。"
-
-    if entry:
-        out["install_plan"] = _build_install_plan(tid, entry)
-
-    # 自动安装（仅 allow_install 且方法在白名单；manual 永不自动）
-    if allow_install and entry:
-        method = entry.get("method", "")
-        auto_ok = method in (cfg.get("auto_allow_methods") or []) and method != "manual"
-        if auto_ok:
-            cmd = _install_cmd_for(tid, entry)
-            if cmd:
-                try:
-                    p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                                       errors="replace", timeout=600)
-                    out["install_attempt"] = {"method": method, "cmd": cmd,
-                                              "returncode": p.returncode,
-                                              "tail": (p.stdout or p.stderr or "")[-400:]}
-                    # 装完重新探测一次
-                    recheck = _resolve_tool(tid)
-                    out["after_install"] = recheck
-                except Exception as exc:  # noqa: BLE001
-                    out["install_attempt"] = {"method": method, "cmd": cmd,
-                                              "error": "%s: %s" % (type(exc).__name__, exc)}
-        else:
-            out["install_attempt"] = {"skipped": f"method={method} 不在自动白名单，需人工/确认安装",
-                                      "plan": out.get("install_plan")}
+    out["status"] = "available" if res.get("available") else "missing"
     return json.dumps(out, indent=2, ensure_ascii=False)
 
 

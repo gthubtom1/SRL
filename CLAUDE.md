@@ -97,6 +97,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 3. **商业软件隔离**：IDA Pro 属于商业授权，不随包打包分发。检测不到时自动引导用户阅读 `MANUAL/IDA-PRO.md`，由 Radare2 自动降级承接。
 4. **受权范围白盒审计（G-Auth）**：所有测试目标必须确认已获书面授权。
 5. **凭据安全红线**：真实 Token/密钥/Salt/密码严禁外泄或记录于任何文档。
+6. **缺工具自主自愈（绝不向用户伸手中断）**：遇到缺工具（如 DIE 判壳、x64dbg 调试、TShark 抓包分析等），直接调用 `seep_tool_discover` 探测与 `seep_tool_install(execute=True)` 自动安装（多途径自适应：优先 winget，无 winget 机器自动降级为绿色直下）；走不通按降级链调用 Python 现场脚本分析，严禁因缺工具中断任务。
 
 ---
 
@@ -120,5 +121,5 @@ Seep\
 │   ├── docs\          MCP-SETUP、DOWNLOADS、PROVENANCE 等
 │   └── scripts\       任务沙盒初始化与签名工作流
 ├── setup\             安装与自检脚本集 (install.ps1, install.sh, generate-configs.ps1)
-└── MANUAL\            5 份专项 SOP 指南 (包含 DEPLOYMENT.md 部署手册)
+└── MANUAL\            9 份专项战术手册 (包含 DEPLOYMENT.md, ANTI-DEBUG.md, UNPACKING.md 等)
 ```

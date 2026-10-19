@@ -52,6 +52,10 @@
      ```powershell
      powershell -File Tool/scripts/case-init.ps1 -CaseName "<项目标识>-localize" -Preset offline-sample -Sample "D:\Target\app.exe"
      ```
+4. **工具链自愈与自适应就绪（缺工具绝不中断）**：
+   - 若分析过程中需要特定外部工具（如 DIE 判壳 `diec`、调试器 `x64dbg`/`cdb`、抓包分析 `tshark`），首先调用 `seep_tool_discover(tool_id, target)` 展开六层探测（带 PE 位宽架构自匹配）；
+   - 若返回 missing，直接调用 `seep_tool_install(tool_id, execute=True)` 执行多途径自适应安装（系统有 winget 走 winget，无 winget 的 Win10 自动降级绿色便携直下解压）；
+   - 走不通时按降级链调用自写 Python 脚本现场分析，**严禁向用户报错卡死，全流程保持自愈推进**。
 
 ---
 
@@ -74,9 +78,12 @@
 
 1. **第一层：UI 视觉决策层（即时生效）**
    - **定位特征**：检索 `VIP`、`Member`、`License`、`Trial`、`IsExpired`、`Privilege` 相关的虚函数调用（如 `GetMemberType()`）；
+   - **反编译支持**：首选 `seep_decompile_auto(target_path, func_name)` 驱动多引擎降级链（真 Ghidra 驱动优先出 C 伪代码，缺失时优雅落 r2），获取高精度控制流；
+   - **内存解密特征**：若字符串在磁盘为加密存储、仅在运行期内存解密，使用 `seep_mem_strings(pid)` 直接对目标进程展开只读内存扫描，提取 ASCII/UTF-16 明文及虚拟地址；
    - **打桩原则**：在函数入口执行极简零破坏返回，确保主界面渲染时直接读取有效状态。
 2. **第二层：网络通信反序列化层（阻断云端覆盖）**
    - **定位特征**：字符串交叉引用 `member_status`、`member_expired_at`、`device_count`、`license_key`，回溯至 JSON / Protobuf / MessagePack 解析循环；
+   - **协议分析与重放**：使用 `seep_pcap_extract(pcap_path, mode='http')` 提取端点通信；使用 `seep_http_replay(url, method, headers, impersonate='chrome')` 伪装浏览器指纹进行接口请求重放与回包响应伪造走查；
    - **打桩原则**：精准截获底层反序列化赋值点，将云端下发的未授权值就地替换为永久有效值。
 3. **第三层：本地持久化存储层（离线降级防御）**
    - **定位特征**：检索本地配置文件路径（如 `accountManager.json`、`user_info.ini`）与注册表读写 API；

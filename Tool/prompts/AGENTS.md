@@ -148,6 +148,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 | 逆向/反汇编/脱壳 | 二进制结构分析 | IDA/Ghidra 反编译 → 定位关键函数 |
 | Frida hook 某方法 | 运行时插桩 | 自动生成 Frida 脚本 |
 | 分析这个 PE/APK | 全样本体检 | triage → 反编译 → IOC → YARA |
+| 缺工具/无调试器/反编译缺失 | 工具自愈与自适应适配 | `seep_tool_discover` 探测 → `seep_tool_install` 多途径安装 → 自写 Py 脚本兜底 |
 | 修改 APK 重签名 | 微创补丁 | apktool b → zipalign → apksigner |
 | 破解哈希/加密 | 密码分析 | 先判算法（MD5/AES/RSA/JWT）再选攻击 |
 
