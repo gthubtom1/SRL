@@ -25,6 +25,21 @@ for dirpath, dirnames, filenames in os.walk(root):
         ext = os.path.splitext(f)[1].lower()
         filepath = os.path.join(dirpath, f)
 
+        # 0. 通用 BOM 剥离：除 PowerShell / 批处理（PS 5.1 解析 UTF-8 CJK 需要 BOM）外，
+        #    所有文本文件一律不允许 BOM —— .py 带 BOM 会直接 SyntaxError，
+        #    .md 带 BOM 会让 SKILL.md 的 frontmatter 被 Agent 静默跳过。
+        if ext not in (".ps1", ".psm1", ".bat", ".cmd"):
+            try:
+                with open(filepath, "rb") as fp:
+                    _raw = fp.read()
+                if _raw.startswith(b"\xef\xbb\xbf"):
+                    with open(filepath, "wb") as fp:
+                        fp.write(_raw[3:])
+                    md_bom_fixed += 1
+                    print(f"  [BOM Strip] {os.path.relpath(filepath, root)}")
+            except Exception as e:
+                print(f"  [!] Error checking BOM {filepath}: {e}")
+
         # 1. 规范化 Bash 脚本 (*.sh)：坚决杜绝 \r
         if ext in [".sh", ".bash"]:
             try:

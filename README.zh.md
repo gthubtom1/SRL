@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.8.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.8.4-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
   <a href="https://github.com/gthubtom1/Seep-Reverse-Lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-x86%20%7C%20x64%20%7C%20ARM64-orange?style=for-the-badge" alt="Architecture">
@@ -55,7 +55,7 @@
 
 ## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）
 
-> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.8.0）。**
+> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.8.4）。**
 > 原版的一切能力、体检、案例、知识库完整保留；我们只在其上补了原版没有的场景。
 
 **加了什么（23 → 38 个 MCP 工具，全部纯增量）**：
@@ -71,6 +71,19 @@
 | 工具发现 | `seep_ensure_tool` | 四级探测 + 缺工具安装计划 |
 | 反编译入口 | `seep_decompile_auto` | r2 保底 + 高阶引擎告知 |
 | 工具自动发现与自愈（6 个） | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 六层探测（含注册表与位宽匹配）+ 声明式能力表（拒绝-h试探）+ **多途径自适应安装（支持无winget的Win10自动绿色直下）** + 多Agent宿主双向同步注册 MCP |
+
+
+**工程侧增强（v1.8.4，非工具类）**：
+
+| 能力 | 说明 |
+|---|---|
+| **脱壳闭环** | `unpack-loop` 技能：判定门（壳类型×反调试×权威位置）→ 三路线（可脱/仅运行期/建议放弃）+ 每阶段完成判据 + 两次熔断 |
+| **工具可移植** | 工具根**动态跨盘探测**（env → 用户级 → 各盘符 → POSIX），安装落 `~/.seep/tools`，换机换盘不改代码 |
+| **工具自愈** | 22 项多途径安装（winget / 绿色直下 / pip / npm / go）+ 15 个工具的声明式能力表 + 降级链 |
+| **端到端验收** | `Tool/scripts/smoke-e2e.py`：真实样本一次跑通「triage→判壳→画像→反编译→KB→报告」12 环，13 秒 |
+| **反臃肿预算** | 6 项硬上限 + 三不原则 + 加功能四问，`check-budget.py` 一条命令校验 |
+| **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
+| **防崩纪律** | 禁止 `-h` 试探二进制 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
 
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
@@ -208,12 +221,14 @@ Seep\ (251 MB)
 ├── CHANGELOG.md                   ← 面向用户的版本变更日志
 │
 ├── Tool\
-│   ├── skill\                     ← 10 大逆向专业技能
-│   │   ├── softseep\              ← ⭐ 总控调度器（路由 + 8 专题按需库）
-│   │   ├── apkseep\               ← Android 全链路逆向（115 个工程文件）
-│   │   ├── ida-reverse\           ← IDA Pro 自动化联动
-│   │   ├── client-license-validation-bypass\ ← 跨运行时卡密/授权攻防手册
-│   │   └── safe-skills\           ← 5 个独立战术工具包
+│   ├── skill\                     ← 11 个逆向专业技能
+│   │   ├── softseep\              ← ⭐ 总控调度器（判型路由 + 8 专题按需库）
+│   │   ├── apkseep\               ← Android 全链路逆向（113 个工程文件）
+│   │   ├── ida-reverse\           ← IDA Pro 自动化联动（13337 唤醒规约）
+│   │   ├── client-license-validation-bypass\ ← 跨运行时卡密/授权审计
+│   │   ├── version-migration\     ← 跨版本追版与 AOB 特征迁移
+│   │   ├── unpack-loop\           ← 加壳脱壳闭环（判据驱动 / 三路线 / 熔断）
+│   │   └── safe-skills\           ← 5 个独立战术工具包（含 ida-assistant）
 │   │
 │   ├── mcp\                       ← MCP 服务引擎
 │   │   ├── seep_mcp_server.py     ← 核心服务端，38 个底层分析工具
@@ -243,8 +258,10 @@ Seep\ (251 MB)
 │       └── compliance-relay\      ← 🌐 链路层合规转译中继（纯标准库，三协议）
 │
 ├── setup\                         ← 安装、修复、更新、卸载与校验脚本集
-└── MANUAL\                        ← 11 份战术专项 SOP 手册
+└── MANUAL\                        ← 13 份战术专项 SOP 手册
     ├── ZERO-TO-HERO-WORKFLOW.md   ← ⭐ 零基础通关指南（手把手从零做出免激活成品）
+    ├── BASELINE-FREEZE.md         ← 🔒 基线定档 / 增量演进 / 反臃肿预算
+    ├── SKILL-CREATION-GUIDE.md    ← 外挂技能创作规范（new-skill 配套）
     ├── PREREQUISITES.md           ← 环境与依赖预要求指南
     ├── IDA-PRO.md                 ← IDA Pro 商业软件接入指南（支持 idalib 原生与传统 stdio 双模式）
     ├── ANTI-DEBUG.md              ← 反调试绕过字典与代理 DLL 框架

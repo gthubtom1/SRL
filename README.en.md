@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.8.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.8.4-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
   <a href="https://github.com/gthubtom1/Seep-Reverse-Lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-x86%20%7C%20x64%20%7C%20ARM64-orange?style=for-the-badge" alt="Architecture">
@@ -49,7 +49,7 @@
 
 ---
 
-> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.8.0)**: 23 → **37** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
+> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.8.4)**: 23 → **38** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
 > The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 55). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
 
 ## 🌟 Project Overview

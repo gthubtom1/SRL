@@ -4,7 +4,7 @@ description: 客户端跨版本增量追版与特征迁移专项技能。当目�
 metadata:
   version: "1.0.0"
   target_runtimes: "Windows PE (x86/x64) | Android DEX/SO"
-  compatible_workbench: "Seep v1.8.0+"
+  compatible_workbench: "Seep v1.8.4+"
 ---
 
 # 客户端跨版本增量追版与特征迁移技能 (Version Migration & Differential Adaptation)

@@ -1,6 +1,6 @@
-﻿# MANUAL — 基线定档与增量演进规约 (Baseline Freeze & Incremental Evolution)
+# MANUAL — 基线定档与增量演进规约 (Baseline Freeze & Incremental Evolution)
 
-> **适用版本**：Seep Reverse Lab **v1.8.1（基线定档版）**
+> **适用版本**：Seep Reverse Lab **v1.8.4（基线定档版）**
 > **一句话**：从这一版起，工作台的**架构、路径、接口、配置格式全部冻结**；未来只允许「小步、纯增量、可回滚」的叠加，**不再做大手术**。
 
 ---

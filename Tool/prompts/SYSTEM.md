@@ -1,4 +1,4 @@
-﻿## 实验环境开关协议 (Lab Mode Protocol)
+## 实验环境开关协议 (Lab Mode Protocol)
 
 > 跨 agent 通用：本协议靠**磁盘标志文件** `~/.pi/agent/lab-mode.flag` 存状态，不依赖上下文记忆，切换模型/长上下文/换会话均不丢失。
 

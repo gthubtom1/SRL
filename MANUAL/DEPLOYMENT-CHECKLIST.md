@@ -1,6 +1,6 @@
-﻿# MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
+# MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
 
-> **版本**：v1.8.1  
+> **版本**：v1.8.4  
 > **适用范围**：Pi Agent / Claude Code / DeepSeek Harness / Codex / OpenCode  
 > **核心用途**：作为 Seep Reverse Lab 部署交付的 **单一真值源 (Single Source of Truth, SSOT)**。  
 > 明确声明每个组件的 **官方期望物理路径、文件数、入口文件、可用性验证命令、三态健康标准与降级处置方案**。  

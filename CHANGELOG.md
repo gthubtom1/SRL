@@ -10,6 +10,27 @@
 
 ---
 
+## [1.8.5] — 2026-10-19
+
+### 文档：全仓口径与目录树同步（"该改的都改"）
+
+- **版本号**：README / README.zh / README.en 的 Release 徽章、正文版本、基线定档起始版本统一到 **v1.8.4**；
+  `check.ps1` / `check.bat` / `update.ps1` / `update.bat` **去掉硬编码版本号**（改为"版本取自 VERSION 文件"），永不因升版而过期。
+- **技能数**：README 目录树 `10 大逆向专业技能` → **11 个**，并补上 `version-migration` 与 `unpack-loop` 两行；
+  `apkseep` 文件数 115 → **113**（真实值）。
+- **MANUAL 树**：11 份 → **13 份**，补 `BASELINE-FREEZE` / `SKILL-CREATION-GUIDE`。
+- **CLAUDE.md 目录树**：案例 14 → **15**；手册 9 → **13**；`docs/` 补 `FORK-DELTA`；`scripts/` 说明改为真实职责。
+- **PROVENANCE 溯源表**：9 行 → **11 行**，补 `version-migration` / `unpack-loop`；`ida-assistant` 路径修正。
+- **TOOLKIT_GUIDE 脚本表**：补 6 个新脚本（master-route / 路由自洽 / 端到端冒烟 / 预算自检 / 差分台账 / 技能脚手架）。
+- **README 新增「工程侧增强」表**：脱壳闭环 / 工具可移植 / 工具自愈 / 端到端验收 / 反臃肿预算 / 差分台账 / 防崩纪律。
+
+### 修复：BOM 回归（本轮文档批量改写引入）
+
+- 批量改文档时用了 `utf-8-sig` 写回，导致 **15 个 .md 与 1 个 .py 被加上 BOM** —— 其中
+  `Tool/scripts/new-skill.py` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
+- 处置：`setup/clean-format.py` 增加**通用 BOM 剥离**（除 `.ps1/.psm1/.bat/.cmd` 外一律去 BOM），
+  并在本次全仓执行（112 个 Python 文件语法校验全过）。
+
 ## [1.8.4] — 2026-10-19
 
 ### 文档：统一「MCP 工具数」口径（消除误读）

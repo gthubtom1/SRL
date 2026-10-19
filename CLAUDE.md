@@ -1,4 +1,4 @@
-﻿# CLAUDE.md — Claude Code 项目指令与自动化运维规约
+# CLAUDE.md — Claude Code 项目指令与自动化运维规约
 
 > 当 Claude Code 在本工作区（Seep）被唤醒时，自动加载此文件作为项目最高执行协议。
 
@@ -116,10 +116,10 @@ Seep\
 │   ├── mcp\           seep MCP（38 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
 │   ├── prompts\       SYSTEM.md、AGENTS.md 与安全扩展
-│   ├── cases\         14 个脱敏项目工程（项目 A ~ 项目 N）
+│   ├── cases\         15 个脱敏项目工程（项目 A ~ 项目 N + 案例-6.9换肤壳）
 │   ├── upstream\      3 大开源项目完整镜像 (apk-reverse, open-tgtylab, open-reverselab)
-│   ├── docs\          MCP-SETUP、DOWNLOADS、PROVENANCE 等
+│   ├── docs\          MCP-SETUP、DOWNLOADS、PROVENANCE、EXT-ASSETS、FORK-DELTA（差分台账）等
 │   └── scripts\       任务沙盒初始化与签名工作流
 ├── setup\             安装与自检脚本集 (install.ps1, install.sh, generate-configs.ps1)
-└── MANUAL\            9 份专项战术手册 (包含 DEPLOYMENT.md, ANTI-DEBUG.md, UNPACKING.md 等)
+└── MANUAL\            13 份专项手册 (DEPLOYMENT / UNPACKING / BASELINE-FREEZE / SKILL-CREATION-GUIDE 等)
 ```

@@ -48,7 +48,7 @@ description: "{clean_desc}"
 metadata:
   version: "1.0.0"
   target_runtimes: "Windows PE | Android DEX/SO | Multi-Platform"
-  compatible_workbench: "Seep v1.8.0+"
+  compatible_workbench: "Seep v1.8.4+"
 ---
 
 # {display_title}

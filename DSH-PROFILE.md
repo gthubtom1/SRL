@@ -1,4 +1,4 @@
-﻿# DeepSeek Harness Profile — Seep 逆向工作台
+# DeepSeek Harness Profile — Seep 逆向工作台
 
 > 将此补丁导入 DSH Profile 目录，或通过 `--patch` 命令行动态挂载。
 > DeepSeek Harness 的 MCP 遵循官方 Cordis Overlay 补丁标准，通过 `@deepseek-ai/dsh-mcp-client` 桥接。

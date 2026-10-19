@@ -1,4 +1,4 @@
-﻿host_exe,proxy_dll,id,section,file_off,rva,va,orig_len,patch_len,orig_bytes,patch_bytes,semantic,verify
+host_exe,proxy_dll,id,section,file_off,rva,va,orig_len,patch_len,orig_bytes,patch_bytes,semantic,verify
 项目BNxMain.exe,sentry.dll,nxmain_ad_gate_member_remove_ad_ok_bypass,,1224099,1227171,5369936291,6,6,0f 84 b9 01 00 00,90 90 90 90 90 90,广告剥离闸门：VIP 标志为 0 时跳过 member_remove_ad_ok 信号发射，NOP 后强制始终发射（抑制启动图广告/侧边推荐）,OK
 项目BNxMain.exe,sentry.dll,nxmain_skip_trial_banner_flow,,13563359,13566431,5382275551,6,6,0f 8e ed 00 00 00,e9 ee 00 00 00 90,试用/营销 Banner 流程分支：jle +0xed 改为无条件 jmp，跳过试用引导与购买弹窗创建,OK
 项目BNxMain.exe,sentry.dll,nxmain_resp_expiry_2099_12_31,,13734010,13737082,5382446202,5,5,e8 28 42 31 ff,b8 7f e6 85 f4,网络响应：到期时间固定为 2099-12-31 (0xF485E67F),OK

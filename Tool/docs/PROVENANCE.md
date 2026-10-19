@@ -1,4 +1,4 @@
-﻿# 组件溯源清单 (PROVENANCE)
+# 组件溯源清单 (PROVENANCE)
 
 > 回答一个问题：**每个 Skill / MCP 由哪些文件夹组成，依赖什么，装到哪。**
 > 用于理解"为什么不能只复制一个配置文件"。
@@ -30,7 +30,9 @@
 | 6 | **apk-reverse** | `Tool/skill/safe-skills/apk-reverse/` | 同上 | 8 | 52 KB |
 | 7 | **radare2** | `Tool/skill/safe-skills/radare2/` | 同上 | 3 | 20 KB |
 | 8 | **mcp-js-reverse-playbook** | `Tool/skill/safe-skills/mcp-js-reverse-playbook/` | 同上 | 13 | 24 KB |
-| 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/safe-skills/ida-reverse/` | 同上 | 3 | 28 KB |
+| 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/safe-skills/ida-assistant/` | 同上 | 3 | 28 KB |
+| 10 | **version-migration** | `Tool/skill/version-migration/` | `~/.pi/agent/skills/version-migration/` | 1 | 6 KB |
+| 11 | **unpack-loop** | `Tool/skill/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
 
 ### ⚠ 上游开源归属与完整镜像（合规声明）
 

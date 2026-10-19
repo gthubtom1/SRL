@@ -1,4 +1,4 @@
-﻿# MANUAL — 工作台全景部署与多 Agent 集成指南 (Deployment Guide)
+# MANUAL — 工作台全景部署与多 Agent 集成指南 (Deployment Guide)
 
 > 本手册是 **Seep Reverse Lab** 的咨询级部署标准规范。
 > 无论您使用的是 **Pi Agent**、**Claude Code**、**DeepSeek Harness (DSH)** 还是 **Codex / OpenCode**，亦或是运行在 **Windows**、**Linux** 或 **macOS** 环境，均可按照本手册实现 **100% 零错漏完整部署**。

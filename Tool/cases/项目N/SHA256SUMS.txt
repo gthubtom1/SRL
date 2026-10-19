@@ -1,4 +1,4 @@
-﻿1b906b189bd3cbe51fdcef9e7be493a4ddd06bdefd19b0c6e0d4f2e8c4e98fcf  .agents/notes/implemented/architecture/2026-10-02-vm-three-layer-recovery.md
+1b906b189bd3cbe51fdcef9e7be493a4ddd06bdefd19b0c6e0d4f2e8c4e98fcf  .agents/notes/implemented/architecture/2026-10-02-vm-three-layer-recovery.md
 e223b38eee08e0484deabe7b75d87eabc0423b15b8478221ab60026bbb39412e  .agents/notes/implemented/feature/2026-10-02-minimal-binary-patch-strategy.md
 a549b2107442b0b7e311e6d8f222af372893e99bfbeeaaf5060c8041545d17d9  .agents/notes/rejected/process/2026-10-02-global-helper-method-patch.md
 5f9ee2a3b996354ff5f78cab01d339cfb688cffb92ba978b967476e4ab83bc99  .agents/notes/rejected/process/2026-10-02-static-string-decryptor-recovery.md

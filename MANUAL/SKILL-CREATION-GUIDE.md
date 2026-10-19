@@ -60,7 +60,7 @@ description: 一句话说清本技能解决什么问题、在什么情况下唤�
 metadata:
   version: "1.0.0"
   target_runtimes: "Windows PE | Android DEX/SO | Web/HTTP"
-  compatible_workbench: "Seep v1.8.0+"
+  compatible_workbench: "Seep v1.8.4+"
 ---
 
 # 技能中文全称 (Skill Display Title)
@@ -112,7 +112,7 @@ metadata:
 1. 技能名称：[填入你的技能名称，如 websocket-replay]
 2. 解决痛点：[填入具体场景，如 专门针对私有长连接 WebSocket 数据帧的抓包提取与重放验证]
 3. 遵循原则：
-   - 使用标准 YAML frontmatter，适配 Seep v1.8.0+ 体系；
+   - 使用标准 YAML frontmatter，适配 Seep v1.8.4+ 体系；
    - 优先绑定 Seep 现有的 38 个 MCP 工具（如 seep_tool_discover, seep_mem_strings 等）；
    - 流程中包含资产画像、缺工具自动自愈、动态验证与最终成品交付闭环；
    - 保持声明式纯文本，不携带冗余大二进制，直接输出单文件 SKILL.md。
