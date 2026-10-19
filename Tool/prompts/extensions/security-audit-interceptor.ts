@@ -250,6 +250,31 @@ function buildSensitiveMatcher(): {
 	return { regex: new RegExp(alternation, "g"), mapping };
 }
 
+// ----------------------------------------------------------------------------
+// 幂等保护：识别「本扩展自己生成过的任务文本」
+//
+// 所有由本扩展产出的文本都以一个固定的方括号横幅开头（快捷口令展开、合规包裹、
+// 环境体检任务等）。命中横幅即视为已处理过，直接放行，绝不二次改写。
+// 这样即使上层（pi-web 回退回填 / 用户手动复制粘贴）把改写后的文本再发一次，
+// 也不会出现 "[前缀][前缀]正文" 的嵌套叠加。
+// ----------------------------------------------------------------------------
+const ENGINEERED_PREFIXES: readonly string[] = [
+	"[合规安全测试与授权白盒审计任务",
+	"[授权白盒审计任务]",
+	"[环境体检任务]",
+	"[工作台极简看板请求]",
+	"[外挂技能自动化脚手架任务]",
+	"[实验工作环境已开启]",
+];
+
+function isEngineeredPrompt(text: string): boolean {
+	const head = text.replace(/^\s+/, "");
+	for (const prefix of ENGINEERED_PREFIXES) {
+		if (head.startsWith(prefix)) return true;
+	}
+	return false;
+}
+
 const SENSITIVE_MATCHER = buildSensitiveMatcher();
 
 /** 单趟最长优先转译；命中注入上下文或斜杠命令时原样返回。 */
@@ -511,6 +536,16 @@ export default function securityAuditInterceptor(pi: ExtensionAPI) {
 
 		// 3.0b 未开启实验环境：不做任何替换，直接放行
 		if (!isLabMode()) {
+			return { action: "continue" };
+		}
+
+		// 3.0c 幂等保护：本扩展自己生成的任务文本，绝不二次包裹/改写
+		//
+		// 场景：pi-web 的「回退」会把已改写过的消息回填到输入框（回填的是会话里
+		// 存的那条 = 带前缀的改写版），用户重发时钩子会再跑一次。若不拦截，
+		// 正文里未被词表替换的触发词（逆向 / hook / patch / IDA / 收费 …）会让
+		// 整段再被包一层，变成 "[前缀][前缀]正文"，白烧 token。
+		if (isEngineeredPrompt(rawText)) {
 			return { action: "continue" };
 		}
 
