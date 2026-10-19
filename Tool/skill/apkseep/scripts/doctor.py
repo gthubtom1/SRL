@@ -71,6 +71,13 @@ import subprocess
 import sys
 import time
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(HERE)
 REPO_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))

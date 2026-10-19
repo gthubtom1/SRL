@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
   build.ps1 —— 从源码重建 Tool/samples 下的练习样本（Windows + MinGW/gcc）。
   无 gcc / windres 时跳过对应样本，不报错（扩展工具测试本身不依赖这些样本）。

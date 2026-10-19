@@ -364,12 +364,19 @@ if ($Purge) {
         catch { Write-Warn2 "无法删除: $($b.Name)" }
     }
     foreach ($g in @('opencode.jsonc', 'setup\cordis.generated.yml',
-                     'Tool\scripts\compliance-relay\relay-config.json')) {
+                     'Tool\scripts\compliance-relay\relay-config.json',
+                     '.seep')) {
         $p = Join-Path $Root $g
         if (Test-Path $p) {
-            try { Remove-Item $p -Force -ErrorAction Stop; Write-Ok "已删除生成配置: $g"; $purged++ }
+            try { Remove-Item $p -Recurse -Force -ErrorAction Stop; Write-Ok "已删除生成配置: $g"; $purged++ }
             catch { Write-Warn2 "无法删除: $g" }
         }
+    }
+    # 清理工具自动发现插件的本机用户级状态缓存 (~/.seep)
+    $userSeep = Join-Path $env:USERPROFILE '.seep'
+    if (Test-Path $userSeep) {
+        try { Remove-Item $userSeep -Recurse -Force -ErrorAction Stop; Write-Ok "已清理工具发现本机状态: ~/.seep"; $purged++ }
+        catch { Write-Warn2 "无法删除: $userSeep" }
     }
     Write-Ok "深度清理完成，共 $purged 项（本次卸载备份已保留）"
 } else {
