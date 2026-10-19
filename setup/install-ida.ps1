@@ -17,6 +17,7 @@ param(
 $ErrorActionPreference = 'Continue'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
+$ToolDir   = Join-Path $Root 'Tool'
 $AgentDir  = Join-Path $env:USERPROFILE '.pi\agent'
 $McpJson   = Join-Path $AgentDir 'mcp.json'
 

@@ -24,11 +24,11 @@ MCP（工具层）           →  给 agent「实际干活的手」
 
 | MCP | 工具数 | 用途 | 依赖 | 安装方式 |
 | :--- | :---: | :--- | :--- | :--- |
-| **seep** ⭐ | **22** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
+| **seep** ⭐ | **37** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 + 扩展资产 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
 | **ida** | **~243** | IDA 全套分析链 | **你自备的 IDA Pro** | 脚本装 MCP + 你装 IDA |
 | **playwright** | — | 浏览器自动化 | npx | 自动（npx 按需拉取） |
 
-### seep MCP 的 22 个工具
+### seep MCP 的 37 个工具
 
 | 分组 | 工具 |
 | :--- | :--- |
@@ -37,6 +37,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 | Android (5) | `seep_apk_info` · `_decompile` · `_unpack` · `_smali_search` · `_gen_hook` |
 | 知识库 (4) | `seep_kb_search` · `_read` · `_checklist` · `_payloads` |
 | 流程编排 (3) | `seep_task_init` · `seep_auto_triage` · `seep_gen_security_report` |
+| 扩展资产 (14) | `seep_ensure_tool` · `seep_decompile_auto` · `seep_pe_resources` · `seep_mem_strings` · `seep_pcap_extract` · `seep_packer_detect` · `seep_http_replay` · `seep_web_recon` · `seep_tool_discover` · `seep_tool_control_plan` · `seep_tool_research` · `seep_tool_register_mcp` · `seep_tool_install` · `seep_tool_state` |
 
 ---
 

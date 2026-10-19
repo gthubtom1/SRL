@@ -36,7 +36,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 > 2. **协议依赖**：通过 pip 安装 Python 标准 `mcp` 协议库（`mcp>=1.20,<1.29`）；
 > 3. **工具链校验**：检测内置 Radare2、JADX、Apktool 执行文件完整性；
 > 4. **配置自愈**：读取本地实际物理路径，自动将绝对路径写入配置文件；
-> 5. **自检门禁**：自动调用 `verify.ps1` 进行 37 项完备性体检。
+> 5. **自检门禁**：自动调用 `verify.ps1` 进行 55 项完备性体检。
 
 ### 2. Linux / macOS 用户
 打开终端，进入项目根目录：
@@ -100,7 +100,7 @@ Claude Code 原生支持项目级上下文（`CLAUDE.md`）与项目级 MCP 注�
    ```text
    /mcp
    ```
-   检查 `seep` 服务是否显示为绿色 `connected`，且暴露出 23 个工具。
+   检查 `seep` 服务是否显示为绿色 `connected`，且暴露出 37 个工具。
 5. **执行一键校验**：
    在 Claude 对话框直接发送：
    ```text
@@ -166,7 +166,7 @@ OpenCode 原生支持项目级与全局级 MCP 工具，其配置标准为 `open
    }
    ```
 3. **指令载入与启动**：
-   在项目根目录下直接运行 `opencode`。OpenCode 会自动解析根目录的 `opencode.jsonc` 挂载 23 项 `seep` 工具，并自动加载项目根目录的 `AGENTS.md` 作为作战协议。发送 `check` 即可开启自检！
+   在项目根目录下直接运行 `opencode`。OpenCode 会自动解析根目录的 `opencode.jsonc` 挂载 37 项 `seep` 工具，并自动加载项目根目录的 `AGENTS.md` 作为作战协议。发送 `check` 即可开启自检！
          "env": { "PYTHONIOENCODING": "utf-8" }
        }
      }

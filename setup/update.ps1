@@ -44,6 +44,31 @@ $McpJson   = Join-Path $AgentDir 'mcp.json'
 
 $script:Warnings = @()
 
+# ---------------------------------------------------------------------------
+# 仓库地址解析（修复：原先硬编码 angusdevgo 原版仓库，导致 fork 用户
+# “更新工作台”会去拉原版仓库、把本地优化覆盖/回退）。
+# 现在一律以“当前工作副本的实际 origin”为准；仅在无 origin 时回退到环境变量
+# SEEP_REPO_URL；两者都没有则返回空（宁可不更新，也不指向错误仓库）。
+# ---------------------------------------------------------------------------
+function Get-RepoUrl {
+    if ($env:SEEP_REPO_URL) { return $env:SEEP_REPO_URL.Trim() }
+    $g = Get-Command git -ErrorAction SilentlyContinue
+    if ($g -and (Test-Path (Join-Path $Root '.git'))) {
+        $u = (& git -C $Root remote get-url origin 2>$null)
+        if ($u) { return ($u | Select-Object -First 1).Trim() }
+    }
+    return ''
+}
+function Get-RawVersionUrl([string]$repoUrl) {
+    if (-not $repoUrl) { return '' }
+    $u = $repoUrl.Trim().TrimEnd('/') -replace '\.git$', ''
+    if ($u -match 'github\.com[:/]([^/]+)/([^/]+)$') {
+        return "https://raw.githubusercontent.com/$($Matches[1])/$($Matches[2])/main/VERSION"
+    }
+    return ''
+}
+$RepoUrl = Get-RepoUrl
+
 function Write-Step($m) { Write-Host "`n>>> $m" -ForegroundColor Cyan }
 function Write-Ok($m)   { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Warn2($m) { Write-Host "    [!!] $m" -ForegroundColor Yellow; $script:Warnings += $m }
@@ -121,7 +146,8 @@ if ($Check) {
     }
 
     try {
-        $url = 'https://raw.githubusercontent.com/angusdevgo/Seep-Reverse-Lab/main/VERSION'
+        $url = Get-RawVersionUrl $RepoUrl
+        if (-not $url) { throw "no-repo-url" }
         $handler = New-Object System.Net.Http.HttpClientHandler
         if ($proxyPort) {
             $handler.Proxy = New-Object System.Net.WebProxy("http://127.0.0.1:$proxyPort")
@@ -186,13 +212,16 @@ if ($NoPull) {
     Write-Info '已指定 -NoPull，跳过 git pull（适用于手动下载压缩包覆盖的场景）'
 } elseif (-not $isGitRepo) {
     $hasGit = Get-Command git -ErrorAction SilentlyContinue
-    if ($hasGit) {
+    if ($hasGit -and $RepoUrl) {
         Write-Info '检测到本机已安装 Git，正在将当前目录自动关联并初始化至远程仓库...'
+        Write-Info "使用仓库地址: $RepoUrl"
         Push-Location $Root
         try {
+            $proxyPort = Test-ProxyPort -Ports @(10808, 7897, 7890)
+            $proxyArgs = if ($proxyPort) { @('-c', "http.proxy=http://127.0.0.1:$proxyPort", '-c', "https.proxy=http://127.0.0.1:$proxyPort") } else { @() }
             & git init 2>&1 | Out-Null
-            & git remote add origin https://github.com/angusdevgo/Seep-Reverse-Lab.git 2>&1 | Out-Null
-            & git remote set-url origin https://github.com/angusdevgo/Seep-Reverse-Lab.git 2>&1 | Out-Null
+            & git remote add origin $RepoUrl 2>&1 | Out-Null
+            & git remote set-url origin $RepoUrl 2>&1 | Out-Null
             Write-Info '正在从远程仓库高速拉取最新代码...'
             & git @proxyArgs fetch origin main 2>&1 | ForEach-Object { Write-Info $_ }
             & git @proxyArgs reset --mixed origin/main 2>&1 | Out-Null
@@ -203,6 +232,10 @@ if ($NoPull) {
         } finally {
             Pop-Location
         }
+    } elseif ($hasGit) {
+        Write-Warn2 '当前目录不是 Git 仓库，且未探测到仓库地址（origin / SEEP_REPO_URL 均无）。'
+        Write-Info '为避免误拉到错误仓库覆盖本地改动，已跳过自动拉取。'
+        Write-Info '请先设置 origin（git remote add origin <你的仓库地址>），或用 -NoPull 配合手动压缩包覆盖。'
     } else {
         Write-Warn2 '当前目录不是 Git 仓库且本机未检测到 Git 命令，无法自动拉取。'
         Write-Info '若需更新，可从 GitHub 仓库下载最新压缩包覆盖后重跑本脚本。'

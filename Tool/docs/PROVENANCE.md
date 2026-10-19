@@ -116,6 +116,10 @@ apkseep/
 Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_hook
 知识库(4)     seep_kb_search · _read · _checklist · _payloads
 流程编排(3)   seep_task_init · seep_auto_triage · seep_gen_security_report
+扩展资产(14)  seep_ensure_tool · seep_decompile_auto · seep_pe_resources · seep_mem_strings ·
+             seep_pcap_extract · seep_packer_detect · seep_http_replay · seep_web_recon ·
+             seep_tool_discover · seep_tool_control_plan · seep_tool_research ·
+             seep_tool_register_mcp · seep_tool_install · seep_tool_state
 ```
 
 ### ② ida MCP（~243 工具）

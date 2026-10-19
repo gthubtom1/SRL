@@ -371,8 +371,16 @@ Test-CheckItem "依赖" "Playwright 浏览器自动化依赖已解压 (playwrigh
 Write-Host "`n[6/9] ⚙️ 外部运行时与商业授权协同 (Runtime & Commercial)" -ForegroundColor White
 Test-CheckItem "运行时" "Python 解释器 (3.11+ 且可执行)" {
     $py = Get-Command python -ErrorAction SilentlyContinue
-    $py -ne $null
-} "系统未安装 Python 或未加入 PATH 环境变量，请安装 Python 3.11+" "Python 3.11+" "PATH"
+    if (-not $py) { return $false }
+    # 不仅判断存在，还要真正能执行且版本 >= 3.11（避开 Windows Store 占位程序等假 python）
+    $out = & python -c "import sys; print('%d.%d' % (sys.version_info.major, sys.version_info.minor))" 2>&1
+    if ($LASTEXITCODE -ne 0 -or -not $out) { return $false }
+    $ver = ($out | Select-Object -First 1).ToString().Trim()
+    $parts = $ver.Split('.')
+    if ($parts.Count -lt 2) { return $false }
+    $major = [int]$parts[0]; $minor = [int]$parts[1]
+    ($major -gt 3) -or ($major -eq 3 -and $minor -ge 11)
+} "系统未安装 Python 3.11+ 或 python 不可执行（若为 Windows Store 占位程序请安装官方 Python 并勾选 Add to PATH）" "Python 3.11+" "PATH"
 
 Test-ManualItem "协议" "Python mcp 协议库环境支持 (mcp>=1.20,<1.29)" {
     $py = Get-Command python -ErrorAction SilentlyContinue

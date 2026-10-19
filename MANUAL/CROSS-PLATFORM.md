@@ -34,7 +34,7 @@ sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/Java
 
 ### 2. 克隆与一键部署
 ```bash
-git clone https://github.com/angusdevgo/Seep-Reverse-Lab.git
+git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
 cd Seep-Reverse-Lab
 
 # 执行跨平台自动化安装
@@ -60,7 +60,7 @@ sudo apt install -y python3 python3-pip python3-venv nodejs npm radare2 openjdk-
 
 ### 2. 克隆与一键部署
 ```bash
-git clone https://github.com/angusdevgo/Seep-Reverse-Lab.git
+git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
 cd Seep-Reverse-Lab
 
 chmod +x setup/install.sh setup/verify.sh

@@ -9,15 +9,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/angusdevgo/seep-reverse-lab"><img src="https://img.shields.io/badge/Release-v1.6.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
-  <a href="https://github.com/angusdevgo/seep-reverse-lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.8.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-x86%20%7C%20x64%20%7C%20ARM64-orange?style=for-the-badge" alt="Architecture">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20Tools-23%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/Verifier-52%2F52%20Passed-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
+  <img src="https://img.shields.io/badge/MCP%20Tools-37%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/Verifier-55%2F55%20Passed-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/Knowledge%20Base-289%20Journals-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/Paradigms-14%20Cases%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOPs-9%20Tactical%20Guides-red?style=for-the-badge" alt="MANUAL SOPs">
@@ -49,6 +49,9 @@
 
 ---
 
+> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.8.0)**: 23 → **37** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
+> The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 55). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
+
 ## 🌟 Project Overview
 
 Seep consolidates fragmented reverse engineering toolchains (Radare2 / JADX / Apktool / Frida / IDA), operational knowledge bases, prompt engineering contracts, and battle-tested field experience into an **Agent-Native Autonomous Workbench**.
@@ -59,7 +62,7 @@ Users provide plain-language technical goals; the agent autonomously performs pl
 
 | Pain Point | Solution |
 |---|---|
-| 🔧 **Toolchain Fragmentation** | 31 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
+| 🔧 **Toolchain Fragmentation** | 37 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
 | 🧠 **Agent Decision Drift** | `softseep` orchestrator: two-stage auto-classification (Platform × 9 Task Types) + 7-gate decision tree |
 | 🛡️ **Model Refusal in Security Audits** | Three-tier mitigation: `BLOCK_NONE` injection + transparent terminology mapping + cognitive redirection |
 | 📚 **Ephemeral Knowledge** | 289 technical field journals + 14 desensitized paradigms + "search KB before executing" enforced discipline |
@@ -90,7 +93,7 @@ User Input (plain language — "bypass the premium check in FooBar.apk")
          │                  │                    │
          ▼                  ▼                    ▼
    seep MCP            IDA Pro MCP         KB Search
-   31 tools            (optional)          289 journals
+   37 tools            (optional)          289 journals
    (Radare2/JADX/                          (Zero-Waste Recon)
     Apktool/Frida)
          │
@@ -214,7 +217,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP unpacking SOP
     ├── POC-VALIDATION.md          ← Frida self-healing loop & PoC sandbox validation
     ├── DEPLOYMENT.md              ← Comprehensive deployment & multi-Agent setup guide
-    ├── DEPLOYMENT-CHECKLIST.md    ← Official deployment baseline checklist (51 items)
+    ├── DEPLOYMENT-CHECKLIST.md    ← Official deployment baseline checklist (55 items)
     ├── CROSS-PLATFORM.md          ← Cross-platform (Windows/Linux/macOS) execution guide
     ├── COMPLIANCE-RELAY.md        ← Transport-layer compliance relay & auto-retry architecture
     └── MODEL-REFUSAL-MATRIX.md    ← Measured refusal matrix & Gemini-safe prompt reshaping
@@ -226,7 +229,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP Tool Matrix
 
-The bundled `seep` MCP server exposes **37 native tools** across six functional groups:
+The bundled `seep` MCP server exposes **37 native tools** across seven functional groups:
 
 | Category | Tool | Functionality | Token Mode |
 |---|---|---|---|
@@ -261,6 +264,12 @@ The bundled `seep` MCP server exposes **37 native tools** across six functional 
 | | `seep_web_recon` | Read-only web recon (stack/security headers/entry discovery) | — |
 | | `seep_decompile_auto` | Decompile entry (r2 fallback + higher-tier engine notice) | `output_mode` |
 | | `seep_ensure_tool` | 4-level tool probing + missing-tool install plan | — |
+| **Tool Discovery**<br>(auto-adapt MCP) | `seep_tool_discover` | 6-layer progressive tool discovery (env/PATH/common dirs/**registry**/recursive scan/alias) + arch match | — |
+| | `seep_tool_control_plan` | Discovery → how-to-control plan (MCP → headless → GUI → self-written Py) | — |
+| | `seep_tool_research` | Declarative capability lookup (MCP/headless/GUI); unknown tools return search queries | — |
+| | `seep_tool_register_mcp` | Incrementally register a tool's MCP into mcp.json (never deletes user entries) | — |
+| | `seep_tool_install` | Semi-automatic install (probe → command+source → confirm → re-probe) | — |
+| | `seep_tool_state` | View local discovery cache (~/.seep/tools.local.json, never committed) | — |
 
 > 💡 **Context Budget Control** (v1.1): `seep_r2_decompile` with `output_mode=fold` reduces token consumption by ~60%; `summary` mode by ~90%. Use `seep_r2_xrefs` instead of raw `axt` to avoid flooding the context window with hundreds of references.
 
@@ -354,7 +363,7 @@ Everything affected is backed up to `~/.pi/agent/backup-uninstall-<timestamp>/` 
 
 ### 6. Verify Your Deployment
 
-Run the 9-dimension health verifier (52 checks) against `MANUAL/DEPLOYMENT-CHECKLIST.md` using any of these methods:
+Run the 9-dimension health verifier (55 checks) against `MANUAL/DEPLOYMENT-CHECKLIST.md` using any of these methods:
 
 | Method | Command |
 |---|---|
@@ -363,7 +372,7 @@ Run the 9-dimension health verifier (52 checks) against `MANUAL/DEPLOYMENT-CHECK
 | Agent chat | Send `check` (or `doctor` / `检查`) — agent runs and reports inline |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep Health Verifier Dashboard (51 Checks Passed across 9 Dimensions)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep Health Verifier Dashboard (55 Checks Passed across 9 Dimensions)" width="880">
 </p>
 
 ---
@@ -487,10 +496,10 @@ All client-side vulnerability assessments follow a consulting-grade 3-part struc
 
 ## ⭐ Star History
 
-<a href="https://www.star-history.com/?repos=angusdevgo%2FSeep-Reverse-Lab&type=timeline&logscale=&releases=&legend=bottom-right">
+<a href="https://www.star-history.com/?repos=gthubtom1%2FSeep-Reverse-Lab&type=timeline&logscale=&releases=&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=angusdevgo/Seep-Reverse-Lab&type=timeline&theme=dark&logscale&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=angusdevgo/Seep-Reverse-Lab&type=timeline&logscale&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=angusdevgo/Seep-Reverse-Lab&type=timeline&logscale&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gthubtom1/Seep-Reverse-Lab&type=timeline&theme=dark&logscale&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gthubtom1/Seep-Reverse-Lab&type=timeline&logscale&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gthubtom1/Seep-Reverse-Lab&type=timeline&logscale&legend=top-left" />
  </picture>
 </a>

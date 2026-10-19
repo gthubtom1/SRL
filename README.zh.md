@@ -9,15 +9,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/angusdevgo/seep-reverse-lab"><img src="https://img.shields.io/badge/Release-v1.6.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
-  <a href="https://github.com/angusdevgo/seep-reverse-lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.8.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-x86%20%7C%20x64%20%7C%20ARM64-orange?style=for-the-badge" alt="Architecture">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20工具-31%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/健康体检-52%2F52%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
+  <img src="https://img.shields.io/badge/MCP%20工具-37%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/健康体检-55%2F55%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-289%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOP-9%20份专项手册-red?style=for-the-badge" alt="MANUAL SOPs">
@@ -51,7 +51,7 @@
 
 ## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）
 
-> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.7.0）。**
+> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.8.0）。**
 > 原版的一切能力、体检、案例、知识库完整保留；我们只在其上补了原版没有的场景。
 
 **加了什么（23 → 37 个 MCP 工具，全部纯增量）**：
@@ -66,11 +66,12 @@
 | Web 侦察 | `seep_web_recon` | 渗透轻量侦察（只读） |
 | 工具发现 | `seep_ensure_tool` | 四级探测 + 缺工具安装计划 |
 | 反编译入口 | `seep_decompile_auto` | r2 保底 + 高阶引擎告知 |
+| 工具自动发现（6 个） | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 六层探测本机工具 + 声明式能力表 + 自动适配注册 MCP + 半自动安装 |
 
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
-- 体检从 50 项 → **52 项**（只增不减），新增项就是“扩展资产在位 + 功能自测”。
+- 体检从 50 项 → **55 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
 **怎么回退到纯净原版**：
 ```bash
@@ -122,7 +123,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
           │                │                  │
           ▼                ▼                  ▼
     seep MCP          IDA Pro MCP         知识库检索
-    23 个工具          (可选联动)          289 篇战术笔记
+    37 个工具          (可选联动)          289 篇战术笔记
     (R2/JADX/                             (Zero-Waste Recon)
      Apktool/Frida)
           │
@@ -211,7 +212,7 @@ Seep\ (251 MB)
 │   │   └── safe-skills\           ← 5 个独立战术工具包
 │   │
 │   ├── mcp\                       ← MCP 服务引擎
-│   │   ├── seep_mcp_server.py     ← 核心服务端，23 个底层分析工具
+│   │   ├── seep_mcp_server.py     ← 核心服务端，37 个底层分析工具
 │   │   └── Tool\                  ← ⚠️ 硬编码相对路径，禁止重命名/搬移
 │   │       ├── safe\              ← 物理内置工具箱
 │   │       │   ├── jadx\          ← 75 MB（v1.5.6）
@@ -245,7 +246,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP 脱壳 SOP
     ├── POC-VALIDATION.md          ← Frida 自愈循环与 PoC 沙箱验证
     ├── DEPLOYMENT.md              ← 全景部署与多 Agent 集成指南
-    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（51 项）
+    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（55 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
     └── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
@@ -257,7 +258,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP 工具矩阵
 
-自研 `seep` MCP 服务暴露 **37 个原生工具**，分六大功能组：
+自研 `seep` MCP 服务暴露 **37 个原生工具**，分七大功能组：
 
 | 分类 | 工具 | 核心功能 | 上下文控制 |
 |---|---|---|---|
@@ -292,6 +293,12 @@ Seep\ (251 MB)
 | | `seep_web_recon` | Web 只读侦察（技术栈/安全头/入口发现） | — |
 | | `seep_decompile_auto` | 反编译入口（r2 保底 + 高阶引擎告知） | `output_mode` |
 | | `seep_ensure_tool` | 工具四级探测 + 缺工具安装计划 | — |
+| **工具自动发现**<br>（自动适配 MCP） | `seep_tool_discover` | 六层递进发现（env/PATH/常见目录/**注册表**/递归扫描/别名）+ 架构匹配 | — |
+| | `seep_tool_control_plan` | 发现 → 怎么控制计划（MCP → headless → GUI → 自写 Py） | — |
+| | `seep_tool_research` | 声明式能力查询（MCP/headless/GUI）；表外工具返回检索 query | — |
+| | `seep_tool_register_mcp` | 增量把工具 MCP 注册进 mcp.json（绝不删用户条目） | — |
+| | `seep_tool_install` | 半自动安装（探测 → 命令+来源 → 确认 → 重探） | — |
+| | `seep_tool_state` | 查看本机发现缓存（~/.seep/tools.local.json，绝不入库） | — |
 
 > 💡 **上下文预算控制（v1.1）**：`seep_r2_decompile` 使用 `output_mode=fold` 可减少约 60% Token 消耗；`summary` 模式减少约 90%。使用 `seep_r2_xrefs` 替代原始 `axt` 命令，避免数百条引用直接灌满上下文窗口。
 
@@ -383,7 +390,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 6. 部署完备性校验（9 大维度 52 项全绿）
+### 6. 部署完备性校验（9 大维度 55 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
@@ -394,7 +401,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 51 项全部通过)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 55 项全部通过)" width="880">
 </p>
 
 ---

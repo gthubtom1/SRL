@@ -9,8 +9,8 @@
 ## 0. 一句话现状
 
 - 仓库 `main` = `8c0ab32`，已推到 `https://github.com/gthubtom1/Seep-Reverse-Lab`。
-- 版本 **1.7.0**；体检 `check.ps1` **53 项全绿 READY**；原 MCP 基线 9/9；扩展自测 32/32。
-- 原版 23 工具 → 现 **31 工具**（8 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行）。
+- 版本 **1.8.0**；体检 `check.ps1` **55 项全绿 READY**；原 MCP 基线 9/9；扩展自测 60/60。
+- 原版 23 工具 → 现 **37 工具**（14 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行）。
 
 ---
 
@@ -25,7 +25,7 @@
 | 真样本库 | `Tool/samples/real/`：PE 31 + APK 6 + ELF 3 + JS混淆 20 + pcap 5（全格式，随仓库提交，本地=GitHub） |
 | 思路沉淀 | `Tool/cases/案例-6.9换肤壳/`（含 2 篇被否决方案笔记） |
 | 文档 | `Tool/docs/EXT-ASSETS.md`、`Tool/docs/MERGE-PLAYBOOK.md`（融合标准流程+踩坑7条+13步清单） |
-| 部署验证 | 已实测：全新 clone → extract-deps → install.ps1 → 53项全绿 → MCP 31工具可启动可调用 |
+| 部署验证 | 已实测：全新 clone → extract-deps → install.ps1 → 55项全绿 → MCP 37工具可启动可调用 |
 
 ---
 
@@ -53,7 +53,7 @@
 
 ### 任务B：彻底最终审查（"真能用"审查，不是功能审查）
 主人要求：不是审功能，是审**"从零部署到真正使用，整条流程到底能不能跑通、以后用会不会出问题"**。
-- 已在全新 clone 上验证过一次部署（extract-deps→install.ps1→53项全绿→MCP可启动），但**要在新对话里再严格走一遍完整流程**（尤其：换一台没装 Ghidra/IDA 的机器会怎样、MCP 重启是否生效、样本反编译产物会不会污染仓库）。
+- 已在全新 clone 上验证过一次部署（extract-deps→install.ps1→55项全绿→MCP可启动），但**要在新对话里再严格走一遍完整流程**（尤其：换一台没装 Ghidra/IDA 的机器会怎样、MCP 重启是否生效、样本反编译产物会不会污染仓库）。
 - 要重点审：**二开加入的东西，在真实使用中到底用不用得上、会不会互相打架**。
 
 ---

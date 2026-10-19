@@ -29,6 +29,25 @@ VERSION_FILE="$ROOT/VERSION"
 CHANGELOG_FILE="$ROOT/CHANGELOG.md"
 MCP_JSON="$AGENT_DIR/mcp.json"
 
+# 仓库地址解析（修复：原先硬编码 angusdevgo 原版仓库，导致 fork 用户“更新工作台”
+# 会去拉原版仓库、把本地优化覆盖/回退）。现在以当前工作副本的实际 origin 为准；
+# 仅在无 origin 时回退到环境变量 SEEP_REPO_URL；都没有则返回空。
+resolve_repo_url() {
+    if [ -n "${SEEP_REPO_URL:-}" ]; then echo "$SEEP_REPO_URL"; return; fi
+    if [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
+        git -C "$ROOT" remote get-url origin 2>/dev/null || true
+    fi
+}
+raw_version_url() {
+    local u="$1"
+    [ -z "$u" ] && return 0
+    u="${u%.git}"; u="${u%/}"
+    if [[ "$u" =~ github\.com[:/]([^/]+)/([^/]+)$ ]]; then
+        echo "https://raw.githubusercontent.com/${BASH_REMATCH[1]}/${BASH_REMATCH[2]}/main/VERSION"
+    fi
+}
+REPO_URL="$(resolve_repo_url)"
+
 GREEN="\033[1;32m"; RED="\033[1;31m"; YELLOW="\033[1;33m"
 CYAN="\033[1;36m"; WHITE="\033[1;37m"; GRAY="\033[0;37m"; RESET="\033[0m"
 
@@ -125,7 +144,7 @@ if [ $CHECK_ONLY -eq 1 ]; then
     # 通过 curl 探测 VERSION
     CURL_PROXY=()
     [ -n "$PROXY_PORT" ] && CURL_PROXY=("-x" "http://127.0.0.1:$PROXY_PORT")
-    R_VER="$(curl -sSL "${CURL_PROXY[@]}" --max-time 5 https://raw.githubusercontent.com/angusdevgo/Seep-Reverse-Lab/main/VERSION 2>/dev/null | tr -d '[:space:]' || true)"
+    R_VER="$(curl -sSL "${CURL_PROXY[@]}" --max-time 5 "$(raw_version_url "$REPO_URL")" 2>/dev/null | tr -d '[:space:]' || true)"
     if [ -n "$R_VER" ] && [ "$R_VER" != "$OLD_VERSION" ]; then
         echo -e "  ${YELLOW}[UPDATE]${RESET} 检测到新版本 v$R_VER 发布！(当前本地版本: v$OLD_VERSION)"
         echo -e "  提示: 执行 ./setup/update.sh 即可一键更新。"
@@ -162,17 +181,22 @@ step "1/6  拉取最新代码"
 if [ "$NO_PULL" = 1 ]; then
     info "已指定 --no-pull，跳过 git pull"
 elif [ "$IS_GIT" != 1 ]; then
-    if command -v git >/dev/null 2>&1; then
+    if command -v git >/dev/null 2>&1 && [ -n "$REPO_URL" ]; then
         info "检测到本机已安装 Git，正在将当前目录自动关联并初始化至远程仓库..."
+        info "使用仓库地址: $REPO_URL"
         cd "$ROOT" || exit 1
         git init >/dev/null 2>&1 || true
-        git remote add origin https://github.com/angusdevgo/Seep-Reverse-Lab.git >/dev/null 2>&1 || true
-        git remote set-url origin https://github.com/angusdevgo/Seep-Reverse-Lab.git >/dev/null 2>&1 || true
+        git remote add origin "$REPO_URL" >/dev/null 2>&1 || true
+        git remote set-url origin "$REPO_URL" >/dev/null 2>&1 || true
         info "正在从远程仓库高速拉取最新代码..."
         git fetch origin main >/dev/null 2>&1 || true
         git reset --mixed origin/main >/dev/null 2>&1 || true
         ok "已成功将当前工作台关联并更新至最新版本！"
         IS_GIT=1
+    elif command -v git >/dev/null 2>&1; then
+        warn "当前目录不是 Git 仓库，且未探测到仓库地址（origin / SEEP_REPO_URL 均无）。"
+        info "为避免误拉到错误仓库覆盖本地改动，已跳过自动拉取。"
+        info "请先设置 origin（git remote add origin <你的仓库地址>），或用 --no-pull 配合手动压缩包覆盖。"
     else
         warn "当前目录不是 Git 仓库且未检测到 Git 命令，无法自动拉取。"
         info "若需更新，可从 GitHub 仓库下载最新压缩包覆盖后重跑本脚本。"
