@@ -185,7 +185,7 @@ seep_kb_search(query="信号描述")  或  reverselab/kb 全文检索
 
 | MCP | 工具数 | 用途 | 依赖 |
 | :--- | :---: | :--- | :--- |
-| **seep** | **22** | 二进制逆向（Radare2）+ APK 逆向（JADX/Apktool）+ Frida Hook 生成 + 知识库检索 | radare2 / jadx / apktool |
+| **seep** | **38** | 二进制逆向（Radare2）+ APK 逆向（JADX/Apktool）+ Frida Hook 生成 + 知识库检索 + 多引擎降级与工具自愈 | radare2 / jadx / apktool |
 | **ida** | **~243** | IDA 全套分析链（反编译 / 交叉引用 / 结构体恢复） | **需自备 IDA Pro** |
 | **playwright** | — | 浏览器自动化（Web 审计 / JS 逆向） | npx |
 
