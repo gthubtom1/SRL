@@ -160,7 +160,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 部署完成后，直接在 Agent 对话框发一句大白话：
 
 ```
-lab：分析 FooBar.apk，找到会员验证并绕过
+Lab:帮我逆向授权分析此软件，是否存在跳过激活进行付费功能本地化漏洞，若存在，进行漏洞复现，并输出漏洞报告以及复现原理.md
 ```
 
 Agent 自主完成：
