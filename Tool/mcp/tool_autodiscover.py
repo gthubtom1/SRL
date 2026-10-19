@@ -478,9 +478,52 @@ def _mcp_entry_for(tool_id):
     return None
 
 
+# 看起来像“本地脚本/可执行文件”的后缀（用于预检参数与命令）
+_LOCAL_FILE_SUFFIXES = (".py", ".js", ".mjs", ".cjs", ".exe", ".cmd", ".bat", ".ps1", ".sh")
+
+
+def _looks_like_path(value):
+    """是否像本地路径（而非包名/子命令）：含分隔符、不以 `-` 开头。"""
+    s = str(value or "").strip()
+    return bool(s) and not s.startswith("-") and ("/" in s or "\\" in s)
+
+
+def _mcp_entry_preflight(entry):
+    """落盘前预检 MCP 条目：只拦“明确坏掉”，不拦“运行时尚未安装”。
+
+    背景（两类完全不同的故障，不能混）：
+      · **扩展级**：某个 pi 扩展顶掉内置（如 `/mcp`）—— 由
+        `Tool/scripts/check-extension-conflicts.py` 负责；本函数**不**管，
+        因为注册 MCP **服务器**只是改 `mcp.json`，永远不碰 `settings.json`
+        的 `packages`，结构上就不可能顶替任何内置。
+      · **条目级**：写进一条指向不存在的可执行文件/脚本的配置 → 每个会话
+        都报连接失败。这是本函数防的。
+
+    返回 ``{"ok": bool, "errors": [...], "warnings": [...]}``：
+      · ``command`` 缺失、或看起来是路径但不存在 → error（拒绝落盘）；
+      · ``command`` 是裸命令但不在 PATH（如尚未装 uvx/npx）→ warning
+        （照写，装好运行时重启即可，不阻断“先注册后装工具”的工作流）；
+      · 参数里指向本地脚本的文件不存在 → error。
+    """
+    errors, warnings = [], []
+    entry = entry or {}
+    cmd = str(entry.get("command") or "").strip()
+    args = [str(a) for a in (entry.get("args") or [])]
+    if not cmd:
+        errors.append("缺少 command")
+    elif _looks_like_path(cmd):
+        if not (os.path.isfile(cmd) or os.path.isdir(cmd)):
+            errors.append("command 指向的路径不存在: %s" % cmd)
+    elif not shutil.which(cmd):
+        warnings.append("运行时不在此机 PATH: %s（装好后重启会话即可）" % cmd)
+    for a in args:
+        if _looks_like_path(a) and a.lower().endswith(_LOCAL_FILE_SUFFIXES) and not os.path.exists(a):
+            errors.append("参数指向的文件不存在: %s" % a)
+    return {"ok": not errors, "errors": errors, "warnings": warnings}
+
+
 def _root_mcp_sync_enabled():
     """是否把 MCP 条目同时同步到【仓库根 .mcp.json】。
-
     ★ 血案：旧实现无条件追加根目录 .mcp.json（这是 git **受跟踪**文件），
     即使设置了 SEEP_AGENT_MCP 做测试隔离也照样写 —— 跑一次自测就会把测试工具
     （如 ghidra）写进受跟踪文件，并在仓库根堆出几十个 .mcp.json.bak-<时间戳> 垃圾。
@@ -516,7 +559,13 @@ def register_mcp(tool_id, apply=False, server_name=None):
     """注册工具对应的 MCP 到当前 agent 的 mcp.json（增量合并、绝不删用户条目）。
     支持多 Agent 宿主协同：同时同步 ~/.pi/agent/mcp.json 与项目根 .mcp.json。
 
-    apply=False 时只返回"将要写入的片段 + 目标路径"，不落盘（半自动：先给人看）。
+    ★ 边界（防复发）：本函数**只写 `mcp.json` 的 `mcpServers` 字段**，
+    永远不碰 `settings.json` 的 `packages`、也不安装任何 pi 扩展包。
+    因此“注册 MCP 服务器”与“装第三方 MCP 扩展顶掉内置 /mcp”是两件事：
+    前者不会触发 pi 的 replaceable 机制（启动不出 [Extension issues]）；
+    后者由 `Tool/scripts/check-extension-conflicts.py` 在安装期拦截。
+
+    apply=False 时只返回"将要写入的片段 + 目标路径 + 预检结果"，不落盘。
     写入成功后返回 restart_required=True —— 协议层死规矩：MCP 配置需重启会话才生效。
     """
     tid = normalize_tool_id(tool_id)
@@ -536,13 +585,24 @@ def register_mcp(tool_id, apply=False, server_name=None):
         return {"tool_id": tid, "registered": False,
                 "reason": "能力表中没有该工具的 MCP 注册方式（表外未知工具不假装能注册）",
                 "target": primary_path}
+
+    # 落盘前预检（只拦“明确坏掉”的条目；运行时未装仅告警）
+    pre = _mcp_entry_preflight(entry)
+
     if not apply:
         return {"tool_id": tid, "registered": False, "preview": True,
                 "server_name": name, "entry": entry, "targets": targets,
+                "preflight": pre,
                 "note": "这是将要增量写入的片段；确认后以 apply=True 落盘（需重启会话生效）。"}
+    if pre["errors"]:
+        return {"tool_id": tid, "registered": False,
+                "reason": "条目预检未通过，未写入任何文件：" + "；".join(pre["errors"]),
+                "preflight": pre, "target": primary_path,
+                "hint": "按 seep_tool_control_plan 的安装路线把运行时/脚本装好，或修正能力表后再注册。"}
 
     # 增量合并所有有效目标
     written_targets = []
+    unverified_targets = []
     for p in targets:
         cfg = _load_json(p, {"mcpServers": {}})
         if not isinstance(cfg, dict):
@@ -561,6 +621,13 @@ def register_mcp(tool_id, apply=False, server_name=None):
             with open(p, "w", encoding="utf-8") as f:  # UTF-8 无 BOM
                 json.dump(cfg, f, indent=2, ensure_ascii=False)
             written_targets.append(p)
+            # 写后回读校验：确认落盘的就是这条（防编码/并发覆盖/手改成脏）
+            try:
+                back = (_load_json(p, {}) or {}).get("mcpServers", {}).get(name)
+                if back != entry:
+                    unverified_targets.append(p)
+            except Exception:
+                unverified_targets.append(p)
         except Exception:
             continue
 
@@ -570,6 +637,8 @@ def register_mcp(tool_id, apply=False, server_name=None):
 
     return {"tool_id": tid, "registered": True, "server_name": name, "entry": entry,
             "written_targets": written_targets, "overwrote_existing": existed,
+            "verified": not bool(unverified_targets), "unverified_targets": unverified_targets,
+            "preflight": pre,
             "restart_required": True,
             "note": "已增量写入 mcp.json（未删除任何用户既有条目，多Agent宿主已协同同步）。★ 需重启 Agent 会话后生效。"}
 

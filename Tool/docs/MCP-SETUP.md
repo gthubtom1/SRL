@@ -103,6 +103,19 @@ python Tool/scripts/check-extension-conflicts.py      # 有冲突 → 退出码 
 > **给本工作台加 MCP 服务器不会触发**：编辑 `mcp.json` 或用 `seep_tool_register_mcp`
 > 只是“加一条服务器配置”，不是“装一个替换内置的扩展”。
 
+#### `seep_tool_discover` → `seep_tool_register_mcp` 的边界
+
+| 环节 | 它到底做什么 | 会不会碰扩展层 |
+|---|---|---|
+| `seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_install` | 探测并安装**外部工具本体**（exe / pip / npm 全局包 / 运行时） | ❌ 不碰 `settings.json` 的 `packages` |
+| `seep_tool_register_mcp` | 只往 `mcp.json` 的 **`mcpServers`** 加一条服务器配置 | ❌ 不装 pi 扩展、不改 packages |
+
+两层加固：
+
+1. **落盘前预检**：`command` 指向的路径不存在 / 参数里的脚本不存在 → **拒写**并提示先装工具；
+   裸命令（`npx` / `uvx`）不在 PATH → **仅告警**（不阻断“先注册后装工具”的工作流）。
+2. **落盘后回读校验**：返回 `verified: true/false`，防止编码 / 并发覆盖造成的脏配置。
+
 ---
 
 ## 四、⚠️ 关键约束：`Tool/mcp/Tool/` 不可搬动

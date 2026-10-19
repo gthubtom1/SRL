@@ -10,6 +10,43 @@
 
 ---
 
+## [1.9.2] — 2026-10-20
+
+> 主题：**MCP 注册链路加固** —— 确认“发现/适配”链路结构上不可能触发扩展顶替，并补上条目的写入前/后校验。
+
+### 结论先行（分层，不要混）
+
+| 层 | 谁负责 | 风险 |
+|---|---|---|
+| **装 MCP 服务器**（`mcp.json` / `seep_tool_register_mcp`） | 本仓的发现-适配链路 | 不碰 `settings.json` 的 `packages`、不装 pi 扩展 → **结构上不可能顶替内置** |
+| **装第三方 MCP 扩展**（自己注册 `/mcp`） | 用户手动 `pi install` | 会顶替内置 → 由 `Tool/scripts/check-extension-conflicts.py` 在安装期拦截 |
+
+### 新增（`Tool/mcp/tool_autodiscover.py`）
+
+- `_mcp_entry_preflight()`：落盘前校验，只拦**明确坏掉**的条目 —
+  - `command` 缺失 → 拒写；
+  - `command` 是路径但不存在（如被搬走的 IDA python） → 拒写；
+  - 参数里指向本地脚本的文件不存在 → 拒写；
+  - 裸命令（`npx` / `uvx`）不在 PATH → **仅告警**，保留“先注册、后装工具”的工作流。
+- 落盘后**回读校验**：返回体新增 `verified` / `unverified_targets` / `preflight` 字段。
+- `register_mcp` docstring 明确边界：本函数只写 `mcpServers`，永不写 `packages`。
+
+### 加固后的行为
+
+| 场景 | 以前 | 现在 |
+|---|---|---|
+| 工具已装、命令正确 | 写入 → 重启即用 | 同前，且 `verified: true` |
+| 运行时未装（如 uvx 缺） | 静默写入死条目 | 照写 + `warnings` 提示先装运行时 |
+| 能力表指向已失效路径 | 静默写入死条目，每个会话报连接失败 | **拒写** + 给 `seep_tool_control_plan` 的安装路线 |
+
+### 测试
+
+`test_ext_assets.py` 新增 `[20b]` 段（10 断言）：预检四态、坏条目零落盘零建文件、给出安装提示、
+并用 AST 断言 `register_mcp` 源体**不引用** `settings.json` / `packages` / `pi install`。
+总数 63 → **73**。
+
+---
+
 ## [1.9.1] — 2026-10-20
 
 > 主题：**换回 pi 内置 MCP** —— 退役与 pi 1.3+ 内置抢 `/mcp` 的第三方扩展包，并加"装前命名自检"。

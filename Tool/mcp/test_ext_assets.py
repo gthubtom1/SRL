@@ -298,6 +298,52 @@ def main():
     else:
         check("MCP 注册断言", False, "插件未导入")
 
+    print("=== [20b] MCP 注册条目预检：明确坏掉的拒写 / 运行时未装只告警 ===")
+    if T:
+        pf = T._mcp_entry_preflight({"command": "npx", "args": ["-y", "js-reverse-mcp"]})
+        check("正常条目预检通过", pf.get("ok") is True, json.dumps(pf, ensure_ascii=False))
+        check("缺 command 判坏", T._mcp_entry_preflight({"args": []}).get("ok") is False, "")
+        bad_path = os.path.join(tempfile.gettempdir(), "no-such-seep-tool-zzz.exe")
+        check("command 路径不存在判坏", T._mcp_entry_preflight({"command": bad_path, "args": []}).get("ok") is False, "")
+        pf4 = T._mcp_entry_preflight({"command": "definitely-missing-runtime-zzz", "args": []})
+        check("运行时未装仅告警（不阻断先注册后装）", pf4.get("ok") is True and len(pf4.get("warnings", [])) == 1, "")
+
+        # 预检失败 → 不落盘、不创建文件、给安装提示
+        orig_entry = T._mcp_entry_for
+        tmp2 = os.path.join(tempfile.gettempdir(), "_seep_mcp_pre_%d.json" % os.getpid())
+        old_env = os.environ.get("SEEP_AGENT_MCP")
+        try:
+            T._mcp_entry_for = lambda _tid: {"command": bad_path, "args": []}
+            os.environ["SEEP_AGENT_MCP"] = tmp2
+            rr_bad = T.register_mcp("ghidra", apply=True)
+            check("坏条目拒绝落盘", rr_bad.get("registered") is False, json.dumps(rr_bad, ensure_ascii=False)[:140])
+            check("坏条目未创建配置文件", not os.path.exists(tmp2), "")
+            check("坏条目给安装提示", bool(rr_bad.get("hint")), "")
+        finally:
+            T._mcp_entry_for = orig_entry
+            try:
+                os.remove(tmp2)
+            except Exception:
+                pass
+            if old_env is None:
+                os.environ.pop("SEEP_AGENT_MCP", None)
+            else:
+                os.environ["SEEP_AGENT_MCP"] = old_env
+
+        # 结构性保证：注册链路只写 mcpServers，绝不碰 packages / 不装 pi 扩展
+        import ast as _ast
+        import inspect as _inspect
+        import textwrap as _textwrap
+        _fn = _ast.parse(_textwrap.dedent(_inspect.getsource(T.register_mcp))).body[0]
+        if _fn.body and isinstance(_fn.body[0], _ast.Expr) and isinstance(getattr(_fn.body[0], "value", None), _ast.Constant):
+            _fn.body = _fn.body[1:]
+        _body = _ast.unparse(_fn)
+        check("注册链路不引用 settings.json", "settings.json" not in _body, "")
+        check("注册链路不写 packages", "packages" not in _body, "")
+        check("注册链路不安装 pi 扩展", "pi install" not in _body and "update --extensions" not in _body, "")
+    else:
+        check("MCP 预检断言", False, "插件未导入")
+
     print("=== [21/22] 架构匹配：PE machine + 32/64 位工具选择 ===")
     if T:
         pe2 = os.path.join(HERE, "Tool", "safe", "radare2", "bin", "r2agent.exe")
