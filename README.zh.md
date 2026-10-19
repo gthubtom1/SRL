@@ -25,7 +25,7 @@
 </p>
 
 <p align="center">
-  [ <a href="README.md">English</a> | <strong>中文文档</strong> ]
+  [ <strong>中文文档</strong> | <a href="README.en.md">English</a> ]
 </p>
 
 <p align="center">
@@ -66,7 +66,7 @@
 | Web 侦察 | `seep_web_recon` | 渗透轻量侦察（只读） |
 | 工具发现 | `seep_ensure_tool` | 四级探测 + 缺工具安装计划 |
 | 反编译入口 | `seep_decompile_auto` | r2 保底 + 高阶引擎告知 |
-| 工具自动发现（6 个） | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 六层探测本机工具 + 声明式能力表 + 自动适配注册 MCP + 半自动安装 |
+| 工具自动发现与自愈（6 个） | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 六层探测（含注册表与位宽匹配）+ 声明式能力表（拒绝-h试探）+ **多途径自适应安装（支持无winget的Win10自动绿色直下）** + 多Agent宿主双向同步注册 MCP |
 
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
