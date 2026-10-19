@@ -10,7 +10,7 @@
 
 - 仓库 `main` = `8c0ab32`，已推到 `https://github.com/gthubtom1/Seep-Reverse-Lab`。
 - 版本 **1.8.0**；体检 `check.ps1` **58 项全绿 READY**；原 MCP 基线 9/9；扩展自测 60/60。
-- 原版 23 工具 → 现 **38 工具**（14 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行）。
+- 原版 23 工具 → 现 **38 工具**（15 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行）。
 
 ---
 
@@ -25,7 +25,7 @@
 | 真样本库 | `Tool/samples/real/`：PE 31 + APK 6 + ELF 3 + JS混淆 20 + pcap 5（全格式，随仓库提交，本地=GitHub） |
 | 思路沉淀 | `Tool/cases/案例-6.9换肤壳/`（含 2 篇被否决方案笔记） |
 | 文档 | `Tool/docs/EXT-ASSETS.md`、`Tool/docs/MERGE-PLAYBOOK.md`（融合标准流程+踩坑7条+13步清单） |
-| 部署验证 | 已实测：全新 clone → extract-deps → install.ps1 → 58项全绿 → MCP 37工具可启动可调用 |
+| 部署验证 | 已实测：全新 clone → extract-deps → install.ps1 → 58项全绿 → MCP 38工具可启动可调用 |
 
 ---
 
