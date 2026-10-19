@@ -5,7 +5,7 @@
 #  设计原则：只移除工作台自己装的东西，绝不碰你的数据。
 #
 #  卸载范围（逐项可关）：
-#    · ~/.pi/agent/skills/<工作台技能>      —— 仅工作台自带的 10 大技能
+#    · ~/.pi/agent/skills/<工作台技能>      —— 仅工作台自带的 11 大技能
 #    · ~/.pi/agent/AGENTS.md / SYSTEM.md    —— 工作台写入的提示词
 #    · ~/.pi/agent/extensions/*.ts          —— 工作台扩展
 #    · ~/.pi/agent/mcp.json 中的 seep / js-reverse / playwright 条目

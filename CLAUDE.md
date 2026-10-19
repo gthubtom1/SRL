@@ -1,4 +1,4 @@
-# CLAUDE.md — Claude Code 项目指令与自动化运维规约
+﻿# CLAUDE.md — Claude Code 项目指令与自动化运维规约
 
 > 当 Claude Code 在本工作区（Seep）被唤醒时，自动加载此文件作为项目最高执行协议。
 
@@ -112,7 +112,7 @@ Seep\
 ├── DSH-PROFILE.md     ← DeepSeek Harness 接入模板
 │
 ├── Tool\
-│   ├── skill\         10 个 Skill（以 softseep 为总控）
+│   ├── skill\         11 个 Skill（以 softseep 为总控）
 │   ├── mcp\           seep MCP（38 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
 │   ├── prompts\       SYSTEM.md、AGENTS.md 与安全扩展

@@ -111,7 +111,7 @@ metadata:
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
 | "破解" / "怎么免费用" / "会员怎么搞" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权/许可分析** | 前置门控 → `project-paradigms.md` |
-| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → `windows-sop.md` / `apkseep` |
+| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `unpack-loop`**（判据驱动，不硬走流程） |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
 | "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `project-paradigms.md` |
 | "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |
@@ -153,6 +153,7 @@ metadata:
 | | **apkseep** | `~/.pi/agent/skills/apkseep/SKILL.md` | Android APK/DEX/SO 全链路 |
 | | **ida-reverse** | `~/.pi/agent/skills/ida-reverse/SKILL.md` | IDA 自动唤醒 + 联动 |
 | | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
+| | **unpack-loop** | `Tool/skill/unpack-loop/SKILL.md` | 加壳脱壳与内存转储闭环（判据驱动 / 三路线 / 两次熔断） |
 | | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
 | | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
 | **MCP** | **seep**（38 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |

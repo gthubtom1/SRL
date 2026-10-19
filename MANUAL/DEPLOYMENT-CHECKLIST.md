@@ -22,7 +22,7 @@
 
 ## 二、 官方部署资产核验基准表 (Baseline Manifests)
 
-### 1. 🛠️ 技能系统基准表 (Skills System - 10 大组件)
+### 1. 🛠️ 技能系统基准表 (Skills System - 11 大组件)
 
 目标安装路径以 Pi Agent 规范为例（`~/.pi/agent/skills/`，Windows 下为 `$env:USERPROFILE\.pi\agent\skills\`）：
 
@@ -38,6 +38,7 @@
 | **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/radare2` |
 | **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/mcp-js-reverse-playbook` |
 | **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/ida-assistant` |
+| **S11** | **`unpack-loop`** | `~/.pi/agent/skills/unpack-loop/` | `SKILL.md` (≥1 项) | `SKILL.md` | 含「判据驱动 / 三路线 / 两次熔断」的脱壳闭环 | 🟢 **核心**。加壳目标必用。修复：重跑 `install-pi.ps1` |
 
 ---
 

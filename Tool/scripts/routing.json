@@ -17,6 +17,7 @@
   "priority": [
     "R1",
     "R2",
+    "R9",
     "R3",
     "R4",
     "R5",
@@ -107,6 +108,15 @@
         {
           "must": "(?i).*",
           "note": "兜底路由：交给 softseep 总控做两步判型"
+        }
+      ]
+    },
+    "R9": {
+      "label": "加壳/脱壳与内存转储",
+      "skill": "unpack-loop/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)脱壳|加壳|壳|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|dump|转储|oep|iat|反调试|反反调试|scylla|pe-sieve|内存转储"
         }
       ]
     }

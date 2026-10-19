@@ -58,7 +58,7 @@ Pi Agent 是原生支持 Skill 渐进式披露、拦截扩展与 `lab：` 状态
    powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
    ```
 2. **确认写入目录**：
-   - 技能包写入至：`~/.pi/agent/skills/`（包含 `softseep`、`apkseep` 等 10 个技能）；
+   - 技能包写入至：`~/.pi/agent/skills/`（包含 `softseep`、`apkseep` 等 11 个技能）；
    - 系统提示词写入至：`~/.pi/agent/SYSTEM.md` 与 `AGENTS.md`；
    - 安全放行扩展写入至：`~/.pi/agent/extensions/security-audit-interceptor.ts`；
    - MCP 服务注册至：`~/.pi/agent/mcp.json`（其中已将 `<SEEP_ROOT>` 自动替换为当前工作台绝对路径）。
@@ -285,7 +285,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 
 | 会被移除 | 永不触碰 |
 |---|---|
-| 工作台自带的 10 大技能 | `models.json` / `auth.json` |
+| 工作台自带的 11 大技能 | `models.json` / `auth.json` |
 | 工作台写入的 `AGENTS.md` / `SYSTEM.md` | `sessions/` / `logs/` |
 | `extensions/*.ts` | **你自己添加的** Skill |
 | `mcp.json` 中的 `seep` / `js-reverse` / `playwright` | **你自己添加的** MCP 条目（如 `ida`、`x64dbg`） |
