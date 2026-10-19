@@ -38,12 +38,13 @@ def clean_skill_name(name: str) -> str:
 
 
 def generate_skill_content(name: str, desc: str, title: str) -> str:
-    display_title = title.strip() or f"{name.capitalize()} 专项技能"
-    description = desc.strip() or f"{name} 领域的逆向分析与专项白盒审计支持技能。"
+    # 攻击性加固：严格转义双引号和清除换行，确保 YAML frontmatter 绝对不会产生语法损坏
+    display_title = title.strip().replace("\n", " ").replace('"', '') or f"{name.capitalize()} 专项技能"
+    clean_desc = desc.strip().replace('"', '\\"').replace("\n", " ") or f"{name} 领域的逆向分析与专项白盒审计支持技能。"
 
     template = f"""---
 name: {name}
-description: "{description}"
+description: "{clean_desc}"
 metadata:
   version: "1.0.0"
   target_runtimes: "Windows PE | Android DEX/SO | Multi-Platform"

@@ -1479,19 +1479,28 @@ def _ghidra_decompile(binary_path: str, target: str, output_mode: str = "fold") 
     cmd = [analyze, proj_dir, "seep_proj", "-import", os.path.abspath(binary_path),
            "-postScript", "DecompileToFile.java", target or "auto", out_c,
            "-deleteProject", "-scriptPath", os.path.dirname(script)]
+    code = None
     try:
-        subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", timeout=300, env=env)
-    except Exception:
-        return None
-    if not os.path.isfile(out_c):
-        return None
-    try:
-        with open(out_c, "r", encoding="utf-8", errors="replace") as f:
-            code = f.read()
-    except Exception:
-        return None
-    if not code.strip() or "decompile failed" in code[:200]:
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=300, env=env)
+        except Exception:
+            return None
+        if not os.path.isfile(out_c):
+            return None
+        try:
+            with open(out_c, "r", encoding="utf-8", errors="replace") as f:
+                code = f.read()
+        except Exception:
+            return None
+    finally:
+        # 攻击性加固：无论成功、失败还是超时中断，绝不残留临时 Ghidra 工程垃圾目录
+        try:
+            shutil.rmtree(proj_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+    if not code or not code.strip() or "decompile failed" in code[:200]:
         return None
     # output_mode 粗略处理：summary 只给签名行，fold/full 给代码
     if output_mode == "summary":
@@ -1677,6 +1686,9 @@ def seep_pe_resources(binary_path: str, min_size: int = 4096, extract_dir: str =
     # 2) 资源枚举
     resources = []
     def walk(resdir, path):
+        # 攻击性加固：深度超过 8 层强制熔断，防止畸形/恶意 PE 构造环形 Resource Directory 导致栈溢出
+        if len(path) > 8:
+            return
         for entry in getattr(resdir, "entries", []):
             name = entry.name if entry.name is not None else entry.id
             eid = entry.id
@@ -1764,61 +1776,71 @@ def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: in
     k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     PROCESS_QUERY_INFORMATION = 0x0400
     PROCESS_VM_READ = 0x0010
-    h = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, int(pid))
+    try:
+        pid_int = int(pid)
+    except Exception:
+        return f"[ERROR]: 非法 pid={pid}，必须为正整数。"
+
+    h = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid_int)
     if not h:
-        return f"[ERROR]: OpenProcess 失败 pid={pid}，错误码={ctypes.get_last_error()}（需管理员/同架构）"
+        return f"[ERROR]: OpenProcess 失败 pid={pid}，错误码={ctypes.get_last_error()}（需管理员权限或目标进程架构一致）"
 
-    class MEMORY_BASIC_INFORMATION(ctypes.Structure):
-        _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
-                    ("AllocationProtect", wintypes.DWORD), ("RegionSize", ctypes.c_size_t),
-                    ("State", wintypes.DWORD), ("Protect", wintypes.DWORD), ("Type", wintypes.DWORD)]
-
-    MEM_COMMIT = 0x1000
-    PAGE_GUARD = 0x100
-    PAGE_NOACCESS = 0x01
-    readable = {0x02, 0x04, 0x08, 0x20, 0x40, 0x80}  # R/RW/COPY/W+X 等
-    addr = 0
     hits = []
-    pat = pattern.lower()
-    mbi = MEMORY_BASIC_INFORMATION()
-    max_addr = 0x7FFFFFFFFFFF
-    while addr < max_addr and len(hits) < max_hits:
-        res = k32.VirtualQueryEx(h, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi))
-        if not res:
-            break
-        base = mbi.BaseAddress or 0
-        size = mbi.RegionSize or 0
-        prot = mbi.Protect or 0
-        if (mbi.State == MEM_COMMIT and prot not in (PAGE_NOACCESS,) and not (prot & PAGE_GUARD)
-                and (prot & 0xFF) in readable and size <= (64 << 20)):
-            buf = ctypes.create_string_buffer(size)
-            nread = ctypes.c_size_t(0)
-            ok = k32.ReadProcessMemory(h, ctypes.c_void_p(base), buf, size, ctypes.byref(nread))
-            if ok and nread.value:
-                data = buf.raw[:nread.value]
-                # ascii
-                if encoding in ("ascii", "both"):
-                    for m in re.finditer(rb"[\x20-\x7e]{%d,}" % min_len, data):
-                        s = m.group().decode("ascii", "replace")
-                        if not pat or pat in s.lower():
-                            hits.append({"addr": hex(base + m.start()), "enc": "ascii", "s": s[:200]})
-                            if len(hits) >= max_hits:
-                                break
-                # utf16le
-                if encoding in ("utf16", "both") and len(hits) < max_hits:
-                    for m in re.finditer(rb"(?:[\x20-\x7e]\x00){%d,}" % min_len, data):
-                        try:
-                            s = m.group().decode("utf-16le", "replace")
-                        except Exception:
-                            continue
-                        if not pat or pat in s.lower():
-                            hits.append({"addr": hex(base + m.start()), "enc": "utf16", "s": s[:200]})
-                            if len(hits) >= max_hits:
-                                break
-        addr = base + size
-        if size == 0:
-            break
-    k32.CloseHandle(h)
+    try:
+        class MEMORY_BASIC_INFORMATION(ctypes.Structure):
+            _fields_ = [("BaseAddress", ctypes.c_void_p), ("AllocationBase", ctypes.c_void_p),
+                        ("AllocationProtect", wintypes.DWORD), ("RegionSize", ctypes.c_size_t),
+                        ("State", wintypes.DWORD), ("Protect", wintypes.DWORD), ("Type", wintypes.DWORD)]
+
+        MEM_COMMIT = 0x1000
+        PAGE_GUARD = 0x100
+        PAGE_NOACCESS = 0x01
+        readable = {0x02, 0x04, 0x08, 0x20, 0x40, 0x80}  # R/RW/COPY/W+X 等
+        addr = 0
+        pat = pattern.lower()
+        mbi = MEMORY_BASIC_INFORMATION()
+        max_addr = 0x7FFFFFFFFFFF
+        while addr < max_addr and len(hits) < max_hits:
+            res = k32.VirtualQueryEx(h, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi))
+            if not res:
+                break
+            base = mbi.BaseAddress or 0
+            size = mbi.RegionSize or 0
+            prot = mbi.Protect or 0
+            # 攻击性加固：单块读取限制最大 8MB，避免超大恶意堆块导致瞬间内存暴增/OOM
+            if (mbi.State == MEM_COMMIT and prot not in (PAGE_NOACCESS,) and not (prot & PAGE_GUARD)
+                    and (prot & 0xFF) in readable and 0 < size <= (8 << 20)):
+                buf = ctypes.create_string_buffer(size)
+                nread = ctypes.c_size_t(0)
+                ok = k32.ReadProcessMemory(h, ctypes.c_void_p(base), buf, size, ctypes.byref(nread))
+                if ok and nread.value:
+                    data = buf.raw[:nread.value]
+                    # ascii
+                    if encoding in ("ascii", "both"):
+                        for m in re.finditer(rb"[\x20-\x7e]{%d,}" % min_len, data):
+                            s = m.group().decode("ascii", "replace")
+                            if not pat or pat in s.lower():
+                                hits.append({"addr": hex(base + m.start()), "enc": "ascii", "s": s[:200]})
+                                if len(hits) >= max_hits:
+                                    break
+                    # utf16le
+                    if encoding in ("utf16", "both") and len(hits) < max_hits:
+                        for m in re.finditer(rb"(?:[\x20-\x7e]\x00){%d,}" % min_len, data):
+                            try:
+                                s = m.group().decode("utf-16le", "replace")
+                            except Exception:
+                                continue
+                            if not pat or pat in s.lower():
+                                hits.append({"addr": hex(base + m.start()), "enc": "utf16", "s": s[:200]})
+                                if len(hits) >= max_hits:
+                                    break
+            addr = base + size
+            if size == 0:
+                break
+    finally:
+        # 攻击性加固：无论成功或异常退出，严密关闭目标进程句柄，防止句柄泄露锁死目标
+        k32.CloseHandle(h)
+
     return json.dumps({
         "pid": pid, "pattern": pattern, "hits": hits, "count": len(hits),
         "note": "addr 为进程虚拟地址，可直接回填到反汇编/反编译里定位引用该字符串的代码。",

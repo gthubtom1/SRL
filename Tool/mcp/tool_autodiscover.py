@@ -495,7 +495,13 @@ def _download_and_extract_portable(urls, target_sub, verify_exe=""):
                 shutil.copyfileobj(resp, out_fp)
             if os.path.isfile(tmp_zip) and os.path.getsize(tmp_zip) > 1024:
                 with zipfile.ZipFile(tmp_zip, "r") as zf:
-                    zf.extractall(final_dir)
+                    # 攻击性加固：严格防御 Zip Slip 路径穿越漏洞，保证解压出的文件绝对不会越界覆盖系统文件
+                    base_resolved = os.path.realpath(final_dir)
+                    for member in zf.infolist():
+                        target_path = os.path.realpath(os.path.join(final_dir, member.filename))
+                        if not target_path.startswith(base_resolved + os.sep) and target_path != base_resolved:
+                            continue  # 忽略恶意路径穿越条目
+                        zf.extract(member, final_dir)
                 try:
                     os.remove(tmp_zip)
                 except Exception:
