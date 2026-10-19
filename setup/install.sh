@@ -110,6 +110,12 @@ fi
 [ -f "$TOOL_DIR/prompts/AGENTS.md" ] && cp "$TOOL_DIR/prompts/AGENTS.md" "$AGENT_DIR/"
 if [ -d "$TOOL_DIR/prompts/extensions" ]; then
     cp "$TOOL_DIR/prompts/extensions/"*.ts "$AGENT_DIR/extensions/" 2>/dev/null || true
+    # 自动安全退役与归档已融合的旧版独立扩展（其人设卡/RULES/粘性保护已100%全量融入 load-system-prompt.ts）
+    if [ -f "$AGENT_DIR/extensions/prompt-compat.ts" ]; then
+        mkdir -p "$AGENT_DIR/backup-retired-extensions"
+        mv -f "$AGENT_DIR/extensions/prompt-compat.ts" "$AGENT_DIR/backup-retired-extensions/" 2>/dev/null || true
+        echo "  [√] 已安全归档旧版独立扩展 prompt-compat.ts (消除双重注册冲突)"
+    fi
     echo "  [√] 提示词与安全拦截扩展同步完成"
 fi
 

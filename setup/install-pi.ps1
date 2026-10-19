@@ -82,6 +82,14 @@ if (Test-Path $srcExt) {
         Copy-Item $f.FullName (Join-Path $ExtDir $f.Name) -Force
         Write-Ok "extension: $($f.Name)"
     }
+    # 自动安全退役与归档已融合的旧版独立扩展（其人设卡/RULES/粘性保护已100%全量融入 load-system-prompt.ts）
+    $legacyCompat = Join-Path $ExtDir 'prompt-compat.ts'
+    if (Test-Path $legacyCompat) {
+        $retiredDir = Join-Path $AgentDir 'backup-retired-extensions'
+        if (-not (Test-Path $retiredDir)) { New-Item -ItemType Directory -Path $retiredDir -Force | Out-Null }
+        Move-Item -Path $legacyCompat -Destination (Join-Path $retiredDir 'prompt-compat.ts') -Force
+        Write-Ok "已安全归档旧版独立扩展 prompt-compat.ts -> backup-retired-extensions/ (消除双重注册冲突)"
+    }
 }
 
 # ---------------------------------------------------------------- 4. 增量安全合并 mcp.json (UTF-8 No BOM, 无覆盖隐患)
