@@ -272,11 +272,31 @@ const GEMINI_SAFETY_SETTINGS = [
 	{ category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "BLOCK_NONE" },
 ];
 
+// ----------------------------------------------------------------------------
+// 历史拒答残渣清洗（LEAK SCRUB）
+//
+// 目的：把历史上模型吐出的「拒绝话术」整块抹平，防止 Gemini 看到自己以前的
+// 拒绝文本而连锁二次拒绝。
+//
+// ★ 历史血案（v1.8.0 及更早版本，含原版 angusdevgo 上游）：正则曾写成
+//   /[Safe Security Testing Flow]/gi —— 方括号是**字符类**而不是字面量，含义是
+//   「把 s/a/f/e/空格/c/u/r/t/i/y/n/g/l/o/w 中任意单个字符替换成 27 字符串面量」。
+//   结果任何正常文本（连空格都算）都会被逐字符碾成
+//   "[Safe Security Testing Flow][Safe Security Testing Flow]..."，
+//   对 Gemini 形状的 payload 与 context 钩子是毁灭性的正文损坏。
+//   因此这里必须用 \[ \] 转义成字面量，并用常量集中管理，禁止再手写裸方括号。
+// ----------------------------------------------------------------------------
+const LEAK_TAG = "[Safe Security Testing Flow]";
+/** 整块拒答残渣：从标记开始，直到 use-policy). 结束（限长，防止跨文档吞内容） */
+const LEAK_BLOCK_RE = /\[Safe Security Testing Flow\][\s\S]{0,4000}?use-policy\)\./gi;
+/** 孤立的标记本身 */
+const LEAK_TAG_RE = /\[Safe Security Testing Flow\]/gi;
+
 function sanitizeHarmfulPromptLeak(text: string): string {
 	if (!text) return text;
-	// 剔除之前模型报出过的被拒提示语，防止 Gemini 看到历史错误信息产生幻觉二次拒绝
-	let res = text.replace(/This request was blocked by Gemini's filters[\s\S]*?use-policy\)\./gi, "[Safe Security Testing Flow]");
-	res = res.replace(/This request was blocked by Gemini's filters/gi, "[Safe Security Testing Flow]");
+	// 零误伤原则：不含标记的正文一律原样返回，绝不做任何替换
+	if (!text.includes("Safe Security Testing Flow")) return text;
+	const res = text.replace(LEAK_BLOCK_RE, LEAK_TAG).replace(LEAK_TAG_RE, LEAK_TAG);
 	return res;
 }
 

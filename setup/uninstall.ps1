@@ -99,6 +99,21 @@ function Get-WorkbenchSkillNames {
     return ($names | Select-Object -Unique)
 }
 
+# 工作台「自有扩展」白名单（与 install-pi.ps1 严格对齐）
+# ★ 血案：旧实现无差别删除 ~/.pi/agent/extensions/*.ts，会把用户自己装的扩展
+# （例如 cmd-guard.ts）一起删掉，违背"绝不碰你的数据"的承诺。
+# 现在改为：只删 Tool/prompts/extensions/ 里真实随包分发的那几个 .ts。
+function Get-WorkbenchExtensionNames {
+    $names = @()
+    $src = Join-Path $Root 'Tool\prompts\extensions'
+    if (Test-Path $src) {
+        foreach ($f in (Get-ChildItem $src -Filter '*.ts' -ErrorAction SilentlyContinue)) {
+            $names += $f.Name
+        }
+    }
+    return $names
+}
+
 $WorkbenchPackages = @(
     'npm:pi-open-tui', 'npm:pi-web-access', 'npm:@juicesharp/rpiv-todo',
     'npm:@narumitw/pi-btw', 'npm:@narumitw/pi-plan-mode', 'npm:@narumitw/pi-usage',
@@ -205,8 +220,11 @@ if (-not $KeepPrompts) {
         if (Test-Path (Join-Path $AgentDir $f)) { $promptHits += $f }
     }
     if (Test-Path $ExtDir) {
+        $workbenchExts = Get-WorkbenchExtensionNames
         foreach ($f in (Get-ChildItem $ExtDir -Filter '*.ts' -ErrorAction SilentlyContinue)) {
-            $promptHits += "extensions/$($f.Name)"
+            if ($workbenchExts -contains $f.Name) {
+                $promptHits += "extensions/$($f.Name)"
+            }
         }
     }
 }

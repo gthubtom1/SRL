@@ -188,7 +188,7 @@ python -m unittest discover -s tests -v
 
 | 文件 | 覆盖 |
 |---|---|
-| `tests/test_relay.py`（44 项） | 规则提取、最长优先匹配、单趟不回扫、上下文守卫、三协议适配、路由与 token、零落盘、端到端转发 |
+| `tests/test_relay.py`（84 项） | 规则提取、最长优先匹配、单趟不回扫、上下文守卫、三协议适配、路由与 token、零落盘、端到端转发 |
 | `tests/test_refusal.py`（40 项） | 形态识别、改写策略级联、非流式/流式拒答检测、三协议文本往返、**端到端重试恢复** |
 
 ```bash

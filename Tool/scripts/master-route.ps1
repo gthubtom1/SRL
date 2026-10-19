@@ -17,12 +17,22 @@ $scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $skillsRoot = Split-Path -Parent $scriptDir
 $packageRoot = Split-Path -Parent $skillsRoot
-$configPath = Join-Path $skillsRoot 'config/routing.json'
+# --- 路由配置定位（单一事实源）---
+# 本仓库把 reverse-skill 的 skills/ 树摊平进了 Tool/，因此 routing.json 实际位于
+# 脚本同级目录 Tool/scripts/routing.json；为兼容旧布局再兜底 Tool/config/routing.json。
+$configCandidates = @(
+    (Join-Path $scriptDir 'routing.json'),
+    (Join-Path $skillsRoot 'config/routing.json')
+)
+$configPath = $null
+foreach ($c in $configCandidates) {
+    if (Test-Path -LiteralPath $c) { $configPath = $c; break }
+}
 
 # --- 读取路由配置（单一事实源） ---
-if (-not (Test-Path -LiteralPath $configPath)) {
-    Write-Host ("ERROR: routing config missing: {0}" -f $configPath) -ForegroundColor Red
-    Write-Host 'Restore skills/config/routing.json (git checkout / git pull) and retry.' -ForegroundColor Yellow
+if (-not $configPath) {
+    Write-Host ("ERROR: routing config missing. Tried: {0}" -f ($configCandidates -join ' | ')) -ForegroundColor Red
+    Write-Host 'Restore Tool/scripts/routing.json (git checkout / git pull) and retry.' -ForegroundColor Yellow
     exit 2
 }
 try {
@@ -118,7 +128,21 @@ if ([string]::IsNullOrWhiteSpace($OutDir)) {
 
 $primaryPath = $cfg.routes.$primary.skill
 $primaryLabel = $cfg.routes.$primary.label
-$skillAbs = Join-Path $skillsRoot ($primaryPath -replace '/', [IO.Path]::DirectorySeparatorChar)
+# 技能根解析：兼容 skills/<name>/SKILL.md、Tool/skill/<name>/SKILL.md、
+# Tool/skill/safe-skills/<name>/SKILL.md 三种落位。
+$skillRel = $primaryPath -replace '/', [IO.Path]::DirectorySeparatorChar
+$skillRootCandidates = @(
+    (Join-Path $skillsRoot $skillRel),
+    (Join-Path (Join-Path $skillsRoot 'skill') $skillRel),
+    (Join-Path (Join-Path (Join-Path $skillsRoot 'skill') 'safe-skills') $skillRel)
+)
+$skillAbs = $null
+foreach ($c in $skillRootCandidates) {
+    if (Test-Path -LiteralPath $c) { $skillAbs = $c; break }
+}
+if (-not $skillAbs) {
+    $skillAbs = $skillRootCandidates[0]
+}
 if (-not (Test-Path -LiteralPath $skillAbs)) {
     Write-Host ("ERROR: PRIMARY skill missing: {0}" -f $skillAbs) -ForegroundColor Red
     exit 2
@@ -168,7 +192,15 @@ foreach ($n in $notes) { [void]$sb.AppendLine(("- {0}" -f $n)) }
 $utf8 = New-Object System.Text.UTF8Encoding $true
 [System.IO.File]::WriteAllText((Join-Path $OutDir 'route-scope.md'), $sb.ToString(), $utf8)
 
-Write-Host ("PRIMARY -> skills/{0}" -f $primaryPath) -ForegroundColor Green
+# 显示真实解析到的技能相对路径（不再是硬编码的 skills/ 前缀）
+# 注意：Windows PowerShell 5.1（.NET Framework）没有 [IO.Path]::GetRelativePath，
+# 这里手工做前缀裁剪，保证 5.1 / 7.x 行为一致。
+$primaryShown = $skillAbs
+if ($packageRoot -and $skillAbs.StartsWith($packageRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    $primaryShown = $skillAbs.Substring($packageRoot.Length).TrimStart([char]92, [char]47)
+}
+$primaryShown = $primaryShown.Replace([System.IO.Path]::DirectorySeparatorChar, [char]47)
+Write-Host ("PRIMARY -> {0}" -f $primaryShown) -ForegroundColor Green
 Write-Host ("Label: {0} | confidence: {1}" -f $primaryLabel, $confidence)
 foreach ($n in $notes) { Write-Host ("NOTE: {0}" -f $n) -ForegroundColor Yellow }
 Write-Host ("Wrote {0}\route-scope.md" -f $OutDir)

@@ -1,6 +1,6 @@
 # MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
 
-> **版本**：v1.3.0  
+> **版本**：v1.8.1  
 > **适用范围**：Pi Agent / Claude Code / DeepSeek Harness / Codex / OpenCode  
 > **核心用途**：作为 Seep Reverse Lab 部署交付的 **单一真值源 (Single Source of Truth, SSOT)**。  
 > 明确声明每个组件的 **官方期望物理路径、文件数、入口文件、可用性验证命令、三态健康标准与降级处置方案**。  
@@ -29,14 +29,14 @@
 | # | 技能名称 (ID) | 宿主安装目标路径 | 官方期望文件/目录数 | 核心入口标识文件 | 可用性判据与验证命令 | 状态判定与指引 |
 |---|---|---|---|---|---|---|
 | **S1** | **`softseep`** ⭐总控 | `~/.pi/agent/skills/softseep/` | `SKILL.md` + 8 篇 `references/` (≥10 项) | `SKILL.md`<br>`references/license-validation.md` | 检查 8 篇 references 齐全，G0-G6 门控完整 | 🟢 **核心**。缺失则总控瘫痪。修复：`powershell setup\install-pi.ps1` |
-| **S2** | **`apkseep`** | `~/.pi/agent/skills/apkseep/` | `SKILL.md` + 45 refs + 56 scripts (≥115 项) | `SKILL.md`<br>`scripts/doctor.py` | 运行 `python scripts/doctor.py` 无报错 | 🟢 **核心**。安卓全链路专精。修复：重跑 `install-pi.ps1` |
+| **S2** | **`apkseep`** | `~/.pi/agent/skills/apkseep/` | `SKILL.md` + 45 篇 references + 56 个 scripts（共 113 文件） | `SKILL.md`<br>`scripts/doctor.py` | 运行 `python scripts/doctor.py` 无报错 | 🟢 **核心**。安卓全链路专精。修复：重跑 `install-pi.ps1` |
 | **S3** | **`ida-reverse`** | `~/.pi/agent/skills/ida-reverse/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 IDA 13337 端口自动唤醒规约 | 🟢 **核心**。IDA 自动化调度器。修复：重跑 `install-pi.ps1` |
 | **S4** | **`client-license-validation-bypass`** | `~/.pi/agent/skills/client-license-validation-bypass/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 CWE-602 战术树与补丁/算号决策 | 🟢 **核心**。授权审计战术库。修复：重跑 `install-pi.ps1` |
-| **S5** | **`reverse-engineering`** | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references (≥15 项) | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/reverse-engineering` |
-| **S6** | **`apk-diff`** | `~/.pi/agent/skills/apk-diff/` | `SKILL.md` + scripts (≥8 项) | `SKILL.md` | 二进制与 APK 差分工具在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/apk-diff` |
-| **S7** | **`radare2`** | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典 (≥3 项) | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/radare2` |
-| **S8** | **`mcp-js-reverse-playbook`** | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例 (≥13 项) | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/mcp-js-reverse-playbook` |
-| **S9** | **`ida-assistant`** | `~/.pi/agent/skills/ida-reverse/` (safe版) | `SKILL.md` + 插件 (≥3 项) | `SKILL.md` | IDA 辅助交互式脚本在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/ida-reverse` |
+| **S5** | **`version-migration`** | `~/.pi/agent/skills/version-migration/` | `SKILL.md` (≥1 项) | `SKILL.md` | 跨版本追版与 AOB 特征迁移流程在位 | 🟢 **核心**。追版专用。修复：重跑 `install-pi.ps1` |
+| **S6** | **`reverse-engineering`** (safe) | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references（实为 15 文件） | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/reverse-engineering` |
+| **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/apk-reverse` |
+| **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/radare2` |
+| **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/mcp-js-reverse-playbook` |
 
 ---
 
@@ -88,9 +88,9 @@ MCP 配置文件所在位置：
 |---|---|---|---|---|
 | **K1** | **战术实战笔记 (KB)** | `Tool/mcp/Tool/reverselab/kb/` | **≥289 篇** Markdown 文件 | `ctf-website`、`pe-reverse`、`apk-reverse`、`windows`、`general` 全量攻防笔记 |
 | **K2** | **攻击网图谱 (Boards)** | `Tool/mcp/Tool/reverselab/boards/` | 多平台拓扑文件 | 信号到战术文档的拓扑路由关系 |
-| **K3** | **脱敏实战案例库** | `Tool/cases/` | **14 个项目工程** (项目A ~ 项目N) | 覆盖单进程、多进程、VM、.NET算号、RSA、Java/install4j 双层鉴权、.NET VM 混淆加固等架构 |
+| **K3** | **脱敏实战案例库** | `Tool/cases/` | **15 个项目工程** (项目A ~ 项目N + 案例-6.9换肤壳) | 覆盖单进程、多进程、VM、.NET算号、RSA、Java/install4j 双层鉴权、.NET VM 混淆加固等架构 |
 | **K4** | **上游开源完整镜像** | `Tool/upstream/` | **3 大开源项目** | `apk-reverse`、`open-tgtylab`、`open-reverselab` 完整单测与镜像 |
-| **K5** | **MANUAL 专项手册** | `MANUAL/` | **8 份核心手册** | `DEPLOYMENT` (部署)、`DEPLOYMENT-CHECKLIST` (基准清单)、`CROSS-PLATFORM` (跨平台)、`COMPLIANCE-RELAY` (合规中继与防拒)、`ANTI-DEBUG` (反调试)、`UNPACKING` (脱壳)、`POC-VALIDATION` (PoC自愈)、`IDA-PRO` (IDA接入) |
+| **K5** | **MANUAL 专项手册** | `MANUAL/` | **12 份核心手册** | `DEPLOYMENT` (部署)、`DEPLOYMENT-CHECKLIST` (基准清单)、`CROSS-PLATFORM` (跨平台)、`COMPLIANCE-RELAY` (合规中继与防拒)、`ANTI-DEBUG` (反调试)、`UNPACKING` (脱壳)、`POC-VALIDATION` (PoC自愈)、`IDA-PRO` (IDA接入) |
 
 ---
 
@@ -102,7 +102,7 @@ MCP 配置文件所在位置：
 | **R2** | **规则提取器** | `Tool/scripts/compliance-relay/extract-rules.py` | 从 TS 源单向提取 | `python extract-rules.py --check` 退出码 0 | 🟢 核心。规则表与 TS 源必须同步 |
 | **R3** | **规则表** | `Tool/scripts/compliance-relay/sensitive-rules.json` | ≥30 条规则 | 与 TS 源逐字节一致 | 🟢 生成物，禁手工编辑 |
 | **R4** | **上下文守卫白名单** | `Tool/scripts/compliance-relay/guard-prefixes.json` | 三协议各自的白名单 | 文件存在且含三个协议键 | 🟢 核心。防止污染 Agent 自身上下文 |
-| **R5** | **单元测试套件** | `Tool/scripts/compliance-relay/tests/test_relay.py` | 44 项测试 | `python -m unittest discover -s tests` 全绿 | 🟢 核心 |
+| **R5** | **单元测试套件** | `Tool/scripts/compliance-relay/tests/test_relay.py` | 84 项测试 | `python -m unittest discover -s tests` 全绿 | 🟢 核心 |
 | **R6** | **本机运行配置** | `Tool/scripts/compliance-relay/relay-config.json` | 首次运行自动生成 | 文件存在（**已 gitignore，不入库**） | 🟡 运行时生成，含本机 token |
 
 > **零落盘纪律**：中继绝不写入请求体 / 响应体 / 鉴权头，日志只输出命中条数。
@@ -148,7 +148,7 @@ MCP 配置文件所在位置：
 #### 2. 🔌 MCP 服务引擎 (4项)
 | 服务名 | 配置文件载体 | 期望工具数 | 实际状态 | 状态判定 | 降级/处置说明 |
 |---|---|---|---|---|---|
-| seep (自研) | ~/.pi/agent/mcp.json | 38 工具 | Connected (37) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
+| seep (自研) | ~/.pi/agent/mcp.json | 38 工具 | Connected (38) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
 | ida (商业) | ~/.pi/agent/mcp.json | ~243 工具 | 未监听 (13337) | 🟡 DEGRADED | 已自动降级为内置 Radare2，主链路 100% 可用 |
 | js-reverse | ~/.pi/agent/mcp.json | 12 工具 | 可用 (npx) | 🟢 READY | JS 逆向引擎就绪 |
 | playwright | ~/.pi/agent/mcp.json | 18 工具 | Token待配置 | 🟡 DEGRADED | 无头浏览器可选，不影响二进制逆向 |
@@ -159,7 +159,7 @@ MCP 配置文件所在位置：
 | Radare2 | v6.2.2 (radare2.exe) | 物理就绪 | 🟢 READY | 二进制反编译/反汇编引擎正常 |
 | Jadx | v1.5.6 (jadx.bat) | 物理就绪 | 🟢 READY | Java 源码反编译引擎正常 |
 | Apktool | v3.0.3 (apktool.jar) | 物理就绪 | 🟢 READY | 资源解包与重打包正常 |
-| 攻防知识库 | ≥289 篇笔记 | 物理就绪 (318 篇) | 🟢 READY | seep_kb_* 检索后端就绪 |
+| 攻防知识库 | ≥289 篇笔记 | 物理就绪 (292 篇) | 🟢 READY | seep_kb_* 检索后端就绪 |
 
 #### 4. 🚀 总结与开工建议
 - **系统评估**：核心组件与 9 大 Skill 100% 部署成功，工作台处于 **[READY / 完备就绪]** 状态；

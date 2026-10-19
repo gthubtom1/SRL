@@ -50,6 +50,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TOOL_DIR="$ROOT/Tool"
 AGENT_DIR="$HOME/.pi/agent"
 SKILLS_DIR="$AGENT_DIR/skills"
 EXT_DIR="$AGENT_DIR/extensions"
@@ -213,8 +214,12 @@ if [ "$KEEP_PROMPTS" = "0" ]; then
         [ -f "$AGENT_DIR/$f" ] && PROMPT_HITS+=("$f")
     done
     if [ -d "$EXT_DIR" ]; then
-        for f in "$EXT_DIR"/*.ts; do
-            [ -f "$f" ] && PROMPT_HITS+=("extensions/$(basename "$f")")
+        # ★ 只删工作台随包分发的扩展（Tool/prompts/extensions/*.ts）。
+        # 旧实现无差别删除全部 *.ts，会把用户自装扩展（如 cmd-guard.ts）一并干掉。
+        for f in "$TOOL_DIR/prompts/extensions/"*.ts; do
+            [ -f "$f" ] || continue
+            bn="$(basename "$f")"
+            [ -f "$EXT_DIR/$bn" ] && PROMPT_HITS+=("extensions/$bn")
         done
     fi
 fi

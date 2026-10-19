@@ -381,6 +381,40 @@ def _mcp_entry_for(tool_id):
     return None
 
 
+def _root_mcp_sync_enabled():
+    """是否把 MCP 条目同时同步到【仓库根 .mcp.json】。
+
+    ★ 血案：旧实现无条件追加根目录 .mcp.json（这是 git **受跟踪**文件），
+    即使设置了 SEEP_AGENT_MCP 做测试隔离也照样写 —— 跑一次自测就会把测试工具
+    （如 ghidra）写进受跟踪文件，并在仓库根堆出几十个 .mcp.json.bak-<时间戳> 垃圾。
+
+    现在的规则：
+      · 设了 SEEP_AGENT_MCP（测试 / 多实例隔离）→ 只写该目标，绝不碰仓库根；
+      · 环境变量 SEEP_SYNC_ROOT_MCP=0/false/off → 关闭根同步；
+      · 其余情况（默认）→ 保持老行为，同步根 .mcp.json（多宿主共用项目级配置）。
+    """
+    if os.environ.get("SEEP_AGENT_MCP", "").strip():
+        return False
+    v = os.environ.get("SEEP_SYNC_ROOT_MCP", "1").strip().lower()
+    return v not in ("0", "false", "no", "off", "none")
+
+
+def _prune_backups(path, keep=3):
+    """备份文件轮转：同一目标只保留最近 keep 个 <name>.bak-<时间戳>，避免无限堆积。"""
+    try:
+        d = os.path.dirname(os.path.abspath(path)) or "."
+        base = os.path.basename(path) + ".bak-"
+        cands = [os.path.join(d, f) for f in os.listdir(d) if f.startswith(base)]
+        cands.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        for old in cands[keep:]:
+            try:
+                os.remove(old)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def register_mcp(tool_id, apply=False, server_name=None):
     """注册工具对应的 MCP 到当前 agent 的 mcp.json（增量合并、绝不删用户条目）。
     支持多 Agent 宿主协同：同时同步 ~/.pi/agent/mcp.json 与项目根 .mcp.json。
@@ -393,10 +427,12 @@ def register_mcp(tool_id, apply=False, server_name=None):
     entry = _mcp_entry_for(tid)
     primary_path = _agent_mcp_json_path()
     
-    # 收集需要同步的目标文件列表（主路径 + 若项目根存在 .mcp.json 则一并同步）
+    # 收集需要同步的目标文件列表（主路径 + 可选的项目根 .mcp.json）
     targets = [primary_path]
     root_mcp = os.path.join(os.path.dirname(_TOOL_DIR), ".mcp.json")
-    if os.path.isfile(root_mcp) and os.path.normpath(root_mcp) != os.path.normpath(primary_path):
+    if (_root_mcp_sync_enabled()
+            and os.path.isfile(root_mcp)
+            and os.path.normpath(root_mcp) != os.path.normpath(primary_path)):
         targets.append(root_mcp)
 
     if not entry:
@@ -424,6 +460,7 @@ def register_mcp(tool_id, apply=False, server_name=None):
             os.makedirs(os.path.dirname(p), exist_ok=True)
             if os.path.isfile(p):
                 shutil.copy2(p, p + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+                _prune_backups(p, keep=3)
             with open(p, "w", encoding="utf-8") as f:  # UTF-8 无 BOM
                 json.dump(cfg, f, indent=2, ensure_ascii=False)
             written_targets.append(p)

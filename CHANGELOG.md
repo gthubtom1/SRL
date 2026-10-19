@@ -10,6 +10,84 @@
 
 ---
 
+## [1.8.1] — 2026-10-19
+
+> **基线定档版（Baseline Freeze）**：本版之后骨架冻结，只做小步纯增量叠加。
+> 规约见 [MANUAL/BASELINE-FREEZE.md](MANUAL/BASELINE-FREEZE.md)。
+
+### 修复（P0：会静默毁功能 / 毁证据）
+
+- **`security-audit-interceptor.ts` 拒答残渣清洗正则把正文碾碎**：原写法 `/[Safe Security Testing Flow]/gi`
+  是**字符类**而非字面量，会把任意文本里每个 s/a/f/e/空格… 逐字符替换成 27 字符串面量。
+  该 bug **继承自原版 upstream**（`upstream/main` 同一行）。现已用 `\[ \]` 转义 + 常量集中管理 +
+  "不含标记则零误伤直接返回" 三重收口。
+- **`seep_auto_triage` 只读前 50MB 算哈希**：>50MB 样本返回**截断哈希**（实测 126MB 文件 MD5 错成 `853b…`，
+  真值 `8218…`）。已改为 1MB 分块**流式整文件**哈希，并加 `hash_scope: full-file` 字段。该 bug 亦继承自原版。
+- **Linux/macOS 安装链生成的 `mcp.json` 是坏的**：旧实现用 `sed` 替换模板，导致
+  ① seep 路径是 Windows 反斜杠（非 Windows 下文件不存在，核心 MCP 起不来）；
+  ② `ida` 条目塞着未替换的 `<IDA_PYTHON>` 占位符且 `lifecycle=eager`；
+  ③ 整文件覆写，用户自建 MCP 条目被清空且无备份。
+  新增 `setup/merge_agent_config.py`（跨平台增量合并器：POSIX 路径、无占位符、只增不删、写前备份、备份轮转 3 份），
+  `install.sh` 改走它，并顺带补齐 `settings.json` 的 packages 合并与项目级 `.mcp.json` 生成。
+- **`install.sh` 在 `unzip` 返回 1 时整脚本中断**：`set -e` + `unzip` 对"反斜杠路径"只给 warning 但退出码非 0，
+  导致 Linux 安装停在解压步骤。已显式兜住并提示。
+
+### 修复（P1：承诺与实现不符）
+
+- **`register_mcp` 无条件写仓库根 `.mcp.json`**：即使设了 `SEEP_AGENT_MCP`（测试隔离）也照写，跑一次自测就把
+  测试工具写进**受跟踪文件**，并在仓库根堆出 36 个 `.bak-<时间戳>`。现在：设了 `SEEP_AGENT_MCP` 只写该目标；
+  新增 `SEEP_SYNC_ROOT_MCP=0` 开关；备份自动轮转保留 3 份；已清理历史堆积的 36 个备份。
+- **`uninstall` 会删用户自己的扩展**：旧实现无差别枚举 `~/.pi/agent/extensions/*.ts`（实测 dry-run 把用户的
+  `cmd-guard.ts` 列入移除清单）。已改为**白名单**（只删 `Tool/prompts/extensions/` 里随包分发的 `.ts`），
+  `uninstall.ps1` / `uninstall.sh` 同步修正。
+- **`generate-configs.ps1` 与已提交的 `.mcp.json` 不一致**：生成内容缺 `ghidra`，跑一次 `install.ps1` 就产生 diff
+  并丢掉条目。现已与仓库版本严格一致，并改为**内容相同则跳过写入**（幂等）。
+- **`Tool/scripts/master-route.ps1` 一跑就 exit 2**：`configPath` 指向 `Tool/config/routing.json`，实际文件在
+  `Tool/scripts/routing.json`。已修路径解析（含旧布局兜底）与技能落位解析（三种布局），输出不再硬编码 `skills/` 前缀。
+- **`routing.json` 44 条路由全部指向不存在的技能**（vendor 自上游 reverse-skill 大仓的残留：mobile-reverse /
+  firmware-pentest / pwn-chain 等本包均未内置，连 fallback R0 也解析不到）。已按**本包真实内置的 9 个技能**重写
+  为 9 条路由（apkseep / client-license-validation-bypass / version-migration / ida-reverse / radare2 /
+  mcp-js-reverse-playbook / reverse-engineering / apk-reverse / softseep 兜底），并新增可执行的
+  `Tool/scripts/verify-routing-coherence.py`（routes ↔ priority ↔ fallback ↔ 技能落位 四重断言，已接入体检）。
+- **`case-init` 生成的 scope/workitems 引用不存在的 `skills/ops/*`**：已改为指向本包真实文件
+  （`MANUAL/POC-VALIDATION.md` / `Tool/skill/softseep/SKILL.md` / `Tool/scripts/case-init.ps1`）。
+- **`seep_task_init` / `seep_gen_security_report` 把任务产物建进 `Tool/mcp/`**：已改为 `<仓库根>/work/`
+  （或 `SEEP_WORKSPACE` 覆盖），并把 `/work/` 加入 `.gitignore`。
+- **`seep_apk_gen_hook` 的 before/after 生成同一份脚本、`replace` + void 返回 `null`**：三时机语义已真正区分
+  （before 前置观察 / after 后置观察 / replace 不调用原方法），void 时裸 `return;`，并按需生成 overload 块；
+  模板缺失时优雅返回而不是抛异常。
+- **`load-system-prompt.ts` 丢了上游的小写 `system.md` 支持**：二开重写时只认大写。已恢复为**上游超集**
+  （项目级/用户级均做大小写变体探测，并兼容 `~/.pi/<name>` 老布局）。
+
+### 修复（跨平台一致性）
+
+- **`verify.sh` 与 `verify.ps1` 对齐**：补齐「扩展资产功能自测（实跑）」「自动发现测试覆盖」两项；
+  强化 KB（≥280 篇）/ cases（≥14 工程）/ softseep（≥8 refs）/ apkseep（refs + scripts）/ safe-skills（≥5）判定；
+  新增「Pi Agent mcp.json 的 seep 启动路径可解析」「任务路由表自洽」两项功能性体检。
+  **两平台现在同为 60 项全绿**（此前 Windows 58 / Linux 仅约 50 项且不实跑测试）。
+
+### 清理
+
+- 删除误提交的根目录垃圾文件 `提示词`（内容只是一句粘贴残留）。
+- 清除两处作者本机绝对路径（`Tool/mcp/test_ext_assets.py`、`Tool/skill/version-migration/SKILL.md`），
+  并把隐私门禁正则从"只认原作者昵称"扩展为"个人绝对路径（用户目录 / 个人项目目录形态，含反斜杠与正斜杠两种写法）"。
+- `Tool/mcp/seep_mcp_server.py` 工作副本 CRLF 归位为 LF（与 `.gitattributes` 一致）。
+
+### 文档数字口径统一（全仓）
+
+- MCP 工具 **37 → 38**（README / README.zh / SKILL-CREATION-GUIDE / EXT-ASSETS / DEPLOYMENT-CHECKLIST 示例）。
+- 体检项 **55/58 → 60**（check.ps1 / check.bat / README / DEPLOYMENT / SKILL-CREATION-GUIDE / CROSS-PLATFORM）。
+- 扩展工具 **14 → 15**；扩展自测 **60 → 63**；中继单测 **44 → 84**；KB 示例篇数 **318 → 292**（真值）。
+- `DEPLOYMENT-CHECKLIST` 版本 **v1.3.0 → v1.8.1**；技能表 S5-S9 改为真实存在的技能
+  （删掉不存在的 `apk-diff` / `ida-assistant`，补 `version-migration`）；手册 8 → 12 份；案例 14 → 15 个工程。
+- `HANDOFF-交接文档` 不再写死提交号（避免每次提交后过期），版本与数字同步到本版。
+
+### 与上游（angusdevgo/Seep-Reverse-Lab）差异复核
+
+- `git diff upstream/main -- Tool/mcp/seep_mcp_server.py` = **1298 行纯追加、0 删除**（宣称属实）。
+- 相对上游**无任何文件级删除**（147 新增 / 39 修改，0 删除 / 0 重命名）。
+- 上游继承的两个 P0（正则碾碎、50MB 截断哈希）本版已修 → **本版严格优于原版**。
+
 ## [1.8.0] — 2026-10-19
 
 ### 新增（任务A：轻量「工具自动发现 + 自动适配 MCP」小插件，全部纯增量）

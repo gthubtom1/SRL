@@ -74,15 +74,32 @@ function findExistingNonEmptyFile(candidatePaths: string[]): string | null {
 	return null;
 }
 
+/**
+ * 文件名大小写变体：原版扩展同时支持 `system.md` 与 `SYSTEM.md`，
+ * 二开重写时一度只认大写（导致老用户的 .pi/system.md 静默失效）。
+ * 这里统一生成变体，保持「上游超集」语义。
+ */
+function fileNameVariants(fileName: string): string[] {
+	const variants = [fileName];
+	const lower = fileName.toLowerCase();
+	const upper = fileName.toUpperCase();
+	if (lower !== fileName) variants.push(lower);
+	if (upper !== fileName) variants.push(upper);
+	return Array.from(new Set(variants));
+}
+
 function findProjectFile(cwd: string, fileName: string): string | null {
 	let current = resolve(cwd);
 	const { root } = parse(current);
+	const variants = fileNameVariants(fileName);
 
 	while (true) {
-		const inPiDir = join(current, ".pi", fileName);
-		const inRootDir = join(current, fileName);
+		const candidates: string[] = [];
+		for (const v of variants) {
+			candidates.push(join(current, ".pi", v), join(current, v));
+		}
 
-		const found = findExistingNonEmptyFile([inPiDir, inRootDir]);
+		const found = findExistingNonEmptyFile(candidates);
 		if (found) {
 			return found;
 		}
@@ -129,14 +146,14 @@ function loadAsset(cwd: string, fileName: string): LoadedFileAsset | null {
 		} catch {}
 	}
 
-	// 2. 用户全局级
-	const userCandidates = userDirs.map((d) => join(d, fileName));
-	// 针对大小写容错 (SYSTEM.md / system.md)
-	if (fileName.toUpperCase() === "SYSTEM.MD") {
-		userDirs.forEach((d) => {
-			userCandidates.push(join(d, "system.md"));
-			userCandidates.push(join(d, "SYSTEM.md"));
-		});
+	// 2. 用户全局级（大小写变体全覆盖）
+	const userCandidates: string[] = [];
+	for (const d of userDirs) {
+		for (const v of fileNameVariants(fileName)) {
+			userCandidates.push(join(d, v));
+		}
+		// 兼容 ~/.pi/<name>（无 agent 子目录）的老布局
+		userCandidates.push(join(parse(d).dir, fileName));
 	}
 
 	const userPath = findExistingNonEmptyFile(userCandidates);

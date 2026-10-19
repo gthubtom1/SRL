@@ -19,7 +19,7 @@ echo "  Agent 目标根目录: $AGENT_DIR"
 # 1. 基础环境探测
 # 注意：Windows 上 `python3` 可能是 Microsoft Store 占位程序——存在但不运行、返回非零。
 # 因此不仅探测存在，还要验证能真正执行；否则依次回退到 python。
-echo -e "\n[1/5] 🔍 检查基础运行环境..."
+echo -e "\n[1/6] 🔍 检查基础运行环境..."
 PY=""
 if command -v python3 &>/dev/null && python3 -c "print(1)" &>/dev/null; then
     PY="python3"
@@ -34,21 +34,30 @@ PY_VER=$($PY -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.
 echo "  [√] Python 解释器: $PY (v$PY_VER)"
 
 # 2. 离线依赖解压
-echo -e "\n[2/5] 📦 解压内置离线依赖..."
+echo -e "\n[2/6] 📦 解压内置离线依赖..."
 for mod in "js-reverse-mcp" "playwright-mcp"; do
     TARGET_DIR="$SAFE_DIR/$mod/node_modules"
     ZIP_FILE="$SAFE_DIR/$mod/node_modules.zip"
     if [ ! -d "$TARGET_DIR" ] && [ -f "$ZIP_FILE" ]; then
         echo "  正在解压: $ZIP_FILE -> $TARGET_DIR"
-        unzip -q "$ZIP_FILE" -d "$SAFE_DIR/$mod/"
-        echo "  [√] $mod 依赖解压就绪"
+        # ★ 注意：unzip 遇到「反斜杠路径」等告警时返回码是 1（不是 0），
+        # 在 set -e 下会直接把整个安装脚本打断。这里显式兜住，只告警不中断。
+        if unzip -q "$ZIP_FILE" -d "$SAFE_DIR/$mod/"; then
+            echo "  [√] $mod 依赖解压就绪"
+        else
+            if [ -d "$TARGET_DIR" ]; then
+                echo "  [!] unzip 返回非零（通常是反斜杠条目告警），但依赖目录已生成，继续"
+            else
+                echo "  ⚠️ $mod 依赖解压失败，请手动执行: unzip -q \"$ZIP_FILE\" -d \"$SAFE_DIR/$mod/\""
+            fi
+        fi
     else
         echo "  [√] $mod 依赖目录已存在"
     fi
 done
 
 # 3. 赋予工具执行权限 + Radare2 运行时引擎探测
-echo -e "\n[3/5] 🔧 配置文件执行权限 / Radare2 引擎..."
+echo -e "\n[3/6] 🔧 配置文件执行权限 / Radare2 引擎..."
 if [ -d "$SAFE_DIR/radare2/bin" ]; then
     chmod +x "$SAFE_DIR/radare2/bin/"* 2>/dev/null || true
 fi
@@ -74,7 +83,7 @@ fi
 echo "  [√] 二进制可执行权限设置完成"
 
 # 4. 安装 Python mcp 协议库
-echo -e "\n[4/5] 🐍 安装 Python 协议支持..."
+echo -e "\n[4/6] 🐍 安装 Python 协议支持..."
 $PY -m pip install "mcp>=1.20,<1.29" --quiet || {
     echo "⚠️ 自动安装失败，建议手动执行: $PY -m pip install 'mcp>=1.20,<1.29'"
 }
@@ -85,7 +94,7 @@ $PY -m pip install pefile curl-cffi zstandard requests --quiet 2>/dev/null || {
 echo "  [√] Python MCP 协议支持就绪"
 
 # 5. Pi Agent 配置同步
-echo -e "\n[5/5] 🧠 部署 Pi Agent 技能与提示词..."
+echo -e "\n[5/6] 🧠 部署 Pi Agent 技能与提示词..."
 mkdir -p "$AGENT_DIR/skills" "$AGENT_DIR/extensions"
 
 # 复制 Skills
@@ -119,11 +128,37 @@ if [ -d "$TOOL_DIR/prompts/extensions" ]; then
     echo "  [√] 提示词与安全拦截扩展同步完成"
 fi
 
-# 生成 mcp.json
-TEMPLATE="$TOOL_DIR/mcp/mcp.json.template"
-if [ -f "$TEMPLATE" ]; then
-    sed "s|<SEEP_ROOT>|$ROOT|g" "$TEMPLATE" > "$AGENT_DIR/mcp.json"
-    echo "  [√] 已生成 ~/.pi/agent/mcp.json (已绑定物理绝对路径)"
+# 6. 增量合并 Agent 配置（mcp.json + settings.json）
+echo -e "
+[6/6] 🧩 增量合并 Agent 配置 (mcp.json + settings.json)..."
+#
+# ★ 血案：旧实现用一行 sed 从模板生成 mcp.json，导致
+#   · 路径是 Windows 反斜杠（Linux/macOS 下不存在，核心 MCP 起不来）
+#   · ida 条目塞着未替换的 <IDA_PYTHON> 占位符且 lifecycle=eager
+#   · 整文件覆写，用户自建 MCP 条目被清空，且无备份
+# 现在统一走 Python 合并器：POSIX 路径、无占位符、只增不删、写前备份。
+if [ -f "$SCRIPT_DIR/merge_agent_config.py" ]; then
+    "$PY" "$SCRIPT_DIR/merge_agent_config.py" --root "$ROOT" --agent-dir "$AGENT_DIR" || {
+        echo "  ⚠️ 配置合并器返回非零（可手动重跑: $PY setup/merge_agent_config.py --root . --agent-dir ~/.pi/agent）"
+    }
+else
+    echo "  ⚠️ 未找到 setup/merge_agent_config.py，跳过 mcp.json 生成（请重新拉取仓库）"
+fi
+
+# 生成 Claude Code 项目级 .mcp.json（相对路径，可随仓库走）
+if [ -f "$TOOL_DIR/mcp/mcp.json.template" ] && [ ! -f "$ROOT/.mcp.json" ]; then
+    "$PY" - "$ROOT" <<'PYEOF' 2>/dev/null || true
+import json, os, sys
+root = sys.argv[1]
+cfg = {"mcpServers": {
+    "seep": {"command": "python", "args": ["Tool/mcp/seep_mcp_server.py"],
+             "env": {"PYTHONIOENCODING": "utf-8"}, "transport": "stdio"},
+    "js-reverse": {"command": "npx", "args": ["-y", "js-reverse-mcp"], "transport": "stdio"},
+}}
+open(os.path.join(root, ".mcp.json"), "w", encoding="utf-8").write(json.dumps(cfg, indent=2) + "
+")
+PYEOF
+    echo "  [√] 已生成项目级 .mcp.json（Claude Code 免配加载）"
 fi
 
 echo "================================================================================"

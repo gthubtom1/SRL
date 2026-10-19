@@ -30,6 +30,8 @@ Write-Host "  标准化 POSIX 路径表示: $NormalizedRoot" -ForegroundColor Gr
 # 1. 生成 Claude Code 项目级 .mcp.json
 # -----------------------------------------------------------------------------
 Write-Host "`n[1/3] 正在生成 Claude Code 项目级配置 (.mcp.json)..." -ForegroundColor White
+# 说明：本文件生成的内容必须与仓库里已提交的 .mcp.json **完全一致**，
+# 否则每跑一次 install.ps1 都会把受跟踪文件改脏、并可能丢掉 ghidra 条目。
 $claudeMcpJson = @"
 {
   "mcpServers": {
@@ -50,14 +52,34 @@ $claudeMcpJson = @"
         "js-reverse-mcp"
       ],
       "transport": "stdio"
+    },
+    "ghidra": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/LaurieWired/GhidraMCP",
+        "ghidra-mcp",
+        "--headless"
+      ],
+      "transport": "stdio"
     }
   }
 }
 "@
 $claudeDest = Join-Path $Root '.mcp.json'
 if (-not $PrintOnly) {
-    [System.IO.File]::WriteAllText($claudeDest, $claudeMcpJson, (New-Object System.Text.UTF8Encoding $false))
-    Write-Host "  [√] 已更新: $claudeDest" -ForegroundColor Green
+    $sameAsExisting = $false
+    if (Test-Path $claudeDest) {
+        $existing = [System.IO.File]::ReadAllText($claudeDest, [System.Text.Encoding]::UTF8)
+        if ($existing.Length -gt 0 -and [int]$existing[0] -eq 0xFEFF) { $existing = $existing.Substring(1) }
+        $sameAsExisting = ($existing.Trim() -eq $claudeMcpJson.Trim())
+    }
+    if ($sameAsExisting) {
+        Write-Host "  [√] 无需更新（内容已一致）: $claudeDest" -ForegroundColor Green
+    } else {
+        [System.IO.File]::WriteAllText($claudeDest, $claudeMcpJson, (New-Object System.Text.UTF8Encoding $false))
+        Write-Host "  [√] 已更新: $claudeDest" -ForegroundColor Green
+    }
 }
 
 # -----------------------------------------------------------------------------

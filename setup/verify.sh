@@ -91,6 +91,12 @@ test_tool_autodiscover() {
         grep -q 'tools.local.json' "$ROOT/.gitignore"
 }
 
+test_ext_assets_coverage() {
+    local tst="$TOOL_DIR/mcp/test_ext_assets.py"
+    [ -f "$tst" ] || return 1
+    grep -q 'tool_autodiscover' "$tst" && grep -q 'plan_control' "$tst" && grep -q 'register_mcp' "$tst"
+}
+
 test_python_mcp() {
     [ -n "$PY_BIN" ] && "$PY_BIN" -c "import mcp" 2>/dev/null
 }
@@ -103,7 +109,13 @@ check_item "架构" "工作台主目录完整 (Tool/)" test -d "$TOOL_DIR"
 check_item "架构" "技能包目录完整 (Tool/skill/)" test -d "$TOOL_DIR/skill"
 check_item "架构" "MCP服务引擎目录 (Tool/mcp/)" test -d "$TOOL_DIR/mcp"
 check_item "架构" "系统提示词层 (Tool/prompts/)" test -d "$TOOL_DIR/prompts"
-check_item "架构" "十四大脱敏案例工程 (Tool/cases/)" test -d "$TOOL_DIR/cases"
+test_cases_count() {
+    [ -d "$TOOL_DIR/cases" ] || return 1
+    local n
+    n=$(find "$TOOL_DIR/cases" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+    [ "$n" -ge 14 ]
+}
+check_item "架构" "十四大脱敏案例工程 (Tool/cases/ ≥14 个工程)" test_cases_count
 check_item "架构" "上游开源验证集 (Tool/upstream/ 3大开源项目)" test -d "$TOOL_DIR/upstream/apk-reverse" -a -d "$TOOL_DIR/upstream/open-tgtylab" -a -d "$TOOL_DIR/upstream/open-reverselab"
 check_item "架构" "MCP专用运行时强约定 (Tool/mcp/Tool/)" test -d "$TOOL_DIR/mcp/Tool"
 
@@ -111,11 +123,26 @@ check_item "架构" "MCP专用运行时强约定 (Tool/mcp/Tool/)" test -d "$TOO
 check_item "版本" "版本标识与变更日志 (VERSION + CHANGELOG.md)" test -f "$ROOT/VERSION" -a -f "$ROOT/CHANGELOG.md"
 check_item "版本" "已有用户一键更新脚本 (update.ps1 + update.sh)" test -f "$ROOT/setup/update.ps1" -a -f "$ROOT/setup/update.sh"
 check_item "架构" "上游定点防外溢规则与同步引擎 (upstream-rules.json + sync-upstream.py)" test -f "$ROOT/setup/upstream-rules.json" -a -f "$ROOT/setup/sync-upstream.py" -a -f "$ROOT/setup/sync-upstream.sh" -a -f "$ROOT/update.bat"
+# 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
+# 且 priority / fallbackId 与 routes 一一对应。
+test_routing_coherence() {
+    local chk="$TOOL_DIR/scripts/verify-routing-coherence.py"
+    [ -f "$chk" ] || return 1
+    [ -n "$PY_BIN" ] || return 0
+    ( cd "$ROOT" && "$PY_BIN" "$chk" >/dev/null 2>&1 )
+}
+check_item "路由" "任务路由表自洽 (routing.json ↔ 技能落位)" test_routing_coherence
 check_item "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" test -f "$ROOT/setup/uninstall.ps1" -a -f "$ROOT/setup/uninstall.sh"
 
 # 2. 知识库
 echo -e "\n${WHITE}[2/9] 📚 攻防实战知识库与战术模板 (KB)${RESET}"
-check_item "知识库" "战术实战笔记 (289篇完整检索库)" test -d "$KB_DIR"
+test_kb_count() {
+    [ -d "$KB_DIR" ] || return 1
+    local n
+    n=$(find "$KB_DIR" -name '*.md' | wc -l | tr -d ' ')
+    [ "$n" -ge 280 ]
+}
+check_item "知识库" "战术实战笔记 (289篇完整检索库 ≥280 篇)" test_kb_count
 check_item "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" test -d "$TOOL_DIR/mcp/Tool/reverselab/tools/skills/mcp"
 
 # 3. 提示词
@@ -128,12 +155,29 @@ check_item "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" test -f 
 
 # 4. 技能系统
 echo -e "\n${WHITE}[4/9] 🛠️ 逆向工程专业技能库 (Skills - 9大组件)${RESET}"
-check_item "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" test -f "$TOOL_DIR/skill/softseep/SKILL.md" -a -d "$TOOL_DIR/skill/softseep/references"
-check_item "Skill" "移动端逆向全链路 (apkseep 包含 45 篇规范与 56 脚本)" test -f "$TOOL_DIR/skill/apkseep/SKILL.md" -a -d "$TOOL_DIR/skill/apkseep/references"
+test_softseep_refs() {
+    [ -f "$TOOL_DIR/skill/softseep/SKILL.md" ] || return 1
+    local n
+    n=$(find "$TOOL_DIR/skill/softseep/references" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    [ "$n" -ge 8 ]
+}
+check_item "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" test_softseep_refs
+test_apkseep_layout() {
+    [ -f "$TOOL_DIR/skill/apkseep/SKILL.md" ] || return 1
+    [ -d "$TOOL_DIR/skill/apkseep/references" ] || return 1
+    [ -d "$TOOL_DIR/skill/apkseep/scripts" ] || return 1
+}
+check_item "Skill" "移动端逆向全链路 (apkseep 包含 45 篇规范与 56 脚本)" test_apkseep_layout
 check_item "Skill" "IDA Pro 自动化联动 (ida-reverse)" test -f "$TOOL_DIR/skill/ida-reverse/SKILL.md"
 check_item "Skill" "通用许可/卡密校验突破规范 (license-bypass)" test -f "$TOOL_DIR/skill/client-license-validation-bypass/SKILL.md"
 check_item "Skill" "增量追版与特征迁移技能 (version-migration)" test -f "$TOOL_DIR/skill/version-migration/SKILL.md"
-check_item "Skill" "独立战术安全技能包 (safe-skills 5组)" test -d "$TOOL_DIR/skill/safe-skills"
+test_safe_skills_count() {
+    [ -d "$TOOL_DIR/skill/safe-skills" ] || return 1
+    local n
+    n=$(find "$TOOL_DIR/skill/safe-skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+    [ "$n" -ge 5 ]
+}
+check_item "Skill" "独立战术安全技能包 (safe-skills 5组)" test_safe_skills_count
 
 # SKILL.md 带 UTF-8 BOM 时，frontmatter 解析器无法识别首行 `---`，技能会被静默跳过（Issue #6）
 test_skill_no_bom() {
@@ -156,6 +200,17 @@ echo -e "\n${WHITE}[5/9] 🔌 MCP 服务引擎与物理内置工具箱 (Native T
 check_item "MCP" "核心服务端脚本 (seep_mcp_server.py 语法自洽)" test_python_syntax
 check_item "MCP" "扩展资产：8 个新工具 + 引擎链 + 文档 (含 protocol/resource/packer)" test_ext_assets
 check_item "MCP" "工具自动发现插件 (tool_autodiscover.py + 能力表 + 状态隔离)" test_tool_autodiscover
+
+# 功能自测：真正跑一遍扩展资产测试（不是只看文件在不在）
+test_ext_assets_suite() {
+    local tst="$TOOL_DIR/mcp/test_ext_assets.py"
+    [ -n "$PY_BIN" ] || return 1
+    [ -f "$tst" ] || return 1
+    ( cd "$TOOL_DIR/mcp" && "$PY_BIN" test_ext_assets.py >/dev/null 2>&1 )
+}
+check_item "MCP" "扩展资产功能自测 (test_ext_assets.py 全项实跑)" test_ext_assets_suite
+
+check_item "MCP" "工具自动发现功能自测已覆盖 (test_ext_assets.py 含自动发现用例)" test_ext_assets_coverage
 check_item "工具箱" "Jadx 反编译引擎 (jadx-1.5.6 完整就绪)" test -f "$SAFE_DIR/jadx/lib/jadx-1.5.6-all.jar"
 test_radare2() {
     command -v radare2 &>/dev/null || test -f "$SAFE_DIR/radare2/bin/radare2.exe"
@@ -172,6 +227,29 @@ check_item "运行时" "Python 解释器 (python3/python 且可执行)" test_pyt
 check_optn "协议" "Python mcp 协议库支持 (mcp>=1.20,<1.29)" "运行 pip install 'mcp>=1.20,<1.29'" test_python_mcp
 check_optn "商业软件" "IDA Pro 商业反编译器协同 (可选)" "无授权不影响核心链路，系统自动使用 Radare2 降级" false
 check_optn "配置" "Claude Code 项目级 MCP 注册 (.mcp.json 在根目录)" "直接在根目录启动 claude 即可" test -f "$ROOT/.mcp.json"
+
+# 跨平台安装链自校验：mcp.json 里 seep 的启动脚本必须真实存在。
+# 血案：旧版用 sed 替换模板会生成反斜杠路径（/home/x/Seep\Tool\...），
+# 文件不存在 → 核心 MCP 静默起不来，而"文件存在性"检查完全抓不到。
+test_agent_mcp_seep_path() {
+    local m="$AGENT_DIR/mcp.json"
+    [ -f "$m" ] || return 0          # 未部署 Pi 时不判失败
+    [ -n "$PY_BIN" ] || return 0
+    "$PY_BIN" - "$m" "$ROOT" <<'PYEOF'
+import json, os, sys, io
+m, root = sys.argv[1], sys.argv[2]
+try:
+    d = json.loads(io.open(m, encoding="utf-8-sig").read())
+    arg0 = (d.get("mcpServers") or {}).get("seep", {}).get("args", [None])[0]
+except Exception:
+    sys.exit(1)
+if not arg0:
+    sys.exit(1)
+p = arg0 if os.path.isabs(arg0) else os.path.join(root, arg0)
+sys.exit(0 if os.path.isfile(p) else 1)
+PYEOF
+}
+check_item "配置" "Pi Agent mcp.json 的 seep 启动路径可解析（跨平台安装链自检）" test_agent_mcp_seep_path
 
 # 7. 战术手册
 echo -e "\n${WHITE}[7/9] 📚 MANUAL/ 战术手册完备性校验${RESET}"
@@ -206,7 +284,7 @@ check_item "中继" "规则表与 TS 源同步 (sensitive-rules.json)" test_rela
 # 9. 脱敏与隐私走查
 echo -e "\n${WHITE}[9/9] 🔒 脱敏与个人隐私走查 (递归全深度扫描)${RESET}"
 
-PRIVACY_RX='C:[\\/]{1,2}Users[\\/]{1,2}Angus|AngusDevLab|angusdevlab|angus\.vip@|angusdev\.top|\bAngus\b'
+PRIVACY_RX='C:[\\/]{1,2}Users[\\/]{1,2}Angus|AngusDevLab|angusdevlab|angus\.vip@|angusdev\.top|\bAngus\b|C:[\\/]{1,2}Users[\\/]{1,2}toti|[A-Za-z]:[\\/]{1,2}Project[\\/]'
 
 test_privacy_clean() {
     local hits files

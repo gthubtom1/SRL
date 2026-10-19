@@ -179,6 +179,18 @@ Test-CheckItem "架构" "上游定点防外溢规则与同步引擎 (upstream-ru
     (Test-Path (Join-Path $Root 'update.bat'))
 } "上游规则或同步引擎缺失，请重新拉取仓库" "规则清单、引擎与批处理在位" "$Root\setup\upstream-rules.json"
 
+# 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
+# 且 priority / fallbackId 与 routes 一一对应。路由指向空气时，运行期极难发现。
+Test-CheckItem "路由" "任务路由表自洽 (routing.json 与技能落位一致)" {
+    $scriptsDir = Join-Path $ToolDir 'scripts'
+    $chk = Join-Path $scriptsDir 'verify-routing-coherence.py'
+    if (-not (Test-Path -LiteralPath $chk)) { return $false }
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $py) { return $true }
+    & python $chk 2>&1 | Out-Null
+    $LASTEXITCODE -eq 0
+} "路由表与技能落位不一致（或 routing.json 缺失）；运行 python Tool/scripts/verify-routing-coherence.py 查看详情" "routes/priority/fallback/skill 全部自洽" "Tool/scripts/routing.json"
+
 Test-CheckItem "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" {
     (Test-Path (Join-Path $Root 'setup\uninstall.ps1')) -and (Test-Path (Join-Path $Root 'setup\uninstall.sh'))
 } "卸载脚本缺失，重新拉取仓库" "两个脚本在位" "$Root\setup"
@@ -406,6 +418,25 @@ Test-ManualItem "配置" "Claude Code 项目级 MCP 注册 (.mcp.json 在根目�
     Test-Path (Join-Path $Root '.mcp.json')
 } "根目录已备好 .mcp.json，在根目录直接执行 claude 即可免配加载" ".mcp.json 存在" "$Root\.mcp.json"
 
+# 跨平台安装链自校验：mcp.json 里 seep 的启动脚本必须真实存在。
+# 血案：Linux/macOS 上用 sed 替换模板会生成反斜杠路径（/home/x/Seep\Tool\...），
+# 文件不存在 → 核心 MCP 静默起不来，而"文件存在性"检查完全抓不到。
+Test-CheckItem "配置" "Pi Agent mcp.json 的 seep 启动路径可解析（跨平台安装链自检）" {
+    $m = Join-Path $AgentDir 'mcp.json'
+    if (-not (Test-Path $m)) { return $true }   # 未部署 Pi 时不判失败
+    try {
+        $raw = [System.IO.File]::ReadAllText($m, [System.Text.Encoding]::UTF8)
+        if ($raw.Length -gt 0 -and [int]$raw[0] -eq 0xFEFF) { $raw = $raw.Substring(1) }
+        $obj = $raw | ConvertFrom-Json
+        $arg0 = @($obj.mcpServers.seep.args)[0]
+        if (-not $arg0) { return $false }
+        $p = [string]$arg0
+        if (-not [System.IO.Path]::IsPathRooted($p)) { $p = Join-Path $Root $p }
+        # 反斜杠路径在非 Windows 上必然不存在；这里用 Test-Path 统一判定
+        return (Test-Path -LiteralPath $p)
+    } catch { return $false }
+} "mcp.json 中 seep 的 args[0] 指向不存在的脚本；请重跑 setup/install.sh 或 setup/merge_agent_config.py 重建配置" "seep 启动脚本路径真实存在" "$AgentDir\mcp.json"
+
 # -----------------------------------------------------------------------------
 # 7. MANUAL/ 战术手册完备性校验 (Tactical Manuals)
 # -----------------------------------------------------------------------------
@@ -495,7 +526,7 @@ Test-CheckItem "中继" "中继单元测试套件 (tests/test_relay.py)" {
 Write-Host "`n[9/9] 🔒 脱敏与个人隐私走查 (递归全深度扫描)" -ForegroundColor White
 
 # 个人隐私模式：绝对路径 / 个人身份 / 私有邮箱 / 私有域名 / 裸用户名
-$PrivacyPattern = 'C:[\\/]{1,2}Users[\\/]{1,2}Angus|AngusDevLab|angusdevlab|angus\.vip@|angusdev\.top|\bAngus\b'
+$PrivacyPattern = 'C:[\\/]{1,2}Users[\\/]{1,2}Angus|AngusDevLab|angusdevlab|angus\.vip@|angusdev\.top|\bAngus\b|C:[\\/]{1,2}Users[\\/]{1,2}toti|[A-Za-z]:[\\/]{1,2}Project[\\/]'
 
 # 排除：第三方依赖、上游镜像、构建产物，以及扫描器自身（其模式定义会自匹配）
 $PrivacyExcludeRegex = '\\node_modules\\|\\__pycache__\\|\\Tool\\upstream\\|\\Tool\\mcp\\Tool\\|\\\.git\\|\\dist\\'

@@ -58,7 +58,7 @@
 > **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.8.0）。**
 > 原版的一切能力、体检、案例、知识库完整保留；我们只在其上补了原版没有的场景。
 
-**加了什么（23 → 37 个 MCP 工具，全部纯增量）**：
+**加了什么（23 → 38 个 MCP 工具，全部纯增量）**：
 
 | 新增能力 | 工具 | 治原版的什么空白 |
 |---|---|---|
@@ -75,7 +75,7 @@
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
-- 体检从 50 项 → **58 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
+- 体检从 50 项 → **60 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
 **怎么回退到纯净原版**：
 ```bash
@@ -96,7 +96,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 
 | 痛点 | 解决方案 |
 |---|---|
-| 🔧 **工具链高度碎片化** | 37 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
+| 🔧 **工具链高度碎片化** | 38 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
 | 🧠 **大模型缺乏决断逻辑** | `softseep` 总控：两级自动判型（平台 × 9 类业务）+ 七道门决策树 |
 | 🛡️ **云端模型频繁拒绝** | 三层保险：底座级 `BLOCK_NONE` 注入 + 动态口语合规转译 + 推理级思维重定向 |
 | 📚 **实战经验无法沉淀** | 289 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
@@ -251,7 +251,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP 脱壳 SOP
     ├── POC-VALIDATION.md          ← Frida 自愈循环与 PoC 沙箱验证
     ├── DEPLOYMENT.md              ← 全景部署与多 Agent 集成指南
-    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（58 项）
+    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（60 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
     └── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
@@ -396,7 +396,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 6. 部署完备性校验（9 大维度 58 项全绿）
+### 6. 部署完备性校验（9 大维度 60 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
@@ -407,7 +407,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 58 项全部通过)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 60 项全部通过)" width="880">
 </p>
 
 ---

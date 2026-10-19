@@ -2,10 +2,10 @@
 # Initialize work/<case>/ with scope, timeline, workitems (reverse-skill ops contract).
 # Bare invocation keeps pending/offline defaults.
 # Ready-to-act example:
-#   powershell -File skills/scripts/case-init.ps1 -Hint "web pentest" -CaseName my-case `
+#   powershell -File Tool/scripts/case-init.ps1 -Hint "apk 签名校验" -CaseName my-case `
 #     -AuthGranted -TargetUrl "https://app.example/" -NetworkProfile authorized_target_only
 # Offline sample ready-to-act example:
-#   powershell -File skills/scripts/case-init.ps1 -Hint "offline apk" -CaseName my-sample `
+#   powershell -File Tool/scripts/case-init.ps1 -Hint "offline apk" -CaseName my-sample `
 #     -Preset offline-sample -Sample ".\app.apk"
 param(
     [string] $Hint = '',
@@ -286,14 +286,13 @@ $assetsBlock
   - $checkScope in_scope.assets non-empty OR offline sample path set
   - $checkNet network_profile.mode chosen
   - [ ] out_of_scope reviewed
-  - [ ] roles assigned (see skills/ops/role-map.md)
+  - [ ] roles assigned (see Tool/skill/softseep/SKILL.md)
 
 ## ops_refs
-- skills/ops/scope-contract.md
-- skills/ops/evidence-finding-path.md
-- skills/ops/role-map.md
-- skills/ops/timeline-workitem.md
-- skills/ops/IDENTITY.md
+- MANUAL/POC-VALIDATION.md          (授权范围与 PoC 闭环验证 SOP)
+- MANUAL/DEPLOYMENT-CHECKLIST.md    (资产与合规基准)
+- Tool/skill/softseep/SKILL.md      (G-Auth 授权门 + 判型调度)
+- Tool/scripts/master-route.ps1     (任务路由)
 "@
 
 $timeline = @"
@@ -301,7 +300,7 @@ $timeline = @"
 
 ## $created | lead | init
 - action: case-init
-- command_or_ref: skills/scripts/case-init.ps1
+- command_or_ref: Tool/scripts/case-init.ps1
 - result_summary: $timelineSummary
 - artifacts: [scope.md, workitems.md]
 - evidence_ids: []
@@ -327,8 +326,8 @@ $workitems = @"
 - [ ] field-journal anonymized
 
 ## Refs
-- skills/ops/timeline-workitem.md
-- skills/ops/evidence-finding-path.md
+- MANUAL/POC-VALIDATION.md
+- Tool/skill/softseep/SKILL.md
 "@
 
 $utf8 = New-Object System.Text.UTF8Encoding $true
@@ -339,10 +338,10 @@ $utf8 = New-Object System.Text.UTF8Encoding $true
 $readmeNext = if ($ready) {
     @"
 1. Scope is ready_for_act=true (auth granted + in_scope set)
-2. Open primary skill: skills/$primary
+2. Open primary skill: Tool/skill/$primary
 3. Append ``timeline.md``; update ``workitems.md``
-4. Append Evidence: ``skills/scripts/append-evidence.ps1 -CaseRoot <this dir> ...``
-5. Promote findings with Evidence chain (skills/ops/evidence-finding-path.md)
+4. Append Evidence: 把证据文件放入 ``evidence/`` 并登记到 ``workitems.md``
+5. Promote findings with Evidence chain (MANUAL/POC-VALIDATION.md)
 6. Report via docs-generator; journal via field-journal
 "@
 } else {
@@ -367,7 +366,7 @@ $readmeNext
 
 Write-Host ("CASE -> {0}" -f $caseRoot) -ForegroundColor Green
 Write-Host ("PROJECT -> {0}" -f $projectRoot)
-Write-Host ("PRIMARY skill: skills/{0} ({1})" -f $primary, $primaryId)
+Write-Host ("PRIMARY skill: Tool/skill/{0} ({1})" -f $primary, $primaryId)
 Write-Host ("auth.status={0} network_profile={1} ready_for_act={2}" -f $authStatusResolved, $networkMode, $readyStr)
 if ($ready) {
     Write-Host 'NEXT: open PRIMARY SKILL.md and ACT within scope' -ForegroundColor Green

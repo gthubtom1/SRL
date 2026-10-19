@@ -76,7 +76,8 @@ def main():
         print("  [SKIP] 无 ELF fixture")
 
     print("=== [5/9] seep_pe_resources：真实 PE 资源枚举 ===")
-    pe_sample = os.environ.get("SEEP_TEST_PE", r"D:/Project/瓦6.8/换肤程序点我下载6.9版本.exe")
+    # 只认环境变量，绝不把作者本机路径写进仓库（隐私门禁要求）
+    pe_sample = os.environ.get("SEEP_TEST_PE", "")
     if not os.path.isfile(pe_sample):
         # 自包含回退：用仓库内置的 r2agent.exe（任意 PE 即可验证资源枚举路径）
         pe_sample = os.path.join(HERE, "Tool", "safe", "radare2", "bin", "r2agent.exe")

@@ -12,8 +12,13 @@ py_checked = 0
 for dirpath, dirnames, filenames in os.walk(root):
     # 跳过 .git、外部大包缓存，以及第三方上游镜像
     # （upstream/ 保持字节级保真，不重新格式化 vendored 代码）
+    # 注意：第三方 vendored 目录（Tool/upstream 与 Tool/mcp/Tool 运行时）必须字节级保真，
+    # 绝不重排 BOM/换行，否则与上游 diff 爆炸、并破坏第三方文件完整性。
     if (".git" in dirpath or "node_modules" in dirpath or ".venv" in dirpath
-            or "tmp_" in dirpath or os.path.join(root, "Tool", "upstream") in dirpath):
+            or "tmp_" in dirpath
+            or os.path.join(root, "Tool", "upstream") in dirpath
+            or os.path.join(root, "Tool", "mcp", "Tool") in dirpath
+            or os.path.join(root, "work") in dirpath):
         continue
 
     for f in filenames:

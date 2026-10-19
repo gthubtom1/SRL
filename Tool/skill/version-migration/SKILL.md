@@ -21,7 +21,7 @@ metadata:
 3. **保护机制局部微调**：新版仅更新了部分判定函数或加了壳，但核心业务逻辑骨架未变。
 
 **大白话唤醒指令示例**：
-- `lab：引用技能 version-migration，旧版本工程在 D:\Project\瓦6.8\work，新版程序是 D:\Project\瓦6.8\换肤程序点我下载6.9版本.exe，帮我追版做成新补丁`
+- `lab：引用技能 version-migration，旧版本工程在 <旧版工程目录>，新版程序是 <新版安装包路径>，帮我追版做成新补丁`
 - `lab：软件更新了，用 version-migration 帮我对齐旧版 reports/ 里的特征码，生成 6.9 版本的 version.dll`
 
 ---
