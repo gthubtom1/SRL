@@ -154,7 +154,7 @@ metadata:
 | | **ida-reverse** | `~/.pi/agent/skills/ida-reverse/SKILL.md` | IDA 自动唤醒 + 联动 |
 | | client-license-validation-bypass | `Tool/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
 | | Tool/safe/skills（5 个） | `Tool/safe/skills/` | radare2 / reverse-engineering / mcp-js-reverse-playbook 等 |
-| **MCP** | **seep**（31 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳 |
+| **MCP** | **seep**（37 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp_ida_*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
@@ -177,6 +177,25 @@ metadata:
 | 判壳 / 反调试 / 反虚拟机 | `seep_packer_detect(path)` | 节名/节熵+反调试导入+反虚拟机 → 手册路由 |
 | 协议签到 / 接口重放 / 回包验证 | `seep_http_replay(url, method, headers, cookies, body, impersonate)` | curl_cffi TLS 指纹伪装 + Cookie 会话保持 |
 | Web 目标指纹/安全头/入口发现 | `seep_web_recon(url)` | 只读侦察（不攻击） |
+
+### 工具自动发现与自动适配 MCP（新增 6 个，2026-10）
+
+> 干活的 AI 缺工具时，**先搜本机、再决定怎么控它、绝不卡住**。逻辑在 `Tool/mcp/tool_autodiscover.py`，
+> 声明式能力表在 `Tool/config/tool-capabilities.json`（内容来自联网检索官方文档，**不用 `-h` 试探二进制**），
+> 发现状态落本机 `~/.seep/tools.local.json`（gitignore，绝不入库）。
+
+| 场景 | 调用 | 说明 |
+|---|---|---|
+| 不确定某工具装没装（要六层探测） | `seep_tool_discover(tool_id, target)` | env→PATH→常见目录→**注册表**→递归扫描→别名；给 PE 目标会按 machine 选 32/64 位 |
+| 发现到了，但不知道「怎么控制它」 | `seep_tool_control_plan(tool_id, target, apply_mcp)` | 降级链：已注册MCP→现注册(提示重启)→headless→GUI→自写Py |
+| 查某工具是否支持 MCP/headless/GUI | `seep_tool_research(tool_id)` | 读能力表；表外工具返回检索 query（不 `-h` 试探） |
+| 把工具的 MCP 注册进当前 agent | `seep_tool_register_mcp(tool_id, apply)` | 增量写 mcp.json（不删用户条目），返回需重启 |
+| 缺工具，要半自动装 | `seep_tool_install(tool_id, execute)` | 给命令+来源→确认→装→重探（白名单 pip/winget/npm/go） |
+| 看本机已发现过哪些工具 | `seep_tool_state()` | 读 `~/.seep/tools.local.json` |
+
+> **判断铁律**：已知工具(IDA/x64dbg/Ghidra/r2/tshark/diec/jadx/apktool/frida)的能力写死在能力表里；
+> **表外未知工具只报『路径已发现』，绝不假装能控**，也绝不靠 `-h/--help` 现场试探（有些软件没 `-h`，一探就崩）。
+> 补工具进能力表时，先联网检索其 GitHub/官方文档。
 
 ### 跨平台共通项（判型后仍适用）
 

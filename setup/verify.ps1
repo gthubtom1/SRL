@@ -271,7 +271,7 @@ Test-CheckItem "MCP" "核心服务端脚本 (seep_mcp_server.py 语法自洽)" {
             $LASTEXITCODE -eq 0
         } else { $true }
     } else { $false }
-} "seep_mcp_server.py 丢失或存在 Python 语法解析错误" "31 个原生工具定义（含 8 个扩展资产）" "$ToolDir\mcp\seep_mcp_server.py"
+} "seep_mcp_server.py 丢失或存在 Python 语法解析错误" "37 个原生工具定义（含 14 个扩展资产）" "$ToolDir\mcp\seep_mcp_server.py"
 
 Test-CheckItem "MCP" "扩展资产：8 个新工具 + 声明式引擎链 + 说明文档" {
     $sp = Join-Path $ToolDir 'mcp\seep_mcp_server.py'
@@ -302,6 +302,35 @@ Test-CheckItem "MCP" "扩展资产功能自测 (test_ext_assets.py 30 项)" {
         } finally { Pop-Location }
     } else { $false }
 } "扩展资产功能自测未通过（在 Tool/mcp 下跑 python test_ext_assets.py 看详情）" "30 项全过" "$ToolDir\mcp\test_ext_assets.py"
+
+Test-CheckItem "MCP" "工具自动发现插件 (tool_autodiscover.py + 声明式能力表 + 本机状态隔离)" {
+    $ta = Join-Path $ToolDir 'mcp\tool_autodiscover.py'
+    $tc = Join-Path $ToolDir 'config\tool-capabilities.json'
+    $gi = Join-Path $Root '.gitignore'
+    if ((Test-Path $ta) -and (Test-Path $tc)) {
+        $src = Get-Content -LiteralPath $ta -Raw -Encoding UTF8
+        $cap = Get-Content -LiteralPath $tc -Raw -Encoding UTF8
+        $giOk = $false
+        if (Test-Path $gi) { $giOk = ((Get-Content -LiteralPath $gi -Raw -Encoding UTF8) -match 'tools\.local\.json') }
+        ($src -match 'def discover') -and
+        ($src -match 'def plan_control') -and
+        ($src -match 'def register_mcp') -and
+        ($src -match 'def research_control') -and
+        ($cap -match '"tools"') -and
+        $giOk
+    } else { $false }
+} "工具自动发现插件缺失（tool_autodiscover.py / tool-capabilities.json / .gitignore 未忽略 tools.local.json）" "插件 + 能力表 + 状态不入库" "$ToolDir\mcp\tool_autodiscover.py"
+
+Test-CheckItem "MCP" "工具自动发现功能自测已覆盖 (test_ext_assets.py 含自动发现用例)" {
+    $tst = Join-Path $ToolDir 'mcp\test_ext_assets.py'
+    if (Test-Path $tst) {
+        $src = Get-Content -LiteralPath $tst -Raw -Encoding UTF8
+        ($src -match 'tool_autodiscover') -and
+        ($src -match 'discover\(') -and
+        ($src -match 'plan_control') -and
+        ($src -match 'register_mcp')
+    } else { $false }
+} "自动发现测试用例缺失（test_ext_assets.py 应含 tool_autodiscover 用例）" "用例已覆盖（实跑见上方扩展资产自测）" "$ToolDir\mcp\test_ext_assets.py"
 
 Test-CheckItem "工具箱" "Jadx 反编译引擎 (jadx-1.5.6 完整就绪)" {
     $j = Join-Path $ToolsDir 'jadx\lib\jadx-1.5.6-all.jar'

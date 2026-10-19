@@ -228,6 +228,95 @@ def main():
     else:
         print("  [SKIP] maxxor 样本缺失")
 
+    print("=== [17/22] 工具自动发现：插件导入 + r2 可发现 ===")
+    try:
+        import tool_autodiscover as T
+        check("tool_autodiscover 可导入", True)
+        d = T.discover("r2")
+        check("r2 可发现", d.get("available") is True, json.dumps(d, ensure_ascii=False)[:120])
+        check("发现带 via 层", bool(d.get("via")) and d.get("via") != "none", str(d.get("via")))
+        check("发现带 layers_tried", isinstance(d.get("layers_tried"), list) and len(d["layers_tried"]) >= 1, "")
+    except Exception as exc:
+        check("tool_autodiscover 可导入", False, str(exc))
+        T = None
+
+    print("=== [18/22] 声明式能力表：已知工具可控 / 表外不假装 ===")
+    if T:
+        ri = T.research_control("ida")
+        check("ida 在能力表(known)", ri.get("known") is True, "")
+        check("ida 能力含 mcp/headless", "mcp" in ri.get("capabilities", {}) and "headless" in ri.get("capabilities", {}), "")
+        ru = T.research_control("totally-unknown-tool-zzz")
+        check("表外工具 known=False", ru.get("known") is False, "")
+        check("表外工具给 research_queries", len(ru.get("research_queries", [])) >= 1, "")
+    else:
+        check("能力表断言", False, "插件未导入")
+
+    print("=== [19/22] 控制计划降级链：缺失 -> 安装计划 + 自写Py兜底 ===")
+    if T:
+        p = T.plan_control("definitely-missing-tool-xyz")
+        tiers = [f.get("tier") for f in p.get("fallbacks", [])]
+        check("缺失工具给 install 兜底", "install" in tiers, str(tiers))
+        check("缺失工具给 self_write_py 兜底", "self_write_py" in tiers, str(tiers))
+        pg = T.plan_control("ghidra") if T.discover("ghidra").get("available") else None
+        if pg:
+            check("已装工具给出 how_to_control.mode", bool(pg.get("how_to_control", {}).get("mode")), "")
+    else:
+        check("降级链断言", False, "插件未导入")
+
+    print("=== [20/22] MCP 增量注册：不删用户条目 + 提示重启 ===")
+    if T:
+        import tempfile
+        tmp = os.path.join(tempfile.gettempdir(), "_seep_mcp_test_%d.json" % os.getpid())
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"mcpServers": {"user_keep": {"command": "x", "args": []}}}, f)
+            old = os.environ.get("SEEP_AGENT_MCP")
+            os.environ["SEEP_AGENT_MCP"] = tmp
+            rr = T.register_mcp("ghidra", apply=True)
+            check("注册成功", rr.get("registered") is True, json.dumps(rr, ensure_ascii=False)[:120])
+            check("提示需重启", rr.get("restart_required") is True, "")
+            cfg = json.load(open(tmp, encoding="utf-8"))
+            check("用户既有条目保留", "user_keep" in cfg.get("mcpServers", {}), "")
+            check("新条目已写入", "ghidra" in cfg.get("mcpServers", {}), "")
+        finally:
+            try:
+                os.remove(tmp)
+            except Exception:
+                pass
+            if old is None:
+                os.environ.pop("SEEP_AGENT_MCP", None)
+            else:
+                os.environ["SEEP_AGENT_MCP"] = old
+    else:
+        check("MCP 注册断言", False, "插件未导入")
+
+    print("=== [21/22] 架构匹配：PE machine + 32/64 位工具选择 ===")
+    if T:
+        pe2 = os.path.join(HERE, "Tool", "safe", "radare2", "bin", "r2agent.exe")
+        if os.path.isfile(pe2):
+            check("r2agent 识别为 x64", T.read_pe_machine(pe2) == "x64", str(T.read_pe_machine(pe2)))
+        else:
+            print("  [SKIP] 无内置 PE")
+        check("x86 选 x32dbg", T._exe_candidates("x64dbg", "x86") == ["x32dbg"], str(T._exe_candidates("x64dbg", "x86")))
+        check("x64 选 x64dbg", "x64dbg" in T._exe_candidates("x64dbg", "x64"), "")
+        check("别名 die->diec", T.normalize_tool_id("die") == "diec", "")
+        ip = T.install_plan("sqlmap")
+        check("安装计划可构造", ip.get("has_plan") is True and bool(ip.get("command")), "")
+        check("状态路径在 ~/.seep 下", ".seep" in T.LOCAL_STATE_PATH and "tools.local.json" in T.LOCAL_STATE_PATH, T.LOCAL_STATE_PATH)
+    else:
+        check("架构匹配断言", False, "插件未导入")
+
+    print("=== [22/22] MCP 工具 wrapper 已注册 ===")
+    for fn in ("seep_tool_discover", "seep_tool_control_plan", "seep_tool_research",
+               "seep_tool_register_mcp", "seep_tool_install", "seep_tool_state"):
+        check("存在 " + fn, hasattr(S, fn) and callable(getattr(S, fn)), "")
+    if hasattr(S, "seep_tool_discover"):
+        try:
+            dr = json.loads(S.seep_tool_discover("r2", record_state=False))
+            check("seep_tool_discover 返回结构", "available" in dr, str(dr)[:80])
+        except Exception as exc:
+            check("seep_tool_discover 不抛异常", False, str(exc))
+
     print(f"\n结果: {PASS} passed, {FAIL} failed")
     return 0 if FAIL == 0 else 1
 

@@ -241,3 +241,6 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 | 批3 | `Tool/config/tool-install.json` | P4 按需下载 | `Tool/config/` + `seep_ensure_tool` | ext 测试覆盖 |
 
 > 新批次请在此表追加一行，让下一个 AI 一眼知道"哪些已经融过、从哪来、怎么验的"。
+| 批4 | `tool_autodiscover.py` + `tool-capabilities.json` | 任务A：工具自动发现+MCP适配（能力事实联网检索核实） | `Tool/mcp/` + `Tool/config/` | ext 测试覆盖（60项） |
+| 批4 | `seep_tool_discover/control_plan/research/register_mcp/install/state`（6个） | 同上（薄封装） | `seep_mcp_server.py` 末尾追加 | ext 测试覆盖 + verify 追加 2 项 |
+| 批4 | 本机状态 `~/.seep/tools.local.json` | 每机不同，绝不入库 | `.gitignore` 忽略 `.seep/` | 状态隔离校验 |

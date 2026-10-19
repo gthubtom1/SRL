@@ -179,7 +179,7 @@ Seep\ (251 MB)
 │   │   └── safe-skills\           ← 5 standalone tool packages
 │   │
 │   ├── mcp\                       ← MCP Engine
-│   │   ├── seep_mcp_server.py     ← Core server: 31 native reversing & KB tools
+│   │   ├── seep_mcp_server.py     ← Core server: 37 native reversing & KB tools
 │   │   ├── mcp.json.template      ← Global MCP client configuration template
 │   │   └── Tool\                  ← ⚠️ Hardcoded relative runtime path (do not rename)
 │   │       ├── safe\              ← Pre-bundled cross-platform toolchains
@@ -226,7 +226,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP Tool Matrix
 
-The bundled `seep` MCP server exposes **31 native tools** across six functional groups:
+The bundled `seep` MCP server exposes **37 native tools** across six functional groups:
 
 | Category | Tool | Functionality | Token Mode |
 |---|---|---|---|

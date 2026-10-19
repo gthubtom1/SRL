@@ -75,3 +75,10 @@ Tool/samples/src/payload.bin
 Tool/samples/real/**/*_jadx_src/
 Tool/samples/real/**/*_apktool/
 Tool/samples/**/*_jadx_src/
+
+# ---------------------------------------------------------------------------
+# 工具自动发现插件的本机状态（每台机器不同，绝不入库）
+# 逻辑在 Tool/mcp/tool_autodiscover.py + Tool/config/tool-capabilities.json
+# ---------------------------------------------------------------------------
+.seep/
+tools.local.json

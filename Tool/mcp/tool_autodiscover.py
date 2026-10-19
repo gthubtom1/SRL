@@ -1,0 +1,659 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""tool_autodiscover.py —— 轻量「工具自动发现 + 自动适配 MCP」插件（纯增量）。
+
+设计哲学（务必遵守，否则又会变成臃肿的 relab2）：
+  1. 逻辑进仓库（本文件 + Tool/config/tool-capabilities.json），状态留本机
+     （~/.seep/tools.local.json，已 gitignore），绝不让 GitHub 变重。
+  2. 六层递进发现：环境变量 -> PATH -> 常见安装目录 -> Windows 注册表
+     -> 递归扫描(带 deny 规则) -> 别名映射。不能只查 PATH。
+  3. 匹配架构/版本：读目标 PE 的 machine 字段，32 位选 x32dbg、64 位选 x64dbg。
+  4. 「工具怎么控制它」靠声明式能力表（tool-capabilities.json，来自联网检索），
+     ★ 绝不用 -h/--help 去现场试探二进制（有些软件没有 -h，一探就崩或返回错误码）。
+     表外未知工具：只报「路径已发现」，绝不假装能控。
+  5. 注册 MCP 要写当前 agent 的 mcp.json（增量合并、绝不删用户条目），并提示「重启生效」。
+  6. 降级链：已注册MCP -> 现注册MCP(提示重启) -> headless/CLI直调 -> GUI(不推荐) -> 自写Py脚本。
+     走不通如实报，不硬等。
+  7. 自动安装只做半自动：探测 -> 给安装命令+来源 -> 用户确认 -> 装 -> 重探。不做无脑全自动。
+
+本模块既被 seep_mcp_server.py 以 `import tool_autodiscover` 调用（零副作用），
+也可独立命令行运行（见文件末尾 __main__）。
+"""
+import os
+import sys
+import json
+import shutil
+import struct
+import subprocess
+import datetime
+
+# ---------------------------------------------------------------------------
+# 路径与常量
+# ---------------------------------------------------------------------------
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_TOOL_DIR = os.path.dirname(_HERE)                       # Tool/
+_CONFIG_DIR = os.path.join(_TOOL_DIR, "config")
+_CAP_FILE = os.path.join(_CONFIG_DIR, "tool-capabilities.json")
+_INSTALL_FILE = os.path.join(_CONFIG_DIR, "tool-install.json")
+
+# 本机状态（绝不入库）
+LOCAL_STATE_DIR = os.path.expanduser(os.path.join("~", ".seep"))
+LOCAL_STATE_PATH = os.path.join(LOCAL_STATE_DIR, "tools.local.json")
+
+# 常见工具根（跨平台），用于第 3 层直接命中 + 第 5 层递归扫描
+_COMMON_ROOTS = [
+    os.environ.get("REVERSE_TOOL_ROOT", ""),
+    os.environ.get("SEEP_TOOL_ROOT", ""),
+    r"D:\Tools", r"D:\Tool",
+    os.path.join(os.path.expanduser("~"), "Tools"),
+    os.path.join(os.path.expanduser("~"), "tools"),
+    "/opt", "/usr/local/bin", "/usr/bin",
+]
+
+# 递归扫描的 deny 规则（避免误命中 IDA 自带裸 python、插件目录等）
+_DENY_MARKERS = [
+    "ida pro", "ida\\python", "ida/python", "python27", "python3.8\\python",
+    "\\plugins\\", "/plugins/", "\\sdk\\", "/sdk/", "node_modules",
+    "\\windows\\winsxs", "/usr/share/doc",
+]
+
+# 别名映射（第 6 层）：把用户口语/工具族映射到规范 tool_id
+_ALIAS_MAP = {
+    "radare2": "r2", "r2pm": "r2", "r2pipe": "r2",
+    "ida64": "ida", "idat": "ida", "idat64": "ida", "idapro": "ida", "ida pro": "ida",
+    "x96dbg": "x64dbg", "x32dbg": "x32dbg", "x64dbg": "x64dbg",
+    "windbg": "cdb", "windbgx": "cdb", "kd": "cdb",
+    "detect-it-easy": "diec", "detect it easy": "diec", "die": "diec",
+    "analyzeheadless": "ghidra", "ghidra": "ghidra",
+    "wireshark": "tshark",
+    "jadx-gui": "jadx",
+    "frida-tools": "frida", "frida-server": "frida",
+}
+
+
+# ---------------------------------------------------------------------------
+# 小工具
+# ---------------------------------------------------------------------------
+def _now():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _load_json(path, default):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def _capabilities_table():
+    return _load_json(_CAP_FILE, {"tools": {}, "mcp_ecosystem": {}})
+
+
+def _install_table():
+    return _load_json(_INSTALL_FILE, {"installable": {}, "auto_allow_methods": ["pip"]})
+
+
+def normalize_tool_id(tool_id):
+    """第 6 层别名映射：把口语/变体名规范化为能力表里的 tool_id。"""
+    tid = (tool_id or "").strip().lower()
+    return _ALIAS_MAP.get(tid, tid)
+
+
+def _exe_candidates(tool_id, arch=None):
+    """返回可执行文件名候选；arch_aware 工具按目标位宽筛选。"""
+    caps = _capabilities_table().get("tools", {}).get(tool_id, {})
+    if caps.get("arch_aware") and arch:
+        variants = caps.get("arch_variants", {})
+        if arch in variants:
+            return variants[arch]
+    return caps.get("exe_candidates", [tool_id])
+
+
+def _denied(path):
+    low = path.lower()
+    return any(m in low for m in _DENY_MARKERS)
+
+
+# ---------------------------------------------------------------------------
+# 架构/版本匹配：读目标 PE 的 machine 字段
+# ---------------------------------------------------------------------------
+def read_pe_machine(path):
+    """读 PE 头 machine 字段，返回 'x86' / 'x64' / 'arm64' / None（非 PE 或失败）。"""
+    try:
+        with open(path, "rb") as f:
+            if f.read(2) != b"MZ":
+                return None
+            f.seek(0x3C)
+            e_lfanew = struct.unpack("<I", f.read(4))[0]
+            if e_lfanew <= 0 or e_lfanew > 0x10000000:
+                return None
+            f.seek(e_lfanew)
+            if f.read(4) != b"PE\x00\x00":
+                return None
+            machine = struct.unpack("<H", f.read(2))[0]
+        return {0x8664: "x64", 0x014C: "x86", 0xAA64: "arm64", 0x01C4: "arm"}.get(machine)
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# 六层递进发现
+# ---------------------------------------------------------------------------
+def _layer_env(tool_id, exe_names):
+    """第 1 层：环境变量显式指定（最高优先）。"""
+    env_key = "SEEP_" + "".join(ch if ch.isalnum() else "_" for ch in tool_id.upper()) + "_PATH"
+    val = os.environ.get(env_key, "")
+    if val and os.path.isfile(val) and not _denied(val):
+        return {"available": True, "command": val, "via": "env", "env_key": env_key}
+    return None
+
+
+def _layer_path(exe_names):
+    """第 2 层：PATH 查找（系统安装优先于便携副本）。"""
+    for e in exe_names:
+        w = shutil.which(e)
+        if w and not _denied(w):
+            return {"available": True, "command": w, "via": "PATH"}
+    return None
+
+
+def _layer_common_dirs(exe_names):
+    """第 3 层：常见安装根的直接子目录 / bin / cli。"""
+    for root in _COMMON_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        for e in exe_names:
+            for sub in ("", "bin", "cli"):
+                base = os.path.join(root, sub, e) if sub else os.path.join(root, e)
+                for cand in (base, base + ".exe"):
+                    if os.path.isfile(cand) and not _denied(cand):
+                        return {"available": True, "command": cand, "via": "common_dir"}
+    return None
+
+
+def _reg_read(sk, name):
+    try:
+        import winreg
+        v, _ = winreg.QueryValueEx(sk, name)
+        return v
+    except Exception:
+        return ""
+
+
+def _registry_install_dirs(name_hints):
+    """第 4 层：Windows 注册表「已安装程序」-> InstallLocation。非 Windows 返回 []。"""
+    if sys.platform != "win32":
+        return []
+    try:
+        import winreg
+    except Exception:
+        return []
+    roots = [
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    ]
+    dirs = []
+    for hive, path in roots:
+        try:
+            k = winreg.OpenKey(hive, path)
+        except Exception:
+            continue
+        try:
+            n = winreg.QueryInfoKey(k)[0]
+        except Exception:
+            continue
+        for i in range(n):
+            try:
+                sub = winreg.EnumKey(k, i)
+                sk = winreg.OpenKey(k, sub)
+            except Exception:
+                continue
+            disp = str(_reg_read(sk, "DisplayName") or "")
+            loc = str(_reg_read(sk, "InstallLocation") or "")
+            if disp and any(h.lower() in disp.lower() for h in name_hints):
+                if loc and os.path.isdir(loc):
+                    dirs.append(loc)
+    return dirs
+
+
+def _layer_registry(tool_id, exe_names, caps):
+    """第 4 层：注册表定位安装目录后再找 exe。"""
+    hints = [tool_id] + ([caps.get("display")] if caps.get("display") else [])
+    for d in _registry_install_dirs(hints):
+        for e in exe_names:
+            for cand in (os.path.join(d, e), os.path.join(d, e + ".exe"),
+                         os.path.join(d, "bin", e), os.path.join(d, "bin", e + ".exe")):
+                if os.path.isfile(cand) and not _denied(cand):
+                    return {"available": True, "command": cand, "via": "registry",
+                            "install_dir": d}
+    return None
+
+
+def _layer_scan(tool_id, exe_names, max_depth=4):
+    """第 5 层：在常见根下递归扫描（带 deny 规则，限深度）。"""
+    wanted = set()
+    for e in exe_names:
+        el = e.lower()
+        wanted.add(el)
+        if not el.endswith(".exe"):
+            wanted.add(el + ".exe")
+    for root in _COMMON_ROOTS:
+        if not root or not os.path.isdir(root):
+            continue
+        try:
+            for dirpath, dirnames, filenames in os.walk(root):
+                depth = dirpath[len(root):].count(os.sep)
+                if depth > max_depth:
+                    dirnames[:] = []
+                    continue
+                for fn in filenames:
+                    if fn.lower() in wanted:
+                        full = os.path.join(dirpath, fn)
+                        if not _denied(full) and os.path.isfile(full):
+                            return {"available": True, "command": full, "via": "scan"}
+        except Exception:
+            continue
+    return None
+
+
+def discover(tool_id, target=None, use_registry=True):
+    """六层递进发现：命中即停。返回结构化结果。
+
+    Args:
+        tool_id: 工具标识（可带别名，会自动规范化）。
+        target: 可选目标文件；若为 PE 且工具 arch_aware，则按 machine 字段选 32/64 位。
+        use_registry: 是否启用第 4 层注册表探测（Windows 有效）。
+    """
+    raw = (tool_id or "").strip()
+    tid = normalize_tool_id(raw)
+    caps = _capabilities_table().get("tools", {}).get(tid, {})
+
+    arch = read_pe_machine(target) if (target and os.path.isfile(target)) else None
+    exe_names = _exe_candidates(tid, arch)
+
+    layers = []
+    hit = _layer_env(tid, exe_names);  layers.append(("env", hit))
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    hit = _layer_path(exe_names);       layers.append(("PATH", hit))
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    hit = _layer_common_dirs(exe_names); layers.append(("common_dir", hit))
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    if use_registry:
+        hit = _layer_registry(tid, exe_names, caps); layers.append(("registry", hit))
+        if hit:
+            return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    hit = _layer_scan(tid, exe_names);  layers.append(("scan", hit))
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+
+    return {
+        "tool_id": tid, "input": raw, "available": False, "command": "", "via": "none",
+        "known_in_table": bool(caps), "arch": arch, "exe_candidates": exe_names,
+        "layers_tried": [l[0] for l in layers],
+        "note": "六层探测均未命中。若确信已安装，可设环境变量 SEEP_<TOOL>_PATH 显式指定，"
+                "或把工具放进 D:\\Tools（或 REVERSE_TOOL_ROOT 指定的根）。",
+    }
+
+
+def _discover_result(raw, tid, caps, arch, exe_names, hit, layers):
+    out = {
+        "tool_id": tid, "input": raw, "available": True,
+        "command": hit["command"], "via": hit["via"],
+        "known_in_table": bool(caps), "arch": arch, "exe_candidates": exe_names,
+        "layers_tried": [l[0] for l in layers if l[1] is None] + [hit["via"]],
+    }
+    if hit.get("install_dir"):
+        out["install_dir"] = hit["install_dir"]
+    if hit.get("env_key"):
+        out["env_key"] = hit["env_key"]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 「怎么控制它」——声明式能力（联网检索得到的静态表；绝不用 -h 试探）
+# ---------------------------------------------------------------------------
+def research_control(tool_id):
+    """返回某工具『怎么控制』的声明式结论。
+
+    ★ 关键：优先读 tool-capabilities.json（其内容来自联网检索 GitHub/官方文档）。
+    表外未知工具：返回 control=unknown，只报路径，绝不假装能控，也不去 -h 试探二进制。
+    """
+    tid = normalize_tool_id(tool_id)
+    caps = _capabilities_table().get("tools", {}).get(tid)
+    if not caps:
+        return {
+            "tool_id": tid, "known": False, "control": "unknown",
+            "advice": "表外未知工具：仅报『路径已发现』，不假装能控制它。"
+                      "如需纳入，请联网检索其 GitHub/官方文档后，把能力补进 "
+                      "Tool/config/tool-capabilities.json（不要用 -h 试探二进制）。",
+            "research_queries": [
+                f"{tid} MCP server github",
+                f"{tid} command line headless usage official docs",
+                f"{tid} automation cli vs gui",
+            ],
+        }
+    return {
+        "tool_id": tid, "known": True,
+        "display": caps.get("display", tid),
+        "capabilities": caps.get("capabilities", {}),
+        "control": caps.get("control", {}),
+        "install_hint": caps.get("install_hint", ""),
+        "notes": caps.get("notes", ""),
+        "source": "tool-capabilities.json (verified via web 2026-10-19)",
+    }
+
+
+# ---------------------------------------------------------------------------
+# MCP 注册（写当前 agent 的 mcp.json，增量合并，提示重启）
+# ---------------------------------------------------------------------------
+def _agent_mcp_json_path():
+    """定位当前 agent 的 mcp.json。优先环境变量，其次 pi 默认，再退回仓库 .mcp.json。"""
+    env = os.environ.get("SEEP_AGENT_MCP", "")
+    if env:
+        return env
+    pi = os.path.expanduser(os.path.join("~", ".pi", "agent", "mcp.json"))
+    if os.path.isfile(pi) or os.path.isdir(os.path.dirname(pi)):
+        return pi
+    # 退路：仓库根 .mcp.json（若存在）
+    root_mcp = os.path.join(os.path.dirname(_TOOL_DIR), ".mcp.json")
+    return root_mcp
+
+
+def _mcp_entry_for(tool_id):
+    """从能力表/生态模板构造 MCP 注册片段；无则 None。"""
+    tid = normalize_tool_id(tool_id)
+    eco = _capabilities_table().get("mcp_ecosystem", {})
+    if tid in eco:
+        e = dict(eco[tid])
+        entry = {"command": e.get("command"), "args": e.get("args", [])}
+        if e.get("transport"):
+            entry["transport"] = e["transport"]
+        return entry
+    caps = _capabilities_table().get("tools", {}).get(tid, {})
+    reg = caps.get("control", {}).get("mcp_register")
+    if reg and reg.get("command"):
+        return {"command": reg["command"], "args": reg.get("args", []), "transport": "stdio"}
+    return None
+
+
+def register_mcp(tool_id, apply=False, server_name=None):
+    """注册工具对应的 MCP 到当前 agent 的 mcp.json（增量合并、绝不删用户条目）。
+
+    apply=False 时只返回"将要写入的片段 + 目标路径"，不落盘（半自动：先给人看）。
+    写入成功后返回 restart_required=True —— 协议层死规矩：MCP 配置需重启会话才生效。
+    """
+    tid = normalize_tool_id(tool_id)
+    name = server_name or tid
+    entry = _mcp_entry_for(tid)
+    path = _agent_mcp_json_path()
+    if not entry:
+        return {"tool_id": tid, "registered": False,
+                "reason": "能力表中没有该工具的 MCP 注册方式（表外未知工具不假装能注册）",
+                "target": path}
+    if not apply:
+        return {"tool_id": tid, "registered": False, "preview": True,
+                "server_name": name, "entry": entry, "target": path,
+                "note": "这是将要增量写入的片段；确认后以 apply=True 落盘（需重启会话生效）。"}
+
+    # 增量合并
+    cfg = _load_json(path, {"mcpServers": {}})
+    if not isinstance(cfg, dict):
+        cfg = {"mcpServers": {}}
+    servers = cfg.get("mcpServers")
+    if not isinstance(servers, dict):
+        servers = {}
+        cfg["mcpServers"] = servers
+    existed = name in servers
+    servers[name] = entry
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.isfile(path):
+            shutil.copy2(path, path + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+        with open(path, "w", encoding="utf-8") as f:  # UTF-8 无 BOM
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+    except Exception as exc:  # noqa: BLE001
+        return {"tool_id": tid, "registered": False, "error": "%s: %s" % (type(exc).__name__, exc),
+                "target": path}
+    return {"tool_id": tid, "registered": True, "server_name": name, "entry": entry,
+            "target": path, "overwrote_existing": existed,
+            "restart_required": True,
+            "note": "已增量写入 mcp.json（未删除任何用户既有条目）。★ 需重启 Agent 会话后 MCP 才生效。"}
+
+
+# ---------------------------------------------------------------------------
+# 半自动安装（探测 -> 给命令+来源 -> 确认 -> 装 -> 重探）
+# ---------------------------------------------------------------------------
+def install_plan(tool_id):
+    """把 tool-install.json 的声明式条目转成可读安装计划（命令 + 来源 + 是否可自动）。"""
+    tid = normalize_tool_id(tool_id)
+    cfg = _install_table()
+    entry = cfg.get("installable", {}).get(tid)
+    if not entry:
+        return {"tool_id": tid, "has_plan": False,
+                "reason": "tool-install.json 未收录该工具；请手动安装后加入 PATH。"}
+    method = entry.get("method", "")
+    pkg = entry.get("pkg", "")
+    url = entry.get("url", "")
+    if method == "pip":
+        cmd = "%s -m pip install %s" % (sys.executable, pkg)
+    elif method == "winget":
+        cmd = "winget install --id %s -e" % pkg
+    elif method == "npm":
+        cmd = "npm install -g %s" % pkg
+    elif method == "go":
+        cmd = "go install %s" % pkg
+    elif method == "manual":
+        cmd = "手动下载：%s" % url
+    else:
+        cmd = ""
+    auto_ok = method in (cfg.get("auto_allow_methods") or []) and method != "manual"
+    return {"tool_id": tid, "has_plan": True, "method": method, "package": pkg,
+            "command": cmd, "source": url or pkg, "auto_allowed": auto_ok,
+            "note": entry.get("note", ""),
+            "hint": "半自动：先看命令与来源 → 用户确认 → 执行 → 重探。绝不无脑全自动。"}
+
+
+def propose_install(tool_id, execute=False):
+    """半自动安装：默认只出计划；execute=True 且方法在白名单才真正执行并重探。"""
+    tid = normalize_tool_id(tool_id)
+    plan = install_plan(tid)
+    if not plan.get("has_plan"):
+        return plan
+    if not execute:
+        plan["executed"] = False
+        return plan
+    if not plan.get("auto_allowed"):
+        plan["executed"] = False
+        plan["reason"] = "method=%s 不在自动白名单，需人工/确认安装。" % plan.get("method")
+        return plan
+    method = plan["method"]
+    pkg = plan["package"]
+    if method == "pip":
+        argv = [sys.executable, "-m", "pip", "install", pkg]
+    elif method == "winget":
+        argv = ["winget", "install", "--id", pkg, "-e",
+                "--accept-source-agreements", "--accept-package-agreements"]
+    elif method == "npm":
+        argv = ["npm", "install", "-g", pkg]
+    elif method == "go":
+        argv = ["go", "install", pkg]
+    else:
+        argv = []
+    if not argv:
+        plan["executed"] = False
+        return plan
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=600)
+        plan["executed"] = True
+        plan["returncode"] = p.returncode
+        plan["tail"] = (p.stdout or p.stderr or "")[-400:]
+        plan["recheck"] = discover(tid)
+    except Exception as exc:  # noqa: BLE001
+        plan["executed"] = False
+        plan["error"] = "%s: %s" % (type(exc).__name__, exc)
+    return plan
+
+
+# ---------------------------------------------------------------------------
+# 降级链：已注册MCP -> 现注册MCP(提示重启) -> headless/CLI -> GUI -> 自写Py
+# ---------------------------------------------------------------------------
+def _mcp_already_registered(tool_id):
+    tid = normalize_tool_id(tool_id)
+    path = _agent_mcp_json_path()
+    cfg = _load_json(path, {"mcpServers": {}})
+    return tid in (cfg.get("mcpServers") or {})
+
+
+def plan_control(tool_id, target=None, apply_mcp=False):
+    """给某工具生成完整『发现 -> 控制』计划，走降级链，绝不卡住。
+
+    返回 control_plan，含 discovery / how_to_control / fallbacks / next_action。
+    """
+    disc = discover(tool_id, target=target)
+    cap = research_control(tool_id)
+    tid = disc["tool_id"]
+
+    plan = {"tool_id": tid, "target": target, "discovery": disc,
+            "capabilities": cap, "how_to_control": None, "fallbacks": []}
+
+    if not disc["available"]:
+        # 工具不在本机 -> 给安装计划 + 自写 Py 脚本兜底建议
+        plan["how_to_control"] = {"mode": "missing", "detail": "工具未发现"}
+        plan["fallbacks"].append({"tier": "install", "plan": install_plan(tid)})
+        plan["fallbacks"].append({"tier": "self_write_py",
+                                  "detail": "无现成工具时，可由 Agent 现场写最小 Py 脚本兜底（如 pefile 解析 PE、"
+                                            "struct 解析 pcap），不阻塞任务。"})
+        plan["next_action"] = "工具缺失：确认安装计划，或改用自写 Py 脚本兜底。"
+        return plan
+
+    caps = cap.get("capabilities", {}) if cap.get("known") else {}
+    ctrl = cap.get("control", {}) if cap.get("known") else {}
+
+    # 1) 已注册 MCP
+    if _mcp_already_registered(tid):
+        plan["how_to_control"] = {"mode": "mcp_registered",
+                                  "detail": "该工具的 MCP 已在 mcp.json 注册，直接调用对应 MCP 工具即可。"}
+        plan["next_action"] = "直接用已注册 MCP。"
+        return plan
+
+    # 2) 可现注册 MCP
+    if caps.get("mcp") and _mcp_entry_for(tid):
+        reg = register_mcp(tid, apply=apply_mcp)
+        plan["how_to_control"] = {"mode": "mcp_register",
+                                  "detail": "能力表显示该工具支持 MCP，可注册后使用。",
+                                  "registration": reg}
+        if reg.get("registered"):
+            plan["next_action"] = "MCP 已写入，★ 重启 Agent 会话后生效。"
+        else:
+            plan["next_action"] = "确认后可 apply_mcp=True 增量写入并重启生效。"
+        return plan
+
+    # 3) headless / CLI 直调
+    if caps.get("headless") and ctrl.get("headless_cmd"):
+        plan["how_to_control"] = {"mode": "headless",
+                                  "detail": "支持 headless/CLI，可直接命令行调用（优先于 GUI）。",
+                                  "command": ctrl["headless_cmd"],
+                                  "resolved_exe": disc["command"]}
+        plan["next_action"] = "用 headless/CLI 直调，无需 MCP。"
+        return plan
+
+    # 4) GUI（不推荐）
+    if caps.get("gui"):
+        plan["how_to_control"] = {"mode": "gui_only",
+                                  "detail": "仅有 GUI 交互（不推荐自动化），建议改走 headless 或自写脚本。",
+                                  "command": ctrl.get("gui_cmd", disc["command"])}
+        plan["next_action"] = "GUI 不推荐；如可 headless 优先 headless。"
+        return plan
+
+    # 5) 表外/无控制方式：如实报
+    plan["how_to_control"] = {"mode": "discovered_only",
+                              "detail": "已发现路径，但能力表未声明可控方式（表外未知工具不假装能控）。",
+                              "resolved_exe": disc["command"]}
+    plan["fallbacks"].append({"tier": "self_write_py",
+                              "detail": "可现场写 Py 脚本直接调用该 exe 或解析其产物。"})
+    plan["next_action"] = "如需标准化控制，先联网检索其文档再补进能力表。"
+    return plan
+
+
+# ---------------------------------------------------------------------------
+# 本机状态（~/.seep/tools.local.json，绝不入库）
+# ---------------------------------------------------------------------------
+def load_state():
+    return _load_json(LOCAL_STATE_PATH, {"schemaVersion": "1.0", "tools": {},
+                                         "updated_at": None})
+
+
+def save_state(state):
+    try:
+        os.makedirs(LOCAL_STATE_DIR, exist_ok=True)
+        state["updated_at"] = _now()
+        with open(LOCAL_STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception:
+        return False
+
+
+def record(tool_id, result=None):
+    """把一次发现结果落本机状态（不写仓库）。"""
+    tid = normalize_tool_id(tool_id)
+    state = load_state()
+    r = result if result is not None else discover(tid)
+    state.setdefault("tools", {})[tid] = {
+        "available": r.get("available"),
+        "command": r.get("command", ""),
+        "via": r.get("via", ""),
+        "arch": r.get("arch"),
+        "checked_at": _now(),
+    }
+    save_state(state)
+    return state["tools"][tid]
+
+
+def list_state():
+    return load_state()
+
+
+# ---------------------------------------------------------------------------
+# CLI（便于人工/测试直接跑）
+# ---------------------------------------------------------------------------
+def _cli(argv):
+    import argparse
+    ap = argparse.ArgumentParser(description="Seep 工具自动发现 + 自动适配 MCP 插件")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    d = sub.add_parser("discover", help="六层递进发现某工具")
+    d.add_argument("tool"); d.add_argument("--target", default=None)
+    p = sub.add_parser("plan", help="发现 + 控制计划（降级链）")
+    p.add_argument("tool"); p.add_argument("--target", default=None)
+    p.add_argument("--apply-mcp", action="store_true")
+    r = sub.add_parser("register", help="注册该工具 MCP（--apply 落盘）")
+    r.add_argument("tool"); r.add_argument("--apply", action="store_true")
+    i = sub.add_parser("install", help="半自动安装（--execute 真装）")
+    i.add_argument("tool"); i.add_argument("--execute", action="store_true")
+    sub.add_parser("state", help="查看本机发现状态")
+    args = ap.parse_args(argv)
+
+    if args.cmd == "discover":
+        out = discover(args.tool, target=args.target); record(args.tool, out)
+    elif args.cmd == "plan":
+        out = plan_control(args.tool, target=args.target, apply_mcp=args.apply_mcp)
+    elif args.cmd == "register":
+        out = register_mcp(args.tool, apply=args.apply)
+    elif args.cmd == "install":
+        out = propose_install(args.tool, execute=args.execute)
+    elif args.cmd == "state":
+        out = list_state()
+    else:
+        out = {"error": "unknown cmd"}
+    print(json.dumps(out, indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(_cli(sys.argv[1:]))

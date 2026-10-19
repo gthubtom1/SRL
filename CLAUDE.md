@@ -112,7 +112,7 @@ Seep\
 │
 ├── Tool\
 │   ├── skill\         9 个 Skill（以 softseep 为总控）
-│   ├── mcp\           seep MCP（31 工具）+ Tool\ 运行时依赖
+│   ├── mcp\           seep MCP（37 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
 │   ├── prompts\       SYSTEM.md、AGENTS.md 与安全扩展
 │   ├── cases\         14 个脱敏项目工程（项目 A ~ 项目 N）

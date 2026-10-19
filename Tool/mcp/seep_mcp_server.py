@@ -2297,6 +2297,123 @@ def seep_web_recon(url: str, timeout: int = 15) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 工具自动发现 + 自动适配 MCP（轻量插件，2026-10 增补，纯增量）
+# 逻辑在 Tool/mcp/tool_autodiscover.py + Tool/config/tool-capabilities.json；
+# 发现状态落本机 ~/.seep/tools.local.json（gitignore，绝不入库）。
+# 下面几个是薄封装：不修改任何既有工具，只在末尾追加。
+# ---------------------------------------------------------------------------
+def _autodiscover():
+    """惰性导入自动发现插件；失败时返回 None（不拖垮整个 MCP 服务）。"""
+    try:
+        import tool_autodiscover as _tad  # 同目录
+        return _tad
+    except Exception:
+        try:
+            import importlib.util as _ilu
+            _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tool_autodiscover.py")
+            _spec = _ilu.spec_from_file_location("tool_autodiscover", _p)
+            _mod = _ilu.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            return _mod
+        except Exception:
+            return None
+
+
+@server.tool()
+def seep_tool_discover(tool_id: str, target: str = "", record_state: bool = True) -> str:
+    """六层递进发现本机某工具是否可用（环境变量/PATH/常见目录/注册表/递归扫描/别名）。
+
+    比 seep_ensure_tool 更全：多出 Windows 注册表『已安装程序』探测 + 别名映射 + 架构匹配。
+    若给了 target（PE 文件），会读 machine 字段决定 32/64 位（x32dbg/x64dbg）。
+    发现结果默认记入本机 ~/.seep/tools.local.json（不进仓库）。
+
+    Args:
+        tool_id: 工具标识（支持别名，如 windbg->cdb, die->diec, radare2->r2）。
+        target: 可选目标文件；PE 时用于架构匹配。
+        record_state: 是否把结果写入本机状态缓存（默认 True）。
+    """
+    tad = _autodiscover()
+    if tad is None:
+        return "[ERROR]: tool_autodiscover 插件不可用（检查 Tool/mcp/tool_autodiscover.py）"
+    res = tad.discover(tool_id, target=target or None)
+    if record_state:
+        try:
+            tad.record(tool_id, res)
+        except Exception:
+            pass
+    return json.dumps(res, indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_tool_control_plan(tool_id: str, target: str = "", apply_mcp: bool = False) -> str:
+    """给某工具生成完整『发现 -> 怎么控制』计划，走降级链绝不卡住。
+
+    降级链：已注册MCP -> 现注册MCP(提示重启) -> headless/CLI直调 -> GUI(不推荐) -> 自写Py脚本。
+    『怎么控制』来自声明式能力表（联网检索 GitHub/官方文档得到），绝不用 -h 试探二进制。
+    表外未知工具只报『路径已发现』，不假装能控。
+
+    Args:
+        tool_id: 工具标识。
+        target: 可选目标文件（架构匹配）。
+        apply_mcp: True 时对支持 MCP 的工具增量写入 mcp.json（默认 False 只给预览）。
+    """
+    tad = _autodiscover()
+    if tad is None:
+        return "[ERROR]: tool_autodiscover 插件不可用"
+    return json.dumps(tad.plan_control(tool_id, target=target or None, apply_mcp=apply_mcp),
+                      indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_tool_research(tool_id: str) -> str:
+    """查询某工具『怎么控制』（声明式能力：是否支持 MCP / headless / GUI / CLI）。
+
+    只读 Tool/config/tool-capabilities.json（内容来自联网检索官方文档），
+    表外未知工具返回 research_queries 供联网检索，绝不 -h 试探二进制。
+    """
+    tad = _autodiscover()
+    if tad is None:
+        return "[ERROR]: tool_autodiscover 插件不可用"
+    return json.dumps(tad.research_control(tool_id), indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_tool_register_mcp(tool_id: str, apply: bool = False, server_name: str = "") -> str:
+    """把某工具的 MCP 增量注册到当前 agent 的 mcp.json（绝不删用户既有条目）。
+
+    默认 apply=False 只返回『将要写入的片段 + 目标路径』（半自动，先给人看）。
+    落盘成功会返回 restart_required=True —— 协议层死规矩：MCP 配置需重启会话才生效。
+    """
+    tad = _autodiscover()
+    if tad is None:
+        return "[ERROR]: tool_autodiscover 插件不可用"
+    return json.dumps(tad.register_mcp(tool_id, apply=apply, server_name=server_name or None),
+                      indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_tool_install(tool_id: str, execute: bool = False) -> str:
+    """半自动安装缺失工具：探测 -> 给安装命令+来源 -> (确认后)装 -> 重探。
+
+    默认只出安装计划（命令 + 来源 + 是否可自动）。execute=True 且方法在白名单
+    (pip/winget/npm/go) 才真正执行并重探。绝不做无脑全自动下载。
+    """
+    tad = _autodiscover()
+    if tad is None:
+        return "[ERROR]: tool_autodiscover 插件不可用"
+    return json.dumps(tad.propose_install(tool_id, execute=execute), indent=2, ensure_ascii=False)
+
+
+@server.tool()
+def seep_tool_state() -> str:
+    """查看本机工具发现状态缓存（~/.seep/tools.local.json，绝不入库）。"""
+    tad = _autodiscover()
+    if tad is None:
+        return "[ERROR]: tool_autodiscover 插件不可用"
+    return json.dumps(tad.list_state(), indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
 def main():

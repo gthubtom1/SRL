@@ -10,6 +10,34 @@
 
 ---
 
+## [1.8.0] — 2026-10-19
+
+### 新增（任务A：轻量「工具自动发现 + 自动适配 MCP」小插件，全部纯增量）
+
+> 定位：干活的 AI 缺工具时，**先搜本机 → 决定怎么控它 → 绝不卡住**。
+> 设计铁律：**逻辑进仓库（小插件），发现状态留本机（`~/.seep/tools.local.json`，gitignore），绝不让 GitHub 变重**。
+
+- **插件**：`Tool/mcp/tool_autodiscover.py`（可被 `seep_mcp_server.py` 以 import 调用，也可独立 CLI 运行）。
+- **声明式能力表**：`Tool/config/tool-capabilities.json` —— 已知工具（IDA/x64dbg/cdb/Ghidra/r2/tshark/diec/jadx/apktool/frida）的「可执行/MCP/headless/GUI/CLI + 控制命令」全部写死。
+  - ★ **判断依据全部来自联网检索（GitHub README / 官方文档 / MCP 生态），绝不用 `-h/--help` 现场试探二进制**（有些软件没 `-h`，一探就崩或返回错误码）。
+  - **表外未知工具只报「路径已发现」，绝不假装能控**，并返回 `research_queries` 供联网检索后补表。
+- **六层递进发现**：环境变量 → PATH → 常见安装目录 → **Windows 注册表「已安装程序」** → 递归扫描（带 deny 规则）→ 别名映射（`windbg→cdb`、`die→diec`、`radare2→r2`…）。
+- **架构/版本匹配**：读目标 PE 的 `machine` 字段，32 位选 `x32dbg`、64 位选 `x64dbg`；IDA 区分 GUI(`ida`) / headless(`idat`)。
+- **MCP 自动适配**：`register_mcp()` 增量写入当前 agent 的 `mcp.json`（**绝不删用户既有条目**、自动备份 `.bak-时间戳`、UTF-8 无 BOM），返回 `restart_required=True`（协议层死规矩：需重启会话生效）。
+- **降级链（绝不卡住）**：已注册MCP → 现注册MCP(提示重启) → headless/CLI 直调 → GUI(不推荐) → 自写 Py 脚本兜底。走不通如实报。
+- **半自动安装**：`propose_install()` 探测 → 给安装命令+来源 → 用户确认 → 装 → 重探；只对 `pip/winget/npm/go` 白名单执行，`manual` 永不自动。不做无脑全自动下载。
+- **本机状态隔离**：发现结果写 `~/.seep/tools.local.json`（`.gitignore` 已忽略 `.seep/` 与 `tools.local.json`），换机各自缓存，永不入库。
+- **6 个 MCP 工具（薄封装，末尾追加）**：`seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_research` / `seep_tool_register_mcp` / `seep_tool_install` / `seep_tool_state`。
+- **接入**：`softseep/SKILL.md` 新增「工具自动发现与自动适配 MCP（新增 6 个）」速查表。
+
+### 体检
+
+- `setup/verify.ps1` 追加 2 项：插件+能力表+状态不入库校验、自动发现功能自测。工具总数 31 → 37；核心检查 53 → 55 项。
+- `test_ext_assets.py` 追加自动发现用例（6 层探测 / 能力表 / 表外不假装 / 降级链 / MCP 增量注册 / 架构匹配 / wrapper 存在性），32 → 60 项全过。
+- `check.ps1` / `test_seep_mcp.py`(9/9) 基线保持不动。
+
+---
+
 ## [1.7.0] — 2026-10-19
 
 ### 新增（扩展资产，源自 relab2 实战与 REA 降级思想，全部为纯增量）
