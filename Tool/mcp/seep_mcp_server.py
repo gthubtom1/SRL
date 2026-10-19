@@ -120,21 +120,32 @@ def _find_java() -> Optional[str]:
     """寻找 Java 运行时可执行路径（跨平台探测：PATH -> macOS JVM -> Linux JVM -> Windows JDK）"""
     if shutil.which("java"):
         return "java"
-    candidates = [
-        # Windows
-        r"D:\Tool\JDK\bin\java.exe",
-        r"D:\Tool\Android Studio\jbr\bin\java.exe",
-        r"C:\Program Files\Java",
-        r"C:\Program Files\Eclipse Adoptium",
-        r"C:\Program Files\Microsoft",
-        # macOS
+    candidates = []
+    # JAVA_HOME 优先（跨盘、跨机器的标准做法）
+    jh = os.environ.get("JAVA_HOME", "").strip()
+    if jh:
+        candidates.append(os.path.join(jh, "bin", "java.exe" if sys.platform == "win32" else "java"))
+        candidates.append(jh)
+    # Windows：由系统环境变量推导，不写死盘符
+    if sys.platform == "win32":
+        for env_key, sub in (("ProgramFiles", "Java"), ("ProgramFiles", "Eclipse Adoptium"),
+                             ("ProgramFiles", "Microsoft"), ("ProgramFiles(x86)", "Java"),
+                             ("LOCALAPPDATA", os.path.join("Programs", "Eclipse Adoptium"))):
+            base = os.environ.get(env_key)
+            if base:
+                candidates.append(os.path.join(base, sub))
+        # Android Studio 自带 JBR（位置随安装盘变化，靠候选根扫）
+        for root in _tool_roots():
+            candidates.append(os.path.join(root, "Android Studio", "jbr", "bin", "java.exe"))
+            candidates.append(os.path.join(root, "jbr", "bin", "java.exe"))
+    # macOS / Linux 标准位置
+    candidates += [
         "/Library/Java/JavaVirtualMachines",
         "/System/Library/Frameworks/JavaVM.framework",
         "/opt/homebrew/opt/openjdk/bin/java",
         "/usr/local/opt/openjdk/bin/java",
-        # Linux
         "/usr/lib/jvm",
-        "/usr/java"
+        "/usr/java",
     ]
     for c in candidates:
         if os.path.isfile(c) and (sys.platform == "win32" or os.access(c, os.X_OK)):
@@ -1223,17 +1234,43 @@ JZ   loc_restricted_feature  ; 本地跳转决定受限功能
 #   seep_decompile_auto   —— 多引擎降级反编译 IDA→REA→R2（源自 REA 的 provider 降级链思想）
 # ---------------------------------------------------------------------------
 
-# 常见工具根（跨平台），用于四级探测的第 3 级
-_TOOL_ROOTS = [
-    os.environ.get("REVERSE_TOOL_ROOT", ""),
+# 工具根目录：由 tool_autodiscover.candidate_roots() 动态计算
+# （环境变量 → 用户级 → 各盘符常见目录名 → POSIX；绝不写死 D:\Tools 之类）。
+# 插件不可用时退回一个最小用户级清单，保证功能不中断。
+_FALLBACK_ROOTS = [
     os.environ.get("SEEP_TOOL_ROOT", ""),
-    r"D:\Tools",
-    r"D:\Tool",
+    os.environ.get("REVERSE_TOOL_ROOT", ""),
+    os.path.join(os.path.expanduser("~"), ".seep", "tools"),
     os.path.join(os.path.expanduser("~"), "Tools"),
-    "/opt",
-    "/usr/local/bin",
-    "/usr/bin",
+    "/opt", "/usr/local/bin", "/usr/bin",
 ]
+
+
+def _tool_roots():
+    """动态工具根（带缓存；插件不可用时用兜底清单）。"""
+    global _TOOL_ROOTS_CACHE
+    try:
+        if _TOOL_ROOTS_CACHE is not None:
+            return _TOOL_ROOTS_CACHE
+    except NameError:
+        pass
+    roots = None
+    tad = _autodiscover()
+    if tad is not None and hasattr(tad, "candidate_roots"):
+        try:
+            roots = tad.candidate_roots()
+        except Exception:
+            roots = None
+    if not roots:
+        roots = [r for r in _FALLBACK_ROOTS if r]
+    _TOOL_ROOTS_CACHE = roots
+    return roots
+
+
+_TOOL_ROOTS_CACHE = None
+
+# 兼容旧引用点：模块级只保留兜底清单，真实探测走 _tool_roots()
+_TOOL_ROOTS = _FALLBACK_ROOTS
 
 # 已知工具别名 -> 可执行文件名候选（解决"目录名 != 工具名"）
 _TOOL_ALIASES = {
@@ -1263,10 +1300,10 @@ _TOOL_ALIASES = {
 
 # 缺工具时的安装提示（只给建议，不擅自联网安装）
 _TOOL_INSTALL_HINTS = {
-    "ida": "商业软件，需自备 IDA Pro 授权；装好后把 idat64 加入 PATH 或 D:\\Tools。",
-    "x64dbg": "winget install x64dbg.x64dbg  或从 x64dbg.com 下载便携版放到 D:\\Tools。",
+    "ida": "商业软件，需自备 IDA Pro 授权；装好后把 idat64 加入 PATH 或任一候选根（~/.seep/tools 等）。",
+    "x64dbg": "winget install x64dbg.x64dbg，或从 x64dbg.com 下载便携版放进 ~/.seep/tools。",
     "cdb": "随 Windows SDK / WinDbg 安装：winget install Microsoft.WinDbg。",
-    "diec": "下载 Detect It Easy (DIE) 便携版，把 diec.exe 放到 D:\\Tools。",
+    "diec": "下载 Detect It Easy (DIE) 便携版，把 diec.exe 放进 ~/.seep/tools。",
     "ghidra": "下载 Ghidra 后把 analyzeHeadless 加入 PATH。",
     "floss": "pip install flare-floss",
     "capa": "pip install flare-capa",
@@ -1299,7 +1336,7 @@ def _scan_tool_roots(name: str, exe_names: list) -> str:
         wanted.add(el)
         if not el.endswith(".exe"):
             wanted.add(el + ".exe")
-    for root in _TOOL_ROOTS:
+    for root in _tool_roots():
         if not root or not os.path.isdir(root):
             continue
         try:
@@ -1336,7 +1373,7 @@ def _resolve_tool(tool_id: str) -> dict:
             return {"available": True, "command": w, "via": "PATH"}
 
     # 第 3 级：常见工具根的直接子目录/别名映射（快速命中）
-    for root in _TOOL_ROOTS:
+    for root in _tool_roots():
         if not root or not os.path.isdir(root):
             continue
         for e in exe_names:
@@ -1510,8 +1547,8 @@ def _find_java_home() -> str:
     jh = os.environ.get("JAVA_HOME", "")
     if jh and os.path.isdir(jh):
         return jh
-    # 常见位置
-    for base in [r"D:\Tools\runtime", os.path.expanduser("~\\Tools\\runtime"), "/usr/lib/jvm"]:
+    # 常见位置（动态根 + 系统标准位置，不写死盘符）
+    for base in [os.path.join(r, "runtime") for r in _tool_roots()] + ["/usr/lib/jvm"]:
         if os.path.isdir(base):
             for d in os.listdir(base):
                 if d.lower().startswith("jdk"):
@@ -1935,8 +1972,14 @@ def seep_pcap_extract(pcap_path: str, host_filter: str = "", mode: str = "summar
         return f"[ERROR]: pcap not found: {pcap_path}"
     tshark = shutil.which("tshark") or ""
     if not tshark:
-        for c in (r"D:\Tools\Wireshark\tshark.exe", r"C:\Program Files\Wireshark\tshark.exe",
-                  "/usr/bin/tshark", "/usr/local/bin/tshark"):
+        cands = ["/usr/bin/tshark", "/usr/local/bin/tshark"]
+        pf = os.environ.get("ProgramFiles", "")
+        if pf:
+            cands.append(os.path.join(pf, "Wireshark", "tshark.exe"))
+        for root in _tool_roots():
+            cands.append(os.path.join(root, "Wireshark", "tshark.exe"))
+            cands.append(os.path.join(root, "Wireshark", "tshark.EXE"))
+        for c in cands:
             if os.path.isfile(c):
                 tshark = c
                 break

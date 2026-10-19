@@ -44,7 +44,7 @@
 永远加在 `seep_mcp_server.py` 的 `# 主入口` 注释块**之前**，`@server.tool()` 装饰器。
 
 ### 3.2 必须遵守的 5 条
-1. **跨平台**：路径一律 `os.path` / `shutil.which` / `os.path.expanduser`；探测根同时列 Windows(`D:\Tools`) 与 Unix(`/opt`,`/usr/bin`) 候选；绝不写死某一台机器的绝对路径。
+1. **跨平台**：路径一律 `os.path` / `shutil.which` / `os.path.expanduser`；探测根由 `tool_autodiscover.candidate_roots()` **动态生成**（环境变量 → 用户级 `~/.seep/tools` → 各盘符常见目录名 → `/opt`、`/usr/bin`），安装目标固定用户级；**绝不写死某一台机器的盘符或绝对路径**。
 2. **优雅降级**：依赖库缺失（如 pefile）→ 返回 `[ERROR]: 需要 xxx（pip install xxx）`，不抛异常、不崩溃。
 3. **只读优先**：默认不修改目标文件；需要写盘时默认关，参数显式开启（如 `extract_dir=""`）。
 4. **平台守卫**：仅 Windows 可用的（如 `ReadProcessMemory`）开头判断 `sys.platform != "win32"` 直接返回明确提示。

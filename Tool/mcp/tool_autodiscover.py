@@ -40,15 +40,97 @@ _INSTALL_FILE = os.path.join(_CONFIG_DIR, "tool-install.json")
 LOCAL_STATE_DIR = os.path.expanduser(os.path.join("~", ".seep"))
 LOCAL_STATE_PATH = os.path.join(LOCAL_STATE_DIR, "tools.local.json")
 
-# 常见工具根（跨平台），用于第 3 层直接命中 + 第 5 层递归扫描
-_COMMON_ROOTS = [
-    os.environ.get("REVERSE_TOOL_ROOT", ""),
-    os.environ.get("SEEP_TOOL_ROOT", ""),
-    r"D:\Tools", r"D:\Tool",
-    os.path.join(os.path.expanduser("~"), "Tools"),
-    os.path.join(os.path.expanduser("~"), "tools"),
-    "/opt", "/usr/local/bin", "/usr/bin",
-]
+# ---------------------------------------------------------------------------
+# 工具根目录：动态生成，绝不写死盘符/安装位置
+#
+# 原版（reverse-skill）的 ToolDiscovery.ps1 用的是「每工具 fallbacks 列表」，
+# 路径都相对于 $USERPROFILE / $LOCALAPPDATA —— 换电脑天然可用。
+# 我们把它升级成「候选根清单 + 六层探测」，规则：
+#   ① 环境变量显式指定（最高优先）
+#   ② 用户级目录（含本工作台自己的安装目录 ~/.seep/tools）
+#   ③ Windows 用户级安装位置（LOCALAPPDATA\Programs / Android SDK / APPDATA）
+#   ④ 各盘符的常见工具目录名（动态枚举存在的盘，不预设 C/D/F）
+#   ⑤ POSIX 常见位置
+# 只保留真实存在的目录；安装目标另算（见 _install_base()）。
+# ---------------------------------------------------------------------------
+_DRIVE_LETTERS = "CDEFGHIJKLMNOPQRSTUVWXYZ"
+_ROOT_DIR_NAMES = ("Tools", "Tool", "Tools64", "Reverse", "Reversing", "GreenSoft", "soft", "bin")
+
+
+def _user_home():
+    return os.path.expanduser("~")
+
+
+def candidate_roots(include_missing=False):
+    """返回候选工具根目录列表（去重、保持优先级顺序）。"""
+    roots = []
+
+    # ① 环境变量
+    for key in ("SEEP_TOOL_ROOT", "REVERSE_TOOL_ROOT", "SEEP_TOOLS_DIR"):
+        v = (os.environ.get(key) or "").strip()
+        if v:
+            roots.append(os.path.expanduser(v))
+
+    home = _user_home()
+
+    # ② 用户级
+    roots.append(os.path.join(home, ".seep", "tools"))      # 本工作台安装目标
+    roots += [os.path.join(home, "Tools"), os.path.join(home, "tools"),
+              os.path.join(home, "Reverse"), os.path.join(home, "soft")]
+
+    # ③ Windows 用户级安装位置
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA") or ""
+        appdata = os.environ.get("APPDATA") or ""
+        if local:
+            roots += [
+                os.path.join(local, "Programs"),
+                os.path.join(local, "Android", "Sdk"),
+                os.path.join(local, "Android", "Sdk", "platform-tools"),
+                local,
+            ]
+        if appdata:
+            roots.append(appdata)
+
+    # ④ 各盘符（动态枚举）
+    if sys.platform == "win32":
+        for letter in _DRIVE_LETTERS:
+            drive = letter + ":" + os.sep
+            if not os.path.exists(drive):
+                continue
+            for name in _ROOT_DIR_NAMES:
+                roots.append(os.path.join(drive, name))
+            # Program Files 只加浅层，且只在盘根存在时（避免 26×N 次无谓 os.path.isdir）
+            roots.append(os.path.join(drive, "Program Files"))
+            roots.append(os.path.join(drive, "Program Files (x86)"))
+
+    # ⑤ POSIX
+    roots += ["/opt", "/usr/local/bin", "/usr/bin", "/snap/bin",
+              os.path.join(home, ".local", "bin")]
+
+    seen = set()
+    out = []
+    for r in roots:
+        if not r:
+            continue
+        key = os.path.normcase(os.path.abspath(r))
+        if key in seen:
+            continue
+        seen.add(key)
+        if include_missing or os.path.isdir(r):
+            out.append(r)
+    return out
+
+
+def _install_base():
+    """工具安装目标基目录（永远是用户级，不写死盘符）。"""
+    env = (os.environ.get("SEEP_TOOL_INSTALL_DIR") or "").strip()
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.join(_user_home(), ".seep", "tools")
+
+
+_COMMON_ROOTS = candidate_roots()
 
 # 递归扫描的 deny 规则（避免误命中 IDA 自带裸 python、插件目录等）
 _DENY_MARKERS = [
@@ -241,6 +323,12 @@ def _layer_scan(tool_id, exe_names, max_depth=4):
       `release/x64/x64dbg.exe`（真正的调试器）。并集扫描会先撞上父目录的启动器，
       后续"怎么控制它"就会拿到一个会把自动化卡死的 GUI 壳。
     """
+    # 扫描预算：多盘 + 大目录下必须限流，否则一次探测能把 MCP 拖到超时
+    import time as _time
+    budget_dirs = 120000
+    deadline = _time.time() + 20.0
+    visited = 0
+
     for e in exe_names:
         wanted = {e.lower()}
         if not e.lower().endswith(".exe"):
@@ -250,6 +338,9 @@ def _layer_scan(tool_id, exe_names, max_depth=4):
                 continue
             try:
                 for dirpath, dirnames, filenames in os.walk(root):
+                    visited += 1
+                    if visited > budget_dirs or _time.time() > deadline:
+                        return None
                     depth = dirpath[len(root):].count(os.sep)
                     if depth > max_depth:
                         dirnames[:] = []
@@ -302,7 +393,7 @@ def discover(tool_id, target=None, use_registry=True):
         "known_in_table": bool(caps), "arch": arch, "exe_candidates": exe_names,
         "layers_tried": [l[0] for l in layers],
         "note": "六层探测均未命中。若确信已安装，可设环境变量 SEEP_<TOOL>_PATH 显式指定，"
-                "或把工具放进 D:\\Tools（或 REVERSE_TOOL_ROOT 指定的根）。",
+                "或把工具放进任一候选根（~/.seep/tools、~/Tools、各盘 Tools 目录），或用 SEEP_TOOL_ROOT / REVERSE_TOOL_ROOT 显式指定。",
     }
 
 
@@ -520,8 +611,9 @@ def _download_and_extract_portable(urls, target_sub, verify_exe=""):
     else:
         opener = urllib.request.build_opener()
 
-    # 确定安装目标基目录：优先使用 D:\Tools，次选 ~/.seep/tools
-    base_target = r"D:\Tools" if os.path.isdir(r"D:\Tools") or (sys.platform == "win32" and os.path.exists("D:\\")) else os.path.expanduser("~/.seep/tools")
+    # 安装目标基目录：固定用户级（~/.seep/tools），绝不写死盘符。
+    # 需要换位置就设 SEEP_TOOL_INSTALL_DIR 环境变量。
+    base_target = _install_base()
     final_dir = os.path.join(base_target, target_sub)
     os.makedirs(final_dir, exist_ok=True)
 
@@ -622,7 +714,7 @@ def install_plan(tool_id):
     elif m_type == "winget":
         cmd = "winget install --id %s -e" % pkg
     elif m_type == "portable_zip":
-        cmd = f"[Python绿色直下] 解压至 D:\\Tools 或 ~/.seep/tools (来源: {urls[0] if urls else '官方Release'})"
+        cmd = f"[Python绿色直下] 解压至 {_install_base()} (来源: {urls[0] if urls else '官方Release'})"
     elif m_type == "npm":
         cmd = "npm install -g %s" % pkg
     elif m_type == "go":

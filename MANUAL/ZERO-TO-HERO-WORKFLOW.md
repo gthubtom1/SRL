@@ -53,7 +53,7 @@
 进入 `lab：` 环境后，你可以用最普通的日常大白话指挥 AI：
 
 ### 1. 软件全自动分析与做成品
-- `lab：分析 D:\Tools\FooBar.exe，把会员功能做成本地永久解锁`
+- `lab：分析 D:\samples\FooBar.exe，把会员功能做成本地永久解锁`
 - `lab：帮我看下这个安装包 D:\Download\app.apk，把里面的广告和强制更新去掉`
 - `lab：分析 D:\Software\Tool.exe，看它是本地算法算号还是服务器鉴权`
 

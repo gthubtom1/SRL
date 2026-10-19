@@ -70,6 +70,33 @@
   - 安装器（`install-pi.ps1` / `install.sh`）加**同名冲突守卫**（子技能与顶层同名则跳过并告警）；
   - 体检加**功能性断言**：`ida-reverse/SKILL.md` 必须含 `13337`（防再次被覆盖后仍假绿）。
 
+### 变更（去硬编码：换电脑 / 换盘 / 换目录都能用）
+
+- **工具根目录改为动态生成**（`tool_autodiscover.candidate_roots()`）：
+  环境变量 → 用户级（`~/.seep/tools`、`~/Tools`）→ Windows 用户级安装位置（`LOCALAPPDATA\Programs`、
+  Android SDK、`APPDATA`）→ **各盘符常见目录名（动态枚举存在的盘，不预设 C/D/F）** → POSIX。
+  原做法是写死 `D:\Tools` / `D:\Tool`，只对作者那台机器成立；现在任何人任意盘都能被扫到。
+- **安装目标固定用户级** `~/.seep/tools`（可用 `SEEP_TOOL_INSTALL_DIR` 覆盖），不再往 `D:\Tools` 落盘。
+- **扫描加预算**：12 万目录 / 20 秒上限，避免多盘大目录把 MCP 探测拖到超时。
+- `seep_mcp_server.py` 的 `_TOOL_ROOTS`、`_find_java`、`_find_java_home`、tshark 探测同步去硬编码
+  （改用 `JAVA_HOME` / `ProgramFiles` 等系统环境变量 + 动态根）。
+- 文档与提示词同步：`MERGE-PLAYBOOK`、`ZERO-TO-HERO-WORKFLOW`、安装提示语不再出现单机盘符。
+
+### 新增（防"把靶机搞崩"的硬约束）
+
+- **提示词层（SYSTEM.md / AGENTS.md）新增「工具使用纪律」**：
+  ① **禁止 `-h` / `--help` / 无参试探二进制**（商业软件/加壳软件/驱动一探就崩）；
+     正确顺序 = `seep_tool_research` 读能力表 → 表外联网查官方文档 → 仍不确定就问用户；
+  ② 路径一律动态探测，禁止写死盘符；交付物不得含单机绝对路径；
+  ③ **动态操作预算**：同一目标同类动态尝试最多 2 次，第二次失败必须停下汇报。
+
+### 新增（反臃肿预算）
+
+- `MANUAL/BASELINE-FREEZE.md` 新增 §七「反臃肿预算」：数量硬上限（工具 ≤45 / 技能 ≤12 / setup ≤22 /
+  MANUAL ≤16 / 单文件 ≤3200 行 / first-party ≤900 文件）、**三不原则**（不加框架层、同一能力只允许一个实现、
+  不加并行状态）、**加功能前四问**。
+- 新增 `Tool/scripts/check-budget.py`：一条命令核对上述预算，超限即非零退出。
+
 ### 修复（链路断点 —— 全仓断链审计发现）
 
 - **`softseep/SKILL.md` 资源表 4 处路径指向不存在的目录**（调度时会「在外面乱转」的根因）：

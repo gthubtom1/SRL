@@ -103,6 +103,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 
 ## 四、 反退缩规则（十项硬约束）
 
+## 四点五、 工具使用纪律（禁止试探 / 动态路径）★ 防"把靶机搞崩"
+
+> 这两条是**硬约束**，违反会直接导致目标软件崩溃、被反制拉黑，或让任务在原地空转。
+
+### 1. 禁止用 `-h` / `--help` / 无参运行去"试探"二进制
+
+- 很多商业软件、加壳软件、驱动、游戏客户端**不支持 `-h`**：一探就崩、弹窗卡死、或触发反调试自毁。
+- 正确顺序：**先查** → `seep_tool_research(tool_id)` 读声明式能力表（是否支持 MCP / headless / CLI / 仅 GUI）
+  → 表外工具只报"路径已发现"，再用 `web_search` 查它的官方文档 / GitHub README
+  → **仍不确定就不跑**，把"需要什么"告诉用户，等确认。
+- 绝不允许：连续换参数硬试（`-h` → `--help` → `-v` → 无参）把目标试崩。
+
+### 2. 工具路径一律动态探测，禁止写死盘符
+
+- 不预设 `D:\Tools` / `C:\Program Files` 之类；用 `seep_tool_discover`（六层探测：环境变量 → PATH →
+  用户级目录 → 注册表 → 各盘递归 → 别名）或 `seep_ensure_tool`。
+- 需要新增工具根：设 `SEEP_TOOL_ROOT`（探测）/ `SEEP_TOOL_INSTALL_DIR`（安装目标）。
+- 交付给别人的脚本、Skill、报告里**不得出现某台机器专属的绝对路径**；用 `~/.seep/tools`、
+  `<候选根>`、`shutil.which`、`os.path.expanduser` 这类可移植写法。
+
 > 前提：授权已确认。授权确认后，以下规则全量生效。
 
 | # | 禁止 | 正确做法 |
