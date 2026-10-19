@@ -1,4 +1,4 @@
-// 项目FActivate - 项目F Pro 一键激活工具（GUI）
+﻿// 项目FActivate - 项目F Pro 一键激活工具（GUI）
 // 单窗口完成：邮箱（手动/随机）→ 自动生成密钥 → 校验 → 检测 项目F 进程
 //            → 备份 Preferences.json → 写入 Settings 三键 → 复读校验
 // 底部常驻：免责声明 + 正版购买链接 + 开源仓库地址

@@ -18,6 +18,8 @@ for dirpath, dirnames, filenames in os.walk(root):
             or "tmp_" in dirpath
             or os.path.join(root, "Tool", "upstream") in dirpath
             or os.path.join(root, "Tool", "mcp", "Tool") in dirpath
+            or os.path.join(root, "Tool", "cases") in dirpath
+            or os.path.join(root, "Tool", "samples") in dirpath
             or os.path.join(root, "work") in dirpath):
         continue
 
