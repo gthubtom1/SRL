@@ -385,3 +385,90 @@ powershell -File .\setup\uninstall.ps1 -Restore "$env:USERPROFILE\.pi\agent\back
   ```bash
   git -c http.proxy=http://127.0.0.1:10808 -c https.proxy=http://127.0.0.1:10808 push origin main
   ```
+
+---
+
+## 附录 A：Agent 自动化部署与校验协议（原 `AGENTS.md` §二 迁入）
+
+> 迁入理由：这四类操作只在用户明确要求时执行，属**按需内容**，不该常驻提示词。
+> `AGENTS.md` 只留「命令表 + 指针」，细节与汇报格式以本附录为准。
+
+### A.1 部署执行
+
+当用户要求 **"部署当前工作台"**、**"安装环境"**、**"按文档部署"** 时：
+
+```powershell
+cd setup
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+### A.2 已有用户更新（重要）
+
+当用户说 **"更新工作台"**、**"拉取最新版本"**、**"新版怎么升"** 时，**不要**让用户重新克隆或手动拷贝：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
+```
+
+（Linux / macOS 用 `./setup/update.sh`；Windows 桌面用户亦可双击项目根目录的 `update.bat`）
+
+更新脚本幂等且无损：自动 `git stash` 保护本地改动 → 自动备份配置 → 增量合并 `mcp.json`
+（**绝不删除用户自行添加的 MCP 条目**）→ 更新后自动跑基准自检。
+完成后必须提醒用户：**完全重启 Agent 会话**，再发 `lab：` 继续开工。变更内容见仓库根 `CHANGELOG.md`。
+
+### A.3 上游仓库定点隔离同步（防外溢）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup\sync-upstream.ps1 -Target all
+```
+
+由 `setup/upstream-rules.json` 驱动，并执行真实物理路径断言，确保上游 A 仓库内容严格只并入
+`Tool/upstream/A/`，绝不外溢或污染其他目录。
+
+### A.4 卸载
+
+当用户说 **"卸载工作台"**、**"怎么彻底删除"**、**"不想要了怎么清理"** 时：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
+```
+
+（Linux / macOS 用 `./setup/uninstall.sh`）
+
+建议先加 `-DryRun`（`--dry-run`）让用户预览。卸载原则：**只移除工作台自己装的东西，绝不碰用户数据**；
+`models.json` / `auth.json` / 用户自装的 Skill 与 MCP 条目全部保留，卸载前自动备份，可 `-Restore` 还原。
+
+### A.5 主动校验与结构化汇报（★ 强制执行官方基准校对）
+
+- **部署完成后，Agent 必须主动执行一次详细校对**，严禁未验证就声称部署成功；
+- 用户任何时候要求校验（`check` / `doctor` / `检查环境` / `帮我校验一下安装是否完整`），直接执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
+```
+
+- **汇报格式（四栏看板）**：读取输出后，按 `MANUAL/DEPLOYMENT-CHECKLIST.md` 基准清单输出：
+
+```markdown
+#### 1. 🛠️ 技能系统（11 项）
+| 技能名 | 目标路径 | 期望文件数 | 实际状态 |
+|---|---|---|---|
+| softseep | ~/.pi/agent/skills/softseep/ | ≥9（含 8 refs） | 🟢 READY / 🔴 MISSING |
+
+#### 2. 🔌 MCP 服务引擎（4 个）
+| 服务名 | 期望工具数 | 实际连通性 | 状态 |
+|---|---|---|---|
+| seep（自研） | 38 | Connected | 🟢 READY |
+| ida（商业） | ~100+（随版本） | 未监听 13337 | 🟡 DEGRADED（已降级 Radare2） |
+
+#### 3. 🔧 内置工具箱与知识库
+| 工具 | 预期 | 实际 | 状态 |
+|---|---|---|---|
+| Radare2 v6.2.2 / Jadx v1.5.6 / Apktool v3.0.3 | 在 `Tool/mcp/Tool/safe/` | 物理就绪 | 🟢 |
+| 攻防知识库 | ≥289 篇 | 292 篇 | 🟢 |
+
+#### 4. 🚀 结论与开工指引
+全部核心项通过 → “工作台处于 [READY / 完备就绪] 状态，重启终端后输入 lab： 即可开启测试。”
+```
+
+> 三态判定：🟢 READY（可用）· 🟡 DEGRADED（可选未配，已自动降级）· 🔴 MISSING（阻断，必须修）。

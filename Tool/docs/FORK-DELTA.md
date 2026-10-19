@@ -152,7 +152,7 @@ python Tool/scripts/smoke-e2e.py                        # 端到端链路（真�
 
 <!-- AUTO-DELTA:BEGIN -->
 
-**统计**：新增 154 · 修改 48 · 删除 0 · 重命名 3（相对 `upstream/main`，已排除 `Tool/upstream/`）
+**统计**：新增 154 · 修改 49 · 删除 0 · 重命名 3（相对 `upstream/main`，已排除 `Tool/upstream/`）
 
 ### 新增文件（只有我们有）
 
@@ -175,7 +175,7 @@ python Tool/scripts/smoke-e2e.py                        # 端到端链路（真�
 | 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
 | 提示词/扩展 | `Tool/prompts/AGENTS.md`<br>`Tool/prompts/SYSTEM.md`<br>`Tool/prompts/extensions/load-system-prompt.ts`<br>`Tool/prompts/extensions/security-audit-interceptor.ts` |
 | 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/master-route.ps1`<br>`Tool/scripts/routing.json` |
-| 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md` |
+| 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md`<br>`Tool/docs/TOOLKIT_GUIDE.md` |
 | 安装与校验 | `setup/clean-format.py`<br>`setup/generate-configs.ps1`<br>`setup/install-ida.ps1`<br>`setup/install-pi.ps1`<br>`setup/install-python.ps1`<br>`setup/install.sh`<br>`setup/uninstall.ps1`<br>`setup/uninstall.sh`<br>… 另 4 个 |
 | 根目录 | `.gitignore`<br>`.mcp.json`<br>`CHANGELOG.md`<br>`CLAUDE.md`<br>`DSH-PROFILE.md`<br>`README.md`<br>`README.zh.md`<br>`VERSION`<br>… 另 4 个 |
 
