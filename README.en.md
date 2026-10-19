@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20Tools-37%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP%20Tools-38%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/Verifier-58%2F58%20Passed-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/Knowledge%20Base-289%20Journals-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/Paradigms-14%20Cases%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
@@ -182,7 +182,7 @@ Seep\ (251 MB)
 │   │   └── safe-skills\           ← 5 standalone tool packages
 │   │
 │   ├── mcp\                       ← MCP Engine
-│   │   ├── seep_mcp_server.py     ← Core server: 37 native reversing & KB tools
+│   │   ├── seep_mcp_server.py     ← Core server: 38 native reversing & KB tools
 │   │   ├── mcp.json.template      ← Global MCP client configuration template
 │   │   └── Tool\                  ← ⚠️ Hardcoded relative runtime path (do not rename)
 │   │       ├── safe\              ← Pre-bundled cross-platform toolchains
@@ -229,7 +229,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP Tool Matrix
 
-The bundled `seep` MCP server exposes **37 native tools** across seven functional groups:
+The bundled `seep` MCP server exposes **38 native tools** across seven functional groups:
 
 | Category | Tool | Functionality | Token Mode |
 |---|---|---|---|
@@ -270,6 +270,7 @@ The bundled `seep` MCP server exposes **37 native tools** across seven functiona
 | | `seep_tool_register_mcp` | Incrementally register a tool's MCP into mcp.json (never deletes user entries) | — |
 | | `seep_tool_install` | Semi-automatic install (probe → command+source → confirm → re-probe) | — |
 | | `seep_tool_state` | View local discovery cache (~/.seep/tools.local.json, never committed) | — |
+| | `seep_create_skill` | Automatically scaffold and register a Seep-compliant skill | — |
 
 > 💡 **Context Budget Control** (v1.1): `seep_r2_decompile` with `output_mode=fold` reduces token consumption by ~60%; `summary` mode by ~90%. Use `seep_r2_xrefs` instead of raw `axt` to avoid flooding the context window with hundreds of references.
 

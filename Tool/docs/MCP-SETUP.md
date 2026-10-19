@@ -28,7 +28,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 | **ida** | **~243** | IDA 全套分析链 | **你自备的 IDA Pro** | 脚本装 MCP + 你装 IDA |
 | **playwright** | — | 浏览器自动化 | npx | 自动（npx 按需拉取） |
 
-### seep MCP 的 37 个工具
+### seep MCP 的 38 个工具
 
 | 分组 | 工具 |
 | :--- | :--- |

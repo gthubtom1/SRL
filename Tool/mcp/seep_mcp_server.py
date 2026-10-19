@@ -2391,6 +2391,38 @@ def seep_tool_state() -> str:
     return json.dumps(tad.list_state(), indent=2, ensure_ascii=False)
 
 
+@server.tool()
+def seep_create_skill(skill_name: str, description: str = "", title: str = "") -> str:
+    """自动化创建标准 Seep 外挂技能（严格遵循 MANUAL/SKILL-CREATION-GUIDE.md 规范）。
+
+    自动在 Tool/skill/<name>/SKILL.md 生成标准格式，自动强制 UTF-8 无 BOM 写入，
+    自动在 softseep 调度器注册并同步至 Agent 环境，确保即建即用、格式合规。
+
+    Args:
+        skill_name: 技能英文标识（如 bluetooth-re, vmp-unpack）
+        description: 技能一句话功能描述
+        title: 技能中文全称标题
+    """
+    script_path = os.path.join(os.path.dirname(BASE_DIR), "scripts", "new-skill.py")
+    if not os.path.isfile(script_path):
+        return f"[ERROR]: 脚手架脚本未找到: {script_path}"
+    
+    cmd = [sys.executable, script_path, skill_name]
+    if description:
+        cmd.extend(["--desc", description])
+    if title:
+        cmd.extend(["--title", title])
+        
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        if p.returncode == 0:
+            return p.stdout.strip()
+        else:
+            return f"[ERROR]: 生成失败: {p.stderr.strip()}"
+    except Exception as exc:
+        return f"[ERROR]: 执行异常: {type(exc).__name__}: {exc}"
+
+
 # ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------

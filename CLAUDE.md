@@ -92,7 +92,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 
 ## 三、 工作纪律与红线
 
-1. **绝对禁止搬动 `Tool/mcp/Tool/` 目录**：seep MCP 内部硬编码了相对路径 `TOOL_DIR = <脚本目录>/Tool`，搬动将导致 37 个底层分析工具全部瘫痪。
+1. **绝对禁止搬动 `Tool/mcp/Tool/` 目录**：seep MCP 内部硬编码了相对路径 `TOOL_DIR = <脚本目录>/Tool`，搬动将导致 38 个底层分析工具全部瘫痪。
 2. **严禁修改 `seep_mcp_server.py` 的路径常量**。
 3. **商业软件隔离**：IDA Pro 属于商业授权，不随包打包分发。检测不到时自动引导用户阅读 `MANUAL/IDA-PRO.md`，由 Radare2 自动降级承接。
 4. **受权范围白盒审计（G-Auth）**：所有测试目标必须确认已获书面授权。
@@ -113,7 +113,7 @@ Seep\
 │
 ├── Tool\
 │   ├── skill\         10 个 Skill（以 softseep 为总控）
-│   ├── mcp\           seep MCP（37 工具）+ Tool\ 运行时依赖
+│   ├── mcp\           seep MCP（38 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
 │   ├── prompts\       SYSTEM.md、AGENTS.md 与安全扩展
 │   ├── cases\         14 个脱敏项目工程（项目 A ~ 项目 N）

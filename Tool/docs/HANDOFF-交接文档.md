@@ -10,7 +10,7 @@
 
 - 仓库 `main` = `8c0ab32`，已推到 `https://github.com/gthubtom1/Seep-Reverse-Lab`。
 - 版本 **1.8.0**；体检 `check.ps1` **58 项全绿 READY**；原 MCP 基线 9/9；扩展自测 60/60。
-- 原版 23 工具 → 现 **37 工具**（14 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行）。
+- 原版 23 工具 → 现 **38 工具**（14 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行）。
 
 ---
 

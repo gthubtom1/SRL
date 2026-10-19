@@ -318,7 +318,8 @@ def main():
 
     print("=== [22/22] MCP 工具 wrapper 已注册 ===")
     for fn in ("seep_tool_discover", "seep_tool_control_plan", "seep_tool_research",
-               "seep_tool_register_mcp", "seep_tool_install", "seep_tool_state"):
+               "seep_tool_register_mcp", "seep_tool_install", "seep_tool_state",
+               "seep_create_skill"):
         check("存在 " + fn, hasattr(S, fn) and callable(getattr(S, fn)), "")
     if hasattr(S, "seep_tool_discover"):
         try:

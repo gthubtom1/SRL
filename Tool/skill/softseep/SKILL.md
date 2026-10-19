@@ -155,7 +155,7 @@ metadata:
 | | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
 | | client-license-validation-bypass | `Tool/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
 | | Tool/safe/skills（5 个） | `Tool/safe/skills/` | radare2 / reverse-engineering / mcp-js-reverse-playbook 等 |
-| **MCP** | **seep**（37 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
+| **MCP** | **seep**（38 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp_ida_*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |

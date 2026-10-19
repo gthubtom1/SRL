@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20工具-37%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP%20工具-38%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/健康体检-58%2F58%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-289%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
@@ -127,7 +127,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
           │                │                  │
           ▼                ▼                  ▼
     seep MCP          IDA Pro MCP         知识库检索
-    37 个工具          (可选联动)          289 篇战术笔记
+    38 个工具          (可选联动)          289 篇战术笔记
     (R2/JADX/                             (Zero-Waste Recon)
      Apktool/Frida)
           │
@@ -216,7 +216,7 @@ Seep\ (251 MB)
 │   │   └── safe-skills\           ← 5 个独立战术工具包
 │   │
 │   ├── mcp\                       ← MCP 服务引擎
-│   │   ├── seep_mcp_server.py     ← 核心服务端，37 个底层分析工具
+│   │   ├── seep_mcp_server.py     ← 核心服务端，38 个底层分析工具
 │   │   └── Tool\                  ← ⚠️ 硬编码相对路径，禁止重命名/搬移
 │   │       ├── safe\              ← 物理内置工具箱
 │   │       │   ├── jadx\          ← 75 MB（v1.5.6）
@@ -263,7 +263,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP 工具矩阵
 
-自研 `seep` MCP 服务暴露 **37 个原生工具**，分七大功能组：
+自研 `seep` MCP 服务暴露 **38 个原生工具**，分七大功能组：
 
 | 分类 | 工具 | 核心功能 | 上下文控制 |
 |---|---|---|---|
@@ -304,6 +304,7 @@ Seep\ (251 MB)
 | | `seep_tool_register_mcp` | 增量把工具 MCP 注册进 mcp.json（绝不删用户条目） | — |
 | | `seep_tool_install` | 半自动安装（探测 → 命令+来源 → 确认 → 重探） | — |
 | | `seep_tool_state` | 查看本机发现缓存（~/.seep/tools.local.json，绝不入库） | — |
+| | `seep_create_skill` | 自动化按规范生成外挂技能脚手架并自动注册 | — |
 
 > 💡 **上下文预算控制（v1.1）**：`seep_r2_decompile` 使用 `output_mode=fold` 可减少约 60% Token 消耗；`summary` 模式减少约 90%。使用 `seep_r2_xrefs` 替代原始 `axt` 命令，避免数百条引用直接灌满上下文窗口。
 

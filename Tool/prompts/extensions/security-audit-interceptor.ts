@@ -113,6 +113,32 @@ const SHORTCUT_COMMANDS: Record<string, (arg: string) => string> = {
 	"doctor": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
 	"体检": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
 	"检查": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"help": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
+1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
+2. 常用极简指令表：poc, triage, full, find-auth, report, check；
+3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
+4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+5. 提示用户直接把软件完整路径发出来即可开工。`,
+	"帮助": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
+1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
+2. 常用极简指令表：poc, triage, full, find-auth, report, check；
+3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
+4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+5. 提示用户直接把软件完整路径发出来即可开工。`,
+	"口令": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
+1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
+2. 常用极简指令表：poc, triage, full, find-auth, report, check；
+3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
+4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+5. 提示用户直接把软件完整路径发出来即可开工。`,
+	"?": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
+1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
+2. 常用极简指令表：poc, triage, full, find-auth, report, check；
+3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
+4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+5. 提示用户直接把软件完整路径发出来即可开工。`,
+	"new-skill": (arg) => `[外挂技能自动化脚手架任务] 严格遵循 MANUAL/SKILL-CREATION-GUIDE.md 规范，为新技能 "${arg}" 在 Tool/skill/${arg}/SKILL.md 生成标准格式，自动注册进 Tool/skill/softseep/SKILL.md，并执行无BOM格式化与验证。`,
+	"新建技能": (arg) => `[外挂技能自动化脚手架任务] 严格遵循 MANUAL/SKILL-CREATION-GUIDE.md 规范，为新技能 "${arg}" 在 Tool/skill/${arg}/SKILL.md 生成标准格式，自动注册进 Tool/skill/softseep/SKILL.md，并执行无BOM格式化与验证。`,
 };
 
 // 敏感口语词替换映射（将容易触发外部模型过滤器的词汇，平滑转换为合规的白盒安全测试术语）

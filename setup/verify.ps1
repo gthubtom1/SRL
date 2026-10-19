@@ -275,7 +275,7 @@ Test-CheckItem "MCP" "核心服务端脚本 (seep_mcp_server.py 语法自洽)" {
             $LASTEXITCODE -eq 0
         } else { $true }
     } else { $false }
-} "seep_mcp_server.py 丢失或存在 Python 语法解析错误" "37 个原生工具定义（含 14 个扩展资产）" "$ToolDir\mcp\seep_mcp_server.py"
+} "seep_mcp_server.py 丢失或存在 Python 语法解析错误" "38 个原生工具定义（含 15 个扩展资产）" "$ToolDir\mcp\seep_mcp_server.py"
 
 Test-CheckItem "MCP" "扩展资产：8 个新工具 + 声明式引擎链 + 说明文档" {
     $sp = Join-Path $ToolDir 'mcp\seep_mcp_server.py'
