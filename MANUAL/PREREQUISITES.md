@@ -4,6 +4,18 @@
 
 ---
 
+## 第 0 步：拿到仓库
+
+```bash
+git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
+cd Seep-Reverse-Lab
+```
+
+- 没有 Git：GitHub → Code → Download ZIP → 解压（代价：`update.ps1` 不可用，只能手动覆盖升级）。
+- **不要在空目录里执行安装命令**：`install.ps1` 依赖仓库内的 `Tool/`、`setup/`。
+
+---
+
 ## 必需
 
 | 组件 | 版本要求 | 检查命令 | 下载 |

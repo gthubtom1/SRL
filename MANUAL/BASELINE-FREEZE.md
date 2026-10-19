@@ -17,6 +17,7 @@
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
 | F5 | **体检基准项** | `verify.ps1` / `verify.sh` 的 **60 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
 | F6 | **上游隔离边界** | `Tool/upstream/<项目>/` 的零外溢规则（`setup/upstream-rules.json`） | 防外溢是许可合规与工程安全的底线 |
+| F7 | **从零入口** | 仓库根 `AGENTS.md`（bootstrap 指路牌）+ `README` 的「先拿到代码」三选一 | Codex / DSH / OpenCode 在仓库根只读 `AGENTS.md`；删了它们就找不到协议全文 |
 
 > 需要改动上述任何一项时：**不是不能改，而是必须单独开分支、写迁移脚本、同步改体检项**，并当作**大版本（2.0.0）**发布。默认拒绝。
 

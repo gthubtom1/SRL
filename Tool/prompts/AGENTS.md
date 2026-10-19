@@ -41,6 +41,9 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
 
 > 细节、参数与四栏汇报格式 → 先读 `MANUAL/DEPLOYMENT.md` 附录 A；校验基准 → `MANUAL/DEPLOYMENT-CHECKLIST.md`。
 
+> **前提**：如果当前目录**没有** `setup/`，说明代码还没落地 —— 先
+> `git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git`，**不要在空目录里凭空执行安装命令**。
+
 | 用户说 | 必须执行 |
 | :--- | :--- |
 | 部署 / 安装环境 | `cd setup && powershell -ExecutionPolicy Bypass -File .\install.ps1` |

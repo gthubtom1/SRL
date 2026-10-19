@@ -337,7 +337,31 @@ Seep\ (251 MB)
 - **操作系统**：Windows 10 / 11 x64（推荐），兼容 Linux / macOS
 - **核心运行时**：Python 3.11+、Node.js 18+、Git
 
-### 2. 一键自动化部署 (跨平台支持)
+### 2. 先拿到代码（三选一）
+
+| 方式 | 命令 | 适用 |
+|---|---|---|
+| **A. 让 AI 代装（推荐）** | 把下面那段「给 AI 的原文」粘给任意 Agent | 你有 Pi / Claude Code / Codex / DSH |
+| **B. 手动 clone** | `git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git` | 想自己控制目录 |
+| **C. 下载 ZIP** | GitHub → Code → Download ZIP → 解压 | 没装 Git 的机器（**代价：`update.ps1` 不可用**） |
+
+**给 AI 的原文（复制即用）**：
+
+```text
+请在本机部署这个工作台：https://github.com/gthubtom1/Seep-Reverse-Lab
+要求：
+1. 选一个合适的目录（不要放桌面），git clone 下来；若本机没有 git，先告诉我。
+2. 进入仓库后先读 Tool/prompts/AGENTS.md（协议全文）与 MANUAL/DEPLOYMENT.md（部署手册）。
+3. 执行 setup/install.ps1（Windows）或 setup/install.sh（Linux/macOS），不要手抄步骤。
+4. 装完必须跑 setup/verify.ps1 -Detailed，并按 MANUAL/DEPLOYMENT.md 附录 A 给我四栏看板。
+5. 最后提醒我：完全重启会话后再发 lab：。
+全程不要用 -h 试探任何二进制；缺工具先用 seep_tool_discover / seep_tool_install。
+```
+
+> **为什么不能只给链接**：Agent 必须在**本机磁盘**上才能执行 `setup/install.ps1`。
+> 正确姿势是「链接 + 明确的 clone 与执行顺序」，也就是上面这段。
+
+### 3. 一键自动化部署 (跨平台支持)
 
 **Windows 环境 (PowerShell)**:
 ```powershell
@@ -353,7 +377,7 @@ chmod +x setup/install.sh
 
 > **脚本全自动完成**：解压内置依赖包 (`node_modules.zip`) → 校验内置工具完整性 → 安装 Python mcp 库 → 注册 MCP 服务 → 展开绝对物理路径 → 执行全量自检。
 
-### 3. 多 Agent 接入方式
+### 4. 多 Agent 接入方式
 
 | 智能体平台 | 核心指令 | MCP 服务配置 | 详细接入步骤 |
 |---|---|---|---|
@@ -364,7 +388,7 @@ chmod +x setup/install.sh
 
 > 📖 **咨询级部署与全套排障手册**：关于四大 Agent 的具体配置细则、常见报错（`No module named mcp`、执行策略受限、Java环境缺省等）的解决方案，请详阅 [**MANUAL/DEPLOYMENT.md**](MANUAL/DEPLOYMENT.md)。
 
-### 4. 已有用户如何更新
+### 5. 已有用户如何更新
 
 已经部署过？**不需要重新克隆或手动拷贝文件**。更新脚本是**幂等且无损**的 —— 你的模型凭据与自行添加的 MCP 条目永不会被覆盖。
 
@@ -403,7 +427,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   powershell -ExecutionPolicy Bypass -File .\setup\sync-upstream.ps1 -Target apk-reverse
   ```
 
-### 5. 如何卸载
+### 6. 如何卸载
 
 只移除工作台自己装的东西 —— 你的模型凭据、会话记录、以及自行添加的 MCP 条目都不会被触碰。
 
@@ -417,7 +441,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 6. 部署完备性校验（9 大维度 60 项全绿）
+### 7. 部署完备性校验（9 大维度 60 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
