@@ -62,7 +62,9 @@ _ALIAS_MAP = {
     "radare2": "r2", "r2pm": "r2", "r2pipe": "r2",
     "ida64": "ida", "idat": "ida", "idat64": "ida", "idapro": "ida", "ida pro": "ida",
     "x96dbg": "x64dbg", "x32dbg": "x32dbg", "x64dbg": "x64dbg",
-    "windbg": "cdb", "windbgx": "cdb", "kd": "cdb",
+    "windbg": "cdb", "windbgx": "cdb", "windbgxp": "cdb", "kd": "cdb", "ntsd": "cdb",
+    "pe-sieve64": "pe-sieve", "pe_sieve": "pe-sieve", "pesieve": "pe-sieve",
+    "flare-floss": "floss",
     "detect-it-easy": "diec", "detect it easy": "diec", "die": "diec",
     "analyzeheadless": "ghidra", "ghidra": "ghidra",
     "wireshark": "tshark",
@@ -232,29 +234,33 @@ def _layer_registry(tool_id, exe_names, caps):
 
 
 def _layer_scan(tool_id, exe_names, max_depth=4):
-    """第 5 层：在常见根下递归扫描（带 deny 规则，限深度）。"""
-    wanted = set()
+    """第 5 层：在常见根下递归扫描（带 deny 规则，限深度）。
+
+    ★ 必须「按候选名优先级逐个全树扫描」，不能把它们并成一个集合一次 walk：
+      x64dbg 包里同时有 `x96dbg.exe`（GUI 启动器，会弹选择框）和
+      `release/x64/x64dbg.exe`（真正的调试器）。并集扫描会先撞上父目录的启动器，
+      后续"怎么控制它"就会拿到一个会把自动化卡死的 GUI 壳。
+    """
     for e in exe_names:
-        el = e.lower()
-        wanted.add(el)
-        if not el.endswith(".exe"):
-            wanted.add(el + ".exe")
-    for root in _COMMON_ROOTS:
-        if not root or not os.path.isdir(root):
-            continue
-        try:
-            for dirpath, dirnames, filenames in os.walk(root):
-                depth = dirpath[len(root):].count(os.sep)
-                if depth > max_depth:
-                    dirnames[:] = []
-                    continue
-                for fn in filenames:
-                    if fn.lower() in wanted:
-                        full = os.path.join(dirpath, fn)
-                        if not _denied(full) and os.path.isfile(full):
-                            return {"available": True, "command": full, "via": "scan"}
-        except Exception:
-            continue
+        wanted = {e.lower()}
+        if not e.lower().endswith(".exe"):
+            wanted.add(e.lower() + ".exe")
+        for root in _COMMON_ROOTS:
+            if not root or not os.path.isdir(root):
+                continue
+            try:
+                for dirpath, dirnames, filenames in os.walk(root):
+                    depth = dirpath[len(root):].count(os.sep)
+                    if depth > max_depth:
+                        dirnames[:] = []
+                        continue
+                    for fn in filenames:
+                        if fn.lower() in wanted:
+                            full = os.path.join(dirpath, fn)
+                            if not _denied(full) and os.path.isfile(full):
+                                return {"available": True, "command": full, "via": "scan"}
+            except Exception:
+                continue
     return None
 
 

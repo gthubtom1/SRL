@@ -233,6 +233,8 @@ unread in this repository.
 | You are about to discard a route as "blocked" | `packers.md` — re-read it before writing any route off; mis-attributed failures have removed viable routes for hours |
 | The task has run long and you are unsure what is already proven | `long-task-discipline.md` §keep a live record |
 | A dumped dex parses in full, the classes are all there, and most method bodies are `return-void` stubs or nop fills | `references/advanced-unpacking.md` — an extraction shell: measure the `stub%` with `scripts/dex_dump_validate.py` before trusting any of it, and know that recovering the bodies is a different route |
+| 需要审计一次微创补丁是否合法（等长改字节 / 方法级重写 / header 校验） | `references/patch-audit.md` — 先跑 `scripts/dex_check_verifier.py` 再信 `dex_classdiff` |
+| 要改本地状态（DataStore / SharedPreferences / SQLite）做离线验证 | `references/runtime-data.md` — 容器结构 + `scripts/datastore_inject.py` 回写验证 |
 | Your `frida` dump dies mid-write (`script has been destroyed`), or the process you are dumping keeps changing pid | `advanced-unpacking.md` §dumping when frida is refused — rule out memory pressure first; a reclaim-and-relaunch needs no instrumentation |
 | A repack is refused by several independent checks, or the build has to keep working through store updates | `references/lsposed-and-modules.md` — deliver a module instead of an APK; G1's form table says when |
 | A hook module is installed, enabled and scoped, yet its log tag never appears — and you are about to conclude it never ran | `lsposed-and-modules.md` §Deploy, enable, and verify — **a `logcat`-only verdict has already been wrong here**: on one ROM `logd` is broken and output reaches only `/data/adb/lspd/log/modules_<ts>.log` |

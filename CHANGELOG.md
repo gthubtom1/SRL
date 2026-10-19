@@ -70,6 +70,33 @@
   - 安装器（`install-pi.ps1` / `install.sh`）加**同名冲突守卫**（子技能与顶层同名则跳过并告警）；
   - 体检加**功能性断言**：`ida-reverse/SKILL.md` 必须含 `13337`（防再次被覆盖后仍假绿）。
 
+### 修复（链路断点 —— 全仓断链审计发现）
+
+- **`softseep/SKILL.md` 资源表 4 处路径指向不存在的目录**（调度时会「在外面乱转」的根因）：
+  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/client-license-validation-bypass/SKILL.md`
+  - `Tool/safe/skills/` → `Tool/skill/safe-skills/`（并列出真实 5 个技能名）
+  - `Tool/reverselab/kb/`（316 文件）→ `Tool/mcp/Tool/reverselab/kb/`（292 篇 .md）
+  - `Tool/aotopsy/`（**该目录根本不存在**，上游也从未分发）→ 删除该行
+  - 新增一行「运行时 `Tool/mcp/Tool/` 严禁搬动」提醒。
+- **`ida-reverse` 措辞误导**：原文写「后台内置的 mcp-plugin.py / idapythonrc.py 会自动开启 13337」，
+  但这两个文件**不随本包分发**（由 `pip install ida-pro-mcp` + IDA 内加载生成）。已改为明确来源 + 排障指引。
+- **`apkseep` 两个孤儿参考文件**（`patch-audit.md` / `runtime-data.md` 存在但主 SKILL.md 未索引，
+  等于模型不知道有这两套战术）→ 已补进症状索引表。
+
+### 修复（工具发现 → 连通 → 使用 链路加固）
+
+- **`x64dbg` 探测命中错误目标**：x64dbg 包内同时有 `x96dbg.exe`（GUI 启动器，会弹选择框）
+  和 `release/x64/x64dbg.exe`（真调试器）。旧扫描把候选名并成一个集合一次 walk，
+  会先撞上父目录的启动器 → 自动化被 GUI 卡死。已改为**按候选名优先级逐个全树扫描**，
+  实测现在命中 `release/x64/x64dbg.exe`。
+- **别名扩展**：`windbgx / windbgxp / ntsd / kd → cdb`、`pe-sieve64 / pe_sieve / pesieve → pe-sieve`、
+  `flare-floss → floss`。
+- **能力表 10 → 15 个工具**：新增 `x32dbg`（GUI + 同源 MCP）、`binwalk`（headless 提取）、
+  `capa`（能力语义）、`floss`（解码字符串）、`pe-sieve`（内存 dump/篡改识别）。
+  此前这 5 个都是「发现得到但不知道怎么控」。
+- **安装表 20 → 22 项**：新增 `pe-sieve`（绿色便携包）、`binwalk`（pip），
+  让「缺工具」有可执行答案而不是让模型现场手搓脚本。
+
 ### 新增（与 pi-web 回退功能协同）
 
 - **`input` 钩子加幂等保护**：pi-web 的「回退 + 回填草稿」会把**已改写过的**用户消息（带合规前缀）

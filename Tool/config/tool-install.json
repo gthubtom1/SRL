@@ -4,8 +4,14 @@
   "installable": {
     "diec": {
       "methods": [
-        { "type": "winget", "pkg": "horsicq.DIE-engine", "note": "Windows 官方 winget 包管理器" },
-        { "type": "portable_zip", "urls": [
+        {
+          "type": "winget",
+          "pkg": "horsicq.DIE-engine",
+          "note": "Windows 官方 winget 包管理器"
+        },
+        {
+          "type": "portable_zip",
+          "urls": [
             "https://ghproxy.net/https://github.com/horsicq/DIE-engine/releases/download/3.09/die_win64_portable_3.09.zip",
             "https://github.com/horsicq/DIE-engine/releases/download/3.09/die_win64_portable_3.09.zip"
           ],
@@ -19,8 +25,14 @@
     },
     "x64dbg": {
       "methods": [
-        { "type": "winget", "pkg": "x64dbg.x64dbg", "note": "Windows 官方 winget 包管理器" },
-        { "type": "portable_zip", "urls": [
+        {
+          "type": "winget",
+          "pkg": "x64dbg.x64dbg",
+          "note": "Windows 官方 winget 包管理器"
+        },
+        {
+          "type": "portable_zip",
+          "urls": [
             "https://ghproxy.net/https://github.com/x64dbg/x64dbg/releases/download/snapshot/snapshot_2024-10-18_03-45.zip",
             "https://github.com/x64dbg/x64dbg/releases/download/snapshot/snapshot_2024-10-18_03-45.zip"
           ],
@@ -34,8 +46,14 @@
     },
     "jadx": {
       "methods": [
-        { "type": "winget", "pkg": "Skylot.jadx", "note": "winget 安装 JADX" },
-        { "type": "portable_zip", "urls": [
+        {
+          "type": "winget",
+          "pkg": "Skylot.jadx",
+          "note": "winget 安装 JADX"
+        },
+        {
+          "type": "portable_zip",
+          "urls": [
             "https://ghproxy.net/https://github.com/skylot/jadx/releases/download/v1.5.0/jadx-1.5.0.zip",
             "https://github.com/skylot/jadx/releases/download/v1.5.0/jadx-1.5.0.zip"
           ],
@@ -49,29 +67,142 @@
     },
     "tshark": {
       "methods": [
-        { "type": "winget", "pkg": "WiresharkFoundation.Wireshark", "note": "winget 安装 Wireshark/TShark" }
+        {
+          "type": "winget",
+          "pkg": "WiresharkFoundation.Wireshark",
+          "note": "winget 安装 Wireshark/TShark"
+        }
       ],
       "verify": "tshark",
       "note": "Wireshark/TShark 抓包分析（支持 winget 自动安装）"
     },
-    "floss":       { "method": "pip",     "pkg": "flare-floss",  "verify": "floss", "note": "FLOSS 字符串提取（优先官方源，失败自动切国内镜像）" },
-    "capa":        { "method": "pip",     "pkg": "flare-capa",   "verify": "capa",  "note": "能力识别（优先官方源，失败自动切国内镜像）" },
-    "frida":       { "method": "pip",     "pkg": "frida-tools",  "verify": "frida", "note": "动态插桩（优先官方源，失败自动切国内镜像）" },
-    "sqlmap":      { "method": "pip",     "pkg": "sqlmap",       "verify": "sqlmap", "note": "SQL 注入检测（优先官方源，失败自动切国内镜像）" },
-    "binwalk":     { "method": "pip",     "pkg": "binwalk",      "verify": "binwalk", "note": "固件/嵌入解包" },
-    "unblob":      { "method": "pip",     "pkg": "unblob",       "verify": "unblob", "note": "解包（需编译环境）" },
-    "yara":        { "method": "pip",     "pkg": "yara-python",  "verify": "",      "note": "YARA 规则引擎（库）" },
-    "pyinstxtractor": { "method": "pip",  "pkg": "pyinstxtractor","verify": "",     "note": "PyInstaller 解包" },
-    "cdb":         { "method": "winget",  "pkg": "Microsoft.WinDbg", "verify": "cdb", "note": "命令行调试器（随 Windows SDK/WinDbg 提供）" },
-    "nmap":        { "method": "winget",  "pkg": "Insecure.Nmap", "verify": "nmap", "note": "端口/服务扫描" },
-    "dirsearch":   { "method": "pip",     "pkg": "dirsearch",    "verify": "dirsearch", "note": "目录爆破" },
-    "httpx":       { "method": "pip",     "pkg": "httpx",        "verify": "httpx", "note": "HTTP 探测" },
-    "subfinder":   { "method": "go",      "pkg": "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest", "verify": "subfinder", "note": "子域名枚举" },
-    "mitmproxy":   { "method": "pip",     "pkg": "mitmproxy",    "verify": "mitmdump", "note": "代理抓包" },
-    "curl_cffi":   { "method": "pip",     "pkg": "curl-cffi",    "verify": "", "note": "TLS 指纹伪装" },
-    "pefile":      { "method": "pip",     "pkg": "pefile",       "verify": "", "note": "PE 解析" },
-    "zstandard":   { "method": "pip",     "pkg": "zstandard",    "verify": "", "note": "zstd 解压" }
+    "floss": {
+      "method": "pip",
+      "pkg": "flare-floss",
+      "verify": "floss",
+      "note": "FLOSS 字符串提取（优先官方源，失败自动切国内镜像）"
+    },
+    "capa": {
+      "method": "pip",
+      "pkg": "flare-capa",
+      "verify": "capa",
+      "note": "能力识别（优先官方源，失败自动切国内镜像）"
+    },
+    "frida": {
+      "method": "pip",
+      "pkg": "frida-tools",
+      "verify": "frida",
+      "note": "动态插桩（优先官方源，失败自动切国内镜像）"
+    },
+    "sqlmap": {
+      "method": "pip",
+      "pkg": "sqlmap",
+      "verify": "sqlmap",
+      "note": "SQL 注入检测（优先官方源，失败自动切国内镜像）"
+    },
+    "binwalk": {
+      "method": "pip",
+      "pkg": "binwalk",
+      "verify": "binwalk",
+      "note": "固件/嵌入解包"
+    },
+    "unblob": {
+      "method": "pip",
+      "pkg": "unblob",
+      "verify": "unblob",
+      "note": "解包（需编译环境）"
+    },
+    "yara": {
+      "method": "pip",
+      "pkg": "yara-python",
+      "verify": "",
+      "note": "YARA 规则引擎（库）"
+    },
+    "pyinstxtractor": {
+      "method": "pip",
+      "pkg": "pyinstxtractor",
+      "verify": "",
+      "note": "PyInstaller 解包"
+    },
+    "cdb": {
+      "method": "winget",
+      "pkg": "Microsoft.WinDbg",
+      "verify": "cdb",
+      "note": "命令行调试器（随 Windows SDK/WinDbg 提供）"
+    },
+    "nmap": {
+      "method": "winget",
+      "pkg": "Insecure.Nmap",
+      "verify": "nmap",
+      "note": "端口/服务扫描"
+    },
+    "dirsearch": {
+      "method": "pip",
+      "pkg": "dirsearch",
+      "verify": "dirsearch",
+      "note": "目录爆破"
+    },
+    "httpx": {
+      "method": "pip",
+      "pkg": "httpx",
+      "verify": "httpx",
+      "note": "HTTP 探测"
+    },
+    "subfinder": {
+      "method": "go",
+      "pkg": "github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest",
+      "verify": "subfinder",
+      "note": "子域名枚举"
+    },
+    "mitmproxy": {
+      "method": "pip",
+      "pkg": "mitmproxy",
+      "verify": "mitmdump",
+      "note": "代理抓包"
+    },
+    "curl_cffi": {
+      "method": "pip",
+      "pkg": "curl-cffi",
+      "verify": "",
+      "note": "TLS 指纹伪装"
+    },
+    "pefile": {
+      "method": "pip",
+      "pkg": "pefile",
+      "verify": "",
+      "note": "PE 解析"
+    },
+    "zstandard": {
+      "method": "pip",
+      "pkg": "zstandard",
+      "verify": "",
+      "note": "zstd 解压"
+    },
+    "pe-sieve": {
+      "methods": [
+        {
+          "type": "portable_zip",
+          "urls": [
+            "https://ghproxy.net/https://github.com/hasherezade/pe-sieve/releases/latest/download/pe-sieve64.zip",
+            "https://github.com/hasherezade/pe-sieve/releases/latest/download/pe-sieve64.zip"
+          ],
+          "target_sub": "pe-sieve",
+          "verify_exe": "pe-sieve64.exe",
+          "note": "官方绿色便携包（无需 winget）"
+        }
+      ],
+      "verify": "pe-sieve",
+      "note": "内存扫描/转储（脱壳闭环）"
+    }
   },
-  "auto_allow_methods": ["pip", "winget", "portable_zip", "npm", "go"],
-  "manual_only_methods": ["manual"]
+  "auto_allow_methods": [
+    "pip",
+    "winget",
+    "portable_zip",
+    "npm",
+    "go"
+  ],
+  "manual_only_methods": [
+    "manual"
+  ]
 }

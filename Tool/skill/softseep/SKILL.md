@@ -153,16 +153,16 @@ metadata:
 | | **apkseep** | `~/.pi/agent/skills/apkseep/SKILL.md` | Android APK/DEX/SO 全链路 |
 | | **ida-reverse** | `~/.pi/agent/skills/ida-reverse/SKILL.md` | IDA 自动唤醒 + 联动 |
 | | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
-| | client-license-validation-bypass | `Tool/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
-| | Tool/safe/skills（5 个） | `Tool/safe/skills/` | radare2 / reverse-engineering / mcp-js-reverse-playbook 等 |
+| | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
+| | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
 | **MCP** | **seep**（38 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp_ida_*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
+| **运行时** | `Tool/mcp/Tool/` | `safe/`（radare2/jadx/apktool/hook 模板）+ `reverselab/`（KB/boards/MCP 源码） | **严禁搬动或改名**（MCP 内部 `TOOL_DIR` 硬编码） |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
 | | `Tool/scripts/apk/` | `decode.ps1` / `rebuild-sign-install.ps1` / `frida-run.ps1` | APK 三件套 |
-| **知识库** | reverselab | `Tool/reverselab/kb/`（316 文件） | 攻防方法论 |
+| **知识库** | reverselab | `Tool/mcp/Tool/reverselab/kb/`（292 篇 .md） | 攻防方法论 |
 | | seep KB | `seep_kb_search` / `_read` / `_checklist` / `_payloads` | 在线检索 |
-| **工具资产** | aotopsy | `Tool/aotopsy/` | Flutter AOT 分析 |
 
 ### 扩展工具速查（8 个，按场景直接调）
 

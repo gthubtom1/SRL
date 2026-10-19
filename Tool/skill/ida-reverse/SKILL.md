@@ -58,7 +58,8 @@ if ($idaExe) {
 ```
 
 ### 握手检测与自愈等待：
-目标启动后，后台内置的 `mcp-plugin.py` 与 `idapythonrc.py` 会自动在本地 `127.0.0.1:13337` 开启 JSON-RPC 服务。
+目标启动后，由 `ida-pro-mcp` 安装到 IDA 插件目录（`%APPDATA%\Hex-Rays\IDA Pro\plugins\`）的 `mcp-plugin.py` 与 `idapythonrc.py` 会自动在本地 `127.0.0.1:13337` 开启 JSON-RPC 服务。
+> 注：这两个文件**不随本包分发**，由 `pip install ida-pro-mcp` + IDA 内一次加载生成；若 13337 不通，先跑 `setup/install-ida.ps1` 或 `MANUAL/IDA-PRO.md` 的排障段。
 通过执行以下轻量检查轮询确认 IDA 是否就绪：
 
 ```powershell
