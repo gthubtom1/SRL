@@ -10,6 +10,47 @@
 
 ---
 
+## [1.10.2] — 2026-10-20
+
+> 主题：**命令执行守卫** —— 命令不返回时，模型物理上无法自救。
+
+### 事故（真实发生，见会话 `01a15874`）
+
+agent 为找 `reverselab` 目录发了：
+
+```bash
+find ~/.pi/agent -maxdepth 6 -type d -name kb; find / -maxdepth 8 -type d -name "reverselab"
+```
+
+`find /` 是**盘根递归且没有 timeout**。pi 的 `bash.timeout` 是**可选参数**，不传 = 无限等 →
+会话停在 `stopReason=toolUse`，没有任何 toolResult，**永远不会自愈**。
+
+### 变更
+
+- **vendored `pi-cmd-guard` v2.1.0**（MIT，来源 `github.com/gthubtom1/agent-plugins`）：
+  - **盘根递归扫描直接拦截**（`find /` / `dir /s C:\` / `grep -r /`）—— 只抬 timeout 不够，180s 仍是 3 分钟空转；
+    拦截理由里直接给替代路径（已知常量 → `where`/`Get-Command` → 工具发现器），急用可加 `cmd-guard-skip`
+  - 自动补 timeout：探查 30s / 普通 120s / 构建·解释器 600s / 非盘根递归 ≥180s（模型自带的优先，绝不覆盖）
+  - GUI 二进制物理拦截 + CLI 替代建议；ssh/scp 补 `ConnectTimeout` 与 `</dev/null`
+  - 卡死可视化：240s 未结束底栏变红、90s 无输出变黄；`/guard` 看规则来源、`/stall` 看报告
+  - **本仓规则调优**：`blockGui: false` —— 本机是分析机，`ida-reverse` 需要启 IDA GUI 做 MCP 桥接；
+    其余（`enforce:true` / `scanTimeout:180` / `hardenSsh:true`）保持默认
+- **安装链**：`install-pi.ps1` / `install.sh` 随包复制扩展的配套 `*.json`（cmd-guard 从 `__dirname` 读规则）
+- **卸载链**：白名单同时覆盖 `*.ts` 与 `*.json`（不再只清 .ts）
+- **`AGENTS.md` §四点五.3 新增**「禁止无界全盘扫描」：禁 `find /` / `dir /s C:\` / `Get-ChildItem C:\ -Recurse`；
+  定位工具用 `seep_tool_discover` / `where.exe` / `Get-Command`；必须扫盘时**显式传 timeout**
+- **`verify`**：把 cmd-guard 两个文件纳入既有「提示词槽位/边界锚/人格守卫」项（**不新增体检项**，仍 61）
+
+### 实测
+
+| 检查 | 结果 |
+|---|---|
+| `/guard` | `已加载 · timeout 30/120/600s · GUI 拦截 16 条 · 卡死阈值 240s · ★blockGui=false` |
+| `sleep 300`（不传 timeout） | **120s 被杀**，会话正常继续（耗时 2m08s，证明兜底生效） |
+| `verify.ps1` / `verify.sh` | 61/61 · 61/61 |
+
+---
+
 ## [1.10.1] — 2026-10-20
 
 > 主题：**知识库检索可用性修复** —— 库里有内容但搜不出来，比没有库更糟。
