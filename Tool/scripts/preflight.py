@@ -234,6 +234,49 @@ def check_assets():
         add("5 资产", "routing.json 可解析", False, str(e)[:80])
 
 
+# ---------------------------------------------------------------- [6] 可移植
+DRIVE_RE = re.compile(r"(?<![A-Za-z0-9_])[A-Za-z]:[\\/]")
+PORTABLE_DIRS = ("Tool/config", "setup", "Tool/prompts", "Tool/scripts")
+PORTABLE_EXT = {".json", ".jsonc", ".ps1", ".sh", ".py", ".ts", ".md"}
+
+
+def check_portable():
+    """仓库里不允许出现"某台机器专用"的绝对路径（D:\Tools\... 这种）。
+
+    为什么：换电脑/换盘符时这类路径会静默失效（工具找不到、MCP 起不来）。
+    允许清单：preflight-allow.json 的 portable_allow（键为路径前缀，值为理由）。
+    """
+    allow = load_allow().get("portable_allow", {})
+    bad = []
+    for base in PORTABLE_DIRS:
+        root = os.path.join(ROOT, base.replace("/", os.sep))
+        if not os.path.isdir(root):
+            continue
+        for dp, dn, fn in os.walk(root):
+            dn[:] = [d for d in dn if d not in EXCLUDE_DIRS]
+            for f in fn:
+                if os.path.splitext(f)[1].lower() not in PORTABLE_EXT:
+                    continue
+                fp = os.path.join(dp, f)
+                rel = os.path.relpath(fp, ROOT).replace(os.sep, "/")
+                if any(rel.startswith(k) for k in allow):
+                    continue
+                try:
+                    text = open(fp, encoding="utf-8", errors="replace").read()
+                except Exception:
+                    continue
+                for m in DRIVE_RE.finditer(text):
+                    # 只报会被真正打开的可执行/脚本/数据文件路径；
+                    # 注释里写个 D:\\Tools 这种说明性示例不影响换机执行。
+                    tail = text[m.start():m.start() + 120].splitlines()[0]
+                    if not re.search(r"\\.(exe|dll|py|pyw|ps1|sh|bat|cmd|jar|so|dylib|json|db|idb)\\b", tail, re.I):
+                        continue
+                    line = text[:m.start()].count("\n") + 1
+                    bad.append(f"{rel}:{line} {tail[:60]}")
+    add("6 可移植", "无机器专用绝对路径", not bad,
+        f"{len(bad)} 处" + ("：" + "；".join(bad[:4]) if bad else ""))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -244,6 +287,7 @@ def main():
     check_numbers(args.fast)
     check_parity()
     check_assets()
+    check_portable()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

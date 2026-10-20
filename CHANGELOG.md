@@ -10,6 +10,34 @@
 
 ---
 
+## [1.10.12] — 2026-10-20
+
+> 主题：**换电脑也能用** —— 把"机器专用路径"变成门禁项，而不是靠人记。
+
+### 新增：门禁第 6 项「可移植」
+
+`preflight.py` 现在扫描 `Tool/config`、`setup`、`Tool/prompts`、`Tool/scripts`，
+禁止出现**会被真正打开**的机器绝对路径（`D:\Tools\xxx.exe`、`.../xxx.py`、`xxx.json` 这类）。
+说明性示例（注释里写 `D:\Tools`）不算 —— 它们不影响换机执行。
+允许清单：`preflight-allow.json` 的 `portable_allow`（vendored 插件自带的候选根已登记理由）。
+
+### 修掉的机器绑定
+
+| 位置 | 原来 | 现在 |
+|---|---|---|
+| `setup/install-ida.ps1` | 写死 `D:\Tools` / `C:\Tools` / `E:` / `F:` | **按本机实际磁盘动态生成**候选根（`Get-PSDrive`），换盘换机都能命中 |
+| `Tool/config/mcp-servers.json` 示例 | `D:/Tools/x64dbg/.../mcp_config.json` | 改读环境变量 `X64DBG_DIR`，换机只改环境变量 |
+| `Tool/docs/MCP-SETUP.md` | 同上（示例里写死盘符） | 同上 |
+| `Tool/docs/README_MCP.md` | `C:/Users/Developer/.../seep_mcp_server.py` | `<本包路径>/Tool/mcp/seep_mcp_server.py` |
+
+> `setup/cordis.generated.yml` 里也有本机路径，但它在 `.gitignore` 里（安装时生成），**不入库**，不影响换机。
+
+### 门禁现状
+
+`preflight.py --fast` → **11/11**；全量 → 12/12；`verify.ps1` / `verify.sh` 均 61/61。
+
+---
+
 ## [1.10.11] — 2026-10-20
 
 > 主题：**把"加东西"变成流水线** —— 一条声明、自动接线、一条门禁。
