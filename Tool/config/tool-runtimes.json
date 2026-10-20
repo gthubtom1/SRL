@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 2,
+  "_comment": "工具运行清单：每个工具声明『它能被 AI 控制的通道』，按优先级从高到低排列。Agent 永远取第一个可用的，不硬性指定某工具。",
+  "_优先级原则": [
+    "1. mcp-stdio / mcp-http：工具自带可编程接口 —— Agent 直连，无需 GUI，最优先",
+    "2. cli / headless：命令行或 headless 模式能完成同样操作 —— 次优（无窗口、可脚本化、可重复）",
+    "3. gui：只能靠 GUI 才能控制（GUI 内插件提供 MCP，或必须点菜单）—— 再次，且必须由 Agent 自己启动",
+    "4. manual：确实需要人看屏幕（首次许可、崩溃恢复弹窗）—— 最后手段，只在此处才回报用户"
+  ],
+  "_铁律": "只要 headless / CLI 能把事做完，就绝不启动 GUI。GUI 不是『更好』，是『更麻烦』：要焦点、要弹窗、要人盯。",
+  "_用法": "powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode <mode-id>] [-ListModes]",
+  "tools": {
+    "x64dbg": {
+      "prefer": [
+        "mcp-http"
+      ],
+      "modes": [
+        {
+          "id": "mcp-http",
+          "kind": "mcp-http",
+          "why": "x64dbg 没有 headless 调试通道；其 MCP 由 GUI 进程内插件提供（唯一可控入口），因此这一档本身就是『GUI 内 MCP』",
+          "start": {
+            "toolId": "x64dbg",
+            "args": [
+              "{target}"
+            ]
+          },
+          "ready": {
+            "type": "tcp",
+            "port": 9094,
+            "timeoutSec": 90
+          },
+          "endpoint": {
+            "url": "http://127.0.0.1:9094/mcp",
+            "transport": "http",
+            "tools": 80
+          },
+          "auth": {
+            "header": "Authorization",
+            "fromFile": "%AUTH_JSON%#AuthToken",
+            "authJson": "{exeDir}/mcp_config.json"
+          }
+        }
+      ]
+    },
+    "x32dbg": {
+      "prefer": [
+        "mcp-http"
+      ],
+      "modes": [
+        {
+          "id": "mcp-http",
+          "kind": "mcp-http",
+          "why": "同 x64dbg；与它共用 9094，二者只开其一",
+          "start": {
+            "toolId": "x32dbg",
+            "args": [
+              "{target}"
+            ]
+          },
+          "ready": {
+            "type": "tcp",
+            "port": 9094,
+            "timeoutSec": 90
+          },
+          "endpoint": {
+            "url": "http://127.0.0.1:9094/mcp",
+            "transport": "http",
+            "tools": 80
+          },
+          "auth": {
+            "header": "Authorization",
+            "fromFile": "%AUTH_JSON%#AuthToken",
+            "authJson": "{exeDir}/mcp_config.json"
+          }
+        }
+      ]
+    },
+    "ida": {
+      "prefer": [
+        "headless-cli",
+        "gui-mcp"
+      ],
+      "modes": [
+        {
+          "id": "headless-cli",
+          "kind": "cli",
+          "why": "IDA 自带 headless：idat 批处理 + IDAPython 脚本，功能等价于 GUI 分析，且无窗口、可并行、可重复 —— 优先用这条",
+          "command": "\"{exeDir}/{exeName}\" -A -S\"{script}\" \"{target}\"",
+          "fallbackExe": [
+            "idat64.exe",
+            "idat.exe"
+          ],
+          "note": "脚本模板见 Tool/skill/ida-reverse/；-A 自动分析、-S 执行脚本",
+          "toolId": "ida"
+        },
+        {
+          "id": "headless-mcp",
+          "kind": "mcp-sse",
+          "why": "idalib-mcp：无 GUI 的 MCP 服务（SSE，8745）。⚠ 本机实测被安装目录里的第三方 GUI 插件（symless/WPeChatGPT 需要 PySide6）拖崩，暂不可用",
+          "start": {
+            "toolId": "ida",
+            "exeCandidates": [
+              "idalib-mcp.exe"
+            ],
+            "args": [
+              "{target}",
+              "--port",
+              "8745"
+            ]
+          },
+          "ready": {
+            "type": "tcp",
+            "port": 8745,
+            "timeoutSec": 300
+          },
+          "endpoint": {
+            "url": "http://127.0.0.1:8745/sse",
+            "transport": "sse"
+          },
+          "knownIssue": "headless 下 IDA 仍加载安装目录插件，GUI 插件抛 PySide6 NotImplementedError → 进程退出"
+        },
+        {
+          "id": "gui-mcp",
+          "kind": "gui",
+          "why": "GUI 内 mcp-plugin 提供 13337；插件不自启，必须 Ctrl+Alt+M —— 最后才用",
+          "start": {
+            "toolId": "ida",
+            "exeCandidates": [
+              "ida64.exe",
+              "ida.exe"
+            ],
+            "args": [
+              "{target}"
+            ]
+          },
+          "postLaunchKeys": "^%m",
+          "ready": {
+            "type": "tcp",
+            "port": 13337,
+            "timeoutSec": 120
+          },
+          "endpoint": {
+            "url": "http://127.0.0.1:13337/mcp",
+            "transport": "http"
+          }
+        }
+      ]
+    },
+    "ghidra": {
+      "prefer": [
+        "cli-headless",
+        "gui"
+      ],
+      "modes": [
+        {
+          "id": "cli-headless",
+          "kind": "cli",
+          "why": "analyzeHeadless 全功能无头反编译（seep_decompile_auto 已接），根本不需要 GUI",
+          "command": "\"{exeDir}/analyzeHeadless.bat\" \"{workDir}/ghidra_proj\" seep_proj -import \"{target}\" -postScript DumpDecomp.java -deleteProject",
+          "note": "具体脚本按需替换；日常直接用 seep_decompile_auto 即可",
+          "toolId": "ghidra"
+        },
+        {
+          "id": "gui",
+          "kind": "gui",
+          "why": "仅人工会话需要可视化时",
+          "start": {
+            "toolId": "ghidra",
+            "exeCandidates": [
+              "ghidraRun.bat",
+              "ghidraRun"
+            ]
+          },
+          "ready": {
+            "type": "tcp",
+            "port": 8192,
+            "timeoutSec": 240
+          }
+        }
+      ]
+    }
+  }
+}

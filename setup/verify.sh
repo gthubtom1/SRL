@@ -170,6 +170,8 @@ check_prompt_stack() {
     [ -f "$TOOL_DIR/prompts/extensions/cmd-guard.rules.json" ] || return 1
     [ -f "$TOOL_DIR/prompts/extensions/TOOL-CHAIN.md" ] || return 1
     [ -f "$TOOL_DIR/prompts/extensions/retry-level.ts" ] || return 1
+    [ -f "$TOOL_DIR/config/tool-runtimes.json" ] || return 1
+    [ -f "$TOOL_DIR/scripts/tool-run.ps1" ] || return 1
     return 0
 }
 
