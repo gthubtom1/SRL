@@ -67,9 +67,13 @@ if (-not $exe -or -not (Test-Path $exe)) {
 }
 
 # 需要换 exe（例如 ida 探测到 headless 的 idat.exe，但 GUI 路线要 ida64.exe）
-if ($hostCfg.exeName) {
-    $alt = Join-Path (Split-Path -Parent $exe) $hostCfg.exeName
-    if (Test-Path $alt) { $exe = $alt }
+# 需要换 exe（例如探测到 headless 的 idat.exe，但 GUI 路线要 ida.exe / ida64.exe）
+$pickNames = @()
+if ($hostCfg.exeCandidates) { $pickNames = @($hostCfg.exeCandidates) }
+elseif ($hostCfg.exeName) { $pickNames = @($hostCfg.exeName) }
+foreach ($n in $pickNames) {
+    $alt = Join-Path (Split-Path -Parent $exe) $n
+    if (Test-Path $alt) { $exe = $alt; break }
 }
 
 # ---------------------------------------------------------------- 2. 端口是否已经就绪
@@ -100,11 +104,32 @@ if ($hostCfg.args) {
 }
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
+$logOut = Join-Path $env:TEMP ("wake-gui-" + $hostCfg.toolId + ".out.log")
+$logErr = Join-Path $env:TEMP ("wake-gui-" + $hostCfg.toolId + ".err.log")
 try {
-    Start-Process -FilePath $exe -ArgumentList $args -WorkingDirectory (Split-Path -Parent $exe) | Out-Null
+    # ★ 必须重定向：GUI 子进程若继承本脚本的 stdout/stderr，脚本退出后管道仍开着，
+    #   调用方会一直等（实测挂 180s）。重定向到临时文件即可。
+    $proc = Start-Process -FilePath $exe -ArgumentList $args -WorkingDirectory (Split-Path -Parent $exe) `
+        -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
 } catch {
     Out-Json @{ status = 'ERR'; reason = "启动失败: $($_.Exception.Message)"; exe = $exe }
     exit 3
+}
+
+# 有些宿主的 MCP 插件**不会自启**（IDA 的 mcp-plugin 要按 Ctrl+Alt+M）。
+# 配置里写 postLaunchKeys 即可：启动后把窗口拉到前台，再发一次热键。
+if ($hostCfg.postLaunchKeys) {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms
+        Start-Sleep -Seconds 4
+        try {
+            $ws = New-Object -ComObject WScript.Shell
+            [void]$ws.AppActivate($proc.Id)
+        } catch { }
+        Start-Sleep -Milliseconds 800
+        [System.Windows.Forms.SendKeys]::SendWait($hostCfg.postLaunchKeys)
+        Start-Sleep -Milliseconds 500
+    } catch { }
 }
 
 # ---------------------------------------------------------------- 4. 等端口就绪

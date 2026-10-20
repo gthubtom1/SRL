@@ -48,7 +48,6 @@
     },
     "ida": {
       "toolId": "ida",
-      "exeName": "ida64.exe",
       "args": [
         "{target}"
       ],
@@ -61,7 +60,13 @@
         "transport": "http",
         "url": "http://127.0.0.1:13337/mcp",
         "note": "ida_pro_mcp 的 GUI 插件路线；插件由 pip install ida-pro-mcp 生成到 %APPDATA%\\Hex-Rays\\IDA Pro\\plugins"
-      }
+      },
+      "exeCandidates": [
+        "ida64.exe",
+        "ida.exe"
+      ],
+      "postLaunchKeys": "^%m",
+      "_postLaunch说明": "IDA 的 mcp-plugin 不自启，必须按 Ctrl+Alt+M；脚本启动后会自动发这个热键。若 IDA 窗口没拿到焦点会失败，此时把窗口点一下再重跑。"
     },
     "ghidra-gui": {
       "toolId": "ghidra",
@@ -82,5 +87,6 @@
     "x64dbg": "宿主插件原生支持 streamable HTTP：POST http://127.0.0.1:9094/mcp 直接返回 initialize 结果（serverInfo: x64dbg-MCP Server v1.5，80 tools）。不需要 mcp-remote 桥接；GET /sse 只是兼容路径，无 token 返回 401。",
     "ida": "ida_pro_mcp 的 GUI 插件监听 13337；必须 IDA 已启动且已加载二进制。",
     "ghidra": "无头 analyzeHeadless 已由 seep_decompile_auto 承接；GUI 仅人工会话用。"
-  }
+  },
+  "_备注": "IDA 9.3 本机只有 ida.exe(GUI) 与 idat.exe(headless)，没有 ida64.exe —— 用 exeCandidates 依序尝试。"
 }
