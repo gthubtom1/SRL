@@ -10,6 +10,57 @@
 
 ---
 
+## [1.10.10] — 2026-10-20
+
+> 主题：**从"启动哪个工具"升级为"选择哪条控制通道"** —— 通道优先级是通用规则，不是单点特判。
+
+### 设计变更（这是本次最重要的东西）
+
+旧做法：按工具写死（`wake-gui-mcp.ps1` 只认 GUI）。工具一多就崩。
+新做法：**每个工具声明它能被 AI 控制的全部通道，按优先级排序；Agent 永远取第一个可用的。**
+
+```
+1. MCP / 可编程接口（stdio / http）      ← 直连，无窗口
+2. CLI / headless                        ← 等价能力时首选（可并行、可重复、可留证据）
+3. GUI（含 GUI 内插件提供的 MCP）        ← 仅当没有 headless 等价物（如 x64dbg 调试）
+4. 人工                                  ← 仅首次许可 / 崩溃恢复弹窗
+```
+
+**铁律**：只要 headless / CLI 能把事做完，就绝不启动 GUI。**GUI 不是"更好"，是"更麻烦"。**
+
+### 新增 / 替换
+
+- **`Tool/config/tool-runtimes.json`（v2，替换 `gui-hosts.json`）**：每个工具一个 `modes` 数组，
+  每条通道声明 `kind`（mcp-http / mcp-sse / cli / gui）、`start`、`ready`、`endpoint`、`postLaunchKeys`、`knownIssue`。
+  现含 x64dbg / x32dbg / ida（headless-cli → headless-mcp → gui-mcp 三档）/ ghidra（cli-headless → gui）。
+- **`Tool/scripts/tool-run.ps1`（替换 `wake-gui-mcp.ps1`）**：
+  `-ListModes` 看阶梯、`-Mode` 强制某档、不带 `-Mode` 时**自动按优先级降级**；
+  CLI 档只解析并打印命令（`-Run` 才执行），GUI/MCP 档启动并轮询端口。
+  脚本内**零工具名、零绝对路径**。
+- **`AGENTS.md` §四点五.4 重写**为「工具控制通道的优先级」：选通道，不是选工具；
+  GUI 必须由 Agent 自启；新增工具只加一条配置。
+- `verify` 既有项内加 `tool-runtimes.json` / `tool-run.ps1` 断言（仍 61 项）。
+
+### IDA 的三档现状（如实）
+
+| 通道 | 状态 |
+|---|---|
+| `headless-cli`（`idat -A -S`） | ✅ 可用，**默认走这条**，无窗口 |
+| `headless-mcp`（idalib → 8745/SSE） | ❌ 本机被安装目录里的 GUI 插件拖崩（symless/WPeChatGPT 需要 PySide6，headless 下抛 NotImplementedError） |
+| `gui-mcp`（13337） | ⚠️ 插件不自启，需 Ctrl+Alt+M；`postLaunchKeys` 自动发热键在无人值守下未稳定命中 |
+
+### 验证
+
+| 检查 | 结果 |
+|---|---|
+| `tool-run.ps1 -ListModes` | 四个工具的阶梯与理由全部列出 |
+| `-Tool x64dbg` | `ALREADY_READY`（9094，80 工具） |
+| `-Tool ida -Mode headless-cli` | `CLI_READY` → `".../idat.exe" -A -S...` |
+| `-Tool ghidra -Mode cli-headless` | `CLI_READY` → `".../analyzeHeadless.bat" ...` |
+| `verify.ps1` / `verify.sh` | 61/61 · 61/61 |
+
+---
+
 ## [1.10.9] — 2026-10-20
 
 > 主题：**唤醒器加固 + IDA 自启的真实结论（未解决，已记录阻塞点）**。

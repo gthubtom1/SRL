@@ -132,16 +132,31 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
 
 ---
 
-### 4. GUI 宿主型 MCP：**自己唤醒，不要等用户点开**
+### 4. 工具控制通道的优先级（选"通道"，不是选"工具"）★
 
-这类工具的 MCP 服务跑在**宿主进程里的插件**中（x64dbg → 9094，IDA → 13337）。
-宿主没启动 = 端点不存在，调用会得到 `WinError 10061 目标计算机积极拒绝` —— **这不是配置错，是没开门**。
+任何工具，按下面顺序挑**能被 AI 完全控制**的那条通道：
 
-- **自己起**：`powershell -NoProfile -File Tool/scripts/wake-gui-mcp.ps1 -Tool x64dbg [-Target <样本>]`
-  脚本会：六层探测定位 exe → 启动 → 轮询端口到就绪 → 打印 MCP 连接信息（含 transport/url/token 来源）。
-- **不要**让用户手动双击打开，也不要因为「端点不可用」就停下来问 —— 那属于可自愈项。
-- **新增 GUI 工具只加一条**到 `Tool/config/gui-hosts.json`（toolId / args / ready.port / mcp），脚本不用改。
-- **只有真需要人工交互时**才回报用户：首次许可协议、崩溃恢复对话框、杀软拦截弹窗。
+1. **MCP / 可编程接口**（stdio 或 http）—— 直连，无窗口，最优先；
+2. **CLI / headless** —— 命令行或 headless 模式能完成同样的活（如 IDA 的 `idat -A -S`、
+   Ghidra 的 `analyzeHeadless`）—— 比 GUI 稳定、可并行、可重复、可留证据；
+3. **GUI（含 GUI 内插件提供的 MCP）** —— **只有该工具没有等价 headless 通道时**才用
+   （x64dbg 是典型：调试必须宿主进程在跑，没有 headless 等价物）；即便用，也**必须由 Agent 自己启动**；
+4. **人工** —— 只有首次许可协议、崩溃恢复弹窗这类真需要人看屏幕时才回报用户。
+
+**铁律**：只要 headless / CLI 能把事做完，就**绝不**启动 GUI。GUI 不是"更好"，是"更麻烦"：
+要焦点、会弹窗、要人盯、不可并行、难留证据。
+
+**入口（配置驱动，脚本里零工具名/零绝对路径）**：
+
+```powershell
+powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode <通道>] [-ListModes]
+```
+
+- 工具清单：`Tool/config/tool-runtimes.json`（每个工具声明多条通道，**按优先级排列**）。
+  **新增工具只加一条，脚本不改** —— 工具会越来越多，不能每来一个就改代码。
+- `-ListModes` 先看该工具有哪些通道、各自为什么；不带 `-Mode` 时**自动按优先级降级**。
+- IDA 现状：`headless-cli`（`idat`）可用且优先；`headless-mcp`（idalib）被安装目录里的
+  GUI 插件拖崩；`gui-mcp`（13337）需 Ctrl+Alt+M。**默认走 headless-cli，不要为了"顺手"去开 GUI。**
 
 ---
 

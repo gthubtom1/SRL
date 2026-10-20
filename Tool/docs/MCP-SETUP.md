@@ -262,8 +262,9 @@ GET  http://127.0.0.1:9094/sse  → 也有，但只是兼容路径；无 token �
 }
 ```
 
-> **前提：x64dbg 必须先运行。** 不想手动点？让 Agent 跑
-> `powershell -File Tool/scripts/wake-gui-mcp.ps1 -Tool x64dbg [-Target <样本>]`
+> **前提：x64dbg 必须先运行。** 不想手动点？让 Agent 跑（它按 `Tool/config/tool-runtimes.json` 的通道阶梯执行；
+> x64dbg 没有 headless 通道，所以这一档就是「GUI 内 MCP」——这是阶梯里唯一合理的 GUI 场景）
+> `powershell -File Tool/scripts/tool-run.ps1 -Tool x64dbg [-Target <样本>]`
 > —— 它自己定位 exe、启动、轮询 9094 到就绪（实测 1.3s）。
 > `lifecycle: lazy` 保证 x64dbg 关着时不会拖慢会话启动。
 >
