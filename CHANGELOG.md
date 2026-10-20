@@ -10,6 +10,44 @@
 
 ---
 
+## [1.10.7] — 2026-10-20
+
+> 主题：**本机工具盘点 + IDA MCP 接通**（并修掉挡住它的 `mcp` 版本冲突）。
+
+### 盘点结果（`seep_tool_discover` 实测 15 项）
+
+| 工具 | 状态 | 工具 | 状态 |
+|---|---|---|---|
+| radare2 / jadx / apktool | ✅ | frida / capa / floss | ✅ |
+| ghidra (analyzeHeadless) | ✅ | binwalk / pe-sieve / tshark | ✅ |
+| x64dbg / x32dbg | ✅ | diec / cdb | ✅ |
+| **IDA Pro 9.3** | ✅ `D:\Tools\disasm\IDA Pro 9.3`（便携版，六层探测原本**漏判**） | | |
+
+### 变更
+
+- **`tool_autodiscover.py` 修 deny 名单误杀**：`_DENY_MARKERS` 里原本有个裸 `"ida pro"` 子串，
+  会把**整个 `IDA Pro 9.x` 安装根**下的所有文件都拒掉 —— 于是 `seep_tool_discover('ida')`
+  永远返回不可用，而 IDA 明明装着。现在只拦 `IDA Pro\python` 这类运行期子目录。
+- **`tool_autodiscover.py` 扫描剪枝**：跳过 `node_modules` / `site-packages` / `WinSxS` / 缓存等重目录，
+  否则 20s 扫描预算会耗在第一个根（`D:\Tools` 含整套 Node）里。实测 ida 探测从 **超时 20s+ 降到 1.5s**。
+- **`install-ida.ps1` 补有界目录扫描**：只扫 `D:\Tools`、`D:\Tools\disasm`、`D:\Program Files` 等固定根（深度 ≤2），
+  便携版/绿化版目录（`...\disasm\IDA Pro 9.3`）也能命中 —— 原来的候选表是硬编码清单，必然漏。
+- **修 IDA MCP 起不来的真因**：IDA 自带 Python 里 `mcp` 是 **2.3.0**，而 `ida-pro-mcp 1.4.0` 仍用
+  `from mcp.server.fastmcp import FastMCP`，mcp 2.x 已把 FastMCP 改名 → `ModuleNotFoundError` → MCP 显示 `failed`。
+  安装器现在同时安装 `ida-pro-mcp` 与 **`mcp<2`**（实测 1.30.0 可用）。
+- `Tool/docs/MCP-SETUP.md`：MCP 清单更正为 **4 个**（seep 38 / ida 48 / js-reverse 24 / playwright 25）；
+  新增 §8.1 x64dbg MCP 的 SSE 桥接说明（pi 拒 SSE）、§8.2 Ghidra 无头说明。
+
+### 实测
+
+| 检查 | 结果 |
+|---|---|
+| `pi mcp list` | `seep 38 · ida 48 · js-reverse 24 · playwright 25` **全部 connected** |
+| `/rules-status` / `seep_status` | 正常 |
+| `verify.ps1` / `verify.sh` | 61/61 · 61/61 |
+
+---
+
 ## [1.10.6] — 2026-10-20
 
 > 主题：**重试档位** —— pi 默认只重试 3 次，一次网关抖动就能把长任务整回合打断。

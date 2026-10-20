@@ -62,6 +62,30 @@ if (-not $found) {
     }
 }
 
+# 有界目录扫描：便携版 / 绿化版常放在 `...\disasm\IDA Pro 9.x`、`...\Tools\IDA*` 这类位置，
+# 既不进注册表也不在默认候选表里。只扫固定几个根，深度 <=2，绝不盘根递归。
+if (-not $found) {
+    $scanRoots = @('D:\Tools', 'D:\Tools\disasm', 'D:\Program Files', 'C:\Tools',
+                   'E:\Tools', 'F:\Tools', (Join-Path $env:USERPROFILE 'Tools'))
+    foreach ($root in $scanRoots) {
+        if (-not (Test-Path $root)) { continue }
+        $hits = Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match 'IDA' }
+        foreach ($h in $hits) {
+            if (Test-Path (Join-Path $h.FullName 'ida.exe')) { $found = $h.FullName; break }
+            # 再看一层（IDA Pro 9.x 常再套一层同名目录）
+            $sub = Get-ChildItem -LiteralPath $h.FullName -Directory -ErrorAction SilentlyContinue |
+                   Where-Object { $_.Name -match 'IDA' -or $_.Name -match 'App' }
+            foreach ($s in $sub) {
+                if (Test-Path (Join-Path $s.FullName 'ida.exe')) { $found = $s.FullName; break }
+            }
+            if ($found) { break }
+        }
+        if ($found) { break }
+    }
+    if ($found) { Write-Info "扫描命中 IDA: $found" }
+}
+
 # 注册表与快捷方式探测
 if (-not $found) {
     $regPaths = @(
@@ -136,7 +160,10 @@ if ($idaPy) {
 # ---------------------------------------------------------------- 3. 装配 ida-pro-mcp
 if (-not $SkipPip -and $idaPy) {
     Write-Info '正在为 IDA Python 检查与安装 ida-pro-mcp 依赖...'
-    & $idaPy -m pip install --quiet --upgrade ida-pro-mcp 2>&1 | Out-Null
+    # ★ ida-pro-mcp 1.4 的 server.py 仍是 `from mcp.server.fastmcp import FastMCP`，
+    #   而 mcp 2.x 已把 FastMCP 改名为 MCPServer → 直接 ModuleNotFoundError，MCP 显示 failed。
+    #   所以这里必须把 mcp 钉在 <2（实测 1.30 可用）。
+    & $idaPy -m pip install --quiet --upgrade ida-pro-mcp "mcp<2" 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Ok 'ida-pro-mcp 已就绪'
     } else {
