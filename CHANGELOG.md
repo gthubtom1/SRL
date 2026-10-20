@@ -10,6 +10,39 @@
 
 ---
 
+## [1.10.3] — 2026-10-20
+
+> 主题：**消除 cmd-guard 的"常年降级告警"** —— 降级必须是可见的，但不能是永久的。
+
+### 问题
+
+`/guard` 从装上起就一直显示 `规则来源=内置兜底表 ★未找到 TOOL-CHAIN.md`。
+`cmd-guard` 靠 `<扩展目录>/TOOL-CHAIN.md` 派生"哪些 GUI 该拦、换成什么 CLI"，
+没有这份文件就只剩内置 16 条，并且**每次都打 ★ 告警** ——
+真正的降级会被这条常年警告淹没（该插件作者自己的原则："静默降级是最坏的失败模式"）。
+
+### 变更
+
+- 新增 **`Tool/prompts/extensions/TOOL-CHAIN.md`**（15 条 GUI→CLI 对照：diec / idat / tshark /
+  r2 / xxd / jadx / apktool / frida …），随扩展一起安装到 `~/.pi/agent/extensions/`。
+  `cmd-guard` 从自身目录向上找，第一层就命中 → **不依赖任何绝对路径或环境变量**。
+- 安装链 `install-pi.ps1` / `install.sh` 增加 `*.md` 复制；卸载链白名单同步覆盖 `*.md`。
+- `verify` 既有「提示词槽位/边界锚/人格守卫」项内加 `TOOL-CHAIN.md` 断言（仍 61 项）。
+- 插件侧同步升级 **pi-cmd-guard v2.1.1**：`/stall` 状态行补 `blockRootScan`（此前只有 `/guard` 横幅显示，
+  两处状态面不一致，排查时容易误判"拦截到底开没开"）。
+
+### 实测
+
+| 检查 | 修复前 | 修复后 |
+|---|---|---|
+| `/guard` 规则来源 | `内置兜底表 ★未找到 TOOL-CHAIN.md` | **`文档派生（1 份）`** |
+| GUI 规则数 | 16 条 | **23 条** |
+| `/stall` 状态 | 无 `blockRootScan` | `… blockGui=false blockRootScan=true` |
+
+`verify.ps1` 61/61 · `verify.sh` 61/61 · `check-budget` 全绿。
+
+---
+
 ## [1.10.2] — 2026-10-20
 
 > 主题：**命令执行守卫** —— 命令不返回时，模型物理上无法自救。

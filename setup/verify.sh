@@ -168,6 +168,7 @@ check_prompt_stack() {
     grep -q "looksLikePersonaCard" "$TOOL_DIR/prompts/extensions/security-audit-interceptor.ts" || return 1
     [ -f "$TOOL_DIR/prompts/extensions/cmd-guard.ts" ] || return 1
     [ -f "$TOOL_DIR/prompts/extensions/cmd-guard.rules.json" ] || return 1
+    [ -f "$TOOL_DIR/prompts/extensions/TOOL-CHAIN.md" ] || return 1
     return 0
 }
 
