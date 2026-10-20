@@ -10,6 +10,54 @@
 
 ---
 
+## [1.10.1] — 2026-10-20
+
+> 主题：**知识库检索可用性修复** —— 库里有内容但搜不出来，比没有库更糟。
+
+### 问题（实测）
+
+`seep_kb_search` 原实现是**整串子串匹配**（`pat in content`），多词查询必然归零：
+
+| 查询 | 修复前 | 说明 |
+|---|---|---|
+| `完整性校验 反作弊` | **0 命中** | 库里有 `general/techniques/cheating/04-anti-cheat-bypass.md`（545 行） |
+| `自校验 三线程` / `eac crc` / `EAC ObRegisterCallbacks` / `反作弊 bypass` | **0 命中** | 同上 |
+| `vmp 脱壳` | 2 篇，全是 Android | PE 侧 `02-vmp-virtualization-analysis.md` 搜不到 |
+| 命中后的 snippet | 恒为文件开头 300 字 | 看不到命中位置，等于没捞到 |
+
+空结果不是中性——AI 会据此判定“库里没这个东西”，然后凭模型记忆硬猜。
+
+### 变更（`Tool/mcp/seep_mcp_server.py`，**纯插入，净删除 0 行**）
+
+- 四段插入（均带 `# === SEEP-EXT: kb-multitoken ===` 标记，便于上游合并时识别）：
+  1. 切词与权重常量（空白/标点切词、最多 8 个 token、单字权重 0.2）；
+  2. 缓存正文供二次打分与 snippet 定位；
+  3. 相关性二次打分：**ASCII 词边界**（EAC 不命中 each/reach）+ **IDF** 降权高频词 + **覆盖率平方惩罚**（2 token 必须全命中）+ 标题/路径加成；
+  4. `snippet` 改为**命中位置前后 160 字**。
+- 工具数仍为 **38**（不新增工具、不改签名、不改返回结构）。
+
+### 同时修的三处（不相关但同类）
+
+- `softseep/SKILL.md`：「加固对抗」拆**进攻面**（`MANUAL/ANTI-DEBUG.md` + KB 反作弊篇）与**防御面**（`defense-in-depth.md`），修掉“要拆防护却被送去防御文档”的路由错配。
+- `kb/field_journal__template.md`：踩坑记录加**归因 / 适用边界 / 反证条件**三列 —— 没有反证条件的失败记录会把一次具体情况升格成永恒规律。
+- `MERGE-PLAYBOOK` 反面清单：禁止往 `Tool/mcp/Tool/**`（vendored 上游树）加新内容；本地 KB 新增放 `Tool/mcp/kb_local/`，确需改 vendored 文件必须在 `FORK-DELTA.md` 记“重新 vendor 需重放”。
+
+### 新增验收脚本
+
+`Tool/scripts/kb_acceptance.py`（纯标准库，9 条，`exit 1` 即失败）——**不进 verify 项**，避免体检项数链式改动。
+
+| 项 | 修复前 | 修复后 |
+|---|---|---|
+| 9 条验收 | **1/9** | **9/9** |
+
+跑法：`python Tool/scripts/kb_acceptance.py --verbose`
+
+### 回归
+
+`verify.ps1` 61/61、`verify.sh` 61/61、`check-budget` 全绿（MCP 2684/3200 行、first-party 654/900）、`smoke-e2e` 12/12。
+
+---
+
 ## [1.10.0] — 2026-10-20
 
 > 主题：**提示词分层解耦 + 人格卡零修改兼容** —— SEEP.md 从“什么都写”变成“只写谁说了算”，

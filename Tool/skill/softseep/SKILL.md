@@ -122,7 +122,8 @@ metadata:
 | "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |
 | "是不是病毒" / "分析样本" / "行为" / "IOC" | **样本研判** | ida MCP + YARA |
 | "改界面文字" / "关于对话框" / "显示不对" | **UI 伪造** | `ui-verification.md` |
-| "过检测" / "反调试" / "反 hook" / "完整性校验" | **加固对抗** | `seep_packer_detect` 识别 → `defense-in-depth.md` |
+| "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固对抗** | `seep_packer_detect` 识别 → `MANUAL/ANTI-DEBUG.md` ＋ `seep_kb_search` 查反作弊篇（`general/techniques/cheating/04-anti-cheat-bypass.md`） |
+| "出修复建议" / "加固方案"（**防御面：要交付整改**） | **加固对抗** | `references/defense-in-depth.md`（厂商视角的四层加固） |
 | "出个报告" / "整理成果" / "测绘" | **测绘报告** | `project-paradigms.md`（报告模板） |
 | "看看这个 exe" / "分析下这个文件"（无明确动词） | **默认：测绘/分析** | `seep_auto_triage` → `windows-sop.md` Step 1-2 |
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
@@ -148,7 +149,7 @@ metadata:
 | **协议分析** | `license-validation` §6 | `apkseep` | seep MCP | playwright |
 | **样本研判** | ida MCP + YARA | `apkseep` | ida-reverse | — |
 | **UI 伪造** | `ui-verification` | — | — | — |
-| **加固对抗** | `defense-in-depth` | `apkseep`（anti-tamper） | — | — |
+| **加固对抗** | 进攻：`MANUAL/ANTI-DEBUG.md` ＋ KB 反作弊篇；交付：`defense-in-depth` | `apkseep`（anti-tamper） | — | — |
 
 ### 可调度的全部资源
 

@@ -164,6 +164,8 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 ## 8. 反面清单（做了就是破坏内核，禁止）
 
 - ❌ 修改既有 `@server.tool()` 函数的实现体（要改行为 → 新增一个工具，别动老的）
+- ❌ 往 `Tool/mcp/Tool/**`（内置工具/知识库）这类 **vendored 上游树**里加新内容 —— 将来重新 vendor 会被覆盖。
+  本地新增的 KB 内容请放 `Tool/mcp/kb_local/`；确需改 vendored 文件（如模板）时，必须在 `FORK-DELTA.md` 记一条"重新 vendor 需重放"。
 - ❌ 删除/改写 `references/*.md` 既有正文（要补充 → 插入新段，标"新增"）
 - ❌ 改 `setup/verify.ps1` 既有判据（要加 → 追加新 `Test-CheckItem`）
 - ❌ 把别人的 2000+ 篇文档整坨倒进仓库（要知识 → 只挑真需要的几篇进 `kb/`）

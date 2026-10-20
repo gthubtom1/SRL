@@ -90,6 +90,8 @@
 | `safe-skills/ida-reverse` 同名覆盖 | 顶层 `ida-reverse` 丢 13337 唤醒规约 | 改名 `ida-assistant` + 安装器冲突守卫 + 体检断言 |
 | `SYSTEM.md` 双重语义（v1.9.3 修） | pi 内核把它当“替换默认提示词”、扩展又挂成 section → **整份规则在提示词里出现两次**（≈9.9k 字符/请求），且 pi 自带默认提示词被顶掉 | 改名 `SEEP.md`（内核对它透明，只有扩展读）+ 删自愈分支 + `before_agent_start` 强制 `sync(…, true)` 消除 800ms 节流空装配 |
 | `SEEP.md §3` 与 `AGENTS.md §三` 逐字重复（v1.9.3 修） | 触发词清单在提示词里出现 3 次，两份还会各自漂移 | §3 改为指针，只留 `AGENTS.md §三` 单一事实源 |
+| `seep_kb_search` 整串子串匹配（v1.10.1 修） | 多词中文查询（"完整性校验 反作弊"）必然归零，库里有 545 行内容也捞不出来 | 纯插入式增强：切词 + ASCII 词边界 + IDF + 覆盖率 + 标题/路径加成 + snippet 命中居中（`seep_mcp_server.py` 净删除仍为 0 行） |
+| `kb/field_journal__template.md` 加"归因/边界/反证"三字段（v1.10.1） | 无边界与反证的失败记录会把一次具体情况升格成永恒规律 | **本地分叉**：该目录是 open-reverselab 的 vendored 副本，重新 vendor 时须重放此改动（只改模板，未塞内容） |
 
 ### 3.6 提示词分层与人格卡兼容（v1.10.0）
 
