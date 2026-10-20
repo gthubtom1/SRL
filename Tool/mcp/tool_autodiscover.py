@@ -369,6 +369,29 @@ def _layer_scan(tool_id, exe_names, max_depth=4):
     return None
 
 
+def _path_excluded(path, caps):
+    """按能力表的 exclude_paths 过滤「同名但不同物」的可执行文件。
+
+    例：httpx 有两家 —— Python 的 httpx 库 CLI 与 ProjectDiscovery 的 httpx。
+    PATH 上先命中的往往是前者，语义完全不同，必须按路径片段排除。
+    """
+    if not path:
+        return False
+    # 各层返回值既可能是路径字符串，也可能是 {"command": ...} 字典
+    if isinstance(path, dict):
+        path = path.get("command") or ""
+        if not path:
+            return False
+    low = path.lower()
+    for frag in (caps.get("exclude_paths") or []):
+        if frag and frag.lower() in low:
+            return True
+    hints = caps.get("path_hints") or []
+    if hints and not any(h.lower() in low for h in hints):
+        return True
+    return False
+
+
 def discover(tool_id, target=None, use_registry=True):
     """六层递进发现：命中即停。返回结构化结果。
 
@@ -385,20 +408,20 @@ def discover(tool_id, target=None, use_registry=True):
     exe_names = _exe_candidates(tid, arch)
 
     layers = []
-    hit = _layer_env(tid, exe_names);  layers.append(("env", hit))
+    hit = _layer_env(tid, exe_names);  layers.append(("env", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_path(exe_names);       layers.append(("PATH", hit))
+    hit = _layer_path(exe_names);       layers.append(("PATH", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_common_dirs(exe_names); layers.append(("common_dir", hit))
+    hit = _layer_common_dirs(exe_names); layers.append(("common_dir", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
     if use_registry:
-        hit = _layer_registry(tid, exe_names, caps); layers.append(("registry", hit))
+        hit = _layer_registry(tid, exe_names, caps); layers.append(("registry", hit)); hit = None if _path_excluded(hit, caps) else hit
         if hit:
             return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_scan(tid, exe_names);  layers.append(("scan", hit))
+    hit = _layer_scan(tid, exe_names);  layers.append(("scan", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
 
