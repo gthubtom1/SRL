@@ -16,9 +16,31 @@
 
 ---
 
-## 二、 Seep 兼容性三大铁律（编写任何新 Skill 必须遵守）
+## 二、 Seep 兼容性四大铁律（编写任何新 Skill 必须遵守）
 
-编写面向 Seep 的外挂技能时，必须遵守以下三项纪律，杜绝任何逻辑冲突：
+编写面向 Seep 的外挂技能时，必须遵守以下四项纪律，杜绝任何逻辑冲突：
+
+### 铁律 0：注册链路必须四处对齐（v1.10.0 起）
+技能不是"写完 SKILL.md 就能用"。**四处都要有它，否则会静默失效**：
+
+| # | 位置 | 作用 | 谁写 |
+|---|---|---|---|
+| 1 | `Tool/skill/<name>/SKILL.md` | 技能本体（frontmatter + SOP） | `python Tool/scripts/new-skill.py <name> --desc "..."` 自动建 |
+| 2 | `Tool/skill/softseep/SKILL.md` 的"可调度资源"表 | 让总控**知道**这个技能存在 | 脚手架自动追加 |
+| 3 | `Tool/scripts/routing.json` 的 `routes` + `priority` | 让 `master-route.ps1` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
+| 4 | `~/.pi/agent/skills/<name>/` | 让 pi 会话**加载**它 | 脚手架自动同步 |
+
+**提示词层禁写**：技能内容**不要**往 `Tool/prompts/SEEP.md` 里塞 —— 它是装配契约，硬上限 **2,500 字符**，
+写死技能清单/工具数量会让 `verify.ps1` 直接判红（体检项「SEEP.md 契约态」）。分层规则见 `MANUAL/PROMPT-LAYERS.md`。
+
+**加完四件事必跑**（缺一不可）：
+```bash
+python Tool/scripts/verify-routing-coherence.py   # 路由 ↔ 技能落位自洽
+python Tool/scripts/check-budget.py               # 技能数 ≤ 12、first-party ≤ 900
+powershell -File setup/verify.ps1 -Detailed       # 61 项全绿
+python Tool/scripts/smoke-e2e.py                  # 端到端 12 环
+```
+
 
 ### 铁律 1：G-Auth 与 Lab Mode 契合（杜绝大模型拒绝）
 - **不要**在技能里自己手写复杂的越狱词（Jailbreak Prompts）或重复定义敏感词转换；

@@ -303,6 +303,7 @@ metadata:
 | `MANUAL/POC-VALIDATION.md` | G4/G5 生成 PoC 后（Frida 脚本 / Smali 补丁 / 代理 DLL）必读 | 三阶段闭环验证模型、Frida 自愈映射表、Smali/DLL 本地加载器、断网铁证流程 |
 | `MANUAL/IDA-PRO.md` | 用户询问 IDA Pro 接入或 ida MCP 无法启动时 | IDA 安装配置、install-ida.ps1、Radare2 降级路线 |
 | `MANUAL/PREREQUISITES.md` | 首次部署或环境报错时 | Python/Node/JDK/ADB 版本要求与修复指引 |
+| `MANUAL/PROMPT-LAYERS.md` | 要改提示词 / 换人格卡 / 排查「人格与规则打架」时 | 五层装配顺序（实测坐标）、人格卡兼容矩阵、迁出内容存档、G-Auth 统一裁决 |
 
 ### 快速对应
 
