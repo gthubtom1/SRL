@@ -230,6 +230,19 @@ foreach ($pkg in $packages) {
 }
 
 $settings | Add-Member -NotePropertyName 'packages' -NotePropertyValue $currentPackages -Force
+
+# 重试档位默认值：pi 默认只重试 3 次，长任务（批量采集 / 无人值守逆向）容易被 502/429 打断。
+# 只在本机没有 retry 配置时写入，绝不覆盖用户已调过的档位。
+if (-not $settings.retry) {
+    $settings | Add-Member -NotePropertyName 'retry' -NotePropertyValue ([PSCustomObject]@{
+        enabled          = $true
+        maxRetries       = 10
+        baseDelayMs      = 2000
+        maxAgentDelayMs  = 60000
+        provider         = [PSCustomObject]@{ maxRetries = 0; maxRetryDelayMs = 30000 }
+    }) -Force
+    Write-Ok 'settings.json 已写入 retry 默认档位 (maxRetries=10)'
+}
 $finalSettingsJson = $settings | ConvertTo-Json -Depth 10
 [System.IO.File]::WriteAllText($dstSettings, $finalSettingsJson, (New-Object System.Text.UTF8Encoding $false))
 Write-Ok "settings.json 已安全同步（$($currentPackages.Count) 个 packages）"

@@ -10,6 +10,40 @@
 
 ---
 
+## [1.10.6] — 2026-10-20
+
+> 主题：**重试档位** —— pi 默认只重试 3 次，一次网关抖动就能把长任务整回合打断。
+
+### 问题
+
+pi 内核默认 `retry.maxRetries = 3`（`docs/settings.md`），且 `retry.provider.maxRetries = 0`。
+无人值守的长任务（批量采集、8–15 分钟的逆向全流程）遇到 `502/503/504/524`、`429`、
+`fetch failed` / `socket hang up` 时，3 次很快耗尽 → **整回合硬报错中断，必须人工介入**。
+
+### 变更
+
+- vendored **`pi-retry-level`**（MIT，`gthubtom1/agent-plugins/plugins/pi/retry-level`）：
+  `/retry` 菜单切档（关闭 / 3 / 5 / 10 / 15 / 30 / 无限）、`/retry status` 查看、状态栏常显；
+  底层直接写 pi 官方的 `settings.retry.*` 键，不引入私有机制。
+  只对瞬态错误重试，`insufficient_quota` / `context_length_exceeded` 等不可恢复错误立即退出。
+- **安装器默认档位**：`install-pi.ps1` 与 `setup/merge_agent_config.py`（install.sh 走它）在
+  `settings.json` **缺失 retry 键时**写入 `maxRetries=10`（2s 起始退避、单次上限 60s、provider 级保持 0）。
+  **已配置过的机器不会被覆盖。**
+- `verify` 既有「提示词槽位/边界锚/人格守卫」项内加 `retry-level.ts` 断言（仍 61 项）。
+- PROVENANCE / FORK-DELTA 记账。
+
+### 与既有能力的关系
+
+| 能力 | 谁负责 | 重试什么 |
+|---|---|---|
+| 模型调用 / 网关错误 | **本扩展 + pi `settings.retry`** | 502/429/超时等瞬态失败（3→10 次） |
+| 拒答改写重试 | `Tool/scripts/compliance-relay/refusal.py` | 模型"拒绝"或空响应（换句式重发） |
+| 工具命令 | `cmd-guard` | 不重试，只做 timeout 兜底与拦截 |
+
+三者互补，不重叠。
+
+---
+
 ## [1.10.5] — 2026-10-20
 
 > 主题：**把 codemode 调用约定写进技能** —— 每会话少花 1–2 次探测调用。
