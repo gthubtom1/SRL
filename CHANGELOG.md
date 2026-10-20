@@ -10,6 +10,35 @@
 
 ---
 
+## [1.10.9] — 2026-10-20
+
+> 主题：**唤醒器加固 + IDA 自启的真实结论（未解决，已记录阻塞点）**。
+
+### 加固（实测有效）
+
+- `wake-gui-mcp.ps1` 启动子进程时**重定向 stdout/stderr** —— 否则 GUI 宿主继承调用方管道，
+  脚本早已退出、调用方却一直等（实测挂满 180s 才被外层杀掉）。
+- 支持 `exeCandidates`：IDA 9.3 本机只有 `ida.exe`（GUI）与 `idat.exe`（headless），**没有 ida64.exe**，
+  写死单个 `exeName` 会静默落回 headless 版 → 永远等不到 13337。
+- 支持 `postLaunchKeys`：有些宿主的 MCP 插件不自启（IDA 需 Ctrl+Alt+M），启动后自动发一次热键。
+
+### IDA 的现状（诚实记录）
+
+| 路线 | 结果 |
+|---|---|
+| **GUI 插件**（`mcp-plugin.py` → 13337） | 插件已装到 `%APPDATA%\Hex-Rays\IDA Pro\plugins\` **和** 安装目录 `plugins\`；但插件**不自启**，日志明写 `use Edit -> Plugins -> MCP (Ctrl+Alt+M) to start the server`。`postLaunchKeys` 发 `^%m` 在无人值守场景下**未能稳定命中**（窗口焦点/首次欢迎框） |
+| **idalib headless**（`idalib-mcp <input> --port 8745`） | 可启动、能加载样本，但端口未监听；日志同样提示要手动启动 MCP 插件。**未打通** |
+
+**当前可用性**：IDA 引擎与插件齐全，但每个 IDA 会话需要**人工按一次 Ctrl+Alt+M**（或后续继续攻自启）。
+日常分析不受阻 —— `r2` / `ghidra analyzeHeadless` / `seep_decompile_auto` 已全覆盖且无需 GUI。
+
+### 已验证可用
+
+- `wake-gui-mcp.ps1 -Tool x64dbg` → `READY`（1.3s）；`pi mcp list` 里 **x64dbg 80 工具 connected**；
+  真实调用 `mcp__x64dbg__GetDebugState` 返回 `isDebugging: false`。
+
+---
+
 ## [1.10.8] — 2026-10-20
 
 > 主题：**GUI 宿主型 MCP 自己唤醒**（不再要求用户手动点开），并把 x64dbg 接通。
