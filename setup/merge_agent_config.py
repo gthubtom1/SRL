@@ -236,6 +236,17 @@ def merge_settings_json(args) -> int:
         log("    [退役] %s —— 与 pi 内置 MCP 抢 /mcp，已移除（恢复内置）" % p)
     cfg["packages"] = merged
 
+    # 重试档位默认值（仅缺失时写入，不覆盖用户已调过的档）：pi 默认 3 次，长任务易被 502/429 打断
+    if "retry" not in cfg:
+        cfg["retry"] = {
+            "enabled": True,
+            "maxRetries": 10,
+            "baseDelayMs": 2000,
+            "maxAgentDelayMs": 60000,
+            "provider": {"maxRetries": 0, "maxRetryDelayMs": 30000},
+        }
+        log("    retry: 写入默认档位 maxRetries=10")
+
     if args.dry_run or args.print_only:
         log("  [DRY-RUN] 未写入 settings.json")
         return 0

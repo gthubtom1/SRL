@@ -43,7 +43,8 @@
 | **apk-reverse** | https://github.com/newliver666/apk-reverse | MIT License | `Tool/upstream/apk-reverse/` | 移动端 G1-G4 硬性门禁、DEX 微创修补、离线测试套件与能力自检 |
 | **Open-tgtylab** | https://github.com/GeniusHu-tgty/Open-tgtylab | GPL-3.0 License | `Tool/upstream/open-tgtylab/` | 攻防实验室架构、Zero-Waste Recon 信号路由、反退缩指令与 G-Auth 协议 |
 | **open-reverselab** | https://github.com/LING71671/open-reverselab | GPL-3.0 License | `Tool/upstream/open-reverselab/` | 289+ 篇实战笔记知识库、boards 攻击网拓扑、MCP 自动化工具组件 |
-| **pi-cmd-guard** | https://github.com/gthubtom1/agent-plugins（`plugins/pi/cmd-guard`） | MIT License | `Tool/prompts/extensions/cmd-guard.ts` + `cmd-guard.rules.json` | 命令执行守卫：自动补 timeout、GUI 二进制拦截、ssh 有界化、卡死状态可视化（**vendored，规则文件按本仓场景调过**） |
+| **pi-cmd-guard** | https://github.com/gthubtom1/agent-plugins（`plugins/pi/cmd-guard`） | MIT License | `Tool/prompts/extensions/cmd-guard.ts` + `cmd-guard.rules.json` + `TOOL-CHAIN.md` | 命令执行守卫：自动补 timeout、盘根扫描拦截、GUI 二进制拦截、ssh 有界化、卡死状态可视化（**vendored，规则按本仓场景调过**） |
+| **retry-level** | https://github.com/gthubtom1/agent-plugins（`plugins/pi/retry-level`） | MIT License | `Tool/prompts/extensions/retry-level.ts` | 重试档位（关闭/3/5/10/15/30/无限）+ 状态栏常显；底层走 pi 官方 `settings.retry` 键 |
 
 **上游比衍生组件保留的完整价值**：
 - `Tool/upstream/apk-reverse/tests/`：包含 24 个离线 stdlib 单测套件与 benchmark 矩阵。
