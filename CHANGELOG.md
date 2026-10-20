@@ -10,6 +10,35 @@
 
 ---
 
+## [1.10.13] — 2026-10-20
+
+> 主题：**新机器全链路模拟**（`git archive HEAD` 导出 = 新 clone 的内容，逐项跑一遍）。
+
+### 模拟结果
+
+| 项 | 结果 |
+|---|---|
+| `preflight.py --fast` | **11/11** |
+| `setup/verify.ps1` | **61/61** |
+| `Tool/scripts/tool-run.ps1 -ListModes` | 四个工具的通道阶梯正常输出 |
+| 安装链资产（脚本/三份离线依赖 zip/r2/jadx/apktool/提示词/扩展） | **25/25 在位** |
+| `merge_agent_config.py --dry-run` | MCP 条目按新根生成 `D:/…/Tool/mcp/seep_mcp_server.py`（POSIX，占位符替换正确） |
+| 新资产的引用连通 | tool-runtimes / mcp-servers / preflight / EXTEND 分别被 8 / 5 / 11 / 1 个文件引用，无孤儿 |
+
+### 修掉的唯一断链
+
+新 clone 里没有 `setup/cordis.generated.yml`（安装时由 `generate-configs.ps1` 生成、已 gitignore），
+而 `DSH-PROFILE.md` 与 `MANUAL/DEPLOYMENT.md` 引用了它 → preflight 误报 4 处悬空。
+已在 `preflight-allow.json` 登记理由（外部/生成物不是漏拷）。
+顺带把 `check_portable` 的 docstring 转成 raw，消除每次运行的 SyntaxWarning。
+
+### 尚未实跑（如实）
+
+1. `install.ps1` 端到端一次（会改写本机 `~/.pi/agent`）—— 但它的每个子脚本今天都在工作区实跑过；
+2. Linux 上 `install.sh` 只做了语法检查 + `verify.sh` 实跑，未在真 Linux 装机。
+
+---
+
 ## [1.10.12] — 2026-10-20
 
 > 主题：**换电脑也能用** —— 把"机器专用路径"变成门禁项，而不是靠人记。
