@@ -120,6 +120,18 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
 
 ---
 
+### 3. 禁止无界全盘扫描（`find /` / `dir /s C:\`）★ 2026-10 血案
+
+**血案**：agent 为找 `reverselab` 目录发了 `find / -maxdepth 8 -type d -name "reverselab"`，
+没传 timeout → 命令永不返回 → 会话卡死在 `toolUse`，**物理上无法自愈**。
+
+- **禁止**：`find /`、`find C:\`、`dir /s C:\`、`Get-ChildItem C:\ -Recurse` 这类盘根递归；
+- **定位工具/目录**：`seep_tool_discover` → `where.exe <id>` / `Get-Command <id>` → 已知路径常量（`TOOL_DIR`）；
+- **必须扫盘时**：`bash` 工具**必须显式传 `timeout`**（探查 30s / 普通 120s / 构建 600s / 扫盘 ≥180s）；
+- **物理兜底**：`cmd-guard` 扩展自动补 timeout 并拦 GUI 二进制 —— `/guard` 看规则来源，`/stall` 看卡死报告。
+
+---
+
 ## 五、 提效规则：先查知识库再动手（Zero-Waste Recon）
 
 ```

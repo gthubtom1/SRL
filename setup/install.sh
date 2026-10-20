@@ -134,6 +134,8 @@ if [ -f "$AGENT_DIR/SYSTEM.md" ] && grep -q "Seep Reverse Lab" "$AGENT_DIR/SYSTE
 fi
 if [ -d "$TOOL_DIR/prompts/extensions" ]; then
     cp "$TOOL_DIR/prompts/extensions/"*.ts "$AGENT_DIR/extensions/" 2>/dev/null || true
+    # 扩展的配套规则文件（如 cmd-guard.rules.json：cmd-guard 从 __dirname 读它）
+    cp "$TOOL_DIR/prompts/extensions/"*.json "$AGENT_DIR/extensions/" 2>/dev/null || true
     # 自动安全退役与归档已融合的旧版独立扩展（其人设卡/RULES/粘性保护已100%全量融入 load-system-prompt.ts）
     if [ -f "$AGENT_DIR/extensions/prompt-compat.ts" ]; then
         mkdir -p "$AGENT_DIR/backup-retired-extensions"

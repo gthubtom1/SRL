@@ -216,7 +216,7 @@ if [ "$KEEP_PROMPTS" = "0" ]; then
     if [ -d "$EXT_DIR" ]; then
         # ★ 只删工作台随包分发的扩展（Tool/prompts/extensions/*.ts）。
         # 旧实现无差别删除全部 *.ts，会把用户自装扩展（如 cmd-guard.ts）一并干掉。
-        for f in "$TOOL_DIR/prompts/extensions/"*.ts; do
+        for f in "$TOOL_DIR/prompts/extensions/"*.ts "$TOOL_DIR/prompts/extensions/"*.json; do
             [ -f "$f" ] || continue
             bn="$(basename "$f")"
             [ -f "$EXT_DIR/$bn" ] && PROMPT_HITS+=("extensions/$bn")

@@ -1,0 +1,32 @@
+{
+  "_说明": "cmd-guard 规则。改完 30 秒内自动生效，或 /guard reload 立即生效。",
+  "_技能包根": "留空(null) = 自动探测。探测顺序：环境变量 RELAB_SKILL_ROOT / REVERSE_SKILL_ROOT → 本文件往上找含 TOOL-CHAIN.md 的目录 → C:/relab2、C:/relab。换机不用改这里。",
+  "skillRoot": null,
+  "_文档来源": "额外再从这些 Markdown 派生 GUI 名单（`` `a.exe`→`b` `` 或表格行）。默认已含 <技能包根>/TOOL-CHAIN.md、skillpack/skills/TOOLS.md、skillpack/skills/SKILL.md。写绝对路径才生效；不存在就跳过。",
+  "toolChainPaths": [],
+  "defaultTimeout": 120,
+  "_timeout说明": "模型不传 timeout 时自动补这个值。三档：探查 30s / 分析 120s / 构建·解释器 600s。",
+  "probeTimeout": 30,
+  "analysisTimeout": 120,
+  "heavyTimeout": 600,
+  "scanTimeout": 180,
+  "_scanTimeout说明": "递归大目录扫描 / 盘符根扫描的最低 timeout。这两种命令最容易被误设成 30s 然后被杀。",
+  "stallSeconds": 240,
+  "_stall说明": "超过它还没结束 = 疑似卡死，底栏变红并进 /stall 报告。",
+  "noOutputStallSeconds": 90,
+  "_noOutput说明": "超过它没有新输出，底栏变黄（还在跑，可能只是慢）。靠 tool_execution_update 判定。",
+  "enforce": true,
+  "_enforce说明": "false = 只记账不阻断。想先观察守卫判得准不准时用它，出问题再打开。",
+  "blockGui": false,
+  "blockRootScan": true,
+  "_blockRootScan说明": "true = 物理拦下盘根递归扫描（find / · dir /s C:\\）。只抬 timeout 不够：180s 仍是 3 分钟空转。",
+  "_blockGui说明": "本机是分析机，IDA/x64dbg GUI 是正当手段（Seep 的 ida-reverse 技能需要启 GUI 做 MCP 桥接）→ 关闭 GUI 拦截；GUI 卡死风险由 timeout 兜底。",
+  "hardenSsh": true,
+  "_hardenSsh说明": "给真命令位置上的 ssh/scp/sftp/rsync 补 -o ConnectTimeout=15 与心跳，bash 侧再补 </dev/null 断交互提示。",
+  "_guiBinaries说明": "手工补充/覆盖。值 = 给模型的替代提示语；值写 null 或空串 = 明确不拦这一条。优先级最高，会覆盖 TOOL-CHAIN.md 的派生结果。索引不存在的工具、或者要把某个工具从拦改成不拦，都写这里。",
+  "guiBinaries": {},
+  "_allow说明": "整条命令含其中任一子串就整条跳过守卫（救急用，慎用）。默认的 cmd-guard-skip 可以让单条命令临时放行。",
+  "allow": [
+    "cmd-guard-skip"
+  ]
+}

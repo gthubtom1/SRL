@@ -107,7 +107,7 @@ function Get-WorkbenchExtensionNames {
     $names = @()
     $src = Join-Path $Root 'Tool\prompts\extensions'
     if (Test-Path $src) {
-        foreach ($f in (Get-ChildItem $src -Filter '*.ts' -ErrorAction SilentlyContinue)) {
+        foreach ($f in (Get-ChildItem $src -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
             $names += $f.Name
         }
     }
@@ -221,7 +221,7 @@ if (-not $KeepPrompts) {
     }
     if (Test-Path $ExtDir) {
         $workbenchExts = Get-WorkbenchExtensionNames
-        foreach ($f in (Get-ChildItem $ExtDir -Filter '*.ts' -ErrorAction SilentlyContinue)) {
+        foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
             if ($workbenchExts -contains $f.Name) {
                 $promptHits += "extensions/$($f.Name)"
             }
@@ -309,7 +309,7 @@ foreach ($n in $skillHits)   { Backup-Item (Join-Path $SkillsDir $n) $backupRoot
 foreach ($f in @('AGENTS.md', 'SEEP.md', 'SYSTEM.md')) {
     if ($promptHits -contains $f) { Backup-Item (Join-Path $AgentDir $f) $backupRoot $f }
 }
-foreach ($f in (Get-ChildItem $ExtDir -Filter '*.ts' -ErrorAction SilentlyContinue)) {
+foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
     if ($promptHits -contains "extensions/$($f.Name)") { Backup-Item $f.FullName $backupRoot "extensions/$($f.Name)" }
 }
 if ($mcpHits.Count -gt 0 -or $pkgHits.Count -gt 0) {
