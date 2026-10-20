@@ -139,6 +139,7 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
   │
   ▼
 查知识库（kb_router / seep_kb_search / reverselab/kb 全文检索）
+  知识库根固定为 `Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认）——**不要用 find/grep 去"找"这个路径**
   │
   ▼
 读取匹配技术文件（含可运行 Frida/C++ 代码）

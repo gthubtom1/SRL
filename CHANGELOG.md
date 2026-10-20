@@ -10,6 +10,33 @@
 
 ---
 
+## [1.10.4] — 2026-10-20
+
+> 主题：**把"已知常量"写进提示词** —— 别再让 agent 花 5 条命令去找一个它本就知道的路径。
+
+### 问题（会话 `01a15888` 实测）
+
+检索修复生效后（`seep_kb_search` top1 正确命中、score 66.5），agent 仍花了 5 条命令找 KB 根：
+
+```
+find ~/.pi/agent -maxdepth 6 -type d -name reverselab   → 空
+grep -rIl "reverselab" ~/.pi/agent/*.json               → 需要读 mcp.json 才推出路径
+```
+
+它最终靠读 `mcp.json` 里的 `seep_mcp_server.py` 路径才推回 `Tool/mcp/Tool/reverselab/kb`。
+这些命令都被 cmd-guard 兜住了（10 次注入，0 次拦），但纯属浪费。
+
+### 变更
+
+- `SEEP.md §3`「能力与路由」表新增一行：**知识库根目录固定 `Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认），不要去 `find`/`grep` 找**。
+- `AGENTS.md §五`（Zero-Waste Recon）在 KB 检索那条下面补同一句。
+
+### 回归
+
+`verify.ps1` 61/61（SEEP.md 2,443 字符，仍在 2,500 上限内）。
+
+---
+
 ## [1.10.3] — 2026-10-20
 
 > 主题：**消除 cmd-guard 的"常年降级告警"** —— 降级必须是可见的，但不能是永久的。
