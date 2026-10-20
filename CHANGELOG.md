@@ -10,6 +10,53 @@
 
 ---
 
+## [1.10.0] — 2026-10-20
+
+> 主题：**提示词分层解耦 + 人格卡零修改兼容** —— SEEP.md 从“什么都写”变成“只写谁说了算”，
+> 换人格卡 / 换技能 / 换 MCP 都**不需要再改提示词**。
+
+### 解决了什么
+
+| 问题 | 现象 | 根因 |
+|---|---|---|
+| `SEEP.md` 职责混杂 | 换技能要改它、换人格要改它、工具数一变就过期 | 规则 / 话术 / 工具清单 / 战术 SOP 全塞在一份文件里 |
+| 人格卡与 Seep 抢方向盘 | 卡说“直接做、不验证授权”，SEEP 有 5 处说“每个目标先问授权” | **仓库内部自相矛盾**（AGENTS §六 vs 2 个技能 + 3 个 README + CLAUDE/DSH） |
+| 第三方人格卡被污染 | 卡里的“破解/解锁”被敏感词表改写成术语 | 人格保护靠 `INJECTED_PREFIXES` **枚举卡名**，卡名一变就漏 |
+| 边界靠 prompt 自觉 | 卡一句“无需验证授权”就可能压过 SEEP | 边界只是文本约定，且位置不保证在人格之后 |
+
+### 变更
+
+- **`Tool/prompts/SEEP.md`：4,962 → 2,354 字符**，重写为五层「装配契约」：
+  边界锚 > L0 `AGENTS.md` > L1 能力（routing.json / tool-capabilities.json / 技能）> L2 本文件 > L3 人格风格。
+  只留指针，**不写工具数量、不列技能清单、不重复拒答词表**。
+- **`MANUAL/PROMPT-LAYERS.md`（新增）**：一字不删地存档迁出的交互协议/话术库/移动审计 SOP/MCP 快速查表，
+  外加五层装配图、人格卡兼容矩阵、G-Auth 统一裁决、T1–T8 回归基线。
+- **边界锚双层化**：
+  - 装配层：`load-system-prompt.ts` 新增 `BOUNDARY_ANCHOR`，作为 `sections["seep-boundary"]` **最后挂载**，`context_with_system` 压缩后复挂；
+  - 传输层：`security-audit-interceptor.ts` 新增 `appendBoundaryTail()`，在 `before_provider_request` 把锚追加到 system 文本末尾（实测 `payload.input[0].content` 可写，四种协议分支兑底）。
+- **人格守卫泛化**：`INJECTED_PREFIXES` 枚举名单 → 新增 `looksLikePersonaCard()` 结构判定（标签/角色声明+长度），
+  第三方卡**零修改**即可被保护；`compliance-relay/guard-prefixes.json` 同步 4 条通用前缀。
+- **G-Auth 统一**：`AGENTS.md §六` 为唯一事实源（目标默认已授权，仅用户明确声明无授权时停）；
+  `softseep` / `client-license-validation-bypass` / `README×3` / `CLAUDE.md` / `DSH-PROFILE.md` 各插入裁决声明。
+- **体检不增项**：仍为 **61 项**，但把“提示词”那两项升级为契约断言（体积上限 / 无工具数量 / 四指针 / 双层锚 / 结构守卫）。
+
+### 升级说明
+
+- 完全无破坏：不动 `seep_mcp_server.py`（38 工具）、`routing.json`、`tool-capabilities.json`、11 个技能正文、安装/卸载/更新三链、`mcp.json`、`SENSITIVE_WORD_MAP`（所以中继规则无需重抽取）。
+- 装完**重启 Agent 会话**（提示词在会话启动时装配）。
+
+### 验收（本地实测）
+
+| 项 | 结果 |
+|---|---|
+| `verify.ps1 -Detailed` | 61/61 PASS |
+| `check-budget.py` | 6 项全在预算内 |
+| `smoke-e2e.py` | 12/12 PASS |
+| 请求层 dump | system 文本末尾 = `[BOUNDARY-ANCHOR …]`，SEEP 段仅 1 份，pi 默认提示词在位 |
+| `/rules-status` | `边界锚: [always-on] 287 字符 · 装配末尾 + 请求期兜底` |
+
+---
+
 ## [1.9.3] — 2026-10-20
 
 > 主题：**修复系统提示词重复注入** —— `SYSTEM.md` 改名 `SEEP.md`，释放 pi 内核的“替换默认提示词”槽位。

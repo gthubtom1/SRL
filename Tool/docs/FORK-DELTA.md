@@ -91,6 +91,15 @@
 | `SYSTEM.md` 双重语义（v1.9.3 修） | pi 内核把它当“替换默认提示词”、扩展又挂成 section → **整份规则在提示词里出现两次**（≈9.9k 字符/请求），且 pi 自带默认提示词被顶掉 | 改名 `SEEP.md`（内核对它透明，只有扩展读）+ 删自愈分支 + `before_agent_start` 强制 `sync(…, true)` 消除 800ms 节流空装配 |
 | `SEEP.md §3` 与 `AGENTS.md §三` 逐字重复（v1.9.3 修） | 触发词清单在提示词里出现 3 次，两份还会各自漂移 | §3 改为指针，只留 `AGENTS.md §三` 单一事实源 |
 
+### 3.6 提示词分层与人格卡兼容（v1.10.0）
+
+| 问题 | 后果 | 修法 |
+|---|---|---|
+| `SEEP.md` 同时承担"规则/话术/工具清单/SOP" | 换技能、换人格卡都要改提示词，且必然漂移 | 瘦身成**装配契约**（≤2.5k 字符）：只留五层裁决 + 指针；易变内容迁至 `MANUAL/PROMPT-LAYERS.md` 存档 |
+| 人格卡靠 `INJECTED_PREFIXES` 枚举卡名保护 | 换第三方卡 → 卡文本被敏感词表改写污染 | 改为**结构判定** `looksLikePersonaCard()`（标签/角色声明+长度），`guard-prefixes.json` 同步 |
+| 边界只靠 prompt 层约定 | 人格卡声明"无需验证授权"即可压过 | 双层锚：`sections["seep-boundary"]`（装配末尾）+ `appendBoundaryTail()`（provider payload 兜底，实测 `input[0].content` 可写） |
+| G-Auth 在 5 处表述互相矛盾 | 同一句输入在不同路径下行为不一致 | 统一到 `AGENTS.md §六`（默认已授权、用户明说无授权才停），其余 4 处插入裁决声明；记录在 `MANUAL/PROMPT-LAYERS.md §四` |
+
 ---
 
 ## 四、上游更新了怎么办（同步 SOP）
