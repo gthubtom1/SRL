@@ -49,6 +49,7 @@
 | 路由单一事实源（10 条 route） | `Tool/scripts/routing.json`（`verify-routing-coherence.py` 守） |
 | 工具能力 / 引擎降级 / 安装途径 | `Tool/config/tool-capabilities.json` + `seep_status` |
 | 战术方法论（先查再动手） | `seep_kb_search` → `seep_kb_read` |
+| 知识库根目录（**固定路径，不要去 find/grep 找**） | `Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认） |
 | 各平台战术细节 | 对应 `Tool/skill/<name>/SKILL.md` |
 
 **禁止在本文件写死**：工具数量、工具清单表格、技能名列表、模型名、人格特征。
