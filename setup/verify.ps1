@@ -211,10 +211,13 @@ Test-CheckItem "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" 
 # 3. 智能体提示词与多平台适配
 # -----------------------------------------------------------------------------
 Write-Host "`n[3/9] 🧠 智能体指令系统与运行时拦截扩展 (Prompts & Extensions)" -ForegroundColor White
-Test-CheckItem "提示词" "Pi Agent 系统指令 (SYSTEM.md 已就绪且去个人化)" {
-    $p = Join-Path $ToolDir 'prompts\SYSTEM.md'
+Test-CheckItem "提示词" "Pi Agent 系统指令 (SEEP.md 已就绪且去个人化)" {
+    $p = Join-Path $ToolDir 'prompts\SEEP.md'
     (Test-Path $p) -and (-not (Select-String -Path $p -Pattern '小π|主人' -Quiet))
-} "Tool/prompts/SYSTEM.md 不存在或包含未脱敏字符" "无脱敏漏洞" "$ToolDir\prompts\SYSTEM.md"
+} "Tool/prompts/SEEP.md 不存在或包含未脱敏字符" "无脱敏漏洞" "$ToolDir\prompts\SEEP.md"
+Test-CheckItem "提示词" "系统提示词槽位无冲突 (SEEP.md 未占用 SYSTEM.md)" {
+    -not (Test-Path (Join-Path $ToolDir 'prompts\SYSTEM.md'))
+} "Tool/prompts/SYSTEM.md 仍存在：会被 pi 内核当成“替换默认提示词”，与扩展 section 叠加造成重复注入" "SYSTEM.md 槽位已释放" "$ToolDir\prompts"
 Test-CheckItem "提示词" "通用跨 Agent 规范 (AGENTS.md)" { Test-Path (Join-Path $ToolDir 'prompts\AGENTS.md') } "检查 AGENTS.md" "规范文件存在" "$ToolDir\prompts\AGENTS.md"
 Test-CheckItem "提示词" "Claude Code 项目级规范 (CLAUDE.md 在项目根)" { Test-Path (Join-Path $Root 'CLAUDE.md') } "项目根缺失 CLAUDE.md" "CLAUDE.md 在根目录" "$Root\CLAUDE.md"
 Test-CheckItem "提示词" "DeepSeek Harness 配置文件 (DSH-PROFILE.md)" { Test-Path (Join-Path $Root 'DSH-PROFILE.md') } "缺失 DSH-PROFILE.md" "DSH-PROFILE.md 在根目录" "$Root\DSH-PROFILE.md"

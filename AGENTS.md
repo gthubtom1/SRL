@@ -7,7 +7,7 @@
 
 - 仓库：`Seep Reverse Lab`（逆向工程 / 客户端鉴权审计工作台，GPL-3.0）
 - 协议全文：**`Tool/prompts/AGENTS.md`**（Lab 环境开关 / 工具纪律 / 反退缩 / G-Auth / 提效路由）
-- pi 专属系统规则：`Tool/prompts/SYSTEM.md`（规则优先级 / 术语映射 / MCP 工具链）
+- pi 专属系统规则：`Tool/prompts/SEEP.md`（规则优先级 / 术语映射 / MCP 工具链）
 - 部署手册：`MANUAL/DEPLOYMENT.md`（含四栏校验看板格式）
 - 校验基准：`MANUAL/DEPLOYMENT-CHECKLIST.md`
 - 基线冻结与反臃肿预算：`MANUAL/BASELINE-FREEZE.md`

@@ -57,7 +57,7 @@ MCP 配置文件所在位置：
 | **M3** | **`js-reverse`** | `npx -y js-reverse-mcp` | 23 项（本包实测 v4.0.5，以运行时为准） | `npx -y js-reverse-mcp --version` | 🟡 **按需组件**。未安装 Node 时仅 Web 逆向受限，原生二进制不受影响。修复：安装 Node.js 18+ |
 | **M4** | **`playwright`** | `npx -y @playwright/mcp` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | 依赖 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | 🟡 **按需组件**。未配 Token 时无头浏览器受限，原生逆向不受影响。 |
 
-> **附加断言（不计入 60 项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
+> **附加断言（不计入 61 项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
 > （`replaceable`：`codemode` / `tool-search` / `mcp`）抢名。有冲突时退码 1，说明该扩展会顶掉内置并导致 `[Extension issues]`。
 > 详细背景见 `Tool/docs/MCP-SETUP.md` §三。
 
@@ -67,7 +67,7 @@ MCP 配置文件所在位置：
 
 | # | 组件名称 | 宿主安装目标路径 | 核心校验特征与关键词 | 功用与影响 |
 |---|---|---|---|---|
-| **P1** | **`SYSTEM.md`** | `~/.pi/agent/SYSTEM.md` | 包含 `Lab Mode Protocol`、思维重定向、反退缩十项 | Pi Agent 专用系统指令 |
+| **P1** | **`SEEP.md`** | `~/.pi/agent/SEEP.md` | 包含 `Lab Mode Protocol`、思维重定向、反退缩十项 | Pi Agent 专用系统指令 |
 | **P2** | **`AGENTS.md`** | `~/.pi/agent/AGENTS.md`<br>项目根 `AGENTS.md` | 跨 Agent 通用无状态执行规范 | Codex / DSH / OpenCode 作战协议 |
 | **P3** | **`CLAUDE.md`** | 项目根 `CLAUDE.md` | 包含 Claude Code 项目级规范与自动化部署规约 | Claude Code 项目指令 |
 | **P4** | **`security-audit-interceptor.ts`** | `~/.pi/agent/extensions/` | 包含 `BLOCK_NONE` 底座注入与 `SENSITIVE_WORD_MAP` 字典 | 核心防模型拒绝与敏感词自动转译引擎 |

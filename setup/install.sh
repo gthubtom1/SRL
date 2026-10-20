@@ -123,7 +123,8 @@ if [ -d "$TOOL_DIR/skill" ]; then
 fi
 
 # 复制提示词与扩展
-[ -f "$TOOL_DIR/prompts/SYSTEM.md" ] && cp "$TOOL_DIR/prompts/SYSTEM.md" "$AGENT_DIR/"
+# 注意：文件名是 SEEP.md（pi 内核会把 <agent-dir>/SYSTEM.md 当成替换默认提示词，导致重复注入）
+[ -f "$TOOL_DIR/prompts/SEEP.md" ] && cp "$TOOL_DIR/prompts/SEEP.md" "$AGENT_DIR/"
 [ -f "$TOOL_DIR/prompts/AGENTS.md" ] && cp "$TOOL_DIR/prompts/AGENTS.md" "$AGENT_DIR/"
 if [ -d "$TOOL_DIR/prompts/extensions" ]; then
     cp "$TOOL_DIR/prompts/extensions/"*.ts "$AGENT_DIR/extensions/" 2>/dev/null || true

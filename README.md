@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/MCP%20工具-38%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/健康体检-58%2F58%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
+  <img src="https://img.shields.io/badge/健康体检-61%2F61%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-289%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOP-10%20份专项手册-red?style=for-the-badge" alt="MANUAL SOPs">
@@ -88,9 +88,9 @@
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
-- 体检从 50 项 → **60 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
+- 体检从 50 项 → **61 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
-**基线定档（v1.8.4 起）**：架构 / 工具名 / 配置格式 / 状态文件 / 60 项体检 / 上游隔离边界 六项冻结，
+**基线定档（v1.8.4 起）**：架构 / 工具名 / 配置格式 / 状态文件 / 61 项体检 / 上游隔离边界 六项冻结，
 未来只做「新增技能、末尾追加工具、补文档与检查项」三类纯增量叠加。详见
 [`MANUAL/BASELINE-FREEZE.md`](MANUAL/BASELINE-FREEZE.md)。
 
@@ -248,7 +248,7 @@ Seep\ (251 MB)
 │   │       └── reverselab\        ← 289 篇战术笔记 + 攻击链模板
 │   │
 │   ├── prompts\                   ← 智能体协同规范与运行时扩展
-│   │   ├── SYSTEM.md              ← Pi Agent 系统指令
+│   │   ├── SEEP.md              ← Pi Agent 系统指令
 │   │   ├── AGENTS.md              ← 跨 Agent 通用指令规范
 │   │   └── extensions\            ← BLOCK_NONE 注入 + 口语合规转译
 │   │
@@ -272,7 +272,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP 脱壳 SOP
     ├── POC-VALIDATION.md          ← Frida 自愈循环与 PoC 沙箱验证
     ├── DEPLOYMENT.md              ← 全景部署与多 Agent 集成指南
-    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（60 项）
+    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（61 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
     └── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
@@ -381,7 +381,7 @@ chmod +x setup/install.sh
 
 | 智能体平台 | 核心指令 | MCP 服务配置 | 详细接入步骤 |
 |---|---|---|---|
-| **Pi Agent** | `Tool/prompts/SYSTEM.md` | `~/.pi/agent/mcp.json` | 运行 `install.ps1` 自动写入，完成后**必须重启当前终端与 Pi 会话**。 |
+| **Pi Agent** | `Tool/prompts/SEEP.md` | `~/.pi/agent/mcp.json` | 运行 `install.ps1` 自动写入，完成后**必须重启当前终端与 Pi 会话**。 |
 | **Claude Code** | 项目根 `CLAUDE.md` | 项目根 `.mcp.json` | 运行 `powershell .\setup\generate-configs.ps1` 自愈绝对路径后，在项目根执行 `claude`。 |
 | **DeepSeek Harness** | `Tool/prompts/AGENTS.md` | `DSH-PROFILE.md` | 运行 `setup\generate-configs.ps1` 生成官方 `- insert:` 语法的 `cordis.generated.yml`，使用 `dsh web --patch ...` 或粘贴进 Profile。 |
 | **OpenCode / Codex** | 项目根 `AGENTS.md` | `opencode.jsonc` | 运行 `setup\generate-configs.ps1` 生成符合 OpenCode 官方标准的 `opencode.jsonc`，在项目根直接启动 `opencode`。 |
@@ -441,7 +441,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 7. 部署完备性校验（9 大维度 60 项全绿）
+### 7. 部署完备性校验（9 大维度 61 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
@@ -452,7 +452,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 60 项全部通过)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 61 项全部通过)" width="880">
 </p>
 
 ---

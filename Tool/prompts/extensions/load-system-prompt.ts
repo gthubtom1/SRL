@@ -8,8 +8,10 @@
  *    - 【粘性保护】context_with_system 钩子确保长对话上下文压缩后，人设与规则 100% 不丢失
  *    - 【热重载】支持 /rules-reload, /prompt-reload 随时热刷新
  * 2. 深度融合 Seep 官方 `load-system-prompt.ts` 的逆向专业作战体系：
- *    - 【逆向专精层】自动发现并挂载 `SYSTEM.md` -> sections["seep-reverse-lab"]
- *    - 【Windows 平台自愈】自动恢复被 Windows 原生 Pi loader 偶发剥离的 basePrompt 核心工具说明
+ *    - 【逆向专精层】自动发现并挂载 `SEEP.md` -> sections["seep-reverse-lab"]
+ *      （**不能叫 SYSTEM.md**：pi 内核把 <agent-dir>/SYSTEM.md 当作“替换默认系统提示词”，
+ *        同一个文件同时被内核当 preamble、被本扩展当 section，会让整份规则在提示词里出现两次，
+ *        并顶掉 pi 自带的默认提示词。改用 SEEP.md 后只有本扩展一条注入路径。）
  *
  * 查找优先级 (单双层自适应)：
  *   项目级 (./.pi/xxx.md 或 ./xxx.md) -> 用户全局级 (~/.pi/agent/xxx.md)
@@ -20,12 +22,10 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
 import type {
-	BuildSystemPromptOptions,
 	ExtensionAPI,
 	ExtensionCommandContext,
 	ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { getDocsPath, getExamplesPath, getReadmePath } from "@earendil-works/pi-coding-agent";
 
 // ============================================================================
 // 1. 数据结构定义
@@ -58,6 +58,9 @@ function stripBom(content: string): string {
 	return content;
 }
 
+/** pi 专属规则文件名。刻意避开 SYSTEM.md（那是 pi 内核的“替换默认提示词”槽位）。 */
+const SEEP_PROMPT_FILE = "SEEP.md";
+
 function findExistingNonEmptyFile(candidatePaths: string[]): string | null {
 	for (const candidate of candidatePaths) {
 		try {
@@ -75,8 +78,8 @@ function findExistingNonEmptyFile(candidatePaths: string[]): string | null {
 }
 
 /**
- * 文件名大小写变体：原版扩展同时支持 `system.md` 与 `SYSTEM.md`，
- * 二开重写时一度只认大写（导致老用户的 .pi/system.md 静默失效）。
+ * 文件名大小写变体：同时支持 `seep.md` 与 `SEEP.md`，
+ * 二开重写时一度只认大写（导致老用户的 .pi/seep.md 静默失效）。
  * 这里统一生成变体，保持「上游超集」语义。
  */
 function fileNameVariants(fileName: string): string[] {
@@ -179,63 +182,6 @@ function loadAsset(cwd: string, fileName: string): LoadedFileAsset | null {
 }
 
 // ============================================================================
-// 3. 兜底恢复 Windows Pi 原生 loader 丢失的基础系统 Prompt
-// ============================================================================
-
-function buildDefaultPrompt(options: BuildSystemPromptOptions): string {
-	const readmePath = getReadmePath();
-	const docsPath = getDocsPath();
-	const examplesPath = getExamplesPath();
-	const tools = options.selectedTools || ["read", "bash", "edit", "write"];
-
-	const visibleTools = tools.filter((name) => !!options.toolSnippets?.[name]);
-	const toolsList =
-		visibleTools.length > 0
-			? visibleTools.map((name) => `- ${name}: ${options.toolSnippets![name]}`).join("\n")
-			: "(none)";
-
-	const guidelinesList: string[] = [];
-	const guidelinesSet = new Set<string>();
-	const addGuideline = (guideline: string) => {
-		if (!guidelinesSet.has(guideline)) {
-			guidelinesSet.add(guideline);
-			guidelinesList.push(guideline);
-		}
-	};
-
-	for (const guideline of options.promptGuidelines ?? []) {
-		const normalized = guideline.trim();
-		if (normalized.length > 0) {
-			addGuideline(normalized);
-		}
-	}
-
-	addGuideline("Be concise in your responses");
-	addGuideline("Show file paths clearly when working with files");
-
-	const guidelines = guidelinesList.map((g) => `- ${g}`).join("\n");
-
-	return `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
-
-Available tools:
-${toolsList}
-
-In addition to the tools above, you may have access to other custom tools depending on the project.
-
-Guidelines:
-${guidelines}
-
-Pi documentation (read only when the user asks about pi itself, its SDK, extensions, themes, skills, or TUI):
-- Main documentation: ${readmePath}
-- Additional docs: ${docsPath}
-- Examples: ${examplesPath} (extensions, custom tools, SDK)
-- When reading pi docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory
-- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), pi packages (docs/packages.md), environment variables (docs/environment-variables.md)
-- When working on pi topics, read the docs and examples, and follow .md cross-references before implementing
-- Always read pi .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
-}
-
-// ============================================================================
 // 4. 全局单例管理器
 // ============================================================================
 
@@ -253,7 +199,7 @@ class UnifiedPromptManager {
 
 		this.personality = loadAsset(cwd, "PERSONALITY.md");
 		this.rules = loadAsset(cwd, "RULES.md");
-		this.system = loadAsset(cwd, "SYSTEM.md");
+		this.system = loadAsset(cwd, SEEP_PROMPT_FILE);
 		this.lastReload = now;
 	}
 
@@ -292,14 +238,14 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 		const s = manager.getSnapshot();
 		const pInfo = s.personality ? `PERSONALITY.md (${s.personality.length}c)` : "无";
 		const rInfo = s.rules ? `RULES.md (${s.rules.length}c)` : "无";
-		const sysInfo = s.system ? `SYSTEM.md (${s.system.length}c)` : "无";
+		const sysInfo = s.system ? `SEEP.md (${s.system.length}c)` : "无";
 
 		const msg = `[Prompt 重载完成]\n• 人设卡: ${pInfo}\n• 规则卡: ${rInfo}\n• 逆向专精: ${sysInfo}`;
 		ctx.ui.notify(msg, "info");
 	};
 
 	const handleStatus = async (_args: string, ctx: ExtensionCommandContext) => {
-		manager.sync(ctx.cwd);
+		manager.sync(ctx.cwd, true);
 		const s = manager.getSnapshot();
 		const formatAsset = (name: string, a: LoadedFileAsset | null) => {
 			if (!a) return `${name}: 未加载 (未检测到文件)`;
@@ -317,16 +263,18 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 		ctx.ui.notify("提示词与人设卡状态已输出至控制台", "info");
 	};
 
-	pi.registerCommand("rules-reload", { description: "强制重新从磁盘加载 PERSONALITY/RULES/SYSTEM", handler: handleReload });
+	pi.registerCommand("rules-reload", { description: "强制重新从磁盘加载 PERSONALITY/RULES/SEEP", handler: handleReload });
 	pi.registerCommand("prompt-reload", { description: "别名: /rules-reload", handler: handleReload });
 	pi.registerCommand("rules-status", { description: "查看当前人设卡与提示词装配状态", handler: handleStatus });
 	pi.registerCommand("prompt-status", { description: "别名: /rules-status", handler: handleStatus });
 
 	// 5.2 核心生命周期：before_agent_start (启动时结构化挂载三级 Section)
 	pi.on("before_agent_start", async (event, ctx: ExtensionContext) => {
-		manager.sync(ctx.cwd);
+		// ★ 必须 force：sync() 有 800ms 节流，进程启动后首轮会整段跳过，
+		//   导致 sections 为空、Seep 规则在一次性会话里静默失效。
+		manager.sync(ctx.cwd, true);
 
-		const { systemPrompt, systemPromptOptions } = event;
+		const { systemPromptOptions } = event;
 		systemPromptOptions.sections = systemPromptOptions.sections ?? {};
 
 		// 1. 挂载人设层 (sections["personality"])
@@ -347,16 +295,8 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 			systemPromptOptions.sections["seep-reverse-lab"] = s.content;
 		}
 
-		// 4. Windows 原生 Pi loader 基础 prompt 自愈
-		let basePrompt = systemPrompt;
-		if (systemPromptOptions.customPrompt) {
-			const reconstructedDefault = buildDefaultPrompt(systemPromptOptions);
-			basePrompt = systemPrompt.replace(systemPromptOptions.customPrompt, reconstructedDefault);
-		}
-
-		return {
-			systemPrompt: basePrompt,
-		};
+		// 不再改写 basePrompt：交给 pi 内核组装（默认提示词 + project_context + 本扩展的 section）。
+		return {};
 	});
 
 	// 5.3 核心生命周期：context_with_system (会话粘性补偿，杜绝长对话人设丢失)

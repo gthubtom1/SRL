@@ -6,7 +6,7 @@
 
   卸载范围（精准白名单，逐项可关）：
     · ~/.pi/agent/skills/<工作台技能>      —— 仅工作台自带的 11 大技能
-    · ~/.pi/agent/AGENTS.md / SYSTEM.md    —— 工作台写入的提示词
+    · ~/.pi/agent/AGENTS.md / SEEP.md      —— 工作台写入的提示词（旧版为 SYSTEM.md，一并清理）
     · ~/.pi/agent/extensions/*.ts          —— 工作台扩展
     · ~/.pi/agent/mcp.json 中的 seep / js-reverse / playwright 条目
     · ~/.pi/agent/settings.json 中工作台加入的 packages
@@ -34,7 +34,7 @@ param(
     [switch]$DryRun,          # 只显示将要做什么，不做任何修改
     [switch]$Yes,             # 跳过交互确认
     [switch]$KeepSkills,      # 保留已安装的技能
-    [switch]$KeepPrompts,     # 保留 AGENTS.md / SYSTEM.md / extensions
+    [switch]$KeepPrompts,     # 保留 AGENTS.md / SEEP.md / extensions
     [switch]$KeepMcp,         # 保留 mcp.json 中的工作台条目
     [switch]$KeepPackages,    # 保留 settings.json 中工作台加入的 packages
     [switch]$KeepLabFlag,     # 保留 lab-mode.flag
@@ -216,7 +216,7 @@ $plan['技能 (skills)'] = $skillHits
 
 $promptHits = @()
 if (-not $KeepPrompts) {
-    foreach ($f in @('AGENTS.md', 'SYSTEM.md')) {
+    foreach ($f in @('AGENTS.md', 'SEEP.md', 'SYSTEM.md')) {
         if (Test-Path (Join-Path $AgentDir $f)) { $promptHits += $f }
     }
     if (Test-Path $ExtDir) {
@@ -306,7 +306,7 @@ New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
 Write-Info "备份目录: $backupRoot"
 
 foreach ($n in $skillHits)   { Backup-Item (Join-Path $SkillsDir $n) $backupRoot "skills/$n" }
-foreach ($f in @('AGENTS.md', 'SYSTEM.md')) {
+foreach ($f in @('AGENTS.md', 'SEEP.md', 'SYSTEM.md')) {
     if ($promptHits -contains $f) { Backup-Item (Join-Path $AgentDir $f) $backupRoot $f }
 }
 foreach ($f in (Get-ChildItem $ExtDir -Filter '*.ts' -ErrorAction SilentlyContinue)) {

@@ -34,7 +34,7 @@ foreach ($d in @($AgentDir, $SkillsDir, $ExtDir)) {
 }
 
 $backup = Join-Path $AgentDir ("backup-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-$needBackup = @('SYSTEM.md', 'AGENTS.md', 'mcp.json', 'settings.json')
+$needBackup = @('SEEP.md', 'AGENTS.md', 'mcp.json', 'settings.json')
 $hasOld = $false
 foreach ($f in $needBackup) {
     if (Test-Path (Join-Path $AgentDir $f)) { $hasOld = $true; break }
@@ -79,10 +79,27 @@ if (Test-Path $srcSkills) {
 
 # ---------------------------------------------------------------- 3. 提示词 + 扩展
 $srcPrompt = Join-Path $ToolDir 'prompts'
-foreach ($f in @('SYSTEM.md', 'AGENTS.md')) {
+# ★ 文件名是 SEEP.md，不是 SYSTEM.md：pi 内核把 <agent-dir>/SYSTEM.md 理解为「替换默认系统提示词」，
+#   与扩展的 sections["seep-reverse-lab"] 叠加会让整份规则在提示词里出现两次，并顶掉 pi 自带的默认提示词。
+foreach ($f in @('SEEP.md', 'AGENTS.md')) {
     $src = Join-Path $srcPrompt $f
     if (Test-Path $src) { Copy-Item $src (Join-Path $AgentDir $f) -Force; Write-Ok "prompt: $f" }
     else { Write-Warn "未找到 $f" }
+}
+
+# 迁移：旧版把规则写成 ~/.pi/agent/SYSTEM.md，会被 pi 内核当“替换默认提示词”，必须退役
+$legacySystem = Join-Path $AgentDir 'SYSTEM.md'
+if (Test-Path $legacySystem) {
+    $isOurs = Select-String -Path $legacySystem -Pattern 'Seep Reverse Lab' -Quiet
+    if ($isOurs) {
+        $retired = Join-Path $AgentDir 'backup-retired-prompts'
+        if (-not (Test-Path $retired)) { New-Item -ItemType Directory -Path $retired -Force | Out-Null }
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        Move-Item -Path $legacySystem -Destination (Join-Path $retired "SYSTEM.md.$stamp") -Force
+        Write-Ok "已退役旧版 SYSTEM.md（会被 pi 内核当替换提示词）-> backup-retired-prompts/SYSTEM.md.$stamp"
+    } else {
+        Write-Warn "检测到非本工作台的 ~/.pi/agent/SYSTEM.md，保持原样（未迁移）"
+    }
 }
 $srcExt = Join-Path $srcPrompt 'extensions'
 if (Test-Path $srcExt) {

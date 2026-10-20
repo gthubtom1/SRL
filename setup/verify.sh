@@ -147,7 +147,7 @@ check_item "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" test
 
 # 3. 提示词
 echo -e "\n${WHITE}[3/9] 🧠 智能体指令系统与运行时拦截扩展 (Prompts & Extensions)${RESET}"
-check_item "提示词" "Pi Agent 系统指令 (SYSTEM.md 已就绪)" test -f "$TOOL_DIR/prompts/SYSTEM.md"
+check_item "提示词" "Pi Agent 系统指令 (SEEP.md 已就绪)" test -f "$TOOL_DIR/prompts/SEEP.md"
 check_item "提示词" "通用跨 Agent 规范 (AGENTS.md)" test -f "$TOOL_DIR/prompts/AGENTS.md"
 check_item "提示词" "Claude Code 项目级规范 (CLAUDE.md 在项目根)" test -f "$ROOT/CLAUDE.md"
 check_item "提示词" "DeepSeek Harness 配置文件 (DSH-PROFILE.md)" test -f "$ROOT/DSH-PROFILE.md"

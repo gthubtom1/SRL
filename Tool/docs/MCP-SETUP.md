@@ -46,7 +46,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 ```
 1. 备份现有 ~/.pi/agent/ 配置
 2. 复制 Skill  →  ~/.pi/agent/skills/
-3. 复制提示词  →  ~/.pi/agent/SYSTEM.md · AGENTS.md
+3. 复制提示词  →  ~/.pi/agent/SEEP.md · AGENTS.md
 4. 复制扩展    →  ~/.pi/agent/extensions/
 5. 生成 mcp.json：
      · <SEEP_ROOT>  → 本包实际路径

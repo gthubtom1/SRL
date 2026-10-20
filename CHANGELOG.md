@@ -10,6 +10,52 @@
 
 ---
 
+## [1.9.3] — 2026-10-20
+
+> 主题：**修复系统提示词重复注入** —— `SYSTEM.md` 改名 `SEEP.md`，释放 pi 内核的“替换默认提示词”槽位。
+
+### 问题（已部署用户会真实踩到）
+
+| 现象 | 根因 |
+|---|---|
+| 提示词里 `SYSTEM.md` **整份出现两次**（约 9.9k 字符/请求） | pi 内核把 `<agent-dir>/SYSTEM.md` 解释为**替换**默认系统提示词 → 变成 preamble；扩展 `load-system-prompt.ts` 又把**同一份文件**挂成 `sections["seep-reverse-lab"]` → 变成第二份 |
+| pi 自带默认提示词（工具约定 / Pi 文档索引 / Guidelines）**完全消失** | 同上的“替换”语义 |
+| 触发词清单在提示词里出现 **3 次**（AGENTS.md §三 + SYSTEM.md §3 ×2） | `SEEP.md §3` 与 `AGENTS.md §三` 是逐字副本 |
+| 一次性 `pi -p` 会话里 Seep 规则**静默不挂载** | `UnifiedPromptManager.sync()` 的 800ms 节流在进程启动首轮直接 return（`lastReload` 在类初始化时赋值） |
+| 扩展内 `buildDefaultPrompt` 自愈分支从未生效 | 依赖 `systemPromptOptions.customPrompt` 的字符串精确替换；pi web 路径不满足条件，且 CLI 路径也因节流而未触发 |
+
+### 变更
+
+- **`Tool/prompts/SYSTEM.md` → `Tool/prompts/SEEP.md`**（`git mv`）。pi 内核只识别 `SYSTEM.md` / `APPEND_SYSTEM.md` / `AGENTS.md` 这几个文件名，`SEEP.md` 对内核透明，只有扩展会读 → 单次注入。
+- `Tool/prompts/extensions/load-system-prompt.ts`：
+  - 新增常量 `SEEP_PROMPT_FILE = "SEEP.md"`，取代字面量；
+  - 删除 `buildDefaultPrompt()` 整段与 `customPrompt` 字符串替换“自愈”（连带移除 `BuildSystemPromptOptions` / `getDocsPath` 等导入）；
+  - `before_agent_start` 改为 `manager.sync(ctx.cwd, true)`，消除 800ms 节流导致的首次装配为空。
+- `Tool/prompts/SEEP.md`：§3 触发词清单改为指向 `AGENTS.md §三` 的指针（不再保留逐字副本）；文件头写明“绝不能叫 SYSTEM.md”的原因。
+- 安装/卸载/校验/文档全链路同步改名：`setup/install-pi.ps1`、`install.sh`、`uninstall.ps1`、`uninstall.sh`、`update.ps1`、`update.sh`、`verify.ps1`、`verify.sh`、`README*.md`、`AGENTS.md`、`CLAUDE.md`、`MANUAL/*`、`Tool/docs/*`、`破甲卡生成/*`。
+- **升级迁移**：`install-pi.ps1` 检测到 `~/.pi/agent/SYSTEM.md` 且内容含 `Seep Reverse Lab` 时，自动退役到 `~/.pi/agent/backup-retired-prompts/`；非本工作台的 `SYSTEM.md` **保持原样不动**。
+- 体检新增 1 项：「系统提示词槽位无冲突（`Tool/prompts/SYSTEM.md` 不存在）」→ **60 → 61 项**（只增不减）。
+
+### 修复后的提示词结构
+
+```
+pi 默认提示词（恢复）
++ <project_context>   AGENTS.md            ×1
++ <seep-reverse-lab>  SEEP.md              ×1
++ <skills>
+```
+
+### 升级步骤
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
+# 或已 clone：git pull，然后 cd setup && powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+装完**必须完全重启 Agent 会话**（提示词在会话启动时装配）。
+
+---
+
 ## [1.9.2] — 2026-10-20
 
 > 主题：**MCP 注册链路加固** —— 确认“发现/适配”链路结构上不可能触发扩展顶替，并补上条目的写入前/后校验。
