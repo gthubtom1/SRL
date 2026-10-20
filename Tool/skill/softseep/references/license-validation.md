@@ -1,6 +1,6 @@
 # 参考手册：客户端许可 / 激活 / 卡密 校验模型实战手册
 
-> **来源**：`Tool/client-license-validation-bypass/SKILL.md`（原独立 Skill，已并入 `softseep`）
+> **来源**：`Tool/skill/client-license-validation-bypass/SKILL.md`（原独立 Skill，已并入 `softseep`）
 > **定位**：跨运行时 × 跨校验模型的许可校验实战手册 —— 主流程 `SKILL.md` 的横向补充
 > **加载时机**：目标属于「许可 / 激活 / 卡密 / 订阅 / 试用 / 硬件绑定 / Token」类时
 > **边界**：仅已授权样本；与 scope、影响闸、证据门槛冲突时以后者为准。禁 DoS 扩大化、禁真实凭据外泄。

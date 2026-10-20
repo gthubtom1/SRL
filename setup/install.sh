@@ -126,6 +126,12 @@ fi
 # 注意：文件名是 SEEP.md（pi 内核会把 <agent-dir>/SYSTEM.md 当成替换默认提示词，导致重复注入）
 [ -f "$TOOL_DIR/prompts/SEEP.md" ] && cp "$TOOL_DIR/prompts/SEEP.md" "$AGENT_DIR/"
 [ -f "$TOOL_DIR/prompts/AGENTS.md" ] && cp "$TOOL_DIR/prompts/AGENTS.md" "$AGENT_DIR/"
+# 迁移：旧版把规则写成 ~/.pi/agent/SYSTEM.md，会被 pi 内核当"替换默认提示词"，必须退役
+if [ -f "$AGENT_DIR/SYSTEM.md" ] && grep -q "Seep Reverse Lab" "$AGENT_DIR/SYSTEM.md" 2>/dev/null; then
+    mkdir -p "$AGENT_DIR/backup-retired-prompts"
+    mv -f "$AGENT_DIR/SYSTEM.md" "$AGENT_DIR/backup-retired-prompts/SYSTEM.md.$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+    echo "  [√] 已退役旧版 SYSTEM.md（会被 pi 内核当替换提示词，导致规则重复注入）"
+fi
 if [ -d "$TOOL_DIR/prompts/extensions" ]; then
     cp "$TOOL_DIR/prompts/extensions/"*.ts "$AGENT_DIR/extensions/" 2>/dev/null || true
     # 自动安全退役与归档已融合的旧版独立扩展（其人设卡/RULES/粘性保护已100%全量融入 load-system-prompt.ts）

@@ -6,7 +6,7 @@
 
 ## 一、 项目背景与定位
 
-本工程为面向 AI Agent 的**多平台客户端逆向工程与授权流安全审计（CWE-602）工作台**。深度覆盖 Windows PE/DLL、Android APK/DEX/SO、Linux ELF。包含 10 大逆向 Skill、4 大核心 MCP 服务、289+ 篇实战知识库与 14 个脱敏工业架构范式。
+本工程为面向 AI Agent 的**多平台客户端逆向工程与授权流安全审计（CWE-602）工作台**。深度覆盖 Windows PE/DLL、Android APK/DEX/SO、Linux ELF。包含 10 大逆向 Skill、4 大核心 MCP 服务、292+ 篇实战知识库与 14 个脱敏工业架构范式。
 
 ---
 
@@ -85,7 +85,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
   Agent 读取命令返回后，必须以 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准为蓝本，在对话框向用户输出清晰的结构化校对看板，包含：
   1. **🛠️ 技能系统 (Skills - 9项)**：逐项列出【技能名】\|【目标路径】\|【期望文件数】\|【实际文件数】\|【可用状态 (🟢 READY / 🔴 MISSING)】；
   2. **🔌 MCP 服务 (4大引擎)**：逐项列出【服务名】\|【期望工具数】\|【实际状态】\|【状态判定】\|【降级或修复说明】（未装 IDA 时明确标明 `🟡 DEGRADED: 已由内置 Radare2 自动承接`）；
-  3. **🔧 物理内置工具箱**：Radare2 (v6.2.2)、Jadx (v1.5.6)、Apktool (v3.0.3) 与 289+ 知识库状态；
+  3. **🔧 物理内置工具箱**：Radare2 (v6.2.2)、Jadx (v1.5.6)、Apktool (v3.0.3) 与 292+ 知识库状态；
   4. **🚀 总结与开工建议**：告知用户工作台当前可用能力，并提示重启会话输入 `lab：` 开启白盒审计。
 
 ---
@@ -121,5 +121,5 @@ Seep\
 │   ├── docs\          MCP-SETUP、DOWNLOADS、PROVENANCE、EXT-ASSETS、FORK-DELTA（差分台账）等
 │   └── scripts\       任务沙盒初始化与签名工作流
 ├── setup\             安装与自检脚本集 (install.ps1, install.sh, generate-configs.ps1)
-└── MANUAL\            13 份专项手册 (DEPLOYMENT / UNPACKING / BASELINE-FREEZE / SKILL-CREATION-GUIDE 等)
+└── MANUAL\            14 份专项手册 (DEPLOYMENT / UNPACKING / BASELINE-FREEZE / SKILL-CREATION-GUIDE 等)
 ```

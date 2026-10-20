@@ -142,12 +142,37 @@ test_kb_count() {
     n=$(find "$KB_DIR" -name '*.md' | wc -l | tr -d ' ')
     [ "$n" -ge 280 ]
 }
-check_item "知识库" "战术实战笔记 (289篇完整检索库 ≥280 篇)" test_kb_count
+check_item "知识库" "战术实战笔记 (292 篇完整检索库 ≥280 篇)" test_kb_count
 check_item "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" test -d "$TOOL_DIR/mcp/Tool/reverselab/tools/skills/mcp"
+
+
+# 提示词契约态断言（与 verify.ps1 的「SEEP.md 契约态 / 三件套就绪」等价）
+check_seep_contract() {
+    local p="$TOOL_DIR/prompts/SEEP.md"
+    [ -f "$p" ] || return 1
+    local len
+    len=$("$PY_BIN" -c "import sys;print(len(open(sys.argv[1],encoding='utf-8').read()))" "$p" 2>/dev/null || wc -m < "$p")
+    [ "${len:-99999}" -le 2500 ] || return 1
+    grep -q "AGENTS.md" "$p" || return 1
+    grep -q "routing.json" "$p" || return 1
+    grep -q "seep_status" "$p" || return 1
+    if grep -qE "[0-9]+[[:space:]]*个工具" "$p"; then return 1; fi
+    return 0
+}
+
+check_prompt_stack() {
+    [ ! -f "$TOOL_DIR/prompts/SYSTEM.md" ] || return 1
+    grep -q "BOUNDARY_ANCHOR" "$TOOL_DIR/prompts/extensions/load-system-prompt.ts" || return 1
+    grep -q "seep-boundary" "$TOOL_DIR/prompts/extensions/load-system-prompt.ts" || return 1
+    grep -q "appendBoundaryTail" "$TOOL_DIR/prompts/extensions/security-audit-interceptor.ts" || return 1
+    grep -q "looksLikePersonaCard" "$TOOL_DIR/prompts/extensions/security-audit-interceptor.ts" || return 1
+    return 0
+}
 
 # 3. 提示词
 echo -e "\n${WHITE}[3/9] 🧠 智能体指令系统与运行时拦截扩展 (Prompts & Extensions)${RESET}"
-check_item "提示词" "Pi Agent 系统指令 (SEEP.md 已就绪)" test -f "$TOOL_DIR/prompts/SEEP.md"
+check_item "提示词" "Pi Agent 系统指令 (SEEP.md 契约态)" check_seep_contract
+check_item "提示词" "提示词槽位 / 边界锚 / 人格守卫三者就绪" check_prompt_stack
 check_item "提示词" "通用跨 Agent 规范 (AGENTS.md)" test -f "$TOOL_DIR/prompts/AGENTS.md"
 check_item "提示词" "Claude Code 项目级规范 (CLAUDE.md 在项目根)" test -f "$ROOT/CLAUDE.md"
 check_item "提示词" "DeepSeek Harness 配置文件 (DSH-PROFILE.md)" test -f "$ROOT/DSH-PROFILE.md"
