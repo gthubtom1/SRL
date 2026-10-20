@@ -107,7 +107,7 @@ function Get-WorkbenchExtensionNames {
     $names = @()
     $src = Join-Path $Root 'Tool\prompts\extensions'
     if (Test-Path $src) {
-        foreach ($f in (Get-ChildItem $src -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
+        foreach ($f in (Get-ChildItem $src -Include '*.ts','*.json','*.md' -ErrorAction SilentlyContinue)) {
             $names += $f.Name
         }
     }
@@ -221,7 +221,7 @@ if (-not $KeepPrompts) {
     }
     if (Test-Path $ExtDir) {
         $workbenchExts = Get-WorkbenchExtensionNames
-        foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
+        foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json','*.md' -ErrorAction SilentlyContinue)) {
             if ($workbenchExts -contains $f.Name) {
                 $promptHits += "extensions/$($f.Name)"
             }

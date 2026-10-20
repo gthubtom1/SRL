@@ -112,6 +112,11 @@ if (Test-Path $srcExt) {
         Copy-Item $f.FullName (Join-Path $ExtDir $f.Name) -Force
         Write-Ok "extension rules: $($f.Name)"
     }
+    # 扩展的文档型配置（TOOL-CHAIN.md：cmd-guard 的 GUI→CLI 派生源；缺它会降级并常年告警）
+    foreach ($f in (Get-ChildItem $srcExt -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        Copy-Item $f.FullName (Join-Path $ExtDir $f.Name) -Force
+        Write-Ok "extension doc: $($f.Name)"
+    }
     # 自动安全退役与归档已融合的旧版独立扩展（其人设卡/RULES/粘性保护已100%全量融入 load-system-prompt.ts）
     $legacyCompat = Join-Path $ExtDir 'prompt-compat.ts'
     if (Test-Path $legacyCompat) {
