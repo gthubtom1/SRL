@@ -237,32 +237,37 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 
 > ⚠️ 需先装其 Python 依赖（见该目录 `requirements.txt`）。
 
-### 8.1 x64dbg 的 MCP：需要 SSE 桥接
+### 8.1 x64dbg 的 MCP：原生就能接（实测）
 
-x64dbg 插件 `x64dbg-MCP-Server.dp64`（放在 `x64dbg\release\x64\plugins\`）会在 x64dbg 启动时
-自动开一个 **SSE** 端点（默认 `http://127.0.0.1:9094/sse`，鉴权 `Authorization: Bearer <token>`，
-token 在同目录 `mcp_config.json` 的 `AuthToken`）。
+x64dbg 插件 `x64dbg-MCP-Server.dp64`（`x64dbgeleased\plugins\`）在 x64dbg 启动时自动起服务
+（`mcp_config.json` 里 `AutoStart:true`，端口 9094，鉴权 `Authorization: Bearer <AuthToken>`）。
 
-**pi 只接受 streamable HTTP，明确拒绝 SSE**（见 pi `docs/mcp.md`），所以不能直接填 `url`。
-需要用桥接把 SSE 转成 stdio：
+**实测结论：它原生支持 streamable HTTP**，不需要任何桥接：
 
-```powershell
-# token 从 x64dbg 的 mcp_config.json 读，别写死在 mcp.json 里
-$cfg = Get-Content "D:\Tools\x64dbg\release\x64\mcp_config.json" -Raw | ConvertFrom-Json
+```bash
+POST http://127.0.0.1:9094/mcp  → 200，返回 initialize（serverInfo: x64dbg-MCP Server v1.5，80 tools）
+GET  http://127.0.0.1:9094/sse  → 也有，但只是兼容路径；无 token 一律 401
 ```
+
+注册方式（token **不写进 mcp.json**，用 pi 的 `!命令` 动态取，值始终留在 x64dbg 自己的配置里）：
 
 ```json
 "x64dbg": {
-  "command": "npx",
-  "args": ["-y", "mcp-remote", "http://127.0.0.1:9094/sse", "--allow-http",
-           "--header", "Authorization: Bearer <你的 AuthToken>"],
-  "transport": "stdio",
+  "url": "http://127.0.0.1:9094/mcp",
+  "headers": {
+    "Authorization": "!python -c \"import json;print('Bearer '+json.load(open('D:/Tools/x64dbg/release/x64/mcp_config.json',encoding='utf-8'))['AuthToken'])\""
+  },
+  "transport": "http",
   "lifecycle": "lazy"
 }
 ```
 
-> 前提：**x64dbg 必须先运行**，否则端点不存在，连接会失败（`lifecycle: lazy` 保证它不拖慢启动）。
-> 不想用桥接就别注册 —— r2 + IDA 已覆盖反汇编与调试的主要场景。
+> **前提：x64dbg 必须先运行。** 不想手动点？让 Agent 跑
+> `powershell -File Tool/scripts/wake-gui-mcp.ps1 -Tool x64dbg [-Target <样本>]`
+> —— 它自己定位 exe、启动、轮询 9094 到就绪（实测 1.3s）。
+> `lifecycle: lazy` 保证 x64dbg 关着时不会拖慢会话启动。
+>
+> 实测：`mcp__x64dbg__GetDebugState` 返回 `isDebugging: false`，80 个工具全部可用。
 
 ### 8.2 Ghidra
 
