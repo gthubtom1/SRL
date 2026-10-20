@@ -48,7 +48,7 @@ description: "{clean_desc}"
 metadata:
   version: "1.0.0"
   target_runtimes: "Windows PE | Android DEX/SO | Multi-Platform"
-  compatible_workbench: "Seep v1.8.4+"
+  compatible_workbench: "Seep v1.10.0+"
 ---
 
 # {display_title}
@@ -85,7 +85,7 @@ metadata:
 
 ## 三、 调度纪律
 
-- 遵循平台统一的 G-Auth 授权门禁（未经测试授权严禁操作）；
+- 遵循平台统一 G-Auth：目标默认视为已授权沙箱、直接开工；仅当用户明确声明「不属于我 / 没授权」时才停（事实源 `Tool/prompts/AGENTS.md` §六）；
 - 同构路径失败 2 次必须触发熔断换法，禁止无效死磕。
 """
     return template
@@ -100,7 +100,7 @@ def register_to_softseep(name: str, desc: str) -> bool:
             return True  # 已经注册过
 
         # 找到资源表末尾插入
-        anchor = "| client-license-validation-bypass | `Tool/client-license-validation-bypass/SKILL.md` | 许可校验专项 |"
+        anchor = "| | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |"
         new_row = f"| | **{name}** | `Tool/skill/{name}/SKILL.md` | {desc[:20]} |"
         if anchor in content:
             content = content.replace(anchor, f"{anchor}\n{new_row}")
@@ -109,6 +109,47 @@ def register_to_softseep(name: str, desc: str) -> bool:
     except Exception:
         pass
     return False
+
+
+
+ROUTING_JSON = os.path.join(ROOT, "Tool", "scripts", "routing.json")
+
+
+def register_to_routing(name: str, desc: str) -> bool:
+    """把新技能注册进路由单一事实源 routing.json。
+
+    为什么必须做：master-route.ps1 / case-init.ps1 只认 routing.json。
+    技能只写进 softseep 的可调度表，路由表里没有条目 → 判型时永远命中不到它。
+    """
+    if not os.path.isfile(ROUTING_JSON):
+        return False
+    try:
+        import json
+        with open(ROUTING_JSON, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        routes = cfg.setdefault("routes", {})
+        for r in routes.values():
+            if isinstance(r, dict) and r.get("skill", "").split("/")[0] == name:
+                return True
+        used = set(routes.keys())
+        n = 10
+        while f"R{n}" in used:
+            n += 1
+        rid = f"R{n}"
+        routes[rid] = {
+            "label": f"{name} 专项",
+            "skill": f"{name}/SKILL.md",
+            "keywords": [{"must": f"(?i){name}"}],
+        }
+        pri = cfg.setdefault("priority", [])
+        if rid not in pri:
+            pri.insert(max(0, len(pri) - 1), rid)   # 插在 fallback(R0) 之前
+        with open(ROUTING_JSON, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        return True
+    except Exception:
+        return False
 
 
 def sync_to_agent(target_dir: str, name: str) -> bool:
@@ -143,6 +184,7 @@ def main():
         f.write(content)
 
     registered = register_to_softseep(clean_name, args.desc or f"{clean_name} 专项技能")
+    routed = register_to_routing(clean_name, args.desc or f"{clean_name} 专项")
     synced = sync_to_agent(target_dir, clean_name)
 
     result = {
@@ -150,6 +192,7 @@ def main():
         "skill_name": clean_name,
         "path": skill_file,
         "registered_to_softseep": registered,
+        "registered_to_routing": routed,
         "synced_to_agent_skills": synced,
         "format": "UTF-8 No-BOM (YAML Frontmatter Compliant)",
         "message": f"技能 '{clean_name}' 已成功按照规范生成并自动注册！可在 Agent 中直接引用: lab：引用技能 {clean_name}"

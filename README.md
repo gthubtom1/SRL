@@ -248,7 +248,7 @@ Seep\ (251 MB)
 │   │       └── reverselab\        ← 289 篇战术笔记 + 攻击链模板
 │   │
 │   ├── prompts\                   ← 智能体协同规范与运行时扩展
-│   │   ├── SEEP.md              ← Pi Agent 系统指令
+│   │   ├── SEEP.md              ← 装配契约（五层裁决 + 指针；≤2500 字符，见 MANUAL/PROMPT-LAYERS.md）
 │   │   ├── AGENTS.md              ← 跨 Agent 通用指令规范
 │   │   └── extensions\            ← BLOCK_NONE 注入 + 口语合规转译
 │   │
@@ -262,7 +262,7 @@ Seep\ (251 MB)
 │       └── compliance-relay\      ← 🌐 链路层合规转译中继（纯标准库，三协议）
 │
 ├── setup\                         ← 安装、修复、更新、卸载与校验脚本集
-└── MANUAL\                        ← 13 份战术专项 SOP 手册
+└── MANUAL\                        ← 14 份战术专项 SOP 手册
     ├── ZERO-TO-HERO-WORKFLOW.md   ← ⭐ 零基础通关指南（手把手从零做出免激活成品）
     ├── BASELINE-FREEZE.md         ← 🔒 基线定档 / 增量演进 / 反臃肿预算（v1.8.4 起骨架冻结）
     ├── SKILL-CREATION-GUIDE.md    ← 外挂技能创作规范（new-skill 脚手架配套）
@@ -275,7 +275,8 @@ Seep\ (251 MB)
     ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（61 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
-    └── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
+    ├── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
+    └── PROMPT-LAYERS.md           ← 🧩 提示词五层装配 / 人格卡兼容矩阵 / G-Auth 统一裁决（改提示词前必读）
 ```
 
 </details>

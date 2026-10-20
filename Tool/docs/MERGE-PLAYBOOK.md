@@ -25,6 +25,9 @@
 | 一整套**新战场技能**（如 macOS、固件、内核） | `Tool/skill/<新名>/SKILL.md` + `references/` | 新增目录 | `softseep/SKILL.md` 的"可调度资源"表加一行 |
 | 新的**知识库文章** | `Tool/mcp/Tool/reverselab/kb/<分类>/` | 新增 `.md` | 无（`seep_kb_search` 自动收录） |
 | 别人的**整个上游仓库** | `Tool/upstream/<名>/` + `setup/upstream-rules.json` 加声明 | 新增目录 + 声明 | 用 `setup/sync-upstream.py` 定点同步 |
+| 一段**跨宿主纪律**（Lab 开关 / 反退缩 / 工具纪律 / G-Auth） | `Tool/prompts/AGENTS.md` 对应章节 | **插入**一段 | 不要复制到别处；它已是唯一事实源 |
+| **pi 装配契约 / 层间裁决** | `Tool/prompts/SEEP.md`（**硬上限 2,500 字符，只放指针**） | 改结构 | 必须跑 verify（体检项「SEEP.md 契约态」） |
+| **人格卡 / 风格层的规则** | `~/.pi/agent/personas/*.md`（**不入仓库**） | 用户自管 | 人格卡只写风格；scope/授权/词表属 L0/L1 |
 
 **判断口诀**：能被模型当"工具"调用的 → MCP 工具；能被模型"读"的战术 → references/kb；能被"自动探测"的 → config。
 
@@ -70,6 +73,19 @@ def seep_你的工具名(arg1: str, arg2: int = 0) -> str:
     # ... 实现 ...
     return json.dumps({...}, indent=2, ensure_ascii=False)
 ```
+
+---
+
+## 3bis. 改「提示词层」的硬性规范（v1.10.0 起）
+
+| 规则 | 为什么 |
+|---|---|
+| `SEEP.md` **只放指针**：层间裁决 + 去哪查；**不写**工具数量、不列技能清单、不复制拒答词表 | 这些每换一次就过期一次；写进去后 `verify.ps1` 的「SEEP.md 契约态」会判红（≤2500 字符 / 无「N 个工具」/ 必须保留 AGENTS.md、routing.json、seep_status 三个指针） |
+| 战术细节写 `references/*.md` 或技能，**不写进提示词** | 提示词每轮都进上下文，写多了纯烧 token |
+| 边界（凭据红线 / 授权门 / 沙箱契约）只写在**扩展常量**里，不写到人格卡 | 人格卡是用户随时替换的资产，边界不能跟着一起换 |
+| 人格卡只写风格（语气/人称/开场/角色扮演）；**scope、授权、banned-token、路由表都属 L0/L1** | 人格卡一写这些就与边界锚正面冲突（锚会赢，但纯浪费上下文） |
+| 改完必须验证两次：`verify.ps1 -Detailed` + 起一个会话看装配 dump | 位置类问题（锚在不在末尾、段有没有重复）只有实测能证明 |
+| 层规则与人格卡兼容矩阵的唯一说明：`MANUAL/PROMPT-LAYERS.md` | 避免"改提示词"的知识散落在聊天记录里 |
 
 ---
 

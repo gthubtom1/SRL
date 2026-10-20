@@ -196,7 +196,7 @@ Seep\ (251 MB)
 │   │       └── reverselab\        ← 289 field journals + attack chains
 │   │
 │   ├── prompts\                   ← Agent coordination specs & runtime extensions
-│   │   ├── SEEP.md              ← Pi Agent system instructions
+│   │   ├── SEEP.md              ← assembly contract (5-layer precedence + pointers; see MANUAL/PROMPT-LAYERS.md)
 │   │   ├── AGENTS.md              ← Cross-agent portable instructions
 │   │   └── extensions\            ← BLOCK_NONE injection + terminology mapping
 │   │
@@ -210,7 +210,7 @@ Seep\ (251 MB)
 │       └── compliance-relay\      ← 🌐 Transport-layer compliance relay (stdlib-only, 3 protocols)
 │
 ├── setup\                         ← Automated install, repair, update, uninstall & verify scripts
-└── MANUAL\                        ← 11 Tactical SOP guides
+└── MANUAL\                        ← 12 Tactical SOP guides (incl. PROMPT-LAYERS.md)
     ├── PREREQUISITES.md           ← Environment & dependency requirements
     ├── IDA-PRO.md                 ← Commercial IDA Pro integration (native idalib + stdio modes)
     ├── ANTI-DEBUG.md              ← Anti-debug bypass dictionary & proxy DLL framework
