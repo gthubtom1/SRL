@@ -205,6 +205,21 @@ metadata:
 > **表外未知工具只报『路径已发现』，绝不假装能控**，也绝不靠 `-h/--help` 现场试探（有些软件没 `-h`，一探就崩）。
 > 补工具进能力表时，先联网检索其 GitHub/官方文档。
 
+### codemode 调用约定（省掉每会话的探测开销）
+
+seep 的 MCP 工具在 **codemode 命名空间**下，名字是 `mcp__seep__seep_<tool>`，**可直接调用**：
+
+```js
+const r = await tools.mcp__seep__seep_kb_search({ query: "完整性校验 反作弊", limit: 12 });
+const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
+") ?? "";
+```
+
+- 常用签名：`seep_kb_search({ query, category?, limit? })` / `seep_kb_read({ article_path, max_chars? })` / `seep_status()`
+- **不确定签名时只查一条**：`searchTools("seep_kb")`，不要 `describeNamespace` 整个 namespace（一次调用就够，别花两次）
+- 返回统一取 `structuredContent.result`（字符串），失败时取 `content[].text`
+- 知识库根**是常量**：`Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认）——不要 `find`/`grep` 去找它
+
 ### 跨平台共通项（判型后仍适用）
 
 - 授权/许可分析 → 【前置门控】四问 + 九型判型（**两平台通用**）

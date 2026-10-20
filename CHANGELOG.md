@@ -10,6 +10,37 @@
 
 ---
 
+## [1.10.5] — 2026-10-20
+
+> 主题：**把 codemode 调用约定写进技能** —— 每会话少花 1–2 次探测调用。
+
+### 问题（会话 `01a15890` 实测）
+
+检索本身已完全正常（`seep_kb_search` top1 = `04-anti-cheat-bypass`，score 66.5，并按新规则用
+`seep_status` 确认了 KB 根，**没有再 find/grep 找路径**）。但开头多了两次纯探测：
+
+```
+describeNamespace("mcp__seep")   ← 列出 38 个工具名
+describeTool("seep_kb_search")   ← 只为看参数签名
+```
+
+原因：MCP 工具在 codemode 命名空间下**不直接声明给模型**，模型不知道名字与签名。
+
+### 变更
+
+- `Tool/skill/softseep/SKILL.md` 新增《codemode 调用约定》：
+  - 工具名规则 `mcp__seep__seep_<tool>`，可直接调用，不必先 describe
+  - 三个常用签名（`seep_kb_search` / `seep_kb_read` / `seep_status`）
+  - 不确定签名时只查一条 `searchTools("seep_kb")`，不要 describe 整个 namespace
+  - 返回值统一取 `structuredContent.result`
+  - KB 根是常量，不要 find/grep 去找
+
+### 回归
+
+`verify.ps1` 61/61 · `check-budget` 全绿（first-party 657/900）。
+
+---
+
 ## [1.10.4] — 2026-10-20
 
 > 主题：**把"已知常量"写进提示词** —— 别再让 agent 花 5 条命令去找一个它本就知道的路径。
