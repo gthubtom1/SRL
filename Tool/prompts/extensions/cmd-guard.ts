@@ -420,8 +420,7 @@ const RECURSIVE_SCAN =
  *   实测事故：agent 发出 `find / -maxdepth 8 -type d -name x`，未命中任何规则，
  *   只拿到默认 120s，仍在盘根扫了几分钟。
  */
-const POSIX_ROOT_SCAN = /\b(find|rg|grep|du|tree)\b[^\n]*?(?:^|\s)\/(?=\s|$)/i;
-
+const POSIX_ROOT_SCAN = /\b(find|du|tree)\b[^\n]*?\s\/((\s)|$)|\b(grep|rg)\b[^\n]*?\s-[a-zA-Z]*r[a-zA-Z]*\s[^\n]*?\s\/((\s)|$)/i;
 /** 命中盘根递归扫描则返回该命令片段，否则 null。 */
 function detectRootScan(cmd: string): string | null {
 	if (POSIX_ROOT_SCAN.test(cmd)) return cmd.trim();

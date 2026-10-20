@@ -122,34 +122,32 @@ def posix(path: str) -> str:
 
 
 def build_mcp_entries(root: str, existing: dict, allow_ida: bool) -> dict:
-    """生成工作台标准 MCP 条目（只用真实路径，绝不写占位符）。"""
+    """生成工作台标准 MCP 条目（只用真实路径，绝不写占位符）。
+
+    ★ 条目清单在 Tool/config/mcp-servers.json —— 新增 MCP 只加一条，本函数不用改。
+    """
     root_posix = posix(os.path.abspath(root))
-    server_py = root_posix + "/Tool/mcp/seep_mcp_server.py"
     entries = {}
 
-    entries["seep"] = {
-        "command": "python",
-        "args": [server_py],
-        "env": {"PYTHONIOENCODING": "utf-8"},
-        "transport": "stdio",
-    }
+    cfg_path = os.path.join(root, "Tool", "config", "mcp-servers.json")
+    servers = {}
+    try:
+        with open(cfg_path, encoding="utf-8") as f:
+            servers = (json.load(f) or {}).get("servers", {})
+    except Exception:
+        log("  [!!] 读不到 Tool/config/mcp-servers.json，跳过 MCP 注册")
 
-    entries["js-reverse"] = {
-        "command": "npx",
-        "args": ["-y", "js-reverse-mcp"],
-        "transport": "stdio",
-        "lifecycle": "lazy",
-    }
-
-    # Playwright：只在用户还没配过时补一条模板（绝不覆盖用户已有 Token）
-    if not existing.get("playwright"):
-        entries["playwright"] = {
-            "command": "npx",
-            "args": ["-y", "@playwright/mcp@latest", "--extension"],
-            "env": {"PLAYWRIGHT_MCP_EXTENSION_TOKEN": "<YOUR_PLAYWRIGHT_TOKEN>"},
-            "transport": "stdio",
-            "lifecycle": "eager",
-        }
+    for name, entry in servers.items():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("onlyIfMissing") and existing.get(name):
+            log("  mcp: 保留用户已有条目 %s" % name)
+            continue
+        text = json.dumps(entry, ensure_ascii=False).replace("{ROOT_POSIX}", root_posix)
+        try:
+            entries[name] = json.loads(text)
+        except Exception:
+            log("  [!!] mcp 条目 %s 模板解析失败，跳过" % name)
 
     # IDA：只有真探测到（环境变量显式给出，或用户已配置）才生成；
     # 否则不生成 —— 绝不把 "<IDA_PYTHON>" 这种占位符写进可执行配置。

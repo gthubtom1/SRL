@@ -1,0 +1,6 @@
+{
+  "_comment": "悬空引用允许清单：指向仓库外/未随包分发的合法引用，必须写清理由。新增一条 = 承认它是外部引用，不是漏拷文件。",
+  "allow": {
+    "docs/tool-verification": "apk-reverse 上游的验证记录，未随包分发（原文档已标注 'repository root, not shipped'）"
+  }
+}

@@ -149,39 +149,25 @@ if (-not $existingConfig.mcpServers) {
     $existingConfig | Add-Member -NotePropertyName 'mcpServers' -NotePropertyValue ([PSCustomObject]@{}) -Force
 }
 
-# 挂载核心 seep MCP
-$seepServerPy = "$NormalizedRoot/Tool/mcp/seep_mcp_server.py"
-$seepEntry = [PSCustomObject]@{
-    command = "python"
-    args    = @($seepServerPy)
-    env     = [PSCustomObject]@{
-        PYTHONIOENCODING = "utf-8"
-    }
-    transport = "stdio"
-}
-$existingConfig.mcpServers | Add-Member -NotePropertyName 'seep' -NotePropertyValue $seepEntry -Force
-
-# 挂载 js-reverse
-$jsReverseEntry = [PSCustomObject]@{
-    command   = "npx"
-    args      = @("-y", "js-reverse-mcp")
-    transport = "stdio"
-    lifecycle = "lazy"
-}
-$existingConfig.mcpServers | Add-Member -NotePropertyName 'js-reverse' -NotePropertyValue $jsReverseEntry -Force
-
-# 挂载 playwright (若不存在才添加模板，不冲掉用户现有 Token)
-if (-not $existingConfig.mcpServers.playwright) {
-    $playwrightEntry = [PSCustomObject]@{
-        command   = "npx"
-        args      = @("-y", "@playwright/mcp@latest", "--extension")
-        env       = [PSCustomObject]@{
-            PLAYWRIGHT_MCP_EXTENSION_TOKEN = "<YOUR_PLAYWRIGHT_TOKEN>"
+# 挂载 MCP 服务：清单在 Tool/config/mcp-servers.json —— 新增 MCP 只加一条，本脚本不用改
+$mcpCfgPath = Join-Path $ToolDir 'config\mcp-servers.json'
+if (Test-Path $mcpCfgPath) {
+    $mcpCfg = Get-Content -LiteralPath $mcpCfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    foreach ($p in $mcpCfg.servers.PSObject.Properties) {
+        $name = $p.Name
+        $entry = $p.Value
+        if ($entry.onlyIfMissing -and $existingConfig.mcpServers.$name) {
+            Write-Info "mcp: 保留用户已有条目 $name"
+            continue
         }
-        transport = "stdio"
-        lifecycle = "eager"
+        $jsonText = ($entry | ConvertTo-Json -Depth 10)
+        $jsonText = $jsonText.Replace('{ROOT_POSIX}', $NormalizedRoot)
+        $obj = $jsonText | ConvertFrom-Json
+        $existingConfig.mcpServers | Add-Member -NotePropertyName $name -NotePropertyValue $obj -Force
+        Write-Ok "mcp: $name"
     }
-    $existingConfig.mcpServers | Add-Member -NotePropertyName 'playwright' -NotePropertyValue $playwrightEntry -Force
+} else {
+    Write-Warn "未找到 Tool/config/mcp-servers.json，跳过 MCP 注册"
 }
 
 # 序列化为 UTF-8 No BOM 格式写入
