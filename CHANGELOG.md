@@ -10,6 +10,41 @@
 
 ---
 
+## [1.10.15] — 2026-10-20
+
+> 主题：**新电脑由 Agent 自己装** —— 用户只说"这台还没配"，不需要知道任何脚本名。
+
+### 新增
+
+- **`Tool/scripts/env-check.py`**：一条命令判断"这台机器装没装好"。
+  检查 `~/.pi/agent`、`SEEP.md`/`AGENTS.md`、扩展（.ts/.json/.md 三类）、技能、
+  `mcp.json` 里指向本地文件的参数是否存在、settings 的 packages 与 retry 档位；
+  输出 `installed` / `missing[]` / `next_actions[]`（JSON 或 `--text`）。退出码 0=就绪，1=需安装。
+- **`Tool/docs/BOOTSTRAP.md`**：给 Agent 的装机 runbook —— 判断 → 安装 → 校验 → 失败处置表 → 四栏汇报。
+  铁律：**能自己跑的绝不交给用户**；只有 Python / Node / Java / IDA 授权这类系统级前提才找用户。
+
+### 接线（Agent 会自己读到的入口）
+
+| 文件 | 加的内容 |
+|---|---|
+| `Tool/prompts/AGENTS.md` §二 | 表格首行：**新电脑 / 首次部署 / 状态不明** → 先 `env-check.py`，未就绪则自己跑 `install.ps1` 再 `verify` |
+| `CLAUDE.md` | 「0. 新机器 / 首次部署（由 Agent 完成）」小节 |
+| `README.md` | 部署段前置说明：换电脑时让 Agent 自检自装，用户不用手动跑脚本 |
+
+### 现在的完整闭环（用户视角）
+
+```
+用户：这台还没配，帮我装一下（或直接说任务）
+Agent：env-check（缺什么）→ install.ps1（自己装）→ verify.ps1 61/61 + preflight 11/11
+      → 四栏汇报 → "重启会话后输入 lab：即可开工"
+```
+
+### 验证
+
+`env-check.py --text` 在本机 → `结论: 已就绪`，MCP 异常 0；`verify.ps1` 61/61；`preflight --fast` 11/11。
+
+---
+
 ## [1.10.14] — 2026-10-20
 
 > 主题：**让 Agent 自己知道用哪个工具** —— 用户说人话，不用户去记工具名。

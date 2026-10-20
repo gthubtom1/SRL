@@ -46,6 +46,7 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
 
 | 用户说 | 必须执行 |
 | :--- | :--- |
+| **新电脑 / 首次部署 / 状态不明** | `python Tool/scripts/env-check.py --text` → 未就绪则**自己**跑 `setup\install.ps1` → `verify.ps1` → 汇报（见 `Tool/docs/BOOTSTRAP.md`）。**不要让用户手动跑脚本** |
 | 部署 / 安装环境 | `cd setup && powershell -ExecutionPolicy Bypass -File .\install.ps1` |
 | 更新 / 拉最新版 | `powershell -ExecutionPolicy Bypass -File .\setup\update.ps1`（Linux/macOS：`./setup/update.sh`） |
 | 卸载 / 彻底删除 | `powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1`（先 `-DryRun`） |
