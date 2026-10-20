@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup\sync-upstream.ps1 -Target all
 ```
-由 `setup/upstream-rules.json` 规则驱动并由 `setup/sync-upstream.py` 执行物理路径断言，确保上游 A 仓库改动严格限定在 `Tool/upstream/A/`，绝不外溢到其他目录。
+由 `setup/upstream-rules.json` 规则驱动并由 `setup/sync-upstream.py` 执行物理路径断言，确保每个上游仓库的改动严格限定在 `Tool/upstream/<名>/`，绝不外溢到其他目录。
 
 ### 1c. 卸载
 若用户说 **“卸载工作台”**、**“怎么彻底删除”**、**“不想要了怎么清理”**，Agent 必须执行：

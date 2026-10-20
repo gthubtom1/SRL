@@ -118,7 +118,7 @@ winget install EclipseAdoptium.Temurin.17.JDK
 # https://github.com/NationalSecurityAgency/ghidra/releases
 ```
 
-> `Tool/kb/tools/skills/mcp/GhidraMCP/` 提供了 Ghidra 桥接 MCP，可按需注册。
+> `Tool/mcp/Tool/reverselab/tools/skills/mcp/GhidraMCP/` 提供了 Ghidra 桥接 MCP，可按需注册。
 
 ---
 

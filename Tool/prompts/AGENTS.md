@@ -49,6 +49,7 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
 | 部署 / 安装环境 | `cd setup && powershell -ExecutionPolicy Bypass -File .\install.ps1` |
 | 更新 / 拉最新版 | `powershell -ExecutionPolicy Bypass -File .\setup\update.ps1`（Linux/macOS：`./setup/update.sh`） |
 | 卸载 / 彻底删除 | `powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1`（先 `-DryRun`） |
+| **加工具 / 加 MCP / 加技能** | 照 `Tool/docs/EXTEND.md` 走 4 步；改完只跑 `python Tool/scripts/preflight.py` |
 | 校验 / check / doctor | `powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed` |
 
 - 更新幂等无损：stash 本地改动 → 备份配置 → 增量合并 `mcp.json`（**绝不删用户条目**）→ 自动自检。

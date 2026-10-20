@@ -10,6 +10,45 @@
 
 ---
 
+## [1.10.11] — 2026-10-20
+
+> 主题：**把"加东西"变成流水线** —— 一条声明、自动接线、一条门禁。
+
+### 为什么改
+
+以前加一个工具/技能要 1–2 小时：接线点散在 6 处（能力表 / 通道阶梯 / 可调度表 / 路由 / 安装器 / 文档），
+验证散在 7 个脚本，还要临时写 python 做悬空引用与数字对账。工具越多越慢。
+
+### 新增的三个入口
+
+| 命令 | 作用 |
+|---|---|
+| `python Tool/scripts/preflight.py` | **唯一门禁**：结构（悬空引用）/ 数字对账 / 双平台项数一致 / budget / 路由 / 中继规则 / KB 验收 / 冒烟 / 体检 / 配置交叉覆盖。`--fast` 约 2 秒 |
+| `python Tool/scripts/impact.py <文件>` | 改动前查"谁引用它、属于哪条链、该跑哪几项" |
+| `Tool/docs/EXTEND.md` | 加工具 / 加 MCP / 加技能的 4 步流程（含通道优先级铁律） |
+
+### 配置驱动（不再硬编码）
+
+- **MCP**：新增 `Tool/config/mcp-servers.json`。`install-pi.ps1` 与 `merge_agent_config.py` 都改为**循环读取**它
+  （此前两边各写死 seep / js-reverse / playwright 三条）。新增 MCP = 加一条 JSON，不用改安装器。
+- **悬空引用允许清单**：`Tool/scripts/preflight-allow.json`，每条必须写理由（如 apkseep 引用的上游验证记录未随包分发）。
+- **本地知识库覆盖层**：新增 `Tool/mcp/kb_local/`（含 README 约定），自己的战术条目放这里，避免写进 vendored 上游树被覆盖。
+
+### 顺手修掉的真问题
+
+- README 徽章：Release `1.8.4` → `1.10.10`；MANUAL 份数 `10/9` → `14`。
+- `MANUAL/DEPLOYMENT-CHECKLIST.md`：MANUAL 写 12 份 → 实际 14。
+- `MANUAL/IDA-PRO.md`：GhidraMCP 路径少了 `mcp/Tool/reverselab/` 前缀。
+- `CLAUDE.md`：`Tool/upstream/A/` 占位改为 `Tool/upstream/<名>/`。
+- cmd-guard v2.1.2：`POSIX_ROOT_SCAN` 改为正则字面量并收紧 —— 之前引号里的斜杠文本会被误拦。
+
+### 门禁现状
+
+`preflight.py --fast` → **10/10**；
+`verify.ps1` 61/61、`verify.sh` 61/61（项数一致性也由门禁盯着）。
+
+---
+
 ## [1.10.10] — 2026-10-20
 
 > 主题：**从"启动哪个工具"升级为"选择哪条控制通道"** —— 通道优先级是通用规则，不是单点特判。
