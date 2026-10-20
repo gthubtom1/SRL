@@ -132,9 +132,22 @@ def _install_base():
 
 _COMMON_ROOTS = candidate_roots()
 
+# 扫描时需要跳过的重目录：node_modules / site-packages / WinSxS / 缓存 等。
+# 为什么需要：`_layer_scan` 只有 20s / 12 万目录预算，而 D:\Tools 下含整套 Node
+# 的 node_modules —— 预算会在第一个根里就耗尽，导致 `D:\Tools\disasm\IDA Pro 9.3\ida.exe`
+# 这类真实安装被漏判（实测 MCP 显示 ida 不可用，而 IDA 明明装着）。
+_SKIP_DIR_NAMES = frozenset({
+    "node_modules", ".git", "__pycache__", "site-packages", "winsxs", "temp", "tmp",
+    "cache", "caches", "logs", ".venv", "venv", "include",
+})
+
 # 递归扫描的 deny 规则（避免误命中 IDA 自带裸 python、插件目录等）
 _DENY_MARKERS = [
-    "ida pro", "ida\\python", "ida/python", "python27", "python3.8\\python",
+# \u2605 只拦 IDA 自带的运行期子目录，绝不能拦「IDA Pro 9.x」安装根 ——
+#   旧写法含一个裸 "ida pro" 子串，导致 D:\\Tools\\disasm\\IDA Pro 9.3\\ida.exe 本身也被拒，
+#   seep_tool_discover 因此永远报 ida 不可用（而 IDA 明明装着）。见 CHANGELOG 1.10.7。
+    "ida pro\\python", "ida pro/python", "ida\\python", "ida/python",
+    "python27", "python3.8\\python",
     "\\plugins\\", "/plugins/", "\\sdk\\", "/sdk/", "node_modules",
     "\\windows\\winsxs", "/usr/share/doc",
 ]
@@ -338,6 +351,7 @@ def _layer_scan(tool_id, exe_names, max_depth=4):
                 continue
             try:
                 for dirpath, dirnames, filenames in os.walk(root):
+                    dirnames[:] = [d for d in dirnames if d.lower() not in _SKIP_DIR_NAMES]
                     visited += 1
                     if visited > budget_dirs or _time.time() > deadline:
                         return None

@@ -20,13 +20,18 @@ MCP（工具层）           →  给 agent「实际干活的手」
 
 ---
 
-## 二、3 个已注册 MCP
+## 二、已注册 MCP（4 个）
 
 | MCP | 工具数 | 用途 | 依赖 | 安装方式 |
 | :--- | :---: | :--- | :--- | :--- |
-| **seep** ⭐ | **37** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 + 扩展资产 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
-| **ida** | **~100+** | IDA 全套分析链，数量随 ida-pro-mcp 版本变化 | **你自备的 IDA Pro** | 脚本装 MCP + 你装 IDA |
-| **playwright** | — | 浏览器自动化 | npx | 自动（npx 按需拉取） |
+| **seep** ⭐ | **38** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 + 扩展资产 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
+| **ida** | **40+**（实测 48，随 ida-pro-mcp 版本变） | IDA 全套分析链 | **你自备的 IDA Pro** | `setup\install-ida.ps1` 自动装（需 `mcp<2`，见 §九） |
+| **js-reverse** | **24** | 前端 JS 逆向 / 调试器 / 网络取证 | npx | 自动（npx 按需拉取） |
+| **playwright** | **25** | 浏览器自动化 | npx | 自动（npx 按需拉取） |
+
+> IDA 不在默认路径也没关系：`install-ida.ps1` 会做**有界目录扫描**（只扫 `D:\Tools`、`D:\Tools\disasm`
+> 等固定几个根，深度 ≤2），便携版/绿化版（如 `D:\Tools\disasm\IDA Pro 9.3`）也能命中。
+> 也可以显式指定：`powershell -File .\setup\install-ida.ps1 -IdaRoot "X:\你的\IDA"`。
 
 ### seep MCP 的 38 个工具
 
@@ -231,6 +236,38 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 ```
 
 > ⚠️ 需先装其 Python 依赖（见该目录 `requirements.txt`）。
+
+### 8.1 x64dbg 的 MCP：需要 SSE 桥接
+
+x64dbg 插件 `x64dbg-MCP-Server.dp64`（放在 `x64dbg\release\x64\plugins\`）会在 x64dbg 启动时
+自动开一个 **SSE** 端点（默认 `http://127.0.0.1:9094/sse`，鉴权 `Authorization: Bearer <token>`，
+token 在同目录 `mcp_config.json` 的 `AuthToken`）。
+
+**pi 只接受 streamable HTTP，明确拒绝 SSE**（见 pi `docs/mcp.md`），所以不能直接填 `url`。
+需要用桥接把 SSE 转成 stdio：
+
+```powershell
+# token 从 x64dbg 的 mcp_config.json 读，别写死在 mcp.json 里
+$cfg = Get-Content "D:\Tools\x64dbg\release\x64\mcp_config.json" -Raw | ConvertFrom-Json
+```
+
+```json
+"x64dbg": {
+  "command": "npx",
+  "args": ["-y", "mcp-remote", "http://127.0.0.1:9094/sse", "--allow-http",
+           "--header", "Authorization: Bearer <你的 AuthToken>"],
+  "transport": "stdio",
+  "lifecycle": "lazy"
+}
+```
+
+> 前提：**x64dbg 必须先运行**，否则端点不存在，连接会失败（`lifecycle: lazy` 保证它不拖慢启动）。
+> 不想用桥接就别注册 —— r2 + IDA 已覆盖反汇编与调试的主要场景。
+
+### 8.2 Ghidra
+
+`seep_decompile_auto` 会用 `analyzeHeadless`（本机 `D:\Tools\Ghidra\support\analyzeHeadless`）做**无头反编译**，
+不需要装 GhidraMCP。要交互式 Ghidra 会话再考虑装其 MCP 扩展。
 
 ---
 
