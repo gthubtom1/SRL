@@ -157,7 +157,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 
 | 文件 | 本包位置 | 安装目标 | 作用 |
 | :--- | :--- | :--- | :--- |
-| **SEEP.md** | `Tool/prompts/SEEP.md` | `~/.pi/agent/SEEP.md` | 主提示词：人格 + **lab 开关协议** + 思维重定向 + 反退缩十项 + 提效规则 |
+| **SEEP.md** | `Tool/prompts/SEEP.md` | `~/.pi/agent/SEEP.md` | **装配契约**：五层裁决 + lab/拒答/能力的指针（战术与工具清单已迁至技能/配置/MANUAL/PROMPT-LAYERS.md） |
 | **AGENTS.md** | `Tool/prompts/AGENTS.md` | `~/.pi/agent/AGENTS.md` | 跨 agent 通用版（Codex / Claude Code / OpenCode） |
 | **security-audit-interceptor.ts** | `Tool/prompts/extensions/` | `~/.pi/agent/extensions/` | 底座 BLOCK_NONE 注入 + **lab 标志文件门控** + 快捷口令 + 敏感词替换 |
 | **load-system-prompt.ts** | `Tool/prompts/extensions/` | `~/.pi/agent/extensions/` | 加载自定义提示词 |

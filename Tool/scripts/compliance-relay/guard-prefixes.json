@@ -5,6 +5,9 @@
     "openai-responses": {
       "_comment": "Codex (OpenAI Responses API) 注入的上下文前缀，来源参考 keysmith-switch 的 INJECTED_PREFIXES",
       "skipPrefixes": [
+        "# base:",
+        "<generic-rules>",
+        "<personality>",
         "<environment_context>",
         "<user_instructions>",
         "<user_shell_command>",
@@ -33,6 +36,10 @@
     "anthropic-messages": {
       "_comment": "Claude Code (Anthropic Messages API) 注入的上下文前缀",
       "skipPrefixes": [
+        "# base:",
+        "<generic-rules>",
+        "<personality_spec>",
+        "<personality>",
         "<system-reminder>",
         "<command-name>",
         "<command-message>",
@@ -50,6 +57,10 @@
     "openai-completions": {
       "_comment": "Pi Agent 与通用 OpenAI 兼容端点。Pi 的系统提示词走独立 system 角色，不会混入 user 消息，此处仅做防御性守卫。",
       "skipPrefixes": [
+        "# base:",
+        "<generic-rules>",
+        "<personality_spec>",
+        "<personality>",
         "<system-reminder>",
         "<environment_context>",
         "<user_instructions>",

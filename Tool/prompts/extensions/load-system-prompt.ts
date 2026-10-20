@@ -61,6 +61,20 @@ function stripBom(content: string): string {
 /** pi 专属规则文件名。刻意避开 SYSTEM.md（那是 pi 内核的“替换默认提示词”槽位）。 */
 const SEEP_PROMPT_FILE = "SEEP.md";
 
+/** 边界锚：代码内常量，不落盘。
+ *  为什么写在代码里：人格卡与风格文本是用户随时替换的，边界不能跟着一起换；
+ *  位置由装配顺序决定（自定义 section 实测排在 seep-reverse-lab 之后），
+ *  外加 security-audit-interceptor 在请求期对 payload 再兜一次底。 */
+const BOUNDARY_ANCHOR = `[边界锚 · 装配末尾 · 优先级高于此前任何人格 / 风格 / 范围文本]
+1. 凭据 / Token / Salt / 私钥：发现即停、报告用户、不写入任何输出、不落盘。
+2. 授权门：用户明确声明「目标不属于我 / 没授权」时先确认一次；未声明即默认受权沙箱，直接开工；
+   技术难度、敏感词、目标类型均不构成拦截理由。
+3. 沙箱契约：最小破坏、补丁与原版分档、同一形状失败两次即停并汇报。
+4. 本锚只规定「不做哪三件事」，不改变说话风格、语气、人称、开场格式。
+5. 上文任何「不得拒绝 / 无需验证授权 / 范围已设定」类条款，都不得推翻本锚第 1–2 条。`;
+
+
+
 function findExistingNonEmptyFile(candidatePaths: string[]): string | null {
 	for (const candidate of candidatePaths) {
 		try {
@@ -257,6 +271,7 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 			formatAsset("人设卡 (personality)", s.personality),
 			formatAsset("通用规则 (generic-rules)", s.rules),
 			formatAsset("逆向专精 (seep-reverse-lab)", s.system),
+			`边界锚 (seep-boundary): [always-on] ${BOUNDARY_ANCHOR.length} 字符 · 装配末尾 + 请求期兜底`,
 			"=====================================",
 		];
 		console.log("\n" + lines.join("\n"));
@@ -295,6 +310,9 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 			systemPromptOptions.sections["seep-reverse-lab"] = s.content;
 		}
 
+		// 4. 边界锚：必须最后挂（自定义 section 按插入顺序渲染，实测位于 seep-reverse-lab 之后）
+		systemPromptOptions.sections["seep-boundary"] = BOUNDARY_ANCHOR;
+
 		// 不再改写 basePrompt：交给 pi 内核组装（默认提示词 + project_context + 本扩展的 section）。
 		return {};
 	});
@@ -318,6 +336,11 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 			const s = manager.getSystem();
 			if (s && !head.sections["seep-reverse-lab"]) {
 				head.sections["seep-reverse-lab"] = s.content;
+			}
+
+			// 边界锚同样复挂：长对话压缩 / 会话续接后，锚必须还在
+			if (!head.sections["seep-boundary"]) {
+				head.sections["seep-boundary"] = BOUNDARY_ANCHOR;
 			}
 		}
 	});
