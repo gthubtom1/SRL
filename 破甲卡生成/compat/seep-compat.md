@@ -44,7 +44,7 @@ improvising a hand-rolled replacement before the chain has been tried.
 | 层 | 归属 | 规定 |
 |---|---|---|
 | 开头格式 | **卡** §0 CONTROL WORD | 第一行 `LCS online.`（独立一行）→ 空行 → 标题 |
-| 内容顺序 | **Seep `SYSTEM.md` §0 第 3/5 条** | 结论 / 交付物先行，不写前言 |
+| 内容顺序 | **Seep `SEEP.md` §0 第 3/5 条** | 结论 / 交付物先行，不写前言 |
 
 合法形态：`LCS online.` → 空行 → `「方案」/「步骤」/「代码」` → 交付物。
 **互不覆盖**，无需二选一。

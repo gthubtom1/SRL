@@ -6,7 +6,7 @@
 #
 #  卸载范围（逐项可关）：
 #    · ~/.pi/agent/skills/<工作台技能>      —— 仅工作台自带的 11 大技能
-#    · ~/.pi/agent/AGENTS.md / SYSTEM.md    —— 工作台写入的提示词
+#    · ~/.pi/agent/AGENTS.md / SEEP.md      —— 工作台写入的提示词（旧版为 SYSTEM.md，一并清理）
 #    · ~/.pi/agent/extensions/*.ts          —— 工作台扩展
 #    · ~/.pi/agent/mcp.json 中的 seep / js-reverse / playwright 条目
 #    · ~/.pi/agent/settings.json 中工作台加入的 packages
@@ -210,7 +210,7 @@ fi
 
 PROMPT_HITS=()
 if [ "$KEEP_PROMPTS" = "0" ]; then
-    for f in AGENTS.md SYSTEM.md; do
+    for f in AGENTS.md SEEP.md SYSTEM.md; do
         [ -f "$AGENT_DIR/$f" ] && PROMPT_HITS+=("$f")
     done
     if [ -d "$EXT_DIR" ]; then

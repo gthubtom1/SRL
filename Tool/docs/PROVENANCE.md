@@ -14,7 +14,7 @@
 | :--- | :--- |
 | **Skill** | 一个目录（`SKILL.md` + `references/` + `scripts/` + `evals/` + `evidence/`） |
 | **MCP** | 一个启动脚本 + 它读取的**外部数据目录** + 依赖的**外部工具** |
-| **提示词** | `SYSTEM.md` / `AGENTS.md` + `extensions/*.ts` |
+| **提示词** | `SEEP.md` / `AGENTS.md` + `extensions/*.ts` |
 
 ---
 
@@ -157,7 +157,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 
 | 文件 | 本包位置 | 安装目标 | 作用 |
 | :--- | :--- | :--- | :--- |
-| **SYSTEM.md** | `Tool/prompts/SYSTEM.md` | `~/.pi/agent/SYSTEM.md` | 主提示词：人格 + **lab 开关协议** + 思维重定向 + 反退缩十项 + 提效规则 |
+| **SEEP.md** | `Tool/prompts/SEEP.md` | `~/.pi/agent/SEEP.md` | 主提示词：人格 + **lab 开关协议** + 思维重定向 + 反退缩十项 + 提效规则 |
 | **AGENTS.md** | `Tool/prompts/AGENTS.md` | `~/.pi/agent/AGENTS.md` | 跨 agent 通用版（Codex / Claude Code / OpenCode） |
 | **security-audit-interceptor.ts** | `Tool/prompts/extensions/` | `~/.pi/agent/extensions/` | 底座 BLOCK_NONE 注入 + **lab 标志文件门控** + 快捷口令 + 敏感词替换 |
 | **load-system-prompt.ts** | `Tool/prompts/extensions/` | `~/.pi/agent/extensions/` | 加载自定义提示词 |

@@ -115,7 +115,7 @@ Seep\
 │   ├── skill\         11 个 Skill（以 softseep 为总控）
 │   ├── mcp\           seep MCP（38 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
-│   ├── prompts\       SYSTEM.md、AGENTS.md 与安全扩展
+│   ├── prompts\       SEEP.md、AGENTS.md 与安全扩展
 │   ├── cases\         15 个脱敏项目工程（项目 A ~ 项目 N + 案例-6.9换肤壳）
 │   ├── upstream\      3 大开源项目完整镜像 (apk-reverse, open-tgtylab, open-reverselab)
 │   ├── docs\          MCP-SETUP、DOWNLOADS、PROVENANCE、EXT-ASSETS、FORK-DELTA（差分台账）等

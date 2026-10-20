@@ -88,6 +88,8 @@
 | `security-audit-interceptor.ts` 正则字符类未转义 | 任意文本被逐字符碾成垃圾（Gemini 链路必炸） | `\[ \]` 转义 + 标记判定 |
 | `seep_auto_triage` 只读前 50MB 算哈希 | >50MB 样本返回**错误证据** | 流式整文件哈希 |
 | `safe-skills/ida-reverse` 同名覆盖 | 顶层 `ida-reverse` 丢 13337 唤醒规约 | 改名 `ida-assistant` + 安装器冲突守卫 + 体检断言 |
+| `SYSTEM.md` 双重语义（v1.9.3 修） | pi 内核把它当“替换默认提示词”、扩展又挂成 section → **整份规则在提示词里出现两次**（≈9.9k 字符/请求），且 pi 自带默认提示词被顶掉 | 改名 `SEEP.md`（内核对它透明，只有扩展读）+ 删自愈分支 + `before_agent_start` 强制 `sync(…, true)` 消除 800ms 节流空装配 |
+| `SEEP.md §3` 与 `AGENTS.md §三` 逐字重复（v1.9.3 修） | 触发词清单在提示词里出现 3 次，两份还会各自漂移 | §3 改为指针，只留 `AGENTS.md §三` 单一事实源 |
 
 ---
 
@@ -173,7 +175,7 @@ python Tool/scripts/smoke-e2e.py                        # 端到端链路（真�
 |---|---|
 | MCP 服务 | `Tool/mcp/seep_mcp_server.py` |
 | 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
-| 提示词/扩展 | `Tool/prompts/AGENTS.md`<br>`Tool/prompts/SYSTEM.md`<br>`Tool/prompts/extensions/load-system-prompt.ts`<br>`Tool/prompts/extensions/security-audit-interceptor.ts` |
+| 提示词/扩展 | `Tool/prompts/AGENTS.md`<br>`Tool/prompts/SEEP.md`<br>`Tool/prompts/extensions/load-system-prompt.ts`<br>`Tool/prompts/extensions/security-audit-interceptor.ts` |
 | 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/master-route.ps1`<br>`Tool/scripts/routing.json` |
 | 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md`<br>`Tool/docs/TOOLKIT_GUIDE.md` |
 | 安装与校验 | `setup/clean-format.py`<br>`setup/generate-configs.ps1`<br>`setup/install-ida.ps1`<br>`setup/install-pi.ps1`<br>`setup/install-python.ps1`<br>`setup/install.sh`<br>`setup/uninstall.ps1`<br>`setup/uninstall.sh`<br>… 另 4 个 |

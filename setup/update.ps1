@@ -389,7 +389,7 @@ Write-Host @"
 
   更新内容:
     · 10 个逆向 Skill 已同步到最新
-    · 提示词 (SYSTEM.md / AGENTS.md) 与安全扩展已同步
+    · 提示词 (SEEP.md / AGENTS.md) 与安全扩展已同步
     · mcp.json 已增量合并（自定义 MCP 完整保留）
     · 内置工具箱与知识库已校验
 
