@@ -474,6 +474,28 @@ const BOUNDARY_TAIL = [
 ].join("\n");
 const BOUNDARY_MARK = "[BOUNDARY-ANCHOR";
 
+/**
+ * 锚位诊断（可选，默认关闭）：在 ~/.pi/agent 放一个 `anchor-debug.flag` 即开启，
+ * 每次请求把"锚在 system 文本里的相对位置"写进 `anchor-debug.log`。
+ * 用途：验证 pi-web 的 personality 段是否排在锚之后（section 序不可控，payload 层才是最终保证）。
+ */
+function diagAnchor(systemText: string): void {
+	try {
+		const dir = join(homedir(), ".pi", "agent");
+		if (!existsSync(join(dir, "anchor-debug.flag"))) return;
+		const idxAnchor = systemText.lastIndexOf("[BOUNDARY-ANCHOR");
+		const idxPersona = systemText.lastIndexOf("<personality>");
+		const tail = systemText.slice(-90).replace(/\s+/g, " ");
+		try { writeFileSync(join(dir, "anchor-debug-full.txt"), systemText, "utf8"); } catch {}
+		appendFileSync(
+			join(dir, "anchor-debug.log"),
+			`len=${systemText.length} anchorAt=${idxAnchor} personaAt=${idxPersona} ` +
+			`anchorAfterPersona=${idxAnchor > idxPersona} tail="${tail}"` + "\n",
+			"utf8",
+		);
+	} catch {}
+}
+
 function appendBoundaryTail(payload: any): boolean {
 	try {
 		const has = (s: any) => typeof s === "string" && s.includes(BOUNDARY_MARK);
@@ -483,10 +505,10 @@ function appendBoundaryTail(payload: any): boolean {
 		if (Array.isArray(payload.input)) {
 			const i0 = payload.input[0];
 			if (i0 && i0.role === "system") {
-				if (typeof i0.content === "string") { i0.content = joined(i0.content); return true; }
+				if (typeof i0.content === "string") { i0.content = joined(i0.content); diagAnchor(i0.content); return true; }
 				if (Array.isArray(i0.content) && i0.content.length > 0) {
 					const last = i0.content[i0.content.length - 1];
-					if (last && typeof last.text === "string") { last.text = joined(last.text); return true; }
+					if (last && typeof last.text === "string") { last.text = joined(last.text); diagAnchor(last.text); return true; }
 				}
 			}
 		}
@@ -494,7 +516,7 @@ function appendBoundaryTail(payload: any): boolean {
 		if (Array.isArray(payload.messages)) {
 			const m0 = payload.messages[0];
 			if (m0 && m0.role === "system") {
-				if (typeof m0.content === "string") { m0.content = joined(m0.content); return true; }
+				if (typeof m0.content === "string") { m0.content = joined(m0.content); diagAnchor(m0.content); return true; }
 				if (Array.isArray(m0.content) && m0.content.length > 0) {
 					const last = m0.content[m0.content.length - 1];
 					if (last && typeof last.text === "string") { last.text = joined(last.text); return true; }

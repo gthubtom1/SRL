@@ -19,10 +19,16 @@ tools / rules / docs pi 内置
 <seep-boundary>     扩展常量，最后挂载                            ← ★ 边界锚（最高）
 ```
 
-**实测依据**（v1.10.0 验收）：
+**实测依据**（v1.10.0 验收，两条路径都量过）：
 
-- 自定义 section 排在 `seep-reverse-lab` **之后**（会话 `sections` 键序：
-  `… project_context → skills → cwd → seep-reverse-lab → seep-boundary → mcp_servers`）
+- **CLI**：自定义 section 排在 `seep-reverse-lab` **之后**（键序
+  `… project_context → skills → cwd → seep-reverse-lab → seep-boundary`）。
+- **pi-web**：人格段由 pi-web 自己的 `before_agent_start` 追加，键序为
+  `… seep-reverse-lab → seep-boundary → mcp_servers → **personality**`
+  —— **personality 反而排在 section 锚之后**，所以 section 层的"位置保证"在 pi-web 不成立。
+- **因此真正的保证在 payload 层**：实测最终 system 文本 48,517 字符，
+  各段位置 `AGENTS 6,470 / SEEP 契约 19,496 / section 锚 21,887 / 人格卡 27,132 / **payload 锚 48,346**`
+  → 锚恒在最后 171 字符内（含锚自身长度）。
 - pi-web 人格注入：`before_agent_start` **每轮**触发；`persona-inject.json` 的 `mode`
   为 `cached` 时走 `sections.personality`，为 `every-turn` 时直接返回整份 systemPrompt
 - 当前 provider（`cpa`，`openai-responses`）的 system 提示词位于
