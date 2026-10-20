@@ -828,12 +828,33 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
 
     md_files = glob.glob(os.path.join(search_root, "**", "*.md"), recursive=True)
     pat = query.lower()
+    # === SEEP-EXT: kb-multitoken BEGIN === 多词/中文检索增强（2026-10，纯插入，不改既有逻辑）
+    # 为什么需要：原实现是整串子串匹配（pat in content），"完整性校验 反作弊" 这类
+    # 空格分隔的多 token 查询必然归零 —— 即使库里有 545 行反作弊内容也捞不出来。
+    # 权重集中于此，后续调参不必再动函数体。
+    _KB_SINGLE_WEIGHT = 0.2   # 单字 token 权重（避免"壳"淹没结果）
+    _KB_TITLE_BOOST = 6       # token 出现在标题行
+    _KB_PATH_BOOST = 4        # token 出现在路径
+    _KB_MAX_TOKENS = 8
+    _KB_MIN_COVERAGE = 0.6    # 2 token 时要求全命中；3+ token 时按比例
+
+    def _kb_split_tokens(q: str):
+        parts = re.split(r"[\s,;/|、，。；：!?()（）\[\]【】]+", q.strip())
+        return [x for x in (t.strip() for t in parts) if x][:_KB_MAX_TOKENS]
+
+    _kb_tokens = _kb_split_tokens(pat)
+    _kb_multi = len(_kb_tokens) > 1
+    _kb_contents = {}
+    # === SEEP-EXT: kb-multitoken END ===
     
     hits = []
     for fpath in md_files:
         try:
             with open(fpath, "r", encoding="utf-8", errors="ignore") as fh:
                 content = fh.read()
+                # === SEEP-EXT: kb-multitoken === 缓存正文，供多词打分与 snippet 定位
+                _kb_rel = os.path.relpath(fpath, KB_DIR).replace("\\", "/")
+                _kb_contents[_kb_rel] = content
                 title = ""
                 for line in content.splitlines()[:5]:
                     if line.startswith("# "):
@@ -859,8 +880,77 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
         except Exception:
             pass
 
+    # === SEEP-EXT: kb-multitoken BEGIN === 相关性二次打分
+    # 规则：ASCII token 用词边界（避免 EAC 命中 each / reach）；CJK token 用子串；
+    #       IDF 降权高频词；覆盖率平方惩罚（2 token 必须全命中）；标题/路径加成。
+    import math as _kb_math
+
+    _KB_ASCII_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+    def _kb_hit_count(_low: str, _tok: str) -> int:
+        if _KB_ASCII_RE.match(_tok):
+            _pat = r"(?<![A-Za-z0-9_])" + re.escape(_tok) + r"(?![A-Za-z0-9_])"
+            return len(re.findall(_pat, _low))
+        return _low.count(_tok)
+
+    if _kb_contents and _kb_tokens and (_kb_multi or len(_kb_tokens[0]) >= 2):
+        _kb_n = len(_kb_contents)
+        _kb_df = {}
+        for _t in _kb_tokens:
+            _kb_df[_t] = sum(1 for _txt in _kb_contents.values() if _kb_hit_count(_txt.lower(), _t) > 0)
+        _kb_scores = {}
+        for _rel, _text in _kb_contents.items():
+            _low = _text.lower()
+            _hit_pairs = []
+            for _t in _kb_tokens:
+                _c = _kb_hit_count(_low, _t)
+                if _c:
+                    _hit_pairs.append((_t, _c))
+            if not _hit_pairs:
+                continue
+            _cov = len(_hit_pairs) / len(_kb_tokens)
+            if _kb_multi and _cov < _KB_MIN_COVERAGE:
+                continue
+            _head = " ".join(_text.splitlines()[:5]).lower()
+            _rel_low = _rel.lower()
+            _score = 0.0
+            for _t, _c in _hit_pairs:
+                _idf = _kb_math.log((_kb_n + 1) / (_kb_df.get(_t, 1) + 1)) + 1.0
+                _w = 1.0 if len(_t) > 1 else _KB_SINGLE_WEIGHT
+                _boost = 1.0
+                if _t in _head:
+                    _boost += _KB_TITLE_BOOST / 10.0
+                if _t in _rel_low:
+                    _boost += _KB_PATH_BOOST / 10.0
+                _score += _idf * _w * _boost * min(_c, 8)
+            _kb_scores[_rel] = _score * (_cov ** 2)
+        if _kb_scores:
+            _kb_best = max(_kb_scores.values())
+            _kb_index = {h["path"]: h for h in hits}
+            for _rel, _sc in _kb_scores.items():
+                if _rel in _kb_index:
+                    _kb_index[_rel]["score"] += _sc
+                elif _sc >= _kb_best * 0.5:
+                    hits.append({"path": _rel, "title": Path(_rel).stem, "score": _sc, "snippet": ""})
+    # === SEEP-EXT: kb-multitoken END ===
     hits.sort(key=lambda x: x["score"], reverse=True)
     top = hits[:limit]
+    # === SEEP-EXT: kb-multitoken === snippet 改为命中位置居中（原实现固定取正文开头 300 字）
+    for _h in top:
+        _txt = _kb_contents.get(_h.get("path", ""))
+        if not _txt:
+            continue
+        _low = _txt.lower()
+        _pos = -1
+        for _t in (_kb_tokens or [pat]):
+            _i = _low.find(_t)
+            if _i != -1 and (_pos == -1 or _i < _pos):
+                _pos = _i
+        if _pos < 0:
+            continue
+        _start = max(0, _pos - 160)
+        _end = min(len(_txt), _pos + 160)
+        _h["snippet"] = _txt[_start:_end].strip().replace("\n", " ")
     if not top:
         return f"No articles found matching '{query}' in ReverseLab knowledge base."
 
