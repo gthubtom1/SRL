@@ -220,6 +220,29 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 - 返回统一取 `structuredContent.result`（字符串），失败时取 `content[].text`
 - 知识库根**是常量**：`Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认）——不要 `find`/`grep` 去找它
 
+### 网络 / 侦察 / 抓包 / .NET —— 首选工具（全部 CLI，无需 GUI）
+
+> **判型口径**：用户说人话，Agent 自己选工具。下面全是 headless/CLI，**不要为了"顺手"去开 GUI**。
+> 不确定某工具装没装：`seep_tool_discover <id>`；表里没有的，按 `Tool/docs/EXTEND.md` 加一条（约 5 分钟）。
+
+| 用户可能说 | 首选 | 命令骨架 | 输出约定 |
+|---|---|---|---|
+| 抓包 / 看流量 / 回放 | `tshark`（解析）· `dumpcap`（无头抓） | `tshark -r x.pcapng -Y "http" `；`dumpcap -i <iface> -a duration:30 -w out.pcapng` | pcap/JSON 落 `work/<task>/exports/` |
+| 端口 / 服务识别 | `nmap` | `nmap -sV -sC -oX out.xml <target>` | XML 便于解析 |
+| 快速端口 | `naabu` | `naabu -host <h> -top-ports 1000 -json -o out.json` | JSON |
+| 子域枚举 | `subfinder` | `subfinder -d <domain> -all -silent -o out.txt` | 纯列表 |
+| 存活 / 批量 DNS | `dnsx` | `dnsx -l in.txt -a -resp -json -o out.json` | JSON |
+| 目录 / 接口爆破 | `ffuf`（备 `gobuster`） | `ffuf -u http://T/FUZZ -w W -mc 200,204,301,302,403 -of json -o out.json` | JSON |
+| 爬虫 / 端点收集 | `katana` | `katana -u <url> -jc -d 3 -jsonl -o out.jsonl` | JSONL |
+| 模板化漏洞扫描 | `nuclei` | `nuclei -u <url> -jsonl -o out.jsonl -severity low,medium,high,critical` | JSONL |
+| SQL 注入验证 | `sqlmap` | `sqlmap -u "<url>" --batch --level 2 --risk 1 --output-dir out` | 目录留证 |
+| 规则 / IOC 匹配 | `yara` | `yara -r rules.yar <sample>` | 命中行 |
+| .NET 去混淆 | `de4dot` | `de4dot -o out.exe <sample>` | 不覆盖原样本 |
+| .NET 反编译（需 GUI 时） | `dnSpy` | 批处理优先 `de4dot` + `r2`；GUI 由 `tool-run.ps1 -Tool dnspy` 自启 | — |
+
+> **同名陷阱**：`httpx` 有两个（Python 库 CLI vs ProjectDiscovery），探测容易拿错物 → 本表**不登记 httpx**；
+> 需要时明确用 PD 版路径，或改用 `subfinder` + `curl -I` 组合。
+
 ### 跨平台共通项（判型后仍适用）
 
 - 授权/许可分析 → 【前置门控】四问 + 九型判型（**两平台通用**）

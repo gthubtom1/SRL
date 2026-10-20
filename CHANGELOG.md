@@ -10,6 +10,39 @@
 
 ---
 
+## [1.10.14] — 2026-10-20
+
+> 主题：**让 Agent 自己知道用哪个工具** —— 用户说人话，不用户去记工具名。
+
+### 能力表扩容（15 → 35）
+
+新增 21 条能力声明（只声明能力，路径仍由六层探测解析，不写死）：
+`nmap` `naabu` `subfinder` `dnsx` `katana` `ffuf` `gobuster` `nuclei` `sqlmap` `yara`
+`dumpcap`（无头抓包）`de4dot` `confuserex` + GUI 类 `dnSpy` `ImHex` `PE-bear` `ResourceHacker`
+`ScyllaHide` `VMProtect` `Fiddler`（GUI 类标注"仅在无 headless 等价物时使用"）。
+
+### 探测消歧（同名工具不再拿错）
+
+`tool_autodiscover` 新增两项能力表字段：
+- `exclude_paths`：按路径片段排除"同名不同物"（例如 Python 的 `httpx` 库 CLI）。
+- `path_hints`：只认带指定片段的路径（用于品牌版本唯一化）。
+
+> `httpx` 因两个生态同名、探测易拿错，**暂不登记**；需要时显式用 PD 版或 `subfinder + curl` 组合（已写进能力表 sources_note）。
+
+### Agent 侧：任务 → 工具 对照表
+
+`softseep/SKILL.md` 新增《网络/侦察/抓包/.NET —— 首选工具》表：抓包、端口、子域、目录爆破、
+爬虫、漏洞模板扫描、SQLi 验证、规则匹配、.NET 去混淆，各自给**首选工具 + 命令骨架 + 输出约定**。
+配合 `AGENTS.md §四点五.4` 的通道优先级，Agent 面对"帮我抓个包 / 扫下端口"这类人话可直接开工，
+不需要用户知道工具名，也不会为了顺手去开 GUI。
+
+### 验证
+
+`preflight.py --fast` 11/11；探测实测 13/13 个新工具全部命中真实路径
+（nmap / naabu / subfinder / dnsx / katana / ffuf / gobuster / nuclei / sqlmap / yara / dumpcap / de4dot / dnSpy）。
+
+---
+
 ## [1.10.13] — 2026-10-20
 
 > 主题：**新机器全链路模拟**（`git archive HEAD` 导出 = 新 clone 的内容，逐项跑一遍）。

@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "description": "声明式『工具能力表』：告诉 AI『发现到某工具后，怎么控制它』。这是本插件唯一的仓库级知识来源——纯声明、可离线、随仓库分发。判断依据全部来自联网检索（GitHub README / 官方文档 / 已知 MCP 生态），绝不靠对二进制执行 -h/--help 现场试探（有些软件没有 -h，一探就崩或返回错误码）。表外未知工具：插件只报『路径已发现』，绝不假装能控制它。",
-  "verified_at": "2026-10-19",
-  "sources_note": "capabilities 字段的每一项均于 2026-10-19 联网核实：mrexodia/ida-pro-mcp、HexRaysSA/ida-mcp、LaurieWired/GhidraMCP、radare2、horsicq/Detect-It-Easy、x64dbg、frida、tshark、jadx、apktool 官方仓库与文档。",
+  "verified_at": "2026-10-20",
+  "sources_note": "capabilities 字段的每一项均于 2026-10-19 联网核实：mrexodia/ida-pro-mcp、HexRaysSA/ida-mcp、LaurieWired/GhidraMCP、radare2、horsicq/Detect-It-Easy、x64dbg、frida、tshark、jadx、apktool 官方仓库与文档。 ｜2026-10-20 追加：网络/侦察/渗透/抓包/.NET 类 CLI 工具与 GUI 工具（仅声明能力，路径由六层探测解析）。 ｜httpx 因与 Python httpx 库 CLI 同名、探测易拿错物，暂不登记；需要时显式用 PATH 中的 PD 版或改用 subfinder+curl。",
   "tools": {
     "ida": {
       "display": "IDA Pro",
@@ -350,6 +350,409 @@
       },
       "install_hint": "hasherezade/pe-sieve Releases 下载便携版放到 D:\\Tools",
       "notes": "脱壳闭环关键件：内存 dump + 模块篡改识别"
+    },
+    "nmap": {
+      "display": "Nmap",
+      "exe_candidates": [
+        "nmap"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "nmap -sV -sC -oX {out}.xml {target}",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "nmap -sV -sC -oX {out}.xml {target}",
+        "note": "端口/服务识别；-oX 出 XML 便于解析，避免 -oN 人读格式"
+      }
+    },
+    "naabu": {
+      "display": "Naabu",
+      "exe_candidates": [
+        "naabu"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "naabu -host {host} -top-ports 1000 -json -o {out}.json",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "naabu -host {host} -top-ports 1000 -json -o {out}.json",
+        "note": "快速端口扫描（比 nmap 快，适合先探）"
+      }
+    },
+    "subfinder": {
+      "display": "Subfinder",
+      "exe_candidates": [
+        "subfinder"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "subfinder -d {domain} -all -silent -o {out}.txt",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "subfinder -d {domain} -all -silent -o {out}.txt",
+        "note": "子域枚举；输出纯域名列表"
+      }
+    },
+    "dnsx": {
+      "display": "dnsx",
+      "exe_candidates": [
+        "dnsx"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "dnsx -l {infile} -a -resp -json -o {out}.json",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "dnsx -l {infile} -a -resp -json -o {out}.json",
+        "note": "批量 DNS 解析/校验"
+      }
+    },
+    "katana": {
+      "display": "Katana",
+      "exe_candidates": [
+        "katana"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "katana -u {target} -jc -d 3 -jsonl -o {out}.jsonl",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "katana -u {target} -jc -d 3 -jsonl -o {out}.jsonl",
+        "note": "爬虫 / 端点收集；-jc 解析 JS"
+      }
+    },
+    "ffuf": {
+      "display": "ffuf",
+      "exe_candidates": [
+        "ffuf"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "ffuf -u {target}/FUZZ -w {wordlist} -mc 200,204,301,302,403 -o {out}.json -of json",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "ffuf -u {target}/FUZZ -w {wordlist} -mc 200,204,301,302,403 -o {out}.json -of json",
+        "note": "目录/接口爆破；务必带 -mc 过滤，结果落 JSON"
+      }
+    },
+    "gobuster": {
+      "display": "Gobuster",
+      "exe_candidates": [
+        "gobuster"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "gobuster dir -u {target} -w {wordlist} -o {out}.txt -q",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "gobuster dir -u {target} -w {wordlist} -o {out}.txt -q",
+        "note": "目录爆破备选（与 ffuf 二选一）"
+      }
+    },
+    "nuclei": {
+      "display": "Nuclei",
+      "exe_candidates": [
+        "nuclei"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "nuclei -u {target} -jsonl -o {out}.jsonl -severity low,medium,high,critical",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "nuclei -u {target} -jsonl -o {out}.jsonl -severity low,medium,high,critical",
+        "note": "模板化漏洞扫描；-jsonl 便于逐条跟进"
+      }
+    },
+    "sqlmap": {
+      "display": "sqlmap",
+      "exe_candidates": [
+        "sqlmap.py",
+        "sqlmap"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "python sqlmap.py -u <url> --batch ...（sqlmap 本身是 py 脚本）",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "python {exe} -u \"{url}\" --batch --level 2 --risk 1 --output-dir {out}",
+        "note": "SQL 注入验证；--batch 免交互，--output-dir 留证据"
+      }
+    },
+    "yara": {
+      "display": "YARA",
+      "exe_candidates": [
+        "yara64",
+        "yara",
+        "yara64.exe",
+        "yara.exe"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "yara64/yara -r <规则文件> <目标>，纯命令行",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "yara64 -r {rulefile} {target}",
+        "note": "规则匹配；样本研判用"
+      }
+    },
+    "dumpcap": {
+      "display": "dumpcap (Wireshark 抓包引擎)",
+      "exe_candidates": [
+        "dumpcap"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "dumpcap -i {iface} -a duration:30 -w {out}.pcapng",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "dumpcap -i {iface} -a duration:30 -w {out}.pcapng",
+        "note": "无头抓包；后续用 tshark 解析（tshark 已在表内）"
+      }
+    },
+    "de4dot": {
+      "display": ".NET 去混淆",
+      "exe_candidates": [
+        "de4dot"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "de4dot -o {out} {target}",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "de4dot -o {out} {target}",
+        "note": ".NET 混淆还原；输出到新文件，别覆盖原样本"
+      }
+    },
+    "confuserex": {
+      "display": "ConfuserEx",
+      "exe_candidates": [
+        "Confuser.CLI"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无官方 MCP；由 Agent 直接调 CLI（输出可解析）",
+        "headless": true,
+        "headless_detail": "Confuser.CLI -n {project}.crproj",
+        "gui": false,
+        "gui_detail": "无（纯命令行）",
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "Confuser.CLI -n {project}.crproj",
+        "note": "多为混淆器本体（防御方工具）；CLI 版可批处理"
+      }
+    },
+    "dnspy": {
+      "display": "dnSpy",
+      "exe_candidates": [
+        "dnSpy",
+        "dnSpy.exe"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": ".NET 反编译/调试 GUI；批处理场景优先用 ilspycmd 或 de4dot + r2"
+      }
+    },
+    "imhex": {
+      "display": "ImHex",
+      "exe_candidates": [
+        "ImHex",
+        "imhex-gui"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": "十六进制/结构视图 GUI；脚本化优先 xxd / r2"
+      }
+    },
+    "pe-bear": {
+      "display": "PE-bear",
+      "exe_candidates": [
+        "PE-bear",
+        "pe-bear"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": "PE 结构查看 GUI；脚本化优先 rabin2 -I/-S"
+      }
+    },
+    "resourcehacker": {
+      "display": "Resource Hacker",
+      "exe_candidates": [
+        "ResourceHacker"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": "资源编辑 GUI；批处理优先 r2/pefile（seep_pe_resources）"
+      }
+    },
+    "scyllahide": {
+      "display": "ScyllaHide",
+      "exe_candidates": [
+        "ScyllaHide",
+        "ScyllaHideInjector"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": "调试器反反调试插件；随调试器使用"
+      }
+    },
+    "vmprotect": {
+      "display": "VMProtect",
+      "exe_candidates": [
+        "VMProtect",
+        "VMProtect_Con"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": "多为保护/加壳工具；分析样本时只需识别，不必启动"
+      }
+    },
+    "fiddler": {
+      "display": "Fiddler",
+      "exe_candidates": [
+        "Fiddler",
+        "Fiddler.exe"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": false,
+        "headless_detail": "仅 GUI，需人工或 GUI 自动化",
+        "gui": true,
+        "gui_detail": "交互式界面",
+        "cli": false
+      },
+      "control": {
+        "note": "HTTP(S) 抓包 GUI；无头替代是 tshark/mitmdump"
+      }
     }
   },
   "mcp_ecosystem": {
