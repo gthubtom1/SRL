@@ -241,7 +241,7 @@ PORTABLE_EXT = {".json", ".jsonc", ".ps1", ".sh", ".py", ".ts", ".md"}
 
 
 def check_portable():
-    """仓库里不允许出现"某台机器专用"的绝对路径（D:\Tools\... 这种）。
+    r"""仓库里不允许出现"某台机器专用"的绝对路径（如 D:\Tools\... 这种）。
 
     为什么：换电脑/换盘符时这类路径会静默失效（工具找不到、MCP 起不来）。
     允许清单：preflight-allow.json 的 portable_allow（键为路径前缀，值为理由）。
