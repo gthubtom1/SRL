@@ -33,7 +33,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\check.ps1
 * 🔌 MCP 服务 (seep 38 个原生工具, ida, playwright, js-reverse)
 * 🧠 提示词与 Lab 状态机
 * 🔧 内置工具箱 (Jadx, Radare2, Apktool)
-* 📚 战术知识库 (289篇)
+* 📚 战术知识库 (292篇)
 * 📖 部署与战术手册 (MANUAL/)
 
 全部通过后，提示用户在对话框发送 `lab：` 正式开工。

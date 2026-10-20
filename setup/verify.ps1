@@ -199,7 +199,7 @@ Test-CheckItem "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" {
 # 2. 知识库与战术资产
 # -----------------------------------------------------------------------------
 Write-Host "`n[2/9] 📚 攻防实战知识库与战术模板 (KB)" -ForegroundColor White
-Test-CheckItem "知识库" "战术实战笔记 (289篇完整检索库)" {
+Test-CheckItem "知识库" "战术实战笔记 (292 篇完整检索库)" {
     (Test-Path $KbDir) -and ((Get-ChildItem $KbDir -Recurse -Filter '*.md').Count -ge 280)
 } "Tool/mcp/Tool/reverselab/kb/ 文件缺失，请确认完整拉取" "≥289 篇笔记" "$KbDir"
 Test-CheckItem "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" {

@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/MCP%20工具-38%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/健康体检-61%2F61%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
-  <img src="https://img.shields.io/badge/实战知识库-289%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
+  <img src="https://img.shields.io/badge/实战知识库-292%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOP-10%20份专项手册-red?style=for-the-badge" alt="MANUAL SOPs">
   <a href="https://linux.do/"><img src="https://img.shields.io/badge/社区-LINUX%20DO-23272A?style=for-the-badge&logo=discourse" alt="LINUX DO"></a>
@@ -116,7 +116,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 | 🔧 **工具链高度碎片化** | 38 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
 | 🧠 **大模型缺乏决断逻辑** | `softseep` 总控：两级自动判型（平台 × 9 类业务）+ 七道门决策树 |
 | 🛡️ **云端模型频繁拒绝** | 三层保险：底座级 `BLOCK_NONE` 注入 + 动态口语合规转译 + 推理级思维重定向 |
-| 📚 **实战经验无法沉淀** | 289 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
+| 📚 **实战经验无法沉淀** | 292 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
 | 📦 **环境部署摩擦高昂** | 一键 `install.ps1`，原生适配 Pi Agent / Claude Code / DeepSeek Harness / Codex |
 
 ---
@@ -144,7 +144,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
           │                │                  │
           ▼                ▼                  ▼
     seep MCP          IDA Pro MCP         知识库检索
-    38 个工具          (可选联动)          289 篇战术笔记
+    38 个工具          (可选联动)          292 篇战术笔记
     (R2/JADX/                             (Zero-Waste Recon)
      Apktool/Frida)
           │
@@ -245,7 +245,7 @@ Seep\ (251 MB)
 │   │       │   ├── ida-pro-mcp\   ← IDA 桥接适配层
 │   │       │   ├── js-reverse-mcp\← Web / JS 调试引擎
 │   │       │   └── playwright-mcp\← 无头浏览器自动化
-│   │       └── reverselab\        ← 289 篇战术笔记 + 攻击链模板
+│   │       └── reverselab\        ← 292 篇战术笔记 + 攻击链模板
 │   │
 │   ├── prompts\                   ← 智能体协同规范与运行时扩展
 │   │   ├── SEEP.md              ← 装配契约（五层裁决 + 指针；≤2500 字符，见 MANUAL/PROMPT-LAYERS.md）
@@ -305,7 +305,7 @@ Seep\ (251 MB)
 | | `seep_apk_unpack` | Apktool 资源 + Smali 解包 | — |
 | | `seep_apk_smali_search` | Smali 关键词/密钥/门禁位点检索 | `limit=` |
 | | `seep_apk_gen_hook` | 自动生成带堆栈打印的 Frida 探针 | — |
-| **知识库** | `seep_kb_search` | 289 篇战术笔记全文检索 | `limit=` |
+| **知识库** | `seep_kb_search` | 292 篇战术笔记全文检索 | `limit=` |
 | | `seep_kb_read` | 按主题精确读取完整技术手册 | — |
 | | `seep_kb_checklist` | 应急排查清单与攻击矩阵 | — |
 | | `seep_kb_payloads` | JWT / SSRF / SSTI / SQLi 载荷模板 | — |
