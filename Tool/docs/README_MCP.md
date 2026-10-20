@@ -64,7 +64,7 @@
   "mcpServers": {
     "seep": {
       "command": "python",
-      "args": ["C:/Users/Developer/Desktop/pi/seep/seep_mcp_server.py"]
+      "args": ["<本包路径>/Tool/mcp/seep_mcp_server.py"]
     }
   }
 }

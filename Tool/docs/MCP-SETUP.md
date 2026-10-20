@@ -255,7 +255,7 @@ GET  http://127.0.0.1:9094/sse  → 也有，但只是兼容路径；无 token �
 "x64dbg": {
   "url": "http://127.0.0.1:9094/mcp",
   "headers": {
-    "Authorization": "!python -c \"import json;print('Bearer '+json.load(open('D:/Tools/x64dbg/release/x64/mcp_config.json',encoding='utf-8'))['AuthToken'])\""
+    "Authorization": "!python -c \"import json,os;print('Bearer '+json.load(open(os.path.join(os.environ['X64DBG_DIR'],'mcp_config.json'),encoding='utf-8'))['AuthToken'])\""
   },
   "transport": "http",
   "lifecycle": "lazy"

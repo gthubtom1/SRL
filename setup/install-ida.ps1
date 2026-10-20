@@ -65,8 +65,17 @@ if (-not $found) {
 # 有界目录扫描：便携版 / 绿化版常放在 `...\disasm\IDA Pro 9.x`、`...\Tools\IDA*` 这类位置，
 # 既不进注册表也不在默认候选表里。只扫固定几个根，深度 <=2，绝不盘根递归。
 if (-not $found) {
-    $scanRoots = @('D:\Tools', 'D:\Tools\disasm', 'D:\Program Files', 'C:\Tools',
-                   'E:\Tools', 'F:\Tools', (Join-Path $env:USERPROFILE 'Tools'))
+    # ★ 不写死盘符：按本机实际存在的盘枚举 <盘>:\Tools / \Tools\disasm / \Program Files，
+    #   外加用户目录下的 Tools —— 换电脑、换盘符都能命中，且不存在的路径直接跳过。
+    $scanRoots = @()
+    foreach ($d in (Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue)) {
+        $root = $d.Root
+        if (-not $root) { continue }
+        foreach ($sub in @('Tools', 'Tools\disasm', 'Program Files')) {
+            $scanRoots += (Join-Path $root $sub)
+        }
+    }
+    $scanRoots += (Join-Path $env:USERPROFILE 'Tools')
     foreach ($root in $scanRoots) {
         if (-not (Test-Path $root)) { continue }
         $hits = Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
