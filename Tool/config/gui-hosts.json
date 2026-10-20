@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "_comment": "GUI 宿主型 MCP 清单：这类工具的 MCP 服务是『宿主进程里的插件』提供的，宿主不启动就没有端点。新增 GUI 工具只加一条，wake-gui-mcp.ps1 不用改。",
+  "_用法": "powershell -File Tool/scripts/wake-gui-mcp.ps1 -Tool <id> [-Target <样本路径>] [-TimeoutSec N]",
+  "_字段": {
+    "toolId": "交给 tool_autodiscover.discover() 的 id（六层探测：env→PATH→常见目录→注册表→递归扫描→别名）",
+    "exeName": "可选，覆盖探测到的 exe（如 ida 探测到 idat.exe，但 GUI 路线要用 ida64.exe）",
+    "args": "启动参数模板，{target} 会被替换成 -Target 的值；留空数组表示只启动不带参数",
+    "ready": "就绪判据：tcp 端口可连；timeoutSec 为最长等待",
+    "mcp": "给 Agent 看的连接信息（脚本只打印，不直接写 mcp.json）"
+  },
+  "hosts": {
+    "x64dbg": {
+      "toolId": "x64dbg",
+      "args": [
+        "{target}"
+      ],
+      "ready": {
+        "type": "tcp",
+        "port": 9094,
+        "timeoutSec": 90
+      },
+      "mcp": {
+        "transport": "http",
+        "url": "http://127.0.0.1:9094/mcp",
+        "note": "实测可用；Authorization 用 pi 的 !命令 动态取 token（不落盘）：!python -c \"import json;print('Bearer '+json.load(open('D:/Tools/x64dbg/release/x64/mcp_config.json',encoding='utf-8'))['AuthToken'])\"",
+        "tokenFile": "mcp_config.json#AuthToken",
+        "tools": 80
+      }
+    },
+    "x32dbg": {
+      "toolId": "x32dbg",
+      "args": [
+        "{target}"
+      ],
+      "ready": {
+        "type": "tcp",
+        "port": 9094,
+        "timeoutSec": 90
+      },
+      "mcp": {
+        "transport": "http",
+        "url": "http://127.0.0.1:9094/mcp",
+        "note": "与 x64dbg 共用 9094，两者只开其一",
+        "tokenFile": "mcp_config.json#AuthToken",
+        "tools": 80
+      }
+    },
+    "ida": {
+      "toolId": "ida",
+      "exeName": "ida64.exe",
+      "args": [
+        "{target}"
+      ],
+      "ready": {
+        "type": "tcp",
+        "port": 13337,
+        "timeoutSec": 300
+      },
+      "mcp": {
+        "transport": "http",
+        "url": "http://127.0.0.1:13337/mcp",
+        "note": "ida_pro_mcp 的 GUI 插件路线；插件由 pip install ida-pro-mcp 生成到 %APPDATA%\\Hex-Rays\\IDA Pro\\plugins"
+      }
+    },
+    "ghidra-gui": {
+      "toolId": "ghidra",
+      "exeName": "ghidraRun.bat",
+      "args": [],
+      "ready": {
+        "type": "tcp",
+        "port": 8192,
+        "timeoutSec": 240
+      },
+      "mcp": {
+        "transport": "none",
+        "note": "Ghidra 无 MCP 时用 analyzeHeadless（seep_decompile_auto 已接）；GUI 只用于人工会话"
+      }
+    }
+  },
+  "_实测": {
+    "x64dbg": "宿主插件原生支持 streamable HTTP：POST http://127.0.0.1:9094/mcp 直接返回 initialize 结果（serverInfo: x64dbg-MCP Server v1.5，80 tools）。不需要 mcp-remote 桥接；GET /sse 只是兼容路径，无 token 返回 401。",
+    "ida": "ida_pro_mcp 的 GUI 插件监听 13337；必须 IDA 已启动且已加载二进制。",
+    "ghidra": "无头 analyzeHeadless 已由 seep_decompile_auto 承接；GUI 仅人工会话用。"
+  }
+}

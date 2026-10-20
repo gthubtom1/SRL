@@ -10,6 +10,41 @@
 
 ---
 
+## [1.10.8] — 2026-10-20
+
+> 主题：**GUI 宿主型 MCP 自己唤醒**（不再要求用户手动点开），并把 x64dbg 接通。
+
+### 问题
+
+x64dbg / IDA 这类工具的 MCP 服务是**宿主进程里的插件**提供的：宿主没开 → 端点不存在 →
+调用得到 `WinError 10061`。之前的做法是让用户自己打开窗口，这不可接受（工具会越来越多）。
+
+### 变更
+
+- **新增 `Tool/scripts/wake-gui-mcp.ps1`（通用唤醒器）**：
+  六层探测定位 exe → 启动（支持 `-Target` 传样本）→ 轮询端口到就绪 → 打印 MCP 连接信息。
+  退出码 0=就绪 / 2=路径缺失 / 3=启动失败 / 4=超时（超时提示"可能弹了许可或崩溃恢复对话框"）。
+  **脚本里没有任何工具名和绝对路径** —— 全部来自配置。
+- **新增 `Tool/config/gui-hosts.json`（声明式清单）**：x64dbg / x32dbg / ida / ghidra-gui 四条。
+  以后新增 GUI 工具只加一条，脚本不用改。
+- **`AGENTS.md` §四点五.4 新增纪律**：GUI 宿主型 MCP 由 Agent 自己唤醒，不许让用户手动开；
+  只有首次许可、崩溃恢复弹窗这类真需要人工交互时才回报。
+- **x64dbg MCP 接通（实测 80 工具）**：插件原生支持 **streamable HTTP**（`POST /mcp` 直接 initialize，
+  `GET /sse` 只是兼容路径），**不需要 mcp-remote 桥接**（此前判断为"只能 SSE"是错的）。
+  token 不落盘：`headers.Authorization` 用 pi 的 `!python -c ...` 从 x64dbg 自己的 `mcp_config.json` 动态读。
+- `Tool/docs/MCP-SETUP.md` §8.1 按实测重写（含注册片段与唤醒命令）。
+
+### 实测
+
+| 检查 | 结果 |
+|---|---|
+| `wake-gui-mcp.ps1 -Tool x64dbg` | `READY`（1.3s，端口 9094） |
+| `pi mcp list` | **seep 38 · ida 48 · js-reverse 24 · playwright 25 · x64dbg 80** 全部 connected |
+| 真实调用 `mcp__x64dbg__GetDebugState` | 返回 `isDebugging: false` |
+| `verify.ps1` / `verify.sh` | 61/61 · 61/61 |
+
+---
+
 ## [1.10.7] — 2026-10-20
 
 > 主题：**本机工具盘点 + IDA MCP 接通**（并修掉挡住它的 `mcp` 版本冲突）。

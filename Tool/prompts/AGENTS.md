@@ -132,6 +132,19 @@ if (Test-Path "$env:USERPROFILE\.pi\agent\lab-mode.flag") { "LAB MODE ON" } else
 
 ---
 
+### 4. GUI 宿主型 MCP：**自己唤醒，不要等用户点开**
+
+这类工具的 MCP 服务跑在**宿主进程里的插件**中（x64dbg → 9094，IDA → 13337）。
+宿主没启动 = 端点不存在，调用会得到 `WinError 10061 目标计算机积极拒绝` —— **这不是配置错，是没开门**。
+
+- **自己起**：`powershell -NoProfile -File Tool/scripts/wake-gui-mcp.ps1 -Tool x64dbg [-Target <样本>]`
+  脚本会：六层探测定位 exe → 启动 → 轮询端口到就绪 → 打印 MCP 连接信息（含 transport/url/token 来源）。
+- **不要**让用户手动双击打开，也不要因为「端点不可用」就停下来问 —— 那属于可自愈项。
+- **新增 GUI 工具只加一条**到 `Tool/config/gui-hosts.json`（toolId / args / ready.port / mcp），脚本不用改。
+- **只有真需要人工交互时**才回报用户：首次许可协议、崩溃恢复对话框、杀软拦截弹窗。
+
+---
+
 ## 五、 提效规则：先查知识库再动手（Zero-Waste Recon）
 
 ```
