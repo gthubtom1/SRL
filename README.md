@@ -334,6 +334,9 @@ Seep\ (251 MB)
 
 ## 🚀 快速开始与部署
 
+> **换电脑时不需要你手动跑脚本**：让 Agent 说一句「这台还没配」，它会先 `python Tool/scripts/env-check.py` 自检，
+> 未就绪则自己执行 `setup/install.ps1` 并校验（流程见 `Tool/docs/BOOTSTRAP.md`）。
+
 ### 1. 运行依赖
 - **操作系统**：Windows 10 / 11 x64（推荐），兼容 Linux / macOS
 - **核心运行时**：Python 3.11+、Node.js 18+、Git
