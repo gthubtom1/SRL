@@ -10,6 +10,7 @@
 - 步骤：1) 记录型号/版本/哈希并跑 fw-triage 判容器；2) 按固件头切出 rootfs/配置区并审计启动脚本与口令；3) 用 qemu 或真机只读验证服务与调试口，输出 J1/J2/J3 证据
 - 判据：能定位到运行时服务/配置/账号并有文件:行号；或能起仿真并真实回包
 - 失败判据：只解出 kernel/配置碎片、无 rootfs/服务证据：转 02-failure-criteria 的解包/仿真分支
+- 剧本：`python Tool/skill/firmware-iot/scripts/fw-triage.py --file fw.bin --json` → rc=0 期望 `containers[].type` 有 strong 类型且 offset 可解释；rc=1 期望 `blocked_at=input`，转 02-failure ①。
 - reference：Tool/skill/firmware-iot/references/firmware-unpack.md
 
 ### 02 SCADA HMI 固件与 Web 面评估（源：performing-scada-hmi-security-assessment）
@@ -42,6 +43,7 @@
 - 步骤：1) 抓取基线流量并统计功能码/地址分布；2) 在仿真或隔离网关注入异常功能码；3) 对比设备响应与日志，确认是否为固件侧异常
 - 判据：同一异常输入可重复触发响应差异，且有抓包/日志
 - 失败判据：一次性超时或网络抖动：不是固件异常，先排除链路问题
+- 剧本：`qemu-system-mipsel -M malta -m 256M -kernel "$OUT/vmlinux" -drive file="$OUT/rootfs.img",format=raw -append "root=/dev/sda console=ttyS0" -nographic` → rc=0 期望串口 login/目标服务监听；rc=124 期望超时无 login，按 ①/②/⑤ 归因。
 - reference：Tool/skill/firmware-iot/references/emulation-and-fuzz.md
 
 ### 06 Modbus 命令注入与参数拼接（源：detecting-modbus-command-injection-attacks）
@@ -58,6 +60,7 @@
 - 步骤：1) 识别 CPU 型号/固件版本与开放服务；2) 在仿真中复现读写/诊断请求；3) 对照固件内服务实现与访问控制
 - 判据：服务响应与固件实现一致，且有版本/配置证据
 - 失败判据：只能读到版本、无服务实现证据：停在 E0/E1
+- 剧本：`nc -vz 127.0.0.1 102` → rc=0 期望 102 端口开放并能发 S7 基线请求；rc=1 期望服务未起，按 ②/⑤ 归因，不写服务实现结论。
 - reference：Tool/skill/firmware-iot/references/emulation-and-fuzz.md
 
 ### 08 DNP3 异常与固件日志（源：detecting-dnp3-protocol-anomalies）
@@ -82,6 +85,7 @@
 - 步骤：1) 跑 binwalk/fw-triage 列 strong/weak 偏移；2) 按偏移切分并解包；3) 验证 /etc /bin /lib 与 busybox 架构
 - 判据：目录树完整且 busybox/init 架构与 SoC 一致
 - 失败判据：只有签名/碎片、无目录树：转 sasquatch/ubireader 或厂商头路线
+- 剧本：`unsquashfs -d "$ROOT" -f part.bin` → rc=0 期望 `/etc`+`/bin`+`/lib` 齐全且 `file bin/busybox` 架构自洽；rc=1 期望 `unsupported compression`，转 02-failure ① 与 sasquatch。
 - reference：Tool/skill/firmware-iot/references/firmware-unpack.md
 
 ### 11 固件恶意代码与持久化排查（源：performing-firmware-malware-analysis）
@@ -138,6 +142,7 @@
 - 步骤：1) 获取固件并解包，审计账号/密钥/服务；2) 仿真或真机验证 J1/J2；3) 对候选漏洞做可重复 PoC（J3）
 - 判据：至少一条 J1/J2/J3 有证据，且标明等级
 - 失败判据：只有端口扫描/版本号：不算评估完成，转固件静态与仿真
+- 剧本：`python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0 期望 5 个案例字段/hash/refs 全过；rc=1 期望列出不符案例，先修证据再写 J1/J2/J3。
 - reference：Tool/skill/firmware-iot/references/01-criteria.md
 
 ### 18 蓝牙固件与协议评估（源：performing-bluetooth-security-assessment）
