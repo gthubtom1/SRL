@@ -154,4 +154,4 @@ garak --model_type rest --model_name <name> --probes promptinject
 - [ ] 防护建议是架构级（最小权限/沙箱/出站白名单/审批），不是“加一句提示”。
 - [ ] 未读取真实用户数据、未外发真实凭据、未影响第三方系统。
 
-> 细节：`references/prompt-injection.md`、`references/agent-tool-security.md`。
+> 细节：`references/prompt-injection.md`、`references/agent-tool-security.md`、`references/agent-protocol-security.md`（MCP 工具投毒 / rug pull / shadowing / A2A 委派）。
