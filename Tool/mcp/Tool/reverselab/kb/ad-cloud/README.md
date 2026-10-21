@@ -24,6 +24,7 @@
 | [05 ADCS ESC 判据](techniques/05-adcs-esc-decision.md) | `certipy find -vulnerable` 有输出 | ESC1–ESC8 成立条件、auth 验证 |
 | [06 云凭据与元数据](techniques/06-cloud-credentials-metadata.md) | AK/SK、CI 变量、169.254.169.254 | 身份校验、元数据、IAM 权限面 |
 | [07 失败判据](techniques/07-failure-criteria.md) | 路径卡住、只拿到素材 | 现象→判定→改走哪条→代价 |
+| [2026 ESC17](techniques/2026-esc17-wsus-relay.md) | WSUS 为 HTTPS、ADCS 可 NTLM 注册 | `wsus_https`/`esc17_chain` 两字段与六段判据 |
 
 ## 三条硬判据
 
