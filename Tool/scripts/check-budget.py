@@ -79,7 +79,7 @@ def main(argv):
     repo = os.path.dirname(ROOT)
     budget = [
         ("MCP 工具", count_tools(), 45),
-        ("技能", count_skills(), 12),
+        ("技能", count_skills(), None),   # 用户决定：技能数量不设上限
         ("setup 脚本", len([f for f in os.listdir(os.path.join(repo, "setup"))
                         if f.endswith((".ps1", ".sh", ".py"))]), 22),
         ("MANUAL 手册", len([f for f in os.listdir(os.path.join(repo, "MANUAL"))
@@ -92,6 +92,9 @@ def main(argv):
     rows = []
     over = []
     for name, value, limit in budget:
+        if limit is None:
+            rows.append({"item": name, "value": value, "limit": None, "ok": True})
+            continue
         ok = value <= limit
         rows.append({"item": name, "value": value, "limit": limit, "ok": ok})
         if not ok:
@@ -103,7 +106,10 @@ def main(argv):
         print("[budget] 反臃肿预算自检")
         for r in rows:
             mark = "OK  " if r["ok"] else "OVER"
-            print("  %-4s %-16s %5d / %d" % (mark, r["item"], r["value"], r["limit"]))
+            if r["limit"] is None:
+                print("  %-4s %-16s %5d / 无上限" % (mark, r["item"], r["value"]))
+            else:
+                print("  %-4s %-16s %5d / %d" % (mark, r["item"], r["value"], r["limit"]))
         print("  结论:", "全部在预算内" if not over else ("超限: " + ", ".join(over)))
     return 0 if not over else 1
 
