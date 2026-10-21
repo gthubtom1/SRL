@@ -1,0 +1,540 @@
+{
+  "ok": true,
+  "script": "plugin-repro.py",
+  "container": "zip",
+  "sha256": "8228f1a05c99943739f3f36928c54be815883b066fa5dd5d0d8470d12570ab18",
+  "source": "Tool/cases/plugin06/input/real-extension.zip",
+  "unpacked": "Tool/cases/plugin06/artifacts/repro/unpack",
+  "file_count": 13,
+  "extracted_count": 13,
+  "skipped": [],
+  "entrypoints": [
+    {
+      "kind": "background.service_worker",
+      "path": "background.js",
+      "exists": true
+    },
+    {
+      "kind": "action.popup",
+      "path": "action.html",
+      "exists": true
+    },
+    {
+      "kind": "options_page",
+      "path": "options.html",
+      "exists": true
+    }
+  ],
+  "manifest": {
+    "path": "manifest.json",
+    "name": "__MSG_extName__",
+    "version": "5.5.1",
+    "manifest_version": 3,
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": null,
+    "externally_connectable": null,
+    "update_url": "https://clients2.google.com/service/update2/crx"
+  },
+  "package": {},
+  "plugin_xml": {},
+  "permissions": [
+    {
+      "name": "notifications",
+      "risk": "low",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "unlimitedStorage",
+      "risk": "low",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "tabs",
+      "risk": "medium",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "idle",
+      "risk": "low",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "webNavigation",
+      "risk": "medium",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 268,
+          "snippet": "if(!pt)throw new Error(\"webRequest.onErrorOccurred.addListener can only be registered during startup in non-persistent background pages!\");return C.webRequest.onErrorOccurred.addListener(e,t)},addDynamicListener:(e,t)=>C"
+        },
+        {
+          "file": "extension.js",
+          "line": 275,
+          "snippet": "},dt=(ke&&ke.webRequest&&ke.webRequest.OnBeforeSendHeadersOptions&&ke.webRequest.OnBeforeSendHeadersOptions.hasOwnProperty(\"EXTRA_HEADERS\"),!ke||ke.webNavigation,ke&&ke.webNavigation&&(ke.webNavigation.onHistoryStateUpda"
+        }
+      ]
+    },
+    {
+      "name": "webRequest",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 262,
+          "snippet": "getAll:function(e,t){C.windows.getAll?C.windows.getAll(e,(e=>t(e||[]))):t([])},update:function(e,t,n){return C.windows.update(e,t,n)},get:function(e,t,n){return C.windows.get(e,t,n)}}:{supported:!1},vt={headerModificatio"
+        },
+        {
+          "file": "content.js",
+          "line": 48,
+          "snippet": "from:e}),id:ds,uuid:i,location:uo.href}))}))}else n.postMessage(At({messageId:e.messageId,method:\"download\",uuid:e.uuid,id:e.id}))})),e.onDisconnect.addListener((()=>{o&&o(),o=void 0,n.disconnect()}))},webRequest:e=>{con"
+        },
+        {
+          "file": "extension.js",
+          "line": 6,
+          "snippet": "const i=n(2598),r=[\"addElement\",\"addStyle\",\"addValueChangeListener\",\"cookie\",\"deleteValue\",\"deleteValues\",\"download\",\"getResourceText\",\"getResourceURL\",\"getTab\",\"getTabs\",\"getValue\",\"getValues\",\"info\",\"listValues\",\"log\","
+        }
+      ]
+    },
+    {
+      "name": "webRequestBlocking",
+      "risk": "high",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "storage",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 225,
+          "snippet": ";const ae=self,ce=ne.origin,le=ne.host,{addEventListener:ue,removeEventListener:de}=self,Ae=ue,{DOMParser:pe,Notification:he,Image:fe,Worker:me,alert:ge,confirm:ve,document:we,screen:be,webkitNotifications:_e,navigation:"
+        },
+        {
+          "file": "extension.js",
+          "line": 230,
+          "snippet": ";const s=Promise,{AbortController:o,FileReader:a,TextDecoder:l,atob:c,btoa:d,clearInterval:u,clearTimeout:A,crypto:h,decodeURIComponent:p,encodeURIComponent:f,escape:m,location:g,setInterval:_,setTimeout:b,unescape:v}=se"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 2,
+          "snippet": "R=self.localStorage}catch(n){}const L=R;let{XMLHttpRequest:C}=self;const{clients:z}=self;let I=0;const D=[],M=()=>{const n=[\"debug\"],e=[\"log\"],t=[\"warn\",\"info\"],o=[\"error\"],r=[...n,...e,...t,...o],s=o;I>=80&&s.push(...n)"
+        }
+      ]
+    },
+    {
+      "name": "contextMenus",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 286,
+          "snippet": ";return e.onClosed.addListener(t)},removeListener:function(t){return e.onClosed.removeListener(t)}},getPermissionLevel:function(t){return e.getPermissionLevel(t)},create:function(t,n,r){return e.create(t,n,r)},clear:func"
+        },
+        {
+          "file": "extension.js",
+          "line": 278,
+          "snippet": "return ke.cookies.getAll(e,t)},remove:function(e,t){return ke.cookies.remove(e,t)},set:function(e,t){return ke.cookies.set(e,t)}})}),ke&&ke.commands&&ke.commands.onCommand,(()=>{const e=ke&&ke.notifications;e&&e.getPermi"
+        }
+      ]
+    },
+    {
+      "name": "chrome://favicon/",
+      "risk": "low",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "clipboardWrite",
+      "risk": "medium",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 986,
+          "snippet": ";\"userscripts-dynamic\"==wn.values.runtime_content_mode&&(t||(v.warn(\"mh: missing scripts for cleanup\",e),t={}),sh(r.id,s,t,o)),gh(r.id,s,o),kh.setIcon(r.id),kh.setBadge(r.id),n({})}else wh(r.id,s,o,r,(t=>{const s=t?Zp(t,"
+        },
+        {
+          "file": "content.js",
+          "line": 58,
+          "snippet": "const{content:n,info:o,uuid:s}=e;let r,i;\"object\"==typeof o?(o.type&&(r=o.type),o.mimetype&&(i=o.mimetype)):\"string\"==typeof o&&(r=o);const c=i||(\"html\"==r?\"text/html\":\"text/plain\");_t.document.addEventListener(\"copy\",(e"
+        },
+        {
+          "file": "extension.js",
+          "line": 749,
+          "snippet": "disabled:(!e.options.check_for_updates||!e.file_url||\"none\"==e.file_url)&&xt(\"Update_check_is_disabled\"),cb:()=>{_()&&!confirm(xt(\"Really_reset_all_changes_\"))||(k(!0),h(e.uuid,\"scriptUpdate\"))}}]).concat([{...Me.remove,"
+        }
+      ]
+    },
+    {
+      "name": "cookies",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 283,
+          "snippet": ";try{return null===(r=e())||void 0===r?void 0:r.download(t,n)}catch(e){n(void 0,e.message)}}}})(),St=async function(e,t,n){try{const n=await oe(e),r=await n.blob();t(await new Response(r).arrayBuffer())}catch(e){n(e.mess"
+        },
+        {
+          "file": "extension.js",
+          "line": 278,
+          "snippet": "return ke.cookies.getAll(e,t)},remove:function(e,t){return ke.cookies.remove(e,t)},set:function(e,t){return ke.cookies.set(e,t)}})}),ke&&ke.commands&&ke.commands.onCommand,(()=>{const e=ke&&ke.notifications;e&&e.getPermi"
+        },
+        {
+          "file": "page.js",
+          "line": 71,
+          "snippet": "location:io.location.href,details:t}),n=Dt({set:(e,n)=>{s.send(\"cookie\",t(\"set\",e),n?e=>{n(e.error)}:null)},delete:(e,n)=>{s.send(\"cookie\",t(\"delete\",e),n?e=>{n(e.error)}:null)},list:(e,n)=>{s.send(\"cookie\",t(\"list\",e),n"
+        }
+      ]
+    },
+    {
+      "name": "alarms",
+      "risk": "low",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "declarativeNetRequestWithHostAccess",
+      "risk": "medium",
+      "status": "unexplained-static",
+      "evidence": []
+    },
+    {
+      "name": "scripting",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 258,
+          "snippet": "removeListener:function(e){return C.tabs.onReplaced.removeListener(e)}},onRemoved:{addListener:function(e){if(!pt)throw new Error(\"tabs.onRemoved listener can only be registered during startup in non-persistent backgroun"
+        },
+        {
+          "file": "extension.js",
+          "line": 271,
+          "snippet": "return ke.tabs.onRemoved.addListener(e)},removeListener:function(e){return ke.tabs.onRemoved.removeListener(e)}},executeScript:function(e,t,n){return ke.tabs.executeScript(e,t,n)},create:function(e,t){let{url:n,active:i,"
+        }
+      ]
+    },
+    {
+      "name": "userScripts",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 275,
+          "snippet": "},yt=(C&&C.declarativeContent&&C.declarativeContent.onPageChanged&&(C.declarativeContent.PageStateMatcher,C.declarativeContent.RequestContentScript),M&&M.contentScripts&&M.contentScripts.register,M&&M.userScripts&&M.user"
+        },
+        {
+          "file": "content.js",
+          "line": 33,
+          "snippet": ";const qo=ko&&ko.userScripts&&ko.userScripts.onBeforeScript?{supported:!0,onBeforeScript:{addListener:e=>ko.userScripts.onBeforeScript.addListener(e)}}:{supported:!1},Wo=({sendPrefix:e,listenPrefix:n,send:o,onMessage:s})"
+        },
+        {
+          "file": "extension.js",
+          "line": 276,
+          "snippet": "ke&&ke.declarativeContent&&ke.declarativeContent.onPageChanged&&(ke.declarativeContent.PageStateMatcher,ke.declarativeContent.RequestContentScript),Re&&Re.contentScripts&&Re.contentScripts.register,Re&&Re.userScripts&&Re"
+        }
+      ]
+    },
+    {
+      "name": "offscreen",
+      "risk": "medium",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background.js",
+          "line": 221,
+          "snippet": "await C.offscreen.createDocument({url:\"offscreen.html\",...e}),t&&t()},closeDocument:async e=>{await C.offscreen.closeDocument(),e&&e()}},F=e=>new h((t=>N(t,e)));let L=0;const P=async function(e,...t){await(()=>{const e=D"
+        },
+        {
+          "file": "content.js",
+          "line": 32,
+          "snippet": "},...Object.getOwnPropertyDescriptors({getURL:function(e){return ko.runtime.getURL(e)},sendMessage:(e,t)=>ko.runtime.sendMessage(e,t),onMessage:{addListener:e=>ko.runtime.onMessage.addListener(e)},connect:e=>ko.runtime.c"
+        }
+      ]
+    }
+  ],
+  "host_permissions": [
+    {
+      "pattern": "<all_urls>",
+      "risk": "critical"
+    }
+  ],
+  "data_flow": [
+    {
+      "kind": "runtime.onMessage",
+      "hits": [
+        {
+          "file": "background.js",
+          "line": 220,
+          "snippet": "get:()=>(void 0===e&&(e=C.extension.inIncognitoContext),e),set:t=>{e=t},enumerable:!0},...Object.getOwnPropertyDescriptors({getURL:function(e){return C.runtime.getURL(e)},sendMessage:(e,t)=>C.runtime.sendMessage(e,t),onM"
+        },
+        {
+          "file": "background.js",
+          "line": 253,
+          "snippet": ";C.runtime.onUserScriptMessage?C.runtime.onUserScriptMessage.addListener(t):console.error(\"chrome.runtime.onUserScriptMessage is not available!\"),O.onMessage.addListener(t)},addListener:e=>{if(!pt)throw new Error(\"extens"
+        },
+        {
+          "file": "content.js",
+          "line": 32,
+          "snippet": "},...Object.getOwnPropertyDescriptors({getURL:function(e){return ko.runtime.getURL(e)},sendMessage:(e,t)=>ko.runtime.sendMessage(e,t),onMessage:{addListener:e=>ko.runtime.onMessage.addListener(e)},connect:e=>ko.runtime.c"
+        },
+        {
+          "file": "content.js",
+          "line": 39,
+          "snippet": ";eo.warn(\"port: background communication error - this context might have missed important events!\",t),c(t)}},onMessage:At({addListener:e=>t.onMessage.addListener(e)}),onError:At({addListener:e=>{zt(o,e)}}),onDisconnect:A"
+        },
+        {
+          "file": "extension.js",
+          "line": 251,
+          "snippet": "getURL:function(e){return ke.runtime.getURL(e)},sendMessage:(e,t)=>ke.runtime.sendMessage(e,t),onMessage:{addListener:e=>ke.runtime.onMessage.addListener(e)},connect:e=>ke.runtime.connect({name:e}),urls:{prepareForReport"
+        },
+        {
+          "file": "extension.js",
+          "line": 267,
+          "snippet": "addListener:function(e){return ke.runtime.onConnectExternal.addListener(e)}},onMessageExternal:{addListener:function(e){return ke.runtime.onMessageExternal.addListener(e)}},onMessage:{...Be.onMessage,addDynamicListener:e"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 5,
+          "snippet": "}),Object.defineProperty(n,\"id\",{get:()=>F.runtime.id,enumerable:!0}),Object.defineProperty(n,\"short_id\",{get:()=>n.id.replace(/[^0-9a-zA-Z]/g,\"\").substr(0,4),enumerable:!0}),n})(),J=Object.defineProperties({},{inIncogni"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 82,
+          "snippet": "})(),Be=(n=>{const e={};let t;const o=t=>{let o=[],s=[];const a=()=>{o=[],s=[],i=null,delete e[t]};let i={postMessage:e=>{(e=>{if(!i)throw\"port is disconnected\";n.send({response_id:t,value:e})})(e)},onMessage:{addListene"
+        }
+      ]
+    },
+    {
+      "kind": "connectNative",
+      "hits": [
+        {
+          "file": "background.js",
+          "line": 454,
+          "snippet": "let t;const n=await Promise.race([new Promise(((n,r)=>{t=se((()=>{t=void 0,r(`timeout: ${e.method}`)}),15e3)})),M.runtime.sendNativeMessage(\"application\",e)]);return void 0!==t&&J(t),n}catch(e){throw console.error(\"sendN"
+        },
+        {
+          "file": "background.js",
+          "line": 454,
+          "snippet": "let t;const n=await Promise.race([new Promise(((n,r)=>{t=se((()=>{t=void 0,r(`timeout: ${e.method}`)}),15e3)})),M.runtime.sendNativeMessage(\"application\",e)]);return void 0!==t&&J(t),n}catch(e){throw console.error(\"sendN"
+        },
+        {
+          "file": "extension.js",
+          "line": 412,
+          "snippet": "}),15e3)})),Re.runtime.sendNativeMessage(\"application\",e)]);return void 0!==t&&A(t),n}catch(e){throw console.error(\"sendNativeMessage\",e),e}finally{Ye.release()}})({method:\"xhr\",id:this.id,details:i}),e&&this.upload&&thi"
+        },
+        {
+          "file": "extension.js",
+          "line": 412,
+          "snippet": "}),15e3)})),Re.runtime.sendNativeMessage(\"application\",e)]);return void 0!==t&&A(t),n}catch(e){throw console.error(\"sendNativeMessage\",e),e}finally{Ye.release()}})({method:\"xhr\",id:this.id,details:i}),e&&this.upload&&thi"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 37,
+          "snippet": ";r?(o.data=hn(r),s(t)):(this.readyState=0,this.statusText=\"data read error\",this.onerror&&this.onerror(this))}else e=n.length,t=\"text/plain\",o.data=hn(dn(n));s(t),this.upload&&(this.upload.loaded=0,this.upload.total=e)}("
+        },
+        {
+          "file": "offscreen.js",
+          "line": 37,
+          "snippet": ";r?(o.data=hn(r),s(t)):(this.readyState=0,this.statusText=\"data read error\",this.onerror&&this.onerror(this))}else e=n.length,t=\"text/plain\",o.data=hn(dn(n));s(t),this.upload&&(this.upload.loaded=0,this.upload.total=e)}("
+        }
+      ]
+    },
+    {
+      "kind": "fetch",
+      "hits": [
+        {
+          "file": "extension.js",
+          "line": 587,
+          "snippet": "width:A,height:u,correctLevel:r?3:1,background:\"#ffffff\",foreground:\"#000000\",text:i});if(c&&h.setAttribute(\"style\",c),e.append(h),r){const e=h.getContext(\"2d\");if(e){let t,n;if(o&&(t=(A-s-o)/2,e.fillStyle=\"#ffffff\",e.fi"
+        }
+      ]
+    },
+    {
+      "kind": "XMLHttpRequest",
+      "hits": [
+        {
+          "file": "background.js",
+          "line": 225,
+          "snippet": ";const ae=self,ce=ne.origin,le=ne.host,{addEventListener:ue,removeEventListener:de}=self,Ae=ue,{DOMParser:pe,Notification:he,Image:fe,Worker:me,alert:ge,confirm:ve,document:we,screen:be,webkitNotifications:_e,navigation:"
+        },
+        {
+          "file": "background.js",
+          "line": 456,
+          "snippet": "this.toString=function(){return\"[object XMLHttpRequest]\"},this.handle=function(e){const t=e.data,n=()=>{this.onprogress&&this.onprogress(this)};if(t.timeout)this.ontimeout&&this.ontimeout.apply(this,[this]);else if(1==t."
+        },
+        {
+          "file": "content.js",
+          "line": 5,
+          "snippet": "S_cCA:\"\".charCodeAt,S_tLC:\"\".toLowerCase,S_tUC:\"\".toUpperCase,Y_tST:Symbol.toStringTag,Y_unsc:Symbol.unscopables,USP_tS:URLSearchParams.prototype.toString,D_pFS:DOMParser.prototype.parseFromString,U_cOU:URL.createObjectU"
+        },
+        {
+          "file": "content.js",
+          "line": 5,
+          "snippet": "S_cCA:\"\".charCodeAt,S_tLC:\"\".toLowerCase,S_tUC:\"\".toUpperCase,Y_tST:Symbol.toStringTag,Y_unsc:Symbol.unscopables,USP_tS:URLSearchParams.prototype.toString,D_pFS:DOMParser.prototype.parseFromString,U_cOU:URL.createObjectU"
+        },
+        {
+          "file": "extension.js",
+          "line": 231,
+          "snippet": "const M=F;let{XMLHttpRequest:j}=self;const{clients:D}=self,O=(e,t)=>{null==t&&(t=[]);const n=new RegExp(\"(\\\\\"+[\"/\",\".\",\"+\",\"?\",\"|\",\"(\",\")\",\"[\",\"]\",\"{\",\"}\",\"\\\\\"].concat(t).join(\"|\\\\\")+\")\",\"g\");return e.replace(n,\"\\\\$1\")},"
+        },
+        {
+          "file": "extension.js",
+          "line": 413,
+          "snippet": ";return Object.keys(e).map((function(t){const n=e[t];return n&&n.includes(\",\")?n.split(\",\").map((function(e){return t+\":\"+e.trimStart()})).join(\"\\r\\n\"):t+\":\"+n})).join(\"\\r\\n\")},this.getResponseHeader=function(e){return t"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 2,
+          "snippet": "R=self.localStorage}catch(n){}const L=R;let{XMLHttpRequest:C}=self;const{clients:z}=self;let I=0;const D=[],M=()=>{const n=[\"debug\"],e=[\"log\"],t=[\"warn\",\"info\"],o=[\"error\"],r=[...n,...e,...t,...o],s=o;I>=80&&s.push(...n)"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 39,
+          "snippet": "})).join(\"\\r\\n\"):e+\":\"+t})).join(\"\\r\\n\")},this.getResponseHeader=function(n){return this.headers[n]},this.setRequestHeader=function(n,e){null!==e&&(this.request_headers||(this.request_headers={}),this.request_headers[n.t"
+        }
+      ]
+    },
+    {
+      "kind": "scripting.executeScript",
+      "hits": [
+        {
+          "file": "background.js",
+          "line": 258,
+          "snippet": "removeListener:function(e){return C.tabs.onReplaced.removeListener(e)}},onRemoved:{addListener:function(e){if(!pt)throw new Error(\"tabs.onRemoved listener can only be registered during startup in non-persistent backgroun"
+        },
+        {
+          "file": "background.js",
+          "line": 276,
+          "snippet": "available:()=>{try{return!!C.userScripts}catch{return!1}}}),kt=(()=>{const e=C;return e&&e.scripting&&e.scripting.executeScript?{supported:!0,executeScript:t=>e.scripting.executeScript(t),registerContentScripts:t=>e.scri"
+        },
+        {
+          "file": "extension.js",
+          "line": 271,
+          "snippet": "return ke.tabs.onRemoved.addListener(e)},removeListener:function(e){return ke.tabs.onRemoved.removeListener(e)}},executeScript:function(e,t,n){return ke.tabs.executeScript(e,t,n)},create:function(e,t){let{url:n,active:i,"
+        }
+      ]
+    },
+    {
+      "kind": "postMessage",
+      "hits": [
+        {
+          "file": "background.js",
+          "line": 99,
+          "snippet": ";t.onreadystatechange=function(){n(),t.onreadystatechange=null,t.parentNode.removeChild(t),t=null},e.document.documentElement.appendChild(t)}:function(){setTimeout(n,0)};else{var l=new e.MessageChannel;l.port1.onmessage="
+        },
+        {
+          "file": "background.js",
+          "line": 484,
+          "snippet": "})),(n.length?n:r).forEach((e=>t.push(\"set-cookie:\"+e))),{rh:t.join(\"\\r\\n\"),fu:s}})(e);A=r,p=s}d=void 0}a&&a(),A&&(e.data.responseHeaders=A),p&&(e.data.finalUrl=p)}\"ondone\"===e.type&&a&&a(),await i(e.type,e.data)}finally"
+        },
+        {
+          "file": "content.js",
+          "line": 38,
+          "snippet": "Qo[e]=!0}));return function(t){return e.apply(this,arguments)}}(),ss=function(){var e=t((function*(e){delete Qo[e],!Lt(Qo).length&&es&&(ts.removeEventListener(\"mouseenter\",es,!1),es=void 0)}));return function(t){return e"
+        },
+        {
+          "file": "content.js",
+          "line": 40,
+          "snippet": ";t&&t.postMessage(At({refreshId:Nn()}))}))},a=()=>{t.disconnect(),Xo.lastError,i(!0)};zt(rs,a);const d=()=>{t.disconnect(),Xo.lastError};return zt(is,d),r};let ds,ls,us;Fn.addEventListener(\"pagehide\",(e=>{En(e)&&Vt(is,(e"
+        },
+        {
+          "file": "extension.js",
+          "line": 123,
+          "snippet": ";t.onreadystatechange=function(){n(),t.onreadystatechange=null,t.parentNode.removeChild(t),t=null},e.document.documentElement.appendChild(t)}:function(){setTimeout(n,0)};else{var c=new e.MessageChannel;c.port1.onmessage="
+        },
+        {
+          "file": "extension.js",
+          "line": 604,
+          "snippet": "value:Be.getURL(\"/\")};return e.postMessage(n),Vi=void 0,e},a=e=>{if(Pi=Pi||r(),e)Vi=void 0;else if(Vi)return;let t,n=Date.now();if(Object.keys(Ni).forEach((e=>{Ni[e].ts<=n&&(t=Ni[e],n=t.ts)})),t){Vi=t.id;const e={method:"
+        },
+        {
+          "file": "offscreen.js",
+          "line": 89,
+          "snippet": ";Be.onConnect.addListener(((n,e)=>{if(Pe++,\"xhr\"===n){const n=Math.random().toString(36).slice(2),t=()=>{const e=$e[n];e?(e.abort(),delete $e[n]):console.log(\"offscreen: xhr already deleted\",n)};e.onMessage.addListener(("
+        },
+        {
+          "file": "offscreen.js",
+          "line": 92,
+          "snippet": "navigator.serviceWorker.onmessage=n=>{qe(n.data,(e=>{n.ports[0].postMessage(e)}))}})();"
+        }
+      ]
+    },
+    {
+      "kind": "eval",
+      "hits": [
+        {
+          "file": "background.js",
+          "line": 201,
+          "snippet": ";t.exports=\"function\"==typeof setImmediate?setImmediate:function(){var e=[].slice.apply(arguments);e.splice(1,0,0),setTimeout.apply(null,e)}},{}]},{},[10])(10)}},n={};e.n=t=>{var n=t&&t.__esModule?()=>t.default:()=>t;ret"
+        },
+        {
+          "file": "background.js",
+          "line": 309,
+          "snippet": "value:[\"// ==UserScript==\",\"// @name         New ES6-Userscript\",\"// @namespace    http://tampermonkey.net/\",\"// @version      <$DATE$>\",\"// @description  shows how to use babel compiler\",\"// @author       You\",\"// @requ"
+        },
+        {
+          "file": "extension.js",
+          "line": 225,
+          "snippet": ";t.exports=\"function\"==typeof setImmediate?setImmediate:function(){var e=[].slice.apply(arguments);e.splice(1,0,0),setTimeout.apply(null,e)}},{}]},{},[10])(10)}},n={};e.n=t=>{var n=t&&t.__esModule?()=>t.default:()=>t;ret"
+        }
+      ]
+    }
+  ],
+  "native": {
+    "node_modules": [],
+    "v8_bytecode": [],
+    "sourcemaps": [],
+    "unity_plugin_dlls": []
+  },
+  "unity": {},
+  "minimal_unit": {
+    "path": "background.js",
+    "lines": 1109,
+    "symbols": [
+      "e",
+      "s",
+      "n",
+      "r",
+      "t",
+      "i",
+      "o",
+      "a",
+      "c",
+      "l",
+      "u",
+      "d",
+      "A",
+      "p",
+      "h"
+    ],
+    "flow_hits": 12,
+    "why": "入口文件且命中的数据流/危险调用最多；先在此处下断或做最小改动"
+  },
+  "notes": [],
+  "blocked": [
+    "tool-missing:jadx",
+    "tool-missing:dnSpy",
+    "tool-missing:Cpp2IL"
+  ],
+  "next_probe": [
+    "浏览器加载已解压目录，DevTools 观察 service worker 唤醒、消息与存储写入",
+    "检查 native host manifest 的 allowed_origins 与宿主二进制",
+    "对远端 URL 做离线域名/证书/更新链核对；协议复刻转 protocol-plugin",
+    "最小可改单元改动前先备份，一次只改一个变量并留基线"
+  ]
+}

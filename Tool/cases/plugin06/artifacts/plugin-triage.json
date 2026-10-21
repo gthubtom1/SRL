@@ -1,0 +1,418 @@
+{
+  "container": "zip",
+  "sha256": "8228f1a05c99943739f3f36928c54be815883b066fa5dd5d0d8470d12570ab18",
+  "size": 482455,
+  "file_count": 13,
+  "top_level": [
+    "_locales",
+    "_metadata",
+    "action.html",
+    "background.html",
+    "background.js",
+    "content.js",
+    "extension.js",
+    "manifest.json",
+    "offscreen.html",
+    "offscreen.js",
+    "options.html",
+    "page.js",
+    "userscript.html"
+  ],
+  "interesting_files": [
+    "manifest.json"
+  ],
+  "entrypoints": {
+    "manifest": "manifest.json",
+    "package": null,
+    "plugin_xml": null
+  },
+  "manifest": {
+    "manifest_version": 3,
+    "name": "__MSG_extName__",
+    "version": "5.5.1",
+    "permissions": [
+      "notifications",
+      "unlimitedStorage",
+      "tabs",
+      "idle",
+      "webNavigation",
+      "webRequest",
+      "webRequestBlocking",
+      "storage",
+      "contextMenus",
+      "chrome://favicon/",
+      "clipboardWrite",
+      "cookies",
+      "alarms",
+      "declarativeNetRequestWithHostAccess",
+      "scripting",
+      "userScripts",
+      "offscreen"
+    ],
+    "optional_permissions": [
+      "downloads"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "background.js",
+      "scripts": [],
+      "type": null,
+      "persistent": null
+    },
+    "content_scripts": [],
+    "web_accessible_resources": [],
+    "externally_connectable": null,
+    "commands": {
+      "open-dashboard": {
+        "description": "Open dashboard"
+      },
+      "open-dashboard-with-running-scripts": {
+        "description": "Open dashboard with the current tab's URL used as filter"
+      },
+      "open-new-script": {
+        "description": "Open new script tab"
+      },
+      "toggle-enable": {
+        "description": "Toggle enable state"
+      }
+    },
+    "options_page": "options.html",
+    "devtools_page": null,
+    "action": {
+      "default_icon": {
+        "16": "images/icon_grey16.png",
+        "19": "images/icon_grey19.png",
+        "24": "images/icon_grey24.png",
+        "32": "images/icon_grey32.png",
+        "38": "images/icon_grey38.png"
+      },
+      "default_popup": "action.html",
+      "default_title": "Tampermonkey"
+    },
+    "csp": null,
+    "key": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDjiyuc6OWY8gaVTe+b16fH2BBe0PQLMeUpEXSQvyv5a/6OiQ1D8bBLTfLvApD3zT2MZoXWu2KUILdkyg5OC/Tru8m+Js6e3RjHY9Rqbvnh8CJQgTJ+63L5w9aLsTvA2fqdDfhw8Mnl1GMcJd/RI/ZiBEm0stog0ZfyQjD1jpSEXQIDAQAB",
+    "update_url": "https://clients2.google.com/service/update2/crx"
+  },
+  "package": {},
+  "plugin_xml": {},
+  "suspicious_apis": {
+    "webRequest": {
+      "count": 84,
+      "files": [
+        "manifest.json",
+        "background.js",
+        "content.js",
+        "page.js",
+        "extension.js"
+      ],
+      "examples": [
+        "age\", \"tabs\", \"idle\", \"webNavigation\", \"webRequest\", \"webRequestBlocking\", \"storage\", \"contextMenus\", \"chrome://favicon/\", \"clipbo",
+        "\"idle\", \"webNavigation\", \"webRequest\", \"webRequestBlocking\", \"storage\", \"contextMenus\", \"chrome://favicon/\", \"clipboardWrite\", \"co",
+        "\"clipboardWrite\", \"cookies\", \"alarms\", \"declarativeNetRequestWithHostAccess\", \"scripting\", \"userScripts\", \"offscreen\" ],\r    \"short_name\": \"_"
+      ]
+    },
+    "clipboard": {
+      "count": 4,
+      "files": [
+        "manifest.json",
+        "extension.js"
+      ],
+      "examples": [
+        ", \"contextMenus\", \"chrome://favicon/\", \"clipboardWrite\", \"cookies\", \"alarms\", \"declarativeNetRequestWithHostAccess\", \"scripting\", \"use",
+        "t\",text:xt(\"Text\"),entries:[{...Me.upcaseAtCursor},{...Me.downcaseAtCursor},{type:\"sep\"},{...Me.delLineLeft},{...Me.delLineRight},{...Me.de",
+        "},{...Me.delGroupBefore},{ ...Me.delGroupAfter},{...Me.deleteLine},{type:\"sep\"},{...Me.transposeChars}]},{id:\"edit_sort\",text:xt(\"Sort\"),en"
+      ]
+    },
+    "eval": {
+      "count": 2,
+      "files": [
+        "background.js"
+      ],
+      "examples": [
+        "{ presets: [ \"es2015\", \"es2016\" ] });',\"eval(c.code);\"].join(\"\\n\") },{name:\"CoffeeScript\", value:[\"// ==UserScript==\",\"// @na",
+        "his.CoffeeScript.compile(inline_src);\",\"eval(compiled);\"].join(\"\\n\") }],ln={},un={enabled:!0,configMode:0,debug:!1,logLevel:0"
+      ]
+    },
+    "new_Function": {
+      "count": 2,
+      "files": [
+        "background.js",
+        "extension.js"
+      ],
+      "examples": [
+        "This)return globalThis;try{return this||new Function(\"return this\")()}catch(e){ if(\"object\"==typeof window)return window}}(),e.o=(e,t"
+      ]
+    },
+    "exec_spawn": {
+      "count": 20,
+      "files": [
+        "background.js",
+        "extension.js"
+      ],
+      "examples": [
+        ",In=(e,t)=>{let{scheme:n,host:r,path:s}=Mn(e);return n=\"http*\"===n?\"https?\":Ie(n).replace(/\\*/gi,\"[^:/#?]*\"), r=Ie(r).replace",
+        "://github.com/\"+n+\"/issues\"}}const o=e.match(new RegExp(n));if(o&&3===o.length){o.shift();const[e,t]=o,n=\"IITC-CE/ingress-int",
+        ":()=>y.Breach(),clear:()=>y.Breach()});const lc=e=>{const t=(e.match(/[\\dA-F]{2}/gi)||[]).map((e=>parseInt(e,16)));return new"
+      ]
+    },
+    "nativeMessaging": {
+      "count": 6,
+      "files": [
+        "background.js",
+        "offscreen.js",
+        "extension.js"
+      ],
+      "examples": [
+        "eturn\"[object XMLHttpRequest]\"},this.handle=function(e){const t=e.data,n=()=>{this.onprogress&&this.onprogress(this)};if(t.timeout)this.o",
+        "&&this.onprogress(this)};if(t.timeout)this.ontimeout&&this.ontimeout.apply(this,[this]);else if(1==t.readyState&&\"loaded\"in t)this.upload",
+        "==e&&(this.request_headers||(this.request_headers={}),this.request_headers[n.trim().toLowerCase()]=e.trim())},this.toString=function(){re"
+      ]
+    },
+    "atob_base64": {
+      "count": 1,
+      "files": [
+        "background.js"
+      ],
+      "examples": [
+        ",t.sender)})),Yp(e)})),_i.on(\"error\",(({tabId:e,sender:t,url:n})=>{No(t)&&\"auto\"==wn.values.scriptUrlDetection&&n.startsWith("
+      ]
+    },
+    "network_request": {
+      "count": 35,
+      "files": [
+        "background.js",
+        "offscreen.js",
+        "content.js",
+        "page.js",
+        "extension.js"
+      ],
+      "examples": [
+        ".localStorage}catch(e){}const xe=Re;let{XMLHttpRequest:Ee}=self;const{clients:Se}=self,Ce=e=>[...new Set(e)],Me=(e,t,n)=>{const r=e.in",
+        "=t.readyState&&(Object.assign(this,t),n())},this.id=Date.now()+(Math.random()+1).toString(36).substring(7),this.options=e,Ki[this.id]=",
+        "}(no||(no={}));const ro=async(e,t)=>{{let n;try{const r=n=await(e=>e({justification:\"create an object URL\",reasons:[no.BLOBS]}))(t),s="
+      ]
+    },
+    "unsafe_eval_csp": {
+      "count": 3,
+      "files": [
+        "background.js"
+      ],
+      "examples": [
+        "etHash();if(n===e&&s===r){i=!0;break}}if(!i){t=!1;break}}if(t)return!0}}if(n&&5!=t.InternalContentPolicyType())return!t.GetParserCr",
+        ")}for(let e=0;e<this.mSrcs.length;e++)if(this.mSrcs[e].permits(n,r,s,i))return!0;return!1}allows(e,t){return this.mSrcs.some((n=>n.",
+        "ered_ids: \",p);else if(p.length&&!p.includes(m))v.debug(\"dc: scripts were modified, re-registering all scripts\"),await bA.unregiste"
+      ]
+    },
+    "remote_script": {
+      "count": 8,
+      "files": [
+        "background.js",
+        "offscreen.js",
+        "extension.js"
+      ],
+      "examples": [
+        "in e&&\"onreadystatechange\"in e.document.createElement(\"script\")?function(){var t=e.document.createElement(\"script\") ;t.onreadystatechange=fun",
+        "t(\"script\")?function(){var t=e.document.createElement(\"script\") ;t.onreadystatechange=function(){n(),t.onreadystatechange=null,t.parentNode.r",
+        "in a){const{message:e}=a;n.forEach((n=>{n(e)}))}if(t){const n=e.length;t({result:void 0,poll:n?1:0})}t=s,o()},onMessage:{addListener:e=>{n.pu"
+      ]
+    }
+  },
+  "remote_urls": [
+    "http://${n",
+    "http://*/*",
+    "http://a.userscript.grobilan:8081/matomo.php",
+    "http://coffeescript.org/browser-compiler/coffeescript.js",
+    "http://contactbyweb.com/userscripts-mirror",
+    "http://socialfixer.com",
+    "http://tampermonkey.net/",
+    "http://tmnk.net/faq#Q208",
+    "http://userscripts-mirror.org/scripts/review/",
+    "http://userscripts-mirror.org/scripts/show/",
+    "http://userscripts.com/",
+    "http://userscripts.org/",
+    "http://willneverexist.tmnk.net/",
+    "http://www.w3.org/1999/xhtml",
+    "http://www.w3.org/1999/xlink",
+    "http://www.w3.org/2000/svg",
+    "http://xkcd.com/970/",
+    "https://*/*",
+    "https://*bankofamerica.tld/*",
+    "https://*deutsche-bank-24.tld/*",
+    "https://a.tampermonkey.net/matomo.php",
+    "https://accounts.google.com/o/oauth2/v2/auth",
+    "https://accounts.tampermonkey.net/e/oauth2/v1",
+    "https://api.dropboxapi.com/2/auth/token/revoke",
+    "https://api.dropboxapi.com/2/files/delete",
+    "https://api.dropboxapi.com/2/files/list_folder",
+    "https://api.onedrive.com/v1.0/drive/items/",
+    "https://api.onedrive.com/v1.0/drive/special",
+    "https://api.onedrive.com/v1.0/drive/special/approot",
+    "https://bitbucket.org/",
+    "https://blacklist.tampermonkey.net/get.php",
+    "https://bugs.chromium.org/p/chromium/issues/detail?id=159303",
+    "https://bugs.chromium.org/p/chromium/issues/detail?id=777076",
+    "https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/6.16.0/polyfill.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.18.2/babel.js",
+    "https://clients2.google.com/service/update2/crx",
+    "https://cloud-api.yandex.net/v1/disk/",
+    "https://content.dropboxapi.com/2/files/download",
+    "https://content.dropboxapi.com/2/files/upload",
+    "https://eslint.org/docs/user-guide/configuring",
+    "https://forum.userstyles.org/post/discussion?Discussion/StyleID=",
+    "https://gist.github.com/${i",
+    "https://gist.github.com/${r",
+    "https://github.com/",
+    "https://github.com/derjanb",
+    "https://github.com/narcolepticinsomniac",
+    "https://github.com/openstyles/stylus",
+    "https://gitlab.com/",
+    "https://greasyfork.org/scripts/",
+    "https://icons.duckduckgo.com/ip2/",
+    "https://iitc\\\\.app/build/release/(plugins/",
+    "https://login.live.com/oauth20_authorize.srf",
+    "https://notify.dropboxapi.com/2/files/list_folder/longpoll",
+    "https://oauth.yandex.com/authorize",
+    "https://openuserjs.org/scripts/",
+    "https://sleazyfork.org/scripts/",
+    "https://static\\\\.iitc\\\\.me/build/release/(plugins/",
+    "https://stuk.github.io/jszip/documentation/howto/read_zip.html",
+    "https://userstyles.org/styles/",
+    "https://webdav.yandex.ru",
+    "https://www.dropbox.com/oauth2/authorize",
+    "https://www.facebook.com/fluffbustingpurity",
+    "https://www.facebook.com/groups/SocialFixerUsersSupport/",
+    "https://www.facebook.com/tampermonkey",
+    "https://www.fbpurity.com/",
+    "https://www.google.com/s2/favicons?sz=64&domain=",
+    "https://www.googleapis.com/",
+    "https://www.googleapis.com/auth/drive.appdata",
+    "https://www.googleapis.com/drive/v3/changes/?",
+    "https://www.googleapis.com/drive/v3/changes/startPageToken",
+    "https://www.googleapis.com/drive/v3/files/",
+    "https://www.googleapis.com/drive/v3/files?",
+    "https://www.instagram.com/der_jan_b/",
+    "https://www.tampermonkey.net",
+    "https://www.tampermonkey.net/bug",
+    "https://www.tampermonkey.net/changelog.php?",
+    "https://www.tampermonkey.net/contrib.php?embedded=2",
+    "https://www.tampermonkey.net/documentation.php#_connect",
+    "https://www.tampermonkey.net/faq#Q209",
+    "https://www.tampermonkey.net/faq#Q406",
+    "https://www.tampermonkey.net/faq.php#${e",
+    "https://www.tampermonkey.net/faq.php#Q204",
+    "https://www.tampermonkey.net/faq.php#Q207",
+    "https://www.tampermonkey.net/faq.php#Q500",
+    "https://www.tampermonkey.net/faq.php?",
+    "https://www.tampermonkey.net/installed.php?",
+    "https://www.tampermonkey.net/privacy.php",
+    "https://www.tampermonkey.net/privacy.php#extension",
+    "https://www.tampermonkey.net/qr/",
+    "https://www.tampermonkey.net/script_installation.php",
+    "https://www.tampermonkey.net/scripts.php",
+    "https://www.tampermonkey.net/uninstall.php?ext=${ft.short_id",
+    "ws://*/*",
+    "wss://*/*"
+  ],
+  "scanned_text_files": 13,
+  "permission_surface": {
+    "permissions": [
+      {
+        "name": "notifications",
+        "risk": "low"
+      },
+      {
+        "name": "unlimitedStorage",
+        "risk": "low"
+      },
+      {
+        "name": "tabs",
+        "risk": "medium"
+      },
+      {
+        "name": "idle",
+        "risk": "low"
+      },
+      {
+        "name": "webNavigation",
+        "risk": "medium"
+      },
+      {
+        "name": "webRequest",
+        "risk": "high"
+      },
+      {
+        "name": "webRequestBlocking",
+        "risk": "high"
+      },
+      {
+        "name": "storage",
+        "risk": "low"
+      },
+      {
+        "name": "contextMenus",
+        "risk": "low"
+      },
+      {
+        "name": "chrome://favicon/",
+        "risk": "unknown"
+      },
+      {
+        "name": "clipboardWrite",
+        "risk": "medium"
+      },
+      {
+        "name": "cookies",
+        "risk": "high"
+      },
+      {
+        "name": "alarms",
+        "risk": "low"
+      },
+      {
+        "name": "declarativeNetRequestWithHostAccess",
+        "risk": "medium"
+      },
+      {
+        "name": "scripting",
+        "risk": "high"
+      },
+      {
+        "name": "userScripts",
+        "risk": "high"
+      },
+      {
+        "name": "offscreen",
+        "risk": "medium"
+      }
+    ],
+    "optional_permissions": [
+      {
+        "name": "downloads",
+        "risk": "medium"
+      }
+    ],
+    "host_permissions": [
+      {
+        "pattern": "<all_urls>",
+        "risk": "critical"
+      }
+    ],
+    "high": [
+      "webRequest",
+      "webRequestBlocking",
+      "cookies",
+      "scripting",
+      "userScripts"
+    ],
+    "broad_hosts": [
+      "<all_urls>"
+    ]
+  },
+  "unity": {},
+  "ok": true,
+  "path": "Tool/cases/plugin06/input/real-extension.zip",
+  "type": "ZIP 浏览器扩展包",
+  "conclusion": "入口已定位；高风险面=nativeMessaging,exec_spawn,webRequest,webRequestBlocking,cookies,scripting,userScripts；需人工确认数据流与最小可改单元"
+}
