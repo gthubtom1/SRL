@@ -1,0 +1,58 @@
+{
+  "id": "forensics-mobile-<target>",
+  "domain": "forensics-mobile",
+  "target_type": "内存镜像 / pcap / 磁盘镜像 / iOS·macOS 应用 / 游戏客户端",
+  "platform": "windows | linux | macos | ios | unity-mono | unity-il2cpp",
+  "acquisition": {
+    "method": "memory | pcap | disk | ipa | live-readonly",
+    "tool": "",
+    "collected_at": "",
+    "timezone": "UTC",
+    "operator": ""
+  },
+  "evidence": [
+    {"path": "evidence/mem.raw", "kind": "memory", "size": 0, "sha256": ""},
+    {"path": "evidence/capture.pcap", "kind": "pcap", "size": 0, "sha256": ""},
+    {"path": "evidence/disk.img", "kind": "disk", "size": 0, "sha256": ""}
+  ],
+  "questions": [
+    "谁在什么时间、从哪台主机、对哪个对象做了什么"
+  ],
+  "timeframe": {"start": "", "end": "", "clock_skew": ""},
+  "findings": [
+    {
+      "claim": "",
+      "time_utc": "",
+      "actor": "",
+      "action": "",
+      "object": "",
+      "confidence": "observed | inferred | unverified",
+      "evidence_refs": ["evidence/mem.raw#pid=4242"],
+      "command": ""
+    }
+  ],
+  "ios_macos": {
+    "bundle_id": "",
+    "encrypted_binary": false,
+    "dump_ok": false,
+    "jailbreak_checks": [],
+    "artifacts": ["Info.plist", "keychain-2.db", "app.db"]
+  },
+  "game_client": {
+    "engine": "unity-mono | unity-il2cpp | other",
+    "unity_version": "",
+    "assembly": "",
+    "metadata": "",
+    "bundles": [],
+    "anti_cheat": [],
+    "read_only": true
+  },
+  "tools": [{"name": "volatility3", "version": ""}, {"name": "tshark", "version": ""}],
+  "outcome": "success | partial | blocked",
+  "lessons": [
+    "dump 成功不等于闭环：必须有时间/主体/动作/对象四要素与可复现命令"
+  ],
+  "tags": ["forensics", "ios", "unity"],
+  "refs": ["SKILL.md", "references/forensics.md", "references/ios-macos-and-game.md"],
+  "updated": ""
+}

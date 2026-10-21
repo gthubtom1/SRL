@@ -1,0 +1,32 @@
+{
+  "id": "<案例ID>",
+  "domain": "ad-cloud",
+  "target_type": "<AD 域 / K8s 集群 / 云账号 / 容器>",
+  "protection": [],
+  "authority": "<authorized-scope>",
+  "goal_level": "L2",
+  "outcome": "<success|partial|failed>",
+  "artifacts": [
+    {
+      "path": "evidence/",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "入口与边界：<授权的网段/域名/账号/集群，明确未触碰的资源>",
+    "有效路径：<源主体 -> 动作 -> 目标主体 -> 结果>",
+    "判据：<可复现的凭据/权限提升证据与命令>",
+    "失败路径：<signing/EPA、锁定策略、时钟偏移、RBAC 不足、审计告警等>",
+    "清理：<删除的工具、账号、计划任务、临时 Pod>"
+  ],
+  "tags": [
+    "R23",
+    "ad-cloud"
+  ],
+  "refs": [
+    "Tool/skill/ad-cloud/SKILL.md",
+    "Tool/skill/ad-cloud/references/ad-attacks.md",
+    "Tool/skill/ad-cloud/references/cloud-native.md"
+  ],
+  "updated": "<YYYY-MM-DD>"
+}
