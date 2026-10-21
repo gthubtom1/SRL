@@ -207,7 +207,7 @@ def check_functional(fast):
                        "-File", os.path.join(ROOT, "setup", "verify.ps1")], timeout=900)
         passed = len(re.findall(r"PASS", out))
         failed = len(re.findall(r"FAIL", out))
-        add("4 功能", "verify.ps1 (61 项)", rc == 0 and failed == 0, f"PASS={passed} FAIL={failed}")
+        add("4 功能", "verify.ps1（项数以体检输出为准）", rc == 0 and failed == 0, f"PASS={passed} FAIL={failed}")
 
 
 # ---------------------------------------------------------------- [5] 资产

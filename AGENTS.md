@@ -37,3 +37,5 @@ powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
 - 不要修改 `Tool/mcp/seep_mcp_server.py` 的路径常量。
 - 不要在仓库根堆放任务产物（用 `work/`，已 gitignore）。
 - 不要把本文件当协议全文；协议在 `Tool/prompts/AGENTS.md`。
+
+> 项目优化总纲与缺陷台账：`优化方案.md`（唯一事实源；换会话先读它）。

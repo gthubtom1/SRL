@@ -56,6 +56,8 @@ INSTRUMENT_NAME = {
 }
 ISTATUS = ["ok", "partial", "blocked", "killed"]
 MAX_LEVEL_BY_VERDICT = {"可赢": "M3", "部分可赢": "M2", "不可赢": "M1"}
+# 后端档位（05-backend-rebuild 的三问定档）：T2/T3 且非"不可赢"时，上限抬到 M4（客户端+后端自洽）
+TIERS = ["T1", "T2", "T3"]
 STATUSES = ["hypothesis", "proven", "refuted"]
 
 
@@ -188,10 +190,16 @@ def cmd_verdict(a):
     if a.value not in VERDICTS:
         die(f"verdict 只能是 {VERDICTS}")
     need = MAX_LEVEL_BY_VERDICT[a.value]
+    tier = (getattr(a, "tier", "") or "").strip().upper()
+    if tier and tier not in TIERS:
+        die(f"tier 只能是 {TIERS}")
+    if tier in ("T2", "T3") and a.value != "不可赢":
+        need = "M4"          # 后端要复刻且可行 → 允许交付到"客户端+后端自洽"
     if a.max_level and a.max_level != need:
-        die(f"{a.value} 对应的交付上限必须是 {need}（不能自己往上抬）")
+        die(f"{a.value}" + (f" + {tier}" if tier else "") + f" 对应的交付上限必须是 {need}（不能自己往上抬）")
     st = load_state(a.case)
     st["verdict"] = a.value
+    st["tier"] = tier or None
     st["max_level"] = need
     st["verdict_note"] = a.note or ""
     st["next_action"] = "进 01-gate-bypass" if a.value != "不可赢" else "只交 M1 + 天花板声明，不许承诺成品"
@@ -306,7 +314,9 @@ def cmd_show(a):
     facts = load_facts(a.case)
     print(f"案子：{a.case}")
     print(f"  目标：{st.get('target') or '-'}")
-    print(f"  裁定：{st.get('verdict') or '（未给）'}   交付上限：{st.get('max_level') or '-'}")
+    print(f"  裁定：{st.get('verdict') or '（未给）'}"
+          + (f" / 后端档位 {st['tier']}" if st.get("tier") else "")
+          + f"   交付上限：{st.get('max_level') or '-'}")
     if st.get("verdict_note"):
         print(f"  裁定理由：{st['verdict_note']}")
     inst = st.get("instruments") or {}
@@ -375,7 +385,9 @@ def main():
     p.set_defaults(func=cmd_instrument)
 
     p = sub.add_parser("verdict"); p.add_argument("--case", required=True)
-    p.add_argument("--value", required=True); p.add_argument("--max-level", default="")
+    p.add_argument("--value", required=True)
+    p.add_argument("--tier", default="", help="后端档位 T1/T2/T3（见 05-backend-rebuild）：T2/T3 且非不可赢 → 上限 M4")
+    p.add_argument("--max-level", default="")
     p.add_argument("--note", default="")
     p.set_defaults(func=cmd_verdict)
 
