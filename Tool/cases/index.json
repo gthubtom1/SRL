@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "d4e79818bab9b99459cfff7015f86e440b9e984b07c181650b1ba6a7ca27e5c8",
+  "source_hash": "5a6dbedbe5c03f5498753676e1921a48ff6bfa3b9407acf38258ace4c2a88821",
   "case_count": 47,
   "cases": [
     {
@@ -1463,7 +1463,7 @@
         },
         {
           "path": "artifacts/pcap-summary.json",
-          "sha256": "f4606fc028bee2be1d0e3404a859b4df8cf7860004c0628a8f8a0ac82a2861a8"
+          "sha256": "0750fdbe156a6b6a95ebf1f3113c8dd90b56b2dd2e99e758e071f960d8edf3ae"
         },
         {
           "path": "artifacts/README.md",
@@ -2370,7 +2370,8 @@
         "判据：等长约束满足（2→2）、原字节匹配、补丁后哈希与清单 result_sha256 一致、行为差可复现（同一输入原版 FAIL/补丁版 PASS），四条同时成立才算补丁生效。",
         "边界：这是源码级简单比较（编译期把 \"trance\" 拆成两个 imm32），不代表真实商业软件；无壳、无反调试、无签名校验、无完整性自检。真实目标需先按 09-patch-engineering.md 评估重定位/校验和/签名链。",
         "回滚：清单 + patch-verify.py --rollback 可复原；input/a.exe 始终保留原始哈希。",
-        "回滚实测（R2 修复后）：patch-verify 在打补丁前落独立备份 `patch-manifest.json.rollback.backup` 并把 backup/backup_sha256 写回 manifest；`--rollback --out artifacts/a.rollback.exe` rc=0，输出 sha256=8308abb8…6f30（= 原文件），说明回滚不是「拿当前文件冒充备份」。"
+        "回滚实测（R2 修复后）：patch-verify 在打补丁前落独立备份 `patch-manifest.json.rollback.backup` 并把 backup/backup_sha256 写回 manifest；`--rollback --out artifacts/a.rollback.exe` rc=0，输出 sha256=8308abb8…6f30（= 原文件），说明回滚不是「拿当前文件冒充备份」。",
+        "回滚补强（R6）：patch-verify 现支持对**已打补丁文件**回滚——`--file artifacts/a.patched.exe --rollback` 输出 from_patched=true、restored_sha256=8308abb8…（原件哈希）；非回滚路径对已补丁文件直接 rc=2，避免重复打补丁。"
       ],
       "tags": [
         "patch",
