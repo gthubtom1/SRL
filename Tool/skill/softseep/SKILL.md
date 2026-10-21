@@ -122,7 +122,7 @@ metadata:
 | "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固对抗** | `seep_packer_detect` 识别 → `MANUAL/ANTI-DEBUG.md` ＋ `seep_kb_search` 查反作弊篇（`general/techniques/cheating/04-anti-cheat-bypass.md`） |
 | "出修复建议" / "加固方案"（**防御面：要交付整改**） | **加固对抗** | `references/defense-in-depth.md`（厂商视角的四层加固） |
 | "出个报告" / "整理成果" / "测绘" | **测绘报告** | `project-paradigms.md`（报告模板） |
-| "看看这个 exe" / "分析下这个文件"（无明确动词） | **默认：测绘/分析** | `seep_auto_triage` → `windows-sop.md` Step 1-2 |
+| "看看这个 exe" / "先分析透" / "出份报告"（无明确动词） | **阶段零 分析** | `00-analysis`（D0–D5 + 可复现报告 + 可行性裁定） |
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
 | "先分析透" / "出份报告" / "摸清它到底怎么授权的" | **阶段零 分析 + 可复现报告** | **`00-analysis`** |
@@ -356,4 +356,7 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 | 许可/激活/卡密专项 | `license-validation.md` |
 | 出加固方案 | `defense-in-depth.md` |
 | UI 文案/状态验收 | `ui-verification.md` |
-| 找现成脚本 | `tooling.md` |
+| 找现成脚本 | `tooling.md` |> **本表是 `Tool/scripts/routing.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
+> `verify-routing-coherence.py` 守自洽；发现本表与 routing.json 不一致时，**以 routing.json 为准**。
+
+

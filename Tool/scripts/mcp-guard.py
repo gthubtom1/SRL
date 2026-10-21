@@ -10,6 +10,12 @@
       · 本机是 shallow clone + 没有 `upstream` ref → 连 diff 都跑不了。
     结果就是这条原则只活在两份文档的承诺里。
 
+边界说明（诚实声明）：
+    本闸校验的是「**自基线快照起只增不减**」（工具名不消失、数量不下降、扩展标记成对）。
+    它**不能**回溯证明"相对上游源码净删除 0 行"——那需要 `upstream/main` ref 与行级 diff；
+    本机是 shallow clone、无 upstream remote 时无法计算（`fork-delta.py` 亦如此）。要行级复核：
+    `git remote add upstream <origin> && git fetch upstream && git diff upstream/main -- Tool/mcp/seep_mcp_server.py`。
+
 它怎么查（不依赖 git、不依赖网络）：
     1. 基线快照 `Tool/mcp/.baseline/tools.json`：记录工具名清单与数量（首次 `--baseline` 生成）；
     2. 现文件里解析 `@server.tool()` 装饰的函数名；
