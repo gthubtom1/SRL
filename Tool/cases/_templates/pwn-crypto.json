@@ -1,0 +1,33 @@
+{
+  "id": "<案例ID>",
+  "domain": "pwn-crypto",
+  "target_type": "<ELF x86_64 / libc / 远程服务 / 密码学脚本>",
+  "protection": [],
+  "authority": "<local|server|hybrid>",
+  "goal_level": "L2",
+  "outcome": "<success|partial|blocked>",
+  "artifacts": [
+    {
+      "path": "exploit.py",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "保护位：<checksec 四项 + glibc 版本 + 沙箱白名单>",
+    "有效路径：<泄漏 -> 控制 -> 触发 -> shell/flag>",
+    "判据：<本地 10 次成功次数 + 远程/flag 证据>",
+    "失败路径：<libc 错配、偏移不符、canary/对齐、seccomp 限制等>",
+    "清理：<临时进程、监听端口、测试账号>"
+  ],
+  "tags": [
+    "R21",
+    "pwn-crypto",
+    "<pwn|crypto>"
+  ],
+  "refs": [
+    "Tool/skill/pwn-crypto/SKILL.md",
+    "Tool/skill/pwn-crypto/references/binary-exploitation.md",
+    "Tool/skill/pwn-crypto/references/crypto-attacks.md"
+  ],
+  "updated": "<YYYY-MM-DD>"
+}

@@ -22,6 +22,13 @@
     "R14",
     "R15",
     "R16",
+    "R20",
+    "R21",
+    "R22",
+    "R23",
+    "R24",
+    "R25",
+    "R26",
     "R2",
     "R9",
     "R4",
@@ -170,6 +177,76 @@
         {
           "must": "(?i)(后端|后台|服务端).{0,8}(复刻|重建|自建|还原|反推)|复刻.{0,6}(后端|后台|服务端)|(api|接口).{0,6}(复刻|重建|测绘|面)|下发.{0,4}(脚本|容器|包)|上游同步",
           "note": "阶段⑤：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证（T1 禁止进入）"
+        }
+      ]
+    },
+    "R23": {
+      "label": "内网/AD/云原生",
+      "skill": "ad-cloud/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)",
+          "note": "内网/云：判据=可复现的凭据或提权证据"
+        }
+      ]
+    },
+    "R22": {
+      "label": "固件/IoT/硬件",
+      "skill": "firmware-iot/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|spi|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
+          "note": "固件/IoT：判据=能进 shell/跑起服务"
+        }
+      ]
+    },
+    "R26": {
+      "label": "取证/iOS·macOS/游戏客户端",
+      "skill": "forensics-mobile/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(取证|内存镜像|volatility|内存转储|流量分析|磁盘镜像|时间线|iphone|ios|ipa|macos|mach-o|keychain|il2cpp|global-metadata|assetbundle|unity\\s*资源|游戏客户端)",
+          "note": "取证/移动/游戏：判据=证据链可复述"
+        }
+      ]
+    },
+    "R24": {
+      "label": "协议/私有协议复刻",
+      "skill": "protocol-plugin/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(私有协议|协议逆向|协议复刻|抓包|pcap|tshark|wireshark|mitmproxy|状态机|报文|重放|protobuf|flatbuffers)",
+          "note": "协议：判据=能构造新请求"
+        }
+      ]
+    },
+    "R25": {
+      "label": "插件/扩展/Mod 逆向",
+      "skill": "protocol-plugin/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(chrome\\s*扩展|浏览器扩展|crx|vsix|vscode\\s*插件|ide\\s*插件|electron\\s*插件|asar|bepinex|melonloader|unity\\s*mod|游戏\\s*mod|加载器插件)",
+          "note": "插件类：判据=定位入口+关键逻辑+最小可改单元"
+        }
+      ]
+    },
+    "R21": {
+      "label": "二进制利用/密码学攻击",
+      "skill": "pwn-crypto/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(pwn|rop|栈溢出|堆溢出|格式化字符串|canary|seccomp|沙箱逃逸|shellcode|libc|密码学|rsa|aes|ecb|cbc|prng|格攻击|lattice|ctf)",
+          "note": "利用/密码学：判据=本地稳定命中"
+        }
+      ]
+    },
+    "R20": {
+      "label": "Web/API 漏洞验证",
+      "skill": "web-pentest/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(sql\\s*注入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件\\s*上传|上传点|传输点|命令\\s*注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|src|漏洞复现|cve-\\d{4})",
+          "note": "Web/API 验证：判据=PoC 可复现"
         }
       ]
     }

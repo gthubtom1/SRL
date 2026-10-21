@@ -58,6 +58,8 @@ def _case_files():
     if not os.path.isdir(CASES_DIR):
         return found
     for name in sorted(os.listdir(CASES_DIR)):
+        if name.startswith("_"):   # _templates / _unpack 等非案例目录
+            continue
         path = os.path.join(CASES_DIR, name)
         if not os.path.isdir(path) or name in SKIP_DIRS or name.startswith("."):
             continue
@@ -73,6 +75,8 @@ def _missing_case_dirs():
     if not os.path.isdir(CASES_DIR):
         return missing
     for name in sorted(os.listdir(CASES_DIR)):
+        if name.startswith("_"):   # _templates / _unpack 等非案例目录
+            continue
         path = os.path.join(CASES_DIR, name)
         if not os.path.isdir(path) or name in SKIP_DIRS or name.startswith("."):
             continue
