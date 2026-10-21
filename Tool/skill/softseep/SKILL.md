@@ -128,6 +128,7 @@ metadata:
 | "看看这个 exe" / "分析下这个文件"（无明确动词） | **默认：测绘/分析** | `seep_auto_triage` → `windows-sop.md` Step 1-2 |
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
+| "先分析透" / "出份报告" / "摸清它到底怎么授权的" | **阶段零 分析 + 可复现报告** | **`00-analysis`** |
 | "旁路它的卡密" / "让它能进主界面" / "出可用成品" | **阶段① 授权旁路 + 交付** | **`01-gate-bypass`** |
 | "软件更新了" / "新版追一下" / "6.8 的活迁到 6.9" | **阶段④ 跨版本追版** | **`04-version-migrate`** |
 | "改 UI" / "换品牌" / "去掉作者联系方式" | **阶段② 改界面与品牌** | **`02-ui-rebrand`** |
@@ -165,6 +166,7 @@ metadata:
 | | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
 | | **unpack-loop** | `Tool/skill/unpack-loop/SKILL.md` | 加壳脱壳与内存转储闭环（判据驱动 / 三路线 / 两次熔断） |
 | | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
+| | **00-analysis** | `Tool/skill/00-analysis/SKILL.md` | **阶段零**：D0–D5 深度门 → 8 节可复现报告 → 可行性裁定（可赢/部分可赢/不可赢）+ 推荐路线；不许产出交付物 |
 | | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
 | | **04-version-migrate** | `Tool/skill/04-version-migrate/SKILL.md` | **阶段④**：读版本账 → AOB 滑窗对齐 → UI/授权跟着迁 → 重建+回归（引擎 `Tool/scripts/migrate.py`） |
 | | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
