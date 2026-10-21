@@ -1,6 +1,6 @@
 ---
 name: ad-cloud
-description: 【内网/AD/云原生】用于授权范围内的内网渗透、Active Directory 攻击链与云原生环境评估。覆盖域内枚举与 BloodHound、Kerberoasting / AS-REP、ADCS ESC1-8、NTLM relay、委派/RBCD、PtH/WMI/WinRM/SMB 横向，以及 AK-SK 泄露、元数据 SSRF、K8s RBAC 与容器逃逸、CI/CD 凭据、Windows 认证遥测。判据是拿到可复现的凭据或权限提升证据，不做 Web 漏洞（走 R20）。
+description: 【内网/AD/云原生】用于授权范围内的内网渗透、Active Directory 攻击链与云原生环境评估。覆盖域内枚举与 BloodHound、Kerberoasting / AS-REP、ADCS ESC1-17（含 ESC9/10 弱绑定、ESC11 ICPR relay、ESC13/14 映射、ESC15 旧 schema、ESC16 CA 全局扩展限制、ESC17 HTTPS WSUS 中继）、NTLM relay、委派/RBCD、PtH/WMI/WinRM/SMB 横向，以及 AK-SK 泄露、元数据 SSRF、K8s RBAC 与容器逃逸、CI/CD 凭据、Windows 认证遥测。判据是拿到可复现的凭据或权限提升证据，不做 Web 漏洞（走 R20）。
 ---
 
 # 内网 / AD / 云原生作业规范
@@ -158,6 +158,7 @@ python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --aws-creds ~/.
 # 五类判定离线复算（Kerberoast/AS-REP/ADCS/委派/K8s RBAC）+ Windows 事件
 python Tool/skill/ad-cloud/scripts/ad-repro.py --input bundle.json --json
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input events.json
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input adcs-find.json   # ESC9-17 离线判定
 python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
 
 # IAM 策略离线评估（不调用 STS/IAM）
