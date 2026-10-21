@@ -135,7 +135,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 62 项全绿
 | 对象 | 当前 | 硬上限 | 说明 |
 |---|---:|---:|---|
 | MCP 工具（`seep_*`） | 38 | **45** | 新能力优先"用现有工具组合"，其次才加工具 |
-| 技能（Skill） | 11 | **12** | 垂直领域用外挂技能，但总数封顶 |
+| 技能（Skill） | 17 | **无上限**（v1.17.5 修订） | 用户明确要求"技能数量不设限"：按需扩展，靠 first-party 文件数（≤900）与单技能 ≤12KB 兜底，不再按条数封顶 |
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能不允许两套 |
 | `MANUAL/` 手册 | 13 | **16** | 手册之间禁止内容重复 |
 | 单文件行数 | 2594（MCP 主服务） | **3200** | 超了要拆模块，而不是继续追加 |
@@ -147,8 +147,11 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 62 项全绿
    现有 4 层（判型 → 技能 → MCP 工具 → 外部工具）就是全部。
 2. **同一能力只允许一个实现**：例如"配置合并"只有 `setup/merge_agent_config.py`；
    "工具发现"只有 `tool_autodiscover.py`（MCP 侧只做薄封装）。出现第二份实现 = 必须删掉旧的那份。
-3. **不加并行状态**：状态只有三处 —— `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、
-   `setup/.upstream-shas.json`。新增状态文件必须同时进 `.gitignore` 并登记到本文件。
+3. **不加并行状态**：已登记的状态只有这些 —— `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、
+   `~/.seep/tool-paths.json`、`setup/.upstream-shas.json`、`Tool/mcp/.baseline/tools.json`，以及**案子级**的
+   `<case>/ai_manifest.json`（**唯一恢复点**，上游约定）与其内的 `seep` 子键 / 无 manifest 时的
+   `<case>/state.json` + `<case>/facts.jsonl`（见 `case_state.py`：有 manifest 就写进 manifest，不另开第二份状态）。
+   新增状态文件必须同时进 `.gitignore` 并登记到本文件。
 
 ### 7.3 加功能前的四问（答不上来就不加）
 
@@ -163,7 +166,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 62 项全绿
 python Tool/scripts/check-budget.py
 ```
 
-该脚本会核对：MCP 工具数 ≤45、技能数 ≤12、setup 脚本 ≤22、MANUAL ≤16、
+该脚本会核对：MCP 工具数 ≤45、技能数（v1.17.5 起不设上限，脚本只统计不断言）、setup 脚本 ≤22、MANUAL ≤16、
 单文件行数 ≤3200、first-party 文件数 ≤900，任一超限即返回非零。
 
 端到端链路另跑一条（不占预算、约 13 秒）：

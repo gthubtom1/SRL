@@ -70,10 +70,29 @@ def now():
     return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def _manifest(case):
+    return os.path.join(os.path.abspath(case), "ai_manifest.json")
+
+
 def load_state(case):
+    """案子状态。上游约定：`<case>/ai_manifest.json` 是唯一恢复点。
+
+    因此：有 manifest 就把它里面的 `seep` 子键当状态（不另开第二份状态）；
+    没有 manifest（非上游 CTF 案子）才退回 `<case>/state.json`。
+    两套案子共用同一恢复协议，避免"同一目录两套状态互不知道"。
+    """
     d, _, sp = paths(case)
     if not os.path.isdir(d):
-        die(f"case 目录不存在：{d}\n先跑：case_state.py init --case {case} --target <样本>")
+        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
+    mf = _manifest(case)
+    if os.path.isfile(mf):
+        try:
+            with open(mf, encoding="utf-8") as f:
+                man = json.load(f)
+            if isinstance(man.get("seep"), dict):
+                return man["seep"]
+        except Exception:
+            pass
     if os.path.isfile(sp):
         with open(sp, encoding="utf-8") as f:
             return json.load(f)
@@ -82,10 +101,25 @@ def load_state(case):
 
 
 def save_state(case, st):
-    _, _, sp = paths(case)
+    """写回。有 ai_manifest.json 就写进它的 `seep` 子键；否则写 state.json。"""
     st["updated"] = now()
+    mf = _manifest(case)
+    if os.path.isfile(mf):
+        try:
+            with open(mf, encoding="utf-8") as f:
+                man = json.load(f)
+        except Exception:
+            man = {}
+        man["seep"] = st
+        man.setdefault("schema", "reverselab.ai_manifest.v1")
+        with open(mf, "w", encoding="utf-8") as f:
+            json.dump(man, f, ensure_ascii=False, indent=2)
+        return "ai_manifest.json#seep"
+    _, _, sp = paths(case)
     with open(sp, "w", encoding="utf-8") as f:
         json.dump(st, f, ensure_ascii=False, indent=2)
+    return "state.json"
+
 
 
 def load_facts(case):
@@ -123,7 +157,8 @@ def cmd_init(a):
           "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
     save_state(a.case, st)
     open(fp, "a", encoding="utf-8").close()
-    print(f"[OK] 案子已建：{d}\n     facts: {fp}\n     state: {sp}")
+    backend = save_state(a.case, st)
+    print(f"[OK] 案子已建：{d}  facts: {fp}  state: {backend}")
 
 
 def cmd_claim(a):
