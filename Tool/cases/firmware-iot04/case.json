@@ -18,11 +18,11 @@
   "artifacts": [
     {
       "path": "artifacts/triage.json",
-      "sha256": "3d1cd1abd1c706605dc71e3edd4b17a0c7e963c31fbf788d171ff10cf6999d29"
+      "sha256": "63a48c3b196fecd09038469fd9a47c38927d2842546262adfcdfa468bcff7ea5"
     },
     {
       "path": "artifacts/repro.json",
-      "sha256": "a709d866f765212b0a21d03b34223c81c1e7d9280117a3a4ca62634c7faf088c"
+      "sha256": "47b18c3f608f35a1af2b8b763d04965de59359118000e3be2f4da8cf0651ff1d"
     }
   ],
   "interfaces": {

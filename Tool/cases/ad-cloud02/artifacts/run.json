@@ -1,7 +1,6 @@
 {
   "tool": "adcloud-check",
   "version": "1.0.0",
-  "generated_at": "2026-10-21T12:37:59Z",
   "ok": true,
   "mode": "offline_local_files",
   "kubeconfig": {

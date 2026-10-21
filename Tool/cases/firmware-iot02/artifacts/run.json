@@ -1,7 +1,6 @@
 {
   "tool": "fw-triage",
   "version": "1.0.0",
-  "generated_at": "2026-10-21T12:37:45Z",
   "file": "Tool/samples/real/monologix-crackmes/CrackMe1.exe",
   "ok": true,
   "size": 46080,
