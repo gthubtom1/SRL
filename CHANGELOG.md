@@ -10,6 +10,28 @@
 
 ---
 
+## [1.18.1] — 2026-10-21
+
+> 主题：**回到三份原始审计报告逐条核对后的 9 项收口**（上一轮只核对了台账子集，漏了 3 条 P1 与 1 条部分修）。
+
+| # | 问题（来源） | 修复 |
+|---|---|---|
+| 1 | R2 关键词仍含「破解」，与 R11 双命中（C-4） | 重写 R2 关键词（授权/卡密/注册机/license/会员/试用/激活/校验串），实测「破解这个软件」→ **仅 R11** |
+| 2 | `apkseep` 仍要求"逐目标确认授权"，与 AGENTS §六 相反（E-2） | 改为「默认受权直接开工；仅明确声明无授权时停；换目标不重问」 |
+| 3 | softseep 判型表与 `routing.json` 分叉（D-2） | 判型表声明为 **routing.json 的只读投影**；「分析这个 exe」行改指 `00-analysis` |
+| 4 | 「上游」两个互斥定义（A3） | `FORK-DELTA.md` 顶部加术语：`upstream-origin` / `upstream-src` / `vendored` |
+| 5 | vendored KB 的 `preserve_local` 挂错目标（E2 机制无效） | `upstream-rules.json` 新增 `reverselab-kb` 条目（target=`Tool/mcp/Tool/reverselab`，`sync=manual`） |
+| 6 | `mcp-guard` 被读成"能证明相对上游净删除 0 行"（A1 降级关闭） | docstring 写明边界：本闸只保证**自基线起只增**；行级对比需 `upstream` remote 与 `git diff` |
+| 7 | `DEPLOYMENT-CHECKLIST` 仍自称"唯一法定标准"（B8） | 改为"与 verify/preflight 双向对齐；冲突以实跑为准" |
+| 8 | `softseep/references/license-validation.md` 仍整份复制 G0–G6 + 五禁令（A-4 剩余） | 改为指针，只在 `client-license-validation-bypass` §0 定义 |
+| 9 | 审计文档 §一（23 行）与 §二（27 行）不一致（计数口径） | §一 补 4 行，现**两边都是 P0 5 / P1 27**；结论行与版本同步 |
+
+**台账**：P1 从 24 扩到 **27**（新增 D-2 / E-2 / A3），并给 D-2/E-2/A3 与 R2 的"形式修"补了可复核证据。
+
+验收：`preflight --fast` 16/16、`verify.ps1` 65/65、`verify.sh` 65/65、routing 15 条自洽、mcp-guard 38/38。
+
+---
+
 ## [1.18.0] — 2026-10-21
 
 > 主题：**补齐审计原文里被漏掉的 7 条 P1**（完成审计第 4 次驳回的核心指控：台账只收敛了子集）。

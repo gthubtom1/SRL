@@ -47,7 +47,7 @@
       "skill": "01-gate-bypass/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)破解|绕过|卡密|序列号|注册码|激活|许可|licen[cs]e|激活码|会员|订阅|vip|试用|trial|keygen|算号|鉴权|授权",
+          "must": "(?i)授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|trial|keygen|激活|凭据|校验串",
           "note": "阶段一负责交付纪律；client-license-validation-bypass 作为其参考卷按需加载"
         }
       ]

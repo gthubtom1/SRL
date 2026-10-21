@@ -3,6 +3,11 @@
 > **给谁看**：未来接手的 AI / 维护者。**只看这一份，不必把 4800 个文件重读一遍。**
 > **原版**：`angusdevgo/Seep-Reverse-Lab`（git remote 名 `upstream`）
 > **本仓**：`gthubtom1/Seep-Reverse-Lab`（`origin`）
+> **术语（避免"上游"三种用法打架）**
+> `upstream-origin` = `angusdevgo/Seep-Reverse-Lab`（本仓的分叉来源，能力对照基准）；
+> `upstream-src` = `LING71671/open-reverselab`（`setup/upstream-rules.json` 的同步源，落 `Tool/upstream/*`）；
+> `vendored` = 被复制进本仓的第三方内容（如 `Tool/mcp/Tool/reverselab/`），**不自动同步**，改动登记在其 `PROVENANCE.md`。
+
 > **口径**：本文件是"我们改了什么"的**唯一账本**；每条都必须能回答：改了什么 / 为什么 / 在哪 / 怎么撤。
 
 ---

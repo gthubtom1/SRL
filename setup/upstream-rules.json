@@ -76,6 +76,24 @@
         "kb/_index.md",
         "PROVENANCE.md"
       ]
+    },
+    "reverselab-kb": {
+      "name": "reverselab-kb",
+      "description": "vendored 知识库（MCP 内置 KB，含本地改动）——不自动同步，改动走 PROVENANCE",
+      "repo": "(vendored copy)",
+      "branch": "-",
+      "target_dir": "Tool/mcp/Tool/reverselab",
+      "allowed_boundary": "Tool/mcp/Tool/reverselab",
+      "include": [
+        "**"
+      ],
+      "exclude": [],
+      "sync": "manual",
+      "preserve_local": [
+        "PROVENANCE.md",
+        "kb/field_journal__template.md",
+        "kb/_index.md"
+      ]
     }
   }
 }
