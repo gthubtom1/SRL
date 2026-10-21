@@ -88,15 +88,15 @@
   "artifacts": [
     {
       "path": "artifacts/check-evtx.json",
-      "sha256": "9504e533333f87e53fbbb1e30783fa5b32eee28d70028adb0f7851f578277158"
+      "sha256": "d59a11f8b515fc03b7a34ace4019757e921f3fd463c629367316f8adcacd62c4"
     },
     {
       "path": "artifacts/check-history.json",
-      "sha256": "45a89391716d1d481475c0357797febc2830d0f5a8f65948115159225eb52fef"
+      "sha256": "274943fb6d3e9429c142a0d8f871255713464af0d160d8c5c0dc5a348b6ef12d"
     },
     {
       "path": "artifacts/check-registry-keys.json",
-      "sha256": "677da5f17962663706f4bddd2ec6a6fc588523130a73f12da004e496698bfd30"
+      "sha256": "fa0b3723a255a21bddafc1747da5c2beb0cc48203bff4a6cfdbdac078c848e3d"
     },
     {
       "path": "artifacts/run.json",

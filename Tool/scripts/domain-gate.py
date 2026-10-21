@@ -679,6 +679,100 @@ def check_global_reference_limits():
         "；".join(bad[:6]) if bad else "全部合规（最大 %d 行）" % max(
             [len(lines(f)) for f in files] or [0]))
 
+
+
+def check_criteria_backing(dom, spec):
+    """判据字段必须至少有一个能被脚本真实输出（不是全都靠人填）。"""
+    ref = os.path.join(TOOL, "skill", spec["skill"], "references", "01-criteria.md")
+    if not os.path.isfile(ref):
+        add(dom, "判据字段脚本背书（≥1）", False, "缺 01-criteria.md")
+        return
+    txt = open(ref, encoding="utf-8", errors="replace").read()
+    fields = set(re.findall(r"`([a-z][a-z0-9_]{2,}(?:\.[a-z0-9_]+)*)`", txt))
+    src = ""
+    sd = os.path.join(TOOL, "skill", spec["skill"], "scripts")
+    for f in sorted(glob.glob(os.path.join(sd, "*.py"))):
+        src += open(f, encoding="utf-8", errors="replace").read()
+    backed = [f for f in fields if f.split(".")[-1] in src]
+    add(dom, "判据字段脚本背书（≥1）", bool(backed),
+        "%d/%d 字段被脚本输出（例：%s）" % (len(backed), len(fields), ", ".join(sorted(backed)[:3]) or "-"))
+
+
+def check_2026_presence(dom, spec):
+    """2026 基线：该域 reference 或 KB 板至少要有一处 2026 内容（防止知识库整体过期）。"""
+    hits = []
+    for f in glob.glob(os.path.join(TOOL, "skill", spec["skill"], "references", "*.md")):
+        if "2026" in open(f, encoding="utf-8", errors="replace").read():
+            hits.append(os.path.basename(f))
+    board = os.path.join(KBROOT, spec["board"])
+    for f in glob.glob(os.path.join(board, "**", "*.md"), recursive=True):
+        if "2026" in open(f, encoding="utf-8", errors="replace").read():
+            hits.append("kb:" + os.path.basename(f))
+    add(dom, "2026 基线内容在场", bool(hits), "命中 %d 处（例：%s）" % (len(hits), ", ".join(hits[:2]) or "-"))
+
+
+def check_mutation_test():
+    """反例回归：在临时副本上改 sha256 / timeframe / 只读声明，门禁必须变红。"""
+    import shutil
+    import tempfile
+    tmp = tempfile.mkdtemp(prefix="seep-mut-")
+    try:
+        dst = os.path.join(tmp, "Tool", "cases", "web-pentest99")
+        os.makedirs(os.path.join(dst, "artifacts"), exist_ok=True)
+        art = os.path.join(dst, "artifacts", "run.json")
+        open(art, "w", encoding="utf-8", newline="\n").write('{"ok": true}\n')
+        h = hashlib.sha256(open(art, "rb").read()).hexdigest()
+        case = {
+            "id": "web-pentest99", "domain": "web-pentest", "target_type": "本地夹具（教学）",
+            "evidence_kind": "fixture", "protection": [], "authority": "local",
+            "goal_level": "L1", "outcome": "partial",
+            "artifacts": [{"path": "artifacts/run.json", "sha256": h}],
+            "lessons": ["夹具；命令：python x.py；rc=0"], "refs": [],
+            "updated": "2026-10-22",
+        }
+        cf = os.path.join(dst, "case.json")
+        json.dump(case, open(cf, "w", encoding="utf-8"))
+        ok_clean = _case_errors(dst) == []
+        bad = dict(case)
+        bad["artifacts"] = [{"path": "artifacts/run.json", "sha256": "0" * 64}]
+        json.dump(bad, open(cf, "w", encoding="utf-8"))
+        ok_sha = _case_errors(dst) != []
+        case2 = dict(case, timeframe={"start": "2026-10-21T00:00:00Z", "end": "2026-10-21T00:01:00Z"})
+        case2["artifacts"] = case["artifacts"]
+        json.dump(case2, open(cf, "w", encoding="utf-8"))
+        tl = os.path.join(dst, "artifacts", "timeline.json")
+        json.dump({"ok": True, "events": [{"time_utc": "2026-10-21T00:05:00Z", "kind": "evtx-record",
+                                           "action": "x", "actor": "a", "object": "o"}]},
+                  open(tl, "w", encoding="utf-8"))
+        ok_tf = any("timeframe" in e for e in _case_errors(dst))
+        add("全局", "变更反例回归（sha256/timeframe 必须红）", ok_clean and ok_sha and ok_tf,
+            "clean=%s sha_red=%s tf_red=%s" % (ok_clean, ok_sha, ok_tf))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _case_errors(cd):
+    """在临时副本上复用 check_cases 的核心字段/哈希/时间线断言（不写 results）。"""
+    errs = []
+    c = rj(os.path.join(cd, "case.json"))
+    for art in c.get("artifacts") or []:
+        p = os.path.join(cd, art.get("path", ""))
+        if not os.path.isfile(p):
+            errs.append("phantom")
+        elif sha256(p) != str(art.get("sha256")).lower():
+            errs.append("sha256")
+    tlf = os.path.join(cd, "artifacts", "timeline.json")
+    if os.path.isfile(tlf):
+        tl = rj(tlf)
+        evs = tl.get("events") or []
+        if evs:
+            latest = max(str(e.get("time_utc")) for e in evs)
+            end = str((c.get("timeframe") or {}).get("end") or "")
+            if end and not latest.startswith(end[:19]):
+                errs.append("timeframe")
+    return errs
+
+
 # ---------------------------------------------------------------- [9] routing
 def _match_route(routes, priority, text, fallback=None):
     """与 master-route.ps1 完全同语义：priority 顺序取第一个命中的域。
@@ -892,11 +986,14 @@ def main():
             check_kb(dom, spec)
             check_matrix(dom, spec)
             check_cards(dom, spec)
+            check_criteria_backing(dom, spec)
+            check_2026_presence(dom, spec)
     if a.all or a.links:
         check_links()
         check_md_links()
         check_repro_and_templates()
         check_global_reference_limits()
+        check_mutation_test()
         check_fragments()
         check_case_index()
     if a.all or a.routing:

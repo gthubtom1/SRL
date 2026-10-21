@@ -6,7 +6,7 @@
       "skill": "pwn-crypto/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc)\\b",
+          "must": "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc|FSOP|_IO_wfile_jumps|__free_hook|exit_funcs)\\b|glibc\\s*2\\.3",
           "note": "利用类：判据=偏移一致 + 控制流/marker 可复现"
         },
         {

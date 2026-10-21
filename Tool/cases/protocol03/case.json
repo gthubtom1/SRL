@@ -97,7 +97,7 @@
     },
     {
       "path": "artifacts/streams/frames.jsonl",
-      "sha256": "067b99b6fedf36d5f8b203dbcd0b0160cc96fddb4faaea990cd019e931a24159"
+      "sha256": "9146a86026fa50730cf55fbde60c3aae4c6920886c031096a75e77b843ac3aad"
     },
     {
       "path": "artifacts/streams/s00_127.0.0.1_44380-127.0.0.1_8080.bin",

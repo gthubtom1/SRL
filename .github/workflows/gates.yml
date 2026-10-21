@@ -1,0 +1,34 @@
+name: gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: preflight (full)
+        run: python Tool/scripts/preflight.py
+      - name: domain gate
+        run: python Tool/scripts/domain-gate.py --all
+      - name: routing coherence
+        run: python Tool/scripts/verify-routing-coherence.py
+      - name: case index
+        run: python Tool/scripts/gen-case-index.py --check
+  gates-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: verify.sh
+        run: bash setup/verify.sh
+      - name: domain gate
+        run: python3 Tool/scripts/domain-gate.py --all

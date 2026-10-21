@@ -85,15 +85,15 @@
     },
     {
       "path": "artifacts/check-ipa.json",
-      "sha256": "50b0d21c212e70eff7cfb57b80091368dde370ff09e214aa26c28b2cfa2eeb0a"
+      "sha256": "956c5a735811965ee78c39a9a339951d6df9399c1852290902d50ce5c5e5cbf3"
     },
     {
       "path": "artifacts/check-macho.json",
-      "sha256": "0ab227a5eab6a756763cf85edf6cefb932ad3b4515f11ac2e614c82b81d07455"
+      "sha256": "01e9e9189c3614b06c144ae4d62a2e78961dd9aa3d8e1bb8e6a521fae518893e"
     },
     {
       "path": "artifacts/check-keychain.json",
-      "sha256": "7781a29b3af7dc4fd00c2091a2b7fcbb2e7612db3b3734ae0da43e105bcbc698"
+      "sha256": "b4a926cee7f986b46e3ccd51ce8f4814558daf8f2a17bfb180e4aae43479bab6"
     },
     {
       "path": "artifacts/timeline.json",
@@ -101,7 +101,7 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "26a973634e9cdef74b13e51450d6f6cd29da8e3b38725e2ed6b19dfcf4878873"
+      "sha256": "188a86fbbdf0e49aed294ee2b56c26068aad1454f37513d10c849d0d93203cb2"
     }
   ],
   "lessons": [

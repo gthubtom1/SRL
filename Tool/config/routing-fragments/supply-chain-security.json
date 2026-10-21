@@ -6,7 +6,7 @@
       "skill": "supply-chain-security/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(?:(?:\\bsbom\\b|\\bsca\\b|\\bslsa\\b|\\bcosign\\b|\\bsigstore\\b|\\bprovenance\\b|\\blockfile\\b|\\bpackage-lock\\b|\\byarn\\.lock\\b|\\bpnpm-lock\\b|\\bgo\\.sum\\b|\\bcargo\\.lock\\b|\\bcomposer\\.lock\\b|\\bnuget\\b|\\bpip\\.conf\\b|\\bcyclonedx\\b|\\bspdx\\b)|依赖混淆|依赖投毒|供应链|软件物料清单|锁文件|来源证明|镜像签名|基础镜像|流水线权限|制品签名|依赖.{0,4}(?:扫描|审计|漏洞|风险)|扫描依赖|扫.{0,2}依赖)",
+          "must": "(?i)(?:(?:\\bsbom\\b|\\bsca\\b|\\bslsa\\b|\\bcosign\\b|\\bsigstore\\b|\\bprovenance\\b|\\blockfile\\b|\\bpackage-lock\\b|\\byarn\\.lock\\b|\\bpnpm-lock\\b|\\bgo\\.sum\\b|\\bcargo\\.lock\\b|\\bcomposer\\.lock\\b|\\bnuget\\b|\\bpip\\.conf\\b|\\bcyclonedx\\b|\\bspdx\\b)|依赖混淆|依赖投毒|供应链|软件物料清单|锁文件|来源证明|镜像签名|基础镜像|流水线权限|制品签名|依赖.{0,4}(?:扫描|审计|漏洞|风险)|扫描依赖|扫.{0,2}依赖|docker\\s*image|容器镜像|镜像.{0,6}(后门|投毒|劫持)|npm\\s*(?:worm|投毒|恶意包)|ChainDrop|Shai-Hulud|SANDWORM|postinstall)",
           "note": "供应链核心词：判据=锁文件/CI 权限/镜像 digest 可复核，SCA 告警不等于漏洞"
         },
         {

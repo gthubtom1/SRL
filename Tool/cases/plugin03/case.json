@@ -51,7 +51,7 @@
     },
     {
       "path": "artifacts/repro/plugin-repro.json",
-      "sha256": "7366883794e398ae72e1314432b973e9dc534a40b7b86914600805ba7b13b494"
+      "sha256": "1a42a15e85c8cd380e6695174019caa9f6aeeda3ff30b4f7804d7755c2c9b4c1"
     },
     {
       "path": "artifacts/run.json",

@@ -6,7 +6,7 @@
       "skill": "plugin-targets/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)\\b(crx|xpi|vsix|asar)\\b",
+          "must": "(?i)\\b(crx|xpi|vsix|asar|bytenode|jsc)\\b|v8\\s*字节码",
           "note": "包型锚定：crx/xpi/vsix/asar。判据=入口+权限/扩展点+数据流+最小可改单元"
         },
         {
@@ -31,7 +31,7 @@
           "note": "Electron：主进程/preload/asar 语境，不与普通 Node 项目抢词"
         },
         {
-          "must": "(?i)\\b(bepinex|melonloader|harmonyos|il2cpp|assembly-csharp|global-metadata)\\b",
+          "must": "(?i)\\b(bepinex|melonloader|harmonyos|assembly-csharp|global-metadata)\\b",
           "note": "Unity Mod / IL2CPP / BepInEx 强锚点"
         },
         {
@@ -47,8 +47,8 @@
         },
         {
           "mustAll": [
-            "(?i)(输入法|\\bime\\b|\\btip\\b|驱动|\\bsys\\b|ioctl|obs-studio|streamdeck)",
-            "(?i)(插件|扩展|加载|注册表|服务|driver|滤镜|采集)"
+            "(?i)(输入法|\\bime\\b|obs-studio|streamdeck|注入法|原生插件)",
+            "(?i)(插件|扩展|加载|driver|内核|采集)"
           ],
           "note": "输入法/驱动/媒体管线：必须同时出现插件/加载/服务语境"
         },
