@@ -449,6 +449,24 @@ def check_persona_gate():
         add("8 人格卡", "人设卡授权门指针（§六 或 Carve-out）", False, str(e)[:120])
 
 
+def check_taskcards_gate():
+    """任务卡必须带案闸命令 —— 血案：v1.18.5 从缺闸的源文件重生成 analyze.md，把 P0-1 静默回退。"""
+    tdir = os.path.join(TOOL, "prompts", "tasks")
+    need = {"analyze.md": "case_state.py gate", "reverse.md": "case_state",
+            "reverse-deliverable.md": "case_state"}
+    bad = []
+    for f, marker in need.items():
+        p = os.path.join(tdir, f)
+        if not os.path.isfile(p):
+            bad.append(f + "(缺文件)")
+            continue
+        t = open(p, encoding="utf-8", errors="replace").read()
+        if marker not in t:
+            bad.append(f + "(缺 '" + marker + "')")
+    add("9 任务卡", "任务卡闸块在场（analyze 必须有 gate）", not bad,
+        "；".join(bad)[:160] if bad else "三张任务卡均含 case_state 命令")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -463,6 +481,7 @@ def main():
     check_ps_encoding()
     check_newtools()
     check_persona_gate()
+    check_taskcards_gate()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]
