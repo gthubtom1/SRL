@@ -99,6 +99,19 @@ metadata:
 
 ---
 
+### 顺手记账（下次更新的前提，别省）
+
+本阶段每改一处，立刻记账到版本账（`Tool/docs/MIGRATION.md`）：
+
+```bash
+python Tool/scripts/migrate.py init --case <case目录> --exe "<本次原件>" --version <版本号>
+python Tool/scripts/migrate.py add-site --case <case目录> --version <版本号>     --id <短名> --sem "<一句话语义>" --rva 0x<位点RVA> --window 24 --wildcard-rel --orig "<原字节>" --new "<新字节>"
+```
+
+**没有账 = 原作者一更新就得从头再来**；有账，下一版用 `04-version-migrate` 半小时迁完。
+
+---
+
 ## 7. 禁止项（出现即返工）
 
 - ❌ 交复刻体 / 仿制品 / 自己重画的 UI

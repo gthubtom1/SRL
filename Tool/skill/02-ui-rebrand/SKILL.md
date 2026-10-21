@@ -73,6 +73,12 @@ metadata:
 
 ---
 
+### 顺手记账（下次更新的前提）
+
+UI 素材与贴图规则写进版本账的 `ui[]`（规范见 `Tool/docs/MIGRATION.md`）：
+每条记 `id / container / kind / old_sha256 / new_file`。
+追版时按 `container` 找新版槽位，素材 100% 复用，不重画。
+
 ## 6. 禁止项
 
 - ❌ 改 UI 时顺手改业务逻辑或授权判定（越界到 03）

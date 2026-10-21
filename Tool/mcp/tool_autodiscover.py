@@ -392,6 +392,116 @@ def _path_excluded(path, caps):
     return False
 
 
+
+# ---------------------------------------------------------------------------
+# 第 4.5 层：开始菜单 / 桌面快捷方式（零依赖，覆盖"正常安装"的软件）
+# 第 4.6 层：Everything 索引（可选加速，全盘毫秒级，替代被禁掉的盲目扫盘）
+# ---------------------------------------------------------------------------
+_LNK_CACHE = {}
+_ES_CACHE = {}
+
+
+def _lnk_targets():
+    """一次性解析开始菜单/桌面全部 .lnk 的 TargetPath（进程内缓存）。
+
+    为什么放在注册表之后、递归扫描之前：正常安装的软件 90% 会建快捷方式，
+    取到的是**真实 exe 路径**（比按名字猜目录准），且一次 PowerShell 批量解析
+    比逐个 .lnk 起进程快一个量级。
+    """
+    if "v" in _LNK_CACHE:
+        return _LNK_CACHE["v"]
+    out = []
+    if sys.platform == "win32":
+        ps = shutil.which("powershell") or shutil.which("pwsh")
+        roots = [
+            os.path.join(os.environ.get("ProgramData", ""), r"Microsoft\Windows\Start Menu\Programs"),
+            os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs"),
+            os.path.join(os.environ.get("USERPROFILE", ""), "Desktop"),
+            os.path.join(os.environ.get("PUBLIC", ""), "Desktop"),
+        ]
+        roots = [r for r in roots if r and os.path.isdir(r)]
+        if ps and roots:
+            quoted = ",".join("'" + r.replace("'", "''") + "'" for r in roots)
+            cmd = (
+                "$s=New-Object -ComObject WScript.Shell;"
+                "Get-ChildItem -Path @(" + quoted + ") -Recurse -Filter *.lnk -ErrorAction SilentlyContinue"
+                " | ForEach-Object { try { $t=$s.CreateShortcut($_.FullName).TargetPath;"
+                " if($t){ $t } } catch {} }"
+            )
+            try:
+                r = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", cmd],
+                                   capture_output=True, text=True, timeout=25)
+                out = [l.strip() for l in (r.stdout or "").splitlines()
+                       if l.strip().lower().endswith(".exe")]
+            except Exception:
+                out = []
+    _LNK_CACHE["v"] = out
+    return out
+
+
+def _layer_startmenu(exe_names, caps):
+    """第 4.5 层：从快捷方式目标里按 exe 名匹配。"""
+    if sys.platform != "win32":
+        return None
+    want = {e.lower() for e in exe_names}
+    for t in _lnk_targets():
+        if os.path.basename(t).lower() in want and os.path.isfile(t) and not _denied(t):
+            return {"available": True, "command": t, "via": "startmenu"}
+    return None
+
+
+def _find_es():
+    """找 Everything 的命令行版 es.exe（PATH 或 Everything 安装目录）。"""
+    if "v" in _ES_CACHE:
+        return _ES_CACHE["v"]
+    es = shutil.which("es.exe") or shutil.which("es")
+    if not es:
+        roots = list(_COMMON_ROOTS) + [os.environ.get("ProgramFiles", ""),
+                                       os.environ.get("ProgramFiles(x86)", ""),
+                                       os.environ.get("LOCALAPPDATA", "")]
+        for root in roots:
+            if not root or not os.path.isdir(root):
+                continue
+            for sub in (("Everything",), ("Everything", "es.exe"), ("Everything", "cli")):
+                cand = os.path.join(root, *sub, "es.exe") if sub[-1] != "es.exe" else os.path.join(root, *sub)
+                if os.path.isfile(cand):
+                    es = cand
+                    break
+            if es:
+                break
+    _ES_CACHE["v"] = es or ""
+    return _ES_CACHE["v"]
+
+
+def _layer_everything(exe_names, caps):
+    """第 4.6 层：Everything 索引查询（毫秒级、全盘覆盖）。
+
+    价值：把"递归扫盘"（被 AGENTS 明令禁止：会卡死会话）换成索引查询 ——
+    同样覆盖全盘，但快 1000 倍，且不会把 node_modules 当候选。
+    es.exe 缺失时安静跳过（并可在 discover 结果里提示可安装）。
+    """
+    es = _find_es()
+    if not es:
+        return None
+    for e in exe_names:
+        try:
+            r = subprocess.run([es, "-n", "40", e], capture_output=True, text=True, timeout=10)
+        except Exception:
+            return None
+        for line in (r.stdout or "").splitlines():
+            p = line.strip()
+            if not p or not p.lower().endswith(e.lower()):
+                continue
+            cands = [p]
+            # Everything 可能返回不含扩展名的路径
+            if not os.path.splitext(p)[1]:
+                cands.insert(0, p + ".exe")
+            for c in cands:
+                if os.path.isfile(c) and not _denied(c) and not _path_excluded({"command": c}, caps):
+                    return {"available": True, "command": c, "via": "everything"}
+    return None
+
+
 def discover(tool_id, target=None, use_registry=True):
     """六层递进发现：命中即停。返回结构化结果。
 
@@ -421,6 +531,12 @@ def discover(tool_id, target=None, use_registry=True):
         hit = _layer_registry(tid, exe_names, caps); layers.append(("registry", hit)); hit = None if _path_excluded(hit, caps) else hit
         if hit:
             return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    hit = _layer_startmenu(exe_names, caps); layers.append(("startmenu", hit)); hit = None if _path_excluded(hit, caps) else hit
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    hit = _layer_everything(exe_names, caps); layers.append(("everything", hit)); hit = None if _path_excluded(hit, caps) else hit
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
     hit = _layer_scan(tid, exe_names);  layers.append(("scan", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
@@ -429,7 +545,7 @@ def discover(tool_id, target=None, use_registry=True):
         "tool_id": tid, "input": raw, "available": False, "command": "", "via": "none",
         "known_in_table": bool(caps), "arch": arch, "exe_candidates": exe_names,
         "layers_tried": [l[0] for l in layers],
-        "note": "六层探测均未命中。若确信已安装，可设环境变量 SEEP_<TOOL>_PATH 显式指定，"
+        "note": "八层探测均未命中。若确信已安装，可设环境变量 SEEP_<TOOL>_PATH 显式指定，"
                 "或把工具放进任一候选根（~/.seep/tools、~/Tools、各盘 Tools 目录），或用 SEEP_TOOL_ROOT / REVERSE_TOOL_ROOT 显式指定。",
     }
 

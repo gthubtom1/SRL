@@ -74,6 +74,11 @@ Android: ANDROID_ID + Build.FINGERPRINT → 同上
 
 ---
 
+### 顺手记账（下次更新的前提）
+
+授权挂载点写进版本账的 `license[]`：`id / mode（local-hmac|online-ticket）/ site（指向哪个位点）/ endpoint`。
+追版时按 `site` 重挂到新 RVA，不用重新设计授权对接。
+
 ## 7. 禁止项
 
 - ❌ 改业务逻辑或绕过点（那是 01 的事）

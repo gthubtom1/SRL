@@ -258,7 +258,7 @@ Test-CheckItem "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" {
 Write-Host "`n[4/9] 🛠️ 逆向工程专业技能库 (Skills - 全量，含 01/02/03 阶段技能)" -ForegroundColor White
 Test-CheckItem "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" {
     $r = Join-Path $localSkills 'softseep\references'
-    $stage = @('01-gate-bypass', '02-ui-rebrand', '03-license-hookup')
+    $stage = @('01-gate-bypass', '02-ui-rebrand', '03-license-hookup', '04-version-migrate')
     $stageOk = $true
     foreach ($k in $stage) {
         if (-not (Test-Path (Join-Path $localSkills ($k + '\SKILL.md')))) { $stageOk = $false }
