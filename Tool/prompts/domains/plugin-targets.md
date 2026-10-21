@@ -182,7 +182,7 @@
 ### 23 插件写入型后门与更新链排查（借）（源：hunting-for-webshell-activity）
 - 触发词：写入型后门、更新链、持久化、插件目录、自更新、落盘
 - 前置：已取得安装目录与更新配置；只读；不执行可疑更新
-- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin01/input/ext.zip --out work/plugin23 --json` → rc=0，期望：entrypoints 的 background/content 均 `"exists": true`；2) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin01/input/ext.zip --json` → rc=0，期望：permissions 含 `storage`/`scripting`/`cookies`；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/_archive/plugin01/input/ext.zip --out work/plugin23 --json` → rc=0，期望：entrypoints 的 background/content 均 `"exists": true`；2) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/_archive/plugin01/input/ext.zip --json` → rc=0，期望：permissions 含 `storage`/`scripting`/`cookies`；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` → rc=0，期望：`"ok": true`
 - 判据：写入点→持久化→更新来源三段可指认；签名/白名单层明确
 - 失败判据：只有可疑文件、无写入/加载链 → 标 `inferred`；不写“已植入”
 - reference：Tool/skill/plugin-targets/references/desktop-plugins.md

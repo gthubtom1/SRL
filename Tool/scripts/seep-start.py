@@ -71,7 +71,7 @@ COMMANDS = {
     ],
     "plugin-targets": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json",
-        "python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin01/input/ext.zip --out {case_dir}/artifacts/repro --json",
+        "python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/_archive/plugin01/input/ext.zip --out {case_dir}/artifacts/repro --json",
         "python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json",
     ],
     "forensics-mobile": [
