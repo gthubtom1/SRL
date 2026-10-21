@@ -335,7 +335,8 @@ def check_ps_encoding():
         + "; $bad -join ' | '"
     )
     try:
-        out = subprocess.run([ps, "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=180)
+        out = subprocess.run([ps, "-NoProfile", "-Command", cmd], capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=180)
         msg = (out.stdout or "").strip()
         add("6 可移植", "ps1 编码可被 PS5.1 解析", not msg, msg[:160] or "全部 .ps1 解析通过")
     except Exception as e:

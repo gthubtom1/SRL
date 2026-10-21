@@ -58,17 +58,17 @@ def check():
     names = parse_tools(src)
     base = load_baseline()
 
+    # 必须用 \b 边界：注释里出现 "vendored" 时，"end" 会被 re.I 误当成 END
+    begins = len(re.findall(r"SEEP-EXT[^\n]*?\bBEGIN\b", src, re.I))
+    ends = len(re.findall(r"SEEP-EXT[^\n]*?\bEND\b", src, re.I))
     if base is None:
-        problems.append("基线缺失：先跑 `python Tool/scripts/mcp-guard.py --baseline`")
+        problems.append("基线缺失：先跑 `python Tool/scripts/mcp-guard.py --baseline`（当前基线为自生成，只能保证此后只增）")
     else:
         lost = [n for n in base.get("tools", []) if n not in names]
         if lost:
             problems.append("基线里的工具消失了（违反『只许追加』）：" + "、".join(lost))
         if len(names) < int(base.get("count", 0)):
-            problems.append(f"工具数量从 {base.get('count')} 降到 {len(names)}（只许增加）")
-
-        begins = len(re.findall(r"SEEP-EXT[^\n]*?\bBEGIN\b", src, re.I))
-        ends = len(re.findall(r"SEEP-EXT[^\n]*?\bEND\b", src, re.I))
+            problems.append("工具数量从 %s 降到 %s（只许增加）" % (base.get("count"), len(names)))
     if begins != ends:
         problems.append(f"SEEP-EXT 标记不成对：BEGIN {begins} / END {ends}")
 
