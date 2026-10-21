@@ -193,7 +193,56 @@ print(send(base)[:80])
 | FirmAE 反复重启 | 看门狗/网络推断错 | 读 `qemu.*.log`，先禁用看门狗（副本） |
 | fuzz 无崩溃 | harness 没进解析器/输入不合法 | 先做覆盖率/基线，再调 corpus |
 
-## 9. 边界
+## 9. Rehosting 失败归因（FirmPilot / Khost 2026）
+
+> 解包成功不等于能 rehost。失败时先归因，再决定补桩、换路线还是放弃；不要用“再跑一次 FirmAE”代替证据。
+> FirmPilot（arXiv 2607.14903，2026-07）把恢复拆成**证据引导的依赖/服务/设备节点**三类；Khost（USENIX Security 2026）用 **KVM 近原生**跑 MCU 固件。前者给顺序，后者给 CPU/内存语义，二者都不自动补外设。
+
+每次失败先填六个字段，缺字段的结论一律降级：
+
+| 字段 | 取值 | 用途 |
+|---|---|---|
+| `rehost_blocker` | `none/rootfs/init/nvram/watchdog/net/arch-abi/mcu-periph` | 归因主类，只允许一个主值 |
+| `rootfs_complete` | `true/false` + 已解分区/偏移 | ① 根文件系统是否完整 |
+| `init_chain_ok` | `true/false` + 断点 `文件:行` | ② init 链是否走到目标服务 |
+| `nvram_stub` | `none/file/lib/dev` | ③ NVRAM/mtd/设备节点桩形态 |
+| `watchdog_mitigated` | `true/false` + 方式 | ④ 看门狗是否已隔离 |
+| `arch_abi` | `mipsel-o32/armv7-eabi/aarch64/...` | ⑥ 架构/端序/ABI 是否匹配 |
+
+```text
+rehosting 失败
+├─ ① rootfs_complete=false ── 重切分区/合并 overlay ── 缺 busybox 即放弃整机
+├─ ② init_chain_ok=false ─── 补依赖/最小 init ─────── 依赖不可得→qemu-user
+├─ ③ nvram_stub=none ─────── nvram.conf+lib 桩 ───── 补 2 次仍崩→静态
+├─ ④ watchdog_mitigated=false 副本禁 wdt/喂狗 ───── 硬件层→短窗口
+├─ ⑤ 网络/IP 不通 ────────── 驱动/NIC/hostfwd ───── 无驱动→单端口/真机
+├─ ⑥ arch_abi 不符 ──────── readelf 对齐 qemu ──── SIGILL→Unicorn/静态
+└─ ⑦ mcu-periph ─────────── Khost + MMIO 桩 ───── 无 datasheet→转硬件
+```
+
+| 支 | 现象 | 判定 | 修复动作 | 放弃判据 |
+|---|---|---|---|---|
+| ① rootfs 不完整 | 内核挂根后 `/bin/sh`/`/etc/inittab` 缺失，或只解出 kernel+单个分区 | `rootfs_complete=false`，`rehost_blocker=rootfs`；记录已解分区/偏移 | `ubireader`/`sasquatch` 重切，合并 `rootfs_data`/overlay，从 OTA 或真机 dump 补缺失分区；`find "$ROOT" -maxdepth 2` 清点 | 换 2 种容器工具仍无 `/bin/busybox` 或 `/etc/inittab`，且无备份 → 只做静态/半仿真 |
+| ② init 链断 | 串口停在 `Starting ...` 无 shell；`/etc/init.d/rcS` 调用的 `/sbin/xxx` 不存在 | `init_chain_ok=false`，`rehost_blocker=init`；记录断点 `文件:行` | `grep -RIn` 依赖链并跨分区补齐；副本用最小 init 直接 exec 目标服务，保留原链日志 | 依赖位于未解出分区且无替代实现，或改 2 次 init 仍无监听 → 转 qemu-user 单程序 |
+| ③ NVRAM/mtd 桩缺失 | 服务读 `nvram_get`/`/dev/nvram`/`/dev/mtd*` 返回空后退出 | `nvram_stub=none`，`rehost_blocker=nvram`；记录缺失键/设备 | 按固件默认值与字符串造 `nvram.conf`+shell/lib 桩；`/dev/mtd*` 用只读普通文件桩，记录“非真实写” | 键空间不可枚举、补桩 2 次仍崩溃 → 静态还原配置读取逻辑，不再追整机 |
+| ④ 看门狗复位 | 启动 30–90 s 后整机重启、端口消失；串口出现 reset 源 | `watchdog_mitigated=false`，`rehost_blocker=watchdog`；记录复位间隔 | 副本注释 `watchdog`/`wdt` 启动项；`/dev/watchdog` 桩返回成功并定时喂狗；串口确认 | 看门狗在 bootloader/硬件层且无寄存器/串口访问，禁用有 brick 风险 → 只做短窗口请求 |
+| ⑤ 网络/IP 不通 | guest 无 `eth0`、无 IP，服务只绑 `127.0.0.1`；hostfwd 打不到 | `rehost_blocker=net`；记录 NIC 模型/网段/监听地址 | 核对内核驱动与 `/etc/network/interfaces`；qemu 换 NIC 模型，tap/bridge 或 hostfwd；guest 内 `ip addr`/`ss -lntp` | 厂商内核无该 NIC 驱动且换内核不能挂根，或网络推断 2 次仍不通 → 单端口 user 模式/真机只读 |
+| ⑥ 架构/ABI 不匹配 | `Exec format error`/`Illegal instruction`/syscall 号错 | `arch_abi` 与镜像不符，`rehost_blocker=arch-abi`；记录 `readelf -h/-A` | 对齐端序与 ABI（mips/mipsel、armv5/armv7、o32/n32），换 matching `qemu-<arch>` 或厂商内核；注意 FP/EABI | 自定义 ABI/协处理器指令 qemu 无实现，换 2 次 arch 仍 SIGILL → Unicorn 片段或纯静态 |
+| ⑦ MCU 外设无模型 | 裸机/RTOS 启动即卡 UART/SPI/I2C 初始化，无 `/dev` 可补 | `rehost_blocker=mcu-periph`；记录卡住的外设/寄存器 | 用 Khost 的 KVM 近原生执行 CPU/内存，按 datasheet 给 UART/SPI/I2C 最小 MMIO 桩（ready/空 FIFO）；先跑到主循环 | 外设时序/中断强耦合且无 datasheet/逻辑分析仪波形，2 次桩仍卡初始化 → 放弃整机，转硬件接口/UART 在线 |
+
+**FirmPilot 的顺序**：先证 rootfs，再证 init，再补 NVRAM/设备节点，最后才动网络和外设；每次只补“证据最强”的一个节点，补完立即重跑并记录字段变化。
+**Khost 的边界**：KVM 近原生让 CPU/内存语义接近真机，但 UART/SPI/I2C 仍要模型；`Khost 起来了` 不等于外设可用。
+
+记录示例：
+
+```json
+{"rehost_blocker":"init","rootfs_complete":true,"init_chain_ok":false,
+ "nvram_stub":"file","watchdog_mitigated":false,"arch_abi":"mipsel-o32"}
+```
+
+报告口径：只写“在 <环境> 下服务有/无真实回包”，不写“仿真失败=固件没漏洞”；放弃也是结论，必须带上述字段与已试命令 rc。
+
+## 10. 边界
 
 - 仅在授权固件/设备/隔离网络内仿真与 fuzz；不接第三方设备、不打公网。
 - 不改原始镜像；所有桩、补丁、启动脚本只存在于工作副本。
