@@ -33,8 +33,11 @@ def build() -> str:
         raise SystemExit("[ERR] 源文件缺少 ```text 代码块")
     body = src.split("```text", 1)[1]
     body = body.rsplit("```", 1)[0].strip()
-    if "case_state.py gate" not in body:
-        raise SystemExit("[ERR] 源文件缺少「阶段零出口闸」块（case_state.py gate）—— 拒绝生成，防止再回退 P0-1")
+    need = ["init", "claim", "prove", "depth", "instrument", "verdict", "gate"]
+    missing = [k for k in need if k not in body]
+    if missing or "必须返回 0" not in body:
+        raise SystemExit("[ERR] 源文件闸块不完整（缺：%s%s）—— 拒绝生成，防止再回退 P0-1"
+                         % (",".join(missing) or "无", "；缺『必须返回 0』" if "必须返回 0" not in body else ""))
     return FRONT + body + "\n"
 
 
