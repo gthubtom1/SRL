@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/Patcher.cs",
-      "sha256": ""
+      "sha256": "74d34ea51c6b66f4812b19d2cbccb4f69297780c512caa6420ea2738d3af7460"
     },
     {
       "path": "src/LicenseWriter.cs",
-      "sha256": ""
+      "sha256": "856b004db3889857fc110418b2c53abfab6a92ad487fc8af3d3cf3b923791aa8"
     },
     {
       "path": "auto_activate.ps1",
-      "sha256": ""
+      "sha256": "27b8a6f1531781014afa5838f265950a7e1c0dcc047d8e3ba82c31bf3dd2ed0f"
     }
   ],
   "lessons": [

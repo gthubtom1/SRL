@@ -12,15 +12,15 @@
   "artifacts": [
     {
       "path": "项目D_Pro_Tool/src/Program.cs",
-      "sha256": ""
+      "sha256": "c78b6c70b092a2e035433ed1c7e8f1e3073825e2b45d5841b0d7373ae4bbd3db"
     },
     {
       "path": "项目D_Pro_Tool/tests/PatchEngineTests.cs",
-      "sha256": ""
+      "sha256": "f9f595e4efdedd59054dd185d43c5e59ff6309e007f5e10bd0920053d1dbe6fc"
     },
     {
       "path": "tools/03_gen_signatures.py",
-      "sha256": ""
+      "sha256": "9a970b42c4fd63048a1688bbae5d98b8295652854a16c68536b0c3933184caae"
     }
   ],
   "lessons": [

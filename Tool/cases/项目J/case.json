@@ -15,15 +15,15 @@
   "artifacts": [
     {
       "path": "src/apply_patch.py",
-      "sha256": ""
+      "sha256": "be14038a31857cf2623859f28d377b3ffbd4ff381169b2b1f3dbb09b9b0dec87"
     },
     {
       "path": "src/poc_frida_bypass.js",
-      "sha256": ""
+      "sha256": "5f44f59b86cad22d37a82fbb1b0f1c350e508b0e2f10992716647a48f908c64c"
     },
     {
       "path": "docs/protocol-and-patch.md",
-      "sha256": ""
+      "sha256": "9c76e55ec9ab956e81ef1331aa45adf48e5033fe7c3698a83b29fd1ba9532da0"
     }
   ],
   "lessons": [

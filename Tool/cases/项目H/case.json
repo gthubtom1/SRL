@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/keygen/algo.py",
-      "sha256": ""
+      "sha256": "ec37e5ffd46d42cb17e834e690470f1de569641002eb0da78c50cbaf3f8ad286"
     },
     {
       "path": "src/keygen/cli.py",
-      "sha256": ""
+      "sha256": "29ead050042e788169b0ceed9957deabbbc250a9a59a531f686651efe7b07cf2"
     },
     {
       "path": "tools/test_keygen.py",
-      "sha256": ""
+      "sha256": "237d53559ae2d645e444eefd338b9c8d9ea97031e4d0e019645d83c2d4265cc0"
     }
   ],
   "lessons": [

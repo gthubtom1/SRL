@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/SabPatchEngine.cs",
-      "sha256": ""
+      "sha256": "0c84a203c679b288794075f9fb5e3fdc84ff1373df949dcf773545f6ce6dd3e6"
     },
     {
       "path": "src/SabActivate.cs",
-      "sha256": ""
+      "sha256": "2e250dc7464ea327dee7f1f8e7ba1a2dc75bb4cdab5cf51fd041dbca474a1298"
     },
     {
       "path": "src/SabRollbackGuard.cs",
-      "sha256": ""
+      "sha256": "23ff973b502b1402048319cc1385ea9640e03899658f495043c09c6931d19b4b"
     }
   ],
   "lessons": [

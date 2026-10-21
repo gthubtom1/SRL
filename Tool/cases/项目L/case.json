@@ -13,15 +13,15 @@
   "artifacts": [
     {
       "path": "src/项目L_hook.c",
-      "sha256": ""
+      "sha256": "4ecca58375c483470dbad2972a7b11b12781af03baf26d8c116f19d012f14d0a"
     },
     {
       "path": "src/项目L_bridge.c",
-      "sha256": ""
+      "sha256": "62432c5454759d4551c6c51e3f511670e0dcd2a4855f734f45a01149be5c82b7"
     },
     {
       "path": "src/proxy.def",
-      "sha256": ""
+      "sha256": "c83bc9a26b7a935da34292ba4165831052ac6a95bd5e6edc2781f125fde790d0"
     }
   ],
   "lessons": [
