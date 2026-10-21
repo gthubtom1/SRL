@@ -375,3 +375,17 @@ ja  debugger_detected
 - 反调试技术演进快；表是「识别线索」，不是穷举。
 - 任何对抗都要记录「改了什么、为什么、改后行为、是否触发二次检测」；没有记录等于没做。
 - 反调试不是越狱比赛：目标是拿到可复现证据，不是把目标改成另一个程序。
+
+---
+
+## 21. 2026 结构判据（CET / .pdata / KDP）
+
+| 判据 | 看什么 | 失败即停 |
+| :--- | :--- | :--- |
+| 影子栈/CET | `ret` 目标与 shadow stack top 不一致 / `0xC0000409` | 停止 `ret` 伪造，改 call-preceded + `jmp` |
+| `.pdata` 空洞 | 返回地址落在无 `RUNTIME_FUNCTION` 覆盖的 RVA | 记 `pdata_gap`；ETW-Ti 回溯异常即停 |
+| KDP | `!pte` 只读、`!pool` 受保护、写 fault | 不要把 KDP 页当普通数据页改 |
+
+- 细节：[CET/LACUNA](../../../mcp/Tool/reverselab/kb/windows/techniques/2026-cet-lacuna-pdata.md)（影子栈 + `.pdata` 假栈）、
+  [26H2](../../../mcp/Tool/reverselab/kb/windows/techniques/2026-win11-26h2-kernel.md)（HVCI/KCET/KDP）、
+  [VMP UltraLock](../../../mcp/Tool/reverselab/kb/windows/techniques/2026-vmp-ultralock.md)（TitanHide/DRx 反检测）。
