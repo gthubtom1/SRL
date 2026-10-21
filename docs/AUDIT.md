@@ -355,3 +355,22 @@
 | 真实演练 | `Tool/cases/案例-真实补丁a` | 真实第三方 crackme：2 处等长补丁 → `bdcb074e…`；`--rollback` → `8308abb8…`（= 原文件） |
 
 **结论：可交付。** 交付后动作：完全重启 Agent 会话 → 发 `lab：`。
+
+### R5 复审后整改（对齐 10 条驳回）
+
+| # | 驳回 | 处置 | 证据 |
+| :-- | :-- | :-- | :-- |
+| 1 | preflight <32 | 新增 7 条交付物断言（三分/串味60/时间戳/driver-triage/剧本卡/inferred/新工具） | preflight **35/35** |
+| 2 | 串味 48<60 | 扩到 60 条并逐条对齐运行时 | `ROUTING_TESTS`=60，gate PASS |
+| 3 | driver-triage 缺失 | 新增 `Tool/scripts/driver-triage.py`（815 行，PE/IOCTL 解码/评分/加载性，self-test 19 项） | `--self-test` rc=0 |
+| 4 | 任务卡未剧本化 | 每域 5 张、共 50 张改成「命令+rc=0+期望输出」（命令逐条实跑） | 断言「剧本卡 ≥50」=60 |
+| 5 | 案例三分未实现 | `evidence_kind` 扩为 fixture/real/self-built/historical；迁移 7 个；gate 把 real/self-built 计入真实证据；10 个 accept 同步 | 分布 22/18/3/4 |
+| 6 | VERSION 未升 | `VERSION`=1.23.0，提示词源 `VERSION_SEEN` 同步，任务卡重生成 | `git show v1.23.0:VERSION` |
+| 7 | generated_at 未闭环 | 索引默认固定纪元（`SEEP_TIMESTAMP` 才写真值）；`adcloud-check` 不再写 gmtime；29 个产物已清键；gate+preflight 双断言 | 两次跑 sha 一致 |
+| 8 | 路由类别不全 | 新增 R32(hypervisor/eBPF/TEE)、R33(托管运行时)；R30(WASM)/R31(LLM) 已在；iOS=R26、反作弊=R29 关键词 | routes=29 |
+| 9 | 判据背书降级 | 改为「每个字段必须被脚本输出或在 `Tool/config/criteria-inferred/<域>.json` 白名单」，10 域 0 未覆盖 | gate PASS，detail 显示 0 |
+| 10 | P2 资产缺失 | `seep-start.py`、`kb-query.py`（均 self-test）、`Tool/prompts/reports/` 10 份+README、`kb/{ios,anticheat,managed}` 各 5 篇 | 各自验证 |
+
+### R6 终审（全新上下文）
+
+> 进行中（session `01a16094`）；结论在本节后续提交补全。
