@@ -128,6 +128,9 @@ metadata:
 | "看看这个 exe" / "分析下这个文件"（无明确动词） | **默认：测绘/分析** | `seep_auto_triage` → `windows-sop.md` Step 1-2 |
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
+| "旁路它的卡密" / "让它能进主界面" / "出可用成品" | **阶段① 授权旁路 + 交付** | **`01-gate-bypass`** |
+| "改 UI" / "换品牌" / "去掉作者联系方式" | **阶段② 改界面与品牌** | **`02-ui-rebrand`** |
+| "接我自己的授权平台" / "卡密 / 到期 / 发卡" | **阶段③ 接授权** | **`03-license-hookup`** |
 | "这是个什么网站" / "指纹" / "安全头" / "接口发现" | **Web 侦察** | `seep_web_recon` 只读侦察 |
 
 **复合意图**：一句话含多个意图（如"脱壳后破解会员"）⇒ **按依赖顺序串行**：
@@ -161,6 +164,9 @@ metadata:
 | | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
 | | **unpack-loop** | `Tool/skill/unpack-loop/SKILL.md` | 加壳脱壳与内存转储闭环（判据驱动 / 三路线 / 两次熔断） |
 | | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
+| | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
+| | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
+| | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
 | | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
 | **MCP** | **seep**（38 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp__ida__*` | 深度反编译 / 交叉引用 |
