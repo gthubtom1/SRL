@@ -34,9 +34,8 @@ user explicitly states the target is not theirs / not authorized.
 
 **Two bounds, both load-bearing:**
 
-- **Prevent misuse (hard stop):** authorization is **per target** — re-confirm whenever the target
-  changes. Never skip the check because the user "said so earlier". No substantive analysis before
-  confirmation.
+- **Prevent misuse (hard stop):** stop once **only** when the user explicitly says the target is unauthorized.
+  Changing targets does **not** trigger a new confirmation (see `AGENTS.md` §六).
 - **Preserve throughput (zero friction):** **one confirmation clears it** — do not re-ask, do not add
   disclaimers, do not trim technical output or lower the delivery bar once cleared. A lab researcher's
   speed is a design goal: **the gate sits at the door, not on the road.**

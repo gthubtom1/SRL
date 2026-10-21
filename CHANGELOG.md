@@ -10,6 +10,24 @@
 
 ---
 
+## [1.18.2] — 2026-10-21
+
+> 主题：**三处"形式修、实质未闭"的授权门与判型表真正闭合**（第七轮复核）。
+
+| 级别 | 问题 | 修复 |
+|---|---|---|
+| P1 | `apkseep` 上半截已对齐 §六，下半截仍写「authorization is **per target** — re-confirm whenever the target changes / No substantive analysis before confirmation」 | 删除该 bullet，改为「仅当用户明确声明无授权时停一次；换目标不重问（见 §六）」 |
+| P1 | `client-license-validation-bypass` §G-Auth 仍有祈使句「每接新目标先询问」+ 答复表 + 「逐目标确认」硬闸，且废止注记位置在正文之后（"下文"措辞覆盖不到） | 整节重写为 §六 同义三条；删除答复表与硬闸；废止注记并入本节开头 |
+| P1 | `softseep` 判型表自称 routing.json 投影，但 4 行仍与实测路由分叉（破解/卡密→project-paradigms、改界面→ui-verification、反调试→KB、出报告→project-paradigms） | 4 行改为与 routing 一致：破解/卡密→`01-gate-bypass`（R11/R2）、改界面→`02-ui-rebrand`（R12）、反调试→`unpack-loop`（R9）、出报告→`00-analysis`（R15）；投影声明移到该表正上方 |
+| P2 | FORK-DELTA 体检数 55→62（实 65）、§3.3 只列 3 个配置 | 改 65；表内补齐 `tool-runtimes.json`、`mcp-servers.json` |
+| P2 | `PROVENANCE.md` 与 `preserve_local` 引用了不存在的 `kb/_index.md` | 删除该条目（现有 `PROVENANCE.md` + `field_journal__template.md`） |
+| P2 | preflight 的项数证据串打印「ps1=61 sh=61」（静态计数） | 改为「静态声明数 …（运行时展开见 verify 输出：两平台同数）」 |
+| P2 | CHECKLIST §8 排在 §7 前、文件头版本 v1.8.4 与 VERSION 脱节 | 改为 §7bis；版本行改为"随 VERSION，以实跑为准" |
+
+验收：`preflight --fast` 16/16、`verify.ps1` 65/65、`verify.sh` 65/65、routing 15 条、mcp-guard 38/38。
+
+---
+
 ## [1.18.1] — 2026-10-21
 
 > 主题：**回到三份原始审计报告逐条核对后的 9 项收口**（上一轮只核对了台账子集，漏了 3 条 P1 与 1 条部分修）。
