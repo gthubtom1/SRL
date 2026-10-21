@@ -138,7 +138,7 @@ pi 会把它变成 **`/<name>` 斜杠命令**（支持 `$1` 参数）。
 ## 5. 唯一门禁
 
 ```bash
-python Tool/scripts/preflight.py            # 全量（含 verify 62 项 + 端到端冒烟，约 1–2 分钟）
+python Tool/scripts/preflight.py            # 全量（含 verify 65 项 + 端到端冒烟，约 1–2 分钟）
 python Tool/scripts/preflight.py --fast     # 快速（约 2 秒，改文档/配置时够用）
 ```
 

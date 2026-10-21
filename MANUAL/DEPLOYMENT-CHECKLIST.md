@@ -2,7 +2,8 @@
 
 > **版本**：v1.8.4  
 > **适用范围**：Pi Agent / Claude Code / DeepSeek Harness / Codex / OpenCode  
-> **核心用途**：作为 Seep Reverse Lab 部署交付的 **单一真值源 (Single Source of Truth, SSOT)**。  
+> **核心用途**：部署资产核验的**基准清单**。注意：代码层的事实源是 `setup/verify.*` 与 `Tool/scripts/preflight.py` 的**实跑输出**；
+> 本清单必须与它们双向对齐（本清单每条 → verify 有对应项；verify 每项 → 本清单有说明）。发现不一致时以实跑为准。  
 > 明确声明每个组件的 **官方期望物理路径、文件数、入口文件、可用性验证命令、三态健康标准与降级处置方案**。  
 > 部署完成后，Agent 与用户均以此清单为唯一法定标准进行双向比对校对。
 
@@ -57,7 +58,7 @@ MCP 配置文件所在位置：
 | **M3** | **`js-reverse`** | `npx -y js-reverse-mcp` | 23 项（本包实测 v4.0.5，以运行时为准） | `npx -y js-reverse-mcp --version` | 🟡 **按需组件**。未安装 Node 时仅 Web 逆向受限，原生二进制不受影响。修复：安装 Node.js 18+ |
 | **M4** | **`playwright`** | `npx -y @playwright/mcp` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | 依赖 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | 🟡 **按需组件**。未配 Token 时无头浏览器受限，原生逆向不受影响。 |
 
-> **附加断言（不计入 62 项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
+> **附加断言（不计入 65 项核心项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
 > （`replaceable`：`codemode` / `tool-search` / `mcp`）抢名。有冲突时退码 1，说明该扩展会顶掉内置并导致 `[Extension issues]`。
 > 详细背景见 `Tool/docs/MCP-SETUP.md` §三。
 
@@ -117,6 +118,18 @@ MCP 配置文件所在位置：
 
 ---
 
+### 8. ⚙️ 运维脚本基准表 (Ops Scripts · 两平台各 1 条 verify 项)
+
+| 脚本 | 作用 | 门禁项（verify.ps1 / verify.sh 同名） |
+|---|---|---|
+| `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
+| `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
+| `Tool/scripts/migrate.py` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (migrate.py)` |
+| `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
+| `Tool/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
+
+> 换机器 clone 后，这五项任一缺失或腐坏，`verify` / `preflight` 会直接变红 —— 这是审计 D1 要求的"新脚本必须进两平台门禁"。
+
 ### 7. 🔒 脱敏与个人隐私基准表 (Desensitization Baseline)
 
 > **硬红线**：个人隐私与运行凭据必须零残留。发布前由 `verify.ps1 -Detailed` 第 9 节强制门禁校验。
@@ -142,7 +155,7 @@ MCP 配置文件所在位置：
 ```markdown
 ### 📊 Seep 工作台部署产物与官方基准校对报告
 
-#### 1. 🛠️ 技能系统 (Skills - 9项)
+#### 1. 🛠️ 技能系统 (Skills - 17 项，含 00–05 阶段技能)
 | 技能名 | 目标物理路径 | 期望文件数 | 实际文件数 | 状态 | 备注/指引 |
 |---|---|---|---|---|---|
 | softseep | ~/.pi/agent/skills/softseep/ | ≥9 (含8 refs) | 9 | 🟢 READY | 总控调度器已就绪 |
@@ -168,6 +181,6 @@ MCP 配置文件所在位置：
 | 攻防知识库 | ≥289 篇笔记 | 物理就绪 (292 篇) | 🟢 READY | seep_kb_* 检索后端就绪 |
 
 #### 4. 🚀 总结与开工建议
-- **系统评估**：核心组件与 9 大 Skill 100% 部署成功，工作台处于 **[READY / 完备就绪]** 状态；
+- **系统评估**：核心组件与 17 大技能 100% 部署成功，工作台处于 **[READY / 完备就绪]** 状态；
 - **操作指令**：请退出并重启当前终端与 Agent 会话，在对话框中输入 **`lab：`** 开启白盒测试！
 ```

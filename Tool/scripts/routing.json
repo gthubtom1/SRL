@@ -37,7 +37,7 @@
       "skill": "apkseep/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|签名.?校验|证书.?校验|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
+          "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
           "note": "Android 全链路（DEX/SO/重打包/动态插桩）"
         }
       ]

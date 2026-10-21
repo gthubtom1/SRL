@@ -39,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
 ## 2. 校验（Agent 执行）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed   # 期望 62/62
+powershell -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed   # 期望 65/65
 python Tool/scripts/preflight.py --fast                                  # 期望 16/16
 ```
 
