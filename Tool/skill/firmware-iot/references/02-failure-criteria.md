@@ -26,6 +26,9 @@
 | SPI 两次读取 SHA256 不一致 | 接触不良、供电不稳、芯片在读时被访问 | 断电夹紧/焊下芯片；降低 `flashrom` 速率；确认 1.8V 适配；再读两次比对 | 可能读坏或写坏；必须先有备份 |
 | 改 rootfs 后设备拒升级/校验失败 | OTA 签名或版本回滚保护 | 不要伪造签名；转 UART/JTAG 在线改启动参数、内存 patch 或运行态调试 | 无法持久化；越权风险高 |
 | 漏洞只在字符串/版本号里出现 | 不是 J3；可达性未证 | 转黑盒请求测绘、动态跟踪、最小 PoC；两次一致才算 | 可能需要逆向与仿真环境；时间成本高 |
+| 内核挂根但 rootfs 只有 kernel/部分分区，缺 `/bin/busybox` 或 `/etc` | `rootfs_complete=false`，解包未完成 | 重切分区/合并 overlay，换 `sasquatch`/`ubireader`；从 OTA 或真机 dump 补缺失分区 | 0.5–2 h；分区缺失且无备份时只能半仿真 |
+| 串口停在 init 输出，`/etc/init.d` 依赖的二进制/脚本不存在 | `init_chain_ok=false`，启动链断 | `grep -RIn` 依赖并跨分区补齐；副本用最小 init 直接起目标服务，保留原链记录 | 依赖在未解出分区且无替代实现时转 qemu-user 单程序 |
+| 服务运行 30–90 s 后整机复位/端口消失 | 看门狗复位，`watchdog_mitigated=false` | 副本禁用 `wdt` 启动项、`/dev/watchdog` 桩、必要时喂狗；串口确认复位源 | 看门狗在 bootloader/硬件层时不做长跑，只做短窗口验证 |
 
 ## 失败后的最小交付
 
