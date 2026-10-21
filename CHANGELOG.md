@@ -10,6 +10,20 @@
 
 ---
 
+## [1.21.5] — 2026-10-21
+
+> 主题：**深度审计 8 项全部修死**。
+
+- SKILL ≤220：`malware-analysis` 220、`ad-cloud` 220、`pwn-crypto` 218（原 226/231/230）。
+- 缺失节补齐：`pwn-crypto`、`firmware-iot` 各加「失败判据」。
+- 域内脚本：新增 `Tool/skill/{pwn-crypto,malware-analysis}/scripts/*.py`（转发入口，`--help` rc=0）。
+- 案例：6 个 planned 案例改为 `partial` + 真实 `input/` 与 `artifacts/run.json`；12 个案例的 `target_type` 与实际样本对齐（本地夹具/PE/离线 kubeconfig），全部 artifacts 含 sha256。
+- 命名/目录：4 个矩阵改名 `<domain>-matrix.json`；4 个 KB 板的 techniques 归入 `techniques/`。
+- 关键词精度：`ipa/ios/spi/sca/src` 全部加词边界或语境限定（zipalign→R8 不再命中 R26；spider/principal/bios/scaffold→R0；src/version.dll→R7）。
+- preflight 断言加强：SKILL 行数、单篇 refs ≤200、失败判据、域内 scripts/、`outcome != planned`。
+
+---
+
 ## [1.21.4] — 2026-10-21
 
 > 主题：**复现块数字对齐**（终审 #10 唯一 P1）。
