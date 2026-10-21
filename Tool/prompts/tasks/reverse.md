@@ -10,4 +10,4 @@ argument-hint: "<目标路径，留空则用当前工作区样本>"
 
 起不来/启动即自毁（0xC0000409、VEH 页面守卫、VirtualProtect 失败分支、加壳）属于任务范围：
 先脱壳或绕过自校验把目标跑起来，再打授权门；不许以"保护壳阻塞"结案，也不许问"要不要继续"。
-先报 RUNTIME / GATE / DELIVERY 三行等我确认，然后一路做到可用为止。
+先报 RUNTIME / GATE / DELIVERY 三行等我确认；开工前先读 softseep/SKILL.md，跑 seep_auto_triage + seep_packer_detect + 查一次 KB，然后一路做到可用为止（不要手搓 strings/pefile）。
