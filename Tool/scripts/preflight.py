@@ -452,17 +452,29 @@ def check_persona_gate():
 def check_taskcards_gate():
     """任务卡必须带案闸命令 —— 血案：v1.18.5 从缺闸的源文件重生成 analyze.md，把 P0-1 静默回退。"""
     tdir = os.path.join(TOOL, "prompts", "tasks")
-    need = {"analyze.md": "case_state.py gate", "reverse.md": "case_state",
-            "reverse-deliverable.md": "case_state"}
+    subs = ["init", "claim", "prove", "depth", "instrument", "verdict", "gate"]
+    need = {"analyze.md": subs + ["必须返回 0"], "reverse.md": ["case_state.py gate", "deliver"],
+            "reverse-deliverable.md": ["case_state.py gate", "deliver"]}
     bad = []
-    for f, marker in need.items():
+    for f, markers in need.items():
         p = os.path.join(tdir, f)
         if not os.path.isfile(p):
             bad.append(f + "(缺文件)")
             continue
         t = open(p, encoding="utf-8", errors="replace").read()
-        if marker not in t:
-            bad.append(f + "(缺 '" + marker + "')")
+        for mk in markers:
+            if mk not in t:
+                bad.append(f + "(缺 '" + mk + "')")
+                break
+    # VERSION_SEEN 必须等于发布版本（防"版本戳停在旧值"）
+    try:
+        ver = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+        for f in ("analyze.md",):
+            t = open(os.path.join(tdir, f), encoding="utf-8", errors="replace").read()
+            if "VERSION_SEEN = " + ver not in t:
+                bad.append(f + "(VERSION_SEEN != " + ver + ")")
+    except Exception as e:
+        bad.append("VERSION 读取失败:" + str(e)[:40])
     add("9 任务卡", "任务卡闸块在场（analyze 必须有 gate）", not bad,
         "；".join(bad)[:160] if bad else "三张任务卡均含 case_state 命令")
 
