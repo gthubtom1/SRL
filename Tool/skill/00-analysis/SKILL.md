@@ -112,6 +112,31 @@ metadata:
 | A2 | `facts.jsonl` | 一行一条：`{id, claim, status(proven/hypothesis/refuted), evidence[], how, ttl, refuted_by}` |
 | A3 | 可行性裁定 + 推荐路线 | 报告第 6、7 节，**必须能一句话说给非技术用户听** |
 
+**这三样不是靠自觉，是有闸的** —— 用 `Tool/scripts/case_state.py` 记账，`gate` 不给过就进不了阶段一：
+
+```bash
+C=<case目录>
+python Tool/scripts/case_state.py init    --case $C --target "<样本>"
+python Tool/scripts/case_state.py claim   --case $C --id C01 --text "权威在服务端" --status hypothesis --how triage
+python Tool/scripts/case_state.py prove   --case $C --id C01 --evidence "procmon: 第1秒 winhttp 请求"
+python Tool/scripts/case_state.py refute  --case $C --id C01 --by C05          # 旧结论保留，不删
+python Tool/scripts/case_state.py depth   --case $C --level D2 --result pass --note "LoadLibrary 命中 winhttp"
+python Tool/scripts/case_state.py verdict --case $C --value 部分可赢 --note "钥匙在服务端，服务端已停"
+python Tool/scripts/case_state.py gate    --case $C        # 出口闸：不过就 exit 1
+python Tool/scripts/case_state.py resume  --case $C        # 换会话接续：已证/待验/下一步
+```
+
+闸会拦住这些：深度没登记、`proven` 没证据、`proven` 没写"怎么测的"、没给裁定、
+裁定"不可赢"却想按 M3 交付（会自动压回 M1）。
+
+**裁定 → 交付上限（不许自己抬）**：
+
+| 裁定 | 交付上限 | 允许的成品 |
+|---|---|---|
+| 可赢 | M3 | 完整成品（能跑 + UI 自家 + 授权自家） |
+| 部分可赢 | M2 | 功能面通，但必须列出受限项 |
+| 不可赢 | M1 | 只证明"能起、能进界面"，**不许承诺成品** |
+
 **不许交**：exe / dll / 补丁 / build.py / "已可用"结论。
 
 ---
