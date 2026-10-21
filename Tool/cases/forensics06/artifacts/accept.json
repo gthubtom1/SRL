@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "case": "forensics06",
+  "domain": "forensics-mobile",
+  "checks": 101,
+  "failures": [],
+  "warnings": [],
+  "artifacts": 5,
+  "findings": 4
+}
