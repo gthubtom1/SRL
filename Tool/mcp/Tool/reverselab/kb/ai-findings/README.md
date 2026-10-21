@@ -17,7 +17,10 @@
 
 | Time | Board | Kind | Title | Keywords | Confidence |
 |---|---|---|---|---|---|
-| — | — | — | 暂无记录 | — | — |
+| 2026-10 | llm-security | surface | [MCP/A2A 工具投毒与跨 agent 越权攻击面](2026-mcp-a2a-attack-surface.md) | mcp, a2a, tool-poisoning, rug-pull, confused-deputy | medium |
+
+> 深读：MCP 工具描述/参数 schema/返回值投毒、rug pull、tool shadowing、A2A 委派与 agent card 信任，见
+> [`2026-mcp-a2a-attack-surface.md`](2026-mcp-a2a-attack-surface.md)；判据字段与失败判据以该文为准（字符串≠执行，无跨工具影响不判投毒成功）。
 
 ## Commands
 
