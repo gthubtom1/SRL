@@ -8,17 +8,17 @@
 ### 01 栈溢出偏移与 saved RIP 控制（源：performing-binary-exploitation-analysis）
 - 触发词：栈溢出、gets、strcpy、返回地址、cyclic、offset
 - 前置：本地 PE/ELF + 编译选项已知；`pwn-check.py` 已给出 NX/PIE/Canary。
-- 步骤：1) `objdump -d` 找 `lea -0x..(%rbp)`；2) 运行 probe 打印 `buf/frame`；3) `pwn-repro.py` 两源对齐；4) 用 marker 函数验证 RIP 受控。
-- 判据：`consistent=true` 且 offset 相同；marker 输出出现且 rc 符合预期。
-- 失败判据：两源不一致或崩溃但 RIP 不是 cyclic 值 → 转格式化串/堆，见 `02-failure-criteria.md`。
+- 步骤：1) `python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json`（期望 rc=0，`protections` 四项齐）；2) `objdump -d -M intel ./chall > d.txt`（rc=0）并取 `lea -0x..(%rbp)`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump d.txt --func vuln --probe-log probe.txt --json > repro.json`（期望 rc=0 且 `consistent=true`）；4) `python exploit.py`（期望 rc=0，stdout 含目标 marker）。
+- 判据：三条命令 rc=0；`repro.json` 的 `consistent=true` 且两源 `offset` 相同；marker 出现且 rc=0（只有崩溃不算）。
+- 失败判据：`pwn-repro` rc=1/`offset-mismatch`，或 exploit rc≠0 且无 marker → 先统一 `-O0 -fno-stack-protector -no-pie` 重测，见 `02-failure-criteria.md` #1/#2。
 - reference：Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md
 
 ### 02 堆喷射与 tcache 布局测量（源：analyzing-heap-spray-exploitation）
 - 触发词：堆喷射、heap spray、tcache、chunk 布局、malloc/free
 - 前置：确认 glibc 版本与分配器；有菜单式 alloc/free/show。
-- 步骤：1) 记录每次 malloc 的 size/index；2) 用 gdb `vis_heap_chunks` 看相邻关系；3) 试 tcache dup 让同一 chunk 入链两次；4) 观察 malloc 返回地址。
-- 判据：`malloc` 返回受控 target；重叠 chunk 可见；触发不 abort。
-- 失败判据：count 已满/safe-linking 未编码/target 未 0x10 对齐 → 先定版本再改布局。
+- 步骤：1) `python Tool/scripts/pwn-check.py --file ./chall --json`（rc=0）；2) `strings -a libc.so.6 | grep -m1 'GNU C Library'`（rc=0，记版本/build id）；3) `gdb -q -batch -ex 'b malloc' -ex run -ex 'vis_heap_chunks' ./chall`（rc=0）；4) `for i in $(seq 10); do ./exploit.py >/tmp/r.$i 2>&1; echo $?; done`（期望 ≥9 次 rc=0 且 `malloc` 返回 target）。
+- 判据：`vis_heap_chunks` 见重复/重叠 chunk；10 次中 ≥9 次 `malloc` 返回受控 target；全程无 `abort`。
+- 失败判据：`free(): invalid pointer`/abort、count 已满、target 未 0x10 对齐 → 见 `02-failure-criteria.md` #7；2.34+ 放弃 hook，转 `heap-and-sandbox.md` §6。
 - reference：Tool/skill/pwn-crypto/references/heap-and-sandbox.md
 
 ### 03 利用模块选择与本地复现（源：exploiting-vulnerabilities-with-metasploit-framework）
@@ -72,9 +72,9 @@
 ### 09 口令哈希识别与真实回代（源：performing-hash-cracking-with-hashcat）
 - 触发词：hashcat、口令哈希、NTLM、bcrypt、字典
 - 前置：有授权哈希样本；知道算法/盐/迭代；不碰真实生产凭据。
-- 步骤：1) 用 `hashid`/前缀识别算法；2) 选字典/规则；3) 破解后立即用同算法回代；4) 记录耗时与成功率。
-- 判据：回代 `hash(plaintext)==digest` 成立；不是“看起来像密码”。
-- 失败判据：无回代、或对真实凭据操作 → 立即停止并删除材料。
+- 步骤：1) `hashid -m '<hash>'`（rc=0，得 hashcat 模式号）；2) `hashcat -m <mode> -a 0 hash.txt wordlist.txt --potfile-disable -o cracked.txt`（rc=0=已破解，rc=1=字典耗尽，rc=255=参数/设备错）；3) 回代 `python -c "import hashlib;assert hashlib.<alg>(b'<plain>').hexdigest().lower()=='<hash>'"`（rc=0）；4) 记耗时/成功率。
+- 判据：hashcat rc=0 且 `cracked.txt` 有明文；回代 `assert` rc=0；不是“看起来像密码”。
+- 失败判据：hashcat rc=1 只能写“字典未命中”，不得写“强口令”；回代失败即该明文作废 → 换规则/掩码，仍失败如实写“未解出”。
 - reference：Tool/skill/pwn-crypto/references/crypto-attacks.md
 
 ### 10 密码学实现审计（模式/IV/填充）（源：performing-cryptographic-audit-of-application）
@@ -96,9 +96,9 @@
 ### 12 AES 模式选择与 IV/认证（源：implementing-aes-encryption-for-data-at-rest）
 - 触发词：AES、GCM、CBC、IV、认证加密、at rest
 - 前置：本地 pycryptodome；有明文/密钥测试向量。
-- 步骤：1) 确认模式与 IV 生成；2) ECB 做重复块对照；3) CBC 做位翻转验证；4) GCM 检查 tag 校验。
-- 判据：重复块/位翻转/tag 失败等行为可复现；密钥长度合法。
-- 失败判据：把 ECB 当安全默认、或 IV 固定不报 → 记为设计缺陷而非“利用成功”。
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb inputs/ecb.json`（期望 rc=0，`duplicate_blocks>=1`）；2) `... --cbc inputs/cbc.json`（期望 rc=0，`verified=true`）；3) 篡改 GCM tag 后解密（期望抛 `InvalidTag`，即 rc≠0 才是对的行为）。
+- 判据：1)/2) rc=0 且 `verified=true`；ECB 重复块与 CBC `before^after==xor` 均落到具体字节；tag 篡改必须失败。
+- 失败判据：ECB `duplicate_blocks=0`（随机碰撞）→ 用 `'A'*32` 对照重测；CBC 差值与 xor 不符 → 查改的是 C[i-1]/IV；tag 篡改仍解密成功 → 记设计缺陷，不算“利用成功”。
 - reference：Tool/skill/pwn-crypto/references/crypto-attacks.md
 
 ### 13 PQC 迁移风险清单（源：performing-post-quantum-cryptography-migration）
@@ -128,9 +128,9 @@
 ### 16 JWT none/签名剥离（源：performing-jwt-none-algorithm-attack）
 - 触发词：JWT none、签名剥离、alg=none
 - 前置：授权测试环境；抓到一枚有效 token。
-- 步骤：1) 改 alg 为 none 并去签名；2) 改声明（sub/role）；3) 发请求看是否接受；4) 记录服务端错误粒度。
-- 判据：无签名 token 被接受且声明生效。
-- 失败判据：服务端拒绝或仍校验签名 → 结论为“已修复”。
+- 步骤：1) `python -c "import base64,json;h=open('hdr.b64').read();print(json.loads(base64.urlsafe_b64decode(h+'==')))"`（rc=0，得 alg/kid）；2) 造 `alg=none` 空签名 token（rc=0）；3) `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOK" http://127.0.0.1:8000/admin`（期望 200）；4) 对照：不带头请求同一 URL（期望 401）。
+- 判据：伪造 token 得 200 且响应体含受保护资源；无 token 得 401（证明鉴权分支确实在跑）；两请求 curl rc=0。
+- 失败判据：返回 401/403 → 结论“已修复”，写清服务端是否解析 `alg`；只在前端解码成功、服务端拒收不算成立。
 - reference：Tool/skill/pwn-crypto/references/01-criteria.md
 
 ### 17 JWT 测试矩阵（弱密钥/过期/声明）（源：testing-jwt-token-security）

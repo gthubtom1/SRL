@@ -34,6 +34,8 @@
 | 17 | JWT `alg:none` / 算法混淆 | 授权测试 token + JWKS/公钥 | 改 `alg` 后重放：`jwt_accepted=true` 且 `protected_resource=true`；`alg=none` 空签名或“公钥当 HMAC 密钥”至少一种被服务端接受 | `jwt.json`（原/改 header、payload diff、HTTP 码）+ 服务端响应 | 中：只在前端解码成功、服务端 401；公钥字节或 base64url 表示不对 |
 | 18 | JWT 弱密钥 / `kid`/`jku` / claim | token、字典、可控 `kid` 路径或自建 JWKS | `hashcat -m 16500` 命中后本地 HMAC 回代等于原签名（`cracked=true`）；或 `kid_traversal=true` / `jku_self_hosted=true` / `claim_escalated=true` 且服务端接受 | `jwt_crack.json`（secret 指纹、回代等式）+ 请求/响应 | 高：字典未命中不等于强密钥；`exp` 被接受但无权限变化 |
 | 19 | EVM/智能合约（域边界） | 合约源码、链上地址、Foundry 工程 | 本域无 EVM 运行时：只允许写 `evm_runtime=false`、`out_of_scope=true`、`route=web-pentest\|external-audit`；不得产出 `confirmed` | `scope.md` 的边界声明 + 转交链接 | 高：任何“链上已验证”结论都不可在本域复算 |
+| 20 | FSOP（`_IO_wfile_jumps`/`_IO_str_jumps`） | 可写堆 + `_IO_list_all`/stderr 可覆盖 + glibc 2.34+ | `io_file_vtable` ∈ {`_IO_wfile_jumps`,`_IO_str_jumps`}；`_IO_flush_all_lockp` 命中且 `bt` 见 `__doallocate→system`；`fsop_works=true` 需 marker/shell | `fsop.json`（vtable 符号、wide_data/lock 地址、rc、marker） | 高：vtable 越界 `_IO_vtable_check` abort 会被误读成“打通”；只伪造结构没走 flush |
+| 21 | 退出链（`exit_funcs` / `tls_dtor_list`） | `__run_exit_handlers` 可写链表或 TLS 可写 + 正常 `exit()` | `exit_funcs_target` 指向受控函数且断点命中后真执行；或 `tls_dtor_hit=true`（`func`=受控地址、`obj` 可控） | `exit_chain.json`（flavor、mangled 前后指针、rc、marker） | 高：未解 `PTR_MANGLE` 就宣布成功；进程 `_exit()/abort()` 跳过 handler |
 
 ## 2. 机检命令与判定阈值
 
