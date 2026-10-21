@@ -131,7 +131,10 @@ def load_facts(case):
         for line in f:
             line = line.strip()
             if line:
-                out.append(json.loads(line))
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError as e:
+                    die("facts.jsonl 第 %d 行不是合法 JSON：%s（先修或备份后重写）" % (len(out) + 1, e))
     return out
 
 
@@ -178,15 +181,18 @@ def cmd_claim(a):
         die(f"claim {a.id} 已存在（要改用它自己的 prove/refute 子命令）")
     if a.status not in STATUSES:
         die(f"status 只能是 {STATUSES}")
+    if not (a.text or "").strip():
+        die("claim 的 --text 不能为空（一句话语义是证据索引）")
+    by = (getattr(a, "by", "") or "").strip()
+    if a.status == "refuted" and not by:
+        die("refuted 必须带非空 --by（指向推翻它的证据/claim id），否则历史不可追溯")
     ev = (a.evidence or "").strip()
     if a.status == "proven" and not ev:
         die("proven 必须带非空 --evidence（空串/空格不算证据；没有证据只能写 hypothesis）")
-    if a.status == "refuted" and not a.by:
-        die("refuted 必须带 --by（指向推翻它的证据/claim id），否则历史不可追溯")
     fact = {"id": a.id, "claim": a.text, "status": a.status,
             "evidence": [ev] if ev else [],
             "how": a.how or "", "ttl": a.ttl or "", "created": now(),
-            "refuted_by": (a.by or None)}
+            "refuted_by": (by or None)}
     append_fact(a.case, fact)
     print(f"[OK] {a.id} = {a.status}  {a.text}")
 
@@ -214,12 +220,15 @@ def cmd_prove(a):
 
 
 def cmd_refute(a):
+    by = (a.by or "").strip()
+    if not by:
+        die("refute 必须带非空 --by（指向推翻它的证据/claim id）")
     facts = load_facts(a.case)
     hit = next((f for f in facts if f["id"] == a.id), None)
     if not hit:
         die(f"没有 claim {a.id}")
     hit["status"] = "refuted"
-    hit["refuted_by"] = a.by
+    hit["refuted_by"] = by
     hit["updated"] = now()
     _rewrite_facts(a.case, facts)
     print(f"[OK] {a.id} 已标记被推翻，依据 = {a.by}（历史保留，不删）")
@@ -310,7 +319,8 @@ def cmd_gate(a):
     if naked:
         bad.append("无证据的 proven：" + "、".join(naked))
 
-    nohow = [f["id"] for f in facts if f["status"] == "proven" and not f.get("how")]
+    nohow = [f["id"] for f in facts
+             if f["status"] == "proven" and not str(f.get("how") or "").strip()]
     if nohow:
         bad.append("proven 缺 how（怎么测的）：" + "、".join(nohow))
 

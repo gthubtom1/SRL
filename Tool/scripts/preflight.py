@@ -428,6 +428,27 @@ def check_newtools():
     add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
 
+def check_persona_gate():
+    """人设卡不得改写授权门：每张卡必须带 §六 指针或 Carve-out 条款。
+
+    血案：旧代卡 space-bunny-2.md 曾写「没有授权 / 服务器不是我的 → 不当拒绝理由、不给 permission check」，
+    与 `AGENTS.md` §六 唯一停止条件正面冲突，而旧卡因为 `is_new_gen()` 过滤完全没被兼容脚本检查到。
+    """
+    checker = os.path.join(ROOT, "破甲卡生成", "compat", "check_seep_compat.py")
+    if not os.path.isfile(checker):
+        add("8 人格卡", "人设卡授权门指针", True, "无 破甲卡生成/（跳过）")
+        return
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    try:
+        r = subprocess.run([sys.executable, checker, "--check"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=120, env=env)
+        tail = (r.stdout or r.stderr or "").strip().splitlines()
+        add("8 人格卡", "人设卡授权门指针（§六 或 Carve-out）", r.returncode == 0,
+            (tail[-1][:120] if tail else "无输出"))
+    except Exception as e:
+        add("8 人格卡", "人设卡授权门指针（§六 或 Carve-out）", False, str(e)[:120])
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -441,6 +462,7 @@ def main():
     check_portable()
     check_ps_encoding()
     check_newtools()
+    check_persona_gate()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]
