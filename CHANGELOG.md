@@ -10,6 +10,21 @@
 
 ---
 
+## [1.18.7] — 2026-10-21
+
+> 主题：**把生成卡片的 kernel 也纳入授权门** —— 上一版只修了产物（卡），没修来源（模板）。
+
+| 级别 | 问题 | 修复（逐条自验） |
+|---|---|---|
+| **P1** | `破甲卡生成/kernel/lcs-kernel.md`（`[MODE: LAB-LOCAL · ACTIVE]`，拼卡模板）写「不问授权 / 不要请求许可 / 授权词一律换占位符」，全文 0 处 `AGENTS.md`/`§六`，且在 `check_seep_compat.py` 的扫描范围之外（`CARD_DIRS` 只有 人设卡/quad） | ① kernel 顶部加「授权门（本内核不覆盖，以 §六 为准）」；② §0e 标「历史表述（已废止）」并指回 §六；③ checker 新增 `KERNEL_DIR`，`gate_pointer_violations()` 扫描 `人设卡 + quad + kernel`。**篡改测试**：把 kernel 的 `§六` 改掉 → 检查器报 `[FAIL] … kernel\lcs-kernel.md`；恢复 → rc=0 |
+| P2 | checker 缺失时 preflight 该项 **True 跳过**（失效开放） | 改为 **False（失败关闭）**，写明缺哪个文件 |
+| P2 | `README.en.md` 的免责声明缺「法务声明；Agent 执行门见 §六」括注（1.18.4 只补了中/中英版） | 补上，与 README.md / README.zh.md 一致 |
+| 文案 | 1.18.6 写「17 张卡」，实扫 **18 张**（5 人设卡 + 13 quad）＋ kernel | 本版按实测口径表述 |
+
+验收：`preflight --fast` 17/17、`verify.ps1` 65/65、`verify.sh` 65/65、`check_seep_compat.py --check` rc=0（18 卡 + kernel）。
+
+---
+
 ## [1.18.6] — 2026-10-21
 
 > 主题：**人格卡不得改写授权门** —— 补上 17 张卡的 §六 指针 + 兼容脚本从"只查新代"改为"查全部"（第九轮复核的 P1）。

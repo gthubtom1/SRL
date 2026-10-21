@@ -489,7 +489,7 @@ All client-side vulnerability assessments follow a consulting-grade 3-part struc
 
 **This repository is intended solely for authorized security research, white-box auditing, compliance vulnerability testing, and educational CTF training.**
 
-- **Explicit Authorization Required**: Written authorization from the asset owner is mandatory before analyzing any target.
+- **Explicit Authorization Required (legal disclaimer; the agent execution gate is `AGENTS.md` §六)**: Written authorization from the asset owner is mandatory before analyzing any target.
 - **No Warranty**: All methodologies are provided "as is" based on sandbox measurements.
 - **Isolated Testing**: Conduct all analysis in isolated VMs or sandboxes. Testing against production systems or unauthorized networks is prohibited.
 - **Limitation of Liability**: Authors assume no liability for misuse, unauthorized testing, or violations of applicable laws.
