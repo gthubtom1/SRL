@@ -30,8 +30,8 @@
 ### 04 Electron 客户端 asar 入口与 IPC 面（借）（源：performing-thick-client-application-penetration-test）
 - 触发词：Electron、asar、app.asar、preload、ipcMain、ipcRenderer、contextBridge
 - 前置：已取得 `app.asar` 或 `resources/app/`；只读原包；记录 Electron/Node 版本
-- 步骤：1) `plugin-triage.py --path app.asar --json` 列 main/preload/`.node`/`.jsc`；2) `plugin-repro.py` 解包并抽 IPC/危险调用；3) 画 renderer→preload→channel→main handler→sink
-- 判据：`main`/`preload` 文件存在；至少一条 IPC 链有 file/line；`webPreferences` 安全开关可读
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json`，rc=0 期望 `container=asar` 且 `main`/`preload` 的 `exists=true`；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json`，rc=0 期望 `data_flow` 含 `ipcMain`/`ipcRenderer`/`openExternal`；3) `npx @electron/fuses read --app ./App.exe`，rc=0 期望读到 `embeddedAsarIntegrityValidation`/`onlyLoadAppFromAsar`，读不到记 `blocked_at=integrity`；4) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin04 --json`，rc=0 期望 `asar_integrity_ok`/`load_from_asar_only`/`bypass_path` 三字段齐全
+- 判据：`main`/`preload` 文件存在；至少一条 IPC 链有 file/line；`webPreferences` 安全开关可读；`asar_integrity_ok`/`load_from_asar_only`/`bypass_path` 可复算
 - 失败判据：asar 头解析两次失败 → 只报容器与哈希；IPC 只有一端 → 标 `inferred`
 - reference：Tool/skill/plugin-targets/references/electron-and-asar.md
 
@@ -46,8 +46,8 @@
 ### 06 扩展/asar 内混淆 JS 的入口还原（借）（源：deobfuscating-javascript-malware）
 - 触发词：混淆 JS、bundle、source map、prettier、eval、字符串表
 - 前置：已解包；有 Node/prettier；不执行包内代码
-- 步骤：1) 先找 source map/chunk 名/字符串表；2) `prettier` 格式化后按入口下断；3) 用 `plugin-repro.py` 的 `minimal_unit` 定位文件/符号
-- 判据：入口文件可读；至少一个消息/网络/存储调用能指到行号；混淆不冒充加密
+- 步骤：1) 先找 source map/chunk 名/字符串表；2) `prettier` 格式化后按入口下断；3) 用 `plugin-repro.py` 的 `minimal_unit` 定位文件/符号；4) `find . -name '*.jsc'` + `xxd -g1 -l 64 main.jsc` 判 `v8::internal::Script`/`bytenode` 头，rc=0 期望 `v8_bytecode=true`；5) `node -p "process.versions.v8"` 与样本 Electron/Node 对齐，rc=0 才可写 `v8_version_match=true`；不符时 `decompile_ok=false`，只报字符串/加载器
+- 判据：入口文件可读；至少一个消息/网络/存储调用能指到行号；混淆不冒充加密；字节码须给出 `v8_bytecode`/`v8_version_match`/`decompile_ok`
 - 失败判据：无 source map 且入口被 `.jsc`/加密覆盖 → 只给字符串面/边界，不硬读一行
 - reference：Tool/skill/plugin-targets/references/electron-and-asar.md
 
@@ -110,8 +110,8 @@
 ### 14 Unity/Electron 运行时 hook 观测边界（借）（源：reverse-engineering-ios-app-with-frida）
 - 触发词：运行时 hook、Unity、Electron、Frida、调试器、观测边界
 - 前置：离线副本/测试环境；允许附加调试器；在线反作弊环境只做外部观测
-- 步骤：1) 确认运行时（Mono/IL2CPP/Electron）与版本；2) 只对一个方法/channel 下断；3) 记录参数/返回值与 baseline 差异
-- 判据：命中点可指认；单变量差异可重复；回退后基线恢复
+- 步骤：1) 确认运行时（Mono/IL2CPP/Electron）与版本：`node -p "process.versions.v8 + ' / ' + process.versions.electron"`，rc=0 记三元组；2) 只对一个方法/channel 下断；3) 记录参数/返回值与 baseline 差异；4) 授权副本上 `ELECTRON_RUN_AS_NODE=1 ./App.exe probe.js main.jsc` 或 `--inspect`，rc=0 期望 `bypass_path` ∈ `{none,run-as-node,inspect}`，rc≠0 记 `blocked_at` 并停；5) `plugin-accept.py --root . --case <case> --json` rc=0 期望 `v8_version_match`/`bypass_path` 可复算
+- 判据：命中点可指认；单变量差异可重复；回退后基线恢复；`v8_version_match`/`bypass_path` 有命令与 rc
 - 失败判据：触发反作弊/EDR/崩溃 → 立即停，记录环境；不隐藏注入/不绕过
 - reference：Tool/skill/plugin-targets/references/electron-and-asar.md
 
@@ -174,8 +174,8 @@
 ### 22 IPC/消息 schema 校验（借）（源：implementing-api-schema-validation-security）
 - 触发词：IPC、schema、channel、参数校验、contextBridge、消息格式
 - 前置：已解包 Electron/扩展；能列出 channel/消息类型；只读
-- 步骤：1) 列 channel/消息类型与发送方；2) 查 handler 对类型/范围/路径/URL 的校验；3) 对未校验字段追 sink
-- 判据：每个 channel 有发送方/接收方/参数/副作用；校验缺失点可指认
+- 步骤：1) 列 channel/消息类型与发送方，`plugin-repro.py --path app.asar --out work/repro --json` rc=0 期望 `data_flow` 含 `ipcMain`/`ipcRenderer`；2) 查 handler 对类型/范围/路径/URL 的校验，并记 `ipc_sender_checked`/`openexternal_scheme`；3) 查 `webPreferences` 的 `nodeIntegration`/`contextIsolation`/`sandbox`，记 `webpref_unsafe`；4) 查 `contextBridge.exposeInMainWorld` 参数，记 `preload_exposed`；5) `plugin-accept.py --root . --json` rc=0 期望四字段齐全，rc≠0 标 `unverified` 不写 RCE
+- 判据：每个 channel 有发送方/接收方/参数/副作用；校验缺失点可指认；`ipc_sender_checked`/`openexternal_scheme`/`webpref_unsafe`/`preload_exposed` 可复算
 - 失败判据：只有一端 → 标 `inferred`；不写“可任意调用/RCE”
 - reference：Tool/skill/plugin-targets/references/electron-and-asar.md
 
@@ -190,7 +190,7 @@
 ### 24 容器内 Electron/插件目录取证（借）（源：analyzing-docker-container-forensics）
 - 触发词：容器、Docker、Electron、插件目录、镜像、取证
 - 前置：自有/授权容器镜像或运行实例；只读挂载；记录镜像 digest
-- 步骤：1) 定位 `resources/app.asar`/扩展目录/插件目录；2) 算哈希并 `plugin-triage.py`/`plugin-repro.py` 解包；3) 记录镜像层/安装来源/更新配置
-- 判据：包哈希、容器、入口、权限/插件清单可指认；镜像 digest 与路径可追溯
+- 步骤：1) 定位 `resources/app.asar`/扩展目录/插件目录；2) 算哈希并 `plugin-triage.py`/`plugin-repro.py` 解包，rc=0 期望 `container=asar` 且入口 exists=true；3) 记录镜像层/安装来源/更新配置；4) 容器内授权副本跑 `npx @electron/fuses read --app ./App.exe`，rc=0 期望 `embeddedAsarIntegrityValidation`/`onlyLoadAppFromAsar` 可读并记 `asar_integrity_ok`/`load_from_asar_only`；5) `plugin-accept.py --root . --case <case> --json` rc=0 期望 `bypass_path` 可复算，rc≠0 只报镜像与哈希
+- 判据：包哈希、容器、入口、权限/插件清单可指认；镜像 digest 与路径可追溯；`asar_integrity_ok`/`load_from_asar_only`/`bypass_path` 有 fuse 或哈希证据
 - 失败判据：容器内文件被裁剪/加密 → 只报镜像与哈希；不把容器层当插件逻辑
 - reference：Tool/skill/plugin-targets/references/electron-and-asar.md
