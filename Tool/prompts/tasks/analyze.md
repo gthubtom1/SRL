@@ -52,6 +52,6 @@ python Tool/scripts/case_state.py claim   --case $C --id C01 --text "<结论>" -
 python Tool/scripts/case_state.py prove   --case $C --id C01 --evidence "<工具+命令+关键输出>"
 python Tool/scripts/case_state.py depth   --case $C --level D0 --result pass --note "<证据>"
 python Tool/scripts/case_state.py instrument --case $C --name frida-attach --status ok --note "<能否起/存活/边界>"
-python Tool/scripts/case_state.py verdict --case $C --value 可赢|部分可赢|不可赢 --note "<理由>"
+python Tool/scripts/case_state.py verdict --case $C --value 可赢|部分可赢|不可赢 [--tier T1|T2|T3] --note "<理由>"
 python Tool/scripts/case_state.py gate    --case $C     # 必须返回 0 才算完成阶段零
 ```

@@ -93,7 +93,14 @@ metadata:
 3. `api-surface.json` 里每个端点都有我们的实现或明确的"不需要"；
 4. 后端能在干净机器上按说明起起来。
 
-登记：`case_state.py deliver --case <C> --level M4 --evidence "<端到端日志/录屏路径>"`。
+**先开档位，才能交 M4**（否则 `deliver` 会按上限直接拒）：
+
+```bash
+# 阶段零末尾：三问定档后写进裁定（T2 → 上限 M3；T3 → 上限 M4；不可赢恒 M1）
+python Tool/scripts/case_state.py verdict --case <C> --value 可赢 --tier T3 --note "业务在后端：/v1/chat/c、/dl/script.iec"
+python Tool/scripts/case_state.py gate   --case <C>          # 必须 0
+python Tool/scripts/case_state.py deliver --case <C> --level M4 --evidence "<端到端日志/录屏路径>"
+```
 
 ---
 

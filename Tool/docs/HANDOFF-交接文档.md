@@ -10,7 +10,7 @@
 
 - 仓库 `main` = 见 `git log --oneline -1`（本文件**故意不写死提交号**，避免每次提交后过期）。
   远程：`https://github.com/gthubtom1/Seep-Reverse-Lab`（origin），原版：`angusdevgo/Seep-Reverse-Lab`（upstream）。
-- 版本 **1.8.1**（基线定档版）；体检 `check.ps1` / `verify.sh` **60 项全绿 READY**；原 MCP 基线 9/9；扩展自测 63/63；中继单测 84/84；路由表自洽校验通过。
+- 版本 **1.8.1**（基线定档版）；体检 `check.ps1` / `verify.sh` **62 项全绿 READY**；原 MCP 基线 9/9；扩展自测 73 passed；中继单测 84/84；路由表自洽校验通过。
 - 原版 23 工具 → 现 **38 工具**（15 个扩展，纯增量，相对原版 `seep_mcp_server.py` 净删除 0 行，已用 `git diff upstream/main` 复核）。
 
 ---
@@ -26,7 +26,7 @@
 | 真样本库 | `Tool/samples/real/`：PE 31 + APK 6 + ELF 3 + JS混淆 20 + pcap 5（全格式，随仓库提交，本地=GitHub） |
 | 思路沉淀 | `Tool/cases/案例-6.9换肤壳/`（含 2 篇被否决方案笔记） |
 | 文档 | `Tool/docs/EXT-ASSETS.md`、`Tool/docs/MERGE-PLAYBOOK.md`（融合标准流程+踩坑7条+13步清单） |
-| 部署验证 | 已实测：全新 clone → extract-deps → install.ps1 → 60 项全绿 → MCP 38 工具可启动可调用；Linux/macOS 侧 `install.sh` 亦已沙箱实跑通过 |
+| 部署验证 | 已实测：全新 clone → extract-deps → install.ps1 → 62 项全绿 → MCP 38 工具可启动可调用；Linux/macOS 侧 `install.sh` 亦已沙箱实跑通过 |
 
 ---
 

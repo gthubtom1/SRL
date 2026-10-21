@@ -193,8 +193,15 @@ def cmd_verdict(a):
     tier = (getattr(a, "tier", "") or "").strip().upper()
     if tier and tier not in TIERS:
         die(f"tier 只能是 {TIERS}")
-    if tier in ("T2", "T3") and a.value != "不可赢":
-        need = "M4"          # 后端要复刻且可行 → 允许交付到"客户端+后端自洽"
+    # 档位规则（写明，避免"部分可赢+T2 直接跳 M4"的未定义行为）：
+    #   不可赢 → 恒 M1；否则 T1 → 裁定基准（可赢 M3 / 部分可赢 M2）；T2 → M3；T3 → M4
+    if a.value != "不可赢":
+        if tier == "T2":
+            need = "M3"
+        elif tier == "T3":
+            need = "M4"
+    else:
+        need = "M1"
     if a.max_level and a.max_level != need:
         die(f"{a.value}" + (f" + {tier}" if tier else "") + f" 对应的交付上限必须是 {need}（不能自己往上抬）")
     st = load_state(a.case)
