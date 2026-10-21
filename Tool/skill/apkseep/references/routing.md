@@ -43,24 +43,24 @@ reference file is not named here, or when a script is not named here.
 | Evidence contradicts itself, or a capture looks like two states mixed | `long-task-discipline.md` §keep the observation window clean |
 | You took screenshots but drew the conclusion from logs or from the patch itself | `long-task-discipline.md` §captures you never looked at are not evidence |
 | You are about to re-run an experiment whose result you already recorded | `long-task-discipline.md` §long-context decay |
-| A script will not start, or a tool "is missing" | `scripts/doctor.py`, then `toolchain.md` §"not on PATH" is not "not installed" |
+| A script will not start, or a tool "is missing" | `scripts/doctor.py`, then `toolchain-2-runtime-signing-and-trust.md is not "not installed" |
 | A hook or probe reports **no events at all**, and you are about to call it detection | `scripts/anti_detect_probe.js` for the environment self-report first, then `detection-and-anti-analysis.md` §Step 3: locating the check — the order of search from Stage 0 |
 | `attach` hangs and then fails **while the process is still in `ps`** | `detection-and-anti-analysis.md` §Step 3 Stage 0 — check for `D` in `/proc/<pid>/stat`, and attach a *different* pid as a one-line control before blaming the target |
 | The app exits with no tombstone, no crash and no ANR record | `detection-and-anti-analysis.md` §Step 3 — a clean self-exit means the check ran before your hooks existed; the branch conditions there say which Stage |
-| A dump region validates as the wrong thing, or an `r--s` view of `base.apk` looks like a dex | `advanced-unpacking.md` §What this route cannot do, and how to tell before you spend the window |
+| A dump region validates as the wrong thing, or an `r--s` view of `base.apk` looks like a dex | `advanced-unpacking-2-root-dump-and-vmp-boundary.md, and how to tell before you spend the window |
 | Feature-scoped network failure (login/register/pay) while the rest works | `tls-and-cert.md` — do not assume your patch caused it |
 | Everything works but **every signed request fails** after repack | `signature-derived-keys.md` |
 | A re-signed build **runs fine, renders its whole UI and logs no error — but one feature silently never loads**, and `dumpsys`/DNS/logcat show **no request for it at all** (not a rejected request: *no request*) | `code-virtualization-and-custom-linkers.md` §what the native check actually reads — refusing **before** the request is built. Not the row above: "sent and rejected" and "never sent" have different owners |
 | You cannot tell whether a missing feature is **your patch's fault or the target's own behaviour** | `long-task-discipline.md` §single-variable discipline. Run the **zero-change control through the same pipeline**, and the decisive variant: the unmodified original with the patch applied **in memory only**, same device, same network |
-| Under Frida `spawn`, the UI never appears — `mCurrentFocus` stays `null`, screenshots come back blank, the Activity stack never builds | `dynamic-frida.md` §spawn keeps the Activity stack down: write the patch into memory, **detach**, then start the Activity normally |
-| `frida-server` keeps disappearing mid-experiment, or the device reboots itself while you are working | `dynamic-frida.md` §when the ROM hunts your instrumentation |
+| Under Frida `spawn`, the UI never appears — `mCurrentFocus` stays `null`, screenshots come back blank, the Activity stack never builds | `dynamic-frida-1-setup-and-probe.md the Activity stack down: write the patch into memory, **detach**, then start the Activity normally |
+| `frida-server` keeps disappearing mid-experiment, or the device reboots itself while you are working | `dynamic-frida-2-failures-and-anti-instrumentation.md your instrumentation |
 | Ads still appear after a patch that should have killed them | `server-config-and-updates.md` §6 (cached config / remote re-enable), then `ad-removal.md` §step 4 (count the SDK's own log lines; n -> 0, not "I did not see it") |
 | A forced-update or "must update" gate blocks the build | `updates-and-forced-upgrade.md` §step 6 |
 | The dialog is gone but the feature is still locked | `membership-and-limits.md` / `account-gates.md` — decide server vs client authority before patching again |
 | You are about to discard a route as "blocked" | `packers.md` — re-read it before writing any route off; mis-attributed failures have removed viable routes for hours |
 | The task has run long and you are unsure what is already proven | `long-task-discipline.md` §keep a live record |
 | A dumped dex parses in full, the classes are all there, and most method bodies are `return-void` stubs or nop fills | `references/advanced-unpacking.md` — an extraction shell: measure the `stub%` with `scripts/dex_dump_validate.py` before trusting any of it, and know that recovering the bodies is a different route |
-| Your `frida` dump dies mid-write (`script has been destroyed`), or the process you are dumping keeps changing pid | `advanced-unpacking.md` §dumping when frida is refused — rule out memory pressure first; a reclaim-and-relaunch needs no instrumentation |
+| Your `frida` dump dies mid-write (`script has been destroyed`), or the process you are dumping keeps changing pid | `advanced-unpacking-2-root-dump-and-vmp-boundary.md — rule out memory pressure first; a reclaim-and-relaunch needs no instrumentation |
 | A repack is refused by several independent checks, or the build has to keep working through store updates | `references/lsposed-and-modules.md` — deliver a module instead of an APK; G1's form table says when |
 | A hook module is installed, enabled and scoped, yet its log tag never appears — and you are about to conclude it never ran | `lsposed-and-modules.md` §Deploy, enable, and verify — **a `logcat`-only verdict has already been wrong here**: on one ROM `logd` is broken and output reaches only `/data/adb/lspd/log/modules_<ts>.log` |
 | A module's entry class is missing from its own dex (so it can never load), yet the package installs, enables and looks healthy | `references/lsposed-and-modules.md` — check `assets/xposed_init` against the dex's actual classes; installation is not evidence of anything |
@@ -93,7 +93,9 @@ _54 row(s) below the header._
 | `references/native-and-so.md` | Patching in a `.so`, needing code to run before the app's own code, hand-built native payloads that crash inside the linker, or **deciding which library/ABI is actually loaded and executing** |
 | `references/native-tamper-and-suicide.md` | The process dies on its own (no Java stack, or a native crash that looks like a bug); you are about to neutralise a `kill`/`exit`/`abort` path; or a hardened library's sections/function boundaries look wrong |
 | `references/detection-and-anti-analysis.md` | The app fights back: it dies after you attach, refuses to run, detects root/hook/debugger. **Cost-first (A/B/C), plus the order of search** (see its Step 3 stage funnel) and when to go static |
-| `references/toolchain.md` | Choosing or invoking tools, something is not installed (including "not on PATH but present on disk"), a tool's output smells wrong, or you need to know which tools exist only as a GUI |
+| `references/toolchain.md` | Directory page for the lossless 2-part split; use the part rows below for the actual content |
+| `references/toolchain-1-tiers-and-capability-gaps.md` | Tier 0–2 tools, closing a capability gap, the sourced gap list, and MCP tool servers |
+| `references/toolchain-2-runtime-signing-and-trust.md` | Tier 3–4 runtimes, shipped scripts, "not on PATH", signing, tool-failure traps, offline work, and recording the toolchain used |
 | `references/ad-removal.md` | Task involves ads, trackers, sponsored cards, splash/interstitial/reward |
 | `references/updates-and-forced-upgrade.md` | The patched build must **keep working over time**; the app has any version check, forced-upgrade dialog, self-update installer, or hot-update/resource channel. Load this for essentially every build you intend to ship. |
 | `references/account-gates.md` | Task mentions "no login required", "don't force sign-in", "skip phone binding", "guest mode"; or a screen/feature is unreachable signed-out. Also load before promising that an account-scoped screen will show anything |
@@ -104,13 +106,20 @@ _54 row(s) below the header._
 | `references/repack-and-sign.md` | Rebuilding, signing, installing, or a repacked app misbehaves |
 | `references/signature-derived-keys.md` | The app reads `signatures[0]`/`toCharsString()`, or a rebuilt APK installs and runs but every signed request fails (`sign`/`_p`/`uth` empty or `-1`) |
 | `references/runtime-data.md` | Local state matters: DataStore, SharedPreferences, SQLite, protobuf caches, tokens — **or your data edit keeps being reverted, or a stored value looks encrypted** |
-| `references/dynamic-frida.md` | Frida setup, hooking strategy, tracing caller chains, finding the real call site |
+| `references/dynamic-frida.md` | Directory page for the lossless 2-part split; use the part rows below for the actual content |
+| `references/dynamic-frida-1-setup-and-probe.md` | Frida setup and version alignment, 17+ gotchas, hook strategy, the four-layer probe, spawn/detach ordering |
+| `references/dynamic-frida-2-failures-and-anti-instrumentation.md` | Hook-never-fires debugging, dead `Java.choose` instances, obfuscated runtime code, anti-instrumentation, and what to capture |
 | `references/environment.md` | Device/emulator setup, root, ADB, networking, offline devices, emulator console control and recovery, **the preflight check to run before every experiment block** |
 | `references/verification.md` | Defining what "done" means; building the evidence chain |
 | `references/tls-and-cert.md` | One feature fails at runtime (login, registration, payment, an API-backed screen) while the rest of the app works |
 | `references/third-party-builds.md` | The input is a "cracked"/"modded" build you did not produce — audit it before trusting it |
 | `references/long-task-discipline.md` | The task will run long, or you are resuming one. Live record, conclusion grading, drift checkpoints, **deliverable-form drift (rooted-only vs shippable)**, bound-your-waits, **captures-you-never-looked-at**, **long-context decay**, handover |
-| `references/pitfalls.md` | Always worth a skim before building. This is the failure catalogue. |
+| `references/pitfalls.md` | Directory page for the lossless 5-part failure catalogue, with the P-number → part map |
+| `references/pitfalls-1-packaging-and-dex.md` | P1–P8: packaging, `META-INF/`, dex ordering, smali round-trips, and UI patch scope |
+| `references/pitfalls-2-environment-and-evidence.md` | P9–P22: environment blame, runtime vs static, evidence discipline, false negatives, single-variable attribution |
+| `references/pitfalls-3-patching-and-artifacts.md` | P23–P30: rewritten data, wrong artifact executing, search/observation false negatives, indistinguishable hypotheses |
+| `references/pitfalls-4-native-and-install.md` | P31–P38: terminate paths, ELF parsing, checksums, `resources.arsc`, and install codes |
+| `references/pitfalls-5-verification-and-decoding.md` | P39–P42: install/UI verification and decoder desynchronisation |
 | `references/coverage-and-limits.md` | You need to weigh a claim before trusting it: the evidence behind each covered item, the dependencies this skill does not ship, and the record of what was never exercised |
 | `references/coverage/route-inventory.md` | You must answer "**can this skill actually do X**" in one pass: the per-route inventory — covered by verified mechanism, covered only by a documented route, the dependencies not shipped, and what is out of scope |
 | `references/evidence-summary.md` | You need to know **whether a route was verified and how strong the evidence is**, from inside an installed copy: capability → one-line conclusion → strength → where the evidence lives |
@@ -118,7 +127,9 @@ _54 row(s) below the header._
 | `references/desensitization-and-leak-scans.md` | You are about to publish anything derived from real work — evidence, a transcript, a README — or a leak scan reports a hit: what must be desensitised versus kept, the do-not-anonymize list, and how the scan gates a commit |
 | `references/precedents/` | You are about to do a kind of work this repository has already converged on — a hardened Flutter target, a zero-event trace, a module whose log is silent, an equal-length patch taken to the device. Positive cases with graded evidence and dead ends |
 | `references/handoff-boundaries.md` | A routing decision is about to cross into another discipline: the JNI form table, the packer-versus-loader split, and what "verified" means for each of G1's four deliverable forms |
-| `references/advanced-unpacking.md` | **The dump landed but the bodies are empty** (an extraction shell), or decode as private opcodes: the stub-ratio measurement, why FART's hooks died on Android 12-16, the root-side dump, its **boundary**, the layered descent, and where recovery stops |
+| `references/advanced-unpacking.md` | Directory page for the lossless 2-part split; use the part rows below for the actual content |
+| `references/advanced-unpacking-1-shapes-and-active-invocation.md` | Dump shapes, measuring extraction, the FART loop, the `code_item` trap, why classic hooks die on Android 12-16, Youpk, and the `frida-dexdump` limit |
+| `references/advanced-unpacking-2-root-dump-and-vmp-boundary.md` | Dumping when frida is refused, layered Java→JNI→native→libc→syscall descent, the real Dex VMP boundary, and the decision summary |
 | `references/lsposed-and-modules.md` | The client-side logic is reachable but **a rebuilt APK is refused**: delivering a system-level hook module instead, its gradle-free build chain, scope configuration and verification, and the layer a Java module cannot reach |
 | `references/emulation-and-rpc.md` | You need to **call** a routine rather than change the app — a signing routine, a token, a cipher: emulated execution (Unidbg/Unicorn) with its environment-filling cost, versus service-ifying the live function over Frida RPC |
 | `references/native-dbi-and-deobfuscation.md` | A native function is an OLLVM state machine, or you need instruction-level execution evidence: Stalker traces, the trace-to-CFG route, the Stalker/QBDI/emulation decision, and the **measured** zero-event and crash boundaries |

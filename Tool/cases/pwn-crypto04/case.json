@@ -1,0 +1,94 @@
+{
+  "id": "pwn-crypto04",
+  "domain": "pwn-crypto",
+  "target_type": "自建靶：现场生成的 RSA/广播/HMAC/MT19937/ECB/CBC 数学用例（真实算法实现）",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "confirmed",
+  "artifacts": [
+    {
+      "path": "artifacts/summary.json",
+      "sha256": "598be0dafb639a51d21403a9fa958a83f4adc0f6f8a0432fb1a9f497ae881b13"
+    },
+    {
+      "path": "artifacts/rsa.json",
+      "sha256": "df748b69946fa13deddab58cfbddb943925d058f29bc1dc1266a02c2d6d8220d"
+    },
+    {
+      "path": "artifacts/broadcast.json",
+      "sha256": "1b691bc94efa70f2fb783664f1ffa3d2b88c66e946e87a8a87cc00dea9b5c755"
+    },
+    {
+      "path": "artifacts/hmac.json",
+      "sha256": "dcbb9ee6713f177a5803ed1097fd0e09ff41bf6e71235754b53346713d8e9295"
+    },
+    {
+      "path": "artifacts/mt.json",
+      "sha256": "b682c5f43bf237e653f3e45bab2baf018492d8729af5c16aa939f58dd7054a4b"
+    },
+    {
+      "path": "artifacts/ecb.json",
+      "sha256": "a186208b3002a7c8f1b368fdd0fbb6085594380f4cec42758202df80d376033e"
+    },
+    {
+      "path": "artifacts/cbc.json",
+      "sha256": "0b323021b50eab47a51595ca561ae01e691836412302ee5c9a66ee5ef2b18cf2"
+    },
+    {
+      "path": "artifacts/commands.txt",
+      "sha256": "ee8bf37f76e38f698871e949253509d6a5f9fd2d85b1e2c1cd1274345f4c760e"
+    },
+    {
+      "path": "input/make_inputs.py",
+      "sha256": "768f9defae263ca4dfbf5cccc40fd3678ee97ad0238f7e7286b33250dc44d15f"
+    },
+    {
+      "path": "input/rsa.json",
+      "sha256": "75ff954c34402e443becceb083cefae8a6a2643a3eae86a0e9769ad07d201eb8"
+    },
+    {
+      "path": "input/broadcast.json",
+      "sha256": "0c9b322c2c0a2218e7dd34ac2b1da7b8ac22228a4e5cee8c3509981dfcec1431"
+    },
+    {
+      "path": "input/hmac.json",
+      "sha256": "53800d850df4fddf210a6705e130bbc70bffd9ebd0fd7359cc5a63c59ab2afba"
+    },
+    {
+      "path": "input/mt.json",
+      "sha256": "d48607d5fb26ee162396a415fab9d4dfa07d19e3f079978effa88d546b3bdb12"
+    },
+    {
+      "path": "input/ecb.json",
+      "sha256": "f5e2e31c91cee7e103fc9b8f62a5ed2bb949b3d408d8c267b89a000d9542ba7c"
+    },
+    {
+      "path": "input/cbc.json",
+      "sha256": "ee24d7b7e98fab13037c8b874483238d4de4e775e31c68b8a7254e4bf4e51d62"
+    }
+  ],
+  "lessons": [
+    "跑的是真实算法回代：python input/make_inputs.py 生成真实素数/AES 密文（rc=0），再对 6 个模式逐一跑 crypto-verify.py，rc 全为 0。",
+    "RSA：e=3、n=1023 bit、无填充，iroot(c,3) 得到 m=2508...465，ASCII=pwn-crypto-real-rsa，pow(m,e,n)==c 成立。",
+    "Håstad 广播：三组 1024-bit 互质模数，CRT 后开立方精确，三组 per_modulus 全 true 且 m^e<M。",
+    "HMAC-SHA256 真算摘要 fdf3ec97...，compare_digest 通过，篡改消息后摘要不同（tamper_rejected=true）；MT19937 用 624 个真实输出克隆状态，预测下 8 个逐位一致。",
+    "AES：ECB 下 'A'*32 产生 2 个相同密文块（duplicate_blocks=1）；CBC 翻转 C[0][3] 后 P[1][3] 由 0x63 变 0x43（xor 0x20）且解密不报 padding 错。",
+    "边界：RSA 结论只对“无填充且 m^e<n”成立；MT 克隆要求连续 624 个未混入其他随机数；CBC 结论要求 IV 或前一块可写。"
+  ],
+  "refs": [
+    "Tool/skill/pwn-crypto/SKILL.md",
+    "Tool/skill/pwn-crypto/references/01-criteria.md",
+    "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+    "Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md",
+    "Tool/skill/pwn-crypto/references/crypto-attacks.md",
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/07-crypto-oracle-playbook.md",
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

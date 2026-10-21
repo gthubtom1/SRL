@@ -2,6 +2,8 @@
 
 > 目标：给出**可验证的帧边界与字段覆盖范围**，而不是“看起来像”。
 > 每条结论至少 3 帧验证，证据写 `offset/size/endian/样例/反例`。
+> 深水区：`Tool/skill/protocol-plugin/references/05-binary-framing.md`；
+> 校验与加密：本 board 的 [checksum-and-crypto-segment.md](checksum-and-crypto-segment.md)。
 
 ## 1. 帧台账
 
@@ -9,7 +11,7 @@
 tshark -r capture.pcap -Y "tcp.len>0" -T fields \
   -e frame.number -e ip.src -e tcp.srcport -e ip.dst -e tcp.dstport \
   -e tcp.seq -e tcp.len -e data.data > raw.tsv
-python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --json
+python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --json   --extract artifacts/streams
 ```
 
 先按流做双向重组，再在字节流上标 `[start,end)`；相邻帧首尾相接、无重叠。
@@ -70,6 +72,7 @@ def crc16_modbus(b):
 - 简单和/异或/Adler32 也存在，不要默认 CRC32。
 
 **判据**：任意新帧能算对校验，错误校验被拒。
+可执行版本：`proto-repro.py` 的 schema `tail[].covers/algo` + `checks[].want/got`。
 
 ## 5. 加密段 / 压缩段
 
@@ -90,6 +93,7 @@ PY
 
 优先在客户端 `SSL_write/SSL_read`、`send/recv`、序列化前后取明文；不暴力猜密钥。
 **判据**：说明加密起点、长度是否覆盖密文、nonce/IV 来源与取明文位置。
+判族实验（块长/位翻转/同 nonce 重用）见 [checksum-and-crypto-segment.md](checksum-and-crypto-segment.md)。
 
 ## 6. 分帧状态机
 
@@ -113,3 +117,10 @@ WAIT_MAGIC -> WAIT_HEADER -> WAIT_BODY(len) -> VERIFY -> DISPATCH
 - [ ] 加密/压缩有熵、块长、nonce/IV 证据。
 - [ ] 解析器能处理半包、粘包、重传、乱序、假 magic。
 - [ ] 样例编号可回溯到 pcap 帧/流偏移。
+- [ ] 字段表能直接喂给 `proto-repro.py --schema`（不只是散文）。
+
+## 8. 边界与失败判据
+
+- 只覆盖明文帧；加密段先解再分（见 checksum-and-crypto-segment.md）。
+- 三帧内定不下长度/校验覆盖 → 标"分帧未定"，不写字段表。
+- 重同步丢失字节却不记录 `skipped_bytes` → 解析器有缺陷，先修再谈协议。

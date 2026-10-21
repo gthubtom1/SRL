@@ -1,0 +1,86 @@
+{
+  "tool": "ad-repro",
+  "version": "1.0.0",
+  "generated_at": null,
+  "ok": true,
+  "offline": true,
+  "results": [
+    {
+      "kind": "windows-events",
+      "verdict": "blocked",
+      "checks": [
+        {
+          "check": "kerberos-events",
+          "ok": false,
+          "detail": "4768/4769/4770/4771=0",
+          "severity": "info"
+        },
+        {
+          "check": "ntlm-events",
+          "ok": false,
+          "detail": "4776=0",
+          "severity": "info"
+        },
+        {
+          "check": "special-privileges",
+          "ok": true,
+          "detail": "4672=50",
+          "severity": "info"
+        },
+        {
+          "check": "account-enumeration",
+          "ok": false,
+          "detail": "4798=0",
+          "severity": "info"
+        },
+        {
+          "check": "lockout-budget",
+          "ok": true,
+          "detail": "max failures for one principal=0",
+          "severity": "info"
+        },
+        {
+          "check": "record-id-continuity",
+          "ok": true,
+          "detail": "gaps=0 ([])",
+          "severity": "info"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "medium",
+          "title": "Special privileges assigned",
+          "evidence": "4672=50"
+        }
+      ],
+      "failure_criteria": [
+        "没有 4768/4769：要么不是域主机、要么 Kerberos 审计未开；不能据此说‘域内无攻击’。",
+        "4776 多而 4768 少：可能在用 NTLM，检查 LmCompatibilityLevel/审计策略后再判断。",
+        "4625 集中在同一账号：立即停止任何口令尝试，先读锁定策略。",
+        "只有 4624 类型 3/10：是网络/RDP 登录面，不等于拿到凭据或提权。",
+        "日志被清空/缺口：先记录 EventRecordID 断档，再决定是否可信。"
+      ],
+      "summary": {
+        "events": 100,
+        "record_id_gaps": [],
+        "telemetry_untrusted": false,
+        "counts": {
+          "4624": 50,
+          "4672": 50
+        },
+        "logon_types": {
+          "5": 50
+        },
+        "kerberos_events": 0,
+        "ntlm_events": 0,
+        "special_privileges": 50,
+        "explicit_credentials": 0,
+        "account_enumeration": 0,
+        "max_failures_one_principal": 0
+      }
+    }
+  ],
+  "summary": {
+    "blocked": 1
+  }
+}

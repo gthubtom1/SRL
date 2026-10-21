@@ -6,8 +6,52 @@
       "skill": "firmware-iot/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|\bspi\b|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
-          "note": "固件/IoT：判据=能进 shell/跑起服务"
+          "must": "(?i)(?:firmware|固件|embedded\\s+linux|嵌入式(?:设备|系统)|router\\s+firmware|路由器固件)",
+          "note": "固件：判据=能进 shell/跑起服务，不是解包成功"
+        },
+        {
+          "must": "(?i)\\b(uart|jtag|swd|spi\\s+(?:flash|dump|programmer)|openocd|flashrom|ch341a|picocom|minicom)\\b",
+          "note": "硬件接口：先量电压/共地，只读优先"
+        },
+        {
+          "must": "(?i)\\b(binwalk|ubireader|unsquashfs|sasquatch|jefferson|cramfsck)\\b",
+          "note": "固件解包工具链"
+        },
+        {
+          "must": "(?i)\\b(squashfs|ubifs?|jffs2|cramfs|\\buti\\b|mtd|nanddump)\\b",
+          "note": "嵌入式文件系统/闪存"
+        },
+        {
+          "must": "(?i)(?:\\bota\\b|\\bfirmware\\s+update\\b|固件升级|升级包)b",
+          "mustAll": [
+            "(?i)(固件|firmware|device|设备|router|路由器)"
+          ],
+          "note": "OTA 必须带固件/设备语境，避免抢普通“升级”"
+        },
+        {
+          "must": "(?i)\\b(uefi|secure\\s*boot|\\bpk\\b|\\bkek\\b|\\bdbx?\\b|tpm\\s*(?:2\\.0|eventlog))\\b",
+          "mustAll": [
+            "(?i)(firmware|固件|boot|启动|variable|变量|efi)"
+          ],
+          "note": "UEFI/Secure Boot 必须带固件/启动语境"
+        },
+        {
+          "must": "(?i)\\b(bios|uefi)\\b",
+          "mustAll": [
+            "(?i)(firmware|固件|spi|flash|dump|boot|启动)"
+          ],
+          "note": "bios/uefi 单独出现不抢，需固件/启动/闪存语境"
+        },
+        {
+          "must": "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)b",
+          "note": "启动链/设备树"
+        },
+        {
+          "must": "(?i)\\biot\\b",
+          "mustAll": [
+            "(?i)(security|安全|firmware|固件|device|设备|评估|assessment)"
+          ],
+          "note": "iot 必须带安全/设备语境，避免普通单词误命中"
         }
       ]
     }

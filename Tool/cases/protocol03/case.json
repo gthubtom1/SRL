@@ -1,0 +1,151 @@
+{
+  "id": "protocol03",
+  "domain": "protocol-plugin",
+  "route": "R24",
+  "target_type": "真实 WebSocket 抓包（dumpcap 4.1.0 / Linux 回环 / Go-http-client；来源清单见 input/README.md）",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "capture": {
+    "file": "input/websocket.pcapng",
+    "tool": "tshark 4.6.8 + pcap-summary.py 2.0 + build_ws_frame.py",
+    "endpoint": "127.0.0.1:44380 -> 127.0.0.1:8080",
+    "tls": false,
+    "client_version": "Go-http-client/1.1",
+    "captured_at": "第三方抓包（1694247103 epoch，2023-09-09），仓库内随 samples/real 提供"
+  },
+  "protocol": {
+    "layer": "HTTP/1.1 Upgrade → WebSocket（RFC 6455） over TCP",
+    "framing": "ws 帧头 2B；len<126 单字节；客户端 mask=1 且带 4B 掩码键；服务端不掩码",
+    "handshake": "GET /ws + Sec-WebSocket-Key → 101 Switching Protocols + Sec-WebSocket-Accept",
+    "states": [
+      "CONNECTED",
+      "HANDSHAKE",
+      "OPEN",
+      "WAIT_RESPONSE",
+      "OPEN(loop)",
+      "CLOSED(INFERRED)"
+    ],
+    "fields": [
+      {
+        "name": "fin",
+        "type": "bit",
+        "evidence": "observed: 8/8 帧为 True（单帧消息）"
+      },
+      {
+        "name": "opcode",
+        "type": "u4",
+        "evidence": "observed: 1=text，无 ping/pong/close"
+      },
+      {
+        "name": "mask",
+        "type": "bit",
+        "evidence": "observed: 客户端 True(4/4)，服务端 False(4/4)"
+      },
+      {
+        "name": "payload_length",
+        "type": "u7",
+        "evidence": "observed: 48（客户端）/49（服务端，含 \n）"
+      },
+      {
+        "name": "masking_key",
+        "type": "bytes4",
+        "evidence": "observed: 9fc7b2e7 / 8db50908 / 7e8c1f05 / 50685920 逐帧随机"
+      },
+      {
+        "name": "type",
+        "type": "json-string",
+        "evidence": "observed: request / response"
+      },
+      {
+        "name": "data",
+        "type": "json-string",
+        "evidence": "observed: 4 组请求-响应 data 完全相等（回显协议）"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "input/websocket.pcapng",
+      "sha256": "ea9fcd3de02bf1824cdcff4bb61f842a6135fbc5d6b154cad00927ed3aa776d2"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "5ceea7510d9aa3d013c8198b93d22ab3264aa7b6c1b4f046ad1edb9fa4bc59e2"
+    },
+    {
+      "path": "artifacts/pcap-summary.json",
+      "sha256": "f97fc328bbfc0c91a5275d47ba5ab23099dee49b2419da06ea090380d2cbe10c"
+    },
+    {
+      "path": "artifacts/ws-frames.tsv",
+      "sha256": "12c865e6825223056545689ccfdc89d3e462cec1aabc7e40dbbb25945052b635"
+    },
+    {
+      "path": "artifacts/ws-handshake.tsv",
+      "sha256": "3ef1d046caa9bb6ced498d7c1c7c6e6a16dfdfe2c3d1214f52519527a40c364c"
+    },
+    {
+      "path": "artifacts/new-frame.bin",
+      "sha256": "dcb34a833e41acabc4bc0b21f0afbe61ab795209718745ecbed7168a4a00d3af"
+    },
+    {
+      "path": "artifacts/rebuild.json",
+      "sha256": "8595334f993915f16133bc3e2906d89cd61c630eff2710189eb9f05c302e3cd8"
+    },
+    {
+      "path": "artifacts/streams/frames.jsonl",
+      "sha256": "067b99b6fedf36d5f8b203dbcd0b0160cc96fddb4faaea990cd019e931a24159"
+    },
+    {
+      "path": "artifacts/streams/s00_127.0.0.1_44380-127.0.0.1_8080.bin",
+      "sha256": "382d6fa39f38ef0a123f3cbabebfd9e1421e0074e239f8cb4db388e0cddb47e5"
+    },
+    {
+      "path": "artifacts/streams/s01_127.0.0.1_8080-127.0.0.1_44380.bin",
+      "sha256": "20be7eb6e9357305b4f37608029dce747c1bf3e1c86f7eff6d44d06eb1358c16"
+    }
+  ],
+  "evidence": [
+    "observed: 18 帧 / 2 个方向性会话 / EN10MB / pcapng（pcap-summary.py rc=0，format=pcapng，packet_count=18）",
+    "observed: 握手 GET /ws（frame 4）→ 101 Switching Protocols（frame 6），Sec-WebSocket-Accept=MPGznO7WEpEGvXiPGvj3vxkmtv4=",
+    "observed: 8 个 ws 帧：客户端 4 帧 len=54（2+4+48，mask=1），服务端 4 帧 len=51（2+49，mask=0）",
+    "observed: websocket.payload 解出 JSON，type=request/response，data 四组完全相等",
+    "observed: 新构造帧 54 B（artifacts/new-frame.bin），预测响应 51 B —— 未连服务端验证（本地回显服务未启动）",
+    "missing: 无 ping/pong/close/分片/permessage-deflate 样本；无鉴权与 TLS"
+  ],
+  "lessons": [
+    "跑的是 cd Tool/cases/protocol03 && python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/websocket.pcapng --json --extract artifacts/streams --tshark-check，rc=0；随后 tshark -Y websocket 取帧头字段（rc=0）与 python input/build_ws_frame.py artifacts/new-frame.bin（rc=0）。",
+    "结论：ws 帧长公式 frame_len = 2 + (mask?4:0) + payload_length 在 8/8 帧成立；客户端 4 帧全部 mask=1 且掩码键逐帧随机，服务端 4 帧 mask=0；4 组请求-响应 data 完全相等，属回显型业务。",
+    "状态机：HANDSHAKE→OPEN→WAIT_RESPONSE→OPEN 由 4 组样本确认；CLOSED、ping/pong、error 帧在本样本中没有样本，标 INFERRED 未画成实线。",
+    "构造：按 RFC 6455 造了一条新的 54 B 客户端帧（data=4242…，掩码键 11223344），预测响应 51 B；本案例未启动本地回显服务，所以只到\"结构自洽\"，不写\"已确认\"。",
+    "边界：样本是回环明文，不含鉴权/TLS/压缩；真实目标若有 permessage-deflate 必须先 inflate 再 parse，若有 mTLS 则抓包只见密文。",
+    "更正（R2 审计）：01-criteria 要求「服务端接受新构造帧 + 重复 3 次」，本案例只做离线解析与结构重建，未连服务端，故 outcome 由 success 降为 partial。另：target_type 原写「Wireshark 官方 test/captures」与抓包元数据不符，已改为实际来源描述。"
+  ],
+  "tags": [
+    "R24",
+    "protocol",
+    "websocket",
+    "pcap",
+    "real",
+    "framing",
+    "replay"
+  ],
+  "refs": [
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/skill/protocol-plugin/references/01-criteria.md",
+    "Tool/skill/protocol-plugin/references/04-walkthrough-websocket-replay.md",
+    "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
+    "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+    "Tool/config/protocol-plugin-matrix.json",
+    "Tool/cases/protocol03/input/build_ws_frame.py",
+    "Tool/cases/protocol03/artifacts/run.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

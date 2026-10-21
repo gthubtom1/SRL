@@ -3,202 +3,884 @@
   "domain": "forensics-mobile",
   "route": "R26",
   "description": "取证/移动/游戏客户端矩阵（声明式）：按证据源给出识别命令、时间线、可提取对象、完成判据、失败判据与陷阱。",
-  "updated": "2026-10-20",
+  "updated": "2026-10-21",
   "families": [
     {
       "id": "memory",
       "name": "内存镜像（Windows/Linux/macOS）",
-      "match": ["内存镜像", "memory", "mem.raw", "dmp", "vmem", "volatility", "崩溃转储"],
-      "tools": ["volatility3", "forensics-check.py", "strings", "bulk_extractor"],
+      "match": [
+        "内存镜像",
+        "memory",
+        "mem.raw",
+        "dmp",
+        "vmem",
+        "volatility",
+        "崩溃转储"
+      ],
+      "tools": [
+        "volatility3",
+        "forensics-check.py",
+        "strings",
+        "bulk_extractor"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file mem.raw",
         "python3 vol.py -f mem.raw banners.Banners",
         "python3 vol.py -f mem.raw windows.pslist.PsList"
       ],
-      "timeline": ["进程创建/退出时间", "网络连接创建时间", "注册表最后写入", "采集时间/时区"],
-      "extractables": ["进程树", "网络连接", "模块/注入页", "注册表 hive", "凭据线索（脱敏）"],
-      "criteria": ["进程起止/父子/命令行可列", "可疑页 dump 可复现", "外联落到 PID+时间"],
-      "fail": ["符号/profile 不匹配", "镜像截断/格式不支持", "pslist/psscan 差集无法解释"],
-      "pitfalls": ["pslist 与 psscan 语义不同", "退出时间缺失不等于没运行", "内存 hive 未落盘"]
+      "timeline": [
+        "进程创建/退出时间",
+        "网络连接创建时间",
+        "注册表最后写入",
+        "采集时间/时区"
+      ],
+      "extractables": [
+        "进程树",
+        "网络连接",
+        "模块/注入页",
+        "注册表 hive",
+        "凭据线索（脱敏）"
+      ],
+      "criteria": [
+        "进程起止/父子/命令行可列",
+        "可疑页 dump 可复现",
+        "外联落到 PID+时间"
+      ],
+      "fail": [
+        "符号/profile 不匹配",
+        "镜像截断/格式不支持",
+        "pslist/psscan 差集无法解释"
+      ],
+      "pitfalls": [
+        "pslist 与 psscan 语义不同",
+        "退出时间缺失不等于没运行",
+        "内存 hive 未落盘"
+      ]
     },
     {
       "id": "pcap",
       "name": "流量分析（pcap/pcapng）",
-      "match": ["pcap", "pcapng", "流量", "tshark", "wireshark", "会话", "dns", "tls"],
-      "tools": ["tshark", "forensics-check.py", "pcap-summary.py", "zeek", "scapy"],
+      "match": [
+        "pcap",
+        "pcapng",
+        "流量",
+        "tshark",
+        "wireshark",
+        "会话",
+        "dns",
+        "tls"
+      ],
+      "tools": [
+        "tshark",
+        "forensics-check.py",
+        "pcap-summary.py",
+        "zeek",
+        "scapy"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file capture.pcap",
         "tshark -r capture.pcap -q -z conv,tcp",
         "tshark -r capture.pcap --export-objects http,export/http"
       ],
-      "timeline": ["首包/末包 epoch", "会话起止", "DNS/TLS SNI 时间", "丢包/截断说明"],
-      "extractables": ["五元组会话", "HTTP 对象", "DNS/SNI", "明文凭据线索", "carve 文件"],
-      "criteria": ["会话双方/起止/协议/关键字段", "导出对象有哈希", "与内存/磁盘时间线对齐"],
-      "fail": ["只看到单向流量", "大包截断未切片", "TLS 无 keylog 且无进程内明文"],
-      "pitfalls": ["同端口不同连接不能合并", "时间戳时区", "重传/乱序"]
+      "timeline": [
+        "首包/末包 epoch",
+        "会话起止",
+        "DNS/TLS SNI 时间",
+        "丢包/截断说明"
+      ],
+      "extractables": [
+        "五元组会话",
+        "HTTP 对象",
+        "DNS/SNI",
+        "明文凭据线索",
+        "carve 文件"
+      ],
+      "criteria": [
+        "会话双方/起止/协议/关键字段",
+        "导出对象有哈希",
+        "与内存/磁盘时间线对齐"
+      ],
+      "fail": [
+        "只看到单向流量",
+        "大包截断未切片",
+        "TLS 无 keylog 且无进程内明文"
+      ],
+      "pitfalls": [
+        "同端口不同连接不能合并",
+        "时间戳时区",
+        "重传/乱序"
+      ]
     },
     {
       "id": "disk",
       "name": "磁盘/分区镜像",
-      "match": ["磁盘镜像", "disk.img", "dd", "e01", "sleuthkit", "分区", "inode", "已删除"],
-      "tools": ["sleuthkit", "forensics-check.py", "mmls", "fls", "icat", "mactime"],
+      "match": [
+        "磁盘镜像",
+        "disk.img",
+        "dd",
+        "e01",
+        "sleuthkit",
+        "分区",
+        "inode",
+        "已删除"
+      ],
+      "tools": [
+        "sleuthkit",
+        "forensics-check.py",
+        "mmls",
+        "fls",
+        "icat",
+        "mactime"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file disk.img --no-hash",
         "mmls disk.img",
         "fls -r -m '/' -o 2048 disk.img > bodyfile.txt",
         "mactime -b bodyfile.txt -d -z UTC > timeline.csv"
       ],
-      "timeline": ["mactime UTC", "文件系统精度", "时区/NTP 偏差", "采集顺序"],
-      "extractables": ["分区表", "目录树/inode", "已删除文件", "注册表/事件日志", "未分配空间 carve"],
-      "criteria": ["时间线定位 inode/路径/操作", "icat 可复现内容", "哈希/镜像完整性"],
-      "fail": ["分区偏移错导致假损坏", "inode 复用/块覆盖", "原件被挂载写入"],
-      "pitfalls": ["-o 是扇区不是字节", "FAT 2s/APFS 纳秒", "先复制 WAL/SHM 再开库"]
+      "timeline": [
+        "mactime UTC",
+        "文件系统精度",
+        "时区/NTP 偏差",
+        "采集顺序"
+      ],
+      "extractables": [
+        "分区表",
+        "目录树/inode",
+        "已删除文件",
+        "注册表/事件日志",
+        "未分配空间 carve"
+      ],
+      "criteria": [
+        "时间线定位 inode/路径/操作",
+        "icat 可复现内容",
+        "哈希/镜像完整性"
+      ],
+      "fail": [
+        "分区偏移错导致假损坏",
+        "inode 复用/块覆盖",
+        "原件被挂载写入"
+      ],
+      "pitfalls": [
+        "-o 是扇区不是字节",
+        "FAT 2s/APFS 纳秒",
+        "先复制 WAL/SHM 再开库"
+      ]
     },
     {
       "id": "ios-macos",
       "name": "iOS/macOS 应用包",
-      "match": ["ios", "ipa", "macos", "mach-o", "keychain", "plist", "codesign", "entitlements"],
-      "tools": ["forensics-check.py", "plutil", "codesign", "otool", "frida", "sqlite3"],
+      "match": [
+        "ios",
+        "ipa",
+        "macos",
+        "mach-o",
+        "keychain",
+        "plist",
+        "codesign",
+        "entitlements"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "plutil",
+        "codesign",
+        "otool",
+        "frida",
+        "sqlite3"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file app.ipa",
         "plutil -p Payload/App.app/Info.plist",
         "codesign -d --entitlements :- Payload/App.app",
         "otool -l AppBinary | grep -A6 LC_ENCRYPTION_INFO"
       ],
-      "timeline": ["安装/首次运行", "Keychain/DB 写入", "网络请求", "采集时间/设备时区"],
-      "extractables": ["Info.plist/entitlements", "Frameworks/PlugIns", "keychain-2.db", "app.db/WAL", "资源/配置"],
-      "criteria": ["包目录/签名/权限/框架齐全", "二进制与数据文件对应", "cryptid/脱壳状态明确"],
-      "fail": ["cryptid 1 未脱壳", "frida-server 版本/架构不匹配", "Keychain 受保护无授权"],
-      "pitfalls": ["二进制 plist/NSKeyedArchiver", "SQLite 回写", "越狱检测与绕过边界"]
+      "timeline": [
+        "安装/首次运行",
+        "Keychain/DB 写入",
+        "网络请求",
+        "采集时间/设备时区"
+      ],
+      "extractables": [
+        "Info.plist/entitlements",
+        "Frameworks/PlugIns",
+        "keychain-2.db",
+        "app.db/WAL",
+        "资源/配置"
+      ],
+      "criteria": [
+        "包目录/签名/权限/框架齐全",
+        "二进制与数据文件对应",
+        "cryptid/脱壳状态明确"
+      ],
+      "fail": [
+        "cryptid 1 未脱壳",
+        "frida-server 版本/架构不匹配",
+        "Keychain 受保护无授权"
+      ],
+      "pitfalls": [
+        "二进制 plist/NSKeyedArchiver",
+        "SQLite 回写",
+        "越狱检测与绕过边界"
+      ]
     },
     {
       "id": "unity-client",
       "name": "Unity 游戏客户端（Mono/IL2CPP/AssetBundle）",
-      "match": ["unity", "il2cpp", "global-metadata", "assembly-csharp", "assetbundle", "gameassembly", "游戏客户端"],
-      "tools": ["forensics-check.py", "Il2CppDumper", "Cpp2IL", "ilspycmd", "AssetStudio", "UnityPy"],
+      "match": [
+        "unity",
+        "il2cpp",
+        "global-metadata",
+        "assembly-csharp",
+        "assetbundle",
+        "gameassembly",
+        "游戏客户端"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "Il2CppDumper",
+        "Cpp2IL",
+        "ilspycmd",
+        "AssetStudio",
+        "UnityPy"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file GameAssembly.dll",
         "Il2CppDumper GameAssembly.dll global-metadata.dat out/",
         "ilspycmd Assembly-CSharp.dll -o decompiled/",
         "xxd -l 64 bundle | head"
       ],
-      "timeline": ["资源加载/更新", "网络下发", "内存字段变化", "采集时间"],
-      "extractables": ["dump.cs/script.json", "Assembly-CSharp", "AssetBundle 资源", "配置/存档", "内存字段偏移"],
-      "criteria": ["字段/方法/资源/内存偏移对齐", "Unity 版本匹配", "只读观测边界明确"],
-      "fail": ["元数据版本不匹配", "AssetBundle 加密无法解", "在线反作弊阻止 attach"],
-      "pitfalls": ["Mono 与 IL2CPP 工具链不同", "资源版本强绑定", "在线只做外部观测"]
+      "timeline": [
+        "资源加载/更新",
+        "网络下发",
+        "内存字段变化",
+        "采集时间"
+      ],
+      "extractables": [
+        "dump.cs/script.json",
+        "Assembly-CSharp",
+        "AssetBundle 资源",
+        "配置/存档",
+        "内存字段偏移"
+      ],
+      "criteria": [
+        "字段/方法/资源/内存偏移对齐",
+        "Unity 版本匹配",
+        "只读观测边界明确"
+      ],
+      "fail": [
+        "元数据版本不匹配",
+        "AssetBundle 加密无法解",
+        "在线反作弊阻止 attach"
+      ],
+      "pitfalls": [
+        "Mono 与 IL2CPP 工具链不同",
+        "资源版本强绑定",
+        "在线只做外部观测"
+      ]
     },
     {
       "id": "android",
       "name": "Android 逻辑/物理提取",
-      "match": ["android", "adb", "backup.ab", "/data/data", "logical", "physical", "sdcard"],
-      "tools": ["forensics-check.py", "adb", "androguard", "MVT", "sqlite3"],
+      "match": [
+        "android",
+        "adb",
+        "backup.ab",
+        "/data/data",
+        "logical",
+        "physical",
+        "sdcard"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "adb",
+        "androguard",
+        "MVT",
+        "sqlite3"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file backup.ab",
         "adb -s <serial> shell pm list packages -3",
         "python3 -m androguard axml AndroidManifest.xml"
       ],
-      "timeline": ["安装/更新(包管理器)", "应用内 DB 写入", "logcat 事件时间", "设备时区/自动时间"],
-      "extractables": ["已安装包清单", "私有 DB/SharedPreferences", "媒体/下载目录", "logcat/崩溃日志", "备份(adb backup/AB)"],
-      "criteria": ["包→UID→数据目录→DB 表可对齐", "提取方式(逻辑/物理/备份)与完整性说明", "哈希与采集时间入链"],
-      "fail": ["未 root 无法读 /data/data", "锁屏/加密阻止物理提取", "adb 版本/授权拒绕备份"],
-      "pitfalls": ["多用户/work profile", "SQLite WAL 未合并", "时区与 UTC 偏移", "应用卸载后数据残留边界"]
+      "timeline": [
+        "安装/更新(包管理器)",
+        "应用内 DB 写入",
+        "logcat 事件时间",
+        "设备时区/自动时间"
+      ],
+      "extractables": [
+        "已安装包清单",
+        "私有 DB/SharedPreferences",
+        "媒体/下载目录",
+        "logcat/崩溃日志",
+        "备份(adb backup/AB)"
+      ],
+      "criteria": [
+        "包→UID→数据目录→DB 表可对齐",
+        "提取方式(逻辑/物理/备份)与完整性说明",
+        "哈希与采集时间入链"
+      ],
+      "fail": [
+        "未 root 无法读 /data/data",
+        "锁屏/加密阻止物理提取",
+        "adb 版本/授权拒绕备份"
+      ],
+      "pitfalls": [
+        "多用户/work profile",
+        "SQLite WAL 未合并",
+        "时区与 UTC 偏移",
+        "应用卸载后数据残留边界"
+      ]
     },
     {
       "id": "windows-artifacts",
       "name": "Windows 主机痕迹（注册表/EVTX/执行痕迹）",
-      "match": ["evtx", "注册表", "amcache", "shimcache", "prefetch", "usn", "windows 日志"],
-      "tools": ["forensics-check.py", "EvtxECmd", "regipy", "plaso", "sleuthkit"],
+      "match": [
+        "evtx",
+        "注册表",
+        "amcache",
+        "shimcache",
+        "prefetch",
+        "usn",
+        "windows 日志"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "EvtxECmd",
+        "regipy",
+        "plaso",
+        "sleuthkit"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Security.evtx",
         "EvtxECmd -f Security.evtx --csv out/ --csvf security.csv",
         "python3 -c \"from regipy.registry import RegistryHive; print(RegistryHive('SYSTEM'))\""
       ],
-      "timeline": ["EVTX TimeCreated/写入时间", "Prefetch 最后运行", "Amcache 首次执行", "USN Journal 变更"],
-      "extractables": ["Security/System/Sysmon 事件", "Run/服务/计划任务", "Prefetch/Amcache/Shimcache", "USB/网络配置", "用户目录痕迹"],
-      "criteria": ["执行链至少两个独立 artifact 互证", "时间统一 UTC 并标注来源时钟", "注册表键路径+值+时间完整"],
-      "fail": ["日志被清除/滚动覆盖", "时区解释错误导致时间线错位", "只靠单一 artifact 下结论"],
-      "pitfalls": ["EVTX 记录时间与写入时间不同", "Prefetch 受 SSD/策略影响", "Shimcache 无执行证明力", "注册表 last-write 可被篡改"]
+      "timeline": [
+        "EVTX TimeCreated/写入时间",
+        "Prefetch 最后运行",
+        "Amcache 首次执行",
+        "USN Journal 变更"
+      ],
+      "extractables": [
+        "Security/System/Sysmon 事件",
+        "Run/服务/计划任务",
+        "Prefetch/Amcache/Shimcache",
+        "USB/网络配置",
+        "用户目录痕迹"
+      ],
+      "criteria": [
+        "执行链至少两个独立 artifact 互证",
+        "时间统一 UTC 并标注来源时钟",
+        "注册表键路径+值+时间完整"
+      ],
+      "fail": [
+        "日志被清除/滚动覆盖",
+        "时区解释错误导致时间线错位",
+        "只靠单一 artifact 下结论"
+      ],
+      "pitfalls": [
+        "EVTX 记录时间与写入时间不同",
+        "Prefetch 受 SSD/策略影响",
+        "Shimcache 无执行证明力",
+        "注册表 last-write 可被篡改"
+      ]
     },
     {
       "id": "linux-artifacts",
       "name": "Linux 主机痕迹（journald/auditd/shell 历史）",
-      "match": ["linux", "journald", "auditd", "bash_history", "auth.log", "syslog", "systemd"],
-      "tools": ["forensics-check.py", "journalctl", "ausearch", "plaso", "grep"],
+      "match": [
+        "linux",
+        "journald",
+        "auditd",
+        "bash_history",
+        "auth.log",
+        "syslog",
+        "systemd"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "journalctl",
+        "ausearch",
+        "plaso",
+        "grep"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file auth.log",
         "ausearch -i -m EXECVE --start 2026-10-20T03:00:00",
         "journalctl --file system.journal --since '2026-10-20 03:00' -o json"
       ],
-      "timeline": ["journal 单调时钟+实时时钟", "auditd 事件序号", "登录/提权时间", "cron/at 触发"],
-      "extractables": ["auth/sudo 登录链", "auditd execve 参数", "cron/systemd unit", "包安装/编译痕迹", "历史与 SSH 密钥"],
-      "criteria": ["登录→提权→执行→外联链可复现", "auditd 序号与 journal 时间对齐", "配置变更与进程启动相互印证"],
-      "fail": ["journal 被 vacuum/未持久化", "auditd 规则缺失无 execve", "容器内视角缺少宿主日志"],
-      "pitfalls": ["单调时钟与墙钟漂移", "audit 日志可被 root 篡改", "history 与实际执行不一致", "rsyslog 与 journald 双写重复"]
+      "timeline": [
+        "journal 单调时钟+实时时钟",
+        "auditd 事件序号",
+        "登录/提权时间",
+        "cron/at 触发"
+      ],
+      "extractables": [
+        "auth/sudo 登录链",
+        "auditd execve 参数",
+        "cron/systemd unit",
+        "包安装/编译痕迹",
+        "历史与 SSH 密钥"
+      ],
+      "criteria": [
+        "登录→提权→执行→外联链可复现",
+        "auditd 序号与 journal 时间对齐",
+        "配置变更与进程启动相互印证"
+      ],
+      "fail": [
+        "journal 被 vacuum/未持久化",
+        "auditd 规则缺失无 execve",
+        "容器内视角缺少宿主日志"
+      ],
+      "pitfalls": [
+        "单调时钟与墙钟漂移",
+        "audit 日志可被 root 篡改",
+        "history 与实际执行不一致",
+        "rsyslog 与 journald 双写重复"
+      ]
     },
     {
       "id": "container-k8s",
       "name": "容器/K8s 取证",
-      "match": ["docker", "containerd", "kubernetes", "k8s", "pod", "容器", "overlayfs", "etcd"],
-      "tools": ["forensics-check.py", "crictl/ctr", "kubectl", "docker inspect", "trivy"],
+      "match": [
+        "docker",
+        "containerd",
+        "kubernetes",
+        "k8s",
+        "pod",
+        "容器",
+        "overlayfs",
+        "etcd"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "crictl/ctr",
+        "kubectl",
+        "docker inspect",
+        "trivy"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file pod-manifest.json",
         "crictl ps -a -o json",
         "kubectl get events -A --sort-by=.lastTimestamp -o wide"
       ],
-      "timeline": ["镜像创建/拉取", "容器 start/finish", "K8s event/Rollout", "节点 kubelet 日志"],
-      "extractables": ["容器配置/挂载/环境变量", "镜像层与 digest", "Pod/Deployment/RBAC 对象", "etcd 快照(如有)", "节点与容器日志"],
-      "criteria": ["Pod→镜像 digest→节点→日志可对齐", "挂载卷与宿主路径映射清楚", "RBAC/ServiceAccount 权限边界明确"],
-      "fail": ["容器已删除且无日志留存", "节点不可访问仅能看 API 对象", "镜像 tag 被覆盖无 digest"],
-      "pitfalls": ["临时容器/initContainer 易漏", "overlayfs 下层只读", "日志驱动 none 导致丢失", "集群审计日志默认关闭"]
+      "timeline": [
+        "镜像创建/拉取",
+        "容器 start/finish",
+        "K8s event/Rollout",
+        "节点 kubelet 日志"
+      ],
+      "extractables": [
+        "容器配置/挂载/环境变量",
+        "镜像层与 digest",
+        "Pod/Deployment/RBAC 对象",
+        "etcd 快照(如有)",
+        "节点与容器日志"
+      ],
+      "criteria": [
+        "Pod→镜像 digest→节点→日志可对齐",
+        "挂载卷与宿主路径映射清楚",
+        "RBAC/ServiceAccount 权限边界明确"
+      ],
+      "fail": [
+        "容器已删除且无日志留存",
+        "节点不可访问仅能看 API 对象",
+        "镜像 tag 被覆盖无 digest"
+      ],
+      "pitfalls": [
+        "临时容器/initContainer 易漏",
+        "overlayfs 下层只读",
+        "日志驱动 none 导致丢失",
+        "集群审计日志默认关闭"
+      ]
     },
     {
       "id": "cloud-logs",
       "name": "云审计/对象存储日志（CloudTrail/Azure/OSS）",
-      "match": ["cloudtrail", "azure activity", "oss 访问日志", "s3 access", "gcp audit", "云审计", "对象存储"],
-      "tools": ["forensics-check.py", "jq", "aws cli", "plaso", "grep"],
+      "match": [
+        "cloudtrail",
+        "azure activity",
+        "oss 访问日志",
+        "s3 access",
+        "gcp audit",
+        "云审计",
+        "对象存储"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "jq",
+        "aws cli",
+        "plaso",
+        "grep"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file cloudtrail.json.gz",
         "jq -r '.Records[] | [.eventTime,.eventSource,.eventName,.sourceIPAddress,.userIdentity.arn] | @tsv' cloudtrail.json",
         "aws s3api get-bucket-logging --bucket <bucket>"
       ],
-      "timeline": ["eventTime(UTC)", "请求 id 与源 IP", "对象版本/删除标记", "控制面与数据面分离"],
-      "extractables": ["API 主体/源 IP/UA", "IAM 变更与密钥使用", "对象 GET/PUT/DELETE", "网络与安全组变更", "账单异常线索"],
-      "criteria": ["主体→动作→资源→源 IP 四要素成链", "控制面事件与数据面日志交叉印证", "时区/账户/区域明确"],
-      "fail": ["日志投递延迟或未开启", "只有控制面日志缺数据面", "跨账号 assume-role 链断点"],
-      "pitfalls": ["eventTime 与 ingestion 时间不同", "区域端点差异", "日志可被攻击者关闭/删除", "共享 IP 与 NAT 出口"]
+      "timeline": [
+        "eventTime(UTC)",
+        "请求 id 与源 IP",
+        "对象版本/删除标记",
+        "控制面与数据面分离"
+      ],
+      "extractables": [
+        "API 主体/源 IP/UA",
+        "IAM 变更与密钥使用",
+        "对象 GET/PUT/DELETE",
+        "网络与安全组变更",
+        "账单异常线索"
+      ],
+      "criteria": [
+        "主体→动作→资源→源 IP 四要素成链",
+        "控制面事件与数据面日志交叉印证",
+        "时区/账户/区域明确"
+      ],
+      "fail": [
+        "日志投递延迟或未开启",
+        "只有控制面日志缺数据面",
+        "跨账号 assume-role 链断点"
+      ],
+      "pitfalls": [
+        "eventTime 与 ingestion 时间不同",
+        "区域端点差异",
+        "日志可被攻击者关闭/删除",
+        "共享 IP 与 NAT 出口"
+      ]
     },
     {
       "id": "network-logs",
       "name": "网络设备/代理日志（syslog/防火墙/NetFlow）",
-      "match": ["syslog", "防火墙", "proxy", "netflow", "dns 日志", "ids", "ips", "网关"],
-      "tools": ["forensics-check.py", "zeek", "plaso", "grep/awk", "jq"],
+      "match": [
+        "syslog",
+        "防火墙",
+        "proxy",
+        "netflow",
+        "dns 日志",
+        "ids",
+        "ips",
+        "网关"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "zeek",
+        "plaso",
+        "grep/awk",
+        "jq"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file proxy.log",
         "zeek -r capture.pcap -C",
         "awk '{print $1,$2,$3,$7}' fw.log | head"
       ],
-      "timeline": ["设备本地时区/夏令时", "会话起止与字节数", "NAT 映射有效期", "日志轮转边界"],
-      "extractables": ["五元组会话/NAT 映射", "URL/UA/响应码", "DNS 查询与应答", "告警/阻断动作", "流量基线偏移"],
-      "criteria": ["内网 IP→NAT→公网 IP→目标可还原", "时区归一后与主机日志对齐", "阻断/放行策略与实际动作一致"],
-      "fail": ["设备时钟未同步且无偏移量", "只保留会话汇总无 payload", "NAT 日志缺失无法落到主机"],
-      "pitfalls": ["syslog UDP 丢包", "夏令时重复小时", "代理 CONNECT 与明文 URL 差异", "采样 NetFlow 不能当全量"]
+      "timeline": [
+        "设备本地时区/夏令时",
+        "会话起止与字节数",
+        "NAT 映射有效期",
+        "日志轮转边界"
+      ],
+      "extractables": [
+        "五元组会话/NAT 映射",
+        "URL/UA/响应码",
+        "DNS 查询与应答",
+        "告警/阻断动作",
+        "流量基线偏移"
+      ],
+      "criteria": [
+        "内网 IP→NAT→公网 IP→目标可还原",
+        "时区归一后与主机日志对齐",
+        "阻断/放行策略与实际动作一致"
+      ],
+      "fail": [
+        "设备时钟未同步且无偏移量",
+        "只保留会话汇总无 payload",
+        "NAT 日志缺失无法落到主机"
+      ],
+      "pitfalls": [
+        "syslog UDP 丢包",
+        "夏令时重复小时",
+        "代理 CONNECT 与明文 URL 差异",
+        "采样 NetFlow 不能当全量"
+      ]
     },
     {
       "id": "browser-artifacts",
       "name": "浏览器/终端应用痕迹（History/Cache/下载）",
-      "match": ["chrome", "edge", "firefox", "history", "cache", "cookie", "downloads", "浏览器取证"],
-      "tools": ["forensics-check.py", "sqlite3", "hindsight", "plaso", "grep"],
+      "match": [
+        "chrome",
+        "edge",
+        "firefox",
+        "history",
+        "cache",
+        "cookie",
+        "downloads",
+        "浏览器取证"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "sqlite3",
+        "hindsight",
+        "plaso",
+        "grep"
+      ],
       "commands": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file History",
         "sqlite3 -readonly History \"select url,title,last_visit_time from urls order by last_visit_time desc limit 20\"",
         "python3 -m hindsight -i 'User Data' -o out/"
       ],
-      "timeline": ["WebKit/Chrome 时间戳(1601/1970 基准)", "下载开始/完成", "会话恢复", "缓存写入"],
-      "extractables": ["访问 URL/标题/次数", "下载记录与目标路径", "Cookie/登录态(脱敏)", "缓存文件与截图", "扩展与偏好设置"],
-      "criteria": ["URL→下载→本地文件哈希可闭环", "时间戳基准换算正确并标注", "多浏览器/多 profile 分离"],
-      "fail": ["数据库被占用或 App-Bound 加密", "仅缓存无历史", "profile 已清理且无快照"],
-      "pitfalls": ["Chrome 时间微秒(1601)", "Firefox 微秒(1970)", "WAL 未合并读到旧页", "App-Bound Encryption 需进程内解密"]
+      "timeline": [
+        "WebKit/Chrome 时间戳(1601/1970 基准)",
+        "下载开始/完成",
+        "会话恢复",
+        "缓存写入"
+      ],
+      "extractables": [
+        "访问 URL/标题/次数",
+        "下载记录与目标路径",
+        "Cookie/登录态(脱敏)",
+        "缓存文件与截图",
+        "扩展与偏好设置"
+      ],
+      "criteria": [
+        "URL→下载→本地文件哈希可闭环",
+        "时间戳基准换算正确并标注",
+        "多浏览器/多 profile 分离"
+      ],
+      "fail": [
+        "数据库被占用或 App-Bound 加密",
+        "仅缓存无历史",
+        "profile 已清理且无快照"
+      ],
+      "pitfalls": [
+        "Chrome 时间微秒(1601)",
+        "Firefox 微秒(1970)",
+        "WAL 未合并读到旧页",
+        "App-Bound Encryption 需进程内解密"
+      ]
+    },
+    {
+      "id": "timeline-reconstruction",
+      "name": "统一时间线（plaso/mactime/timesketch）",
+      "match": [
+        "时间线",
+        "timeline",
+        "plaso",
+        "mactime",
+        "超级时间线",
+        "timesketch",
+        "hayabusa",
+        "事件顺序"
+      ],
+      "tools": [
+        "fs-timeline.py",
+        "plaso",
+        "mactime",
+        "timesketch",
+        "hayabusa"
+      ],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input --out artifacts/timeline.json",
+        "mactime -b bodyfile.txt -d -z UTC > timeline.csv",
+        "psort.py -o timesketch timeline.plaso"
+      ],
+      "timeline": [
+        "统一 UTC",
+        "原时区/时钟偏差",
+        "文件系统精度",
+        "跨源冲突并列"
+      ],
+      "extractables": [
+        "事件列表",
+        "时间范围",
+        "来源计数",
+        "冲突/缺口说明"
+      ],
+      "criteria": [
+        "事件按 UTC 可排序",
+        "来源/对象/主体/动作齐全",
+        "冲突显式列出",
+        "第三方可按命令复算"
+      ],
+      "fail": [
+        "时区/偏差无法补齐",
+        "时间纪元混用",
+        "来源缺失或截断",
+        "把候选顺序当因果"
+      ],
+      "pitfalls": [
+        "统一 UTC 但丢原值",
+        "只取一个源",
+        "忽略精度/FAT 2s",
+        "不写采集窗口"
+      ]
+    },
+    {
+      "id": "windows-evtx",
+      "name": "Windows 事件日志（EVTX）",
+      "match": [
+        "evtx",
+        "event log",
+        "事件日志",
+        "winevt",
+        "wevtutil",
+        "recordid",
+        "4624",
+        "4688",
+        "7045"
+      ],
+      "tools": [
+        "fs-timeline.py",
+        "forensics-check.py",
+        "wevtutil",
+        "PowerShell Get-WinEvent",
+        "EvtxECmd"
+      ],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/AppReadiness.evtx --json",
+        "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/AppReadiness.evtx --out artifacts/timeline.json",
+        "wevtutil epl Security input/Security.evtx"
+      ],
+      "timeline": [
+        "记录 FILETIME",
+        "RecordId",
+        "通道/Provider/EventId",
+        "日志清除/滚动"
+      ],
+      "extractables": [
+        "登录/进程/服务/任务事件",
+        "记录时间线",
+        "通道清单",
+        "空洞/清除线索"
+      ],
+      "criteria": [
+        "记录数/首末时间可复算",
+        "RecordId 连续或空洞可解释",
+        "EventId/Provider 可补",
+        "与其它源 UTC 对齐"
+      ],
+      "fail": [
+        "记录 0/时间跳变",
+        "日志清除无备份",
+        "Binary XML 未解且无外部工具",
+        "时区未统一"
+      ],
+      "pitfalls": [
+        "把 RecordId 当全局唯一",
+        "把本地时间当 UTC",
+        "只跑一个通道",
+        "忽略日志滚动"
+      ]
+    },
+    {
+      "id": "registry-hive",
+      "name": "注册表 hive（REGF/nk）",
+      "match": [
+        "注册表",
+        "registry",
+        "hive",
+        "ntuser.dat",
+        "usrclass.dat",
+        "reg save",
+        "regf",
+        "last-write"
+      ],
+      "tools": [
+        "fs-timeline.py",
+        "forensics-check.py",
+        "reg save",
+        "Registry Explorer",
+        "hivex"
+      ],
+      "commands": [
+        "cmd //c \"reg save HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer input/Explorer.hiv /y\"",
+        "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/Explorer.hiv --out artifacts/registry.json"
+      ],
+      "timeline": [
+        "hive 头 last-write",
+        "nk 键 last-write",
+        "事务日志 LOG1/LOG2",
+        "路径重建"
+      ],
+      "extractables": [
+        "键路径/最后写入",
+        "Run/服务/IFEO/UserAssist",
+        "USB/挂载点",
+        "值名/类型"
+      ],
+      "criteria": [
+        "hbin/nk 可遍历",
+        "键路径可重建",
+        "last-write UTC 可复算",
+        "与 EVTX/文件系统对齐"
+      ],
+      "fail": [
+        "权限只读到占位/空文件",
+        "键级遍历 0",
+        "脏页未合并",
+        "父指针断链/循环"
+      ],
+      "pitfalls": [
+        "reg load 原 hive",
+        "忽略 LOG1/LOG2",
+        "把键存在当写入时间",
+        "不做路径去重"
+      ]
+    },
+    {
+      "id": "il2cpp-metadata",
+      "name": "IL2CPP 元数据与 GameAssembly",
+      "match": [
+        "il2cpp",
+        "global-metadata",
+        "gameassembly",
+        "unityframework",
+        "dump.cs",
+        "cpp2il",
+        "il2cppdumper"
+      ],
+      "tools": [
+        "forensics-check.py",
+        "Il2CppDumper",
+        "Cpp2IL",
+        "Ghidra/IDA",
+        "fs-timeline.py"
+      ],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/global-metadata.dat --json",
+        "Il2CppDumper GameAssembly.dll global-metadata.dat out/",
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/data.unity3d --json"
+      ],
+      "timeline": [
+        "客户端版本/哈希",
+        "Unity 版本",
+        "元数据版本",
+        "工具版本/偏移验证时间"
+      ],
+      "extractables": [
+        "dump.cs/il2cpp.h",
+        "script.json 地址",
+        "stringliteral.json",
+        "DummyDll/资源清单"
+      ],
+      "criteria": [
+        "元数据版本与二进制匹配",
+        "字段/方法/地址三者对齐",
+        "资源属于哪个 bundle 可说明",
+        "运行时偏移可复现"
+      ],
+      "fail": [
+        "版本不匹配",
+        "工具缺失且无降级",
+        "AssetBundle 加密未解",
+        "偏移随版本漂移未重验"
+      ],
+      "pitfalls": [
+        "旧 dump.cs 套新包",
+        "只看字段不看地址",
+        "把资源头当可解",
+        "在线 attach 触发反作弊"
+      ]
     }
   ]
 }

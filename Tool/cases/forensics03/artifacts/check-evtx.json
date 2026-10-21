@@ -1,0 +1,396 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics03\\input\\AppReadiness.evtx",
+  "type": "evtx",
+  "format": "EVTX",
+  "confidence": "observed",
+  "meta": {
+    "chunk_count": 1,
+    "record_count": 59,
+    "first_record_utc": "2026-10-08T22:15:25.951311Z",
+    "last_record_utc": "2026-10-20T03:22:23.292580Z",
+    "records_sample": [
+      {
+        "record_id": 1,
+        "time_utc": "2026-10-08T22:15:25.951311Z",
+        "chunk": 0,
+        "size": 1704
+      },
+      {
+        "record_id": 2,
+        "time_utc": "2026-10-08T22:16:03.382615Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 3,
+        "time_utc": "2026-10-08T22:16:06.733640Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 4,
+        "time_utc": "2026-10-08T22:16:33.655717Z",
+        "chunk": 0,
+        "size": 544
+      },
+      {
+        "record_id": 5,
+        "time_utc": "2026-10-08T22:17:53.132363Z",
+        "chunk": 0,
+        "size": 600
+      },
+      {
+        "record_id": 6,
+        "time_utc": "2026-10-08T22:19:06.462443Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 7,
+        "time_utc": "2026-10-08T22:19:33.854298Z",
+        "chunk": 0,
+        "size": 4048
+      },
+      {
+        "record_id": 8,
+        "time_utc": "2026-10-08T22:19:40.447505Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 9,
+        "time_utc": "2026-10-08T22:19:40.451017Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 10,
+        "time_utc": "2026-10-08T22:19:40.655288Z",
+        "chunk": 0,
+        "size": 936
+      },
+      {
+        "record_id": 11,
+        "time_utc": "2026-10-08T22:19:57.517092Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 12,
+        "time_utc": "2026-10-08T22:19:57.530918Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 13,
+        "time_utc": "2026-10-08T22:20:38.728998Z",
+        "chunk": 0,
+        "size": 992
+      },
+      {
+        "record_id": 14,
+        "time_utc": "2026-10-08T22:22:23.725101Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 15,
+        "time_utc": "2026-10-08T22:22:24.009899Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 16,
+        "time_utc": "2026-10-08T22:22:26.108813Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 17,
+        "time_utc": "2026-10-08T22:22:26.108838Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 18,
+        "time_utc": "2026-10-08T22:22:44.198126Z",
+        "chunk": 0,
+        "size": 472
+      },
+      {
+        "record_id": 19,
+        "time_utc": "2026-10-08T22:25:14.203227Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 20,
+        "time_utc": "2026-10-08T22:27:22.232508Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 21,
+        "time_utc": "2026-10-08T22:27:44.216352Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 22,
+        "time_utc": "2026-10-08T22:28:09.101477Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 23,
+        "time_utc": "2026-10-08T22:30:14.218334Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 24,
+        "time_utc": "2026-10-08T22:31:51.732701Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 25,
+        "time_utc": "2026-10-08T22:32:44.222206Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 26,
+        "time_utc": "2026-10-08T22:35:14.229328Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 27,
+        "time_utc": "2026-10-08T22:37:44.242248Z",
+        "chunk": 0,
+        "size": 408
+      },
+      {
+        "record_id": 28,
+        "time_utc": "2026-10-08T22:37:57.411285Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 29,
+        "time_utc": "2026-10-08T22:38:26.117763Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 30,
+        "time_utc": "2026-10-08T22:38:54.962231Z",
+        "chunk": 0,
+        "size": 680
+      },
+      {
+        "record_id": 31,
+        "time_utc": "2026-10-08T22:40:14.243688Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 32,
+        "time_utc": "2026-10-08T22:40:14.261073Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 33,
+        "time_utc": "2026-10-08T23:08:29.955414Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 34,
+        "time_utc": "2026-10-08T23:10:59.940778Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 35,
+        "time_utc": "2026-10-08T23:10:59.956608Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 36,
+        "time_utc": "2026-10-09T10:42:05.769295Z",
+        "chunk": 0,
+        "size": 536
+      },
+      {
+        "record_id": 37,
+        "time_utc": "2026-10-09T10:42:05.770680Z",
+        "chunk": 0,
+        "size": 536
+      },
+      {
+        "record_id": 38,
+        "time_utc": "2026-10-09T10:42:05.771292Z",
+        "chunk": 0,
+        "size": 536
+      },
+      {
+        "record_id": 39,
+        "time_utc": "2026-10-09T10:42:05.771757Z",
+        "chunk": 0,
+        "size": 536
+      },
+      {
+        "record_id": 40,
+        "time_utc": "2026-10-09T10:44:35.757064Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 41,
+        "time_utc": "2026-10-09T10:44:35.772975Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 42,
+        "time_utc": "2026-10-09T11:06:30.851752Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 43,
+        "time_utc": "2026-10-09T11:08:30.568017Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 44,
+        "time_utc": "2026-10-09T11:08:30.584032Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 45,
+        "time_utc": "2026-10-09T12:01:08.376452Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 46,
+        "time_utc": "2026-10-09T12:03:38.367976Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 47,
+        "time_utc": "2026-10-09T12:03:38.384059Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 48,
+        "time_utc": "2026-10-09T12:16:55.408756Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 49,
+        "time_utc": "2026-10-09T12:19:25.415401Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 50,
+        "time_utc": "2026-10-09T12:19:25.432777Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 51,
+        "time_utc": "2026-10-09T16:07:49.547505Z",
+        "chunk": 0,
+        "size": 376
+      },
+      {
+        "record_id": 52,
+        "time_utc": "2026-10-09T16:10:19.534708Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 53,
+        "time_utc": "2026-10-09T16:10:19.551492Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 54,
+        "time_utc": "2026-10-13T02:01:26.335949Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 55,
+        "time_utc": "2026-10-13T02:03:25.991688Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 56,
+        "time_utc": "2026-10-13T02:03:26.006597Z",
+        "chunk": 0,
+        "size": 368
+      },
+      {
+        "record_id": 57,
+        "time_utc": "2026-10-20T03:20:24.110691Z",
+        "chunk": 0,
+        "size": 464
+      },
+      {
+        "record_id": 58,
+        "time_utc": "2026-10-20T03:22:23.275618Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 59,
+        "time_utc": "2026-10-20T03:22:23.292580Z",
+        "chunk": 0,
+        "size": 368
+      }
+    ],
+    "truncated": false
+  },
+  "timeline": {
+    "start_utc": "2026-10-08T22:15:25.951311Z",
+    "end_utc": "2026-10-20T03:22:23.292580Z",
+    "basis": "EVTX record FILETIME (100ns since 1601, UTC)",
+    "timezone": "UTC",
+    "clock_skew": "host clock; compare with NTP/other logs",
+    "precision": "100 nanoseconds"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "通道/提供程序与事件 ID",
+    "记录 FILETIME 与 RecordId",
+    "登录/进程/服务/任务事件",
+    "与注册表、文件系统时间线交叉对齐"
+  ],
+  "integrity": {
+    "sha256": "a1e797541c1ae292777dbc33a1eb1e785cb3936b1b574ec82e3280845a21dbd9",
+    "size": 69632,
+    "mtime_utc": "2026-10-21T14:25:32.961463Z",
+    "readonly": true,
+    "warnings": [],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

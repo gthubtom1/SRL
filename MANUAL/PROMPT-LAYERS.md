@@ -133,7 +133,7 @@ tools / rules / docs pi 内置
 | `Tool/skill/softseep/SKILL.md` | 每个新目标第一件事先询问授权 |
 | `Tool/skill/client-license-validation-bypass/SKILL.md` | 同上 |
 | `README.md` / `README.zh.md` / `README.en.md` | 每个新目标第一步确认授权，无授权即停止 |
-| `CLAUDE.md` / `DSH-PROFILE.md` | 所有测试目标必须确认已获授权 |
+| `Tool/prompts/contracts/CLAUDE.md` / `Tool/prompts/contracts/DSH-PROFILE.md` | 所有测试目标必须确认已获授权 |
 
 **裁决（唯一事实源 = `AGENTS.md` §六）**：
 

@@ -3,187 +3,681 @@
   "domain": "plugin-targets",
   "route": "R25",
   "description": "插件/扩展/Mod 矩阵（声明式）：按包型给出入口、权限面、工具、完成判据、失败判据与陷阱。协议复刻不在本表，见 protocol-plugin-matrix.json（R24）。",
-  "updated": "2026-10-20",
+  "updated": "2026-10-21",
   "families": [
     {
       "id": "browser-mv3",
       "name": "Chrome/Edge/Firefox 扩展",
-      "match": ["crx", "xpi", "manifest.json", "chrome 扩展", "浏览器扩展", "service worker", "content script"],
-      "entry": ["manifest.json", "background.service_worker", "content_scripts[].js", "action/options_page"],
-      "tools": ["plugin-triage.py", "unzip", "jq", "DevTools/CDP"],
+      "match": [
+        "crx",
+        "xpi",
+        "manifest.json",
+        "chrome 扩展",
+        "浏览器扩展",
+        "service worker",
+        "content script"
+      ],
+      "entry": [
+        "manifest.json",
+        "background.service_worker",
+        "content_scripts[].js",
+        "action/options_page"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "unzip",
+        "jq",
+        "DevTools/CDP"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.crx",
         "unzip -q extension.crx -d ext/",
         "jq '{permissions,host_permissions,background,content_scripts}' ext/manifest.json"
       ],
-      "criteria": ["每个权限对应实际代码路径", "页面→content→background→远端链路可画", "最小可改单元可验证"],
-      "fail": ["权限无法解释", "MV3 SW 休眠导致动态观测缺失", "签名/企业策略阻止加载"],
-      "pitfalls": ["isolated world 与 MAIN world", "CRX3 头不是 zip 开头", "web_accessible_resources 暴露面"]
+      "criteria": [
+        "每个权限对应实际代码路径",
+        "页面→content→background→远端链路可画",
+        "最小可改单元可验证"
+      ],
+      "fail": [
+        "权限无法解释",
+        "MV3 SW 休眠导致动态观测缺失",
+        "签名/企业策略阻止加载"
+      ],
+      "pitfalls": [
+        "isolated world 与 MAIN world",
+        "CRX3 头不是 zip 开头",
+        "web_accessible_resources 暴露面"
+      ]
     },
     {
       "id": "vscode-vsix",
       "name": "VS Code 扩展（VSIX）",
-      "match": ["vsix", "vscode", "extension/package.json", "activationEvents", "contributes"],
-      "entry": ["extension/package.json", "main", "activationEvents", "contributes.commands"],
-      "tools": ["plugin-triage.py", "unzip", "jq", "Node DevTools"],
+      "match": [
+        "vsix",
+        "vscode",
+        "extension/package.json",
+        "activationEvents",
+        "contributes"
+      ],
+      "entry": [
+        "extension/package.json",
+        "main",
+        "activationEvents",
+        "contributes.commands"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "unzip",
+        "jq",
+        "Node DevTools"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.vsix",
         "unzip -q extension.vsix -d vsix/",
         "jq '{main,activationEvents,contributes,capabilities}' vsix/extension/package.json"
       ],
-      "criteria": ["激活事件→命令→关键文件/网络", "受限工作区行为明确", "最小可改单元可回退"],
-      "fail": ["激活事件为 * 但无可观测入口", "bundle 压缩且无 source map", "engines.vscode 不匹配"],
-      "pitfalls": ["extension host 与 webview 两层", "secret storage", "语言服务/调试器权限"]
+      "criteria": [
+        "激活事件→命令→关键文件/网络",
+        "受限工作区行为明确",
+        "最小可改单元可回退"
+      ],
+      "fail": [
+        "激活事件为 * 但无可观测入口",
+        "bundle 压缩且无 source map",
+        "engines.vscode 不匹配"
+      ],
+      "pitfalls": [
+        "extension host 与 webview 两层",
+        "secret storage",
+        "语言服务/调试器权限"
+      ]
     },
     {
       "id": "jetbrains-jar",
       "name": "JetBrains 插件（JAR）",
-      "match": ["jetbrains", "intellij", "plugin.xml", "idea-version", "action", "extension point"],
-      "entry": ["META-INF/plugin.xml", "actions", "extensions", "applicationService"],
-      "tools": ["plugin-triage.py", "jar tf", "jadx", "CFR/Fernflower"],
+      "match": [
+        "jetbrains",
+        "intellij",
+        "plugin.xml",
+        "idea-version",
+        "action",
+        "extension point"
+      ],
+      "entry": [
+        "META-INF/plugin.xml",
+        "actions",
+        "extensions",
+        "applicationService"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "jar tf",
+        "jadx",
+        "CFR/Fernflower"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path plugin.jar",
         "unzip -p plugin.jar META-INF/plugin.xml",
         "jadx -d out/ plugin.jar"
       ],
-      "criteria": ["扩展点→Action/Service→关键逻辑", "兼容范围明确", "最小可改单元可验证"],
-      "fail": ["Kotlin 协程/lambda 混淆无法定位", "plugin.xml 入口与实际类不符", "依赖 lib 缺失"],
-      "pitfalls": ["Action 与 Service 生命周期", "messages/*.properties 配置", "IDE 版本兼容"]
+      "criteria": [
+        "扩展点→Action/Service→关键逻辑",
+        "兼容范围明确",
+        "最小可改单元可验证"
+      ],
+      "fail": [
+        "Kotlin 协程/lambda 混淆无法定位",
+        "plugin.xml 入口与实际类不符",
+        "依赖 lib 缺失"
+      ],
+      "pitfalls": [
+        "Action 与 Service 生命周期",
+        "messages/*.properties 配置",
+        "IDE 版本兼容"
+      ]
     },
     {
       "id": "electron-asar",
       "name": "Electron / asar",
-      "match": ["electron", "asar", "app.asar", "preload", "ipcMain", "nodeIntegration", "bytenode"],
-      "entry": ["package.json.main", "preload", "ipcMain/ipcRenderer", "app.asar.unpacked/*.node"],
-      "tools": ["plugin-triage.py", "npx asar", "jq", "IDA/Ghidra"],
+      "match": [
+        "electron",
+        "asar",
+        "app.asar",
+        "preload",
+        "ipcMain",
+        "nodeIntegration",
+        "bytenode"
+      ],
+      "entry": [
+        "package.json.main",
+        "preload",
+        "ipcMain/ipcRenderer",
+        "app.asar.unpacked/*.node"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "npx asar",
+        "jq",
+        "IDA/Ghidra"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar",
         "npx asar list app.asar",
         "grep -RInE 'ipcMain|ipcRenderer|contextBridge|shell.openExternal' app/ --include='*.js'"
       ],
-      "criteria": ["main/preload/renderer 三层边界清楚", "IPC channel 与校验点可指认", "原生模块契约明确"],
-      "fail": ["asar 头解析失败两次", "main/preload 全被字节码覆盖", "代码签名/更新器阻止加载"],
-      "pitfalls": ["asar 不是加密", ".jsc 需匹配 V8 版本", "unpacked 原生模块单独分析"]
+      "criteria": [
+        "main/preload/renderer 三层边界清楚",
+        "IPC channel 与校验点可指认",
+        "原生模块契约明确"
+      ],
+      "fail": [
+        "asar 头解析失败两次",
+        "main/preload 全被字节码覆盖",
+        "代码签名/更新器阻止加载"
+      ],
+      "pitfalls": [
+        "asar 不是加密",
+        ".jsc 需匹配 V8 版本",
+        "unpacked 原生模块单独分析"
+      ]
     },
     {
       "id": "unity-mod",
       "name": "Unity BepInEx/MelonLoader Mod",
-      "match": ["bepinex", "melonloader", "unity mod", "harmony", "il2cpp", "assembly-csharp", "global-metadata"],
-      "entry": ["BepInEx/plugins/*.dll", "MelonLoader/Mods/*.dll", "BaseUnityPlugin.Load", "MelonMod.OnInitializeMelon"],
-      "tools": ["plugin-triage.py", "ilspycmd", "dnSpy", "Il2CppDumper", "Cpp2IL"],
+      "match": [
+        "bepinex",
+        "melonloader",
+        "unity mod",
+        "harmony",
+        "il2cpp",
+        "assembly-csharp",
+        "global-metadata"
+      ],
+      "entry": [
+        "BepInEx/plugins/*.dll",
+        "MelonLoader/Mods/*.dll",
+        "BaseUnityPlugin.Load",
+        "MelonMod.OnInitializeMelon"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "ilspycmd",
+        "dnSpy",
+        "Il2CppDumper",
+        "Cpp2IL"
+      ],
       "commands": [
         "find . -iname 'BepInEx' -o -iname 'MelonLoader' -o -iname '*.dll'",
         "ilspycmd Mod.dll -o mod-src/",
         "Il2CppDumper GameAssembly.dll global-metadata.dat out/"
       ],
-      "criteria": ["插件类→patch 目标→字段/返回值→可观察效果", "日志证明已加载", "patch 可回退"],
-      "fail": ["插件未加载/日志缺失", "目标方法被内联或混淆", "IL2CPP 元数据版本不匹配"],
-      "pitfalls": ["Mono 与 IL2CPP 工具链不同", "Transpiler 风险最高", "在线反作弊只做外部观测"]
+      "criteria": [
+        "插件类→patch 目标→字段/返回值→可观察效果",
+        "日志证明已加载",
+        "patch 可回退"
+      ],
+      "fail": [
+        "插件未加载/日志缺失",
+        "目标方法被内联或混淆",
+        "IL2CPP 元数据版本不匹配"
+      ],
+      "pitfalls": [
+        "Mono 与 IL2CPP 工具链不同",
+        "Transpiler 风险最高",
+        "在线反作弊只做外部观测"
+      ]
     },
     {
       "id": "lua-mod",
       "name": "Lua/游戏脚本 Mod（TOC/addon/自定义加载器）",
-      "match": ["lua", "addon", "toc", "mod loader", "脚本 mod", "luac"],
-      "entry": ["*.toc", "addon/*.lua", "mod loader 配置", "事件/钩子注册"],
-      "tools": ["plugin-triage.py", "luac -l", "luadec/unluac", "ripgrep"],
+      "match": [
+        "lua",
+        "addon",
+        "toc",
+        "mod loader",
+        "脚本 mod",
+        "luac"
+      ],
+      "entry": [
+        "*.toc",
+        "addon/*.lua",
+        "mod loader 配置",
+        "事件/钩子注册"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "luac -l",
+        "luadec/unluac",
+        "ripgrep"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path addon/",
         "luac -l -p addon/core.lua",
         "grep -RInE 'hooksecurefunc|CreateFrame|SendAddonMessage' addon/"
       ],
-      "criteria": ["事件/钩子→调用面→数据读写可画", "字节码与源码可对应", "最小可改单元可回退"],
-      "fail": ["字节码版本不匹配无法反编译", "加载器来源不明无法确认执行顺序", "沙箱禁用文件/网络 API"],
-      "pitfalls": ["Lua 5.1 与 5.3 字节码不通用", "全局环境污染导致行为漂移", "沙箱暴露的 API 才是真实攻击面"]
+      "criteria": [
+        "事件/钩子→调用面→数据读写可画",
+        "字节码与源码可对应",
+        "最小可改单元可回退"
+      ],
+      "fail": [
+        "字节码版本不匹配无法反编译",
+        "加载器来源不明无法确认执行顺序",
+        "沙箱禁用文件/网络 API"
+      ],
+      "pitfalls": [
+        "Lua 5.1 与 5.3 字节码不通用",
+        "全局环境污染导致行为漂移",
+        "沙箱暴露的 API 才是真实攻击面"
+      ]
     },
     {
       "id": "android-xposed",
       "name": "Android Xposed/LSPosed 模块（APK）",
-      "match": ["xposed", "lsposed", "edxposed", "模块 apk", "hook 框架", "xposed_init"],
-      "entry": ["AndroidManifest.xml(xposedmodule)", "assets/xposed_init", "IXposedHookLoadPackage", "META-INF/xposed/*"],
-      "tools": ["plugin-triage.py", "apktool", "jadx", "frida"],
+      "match": [
+        "xposed",
+        "lsposed",
+        "edxposed",
+        "模块 apk",
+        "hook 框架",
+        "xposed_init"
+      ],
+      "entry": [
+        "AndroidManifest.xml(xposedmodule)",
+        "assets/xposed_init",
+        "IXposedHookLoadPackage",
+        "META-INF/xposed/*"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "apktool",
+        "jadx",
+        "frida"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path module.apk",
         "apktool d -f module.apk -o out/",
         "jadx -d src/ module.apk"
       ],
-      "criteria": ["hook 目标类/方法→参数/返回值→可观察效果", "作用域(包名)明确", "模块启用/禁用可回退"],
-      "fail": ["目标为抽取壳/加固无法定位方法", "LSPosed 作用域未包含目标包", "仅声明模块无 hook 逻辑"],
-      "pitfalls": ["hook 系统 API 与 app 进程边界", "Android 版本导致 API 差异", "模块自身也需签名与权限"]
+      "criteria": [
+        "hook 目标类/方法→参数/返回值→可观察效果",
+        "作用域(包名)明确",
+        "模块启用/禁用可回退"
+      ],
+      "fail": [
+        "目标为抽取壳/加固无法定位方法",
+        "LSPosed 作用域未包含目标包",
+        "仅声明模块无 hook 逻辑"
+      ],
+      "pitfalls": [
+        "hook 系统 API 与 app 进程边界",
+        "Android 版本导致 API 差异",
+        "模块自身也需签名与权限"
+      ]
     },
     {
       "id": "office-addin",
       "name": "Office/Outlook Web Add-in（manifest.xml + JS）",
-      "match": ["office add-in", "outlook add-in", "manifest.xml", "office.js", "taskpane", "vsto"],
-      "entry": ["manifest.xml", "Taskpane.html/JS", "commands/functionFile", "AppDomains/Permissions"],
-      "tools": ["plugin-triage.py", "unzip", "xmllint/jq", "浏览器 DevTools"],
+      "match": [
+        "office add-in",
+        "outlook add-in",
+        "manifest.xml",
+        "office.js",
+        "taskpane",
+        "vsto"
+      ],
+      "entry": [
+        "manifest.xml",
+        "Taskpane.html/JS",
+        "commands/functionFile",
+        "AppDomains/Permissions"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "unzip",
+        "xmllint/jq",
+        "浏览器 DevTools"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path addin/manifest.xml",
         "xmllint --format manifest.xml | head -60",
         "grep -RInE 'Office\\.context|fetch\\(|XMLHttpRequest' addin/ --include='*.js'"
       ],
-      "criteria": ["权限(ReadWriteMailbox 等)→API 调用→数据外发链路", "AppDomains 与实际请求域一致", "最小可改单元可验证"],
-      "fail": ["manifest 校验失败无法旁加载", "仅托管在商店无法取得源码", "权限最小化无法解释外发"],
-      "pitfalls": ["Mailbox 1.1/1.2 权限差异", "taskpane 与命令式加载时机不同", "CORS/AppDomains 双重限制"]
+      "criteria": [
+        "权限(ReadWriteMailbox 等)→API 调用→数据外发链路",
+        "AppDomains 与实际请求域一致",
+        "最小可改单元可验证"
+      ],
+      "fail": [
+        "manifest 校验失败无法旁加载",
+        "仅托管在商店无法取得源码",
+        "权限最小化无法解释外发"
+      ],
+      "pitfalls": [
+        "Mailbox 1.1/1.2 权限差异",
+        "taskpane 与命令式加载时机不同",
+        "CORS/AppDomains 双重限制"
+      ]
     },
     {
       "id": "obs-streamdeck",
       "name": "OBS/StreamDeck/媒体管线插件",
-      "match": ["obs", "obs-studio", "streamdeck", "plugin dll", "滤镜", "采集"],
-      "entry": ["obs-plugins/*/bin/*.dll", "data/*/locale", "插件注册入口", "*.sdPlugin/manifest.json"],
-      "tools": ["plugin-triage.py", "objdump/dumpbin", "IDA/Ghidra", "Process Monitor"],
+      "match": [
+        "obs",
+        "obs-studio",
+        "streamdeck",
+        "plugin dll",
+        "滤镜",
+        "采集"
+      ],
+      "entry": [
+        "obs-plugins/*/bin/*.dll",
+        "data/*/locale",
+        "插件注册入口",
+        "*.sdPlugin/manifest.json"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "objdump/dumpbin",
+        "IDA/Ghidra",
+        "Process Monitor"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path obs-plugins/",
         "objdump -p plugin.dll | grep -E 'DLL Name|ImageBase'",
         "jq '{Name,Version,Category}' com.example.plugin.sdPlugin/manifest.json"
       ],
-      "criteria": ["导出符号/注册回调→功能入口", "依赖库与运行版本明确", "最小可改单元可回退"],
-      "fail": ["签名校验/加载器白名单阻止", "依赖 CRT 版本缺失", "只观测到 UI 无实际数据路径"],
-      "pitfalls": ["C/C++ ABI 与编译器版本", "插件目录层级影响加载", "图形/音频线程回调不可阻塞"]
+      "criteria": [
+        "导出符号/注册回调→功能入口",
+        "依赖库与运行版本明确",
+        "最小可改单元可回退"
+      ],
+      "fail": [
+        "签名校验/加载器白名单阻止",
+        "依赖 CRT 版本缺失",
+        "只观测到 UI 无实际数据路径"
+      ],
+      "pitfalls": [
+        "C/C++ ABI 与编译器版本",
+        "插件目录层级影响加载",
+        "图形/音频线程回调不可阻塞"
+      ]
     },
     {
       "id": "iac-provider",
       "name": "IaC/CLI 插件（Terraform provider、Ansible collection、kubectl 插件）",
-      "match": ["terraform-provider", "provider", "ansible", "collection", "kubectl-", "helm plugin", "iac"],
-      "entry": ["main.go/plugin.Serve", "provider schema", "action/module 入口", "plugin.yaml"],
-      "tools": ["plugin-triage.py", "go tool nm", "strings", "terraform providers schema -json"],
+      "match": [
+        "terraform-provider",
+        "provider",
+        "ansible",
+        "collection",
+        "kubectl-",
+        "helm plugin",
+        "iac"
+      ],
+      "entry": [
+        "main.go/plugin.Serve",
+        "provider schema",
+        "action/module 入口",
+        "plugin.yaml"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "go tool nm",
+        "strings",
+        "terraform providers schema -json"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path terraform-provider-x",
         "terraform providers schema -json | jq '.provider_schemas | keys'",
         "go tool nm provider | grep -iE 'Create|Delete|Read'"
       ],
-      "criteria": ["资源 CRUD→API 调用→凭据来源可画", "schema 与实现一致", "最小可改单元可验证"],
-      "fail": ["二进制被裁剪无符号", "provider 需云凭据无法离线验证", "插件协议版本不匹配"],
-      "pitfalls": ["go-plugin 的 gRPC 握手", "状态文件含敏感值", "多 region/多账号上下文"]
+      "criteria": [
+        "资源 CRUD→API 调用→凭据来源可画",
+        "schema 与实现一致",
+        "最小可改单元可验证"
+      ],
+      "fail": [
+        "二进制被裁剪无符号",
+        "provider 需云凭据无法离线验证",
+        "插件协议版本不匹配"
+      ],
+      "pitfalls": [
+        "go-plugin 的 gRPC 握手",
+        "状态文件含敏感值",
+        "多 region/多账号上下文"
+      ]
     },
     {
       "id": "jupyter-extension",
       "name": "Jupyter/nbconvert/notebook 扩展",
-      "match": ["jupyter", "nbconvert", "nbextension", "jupyterlab extension", "ipython 魔法", "kernel"],
-      "entry": ["package.json(jupyterlab)", "nbextensions/*.js", "setup.py entry_points", "kernel.json"],
-      "tools": ["plugin-triage.py", "jq", "npm pack --dry-run", "浏览器 DevTools"],
+      "match": [
+        "jupyter",
+        "nbconvert",
+        "nbextension",
+        "jupyterlab extension",
+        "ipython 魔法",
+        "kernel"
+      ],
+      "entry": [
+        "package.json(jupyterlab)",
+        "nbextensions/*.js",
+        "setup.py entry_points",
+        "kernel.json"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "jq",
+        "npm pack --dry-run",
+        "浏览器 DevTools"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path labextension/",
         "jq '{name,version,jupyterlab,main}' labextension/package.json",
         "jupyter labextension list"
       ],
-      "criteria": ["扩展点(命令/面板/kernel)→执行面→数据读写", "前端与 kernel 边界清楚", "最小可改单元可回退"],
-      "fail": ["预构建 bundle 无 source map", "服务端扩展需重启且难以观测", "版本约束导致无法加载"],
-      "pitfalls": ["前端扩展与 server extension 是两套", "notebook 输出可含可执行 HTML", "kernel 权限继承启动用户"]
+      "criteria": [
+        "扩展点(命令/面板/kernel)→执行面→数据读写",
+        "前端与 kernel 边界清楚",
+        "最小可改单元可回退"
+      ],
+      "fail": [
+        "预构建 bundle 无 source map",
+        "服务端扩展需重启且难以观测",
+        "版本约束导致无法加载"
+      ],
+      "pitfalls": [
+        "前端扩展与 server extension 是两套",
+        "notebook 输出可含可执行 HTML",
+        "kernel 权限继承启动用户"
+      ]
     },
     {
       "id": "userscript",
       "name": "用户脚本（Tampermonkey/Violentmonkey/Greasemonkey）",
-      "match": ["userscript", "tampermonkey", "violentmonkey", "greasemonkey", "@match", "@grant"],
-      "entry": ["==UserScript==", "@match/@include", "@require", "@grant none/unsafeWindow"],
-      "tools": ["plugin-triage.py", "node --check", "浏览器 DevTools", "grep"],
+      "match": [
+        "userscript",
+        "tampermonkey",
+        "violentmonkey",
+        "greasemonkey",
+        "@match",
+        "@grant"
+      ],
+      "entry": [
+        "==UserScript==",
+        "@match/@include",
+        "@require",
+        "@grant none/unsafeWindow"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "node --check",
+        "浏览器 DevTools",
+        "grep"
+      ],
       "commands": [
         "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path script.user.js",
         "grep -nE '^// @(match|include|require|grant|connect)' script.user.js",
         "node --check script.user.js"
       ],
-      "criteria": ["@match 范围→DOM/网络钩子→外发链路", "@grant 与沙箱能力对应", "最小可改单元可验证"],
-      "fail": ["@require 远端依赖无法固定版本", "unsafeWindow 被 CSP 限制", "脚本仅在特定地区/版本触发"],
-      "pitfalls": ["@grant none 直通页面上下文", "@connect 限制跨域", "MutationObserver 与 SPA 路由"]
+      "criteria": [
+        "@match 范围→DOM/网络钩子→外发链路",
+        "@grant 与沙箱能力对应",
+        "最小可改单元可验证"
+      ],
+      "fail": [
+        "@require 远端依赖无法固定版本",
+        "unsafeWindow 被 CSP 限制",
+        "脚本仅在特定地区/版本触发"
+      ],
+      "pitfalls": [
+        "@grant none 直通页面上下文",
+        "@connect 限制跨域",
+        "MutationObserver 与 SPA 路由"
+      ]
+    },
+    {
+      "id": "mv2-legacy",
+      "name": "MV2 持久后台页扩展（Chrome/Edge/Firefox 旧包）",
+      "match": [
+        "manifest_version\": 2",
+        "background.scripts",
+        "persistent\": true",
+        "browser_action",
+        "MV2 扩展"
+      ],
+      "entry": [
+        "manifest.json",
+        "background.scripts",
+        "content_scripts[].js",
+        "browser_action/options_page"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "plugin-repro.py",
+        "unzip",
+        "jq",
+        "DevTools/CDP"
+      ],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path legacy.crx --json",
+        "jq '{manifest_version,background,browser_action,permissions,host_permissions}' work/repro/unpack/manifest.json",
+        "grep -RInE 'chrome\\.(runtime|tabs|storage|cookies|webRequest)|browser\\.' work/repro/unpack --include='*.js'"
+      ],
+      "criteria": [
+        "持久后台页入口可指认",
+        "每个权限对应代码路径",
+        "页面→content→background 至少一条边有行号",
+        "最小可改单元可回退"
+      ],
+      "fail": [
+        "MV2 在新版浏览器被策略禁用",
+        "持久页状态只在内存、重启即丢",
+        "签名/企业策略阻止旁加载"
+      ],
+      "pitfalls": [
+        "MV2 与 MV3 API 差异",
+        "持久后台页常驻导致状态假设错误",
+        "browser_action 与 action 字段不同"
+      ]
+    },
+    {
+      "id": "ime-driver",
+      "name": "输入法 / 驱动级插件（TIP/IME/SYS）",
+      "match": [
+        "输入法",
+        "ime",
+        "\\bTIP\\b",
+        "Keyboard Layout",
+        "\\bCTF\\b",
+        "\\.sys",
+        "驱动插件",
+        "IOCTL"
+      ],
+      "entry": [
+        "HKLM\\SOFTWARE\\Microsoft\\CTF\\TIP",
+        "Keyboard Layout\\Preload",
+        "DllRegisterServer/ITfTextInputProcessor",
+        "DriverEntry/IoCreateDevice",
+        "服务/设备符号链接"
+      ],
+      "tools": [
+        "plugin-repro.py",
+        "reg query",
+        "sc query",
+        "driverquery",
+        "dumpbin/objdump",
+        "sigcheck"
+      ],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-repro.py --path ./driver-dir --out work/repro --json",
+        "reg query \"HKLM\\SOFTWARE\\Microsoft\\CTF\\TIP\" /s",
+        "sc query type= driver state= all",
+        "objdump -p plugin.dll | grep -E 'DLL Name|Export'"
+      ],
+      "criteria": [
+        "加载链（注册项/服务/驱动）可指认",
+        "入口函数/导出可定位",
+        "用户态调用方或设备/管道可指认",
+        "最小单元可回退"
+      ],
+      "fail": [
+        "仅安装未加载（服务停止/策略禁用）",
+        "只能看到注册项，无法指到调用方",
+        "签名强制/EDR 阻止加载"
+      ],
+      "pitfalls": [
+        "安装≠加载",
+        "只读枚举优先，不加载未签名驱动",
+        "不在生产机触发 IOCTL"
+      ]
+    },
+    {
+      "id": "native-messaging-host",
+      "name": "浏览器 Native Messaging host（本机桥）",
+      "match": [
+        "nativeMessaging",
+        "connectNative",
+        "NativeMessagingHosts",
+        "allowed_origins",
+        "com\\.\\w+\\.\\w+"
+      ],
+      "entry": [
+        "manifest.json permissions",
+        "background connectNative",
+        "NativeMessagingHosts/<name>.json",
+        "host 可执行文件"
+      ],
+      "tools": [
+        "plugin-triage.py",
+        "plugin-repro.py",
+        "reg query",
+        "cat/jq",
+        "strings"
+      ],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.zip --json",
+        "grep -RInE 'connectNative|sendNativeMessage|nativeMessaging' work/repro/unpack --include='*.js'",
+        "reg query \"HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\" /s",
+        "cat \"$HOME/.config/google-chrome/NativeMessagingHosts/com.example.host.json\""
+      ],
+      "criteria": [
+        "扩展 ID ↔ allowed_origins 对应",
+        "host manifest 的 path 指向真实可执行文件",
+        "调用点与 host 启动可对上",
+        "协议字段交 protocol-plugin"
+      ],
+      "fail": [
+        "只有扩展侧 host 名，无 host manifest/二进制",
+        "allowed_origins 过宽但无样本验证",
+        "host 进程无法启动/路径缺失"
+      ],
+      "pitfalls": [
+        "stdin/stdout 长度前缀是本机字节序",
+        "协议复刻不属本域",
+        "host 是独立进程，需单独取证"
+      ]
     }
   ]
 }

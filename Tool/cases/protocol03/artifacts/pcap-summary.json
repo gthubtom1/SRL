@@ -1,0 +1,134 @@
+{
+  "ok": true,
+  "file": "input/websocket.pcapng",
+  "sha256": "ea9fcd3de02bf1824cdcff4bb61f842a6135fbc5d6b154cad00927ed3aa776d2",
+  "size": 2904,
+  "format": "pcapng",
+  "linktype": 1,
+  "linktype_name": "EN10MB/Ethernet",
+  "packet_count": 18,
+  "first_ts": 1694247103.066897,
+  "last_ts": 1694247103.0680234,
+  "duration_s": 0.0011265277862548828,
+  "session_count": 2,
+  "sessions": [
+    {
+      "proto": "TCP",
+      "src": "127.0.0.1",
+      "sport": 44380,
+      "dst": "127.0.0.1",
+      "dport": 8080,
+      "packets": 10,
+      "payload_bytes": 403,
+      "first_ts": 1694247103.066897,
+      "last_ts": 1694247103.0680234,
+      "flags": [
+        2,
+        16,
+        17,
+        24
+      ],
+      "snippets": [
+        "GET /ws HTTP/1.1",
+        "Host: localhost:8080",
+        "User-Agent: Go-http-client/1.1",
+        "Connection: Upgrade",
+        "Sec-WebSocket-Key: gMZehv+rgbF79AzLgIG9Hw==",
+        "Sec-WebSocket-Version: 13",
+        "Upgrade: websocket"
+      ],
+      "snippet_total": 7,
+      "stream_idx": 0,
+      "frame_payload_lens": [
+        0,
+        0,
+        187,
+        0,
+        54,
+        54,
+        54,
+        54,
+        0,
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "127.0.0.1",
+      "sport": 8080,
+      "dst": "127.0.0.1",
+      "dport": 44380,
+      "packets": 8,
+      "payload_bytes": 333,
+      "first_ts": 1694247103.0669062,
+      "last_ts": 1694247103.068017,
+      "flags": [
+        16,
+        17,
+        18,
+        24
+      ],
+      "snippets": [
+        "HTTP/1.1 101 Switching Protocols",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        "Sec-WebSocket-Accept: MPGznO7WEpEGvXiPGvj3vxkmtv4=",
+        "1{\"type\":\"response\",\"data\":\"1265307447409499018\"}",
+        "1{\"type\":\"response\",\"data\":\"7820623503489255511\"}",
+        "1{\"type\":\"response\",\"data\":\"1426939729363796099\"}",
+        "1{\"type\":\"response\",\"data\":\"1030177915652144116\"}"
+      ],
+      "snippet_total": 8,
+      "stream_idx": 1,
+      "frame_payload_lens": [
+        0,
+        0,
+        129,
+        51,
+        51,
+        51,
+        51,
+        0
+      ]
+    }
+  ],
+  "sessions_total": 2,
+  "suspicious_session_count": 2,
+  "suspicious_snippet_count": 15,
+  "extract": {
+    "dir": "artifacts/streams",
+    "files": [
+      {
+        "path": "s00_127.0.0.1_44380-127.0.0.1_8080.bin",
+        "bytes": 403,
+        "sha256": "382d6fa39f38ef0a123f3cbabebfd9e1421e0074e239f8cb4db388e0cddb47e5"
+      },
+      {
+        "path": "s01_127.0.0.1_8080-127.0.0.1_44380.bin",
+        "bytes": 333,
+        "sha256": "20be7eb6e9357305b4f37608029dce747c1bf3e1c86f7eff6d44d06eb1358c16"
+      },
+      {
+        "path": "frames.jsonl",
+        "lines": 18
+      }
+    ]
+  },
+  "tshark": {
+    "available": true,
+    "rc": 0,
+    "protocol_hierarchy": [
+      "===================================================================",
+      "Protocol Hierarchy Statistics",
+      "Filter: ",
+      "frame                                    frames:18 bytes:1940",
+      "  eth                                    frames:18 bytes:1940",
+      "    ip                                   frames:18 bytes:1940",
+      "      tcp                                frames:18 bytes:1940",
+      "        http                             frames:2 bytes:448",
+      "        websocket                        frames:8 bytes:948",
+      "          data-text-lines                frames:8 bytes:948",
+      "==================================================================="
+    ]
+  }
+}

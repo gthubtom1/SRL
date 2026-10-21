@@ -26,10 +26,11 @@ import re
 import shlex
 import shutil
 import sys
+import tempfile
 import time
 from collections import Counter
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # (type, magic, description, search_everywhere)
 SIGNATURES = [
@@ -324,7 +325,7 @@ def analyse(path: str, max_scan_mb: int, max_clues: int, out_dir: str):
     result = {
         "tool": "fw-triage",
         "version": VERSION,
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "generated_at": (os.environ.get("SEEP_TIMESTAMP") or None),
         "file": path,
         "ok": True,
     }
@@ -332,8 +333,10 @@ def analyse(path: str, max_scan_mb: int, max_clues: int, out_dir: str):
         size = os.path.getsize(path)
         digest = sha256_file(path)
     except OSError as exc:
-        return None, {"ok": False, "error": {"code": "FILE_UNREADABLE",
-                                             "message": str(exc), "path": path}}
+        return None, {"ok": False, "blocked_at": "input",
+                       "reason": "%s: %s" % (type(exc).__name__, exc),
+                       "error": {"code": "FILE_UNREADABLE",
+                                 "message": str(exc), "path": path}}
 
     tools = {name: shutil.which(name) is not None
              for name in ("binwalk", "7z", "unsquashfs", "sasquatch", "ubireader_extract_images",
@@ -406,6 +409,48 @@ def analyse(path: str, max_scan_mb: int, max_clues: int, out_dir: str):
     return result, None
 
 
+def self_test():
+    """Offline self-test: built-in bytes only, no network, no external tools."""
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix="fw-triage-selftest-")
+    try:
+        sample = os.path.join(tmp, "sample.bin")
+        blob = (b"\x00" * 512 + b"hsqs" + b"\x00" * 128 + b"UBI#" + b"\x00" * 128 +
+                b"root::0:0:root:/root:/bin/sh\n" +
+                b"-----BEGIN RSA PRIVATE KEY-----\nMIIEabcdef\n-----END RSA PRIVATE KEY-----\n")
+        with open(sample, "wb") as fh:
+            fh.write(blob)
+        result, err = analyse(sample, 1, 10, "out")
+        assert err is None and result and result.get("ok") is True
+        checks += 1
+        types = {c["type"] for c in result["containers"]}
+        assert {"squashfs", "ubi"} <= types, types
+        checks += 1
+        assert result["entropy"]["overall"] > 0.0
+        checks += 1
+        kinds = {c["type"] for c in result["credential_clues"]}
+        assert "passwd-entry" in kinds, kinds
+        checks += 1
+        assert all("<redacted>" in c["snippet"] for c in result["credential_clues"]
+                   if c["type"] == "private-key")
+        checks += 1
+
+        empty = os.path.join(tmp, "empty.bin")
+        open(empty, "wb").close()
+        empty_result, empty_err = analyse(empty, 1, 10, "out")
+        assert empty_err is None and empty_result["size"] == 0
+        checks += 1
+
+        absent, absent_err = analyse(os.path.join(tmp, "missing.bin"), 1, 10, "out")
+        assert absent is None and absent_err and absent_err.get("blocked_at") == "input"
+        checks += 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    print(json.dumps({"ok": True, "tool": "fw-triage", "version": VERSION,
+                      "checks": checks}, ensure_ascii=False))
+    return 0
+
+
 def print_human(result, err):
     if err:
         print("[ERROR] %s: %s" % (err["error"]["code"], err["error"]["message"]))
@@ -452,7 +497,7 @@ def print_human(result, err):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Offline firmware triage: magic/container, entropy, credential strings, extraction commands.")
-    parser.add_argument("--file", required=True, help="firmware image to inspect (read-only)")
+    parser.add_argument("--file", help="firmware image to inspect (read-only)")
     parser.add_argument("--json", action="store_true", help="emit one JSON object")
     parser.add_argument("--max-scan-mb", type=int, default=256,
                         help="max MiB scanned for strings/magic (default 256)")
@@ -460,31 +505,48 @@ def main(argv=None):
                         help="max credential clues reported (default 80)")
     parser.add_argument("--out-dir", default="work/fw-triage",
                         help="directory used in suggested extraction commands")
+    parser.add_argument("--self-test", action="store_true",
+                        help="run the offline built-in checks and exit (no file needed)")
+    parser.add_argument("--version", action="version", version=VERSION)
     args = parser.parse_args(argv)
 
+    if args.self_test:
+        return self_test()
+
+    if not args.file:
+        err = {"ok": False, "blocked_at": "input",
+               "reason": "--file is required unless --self-test is used",
+               "error": {"code": "FILE_REQUIRED",
+                         "message": "--file is required unless --self-test is used",
+                         "path": ""}}
+        print(json.dumps(err, ensure_ascii=False, indent=2))
+        if not args.json:
+            print("[ERROR] FILE_REQUIRED: use --file or --self-test", file=sys.stderr)
+        return 2
+
     if not os.path.exists(args.file):
-        err = {"ok": False, "error": {"code": "FILE_NOT_FOUND",
-                                      "message": "no such file", "path": args.file}}
-        if args.json:
-            print(json.dumps(err, ensure_ascii=False, indent=2))
-        else:
-            print("[ERROR] FILE_NOT_FOUND: %s" % args.file)
-            print(json.dumps(err, ensure_ascii=False, indent=2))
+        err = {"ok": False, "blocked_at": "input",
+               "reason": "no such file: %s" % args.file,
+               "error": {"code": "FILE_NOT_FOUND",
+                         "message": "no such file", "path": args.file}}
+        print(json.dumps(err, ensure_ascii=False, indent=2))
+        if not args.json:
+            print("[ERROR] FILE_NOT_FOUND: %s" % args.file, file=sys.stderr)
         return 2
     if not os.path.isfile(args.file):
-        err = {"ok": False, "error": {"code": "NOT_A_REGULAR_FILE",
-                                      "message": "path is not a regular file", "path": args.file}}
-        if args.json:
-            print(json.dumps(err, ensure_ascii=False, indent=2))
-        else:
-            print("[ERROR] NOT_A_REGULAR_FILE: %s" % args.file)
+        err = {"ok": False, "blocked_at": "input",
+               "reason": "path is not a regular file: %s" % args.file,
+               "error": {"code": "NOT_A_REGULAR_FILE",
+                         "message": "path is not a regular file", "path": args.file}}
+        print(json.dumps(err, ensure_ascii=False, indent=2))
+        if not args.json:
+            print("[ERROR] NOT_A_REGULAR_FILE: %s" % args.file, file=sys.stderr)
         return 2
 
     result, err = analyse(args.file, args.max_scan_mb, args.max_clues, args.out_dir)
     if err:
-        if args.json:
-            print(json.dumps(err, ensure_ascii=False, indent=2))
-        else:
+        print(json.dumps(err, ensure_ascii=False, indent=2))
+        if not args.json:
             print_human(None, err)
         return 2
     if args.json:

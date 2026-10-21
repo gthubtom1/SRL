@@ -1,0 +1,51 @@
+{
+  "title": "真实算法回代：RSA 小指数 / Håstad 广播 / HMAC / MT19937 / AES-ECB / AES-CBC",
+  "commands": [
+    "python input/make_inputs.py",
+    "PYTHONIOENCODING=utf-8 python ../../../Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa input/rsa.json > artifacts/rsa.json",
+    "PYTHONIOENCODING=utf-8 python ../../../Tool/skill/pwn-crypto/scripts/crypto-verify.py --broadcast input/broadcast.json > artifacts/broadcast.json",
+    "PYTHONIOENCODING=utf-8 python ../../../Tool/skill/pwn-crypto/scripts/crypto-verify.py --hmac input/hmac.json > artifacts/hmac.json",
+    "PYTHONIOENCODING=utf-8 python ../../../Tool/skill/pwn-crypto/scripts/crypto-verify.py --mt input/mt.json > artifacts/mt.json",
+    "PYTHONIOENCODING=utf-8 python ../../../Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb input/ecb.json > artifacts/ecb.json",
+    "PYTHONIOENCODING=utf-8 python ../../../Tool/skill/pwn-crypto/scripts/crypto-verify.py --cbc input/cbc.json > artifacts/cbc.json"
+  ],
+  "rsa": {
+    "recovered_ascii": "pwn-crypto-real-rsa",
+    "verified": true,
+    "n_bits": 1023
+  },
+  "broadcast": {
+    "recovered_ascii": "pwn-crypto-real-rsa",
+    "per_modulus": [
+      true,
+      true,
+      true
+    ],
+    "verified": true
+  },
+  "hmac": {
+    "digest": "fdf3ec979c0fd5ce039916c957832a2f2a96f1cf1d609eba7bf1ee2a72f639ac",
+    "verified": true,
+    "tamper_rejected": true
+  },
+  "mt19937": {
+    "state_cloned": true,
+    "verified": true,
+    "predicted_head": [
+      3610430272,
+      605576521,
+      377679824,
+      1419709684
+    ]
+  },
+  "ecb": {
+    "duplicate_blocks": 1,
+    "verified": true
+  },
+  "cbc": {
+    "before": "63",
+    "after": "43",
+    "verified": true
+  },
+  "all_ok": true
+}

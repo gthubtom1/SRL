@@ -1,0 +1,8 @@
+POST /v1/echo HTTP/1.1
+Host: 127.0.0.1:18321
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Type: application/json
+Content-Length: 13
+
+{"temp":21.5}

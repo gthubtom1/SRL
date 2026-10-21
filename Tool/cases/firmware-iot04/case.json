@@ -1,0 +1,80 @@
+{
+  "id": "firmware-iot04",
+  "domain": "firmware-iot",
+  "target_type": "真实 Windows UEFI 启动应用 SecConfig.efi（PE32+，本机 System32）",
+  "vendor": "Microsoft",
+  "model": "Windows UEFI boot application",
+  "firmware_version": "10.0.26100 (file version)",
+  "soc": "x86-64 host",
+  "arch": "x86_64",
+  "storage": "N/A",
+  "evidence_kind": "real",
+  "protection": [
+    "Secure Boot (host policy, not analyzed)"
+  ],
+  "authority": "local",
+  "goal_level": "J1",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/triage.json",
+      "sha256": "37c0cb166599d07d993d562a5de657d1f7e7192a0c60dde42a9e67d9c2788e7f"
+    },
+    {
+      "path": "artifacts/repro.json",
+      "sha256": "61981d49873609b3a3bf1185e0200c678a78c9b118fe452b40327c245c1515e1"
+    }
+  ],
+  "interfaces": {
+    "uart": {
+      "pads": "N/A",
+      "baud": 0,
+      "voltage": "N/A",
+      "shell": false
+    },
+    "jtag": {
+      "adapter": "",
+      "idcode": "",
+      "verified": false
+    },
+    "spi": {
+      "chip": "",
+      "voltage": "N/A",
+      "read_hash": ""
+    }
+  },
+  "emulation": {
+    "mode": "none",
+    "boot_ok": false,
+    "service_ok": false,
+    "notes": "未执行：UEFI PE 不是可启动 rootfs；未读取固件卷或 Secure Boot 变量。"
+  },
+  "lessons": [
+    "跑的是 python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json > artifacts/triage.json，rc=0；随后 fw-repro.py --out-dir work/fw-case04 --json > artifacts/repro.json，rc=0。",
+    "真实识别：sha256=820a15d9...，1346960 字节；PE32+ x86-64，subsystem=16（Windows boot application, UEFI-era），9 个节，.text 熵 6.491，整体熵 6.489。",
+    "误报处理：triage 在 10818/24253/40228/96461 等处报 gzip，并在 18587 报 JFFS2；fw-repro 把 PE 定为主格式，抽取状态记为 not-applicable，避免把压缩资源当固件容器。",
+    "卡点：只有单个 PE 文件，没有固件卷（FV）、没有 db/dbx/KEK/PK 变量导出，也没有 ESP 全量；无法验证 Secure Boot 策略或启动链完整性。",
+    "下一步：在授权主机上导出 UEFI 变量与固件卷（chipsec/uefi-firmware-parser），核对 dbx 是否覆盖该 boot app 的哈希，再做签名链验证。",
+    "边界：PE 节熵和字符串只能说明镜像形态；不等于启动链可信，也不构成 J1/J2/J3。"
+  ],
+  "tags": [
+    "real-firmware",
+    "uefi",
+    "pe32+",
+    "secure-boot",
+    "entropy",
+    "partial"
+  ],
+  "refs": [
+    "Tool/skill/firmware-iot/SKILL.md",
+    "Tool/skill/firmware-iot/references/01-criteria.md",
+    "Tool/skill/firmware-iot/references/04-walkthrough-uefi-efi.md",
+    "Tool/skill/firmware-iot/references/05-uefi-and-secure-boot.md",
+    "Tool/config/firmware-iot-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

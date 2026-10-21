@@ -1,0 +1,149 @@
+{
+  "id": "forensics05",
+  "domain": "forensics-mobile",
+  "route": "R26",
+  "target_type": "Unity IL2CPP + AssetBundle 客户端教学夹具（自建，无真实游戏资源/账号）",
+  "platform": "unity",
+  "protection": [],
+  "authority": "local-owner-authorized",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "evidence_kind": "fixture",
+  "acquisition": {
+    "method": "fixture build + read-only copy",
+    "tool": "python struct/bytes + forensics-check.py 1.1 + fs-timeline.py 1.0",
+    "collected_at": "2026-10-21T14:39:47Z",
+    "timezone": "UTC",
+    "operator": "case fixture",
+    "source": "自建 global-metadata.dat / data.unity3d / GameAssembly.dll（仅头部与占位字节）",
+    "clock_skew": "0；夹具时间由构造脚本写入",
+    "readonly": "构建后 chmod a-w"
+  },
+  "questions": [
+    "这个 Unity 客户端是 Mono 还是 IL2CPP；global-metadata 版本与 GameAssembly 是否可对应；AssetBundle 头/Unity 版本是什么；在没有 Il2CppDumper 的情况下能证到哪一步？"
+  ],
+  "timeframe": {
+    "start": "2026-10-20T03:14:00Z",
+    "end": "2026-10-21T14:39:50Z",
+    "clock_skew": "0（夹具）"
+  },
+  "findings": [
+    {
+      "claim": "global-metadata.dat 头为 0xFAB11BAF、version=29，属于 IL2CPP 元数据；夹具中另有 UTF-16 类型名字面量 PlayerData/gold/level",
+      "time_utc": "2026-10-20T03:14:00Z",
+      "actor": "global-metadata.dat",
+      "action": "metadata header identify（分析时刻，非事件时刻）",
+      "object": "input/global-metadata.dat（sha256 a7c97872…）",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "input/global-metadata.dat",
+        "artifacts/check-global-metadata-dat.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/global-metadata.dat --json"
+    },
+    {
+      "claim": "data.unity3d 头为 UnityFS、format_version=6、unity_version=2022.3.10f1，可作为 AssetBundle 解析入口",
+      "time_utc": "2026-10-20T03:14:00Z",
+      "actor": "data.unity3d",
+      "action": "AssetBundle header parse（分析时刻，非事件时刻）",
+      "object": "input/data.unity3d（sha256 8976b811…）",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "input/data.unity3d",
+        "artifacts/check-data-unity3d.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/data.unity3d --json"
+    },
+    {
+      "claim": "GameAssembly.dll 是 PE（MZ/PE 头），是 IL2CPP 原生侧二进制；夹具未包含可执行代码，不能运行",
+      "time_utc": "2026-10-20T03:14:00Z",
+      "actor": "GameAssembly.dll",
+      "action": "PE identify（分析时刻，非事件时刻）",
+      "object": "input/GameAssembly.dll（sha256 bdf33b3c…）",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "input/GameAssembly.dll",
+        "artifacts/check-GameAssembly-dll.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/GameAssembly.dll --json"
+    },
+    {
+      "claim": "三份夹具的 ctime/mtime/atime 可归一为 UTC，共 9 条事件；时间来自分析副本而非游戏运行时间",
+      "time_utc": "2026-10-21T14:39:47.170395Z",
+      "actor": "analysis copy",
+      "action": "filesystem timestamps",
+      "object": "input/（3 个文件）",
+      "confidence": "observed",
+      "evidence_refs": [
+        "artifacts/timeline.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input --all-times --out artifacts/timeline.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input/global-metadata.dat",
+      "sha256": "a7c978725a760e8b9e475042db94f480d293700927c26a717decb690476a4601"
+    },
+    {
+      "path": "input/data.unity3d",
+      "sha256": "8976b8114857626a9186abbbbad34cf4e6ee7fbda0df5466d209fff986634c60"
+    },
+    {
+      "path": "input/GameAssembly.dll",
+      "sha256": "bdf33b3ca96b8daf8e2e623e3da433a6897b985bd68de8f994421ad75fb4f888"
+    },
+    {
+      "path": "artifacts/check-global-metadata-dat.json",
+      "sha256": "bb1558b0f7c04a04557142a59b0cc31fdd3f8ad9f99a5733521d7460fadc42a6"
+    },
+    {
+      "path": "artifacts/check-data-unity3d.json",
+      "sha256": "d5f0533f3876d464a10b65f552e21da5a4c23f95d108fa4667a9e10255b4c5a6"
+    },
+    {
+      "path": "artifacts/check-GameAssembly-dll.json",
+      "sha256": "609eae1787e9a0d1eccc03b586fb4af88a5e5c8ce278fda6787e47f3c1b0467b"
+    },
+    {
+      "path": "artifacts/timeline.json",
+      "sha256": "12971ff94c42d28511e2892bd852a891a18a46b0e4ccdca9a35e19d40770c442"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "a4929b49b925f6ce09fc3b135276f2cb6a15419c528e65357a0d351daf0edeca"
+    }
+  ],
+  "lessons": [
+    "跑的是 forensics-check.py 对 global-metadata.dat、data.unity3d、GameAssembly.dll 三份夹具做头部识别，命令 `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/global-metadata.dat --json`，rc=0；另两份各 rc=0，fs-timeline.py 生成 9 条文件系统时间事件。",
+    "发现：元数据 magic/version=29、AssetBundle UnityFS format=6/Unity 2022.3.10f1、GameAssembly 为 PE；三者版本可对应，但夹具不含真实方法/地址/资源。",
+    "边界：本机没有 Il2CppDumper/Cpp2IL/AssetStudio，无法产出 dump.cs/script.json/资源清单；按失败判据标 blocked_at=tool-missing，不伪造方法地址或资源内容。",
+    "还差什么：在工具可用环境跑 Il2CppDumper 得到 dump.cs/script.json，用 IDA/Ghidra 落地址；用 AssetStudio/UnityPy 导出 CAB/TextAsset；把服务器下发字段与客户端方法、运行时偏移连成链。",
+    "失败判据：元数据版本与 GameAssembly 不匹配、AssetBundle 头不是 UnityFS/UnityWeb/UnityRaw、或运行时偏移两次读取不一致，均停并降级。",
+    "R3 修复：timeline.json 的事件补 action 字段（由 fs-timeline 的 derive_action 按 kind 派生，与工具输出同源），并去掉 generated_at 以便复跑；哈希已重算。"
+  ],
+  "tags": [
+    "R26",
+    "forensics",
+    "fixture",
+    "unity",
+    "il2cpp",
+    "assetbundle",
+    "game-client"
+  ],
+  "refs": [
+    "Tool/skill/forensics-mobile/SKILL.md",
+    "Tool/skill/forensics-mobile/references/01-criteria.md",
+    "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+    "Tool/skill/forensics-mobile/references/game-client-il2cpp.md",
+    "Tool/skill/forensics-mobile/references/evidence-chain.md",
+    "Tool/config/forensics-mobile-matrix.json",
+    "Tool/cases/forensics05/input/global-metadata.dat",
+    "Tool/cases/forensics05/artifacts/timeline.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

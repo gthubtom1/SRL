@@ -47,8 +47,13 @@ $sel = New-Object System.Collections.Generic.List[string]
 foreach ($route in $cfg.routes.PSObject.Properties) {
     $id = $route.Name
     foreach ($kw in $route.Value.keywords) {
-        $hit = $false
-        if ($null -ne $kw.must -and $t -match $kw.must) { $hit = $true }
+        # ★ 血案修复（2026-10-21 审计 P0）：原先 $hit 从 $false 起，只有 `must` 命中才会置真，
+        # 于是「只有 mustAll、没有 must」的组合规则**永远不可能命中**——R23 的 kubectl+RBAC、
+        # R25 的 6 条组合词、R28 的 npm+registry 全部是死规则，而门禁另一套实现却判它们有效。
+        # 现在：有 must 就以 must 起判；没有 must 但有 mustAll/exclude 时从真起判，
+        # 保证「组合限定词单独成条」也能生效。
+        $hit = $true
+        if ($null -ne $kw.must) { $hit = ($t -match $kw.must) }
         # mustAll：全部子正则都匹配才成立
         if ($hit -and $null -ne $kw.mustAll) {
             foreach ($m in $kw.mustAll) {
@@ -61,7 +66,11 @@ foreach ($route in $cfg.routes.PSObject.Properties) {
     }
 }
 
-# --- 计分：同 id 多规则命中则加分（与旧版一致） ---
+# --- 计分：只作展示；PRIMARY 由 priority 决定（2026-10-21 审计 P0-2） ---
+# 旧口径「命中规则条数多者胜」会让多规则域系统性吞并单规则域：
+# R29(4 条) 永远压过 R1/R8/R9(各 1 条) —— "Frida 在 android 上 hook" 被判成 softseep。
+# 词写得再准也没用。现在改为 **priority 优先**：按 priority 顺序取第一个有命中的域，
+# 分数只用于展示"命中了几条规则"。代价是要人工维护 priority 顺序（已有自检保证一一对应）。
 $scores = [ordered]@{}
 foreach ($item in $sel) {
     if (-not $scores.Contains($item)) { $scores[$item] = 0 }
@@ -81,19 +90,14 @@ if ($missingInPriority.Count -gt 0 -or $extraInPriority.Count -gt 0) {
     if ($extraInPriority.Count -gt 0) { Write-Host ("  priority not in routes: {0}" -f ($extraInPriority -join ', ')) -ForegroundColor Yellow }
 }
 
-# --- 按 priority 顺序取分数最高者为 PRIMARY（并列时 priority 靠前者胜出） ---
+# --- PRIMARY = priority 顺序里第一个命中的域；fallback 不参与竞争 ---
 $priority = @($cfg.priority)
 $fallbackId = $cfg.meta.fallbackId
 $primary = $null
-$maxScore = -1
+$maxScore = 0
 foreach ($p in $priority) {
-    if ($scores.Contains($p)) {
-        $score = $scores[$p]
-        if ($score -gt $maxScore) {
-            $maxScore = $score
-            $primary = $p
-        }
-    }
+    if ($p -eq $fallbackId) { continue }   # R0 的 `.*` 是兜底，不是候选
+    if ($scores.Contains($p)) { $primary = $p; $maxScore = $scores[$p]; break }
 }
 
 $notes = New-Object System.Collections.Generic.List[string]

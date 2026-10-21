@@ -1,0 +1,54 @@
+{
+  "tool": "cloud-iam-eval",
+  "version": "1.0.0",
+  "ok": true,
+  "offline": true,
+  "identity": "arn:aws:iam::123456789012:user/ci-runner",
+  "action": "iam:CreatePolicyVersion",
+  "resource": "arn:aws:iam::123456789012:policy/demo",
+  "decision": "allow",
+  "matched": [
+    {
+      "policy": "CiRunnerInline",
+      "effect": "allow",
+      "condition": "true"
+    }
+  ],
+  "unknown_conditions": [],
+  "deny_statements": [],
+  "privesc": [
+    {
+      "action": "iam:createpolicyversion",
+      "severity": "critical",
+      "why": "rewrite a managed policy to grant full admin",
+      "resource_broad": true,
+      "policy": "CiRunnerInline"
+    },
+    {
+      "action": "iam:passrole",
+      "severity": "high",
+      "why": "pass a privileged role into a compute service",
+      "resource_broad": true,
+      "policy": "CiRunnerInline"
+    },
+    {
+      "action": "s3:getobject",
+      "severity": "high",
+      "why": "read objects if the resource is broad",
+      "resource_broad": false,
+      "policy": "CiRunnerInline"
+    },
+    {
+      "action": "s3:listbucket",
+      "severity": "medium",
+      "why": "enumerate objects across buckets",
+      "resource_broad": false,
+      "policy": "CiRunnerInline"
+    }
+  ],
+  "limits": [
+    "Conditions other than StringEquals/StringLike/ArnEquals/ArnLike/Bool are not evaluated.",
+    "Permissions boundaries and SCPs are treated as allow-lists; resource policies and session policies are not modelled.",
+    "A written Allow is not proof that the credential is live; call sts get-caller-identity online."
+  ]
+}

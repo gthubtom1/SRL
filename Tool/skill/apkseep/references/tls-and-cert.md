@@ -94,7 +94,7 @@ Run the same check against every host you extracted from the app, then compare:
   adb shell date          # compare against a known-correct time source
   ```
   If Step 2 passes but the device fails, the cause is the device clock, not the certificate. Correcting the clock and relaxing the trust policy are different decisions; do not do both silently.
-- Check the **unpatched original** in the same environment. See `verification.md` §the control build rule and `pitfalls.md` P9. If the original fails identically, the patch is not the cause, and no amount of dex work will fix it.
+- Check the **unpatched original** in the same environment. See `verification.md` §the control build rule and `pitfalls-2-environment-and-evidence.md`. If the original fails identically, the patch is not the cause, and no amount of dex work will fix it.
 
 ## Step 4: which trust chain owns the failing request
 
@@ -160,7 +160,7 @@ Then the failure is about the app's own client configuration, not the platform d
 
 ## Method notes
 
-- **Order of investigation is the lesson.** Every piece of evidence above comes from the server, the network, or the platform before anything is attributed to your patch: full exception chain, real host, out-of-band validation, second-host comparison, control build. Only when all of them point at a client trust decision is a patch justified. `pitfalls.md` P16 is this mistake written up as a failure.
+- **Order of investigation is the lesson.** Every piece of evidence above comes from the server, the network, or the platform before anything is attributed to your patch: full exception chain, real host, out-of-band validation, second-host comparison, control build. Only when all of them point at a client trust decision is a patch justified. `pitfalls-2-environment-and-evidence.md` is this mistake written up as a failure.
 - **This is a control-build case, not a patch case.** `verification.md` §the control build rule applies directly: same pipeline, zero patches. If the control fails the same way, stop debugging the patch.
 - **Report the residual honestly.** "The server certificate is expired; the client patch relaxes validation on the `HttpsURLConnection` path only, OkHttp is unchanged, the proper fix is on the server" is the useful statement. "I fixed login" is not.
 - **Claim strength.** This evidence chain reaches rung 6 on the `verification.md` claim ladder: the mechanism is proven, not merely observed. Say which rung you reached.

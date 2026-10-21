@@ -61,7 +61,7 @@ def enumerate_internal_packages(domain: str):
     for js_file in ["/main.js", "/app.js", "/bundle.js", "/index.js"]:
         r = requests.get(f"https://{domain}/{js_file}")
         if r.status_code == 200:
-            imports = re.findall(r'(?:import|require)\s*\(?["\']([@\w][^"\']+)["\']', r.text)
+            imports = re.findall(r'(?:import|require)\s*\(?"\'["\']', r.text)
             for imp in imports:
                 if not imp.startswith("@") or imp.startswith(f"@{domain.split('.')[0]}"):
                     internal.append(imp)
@@ -100,7 +100,7 @@ import json
 import re
 from pathlib import Path
 
-PKG = re.compile(r"(?:from|require\()\s*[\"']([^\"']+)[\"']|(?:^|\s)([@\w][\w./-]+)==?[\d*]", re.M)
+PKG = re.compile(r"(?:from|require\()\s*\"'[\"']|(?:^|\s)([@\w][\w./-]+)==?[\d*]", re.M)
 
 def scan_paths(paths):
     names = set()

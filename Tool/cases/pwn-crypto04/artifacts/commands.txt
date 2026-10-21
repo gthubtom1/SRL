@@ -1,0 +1,8 @@
+# 在仓库根执行；pycryptodome + Python 3.12 实跑
+python Tool/cases/pwn-crypto04/input/make_inputs.py
+PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa Tool/cases/pwn-crypto04/input/rsa.json
+PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --broadcast Tool/cases/pwn-crypto04/input/broadcast.json
+PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --hmac Tool/cases/pwn-crypto04/input/hmac.json
+PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --mt Tool/cases/pwn-crypto04/input/mt.json
+PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb Tool/cases/pwn-crypto04/input/ecb.json
+PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --cbc Tool/cases/pwn-crypto04/input/cbc.json

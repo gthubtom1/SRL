@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "target": "crackerjack/a.exe",
+  "source": "Tool/samples/real/crackerjack/a.exe（MIT，真实第三方 crackme）",
+  "target_sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+  "result_sha256": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00",
+  "reason": "strcmp 双段比较（trance 分两段 imm32 比较），把首段 je 改 jmp、次段 jne 改 NOP，使任意输入落入 PASS 分支",
+  "patches": [
+    {
+      "id": "P1",
+      "offset": 7810,
+      "original": "7413",
+      "new": "EB13",
+      "semantic": "je → jmp（跳过 FAIL 分支）"
+    },
+    {
+      "id": "P2",
+      "offset": 7839,
+      "original": "75E3",
+      "new": "9090",
+      "semantic": "jne → nop nop（次段比较失效，直落 PASS puts）"
+    }
+  ],
+  "rollback": {
+    "backup": "patch-manifest.json.rollback.backup",
+    "backup_sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+  }
+}

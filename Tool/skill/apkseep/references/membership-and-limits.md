@@ -76,7 +76,7 @@ A value can be "fixed" in two places:
 | Code (patched dex) | Yes | Yes |
 | App data (datastore/prefs/db) | **No** | No — unless you also patch the read path |
 
-If a fix works on your device but a user reports it gone after reinstall, this is why (`references/pitfalls.md` P11). Re-implement the fix by patching the **read path** so it always yields the desired value.
+If a fix works on your device but a user reports it gone after reinstall, this is why (`references/pitfalls-2-environment-and-evidence.md`). Re-implement the fix by patching the **read path** so it always yields the desired value.
 
 ## Reporting template
 

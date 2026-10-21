@@ -1,0 +1,50 @@
+{
+  "container": "asar",
+  "sha256": "4f01c2092f2c7926e624303c6f9a96d85f94ea84bb7d9bfae0b5b65d88a60cfd",
+  "size": 1617,
+  "header_size": 309,
+  "data_offset": 292,
+  "dir_count": 0,
+  "file_count": 6,
+  "top_level": [
+    "main.js",
+    "node_modules",
+    "package.json",
+    "preload.js",
+    "renderer.html",
+    "renderer.js"
+  ],
+  "directories": [],
+  "interesting_files": [
+    "package.json"
+  ],
+  "unpacked_files": [],
+  "package": {
+    "name": "lab-electron-plugin",
+    "version": "0.3.0",
+    "main": "main.js",
+    "activationEvents": [],
+    "commands": [],
+    "menus": [],
+    "keybindings": null,
+    "configuration": false,
+    "dependencies": [
+      "left-pad"
+    ],
+    "devDependencies": [],
+    "scripts": {},
+    "engines": {},
+    "preload": "preload.js",
+    "capabilities": {},
+    "extensionKind": null,
+    "os": null
+  },
+  "entrypoints": {
+    "package": "package.json",
+    "main": "main.js"
+  },
+  "ok": true,
+  "path": "Tool/cases/plugin04/input/app.asar",
+  "type": "Electron asar 包",
+  "conclusion": "入口已定位；未命中高风险 API 不代表安全，需补数据流与动态证据"
+}

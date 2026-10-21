@@ -1,0 +1,34 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics05\\input\\GameAssembly.dll",
+  "type": "pe",
+  "format": "PE",
+  "confidence": "observed",
+  "meta": {},
+  "timeline": {
+    "start_utc": "2026-10-21T14:39:47.171430Z",
+    "end_utc": "2026-10-21T14:39:47.171430Z",
+    "basis": "filesystem mtime only; content time requires acquisition record",
+    "timezone": "UTC display of local mtime",
+    "clock_skew": "unknown",
+    "precision": "filesystem dependent"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "节区/熵/导入导出",
+    "资源与 overlay",
+    "PDB/版本信息",
+    "字符串与配置"
+  ],
+  "integrity": {
+    "sha256": "bdf33b3ca96b8daf8e2e623e3da433a6897b985bd68de8f994421ad75fb4f888",
+    "size": 2372,
+    "mtime_utc": "2026-10-21T14:39:47.171430Z",
+    "readonly": true,
+    "warnings": [],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

@@ -2,12 +2,13 @@
   "id": "forensics02",
   "domain": "forensics-mobile",
   "route": "R26",
-  "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录）",
+  "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录，教学夹具）",
   "platform": "linux",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
   "outcome": "partial",
+  "evidence_kind": "fixture",
   "acquisition": {
     "method": "log",
     "tool": "应用日志副本 + forensics-check.py 1.0 + grep",
@@ -115,11 +116,16 @@
   ],
   "refs": [
     "Tool/skill/forensics-mobile/SKILL.md",
-    "Tool/skill/forensics-mobile/references/forensics.md",
+    "Tool/skill/forensics-mobile/references/01-criteria.md",
+    "Tool/skill/forensics-mobile/references/network-pcap-and-log.md",
     "Tool/skill/forensics-mobile/references/evidence-chain.md",
     "Tool/config/forensics-mobile-matrix.json",
     "Tool/cases/forensics02/input/app.log",
     "Tool/cases/forensics02/artifacts/run.json"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
 }

@@ -126,7 +126,7 @@
 | 案子闸 | `Tool/scripts/case_state.py` | 事实账 / 深度门 / 裁定 / `gate` / `deliver` | 删脚本 + 恢复 00/01 的文字规则 |
 | MCP 只增不删闸 | `Tool/scripts/mcp-guard.py` + `Tool/mcp/.baseline/tools.json` | 把"净删除 0 行"从承诺变成可执行 | 删两者 + preflight 对应项 |
 | MCP 验连 | `Tool/scripts/mcp-doctor.py` | 连不上必须报（不许静默） | 删脚本（verify 仍有基础断言） |
-| 单一总纲 | `优化方案.md`（根目录） | 缺陷台账 + 批次路线 | 删文件 + AGENTS 指针回退 |
+| 单一入口 | `ROADMAP.md`（根目录；`优化方案*.md` 已移出到 `work/plans/`） | 现状 + 下一步 | 删文件 + AGENTS 指针回退 |
 
 **M 类·函数体内插入（仅 3 处，均有标记）**：`seep_mcp_server.py` 的 `kb_local`、`kb-multitoken`（两处）、
 `_hash_file` 流式哈希。这三处**不是末尾纯追加**；`mcp-guard.py` 校验工具名不减少、`SEEP-EXT` 标记成对。
@@ -235,7 +235,7 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 | 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/master-route.ps1`<br>`Tool/scripts/routing.json` |
 | 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md`<br>`Tool/docs/TOOLKIT_GUIDE.md` |
 | 安装与校验 | `setup/clean-format.py`<br>`setup/generate-configs.ps1`<br>`setup/install-ida.ps1`<br>`setup/install-pi.ps1`<br>`setup/install-python.ps1`<br>`setup/install.sh`<br>`setup/uninstall.ps1`<br>`setup/uninstall.sh`<br>… 另 4 个 |
-| 根目录 | `.gitignore`<br>`.mcp.json`<br>`CHANGELOG.md`<br>`CLAUDE.md`<br>`DSH-PROFILE.md`<br>`README.md`<br>`README.zh.md`<br>`VERSION`<br>… 另 4 个 |
+| 根目录 | `.gitignore`<br>`.mcp.json`<br>`docs/CHANGELOG.md`<br>`Tool/prompts/contracts/CLAUDE.md`<br>`Tool/prompts/contracts/DSH-PROFILE.md`<br>`README.md`<br>`README.zh.md`<br>`VERSION`<br>… 另 4 个 |
 
 > 生成时间：见本次提交；重新生成：`python Tool/scripts/fork-delta.py`
 <!-- AUTO-DELTA:END -->

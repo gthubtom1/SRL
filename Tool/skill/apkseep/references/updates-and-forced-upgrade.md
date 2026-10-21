@@ -102,7 +102,7 @@ dialog you are trying to avoid.
   identity.
 - **Do not strip the installer permission** unless you have checked nothing else uses it.
 - **Do not block the update hostname at the transport layer.** That is the same class of mistake as
-  blocking ad hosts (`pitfalls.md` P5): it fails offline/online transitions, needs a helper on the
+  blocking ad hosts (`pitfalls-1-packaging-and-dex.md`): it fails offline/online transitions, needs a helper on the
   machine, and is not a property of the artifact. It is also not required — the check is local code.
 
 ## Step 4: verify

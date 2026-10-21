@@ -16,3 +16,12 @@ APK 哈希/Manifest → jadx/apktool 静态分析 → Java/Native 调用链
 ```
 
 每发现加密、混淆、壳、native 或网络信号，立即以 `board=apk-reverse` 调用 `kb_router`。
+
+## 索引补充
+
+- [攻击网络总览（APK 视图）](techniques/attack-network.md)
+- [完整技术索引](techniques/README.md)
+
+## 子目录索引
+
+- [ai-findings/README.md](ai-findings/README.md)

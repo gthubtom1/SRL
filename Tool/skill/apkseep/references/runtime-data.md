@@ -1,6 +1,6 @@
 # Runtime data — DataStore, SharedPreferences, SQLite, protobuf
 
-Sometimes the cheapest fix is not code at all, but a value in app data. And sometimes that is exactly the wrong fix, because it does not survive a fresh install (`pitfalls.md` P11).
+Sometimes the cheapest fix is not code at all, but a value in app data. And sometimes that is exactly the wrong fix, because it does not survive a fresh install (`pitfalls-2-environment-and-evidence.md`).
 
 
 **Load this when:** the cheapest fix looks like a stored value rather than code -- DataStore, SharedPreferences, SQLite, a protobuf cache, a token. It gives how to edit each safely, and how to tell a value the app rewrites from one it keeps.
@@ -57,7 +57,7 @@ value payload (e.g. bool)        : 08 <0x00|0x01>     # field 1, wire type 0
 value payload (e.g. string)      : 2A <len> <utf8>    # field 5, wire type 2
 ```
 
-Omitting the **outer** tag produces a file the app cannot deserialize, and the failure is usually a **stack-less crash** (`pitfalls.md` P8). Use `scripts/datastore_inject.py` rather than hand-rolling it.
+Omitting the **outer** tag produces a file the app cannot deserialize, and the failure is usually a **stack-less crash** (`pitfalls-1-packaging-and-dex.md`). Use `scripts/datastore_inject.py` rather than hand-rolling it.
 
 Procedure:
 1. `am force-stop <pkg>` (DataStore caches in memory and writes back)
@@ -167,7 +167,7 @@ If the effect must ship inside an APK, move it into code. Patterns, in order of 
 
 - **Patch the read path** so the value is always the desired one. Find where the Flow/getter is built and make it emit a constant.
 - **Patch the decision**, not the data: find the comparison that consumes the value and make it resolve the way you want.
-- **Do not patch the generic encoder/boxer** used by the whole app (`pitfalls.md` P6).
+- **Do not patch the generic encoder/boxer** used by the whole app (`pitfalls-1-packaging-and-dex.md`).
 
 Reference case: a promo popup was gated by `<key>_expires_at`. Writing a large value via DataStore suppressed it on the test device, but a fresh install lost it. The durable fix replaced the dedicated map-lambda that produces the value so it always yields a far-future timestamp — a single-purpose class, safe to patch, no effect on the shared serialization helpers.
 

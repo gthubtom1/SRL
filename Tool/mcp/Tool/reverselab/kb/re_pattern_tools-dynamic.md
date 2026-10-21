@@ -635,7 +635,7 @@ for ch in string.printable:
 
 ## Triton (Dynamic Symbolic Execution)
 
-See [tools-advanced.md](tools-advanced.md#triton-dynamic-symbolic-execution) for full Triton reference. Quick usage:
+See tools-advanced.md for full Triton reference. Quick usage:
 
 ```python
 from triton import *

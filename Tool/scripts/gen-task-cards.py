@@ -20,7 +20,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
-SRC = os.path.join(ROOT, "逆向分析报告提示词.md")
+SRC = os.path.join(ROOT, "Tool", "prompts", "sources", "逆向分析报告提示词.md")
 DST = os.path.join(ROOT, "Tool", "prompts", "tasks", "analyze.md")
 FRONT = ("---\n"
          "description: 阶段零：分析透出可复现报告 + 可行性裁定（本轮不做成品）\n"

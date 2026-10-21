@@ -1,0 +1,2 @@
+1	0	GET	/login	lab.example.test	Bearer abc		
+3	0	GET	/dashboard	lab.example.test			

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <link href='popup.css' rel='stylesheet' />
+    <link href='../libs/hint/hint.min.css' rel="stylesheet" />
+    <!-- <link href='/libs/bs/bootstrap.min.css' rel='stylesheet' />    -->
+</head>
+
+<body>
+    <!-- Top bar -->
+    <div style='height:4px; background-color: #3583eb;'>
+    </div>
+
+    <section>
+        <div style='display:flex; flex-direction: row; justify-content: space-between;'>
+            <h4 style="margin: 3px 0 3px 0;">连接状态：</h4>
+        </div>
+
+        <table style='border:none; margin:0 0 0 20px;'>
+            <tr>
+                <td>
+                    浏览器
+                </td>
+                <td width="10">：</td>
+                <td>
+                    <span id="browser" class='hint--bottom' aria-label='当前识别的浏览器名称'></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    消息代理
+                </td>
+                <td>：</td>
+                <td>
+                    <span id="msgHostConnection"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Quicker
+                </td>
+                <td>：</td>
+                <td>
+                    <span id="quickerConnection"></span>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    自定义环境名
+                </td>
+                <td>：</td>
+                <td>
+                    <span id="envNameContainer" style="display: flex; align-items: center; gap: 4px;">
+                        <span id="envNameDisplay" class="hint--top" aria-label="当前环境名称，用于区分不同Profile"
+                            style="color:#c75006; cursor: pointer; font-weight: bold;"></span>
+                        <button id="btn-edit-env" class="hint--top" aria-label="编辑环境名称" title="编辑环境名称"
+                            style="border: none; background: transparent; cursor: pointer; padding: 2px;">
+                            <img src="pen-to-square-regular.svg" width="12" height="12"
+                                style="vertical-align: middle; opacity: 0.6;" />
+                        </button>
+                    </span>
+                </td>
+            </tr>
+        </table>
+    </section>
+    <hr>
+    <section>
+        <div style='margin: 0 0 0 20px;'>
+            <label class='hint--bottom' style='display:inline-block;' aria-label='实时更新当前网址到Quicker。'>
+                <input style='vertical-align: middle; margin-right: 4px; margin-top: 6px;' type="checkbox"
+                    id='chkEnableReport'>
+                <span style='vertical-align: middle; margin-top: 0;'>开启网址同步</span>
+            </label>
+        </div>
+    </section>
+    <hr>
+    <section>
+        <h4 style="margin: 0px 0 5px 0;">
+            可选权限：
+            <span style='display: inline-block;margin:0 20px;'>
+                <button id='btn-allow-all' class='hint--bottom' aria-label='允许所有可选权限'><span style="color:green">✔</span>
+                    允许全部</button>
+                <button id='btn-remove-all' class='hint--bottom' aria-label='禁止所有可选权限'><span title="已禁止"
+                        style="color:red;">🛇</span> 禁用全部</button>
+            </span>
+        </h4>
+        <div id='pnlPermissions' style="display: flex; flex-direction:column;">
+        </div>
+    </section>
+    <hr>
+    <div class="popup-toolbar">
+        <div class="popup-toolbar-left">
+            <button id='btn-picker' class='hint--top-right' aria-label='获取元素选择器' title="获取元素选择器">
+                <img src="crosshairs-regular.svg" width="14" height="14" style="vertical-align: middle;" />
+            </button>
+            <button id='btn-reset-floater' class='hint--top' aria-label='重置浮标位置' title="重置浮标位置">
+                <img src="arrow-rotate-left-regular.svg" width="14" height="14" style="vertical-align: middle;" />
+            </button>
+            <button id='btn-settings' class='hint--top' aria-label='打开扩展设置' title="打开扩展设置">
+                <img src="cog.svg" width="14" height="14" style="vertical-align: middle;" />
+            </button>
+        </div>
+        <button id='btn-list-designer' class='hint--top-left' aria-label='打开 Quicker 网页工具（列表提取、表单填写）' title="打开 Quicker 网页工具（列表提取、表单填写）">
+            <img src="web-tools.svg" width="14" height="14" style="vertical-align: middle;" />
+        </button>
+    </div>
+
+    <hr>
+    <div class='footer'>
+        <span style='font-size: 0.9em; color:#666'>
+
+            <span>QuickerConnector</span>
+            <span id='extVersion'></span>
+        </span>
+
+
+
+        <span style='color:#AAA'>
+            <a href='../docs/index.html' target="_blank">
+                文档
+            </a>
+        </span>
+
+    </div>
+
+    <!-- 环境名称编辑对话框 -->
+    <div id="envNameDialog"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); min-width: 250px;">
+            <h4 style="margin: 0 0 10px 0;">设置环境名称</h4>
+            <p style="font-size: 0.85em; color: #666; margin: 0 0 10px 0;">用于区分同一浏览器的不同Profile环境。
+                <br/>
+                <span style="color:#cd5124">请参考模块文档，除非必要，请勿设置。</span>
+            </p>
+            <input type="text" id="envNameInput" placeholder="输入环境名称"
+                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" />
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+                <button id="btn-cancel-env"
+                    style="padding: 6px 12px; border: 1px solid #ccc; background: #f5f5f5; border-radius: 4px; cursor: pointer;">取消</button>
+                <button id="btn-save-env"
+                    style="padding: 6px 12px; border: none; background: #3583eb; color: white; border-radius: 4px; cursor: pointer;">保存</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- <script src='../libs/bs/bootstrap.bundle.min.js'></script> -->
+    <script src="popup.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,66 @@
+{
+  "id": "pwn-crypto05",
+  "domain": "pwn-crypto",
+  "target_type": "自建靶：现场编译的 PE32+ 格式化串样本（真实产物）",
+  "evidence_kind": "real",
+  "protection": [
+    "NX",
+    "No PIE (-no-pie)",
+    "No Canary (-fno-stack-protector)"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "confirmed",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "17204962fa061c22185142421c85a313d1de1d4369d66f807401afa3e6b85059"
+    },
+    {
+      "path": "artifacts/leak_result.json",
+      "sha256": "1f4aa7f23797e93f9a96a25fd202c96caaf7c9fced819fcc29d804e2c3e3d4f9"
+    },
+    {
+      "path": "artifacts/percent_n_result.txt",
+      "sha256": "e1c6c8cb4c5992213bfcf1e1ff69c3c53b398e298b6bec8fa77a58ba240c5540"
+    },
+    {
+      "path": "artifacts/nm.txt",
+      "sha256": "67775fa9359f51f9a2dc3053eeb3b471e11825cdede8ac136e0c79b0798f9ed9"
+    },
+    {
+      "path": "artifacts/commands.txt",
+      "sha256": "1f19354e237847c73ef68bb17ada83136bf3c88a38db32bb1161c946781edc4b"
+    },
+    {
+      "path": "artifacts/fmt_read.exe",
+      "sha256": "d6b66070ec67e5b492dced43c9c054035f7c1c57594eecf087849de53a318bde"
+    },
+    {
+      "path": "artifacts/percent_n.exe",
+      "sha256": "972550c9773b17c0ff2de7966b29114c0b8c0747e871893884c1e0f0d573500a"
+    }
+  ],
+  "lessons": [
+    "跑的是现场编译的真实 PE：gcc -O0 -fno-stack-protector -no-pie -o artifacts/fmt_read.exe input/fmt_read.c（rc=0）；nm 给出 secret=0x140003000。",
+    "任意读成立：payload=b'%p%p%p%p%p%s'+4 空格+p64(0x140003000)，程序 rc=0，stdout 在 authenticated=false、最终打印 denied 的情况下泄漏 FLAG{fmt_string_arbitrary_read_works}。",
+    "参数位置经实测：前 3 个变参来自 rdx/r8/r9，buf[0:8] 是第 4 个、buf[8:16] 第 5 个、buf[16:24] 第 6 个；因此地址放 buffer 偏移 16，用第 6 个 %s 解引用。",
+    "边界（Windows 与 glibc 的关键差异）：同一工具链下 printf('abc%n', &x) 后 x 仍为 0（artifacts/percent_n_result.txt），说明 MinGW/UCRT 不执行 %n；不能照搬 glibc 的 %n 任意写。",
+    "下一步：若目标是 glibc ELF，再用 %n/%hn 写 GOT/返回地址；Windows 上优先走 %s 信息泄漏、逻辑/堆或导入表路线。"
+  ],
+  "refs": [
+    "Tool/skill/pwn-crypto/SKILL.md",
+    "Tool/skill/pwn-crypto/references/01-criteria.md",
+    "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+    "Tool/skill/pwn-crypto/references/03-model-pitfalls.md",
+    "Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md",
+    "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/03-format-string-arbitrary-read.md",
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

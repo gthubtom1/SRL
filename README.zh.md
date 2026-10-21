@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/MCP%20工具-38%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/健康体检-61%2F61%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
-  <img src="https://img.shields.io/badge/实战知识库-327%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
+  <img src="https://img.shields.io/badge/实战知识库-373%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOP-14%20份专项手册-red?style=for-the-badge" alt="MANUAL SOPs">
   <a href="https://linux.do/"><img src="https://img.shields.io/badge/社区-LINUX%20DO-23272A?style=for-the-badge&logo=discourse" alt="LINUX DO"></a>
@@ -82,7 +82,7 @@
 | **工具自愈** | 22 项多途径安装（winget / 绿色直下 / pip / npm / go）+ 15 个工具的声明式能力表 + 降级链 |
 | **端到端验收** | `Tool/scripts/smoke-e2e.py`：真实样本一次跑通「triage→判壳→画像→反编译→KB→报告」12 环，13 秒 |
 | **反臃肿预算** | 6 项硬上限 + 三不原则 + 加功能四问，`check-budget.py` 一条命令校验 |
-| **优化总纲（接力棒）** | `优化方案.md`：30 条缺陷台账 → 形态 A–I → 六阶段五闸四账 → 批次 B–F；换会话先读它 |
+| **接力棒（换会话先读）** | `ROADMAP.md`（能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore） |
 | **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
 | **防崩纪律** | 禁止 `-h` 试探二进制 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
 
@@ -113,7 +113,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 | 🔧 **工具链高度碎片化** | 40 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
 | 🧠 **大模型缺乏决断逻辑** | `softseep` 总控：两级自动判型（平台 × 9 类业务）+ 七道门决策树 |
 | 🛡️ **云端模型频繁拒绝** | 三层保险：底座级 `BLOCK_NONE` 注入 + 动态口语合规转译 + 推理级思维重定向 |
-| 📚 **实战经验无法沉淀** | 327 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
+| 📚 **实战经验无法沉淀** | 373 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
 | 📦 **环境部署摩擦高昂** | 一键 `install.ps1`，原生适配 Pi Agent / Claude Code / DeepSeek Harness / Codex |
 
 ---
@@ -141,7 +141,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
           │                │                  │
           ▼                ▼                  ▼
     seep MCP          IDA Pro MCP         知识库检索
-    40 个工具          (可选联动)          327 篇战术笔记
+    40 个工具          (可选联动)          373 篇战术笔记
     (R2/JADX/                             (Zero-Waste Recon)
      Apktool/Frida)
           │
@@ -213,13 +213,13 @@ Agent 自主完成：
 Seep\ (251 MB)
 ├── README.md                      ← 全局说明（英文默认）
 ├── README.zh.md                   ← 本文件（中文文档）
-├── CLAUDE.md                      ← Claude Code 项目级原生指令
+├── Tool/prompts/contracts/CLAUDE.md                      ← Claude Code 项目级原生指令
 ├── .mcp.json                      ← 项目级 MCP 注册文件（Claude Code / OpenCode）
-├── DSH-PROFILE.md                 ← DeepSeek Harness Cordis 插件配置模板
+├── Tool/prompts/contracts/DSH-PROFILE.md                 ← DeepSeek Harness Cordis 插件配置模板
 ├── check.bat                      ← ⭐ 双击一键体检入口（Windows）
 ├── check.ps1                      ← PowerShell 体检入口
 ├── VERSION                        ← 当前版本标识
-├── CHANGELOG.md                   ← 面向用户的版本变更日志
+├── docs/CHANGELOG.md                   ← 面向用户的版本变更日志
 │
 ├── Tool\
 │   ├── skill\                     ← 23 个领域技能
@@ -242,7 +242,7 @@ Seep\ (251 MB)
 │   │       │   ├── ida-pro-mcp\   ← IDA 桥接适配层
 │   │       │   ├── js-reverse-mcp\← Web / JS 调试引擎
 │   │       │   └── playwright-mcp\← 无头浏览器自动化
-│   │       └── reverselab\        ← 327 篇战术笔记 + 攻击链模板
+│   │       └── reverselab\        ← 373 篇战术笔记 + 攻击链模板
 │   │
 │   ├── prompts\                   ← 智能体协同规范与运行时扩展
 │   │   ├── SEEP.md              ← 装配契约（五层裁决 + 指针；≤2500 字符，见 MANUAL/PROMPT-LAYERS.md）
@@ -302,7 +302,7 @@ Seep\ (251 MB)
 | | `seep_apk_unpack` | Apktool 资源 + Smali 解包 | — |
 | | `seep_apk_smali_search` | Smali 关键词/密钥/门禁位点检索 | `limit=` |
 | | `seep_apk_gen_hook` | 自动生成带堆栈打印的 Frida 探针 | — |
-| **知识库** | `seep_kb_search` | 327 篇战术笔记全文检索 | `limit=` |
+| **知识库** | `seep_kb_search` | 373 篇战术笔记全文检索 | `limit=` |
 | | `seep_kb_read` | 按主题精确读取完整技术手册 | — |
 | | `seep_kb_checklist` | 应急排查清单与攻击矩阵 | — |
 | | `seep_kb_payloads` | JWT / SSRF / SSTI / SQLi 载荷模板 | — |
@@ -356,9 +356,9 @@ chmod +x setup/install.sh
 | 智能体平台 | 核心指令 | MCP 服务配置 | 详细接入步骤 |
 |---|---|---|---|
 | **Pi Agent** | `Tool/prompts/SEEP.md` | `~/.pi/agent/mcp.json` | 运行 `install.ps1` 自动写入，完成后**必须重启当前终端与 Pi 会话**。 |
-| **Claude Code** | 项目根 `CLAUDE.md` | 项目根 `.mcp.json` | 运行 `powershell .\setup\generate-configs.ps1` 自愈绝对路径后，在项目根执行 `claude`。 |
-| **DeepSeek Harness** | `Tool/prompts/AGENTS.md` | `DSH-PROFILE.md` | 运行 `setup\generate-configs.ps1` 生成官方 `- insert:` 语法的 `cordis.generated.yml`，使用 `dsh web --patch ...` 或粘贴进 Profile。 |
-| **OpenCode / Codex** | 项目根 `AGENTS.md` | `opencode.jsonc` | 运行 `setup\generate-configs.ps1` 生成符合 OpenCode 官方标准的 `opencode.jsonc`，在项目根直接启动 `opencode`。 |
+| **Claude Code** | 项目根 `Tool/prompts/contracts/CLAUDE.md` | 项目根 `.mcp.json` | 运行 `powershell .\setup\generate-configs.ps1` 自愈绝对路径后，在项目根执行 `claude`。 |
+| **DeepSeek Harness** | `Tool/prompts/AGENTS.md` | `Tool/prompts/contracts/DSH-PROFILE.md` | 运行 `setup\generate-configs.ps1` 生成官方 `- insert:` 语法的 `cordis.generated.yml`，使用 `dsh web --patch ...` 或粘贴进 Profile。 |
+| **OpenCode / Codex** | `Tool/prompts/contracts/AGENTS.md`（复制/软链到项目根） | `opencode.jsonc` | 运行 `setup\generate-configs.ps1` 生成符合 OpenCode 官方标准的 `opencode.jsonc`，在项目根直接启动 `opencode`。 |
 
 > 📖 **咨询级部署与全套排障手册**：关于四大 Agent 的具体配置细则、常见报错（`No module named mcp`、执行策略受限、Java环境缺省等）的解决方案，请详阅 [**MANUAL/DEPLOYMENT.md**](MANUAL/DEPLOYMENT.md)。
 
@@ -387,7 +387,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 | `-NoPull` / `--no-pull` | 跳过 `git pull`（适用于压缩包部署） |
 
 > ⚠️ **更新后务必完全重启 Agent 会话**，新 Skill 与扩展才会加载。
-> 各版本变更内容见 [CHANGELOG.md](CHANGELOG.md)。
+> 各版本变更内容见 [docs/CHANGELOG.md](docs/CHANGELOG.md)。
 
 ### 4b. 上游仓库定点隔离同步（防外溢机制）
 

@@ -1,0 +1,38 @@
+{
+  "source": "~/AppData/Local/Google/Chrome/User Data/Default/Extensions/klggbkjfmbonefdcfkiidhcmfjdfnepa/1.2.4_0",
+  "extension_id": "klggbkjfmbonefdcfkiidhcmfjdfnepa",
+  "version": "1.2.4",
+  "note": "本机已安装的 Chrome 扩展目录中截取入口/权限相关文件；内容未修改",
+  "files": [
+    {
+      "path": "manifest.json",
+      "bytes": 1680,
+      "sha256": "11ccd0fa70364f72b86fdac7ffe3e8535f62d7a651b5259263f98b70d39a7901"
+    },
+    {
+      "path": "background/background.js",
+      "bytes": 283585,
+      "sha256": "e9dd4c2fa2a3118edd942a6ba35262cb2c82808362fcb78ee5c7a10012f658ab"
+    },
+    {
+      "path": "content/content.js",
+      "bytes": 16563,
+      "sha256": "89258dba136ef1dcd5a519e2db03d259397af6a213f5e8a6dfc7263a87339c17"
+    },
+    {
+      "path": "content/styles.css",
+      "bytes": 2308,
+      "sha256": "1d308e279aada937130b301a79e0bdafa66cdba0516912ac0ade6f59b385b8fa"
+    },
+    {
+      "path": "popup/popup.html",
+      "bytes": 6844,
+      "sha256": "d7981371140c273b028474c35c4a042a414d418e5478a680fdde57abc6877f80"
+    },
+    {
+      "path": "_locales/en/messages.json",
+      "bytes": 33115,
+      "sha256": "863bcf240b6403bc55b212b68bd4b6d86f77aa27ff87b119006209b99dbc07c5"
+    }
+  ]
+}

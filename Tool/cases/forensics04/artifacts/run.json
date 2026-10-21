@@ -1,0 +1,69 @@
+{
+  "case": "forensics04",
+  "generated_at": "2026-10-21T14:39:27.099908Z",
+  "cwd": "Tool/cases/forensics04",
+  "timeline_summary": {
+    "events": 3,
+    "start_utc": "2026-10-21T14:38:39.082565Z",
+    "end_utc": "2026-10-21T14:38:44.879358Z",
+    "by_kind": {
+      "filesystem-ctime": 1,
+      "filesystem-mtime": 1,
+      "filesystem-atime": 1
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "runs": [
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+        "--file",
+        "Tool/cases/forensics04/input/App.ipa",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics04\\\\input\\\\App.ipa\",\n  \"type\": \"zip\",\n  \"format\": \"ipa\",\n  \"confidence\": \"observed\",\n  \"meta\": {\n    \"format\": \"zip\",\n    \"file_count\": 9,\n    \"top_level\": [\n      \"Payload\"\n    ],\n    \"interesting_files\": [\n      \"Payload/App.app/Info.plist\",\n      \"Payload/App.app/embedded.mobileprovision\",\n      \"Payload/App.app/Library/Preferences/com.example.forensiclab.plist\",\n      \"Payload/App.app/Documents/app.sqlite\",\n      \"Payload/App.app/keychain-2.db\"\n    ],\n    \"latest_entry_utc\": \"2026-10-20T03:14:00Z\"\n  },\n  \"timeline\": {\n    \"start_utc\": null,\n    \"end_utc\": \"2026-10-20T03:14:00Z\",\n    \"basis\": \"zip entry timestamps (often local time)\",\n    \"timezone\": \"unknown\",\n    \"clock_skew\": \"unknown; ZIP timestamps are not reliable evidence\",\n    \"precision\": \"2 seconds (DOS time)\"\n  },\n  \"extractables\": [\n    \"原件副本与 SHA256（封存）\",\n    \"采集记录：人/时间/工具/授权范围\",\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\n    \"manifest/Info.plist/package.json/plugin.xml\",\n    \"权限与签名/entitlements\",\n    \"keychain-2.db/app.db 等数据文件\",\n    \"框架/插件/资源清单\",\n    \"内嵌二进制（Mach-O/DEX/PE）\",\n    \"远程 URL 与配置\"\n  ],\n  \"integrity\": {\n    \"sha256\": \"ac9ed18c9c22159b35c7d94743c45cf144608a3ac28c319fabda0728764c5ba7\",\n    \"size\": 2824,\n    \"mtime_utc\": \"2026-10-21T14:38:39.083564Z\",\n    \"readonly\": true,\n    \"warnings\": [],\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\n  },\n  \"conclusion\": \"类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+        "--file",
+        "Tool/cases/forensics04/work/unpacked/Payload/App.app/AppBinary",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics04\\\\work\\\\unpacked\\\\Payload\\\\App.app\\\\AppBinary\",\n  \"type\": \"macho\",\n  \"format\": \"Mach-O/Fat\",\n  \"confidence\": \"observed\",\n  \"meta\": {},\n  \"timeline\": {\n    \"start_utc\": \"2026-10-19T19:14:00Z\",\n    \"end_utc\": \"2026-10-19T19:14:00Z\",\n    \"basis\": \"filesystem mtime only; content time requires acquisition record\",\n    \"timezone\": \"UTC display of local mtime\",\n    \"clock_skew\": \"unknown\",\n    \"precision\": \"filesystem dependent\"\n  },\n  \"extractables\": [\n    \"原件副本与 SHA256（封存）\",\n    \"采集记录：人/时间/工具/授权范围\",\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\n    \"架构/LC_UUID/加密信息 cryptid\",\n    \"依赖库与 rpath\",\n    \"符号/字符串\",\n    \"entitlements/签名 Team ID\",\n    \"与数据文件/网络端点的对应\"\n  ],\n  \"integrity\": {\n    \"sha256\": \"fd26912a6a727da480a0e23495ece83d95a0614901e10ac7269866c106c2c22f\",\n    \"size\": 32,\n    \"mtime_utc\": \"2026-10-19T19:14:00Z\",\n    \"readonly\": false,\n    \"warnings\": [\n      \"文件可写：分析前应设为只读或使用副本\"\n    ],\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\n  },\n  \"conclusion\": \"类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+        "--file",
+        "Tool/cases/forensics04/work/unpacked/Payload/App.app/keychain-2.db",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics04\\\\work\\\\unpacked\\\\Payload\\\\App.app\\\\keychain-2.db\",\n  \"type\": \"sqlite\",\n  \"format\": \"sqlite\",\n  \"confidence\": \"observed\",\n  \"meta\": {\n    \"format\": \"sqlite\",\n    \"tables\": [\n      \"genp\",\n      \"inet\"\n    ],\n    \"table_count\": 2,\n    \"integrity\": \"ok\",\n    \"sidecars\": []\n  },\n  \"timeline\": {\n    \"start_utc\": \"2026-10-19T19:14:00Z\",\n    \"end_utc\": \"2026-10-19T19:14:00Z\",\n    \"basis\": \"filesystem mtime only; content time requires acquisition record\",\n    \"timezone\": \"UTC display of local mtime\",\n    \"clock_skew\": \"unknown\",\n    \"precision\": \"filesystem dependent\"\n  },\n  \"extractables\": [\n    \"原件副本与 SHA256（封存）\",\n    \"采集记录：人/时间/工具/授权范围\",\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\n    \"表结构/行数\",\n    \"WAL/SHM/journal 残留\",\n    \"已删除记录恢复\",\n    \"时间字段与写入进程\",\n    \"敏感字段（脱敏）\"\n  ],\n  \"integrity\": {\n    \"sha256\": \"c8e8b3feac41eb08d76d230db7b106e5b412b7e3e347bd1cdf8fd52bf3e54cec\",\n    \"size\": 12288,\n    \"mtime_utc\": \"2026-10-19T19:14:00Z\",\n    \"readonly\": false,\n    \"warnings\": [\n      \"文件可写：分析前应设为只读或使用副本\"\n    ],\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\n  },\n  \"conclusion\": \"类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/evidence-accept.py",
+        "--case",
+        "Tool/cases/forensics04",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"case\": \"forensics04\",\n  \"domain\": \"forensics-mobile\",\n  \"checks\": 76,\n  \"failures\": [],\n  \"warnings\": [\n    \"artifact 可写：artifacts/check-ipa.json（应只读封存）\",\n    \"artifact 可写：artifacts/check-macho.json（应只读封存）\",\n    \"artifact 可写：artifacts/check-keychain.json（应只读封存）\",\n    \"artifact 可写：artifacts/timeline.json（应只读封存）\"\n  ],\n  \"artifacts\": 5,\n  \"findings\": 4\n}\n",
+      "stderr": ""
+    }
+  ],
+  "note": "timeline.json 由 fs-timeline.py --all-times 生成；本文件记录复跑的 check/accept 命令与 rc。"
+}

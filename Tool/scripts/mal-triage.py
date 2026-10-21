@@ -567,24 +567,114 @@ def verdict(info, iocs, suspicious, imports, anomalies):
     return {"level": level, "score": score, "reasons": reasons}
 
 
-def emit_error(args, message, code, rc):
+def emit_error(args, message, code, rc, blocked_at=None):
     """统一错误输出：JSON 模式输出结构化对象，文本模式输出 [ERR]。"""
-    if args.json:
-        print(json.dumps({"ok": False, "error": message, "code": code},
-                         ensure_ascii=False))
-    else:
+    payload = {"ok": False, "blocked_at": blocked_at or code,
+               "reason": message, "error": message, "code": code}
+    # 契约（DOMAIN-SPEC §3）：失败必须是结构化结论，无论有没有 --json。
+    # 文本模式额外在 stderr 给人读一行；JSON 永远在 stdout。
+    print(json.dumps(payload, ensure_ascii=False))
+    if not args.json:
         print("[ERR] %s" % message, file=sys.stderr)
     return rc
+
+
+def _mini_pe():
+    """构造一个最小的 PE32 夹具（无外部依赖，供 --self-test 离线跑通全链）。"""
+    import struct
+    e_lfanew = 0x40
+    dos = bytearray(0x40)
+    dos[0:2] = b"MZ"
+    struct.pack_into("<I", dos, 0x3C, e_lfanew)
+    coff = struct.pack("<HHIIIHH", 0x14C, 1, 0x5F000000, 0, 0, 0xE0, 0x0102)
+    opt = bytearray(0xE0)
+    struct.pack_into("<H", opt, 0, 0x10B)          # PE32
+    struct.pack_into("<I", opt, 16, 0x1000)        # AddressOfEntryPoint
+    struct.pack_into("<I", opt, 28, 0x400000)      # ImageBase
+    struct.pack_into("<I", opt, 32, 0x1000)        # SectionAlignment
+    struct.pack_into("<I", opt, 36, 0x200)         # FileAlignment
+    struct.pack_into("<I", opt, 56, 0x3000)        # SizeOfImage
+    struct.pack_into("<I", opt, 60, 0x200)         # SizeOfHeaders
+    struct.pack_into("<H", opt, 68, 3)             # Subsystem
+    struct.pack_into("<I", opt, 92, 16)            # NumberOfRvaAndSizes
+    sec = bytearray(40)
+    sec[0:8] = b".text\x00\x00\x00"
+    struct.pack_into("<IIII", sec, 8, 0x1000, 0x1000, 0x200, 0x200)
+    struct.pack_into("<I", sec, 36, 0x60000020)
+    body = bytearray(0x200)
+    payload = (b"http://c2.example.test/beacon\x00"
+               b"Global\\SeepSelfTestMutex\x00"
+               b"Users\\Public\\dropper.exe\x00")  # 自测夹具：只作 IOC 串，不是本机路径
+    body[0:len(payload)] = payload
+    data = bytes(dos) + b"PE\x00\x00" + coff + bytes(opt) + bytes(sec) + bytes(body)
+    return data
+
+
+def self_test():
+    """离线自测：内置最小 PE 夹具 + 缺失文件错误路径，全部走真实 CLI。"""
+    import subprocess
+    import tempfile
+    checks = 0
+    pe = _mini_pe()
+    with tempfile.TemporaryDirectory() as td:
+        sample = os.path.join(td, "mini.exe")
+        with open(sample, "wb") as fh:
+            fh.write(pe)
+        cmd = [sys.executable, os.path.abspath(__file__), "--file", sample, "--json"]
+        run = subprocess.run(cmd, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=60)
+        if run.returncode not in (0, 1):
+            raise SystemExit('{"ok": false, "blocked_at": "self-test",'
+                             ' "reason": "analyze rc=%d stderr=%s"}' %
+                             (run.returncode, (run.stderr or "")[:120]))
+        doc = json.loads(run.stdout)
+        if doc.get("sha256") != hashlib.sha256(pe).hexdigest():
+            raise SystemExit('{"ok": false, "blocked_at": "self-test",'
+                             ' "reason": "sha256 mismatch"}')
+        checks += 1
+        if doc.get("type") != "PE" or not doc.get("sections"):
+            raise SystemExit('{"ok": false, "blocked_at": "self-test",'
+                             ' "reason": "PE parse failed"}')
+        checks += 1
+        if not doc.get("iocs", {}).get("urls"):
+            raise SystemExit('{"ok": false, "blocked_at": "self-test",'
+                             ' "reason": "IOC extraction failed"}')
+        checks += 1
+        if "verdict" not in doc or doc["verdict"].get("level") not in ("low", "medium", "high"):
+            raise SystemExit('{"ok": false, "blocked_at": "self-test",'
+                             ' "reason": "verdict missing"}')
+        checks += 1
+        bad = subprocess.run([sys.executable, os.path.abspath(__file__), "--file",
+                              os.path.join(td, "missing.bin"), "--json"],
+                             capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=60)
+        try:
+            err = json.loads(bad.stdout)
+        except ValueError:
+            err = {}
+        if bad.returncode != 2 or err.get("ok") is not False or "blocked_at" not in err:
+            raise SystemExit('{"ok": false, "blocked_at": "self-test",'
+                             ' "reason": "error path not structured"}')
+        checks += 1
+    print(json.dumps({"ok": True, "checks": checks, "tool": "mal-triage.py"},
+                     ensure_ascii=False))
+    return 0
 
 
 def main():
     ap = argparse.ArgumentParser(
         description="恶意样本静态分诊：类型/熵/节异常、可疑导入、IOC、字符串分类、YARA 建议（纯标准库，只读）")
-    ap.add_argument("--file", "-f", required=True, help="样本路径（只在隔离副本上分析）")
+    ap.add_argument("--file", "-f", help="样本路径（只在隔离副本上分析）")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--json-out", metavar="PATH", help="同时把 JSON 写入文件")
     ap.add_argument("--max-strings", type=int, default=40000, help="扫描字符串上限（默认 40000）")
+    ap.add_argument("--self-test", action="store_true",
+                    help="离线自测：内置最小 PE 夹具跑通分诊全链（rc=0 并打印 JSON）")
     args = ap.parse_args()
+    if args.self_test:
+        return self_test()
+    if not args.file:
+        ap.error("--file 必填（除非使用 --self-test）")
     path = os.path.abspath(args.file)
     if not os.path.isfile(path):
         return emit_error(args, "文件不存在: %s" % path, "FILE_NOT_FOUND", 2)
@@ -596,7 +686,7 @@ def main():
     kind = detect_type(data, path)
     if kind in ("binary/unknown", "text/unknown"):
         return emit_error(args, "解析失败: 无法识别的文件类型 (%s)" % kind,
-                          "PARSE_FAILED", 3)
+                          "PARSE_FAILED", 2)
     info = {"kind": kind, "raw": data, "imports": [], "section_rows": [],
             "sections": [], "arch": "unknown", "bits": 0, "entry": 0,
             "overlay_bytes": 0}
@@ -615,7 +705,7 @@ def main():
                         names.append(("", n))
             info["imports"] = names
     except (ValueError, struct.error, IndexError) as exc:
-        return emit_error(args, "解析失败: %s" % exc, "PARSE_FAILED", 3)
+        return emit_error(args, "解析失败: %s" % exc, "PARSE_FAILED", 2)
     strings = strings_from(data, args.max_strings)
     iocs = collect_iocs(strings)
     suspicious = classify_strings(strings)
@@ -648,7 +738,7 @@ def main():
     }
     if args.json_out:
         try:
-            with open(args.json_out, "w", encoding="utf-8") as fh:
+            with open(args.json_out, "w", encoding="utf-8", newline="\n") as fh:
                 json.dump(result, fh, ensure_ascii=False, indent=2)
         except OSError as exc:
             print("警告：JSON 写入失败: %s" % exc, file=sys.stderr)

@@ -1,0 +1,1189 @@
+{
+   "advanced_template_settings": {
+      "message": "Advanced template settings"
+   },
+   "analyzing_structure": {
+      "message": "Analyzing repeating structures…"
+   },
+   "archive_mhtml_permission_notice": {
+      "message": "MHTML could not be saved because the extension does not have the pageCapture permission. Click the Quicker extension icon in the browser toolbar, enable pageCapture under Optional permissions, and try again."
+   },
+   "attribute_prompt": {
+      "message": "Enter the attribute name:"
+   },
+   "cancel_collection": {
+      "message": "Cancel collection"
+   },
+   "candidate_condition": {
+      "message": "Condition $ARG1$ · ",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "candidate_confidence": {
+      "message": "Confidence $ARG1$% · $ARG2$ columns",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "candidate_count": {
+      "message": "Candidate lists ($ARG1$)",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "candidate_lists": {
+      "message": "Candidate lists"
+   },
+   "candidate_rows": {
+      "message": "$ARG1$ · $ARG2$ rows",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "candidate_selected": {
+      "message": "$ARG1$: $ARG2$ · $ARG3$ rows · $ARG4$ columns$ARG5$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         },
+         "arg3": {
+            "content": "$3"
+         },
+         "arg4": {
+            "content": "$4"
+         },
+         "arg5": {
+            "content": "$5"
+         }
+      }
+   },
+   "choose_saved_template": {
+      "message": "Choose a saved template…"
+   },
+   "clear_pagination": {
+      "message": "Clear multi-page settings"
+   },
+   "clipboard_import_unsupported": {
+      "message": "This host cannot import templates from the clipboard."
+   },
+   "clipboard_template_imported": {
+      "message": "List template “$ARG1$” imported from the clipboard.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "collect_pages": {
+      "message": "Collect multiple pages"
+   },
+   "collecting_first_page": {
+      "message": "Collecting page 1…"
+   },
+   "collection_active_elsewhere": {
+      "message": "The data preview is collecting multiple pages. Page locating and template refresh are paused until it finishes."
+   },
+   "collection_cancelled": {
+      "message": "Multi-page collection cancelled."
+   },
+   "collection_cancelling": {
+      "message": "Cancelling multi-page collection…"
+   },
+   "collection_complete": {
+      "message": "Collection complete: $ARG1$ pages, $ARG2$ rows.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "collection_incomplete": {
+      "message": "Collection stopped early: $ARG1$. $ARG2$ rows were preserved.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "collection_progress": {
+      "message": "Collecting page $ARG1$; $ARG2$ rows collected…",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "collection_summary_complete": {
+      "message": "Multi-page collection complete: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "collection_summary_incomplete": {
+      "message": "Results may be incomplete: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "column_added": {
+      "message": "Field added: $1"
+   },
+   "column_at_root": {
+      "message": "This column is already at the row root"
+   },
+   "column_count": {
+      "message": "$ARG1$ columns",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "column_count_hidden": {
+      "message": "$ARG1$ columns · $ARG2$ hidden",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "column_highlight_complete": {
+      "message": "Highlighted $ARG2$ nodes for column “$ARG1$”.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "column_key_error": {
+      "message": "Column keys cannot be empty or duplicated."
+   },
+   "column_moved_low_coverage": {
+      "message": "This parent field covers only about $ARG1$% of rows; verify that it is optional.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "column_moved_mixed_structure": {
+      "message": "The selector also matches $ARG1$ rows with a different structure, so values may mix in other content. Check the preview.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "column_moved_parent": {
+      "message": "“$ARG1$” was moved up one level: $ARG2$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "column_moved_root": {
+      "message": "“$ARG1$” was moved to the row root.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "column_selection_cancelled": {
+      "message": "Adding a field was cancelled."
+   },
+   "column_title": {
+      "message": "Column title"
+   },
+   "columns": {
+      "message": "Columns"
+   },
+   "columns_parent_hint": {
+      "message": "If body text is split into several P/LI columns, use ↑ to progressively select the parent element."
+   },
+   "command_failed": {
+      "message": "The extension command failed."
+   },
+   "confidence": {
+      "message": "Confidence $ARG1$%",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "confidence_title": {
+      "message": "Inferred column confidence; lower values are more likely to be noise"
+   },
+   "confirm_candidate": {
+      "message": "Use this list"
+   },
+   "confirm_delete_template": {
+      "message": "Delete the selected template? This cannot be undone."
+   },
+   "confirm_overwrite_template": {
+      "message": "A template with the same ID exists. Overwrite it and create a new revision?"
+   },
+   "confirm_replace_collection_preview": {
+      "message": "The current result contains $ARG1$ collected pages. Refreshing only the current page will replace it. Continue?",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "confirmation_required": {
+      "message": " (confirm to continue)"
+   },
+   "continue_button": {
+      "message": "Continue button"
+   },
+   "copy_data_json": {
+      "message": "Copy data JSON"
+   },
+   "copy_extraction_template": {
+      "message": "Copy extraction template"
+   },
+   "copy_json_title": {
+      "message": "Copy the current extraction result as a JSON array"
+   },
+   "copy_template_title": {
+      "message": "Copy URL rules, selectors, and column mappings for reuse in a Quicker action"
+   },
+   "data_json_copied": {
+      "message": "Data JSON array copied."
+   },
+   "default_list_name": {
+      "message": "Web list"
+   },
+   "delete": {
+      "message": "Delete"
+   },
+   "delete_column": {
+      "message": "Delete column"
+   },
+   "designer_already_initialized": {
+      "message": "The list designer cannot be initialized twice."
+   },
+   "designer_not_initialized": {
+      "message": "The list designer has not been initialized."
+   },
+   "discover_hint": {
+      "message": "Scan the whole page first. If detection is inaccurate, click a sample row or select its parent container."
+   },
+   "discover_list": {
+      "message": "Discover lists"
+   },
+   "discovery_complete": {
+      "message": "Found $ARG1$ candidates in $ARG2$. The highest-confidence candidate was selected.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "discovery_empty": {
+      "message": "No sufficiently regular repeating structure was found. Try clicking a sample row or selecting its parent element."
+   },
+   "download_csv_title": {
+      "message": "Download the current extraction result as a CSV table"
+   },
+   "download_data_csv": {
+      "message": "Download data CSV"
+   },
+   "download_data_json": {
+      "message": "Download data JSON"
+   },
+   "download_data_tsv": {
+      "message": "Download data TSV"
+   },
+   "download_data_xlsx": {
+      "message": "Download data XLSX"
+   },
+   "download_json_title": {
+      "message": "Download the current extraction result as a JSON array"
+   },
+   "download_tsv_title": {
+      "message": "Download the current extraction result as a TSV table"
+   },
+   "download_xlsx_title": {
+      "message": "Download the current extraction result as an Excel workbook"
+   },
+   "draft_restored": {
+      "message": "The design state for this page was restored."
+   },
+   "draft_restored_dirty": {
+      "message": "Unsaved edits for this page were restored."
+   },
+   "duration_seconds": {
+      "message": "$ARG1$ seconds",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "edit_template": {
+      "message": "Edit template"
+   },
+   "element_not_button": {
+      "message": "UI element is not a button: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "element_not_input": {
+      "message": "UI element is not an input: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "element_not_select": {
+      "message": "UI element is not a select: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "error_cancelled": {
+      "message": "The operation was cancelled."
+   },
+   "error_column_parent": {
+      "message": "This column cannot be moved to a stable parent element."
+   },
+   "error_invalid_template": {
+      "message": "The list template is invalid."
+   },
+   "error_not_actionable": {
+      "message": "The selected element cannot be used for this action."
+   },
+   "error_permission_denied": {
+      "message": "This page cannot call the list designer background API."
+   },
+   "error_root_not_found": {
+      "message": "The list root was not found on the page."
+   },
+   "error_rows_not_found": {
+      "message": "No matching list rows were found."
+   },
+   "error_scan_limit": {
+      "message": "The page is large, so list discovery hit its scan limit before finishing and returned no candidates. Scroll closer to the list, or click a sample row / pick its parent element, and try again."
+   },
+   "error_stale_reference": {
+      "message": "The page changed. Run list discovery again."
+   },
+   "error_timeout": {
+      "message": "The operation timed out."
+   },
+   "error_url_mismatch": {
+      "message": "The current URL does not match this template."
+   },
+   "export_template_file": {
+      "message": "Export template file"
+   },
+   "extension_action_title": {
+      "message": "Open Quicker Connector"
+   },
+   "extension_description": {
+      "message": "Native messaging connector for the Quicker application."
+   },
+   "extension_name": {
+      "message": "Quicker Connector"
+   },
+   "extension_short_name": {
+      "message": "Quicker Connector"
+   },
+   "extracting_preview": {
+      "message": "Extracting preview…"
+   },
+   "filtered_subset_rows": {
+      "message": "Filtered subset · $ARG1$ rows",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "filtered_subsets": {
+      "message": "$ARG1$ filtered subsets",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "form_filling": {
+      "message": "Form filling"
+   },
+   "hidden_columns_hint": {
+      "message": "These columns have lower confidence and are hidden and excluded from export by default. Use Show to include one."
+   },
+   "hidden_columns_note": {
+      "message": "$ARG1$ columns are hidden and excluded from preview and export. Restore them under Edit template → Show more columns.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "hide_column": {
+      "message": "Hide"
+   },
+   "hide_column_title": {
+      "message": "Hide this column from preview and exports; it can be restored under Show more columns"
+   },
+   "highlight_complete": {
+      "message": "Highlighted $ARG1$ rows and $ARG2$ column nodes.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "highlight_on_page": {
+      "message": "Locate on page"
+   },
+   "highlight_rows_columns": {
+      "message": "Highlight rows and columns"
+   },
+   "import_quicker_template": {
+      "message": "Import Quicker template from clipboard"
+   },
+   "import_template_file": {
+      "message": "Import template file"
+   },
+   "inferred_type": {
+      "message": "Inferred value type: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "invalid_import": {
+      "message": "The imported content is not a valid list template."
+   },
+   "invalid_pagination_settings": {
+      "message": "Invalid multi-page settings: only click controls are supported, and maximum pages must be from 2 to 100."
+   },
+   "invalid_template_file": {
+      "message": "The list template file is invalid or uses an unsupported version."
+   },
+   "invalid_template_shape": {
+      "message": "The list template is missing its name, root, row, or column definitions."
+   },
+   "json_property_name": {
+      "message": "JSON property name"
+   },
+   "keep_one_column": {
+      "message": "The template must keep at least one column."
+   },
+   "keep_one_visible_column": {
+      "message": "At least one visible column is required."
+   },
+   "list_extraction": {
+      "message": "List extraction"
+   },
+   "list_steps": {
+      "message": "List extraction steps"
+   },
+   "load": {
+      "message": "Load"
+   },
+   "loading_page": {
+      "message": "Reading the current page…"
+   },
+   "locate_column": {
+      "message": "Locate"
+   },
+   "locate_column_title": {
+      "message": "Highlight this column on the page for 10 seconds"
+   },
+   "missing_element": {
+      "message": "Missing UI element: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "move_selector_parent": {
+      "message": "Move selector to parent element\nCurrent: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "moving_column_parent": {
+      "message": "Moving “$ARG1$” to its parent…",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_body": {
+      "message": "Body"
+   },
+   "name_field": {
+      "message": "Field $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_image": {
+      "message": "Image"
+   },
+   "name_image_alt": {
+      "message": "Image description"
+   },
+   "name_image_suffix": {
+      "message": "$ARG1$ image",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_link": {
+      "message": "Link"
+   },
+   "name_link_suffix": {
+      "message": "$ARG1$ link",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_link_text": {
+      "message": "Link text"
+   },
+   "name_list_suffix": {
+      "message": "$ARG1$ list",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_number": {
+      "message": "Number"
+   },
+   "name_quantity": {
+      "message": "Quantity"
+   },
+   "name_status": {
+      "message": "Status"
+   },
+   "name_table_description": {
+      "message": "$ARG1$_Description",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_table_full_text": {
+      "message": "$ARG1$_FullText",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_table_image_alt": {
+      "message": "$ARG1$_ImageDescription",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_table_image_url": {
+      "message": "$ARG1$_ImageURL",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_table_text": {
+      "message": "$ARG1$_Text$ARG2$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "name_table_time": {
+      "message": "$ARG1$_Time",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_table_url": {
+      "message": "$ARG1$_URL",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "name_text": {
+      "message": "Text"
+   },
+   "name_time": {
+      "message": "Time"
+   },
+   "name_title": {
+      "message": "Title"
+   },
+   "name_value": {
+      "message": "Value"
+   },
+   "no_active_tab": {
+      "message": "No active tab was found."
+   },
+   "no_template_to_export": {
+      "message": "There is no current template to export."
+   },
+   "not_configured": {
+      "message": "Not configured"
+   },
+   "notice_debugger_busy": {
+      "message": "This tab is being debugged by DevTools or another extension, so Quicker cannot start this operation. Close DevTools or the other debugging session for this tab, then try again."
+   },
+   "notice_page_capture_reload": {
+      "message": "The pageCapture permission is enabled, but the API is not active yet. Reload Quicker Connector on the extensions management page, then try again."
+   },
+   "notice_user_scripts_messaging_unavailable": {
+      "message": "The user-script messaging channel could not be initialized. Enable Allow User Scripts in the extension settings, reload the extension, and try again."
+   },
+   "notice_user_scripts_unavailable": {
+      "message": "User scripts cannot run. Click the Quicker extension icon in the browser toolbar, open the extension settings, enable Allow User Scripts, and try again."
+   },
+   "open_workbench": {
+      "message": "Expand data preview"
+   },
+   "opening_best_candidate": {
+      "message": "Opening the highest-confidence candidate…"
+   },
+   "page_changed_reset": {
+      "message": "The page changed. Discover the list again."
+   },
+   "page_title": {
+      "message": "Quicker Web Tools"
+   },
+   "page_url_unavailable": {
+      "message": "The current page has no readable URL"
+   },
+   "pagination": {
+      "message": "Multi-page collection"
+   },
+   "pagination_cleared": {
+      "message": "Multi-page settings cleared."
+   },
+   "pagination_configured": {
+      "message": "Configured · $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "pagination_control_empty": {
+      "message": "No continue button selected."
+   },
+   "pagination_highlighted": {
+      "message": "The continue button is highlighted on the page."
+   },
+   "pagination_hint": {
+      "message": "Works with Next and Load more buttons. Collection changes the current page and leaves it on the last page; each run is limited to about 5 minutes."
+   },
+   "pagination_interval_error": {
+      "message": "The minimum interval must be from 0.5 to 10 seconds in 0.5-second increments."
+   },
+   "pagination_max_pages": {
+      "message": "Maximum pages"
+   },
+   "pagination_max_pages_error": {
+      "message": "Maximum pages must be an integer from 2 to 100."
+   },
+   "pagination_min_interval": {
+      "message": "Minimum interval between pages (seconds)"
+   },
+   "pagination_selected_highlighted": {
+      "message": "Continue button “$ARG1$” selected and highlighted.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "pagination_selected_verify": {
+      "message": "Continue button “$ARG1$” selected. Use Locate on page to verify it.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "pagination_selected_warning": {
+      "message": "Continue button “$ARG1$” selected. Review the yellow warning.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "pagination_selection_cancelled": {
+      "message": "Continue-button selection cancelled."
+   },
+   "pagination_settings": {
+      "message": "Multi-page settings"
+   },
+   "pagination_verify_hint": {
+      "message": "Verify that the selected button is correct before collection."
+   },
+   "pick_column_status": {
+      "message": "Click the page content to extract as a new field…"
+   },
+   "pick_pagination_control": {
+      "message": "Select continue button"
+   },
+   "pick_pagination_status": {
+      "message": "Select the Next or Load more button on the page…"
+   },
+   "pick_parent": {
+      "message": "Select parent element"
+   },
+   "pick_parent_status": {
+      "message": "Select the list's parent element on the page…"
+   },
+   "pick_sample": {
+      "message": "Click a sample row"
+   },
+   "pick_sample_status": {
+      "message": "Click a sample row on the page…"
+   },
+   "picker_cancel": {
+      "message": "Cancel"
+   },
+   "picker_cancelled": {
+      "message": "Element selection was cancelled."
+   },
+   "picker_child": {
+      "message": "Child"
+   },
+   "picker_close": {
+      "message": "Click to close"
+   },
+   "picker_confirm": {
+      "message": "Confirm ↵"
+   },
+   "picker_confirm_heading": {
+      "message": "Target selected. Confirm to continue"
+   },
+   "picker_confirm_title": {
+      "message": "Press Enter to confirm"
+   },
+   "picker_copied": {
+      "message": "Selector copied to the clipboard"
+   },
+   "picker_copy_failed": {
+      "message": "Copy failed: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "picker_locked_help": {
+      "message": "Wheel/↑↓ changes level · Enter confirms · Esc repicks"
+   },
+   "picker_match_count": {
+      "message": "Matches $ARG1$ elements",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "picker_parent": {
+      "message": "Parent"
+   },
+   "picker_point_help": {
+      "message": "Click to confirm immediately · Ctrl/Command+click to enter adjust mode · Esc to cancel"
+   },
+   "picker_point_help_adjust_first": {
+      "message": "Click to adjust · Ctrl/Command+click to confirm · Esc to cancel"
+   },
+   "picker_point_title": {
+      "message": "Point to an element and click"
+   },
+   "picker_removed": {
+      "message": "The target element was removed from the page. Select it again."
+   },
+   "picker_repick": {
+      "message": "Repick"
+   },
+   "picker_selector_failed": {
+      "message": "Could not generate a selector: $ARG1$",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "picker_selector_fragile": {
+      "message": "Lower stability: this selector mainly relies on the element's position in the page. It may break when the layout changes; choosing a more stable parent can improve reliability."
+   },
+   "picker_selector_volatile": {
+      "message": "May change with page content: this selector depends on text or a count that can change when the page updates. Confirm it before use."
+   },
+   "picker_stale": {
+      "message": "The target element is no longer available. Select it again."
+   },
+   "picker_waiting": {
+      "message": "Waiting for a selection…"
+   },
+   "preview_ready": {
+      "message": "Preview is ready"
+   },
+   "preview_rows_pages": {
+      "message": "$ARG1$ rows · $ARG2$ pages",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "preview_rows_total": {
+      "message": "$ARG1$/$ARG2$ rows",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "preview_template_cleared": {
+      "message": "The side panel is discovering a new list. You can still export the current result, but must confirm a template before refreshing or collecting."
+   },
+   "preview_template_updated": {
+      "message": "The template was updated in the side panel. The current result uses the previous template; refresh the preview."
+   },
+   "preview_unavailable": {
+      "message": "Select a list and generate a preview first"
+   },
+   "refresh_before_page_edit": {
+      "message": "Refresh the preview before locating or expanding this field on the page"
+   },
+   "refresh_current_tab": {
+      "message": "Refresh current tab information"
+   },
+   "refresh_preview": {
+      "message": "Refresh preview"
+   },
+   "result_preview": {
+      "message": "Result preview"
+   },
+   "root_selector": {
+      "message": "Root:"
+   },
+   "row_selector": {
+      "message": "Row:"
+   },
+   "save_current_template": {
+      "message": "Save current template"
+   },
+   "saved_templates": {
+      "message": "Saved templates"
+   },
+   "scan_page": {
+      "message": "Scan page"
+   },
+   "select_saved_template": {
+      "message": "Select a saved template first."
+   },
+   "select_template_first": {
+      "message": "Discover and select a list template first."
+   },
+   "selection_cancelled": {
+      "message": "Selection cancelled."
+   },
+   "show_column": {
+      "message": "Show"
+   },
+   "show_column_title": {
+      "message": "Show this column in preview and exports"
+   },
+   "show_more_columns": {
+      "message": "Show more columns"
+   },
+   "show_more_columns_count": {
+      "message": "Show more columns ($ARG1$)",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "source_tab_closed": {
+      "message": "The source tab was closed. You can still export the current result, but cannot refresh, highlight, or collect more pages."
+   },
+   "spreadsheet_formula_protection": {
+      "message": "Protect CSV/TSV from spreadsheet formula injection"
+   },
+   "status_confirmed": {
+      "message": "Confirmed"
+   },
+   "status_selected": {
+      "message": "Selected"
+   },
+   "stop_last_page": {
+      "message": "Reached the last page"
+   },
+   "stop_max_pages": {
+      "message": "Reached the maximum page count"
+   },
+   "stop_max_rows": {
+      "message": "Reached the maximum row count"
+   },
+   "stop_no_change": {
+      "message": "The page did not change after the click"
+   },
+   "stop_no_new_rows": {
+      "message": "The new page added no rows; the continue button may be incorrect"
+   },
+   "stop_page_error": {
+      "message": "A later page could not be collected"
+   },
+   "stop_repeated_page": {
+      "message": "A page loop was detected"
+   },
+   "template_copied": {
+      "message": "List template copied."
+   },
+   "template_deleted": {
+      "message": "Template deleted."
+   },
+   "template_imported": {
+      "message": "Template “$ARG1$” imported.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "template_library": {
+      "message": "Template library"
+   },
+   "template_name": {
+      "message": "Template name"
+   },
+   "template_saved": {
+      "message": "Template “$ARG1$” saved (r$ARG2$).",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "tool_mode": {
+      "message": "Tool mode"
+   },
+   "type_empty": {
+      "message": "Empty"
+   },
+   "type_enum": {
+      "message": "Enum"
+   },
+   "type_hash_number": {
+      "message": "Identifier"
+   },
+   "type_integer": {
+      "message": "Integer"
+   },
+   "type_iso_date": {
+      "message": "Date"
+   },
+   "type_long_text": {
+      "message": "Long text"
+   },
+   "type_relative_time": {
+      "message": "Relative time"
+   },
+   "type_short_text": {
+      "message": "Short text"
+   },
+   "type_url": {
+      "message": "Link"
+   },
+   "visual_edit_columns_hint": {
+      "message": "Fields remain highlighted. Click a colored label to edit, or “+ Extract field” to add content."
+   },
+   "warning_collection_incomplete": {
+      "message": "Multi-page collection stopped before all pages were collected."
+   },
+   "warning_duplicates_removed": {
+      "message": "Removed $ARG1$ duplicate rows.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "warning_highlight_columns_truncated": {
+      "message": "Column highlighting reached the $ARG1$-node limit and was truncated.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "warning_missing_column": {
+      "message": "Column “$ARG1$” has no value in $ARG2$ rows.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "warning_mixed_row_shapes": {
+      "message": "The row selector matched different direct field structures. Check the preview for headers, ads, or loading controls."
+   },
+   "warning_more_same_code": {
+      "message": "$ARG1$ more warnings of the same kind are not shown.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "warning_multiple_column_values": {
+      "message": "Column “$ARG1$” matched multiple elements in $ARG2$ rows; the first value was used as configured.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         },
+         "arg2": {
+            "content": "$2"
+         }
+      }
+   },
+   "warning_multiple_roots": {
+      "message": "The root selector matched $ARG1$ elements; the one producing rows was used.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "warning_output_characters_truncated": {
+      "message": "The result exceeded the $ARG1$-character output limit and was truncated.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "warning_output_rows_truncated": {
+      "message": "The result exceeded $ARG1$ rows and was truncated.",
+      "placeholders": {
+         "arg1": {
+            "content": "$1"
+         }
+      }
+   },
+   "warning_output_truncated": {
+      "message": "The extraction result was truncated because it reached an output limit."
+   },
+   "warning_scan_limited": {
+      "message": "The page is large, so only part of it was scanned; results may be incomplete."
+   },
+   "warning_two_rows": {
+      "message": "Only two repeating rows were found. Verify that this is a real list."
+   },
+   "workbench_hint": {
+      "message": "Inspect, collect, and export results in a wide window."
+   },
+   "workbench_title": {
+      "message": "List Data Preview"
+   },
+   "xlsx_generated": {
+      "message": "XLSX file generated."
+   }
+}

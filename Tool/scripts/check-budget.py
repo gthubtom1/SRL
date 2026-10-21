@@ -48,9 +48,10 @@ def first_party_files():
     total = 0
     for dirpath, dirs, files in os.walk(ROOT):
         norm = dirpath.replace(os.sep, "/")
-        # 说明：本预算衡量「引擎文件」规模，不含导入素材（如 破甲卡生成/ 的 relab2 工程）。
+        # 说明：本预算衡量「引擎文件」规模，不含导入素材（破甲卡生成/ 的 relab2 工程），
+        # 也不含案例库证据（Tool/cases：真实样本/抓包/产物，单独一行预算，避免用扩容掩盖引擎膨胀）。
         if any(s in norm for s in ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool",
-                                   "/破甲卡生成")):
+                                   "/破甲卡生成", "/cases")):
             dirs[:] = []
             continue
         total += len(files)
@@ -71,6 +72,18 @@ def first_party_files():
     return total
 
 
+def case_files():
+    """案例库文件数：证据/样本/产物，单独预算（不算引擎膨胀）。"""
+    d = os.path.join(ROOT, "cases")
+    n = 0
+    for dirpath, dirs, files in os.walk(d):
+        if "__pycache__" in dirpath:
+            dirs[:] = []
+            continue
+        n += len(files)
+    return n
+
+
 def main(argv):
     ap = argparse.ArgumentParser(description="反臃肿预算自检")
     ap.add_argument("--json", action="store_true")
@@ -86,7 +99,8 @@ def main(argv):
                          if f.endswith(".md")]), 16),
         ("MCP 主服务行数", len(io.open(os.path.join(ROOT, "mcp", "seep_mcp_server.py"),
                                        encoding="utf-8").read().splitlines()), 3200),
-        ("first-party 文件", first_party_files(), 900),
+        ("first-party 引擎文件", first_party_files(), 900),
+        ("案例库文件", case_files(), 1500),   # 证据库：58 个案例的真实输入/产物
     ]
 
     rows = []

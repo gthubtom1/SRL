@@ -1,0 +1,196 @@
+# ad-cloud 任务卡（24 张）
+
+> 源：`Tool/config/taskcard-sources.json` 的 `ad-cloud` 键。每张卡六段；命令只在授权范围内执行。
+> 统一红线：口令/hash/票据/证书私钥/AK-SK/token 只留指纹，不落明文；同账号认证失败 2 次即停。
+
+### 01 BloodHound 采集与图谱复核（源：performing-active-directory-bloodhound-analysis）
+- 触发词：BloodHound、SharpHound、域内图谱、到 Domain Admins 的路径
+- 前置：有域账号（低权即可）；确认 DC/域名/DNS；授权允许 LDAP/SMB 只读采集
+- 步骤：1) 先 `nxc smb <DC> --pass-pol` 读锁定策略并 `chronyc tracking` 对时；2) `bloodhound-python -u <user> -p '<pass>' -d <domain> -ns <DC_IP> -c All --zip` 或 SharpHound `-c All`；3) 导入 Neo4j 后先查 Domain Admins 最短路径、Unconstrained/Constrained Delegation、ACL 边、ADCS 模板、会话与本地管理员复用
+- 判据：图谱里存在从当前身份到高权目标的连续边，且每条边能在 LDAP 原始属性/ACL 上复现；记录采集时间与 zip 指纹
+- 失败判据：采集被拒/只有部分对象、边只来自名称猜测、路径含已禁用账号或无会话主机 → 标 candidate/blocked，转 `04-kerberos-paths.md` 的单路径验证
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 02 BloodHound 路径落到可利用动作（源：exploiting-active-directory-with-bloodhound）
+- 触发词：BloodHound 路径、ACL 滥用、最短路径、域管
+- 前置：已完成 01 且有一条候选路径；授权允许对目标做只读或低影响验证
+- 步骤：1) 把路径拆成“凭据/ACL/委派/ADCS/会话”五类边；2) 对每条边查原始属性（`ldapsearch`/`dacledit.py -action read`）；3) 选最便宜的一条做最小验证（如 ForceChangePassword 只改测试账号、GenericAll 只读目标属性）
+- 判据：边对应的原始属性/ACL 可读且与图谱一致；最小验证返回预期结果；记录前后权限对比
+- 失败判据：ACL 只可读不可写、目标对象受保护/需审批、验证被拒绝 → 该边 blocked，换下一条边，不要重复写操作
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 03 NTLM relay 打 ADCS ESC8（源：relaying-ntlm-for-adcs-esc8）
+- 触发词：ESC8、relay、certsrv、NTLM relay、EPA、SMB signing
+- 前置：发现 CA HTTP 端点；授权允许监听与强制认证；已确认目标网络可达
+- 步骤：1) 先只读确认 SMB/LDAP signing 与 EPA 状态（`nxc smb --gen-relay-list`）；2) `certipy relay -ca <CA> -template <Tpl>` 或 `ntlmrelayx -t http://<CA>/certsrv/certfnsh.asp --adcs`；3) 触发授权内强制认证，收到证书后立刻 `certipy auth -pfx ...` 验证
+- 判据：relay 日志收到认证、CA 颁发了目标模板证书、`certipy auth` 出 TGT/ccache；三步缺一不可
+- 失败判据：signing/EPA 已开、CA 拒绝模板、只 relay 到 LDAP、证书 auth 失败 → 停 relay，转 ESC1/ESC4 或凭据直连
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 04 ADCS ESC1 模板验证（源：exploiting-active-directory-certificate-services-esc1）
+- 触发词：ESC1、SAN、certipy req、certipy auth、证书模板
+- 前置：`certipy find -vulnerable` 有输出；当前账号对目标模板有 Enroll；授权允许申请测试证书
+- 步骤：1) 记录模板的 Enroll/SAN/EKU/manager approval/CA flag；2) `certipy req -ca <CA> -template <Tpl> -upn <test-upn>`；3) 立即 `certipy auth -pfx <pfx>`，只保留 TGT 指纹与有效期
+- 判据：pfx 的 EKU 含 Client Auth/Smart Card Logon，`certipy auth` 返回 TGT/ccache，且能访问一个只读目标
+- 失败判据：无 Enroll、需审批、CA 拒绝 SAN、auth 失败 → ESC1 不成立，转 ESC4/ESC5/ESC7，不反复 req
+- reference：Tool/skill/ad-cloud/references/kerberos-and-adcs.md
+
+### 05 强制认证（PetitPotam/Coercer）前提核查（源：coercing-authentication-with-coercer-petitpotam）
+- 触发词：PetitPotam、Coercer、强制认证、MS-EFSRPC、relay
+- 前置：明确授权强制认证目标；有可用 relay/监听端；确认不会影响生产
+- 步骤：1) 先只读枚举目标可达的强制认证接口（EFSRPC/DFSCoerce/PrinterBug）；2) 在隔离测试目标上验证监听端能收到认证；3) 再决定是否与 ESC8/relay 组合，记录目标、时间、来源
+- 判据：监听端收到目标机器账号认证（含来源 IP/时间），且未造成业务中断；认证可被 relay 到授权端点
+- 失败判据：目标已打补丁/接口关闭、监听收不到、强制认证触发业务告警 → 立即停，转凭据直连/其他面
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 06 AD ACL 滥用只读核查（源：analyzing-active-directory-acl-abuse）
+- 触发词：ACL、GenericAll、WriteDACL、ForceChangePassword、BloodHound 边
+- 前置：有域账号；授权允许读对象 ACL；不对生产对象做写操作
+- 步骤：1) `dacledit.py -action read -target <dn>` 或 BloodHound 查边；2) 区分“可读 ACL”与“当前主体可写”；3) 选测试对象验证最小动作，写操作需单独授权并备份原值
+- 判据：原始 ACL 显示当前主体对目标有目标权限；最小验证成功；前后权限/属性对比可复现
+- 失败判据：只有继承/只读权限、目标受 AdminSDHolder 保护、写操作被拒 → 该 ACL 边 blocked，换对象或转委派/ADCS
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 07 域内攻击模拟的边界与节奏（源：executing-active-directory-attack-simulation）
+- 触发词：攻击模拟、红队、域内演练、速率、告警
+- 前置：有书面授权与资产清单；明确允许的动作等级、时间窗、禁做项
+- 步骤：1) 把动作分为只读/凭据验证/提权/横向/持久化五级，逐级确认授权；2) 先只读枚举，再单账号低噪音验证；3) 全程记录命令、时间、源/目标、rc 与告警对齐
+- 判据：每个动作都能映射到授权等级；没有越界资产；关键动作有前后证据与清理记录
+- 失败判据：授权等级不明、资产清单外、动作触发业务异常/锁定 → 立即停并回报，不靠“应该没事”继续
+- reference：Tool/skill/ad-cloud/references/01-criteria.md
+
+### 08 DCSync 检测与只读复核（源：detecting-dcsync-attack-in-active-directory）
+- 触发词：DCSync、DRSUAPI、4769、DS-Replication-Get-Changes、域控同步
+- 前置：有 DC Security 日志或 EDR 遥测；授权允许读日志；不执行真实 DCSync
+- 步骤：1) 查 4662（对象复制）与 4769（目标服务 krbtgt/DC）时间线；2) 对照复制权限（DS-Replication-Get-Changes/All）与账号；3) 用只读 LDAP 核对账号组成员与 ACL
+- 判据：4662 的对象 GUID 指向域命名上下文、账号具备复制权限、时间线与 4769 对齐；三条同时成立才是强证据
+- 失败判据：只有单条 4662、账号无复制权限、日志缺口/转发 → 不能写 DCSync，降级为 candidate 并补遥测
+- reference：Tool/skill/ad-cloud/references/05-delegation-and-rbcd.md
+
+### 09 域持久化的授权与清理（源：conducting-domain-persistence-with-dcsync）
+- 触发词：持久化、DCSync、黄金票据、后门账号、清理
+- 前置：持久化必须单独书面授权；已登记目标、手法、回滚方式与责任人
+- 步骤：1) 优先选可完全回滚的测试对象；2) 记录修改前值/对象/时间；3) 验证后立即按登记回滚，并再次只读确认
+- 判据：持久化动作有授权编号、前后对比、回滚成功证据；没有遗留计划任务/账号/票据
+- 失败判据：无法回滚、影响生产、授权未覆盖持久化 → 不做；已经做了则立即停并上报
+- reference：Tool/skill/ad-cloud/references/02-failure-criteria.md
+
+### 10 分层模型下的路径降噪（源：configuring-active-directory-tiered-model）
+- 触发词：Tier 0、Tier 1、分层模型、域控、跳板机、凭据隔离
+- 前置：有域资产清单与分层定义；授权允许只读枚举
+- 步骤：1) 标注 Tier 0（DC/CA/域管）、Tier 1（服务器）、Tier 2（工作站）；2) 查跨层登录/本地管理员复用/委派；3) 优先验证跨层路径，不碰同层低价值目标
+- 判据：存在跨层凭据复用或委派路径，且能在原始属性/会话上复现；记录层级与资产
+- 失败判据：分层不清、无法确认资产层级、跨层路径只是名称相似 → 标 candidate，先补资产图
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 11 蜜罐/蜜标识别与避免误报（源：deploying-active-directory-honeytokens）
+- 触发词：蜜罐、honeytoken、诱饵账号、假 SPN、告警
+- 前置：授权允许枚举；已知环境可能有蜜标；不做真实凭据尝试
+- 步骤：1) 查账号创建时间/登录时间/SPN/组成员是否异常“完美”；2) 查对象是否只被 BloodHound 边引用、无真实会话；3) 对可疑对象只做只读属性核对，不请求票据/不登录
+- 判据：对象属性与真实业务不符（无登录、无邮箱、名称诱导、单独 OU），且多源一致；标“疑似蜜标”并停止接触
+- 失败判据：无法区分真实/蜜标、对象有真实会话、请求会触发高保真告警 → 不碰，记录后换目标
+- reference：Tool/skill/ad-cloud/references/03-model-pitfalls.md
+
+### 12 AWS 提权评估的身份与策略面（源：performing-aws-privilege-escalation-assessment）
+- 触发词：AWS、IAM、提权、CreatePolicyVersion、PassRole、sts
+- 前置：有授权账号/凭据；只读优先；写操作单独授权并备份
+- 步骤：1) `aws sts get-caller-identity` 确认身份；2) `list-attached-user-policies`/`list-user-policies`/`get-policy-version` 读策略；3) 用 `cloud-iam-eval.py` 对目标 action/resource 复算，再决定是否做只读验证
+- 判据：身份有效、策略文本允许目标动作、boundary/SCP 不拦、实际只读 API 成功；写操作需额外授权
+- 失败判据：AccessDenied/ExpiredToken、显式 Deny/boundary 拦截、文本 allow 但 API 拒绝 → 提权 blocked，记录未建模项
+- reference：Tool/skill/ad-cloud/references/cloud-native.md
+
+### 13 CloudFox 云枚举的只读边界（源：enumerating-cloud-with-cloudfox）
+- 触发词：CloudFox、云枚举、AWS/Azure/GCP、只读、资源面
+- 前置：有有效云身份；授权允许列资源；不创建/修改/删除
+- 步骤：1) 先 `sts get-caller-identity`/`az account show`/`gcloud config list` 固定身份；2) 用 CloudFox 的只读模块枚举资源与权限；3) 按“身份→权限→资源→数据”分层记录，不批量下载
+- 判据：枚举结果能映射到账号/订阅/项目；关键资源有 ARN/ID 与权限来源；没有写操作
+- 失败判据：身份无效、枚举被权限拒绝、结果跨出授权账号 → 停，缩小 scope 或换凭据
+- reference：Tool/skill/ad-cloud/references/cloud-native.md
+
+### 14 AWS IAM 提权检测规则（源：detecting-aws-iam-privilege-escalation）
+- 触发词：IAM 提权检测、CloudTrail、CreatePolicyVersion、PassRole、AssumeRole
+- 前置：有 CloudTrail/GuardDuty 或策略 JSON；授权允许读日志/策略
+- 步骤：1) 查高风险 API（CreatePolicyVersion/AttachUserPolicy/PassRole/CreateAccessKey）时间线；2) 对照调用者身份与策略变更前后版本；3) 用 `cloud-iam-eval.py` 复算“文本是否允许”，再与日志对齐
+- 判据：高风险 API 调用者、时间、策略版本、资源四者对齐；变更有实际权限提升证据
+- 失败判据：只有单条 API 无策略变更、日志缺口、调用者是合法自动化 → 误报，降级并补上下文
+- reference：Tool/skill/ad-cloud/references/cloud-native.md
+
+### 15 收敛 AWS IAM 权限的验证（源：securing-aws-iam-permissions）
+- 触发词：IAM 收敛、least privilege、boundary、SCP、修复验证
+- 前置：有策略修改授权；已备份原策略；有回滚计划
+- 步骤：1) 记录修改前 policy version/attachment；2) 应用最小权限/boundary/SCP；3) 用只读 API 与 `cloud-iam-eval.py` 验证目标动作仍可用、越权动作被拒
+- 判据：修复后目标业务动作成功、越权动作 deny、回滚路径可用；记录版本与时间
+- 失败判据：业务中断、boundary 误伤、无法回滚 → 立即回滚并上报，不继续收窄
+- reference：Tool/skill/ad-cloud/references/02-failure-criteria.md
+
+### 16 GCP 存储枚举的授权与判据（源：performing-gcp-penetration-testing-with-gcpbucketbrute）
+- 触发词：GCP、GCS、bucket、gcpbucketbrute、公开桶
+- 前置：有授权项目/域名/关键字；只读枚举；不下载对象
+- 步骤：1) 固定身份 `gcloud config list`/`gcloud auth list`；2) 用 gcpbucketbrute 只读枚举候选桶；3) 对命中桶只做 `list`/`describe`，记录桶名、权限、对象数（不导出内容）
+- 判据：桶存在且当前身份可 list/read，返回官方 API 响应；记录项目/桶/权限
+- 失败判据：403/404、只有名称猜测、桶属于授权外项目 → 不碰，缩小 scope
+- reference：Tool/skill/ad-cloud/references/cloud-native.md
+
+### 17 Okta/云身份目录审计（源：managing-cloud-identity-with-okta）
+- 触发词：Okta、IdP、SSO、MFA、应用分配、云身份
+- 前置：有 Okta 只读管理员/审计日志权限；授权允许读用户/应用/策略
+- 步骤：1) 枚举用户/组/应用/策略与 MFA 状态；2) 查高风险：无 MFA 管理员、宽应用分配、长期 token、异常 IdP；3) 对照审计日志时间线
+- 判据：高风险配置能在 API/审计日志复现，且有明确影响（如无 MFA 管理员可登录）；记录对象 ID
+- 失败判据：只有 UI 截图、无审计日志、权限不足 → 标 candidate，补只读 API/日志
+- reference：Tool/skill/ad-cloud/references/cloud-native.md
+
+### 18 Azure AD/Entra 配置审计（源：auditing-azure-active-directory-configuration）
+- 触发词：Azure AD、Entra ID、条件访问、MFA、服务主体、角色
+- 前置：有只读目录权限；授权允许读配置与登录日志
+- 步骤：1) 枚举全局管理员/特权角色/条件访问/服务主体凭据；2) 查长期 secret/cert、过宽 API 权限、无 MFA 管理员；3) 对照 sign-in/audit log 验证
+- 判据：高风险配置有对象 ID、API 返回、日志证据；能说明影响与修复
+- 失败判据：只有门户截图、权限不足、配置存在但无实际可利用路径 → candidate，不写“已接管”
+- reference：Tool/skill/ad-cloud/references/cloud-native.md
+
+### 19 Kubernetes 渗透测试的只读起步（源：performing-kubernetes-penetration-testing）
+- 触发词：Kubernetes、kubeconfig、API server、渗透测试、namespace
+- 前置：有 kubeconfig/SA token；授权允许只读 API；不创建资源
+- 步骤：1) `python Tool/scripts/adcloud-check.py --kubeconfig <file> --json` 做离线分诊；2) `kubectl config current-context` + `auth can-i --list`；3) 只读枚举 pods/secrets/rbac，记录 context 与 token 指纹
+- 判据：context/token 有效、auth can-i 有明确结果、只读枚举成功；记录 API server 与 namespace
+- 失败判据：token 过期、TLS/连接失败、auth can-i 全 no → 路径 blocked，转 Secret/CI 或换身份
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 20 K8s RBAC 提权审计（源：auditing-kubernetes-rbac-privilege-escalation）
+- 触发词：RBAC、ClusterRole、RoleBinding、wildcard、escalate、bind
+- 前置：有只读 RBAC 权限；授权允许读 role/clusterrole/binding
+- 步骤：1) 导出 Role/ClusterRole 与绑定；2) 找 wildcard、escalate/bind、impersonate、secrets、create pods；3) 用 `ad-repro.py --kind k8s-rbac` 复算，再决定是否做只读验证
+- 判据：绑定 subject 与当前身份匹配、规则确实允许目标 verb/resource、只读验证成功
+- 失败判据：名称像高权但绑定窄、规则被 admission 限制、auth can-i 为 no → candidate/blocked，转 Secret/CI
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 21 容器逃逸到宿主的证据链（源：escaping-containers-to-host）
+- 触发词：容器逃逸、privileged、hostPath、nsenter、CAP_SYS_ADMIN
+- 前置：有容器内执行权限；授权允许创建测试 Pod/容器；已知清理方式
+- 步骤：1) 查 CapEff/mount/cgroup/socket；2) 选最小原语（hostPath 只读优先/nsenter）；3) 只在宿主执行 `id` 或读标记文件，记录命令与清理
+- 判据：宿主命名空间 `id` 或宿主文件读取成功，且能复现；Pod/容器配置与命令完整
+- 失败判据：seccomp/PSA/只读挂载/用户命名空间拦住、读不到宿主 → 逃逸 blocked，换原语或转 Secret
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 22 K8s Pod 提权检测（源：detecting-privilege-escalation-in-kubernetes-pods）
+- 触发词：Pod 提权、securityContext、capabilities、hostPID、audit
+- 前置：有 K8s audit/EDR 或 Pod spec 只读权限；授权允许读日志
+- 步骤：1) 查 Pod securityContext/volume/namespace 配置；2) 对齐 audit 的 create/exec/attach 与异常镜像；3) 对高风险 Pod 做只读配置复核，不进入生产 Pod
+- 判据：配置允许特权/hostPath/hostPID 且 audit 有对应创建/执行；有实际宿主证据才升级为 confirmed
+- 失败判据：配置存在但 PSA 拦截、audit 缺口、只在测试 namespace → candidate，补证据
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 23 etcd 安全评估的只读边界（源：performing-kubernetes-etcd-security-assessment）
+- 触发词：etcd、2379、client cert、数据目录、K8s 控制面
+- 前置：有控制面节点只读权限或 etcd 指标端点授权；不写 key
+- 步骤：1) 查 etcd 监听地址/TLS/客户端证书/peer 认证；2) 只读访问 `/health`/`/metrics` 或导出快照（需授权）；3) 检查数据目录权限与备份加密
+- 判据：未授权访问被拒或授权只读成功；证书/端口/权限有客观返回；不修改任何 key
+- 失败判据：2379 暴露但需 mTLS、无证书、快照含敏感数据未授权 → 停，记录暴露面与修复建议
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 24 kube-bench CIS 基线复核（源：performing-kubernetes-cis-benchmark-with-kube-bench）
+- 触发词：kube-bench、CIS、基线、master/node、配置审计
+- 前置：有节点只读/Job 执行授权；明确 kube-bench 版本与 CIS 版本
+- 步骤：1) 在测试节点/Job 跑 kube-bench，保存 JSON；2) 按 master/node/etcd/policies 分组看 FAIL；3) 对每条 FAIL 只读复核配置文件与运行参数，区分“基线不合规”与“可利用”
+- 判据：FAIL 项有配置文件/进程参数证据；能映射到具体风险与修复；不把 FAIL 直接写成提权
+- 失败判据：版本不匹配、权限不足、FAIL 项被托管服务覆盖 → 标 unknown/不适用，不硬套 CIS
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md

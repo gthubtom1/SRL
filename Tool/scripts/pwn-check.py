@@ -499,47 +499,40 @@ def decide(b, strings):
     return routes
 
 
-def emit_error(args, message, code, rc):
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def error_payload(blocked_at, reason):
+    """结构化失败对象：任何入口失败都返回这个形状，调用方按 rc=2 处理。"""
+    return {"ok": False, "blocked_at": blocked_at, "reason": reason}
+
+
+def emit_error(args, blocked_at, reason, rc=2):
     """统一错误输出：JSON 模式输出结构化对象，文本模式输出 [ERR]。"""
+    payload = error_payload(blocked_at, reason)
     if args.json:
-        print(json.dumps({"ok": False, "error": message, "code": code},
-                         ensure_ascii=False))
+        print(json.dumps(payload, ensure_ascii=False))
     else:
-        print("[ERR] %s" % message, file=sys.stderr)
+        print("[ERR] %s: %s" % (blocked_at, reason), file=sys.stderr)
+        print(json.dumps(payload, ensure_ascii=False))
     return rc
 
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="PE/ELF 保护位、危险导入、format 串风险与利用路线预判（纯标准库，只读）")
-    ap.add_argument("--file", "-f", required=True, help="PE/ELF 文件路径")
-    ap.add_argument("--json", action="store_true", help="输出 JSON")
-    ap.add_argument("--max-strings", type=int, default=12000, help="扫描字符串上限（默认 12000）")
-    args = ap.parse_args()
-    path = os.path.abspath(args.file)
-    if not os.path.isfile(path):
-        return emit_error(args, "文件不存在: %s" % path, "FILE_NOT_FOUND", 2)
-    try:
-        with open(path, "rb") as fh:
-            data = fh.read()
-    except OSError as exc:
-        return emit_error(args, "读取失败: %s" % exc, "READ_FAILED", 2)
+def analyze_bytes(data, label, max_strings=12000):
+    """解析一段 PE/ELF 字节流，返回 pwn-check 的结论 dict（不自读文件）。"""
     b = Binary()
-    try:
-        if data[:2] == b"MZ":
-            parse_pe(data, b)
-        elif data[:4] == b"\x7fELF":
-            parse_elf(data, b)
-        else:
-            raise ValueError("既不是 PE(MZ) 也不是 ELF")
-    except (ValueError, struct.error, IndexError) as exc:
-        return emit_error(args, "解析失败: %s" % exc, "PARSE_FAILED", 3)
-    strings = strings_from(data, args.max_strings)
+    if data[:2] == b"MZ":
+        parse_pe(data, b)
+    elif data[:4] == b"\x7fELF":
+        parse_elf(data, b)
+    else:
+        raise ValueError("既不是 PE(MZ) 也不是 ELF")
+    strings = strings_from(data, max_strings)
     analyze_imports(b)
     analyze_strings(b, strings)
     routes = decide(b, strings)
-    result = {
-        "file": path,
+    return {
+        "file": label,
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
         "kind": b.kind,
@@ -558,6 +551,73 @@ def main():
         "next_routes": routes,
         "notes": b.notes,
     }
+
+
+def self_test():
+    """离线自检：用仓库内真实 PE 样本 + 内置字符串，覆盖解析/判据/失败形状。"""
+    checks = []
+    sample = os.path.join(ROOT, "Tool", "samples", "real", "crackerjack", "a.exe")
+    if not os.path.isfile(sample):
+        return error_payload("self-test-sample", "缺少仓库内真实样本 Tool/samples/real/crackerjack/a.exe"), 2
+    with open(sample, "rb") as fh:
+        data = fh.read()
+    res = analyze_bytes(data, "Tool/samples/real/crackerjack/a.exe", 4000)
+    checks.append(("kind==PE", res["kind"] == "PE"))
+    checks.append(("sha256", len(res["sha256"]) == 64))
+    checks.append(("protections", set(res["protections"]) >= {"NX", "PIE", "Canary", "RELRO"}))
+    checks.append(("routes", len(res["next_routes"]) >= 1))
+    b = Binary()
+    analyze_strings(b, ["%n write", "plain %d", "%s.%p leak"])
+    sev = {x["string"]: x["severity"] for x in b.fmt_risks}
+    checks.append(("fmt-%n-high", sev.get("%n write") == "high"))
+    checks.append(("fmt-leak-medium", sev.get("%s.%p leak") == "medium"))
+    payload = error_payload("parse", "bad magic")
+    checks.append(("error-shape", payload["ok"] is False and payload["blocked_at"] == "parse"))
+    failed = [name for name, ok in checks if not ok]
+    if failed:
+        return error_payload("self-test", "失败项: " + ",".join(failed)), 2
+    return {"ok": True, "checks": len(checks), "sample": "Tool/samples/real/crackerjack/a.exe",
+            "sample_sha256": res["sha256"]}, 0
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="PE/ELF 保护位、危险导入、format 串风险与利用路线预判（纯标准库，只读）",
+        epilog="退出码：0 成功；2 结构化失败（blocked_at/reason）。")
+    ap.add_argument("--file", "-f", help="PE/ELF 文件路径")
+    ap.add_argument("--json", action="store_true", help="输出 JSON")
+    ap.add_argument("--max-strings", type=int, default=12000, help="扫描字符串上限（默认 12000）")
+    ap.add_argument("--self-test", action="store_true", help="离线自检（真实 PE 样本 + 内置格式串）")
+    args = ap.parse_args()
+    if args.self_test:
+        payload, rc = self_test()
+        print(json.dumps(payload, ensure_ascii=False))
+        return rc
+    if not args.file:
+        return emit_error(args, "args", "缺少 --file（或改用 --self-test）", 2)
+    path = os.path.abspath(args.file)
+    if not os.path.isfile(path):
+        return emit_error(args, "read", "文件不存在: %s" % args.file, 2)
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read()
+    except OSError as exc:
+        return emit_error(args, "read", "读取失败: %s" % exc, 2)
+    b = Binary()
+    try:
+        result = analyze_bytes(data, path, args.max_strings)
+    except (ValueError, struct.error, IndexError) as exc:
+        return emit_error(args, "parse", "解析失败: %s" % exc, 2)
+    # 文本模式需要 Section 标志位与 notes，重解析一次供打印（JSON 已由 analyze_bytes 生成）
+    try:
+        if data[:2] == b"MZ":
+            parse_pe(data, b)
+        else:
+            parse_elf(data, b)
+        analyze_imports(b)
+        analyze_strings(b, strings_from(data, args.max_strings))
+    except (ValueError, struct.error, IndexError):
+        pass
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
@@ -584,7 +644,7 @@ def main():
     else:
         print("  （未发现 %n/%s/%p 类模板）")
     print("\n-- 下一步优先路线 --")
-    for i, r in enumerate(routes, 1):
+    for i, r in enumerate(result["next_routes"], 1):
         print("%d. %s" % (i, r["route"]))
         print("   判据: %s" % r["why"])
         for s in r["first_steps"]:

@@ -223,7 +223,7 @@ Consequences that decide whether your search works:
 - A **CJK / non-Latin** literal is a two-byte string: a UTF-8 search returns **zero**, a UTF-16LE
   search hits. This is the case that makes people wrongly conclude "the strings were stripped".
 - Therefore: **search ASCII as UTF-8 and non-ASCII as UTF-16LE**, rather than forcing one encoding
-  on everything. (This is the concrete form of `pitfalls.md` P25.)
+  on everything. (This is the concrete form of `pitfalls-3-patching-and-artifacts.md`.)
 - A raw byte scan for the tag pattern finds many false candidates. Accept a candidate only when
   entries **chain** — the previous entry's `tag+payload` must end exactly where the next candidate
   begins. Without that constraint you get order-of-magnitude more garbage than strings; a

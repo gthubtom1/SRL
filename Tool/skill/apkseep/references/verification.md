@@ -30,7 +30,7 @@ Before blaming a patch, build a control: **the same pipeline with zero patches**
 python scripts/repack.py --apk original.apk --dexdir <extracted> --out control.apk
 ```
 
-- Control fails → your pipeline, the environment, or the device is at fault. Stop debugging the patch (`pitfalls.md` P9).
+- Control fails → your pipeline, the environment, or the device is at fault. Stop debugging the patch (`pitfalls-2-environment-and-evidence.md`).
 - Control passes, patched fails → the patch is implicated. Bisect: revert one dex at a time.
 
 Do this **whenever something unexpectedly fails**, and at least once per project.
@@ -49,7 +49,7 @@ ACC_INTERFACE mismatch: 0
 access_flags diff (same interface-ness): 0
 ```
 
-Caveat, and it is an important one: **this check cannot detect code-item damage.** A whole-tree smali round-trip can pass every table check and still crash with `IncompatibleClassChangeError` (`pitfalls.md` P3). Passing this check is necessary, not sufficient.
+Caveat, and it is an important one: **this check cannot detect code-item damage.** A whole-tree smali round-trip can pass every table check and still crash with `IncompatibleClassChangeError` (`pitfalls-1-packaging-and-dex.md`). Passing this check is necessary, not sufficient.
 
 The checks that *can* see further — instruction-length auditing, the equal-length-replacement blind spot, and verifier-level legality (`move-result*` adjacency) — are in `references/patch-audit.md`. Use them before claiming a patch landed.
 
@@ -91,7 +91,7 @@ Launching proves nothing about your change. Exercise it.
 - Settings screens open?
 - Downloads still start?
 
-This is exactly how a "generic image-card composable" patch removed all cover art while the ad still showed (`pitfalls.md` P6).
+This is exactly how a "generic image-card composable" patch removed all cover art while the ad still showed (`pitfalls-1-packaging-and-dex.md`).
 
 ## Screenshot discipline
 

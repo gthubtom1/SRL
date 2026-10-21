@@ -1,0 +1,234 @@
+{
+  "domain": "reverse",
+  "skill": "softseep",
+  "updated": "2026-10-21",
+  "families": [
+    {
+      "id": "pe-structure",
+      "name": "PE 结构、节表、导入/导出与资源",
+      "match": ["PE", "MZ", "e_lfanew", "节表", "section", "import", "export", "RVA", "资源", "overlay"],
+      "tools": ["preflight-classify.py", "dumpbin", "PE-bear", "Ghidra", "Python struct"],
+      "commands": [
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>",
+        "dumpbin /headers <sample>",
+        "dumpbin /imports <sample>",
+        "dumpbin /exports <sample>"
+      ],
+      "criteria": "e_lfanew 指向 PE\\0\\0；节表 VirtualAddress/SizeOfRawData 自洽；入口 RVA 在可执行节；SizeOfImage 覆盖所有节；数据目录索引与实际结构一致",
+      "fail": "节表被伪造（RawSize=0、节名重复）、入口在密文段、导入表为空但运行期有网络行为 → 先判壳/脱壳，不要直接静态下结论",
+      "pitfalls": ["把 overlay 当节", "用文件偏移当 RVA", "忽略 SectionAlignment/FileAlignment 差异", "只看导入表判断能力"]
+    },
+    {
+      "id": "dotnet-managed",
+      "name": ".NET / Mono 托管程序集与 IL",
+      "match": ["CLR", ".NET", "BSJB", "mscoree", "#Strings", "#US", "ildasm", "dnSpy", "ilspycmd"],
+      "tools": ["ilspycmd", "dnSpy", "dnlib", "de4dot", "preflight-classify.py"],
+      "commands": [
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>",
+        "ilspycmd -o out <sample>",
+        "llvm-pdbutil dump --summary <sample>.pdb"
+      ],
+      "criteria": "数据目录 14 (CLR) 非零；BSJB 元数据根可解析；#~/#Strings/#US/#Blob 可读；方法体/ldstr 可见",
+      "fail": "只有 stub、方法体被剥离到资源、ReadyToRun/AOT 无 IL → 转动态解壳或 JIT Hook；不要硬读静态 IL",
+      "pitfalls": ["把 ReadyToRun 当普通 IL", "忽略 #US 长度尾字节", "同源 Generate/Verify 自洽掩盖移植错误", "只在磁盘改 IL 不处理强名称/签名"]
+    },
+    {
+      "id": "go-rust",
+      "name": "Go / Rust 静态链接二进制",
+      "match": ["Go", "Golang", "gopclntab", "runtime.main", "Rust", "rust_eh_personality", "core::", "alloc::"],
+      "tools": ["Ghidra", "radare2", "strings", "nm", "go tool nm", "rustfilt"],
+      "commands": [
+        "go tool nm <sample> | head",
+        "strings -n 8 <sample> | grep -E 'runtime\\.|core::|alloc::'",
+        "radare2 -A -q -c 'afl' <sample>"
+      ],
+      "criteria": "Go: gopclntab 可恢复函数名，runtime.main/moduledata 可定位；Rust: panic/符号/异常人格函数存在；调用图能连到 main",
+      "fail": "剥离后符号全空且无特征字符串 → 用调用图/常量/网络端点；不要按 C++ vtable 解释 Go interface/Rust trait",
+      "pitfalls": ["把 Go 接口表当 C++ vtable", "把 Rust panic 路径当业务逻辑", "忽略静态链接的 CRT/运行时", "用 C++ 异常表套 Rust unwind"]
+    },
+    {
+      "id": "vmprotect-themida",
+      "name": "VMProtect / Themida 等虚拟化保护",
+      "match": ["VMProtect", ".vmp0", ".vmp1", "Themida", ".themida", "WinLicense", "VM entry", "虚拟化", "dispatcher"],
+      "tools": ["diec", "seep_packer_detect", "Ghidra", "x64dbg", "Frida", "pe-sieve"],
+      "commands": [
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>",
+        "diec <sample>",
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample> --hint"
+      ],
+      "criteria": "节名/熵剖面命中；VM entry 有上下文切换/字节码解释循环；反编译只得到 dispatcher 而无业务语义",
+      "fail": "静态只看到 VM dispatcher、trace 无法还原语义 → 不硬逆 VM；转运行期取功能/取载荷/patch 判定点；脱壳流程见 unpack-loop",
+      "pitfalls": ["把控制流平坦化误判 VM", "在 VM entry 上死磕", "忽略反调试与页守卫", "以为脱壳后 IAT 自动可用"]
+    },
+    {
+      "id": "anti-debug",
+      "name": "反调试、反虚拟机与自检",
+      "match": ["anti-debug", "反调试", "IsDebuggerPresent", "NtQueryInformationProcess", "PEB", "BeingDebugged", "rdtsc", "DRx", "VM detection", "CPUID"],
+      "tools": ["x64dbg", "ScyllaHide", "Frida", "Process Monitor", "preflight-classify.py"],
+      "commands": [
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>",
+        "dumpbin /imports <sample> | grep -Ei 'debug|query|tick|performance|toolhelp'",
+        "strings -n 6 <sample> | grep -Ei 'vmware|vbox|qemu|ollydbg|x64dbg'"
+      ],
+      "criteria": "导入/字符串/PEB 读取命中；基线 vs attach 行为差异可复现；改一个检测点后目标继续且无二次检测",
+      "fail": "两次 attach 都被打掉、换调试器仍退 → 停手，先识别检测层；改走外部观测/纯静态/硬件断点；不要第三次裸 attach",
+      "pitfalls": ["只改 IsDebuggerPresent 漏 PEB 直读", "软件断点触发 0xCC 扫描", "硬件断点被 DRx 检测", "只改一个注册表键就以为过了 VM 检测"]
+    },
+    {
+      "id": "iat-tls",
+      "name": "IAT / TLS callback / 延迟导入",
+      "match": ["IAT", "TLS callback", "AddressOfCallBacks", "delay import", "延迟导入", "导入表", "DllMain"],
+      "tools": ["dumpbin", "PE-bear", "x64dbg", "Ghidra", "python pefile"],
+      "commands": [
+        "dumpbin /headers <sample> | sed -n '/TLS/,+8p'",
+        "dumpbin /imports <sample>",
+        "dumpbin /headers <sample> | grep -i delay"
+      ],
+      "criteria": "TLS 目录非空且回调数组以 NULL 结尾；IAT 槽位可由 DLL/函数名定位；延迟导入描述符存在；回调在 EntryPoint 前命中",
+      "fail": "入口断点没命中、回调承担解密、IAT 被动态取址绕过 → 改 TLS/系统断点；IAT hook 失效时转 inline hook 或外部观测",
+      "pitfalls": ["只断 EntryPoint 漏 TLS callback", "改 IAT 前没取真实地址导致递归", "忽略 delay import 解析时机", "TLS 回调多条只处理一条"]
+    },
+    {
+      "id": "license-local",
+      "name": "本地授权/离线许可/试用期",
+      "match": ["license", "授权", "激活", "注册码", "试用", "trial", "offline", "序列号", "机器码", "signature"],
+      "tools": ["Ghidra", "x64dbg", "Frida", "preflight-classify.py", "case_state.py"],
+      "commands": [
+        "python Tool/scripts/case_state.py show --case <case>",
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>",
+        "strings -el <sample> | grep -Ei 'license|expire|trial|activation'"
+      ],
+      "criteria": "断网后核心功能可用；本地有验签/状态字/许可文件读取；改 1 字节签名或状态字后行为变化可复现",
+      "fail": "只写 license_type 仍试用、只改 UI 重启回退、断网即失效 → 找真正状态源/服务端权威；不要继续堆 UI 补丁",
+      "pitfalls": ["把分类字段当激活判据", "只改 UI 不改状态字", "忽略多进程/心跳回写", "同源 keygen 自洽掩盖错误"]
+    },
+    {
+      "id": "license-network",
+      "name": "网络授权、会话绑定与端点接管",
+      "match": ["online activation", "在线激活", "heartbeat", "心跳", "card key", "卡密", "session", "令牌", "winhttp", "ws2_32"],
+      "tools": ["tshark", "seep_pcap_extract", "seep_http_replay", "mitmproxy", "Python socket"],
+      "commands": [
+        "tshark -r capture.pcapng -Y http -T fields -e http.host -e http.request.uri",
+        "python Tool/scripts/pcap-summary.py <pcap>",
+        "python -m http.server 8080 --bind 0.0.0.0"
+      ],
+      "criteria": "多次会话令牌不同/服务端回填时间戳/响应体随会话封送 → 会话绑定；否则金样回放可验证；端点接管后请求落到本地监听器",
+      "fail": "回放后静默退出、令牌替换仍失败 → 转透明中继；只能完成握手不能伪造成立，结论必须降级",
+      "pitfalls": ["把随机 nonce 当会话绑定", "SO_REUSEADDR 双绑到旧进程", "只改 Host 不改端口/模板", "把中继写成已绕过"]
+    },
+    {
+      "id": "patch-engineering",
+      "name": "补丁工程：等长/代码洞/重定位/校验",
+      "match": ["patch", "补丁", "code cave", "trampoline", "jmp rel32", "checksum", "manifest", "rollback"],
+      "tools": ["patch-verify.py", "x64dbg", "Ghidra", "Python", "signtool", "dumpbin"],
+      "commands": [
+        "python Tool/skill/softseep/scripts/patch-verify.py --manifest patch.json --file app.exe",
+        "python Tool/skill/softseep/scripts/patch-verify.py --manifest patch.json --file app.exe --rollback",
+        "dumpbin /headers app.exe | grep -i checksum"
+      ],
+      "criteria": "补丁前后等长；offset 在文件范围；original 字节匹配；result_sha256 复算一致；目标行为变化；可回滚到原哈希",
+      "fail": "改完立刻崩/延迟崩、签名或自检失败、跨版本偏移失效 → 改 trampoline/只改条件跳转；重算 checksum；AOB 迁移",
+      "pitfalls": ["jmp rel32 少算 5 字节", "call [rip+x] 按当前指令算 disp", "忽略 ASLR 写绝对 VA", "不重算 checksum/不写 manifest"]
+    },
+    {
+      "id": "injection",
+      "name": "DLL 注入、手动映射与线程劫持",
+      "match": ["injection", "注入", "CreateRemoteThread", "QueueUserAPC", "manual map", "手动映射", "SetThreadContext", "reflective"],
+      "tools": ["x64dbg", "Process Hacker", "Frida", "Python ctypes", "pe-sieve"],
+      "commands": [
+        "python Tool/skill/softseep/scripts/preflight-classify.py <dll>",
+        "dumpbin /exports <dll>",
+        "dumpbin /dependents <dll>"
+      ],
+      "criteria": "目标进程模块列表出现注入模块；线程起始地址在模块内；模块入口执行（日志/断点）；目标未崩溃；位数/依赖匹配",
+      "fail": "注入器返回成功但无模块/无行为 → 查位数/依赖/DllMain/反注入；改手动映射/APC/早启动；不要反复注入同一 DLL",
+      "pitfalls": ["32/64 位不匹配", "DllMain 里做重活导致 loader lock 死锁", "忽略目标反注入/模块枚举", "手动映射漏重定位/导入/TLS"]
+    },
+    {
+      "id": "driver-kernel",
+      "name": "驱动/内核模块与 IOCTL",
+      "match": ["driver", "驱动", ".sys", "IOCTL", "DeviceIoControl", "kernel", "内核", "rootkit", "bootkit"],
+      "tools": ["WinDbg", "OSR Loader", "sc.exe", "DbgView", "Ghidra", "IDA"],
+      "commands": [
+        "sc create <name> type= kernel binPath= C:\\\\path\\\\drv.sys",
+        "sc start <name>",
+        "dumpbin /headers drv.sys | grep -i subsystem"
+      ],
+      "criteria": "服务创建/启动返回 0；设备对象可打开；IOCTL 返回预期 NTSTATUS；DbgView 有加载/通信日志；签名/测试签名状态明确",
+      "fail": "0x577/0x241 加载失败、设备打不开、IOCTL 无响应 → 查签名/安全启动/内核版本；改测试签名环境或用户态替代",
+      "pitfalls": ["未开测试签名", "在生产机反复加载未签名驱动", "忽略 IRQL/内存分页约束", "只验证加载不验证通信"]
+    },
+    {
+      "id": "arm64",
+      "name": "ARM64 / AAPCS64 逆向",
+      "match": ["ARM64", "AArch64", "AAPCS64", "X0", "X29", "X30", "stp x29", "blr", "PAC", "BTI"],
+      "tools": ["Ghidra", "IDA", "lldb", "Frida", "objdump"],
+      "commands": [
+        "objdump -d <sample> | head",
+        "llvm-objdump --arch-name=aarch64 -d <sample>",
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>"
+      ],
+      "criteria": "前 8 参数在 X0–X7；返回地址 X30；帧指针 X29；STP X29,X30 建帧；BL/BLR/RET 语义正确；PAC/BTI 状态明确",
+      "fail": "按 x64 约定读参数全错、RET 跳飞 → 回到 AAPCS64；检查 X30 保存与 PAC 签名；不要套 RCX/RDX",
+      "pitfalls": ["把 X30 当普通寄存器", "忽略叶子函数不建帧", "把 BLR 当 BL", "忽略 PAC/BTI 与 16 字节栈对齐"]
+    },
+    {
+      "id": "macos-macho",
+      "name": "macOS Mach-O / codesign / dyld",
+      "match": ["Mach-O", "MH_MAGIC", "LC_SEGMENT_64", "LC_MAIN", "codesign", "dyld", "hardened runtime", "entitlement"],
+      "tools": ["otool", "codesign", "nm", "dyldinfo", "lldb", "Ghidra"],
+      "commands": [
+        "file <sample>",
+        "otool -hv <sample>",
+        "otool -L <sample>",
+        "codesign -dvvv <sample>"
+      ],
+      "criteria": "MH_MAGIC_64/FAT 可解析；LC_SEGMENT_64/LC_MAIN/LC_CODE_SIGNATURE 存在；codesign 显示签名链；otool -L 依赖可读",
+      "fail": "改完被 kill、签名失效、library validation 拒绝 → 重签/ad-hoc/测试机关 SIP；或改 DYLD 注入需 entitlement",
+      "pitfalls": ["把 fat binary 当单架构", "忽略 hardened runtime", "改代码不重签", "把 dylib 注入套到受保护进程"]
+    },
+    {
+      "id": "elf",
+      "name": "ELF / Linux 动态链接与 PIE",
+      "match": ["ELF", "\\x7fELF", "readelf", "DT_NEEDED", "PIE", "RELRO", "LD_PRELOAD", "ptrace"],
+      "tools": ["readelf", "objdump", "nm", "gdb", "ltrace", "strace", "Frida"],
+      "commands": [
+        "readelf -h <sample>",
+        "readelf -d <sample> | head",
+        "readelf -sW <sample> | head",
+        "file <sample>"
+      ],
+      "criteria": "e_entry 落在可执行段；.dynamic 含 DT_NEEDED；符号/PIE/RELRO 状态可读；运行时基址记录",
+      "fail": "Text file busy、段权限错误、PIE 基址算错 → 停进程再改；LD_PRELOAD/Frida；不要硬写绝对地址",
+      "pitfalls": ["把静态链接当动态", "忽略 PIE/RELRO", "运行中替换文件", "用 PE 节表经验套 ELF 段"]
+    },
+    {
+      "id": "packer-unpack",
+      "name": "压缩壳/加密壳与内存 Dump",
+      "match": ["UPX", "ASPack", "MPRESS", "packer", "加壳", "脱壳", "OEP", "dump", "IAT rebuild", "Scylla"],
+      "tools": ["diec", "upx", "x64dbg", "Scylla", "pe-sieve", "ProcessDump"],
+      "commands": [
+        "diec <sample>",
+        "upx -d <sample> -o <sample>.unpacked",
+        "python Tool/skill/softseep/scripts/preflight-classify.py <sample>"
+      ],
+      "criteria": "磁盘节熵高但内存出现原节名/明文导入/可读字符串；OEP 落在原 .text；IAT 可解析；dump 文件哈希记录",
+      "fail": "能运行但节仍高熵、dump 节表错位、IAT 未修复 → 继续找 OEP/修 IAT；VM 壳转运行期取功能；不要宣布已脱壳",
+      "pitfalls": ["把能运行当已脱壳", "dump 不同步记录 region 表", "忽略页守卫/反 dump", "脱壳后不修 IAT 就静态分析"]
+    },
+    {
+      "id": "symbol-recovery",
+      "name": "PDB/符号/FLIRT/FID/RTTI 恢复",
+      "match": ["PDB", "RSDS", "symbol server", "FLIRT", "Lumina", "FID", "RTTI", "vtable", "dumpbin /headers", "llvm-pdbutil"],
+      "tools": ["dumpbin", "llvm-pdbutil", "IDA FLIRT", "Ghidra FID", "Diaphora", "c++filt"],
+      "commands": [
+        "dumpbin /headers <sample> | sed -n '/Debug Directories/,+12p'",
+        "llvm-pdbutil dump --summary <sample>.pdb",
+        "nm -C <sample> | head"
+      ],
+      "criteria": "RSDS GUID/Age 与 PDB 一致；FLIRT/FID 命中且有版本依据；RTTI/typeinfo/vtable 由构造函数写入点确认；恢复名可解释",
+      "fail": "GUID 不匹配、FLIRT 低置信、vtable 无 COL/typeinfo → 不硬加载/不硬命名；转字符串/调用图/指纹",
+      "pitfalls": ["PDB GUID/Age 不匹配仍加载", "把函数指针数组当 vtable", "低置信 FLIRT 直接改名", "交付文档泄露构建机绝对路径"]
+    }
+  ]
+}

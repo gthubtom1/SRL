@@ -551,7 +551,7 @@ class WebViewBridgeFuzzer:
                            "file:///data/data/..."];
             payloads.forEach(function(p) {
                 try {
-                    obj[methodName](p);
+                    objmethodName;
                 } catch(e) {}
             });
         }

@@ -7,7 +7,7 @@
 | Cost | three attribution corrections; two of them were written down as findings before being refuted |
 | Outcome | the drift is attributed to the sample's own environment check, and the operational rule that falls out of it ("configure root hiding, then re-baseline") |
 | Evidence | `references/evidence-summary.md` §The capability matrix (the pid-drift section and the frida-dexdump section); `references/evidence-summary.md` §The capability matrix (the root-hiding layer) |
-| Related | `SKILL.md` §Stop conditions (last bullet); `pitfalls.md` P9, P18; `references/detection-and-anti-analysis.md` |
+| Related | `SKILL.md` §Stop conditions (last bullet); `pitfalls-2-environment-and-evidence.md` P9, P18; `references/detection-and-anti-analysis.md` |
 
 ## Assertions and grade
 | # | Assertion | Grade | Evidence |

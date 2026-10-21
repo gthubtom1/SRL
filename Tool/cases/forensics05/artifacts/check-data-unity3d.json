@@ -1,0 +1,39 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics05\\input\\data.unity3d",
+  "type": "unity-bundle",
+  "format": "UnityFS/AssetBundle",
+  "confidence": "observed",
+  "meta": {
+    "signature": "UnityFS",
+    "format_version": 6,
+    "unity_version": "2022.3.10f1",
+    "unity_revision": null
+  },
+  "timeline": {
+    "start_utc": "2026-10-21T14:39:47.171430Z",
+    "end_utc": "2026-10-21T14:39:47.171430Z",
+    "basis": "filesystem mtime only; content time requires acquisition record",
+    "timezone": "UTC display of local mtime",
+    "clock_skew": "unknown",
+    "precision": "filesystem dependent"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "Unity 版本与压缩/加密标志",
+    "CAB-* 资源清单",
+    "Texture2D/TextAsset/AudioClip",
+    "manifest 与运行时加载关系"
+  ],
+  "integrity": {
+    "sha256": "8976b8114857626a9186abbbbad34cf4e6ee7fbda0df5466d209fff986634c60",
+    "size": 1080,
+    "mtime_utc": "2026-10-21T14:39:47.171430Z",
+    "readonly": true,
+    "warnings": [],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

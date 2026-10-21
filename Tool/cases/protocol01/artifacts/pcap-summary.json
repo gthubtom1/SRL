@@ -1,0 +1,110 @@
+{
+  "ok": true,
+  "file": "input/sample.pcap",
+  "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a",
+  "size": 628,
+  "format": "pcap",
+  "linktype": 1,
+  "linktype_name": "EN10MB/Ethernet",
+  "packet_count": 3,
+  "first_ts": 1792466045.0,
+  "last_ts": 1792466045.91,
+  "duration_s": 0.9100000858306885,
+  "session_count": 2,
+  "sessions": [
+    {
+      "proto": "TCP",
+      "src": "10.20.0.15",
+      "sport": 49152,
+      "dst": "10.20.0.5",
+      "dport": 80,
+      "packets": 2,
+      "payload_bytes": 238,
+      "first_ts": 1792466045.0,
+      "last_ts": 1792466045.91,
+      "flags": [
+        24
+      ],
+      "snippets": [
+        "GET /login HTTP/1.1",
+        "Host: lab.example.test",
+        "User-Agent: lab-client/0.9.3",
+        "Accept: */*",
+        "Authorization: Bearer abc",
+        "Connection: keep-alive",
+        "GET /dashboard HTTP/1.1",
+        "Cookie: sid=deadbeef"
+      ],
+      "snippet_total": 10,
+      "stream_idx": 0,
+      "frame_payload_lens": [
+        141,
+        97
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "10.20.0.5",
+      "sport": 80,
+      "dst": "10.20.0.15",
+      "dport": 49152,
+      "packets": 1,
+      "payload_bytes": 156,
+      "first_ts": 1792466045.42,
+      "last_ts": 1792466045.42,
+      "flags": [
+        24
+      ],
+      "snippets": [
+        "HTTP/1.1 200 OK",
+        "Server: nginx/1.24.0",
+        "Content-Type: application/json",
+        "Content-Length: 36",
+        "Set-Cookie: sid=deadbeef; Path=/",
+        "{\"status\":\"ok\",\"role\":\"user\"}"
+      ],
+      "snippet_total": 6,
+      "stream_idx": 1,
+      "frame_payload_lens": [
+        156
+      ]
+    }
+  ],
+  "sessions_total": 2,
+  "suspicious_session_count": 2,
+  "suspicious_snippet_count": 16,
+  "extract": {
+    "dir": "artifacts/streams",
+    "files": [
+      {
+        "path": "s00_10.20.0.15_49152-10.20.0.5_80.bin",
+        "bytes": 238,
+        "sha256": "c4615b3a28c365c3bffacc554f8127bb9ab29cff84de3c8ddbe9e8239011e05f"
+      },
+      {
+        "path": "s01_10.20.0.5_80-10.20.0.15_49152.bin",
+        "bytes": 156,
+        "sha256": "71b5c4915b82a6268a4a4817b9dbfb0ff0c7504b1249367e3fc1513bfd3387cd"
+      },
+      {
+        "path": "frames.jsonl",
+        "lines": 3
+      }
+    ]
+  },
+  "tshark": {
+    "available": true,
+    "rc": 0,
+    "protocol_hierarchy": [
+      "===================================================================",
+      "Protocol Hierarchy Statistics",
+      "Filter: ",
+      "frame                                    frames:3 bytes:556",
+      "  eth                                    frames:3 bytes:556",
+      "    ip                                   frames:3 bytes:556",
+      "      tcp                                frames:3 bytes:556",
+      "        http                             frames:2 bytes:346",
+      "==================================================================="
+    ]
+  }
+}

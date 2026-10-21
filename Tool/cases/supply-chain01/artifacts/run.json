@@ -13,7 +13,7 @@
     ]
   },
   "target": {
-    "path": "D:\\Seep-Reverse-Lab\\Tool",
+    "path": "Tool",
     "files_scanned": 1000,
     "truncated": true
   },
@@ -22,26 +22,19 @@
     "risks": {
       "critical": 0,
       "high": 0,
-      "medium": 9,
+      "medium": 7,
       "low": 0,
       "info": 0
     },
-    "risks_total": 9,
+    "risks_total": 7,
     "high_or_critical": 0,
-    "ecosystems": [
-      "npm"
-    ]
+    "ecosystems": []
   },
   "inventory": {
-    "manifests": [
-      {
-        "path": "mcp/Tool/reverselab/site/package.json",
-        "ecosystem": "npm"
-      }
-    ],
+    "manifests": [],
     "locks": [
       {
-        "path": "mcp/Tool/reverselab/site/package-lock.json",
+        "path": "cases/supply-chain04/input/package-lock.json",
         "ecosystem": "npm"
       }
     ],
@@ -134,28 +127,6 @@
       "evidence": "workflow 没有显式 permissions:",
       "why": "未声明时使用仓库默认 token 权限；老仓库默认可能是读写。",
       "fix": "显式声明最小 permissions（通常 contents: read）。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-008",
-      "level": "medium",
-      "category": "dependency-confusion",
-      "file": "mcp/Tool/reverselab/site/package.json",
-      "line": null,
-      "evidence": "scopes=@fontsource；.npmrc 未为这些 scope 指定 registry（default=npmjs）",
-      "why": "私有 scope 未锁定 registry 时，同名公共包可能被优先解析（依赖混淆）。",
-      "fix": "在 .npmrc 写 @scope:registry=<private>，并对公共包做 scope 隔离。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-009",
-      "level": "medium",
-      "category": "version-range",
-      "file": "mcp/Tool/reverselab/site/package.json",
-      "line": null,
-      "evidence": "3 条宽范围，例如 @fontsource/ibm-plex-sans@^5.2.5; @fontsource/jetbrains-mono@^5.2.5; vitepress@^1.6.4",
-      "why": "宽范围会随时间拉入新的传递依赖，构建不可复现。",
-      "fix": "锁文件 + 定期受控升级；关键依赖用精确版本。",
       "confidence": "medium"
     }
   ],

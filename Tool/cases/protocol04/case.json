@@ -1,0 +1,171 @@
+{
+  "id": "protocol04",
+  "domain": "protocol-plugin",
+  "route": "R24",
+  "target_type": "本机回环现场抓包（tshark + 本地 Python 回显服务）：HTTP/1.1 三条请求 / 三个 TCP 会话，含 Bearer 头与 Set-Cookie",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "capture": {
+    "file": "artifacts/live.pcapng",
+    "tool": "tshark -i <loopback> -f 'tcp port 18321' -a duration:5 -w artifacts/live.pcapng",
+    "endpoint": "127.0.0.1:18321（本地回显服务，Python http.server）",
+    "tls": false,
+    "client_version": "curl/8.x（本机）",
+    "captured_at": "2026-10-21T14:30Z（现场抓包，BPF 仅本案例端口）"
+  },
+  "protocol": {
+    "layer": "HTTP/1.1 over TCP（回环，明文）",
+    "framing": "请求行 + CRLF 头 + 空行 + body；响应由 Content-Length 定界",
+    "handshake": "每条 curl 请求独立建连（3 个 tcp.stream），无 keep-alive 复用",
+    "states": [
+      "TCP_SYN",
+      "REQUEST",
+      "RESPONSE",
+      "FIN/RST"
+    ],
+    "fields": [
+      {
+        "name": "method",
+        "type": "string",
+        "evidence": "observed: GET, GET, POST"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "evidence": "observed: /v1/ping, /v1/telemetry?seq=2, /v1/echo"
+      },
+      {
+        "name": "host",
+        "type": "string",
+        "evidence": "observed: 127.0.0.1:18321"
+      },
+      {
+        "name": "authorization",
+        "type": "string",
+        "evidence": "observed: Bearer lab-token（本案例自造假值）"
+      },
+      {
+        "name": "set_cookie",
+        "type": "string",
+        "evidence": "observed: sid=lab-0001/0002/0003; Path=/"
+      },
+      {
+        "name": "content_length",
+        "type": "int",
+        "evidence": "observed: 33 / 38 / 44（响应体）"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/conversations.txt",
+      "sha256": "037d3ec016a0eae65f881f2813de2736203faa26f8b1e574846751cef305d4fd"
+    },
+    {
+      "path": "artifacts/http-fields.tsv",
+      "sha256": "bafad11e9fe52b27f7880796f4139cd738384e6f030237582b68e071eae2cb67"
+    },
+    {
+      "path": "artifacts/live.pcapng",
+      "sha256": "0a60e59556e808319a5071418b480b455cebba1c3b0614a17299391ed69d0805"
+    },
+    {
+      "path": "artifacts/pcap-summary.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/pcap-summary.json",
+      "sha256": "cc011ceecc32ed96da6dc9354df1d120c3b868c84ea6c1570a10e23a4883ea3f"
+    },
+    {
+      "path": "artifacts/README.md",
+      "sha256": "313365556c38f2656fdf7c7338c1cf2014f76fa9bd0a1aa54dcf1d75ca43a284"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "54f57ec5178e022713966683703b7335d4b404198d288663be0a7aed1f8b500a"
+    },
+    {
+      "path": "artifacts/tshark-capture.err",
+      "sha256": "d5b53b42efdb65f97159829a8bb362a49e9c296d5a63d1586b8ddcc2ffc623c1"
+    },
+    {
+      "path": "artifacts/streams/frames.jsonl",
+      "sha256": "2bc2e20ab4a1813ecb06c08155afe5782b2e149338467b4178830ce35d32d479"
+    },
+    {
+      "path": "artifacts/streams/s00_127.0.0.1_63536-127.0.0.1_18321.bin",
+      "sha256": "b595d5580c4e32f40c8456eea81ef0a092126fa66c646ac8f727fc0b7632ed51"
+    },
+    {
+      "path": "artifacts/streams/s01_127.0.0.1_18321-127.0.0.1_63536.bin",
+      "sha256": "0af9fe5877d277e4d2a142488d95a6d26e29dd2d733c91b7d991bc261198d004"
+    },
+    {
+      "path": "artifacts/streams/s02_127.0.0.1_63537-127.0.0.1_18321.bin",
+      "sha256": "44f49825ff07279fec5ccfdeeba11f609dec835efd4156064cdb123c6b4719da"
+    },
+    {
+      "path": "artifacts/streams/s03_127.0.0.1_18321-127.0.0.1_63537.bin",
+      "sha256": "a3191ba4bd317b0ff7b8d65f374581a95f0e6ccd2b507de9a378761abc3770ed"
+    },
+    {
+      "path": "artifacts/streams/s04_127.0.0.1_63538-127.0.0.1_18321.bin",
+      "sha256": "f0fe92613fb1d5db57f4a5a799c1ef2491082fc721750e4f1f613368829a6e6e"
+    },
+    {
+      "path": "artifacts/streams/s05_127.0.0.1_18321-127.0.0.1_63538.bin",
+      "sha256": "03257d423991103c42a8c9a4dbd8bb20678aea58937526c0751e8019d5d1575c"
+    },
+    {
+      "path": "input/capture_live.sh",
+      "sha256": "e4192314515a89b1dc063134172bb927fda59e4ef613047bb9044782bd78179f"
+    },
+    {
+      "path": "input/echo_server.py",
+      "sha256": "318efe586c0e022f2c37385975c862966453e52435fc97dc11dde0ab087253ed"
+    }
+  ],
+  "evidence": [
+    "observed: 39 包 / 6 个方向性会话 / 3 个 TCP 连接，全部 tcp.port=18321（BPF 过滤，无其它进程流量）",
+    "observed: tshark -Y 'http.request or http.response' 输出 6 行：3 请求 + 3 响应，method/uri/code/content-type/content-length/set-cookie/authorization 全部可读",
+    "observed: Set-Cookie 与 X-Session-Id 逐请求递增（lab-0001 → lab-0003），说明服务端会话计数在响应头可见",
+    "observed: pcap-summary.py format=pcapng、packet_count=39、sessions_total=6、extract 导出 6 个方向性 .bin + frames.jsonl",
+    "observed: 响应 Content-Length 33/38/44 与 body 实际字节一致（pcap-summary 的 payload_bytes 可交叉验证）",
+    "missing: 无 TLS、无 keep-alive 复用、无失败分支（4xx/5xx）；未做重放（本案例只取证与分帧）"
+  ],
+  "lessons": [
+    "跑的是 cd Tool/cases/protocol04 && bash input/capture_live.sh（自动从 tshark -D 挑 loopback，BPF 仅 tcp port 18321，抓 5 s），rc=0；随后 pcap-summary.py --file artifacts/live.pcapng --extract artifacts/streams --tshark-check（rc=0）与 tshark -Y 'http.request or http.response'（rc=0）（录制件：live.pcapng 是 2026-10-21 的一次真实抓包；重跑 capture_live.sh 会得到不同字节的 pcap，属预期，需同步重算 artifacts 的 sha256）",
+    "结论：3 个独立 TCP 会话（curl 未复用连接），每个会话 1 请求 1 响应；响应以 Content-Length 定界，Set-Cookie/X-Session-Id 逐请求递增，Bearer 头是本案例自造的假值。",
+    "抓包卫生：必须用 BPF（-f 'tcp port 18321'）把范围收敛到本案例端口，否则回环会混入同机其它进程的真实流量；本案例第一次未过滤时抓到了无关会话，已废弃重抓。",
+    "分帧证据：pcap-summary.py --extract 导出的 s00/s01 .bin 可直接喂给 proto-repro.py 或自写解析器；frames.jsonl 记录逐包 payload_hex，可复算 Content-Length 与 body 长度。",
+    "边界：样本无 TLS/keep-alive/4xx 分支，不能据此推断真实服务端的鉴权与错误语义；重放与构造新请求按 references/08-replay-and-new-request.md 在本地回显服务上另做。"
+  ],
+  "tags": [
+    "R24",
+    "protocol",
+    "http",
+    "live-capture",
+    "loopback",
+    "tshark",
+    "real"
+  ],
+  "refs": [
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/skill/protocol-plugin/references/01-criteria.md",
+    "Tool/skill/protocol-plugin/references/05-binary-framing.md",
+    "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
+    "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+    "Tool/mcp/Tool/reverselab/kb/protocol/techniques/live-capture-hygiene.md",
+    "Tool/config/protocol-plugin-matrix.json",
+    "Tool/cases/protocol04/artifacts/run.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

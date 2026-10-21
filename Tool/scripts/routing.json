@@ -3,7 +3,7 @@
   "meta": {
     "description": "Seep 任务路由的单一事实源 (Single Source of Truth)。master-route.ps1 与 case-init.ps1 均从此文件读取；一致性由 Tool/scripts/verify-routing-coherence.py 断言（verify.ps1 / verify.sh 已接入）。修改路由规则请只改此文件，勿改散落在 markdown / ps1 里的路由表。",
     "fallbackId": "R0",
-    "scoring": "每条关键字规则命中后计入候选集；按 priority 数组顺序取『命中分数最高』的为 PRIMARY；分数并列时 priority 靠前者胜出；未命中任何规则时回退 fallbackId。",
+    "scoring": "PRIMARY = priority 顺序里第一个命中的域（fallback R0 不参与竞争）；分数只用于展示命中条数。兵底理由：每条规则都是人工写的词边界，度量不应由「谁写得条数多」决定（2026-10-21 审计 P0-2）。",
     "skillRoots": [
       "Tool/skill/<name>/SKILL.md",
       "Tool/skill/safe-skills/<name>/SKILL.md",
@@ -16,28 +16,29 @@
   },
   "priority": [
     "R1",
+    "R8",
+    "R25",
+    "R6",
+    "R4",
+    "R5",
+    "R20",
+    "R21",
+    "R22",
+    "R23",
+    "R24",
+    "R26",
+    "R27",
+    "R28",
+    "R9",
+    "R29",
     "R11",
     "R12",
     "R13",
     "R14",
     "R15",
     "R16",
-    "R20",
-    "R21",
-    "R22",
-    "R23",
-    "R24",
-    "R25",
-    "R26",
-    "R28",
-    "R27",
     "R2",
-    "R9",
-    "R4",
-    "R5",
-    "R6",
     "R7",
-    "R8",
     "R0"
   ],
   "routes": {
@@ -56,7 +57,7 @@
       "skill": "01-gate-bypass/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|trial|keygen|激活|凭据|校验串",
+          "must": "(?i)授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|\\btrial\\b|keygen|激活(?!函数)|凭据|校验串",
           "note": "阶段一负责交付纪律；client-license-validation-bypass 作为其参考卷按需加载"
         }
       ]
@@ -102,7 +103,7 @@
       "skill": "apk-reverse/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)解包|反编译.?apk|apk.?反编译|zipalign|apksigner|资源替换|改包"
+          "must": "(?i)apk.{0,8}解包|解包.{0,8}apk|反编译.?apk|apk.?反编译|zipalign|apksigner|资源替换|改包"
         }
       ]
     },
@@ -121,7 +122,7 @@
       "skill": "unpack-loop/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)脱壳|加壳|脱壳|加壳|壳类型|壳检测|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|dump|转储|oep|iat|反调试|反反调试|scylla|pe-sieve|内存转储"
+          "must": "(?i)脱壳|加壳|脱壳|加壳|壳类型|壳检测|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|\\bdump\\b|转储|oep|\\biat\\b|反调试|反反调试|scylla|pe-sieve|内存转储"
         }
       ]
     },
@@ -188,7 +189,17 @@
       "keywords": [
         {
           "must": "(?i)(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)",
-          "note": "内网/云：判据=可复现的凭据或提权证据"
+          "mustAll": [
+            "(?i)(?<![a-z0-9])(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)(?![a-z0-9])"
+          ],
+          "note": "内网/云：判据=可复现的凭据或提权证据；must 与 SSOT R23 保持一致，mustAll 是词边界收紧（不抢 web 的 spider、firmware 的 bios）。"
+        },
+        {
+          "mustAll": [
+            "(?i)\\bkubectl\\b",
+            "(?i)\\b(rbac|can-i|clusterrole|rolebinding|serviceaccount|secret|k8s)\\b"
+          ],
+          "note": "补充命中 kubectl+RBAC 的常见说法；本次按约束不改 routing.json，待合入 SSOT。"
         }
       ]
     },
@@ -197,8 +208,52 @@
       "skill": "firmware-iot/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|\bspi\b|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
-          "note": "固件/IoT：判据=能进 shell/跑起服务"
+          "must": "(?i)(?:firmware|固件|embedded\\s+linux|嵌入式(?:设备|系统)|router\\s+firmware|路由器固件)",
+          "note": "固件：判据=能进 shell/跑起服务，不是解包成功"
+        },
+        {
+          "must": "(?i)\\b(uart|jtag|swd|spi\\s+(?:flash|dump|programmer)|openocd|flashrom|ch341a|picocom|minicom)\\b",
+          "note": "硬件接口：先量电压/共地，只读优先"
+        },
+        {
+          "must": "(?i)\\b(binwalk|ubireader|unsquashfs|sasquatch|jefferson|cramfsck)\\b",
+          "note": "固件解包工具链"
+        },
+        {
+          "must": "(?i)\\b(squashfs|ubifs?|jffs2|cramfs|\\buti\\b|mtd|nanddump)\\b",
+          "note": "嵌入式文件系统/闪存"
+        },
+        {
+          "must": "(?i)(?:\\bota\\b|\\bfirmware\\s+update\\b|固件升级|升级包)b",
+          "mustAll": [
+            "(?i)(固件|firmware|device|设备|router|路由器)"
+          ],
+          "note": "OTA 必须带固件/设备语境，避免抢普通“升级”"
+        },
+        {
+          "must": "(?i)\\b(uefi|secure\\s*boot|\\bpk\\b|\\bkek\\b|\\bdbx?\\b|tpm\\s*(?:2\\.0|eventlog))\\b",
+          "mustAll": [
+            "(?i)(firmware|固件|boot|启动|variable|变量|efi)"
+          ],
+          "note": "UEFI/Secure Boot 必须带固件/启动语境"
+        },
+        {
+          "must": "(?i)\\b(bios|uefi)\\b",
+          "mustAll": [
+            "(?i)(firmware|固件|spi|flash|dump|boot|启动)"
+          ],
+          "note": "bios/uefi 单独出现不抢，需固件/启动/闪存语境"
+        },
+        {
+          "must": "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)b",
+          "note": "启动链/设备树"
+        },
+        {
+          "must": "(?i)\\biot\\b",
+          "mustAll": [
+            "(?i)(security|安全|firmware|固件|device|设备|评估|assessment)"
+          ],
+          "note": "iot 必须带安全/设备语境，避免普通单词误命中"
         }
       ]
     },
@@ -207,8 +262,36 @@
       "skill": "forensics-mobile/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(取证|内存镜像|volatility|流量分析|磁盘镜像|时间线|iphone|iphone|ipados|\bios\b(?=[^a-z])|\bipa\b|\bmacos\b|mach-o|keychain|il2cpp|global-metadata|assetbundle|unity\\s*资源|游戏客户端)",
-          "note": "取证/移动/游戏：判据=证据链可复述"
+          "must": "(?i)(?:\\bvolatility3?\\b|\\brekall\\b|\\bmem\\.raw\\b|\\bmemory\\s*dump\\b|内存镜像|内存取证|崩溃转储)",
+          "note": "内存取证：判据=进程/连接/模块可复述，符号匹配"
+        },
+        {
+          "must": "(?i)(?:\\bpcapng?\\b|\\btshark\\b|\\bwireshark\\b|流量分析|网络取证|会话重组|dns\\s*隧道)",
+          "note": "流量取证：判据=双向会话+对象哈希；不抢 web 的 spider"
+        },
+        {
+          "must": "(?i)(?:\\bsleuthkit\\b|\\bmmls\\b|\\bfls\\b|\\bicat\\b|\\bmactime\\b|磁盘镜像|分区镜像|文件系统取证|\\$mft\\b)",
+          "note": "磁盘取证：判据=分区偏移/inode/时间线可复现"
+        },
+        {
+          "must": "(?i)(?:\\bevtx\\b|\\bwinevt\\b|事件日志|注册表\\s*(?:hive|取证|导出)|\\breg\\s+save\\b|\\bamcache\\b|\\bprefetch\\b|\\bshellbag|\\bjumplist|\\busbstor\\b)",
+          "note": "Windows 制品：EVTX/注册表/hive 时间线；不抢 ad-cloud 的 principal"
+        },
+        {
+          "must": "(?i)(?:\\b(?:ios|ipados|iphone|ipad|ipa|macos|mach-o|keychain|codesign|entitlements)\\b|embedded\\.mobileprovision)",
+          "note": "iOS/macOS 制品：包/签名/Mach-O/Keychain；\\bios\\b 不会命中 bios"
+        },
+        {
+          "must": "(?i)(?:\\bil2cpp\\b|\\bgameassembly\\b|\\bunityframework\\b|\\bassetbundle\\b|\\bunityfs\\b|\\bglobal-metadata(?:\\.dat)?\\b|unity\\s*(?:资源|客户端)|游戏客户端)",
+          "note": "游戏客户端：IL2CPP 元数据/AssetBundle；只读观测"
+        },
+        {
+          "must": "(?i)(?:浏览器取证|history\\s*sqlite|\\bhindsight\\b|places\\.sqlite|\\bvisit_time\\b)",
+          "note": "浏览器 History：只读复制，不读 cookie 值"
+        },
+        {
+          "must": "(?i)(?:数字取证|取证分析|取证调查|主机取证|移动取证|证据链|时间线重建.{0,12}(?:证据|取证))",
+          "note": "泛化取证说法：必须带取证/证据语境，避免抢其它域"
         }
       ]
     },
@@ -227,8 +310,58 @@
       "skill": "plugin-targets/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(chrome\\s*(扩展|插件)|浏览器\\s*(扩展|插件)|crx|vsix|vscode\\s*插件|ide\\s*插件|electron\\s*插件|asar|bepinex|melonloader|unity\\s*mod|游戏\\s*mod|加载器插件)",
-          "note": "插件类：判据=入口+关键逻辑+数据来源+最小可改单元"
+          "must": "(?i)\\b(crx|xpi|vsix|asar)\\b",
+          "note": "包型锚定：crx/xpi/vsix/asar。判据=入口+权限/扩展点+数据流+最小可改单元"
+        },
+        {
+          "mustAll": [
+            "(?i)(浏览器|chrome|chromium|edge|firefox)\\s*(扩展|插件|extension|addon)",
+            "(?i)(扩展|插件|extension|addon|crx|xpi|manifest\\.json)"
+          ],
+          "note": "浏览器扩展：必须同时出现浏览器/宿主与扩展/插件语境，避免抢普通网页词"
+        },
+        {
+          "mustAll": [
+            "(?i)\\b(vscode|vs code|jetbrains|intellij|cursor|ide)\\b",
+            "(?i)(插件|扩展|extension|plugin\\.xml|vsix|activationevents|扩展点)"
+          ],
+          "note": "IDE 插件：宿主名 + 插件/扩展点语境"
+        },
+        {
+          "mustAll": [
+            "(?i)\\b(electron|asar|preload|ipcmain|ipcrenderer|contextbridge)\\b",
+            "(?i)(插件|扩展|app\\.asar|主进程|preload|asar|ipc)"
+          ],
+          "note": "Electron：主进程/preload/asar 语境，不与普通 Node 项目抢词"
+        },
+        {
+          "must": "(?i)\\b(bepinex|melonloader|harmonyos|il2cpp|assembly-csharp|global-metadata)\\b",
+          "note": "Unity Mod / IL2CPP / BepInEx 强锚点"
+        },
+        {
+          "mustAll": [
+            "(?i)(unity|游戏|game)\\b",
+            "(?i)(\\bmod\\b|插件|加载器|bepinex|melonloader)"
+          ],
+          "note": "游戏 Mod：unity/game 与 mod/加载器组合"
+        },
+        {
+          "must": "(?i)\\b(nativemessaging|connectnative|sendnativemessage)\\b|NativeMessagingHosts",
+          "note": "浏览器 native host 桥"
+        },
+        {
+          "mustAll": [
+            "(?i)(输入法|\\bime\\b|\\btip\\b|驱动|\\bsys\\b|ioctl|obs-studio|streamdeck)",
+            "(?i)(插件|扩展|加载|注册表|服务|driver|滤镜|采集)"
+          ],
+          "note": "输入法/驱动/媒体管线：必须同时出现插件/加载/服务语境"
+        },
+        {
+          "mustAll": [
+            "(?i)(插件|扩展)",
+            "(?i)(逆向|分析|权限|manifest|入口|service worker|content script|扩展点)"
+          ],
+          "note": "通用插件逆向：插件/扩展 + 分析/权限/入口语境；不匹配 scaffold/lockfile、src/xxx.dll、zipalign、bios"
         }
       ]
     },
@@ -237,8 +370,20 @@
       "skill": "pwn-crypto/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(pwn|rop|栈溢出|堆溢出|格式化字符串|canary|seccomp|沙箱逃逸|shellcode|libc|密码学|rsa|aes|ecb|cbc|prng|格攻击|lattice|ctf)",
-          "note": "利用/密码学：判据=本地稳定命中"
+          "must": "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc)\\b",
+          "note": "利用类：判据=偏移一致 + 控制流/marker 可复现"
+        },
+        {
+          "must": "(?i)(栈溢出|堆溢出|格式化字符串|沙箱逃逸|控制流劫持|任意地址写|越界读写|整数回绕)",
+          "note": "中文漏洞类：需与具体输入面/保护位同现，避免空泛词"
+        },
+        {
+          "must": "(?i)\\b(rsa|aes|ecb|cbc|gcm|hmac|mt19937|prng|coppersmith|lattice)\\b",
+          "note": "密码学原语：判据=pow(m,e,n)==c 或逐位/逐块比对"
+        },
+        {
+          "must": "(?i)\\b(pow\\s*\\(|modinv|iroot|hastad|wiener)\\b",
+          "note": "密码学求解函数/攻击名：只在出现具体算法语境时命中"
         }
       ]
     },
@@ -247,8 +392,24 @@
       "skill": "web-pentest/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(sql\\s*注\\s*入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件上传|命令注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|挖\\s*src|src\\s*(挖掘|漏洞)|漏洞复现|cve-\\d{4})",
-          "note": "Web/API 验证：判据=PoC 可复现"
+          "must": "(?i)(\\bsql\\s*注\\s*入|\\bsqli\\b|\\bxss\\b|\\bcsrf\\b|\\bssrf\\b|反序列化|\\bidor\\b|\\bbola\\b|对象级授权|越权|未授权访问|文件上传|命令注入|\\bwaf\\b.{0,8}(绕过|bypass)|验证码.{0,6}(绕过|复用)|漏洞扫描|渗透测试|\\bpentest\\b|挖\\s*src|src\\s*(挖掘|漏洞)|漏洞复现|\\bcve-\\d{4}-\\d+\\b)",
+          "note": "漏洞类：判据=对照实验 + 原始报文 + 影响面；扫描器告警不算"
+        },
+        {
+          "must": "(?i)(\\bspider\\b|\\bcrawler\\b|爬虫|目录.{0,4}(枚举|爆破|扫描)|\\bdirsearch\\b|\\bffuf\\b|\\bgobuster\\b)",
+          "note": "Web 目录/爬虫类：只做发现，不能直接写漏洞"
+        },
+        {
+          "must": "(?i)(\\bgraphql\\b|\\bintrospection\\b|\\bopenapi\\b|\\bswagger\\b|\\bapi\\b.{0,6}(安全|测试|渗透|漏洞|鉴权))",
+          "note": "API/GraphQL 安全评估：字段级授权与对象级授权"
+        },
+        {
+          "must": "(?i)(\\bjwt\\b|\\bsession\\b|\\bcookie\\b|\\bcors\\b|\\bhost\\s*header\\b|\\bhttp\\s*(请求走私|request\\s*smuggling)\\b|参数污染|\\bhpp\\b|\\bx-forwarded-for\\b|\\bheader\\s*(?:注入|污染|伪造))",
+          "note": "会话/协议层 Web 缺陷：仍需应用层判据"
+        },
+        {
+          "must": "(?i)(\\bweb\\b.{0,8}(渗透|漏洞|安全评估|pentest)|\\bapi\\b.{0,8}(渗透|漏洞|安全评估)|web\\s*应用.{0,8}(测试|评估))",
+          "note": "泛化说法兜底：必须带 Web/API 语境，避免抢其它域"
         }
       ]
     },
@@ -267,8 +428,52 @@
       "skill": "supply-chain-security/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(供应链|依赖混淆|依赖投毒|dependency confusion|sbom|软件物料清单|\bsca\b|锁文件|lockfile|package-lock|yarn\\.lock|pnpm-lock|requirements\\.txt|poetry\\.lock|go\\.sum|cargo\\.lock|composer\\.lock|nuget|github actions|gitlab ci|ci/cd|流水线权限|pull_request_target|workflow_run|cosign|slsa|来源证明|provenance|镜像签名|image digest|固定镜像|基础镜像)",
-          "note": "供应链：判据=锁文件/CI 权限/镜像 digest 可复核，SCA 告警不等于漏洞"
+          "must": "(?i)(?:(?:\\bsbom\\b|\\bsca\\b|\\bslsa\\b|\\bcosign\\b|\\bsigstore\\b|\\bprovenance\\b|\\blockfile\\b|\\bpackage-lock\\b|\\byarn\\.lock\\b|\\bpnpm-lock\\b|\\bgo\\.sum\\b|\\bcargo\\.lock\\b|\\bcomposer\\.lock\\b|\\bnuget\\b|\\bpip\\.conf\\b|\\bcyclonedx\\b|\\bspdx\\b)|依赖混淆|依赖投毒|供应链|软件物料清单|锁文件|来源证明|镜像签名|基础镜像|流水线权限|制品签名|依赖.{0,4}(?:扫描|审计|漏洞|风险)|扫描依赖|扫.{0,2}依赖)",
+          "note": "供应链核心词：判据=锁文件/CI 权限/镜像 digest 可复核，SCA 告警不等于漏洞"
+        },
+        {
+          "must": "(?i)(?:\\bgithub actions\\b|\\bgitlab ci\\b|\\bci/cd\\b|\\bpull_request_target\\b|\\bworkflow_run\\b|\\bwrite-all\\b)",
+          "note": "CI 平台/危险触发器；必须与 checkout/permissions/secrets 组合判断"
+        },
+        {
+          "mustAll": [
+            "(?i)(?:\\bnpm\\b|\\bpip\\b|\\bnuget\\b|\\bmaven\\b|\\bgradle\\b)",
+            "(?i)(?:\\bregistry\\b|\\bindex-url\\b|\\bpackageSourceMapping\\b|依赖混淆|抢注|投毒)"
+          ],
+          "note": "包管理器 + registry/抢注语境，避免只命中 npm 单词"
+        },
+        {
+          "mustAll": [
+            "(?i)(?:\\bci\\b|\\bworkflow\\b|流水线)",
+            "(?i)(?:\\bpermissions?\\b|\\bsecrets?\\b|\\btoken\\b|权限)"
+          ],
+          "note": "CI + 权限/secrets 组合；单独 permissions 不算本域"
+        },
+        {
+          "must": "(?i)(?:\\btyposquat(?:ting)?\\b|仿冒包|恶意 ?npm ?包)",
+          "note": "仿冒/恶意包；必须落到具体包名与安装脚本证据"
+        }
+      ]
+    },
+    "R29": {
+      "label": "逆向工程 / PE 二进制 / 补丁与脱壳",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(?:\\bPE32(?:\\+)?\\b|\\bMZ\\b|\\bDLL\\b|\\bEXE\\b|\\bSYS\\b|e_lfanew|\\bIAT\\b|\\bTLS\\s*callback\\b|\\bRVA\\b|节表|导入表|导出表|\\bCLR\\b|\\bBSJB\\b)",
+          "note": "PE/原生二进制：判据=结构自洽+目标版本哈希+动态行为"
+        },
+        {
+          "must": "(?i)(?:\\bx64dbg\\b|\\bIDA\\b|\\bGhidra\\b|\\bradare2\\b|\\brizin\\b|\\bFrida\\b|\\bWinDbg\\b|\\bPE-bear\\b|\\bILSpy\\b|\\bdnSpy\\b)",
+          "note": "逆向工具链：判据=工具输出可复算"
+        },
+        {
+          "must": "(?i)(?:脱壳|加壳|反调试|反虚拟机|本地化补丁|算法还原|特征码|代码洞|\\btrampoline\\b|\\bcode\\s*cave\\b|\\bhook\\s*(?:api|函数|dll|表|inline|detour|导入))",
+          "note": "逆向动作：判据=补丁清单/脱壳判据/失败判据"
+        },
+        {
+          "must": "(?i)(?:\\bVMProtect\\b|\\bThemida\\b|\\bWinLicense\\b|\\bUPX\\b|\\bASPack\\b|\\bMPRESS\\b|\\bScylla\\b|\\bEnigma\\b)",
+          "note": "壳/保护指纹：判据=节名/熵/VM entry"
         }
       ]
     }

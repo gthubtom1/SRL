@@ -1,0 +1,10 @@
+{
+  "mode": "ecb",
+  "block_size": 16,
+  "blocks": 2,
+  "duplicate_blocks": 1,
+  "ciphertext_hex": "dd4b1a0b47daa7067d0b59d95d58a6aedd4b1a0b47daa7067d0b59d95d58a6ae",
+  "ecb_detected": true,
+  "verified": true,
+  "ok": true
+}

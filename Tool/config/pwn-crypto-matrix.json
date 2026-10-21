@@ -2,150 +2,484 @@
   "schemaVersion": "1.0",
   "domain": "pwn-crypto",
   "updated": "2026-10-21",
-  "description": "二进制利用/密码学攻击的类目矩阵：每行给出类目、成立判据、首选工具与误报风险。工具缺失时按 SKILL.md 的降级链执行。",
+  "description": "二进制利用/密码学攻击的类目矩阵：每行给出 match、工具、命令、成立判据与失败判据。工具缺失时按 SKILL.md 的降级链执行。",
   "columns": {
-    "category": "类目（保护位/漏洞类型/密码学原语）",
-    "criterion": "成立判据（可复核、可重复）",
-    "tools": "首选工具；逗号分隔，按优先级",
-    "false_positive_risk": "low|medium|high",
-    "risk_note": "误报来源与规避方式"
+    "match": "触发词/类目匹配（数组或字符串）",
+    "tools": "首选工具；按优先级",
+    "commands": "可直接复跑的命令模板",
+    "criteria": "成立判据（可复核、可重复）",
+    "fail": "失败判据（看到即改走）",
+    "pitfalls": "常见误判/风险"
   },
   "rows": [
     {
       "id": "PC-01",
       "category": "栈溢出 + ret2libc/ROP",
-      "criterion": "偏移可重复；崩溃时 $rip 为受控值；泄漏基址页对齐且与目标 libc 符号吻合；链一次跑通",
-      "tools": ["pwntools", "gdb/pwndbg", "ROPgadget", "checksec"],
-      "false_positive_risk": "low",
-      "risk_note": "本地偏移/远程启动参数不同；canary 未覆盖完整 8 字节；栈未 16 字节对齐"
+      "match": [
+        "栈溢出",
+        "ret2libc",
+        "ROP",
+        "覆盖返回地址"
+      ],
+      "tools": [
+        "pwn-check.py",
+        "pwn-repro.py",
+        "pwntools",
+        "gdb/pwndbg",
+        "ROPgadget"
+      ],
+      "commands": [
+        "python Tool/scripts/pwn-check.py --file ./chall --json",
+        "python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump d.txt --func vuln --probe-log p.txt",
+        "pwn cyclic 300 && pwn cyclic -l 0x6161616c"
+      ],
+      "criteria": "pwn-repro consistent=true 且 offset 相同；marker 跳转 stdout 有目标字符串；泄漏 libc 低 12 位与目标 libc 吻合；10 次≥9 成功",
+      "fail": "两源偏移不一致，或崩溃但 RIP 不是 cyclic 值 → 未控到 saved RIP，转格式化串/堆/函数指针",
+      "pitfalls": [
+        "抄固定偏移",
+        "只跑 objdump 或只跑 probe",
+        "栈未 16 字节对齐"
+      ]
     },
     {
       "id": "PC-02",
       "category": "栈溢出 + shellcode（NX off）",
-      "criterion": "$rip 落在栈且目标页可执行；坏字符已排除；shell 或 flag 输出可复现",
-      "tools": ["pwntools", "gdb", "nasm"],
-      "false_positive_risk": "low",
-      "risk_note": "栈地址随机未泄漏；坏字符截断；把可写页误当可执行页"
+      "match": [
+        "NX off",
+        "shellcode",
+        "栈可执行",
+        "execve"
+      ],
+      "tools": [
+        "pwntools",
+        "gdb",
+        "nasm"
+      ],
+      "commands": [
+        "readelf -lW ./chall | grep GNU_STACK",
+        "python Tool/scripts/pwn-check.py --file ./chall --json"
+      ],
+      "criteria": "$rip 落在栈且目标页可执行；坏字符已排除；shell/flag 输出可复现",
+      "fail": "NX 实际开启或栈地址未泄漏 → 改走 ROP/ORW；坏字符截断则重编 shellcode",
+      "pitfalls": [
+        "把可写页当可执行页",
+        "忘排除 NUL/换行",
+        "栈地址随机未泄漏"
+      ]
     },
     {
       "id": "PC-03",
       "category": "格式化字符串",
-      "criterion": "参数序号稳定；写后目标地址读回等于预期；连续两次写不崩；%n 计数与输出长度一致",
-      "tools": ["pwntools fmtstr", "gdb", "rabin2"],
-      "false_positive_risk": "medium",
-      "risk_note": "输出被截断/缓冲；64 位地址含 NUL；只打印 %p 未真正写入"
+      "match": [
+        "格式化字符串",
+        "printf(buf)",
+        "fmtstr",
+        "%n",
+        "%s 泄漏"
+      ],
+      "tools": [
+        "pwn-check.py",
+        "pwntools fmtstr",
+        "gdb",
+        "pwn-repro.py"
+      ],
+      "commands": [
+        "python Tool/scripts/pwn-check.py --file ./chall --json",
+        "printf 'abc%%n' | ./probe_percent_n",
+        "python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test"
+      ],
+      "criteria": "参数序号实测稳定；%s 能看到目标内存字节；glibc 下写后读回等于预期、两次写不崩；Windows 先确认 %n 是否写",
+      "fail": "%n 探针不写（UCRT）→ 只做任意读；输出截断/地址含 NUL → 改 payload 结构；只打印 %p 不算任意读",
+      "pitfalls": [
+        "地址放开头遇 NUL 截断",
+        "把 %p 栈值当任意读",
+        "UCRT 上照搬 glibc %n"
+      ]
     },
     {
       "id": "PC-04",
       "category": "堆 tcache dup/poison",
-      "criterion": "malloc 返回受控 target；vis_heap_chunks 可见重复/重叠；触发不 abort",
-      "tools": ["pwntools", "gdb/pwndbg", "patchelf/pwninit"],
-      "false_positive_risk": "medium",
-      "risk_note": "glibc 版本不符；safe-linking 未编码；tcache count 已满；target 未 0x10 对齐"
+      "match": [
+        "tcache",
+        "堆溢出",
+        "poison",
+        "double free",
+        "UAF"
+      ],
+      "tools": [
+        "pwntools",
+        "gdb/pwndbg",
+        "patchelf/pwninit",
+        "libc-database"
+      ],
+      "commands": [
+        "ldd --version | head -1",
+        "strings -a libc.so.6 | grep -m1 'GNU C Library'",
+        "pwn checksec ./chall"
+      ],
+      "criteria": "malloc 返回受控 target；vis_heap_chunks 可见重复/重叠；2.32+ fd=target^(chunk>>12)；触发不 abort",
+      "fail": "malloc 不返回 target 或 free corruption → 定 glibc 版本，2.34+ 弃 __free_hook 转 IO/exit/程序指针",
+      "pitfalls": [
+        "safe-linking 未编码",
+        "tcache count 已满",
+        "target 未 0x10 对齐",
+        "glibc 版本不符"
+      ]
     },
     {
       "id": "PC-05",
       "category": "UAF / double free",
-      "criterion": "释放后仍可 show/edit；同一 chunk 可入链两次；能读出堆/libc 指针",
-      "tools": ["gdb/pwndbg", "pwntools", "MALLOC_PERTURB_"],
-      "false_positive_risk": "medium",
-      "risk_note": "2.29+ key 字段拦截二次释放；把 stale 指针当有效对象"
+      "match": [
+        "UAF",
+        "use after free",
+        "double free",
+        "释放后使用"
+      ],
+      "tools": [
+        "gdb/pwndbg",
+        "pwntools",
+        "MALLOC_PERTURB_"
+      ],
+      "commands": [
+        "MALLOC_PERTURB_=165 ./chall",
+        "gdb -q ./chall -ex 'b free' -ex run"
+      ],
+      "criteria": "释放后仍可 show/edit；同一 chunk 可入链两次；能读出堆/libc 指针",
+      "fail": "2.29+ key 字段拦截二次释放 → 先清 key 或改 UAF 读路线；stale 指针未验证 → 先证明可读",
+      "pitfalls": [
+        "把 stale 指针当有效对象",
+        "忽略 key 字段",
+        "只泄漏堆地址就当拿到 libc"
+      ]
     },
     {
       "id": "PC-06",
       "category": "IO_FILE / FSOP（2.34+）",
-      "criterion": "伪造 _IO_FILE_plus 可写；vtable 在 __libc_IO_vtables 内；flush 链命中 system/目标函数",
-      "tools": ["gdb/pwndbg", "pwntools", "libc-database"],
-      "false_positive_risk": "high",
-      "risk_note": "vtable 越界触发 _IO_vtable_check；_wide_data 未映射；不同发行版裁剪符号"
+      "match": [
+        "IO_FILE",
+        "FSOP",
+        "_IO_list_all",
+        "house of apple",
+        "exit_funcs"
+      ],
+      "tools": [
+        "gdb/pwndbg",
+        "pwntools",
+        "libc-database"
+      ],
+      "commands": [
+        "nm -D libc.so.6 | grep -E '_IO_list_all|_IO_wfile_jumps'",
+        "gdb -q ./chall -ex 'p &_IO_list_all'"
+      ],
+      "criteria": "伪造 _IO_FILE_plus 可写；vtable 落在 __libc_IO_vtables；flush 链命中 system/目标函数",
+      "fail": "vtable 越界触发 _IO_vtable_check → 改用合法 vtable 或程序指针；_wide_data 未映射 → 先布置可写内存",
+      "pitfalls": [
+        "vtable 伪造到堆上",
+        "不同发行版裁剪符号",
+        "_lock 为空"
+      ]
     },
     {
       "id": "PC-07",
       "category": "off-by-one / overlap",
-      "criterion": "相邻 chunk 元数据被改且 free 不 abort；重叠读写成立；随后可稳定控制目标",
-      "tools": ["gdb/pwndbg", "pwntools", "how2heap"],
-      "false_positive_risk": "high",
-      "risk_note": "只改到 padding；prev_size/prev_inuse/key 不一致；把一次崩溃当重叠"
+      "match": [
+        "off-by-one",
+        "off by one",
+        "poison null byte",
+        "overlap",
+        "重叠 chunk"
+      ],
+      "tools": [
+        "gdb/pwndbg",
+        "pwntools",
+        "how2heap"
+      ],
+      "commands": [
+        "gdb -q ./chall -ex 'vis_heap_chunks'",
+        "python -c \"from pwn import *; print(cyclic(64))\""
+      ],
+      "criteria": "相邻 chunk 元数据被改且 free 不 abort；重叠读写成立；随后可稳定控制目标",
+      "fail": "只改到 padding 或 free 一致性检查失败 → 复核 size/prev_size/prev_inuse，改走 tcache/IO",
+      "pitfalls": [
+        "把一次崩溃当重叠",
+        "prev_size/prev_inuse 不一致",
+        "size 未按 0x10 对齐"
+      ]
     },
     {
       "id": "PC-08",
       "category": "整数溢出/截断",
-      "criterion": "能证明长度/索引越界一个对象；越界读写可观测；后续利用不依赖未验证假设",
-      "tools": ["gdb", "pwntools", "z3"],
-      "false_positive_risk": "medium",
-      "risk_note": "有符号/无符号转换判断错；编译器优化掉检查；只看到理论溢出"
+      "match": [
+        "整数溢出",
+        "整数回绕",
+        "signedness",
+        "长度截断",
+        "欠分配"
+      ],
+      "tools": [
+        "gdb",
+        "pwntools",
+        "z3",
+        "现场 gcc 探针"
+      ],
+      "commands": [
+        "gcc -O0 -fno-stack-protector -no-pie -o int_overflow.exe input/int_overflow.c",
+        "echo 1073741825 | ./int_overflow.exe; echo rc=$?"
+      ],
+      "criteria": "打印/回代证明 count*size 回绕；写入长度 > 分配长度；进程出现堆破坏状态码（如 0xC0000374）",
+      "fail": "只证明理论溢出、程序正常退出 → 加大写入/打印 _msize；有符号转换判断错 → 用 z3 建模",
+      "pitfalls": [
+        "只看算术不看运行时",
+        "把 usable size 当请求长度",
+        "编译器优化掉检查"
+      ]
     },
     {
       "id": "PC-09",
       "category": "seccomp ORW/openat",
-      "criterion": "seccomp 白名单读全；syscall 序列含 openat/read/write；输出包含 flag 内容",
-      "tools": ["seccomp-tools", "strace", "pwntools", "ROPgadget"],
-      "false_positive_risk": "low",
-      "risk_note": "只读部分 BPF；fd 猜错；路径不在可写内存；open 与 openat 混用"
+      "match": [
+        "seccomp",
+        "沙箱逃逸",
+        "ORW",
+        "openat",
+        "白名单"
+      ],
+      "tools": [
+        "seccomp-tools",
+        "strace",
+        "pwntools",
+        "ROPgadget"
+      ],
+      "commands": [
+        "seccomp-tools dump ./chall",
+        "strace -f -e trace=openat,read,write ./chall"
+      ],
+      "criteria": "BPF 读全；syscall 序列含 openat/read/write；stdout 含 flag 内容",
+      "fail": "白名单无 open/read/write → 转 SROP/栈迁移/程序自带函数；仍不行如实写无法外带",
+      "pitfalls": [
+        "只读部分 BPF",
+        "fd 猜错",
+        "open 与 openat 混用",
+        "路径不在可写内存"
+      ]
     },
     {
       "id": "PC-10",
       "category": "SROP / ret2csu / 栈迁移",
-      "criterion": "sigreturn frame 布局正确；syscall gadget 可达；寄存器/栈对齐符合 ABI",
-      "tools": ["pwntools", "ROPgadget", "gdb"],
-      "false_positive_risk": "medium",
-      "risk_note": "x86_64 syscall 号/参数顺序错；缺 pop rdx 却硬套模板"
+      "match": [
+        "SROP",
+        "ret2csu",
+        "栈迁移",
+        "sigreturn",
+        "setcontext"
+      ],
+      "tools": [
+        "pwntools",
+        "ROPgadget",
+        "gdb"
+      ],
+      "commands": [
+        "ROPgadget --binary ./chall --only 'syscall|leave|ret'",
+        "objdump -d ./chall | grep -A20 '<__libc_csu_init>'"
+      ],
+      "criteria": "sigreturn frame 布局正确；syscall gadget 可达；寄存器/栈符合 ABI；迁移后链继续执行",
+      "fail": "缺 pop rdx 且 ret2csu 不在 → 用 libc setcontext；x86_64 参数顺序错 → 重排 frame",
+      "pitfalls": [
+        "syscall 号/参数顺序错",
+        "缺 pop rdx 硬套模板",
+        "忘记 16 字节对齐"
+      ]
     },
     {
       "id": "PC-11",
       "category": "RSA 小指数/共模/广播",
-      "criterion": "pow(m,e,n)==c；共模两组回代都成立；广播 CRT 后开方精确且 m^e<M",
-      "tools": ["Python", "gmpy2", "pycryptodome", "sage"],
-      "false_positive_risk": "low",
-      "risk_note": "忽略 PKCS#1 填充；把不同消息当同一 m；模数不互质未先约简"
+      "match": [
+        "RSA",
+        "小指数",
+        "共模",
+        "Hastad",
+        "广播",
+        "e=3"
+      ],
+      "tools": [
+        "crypto-verify.py",
+        "Python",
+        "pycryptodome",
+        "sage"
+      ],
+      "commands": [
+        "python Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa inputs/rsa.json",
+        "python Tool/skill/pwn-crypto/scripts/crypto-verify.py --broadcast inputs/broadcast.json"
+      ],
+      "criteria": "iroot 精确且 pow(m,e,n)==c；广播每组回代成立且 m^e<M；共模两组都成立",
+      "fail": "回代失败 → 查填充/同一消息/模数互质；组数不足 → 补模数；否则换维纳/Fermat/格",
+      "pitfalls": [
+        "忽略 PKCS#1 填充",
+        "把不同消息当同一 m",
+        "m^e>=M 仍开方"
+      ]
     },
     {
       "id": "PC-12",
       "category": "分组密码 ECB/CBC",
-      "criterion": "ECB 块相等关系可复现；CBC 位翻转后目标明文字节等于期望；oracle 响应稳定",
-      "tools": ["pycryptodome", "Python", "openssl"],
-      "false_positive_risk": "medium",
-      "risk_note": "把随机碰撞当 ECB；CBC 改错块索引；padding 错误粒度误判"
+      "match": [
+        "ECB",
+        "CBC",
+        "分组密码",
+        "padding oracle",
+        "位翻转"
+      ],
+      "tools": [
+        "crypto-verify.py",
+        "pycryptodome",
+        "openssl"
+      ],
+      "commands": [
+        "python Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb inputs/ecb.json",
+        "python Tool/skill/pwn-crypto/scripts/crypto-verify.py --cbc inputs/cbc.json"
+      ],
+      "criteria": "ECB 重复明文块→重复密文块；CBC 翻转 C[i-1] 后 P[i] 目标字节按 xor 改变且 padding 不错",
+      "fail": "ECB 无重复块 → 不是 ECB 或块大小不对；CBC 索引错 → 改 IV/C[i-1] 并复核 before^after",
+      "pitfalls": [
+        "随机碰撞当 ECB",
+        "改 C[i] 而不是 C[i-1]",
+        "忽略 MAC-then-encrypt"
+      ]
     },
     {
       "id": "PC-13",
       "category": "PRNG 预测",
-      "criterion": "下一输出逐位/逐块一致；状态恢复后跨越拒绝采样仍正确",
-      "tools": ["randcrack", "Python", "z3"],
-      "false_positive_risk": "medium",
-      "risk_note": "只验证分布像；randint/randrange 拒绝采样消耗未记账"
+      "match": [
+        "PRNG",
+        "MT19937",
+        "随机数预测",
+        "randcrack",
+        "LCG"
+      ],
+      "tools": [
+        "crypto-verify.py",
+        "randcrack",
+        "Python",
+        "z3"
+      ],
+      "commands": [
+        "python Tool/skill/pwn-crypto/scripts/crypto-verify.py --mt inputs/mt.json"
+      ],
+      "criteria": "624 个连续 32-bit 输出克隆状态；下 N 个输出逐位一致；跨拒绝采样仍正确",
+      "fail": "预测不一致 → 输出不连续或混入 randint；记录调用序列后重放；LCG 解 a/c/m",
+      "pitfalls": [
+        "只验证分布像",
+        "randint 拒绝采样未记账",
+        "输出不连续"
+      ]
     },
     {
       "id": "PC-14",
       "category": "证书/签名",
-      "criterion": "目标验证器接受伪造签名/证书；openssl verify 可复现；弱参数有出处",
-      "tools": ["openssl", "Python cryptography", "keytool"],
-      "false_positive_risk": "high",
-      "risk_note": "只改文件没改信任链；把 DER 解析差异当签名伪造；有效期/用途未核对"
+      "match": [
+        "证书",
+        "签名伪造",
+        "X.509",
+        "PKCS#1",
+        "自签"
+      ],
+      "tools": [
+        "openssl",
+        "Python cryptography",
+        "keytool"
+      ],
+      "commands": [
+        "openssl x509 -text -noout -in cert.pem",
+        "openssl verify -CAfile ca.pem cert.pem"
+      ],
+      "criteria": "目标验证器接受伪造签名/证书；openssl verify 可复现；弱参数有出处",
+      "fail": "只改文件没改信任链 → 检查 verify 返回值与信任配置；DER 解析差异不等于签名伪造",
+      "pitfalls": [
+        "有效期/用途未核对",
+        "把解析差异当伪造",
+        "弱哈希未确认"
+      ]
     },
     {
       "id": "PC-15",
       "category": "格攻击/Coppersmith",
-      "criterion": "恢复的小根/私钥回代成立；格维度与边界条件匹配；结果可重复",
-      "tools": ["sage", "fpylll", "Python"],
-      "false_positive_risk": "high",
-      "risk_note": "边界估计错；把近似解当精确解；缺少填充/同余关系假设"
+      "match": [
+        "格攻击",
+        "lattice",
+        "Coppersmith",
+        "LLL",
+        "小根"
+      ],
+      "tools": [
+        "sage",
+        "fpylll",
+        "Python"
+      ],
+      "commands": [
+        "sage -c 'print(version())'",
+        "python -c \"import z3; print(z3.get_version_string())\""
+      ],
+      "criteria": "恢复的小根/私钥回代成立；格维度与边界条件匹配；结果可重复",
+      "fail": "边界估计错或近似解 → 缩小未知位/增加多项式；无 sage → 小规模用 z3/数学推导",
+      "pitfalls": [
+        "把近似解当精确解",
+        "边界条件不足",
+        "缺填充/同余假设"
+      ]
     },
     {
       "id": "PC-16",
       "category": "PE 保护位近似",
-      "criterion": "DllCharacteristics + 导入/load config 交叉判断；IAT 可写性用节权限复核",
-      "tools": ["pwn-check.py", "rabin2", "CFF Explorer"],
-      "false_positive_risk": "high",
-      "risk_note": "PE 无 RELRO；DYNAMIC_BASE 不等于实际 ASLR；SecurityCookie 需 load config 确认"
+      "match": [
+        "PE",
+        "DllCharacteristics",
+        "GS",
+        "CFG",
+        "SecurityCookie"
+      ],
+      "tools": [
+        "pwn-check.py",
+        "objdump -p",
+        "CFF Explorer"
+      ],
+      "commands": [
+        "python Tool/scripts/pwn-check.py --file ./sample.exe --json",
+        "objdump -p ./sample.exe | grep -E 'DllCharacteristics|DLL Name'"
+      ],
+      "criteria": "DllCharacteristics 原始值 + 节权限 + 导入/load config 交叉；IAT 可写性用节权限复核",
+      "fail": "DYNAMIC_BASE 不等于实际 ASLR；无 load config 不能断言 GS；PE 无 RELRO/GOT，改走导入表/CFG/SEH",
+      "pitfalls": [
+        "PE 上找 RELRO/GOT",
+        "只看编译标志判 ASLR",
+        "把 DLL 当 ELF 找 PLT"
+      ]
     },
     {
       "id": "PC-17",
       "category": "稳定性验收",
-      "criterion": "全新进程/新连接连续 10 次成功 ≥9；远程有 flag/root 证据；失败路线已记录",
-      "tools": ["pwntools", "timeout", "shell 循环"],
-      "false_positive_risk": "low",
-      "risk_note": "一次偶然成功冒充稳定；本地关 ASLR 结果当远程结论"
+      "match": [
+        "稳定性",
+        "10 次",
+        "成功率",
+        "复现"
+      ],
+      "tools": [
+        "pwntools",
+        "timeout",
+        "shell 循环",
+        "pwn-repro.py"
+      ],
+      "commands": [
+        "for i in $(seq 10); do timeout 30 python3 exploit.py >/tmp/run.$i 2>&1; echo $i $?; done",
+        "grep -l 'uid=\\|FLAG{' /tmp/run.* | wc -l"
+      ],
+      "criteria": "全新进程/连接连续 10 次成功≥9；远程有 flag/root 证据；失败路线已记录",
+      "fail": "6–8/10 → 栈对齐/竞态未解决，不写稳定；远程不一致 → 远程泄漏校验 + 同版本 libc",
+      "pitfalls": [
+        "一次偶然成功冒充稳定",
+        "本地关 ASLR 当远程结论",
+        "gdb 下成功当真实成功"
+      ]
     }
   ]
 }

@@ -1,0 +1,36 @@
+{
+   "action": {
+      "default_popup": "popup/popup.html"
+   },
+   "background": {
+      "service_worker": "background/background.js"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "content/content.js" ],
+      "matches": [ "\u003Call_urls>" ]
+   } ],
+   "default_locale": "en",
+   "description": "__MSG_extension_description__",
+   "homepage_url": "https://getquicker.net",
+   "host_permissions": [ "\u003Call_urls>" ],
+   "icons": {
+      "128": "icons/128.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsO4O/i+beekmGITfvHaEIBmLTT2EMx+gUSV3EsCTbxCqwH5fJOODcycDj5Y20nVIfDP2taAcfBNLO/l8iOBG0UIf10YwRORW/qPvFGeLmxZtGPuS0dtoNyHqKdWxXb8s6FmPObI7dI7sgDlEITZH8OMvDpW4wOtktZyOmeXyeaqpMNiGhxEonYqg30N1jAjO0hpoAw/GirjWVZ0dpniMXZTs4RKrzFfp+RlVZ0Q5Vw9KAVp5F6LVPaavNrd0720rOFrs4YGu9n9HydrohLM455k+jI+sVPmwB2fiRxynJFqXsumBwrY0l7rB66c5ll5HtwAxvv1DxXkC+o5nS1iMMQIDAQAB",
+   "manifest_version": 3,
+   "minimum_chrome_version": "135",
+   "name": "__MSG_extension_name__",
+   "optional_permissions": [ "bookmarks", "browsingData", "history", "cookies", "sessions", "pageCapture" ],
+   "permissions": [ "nativeMessaging", "tabs", "debugger", "contextMenus", "storage", "tts", "scripting", "userScripts", "activeTab", "downloads", "tabGroups", "webNavigation", "sidePanel" ],
+   "short_name": "__MSG_extension_short_name__",
+   "side_panel": {
+      "default_path": "sidepanel/sidepanel.html"
+   },
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.2.4",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "content/styles.css" ]
+   } ]
+}

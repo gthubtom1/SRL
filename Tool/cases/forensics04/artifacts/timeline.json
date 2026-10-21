@@ -1,0 +1,85 @@
+{
+  "ok": true,
+  "tool": "fs-timeline.py",
+  "generated_at": null,
+  "timezone": "UTC",
+  "events": [
+    {
+      "time_utc": "2026-10-21T14:38:39.082565Z",
+      "source": "App.ipa",
+      "kind": "filesystem-ctime",
+      "actor": "file",
+      "object": "App.ipa",
+      "detail": {
+        "path": "App.ipa",
+        "size": 2824,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:38:39.083564Z",
+        "atime_utc": "2026-10-21T14:38:44.879358Z",
+        "ctime_utc": "2026-10-21T14:38:39.082565Z",
+        "birthtime_utc": "2026-10-21T14:38:39.082565Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:38:39.083564Z",
+      "source": "App.ipa",
+      "kind": "filesystem-mtime",
+      "actor": "file",
+      "object": "App.ipa",
+      "detail": {
+        "path": "App.ipa",
+        "size": 2824,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:38:39.083564Z",
+        "atime_utc": "2026-10-21T14:38:44.879358Z",
+        "ctime_utc": "2026-10-21T14:38:39.082565Z",
+        "birthtime_utc": "2026-10-21T14:38:39.082565Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:38:44.879358Z",
+      "source": "App.ipa",
+      "kind": "filesystem-atime",
+      "actor": "file",
+      "object": "App.ipa",
+      "detail": {
+        "path": "App.ipa",
+        "size": 2824,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:38:39.083564Z",
+        "atime_utc": "2026-10-21T14:38:44.879358Z",
+        "ctime_utc": "2026-10-21T14:38:39.082565Z",
+        "birthtime_utc": "2026-10-21T14:38:39.082565Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    }
+  ],
+  "summary": {
+    "events": 3,
+    "start_utc": "2026-10-21T14:38:39.082565Z",
+    "end_utc": "2026-10-21T14:38:44.879358Z",
+    "by_kind": {
+      "filesystem-ctime": 1,
+      "filesystem-mtime": 1,
+      "filesystem-atime": 1
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "inputs": [
+    {
+      "path": "Tool/cases/forensics04/input",
+      "kind": "filesystem",
+      "sha256": null,
+      "size": 0,
+      "events": 3
+    }
+  ],
+  "warnings": []
+}

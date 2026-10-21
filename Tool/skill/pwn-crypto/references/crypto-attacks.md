@@ -3,6 +3,9 @@
 > 先写清假设：有没有填充、是否同一消息、模数是否互质、oracle 返回什么。
 > 每个脚本最后都要做“回代验证”，不要把“看起来像 flag”当成功。
 
+
+**适用**：本文件给 RSA/分组/PRNG/证书的可运行求解骨架，并要求每条结论都做数学回代。
+**不适用**：纯协议实现审计（不求解）、需要侧信道的在线 oracle 但无授权、真实生产凭据/证书。
 ## 0. 环境
 
 ```bash
@@ -184,7 +187,40 @@ cert.public_key().verify(sig, msg, padding.PKCS1v15(), hashes.SHA256())  # None=
 **判据**：目标验证器接受伪造签名/证书（实验室自建 CA），且 `openssl verify` 或程序返回成功。
 **弱情形**：`e=1`（签名即消息）、`e=3` 且无填充且消息可开方、DER 解析差异、弱哈希；先确认验签代码实际用了哪种 padding。
 
-## 7. 判据汇总
+## 7. JWT 攻击面
+
+> 前提：有授权的测试 token 或自有账号。只认服务端接受与否，前端能解码不算数。
+
+```bash
+# 拆三段，记录 header/payload 原文与签名长度
+python - <<'PY'
+import base64, json, sys
+t = sys.argv[1] if len(sys.argv) > 1 else open('token.txt').read().strip()
+h, p, s = t.split('.')
+pad = lambda x: x + '=' * (-len(x) % 4)
+print(json.loads(base64.urlsafe_b64decode(pad(h))))
+print(json.loads(base64.urlsafe_b64decode(pad(p))))
+PY
+```
+
+- `alg:none`：把 header 改成 `{"alg":"none","typ":"JWT"}`，签名段分别试留空、保留原签名、`AA==`；有的实现只查大小写/空白。
+- HS256↔RS256 混淆：服务端用 RSA 公钥验 `RS256` 时，把 `alg` 改成 `HS256`，用**同一公钥字节**当 HMAC 密钥重签。公钥可能是 PEM、DER 或 JWKS 的 `n/e`，逐种表示试；`n/e` 先做 **base64url 解码并去掉 `=` padding**，不要直接拿字符串当 key。
+- 弱密钥：`hashcat -m 16500 jwt.txt wordlist.txt`（或 `john --format=HMAC-SHA256`）；命中后必须本地重算 `HMAC-SHA256(secret, header.payload)` 等于原签名。
+- `kid` 注入：试 `../../../../dev/null`、`/proc/self/environ`、已知可控文件、SQL/命令拼接；`kid` 指向可控内容时用该内容当密钥。
+- `jku`/`x5u`：指向自建 HTTPS JWKS/证书（仅实验室），确认服务端是否真的拉取并信任；同时试 `http`、内网地址、重定向与缓存。
+- claim 语义：改 `sub`/`role`/`scope`/`tenant`/`exp`/`nbf`；过期 token 仍被接受、`role=admin` 能读管理接口才算成立。
+
+```python
+import base64, hmac, hashlib
+b64u = lambda b: base64.urlsafe_b64encode(b).rstrip(b'=')
+sign = lambda key, msg: b64u(hmac.new(key, msg, hashlib.sha256).digest())
+# key 必须是服务端实际使用的那串字节：PEM/DER/原始 n，不是“看起来像公钥”的 base64 文本
+```
+
+**判据**：改后的 token 被服务端接受（`jwt_accepted=true`），且能读到未授权前读不到的数据或执行未授权动作（`protected_resource=true`）；留存原/改 token 的 header+payload diff、请求与响应码。
+**失败判据**：只有前端 `atob`/控制台解码成功、页面显示变了，但服务端返回 401/403；或只在 `jwt.io` 显示签名通过。此时写 `jwt_accepted=false`，不要写“JWT 可伪造”。
+
+## 8. 判据汇总
 
 | 攻击 | 成立判据 | 失败先查 |
 |---|---|---|
@@ -196,5 +232,28 @@ cert.public_key().verify(sig, msg, padding.PKCS1v15(), hashes.SHA256())  # None=
 | CBC | 目标块翻转成功且校验通过 | 块索引/IV 是否改对；是否有 MAC |
 | PRNG | 下一输出逐位一致 | 是否多消耗随机数；输出是否连续 |
 | 证书/签名 | 目标验签成功，证据可复现 | padding/哈希算法；信任链是否真的被使用 |
+| JWT | 服务端接受改后 token 且读到非公开数据（`jwt_accepted=true`） | 只前端解码/401；公钥字节表示或 base64url padding 不对 |
 
 **总验收**：脚本可重跑；每条攻击都有数学回代或逐位比对；失败路线写清假设被哪一步推翻。
+
+## 9. 域边界：EVM/智能合约不做
+
+本域**不提供 EVM 运行时**，也不连接链上环境：没有 anvil/hardhat/foundry 节点、没有交易回放、没有状态快照，因此无法给出“交易成功且状态被改变”的证据。
+
+- 合约整数/重入/权限、Foundry 断言、链上交易哈希 → 不在本域边界内，不写 `confirmed`。
+- DApp 的 API/签名服务/后端鉴权 → 改走 `web-pentest` 的 API 面；
+- 必须审合约字节码/不变量 → 走外部智能合约审计流程（独立工具链与授权）。
+- 在 `scope.md` 记 `evm_runtime=false`、`out_of_scope=true`，并写明转交路径。
+
+**判据**：报告不出现“本域已验证链上状态”；出现即判越界。
+
+## 失败判据（本文件）
+
+- 只抄骨架里的偏移/gadget，不用目标环境复核 → 本文件被误用，结论降级为“疑似”。
+- 没有泄漏/回代/写后读回等最小证据就宣布成功 → 不成立。
+- 平台语义混用（PE 的 DllCharacteristics 当 ELF RELRO、UCRT 当 glibc）→ 判路线错误。
+
+## 边界
+
+- 文中的命令与偏移是示例，必须用目标二进制、目标 libc/运行库重新生成。
+- 仅用于授权实验室资产；不覆盖真实生产系统、持久化、横向移动或拒绝服务。

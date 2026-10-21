@@ -3,7 +3,7 @@
 Load this when the dump is a **real Dex VMP** — bodies present, decoding as nonsense to a
 dalvik disassembler, a native interpreter loop behind them — and you have decided the
 private opcode space is worth attacking rather than walking away from. The neighbouring
-file owns the diagnosis (`advanced-unpacking.md` §The honest boundary: real Dex VMP) and
+file owns the diagnosis (`advanced-unpacking-2-root-dump-and-vmp-boundary.md: real Dex VMP) and
 the sentence that sends you here. This file owns what happens next, and — more of it than
 is comfortable — what does not.
 
@@ -178,7 +178,7 @@ fixture, 3,065 restored and 0 stops.
 **d. Cross-check against a second, independent recovery.** The same private opcode space
 observed through a *different* route — an in-memory dump of the original dex alongside the
 hardened one, or the `/proc/<pid>/mem` route in
-`advanced-unpacking.md` §Dumping when frida is refused — is the only evidence that the
+`advanced-unpacking-2-root-dump-and-vmp-boundary.md` §Dumping when frida is refused — is the only evidence that the
 platform's transformation is the one you assumed. **Not done here**; it requires a real
 VMP sample and a real platform, and is the honest gap in this file.
 
@@ -210,7 +210,7 @@ assembler produces an empty method, which looks like success and is not.
 
 | What `compare` reports | What it means | Do this |
 |---|---|---|
-| `verdict: not-applicable`, `stripped` > 0 | bodies left the dex for a native interpreter | the differential has no input. Stop. Return to `advanced-unpacking.md` §The honest boundary: real Dex VMP and price the island honestly |
+| `verdict: not-applicable`, `stripped` > 0 | bodies left the dex for a native interpreter | the differential has no input. Stop. Return to `advanced-unpacking-2-root-dump-and-vmp-boundary.md: real Dex VMP and price the island honestly |
 | `verdict: not-applicable`, `resized` > 0 | the engine's stream has its own length table | the projection premise is false. Stop rather than guessing boundaries |
 | `verdict: not-usable`, one private byte shared by many originals | bodies replaced by a common stub | the engine did not relabel per-opcode here. Stop |
 | `verdict: partially-usable`, conflicts ≤ 30 % | partial relabelling, or alignment slipping on some methods | usable only for the `high` rows; say so and stop at the unreadable ones |
@@ -227,7 +227,7 @@ boundary hook answers in an hour.
 
 | Observation | Action | Where |
 |---|---|---|
-| Bodies present, decode as nonsense | Diagnose real VMP before anything else | `advanced-unpacking.md` §The honest boundary: real Dex VMP |
+| Bodies present, decode as nonsense | Diagnose real VMP before anything else | `advanced-unpacking-2-root-dump-and-vmp-boundary.md: real Dex VMP |
 | Need the private opcode mapping | Build the coverage fixture, then submit it by hand | `scripts/vmp_diff_harness.py build`; §2 of this file |
 | Asked to "automate the whole chain" | Say which link cannot be automated and what it costs | §2 — the platform step is manual, by construction |
 | Fixture coverage below ~90 % | Add the missing opcode classes before submitting |, and the `audit` report |

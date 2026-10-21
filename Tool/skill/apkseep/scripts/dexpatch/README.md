@@ -8,7 +8,7 @@ Why not whole-tree smali round-trip: `baksmali` → `smali` rebuilds misrepresen
 synthetic access bridges. The class table still looks perfect — same class count, zero
 `ACC_INTERFACE` mismatches — but at runtime you get
 `IncompatibleClassChangeError: Found interface X, but class was expected`.
-See `../../references/pitfalls.md` P3.
+See `../../references/pitfalls-1-packaging-and-dex.md`.
 
 ## Build
 
@@ -63,7 +63,7 @@ same dex in one pass).
    `invoke-static {v1, v2}, ...` → `registerCount=2, regC=1, regD=2`.
 5. **End every body with a return of the correct type.**
 6. **Check the blast radius first** — `../find_refs.py`. A generic helper with dozens of
-   callers is not your patch point (`../../references/pitfalls.md` P6).
+   callers is not your patch point (`../../references/pitfalls-1-packaging-and-dex.md`).
 
 ## Verify
 

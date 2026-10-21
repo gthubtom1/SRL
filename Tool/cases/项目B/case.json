@@ -1,6 +1,6 @@
 {
   "id": "项目B",
-  "domain": "windows-license",
+  "domain": "reverse",
   "target_type": "PE32+ x64",
   "protection": [
     "multi-process",
@@ -39,10 +39,15 @@
     "自动更新"
   ],
   "refs": [
-    "README.md",
-    "项目B-6.8.1_nx_main_manual_patch_points.txt",
-    "v6.8.1/docs/v6.8.1_analysis_summary.md",
-    "v6.8.1/docs/v6.8.1_verification_checklist.md"
+    "Tool/cases/项目B/README.md",
+    "Tool/cases/项目B/项目B-6.8.1_nx_main_manual_patch_points.txt",
+    "Tool/cases/项目B/v6.8.1/docs/v6.8.1_analysis_summary.md",
+    "Tool/cases/项目B/v6.8.1/docs/v6.8.1_verification_checklist.md"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "evidence_kind": "real",
+  "repro": {
+    "status": "not-recorded",
+    "reason": "历史归档：现场命令未逐字留存，仅有产物哈希与结论；复现入口见 artifacts/ 与 lessons"
+  }
 }

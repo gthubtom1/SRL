@@ -120,7 +120,7 @@ check_item "架构" "上游开源验证集 (Tool/upstream/ 3大开源项目)" te
 check_item "架构" "MCP专用运行时强约定 (Tool/mcp/Tool/)" test -d "$TOOL_DIR/mcp/Tool"
 
 # 1b. 版本与更新链路
-check_item "版本" "版本标识与变更日志 (VERSION + CHANGELOG.md)" test -f "$ROOT/VERSION" -a -f "$ROOT/CHANGELOG.md"
+check_item "版本" "版本标识与变更日志 (VERSION + docs/CHANGELOG.md)" test -f "$ROOT/VERSION" -a -f "$ROOT/docs/CHANGELOG.md"
 check_item "版本" "已有用户一键更新脚本 (update.ps1 + update.sh)" test -f "$ROOT/setup/update.ps1" -a -f "$ROOT/setup/update.sh"
 check_item "架构" "上游定点防外溢规则与同步引擎 (upstream-rules.json + sync-upstream.py)" test -f "$ROOT/setup/upstream-rules.json" -a -f "$ROOT/setup/sync-upstream.py" -a -f "$ROOT/setup/sync-upstream.sh" -a -f "$ROOT/update.bat"
 # 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
@@ -184,8 +184,8 @@ echo -e "\n${WHITE}[3/9] 🧠 智能体指令系统与运行时拦截扩展 (Pro
 check_item "提示词" "Pi Agent 系统指令 (SEEP.md 契约态)" check_seep_contract
 check_item "提示词" "提示词槽位 / 边界锚 / 人格守卫三者就绪" check_prompt_stack
 check_item "提示词" "通用跨 Agent 规范 (AGENTS.md)" test -f "$TOOL_DIR/prompts/AGENTS.md"
-check_item "提示词" "Claude Code 项目级规范 (CLAUDE.md 在项目根)" test -f "$ROOT/CLAUDE.md"
-check_item "提示词" "DeepSeek Harness 配置文件 (DSH-PROFILE.md)" test -f "$ROOT/DSH-PROFILE.md"
+check_item "提示词" "Claude Code 项目级规范 (Tool/prompts/contracts/CLAUDE.md)" test -f "$ROOT/Tool/prompts/contracts/CLAUDE.md"
+check_item "提示词" "DeepSeek Harness 配置文件 (Tool/prompts/contracts/DSH-PROFILE.md)" test -f "$ROOT/Tool/prompts/contracts/DSH-PROFILE.md"
 check_item "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" test -f "$TOOL_DIR/prompts/extensions/security-audit-interceptor.ts"
 
 # 4. 技能系统

@@ -71,7 +71,7 @@ Ordered from most to least durable:
 |---|---|---|
 | Neutralise the client-side branch that consumes `enabled` | **yes** | The server can send anything; the client no longer acts on it |
 | Force the config field to its "off" value at parse time | partly | Works until a second parse path or a cache exists |
-| Block or 404 the config endpoint | **no** | Usually breaks the screen that shares the request (see `pitfalls.md` P5) |
+| Block or 404 the config endpoint | **no** | Usually breaks the screen that shares the request (see `pitfalls-1-packaging-and-dex.md`) |
 | Delete the local fallback asset | no | Only affects the offline case |
 
 **How to neutralise a branch correctly** is in `byte-level-patching.md`: replace the

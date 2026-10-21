@@ -1,0 +1,98 @@
+{
+  "ok": true,
+  "script": "plugin-repro.py",
+  "container": "vsix",
+  "sha256": "c1e7b75b59903bcde02bd4169737611662eb4303541e47ec2e0701926dc60417",
+  "source": "Tool/cases/plugin05/input/ext.vsix",
+  "unpacked": "Tool/cases/plugin05/artifacts/repro/unpack",
+  "file_count": 4,
+  "extracted_count": 4,
+  "skipped": [],
+  "entrypoints": [
+    {
+      "kind": "package.main",
+      "path": "extension/extension.js",
+      "exists": true
+    },
+    {
+      "kind": "activation_event",
+      "value": "onCommand:lab.scan",
+      "exists": true
+    },
+    {
+      "kind": "activation_event",
+      "value": "onLanguage:json",
+      "exists": true
+    },
+    {
+      "kind": "command",
+      "command": "lab.scan",
+      "title": "Lab: Scan workspace",
+      "exists": true
+    }
+  ],
+  "manifest": {},
+  "package": {
+    "path": "extension/package.json",
+    "name": "lab-vsix-plugin",
+    "version": "0.2.0",
+    "main": "./extension.js",
+    "activationEvents": [
+      "onCommand:lab.scan",
+      "onLanguage:json"
+    ],
+    "contributes_commands": [
+      "lab.scan"
+    ],
+    "capabilities": {
+      "untrustedWorkspaces": {
+        "supported": false
+      }
+    },
+    "engines": {
+      "vscode": "^1.80.0"
+    }
+  },
+  "plugin_xml": {},
+  "permissions": [],
+  "host_permissions": [],
+  "data_flow": [
+    {
+      "kind": "child_process",
+      "hits": [
+        {
+          "file": "extension/extension.js",
+          "line": 2,
+          "snippet": "const { execFile } = require('child_process');"
+        }
+      ]
+    }
+  ],
+  "native": {
+    "node_modules": [],
+    "v8_bytecode": [],
+    "sourcemaps": [],
+    "unity_plugin_dlls": []
+  },
+  "unity": {},
+  "minimal_unit": {
+    "path": "extension/extension.js",
+    "lines": 13,
+    "symbols": [
+      "activate"
+    ],
+    "flow_hits": 1,
+    "why": "入口文件且命中的数据流/危险调用最多；先在此处下断或做最小改动"
+  },
+  "notes": [
+    "VSIX 受限工作区: {\"supported\": false}"
+  ],
+  "blocked": [
+    "tool-missing:jadx",
+    "tool-missing:dnSpy",
+    "tool-missing:Cpp2IL"
+  ],
+  "next_probe": [
+    "最小可改单元改动前先备份，一次只改一个变量并留基线"
+  ]
+}

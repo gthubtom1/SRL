@@ -1,0 +1,113 @@
+{
+  "tool": "fw-repro",
+  "version": "1.0.0",
+  "generated_at": "2026-10-21T13:52:31Z",
+  "file": "Tool/cases/firmware-iot04/input/SecConfig.efi",
+  "ok": true,
+  "out_dir": "work/fw-case04",
+  "size": 1346960,
+  "sha256": "820a15d9746c2877484f203f1d4678001d9a60173b3bfd6bf05884d41bba623e",
+  "analysed_bytes": 1346960,
+  "truncated": false,
+  "formats": [
+    {
+      "type": "pe",
+      "offset": 0,
+      "note": "PE/COFF (MZ + PE signature)"
+    },
+    {
+      "type": "jffs2",
+      "offset": 149936,
+      "note": "JFFS2 node 0x1985 LE (weak signature)"
+    },
+    {
+      "type": "gzip",
+      "offset": 10818,
+      "note": "gzip stream"
+    }
+  ],
+  "primary": "pe",
+  "pe": {
+    "kind": "pe",
+    "machine": "x86-64",
+    "machine_id": "0x8664",
+    "subsystem": "Windows boot application (UEFI-era)",
+    "subsystem_id": 16,
+    "is_uefi": true,
+    "uefi_clues": [],
+    "sections": [
+      {
+        "name": ".text",
+        "raw_offset": 1024,
+        "raw_size": 1091584,
+        "entropy": 6.491
+      },
+      {
+        "name": "TRANSIT",
+        "raw_offset": 1092608,
+        "raw_size": 512,
+        "entropy": 0.446
+      },
+      {
+        "name": "PAGER32C",
+        "raw_offset": 1093120,
+        "raw_size": 1024,
+        "entropy": 4.531
+      },
+      {
+        "name": "PAGE",
+        "raw_offset": 1094144,
+        "raw_size": 28160,
+        "entropy": 6.283
+      },
+      {
+        "name": ".rdata",
+        "raw_offset": 1122304,
+        "raw_size": 143360,
+        "entropy": 5.338
+      },
+      {
+        "name": ".data",
+        "raw_offset": 1265664,
+        "raw_size": 3072,
+        "entropy": 4.132
+      },
+      {
+        "name": ".pdata",
+        "raw_offset": 1268736,
+        "raw_size": 42496,
+        "entropy": 5.977
+      },
+      {
+        "name": ".rsrc",
+        "raw_offset": 1311232,
+        "raw_size": 22528,
+        "entropy": 3.398
+      },
+      {
+        "name": ".reloc",
+        "raw_offset": 1333760,
+        "raw_size": 3584,
+        "entropy": 5.411
+      }
+    ],
+    "overall_entropy": 6.489
+  },
+  "extraction": {
+    "status": "not-applicable",
+    "dest": "work/fw-case04",
+    "attempts": [],
+    "members": 0,
+    "blocked": []
+  },
+  "rootfs": {
+    "dirs": 0,
+    "files": 0,
+    "bytes": 0,
+    "key_files": [],
+    "findings": [],
+    "top_dirs": [],
+    "truncated": false
+  },
+  "verdict": "UEFI boot component (x86-64, Windows boot application (UEFI-era)): firmware, not a rootfs. Next: dump firmware volumes / Secure Boot variables; do not claim J1/J2 from the PE alone."
+}

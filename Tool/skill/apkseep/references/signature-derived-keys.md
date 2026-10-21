@@ -130,7 +130,7 @@ network call. Use a differential test.
 
 Before blaming your patch: run the **unmodified original** on the same device and network. If
 it also fails, the problem is environmental (`references/tls-and-cert.md`,
-`references/pitfalls.md` P9) and not the repack.
+`references/pitfalls-2-environment-and-evidence.md`) and not the repack.
 
 ## Related variants of the same root cause
 

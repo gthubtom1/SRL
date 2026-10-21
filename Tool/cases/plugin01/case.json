@@ -2,7 +2,7 @@
   "id": "plugin01",
   "domain": "plugin-targets",
   "route": "R25",
-  "target_type": "Chrome/Edge MV3 扩展 ZIP（本地构造样本）",
+  "target_type": "Chrome/Edge MV3 扩展 ZIP（本地构造夹具样本）",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
@@ -62,7 +62,11 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "698420571182a1cbf185cc260a1bb558927bdd4511e450bbe3dd54e32a8f2c42"
+      "sha256": "bfd27d6c2c764f77e1a4051ddb0572340d6df55369d7a498173a1be8da69c008"
+    },
+    {
+      "path": "artifacts/plugin-triage.json",
+      "sha256": "d2c95ca929cb9598c580be2c2bf7b273cf7e34c86eb54b99fd0673a048a96a5e"
     }
   ],
   "lessons": [
@@ -81,11 +85,17 @@
   ],
   "refs": [
     "Tool/skill/plugin-targets/SKILL.md",
+    "Tool/skill/plugin-targets/references/01-criteria.md",
+    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
     "Tool/skill/plugin-targets/references/browser-extension.md",
-    "Tool/skill/plugin-targets/references/electron-and-asar.md",
     "Tool/config/plugin-targets-matrix.json",
     "Tool/cases/plugin01/input/ext.zip",
-    "Tool/cases/plugin01/artifacts/run.json"
+    "Tool/cases/plugin01/artifacts/plugin-triage.json"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "evidence_kind": "fixture",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
 }

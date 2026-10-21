@@ -1,0 +1,16 @@
+{
+  "mode": "broadcast",
+  "e": 3,
+  "moduli": 3,
+  "crt_bits": 3071,
+  "m": "2508087315653289579855653910185379363848090465",
+  "ascii": "pwn-crypto-real-rsa",
+  "per_modulus": [
+    true,
+    true,
+    true
+  ],
+  "m_pow_e_lt_M": true,
+  "verified": true,
+  "ok": true
+}

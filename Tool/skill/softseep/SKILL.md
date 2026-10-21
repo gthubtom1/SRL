@@ -69,6 +69,100 @@ metadata:
 
 ---
 
+## 适用 / 不适用（边界）
+
+**适用**：已授权的 Windows PE / .NET / Go / Rust / Linux ELF / macOS Mach-O / ARM64 客户端；授权校验、补丁本地化、脱壳、算法还原、协议分析、样本研判、UI 显示层、加固对抗、逆向测绘。
+
+**不适用**：
+
+- Android APK/DEX/SO → `apkseep`；iOS 取证/签名 → `forensics-mobile`。
+- 纯 Web/API 漏洞 → `web-pentest`；二进制漏洞利用/密码学 → `pwn-crypto`。
+- 加壳脱壳闭环 → `unpack-loop`（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
+- 生产环境未授权目标、真实用户数据、凭据外泄 → 不做。
+
+**边界**：本技能默认目标是**受权沙箱资产**；仅当用户明确声明「不属于我 / 没有授权」时停在门口确认一次。授权不覆盖「下载/安装/写文件/改环境」，后者单独确认。
+
+---
+
+## 前置检查（3 件）
+
+1. **目标指纹**：记录路径代号、SHA256、架构/位数、版本、签名状态；没有指纹的结论不可复算。
+2. **判型预检**：有本地样本先跑 `python Tool/skill/softseep/scripts/preflight-classify.py <path> --hint`，把 `platform/type/protection` 并入判型。
+3. **证据出口**：准备 `work/<task>/exports/` 或案例 `artifacts/`，约定命名（hash/offset/log）；先想好证据怎么落盘，再动手。
+
+---
+
+## 判据表（本域 6 类）
+
+> 完整表见 `references/01-criteria.md`；这里只给「确认」与「疑似」的分界。
+> **确认** = 两条独立证据、可复算；**疑似** = 单条线索/未复现，只能写「疑似」。
+
+| 类别 | 确认（可机检） | 疑似（降级） |
+| :--- | :--- | :--- |
+| 授权权威 | 断网/联网对照 + 签名/会话令牌证据；本地状态字或服务端签名至少一条闭环 | 只看到本地许可文件/只看到网络请求 |
+| 补丁生效 | 回读目标 RVA 字节 = 补丁值；目标行为变化；进程存活 ≥2 个心跳周期 | 只看到注入器返回 0 / 只看到日志「成功」 |
+| 壳是否脱掉 | 内存出现原节名/明文导入；OEP 落原 `.text`；IAT 可解析；dump 哈希记录 | 目标能运行 / 磁盘节熵下降但 IAT 坏 |
+| 算法还原 | 独立实现 N≥10 组输入输出一致；客户端接受新生成值、拒绝错误值 | 同源 Generate/Verify 互验通过；只测一组 |
+| 结构/符号 | PE/ELF/Mach-O 头与节/段自洽；PDB GUID/Age 匹配；RTTI/vtable 有构造函数证据 | 只有 `sub_xxx` + 一条字符串；FLIRT 低置信命中 |
+| 动态观测/反调试 | 基线 vs 仪器行为差异可复现；改一个检测点后目标继续且无二次检测 | 只 attach 一次成功/失败；只改一个 API 返回值 |
+
+**使用**：先选行，再按「确认」列准备最小输入；如果只能拿到「疑似」列，结论必须降级，不能写「已绕过/已脱壳/已还原」。
+
+---
+
+## 失败判据（看到即降级/换路）
+
+> 完整表见 `references/02-failure-criteria.md`；这里只列高频十条。
+
+| 现象 | 判定 | 改走哪条 |
+| :--- | :--- | :--- |
+| 改完立刻崩（0xC0000005/0xC0000374） | 等长/重定位/栈平衡破坏 | 等长改写；trampoline；只改条件跳转 |
+| 补丁后几秒到几十秒才崩 | 跳过初始化/守护回写 | 保留原函数体；改判据分支/状态字 |
+| 字符串全乱码 | 加密/压缩未解 | 先脱壳/等 OEP 后 dump |
+| 反编译只有 dispatcher | VM/强平坦化 | 运行期取功能/取载荷；patch 判定点 |
+| 断网即失效，联网恢复 | 服务端权威/心跳覆盖 | 协议层：抓包/中继/端点接管 |
+| 只改 UI 或 `license_type` 无效 | 状态源未找到 | 重建鉴权链路；找真正状态字 |
+| 一 attach 就退，换调试器仍退 | PEB/API/TLS 反调试 | 先识别检测层；两次失败就停 |
+| 下 `0xCC` 就崩 | 代码段 CRC/int3 扫描 | 硬件断点/外部读/Intel PT |
+| 补丁后签名/校验失败 | 未重算/未处理签名 | 重算 checksum；明确签名策略 |
+| keygen 生成码被拒 | 归一化/签名/第二校验 | 独立实现逐字符对照；查自引用 |
+
+**三条熔断**：单路径 ≤3 轮无进展换正交路线；内存补丁累计崩 2 次停手；attach 被反调试打掉 2 次先过反调试。
+
+---
+
+## 模型常见失误（≥8 条，详见 `references/03-model-pitfalls.md`）
+
+1. **把 x64 前 4 个参数当栈传** → Win64 前 4 个在 `RCX/RDX/R8/R9`，栈上是影子空间 → 按寄存器读，第 5 个起 `[rsp+0x28]`。
+2. **把 `mov rax,[rcx]` 当虚表调用** → 可能只是首字段/d-pointer → 看构造函数、`.rdata`、RTTI 再下结论。
+3. **DllMain 里跨堆写 BSTR** → loader lock/堆损坏 → DllMain 只建线程，分配放工作线程。
+4. **只改 UI 不改 `license_type`/状态字** → UI 是消费者，重启/心跳回退 → 找状态源（项目 A 真开关是 `0x230CDEA`）。
+5. **补丁后不重算校验和/不处理签名** → 自检/签名失败 → manifest + checksum + 签名策略。
+6. **把「能运行」当「壳已脱掉」** → 磁盘仍密文/IAT 坏 → 看内存节名/OEP/IAT/字符串四项。
+7. **反调试未过时反复裸 attach** → 触发自毁/污染证据 → 两次失败就停，先识别检测层。
+8. **`jmp rel32` 少算 5 字节 / `call [rip+x]` 按当前指令算** → 跳飞 → `disp = target - (addr + insn_len)`。
+9. **用绝对 VA 写补丁忽略 ASLR** → 换次启动就崩 → 文件用 RVA/偏移，内存用 `base + RVA`。
+10. **把 `ret` 当万能补丁** → 跳过初始化/延迟崩 → 优先改条件跳转/状态字；trampoline 保留原函数。
+11. **同源 keygen 自验通过就交付** → 共享错误被掩盖 → 用客户端黑盒 + 独立实现交叉验证。
+12. **ARM64 套 x64 调用约定** → 参数/返回地址全错 → 按 AAPCS64 读 `X0–X7`、`X29/X30`。
+
+---
+
+## 流程（分阶段，每阶段有完成判据）
+
+| 阶段 | 动作 | 完成判据 |
+| :--- | :--- | :--- |
+| S0 判型 | 平台/类型/保护/权威四问；跑 preflight | 判型行写出，保护指纹有证据 |
+| S1 结构 | PE/ELF/Mach-O 头、节/段、导入/导出、资源 | 结构 JSON/表落盘；异常节/高熵有记录 |
+| S2 静态 | 符号/函数图/字符串/常量/调用图 | 关键函数有 RVA + 命名依据 + 反编译片段 |
+| S3 动态 | 基线/断点/Hook/Procmon/网络 | 基线 vs 仪器行为差异可复现 |
+| S4 保护 | 壳/VM/反调试/完整性自检 | 脱壳或运行期取功能判据成立；不成立写卡点 |
+| S5 授权/算法 | 状态源、验签、算法、keygen/patch 路线 | 路线四分决策 + 证据；失败按 02 换路 |
+| S6 补丁/交付 | manifest、等长、校验、回滚、回归 | `patch-verify.py` 通过；功能/稳定/回滚三测 |
+| S7 报告 | 12 节骨架 + 证据分级 + 边界 | 每个结论能指到证据文件/命令/哈希 |
+
+---
+
 ## 【总控路由】
 
 > softseep 是本工作体系的唯一入口与总调度。任何任务先到此判型，再分发到对应
@@ -118,13 +212,13 @@ metadata:
 | "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | **`01-gate-bypass`**（分析型参考卷：`client-license-validation-bypass`） |
 | "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `unpack-loop`**（判据驱动，不硬走流程） |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
-| "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `project-paradigms.md` |
+| "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `KB 11-project-paradigms/01-project-patterns-a-j.md` |
 | "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |
 | "是不是病毒" / "分析样本" / "行为" / "IOC" | **样本研判** | ida MCP + YARA |
-| "改界面文字" / "关于对话框" / "显示不对" / "换品牌" | **UI 改造** | **`02-ui-rebrand`**（校验参考卷：`ui-verification.md`） |
+| "改界面文字" / "关于对话框" / "显示不对" / "换品牌" | **UI 改造** | **`02-ui-rebrand`**（校验参考卷：`KB 14-ui-verification/01-ui-acceptance.md`） |
 | "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固/反调试** | 路由落 **`unpack-loop`**（R9）→ `seep_packer_detect` → `MANUAL/ANTI-DEBUG.md` + `seep_kb_search` |
-| "出修复建议" / "加固方案"（**防御面：要交付整改**） | **加固对抗** | `references/defense-in-depth.md`（厂商视角的四层加固） |
-| "出个报告" / "整理成果" / "测绘" | **阶段零 分析** | **`00-analysis`**（R15；报告模板 `project-paradigms.md`） |
+| "出修复建议" / "加固方案"（**防御面：要交付整改**） | **加固对抗** | `references/windows-sop.md` §纵深防御（厂商视角的四层加固） |
+| "出个报告" / "整理成果" / "测绘" | **阶段零 分析** | **`00-analysis`**（R15；报告模板 `KB 11-project-paradigms/01-project-patterns-a-j.md`） |
 | "看看这个 exe" / "先分析透" / "出份报告"（无明确动词） | **阶段零 分析** | `00-analysis`（D0–D5 + 可复现报告 + 可行性裁定） |
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
@@ -144,21 +238,21 @@ metadata:
 
 **判型输出**（内部记录即可，不必告知用户）：
 ```
-[判型] 平台=Windows | 类型=授权/许可 | 加载=前置门控 + project-paradigms.md
+[判型] 平台=Windows | 类型=授权/许可 | 加载=前置门控 + KB 11-project-paradigms
 ```
 
 ### 路由矩阵（平台 × 类型 → 目标）
 
 | | **Windows** | **Android** | **Linux** | **Web/JS** |
 | :--- | :--- | :--- | :--- | :--- |
-| **授权/许可** | 前置门控 + `project-paradigms` | `apkseep` + 前置门控 | 前置门控 | `license-validation` |
+| **授权/许可** | 前置门控 + `KB 11-project-paradigms` | `apkseep` + 前置门控 | 前置门控 | `license-validation` |
 | **补丁/本地化** | `windows-sop` | `apkseep`（dex patch） | `windows-sop` 类比 | — |
 | **脱壳/解包** | `windows-sop` | `apkseep`（packers） | ida-reverse | — |
-| **算法还原** | `project-paradigms` | `apkseep` | ida-reverse | `license-validation` §7 |
+| **算法还原** | `KB 11-project-paradigms` | `apkseep` | ida-reverse | `license-validation` §7 |
 | **协议分析** | `license-validation` §6 | `apkseep` | seep MCP | playwright |
 | **样本研判** | ida MCP + YARA | `apkseep` | ida-reverse | — |
-| **UI 伪造** | `ui-verification` | — | — | — |
-| **加固对抗** | 进攻：`MANUAL/ANTI-DEBUG.md` ＋ KB 反作弊篇；交付：`defense-in-depth` | `apkseep`（anti-tamper） | — | — |
+| **UI 伪造** | `KB 14-ui-verification` | — | — | — |
+| **加固对抗** | 进攻：`MANUAL/ANTI-DEBUG.md` ＋ KB 反作弊篇；交付：`windows-sop.md` §纵深防御 | `apkseep`（anti-tamper） | — | — |
 
 ### 可调度的全部资源
 
@@ -273,7 +367,7 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 - 授权/许可分析 → 【前置门控】四问 + 九型判型（**两平台通用**）
 - 知识库查询 → `seep_kb_search` → `seep_kb_read`
 - 任务建档 → `case-init.ps1`
-- 报告生成 → `seep_gen_security_report` / `project-paradigms.md` 报告模板
+- 报告生成 → `seep_gen_security_report` / `KB 11-project-paradigms/01-project-patterns-a-j.md` 报告模板
 
 ### 调度纪律（五条）
 
@@ -329,16 +423,18 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 > **按需加载，不预先全读。** 判型后只加载对应文件。
 
-| reference | 行数 | 何时加载 |
-| :--- | :---: | :--- |
-| `references/windows-sop.md` | 231 | Windows 平台 + 补丁/本地化/脱壳任务（6 步流水线） |
-| `references/patching-dictionary.md` | 17 | 需要具体汇编打桩指令模式时 |
-| `references/defense-in-depth.md` | 37 | 输出修复建议 / 加固方案时 |
-| `references/ui-verification.md` | 58 | 需要 UI 可判定验收时 |
-| `references/compiler-pitfalls.md` | 69 | 写代理 DLL / 补丁工程**前必读**（5 个陷阱） |
-| `references/project-paradigms.md` | 534 | 判型后对照九型范式 / 复现路径 / 报告模板 |
-| `references/license-validation.md` | 393 | 许可 / 激活 / 卡密 / 订阅类目标（16 节全量手册） |
-| `references/tooling.md` | 42 | 找现成脚本 / 工程模板时 |
+| reference | 行数（以 `wc -l` 为准，改完本表要同步） | 何时加载 |
+| :--- | ---: | :--- |
+| `references/01-criteria.md` | 105 | 任何任务开头：选场景/输入面，准备可机检判据 |
+| `references/02-failure-criteria.md` | 76 | 卡住/崩/无效时：按现象换路，三条熔断 |
+| `references/03-model-pitfalls.md` | 138 | 动手前/复盘：19 条错误动作与正确动作 |
+| `references/04-walkthrough-project-a.md` | 178 | 要照着一个真实案例复跑时（项目 A 状态字补丁） |
+| `references/windows-sop.md` | 372 | Windows 补丁/本地化/脱壳/代理 DLL/UI 验收/纵深防御 |
+| `references/license-validation.md` | 379 | 许可/激活/卡密/订阅/网络授权（16 节全量手册） |
+| `references/07-disassembly-deep-read.md` | 399 | x64/ARM64 调用约定、栈帧、编译器模式、5 个陷阱 |
+| `references/08-symbol-recovery.md` | 329 | PDB/RSDS/GUID+Age symbol key/FLIRT/FID/RTTI/vtable/剥离函数指纹 |
+| `references/09-patch-engineering.md` | 381 | 等长/rel32/代码洞/重定位/IAT vs inline/checksum/manifest |
+| `references/10-anti-debug.md` | 346 | 反调试/反 VM 识别与决策（脱壳流程转 unpack-loop） |
 
 ### MANUAL/ 战术手册索引（按需查阅）
 
@@ -357,12 +453,51 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 | 你要做的事 | 加载 |
 | :--- | :--- |
-| 打内存补丁 / 写代理 DLL | `windows-sop.md` + `compiler-pitfalls.md` |
-| 判"该走补丁还是算号" | `project-paradigms.md`（九型 + D2.5 三问） |
+| 打内存补丁 / 写代理 DLL | `windows-sop.md` + `references/07-disassembly-deep-read.md` |
+| 判"该走补丁还是算号" | `KB 11-project-paradigms/01-project-patterns-a-j.md`（九型 + D2.5 三问） |
 | 许可/激活/卡密专项 | `license-validation.md` |
-| 出加固方案 | `defense-in-depth.md` |
-| UI 文案/状态验收 | `ui-verification.md` |
-| 找现成脚本 | `tooling.md` |
+| 出加固方案 | `references/windows-sop.md` §纵深防御 |
+| UI 文案/状态验收 | `KB 14-ui-verification/01-ui-acceptance.md` |
+| 找现成脚本 | `references/windows-sop.md` §工具 |
+
+---
+
+## 脚本用法
+
+```bash
+# 判型预检（只读；--hint 一行喂给判型）
+python Tool/skill/softseep/scripts/preflight-classify.py <sample> --hint
+python Tool/skill/softseep/scripts/preflight-classify.py <sample>
+
+# 案例验收：复算 artifacts sha256 / refs 存在 / 补丁清单完整性
+python Tool/skill/softseep/scripts/reverse-accept.py
+python Tool/skill/softseep/scripts/reverse-accept.py --case Tool/cases/项目A
+
+# 补丁验收：等长/偏移/补丁后哈希/回滚
+python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest patch.json
+python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest patch.json --out app.patched.exe
+python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest patch.json --out app.rolled.exe --rollback
+```
+
+三个脚本都支持 `--help`（rc=0）与 `--self-test`（离线 rc=0，输出含 `"ok"`）；失败一律输出 `{"ok": false, "blocked_at": ..., "reason": ...}` 且 rc=2。
+
+---
+
+## 任务卡入口
+
+- 24 张任务卡：`Tool/prompts/domains/reverse.md`（源名取自 `Tool/config/taskcard-sources.json` 的 `reverse` 列表）
+- 每卡六段：触发词 / 前置 / 步骤 / 判据 / 失败判据 / reference；按卡名或触发词选卡。
+
+---
+
+## KB board 入口
+
+- Board 索引：`Tool/mcp/Tool/reverselab/kb/pe-reverse/README.md`
+- 逐篇技术索引：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/README.md`
+- 失败判据（KB 版）：`Tool/mcp/Tool/reverselab/kb/pe-reverse/techniques/15-decision/failure-criteria.md`
+- 项目范式 A–J：`.../techniques/11-project-paradigms/01-project-patterns-a-j.md`
+- 报告骨架：`.../techniques/13-report-template/01-report-skeleton.md`
+- UI 验收：`.../techniques/14-ui-verification/01-ui-acceptance.md`
 
 ---
 

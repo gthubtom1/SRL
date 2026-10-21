@@ -46,7 +46,7 @@
 - [Decompiler Comparison with dogbolt.org](#decompiler-comparison-with-dogboltorg)
 - [Useful Commands](#useful-commands)
 
-For dynamic instrumentation tools (Frida, angr, lldb, x64dbg), see [tools-dynamic.md](tools-dynamic.md).
+For dynamic instrumentation tools (Frida, angr, lldb, x64dbg), see tools-dynamic.md.
 
 ---
 

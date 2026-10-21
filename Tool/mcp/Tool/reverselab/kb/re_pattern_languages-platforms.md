@@ -18,8 +18,8 @@
 - [IBM AS/400 SAVF File EBCDIC Decoding (EKOPARTY 2017)](#ibm-as400-savf-file-ebcdic-decoding-ekoparty-2017)
 - [Intel SGX Enclave Reverse Engineering (Pwn2Win 2017)](#intel-sgx-enclave-reverse-engineering-pwn2win-2017)
 
-For core language reversing (Python, BF/esolangs, DOS, OPAL), see [languages.md](languages.md).
-For Go and Rust binary reversing, see [languages-compiled.md](languages-compiled.md).
+For core language reversing (Python, BF/esolangs, DOS, OPAL), see languages.md.
+For Go and Rust binary reversing, see languages-compiled.md.
 
 ---
 
@@ -205,7 +205,7 @@ TIMING = {
 
 ## Prefix-by-Prefix Hash Reversal (Nullcon 2026)
 
-See [patterns-ctf-2.md](patterns-ctf-2.md#prefix-hash-brute-force-nullcon-2026) for the full technique. This section covers language-specific considerations.
+See patterns-ctf-2.md for the full technique. This section covers language-specific considerations.
 
 **Language-specific notes:**
 - Hash algorithm may be uncommon (MD2, custom) — don't need to identify it, just match outputs by running the binary

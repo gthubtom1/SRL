@@ -1,6 +1,17 @@
 # protocol01 产物说明
 
-- 输入：`input/sample.pcap`（sha256 `721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a`，628 B）
-- 运行：`python ../../../Tool/scripts/pcap-summary.py --file input/sample.pcap --json`，rc=0
-- 结果（完整 stdout 见 `run.json`）：pcap / EN10MB，3 个包、2 个方向性 TCP 会话、2 个命中关键字的会话；明文含 `GET /login HTTP/1.1`、`Authorization: Bearer abc`、`Set-Cookie: sid=deadbeef`、`GET /dashboard`。
-- 边界：样本为手工构造的单次 HTTP 会话，未含握手/SYN 与 TLS；脚本只按包做明文片段提取，不做 TCP 流重组，未验证 token 过期/重放，也未做 WebSocket 分析。
+- 输入：`input/sample.pcap`（628 B，手工构造的 HTTP/1.1 夹具）。
+- 运行（完整 cmd/rc/stdout 见 `run.json`）：
+  1. `python ../../../Tool/scripts/pcap-summary.py --file input/sample.pcap --json`，rc=0（兼容入口）。
+  2. `python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.pcap --json --extract artifacts/streams --tshark-check`，rc=0。
+  3. `tshark -r input/sample.pcap -Y http -T fields ...`，rc=0。
+- 结果：pcap / EN10MB，3 包、2 个方向性 TCP 会话；明文含 `GET /login`、`Host: lab.example.test`、
+  `Authorization: Bearer abc`、`Set-Cookie: sid=deadbeef`、`GET /dashboard`；响应体 36 B 与
+  `Content-Length: 36` 一致（见 `pcap-summary.json`）。
+- 产物：
+  - `pcap-summary.json`：会话表 + 明文片段 + tshark 分层交叉验证；
+  - `streams/s00…bin` / `s01…bin`：C2S 238 B / S2C 156 B 的方向性字节流，可直接喂给 `proto-repro.py`；
+  - `streams/frames.jsonl`：逐包 `payload_hex`，可复算长度；
+  - `tshark-http.tsv`：tshark 只列出 2 条请求、未把反向 200 归入同一 `tcp.stream`（样本无握手，属工具边界）。
+- 边界：夹具样本，无 SYN/握手、无 TLS、无失败分支；token 为静态假值，未做重放/构造，
+  不能据此推断真实服务的鉴权与过期语义。

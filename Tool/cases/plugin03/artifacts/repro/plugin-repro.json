@@ -1,0 +1,407 @@
+{
+  "ok": true,
+  "script": "plugin-repro.py",
+  "container": "zip",
+  "sha256": "874f1b86b184b3304031df3f3b93c4cd850af2ff4c9f03451601d15d6e9ffc9b",
+  "source": "input/real-extension.zip",
+  "unpacked": "artifacts/repro/unpack",
+  "file_count": 6,
+  "extracted_count": 6,
+  "skipped": [],
+  "entrypoints": [
+    {
+      "kind": "background.service_worker",
+      "path": "background/background.js",
+      "exists": true
+    },
+    {
+      "kind": "content_script.js",
+      "path": "content/content.js",
+      "exists": true,
+      "world": "ISOLATED",
+      "run_at": "",
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "kind": "action.popup",
+      "path": "popup/popup.html",
+      "exists": true
+    },
+    {
+      "kind": "side_panel",
+      "path": "sidepanel/sidepanel.html",
+      "exists": false
+    },
+    {
+      "kind": "web_accessible_resource",
+      "path": "content/styles.css",
+      "exists": true,
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "manifest": {
+    "path": "manifest.json",
+    "name": "__MSG_extension_name__",
+    "version": "1.2.4",
+    "manifest_version": 3,
+    "background": {
+      "service_worker": "background/background.js"
+    },
+    "content_scripts": [
+      {
+        "all_frames": true,
+        "js": [
+          "content/content.js"
+        ],
+        "matches": [
+          "<all_urls>"
+        ]
+      }
+    ],
+    "externally_connectable": null,
+    "update_url": "https://clients2.google.com/service/update2/crx"
+  },
+  "package": {},
+  "plugin_xml": {},
+  "permissions": [
+    {
+      "name": "nativeMessaging",
+      "risk": "critical",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 146,
+          "snippet": "${a}`:o)}else console.warn(o)}var rr=new er;function Gr(){rr.clear()}async function zs(e,t){let r=e.data.command,n=e.data.commandParams||{},o=e.data.valueFilter;console.log(\"runBackgroundCommand\",dt(r,n));let a=Ys[r];if("
+        }
+      ]
+    },
+    {
+      "name": "tabs",
+      "risk": "medium",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "name": "debugger",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        }
+      ]
+    },
+    {
+      "name": "contextMenus",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 146,
+          "snippet": "${a}`:o)}else console.warn(o)}var rr=new er;function Gr(){rr.clear()}async function zs(e,t){let r=e.data.command,n=e.data.commandParams||{},o=e.data.valueFilter;console.log(\"runBackgroundCommand\",dt(r,n));let a=Ys[r];if("
+        }
+      ]
+    },
+    {
+      "name": "storage",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "name": "tts",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        }
+      ]
+    },
+    {
+      "name": "scripting",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "name": "userScripts",
+      "risk": "high",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "name": "activeTab",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "name": "downloads",
+      "risk": "medium",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "name": "tabGroups",
+      "risk": "low",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        }
+      ]
+    },
+    {
+      "name": "webNavigation",
+      "risk": "medium",
+      "status": "observed",
+      "evidence": [
+        {
+          "file": "background/background.js",
+          "line": 146,
+          "snippet": "${a}`:o)}else console.warn(o)}var rr=new er;function Gr(){rr.clear()}async function zs(e,t){let r=e.data.command,n=e.data.commandParams||{},o=e.data.valueFilter;console.log(\"runBackgroundCommand\",dt(r,n));let a=Ys[r];if("
+        }
+      ]
+    },
+    {
+      "name": "sidePanel",
+      "risk": "low",
+      "status": "unexplained-static",
+      "evidence": []
+    }
+  ],
+  "host_permissions": [
+    {
+      "pattern": "<all_urls>",
+      "risk": "critical"
+    },
+    {
+      "pattern": "<all_urls>",
+      "risk": "critical",
+      "source": "content_scripts.matches"
+    }
+  ],
+  "data_flow": [
+    {
+      "kind": "runtime.sendMessage",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        },
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        },
+        {
+          "file": "content/content.js",
+          "line": 48,
+          "snippet": "chrome.runtime.sendMessage("
+        },
+        {
+          "file": "content/content.js",
+          "line": 109,
+          "snippet": "chrome.runtime.sendMessage("
+        }
+      ]
+    },
+    {
+      "kind": "runtime.onMessage",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        },
+        {
+          "file": "background/background.js",
+          "line": 95,
+          "snippet": "`}async function ku(e,t,r){let n=crypto.randomUUID();try{let[o]=await chrome.scripting.executeScript({target:{tabId:e},func:async(a,i,c)=>{let s=null;if(a){try{s=document.querySelector(a)}catch{throw new Error(`selector "
+        },
+        {
+          "file": "content/content.js",
+          "line": 5,
+          "snippet": "// chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {"
+        },
+        {
+          "file": "content/content.js",
+          "line": 606,
+          "snippet": "chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {"
+        }
+      ]
+    },
+    {
+      "kind": "connectNative",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 146,
+          "snippet": "${a}`:o)}else console.warn(o)}var rr=new er;function Gr(){rr.clear()}async function zs(e,t){let r=e.data.command,n=e.data.commandParams||{},o=e.data.valueFilter;console.log(\"runBackgroundCommand\",dt(r,n));let a=Ys[r];if("
+        }
+      ]
+    },
+    {
+      "kind": "fetch",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        },
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        }
+      ]
+    },
+    {
+      "kind": "storage",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        },
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        }
+      ]
+    },
+    {
+      "kind": "cookies",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        },
+        {
+          "file": "background/background.js",
+          "line": 48,
+          "snippet": "\\u5F53\\u524D\\uFF1A{0}`,delete_column:\"\\u5220\\u9664\\u5217\",keep_one_column:\"\\u6A21\\u677F\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u3002\",keep_one_visible_column:\"\\u81F3\\u5C11\\u9700\\u8981\\u4FDD\\u7559\\u4E00\\u5217\\u66"
+        }
+      ]
+    },
+    {
+      "kind": "scripting.executeScript",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 1,
+          "snippet": "\"use strict\";(()=>{var $e={classList:[\"left\",\"bottom\"],left:\"50px\",right:\"auto\",top:\"auto\",bottom:\"50px\"},ar=\"com.getquicker.chromeagent\";var H={isQuickerConnected:!1,isHostConnected:!1,quickerVersion:null,hostVersion:nu"
+        },
+        {
+          "file": "background/background.js",
+          "line": 32,
+          "snippet": "`;let m=document.createElement(\"div\");m.className=\"notice\",m.dataset.tone=c.tone,m.setAttribute(\"role\",\"alert\"),m.setAttribute(\"aria-live\",\"assertive\");let f=document.createElement(\"div\");f.className=\"title\",f.textConten"
+        }
+      ]
+    },
+    {
+      "kind": "postMessage",
+      "hits": [
+        {
+          "file": "background/background.js",
+          "line": 146,
+          "snippet": "${a}`:o)}else console.warn(o)}var rr=new er;function Gr(){rr.clear()}async function zs(e,t){let r=e.data.command,n=e.data.commandParams||{},o=e.data.valueFilter;console.log(\"runBackgroundCommand\",dt(r,n));let a=Ys[r];if("
+        }
+      ]
+    }
+  ],
+  "native": {
+    "node_modules": [],
+    "v8_bytecode": [],
+    "sourcemaps": [],
+    "unity_plugin_dlls": []
+  },
+  "unity": {},
+  "minimal_unit": {
+    "path": "background/background.js",
+    "lines": 147,
+    "symbols": [
+      "sr",
+      "Pc",
+      "kt",
+      "cr",
+      "Ve",
+      "At",
+      "Jr",
+      "en",
+      "n",
+      "Mt",
+      "oe",
+      "me",
+      "Ue",
+      "lr",
+      "ft"
+    ],
+    "flow_hits": 14,
+    "why": "入口文件且命中的数据流/危险调用最多；先在此处下断或做最小改动"
+  },
+  "notes": [],
+  "blocked": [
+    "tool-missing:jadx",
+    "tool-missing:dnSpy",
+    "tool-missing:Cpp2IL"
+  ],
+  "next_probe": [
+    "浏览器加载已解压目录，DevTools 观察 service worker 唤醒、消息与存储写入",
+    "检查 native host manifest 的 allowed_origins 与宿主二进制",
+    "对远端 URL 做离线域名/证书/更新链核对；协议复刻转 protocol-plugin",
+    "最小可改单元改动前先备份，一次只改一个变量并留基线"
+  ]
+}

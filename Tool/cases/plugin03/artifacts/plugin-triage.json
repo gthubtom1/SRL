@@ -1,0 +1,262 @@
+{
+  "container": "zip",
+  "sha256": "874f1b86b184b3304031df3f3b93c4cd850af2ff4c9f03451601d15d6e9ffc9b",
+  "size": 96095,
+  "file_count": 6,
+  "top_level": [
+    "_locales",
+    "background",
+    "content",
+    "manifest.json",
+    "popup"
+  ],
+  "interesting_files": [
+    "manifest.json"
+  ],
+  "entrypoints": {
+    "manifest": "manifest.json",
+    "package": null,
+    "plugin_xml": null
+  },
+  "manifest": {
+    "manifest_version": 3,
+    "name": "__MSG_extension_name__",
+    "version": "1.2.4",
+    "permissions": [
+      "nativeMessaging",
+      "tabs",
+      "debugger",
+      "contextMenus",
+      "storage",
+      "tts",
+      "scripting",
+      "userScripts",
+      "activeTab",
+      "downloads",
+      "tabGroups",
+      "webNavigation",
+      "sidePanel"
+    ],
+    "optional_permissions": [
+      "bookmarks",
+      "browsingData",
+      "history",
+      "cookies",
+      "sessions",
+      "pageCapture"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "background/background.js",
+      "scripts": [],
+      "type": null,
+      "persistent": null
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "<all_urls>"
+        ],
+        "js": [
+          "content/content.js"
+        ],
+        "css": [],
+        "run_at": "",
+        "world": "ISOLATED",
+        "all_frames": true
+      }
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "content/styles.css"
+        ],
+        "matches": [
+          "<all_urls>"
+        ]
+      }
+    ],
+    "externally_connectable": null,
+    "commands": null,
+    "options_page": null,
+    "devtools_page": null,
+    "action": {
+      "default_popup": "popup/popup.html"
+    },
+    "csp": null,
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsO4O/i+beekmGITfvHaEIBmLTT2EMx+gUSV3EsCTbxCqwH5fJOODcycDj5Y20nVIfDP2taAcfBNLO/l8iOBG0UIf10YwRORW/qPvFGeLmxZtGPuS0dtoNyHqKdWxXb8s6FmPObI7dI7sgDlEITZH8OMvDpW4wOtktZyOmeXyeaqpMNiGhxEonYqg30N1jAjO0hpoAw/GirjWVZ0dpniMXZTs4RKrzFfp+RlVZ0Q5Vw9KAVp5F6LVPaavNrd0720rOFrs4YGu9n9HydrohLM455k+jI+sVPmwB2fiRxynJFqXsumBwrY0l7rB66c5ll5HtwAxvv1DxXkC+o5nS1iMMQIDAQAB",
+    "update_url": "https://clients2.google.com/service/update2/crx"
+  },
+  "package": {},
+  "plugin_xml": {},
+  "suspicious_apis": {
+    "nativeMessaging": {
+      "count": 2,
+      "files": [
+        "manifest.json",
+        "background/background.js"
+      ],
+      "examples": [
+        "\"pageCapture\" ],\r    \"permissions\": [ \"nativeMessaging\", \"tabs\", \"debugger\", \"contextMenus\", \"storage\", \"tts\", \"scripting\", \"userScrip",
+        "nnection failed:\",t),de=null,De(!1,!1),Yr(1e4);return}if(de.onMessage.addListener(wc),de.onDisconnect.addListener(hc),chrome.runtime."
+      ]
+    },
+    "exec_spawn": {
+      "count": 1,
+      "files": [
+        "background/background.js"
+      ],
+      "examples": [
+        ";return[...new Set(e)].sort((n,o)=>n.localeCompare(o)).map(n=>{let o=Ad(n);return{name:n,schemaVersion:1,transport:\"backgroun"
+      ]
+    },
+    "chrome_cookies": {
+      "count": 5,
+      "files": [
+        "background/background.js"
+      ],
+      "examples": [
+        "go(e){if(!await O(\"cookies\"))throw new Error(\"\\u6CA1\\u6709 cookies \\u6743\\u9650\\uFF0C\\u8BF7\\u5728\\u6269\\u5C55 popup \\u7684\\u6743\\u9650",
+        "nction fo(e){if(!await O(\"cookies\"))throw new Error(\"\\u6CA1\\u6709 cookies \\u6743\\u9650\\uFF0C\\u8BF7\\u5728\\u6269\\u5C55 popup \\u7684\\u674",
+        "po(e){if(!await O(\"cookies\"))throw new Error(\"\\u6CA1\\u6709 cookies \\u6743\\u9650\\uFF0C\\u8BF7\\u5728\\u6269\\u5C55 popup \\u7684\\u6743\\u9650"
+      ]
+    },
+    "debugger": {
+      "count": 27,
+      "files": [
+        "background/background.js"
+      ],
+      "examples": [
+        "ction bo(e){let t=await Ar(e.target);return await chrome.debugger.detach(t)}async function yo(e){let{target:t,method:r,commandParams:n}",
+        "ion yo(e){let{target:t,method:r,commandParams:n}=e,o=await Ar(t),a=!1;try{a=(await chrome.debugger.getTargets()).some(s=>s.tabId===o.ta",
+        ">s.tabId===o.tabId&&s.attached),a||await chrome.debugger.attach(o,\"1.3\");let c=await chrome.debugger.sendCommand(o,r,n);return a||await"
+      ]
+    },
+    "network_request": {
+      "count": 4,
+      "files": [
+        "background/background.js"
+      ],
+      "examples": [
+        "eturn await createImageBitmap(await t.blob())}async function Yi(e){let t=await fetch(e);return await createImageBitmap(await t",
+        "ap(await t.blob())}function ls(e){let t=e.getContext(\"2d\");if(!t)throw new Error(\"\\u65E0\\u6CD5\\u521B\\u5EFA\\u7528\\u4E8E\\u62FC\\u",
+        "che:\"force-cache\",signal:f.signal});if(!C.ok)throw new Error(`HTTP ${C.status}`);let v=u.responseType===\"text\"?await C.text():"
+      ]
+    }
+  },
+  "remote_urls": [
+    "http://www.w3.org/1999/xlink",
+    "http://www.w3.org/2000/svg",
+    "http://www.w3.org/2000/xmlns/",
+    "https://chrome.google.com/",
+    "https://chrome.google.com/webstore/",
+    "https://chromewebstore.google.com/",
+    "https://clients2.google.com/service/update2/crx",
+    "https://getquicker.net"
+  ],
+  "scanned_text_files": 6,
+  "permission_surface": {
+    "permissions": [
+      {
+        "name": "nativeMessaging",
+        "risk": "critical"
+      },
+      {
+        "name": "tabs",
+        "risk": "medium"
+      },
+      {
+        "name": "debugger",
+        "risk": "critical"
+      },
+      {
+        "name": "contextMenus",
+        "risk": "low"
+      },
+      {
+        "name": "storage",
+        "risk": "low"
+      },
+      {
+        "name": "tts",
+        "risk": "low"
+      },
+      {
+        "name": "scripting",
+        "risk": "high"
+      },
+      {
+        "name": "userScripts",
+        "risk": "high"
+      },
+      {
+        "name": "activeTab",
+        "risk": "low"
+      },
+      {
+        "name": "downloads",
+        "risk": "medium"
+      },
+      {
+        "name": "tabGroups",
+        "risk": "low"
+      },
+      {
+        "name": "webNavigation",
+        "risk": "medium"
+      },
+      {
+        "name": "sidePanel",
+        "risk": "low"
+      }
+    ],
+    "optional_permissions": [
+      {
+        "name": "bookmarks",
+        "risk": "high"
+      },
+      {
+        "name": "browsingData",
+        "risk": "unknown"
+      },
+      {
+        "name": "history",
+        "risk": "high"
+      },
+      {
+        "name": "cookies",
+        "risk": "high"
+      },
+      {
+        "name": "sessions",
+        "risk": "high"
+      },
+      {
+        "name": "pageCapture",
+        "risk": "unknown"
+      }
+    ],
+    "host_permissions": [
+      {
+        "pattern": "<all_urls>",
+        "risk": "critical"
+      }
+    ],
+    "high": [
+      "nativeMessaging",
+      "debugger",
+      "scripting",
+      "userScripts"
+    ],
+    "broad_hosts": [
+      "<all_urls>"
+    ]
+  },
+  "unity": {},
+  "ok": true,
+  "path": "Tool/cases/plugin03/input/real-extension.zip",
+  "type": "ZIP 浏览器扩展包",
+  "conclusion": "入口已定位；高风险面=nativeMessaging,debugger,exec_spawn,scripting,userScripts；需人工确认数据流与最小可改单元"
+}

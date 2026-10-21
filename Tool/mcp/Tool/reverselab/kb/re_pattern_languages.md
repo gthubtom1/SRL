@@ -22,8 +22,8 @@
 - [Non-Bijective Substitution Cipher Reversing](#non-bijective-substitution-cipher-reversing)
 - [FRACTRAN Program Inversion (Boston Key Party 2016)](#fractran-program-inversion-boston-key-party-2016)
 
-For platform/framework-specific techniques (Android, Electron, Node.js, Verilog, Ruby/Perl polyglot, etc.), see [languages-platforms.md](languages-platforms.md).
-For Go and Rust binary reversing, see [languages-compiled.md](languages-compiled.md).
+For platform/framework-specific techniques (Android, Electron, Node.js, Verilog, Ruby/Perl polyglot, etc.), see languages-platforms.md.
+For Go and Rust binary reversing, see languages-compiled.md.
 
 ---
 

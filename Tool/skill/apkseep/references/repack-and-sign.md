@@ -9,7 +9,7 @@ Rebuilding is the step where otherwise-correct patches die. Two mistakes account
 
 **1. Strip only signature artifacts, never the whole directory.**
 
-`META-INF/` contains ServiceLoader registrations the app needs at runtime. Details and the exact failure in `references/pitfalls.md` P1.
+`META-INF/` contains ServiceLoader registrations the app needs at runtime. Details and the exact failure in `references/pitfalls-1-packaging-and-dex.md`.
 
 ```python
 SIG_EXT = ('.SF', '.RSA', '.DSA', '.EC')
@@ -121,7 +121,7 @@ build looks correct until the install is refused with `[-124]`. Sign with
 
 When the sample was packed, the dex you are about to patch came out of a memory dump while the APK still carries the shell. Build a **de-shelled base APK** first, then treat it as an ordinary APK for the rest of this document.
 
-1. **Assemble the base.** Start from the original APK: replace `classes*.dex` with the dumped real dexes, and delete the shell library under `lib/<abi>/` plus the encrypted `assets/` payloads. Strip **only** signature artifacts — `META-INF/*.SF|*.RSA|*.DSA|*.EC` and the top-level `MANIFEST.MF`. Never delete the whole `META-INF/` (`references/pitfalls.md` P1).
+1. **Assemble the base.** Start from the original APK: replace `classes*.dex` with the dumped real dexes, and delete the shell library under `lib/<abi>/` plus the encrypted `assets/` payloads. Strip **only** signature artifacts — `META-INF/*.SF|*.RSA|*.DSA|*.EC` and the top-level `MANIFEST.MF`. Never delete the whole `META-INF/` (`references/pitfalls-1-packaging-and-dex.md`).
 2. **Decode with `apktool`.** `apktool d base.apk` gives the smali tree and a **readable text manifest**.
 3. **Fix the manifest.** Point `application android:name` at the app's real Application class and **remove** `android:appComponentFactory`. Grep the decoded tree for leftover shell class references before building.
 4. **Patch, then rebuild.** `apktool b` → `zipalign -p -f 4` → `apksigner` (v1+v2+v3) → install and verify against the checklist at the end of this file.
@@ -276,4 +276,4 @@ Signature verification proves the file is well-formed. It does **not** prove the
 5. `META-INF/services/*` count matches the original.
 6. Unchanged dex files are byte-identical to the original (compare hashes); in a de-shelled build, compare against the de-shelled base instead.
 
-Build a **control** at least once: same pipeline, zero patches. If the control fails, your pipeline or environment is at fault, not your patch (`references/pitfalls.md` P9).
+Build a **control** at least once: same pipeline, zero patches. If the control fails, your pipeline or environment is at fault, not your patch (`references/pitfalls-2-environment-and-evidence.md`).

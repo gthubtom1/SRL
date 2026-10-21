@@ -1,0 +1,49 @@
+{
+  "checks": [
+    {
+      "kind": "kerberoast",
+      "lockout_policy": {"threshold": 5, "failures_observed": 0},
+      "tickets": [
+        {"spn": "MSSQLSvc/sql01.corp.local:1433", "account": "svc_sql", "etype": 23,
+         "hash_present": true, "cracked": false, "reusable": false}
+      ]
+    },
+    {
+      "kind": "asrep",
+      "lockout_policy": {"threshold": 5, "failures_observed": 1},
+      "users": [
+        {"account": "helpdesk", "dont_req_preauth": true, "asrep_present": true,
+         "etype": 23, "hash_present": true, "cracked": false, "account_disabled": false}
+      ]
+    },
+    {
+      "kind": "adcs",
+      "ca": {"name": "CORP-CA", "http_endpoint": true, "ntlm_relay_allowed": true},
+      "templates": [
+        {"name": "CorpWebServer", "enroll_allowed": true, "san_enforced": false,
+         "client_auth_eku": true, "manager_approval": false, "ca_san_allowed": true,
+         "http_endpoint": true, "ntlm_relay_allowed": true}
+      ],
+      "auth_succeeded": false
+    },
+    {
+      "kind": "delegation",
+      "accounts": [
+        {"account": "WEB01$", "trusted_for_delegation": true,
+         "has_controlled_host": true, "ticket_obtained": false}
+      ]
+    },
+    {
+      "kind": "k8s-rbac",
+      "can_i": [
+        {"verb": "create", "resource": "pods", "allowed": true},
+        {"verb": "get", "resource": "secrets", "allowed": true},
+        {"verb": "impersonate", "resource": "serviceaccounts", "allowed": false}
+      ],
+      "pod_security": {"privileged": true, "host_path": true, "host_pid": false,
+                       "host_network": true},
+      "secrets": {"readable": true, "usable": false},
+      "escape": {"host_id": false, "host_fs_read": false}
+    }
+  ]
+}

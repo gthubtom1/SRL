@@ -1,35 +1,39 @@
 {
-  "id": "firmware-iot-<target>",
+  "id": "<用例编号，如 firmware-iot01>",
   "domain": "firmware-iot",
-  "target_type": "嵌入式固件 / IoT 设备",
-  "vendor": "",
-  "model": "",
-  "firmware_version": "",
-  "soc": "",
-  "arch": "mipsel | mips | arm | armeb | aarch64 | x86",
-  "storage": "SPI-NOR | NAND | eMMC | SD",
+  "target_type": "<本地靶场（教学夹具）| 真实目标描述>",
+  "evidence_kind": "fixture",
   "protection": [],
-  "authority": "local | server | hybrid",
-  "goal_level": "L1 | J1 | J2 | J3",
-  "outcome": "success | partial | blocked",
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "partial",
   "artifacts": [
-    {"path": "artifacts/orig.bin", "sha256": ""}
+    {
+      "path": "artifacts/run.json",
+      "sha256": "<门禁会复算>"
+    }
   ],
-  "interfaces": {
-    "uart": {"pads": "TX/RX/GND", "baud": 115200, "voltage": "3.3V", "shell": false},
-    "jtag": {"adapter": "", "idcode": "", "verified": false},
-    "spi": {"chip": "", "voltage": "3.3V", "read_hash": ""}
+  "repro": {
+    "status": "recorded",
+    "evidence": "lessons[0] 写命令 + rc"
   },
-  "emulation": {
-    "mode": "qemu-user | qemu-system | FirmAE | chroot | none",
-    "boot_ok": false,
-    "service_ok": false,
-    "notes": ""
+  "evidence_dir": "artifacts",
+  "scope": {
+    "authorization": "local fixture / authorized target",
+    "hosts": [],
+    "forbidden": []
   },
   "lessons": [
-    "解包成功不等于闭环：必须至少满足 J1/J2/J3 之一"
+    "跑的是什么：…；命令：`…`；rc=0",
+    "结果：…（关键字段/计数/哈希）",
+    "判据：…（对应 references/01-criteria.md 的哪一行）",
+    "边界：…（没验证什么，为什么）",
+    "复现：…（一条可复制命令）"
   ],
-  "tags": ["firmware", "uart", "binwalk"],
-  "refs": ["README.md"],
-  "updated": ""
+  "tags": [],
+  "refs": [
+    "Tool/skill/firmware-iot/references/01-criteria.md",
+    "Tool/skill/firmware-iot/references/02-failure-criteria.md"
+  ],
+  "updated": "YYYY-MM-DD"
 }

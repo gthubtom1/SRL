@@ -1,0 +1,94 @@
+{
+  "schema": "seep.sbom-reach/1",
+  "ok": true,
+  "inputs": {
+    "source": "Tool/cases/supply-chain04/input/src",
+    "sbom": true,
+    "lock": true,
+    "freeze": true,
+    "sources_scanned": 3
+  },
+  "components_total": 4,
+  "by_ecosystem": {
+    "npm": 2,
+    "pypi": 2
+  },
+  "reachable": [
+    {
+      "name": "left-pad",
+      "version": "1.3.0",
+      "ecosystem": "npm",
+      "from": "sbom",
+      "hits": [
+        {
+          "file": "index.js",
+          "line": 2,
+          "snippet": "const pad = require('left-pad');",
+          "entry": true
+        }
+      ],
+      "entry_hit": true
+    },
+    {
+      "name": "PyYAML",
+      "version": "6.0.1",
+      "ecosystem": "pypi",
+      "from": "sbom",
+      "hits": [
+        {
+          "file": "app.py",
+          "line": 1,
+          "snippet": "\"\"\"入口：读取 YAML 配置（PyYAML 的 import 名是 yaml）。\"\"\"",
+          "entry": true
+        }
+      ],
+      "entry_hit": true
+    }
+  ],
+  "unreachable": [
+    {
+      "name": "@corp/auth",
+      "version": "2.0.0",
+      "ecosystem": "npm",
+      "from": "sbom",
+      "hits": [],
+      "entry_hit": false
+    },
+    {
+      "name": "requests",
+      "version": "2.31.0",
+      "ecosystem": "pypi",
+      "from": "sbom",
+      "hits": [],
+      "entry_hit": false
+    }
+  ],
+  "entries": [
+    "app.py",
+    "index.js"
+  ],
+  "missing_from_sbom": [],
+  "limits": {
+    "note": "可达=源码出现 import/require；不等于 CVE 可利用。动态导入、插件加载、运行时注入需人工补证。",
+    "skips": [
+      ".git",
+      ".hg",
+      ".mypy_cache",
+      ".next",
+      ".pytest_cache",
+      ".svn",
+      ".tox",
+      ".venv",
+      "Pods",
+      "__pycache__",
+      "bower_components",
+      "build",
+      "coverage",
+      "dist",
+      "node_modules",
+      "target",
+      "vendor",
+      "venv"
+    ]
+  }
+}

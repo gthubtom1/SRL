@@ -270,3 +270,103 @@ EM_GETLINECOUNT = 3          ← “渲染了三行”变成确定事实
 ```
 
 ---
+
+## 工具与工程模板（吸收原 tooling.md）
+
+> 找不到现成脚本时，先看这里；不要从零手搓代理 DLL 与 UI 工装。
+
+1. **多进程代理 DLL 完整工程模板**：`Tool/cases/项目B/localize/src/version_proxy.c` 与 `version.def`
+2. **单进程代理 DLL + 显示层伪造完整工程**：`Tool/cases/_archive/项目C/poc/version.def`、`build_zig.bat`、`patch_binary.py`
+3. **逆向测绘报告范例（鉴权全貌 + 补丁清单 + 防御整改）**：`Tool/cases/_archive/项目C/poc/RE_FINDINGS.md`
+4. **全流程复盘模板（时间线/攻克点/踩坑/证据链）**：`Tool/cases/_archive/项目C/poc/TASK_RETRO.md`
+5. **自动化任务沙盒建档**：`Tool/scripts/case-init.ps1`
+6. **工具链健康自检**：`Tool/scripts/refresh-tool-index.ps1`
+7. **IDA Pro 自动化 MCP 链路**：`Tool/scripts/trigger_ida_mcp.ps1`
+8. **跨进程 UI 工装集（可判定验收）**：
+   - `tools/ui/abdump.ps1` —— 全量控件布局 + 文本字节 + 样式 dump
+   - `tools/ui/linetest.ps1` —— `EM_GETLINECOUNT` 行数判定（LF vs CRLF 探针）
+   - `tools/ui/crtest.ps1` —— CR 存活探针（判定控件是否吞 CR）
+   - `tools/ui/openabout.ps1` —— `WM_COMMAND` 自动触发对话框
+   - `tools/ui/menumap.ps1` —— 菜单命令 ID 递归枚举
+9. **案例证据归档**：`Tool/cases/项目A/`（其余同构，目录名脱敏为 `项目A`…`项目N`），每个目录自带 `case.json` 与产物；报告引用用仓库根相对路径，不用本机绝对路径。
+10. **许可/激活/卡密校验模型全量手册**：`references/06-license-validation.md`
+    - §1 运行时×模型×协议×平台四维分类（含 Win/mac/Linux 能力对照）
+    - §2 静态解剖（PE 壳 · .NET 四堆手解 · Electron/JVM/Py 速解 · 商用保护壳/License SDK 指纹表）
+    - §5 端点接管（等长合法值规则 · 副本角色表与 2~3 处上限 · `netsh` 提权回环接管）
+    - §6 握手与响应判定（字段角色拆法 · 会话绑定三判据）
+    - §7.1 公钥替换重签五步法
+    - §8 金样回放 / §8.5 透明中继（五要点）
+    - §9 取载荷 Payload Carving
+    - §10 厂商侧防护清单（8 条，可直接交甲方）
+    - §12 陷阱日志（15 条，单条即坑）
+    - §13 交付模板 + 环境清理总清单（删接管地址 / 还原 hosts / 撤 DNAT / 清自签 CA）
+11. **项目范式与复现路径**：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/11-project-paradigms/01-project-patterns-a-j.md`（A–J 十型）与 `02-project-decision-and-stats.md`（决策/统计/复现路径）。
+12. **报告骨架**：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/13-report-template/01-report-skeleton.md`。
+13. **UI 可判定验收**：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/14-ui-verification/01-ui-acceptance.md`。
+
+> 真实目录名在对外分享时一律改为 `项目A/B/C...`，文件名同步重命名，防止据路径名反查目标。
+
+---
+
+## 纵深防御交付（吸收原 defense-in-depth.md）
+
+> 厂商视角的四层加固；输出「修复建议/加固方案」时按本节逐条给，不要只写「加壳/加签名」。
+
+### 第一道防线：DLL 劫持免疫（加载期封锁）
+
+在主程序入口 `WinMainCRTStartup` 第一行调用：
+
+```c
+SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32 | LOAD_LIBRARY_SEARCH_USER_DIRS);
+```
+
+把程序目录从默认搜索链移除，使伪造的 `version.dll` 无法被加载器映射。
+
+### 第二道防线：内核级动态代码抑制（运行时封锁）
+
+```c
+PROCESS_MITIGATION_DYNAMIC_CODE_POLICY policy = { 0 };
+policy.ProhibitDynamicCode = 1;
+SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &policy, sizeof(policy));
+```
+
+在内核 VAD 树层面禁止把 `.text` 重新改为可写，`VirtualProtect` 会直接返回错误码 487。
+
+### 第三道防线：只读节完整性与 Inline Hook 巡检
+
+独立守护线程随机巡检关键函数头：
+
+- 检测页面属性是否偏离 `PAGE_EXECUTE_READ (0x20)`；
+- 检测前导机器码是否出现 `0xE9`、`0xFF 0x25`、`0xCC` 等打桩跳板；
+- 发现偏离时记录「函数 RVA + 期望字节 + 实际字节 + 页面属性」，不要只写「检测到 Hook」。
+
+### 第四道防线：业务强绑定非对称数字签名（逻辑层根治）
+
+废除「明文标志位/单点布尔函数决定特权」：核心票据 `(UserID, Expiration, Features)` 由服务端私钥签名，客户端在业务干道解密验签；本地只缓存**已验签**的票据，且每次敏感操作前复验。
+
+### 第五道防线：输出 API 动态取址 + IAT 完整性自检
+
+- 对易被用于文案伪造的 User32 输出 API（`SetDlgItemTextW` / `SetWindowTextW` 等）改为 `LoadLibrary` + `GetProcAddress` 动态取址，绕过 IAT 槽位；
+- 启动时对自身 IAT 做快照（每个 External 槽位的预期地址是否落在对应系统 DLL 的映像区间内），在关于框/鉴权判决前比对；
+- 敏感对话框改自绘（Owner-Draw/Direct2D），并对内存授权状态与展示文案做内部一致性互验。
+
+### 交付格式
+
+```text
+防线 | 现状 | 证据（RVA/字节/日志） | 修复动作 | 残差风险
+1 加载期 | version.dll 可劫持 | IAT + 目录搜索顺序 | SetDefaultDllDirectories | 旧系统兼容
+2 运行期 | .text 可写 | VirtualProtect 成功 | ProhibitDynamicCode | 第三方插件
+3 完整性 | 函数头无巡检 | 补丁字节 | 守护线程巡检 | 性能开销
+4 逻辑层 | 单点布尔 | 状态字 RVA | 服务端签名票据 | 改造成本
+5 呈现层 | IAT 可改 | 输出 API 槽位 | 动态取址 + 自检 | 自绘工作量
+```
+
+---
+
+## 失败判据与边界（本 SOP 自身的）
+
+- 打完补丁目标立即崩 → 先查等长/栈平衡/重定位，转 `references/02-failure-criteria.md` 与 `references/09-patch-engineering.md`。
+- 只改 UI 不改状态源 → 视为未完成；回到 Step 2 画鉴权链路。
+- 代理 DLL 能加载但目标无行为 → 查位数/依赖/DllMain/反注入，不要继续加补丁。
+- 边界：本 SOP 以 Windows x64 为主；ARM64 调用约定见 `references/07-disassembly-deep-read.md`，ELF/Mach-O 只做等价映射。
+

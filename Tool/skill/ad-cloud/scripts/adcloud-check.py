@@ -974,6 +974,81 @@ def print_human(result):
                 print("  " + cmd)
 
 
+def _self_test():
+    """Offline smoke test: synthetic kubeconfig + AWS creds, no network."""
+    import tempfile
+
+    def b64(obj):
+        raw = json.dumps(obj, separators=(",", ":")).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+    header = b64({"alg": "RS256", "typ": "JWT"})
+    payload = b64({"iss": "https://kubernetes.default.svc",
+                   "sub": "system:serviceaccount:kube-system:cluster-admin",
+                   "aud": ["https://127.0.0.1:6443"], "iat": 1700000000,
+                   "exp": 4102444800,
+                   "groups": ["system:masters", "system:serviceaccounts"]})
+    token = "%s.%s.%s" % (header, payload, b64({"sig": "self-test-only"}))
+    kube = """apiVersion: v1
+kind: Config
+clusters:
+- name: self-test
+  cluster:
+    server: https://127.0.0.1:6443
+    insecure-skip-tls-verify: true
+contexts:
+- name: self-test
+  context:
+    cluster: self-test
+    user: self-test
+    namespace: kube-system
+current-context: self-test
+users:
+- name: self-test
+  user:
+    token: %s
+""" % token
+    aws = """[default]
+aws_access_key_id = AKIAIOSFODNN7SELFTEST
+aws_secret_access_key = self-test-secret-not-real
+"""
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix="adcloud-selftest-")
+    try:
+        kp = os.path.join(tmpdir, "config")
+        ap = os.path.join(tmpdir, "credentials")
+        with open(kp, "w", encoding="utf-8") as fh:
+            fh.write(kube)
+        with open(ap, "w", encoding="utf-8") as fh:
+            fh.write(aws)
+        kube_result = analyse_kubeconfig(kp)
+        ids = {f["id"] for f in kube_result["findings"]}
+        if "K8S-TRANSPORT-002" not in ids or "K8S-RBAC-003" not in ids:
+            raise CheckError("SELF_TEST", "expected kubeconfig findings are missing")
+        if token in json.dumps(kube_result, ensure_ascii=False):
+            raise CheckError("SELF_TEST", "raw token leaked into output")
+        checks += 1
+        aws_result = analyse_aws_creds(ap)
+        if not aws_result.get("access_key_hardcoded"):
+            raise CheckError("SELF_TEST", "expected hardcoded access key finding")
+        if "self-test-secret-not-real" in json.dumps(aws_result, ensure_ascii=False):
+            raise CheckError("SELF_TEST", "raw secret leaked into output")
+        checks += 1
+    finally:
+        for name in ("config", "credentials"):
+            try:
+                os.unlink(os.path.join(tmpdir, name))
+            except OSError:
+                pass
+        try:
+            os.rmdir(tmpdir)
+        except OSError:
+            pass
+    print(json.dumps({"ok": True, "tool": "adcloud-check", "checks": checks},
+                     ensure_ascii=False))
+    return 0
+
+
 def _base_result():
     return {
         "tool": "adcloud-check",
@@ -993,19 +1068,28 @@ def main(argv=None):
     parser.add_argument("--kubeconfig", help="local kubeconfig file (YAML or JSON)")
     parser.add_argument("--aws-creds", help="local AWS credentials/config INI file")
     parser.add_argument("--json", action="store_true", help="emit one JSON object")
+    parser.add_argument("--self-test", action="store_true",
+                        help="run embedded offline kubeconfig/AWS fixtures")
     parser.add_argument("--version", action="version", version="%(prog)s " + VERSION)
     args = parser.parse_args(argv)
 
+    if args.self_test:
+        try:
+            return _self_test()
+        except CheckError as exc:
+            print(json.dumps({"ok": False, "blocked_at": "self-test",
+                              "reason": exc.message}, ensure_ascii=False))
+            return 2
+        except Exception as exc:  # noqa: BLE001
+            print(json.dumps({"ok": False, "blocked_at": "self-test",
+                              "reason": "%s: %s" % (type(exc).__name__, exc)},
+                             ensure_ascii=False))
+            return 2
+
     if not args.kubeconfig and not args.aws_creds:
-        err = {"code": "NO_INPUT", "message": "provide --kubeconfig and/or --aws-creds", "path": ""}
-        result = _base_result()
-        result["ok"] = False
-        result["errors"].append(err)
-        if args.json:
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-        else:
-            print("[ERROR] NO_INPUT: provide --kubeconfig and/or --aws-creds")
-            print(json.dumps(err, ensure_ascii=False, indent=2))
+        print(json.dumps({"ok": False, "blocked_at": "input",
+                          "reason": "provide --kubeconfig and/or --aws-creds"},
+                         ensure_ascii=False))
         return 2
 
     result = _base_result()
@@ -1032,11 +1116,19 @@ def main(argv=None):
                                      "message": "%s: %s" % (type(exc).__name__, exc),
                                      "path": args.aws_creds})
 
+    if not result["ok"]:
+        first = (result.get("errors") or [{}])[0]
+        print(json.dumps({"ok": False,
+                          "blocked_at": str(first.get("code") or "parse").lower(),
+                          "reason": first.get("message") or "input could not be parsed",
+                          "path": first.get("path") or ""},
+                         ensure_ascii=False))
+        return 2
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print_human(result)
-    return 0 if result["ok"] else 2
+    return 0
 
 
 if __name__ == "__main__":

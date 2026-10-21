@@ -2,6 +2,9 @@
 
 > 配套 `supply-chain-security/SKILL.md`。只操作自有/授权镜像仓库；不推送、不覆盖 tag、不伪造签名。
 > 底线：**tag 是名字，digest 才是内容；能构建不等于可信构建**。报告里的镜像必须写 `repo@sha256:...`。
+>
+> **适用**：已有镜像/制品 digest 或可读取签名/attestation，需要判断来源与构建链是否可信。
+> **不适用**：未授权拉取私有镜像、推送/覆盖 tag、伪造签名，或要求跑不可信镜像做动态分析。
 
 ## 0. 钉住对象
 
@@ -106,6 +109,23 @@ cosign verify-blob --signature artifact.sig --certificate artifact.pem artifact.
 
 **判据**：源码 commit → CI run → 镜像 digest → SBOM → 签名/attestation 五者能串成一条链。
 **失败判据**：中间任一环靠“应该就是”；用本地 `docker build` 的产物冒充 CI 产物；commit 与构建参数不可追。
+
+## 4.1 供应商台账（vendor.json）
+
+> 目的：把“镜像里有什么”接到“谁维护、何时 EOL、出了事找谁”。台账不是 SBOM 的替代品。
+
+```json
+{
+  "schema": "vendor-ledger/v1",
+  "components": [{"name": "openssl", "version": "3.0.13", "license": "Apache-2.0", "maintenance": "active", "eol": "2026-09-07", "contact": "security@vendor.example", "sbom_ref": "pkg:generic/openssl@3.0.13?arch=amd64"}]
+}
+```
+
+- 字段固定：组件名/版本/许可证/维护状态（active/security-only/eol）/EOL 日期/联系人/SBOM 引用。
+- 台账条目来自 SBOM 的 purl 或锁文件，不能手写一个“大概版本”。
+
+**判据**：每个生产依赖都有台账条目（`vendor_entry=true`），且 `vendor_sbom_ref` 能在 SBOM 中找到同名同版本组件（`vendor_sbom_match=true`）；EOL 缺失时只能写 `vendor_eol=unknown`。
+**失败判据**：只有顶层依赖有台账；版本与 SBOM 对不上；EOL 为空却写“仍在维护”；无联系人。缺项写 `vendor_status=incomplete`。
 
 ## 5. 运行面与最小权限
 

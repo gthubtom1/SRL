@@ -1,0 +1,75 @@
+{
+  "schema": "seep.sc-check/1",
+  "tool": {
+    "name": "sc-check.py",
+    "version": "1.0.0",
+    "mode": "offline-static",
+    "safe": true,
+    "guarantees": [
+      "read-only",
+      "no network",
+      "no build",
+      "excludes node_modules/vendor/.git"
+    ]
+  },
+  "target": {
+    "path": ".github/workflows",
+    "files_scanned": 1,
+    "truncated": false
+  },
+  "ok": true,
+  "summary": {
+    "risks": {
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "info": 0
+    },
+    "risks_total": 0,
+    "high_or_critical": 0,
+    "ecosystems": []
+  },
+  "inventory": {
+    "manifests": [],
+    "locks": [],
+    "dockerfiles": [],
+    "compose": [],
+    "workflows": [],
+    "gitlab": [],
+    "jenkins": [],
+    "npmrc": [],
+    "pipconf": [],
+    "nuget": [],
+    "dockerignore": []
+  },
+  "risks": [],
+  "degraded": [
+    {
+      "tool": "syft",
+      "fallback": "未安装：本次只做清单/锁文件盘点；SBOM 需人工用 syft/cdxgen 生成。"
+    },
+    {
+      "tool": "SCA",
+      "fallback": "osv-scanner/grype/trivy 均缺失：CVE 命中需人工到 OSV/GHSA 按版本比对，不能据此判洞。"
+    },
+    {
+      "tool": "cosign",
+      "fallback": "未安装：镜像签名/来源证明需人工用 cosign verify 或发布页校验。"
+    }
+  ],
+  "missing_tools": [
+    "syft",
+    "osv-scanner",
+    "grype",
+    "trivy",
+    "cosign",
+    "semgrep",
+    "docker"
+  ],
+  "limits": {
+    "max_files": 20000,
+    "max_depth": 8,
+    "note": "静态线索；可达 CVE、实际签名与镜像层需人工/外部工具复核。"
+  }
+}

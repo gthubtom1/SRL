@@ -1,0 +1,9 @@
+HTTP/1.1 101 Switching Protocols
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Accept: MPGznO7WEpEGvXiPGvj3vxkmtv4=
+
+Å1{"type":"response","data":"1265307447409499018"}
+Å1{"type":"response","data":"7820623503489255511"}
+Å1{"type":"response","data":"1426939729363796099"}
+Å1{"type":"response","data":"1030177915652144116"}

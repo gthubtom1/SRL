@@ -6,8 +6,20 @@
       "skill": "pwn-crypto/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(pwn|rop|栈溢出|堆溢出|格式化字符串|canary|seccomp|沙箱逃逸|shellcode|libc|密码学|rsa|aes|ecb|cbc|prng|格攻击|lattice|ctf)",
-          "note": "利用/密码学：判据=本地稳定命中"
+          "must": "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc)\\b",
+          "note": "利用类：判据=偏移一致 + 控制流/marker 可复现"
+        },
+        {
+          "must": "(?i)(栈溢出|堆溢出|格式化字符串|沙箱逃逸|控制流劫持|任意地址写|越界读写|整数回绕)",
+          "note": "中文漏洞类：需与具体输入面/保护位同现，避免空泛词"
+        },
+        {
+          "must": "(?i)\\b(rsa|aes|ecb|cbc|gcm|hmac|mt19937|prng|coppersmith|lattice)\\b",
+          "note": "密码学原语：判据=pow(m,e,n)==c 或逐位/逐块比对"
+        },
+        {
+          "must": "(?i)\\b(pow\\s*\\(|modinv|iroot|hastad|wiener)\\b",
+          "note": "密码学求解函数/攻击名：只在出现具体算法语境时命中"
         }
       ]
     }

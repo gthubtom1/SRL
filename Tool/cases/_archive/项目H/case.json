@@ -1,0 +1,53 @@
+{
+  "id": "项目H",
+  "domain": "reverse",
+  "target_type": "PE32+ x64 (Qt)",
+  "protection": [
+    "ed25519",
+    "offline-activation",
+    "antidebug",
+    "qt"
+  ],
+  "authority": "server",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "src/keygen/algo.py",
+      "sha256": "ec37e5ffd46d42cb17e834e690470f1de569641002eb0da78c50cbaf3f8ad286"
+    },
+    {
+      "path": "src/keygen/cli.py",
+      "sha256": "29ead050042e788169b0ceed9957deabbbc250a9a59a531f686651efe7b07cf2"
+    },
+    {
+      "path": "tools/test_keygen.py",
+      "sha256": "237d53559ae2d645e444eefd338b9c8d9ea97031e4d0e019645d83c2d4265cc0"
+    }
+  ],
+  "lessons": [
+    "Qt6 的 QByteArray/QString 不是简单指针：data 在 +8、size 在 +16，Frida 读取前必须先确认布局",
+    "离线激活码 = XOR->gunzip->XOR + Ed25519 验签；替换内嵌公钥（RVA 0x249FA0）后可用自签 keygen 通过",
+    "该版本离线激活状态只在内存、不落盘，重启回免费版；持久化需另打启动 patch 且可能回退对话框",
+    "反调试 CheckRemoteDebuggerPresent 会切换 XOR 路径，必须无调试器复现"
+  ],
+  "tags": [
+    "Ed25519",
+    "离线激活",
+    "Qt6",
+    "Frida",
+    "公钥替换"
+  ],
+  "refs": [
+    "Tool/cases/项目H/README.txt",
+    "Tool/cases/项目H/docs/reverse-engineering.md",
+    "Tool/cases/项目H/docs/algorithm.md",
+    "Tool/cases/项目H/src/keygen/algo.py"
+  ],
+  "updated": "2026-10-21",
+  "evidence_kind": "real",
+  "repro": {
+    "status": "not-recorded",
+    "reason": "历史归档：现场命令未逐字留存，仅有产物哈希与结论；复现入口见 artifacts/ 与 lessons"
+  }
+}

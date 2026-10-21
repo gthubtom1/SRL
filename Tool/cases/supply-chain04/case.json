@@ -1,0 +1,38 @@
+{
+  "id": "supply-chain04",
+  "domain": "supply-chain-security",
+  "target_type": "手写供应链可达性夹具（锁文件/freeze/SBOM + 最小源码树）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "confirmed",
+  "artifacts": [
+    {
+      "path": "artifacts/reach.json",
+      "sha256": "9176ce986f97265c395c4ff083e50bd106c76f15670ec26e1ee7102d9e394c65"
+    }
+  ],
+  "lessons": [
+    "本次跑到：python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom .../bom.json --lock .../package-lock.json --freeze .../freeze.txt --source .../src --out .../reach.json，rc=0；components_total=4，reachable=2，unreachable=2，missing_from_sbom=0。",
+    "结果：left-pad（index.js require）与 PyYAML（app.py import yaml，发行名→import 别名）判为可达且 entry_hit=true；@corp/auth 与 requests 在源码中无命中，判为不可达（未观察到调用）。",
+    "教学点：Python 发行名与 import 名不同，直接搜 PyYAML 会假阴性；脚本内置别名表并保留命中文件/行号，可人工复核。",
+    "边界：可达只证明源码出现 import/require，不等于 CVE 可利用；动态导入、插件加载、运行时注入仍需人工补证，SBOM 也只覆盖声明的 4 个组件。",
+    "下一步：把同一脚本指向真实 lock/freeze 与源码入口，并对可达组件再查 OSV/GHSA 与调用参数可控性。"
+  ],
+  "refs": [
+    "Tool/skill/supply-chain-security/SKILL.md",
+    "Tool/skill/supply-chain-security/references/01-criteria.md",
+    "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+    "Tool/skill/supply-chain-security/references/03-model-pitfalls.md",
+    "Tool/skill/supply-chain-security/references/sbom-sca.md",
+    "Tool/skill/supply-chain-security/references/06-reachability-and-sbom-drift.md",
+    "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/03-sbom-and-reachability.md",
+    "Tool/config/supply-chain-security-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

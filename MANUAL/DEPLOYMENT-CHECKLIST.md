@@ -69,8 +69,8 @@ MCP 配置文件所在位置：
 | # | 组件名称 | 宿主安装目标路径 | 核心校验特征与关键词 | 功用与影响 |
 |---|---|---|---|---|
 | **P1** | **`SEEP.md`** | `~/.pi/agent/SEEP.md` | 包含 `Lab Mode Protocol`、思维重定向、反退缩十项 | Pi Agent 专用系统指令 |
-| **P2** | **`AGENTS.md`** | `~/.pi/agent/AGENTS.md`<br>项目根 `AGENTS.md` | 跨 Agent 通用无状态执行规范 | Codex / DSH / OpenCode 作战协议 |
-| **P3** | **`CLAUDE.md`** | 项目根 `CLAUDE.md` | 包含 Claude Code 项目级规范与自动化部署规约 | Claude Code 项目指令 |
+| **P2** | **`AGENTS.md`** | `~/.pi/agent/AGENTS.md`<br>`Tool/prompts/contracts/AGENTS.md`（源） | 跨 Agent 通用无状态执行规范 | Codex / DSH / OpenCode 作战协议 |
+| **P3** | **`Tool/prompts/contracts/CLAUDE.md`** | 项目根 `Tool/prompts/contracts/CLAUDE.md` | 包含 Claude Code 项目级规范与自动化部署规约 | Claude Code 项目指令 |
 | **P4** | **`security-audit-interceptor.ts`** | `~/.pi/agent/extensions/` | 包含 `BLOCK_NONE` 底座注入与 `SENSITIVE_WORD_MAP` 字典 | 核心防模型拒绝与敏感词自动转译引擎 |
 | **P5** | **`lab-mode.flag`** | `~/.pi/agent/lab-mode.flag` | 输入 `lab：` 自动写入，输入 `退出实验` 自动删除 | 物理状态机标志文件（跨模型长文本持久化） |
 

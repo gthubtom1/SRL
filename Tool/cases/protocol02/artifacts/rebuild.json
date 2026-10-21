@@ -1,0 +1,134 @@
+{
+  "ok": true,
+  "schema": "sprx",
+  "source": {
+    "file": "input/sample.bin",
+    "sha256": "110da7c87b2cb7d145506ca7549fd771d088b05f6e97f1b104de3e4c0f9803c4",
+    "bytes": 141
+  },
+  "stats": {
+    "bytes": 141,
+    "consumed": 141,
+    "skipped_bytes": 0,
+    "trailing_bytes": 0,
+    "errors": []
+  },
+  "frame_count": 3,
+  "frames": [
+    {
+      "index": 0,
+      "offset": 0,
+      "frame_len": 52,
+      "header_len": 12,
+      "payload_len": 36,
+      "fields": {
+        "magic": "SPRX",
+        "version": 1,
+        "type": 1,
+        "length": 36,
+        "seq": 1
+      },
+      "payload_hex": "7b2273656e736f72223a226c61622d3031222c2270726f746f223a22737072782f31227d",
+      "payload": {
+        "sensor": "lab-01",
+        "proto": "sprx/1"
+      },
+      "checks": [
+        {
+          "name": "crc32",
+          "algo": "crc32",
+          "ok": true,
+          "want": "0xe59f1d6e",
+          "got": "0xe59f1d6e",
+          "covers": "header+payload"
+        }
+      ],
+      "crc_ok": true,
+      "sha256": "fe72886f738ba339918bee17579b8b9098d5229672812b8f592a3b899664c4ef"
+    },
+    {
+      "index": 1,
+      "offset": 52,
+      "frame_len": 46,
+      "header_len": 12,
+      "payload_len": 30,
+      "fields": {
+        "magic": "SPRX",
+        "version": 1,
+        "type": 2,
+        "length": 30,
+        "seq": 2
+      },
+      "payload_hex": "7b22746f6b656e223a22616263222c226e6f6e6365223a2237663361227d",
+      "payload": {
+        "token": "abc",
+        "nonce": "7f3a"
+      },
+      "checks": [
+        {
+          "name": "crc32",
+          "algo": "crc32",
+          "ok": true,
+          "want": "0xb0542e66",
+          "got": "0xb0542e66",
+          "covers": "header+payload"
+        }
+      ],
+      "crc_ok": true,
+      "sha256": "0a03c5f8234bd4ddd056267434322156007937558457ced54ce5dea350fe2ad8"
+    },
+    {
+      "index": 2,
+      "offset": 98,
+      "frame_len": 43,
+      "header_len": 12,
+      "payload_len": 27,
+      "fields": {
+        "magic": "SPRX",
+        "version": 1,
+        "type": 3,
+        "length": 27,
+        "seq": 3
+      },
+      "payload_hex": "7b2274656d70223a32312e352c22737461747573223a226f6b227d",
+      "payload": {
+        "temp": 21.5,
+        "status": "ok"
+      },
+      "checks": [
+        {
+          "name": "crc32",
+          "algo": "crc32",
+          "ok": true,
+          "want": "0x0280ee21",
+          "got": "0x0280ee21",
+          "covers": "header+payload"
+        }
+      ],
+      "crc_ok": true,
+      "sha256": "c12c0b5bfc3faedf0fd77f40d6032ccb5d899788da3491e66b52a704672cf94a"
+    }
+  ],
+  "rebuild": {
+    "base_index": 2,
+    "base_sha256": "c12c0b5bfc3faedf0fd77f40d6032ccb5d899788da3491e66b52a704672cf94a",
+    "new_sha256": "8799d325c260ac4f8a5bd08124c2220a891ae302dba803dfc41f1da619243ced",
+    "new_len": 43,
+    "fields": {
+      "magic": "SPRX",
+      "version": 1,
+      "type": 4,
+      "seq": 4
+    },
+    "payload": {
+      "temp": 22.0,
+      "status": "ok"
+    },
+    "verify": {
+      "parsed": true,
+      "crc_ok": true
+    },
+    "hex": "535052580104001b000000047b2274656d70223a32322e302c22737461747573223a226f6b227d69d9aa84",
+    "out": "artifacts/new-frame.bin"
+  }
+}

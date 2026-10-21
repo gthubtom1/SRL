@@ -414,28 +414,28 @@ import re, json, base64, os
 from typing import List, Dict, Set
 
 # 密钥模式正则 (覆盖多种格式)
-KEY_PATTERNS = [
+KEY_PATTERNS = 
     # HMAC/JWT 密钥
-    re.compile(r'["\'](?:secret|key|token|sign|hmac|jwt)[\s_\-]*(?:key|secret)?["\']\s*[:=]\s*["\']([^"\']{8,})["\']', re.I),
-    re.compile(r'["\'](?:hmac|sign(?:ing)?|secret|private|api)_?key["\']\s*[:=]\s*["\']([^"\']{8,})["\']', re.I),
+    re.compile(r'["\'[\s_\-]*(?:key|secret)?["\']\s*[:=]\s*"\'["\']', re.I),
+    re.compile(r'"\'?|secret|private|api)_?key["\']\s*[:=]\s*"\'["\']', re.I),
 
     # SHA256/SHA512 hex 密钥 (64 或 128 hex 字符)
     re.compile(r'["\'][0-9a-fA-F]{64}["\']'),
     re.compile(r'["\'][0-9a-fA-F]{128}["\']'),
 
     # base64 编码密钥 (长度 >= 20)
-    re.compile(r'["\']([A-Za-z0-9+/=]{20,})["\']'),
+    re.compile(r'"\'["\']'),
 
     # Hex 编码密钥 (32+ hex chars)
-    re.compile(r'["\']([0-9a-fA-F]{32,})["\']'),
+    re.compile(r'"\'["\']'),
 
     # app_key / app_secret 变体
-    re.compile(r'(?:app|api|client)[_\s\-]?(?:key|secret|token)\s*[:=]\s*["\']([^"\']{8,})["\']', re.I),
+    re.compile(r'(?:app|api|client)[_\s\-]?(?:key|secret|token)\s*[:=]\s*"\'["\']', re.I),
 
     # 配置对象
-    re.compile(r'secret\s*:\s*["\']([^"\']+)["\']', re.I),
-    re.compile(r'apiKey\s*:\s*["\']([^"\']+)["\']', re.I),
-    re.compile(r'apiSecret\s*:\s*["\']([^"\']+)["\']', re.I),
+    re.compile(r'secret\s*:\s*"\'["\']', re.I),
+    re.compile(r'apiKey\s*:\s*"\'["\']', re.I),
+    re.compile(r'apiSecret\s*:\s*"\'["\']', re.I),
 ]
 
 # 过滤掉明显的非密钥值
@@ -603,7 +603,7 @@ def scan_js_sourcemap_chain(entry_url: str) -> list:
         # 检查 JS 内容中的 import()
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
-            for m in re.finditer(r'import\(["\']([^"\']+)["\']\)', r.text):
+            for m in re.finditer(r'import\("\'["\']\)', r.text):
                 chunk_url = m.group(1)
                 if not chunk_url.startswith("http"):
                     base = url.rsplit("/", 1)[0]
@@ -2295,15 +2295,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 SECRET_PATTERNS = {
     "generic_key": re.compile(
-        r'["\'`](?:(?:secret|key|token|sign|hmac|jwt|session|auth|private|api)[_\-\.\s]*)'
-        r'(?:key|secret|token)?["\'`]\s*[:=]\s*["\'`]([^"\'`]{8,})["\'`]', re.I
+        r'"\'`[_\-\.\s]*)'
+        r'(?:key|secret|token)?["\'`]\s*[:=]\s*"\'`["\'`]', re.I
     ),
-    "hex64": re.compile(r'["\'`]([0-9a-fA-F]{64})["\'`]'),
-    "hex32": re.compile(r'["\'`]([0-9a-fA-F]{32})["\'`]'),
-    "hex128": re.compile(r'["\'`]([0-9a-fA-F]{128})["\'`]'),
-    "b64_long": re.compile(r'["\'`]([A-Za-z0-9+/]{40,}={0,2})["\'`]'),
+    "hex64": re.compile(r'"\'`["\'`]'),
+    "hex32": re.compile(r'"\'`["\'`]'),
+    "hex128": re.compile(r'"\'`["\'`]'),
+    "b64_long": re.compile(r'"\'`["\'`]'),
     "jwt": re.compile(
-        r'["\'`](eyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+)["\'`]'
+        r'"\'`["\'`]'
     ),
     "laravel_key": re.compile(
         r'APP_KEY\s*=\s*["\']?base64:([^"\'<\s]+)["\']?'
@@ -2423,7 +2423,7 @@ class KeyExtractor:
             self._match_patterns(html, f"html:{base_url}")
 
             # 提取 script src
-            for m in re.finditer(r'<script[^>]*src=["\']([^"\']+)["\']', html):
+            for m in re.finditer(r'<script[^>]*src="\'["\']', html):
                 js_url = urljoin(base_url, m.group(1))
                 self._scan_url(js_url)
 
@@ -2485,7 +2485,7 @@ class KeyExtractor:
 
             # 隐藏输入
             for m in re.finditer(
-                r'<input[^>]*type=["\']hidden["\'][^>]*value=["\']([^"\']+)["\']',
+                r'<input[^>]*type=["\']hidden["\'][^>]*value="\'["\']',
                 html
             ):
                 val = m.group(1)
@@ -2495,7 +2495,7 @@ class KeyExtractor:
 
             # meta tag
             for m in re.finditer(
-                r'<meta[^>]*name=["\']?(csrf[-_]?token|csrf[-_]?param)["\']?[^>]*content=["\']([^"\']+)["\']',
+                r'<meta[^>]*name=["\']?(csrf[-_]?token|csrf[-_]?param)["\']?[^>]*content="\'["\']',
                 html, re.I
             ):
                 val = m.group(2)
@@ -3185,7 +3185,7 @@ if __name__ == "__main__":
 - [04-canonicalization.md](04-canonicalization.md) — 规范化攻击 (密钥注入)
 - [05-length-extension.md](05-length-extension.md) — 长度扩展攻击 (需要密钥)
 - [12-payment/payment-callback-async.md](../12-payment/payment-callback-async.md) — 回调签名密钥
-- [02-auth/jwt/](../02-auth/jwt/) — JWT 密钥攻击
+- 02-auth/jwt/ — JWT 密钥攻击
 
 ## MCP 工具映射
 

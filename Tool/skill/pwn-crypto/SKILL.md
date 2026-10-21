@@ -1,217 +1,271 @@
 ---
 name: pwn-crypto
-description: "【二进制利用与密码学】授权 CTF/靶场中的二进制漏洞利用与密码学攻击手册：checksec 保护位决策、栈溢出与 ROP、格式化字符串、堆（tcache/UAF）、整数与 off-by-one、seccomp 沙箱逃逸（ORW/SROP），以及 RSA、ECB、CBC、PRNG、证书与签名攻击。含每类判据、工具降级、稳定性验收与边界。"
+description: "【二进制利用与密码学】授权 CTF/靶场/自有程序中的二进制漏洞利用与密码学攻击手册：checksec/DllCharacteristics 保护位决策、栈溢出与 ROP、格式化字符串任意读/写、堆（tcache/UAF/IO_FILE）、整数回绕与 off-by-one、seccomp ORW/SROP，以及 RSA、ECB/CBC、PRNG、HMAC、证书与签名攻击。含可机检判据、失败判据、真实案例与脚本。"
 license: MIT
-compatibility: "Linux x86/x64/ARM64 优先；Python 3.10+、pwntools、ROPgadget、checksec。Windows 下经 WSL2 或远端 Linux 靶机执行。"
+compatibility: "Linux x86/x64/ARM64 优先；Windows 下可用 MinGW 复现 PE 语义。Python 3.10+；pwntools/ROPgadget/checksec/pycryptodome 可选，缺失按降级链执行。"
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
   references_dir: "Tool/skill/pwn-crypto/references/"
-  acceptance: "本地 exploit 稳定命中 ≥9/10"
+  scripts_dir: "Tool/skill/pwn-crypto/scripts/"
+  acceptance: "偏移两源一致 + marker/回代成立 + 10 次≥9；否则只算疑似"
 ---
 
 # pwn-crypto — 二进制利用与密码学攻击
 
-> 本技能只做**可验证的利用/求解**：从保护位推出打法，从泄漏推出地址，从一次成功推到稳定复现。
-> 纯静态算法还原交给 `ida-reverse` / `reverse-engineering`；Android 目标交给 `apkseep`。
+> 本技能只做**可验证的利用/求解**：从保护位推出打法，从泄漏推出地址，从一次成功推到稳定复现，
+> 从密码学假设推到回代等式。纯静态算法还原交 `ida-reverse`/`reverse-engineering`；
+> Android 目标交 `apkseep`；Web/API 逻辑交 `web-pentest`。
+>
+> 机检入口：`python Tool/scripts/domain-gate.py --domain pwn-crypto`；
+> 真实案例：`Tool/cases/pwn-crypto01`–`05`；知识库：`Tool/mcp/Tool/reverselab/kb/pwn-crypto/`。
 
-## 1. 适用
-- CTF pwn / crypto、授权靶场、自有 ELF 服务的白盒验证。
-- 输入：ELF / `.so` / `libc.so.6`、远程 `host:port`、密码学脚本或加解密 oracle。
-- 输出：`exploit.py` / `solve.py`、稳定复现命令、flag 或 root 证据、失败项与已排除原因。
-- 不适用：纯逆向报告、批量扫描、未授权目标、真实生产凭据或证书。
+## 1. 适用 / 不适用（边界）
 
-## 2. 前置（三关不过，不开打）
-### 2.1 checksec 输出（先留基线）
+**适用**
 
-```text
-$ checksec --file=./chall
-Arch:     amd64-64-little
-RELRO:    Partial RELRO
-Stack:    Canary found
-NX:       NX enabled
-PIE:      PIE enabled
-RPATH:    No RPATH
-RUNPATH:  No RUNPATH
-Symbols:  42 Symbols
-FORTIFY:  Enabled
+- CTF pwn/crypto、授权靶场、自有 ELF/PE 程序的白盒验证；
+- 输入：ELF/`.so`/`libc.so.6`、PE `.exe/.dll`、远程 `host:port`、密码学参数或加解密 oracle；
+- 输出：`exploit.py`/`solve.py`、偏移与保护位证据、稳定复现命令、flag 或“已排除路线”。
+
+**不适用**
+
+- 未授权目标、真实生产凭据/证书、持久化、横向移动、拒绝服务；
+- 纯静态算法还原、协议测绘（交 `reverse-engineering`/`ida-reverse`）；
+- APK/DEX/SO、Frida/脱壳/重打包（交 `apkseep`）；
+- Web/API/JWT 业务逻辑（交 `web-pentest` 或对应 Web 技能）；
+- 智能合约（EVM）不在本域边界内：本域无 EVM 运行时/链上环境，合约审计走外部审计流程，DApp API 面交 `web-pentest`；
+- “只要扫描报告、不做复现”的场合——本技能的判据全部要求可复跑。
+
+**平台边界**
+
+- 本仓库开发机为 Windows + MinGW：PE 的 NX/ASLR/GS 用 `DllCharacteristics` 近似，PE 没有
+  ELF RELRO/GOT/`__free_hook`；UCRT 的 `printf` **不执行 `%n`**（案例 05 实测）。
+- ELF/libc/seccomp 路线需要在 WSL2/远端 Linux 执行；没有同版本 libc 时最多给“疑似偏移”。
+
+## 2. 前置检查（三件，不过不开打）
+
+### 2.1 留基线：哈希 + 平台 + 编译选项
+
+```bash
+sha256sum ./chall ./libc.so.6 2>/dev/null | tee evidence/SHA256SUMS
+file ./chall
+readelf -hW ./chall | sed -n '1,12p'
+ldd ./chall
 ```
 
-同时记录：`file ./chall`、`readelf -hW`、`readelf -lW | grep GNU_STACK`、
-`readelf -d | grep -E 'BIND_NOW|RPATH|RUNPATH|NEEDED'`、`ldd ./chall`、`sha256sum`。
-`pwn checksec ./chall` 与上述字段等价；缺 checksec 时用 readelf 手判。
+现场编译的样本要记录：`gcc --version`、`-O0/-fno-stack-protector/-no-pie`、
+`objdump -d` 的版本。PE 样本记录 `objdump -p` 的 `DllCharacteristics`。
 
-### 2.2 保护位决定打法
+**完成判据**：能说清平台、位数、编译/运行环境、目标哈希；否则后面的偏移不可比。
 
-| 观测 | 含义 | 首选打法 |
+### 2.2 保护位：静态预判（只读，不执行目标）
+
+```bash
+python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+# 可选交叉复核
+checksec --file=./chall          # ELF
+readelf -lW ./chall | grep GNU_STACK
+readelf -dW ./chall | grep -E 'BIND_NOW|RPATH|RUNPATH|NEEDED'
+```
+
+`pwn-check.py` 输出四项：`NX` / `PIE` / `Canary` / `RELRO`（PE 为 `N/A (PE 无 ELF RELRO)`），
+外加危险导入、format 串风险与 `next_routes`。它只给“疑似”，不证明可利用性。
+
+**完成判据**：四项保护位都有结论 + 至少一个输入面/危险导入线索；`sha256` 已记录。
+
+### 2.3 运行面：调试器、libc、沙箱
+
+```bash
+gdb --version | head -1
+python -c "import pwn, Crypto; print('pwntools/pycryptodome ok')" 2>/dev/null || true
+seccomp-tools dump ./chall 2>/dev/null || echo "no seccomp-tools -> strace -f"
+cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
+```
+
+- 需要固定基址时用 `setarch "$(uname -m)" -R ./chall`，并在报告中注明“关闭 ASLR”；
+- 远程只信远程泄漏，不把本地偏移当远程地址；
+- 工具缺失先查能力表（`seep_tool_research` / `Tool/mcp/tool_autodiscover.py`），不要反复安装。
+
+**完成判据**：知道哪些工具可用、哪些要走降级分支（`blocked_at: "tool-missing"`）。
+
+## 3. 判据表（确认 vs 疑似）
+
+> 完整表（场景/输入面/可机检判据/证据形态/误报风险）见
+> `references/01-criteria.md`；这里只给每类的“确认/疑似”分界。
+
+| # | 类别 | 确认（有证据） | 疑似（只有线索） |
+|---|---|---|---|
+| 1 | 栈溢出 + ROP/ret2libc | offset 两源一致（`pwn-repro` `consistent=true`）；marker 输出；泄漏基址页对齐且与目标 libc 吻合；10 次≥9 | 只有 checksec/危险导入；崩溃但 RIP 未受控 |
+| 2 | 格式化串 | `%s` 读出目标内存字节；或 `%n` 写后读回等于预期、两次写不崩、计数一致 | 只打印 `%p` 栈值；只发现 `%n/%s` 模板 |
+| 3 | 堆 tcache/UAF/IO | `malloc` 返回受控 target；重叠 chunk 可见；触发不 abort；2.32+ safe-linking 编码正确 | 只泄漏堆地址；只看到 malloc/free 导入 |
+| 4 | 整数 / off-by-one | 证明回绕/越界一个对象；写入长度 > 分配；出现堆破坏状态码（如 `0xC0000374`） | 只算出 `count*size` 会回绕，程序未越界 |
+| 5 | seccomp / ORW | BPF 读全；`openat/read/write` 序列与白名单一致；stdout 含 flag | 只看到 `seccomp` 字符串或导入 |
+| 6 | 密码学（RSA/分组/PRNG） | `pow(m,e,n)==c`；广播每组回代 + `m^e<M`；ECB 重复块；CBC `before^after==xor`；MT 下 N 个逐位一致 | `iroot` 得到可打印字节但未回代；只看到“像随机” |
+| 7 | 稳定性 / 交付 | 全新进程/连接 10 次≥9；远程有 flag/root 证据；失败路线已记录 | 一次成功、gdb 下成功、本地关 ASLR 成功 |
+
+**判据使用规则**
+
+1. 任何“确认”必须能贴出命令 + 退出码 + 原始输出/回代等式；
+2. 保护位只能把路线排序，不能单独作为“能打/不能打”的结论；
+3. 平台语义不同（PE vs ELF、UCRT vs glibc）时，先在目标平台重跑判据。
+
+## 4. 失败判据（看到即降级，改走支路）
+
+完整表（现象/判定/改走哪条/代价）见 `references/02-failure-criteria.md`。高频项：
+
+- 偏移两源不一致，或崩溃但 `$rip` 不是 cyclic 值 → 不是“控到 RIP”，先统一编译选项/帧指针。
+- 全保护（Full RELRO + PIE + Canary + NX）且找不到泄漏 → 放弃 GOT/栈路线，转格式化串/堆/逻辑。
+- `%n` 探针后变量仍为 0（UCRT）→ 只保留任意读；写路线转堆/逻辑或换 glibc 目标。
+- `malloc` 不返回 target / `free` corruption → 定 glibc 版本；2.34+ 放弃 `__free_hook`。
+- 整数只证明“理论回绕”、进程正常退出 → 没有真实越界，补 `_msize/写入长度/状态码`。
+- seccomp 白名单没有 `open/read/write` 且拼不出 ORW → 转 SROP/栈迁移；仍不行就如实写“无法读出 flag”。
+- `pow(m,e,n)!=c` → 填充/同一消息/模数互质至少一条不成立，退回假设，不要宣布“解出明文”。
+- 成功率 6–8/10 → 栈对齐/竞态未解决，不写“稳定”。
+
+**停机规则**：同一路径连续 3 轮无进展，或同一目标同类动态尝试 2 次失败 → 停手汇报已排除项。
+
+## 5. 模型常见失误（≥8 条，详见 `references/03-model-pitfalls.md`）
+
+1. 把 checksec 当“能不能打”的结论 → 保护位只封部分路径，要按决策树列候选。
+2. 抄固定偏移（`OFFSET=40/88`）→ 偏移由编译选项/帧指针/libc 决定，必须两源对齐。
+3. 只跑 objdump 或只跑 probe → `lea` 可能引用别的变量；两源一致才可信。
+4. 把“程序崩了”当“控制流被劫持” → 要有 marker 或 gdb 里 `$rip` 等于 payload 值。
+5. 忽略 canary 的每函数差异 → leaf/汇编函数可能没有，去反汇编里找 `fs:0x28`。
+6. 把 glibc 的 `%n` 搬到 Windows → UCRT 不写 `%n`（案例 05 实测 `x=0`）。
+7. 64 位格式化串把地址放开头 → 地址含 NUL，printf 提前结束；地址放末尾/对齐参数槽。
+8. 把 `%p` 泄漏当任意读 → 必须要 `%s` 解引用到目标字节或符号低 12 位匹配。
+9. 堆题不看 glibc 版本 → 2.32+ safe-linking、2.34+ 无 hook，偏移会全错。
+10. 把“分布像随机”当 PRNG 可预测 → 必须 624 个连续 32-bit 输出克隆并逐位比对。
+11. RSA 不做回代就宣布明文 → 必须 `pow(m,e,n)==c`；广播还要每组成立。
+12. 平台语义混用（PE ↔ ELF）→ PE 找 RELRO/GOT/`__free_hook` 是方向错误。
+13. 一次成功写成“9/10 稳定” → 全新进程/连接 ≥10 次统计才算。
+14. 忽略中文/英文路由差异 → 报告里统一用“确认/疑似/失败”三档，避免“基本可用”。
+
+## 6. 流程（五阶段，每阶段有完成判据）
+
+### 阶段 A：基线与分诊（10–20 分钟）
+
+1. `sha256`、`file`、`pwn-check.py --json`、保护位交叉复核；
+2. 列输入面：缓冲区、格式串、长度字段、菜单 alloc/free、密码学参数；
+3. 用 `references/mitigation-matrix.md` 的决策树排 2–3 条候选路线。
+
+**完成判据**：`pwn_check.json` + 输入面清单 + 候选路线排序（不写 exploit）。
+
+### 阶段 B：最小证据（30–90 分钟）
+
+- 栈：`pwn-repro.py` 两源对齐 offset；`cyclic`/gdb 复核；
+- 格式化串：找参数序号，先做 `%s` 任意读，再确认 `%n` 是否可用；
+- 堆：定 glibc 版本，做一次泄漏（heap→libc），确认 tcache count/key；
+- 整数：打印 `count/bytes/_msize/写入长度`，确认回绕真的造成越界；
+- 密码学：`crypto-verify.py` 跑对应模式，拿 `verified=true`。
+
+**完成判据**：至少一条路线有“可观测证据”（marker/读回/回代），否则回阶段 A 换路线。
+
+### 阶段 C：拼链/求解（1–3 小时）
+
+- ROP/ORW：先泄漏 libc，再 `system` 或 `openat/read/write`；注意 16 字节栈对齐；
+- 格式化串写：glibc 下用 `fmtstr_payload`，写后读回；Windows 下若 `%n` 不写则放弃；
+- 堆：按 `heap-and-sandbox.md` 的版本表逐步构造，每步 `vis_heap_chunks` 复核；
+- 密码学：按 `crypto-attacks.md` 的假设表选择攻击面，每条都回代。
+
+**完成判据**：本地一次跑通，且能解释每一步的地址/偏移来源。
+
+### 阶段 D：稳定性与远程（30–60 分钟）
+
+```bash
+for i in $(seq 10); do timeout 30 python3 exploit.py >/tmp/run.$i 2>&1; echo "$i $?"; done
+grep -l 'uid=\|FLAG{' /tmp/run.* | wc -l
+```
+
+- 本地 ≥9/10；远程做一次泄漏校验；记录 libc/启动参数/缓冲/fork/cwd；
+- 远程失败先对比本地，不要直接改偏移硬撞。
+
+**完成判据**：成功率可统计；远程有 flag/root 或明确的失败判据。
+
+### 阶段 E：交付（20 分钟）
+
+- 证据包：`sha256`、保护位原文、偏移两源、泄漏/回代、10 次统计、失败路线；
+- 用 `references/01-criteria.md` 的“最小证据集合”逐项打勾；
+- 失败也交付：写清哪条判据失败、改走哪条、代价多少。
+
+**完成判据**：报告可被第三人按命令复跑；没有“看起来像”的结论。
+
+## 7. 参考索引（逐篇）
+
+| 文件 | 用途 | 什么时候读 |
 |---|---|---|
-| `Canary found` | 栈尾有 TLS canary | 先泄漏 canary；或改走格式化串/堆；fork 服务 canary 常稳定 |
-| `No canary` | 可直接覆盖返回地址 | 栈溢出 + ROP / ret2libc |
-| `NX enabled` | 栈不可执行 | ROP、ret2libc、ret2csu、SROP；不在栈上放 shellcode |
-| `NX disabled` | 栈可执行 | shellcode，注意坏字符与跳转 |
-| `PIE enabled` | 代码段随机 | 先泄漏代码/libc 基址；或 1–2 字节部分覆盖 |
-| `PIE disabled` | 地址固定 | 直接写 GOT/返回地址，仍要过 ASLR 的 libc |
-| `Partial RELRO` | GOT 可写 | GOT 覆写、格式化串任意写 |
-| `Full RELRO` | GOT 只读 | 改 hook/exit handler/函数指针/栈；glibc ≥2.34 无 `__free_hook` |
-| `FORTIFY` | 有 `__*_chk` | 注意长度检查，优先打逻辑/堆而非栈 |
-| `No Symbols` | 去符号 | 用字符串、xref、泄漏与调试器定位；不猜函数名 |
+| `references/01-criteria.md` | 判据总表（场景/输入面/可机检判据/证据形态/误报风险） | 开局定判据、交付前打勾 |
+| `references/02-failure-criteria.md` | 失败判据表（现象/判定/改走哪条/代价） | 卡住、想换路线、写“已排除” |
+| `references/03-model-pitfalls.md` | 14 条模型常见失误（错误动作→为什么错→正确动作） | 写 exploit 前自检、复盘 |
+| `references/04-walkthrough-local-pe.md` | 真实案例走查：现场编译 PE 的栈溢出/整数/格式化串 + 密码学回代 | 想照着复跑、需要真实输出片段 |
+| `references/binary-exploitation.md` | pwntools/gdb 骨架：ret2libc、格式化串、栈迁移、稳定性 | 阶段 B/C 写脚本 |
+| `references/crypto-attacks.md` | RSA/分组/PRNG/证书的可运行求解骨架与回代 | 阶段 B/C 做密码学 |
+| `references/heap-and-sandbox.md` | tcache/UAF、IO_FILE、seccomp ORW 骨架与版本判据 | 堆题、沙箱题 |
+| `references/mitigation-matrix.md` | 保护位 × 手法 × 判据矩阵 + 决策树 + 误判清单 | 阶段 A 排路线、解释保护位 |
 
-### 2.3 沙箱与 ASLR 前提
+## 8. 脚本用法
 
-- 先跑 `seccomp-tools dump ./chall`，记录 arch、允许的 syscall、参数过滤；没有 seccomp 也要确认。
-- 本地基线：`cat /proc/sys/kernel/randomize_va_space`；需要固定基址时用
-  `setarch "$(uname -m)" -R ./chall`，并在报告中注明“关闭 ASLR”。
-- 远程通常开着 ASLR：**只信远程泄漏**，不把本地偏移直接当远程地址。
-- fork server：父进程先初始化，子进程继承 canary/libc；一次泄漏可复用，但每次连接仍要重算输入。
-- 用目标同版本 libc 跑本地：`patchelf --set-interpreter` + `--set-rpath`，或 `pwninit`；记录 libc build id。
+四个脚本都可 `--help`；`--self-test` 离线跑通并打印含 `"ok"` 的 JSON；失败输出
+`{"ok": false, "blocked_at": "...", "reason": "..."}` 且 rc=2。
 
-## 3. 六种打法
-### 3.1 栈溢出 + ROP
+```bash
+# 1) 静态预判（PE/ELF，只读，不执行目标）
+python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+python Tool/scripts/pwn-check.py --self-test
 
-1. `pwn cyclic 300` 找偏移，`pwn cyclic -l 0x6161616c` 得覆盖长度；用 `gdb` 看 `$rsp` 处内容复核。
-2. 有 canary：格式化串 `%p`、越界读、或 `read` 残留泄漏；覆盖时保留原字节（最低字节通常为 `\x00`）。
-3. 有 PIE：先 `puts(puts@got)` 回 `main`，再算基址；同页内可只覆盖低 12 位。
-4. NX：`pop rdi; ret` + `puts@plt` + `puts@got` + `main` → 解析 libc → `system("/bin/sh")`。
-5. gadget 不够：ret2csu 设 `rdx/rsi/rdi`，或 ret2dlresolve；`one_gadget` 要核对约束寄存器。
-6. 调用前保证 16 字节栈对齐；不齐时在链首加一个 `ret`。
+# 2) 偏移复算：objdump 位移 + 运行时 probe + cyclic 崩溃日志，三源对齐
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py \
+  --objdump d.txt --func vuln --probe-log p.txt --crash-log c.txt
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py --cyclic 300 --find 0x6161616c
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test
 
-**判据**：偏移可重复；崩溃时 `$rip` 为受控值；泄漏值低 12 位与目标 libc 符号吻合；链一次跑通。
+# 3) 密码学回代：rsa / broadcast / hmac / mt / ecb / cbc
+python Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa inputs/rsa.json
+python Tool/skill/pwn-crypto/scripts/crypto-verify.py --broadcast inputs/broadcast.json
+python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test
 
-### 3.2 格式化字符串
+# 4) 技能目录下的同名转发器（等价于 1，便于部署后从技能目录调用）
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json
+```
 
-- 找参数序号：`AAAA.%p.%p.%p...`，或 `%6$p` 扫描；64 位前 6 个参数多在寄存器。
-- 泄漏：`%s` 接 GOT/栈地址；`%p` 接栈上指针；先确认输出不被截断。
-- 任意写：`fmtstr_payload(offset, {addr: value}, write_size="short")`；大值用 `%hn`，逐字节用 `%hhn`。
-- 64 位地址常含 `\x00`，放在 payload 末尾并调整对齐；必要时分两次写，避免一次超长输出。
-- 目标优先级：GOT（Partial RELRO）→ 返回地址 → 全局函数指针/flag 判定变量。
+退出码约定：`0` 成功/通过；`1` 可解析但不一致/回代失败；`2` 结构化失败（缺文件/坏 JSON/缺工具）。
+脚本不联网、不执行目标（`pwn-check`），路径由 `__file__` 或 `--root` 推导。
 
-**判据**：写后能读回目标地址的新值；连续两次写不崩；`%n` 计数与预期长度一致。
+## 9. 任务卡入口
 
-### 3.3 堆（tcache / UAF）
+`Tool/prompts/domains/pwn-crypto.md`：24 张卡，源名取自
+`Tool/config/taskcard-sources.json` 的 `pwn-crypto`（24 条）。常用起点：
 
-1. 先定 glibc：`ldd --version`、`strings libc.so.6 | grep 'GNU C Library'`；tcache 2.26+，safe-linking 2.32+，hook 在 2.34 移除。
-2. 泄漏顺序：堆地址（tcache fd / 相邻指针）→ libc（unsorted bin 的 `fd/bk`，偏移用调试器确认）→ 栈（`environ`）。
-3. UAF：释放后仍可 `show/edit`；tcache dup 可让同一 chunk 入链两次。
-4. tcache poison：改 `fd` 为 `target ^ (chunk_addr >> 12)`（2.32+），目标按 0x10 对齐；2.29+ 注意 `key` 字段。
-5. 触发：`__free_hook`（<2.34）、`_IO_list_all`/`exit_funcs`（≥2.34）、`environ` 回栈、或程序自己的函数指针。
-6. 大 chunk / unsorted bin / large bin attack 只在 tcache 路线被堵时启用；每步用 `vis_heap_chunks` 复核。
+- 卡 01 栈溢出偏移与 saved RIP 控制；
+- 卡 02 堆喷射与 tcache 布局测量；
+- 卡 09/10 哈希回代与密码学实现审计；
+- 卡 15/16/17 JWT 算法混淆/none/测试矩阵；
+- 卡 22/23 智能合约整数/重入与 Foundry 断言。
 
-**判据**：`malloc` 返回受控地址；目标位置写入后触发不崩；两次独立进程同样成功。
+每张卡六段齐全，`reference` 指向本目录下的真实文件；按卡执行后仍要用本文件 §3 的判据验收。
 
-### 3.4 整数与 off-by-one
+## 10. KB board 入口
 
-- 查有符号/无符号转换、长度截断、负数索引、`atoi/strtol` 返回值、乘法/加法溢出。
-- off-by-one 常见为写 `\x00`：制造 poison null byte，缩小 chunk size 造成重叠（House of Einherjar / overlap）。
-- 先证明“越界一个字节确实改到了下一个 chunk 的 size/fd”，再设计重叠分配。
-- 注意 `size` 对齐到 0x10、`prev_inuse`、`prev_size` 的一致性；错误构造会在 `free` 时 abort。
+`Tool/mcp/Tool/reverselab/kb/pwn-crypto/README.md`（board 索引 + 三条硬判据 + 失败判据 + 邻域边界）。
+技术页：
 
-**判据**：调试器能看到两个 chunk 重叠或相邻元数据被改；随后能稳定拿到重叠读写。
+- `techniques/01-stack-rop.md` — 栈溢出与 ROP；
+- `techniques/02-heap-and-sandbox.md` — 堆与沙箱；
+- `techniques/03-format-string-arbitrary-read.md` — 格式化串任意读（含 UCRT `%n` 边界）；
+- `techniques/04-libc-version-and-orw.md` — libc 版本、gadget、seccomp ORW；
+- `techniques/05-pe-mitigation-windows.md` — PE 保护位与 Windows 利用面；
+- `techniques/06-failure-criteria-playbook.md` — 失败判据速查；
+- `techniques/x-crypto-oracle-playbook.md` — 密码学 oracle 速查；
+- `techniques/x-heap-tcache-playbook.md` — tcache/UAF 速查。
 
-### 3.5 沙箱逃逸（seccomp / ORW）
+## 11. 验收与回报
 
-- `seccomp-tools dump ./chall` 读出白名单：`open/read/write`、`openat`、`sendfile`、`mprotect` 哪些可用。
-- 经典 ORW：`open("/flag", O_RDONLY)` → `read(fd, bss, 0x100)` → `write(1, bss, 0x100)`；fd 通常为 3。
-- 只有 `openat` 时用 `openat(AT_FDCWD, path, 0)`；路径要可写内存，先 `read` 进去。
-- 缺 `pop rdx` 时用 ret2csu、`__libc_csu_init`、SROP（`rt_sigreturn`）或 libc 内 `setcontext`。
-- 允许 `mprotect` 时把 shellcode 写到 bss，`mprotect(..., 7)` 后跳转；注意 seccomp 对 arch 的限制。
-- 若 flag 已被父进程打开，先试 `read(3, ...)`，不要盲目 open。
+- **本地稳定性**：同一脚本在全新进程/新连接连续 ≥10 次，成功 ≥9 次；贴命令、rc、成功计数。
+- **远程命中**：拿到 shell/flag；贴 `id`、`cat flag`、目标路径、会话时间与完整 transcript。
+- **密码学**：`pow(m,e,n)==c`、逐块/逐位比对；贴参数、明文来源与脚本输出。
+- **证据留存**：`sha256`、保护位、libc 版本/内核/ASLR 状态、工具版本、失败路线。
+- **停止条件**：同一路径 3 轮无进展 → 换路线；同类动态尝试 2 次失败 → 停下汇报。
+- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 本域 7 条全 PASS。
 
-**判据**：`strace`/seccomp 日志出现预期的 openat/read/write 序列，且输出包含 flag 内容。
-
-### 3.6 密码学（RSA / 分组 / PRNG / 签名）
-
-**RSA**
-- 小指数无填充：`m = iroot(c, e)`；`e=3` 且 `m^3 < n` 时直接开方。
-- 共模：同一 `n`、同一 `m`、`gcd(e1,e2)=1`，用扩展欧几里得求 `a,b`，`m = c1^a * c2^b mod n`。
-- 低加密指数广播（Håstad）：同一 `m`、`e=3`、至少 3 组互质 `n`，CRT 后开三次方。
-- 共享素数：`gcd(n1,n2)` 直接分解；Wiener 打小私钥 `d`；Fermat 打相近 `p,q`。
-- 判据：恢复的 `m` 可打印，且 `pow(m,e,n)==c`；否则回到“是否填充/是否同一 m”的假设。
-
-**ECB**
-- 找 16 字节重复块；相同明文块产生相同密文块。
-- 字节逐位 oracle：控制前缀对齐，逐字节爆破；cut-and-paste 重排块伪造字段。
-- 判据：密文块相等关系可复现；oracle 返回的块与字典命中；拼接后目标字段被接受。
-
-**CBC**
-- 位翻转：改 `C[i-1]` 使 `P[i]` 按预期翻转；第一块改 IV；`P[i] = D(C[i]) xor C[i-1]`。
-- padding oracle：只在 padding 合法时给侧信道，逐字节恢复；注意 MAC-then-encrypt 与错误粒度。
-- 判据：解密结果的目标字节等于期望值，且 padding/格式校验通过。
-
-**PRNG**
-- MT19937：收集 624 个连续 32-bit 输出即可克隆状态（`randcrack`）；Python `getrandbits(32)` 最直接。
-- C `rand()`/LCG：由连续输出解 `a,c,m`，或按时间种子暴力；Java `Random` 需 48-bit 状态，连续输出可推。
-- 判据：预测的下一个/下一段输出与真实值逐位一致，而非“看起来像”。
-
-**证书与签名**
-- 先 `openssl x509 -text -noout` 看公钥指数、签名算法、有效期、扩展；`openssl verify` 复现信任链。
-- 弱情形：`e=1`、`e=3` 且无填充/消息可开方、DER 解析差异、弱哈希、自签信任配置。
-- 判据：目标验证器接受伪造签名/证书（实验室自建 CA），且 `openssl verify` 或程序返回成功。
-
-## 4. 每类判据（成立 / 不成立）
-| 类型 | 成立判据 | 常见误判 |
-|---|---|---|
-| 栈溢出 + ROP | 偏移稳定、`$rip` 受控、泄漏基址与 libc 吻合、链一次成功 | 本地能打、远程偏移不同；栈未对齐偶发崩溃 |
-| 格式化字符串 | 目标地址写后读回等于预期；两次写稳定 | `%n` 输出被截断；64 位地址含 `\x00` 未处理 |
-| 堆 tcache/UAF | `malloc` 返回目标地址；重叠 chunk 可见；触发不崩 | 把堆地址当 libc；safe-linking 未解码；glibc 版本不符 |
-| 整数 / off-by-one | 相邻 chunk 元数据被改；重叠读写成立 | 只改到 padding；`free` 一致性检查被忽略 |
-| seccomp / ORW | syscall 序列正确且读到 flag | 白名单没读全；fd 猜错；路径不可写 |
-| RSA | `pow(m,e,n)==c` 且明文可读 | 忽略 PKCS#1 填充；把不同消息当同一 `m` |
-| ECB / CBC | 块关系可复现；目标字段/明文被控制 | 把随机碰撞当 ECB；CBC 改错块索引 |
-| PRNG | 下一输出逐位一致 | 只验证“分布像”；消耗了额外的随机数 |
-| 证书 / 签名 | 目标验证器接受，证据可复现 | 只改了文件没改信任链；把解析差异当签名伪造 |
-
-## 5. 工具与降级
-| 工具 | 用途 | 缺失时 |
-|---|---|---|
-| `checksec` / `readelf` | 保护位、段、动态项 | `pwn checksec`；再退 `readelf -hW/-lW/-d` |
-| `ROPgadget` / `ropper` | gadget 搜索 | `ROP(elf)`、`objdump -d` + grep；手写 ret2csu |
-| `pwntools` | 交互、泄漏、ROP、fmtstr | 纯 `socket` + `struct`；仍建议先装 |
-| `one_gadget` | libc 一键 shell | 手查 `execve` 附近约束，或走 `system` |
-| `angr` | 复杂约束/路径求解 | 手工逆向 + z3 建模 |
-| `z3` | 整数/位向量约束 | 枚举/数学推导；SMT 不适合大循环 |
-| `openssl` | 证书、密钥、签名验证 | Python `cryptography`；`gpg` 仅辅助 |
-| `sage` | 格攻击、Coppersmith、椭圆 | 小规模用 sympy/z3；格攻击装 sage |
-| `seccomp-tools` | 沙箱白名单 | `strace -f` 观察；读 BPF 反汇编 |
-
-- 缺工具先查能力表：`seep_tool_research`，或
-  `python Tool/mcp/tool_autodiscover.py discover <tool>` / `plan <tool>`。
-- GUI/调试器通道用 `powershell -File Tool/scripts/tool-run.ps1 -Tool <id> -ListModes`，
-  需要时加 `-Target <样本>` 自启；不要手猜安装路径。
-- 安装仍需用户确认；禁止为“再试一次”反复装工具。
-
-## 6. 坑（清单见 references/mitigation-matrix.md §误判）
-- libc 版本错配 → 用目标机的 libc 重算偏移，不要用本机；
-- 远程与本地偏移不同 → 先在远程做一次泄漏校验；
-- canary 泄漏点没找到就硬打 → 先找格式化串或栈残留。
-
-## 7. 验收
-
-- **本地稳定性**：同一 `exploit.py` 在全新进程/新连接上连续跑 ≥10 次，成功 ≥9 次；记录命令、退出码、成功计数。
-  推荐 `for i in $(seq 10); do timeout 30 python3 exploit.py; done`，逐次比对输出。
-- **远程命中**：远程拿到 shell 或 flag；给出 `id`、`cat flag`、目标路径、会话时间与完整 transcript。
-- **密码学验收**：求解脚本可重跑；RSA 用 `pow(m,e,n)==c` 复核，分组/PRNG 用逐块/逐位比对；给出明文与来源。
-- **证据留存**：`sha256sum chall libc.so.6`、checksec 输出、libc 版本、内核/ASLR 状态、exploit 与依赖版本。
-- **失败也交付**：写清已排除的路线（如“Full RELRO + 无泄漏，GOT 路线不可行”），不要用一次偶然成功冒充稳定。
-- **停止条件**：同一路径 3 轮无进展即换路线；动态尝试同一目标同类操作最多 2 次，第二次失败必须停下汇报。
-
-## 8. 失败判据（这条路不通就转哪条）
-
-出现以下任一情况，不要再在同一路径上堆时间，直接转支路：
-
-- 保护位全绿（Full RELRO + PIE + Canary + NX）且找不到任何泄漏点 → 放弃 GOT/栈路线，转格式化字符串、堆或逻辑/密码学分支。
-- 偏移不稳定（同环境多次跑 `$rip` 位置漂移 >1 次）→ 是启动方式/环境差异，先用 `socat` 固定 argv/env/cwd 复测，仍漂移就转泄漏而非硬编码。
-- 泄漏地址低 12 位匹配不到任何 libc 版本，或 build id 对不上 → 停止猜偏移，改用远程泄漏 + libc-database 精确匹配，或改用 ret2csu/单 gadget 方案。
-- 栈未对齐导致的偶发崩溃（同一脚本成功/失败交替）→ 先加 `ret` 对正、再重跑 ≥10 次；仍不稳定视为未成立，不写“9/10”。
-- 堆路线被 safe-linking/glibc 版本卡住（`malloc` 不返回目标地址、`free` 报 corruption）→ 确认 glibc 版本后再选打法，版本不符就转 `house of *` 或换 `tcache` 之外的路线。
-- seccomp 白名单里没有 `open/read/write` 且无可用 gadget 拼 ORW → 转 SROP/栈迁移，或如实写“已控 `$rip` 但无法读出 flag”。
-- 密码学：`pow(m,e,n) != c`、填充未知、oracle 不可查询 → 说明假设错误，退回确认填充与模数关系，不要宣布“解出明文”。
-- 同一手法连续 3 轮无进展，或同一目标同类动态尝试已 2 次失败 → 停手汇报已排除项，换路线。
-
-## 9. 边界
-
-- 纯静态分析、算法还原、协议测绘：交给 `reverse-engineering` / `ida-reverse`；本技能只接手“要打穿/要取证”的阶段。
-- Android APK/DEX/SO、Frida/脱壳/重打包：交给 `apkseep`，不在此重复。
-- Web/客户端授权逻辑、JWT/接口重放：交给对应 Web/许可技能；本技能只处理二进制与密码学原语。
-- 仅限授权实验室资产；禁止未授权目标、持久化、横向移动、拒绝服务、真实凭据/生产证书滥用。
-- 不伪造“稳定 9/10”；不隐藏失败；不把本地关闭 ASLR 的结果当远程结论。
-
-> 细节：`references/binary-exploitation.md`、`references/crypto-attacks.md`、`references/heap-and-sandbox.md`、`references/mitigation-matrix.md`；静态预判用 `Tool/scripts/pwn-check.py`。
+> 边界再强调：本技能只用于授权实验室资产；不伪造“稳定 9/10”，不隐藏失败，
+> 不把本地关 ASLR 的结果当远程结论，不把 PE 当 ELF 套保护位术语。
