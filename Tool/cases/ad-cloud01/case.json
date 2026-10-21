@@ -1,0 +1,25 @@
+{
+  "id": "ad-cloud01",
+  "domain": "ad-cloud",
+  "target_type": "Active Directory 域 + ADCS（实验室）",
+  "protection": [],
+  "authority": "authorized AD lab",
+  "goal_level": "L3",
+  "outcome": "planned",
+  "artifacts": [],
+  "lessons": [
+    "入口：先确认授权域、DC、CA、测试账号与锁定阈值；未拿到 CA 名称不预设 ESC。",
+    "路径：枚举模板 -> 确认 Enroll/SAN/EKU/审批 -> certipy req -> certipy auth；每步留命令与返回。",
+    "判据：certipy auth 返回目标 TGT/hash 并可访问授权资源；仅 certipy find 报 vulnerable 不算。",
+    "失败判据：无 Enroll、manager approval、EKU 不匹配、EPA/signing 拦住 relay；失败即记录并换路线。",
+    "边界：不碰授权外账号/CA，不做持久化；证书与票据只留指纹和有效期。"
+  ],
+  "tags": ["R23", "ad-cloud", "kerberos", "adcs", "ESC1", "planned"],
+  "refs": [
+    "Tool/skill/ad-cloud/SKILL.md",
+    "Tool/skill/ad-cloud/references/kerberos-and-adcs.md",
+    "Tool/skill/ad-cloud/references/ad-attacks.md",
+    "Tool/config/ad-cloud-matrix.json"
+  ],
+  "updated": "2026-10-21"
+}

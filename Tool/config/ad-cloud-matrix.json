@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "ad-cloud",
+  "description": "内网/AD/云原生检测矩阵：面 -> 检测点 -> 判据 -> 工具 -> 误报。离线无法判定的 IAM/RBAC 必须标注 unknown，不靠猜。",
+  "updated": "2026-10-21",
+  "columns": {
+    "surface": "面",
+    "check": "检测点",
+    "criteria": "判据",
+    "tools": "工具",
+    "false_positive": "误报"
+  },
+  "rows": [
+    {
+      "id": "AD-01",
+      "surface": "kubeconfig 连接面",
+      "check": "current-context、cluster/user 引用、server、CA、insecure-skip-tls-verify、http://",
+      "criteria": "context 可解析；TLS 校验开启；无明文 HTTP；CA 与目标集群匹配",
+      "tools": ["adcloud-check.py", "kubectl config view"],
+      "false_positive": "本地一次性实验集群可能故意 insecure/http；仍需标注网络暴露面"
+    },
+    {
+      "id": "AD-02",
+      "surface": "匿名访问",
+      "check": "选中 context 是否无 token/cert/basic/exec；是否 system:anonymous；API server 匿名开关",
+      "criteria": "离线只能判定“无凭据”；在线用只读请求确认是否真的以 system:anonymous 获得权限",
+      "tools": ["adcloud-check.py", "kubectl auth can-i --list", "curl API"],
+      "false_positive": "无凭据 user 可能被 API server 拒绝；有 anonymous-auth 也不等于有 RBAC 权限"
+    },
+    {
+      "id": "AD-03",
+      "surface": "SA token 有效期",
+      "check": "JWT exp/iat/aud/iss、opaque token、tokenFile、exec 插件",
+      "criteria": "记录剩余有效期；过期 token 不得作为有效证据；短时 token 需重取",
+      "tools": ["adcloud-check.py", "python base64/json", "kubectl auth whoami"],
+      "false_positive": "本地时钟偏移会造成假过期；exec 插件可能自动续期"
+    },
+    {
+      "id": "AD-04",
+      "surface": "宽权限 SA/RBAC",
+      "check": "cluster-admin/admin/edit 名称、system:masters/system:serviceaccounts 组、wildcard Role/ClusterRole",
+      "criteria": "在线 `auth can-i` 返回 yes，且实际完成只读/低影响动作；名称只是线索",
+      "tools": ["kubectl auth can-i --list", "kubectl get clusterrolebinding", "kubectl-who-can", "adcloud-check.py"],
+      "false_positive": "同名 SA 可能只绑了窄 Role；wildcard 可能被 API server/Admission 限制"
+    },
+    {
+      "id": "AD-05",
+      "surface": "create pods 逃逸",
+      "check": "能否创建 Pod/DaemonSet/Job；是否允许 privileged/hostPath/hostPID/hostNetwork",
+      "criteria": "创建带标记 Pod 并读到宿主文件/在宿主命名空间执行 id，有完整命令与清理",
+      "tools": ["kubectl auth can-i", "kubectl run", "kubectl apply", "nsenter"],
+      "false_positive": "有 create 权限但 PSA/Quota/Admission 拒绝；hostNetwork 不等于宿主文件系统"
+    },
+    {
+      "id": "AD-06",
+      "surface": "Secret/凭据读取",
+      "check": "get/list secrets、dockerconfigjson、service-account-token、云密钥",
+      "criteria": "实际读取测试 Secret 并证明其可用（登录/拉镜像/调用 API）",
+      "tools": ["kubectl get secret", "jq", "base64", "docker login"],
+      "false_positive": "只能 list 不能 get；Secret 为空/已过期；测试 Secret 不具代表性"
+    },
+    {
+      "id": "AD-07",
+      "surface": "impersonate/bind/escalate",
+      "check": "impersonate users/groups/serviceaccounts；bind/escalate Role/ClusterRole",
+      "criteria": "成功以目标身份执行只读操作，或把高权角色绑到当前主体并验证",
+      "tools": ["kubectl auth can-i", "kubectl create rolebinding", "kubectl auth reconcile"],
+      "false_positive": "权限存在但被 admission 拦截；impersonate 目标不存在"
+    },
+    {
+      "id": "AD-08",
+      "surface": "容器特权/hostPath/hostPID",
+      "check": "securityContext、CapEff、mount、/proc/1/cgroup、kubelet 路径",
+      "criteria": "宿主命名空间 id 或宿主文件/凭据可读，且可复现",
+      "tools": ["capsh", "mount", "nsenter", "ps", "find"],
+      "false_positive": "privileged 配置本身不等于逃逸；只读挂载/seccomp 可能拦住"
+    },
+    {
+      "id": "AD-09",
+      "surface": "Docker/containerd socket",
+      "check": "/var/run/docker.sock、/run/containerd/containerd.sock、权限与挂载",
+      "criteria": "通过 socket 创建特权容器并读到宿主根",
+      "tools": ["docker -H", "ctr", "nerdctl", "curl --unix-socket"],
+      "false_positive": "socket 存在但权限拒绝；只读代理/受限 API"
+    },
+    {
+      "id": "AD-10",
+      "surface": "镜像与仓库凭据",
+      "check": "镜像层密钥/.git/.env、dockerconfigjson、registry 权限",
+      "criteria": "命中可利用 HIGH/CRITICAL 或有明文密钥，并能实际拉取/推送授权内镜像",
+      "tools": ["trivy", "grype", "syft", "docker login", "kubectl get secret"],
+      "false_positive": "版本旧但无入口；测试镜像/占位密钥；扫描器误报"
+    },
+    {
+      "id": "AD-11",
+      "surface": "CI/CD token 与 OIDC",
+      "check": "GITHUB_TOKEN/CI_JOB_TOKEN scope、runner 共享、云 OIDC trust 的 sub/aud",
+      "criteria": "用 token 读到受保护变量/推镜像/AssumeRole，且有 API 返回",
+      "tools": ["env", "git config", "gh/glab", "aws sts assume-role-with-web-identity"],
+      "false_positive": "token 只读；环境隔离；OIDC sub 精确匹配；权限受 branch protection 限制"
+    },
+    {
+      "id": "AD-12",
+      "surface": "AWS AK/SK 泄露",
+      "check": "AKIA/ASIA 格式、secret 明文、session token、文件权限、硬编码位置",
+      "criteria": "确认凭据在本地明文文件中（硬编码）；在线 `sts get-caller-identity` 验证有效",
+      "tools": ["adcloud-check.py", "aws sts get-caller-identity", "grep"],
+      "false_positive": "占位/已撤销 key；环境变量引用不是硬编码；测试账号仅低权"
+    },
+    {
+      "id": "AD-13",
+      "surface": "IAM 权限宽窄",
+      "check": "attached/inline policy、trust policy、permissions boundary、SCP",
+      "criteria": "离线只能标注 unknown_offline；在线枚举策略并实际完成提权动作才算",
+      "tools": ["aws iam list-*", "aws sts get-caller-identity", "PMapper", "adcloud-check.py"],
+      "false_positive": "从 AK 前缀/账号猜管理员权限；只看到 policy 名称不看内容"
+    },
+    {
+      "id": "AD-14",
+      "surface": "Kerberoasting",
+      "check": "SPN 账号、msDS-SupportedEncryptionTypes、TGS etype、hash 可破解性",
+      "criteria": "TGS 破解出明文或可直接复用；仅拿 hash 未破解是素材",
+      "tools": ["GetUserSPNs.py", "hashcat -m 13100/19700/19800", "Rubeus"],
+      "false_positive": "仅 AES 账号用 RC4 模式；服务账号无价值/已禁用；锁定策略触发"
+    },
+    {
+      "id": "AD-15",
+      "surface": "AS-REP Roasting",
+      "check": "DONT_REQ_PREAUTH、AS-REP etype、hash 破解/复用",
+      "criteria": "破解出明文或可直接完成预认证；账号未锁定",
+      "tools": ["GetNPUsers.py", "hashcat -m 18200/19900", "Rubeus"],
+      "false_positive": "账号已启用预认证；AES 模式不匹配；批量请求触发告警/锁定"
+    },
+    {
+      "id": "AD-16",
+      "surface": "委派与 ADCS",
+      "check": "Unconstrained/Constrained/RBCD 属性；ADCS 模板 SAN/EKU/ACL/CA flag/HTTP 端点",
+      "criteria": "拿到目标身份 TGT/服务票据，或 `certipy auth` 成功；仅 find 报 vulnerable 不算",
+      "tools": ["findDelegation.py", "getST.py", "rbcd.py", "certipy find/req/auth", "ntlmrelayx"],
+      "false_positive": "模板需审批/无 Enroll；EPA/signing 拦住 relay；证书用途不匹配"
+    }
+  ]
+}

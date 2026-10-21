@@ -215,6 +215,6 @@ AssetStudioModCLI bundle -o export/
 
 - **不做 Android / 客户端授权旁路**：APK/DEX/SO、脱壳、重打包走 `apkseep`；License/计费/功能解锁走 `01`–`05`；本技能只做取证与关系说明。
 - **不做未授权采集与反作弊对抗**：不碰第三方设备/账号/云资源；不注入、不挂钩、不改内存、不加载驱动；不提供隐蔽驻留或反取证手法。
-- **不把“dump 成功”当结论**：没有证据链与判据只能算素材。
+- **失败判据（何时停）**：两次换工具仍无法识别镜像/分区/文件系统；时间线缺时区/时钟偏差且无法补齐；四要素缺主体或对象；关键证据哈希不一致或原件被写 → 停并报“未闭环”，不把 dump/解包成功当结论。
 
-> 命令与判据细节：`references/forensics.md`（内存/流量/磁盘）、`references/ios-macos-and-game.md`（iOS/macOS/游戏客户端）。
+> 命令与判据细节：`references/forensics.md`（内存/流量/磁盘）、`references/ios-macos-and-game.md`（iOS/macOS/游戏客户端）、`references/evidence-chain.md`（证据链与完整性）、`references/memory-and-volatility.md`（内存与 Volatility3）。

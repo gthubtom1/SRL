@@ -29,6 +29,8 @@
     "R24",
     "R25",
     "R26",
+    "R28",
+    "R27",
     "R2",
     "R9",
     "R4",
@@ -222,11 +224,11 @@
     },
     "R25": {
       "label": "插件/扩展/Mod 逆向",
-      "skill": "protocol-plugin/SKILL.md",
+      "skill": "plugin-targets/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(chrome\\s*扩展|浏览器扩展|crx|vsix|vscode\\s*插件|ide\\s*插件|electron\\s*插件|asar|bepinex|melonloader|unity\\s*mod|游戏\\s*mod|加载器插件)",
-          "note": "插件类：判据=定位入口+关键逻辑+最小可改单元"
+          "note": "插件类：判据=入口+关键逻辑+数据来源+最小可改单元"
         }
       ]
     },
@@ -245,8 +247,28 @@
       "skill": "web-pentest/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(sql\\s*注入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件\\s*上传|上传点|传输点|命令\\s*注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|src|漏洞复现|cve-\\d{4})",
+          "must": "(?i)(sql注入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件上传|命令注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|src|漏洞复现|cve-\\d{4})",
           "note": "Web/API 验证：判据=PoC 可复现"
+        }
+      ]
+    },
+    "R27": {
+      "label": "恶意样本/取证分析",
+      "skill": "malware-analysis/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(malware|木马|病毒|勒索|后门|IOC|yara|沙箱|样本分析)",
+          "note": "恶意样本/取证：判据=行为时间线+IOC可复现+检测规则可验证"
+        }
+      ]
+    },
+    "R28": {
+      "label": "供应链/依赖/CI-CD",
+      "skill": "supply-chain-security/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(供应链|依赖混淆|依赖投毒|dependency confusion|sbom|软件物料清单|sca|锁文件|lockfile|package-lock|yarn\\.lock|pnpm-lock|requirements\\.txt|poetry\\.lock|go\\.sum|cargo\\.lock|composer\\.lock|nuget|github actions|gitlab ci|ci/cd|流水线权限|pull_request_target|workflow_run|cosign|slsa|来源证明|provenance|镜像签名|image digest|固定镜像|基础镜像)",
+          "note": "供应链：判据=锁文件/CI 权限/镜像 digest 可复核，SCA 告警不等于漏洞"
         }
       ]
     }

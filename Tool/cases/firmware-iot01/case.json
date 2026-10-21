@@ -1,0 +1,41 @@
+{
+  "id": "firmware-iot01",
+  "domain": "firmware-iot",
+  "target_type": "嵌入式 Linux 摄像头固件（SquashFS）",
+  "vendor": "",
+  "model": "",
+  "firmware_version": "",
+  "soc": "",
+  "arch": "mips",
+  "storage": "SPI-NOR",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "J1",
+  "outcome": "planned",
+  "artifacts": [],
+  "interfaces": {
+    "uart": {"pads": "TX/RX/GND", "baud": 115200, "voltage": "3.3V", "shell": false},
+    "jtag": {"adapter": "", "idcode": "", "verified": false},
+    "spi": {"chip": "", "voltage": "3.3V", "read_hash": ""}
+  },
+  "emulation": {
+    "mode": "qemu-user",
+    "boot_ok": false,
+    "service_ok": false,
+    "notes": "计划：先做只读镜像与 SquashFS 解包，再验证 busybox/CGI；尚未执行，不填哈希。"
+  },
+  "lessons": [
+    "入口：厂商固件/OTA 包只读副本 + SHA256；未拿到实物前不声称 UART 可用。",
+    "判据：J1 以 chroot/qemu-user 内可执行 id、读取 /etc/passwd、运行目标 CGI 为准。",
+    "失败判据：只能跑 /bin/sh、目标程序报解释器/库缺失、或解包缺 /etc 与 /bin/busybox。",
+    "边界：私钥/口令只做定位与脱敏，不在本案例中做破解或设备写入。"
+  ],
+  "tags": ["firmware", "squashfs", "qemu-user", "credential-audit", "planned"],
+  "refs": [
+    "Tool/skill/firmware-iot/SKILL.md",
+    "Tool/skill/firmware-iot/references/filesystem-and-credentials.md",
+    "Tool/skill/firmware-iot/references/emulation-and-fuzz.md",
+    "Tool/config/firmware-iot-matrix.json"
+  ],
+  "updated": "2026-10-21"
+}

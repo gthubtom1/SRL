@@ -363,3 +363,21 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 | 出加固方案 | `defense-in-depth.md` |
 | UI 文案/状态验收 | `ui-verification.md` |
 | 找现成脚本 | `tooling.md` |
+
+---
+
+## 附：领域包一览（与 routing.json 对应，2026-10-21 起）
+
+| 域 | 路由 | 技能 | 一句话判据 |
+|---|---|---|---|
+| Web/API 漏洞验证 | R20 | `web-pentest` | 注入对照实验闭环；越权跨会话取真实数据 |
+| 二进制利用 / 密码学 | R21 | `pwn-crypto` | 本地 10 次 ≥9 命中；RSA 回代 |
+| 固件 / IoT / 硬件 | R22 | `firmware-iot` | 能进 shell；服务真监听；漏洞可复现 |
+| 内网 / AD / 云原生 | R23 | `ad-cloud` | 凭据可复现；提权有客观输出 |
+| 协议复刻 | R24 | `protocol-plugin` | 能构造抓包外的新请求 |
+| 插件 / 扩展 / Mod | R25 | `plugin-targets` | 入口+关键逻辑+数据来源+最小可改单元 |
+| 取证 / iOS·macOS / 游戏 | R26 | `forensics-mobile` | 证据链四要素齐全 |
+| 恶意样本分析 | R27 | `malware-analysis` | 行为时间线 + 可验证检测规则 |
+| 供应链 / CI-CD | R28 | `supply-chain-security` | 可达漏洞有 PoC 或投毒链有证据 |
+
+> 每个域都是"九件套"：SKILL + ≥4 references + ≥1 可跑脚本 + 矩阵配置 + ≥2 案例 + KB board + 路由 + 本表登记 + 门禁断言。

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "protocol-plugin",
+  "route": "R24",
+  "description": "协议复刻矩阵（声明式）：按协议形态给出可用工具/命令/完成判据/失败判据/陷阱。插件类目标不在本表，见 plugin-matrix.json（R25）。",
+  "updated": "2026-10-20",
+  "families": [
+    {
+      "id": "http-rest",
+      "name": "HTTP/REST/JSON",
+      "match": ["http", "rest", "json", "api", "graphql", "openapi", "swagger"],
+      "tools": ["tshark", "mitmproxy", "curl", "seep_http_replay"],
+      "commands": [
+        "tshark -r capture.pcap -q -z conv,tcp",
+        "mitmdump -p 8080 -w flows.mitm",
+        "curl -i -X POST <url> -H 'Content-Type: application/json' --data @body.json"
+      ],
+      "criteria": ["同输入同输出", "能构造新业务请求", "状态码/业务码可预测", "证据可复跑"],
+      "fail": ["401/403/风控且无法解释", "签名/nonce 不可复现", "只能原样重放"],
+      "pitfalls": ["header 顺序/大小写/Host 影响签名", "压缩与分块传输", "cookie/token 绑定 UA/IP"]
+    },
+    {
+      "id": "websocket",
+      "name": "WebSocket/SSE 长连接",
+      "match": ["websocket", "ws", "wss", "sse", "event-stream", "长连接", "心跳"],
+      "tools": ["tshark", "mitmproxy", "浏览器 DevTools", "Python websockets"],
+      "commands": [
+        "tshark -r capture.pcapng -Y 'websocket' -T fields -e frame.number -e websocket.opcode -e websocket.payload",
+        "mitmweb -p 8080 --set web_port=8081",
+        "python3 - <<'PY'\nimport websocket\nws=websocket.create_connection('ws://127.0.0.1:18080/ws')\nws.send('{\"op\":\"hello\"}')\nprint(ws.recv())\nPY"
+      ],
+      "criteria": ["按 FIN/opcode 重组消息", "握手头齐全", "心跳/重连参数可解释", "新消息可构造"],
+      "fail": ["TCP 段与消息边界混淆", "permessage-deflate 未解", "掩码/长度解析错误"],
+      "pitfalls": ["控制帧穿插", "半帧/多帧", "代理不改写握手头", "压缩上下文跨消息"]
+    },
+    {
+      "id": "binary-framed",
+      "name": "二进制帧（magic/length/CRC）",
+      "match": ["二进制", "binary", "magic", "length", "crc", "tlv", "定长", "分帧"],
+      "tools": ["pcap-summary.py", "xxd", "reveng", "Kaitai Struct", "scapy"],
+      "commands": [
+        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --json",
+        "xxd -g1 -l 128 frame.bin",
+        "reveng -w 16 -s 3a4b 5c6d 7e8f"
+      ],
+      "criteria": ["长度公式能预测未见帧", "校验覆盖范围明确", "错误帧被拒", "解析器可重同步"],
+      "fail": ["长度含头/含尾无法确定", "CRC 参数无法闭环", "假 magic 导致误分帧"],
+      "pitfalls": ["大小端", "长度含自身", "填充/对齐", "TCP 重传/乱序"]
+    },
+    {
+      "id": "protobuf-flatbuffers",
+      "name": "protobuf/flatbuffers/自定义序列化",
+      "match": ["protobuf", "proto3", "flatbuffers", "thrift", "msgpack", "cbor", "序列化"],
+      "tools": ["protoc", "flatc", "tshark", "Python protobuf"],
+      "commands": [
+        "protoc --decode_raw < payload.bin",
+        "flatc --json --raw-binary schema.fbs -- payload.bin",
+        "tshark -r capture.pcap -Y 'tcp.port==9527' -T fields -e data.data"
+      ],
+      "criteria": ["字段号/wire type 可解释", "嵌套/重复字段边界正确", "能编码新消息并被接受"],
+      "fail": ["无 schema 且字段号冲突", "vtable/offset 越界", "压缩后再序列化未分层"],
+      "pitfalls": ["字段号不是业务 id", "默认值/未知字段", "varint 溢出", "flatbuffers vtable 共享"]
+    },
+    {
+      "id": "tls-mtls",
+      "name": "TLS/mTLS/pinning 下的明文获取",
+      "match": ["tls", "https", "mtls", "pinning", "ssl", "证书", "双向认证"],
+      "tools": ["SSLKEYLOGFILE", "mitmproxy", "Frida", "Wireshark"],
+      "commands": [
+        "export SSLKEYLOGFILE=$PWD/keys.log",
+        "tshark -r capture.pcap -o tls.keylog_file:keys.log -Y 'http.request' -T fields -e http.host -e http.request.uri",
+        "frida-trace -f app.exe -m 'SSL_write' -m 'SSL_read'"
+      ],
+      "criteria": ["能取得应用层明文", "证书校验位置明确", "keylog/进程内证据可复现"],
+      "fail": ["mTLS 缺客户端证书", "pinning 在校验层无法绕过", "只抓到密文"],
+      "pitfalls": ["keylog 只对支持 NSS 的客户端有效", "代理改写请求体污染基线", "证书固定与双向认证不同"]
+    },
+    {
+      "id": "udp-custom",
+      "name": "UDP/自定义无连接协议",
+      "match": ["udp", "quic", "自定义协议", "无连接", "游戏协议", "心跳"],
+      "tools": ["tshark", "scapy", "pcap-summary.py", "Python socket"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'udp' -T fields -e frame.number -e ip.src -e udp.srcport -e ip.dst -e udp.dstport -e data.data",
+        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --top 50",
+        "python3 - <<'PY'\nfrom scapy.all import *\nsend(IP(dst='127.0.0.1')/UDP(dport=9527)/Raw(load=b'\\x01\\x02'))\nPY"
+      ],
+      "criteria": ["事务 id/分片/重传规则可解释", "能构造新事务", "乱序/丢包可恢复"],
+      "fail": ["无事务 id 无法配对", "分片重组不完整", "只看到单向流量"],
+      "pitfalls": ["UDP 无连接需应用层 seq", "MTU 分片", "NAT 超时", "重传与幂等"]
+    }
+  ]
+}

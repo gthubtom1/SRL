@@ -5,7 +5,7 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 
 # 内网 / AD / 云原生作业规范
 
-本 skill 只处理**已授权**的内网与云环境评估。所有动作以"拿到可复现的凭据或权限提升证据"为目标，不做破坏性操作，不横向扩散到授权边界之外。命令与判据细节见 `references/ad-attacks.md`、`references/cloud-native.md`。
+本 skill 只处理**已授权**的内网与云环境评估。所有动作以"拿到可复现的凭据或权限提升证据"为目标，不做破坏性操作，不横向扩散到授权边界之外。命令与判据细节见 `references/ad-attacks.md`、`references/cloud-native.md`、`references/kerberos-and-adcs.md`、`references/k8s-and-container.md`。
 
 ## 适用范围
 

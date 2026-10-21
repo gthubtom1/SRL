@@ -1,0 +1,127 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "firmware-iot",
+  "description": "固件/IoT 检测矩阵：面 -> 检测点 -> 判据 -> 工具 -> 误报。判据只认可复现的 shell/服务/漏洞证据，不认“解包成功”。",
+  "updated": "2026-10-21",
+  "columns": {
+    "surface": "面",
+    "check": "检测点",
+    "criteria": "判据",
+    "tools": "工具",
+    "false_positive": "误报"
+  },
+  "rows": [
+    {
+      "id": "FW-01",
+      "surface": "固件获取/OTA",
+      "check": "来源 URL/响应头、长度、SHA256、版本号；与设备当前版本比对",
+      "criteria": "长度与 Content-Length 一致；两次获取哈希一致；包内首层可被 file/binwalk 识别",
+      "tools": ["curl", "sha256sum", "file", "binwalk"],
+      "false_positive": "厂商 CDN 返回压缩传输/分块响应，长度不等于镜像长度；需解压后再比"
+    },
+    {
+      "id": "FW-02",
+      "surface": "容器识别与加密判断",
+      "check": "魔术偏移、整体/分块熵、是否存在第二层容器",
+      "criteria": "至少一个可信文件系统/容器魔术 + 可解释的熵分布；全高熵无魔术应转解密/硬件路线",
+      "tools": ["binwalk -E", "file", "fw-triage.py", "ent"],
+      "false_positive": "SquashFS/UBI 本身高熵，不等于加密；固件填充区也会拉高熵"
+    },
+    {
+      "id": "FW-03",
+      "surface": "SquashFS 解包",
+      "check": "超级块版本/压缩算法/块大小；厂商头偏移；非标 LZMA/XZ",
+      "criteria": "解出完整 /etc、/bin、/lib、/www；busybox 架构与 SoC 一致",
+      "tools": ["unsquashfs -s/-ll", "sasquatch", "binwalk -e", "7z"],
+      "false_positive": "unsquashfs 报 unsupported compression 并非镜像坏；可能只是厂商魔改压缩"
+    },
+    {
+      "id": "FW-04",
+      "surface": "UBI/UBIFS 与 NAND",
+      "check": "UBI# 偏移、PEB/LEB、卷列表、是否带 OOB/坏块",
+      "criteria": "卷列表可读且至少 rootfs 卷内出现 etc/bin；OOB 缺失时能说明影响",
+      "tools": ["ubireader_display_info", "ubireader_extract_files", "nanddump -o", "mtd_debug"],
+      "false_positive": "bad magic 常是偏移或 OOB 问题，不是加密；rootfs_data 空不代表 rootfs 空"
+    },
+    {
+      "id": "FW-05",
+      "surface": "JFFS2/CramFS",
+      "check": "节点魔数/端序、坏节点比例、cramfs 超级块",
+      "criteria": "目录树完整、init 与 /bin 可读；坏节点有解释且不影响关键路径",
+      "tools": ["jefferson", "jffs2dump", "cramfsck -x", "7z"],
+      "false_positive": "JFFS2 的 0x1985 在随机数据中也会出现；需确认节点头和长度"
+    },
+    {
+      "id": "FW-06",
+      "surface": "账号与口令",
+      "check": "/etc/passwd 空口令/UID0/异常 shell；/etc/shadow hash 算法/锁定状态；sudoers",
+      "criteria": "可登录的空/弱口令并有真实会话；或 hash 在授权下破解且能完成登录",
+      "tools": ["awk", "grep", "hashcat", "john", "nxc smb/ssh"],
+      "false_positive": "只有 hash 未破解是素材；shadow 为 !/* 表示锁定；passwd 的 x 不代表空口令"
+    },
+    {
+      "id": "FW-07",
+      "surface": "私钥/证书/设备身份",
+      "check": "PRIVATE KEY/CERTIFICATE 标记、pem/key/p12/pfx、authorized_keys、证书用途",
+      "criteria": "私钥与证书配对，且能用于设备/云/OTA 身份验证；记录指纹与用途",
+      "tools": ["find", "grep", "openssl x509/pkey", "file"],
+      "false_positive": "公钥/证书/示例占位符不是私钥；文件名像 key 不代表有私钥"
+    },
+    {
+      "id": "FW-08",
+      "surface": "启动脚本与服务链",
+      "check": "inittab/rcS/init.d/procd/systemd/nvram 调用；服务运行用户与监听地址",
+      "criteria": "能画出 开机 -> 服务 -> 用户 -> 端口 -> 可控参数 的链路，并有文件:行号",
+      "tools": ["grep -RIn", "readlink", "ps", "netstat/ss", "strings"],
+      "false_positive": "脚本存在但被条件/看门狗禁止；服务启动后立即退出"
+    },
+    {
+      "id": "FW-09",
+      "surface": "Web/CGI 命令注入",
+      "check": "system/popen/execve 调用链、CGI 参数、PATH_INFO、上传/升级接口",
+      "criteria": "可控参数到达危险函数，返回命令输出或造成可重复副作用",
+      "tools": ["grep -RIn", "Ghidra/IDA", "curl", "Burp", "tcpdump"],
+      "false_positive": "字符串里出现 system( 不等于可达；参数被白名单/转义"
+    },
+    {
+      "id": "FW-10",
+      "surface": "qemu-user 单程序仿真",
+      "check": "架构/端序、动态加载器、库依赖、chroot/-L 路径",
+      "criteria": "chroot 内可执行 id、读 /etc/passwd、运行目标 CGI 并返回预期输出",
+      "tools": ["qemu-mipsel/arm/aarch64", "qemu-*-static", "readelf", "chroot"],
+      "false_positive": "能跑 /bin/sh 不代表目标 CGI 可跑；缺库/缺 /proc 会假失败"
+    },
+    {
+      "id": "FW-11",
+      "surface": "qemu-system/FirmAE 整机仿真",
+      "check": "kernel/rootfs/root=/console=/网卡/网络推断/看门狗/NVRAM",
+      "criteria": "内核挂根、init 启动、服务监听且真实协议回包；不是仅 QEMU 进程存在",
+      "tools": ["qemu-system-*", "FirmAE", "Firmadyne", "tcpdump"],
+      "false_positive": "自动仿真报成功但 Web 只有静态页；反复重启常是看门狗/网络推断错"
+    },
+    {
+      "id": "FW-12",
+      "surface": "网络服务验证",
+      "check": "监听地址/端口、进程、运行用户、请求/响应、认证方式",
+      "criteria": "J2：端口 + 进程 + 真实业务响应（动态 HTML/JSON/CGI/协议回包）",
+      "tools": ["nmap", "curl", "nc", "ss/netstat", "tcpdump"],
+      "false_positive": "端口开放但 404/502、只返回静态页；hostfwd 指错端口"
+    },
+    {
+      "id": "FW-13",
+      "surface": "fuzz 接线",
+      "check": "解析器入口、harness 是否进目标函数、corpus/字典、崩溃可重放性",
+      "criteria": "同一输入可重复触发崩溃/越界/命令注入，有输入、日志、core/ASAN 证据",
+      "tools": ["afl-fuzz -Q", "AFL++", "aflnet", "boofuzz", "gdb-multiarch"],
+      "false_positive": "一次性崩溃/服务重启可能是看门狗/OOM；仅版本旧不算漏洞"
+    },
+    {
+      "id": "FW-14",
+      "surface": "UART/JTAG/SPI 硬件接入",
+      "check": "电压、GND/TX/RX、波特率、U-Boot 中断、IDCODE、闪存型号",
+      "criteria": "串口落到 shell 或改 bootargs；JTAG 识别 SoC 且读出与 SPI 一致的镜像",
+      "tools": ["USB-TTL", "picocom/minicom", "openocd", "flashrom", "逻辑分析仪"],
+      "false_positive": "乱码可能是波特率/地线问题；能读 IDCODE 不等于能读全片"
+    }
+  ]
+}

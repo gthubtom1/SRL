@@ -183,4 +183,4 @@ file bin/busybox bin/* 2>/dev/null | head -40
 - **不是纯 Web**：只测云端 API/前端时走后端复刻或 Web 技能；本技能的网络验证仅围绕设备自身服务。
 - **不做未授权硬件接入**：不接第三方设备、不扫公网、不写他人闪存；不提供绕过厂商授权/计费的攻击步骤。
 - **不做“解包即成功”**：没有 shell/服务/漏洞证据时，只能算侦察，不得标为完成。
-- 详细命令与判据见 `references/firmware-unpack.md`、`references/hardware-interfaces.md`。
+- 详细命令与判据见 `references/firmware-unpack.md`、`references/hardware-interfaces.md`、`references/filesystem-and-credentials.md`、`references/emulation-and-fuzz.md`；离线体检用 `Tool/scripts/fw-triage.py`。
