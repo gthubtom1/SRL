@@ -23,6 +23,7 @@
 - [06 失败判据](techniques/06-failure-criteria.md)
 - [容器识别与解包决策](techniques/07-container-triage.md)
 - [凭据与启动链审计](techniques/08-credentials-and-boot-chain.md)
+- [2026 再托管失败面战例](techniques/2026-rehosting-failures.md) — FirmPilot/Khost 口径 + `rehost_blocker` 分类
 
 ## 三条硬判据
 
