@@ -49,6 +49,8 @@ def pe_info(path):
         raise SystemExit(f"[ERR] 文件不存在：{path or '(空)'}")
     data = open(path, "rb").read()
     out = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+    if len(data) < 0x40:
+        raise SystemExit("[ERR] 文件太小（%d B），不是有效 PE：%s" % (len(data), path))
     if data[:2] != b"MZ":
         out["format"] = "not-pe"
         return out, data

@@ -450,33 +450,51 @@ def check_persona_gate():
 
 
 def check_taskcards_gate():
-    """任务卡必须带案闸命令 —— 血案：v1.18.5 从缺闸的源文件重生成 analyze.md，把 P0-1 静默回退。"""
+    r"""任务卡必须带案闸命令，且与源头同源。
+
+    血案：v1.18.5 从缺闸源重生成 analyze.md，把 P0-1 静默回退；
+    且早期断言用**裸词** `gate`，被任务卡里的 `NEXT = 01-gate-bypass` 顶掉 →
+    "删掉闸行仍 PASS"（审计用篡改实测证伪过）。现在一律用字面正则 `case_state\.py\s+<sub>`。
+    """
     tdir = os.path.join(TOOL, "prompts", "tasks")
     subs = ["init", "claim", "prove", "depth", "instrument", "verdict", "gate"]
-    need = {"analyze.md": subs + ["必须返回 0"], "reverse.md": ["case_state.py gate", "deliver"],
-            "reverse-deliverable.md": ["case_state.py gate", "deliver"]}
+    need = {
+        "analyze.md": [(r"case_state\.py\s+" + k + r"\b", "case_state.py " + k) for k in subs]
+                      + [("必须返回 0", "必须返回 0")],
+        "reverse.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"), ("deliver", "deliver")],
+        "reverse-deliverable.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"), ("deliver", "deliver")],
+    }
     bad = []
     for f, markers in need.items():
-        p = os.path.join(tdir, f)
-        if not os.path.isfile(p):
+        fp = os.path.join(tdir, f)
+        if not os.path.isfile(fp):
             bad.append(f + "(缺文件)")
             continue
-        t = open(p, encoding="utf-8", errors="replace").read()
-        for mk in markers:
-            if mk not in t:
-                bad.append(f + "(缺 '" + mk + "')")
+        t = open(fp, encoding="utf-8", errors="replace").read()
+        for pat, label in markers:
+            if not re.search(pat, t):
+                bad.append(f + "(缺 '" + label + "')")
                 break
-    # VERSION_SEEN 必须等于发布版本（防"版本戳停在旧值"）
     try:
         ver = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
-        for f in ("analyze.md",):
-            t = open(os.path.join(tdir, f), encoding="utf-8", errors="replace").read()
-            if "VERSION_SEEN = " + ver not in t:
-                bad.append(f + "(VERSION_SEEN != " + ver + ")")
+        t = open(os.path.join(tdir, "analyze.md"), encoding="utf-8", errors="replace").read()
+        if "VERSION_SEEN = " + ver not in t:
+            bad.append("analyze.md(VERSION_SEEN != " + ver + ")")
     except Exception as e:
         bad.append("VERSION 读取失败:" + str(e)[:40])
-    add("9 任务卡", "任务卡闸块在场（analyze 必须有 gate）", not bad,
-        "；".join(bad)[:160] if bad else "三张任务卡均含 case_state 命令")
+    gen = os.path.join(TOOL, "scripts", "gen-task-cards.py")
+    if os.path.isfile(gen):
+        try:
+            r = subprocess.run([sys.executable, gen, "--check"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=90)
+            if r.returncode != 0:
+                bad.append("任务卡与源头漂移（跑 gen-task-cards.py）")
+        except Exception as e:
+            bad.append("gen-task-cards 失败:" + str(e)[:40])
+    else:
+        bad.append("缺 gen-task-cards.py")
+    add("9 任务卡", "任务卡闸块在场（字面 case_state.py <sub>）+ 与源头同源", not bad,
+        "；".join(bad)[:160] if bad else "三张任务卡均含字面闸命令，且与源头 sha 一致")
 
 
 def main():

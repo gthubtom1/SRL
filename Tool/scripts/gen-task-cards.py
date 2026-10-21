@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,11 +34,14 @@ def build() -> str:
         raise SystemExit("[ERR] 源文件缺少 ```text 代码块")
     body = src.split("```text", 1)[1]
     body = body.rsplit("```", 1)[0].strip()
-    need = ["init", "claim", "prove", "depth", "instrument", "verdict", "gate"]
-    missing = [k for k in need if k not in body]
-    if missing or "必须返回 0" not in body:
+    # 必须是字面 `case_state.py <sub>`：裸词 `gate` 会被任务卡里的 `NEXT = 01-gate-bypass` 顶掉，
+    # 导致"删掉闸行仍能生成、preflight 仍绿"（审计实测证伪过）。
+    subs = ["init", "claim", "prove", "depth", "instrument", "verdict", "gate"]
+    missing = [k for k in subs if not re.search(r"case_state\.py\s+" + k + r"\b", body)]
+    lack_zero = "必须返回 0" not in body
+    if missing or lack_zero:
         raise SystemExit("[ERR] 源文件闸块不完整（缺：%s%s）—— 拒绝生成，防止再回退 P0-1"
-                         % (",".join(missing) or "无", "；缺『必须返回 0』" if "必须返回 0" not in body else ""))
+                         % (",".join(missing) or "无", "；缺『必须返回 0』" if lack_zero else ""))
     return FRONT + body + "\n"
 
 
