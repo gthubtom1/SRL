@@ -10,6 +10,30 @@
 
 ---
 
+## [1.10.21] — 2026-10-20
+
+> 主题：**"哪些工具需要开 GUI、哪些不用"写成判定原则**（不靠人去记）。
+
+### 新增
+
+- **`tool-runtimes.json`** 增加三块声明式说明：
+  - `_判定原则`：新增工具时按 ①stdio MCP ②CLI/headless ③宿主内 MCP ④GUI ⑤人工 的顺序定 kind；
+  - `_何时不该启动`：判据只有一句——**这次任务需不需要在目标进程里下钩子/断点**；不需要就不启动宿主；
+  - `_度在哪里`：按需自启（不做开机常驻）· 单实例（同端口只开一个）· 用完即关。
+- **`Tool/docs/EXTEND.md` 新增 §4ter**：同一套"选 kind 的顺序"给未来加工具的人/AI 照着做。
+
+### 现状（本机）
+
+| 工具 | kind | 谁启动 |
+|---|---|---|
+| seep / js-reverse / playwright | stdio MCP | pi 会话启动时自拉 |
+| r2 / jadx / apktool / tshark / nmap / frida … | CLI | 不用启动，直接调 |
+| IDA（默认） | `headless-cli`（`idat -A -S`） | 不用开 GUI |
+| x64dbg / x32dbg | `mcp-http`（宿主插件，9094） | Agent 用 `tool-run.ps1` 按需自启，单实例 |
+| Ghidra | `cli-headless`（analyzeHeadless） | 不用开 GUI |
+
+---
+
 ## [1.10.20] — 2026-10-20
 
 > 主题：**x64dbg 由 Agent 自启，不许再让用户手动开 / 不许问"允许 attach 吗"**。
