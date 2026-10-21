@@ -7,7 +7,7 @@
   },
   "_字段": {
     "onlyIfMissing": "true = 用户已有同名条目时不覆盖（用于带用户凭据的条目，如 playwright token）",
-    "lifecycle": "lazy = 用到才连；eager = 会话启动即连"
+    "lifecycle": "备注字段，pi 内核不读：真正连接发生在**会话启动**；宿主没起 → 整个会话没有该 MCP 工具。agent 用 Tool/scripts/tool-run.ps1 拉起后，需 /mcp reconnect <name> 才能挂上。"
   },
   "servers": {
     "seep": {
