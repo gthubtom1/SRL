@@ -180,5 +180,18 @@
         }
       ]
     }
-  }
+  },
+  "_判定原则（新增工具时照这个顺序定 kind）": {
+    "1_mcp-stdio": "工具自带 stdio MCP → pi 会话启动时自己拉起，用户不用管（seep / js-reverse / playwright）",
+    "2_cli": "有 CLI 或 headless 能做同样的事 → 绝不启动 GUI（r2 / jadx / apktool / idat / analyzeHeadless / tshark / nmap）",
+    "3_mcp-http|mcp-sse": "控制面在宿主进程内（调试钩子 / 断点 / 注入 / 内存读写）→ 由 Agent 用 tool-run 按需自启，单实例，用完 StopDebug 或退出",
+    "4_gui": "只有 GUI 能操作、且没有 MCP → 最后手段；仍由 Agent 自启，并必须在 why 里写明「为什么没有 headless 等价物」",
+    "5_manual": "首次许可协议 / 崩溃恢复弹窗这类必须人看屏幕的 → 才找用户"
+  },
+  "_何时不该启动": "任务不需要该工具的控制面时就不启动。例：纯静态反编译用 idat 就够，别开 IDA GUI；读内存快照用 pe-sieve 就够，别挂 x64dbg。判据是「这次任务需不需要在目标进程里下钩子/断点」。",
+  "_度在哪里（三条硬约束）": [
+    "按需自启：任务需要才起，不做开机常驻（GUI 宿主占资源、抢焦点、可能干扰目标反调试判定）",
+    "单实例：同一宿主只开一个（x64dbg/x32dbg 共用 9094，多开必抢端口）",
+    "用完即关：调试收尾 StopDebug；GUI 会话结束就退出，别留着占端口"
+  ]
 }
