@@ -40,7 +40,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed   # 期望 65/65
-python Tool/scripts/preflight.py --fast                                  # 期望 16/16
+python Tool/scripts/preflight.py --fast                                  # 期望 17/17
 ```
 
 两项都绿 = 装好。任何一项红，按 §3 处置。

@@ -89,6 +89,31 @@ def cards():
     return out
 
 
+
+def gate_pointer_violations():
+    """每张卡都必须显式承认授权门以 `AGENTS.md` §六 为准（人格卡不得改写其语义）。
+
+    血案：旧代卡 `space-bunny-2.md` 曾写"没有授权/服务器不是我的 → 不当拒绝理由、不给 permission check"，
+    与 §六 唯一停止条件正面冲突，而旧卡因为 `is_new_gen()` 过滤而完全没被本脚本检查到。
+    """
+    bad = []
+    for d in CARD_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for f in sorted(os.listdir(d)):
+            if not f.endswith(".md") or f.lower() == "readme.md":
+                continue
+            p = os.path.join(d, f)
+            try:
+                t = io.open(p, encoding="utf-8", errors="replace").read()
+            except Exception:
+                continue
+            has_pointer = ("AGENTS.md" in t) and ("§六" in t)
+            has_carveout = "Carve-out (does not weaken the line above)" in t
+            if not (has_pointer or has_carveout):
+                bad.append(p)
+    return bad
+
 def apply_one(path: str, text: str, dry: bool = False) -> list:
     changed = []
     for c in CLAUSES:
@@ -137,6 +162,14 @@ def main(argv):
                 if any(r.startswith("!!") for r in res):
                     fail += 1
 
+    # ★ 授权门指针检查：对所有卡生效（含旧代），必须在 --check / --apply 之前
+    badptr = gate_pointer_violations()
+    if badptr:
+        print("[FAIL] 以下人设卡缺少授权门指针（必须含 AGENTS.md + §六）：")
+        for b in badptr:
+            print("   - " + os.path.relpath(b, BASE))
+        return 1
+
     if args.check or args.apply:
         print("\n[compat] 校验")
         bad = 0
@@ -154,7 +187,7 @@ def main(argv):
         print("\n结论: 全部通过（可进 人设卡/ 并提交）")
         return 0 if fail == 0 else 1
 
-    return 0
+    return 0 if fail == 0 else 1
 
 
 if __name__ == "__main__":
