@@ -57,6 +57,7 @@
 - [06 失败判据速查](techniques/06-failure-criteria-playbook.md) — 现象→判定→改走→代价，停机规则。
 - [x 密码学 oracle 速查](techniques/07-crypto-oracle-playbook.md) — RSA/ECB/CBC/PRNG/证书的假设与回代。
 - [x 堆 tcache/UAF 速查](techniques/08-heap-tcache-playbook.md) — 2.26–2.35+ 的版本差异与 poison 步骤。
+- [2026 glibc 2.34+ FSOP 战例](techniques/2026-glibc234-fsop.md) — `__free_hook` 移除后的 IO vtable / `__exit_funcs` 判据。
 
 ## 常用命令
 

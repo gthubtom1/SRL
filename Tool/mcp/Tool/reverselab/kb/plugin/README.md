@@ -12,6 +12,7 @@
 - [asar 与 Electron 主进程](techniques/asar-main-process.md) — main/preload/renderer、IPC、原生模块、`.jsc`。
 - [Unity IL2CPP 与 BepInEx](techniques/unity-il2cpp-bepinex.md) — 加载器、插件类、Harmony patch、IL2CPP dump。
 - [VSIX / JetBrains 插件](techniques/ide-plugin-vsix-jetbrains.md) — 激活事件、扩展点、受限工作区、签名/更新。
+- [2026 V8 字节码战例](techniques/2026-v8-bytecode.md) — bytenode `.jsc` 反编译的 `v8_version_match` 闸门。
 - [插件失败判据](techniques/plugin-failure-criteria.md) — 何时停、换哪条观测层、怎么留证。
 
 ## 10 分钟初筛

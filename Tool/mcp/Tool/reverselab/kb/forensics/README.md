@@ -14,6 +14,7 @@
 - [Unity IL2CPP/AssetBundle](techniques/unity-il2cpp-assetbundle.md) — 元数据、dump.cs、资源清单
 - [证据链四要素](techniques/evidence-chain.md) — 时间/主体/动作/对象、哈希链、污染控制
 - [失败判据](techniques/failure-criteria.md) — 看到什么就停/降级、代价表
+- [2026 MemProcFS `/sys/eventlog` 战例](techniques/2026-memprocfs-519.md) — 内存重建 EVTX 的 `eventlog_from_mem` 判据
 
 ## 10 分钟初检
 

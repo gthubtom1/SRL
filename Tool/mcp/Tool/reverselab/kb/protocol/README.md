@@ -56,6 +56,7 @@
 | [websocket-and-http2-framing.md](techniques/websocket-and-http2-framing.md) | WS 帧头/掩码/控制帧、h2 streamid/HPACK | 长连接、多路复用 |
 | [live-capture-hygiene.md](techniques/live-capture-hygiene.md) | BPF 收敛、回环抓包、脱敏、抓包点选择 | 要"现场抓一次" |
 | [real-pcap-drills.md](techniques/real-pcap-drills.md) | 用仓库自带真实 pcap 做的 5 个练习 | 练手/复现判据 |
+| [2026 LLM 状态机战例](techniques/2026-llm-state-machine.md) | LLM 给出 FSM，要验边 | `edge_coverage`/`llm_unverified` 验收 |
 | [failure-criteria.md](techniques/failure-criteria.md) | 失败判据表 + 改走哪条 + 代价 | 卡住时先看这里 |
 
 ## 10 分钟初筛（复制即用）

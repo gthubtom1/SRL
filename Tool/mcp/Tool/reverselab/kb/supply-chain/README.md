@@ -15,6 +15,7 @@
 | integrity / resolved / 冻结安装 | [锁文件完整性](techniques/05-lockfile-integrity.md) |
 | 结果不成立、要降级换面 | [供应链失败判据](techniques/06-reachability-failure-criteria.md) |
 | 仿冒包、恶意安装脚本、外联 | [抢注/仿冒与恶意包](techniques/07-typosquat-and-malicious-packages.md) |
+| Bun 载荷、运行期动态依赖（RDD） | [2026 ChainDrop / SANDWORM_MODE 战例](techniques/2026-chaindrop-sandworm.md) |
 
 技能参考（逐篇）：`references/01-criteria.md`、`references/02-failure-criteria.md`、
 `references/03-model-pitfalls.md`、`references/04-walkthrough-workflow-permissions.md`、
