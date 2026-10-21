@@ -7,6 +7,10 @@ metadata:
   compatible_workbench: "Seep v1.8.4+"
 ---
 
+> **定位说明**：本技能是「追版算法」的细节卷（AOB 双态特征码 / 差分辅助）。
+> 完整生命周期（版本账、UI 与授权迁移、七步流水线、兜底三重、验收）见 **`04-version-migrate`**，
+> 引擎实现在 `Tool/scripts/migrate.py`，规范在 `Tool/docs/MIGRATION.md`。
+
 # 客户端跨版本增量追版与特征迁移技能 (Version Migration & Differential Adaptation)
 
 > **核心使命**：杜绝从零重复逆向！将旧版本已沉淀的分析报告、AOB 特征码、补丁源码秒级迁移至新版本，极速交付适配新版的可用成品。
