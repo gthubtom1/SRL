@@ -171,6 +171,19 @@ kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>
 2. **权限提升可见证**：`whoami /all`、`kubectl auth can-i`、`aws sts get-caller-identity`、域管组成员等**客观输出**证明权限级别发生变化。
 3. **证据可归档**：命令、时间戳、源/目标、原始输出、hash/证书/票据的指纹（不回传明文敏感数据），能支撑报告复现。
 
+## 失败判据（必须降级为「未验证」）
+
+出现以下任一情况，这条路已走不通：结论只能写「未验证」，并转到括注的替代路线：
+
+- 认证侧根本进不去：`KRB_AP_ERR_SKEW` 对时后仍失败、`STATUS_ACCOUNT_LOCKED_OUT`、或同一账号连续 2 次 4625 → 停，换账号/换来源，别再撞锁定阈值。
+- 只有 hash/票据/证书、没有明文或可用会话（Kerberoast 仅 AES 且字典不中、ADCS 只拿到 pfx 未 `certipy auth` 成功）→ 是「素材」不是「打穿」，转 ADCS/委派或如实记录。
+- `certipy find` 报 vulnerable 但当前账号无 `Enroll`、模板需 manager approval、CA 拒绝 SAN → 别在 ESC1/ESC6 上反复试，转 ESC4/ESC5/ESC7（需 ACL 或 CA 权限）。
+- relay 侧全堵：SMB/LDAP signing 强制、EPA 已开、目标只收 Kerberos → 放弃 relay，转凭据直连或 ADCS HTTP 之外的面。
+- 委派不可用：`msDS-AllowedToDelegateTo` 不含目标、SPN 不匹配、目标禁用协议转换、无 RBCD 写权限 → 转 ACL 滥用（`ad-attacks.md`）或横向凭据复用。
+- 云侧身份无效：`aws sts get-caller-identity` 报 AccessDenied/ExpiredToken，元数据端点 403/超时，或凭据只有 `List*` 无可利用写权限 → 记录权限面后转其他凭据来源。
+- 集群侧权限不足：`kubectl auth can-i` 均为 no、`create pods` 被 PSA/Quota 拦、逃逸缺 `CAP_SYS_ADMIN` 或挂载只读 → 停手，转 Secret/CI 凭据面，不再反复提权。
+- 连续两次同一手法失败（同工具同参数、同目标同入口）→ 换路线或汇报，不堆时间。
+
 ## 工具与降级
 
 | 工具 | 用途 | 缺失时 |

@@ -3,15 +3,16 @@
   "domain": "plugin-targets",
   "route": "R25",
   "target_type": "Electron 桌面应用（app.asar，本地授权样本）",
+  "protection": [],
   "authority": "local",
   "goal_level": "L2",
   "outcome": "planned",
   "package": {
-    "file": "evidence/app.asar",
+    "file": "",
     "sha256": "",
-    "version": "5.1.0",
-    "asar_header": "04 00 00 00",
-    "unpacked": ["app.asar.unpacked/native/addon.node"]
+    "version": "",
+    "asar_header": "",
+    "unpacked": []
   },
   "runtime": {
     "electron": "28.x",
@@ -32,18 +33,16 @@
     "renderer → ipcRenderer.send('app:open-external') → shell.openExternal",
     "main → electron-updater → 远端 latest.yml"
   ],
-  "artifacts": [
-    {"path": "evidence/app.asar", "sha256": ""},
-    {"path": "export/asar-tree.txt", "sha256": ""},
-    {"path": "report/ipc.md", "sha256": ""}
-  ],
+  "artifacts": [],
   "lessons": [
+    "当前状态：planned —— app.asar 未取得（evidence/ 为空），runtime/manifest 段是按 Electron 28 常见配置写的预期，不是实测",
+    "还差什么：拿到授权 app.asar 并算 sha256，npx asar 列目录确认 main/preload 是否字节码，再导出 export/asar-tree.txt 与 report/ipc.md",
     "asar 不是加密：能列目录不代表能读 .jsc/原生模块",
     "contextIsolation:false + nodeIntegration:true 会放大 renderer 到 Node 的攻击面",
     "先定位 IPC handler 的参数校验与路径拼接，再决定最小可改单元",
     "失败判据：asar 头解析失败两次或 main/preload 全被字节码覆盖，标入口未读"
   ],
-  "tags": ["R25", "plugin", "electron", "asar", "ipc"],
+  "tags": ["R25", "plugin", "electron", "asar", "ipc", "planned"],
   "refs": [
     "Tool/skill/plugin-targets/SKILL.md",
     "Tool/skill/plugin-targets/references/electron-and-asar.md",

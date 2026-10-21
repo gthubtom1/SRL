@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T11:06:59Z",
-  "source_hash": "94133f3cf0db98b852736c105a9569457a77167f7478c2bd5f2cb06b3cee3157",
+  "generated_at": "2026-10-21T12:08:08Z",
+  "source_hash": "40b97611a3a34a2989e644e07a2bbb233e90cda79eda765fecda9c3b73f58300",
   "case_count": 33,
   "cases": [
     {
@@ -12,13 +12,18 @@
       "protection": [],
       "authority": "authorized AD lab",
       "goal_level": "L3",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "a341a361abf707a8b35c8a1872dc8da50b00f66eedb7ffccc24b9a51aa3095af"
+        }
+      ],
       "lessons": [
-        "入口：先确认授权域、DC、CA、测试账号与锁定阈值；未拿到 CA 名称不预设 ESC。",
-        "路径：枚举模板 -> 确认 Enroll/SAN/EKU/审批 -> certipy req -> certipy auth；每步留命令与返回。",
-        "判据：certipy auth 返回目标 TGT/hash 并可访问授权资源；仅 certipy find 报 vulnerable 不算。",
-        "失败判据：无 Enroll、manager approval、EKU 不匹配、EPA/signing 拦住 relay；失败即记录并换路线。",
+        "本次跑到：adcloud-check.py --kubeconfig work/no-such.yaml --json，rc=2；ok=false，错误码 KUBECONFIG_NOT_FOUND，未读取到任何 context/TLS/token，也没有触碰 AD/ADCS。",
+        "卡点：案例目标是 AD 域+ADCS，但当前没有授权域、DC/CA 名称和测试账号；该离线脚本只验证了 kubeconfig 失败路径，不能替代 certipy find/req/auth。",
+        "下一步：拿到授权域与 CA 信息后先枚举模板，确认 Enroll/SAN/EKU/审批，再 certipy req→certipy auth；每步保留命令与返回。",
+        "成立判据：certipy auth 返回目标 TGT/hash 并可访问授权资源；仅 certipy find 报 vulnerable 不算；失败要记录并换路线。",
         "边界：不碰授权外账号/CA，不做持久化；证书与票据只留指纹和有效期。"
       ],
       "tags": [
@@ -27,7 +32,7 @@
         "kerberos",
         "adcs",
         "ESC1",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/ad-cloud/SKILL.md",
@@ -45,13 +50,18 @@
       "protection": [],
       "authority": "authorized cluster",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "a341a361abf707a8b35c8a1872dc8da50b00f66eedb7ffccc24b9a51aa3095af"
+        }
+      ],
       "lessons": [
-        "入口：先跑 adcloud-check.py --kubeconfig 做离线配置体检，再决定是否在线验证。",
-        "判据：离线只能判 context/TLS/token 过期/无凭据/宽权限名称；RBAC 是否宽必须 kubectl auth can-i 在线确认。",
-        "失败判据：把无凭据 user 直接写成匿名可访问；把 cluster-admin 名称写成已提权；把过期 token 当有效证据。",
-        "边界：不导出业务数据、不创建计费资源、不修改集群策略；测试 Pod/绑定用后即删。"
+        "本次跑到：adcloud-check.py --kubeconfig work/no-such.yaml --json，rc=2；ok=false，KUBECONFIG_NOT_FOUND，未得到任何 context、TLS、token 或权限线索。",
+        "卡点：没有可离线审计的 kubeconfig/凭据，也没有在线集群授权；无法判断匿名访问、token 过期或 cluster-admin 名称等结论。",
+        "下一步：提供授权集群的离线 kubeconfig 副本重跑本脚本，先看 context/TLS/token 过期/无凭据/宽权限名称，再用 kubectl auth can-i 在线确认 RBAC。",
+        "失败判据：不能把无凭据 user 写成匿名可访问，不能把 cluster-admin 名称写成已提权，不能把过期 token 当有效证据；测试资源用后即删。"
       ],
       "tags": [
         "R23",
@@ -59,7 +69,7 @@
         "k8s",
         "rbac",
         "token",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/ad-cloud/SKILL.md",
@@ -78,20 +88,25 @@
       "protection": [],
       "authority": "local",
       "goal_level": "J1",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+        }
+      ],
       "lessons": [
-        "入口：厂商固件/OTA 包只读副本 + SHA256；未拿到实物前不声称 UART 可用。",
-        "判据：J1 以 chroot/qemu-user 内可执行 id、读取 /etc/passwd、运行目标 CGI 为准。",
-        "失败判据：只能跑 /bin/sh、目标程序报解释器/库缺失、或解包缺 /etc 与 /bin/busybox。",
-        "边界：私钥/口令只做定位与脱敏，不在本案例中做破解或设备写入。"
+        "本次跑到：fw-triage.py 对仓库内 CrackMev1.exe 做离线分诊，rc=0；containers 只识别到 offset 0 的 PE，entropy 4.955，credential_clues 为空，verdict=not a firmware container。",
+        "卡点：仓库内没有摄像头 SquashFS/OTA 固件镜像，无法做 binwalk 解包、unsquashfs、/etc/passwd/口令审计或 qemu-user 验证；本机还缺 unsquashfs/sasquatch。",
+        "下一步：拿到只读固件副本并记录 SHA256，先跑 fw-triage 确认 SquashFS/容器偏移，再解包检查 /bin/busybox、/etc 与 CGI，最后在 chroot/qemu-user 内验证 id 和 CGI 响应。",
+        "边界：J1 以 chroot/qemu-user 内可执行 id、读取 /etc/passwd、运行目标 CGI 为准；未拿到实物前不声称 UART 可用。"
       ],
       "tags": [
         "firmware",
         "squashfs",
         "qemu-user",
         "credential-audit",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/firmware-iot/SKILL.md",
@@ -109,12 +124,18 @@
       "protection": [],
       "authority": "local",
       "goal_level": "J2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+        }
+      ],
       "lessons": [
-        "入口：NAND dump 必须保留 OOB 或原始布局；先确认 UBI# 偏移与 PEB/LEB 参数。",
-        "判据：J2 需要端口监听 + 服务进程 + 真实协议响应；仅 FirmAE 报网络成功不算。",
-        "失败判据：内核挂根失败、服务启动即退出、hostfwd 打不到业务端口；先读 qemu.*.log。",
+        "本次跑到：同一 fw-triage.py 对 CrackMev1.exe 做离线分诊，rc=0；仅识别 PE、低熵、无 credential clues，verdict 明确不是固件容器；ubireader/unsquashfs 等工具缺失。",
+        "卡点：没有 NAND dump/UBI 镜像，无法确认 UBI# 偏移、PEB/LEB 参数或 rootfs_data 覆盖层，也没有 FirmAE/qemu-system 起的 Web 服务。",
+        "下一步：拿到保留 OOB/原始布局的 NAND dump，先定位 UBI# 与卷，分别审计主 rootfs 和 rootfs_data，再用 FirmAE/qemu-system 起服务并以真实 HTTP 业务回包验证 J2。",
+        "成立判据：端口监听+服务进程+真实协议响应三者同时成立；仅 FirmAE 报网络成功不算。",
         "坑：rootfs_data 是配置覆盖层，账号/默认口令常不在主 rootfs；不要漏卷。"
       ],
       "tags": [
@@ -123,7 +144,7 @@
         "nand",
         "FirmAE",
         "web-service",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/firmware-iot/SKILL.md",
@@ -139,11 +160,13 @@
       "domain": "forensics-mobile",
       "target_type": "Windows 内存镜像（本地授权取证样本）",
       "protection": [],
-      "authority": "",
-      "goal_level": "",
+      "authority": "local",
+      "goal_level": "L2",
       "outcome": "planned",
       "artifacts": [],
       "lessons": [
+        "当前状态：planned —— 未采集内存，evidence/ 目录为空，无 mem.raw 与 SHA256SUMS，findings 全部未验证",
+        "还差什么：采集 mem.raw 并算哈希、确认 OS 版本与符号表、跑 pslist/psscan/netstat 建时间线，再把四要素写回 findings",
         "先 banners/info 定 OS 与符号，再跑 pslist/psscan；符号错会全盘失败",
         "pslist 与 psscan 差集只能作为隐藏/退出候选，不能直接定罪",
         "每条结论必须带时间/主体/动作/对象四要素与可复现命令",
@@ -154,7 +177,8 @@
         "forensics",
         "memory",
         "volatility3",
-        "timeline"
+        "timeline",
+        "planned"
       ],
       "refs": [
         "Tool/skill/forensics-mobile/SKILL.md",
@@ -169,11 +193,13 @@
       "domain": "forensics-mobile",
       "target_type": "pcap 流量取证（本地授权样本）",
       "protection": [],
-      "authority": "",
-      "goal_level": "",
+      "authority": "local",
+      "goal_level": "L2",
       "outcome": "planned",
       "artifacts": [],
       "lessons": [
+        "当前状态：planned —— 未抓包，evidence/ 目录为空，无 capture.pcap 与 SHA256SUMS，findings 全部未验证",
+        "还差什么：抓取时间窗内 pcap 并算哈希、做 capinfos/会话统计、按 tcp.stream 重组导出 HTTP 对象并逐个哈希，再回填 findings",
         "先 capinfos/会话统计，再按 tcp.stream 重组；不能只看单包",
         "HTTP 对象导出后逐个算哈希，同名文件以 stream 建索引",
         "时间线统一 UTC，保留 pcap 时间戳精度与丢包/截断说明",
@@ -184,7 +210,8 @@
         "forensics",
         "pcap",
         "http",
-        "timeline"
+        "timeline",
+        "planned"
       ],
       "refs": [
         "Tool/skill/forensics-mobile/SKILL.md",
@@ -201,29 +228,27 @@
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
+      "outcome": "partial",
       "artifacts": [
         {
-          "path": "evidence/SHA256SUMS",
-          "sha256": ""
-        },
-        {
-          "path": "config/extract_config.py",
-          "sha256": ""
+          "path": "artifacts/run.json",
+          "sha256": "23f95ff703e05c74db2a6ba330cda289c03f3404dfe141439d8b159fa683e44d"
         }
       ],
       "lessons": [
-        "计划路径：mal-triage.py 先分诊类型/熵/节异常/导入/IOC → diec+rabin2 判壳 → 副本脱壳或内存 dump → 定位配置解密函数",
-        "成立判据：能指出壳族与 OEP；dump 后入口落代码节且 IAT 合理；配置脚本可复现 C2/端口/互斥体等字段",
-        "失败路径预案：VMProtect/Themida 硬脱失败、IAT 全 0、key 远端下发、反调试导致行为缺失；此时转行为/网络侧写",
-        "证据：样本 SHA256、隔离环境与快照、节表/熵、脱壳前后哈希、配置字段出处（脱敏）"
+        "本次跑到：mal-triage.py 对仓库内 CrackMev1.exe 完成静态分诊，rc=0；type=PE、verdict=low(score 0)、entropy 4.9553、无节异常/可疑导入，IOC 仅见 myapplication.app/system.io 与 1.0.0.0 等占位串。",
+        "卡点：这不是加壳恶意样本，仓库内没有在 scope 内的样本副本；未做 diec/rabin2 判壳、脱壳或配置解密，不能给出壳族/OEP/C2 结论。",
+        "下一步：拿到样本 SHA256 后在隔离副本上重跑 mal-triage，再用 diec/rabin2 看节表/熵，必要时脱壳或内存 dump，最后定位配置解密函数。",
+        "成立判据：能指出壳族与 OEP、dump 后入口落代码节且 IAT 合理、配置脚本可复现 C2/端口/互斥体等字段；否则转行为/网络侧写。",
+        "证据要求：样本 SHA256、隔离环境与快照、节表/熵、脱壳前后哈希、配置字段出处（脱敏）。"
       ],
       "tags": [
         "R27",
         "malware-analysis",
         "unpacking",
         "config",
-        "pe"
+        "pe",
+        "partial"
       ],
       "refs": [
         "Tool/skill/malware-analysis/SKILL.md",
@@ -241,26 +266,18 @@
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
+      "outcome": "partial",
       "artifacts": [
         {
-          "path": "run/timeline.jsonl",
-          "sha256": ""
-        },
-        {
-          "path": "run/run.pcap",
-          "sha256": ""
-        },
-        {
-          "path": "rules/sample.yar",
-          "sha256": ""
+          "path": "artifacts/run.json",
+          "sha256": "23f95ff703e05c74db2a6ba330cda289c03f3404dfe141439d8b159fa683e44d"
         }
       ],
       "lessons": [
-        "计划路径：快照 → 隔离运行 3–5 分钟（必要时延长）→ Procmon/ETW+pcap+pe-sieve 采集 → 归一化 UTC 时间线 → 关联父子进程/网络/持久化",
-        "成立判据：时间线含 ts_utc/pid/ppid/image/action/object/result/evidence；至少文件+网络或进程+内存两类互证",
-        "失败路径预案：样本长睡眠/检测 VM、PID 复用导致错链、网络超时被当成功、只有截图没有对象；需回采集阶段补证据",
-        "证据：运行单（样本/环境/网络/采集/时长/回滚）、时间线 JSONL、pcap、YARA 命中与干净集结果"
+        "本次跑到：同一 mal-triage.py 对 CrackMev1.exe 的静态分诊，rc=0；只得到 PE/low/entropy 4.9553/无节异常与可疑导入，并生成建议 YARA 文本（未落盘为规则文件）。",
+        "卡点：没有沙箱、样本运行授权或采集环境；本次没有 Procmon/ETW/pcap/pe-sieve 数据，因此没有 timeline.jsonl、pcap 或可验证的 YARA 命中。",
+        "下一步：在快照隔离环境运行样本 3–5 分钟，采集进程/文件/网络/内存，归一化成含 ts_utc/pid/ppid/image/action/object/result/evidence 的 JSONL，再用干净集验证 YARA。",
+        "成立判据：至少文件+网络或进程+内存两类互证；长睡眠/VM 检测/PID 复用要回采集阶段补证据。"
       ],
       "tags": [
         "R27",
@@ -268,7 +285,8 @@
         "sandbox",
         "timeline",
         "ioc",
-        "yara"
+        "yara",
+        "partial"
       ],
       "refs": [
         "Tool/skill/malware-analysis/SKILL.md",
@@ -287,21 +305,10 @@
       "authority": "local",
       "goal_level": "L2",
       "outcome": "planned",
-      "artifacts": [
-        {
-          "path": "evidence/extension.crx",
-          "sha256": ""
-        },
-        {
-          "path": "export/manifest.json",
-          "sha256": ""
-        },
-        {
-          "path": "report/dataflow.md",
-          "sha256": ""
-        }
-      ],
+      "artifacts": [],
       "lessons": [
+        "当前状态：planned —— 只有按 MV3 形态写的设计稿，evidence/ 目录为空，未取得 .crx，manifest 段为预期权限而非实测",
+        "还差什么：拿到授权样本 .crx 并算 sha256，解包核对真实 manifest，逐权限映射到代码路径，导出 export/manifest.json 与 report/dataflow.md",
         "先解释每个权限对应哪条代码路径，再谈恶意；nativeMessaging 是高价值面",
         "content script 默认 isolated world，只有 world=MAIN 或注入 script 才进页面上下文",
         "MV3 service worker 会被回收，动态观测要主动唤醒并记录消息",
@@ -312,7 +319,8 @@
         "plugin",
         "crx",
         "mv3",
-        "nativeMessaging"
+        "nativeMessaging",
+        "planned"
       ],
       "refs": [
         "Tool/skill/plugin-targets/SKILL.md",
@@ -330,21 +338,10 @@
       "authority": "local",
       "goal_level": "L2",
       "outcome": "planned",
-      "artifacts": [
-        {
-          "path": "evidence/app.asar",
-          "sha256": ""
-        },
-        {
-          "path": "export/asar-tree.txt",
-          "sha256": ""
-        },
-        {
-          "path": "report/ipc.md",
-          "sha256": ""
-        }
-      ],
+      "artifacts": [],
       "lessons": [
+        "当前状态：planned —— app.asar 未取得（evidence/ 为空），runtime/manifest 段是按 Electron 28 常见配置写的预期，不是实测",
+        "还差什么：拿到授权 app.asar 并算 sha256，npx asar 列目录确认 main/preload 是否字节码，再导出 export/asar-tree.txt 与 report/ipc.md",
         "asar 不是加密：能列目录不代表能读 .jsc/原生模块",
         "contextIsolation:false + nodeIntegration:true 会放大 renderer 到 Node 的攻击面",
         "先定位 IPC handler 的参数校验与路径拼接，再决定最小可改单元",
@@ -355,7 +352,8 @@
         "plugin",
         "electron",
         "asar",
-        "ipc"
+        "ipc",
+        "planned"
       ],
       "refs": [
         "Tool/skill/plugin-targets/SKILL.md",
@@ -373,21 +371,10 @@
       "authority": "local",
       "goal_level": "L2",
       "outcome": "planned",
-      "artifacts": [
-        {
-          "path": "evidence/capture.pcapng",
-          "sha256": ""
-        },
-        {
-          "path": "schema.md",
-          "sha256": ""
-        },
-        {
-          "path": "replay.py",
-          "sha256": ""
-        }
-      ],
+      "artifacts": [],
       "lessons": [
+        "当前状态：planned —— 仅完成协议形态设计，evidence/ 目录为空，无抓包、无 schema、无复现脚本；以上字段均为假设",
+        "还差什么：抓取一条完整 ws 会话（capture.pcapng）、落 schema.md、写可复跑 replay.py，并用新的 subscribe 请求验证响应可预测",
         "先按 FIN/opcode 重组消息，再谈 JSON 字段；不能按 TCP 段切",
         "握手头 Host/Origin/Sec-WebSocket-Key 必须齐全，否则服务端拒绝",
         "判据是能构造新的 subscribe 请求并预测 data 响应，不是只看握手成功",
@@ -398,7 +385,8 @@
         "protocol",
         "websocket",
         "json",
-        "replay"
+        "replay",
+        "planned"
       ],
       "refs": [
         "Tool/skill/protocol-plugin/SKILL.md",
@@ -416,25 +404,10 @@
       "authority": "local",
       "goal_level": "L3",
       "outcome": "planned",
-      "artifacts": [
-        {
-          "path": "evidence/tcp-9527.pcap",
-          "sha256": ""
-        },
-        {
-          "path": "frames.jsonl",
-          "sha256": ""
-        },
-        {
-          "path": "schema.md",
-          "sha256": ""
-        },
-        {
-          "path": "parser.py",
-          "sha256": ""
-        }
-      ],
+      "artifacts": [],
       "lessons": [
+        "当前状态：planned —— 仅有帧格式假设，evidence/ 目录为空，没有 pcap、没有 frames.jsonl/schema.md/parser.py",
+        "还差什么：抓取 ≥3 帧真实流量、用 3 帧以上反推 length 覆盖范围与 CRC 参数、在客户端 send/recv 取加密前明文，再补 parser.py 重放验证",
         "长度字段含头/含尾必须用 3 帧以上反推，不能按首帧猜",
         "CRC 先定覆盖范围再定多项式；只匹配样本不算闭环",
         "加密段优先在客户端 send/recv 取明文，不暴力猜密钥",
@@ -445,7 +418,8 @@
         "protocol",
         "binary",
         "crc",
-        "framing"
+        "framing",
+        "planned"
       ],
       "refs": [
         "Tool/skill/protocol-plugin/SKILL.md",
@@ -469,22 +443,19 @@
       ],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
+      "outcome": "partial",
       "artifacts": [
         {
-          "path": "exploit.py",
-          "sha256": ""
-        },
-        {
-          "path": "notes/heap-trace.md",
-          "sha256": ""
+          "path": "artifacts/run.json",
+          "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
         }
       ],
       "lessons": [
-        "计划路径：checksec + glibc build id → 泄漏 heap → unsorted bin 泄漏 libc → tcache poison 到 exit_funcs/程序指针 → ORW 读 flag",
-        "成立判据：malloc 返回受控地址；泄漏页对齐且与目标 libc 吻合；本地全新进程 10 次成功 ≥9；flag 输出可复现",
-        "失败路径预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐",
-        "证据：checksec、sha256(chall/libc)、seccomp-tools dump、vis_heap_chunks 截图、exploit 运行计数"
+        "本次跑到：pwn-check.py 对仓库内 CrackMev1.exe 完成 PE 保护位/导入/format 串预判，rc=0；识别 PE x86 32-bit，NX/PIE Enabled、Canary Not found、RELRO N/A，1 个导入、无危险导入/format 风险。",
+        "卡点：这不是目标的 ELF x86_64 堆题，仓库内没有 chall/libc/ld 附件；因此没有 heap 泄漏、tcache/UAF 或 seccomp 证据，不能宣称利用成立。",
+        "下一步：补入目标 ELF 与对应 libc/ld，先跑 checksec/glibc build id/seccomp-tools dump，再按泄漏 heap→unsorted bin 泄漏 libc→tcache poison→ORW 的顺序做本地 10 次复现。",
+        "成立判据：malloc 返回受控地址、泄漏页对齐且 libc 吻合、全新进程 10 次成功≥9、flag 输出可复现。",
+        "失败预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐。"
       ],
       "tags": [
         "R21",
@@ -492,7 +463,8 @@
         "heap",
         "tcache",
         "uaf",
-        "seccomp"
+        "seccomp",
+        "partial"
       ],
       "refs": [
         "Tool/skill/pwn-crypto/SKILL.md",
@@ -510,29 +482,27 @@
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
+      "outcome": "partial",
       "artifacts": [
         {
-          "path": "solve.py",
-          "sha256": ""
-        },
-        {
-          "path": "notes/rsa-assumptions.md",
-          "sha256": ""
+          "path": "artifacts/run.json",
+          "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
         }
       ],
       "lessons": [
-        "计划路径：先判定填充/是否同一消息/模数是否互质，再在小指数、共模、Håstad 广播、共享素数、Wiener/Fermat 中选择",
-        "成立判据：pow(m,e,n)==c 且明文可读；广播 CRT 后开方精确且 m^e<M；两组密文回代都成立",
-        "失败路径预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质",
-        "证据：题目参数、假设清单、求解脚本、回代输出、明文来源与 flag 校验"
+        "本次跑到：按本域脚本要求用 pwn-check.py 对仓库内 CrackMev1.exe 做工具链连通性验证，rc=0；只得到 PE 保护位/导入预判，未执行任何 RSA 求解。",
+        "卡点：案例目标是 Python RSA 题目，但当前没有 n/e/c、模数列表或题目脚本；无法判断小指数、共模、Håstad、共享素数或 Wiener/Fermat 哪条路径成立。",
+        "下一步：补入题目参数/脚本后先做 gcd(n_i,n_j)、e 与 φ(n) 互质性、同消息/填充检查，再选攻击并回代 pow(m,e,n)==c。",
+        "成立判据：明文可读且回代成立；广播 CRT 后开方精确且 m^e<M；两组密文都成立才算完成。",
+        "失败预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质。"
       ],
       "tags": [
         "R21",
         "pwn-crypto",
         "crypto",
         "rsa",
-        "hastad"
+        "hastad",
+        "partial"
       ],
       "refs": [
         "Tool/skill/pwn-crypto/SKILL.md",
@@ -554,21 +524,26 @@
       ],
       "authority": "server",
       "goal_level": "L3",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "65d3aea98395e357db088f434af2909cfd786f45b6adefaaef65d97cf6393020"
+        }
+      ],
       "lessons": [
-        "先跑 sc-check.py --path <repo> 拿离线清单，再决定是否需要 syft/osv-scanner/cosign 联网或外部工具",
-        "依赖混淆的判据是 registry 映射 + 锁文件 resolved/integrity 三者一致，不是看到 @corp/ 就下结论",
-        "pull_request_target 要连同 checkout 的 ref、job 权限、secrets 作用域一起看；单独关键字命中只是线索",
-        "CI action 的 tag 可移动，证据必须写 40 位 commit SHA；报告里不能只写 @v4",
-        "锁文件缺失或 integrity 缺失时，不能宣称构建可复现；先给最小修复再谈 CVE"
+        "本次跑到：sc-check.py --path Tool/ --max-files 1000 完成离线扫描，rc=0；inventory 命中 1 个 npm manifest + 1 个 package-lock、2 个 GitHub Actions workflow，扫描因 1000 文件上限 truncated=true。",
+        "结果：9 条 medium、0 high/critical；6 条 ci-action-pin（actions/checkout@v4 等）、1 条 ci-permissions、1 条 dependency-confusion（@fontsource scope 未指定 registry）、1 条 version-range；syft/osv-scanner/cosign 等缺失。",
+        "卡点：只覆盖 Tool/ 前 1000 个文件，未做 registry 实际映射、锁文件 resolved/integrity 全量核对和 CVE 查询。",
+        "下一步：对目标 repo 全量重跑；把 Actions 固定到 40 位 commit SHA 并补 permissions；为 @fontsource 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
+        "依赖混淆判据仍是 registry 映射 + 锁文件 resolved/integrity 三者一致；pull_request_target 要连同 checkout ref、job 权限、secrets 作用域一起看。"
       ],
       "tags": [
         "npm",
         "GitHub-Actions",
         "dependency-confusion",
         "lockfile",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/supply-chain-security/SKILL.md",
@@ -592,14 +567,18 @@
       ],
       "authority": "server",
       "goal_level": "L3",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "65d3aea98395e357db088f434af2909cfd786f45b6adefaaef65d97cf6393020"
+        }
+      ],
       "lessons": [
-        "镜像证据必须写 repo@sha256:<digest>；tag、本地 image Id、截图都不能替代 digest",
-        "cosign verify 通过只说明有人签名，必须再核对 certificate identity、OIDC issuer 与 Rekor 条目",
-        "attestation 的 subject digest 必须与目标镜像一致；SLSA level 数字不能代替本次构建的 materials/configSource",
-        "SBOM 要对 digest 生成，并在发布后重生成；对 tag 生成的 SBOM 会过期",
-        "多阶段 FROM <stage> 不是基础镜像；扫描器报 image tag 时要先排除本地 stage 别名"
+        "本次跑到：同一 sc-check.py --path Tool/ --max-files 1000 离线扫描，rc=0；得到 1 个 npm manifest/lock、2 个 workflow、9 条 medium（ci-action-pin/ci-permissions/dependency-confusion/version-range）。",
+        "卡点：目标是 registry.example.com 镜像 @sha256:<digest>，本次没有镜像 digest、SBOM、attestation 或 cosign 数据；仓库扫描结果不能替代镜像与 provenance 证据。",
+        "下一步：拿到 image owner 授权后记录 repo@sha256:<digest>，对 digest 生成 SBOM，跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
+        "边界：只读 pull/verify，不 push、不覆盖 tag、不运行不可信镜像；多阶段 FROM <stage> 不是基础镜像，报 image tag 前先排除本地 stage 别名。"
       ],
       "tags": [
         "OCI",
@@ -607,7 +586,7 @@
         "SLSA",
         "SBOM",
         "digest",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/supply-chain-security/SKILL.md",
@@ -630,14 +609,19 @@
       ],
       "authority": "server",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "92a5713650b0313e357ef71f7c8bbc448e0fe5ec7be394b5c7ef04ef4aa25271"
+        }
+      ],
       "lessons": [
-        "先跑 web-check.py 建立被动基线：响应头、robots、错误页、敏感路径 200/403 矩阵，再决定主动验证顺序",
-        "JWT 结论必须用两个真实账号 A/B 加一个未登录会话，对照同一接口；只改 alg/kid 得到 200 不算越权",
-        "WAF 403 与应用 403 要分开：先用正常请求和特征请求各 3 次建立三组基线，再谈绕过",
-        "任何 200 命中先与首页/随机 404 做归一化比对，SPA 软 404 会造成大量假阳性",
-        "证据保留原始请求行、Host、Cookie/Authorization、状态码与响应 hash；截图只作补充"
+        "本次跑到：web-check.py 对 http://127.0.0.1:9/ 做被动基线，3 次 GET 后 rc=3；baseline 报 WinError 10061 目标不可达，所有检查项 skipped，findings=0。",
+        "卡点：没有可访问的授权目标，Host/scope 仍是 api.example.com 占位；未取得响应头、robots、错误页或敏感路径矩阵，无法进入 JWT/IDOR 验证。",
+        "下一步：拿到书面 scope 后换真实 base URL 重跑本脚本，先建立正常请求/特征请求/404 三组基线；再用两个账号 A/B 与未登录会话对照同一接口。",
+        "JWT 结论必须用两个真实账号 A/B 加一个未登录会话；只改 alg/kid 得到 200 不算越权。",
+        "WAF 403 与应用 403 分开；任何 200 命中先与首页/随机 404 做归一化，避免 SPA 软 404 假阳性；证据保留原始请求行、状态码与响应 hash。"
       ],
       "tags": [
         "REST",
@@ -645,7 +629,7 @@
         "IDOR",
         "WAF",
         "passive-baseline",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/web-pentest/SKILL.md",
@@ -669,14 +653,19 @@
       ],
       "authority": "server",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "e7902bd9c288e65b356d2b49c445dd75e73240b8281f9df13084133a05d301d1"
+        }
+      ],
       "lessons": [
-        "GraphQL introspection 关闭不代表字段级授权正确；低权会话必须逐字段/逐对象与高权会话对照",
-        "SPA 的任意路径 200 会污染敏感路径矩阵；web-check.py 的 soft-404/spa_fallback 标记必须先看",
-        "CVE 复现先钉精确版本（静态文件 hash 或 /version），再用官方补丁 diff 做修复前后对照，nuclei 只初筛",
-        "CDN 缓存可能返回旧响应，导致假复现；每步记录缓存状态与时间，必要时加随机查询串",
-        "不跟随跨域重定向，避免验证流量落到 scope 外；Location 只观察不跟随"
+        "本次跑到：web-check.py 对 http://127.0.0.1:9/ 做被动基线，3 次 GET 后 rc=3；目标不可达，GraphQL/SPA/CVE 相关检查全部 skipped，findings=0。",
+        "卡点：没有授权 SPA/GraphQL 目标，未取得软 404 标记、introspection 状态、静态文件 hash 或版本；无法做字段级授权或 CVE 复现。",
+        "下一步：拿到 app.example.com 的授权与低/高权会话后重跑，先看 soft-404/spa_fallback 标记，再逐字段/逐对象对照 GraphQL 授权。",
+        "CVE 复现先钉精确版本（静态文件 hash 或 /version），再用官方补丁 diff 做修复前后对照；nuclei 只初筛。",
+        "CDN 缓存可能返回旧响应，每步记录缓存状态与时间，必要时加随机查询串；不跟随跨域重定向，Location 只观察。"
       ],
       "tags": [
         "GraphQL",
@@ -684,7 +673,7 @@
         "CVE",
         "CDN",
         "soft-404",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/web-pentest/SKILL.md",

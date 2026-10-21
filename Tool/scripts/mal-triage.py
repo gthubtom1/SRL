@@ -567,6 +567,16 @@ def verdict(info, iocs, suspicious, imports, anomalies):
     return {"level": level, "score": score, "reasons": reasons}
 
 
+def emit_error(args, message, code, rc):
+    """统一错误输出：JSON 模式输出结构化对象，文本模式输出 [ERR]。"""
+    if args.json:
+        print(json.dumps({"ok": False, "error": message, "code": code},
+                         ensure_ascii=False))
+    else:
+        print("[ERR] %s" % message, file=sys.stderr)
+    return rc
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="恶意样本静态分诊：类型/熵/节异常、可疑导入、IOC、字符串分类、YARA 建议（纯标准库，只读）")
@@ -577,15 +587,16 @@ def main():
     args = ap.parse_args()
     path = os.path.abspath(args.file)
     if not os.path.isfile(path):
-        print("错误：文件不存在: %s" % path, file=sys.stderr)
-        return 2
+        return emit_error(args, "文件不存在: %s" % path, "FILE_NOT_FOUND", 2)
     try:
         with open(path, "rb") as fh:
             data = fh.read()
     except OSError as exc:
-        print("错误：读取失败: %s" % exc, file=sys.stderr)
-        return 2
+        return emit_error(args, "读取失败: %s" % exc, "READ_FAILED", 2)
     kind = detect_type(data, path)
+    if kind in ("binary/unknown", "text/unknown"):
+        return emit_error(args, "解析失败: 无法识别的文件类型 (%s)" % kind,
+                          "PARSE_FAILED", 3)
     info = {"kind": kind, "raw": data, "imports": [], "section_rows": [],
             "sections": [], "arch": "unknown", "bits": 0, "entry": 0,
             "overlay_bytes": 0}
@@ -604,8 +615,7 @@ def main():
                         names.append(("", n))
             info["imports"] = names
     except (ValueError, struct.error, IndexError) as exc:
-        print("错误：解析失败: %s" % exc, file=sys.stderr)
-        return 2
+        return emit_error(args, "解析失败: %s" % exc, "PARSE_FAILED", 3)
     strings = strings_from(data, args.max_strings)
     iocs = collect_iocs(strings)
     suspicious = classify_strings(strings)

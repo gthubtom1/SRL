@@ -3,15 +3,16 @@
   "domain": "plugin-targets",
   "route": "R25",
   "target_type": "Chrome/Edge MV3 浏览器扩展（.crx，本地授权样本）",
+  "protection": [],
   "authority": "local",
   "goal_level": "L2",
   "outcome": "planned",
   "package": {
-    "file": "evidence/extension.crx",
+    "file": "",
     "sha256": "",
-    "version": "2.3.1",
+    "version": "",
     "manifest_version": 3,
-    "source": "本地旁加载/商店导出"
+    "source": "待取得：本地旁加载/商店导出"
   },
   "manifest": {
     "permissions": ["storage", "cookies", "scripting", "nativeMessaging"],
@@ -34,18 +35,16 @@
     "background.js → chrome.cookies/scripting → page",
     "background.js → connectNative → 本机 host"
   ],
-  "artifacts": [
-    {"path": "evidence/extension.crx", "sha256": ""},
-    {"path": "export/manifest.json", "sha256": ""},
-    {"path": "report/dataflow.md", "sha256": ""}
-  ],
+  "artifacts": [],
   "lessons": [
+    "当前状态：planned —— 只有按 MV3 形态写的设计稿，evidence/ 目录为空，未取得 .crx，manifest 段为预期权限而非实测",
+    "还差什么：拿到授权样本 .crx 并算 sha256，解包核对真实 manifest，逐权限映射到代码路径，导出 export/manifest.json 与 report/dataflow.md",
     "先解释每个权限对应哪条代码路径，再谈恶意；nativeMessaging 是高价值面",
     "content script 默认 isolated world，只有 world=MAIN 或注入 script 才进页面上下文",
     "MV3 service worker 会被回收，动态观测要主动唤醒并记录消息",
     "失败判据：权限/入口无法对应代码路径，或签名/企业策略阻止加载"
   ],
-  "tags": ["R25", "plugin", "crx", "mv3", "nativeMessaging"],
+  "tags": ["R25", "plugin", "crx", "mv3", "nativeMessaging", "planned"],
   "refs": [
     "Tool/skill/plugin-targets/SKILL.md",
     "Tool/skill/plugin-targets/references/browser-extension.md",

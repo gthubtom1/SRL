@@ -6,7 +6,7 @@
       "skill": "forensics-mobile/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(取证|内存镜像|volatility|内存转储|流量分析|磁盘镜像|时间线|iphone|ios|ipa|macos|mach-o|keychain|il2cpp|global-metadata|assetbundle|unity\\s*资源|游戏客户端)",
+          "must": "(?i)(取证|内存镜像|volatility|流量分析|磁盘镜像|时间线|iphone|ios|ipa|macos|mach-o|keychain|il2cpp|global-metadata|assetbundle|unity\\s*资源|游戏客户端)",
           "note": "取证/移动/游戏：判据=证据链可复述"
         }
       ]

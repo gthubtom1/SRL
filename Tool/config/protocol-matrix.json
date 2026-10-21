@@ -88,6 +88,104 @@
       "criteria": ["事务 id/分片/重传规则可解释", "能构造新事务", "乱序/丢包可恢复"],
       "fail": ["无事务 id 无法配对", "分片重组不完整", "只看到单向流量"],
       "pitfalls": ["UDP 无连接需应用层 seq", "MTU 分片", "NAT 超时", "重传与幂等"]
+    },
+    {
+      "id": "dns-tunnel",
+      "name": "DNS/DoH/DoT 承载",
+      "match": ["dns", "doh", "dot", "txt 记录", "隧道", "域名", "qname"],
+      "tools": ["tshark", "zeek", "Python dnspython", "dnscat2"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'dns' -T fields -e dns.qry.name -e dns.qry.type -e dns.flags.rcode",
+        "zeek -r capture.pcap dns",
+        "python3 - <<'PY'\nimport dns.message\nprint(dns.message.make_query('a.example.invalid', 'TXT'))\nPY"
+      ],
+      "criteria": ["qname 编码/分片可还原为字节流", "查询与响应按事务 id 配对", "能构造新查询并得到可解释的应答"],
+      "fail": ["qname 高熵但无法还原编码", "应答被截断或缺 EDNS 支持", "DoH/DoT 无 keylog 只见密文"],
+      "pitfalls": ["标签 63 字节/总长 253 限制", "大小写与末尾点归一化", "缓存 TTL 与真实应答不一致", "DoH 复用 HTTP/2 连接"]
+    },
+    {
+      "id": "mail-smtp-imap",
+      "name": "SMTP/IMAP/POP3 邮件协议",
+      "match": ["smtp", "imap", "pop3", "邮件", "mime", "esmtp", "starttls"],
+      "tools": ["tshark", "swaks", "openssl s_client", "Python smtplib/imaplib"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'smtp || imap' -T fields -e frame.number -e tcp.stream -e data.text",
+        "swaks --to a@example.invalid --server 127.0.0.1:2525 --data body.eml",
+        "openssl s_client -connect 127.0.0.1:993 -quiet"
+      ],
+      "criteria": ["命令/应答状态码可预测", "MIME 边界与传输编码可还原", "认证方式(PLAIN/LOGIN/OAUTH)明确"],
+      "fail": ["STARTTLS 后无法解密", "多行应答续行解析错误", "MIME 嵌套编码无法还原"],
+      "pitfalls": ["CRLF 行尾敏感", "多行应答以 250- 续行", "APPEND 的 literal 长度", "能力集随 EHLO 变化"]
+    },
+    {
+      "id": "ics-modbus-s7",
+      "name": "工控协议（Modbus/S7/OPC UA）",
+      "match": ["modbus", "s7", "s7comm", "opc ua", "iec 104", "dnp3", "工控", "plc"],
+      "tools": ["tshark", "pymodbus", "scapy", "PLCScan"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'modbus || s7comm' -T fields -e frame.number -e modbus.func_code -e modbus.reference_num -e s7comm.header.rosctr",
+        "python3 - <<'PY'\nfrom pymodbus.client import ModbusTcpClient\nc = ModbusTcpClient('127.0.0.1', port=1502)\nprint(c.read_holding_registers(0, 10, slave=1))\nPY",
+        "tshark -r capture.pcap -q -z io,phs"
+      ],
+      "criteria": ["功能码/寄存器地址/会话配对可解释", "能读一个非关键寄存器并复现", "只读边界与写操作风险分级明确"],
+      "fail": ["功能码为私有扩展且无文档", "PLC 拒绝非白名单客户端", "只抓到轮询未见配置下发"],
+      "pitfalls": ["事务 id 与连接绑定", "寄存器大端字节序", "S7 PDU 协商影响分帧", "写操作可能触发物理动作，默认只读"]
+    },
+    {
+      "id": "mqtt-coap",
+      "name": "MQTT/CoAP/AMQP 消息协议",
+      "match": ["mqtt", "coap", "amqp", "publish", "subscribe", "qos", "物联网"],
+      "tools": ["tshark", "mosquitto_pub/sub", "Python paho-mqtt", "scapy"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'mqtt || coap' -T fields -e mqtt.topic -e mqtt.msgtype -e coap.code",
+        "mosquitto_sub -h 127.0.0.1 -p 1883 -t '#' -v -C 5",
+        "python3 - <<'PY'\nimport paho.mqtt.client as m\nc = m.Client(); c.connect('127.0.0.1', 1883); c.subscribe('#'); c.loop_start()\nPY"
+      ],
+      "criteria": ["topic 层级/通配符语义可解释", "QoS 重发与报文 id 配对正确", "能发布新 topic 并观测到消费端"],
+      "fail": ["broker 强制认证且无凭据", "payload 二次加密无法解", "只看到 retained 消息无实时流量"],
+      "pitfalls": ["QoS1/2 重发与去重", "retained 消息混淆时序", "CoAP token 与 observe", "MQTT5 属性长度编码"]
+    },
+    {
+      "id": "db-wire",
+      "name": "数据库线协议（MySQL/PostgreSQL/MSSQL/Redis）",
+      "match": ["mysql", "postgres", "mssql", "redis", "线协议", "数据库", "tns"],
+      "tools": ["tshark", "strings", "Python pymysql/psycopg2", "Wireshark 解析插件"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'mysql || pgsql || tds' -T fields -e frame.number -e mysql.query -e pgsql.query",
+        "tshark -r capture.pcap -Y 'redis' -T fields -e redis.command -e redis.key",
+        "python3 -c \"import pymysql; print(pymysql.connect(host='127.0.0.1', user='u', password='p', database='d'))\""
+      ],
+      "criteria": ["握手/认证方式与能力标志可解释", "查询语句与结果集边界正确", "能构造新查询并得到可预测结果"],
+      "fail": ["TLS 通道无 keylog", "认证插件(scram/caching_sha2)无法复现", "只看到半连接握手"],
+      "pitfalls": ["MySQL 包序号与 16MB 分包", "PostgreSQL 扩展查询与简单查询不同", "TDS PRELOGIN 选项", "Redis 内联命令与 RESP 混用"]
+    },
+    {
+      "id": "rdp-vnc",
+      "name": "远程桌面/会话协议（RDP/VNC/SPICE）",
+      "match": ["rdp", "vnc", "spice", "远程桌面", "rfx", "nla", "剪贴板重定向"],
+      "tools": ["tshark", "xfreerdp", "vncdotool", "RDP 解析插件"],
+      "commands": [
+        "tshark -r capture.pcap -Y 'rdp || vnc' -T fields -e frame.number -e rdp.neg_req_protocols -e vnc.protocol_version",
+        "xfreerdp /v:127.0.0.1:13389 /u:lab /cert:ignore +auth-only",
+        "vncdotool -s 127.0.0.1::15900 capture screen.png"
+      ],
+      "criteria": ["协商阶段/加密级别/认证方式明确", "剪贴板与文件通道边界可指认", "能建立新会话到登录框为止"],
+      "fail": ["CredSSP/NLA 无凭据", "图形通道压缩无法解", "会话录制被策略禁止"],
+      "pitfalls": ["RDP 标准端口与动态端口", "安全层协商前后字段含义不同", "VNC 认证类型由服务器选择", "剪贴板重定向是独立通道"]
+    },
+    {
+      "id": "auth-sso",
+      "name": "认证/单点登录（OAuth2/OIDC/SAML/NTLM/Kerberos）",
+      "match": ["oauth", "oidc", "saml", "ntlm", "kerberos", "sso", "jwt", "openid"],
+      "tools": ["mitmproxy", "curl", "requests-oauthlib", "impacket"],
+      "commands": [
+        "curl -s -D - 'http://127.0.0.1:18080/.well-known/openid-configuration'",
+        "python3 - <<'PY'\nimport base64, json\njwt = 'eyJ...'\nprint(json.loads(base64.urlsafe_b64decode(jwt.split('.')[1] + '==')))\nPY",
+        "python3 -m impacket.examples.GetNPUsers example.invalid/ -no-pass -usersfile users.txt"
+      ],
+      "criteria": ["令牌类型/受众/有效期/签名算法可解释", "换票链路(授权码/设备码/刷新)可复现", "越权判据是跨账号对象可读而非仅状态码"],
+      "fail": ["签名校验无法离线验证", "MFA/条件访问阻止换票", "只解出 JWT 声明而无换票能力"],
+      "pitfalls": ["aud/iss 与多资源绑定", "刷新令牌轮换", "时钟偏移导致 nbf 失败", "SAML 断言签名与响应签名是两层"]
     }
   ]
 }

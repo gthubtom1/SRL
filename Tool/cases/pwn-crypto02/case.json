@@ -5,29 +5,27 @@
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "artifacts": [
     {
-      "path": "solve.py",
-      "sha256": ""
-    },
-    {
-      "path": "notes/rsa-assumptions.md",
-      "sha256": ""
+      "path": "artifacts/run.json",
+      "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
     }
   ],
   "lessons": [
-    "计划路径：先判定填充/是否同一消息/模数是否互质，再在小指数、共模、Håstad 广播、共享素数、Wiener/Fermat 中选择",
-    "成立判据：pow(m,e,n)==c 且明文可读；广播 CRT 后开方精确且 m^e<M；两组密文回代都成立",
-    "失败路径预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质",
-    "证据：题目参数、假设清单、求解脚本、回代输出、明文来源与 flag 校验"
+    "本次跑到：按本域脚本要求用 pwn-check.py 对仓库内 CrackMev1.exe 做工具链连通性验证，rc=0；只得到 PE 保护位/导入预判，未执行任何 RSA 求解。",
+    "卡点：案例目标是 Python RSA 题目，但当前没有 n/e/c、模数列表或题目脚本；无法判断小指数、共模、Håstad、共享素数或 Wiener/Fermat 哪条路径成立。",
+    "下一步：补入题目参数/脚本后先做 gcd(n_i,n_j)、e 与 φ(n) 互质性、同消息/填充检查，再选攻击并回代 pow(m,e,n)==c。",
+    "成立判据：明文可读且回代成立；广播 CRT 后开方精确且 m^e<M；两组密文都成立才算完成。",
+    "失败预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质。"
   ],
   "tags": [
     "R21",
     "pwn-crypto",
     "crypto",
     "rsa",
-    "hastad"
+    "hastad",
+    "partial"
   ],
   "refs": [
     "Tool/skill/pwn-crypto/SKILL.md",

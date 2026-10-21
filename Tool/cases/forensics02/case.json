@@ -4,19 +4,21 @@
   "route": "R26",
   "target_type": "pcap 流量取证（本地授权样本）",
   "platform": "linux",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "planned",
   "acquisition": {
     "method": "pcap",
-    "tool": "tcpdump / tshark",
-    "collected_at": "2026-10-20T05:00:00Z",
+    "tool": "计划：tcpdump / tshark",
+    "collected_at": "",
     "timezone": "UTC",
-    "operator": "lab-operator",
+    "operator": "",
     "interface": "eth0",
-    "clock_skew": "待与主机日志对齐"
+    "clock_skew": "unknown（尚无 pcap，未与主机日志对齐）"
   },
-  "evidence": [
-    {"path": "evidence/capture.pcap", "kind": "pcap", "size": 0, "sha256": ""},
-    {"path": "evidence/SHA256SUMS", "kind": "manifest", "size": 0, "sha256": ""}
-  ],
+  "artifacts": [],
+  "evidence": [],
   "questions": [
     "2026-10-20 05:00Z 前后，哪台主机向哪个外部端点上传了什么对象"
   ],
@@ -29,7 +31,7 @@
       "action": "",
       "object": "",
       "confidence": "unverified",
-      "evidence_refs": ["evidence/capture.pcap#tcp.stream=0"],
+      "evidence_refs": [],
       "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file evidence/capture.pcap"
     }
   ],
@@ -38,14 +40,15 @@
     {"name": "forensics-check.py", "version": "1.0"},
     {"name": "pcap-summary.py", "version": "1.0"}
   ],
-  "outcome": "planned",
   "lessons": [
+    "当前状态：planned —— 未抓包，evidence/ 目录为空，无 capture.pcap 与 SHA256SUMS，findings 全部未验证",
+    "还差什么：抓取时间窗内 pcap 并算哈希、做 capinfos/会话统计、按 tcp.stream 重组导出 HTTP 对象并逐个哈希，再回填 findings",
     "先 capinfos/会话统计，再按 tcp.stream 重组；不能只看单包",
     "HTTP 对象导出后逐个算哈希，同名文件以 stream 建索引",
     "时间线统一 UTC，保留 pcap 时间戳精度与丢包/截断说明",
     "失败判据：只有单向流量、TLS 无 keylog 且无进程内明文，则标未闭环"
   ],
-  "tags": ["R26", "forensics", "pcap", "http", "timeline"],
+  "tags": ["R26", "forensics", "pcap", "http", "timeline", "planned"],
   "refs": [
     "Tool/skill/forensics-mobile/SKILL.md",
     "Tool/skill/forensics-mobile/references/forensics.md",

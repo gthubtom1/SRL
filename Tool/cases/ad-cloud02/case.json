@@ -5,15 +5,27 @@
   "protection": [],
   "authority": "authorized cluster",
   "goal_level": "L2",
-  "outcome": "planned",
-  "artifacts": [],
-  "lessons": [
-    "入口：先跑 adcloud-check.py --kubeconfig 做离线配置体检，再决定是否在线验证。",
-    "判据：离线只能判 context/TLS/token 过期/无凭据/宽权限名称；RBAC 是否宽必须 kubectl auth can-i 在线确认。",
-    "失败判据：把无凭据 user 直接写成匿名可访问；把 cluster-admin 名称写成已提权；把过期 token 当有效证据。",
-    "边界：不导出业务数据、不创建计费资源、不修改集群策略；测试 Pod/绑定用后即删。"
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "a341a361abf707a8b35c8a1872dc8da50b00f66eedb7ffccc24b9a51aa3095af"
+    }
   ],
-  "tags": ["R23", "ad-cloud", "k8s", "rbac", "token", "planned"],
+  "lessons": [
+    "本次跑到：adcloud-check.py --kubeconfig work/no-such.yaml --json，rc=2；ok=false，KUBECONFIG_NOT_FOUND，未得到任何 context、TLS、token 或权限线索。",
+    "卡点：没有可离线审计的 kubeconfig/凭据，也没有在线集群授权；无法判断匿名访问、token 过期或 cluster-admin 名称等结论。",
+    "下一步：提供授权集群的离线 kubeconfig 副本重跑本脚本，先看 context/TLS/token 过期/无凭据/宽权限名称，再用 kubectl auth can-i 在线确认 RBAC。",
+    "失败判据：不能把无凭据 user 写成匿名可访问，不能把 cluster-admin 名称写成已提权，不能把过期 token 当有效证据；测试资源用后即删。"
+  ],
+  "tags": [
+    "R23",
+    "ad-cloud",
+    "k8s",
+    "rbac",
+    "token",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/ad-cloud/SKILL.md",
     "Tool/skill/ad-cloud/references/k8s-and-container.md",

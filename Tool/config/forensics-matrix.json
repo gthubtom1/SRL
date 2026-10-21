@@ -87,6 +87,118 @@
       "criteria": ["字段/方法/资源/内存偏移对齐", "Unity 版本匹配", "只读观测边界明确"],
       "fail": ["元数据版本不匹配", "AssetBundle 加密无法解", "在线反作弊阻止 attach"],
       "pitfalls": ["Mono 与 IL2CPP 工具链不同", "资源版本强绑定", "在线只做外部观测"]
+    },
+    {
+      "id": "android",
+      "name": "Android 逻辑/物理提取",
+      "match": ["android", "adb", "backup.ab", "/data/data", "logical", "physical", "sdcard"],
+      "tools": ["forensics-check.py", "adb", "androguard", "MVT", "sqlite3"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file backup.ab",
+        "adb -s <serial> shell pm list packages -3",
+        "python3 -m androguard axml AndroidManifest.xml"
+      ],
+      "timeline": ["安装/更新(包管理器)", "应用内 DB 写入", "logcat 事件时间", "设备时区/自动时间"],
+      "extractables": ["已安装包清单", "私有 DB/SharedPreferences", "媒体/下载目录", "logcat/崩溃日志", "备份(adb backup/AB)"],
+      "criteria": ["包→UID→数据目录→DB 表可对齐", "提取方式(逻辑/物理/备份)与完整性说明", "哈希与采集时间入链"],
+      "fail": ["未 root 无法读 /data/data", "锁屏/加密阻止物理提取", "adb 版本/授权拒绕备份"],
+      "pitfalls": ["多用户/work profile", "SQLite WAL 未合并", "时区与 UTC 偏移", "应用卸载后数据残留边界"]
+    },
+    {
+      "id": "windows-artifacts",
+      "name": "Windows 主机痕迹（注册表/EVTX/执行痕迹）",
+      "match": ["evtx", "注册表", "amcache", "shimcache", "prefetch", "usn", "windows 日志"],
+      "tools": ["forensics-check.py", "EvtxECmd", "regipy", "plaso", "sleuthkit"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Security.evtx",
+        "EvtxECmd -f Security.evtx --csv out/ --csvf security.csv",
+        "python3 -c \"from regipy.registry import RegistryHive; print(RegistryHive('SYSTEM'))\""
+      ],
+      "timeline": ["EVTX TimeCreated/写入时间", "Prefetch 最后运行", "Amcache 首次执行", "USN Journal 变更"],
+      "extractables": ["Security/System/Sysmon 事件", "Run/服务/计划任务", "Prefetch/Amcache/Shimcache", "USB/网络配置", "用户目录痕迹"],
+      "criteria": ["执行链至少两个独立 artifact 互证", "时间统一 UTC 并标注来源时钟", "注册表键路径+值+时间完整"],
+      "fail": ["日志被清除/滚动覆盖", "时区解释错误导致时间线错位", "只靠单一 artifact 下结论"],
+      "pitfalls": ["EVTX 记录时间与写入时间不同", "Prefetch 受 SSD/策略影响", "Shimcache 无执行证明力", "注册表 last-write 可被篡改"]
+    },
+    {
+      "id": "linux-artifacts",
+      "name": "Linux 主机痕迹（journald/auditd/shell 历史）",
+      "match": ["linux", "journald", "auditd", "bash_history", "auth.log", "syslog", "systemd"],
+      "tools": ["forensics-check.py", "journalctl", "ausearch", "plaso", "grep"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file auth.log",
+        "ausearch -i -m EXECVE --start 2026-10-20T03:00:00",
+        "journalctl --file system.journal --since '2026-10-20 03:00' -o json"
+      ],
+      "timeline": ["journal 单调时钟+实时时钟", "auditd 事件序号", "登录/提权时间", "cron/at 触发"],
+      "extractables": ["auth/sudo 登录链", "auditd execve 参数", "cron/systemd unit", "包安装/编译痕迹", "历史与 SSH 密钥"],
+      "criteria": ["登录→提权→执行→外联链可复现", "auditd 序号与 journal 时间对齐", "配置变更与进程启动相互印证"],
+      "fail": ["journal 被 vacuum/未持久化", "auditd 规则缺失无 execve", "容器内视角缺少宿主日志"],
+      "pitfalls": ["单调时钟与墙钟漂移", "audit 日志可被 root 篡改", "history 与实际执行不一致", "rsyslog 与 journald 双写重复"]
+    },
+    {
+      "id": "container-k8s",
+      "name": "容器/K8s 取证",
+      "match": ["docker", "containerd", "kubernetes", "k8s", "pod", "容器", "overlayfs", "etcd"],
+      "tools": ["forensics-check.py", "crictl/ctr", "kubectl", "docker inspect", "trivy"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file pod-manifest.json",
+        "crictl ps -a -o json",
+        "kubectl get events -A --sort-by=.lastTimestamp -o wide"
+      ],
+      "timeline": ["镜像创建/拉取", "容器 start/finish", "K8s event/Rollout", "节点 kubelet 日志"],
+      "extractables": ["容器配置/挂载/环境变量", "镜像层与 digest", "Pod/Deployment/RBAC 对象", "etcd 快照(如有)", "节点与容器日志"],
+      "criteria": ["Pod→镜像 digest→节点→日志可对齐", "挂载卷与宿主路径映射清楚", "RBAC/ServiceAccount 权限边界明确"],
+      "fail": ["容器已删除且无日志留存", "节点不可访问仅能看 API 对象", "镜像 tag 被覆盖无 digest"],
+      "pitfalls": ["临时容器/initContainer 易漏", "overlayfs 下层只读", "日志驱动 none 导致丢失", "集群审计日志默认关闭"]
+    },
+    {
+      "id": "cloud-logs",
+      "name": "云审计/对象存储日志（CloudTrail/Azure/OSS）",
+      "match": ["cloudtrail", "azure activity", "oss 访问日志", "s3 access", "gcp audit", "云审计", "对象存储"],
+      "tools": ["forensics-check.py", "jq", "aws cli", "plaso", "grep"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file cloudtrail.json.gz",
+        "jq -r '.Records[] | [.eventTime,.eventSource,.eventName,.sourceIPAddress,.userIdentity.arn] | @tsv' cloudtrail.json",
+        "aws s3api get-bucket-logging --bucket <bucket>"
+      ],
+      "timeline": ["eventTime(UTC)", "请求 id 与源 IP", "对象版本/删除标记", "控制面与数据面分离"],
+      "extractables": ["API 主体/源 IP/UA", "IAM 变更与密钥使用", "对象 GET/PUT/DELETE", "网络与安全组变更", "账单异常线索"],
+      "criteria": ["主体→动作→资源→源 IP 四要素成链", "控制面事件与数据面日志交叉印证", "时区/账户/区域明确"],
+      "fail": ["日志投递延迟或未开启", "只有控制面日志缺数据面", "跨账号 assume-role 链断点"],
+      "pitfalls": ["eventTime 与 ingestion 时间不同", "区域端点差异", "日志可被攻击者关闭/删除", "共享 IP 与 NAT 出口"]
+    },
+    {
+      "id": "network-logs",
+      "name": "网络设备/代理日志（syslog/防火墙/NetFlow）",
+      "match": ["syslog", "防火墙", "proxy", "netflow", "dns 日志", "ids", "ips", "网关"],
+      "tools": ["forensics-check.py", "zeek", "plaso", "grep/awk", "jq"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file proxy.log",
+        "zeek -r capture.pcap -C",
+        "awk '{print $1,$2,$3,$7}' fw.log | head"
+      ],
+      "timeline": ["设备本地时区/夏令时", "会话起止与字节数", "NAT 映射有效期", "日志轮转边界"],
+      "extractables": ["五元组会话/NAT 映射", "URL/UA/响应码", "DNS 查询与应答", "告警/阻断动作", "流量基线偏移"],
+      "criteria": ["内网 IP→NAT→公网 IP→目标可还原", "时区归一后与主机日志对齐", "阻断/放行策略与实际动作一致"],
+      "fail": ["设备时钟未同步且无偏移量", "只保留会话汇总无 payload", "NAT 日志缺失无法落到主机"],
+      "pitfalls": ["syslog UDP 丢包", "夏令时重复小时", "代理 CONNECT 与明文 URL 差异", "采样 NetFlow 不能当全量"]
+    },
+    {
+      "id": "browser-artifacts",
+      "name": "浏览器/终端应用痕迹（History/Cache/下载）",
+      "match": ["chrome", "edge", "firefox", "history", "cache", "cookie", "downloads", "浏览器取证"],
+      "tools": ["forensics-check.py", "sqlite3", "hindsight", "plaso", "grep"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file History",
+        "sqlite3 -readonly History \"select url,title,last_visit_time from urls order by last_visit_time desc limit 20\"",
+        "python3 -m hindsight -i 'User Data' -o out/"
+      ],
+      "timeline": ["WebKit/Chrome 时间戳(1601/1970 基准)", "下载开始/完成", "会话恢复", "缓存写入"],
+      "extractables": ["访问 URL/标题/次数", "下载记录与目标路径", "Cookie/登录态(脱敏)", "缓存文件与截图", "扩展与偏好设置"],
+      "criteria": ["URL→下载→本地文件哈希可闭环", "时间戳基准换算正确并标注", "多浏览器/多 profile 分离"],
+      "fail": ["数据库被占用或 App-Bound 加密", "仅缓存无历史", "profile 已清理且无快照"],
+      "pitfalls": ["Chrome 时间微秒(1601)", "Firefox 微秒(1970)", "WAL 未合并读到旧页", "App-Bound Encryption 需进程内解密"]
     }
   ]
 }

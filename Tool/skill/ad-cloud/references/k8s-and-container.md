@@ -79,15 +79,13 @@ curl -s --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
   -H "Authorization: Bearer $TOKEN" "$APISERVER/api/v1/namespaces/<ns>/pods"
 ```
 
-判据：API 返回 200 且列出授权内资源；403 说明 token 有效但权限不足；401 说明 token 过期/无效。
-不要在命令行历史/报告里留完整 token；用文件描述符或临时变量并清理。
+判据：API 返回 200 且列出授权内资源；403 = token 有效但权限不足；401 = token 过期/无效。不在命令行历史/报告留完整 token。
 
 ### 2.3 高价值 token 目标
 
-- `kube-system` 的 controller/CNI/Ingress SA：可能能读全集群 Secret 或改 DaemonSet。
-- CI/CD runner 的 SA：常能创建 Pod、读 registry secret。
-- `cluster-admin`/`system:masters` 绑定：直接提权，但仍要留“前后 can-i”证据。
-- 云 IRSA/Workload Identity：Pod 内临时凭据可转云 API，按 `cloud-native.md` 的 STS 判据走。
+- `kube-system` 的 controller/CNI/Ingress SA：可能读全集群 Secret 或改 DaemonSet；CI/CD runner 的 SA 常能建 Pod、读 registry secret。
+- `cluster-admin`/`system:masters` 绑定：直接提权，但仍要留“前后 can-i”证据；云 IRSA/Workload Identity 走 `cloud-native.md` 的 STS 判据。
+
 
 ## 3. 容器逃逸面
 
@@ -111,8 +109,7 @@ ls /mnt/host; cat /mnt/host/etc/hostname
 nsenter -t 1 -m -u -i -n -p -- id
 ```
 
-判据：`id` 返回宿主身份，或能读到宿主 `/etc/shadow`/kubelet 凭据。
-失败判据：`Operation not permitted`（缺 CAP_SYS_ADMIN）、宿主 PID namespace 不可见。
+判据：`id` 返回宿主身份，或能读宿主 `/etc/shadow`/kubelet 凭据。失败判据：`Operation not permitted`（缺 CAP_SYS_ADMIN）、宿主 PID namespace 不可见。
 
 ### 3.2 hostPath / hostPID / hostNetwork
 
@@ -124,8 +121,7 @@ find / -maxdepth 3 -name 'kubelet.conf' -o -name 'admin.conf' 2>/dev/null
 ps aux | head; nsenter -t 1 -m -u -i -n -p -- cat /etc/shadow
 ```
 
-判据：通过挂载点读到宿主文件/配置，或进入宿主命名空间。
-失败判据：挂载只读且无敏感路径、PID 1 仍是容器 init。
+判据：通过挂载点读到宿主文件/配置，或进入宿主命名空间。失败判据：挂载只读且无敏感路径、PID 1 仍是容器 init。
 
 ### 3.3 Docker/containerd socket
 
@@ -135,18 +131,14 @@ docker -H unix:///var/run/docker.sock run --rm -it -v /:/host --privileged alpin
 ctr -a /run/containerd/containerd.sock -n k8s.io containers list
 ```
 
-判据：能创建特权容器并读到宿主根。
-失败判据：socket 不存在/权限拒绝；或只读 socket 代理。
+判据：能创建特权容器并读到宿主根。失败判据：socket 不存在/权限拒绝、只读 socket 代理。
 
 ### 3.4 其他
 
-- cgroup v1 `release_agent`（需 `CAP_SYS_ADMIN`，且 cgroup 未只读）。
-- `CAP_SYS_PTRACE` + 注入宿主进程；`CAP_NET_ADMIN` + 流量劫持。
-- 内核漏洞按版本匹配，只在授权/隔离环境验证；不在生产盲打。
-- `hostNetwork` 只能看到节点网络，不等于宿主文件系统；不要混淆判据。
+- cgroup v1 `release_agent`（需 `CAP_SYS_ADMIN` 且 cgroup 未只读）；`CAP_SYS_PTRACE` 注入宿主进程；`CAP_NET_ADMIN` 流量劫持。
+- 内核漏洞按版本匹配，只在授权/隔离环境验证；`hostNetwork` 只看得到节点网络，不等于宿主文件系统。
 
-判据统一：**在宿主命名空间执行 `id`，或读到宿主文件系统/凭据，并有完整复现命令**。
-仅有“Pod 是 privileged”配置本身不算逃逸成功。
+判据统一：**在宿主命名空间执行 `id`，或读到宿主文件系统/凭据，且有完整复现命令**；“Pod 是 privileged”配置本身不算逃逸成功。
 
 ## 4. 镜像与 CI/CD 凭据
 
@@ -159,7 +151,7 @@ trivy config .
 grype <image>; syft <image> -o json
 ```
 
-重点：镜像层里残留的 `.git`、`.env`、`~/.aws`、`~/.docker/config.json`、CI token、签名密钥；不是“版本旧”就自动等于可利用。
+重点：层里残留的 `.git`、`.env`、`~/.aws`、`~/.docker/config.json`、CI token、签名密钥；“版本旧”不等于可利用。
 判据：命中可利用的 HIGH/CRITICAL（有入口/利用链）或明文密钥，并能复现读取/使用。
 
 ### 4.2 Registry 与拉取凭据
@@ -180,10 +172,8 @@ cat ~/.docker/config.json 2>/dev/null
 git config --list --show-origin | grep -Ei 'url|token'
 ```
 
-- `GITHUB_TOKEN`/`CI_JOB_TOKEN` 的 scope：能否写仓库、读 protected env、触发其他流水线。
-- Runner 是否共享、是否允许 MR/PR 触发、能否挂宿主 Docker socket。
-- 云 OIDC 信任策略的 `sub`/`aud` 是否过宽（`repo:*`、`ref:*`）。
-- 制品仓库/签名密钥是否能推生产镜像。
+- `GITHUB_TOKEN`/`CI_JOB_TOKEN` 的 scope：写仓库、读 protected env、触发其他流水线。
+- Runner 是否共享、能否被 MR/PR 触发、能否挂宿主 Docker socket；OIDC 信任策略 `sub`/`aud` 是否过宽（`repo:*`、`ref:*`）；签名密钥能否推生产镜像。
 
 判据：用 CI token 成功读取受保护变量、推送镜像、或 AssumeRole 到部署角色，且有 API 返回。
 失败判据：token 只读、环境隔离、OIDC `sub` 精确匹配。
@@ -204,7 +194,6 @@ git config --list --show-origin | grep -Ei 'url|token'
 ## 6. 证据、清理与边界
 
 - 证据：命令、时间、context/namespace、前后 `auth can-i`、API 返回、Pod 清单、节点 `id`。
-- 清理：删除测试 Pod/Job/DaemonSet、撤销临时 RoleBinding、删除上传工具与 Secret 副本；恢复被改的 Deployment。
-- 不导出业务数据；不创建计费资源；不修改 IAM/集群策略除非单独授权并备份。
-- 不把“有权限”写成“已逃逸”；不把“镜像有 CVE”写成“可提权”。
+- 清理：删测试 Pod/Job/DaemonSet、撤销临时 RoleBinding、删上传工具与 Secret 副本；恢复被改的 Deployment。
+- 不导出业务数据、不创建计费资源、不改 IAM/集群策略（除非单独授权并备份）；不把“有权限”写成“已逃逸”、“镜像有 CVE”写成“可提权”。
 - 纯 Web/应用漏洞走 R20；AD/Kerberos 部分见 `kerberos-and-adcs.md`。

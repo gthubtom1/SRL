@@ -499,6 +499,16 @@ def decide(b, strings):
     return routes
 
 
+def emit_error(args, message, code, rc):
+    """统一错误输出：JSON 模式输出结构化对象，文本模式输出 [ERR]。"""
+    if args.json:
+        print(json.dumps({"ok": False, "error": message, "code": code},
+                         ensure_ascii=False))
+    else:
+        print("[ERR] %s" % message, file=sys.stderr)
+    return rc
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="PE/ELF 保护位、危险导入、format 串风险与利用路线预判（纯标准库，只读）")
@@ -508,14 +518,12 @@ def main():
     args = ap.parse_args()
     path = os.path.abspath(args.file)
     if not os.path.isfile(path):
-        print("错误：文件不存在: %s" % path, file=sys.stderr)
-        return 2
+        return emit_error(args, "文件不存在: %s" % path, "FILE_NOT_FOUND", 2)
     try:
         with open(path, "rb") as fh:
             data = fh.read()
     except OSError as exc:
-        print("错误：读取失败: %s" % exc, file=sys.stderr)
-        return 2
+        return emit_error(args, "读取失败: %s" % exc, "READ_FAILED", 2)
     b = Binary()
     try:
         if data[:2] == b"MZ":
@@ -525,8 +533,7 @@ def main():
         else:
             raise ValueError("既不是 PE(MZ) 也不是 ELF")
     except (ValueError, struct.error, IndexError) as exc:
-        print("错误：解析失败: %s" % exc, file=sys.stderr)
-        return 2
+        return emit_error(args, "解析失败: %s" % exc, "PARSE_FAILED", 3)
     strings = strings_from(data, args.max_strings)
     analyze_imports(b)
     analyze_strings(b, strings)

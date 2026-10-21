@@ -30,10 +30,9 @@ QEMU_LD_PREFIX="$ROOT" qemu-mipsel-static "$ROOT/bin/busybox" sh -c 'id'
 
 要点：
 
-- `qemu-<arch>` 与 `qemu-<arch>-static` 的区别是后者不依赖宿主库；chroot 里优先 static。
-- `readelf -l "$ROOT/bin/busybox" | grep interpreter` 确认动态加载器路径；缺库时补 `lib/` 或把 `qemu` 放到 rootfs 内。
-- 单程序验证通过 ≠ 整机可起：CGI 还依赖 `PATH_INFO`、环境变量、Web 服务器用户、`/tmp` 权限。
-- 需要 `/proc`、`/dev/urandom`、`/dev/mtd` 时，先 bind mount 或做最小桩，不要改原始 rootfs。
+- `-static` 版不依赖宿主库，chroot 里优先用；`readelf -l "$ROOT/bin/busybox" | grep interpreter` 确认加载器路径，缺库时补 `lib/` 或把 qemu 放进 rootfs。
+- 单程序通过 ≠ 整机可起：CGI 还依赖 `PATH_INFO`、环境变量、Web 用户、`/tmp` 权限。
+- 需要 `/proc`、`/dev/urandom`、`/dev/mtd` 时先 bind mount 或做最小桩，不改原始 rootfs。
 
 完成判据：`chroot` 内能执行 `id`、读取 `/etc/passwd`、运行目标 CGI 并返回预期输出。
 失败判据：只能执行 `/bin/sh`、目标程序 `Exec format error`/`No such file or directory`（多为解释器/库缺失）。
@@ -51,11 +50,9 @@ qemu-system-mipsel -M malta -m 256M \
   -nographic
 ```
 
-- `root=` 必须与镜像内设备名一致；常见 `/dev/sda`、`/dev/vda`、`/dev/mtdblock3`。
-- `console=` 与内核配置一致；没有输出时试 `ttyS0`/`ttyAMA0`/`ttyS1`。
-- 需要双向网络时用 tap/bridge；`user` 模式只能做 hostfwd，适合单端口验证。
-- 内核缺驱动时换厂商内核或补 initramfs；不要用宿主内核硬套厂商 rootfs。
-- 登录失败先看 init 是否启动 getty、`/etc/inittab` 是否 `askfirst`、shadow 是否可用。
+- `root=` 必须与镜像内设备名一致（`/dev/sda`、`/dev/vda`、`/dev/mtdblock3`）；`console=` 与内核配置一致，无输出时试 `ttyS0`/`ttyAMA0`/`ttyS1`。
+- 双向网络用 tap/bridge；`user` 模式只能 hostfwd，适合单端口验证。内核缺驱动时换厂商内核或补 initramfs，不要用宿主内核硬套厂商 rootfs。
+- 登录失败先看 init 是否起 getty、`/etc/inittab` 是否 `askfirst`、shadow 是否可用。
 
 完成判据：内核日志走到根挂载，出现 login/init 输出，宿主 `curl` 能拿到业务响应。
 失败判据：内核起但 rootfs panic、init 不存在、网络设备未识别、服务只绑定 `127.0.0.1` 而 hostfwd 打不到。
@@ -72,11 +69,9 @@ Firmadyne 手工链：`extractor.py` → `getArch.sh` → `makeImage.sh` → `in
 
 失败定位顺序：
 
-1. `qemu.*.log` 是否有 `Kernel panic`/`Unable to mount root`；
-2. 镜像是否缺少 `/init` 或 `linuxrc`；
-3. 网络推断是否把 `eth0` 配成错误网段；
-4. NVRAM 是否为空导致服务启动即退出；
-5. 看门狗是否在几十秒后复位。
+1. `qemu.*.log` 有无 `Kernel panic`/`Unable to mount root`；镜像是否缺 `/init` 或 `linuxrc`；
+2. 网络推断是否把 `eth0` 配错网段；NVRAM 是否为空导致服务启动即退出；
+3. 看门狗是否在几十秒后复位。
 
 完成判据：FirmAE 报告网络可用，且从宿主 `curl`/`nc` 得到真实协议响应；仅“虚拟机进程存在”不算。
 失败判据：反复重启、Web 端口拒绝、只有静态占位页。
@@ -98,9 +93,8 @@ EOF
 [ -e "$ROOT/dev/null" ]    || sudo mknod "$ROOT/dev/null" c 1 3
 ```
 
-- `nvram` 是壳脚本/库时，优先替换为读取 `nvram.conf` 的桩，而不是改每个调用点。
-- `/dev/mtd` 缺失会让升级/分区逻辑提前退出；用普通文件桩并记录“非真实写操作”。
-- 看门狗：仅在同一副本里禁用启动项或喂狗，不碰真机。
+- `nvram` 是壳脚本/库时，替换为读取 `nvram.conf` 的桩，而不是改每个调用点。
+- `/dev/mtd` 缺失会让升级/分区逻辑提前退出：用普通文件桩并记录“非真实写操作”。看门狗只在同一副本里禁用启动项或喂狗。
 
 ## 5. 服务探测：进程活着不算成功
 
@@ -123,9 +117,8 @@ ps w | head -40
 | 仅侦察 | 端口开放但 404/502、只有静态文件、没有业务逻辑 |
 | 假成功 | 进程存在、端口未监听；或 hostfwd 到错误端口 |
 
-- 对每个服务记录：监听地址、端口、启动命令、运行用户、配置文件、请求样例。
-- 需要认证时先确认默认凭据/空口令是否可用；没有凭据就只做未授权面测试。
-- 用 `tcpdump -ni any -s0 -w "$OUT/svc.pcap" 'port 8080'` 留证。
+- 每个服务记录：监听地址、端口、启动命令、运行用户、配置文件、请求样例；有认证时先试默认/空口令，否则只测未授权面。
+- 留证：`tcpdump -ni any -s0 -w "$OUT/svc.pcap" 'port 8080'`。
 
 ## 6. fuzz 接线：先找解析器，再接 harness
 
@@ -151,10 +144,10 @@ CC=afl-clang-fast ./configure --disable-shared && make -j
 afl-fuzz -i "$OUT/corpus" -o "$OUT/afl" -- ./target @@
 ```
 
-- `-Q` 需要 AFL++ 的 QEMU 支持；MIPS/ARM 目标先确认 `afl-qemu-trace` 可执行。
-- 文件型输入先做最小合法样本；网络型输入用 `aflnet`/`boofuzz`/自写 Python harness 重放。
-- 字典加入协议关键字（`Content-Length:`、`SOAPAction:`、`Authorization:`、边界字符串）。
-- 崩溃样本必须可重放：记录完整输入、命令行、环境、架构、库版本。
+- `-Q` 需 AFL++ 的 QEMU 支持；MIPS/ARM 先确认 `afl-qemu-trace` 可执行。
+- 文件型输入先做最小合法样本；网络型用 `aflnet`/`boofuzz`/自写 Python harness 重放。
+- 字典加入协议关键字（`Content-Length:`、`SOAPAction:`、`Authorization:`、边界串）。
+- 崩溃样本必须可重放：记录输入、命令行、环境、架构、库版本。
 
 ### 6.3 网络 fuzz 最小接线
 
@@ -172,24 +165,21 @@ base = b"GET / HTTP/1.1\r\nHost: x\r\n\r\n"
 print(send(base)[:80])
 ```
 
-- 先跑通基线请求，再对单字段做变异；不要一上来并发轰炸。
-- 记录响应码/长度/崩溃；对 500/连接重置也要区分“协议错误”与“内存破坏”。
-- 有 ASAN 时优先看 sanitizer 报告；无符号时用 `gdb-multiarch`/core + `addr2line` 定位。
+- 先跑通基线请求再对单字段变异，不要并发轰炸；记录响应码/长度/崩溃，区分“协议错误”与“内存破坏”。
+- 有 ASAN 先看 sanitizer 报告；无符号用 `gdb-multiarch`/core + `addr2line` 定位。
 
 ### 6.4 判据与停止条件
 
 - **有效**：同一输入可重复触发崩溃/越界/命令注入，且有请求/响应/日志/核心转储。
 - **疑似**：只出现一次崩溃、无法重放、或只是服务重启（先查看门狗/oom）。
 - **无效**：仅版本号旧、仅字符串匹配、仅“可能溢出”。
-- 同一目标同一手法最多 2 次；第二次失败必须停下换路线或汇报。
-- 不在生产设备、公网或未授权网段跑 fuzz；控制速率，避免打挂管理面。
+- 同一目标同一手法最多 2 次；第二次失败即停，换路线或汇报。不在生产设备/公网/未授权网段跑 fuzz。
 
 ## 7. 证据与清理
 
 - 保存：启动命令、内核/串口日志、网络配置、NVRAM 桩、请求样例、崩溃输入、工具版本。
-- 记录可重建步骤：架构、machine、kernel、drive、root=、console、hostfwd/tap、init 修补。
-- 清理：停止 QEMU/FirmAE、删除临时 tap/bridge、还原被修改的副本；真机只做只读验证。
-- 报告写明边界：哪些是仿真观察、哪些是真机验证、哪些未验证。
+- 可重建步骤：架构、machine、kernel、drive、root=、console、hostfwd/tap、init 修补。
+- 清理：停 QEMU/FirmAE、删临时 tap/bridge、还原副本；真机只做只读验证。报告注明哪些是仿真观察、哪些真机验证、哪些未验证。
 
 ## 8. 常见失败与处理
 

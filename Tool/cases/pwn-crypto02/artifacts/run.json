@@ -1,0 +1,62 @@
+{
+  "file": "D:\\Seep-Reverse-Lab\\Tool\\samples\\real\\dotnet-crackmes\\CrackMev1_-_Local_File_Licensing\\CrackMev1.exe",
+  "size": 12288,
+  "sha256": "0bd406b619daed60a6ad3ca98eabb8383475624d2ba284e974af46ff17af3b33",
+  "kind": "PE",
+  "arch": "x86",
+  "bits": 32,
+  "entry": "0x44a2",
+  "protections": {
+    "NX": "Enabled",
+    "PIE": "Enabled (DYNAMIC_BASE/ASLR)",
+    "Canary": "Not found",
+    "RELRO": "N/A (PE 无 ELF RELRO)"
+  },
+  "sections": [
+    {
+      "name": ".text",
+      "va": "0x2000",
+      "vsize": 9384,
+      "rawsize": 9728,
+      "writable": false,
+      "executable": true
+    },
+    {
+      "name": ".rsrc",
+      "va": "0x6000",
+      "vsize": 1452,
+      "rawsize": 1536,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".reloc",
+      "va": "0x8000",
+      "vsize": 12,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    }
+  ],
+  "import_count": 1,
+  "dangerous_imports": [],
+  "format_string_risks": [],
+  "next_routes": [
+    {
+      "route": "先定位输入面与校验分支",
+      "why": "未发现典型危险导入/格式串；可能为逻辑漏洞、白盒或纯密码题",
+      "first_steps": [
+        "列输入点、比较点、可控缓冲区",
+        "查整数/off-by-one 与协议解析",
+        "必要时先用 checksec + 动态断点确认崩溃点"
+      ],
+      "caveats": [
+        "NX 开启：不要指望栈上 shellcode，走 ROP/ORW"
+      ]
+    }
+  ],
+  "notes": [
+    "DllCharacteristics 其它标志: HIGH_ENTROPY_VA",
+    "PE 保护位为 DllCharacteristics 近似；IAT 可写性需看节权限与加载配置"
+  ]
+}
