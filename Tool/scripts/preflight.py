@@ -50,7 +50,7 @@ ALLOW_PATH = os.path.join(TOOL, "scripts", "preflight-allow.json")
 
 
 def load_allow():
-    """返回白名单 JSON 全文。
+    r"""返回白名单 JSON 全文。
 
     ★ 历史 bug：这里原先返回 `.get("allow", {})`，而调用方又写
       `load_allow().get("portable_allow")` —— 于是永远拿到空字典，
