@@ -5,8 +5,8 @@
 
 ## 入口
 
-- [分帧与字段](framing-and-fields.md) — magic/length/CRC/加密段/TLV/protobuf
-- [从抓包到重放](capture-to-replay.md) — 会话重组、状态机、单变量构造
+- [分帧与字段](techniques/framing-and-fields.md) — magic/length/CRC/加密段/TLV/protobuf
+- [从抓包到重放](techniques/capture-to-replay.md) — 会话重组、状态机、单变量构造
 
 ## 10 分钟初筛
 

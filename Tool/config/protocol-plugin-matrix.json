@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "domain": "protocol-plugin",
   "route": "R24",
-  "description": "协议复刻矩阵（声明式）：按协议形态给出可用工具/命令/完成判据/失败判据/陷阱。插件类目标不在本表，见 plugin-matrix.json（R25）。",
+  "description": "协议复刻矩阵（声明式）：按协议形态给出可用工具/命令/完成判据/失败判据/陷阱。插件类目标不在本表，见 plugin-targets-matrix.json（R25）。",
   "updated": "2026-10-20",
   "families": [
     {

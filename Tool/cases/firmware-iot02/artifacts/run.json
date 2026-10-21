@@ -1,28 +1,64 @@
 {
   "tool": "fw-triage",
   "version": "1.0.0",
-  "generated_at": "2026-10-21T12:06:11Z",
-  "file": "Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
+  "generated_at": "2026-10-21T12:37:45Z",
+  "file": "Tool/samples/real/monologix-crackmes/CrackMe1.exe",
   "ok": true,
-  "size": 12288,
-  "size_human": "12.0 KiB",
-  "sha256": "0bd406b619daed60a6ad3ca98eabb8383475624d2ba284e974af46ff17af3b33",
+  "size": 46080,
+  "size_human": "45.0 KiB",
+  "sha256": "e5b011f4f62a68c7445c5486e9594f6049038fec6bd1888805f7c6d1a1ba44fc",
   "containers": [
     {
       "offset": 0,
       "type": "pe",
       "description": "PE/COFF (DOS MZ header)",
       "confidence": "high"
+    },
+    {
+      "offset": 2895,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 3746,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 16326,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 22594,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 31288,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 36510,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
     }
   ],
   "containers_truncated": 0,
   "entropy": {
-    "overall": 4.955,
-    "max_block": 4.76,
-    "high_block_ratio": 0.0,
-    "sampled_bytes": 12288,
+    "overall": 7.57,
+    "max_block": 7.949,
+    "high_block_ratio": 0.667,
+    "sampled_bytes": 46080,
     "sample_truncated": false,
-    "interpretation": "low entropy: mostly plaintext/metadata; look for headers and scripts"
+    "interpretation": "high entropy: compressed/encrypted, or a packed filesystem; verify against magic hits"
   },
   "credential_clues": [],
   "clues_truncated": false,
@@ -39,16 +75,21 @@
     "strings": true
   },
   "suggested_commands": [
-    "file Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe && sha256sum Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
-    "strings -a -n 6 Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
-    "binwalk -E Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe | head -40",
-    "binwalk -e --run-as=root -C work/fw-triage Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
-    "binwalk --dd='.*' -C work/fw-triage/raw Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
-    "# Not a firmware container: use the binary/ELF/DTB analysis route, not binwalk recursion.",
+    "file Tool/samples/real/monologix-crackmes/CrackMe1.exe && sha256sum Tool/samples/real/monologix-crackmes/CrackMe1.exe",
+    "strings -a -n 6 Tool/samples/real/monologix-crackmes/CrackMe1.exe | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
+    "dd if=Tool/samples/real/monologix-crackmes/CrackMe1.exe of=work/fw-triage/part.bin bs=1 skip=0  # carve first embedded container",
+    "python3 - <<'PY'\nfrom pathlib import Path\nsrc = Path('Tool/samples/real/monologix-crackmes/CrackMe1.exe').read_bytes()\noff = 0\ndst = Path('work/fw-triage/carved-at-0.bin')\ndst.parent.mkdir(parents=True, exist_ok=True)\ndst.write_bytes(src[off:])\nprint('carved', len(src) - off, 'bytes ->', dst)\nPY",
+    "binwalk -E Tool/samples/real/monologix-crackmes/CrackMe1.exe | head -40",
+    "binwalk -e --run-as=root -C work/fw-triage Tool/samples/real/monologix-crackmes/CrackMe1.exe",
+    "binwalk --dd='.*' -C work/fw-triage/raw Tool/samples/real/monologix-crackmes/CrackMe1.exe",
+    "jefferson -d work/fw-triage/jffs2 Tool/samples/real/monologix-crackmes/CrackMe1.exe",
+    "# missing jefferson: python3 -m pip install --user jefferson  (needs approval)",
+    "python3 -c \"import gzip,pathlib; pathlib.Path(r'work/fw-triage/gzip.out').write_bytes(gzip.open(r'Tool/samples/real/monologix-crackmes/CrackMe1.exe','rb').read())\"",
+    "gzip -dc Tool/samples/real/monologix-crackmes/CrackMe1.exe > work/fw-triage/gzip.out",
     "grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd' work/fw-triage/rootfs/etc 2>/dev/null | head -60",
     "find work/fw-triage/rootfs -type f \\( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \\) -print"
   ],
-  "verdict": "not a firmware container (pe): this is a bare binary/DTB. Use the binary/ELF/DTB route; do not claim a rootfs was unpacked.",
+  "verdict": "container magic found (gzip, jffs2, pe); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.",
   "limits": [
     "Triage only: it does not unpack, emulate, or prove J1/J2/J3.",
     "Credential clues are candidates; confirm file:line in the extracted rootfs and redact values.",

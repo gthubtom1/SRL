@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+import os, runpy
+root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+runpy.run_path(os.path.join(root, "Tool", "scripts", "pwn-check.py"), run_name="__main__")

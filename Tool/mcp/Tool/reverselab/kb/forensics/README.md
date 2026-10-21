@@ -6,8 +6,8 @@
 
 ## 入口
 
-- [内存与流量初检](memory-and-network-triage.md) — Volatility3、pcap 会话、对象导出
-- [时间线与证据完整性](timeline-and-integrity.md) — 四要素、哈希链、污染风险
+- [内存与流量初检](techniques/memory-and-network-triage.md) — Volatility3、pcap 会话、对象导出
+- [时间线与证据完整性](techniques/timeline-and-integrity.md) — 四要素、哈希链、污染风险
 
 ## 10 分钟初检
 

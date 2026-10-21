@@ -2,17 +2,22 @@
   "id": "plugin02",
   "domain": "plugin-targets",
   "route": "R25",
-  "target_type": "Electron 桌面应用（app.asar，本地授权样本）",
+  "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造样本）",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "package": {
-    "file": "",
-    "sha256": "",
-    "version": "",
-    "asar_header": "",
-    "unpacked": []
+    "file": "input/ext2.zip",
+    "sha256": "7d1536ae2944c74547ffa6444a67496a8fa1555aa3d854f75ffac82940261ebb",
+    "version": "0.4.2",
+    "manifest_version": 3,
+    "source": "手工构造 MV3 样本（非商店/旁加载真实样本）",
+    "unpacked": [
+      "manifest.json",
+      "background.js",
+      "content.js"
+    ]
   },
   "runtime": {
     "electron": "28.x",
@@ -23,30 +28,83 @@
     "sandbox": false
   },
   "entrypoints": {
-    "package": "package.json",
-    "main": "dist/main.js",
-    "preload": "dist/preload.js",
-    "ipc_channels": ["app:read-file", "app:open-external", "app:update"]
+    "manifest": "manifest.json",
+    "background": "background.js",
+    "content_script": "content.js",
+    "native_host": "com.acme.bridge（仅代码常量，未提供 host manifest/二进制）"
   },
   "data_flow": [
-    "renderer → ipcRenderer.invoke('app:read-file') → ipcMain.handle → fs.readFile",
-    "renderer → ipcRenderer.send('app:open-external') → shell.openExternal",
-    "main → electron-updater → 远端 latest.yml"
+    "所有页面 → content.js（document_start/all_frames）收集表单 → chrome.runtime.sendMessage",
+    "background.js → chrome.runtime.connectNative(com.acme.bridge)",
+    "background.js → fetch https://collector.suspicious-cdn.invalid/ingest + WebSocket wss://relay.suspicious-cdn.invalid/ws"
   ],
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "input/ext2.zip",
+      "sha256": "7d1536ae2944c74547ffa6444a67496a8fa1555aa3d854f75ffac82940261ebb"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "3444dc7f726ff1ce8efc1afc00b510cc4720da3937468735dc5c9ac371368c35"
+    }
+  ],
   "lessons": [
-    "当前状态：planned —— app.asar 未取得（evidence/ 为空），runtime/manifest 段是按 Electron 28 常见配置写的预期，不是实测",
-    "还差什么：拿到授权 app.asar 并算 sha256，npx asar 列目录确认 main/preload 是否字节码，再导出 export/asar-tree.txt 与 report/ipc.md",
-    "asar 不是加密：能列目录不代表能读 .jsc/原生模块",
-    "contextIsolation:false + nodeIntegration:true 会放大 renderer 到 Node 的攻击面",
-    "先定位 IPC handler 的参数校验与路径拼接，再决定最小可改单元",
-    "失败判据：asar 头解析失败两次或 main/preload 全被字节码覆盖，标入口未读"
+    "实际分析：plugin-triage.py --path input/ext2.zip，rc=0；识别 ZIP 浏览器扩展包，3 个文件，manifest MV3 / Telemetry Bridge 0.4.2。",
+    "发现：权限 nativeMessaging/tabs/storage/scripting/webRequest，host_permissions <all_urls>，content script 在 document_start 且 all_frames=true，externally_connectable 为 *://*/*，update_url 指向 suspicious-cdn.invalid。",
+    "静态命中：nativeMessaging(2，manifest+background)、webRequest、network_request；远程 URL 为 collector.suspicious-cdn.invalid/ingest、relay.suspicious-cdn.invalid/ws 与 update_url。数据流为页面表单 → connectNative + fetch/WebSocket。",
+    "还差什么：没有 native host manifest/二进制，未实际建立 connectNative 或外联，不能证明窃取成功；btoa 只是编码。需补 host 侧样本与动态网络/消息观测。"
   ],
-  "tags": ["R25", "plugin", "electron", "asar", "ipc", "planned"],
+  "tags": [
+    "R25",
+    "plugin",
+    "zip",
+    "mv3",
+    "nativeMessaging",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/plugin-targets/SKILL.md",
-    "Tool/skill/plugin-targets/references/electron-and-asar.md",
-    "Tool/skill/plugin-targets/references/desktop-plugins.md"
+    "Tool/skill/plugin-targets/references/browser-extension.md",
+    "Tool/skill/plugin-targets/references/desktop-plugins.md",
+    "Tool/config/plugin-targets-matrix.json",
+    "Tool/cases/plugin02/input/ext2.zip",
+    "Tool/cases/plugin02/artifacts/run.json"
   ],
-  "updated": "2026-10-20"
+  "updated": "2026-10-21",
+  "manifest": {
+    "permissions": [
+      "nativeMessaging",
+      "tabs",
+      "storage",
+      "scripting",
+      "webRequest"
+    ],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "background.js",
+      "type": "module"
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "<all_urls>"
+        ],
+        "js": [
+          "content.js"
+        ],
+        "run_at": "document_start",
+        "all_frames": true,
+        "world": "ISOLATED"
+      }
+    ],
+    "web_accessible_resources": [],
+    "externally_connectable": {
+      "matches": [
+        "*://*/*"
+      ]
+    },
+    "update_url": "https://updates.suspicious-cdn.invalid/ext/update.xml"
+  }
 }

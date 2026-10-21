@@ -1,37 +1,36 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T12:18:35Z",
-  "source_hash": "771a3ff4e28afab899848cda44cc643f11e9ee2b5ee2556e8833653c6851036d",
+  "generated_at": "2026-10-21T12:41:52Z",
+  "source_hash": "e9f9fd3640f62ef6ac9f9185e8276dad21eab7933c290408cdf8210620342335",
   "case_count": 33,
   "cases": [
     {
       "dir": "ad-cloud01",
       "id": "ad-cloud01",
       "domain": "ad-cloud",
-      "target_type": "Active Directory 域 + ADCS（实验室）",
+      "target_type": "离线 kubeconfig 夹具",
       "protection": [],
-      "authority": "authorized AD lab",
+      "authority": "local offline fixture",
       "goal_level": "L3",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "a341a361abf707a8b35c8a1872dc8da50b00f66eedb7ffccc24b9a51aa3095af"
+          "sha256": "2bcbc8eb6f6cacba7e182cb720b42760528e6e25e5a394b9ed2b1b795f2ff979"
         }
       ],
       "lessons": [
-        "本次跑到：adcloud-check.py --kubeconfig work/no-such.yaml --json，rc=2；ok=false，错误码 KUBECONFIG_NOT_FOUND，未读取到任何 context/TLS/token，也没有触碰 AD/ADCS。",
-        "卡点：案例目标是 AD 域+ADCS，但当前没有授权域、DC/CA 名称和测试账号；该离线脚本只验证了 kubeconfig 失败路径，不能替代 certipy find/req/auth。",
-        "下一步：拿到授权域与 CA 信息后先枚举模板，确认 Enroll/SAN/EKU/审批，再 certipy req→certipy auth；每步保留命令与返回。",
-        "成立判据：certipy auth 返回目标 TGT/hash 并可访问授权资源；仅 certipy find 报 vulnerable 不算；失败要记录并换路线。",
-        "边界：不碰授权外账号/CA，不做持久化；证书与票据只留指纹和有效期。"
+        "本次跑到：在 input/ 写最小 kubeconfig.yaml（含 clusters/contexts/users 与宽权限假 token），执行 cd Tool/cases/ad-cloud01 && python ../../scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json，rc=0。",
+        "结果：ok=true，4 条 finding：K8S-TRANSPORT-002（insecure-skip-tls-verify）、K8S-RBAC-002/003/006（假 JWT 的 cluster-admin SA 名、system:masters/system:serviceaccounts 组、选中上下文宽权限 SA）。",
+        "边界：token 是假值，脚本不验签也不联网；这些只是离线启发式，未接触 AD/ADCS，也没有执行 certipy find/req/auth。",
+        "下一步：若做在线确认，用只读 `kubectl auth can-i --list` 与 RoleBinding 对照；ADCS 案例需另行拿到授权域和 CA 信息后枚举模板。",
+        "证据只保留 token 指纹与声明，不记录完整 token；宽权限名称不等于已提权。"
       ],
       "tags": [
-        "R23",
-        "ad-cloud",
-        "kerberos",
-        "adcs",
-        "ESC1",
+        "kubeconfig",
+        "offline",
+        "token",
+        "rbac",
         "partial"
       ],
       "refs": [
@@ -46,29 +45,29 @@
       "dir": "ad-cloud02",
       "id": "ad-cloud02",
       "domain": "ad-cloud",
-      "target_type": "Kubernetes 集群（离线 kubeconfig 审计）",
+      "target_type": "离线 kubeconfig 夹具",
       "protection": [],
-      "authority": "authorized cluster",
+      "authority": "local offline fixture",
       "goal_level": "L2",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "a341a361abf707a8b35c8a1872dc8da50b00f66eedb7ffccc24b9a51aa3095af"
+          "sha256": "bff79a3d1780fcef9e794371a59cc502dc950c19e5da47d74dba587bc73edcc8"
         }
       ],
       "lessons": [
-        "本次跑到：adcloud-check.py --kubeconfig work/no-such.yaml --json，rc=2；ok=false，KUBECONFIG_NOT_FOUND，未得到任何 context、TLS、token 或权限线索。",
-        "卡点：没有可离线审计的 kubeconfig/凭据，也没有在线集群授权；无法判断匿名访问、token 过期或 cluster-admin 名称等结论。",
-        "下一步：提供授权集群的离线 kubeconfig 副本重跑本脚本，先看 context/TLS/token 过期/无凭据/宽权限名称，再用 kubectl auth can-i 在线确认 RBAC。",
-        "失败判据：不能把无凭据 user 写成匿名可访问，不能把 cluster-admin 名称写成已提权，不能把过期 token 当有效证据；测试资源用后即删。"
+        "本次跑到：在 input/ 写最小 kubeconfig.yaml（含 clusters/contexts/users 与宽权限假 token），执行 cd Tool/cases/ad-cloud02 && python ../../scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json，rc=0。",
+        "结果：ok=true，4 条 finding：K8S-TRANSPORT-002（insecure-skip-tls-verify）、K8S-RBAC-002/003/006（假 JWT 的 cluster-admin SA 名、system:masters/system:serviceaccounts 组、选中上下文宽权限 SA）。",
+        "边界：离线 kubeconfig 夹具，token 假值且未验签；没有 API server 在线请求，不能确认 RBAC 实际绑定、匿名访问或 token 是否被接受。",
+        "下一步：在线只读验证 `kubectl config current-context`、`kubectl auth can-i --list`、clusterrolebinding/rolebinding；测试资源用后即删。",
+        "失败判据：不能把无凭据 user 写成匿名可访问，不能把 cluster-admin 名称写成已提权，不能把过期/假 token 当有效证据。"
       ],
       "tags": [
-        "R23",
-        "ad-cloud",
-        "k8s",
-        "rbac",
+        "kubeconfig",
+        "offline",
         "token",
+        "rbac",
         "partial"
       ],
       "refs": [
@@ -84,7 +83,7 @@
       "dir": "firmware-iot01",
       "id": "firmware-iot01",
       "domain": "firmware-iot",
-      "target_type": "嵌入式 Linux 摄像头固件（SquashFS）",
+      "target_type": "非固件二进制（夹具：PE32+ DLL）",
       "protection": [],
       "authority": "local",
       "goal_level": "J1",
@@ -92,20 +91,21 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+          "sha256": "48e2725532670cc280aa75a4877413308cf8b8a2d6def5170ebeee515cc4b2d8"
         }
       ],
       "lessons": [
-        "本次跑到：fw-triage.py 对仓库内 CrackMev1.exe 做离线分诊，rc=0；containers 只识别到 offset 0 的 PE，entropy 4.955，credential_clues 为空，verdict=not a firmware container。",
-        "卡点：仓库内没有摄像头 SquashFS/OTA 固件镜像，无法做 binwalk 解包、unsquashfs、/etc/passwd/口令审计或 qemu-user 验证；本机还缺 unsquashfs/sasquatch。",
-        "下一步：拿到只读固件副本并记录 SHA256，先跑 fw-triage 确认 SquashFS/容器偏移，再解包检查 /bin/busybox、/etc 与 CGI，最后在 chroot/qemu-user 内验证 id 和 CGI 响应。",
-        "边界：J1 以 chroot/qemu-user 内可执行 id、读取 /etc/passwd、运行目标 CGI 为准；未拿到实物前不声称 UART 可用。"
+        "本次跑到：fw-triage.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；离线只读分诊。",
+        "真实识别：offset 0 为 PE/COFF（high），overall entropy 6.346；另有 2 处 jffs2 弱命中但只是字节模式误报，credential_clues=0，不能据此称为固件。",
+        "卡点：输入是非固件二进制（夹具：PE32+ DLL），没有 SquashFS/UBI/rootfs，也没有 binwalk 解包、unsquashfs 或 qemu 启动证据；本机缺 unsquashfs/sasquatch/ubireader。",
+        "下一步：若拿到真实固件，先记录 SHA256，再跑 fw-triage 确认容器偏移，解包审计 /bin/busybox、/etc 与 CGI，最后在 chroot/qemu-user 中验证。",
+        "边界：容器 magic 是线索不是结论；弱命中必须用解包结果或文件系统结构复核，禁止把 PE 夹具写成路由器固件。"
       ],
       "tags": [
-        "firmware",
-        "squashfs",
-        "qemu-user",
-        "credential-audit",
+        "non-firmware",
+        "PE32+",
+        "false-positive-container",
+        "offline-triage",
         "partial"
       ],
       "refs": [
@@ -120,7 +120,7 @@
       "dir": "firmware-iot02",
       "id": "firmware-iot02",
       "domain": "firmware-iot",
-      "target_type": "路由器固件（UBI/NAND + Web 管理面）",
+      "target_type": "非固件二进制（夹具：PE32 EXE）",
       "protection": [],
       "authority": "local",
       "goal_level": "J2",
@@ -128,22 +128,21 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+          "sha256": "1306db11f8e29ab8bfb363cd0731d874c60409d2932c2478ee5d23167972f12e"
         }
       ],
       "lessons": [
-        "本次跑到：同一 fw-triage.py 对 CrackMev1.exe 做离线分诊，rc=0；仅识别 PE、低熵、无 credential clues，verdict 明确不是固件容器；ubireader/unsquashfs 等工具缺失。",
-        "卡点：没有 NAND dump/UBI 镜像，无法确认 UBI# 偏移、PEB/LEB 参数或 rootfs_data 覆盖层，也没有 FirmAE/qemu-system 起的 Web 服务。",
-        "下一步：拿到保留 OOB/原始布局的 NAND dump，先定位 UBI# 与卷，分别审计主 rootfs 和 rootfs_data，再用 FirmAE/qemu-system 起服务并以真实 HTTP 业务回包验证 J2。",
-        "成立判据：端口监听+服务进程+真实协议响应三者同时成立；仅 FirmAE 报网络成功不算。",
-        "坑：rootfs_data 是配置覆盖层，账号/默认口令常不在主 rootfs；不要漏卷。"
+        "本次跑到：fw-triage.py --file Tool/samples/real/monologix-crackmes/CrackMe1.exe --json > artifacts/run.json，rc=0；离线只读分诊。",
+        "真实识别：offset 0 为 PE/COFF（high），另命中 gzip/jffs2 弱模式；overall entropy 7.57、high_block_ratio 0.667、credential_clues=0，整体更像高熵 PE 资源而非 NAND/UBI 固件。",
+        "卡点：输入是非固件二进制（夹具：PE32 EXE），没有 NAND dump/UBI 镜像或 rootfs_data，也没有 FirmAE/qemu-system 起的 Web 服务。",
+        "下一步：若拿到保留 OOB/原始布局的 NAND dump，先定位 UBI# 与卷，分别审计主 rootfs 和 rootfs_data，再用 FirmAE/qemu-system 起服务并以真实 HTTP 业务回包验证 J2。",
+        "边界：ubireader/unsquashfs 等工具缺失；J2 需端口监听+服务进程+真实协议响应三者同时成立，仅 FirmAE 报网络成功不算。"
       ],
       "tags": [
-        "firmware",
-        "ubi",
-        "nand",
-        "FirmAE",
-        "web-service",
+        "non-firmware",
+        "PE32",
+        "false-positive-container",
+        "offline-triage",
         "partial"
       ],
       "refs": [
@@ -158,52 +157,26 @@
       "dir": "forensics01",
       "id": "forensics01",
       "domain": "forensics-mobile",
-      "target_type": "Windows 内存镜像（本地授权取证样本）",
+      "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话）",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/capture.pcap",
+          "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "f89194fe6de06adb73fed6eb6d14b083d945612a90a0ea20a6300d45a657a005"
+        }
+      ],
       "lessons": [
-        "当前状态：planned —— 未采集内存，evidence/ 目录为空，无 mem.raw 与 SHA256SUMS，findings 全部未验证",
-        "还差什么：采集 mem.raw 并算哈希、确认 OS 版本与符号表、跑 pslist/psscan/netstat 建时间线，再把四要素写回 findings",
-        "先 banners/info 定 OS 与符号，再跑 pslist/psscan；符号错会全盘失败",
-        "pslist 与 psscan 差集只能作为隐藏/退出候选，不能直接定罪",
-        "每条结论必须带时间/主体/动作/对象四要素与可复现命令",
-        "失败判据：两次换工具仍无法识别/符号不匹配，或关键哈希不一致即停"
-      ],
-      "tags": [
-        "R26",
-        "forensics",
-        "memory",
-        "volatility3",
-        "timeline",
-        "planned"
-      ],
-      "refs": [
-        "Tool/skill/forensics-mobile/SKILL.md",
-        "Tool/skill/forensics-mobile/references/memory-and-volatility.md",
-        "Tool/skill/forensics-mobile/references/evidence-chain.md"
-      ],
-      "updated": "2026-10-20"
-    },
-    {
-      "dir": "forensics02",
-      "id": "forensics02",
-      "domain": "forensics-mobile",
-      "target_type": "pcap 流量取证（本地授权样本）",
-      "protection": [],
-      "authority": "local",
-      "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
-      "lessons": [
-        "当前状态：planned —— 未抓包，evidence/ 目录为空，无 capture.pcap 与 SHA256SUMS，findings 全部未验证",
-        "还差什么：抓取时间窗内 pcap 并算哈希、做 capinfos/会话统计、按 tcp.stream 重组导出 HTTP 对象并逐个哈希，再回填 findings",
-        "先 capinfos/会话统计，再按 tcp.stream 重组；不能只看单包",
-        "HTTP 对象导出后逐个算哈希，同名文件以 stream 建索引",
-        "时间线统一 UTC，保留 pcap 时间戳精度与丢包/截断说明",
-        "失败判据：只有单向流量、TLS 无 keylog 且无进程内明文，则标未闭环"
+        "实际分析：forensics-check.py --file input/capture.pcap，rc=0；识别 pcap/EN10MB，3 包、未截断，时间线 2026-10-20T03:14:05Z–03:14:05.910000Z，输入 sha256 与 artifacts 记录一致。",
+        "发现：补充 pcap-summary.py 后确认 2 个方向性会话；10.20.0.15:49152 → 10.20.0.5:80 的 GET /login 携带 Authorization: Bearer abc，响应 200 OK 且 Set-Cookie sid=deadbeef，随后同连接带该 Cookie 访问 /dashboard。",
+        "边界：单次构造会话，无 DNS/TLS、无文件对象导出；pcap 时间戳由构造脚本写入，文件 mtime 是构建时间而非证据时间，未与主机日志/NTP 对齐。",
+        "还差什么：真实采集记录与只读封存、按 tcp.stream 导出 HTTP 对象并逐个哈希、DNS/TLS/丢包信息，以及用主机日志交叉验证四要素。"
       ],
       "tags": [
         "R26",
@@ -211,20 +184,66 @@
         "pcap",
         "http",
         "timeline",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/forensics-mobile/SKILL.md",
         "Tool/skill/forensics-mobile/references/forensics.md",
-        "Tool/skill/forensics-mobile/references/evidence-chain.md"
+        "Tool/skill/forensics-mobile/references/evidence-chain.md",
+        "Tool/config/forensics-mobile-matrix.json",
+        "Tool/cases/forensics01/input/capture.pcap",
+        "Tool/cases/forensics01/artifacts/run.json"
       ],
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "forensics02",
+      "id": "forensics02",
+      "domain": "forensics-mobile",
+      "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/app.log",
+          "sha256": "e0b0d9362a970a025c849f7be82cfa1dbeb516b24a304bf6dc58cd49876d0923"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "fc70fb00be6f042e0b1fff203693f1c1c1cc065b48efef0784523bcd7f2d94db"
+        }
+      ],
+      "lessons": [
+        "实际分析：forensics-check.py --file input/app.log，rc=0；工具将类型判为 data/unknown，仅返回 sha256、大小和基于文件 mtime 的时间线，明确警告类型未确认；补充 grep 命中第 2–7 行。",
+        "发现：198.51.100.23 对 svc-backup 先连续失败 5 次后成功；04:58:44Z 外联 drop.example.invalid 并带 Bearer abc；05:01:19Z 执行 curl -d @/etc/shadow；05:03:55Z 生成 /tmp/.cache/9f3a.tar.gz；05:06:10Z 查询 telemetry.suspicious.invalid。",
+        "边界：只有日志单一来源，无进程树/pcap/文件哈希佐证，日志可被伪造；日志内 UTC 时间与文件 mtime 不一致，四要素只能标为 observed-log。",
+        "还差什么：采集主机进程/网络与文件哈希做交叉验证、把日志归一到 UTC 时间线、确认归档内容与上传是否成功，再决定是否升级结论。"
+      ],
+      "tags": [
+        "R26",
+        "forensics",
+        "log",
+        "timeline",
+        "exfil",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/forensics-mobile/SKILL.md",
+        "Tool/skill/forensics-mobile/references/forensics.md",
+        "Tool/skill/forensics-mobile/references/evidence-chain.md",
+        "Tool/config/forensics-mobile-matrix.json",
+        "Tool/cases/forensics02/input/app.log",
+        "Tool/cases/forensics02/artifacts/run.json"
+      ],
+      "updated": "2026-10-21"
     },
     {
       "dir": "malware-analysis01",
       "id": "malware-analysis01",
       "domain": "malware-analysis",
-      "target_type": "Windows PE（计划：加壳样本，待入库）",
+      "target_type": "PE32 / EXE（静态分诊夹具）",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -232,22 +251,22 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "23f95ff703e05c74db2a6ba330cda289c03f3404dfe141439d8b159fa683e44d"
+          "sha256": "4cf674bdd3fbf26a90015e0bdaf4363f0250b698374d7ae248fcaf0448f4ea5d"
         }
       ],
       "lessons": [
-        "本次跑到：mal-triage.py 对仓库内 CrackMev1.exe 完成静态分诊，rc=0；type=PE、verdict=low(score 0)、entropy 4.9553、无节异常/可疑导入，IOC 仅见 myapplication.app/system.io 与 1.0.0.0 等占位串。",
-        "卡点：这不是加壳恶意样本，仓库内没有在 scope 内的样本副本；未做 diec/rabin2 判壳、脱壳或配置解密，不能给出壳族/OEP/C2 结论。",
-        "下一步：拿到样本 SHA256 后在隔离副本上重跑 mal-triage，再用 diec/rabin2 看节表/熵，必要时脱壳或内存 dump，最后定位配置解密函数。",
-        "成立判据：能指出壳族与 OEP、dump 后入口落代码节且 IAT 合理、配置脚本可复现 C2/端口/互斥体等字段；否则转行为/网络侧写。",
-        "证据要求：样本 SHA256、隔离环境与快照、节表/熵、脱壳前后哈希、配置字段出处（脱敏）。"
+        "本次跑到：mal-triage.py --file Tool/samples/real/monologix-crackmes/CrackMe1.exe --json > artifacts/run.json，rc=0；静态分诊，未做行为沙箱。",
+        "结果：PE32 x86 EXE，entropy 7.5698，.rsrc 熵 7.98 被标记为可能的压缩/加密异常；44 个导入，命中 IsDebuggerPresent/QueryPerformanceCounter 与 CRT system，verdict=medium(score 3)，并生成建议 YARA（未部署）。",
+        "卡点：没有样本运行授权、隔离快照或沙箱采集；没有 Procmon/ETW/pcap/pe-sieve 数据，不能证明外联、持久化或 C2。",
+        "下一步：在隔离快照中运行 3–5 分钟，采集进程/文件/网络/内存，归一化为 JSONL，再用干净集验证 YARA；高风险结论至少需文件+网络或进程+内存两类互证。",
+        "边界：静态分诊只说明样本结构与导入可疑，不能替代行为证据；不要在本机直接执行未知 PE。"
       ],
       "tags": [
-        "R27",
-        "malware-analysis",
-        "unpacking",
-        "config",
-        "pe",
+        "PE",
+        "static-triage",
+        "entropy",
+        "yara-suggestion",
+        "no-sandbox",
         "partial"
       ],
       "refs": [
@@ -262,7 +281,7 @@
       "dir": "malware-analysis02",
       "id": "malware-analysis02",
       "domain": "malware-analysis",
-      "target_type": "Windows PE / 脚本加载器（计划：沙箱行为时间线）",
+      "target_type": "PE32 / EXE（静态分诊夹具）",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -270,22 +289,22 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "23f95ff703e05c74db2a6ba330cda289c03f3404dfe141439d8b159fa683e44d"
+          "sha256": "50aabaf13c0b80d75e923f057d422dcb131365253a1b73a9fa43dcb42b9d0db7"
         }
       ],
       "lessons": [
-        "本次跑到：同一 mal-triage.py 对 CrackMev1.exe 的静态分诊，rc=0；只得到 PE/low/entropy 4.9553/无节异常与可疑导入，并生成建议 YARA 文本（未落盘为规则文件）。",
-        "卡点：没有沙箱、样本运行授权或采集环境；本次没有 Procmon/ETW/pcap/pe-sieve 数据，因此没有 timeline.jsonl、pcap 或可验证的 YARA 命中。",
-        "下一步：在快照隔离环境运行样本 3–5 分钟，采集进程/文件/网络/内存，归一化成含 ts_utc/pid/ppid/image/action/object/result/evidence 的 JSONL，再用干净集验证 YARA。",
-        "成立判据：至少文件+网络或进程+内存两类互证；长睡眠/VM 检测/PID 复用要回采集阶段补证据。"
+        "本次跑到：mal-triage.py --file Tool/samples/real/monologix-crackmes/Crackme2.exe --json > artifacts/run.json，rc=0；静态分诊，未做行为沙箱。",
+        "结果：PE32 x86 EXE，entropy 7.5982，.rsrc 熵 7.98 被标记为可能的压缩/加密异常；44 个导入，命中 IsDebuggerPresent/QueryPerformanceCounter 与 CRT system，verdict=medium(score 3)，并生成建议 YARA（未部署）。",
+        "卡点：没有沙箱、样本运行授权或采集环境；本次没有 timeline.jsonl、pcap 或可验证的 YARA 命中。",
+        "下一步：在快照隔离环境运行样本 3–5 分钟，采集进程/文件/网络/内存并归一化成含 ts_utc/pid/ppid/image/action/object/result/evidence 的 JSONL，再用干净集验证 YARA。",
+        "边界：静态分诊未观测行为；长睡眠/VM 检测/PID 复用等结论必须回到采集阶段补证据。"
       ],
       "tags": [
-        "R27",
-        "malware-analysis",
-        "sandbox",
-        "timeline",
-        "ioc",
-        "yara",
+        "PE",
+        "static-triage",
+        "entropy",
+        "yara-suggestion",
+        "no-sandbox",
         "partial"
       ],
       "refs": [
@@ -300,146 +319,189 @@
       "dir": "plugin01",
       "id": "plugin01",
       "domain": "plugin-targets",
-      "target_type": "Chrome/Edge MV3 浏览器扩展（.crx，本地授权样本）",
+      "target_type": "Chrome/Edge MV3 扩展 ZIP（本地构造样本）",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/ext.zip",
+          "sha256": "1103cad9d78f2438555e0ea80ff74d384a29c22a9060782eba2b37473eb682dc"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "698420571182a1cbf185cc260a1bb558927bdd4511e450bbe3dd54e32a8f2c42"
+        }
+      ],
       "lessons": [
-        "当前状态：planned —— 只有按 MV3 形态写的设计稿，evidence/ 目录为空，未取得 .crx，manifest 段为预期权限而非实测",
-        "还差什么：拿到授权样本 .crx 并算 sha256，解包核对真实 manifest，逐权限映射到代码路径，导出 export/manifest.json 与 report/dataflow.md",
-        "先解释每个权限对应哪条代码路径，再谈恶意；nativeMessaging 是高价值面",
-        "content script 默认 isolated world，只有 world=MAIN 或注入 script 才进页面上下文",
-        "MV3 service worker 会被回收，动态观测要主动唤醒并记录消息",
-        "失败判据：权限/入口无法对应代码路径，或签名/企业策略阻止加载"
+        "实际分析：plugin-triage.py --path input/ext.zip，rc=0；识别 ZIP 浏览器扩展包，3 个文件，manifest MV3 / Lab Session Helper 1.2.0。",
+        "发现：权限 storage/scripting/cookies，host_permissions https://*.example.invalid/*；命中 chrome_cookies 与 network_request，远程 URL 为 https://api.example.invalid/session。",
+        "数据流：content.js 发 sendMessage，background.js 读取 example.invalid 的 cookie 后 POST 到 api.example.invalid；未发现 nativeMessaging/debugger/远程脚本。",
+        "还差什么：仅静态初筛，未加载进浏览器观察 service worker 唤醒与消息；未取得真实商店/旁加载样本，storage/scripting 的权限滥用仍需动态与代码路径证据。"
       ],
       "tags": [
         "R25",
         "plugin",
-        "crx",
+        "zip",
         "mv3",
-        "nativeMessaging",
-        "planned"
+        "cookies",
+        "partial"
       ],
       "refs": [
         "Tool/skill/plugin-targets/SKILL.md",
         "Tool/skill/plugin-targets/references/browser-extension.md",
-        "Tool/skill/plugin-targets/references/electron-and-asar.md"
+        "Tool/skill/plugin-targets/references/electron-and-asar.md",
+        "Tool/config/plugin-targets-matrix.json",
+        "Tool/cases/plugin01/input/ext.zip",
+        "Tool/cases/plugin01/artifacts/run.json"
       ],
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "dir": "plugin02",
       "id": "plugin02",
       "domain": "plugin-targets",
-      "target_type": "Electron 桌面应用（app.asar，本地授权样本）",
+      "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造样本）",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/ext2.zip",
+          "sha256": "7d1536ae2944c74547ffa6444a67496a8fa1555aa3d854f75ffac82940261ebb"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "3444dc7f726ff1ce8efc1afc00b510cc4720da3937468735dc5c9ac371368c35"
+        }
+      ],
       "lessons": [
-        "当前状态：planned —— app.asar 未取得（evidence/ 为空），runtime/manifest 段是按 Electron 28 常见配置写的预期，不是实测",
-        "还差什么：拿到授权 app.asar 并算 sha256，npx asar 列目录确认 main/preload 是否字节码，再导出 export/asar-tree.txt 与 report/ipc.md",
-        "asar 不是加密：能列目录不代表能读 .jsc/原生模块",
-        "contextIsolation:false + nodeIntegration:true 会放大 renderer 到 Node 的攻击面",
-        "先定位 IPC handler 的参数校验与路径拼接，再决定最小可改单元",
-        "失败判据：asar 头解析失败两次或 main/preload 全被字节码覆盖，标入口未读"
+        "实际分析：plugin-triage.py --path input/ext2.zip，rc=0；识别 ZIP 浏览器扩展包，3 个文件，manifest MV3 / Telemetry Bridge 0.4.2。",
+        "发现：权限 nativeMessaging/tabs/storage/scripting/webRequest，host_permissions <all_urls>，content script 在 document_start 且 all_frames=true，externally_connectable 为 *://*/*，update_url 指向 suspicious-cdn.invalid。",
+        "静态命中：nativeMessaging(2，manifest+background)、webRequest、network_request；远程 URL 为 collector.suspicious-cdn.invalid/ingest、relay.suspicious-cdn.invalid/ws 与 update_url。数据流为页面表单 → connectNative + fetch/WebSocket。",
+        "还差什么：没有 native host manifest/二进制，未实际建立 connectNative 或外联，不能证明窃取成功；btoa 只是编码。需补 host 侧样本与动态网络/消息观测。"
       ],
       "tags": [
         "R25",
         "plugin",
-        "electron",
-        "asar",
-        "ipc",
-        "planned"
+        "zip",
+        "mv3",
+        "nativeMessaging",
+        "partial"
       ],
       "refs": [
         "Tool/skill/plugin-targets/SKILL.md",
-        "Tool/skill/plugin-targets/references/electron-and-asar.md",
-        "Tool/skill/plugin-targets/references/desktop-plugins.md"
+        "Tool/skill/plugin-targets/references/browser-extension.md",
+        "Tool/skill/plugin-targets/references/desktop-plugins.md",
+        "Tool/config/plugin-targets-matrix.json",
+        "Tool/cases/plugin02/input/ext2.zip",
+        "Tool/cases/plugin02/artifacts/run.json"
       ],
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "dir": "protocol01",
       "id": "protocol01",
       "domain": "protocol-plugin",
-      "target_type": "本地授权靶场的 WebSocket JSON 私有协议",
+      "target_type": "本地 pcap 抓包样本：HTTP/1.1 登录与会话请求（GET /login + Bearer）",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/sample.pcap",
+          "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "c7244158e67b6d035a3629878b5f3caa31e08568353e9518546a7033fc0191c9"
+        }
+      ],
       "lessons": [
-        "当前状态：planned —— 仅完成协议形态设计，evidence/ 目录为空，无抓包、无 schema、无复现脚本；以上字段均为假设",
-        "还差什么：抓取一条完整 ws 会话（capture.pcapng）、落 schema.md、写可复跑 replay.py，并用新的 subscribe 请求验证响应可预测",
-        "先按 FIN/opcode 重组消息，再谈 JSON 字段；不能按 TCP 段切",
-        "握手头 Host/Origin/Sec-WebSocket-Key 必须齐全，否则服务端拒绝",
-        "判据是能构造新的 subscribe 请求并预测 data 响应，不是只看握手成功",
-        "失败路径：token 过期、seq 重放、服务端心跳超时；需分别记录错误码"
+        "实际分析：pcap-summary.py 解析 input/sample.pcap，rc=0；格式 pcap/EN10MB，3 包、2 个方向性 TCP 会话，未截断。",
+        "发现：10.20.0.15:49152 → 10.20.0.5:80 的请求含 GET /login、Host: lab.example.test、Authorization: Bearer abc；响应 200 OK 并 Set-Cookie sid=deadbeef；随后 GET /dashboard 复用该 Cookie。",
+        "边界：脚本只做包级明文片段提取，不做 TCP 流重组；样本无 SYN/TLS，token 为静态值，未验证过期/重放/错误码。",
+        "还差什么：抓一条真实完整会话（含握手与失败分支）、按流重组、写 replay.py 构造新请求并预测响应；当前 target_type 已改为 HTTP pcap，不再是 WebSocket 设计稿。"
       ],
       "tags": [
         "R24",
         "protocol",
-        "websocket",
-        "json",
-        "replay",
-        "planned"
+        "http",
+        "pcap",
+        "bearer",
+        "partial"
       ],
       "refs": [
         "Tool/skill/protocol-plugin/SKILL.md",
         "Tool/skill/protocol-plugin/references/protocol-reverse.md",
-        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md",
+        "Tool/config/protocol-plugin-matrix.json",
+        "Tool/cases/protocol01/input/sample.pcap",
+        "Tool/cases/protocol01/artifacts/run.json"
       ],
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "dir": "protocol02",
       "id": "protocol02",
       "domain": "protocol-plugin",
-      "target_type": "本地授权靶场的 TCP 二进制帧协议（magic + length + CRC + 加密段）",
+      "target_type": "本地二进制帧样本：magic SPRX + 长度前缀 + CRC32（3 帧）",
       "protection": [],
       "authority": "local",
       "goal_level": "L3",
-      "outcome": "planned",
-      "artifacts": [],
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/sample.bin",
+          "sha256": "110da7c87b2cb7d145506ca7549fd771d088b05f6e97f1b104de3e4c0f9803c4"
+        },
+        {
+          "path": "input/notes.md",
+          "sha256": "58b190565eaa995b92516b8e70841c1cc3cf3ada013d0fdd858e37d4fcdec9de"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "1d85499760ddb77bd4f3d07547acb26546fe36b25385740c8d034d0363a80361"
+        }
+      ],
       "lessons": [
-        "当前状态：planned —— 仅有帧格式假设，evidence/ 目录为空，没有 pcap、没有 frames.jsonl/schema.md/parser.py",
-        "还差什么：抓取 ≥3 帧真实流量、用 3 帧以上反推 length 覆盖范围与 CRC 参数、在客户端 send/recv 取加密前明文，再补 parser.py 重放验证",
-        "长度字段含头/含尾必须用 3 帧以上反推，不能按首帧猜",
-        "CRC 先定覆盖范围再定多项式；只匹配样本不算闭环",
-        "加密段优先在客户端 send/recv 取明文，不暴力猜密钥",
-        "失败判据：长度/CRC 无法闭环或只能原样重放，则报部分复刻"
+        "实际分析：按 input/notes.md 帧表解析 input/sample.bin，3 帧共 141 B；magic=SPRX、version=1、type=1/2/3、seq=1/2/3，length 仅覆盖 payload，CRC32 覆盖 header+payload，三个 CRC 均可复现。",
+        "发现：payload 依次为 HELLO/AUTH/TELEMETRY 明文 JSON（36/30/27 B）；原设计中的 AES-CBC 加密段在本样本中不存在。",
+        "工具边界：pcap-summary.py 对 sample.bin 返回 pcap_parse_error；兼容入口 rc=0、直调目标 rc=2，入口在 Windows 上丢失子进程退出码。",
+        "还差什么：真实 TCP pcap、≥3 帧反推 length/CRC 覆盖、半包/粘包/乱序重同步测试与 parser.py；当前只能证明该 3 帧样本自洽，不能证明真实流量格式。"
       ],
       "tags": [
         "R24",
         "protocol",
         "binary",
-        "crc",
+        "crc32",
         "framing",
-        "planned"
+        "partial"
       ],
       "refs": [
         "Tool/skill/protocol-plugin/SKILL.md",
         "Tool/skill/protocol-plugin/references/binary-protocols.md",
-        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md",
+        "Tool/config/protocol-plugin-matrix.json",
+        "Tool/cases/protocol02/input/sample.bin",
+        "Tool/cases/protocol02/input/notes.md",
+        "Tool/cases/protocol02/artifacts/run.json"
       ],
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "dir": "pwn-crypto01",
       "id": "pwn-crypto01",
       "domain": "pwn-crypto",
-      "target_type": "ELF x86_64 / 本地堆题（tcache+UAF）",
+      "target_type": "PE32+ / DLL",
       "protection": [
         "NX",
-        "PIE",
-        "Canary",
-        "Partial RELRO",
-        "glibc 2.35",
-        "seccomp: openat/read/write"
+        "PIE/ASLR",
+        "Canary absent",
+        "RELRO N/A (PE)"
       ],
       "authority": "local",
       "goal_level": "L2",
@@ -447,23 +509,23 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
+          "sha256": "19ffd77ba9ade23ff1e0b1a11ee925712397d99402ef3c0b8c97f3944df33fcc"
         }
       ],
       "lessons": [
-        "本次跑到：pwn-check.py 对仓库内 CrackMev1.exe 完成 PE 保护位/导入/format 串预判，rc=0；识别 PE x86 32-bit，NX/PIE Enabled、Canary Not found、RELRO N/A，1 个导入、无危险导入/format 风险。",
-        "卡点：这不是目标的 ELF x86_64 堆题，仓库内没有 chall/libc/ld 附件；因此没有 heap 泄漏、tcache/UAF 或 seccomp 证据，不能宣称利用成立。",
-        "下一步：补入目标 ELF 与对应 libc/ld，先跑 checksec/glibc build id/seccomp-tools dump，再按泄漏 heap→unsorted bin 泄漏 libc→tcache poison→ORW 的顺序做本地 10 次复现。",
-        "成立判据：malloc 返回受控地址、泄漏页对齐且 libc 吻合、全新进程 10 次成功≥9、flag 输出可复现。",
-        "失败预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐。"
+        "本次跑到：pwn-check.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
+        "结果：PE32+ x86_64 DLL，entry=0x1330，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），85 个导入、6 条 format string 风险；未执行二进制。",
+        "卡点：案例原先写着 ELF 堆题，但仓库内没有对应 chall/libc/ld；本产物只覆盖 PE 保护位与导入/format 串预判，没有 heap/tcache/UAF 证据。",
+        "下一步：若要继续 pwn，补入目标 ELF 与匹配 libc/ld，跑 checksec、glibc build id、seccomp-tools dump，再按泄漏→覆写→ORW 的顺序本地复现。",
+        "边界：静态工具不能证明可利用性；format string 路由需动态验证偏移、写权限与目标地址。"
       ],
       "tags": [
-        "R21",
-        "pwn-crypto",
-        "heap",
-        "tcache",
-        "uaf",
-        "seccomp",
+        "PE32+",
+        "DLL",
+        "mitigations",
+        "format-strings",
+        "dangerous-imports",
+        "static",
         "partial"
       ],
       "refs": [
@@ -478,30 +540,35 @@
       "dir": "pwn-crypto02",
       "id": "pwn-crypto02",
       "domain": "pwn-crypto",
-      "target_type": "Python RSA challenge / 密码学脚本",
-      "protection": [],
+      "target_type": "PE32+ / EXE",
+      "protection": [
+        "NX",
+        "PIE/ASLR",
+        "Canary absent",
+        "RELRO N/A (PE)"
+      ],
       "authority": "local",
       "goal_level": "L2",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
+          "sha256": "8952400e0b0fa15faeeb1bc980d0b7e45264d54561adad1937689b86a642e414"
         }
       ],
       "lessons": [
-        "本次跑到：按本域脚本要求用 pwn-check.py 对仓库内 CrackMev1.exe 做工具链连通性验证，rc=0；只得到 PE 保护位/导入预判，未执行任何 RSA 求解。",
-        "卡点：案例目标是 Python RSA 题目，但当前没有 n/e/c、模数列表或题目脚本；无法判断小指数、共模、Håstad、共享素数或 Wiener/Fermat 哪条路径成立。",
-        "下一步：补入题目参数/脚本后先做 gcd(n_i,n_j)、e 与 φ(n) 互质性、同消息/填充检查，再选攻击并回代 pow(m,e,n)==c。",
-        "成立判据：明文可读且回代成立；广播 CRT 后开方精确且 m^e<M；两组密文都成立才算完成。",
-        "失败预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质。"
+        "本次跑到：pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
+        "结果：PE32+ x86_64 EXE，entry=0x13f0，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），41 个导入、8 条 format string 风险；未执行二进制。",
+        "卡点：本次没有 ELF/CTF 题目参数，也没有 crypto 题面（n/e/c、模数列表或脚本）；产物只是 PE 静态保护位与导入预判，不能据此求解 RSA。",
+        "下一步：若要继续 pwn/crypto，分别补入目标 ELF 与 libc/ld，或补入题目参数脚本；crypto 先做 gcd(n_i,n_j)、e 与 φ(n) 互质性、同消息/填充检查。",
+        "边界：静态工具不能证明可利用性；RSA 求解必须回代 pow(m,e,n)==c，广播攻击还需确认消息同一且 m^e<M。"
       ],
       "tags": [
-        "R21",
-        "pwn-crypto",
-        "crypto",
-        "rsa",
-        "hastad",
+        "PE32+",
+        "EXE",
+        "mitigations",
+        "format-strings",
+        "static",
         "partial"
       ],
       "refs": [
@@ -516,13 +583,9 @@
       "dir": "supply-chain01",
       "id": "supply-chain01",
       "domain": "supply-chain",
-      "target_type": "repo (npm + GitHub Actions)",
-      "protection": [
-        "branch-protection",
-        "dependabot",
-        "required-review"
-      ],
-      "authority": "server",
+      "target_type": "Tool/（本仓库工具目录）",
+      "protection": [],
+      "authority": "local",
       "goal_level": "L3",
       "outcome": "partial",
       "artifacts": [
@@ -532,17 +595,18 @@
         }
       ],
       "lessons": [
-        "本次跑到：sc-check.py --path Tool/ --max-files 1000 完成离线扫描，rc=0；inventory 命中 1 个 npm manifest + 1 个 package-lock、2 个 GitHub Actions workflow，扫描因 1000 文件上限 truncated=true。",
-        "结果：9 条 medium、0 high/critical；6 条 ci-action-pin（actions/checkout@v4 等）、1 条 ci-permissions、1 条 dependency-confusion（@fontsource scope 未指定 registry）、1 条 version-range；syft/osv-scanner/cosign 等缺失。",
+        "本次跑到：sc-check.py --path Tool/ --max-files 1000 > artifacts/run.json，rc=0；files_scanned=1000、truncated=true；inventory 为 1 个 npm manifest、1 个 package-lock、2 个 GitHub Actions workflow。",
+        "结果：9 条 medium（ci-action-pin 6、ci-permissions 1、dependency-confusion 1、version-range 1），0 high/critical；syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失。",
         "卡点：只覆盖 Tool/ 前 1000 个文件，未做 registry 实际映射、锁文件 resolved/integrity 全量核对和 CVE 查询。",
-        "下一步：对目标 repo 全量重跑；把 Actions 固定到 40 位 commit SHA 并补 permissions；为 @fontsource 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
-        "依赖混淆判据仍是 registry 映射 + 锁文件 resolved/integrity 三者一致；pull_request_target 要连同 checkout ref、job 权限、secrets 作用域一起看。"
+        "下一步：对目标目录全量重跑；把 Actions 固定到 40 位 commit SHA 并补最小 permissions；为 @fontsource 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
+        "判据：依赖混淆仍是 registry 映射 + 锁文件 resolved/integrity 三者一致；pull_request_target 要连同 checkout ref、job 权限、secrets 作用域一起看。"
       ],
       "tags": [
         "npm",
         "GitHub-Actions",
         "dependency-confusion",
         "lockfile",
+        "offline-static",
         "partial"
       ],
       "refs": [
@@ -550,7 +614,7 @@
         "Tool/skill/supply-chain-security/references/dependency-confusion.md",
         "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
         "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/01-dependency-confusion.md",
-        "Tool/config/supply-chain-matrix.json"
+        "Tool/config/supply-chain-security-matrix.json"
       ],
       "updated": "2026-10-21"
     },
@@ -558,34 +622,29 @@
       "dir": "supply-chain02",
       "id": "supply-chain02",
       "domain": "supply-chain",
-      "target_type": "container image (OCI + cosign + SLSA)",
-      "protection": [
-        "cosign",
-        "slsa-provenance",
-        "immutable-tags",
-        "registry-rbac"
-      ],
-      "authority": "server",
+      "target_type": "setup/（本仓库安装脚本目录）",
+      "protection": [],
+      "authority": "local",
       "goal_level": "L3",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "65d3aea98395e357db088f434af2909cfd786f45b6adefaaef65d97cf6393020"
+          "sha256": "44b1c5e055d5e8a203efd794dc4afa495b61fc988c7c4e8740b998a6cbe04a47"
         }
       ],
       "lessons": [
-        "本次跑到：同一 sc-check.py --path Tool/ --max-files 1000 离线扫描，rc=0；得到 1 个 npm manifest/lock、2 个 workflow、9 条 medium（ci-action-pin/ci-permissions/dependency-confusion/version-range）。",
-        "卡点：目标是 registry.example.com 镜像 @sha256:<digest>，本次没有镜像 digest、SBOM、attestation 或 cosign 数据；仓库扫描结果不能替代镜像与 provenance 证据。",
-        "下一步：拿到 image owner 授权后记录 repo@sha256:<digest>，对 digest 生成 SBOM，跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
-        "边界：只读 pull/verify，不 push、不覆盖 tag、不运行不可信镜像；多阶段 FROM <stage> 不是基础镜像，报 image tag 前先排除本地 stage 别名。"
+        "本次跑到：sc-check.py --path setup/ > artifacts/run.json，rc=0；files_scanned=23、truncated=false；inventory 为 0 manifest/lock/workflow。",
+        "结果：0 条风险（0 high/critical），同时 syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失；零 finding 只表示当前静态规则未命中。",
+        "卡点：目标是 setup/ 安装脚本目录，只能证明该目录未发现 npm/Actions/容器清单类风险；没有 registry 镜像 digest、SBOM、attestation 或 cosign 数据。",
+        "下一步：若要评镜像，记录 repo@sha256:<digest> 后生成 SBOM、跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
+        "边界：只读扫描，不 push、不覆盖 tag、不运行不可信镜像；脚本目录扫描结果不能替代镜像与 provenance 证据。"
       ],
       "tags": [
-        "OCI",
-        "cosign",
-        "SLSA",
-        "SBOM",
-        "digest",
+        "setup",
+        "install-scripts",
+        "offline-static",
+        "no-findings",
         "partial"
       ],
       "refs": [
@@ -593,7 +652,7 @@
         "Tool/skill/supply-chain-security/references/image-and-provenance.md",
         "Tool/skill/supply-chain-security/references/sbom-sca.md",
         "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/02-image-and-provenance.md",
-        "Tool/config/supply-chain-matrix.json"
+        "Tool/config/supply-chain-security-matrix.json"
       ],
       "updated": "2026-10-21"
     },
@@ -601,33 +660,29 @@
       "dir": "web-pentest01",
       "id": "web-pentest01",
       "domain": "web",
-      "target_type": "web/api (REST + JWT)",
-      "protection": [
-        "waf",
-        "jwt",
-        "rate-limit"
-      ],
-      "authority": "server",
+      "target_type": "本地静态页（教学夹具）",
+      "protection": [],
+      "authority": "local",
       "goal_level": "L2",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "92a5713650b0313e357ef71f7c8bbc448e0fe5ec7be394b5c7ef04ef4aa25271"
+          "sha256": "db64f698a9f291070f29c67bf2635996b94207daa59ec374682ba37a7888584e"
         }
       ],
       "lessons": [
-        "本次跑到：web-check.py 对 http://127.0.0.1:9/ 做被动基线，3 次 GET 后 rc=3；baseline 报 WinError 10061 目标不可达，所有检查项 skipped，findings=0。",
-        "卡点：没有可访问的授权目标，Host/scope 仍是 api.example.com 占位；未取得响应头、robots、错误页或敏感路径矩阵，无法进入 JWT/IDOR 验证。",
-        "下一步：拿到书面 scope 后换真实 base URL 重跑本脚本，先建立正常请求/特征请求/404 三组基线；再用两个账号 A/B 与未登录会话对照同一接口。",
-        "JWT 结论必须用两个真实账号 A/B 加一个未登录会话；只改 alg/kid 得到 200 不算越权。",
-        "WAF 403 与应用 403 分开；任何 200 命中先与首页/随机 404 做归一化，避免 SPA 软 404 假阳性；证据保留原始请求行、状态码与响应 hash。"
+        "本次跑到：在案例 input/ 下放 index.html（含 Index of / 与 /.env、/backup.zip、/admin/ 链接），用 python -m http.server 在 127.0.0.1:57931 启动临时静态服务，再跑 web-check.py --url http://127.0.0.1:57931/ > artifacts/run.json，rc=0，随后已终止服务。",
+        "结果：31 次 GET、8 条 finding（high 2 / medium 1 / low 3 / info 2）；/.env 与 /backup.zip 返回 200，命中目录列表标记，CSP/X-Content-Type-Options/XFO 缺失，Server 头泄露 SimpleHTTP/0.6 Python/3.12.0。",
+        "边界：这只是本地教学夹具，没有 JWT、IDOR、WAF 或真实业务接口；高危/中危只证明基线配置问题，不等同于可未授权读取真实敏感数据。",
+        "下一步：若换真实授权站点，先记录书面 scope，再建立正常/404 基线并做同源归一化；JWT/IDOR 需两个真实账号 A/B 与未登录会话对照。",
+        "复现：服务仅绑定 127.0.0.1，脚本只发 GET、不跟随重定向；证据保留原始 URL、状态码与 body hash。"
       ],
       "tags": [
-        "REST",
-        "JWT",
-        "IDOR",
-        "WAF",
+        "static-page",
+        "directory-listing",
+        "missing-headers",
+        "sensitive-path",
         "passive-baseline",
         "partial"
       ],
@@ -644,35 +699,30 @@
       "dir": "web-pentest02",
       "id": "web-pentest02",
       "domain": "web",
-      "target_type": "web/spa + graphql + cve-repro",
-      "protection": [
-        "cdn",
-        "waf",
-        "csrf-token",
-        "graphql-depth-limit"
-      ],
-      "authority": "server",
+      "target_type": "本地静态页（教学夹具）",
+      "protection": [],
+      "authority": "local",
       "goal_level": "L2",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "e7902bd9c288e65b356d2b49c445dd75e73240b8281f9df13084133a05d301d1"
+          "sha256": "6900a8fa713287aa014fcffc848fb73550c1a68f375afa5eef2afaf6badcf51d"
         }
       ],
       "lessons": [
-        "本次跑到：web-check.py 对 http://127.0.0.1:9/ 做被动基线，3 次 GET 后 rc=3；目标不可达，GraphQL/SPA/CVE 相关检查全部 skipped，findings=0。",
-        "卡点：没有授权 SPA/GraphQL 目标，未取得软 404 标记、introspection 状态、静态文件 hash 或版本；无法做字段级授权或 CVE 复现。",
-        "下一步：拿到 app.example.com 的授权与低/高权会话后重跑，先看 soft-404/spa_fallback 标记，再逐字段/逐对象对照 GraphQL 授权。",
-        "CVE 复现先钉精确版本（静态文件 hash 或 /version），再用官方补丁 diff 做修复前后对照；nuclei 只初筛。",
-        "CDN 缓存可能返回旧响应，每步记录缓存状态与时间，必要时加随机查询串；不跟随跨域重定向，Location 只观察。"
+        "本次跑到：在案例 input/ 下放 index.html（含 Index of / 与 /.env、/backup.zip、/admin/ 链接），用 python -m http.server 在 127.0.0.1:57981 启动临时静态服务，再跑 web-check.py --url http://127.0.0.1:57981/ > artifacts/run.json，rc=0，随后已终止服务。",
+        "结果：31 次 GET、8 条 finding（high 2 / medium 1 / low 3 / info 2）；/.env 与 /backup.zip 返回 200，命中目录列表标记，CSP/X-Content-Type-Options/XFO 缺失，Server 头泄露 SimpleHTTP/0.6 Python/3.12.0。",
+        "边界：夹具是静态页，不包含 SPA fallback、GraphQL introspection 或 CVE 版本面；本次没有做 GraphQL 字段级授权与 CVE 复现。",
+        "下一步：若换真实授权 SPA/GraphQL 目标，先看 soft-404/spa_fallback 与 introspection 状态，再用低/高权会话逐字段、逐对象对照授权。",
+        "CVE 复现先钉精确版本（静态文件 hash 或 /version），再用官方补丁 diff 做修复前后对照；nuclei 只作初筛。"
       ],
       "tags": [
-        "GraphQL",
-        "SPA",
-        "CVE",
-        "CDN",
-        "soft-404",
+        "static-page",
+        "directory-listing",
+        "missing-headers",
+        "sensitive-path",
+        "passive-baseline",
         "partial"
       ],
       "refs": [

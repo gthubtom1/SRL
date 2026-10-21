@@ -15,14 +15,12 @@ metadata:
 > 纯静态算法还原交给 `ida-reverse` / `reverse-engineering`；Android 目标交给 `apkseep`。
 
 ## 1. 适用
-
 - CTF pwn / crypto、授权靶场、自有 ELF 服务的白盒验证。
 - 输入：ELF / `.so` / `libc.so.6`、远程 `host:port`、密码学脚本或加解密 oracle。
 - 输出：`exploit.py` / `solve.py`、稳定复现命令、flag 或 root 证据、失败项与已排除原因。
 - 不适用：纯逆向报告、批量扫描、未授权目标、真实生产凭据或证书。
 
 ## 2. 前置（三关不过，不开打）
-
 ### 2.1 checksec 输出（先留基线）
 
 ```text
@@ -67,7 +65,6 @@ FORTIFY:  Enabled
 - 用目标同版本 libc 跑本地：`patchelf --set-interpreter` + `--set-rpath`，或 `pwninit`；记录 libc build id。
 
 ## 3. 六种打法
-
 ### 3.1 栈溢出 + ROP
 
 1. `pwn cyclic 300` 找偏移，`pwn cyclic -l 0x6161616c` 得覆盖长度；用 `gdb` 看 `$rsp` 处内容复核。
@@ -150,7 +147,6 @@ FORTIFY:  Enabled
 - 判据：目标验证器接受伪造签名/证书（实验室自建 CA），且 `openssl verify` 或程序返回成功。
 
 ## 4. 每类判据（成立 / 不成立）
-
 | 类型 | 成立判据 | 常见误判 |
 |---|---|---|
 | 栈溢出 + ROP | 偏移稳定、`$rip` 受控、泄漏基址与 libc 吻合、链一次成功 | 本地能打、远程偏移不同；栈未对齐偶发崩溃 |
@@ -164,7 +160,6 @@ FORTIFY:  Enabled
 | 证书 / 签名 | 目标验证器接受，证据可复现 | 只改了文件没改信任链；把解析差异当签名伪造 |
 
 ## 5. 工具与降级
-
 | 工具 | 用途 | 缺失时 |
 |---|---|---|
 | `checksec` / `readelf` | 保护位、段、动态项 | `pwn checksec`；再退 `readelf -hW/-lW/-d` |
@@ -183,18 +178,10 @@ FORTIFY:  Enabled
   需要时加 `-Target <样本>` 自启；不要手猜安装路径。
 - 安装仍需用户确认；禁止为“再试一次”反复装工具。
 
-## 6. 坑（按出现频率排）
-
-1. **libc 版本错配**：`system`/`/bin/sh`/one_gadget 偏移全错。用泄漏地址低 12 位查 libc-database，核对 build id；本地用 `patchelf`/`pwninit` 固定解释器与 rpath。
-2. **远程 vs 本地偏移**：argv、环境变量、`LD_PRELOAD`、cwd、tty、缓冲、fork、seccomp 都会改栈与行为。远程必须重新泄漏；本地用 `socat` 模拟同一启动方式。
-3. **canary 泄漏点**：`%p` 序号错、只泄漏到 7 字节、覆盖了 TLS 而不是栈值；fork server 的 canary 稳定，exec 后会变。
-4. **padding 对齐**：x86_64 调用前 `rsp % 16 == 0`；`system` 偶发崩先加 `ret`。格式化串的地址对齐、堆 chunk 的 0x10 对齐同理。
-5. **部分覆盖跨页**：PIE 低 12 位覆盖若跨页会失败；先确认目标与源在同一页。
-6. **one_gadget 约束**：寄存器/栈条件不满足就静默失败；用 `one_gadget -l 2` 看约束。
-7. **`%n` 与空字节**：64 位地址写不进格式化串中间；用尾部地址 + `%hhn`。
-8. **堆一致性**：`prev_size/prev_inuse/key` 不一致会在 `free` 时 abort；每次改完先 `vis_heap_chunks`。
-9. **PRNG 消耗**：`randint`/`randrange` 有拒绝采样，按 `getrandbits` 记账；不要把“输出个数”当“状态字数”。
-10. **密码学假设**：先确认有没有填充、是不是同一消息、模数是否互质；不要在没验证 `pow(m,e,n)==c` 时宣布成功。
+## 6. 坑（清单见 references/mitigation-matrix.md §误判）
+- libc 版本错配 → 用目标机的 libc 重算偏移，不要用本机；
+- 远程与本地偏移不同 → 先在远程做一次泄漏校验；
+- canary 泄漏点没找到就硬打 → 先找格式化串或栈残留。
 
 ## 7. 验收
 
@@ -206,7 +193,20 @@ FORTIFY:  Enabled
 - **失败也交付**：写清已排除的路线（如“Full RELRO + 无泄漏，GOT 路线不可行”），不要用一次偶然成功冒充稳定。
 - **停止条件**：同一路径 3 轮无进展即换路线；动态尝试同一目标同类操作最多 2 次，第二次失败必须停下汇报。
 
-## 8. 边界
+## 8. 失败判据（这条路不通就转哪条）
+
+出现以下任一情况，不要再在同一路径上堆时间，直接转支路：
+
+- 保护位全绿（Full RELRO + PIE + Canary + NX）且找不到任何泄漏点 → 放弃 GOT/栈路线，转格式化字符串、堆或逻辑/密码学分支。
+- 偏移不稳定（同环境多次跑 `$rip` 位置漂移 >1 次）→ 是启动方式/环境差异，先用 `socat` 固定 argv/env/cwd 复测，仍漂移就转泄漏而非硬编码。
+- 泄漏地址低 12 位匹配不到任何 libc 版本，或 build id 对不上 → 停止猜偏移，改用远程泄漏 + libc-database 精确匹配，或改用 ret2csu/单 gadget 方案。
+- 栈未对齐导致的偶发崩溃（同一脚本成功/失败交替）→ 先加 `ret` 对正、再重跑 ≥10 次；仍不稳定视为未成立，不写“9/10”。
+- 堆路线被 safe-linking/glibc 版本卡住（`malloc` 不返回目标地址、`free` 报 corruption）→ 确认 glibc 版本后再选打法，版本不符就转 `house of *` 或换 `tcache` 之外的路线。
+- seccomp 白名单里没有 `open/read/write` 且无可用 gadget 拼 ORW → 转 SROP/栈迁移，或如实写“已控 `$rip` 但无法读出 flag”。
+- 密码学：`pow(m,e,n) != c`、填充未知、oracle 不可查询 → 说明假设错误，退回确认填充与模数关系，不要宣布“解出明文”。
+- 同一手法连续 3 轮无进展，或同一目标同类动态尝试已 2 次失败 → 停手汇报已排除项，换路线。
+
+## 9. 边界
 
 - 纯静态分析、算法还原、协议测绘：交给 `reverse-engineering` / `ida-reverse`；本技能只接手“要打穿/要取证”的阶段。
 - Android APK/DEX/SO、Frida/脱壳/重打包：交给 `apkseep`，不在此重复。

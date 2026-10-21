@@ -197,7 +197,7 @@
       "skill": "firmware-iot/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|spi|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
+          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|\bspi\b|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
           "note": "固件/IoT：判据=能进 shell/跑起服务"
         }
       ]
@@ -207,7 +207,7 @@
       "skill": "forensics-mobile/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(取证|内存镜像|volatility|流量分析|磁盘镜像|时间线|iphone|ios|ipa|macos|mach-o|keychain|il2cpp|global-metadata|assetbundle|unity\\s*资源|游戏客户端)",
+          "must": "(?i)(取证|内存镜像|volatility|流量分析|磁盘镜像|时间线|iphone|iphone|ipados|\bios\b(?=[^a-z])|\bipa\b|\bmacos\b|mach-o|keychain|il2cpp|global-metadata|assetbundle|unity\\s*资源|游戏客户端)",
           "note": "取证/移动/游戏：判据=证据链可复述"
         }
       ]
@@ -247,7 +247,7 @@
       "skill": "web-pentest/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(sql\\s*注\\s*入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件上传|命令注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|src|漏洞复现|cve-\\d{4})",
+          "must": "(?i)(sql\\s*注\\s*入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件上传|命令注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|挖\\s*src|src\\s*(挖掘|漏洞)|漏洞复现|cve-\\d{4})",
           "note": "Web/API 验证：判据=PoC 可复现"
         }
       ]
@@ -267,7 +267,7 @@
       "skill": "supply-chain-security/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(供应链|依赖混淆|依赖投毒|dependency confusion|sbom|软件物料清单|sca|锁文件|lockfile|package-lock|yarn\\.lock|pnpm-lock|requirements\\.txt|poetry\\.lock|go\\.sum|cargo\\.lock|composer\\.lock|nuget|github actions|gitlab ci|ci/cd|流水线权限|pull_request_target|workflow_run|cosign|slsa|来源证明|provenance|镜像签名|image digest|固定镜像|基础镜像)",
+          "must": "(?i)(供应链|依赖混淆|依赖投毒|dependency confusion|sbom|软件物料清单|\bsca\b|锁文件|lockfile|package-lock|yarn\\.lock|pnpm-lock|requirements\\.txt|poetry\\.lock|go\\.sum|cargo\\.lock|composer\\.lock|nuget|github actions|gitlab ci|ci/cd|流水线权限|pull_request_target|workflow_run|cosign|slsa|来源证明|provenance|镜像签名|image digest|固定镜像|基础镜像)",
           "note": "供应链：判据=锁文件/CI 权限/镜像 digest 可复核，SCA 告警不等于漏洞"
         }
       ]

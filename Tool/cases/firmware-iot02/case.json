@@ -1,13 +1,13 @@
 {
   "id": "firmware-iot02",
   "domain": "firmware-iot",
-  "target_type": "路由器固件（UBI/NAND + Web 管理面）",
+  "target_type": "非固件二进制（夹具：PE32 EXE）",
   "vendor": "",
   "model": "",
   "firmware_version": "",
   "soc": "",
-  "arch": "arm",
-  "storage": "NAND",
+  "arch": "x86",
+  "storage": "N/A",
   "protection": [],
   "authority": "local",
   "goal_level": "J2",
@@ -15,14 +15,14 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+      "sha256": "1306db11f8e29ab8bfb363cd0731d874c60409d2932c2478ee5d23167972f12e"
     }
   ],
   "interfaces": {
     "uart": {
-      "pads": "TX/RX/GND",
-      "baud": 115200,
-      "voltage": "3.3V",
+      "pads": "N/A",
+      "baud": 0,
+      "voltage": "N/A",
       "shell": false
     },
     "jtag": {
@@ -32,29 +32,28 @@
     },
     "spi": {
       "chip": "",
-      "voltage": "3.3V",
+      "voltage": "N/A",
       "read_hash": ""
     }
   },
   "emulation": {
-    "mode": "FirmAE",
+    "mode": "none",
     "boot_ok": false,
     "service_ok": false,
-    "notes": "计划：UBI 卷/rootfs_data 审计 + qemu-system/FirmAE 起 Web；以真实 HTTP 业务回包为 J2 判据。"
+    "notes": "未执行：输入是非固件二进制夹具，无 NAND/UBI/rootfs，未启动 FirmAE/qemu。"
   },
   "lessons": [
-    "本次跑到：同一 fw-triage.py 对 CrackMev1.exe 做离线分诊，rc=0；仅识别 PE、低熵、无 credential clues，verdict 明确不是固件容器；ubireader/unsquashfs 等工具缺失。",
-    "卡点：没有 NAND dump/UBI 镜像，无法确认 UBI# 偏移、PEB/LEB 参数或 rootfs_data 覆盖层，也没有 FirmAE/qemu-system 起的 Web 服务。",
-    "下一步：拿到保留 OOB/原始布局的 NAND dump，先定位 UBI# 与卷，分别审计主 rootfs 和 rootfs_data，再用 FirmAE/qemu-system 起服务并以真实 HTTP 业务回包验证 J2。",
-    "成立判据：端口监听+服务进程+真实协议响应三者同时成立；仅 FirmAE 报网络成功不算。",
-    "坑：rootfs_data 是配置覆盖层，账号/默认口令常不在主 rootfs；不要漏卷。"
+    "本次跑到：fw-triage.py --file Tool/samples/real/monologix-crackmes/CrackMe1.exe --json > artifacts/run.json，rc=0；离线只读分诊。",
+    "真实识别：offset 0 为 PE/COFF（high），另命中 gzip/jffs2 弱模式；overall entropy 7.57、high_block_ratio 0.667、credential_clues=0，整体更像高熵 PE 资源而非 NAND/UBI 固件。",
+    "卡点：输入是非固件二进制（夹具：PE32 EXE），没有 NAND dump/UBI 镜像或 rootfs_data，也没有 FirmAE/qemu-system 起的 Web 服务。",
+    "下一步：若拿到保留 OOB/原始布局的 NAND dump，先定位 UBI# 与卷，分别审计主 rootfs 和 rootfs_data，再用 FirmAE/qemu-system 起服务并以真实 HTTP 业务回包验证 J2。",
+    "边界：ubireader/unsquashfs 等工具缺失；J2 需端口监听+服务进程+真实协议响应三者同时成立，仅 FirmAE 报网络成功不算。"
   ],
   "tags": [
-    "firmware",
-    "ubi",
-    "nand",
-    "FirmAE",
-    "web-service",
+    "non-firmware",
+    "PE32",
+    "false-positive-container",
+    "offline-triage",
     "partial"
   ],
   "refs": [

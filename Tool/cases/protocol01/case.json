@@ -2,50 +2,95 @@
   "id": "protocol01",
   "domain": "protocol-plugin",
   "route": "R24",
-  "target_type": "本地授权靶场的 WebSocket JSON 私有协议",
+  "target_type": "本地 pcap 抓包样本：HTTP/1.1 登录与会话请求（GET /login + Bearer）",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "capture": {
-    "file": "",
-    "tool": "tshark 4.x / mitmproxy",
-    "endpoint": "ws://127.0.0.1:18080/ws",
+    "file": "input/sample.pcap",
+    "tool": "python 手工构造 + pcap-summary.py 1.0",
+    "endpoint": "http://10.20.0.5:80",
     "tls": false,
-    "client_version": "lab-client 0.9.3",
-    "captured_at": ""
+    "client_version": "lab-client/0.9.3",
+    "captured_at": "2026-10-20T03:14:05Z"
   },
   "protocol": {
-    "layer": "WebSocket",
-    "framing": "text JSON message",
-    "handshake": "HTTP Upgrade + Sec-WebSocket-Key",
-    "states": ["INIT", "HELLO", "AUTH", "SUBSCRIBED", "CLOSED"],
+    "layer": "HTTP/1.1 over TCP",
+    "framing": "HTTP request/response over persistent TCP",
+    "handshake": "样本仅含 3 个数据包，未含 SYN/ACK 握手",
+    "states": [
+      "TCP_ESTABLISHED",
+      "REQUEST /login",
+      "RESPONSE 200 OK",
+      "REQUEST /dashboard"
+    ],
     "fields": [
-      {"name": "op", "type": "string", "evidence": "design (待抓包验证)"},
-      {"name": "seq", "type": "u32", "evidence": "design (待抓包验证)"},
-      {"name": "token", "type": "string", "evidence": "design (待抓包验证)"}
+      {
+        "name": "method",
+        "type": "string",
+        "evidence": "observed: GET"
+      },
+      {
+        "name": "path",
+        "type": "string",
+        "evidence": "observed: /login, /dashboard"
+      },
+      {
+        "name": "host",
+        "type": "string",
+        "evidence": "observed: lab.example.test"
+      },
+      {
+        "name": "authorization",
+        "type": "string",
+        "evidence": "observed: Bearer abc"
+      },
+      {
+        "name": "cookie",
+        "type": "string",
+        "evidence": "observed: sid=deadbeef"
+      }
     ]
   },
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "input/sample.pcap",
+      "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "c7244158e67b6d035a3629878b5f3caa31e08568353e9518546a7033fc0191c9"
+    }
+  ],
   "evidence": [
-    "待采集：ws 握手头与子协议",
-    "待采集：auth 请求/响应配对",
-    "待采集：heartbeat 周期与重连参数",
-    "待验证：单变量 op 改动的响应差异"
+    "observed: 3 个包 / 2 个方向性 TCP 会话 / EN10MB / 未截断（pcap-summary.py rc=0）",
+    "observed: GET /login 请求携带 Authorization: Bearer abc",
+    "observed: 200 OK 响应 Set-Cookie: sid=deadbeef",
+    "observed: 后续 GET /dashboard 复用 sid cookie",
+    "missing: TCP 握手、TLS/WebSocket、失败分支与重放验证"
   ],
   "lessons": [
-    "当前状态：planned —— 仅完成协议形态设计，evidence/ 目录为空，无抓包、无 schema、无复现脚本；以上字段均为假设",
-    "还差什么：抓取一条完整 ws 会话（capture.pcapng）、落 schema.md、写可复跑 replay.py，并用新的 subscribe 请求验证响应可预测",
-    "先按 FIN/opcode 重组消息，再谈 JSON 字段；不能按 TCP 段切",
-    "握手头 Host/Origin/Sec-WebSocket-Key 必须齐全，否则服务端拒绝",
-    "判据是能构造新的 subscribe 请求并预测 data 响应，不是只看握手成功",
-    "失败路径：token 过期、seq 重放、服务端心跳超时；需分别记录错误码"
+    "实际分析：pcap-summary.py 解析 input/sample.pcap，rc=0；格式 pcap/EN10MB，3 包、2 个方向性 TCP 会话，未截断。",
+    "发现：10.20.0.15:49152 → 10.20.0.5:80 的请求含 GET /login、Host: lab.example.test、Authorization: Bearer abc；响应 200 OK 并 Set-Cookie sid=deadbeef；随后 GET /dashboard 复用该 Cookie。",
+    "边界：脚本只做包级明文片段提取，不做 TCP 流重组；样本无 SYN/TLS，token 为静态值，未验证过期/重放/错误码。",
+    "还差什么：抓一条真实完整会话（含握手与失败分支）、按流重组、写 replay.py 构造新请求并预测响应；当前 target_type 已改为 HTTP pcap，不再是 WebSocket 设计稿。"
   ],
-  "tags": ["R24", "protocol", "websocket", "json", "replay", "planned"],
+  "tags": [
+    "R24",
+    "protocol",
+    "http",
+    "pcap",
+    "bearer",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/protocol-plugin/SKILL.md",
     "Tool/skill/protocol-plugin/references/protocol-reverse.md",
-    "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+    "Tool/skill/protocol-plugin/references/state-machine-and-replay.md",
+    "Tool/config/protocol-plugin-matrix.json",
+    "Tool/cases/protocol01/input/sample.pcap",
+    "Tool/cases/protocol01/artifacts/run.json"
   ],
-  "updated": "2026-10-20"
+  "updated": "2026-10-21"
 }

@@ -9,7 +9,7 @@
 - [镜像 digest 与来源证明](techniques/02-image-and-provenance.md)
 - 技能参考：`references/sbom-sca.md`、`references/cicd-and-artifacts.md`、`references/dependency-confusion.md`、`references/image-and-provenance.md`
 - 离线基线：`python Tool/skill/supply-chain-security/scripts/sc-check.py --path <repo>`
-- 矩阵：`Tool/config/supply-chain-matrix.json`
+- 矩阵：`Tool/config/supply-chain-security-matrix.json`
 
 ## 分析链
 
@@ -54,7 +54,7 @@ python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out evide
 # 按矩阵核对判据与误报风险
 python - <<'PY'
 import json
-m=json.load(open('Tool/config/supply-chain-matrix.json'))
+m=json.load(open('Tool/config/supply-chain-security-matrix.json'))
 for r in m['rows'][:6]:
     print(r['category'], '|', r['criteria'], '|', r['false_positive_risk'])
 PY

@@ -1,32 +1,26 @@
 {
   "id": "supply-chain02",
   "domain": "supply-chain",
-  "target_type": "container image (OCI + cosign + SLSA)",
-  "protection": [
-    "cosign",
-    "slsa-provenance",
-    "immutable-tags",
-    "registry-rbac"
-  ],
-  "authority": "server",
+  "target_type": "setup/（本仓库安装脚本目录）",
+  "protection": [],
+  "authority": "local",
   "goal_level": "L3",
   "outcome": "partial",
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "65d3aea98395e357db088f434af2909cfd786f45b6adefaaef65d97cf6393020"
+      "sha256": "44b1c5e055d5e8a203efd794dc4afa495b61fc988c7c4e8740b998a6cbe04a47"
     }
   ],
   "evidence_dir": "evidence/supply-chain02",
   "scope": {
-    "authorization": "image owner approval; read-only pull and verify",
+    "authorization": "local read-only scan of repository directory; no network, no push, no publish",
     "objects": [
-      "registry.example.com/app@sha256:<digest>",
-      "SBOM",
-      "attestation",
-      "build workflow"
+      "setup/",
+      "install/update scripts",
+      "upstream rule files"
     ],
-    "rate_limit_rps": 1,
+    "rate_limit_rps": 0,
     "forbidden": [
       "push/overwrite tag",
       "run untrusted image",
@@ -34,17 +28,17 @@
     ]
   },
   "lessons": [
-    "本次跑到：同一 sc-check.py --path Tool/ --max-files 1000 离线扫描，rc=0；得到 1 个 npm manifest/lock、2 个 workflow、9 条 medium（ci-action-pin/ci-permissions/dependency-confusion/version-range）。",
-    "卡点：目标是 registry.example.com 镜像 @sha256:<digest>，本次没有镜像 digest、SBOM、attestation 或 cosign 数据；仓库扫描结果不能替代镜像与 provenance 证据。",
-    "下一步：拿到 image owner 授权后记录 repo@sha256:<digest>，对 digest 生成 SBOM，跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
-    "边界：只读 pull/verify，不 push、不覆盖 tag、不运行不可信镜像；多阶段 FROM <stage> 不是基础镜像，报 image tag 前先排除本地 stage 别名。"
+    "本次跑到：sc-check.py --path setup/ > artifacts/run.json，rc=0；files_scanned=23、truncated=false；inventory 为 0 manifest/lock/workflow。",
+    "结果：0 条风险（0 high/critical），同时 syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失；零 finding 只表示当前静态规则未命中。",
+    "卡点：目标是 setup/ 安装脚本目录，只能证明该目录未发现 npm/Actions/容器清单类风险；没有 registry 镜像 digest、SBOM、attestation 或 cosign 数据。",
+    "下一步：若要评镜像，记录 repo@sha256:<digest> 后生成 SBOM、跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
+    "边界：只读扫描，不 push、不覆盖 tag、不运行不可信镜像；脚本目录扫描结果不能替代镜像与 provenance 证据。"
   ],
   "tags": [
-    "OCI",
-    "cosign",
-    "SLSA",
-    "SBOM",
-    "digest",
+    "setup",
+    "install-scripts",
+    "offline-static",
+    "no-findings",
     "partial"
   ],
   "refs": [
@@ -52,7 +46,7 @@
     "Tool/skill/supply-chain-security/references/image-and-provenance.md",
     "Tool/skill/supply-chain-security/references/sbom-sca.md",
     "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/02-image-and-provenance.md",
-    "Tool/config/supply-chain-matrix.json"
+    "Tool/config/supply-chain-security-matrix.json"
   ],
   "updated": "2026-10-21"
 }

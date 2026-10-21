@@ -1,1 +1,2 @@
-PYTHONIOENCODING=utf-8 python Tool/scripts/adcloud-check.py --kubeconfig work/no-such.yaml --json > artifacts/run.json  # rc=2
+cd Tool/cases/ad-cloud02
+PYTHONIOENCODING=utf-8 python ../../scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json  # rc=0

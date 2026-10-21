@@ -6,7 +6,7 @@
       "skill": "firmware-iot/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|spi|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
+          "must": "(?i)(固件|firmware|iot|路由器|嵌入式|uart|jtag|\bspi\b|openocd|binwalk|ubireader|squashfs|ubi|ota|设备树|dts)",
           "note": "固件/IoT：判据=能进 shell/跑起服务"
         }
       ]

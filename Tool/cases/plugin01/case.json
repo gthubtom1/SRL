@@ -2,53 +2,90 @@
   "id": "plugin01",
   "domain": "plugin-targets",
   "route": "R25",
-  "target_type": "Chrome/Edge MV3 浏览器扩展（.crx，本地授权样本）",
+  "target_type": "Chrome/Edge MV3 扩展 ZIP（本地构造样本）",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "package": {
-    "file": "",
-    "sha256": "",
-    "version": "",
+    "file": "input/ext.zip",
+    "sha256": "1103cad9d78f2438555e0ea80ff74d384a29c22a9060782eba2b37473eb682dc",
+    "version": "1.2.0",
     "manifest_version": 3,
-    "source": "待取得：本地旁加载/商店导出"
+    "source": "手工构造 MV3 样本（非商店/旁加载真实样本）",
+    "unpacked": [
+      "manifest.json",
+      "background.js",
+      "content.js"
+    ]
   },
   "manifest": {
-    "permissions": ["storage", "cookies", "scripting", "nativeMessaging"],
-    "host_permissions": ["https://*.example.invalid/*"],
-    "background": {"service_worker": "background.js"},
-    "content_scripts": [
-      {"matches": ["https://*.example.invalid/*"], "js": ["content.js"], "run_at": "document_idle", "world": "ISOLATED"}
+    "permissions": [
+      "storage",
+      "scripting",
+      "cookies"
     ],
-    "web_accessible_resources": [{"resources": ["inject.js"], "matches": ["https://*.example.invalid/*"]}],
-    "externally_connectable": {"matches": ["https://portal.example.invalid/*"]}
+    "host_permissions": [
+      "https://*.example.invalid/*"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "https://*.example.invalid/*"
+        ],
+        "js": [
+          "content.js"
+        ],
+        "run_at": "document_idle",
+        "world": "ISOLATED"
+      }
+    ],
+    "web_accessible_resources": [],
+    "externally_connectable": null
   },
   "entrypoints": {
     "manifest": "manifest.json",
     "background": "background.js",
-    "content_script": "content.js",
-    "native_host": "com.example.bridge"
+    "content_script": "content.js"
   },
   "data_flow": [
     "page → content.js → chrome.runtime.sendMessage → background.js",
-    "background.js → chrome.cookies/scripting → page",
-    "background.js → connectNative → 本机 host"
+    "background.js → chrome.cookies.getAll → fetch https://api.example.invalid/session"
   ],
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "input/ext.zip",
+      "sha256": "1103cad9d78f2438555e0ea80ff74d384a29c22a9060782eba2b37473eb682dc"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "698420571182a1cbf185cc260a1bb558927bdd4511e450bbe3dd54e32a8f2c42"
+    }
+  ],
   "lessons": [
-    "当前状态：planned —— 只有按 MV3 形态写的设计稿，evidence/ 目录为空，未取得 .crx，manifest 段为预期权限而非实测",
-    "还差什么：拿到授权样本 .crx 并算 sha256，解包核对真实 manifest，逐权限映射到代码路径，导出 export/manifest.json 与 report/dataflow.md",
-    "先解释每个权限对应哪条代码路径，再谈恶意；nativeMessaging 是高价值面",
-    "content script 默认 isolated world，只有 world=MAIN 或注入 script 才进页面上下文",
-    "MV3 service worker 会被回收，动态观测要主动唤醒并记录消息",
-    "失败判据：权限/入口无法对应代码路径，或签名/企业策略阻止加载"
+    "实际分析：plugin-triage.py --path input/ext.zip，rc=0；识别 ZIP 浏览器扩展包，3 个文件，manifest MV3 / Lab Session Helper 1.2.0。",
+    "发现：权限 storage/scripting/cookies，host_permissions https://*.example.invalid/*；命中 chrome_cookies 与 network_request，远程 URL 为 https://api.example.invalid/session。",
+    "数据流：content.js 发 sendMessage，background.js 读取 example.invalid 的 cookie 后 POST 到 api.example.invalid；未发现 nativeMessaging/debugger/远程脚本。",
+    "还差什么：仅静态初筛，未加载进浏览器观察 service worker 唤醒与消息；未取得真实商店/旁加载样本，storage/scripting 的权限滥用仍需动态与代码路径证据。"
   ],
-  "tags": ["R25", "plugin", "crx", "mv3", "nativeMessaging", "planned"],
+  "tags": [
+    "R25",
+    "plugin",
+    "zip",
+    "mv3",
+    "cookies",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/plugin-targets/SKILL.md",
     "Tool/skill/plugin-targets/references/browser-extension.md",
-    "Tool/skill/plugin-targets/references/electron-and-asar.md"
+    "Tool/skill/plugin-targets/references/electron-and-asar.md",
+    "Tool/config/plugin-targets-matrix.json",
+    "Tool/cases/plugin01/input/ext.zip",
+    "Tool/cases/plugin01/artifacts/run.json"
   ],
-  "updated": "2026-10-20"
+  "updated": "2026-10-21"
 }

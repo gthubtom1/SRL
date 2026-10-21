@@ -13,44 +13,29 @@
     ]
   },
   "target": {
-    "path": "D:\\Seep-Reverse-Lab\\Tool",
-    "files_scanned": 1000,
-    "truncated": true
+    "path": "D:\\Seep-Reverse-Lab\\setup",
+    "files_scanned": 23,
+    "truncated": false
   },
   "ok": true,
   "summary": {
     "risks": {
       "critical": 0,
       "high": 0,
-      "medium": 9,
+      "medium": 0,
       "low": 0,
       "info": 0
     },
-    "risks_total": 9,
+    "risks_total": 0,
     "high_or_critical": 0,
-    "ecosystems": [
-      "npm"
-    ]
+    "ecosystems": []
   },
   "inventory": {
-    "manifests": [
-      {
-        "path": "mcp/Tool/reverselab/site/package.json",
-        "ecosystem": "npm"
-      }
-    ],
-    "locks": [
-      {
-        "path": "mcp/Tool/reverselab/site/package-lock.json",
-        "ecosystem": "npm"
-      }
-    ],
+    "manifests": [],
+    "locks": [],
     "dockerfiles": [],
     "compose": [],
-    "workflows": [
-      "mcp/Tool/reverselab/.github/workflows/deploy-site.yml",
-      "mcp/Tool/reverselab/.github/workflows/release-check.yml"
-    ],
+    "workflows": [],
     "gitlab": [],
     "jenkins": [],
     "npmrc": [],
@@ -58,107 +43,7 @@
     "nuget": [],
     "dockerignore": []
   },
-  "risks": [
-    {
-      "id": "SC-001",
-      "level": "medium",
-      "category": "ci-action-pin",
-      "file": "mcp/Tool/reverselab/.github/workflows/deploy-site.yml",
-      "line": 26,
-      "evidence": "L26 uses: actions/checkout@v4",
-      "why": "action 使用可移动的 tag/branch，tag 可被重写。",
-      "fix": "固定到 40 位 commit SHA，并用 Dependabot 更新。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-002",
-      "level": "medium",
-      "category": "ci-action-pin",
-      "file": "mcp/Tool/reverselab/.github/workflows/deploy-site.yml",
-      "line": 29,
-      "evidence": "L29 uses: actions/setup-node@v4",
-      "why": "action 使用可移动的 tag/branch，tag 可被重写。",
-      "fix": "固定到 40 位 commit SHA，并用 Dependabot 更新。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-003",
-      "level": "medium",
-      "category": "ci-action-pin",
-      "file": "mcp/Tool/reverselab/.github/workflows/deploy-site.yml",
-      "line": 36,
-      "evidence": "L36 uses: actions/setup-python@v5",
-      "why": "action 使用可移动的 tag/branch，tag 可被重写。",
-      "fix": "固定到 40 位 commit SHA，并用 Dependabot 更新。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-004",
-      "level": "medium",
-      "category": "ci-action-pin",
-      "file": "mcp/Tool/reverselab/.github/workflows/deploy-site.yml",
-      "line": 49,
-      "evidence": "L49 uses: cloudflare/wrangler-action@v3",
-      "why": "action 使用可移动的 tag/branch，tag 可被重写。",
-      "fix": "固定到 40 位 commit SHA，并用 Dependabot 更新。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-005",
-      "level": "medium",
-      "category": "ci-action-pin",
-      "file": "mcp/Tool/reverselab/.github/workflows/release-check.yml",
-      "line": 16,
-      "evidence": "L16 - uses: actions/checkout@v4",
-      "why": "action 使用可移动的 tag/branch，tag 可被重写。",
-      "fix": "固定到 40 位 commit SHA，并用 Dependabot 更新。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-006",
-      "level": "medium",
-      "category": "ci-action-pin",
-      "file": "mcp/Tool/reverselab/.github/workflows/release-check.yml",
-      "line": 17,
-      "evidence": "L17 - uses: actions/setup-python@v5",
-      "why": "action 使用可移动的 tag/branch，tag 可被重写。",
-      "fix": "固定到 40 位 commit SHA，并用 Dependabot 更新。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-007",
-      "level": "medium",
-      "category": "ci-permissions",
-      "file": "mcp/Tool/reverselab/.github/workflows/release-check.yml",
-      "line": null,
-      "evidence": "workflow 没有显式 permissions:",
-      "why": "未声明时使用仓库默认 token 权限；老仓库默认可能是读写。",
-      "fix": "显式声明最小 permissions（通常 contents: read）。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-008",
-      "level": "medium",
-      "category": "dependency-confusion",
-      "file": "mcp/Tool/reverselab/site/package.json",
-      "line": null,
-      "evidence": "scopes=@fontsource；.npmrc 未为这些 scope 指定 registry（default=npmjs）",
-      "why": "私有 scope 未锁定 registry 时，同名公共包可能被优先解析（依赖混淆）。",
-      "fix": "在 .npmrc 写 @scope:registry=<private>，并对公共包做 scope 隔离。",
-      "confidence": "medium"
-    },
-    {
-      "id": "SC-009",
-      "level": "medium",
-      "category": "version-range",
-      "file": "mcp/Tool/reverselab/site/package.json",
-      "line": null,
-      "evidence": "3 条宽范围，例如 @fontsource/ibm-plex-sans@^5.2.5; @fontsource/jetbrains-mono@^5.2.5; vitepress@^1.6.4",
-      "why": "宽范围会随时间拉入新的传递依赖，构建不可复现。",
-      "fix": "锁文件 + 定期受控升级；关键依赖用精确版本。",
-      "confidence": "medium"
-    }
-  ],
+  "risks": [],
   "degraded": [
     {
       "tool": "syft",
@@ -183,7 +68,7 @@
     "docker"
   ],
   "limits": {
-    "max_files": 1000,
+    "max_files": 20000,
     "max_depth": 8,
     "note": "静态线索；可达 CVE、实际签名与镜像层需人工/外部工具复核。"
   }

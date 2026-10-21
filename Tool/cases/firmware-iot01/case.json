@@ -1,13 +1,13 @@
 {
   "id": "firmware-iot01",
   "domain": "firmware-iot",
-  "target_type": "嵌入式 Linux 摄像头固件（SquashFS）",
+  "target_type": "非固件二进制（夹具：PE32+ DLL）",
   "vendor": "",
   "model": "",
   "firmware_version": "",
   "soc": "",
-  "arch": "mips",
-  "storage": "SPI-NOR",
+  "arch": "x86_64",
+  "storage": "N/A",
   "protection": [],
   "authority": "local",
   "goal_level": "J1",
@@ -15,14 +15,14 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+      "sha256": "48e2725532670cc280aa75a4877413308cf8b8a2d6def5170ebeee515cc4b2d8"
     }
   ],
   "interfaces": {
     "uart": {
-      "pads": "TX/RX/GND",
-      "baud": 115200,
-      "voltage": "3.3V",
+      "pads": "N/A",
+      "baud": 0,
+      "voltage": "N/A",
       "shell": false
     },
     "jtag": {
@@ -32,27 +32,28 @@
     },
     "spi": {
       "chip": "",
-      "voltage": "3.3V",
+      "voltage": "N/A",
       "read_hash": ""
     }
   },
   "emulation": {
-    "mode": "qemu-user",
+    "mode": "none",
     "boot_ok": false,
     "service_ok": false,
-    "notes": "计划：先做只读镜像与 SquashFS 解包，再验证 busybox/CGI；尚未执行，不填哈希。"
+    "notes": "未执行：输入是非固件二进制夹具，无 rootfs/网络服务；仅做 fw-triage 静态识别。"
   },
   "lessons": [
-    "本次跑到：fw-triage.py 对仓库内 CrackMev1.exe 做离线分诊，rc=0；containers 只识别到 offset 0 的 PE，entropy 4.955，credential_clues 为空，verdict=not a firmware container。",
-    "卡点：仓库内没有摄像头 SquashFS/OTA 固件镜像，无法做 binwalk 解包、unsquashfs、/etc/passwd/口令审计或 qemu-user 验证；本机还缺 unsquashfs/sasquatch。",
-    "下一步：拿到只读固件副本并记录 SHA256，先跑 fw-triage 确认 SquashFS/容器偏移，再解包检查 /bin/busybox、/etc 与 CGI，最后在 chroot/qemu-user 内验证 id 和 CGI 响应。",
-    "边界：J1 以 chroot/qemu-user 内可执行 id、读取 /etc/passwd、运行目标 CGI 为准；未拿到实物前不声称 UART 可用。"
+    "本次跑到：fw-triage.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；离线只读分诊。",
+    "真实识别：offset 0 为 PE/COFF（high），overall entropy 6.346；另有 2 处 jffs2 弱命中但只是字节模式误报，credential_clues=0，不能据此称为固件。",
+    "卡点：输入是非固件二进制（夹具：PE32+ DLL），没有 SquashFS/UBI/rootfs，也没有 binwalk 解包、unsquashfs 或 qemu 启动证据；本机缺 unsquashfs/sasquatch/ubireader。",
+    "下一步：若拿到真实固件，先记录 SHA256，再跑 fw-triage 确认容器偏移，解包审计 /bin/busybox、/etc 与 CGI，最后在 chroot/qemu-user 中验证。",
+    "边界：容器 magic 是线索不是结论；弱命中必须用解包结果或文件系统结构复核，禁止把 PE 夹具写成路由器固件。"
   ],
   "tags": [
-    "firmware",
-    "squashfs",
-    "qemu-user",
-    "credential-audit",
+    "non-firmware",
+    "PE32+",
+    "false-positive-container",
+    "offline-triage",
     "partial"
   ],
   "refs": [

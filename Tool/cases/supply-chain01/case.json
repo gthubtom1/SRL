@@ -1,13 +1,9 @@
 {
   "id": "supply-chain01",
   "domain": "supply-chain",
-  "target_type": "repo (npm + GitHub Actions)",
-  "protection": [
-    "branch-protection",
-    "dependabot",
-    "required-review"
-  ],
-  "authority": "server",
+  "target_type": "Tool/（本仓库工具目录）",
+  "protection": [],
+  "authority": "local",
   "goal_level": "L3",
   "outcome": "partial",
   "artifacts": [
@@ -18,13 +14,13 @@
   ],
   "evidence_dir": "evidence/supply-chain01",
   "scope": {
-    "authorization": "repo owner approval; no push, no registry publish, no CI mutation",
+    "authorization": "local read-only scan of repository directory; no network, no push, no publish",
     "objects": [
-      "repo commit",
-      "package-lock.json",
+      "Tool/",
+      "package manifests/locks",
       ".github/workflows/*.yml"
     ],
-    "rate_limit_rps": 1,
+    "rate_limit_rps": 0,
     "forbidden": [
       "npm publish",
       "force-push",
@@ -32,17 +28,18 @@
     ]
   },
   "lessons": [
-    "本次跑到：sc-check.py --path Tool/ --max-files 1000 完成离线扫描，rc=0；inventory 命中 1 个 npm manifest + 1 个 package-lock、2 个 GitHub Actions workflow，扫描因 1000 文件上限 truncated=true。",
-    "结果：9 条 medium、0 high/critical；6 条 ci-action-pin（actions/checkout@v4 等）、1 条 ci-permissions、1 条 dependency-confusion（@fontsource scope 未指定 registry）、1 条 version-range；syft/osv-scanner/cosign 等缺失。",
+    "本次跑到：sc-check.py --path Tool/ --max-files 1000 > artifacts/run.json，rc=0；files_scanned=1000、truncated=true；inventory 为 1 个 npm manifest、1 个 package-lock、2 个 GitHub Actions workflow。",
+    "结果：9 条 medium（ci-action-pin 6、ci-permissions 1、dependency-confusion 1、version-range 1），0 high/critical；syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失。",
     "卡点：只覆盖 Tool/ 前 1000 个文件，未做 registry 实际映射、锁文件 resolved/integrity 全量核对和 CVE 查询。",
-    "下一步：对目标 repo 全量重跑；把 Actions 固定到 40 位 commit SHA 并补 permissions；为 @fontsource 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
-    "依赖混淆判据仍是 registry 映射 + 锁文件 resolved/integrity 三者一致；pull_request_target 要连同 checkout ref、job 权限、secrets 作用域一起看。"
+    "下一步：对目标目录全量重跑；把 Actions 固定到 40 位 commit SHA 并补最小 permissions；为 @fontsource 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
+    "判据：依赖混淆仍是 registry 映射 + 锁文件 resolved/integrity 三者一致；pull_request_target 要连同 checkout ref、job 权限、secrets 作用域一起看。"
   ],
   "tags": [
     "npm",
     "GitHub-Actions",
     "dependency-confusion",
     "lockfile",
+    "offline-static",
     "partial"
   ],
   "refs": [
@@ -50,7 +47,7 @@
     "Tool/skill/supply-chain-security/references/dependency-confusion.md",
     "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
     "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/01-dependency-confusion.md",
-    "Tool/config/supply-chain-matrix.json"
+    "Tool/config/supply-chain-security-matrix.json"
   ],
   "updated": "2026-10-21"
 }

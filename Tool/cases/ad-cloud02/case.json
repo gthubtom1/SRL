@@ -1,29 +1,29 @@
 {
   "id": "ad-cloud02",
   "domain": "ad-cloud",
-  "target_type": "Kubernetes 集群（离线 kubeconfig 审计）",
+  "target_type": "离线 kubeconfig 夹具",
   "protection": [],
-  "authority": "authorized cluster",
+  "authority": "local offline fixture",
   "goal_level": "L2",
   "outcome": "partial",
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "a341a361abf707a8b35c8a1872dc8da50b00f66eedb7ffccc24b9a51aa3095af"
+      "sha256": "bff79a3d1780fcef9e794371a59cc502dc950c19e5da47d74dba587bc73edcc8"
     }
   ],
   "lessons": [
-    "本次跑到：adcloud-check.py --kubeconfig work/no-such.yaml --json，rc=2；ok=false，KUBECONFIG_NOT_FOUND，未得到任何 context、TLS、token 或权限线索。",
-    "卡点：没有可离线审计的 kubeconfig/凭据，也没有在线集群授权；无法判断匿名访问、token 过期或 cluster-admin 名称等结论。",
-    "下一步：提供授权集群的离线 kubeconfig 副本重跑本脚本，先看 context/TLS/token 过期/无凭据/宽权限名称，再用 kubectl auth can-i 在线确认 RBAC。",
-    "失败判据：不能把无凭据 user 写成匿名可访问，不能把 cluster-admin 名称写成已提权，不能把过期 token 当有效证据；测试资源用后即删。"
+    "本次跑到：在 input/ 写最小 kubeconfig.yaml（含 clusters/contexts/users 与宽权限假 token），执行 cd Tool/cases/ad-cloud02 && python ../../scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json，rc=0。",
+    "结果：ok=true，4 条 finding：K8S-TRANSPORT-002（insecure-skip-tls-verify）、K8S-RBAC-002/003/006（假 JWT 的 cluster-admin SA 名、system:masters/system:serviceaccounts 组、选中上下文宽权限 SA）。",
+    "边界：离线 kubeconfig 夹具，token 假值且未验签；没有 API server 在线请求，不能确认 RBAC 实际绑定、匿名访问或 token 是否被接受。",
+    "下一步：在线只读验证 `kubectl config current-context`、`kubectl auth can-i --list`、clusterrolebinding/rolebinding；测试资源用后即删。",
+    "失败判据：不能把无凭据 user 写成匿名可访问，不能把 cluster-admin 名称写成已提权，不能把过期/假 token 当有效证据。"
   ],
   "tags": [
-    "R23",
-    "ad-cloud",
-    "k8s",
-    "rbac",
+    "kubeconfig",
+    "offline",
     "token",
+    "rbac",
     "partial"
   ],
   "refs": [

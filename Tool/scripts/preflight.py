@@ -529,14 +529,14 @@ def check_domain_packs():
     """
     packs = {
         "web-pentest": ("web-check", "web-pentest-matrix.json", 4, 2, "web-pentest"),
-        "supply-chain-security": ("sc-check", "supply-chain-matrix.json", 4, 2, "supply-chain"),
+        "supply-chain-security": ("sc-check", "supply-chain-security-matrix.json", 4, 2, "supply-chain"),
         "pwn-crypto": ("pwn-check", "pwn-crypto-matrix.json", 4, 2, "pwn-crypto"),
         "malware-analysis": ("mal-triage", "malware-analysis-matrix.json", 4, 2, "malware-analysis"),
         "firmware-iot": ("fw-triage", "firmware-iot-matrix.json", 4, 2, "firmware-iot"),
         "ad-cloud": ("adcloud-check", "ad-cloud-matrix.json", 4, 2, "ad-cloud"),
-        "protocol-plugin": ("pcap-summary", "protocol-matrix.json", 4, 2, "protocol"),
-        "plugin-targets": ("plugin-triage", "plugin-matrix.json", 4, 2, "plugin"),
-        "forensics-mobile": ("forensics-check", "forensics-matrix.json", 4, 2, "forensics"),
+        "protocol-plugin": ("pcap-summary", "protocol-plugin-matrix.json", 4, 2, "protocol"),
+        "plugin-targets": ("plugin-triage", "plugin-targets-matrix.json", 4, 2, "plugin"),
+        "forensics-mobile": ("forensics-check", "forensics-mobile-matrix.json", 4, 2, "forensics"),
     }
     bad = []
     for dom, (script_key, matrix, min_refs, min_cases, kb) in packs.items():
@@ -544,10 +544,23 @@ def check_domain_packs():
         if not os.path.isfile(sk):
             bad.append(dom + "(缺 SKILL)")
             continue
+        txt = open(sk, encoding="utf-8", errors="replace").read()
+        if len(txt.splitlines()) > 220:
+            bad.append("%s(SKILL %d>220)" % (dom, len(txt.splitlines())))
+        if "失败判据" not in txt:
+            bad.append(dom + "(缺失败判据)")
+        if not glob.glob(os.path.join(TOOL, "skill", dom, "scripts", "*.py")):
+            bad.append(dom + "(缺域内 scripts/)")
         refs = os.path.join(TOOL, "skill", dom, "references")
         n = len([f for f in os.listdir(refs) if f.endswith(".md")]) if os.path.isdir(refs) else 0
         if n < min_refs:
             bad.append("%s(refs %d<%d)" % (dom, n, min_refs))
+        if os.path.isdir(refs):
+            for f in os.listdir(refs):
+                if f.endswith(".md"):
+                    ln = len(open(os.path.join(refs, f), encoding="utf-8", errors="replace").read().splitlines())
+                    if ln > 200:
+                        bad.append("%s(%s %d>200)" % (dom, f, ln))
         cand = glob.glob(os.path.join(TOOL, "scripts", "*" + script_key + "*.py")) +                glob.glob(os.path.join(TOOL, "skill", dom, "scripts", "*.py"))
         if not cand:
             bad.append(dom + "(缺脚本)")
@@ -587,6 +600,8 @@ def check_domain_packs():
             except Exception:
                 bad.append(os.path.basename(cd) + "(case.json 解析失败)")
                 continue
+            if cj.get("outcome") == "planned":
+                bad.append(os.path.basename(cd) + "(outcome=planned)")
             miss = [k for k in need if k not in cj]
             if miss:
                 bad.append("%s(缺字段 %s)" % (os.path.basename(cd), ",".join(miss)))
