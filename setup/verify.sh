@@ -174,6 +174,8 @@ check_prompt_stack() {
     [ -f "$TOOL_DIR/scripts/tool-run.ps1" ] || return 1
     [ -f "$TOOL_DIR/prompts/tasks/reverse.md" ] || return 1
     [ -f "$TOOL_DIR/prompts/tasks/reverse-deliverable.md" ] || return 1
+    [ -d "$TOOL_DIR/mcp/kb_local" ] || return 1
+    grep -q "kb_local" "$TOOL_DIR/mcp/seep_mcp_server.py" || return 1
     return 0
 }
 
