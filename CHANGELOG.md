@@ -10,6 +10,21 @@
 
 ---
 
+## [1.18.12] — 2026-10-21
+
+> 主题：**修 P0-1 防回归闸的"裸词"漏洞**（终审实测证伪：删掉 `case_state.py gate` 仍全绿）。
+
+| 级别 | 问题 | 修复（含篡改可证伪） |
+|---|---|---|
+| **P1** | `preflight.check_taskcards_gate()` 与 `gen-task-cards.build()` 用的是**裸词** `["init",…,"gate"]`，而任务卡里 `NEXT = 01-gate-bypass` 天然含 `gate` → 把源头 `case_state.py gate` 整行删掉，**生成器照常 rc=0、preflight 仍 18/18** | 两处改为**字面正则** `case_state\.py\s+<sub>`；`gen-task-cards.py --check` **接进 preflight**。篡改实测：删源头 `case_state.py gate` 行 → `gen-task-cards.py` **rc=1**（且 `analyze.md` sha256 不变、未被改写）→ `preflight` **rc=1**；恢复后 18/18 |
+| P2 | `migrate.pe_info()` 对 <0x40 字节的 MZ 文件 `struct.unpack_from` 抛 traceback | 加长度保护 → 干净 `[ERR] 文件太小（N B），不是有效 PE`（实测 2 B 文件） |
+| P2 | 0 号提示词的 D0–D5 与 `00-analysis §2` 已分叉（D4 缺"换机"） | D4 补"换机"；块标题注明"本段是摘要，权威定义见 `00-analysis/SKILL.md` §2" |
+| 文案 | `AUDIT §2bis` / CHANGELOG 沿用了 1.18.9 的旧篡改结论 | 本版以**新篡改证据**（源头删行 → 生成器 rc=1 + preflight rc=1）为准重写 |
+
+验收：`preflight --fast` 18/18、`verify.ps1` 65/65、`verify.sh` 65/65、`gen-task-cards.py --check` rc=0、`check_seep_compat.py --check` rc=0。
+
+---
+
 ## [1.18.11] — 2026-10-21
 
 > 主题：**终审 #5 的唯一未闭合项 + 生成器前置断言**。
