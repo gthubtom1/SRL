@@ -309,6 +309,14 @@ foreach ($n in $skillHits)   { Backup-Item (Join-Path $SkillsDir $n) $backupRoot
 foreach ($f in @('AGENTS.md', 'SEEP.md', 'SYSTEM.md')) {
     if ($promptHits -contains $f) { Backup-Item (Join-Path $AgentDir $f) $backupRoot $f }
 }
+# 任务卡（~/.pi/agent/prompts/）：只清工作台随包分发的那几张
+$srcTasks = Join-Path $Root 'Tool\prompts\tasks'
+if (-not $KeepPrompts -and (Test-Path $srcTasks)) {
+    foreach ($f in (Get-ChildItem $srcTasks -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        $p = Join-Path (Join-Path $AgentDir 'prompts') $f.Name
+        if (Test-Path $p) { Backup-Item $p $backupRoot ("prompts/" + $f.Name) }
+    }
+}
 foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
     if ($promptHits -contains "extensions/$($f.Name)") { Backup-Item $f.FullName $backupRoot "extensions/$($f.Name)" }
 }

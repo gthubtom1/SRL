@@ -827,6 +827,11 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
         search_root = KB_DIR
 
     md_files = glob.glob(os.path.join(search_root, "**", "*.md"), recursive=True)
+    # === SEEP-EXT: kb_local BEGIN === 本地覆盖层（Tool/mcp/kb_local/，不属于 vendored 上游）
+    _KB_LOCAL = os.path.join(BASE_DIR, "kb_local")
+    if os.path.isdir(_KB_LOCAL):
+        md_files += glob.glob(os.path.join(_KB_LOCAL, "**", "*.md"), recursive=True)
+    # === SEEP-EXT: kb_local END ===
     pat = query.lower()
     # === SEEP-EXT: kb-multitoken BEGIN === 多词/中文检索增强（2026-10，纯插入，不改既有逻辑）
     # 为什么需要：原实现是整串子串匹配（pat in content），"完整性校验 反作弊" 这类
@@ -854,6 +859,9 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
                 content = fh.read()
                 # === SEEP-EXT: kb-multitoken === 缓存正文，供多词打分与 snippet 定位
                 _kb_rel = os.path.relpath(fpath, KB_DIR).replace("\\", "/")
+                # 本地覆盖层：统一成 kb_local/<相对路径>，避免同一文件被两次打分产出两条 hit
+                if fpath.startswith(_KB_LOCAL + os.sep):
+                    _kb_rel = "kb_local/" + os.path.relpath(fpath, _KB_LOCAL).replace(os.sep, "/")
                 _kb_contents[_kb_rel] = content
                 title = ""
                 for line in content.splitlines()[:5]:
@@ -871,6 +879,9 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
 
                 if score > 0:
                     rel = os.path.relpath(fpath, KB_DIR)
+                    # 本地覆盖层文件：输出 kb_local/<相对路径>，供 seep_kb_read 正确路由
+                    if fpath.startswith(_KB_LOCAL + os.sep):
+                        rel = os.path.join("kb_local", os.path.relpath(fpath, _KB_LOCAL))
                     hits.append({
                         "path": rel.replace("\\", "/"),
                         "title": title or Path(fpath).stem,
@@ -964,7 +975,12 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
         article_path: 相对 KB 根目录的路径（可通过 seep_kb_search 获得，例如 'ctf-website/checklists/web-ctf-first-30-min.md'）
         max_chars: 最大返回字符数，默认 6000
     """
-    target = os.path.join(KB_DIR, article_path)
+    # 本地覆盖层：kb_local/ 前缀走 Tool/mcp/kb_local/
+    if article_path.replace(chr(92), "/").startswith("kb_local/"):
+        _rel = article_path.replace(chr(92), "/")[len("kb_local/"):]
+        target = os.path.join(BASE_DIR, "kb_local", _rel.replace("/", os.sep))
+    else:
+        target = os.path.join(KB_DIR, article_path)
     if not os.path.isfile(target):
         # 尝试模糊匹配
         matches = glob.glob(os.path.join(KB_DIR, "**", f"*{article_path}*"), recursive=True)

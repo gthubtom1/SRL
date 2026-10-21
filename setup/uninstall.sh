@@ -213,6 +213,14 @@ if [ "$KEEP_PROMPTS" = "0" ]; then
     for f in AGENTS.md SEEP.md SYSTEM.md; do
         [ -f "$AGENT_DIR/$f" ] && PROMPT_HITS+=("$f")
     done
+    # 任务卡（~/.pi/agent/prompts/）：只清随包分发的那几张
+    if [ -d "$TOOL_DIR/prompts/tasks" ] && [ -d "$AGENT_DIR/prompts" ]; then
+        for f in "$TOOL_DIR/prompts/tasks/"*.md; do
+            [ -f "$f" ] || continue
+            bn="$(basename "$f")"
+            [ -f "$AGENT_DIR/prompts/$bn" ] && PROMPT_HITS+=("prompts/$bn")
+        done
+    fi
     if [ -d "$EXT_DIR" ]; then
         # ★ 只删工作台随包分发的扩展（Tool/prompts/extensions/*.ts）。
         # 旧实现无差别删除全部 *.ts，会把用户自装扩展（如 cmd-guard.ts）一并干掉。
