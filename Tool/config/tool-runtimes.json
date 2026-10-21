@@ -179,6 +179,23 @@
           }
         }
       ]
+    },
+    "frida": {
+      "prefer": [
+        "cli"
+      ],
+      "modes": [
+        {
+          "id": "cli",
+          "kind": "cli",
+          "toolId": "frida",
+          "command": "\"{exeDir}/{exeName}\" --version",
+          "why": "脚本化注入：比调试器更不容易被反调试识别；attach 用 -p、spawn 用 -f。是强反调试目标的首选仪器",
+          "fallbackExe": [
+            "frida"
+          ]
+        }
+      ]
     }
   },
   "_判定原则（新增工具时照这个顺序定 kind）": {

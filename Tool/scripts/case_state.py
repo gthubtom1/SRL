@@ -45,6 +45,16 @@ LEVEL_NAME = {
     "D5": "钥匙归属（文件/内存/授权后产生）",
 }
 VERDICTS = ["可赢", "部分可赢", "不可赢"]
+INSTRUMENTS = ["baseline", "x64dbg", "frida-spawn", "frida-attach", "external", "network"]
+INSTRUMENT_NAME = {
+    "baseline": "裸启动（双击 / explorer，不挂任何仪器）",
+    "x64dbg": "调试器 attach（最容易被反调试干掉）",
+    "frida-spawn": "Frida spawn（-f，启动即挂）",
+    "frida-attach": "Frida attach（进程起来后挂）",
+    "external": "外部观测（Procmon / ETW / 文件与注册表快照 diff）",
+    "network": "网络层（代理 / 抓包 / 冒充服务器）",
+}
+ISTATUS = ["ok", "partial", "blocked", "killed"]
 MAX_LEVEL_BY_VERDICT = {"可赢": "M3", "部分可赢": "M2", "不可赢": "M1"}
 STATUSES = ["hypothesis", "proven", "refuted"]
 
@@ -186,6 +196,18 @@ def cmd_verdict(a):
     print(f"[OK] 裁定 = {a.value}，交付上限 = {need}")
 
 
+def cmd_instrument(a):
+    if a.name not in INSTRUMENTS:
+        die(f"instrument 只能是 {INSTRUMENTS}")
+    if a.status not in ISTATUS:
+        die(f"status 只能是 {ISTATUS}")
+    st = load_state(a.case)
+    st.setdefault("instruments", {})[a.name] = {
+        "status": a.status, "launch": a.launch or "", "note": a.note or "", "ts": now()}
+    save_state(a.case, st)
+    print(f"[OK] 仪器 {a.name} = {a.status}  {a.note or ''}")
+
+
 def cmd_gate(a):
     st = load_state(a.case)
     facts = load_facts(a.case)
@@ -208,6 +230,15 @@ def cmd_gate(a):
 
     if not st.get("verdict"):
         bad.append("未给可行性裁定（verdict）")
+
+    # I0：仪器可行性。血案——2 小时后才发现调试器一挂就自毁、Frida 早期挂载会被静默掐网络
+    inst = st.get("instruments") or {}
+    alive = [k for k, v in inst.items()
+             if v.get("status") in ("ok", "partial") and k != "baseline"]
+    if len(inst) < 2:
+        bad.append("未登记仪器可行性（I0）：至少 2 种（如 frida-attach + external）")
+    elif not alive:
+        bad.append("所有仪器都被阻断：至少要有一种可观测手段（外部观测/网络层也算）")
 
     pend = [f["id"] for f in facts if f["status"] == "hypothesis"]
     if a.strict and pend:
@@ -235,6 +266,11 @@ def cmd_show(a):
     print(f"  裁定：{st.get('verdict') or '（未给）'}   交付上限：{st.get('max_level') or '-'}")
     if st.get("verdict_note"):
         print(f"  裁定理由：{st['verdict_note']}")
+    inst = st.get("instruments") or {}
+    if inst:
+        print("  仪器（I0）：")
+        for k, v in inst.items():
+            print(f"    {k:<14} {v['status']:<8} {v.get('note','')}")
     print("  深度：")
     for lv in LEVELS:
         v = st.get("depth", {}).get(lv)
@@ -285,6 +321,11 @@ def main():
     p.add_argument("--level", required=True); p.add_argument("--result", required=True)
     p.add_argument("--note", default="")
     p.set_defaults(func=cmd_depth)
+
+    p = sub.add_parser("instrument"); p.add_argument("--case", required=True)
+    p.add_argument("--name", required=True); p.add_argument("--status", required=True)
+    p.add_argument("--launch", default=""); p.add_argument("--note", default="")
+    p.set_defaults(func=cmd_instrument)
 
     p = sub.add_parser("verdict"); p.add_argument("--case", required=True)
     p.add_argument("--value", required=True); p.add_argument("--max-level", default="")
