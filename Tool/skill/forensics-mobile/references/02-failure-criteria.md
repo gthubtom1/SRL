@@ -10,6 +10,9 @@
 |---|---|---|---|
 | `vol.py` 报 `Unsatisfied requirement` / `Invalid profile` | 符号/ISF 与镜像版本不匹配 | 先 `banners.Banners` 定版本，再取对应 ISF/dSYM；仍不行走 `strings`+`bulk_extractor` | 时间成本 + 只能做字符串级线索，进程/网络结构不可信 |
 | `pslist` 为空但镜像有 `KDBG`/`Windows` 字符串 | 结构偏移/版本不对或镜像被截断 | 换 `psscan`/`PoolScanner`，核对镜像大小与采集方式 | 可能把“没跑过”误判成“隐藏”；退出时间不可得 |
+| MemProcFS `heap_recovered=false` 或 V3 `windows.heap` 为空 | 24H2+ 堆结构偏移未适配，或工具版本过旧 | 升 MemProcFS 5.19 重跑；仍空改 V3 `windows.heap`，再退 `psscan`+`malfind` | 进程堆/伪句柄不可得；只能做池扫描线索 |
+| Win11 26H2 dump 在 MemProcFS <5.19 上崩溃或挂载目录为空 | 工具版本不支持 26H2 内核结构 | 升级 MemProcFS 5.19（2026-10-05）重跑；记录原版本与崩溃点 | 旧版输出不可用；不得写“镜像损坏/结构异常” |
+| `/sys/eventlog` 与 `windows.eventlog` 均空，但磁盘 EVTX 有记录 | 内存日志未缓存/已滚动，或插件与 build 不匹配 | 以磁盘 EVTX 为准并注明“内存侧缺失”；核对 build/插件版本 | 内存侧日志归因缺位；不能写“日志被清除” |
 | pcap `capinfos` 显示包数正常但重组无内容 | 截断/加密/分片/只抓单向 | `editcap -c` 切片、按 `tcp.stream` 逐流、检查 TLS keylog/进程内明文 | 会话结论降级为“只见元数据”；文件对象不可得 |
 | `mmls` 有分区但 `fsstat -o` 报损坏 | `-o` 用了字节而非扇区，或镜像稀疏/加密 | 用 `mmls` 的 Start 扇区重试；`dd` 抽分区头核对；换 Autopsy | 误判文件系统损坏；需要重新采集或换工具 |
 | `fls` 能列目录但 `icat` 内容乱码 | inode 复用/块被覆盖/压缩/加密 | 先校验 magic 与哈希；用 `blkls`+carve；标“不可恢复” | 已删文件结论不可用；只能给文件名/时间线索 |
