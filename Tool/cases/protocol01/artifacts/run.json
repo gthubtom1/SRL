@@ -1,0 +1,13 @@
+{
+  "case": "protocol01",
+  "generated_at": "2026-10-21T12:38:59Z",
+  "cwd": "Tool/cases/protocol01",
+  "runs": [
+    {
+      "cmd": "python ../../../Tool/scripts/pcap-summary.py --file input/sample.pcap --json",
+      "rc": 0,
+      "stdout": "{\r\n  \"ok\": true,\r\n  \"file\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\protocol01\\\\input\\\\sample.pcap\",\r\n  \"sha256\": \"721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a\",\r\n  \"size\": 628,\r\n  \"format\": \"pcap\",\r\n  \"linktype\": 1,\r\n  \"linktype_name\": \"EN10MB/Ethernet\",\r\n  \"packet_count\": 3,\r\n  \"first_ts\": 1792466045.0,\r\n  \"last_ts\": 1792466045.91,\r\n  \"duration_s\": 0.9100000858306885,\r\n  \"session_count\": 2,\r\n  \"sessions\": [\r\n    {\r\n      \"proto\": \"TCP\",\r\n      \"src\": \"10.20.0.15\",\r\n      \"sport\": 49152,\r\n      \"dst\": \"10.20.0.5\",\r\n      \"dport\": 80,\r\n      \"packets\": 2,\r\n      \"payload_bytes\": 238,\r\n      \"first_ts\": 1792466045.0,\r\n      \"last_ts\": 1792466045.91,\r\n      \"flags\": [\r\n        24\r\n      ],\r\n      \"snippets\": [\r\n        \"GET /login HTTP/1.1\",\r\n        \"Host: lab.example.test\",\r\n        \"User-Agent: lab-client/0.9.3\",\r\n        \"Accept: */*\",\r\n        \"Authorization: Bearer abc\",\r\n        \"Connection: keep-alive\",\r\n        \"GET /dashboard HTTP/1.1\",\r\n        \"Cookie: sid=deadbeef\"\r\n      ],\r\n      \"snippet_total\": 10\r\n    },\r\n    {\r\n      \"proto\": \"TCP\",\r\n      \"src\": \"10.20.0.5\",\r\n      \"sport\": 80,\r\n      \"dst\": \"10.20.0.15\",\r\n      \"dport\": 49152,\r\n      \"packets\": 1,\r\n      \"payload_bytes\": 156,\r\n      \"first_ts\": 1792466045.42,\r\n      \"last_ts\": 1792466045.42,\r\n      \"flags\": [\r\n        24\r\n      ],\r\n      \"snippets\": [\r\n        \"HTTP/1.1 200 OK\",\r\n        \"Server: nginx/1.24.0\",\r\n        \"Content-Type: application/json\",\r\n        \"Content-Length: 36\",\r\n        \"Set-Cookie: sid=deadbeef; Path=/\",\r\n        \"{\\\"status\\\":\\\"ok\\\",\\\"role\\\":\\\"user\\\"}\"\r\n      ],\r\n      \"snippet_total\": 6\r\n    }\r\n  ],\r\n  \"sessions_total\": 2,\r\n  \"suspicious_session_count\": 2,\r\n  \"suspicious_snippet_count\": 16\r\n}\r\n",
+      "stderr": ""
+    }
+  ]
+}

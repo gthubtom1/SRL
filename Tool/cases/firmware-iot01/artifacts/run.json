@@ -1,28 +1,40 @@
 {
   "tool": "fw-triage",
   "version": "1.0.0",
-  "generated_at": "2026-10-21T12:06:11Z",
-  "file": "Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
+  "generated_at": "2026-10-21T12:37:44Z",
+  "file": "Tool/cases/项目A/v2/dist/version.dll",
   "ok": true,
-  "size": 12288,
-  "size_human": "12.0 KiB",
-  "sha256": "0bd406b619daed60a6ad3ca98eabb8383475624d2ba284e974af46ff17af3b33",
+  "size": 257024,
+  "size_human": "251.0 KiB",
+  "sha256": "cc428f85e55ef12d53302696c6f76d74aa364e0d3214da3a0b36bdb128cb8391",
   "containers": [
     {
       "offset": 0,
       "type": "pe",
       "description": "PE/COFF (DOS MZ header)",
       "confidence": "high"
+    },
+    {
+      "offset": 95127,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 245559,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
     }
   ],
   "containers_truncated": 0,
   "entropy": {
-    "overall": 4.955,
-    "max_block": 4.76,
+    "overall": 6.346,
+    "max_block": 6.533,
     "high_block_ratio": 0.0,
-    "sampled_bytes": 12288,
+    "sampled_bytes": 257024,
     "sample_truncated": false,
-    "interpretation": "low entropy: mostly plaintext/metadata; look for headers and scripts"
+    "interpretation": "mixed entropy: container + padding/compressed regions likely"
   },
   "credential_clues": [],
   "clues_truncated": false,
@@ -39,16 +51,19 @@
     "strings": true
   },
   "suggested_commands": [
-    "file Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe && sha256sum Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
-    "strings -a -n 6 Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
-    "binwalk -E Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe | head -40",
-    "binwalk -e --run-as=root -C work/fw-triage Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
-    "binwalk --dd='.*' -C work/fw-triage/raw Tool/samples/real/dotnet-crackmes/CrackMev1_-_Local_File_Licensing/CrackMev1.exe",
-    "# Not a firmware container: use the binary/ELF/DTB analysis route, not binwalk recursion.",
+    "file 'Tool/cases/项目A/v2/dist/version.dll' && sha256sum 'Tool/cases/项目A/v2/dist/version.dll'",
+    "strings -a -n 6 'Tool/cases/项目A/v2/dist/version.dll' | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
+    "dd if='Tool/cases/项目A/v2/dist/version.dll' of=work/fw-triage/part.bin bs=1 skip=0  # carve first embedded container",
+    "python3 - <<'PY'\nfrom pathlib import Path\nsrc = Path('Tool/cases/项目A/v2/dist/version.dll').read_bytes()\noff = 0\ndst = Path('work/fw-triage/carved-at-0.bin')\ndst.parent.mkdir(parents=True, exist_ok=True)\ndst.write_bytes(src[off:])\nprint('carved', len(src) - off, 'bytes ->', dst)\nPY",
+    "binwalk -E 'Tool/cases/项目A/v2/dist/version.dll' | head -40",
+    "binwalk -e --run-as=root -C work/fw-triage 'Tool/cases/项目A/v2/dist/version.dll'",
+    "binwalk --dd='.*' -C work/fw-triage/raw 'Tool/cases/项目A/v2/dist/version.dll'",
+    "jefferson -d work/fw-triage/jffs2 'Tool/cases/项目A/v2/dist/version.dll'",
+    "# missing jefferson: python3 -m pip install --user jefferson  (needs approval)",
     "grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd' work/fw-triage/rootfs/etc 2>/dev/null | head -60",
     "find work/fw-triage/rootfs -type f \\( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \\) -print"
   ],
-  "verdict": "not a firmware container (pe): this is a bare binary/DTB. Use the binary/ELF/DTB route; do not claim a rootfs was unpacked.",
+  "verdict": "container magic found (jffs2, pe); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.",
   "limits": [
     "Triage only: it does not unpack, emulate, or prove J1/J2/J3.",
     "Credential clues are candidates; confirm file:line in the extracted rootfs and redact values.",

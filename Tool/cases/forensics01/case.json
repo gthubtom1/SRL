@@ -2,56 +2,99 @@
   "id": "forensics01",
   "domain": "forensics-mobile",
   "route": "R26",
-  "target_type": "Windows 内存镜像（本地授权取证样本）",
-  "platform": "windows",
+  "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话）",
+  "platform": "linux",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "acquisition": {
-    "method": "memory",
-    "tool": "计划：WinPmem / DumpIt（记录实际版本）",
-    "collected_at": "",
+    "method": "pcap",
+    "tool": "python 手工构造 + forensics-check.py 1.0 + pcap-summary.py 1.0",
+    "collected_at": "2026-10-20T03:14:05Z",
     "timezone": "UTC",
-    "operator": "",
-    "host": "WIN-LAB-01",
-    "clock_skew": "unknown（尚无镜像，未与 NTP/事件日志对齐）"
+    "operator": "case fixture",
+    "interface": "eth0（样本未记录接口，按以太网帧）",
+    "clock_skew": "unknown；pcap 时间戳由构造脚本写入，未与主机日志/NTP 对齐"
   },
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "input/capture.pcap",
+      "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "f89194fe6de06adb73fed6eb6d14b083d945612a90a0ea20a6300d45a657a005"
+    }
+  ],
   "evidence": [],
   "questions": [
-    "2026-10-20 03:14Z 前后，哪个进程从哪台主机读取了哪个文件并外联到哪里"
+    "2026-10-20 03:14Z 前后，哪台主机向 10.20.0.5 提交了登录请求、携带什么凭据，服务端返回什么会话标识"
   ],
-  "timeframe": {"start": "2026-10-20T03:00:00Z", "end": "2026-10-20T03:30:00Z", "clock_skew": "unknown"},
+  "timeframe": {
+    "start": "2026-10-20T03:14:00Z",
+    "end": "2026-10-20T03:15:00Z",
+    "clock_skew": "unknown"
+  },
   "findings": [
     {
-      "claim": "待验证：可疑进程树与网络外联",
-      "time_utc": "",
-      "actor": "",
-      "action": "",
-      "object": "",
-      "confidence": "unverified",
-      "evidence_refs": [],
-      "command": "python3 vol.py -f mem.raw windows.pslist.PsList"
+      "claim": "观察到明文 HTTP 登录：客户端提交 Authorization: Bearer abc，服务端返回 200 OK 与 sid cookie",
+      "time_utc": "2026-10-20T03:14:05Z",
+      "actor": "10.20.0.15:49152",
+      "action": "HTTP GET /login",
+      "object": "10.20.0.5:80 登录接口 / Bearer abc",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/capture.pcap",
+        "artifacts/run.json"
+      ],
+      "command": "python Tool/scripts/pcap-summary.py --file input/capture.pcap --json"
+    },
+    {
+      "claim": "同一 TCP 连接随后复用 sid=deadbeef 访问 /dashboard",
+      "time_utc": "2026-10-20T03:14:05.910000Z",
+      "actor": "10.20.0.15:49152",
+      "action": "HTTP GET /dashboard (Cookie: sid=deadbeef)",
+      "object": "10.20.0.5:80 /dashboard",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/capture.pcap",
+        "artifacts/run.json"
+      ],
+      "command": "python Tool/scripts/pcap-summary.py --file input/capture.pcap --json"
     }
   ],
   "tools": [
-    {"name": "volatility3", "version": ""},
-    {"name": "forensics-check.py", "version": "1.0"}
+    {
+      "name": "forensics-check.py",
+      "version": "1.0"
+    },
+    {
+      "name": "pcap-summary.py",
+      "version": "1.0"
+    }
   ],
   "lessons": [
-    "当前状态：planned —— 未采集内存，evidence/ 目录为空，无 mem.raw 与 SHA256SUMS，findings 全部未验证",
-    "还差什么：采集 mem.raw 并算哈希、确认 OS 版本与符号表、跑 pslist/psscan/netstat 建时间线，再把四要素写回 findings",
-    "先 banners/info 定 OS 与符号，再跑 pslist/psscan；符号错会全盘失败",
-    "pslist 与 psscan 差集只能作为隐藏/退出候选，不能直接定罪",
-    "每条结论必须带时间/主体/动作/对象四要素与可复现命令",
-    "失败判据：两次换工具仍无法识别/符号不匹配，或关键哈希不一致即停"
+    "实际分析：forensics-check.py --file input/capture.pcap，rc=0；识别 pcap/EN10MB，3 包、未截断，时间线 2026-10-20T03:14:05Z–03:14:05.910000Z，输入 sha256 与 artifacts 记录一致。",
+    "发现：补充 pcap-summary.py 后确认 2 个方向性会话；10.20.0.15:49152 → 10.20.0.5:80 的 GET /login 携带 Authorization: Bearer abc，响应 200 OK 且 Set-Cookie sid=deadbeef，随后同连接带该 Cookie 访问 /dashboard。",
+    "边界：单次构造会话，无 DNS/TLS、无文件对象导出；pcap 时间戳由构造脚本写入，文件 mtime 是构建时间而非证据时间，未与主机日志/NTP 对齐。",
+    "还差什么：真实采集记录与只读封存、按 tcp.stream 导出 HTTP 对象并逐个哈希、DNS/TLS/丢包信息，以及用主机日志交叉验证四要素。"
   ],
-  "tags": ["R26", "forensics", "memory", "volatility3", "timeline", "planned"],
+  "tags": [
+    "R26",
+    "forensics",
+    "pcap",
+    "http",
+    "timeline",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/forensics-mobile/SKILL.md",
-    "Tool/skill/forensics-mobile/references/memory-and-volatility.md",
-    "Tool/skill/forensics-mobile/references/evidence-chain.md"
+    "Tool/skill/forensics-mobile/references/forensics.md",
+    "Tool/skill/forensics-mobile/references/evidence-chain.md",
+    "Tool/config/forensics-mobile-matrix.json",
+    "Tool/cases/forensics01/input/capture.pcap",
+    "Tool/cases/forensics01/artifacts/run.json"
   ],
-  "updated": "2026-10-20"
+  "updated": "2026-10-21"
 }

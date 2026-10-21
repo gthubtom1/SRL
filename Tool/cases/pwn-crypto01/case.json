@@ -1,14 +1,12 @@
 {
   "id": "pwn-crypto01",
   "domain": "pwn-crypto",
-  "target_type": "ELF x86_64 / 本地堆题（tcache+UAF）",
+  "target_type": "PE32+ / DLL",
   "protection": [
     "NX",
-    "PIE",
-    "Canary",
-    "Partial RELRO",
-    "glibc 2.35",
-    "seccomp: openat/read/write"
+    "PIE/ASLR",
+    "Canary absent",
+    "RELRO N/A (PE)"
   ],
   "authority": "local",
   "goal_level": "L2",
@@ -16,23 +14,23 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
+      "sha256": "19ffd77ba9ade23ff1e0b1a11ee925712397d99402ef3c0b8c97f3944df33fcc"
     }
   ],
   "lessons": [
-    "本次跑到：pwn-check.py 对仓库内 CrackMev1.exe 完成 PE 保护位/导入/format 串预判，rc=0；识别 PE x86 32-bit，NX/PIE Enabled、Canary Not found、RELRO N/A，1 个导入、无危险导入/format 风险。",
-    "卡点：这不是目标的 ELF x86_64 堆题，仓库内没有 chall/libc/ld 附件；因此没有 heap 泄漏、tcache/UAF 或 seccomp 证据，不能宣称利用成立。",
-    "下一步：补入目标 ELF 与对应 libc/ld，先跑 checksec/glibc build id/seccomp-tools dump，再按泄漏 heap→unsorted bin 泄漏 libc→tcache poison→ORW 的顺序做本地 10 次复现。",
-    "成立判据：malloc 返回受控地址、泄漏页对齐且 libc 吻合、全新进程 10 次成功≥9、flag 输出可复现。",
-    "失败预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐。"
+    "本次跑到：pwn-check.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
+    "结果：PE32+ x86_64 DLL，entry=0x1330，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），85 个导入、6 条 format string 风险；未执行二进制。",
+    "卡点：案例原先写着 ELF 堆题，但仓库内没有对应 chall/libc/ld；本产物只覆盖 PE 保护位与导入/format 串预判，没有 heap/tcache/UAF 证据。",
+    "下一步：若要继续 pwn，补入目标 ELF 与匹配 libc/ld，跑 checksec、glibc build id、seccomp-tools dump，再按泄漏→覆写→ORW 的顺序本地复现。",
+    "边界：静态工具不能证明可利用性；format string 路由需动态验证偏移、写权限与目标地址。"
   ],
   "tags": [
-    "R21",
-    "pwn-crypto",
-    "heap",
-    "tcache",
-    "uaf",
-    "seccomp",
+    "PE32+",
+    "DLL",
+    "mitigations",
+    "format-strings",
+    "dangerous-imports",
+    "static",
     "partial"
   ],
   "refs": [

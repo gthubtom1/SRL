@@ -1,30 +1,35 @@
 {
   "id": "pwn-crypto02",
   "domain": "pwn-crypto",
-  "target_type": "Python RSA challenge / 密码学脚本",
-  "protection": [],
+  "target_type": "PE32+ / EXE",
+  "protection": [
+    "NX",
+    "PIE/ASLR",
+    "Canary absent",
+    "RELRO N/A (PE)"
+  ],
   "authority": "local",
   "goal_level": "L2",
   "outcome": "partial",
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
+      "sha256": "8952400e0b0fa15faeeb1bc980d0b7e45264d54561adad1937689b86a642e414"
     }
   ],
   "lessons": [
-    "本次跑到：按本域脚本要求用 pwn-check.py 对仓库内 CrackMev1.exe 做工具链连通性验证，rc=0；只得到 PE 保护位/导入预判，未执行任何 RSA 求解。",
-    "卡点：案例目标是 Python RSA 题目，但当前没有 n/e/c、模数列表或题目脚本；无法判断小指数、共模、Håstad、共享素数或 Wiener/Fermat 哪条路径成立。",
-    "下一步：补入题目参数/脚本后先做 gcd(n_i,n_j)、e 与 φ(n) 互质性、同消息/填充检查，再选攻击并回代 pow(m,e,n)==c。",
-    "成立判据：明文可读且回代成立；广播 CRT 后开方精确且 m^e<M；两组密文都成立才算完成。",
-    "失败预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质。"
+    "本次跑到：pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
+    "结果：PE32+ x86_64 EXE，entry=0x13f0，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），41 个导入、8 条 format string 风险；未执行二进制。",
+    "卡点：本次没有 ELF/CTF 题目参数，也没有 crypto 题面（n/e/c、模数列表或脚本）；产物只是 PE 静态保护位与导入预判，不能据此求解 RSA。",
+    "下一步：若要继续 pwn/crypto，分别补入目标 ELF 与 libc/ld，或补入题目参数脚本；crypto 先做 gcd(n_i,n_j)、e 与 φ(n) 互质性、同消息/填充检查。",
+    "边界：静态工具不能证明可利用性；RSA 求解必须回代 pow(m,e,n)==c，广播攻击还需确认消息同一且 m^e<M。"
   ],
   "tags": [
-    "R21",
-    "pwn-crypto",
-    "crypto",
-    "rsa",
-    "hastad",
+    "PE32+",
+    "EXE",
+    "mitigations",
+    "format-strings",
+    "static",
     "partial"
   ],
   "refs": [

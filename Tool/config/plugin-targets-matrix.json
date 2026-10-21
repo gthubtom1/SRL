@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "domain": "plugin-targets",
   "route": "R25",
-  "description": "插件/扩展/Mod 矩阵（声明式）：按包型给出入口、权限面、工具、完成判据、失败判据与陷阱。协议复刻不在本表，见 protocol-matrix.json（R24）。",
+  "description": "插件/扩展/Mod 矩阵（声明式）：按包型给出入口、权限面、工具、完成判据、失败判据与陷阱。协议复刻不在本表，见 protocol-plugin-matrix.json（R24）。",
   "updated": "2026-10-20",
   "families": [
     {

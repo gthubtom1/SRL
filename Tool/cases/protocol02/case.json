@@ -2,46 +2,74 @@
   "id": "protocol02",
   "domain": "protocol-plugin",
   "route": "R24",
-  "target_type": "本地授权靶场的 TCP 二进制帧协议（magic + length + CRC + 加密段）",
+  "target_type": "本地二进制帧样本：magic SPRX + 长度前缀 + CRC32（3 帧）",
   "protection": [],
   "authority": "local",
   "goal_level": "L3",
-  "outcome": "planned",
+  "outcome": "partial",
   "capture": {
-    "file": "",
-    "tool": "pcap-summary.py / tshark",
-    "endpoint": "127.0.0.1:9527",
+    "file": "input/sample.bin",
+    "tool": "python 手工构造 + notes.md 帧表 + pcap-summary.py 失败路径",
+    "endpoint": "127.0.0.1:9527（设计值，样本不是抓包）",
     "tls": false,
-    "client_version": "lab-sensor 1.4.0",
-    "captured_at": ""
+    "client_version": "lab-sensor 1.4.0（设计值）",
+    "captured_at": "synthetic 2026-10-20（非真实采集）"
   },
   "protocol": {
-    "layer": "TCP",
+    "layer": "TCP（设计）/ 裸二进制文件（实际）",
     "framing": "magic(4) + version(1) + type(1) + length(2, big-endian) + seq(4) + payload + crc32(4)",
-    "coverage": "待验证：length 覆盖 payload，CRC 覆盖 header+payload（需 3 帧以上反推）",
-    "encryption": "待验证：payload 尾部疑似 AES-CBC 密文，IV 位于 payload 前 16 字节",
-    "states": ["WAIT_MAGIC", "WAIT_HEADER", "WAIT_BODY", "VERIFY", "DISPATCH"]
+    "coverage": "length 只覆盖 payload；CRC32 覆盖 header(12B)+payload，不含 CRC 字段（3 帧样本内可复现）",
+    "encryption": "未观察到加密：payload 为明文 JSON；原 AES-CBC 假设未证实",
+    "states": [
+      "WAIT_MAGIC",
+      "WAIT_HEADER",
+      "WAIT_BODY",
+      "VERIFY",
+      "DISPATCH"
+    ]
   },
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "input/sample.bin",
+      "sha256": "110da7c87b2cb7d145506ca7549fd771d088b05f6e97f1b104de3e4c0f9803c4"
+    },
+    {
+      "path": "input/notes.md",
+      "sha256": "58b190565eaa995b92516b8e70841c1cc3cf3ada013d0fdd858e37d4fcdec9de"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "1d85499760ddb77bd4f3d07547acb26546fe36b25385740c8d034d0363a80361"
+    }
+  ],
   "evidence": [
-    "待采集：≥3 帧 magic/version/type 统计",
-    "待验证：长度公式与未见帧边界预测",
-    "待验证：改 1 字节后的 CRC/服务端拒绝",
-    "待验证：半包/粘包/重传/乱序重同步测试"
+    "observed: 3 帧 141 B，magic=SPRX，version=1，type=1/2/3，seq=1/2/3",
+    "observed: payload 长度 36/30/27 B，帧长 52/46/43 B，CRC32 三值可复现",
+    "observed: pcap-summary.py 拒绝 sample.bin（pcap_parse_error，magic=53505258）",
+    "missing: 真实 TCP 抓包、半包/粘包/乱序重同步、parser.py 重放"
   ],
   "lessons": [
-    "当前状态：planned —— 仅有帧格式假设，evidence/ 目录为空，没有 pcap、没有 frames.jsonl/schema.md/parser.py",
-    "还差什么：抓取 ≥3 帧真实流量、用 3 帧以上反推 length 覆盖范围与 CRC 参数、在客户端 send/recv 取加密前明文，再补 parser.py 重放验证",
-    "长度字段含头/含尾必须用 3 帧以上反推，不能按首帧猜",
-    "CRC 先定覆盖范围再定多项式；只匹配样本不算闭环",
-    "加密段优先在客户端 send/recv 取明文，不暴力猜密钥",
-    "失败判据：长度/CRC 无法闭环或只能原样重放，则报部分复刻"
+    "实际分析：按 input/notes.md 帧表解析 input/sample.bin，3 帧共 141 B；magic=SPRX、version=1、type=1/2/3、seq=1/2/3，length 仅覆盖 payload，CRC32 覆盖 header+payload，三个 CRC 均可复现。",
+    "发现：payload 依次为 HELLO/AUTH/TELEMETRY 明文 JSON（36/30/27 B）；原设计中的 AES-CBC 加密段在本样本中不存在。",
+    "工具边界：pcap-summary.py 对 sample.bin 返回 pcap_parse_error；兼容入口 rc=0、直调目标 rc=2，入口在 Windows 上丢失子进程退出码。",
+    "还差什么：真实 TCP pcap、≥3 帧反推 length/CRC 覆盖、半包/粘包/乱序重同步测试与 parser.py；当前只能证明该 3 帧样本自洽，不能证明真实流量格式。"
   ],
-  "tags": ["R24", "protocol", "binary", "crc", "framing", "planned"],
+  "tags": [
+    "R24",
+    "protocol",
+    "binary",
+    "crc32",
+    "framing",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/protocol-plugin/SKILL.md",
     "Tool/skill/protocol-plugin/references/binary-protocols.md",
-    "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+    "Tool/skill/protocol-plugin/references/state-machine-and-replay.md",
+    "Tool/config/protocol-plugin-matrix.json",
+    "Tool/cases/protocol02/input/sample.bin",
+    "Tool/cases/protocol02/input/notes.md",
+    "Tool/cases/protocol02/artifacts/run.json"
   ],
-  "updated": "2026-10-20"
+  "updated": "2026-10-21"
 }

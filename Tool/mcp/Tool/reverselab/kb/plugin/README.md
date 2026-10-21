@@ -6,8 +6,8 @@
 
 ## 入口
 
-- [Manifest 与权限面](manifest-and-permissions.md) — CRX/MV3、VSIX、JetBrains
-- [asar 与 Mod 加载器](asar-and-mod-loaders.md) — Electron、BepInEx/MelonLoader
+- [Manifest 与权限面](techniques/manifest-and-permissions.md) — CRX/MV3、VSIX、JetBrains
+- [asar 与 Mod 加载器](techniques/asar-and-mod-loaders.md) — Electron、BepInEx/MelonLoader
 
 ## 10 分钟初筛
 

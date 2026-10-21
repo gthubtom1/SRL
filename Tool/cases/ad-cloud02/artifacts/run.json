@@ -1,16 +1,185 @@
 {
   "tool": "adcloud-check",
   "version": "1.0.0",
-  "generated_at": "2026-10-21T12:06:11Z",
-  "ok": false,
+  "generated_at": "2026-10-21T12:37:59Z",
+  "ok": true,
   "mode": "offline_local_files",
-  "kubeconfig": null,
+  "kubeconfig": {
+    "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\ad-cloud02\\input\\kubeconfig.yaml",
+    "current_context": "lab-context-02",
+    "clusters": [
+      {
+        "name": "lab-cluster-02",
+        "server": "https://127.0.0.1:6443",
+        "insecure_skip_tls_verify": true,
+        "has_ca": false,
+        "proxy_url": ""
+      }
+    ],
+    "contexts": [
+      {
+        "name": "lab-context-02",
+        "cluster": "lab-cluster-02",
+        "user": "lab-ops-02",
+        "namespace": "kube-system"
+      }
+    ],
+    "users": [
+      {
+        "name": "lab-ops-02",
+        "has_token": true,
+        "token_file": "",
+        "has_client_cert": false,
+        "has_basic_auth": false,
+        "exec": null,
+        "auth_provider": null,
+        "impersonation": {},
+        "anonymous": false,
+        "token": {
+          "fingerprint": "ca0b03c92c18",
+          "length": 366,
+          "exp": 4102444800,
+          "sub": "system:serviceaccount:kube-system:cluster-admin",
+          "groups": [
+            "system:masters",
+            "system:serviceaccounts"
+          ],
+          "expires_in_seconds": 2309858521
+        },
+        "cert": null,
+        "jwt": {
+          "iss": "https://kubernetes.default.svc",
+          "sub": "system:serviceaccount:kube-system:cluster-admin",
+          "aud": [
+            "https://127.0.0.1:6443"
+          ],
+          "iat": 1700000000,
+          "exp": 4102444800,
+          "groups": [
+            "system:masters",
+            "system:serviceaccounts"
+          ]
+        },
+        "service_account": {
+          "namespace": "kube-system",
+          "name": "cluster-admin"
+        }
+      }
+    ],
+    "selected": {
+      "context": {
+        "name": "lab-context-02",
+        "cluster": "lab-cluster-02",
+        "user": "lab-ops-02",
+        "namespace": "kube-system"
+      },
+      "cluster": {
+        "name": "lab-cluster-02",
+        "server": "https://127.0.0.1:6443",
+        "insecure_skip_tls_verify": true,
+        "has_ca": false,
+        "proxy_url": ""
+      },
+      "user": {
+        "name": "lab-ops-02",
+        "has_token": true,
+        "token_file": "",
+        "has_client_cert": false,
+        "has_basic_auth": false,
+        "exec": null,
+        "auth_provider": null,
+        "impersonation": {},
+        "anonymous": false,
+        "token": {
+          "fingerprint": "ca0b03c92c18",
+          "length": 366,
+          "exp": 4102444800,
+          "sub": "system:serviceaccount:kube-system:cluster-admin",
+          "groups": [
+            "system:masters",
+            "system:serviceaccounts"
+          ],
+          "expires_in_seconds": 2309858521
+        },
+        "cert": null,
+        "jwt": {
+          "iss": "https://kubernetes.default.svc",
+          "sub": "system:serviceaccount:kube-system:cluster-admin",
+          "aud": [
+            "https://127.0.0.1:6443"
+          ],
+          "iat": 1700000000,
+          "exp": 4102444800,
+          "groups": [
+            "system:masters",
+            "system:serviceaccounts"
+          ]
+        },
+        "service_account": {
+          "namespace": "kube-system",
+          "name": "cluster-admin"
+        }
+      }
+    },
+    "anonymous_risk": false,
+    "wide_privilege_indicators": [
+      "lab-ops-02 sub=system:serviceaccount:kube-system:cluster-admin",
+      "lab-ops-02 groups=system:masters,system:serviceaccounts",
+      "namespace=kube-system sa=cluster-admin"
+    ],
+    "findings": [
+      {
+        "id": "K8S-TRANSPORT-002",
+        "severity": "medium",
+        "category": "transport",
+        "title": "insecure-skip-tls-verify=true",
+        "evidence": "lab-cluster-02",
+        "criteria": "Server certificate is not validated, so a MITM can impersonate the API server.",
+        "false_positive": "A local disposable test cluster may accept this; never for shared/production clusters."
+      },
+      {
+        "id": "K8S-RBAC-002",
+        "severity": "high",
+        "category": "rbac",
+        "title": "Service-account identity uses a broad built-in name",
+        "evidence": "lab-ops-02 sub=system:serviceaccount:kube-system:cluster-admin",
+        "criteria": "Names such as cluster-admin/admin/edit usually map to broad permissions; confirm the actual binding.",
+        "false_positive": "A custom RoleBinding may grant the same name only narrow rights; names are not proof."
+      },
+      {
+        "id": "K8S-RBAC-003",
+        "severity": "high",
+        "category": "rbac",
+        "title": "JWT groups include a cluster-wide privileged group",
+        "evidence": "lab-ops-02 groups=system:masters,system:serviceaccounts",
+        "criteria": "system:masters bypasses RBAC; system:serviceaccounts covers all service accounts.",
+        "false_positive": "The API server may reject the token or the group mapping may differ in this cluster."
+      },
+      {
+        "id": "K8S-RBAC-006",
+        "severity": "high",
+        "category": "rbac",
+        "title": "Selected context authenticates as a broad-named service account",
+        "evidence": "namespace=kube-system sa=cluster-admin",
+        "criteria": "Broad built-in names usually indicate cluster-wide rights; confirm with `kubectl auth can-i --list`.",
+        "false_positive": "RBAC bindings are authoritative; the name is only a heuristic."
+      }
+    ],
+    "offline_limits": [
+      "RBAC effective permissions are not evaluated offline: run `kubectl auth can-i --list` and inspect bindings.",
+      "Anonymous access depends on API server --anonymous-auth and RBAC bindings, which are not in the kubeconfig.",
+      "Token expiry is compared against the local clock; clock skew is unknown.",
+      "Client certificate subjects/expiry are decoded locally; bindings and revocation are not visible offline."
+    ],
+    "next_commands": [
+      "kubectl --kubeconfig input/kubeconfig.yaml config current-context",
+      "kubectl --kubeconfig input/kubeconfig.yaml auth can-i --list",
+      "kubectl --kubeconfig input/kubeconfig.yaml get clusterrolebinding -o wide",
+      "kubectl --kubeconfig input/kubeconfig.yaml get rolebinding -A -o wide",
+      "kubectl --kubeconfig input/kubeconfig.yaml get secrets -A",
+      "kubectl --kubeconfig input/kubeconfig.yaml get pods -A -o wide"
+    ]
+  },
   "aws_creds": null,
-  "errors": [
-    {
-      "code": "KUBECONFIG_NOT_FOUND",
-      "message": "kubeconfig does not exist",
-      "path": "work/no-such.yaml"
-    }
-  ]
+  "errors": []
 }
