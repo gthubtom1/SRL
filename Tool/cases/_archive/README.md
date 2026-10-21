@@ -15,3 +15,4 @@
 - `项目M` — 见 `项目M/case.json`
 - `项目N` — 见 `项目N/case.json`
 - `forensics05` — 见 `forensics05/case.json`（Unity IL2CPP/AssetBundle 夹具；2026-10-22 为保持 forensics-mobile 3–5 上限归档）
+- `plugin01` — MV3 ZIP 夹具（权限/消息/远端基线）— 见 `plugin01/case.json`；2026-10 归档：同形态已由真实案例 `plugin03`/`plugin06` 覆盖，域内保留 `plugin02` 作 ZIP 夹具基线

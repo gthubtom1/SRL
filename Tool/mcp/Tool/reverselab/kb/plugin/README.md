@@ -63,7 +63,8 @@ python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json
 
 ## 案例
 
-- `Tool/cases/plugin01`、`plugin02`：MV3 夹具（权限/消息/远端）。
+- `Tool/cases/plugin02`：MV3 夹具（权限/消息/远端）；`plugin01` 同形态基线已归档到 `Tool/cases/_archive/plugin01`。
+- `Tool/cases/plugin06`：真实本机 Chrome MV3 扩展（Tampermonkey 5.5.1，dhdgffk…）子集，含 userScripts/offscreen/签名树与真实 sha256。
 - `Tool/cases/plugin03`：真实本机 Chrome MV3 扩展（Quicker 1.2.4）子集，含真实 sha256/权限证据。
 - `Tool/cases/plugin04`：asar 夹具（main/preload/renderer/IPC）。
 - `Tool/cases/plugin05`：VSIX 夹具（activationEvents/child_process）。
