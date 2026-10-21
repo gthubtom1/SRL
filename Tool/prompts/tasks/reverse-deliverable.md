@@ -104,5 +104,5 @@ H9 调试 / attach / 注入属于任务内动作，**直接执行**：需要 x64
 
 【闸与分级（硬）】
 - 开工前：`python Tool/scripts/case_state.py gate --case <case>` 必须 0；上限取 `show` 里的 max_level。
-- 交付时：`case_state.py deliver --level M1|M2|M3 --evidence "<截图/窗口标题/日志>"`，**越级直接拒**。
+- 交付时：`case_state.py deliver --level M1|M2|M3|M4 --evidence "<截图/窗口标题/日志>"`，**越级直接拒**。
 - 报告里必须写：可赢/部分可赢/不可赢 + 一句话天花板（不可赢只许 M1）。
