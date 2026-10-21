@@ -128,9 +128,12 @@ def run(file_path: str, manifest_path: str, out: str | None,
     with open(file_path, "rb") as f:
         original = f.read()
     before = sha256(original)
-    if before.lower() != str(manifest["target_sha256"]).lower():
-        return emit_fail("target-hash", "原文件 sha256 不符：期望 %s，实际 %s"
-                         % (str(manifest["target_sha256"])[:12], before[:12]))
+    target_hash = str(manifest["target_sha256"]).lower()
+    result_hash = str(manifest.get("result_sha256") or "").lower()
+    is_patched = bool(result_hash) and before.lower() == result_hash
+    if before.lower() != target_hash and not is_patched:
+        return emit_fail("target-hash", "文件既不是原始态也不是补丁后态：期望 %s 或 %s，实际 %s"
+                         % (target_hash[:12], result_hash[:12] or "-", before[:12]))
 
     if rollback:
         # 血案（R2 审计）：旧版没有 backup 时直接拿"当前原文件"当回滚源——
@@ -156,9 +159,14 @@ def run(file_path: str, manifest_path: str, out: str | None,
         except Exception as exc:  # noqa: BLE001
             return emit_fail("rollback-write", "%s: %s" % (type(exc).__name__, exc))
         print(json.dumps({"ok": True, "rollback": True, "out": target,
-                          "sha256": before, "patches": len(manifest["patches"])},
+                          "sha256": before, "restored_sha256": sha256(rb),
+                          "from_patched": is_patched,
+                          "patches": len(manifest["patches"])},
                          ensure_ascii=True))
         return 0
+
+    if is_patched:
+        return emit_fail("target-hash", "文件已是补丁后状态；要恢复请用 --rollback，不要重复打补丁")
 
     # 打补丁前先落独立备份，并把 backup 路径/哈希写回 manifest（可审计、可回滚）。
     try:
