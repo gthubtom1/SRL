@@ -10,6 +10,29 @@
 
 ---
 
+## [1.21.0] — 2026-10-21
+
+> 主题：**九件套达标：9 个领域从"有技能"到"与逆向同级"**（技能 23 → 28，路由 22 → 24，案例 15 → 33）。
+
+| 域 | 新增件 |
+|---|---|
+| web-pentest | +2 refs（WAF 绕过矩阵、CVE 复现）、`web-check.py`、矩阵、2 案例、KB 板 |
+| supply-chain-security | 新域：SKILL + 4 refs + `sc-check.py` + 矩阵 + 2 案例 + KB 板 + **R28** |
+| pwn-crypto | +2 refs（堆/沙箱、缓解矩阵）、`pwn-check.py`、矩阵、2 案例、KB 板 |
+| malware-analysis | 新域：SKILL + 4 refs + `mal-triage.py` + 矩阵 + 2 案例 + KB 板 + **R27** |
+| firmware-iot | +2 refs（文件系统/凭据、仿真/fuzz）、`fw-triage.py`、矩阵、2 案例、KB 板 |
+| ad-cloud | +2 refs（Kerberos/ADCS、K8s/容器）、`adcloud-check.py`、矩阵、2 案例、KB 板 |
+| protocol-plugin | +2 refs（二进制协议、状态机重放）、`pcap-summary.py`、矩阵、2 案例、KB 板；插件能力归 `plugin-targets` |
+| plugin-targets | 独立成域（R25 重新指向）、+2 refs（asar、Unity/Mod）、`plugin-triage.py`、矩阵、2 案例、KB 板 |
+| forensics-mobile | +2 refs（证据链、内存镜像）、`forensics-check.py`、矩阵、2 案例、KB 板 |
+
+- **门禁**：`preflight` 新增「领域九件套」断言（技能/参考/脚本/矩阵/案例/KB 六类机检），**20/20**；
+  双平台 `verify` **65/65**；路由 **24** 条自洽；`mcp-guard` 40/40；案例索引 **33** 条。
+- **路由**：新增 R27（恶意样本）、R28（供应链）；R25 由 `protocol-plugin` 改为 `plugin-targets`，职责不再重叠。
+- **KB**：新增/补齐 9 个领域板卡（319 篇），README 计数同步。
+
+---
+
 ## [1.20.0] — 2026-10-21
 
 > 主题：**六领域包一次性补齐** —— 从"逆向工作台"扩成"全领域工作台"（技能 17 → 23，路由 15 → 22）。

@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -40,7 +41,7 @@ if sys.platform == "win32":
         pass
 
 EXCLUDE_DIRS = {".git", "node_modules", ".next", "__pycache__", ".venv"}
-SKIP_REF_DIRS = ("Tool/mcp/Tool/safe", "Tool/upstream", "Tool/mcp/Tool/reverselab",
+SKIP_REF_DIRS = ("work", "Tool/mcp/Tool/safe", "Tool/upstream", "Tool/mcp/Tool/reverselab",
                  "破甲卡生成", "Tool/cases")
 TEXT_EXT = {".md", ".ps1", ".sh", ".py", ".json", ".jsonc", ".yml", ".ts", ".mjs"}
 
@@ -520,6 +521,50 @@ def check_taskcards_gate():
         "；".join(bad)[:160] if bad else "三张任务卡均含字面闸命令，且与源头 sha 一致")
 
 
+def check_domain_packs():
+    """领域九件套：技能/参考/脚本/矩阵/案例/KB 六类必须齐（缺一即 FAIL）。
+
+    血案：v1.20.0 的六个新域只有 SKILL.md，判据无法执行、经验无法复用。
+    九件套的机检版只覆盖"可自动判的六件"，softseep 登记与人工判据由 review 兜底。
+    """
+    packs = {
+        "web-pentest": ("web-check", "web-pentest-matrix.json", 4, 2, "web-pentest"),
+        "supply-chain-security": ("sc-check", "supply-chain-matrix.json", 4, 2, "supply-chain"),
+        "pwn-crypto": ("pwn-check", "pwn-crypto-matrix.json", 4, 2, "pwn-crypto"),
+        "malware-analysis": ("mal-triage", "malware-analysis-matrix.json", 4, 2, "malware-analysis"),
+        "firmware-iot": ("fw-triage", "firmware-iot-matrix.json", 4, 2, "firmware-iot"),
+        "ad-cloud": ("adcloud-check", "ad-cloud-matrix.json", 4, 2, "ad-cloud"),
+        "protocol-plugin": ("pcap-summary", "protocol-matrix.json", 4, 2, "protocol"),
+        "plugin-targets": ("plugin-triage", "plugin-matrix.json", 4, 2, "plugin"),
+        "forensics-mobile": ("forensics-check", "forensics-matrix.json", 4, 2, "forensics"),
+    }
+    bad = []
+    for dom, (script_key, matrix, min_refs, min_cases, kb) in packs.items():
+        sk = os.path.join(TOOL, "skill", dom, "SKILL.md")
+        if not os.path.isfile(sk):
+            bad.append(dom + "(缺 SKILL)")
+            continue
+        refs = os.path.join(TOOL, "skill", dom, "references")
+        n = len([f for f in os.listdir(refs) if f.endswith(".md")]) if os.path.isdir(refs) else 0
+        if n < min_refs:
+            bad.append("%s(refs %d<%d)" % (dom, n, min_refs))
+        cand = glob.glob(os.path.join(TOOL, "scripts", "*" + script_key + "*.py")) +                glob.glob(os.path.join(TOOL, "skill", dom, "scripts", "*.py"))
+        if not cand:
+            bad.append(dom + "(缺脚本)")
+        if not os.path.isfile(os.path.join(TOOL, "config", matrix)):
+            bad.append(dom + "(缺矩阵)")
+        cdir = os.path.join(ROOT, "Tool", "cases")
+        c = len([d for d in os.listdir(cdir)
+                 if d.startswith(dom.split("-")[0]) and os.path.isfile(os.path.join(cdir, d, "case.json"))])
+        if c < min_cases:
+            bad.append("%s(cases %d<%d)" % (dom, c, min_cases))
+        kbdir = os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb", kb)
+        if not os.path.isfile(os.path.join(kbdir, "README.md")):
+            bad.append(dom + "(缺 KB board)")
+    add("10 领域", "领域九件套（技能/参考/脚本/矩阵/案例/KB）", not bad,
+        "；".join(bad)[:180] if bad else "9 个领域六类齐全")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -535,6 +580,7 @@ def main():
     check_newtools()
     check_persona_gate()
     check_taskcards_gate()
+    check_domain_packs()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

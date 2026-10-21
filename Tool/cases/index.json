@@ -1,9 +1,700 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T10:35:24Z",
-  "source_hash": "d147d03403c8fb6db12b772a40501652e64dd64d35b8fb05eb3a90b09a647d46",
-  "case_count": 15,
+  "generated_at": "2026-10-21T11:06:59Z",
+  "source_hash": "94133f3cf0db98b852736c105a9569457a77167f7478c2bd5f2cb06b3cee3157",
+  "case_count": 33,
   "cases": [
+    {
+      "dir": "ad-cloud01",
+      "id": "ad-cloud01",
+      "domain": "ad-cloud",
+      "target_type": "Active Directory 域 + ADCS（实验室）",
+      "protection": [],
+      "authority": "authorized AD lab",
+      "goal_level": "L3",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "入口：先确认授权域、DC、CA、测试账号与锁定阈值；未拿到 CA 名称不预设 ESC。",
+        "路径：枚举模板 -> 确认 Enroll/SAN/EKU/审批 -> certipy req -> certipy auth；每步留命令与返回。",
+        "判据：certipy auth 返回目标 TGT/hash 并可访问授权资源；仅 certipy find 报 vulnerable 不算。",
+        "失败判据：无 Enroll、manager approval、EKU 不匹配、EPA/signing 拦住 relay；失败即记录并换路线。",
+        "边界：不碰授权外账号/CA，不做持久化；证书与票据只留指纹和有效期。"
+      ],
+      "tags": [
+        "R23",
+        "ad-cloud",
+        "kerberos",
+        "adcs",
+        "ESC1",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/ad-cloud/SKILL.md",
+        "Tool/skill/ad-cloud/references/kerberos-and-adcs.md",
+        "Tool/skill/ad-cloud/references/ad-attacks.md",
+        "Tool/config/ad-cloud-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "ad-cloud02",
+      "id": "ad-cloud02",
+      "domain": "ad-cloud",
+      "target_type": "Kubernetes 集群（离线 kubeconfig 审计）",
+      "protection": [],
+      "authority": "authorized cluster",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "入口：先跑 adcloud-check.py --kubeconfig 做离线配置体检，再决定是否在线验证。",
+        "判据：离线只能判 context/TLS/token 过期/无凭据/宽权限名称；RBAC 是否宽必须 kubectl auth can-i 在线确认。",
+        "失败判据：把无凭据 user 直接写成匿名可访问；把 cluster-admin 名称写成已提权；把过期 token 当有效证据。",
+        "边界：不导出业务数据、不创建计费资源、不修改集群策略；测试 Pod/绑定用后即删。"
+      ],
+      "tags": [
+        "R23",
+        "ad-cloud",
+        "k8s",
+        "rbac",
+        "token",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/ad-cloud/SKILL.md",
+        "Tool/skill/ad-cloud/references/k8s-and-container.md",
+        "Tool/skill/ad-cloud/references/cloud-native.md",
+        "Tool/scripts/adcloud-check.py",
+        "Tool/config/ad-cloud-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "firmware-iot01",
+      "id": "firmware-iot01",
+      "domain": "firmware-iot",
+      "target_type": "嵌入式 Linux 摄像头固件（SquashFS）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "J1",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "入口：厂商固件/OTA 包只读副本 + SHA256；未拿到实物前不声称 UART 可用。",
+        "判据：J1 以 chroot/qemu-user 内可执行 id、读取 /etc/passwd、运行目标 CGI 为准。",
+        "失败判据：只能跑 /bin/sh、目标程序报解释器/库缺失、或解包缺 /etc 与 /bin/busybox。",
+        "边界：私钥/口令只做定位与脱敏，不在本案例中做破解或设备写入。"
+      ],
+      "tags": [
+        "firmware",
+        "squashfs",
+        "qemu-user",
+        "credential-audit",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/firmware-iot/SKILL.md",
+        "Tool/skill/firmware-iot/references/filesystem-and-credentials.md",
+        "Tool/skill/firmware-iot/references/emulation-and-fuzz.md",
+        "Tool/config/firmware-iot-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "firmware-iot02",
+      "id": "firmware-iot02",
+      "domain": "firmware-iot",
+      "target_type": "路由器固件（UBI/NAND + Web 管理面）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "J2",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "入口：NAND dump 必须保留 OOB 或原始布局；先确认 UBI# 偏移与 PEB/LEB 参数。",
+        "判据：J2 需要端口监听 + 服务进程 + 真实协议响应；仅 FirmAE 报网络成功不算。",
+        "失败判据：内核挂根失败、服务启动即退出、hostfwd 打不到业务端口；先读 qemu.*.log。",
+        "坑：rootfs_data 是配置覆盖层，账号/默认口令常不在主 rootfs；不要漏卷。"
+      ],
+      "tags": [
+        "firmware",
+        "ubi",
+        "nand",
+        "FirmAE",
+        "web-service",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/firmware-iot/SKILL.md",
+        "Tool/skill/firmware-iot/references/filesystem-and-credentials.md",
+        "Tool/skill/firmware-iot/references/emulation-and-fuzz.md",
+        "Tool/config/firmware-iot-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "forensics01",
+      "id": "forensics01",
+      "domain": "forensics-mobile",
+      "target_type": "Windows 内存镜像（本地授权取证样本）",
+      "protection": [],
+      "authority": "",
+      "goal_level": "",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "先 banners/info 定 OS 与符号，再跑 pslist/psscan；符号错会全盘失败",
+        "pslist 与 psscan 差集只能作为隐藏/退出候选，不能直接定罪",
+        "每条结论必须带时间/主体/动作/对象四要素与可复现命令",
+        "失败判据：两次换工具仍无法识别/符号不匹配，或关键哈希不一致即停"
+      ],
+      "tags": [
+        "R26",
+        "forensics",
+        "memory",
+        "volatility3",
+        "timeline"
+      ],
+      "refs": [
+        "Tool/skill/forensics-mobile/SKILL.md",
+        "Tool/skill/forensics-mobile/references/memory-and-volatility.md",
+        "Tool/skill/forensics-mobile/references/evidence-chain.md"
+      ],
+      "updated": "2026-10-20"
+    },
+    {
+      "dir": "forensics02",
+      "id": "forensics02",
+      "domain": "forensics-mobile",
+      "target_type": "pcap 流量取证（本地授权样本）",
+      "protection": [],
+      "authority": "",
+      "goal_level": "",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "先 capinfos/会话统计，再按 tcp.stream 重组；不能只看单包",
+        "HTTP 对象导出后逐个算哈希，同名文件以 stream 建索引",
+        "时间线统一 UTC，保留 pcap 时间戳精度与丢包/截断说明",
+        "失败判据：只有单向流量、TLS 无 keylog 且无进程内明文，则标未闭环"
+      ],
+      "tags": [
+        "R26",
+        "forensics",
+        "pcap",
+        "http",
+        "timeline"
+      ],
+      "refs": [
+        "Tool/skill/forensics-mobile/SKILL.md",
+        "Tool/skill/forensics-mobile/references/forensics.md",
+        "Tool/skill/forensics-mobile/references/evidence-chain.md"
+      ],
+      "updated": "2026-10-20"
+    },
+    {
+      "dir": "malware-analysis01",
+      "id": "malware-analysis01",
+      "domain": "malware-analysis",
+      "target_type": "Windows PE（计划：加壳样本，待入库）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "evidence/SHA256SUMS",
+          "sha256": ""
+        },
+        {
+          "path": "config/extract_config.py",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "计划路径：mal-triage.py 先分诊类型/熵/节异常/导入/IOC → diec+rabin2 判壳 → 副本脱壳或内存 dump → 定位配置解密函数",
+        "成立判据：能指出壳族与 OEP；dump 后入口落代码节且 IAT 合理；配置脚本可复现 C2/端口/互斥体等字段",
+        "失败路径预案：VMProtect/Themida 硬脱失败、IAT 全 0、key 远端下发、反调试导致行为缺失；此时转行为/网络侧写",
+        "证据：样本 SHA256、隔离环境与快照、节表/熵、脱壳前后哈希、配置字段出处（脱敏）"
+      ],
+      "tags": [
+        "R27",
+        "malware-analysis",
+        "unpacking",
+        "config",
+        "pe"
+      ],
+      "refs": [
+        "Tool/skill/malware-analysis/SKILL.md",
+        "Tool/skill/malware-analysis/references/unpacking-and-config.md",
+        "Tool/skill/malware-analysis/references/triage-and-ioc.md",
+        "kb/malware-analysis/unpacking-playbook.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "malware-analysis02",
+      "id": "malware-analysis02",
+      "domain": "malware-analysis",
+      "target_type": "Windows PE / 脚本加载器（计划：沙箱行为时间线）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "run/timeline.jsonl",
+          "sha256": ""
+        },
+        {
+          "path": "run/run.pcap",
+          "sha256": ""
+        },
+        {
+          "path": "rules/sample.yar",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "计划路径：快照 → 隔离运行 3–5 分钟（必要时延长）→ Procmon/ETW+pcap+pe-sieve 采集 → 归一化 UTC 时间线 → 关联父子进程/网络/持久化",
+        "成立判据：时间线含 ts_utc/pid/ppid/image/action/object/result/evidence；至少文件+网络或进程+内存两类互证",
+        "失败路径预案：样本长睡眠/检测 VM、PID 复用导致错链、网络超时被当成功、只有截图没有对象；需回采集阶段补证据",
+        "证据：运行单（样本/环境/网络/采集/时长/回滚）、时间线 JSONL、pcap、YARA 命中与干净集结果"
+      ],
+      "tags": [
+        "R27",
+        "malware-analysis",
+        "sandbox",
+        "timeline",
+        "ioc",
+        "yara"
+      ],
+      "refs": [
+        "Tool/skill/malware-analysis/SKILL.md",
+        "Tool/skill/malware-analysis/references/sandbox-and-timeline.md",
+        "Tool/skill/malware-analysis/references/yara-sigma-and-sandbox.md",
+        "kb/malware-analysis/timeline-and-iocs.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "plugin01",
+      "id": "plugin01",
+      "domain": "plugin-targets",
+      "target_type": "Chrome/Edge MV3 浏览器扩展（.crx，本地授权样本）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "evidence/extension.crx",
+          "sha256": ""
+        },
+        {
+          "path": "export/manifest.json",
+          "sha256": ""
+        },
+        {
+          "path": "report/dataflow.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "先解释每个权限对应哪条代码路径，再谈恶意；nativeMessaging 是高价值面",
+        "content script 默认 isolated world，只有 world=MAIN 或注入 script 才进页面上下文",
+        "MV3 service worker 会被回收，动态观测要主动唤醒并记录消息",
+        "失败判据：权限/入口无法对应代码路径，或签名/企业策略阻止加载"
+      ],
+      "tags": [
+        "R25",
+        "plugin",
+        "crx",
+        "mv3",
+        "nativeMessaging"
+      ],
+      "refs": [
+        "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/browser-extension.md",
+        "Tool/skill/plugin-targets/references/electron-and-asar.md"
+      ],
+      "updated": "2026-10-20"
+    },
+    {
+      "dir": "plugin02",
+      "id": "plugin02",
+      "domain": "plugin-targets",
+      "target_type": "Electron 桌面应用（app.asar，本地授权样本）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "evidence/app.asar",
+          "sha256": ""
+        },
+        {
+          "path": "export/asar-tree.txt",
+          "sha256": ""
+        },
+        {
+          "path": "report/ipc.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "asar 不是加密：能列目录不代表能读 .jsc/原生模块",
+        "contextIsolation:false + nodeIntegration:true 会放大 renderer 到 Node 的攻击面",
+        "先定位 IPC handler 的参数校验与路径拼接，再决定最小可改单元",
+        "失败判据：asar 头解析失败两次或 main/preload 全被字节码覆盖，标入口未读"
+      ],
+      "tags": [
+        "R25",
+        "plugin",
+        "electron",
+        "asar",
+        "ipc"
+      ],
+      "refs": [
+        "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/electron-and-asar.md",
+        "Tool/skill/plugin-targets/references/desktop-plugins.md"
+      ],
+      "updated": "2026-10-20"
+    },
+    {
+      "dir": "protocol01",
+      "id": "protocol01",
+      "domain": "protocol-plugin",
+      "target_type": "本地授权靶场的 WebSocket JSON 私有协议",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "evidence/capture.pcapng",
+          "sha256": ""
+        },
+        {
+          "path": "schema.md",
+          "sha256": ""
+        },
+        {
+          "path": "replay.py",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "先按 FIN/opcode 重组消息，再谈 JSON 字段；不能按 TCP 段切",
+        "握手头 Host/Origin/Sec-WebSocket-Key 必须齐全，否则服务端拒绝",
+        "判据是能构造新的 subscribe 请求并预测 data 响应，不是只看握手成功",
+        "失败路径：token 过期、seq 重放、服务端心跳超时；需分别记录错误码"
+      ],
+      "tags": [
+        "R24",
+        "protocol",
+        "websocket",
+        "json",
+        "replay"
+      ],
+      "refs": [
+        "Tool/skill/protocol-plugin/SKILL.md",
+        "Tool/skill/protocol-plugin/references/protocol-reverse.md",
+        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+      ],
+      "updated": "2026-10-20"
+    },
+    {
+      "dir": "protocol02",
+      "id": "protocol02",
+      "domain": "protocol-plugin",
+      "target_type": "本地授权靶场的 TCP 二进制帧协议（magic + length + CRC + 加密段）",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "evidence/tcp-9527.pcap",
+          "sha256": ""
+        },
+        {
+          "path": "frames.jsonl",
+          "sha256": ""
+        },
+        {
+          "path": "schema.md",
+          "sha256": ""
+        },
+        {
+          "path": "parser.py",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "长度字段含头/含尾必须用 3 帧以上反推，不能按首帧猜",
+        "CRC 先定覆盖范围再定多项式；只匹配样本不算闭环",
+        "加密段优先在客户端 send/recv 取明文，不暴力猜密钥",
+        "失败判据：长度/CRC 无法闭环或只能原样重放，则报部分复刻"
+      ],
+      "tags": [
+        "R24",
+        "protocol",
+        "binary",
+        "crc",
+        "framing"
+      ],
+      "refs": [
+        "Tool/skill/protocol-plugin/SKILL.md",
+        "Tool/skill/protocol-plugin/references/binary-protocols.md",
+        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+      ],
+      "updated": "2026-10-20"
+    },
+    {
+      "dir": "pwn-crypto01",
+      "id": "pwn-crypto01",
+      "domain": "pwn-crypto",
+      "target_type": "ELF x86_64 / 本地堆题（tcache+UAF）",
+      "protection": [
+        "NX",
+        "PIE",
+        "Canary",
+        "Partial RELRO",
+        "glibc 2.35",
+        "seccomp: openat/read/write"
+      ],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "exploit.py",
+          "sha256": ""
+        },
+        {
+          "path": "notes/heap-trace.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "计划路径：checksec + glibc build id → 泄漏 heap → unsorted bin 泄漏 libc → tcache poison 到 exit_funcs/程序指针 → ORW 读 flag",
+        "成立判据：malloc 返回受控地址；泄漏页对齐且与目标 libc 吻合；本地全新进程 10 次成功 ≥9；flag 输出可复现",
+        "失败路径预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐",
+        "证据：checksec、sha256(chall/libc)、seccomp-tools dump、vis_heap_chunks 截图、exploit 运行计数"
+      ],
+      "tags": [
+        "R21",
+        "pwn-crypto",
+        "heap",
+        "tcache",
+        "uaf",
+        "seccomp"
+      ],
+      "refs": [
+        "Tool/skill/pwn-crypto/SKILL.md",
+        "Tool/skill/pwn-crypto/references/heap-and-sandbox.md",
+        "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+        "kb/pwn-crypto/heap-tcache-playbook.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "pwn-crypto02",
+      "id": "pwn-crypto02",
+      "domain": "pwn-crypto",
+      "target_type": "Python RSA challenge / 密码学脚本",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [
+        {
+          "path": "solve.py",
+          "sha256": ""
+        },
+        {
+          "path": "notes/rsa-assumptions.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "计划路径：先判定填充/是否同一消息/模数是否互质，再在小指数、共模、Håstad 广播、共享素数、Wiener/Fermat 中选择",
+        "成立判据：pow(m,e,n)==c 且明文可读；广播 CRT 后开方精确且 m^e<M；两组密文回代都成立",
+        "失败路径预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质",
+        "证据：题目参数、假设清单、求解脚本、回代输出、明文来源与 flag 校验"
+      ],
+      "tags": [
+        "R21",
+        "pwn-crypto",
+        "crypto",
+        "rsa",
+        "hastad"
+      ],
+      "refs": [
+        "Tool/skill/pwn-crypto/SKILL.md",
+        "Tool/skill/pwn-crypto/references/crypto-attacks.md",
+        "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+        "kb/pwn-crypto/crypto-oracle-playbook.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "supply-chain01",
+      "id": "supply-chain01",
+      "domain": "supply-chain",
+      "target_type": "repo (npm + GitHub Actions)",
+      "protection": [
+        "branch-protection",
+        "dependabot",
+        "required-review"
+      ],
+      "authority": "server",
+      "goal_level": "L3",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "先跑 sc-check.py --path <repo> 拿离线清单，再决定是否需要 syft/osv-scanner/cosign 联网或外部工具",
+        "依赖混淆的判据是 registry 映射 + 锁文件 resolved/integrity 三者一致，不是看到 @corp/ 就下结论",
+        "pull_request_target 要连同 checkout 的 ref、job 权限、secrets 作用域一起看；单独关键字命中只是线索",
+        "CI action 的 tag 可移动，证据必须写 40 位 commit SHA；报告里不能只写 @v4",
+        "锁文件缺失或 integrity 缺失时，不能宣称构建可复现；先给最小修复再谈 CVE"
+      ],
+      "tags": [
+        "npm",
+        "GitHub-Actions",
+        "dependency-confusion",
+        "lockfile",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/supply-chain-security/SKILL.md",
+        "Tool/skill/supply-chain-security/references/dependency-confusion.md",
+        "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
+        "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/01-dependency-confusion.md",
+        "Tool/config/supply-chain-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "supply-chain02",
+      "id": "supply-chain02",
+      "domain": "supply-chain",
+      "target_type": "container image (OCI + cosign + SLSA)",
+      "protection": [
+        "cosign",
+        "slsa-provenance",
+        "immutable-tags",
+        "registry-rbac"
+      ],
+      "authority": "server",
+      "goal_level": "L3",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "镜像证据必须写 repo@sha256:<digest>；tag、本地 image Id、截图都不能替代 digest",
+        "cosign verify 通过只说明有人签名，必须再核对 certificate identity、OIDC issuer 与 Rekor 条目",
+        "attestation 的 subject digest 必须与目标镜像一致；SLSA level 数字不能代替本次构建的 materials/configSource",
+        "SBOM 要对 digest 生成，并在发布后重生成；对 tag 生成的 SBOM 会过期",
+        "多阶段 FROM <stage> 不是基础镜像；扫描器报 image tag 时要先排除本地 stage 别名"
+      ],
+      "tags": [
+        "OCI",
+        "cosign",
+        "SLSA",
+        "SBOM",
+        "digest",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/supply-chain-security/SKILL.md",
+        "Tool/skill/supply-chain-security/references/image-and-provenance.md",
+        "Tool/skill/supply-chain-security/references/sbom-sca.md",
+        "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/02-image-and-provenance.md",
+        "Tool/config/supply-chain-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "web-pentest01",
+      "id": "web-pentest01",
+      "domain": "web",
+      "target_type": "web/api (REST + JWT)",
+      "protection": [
+        "waf",
+        "jwt",
+        "rate-limit"
+      ],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "先跑 web-check.py 建立被动基线：响应头、robots、错误页、敏感路径 200/403 矩阵，再决定主动验证顺序",
+        "JWT 结论必须用两个真实账号 A/B 加一个未登录会话，对照同一接口；只改 alg/kid 得到 200 不算越权",
+        "WAF 403 与应用 403 要分开：先用正常请求和特征请求各 3 次建立三组基线，再谈绕过",
+        "任何 200 命中先与首页/随机 404 做归一化比对，SPA 软 404 会造成大量假阳性",
+        "证据保留原始请求行、Host、Cookie/Authorization、状态码与响应 hash；截图只作补充"
+      ],
+      "tags": [
+        "REST",
+        "JWT",
+        "IDOR",
+        "WAF",
+        "passive-baseline",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/web-pentest/SKILL.md",
+        "Tool/skill/web-pentest/references/auth-and-api.md",
+        "Tool/skill/web-pentest/references/waf-and-bypass.md",
+        "Tool/mcp/Tool/reverselab/kb/field_journal_2026-05-17_pentest-vue-spa-actuator-leak.md",
+        "Tool/mcp/Tool/reverselab/kb/field_journal_seed-003_web-api-auth-bypass.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "web-pentest02",
+      "id": "web-pentest02",
+      "domain": "web",
+      "target_type": "web/spa + graphql + cve-repro",
+      "protection": [
+        "cdn",
+        "waf",
+        "csrf-token",
+        "graphql-depth-limit"
+      ],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "planned",
+      "artifacts": [],
+      "lessons": [
+        "GraphQL introspection 关闭不代表字段级授权正确；低权会话必须逐字段/逐对象与高权会话对照",
+        "SPA 的任意路径 200 会污染敏感路径矩阵；web-check.py 的 soft-404/spa_fallback 标记必须先看",
+        "CVE 复现先钉精确版本（静态文件 hash 或 /version），再用官方补丁 diff 做修复前后对照，nuclei 只初筛",
+        "CDN 缓存可能返回旧响应，导致假复现；每步记录缓存状态与时间，必要时加随机查询串",
+        "不跟随跨域重定向，避免验证流量落到 scope 外；Location 只观察不跟随"
+      ],
+      "tags": [
+        "GraphQL",
+        "SPA",
+        "CVE",
+        "CDN",
+        "soft-404",
+        "planned"
+      ],
+      "refs": [
+        "Tool/skill/web-pentest/SKILL.md",
+        "Tool/skill/web-pentest/references/cve-repro.md",
+        "Tool/skill/web-pentest/references/injection-and-ssrf.md",
+        "Tool/mcp/Tool/reverselab/kb/web-pentest/techniques/02-cve-repro.md",
+        "Tool/mcp/Tool/reverselab/kb/field_journal_2026-05-16_pentest-personalblog-fun-mass-assignment.md"
+      ],
+      "updated": "2026-10-21"
+    },
     {
       "dir": "案例-6.9换肤壳",
       "id": "案例-6.9换肤壳",

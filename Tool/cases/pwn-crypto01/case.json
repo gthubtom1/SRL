@@ -1,0 +1,47 @@
+{
+  "id": "pwn-crypto01",
+  "domain": "pwn-crypto",
+  "target_type": "ELF x86_64 / 本地堆题（tcache+UAF）",
+  "protection": [
+    "NX",
+    "PIE",
+    "Canary",
+    "Partial RELRO",
+    "glibc 2.35",
+    "seccomp: openat/read/write"
+  ],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "planned",
+  "artifacts": [
+    {
+      "path": "exploit.py",
+      "sha256": ""
+    },
+    {
+      "path": "notes/heap-trace.md",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "计划路径：checksec + glibc build id → 泄漏 heap → unsorted bin 泄漏 libc → tcache poison 到 exit_funcs/程序指针 → ORW 读 flag",
+    "成立判据：malloc 返回受控地址；泄漏页对齐且与目标 libc 吻合；本地全新进程 10 次成功 ≥9；flag 输出可复现",
+    "失败路径预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐",
+    "证据：checksec、sha256(chall/libc)、seccomp-tools dump、vis_heap_chunks 截图、exploit 运行计数"
+  ],
+  "tags": [
+    "R21",
+    "pwn-crypto",
+    "heap",
+    "tcache",
+    "uaf",
+    "seccomp"
+  ],
+  "refs": [
+    "Tool/skill/pwn-crypto/SKILL.md",
+    "Tool/skill/pwn-crypto/references/heap-and-sandbox.md",
+    "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+    "kb/pwn-crypto/heap-tcache-playbook.md"
+  ],
+  "updated": "2026-10-21"
+}

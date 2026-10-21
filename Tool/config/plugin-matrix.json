@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "plugin-targets",
+  "route": "R25",
+  "description": "插件/扩展/Mod 矩阵（声明式）：按包型给出入口、权限面、工具、完成判据、失败判据与陷阱。协议复刻不在本表，见 protocol-matrix.json（R24）。",
+  "updated": "2026-10-20",
+  "families": [
+    {
+      "id": "browser-mv3",
+      "name": "Chrome/Edge/Firefox 扩展",
+      "match": ["crx", "xpi", "manifest.json", "chrome 扩展", "浏览器扩展", "service worker", "content script"],
+      "entry": ["manifest.json", "background.service_worker", "content_scripts[].js", "action/options_page"],
+      "tools": ["plugin-triage.py", "unzip", "jq", "DevTools/CDP"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.crx",
+        "unzip -q extension.crx -d ext/",
+        "jq '{permissions,host_permissions,background,content_scripts}' ext/manifest.json"
+      ],
+      "criteria": ["每个权限对应实际代码路径", "页面→content→background→远端链路可画", "最小可改单元可验证"],
+      "fail": ["权限无法解释", "MV3 SW 休眠导致动态观测缺失", "签名/企业策略阻止加载"],
+      "pitfalls": ["isolated world 与 MAIN world", "CRX3 头不是 zip 开头", "web_accessible_resources 暴露面"]
+    },
+    {
+      "id": "vscode-vsix",
+      "name": "VS Code 扩展（VSIX）",
+      "match": ["vsix", "vscode", "extension/package.json", "activationEvents", "contributes"],
+      "entry": ["extension/package.json", "main", "activationEvents", "contributes.commands"],
+      "tools": ["plugin-triage.py", "unzip", "jq", "Node DevTools"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.vsix",
+        "unzip -q extension.vsix -d vsix/",
+        "jq '{main,activationEvents,contributes,capabilities}' vsix/extension/package.json"
+      ],
+      "criteria": ["激活事件→命令→关键文件/网络", "受限工作区行为明确", "最小可改单元可回退"],
+      "fail": ["激活事件为 * 但无可观测入口", "bundle 压缩且无 source map", "engines.vscode 不匹配"],
+      "pitfalls": ["extension host 与 webview 两层", "secret storage", "语言服务/调试器权限"]
+    },
+    {
+      "id": "jetbrains-jar",
+      "name": "JetBrains 插件（JAR）",
+      "match": ["jetbrains", "intellij", "plugin.xml", "idea-version", "action", "extension point"],
+      "entry": ["META-INF/plugin.xml", "actions", "extensions", "applicationService"],
+      "tools": ["plugin-triage.py", "jar tf", "jadx", "CFR/Fernflower"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path plugin.jar",
+        "unzip -p plugin.jar META-INF/plugin.xml",
+        "jadx -d out/ plugin.jar"
+      ],
+      "criteria": ["扩展点→Action/Service→关键逻辑", "兼容范围明确", "最小可改单元可验证"],
+      "fail": ["Kotlin 协程/lambda 混淆无法定位", "plugin.xml 入口与实际类不符", "依赖 lib 缺失"],
+      "pitfalls": ["Action 与 Service 生命周期", "messages/*.properties 配置", "IDE 版本兼容"]
+    },
+    {
+      "id": "electron-asar",
+      "name": "Electron / asar",
+      "match": ["electron", "asar", "app.asar", "preload", "ipcMain", "nodeIntegration", "bytenode"],
+      "entry": ["package.json.main", "preload", "ipcMain/ipcRenderer", "app.asar.unpacked/*.node"],
+      "tools": ["plugin-triage.py", "npx asar", "jq", "IDA/Ghidra"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar",
+        "npx asar list app.asar",
+        "grep -RInE 'ipcMain|ipcRenderer|contextBridge|shell.openExternal' app/ --include='*.js'"
+      ],
+      "criteria": ["main/preload/renderer 三层边界清楚", "IPC channel 与校验点可指认", "原生模块契约明确"],
+      "fail": ["asar 头解析失败两次", "main/preload 全被字节码覆盖", "代码签名/更新器阻止加载"],
+      "pitfalls": ["asar 不是加密", ".jsc 需匹配 V8 版本", "unpacked 原生模块单独分析"]
+    },
+    {
+      "id": "unity-mod",
+      "name": "Unity BepInEx/MelonLoader Mod",
+      "match": ["bepinex", "melonloader", "unity mod", "harmony", "il2cpp", "assembly-csharp", "global-metadata"],
+      "entry": ["BepInEx/plugins/*.dll", "MelonLoader/Mods/*.dll", "BaseUnityPlugin.Load", "MelonMod.OnInitializeMelon"],
+      "tools": ["plugin-triage.py", "ilspycmd", "dnSpy", "Il2CppDumper", "Cpp2IL"],
+      "commands": [
+        "find . -iname 'BepInEx' -o -iname 'MelonLoader' -o -iname '*.dll'",
+        "ilspycmd Mod.dll -o mod-src/",
+        "Il2CppDumper GameAssembly.dll global-metadata.dat out/"
+      ],
+      "criteria": ["插件类→patch 目标→字段/返回值→可观察效果", "日志证明已加载", "patch 可回退"],
+      "fail": ["插件未加载/日志缺失", "目标方法被内联或混淆", "IL2CPP 元数据版本不匹配"],
+      "pitfalls": ["Mono 与 IL2CPP 工具链不同", "Transpiler 风险最高", "在线反作弊只做外部观测"]
+    }
+  ]
+}

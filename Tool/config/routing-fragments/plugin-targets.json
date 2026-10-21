@@ -1,0 +1,1 @@
+{"origin":"plugin-targets","routes":{"R25":{"label":"插件/扩展/Mod 逆向","skill":"plugin-targets/SKILL.md","keywords":[{"must":"(?i)(chrome\\s*扩展|浏览器扩展|crx|vsix|vscode\\s*插件|ide\\s*插件|electron\\s*插件|asar|bepinex|melonloader|unity\\s*mod|游戏\\s*mod|加载器插件)","note":"插件类：判据=入口+关键逻辑+数据来源+最小可改单元"}]}},"priority_hint":{"after":"R24"}}

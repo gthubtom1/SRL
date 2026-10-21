@@ -1,0 +1,18 @@
+{
+  "origin": "supply-chain-security",
+  "routes": {
+    "R28": {
+      "label": "供应链/依赖/CI-CD",
+      "skill": "supply-chain-security/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(供应链|依赖混淆|依赖投毒|dependency confusion|sbom|软件物料清单|sca|锁文件|lockfile|package-lock|yarn\\.lock|pnpm-lock|requirements\\.txt|poetry\\.lock|go\\.sum|cargo\\.lock|composer\\.lock|nuget|github actions|gitlab ci|ci/cd|流水线权限|pull_request_target|workflow_run|cosign|slsa|来源证明|provenance|镜像签名|image digest|固定镜像|基础镜像)",
+          "note": "供应链：判据=锁文件/CI 权限/镜像 digest 可复核，SCA 告警不等于漏洞"
+        }
+      ]
+    }
+  },
+  "priority_hint": {
+    "after": "R20"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "protocol01",
+  "domain": "protocol-plugin",
+  "route": "R24",
+  "target_type": "本地授权靶场的 WebSocket JSON 私有协议",
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "planned",
+  "capture": {
+    "file": "evidence/capture.pcapng",
+    "tool": "tshark 4.x / mitmproxy",
+    "endpoint": "ws://127.0.0.1:18080/ws",
+    "tls": false,
+    "client_version": "lab-client 0.9.3",
+    "captured_at": "2026-10-20T02:10:00Z"
+  },
+  "protocol": {
+    "layer": "WebSocket",
+    "framing": "text JSON message",
+    "handshake": "HTTP Upgrade + Sec-WebSocket-Key",
+    "states": ["INIT", "HELLO", "AUTH", "SUBSCRIBED", "CLOSED"],
+    "fields": [
+      {"name": "op", "type": "string", "evidence": "capture#frame 12"},
+      {"name": "seq", "type": "u32", "evidence": "capture#frame 14-16"},
+      {"name": "token", "type": "string", "evidence": "capture#frame 18"}
+    ]
+  },
+  "artifacts": [
+    {"path": "evidence/capture.pcapng", "sha256": ""},
+    {"path": "schema.md", "sha256": ""},
+    {"path": "replay.py", "sha256": ""}
+  ],
+  "evidence": [
+    "ws 握手头与子协议",
+    "auth 请求/响应配对",
+    "heartbeat 周期与重连参数",
+    "单变量 op 改动的响应差异"
+  ],
+  "lessons": [
+    "先按 FIN/opcode 重组消息，再谈 JSON 字段；不能按 TCP 段切",
+    "握手头 Host/Origin/Sec-WebSocket-Key 必须齐全，否则服务端拒绝",
+    "判据是能构造新的 subscribe 请求并预测 data 响应，不是只看握手成功",
+    "失败路径：token 过期、seq 重放、服务端心跳超时；需分别记录错误码"
+  ],
+  "tags": ["R24", "protocol", "websocket", "json", "replay"],
+  "refs": [
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/skill/protocol-plugin/references/protocol-reverse.md",
+    "Tool/skill/protocol-plugin/references/state-machine-and-replay.md"
+  ],
+  "updated": "2026-10-20"
+}

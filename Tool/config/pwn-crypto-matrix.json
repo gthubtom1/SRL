@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "pwn-crypto",
+  "updated": "2026-10-21",
+  "description": "二进制利用/密码学攻击的类目矩阵：每行给出类目、成立判据、首选工具与误报风险。工具缺失时按 SKILL.md 的降级链执行。",
+  "columns": {
+    "category": "类目（保护位/漏洞类型/密码学原语）",
+    "criterion": "成立判据（可复核、可重复）",
+    "tools": "首选工具；逗号分隔，按优先级",
+    "false_positive_risk": "low|medium|high",
+    "risk_note": "误报来源与规避方式"
+  },
+  "rows": [
+    {
+      "id": "PC-01",
+      "category": "栈溢出 + ret2libc/ROP",
+      "criterion": "偏移可重复；崩溃时 $rip 为受控值；泄漏基址页对齐且与目标 libc 符号吻合；链一次跑通",
+      "tools": ["pwntools", "gdb/pwndbg", "ROPgadget", "checksec"],
+      "false_positive_risk": "low",
+      "risk_note": "本地偏移/远程启动参数不同；canary 未覆盖完整 8 字节；栈未 16 字节对齐"
+    },
+    {
+      "id": "PC-02",
+      "category": "栈溢出 + shellcode（NX off）",
+      "criterion": "$rip 落在栈且目标页可执行；坏字符已排除；shell 或 flag 输出可复现",
+      "tools": ["pwntools", "gdb", "nasm"],
+      "false_positive_risk": "low",
+      "risk_note": "栈地址随机未泄漏；坏字符截断；把可写页误当可执行页"
+    },
+    {
+      "id": "PC-03",
+      "category": "格式化字符串",
+      "criterion": "参数序号稳定；写后目标地址读回等于预期；连续两次写不崩；%n 计数与输出长度一致",
+      "tools": ["pwntools fmtstr", "gdb", "rabin2"],
+      "false_positive_risk": "medium",
+      "risk_note": "输出被截断/缓冲；64 位地址含 NUL；只打印 %p 未真正写入"
+    },
+    {
+      "id": "PC-04",
+      "category": "堆 tcache dup/poison",
+      "criterion": "malloc 返回受控 target；vis_heap_chunks 可见重复/重叠；触发不 abort",
+      "tools": ["pwntools", "gdb/pwndbg", "patchelf/pwninit"],
+      "false_positive_risk": "medium",
+      "risk_note": "glibc 版本不符；safe-linking 未编码；tcache count 已满；target 未 0x10 对齐"
+    },
+    {
+      "id": "PC-05",
+      "category": "UAF / double free",
+      "criterion": "释放后仍可 show/edit；同一 chunk 可入链两次；能读出堆/libc 指针",
+      "tools": ["gdb/pwndbg", "pwntools", "MALLOC_PERTURB_"],
+      "false_positive_risk": "medium",
+      "risk_note": "2.29+ key 字段拦截二次释放；把 stale 指针当有效对象"
+    },
+    {
+      "id": "PC-06",
+      "category": "IO_FILE / FSOP（2.34+）",
+      "criterion": "伪造 _IO_FILE_plus 可写；vtable 在 __libc_IO_vtables 内；flush 链命中 system/目标函数",
+      "tools": ["gdb/pwndbg", "pwntools", "libc-database"],
+      "false_positive_risk": "high",
+      "risk_note": "vtable 越界触发 _IO_vtable_check；_wide_data 未映射；不同发行版裁剪符号"
+    },
+    {
+      "id": "PC-07",
+      "category": "off-by-one / overlap",
+      "criterion": "相邻 chunk 元数据被改且 free 不 abort；重叠读写成立；随后可稳定控制目标",
+      "tools": ["gdb/pwndbg", "pwntools", "how2heap"],
+      "false_positive_risk": "high",
+      "risk_note": "只改到 padding；prev_size/prev_inuse/key 不一致；把一次崩溃当重叠"
+    },
+    {
+      "id": "PC-08",
+      "category": "整数溢出/截断",
+      "criterion": "能证明长度/索引越界一个对象；越界读写可观测；后续利用不依赖未验证假设",
+      "tools": ["gdb", "pwntools", "z3"],
+      "false_positive_risk": "medium",
+      "risk_note": "有符号/无符号转换判断错；编译器优化掉检查；只看到理论溢出"
+    },
+    {
+      "id": "PC-09",
+      "category": "seccomp ORW/openat",
+      "criterion": "seccomp 白名单读全；syscall 序列含 openat/read/write；输出包含 flag 内容",
+      "tools": ["seccomp-tools", "strace", "pwntools", "ROPgadget"],
+      "false_positive_risk": "low",
+      "risk_note": "只读部分 BPF；fd 猜错；路径不在可写内存；open 与 openat 混用"
+    },
+    {
+      "id": "PC-10",
+      "category": "SROP / ret2csu / 栈迁移",
+      "criterion": "sigreturn frame 布局正确；syscall gadget 可达；寄存器/栈对齐符合 ABI",
+      "tools": ["pwntools", "ROPgadget", "gdb"],
+      "false_positive_risk": "medium",
+      "risk_note": "x86_64 syscall 号/参数顺序错；缺 pop rdx 却硬套模板"
+    },
+    {
+      "id": "PC-11",
+      "category": "RSA 小指数/共模/广播",
+      "criterion": "pow(m,e,n)==c；共模两组回代都成立；广播 CRT 后开方精确且 m^e<M",
+      "tools": ["Python", "gmpy2", "pycryptodome", "sage"],
+      "false_positive_risk": "low",
+      "risk_note": "忽略 PKCS#1 填充；把不同消息当同一 m；模数不互质未先约简"
+    },
+    {
+      "id": "PC-12",
+      "category": "分组密码 ECB/CBC",
+      "criterion": "ECB 块相等关系可复现；CBC 位翻转后目标明文字节等于期望；oracle 响应稳定",
+      "tools": ["pycryptodome", "Python", "openssl"],
+      "false_positive_risk": "medium",
+      "risk_note": "把随机碰撞当 ECB；CBC 改错块索引；padding 错误粒度误判"
+    },
+    {
+      "id": "PC-13",
+      "category": "PRNG 预测",
+      "criterion": "下一输出逐位/逐块一致；状态恢复后跨越拒绝采样仍正确",
+      "tools": ["randcrack", "Python", "z3"],
+      "false_positive_risk": "medium",
+      "risk_note": "只验证分布像；randint/randrange 拒绝采样消耗未记账"
+    },
+    {
+      "id": "PC-14",
+      "category": "证书/签名",
+      "criterion": "目标验证器接受伪造签名/证书；openssl verify 可复现；弱参数有出处",
+      "tools": ["openssl", "Python cryptography", "keytool"],
+      "false_positive_risk": "high",
+      "risk_note": "只改文件没改信任链；把 DER 解析差异当签名伪造；有效期/用途未核对"
+    },
+    {
+      "id": "PC-15",
+      "category": "格攻击/Coppersmith",
+      "criterion": "恢复的小根/私钥回代成立；格维度与边界条件匹配；结果可重复",
+      "tools": ["sage", "fpylll", "Python"],
+      "false_positive_risk": "high",
+      "risk_note": "边界估计错；把近似解当精确解；缺少填充/同余关系假设"
+    },
+    {
+      "id": "PC-16",
+      "category": "PE 保护位近似",
+      "criterion": "DllCharacteristics + 导入/load config 交叉判断；IAT 可写性用节权限复核",
+      "tools": ["pwn-check.py", "rabin2", "CFF Explorer"],
+      "false_positive_risk": "high",
+      "risk_note": "PE 无 RELRO；DYNAMIC_BASE 不等于实际 ASLR；SecurityCookie 需 load config 确认"
+    },
+    {
+      "id": "PC-17",
+      "category": "稳定性验收",
+      "criterion": "全新进程/新连接连续 10 次成功 ≥9；远程有 flag/root 证据；失败路线已记录",
+      "tools": ["pwntools", "timeout", "shell 循环"],
+      "false_positive_risk": "low",
+      "risk_note": "一次偶然成功冒充稳定；本地关 ASLR 结果当远程结论"
+    }
+  ]
+}

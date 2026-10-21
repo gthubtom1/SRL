@@ -1,0 +1,39 @@
+{
+  "id": "pwn-crypto02",
+  "domain": "pwn-crypto",
+  "target_type": "Python RSA challenge / 密码学脚本",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "planned",
+  "artifacts": [
+    {
+      "path": "solve.py",
+      "sha256": ""
+    },
+    {
+      "path": "notes/rsa-assumptions.md",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "计划路径：先判定填充/是否同一消息/模数是否互质，再在小指数、共模、Håstad 广播、共享素数、Wiener/Fermat 中选择",
+    "成立判据：pow(m,e,n)==c 且明文可读；广播 CRT 后开方精确且 m^e<M；两组密文回代都成立",
+    "失败路径预案：PKCS#1 填充导致开方不精确、模数不互质未先约简、消息不同一、e 与 φ(n) 不互质",
+    "证据：题目参数、假设清单、求解脚本、回代输出、明文来源与 flag 校验"
+  ],
+  "tags": [
+    "R21",
+    "pwn-crypto",
+    "crypto",
+    "rsa",
+    "hastad"
+  ],
+  "refs": [
+    "Tool/skill/pwn-crypto/SKILL.md",
+    "Tool/skill/pwn-crypto/references/crypto-attacks.md",
+    "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+    "kb/pwn-crypto/crypto-oracle-playbook.md"
+  ],
+  "updated": "2026-10-21"
+}

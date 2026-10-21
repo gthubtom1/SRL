@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "forensics-mobile",
+  "route": "R26",
+  "description": "取证/移动/游戏客户端矩阵（声明式）：按证据源给出识别命令、时间线、可提取对象、完成判据、失败判据与陷阱。",
+  "updated": "2026-10-20",
+  "families": [
+    {
+      "id": "memory",
+      "name": "内存镜像（Windows/Linux/macOS）",
+      "match": ["内存镜像", "memory", "mem.raw", "dmp", "vmem", "volatility", "崩溃转储"],
+      "tools": ["volatility3", "forensics-check.py", "strings", "bulk_extractor"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file mem.raw",
+        "python3 vol.py -f mem.raw banners.Banners",
+        "python3 vol.py -f mem.raw windows.pslist.PsList"
+      ],
+      "timeline": ["进程创建/退出时间", "网络连接创建时间", "注册表最后写入", "采集时间/时区"],
+      "extractables": ["进程树", "网络连接", "模块/注入页", "注册表 hive", "凭据线索（脱敏）"],
+      "criteria": ["进程起止/父子/命令行可列", "可疑页 dump 可复现", "外联落到 PID+时间"],
+      "fail": ["符号/profile 不匹配", "镜像截断/格式不支持", "pslist/psscan 差集无法解释"],
+      "pitfalls": ["pslist 与 psscan 语义不同", "退出时间缺失不等于没运行", "内存 hive 未落盘"]
+    },
+    {
+      "id": "pcap",
+      "name": "流量分析（pcap/pcapng）",
+      "match": ["pcap", "pcapng", "流量", "tshark", "wireshark", "会话", "dns", "tls"],
+      "tools": ["tshark", "forensics-check.py", "pcap-summary.py", "zeek", "scapy"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file capture.pcap",
+        "tshark -r capture.pcap -q -z conv,tcp",
+        "tshark -r capture.pcap --export-objects http,export/http"
+      ],
+      "timeline": ["首包/末包 epoch", "会话起止", "DNS/TLS SNI 时间", "丢包/截断说明"],
+      "extractables": ["五元组会话", "HTTP 对象", "DNS/SNI", "明文凭据线索", "carve 文件"],
+      "criteria": ["会话双方/起止/协议/关键字段", "导出对象有哈希", "与内存/磁盘时间线对齐"],
+      "fail": ["只看到单向流量", "大包截断未切片", "TLS 无 keylog 且无进程内明文"],
+      "pitfalls": ["同端口不同连接不能合并", "时间戳时区", "重传/乱序"]
+    },
+    {
+      "id": "disk",
+      "name": "磁盘/分区镜像",
+      "match": ["磁盘镜像", "disk.img", "dd", "e01", "sleuthkit", "分区", "inode", "已删除"],
+      "tools": ["sleuthkit", "forensics-check.py", "mmls", "fls", "icat", "mactime"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file disk.img --no-hash",
+        "mmls disk.img",
+        "fls -r -m '/' -o 2048 disk.img > bodyfile.txt",
+        "mactime -b bodyfile.txt -d -z UTC > timeline.csv"
+      ],
+      "timeline": ["mactime UTC", "文件系统精度", "时区/NTP 偏差", "采集顺序"],
+      "extractables": ["分区表", "目录树/inode", "已删除文件", "注册表/事件日志", "未分配空间 carve"],
+      "criteria": ["时间线定位 inode/路径/操作", "icat 可复现内容", "哈希/镜像完整性"],
+      "fail": ["分区偏移错导致假损坏", "inode 复用/块覆盖", "原件被挂载写入"],
+      "pitfalls": ["-o 是扇区不是字节", "FAT 2s/APFS 纳秒", "先复制 WAL/SHM 再开库"]
+    },
+    {
+      "id": "ios-macos",
+      "name": "iOS/macOS 应用包",
+      "match": ["ios", "ipa", "macos", "mach-o", "keychain", "plist", "codesign", "entitlements"],
+      "tools": ["forensics-check.py", "plutil", "codesign", "otool", "frida", "sqlite3"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file app.ipa",
+        "plutil -p Payload/App.app/Info.plist",
+        "codesign -d --entitlements :- Payload/App.app",
+        "otool -l AppBinary | grep -A6 LC_ENCRYPTION_INFO"
+      ],
+      "timeline": ["安装/首次运行", "Keychain/DB 写入", "网络请求", "采集时间/设备时区"],
+      "extractables": ["Info.plist/entitlements", "Frameworks/PlugIns", "keychain-2.db", "app.db/WAL", "资源/配置"],
+      "criteria": ["包目录/签名/权限/框架齐全", "二进制与数据文件对应", "cryptid/脱壳状态明确"],
+      "fail": ["cryptid 1 未脱壳", "frida-server 版本/架构不匹配", "Keychain 受保护无授权"],
+      "pitfalls": ["二进制 plist/NSKeyedArchiver", "SQLite 回写", "越狱检测与绕过边界"]
+    },
+    {
+      "id": "unity-client",
+      "name": "Unity 游戏客户端（Mono/IL2CPP/AssetBundle）",
+      "match": ["unity", "il2cpp", "global-metadata", "assembly-csharp", "assetbundle", "gameassembly", "游戏客户端"],
+      "tools": ["forensics-check.py", "Il2CppDumper", "Cpp2IL", "ilspycmd", "AssetStudio", "UnityPy"],
+      "commands": [
+        "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file GameAssembly.dll",
+        "Il2CppDumper GameAssembly.dll global-metadata.dat out/",
+        "ilspycmd Assembly-CSharp.dll -o decompiled/",
+        "xxd -l 64 bundle | head"
+      ],
+      "timeline": ["资源加载/更新", "网络下发", "内存字段变化", "采集时间"],
+      "extractables": ["dump.cs/script.json", "Assembly-CSharp", "AssetBundle 资源", "配置/存档", "内存字段偏移"],
+      "criteria": ["字段/方法/资源/内存偏移对齐", "Unity 版本匹配", "只读观测边界明确"],
+      "fail": ["元数据版本不匹配", "AssetBundle 加密无法解", "在线反作弊阻止 attach"],
+      "pitfalls": ["Mono 与 IL2CPP 工具链不同", "资源版本强绑定", "在线只做外部观测"]
+    }
+  ]
+}

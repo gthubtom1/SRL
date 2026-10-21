@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "supply-chain-security",
+  "description": "供应链/依赖/CI-CD 审计矩阵：类目 → 检测点 → 判据 → 工具 → 误报风险。SCA 告警与 tag 名称都不是结论；判据要求 commit/digest、可达性与来源证据。",
+  "updated": "2026-10-21",
+  "rows": [
+    {
+      "category": "lockfile",
+      "checkpoint": "package-lock/yarn.lock/pnpm-lock/Pipfile.lock/poetry.lock/go.sum/Cargo.lock/Gemfile.lock/composer.lock",
+      "criteria": "每个应用生态有锁文件；锁文件与清单同源；CI 使用冻结安装（npm ci / --frozen-lockfile / -mod=readonly）",
+      "tools": ["sc-check.py", "git ls-files", "CI 配置 grep"],
+      "false_positive_risk": "medium：库项目可不提交 Cargo.lock；monorepo 根锁文件覆盖子包"
+    },
+    {
+      "category": "version-range",
+      "checkpoint": "^ ~ >= * latest git+ http file: workspace:",
+      "criteria": "生产依赖可追到精确版本或受控范围；URL/git/file 依赖有不可变 commit 与来源说明",
+      "tools": ["sc-check.py", "npm ls", "pip freeze", "go list -m all"],
+      "false_positive_risk": "medium：^/~ 是 npm 常规语义；workspace: 是 monorepo 本地协议"
+    },
+    {
+      "category": "sbom",
+      "checkpoint": "CycloneDX/SPDX、直接+传递依赖、生成时间、subject digest",
+      "criteria": "SBOM 对应 commit 或 image digest；组件能追到锁文件/OS 包；工具与版本可复现",
+      "tools": ["syft", "cdxgen", "sc-check.py（清单盘点）"],
+      "false_positive_risk": "medium：SBOM 格式合法但内容过期；语言包与 OS 包边界不清"
+    },
+    {
+      "category": "sca-reachability",
+      "checkpoint": "OSV/GHSA 命中、调用链、运行时加载、补丁版本",
+      "criteria": "高危项有可达/不可达结论与证据；不可达写明原因；仅版本匹配不算确认",
+      "tools": ["osv-scanner", "grype", "trivy", "semgrep"],
+      "false_positive_risk": "high：传递依赖未打包、死代码、仅测试依赖、backport 已修复"
+    },
+    {
+      "category": "dependency-confusion-npm",
+      "checkpoint": "私有 scope、.npmrc registry、锁文件 resolved/integrity",
+      "criteria": "每个私有 scope 有显式 registry 映射；锁文件 resolved 指向受控源且有 integrity",
+      "tools": ["sc-check.py", "npm config get", "npm view（授权联网）"],
+      "false_positive_risk": "high：公开 scope 被误判为私有；企业私有包也托管在公共 registry"
+    },
+    {
+      "category": "dependency-confusion-python",
+      "checkpoint": "内部包名、pip.conf index-url、--extra-index-url、hash",
+      "criteria": "内部包只从受控 index 解析；公共源不能回退；安装使用 --require-hashes",
+      "tools": ["sc-check.py", "pip config list", "pip download（隔离环境）"],
+      "false_positive_risk": "high：包名含 internal 但是公开库；镜像站同时代理公共与私有"
+    },
+    {
+      "category": "dependency-confusion-nuget-maven",
+      "checkpoint": "packageSourceMapping、feed 顺序、groupId 镜像、SNAPSHOT",
+      "criteria": "私有命名空间只映射到私有 feed；公共源不可回退；生产禁止 SNAPSHOT",
+      "tools": ["dotnet nuget list source", "mvn help:effective-settings", "sc-check.py"],
+      "false_positive_risk": "medium：企业 Nexus 同时代理 nuget.org/Maven Central，需看 mapping 而非 source 列表"
+    },
+    {
+      "category": "install-scripts",
+      "checkpoint": "preinstall/postinstall/prepare、node-gyp、下载二进制、base64/eval",
+      "criteria": "安装期执行的每条命令有来源与必要性；下载内容有 hash；无法解释的脚本单列风险",
+      "tools": ["jq .scripts package.json", "grep -RInE", "sc-check.py"],
+      "false_positive_risk": "medium：esbuild/sharp 等原生包正常下载预编译二进制；需核对 URL 与校验"
+    },
+    {
+      "category": "ci-permissions",
+      "checkpoint": "permissions: write-all / 缺省 / job 级最小权限",
+      "criteria": "每个 workflow 有显式最小 permissions；发布 job 才给 contents/packages write",
+      "tools": ["sc-check.py", "actionlint", "GitHub API"],
+      "false_positive_risk": "medium：仓库默认权限可能是只读；job 级 permissions 可覆盖顶层"
+    },
+    {
+      "category": "ci-trigger",
+      "checkpoint": "pull_request_target、workflow_run、issue_comment、self-hosted",
+      "criteria": "不可信触发不接触 secrets/写 token；checkout 的 ref 不是 PR head；自托管只跑受保护分支",
+      "tools": ["sc-check.py", "actionlint", "只读导出 workflow"],
+      "false_positive_risk": "high：pull_request_target + 审批环境保护 + 只读 job 可能是安全设计"
+    },
+    {
+      "category": "ci-action-pin",
+      "checkpoint": "uses: owner/action@tag|branch|sha、docker:// digest、local action",
+      "criteria": "第三方 action 固定 40 位 commit SHA；docker action 固定 sha256；更新走 Dependabot/PR",
+      "tools": ["sc-check.py", "pin-github-action", "GitHub API"],
+      "false_positive_risk": "medium：官方 action 的 major tag 是常见做法，但仍是可移动引用"
+    },
+    {
+      "category": "ci-injection",
+      "checkpoint": "run/script 中的 ${{ github.event.* }}、github.head_ref、参数插值",
+      "criteria": "不可信事件字段不直接进入 shell；通过 env + 引号/白名单传递",
+      "tools": ["sc-check.py", "actionlint", "semgrep"],
+      "false_positive_risk": "medium：表达式只用于 if/with 且未进入 shell 时不可注入"
+    },
+    {
+      "category": "ci-secrets",
+      "checkpoint": "secrets.* 作用域、环境保护、OIDC、长期密钥",
+      "criteria": "PR/不可信触发拿不到 secrets；优先 OIDC 短期凭据；密钥有轮换记录",
+      "tools": ["sc-check.py", "GitHub API", "gitleaks"],
+      "false_positive_risk": "medium：GITHUB_TOKEN 出现在 secrets 上下文但权限只读；环境保护已限制"
+    },
+    {
+      "category": "image-tag",
+      "checkpoint": "FROM image:tag / :latest / @sha256、compose image:",
+      "criteria": "基础镜像与部署镜像固定 repo@sha256；tag 只作可读别名",
+      "tools": ["sc-check.py", "crane digest", "skopeo inspect"],
+      "false_positive_risk": "medium：多阶段 FROM <stage> 是本地别名；scratch 无 digest"
+    },
+    {
+      "category": "dockerfile-secrets",
+      "checkpoint": "ARG/ENV 密钥、COPY .env、curl|sh、ADD http、USER root",
+      "criteria": "镜像层与 history 无密钥；构建期下载有 hash；运行时非 root",
+      "tools": ["sc-check.py", "docker history", "trivy image", "syft"],
+      "false_positive_risk": "medium：ARG 只用于构建且未写入最终层；chown/chmod 需要 root 的构建阶段"
+    },
+    {
+      "category": "registry-integrity",
+      "checkpoint": "resolved 来源、integrity/hash、registry TLS、镜像 manifest",
+      "criteria": "每个锁定条目有 integrity/hash；resolved 指向受控 registry；TLS 校验开启",
+      "tools": ["sc-check.py", "npm audit signatures", "cosign"],
+      "false_positive_risk": "medium：私有 registry 使用自签 CA 但已固定证书；旧锁文件格式无 integrity"
+    },
+    {
+      "category": "signature",
+      "checkpoint": "cosign keyless/key、gpg/minisign、证书 identity/issuer、Rekor",
+      "criteria": "签名通过 + identity/issuer 与预期流水线匹配 + 签名对象 digest 一致",
+      "tools": ["cosign", "gpg", "minisign"],
+      "false_positive_risk": "high：只看到 verify 退出码 0 未核对身份；自签证书冒充官方"
+    },
+    {
+      "category": "provenance",
+      "checkpoint": "SLSA attestation、builder.id、materials、configSource、subject digest",
+      "criteria": "subject digest 一致 + builder 可信 + 源码 commit 可追 + 构建参数无未审计注入",
+      "tools": ["cosign verify-attestation", "slsa-verifier", "jq"],
+      "false_positive_risk": "high：attestation 可手工生成；SLSA level 数字不等于本次构建可信"
+    },
+    {
+      "category": "license-policy",
+      "checkpoint": "许可证标识、copyleft、未知许可证、停止维护依赖",
+      "criteria": "许可证能从 SBOM/锁文件追到组件；政策冲突由法务确认，本表只列证据",
+      "tools": ["syft", "licensee", "scancode-toolkit"],
+      "false_positive_risk": "high：许可证声明与实际不一致；双许可/例外条款需人工判断"
+    }
+  ]
+}

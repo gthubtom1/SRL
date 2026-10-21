@@ -213,3 +213,5 @@ FORTIFY:  Enabled
 - Web/客户端授权逻辑、JWT/接口重放：交给对应 Web/许可技能；本技能只处理二进制与密码学原语。
 - 仅限授权实验室资产；禁止未授权目标、持久化、横向移动、拒绝服务、真实凭据/生产证书滥用。
 - 不伪造“稳定 9/10”；不隐藏失败；不把本地关闭 ASLR 的结果当远程结论。
+
+> 细节：`references/binary-exploitation.md`、`references/crypto-attacks.md`、`references/heap-and-sandbox.md`、`references/mitigation-matrix.md`；静态预判用 `Tool/scripts/pwn-check.py`。
