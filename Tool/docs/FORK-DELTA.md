@@ -188,6 +188,21 @@ python Tool/scripts/smoke-e2e.py                        # 端到端链路（真�
 
 ---
 
+### 六·说明（必读：这是**旧快照**）
+
+本节是自动生成段的**历史快照**（停在 v1.10.x 统计：新增 154 / 修改 49），**不含** 00–05 阶段技能与
+`case_state.py` / `migrate.py` / `mcp-doctor.py` / `mcp-guard.py`。
+原因：本机是 **shallow clone 且没有 `upstream` remote**，`fork-delta.py` 依赖 `upstream/main` 才能出数
+（实跑会退 2）。要重生成：
+
+```bash
+git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git   # upstream-origin
+git fetch upstream --unshallow
+python Tool/scripts/fork-delta.py        # 覆写 §六
+```
+
+在重跑之前，**以 §一–§3.7 的人工台账为准**（那部分已随每次发版更新）。
+
 ## 六、自动生成：文件级差分清单
 
 > 由 `python Tool/scripts/fork-delta.py` 生成，**请勿手改本节**。

@@ -40,18 +40,6 @@ D5 钥匙归属：关键资源与密钥在文件里？内存里？还是授权�
 - 不许把"不可赢"包装成"部分可赢"来迎合期待
 
 【只回这三行 + 报告路径】
-VERSION_SEEN = 1.14
+VERSION_SEEN = 1.18.5
 VERDICT      = 可赢 / 部分可赢 / 不可赢（一句话理由）
 NEXT         = 01-gate-bypass / 只能到 M1 / 放弃并说明
-
-【必须落账（阶段零出口闸）】
-```bash
-C=<case目录，建议 Tool/cases/<目标短名>>
-python Tool/scripts/case_state.py init    --case $C --target "<样本>"
-python Tool/scripts/case_state.py claim   --case $C --id C01 --text "<结论>" --status hypothesis --how "<怎么发现>"
-python Tool/scripts/case_state.py prove   --case $C --id C01 --evidence "<工具+命令+关键输出>"
-python Tool/scripts/case_state.py depth   --case $C --level D0 --result pass --note "<证据>"
-python Tool/scripts/case_state.py instrument --case $C --name frida-attach --status ok --note "<能否起/存活/边界>"
-python Tool/scripts/case_state.py verdict --case $C --value 可赢|部分可赢|不可赢 [--tier T1|T2|T3] --note "<理由>"
-python Tool/scripts/case_state.py gate    --case $C     # 必须返回 0 才算完成阶段零
-```

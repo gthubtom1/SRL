@@ -178,12 +178,13 @@ def cmd_claim(a):
         die(f"claim {a.id} 已存在（要改用它自己的 prove/refute 子命令）")
     if a.status not in STATUSES:
         die(f"status 只能是 {STATUSES}")
-    if a.status == "proven" and not a.evidence:
-        die("proven 必须带 --evidence（没有证据的结论只能写 hypothesis）")
+    ev = (a.evidence or "").strip()
+    if a.status == "proven" and not ev:
+        die("proven 必须带非空 --evidence（空串/空格不算证据；没有证据只能写 hypothesis）")
     if a.status == "refuted" and not a.by:
         die("refuted 必须带 --by（指向推翻它的证据/claim id），否则历史不可追溯")
     fact = {"id": a.id, "claim": a.text, "status": a.status,
-            "evidence": [a.evidence] if a.evidence else [],
+            "evidence": [ev] if ev else [],
             "how": a.how or "", "ttl": a.ttl or "", "created": now(),
             "refuted_by": (a.by or None)}
     append_fact(a.case, fact)
@@ -198,12 +199,15 @@ def _rewrite_facts(case, facts):
 
 
 def cmd_prove(a):
+    ev = (a.evidence or "").strip()
+    if not ev:
+        die("prove 必须带非空 --evidence（空串/空格不算证据）")
     facts = load_facts(a.case)
     hit = next((f for f in facts if f["id"] == a.id), None)
     if not hit:
         die(f"没有 claim {a.id}")
     hit["status"] = "proven"
-    hit["evidence"] = (hit.get("evidence") or []) + [a.evidence]
+    hit["evidence"] = (hit.get("evidence") or []) + [ev]
     hit["updated"] = now()
     _rewrite_facts(a.case, facts)
     print(f"[OK] {a.id} 已证实（证据 {len(hit['evidence'])} 条）")
@@ -296,7 +300,13 @@ def cmd_gate(a):
                        "部分可赢": {"D0", "D1", "D2", "D3"},
                        "不可赢": {"D0", "D1", "D2"}}
 
-    naked = [f["id"] for f in facts if f["status"] == "proven" and not f.get("evidence")]
+    proven = [f for f in facts if f["status"] == "proven"]
+    if not proven:
+        bad.append("没有任何已证事实（proven）：阶段零至少要有一条带证据的结论")
+
+    naked = [f["id"] for f in facts
+             if f["status"] == "proven"
+             and not any(str(e).strip() for e in (f.get("evidence") or []))]
     if naked:
         bad.append("无证据的 proven：" + "、".join(naked))
 
