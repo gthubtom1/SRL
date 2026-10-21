@@ -1,0 +1,48 @@
+{
+  "id": "项目E",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64",
+  "protection": [
+    "execryptor",
+    "online-activation",
+    "ipc-helper",
+    "clock-rollback"
+  ],
+  "authority": "server",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "src/Patcher.cs",
+      "sha256": ""
+    },
+    {
+      "path": "src/LicenseWriter.cs",
+      "sha256": ""
+    },
+    {
+      "path": "auto_activate.ps1",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "授权验签在 Helper 的 EXECryptor VM 中，无 keygen 路径；主程序只消费 VerifySerialNumberW 返回的 JSON，补丁应打在结果消费侧",
+    "主程序依赖 Helper，patch 副本必须与 Helper 同目录运行，否则启动即 TerminateProcess",
+    "注册表 RN/RC 会在读取后被回写，补丁需同时处理内存授权状态与注册表写入",
+    "试用戳 RF/RL 为 XOR 编码，时钟回拨检测在注册后不生效；但授权仍以 Helper 在线核验为准"
+  ],
+  "tags": [
+    "EXECryptor",
+    "在线激活",
+    "Helper",
+    "CWE-602",
+    "注册表"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "docs/algorithm.md",
+    "src/Patcher.cs"
+  ],
+  "updated": "2026-10-21"
+}

@@ -1,0 +1,33 @@
+{
+  "id": "案例-6.9换肤壳",
+  "domain": "windows-shell",
+  "target_type": "PE32+ x64",
+  "protection": [
+    "packer",
+    "antidebug",
+    "page-guard",
+    "resource-payload"
+  ],
+  "authority": "local",
+  "goal_level": "L1",
+  "outcome": "partial",
+  "artifacts": [],
+  "lessons": [
+    "节区熵 >7 且存在 >1MB 非标节时禁止全量反编译（26MB 带壳样本实测 280s 超时被杀）",
+    "先问“改的是搬运工还是货物”：21MB 的 .rsrc/DATA102（XWGZSkins）才是皮肤包，不要在 .ace0 混淆壳层死磕",
+    "PAGE_GUARD 内存断点会触发目标自检崩溃；改用 Explorer 原生启动拉起窗口，再 MinHook",
+    "导入表零网络 API，无需卡密；资源内是 zstd 帧（28 b5 2f fd），可剥离后直接解压"
+  ],
+  "tags": [
+    "加壳",
+    "反调试",
+    "资源剥离",
+    "zstd",
+    "被否决方案"
+  ],
+  "refs": [
+    "README.md",
+    "docs/走查与思路沉淀.md"
+  ],
+  "updated": "2026-10-21"
+}

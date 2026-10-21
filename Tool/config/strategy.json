@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "1.0",
+  "description": "策略矩阵（声明式）：样本形态 A–I（含 plugin / backend）→ 推荐路线、先验成功率、工时、失败判据。case_state.py advise 读本文件并结合 gaps.json / state.instruments 过滤不可行路线；plan --from-advise 一次性导入。p 是先验（壳可过 × 反调试可过 × 缺件可补 × 可复算签名），不是拍脑袋。",
+  "updated": "2026-10-20",
+  "forms": [
+    {
+      "id": "local-unpacked",
+      "letter": "A",
+      "name": "纯本地 / 无壳原生 exe",
+      "match": ["无壳", "unpacked", "upx", "mingw", "delphi", "nsis", "单机", "纯本地", "local"],
+      "routes": [
+        {"level": "L1", "route": "旁路 + 功能面补丁", "p": 0.9, "hours": "0.5-1", "needs": "可写副本", "fail": "补丁后启动即崩或功能面缺关键分支", "instruments": ["x64dbg"]},
+        {"level": "L2", "route": "字节补丁 / 跳转改写", "p": 0.85, "hours": "1-2", "needs": "可写副本 + 校验点清单", "fail": "改完仍进不了主界面，或触发自校验", "instruments": ["x64dbg", "external"]},
+        {"level": "L4", "route": "模块级重实现", "p": 0.7, "hours": "8-12", "needs": "协议/数据格式已还原", "fail": "核心数据结构无法复现，或依赖未公开的算法"}
+      ]
+    },
+    {
+      "id": "pe-shelled",
+      "letter": "B",
+      "name": "PE 有壳（VMP / T壳 / 完整性校验）",
+      "match": ["pe-shelled", "有壳", "vmp", "vmprotect", "themida", "t壳", "完整性校验", "自校验", "加壳"],
+      "routes": [
+        {"level": "L0", "route": "壳指纹 + 闸门盘点", "p": 0.9, "hours": "0.5-1", "needs": "样本只读", "fail": "连壳族都认不出（无节名/熵异常也无线索）", "instruments": ["external", "network"]},
+        {"level": "L2", "route": "字节补丁（硬件断点定位）", "p": 0.75, "hours": "1-3", "needs": "可写副本 + 校验范围", "fail": "打完仍无界面 / 校验和回滚", "instruments": ["hwbp", "external"]},
+        {"level": "L3", "route": "脱壳 + 模块重写", "p": 0.55, "hours": "4-8", "needs": "可 dump 的 OEP + IAT 可重建", "fail": "dump 起不来或 IAT 修复后仍跳回 dispatcher", "instruments": ["external", "hwbp"]},
+        {"level": "L4", "route": "源码级重实现", "p": 0.4, "hours": "12+", "needs": "完整行为规格", "fail": "拿不到协议或核心算法"}
+      ]
+    },
+    {
+      "id": "page-guard-veh",
+      "letter": "C",
+      "name": "页守卫 / VEH 加密壳",
+      "match": ["页守卫", "page guard", "guard page", "veh", "加密壳", "enigma", "obsidium", "内存解密", "分页解密"],
+      "routes": [
+        {"level": "L0", "route": "异常链 + 解密窗口观测", "p": 0.85, "hours": "1-2", "needs": "外部读内存权限", "fail": "一读就触发 guard 且无法定位解密窗口", "instruments": ["external", "hwbp"]},
+        {"level": "L2", "route": "IAT Hook / 外部修补", "p": 0.7, "hours": "2-4", "needs": "可写副本 + 解密页边界", "fail": "Hook 被 VEH 识别或解密页生命周期错过", "instruments": ["api-hook", "external"]},
+        {"level": "L3", "route": "内存 dump + PE 重建", "p": 0.55, "hours": "4-8", "needs": "OEP + IAT", "fail": "dump 不可加载或重定位失败", "instruments": ["external"]}
+      ]
+    },
+    {
+      "id": "dotnet-managed",
+      "letter": "D",
+      "name": "托管 / .NET / IL2CPP / Unity",
+      "match": ["dotnet", ".net", "dnspy", "il2cpp", "unity", "mono", "msil", "托管"],
+      "routes": [
+        {"level": "L1", "route": "托管层 hook（Harmony/Frida）", "p": 0.85, "hours": "0.5-2", "needs": "可 attach", "fail": "hook 后方法仍走原逻辑 / 被完整性校验拦截", "instruments": ["frida-attach", "external"]},
+        {"level": "L2", "route": "IL 补丁 / 反混淆后改写", "p": 0.75, "hours": "1-3", "needs": "反混淆结果", "fail": "改写的 IL 校验失败或强名称失效"},
+        {"level": "L4", "route": "IL2CPP 原生模块重实现", "p": 0.5, "hours": "8+", "needs": "GameAssembly 结构 + 元数据", "fail": "元数据被裁剪，无法定位方法"}
+      ]
+    },
+    {
+      "id": "server-cardkey",
+      "letter": "E",
+      "name": "服务端权威 + 卡密 / 授权票据",
+      "match": ["服务端", "server", "卡密", "license", "授权", "票据", "token", "订阅", "在线验证", "winhttp", "wininet"],
+      "routes": [
+        {"level": "L0", "route": "权威归属 + 缺件经济学", "p": 0.9, "hours": "0.5-1", "needs": "抓包或 Procmon", "fail": "无法判定权威在本地还是服务端", "instruments": ["network", "external"]},
+        {"level": "L1", "route": "本地旁路（仅过启动校验）", "p": 0.6, "hours": "1-2", "needs": "启动校验点", "fail": "旁路后功能面仍要在线票据，等于没用"},
+        {"level": "L2", "route": "冒充服务端 / 本地应答", "p": 0.5, "hours": "2-4", "needs": "协议可复算（无服务端私钥签名）", "fail": "响应含 RSA/ECDSA 签名或证书固定", "instruments": ["network"]},
+        {"level": "L4", "route": "买真卡 + dump + 源码级重实现", "p": 0.55, "hours": "6-10", "needs": "有效卡密", "fail": "RSA 锁死 / 票据与硬件绑定"}
+      ]
+    },
+    {
+      "id": "driver-anticheat",
+      "letter": "F",
+      "name": "内核驱动 + 进程黑名单 / 反作弊",
+      "match": ["内核驱动", "kernel driver", "obcallback", "反作弊", "anti-cheat", "黑名单", "驱动保护", "保护进程"],
+      "routes": [
+        {"level": "L0", "route": "只读观测（外部/网络/ETW）", "p": 0.8, "hours": "1-2", "needs": "另一台机或虚拟机", "fail": "驱动连只读句柄都拦，观测不到有效信息", "instruments": ["external", "network", "etw"]},
+        {"level": "L1", "route": "外部旁路（不改进程内存）", "p": 0.45, "hours": "2-4", "needs": "文件/配置级入口", "fail": "所有入口都在驱动保护范围内"},
+        {"level": "L4", "route": "放弃对抗、重实现业务", "p": 0.3, "hours": "12+", "needs": "完整业务规格", "fail": "核心业务依赖受保护进程的私有数据"}
+      ]
+    },
+    {
+      "id": "plugin",
+      "letter": "G",
+      "name": "插件形态（宿主 + DLL/扩展）",
+      "match": ["plugin", "插件", "dll", "扩展", "extension", "addin", "add-in", "宿主", "host"],
+      "routes": [
+        {"level": "L1", "route": "旁路 DLL / 代理插件", "p": 0.8, "hours": "0.5-2", "needs": "插件加载目录可写", "fail": "宿主校验插件签名或白名单"},
+        {"level": "L2", "route": "补丁宿主加载器", "p": 0.7, "hours": "1-3", "needs": "可写副本 + 校验点", "fail": "宿主自校验回滚补丁"},
+        {"level": "L3", "route": "插件接口重实现", "p": 0.6, "hours": "3-6", "needs": "插件 ABI/接口文档或逆向结果", "fail": "接口依赖宿主私有对象，无法独立复现"}
+      ]
+    },
+    {
+      "id": "backend",
+      "letter": "H",
+      "name": "自带后端 / C-S 一体（含自建服务）",
+      "match": ["backend", "后端", "服务端", "server", "api", "rest", "grpc", "c/s", "客户端服务端", "自建服务"],
+      "routes": [
+        {"level": "L0", "route": "接口盘点 + 协议抓包", "p": 0.85, "hours": "1-2", "needs": "可出站环境", "fail": "全链路 TLS + 证书固定，抓不到明文", "instruments": ["network", "external"]},
+        {"level": "L2", "route": "本地冒充后端（3–5 端点）", "p": 0.65, "hours": "2-4", "needs": "端点清单 + 响应格式", "fail": "响应签名无法复算"},
+        {"level": "L3", "route": "后端模块重写", "p": 0.55, "hours": "4-8", "needs": "数据模型 + 鉴权流程", "fail": "鉴权依赖第三方（OAuth/支付）"},
+        {"level": "L4", "route": "全栈重实现", "p": 0.45, "hours": "10+", "needs": "完整业务规格 + 数据", "fail": "业务规则不可观测（纯服务端黑盒）"}
+      ]
+    },
+    {
+      "id": "multi-killswitch",
+      "letter": "I",
+      "name": "多层 kill-switch / 静默失败",
+      "match": ["kill-switch", "killswitch", "多层", "闸门", "静默失败", "silent fail", "无窗口", "进程活着", "不干活"],
+      "routes": [
+        {"level": "L0", "route": "逐层闸门定位（D6/D7）", "p": 0.8, "hours": "1-2", "needs": "可观测仪器 ≥2 种", "fail": "分不清『进程死了』还是『活着但不干活』", "instruments": ["external", "network"]},
+        {"level": "L1", "route": "单层旁路（先过第一道）", "p": 0.6, "hours": "1-2", "needs": "第一层闸门位置", "fail": "过了第一层仍静默，且找不到第二层"},
+        {"level": "L2", "route": "逐层补丁（每层独立验证）", "p": 0.45, "hours": "3-6", "needs": "每层闸门的判据与证据", "fail": "某层与完整性校验耦合，改一处触发全部"},
+        {"level": "L3", "route": "去闸门化重写关键路径", "p": 0.4, "hours": "6+", "needs": "关键路径规格", "fail": "闸门逻辑与业务逻辑不可分离"}
+      ]
+    },
+    {
+      "id": "generic",
+      "letter": "-",
+      "name": "形态未定（兜底）",
+      "match": ["generic", "未知", "未定", "unknown"],
+      "routes": [
+        {"level": "L0", "route": "先定形态（D0–D3 + I0）", "p": 0.8, "hours": "1-2", "needs": "样本只读 + 至少 2 种仪器", "fail": "D0–D3 仍无法判定运行时/壳/权威", "instruments": ["external", "network"]},
+        {"level": "L1", "route": "最小旁路验证可行性", "p": 0.5, "hours": "2-4", "needs": "已定位一个校验点", "fail": "旁路后行为无变化（说明没找到真闸门）"},
+        {"level": "L2", "route": "补丁 / 代理", "p": 0.4, "hours": "4-8", "needs": "校验点清单 + 可写副本", "fail": "补丁触发完整性校验"}
+      ]
+    }
+  ]
+}

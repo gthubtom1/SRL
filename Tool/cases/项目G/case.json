@@ -1,0 +1,47 @@
+{
+  "id": "项目G",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64 (Qt)",
+  "protection": [
+    "online-activation",
+    "server-signature",
+    "aes-grace-token",
+    "ini-license"
+  ],
+  "authority": "server",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "src/项目G_activate.py",
+      "sha256": ""
+    },
+    {
+      "path": "src/项目G_gui.py",
+      "sha256": ""
+    },
+    {
+      "path": "tools/test_activate.py",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "服务端签发的 payload 自引用校验（sha384(payload)==key_hash）导致 keygen 离线不可行，只能补本地判定",
+    "27MB Qt 二进制放弃 Ghidra 全量分析：PE 节表->字符串 VA->LEA rip 引用点->局部分片反汇编，秒级定位",
+    "本地判定点单一且无自校验，补丁重启持久；升级覆盖可由登录守卫自动修复",
+    "V2 响应签名 sig=sha1(TEMPLATE+payload[32:]) 与 AES-CBC grace token 都必须按真实结构解析，不能猜字段"
+  ],
+  "tags": [
+    "Qt",
+    "在线激活",
+    "签名校验",
+    "AOB",
+    "补丁"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "docs/algorithm.md"
+  ],
+  "updated": "2026-10-21"
+}

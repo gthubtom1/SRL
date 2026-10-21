@@ -1,0 +1,46 @@
+{
+  "id": "项目D",
+  "domain": "windows-license",
+  "target_type": "PE32 x86",
+  "protection": [
+    "anti-tamper-threads",
+    "auto-updater"
+  ],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "项目D_Pro_Tool/src/Program.cs",
+      "sha256": ""
+    },
+    {
+      "path": "项目D_Pro_Tool/tests/PatchEngineTests.cs",
+      "sha256": ""
+    },
+    {
+      "path": "tools/03_gen_signatures.py",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "硬编码绝对偏移在重编译后全部失效（实测位移 -896~+64），必须使用多版本共同稳定区的双态 AOB 特征码",
+    "模糊匹配只能产生候选：数据段漂移会出现汉明距离仅 2 的假阳性，必须精确字节 + 反汇编双重确认",
+    "客户端特权态天然易失：官方更新器会静默覆盖补丁，需切断更新定时器并让引擎 fail-closed",
+    "注册表策略面会被官方针对性封堵（删 Serial 恰好命中 11.3 新增弹框分支）；应优先在二进制判定面打桩"
+  ],
+  "tags": [
+    "AOB",
+    "跨版本迁移",
+    "反篡改",
+    "CWE-602",
+    "更新器"
+  ],
+  "refs": [
+    "README.md",
+    "docs/reverse-engineering.md",
+    "docs/algorithm.md",
+    "项目D_Pro_Tool/README.md"
+  ],
+  "updated": "2026-10-21"
+}

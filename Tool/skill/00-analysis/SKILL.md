@@ -75,7 +75,7 @@ python Tool/scripts/case_state.py instrument --case $C --name x64dbg --status bl
 
 ---
 
-## 2. 分析深度门（D0–D5，缺一级不许出报告）
+## 2. 分析深度门（D0–D7；D6/D7 可选，但裁定=可赢时必填）
 
 > **别混**：这里的 `D0–D5` 是**深度门**；`01-gate-bypass` 里的 `D1–D5` 是**交付物**（产物/工装/清单/日志/报告）。同名不同义，引用时写全称。
 
@@ -87,6 +87,12 @@ python Tool/scripts/case_state.py instrument --case $C --name x64dbg --status bl
 | **D3 出站行为** | 一次抓包：DNS/TCP 数量、明文或 TLS、请求时机 | 能画出"第几秒发了什么" |
 | **D4 对照实验** | 断网 / 换机 / 换目录 / 改系统时间，各重跑 | 每项都能说"变 / 不变" |
 | **D5 钥匙归属** | 关键资源与密钥：文件里就有？内存里？还是授权后才产生 | 能指出"缺哪一把、什么时候产生" |
+| **D6 kill-switch 层数**（可选） | 有几层独立闸门？每层是否**分别**验证过（过了一层不代表全过） | 写出层数与每层判据；多层时必须逐层记"过/没过" |
+| **D7 静默失败面**（可选） | 进程活着但不干活：网络 / 文件 / 窗口 / API 序列**四路**是否都查过 | 四路各一句"正常 / 被掐 / 未测"，能区分"死了"和"装死" |
+
+> D6/D7 是老案子的扩展级：**缺了只告警、不阻断**（避免历史案子全红）；
+> 但一旦裁定写"可赢"，`gate` 要求 D6/D7 至少登记 `na` 并写原因。
+> `stale` 与 D6/D7 的 CLI 用法见 §4bis。
 
 **铁律**：
 
@@ -137,13 +143,124 @@ python Tool/scripts/case_state.py instrument --case $C --name x64dbg --status bl
 
 ---
 
+## 4bis. 阶段零出口物：gaps + plan + choose
+
+> 血案 6.8：卡密拿不到、服务端已死，却在"直接重实现"上磨了 3 小时。
+> 根因不是不会写代码，是**没先把「缺什么 / 有几条路 / 每条路的成功率」摆到桌面上**。
+> 从这一版起，阶段零的出口不止是报告 + 裁定，还必须落两份账：`gaps.json`（缺件）与 `plan.json`（路线菜单）。
+
+### 4bis.1 缺件经济学（`<case>/gaps.json`）
+
+先把"拿不到的东西"列出来，再谈路线。缺件不是"风险"，是**会直接关掉整条路线**的硬约束。
+
+```bash
+# 登记：缺什么 / 影响什么 / 能不能补 / 概率折损 / 替代方案
+gaps --case $C --add --id G1 --missing "有效卡密" --impact "拿不到合法响应/密钥" \
+     --repairable no --delta -0.45 --alt "买真卡|旧版存档"
+gaps --case $C --list
+```
+
+| 字段 | 含义 |
+|---|---|
+| `id` / `missing` | 缺件编号与缺少物（如"有效卡密"） |
+| `impact` | 拿不到会导致什么（写"合法响应/密钥"，不要写"麻烦"） |
+| `repairable` | `yes` / `partial` / `no`（`no` = 作者停服、私钥拿不到） |
+| `delta` | 概率折损（负数）；`no` + `delta ≤ -0.3` 视为**阻断级** |
+| `alt` | 替代方案，用 `\|` 分隔（买真卡 / 旧版存档 / 请求重放） |
+
+**闸规则**：任一 `repairable=no` 且 `delta ≤ -0.3` 的缺件：
+
+1. `verdict --note` **必须点名它**（写 id 或缺少物都算），否则 `gate` 拒绝；
+2. 路线菜单里**不得出现依赖它的路线**（`plan` 的 `--needs` 里出现缺件 id / 缺少物即视为依赖），否则 `gate` 拒绝。
+
+### 4bis.2 路线菜单（`<case>/plan.json`）
+
+先列候选，再选一条。**没有菜单 = 阶段零不合格**。
+
+```bash
+plan --case $C --level L2 --route "字节补丁" --p 0.85 --hours "1-2" \
+     --needs "" --fail "打完仍无界面"
+plan --case $C --level L2 --route "冒充服务端" --p 0.35 --hours "2-4" \
+     --needs "G1 有效卡密" --fail "响应含 RSA 签名"   # 这条会被 gate 剔除（依赖不可补缺件）
+plan --case $C --list
+choose --case $C --level L2 --route "字节补丁"   # 写 state.goal_level = L2
+```
+
+| 字段 | 含义 |
+|---|---|
+| `level` | `L0` 只观测 / `L1` 旁路 / `L2` 补丁·代理 / `L3` 模块重写 / `L4` 源码级重实现 |
+| `route` | 一句话路线名（阶段一按它执行） |
+| `p` | 成功率先验 0–1：`p(壳可过) × p(反调试可过) × p(缺件可补) × p(可复算签名)` |
+| `hours` | 工时先验（写区间，不写"很快"） |
+| `needs` | 依赖（写缺件 id/缺少物，`gate` 据此剔除路线）；没有就留空 |
+| `fail_criteria` | **失败判据**：出现什么现象就停手，不许无限续命 |
+| `chosen` | 只能有一条为 true，由 `choose` 维护 |
+
+菜单样例（`plan --list` / `show` / `resume` 都会打印）：
+
+```text
+级   成功率  工时      选中  路线 / 失败判据
+L0    0.90   0.5-1           壳指纹 + 闸门盘点
+L2    0.75   1-3       ✓     字节补丁（硬件断点定位）
+      失败判据：打完仍无界面 / 校验和回滚
+L4    0.40   12+            源码级重实现
+      失败判据：拿不到协议或核心算法
+      依赖/缺件：有效卡密(G1)      ← 示意：这条会被 gate 剔除
+```
+
+**闸规则**：`plan` 少于 2 条候选 → 拒绝；已给 `verdict` 但没 `choose` → 拒绝；
+`choose` 必须指到菜单里真实存在的一条，越级交付仍由 `deliver` 拦。
+
+### 4bis.3 建议菜单：`advise`（不写盘）
+
+`advise` 读 `Tool/config/instrument-matrix.json`（壳族 → 可用/禁用仪器/陷阱）与
+`Tool/config/strategy.json`（形态 A–I → 推荐路线/成本/失败判据），再叠加本案例的
+`gaps.json` 与 `state.instruments`，把"依赖不可补缺件"和"仪器被禁用/实测不可用"的路线**剔除**后打印建议：
+
+```bash
+advise --case $C --form pe-shelled          # 形态：无壳/pe-shelled/页守卫/dotnet/server-cardkey/...
+plan   --case $C --from-advise --form pe-shelled   # 确认后一次性导入（可再手工增删）
+```
+
+`--form` 省略时按 `target + claim + 仪器名` 关键词自动匹配，匹配不到用 `generic` 兜底并提示。
+
+### 4bis.4 TTL 失效（`claim --ttl` / `stale` / `prove` 复活）
+
+结论是有保质期的：换了 exe、目标更新、服务器换域名，旧结论就不该继续当证据用。
+
+```bash
+claim --case $C --id C01 --text "权威在服务端" --status proven \
+      --evidence "procmon: 第1秒 winhttp 请求" --how procmon --ttl "换 exe 即失效"
+stale --case $C --reason "换 exe:sha256 变了"    # 所有 proven → stale，证据保留
+prove --case $C --id C01 --evidence "复验：新 exe 同样第1秒出站"   # 复活为 proven
+```
+
+**闸规则**：存在 `stale` 且未复验 → 拒绝，提示"先复验或说明为何仍成立"（理由写进新的 `prove --evidence`）。
+
+### 4bis.5 `gate` 新增断言一览
+
+| 断言 | 不满足 |
+|---|---|
+| stale 未复验 | 拒绝 |
+| plan 少于 2 条候选 | 拒绝 |
+| 已 verdict 但未 choose / 多条 chosen | 拒绝 |
+| 阻断级缺件未写进 verdict note | 拒绝 |
+| 菜单含依赖阻断级缺件的路线 | 拒绝 |
+| D6/D7 缺失 | **只告警** |
+| 裁定=可赢但 D6/D7 未登记或没写原因 | 拒绝 |
+
+---
+
 ## 5. 交付物（本阶段只交这三样）
 
 | # | 产物 | 说明 |
 |---|---|---|
 | A1 | `analysis-report.md` | 上面 8 节，含证据编号与命令 |
-| A2 | `facts.jsonl` | 一行一条：`{id, claim, status(proven/hypothesis/refuted), evidence[], how, ttl, refuted_by}` |
+| A2 | `facts.jsonl` | 一行一条：`{id, claim, status(proven/hypothesis/refuted/stale), evidence[], how, ttl, created, refuted_by}` |
 | A3 | 可行性裁定 + 推荐路线 | 报告第 6、7 节，**必须能一句话说给非技术用户听** |
+
+另有两份随报告一起交的机读账：`<case>/gaps.json`（缺件经济学）与 `<case>/plan.json`（L0–L4 菜单 + chosen），
+没有它们 `gate` 不给过（详见 §4bis）。
 
 **这三样不是靠自觉，是有闸的** —— 用 `Tool/scripts/case_state.py` 记账，`gate` 不给过就进不了阶段一：
 
@@ -154,13 +271,21 @@ python Tool/scripts/case_state.py claim   --case $C --id C01 --text "权威在�
 python Tool/scripts/case_state.py prove   --case $C --id C01 --evidence "procmon: 第1秒 winhttp 请求"
 python Tool/scripts/case_state.py refute  --case $C --id C01 --by C05          # 旧结论保留，不删
 python Tool/scripts/case_state.py depth   --case $C --level D2 --result pass --note "LoadLibrary 命中 winhttp"
-python Tool/scripts/case_state.py verdict --case $C --value 部分可赢 --note "钥匙在服务端，服务端已停"
+python Tool/scripts/case_state.py verdict --case $C --value 部分可赢 --note "缺有效卡密(G1)，钥匙在服务端"
+python Tool/scripts/case_state.py gaps    --case $C --add --id G1 --missing "有效卡密" --impact "拿不到合法响应" --repairable no --delta -0.45 --alt "买真卡|旧版存档"
+python Tool/scripts/case_state.py plan    --case $C --level L2 --route "字节补丁" --p 0.85 --hours "1-2" --fail "打完仍无界面"
+python Tool/scripts/case_state.py plan    --case $C --level L4 --route "源码重实现" --p 0.4 --hours "12+" --needs "完整行为规格" --fail "拿不到协议"
+python Tool/scripts/case_state.py advise  --case $C --form pe-shelled     # 可选：矩阵给建议（不写盘）
+python Tool/scripts/case_state.py choose  --case $C --level L2 --route "字节补丁"
 python Tool/scripts/case_state.py gate    --case $C        # 出口闸：不过就 exit 1
-python Tool/scripts/case_state.py resume  --case $C        # 换会话接续：已证/待验/下一步
+python Tool/scripts/case_state.py stale   --case $C --reason "换 exe:sha256 变了"
+python Tool/scripts/case_state.py resume  --case $C        # 换会话接续：已证/待验/菜单/下一步
 ```
 
 闸会拦住这些：深度没登记、`proven` 没证据、`proven` 没写"怎么测的"、没给裁定、
-裁定"不可赢"却想按 M3 交付（会被硬拒，不是自动降级）。
+裁定"不可赢"却想按 M3 交付（会被硬拒，不是自动降级）、**stale 未复验、没有 ≥2 条路线菜单、
+裁定后没 choose、阻断级缺件没写进 note、菜单依赖不可补缺件**。
+D6/D7 缺失只告警；但裁定=可赢时必须至少 `na` + 原因。
 
 **裁定 → 交付上限（不许自己抬）**：
 
@@ -181,11 +306,13 @@ python Tool/scripts/case_state.py resume  --case $C        # 换会话接续：�
 
 ## 6. 完成判据（打勾才算过，然后进 01）
 
-1. D0–D5 六级都有产物或明确"做不到 + 为什么"；
+1. D0–D5 六级都有产物或明确"做不到 + 为什么"；D6/D7 缺失可接受（可赢时必须 `na` + 原因）；
 2. 8 节齐全，每条结论有证据编号；
-3. `facts.jsonl` 里没有"没有 evidence 的 proven"；
+3. `facts.jsonl` 里没有"没有 evidence 的 proven"，也没有未复验的 `stale`；
 4. 可行性裁定明确，且与 01 的交付形态一致；
-5. 推荐路线写清首选/备选 + 成本先验 + 失败判据。
+5. 推荐路线写清首选/备选 + 成本先验 + 失败判据；
+6. `<case>/gaps.json` 已登记缺件（没有也要能说"确实没有"）；阻断级缺件已写进裁定 note；
+7. `<case>/plan.json` 至少 2 条候选，且已 `choose` → `state.goal_level` 与阶段一一致。
 
 ---
 

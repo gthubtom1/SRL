@@ -1,0 +1,45 @@
+{
+  "id": "项目N",
+  "domain": "dotnet-license",
+  "target_type": "PE32 (.NET/WPF)",
+  "protection": [
+    "eazfuscator",
+    "assembly-encryption",
+    "code-virtualization",
+    "string-encryption",
+    "antidebug"
+  ],
+  "authority": "server",
+  "goal_level": "L4",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "tools/bx_patch.py",
+      "sha256": ""
+    },
+    {
+      "path": "docs/protection-layers.md",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "Eazfuscator 程序集代码加密的密钥由其它节区内容哈希派生，同时构成反篡改：改动兄弟节区会导致目标节区解不开",
+    "字符串解密不必静态还原：反射加载原程序集并逐 id 调用客户端自身 Decrypt(int) 可 100% 转储；每个样本必须用独立进程，避免 Assembly.LoadFrom 复用实例",
+    "VM 三层（RSA-2048 封装 / 位置相关流 XOR / Ascii85 方法令牌）可分离还原，722,260 字节字节码可转明文",
+    "授权装载状态机把 null/空串/\"null\" 当“无需校验”（Fail-Open），但不足以点亮 PRO 徽章；71 个特权开关以明文布尔存 HKCU，可写即可改"
+  ],
+  "tags": [
+    "Eazfuscator",
+    "代码虚拟化",
+    "Fail-Open",
+    "CWE-602",
+    "HKCU"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "docs/protection-layers.md",
+    "tools/bx_patch.py"
+  ],
+  "updated": "2026-10-21"
+}

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0",
+  "description": "仪器矩阵（声明式）：按壳/保护类型给出『可用仪器 / 禁用仪器 / 陷阱』。case_state.py advise 读本文件过滤不可行路线；阶段零的 instruments 登记应与本表互相印证。词表：baseline / x64dbg / frida-spawn / frida-attach / external / network / hwbp（硬件断点 DR0-3） / int3（软件断点） / external-read（外部 RPM） / api-hook（IAT/API Hook） / inject（注入） / etw / vm-snapshot / explorer-launch。",
+  "updated": "2026-10-20",
+  "families": [
+    {
+      "id": "integrity-shell",
+      "name": "完整性校验壳（VMP / T壳 / 自校验）",
+      "match": ["vmp", "vmprotect", "themida", "t壳", "完整性校验", "自校验", "crc", "checksum", "校验和", "加壳"],
+      "allowed": ["hwbp", "external-read", "external", "network", "etw"],
+      "banned": ["int3", "frida-spawn", "inject", "x64dbg"],
+      "pitfalls": [
+        "改 0xCC 必崩：软件断点会改字节，校验和/代码段 CRC 立刻发现",
+        "下断前先确认校验范围：只校验 .text 还是整镜像（含 .data 资源）",
+        "Frida spawn / 早期注入会改内存页属性，等于自报身份",
+        "硬件断点最多 4 个，别一次挂满；DR 寄存器也可能被检测"
+      ]
+    },
+    {
+      "id": "page-guard-veh",
+      "name": "页守卫 / VEH 加密壳（Enigma / Obsidium / 自研）",
+      "match": ["页守卫", "page guard", "guard page", "veh", "加密壳", "enigma", "obsidium", "内存解密", "分页解密"],
+      "allowed": ["external-read", "api-hook", "hwbp", "external", "network"],
+      "banned": ["in-process-read", "int3", "frida-attach"],
+      "pitfalls": [
+        "读解密页即触发 guard：进程内读取会把自己送进异常处理链",
+        "VEH 可能把单步/断点异常当成攻击：先外部观测确认异常分发链",
+        "IAT Hook 比 inline hook 安全：不改代码字节",
+        "解密只在执行窗口内有效，dump 要卡在 VirtualProtect 返回后"
+      ]
+    },
+    {
+      "id": "parent-process-check",
+      "name": "父进程检测 / 启动链校验",
+      "match": ["父进程", "parent process", "parentprocess", "explorer", "启动链", "start-process", "cmd start", "createprocess"],
+      "allowed": ["baseline", "explorer-launch", "external", "network"],
+      "banned": ["start-process", "cmd-start", "frida-spawn", "inject"],
+      "pitfalls": [
+        "父进程不是 explorer 直接退：用 PowerShell/cmd 拉起是最常见的假死原因",
+        "先双击（explorer）再程序拉起，两种方式分别测，差异本身就是证据",
+        "需要自定义父进程时用 PROC_THREAD_ATTRIBUTE_PARENT_PROCESS，不要用 cmd start",
+        "父进程检测常与命令行/工作目录检测叠加，别只改一项"
+      ]
+    },
+    {
+      "id": "kernel-driver-blacklist",
+      "name": "内核驱动 + 进程黑名单（反作弊 / Themida+）",
+      "match": ["内核驱动", "kernel driver", "obcallback", "ssdt", "minifilter", "黑名单", "反作弊", "anti-cheat", "anti cheat", "驱动保护"],
+      "allowed": ["external", "network", "etw", "vm-snapshot", "baseline"],
+      "banned": ["inject", "int3", "hwbp", "frida-spawn", "frida-attach", "x64dbg", "api-hook"],
+      "pitfalls": [
+        "进程名/模块名被点名：改名会触发另一条黑名单规则，先查名单再动手",
+        "任何注入都可能被 ObCallback 拦下并回传 0xA5/自定义退出码",
+        "驱动能看到你的调试器窗口与句柄：外部观测也优先用另一台机/虚拟机",
+        "先做只读观测（ETW/Procmon/网络），确认驱动到底在拦什么"
+      ]
+    },
+    {
+      "id": "unpacked-light",
+      "name": "无壳 / 轻壳（UPX / NSIS / Delphi 原生）",
+      "match": ["无壳", "unpacked", "upx", "nsis", "delphi", "轻壳", "无保护", "mingw"],
+      "allowed": ["baseline", "x64dbg", "int3", "hwbp", "frida-spawn", "frida-attach", "external", "network"],
+      "banned": [],
+      "pitfalls": [
+        "UPX -d 可能破坏 TLS 回调/重定位：先记原入口与 TLS 表再脱",
+        "Delphi 程序字符串是 UTF-16，直接 strings 会漏",
+        "无壳不等于无校验：仍要跑一次 D4 对照实验",
+        "轻壳也可能带反调试，别默认 int3 一定安全"
+      ]
+    },
+    {
+      "id": "dotnet-managed",
+      "name": "托管 / .NET / IL2CPP / Unity",
+      "match": ["dotnet", ".net", "dnspy", "il2cpp", "unity", "mono", "msil", "托管"],
+      "allowed": ["dnspy", "frida-attach", "external", "network", "api-hook"],
+      "banned": ["int3-on-native", "x64dbg-native-only"],
+      "pitfalls": [
+        ".NET 先看是否混淆/加壳（ConfuserEx 等），直接 dnSpy 打开可能只看到壳",
+        "IL2CPP 的 C# 逻辑在 GameAssembly.dll 里，不是 Assembly-CSharp.dll",
+        "Unity 资源用 AssetStudio/AssetRipper，别在 IDA 里硬啃",
+        "托管层 hook（Harmony/Frida）比原生断点稳"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "项目K",
+  "domain": "dotnet-license",
+  "target_type": "PE32+ x64 (.NET/WPF)",
+  "protection": [
+    "themida",
+    "method-body-virtualization",
+    "string-encryption",
+    "embedded-assembly"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "src/ProjectKUnlock.cs",
+      "sha256": ""
+    },
+    {
+      "path": "src/install.ps1",
+      "sha256": ""
+    },
+    {
+      "path": "src/uninstall.ps1",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "Themida 已 Hook clrjit!ICorJitCompiler::compileMethod vtable；在其之上再挂一层可截获 9632 个方法的真实 IL",
+    "授权载荷 AES-128-CBC 的 Key/IV 完全由本地机器码切片派生，且无签名/无 MAC，双存储写入即可伪造永久授权",
+    "只伪造授权只能活 1-2 分钟：启动约 15s 后云控复验失败会改写 Invalid 并 Environment.Exit(0)，需选择性代理 + 秒级看门狗",
+    "AppDomainManager 是 CLR 级引导变量，会污染之后启动的所有 .NET 进程；必须提供卸载/还原脚本"
+  ],
+  "tags": [
+    "Themida",
+    "JIT Hook",
+    "云控剥离",
+    "AppDomainManager",
+    "AES"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "src/ProjectKUnlock.cs"
+  ],
+  "updated": "2026-10-21"
+}

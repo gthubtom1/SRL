@@ -1,0 +1,43 @@
+{
+  "id": "项目A",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "v2/dist/version.dll",
+      "sha256": ""
+    },
+    {
+      "path": "v2/docs/授权旁路漏洞分析报告.md",
+      "sha256": ""
+    },
+    {
+      "path": "defense_hardening.c",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "宿主为 twinBASIC 运行时：在 DllMain 阶段或跨堆写 BSTR 会触发 0xC0000374；应在宿主初始化完成后用宿主 IAT 的 OLEAUT32!SysAllocString 分配，并限制重试次数",
+    "注册验证只做 xy01..xy05 四字符前缀弱比较并直接置 license_type，属典型 CWE-602 客户端裁决，无签名/无服务端权威",
+    "标题栏/关于框与底层授权状态是两条解耦的呈现链：只改 UI 会留下试用分支，真正的激活开关是 license_type 全局状态字",
+    "目标无壳、无网络 API、无完整性自检；防护加固规范（动态代码策略/加载目录白名单/函数入口巡检）只能作为厂商侧补强建议"
+  ],
+  "tags": [
+    "CWE-602",
+    "twinBASIC",
+    "BSTR",
+    "version.dll",
+    "授权状态字"
+  ],
+  "refs": [
+    "v2/README.md",
+    "v2/docs/授权旁路漏洞分析报告.md",
+    "v2/dist/手动验证指南.md",
+    "defense_hardening_spec.md"
+  ],
+  "updated": "2026-10-21"
+}
