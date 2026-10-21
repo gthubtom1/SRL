@@ -233,12 +233,14 @@ Test-CheckItem "提示词" "提示词槽位 / 边界锚 / 人格守卫三者就�
     $cgt = Join-Path $ext 'TOOL-CHAIN.md'
     $rl  = Join-Path $ext 'retry-level.ts'
     $rt  = Join-Path $ToolDir 'config\tool-runtimes.json'
+    $task1 = Join-Path $ToolDir 'prompts\tasks\reverse.md'
+    $task2 = Join-Path $ToolDir 'prompts\tasks\reverse-deliverable.md'
     $tr  = Join-Path $ToolDir 'scripts\tool-run.ps1'
     ($a -match 'BOUNDARY_ANCHOR') -and ($a -match 'seep-boundary') -and
     ($b -match 'BOUNDARY-ANCHOR') -and ($b -match 'appendBoundaryTail') -and
     ($b -match 'looksLikePersonaCard') -and
     (Test-Path $cg) -and (Test-Path $cgr) -and (Test-Path $cgt) -and (Test-Path $rl) -and
-    (Test-Path $rt) -and (Test-Path $tr)
+    (Test-Path $rt) -and (Test-Path $tr) -and (Test-Path $task1) -and (Test-Path $task2)
 } "SYSTEM.md 槽位未释放 / 边界锚缺失 / 人格守卫仍是枚举式名单" "槽位空 + 双层锚 + 结构判定守卫" "$ToolDir\prompts"
 Test-CheckItem "提示词" "通用跨 Agent 规范 (AGENTS.md)" { Test-Path (Join-Path $ToolDir 'prompts\AGENTS.md') } "检查 AGENTS.md" "规范文件存在" "$ToolDir\prompts\AGENTS.md"
 Test-CheckItem "提示词" "Claude Code 项目级规范 (CLAUDE.md 在项目根)" { Test-Path (Join-Path $Root 'CLAUDE.md') } "项目根缺失 CLAUDE.md" "CLAUDE.md 在根目录" "$Root\CLAUDE.md"

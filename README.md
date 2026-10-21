@@ -337,6 +337,11 @@ Seep\ (251 MB)
 > **换电脑时不需要你手动跑脚本**：让 Agent 说一句「这台还没配」，它会先 `python Tool/scripts/env-check.py` 自检，
 > 未就绪则自己执行 `setup/install.ps1` 并校验（流程见 `Tool/docs/BOOTSTRAP.md`）。
 
+> **手工复制版**：仓库根目录 `逆向开工提示词.md`（完整）/ `逆向开工提示词-短版.md`（一句话），直接整段复制给 Agent 即可。
+>
+> **斜杠命令版**：装好后直接输 `/reverse <目标路径>`（或 `/reverse-deliverable`）——
+> 这是任务卡，不进系统提示词，只在调用时展开；详见 `Tool/docs/EXTEND.md` §4bis。
+
 ### 1. 运行依赖
 - **操作系统**：Windows 10 / 11 x64（推荐），兼容 Linux / macOS
 - **核心运行时**：Python 3.11+、Node.js 18+、Git

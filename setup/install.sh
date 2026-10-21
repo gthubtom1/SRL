@@ -126,6 +126,13 @@ fi
 # 注意：文件名是 SEEP.md（pi 内核会把 <agent-dir>/SYSTEM.md 当成替换默认提示词，导致重复注入）
 [ -f "$TOOL_DIR/prompts/SEEP.md" ] && cp "$TOOL_DIR/prompts/SEEP.md" "$AGENT_DIR/"
 [ -f "$TOOL_DIR/prompts/AGENTS.md" ] && cp "$TOOL_DIR/prompts/AGENTS.md" "$AGENT_DIR/"
+# 任务卡（prompt templates）：Tool/prompts/tasks/*.md → ~/.pi/agent/prompts/<name>.md
+if [ -d "$TOOL_DIR/prompts/tasks" ]; then
+    mkdir -p "$AGENT_DIR/prompts"
+    cp "$TOOL_DIR/prompts/tasks/"*.md "$AGENT_DIR/prompts/" 2>/dev/null || true
+    echo "  [√] 任务卡已同步 (/reverse, /reverse-deliverable)"
+fi
+
 # 迁移：旧版把规则写成 ~/.pi/agent/SYSTEM.md，会被 pi 内核当"替换默认提示词"，必须退役
 if [ -f "$AGENT_DIR/SYSTEM.md" ] && grep -q "Seep Reverse Lab" "$AGENT_DIR/SYSTEM.md" 2>/dev/null; then
     mkdir -p "$AGENT_DIR/backup-retired-prompts"
