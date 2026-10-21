@@ -77,16 +77,16 @@ def check_case(case_dir, root, out):
     if miss:
         fails.append("%s: 缺字段 %s" % (name, ",".join(miss)))
     kind = case.get("evidence_kind")
-    if kind not in ("fixture", "real"):
+    if kind not in ("fixture", "real", "self-built", "historical"):
         fails.append("%s: evidence_kind=%r" % (name, kind))
     tt = str(case.get("target_type") or "")
     is_fix = any(w in tt for w in FIXTURE_WORDS)
     if kind == "fixture" and not is_fix:
         fails.append("%s: fixture 但 target_type 未标夹具" % name)
-    if kind == "real" and is_fix:
+    if kind in ("real", "self-built") and is_fix:
         fails.append("%s: real 却标成夹具" % name)
     lessons = "\n".join(case.get("lessons") or [])
-    if kind == "real":
+    if kind in ("real", "self-built"):
         rp = case.get("repro") or {}
         recorded = ("rc=" in lessons) or ("python " in lessons) or ("命令" in lessons)
         if not recorded and rp.get("status") != "not-recorded":
@@ -158,7 +158,7 @@ def run(root, only=None):
             cj = json.load(open(os.path.join(c, "case.json"), encoding="utf-8"))
         except Exception:  # noqa: BLE001
             continue
-        if cj.get("evidence_kind") == "real":
+        if cj.get("evidence_kind") in ("real", "self-built"):
             reals += 1
             txt = "\n".join(cj.get("lessons") or [])
             if "rc=" in txt or "python " in txt or "命令" in txt:

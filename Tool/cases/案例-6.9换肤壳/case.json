@@ -46,7 +46,7 @@
     "Tool/cases/案例-6.9换肤壳/README.md"
   ],
   "updated": "2026-10-21",
-  "evidence_kind": "real",
+  "evidence_kind": "historical",
   "repro": {
     "status": "not-recorded",
     "reason": "历史归档：现场命令未逐字留存，仅有产物哈希与结论；复现入口见 artifacts/ 与 lessons"

@@ -106,12 +106,12 @@ def check_case(case_dir, domain="forensics-mobile"):
     ok(case.get("outcome") != "planned", "outcome=planned 不许入库")
 
     kind = case.get("evidence_kind")
-    ok(kind in ("fixture", "real"), "evidence_kind=%r 非 fixture/real" % kind)
+    ok(kind in ("fixture", "real", "self-built", "historical"), "evidence_kind=%r 非 fixture/real" % kind)
     target = str(case.get("target_type") or "")
     is_fixture_word = any(w in target for w in FIXTURE_WORDS)
     if kind == "fixture":
         ok(is_fixture_word, "fixture 的 target_type 必须含 夹具/教学/fixture/示例")
-    elif kind == "real":
+    elif kind in ("real", "self-built"):
         ok(not is_fixture_word, "real 的 target_type 不得含夹具/教学字样")
 
     acquisition = case.get("acquisition") or {}

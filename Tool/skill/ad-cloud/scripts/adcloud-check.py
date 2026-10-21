@@ -1053,7 +1053,7 @@ def _base_result():
     return {
         "tool": "adcloud-check",
         "version": VERSION,
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "generated_at": (os.environ.get("SEEP_TIMESTAMP") or "1970-01-01T00:00:00Z"),
         "ok": True,
         "mode": "offline_local_files",
         "kubeconfig": None,

@@ -2,7 +2,7 @@
   "id": "pwn-crypto05",
   "domain": "pwn-crypto",
   "target_type": "自建靶：现场编译的 PE32+ 格式化串样本（真实产物）",
-  "evidence_kind": "real",
+  "evidence_kind": "self-built",
   "protection": [
     "NX",
     "No PIE (-no-pie)",

@@ -1,0 +1,815 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""driver-triage.py — 驱动 / IOCTL 静态分诊器（只读、离线、不加载驱动、不执行样本）。
+
+它只回答三件事：
+  1) 结构：DOS/NT 头、节表、数据目录、导入表（PE32 / PE32+ 都支持）；
+  2) IOCTL：在 .text 里找「立即数 → 控制码」的常见编码（B8-BF / BA / 3D /
+     81 F8-FF / C7 ...），解出 DeviceType / Access / Function / Method，
+     只保留设备类型合理的候选并去重；
+  3) 线索：Authenticode 目录、节属性异常（.text 是否可写 / W+X）、
+     内核加载与建设备相关导入是否存在，外加每个 IOCTL 的风险分与理由。
+
+边界（必须说清楚，不宣称结论）：
+  · testsigning / 签名是否有效 / 能否真正加载 —— 静态文件判不了，一律 unknown；
+  · 立即数扫描是启发式：运行时计算/加密/寄存器传入的控制码会漏；
+  · 只输出「线索」，不宣称「这是驱动」或「这个驱动安全/危险」。
+
+用法：
+    python driver-triage.py --file x.sys            # JSON（默认）
+    python driver-triage.py --file x.sys --top 5    # 只看前 5 个候选
+    python driver-triage.py --self-test             # 离线自检（内置构造 PE）
+
+退出码：0 成功（无可疑候选也算成功）；2 输入/解析失败（结构化 JSON）。
+路径：默认根目录由 __file__ 推导，可用 --root 覆盖；输出不写机器绝对路径。
+"""
+from __future__ import annotations
+
+import argparse
+import contextlib
+import hashlib
+import io
+import json
+import os
+import shutil
+import struct
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+# Tool/skill/softseep/scripts -> Tool/skill/softseep -> Tool/skill -> Tool -> 仓库根
+DEFAULT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(HERE))))
+
+TOOL = "driver-triage"
+MAX_SECTIONS = 96
+MAX_IMPORT_DESCRIPTORS = 512
+MAX_THUNKS = 4096
+MAX_OFFSETS = 32
+
+
+# ------------------------------------------------------------------ 基础工具
+def emit_fail(blocked_at: str, reason: str) -> int:
+    print(json.dumps({"ok": False, "blocked_at": blocked_at, "reason": reason},
+                     ensure_ascii=False))
+    return 2
+
+
+class PEError(Exception):
+    """解析失败；blocked_at 用来区分是输入问题还是 PE 结构问题。"""
+
+    def __init__(self, blocked_at: str, reason: str):
+        super().__init__(reason)
+        self.blocked_at = blocked_at
+        self.reason = reason
+
+
+def u16(b: bytes, o: int) -> int:
+    return struct.unpack_from("<H", b, o)[0]
+
+
+def u32(b: bytes, o: int) -> int:
+    return struct.unpack_from("<I", b, o)[0]
+
+
+def u64(b: bytes, o: int) -> int:
+    return struct.unpack_from("<Q", b, o)[0]
+
+
+def read_cstr(b: bytes, o: int, limit: int = 256) -> str:
+    if o is None or o < 0 or o >= len(b):
+        return ""
+    end = b.find(b"\0", o, min(len(b), o + limit))
+    if end < 0:
+        end = min(len(b), o + limit)
+    return b[o:end].decode("latin-1", "replace")
+
+
+MACHINES = {
+    0x014C: "i386", 0x8664: "amd64", 0xAA64: "arm64", 0x01C0: "arm",
+    0x01C2: "thumb", 0x01C4: "armnt", 0x0200: "ia64", 0x0EBC: "ebc",
+    0x5032: "riscv32", 0x5064: "riscv64",
+}
+
+SUBSYSTEMS = {0: "unknown", 1: "native", 2: "windows_gui", 3: "windows_cui",
+              9: "windows_ce", 10: "efi_application", 13: "efi_boot_service"}
+
+DIRECTORY_NAMES = [
+    "export", "import", "resource", "exception", "certificate", "relocation",
+    "debug", "architecture", "global_ptr", "tls", "load_config", "bound_import",
+    "iat", "delay_import", "clr_runtime", "reserved",
+]
+
+SEC_FLAGS = [
+    (0x00000020, "CNT_CODE"),
+    (0x00000040, "CNT_INITIALIZED_DATA"),
+    (0x00000080, "CNT_UNINITIALIZED_DATA"),
+    (0x02000000, "DISCARDABLE"),
+    (0x20000000, "MEM_EXECUTE"),
+    (0x40000000, "MEM_READ"),
+    (0x80000000, "MEM_WRITE"),
+]
+
+
+def section_flags(chars: int) -> list:
+    return [name for bit, name in SEC_FLAGS if chars & bit]
+
+
+# --------------------------------------------------------------- PE 结构解析
+def parse_pe(data: bytes) -> dict:
+    """解析 DOS/NT 头、节表、数据目录。只做只读校验，不跟随任何加载行为。"""
+    size = len(data)
+    if size < 0x40:
+        raise PEError("parse", "文件小于 64 字节，不是 PE")
+    if data[:2] != b"MZ":
+        raise PEError("parse", "缺少 MZ 头（非 PE 文件）")
+    e_lfanew = u32(data, 0x3C)
+    if e_lfanew < 0x40 or e_lfanew + 0x18 > size:
+        raise PEError("parse", "e_lfanew=0x%X 越界" % e_lfanew)
+    if data[e_lfanew:e_lfanew + 4] != b"PE\0\0":
+        raise PEError("parse", "缺少 PE\\0\\0 签名")
+
+    coff = e_lfanew + 4
+    machine = u16(data, coff)
+    nsec = u16(data, coff + 2)
+    timestamp = u32(data, coff + 4)
+    opt_size = u16(data, coff + 16)
+    characteristics = u16(data, coff + 18)
+    opt = coff + 20
+
+    if opt + 2 > size:
+        raise PEError("parse", "OptionalHeader 缺失")
+    magic = u16(data, opt)
+    if magic == 0x10B:
+        plus = False
+    elif magic == 0x20B:
+        plus = True
+    else:
+        raise PEError("parse", "未知 OptionalHeader Magic 0x%04X（不是 PE32/PE32+）" % magic)
+    if opt_size < 0x70 or opt + opt_size > size:
+        raise PEError("parse", "OptionalHeader 声明 0x%X 字节，超出文件" % opt_size)
+    if nsec <= 0:
+        raise PEError("parse", "节表为空")
+    if nsec > MAX_SECTIONS:
+        raise PEError("parse", "节数量异常（%d > %d）" % (nsec, MAX_SECTIONS))
+
+    entry_rva = u32(data, opt + 16)
+    image_base = u64(data, opt + 24) if plus else u32(data, opt + 28)
+    size_image = u32(data, opt + 56)
+    size_headers = u32(data, opt + 60)
+    subsystem = u16(data, opt + 68)
+
+    nrva_off = opt + (108 if plus else 92)
+    dirs_off = opt + (112 if plus else 96)
+    nrva = u32(data, nrva_off) if nrva_off + 4 <= opt + opt_size else 0
+    directories = []
+    for i in range(min(nrva, 16)):
+        o = dirs_off + i * 8
+        if o + 8 > opt + opt_size:
+            break
+        directories.append((u32(data, o), u32(data, o + 4)))
+
+    sec_off = opt + opt_size
+    if sec_off + nsec * 40 > size:
+        raise PEError("parse", "节表越界")
+    sections = []
+    for i in range(nsec):
+        o = sec_off + i * 40
+        raw_name = data[o:o + 8].split(b"\0")[0]
+        name = raw_name.decode("latin-1", "replace").rstrip()
+        vsize = u32(data, o + 8)
+        va = u32(data, o + 12)
+        raw_size = u32(data, o + 16)
+        raw_ptr = u32(data, o + 20)
+        chars = u32(data, o + 36)
+        sections.append({
+            "name": name, "virtual_size": vsize, "virtual_address": va,
+            "raw_size": raw_size, "raw_pointer": raw_ptr, "characteristics": chars,
+            "flags": section_flags(chars),
+        })
+
+    return {
+        "format": "PE32+" if plus else "PE32",
+        "is_pe32plus": plus,
+        "machine": machine,
+        "machine_name": MACHINES.get(machine, "unknown"),
+        "timestamp": timestamp,
+        "characteristics": characteristics,
+        "is_dll": bool(characteristics & 0x2000),
+        "entry_point_rva": entry_rva,
+        "image_base": image_base,
+        "size_image": size_image,
+        "size_headers": size_headers,
+        "subsystem": subsystem,
+        "subsystem_name": SUBSYSTEMS.get(subsystem, "unknown"),
+        "file_size": size,
+        "directories": directories,
+        "sections": sections,
+    }
+
+
+def find_section(pe: dict, name: str):
+    low = name.lower()
+    for s in pe["sections"]:
+        if s["name"].lower() == low:
+            return s
+    return None
+
+
+def rva_to_off(pe: dict, rva: int):
+    """RVA -> 文件偏移；落在头部按 1:1 映射，否则查节表并做边界检查。"""
+    if rva < pe["size_headers"]:
+        return rva if rva < pe["file_size"] else None
+    for s in pe["sections"]:
+        span = max(s["virtual_size"], s["raw_size"])
+        if s["virtual_address"] <= rva < s["virtual_address"] + span:
+            delta = rva - s["virtual_address"]
+            if delta >= s["raw_size"]:
+                return None
+            off = s["raw_pointer"] + delta
+            return off if off < pe["file_size"] else None
+    return None
+
+
+def parse_imports(pe: dict, data: bytes) -> list:
+    """解析导入表（PE32 4 字节 thunk / PE32+ 8 字节 thunk），带循环上限。"""
+    imports = []
+    dirs = pe["directories"]
+    if len(dirs) <= 1:
+        return imports
+    imp_rva, imp_size = dirs[1]
+    if not imp_rva or not imp_size:
+        return imports
+    base = rva_to_off(pe, imp_rva)
+    if base is None:
+        return imports
+    step = 8 if pe["is_pe32plus"] else 4
+    for idx in range(MAX_IMPORT_DESCRIPTORS):
+        o = base + idx * 20
+        if o + 20 > len(data):
+            break
+        oft, _ts, _fwd, name_rva, ft = struct.unpack_from("<IIIII", data, o)
+        if not (oft or name_rva or ft):
+            break
+        name_off = rva_to_off(pe, name_rva) if name_rva else None
+        dll = read_cstr(data, name_off) if name_off is not None else ""
+        thunk_rva = oft or ft
+        thunk_off = rva_to_off(pe, thunk_rva) if thunk_rva else None
+        funcs = []
+        if thunk_off is not None:
+            for j in range(MAX_THUNKS):
+                p = thunk_off + j * step
+                if p + step > len(data):
+                    break
+                val = u64(data, p) if pe["is_pe32plus"] else u32(data, p)
+                if val == 0:
+                    break
+                ordinal_flag = 1 << (63 if pe["is_pe32plus"] else 31)
+                if val & ordinal_flag:
+                    funcs.append("ordinal:%d" % (val & 0xFFFF))
+                    continue
+                hint_off = rva_to_off(pe, val & 0x7FFFFFFF)
+                funcs.append(read_cstr(data, hint_off + 2) if hint_off is not None else "")
+        imports.append({"dll": dll or "?", "functions": funcs})
+    return imports
+
+
+# ------------------------------------------------------------- IOCTL 立即数
+IOCTL_DEVICE_COMMON = {0x22, 0x2A, 0x2D, 0x31}
+
+ACCESS_NAMES = {
+    0: "FILE_ANY_ACCESS", 1: "FILE_READ_ACCESS",
+    2: "FILE_WRITE_ACCESS", 3: "FILE_READ_WRITE_ACCESS",
+}
+METHOD_NAMES = {
+    0: "METHOD_BUFFERED", 1: "METHOD_IN_DIRECT",
+    2: "METHOD_OUT_DIRECT", 3: "METHOD_NEITHER",
+}
+DEVICE_NAMES = {
+    0x22: "FILE_DEVICE_UNKNOWN", 0x2A: "FILE_DEVICE_KS",
+    0x2D: "FILE_DEVICE_KSEC", 0x31: "FILE_DEVICE_MOUNTMGR",
+}
+
+
+def c7_imm_offset(code: bytes, i: int):
+    """C7 /0 的 imm32 位置：算清 modrm + SIB + disp，避免把 disp 当立即数。"""
+    n = len(code)
+    if i + 1 >= n:
+        return None
+    modrm = code[i + 1]
+    mod = modrm >> 6
+    rm = modrm & 7
+    off = i + 2
+    if mod == 3:
+        return off
+    if rm == 4:
+        if off >= n:
+            return None
+        base = code[off] & 7
+        off += 1
+        if mod == 0:
+            disp = 4 if base == 5 else 0
+        else:
+            disp = 1 if mod == 1 else 4
+    else:
+        if mod == 0:
+            disp = 4 if rm == 5 else 0
+        else:
+            disp = 1 if mod == 1 else 4
+    return off + disp
+
+
+def scan_immediates(code: bytes) -> list:
+    """扫描 .text 里可能承载 IOCTL 的 32 位立即数，返回 (const, offset, pattern)。"""
+    hits = []
+    n = len(code)
+    i = 0
+    while i < n:
+        b = code[i]
+        if 0xB8 <= b <= 0xBF and i + 5 <= n:          # mov r32, imm32（含 BA=mov edx）
+            hits.append((u32(code, i + 1), i, "mov_edx_imm32" if b == 0xBA else "mov_r32_imm32"))
+            i += 5
+            continue
+        if b == 0x3D and i + 5 <= n:                  # cmp eax, imm32
+            hits.append((u32(code, i + 1), i, "cmp_eax_imm32"))
+            i += 5
+            continue
+        if b == 0x81 and i + 6 <= n and (code[i + 1] & 0xF8) == 0xF8:
+            hits.append((u32(code, i + 2), i, "grp1_rm32_imm32"))   # 81 F8..FF imm32
+            i += 6
+            continue
+        if b == 0xC7 and i + 2 <= n and ((code[i + 1] >> 3) & 7) == 0:
+            imm = c7_imm_offset(code, i)              # C7 /0 imm32
+            if imm is not None and imm + 4 <= n:
+                hits.append((u32(code, imm), i, "mov_rm32_imm32"))
+                i = imm + 4
+                continue
+        i += 1
+    return hits
+
+
+def decode_ioctl(c: int) -> dict:
+    return {
+        "device_type": (c >> 16) & 0xFFFF,
+        "access": (c >> 14) & 3,
+        "function": (c >> 2) & 0xFFF,
+        "method": c & 3,
+    }
+
+
+def device_type_ok(dt: int) -> bool:
+    return 0x8000 <= dt <= 0xFFFF or dt in IOCTL_DEVICE_COMMON
+
+
+def score_ioctl(dec: dict) -> tuple:
+    score = 0
+    reasons = []
+    if dec["method"] == 3:
+        score += 30
+        reasons.append("Method=METHOD_NEITHER(+30)：指针直接来自用户态，缺 ProbeForRead/Write 即任意读写风险")
+    elif dec["method"] == 2:
+        score += 10
+        reasons.append("Method=METHOD_OUT_DIRECT(+10)：用户态缓冲直通 MDL，长度/权限校验需关注")
+    if dec["access"] == 0:
+        score += 20
+        reasons.append("Access=FILE_ANY_ACCESS(+20)：不校验句柄读写权限，低权限进程也可下发")
+    if 0x800 <= dec["function"] <= 0xFFF:
+        score += 5
+        reasons.append("Function=0x%03X 落在自定义区(0x800-0xFFF)(+5)：厂商私有语义，审计无公开契约"
+                       % dec["function"])
+    return score, reasons
+
+
+def build_candidates(hits: list, text: dict) -> list:
+    """按常量去重；只保留设备类型合理的候选。"""
+    seen = {}
+    for const, off, pattern in hits:
+        dec = decode_ioctl(const)
+        if not device_type_ok(dec["device_type"]):
+            continue
+        e = seen.get(const)
+        if e is None:
+            score, reasons = score_ioctl(dec)
+            dt = dec["device_type"]
+            e = {
+                "ioctl": "0x%08X" % const,
+                "device_type": "0x%04X" % dt,
+                "device_type_name": DEVICE_NAMES.get(dt, "custom_or_vendor" if dt >= 0x8000 else "unknown"),
+                "access": dec["access"],
+                "access_name": ACCESS_NAMES[dec["access"]],
+                "function": "0x%03X" % dec["function"],
+                "method": dec["method"],
+                "method_name": METHOD_NAMES[dec["method"]],
+                "score": score,
+                "reasons": reasons,
+                "occurrences": 0,
+                "text_offsets": [],
+                "rvas": [],
+                "patterns": [],
+            }
+            seen[const] = e
+        e["occurrences"] += 1
+        if len(e["text_offsets"]) < MAX_OFFSETS:
+            e["text_offsets"].append("0x%X" % off)
+            e["rvas"].append("0x%X" % (text["virtual_address"] + off))
+        if pattern not in e["patterns"]:
+            e["patterns"].append(pattern)
+    out = list(seen.values())
+    for e in out:
+        e["patterns"].sort()
+    out.sort(key=lambda x: (-x["score"], x["ioctl"]))
+    return out
+
+
+# ------------------------------------------------------------- 加载性线索
+KERNEL_LOADER_IMPORTS = {"zwloaddriver", "ntloaddriver"}
+DEVICE_CREATE_IMPORTS = {"iocreatedevice", "iocreatedeviceex", "iocreatedevicesecure",
+                         "iocreatesymboliclink"}
+
+
+def loadability_clues(pe: dict, data: bytes, imports: list) -> dict:
+    dirs = pe["directories"]
+    auth = {"present": False, "index": 4, "file_offset": "0x0", "size": 0, "within_file": None}
+    if len(dirs) > 4:
+        va, sz = dirs[4]
+        if va or sz:
+            auth.update({
+                "present": True,
+                "file_offset": "0x%X" % va,
+                "size": sz,
+                "within_file": (va + sz) <= len(data),
+            })
+
+    funcs = [f for imp in imports for f in imp["functions"]]
+    low = {f.lower(): f for f in funcs if f}
+    loader_hits = sorted({low[k] for k in KERNEL_LOADER_IMPORTS if k in low})
+    device_hits = sorted({low[k] for k in DEVICE_CREATE_IMPORTS if k in low})
+
+    sections = pe["sections"]
+    text = find_section(pe, ".text")
+    text_writable = bool(text and "MEM_WRITE" in text["flags"])
+    writable = [s["name"] for s in sections if "MEM_WRITE" in s["flags"]]
+    wx = [s["name"] for s in sections if "MEM_WRITE" in s["flags"] and "MEM_EXECUTE" in s["flags"]]
+    anomalies = []
+    if text_writable:
+        anomalies.append(".text 可写（正常应为只读+可执行）")
+    if wx:
+        anomalies.append("存在 W+X 节：" + ",".join(wx))
+    for s in sections:
+        if s["raw_size"] == 0 and s["virtual_size"] > 0:
+            anomalies.append("节 %s 仅内存（raw_size=0），可能是运行时解压/自展开" % s["name"])
+
+    return {
+        "static_only": True,
+        "conclusion": "undetermined",
+        "authenticode": auth,
+        "authenticode_note": "目录存在 ≠ 签名有效 ≠ 可加载；验签需证书链/时间戳，本脚本不联网不验签",
+        "sections": {
+            "count": len(sections),
+            "text_writable": text_writable,
+            "writable": writable,
+            "wx": wx,
+            "anomalies": anomalies,
+        },
+        "imports": {
+            "dll_count": len(imports),
+            "dlls": [imp["dll"] for imp in imports][:16],
+            "function_count": len(funcs),
+            "has_kernel_loader": bool(loader_hits),
+            "has_device_creation": bool(device_hits),
+            "matched": loader_hits + device_hits,
+        },
+        "testsigning": {
+            "status": "unknown",
+            "reason": "testsigning 由 bcdedit/注册表运行时状态决定，PE 文件里没有该信息，静态不可判定",
+        },
+        "driver_load_verdict": "unknown",
+        "driver_load_reason": "本脚本不加载驱动、不调用 NtLoadDriver、不联网，只给静态线索",
+    }
+
+
+# ----------------------------------------------------------------- 主分析
+def analyze(data: bytes, display: str, top: int) -> dict:
+    pe = parse_pe(data)
+    text = find_section(pe, ".text")
+    if text is None:
+        raise PEError("pe", "没有 .text 节：无法做立即数扫描")
+    start = text["raw_pointer"]
+    end = start + text["raw_size"]
+    if text["raw_size"] == 0 or end > len(data):
+        raise PEError("pe", ".text 原始数据为空或越界（raw_pointer=0x%X raw_size=0x%X）"
+                      % (text["raw_pointer"], text["raw_size"]))
+
+    hits = scan_immediates(data[start:end])
+    candidates = build_candidates(hits, text)
+    imports = parse_imports(pe, data)
+    clues = loadability_clues(pe, data, imports)
+
+    shown = candidates[:max(1, top)]
+    dirs = [{"index": i, "name": DIRECTORY_NAMES[i] if i < len(DIRECTORY_NAMES) else "?",
+             "rva": "0x%X" % va, "size": sz}
+            for i, (va, sz) in enumerate(pe["directories"]) if va or sz]
+
+    notes = [
+        "只读静态分析：未加载驱动、未执行样本、未联网。",
+        "IOCTL 来自 .text 立即数启发式扫描，运行时计算/加密常量会漏。",
+        "DeviceType 落在 0x8000-0xFFFF 的候选也可能是 NTSTATUS/高位指针等非 IOCTL 常量，"
+        "需回看调用点（本例用户态样本的 NTSTATUS 常量就会进候选）。",
+        "testsigning=unknown；是否真能加载需在隔离环境实测，本工具不下结论。",
+    ]
+
+    return {
+        "ok": True,
+        "tool": TOOL,
+        "mode": "static-readonly",
+        "file": display,
+        "pe": {
+            "format": pe["format"],
+            "is_pe32plus": pe["is_pe32plus"],
+            "machine": "0x%X" % pe["machine"],
+            "machine_name": pe["machine_name"],
+            "timestamp": pe["timestamp"],
+            "is_dll": pe["is_dll"],
+            "image_base": "0x%X" % pe["image_base"],
+            "entry_point_rva": "0x%X" % pe["entry_point_rva"],
+            "size_image": pe["size_image"],
+            "subsystem": {"value": pe["subsystem"], "name": pe["subsystem_name"]},
+            "num_sections": len(pe["sections"]),
+            "sections": [{
+                "name": s["name"],
+                "rva": "0x%X" % s["virtual_address"],
+                "virtual_size": s["virtual_size"],
+                "raw_size": s["raw_size"],
+                "flags": s["flags"],
+            } for s in pe["sections"]],
+            "data_directories": dirs,
+        },
+        "ioctl_total": len(candidates),
+        "ioctl_shown": len(shown),
+        "ioctl_candidates": shown,
+        "loadability_clues": clues,
+        "notes": notes,
+    }
+
+
+# ----------------------------------------------------------------- 自检
+def _build_minimal_pe(plus: bool = False, text_name: bytes = b".text",
+                      with_imports: bool = True, authenticode: bool = True,
+                      ioctl: int = 0x00222003) -> bytes:
+    """构造一个最小可解析 PE（离线，纯字节），含已知 IOCTL 常量与导入表。"""
+    file_align, sec_align = 0x200, 0x1000
+    file_size = 0x700
+    text_raw, idata_raw, cert_off = 0x200, 0x400, 0x600
+    opt_size = 0xF0 if plus else 0xE0
+    buf = bytearray(file_size)
+
+    buf[0:2] = b"MZ"
+    struct.pack_into("<I", buf, 0x3C, 0x40)
+    buf[0x40:0x44] = b"PE\0\0"
+
+    coff = 0x44
+    struct.pack_into("<H", buf, coff, 0x8664 if plus else 0x14C)
+    struct.pack_into("<H", buf, coff + 2, 2)          # NumberOfSections
+    struct.pack_into("<I", buf, coff + 4, 0x5F5E0000)  # TimeDateStamp（固定，保证可复现）
+    struct.pack_into("<H", buf, coff + 16, opt_size)
+    struct.pack_into("<H", buf, coff + 18, 0x0022)    # EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE
+
+    opt = coff + 20
+    struct.pack_into("<H", buf, opt, 0x20B if plus else 0x10B)
+    struct.pack_into("<I", buf, opt + 4, 0x200)       # SizeOfCode
+    struct.pack_into("<I", buf, opt + 8, 0x200)       # SizeOfInitializedData
+    struct.pack_into("<I", buf, opt + 16, 0x1000)     # AddressOfEntryPoint
+    struct.pack_into("<I", buf, opt + 20, 0x1000)     # BaseOfCode
+    if plus:
+        struct.pack_into("<Q", buf, opt + 24, 0x140000000)
+    else:
+        struct.pack_into("<I", buf, opt + 24, 0x1000)  # BaseOfData
+        struct.pack_into("<I", buf, opt + 28, 0x400000)
+    struct.pack_into("<I", buf, opt + 32, sec_align)
+    struct.pack_into("<I", buf, opt + 36, file_align)
+    for off, val in ((40, 6), (44, 0), (48, 6)):      # OS/Image/Subsystem 版本
+        struct.pack_into("<H", buf, opt + off, val)
+        struct.pack_into("<H", buf, opt + off + 2, 0)
+    struct.pack_into("<I", buf, opt + 56, 0x3000)     # SizeOfImage
+    struct.pack_into("<I", buf, opt + 60, 0x200)      # SizeOfHeaders
+    struct.pack_into("<H", buf, opt + 68, 1)          # Subsystem = native
+    nrva_off = opt + (108 if plus else 92)
+    dirs_off = opt + (112 if plus else 96)
+    struct.pack_into("<I", buf, nrva_off, 16)
+    if with_imports:
+        struct.pack_into("<I", buf, dirs_off + 1 * 8, 0x2000)
+        struct.pack_into("<I", buf, dirs_off + 1 * 8 + 4, 40)
+    if authenticode:
+        struct.pack_into("<I", buf, dirs_off + 4 * 8, cert_off)
+        struct.pack_into("<I", buf, dirs_off + 4 * 8 + 4, 0x10)
+
+    def put_section(idx: int, name: bytes, va: int, vsize: int,
+                    raw_size: int, raw_ptr: int, chars: int) -> None:
+        o = opt + opt_size + idx * 40
+        buf[o:o + len(name)] = name
+        struct.pack_into("<IIII", buf, o + 8, vsize, va, raw_size, raw_ptr)
+        struct.pack_into("<I", buf, o + 36, chars)
+
+    put_section(0, text_name, 0x1000, 0x200, 0x200, text_raw, 0x60000020)
+    put_section(1, b".idata", 0x2000, 0x200, 0x200, idata_raw, 0xC0000040)
+
+    imm = struct.pack("<I", ioctl)
+    code = b"\xB8" + imm + b"\xBA" + imm + b"\x3D" + imm
+    code += b"\x81\xF8" + imm + b"\xC7\xC0" + imm
+    code += b"\xBA" + struct.pack("<I", 0x11223344)   # 非设备类型，应被过滤
+    code += b"\xC7\x45\xFC" + imm                      # C7 /0 内存形式
+    buf[text_raw:text_raw + len(code)] = code
+
+    if with_imports:
+        # 导入描述符位于 RVA 0x2000；INT / DLL 名 / Hint+Name 全部在 .idata 内。
+        struct.pack_into("<IIIII", buf, idata_raw, 0x2028, 0, 0, 0x2048, 0x2028)
+        buf[idata_raw + 0x48:idata_raw + 0x48 + 13] = b"ntoskrnl.exe\0"
+        thunk_off = idata_raw + 0x28
+        step = 8 if plus else 4
+        for k, rva in enumerate((0x2060, 0x2080)):
+            if plus:
+                struct.pack_into("<Q", buf, thunk_off + k * step, rva)
+            else:
+                struct.pack_into("<I", buf, thunk_off + k * step, rva)
+
+        def put_hint_name(rva: int, name: bytes) -> None:
+            o = idata_raw + (rva - 0x2000)
+            struct.pack_into("<H", buf, o, 0)
+            buf[o + 2:o + 2 + len(name)] = name
+
+        put_hint_name(0x2060, b"ZwLoadDriver\0")
+        put_hint_name(0x2080, b"IoCreateDevice\0")
+
+    return bytes(buf)
+
+
+def _run_capture(argv: list) -> tuple:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = main(argv)
+    text = buf.getvalue().strip()
+    payload = {}
+    if text:
+        try:
+            payload = json.loads(text)
+        except Exception:
+            try:
+                payload = json.loads(text.splitlines()[-1])
+            except Exception:
+                payload = {}
+    return rc, payload
+
+
+def self_test() -> int:
+    checks = []
+
+    def ck(name: str, cond, detail: str = "") -> bool:
+        ok = bool(cond)
+        checks.append((name, ok, detail))
+        print(json.dumps({"check": name, "ok": ok, "detail": detail}, ensure_ascii=False))
+        return ok
+
+    key = "0x%08X" % 0x00222003
+    pe32 = _build_minimal_pe()
+    res = analyze(pe32, "<builtin-pe32>", top=50)
+    cands = {c["ioctl"]: c for c in res["ioctl_candidates"]}
+    cand = cands.get(key, {})
+
+    ck("pe32-format", res["pe"]["format"] == "PE32" and res["pe"]["is_pe32plus"] is False,
+       res["pe"]["format"])
+    ck("ioctl-found", key in cands, ",".join(sorted(cands)))
+    ck("ioctl-method-neither", cand.get("method") == 3,
+       "method=%s" % cand.get("method"))
+    ck("ioctl-score-positive", cand.get("score", 0) > 0, "score=%s" % cand.get("score"))
+    ck("ioctl-access-any", cand.get("access") == 0, "access=%s" % cand.get("access"))
+    ck("ioctl-multi-pattern", cand.get("occurrences", 0) >= 4,
+       "occurrences=%s patterns=%s" % (cand.get("occurrences"), cand.get("patterns")))
+    ck("ioctl-dedup", len([c for c in res["ioctl_candidates"] if c["ioctl"] == key]) == 1)
+    ck("ioctl-filter-nondevice", "0x11223344" not in cands)
+    imp = res["loadability_clues"]["imports"]
+    ck("imports-kernel-loader", imp["has_kernel_loader"] is True, ",".join(imp["matched"]))
+    ck("imports-device-create", imp["has_device_creation"] is True, ",".join(imp["matched"]))
+    ck("authenticode-dir-present", res["loadability_clues"]["authenticode"]["present"] is True)
+    ck("testsigning-unknown", res["loadability_clues"]["testsigning"]["status"] == "unknown")
+
+    r64 = analyze(_build_minimal_pe(plus=True), "<builtin-pe64>", top=50)
+    ck("pe32plus-format", r64["pe"]["format"] == "PE32+" and r64["pe"]["is_pe32plus"] is True,
+       r64["pe"]["format"])
+    ck("pe32plus-ioctl", any(c["ioctl"] == key for c in r64["ioctl_candidates"]))
+    ck("pe32plus-imports",
+       r64["loadability_clues"]["imports"]["has_kernel_loader"] is True)
+
+    tmpdir = tempfile.mkdtemp(prefix="driver-triage-selftest-")
+    try:
+        bad = os.path.join(tmpdir, "not-pe.bin")
+        with open(bad, "wb") as f:
+            f.write(b"not a pe file\n")
+        rc, payload = _run_capture(["--file", bad])
+        ck("bad-input-rc2", rc == 2 and payload.get("ok") is False and payload.get("blocked_at"),
+           "rc=%s blocked_at=%s" % (rc, payload.get("blocked_at")))
+
+        rc, payload = _run_capture(["--file", os.path.join(tmpdir, "missing.sys")])
+        ck("missing-file-rc2", rc == 2 and payload.get("ok") is False and payload.get("blocked_at") == "input",
+           "rc=%s blocked_at=%s" % (rc, payload.get("blocked_at")))
+
+        rc, payload = _run_capture([])
+        ck("no-args-rc2", rc == 2 and payload.get("ok") is False and payload.get("blocked_at") == "args",
+           "rc=%s blocked_at=%s" % (rc, payload.get("blocked_at")))
+
+        no_text = os.path.join(tmpdir, "no-text.sys")
+        with open(no_text, "wb") as f:
+            f.write(_build_minimal_pe(text_name=b".datax"))
+        rc, payload = _run_capture(["--file", no_text])
+        ck("no-text-rc2", rc == 2 and payload.get("ok") is False and payload.get("blocked_at") == "pe",
+           "rc=%s blocked_at=%s" % (rc, payload.get("blocked_at")))
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+    failed = [name for name, ok, _ in checks if not ok]
+    if failed:
+        print(json.dumps({"ok": False, "checks": len(checks), "failed": failed},
+                         ensure_ascii=False))
+        return 2
+    print(json.dumps({"ok": True, "checks": len(checks)}, ensure_ascii=False))
+    return 0
+
+
+# ------------------------------------------------------------------- CLI
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str):
+        emit_fail("args", "参数错误：%s" % message)
+        raise SystemExit(2)
+
+
+def _resolve(path: str, root: str):
+    cands = [path] if os.path.isabs(path) else [path, os.path.join(root, path)]
+    for c in cands:
+        if os.path.exists(c):
+            return c
+    return None
+
+
+def _display(path: str, root: str) -> str:
+    """输出里不留机器绝对路径：能相对化就相对化，否则只留文件名。"""
+    if not os.path.isabs(path):
+        return path.replace(os.sep, "/")
+    try:
+        rel = os.path.relpath(path, root)
+        if not rel.startswith(".."):
+            return rel.replace(os.sep, "/")
+    except Exception:
+        pass
+    return os.path.basename(path)
+
+
+def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    parser = _Parser(prog="driver-triage.py",
+                     description="驱动/IOCTL 静态分诊（只读、离线、不加载驱动）")
+    parser.add_argument("--file", help="PE 文件（.sys/.dll/.exe）")
+    parser.add_argument("--json", action="store_true", help="JSON 输出（默认即 JSON）")
+    parser.add_argument("--self-test", action="store_true", help="离线自检（内置构造 PE）")
+    parser.add_argument("--top", type=int, default=20, help="只显示风险分最高的 N 个候选（默认 20）")
+    parser.add_argument("--root", default=DEFAULT_ROOT,
+                        help="相对路径基准（默认由 __file__ 推导为仓库根）")
+    args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+    if not args.file:
+        return emit_fail("args", "缺 --file <PE 路径>（或 --self-test）")
+    if args.top < 1:
+        return emit_fail("args", "--top 必须 >= 1")
+
+    path = _resolve(args.file, args.root)
+    if path is None:
+        return emit_fail("input", "文件不存在：%s" % args.file)
+    if os.path.isdir(path):
+        return emit_fail("input", "目标是目录，不是文件：%s" % args.file)
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except OSError as e:
+        return emit_fail("input", "读取失败：%s" % e.__class__.__name__)
+    if not data:
+        return emit_fail("input", "空文件")
+
+    try:
+        result = analyze(data, _display(args.file, args.root), args.top)
+    except PEError as e:
+        return emit_fail(e.blocked_at, e.reason)
+    except Exception as e:                       # 解析器兜底：不把 traceback 甩给用户
+        return emit_fail("internal", "%s: %s" % (e.__class__.__name__, e))
+
+    result["sha256"] = hashlib.sha256(data).hexdigest()
+    result["size"] = len(data)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    sys.exit(main())

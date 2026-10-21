@@ -7,7 +7,7 @@
 ### 01 SBOM 漏洞面盘点（源：analyzing-sbom-for-supply-chain-vulnerabilities）
 - 触发词：`sbom`、CycloneDX、SPDX、组件清单、漏洞面
 - 前置：已有 commit/digest；SBOM 或锁文件可读；记录生成工具与版本
-- 步骤：1) 核对 SBOM subject 与 commit/digest 2) 列直接/传递依赖与许可证 3) 把组件集合与锁文件做差集，标出漏项
+- 步骤：1) `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom Tool/cases/supply-chain04/input/bom.json --source Tool/cases/supply-chain04/input/src --out work/reach01.json` → rc=0，期望：`"components_total": 4`、reachable 含 `left-pad`；2) `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --lock Tool/cases/supply-chain04/input/package-lock.json --source Tool/cases/supply-chain04/input/src --out work/reach01-lock.json` → rc=0，期望：`"components_total": 2`、inputs.lock=true；3) `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：组件能追到锁文件条目；`missing_from_sbom` 为空或差异逐条解释；工具/版本可复现
 - 失败判据：SBOM 对不上 commit/digest、组件数差 >20% 且无解释；只能写“清单未验证”
 - reference：Tool/skill/supply-chain-security/references/06-reachability-and-sbom-drift.md
@@ -63,7 +63,7 @@
 ### 08 CI 供应链攻击面排查（源：detecting-supply-chain-attacks-in-ci-cd）
 - 触发词：CI 投毒、`pull_request_target`、`workflow_run`、secrets、runner
 - 前置：workflow 只读导出；仓库权限/分支保护已知；不改流水线
-- 步骤：1) 列触发者与权限 2) 核对 checkout ref 与 secrets 作用域 3) 核对 action pin 与表达式插值
+- 步骤：1) `python Tool/scripts/sc-check.py --path Tool/ --max-files 1000 --out work/sc08.json` → rc=0，期望：`"files_scanned": 1000`、`"truncated": true`、`"risks_total": 7`；2) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc08-case.json` → rc=0，期望：`"files_scanned": 1`、`"risks_total": 0`；3) `python Tool/scripts/sc-check.py --self-test` → rc=0，期望：`{"ok": true, "checks": 17}`
 - 判据：不可信输入 × 写权限 × 执行面三者同时成立才写高危链
 - 失败判据：只命中关键字、未看组合；只能写“疑似”
 - reference：Tool/skill/supply-chain-security/references/cicd-and-artifacts.md
@@ -127,7 +127,7 @@
 ### 16 CI secrets 扫描与轮换（源：implementing-secrets-scanning-in-ci-cd）
 - 触发词：secret scanning、gitleaks、token 泄漏、轮换
 - 前置：仓库只读；扫描规则允许；不把明文写进报告
-- 步骤：1) 跑扫描并归一化命中 2) 验证真伪（前缀/长度/校验和/权限）3) 真实密钥走撤销与轮换
+- 步骤：1) `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --self-test` → rc=0，期望：`{"ok": true, "checks": 11}`；2) `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out work/ci16.json` → rc=0，期望：`"workflows_total": 2`、findings 含 `action-unpinned`；3) `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --help` → rc=0，期望：示例含 `--path .github/workflows`
 - 判据：真实密钥有验证与轮换记录；报告只留指纹
 - 失败判据：示例/占位符当泄漏、明文外传；降级为“未验证”
 - reference：Tool/skill/supply-chain-security/references/cicd-and-artifacts.md
@@ -159,7 +159,7 @@
 ### 20 grype 镜像扫描（源：scanning-container-images-with-grype）
 - 触发词：`grype`、镜像扫描、SBOM 输入、CVE、基础镜像
 - 前置：镜像 digest；grype 版本；授权拉取
-- 步骤：1) 对 digest 生成 SBOM 2) grype 扫 SBOM 3) 按包/版本/CVE 去重并标基础镜像来源
+- 步骤：1) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain04/input --out work/sc20.json` → rc=0，期望：`"files_scanned": 7`、`"risks_total": 0`；2) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc20-case.json` → rc=0，期望：`"files_scanned": 1`、`"ok": true`；3) `python Tool/scripts/sc-check.py --self-test` → rc=0，期望：`"checks": 17`
 - 判据：结果绑定 digest；高危项有包路径与修复版本；OS 包与语言包分开
 - 失败判据：扫 tag 不扫 digest、未去重、把 OS 包 CVE 当应用漏洞
 - reference：Tool/skill/supply-chain-security/references/02-failure-criteria.md
@@ -191,7 +191,7 @@
 ### 24 Terraform 基础设施供应链审计（源：auditing-terraform-infrastructure-for-security）
 - 触发词：Terraform、provider、module、lock file、`.terraform.lock.hcl`
 - 前置：IaC 只读；provider/module 来源已知；不 apply
-- 步骤：1) 核对 provider/module 版本与 lock 2) 查远端 module 来源与固定 ref 3) 查 state/变量中的凭据
+- 步骤：1) `python Tool/skill/supply-chain-security/scripts/sc-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 4`、`"real": 3`；2) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc24.json` → rc=0，期望：`"ok": true` 且 tool.guarantees 含 `no network`；3) `python Tool/scripts/sc-check.py --self-test` → rc=0，期望：`"mode": "builtin-fixture"`
 - 判据：provider/module 固定版本或 commit；lock 文件存在；无明文凭据
 - 失败判据：module 指向 branch/latest、lock 缺失；只写“不可复现”
 - reference：Tool/skill/supply-chain-security/references/01-criteria.md

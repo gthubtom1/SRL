@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "domain": "plugin-targets",
+  "note": "未背书字段必须在 scripts 输出或列在此处；新增字段请同步。",
+  "fields": {
+    "addin.permissions.element": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "addin.update_channel": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "apkseep": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "asar_integrity_ok": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "bypass_path": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "cli_plugin.invoker": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "decompile_ok": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "driverquery": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "iac.lock_hashes": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "inferred": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "ipc_sender_checked": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "jpserver_extensions": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "load_from_asar_only": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "openexternal_scheme": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "preload_exposed": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "sandbox": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "unverified": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "v8_version_match": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "views": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "webpref_unsafe": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化",
+    "window": "人工判读证据（浏览器/OOB/现场观察），脚本只做归一化"
+  }
+}

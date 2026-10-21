@@ -49,7 +49,7 @@ CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
                "authority", "goal_level", "outcome", "artifacts", "lessons",
                "refs", "updated")
 FIXTURE_WORDS = ("夹具", "教学", "fixture", "示例")
-EV_KINDS = ("fixture", "real")
+EV_KINDS = ("fixture", "real", "self-built", "historical")
 GOOD_OUTCOMES = ("success", "partial", "blocked", "confirmed")
 GOOD_LEVELS = ("L1", "L2", "L3", "L4")
 FSOP_KEYS = ("io_file_vtable", "exit_funcs_target", "tls_dtor_hit", "fsop_works")
@@ -304,7 +304,7 @@ def check_case(case_dir, root):
     is_fix = any(w in target_type for w in FIXTURE_WORDS)
     if kind == "fixture" and not is_fix:
         issues.append("fixture 但 target_type 未标夹具/教学")
-    if kind == "real" and is_fix:
+    if kind in ("real", "self-built") and is_fix:
         issues.append("real 却把 target_type 标成夹具")
     if case.get("outcome") == "planned":
         issues.append("outcome=planned 不许入库")
@@ -327,7 +327,7 @@ def check_case(case_dir, root):
     repro = case.get("repro") or {}
     facts["recorded"] = recorded
     facts["repro_status"] = repro.get("status")
-    if kind == "real":
+    if kind in ("real", "self-built"):
         if repro.get("status") == "not-recorded":
             if not repro.get("reason"):
                 issues.append("repro.status=not-recorded 缺 reason")

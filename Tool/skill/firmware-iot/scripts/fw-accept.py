@@ -85,11 +85,11 @@ def validate_case(case_dir, root):
     kind = case.get("evidence_kind")
     target = str(case.get("target_type") or "")
     fixture_words = [w for w in FIXTURE_WORDS if w in target]
-    if kind not in ("fixture", "real"):
+    if kind not in ("fixture", "real", "self-built", "historical"):
         errors.append("evidence_kind=%r" % kind)
     elif kind == "fixture" and not fixture_words:
         errors.append("fixture case target_type lacks a fixture marker")
-    elif kind == "real" and fixture_words:
+    elif kind in ("real", "self-built") and fixture_words:
         errors.append("real case target_type contains fixture word(s): %s" % ",".join(fixture_words))
 
     if case.get("outcome") == "planned":
@@ -146,7 +146,7 @@ def accept(root, only=None):
     if only:
         dirs = [d for d in dirs if os.path.basename(d) == only]
     results = [validate_case(d, root) for d in dirs]
-    real = sum(1 for r in results if r.get("evidence_kind") == "real")
+    real = sum(1 for r in results if r.get("evidence_kind") in ("real", "self-built"))
     errors = []
     if len(results) < 3:
         errors.append("only %d cases (need 3-5)" % len(results))

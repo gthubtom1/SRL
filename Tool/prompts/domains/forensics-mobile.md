@@ -38,7 +38,7 @@
 ### 05 Plaso 时间线重建（源：performing-timeline-reconstruction-with-plaso）
 - 触发词：plaso、log2timeline、psort、plaso 存储、时间线重建
 - 前置：镜像/目录/日志副本；时区/时钟偏差记录；输出目录可写
-- 步骤：1) `log2timeline.py` 建 plaso 2) `psort.py -z UTC` 导出 3) 按来源/主体聚合 4) 标注冲突
+- 步骤：1) `python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input Tool/cases/forensics03/input/AppReadiness.evtx --out work/tl05.json --json` → rc=0，期望：`"ok": true` 且 events[0].kind=`evtx-record`；2) `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics03/input/AppReadiness.evtx --json` → rc=0，期望：`"format": "EVTX"`、`"record_count": 59`；3) `python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json` → rc=0，期望：`"ok": true`、`"failures": []`
 - 判据：事件 UTC 可排序；来源/对象/主体/动作齐全；可复算
 - 失败判据：时区缺失/解析器不匹配/输出截断 → 回退 mactime/fs-timeline
 - reference：Tool/skill/forensics-mobile/references/disk-and-filesystem.md
@@ -54,7 +54,7 @@
 ### 07 Hayabusa EVTX 时间线（源：generating-forensic-timelines-with-hayabusa）
 - 触发词：hayabusa、evtx 时间线、sigma、事件日志
 - 前置：EVTX 副本；规则集版本记录；时区明确
-- 步骤：1) 跑 hayabusa 输出 CSV/JSON 2) 按 EventId/Provider 聚合 3) 与 fs-timeline 对齐 4) 标检测规则误报
+- 步骤：1) `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics03/input/AppReadiness.evtx --json` → rc=0，期望：`"format": "EVTX"`、`"record_count": 59`、`"first_record_utc"` 非空；2) `python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input Tool/cases/forensics03/input/AppReadiness.evtx --out work/tl07.json --json` → rc=0，期望：events 的 kind=`evtx-record`；3) `python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json` → rc=0，期望：`"ok": true`
 - 判据：事件数/首末时间可复算；规则命中可解释
 - 失败判据：日志清除/规则版本不明/只输出告警无原始记录 → 降级原始 EVTX
 - reference：Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md
@@ -142,7 +142,7 @@
 ### 18 浏览器 History 取证（Hindsight）（源：analyzing-browser-forensics-with-hindsight）
 - 触发词：浏览器取证、History、Hindsight、places.sqlite、访问时间
 - 前置：History 副本（含 WAL/SHM）；不读 cookies；授权
-- 步骤：1) 只读复制 2) 解析 urls/visits 3) 时间纪元换算 4) 与下载/书签/EVTX 交叉
+- 步骤：1) `python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input Tool/cases/forensics03/input/History.sqlite --out work/tl18.json --json` → rc=0，期望：events[0].kind=`browser-history`、action=`url-visited`；2) `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics03/input/History.sqlite --json` → rc=0，期望：`"type": "sqlite"`、`"format": "sqlite"`；3) `python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json` → rc=0，期望：`"ok": true`
 - 判据：URL+访问时间+行数可复算；不读取 cookie/Login Data
 - 失败判据：时间落在 1601/1643/1970/缺 WAL → 先修换算/补副本
 - reference：Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md
@@ -182,7 +182,7 @@
 ### 23 Frida 逆向 iOS 应用（只读）（源：reverse-engineering-ios-app-with-frida）
 - 触发词：frida、hook、iOS、函数参数、返回值
 - 前置：授权测试机；frida-server 架构匹配；基线快照
-- 步骤：1) `frida-ps -Uai` 定位 2) attach/launch 3) 记录参数/返回值/调用栈 4) 与落盘/网络对应
+- 步骤：1) `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics04/input/App.ipa --json` → rc=0，期望：`"format": "ipa"` 且 interesting_files 含 `keychain-2.db`；2) `python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics04 --json` → rc=0，期望：`"ok": true`、`"checks": 92`；3) `python Tool/skill/forensics-mobile/scripts/forensics-check.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：二进制函数→运行时值→文件/网络链路可复述
 - 失败判据：写内存/改返回值影响业务/触发保护 → 停，记录副作用
 - reference：Tool/skill/forensics-mobile/references/ios-macos-artifacts.md
@@ -190,7 +190,7 @@
 ### 24 Docker/容器取证（源：analyzing-docker-container-forensics）
 - 触发词：容器取证、docker、镜像层、容器日志、OverlayFS
 - 前置：宿主机/容器只读副本；镜像/容器 ID；授权
-- 步骤：1) 记录镜像/容器/挂载 2) 导出日志/配置/层 3) 定位进程/文件/网络 4) 与宿主时间线对齐
+- 步骤：1) `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics03/input --json` → rc=0，期望：`"type": "directory"`、`"file_count": 3`；2) `python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json` → rc=0，期望：`"ok": true`、`"failures": []`；3) `python Tool/skill/forensics-mobile/scripts/fs-timeline.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：容器 ID/镜像/挂载/日志时间可复述；文件哈希可校验
 - 失败判据：容器已删除/层被覆盖/日志驱动不落盘 → 标“不完整”
 - reference：Tool/skill/forensics-mobile/references/evidence-chain.md

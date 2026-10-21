@@ -8,7 +8,7 @@
 ### 01 tshark 首轮分诊（源：performing-network-traffic-analysis-with-tshark）
 - 触发词：`tshark`、抓包分析、conv,tcp、io,phs、首轮分诊
 - 前置：pcap 在手；知道抓包点与是否 TLS；`tshark -v` 可用（缺失则用 pcap-summary.py 降级）
-- 步骤：1) `tshark -r x.pcapng -q -z io,phs` 看协议分层 2) `-q -z conv,tcp` 列会话与方向 3) 对主线流 `-Y 'tcp.stream==N && tcp.len>0' -T fields -e tcp.payload` 取字节 4) 首轮只建**边集骨架** `edges.json`（`from/to/evidence_frame`，无帧号的边留 `null`），跑 `pcap-summary.py --state-model edges.json --json`
+- 步骤：1) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol01/input/sample.pcap --json` → rc=0，期望：`"packet_count": 3`、`"session_count": 2`、snippets 含 `GET /login HTTP/1.1`；2) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol03/input/websocket.pcapng --json` → rc=0，期望：`"format": "pcapng"`、`"packet_count": 18`；3) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：能说出"主协议层 + 会话数 + 每个方向字节数"；`conv,tcp` 的帧数总和等于 `io,phs` 的 frame 数；首轮 `edge_coverage` 写进报告（骨架阶段通常 <0.6，只作基线，不作结论）
 - 失败判据：只有 `data`/`tls` 层且无 keylog → 停，转进程内明文；不要靠加过滤器硬凑
 - reference：Tool/skill/protocol-plugin/references/04-walkthrough-websocket-replay.md
@@ -16,7 +16,7 @@
 ### 02 抓包点与捕获文件体检（源：performing-network-packet-capture-analysis）
 - 触发词：pcapng、linktype、截断、editcap、capture 文件损坏、时间戳异常
 - 前置：确认文件不是被截断的（snaplen）、不是多网卡合并、时区已知
-- 步骤：1) `pcap-summary.py --file x --json` 看 format/linktype/packet_count/first_ts 2) 对比 `capinfos` 或 `tshark -r x -q -z io,stat,0` 3) 时间戳异常时 `editcap -F pcap` 转换并记录
+- 步骤：1) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol04/artifacts/live.pcapng --json` → rc=0，期望：`"format": "pcapng"`、`"linktype_name": "NULL/LOOP"`、`"packet_count": 39`；2) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol01/input/sample.pcap --json` → rc=0，期望：`"format": "pcap"`、`"linktype_name": "EN10MB/Ethernet"`；3) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：`format/linktype/包数/时长` 两套工具一致；pcapng 的 if_tsresol 被正确解析（时间在合理年份）
 - 失败判据：包数对不上 → 文件截断或多段合并，先修文件再谈协议
 - reference：Tool/skill/protocol-plugin/references/01-criteria.md
@@ -64,7 +64,7 @@
 ### 08 WebSocket 握手与消息分帧（源：testing-websocket-api-security）
 - 触发词：`websocket`、101 Switching Protocols、opcode、mask、FIN
 - 前置：抓到 ws 握手 + ≥3 条业务消息；知道是否 permessage-deflate
-- 步骤：1) `-Y http` 取 `Sec-WebSocket-Key/Accept` 并离线复算 accept 2) `-Y websocket` 取 opcode/fin/mask/payload_length 3) 校验 `frame_len = 2 + (mask?4:0) + len`
+- 步骤：1) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol03/input/websocket.pcapng --json --extract work/ws08` → rc=0，期望：`"session_count": 2` 且 snippets 含 `GET /ws HTTP/1.1`；2) `python Tool/skill/protocol-plugin/scripts/proto-repro.py --input Tool/cases/protocol02/input/sample.bin --json` → rc=0，期望：`"frame_count": 3`、fields.magic=`SPRX`；3) `python Tool/skill/protocol-plugin/scripts/proto-accept.py --json` → rc=0，期望：`"ok": true` 且含 routing 结论
 - 判据：8/8 帧帧长公式成立；客户端 mask=1、服务端 mask=0；accept = base64(sha1(key+GUID))
 - 失败判据：按 TCP 段解消息 → 半截 JSON；先把重组写对
 - reference：Tool/skill/protocol-plugin/references/04-walkthrough-websocket-replay.md
@@ -72,7 +72,7 @@
 ### 09 WebSocket 新消息构造（源：exploiting-websocket-vulnerabilities）
 - 触发词：ws 构造、回显协议、data 字段、单变量、预测响应
 - 前置：已确认帧格式与业务字段；有本地 ws 回显服务（不连外部目标）
-- 步骤：1) 从基线取一条 request 帧解出字段 2) 只改业务字段，按 RFC 6455 重算帧头与掩码 3) 连本地服务发送，比对预测响应（长度/字段/回显值）
+- 步骤：1) `python Tool/skill/protocol-plugin/scripts/proto-repro.py --input Tool/cases/protocol02/input/sample.bin --rebuild --set seq=9 --payload-text '{"sensor":"lab-02","proto":"sprx/1"}' --out work/new-frame.bin --json` → rc=0，期望：`"new_len": 52`、`"verify": {"parsed": true, "crc_ok": true}`；2) `python Tool/skill/protocol-plugin/scripts/proto-repro.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/protocol-plugin/scripts/proto-accept.py --json` → rc=0，期望：`"ok": true`
 - 判据：响应与预测一致且重复 3 次稳定；`new-frame.bin` 能被自己的解析器解析回同一字段
 - 失败判据：只能原样重放、改字段即被拒 → 只报"部分复刻"，卡点写鉴权/风控
 - reference：Tool/skill/protocol-plugin/references/04-walkthrough-websocket-replay.md
@@ -136,7 +136,7 @@
 ### 17 流量基线：会话/字段分布（源：implementing-network-traffic-baselining）
 - 触发词：基线、会话分布、字段分布、异常检测、时间窗
 - 前置：有可比的正常窗口；时间统一 UTC；样本量 ≥100 会话
-- 步骤：1) 用 `pcap-summary.py --json` 导出会话表 2) 统计每个五元组的包数/字节数/方向比 3) 对可疑窗口算同样指标并给比值
+- 步骤：1) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol04/artifacts/live.pcapng --top 5 --json` → rc=0，期望：`"session_count": 6`、sessions 长度 5；2) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol01/input/sample.pcap --json` → rc=0，期望：`"session_count": 2`；3) `python Tool/skill/protocol-plugin/scripts/pcap-summary.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：异常项给出具体倍数与帧号；基线本身无未解释的异常
 - 失败判据：样本 <30 会话就下"基线"结论 → 统计上不成立，降为"初筛"
 - reference：Tool/skill/protocol-plugin/references/01-criteria.md

@@ -112,13 +112,13 @@ def check_case(path):
     if c.get("domain") != "protocol-plugin":
         problems.append("domain=%r 不是 protocol-plugin" % c.get("domain"))
     kind = c.get("evidence_kind")
-    if kind not in ("fixture", "real"):
+    if kind not in ("fixture", "real", "self-built", "historical"):
         problems.append("evidence_kind=%r 非法" % kind)
     tt = str(c.get("target_type") or "")
     is_fix = any(w in tt for w in FIXTURE_WORDS)
     if kind == "fixture" and not is_fix:
         problems.append("fixture 但 target_type 未标夹具/教学")
-    if kind == "real" and is_fix:
+    if kind in ("real", "self-built") and is_fix:
         problems.append("real 却把 target_type 标成夹具")
     if c.get("outcome") == "planned":
         problems.append("outcome=planned 不许入库")

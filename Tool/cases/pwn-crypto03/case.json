@@ -2,7 +2,7 @@
   "id": "pwn-crypto03",
   "domain": "pwn-crypto",
   "target_type": "自建靶：现场 gcc 编译的 PE32+（真实产物，非手写数据）",
-  "evidence_kind": "real",
+  "evidence_kind": "self-built",
   "protection": [
     "NX",
     "No PIE (-no-pie)",

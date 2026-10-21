@@ -8,7 +8,7 @@
 ### 01 栈溢出偏移与 saved RIP 控制（源：performing-binary-exploitation-analysis）
 - 触发词：栈溢出、gets、strcpy、返回地址、cyclic、offset
 - 前置：本地 PE/ELF + 编译选项已知；`pwn-check.py` 已给出 NX/PIE/Canary。
-- 步骤：1) `python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json`（期望 rc=0，`protections` 四项齐）；2) `objdump -d -M intel ./chall > d.txt`（rc=0）并取 `lea -0x..(%rbp)`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump d.txt --func vuln --probe-log probe.txt --json > repro.json`（期望 rc=0 且 `consistent=true`）；4) `python exploit.py`（期望 rc=0，stdout 含目标 marker）。
+- 步骤：1) `python Tool/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Disabled"`；2) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis --func vuln --probe-log Tool/cases/pwn-crypto03/artifacts/probe.txt` → rc=0，期望：`"offset": 88`、`"consistent": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：三条命令 rc=0；`repro.json` 的 `consistent=true` 且两源 `offset` 相同；marker 出现且 rc=0（只有崩溃不算）。
 - 失败判据：`pwn-repro` rc=1/`offset-mismatch`，或 exploit rc≠0 且无 marker → 先统一 `-O0 -fno-stack-protector -no-pie` 重测，见 `02-failure-criteria.md` #1/#2。
 - reference：Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md
@@ -80,7 +80,7 @@
 ### 10 密码学实现审计（模式/IV/填充）（源：performing-cryptographic-audit-of-application）
 - 触发词：密码学审计、ECB、CBC、IV、padding、密钥管理
 - 前置：能拿到实现或密文样本；知道威胁模型。
-- 步骤：1) 列算法/模式/IV 来源；2) 做相同明文块对照；3) 检查 IV 重用与填充错误粒度；4) 用 `crypto-verify.py` 回代。
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test` → rc=0，期望：`"ok": true`；2) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb Tool/cases/pwn-crypto04/input/ecb.json` → rc=0，期望：`"duplicate_blocks": 1`、`"ecb_detected": true`；3) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --cbc Tool/cases/pwn-crypto04/input/cbc.json` → rc=0，期望：`"verified": true`、`"plaintext_before_hex": "63"`
 - 判据：块关系/位翻转/回代等式成立；结论能落到具体字节。
 - 失败判据：只凭“用了 AES”就判安全/不安全 → 判据不足。
 - reference：Tool/skill/pwn-crypto/references/crypto-attacks.md
@@ -88,7 +88,7 @@
 ### 11 RSA 密钥生成与参数校验（源：implementing-rsa-key-pair-management）
 - 触发词：RSA、密钥生成、e=65537、p/q、模数
 - 前置：本地 Python/pycryptodome；仅生成测试密钥。
-- 步骤：1) 生成素数并验证 `p*q==n`；2) 检查 `gcd(e,φ(n))==1`；3) 用 `pow(m,e,n)` 回代；4) 记录 key size 与来源。
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa Tool/cases/pwn-crypto04/input/rsa.json` → rc=0，期望：`"verified": true`、ascii=`pwn-crypto-real-rsa`；2) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --broadcast Tool/cases/pwn-crypto04/input/broadcast.json` → rc=0，期望：`"verified": true`、`"crt_bits": 3071`；3) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：`p*q==n`、私钥回代成立、e 与 φ 互质。
 - 失败判据：共享素数/小私钥未检查 → 用 gcd/Wiener 复核后再用。
 - reference：Tool/skill/pwn-crypto/references/crypto-attacks.md
@@ -96,7 +96,7 @@
 ### 12 AES 模式选择与 IV/认证（源：implementing-aes-encryption-for-data-at-rest）
 - 触发词：AES、GCM、CBC、IV、认证加密、at rest
 - 前置：本地 pycryptodome；有明文/密钥测试向量。
-- 步骤：1) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb inputs/ecb.json`（期望 rc=0，`duplicate_blocks>=1`）；2) `... --cbc inputs/cbc.json`（期望 rc=0，`verified=true`）；3) 篡改 GCM tag 后解密（期望抛 `InvalidTag`，即 rc≠0 才是对的行为）。
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --ecb Tool/cases/pwn-crypto04/input/ecb.json` → rc=0，期望：`"ecb_detected": true`、`"duplicate_blocks": 1`；2) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --cbc Tool/cases/pwn-crypto04/input/cbc.json` → rc=0，期望：`"verified": true`、`"target_block": 1`；3) `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --hmac Tool/cases/pwn-crypto04/input/hmac.json` → rc=0，期望：`"tamper_rejected": true`
 - 判据：1)/2) rc=0 且 `verified=true`；ECB 重复块与 CBC `before^after==xor` 均落到具体字节；tag 篡改必须失败。
 - 失败判据：ECB `duplicate_blocks=0`（随机碰撞）→ 用 `'A'*32` 对照重测；CBC 差值与 xor 不符 → 查改的是 C[i-1]/IV；tag 篡改仍解密成功 → 记设计缺陷，不算“利用成功”。
 - reference：Tool/skill/pwn-crypto/references/crypto-attacks.md
@@ -128,7 +128,7 @@
 ### 16 JWT none/签名剥离（源：performing-jwt-none-algorithm-attack）
 - 触发词：JWT none、签名剥离、alg=none
 - 前置：授权测试环境；抓到一枚有效 token。
-- 步骤：1) `python -c "import base64,json;h=open('hdr.b64').read();print(json.loads(base64.urlsafe_b64decode(h+'==')))"`（rc=0，得 alg/kid）；2) 造 `alg=none` 空签名 token（rc=0）；3) `curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOK" http://127.0.0.1:8000/admin`（期望 200）；4) 对照：不带头请求同一 URL（期望 401）。
+- 步骤：1) `python Tool/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：伪造 token 得 200 且响应体含受保护资源；无 token 得 401（证明鉴权分支确实在跑）；两请求 curl rc=0。
 - 失败判据：返回 401/403 → 结论“已修复”，写清服务端是否解析 `alg`；只在前端解码成功、服务端拒收不算成立。
 - reference：Tool/skill/pwn-crypto/references/01-criteria.md
