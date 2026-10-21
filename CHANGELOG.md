@@ -10,6 +10,22 @@
 
 ---
 
+## [1.18.3] — 2026-10-21
+
+> 主题：**第八轮复核指出的"宣称已修但实际未修"的 2 处 + 3 行台账订正**（无 P0/P1）。
+
+| 级别 | 问题 | 修复（已逐条自验） |
+|---|---|---|
+| P2 | `FORK-DELTA.md` §3.3 标题"0 → 5"但表内只有 3 行，与 CHANGELOG 1.18.2 的"表内补齐"不符 | 实补 `tool-runtimes.json`（通道阶梯）与 `mcp-servers.json`（MCP 装配）两行，现表内 **5 行**（`grep` 计数 5） |
+| P2 | `setup/upstream-rules.json` 里 `open-reverselab.preserve_local` 仍含不存在的 `kb/_index.md`（上一版删错了条目） | 从 `open-reverselab` 删除该条（现只剩 `README.md` 与 `kb/field_journal__template.md`）；`reverselab-kb` 保持 2 条 |
+| P2 | `AUDIT-2026-10-21.md` 版本行 v1.18.1、P1-22 证据仍写"§8" | 版本行→ v1.18.2（本次发版再同步为 v1.18.3）；P1-22 证据→"§7bis" |
+| P2 | `DEPLOYMENT-CHECKLIST.md` 的 §7bis 排在 §7 之前 | 整块移到 §7 之后（现 `:140`，§7 在 `:133`） |
+| P2 | `preflight.py` 仍字面打印 `ps1=61 sh=61` | 改为：一致时只说"两平台运行时项数一致"，**仅在不一致时**打印具体数 |
+
+验收：`preflight --fast` 16/16、`verify.ps1` 65/65、`verify.sh` 65/65、routing 15 条、mcp-guard 38/38。
+
+---
+
 ## [1.18.2] — 2026-10-21
 
 > 主题：**三处"形式修、实质未闭"的授权门与判型表真正闭合**（第七轮复核）。

@@ -72,9 +72,7 @@
       ],
       "preserve_local": [
         "README.md",
-        "kb/field_journal__template.md",
-        "kb/_index.md",
-        "PROVENANCE.md"
+        "kb/field_journal__template.md"
       ]
     },
     "reverselab-kb": {

@@ -118,17 +118,6 @@ MCP 配置文件所在位置：
 
 ---
 
-### 7bis. ⚙️ 运维脚本基准表 (Ops Scripts · 两平台各 1 条 verify 项)
-
-| 脚本 | 作用 | 门禁项（verify.ps1 / verify.sh 同名） |
-|---|---|---|
-| `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
-| `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
-| `Tool/scripts/migrate.py` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (migrate.py)` |
-| `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
-| `Tool/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
-
-> 换机器 clone 后，这五项任一缺失或腐坏，`verify` / `preflight` 会直接变红 —— 这是审计 D1 要求的"新脚本必须进两平台门禁"。
 
 ### 7. 🔒 脱敏与个人隐私基准表 (Desensitization Baseline)
 
@@ -147,6 +136,18 @@ MCP 配置文件所在位置：
 > “保留原文 / 删除后无法复现，属功能性必需”。此类例外属**有意决策**，不计入隐私泄露。
 
 ---
+
+### 7bis. ⚙️ 运维脚本基准表 (Ops Scripts · 两平台各 1 条 verify 项)
+
+| 脚本 | 作用 | 门禁项（verify.ps1 / verify.sh 同名） |
+|---|---|---|
+| `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
+| `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
+| `Tool/scripts/migrate.py` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (migrate.py)` |
+| `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
+| `Tool/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
+
+> 换机器 clone 后，这五项任一缺失或腐坏，`verify` / `preflight` 会直接变红 —— 这是审计 D1 要求的"新脚本必须进两平台门禁"。
 
 ## 三、 Agent 部署后的自检校对与格式化输出协议
 
