@@ -63,6 +63,8 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py       # 案例字段/hash/re
 - 仿真里进程存在但端口无业务回包 → 不算 J2，先补 NVRAM/`/dev`/Web 根桩或转真机只读。
 - 漏洞只停留在字符串/版本猜测 → 不算 J3，转黑盒测绘或放弃该 CVE。
 - 裸 firmware blob（BRCM/TRX/单 PE）没有 rootfs → 走 `06-container-carving-and-entropy.md`，不要套文件系统判据。
+- rehosting 成功：`rootfs_complete=true`、`init_chain_ok=true`、`rehost_blocker=none`，且目标服务有真实协议回包；FirmPilot/Khost 恢复只算手段，不算判据。
+- rehosting 失败：7 类 `rehost_blocker`（rootfs/init/nvram/watchdog/net/arch-abi/mcu-periph）任一未消解 → 不算 J2，按 `02-failure-criteria.md` 第 ①/②/④ 行分流。
 
 ## 4. 边界
 
