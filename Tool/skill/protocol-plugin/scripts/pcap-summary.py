@@ -14,11 +14,16 @@
     python pcap-summary.py --file capture.pcapng --json --out out/
     python pcap-summary.py --file capture.pcap --extract streams/
     python pcap-summary.py --file capture.pcap --tshark-check
+    python pcap-summary.py --state-model edges.json --json
+    python pcap-summary.py --file capture.pcap --state-model edges.json --json
     python pcap-summary.py --self-test
 
 输入：本地 pcap / pcapng（EN10MB / RAW-IP / LINUX_SLL / LINUX_SLL2 / NULL）。
 输出：人类可读摘要或 JSON；`--out` 写 pcap-summary.json + snippets.txt；
       `--extract` 写 `<session>.bin` 双向字节流 + frames.jsonl（逐包 hex）。
+`--state-model <json>`：输入 `{"edges":[{"from","to","evidence_frame"}]}`，
+      输出 `observed_edges/inferred_edges/edge_coverage/unobserved[]/llm_unverified[]`
+      与 `verdict`（边覆盖率 < threshold 时明确不成立）。见 references/06 §3.1。
 退出码：0 成功（含 tshark 缺失的降级）；2 输入/解析失败（结构化 JSON `ok:false`）。
 
 边界：只做包级解析与方向性聚合，不做 TCP 重传去重/乱序重排；需要严格重组时用
@@ -75,6 +80,10 @@ MAX_HEX = 4096
 
 
 class PcapError(Exception):
+    pass
+
+
+class StateModelError(Exception):
     pass
 
 
@@ -473,6 +482,116 @@ def _print_human(summary):
         print("(no keyword-bearing plaintext snippets)")
 
 
+# ------------------------------------------------------------------ state model
+DEFAULT_EDGE_THRESHOLD = 0.6
+LLM_SOURCES = ("llm", "llm_candidate", "llm_generated", "auto", "inferred_llm")
+
+
+def _edge_is_observed(frame):
+    """evidence_frame 必须是真帧号（正整数）。0 / null / "" / "unknown" 一律不算观测。"""
+    if isinstance(frame, bool) or frame is None:
+        return False
+    if isinstance(frame, int):
+        return frame > 0
+    s = str(frame).strip()
+    return s.isdigit() and int(s) > 0
+
+
+def _edge_is_llm(edge):
+    src = str(edge.get("source") or edge.get("origin") or "").lower()
+    return bool(edge.get("llm_generated")) or bool(edge.get("inferred")) or src in LLM_SOURCES
+
+
+def load_state_model(path):
+    """解析并**校验**状态机边集；任何形状错误都抛 StateModelError（调用方 rc=2）。"""
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            doc = json.load(fh)
+    except OSError as exc:
+        raise StateModelError("文件不可读: %s" % exc)
+    except ValueError as exc:
+        raise StateModelError("不是合法 JSON: %s" % exc)
+    if not isinstance(doc, dict):
+        raise StateModelError("顶层必须是对象 {\"edges\": [...]}")
+    edges = doc.get("edges")
+    if not isinstance(edges, list) or not edges:
+        raise StateModelError("edges 必须是非空数组")
+    merged = OrderedDict()
+    for i, e in enumerate(edges):
+        if not isinstance(e, dict):
+            raise StateModelError("edges[%d] 不是对象" % i)
+        src = str(e.get("from") or "").strip()
+        dst = str(e.get("to") or "").strip()
+        if not src or not dst:
+            raise StateModelError("edges[%d] 缺 from/to" % i)
+        key = (src, dst)
+        cur = merged.setdefault(key, {"from": src, "to": dst,
+                                      "observed_frames": [], "llm": False})
+        frame = e.get("evidence_frame")
+        if frame is not None and not isinstance(frame, (int, str)):
+            raise StateModelError("edges[%d].evidence_frame 必须是帧号（整数/数字串/null）" % i)
+        if _edge_is_observed(frame):
+            cur["observed_frames"].append(int(frame))
+        if _edge_is_llm(e):
+            cur["llm"] = True
+    return doc, list(merged.values())
+
+
+def state_model(path, threshold=DEFAULT_EDGE_THRESHOLD):
+    doc, edges = load_state_model(path)
+    observed, unobserved, llm_unverified = [], [], []
+    for e in edges:
+        row = {"from": e["from"], "to": e["to"]}
+        if e["observed_frames"]:
+            row["evidence_frame"] = sorted(set(e["observed_frames"]))[0]
+            row["evidence_frames"] = sorted(set(e["observed_frames"]))
+            observed.append(row)
+        else:
+            row["reason"] = "no_evidence_frame"
+            row["source"] = "llm" if e["llm"] else "inferred"
+            unobserved.append(row)
+            if e["llm"]:
+                llm_unverified.append({"from": e["from"], "to": e["to"]})
+    total = len(edges)
+    n_obs = len(observed)
+    coverage = round(n_obs / total, 4) if total else 0.0
+    proof = doc.get("illegal_transition_proof")
+    proof_ok = bool(proof) and proof not in ("", [], {}, "none", "NONE")
+    if coverage < threshold:
+        verdict = "state_machine_not_established"
+    elif not proof_ok:
+        verdict = "coverage_ok_but_no_illegal_transition_proof"
+    else:
+        verdict = "state_machine_established"
+    return {
+        "ok": True,
+        "state_model": path,
+        "edges_total": total,
+        "inferred_edges": total,
+        "observed_edges": n_obs,
+        "edge_coverage": coverage,
+        "edge_coverage_threshold": threshold,
+        "unobserved": unobserved,
+        "llm_unverified": llm_unverified,
+        "llm_unverified_count": len(llm_unverified),
+        "observed": observed,
+        "illegal_transition_proof": proof_ok,
+        "verdict": verdict,
+        "claims_allowed": verdict == "state_machine_established",
+    }
+
+
+def _print_state_model(m):
+    print("== state model ==")
+    print("file      : %s" % m["state_model"])
+    print("edges     : total=%d observed=%d coverage=%.1f%% (threshold %.0f%%)" % (
+        m["inferred_edges"], m["observed_edges"], m["edge_coverage"] * 100,
+        m["edge_coverage_threshold"] * 100))
+    print("verdict   : %s%s" % (m["verdict"], "" if m["claims_allowed"] else "  ← 不得声称状态机成立"))
+    for u in m["unobserved"]:
+        print("  unobserved %s -> %s  (%s)" % (u["from"], u["to"], u["reason"]))
+
+
 # ------------------------------------------------------------------ self-test
 def _mk_eth_ip_tcp(src, dst, sport, dport, payload=b"", seq=1, flags=0x18):
     tcp = struct.pack("!HHIIHHHH", sport, dport, seq, 0,
@@ -551,6 +670,46 @@ def self_test():
     probe = tshark_probe(pcap_path)
     checks.append(("tshark 探测结构化降级", isinstance(probe, dict) and "available" in probe))
 
+    # --state-model：边覆盖率（观测边/推断边）与 LLM 未验证边必须分开计。
+    sm_path = os.path.join(tmp, "edges.json")
+    with open(sm_path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"illegal_transition_proof": "frame 91 auth-before-hello 被 RST",
+                   "edges": [
+                       {"from": "INIT", "to": "HELLO_SENT", "evidence_frame": 3},
+                       {"from": "HELLO_SENT", "to": "READY", "evidence_frame": 4},
+                       {"from": "READY", "to": "AUTH_WAIT", "evidence_frame": 5},
+                       {"from": "AUTH_WAIT", "to": "ERROR",
+                        "evidence_frame": None, "source": "llm"},
+                   ]}, fh, ensure_ascii=False)
+    m = state_model(sm_path)
+    checks.append(("state-model 观测/推断边拆分",
+                   m["observed_edges"] == 3 and m["inferred_edges"] == 4))
+    checks.append(("state-model 边覆盖率=0.75", m["edge_coverage"] == 0.75))
+    checks.append(("state-model 未观测边入 unobserved",
+                   [u["to"] for u in m["unobserved"]] == ["ERROR"]))
+    checks.append(("state-model llm_unverified 单计",
+                   m["llm_unverified_count"] == 1
+                   and m["llm_unverified"][0]["from"] == "AUTH_WAIT"))
+    checks.append(("state-model 不把推断边当实线",
+                   all(e.get("evidence_frame") for e in m["observed"])))
+    sm_low = os.path.join(tmp, "edges_low.json")
+    with open(sm_low, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"edges": [{"from": "A", "to": "B", "evidence_frame": 1},
+                              {"from": "B", "to": "C"},
+                              {"from": "C", "to": "D"}]}, fh)
+    ml = state_model(sm_low)
+    checks.append(("state-model <60% 不成立",
+                   ml["verdict"] == "state_machine_not_established"
+                   and ml["claims_allowed"] is False))
+    bad_sm = os.path.join(tmp, "edges_bad.json")
+    with open(bad_sm, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps({"edges": [{"from": "A"}]}))
+    try:
+        state_model(bad_sm)
+        checks.append(("state-model 形状错误被拒", False))
+    except StateModelError as exc:
+        checks.append(("state-model 形状错误被拒", "from/to" in str(exc)))
+
     bad_checks = [n for n, ok in checks if not ok]
     print(json.dumps({
         "ok": not bad_checks,
@@ -558,6 +717,10 @@ def self_test():
         "checks": len(checks),
         "passed": len(checks) - len(bad_checks),
         "failed": bad_checks,
+        "state_model": {"observed_edges": m["observed_edges"],
+                        "inferred_edges": m["inferred_edges"],
+                        "edge_coverage": m["edge_coverage"],
+                        "llm_unverified": m["llm_unverified_count"]},
         "tmp": tmp,
     }, ensure_ascii=False))
     return 0 if not bad_checks else 1
@@ -603,12 +766,46 @@ def main(argv=None):
                     help="导出每个方向性会话的 .bin 字节流与 frames.jsonl")
     ap.add_argument("--tshark-check", action="store_true",
                     help="用 tshark 交叉验证协议分层；缺失则结构化降级")
+    ap.add_argument("--state-model", metavar="JSON",
+                    help='状态机边集 {\\"edges\\":[{\\"from\\",\\"to\\",\\"evidence_frame\\"}]}；'
+                         "输出 observed_edges/edge_coverage/unobserved[]")
+    ap.add_argument("--edge-threshold", type=float, default=DEFAULT_EDGE_THRESHOLD,
+                    help="边覆盖率下限（默认 0.6；低于此值不得声称状态机成立）")
     ap.add_argument("--self-test", action="store_true",
-                    help="离线自检：内置最小 pcap/pcapng 字节流")
+                    help="离线自检：内置最小 pcap/pcapng 字节流与状态机边集")
     args = ap.parse_args(argv)
 
     if args.self_test:
         return self_test()
+    if args.state_model:
+        if not os.path.isfile(args.state_model):
+            return _fail(2, "file_not_found", "确认 --state-model 指向 JSON",
+                         file=args.state_model)
+        try:
+            sm = state_model(args.state_model, threshold=args.edge_threshold)
+        except StateModelError as exc:
+            return _fail(2, "state_model_invalid", str(exc), blocked_at="input",
+                         file=args.state_model)
+        if args.file:
+            if not os.path.isfile(args.file):
+                return _fail(2, "file_not_found", "确认路径；支持 pcap/pcapng", file=args.file)
+            try:
+                pcap = summarize(args.file, top=max(1, args.top), min_len=max(1, args.min_len))
+            except (PcapError, OSError) as exc:
+                return _fail(2, "pcap_parse_error", str(exc), file=args.file)
+            pcap.pop("sessions", None)   # 只保留计数，避免报告膨胀
+            sm["pcap"] = pcap
+        if args.out:
+            os.makedirs(args.out, exist_ok=True)
+            with open(os.path.join(args.out, "state-model.json"), "w",
+                      encoding="utf-8", newline="\n") as fh:
+                json.dump(sm, fh, ensure_ascii=False, indent=2)
+            print("wrote: %s" % os.path.join(args.out, "state-model.json").replace(os.sep, "/"))
+        if args.json:
+            print(json.dumps(sm, ensure_ascii=False, indent=2))
+        else:
+            _print_state_model(sm)
+        return 0
     if not args.file:
         return _fail(2, "missing_argument", "--file 必填（或使用 --self-test）")
     if not os.path.isfile(args.file):
