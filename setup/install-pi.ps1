@@ -87,6 +87,18 @@ foreach ($f in @('SEEP.md', 'AGENTS.md')) {
     else { Write-Warn "未找到 $f" }
 }
 
+# 任务卡（prompt templates）：Tool/prompts/tasks/*.md → ~/.pi/agent/prompts/<name>.md
+#   pi 把每个文件当一条 /slash 命令；这是"用户说一句话就开工"的入口，不进系统提示词（不占每轮上下文）。
+$srcTasks = Join-Path $srcPrompt 'tasks'
+$dstTasks = Join-Path $AgentDir 'prompts'
+if (Test-Path $srcTasks) {
+    if (-not (Test-Path $dstTasks)) { New-Item -ItemType Directory -Path $dstTasks -Force | Out-Null }
+    foreach ($f in (Get-ChildItem $srcTasks -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        Copy-Item $f.FullName (Join-Path $dstTasks $f.Name) -Force
+        Write-Ok "task card: /$([System.IO.Path]::GetFileNameWithoutExtension($f.Name))"
+    }
+}
+
 # 迁移：旧版把规则写成 ~/.pi/agent/SYSTEM.md，会被 pi 内核当“替换默认提示词”，必须退役
 $legacySystem = Join-Path $AgentDir 'SYSTEM.md'
 if (Test-Path $legacySystem) {

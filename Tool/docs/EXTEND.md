@@ -83,6 +83,26 @@ python Tool/scripts/new-skill.py <name> --desc "一句话描述"
 
 ---
 
+## 4bis. 任务卡（prompt template）—— 用户说一句话就开工
+
+放在 `Tool/prompts/tasks/<name>.md`，安装时复制到 `~/.pi/agent/prompts/<name>.md`，
+pi 会把它变成 **`/<name>` 斜杠命令**（支持 `$1` 参数）。
+
+**关键点：任务卡不进系统提示词**，只在用户调用时展开 —— 所以它再长也不占每轮上下文。
+
+| 卡片 | 命令 | 用途 |
+|---|---|---|
+| `reverse.md` | `/reverse <目标>` | 一句话开工：旁路验证 + 成品交付，先报三行判型 |
+| `reverse-deliverable.md` | `/reverse-deliverable <目标>` | 完整版：D1–D5 交付物 + 五面判据 + 硬约束 + 反模式 |
+
+写新卡片的规矩：
+
+- 只放 `Tool/prompts/tasks/`，**不要塞进 `SEEP.md` / `AGENTS.md`**（那是每轮注入的）；
+- 卡片里与 Seep 冲突时**明确写"本卡优先于 X 的默认"**（例如"本卡优先于 softseep 的判型内记"）；
+- 卡片要求"先报三行再开工"这类交互，属于任务级指令，不违反 Seep 的自动判型设计。
+
+---
+
 ## 5. 唯一门禁
 
 ```bash
