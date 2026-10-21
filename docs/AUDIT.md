@@ -303,6 +303,35 @@
 | 修复 | findings 的 claim/object/actor/command 改指真实键名（Accent / Advanced / AutoplayHandlers / ComDlg32）+ Get-ChildItem 命令；走查示例块改真实键路径、observed 改「60 行 A–C 前缀样本」、inferred 归因改 `ComDlg32\OpenSavePidlMRU`；只读/采集时间/SHA256SUMS 路径对齐；`evidence-accept` 增加三条硬断言（timeframe.end 对齐 / observed 的 time_utc 在时间线 / 只读声明与可写性一致），self-test 对齐；checks 96→114 |
 | 复验结论 | 禁词 grep 0 命中；finding 的四个键名逐条在 60 行清单中命中；`evidence-accept --case forensics03` PASS / checks=114；gate 80/80；preflight 28/28；verify.sh 与 verify.ps1 均 65/0；accept self-test rc=0；两个新增断言在副本上实测会红；**P0=0，P1=0，可交付** |
 
+
+---
+
+## v1.23.0 —— 2026 基线深化（P0/P1/P2）
+
+> 基线 v1.22.0（a2b00a3）。本轮按 **2026 年真实技术基线**补能力，11 个 git worktree 并行（单写者），
+> core 负责 routing/gate/spec，逐分支合并后跑全量门禁。
+
+| 批次 | 交付 | 证据 |
+| :-- | :-- | :-- |
+| P0-01..04 reverse | VMP UltraLock / Themida VM 函数绕过 / CET-LACUNA `.pdata` / Win11 26H2 KDP+KCET 四篇 KB（kb/windows） + `10-anti-debug` 摘要 | 看雪 2026-10、52pojie 2026-06、LACUNA 2026-06、MS Learn 26H2 |
+| P0-05 ad | ESC9–ESC17（含 ESC17 WSUS 中继）+ `ad-repro --kind adcs-esc`（self-test 9 项） | Troopers/hack.lu 2026、ADPATH 2026 |
+| P0-06 web | ETag/size oracle、缓存键注入、Next.js Eclipse 竞态 + 3 行判据 | PortSwigger Top10 2025（2026 发布）、webhacklist 2026 |
+| P0-07 supply | ChainDrop/Mini Shai-Hulud/SANDWORM_MODE 检测 + `sc-check` 3 规则 + `sc-accept.py` | MSRC/Unit42 2026-08、Socket 2026-02 |
+| P0-08 fw | rehosting 失败分诊树（FirmPilot/Khost） | arXiv 2607.14903、USENIX Sec 2026 |
+| P0-09 proto | LLM 辅助状态机边界 + 边覆盖率（`pcap-summary --state-model`） | RFCLLM 2026-09、PSMBENCH、USENIX Sec 2026 |
+| P0-10 mal/llm | MCP 工具投毒 / A2A 越权 + `mal-accept.py` | MCPTox AAAI'26、A2ABreak 2026-09 |
+| P0-11 forensics | MemProcFS 5.19 / Volatility 3 v2.27 | MemProcFS 2026-10、Volatility Timeline 2026-01 |
+| P0-12 plugin | ASAR integrity 绕过 / V8 bytecode / Electron IPC + `plugin-accept.py` | Electron GHSA、rce.moe、BH USA 2025/26 |
+| P1 | 路由修正 7 条误判 + 新增 R30(WASM)/R31(LLM-Agent)；串味测试 24→**48**；产物确定性（105 个文本产物归一 + 47 案例重算哈希）；`driver-triage` 未做（记 DEFERRALS）；4 个 accept 补齐；CI `gates.yml` | 见 `git log v1.22.0..v1.23.0` |
+| P2 | KB 2026 战例 8 篇（每 board ≤10）+ `docs/GLOSSARY.md` | 各 board README 索引 |
+| 门禁 | 80 → **101** 条断言：每域「判据字段脚本背书 ≥1」+「2026 内容在场」+ 变更反例回归 | `domain-gate --all` 101/101 |
+
+**确定性修复（重要）**：`.gitattributes` 使 .json/.py/.sh 检出为 LF，而历史 case.json 的 sha256 是 CRLF 时代算的 →
+全新 clone/worktree 必红。本轮把 105 个文本产物归一为「git 会检出的行尾」，47 个案例重算哈希并回写。
+
+### R5 终审（全新上下文）
+
+待填。
 ## 交付基线（2026-10-21，v1.22.0）
 
 | 项 | 命令 | 结果 |

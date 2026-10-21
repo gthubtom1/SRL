@@ -1,0 +1,9 @@
+count=1073741825 elem=4 bytes=4 wrapped=1
+request=4 _msize=4
+wrote=64 overflow=1
+rc=127
+count=16 elem=4 bytes=64 wrapped=0
+request=64 _msize=64
+wrote=64 overflow=0
+freed without abort
+rc=0

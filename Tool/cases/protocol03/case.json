@@ -101,11 +101,11 @@
     },
     {
       "path": "artifacts/streams/s00_127.0.0.1_44380-127.0.0.1_8080.bin",
-      "sha256": "382d6fa39f38ef0a123f3cbabebfd9e1421e0074e239f8cb4db388e0cddb47e5"
+      "sha256": "7a9f4802e954374d87c7d98f3e43a54768444cb31a75b805dc0f1018c555921c"
     },
     {
       "path": "artifacts/streams/s01_127.0.0.1_8080-127.0.0.1_44380.bin",
-      "sha256": "20be7eb6e9357305b4f37608029dce747c1bf3e1c86f7eff6d44d06eb1358c16"
+      "sha256": "c47cb7b8b5aa186d803c0bc2bf6534df2b2d108631a50d20b4751a8113f69a7c"
     }
   ],
   "evidence": [

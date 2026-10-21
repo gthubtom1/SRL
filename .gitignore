@@ -93,3 +93,9 @@ tools.local.json
 # 破甲卡工程（relab2 kernel-sweep）：用户要求单仓统一备份，故已入库
 # 维护说明见 破甲卡生成/人设卡/README.md
 # ---------------------------------------------------------------------------
+
+# v1.23: 案例证据日志必须入库（它们是 artifacts/input，不是运行日志）
+!Tool/cases/**/artifacts/**/*.log
+!Tool/cases/**/artifacts/*.log
+!Tool/cases/**/input/**/*.log
+!Tool/cases/**/input/*.log
