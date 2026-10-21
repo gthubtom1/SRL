@@ -19,6 +19,7 @@
 | PE Reverse | [pe-reverse](pe-reverse/README.md) | 反汇编 / 注入 / 脱壳 / 授权 / 补丁 |
 | General | [general](general/README.md) | 密码学 / 协议 / 内核 / 方法论 |
 | Windows | [windows](windows/README.md) | Windows 运行时与工具链 |
+| Windows Techniques | [windows/techniques](windows/techniques/README.md) | VMP UltraLock / Themida VM / CET-LACUNA / 26H2 内核 |
 
 ## 根目录：AI 复盘
 
