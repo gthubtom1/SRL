@@ -10,6 +10,23 @@
 
 ---
 
+## [1.17.5] — 2026-10-21
+
+> 主题：**独立完成审计（completion auditor）驳回后的 6 项收口** —— 不是自己说了算。
+
+| # | 审计对象 | 处置 |
+|---|---|---|
+| 1 | 冻结文档仍写"技能上限 12"，与代码（无上限、17 个技能）矛盾 | `MANUAL/BASELINE-FREEZE.md` §7.1/§7.4 **正式修订**：技能数不设上限（v1.17.5），改用 first-party 文件数（≤900）兜底 |
+| 2 | `state.json` 与上游 `ai_manifest.json` 是"第二份状态" | `case_state.py` 合流：有 manifest → 写入其 `seep` 子键（保留 `autopilot` 等原有键），无 manifest 才用 `state.json`；`BASELINE-FREEZE` §7.2.3 同步登记 |
+| 3 | softseep 与 client-license 的 G0–G6 七道门逐字重复 | 只保留 client-license 定义，softseep 改为指针 |
+| 4 | 根提示词仍塞满方法论（D1–D5/H1–H9/六面） | `逆向开工提示词.md` 瘦身为「目标 + 三行 + 闸 + 纪律 + 按技能执行」（prompt-rev 1.18）；`tasks/reverse-deliverable.md` 由同一 body 生成 |
+| 5 | 总纲自相矛盾（15 项 / 15/15 / 61/61）＋ HANDOFF 自称"唯一入口"（v1.8.1） | 总纲计数改 16 项 / 16/16 / 62/62；HANDOFF 降级为**历史记录**并指向 `优化方案.md` |
+| 6 | 三份审计报告只存在于会话记录，fresh clone 看不到 | 落盘 `Tool/docs/AUDIT-2026-10-21.md`：三路结论摘要 + **P0 5/5、P1 13/13 闭环台账** + 复现命令 |
+
+验收：`preflight --fast` 16/16、`verify.ps1` 62/62、`verify.sh` 62/62、routing 15 条自洽、mcp-guard 38/38。
+
+---
+
 ## [1.17.4] — 2026-10-21
 
 > 主题：**总纲里最后 3 处活口收口**（第四轮独立复核）。
