@@ -1,1 +1,18 @@
-{"origin":"ad-cloud","routes":{"R23":{"label":"内网/AD/云原生","skill":"ad-cloud/SKILL.md","keywords":[{"must":"(?i)(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)","note":"内网/云：判据=可复现的凭据或提权证据"}]}},"priority_hint":{"after":"R20"}}
+{
+  "origin": "ad-cloud",
+  "routes": {
+    "R23": {
+      "label": "内网/AD/云原生",
+      "skill": "ad-cloud/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)",
+          "note": "内网/云：判据=可复现的凭据或提权证据"
+        }
+      ]
+    }
+  },
+  "priority_hint": {
+    "after": "R20"
+  }
+}

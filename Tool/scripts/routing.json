@@ -227,7 +227,7 @@
       "skill": "plugin-targets/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(chrome\\s*扩展|浏览器扩展|crx|vsix|vscode\\s*插件|ide\\s*插件|electron\\s*插件|asar|bepinex|melonloader|unity\\s*mod|游戏\\s*mod|加载器插件)",
+          "must": "(?i)(chrome\\s*(扩展|插件)|浏览器\\s*(扩展|插件)|crx|vsix|vscode\\s*插件|ide\\s*插件|electron\\s*插件|asar|bepinex|melonloader|unity\\s*mod|游戏\\s*mod|加载器插件)",
           "note": "插件类：判据=入口+关键逻辑+数据来源+最小可改单元"
         }
       ]
@@ -247,7 +247,7 @@
       "skill": "web-pentest/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(sql注入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件上传|命令注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|src|漏洞复现|cve-\\d{4})",
+          "must": "(?i)(sql\\s*注\\s*入|sqli|xss|csrf|ssrf|反序列化|越权|idor|未授权访问|文件上传|命令注入|waf绕过|验证码绕过|漏洞扫描|渗透测试|pentest|src|漏洞复现|cve-\\d{4})",
           "note": "Web/API 验证：判据=PoC 可复现"
         }
       ]
