@@ -11,12 +11,30 @@
   "protection": [],
   "authority": "local",
   "goal_level": "J2",
-  "outcome": "planned",
-  "artifacts": [],
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "907a5eea3fbdb9eff525912bb03510479a92eab2f785e2131d9aa6e44e832965"
+    }
+  ],
   "interfaces": {
-    "uart": {"pads": "TX/RX/GND", "baud": 115200, "voltage": "3.3V", "shell": false},
-    "jtag": {"adapter": "", "idcode": "", "verified": false},
-    "spi": {"chip": "", "voltage": "3.3V", "read_hash": ""}
+    "uart": {
+      "pads": "TX/RX/GND",
+      "baud": 115200,
+      "voltage": "3.3V",
+      "shell": false
+    },
+    "jtag": {
+      "adapter": "",
+      "idcode": "",
+      "verified": false
+    },
+    "spi": {
+      "chip": "",
+      "voltage": "3.3V",
+      "read_hash": ""
+    }
   },
   "emulation": {
     "mode": "FirmAE",
@@ -25,12 +43,20 @@
     "notes": "计划：UBI 卷/rootfs_data 审计 + qemu-system/FirmAE 起 Web；以真实 HTTP 业务回包为 J2 判据。"
   },
   "lessons": [
-    "入口：NAND dump 必须保留 OOB 或原始布局；先确认 UBI# 偏移与 PEB/LEB 参数。",
-    "判据：J2 需要端口监听 + 服务进程 + 真实协议响应；仅 FirmAE 报网络成功不算。",
-    "失败判据：内核挂根失败、服务启动即退出、hostfwd 打不到业务端口；先读 qemu.*.log。",
+    "本次跑到：同一 fw-triage.py 对 CrackMev1.exe 做离线分诊，rc=0；仅识别 PE、低熵、无 credential clues，verdict 明确不是固件容器；ubireader/unsquashfs 等工具缺失。",
+    "卡点：没有 NAND dump/UBI 镜像，无法确认 UBI# 偏移、PEB/LEB 参数或 rootfs_data 覆盖层，也没有 FirmAE/qemu-system 起的 Web 服务。",
+    "下一步：拿到保留 OOB/原始布局的 NAND dump，先定位 UBI# 与卷，分别审计主 rootfs 和 rootfs_data，再用 FirmAE/qemu-system 起服务并以真实 HTTP 业务回包验证 J2。",
+    "成立判据：端口监听+服务进程+真实协议响应三者同时成立；仅 FirmAE 报网络成功不算。",
     "坑：rootfs_data 是配置覆盖层，账号/默认口令常不在主 rootfs；不要漏卷。"
   ],
-  "tags": ["firmware", "ubi", "nand", "FirmAE", "web-service", "planned"],
+  "tags": [
+    "firmware",
+    "ubi",
+    "nand",
+    "FirmAE",
+    "web-service",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/firmware-iot/SKILL.md",
     "Tool/skill/firmware-iot/references/filesystem-and-credentials.md",

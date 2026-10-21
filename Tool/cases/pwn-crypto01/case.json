@@ -12,22 +12,19 @@
   ],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "planned",
+  "outcome": "partial",
   "artifacts": [
     {
-      "path": "exploit.py",
-      "sha256": ""
-    },
-    {
-      "path": "notes/heap-trace.md",
-      "sha256": ""
+      "path": "artifacts/run.json",
+      "sha256": "b3a5e4be7d32441b6fc691505bd5bc2fc1f92e9bb95553cb5c56bef9bc947381"
     }
   ],
   "lessons": [
-    "计划路径：checksec + glibc build id → 泄漏 heap → unsorted bin 泄漏 libc → tcache poison 到 exit_funcs/程序指针 → ORW 读 flag",
-    "成立判据：malloc 返回受控地址；泄漏页对齐且与目标 libc 吻合；本地全新进程 10 次成功 ≥9；flag 输出可复现",
-    "失败路径预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐",
-    "证据：checksec、sha256(chall/libc)、seccomp-tools dump、vis_heap_chunks 截图、exploit 运行计数"
+    "本次跑到：pwn-check.py 对仓库内 CrackMev1.exe 完成 PE 保护位/导入/format 串预判，rc=0；识别 PE x86 32-bit，NX/PIE Enabled、Canary Not found、RELRO N/A，1 个导入、无危险导入/format 风险。",
+    "卡点：这不是目标的 ELF x86_64 堆题，仓库内没有 chall/libc/ld 附件；因此没有 heap 泄漏、tcache/UAF 或 seccomp 证据，不能宣称利用成立。",
+    "下一步：补入目标 ELF 与对应 libc/ld，先跑 checksec/glibc build id/seccomp-tools dump，再按泄漏 heap→unsorted bin 泄漏 libc→tcache poison→ORW 的顺序做本地 10 次复现。",
+    "成立判据：malloc 返回受控地址、泄漏页对齐且 libc 吻合、全新进程 10 次成功≥9、flag 输出可复现。",
+    "失败预案：safe-linking 未解码、tcache count 已满、2.35 无 __free_hook、seccomp 只允许 openat、栈未对齐。"
   ],
   "tags": [
     "R21",
@@ -35,7 +32,8 @@
     "heap",
     "tcache",
     "uaf",
-    "seccomp"
+    "seccomp",
+    "partial"
   ],
   "refs": [
     "Tool/skill/pwn-crypto/SKILL.md",

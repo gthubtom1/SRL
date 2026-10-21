@@ -551,6 +551,14 @@ def check_domain_packs():
         cand = glob.glob(os.path.join(TOOL, "scripts", "*" + script_key + "*.py")) +                glob.glob(os.path.join(TOOL, "skill", dom, "scripts", "*.py"))
         if not cand:
             bad.append(dom + "(缺脚本)")
+        else:
+            try:
+                r = subprocess.run([sys.executable, cand[0], "--help"], capture_output=True,
+                                   text=True, encoding="utf-8", errors="replace", timeout=60)
+                if r.returncode != 0:
+                    bad.append("%s(脚本 --help rc=%d)" % (dom, r.returncode))
+            except Exception:
+                bad.append(dom + "(脚本不可执行)")
         if not os.path.isfile(os.path.join(TOOL, "config", matrix)):
             bad.append(dom + "(缺矩阵)")
         cdir = os.path.join(ROOT, "Tool", "cases")
@@ -561,6 +569,31 @@ def check_domain_packs():
         kbdir = os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb", kb)
         if not os.path.isfile(os.path.join(kbdir, "README.md")):
             bad.append(dom + "(缺 KB board)")
+        else:
+            tech = len(glob.glob(os.path.join(kbdir, "techniques", "*.md"))) +                    len([x for x in glob.glob(os.path.join(kbdir, "*.md"))
+                        if os.path.basename(x) != "README.md"])
+            if tech < 2:
+                bad.append("%s(KB techniques %d<2)" % (dom, tech))
+        if not os.path.isfile(os.path.join(TOOL, "config", "routing-fragments", dom + ".json")):
+            bad.append(dom + "(缺路由片段)")
+        # 案例字段：必填 + artifact 必须真实存在
+        need = ("id", "domain", "protection", "authority", "goal_level", "outcome", "lessons")
+        for cd in glob.glob(os.path.join(cdir, dom.split("-")[0] + "*")):
+            cf = os.path.join(cd, "case.json")
+            if not os.path.isfile(cf):
+                continue
+            try:
+                cj = json.load(open(cf, encoding="utf-8"))
+            except Exception:
+                bad.append(os.path.basename(cd) + "(case.json 解析失败)")
+                continue
+            miss = [k for k in need if k not in cj]
+            if miss:
+                bad.append("%s(缺字段 %s)" % (os.path.basename(cd), ",".join(miss)))
+            for art in cj.get("artifacts") or []:
+                ap = art.get("path") or ""
+                if ap and not os.path.isfile(os.path.join(cd, ap)):
+                    bad.append("%s(幻影产物 %s)" % (os.path.basename(cd), ap))
     add("10 领域", "领域九件套（技能/参考/脚本/矩阵/案例/KB）", not bad,
         "；".join(bad)[:180] if bad else "9 个领域六类齐全")
 

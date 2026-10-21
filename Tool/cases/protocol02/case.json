@@ -3,43 +3,41 @@
   "domain": "protocol-plugin",
   "route": "R24",
   "target_type": "本地授权靶场的 TCP 二进制帧协议（magic + length + CRC + 加密段）",
+  "protection": [],
   "authority": "local",
   "goal_level": "L3",
   "outcome": "planned",
   "capture": {
-    "file": "evidence/tcp-9527.pcap",
+    "file": "",
     "tool": "pcap-summary.py / tshark",
     "endpoint": "127.0.0.1:9527",
     "tls": false,
     "client_version": "lab-sensor 1.4.0",
-    "captured_at": "2026-10-20T03:00:00Z"
+    "captured_at": ""
   },
   "protocol": {
     "layer": "TCP",
     "framing": "magic(4) + version(1) + type(1) + length(2, big-endian) + seq(4) + payload + crc32(4)",
-    "coverage": "length 覆盖 payload，CRC 覆盖 header+payload（待 3 帧验证）",
-    "encryption": "payload 尾部疑似 AES-CBC 密文，IV 位于 payload 前 16 字节（待验证）",
+    "coverage": "待验证：length 覆盖 payload，CRC 覆盖 header+payload（需 3 帧以上反推）",
+    "encryption": "待验证：payload 尾部疑似 AES-CBC 密文，IV 位于 payload 前 16 字节",
     "states": ["WAIT_MAGIC", "WAIT_HEADER", "WAIT_BODY", "VERIFY", "DISPATCH"]
   },
-  "artifacts": [
-    {"path": "evidence/tcp-9527.pcap", "sha256": ""},
-    {"path": "frames.jsonl", "sha256": ""},
-    {"path": "schema.md", "sha256": ""},
-    {"path": "parser.py", "sha256": ""}
-  ],
+  "artifacts": [],
   "evidence": [
-    "≥3 帧 magic/version/type 统计",
-    "长度公式与未见帧边界预测",
-    "改 1 字节后的 CRC/服务端拒绝",
-    "半包/粘包/重传/乱序重同步测试"
+    "待采集：≥3 帧 magic/version/type 统计",
+    "待验证：长度公式与未见帧边界预测",
+    "待验证：改 1 字节后的 CRC/服务端拒绝",
+    "待验证：半包/粘包/重传/乱序重同步测试"
   ],
   "lessons": [
+    "当前状态：planned —— 仅有帧格式假设，evidence/ 目录为空，没有 pcap、没有 frames.jsonl/schema.md/parser.py",
+    "还差什么：抓取 ≥3 帧真实流量、用 3 帧以上反推 length 覆盖范围与 CRC 参数、在客户端 send/recv 取加密前明文，再补 parser.py 重放验证",
     "长度字段含头/含尾必须用 3 帧以上反推，不能按首帧猜",
     "CRC 先定覆盖范围再定多项式；只匹配样本不算闭环",
     "加密段优先在客户端 send/recv 取明文，不暴力猜密钥",
     "失败判据：长度/CRC 无法闭环或只能原样重放，则报部分复刻"
   ],
-  "tags": ["R24", "protocol", "binary", "crc", "framing"],
+  "tags": ["R24", "protocol", "binary", "crc", "framing", "planned"],
   "refs": [
     "Tool/skill/protocol-plugin/SKILL.md",
     "Tool/skill/protocol-plugin/references/binary-protocols.md",

@@ -4,19 +4,21 @@
   "route": "R26",
   "target_type": "Windows 内存镜像（本地授权取证样本）",
   "platform": "windows",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "planned",
   "acquisition": {
     "method": "memory",
-    "tool": "WinPmem / DumpIt（记录实际版本）",
-    "collected_at": "2026-10-20T04:00:00Z",
+    "tool": "计划：WinPmem / DumpIt（记录实际版本）",
+    "collected_at": "",
     "timezone": "UTC",
-    "operator": "lab-operator",
+    "operator": "",
     "host": "WIN-LAB-01",
-    "clock_skew": "待与 NTP/事件日志对齐"
+    "clock_skew": "unknown（尚无镜像，未与 NTP/事件日志对齐）"
   },
-  "evidence": [
-    {"path": "evidence/mem.raw", "kind": "memory", "size": 0, "sha256": ""},
-    {"path": "evidence/SHA256SUMS", "kind": "manifest", "size": 0, "sha256": ""}
-  ],
+  "artifacts": [],
+  "evidence": [],
   "questions": [
     "2026-10-20 03:14Z 前后，哪个进程从哪台主机读取了哪个文件并外联到哪里"
   ],
@@ -29,7 +31,7 @@
       "action": "",
       "object": "",
       "confidence": "unverified",
-      "evidence_refs": ["evidence/mem.raw"],
+      "evidence_refs": [],
       "command": "python3 vol.py -f mem.raw windows.pslist.PsList"
     }
   ],
@@ -37,14 +39,15 @@
     {"name": "volatility3", "version": ""},
     {"name": "forensics-check.py", "version": "1.0"}
   ],
-  "outcome": "planned",
   "lessons": [
+    "当前状态：planned —— 未采集内存，evidence/ 目录为空，无 mem.raw 与 SHA256SUMS，findings 全部未验证",
+    "还差什么：采集 mem.raw 并算哈希、确认 OS 版本与符号表、跑 pslist/psscan/netstat 建时间线，再把四要素写回 findings",
     "先 banners/info 定 OS 与符号，再跑 pslist/psscan；符号错会全盘失败",
     "pslist 与 psscan 差集只能作为隐藏/退出候选，不能直接定罪",
     "每条结论必须带时间/主体/动作/对象四要素与可复现命令",
     "失败判据：两次换工具仍无法识别/符号不匹配，或关键哈希不一致即停"
   ],
-  "tags": ["R26", "forensics", "memory", "volatility3", "timeline"],
+  "tags": ["R26", "forensics", "memory", "volatility3", "timeline", "planned"],
   "refs": [
     "Tool/skill/forensics-mobile/SKILL.md",
     "Tool/skill/forensics-mobile/references/memory-and-volatility.md",

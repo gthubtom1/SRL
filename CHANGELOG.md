@@ -10,6 +10,25 @@
 
 ---
 
+## [1.21.2] — 2026-10-21
+
+> 主题：**完成审计驳回的 8 项**（不是改文档，是把"浅"变成"深"）。
+
+| 级别 | 问题 | 修复 |
+|---|---|---|
+| P1 | 3 篇 refs 超 200 行 | 压缩到 191/199/200 行，命令与判据保留 |
+| P1 | 18 个案例是空壳（无产物、缺字段） | 12 个案例真跑脚本产出 `artifacts/run.json`（含 sha256 与退出码），6 个补齐 `protection/authority/goal_level/outcome/lessons` 并清掉幻影路径 |
+| P1 | protocol/plugin/forensics 矩阵不足 12 条 | 补到 **13/12/12** 条（面/检测点/判据/工具/误报） |
+| P1 | R26 复用 R9 的核心词「内存转储」 | 从 R26 关键词移除（保留 内存镜像/取证/volatility） |
+| P1 | 2 个 SKILL 缺「失败判据」 | `malware-analysis`、`ad-cloud` 各补一节 |
+| P1 | preflight 领域检查只数文件 | 加强为：**脚本真跑 `--help`** + 案例必填字段 + **幻影产物检测** + KB techniques≥2 + 路由片段存在 |
+| P2 | `pwn-check`/`mal-triage` 解析失败仍 rc=0 | 改为结构化 JSON（`code: FILE_NOT_FOUND/PARSE_FAILED`）+ rc=2/3/0 |
+| 环境 | 新技能未部署、softseep 陈旧 | 9 域 + softseep 同步到 `~/.pi/agent/skills/`（26 个） |
+
+验收：`preflight --fast` **20/20**、`verify.ps1` / `verify.sh` **65/65**、routing 24 条、mcp-guard 40/40、案例索引 33 条。
+
+---
+
 ## [1.21.1] — 2026-10-21
 
 > 主题：**终审 #9 留痕 + 路由关键词补漏**。

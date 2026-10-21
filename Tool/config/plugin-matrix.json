@@ -79,6 +79,111 @@
       "criteria": ["插件类→patch 目标→字段/返回值→可观察效果", "日志证明已加载", "patch 可回退"],
       "fail": ["插件未加载/日志缺失", "目标方法被内联或混淆", "IL2CPP 元数据版本不匹配"],
       "pitfalls": ["Mono 与 IL2CPP 工具链不同", "Transpiler 风险最高", "在线反作弊只做外部观测"]
+    },
+    {
+      "id": "lua-mod",
+      "name": "Lua/游戏脚本 Mod（TOC/addon/自定义加载器）",
+      "match": ["lua", "addon", "toc", "mod loader", "脚本 mod", "luac"],
+      "entry": ["*.toc", "addon/*.lua", "mod loader 配置", "事件/钩子注册"],
+      "tools": ["plugin-triage.py", "luac -l", "luadec/unluac", "ripgrep"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path addon/",
+        "luac -l -p addon/core.lua",
+        "grep -RInE 'hooksecurefunc|CreateFrame|SendAddonMessage' addon/"
+      ],
+      "criteria": ["事件/钩子→调用面→数据读写可画", "字节码与源码可对应", "最小可改单元可回退"],
+      "fail": ["字节码版本不匹配无法反编译", "加载器来源不明无法确认执行顺序", "沙箱禁用文件/网络 API"],
+      "pitfalls": ["Lua 5.1 与 5.3 字节码不通用", "全局环境污染导致行为漂移", "沙箱暴露的 API 才是真实攻击面"]
+    },
+    {
+      "id": "android-xposed",
+      "name": "Android Xposed/LSPosed 模块（APK）",
+      "match": ["xposed", "lsposed", "edxposed", "模块 apk", "hook 框架", "xposed_init"],
+      "entry": ["AndroidManifest.xml(xposedmodule)", "assets/xposed_init", "IXposedHookLoadPackage", "META-INF/xposed/*"],
+      "tools": ["plugin-triage.py", "apktool", "jadx", "frida"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path module.apk",
+        "apktool d -f module.apk -o out/",
+        "jadx -d src/ module.apk"
+      ],
+      "criteria": ["hook 目标类/方法→参数/返回值→可观察效果", "作用域(包名)明确", "模块启用/禁用可回退"],
+      "fail": ["目标为抽取壳/加固无法定位方法", "LSPosed 作用域未包含目标包", "仅声明模块无 hook 逻辑"],
+      "pitfalls": ["hook 系统 API 与 app 进程边界", "Android 版本导致 API 差异", "模块自身也需签名与权限"]
+    },
+    {
+      "id": "office-addin",
+      "name": "Office/Outlook Web Add-in（manifest.xml + JS）",
+      "match": ["office add-in", "outlook add-in", "manifest.xml", "office.js", "taskpane", "vsto"],
+      "entry": ["manifest.xml", "Taskpane.html/JS", "commands/functionFile", "AppDomains/Permissions"],
+      "tools": ["plugin-triage.py", "unzip", "xmllint/jq", "浏览器 DevTools"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path addin/manifest.xml",
+        "xmllint --format manifest.xml | head -60",
+        "grep -RInE 'Office\\.context|fetch\\(|XMLHttpRequest' addin/ --include='*.js'"
+      ],
+      "criteria": ["权限(ReadWriteMailbox 等)→API 调用→数据外发链路", "AppDomains 与实际请求域一致", "最小可改单元可验证"],
+      "fail": ["manifest 校验失败无法旁加载", "仅托管在商店无法取得源码", "权限最小化无法解释外发"],
+      "pitfalls": ["Mailbox 1.1/1.2 权限差异", "taskpane 与命令式加载时机不同", "CORS/AppDomains 双重限制"]
+    },
+    {
+      "id": "obs-streamdeck",
+      "name": "OBS/StreamDeck/媒体管线插件",
+      "match": ["obs", "obs-studio", "streamdeck", "plugin dll", "滤镜", "采集"],
+      "entry": ["obs-plugins/*/bin/*.dll", "data/*/locale", "插件注册入口", "*.sdPlugin/manifest.json"],
+      "tools": ["plugin-triage.py", "objdump/dumpbin", "IDA/Ghidra", "Process Monitor"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path obs-plugins/",
+        "objdump -p plugin.dll | grep -E 'DLL Name|ImageBase'",
+        "jq '{Name,Version,Category}' com.example.plugin.sdPlugin/manifest.json"
+      ],
+      "criteria": ["导出符号/注册回调→功能入口", "依赖库与运行版本明确", "最小可改单元可回退"],
+      "fail": ["签名校验/加载器白名单阻止", "依赖 CRT 版本缺失", "只观测到 UI 无实际数据路径"],
+      "pitfalls": ["C/C++ ABI 与编译器版本", "插件目录层级影响加载", "图形/音频线程回调不可阻塞"]
+    },
+    {
+      "id": "iac-provider",
+      "name": "IaC/CLI 插件（Terraform provider、Ansible collection、kubectl 插件）",
+      "match": ["terraform-provider", "provider", "ansible", "collection", "kubectl-", "helm plugin", "iac"],
+      "entry": ["main.go/plugin.Serve", "provider schema", "action/module 入口", "plugin.yaml"],
+      "tools": ["plugin-triage.py", "go tool nm", "strings", "terraform providers schema -json"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path terraform-provider-x",
+        "terraform providers schema -json | jq '.provider_schemas | keys'",
+        "go tool nm provider | grep -iE 'Create|Delete|Read'"
+      ],
+      "criteria": ["资源 CRUD→API 调用→凭据来源可画", "schema 与实现一致", "最小可改单元可验证"],
+      "fail": ["二进制被裁剪无符号", "provider 需云凭据无法离线验证", "插件协议版本不匹配"],
+      "pitfalls": ["go-plugin 的 gRPC 握手", "状态文件含敏感值", "多 region/多账号上下文"]
+    },
+    {
+      "id": "jupyter-extension",
+      "name": "Jupyter/nbconvert/notebook 扩展",
+      "match": ["jupyter", "nbconvert", "nbextension", "jupyterlab extension", "ipython 魔法", "kernel"],
+      "entry": ["package.json(jupyterlab)", "nbextensions/*.js", "setup.py entry_points", "kernel.json"],
+      "tools": ["plugin-triage.py", "jq", "npm pack --dry-run", "浏览器 DevTools"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path labextension/",
+        "jq '{name,version,jupyterlab,main}' labextension/package.json",
+        "jupyter labextension list"
+      ],
+      "criteria": ["扩展点(命令/面板/kernel)→执行面→数据读写", "前端与 kernel 边界清楚", "最小可改单元可回退"],
+      "fail": ["预构建 bundle 无 source map", "服务端扩展需重启且难以观测", "版本约束导致无法加载"],
+      "pitfalls": ["前端扩展与 server extension 是两套", "notebook 输出可含可执行 HTML", "kernel 权限继承启动用户"]
+    },
+    {
+      "id": "userscript",
+      "name": "用户脚本（Tampermonkey/Violentmonkey/Greasemonkey）",
+      "match": ["userscript", "tampermonkey", "violentmonkey", "greasemonkey", "@match", "@grant"],
+      "entry": ["==UserScript==", "@match/@include", "@require", "@grant none/unsafeWindow"],
+      "tools": ["plugin-triage.py", "node --check", "浏览器 DevTools", "grep"],
+      "commands": [
+        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path script.user.js",
+        "grep -nE '^// @(match|include|require|grant|connect)' script.user.js",
+        "node --check script.user.js"
+      ],
+      "criteria": ["@match 范围→DOM/网络钩子→外发链路", "@grant 与沙箱能力对应", "最小可改单元可验证"],
+      "fail": ["@require 远端依赖无法固定版本", "unsafeWindow 被 CSP 限制", "脚本仅在特定地区/版本触发"],
+      "pitfalls": ["@grant none 直通页面上下文", "@connect 限制跨域", "MutationObserver 与 SPA 路由"]
     }
   ]
 }

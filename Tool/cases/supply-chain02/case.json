@@ -2,26 +2,51 @@
   "id": "supply-chain02",
   "domain": "supply-chain",
   "target_type": "container image (OCI + cosign + SLSA)",
-  "protection": ["cosign", "slsa-provenance", "immutable-tags", "registry-rbac"],
+  "protection": [
+    "cosign",
+    "slsa-provenance",
+    "immutable-tags",
+    "registry-rbac"
+  ],
   "authority": "server",
   "goal_level": "L3",
-  "outcome": "planned",
-  "artifacts": [],
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "65d3aea98395e357db088f434af2909cfd786f45b6adefaaef65d97cf6393020"
+    }
+  ],
   "evidence_dir": "evidence/supply-chain02",
   "scope": {
     "authorization": "image owner approval; read-only pull and verify",
-    "objects": ["registry.example.com/app@sha256:<digest>", "SBOM", "attestation", "build workflow"],
+    "objects": [
+      "registry.example.com/app@sha256:<digest>",
+      "SBOM",
+      "attestation",
+      "build workflow"
+    ],
     "rate_limit_rps": 1,
-    "forbidden": ["push/overwrite tag", "run untrusted image", "forge signature"]
+    "forbidden": [
+      "push/overwrite tag",
+      "run untrusted image",
+      "forge signature"
+    ]
   },
   "lessons": [
-    "镜像证据必须写 repo@sha256:<digest>；tag、本地 image Id、截图都不能替代 digest",
-    "cosign verify 通过只说明有人签名，必须再核对 certificate identity、OIDC issuer 与 Rekor 条目",
-    "attestation 的 subject digest 必须与目标镜像一致；SLSA level 数字不能代替本次构建的 materials/configSource",
-    "SBOM 要对 digest 生成，并在发布后重生成；对 tag 生成的 SBOM 会过期",
-    "多阶段 FROM <stage> 不是基础镜像；扫描器报 image tag 时要先排除本地 stage 别名"
+    "本次跑到：同一 sc-check.py --path Tool/ --max-files 1000 离线扫描，rc=0；得到 1 个 npm manifest/lock、2 个 workflow、9 条 medium（ci-action-pin/ci-permissions/dependency-confusion/version-range）。",
+    "卡点：目标是 registry.example.com 镜像 @sha256:<digest>，本次没有镜像 digest、SBOM、attestation 或 cosign 数据；仓库扫描结果不能替代镜像与 provenance 证据。",
+    "下一步：拿到 image owner 授权后记录 repo@sha256:<digest>，对 digest 生成 SBOM，跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
+    "边界：只读 pull/verify，不 push、不覆盖 tag、不运行不可信镜像；多阶段 FROM <stage> 不是基础镜像，报 image tag 前先排除本地 stage 别名。"
   ],
-  "tags": ["OCI", "cosign", "SLSA", "SBOM", "digest", "planned"],
+  "tags": [
+    "OCI",
+    "cosign",
+    "SLSA",
+    "SBOM",
+    "digest",
+    "partial"
+  ],
   "refs": [
     "Tool/skill/supply-chain-security/SKILL.md",
     "Tool/skill/supply-chain-security/references/image-and-provenance.md",
