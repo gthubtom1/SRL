@@ -18,7 +18,7 @@
 ## 一、一句话结论
 
 - 相对上游：**0 个文件删除 / 3 个重命名**（`ida-reverse→ida-assistant` 等；重命名保留转发，不算删除）。
-- 规模差：MCP 工具 **23 → 38**（其中 3 处为**函数体内插入**，见 §3.7，带 `SEEP-EXT` 标记）；技能 **9 → 16**（含 00–05 六个阶段技能）；体检 **55 → 62**（两平台一致）；测试套件 **1 → 6**。
+- 规模差：MCP 工具 **23 → 38**（其中 3 处为**函数体内插入**，见 §3.7，带 `SEEP-EXT` 标记）；技能 **9 → 17**（含 00–05 六个阶段技能）；体检 **55 → 62**（两平台一致）；测试套件 **1 → 6**。
 - 上游有 **3 个静默缺陷**（正则碾碎、哈希截断、同名技能覆盖）我们也继承了，**已修**。
 
 ---
@@ -52,7 +52,7 @@
 
 > **合并上游注意**：上游若也新增工具，**名字冲突优先上游语义**，但要先比对签名——同名不同义会造成静默错误。
 
-### 3.2 技能（9 → 16）
+### 3.2 技能（9 → 17）
 
 | 技能 | 类型 | 说明 | 回滚 |
 |---|---|---|---|
@@ -75,7 +75,7 @@
 | Linux `mcp.json` 用 sed 生成 → 反斜杠路径 + 未替换占位符 + 覆写用户条目 | 新增跨平台增量合并器（只增不删/写前备份/备份轮转） | `setup/merge_agent_config.py` + `install.sh` |
 | 安装脚本 unzip 返回 1 时中断 | 显式兜住 | `setup/install.sh` |
 | 卸载无差别删 `extensions/*.ts` | 改为随包白名单 | `setup/uninstall.*` |
-| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 10 条 + 自洽断言 | `Tool/scripts/routing.json` + `verify-routing-coherence.py` |
+| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/scripts/routing.json` + `verify-routing-coherence.py` |
 | `master-route.ps1` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/master-route.ps1` |
 | 体检只查"文件在不在" | 换功能性断言（路径可解析 / 含关键规约 / 实跑测试） | `setup/verify.*` |
 | 工具根写死 `D:\Tools` | **动态跨盘 + 用户级安装目标** | `tool_autodiscover.candidate_roots()` |
@@ -171,10 +171,10 @@ git diff upstream/main..HEAD -- <某个 M 文件>
 
 ```bash
 python Tool/mcp/test_seep_mcp.py                        # 9/9
-python Tool/mcp/test_ext_assets.py                      # 63/63
+python Tool/mcp/test_ext_assets.py                      # 73 passed
 python Tool/scripts/verify-routing-coherence.py         # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q # 84/84
-powershell -File setup/verify.ps1 -Detailed             # 60 项（或 ./setup/verify.sh）
+powershell -File setup/verify.ps1 -Detailed             # 62 项（./setup/verify.sh 同为 62 项）
 python Tool/scripts/check-budget.py                     # 反臃肿预算
 python Tool/scripts/smoke-e2e.py                        # 端到端链路（真实样本 12 项，约 13s）
 ```
