@@ -31,7 +31,7 @@
           "note": "Electron：主进程/preload/asar 语境，不与普通 Node 项目抢词"
         },
         {
-          "must": "(?i)\\b(bepinex|melonloader|harmonyos|assembly-csharp|global-metadata)\\b",
+          "must": "(?i)\\b(bepinex|melonloader|harmonyos)\\b",
           "note": "Unity Mod / IL2CPP / BepInEx 强锚点"
         },
         {
