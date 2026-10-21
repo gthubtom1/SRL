@@ -7,9 +7,9 @@
 | `repro/plugin-repro.json` | `plugin-repro.py --json` 输出：3 个入口 exists=true、17 权限中 9 条有代码行号证据、8 条 unexplained-static、`minimal_unit=background.js` | 是 |
 | `repro/unpack/**` | repro 解包副本（13 个文件），供人工按行号复核；只在这里看，不回写源目录 | 否 |
 | `run.json` | 上面两条命令的 cmd/rc/stdout 原样记录 | 是 |
-| `accept.json` | `plugin-accept.py --root . --case Tool/cases/plugin06 --json` 的 rc=0 输出 | 否 |
+| `accept.json（本地生成，不入库）` | `plugin-accept.py --root . --case Tool/cases/plugin06 --json` 的 rc=0 输出 | 否 |
 
-`accept.json` 不列入 `artifacts[]`：它是验收脚本**本次运行的输出**，重跑会改写自身，列进去会形成自指哈希（第一次尝试就复现过 `sha256 不符（实算 e3b0c44298fc）`——shell 重定向先截断文件、accept 读到空文件）。它的 `root` 字段是本机 worktree 绝对路径，只作日志，不入证据链。
+`accept.json（本地生成，不入库）` 不列入 `artifacts[]`：它是验收脚本**本次运行的输出**，重跑会改写自身，列进去会形成自指哈希（第一次尝试就复现过 `sha256 不符（实算 e3b0c44298fc）`——shell 重定向先截断文件、accept 读到空文件）。它的 `root` 字段是本机 worktree 绝对路径，只作日志，不入证据链。
 
 ## 复跑顺序
 
