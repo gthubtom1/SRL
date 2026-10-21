@@ -97,6 +97,9 @@ def gate_pointer_violations():
 
     血案：旧代卡 `space-bunny-2.md` 曾写"没有授权/服务器不是我的 → 不当拒绝理由、不给 permission check"，
     与 §六 唯一停止条件正面冲突，而旧卡因为 `is_new_gen()` 过滤而完全没被本脚本检查到。
+
+    已知局限：本函数只校验"指针字符串存在"（`AGENTS.md` + `§六`，或 Carve-out 条款），
+    不校验语义；卡内若在别处把触发语映射成"立即交付"，仍需人工复核（见 AUDIT-2026-10-21 §四）。
     """
     bad = []
     for d in CARD_DIRS + ([KERNEL_DIR] if os.path.isdir(KERNEL_DIR) else []):
