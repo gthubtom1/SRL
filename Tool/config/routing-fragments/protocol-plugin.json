@@ -1,1 +1,18 @@
-{"origin":"protocol-plugin","routes":{"R24":{"label":"协议/私有协议复刻","skill":"protocol-plugin/SKILL.md","keywords":[{"must":"(?i)(私有协议|协议逆向|协议复刻|抓包|pcap|tshark|wireshark|mitmproxy|状态机|报文|重放|protobuf|flatbuffers)","note":"协议：判据=能构造新请求"}]}},"priority_hint":{"after":"R22"}}
+{
+  "origin": "protocol-plugin",
+  "routes": {
+    "R24": {
+      "label": "协议/私有协议复刻",
+      "skill": "protocol-plugin/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(私有协议|协议逆向|协议复刻|抓包|pcap|tshark|wireshark|mitmproxy|状态机|报文|重放|protobuf|flatbuffers)",
+          "note": "协议：判据=能构造新请求"
+        }
+      ]
+    }
+  },
+  "priority_hint": {
+    "after": "R22"
+  }
+}

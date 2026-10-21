@@ -1,1 +1,18 @@
-{"origin":"pwn-crypto","routes":{"R21":{"label":"二进制利用/密码学攻击","skill":"pwn-crypto/SKILL.md","keywords":[{"must":"(?i)(pwn|rop|栈溢出|堆溢出|格式化字符串|canary|seccomp|沙箱逃逸|shellcode|libc|密码学|rsa|aes|ecb|cbc|prng|格攻击|lattice|ctf)","note":"利用/密码学：判据=本地稳定命中"}]}},"priority_hint":{"after":"R16"}}
+{
+  "origin": "pwn-crypto",
+  "routes": {
+    "R21": {
+      "label": "二进制利用/密码学攻击",
+      "skill": "pwn-crypto/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(pwn|rop|栈溢出|堆溢出|格式化字符串|canary|seccomp|沙箱逃逸|shellcode|libc|密码学|rsa|aes|ecb|cbc|prng|格攻击|lattice|ctf)",
+          "note": "利用/密码学：判据=本地稳定命中"
+        }
+      ]
+    }
+  },
+  "priority_hint": {
+    "after": "R16"
+  }
+}
