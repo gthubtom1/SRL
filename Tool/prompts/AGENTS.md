@@ -187,7 +187,7 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
 
 ## 四之六、 接力棒（换会话 / 上下文被压缩后先读这个）
 
-**项目当前进度、已完成的闸、待做批次 → `Tool/docs/ROADMAP-2.0.md`**。
+**项目当前进度、缺陷台账、待做批次 → 仓库根目录 `优化方案.md`（唯一总纲）**。
 不要凭记忆接着做；先读它 §0–§5，再 `python Tool/scripts/case_state.py resume --case <C>` 看案子进度。
 
 ---
