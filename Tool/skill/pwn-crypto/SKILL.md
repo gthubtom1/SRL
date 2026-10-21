@@ -224,8 +224,10 @@ python Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa inputs/rsa.json
 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --broadcast inputs/broadcast.json
 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test
 
-# 4) 技能目录下的同名转发器（等价于 1，便于部署后从技能目录调用）
-python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json
+# 4) 域验收：案例字段/哈希/真跑/refs + 保护位与结论一致性（离线）
+python Tool/skill/pwn-crypto/scripts/pwn-accept.py --root . --json
+python Tool/skill/pwn-crypto/scripts/pwn-accept.py --case pwn-crypto03
+python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 ```
 
 退出码约定：`0` 成功/通过；`1` 可解析但不一致/回代失败；`2` 结构化失败（缺文件/坏 JSON/缺工具）。
@@ -265,7 +267,8 @@ python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json
 - **密码学**：`pow(m,e,n)==c`、逐块/逐位比对；贴参数、明文来源与脚本输出。
 - **证据留存**：`sha256`、保护位、libc 版本/内核/ASLR 状态、工具版本、失败路线。
 - **停止条件**：同一路径 3 轮无进展 → 换路线；同类动态尝试 2 次失败 → 停下汇报。
-- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 本域 7 条全 PASS。
+- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 本域 7 条 + 全局契约 1 条 = 8/8；
+  案例级再跑 `pwn-accept.py --root . --json`（字段/哈希/真跑/refs/保护位一致性）。
 
 > 边界再强调：本技能只用于授权实验室资产；不伪造“稳定 9/10”，不隐藏失败，
 > 不把本地关 ASLR 的结果当远程结论，不把 PE 当 ELF 套保护位术语。
