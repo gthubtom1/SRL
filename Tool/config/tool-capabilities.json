@@ -753,6 +753,28 @@
       "control": {
         "note": "HTTP(S) 抓包 GUI；无头替代是 tshark/mitmdump"
       }
+    },
+    "es": {
+      "display": "Everything CLI (es.exe)",
+      "exe_candidates": [
+        "es",
+        "es.exe"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "headless": true,
+        "cli": true,
+        "gui": false,
+        "headless_detail": "es.exe 是 Everything 的命令行客户端，毫秒级全盘索引查询；需要 Everything 正在运行",
+        "cli_detail": "es -n 20 <关键词>；可用 -path 限定目录、-regex 正则"
+      },
+      "control": {
+        "cli_cmd": "es -n 20 <pattern> 【-path <dir>】",
+        "note": "只查索引，不扫盘；索引服务没起会立即失败（不是卡住）"
+      },
+      "install_hint": "Everything 官网下载安装后，同目录自带 es.exe；或 winget install voidtools.Everything",
+      "notes": "tool_autodiscover 的 everything 层会自动找 es.exe（PATH 或 Everything 安装目录）；缺失时该层安静跳过"
     }
   },
   "mcp_ecosystem": {
