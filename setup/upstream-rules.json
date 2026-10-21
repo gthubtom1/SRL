@@ -91,8 +91,7 @@
       "sync": "manual",
       "preserve_local": [
         "PROVENANCE.md",
-        "kb/field_journal__template.md",
-        "kb/_index.md"
+        "kb/field_journal__template.md"
       ]
     }
   }

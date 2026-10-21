@@ -110,18 +110,21 @@ metadata:
 
 > 用户说什么不重要，**softseep 听懂意图后自己归类**。下表是内部推断规则。
 
+> **本表是 `Tool/scripts/routing.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
+> `verify-routing-coherence.py` 守自洽；发现本表与 routing.json 不一致时，**以 routing.json 为准**。
+
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
-| "破解" / "怎么免费用" / "会员怎么搞" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权/许可分析** | 前置门控 → `project-paradigms.md` |
+| "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | **`01-gate-bypass`**（分析型参考卷：`client-license-validation-bypass`） |
 | "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `unpack-loop`**（判据驱动，不硬走流程） |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
 | "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `project-paradigms.md` |
 | "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |
 | "是不是病毒" / "分析样本" / "行为" / "IOC" | **样本研判** | ida MCP + YARA |
-| "改界面文字" / "关于对话框" / "显示不对" | **UI 伪造** | `ui-verification.md` |
-| "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固对抗** | `seep_packer_detect` 识别 → `MANUAL/ANTI-DEBUG.md` ＋ `seep_kb_search` 查反作弊篇（`general/techniques/cheating/04-anti-cheat-bypass.md`） |
+| "改界面文字" / "关于对话框" / "显示不对" / "换品牌" | **UI 改造** | **`02-ui-rebrand`**（校验参考卷：`ui-verification.md`） |
+| "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固/反调试** | 路由落 **`unpack-loop`**（R9）→ `seep_packer_detect` → `MANUAL/ANTI-DEBUG.md` + `seep_kb_search` |
 | "出修复建议" / "加固方案"（**防御面：要交付整改**） | **加固对抗** | `references/defense-in-depth.md`（厂商视角的四层加固） |
-| "出个报告" / "整理成果" / "测绘" | **测绘报告** | `project-paradigms.md`（报告模板） |
+| "出个报告" / "整理成果" / "测绘" | **阶段零 分析** | **`00-analysis`**（R15；报告模板 `project-paradigms.md`） |
 | "看看这个 exe" / "先分析透" / "出份报告"（无明确动词） | **阶段零 分析** | `00-analysis`（D0–D5 + 可复现报告 + 可行性裁定） |
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
@@ -356,7 +359,4 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 | 许可/激活/卡密专项 | `license-validation.md` |
 | 出加固方案 | `defense-in-depth.md` |
 | UI 文案/状态验收 | `ui-verification.md` |
-| 找现成脚本 | `tooling.md` |> **本表是 `Tool/scripts/routing.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
-> `verify-routing-coherence.py` 守自洽；发现本表与 routing.json 不一致时，**以 routing.json 为准**。
-
-
+| 找现成脚本 | `tooling.md` |
