@@ -129,3 +129,50 @@ grep -RInE '^(corp|internal|company|private)[-_]' requirements*.txt pyproject.to
 - 不查询与授权范围无关的私有包名；不枚举公司内部 namespace。
 - 依赖混淆只是供应链风险的一类；CVE 可达性、CI 权限、镜像签名分别见同目录其他文档。
 - 离线基线由 `scripts/sc-check.py` 覆盖；联网确认必须单独获得授权并记录时间、源、响应码。
+
+## 8. 2026 npm 蠕虫检测（ChainDrop / Mini Shai-Hulud / SANDWORM_MODE）
+
+> 出处：MSRC + Unit42 2026-08-04（ChainDrop / Mini Shai-Hulud）、Socket 2026-02-20（SANDWORM_MODE）、Elastic 2026-08-06（Bun 载荷与落地分析）。
+> 判据全部离线静态；不安装、不执行 `postinstall`、不联网验证。
+
+### 8.1 ChainDrop / Mini Shai-Hulud（2026-08，400+ 包）
+
+- 规模：维护者 token 被盗后批量发版，一次污染 400+ npm 包，含 `keyv`、`cacheable-request` 及其传递依赖。
+- 载荷：Bun 打包的混淆 JS，靠 `preinstall`/`postinstall` 钩子自动执行，不需要业务代码 import。
+- 行为：扫描 `~/.npmrc`、进程环境、GitHub token 与云凭据（AWS/GCP/Azure），再用 GitHub Actions 外带与自复制——向受害者仓库或自身写 workflow、用窃取 token 继续发版。
+- 落地痕迹：`bun run` 进程、临时目录里的高熵 `.js`、CI 日志里异常的 `bun install`/`bun run`。
+- 只读证据：manifest 钩子行、包内高熵 JS 的路径与熵值、CI 日志片段。
+
+### 8.2 SANDWORM_MODE（2026-02，19 包）
+
+- 规模：19 个仿冒包，蹭 `claude`/`mcp`/`openai` 生态工具名（typosquat）。
+- 手法一：劫持 CI workflow——改写 `.github/workflows/*.yml`，插入读取 token 的步骤并把 CI 凭据带走。
+- 手法二：投毒 AI 工具链配置——写入 `.mcp.json`、`.cursor/mcp.json`、agent 配置文件，让 MCP server/agent 在开发者本机执行命令。
+- 目标：CI token 与本地 AI 助手上下文，横向到私有仓库与云账号。
+
+### 8.3 检测判据（可机检字段）
+
+| 字段 | 判据 | 落点 |
+| :-- | :-- | :-- |
+| `postinstall_net` | `scripts.preinstall/postinstall` 含 `curl`/`wget`/`node -e`/`bun`/`child_process`/`net.`/`http` | manifest 行号 + 原命令 |
+| `bun_payload` | 安装期命令调 `bun`/`bunx`，或包内出现单行高熵（≥4.5 bit/char）且 >20KB 的 JS | 文件 + 行号 + 熵值 |
+| `rdd_ref` | 依赖值匹配 `^(file:\|link:\|https?://\|git\+)`，或版本 `*` 且锁文件 `resolved` 是远程 tarball | 依赖名 + 版本串 + `resolved` |
+| `ci_token_scan` | 安装脚本/包源码读取 `GITHUB_TOKEN`、`ACTIONS_RUNTIME_TOKEN`、`~/.npmrc`、`~/.aws` | 文件 + 行号 |
+| `ai_toolchain_hit` | 仓库或包内出现 `.mcp.json`、`.cursor/mcp.json`、agent 配置且被安装脚本写入 | 文件 + 写入行 |
+| `action_tag_mutable` | workflow `uses: owner/repo@vN` 不是 40 位 commit SHA | workflow + 行号 |
+
+**升级为确认**：`postinstall_net` 与 `bun_payload` 或 `ci_token_scan` 同时命中，且能指出可外带的凭据路径与出网目标。
+**失败/降级**：只有宽版本或 `*`（未证明远程 tarball）；只有 tag 未 pin（无写权限/secrets 路径）；只有 AI 配置存在但无写入行为。
+
+### 8.4 只读排查顺序
+
+```bash
+python Tool/scripts/sc-check.py --path . --out sc.json   # SC-101/102/103
+grep -RInE '"(pre|post)install"' --include=package.json . | grep -v node_modules
+grep -n '"resolved": *"https\?://' package-lock.json | head
+git log --oneline -5 -- package.json package-lock.json    # 版本突变更像蠕虫发版
+```
+
+- 先看 `rule_hits`，再核对锁文件 `resolved`/`integrity`，最后才人工打开高熵 JS；`bun_payload` 需要熵值与体积两个数一起报。
+- 发现真实凭据 → 只留指纹（sha256 前 12 位）并按轮换流程处理，报告里不写全量 token。
+- 边界：不运行安装脚本、不向 registry 上传任何内容；本域只做只读取证与最小修复建议（pin 版本、`npm ci --ignore-scripts`、私有 registry 代理）。

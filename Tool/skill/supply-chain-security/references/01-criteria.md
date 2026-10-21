@@ -40,8 +40,11 @@
 | K8s 清单 / IaC | `kubesec scan`、`trivy config`、`checkov`、`.terraform.lock.hcl` | `kubesec_score<0` 且 reason 含 `privileged`/`hostPath`/`hostNetwork`/`runAsUser:0`；或 `trivy config`/`checkov` 命中带 `file:line` 的同一字段；`iac_confirmed=true` | `iac.json`/`checkov.json`（资源名、字段路径、行号）+ 实际部署清单 sha256 | 高：只有 INFO 级；命中的是未部署模板；把镜像 CVE 混入清单结论 |
 | secrets 真伪 | `gitleaks detect --no-git`、`trufflehog filesystem`、镜像层 | `secret_prefix_ok=true` 且 `secret_length_ok=true`；可离线复算时 `secret_checksum_ok=true`；`secret_rotated` ∈ {`true`,`false`,`unverified`}，不可推导时必须 `unverified` | `gitleaks.json`/`trufflehog.jsonl` + `secret_fingerprint_sha256_12` + `rotation_ref` | 高：熵高但是占位符/测试密钥；把未验证写成已轮换或已失效 |
 | 供应商台账 | `vendor.json`、SBOM、锁文件 | 每个生产依赖有台账条目（`vendor_entry=true`），且 `vendor_sbom_ref` 能在 SBOM 找到同名同版本组件（`vendor_sbom_match=true`）；`vendor_eol` 为日期或 `unknown`；`vendor_contact` 非空 | `vendor.json` + SBOM 组件 + `vendor_diff[]` | 中：只有顶层依赖有台账；许可证与 SBOM 不一致；内部组件无联系人 |
+| 安装钩子网络面（2026 蠕虫） | `package.json scripts.preinstall/postinstall` | `postinstall_net=true`：钩子命令含 `curl`/`wget`/`node -e`/`bun`/`child_process`/`net.`/`http`；与 `bun_payload` 或 `ci_token_scan` 同时命中才升确认，单独命中只算疑似 | `sc-check.py` 的 `rule_hits[].rule=SC-101 postinstall-network`（`file`/`line`/`evidence` 原命令） | 中：esbuild/sharp 等原生包会合法下载预编译二进制；`prepare` 用于本地开发；内网镜像地址也命中 `http` |
+| 远程/动态依赖（RDD） | 依赖值、锁文件 `resolved` | `rdd_ref=true`：依赖值匹配 `^(file:\|link:\|https?://\|git\+)`；或版本为 `*`/空且锁文件 `resolved` 指向远程 tarball；`file:`/`link:` 本身只算疑似 | `sc-check.py` 的 `rule_hits[].rule=SC-102 rdd-ref` + 锁文件 `resolved` 原文 + 依赖名 | 高：monorepo 的 `file:`/`link:` 是常规做法；受控内网 tarball 镜像；`workspace:` 协议不在本规则范围 |
+| action 可移动 tag | workflow `uses: owner/repo@ref` | `action_tag_mutable=true`：`@vN`/`@vN.N.N` 等可移动引用且非 40 位 commit SHA；叠加写权限与不可信触发才升级 | `sc-check.py` 的 `rule_hits[].rule=SC-103 action-tag-mutable`（`file`/`line`/`uses` 原文） | 中：官方 action 的 major tag 是常见做法；pin 后仍需看 job 权限与 `secrets` 作用域 |
 
-数据行数：21 行（门禁要求 ≥8）。新增场景只许追加，不许删掉“误报风险”列。
+数据行数：23 行（门禁要求 ≥8）。新增场景只许追加，不许删掉“误报风险”列。
 
 ## 2. 判据的机检落点
 
@@ -53,7 +56,8 @@
 | action 固定 | `action_pins[].pinned` | `ci-perm-audit.py` | 第三方 action 全为 40 位 SHA 或 `sha256:` |
 | 组件可达 | `reachable[]` / `unreachable[]` | `sbom-reach.py` | 每个组件有 `entry`/`import` 命中或明确“未在源码出现” |
 | SBOM 缺口 | `missing_from_sbom[]` | `sbom-reach.py` | 锁文件条目集合 ⊆ SBOM 组件集合 |
-| 案例证据 | `artifacts[].sha256` | 门禁复算 | 逐字节一致；`refs` 无幻影 |
+| 案例证据 | `artifacts[].sha256` | 门禁 + `sc-accept.py` | 逐字节一致（容忍 LF/CRLF 漂移但必须告警）；`refs` 无幻影；`recorded_real≥1` |
+| 2026 蠕虫规则 | `rule_hits[].rule` / `severity` / `file` / `line` / `evidence` | `sc-check.py` | `SC-101/102/103` 在内置 fixture 上全部命中，且 `--self-test` rc=0 |
 
 ## 3. 证据形态的最低要求
 
