@@ -1,0 +1,145 @@
+{
+  "id": "forensics06",
+  "domain": "forensics-mobile",
+  "route": "R26",
+  "target_type": "真实 Windows 启动时间线：Microsoft-Windows-Kernel-Boot/Operational EVTX 只读副本（无用户名）",
+  "platform": "windows",
+  "protection": [],
+  "authority": "local-owner-authorized",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "evidence_kind": "real",
+  "acquisition": {
+    "method": "live triage read-only copy",
+    "tool": "cp + chmod a-w + forensics-check.py 1.1 + fs-timeline.py 1.0 + PowerShell Get-WinEvent（仅元数据）",
+    "collected_at": "2026-10-21T23:38:59Z",
+    "timezone": "UTC（主机本地 UTC+8，EVTX 记录已按 FILETIME 换算为 UTC）",
+    "operator": "local authorized analyst",
+    "source": "<WINDIR>/System32/winevt/Logs/Microsoft-Windows-Kernel-Boot%4Operational.evtx（<WINDIR>=C:\\Windows）",
+    "clock_skew": "unknown；单主机单源，未与 NTP/域控时间交叉校准",
+    "readonly": "源文件只读打开；input/ 副本 chmod a-w 后为 -r--r--r--；check.json 的 integrity.readonly=true",
+    "volume": "未采集卷元数据；本案例只使用事件日志，不涉及 $MFT/USN/注册表 hive。"
+  },
+  "questions": [
+    "2026-10-08T22:12Z–2026-10-21T02:48Z 这台主机的启动/固件测量通道记录了哪些事件？每次事件的主体、动作、对象是什么，能否归一到 UTC 时间线并指出最值得追的异常？"
+  ],
+  "timeframe": {
+    "start": "2026-10-08T22:12:34.767210Z",
+    "end": "2026-10-21T02:48:14.122314Z",
+    "clock_skew": "unknown；单主机单源，未与 NTP 对齐"
+  },
+  "findings": [
+    {
+      "claim": "时间线首条记录是 2026-10-08T22:12:34.767210Z 的 Event ID 292（固件 SBAT 值读取失败），RecordId=1；这是本段启动时间线的起点。",
+      "time_utc": "2026-10-08T22:12:34.767210Z",
+      "actor": "Microsoft-Windows-Kernel-Boot/Operational（event-record）",
+      "action": "event-logged（Event ID 292：无法读取固件 SBAT 值）",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=1",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/Kernel-Boot-Operational.evtx",
+        "artifacts/timeline.json",
+        "artifacts/events.json",
+        "artifacts/check.json"
+      ],
+      "command": "powershell -NoProfile -Command \"Get-WinEvent -Path 'input\\Kernel-Boot-Operational.evtx' -Oldest | Sort-Object RecordId | Select-Object RecordId,Id,ProviderName\""
+    },
+    {
+      "claim": "2026-10-13T01:59:01Z 同一秒内连续出现 RecordId=9（Event ID 51，VSM 密钥预计算/缓存）与 RecordId=10（Event ID 45，VSM 密钥缓存状态）；两条事件时间戳分别为 .108999Z 与 .109002Z。",
+      "time_utc": "2026-10-13T01:59:01.108999Z",
+      "actor": "Microsoft-Windows-Kernel-Boot/Operational（event-record）",
+      "action": "event-logged（Event ID 51：VSM 密钥预计算/缓存）",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=9",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/Kernel-Boot-Operational.evtx",
+        "artifacts/timeline.json",
+        "artifacts/events.json"
+      ],
+      "command": "powershell -NoProfile -Command \"Get-WinEvent -Path 'input\\Kernel-Boot-Operational.evtx' | Where-Object Id -in 51,45 | Select-Object TimeCreated,Id,RecordId\""
+    },
+    {
+      "claim": "2026-10-13T01:59:01.109002Z 的 RecordId=10 是 Event ID 45，记录 VSM 密钥缓存/预计算状态；它与 RecordId=9 相差 3 微秒，说明是同一启动阶段的连续测量事件。",
+      "time_utc": "2026-10-13T01:59:01.109002Z",
+      "actor": "Microsoft-Windows-Kernel-Boot/Operational（event-record）",
+      "action": "event-logged（Event ID 45：VSM 密钥缓存状态）",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=10",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/Kernel-Boot-Operational.evtx",
+        "artifacts/timeline.json",
+        "artifacts/events.json"
+      ],
+      "command": "powershell -NoProfile -Command \"Get-WinEvent -Path 'input\\Kernel-Boot-Operational.evtx' | Where-Object Id -in 51,45 | Select-Object TimeCreated,Id,RecordId\""
+    },
+    {
+      "claim": "整段通道共 14 条记录：12 条 Event ID 292 + 1 条 Event ID 51 + 1 条 Event ID 45；末条为 2026-10-21T02:48:14.122314Z 的 RecordId=14（Event ID 292）。时间跨度约 12 天 4 小时 35 分。",
+      "time_utc": "2026-10-21T02:48:14.122314Z",
+      "actor": "Microsoft-Windows-Kernel-Boot/Operational（event-record）",
+      "action": "event-logged（Event ID 292：无法读取固件 SBAT 值）",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=14",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/Kernel-Boot-Operational.evtx",
+        "artifacts/timeline.json",
+        "artifacts/events.json"
+      ],
+      "command": "python ../../skill/forensics-mobile/scripts/fs-timeline.py --input input/Kernel-Boot-Operational.evtx --out artifacts/timeline.json"
+    }
+  ],
+  "timeline_artifact": "artifacts/timeline.json",
+  "artifacts": [
+    {
+      "path": "input/Kernel-Boot-Operational.evtx",
+      "sha256": "4f45adc7ef74e727007852665e5eef42e526394d8fae80cf61cf6e304f44bfb9"
+    },
+    {
+      "path": "artifacts/check.json",
+      "sha256": "103dab1b6ef106e1f1c143207d73fb2996b2ec60bbf7f0bfa069d905be8dc0e5"
+    },
+    {
+      "path": "artifacts/timeline.json",
+      "sha256": "c368880d8a3399171bf9a0f60f7766e302ceabc308c112daaccf8473bb595964"
+    },
+    {
+      "path": "artifacts/events.json",
+      "sha256": "0a7d5aa8c92bdef2a3707edc2a238dd36675732f031e5d33e9e6435ae60c9b58"
+    },
+    {
+      "path": "artifacts/accept.json",
+      "sha256": "490944f34ed099140a097ca7fa6b76aea59fabfddd407c38ac9bf644e8fd504f"
+    }
+  ],
+  "lessons": [
+    "跑的是真实 Microsoft-Windows-Kernel-Boot/Operational EVTX 只读副本（14 条记录）。命令：`cd Tool/cases/forensics06 && python ../../skill/forensics-mobile/scripts/forensics-check.py --file input/Kernel-Boot-Operational.evtx --json > artifacts/check.json`，rc=0；再跑 `python ../../skill/forensics-mobile/scripts/fs-timeline.py --input input/Kernel-Boot-Operational.evtx --out artifacts/timeline.json`，rc=0。结果：14 个 evtx-record 事件，2026-10-08T22:12:34.767210Z → 2026-10-21T02:48:14.122314Z。",
+    "事件 ID 分布用 PowerShell 只读查询得到：`powershell -NoProfile -Command \"Get-WinEvent -Path 'input\\Kernel-Boot-Operational.evtx' | Sort-Object RecordId | Select-Object RecordId,Id,ProviderName\"`，rc=0；14 条 = 12×292（固件 SBAT 读取失败）+ 1×51（VSM 密钥预计算）+ 1×45（VSM 密钥缓存状态）。",
+    "边界：只有启动/固件测量通道，没有 Security.evtx 的 4624/4688、没有进程树、没有 pcap，因此不能把事件归因到具体用户/进程，也不能判断 292 是安全启动失败还是固件/主板兼容性问题；时间线只能说明“何时记录了什么测量状态”。",
+    "隐私：EVTX 内嵌两个 NetBIOS 主机名（DESKTOP-*），不含用户名/SID/路径；timeline/events 产物不输出主机名。对外分享前应按 input/README.md 做等长占位替换并重算哈希。",
+    "还差什么：补 Security.evtx（4624/4688）、System.evtx、Prefetch 与 NTP 偏差，才能把启动事件与登录/进程执行对齐；如果要解释 292 的根因，需要固件版本、Secure Boot 状态与 TPM PCR 日志。",
+    "复现边界：单主机、单通道、14 条事件，`repro.status=recorded`；任何结论都不超出该 EVTX 的记录范围。"
+  ],
+  "tags": [
+    "R26",
+    "forensics",
+    "real",
+    "evtx",
+    "windows",
+    "boot",
+    "timeline"
+  ],
+  "refs": [
+    "Tool/skill/forensics-mobile/SKILL.md",
+    "Tool/skill/forensics-mobile/references/01-criteria.md",
+    "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+    "Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md",
+    "Tool/skill/forensics-mobile/references/evidence-chain.md",
+    "Tool/config/forensics-mobile-matrix.json",
+    "Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx",
+    "Tool/cases/forensics06/artifacts/timeline.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』；check.json/timeline.json/events.json 均已登记 sha256"
+  }
+}

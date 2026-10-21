@@ -1,0 +1,126 @@
+{
+  "ok": true,
+  "path": "D:\\seep-wt-f2\\Tool\\cases\\forensics06\\input\\Kernel-Boot-Operational.evtx",
+  "type": "evtx",
+  "format": "EVTX",
+  "confidence": "observed",
+  "meta": {
+    "chunk_count": 1,
+    "record_count": 14,
+    "first_record_utc": "2026-10-08T22:12:34.767210Z",
+    "last_record_utc": "2026-10-21T02:48:14.122314Z",
+    "records_sample": [
+      {
+        "record_id": 1,
+        "time_utc": "2026-10-08T22:12:34.767210Z",
+        "chunk": 0,
+        "size": 1880
+      },
+      {
+        "record_id": 2,
+        "time_utc": "2026-10-08T22:13:51.951439Z",
+        "chunk": 0,
+        "size": 920
+      },
+      {
+        "record_id": 3,
+        "time_utc": "2026-10-08T22:19:23.041298Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 4,
+        "time_utc": "2026-10-08T22:20:06.957977Z",
+        "chunk": 0,
+        "size": 920
+      },
+      {
+        "record_id": 5,
+        "time_utc": "2026-10-09T10:41:25.975956Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 6,
+        "time_utc": "2026-10-09T11:05:52.088562Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 7,
+        "time_utc": "2026-10-10T01:05:35.113486Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 8,
+        "time_utc": "2026-10-13T01:59:01.108908Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 9,
+        "time_utc": "2026-10-13T01:59:01.108999Z",
+        "chunk": 0,
+        "size": 1952
+      },
+      {
+        "record_id": 10,
+        "time_utc": "2026-10-13T01:59:01.109002Z",
+        "chunk": 0,
+        "size": 704
+      },
+      {
+        "record_id": 11,
+        "time_utc": "2026-10-13T03:07:31.117614Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 12,
+        "time_utc": "2026-10-13T13:49:34.053240Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 13,
+        "time_utc": "2026-10-20T03:19:37.086185Z",
+        "chunk": 0,
+        "size": 392
+      },
+      {
+        "record_id": 14,
+        "time_utc": "2026-10-21T02:48:14.122314Z",
+        "chunk": 0,
+        "size": 392
+      }
+    ],
+    "truncated": false
+  },
+  "timeline": {
+    "start_utc": "2026-10-08T22:12:34.767210Z",
+    "end_utc": "2026-10-21T02:48:14.122314Z",
+    "basis": "EVTX record FILETIME (100ns since 1601, UTC)",
+    "timezone": "UTC",
+    "clock_skew": "host clock; compare with NTP/other logs",
+    "precision": "100 nanoseconds"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "通道/提供程序与事件 ID",
+    "记录 FILETIME 与 RecordId",
+    "登录/进程/服务/任务事件",
+    "与注册表、文件系统时间线交叉对齐"
+  ],
+  "integrity": {
+    "sha256": "4f45adc7ef74e727007852665e5eef42e526394d8fae80cf61cf6e304f44bfb9",
+    "size": 69632,
+    "mtime_utc": "2026-10-21T23:38:59.936169Z",
+    "readonly": true,
+    "warnings": [],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}
