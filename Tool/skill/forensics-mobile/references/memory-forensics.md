@@ -151,7 +151,52 @@ ss -lntp; ss -tnp state established                           # 套接字 → pi
 
 **失败判据**：`auditctl -l` 为空 → 写“无审计面”（`blocked_at: audit-off`），不写“没执行”；`auid=unset` 却写成具体用户 → 降为 `inferred`；日志只在 `/run` 且已重启 → 标“不跨重启”；`/proc` 与 `ss` 的 pid 不一致（namespace 视角差异）→ 写“命名空间不同视图”，不写“套接字归属不明”。
 
-## 10. 失败判据
+## 10. MemProcFS 5.19 / Volatility 3 v2.27（2026 工具基线）
+
+**为什么单列**：Win11 26H2 改了内核结构，旧版工具的堆与事件日志假设直接失效；先定工具版本，再谈结论。
+
+```bash
+# MemProcFS v5.19（2026-10-05）：只挂载，不写镜像
+memprocfs.exe -device mem.raw -mount M:\mnt
+memprocfs -device mem.raw -mount /mnt/mem      # Linux/macOS
+ls /mnt/mem/sys/eventlog /mnt/mem/sys/proc/cpu
+```
+
+- v5.19 支持 **Windows 11 26H2**，并修复 **24H2+ 堆恢复**（此前 `-mount` 后进程堆/伪句柄常为空）。
+- 新增 `/sys/eventlog`：从内存直接恢复事件日志（未落盘的 EVTX），含 channel/EventId/RecordId/time。
+- 新增 `/sys/proc/cpu`：每进程 CPU 时间/线程数，用于“进程是否真在跑”的旁证。
+- 挂载目录当只读：不写入、不执行其中文件；产物落 `-forensic` 目录。
+
+**Volatility 3 v2.27（2026-01）**：与 MemProcFS 做 `plugin_parity`——同一镜像上两工具的进程/连接/hive 交集才算 `observed`。
+
+```bash
+python3 vol.py -f mem.raw windows.pslist.PsList
+python3 vol.py -f mem.raw windows.netscan.NetScan
+python3 vol.py -f mem.raw windows.heap.Heap              # 对应 heap_recovered
+python3 vol.py -f mem.raw windows.registry.hivelist.HiveList
+python3 vol.py -f mem.raw windows.eventlog.EventLog      # 与 /sys/eventlog 交叉
+```
+
+判据字段（逐项写 observed/inferred）：
+
+| 字段 | 含义 | 来源 |
+|---|---|---|
+| `eventlog_from_mem` | 内存恢复的日志条数/首末时间 | `/sys/eventlog`、`windows.eventlog` |
+| `heap_recovered` | 堆是否成功恢复（bool + 原因） | MemProcFS 5.19、`windows.heap` |
+| `hive_from_mem` | 内存 hive 键/值可遍历 | `windows.registry.hivelist`、`/sys/registry` |
+| `proc_cpu_from_mem` | 进程 CPU 时间/线程数可读 | `/sys/proc/cpu` |
+| `plugin_parity` | 两工具关键字段一致率 | MemProcFS vs V3 交叉 |
+
+**失败判据**：
+
+- `heap_recovered=false`（堆空/解析异常）→ 改用 V3 `windows.heap`；仍空只做 `psscan`/`malfind` 池扫描，不写“目标反堆取证”。
+- **26H2 dump 在 MemProcFS <5.19 上崩溃或挂载为空** → 升到 5.19 重跑；旧版输出不得写“镜像损坏/结构异常”。
+- `/sys/eventlog` 空但磁盘 EVTX 有记录 → 写“内存侧无该日志”，不写“日志被清除”；两源都空才谈清除。
+- `plugin_parity` 关键对象（PID/CreateTime/五元组）不一致 → 只采交集，差集标 `unverified`。
+
+出处：MemProcFS releases（2026-10-05，v5.19）；Volatility Timeline（2026-01，v2.27）。
+
+## 11. 失败判据
 
 - `banners`/`windows.info` 两次换工具仍无法定版本 → 停，`blocked_at: symbols`。
 - `pslist`/`psscan` 都空但镜像有系统字符串 → 可能截断/加密/格式不符，停，别写“没有进程”。
@@ -159,7 +204,7 @@ ss -lntp; ss -tnp state established                           # 套接字 → pi
 - `malfind` 命中但无法 dump/二次识别 → 只写“候选页”，不写“注入成功”。
 - 反作弊/内核保护在线环境 → 停止 attach/读内存，转外部观测。
 
-## 11. 边界
+## 12. 边界
 
 - 只读：不写内存、不注入、不挂钩、不加载驱动；动态验证只在离线副本/授权测试机。
 - 不把内存里的字符串当“用户看过/执行过”；没有进程/时间/路径就不算。
