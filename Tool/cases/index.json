@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T12:08:08Z",
-  "source_hash": "40b97611a3a34a2989e644e07a2bbb233e90cda79eda765fecda9c3b73f58300",
+  "generated_at": "2026-10-21T12:18:35Z",
+  "source_hash": "771a3ff4e28afab899848cda44cc643f11e9ee2b5ee2556e8833653c6851036d",
   "case_count": 33,
   "cases": [
     {
@@ -254,7 +254,7 @@
         "Tool/skill/malware-analysis/SKILL.md",
         "Tool/skill/malware-analysis/references/unpacking-and-config.md",
         "Tool/skill/malware-analysis/references/triage-and-ioc.md",
-        "kb/malware-analysis/unpacking-playbook.md"
+        "Tool/mcp/Tool/reverselab/kb/malware-analysis/techniques/01-triage-and-ioc.md"
       ],
       "updated": "2026-10-21"
     },
@@ -292,7 +292,7 @@
         "Tool/skill/malware-analysis/SKILL.md",
         "Tool/skill/malware-analysis/references/sandbox-and-timeline.md",
         "Tool/skill/malware-analysis/references/yara-sigma-and-sandbox.md",
-        "kb/malware-analysis/timeline-and-iocs.md"
+        "Tool/mcp/Tool/reverselab/kb/malware-analysis/techniques/02-unpacking-and-config.md"
       ],
       "updated": "2026-10-21"
     },
@@ -470,7 +470,7 @@
         "Tool/skill/pwn-crypto/SKILL.md",
         "Tool/skill/pwn-crypto/references/heap-and-sandbox.md",
         "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
-        "kb/pwn-crypto/heap-tcache-playbook.md"
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/01-stack-rop.md"
       ],
       "updated": "2026-10-21"
     },
@@ -508,7 +508,7 @@
         "Tool/skill/pwn-crypto/SKILL.md",
         "Tool/skill/pwn-crypto/references/crypto-attacks.md",
         "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
-        "kb/pwn-crypto/crypto-oracle-playbook.md"
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/02-heap-and-sandbox.md"
       ],
       "updated": "2026-10-21"
     },

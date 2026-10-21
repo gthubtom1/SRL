@@ -39,7 +39,7 @@
     "Tool/skill/pwn-crypto/SKILL.md",
     "Tool/skill/pwn-crypto/references/heap-and-sandbox.md",
     "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
-    "kb/pwn-crypto/heap-tcache-playbook.md"
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/01-stack-rop.md"
   ],
   "updated": "2026-10-21"
 }

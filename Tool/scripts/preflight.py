@@ -590,6 +590,10 @@ def check_domain_packs():
             miss = [k for k in need if k not in cj]
             if miss:
                 bad.append("%s(缺字段 %s)" % (os.path.basename(cd), ",".join(miss)))
+            for r in cj.get("refs") or []:
+                if isinstance(r, str) and not r.startswith("http") and "://" not in r:
+                    if not os.path.isfile(os.path.join(ROOT, r)) and not os.path.isfile(os.path.join(cd, r)):
+                        bad.append("%s(refs 幻影 %s)" % (os.path.basename(cd), r[:40]))
             for art in cj.get("artifacts") or []:
                 ap = art.get("path") or ""
                 if ap and not os.path.isfile(os.path.join(cd, ap)):
