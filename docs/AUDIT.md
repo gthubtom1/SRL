@@ -331,7 +331,12 @@
 
 ### R5 终审（全新上下文）
 
-> 审计进行中（session `01a1606a`）；结论与 P0/P1 清账在本节后续提交中补全。
+| 轮次 | 子代理 | 结论 |
+| :-- | :-- | :-- |
+| R5（初轮） | `01a1606a-49b2-7273-bc78-a9b98e003cb7` | 不可交付：P0=2（索引过期/CRLF 漂移、AUDIT 占位）、P1=5（部署假红、generated_at、隐私用户名、LLM 篇无命令、工作树） |
+| R5b（复验） | 同会话 | **可交付（P0=0，P1=0）**：干净检出 `gen-case-index --check` rc=0、`domain-gate --all` 101/101、`preflight --fast` 25/25；主仓 preflight 28/28、双平台 verify 65/0；`generated_at` 0 命中且反例注入会红；隐私 `toti/C:/Users` 0 命中；LLM 篇三条命令实测 rc=0 |
+
+**修复清单（v1.23.0 tag `f42790b`）**：`.gitattributes` 对案例证据 `-text` + renormalize + 47 案例重算哈希；`index.json` 重建；29 个 JSON 去掉 `generated_at` 并加门禁断言；`protocol04/run.json` 的 `ls -l` 用户名/uid 脱敏；部署哈希比较按 LF 归一（`_norm_sha`）；`llm-security` 补 3 条可执行命令；AUDIT 占位清除。
 ## 交付基线（2026-10-21，v1.22.0）
 
 | 项 | 命令 | 结果 |

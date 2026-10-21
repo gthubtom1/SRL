@@ -10,6 +10,24 @@
 
 ---
 
+## [1.23.0] — 2026-10-22
+
+> 主题：**2026 基线深化**。11 个 worktree 并行、全新上下文终审；门禁 80 → **101** 条断言。
+
+- reverse：VMP 3.9.x 授权锁 UltraLock、Themida VM 函数级绕过、CET/KCET 与 LACUNA `.pdata`、Win11 26H2 KDP/KCET（4 篇 KB + anti-debug 摘要）。
+- ad-cloud：ESC9–ESC17（含 ESC17 WSUS 中继）+ `ad-repro --kind adcs-esc`。
+- web：ETag/size oracle、Nginx 缓存键注入、Next.js Eclipse 竞态 + 判据。
+- supply：ChainDrop/Mini Shai-Hulud/SANDWORM_MODE 检测 + `sc-check` 3 规则 + `sc-accept.py`。
+- firmware：rehosting 失败分诊树（FirmPilot/Khost）。
+- protocol：LLM 辅助状态机边界 + 边覆盖率（`pcap-summary --state-model`）。
+- malware/llm：MCP 工具投毒 / A2A 越权 + 可执行命令 + `mal-accept.py`。
+- forensics：MemProcFS 5.19 / Volatility 3 v2.27。
+- plugin：ASAR integrity / V8 bytecode / Electron IPC + `plugin-accept.py`。
+- pwn：glibc 2.34+ FSOP/exit_funcs/tls_dtor + `pwn-accept.py`。
+- 路由：修正 7 条误判，新增 R30(WASM)/R31(LLM-Agent)，串味测试 48 条。
+- 确定性：案例证据按字节保存（`-text`）、产物去 `generated_at`、部署比较按 LF 归一 → **全新 clone 门禁全绿**。
+- KB：2026 战例 8 篇 + `docs/GLOSSARY.md`；CI `gates.yml`。
+
 ## [1.22.0] — 2026-10-21
 
 > 主题：**九件套 2.0 —— 每个域都能独立打一场**。R1–R4 四轮独立子代理审计，P0/P1 全部回修。
