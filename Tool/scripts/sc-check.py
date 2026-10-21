@@ -15,6 +15,17 @@ Covered:
   * dependency confusion: private scopes without a pinned registry and
     internal-looking Python packages without a private index
   * lock file integrity (package-lock entries without integrity)
+  * 2026 npm worm rules (offline, static):
+      SC-101 postinstall-network  -- preinstall/postinstall runs curl/wget/
+                                     node -e/bun/child_process/net./http
+      SC-102 rdd-ref            -- file:/link:/http(s):/git+ dependency, or
+                                     "*" version whose lock resolved is a
+                                     remote tarball
+      SC-103 action-tag-mutable -- uses: owner/repo@vN (movable tag) instead of
+                                     a 40-hex commit SHA
+    These are emitted in "rule_hits" as {rule, severity, file, line, evidence};
+    they are leads, not proof of compromise (see
+    references/dependency-confusion.md §8).
 
 Exit codes:
   0 = scan completed, no high/critical finding; or --self-test passed
@@ -46,7 +57,7 @@ import sys
 import tempfile
 
 SCHEMA = "seep.sc-check/1"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 SKIP_DIRS = {
     ".git", ".svn", ".hg", "node_modules", "bower_components", "vendor",
@@ -67,6 +78,30 @@ PRIVATE_PY = re.compile(r"^(corp|internal|company|private|svc|platform|acme)[-_]
 PRIVATE_SCOPE = re.compile(r"@(corp|internal|company|private|acme|example)[.-]", re.I)
 
 LEVEL_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+
+# --- 2026 npm worm 规则（离线静态；只读文件，不执行任何安装脚本） ---
+POSTINSTALL_NET = re.compile(
+    r"\bcurl\b|\bwget\b|node\s+-e|\bbun\b|child_process|\bnet\.|https?://", re.I)
+RDD_VALUE = re.compile(r"^(file:|link:|https?://|git\+)", re.I)
+MUTABLE_TAG = re.compile(r"^v?\d+(?:\.\d+){0,2}$")
+
+
+def add_rule(hits, rule, severity, file, line, evidence):
+    """规则命中形状固定为 {rule, severity, file, line, evidence}。"""
+    hits.append({
+        "rule": rule,
+        "severity": severity,
+        "file": file,
+        "line": line,
+        "evidence": str(evidence)[:500],
+    })
+
+
+def find_line(text, needle):
+    for i, ln in enumerate(text.splitlines(), 1):
+        if needle in ln:
+            return i
+    return None
 
 
 def add_risk(risks, level, category, file, evidence, why, fix, line=None,
@@ -205,7 +240,27 @@ def parse_npmrc(paths):
     return scoped, default
 
 
-def analyze_package_json(base, path, inventory, risks, npmrc_paths):
+def lock_resolved(path):
+    """package-lock v2/v3：包名(小写) -> resolved，用于 SC-102 的"*+远程 tarball"。"""
+    out = {}
+    if os.path.basename(path) not in ("package-lock.json", "npm-shrinkwrap.json"):
+        return out
+    try:
+        data = json.loads(read_text(path))
+    except Exception:  # noqa: BLE001
+        return out
+    pkgs = data.get("packages")
+    if isinstance(pkgs, dict):
+        for key, meta in pkgs.items():
+            if not key or not isinstance(meta, dict):
+                continue
+            name = key.rsplit("node_modules/", 1)[-1].lower()
+            if name and meta.get("resolved"):
+                out[name] = str(meta.get("resolved"))
+    return out
+
+
+def analyze_package_json(base, path, inventory, risks, npmrc_paths, hits):
     text = read_text(path)
     try:
         data = json.loads(text)
@@ -215,6 +270,18 @@ def analyze_package_json(base, path, inventory, risks, npmrc_paths):
                  "清单损坏或使用 JSON5/注释，静态扫描会漏依赖。",
                  "修正为合法 JSON，或人工审查该文件。", confidence="medium")
         return
+    d = os.path.dirname(path)
+    lock = find_near(d, base, LOCK_NAMES_JS)
+
+    # SC-101 postinstall-network：安装钩子里出现网络/子进程 = 自动执行面。
+    scripts = data.get("scripts") if isinstance(data.get("scripts"), dict) else {}
+    for hook in ("preinstall", "postinstall"):
+        cmd = scripts.get(hook)
+        if isinstance(cmd, str) and POSTINSTALL_NET.search(cmd):
+            add_rule(hits, "SC-101 postinstall-network", "high", rel(base, path),
+                     find_line(text, '"%s"' % hook),
+                     "%s: %s" % (hook, cmd.strip()))
+
     sections = ("dependencies", "devDependencies", "optionalDependencies")
     deps = {}
     for sec in sections:
@@ -222,8 +289,6 @@ def analyze_package_json(base, path, inventory, risks, npmrc_paths):
             deps.update(data[sec])
     if not deps:
         return
-    d = os.path.dirname(path)
-    lock = find_near(d, base, LOCK_NAMES_JS)
     if not lock:
         add_risk(risks, "high", "lockfile", rel(base, path),
                  "%d 个依赖，但同目录/祖先目录没有 package-lock.json / yarn.lock / pnpm-lock.yaml" % len(deps),
@@ -251,6 +316,22 @@ def analyze_package_json(base, path, inventory, risks, npmrc_paths):
                  "%d 条宽范围，例如 %s" % (len(wide), "; ".join(wide[:8])),
                  "宽范围会随时间拉入新的传递依赖，构建不可复现。",
                  "锁文件 + 定期受控升级；关键依赖用精确版本。", confidence="medium")
+
+    # SC-102 rdd-ref：远程/本地动态依赖，或 "*" 版本在锁文件里解析到远程 tarball。
+    resolved = lock_resolved(lock) if lock else {}
+    for name, spec in sorted(deps.items()):
+        s = str(spec).strip()
+        m_rdd = RDD_VALUE.match(s)
+        star_remote = s in ("*", "") and resolved.get(name.lower(), "").startswith(
+            ("http://", "https://"))
+        if not (m_rdd or star_remote):
+            continue
+        sev = "medium" if s.startswith(("file:", "link:")) else "high"
+        evidence = "%s@%s" % (name, s)
+        if star_remote:
+            evidence += " resolved=" + resolved.get(name.lower(), "")
+        add_rule(hits, "SC-102 rdd-ref", sev, rel(base, path),
+                 find_line(text, name), evidence)
 
     # Dependency confusion: scoped packages without a scope registry mapping.
     scoped_cfg, default_cfg = parse_npmrc(npmrc_paths)
@@ -440,7 +521,7 @@ def analyze_container(base, path, risks, is_compose=False):
                  "创建非 root 用户并 USER <uid>。", confidence="medium")
 
 
-def analyze_workflow(base, path, risks):
+def analyze_workflow(base, path, risks, hits):
     text = read_text(path)
     r = rel(base, path)
     lines = text.splitlines()
@@ -501,6 +582,10 @@ def analyze_workflow(base, path, risks):
                              "action 使用可移动的 tag/branch，tag 可被重写。",
                              "固定到 40 位 commit SHA，并用 Dependabot 更新。", line=idx,
                              confidence="medium")
+                    # SC-103 action-tag-mutable：owner/repo@vN 这类可移动 tag。
+                    m_tag = re.match(r"^[^/\s]+/[^/\s]+@(.+)$", value)
+                    if m_tag and MUTABLE_TAG.match(m_tag.group(1)):
+                        add_rule(hits, "SC-103 action-tag-mutable", "medium", r, idx, s)
         if in_run and "${{" in s and re.search(r"github\.(event\.|head_ref)", s):
             add_risk(risks, "high", "ci-injection", r, "L%d %s" % (idx, s),
                      "不可信事件字段进入 run/script，可能造成脚本注入。",
@@ -641,6 +726,14 @@ jobs:
         checks.append(("workflow-indexed", len(wf) == 1))
         checks.append(("risk-shape", all({"id", "level", "category", "file", "evidence",
                                           "why", "fix"} <= set(r) for r in res.get("risks") or [])))
+        # SC-101/102/103：内置 fixture 必须三条全中，且形状固定。
+        rules = {h.get("rule") for h in res.get("rule_hits") or []}
+        for need in ("SC-101 postinstall-network", "SC-102 rdd-ref",
+                     "SC-103 action-tag-mutable"):
+            checks.append(("rule:" + need, need in rules))
+        checks.append(("rule-hit-shape", bool(res.get("rule_hits")) and all(
+            {"rule", "severity", "file", "line", "evidence"} <= set(h)
+            for h in res.get("rule_hits") or [])))
         checks.append(("guarantees", "no network" in (res.get("tool") or {}).get("guarantees", [])))
 
     bad = {"ok": False, "blocked_at": "path"}
@@ -699,8 +792,9 @@ def run(args):
         if kind == "manifest":
             manifest_by_kind.setdefault(eco, []).append(path)
 
+    hits = []
     for path in manifest_by_kind.get("npm", []):
-        analyze_package_json(base, path, inventory, risks, inventory["npmrc"])
+        analyze_package_json(base, path, inventory, risks, inventory["npmrc"], hits)
     for path in manifest_by_kind.get("python", []):
         if os.path.basename(path).startswith(("requirements", "constraints")):
             analyze_requirements(base, path, risks)
@@ -738,7 +832,7 @@ def run(args):
     for rpath in inventory["compose"]:
         analyze_container(base, os.path.join(base, rpath), risks, is_compose=True)
     for rpath in inventory["workflows"]:
-        analyze_workflow(base, os.path.join(base, rpath), risks)
+        analyze_workflow(base, os.path.join(base, rpath), risks, hits)
     for rpath in inventory["gitlab"]:
         analyze_gitlab(base, os.path.join(base, rpath), risks)
     for rpath in inventory["jenkins"]:
@@ -775,6 +869,7 @@ def run(args):
     risks.sort(key=lambda x: (LEVEL_ORDER.get(x["level"], 9), x["category"], x["file"]))
     for i, risk in enumerate(risks, 1):
         risk["id"] = "SC-%03d" % i
+    hits.sort(key=lambda h: (h["rule"], h["file"], h["line"] or 0))
     counts = {k: sum(1 for r in risks if r["level"] == k)
               for k in ("critical", "high", "medium", "low", "info")}
 
@@ -789,6 +884,7 @@ def run(args):
         "ok": True,
         "summary": {"risks": counts, "risks_total": len(risks),
                     "high_or_critical": counts["critical"] + counts["high"],
+                    "rule_hits_total": len(hits),
                     "ecosystems": sorted(kinds.keys())},
         "inventory": {
             "manifests": inventory["manifests"],
@@ -804,6 +900,7 @@ def run(args):
             "dockerignore": inventory["dockerignore"],
         },
         "risks": risks,
+        "rule_hits": hits,
         "degraded": degraded,
         "missing_tools": missing_tools,
         "limits": {
@@ -826,7 +923,7 @@ def run(args):
 def main(argv):
     ap = argparse.ArgumentParser(
         prog="sc-check.py",
-        description="离线供应链检查：锁文件 / 宽版本 / CI 权限与触发器 / action pin / 镜像 tag / 依赖混淆。只读文件，不联网、不构建。",
+        description="离线供应链检查：锁文件 / 宽版本 / CI 权限与触发器 / action pin / 镜像 tag / 依赖混淆 / 2026 npm worm（SC-101/102/103）。只读文件，不联网、不构建。",
         epilog="示例: python Tool/scripts/sc-check.py --path . --out sc.json；"
                "自检: python Tool/scripts/sc-check.py --self-test")
     ap.add_argument("--path", default="", help="要扫描的仓库/目录（相对仓库根或绝对路径）")
