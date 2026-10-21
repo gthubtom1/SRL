@@ -195,6 +195,37 @@ exploit.py 运行 10 次成功计数
 flag/root 输出与会话时间
 ```
 
+## 6. glibc 2.34+ 现实（`__free_hook`/`__malloc_hook` 移除后的四条路）
+
+2.34 起两个 hook 符号已从 libc 删除：`nm -D libc.so.6 | grep -E '__free_hook|__malloc_hook'`
+返回空不是“偏移算错”，是路线失效。下面四路互相独立，末尾字段名可机检。
+
+### 6.1 FSOP：`_IO_wfile_jumps` / `_IO_str_jumps`（House of Apple 2）
+- 触发条件：有可写堆 + 程序会 `exit()`/`fflush(NULL)`；能覆盖 `_IO_list_all` 或 `_IO_2_1_stderr_` 为 fake `_IO_FILE_plus`（2.35+ 先过 `_IO_vtable_check`）。
+- 命令：`gdb -q ./chall -ex 'b _IO_flush_all_lockp' -ex 'p _IO_list_all' -ex 'x/gx _IO_list_all'`；pwndbg `vmmap` 看 vtable 是否落在 `__libc_IO_vtables`。
+- 判据：`io_file_vtable` ∈ {`_IO_wfile_jumps`,`_IO_str_jumps`}；`bt` 出现 `_IO_wfile_overflow → __doallocate → system`；`fsop_works=true` 必须有 shell/marker 回显。
+- 失败判据：`_IO_vtable_check` abort、`_wide_data`/`_lock` 未映射、`_flags!=0` 不进 `_IO_OVERFLOW` → 记 `fsop_works=false` 并保留 abort 栈。
+
+### 6.2 退出链：`exit_funcs`（`__run_exit_handlers`）
+- 触发条件：能写 libc 的 `exit_funcs` 链表或 `initial`（2.34+ 指针经 `PTR_MANGLE`），且程序正常 `return/exit()`。
+- 命令：`gdb -q ./chall -ex 'b __run_exit_handlers' -ex 'p exit_funcs' -ex 'p *exit_funcs'`；单步到 `__call_tls_dtors`/`_dl_fini` 前核对 `flavor` 与函数指针。
+- 判据：`exit_funcs_target` 指向受控函数，且 `__run_exit_handlers` 断点命中后它真的执行（marker/`system` 回显）。
+- 失败判据：只改了指针但进程走 `_exit()`/`abort()` 跳过 handler、`PTR_MANGLE` 未解码（`rol(ptr^guard,17)`，按目标 libc 复核）→ 判死，不重试同一偏移。
+
+### 6.3 `tls_dtor_list`（`__call_tls_dtors`）
+- 触发条件：TLS 可写（`fs:[0]`/pthread 结构）+ 程序调 `exit()` 且存在 thread_local/C++ 析构（`__cxa_thread_atexit`）。
+- 命令：`gdb -q ./chall -ex 'b __call_tls_dtors' -ex 'p tls_dtor_list' -ex 'p *tls_dtor_list'`；命中后 `p/x ((struct dtor_list*)$rax)->func`。
+- 判据：`tls_dtor_hit=true`（断点命中且 `func` 等于受控地址、`obj` 指向可控参数），随后 marker 出现。
+- 失败判据：`tls_dtor_list` 为 NULL（无 thread_local 析构）、指针被 `PTR_MANGLE` 未解码、`exit` 前已 `_exit` → 换 6.2。
+
+### 6.4 `setcontext` 链（栈迁移，`__free_hook` 的直接替代）
+- 触发条件：能控一个函数指针（`exit_funcs`/`tls_dtor`/`_IO_OVERFLOW` 的 `__doallocate`）+ 已知 libc 基址；目标 libc 仍有可从 `ucontext->uc_mcontext.gregs` 恢复 `rsp/rip` 的 `setcontext` 入口。
+- 命令：`gdb -q ./chall -ex 'disassemble setcontext' -ex 'b *setcontext+61'`；pwndbg `rop --grep setcontext`，再 `p/x $rdi` 与伪造 ucontext 对比。
+- 判据：命中入口后 `rsp` 落到伪造 `ucontext` 指定的栈、链上第一个 gadget 执行（`x/i $rip` 与 payload 对齐）；偏移按目标 libc 复核，不抄死数字。
+- 失败判据：该 libc 的 `setcontext` 不再从同一 `gregs` 槽取 `rsp`（2.34 后序变化）、`rdi` 不可控 → 改用 6.1 直接打 `system`。
+
+**字段速查**：`io_file_vtable`（6.1）· `exit_funcs_target`（6.2）· `tls_dtor_hit`（6.3）· `fsop_works`（6.1/6.4 汇总）。字段缺失或为 `true` 却无 marker → 判据不成立。
+
 ## 失败判据（本文件）
 
 - 只抄骨架里的偏移/gadget，不用目标环境复核 → 本文件被误用，结论降级为“疑似”。
