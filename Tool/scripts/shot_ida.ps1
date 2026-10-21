@@ -46,6 +46,8 @@ if ($main) {
   $bmp = New-Object System.Drawing.Bitmap $w, $hh
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.CopyFromScreen($r.L, $r.T, 0, 0, $bmp.Size)
-  $bmp.Save("C:\Users\Developer\Desktop\pi\seep\ida_lic.png", [System.Drawing.Imaging.ImageFormat]::Png)
-  Write-Host "saved ida_lic.png"
+  # ★ 不许写死个人桌面路径：默认落临时目录，可用 SEEP_SHOT_PATH 指定
+  $outPath = if ($env:SEEP_SHOT_PATH) { $env:SEEP_SHOT_PATH } else { Join-Path $env:TEMP "ida_lic.png" }
+  $bmp.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
+  Write-Host "saved $outPath"
 }

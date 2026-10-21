@@ -189,12 +189,19 @@ check_item "提示词" "DeepSeek Harness 配置文件 (DSH-PROFILE.md)" test -f 
 check_item "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" test -f "$TOOL_DIR/prompts/extensions/security-audit-interceptor.ts"
 
 # 4. 技能系统
-echo -e "\n${WHITE}[4/9] 🛠️ 逆向工程专业技能库 (Skills - 9大组件)${RESET}"
+echo -e "\n${WHITE}[4/9] 🛠️ 逆向工程专业技能库 (Skills - 全量，含 00–04 阶段技能)${RESET}"
 test_softseep_refs() {
     [ -f "$TOOL_DIR/skill/softseep/SKILL.md" ] || return 1
     local n
     n=$(find "$TOOL_DIR/skill/softseep/references" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-    [ "$n" -ge 8 ]
+    [ "$n" -ge 8 ] || return 1
+    # ★ 与 verify.ps1 同步：五阶段技能（00–04）必须齐全（缺一个，换机器就少一环）
+    local k
+    for k in 00-analysis 01-gate-bypass 02-ui-rebrand 03-license-hookup 04-version-migrate 05-backend-rebuild; do
+        [ -f "$TOOL_DIR/skill/$k/SKILL.md" ] || return 1
+    done
+    # 脱壳闭环是 01 的上游依赖，缺了 01 的 A–D 路线就断
+    [ -f "$TOOL_DIR/skill/unpack-loop/SKILL.md" ]
 }
 check_item "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" test_softseep_refs
 test_apkseep_layout() {
@@ -265,7 +272,27 @@ check_item "依赖" "Playwright 浏览器自动化依赖已解压 (playwright-mc
 echo -e "\n${WHITE}[6/9] ⚙️ 外部运行时与商业授权协同 (Runtime & Commercial)${RESET}"
 check_item "运行时" "Python 解释器 (python3/python 且可执行)" test_python_avail
 check_optn "协议" "Python mcp 协议库支持 (mcp>=1.20,<1.29)" "运行 pip install 'mcp>=1.20,<1.29'" test_python_mcp
-check_optn "商业软件" "IDA Pro 商业反编译器协同 (可选)" "无授权不影响核心链路，系统自动使用 Radare2 降级" false
+test_ida_avail() {
+    # 与 verify.ps1 同口径：IDA_DIR → PATH(idat/ida64/ida) → tool-run 的八层发现
+    local n
+    if [ -n "$IDA_DIR" ] && [ -d "$IDA_DIR" ]; then
+        for n in idat.exe idat ida64.exe ida64 ida.exe ida; do
+            [ -f "$IDA_DIR/$n" ] && return 0
+        done
+    fi
+    for n in idat idat.exe ida64 ida64.exe ida ida.exe; do
+        command -v "$n" >/dev/null 2>&1 && return 0
+    done
+    # 与 ps1 的 tool-run 发现对齐：八层探测（含常见目录/注册表/开始菜单）
+    if command -v python >/dev/null 2>&1; then
+        local pypath="$TOOL_DIR/mcp"
+        # git-bash/MSYS 下 $TOOL_DIR 是 POSIX 路径（/d/...），Windows 版 python 读不了 → 转成原生路径
+        command -v cygpath >/dev/null 2>&1 && pypath=$(cygpath -w "$pypath" 2>/dev/null || echo "$pypath")
+        python -c "import sys;sys.path.insert(0,r'$pypath');import tool_autodiscover as A;sys.exit(0 if A.discover('ida',use_registry=False).get('available') else 1)" >/dev/null 2>&1 && return 0
+    fi
+    return 1
+}
+check_optn "商业软件" "IDA Pro 商业反编译器协同 (可选)" "无授权不影响核心链路，系统自动使用 Radare2 降级" test_ida_avail
 check_optn "配置" "Claude Code 项目级 MCP 注册 (.mcp.json 在根目录)" "直接在根目录启动 claude 即可" test -f "$ROOT/.mcp.json"
 
 # 跨平台安装链自校验：mcp.json 里 seep 的启动脚本必须真实存在。

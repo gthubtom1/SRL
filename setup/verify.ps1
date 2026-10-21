@@ -258,7 +258,7 @@ Test-CheckItem "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" {
 Write-Host "`n[4/9] 🛠️ 逆向工程专业技能库 (Skills - 全量，含 01/02/03 阶段技能)" -ForegroundColor White
 Test-CheckItem "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" {
     $r = Join-Path $localSkills 'softseep\references'
-    $stage = @('00-analysis', '01-gate-bypass', '02-ui-rebrand', '03-license-hookup', '04-version-migrate')
+    $stage = @('00-analysis', '01-gate-bypass', '02-ui-rebrand', '03-license-hookup', '04-version-migrate', '05-backend-rebuild', 'unpack-loop')
     $stageOk = $true
     foreach ($k in $stage) {
         if (-not (Test-Path (Join-Path $localSkills ($k + '\SKILL.md')))) { $stageOk = $false }
@@ -444,8 +444,20 @@ Test-ManualItem "协议" "Python mcp 协议库环境支持 (mcp>=1.20,<1.29)" {
 
 Test-ManualItem "商业软件" "IDA Pro 商业反编译器协同 (需自备独立授权)" {
     $found = $false
-    foreach ($c in @('D:\Tool\IDA Pro', 'C:\Program Files\IDA Pro', 'C:\Program Files\IDA Professional 9.0', 'C:\IDA Pro')) {
-        if (Test-Path (Join-Path $c 'ida.exe')) { $found = $true; break }
+    # ★ 不写死本机盘符：IDA_DIR → PATH(idat/ida64/ida) → tool-run 的八层发现
+    $names = @('idat.exe', 'ida64.exe', 'ida.exe')
+    if ($env:IDA_DIR -and (Test-Path $env:IDA_DIR)) {
+        foreach ($n in $names) { if (Test-Path (Join-Path $env:IDA_DIR $n)) { $found = $true; break } }
+    }
+    if (-not $found) {
+        foreach ($n in $names) { if (Get-Command $n -ErrorAction SilentlyContinue) { $found = $true; break } }
+    }
+    if (-not $found) {
+        try {
+            $tr = Join-Path (Split-Path -Parent $PSScriptRoot) 'Tool/scripts/tool-run.ps1'
+            $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $tr -Tool ida -ListModes 2>$null
+            if ($out) { $found = $true }
+        } catch { }
     }
     $found
 } "未检测到本地 IDA Pro，如无授权不影响核心链路，系统自动降级使用 Radare2（详见 MANUAL\IDA-PRO.md）" "商业授权可选" "本地安装目录"

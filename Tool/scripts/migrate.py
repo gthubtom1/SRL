@@ -45,6 +45,8 @@ SCHEMA = "seep-migration/1"
 # --------------------------------------------------------------------------- PE
 def pe_info(path):
     """最小 PE 解析：machine / 节表 / 入口 RVA。不做任何依赖。"""
+    if not path or not os.path.isfile(path):
+        raise SystemExit(f"[ERR] 文件不存在：{path or '(空)'}")
     data = open(path, "rb").read()
     out = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     if data[:2] != b"MZ":
@@ -107,7 +109,7 @@ def _packer_hint(sections, data):
 
 
 def rva2off(info, rva):
-    for s in info["sections"]:
+    for s in info.get("sections") or []:
         if s["rva"] <= rva < s["rva"] + max(s["vsize"], s["raw_size"]):
             return s["raw_ptr"] + (rva - s["rva"])
     return None
@@ -210,6 +212,8 @@ def cmd_fingerprint(a):
 
 def cmd_init(a):
     info, _ = pe_info(a.exe)
+    if info.get("format") not in ("PE32", "PE32+"):
+        raise SystemExit(f"[ERR] 不是 PE 文件：{a.exe}（版本账目前只对 PE 有意义）")
     m = {
         "schema": SCHEMA, "version": a.version,
         "source_exe": os.path.abspath(a.exe),
@@ -225,8 +229,17 @@ def cmd_init(a):
 
 def cmd_add_site(a):
     m = load_manifest(a.case, a.version)
-    info, data = pe_info(m["source_exe"] if os.path.isfile(m.get("source_exe", "")) else a.exe)
-    rva = int(a.rva, 16) if isinstance(a.rva, str) else a.rva
+    exe = a.exe or m.get("source_exe", "")
+    if not exe or not os.path.isfile(exe):
+        raise SystemExit(f"[ERR] 该版本账的 source_exe 已失效（{exe or '空'}）；用 --exe 显式指定")
+    info, data = pe_info(exe)
+    if info.get("format") not in ("PE32", "PE32+"):
+        raise SystemExit(f"[ERR] 不是 PE 文件：{exe}")
+    raw = str(a.rva).strip()
+    try:
+        rva = int(raw, 16) if raw.lower().startswith("0x") else int(raw, 0)
+    except ValueError:
+        raise SystemExit(f"[ERR] RVA 不合法：{raw}（用 0x4f9f4 这种十六进制或十进制）")
     off = rva2off(info, rva)
     if off is None:
         raise SystemExit(f"[ERR] RVA {hex(rva)} 不在任何节里")

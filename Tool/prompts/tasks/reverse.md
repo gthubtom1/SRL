@@ -10,3 +10,5 @@ argument-hint: "<目标路径，留空则用当前工作区样本>"
 先报 RUNTIME / GATE / DELIVERY 三行等我确认，然后一路做到能用为止。
 
 本阶段只做"旁路 + 可用"；改 UI / 接我自己的授权平台是后面的事，不要提前做。
+
+开工前先过闸：`python Tool/scripts/case_state.py gate --case <case>` 必须返回 0（没有 case 先按 00-analysis 建账）。交付时 `case_state.py deliver --level M1|M2|M3 --evidence "<证明>"`，越级会被拒。

@@ -17,8 +17,8 @@
 
 ## 一、一句话结论
 
-- 相对上游：**0 个文件删除 / 0 个重命名**（纯超集）。上游能力我们全保留，另外加了自己的东西。
-- 规模差：MCP 工具 **23 → 38**；技能 **9 → 11**；体检 **55 → 61**（两平台一致）；测试套件 **1 → 5**。
+- 相对上游：**0 个文件删除 / 3 个重命名**（`ida-reverse→ida-assistant` 等；重命名保留转发，不算删除）。
+- 规模差：MCP 工具 **23 → 38**（其中 3 处为**函数体内插入**，见 §3.7，带 `SEEP-EXT` 标记）；技能 **9 → 16**（含 00–05 六个阶段技能）；体检 **55 → 62**（两平台一致）；测试套件 **1 → 6**。
 - 上游有 **3 个静默缺陷**（正则碾碎、哈希截断、同名技能覆盖）我们也继承了，**已修**。
 
 ---
@@ -52,7 +52,7 @@
 
 > **合并上游注意**：上游若也新增工具，**名字冲突优先上游语义**，但要先比对签名——同名不同义会造成静默错误。
 
-### 3.2 技能（9 → 11）
+### 3.2 技能（9 → 16）
 
 | 技能 | 类型 | 说明 | 回滚 |
 |---|---|---|---|
@@ -60,7 +60,7 @@
 | `unpack-loop` | 新增（我们） | 脱壳闭环（判据驱动 / 三路线 / 两次熔断） | 删目录 + 删路由 R9 |
 | `ida-assistant` | **改名**（原 `safe-skills/ida-reverse`） | 避免与顶层 `ida-reverse` 同名覆盖 | 改回原名会重新触发覆盖缺陷 |
 
-### 3.3 声明式配置（0 → 3）
+### 3.3 声明式配置（0 → 5）
 
 | 文件 | 作用 | 谁在读 |
 |---|---|---|
@@ -103,6 +103,26 @@
 | 人格卡靠 `INJECTED_PREFIXES` 枚举卡名保护 | 换第三方卡 → 卡文本被敏感词表改写污染 | 改为**结构判定** `looksLikePersonaCard()`（标签/角色声明+长度），`guard-prefixes.json` 同步 |
 | 边界只靠 prompt 层约定 | 人格卡声明"无需验证授权"即可压过 | 双层锚：`sections["seep-boundary"]`（装配末尾）+ `appendBoundaryTail()`（provider payload 兜底，实测 `input[0].content` 可写） |
 | G-Auth 在 5 处表述互相矛盾 | 同一句输入在不同路径下行为不一致 | 统一到 `AGENTS.md §六`（默认已授权、用户明说无授权才停），其余 4 处插入裁决声明；记录在 `MANUAL/PROMPT-LAYERS.md §四` |
+
+---
+
+### 3.7 阶段技能 + 案闸 + 追版（2026-10 新增，逐条可回滚）
+
+| 项 | 位置 | 解决什么 | 怎么撤 |
+|---|---|---|---|
+| 阶段零 分析 | `Tool/skill/00-analysis/SKILL.md` | 结论先于证据（20 秒下结论的血案） | 删目录 + 去掉 routing R15 |
+| 阶段一 旁路 | `Tool/skill/01-gate-bypass/SKILL.md` | 交付纪律：M1/M2/M3 分级 | 删目录 + R11/R2 指回旧技能 |
+| 阶段二 UI | `Tool/skill/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
+| 阶段三 授权 | `Tool/skill/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
+| 阶段四 追版 | `Tool/skill/04-version-migrate/SKILL.md` + `Tool/scripts/migrate.py` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
+| 阶段五 后端复刻 | `Tool/skill/05-backend-rebuild/SKILL.md` | 客户端+后端全栈（仅 T2/T3 触发） | 删目录 + R16 |
+| 案子闸 | `Tool/scripts/case_state.py` | 事实账 / 深度门 / 裁定 / `gate` / `deliver` | 删脚本 + 恢复 00/01 的文字规则 |
+| MCP 只增不删闸 | `Tool/scripts/mcp-guard.py` + `Tool/mcp/.baseline/tools.json` | 把"净删除 0 行"从承诺变成可执行 | 删两者 + preflight 对应项 |
+| MCP 验连 | `Tool/scripts/mcp-doctor.py` | 连不上必须报（不许静默） | 删脚本（verify 仍有基础断言） |
+| 单一总纲 | `优化方案.md`（根目录） | 缺陷台账 + 批次路线 | 删文件 + AGENTS 指针回退 |
+
+**M 类·函数体内插入（仅 3 处，均有标记）**：`seep_mcp_server.py` 的 `kb_local`、`kb-multitoken`（两处）、
+`_hash_file` 流式哈希。这三处**不是末尾纯追加**；`mcp-guard.py` 校验工具名不减少、`SEEP-EXT` 标记成对。
 
 ---
 
@@ -174,7 +194,7 @@ python Tool/scripts/smoke-e2e.py                        # 端到端链路（真�
 | 分类 | 文件 |
 |---|---|
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
-| 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json` |
+| 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
 | 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/unpack-loop/SKILL.md`<br>`Tool/skill/version-migration/SKILL.md` |
 | 脚本 | `Tool/scripts/check-budget.py`<br>`Tool/scripts/fork-delta.py`<br>`Tool/scripts/new-skill.py`<br>`Tool/scripts/smoke-e2e.py`<br>`Tool/scripts/verify-routing-coherence.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`Tool/docs/HANDOFF-交接文档.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |

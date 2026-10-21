@@ -132,9 +132,12 @@ def cmd_claim(a):
         die(f"status 只能是 {STATUSES}")
     if a.status == "proven" and not a.evidence:
         die("proven 必须带 --evidence（没有证据的结论只能写 hypothesis）")
+    if a.status == "refuted" and not a.by:
+        die("refuted 必须带 --by（指向推翻它的证据/claim id），否则历史不可追溯")
     fact = {"id": a.id, "claim": a.text, "status": a.status,
             "evidence": [a.evidence] if a.evidence else [],
-            "how": a.how or "", "ttl": a.ttl or "", "created": now(), "refuted_by": None}
+            "how": a.how or "", "ttl": a.ttl or "", "created": now(),
+            "refuted_by": (a.by or None)}
     append_fact(a.case, fact)
     print(f"[OK] {a.id} = {a.status}  {a.text}")
 
@@ -220,6 +223,18 @@ def cmd_gate(a):
     if failed:
         bad.append("深度未通过：" + "、".join(failed))
 
+    depth = st.get("depth", {})
+    # na 不能当洗白：必须写原因，且不许六级全 na（血案：全 na + 可赢 也能过闸）
+    bare_na = [lv for lv, v in depth.items() if v.get("result") == "na" and not (v.get("note") or "").strip()]
+    if bare_na:
+        bad.append("na 必须写原因：" + "、".join(bare_na))
+    if depth and all(v.get("result") == "na" for v in depth.values()):
+        bad.append("六级全 na：等于什么都没做，不许出闸")
+    passed = {lv for lv, v in depth.items() if v.get("result") == "pass"}
+    need_by_verdict = {"可赢": {"D0", "D1", "D2", "D3", "D4"},
+                       "部分可赢": {"D0", "D1", "D2", "D3"},
+                       "不可赢": {"D0", "D1", "D2"}}
+
     naked = [f["id"] for f in facts if f["status"] == "proven" and not f.get("evidence")]
     if naked:
         bad.append("无证据的 proven：" + "、".join(naked))
@@ -230,6 +245,11 @@ def cmd_gate(a):
 
     if not st.get("verdict"):
         bad.append("未给可行性裁定（verdict）")
+    else:
+        need = need_by_verdict.get(st["verdict"], set())
+        lack = sorted(need - passed)
+        if lack:
+            bad.append(f"裁定「{st['verdict']}」要求 {'/'.join(sorted(need))} 全部 pass，缺：" + "、".join(lack))
 
     # I0：仪器可行性。血案——2 小时后才发现调试器一挂就自毁、Frida 早期挂载会被静默掐网络
     inst = st.get("instruments") or {}
@@ -256,6 +276,29 @@ def cmd_gate(a):
           f"深度 {len(st['depth'])}/{len(LEVELS)}，事实 {len(facts)} 条")
     print(f"       下一步：{st.get('next_action') or '进 01-gate-bypass'}")
     sys.exit(0)
+
+
+RANK = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
+
+
+def cmd_deliver(a):
+    """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。"""
+    st = load_state(a.case)
+    if not st.get("verdict"):
+        die("还没给可行性裁定（verdict），不许交付")
+    cap = st.get("max_level") or "M1"
+    if a.level not in RANK:
+        die("level 只能是 M1 / M2 / M3 / M4")
+    if RANK[a.level] > RANK.get(cap, 1):
+        die(f"越级交付：裁定 {st['verdict']} 的上限是 {cap}，不接受 {a.level}")
+    if not (a.evidence or "").strip():
+        die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
+    st.setdefault("deliveries", []).append(
+        {"level": a.level, "evidence": a.evidence, "note": a.note or "", "ts": now()})
+    st["next_action"] = {"M1": "补功能面，冲 M2", "M2": "冲 M3（UI/授权）",
+                         "M3": "追版与维护", "M4": "维护"}.get(a.level, "")
+    save_state(a.case, st)
+    print(f"[OK] 已登记交付 {a.level}（上限 {cap}）：{a.evidence}")
 
 
 def cmd_show(a):
@@ -292,6 +335,9 @@ def cmd_resume(a):
     print(f"  已证 {len(proven)} / 待验 {len(pend)} / 已推翻 {sum(1 for f in facts if f['status']=='refuted')}")
     if pend:
         print("  待验清单：" + "、".join(f["id"] for f in pend))
+    dl = st.get("deliveries") or []
+    if dl:
+        print("  已登记交付：" + "、".join(f"{d['level']}({d['ts'][:16]})" for d in dl))
     print(f"  下一步：{st.get('next_action') or '（未写）'}")
 
 
@@ -306,6 +352,7 @@ def main():
     p = sub.add_parser("claim"); p.add_argument("--case", required=True)
     p.add_argument("--id", required=True); p.add_argument("--text", required=True)
     p.add_argument("--status", default="hypothesis"); p.add_argument("--evidence", default="")
+    p.add_argument("--by", default="", help="status=refuted 时必填：谁推翻了它")
     p.add_argument("--how", default=""); p.add_argument("--ttl", default="")
     p.set_defaults(func=cmd_claim)
 
@@ -335,6 +382,11 @@ def main():
     p = sub.add_parser("gate"); p.add_argument("--case", required=True)
     p.add_argument("--strict", action="store_true", help="连 hypothesis 也不许留")
     p.set_defaults(func=cmd_gate)
+
+    p = sub.add_parser("deliver"); p.add_argument("--case", required=True)
+    p.add_argument("--level", required=True); p.add_argument("--evidence", required=True)
+    p.add_argument("--note", default="")
+    p.set_defaults(func=cmd_deliver)
 
     p = sub.add_parser("show"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_show)
     p = sub.add_parser("resume"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_resume)

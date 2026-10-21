@@ -196,6 +196,11 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
 
 任何逆向 / 审计任务，**动第一下手之前**必须完成：
 
+0. **建案子 + 过闸**（阶段零的硬入口，不建案子就没有账、没有闸）：
+   `python Tool/scripts/case_state.py init --case <case目录> --target <样本>`
+   然后按阶段零登记深度/仪器/裁定；**进阶段一之前必须 `case_state.py gate --case <case>` 返回 0**，
+   交付前必须 `case_state.py deliver --level M1|M2|M3|M4 --evidence "<截图/日志>"`（越级会被拒）。
+   没有 case 目录的任务，先在 `Tool/cases/` 下建一个（名字用目标短名）。
 1. **读技能**：`read Tool/skill/softseep/SKILL.md`（总控）+ 按平台读子技能
    （`apkseep` / `ida-reverse` / `unpack-loop` / `client-license-validation-bypass`）。
    **不读技能就开工，等于放弃判型、七道门、熔断与交付纪律。**
