@@ -279,6 +279,9 @@ The bundled `seep` MCP server exposes **38 native tools** across seven functiona
 
 ## 🚀 Quick Start & Deployment
 
+> **5 分钟快速路径**：[docs/QUICKSTART.md](docs/QUICKSTART.md) ｜ **上游同步与差分**：[docs/UPSTREAM.md](docs/UPSTREAM.md)
+
+
 ### 1. Prerequisites
 - **OS**: Windows 10 / 11 x64 (recommended) or compatible Linux / macOS
 - **Runtimes**: Python 3.11+, Node.js 18+, Git
