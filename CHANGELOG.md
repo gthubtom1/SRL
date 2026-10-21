@@ -10,6 +10,20 @@
 
 ---
 
+## [1.18.13] — 2026-10-21
+
+> 主题：**`deliver` 断言也改字面 + §2bis 如实补记**（终审 #6 的 2 条 P2）。
+
+| 级别 | 问题 | 修复（含篡改可证伪） |
+|---|---|---|
+| P2 | `preflight` 对 `reverse.md` / `reverse-deliverable.md` 的 `deliver` 仍用**裸词** → 把 `` `case_state.py deliver …` `` 整段换成散文，preflight 仍 18/18 | 改字面正则 `case_state\.py\s+deliver`；篡改实测：删掉 deliver 命令 → `[FAIL] reverse.md(缺 'case_state.py deliver')` **rc=1**；恢复 → rc=0 |
+| P2 | `AUDIT §2bis` 仍是 v1.18.9 叙述，未记录"裸词闸被证伪 → 字面正则 + gen --check 接入"这起事故（与"宣称已改实则未改"同类） | §2bis 追加「追加事故（v1.18.10 → v1.18.12）」+ 教训 2：**断言"某词出现过"是假闸**，必须带命令形状 |
+| 版本 | — | 1.18.13；`VERSION_SEEN` 同步，任务卡由 `gen-task-cards.py` 重生成 |
+
+验收：`preflight --fast` 18/18、`verify.ps1` 65/65、`verify.sh` 65/65、`gen-task-cards --check` rc=0。
+
+---
+
 ## [1.18.12] — 2026-10-21
 
 > 主题：**修 P0-1 防回归闸的"裸词"漏洞**（终审实测证伪：删掉 `case_state.py gate` 仍全绿）。
