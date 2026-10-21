@@ -167,6 +167,15 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
   **坑（已修，别踩回去）**：① `tool-run.ps1` 必须带 UTF-8 BOM，否则 `powershell` 5.1 解析报错（`preflight` 有守）；
   ② 启动必须走 `Invoke-CimMethod Win32_Process Create` 脱离式，**禁用** `Start-Process -RedirectStandard*`——
   GUI 子进程占着句柄会让 PowerShell 挂死，外层一杀 x64dbg 跟着死。
+- **工具连不上必须 5 秒内明说（铁律）**：只要 `tool-run` 不是 `READY`、或 `mcp__*` 调用报错，
+  立刻说清四件事——**阶段**（discover / spawn / port / mcp-ready）、**原因**、**已尝试什么**、**恢复命令**；
+  然后跑 `python Tool/scripts/mcp-doctor.py --fix`（按 `tool-runtimes.json` 自动拉起宿主并复验）。
+  会话开头想省事就 `python Tool/scripts/mcp-doctor.py --quick`（0.1 秒只测端口）。
+  **禁止**静默改用 bash 手搓 `strings`/`pefile` 硬扛 —— 那不是省时间，是把十分钟的活拖成一小时。
+- **工具找不到时先搜索，别报"未安装"**：`tool_autodiscover` 已是八层（环境变量 → PATH → 常见目录 →
+  注册表 → **开始菜单快捷方式** → **Everything 索引** → 递归扫描 → 别名）；手工指定用
+  `tool-run.ps1 -Tool <id> -Use "<exe 绝对路径>"`，成功路径会缓存到 `~/.seep/tool-paths.json`（下次 0ms 命中，
+  `-Refresh` 强制重探）。
 - IDA 现状：`headless-cli`（`idat`）可用且优先；`headless-mcp`（idalib）被安装目录里的
   GUI 插件拖崩；`gui-mcp`（13337）需 Ctrl+Alt+M。**默认走 headless-cli，不要为了"顺手"去开 GUI。**
 

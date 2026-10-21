@@ -330,6 +330,43 @@ def check_ps_encoding():
         add("6 可移植", "ps1 编码可被 PS5.1 解析", True, "解析检查跳过：" + str(e)[:60])
 
 
+def check_newtools():
+    """新增的两个运维脚本必须「clone 下来就能跑」：语法能过 + 输出可机读。
+
+    为什么放进 preflight：这两个脚本正是"静默失败"的解药，
+    它们自己坏了就等于又回到"agent 不知道工具没连上"的老路。
+    """
+    py = sys.executable
+    # ① mcp-doctor：--quick 只测端口，快且不受宿主是否运行影响（rc 0/1 都算正常）
+    doc = os.path.join(TOOL, "scripts", "mcp-doctor.py")
+    ok, note = False, "文件缺失"
+    if os.path.isfile(doc):
+        try:
+            r = subprocess.run([py, doc, "--quick", "--json"], capture_output=True, text=True, timeout=90)
+            body = (r.stdout or "").strip()
+            if body.startswith("{"):
+                import json as _json
+                _json.loads(body)
+                ok, note = True, f"rc={r.returncode}（0/1 均属正常）"
+            else:
+                note = f"输出不是 JSON：{(r.stderr or body)[:120]}"
+        except Exception as e:
+            note = str(e)[:120]
+    add("7 新脚本", "mcp-doctor 可运行（输出 JSON）", ok, note)
+
+    # ② migrate.py：语法 + 子命令自述
+    mig = os.path.join(TOOL, "scripts", "migrate.py")
+    ok2, note2 = False, "文件缺失"
+    if os.path.isfile(mig):
+        try:
+            r = subprocess.run([py, mig, "--help"], capture_output=True, text=True, timeout=60)
+            ok2 = (r.returncode == 0 and "align" in (r.stdout or ""))
+            note2 = "子命令齐全" if ok2 else (r.stderr or "")[:120]
+        except Exception as e:
+            note2 = str(e)[:120]
+    add("7 新脚本", "migrate 追版引擎可运行", ok2, note2)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -342,6 +379,7 @@ def main():
     check_assets()
     check_portable()
     check_ps_encoding()
+    check_newtools()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

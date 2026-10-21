@@ -10,6 +10,53 @@
 
 ---
 
+## [1.12.0] — 2026-10-21
+
+> 主题：**把"二开生命周期"补齐** —— 第 4 阶段追版 + 工具启动可见化 + 搜索式发现。
+
+### 一、第 4 阶段：跨版本追版（`04-version-migrate`）
+
+原作者发新版时不再从头再来。三张资产清单（位点 / UI / 授权）从旧版本账迁到新版：
+
+| 新增 | 作用 |
+|---|---|
+| `Tool/skill/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
+| `Tool/scripts/migrate.py` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
+| `Tool/docs/MIGRATION.md` | `manifest.json` 规范（schema `seep-migration/1`）+ 目录约定 + 常见漂移模式 |
+| 01/02/03 技能各加"顺手记账" | 位点 / UI 素材 / 授权挂载点分别写入 `sites[]` / `ui[]` / `license[]` —— 没有账，下次更新只能重做 |
+| 路由 `R14` | "软件更新了 / 追版 / 新版迁一下" → 04（实测 7/7 判型正确，不影响 01/02/03 与 apkseep） |
+
+实测（真实样本 6.8 → 6.9）：`gate-01` 位点 `0x4f9f4 → 0x4f964` 唯一命中，报告与对齐 JSON 正常产出。
+
+### 二、工具启动不再"静默失败"
+
+| 新增/改动 | 说明 |
+|---|---|
+| `Tool/scripts/mcp-doctor.py` | 逐个 MCP server 体检：http 走真实 `initialize` + `tools/list`（动态 `!命令` token 会自动解析），stdio 查可执行性；失败给**可执行恢复命令**，`--fix` 能按 `tool-runtimes.json` 自动拉起宿主再复验 |
+| `tool-run.ps1` 结构化失败 | 任何失败都输出 `stage`（discover / spawn / port）+ 原因 + 候选 + `next` 恢复命令；不再空着退出 |
+| 成功路径缓存 | `~/.seep/tool-paths.json`：第一次成功后记住绝对路径，之后 0ms 命中；`-Refresh` 强制重探 |
+| AGENTS 新铁律 | 工具连不上必须 **5 秒内**说清"阶段/原因/已尝试/恢复命令"，**禁止**静默改用 bash 手搓 |
+| 修缓存 bug | 空 Hashtable 在 PowerShell 里是"真值"，用 `.PSObject.Properties` 遍历会把 `IsFixedSize/Count/Keys` 当工具名写进缓存 → 已改为返回 `$null` + 按 `IDictionary.Keys` 合并 |
+
+### 三、发现层从六层扩到八层（回应"用搜索软件找工具"）
+
+`tool_autodiscover` 新增两层，位置在注册表之后、递归扫描之前：
+
+| 层 | 手段 | 价值 |
+|---|---|---|
+| `startmenu` | 解析开始菜单/桌面 `.lnk` 的 `TargetPath`（一次 PowerShell 批量解析，进程内缓存） | 零依赖、毫秒级，正常安装的软件 90% 有快捷方式；本机实测解析 87 个目标 |
+| `everything` | `es.exe` 索引查询（PATH 或 Everything 安装目录自动找） | 把被禁掉的"递归扫盘"换成索引查询：同样全盘覆盖，快千倍；`es.exe` 缺失时安静跳过 |
+
+配合 `-Use "<exe 绝对路径>"` 手工兜底与路径缓存，"找不到工具"这一类失败基本清零。
+
+### 四、门禁
+
+- `preflight.py` 新增 3 项（共 **14/14**）：`ps1 编码可被 PS5.1 解析`、`mcp-doctor 可运行`、`migrate 可运行`；
+- `verify.ps1` 阶段数组含 04 → `verify.ps1` 61/61、`verify.sh` 61/61；
+- `routing.json` 14 条路由，`verify-routing-coherence.py` 自洽。
+
+---
+
 ## [1.11.2] — 2026-10-21
 
 > 主题：**x64dbg 自动唤醒真修好了**（两个真 bug + 一条 SOP 纠错 + 一道新门禁）。

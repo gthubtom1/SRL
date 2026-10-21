@@ -129,6 +129,7 @@ metadata:
 | "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
 | "旁路它的卡密" / "让它能进主界面" / "出可用成品" | **阶段① 授权旁路 + 交付** | **`01-gate-bypass`** |
+| "软件更新了" / "新版追一下" / "6.8 的活迁到 6.9" | **阶段④ 跨版本追版** | **`04-version-migrate`** |
 | "改 UI" / "换品牌" / "去掉作者联系方式" | **阶段② 改界面与品牌** | **`02-ui-rebrand`** |
 | "接我自己的授权平台" / "卡密 / 到期 / 发卡" | **阶段③ 接授权** | **`03-license-hookup`** |
 | "这是个什么网站" / "指纹" / "安全头" / "接口发现" | **Web 侦察** | `seep_web_recon` 只读侦察 |
@@ -165,6 +166,7 @@ metadata:
 | | **unpack-loop** | `Tool/skill/unpack-loop/SKILL.md` | 加壳脱壳与内存转储闭环（判据驱动 / 三路线 / 两次熔断） |
 | | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
 | | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
+| | **04-version-migrate** | `Tool/skill/04-version-migrate/SKILL.md` | **阶段④**：读版本账 → AOB 滑窗对齐 → UI/授权跟着迁 → 重建+回归（引擎 `Tool/scripts/migrate.py`） |
 | | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
 | | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
 | | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
