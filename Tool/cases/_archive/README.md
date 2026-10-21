@@ -14,3 +14,4 @@
 - `项目L` — 见 `项目L/case.json`
 - `项目M` — 见 `项目M/case.json`
 - `项目N` — 见 `项目N/case.json`
+- `forensics05` — 见 `forensics05/case.json`（Unity IL2CPP/AssetBundle 夹具；2026-10-22 为保持 forensics-mobile 3–5 上限归档）

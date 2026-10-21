@@ -1,0 +1,239 @@
+{
+  "ok": true,
+  "tool": "fs-timeline.py",
+  "generated_at": null,
+  "timezone": "UTC",
+  "events": [
+    {
+      "time_utc": "2026-10-08T22:12:34.767210Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=1",
+      "detail": {
+        "chunk": 0,
+        "record_id": 1,
+        "record_offset": 512,
+        "record_size": 1880
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:13:51.951439Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=2",
+      "detail": {
+        "chunk": 0,
+        "record_id": 2,
+        "record_offset": 2392,
+        "record_size": 920
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:23.041298Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=3",
+      "detail": {
+        "chunk": 0,
+        "record_id": 3,
+        "record_offset": 3312,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:20:06.957977Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=4",
+      "detail": {
+        "chunk": 0,
+        "record_id": 4,
+        "record_offset": 3704,
+        "record_size": 920
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:41:25.975956Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=5",
+      "detail": {
+        "chunk": 0,
+        "record_id": 5,
+        "record_offset": 4624,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T11:05:52.088562Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=6",
+      "detail": {
+        "chunk": 0,
+        "record_id": 6,
+        "record_offset": 5016,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-10T01:05:35.113486Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=7",
+      "detail": {
+        "chunk": 0,
+        "record_id": 7,
+        "record_offset": 5408,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T01:59:01.108908Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=8",
+      "detail": {
+        "chunk": 0,
+        "record_id": 8,
+        "record_offset": 5800,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T01:59:01.108999Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=9",
+      "detail": {
+        "chunk": 0,
+        "record_id": 9,
+        "record_offset": 6192,
+        "record_size": 1952
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T01:59:01.109002Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=10",
+      "detail": {
+        "chunk": 0,
+        "record_id": 10,
+        "record_offset": 8144,
+        "record_size": 704
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T03:07:31.117614Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=11",
+      "detail": {
+        "chunk": 0,
+        "record_id": 11,
+        "record_offset": 8848,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T13:49:34.053240Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=12",
+      "detail": {
+        "chunk": 0,
+        "record_id": 12,
+        "record_offset": 9240,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-20T03:19:37.086185Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=13",
+      "detail": {
+        "chunk": 0,
+        "record_id": 13,
+        "record_offset": 9632,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-21T02:48:14.122314Z",
+      "source": "Kernel-Boot-Operational.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "Kernel-Boot-Operational.evtx#chunk=0/record=14",
+      "detail": {
+        "chunk": 0,
+        "record_id": 14,
+        "record_offset": 10024,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    }
+  ],
+  "summary": {
+    "events": 14,
+    "start_utc": "2026-10-08T22:12:34.767210Z",
+    "end_utc": "2026-10-21T02:48:14.122314Z",
+    "by_kind": {
+      "evtx-record": 14
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "inputs": [
+    {
+      "path": "input/Kernel-Boot-Operational.evtx",
+      "kind": "evtx",
+      "sha256": "4f45adc7ef74e727007852665e5eef42e526394d8fae80cf61cf6e304f44bfb9",
+      "size": 69632,
+      "events": 14
+    }
+  ],
+  "warnings": []
+}
