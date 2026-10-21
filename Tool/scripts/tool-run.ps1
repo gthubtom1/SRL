@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
   tool-run.ps1 —— 通用「工具运行阶梯」执行器
 
@@ -142,19 +142,28 @@ foreach ($m in $modes) {
         else { $argList += $a }
     }
 
-    $logOut = Join-Path $env:TEMP ("tool-run-" + $Tool + "-" + $m.id + ".out.log")
-    $logErr = Join-Path $env:TEMP ("tool-run-" + $Tool + "-" + $m.id + ".err.log")
+    # ★ 启动方式：用 WMI Win32_Process.Create「脱离式」启动。
+    #   不能用 Start-Process -RedirectStandard*：GUI 子进程会一直占着重定向句柄，
+    #   PowerShell 退出时挂住（实测卡满 300s），外层一杀，x64dbg 跟着被杀 → 9094 消失。
+    #   Win32_Process.Create 不继承句柄，既不挂调用方，也不怕调用方被 kill。
+    $cmdLine = '"' + $exe + '"'
+    if ($argList -and $argList.Count -gt 0) {
+        $cmdLine += ' ' + (($argList | ForEach-Object { '"' + $_ + '"' }) -join ' ')
+    }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        $proc = Start-Process -FilePath $exe -ArgumentList $argList -WorkingDirectory (Split-Path -Parent $exe) `
-            -RedirectStandardOutput $logOut -RedirectStandardError $logErr -PassThru
+        $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+            CommandLine      = $cmdLine
+            CurrentDirectory = (Split-Path -Parent $exe)
+        }
+        $procPid = [int]$r.ProcessId
     } catch { continue }
-
+    if (-not $procPid) { continue }
     if ($m.postLaunchKeys) {
         try {
             Add-Type -AssemblyName System.Windows.Forms
             Start-Sleep -Seconds 4
-            try { $ws = New-Object -ComObject WScript.Shell; [void]$ws.AppActivate($proc.Id) } catch { }
+            try { $ws = New-Object -ComObject WScript.Shell; [void]$ws.AppActivate($procPid) } catch { }
             Start-Sleep -Milliseconds 800
             [System.Windows.Forms.SendKeys]::SendWait($m.postLaunchKeys)
         } catch { }

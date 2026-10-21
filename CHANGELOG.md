@@ -10,6 +10,36 @@
 
 ---
 
+## [1.11.2] — 2026-10-21
+
+> 主题：**x64dbg 自动唤醒真修好了**（两个真 bug + 一条 SOP 纠错 + 一道新门禁）。
+
+### 血案复盘：为什么"新开几个会话都起不来 x64dbg"
+
+| # | 真因 | 表现 |
+|---|---|---|
+| 1 | `tool-run.ps1` 是**无 BOM 的 UTF-8**，里面又有中文 | `powershell -File`（5.1）按 ANSI 读 → 中文串被切碎 → `ParserError`，脚本根本没跑。`pwsh` 7 能跑 → "本机能开、换个入口就废" |
+| 2 | 启动用了 `Start-Process -RedirectStandardOutput/-Error` | GUI 子进程一直占着重定向句柄 → **PowerShell 退出时挂住**（实测卡满 300s）；外层超时一杀，x64dbg 跟着被杀 → 9094 消失 |
+| 3 | 以为"agent 先起 x64dbg 再调 MCP"就行 | **MCP 工具只在会话启动时注册**。会话先起、x64dbg 后起 → 本轮 `ALL_TOOLS` 里根本没有 `mcp__x64dbg__*` |
+
+### 修复
+
+- `tool-run.ps1` 加 **UTF-8 BOM + CRLF**（与仓库其它 .ps1 一致），5.1 / 7 双引擎解析通过；
+- 启动改为 **`Invoke-CimMethod -ClassName Win32_Process -MethodName Create`**（脱离式、不继承句柄）：
+  不再挂调用方，调用方被 kill 也不影响目标；空参数时**不传** `-ArgumentList`（5.1 会因空数组抛错）；
+- 实测：`READY 1.3s` → `9094 LISTENING` → `pi mcp list` = `x64dbg: connected, 80 tools`，带中文路径目标同样成立；
+- SOP 由"三步"改"**四步**"：新增第 2 步 **`pi mcp list` 验连**，`failed` 就在 TUI `/mcp reconnect x64dbg`。
+
+### 新门禁（`preflight.py`）
+
+`ps1 编码可被 PS5.1 解析`：非 ASCII 的 `.ps1` 必须带 BOM；并用 5.1 的 `Parser` 真解析
+`Tool/scripts` + `setup` 下全部脚本（`Tool/cases` 夹具 / `Tool/upstream` 镜像 / 冻结骨架不参与）。
+这条检查当场揪出仓库里另外 2 个解析不过的第三方脚本，避免了同类事故。
+
+验收：`preflight --fast` **12/12**、`verify.ps1` 61/61、`verify.sh` 61/61。
+
+---
+
 ## [1.11.1] — 2026-10-21
 
 > 主题：**三个阶段技能与具体样本解耦**（避免"只对换肤程序 6.8 有效"）。

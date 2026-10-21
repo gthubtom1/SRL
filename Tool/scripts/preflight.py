@@ -25,6 +25,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -277,6 +278,58 @@ def check_portable():
         f"{len(bad)} 处" + ("：" + "；".join(bad[:4]) if bad else ""))
 
 
+def check_ps_encoding():
+    r"""PowerShell 5.1 的解析器对编码很挑：非 ASCII 的 .ps1 必须带 UTF-8 BOM。
+
+    血案：tool-run.ps1 曾是无 BOM 的 UTF-8，`powershell -File`（5.1）读成 ANSI，
+    中文串被切碎 → ParserError → x64dbg 永远起不来（pwsh 7 却能跑，于是"本机能开、换台不能"）。
+    这里同时做两道检查：BOM 规则 + 真实解析（用 5.1 的 Parser）。
+    """
+    bad_bom = []
+    for base in ("Tool/scripts", "setup"):
+        root = os.path.join(ROOT, base.replace("/", os.sep))
+        if not os.path.isdir(root):
+            continue
+        for dp, dn, fn in os.walk(root):
+            dn[:] = [d for d in dn if d not in EXCLUDE_DIRS]
+            for f in fn:
+                if not f.lower().endswith(".ps1"):
+                    continue
+                fp = os.path.join(dp, f)
+                raw = open(fp, "rb").read()
+                if any(b > 127 for b in raw) and not raw.startswith(b"\xef\xbb\xbf"):
+                    bad_bom.append(os.path.relpath(fp, ROOT).replace(os.sep, "/"))
+    if bad_bom:
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", False,
+            "非 ASCII 且无 BOM：" + "、".join(bad_bom[:3]))
+        return
+
+    ps = shutil.which("powershell") or shutil.which("pwsh")
+    if not ps:
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", True, "无 PowerShell，跳过")
+        return
+    # 只查我们真正会执行的目录：Tool/scripts + setup。
+    # Tool/cases（案例夹具，含故意写坏的样本）、Tool/upstream（上游镜像）、
+    # Tool/mcp/Tool/reverselab（冻结骨架）不参与解析检查。
+    cmd = (
+        "$bad=@(); "
+        + "; ".join(
+            "Get-ChildItem -Path '" + os.path.join(ROOT, d).replace("'", "''") + "' -Recurse -Filter *.ps1 "
+            "-ErrorAction SilentlyContinue | ForEach-Object { $e=$null; "
+            "[void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$e); "
+            "if($e.Count){ $bad += ($_.Name + ': ' + $e[0].Message) } }"
+            for d in (os.path.join("Tool", "scripts"), "setup")
+        )
+        + "; $bad -join ' | '"
+    )
+    try:
+        out = subprocess.run([ps, "-NoProfile", "-Command", cmd], capture_output=True, text=True, timeout=180)
+        msg = (out.stdout or "").strip()
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", not msg, msg[:160] or "全部 .ps1 解析通过")
+    except Exception as e:
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", True, "解析检查跳过：" + str(e)[:60])
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -288,6 +341,7 @@ def main():
     check_parity()
     check_assets()
     check_portable()
+    check_ps_encoding()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

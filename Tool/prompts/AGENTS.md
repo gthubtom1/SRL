@@ -157,11 +157,16 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
 - 工具清单：`Tool/config/tool-runtimes.json`（每个工具声明多条通道，**按优先级排列**）。
   **新增工具只加一条，脚本不改** —— 工具会越来越多，不能每来一个就改代码。
 - `-ListModes` 先看该工具有哪些通道、各自为什么；不带 `-Mode` 时**自动按优先级降级**。
-- **调试任务（x64dbg / x32dbg）固定三步，不许省**：
+- **调试任务（x64dbg / x32dbg）固定四步，不许省**：
   1. `powershell -File Tool/scripts/tool-run.ps1 -Tool x64dbg -Target <样本>`（1~2 秒起 9094，带样本直接加载）
-  2. 连通后调 `mcp__x64dbg__*`：`LoadBinary` → `WaitForPause` → `GetDebugState` → 下断点/单步/读内存
-  3. 关掉时用 `StopDebug`，别留着窗口
+  2. **确认 MCP 已连**：`pi mcp list | grep x64dbg` 要看到 `connected, N tools`；看到 `failed` 就在 TUI 里
+     `/mcp reconnect x64dbg`（**MCP 工具只在会话启动时注册**，会话先起、x64dbg 后起 → 本轮拿不到工具）
+  3. 连通后调 `mcp__x64dbg__*`：`LoadBinary` → `WaitForPause` → `GetDebugState` → 下断点/单步/读内存
+  4. 关掉时用 `StopDebug`，别留着窗口
   **禁止**要求用户"先手动打开 x64dbg"；**禁止**问"允许我 attach 吗"——沙箱内 attach/注入/下断点是任务内动作，直接做。
+  **坑（已修，别踩回去）**：① `tool-run.ps1` 必须带 UTF-8 BOM，否则 `powershell` 5.1 解析报错（`preflight` 有守）；
+  ② 启动必须走 `Invoke-CimMethod Win32_Process Create` 脱离式，**禁用** `Start-Process -RedirectStandard*`——
+  GUI 子进程占着句柄会让 PowerShell 挂死，外层一杀 x64dbg 跟着死。
 - IDA 现状：`headless-cli`（`idat`）可用且优先；`headless-mcp`（idalib）被安装目录里的
   GUI 插件拖崩；`gui-mcp`（13337）需 Ctrl+Alt+M。**默认走 headless-cli，不要为了"顺手"去开 GUI。**
 
