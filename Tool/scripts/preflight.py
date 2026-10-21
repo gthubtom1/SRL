@@ -461,8 +461,10 @@ def check_taskcards_gate():
     need = {
         "analyze.md": [(r"case_state\.py\s+" + k + r"\b", "case_state.py " + k) for k in subs]
                       + [("必须返回 0", "必须返回 0")],
-        "reverse.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"), ("deliver", "deliver")],
-        "reverse-deliverable.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"), ("deliver", "deliver")],
+        "reverse.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"),
+                       (r"case_state\.py\s+deliver\b", "case_state.py deliver")],
+        "reverse-deliverable.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"),
+                                   (r"case_state\.py\s+deliver\b", "case_state.py deliver")],
     }
     bad = []
     for f, markers in need.items():
