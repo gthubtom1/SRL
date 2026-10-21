@@ -81,7 +81,7 @@ DOMAINS = {
         "board": "pe-reverse",
         "matrix": "reverse-matrix.json",
         "case_globs": ["项目*", "案例*"],
-        "ext_scripts": ["Tool/scripts/case_state.py"],
+        "ext_scripts": ["Tool/scripts/driver-triage.py"],
         # 逆向域与其它域同一契约（3–5 案例 / 6–10 篇 KB）。
         # 历史沉淀不删：超出部分归档在 Tool/cases/_archive/ 与 kb/_archive/pe-reverse/，
         # 归档不计入域数量，但链接完整性仍受门禁约束（见 check_links / check_md_links）。
@@ -205,4 +205,29 @@ ROUTING_TESTS = [
      "forbid": ["apkseep", "apk-reverse", "web-pentest"]},
     {"text": "snyk 扫依赖 看可达性", "expect_any": ["supply-chain-security"],
      "forbid": ["softseep", "web-pentest"]},
+    # v1.24 新增：R32 hypervisor/eBPF/TEE 与 R33 托管运行时（12 条，总计 60）
+    {"text": "HyperDbg EPT hook 怎么观测", "expect_any": ["softseep"],
+     "forbid": ["unpack-loop", "web-pentest"]},
+    {"text": "eBPF XDP 程序逆向", "expect_any": ["softseep"],
+     "forbid": ["web-pentest", "unpack-loop"]},
+    {"text": "TrustZone TEE 固件分析", "expect_any": ["softseep", "firmware-iot"],
+     "forbid": ["web-pentest", "apkseep"]},
+    {"text": "dnSpy 打开 Assembly-CSharp 找授权", "expect_any": ["plugin-targets", "softseep"],
+     "forbid": ["web-pentest", "apkseep"]},
+    {"text": "javap 反编译 jar 看校验", "expect_any": ["softseep", "01-gate-bypass"],
+     "forbid": ["web-pentest", "apkseep"]},
+    {"text": "PyInstaller 打包的程序怎么解", "expect_any": ["softseep"],
+     "forbid": ["web-pentest", "apkseep"]},
+    {"text": "wasm2c 转 C 后怎么读", "expect_any": ["softseep"],
+     "forbid": ["web-pentest"]},
+    {"text": "Unity il2cpp 的 global-metadata 解密", "expect_any": ["plugin-targets", "forensics-mobile"],
+     "forbid": ["apkseep", "apk-reverse", "web-pentest"]},
+    {"text": "BattlEye 服务项在哪取证", "expect_any": ["softseep", "forensics-mobile"],
+     "forbid": ["web-pentest", "apkseep"]},
+    {"text": "APK 里 so 被 VMP 了怎么脱", "expect_any": ["apkseep", "apk-reverse"],
+     "forbid": ["softseep", "web-pentest"]},
+    {"text": "iOS 应用越狱检测怎么定位", "expect_any": ["forensics-mobile", "apkseep"],
+     "forbid": ["web-pentest", "softseep"]},
+    {"text": "VMP 授权锁 ProductCode 在哪", "expect_any": ["unpack-loop", "softseep"],
+     "forbid": ["web-pentest", "apkseep"]},
 ]

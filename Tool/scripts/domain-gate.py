@@ -224,7 +224,7 @@ def check_cases(dom, spec):
         if miss:
             bad.append("%s(缺 %s)" % (os.path.basename(cd), ",".join(miss)))
         kind = c.get("evidence_kind")
-        if kind not in ("fixture", "real"):
+        if kind not in ("fixture", "real", "self-built", "historical"):
             bad.append("%s(evidence_kind=%r)" % (os.path.basename(cd), kind))
             kind = None
         tt = str(c.get("target_type") or "")
@@ -233,7 +233,7 @@ def check_cases(dom, spec):
             bad.append("%s(fixture 但 target_type 未标夹具)" % os.path.basename(cd))
         if kind == "real" and is_fix:
             bad.append("%s(real 却标成夹具)" % os.path.basename(cd))
-        if kind == "real":
+        if kind in ("real", "self-built"):
             real += 1
             rp = c.get("repro") or {}
             if rp.get("status") == "recorded" or ("rc=" in "\n".join(c.get("lessons") or [])):
@@ -712,8 +712,19 @@ def check_criteria_backing(dom, spec):
     for f in sorted(glob.glob(os.path.join(sd, "*.py"))):
         src += open(f, encoding="utf-8", errors="replace").read()
     backed = [f for f in fields if f.split(".")[-1] in src]
-    add(dom, "判据字段脚本背书（≥1）", bool(backed),
-        "%d/%d 字段被脚本输出（例：%s）" % (len(backed), len(fields), ", ".join(sorted(backed)[:3]) or "-"))
+    allow_path = os.path.join(TOOL, "config", "criteria-inferred", dom + ".json")
+    allowed = {}
+    if os.path.isfile(allow_path):
+        try:
+            allowed = (rj(allow_path).get("fields") or {})
+        except Exception:  # noqa: BLE001
+            allowed = {}
+    uncovered = [f for f in fields if f not in backed and f not in allowed]
+    add(dom, "判据字段脚本背书或 inferred 白名单",
+        bool(backed) and not uncovered,
+        "%d 背书 / %d 白名单 / %d 未覆盖（共 %d）；未覆盖：%s"
+        % (len(backed), len(allowed), len(uncovered), len(fields),
+           ", ".join(sorted(uncovered)[:3]) or "-"))
 
 
 def check_2026_presence(dom, spec):

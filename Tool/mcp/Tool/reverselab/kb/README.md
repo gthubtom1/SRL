@@ -20,6 +20,9 @@
 | General | [general](general/README.md) | 密码学 / 协议 / 内核 / 方法论 |
 | Windows | [windows](windows/README.md) | Windows 运行时与工具链 |
 | Windows Techniques | [windows/techniques](windows/techniques/README.md) | VMP UltraLock / Themida VM / CET-LACUNA / 26H2 内核 |
+| iOS Reverse | [ios](ios/README.md) | Mach-O / entitlements / JB 检测面 / Frida / Keychain |
+| Anti-Cheat | [anticheat](anticheat/README.md) | EAC·BE·Vanguard 客户端取证（只读，不绕过） |
+| Managed Runtime | [managed](managed/README.md) | .NET / Java / Python / WASM 授权面 |
 
 ## 根目录：AI 复盘
 

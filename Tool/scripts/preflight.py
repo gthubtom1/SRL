@@ -612,6 +612,75 @@ def check_domain_depth():
         add("11 深度", label, (not bad) and bool(rs), detail)
 
 
+
+
+def check_v123_deliverables():
+    """v1.23 交付物：三分/串味60/时间戳/driver-triage/剧本卡/inferred白名单。"""
+    sys.path.insert(0, os.path.join(TOOL, "scripts", "lib"))
+    bad, kinds = [], {}
+    for cf in glob.glob(os.path.join(ROOT, "Tool", "cases", "*", "case.json")):
+        try:
+            c = json.load(open(cf, encoding="utf-8"))
+        except Exception:
+            bad.append(os.path.basename(cf) + "(bad json)")
+            continue
+        k = c.get("evidence_kind")
+        kinds[k] = kinds.get(k, 0) + 1
+        if k not in ("fixture", "real", "self-built", "historical"):
+            bad.append(os.path.basename(os.path.dirname(cf)) + "(kind=%r)" % k)
+    add("12 v1.23", "案例真实性三分", not bad,
+        "; ".join(bad[:4]) if bad else str(dict(sorted(kinds.items()))))
+
+    try:
+        from domain_spec import ROUTING_TESTS
+        n = len(ROUTING_TESTS)
+        add("12 v1.23", "路由串味测试 >=60 条", n >= 60, "%d 条" % n)
+    except Exception as e:
+        add("12 v1.23", "路由串味测试 >=60 条", False, str(e)[:60])
+
+    hits = []
+    for f in glob.glob(os.path.join(ROOT, "Tool", "cases", "*", "artifacts", "*.json")):
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(d, dict) and d.get("generated_at") and d["generated_at"] != "1970-01-01T00:00:00Z":
+            hits.append(os.path.basename(f))
+    add("12 v1.23", "案例产物无动态 generated_at", not hits,
+        ("hits: " + ", ".join(hits[:4])) if hits else "0")
+
+    dt = os.path.join(TOOL, "scripts", "driver-triage.py")
+    if not os.path.isfile(dt):
+        add("12 v1.23", "driver-triage --self-test", False, "missing driver-triage.py")
+    else:
+        rc, out = run([sys.executable, dt, "--self-test"], timeout=120)
+        add("12 v1.23", "driver-triage --self-test", rc == 0 and '"ok"' in out, "rc=%d" % rc)
+
+    cards = 0
+    for f in glob.glob(os.path.join(TOOL, "prompts", "domains", "*.md")):
+        t = open(f, encoding="utf-8", errors="replace").read()
+        cards += len(re.findall("- 步骤：[^\n]*rc\s*=\s*0", t))
+    add("12 v1.23", "剧本卡 >=50 张", cards >= 50, "%d" % cards)
+
+
+    # 7. v1.23 新增工具：seep-start / kb-query 自检
+    tools = ["seep-start.py", "kb-query.py"]
+    bad7 = []
+    for t in tools:
+        tp = os.path.join(TOOL, "scripts", t)
+        if not os.path.isfile(tp):
+            bad7.append(t + "(missing)")
+            continue
+        rc, out = run([sys.executable, tp, "--self-test"], timeout=120)
+        if rc != 0 or '"ok"' not in out:
+            bad7.append("%s(rc=%d)" % (t, rc))
+    add("12 v1.23", "seep-start / kb-query --self-test", not bad7,
+        "; ".join(bad7) if bad7 else "2 个工具 rc=0")
+
+    allow = glob.glob(os.path.join(TOOL, "config", "criteria-inferred", "*.json"))
+    add("12 v1.23", "判据 inferred 白名单（10 域）", len(allow) >= 10, "%d" % len(allow))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -629,6 +698,7 @@ def main():
     check_taskcards_gate()
     check_domain_packs()
     check_domain_depth()
+    check_v123_deliverables()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

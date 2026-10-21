@@ -107,7 +107,7 @@ def accept_case(case_dir: str, manifest: str | None = None) -> list[str]:
     miss = [k for k in CASE_FIELDS if k not in c]
     if miss:
         bad.append("缺字段: " + ",".join(miss))
-    if c.get("evidence_kind") not in ("fixture", "real"):
+    if c.get("evidence_kind") not in ("fixture", "real", "self-built", "historical"):
         bad.append("evidence_kind 不是 fixture/real")
     for a in c.get("artifacts") or []:
         ap = a.get("path") or ""

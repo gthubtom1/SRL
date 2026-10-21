@@ -7,7 +7,7 @@
 ### 01 Ghidra 样本函数图与入口定位（源：reverse-engineering-malware-with-ghidra）
 - 触发词：Ghidra、函数图、入口定位、xref、反编译、sub_xxx
 - 前置：样本 SHA256 已记录；Ghidra/headless 可用或已有反编译缓存；确认授权沙箱
-- 步骤：1) `preflight-classify.py <sample>` 判平台/保护；2) Ghidra 导入并按 `.pdata`/符号切函数；3) 从入口/字符串 xref 画调用图，标出校验/网络/文件/注册表节点
+- 步骤：1) `python Tool/skill/softseep/scripts/preflight-classify.py --help` → rc=0，期望：usage 含 `<path>` 与 `--self-test`；2) `python Tool/skill/softseep/scripts/preflight-classify.py Tool/samples/real/crackerjack/a.exe` → rc=0，期望：`"format": "pe"`、`"machine": "x86-64"`、`"has_clr": false`；3) `python Tool/scripts/mal-triage.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"type": "PE"`、section_anomalies 含 overlay
 - 判据：入口到关键节点的调用路径可打印；每个命名函数能说出「字符串/常量/调用者」依据；关键函数有反编译片段
 - 失败判据：只得到 `sub_xxx` 且无字符串/常量线索 → 转符号恢复/动态断点；分析 2 分钟无关键结论 → 转动态
 - reference：Tool/skill/softseep/references/01-criteria.md
@@ -47,7 +47,7 @@
 ### 06 PE Studio 静态 triage 与可疑面清单（源：performing-static-malware-analysis-with-pe-studio）
 - 触发词：PE Studio、triage、导入表、字符串、熵、签名、可疑面
 - 前置：样本只读；准备哈希/节表/导入/字符串输出目录
-- 步骤：1) 记录哈希、架构、签名、节表/熵；2) 枚举导入/导出/资源/字符串；3) 按「加载期/内存期/调用期/存储期/网络期/壳期/VM期/.NET期」列可疑面
+- 步骤：1) `python Tool/scripts/mal-triage.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"type": "PE"`、`"section_anomalies"` 含 `overlay`；2) `python Tool/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"protections"` 含 NX/PIE；3) `python Tool/skill/softseep/scripts/preflight-classify.py Tool/samples/real/crackerjack/a.exe` → rc=0，期望：`"sections"` 含 `.text`/`.rdata`
 - 判据：每个可疑面至少一条可机检证据；高熵节/无签名/异常导入有记录；不把「可疑」写成「恶意」
 - 失败判据：只有静态可疑面无法闭环 → 转动态/沙箱；不要用字符串直接定性质
 - reference：Tool/skill/softseep/references/01-criteria.md
@@ -71,7 +71,7 @@
 ### 09 UPX/压缩壳脱壳与 OEP 判据（源：analyzing-packed-malware-with-upx-unpacker）
 - 触发词：UPX、压缩壳、OEP、dump、IAT、脱壳
 - 前置：备份样本；准备 x64dbg/Scylla/upx；确认壳类型
-- 步骤：1) `diec`/preflight 判壳；2) UPX 可 `upx -d`，其它壳跟到 OEP；3) dump 后修 IAT，记录节表/哈希
+- 步骤：1) `python Tool/skill/malware-analysis/scripts/mal-unpack.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --out-dir work/rev09 --json` → rc=0，期望：`"packers"` 含 UPX 且 dumps 含 carve-embedded-pe；2) `python Tool/scripts/mal-triage.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --json` → rc=0，期望：节名 UPX0/UPX1 且 W+X；3) `python Tool/skill/malware-analysis/scripts/mal-unpack.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：内存出现原节名/明文导入；OEP 落在原 `.text`；IAT 可解析；dump 哈希记录
 - 失败判据：能运行但节仍高熵/IAT 坏 → 继续找 OEP；VM 壳转运行期取功能
 - reference：Tool/skill/softseep/references/09-patch-engineering.md
@@ -127,7 +127,7 @@
 ### 16 二进制利用面与缓解策略核对（源：performing-binary-exploitation-analysis）
 - 触发词：二进制利用、栈溢出、堆、ROP、DEP、ASLR、CFG
 - 前置：已授权靶标；准备调试器/保护检查工具；记录二进制哈希
-- 步骤：1) 查架构/缓解（DEP/ASLR/CFG/RELRO）；2) 定位输入面与崩溃点；3) 判断可控寄存器/偏移/可用 gadget
+- 步骤：1) `python Tool/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：崩溃可复现；偏移/可控数据有调试器证据；缓解策略与利用可行性一致
 - 失败判据：只崩溃不可控 → 不写可利用；缓解阻断 → 转信息泄露/其它路线
 - reference：Tool/skill/softseep/references/07-disassembly-deep-read.md
@@ -183,7 +183,7 @@
 ### 23 补丁响应流程与版本回归（源：building-patch-tuesday-response-process）
 - 触发词：补丁响应、Patch Tuesday、版本回归、补丁清单、回滚
 - 前置：目标版本/SHA256；补丁 manifest；测试用例/回滚脚本
-- 步骤：1) 建补丁前基线；2) 应用补丁并复算哈希；3) 跑功能/授权/稳定性回归；4) 失败回滚
+- 步骤：1) `python Tool/skill/softseep/scripts/patch-verify.py --self-test` → rc=0，期望：`{"ok": true, "checks": 5}`；2) `python Tool/skill/softseep/scripts/reverse-accept.py --self-test` → rc=0，期望：`{"ok": true, "checks": 4}`；3) `python Tool/skill/softseep/scripts/patch-verify.py --help` → rc=0，期望：usage 含 `--manifest`/`--rollback`
 - 判据：`patch-verify.py` 通过；关键功能回归通过；回滚后哈希/行为恢复
 - 失败判据：补丁后崩溃/签名失败 → 按 02/09 换路；无回滚 → 不交付
 - reference：Tool/skill/softseep/references/09-patch-engineering.md

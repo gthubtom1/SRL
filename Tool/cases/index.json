@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T22:00:13Z",
-  "source_hash": "407089b7e53f1eaaffcda3654082328a607665095f6c9ad3a35542c045ea2916",
+  "generated_at": "1970-01-01T00:00:00Z",
+  "source_hash": "d4e79818bab9b99459cfff7015f86e440b9e984b07c181650b1ba6a7ca27e5c8",
   "case_count": 47,
   "cases": [
     {
@@ -1640,7 +1640,7 @@
       "id": "pwn-crypto03",
       "domain": "pwn-crypto",
       "target_type": "自建靶：现场 gcc 编译的 PE32+（真实产物，非手写数据）",
-      "evidence_kind": "real",
+      "evidence_kind": "self-built",
       "protection": [
         "NX",
         "No PIE (-no-pie)",
@@ -1716,7 +1716,7 @@
       "id": "pwn-crypto04",
       "domain": "pwn-crypto",
       "target_type": "自建靶：现场生成的 RSA/广播/HMAC/MT19937/ECB/CBC 数学用例（真实算法实现）",
-      "evidence_kind": "real",
+      "evidence_kind": "self-built",
       "protection": [],
       "authority": "local",
       "goal_level": "L3",
@@ -1809,7 +1809,7 @@
       "id": "pwn-crypto05",
       "domain": "pwn-crypto",
       "target_type": "自建靶：现场编译的 PE32+ 格式化串样本（真实产物）",
-      "evidence_kind": "real",
+      "evidence_kind": "self-built",
       "protection": [
         "NX",
         "No PIE (-no-pie)",
@@ -2283,7 +2283,7 @@
       "id": "案例-6.9换肤壳",
       "domain": "reverse",
       "target_type": "PE32+ x64",
-      "evidence_kind": "real",
+      "evidence_kind": "historical",
       "protection": [
         "packer",
         "antidebug",
@@ -2394,7 +2394,7 @@
       "id": "项目A",
       "domain": "reverse",
       "target_type": "PE32+ x64",
-      "evidence_kind": "real",
+      "evidence_kind": "historical",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -2440,7 +2440,7 @@
       "id": "项目B",
       "domain": "reverse",
       "target_type": "PE32+ x64",
-      "evidence_kind": "real",
+      "evidence_kind": "historical",
       "protection": [
         "multi-process",
         "background-service",
@@ -2491,7 +2491,7 @@
       "id": "项目I",
       "domain": "reverse",
       "target_type": "PE32+ x64 (DLL)",
-      "evidence_kind": "real",
+      "evidence_kind": "historical",
       "protection": [
         "7zip-sfx",
         "rsa",

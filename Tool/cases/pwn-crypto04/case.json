@@ -2,7 +2,7 @@
   "id": "pwn-crypto04",
   "domain": "pwn-crypto",
   "target_type": "自建靶：现场生成的 RSA/广播/HMAC/MT19937/ECB/CBC 数学用例（真实算法实现）",
-  "evidence_kind": "real",
+  "evidence_kind": "self-built",
   "protection": [],
   "authority": "local",
   "goal_level": "L3",

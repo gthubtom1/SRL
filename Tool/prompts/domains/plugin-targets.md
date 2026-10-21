@@ -30,7 +30,7 @@
 ### 04 Electron 客户端 asar 入口与 IPC 面（借）（源：performing-thick-client-application-penetration-test）
 - 触发词：Electron、asar、app.asar、preload、ipcMain、ipcRenderer、contextBridge
 - 前置：已取得 `app.asar` 或 `resources/app/`；只读原包；记录 Electron/Node 版本
-- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json`，rc=0 期望 `container=asar` 且 `main`/`preload` 的 `exists=true`；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json`，rc=0 期望 `data_flow` 含 `ipcMain`/`ipcRenderer`/`openExternal`；3) `npx @electron/fuses read --app ./App.exe`，rc=0 期望读到 `embeddedAsarIntegrityValidation`/`onlyLoadAppFromAsar`，读不到记 `blocked_at=integrity`；4) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin04 --json`，rc=0 期望 `asar_integrity_ok`/`load_from_asar_only`/`bypass_path` 三字段齐全
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json` → rc=0，期望：`"container": "asar"`、`"file_count": 6`、top_level 含 main.js/preload.js；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out work/plugin04 --json` → rc=0，期望：`"ok": true`、entrypoints 含 `package.main` 与 `electron.preload`；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin04 --json` → rc=0，期望：`"ok": true`、`"case_count": 1`
 - 判据：`main`/`preload` 文件存在；至少一条 IPC 链有 file/line；`webPreferences` 安全开关可读；`asar_integrity_ok`/`load_from_asar_only`/`bypass_path` 可复算
 - 失败判据：asar 头解析两次失败 → 只报容器与哈希；IPC 只有一端 → 标 `inferred`
 - reference：Tool/skill/plugin-targets/references/electron-and-asar.md
@@ -54,7 +54,7 @@
 ### 07 扩展远端 URL 与更新源核对（借）（源：analyzing-malicious-url-with-urlscan）
 - 触发词：远程 URL、update_url、collector、WebSocket、更新源、外联
 - 前置：已解包；不联网请求目标；只做静态与离线域名核对
-- 步骤：1) `plugin-triage.py` 导出 `remote_urls`；2) `plugin-repro.py` 的 `fetch/WebSocket` 证据对到参数来源；3) 查 `update_url`/`app-update.yml`/`latest.yml` 与签名策略
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin02/input/ext2.zip --json` → rc=0，期望：remote_urls 含 `collector.suspicious-cdn.invalid` 与 `wss://relay.suspicious-cdn.invalid/ws`；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin02/input/ext2.zip --out work/plugin07 --json` → rc=0，期望：`"ok": true` 且 manifest.update_url 指向 `suspicious-cdn.invalid`；3) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --self-test` → rc=0，期望：`"checks": 13`
 - 判据：URL/方法/字段/是否带 Cookie/token 可指认；更新链“谁能推送”明确
 - 失败判据：只有 URL 字符串、无调用点 → 标 `inferred`；不要写“已外发”
 - reference：Tool/skill/plugin-targets/references/browser-extension.md
@@ -134,7 +134,7 @@
 ### 17 VSIX/扩展签名与更新链核验（借）（源：implementing-code-signing-for-artifacts）
 - 触发词：签名、VSIX、扩展签名、更新链、发布者、update_url
 - 前置：已取得包与安装来源；只读签名/更新配置；不修改生产签名
-- 步骤：1) 记录签名者/发布者/版本；2) 查 `update_url`/市场/企业策略/`app-update.yml`；3) 改包实验只在副本，确认哪层校验会拒绝
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json` → rc=0，期望：`"container": "vsix"`、entrypoints.package=`extension/package.json`；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out work/plugin17 --json` → rc=0，期望：`"ok": true`、entrypoints 含 package/extension.js；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"case_count": 5`
 - 判据：安装来源、签名者、更新通道、卸载残留四项齐全；改动触发哪层校验可说明
 - 失败判据：签名/白名单阻止加载两次 → 停；不提供绕过签名/白名单的方法
 - reference：Tool/skill/plugin-targets/references/ide-plugins.md
@@ -142,7 +142,7 @@
 ### 18 插件包静态扫描流水线（借）（源：implementing-devsecops-security-scanning）
 - 触发词：静态扫描、流水线、插件包、批量、JSON、CI
 - 前置：有插件包清单；Python 3.12；离线；输出目录可写
-- 步骤：1) 对每个包跑 `plugin-triage.py --json`；2) 对重点包跑 `plugin-repro.py --json`；3) 汇总 `container/permissions.high/entrypoints/data_flow/blocked`
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json --out work/plugin18` → rc=0，期望：`"container": "zip"`、`"file_count": 6`、manifest_version=3；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin03/input/real-extension.zip --out work/plugin18/repro --json` → rc=0，期望：`"ok": true` 且 extracted_count 与 file_count 一致；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` → rc=0，期望：`"ok": true`
 - 判据：每个包有哈希/容器/入口/权限结论；失败包有 `blocked_at`；结果可复算
 - 失败判据：批量中单包失败不影响其他包；失败包只报容器与哈希，不阻塞流水线
 - reference：Tool/skill/plugin-targets/references/01-criteria.md
@@ -182,7 +182,7 @@
 ### 23 插件写入型后门与更新链排查（借）（源：hunting-for-webshell-activity）
 - 触发词：写入型后门、更新链、持久化、插件目录、自更新、落盘
 - 前置：已取得安装目录与更新配置；只读；不执行可疑更新
-- 步骤：1) 查插件目录可写文件/自更新代码/`update_url`；2) 查启动项/服务/注册表持久化；3) 对照签名者与更新来源，列出“谁能推送”
+- 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin01/input/ext.zip --out work/plugin23 --json` → rc=0，期望：entrypoints 的 background/content 均 `"exists": true`；2) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin01/input/ext.zip --json` → rc=0，期望：permissions 含 `storage`/`scripting`/`cookies`；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` → rc=0，期望：`"ok": true`
 - 判据：写入点→持久化→更新来源三段可指认；签名/白名单层明确
 - 失败判据：只有可疑文件、无写入/加载链 → 标 `inferred`；不写“已植入”
 - reference：Tool/skill/plugin-targets/references/desktop-plugins.md

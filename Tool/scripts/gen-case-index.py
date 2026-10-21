@@ -51,7 +51,11 @@ SKIP_DIRS = {"__pycache__", ".git", ".svn"}
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    """确定性：默认固定纪元，只有显式 SEEP_TIMESTAMP 才写真实时间。"""
+    env = os.environ.get("SEEP_TIMESTAMP")
+    if env:
+        return env
+    return "1970-01-01T00:00:00Z"
 
 
 def _case_files():

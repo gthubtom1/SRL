@@ -75,7 +75,7 @@
 }
 ```
 
-- `evidence_kind` ∈ `fixture` | `real`；**每域至少 1 个 `real`**（本地起服务、真样本、真 pcap、真 APK/固件都算 real，只要不是手写假输出），且 `lessons` 第一条必须写清「跑的是什么、命令是什么、rc 多少」；
+- `evidence_kind` ∈ `fixture` | `real` | `self-built` | `historical`；`real`=对真实第三方/系统资产执行，`self-built`=现场编译/自建靶（真实产物，非手写数据），`historical`=历史归档（命令未留存，必须写 reason）。**每域至少 1 个 `real` 或 `self-built`，且其中 ≥1 个有命令+rc**；`historical` 不计入数量、不得单独成域（本地起服务、真样本、真 pcap、真 APK/固件都算 real，只要不是手写假输出），且 `lessons` 第一条必须写清「跑的是什么、命令是什么、rc 多少」；
 - `target_type` 必须与 `evidence_kind` 自洽：`fixture` 的 target_type 必须含「夹具/教学/fixture」之一；`real` 的不得含这些词；
 - `artifacts[].sha256` 由门禁**复算**，不一致即 FAIL；
 - `refs` 指向的文件必须存在；

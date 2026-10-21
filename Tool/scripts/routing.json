@@ -20,6 +20,8 @@
     "R25",
     "R31",
     "R6",
+    "R32",
+    "R33",
     "R30",
     "R4",
     "R5",
@@ -486,6 +488,26 @@
         {
           "must": "(?i)(\\bwasm\\b|\\.wat\\b|wasm2c|wasm2wat|wasm-objdump|wabt|wasmtime|wasmer|webassembly)",
           "note": "WASM：判据=能恢复模块结构/函数边界；反编译质量需人工复核"
+        }
+      ]
+    },
+    "R32": {
+      "label": "Hypervisor / eBPF / TEE 内核观测",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(\\bhypervisor\\b|\\bhyperdbg\\b|EPT\\s*hook|\\bebpf\\b|eBPF|XDP|\\bTEE\\b|TrustZone|\\bSGX\\b|SEV-SNP|内核\\s*驱动.*(?:对抗|观测))",
+          "note": "Hypervisor/eBPF/TEE：判据=能观测/能取证（可复现的调用链、事件或测量），不写绕过/持久化"
+        }
+      ]
+    },
+    "R33": {
+      "label": "托管运行时字节码（.NET/Java/Python）",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(\\bdnSpy\\b|\\bILSpy\\b|ConfuserEx|\\.NET\\s*(?:逆向|反编译)|javap|ProGuard|\\.jar\\b\\s*(?:授权|校验)|pycdc|PyInstaller|\\.pyc\\b)",
+          "note": "托管运行时：判据=能还原 IL/字节码语义并复算行为，观测/取证优先，不写绕过"
         }
       ]
     },
