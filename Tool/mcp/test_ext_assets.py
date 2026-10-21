@@ -97,7 +97,9 @@ def main():
 
     print("=== [7/9] seep_pcap_extract：空 pcap 三模式 ===")
     import struct
-    tmp_pcap = os.path.join(HERE, "_tmp_empty.pcap")
+    import tempfile
+    # 唯一文件名：并发跑 verify 时固定名会被别的进程删掉（实测 6 路并发 2/6 失败）
+    tmp_pcap = os.path.join(tempfile.gettempdir(), f"_tmp_empty_{os.getpid()}.pcap")
     with open(tmp_pcap, "wb") as f:
         f.write(struct.pack('<IHHIIII', 0xa1b2c3d4, 2, 4, 0, 0, 65535, 1))
     try:

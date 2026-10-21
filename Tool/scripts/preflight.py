@@ -50,9 +50,16 @@ ALLOW_PATH = os.path.join(TOOL, "scripts", "preflight-allow.json")
 
 
 def load_allow():
+    """返回白名单 JSON 全文。
+
+    ★ 历史 bug：这里原先返回 `.get("allow", {})`，而调用方又写
+      `load_allow().get("portable_allow")` —— 于是永远拿到空字典，
+      加上正则写错（`\.` 多了一层反斜杠），"无机器专用绝对路径"这条检查
+      等于长期失明（实测漏报「某盘 Tool 目录」与个人桌面路径）。两级都修。
+    """
     try:
         with open(ALLOW_PATH, encoding="utf-8") as f:
-            return (json.load(f) or {}).get("allow", {})
+            return json.load(f) or {}
     except Exception:
         return {}
 
@@ -79,7 +86,7 @@ def check_dangling():
     all_paths = {p.lower() for p in walk(first_only=False)}
     ref_re = re.compile(r"`([A-Za-z0-9_\-./\u4e00-\u9fff]+)`")
     dangling = []
-    allow = load_allow()
+    allow = (load_allow().get("allow") or {})
     for p in walk():
         if os.path.splitext(p)[1].lower() not in TEXT_EXT or p.startswith("CHANGELOG"):
             continue
@@ -242,12 +249,12 @@ PORTABLE_EXT = {".json", ".jsonc", ".ps1", ".sh", ".py", ".ts", ".md"}
 
 
 def check_portable():
-    r"""仓库里不允许出现"某台机器专用"的绝对路径（如 D:\Tools\... 这种）。
+    r"""仓库里不允许出现"某台机器专用"的绝对路径（如「某盘 Tools 目录下的绝对路径」这种）。
 
     为什么：换电脑/换盘符时这类路径会静默失效（工具找不到、MCP 起不来）。
     允许清单：preflight-allow.json 的 portable_allow（键为路径前缀，值为理由）。
     """
-    allow = load_allow().get("portable_allow", {})
+    allow = (load_allow().get("portable_allow") or {})
     bad = []
     for base in PORTABLE_DIRS:
         root = os.path.join(ROOT, base.replace("/", os.sep))
@@ -270,7 +277,12 @@ def check_portable():
                     # 只报会被真正打开的可执行/脚本/数据文件路径；
                     # 注释里写个 D:\\Tools 这种说明性示例不影响换机执行。
                     tail = text[m.start():m.start() + 120].splitlines()[0]
-                    if not re.search(r"\\.(exe|dll|py|pyw|ps1|sh|bat|cmd|jar|so|dylib|json|db|idb)\\b", tail, re.I):
+                    has_ext = re.search(
+                        r"\.(exe|dll|py|pyw|ps1|sh|bat|cmd|jar|so|dylib|json|db|idb|png|jpg|jpeg|txt|log|ini)\b",
+                        tail, re.I)
+                    personal = re.search(r"(?i)[A-Za-z]:[\\/]{1,2}Users[\\/]", tail)
+                    program = re.search(r"(?i)[A-Za-z]:[\\/]{1,2}(Program Files|Tool|Tools)[\\/]", tail)
+                    if not (has_ext or personal or program):
                         continue
                     line = text[:m.start()].count("\n") + 1
                     bad.append(f"{rel}:{line} {tail[:60]}")
@@ -342,7 +354,8 @@ def check_newtools():
     ok, note = False, "文件缺失"
     if os.path.isfile(doc):
         try:
-            r = subprocess.run([py, doc, "--quick", "--json"], capture_output=True, text=True, timeout=90)
+            r = subprocess.run([py, doc, "--quick", "--json"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=90)
             body = (r.stdout or "").strip()
             if body.startswith("{"):
                 import json as _json
@@ -359,7 +372,8 @@ def check_newtools():
     ok2, note2 = False, "文件缺失"
     if os.path.isfile(mig):
         try:
-            r = subprocess.run([py, mig, "--help"], capture_output=True, text=True, timeout=60)
+            r = subprocess.run([py, mig, "--help"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=60)
             ok2 = (r.returncode == 0 and "align" in (r.stdout or ""))
             note2 = "子命令齐全" if ok2 else (r.stderr or "")[:120]
         except Exception as e:
@@ -373,13 +387,32 @@ def check_newtools():
         try:
             import tempfile
             with tempfile.TemporaryDirectory() as td:
-                r1 = subprocess.run([py, cs, "init", "--case", td], capture_output=True, text=True, timeout=60)
-                r2 = subprocess.run([py, cs, "gate", "--case", td], capture_output=True, text=True, timeout=60)
+                r1 = subprocess.run([py, cs, "init", "--case", td], capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace", timeout=60)
+                r2 = subprocess.run([py, cs, "gate", "--case", td], capture_output=True, text=True,
+                                    encoding="utf-8", errors="replace", timeout=60)
                 ok3 = (r1.returncode == 0 and r2.returncode == 1)
                 note3 = "空案子 gate 正确拒绝（rc=1）" if ok3 else f"init={r1.returncode} gate={r2.returncode}"
         except Exception as e:
             note3 = str(e)[:120]
     add("7 新脚本", "case_state 出口闸可运行", ok3, note3)
+
+    # ④ mcp-guard：上游 MCP「只增不删」可执行闸（承诺→校验）
+    mg = os.path.join(TOOL, "scripts", "mcp-guard.py")
+    ok4, note4 = False, "文件缺失"
+    if os.path.isfile(mg):
+        try:
+            r = subprocess.run([py, mg, "--json"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=90)
+            import json as _json
+            j = _json.loads((r.stdout or "{}").strip() or "{}")
+            ok4 = bool(j.get("ok"))
+            info = j.get("info") or {}
+            note4 = (f"工具 {info.get('tools')}（基线 {info.get('baseline')}），标记 {info.get('marks')}"
+                     if ok4 else "；".join(j.get("problems") or ["未通过"]))
+        except Exception as e:
+            note4 = str(e)[:120]
+    add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
 
 def main():

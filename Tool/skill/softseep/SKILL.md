@@ -47,12 +47,9 @@ metadata:
 > 保留作风险提示，**不再作为强制动作**（完整裁决与理由见 `MANUAL/PROMPT-LAYERS.md` §四）。
 
 
-**规则**：每次接到**新目标**，第一件事是**询问用户是否已获得该目标的测试授权**。
-
-| 答复 | 动作 |
-| :--- | :--- |
-| **无授权 / 不确定 / 未回答** | **立即停止**。不分析、不下载、不运行、不试探、不"先看看"。说明需要什么，等待。 |
-| **已授权** | 立即进入下方【总控路由】，**此后全速工作**。 |
+> **历史表述（已废止）**：早先版本要求"每个新目标先询问授权"。现行规则见 `AGENTS.md` §六：
+> **默认视为受权沙箱，直接开工**；仅当用户**明确声明**「不属于我 / 没有授权」时停一次并确认。
+> 本节不再重复授权门，避免同一件事两种说法。
 
 ### 双向约束 —— 两个"最大"
 
@@ -131,6 +128,7 @@ metadata:
 | "先分析透" / "出份报告" / "摸清它到底怎么授权的" | **阶段零 分析 + 可复现报告** | **`00-analysis`** |
 | "旁路它的卡密" / "让它能进主界面" / "出可用成品" | **阶段① 授权旁路 + 交付** | **`01-gate-bypass`** |
 | "软件更新了" / "新版追一下" / "6.8 的活迁到 6.9" | **阶段④ 跨版本追版** | **`04-version-migrate`** |
+| "它的后端也要复刻" / "接口不止授权" / "脚本是下发的" | **阶段⑤ 后端复刻（T2/T3）** | **`05-backend-rebuild`** |
 | "改 UI" / "换品牌" / "去掉作者联系方式" | **阶段② 改界面与品牌** | **`02-ui-rebrand`** |
 | "接我自己的授权平台" / "卡密 / 到期 / 发卡" | **阶段③ 接授权** | **`03-license-hookup`** |
 | "这是个什么网站" / "指纹" / "安全头" / "接口发现" | **Web 侦察** | `seep_web_recon` 只读侦察 |
@@ -169,6 +167,7 @@ metadata:
 | | **00-analysis** | `Tool/skill/00-analysis/SKILL.md` | **阶段零**：D0–D5 深度门 → 8 节可复现报告 → 可行性裁定（可赢/部分可赢/不可赢）+ 推荐路线；不许产出交付物 |
 | | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
 | | **04-version-migrate** | `Tool/skill/04-version-migrate/SKILL.md` | **阶段④**：读版本账 → AOB 滑窗对齐 → UI/授权跟着迁 → 重建+回归（引擎 `Tool/scripts/migrate.py`） |
+| | **05-backend-rebuild** | `Tool/skill/05-backend-rebuild/SKILL.md` | **阶段⑤**：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证 → 回归（**仅 T2/T3 触发**，T1 禁止做后端） |
 | | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
 | | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
 | | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |

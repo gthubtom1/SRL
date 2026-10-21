@@ -5,6 +5,12 @@
     "setup/cordis.generated.yml": "安装时由 setup/generate-configs.ps1 生成（已在 .gitignore），新 clone 里本来就没有"
   },
   "portable_allow": {
-    "Tool/prompts/extensions/cmd-guard": "vendored 插件自带的候选根（C:/relab2 等）只是探测列表，不存在的路径会跳过，不影响换机"
+    "Tool/prompts/extensions/cmd-guard": "vendored 插件自带的候选根（C:/relab2 等）只是探测列表，不存在的路径会跳过，不影响换机",
+    "Tool/scripts/lib/ToolDiscovery.ps1": "候选目录清单（按设计在这些常见位置里找），不是硬依赖",
+    "setup/install-ida.ps1": "安装脚本的候选目录提示，用户可用 IDA_DIR 覆盖",
+    "Tool/scripts/tool-run.ps1": "文件头用法示例（注释），实际路径靠八层发现",
+    "Tool/prompts/extensions/cmd-guard.ts": "注释里的示例路径，用于说明白名单规则",
+    "Tool/scripts/compliance-relay/tests/test_refusal.py": "测试夹具里的示例路径字符串",
+    "setup/verify.ps1": "IDA 检测已改为 IDA_DIR/PATH/tool-run 发现，剩余为说明性注释"
   }
 }

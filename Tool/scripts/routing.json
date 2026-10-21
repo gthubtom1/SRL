@@ -21,9 +21,9 @@
     "R13",
     "R14",
     "R15",
+    "R16",
     "R2",
     "R9",
-    "R3",
     "R4",
     "R5",
     "R6",
@@ -37,27 +37,18 @@
       "skill": "apkseep/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|签名.?校验|证书.?校验|pinning|root.?检测|so.?层|frida|hook.?安卓",
+          "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|签名.?校验|证书.?校验|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
           "note": "Android 全链路（DEX/SO/重打包/动态插桩）"
         }
       ]
     },
     "R2": {
-      "label": "授权 / 许可 / 卡密审计",
-      "skill": "client-license-validation-bypass/SKILL.md",
+      "label": "授权 / 许可 / 卡密审计（经阶段一执行）",
+      "skill": "01-gate-bypass/SKILL.md",
       "keywords": [
         {
           "must": "(?i)破解|绕过|卡密|序列号|注册码|激活|许可|licen[cs]e|激活码|会员|订阅|vip|试用|trial|keygen|算号|鉴权|授权",
-          "note": "CWE-602 客户端鉴权脆弱性走查"
-        }
-      ]
-    },
-    "R3": {
-      "label": "跨版本追版 / 特征迁移",
-      "skill": "version-migration/SKILL.md",
-      "keywords": [
-        {
-          "must": "(?i)追版|新版本|升级后|版本迁移|特征码|aob|sigscan|偏移变化|地址漂移|版本对齐|旧版补丁|新版程序"
+          "note": "阶段一负责交付纪律；client-license-validation-bypass 作为其参考卷按需加载"
         }
       ]
     },
@@ -121,7 +112,7 @@
       "skill": "unpack-loop/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)脱壳|加壳|壳|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|dump|转储|oep|iat|反调试|反反调试|scylla|pe-sieve|内存转储"
+          "must": "(?i)脱壳|加壳|脱壳|加壳|壳类型|壳检测|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|dump|转储|oep|iat|反调试|反反调试|scylla|pe-sieve|内存转储"
         }
       ]
     },
@@ -169,6 +160,16 @@
         {
           "must": "(?i)(先.{0,4}分析|分析(一下|透彻|清楚)|出.{0,3}报告|摸清|摸透|评估.{0,4}(可行性|难度)|能不能赢|授权面.{0,4}(在哪|怎么))",
           "note": "阶段零：D0–D5 深度门 → 可复现报告 + 可行性裁定"
+        }
+      ]
+    },
+    "R16": {
+      "label": "阶段⑤ 后端复刻（T2/T3）",
+      "skill": "05-backend-rebuild/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(后端|后台|服务端).{0,8}(复刻|重建|自建|还原|反推)|复刻.{0,6}(后端|后台|服务端)|(api|接口).{0,6}(复刻|重建|测绘|面)|下发.{0,4}(脚本|容器|包)|上游同步",
+          "note": "阶段⑤：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证（T1 禁止进入）"
         }
       ]
     }
