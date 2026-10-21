@@ -167,6 +167,10 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
   **坑（已修，别踩回去）**：① `tool-run.ps1` 必须带 UTF-8 BOM，否则 `powershell` 5.1 解析报错（`preflight` 有守）；
   ② 启动必须走 `Invoke-CimMethod Win32_Process Create` 脱离式，**禁用** `Start-Process -RedirectStandard*`——
   GUI 子进程占着句柄会让 PowerShell 挂死，外层一杀 x64dbg 跟着死。
+- **未证结论不许加速（铁律）**：第一条结论必须由**本轮实测**产生；旧报告 / 上一轮结论只能当假设。
+  M0 全貌（结构+存活+动态依赖）没出来之前，**不许产出交付物**；每 20 分钟写一次进度账
+  （已证 / 待验 / 下一步 / ETA），连续两次无新增证据 → 停手重判型，并主动找一条能推翻当前结论的证据。
+  GATE 一旦改口，必须写清"旧结论 + 被哪条证据推翻"，不许静默翻案。
 - **工具连不上必须 5 秒内明说（铁律）**：只要 `tool-run` 不是 `READY`、或 `mcp__*` 调用报错，
   立刻说清四件事——**阶段**（discover / spawn / port / mcp-ready）、**原因**、**已尝试什么**、**恢复命令**；
   然后跑 `python Tool/scripts/mcp-doctor.py --fix`（按 `tool-runtimes.json` 自动拉起宿主并复验）。

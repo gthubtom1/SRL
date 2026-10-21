@@ -32,7 +32,7 @@
 {
   "schema": "seep-migration/1",
   "version": "6.8",
-  "source_exe": "D:/Project/瓦6.8/换肤程序点我下载6.8版本.exe",
+  "source_exe": "<case 目录>/<旧版 exe>",
   "binary": {
     "sha256": "d66ec3a0…", "size": 26317824,
     "format": "PE32+", "machine": "x64", "entry_rva": "0x3d150",
