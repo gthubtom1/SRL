@@ -11,7 +11,7 @@
 |---|---|---|
 | **仓库体积** | 几千个文件、几十个脚本混杂，仓库迅速膨胀至几百 MB 甚至上 GB | 主仓库保持极速轻量，体积仅几十 KB，Git 提交与克隆秒级完成 |
 | **规则冲突** | 40 个方向的指令互相打架，模型注意力被稀释，简单任务反而频出幻觉 | 技能按需加载，日常零干扰，任务需要时精准唤醒 |
-| **升级与维护** | 改动一个文件导致几十个自检脚本报错，维护成本极高 | 主仓库 62 项体检永远全绿；新功能只需要小版本安全叠加，零破坏风险 |
+| **升级与维护** | 改动一个文件导致几十个自检脚本报错，维护成本极高 | 主仓库 65 项体检永远全绿；新功能只需要小版本安全叠加，零破坏风险 |
 | **迭代速度** | 牵一发而动全身，步履维艰 | **极其敏捷**：写一份 Markdown 技能就是一套新武器，随时新增与分享 |
 
 ---
@@ -37,7 +37,7 @@
 ```bash
 python Tool/scripts/verify-routing-coherence.py   # 路由 ↔ 技能落位自洽
 python Tool/scripts/check-budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
-powershell -File setup/verify.ps1 -Detailed       # 62 项全绿
+powershell -File setup/verify.ps1 -Detailed       # 65 项全绿
 python Tool/scripts/smoke-e2e.py                  # 端到端 12 环
 ```
 

@@ -15,7 +15,7 @@
 | F2 | **MCP 工具名** | 已发布的 38 个 `seep_*` 工具名与参数签名 | Skill / SOP / 报告模板 / 用户习惯全部按名引用；改名 = 静默失效 |
 | F3 | **Agent 配置格式** | `~/.pi/agent/mcp.json`、`.mcp.json`、`opencode.jsonc`、`cordis.generated.yml` 的字段结构 | 四个 Agent 宿主共同消费；字段改名 = 宿主起不来 |
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
-| F5 | **体检基准项** | `verify.ps1` / `verify.sh` 的 **62 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
+| F5 | **体检基准项** | `verify.ps1` / `verify.sh` 的 **65 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
 | F6 | **上游隔离边界** | `Tool/upstream/<项目>/` 的零外溢规则（`setup/upstream-rules.json`） | 防外溢是许可合规与工程安全的底线 |
 | F7 | **从零入口** | 仓库根 `AGENTS.md`（bootstrap 指路牌）+ `README` 的「先拿到代码」三选一 | Codex / DSH / OpenCode 在仓库根只读 `AGENTS.md`；删了它们就找不到协议全文 |
 
@@ -36,7 +36,7 @@ python Tool/scripts/new-skill.py <skill-name> --desc "一句话描述" --title "
 脚手架会：创建 `Tool/skill/<name>/SKILL.md`（UTF-8 无 BOM）→ 注册进 `softseep/SKILL.md` 调度表 → 同步到 `~/.pi/agent/skills/`。
 规范见 [`MANUAL/SKILL-CREATION-GUIDE.md`](SKILL-CREATION-GUIDE.md)。
 
-**验收**：`verify.ps1` 仍 62 项全绿（新增技能不会增加体检项，除非你同时加检查）。
+**验收**：`verify.ps1` 仍 65 项全绿（新增技能不会增加体检项，除非你同时加检查）。
 
 ### B 类：新增 MCP 工具（必须遵守"末尾追加"）
 
@@ -53,7 +53,7 @@ python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
 python Tool/scripts/verify-routing-coherence.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
 python Tool/scripts/smoke-e2e.py                  # 端到端链路 12 项（真实样本）
-powershell -File setup/verify.ps1 -Detailed        # 体检 62 项全绿
+powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ```
 
 ### C 类：文档 / 检查项 / 知识库补充
@@ -98,7 +98,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 62 项全绿
   - test_ext_assets __/63
   - routing-coherence PASS/FAIL
   - relay pytest __/84
-  - verify 62 项 PASS/FAIL
+  - verify 65 项 PASS/FAIL
 - 回滚方式：git revert <sha>（无数据迁移，无需额外步骤）
 ```
 
@@ -116,7 +116,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 62 项全绿
 
 ## 六、 出问题时的第一反应
 
-1. **先跑体检**：`check.ps1` 或 `./setup/verify.sh` —— 62 项里红哪一项，就是坏在哪一层；
+1. **先跑体检**：`check.ps1` 或 `./setup/verify.sh` —— 65 项里红哪一项，就是坏在哪一层；
 2. **再看路由**：`python Tool/scripts/verify-routing-coherence.py` —— 路由指向不存在的技能会静默失效；
 3. **再跑三套测试**：MCP 基线 / 扩展资产 / 中继；
 4. **仍未定位**：`git diff` 最近一次变更，按"四、变更清单模板"逐项对照。

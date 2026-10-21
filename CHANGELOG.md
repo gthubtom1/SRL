@@ -10,6 +10,27 @@
 
 ---
 
+## [1.18.0] — 2026-10-21
+
+> 主题：**补齐审计原文里被漏掉的 7 条 P1**（完成审计第 4 次驳回的核心指控：台账只收敛了子集）。
+
+| # | 审计项 | 修复 |
+|---|---|---|
+| 1 | 位置审计 C-3：`unpack-loop` 越权承担阶段零裁定（Q3 权威 / C 建议放弃） | 加「裁定权归 `00-analysis`」：本技能只答"能不能脱"，值不值得做由 `case_state.py verdict` 定 |
+| 2 | 位置审计 D-2：R1 含泛化「签名/证书校验」，Windows 目标被吞进 apkseep | 从 R1 移除；实测「证书校验怎么绕」→ R0（softseep 判型） |
+| 3 | 位置审计 C-4：「破解」同时命中 R11/R2 | R2 移除「破解」，由 R11 独占；实测「破解这个软件」→ R11 |
+| 4 | 位置审计 A-4 剩余 1/3：softseep 仍整份复制 5 条通用禁令 | 改为指针，只在 `client-license-validation-bypass` §0 定义 |
+| 5 | 上游 B8：`DEPLOYMENT-CHECKLIST` 自称 SSOT 却无新脚本条目、内部 9/17 矛盾 | 改为"与 verify/preflight 双向对齐的基准清单"；新增 §8 运维脚本基准表；计数改 17 |
+| 6 | 上游 D1：三个新脚本没有 verify 项 | `verify.ps1` / `verify.sh` 各加 3 项（case_state / migrate / mcp-doctor），**62 → 65 项**，两平台同数 |
+| 7 | 上游 E2：vendored KB 无 PROVENANCE、`preserve_local` 缺条目 | 新增 `Tool/mcp/Tool/reverselab/PROVENANCE.md`；`setup/upstream-rules.json` 加 3 条 preserve_local |
+
+**台账**：`Tool/docs/AUDIT-2026-10-21.md` 从 P1 17 条扩到 **P1 24 条**（P0 5 + P1 24），
+逐条对应 §一 摘要表（摘要表也补了这 7 行）。
+
+验收：`preflight --fast` 16/16、`verify.ps1` **65/65**、`verify.sh` **65/65**、routing 15 条自洽、mcp-guard 38/38。
+
+---
+
 ## [1.17.8] — 2026-10-21
 
 > 主题：**终审复核留痕 + 清掉该轮 5 条 P2**。

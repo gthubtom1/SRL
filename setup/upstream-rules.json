@@ -71,7 +71,10 @@
         "desktop/**"
       ],
       "preserve_local": [
-        "README.md"
+        "README.md",
+        "kb/field_journal__template.md",
+        "kb/_index.md",
+        "PROVENANCE.md"
       ]
     }
   }

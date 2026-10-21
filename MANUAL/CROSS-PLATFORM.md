@@ -46,7 +46,7 @@ chmod +x setup/install.sh setup/verify.sh
 ```bash
 ./setup/verify.sh
 ```
-看到 62 项全部显示绿色 `[√ PASS]`，即代表工作台已在 macOS 原生就绪！
+看到 65 项全部显示绿色 `[√ PASS]`，即代表工作台已在 macOS 原生就绪！
 
 ---
 

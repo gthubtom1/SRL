@@ -333,6 +333,34 @@ check_item "手册" "跨平台运行与战术等价指南 (MANUAL/CROSS-PLATFORM
 check_item "手册" "合规转译中继与防拒体系 (MANUAL/COMPLIANCE-RELAY.md)" test -f "$MANUAL_DIR/COMPLIANCE-RELAY.md"
 
 # 8. 合规转译中继
+# 7bis. 运维脚本在位（审计 D1：新增脚本必须进两平台门禁）
+test_case_state_smoke() {
+    local cs="$TOOL_DIR/scripts/case_state.py"
+    [ -f "$cs" ] || return 1
+    local tmp
+    tmp=$(mktemp -d 2>/dev/null || echo "/tmp/seep_case_$$")
+    python "$cs" init --case "$tmp" >/dev/null 2>&1 || { rm -rf "$tmp"; return 1; }
+    python "$cs" gate --case "$tmp" >/dev/null 2>&1
+    local rc=$?
+    rm -rf "$tmp"
+    [ "$rc" -eq 1 ]
+}
+check_item "脚本" "案子闸可执行 (case_state.py init + gate)" test_case_state_smoke
+
+test_migrate_smoke() {
+    local mg="$TOOL_DIR/scripts/migrate.py"
+    [ -f "$mg" ] || return 1
+    python "$mg" --help 2>&1 | grep -q align
+}
+check_item "脚本" "追版引擎可执行 (migrate.py)" test_migrate_smoke
+
+test_mcp_doctor_smoke() {
+    local md="$TOOL_DIR/scripts/mcp-doctor.py"
+    [ -f "$md" ] || return 1
+    python "$md" --quick --json 2>&1 | head -c 200 | grep -q '"servers"'
+}
+check_item "脚本" "MCP 验连可执行 (mcp-doctor.py)" test_mcp_doctor_smoke
+
 echo -e "\n${WHITE}[8/9] 🌐 合规转译中继与规则同步校验${RESET}"
 RELAY_DIR="$TOOL_DIR/scripts/compliance-relay"
 

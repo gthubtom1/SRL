@@ -280,4 +280,4 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
 | 逆向知识库 | `Tool/mcp/Tool/reverselab/kb/` |
 | seep MCP 服务 | `Tool/mcp/seep_mcp_server.py` |
 | 部署 / 更新 / 卸载 / 校验 全流程 | `MANUAL/DEPLOYMENT.md` |
-| 部署资产核验基准（62 项） | `MANUAL/DEPLOYMENT-CHECKLIST.md` |
+| 部署资产核验基准（65 项） | `MANUAL/DEPLOYMENT-CHECKLIST.md` |

@@ -537,6 +537,36 @@ Test-CheckItem "手册" "合规转译中继与防拒体系 (MANUAL/COMPLIANCE-RE
 # -----------------------------------------------------------------------------
 # 8. 合规转译中继（网络层防拒）
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 7bis. 运维脚本在位（审计 D1：新增脚本必须进两平台门禁）
+# -----------------------------------------------------------------------------
+Test-CheckItem "脚本" "案子闸可执行 (case_state.py init + gate)" {
+    $cs = Join-Path $ToolDir 'scripts\case_state.py'
+    if (-not (Test-Path $cs)) { return $false }
+    $tmp = Join-Path $env:TEMP ('seep_case_' + [guid]::NewGuid().ToString('N').Substring(0,8))
+    try {
+        & python $cs init --case $tmp 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        & python $cs gate --case $tmp 2>&1 | Out-Null
+        return ($LASTEXITCODE -eq 1)   # 空案子必须被闸拒绝
+    } catch { return $false } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
+} "case_state.py 缺失或 init/gate 行为不符" "init 成功 + 空案 gate=1" "$ToolDir\scripts\case_state.py"
+
+Test-CheckItem "脚本" "追版引擎可执行 (migrate.py)" {
+    $mg = Join-Path $ToolDir 'scripts\migrate.py'
+    if (-not (Test-Path $mg)) { return $false }
+    $out = & python $mg --help 2>&1
+    return ($LASTEXITCODE -eq 0) -and (($out -join ' ') -match 'align')
+} "migrate.py 缺失或子命令不全" "align 等子命令在位" "$ToolDir\scripts\migrate.py"
+
+Test-CheckItem "脚本" "MCP 验连可执行 (mcp-doctor.py)" {
+    $md = Join-Path $ToolDir 'scripts\mcp-doctor.py'
+    if (-not (Test-Path $md)) { return $false }
+    $out = & python $md --quick --json 2>&1
+    $txt = ($out -join ' ').Trim()
+    return $txt.StartsWith('{') -and ($txt -match '"servers"')
+} "mcp-doctor.py 缺失或输出不是 JSON" "输出 servers JSON" "$ToolDir\scripts\mcp-doctor.py"
+
 Write-Host "`n[8/9] 🌐 合规转译中继与规则同步校验" -ForegroundColor White
 $RelayDir = Join-Path $ToolDir 'scripts\compliance-relay'
 
