@@ -28,6 +28,9 @@
 | 18 | 最小可改单元 | 入口文件/类/方法 | `plugin-repro.py` 的 `minimal_unit.path` 存在；有 symbols 或行号；能说明改前/改后观察点与回退方式 | minimal_unit JSON + baseline 哈希 | 选到 bundle 头部或生成文件；改动点无法回退 |
 | 19 | 外挂脚本/二进制插件（用户脚本、kubectl/IaC、Jupyter） | `*.user.js` 头、`kubectl-foo`、`.terraform/providers`、`jpserver_extensions` | `userscript.headers.grant[]`∩`userscript.api_calls[]` 非空且每条有 file/line；`cli_plugin.invoker` ∈ `{kubectl,terraform,jupyter}` 且 `iac.lock_hashes` 与 provider 二进制哈希一致；`jupyter.routes[].authenticated` 明确、`jupyter.extensions[].enabled=true` | 头字段 JSON + 二进制/锁哈希 + 路由表 | `@grant`/配置键声明≠调用；扩展 enabled 未重启即当已生效 |
 | 20 | Office/Outlook Web Add-in | `manifest.xml` | `addin.permissions.element` 与 `addin.version_overrides.permissions` 均非空；`addin.function_file.url`/`addin.source_location.host` 可指认；`addin.app_domains[]` 与 task pane 实际跳转域一致；`addin.update_channel` ∈ `{sideload,appsource,central}` | 清单片段 + 承载页 URL + 加载来源 | 只读顶层 `<Permissions>` 漏 `VersionOverrides`；把 `AppDomains` 当网络出口白名单 |
+| 21 | Electron ASAR 完整性/加载约束 | `app.asar` + fuse | `plugin-accept.py --json` 的 `asar_integrity_ok`/`load_from_asar_only`/`bypass_path` 三字段齐全；fuse 值与 asar 头哈希可复算；`bypass_path` ∈ `{none,unpacked,run-as-node,inspect,dir-fallback}` | fuse 输出 + asar 哈希 + 实际加载路径 | 旧版无 fuse；只看到 `app.asar` 就断言完整性开启 |
+| 22 | V8 字节码（bytenode） | `.jsc` / `v8::internal::Script` | `v8_bytecode=true`；`v8_version_match` 记录 Electron/Node/V8 三元组；`decompile_ok` 有命令/rc；否则只能给字符串面 | `.jsc` 头 + 版本三元组 + 反汇编命令/rc | 版本不符硬解；把反汇编当源码 |
+| 23 | Electron IPC 越权验收 | `ipcMain.handle` / preload / `webPreferences` | `ipc_sender_checked`/`openexternal_scheme`/`webpref_unsafe`/`preload_exposed` 四字段有 file/line 或 `unverified`；至少一条 channel→sink 有证据 | handler + preload + 窗口参数 + sink | 只看到 `contextBridge` 就断言 RCE；远端内容与本地页混判 |
 
 ## 2. 机检命令（最小集）
 
@@ -47,6 +50,9 @@ jq '{main,activationEvents,contributes,capabilities,engines}' work/repro/extensi
 
 # asar
 python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+
+# 域验收：字段/哈希/real+recorded/refs + 权限代码证据
+python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json
 ```
 
 ## 3. 判据分级

@@ -136,4 +136,66 @@ strings -n 8 work/repro/unpack/native.node | head -80
 - 不提供绕过商店签名、企业白名单或更新签名的方法；授权测试也要记录环境与回退。
 - 远端协议/帧格式交 `protocol-plugin`（R24）。
 
+## 9. ASAR integrity 绕过：fuse 组合与旁路验收
+
+Electron 的 asar 完整性由 fuse 决定，不是 asar 自己声明。`embeddedAsarIntegrityValidation` 开启后，主进程核对 `resources/app.asar` 头哈希/内嵌 `ElectronAsarIntegrity` 记录；`onlyLoadAppFromAsar` 进一步禁止 `resources/app/` 目录回退。
+
+```bash
+npx @electron/fuses read --app ./App.exe                 # 读 fuse 线；rc=0 才有结论
+strings -a ./App.exe | grep -iE 'asar|integrity' | head
+xxd -g1 -l 64 resources/app.asar
+sha256sum resources/app.asar
+ls -la resources/app resources/app.asar.unpacked 2>/dev/null
+```
+
+- 先记三元：`asar_integrity_ok`（头哈希与 fuse/内嵌记录一致）、`load_from_asar_only`（是否只允许 asar、目录回退是否被封）、`bypass_path`（`none|unpacked|run-as-node|inspect|dir-fallback`）。
+- 修改 `resources/app.asar` 或 `app.asar.unpacked` 后，先观察是否被完整性校验拒绝；`.unpacked` 通常不在 asar 头哈希内，但仍可能被代码签名/路径校验覆盖。
+- `ELECTRON_RUN_AS_NODE=1 ./App.exe -e "..."` 绕过 app 主进程，`--inspect` 在已启动的主进程上附加调试；两条路都受 `runAsNode`/调试开关与授权环境约束。
+- 只在自有/授权副本上验证旁路；记录环境变量、fuse 值、实际加载路径与拒绝日志，不把“能列文件”当成“能改逻辑”。
+- 出处：Electron GHSA-vmqv-hx8q-j7mg（2025-09 修复）；2026 年仍可能有旧版未升级。
+
+**判据**：三个字段齐全，且能指到 fuse 值、asar 头哈希与实际加载文件。
+**失败判据**：完整性校验阻止加载两次 → 停，记校验层与哈希；fuse 读不到 → 只报版本/字符串并标 `blocked_at=integrity`；不绕过签名/白名单。
+
+## 10. V8 字节码（bytenode .jsc）
+
+`.jsc` 是 V8 字节码/代码缓存，不是 JS；先用头与加载器确认，再谈反编译。
+
+```bash
+find work/repro -name '*.jsc' -printf '%p %s\n'
+xxd -g1 -l 64 main.jsc
+grep -RInE 'bytenode|\.jsc|runBytecode|compileFile' work/repro/unpack --include='*.js'
+node -p "process.versions.v8 + ' / ' + process.versions.electron"
+strings -n 8 main.jsc | grep -E 'v8::internal::Script|bytenode|V8 version' | head
+```
+
+- 头：`v8::internal::Script`/`bytenode` 标识、`V8 version` 或 code-cache 魔数；不同 V8 版本头布局不同，先对齐 Electron/Node/V8 三元组。
+- `v8_bytecode`：确认 `.jsc` 且不是普通 JS/source map；记录加载器（`bytenode`/`vm.Script`/自定义）与入口文件名。
+- `v8_version_match`：用样本自带 Electron 或同版本 Node 的 V8；版本不符先报不匹配，不硬喂给当前 Node。
+- `decompile_ok`：仅在版本对齐、有反汇编器/改版 V8 的授权环境里尝试；输出是反汇编/伪代码，不等于原始 JS；保留 rc、工具版本与失败点。
+- 路线：定位字节码版本 → 同版本 V8 反汇编器/改版 V8 → 导出指令流与常量池 → 对照 `Script` 头/函数表；跨大版本通常不可行。
+- 出处：rce.moe 2025-01、SE 30434（V8 字节码版本与反汇编边界）。
+
+**判据**：`v8_bytecode`、`v8_version_match`、`decompile_ok` 可按命令复算；至少给出入口/函数/常量之一。
+**失败判据**：版本不匹配或反汇编两次失败 → 标 `decompile_ok=false`，只给字符串/导出面/加载器；不改 V8 版本硬解、不把反汇编当源码。
+
+## 11. Electron IPC 越权验收
+
+IPC 验收看“谁能调用 → 参数是否校验 → 落到哪个 sink”，不看 channel 名字是否可疑。
+
+```bash
+python Tool/skill/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
+python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin04 --json
+grep -RInE 'ipcMain\.(handle|on)|ipcRenderer\.(invoke|send)|contextBridge|openExternal' work/repro/unpack --include='*.js'
+grep -RInE 'nodeIntegration|contextIsolation|sandbox|webPreferences|preload' work/repro/unpack --include='*.js'
+```
+
+- `ipc_sender_checked`：handler 是否校验 `event.senderFrame.url`/`sender.id`/窗口来源/权限；只校验参数不校验发送方不算。
+- `openexternal_scheme`：`shell.openExternal` 的 URL 是否白名单到 `https/http`；`file:`、`ms-*`、自定义 scheme 单列。
+- `webpref_unsafe`：`nodeIntegration:true`、`contextIsolation:false`、`sandbox:false`、`webSecurity:false` 与远端内容共存时记风险；单机本地页可降级。
+- `preload_exposed`：`contextBridge.exposeInMainWorld('x', ipcRenderer)` 原样暴露 vs 白名单函数；只暴露函数名不够，要看参数是否直达 sink。
+
+**判据**：四个字段各有 file/line 或明确 `unverified`；至少一条 channel 能画到 sink。
+**失败判据**：只有 preload 或只有 main 一端 → 标 `inferred`；无法证明 sender 可被外部页面触达 → 不写“越权/RCE”；签名/白名单阻止动态验证 → 转静态。
+
 > 关联：`references/04-walkthrough-chrome-extension.md` 的通用取证流程、`references/02-failure-criteria.md` 第 13–15 条。
