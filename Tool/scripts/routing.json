@@ -339,7 +339,7 @@
           "note": "Electron：主进程/preload/asar 语境，不与普通 Node 项目抢词"
         },
         {
-          "must": "(?i)\\b(bepinex|melonloader|harmonyos|assembly-csharp|global-metadata)\\b",
+          "must": "(?i)\\b(bepinex|melonloader|harmonyos)\\b",
           "note": "Unity Mod / IL2CPP / BepInEx 强锚点"
         },
         {
@@ -506,7 +506,7 @@
       "skill": "softseep/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(\\bdnSpy\\b|\\bILSpy\\b|ConfuserEx|\\.NET\\s*(?:逆向|反编译)|javap|ProGuard|\\.jar\\b\\s*(?:授权|校验)|pycdc|PyInstaller|\\.pyc\\b)",
+          "must": "(?i)(\\bdnSpy\\b|\\bILSpy\\b|ConfuserEx|\\.NET\\s*(?:逆向|反编译)|javap|ProGuard|\\.jar\\b\\s*(?:授权|校验)|pycdc|PyInstaller|\\.pyc\\b|assembly-csharp)",
           "note": "托管运行时：判据=能还原 IL/字节码语义并复算行为，观测/取证优先，不写绕过"
         }
       ]
