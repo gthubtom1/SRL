@@ -10,6 +10,8 @@
 |---|---|---|---|---|
 | 内存进程还原 | `mem.raw` / `*.dmp` | `pslist` 与 `psscan` 的 PID 差集可解释；进程有 start/exit、PPID、命令行 | 进程表 JSON/CSV + 模块基址 + dump 文件哈希 | 退出时间缺失被误判“没运行”；符号不匹配导致空表 |
 | 内存注入/隐藏 | 可执行私有页 | `malfind` 命中 `MZ`/ELF 头且页权限 `RWX`；能 dump 并二次识别 | 页 dump 的 SHA256 + 虚拟地址 + 所属 PID | JIT/浏览器/打包器也会 RWX；仅 `MZ` 不等于恶意 |
+| 内存事件日志恢复 | `mem.raw`（Win11 24H2+/26H2） | `eventlog_from_mem` 条数 ≥1 且 channel/EventId/RecordId/time 可复算；与磁盘 EVTX 交集一致 | `/sys/eventlog` 导出 + 哈希 | 内存日志可能是旧缓存；旧版工具在 26H2 挂载为空 |
+| 内存堆/hive/CPU 恢复 | `mem.raw` + MemProcFS 5.19 / Volatility 3 v2.27 | `heap_recovered=true`；`hive_from_mem` 键可遍历；`proc_cpu_from_mem` 有 CPU/线程；`plugin_parity` 关键字段一致 | 堆对象 CSV + hive 导出 + 两工具对照表 | 堆恢复失败被当“无堆”；版本错配导致空输出 |
 | 流量会话 | `*.pcap` / `*.pcapng` | 双向会话五元组、起止 epoch、协议、请求/响应关键字段齐全 | 会话表 + 导出对象 + 对象 SHA256 | 只看单向包、同端口多连接合并、NAT 后主体不明 |
 | HTTP 对象 | pcap + `--export-objects` | 导出文件可打开且哈希稳定；同名对象以 `tcp.stream` 建索引 | `export/http/*` + 哈希清单 | 分块/压缩传输未重组；对象被覆盖 |
 | DNS/TLS 外联 | pcap | DNS qname、TLS SNI、时间与客户端 IP 同时存在 | 时间序列 CSV | CDN/共享 IP；DoH 只看到 IP |

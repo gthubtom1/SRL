@@ -4,34 +4,34 @@
 > 铁律：原件只读、副本分析、全程哈希、时间统一 UTC、结论四要素；失败按 `02-failure-criteria.md` 停/降级。
 
 ### 01 内存镜像与 Volatility3 插件链（源：performing-memory-forensics-with-volatility3-plugins）
-- 触发词：内存镜像、mem.raw、volatility3、pslist、psscan、malfind
-- 前置：镜像哈希/采集记录/OS 版本；只读副本；授权范围
-- 步骤：1) `banners`/`info` 定版本 2) `pslist`+`psscan` 差集 3) `cmdline`/`netscan`/`malfind` 落 PID 4) dump 可疑页并算哈希
-- 判据：进程起止/父子/命令行/外联可列；dump 可二次识别
+- 触发词：内存镜像、mem.raw、volatility3、pslist、psscan、malfind、MemProcFS
+- 前置：镜像哈希/采集记录/OS build（Win11 24H2+/26H2 注明年份版本）；只读副本；授权范围
+- 步骤：1) `banners`/`info` 定版本，确认 Volatility 3 ≥v2.27 2) `pslist`+`psscan` 差集 3) `cmdline`/`netscan`/`malfind` 落 PID 4) dump 可疑页并算哈希 5) 用 MemProcFS 5.19 挂载做 `plugin_parity` 交叉
+- 判据：进程起止/父子/命令行/外联可列；dump 可二次识别；`plugin_parity` 关键字段一致
 - 失败判据：符号不匹配/pslist 空/差集无法解释 → `blocked_at: symbols`，降级 strings
 - reference：Tool/skill/forensics-mobile/references/02-failure-criteria.md
 
 ### 02 Windows 内存进程与网络归因（源：performing-memory-forensics-with-volatility3）
-- 触发词：Windows 内存、netscan、cmdline、PID 归因、外联
-- 前置：`windows.info` 成功；pcap/主机日志可用则一起对齐
-- 步骤：1) 拉进程表与连接表 2) 按 PID 合并命令行/用户/模块 3) 与 pcap 五元组对齐 4) 标 observed/inferred
-- 判据：连接能落到 PID+时间+五元组；主体（用户/SID）明确
+- 触发词：Windows 内存、netscan、cmdline、PID 归因、外联、eventlog
+- 前置：`windows.info` 成功；pcap/主机日志可用则一起对齐；MemProcFS 5.19 可挂载
+- 步骤：1) 拉进程表与连接表 2) 按 PID 合并命令行/用户/模块 3) 与 pcap 五元组对齐 4) 用 `/sys/proc/cpu` 与 `/sys/eventlog` 补运行/日志旁证 5) 标 observed/inferred
+- 判据：连接能落到 PID+时间+五元组；主体（用户/SID）明确；`proc_cpu_from_mem`/`eventlog_from_mem` 有值
 - 失败判据：只有内存侧或只有 pcap 侧 → 降为 inferred，不写“已外联”
 - reference：Tool/skill/forensics-mobile/references/memory-forensics.md
 
 ### 03 崩溃转储与休眠文件解析（源：analyzing-memory-dumps-with-volatility）
-- 触发词：crash dump、dmp、hiberfil、minidump、蓝屏
-- 前置：确认转储类型/完整性/采集时间；记录系统 build
-- 步骤：1) `file`/头识别 2) 选对应符号 3) 进程/模块/异常码 4) 与事件日志蓝屏记录对齐
-- 判据：能说明崩溃进程/模块/异常时间；与 EVTX/转储头一致
+- 触发词：crash dump、dmp、hiberfil、minidump、蓝屏、26H2
+- 前置：确认转储类型/完整性/采集时间；记录系统 build（26H2 需 MemProcFS 5.19+）
+- 步骤：1) `file`/头识别 2) 选对应符号（V3 ≥v2.27） 3) 进程/模块/异常码 4) 与事件日志蓝屏记录对齐 5) 26H2 用 5.19 复跑，旧版崩溃先升级
+- 判据：能说明崩溃进程/模块/异常时间；与 EVTX/转储头一致；`heap_recovered` 状态已记录
 - 失败判据：转储截断/符号缺失/只含内核页 → 只做字符串/异常码线索
 - reference：Tool/skill/forensics-mobile/references/memory-forensics.md
 
 ### 04 Rekall/strings 降级内存取证（源：extracting-memory-artifacts-with-rekall）
-- 触发词：rekall、strings、bulk_extractor、volatility 不可用
-- 前置：首选工具缺失或符号不匹配；已记录降级原因
-- 步骤：1) `strings`/`bulk_extractor` 取域名/路径/命令 2) 用已知进程/端口特征定位 3) 与磁盘/日志交叉 4) 标 unverified
-- 判据：至少一条线索能被独立源验证；报告写明降级链
+- 触发词：rekall、strings、bulk_extractor、volatility 不可用、heap_recovered 失败
+- 前置：首选工具缺失/符号不匹配/`heap_recovered=false`；已记录降级原因
+- 步骤：1) 先试 V3 `windows.heap` 与 MemProcFS 5.19 挂载 2) `strings`/`bulk_extractor` 取域名/路径/命令 3) 用已知进程/端口特征定位 4) 与磁盘/日志交叉 5) 标 unverified
+- 判据：至少一条线索能被独立源验证；报告写明降级链与 `heap_recovered` 原因
 - 失败判据：只有字符串命中、无时间/主体 → 只写“线索”，不写结论
 - reference：Tool/skill/forensics-mobile/references/02-failure-criteria.md
 
@@ -92,11 +92,11 @@
 - reference：Tool/skill/forensics-mobile/references/disk-and-filesystem.md
 
 ### 12 Windows 注册表取证（源：analyzing-windows-registry-for-artifacts）
-- 触发词：注册表、hive、NTUSER.DAT、reg save、UserAssist、Run
-- 前置：`reg save` 副本或 hive 文件；带 LOG1/LOG2；权限记录
-- 步骤：1) 校验 `regf` 头 2) 遍历 hbin/nk 3) 重建键路径/last-write 4) 对齐 EVTX/文件系统
-- 判据：键路径/last-write 可复算；持久化项到键+值
-- 失败判据：键级遍历 0/脏页未合并/父指针断链 → 降级头时间或 Registry Explorer
+- 触发词：注册表、hive、NTUSER.DAT、reg save、UserAssist、Run、hive_from_mem
+- 前置：`reg save` 副本或 hive 文件；带 LOG1/LOG2；内存镜像可挂载；权限记录
+- 步骤：1) 内存侧 `windows.registry.hivelist` → `hive_from_mem` 2) MemProcFS `/sys/registry` 交叉 3) 校验 `regf` 头并遍历 hbin/nk 4) 重建键路径/last-write 5) 对齐 EVTX/文件系统/磁盘 hive 新旧
+- 判据：键路径/last-write 可复算；持久化项到键+值；`hive_from_mem` 可遍历
+- 失败判据：键级遍历 0/脏页未合并/父指针断链 → 降级头时间或 Registry Explorer；内存侧 `hivelist` 与 `/sys/registry` 均空只写“内存侧无 hive”
 - reference：Tool/skill/forensics-mobile/references/memory-forensics.md
 
 ### 13 Amcache 程序执行痕迹（源：analyzing-windows-amcache-artifacts）
