@@ -56,7 +56,7 @@ INSTRUMENT_NAME = {
 }
 ISTATUS = ["ok", "partial", "blocked", "killed"]
 MAX_LEVEL_BY_VERDICT = {"可赢": "M3", "部分可赢": "M2", "不可赢": "M1"}
-# 后端档位（05-backend-rebuild 的三问定档）：T2/T3 且非"不可赢"时，上限抬到 M4（客户端+后端自洽）
+# 后端档位（05-backend-rebuild 三问定档）：不可赢恒 M1；否则 T1→基准、T2→M3、T3→M4
 TIERS = ["T1", "T2", "T3"]
 STATUSES = ["hypothesis", "proven", "refuted"]
 
@@ -393,7 +393,7 @@ def main():
 
     p = sub.add_parser("verdict"); p.add_argument("--case", required=True)
     p.add_argument("--value", required=True)
-    p.add_argument("--tier", default="", help="后端档位 T1/T2/T3（见 05-backend-rebuild）：T2/T3 且非不可赢 → 上限 M4")
+    p.add_argument("--tier", default="", help="后端档位（见 05-backend-rebuild）：不可赢恒 M1；T1→裁定基准（可赢 M3/部分可赢 M2）；T2→M3；T3→M4")
     p.add_argument("--max-level", default="")
     p.add_argument("--note", default="")
     p.set_defaults(func=cmd_verdict)

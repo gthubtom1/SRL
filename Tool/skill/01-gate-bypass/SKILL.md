@@ -49,7 +49,7 @@ metadata:
 
 1. `python Tool/scripts/case_state.py gate --case <case>` 返回 0（阶段零出口闸）；
 2. `case_state.py show --case <case>` 里的**仪器（I0）**一栏就是你的可选手段（见 §2 的路线选择）；
-3. `case_state.py show` 给出的**交付上限**（M1/M2/M3，若阶段零标了后端档位 T3 则可能到 M4）就是本阶段的上限，不许越级。
+3. `case_state.py show` 给出的**交付上限**（M1–M4：不可赢 M1；T1 按裁定；T2→M3；T3→M4）就是本阶段的上限，不许越级。
 
 没有 case 目录 → 先跑阶段零（`逆向分析报告提示词.md` / `/analyze`），不要在这里补深度分析。
 

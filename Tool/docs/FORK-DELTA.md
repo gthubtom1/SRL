@@ -111,7 +111,7 @@
 | 项 | 位置 | 解决什么 | 怎么撤 |
 |---|---|---|---|
 | 阶段零 分析 | `Tool/skill/00-analysis/SKILL.md` | 结论先于证据（20 秒下结论的血案） | 删目录 + 去掉 routing R15 |
-| 阶段一 旁路 | `Tool/skill/01-gate-bypass/SKILL.md` | 交付纪律：M1/M2/M3 分级 | 删目录 + R11/R2 指回旧技能 |
+| 阶段一 旁路 | `Tool/skill/01-gate-bypass/SKILL.md` | 交付纪律：M1–M4 分级 | 删目录 + R11/R2 指回旧技能 |
 | 阶段二 UI | `Tool/skill/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
 | 阶段三 授权 | `Tool/skill/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
 | 阶段四 追版 | `Tool/skill/04-version-migrate/SKILL.md` + `Tool/scripts/migrate.py` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
