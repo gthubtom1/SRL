@@ -10,6 +10,21 @@
 
 ---
 
+## [1.18.9] — 2026-10-21
+
+> 主题：**修 P0-1 的静默回归** —— 生成链把"任务卡带闸"这条修复冲掉了。
+
+| 级别 | 问题 | 修复（逐条自验） |
+|---|---|---|
+| **P0（回归）** | v1.18.5 用 `逆向分析报告提示词.md` 机械重生成 `analyze.md`，而源文件没有「阶段零出口闸」块 → `analyze.md` 的 `case_state` 命令被**静默删除**（`git log -S case_state -- tasks/analyze.md`：`92ce512` 加入、`cdeee33` 删除），P0-1 在这一张卡上回退 | ① 闸块写进**源头** `逆向分析报告提示词.md`（注明"本段落是 analyze 任务卡的唯一来源"）→ 再重生成任务卡；② `analyze.md` 现有 **7 处** `case_state`（含 `gate`） |
+| **P0 加固** | 同类"生成链回退"无门禁 | `preflight.py` 新增「任务卡闸块在场」断言：`analyze.md` 必须含 `case_state.py gate`，`reverse.md`/`reverse-deliverable.md` 各至少 1 处 `case_state` → **preflight 17 → 18 项** |
+| P2 | `VERSION_SEEN` 停在 1.18.5（与 VERSION 脱节） | 两处均改 **1.18.9** |
+| 留痕 | 事故未记录 | `AUDIT-2026-10-21.md` §2bis：现象 / 根因 / 加固 / 教训（"机械同源"只在源头内容完整时才安全） |
+
+验收：`preflight --fast` **18/18**、`verify.ps1` 65/65、`verify.sh` 65/65、`check_seep_compat.py --check` rc=0。
+
+---
+
 ## [1.18.8] — 2026-10-21
 
 > 主题：**终审通过后的 2 条 P2 硬化 + 留痕**。
