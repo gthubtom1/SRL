@@ -1,0 +1,46 @@
+{
+  "id": "项目L",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64 (Qt5)",
+  "protection": [
+    "dll-proxy-surface",
+    "offline-license",
+    "cloud-config"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "src/项目L_hook.c",
+      "sha256": ""
+    },
+    {
+      "path": "src/项目L_bridge.c",
+      "sha256": ""
+    },
+    {
+      "path": "src/proxy.def",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "目标 IAT 从 项目L_Auth.dll 导入 282 个符号；改名原库 + 同名代理库是零改动官方字节的最小侵入路线",
+    "全部 PRO/VIP 特权是本地布尔/枚举函数，无签名绑定、无服务端权威闭环（CWE-602）",
+    "代理库内可同时做内存补丁、内嵌本地翻译网关与云控更新剥离，单文件可移植",
+    "官方原库与 EXE 的磁盘 SHA256 可保持不变，验证时应以哈希对照证明零篡改"
+  ],
+  "tags": [
+    "DLL代理",
+    "Qt5",
+    "CWE-602",
+    "翻译网关",
+    "云控"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "src/proxy.def"
+  ],
+  "updated": "2026-10-21"
+}

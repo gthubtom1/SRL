@@ -1,0 +1,46 @@
+{
+  "id": "项目C",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64",
+  "protection": [
+    "authenticode",
+    "blowfish-registry",
+    "offline-license"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "poc/patch_binary.py",
+      "sha256": ""
+    },
+    {
+      "path": "poc/version.def",
+      "sha256": ""
+    },
+    {
+      "path": "runtime/config.ini",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "版本号存的是掩码变形值 T(v)=((2*(v&0xD5555555))|((v>>1)&0x55555555))：补丁要写 0x98/0x3D4/0x1B20，而不是 100/980/6944",
+    "显示层伪造应下沉到最后一跳的 SetDlgItemTextW，避免与模板引擎/STL 字符串 ABI 搏斗",
+    "控件类名必须运行时 GetClassNameW 实测（ID 名为 IDC_STATIC_LICENSE 实为 Edit），未命中分支必须打日志，否则失败被静默吞掉",
+    "zig-clang 会吞掉宽字符串字面量里的 \\r：改用 \\u000D\\u000A，并在运行时 NormalizeCrlf 兜底"
+  ],
+  "tags": [
+    "CWE-602",
+    "version.dll",
+    "SetDlgItemTextW",
+    "Blowfish",
+    "CRLF"
+  ],
+  "refs": [
+    "poc/RE_FINDINGS.md",
+    "poc/TASK_RETRO.md",
+    "poc/patch_binary.py"
+  ],
+  "updated": "2026-10-21"
+}

@@ -1,0 +1,907 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""dump-restore.py —— 脱壳「dump → PE 重建 → IAT 体检」最小工具链。
+
+它只做三件可验证的事，不假装能替代 x64dbg / Scylla：
+    pe-info   看节表 / 镜像大小 / 入口 / 熵 / 数据目录
+    dump      用 ctypes ReadProcessMemory 从**外部**按模块基址 + SizeOfImage 取镜像
+    rebuild   按 SectionAlignment 展开节、修 PointerToRawData/SizeOfRawData、清壳节
+    iat       统计导入表已解析/未解析；未解析提示用 Scylla 人工补
+
+设计纪律：
+    · 纯标准库；Windows 专有部分用 ctypes，非 Windows 明确报错。
+    · 不写死本机绝对路径；不 `-h` 试探目标/工具。
+    · 失败给 Win32 + NTSTATUS 文案；dump 不完整必须明说，不假成功。
+    · 清壳节是启发式：默认保护入口所在节和所有数据目录所在节，并打印清除了哪些。
+
+用法：
+    python Tool/scripts/dump-restore.py pe-info <target.exe>
+    python Tool/scripts/dump-restore.py dump --pid 1234 --out work/<task>/dump.bin
+    python Tool/scripts/dump-restore.py dump --pid 1234 --module version.dll --out work/<task>/dump.bin
+    python Tool/scripts/dump-restore.py rebuild --dump work/<task>/dump.bin --out work/<task>/rebuilt.exe
+    python Tool/scripts/dump-restore.py iat --dump work/<task>/rebuilt.exe
+"""
+from __future__ import annotations
+
+import argparse
+import ctypes
+import hashlib
+import json
+import math
+import os
+import struct
+import sys
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+IS_WIN = sys.platform == "win32"
+
+DATA_DIR_NAMES = {
+    0: "EXPORT", 1: "IMPORT", 2: "RESOURCE", 3: "EXCEPTION", 4: "SECURITY",
+    5: "BASERELOC", 6: "DEBUG", 7: "ARCHITECTURE", 8: "GLOBALPTR", 9: "TLS",
+    10: "LOAD_CONFIG", 11: "BOUND_IMPORT", 12: "IAT", 13: "DELAY_IMPORT",
+    14: "COM_DESCRIPTOR", 15: "RESERVED",
+}
+
+# 常见壳节名（只做提示/清理候选，不靠它下"是不是壳"的结论）
+PACKER_SECTIONS = {
+    "UPX0", "UPX1", "UPX2", ".aspack", ".adata", ".MPRESS1", ".MPRESS2",
+    ".themida", ".winlice", ".vmpx", ".vmp0", ".vmp1", ".vmp2", ".enigma1",
+    ".enigma2", ".ace0", ".perplex", ".petite", ".neolite", ".spack",
+    ".packed", ".boom", ".ccg", ".nsp0", ".nsp1", ".nsp2",
+}
+
+
+def out(s=""):
+    try:
+        print(s)
+    except UnicodeEncodeError:
+        print(str(s).encode("utf-8", "replace").decode("utf-8", "replace"))
+
+
+def die(msg, code=1):
+    out("[ERR] " + str(msg))
+    raise SystemExit(code)
+
+
+def align(value, alignment):
+    if alignment <= 0:
+        return value
+    return (value + alignment - 1) // alignment * alignment
+
+
+def entropy(data):
+    if not data:
+        return 0.0
+    freq = [0] * 256
+    for b in data:
+        freq[b] += 1
+    n = len(data)
+    return max(0.0, -sum((c / n) * math.log2(c / n) for c in freq if c))
+
+
+def winerr_text(code):
+    """Win32 错误码 + 常见 NTSTATUS 对照（dump 失败时必须能看懂）。"""
+    mapping = {
+        5: "ERROR_ACCESS_DENIED / STATUS_ACCESS_DENIED (0xC0000022)",
+        6: "ERROR_INVALID_HANDLE / STATUS_INVALID_HANDLE (0xC0000008)",
+        87: "ERROR_INVALID_PARAMETER / STATUS_INVALID_PARAMETER (0xC000000D)",
+        299: "ERROR_PARTIAL_COPY / STATUS_PARTIAL_COPY (0x8000000D)",
+        998: "ERROR_NOACCESS / STATUS_ACCESS_VIOLATION (0xC0000005)",
+    }
+    if isinstance(code, str):
+        return code
+    if code in mapping:
+        return f"{code}: {mapping[code]}"
+    try:
+        return f"{code}: {ctypes.FormatError(code)}"
+    except Exception:
+        return str(code)
+
+
+# ---------------------------------------------------------------------------
+# 最小 PE 解析
+# ---------------------------------------------------------------------------
+class PEImage:
+    def __init__(self, data, path=""):
+        self.data = data
+        self.path = path
+        self.ok = False
+        self._parse()
+
+    def _parse(self):
+        d = self.data
+        if len(d) < 0x40 or d[:2] != b"MZ":
+            raise ValueError("不是 MZ/PE 文件")
+        e_lfanew = struct.unpack_from("<I", d, 0x3C)[0]
+        if e_lfanew + 24 > len(d) or d[e_lfanew:e_lfanew + 4] != b"PE\0\0":
+            raise ValueError(f"e_lfanew=0x{e_lfanew:X} 处不是 PE 签名")
+        self.e_lfanew = e_lfanew
+        coff = e_lfanew + 4
+        (self.machine, self.nsect, self.timestamp, self.symtab, self.nsyms,
+         self.opt_size, self.characteristics) = struct.unpack_from("<HHIIIHH", d, coff)
+        self.opt_off = coff + 20
+        if self.opt_off + self.opt_size > len(d) or self.opt_size < 0x60:
+            raise ValueError("可选头越界或过短")
+        self.magic = struct.unpack_from("<H", d, self.opt_off)[0]
+        self.pe32p = self.magic == 0x20B
+        if self.magic not in (0x10B, 0x20B):
+            raise ValueError(f"未知可选头 magic=0x{self.magic:X}")
+        opt = self.opt_off
+        self.entry_rva = struct.unpack_from("<I", d, opt + 16)[0]
+        self.image_base = struct.unpack_from("<Q" if self.pe32p else "<I", d, opt + 24)[0]
+        self.section_alignment = struct.unpack_from("<I", d, opt + 32)[0]
+        self.file_alignment = struct.unpack_from("<I", d, opt + 36)[0]
+        self.size_of_image = struct.unpack_from("<I", d, opt + 56)[0]
+        self.size_of_headers = struct.unpack_from("<I", d, opt + 60)[0]
+        self.checksum = struct.unpack_from("<I", d, opt + 64)[0]
+        self.number_of_rva_and_sizes = struct.unpack_from("<I", d, opt + (108 if self.pe32p else 92))[0]
+        dirs_off = opt + (112 if self.pe32p else 96)
+        self.data_dirs = []
+        max_dirs = min(self.number_of_rva_and_sizes, 16,
+                       max(0, (self.opt_off + self.opt_size - dirs_off) // 8))
+        for i in range(max_dirs):
+            rva, size = struct.unpack_from("<II", d, dirs_off + i * 8)
+            self.data_dirs.append({"index": i, "name": DATA_DIR_NAMES.get(i, str(i)),
+                                   "rva": rva, "size": size})
+        self.sect_off = self.opt_off + self.opt_size
+        if self.sect_off + self.nsect * 40 > len(d):
+            raise ValueError("节表越界")
+        self.sections = []
+        for i in range(self.nsect):
+            b = self.sect_off + i * 40
+            name_raw = d[b:b + 8]
+            name = name_raw.rstrip(b"\0").decode("latin-1", "replace")
+            vsize, va, rawsize, rawptr = struct.unpack_from("<IIII", d, b + 8)
+            chars = struct.unpack_from("<I", d, b + 36)[0]
+            raw = d[rawptr:rawptr + min(rawsize, max(0, len(d) - rawptr))]
+            self.sections.append({
+                "index": i, "name": name, "header_off": b,
+                "vsize": vsize, "va": va, "raw_size": rawsize, "raw_ptr": rawptr,
+                "chars": chars, "entropy": round(entropy(raw[:2_000_000]), 2),
+            })
+        self.ok = True
+
+    def rva_to_off(self, rva, layout="raw"):
+        if layout == "virtual":
+            return rva if 0 <= rva < len(self.data) else None
+        for s in self.sections:
+            span = max(s["vsize"], s["raw_size"])
+            if s["va"] <= rva < s["va"] + span:
+                off = s["raw_ptr"] + (rva - s["va"])
+                if 0 <= off < len(self.data):
+                    return off
+        return None
+
+    def section_of_rva(self, rva):
+        for s in self.sections:
+            if s["va"] <= rva < s["va"] + max(s["vsize"], s["raw_size"], 1):
+                return s
+        return None
+
+    def cstr(self, rva, layout="raw", limit=512):
+        off = self.rva_to_off(rva, layout)
+        if off is None:
+            return None
+        end = off
+        while end < len(self.data) and end - off < limit and self.data[end] != 0:
+            end += 1
+        if end >= len(self.data) or self.data[end] != 0:
+            return None
+        try:
+            return self.data[off:end].decode("ascii", "replace")
+        except Exception:
+            return None
+
+
+def detect_layout(pe):
+    """判断 dump 是 raw（磁盘布局）还是 virtual（内存布局）。"""
+    size = len(pe.data)
+    if pe.size_of_image > 0 and size >= pe.size_of_image * 0.95:
+        return "virtual"
+    raw_max = max([s["raw_ptr"] + s["raw_size"] for s in pe.sections] + [0])
+    if size <= raw_max * 1.05 and size < pe.size_of_image * 0.95:
+        return "raw"
+    # 评分：哪个偏移上的节数据更像"有内容"
+    raw_score = virtual_score = 0
+    for s in pe.sections:
+        span = min(max(s["vsize"], s["raw_size"]), 0x20000)
+        if span <= 0:
+            continue
+        ro = s["raw_ptr"]
+        vo = s["va"]
+        if 0 <= ro < size:
+            raw_score += sum(1 for b in pe.data[ro:ro + min(span, size - ro)] if b)
+        if 0 <= vo < size:
+            virtual_score += sum(1 for b in pe.data[vo:vo + min(span, size - vo)] if b)
+    if virtual_score > raw_score * 1.25:
+        return "virtual"
+    if raw_score > virtual_score * 1.25:
+        return "raw"
+    return "virtual" if size > raw_max else "raw"
+
+
+def refresh_entropies(pe, layout):
+    """按实际布局重算节熵：内存 dump 的数据在 RVA 处，不在原始 raw_ptr 处。"""
+    size = len(pe.data)
+    for sec in pe.sections:
+        if layout == "virtual":
+            off = sec["va"]
+            n = max(sec["vsize"], sec["raw_size"])
+        else:
+            off = sec["raw_ptr"]
+            n = sec["raw_size"]
+        if 0 <= off < size and n > 0:
+            chunk = pe.data[off:off + min(n, size - off, 2_000_000)]
+            sec["entropy"] = round(entropy(chunk), 2)
+        else:
+            sec["entropy"] = 0.0
+
+
+def packer_hints(pe):
+    hints = []
+    for s in pe.sections:
+        if s["name"] in PACKER_SECTIONS:
+            hints.append(f"可疑壳节 {s['name']}")
+        elif s["entropy"] >= 7.2 and s["raw_size"] >= 0x1000:
+            hints.append(f"高熵节 {s['name']} (熵 {s['entropy']})")
+    imp = pe.data_dirs[1] if len(pe.data_dirs) > 1 else None
+    if imp and (imp["rva"] == 0 or imp["size"] < 0x28):
+        hints.append("导入目录为空/异常小")
+    tls = next((d for d in pe.data_dirs if d["index"] == 9), None)
+    if tls and tls["rva"]:
+        hints.append("存在 TLS 目录（可能在入口前做检测）")
+    if not hints:
+        return ["无明显加壳特征（节名/熵/导入目录正常）"]
+    return hints
+
+
+def load_pe(path):
+    if not path or not os.path.isfile(path):
+        die(f"文件不存在：{path or '(空)'}")
+    with open(path, "rb") as f:
+        data = f.read()
+    try:
+        pe = PEImage(data, path)
+    except Exception as exc:
+        die(f"不是有效 PE：{path}（{exc}）")
+    return pe
+
+
+# ---------------------------------------------------------------------------
+# pe-info
+# ---------------------------------------------------------------------------
+def cmd_pe_info(a):
+    pe = load_pe(a.pe)
+    layout = detect_layout(pe)
+    refresh_entropies(pe, layout)
+    info = {
+        "layout": layout,
+        "file": os.path.abspath(pe.path),
+        "size": len(pe.data),
+        "sha256": hashlib.sha256(pe.data).hexdigest(),
+        "format": "PE32+" if pe.pe32p else "PE32",
+        "machine": {0x8664: "x64", 0x14C: "x86", 0xAA64: "arm64"}.get(pe.machine,
+                                                                            f"0x{pe.machine:X}"),
+        "image_base": f"0x{pe.image_base:X}",
+        "entry_rva": f"0x{pe.entry_rva:X}",
+        "size_of_image": f"0x{pe.size_of_image:X}",
+        "size_of_headers": f"0x{pe.size_of_headers:X}",
+        "section_alignment": f"0x{pe.section_alignment:X}",
+        "file_alignment": f"0x{pe.file_alignment:X}",
+        "number_of_sections": pe.nsect,
+        "sections": pe.sections,
+        "data_dirs": [d for d in pe.data_dirs if d["rva"] or d["size"]],
+        "packer_hints": packer_hints(pe),
+    }
+    if a.json:
+        out(json.dumps(info, ensure_ascii=False, indent=2))
+        return 0
+    out(f"file            : {info['file']}")
+    out(f"size            : {info['size']} bytes")
+    out(f"sha256          : {info['sha256']}")
+    out(f"format/machine  : {info['format']} / {info['machine']}")
+    out(f"image base      : {info['image_base']}")
+    out(f"entry RVA       : {info['entry_rva']}  (VA={info['image_base']}+RVA)")
+    out(f"SizeOfImage     : {info['size_of_image']}")
+    out(f"SizeOfHeaders   : {info['size_of_headers']}")
+    out(f"alignment       : section={info['section_alignment']} file={info['file_alignment']}")
+    out(f"layout (auto)   : {info['layout']}（raw=磁盘布局 / virtual=内存 dump 布局）")
+    out(f"sections        : {info['number_of_sections']}")
+    out("")
+    out("idx  name            VA          VSize       RawPtr      RawSize     Entropy")
+    out("---  --------------  ----------  ----------  ----------  ----------  -------")
+    for s in pe.sections:
+        out(f"{s['index']:>3}  {s['name']:<14}  0x{s['va']:08X}  0x{s['vsize']:08X}  "
+            f"0x{s['raw_ptr']:08X}  0x{s['raw_size']:08X}  {s['entropy']:>7.2f}")
+    out("")
+    out("data directories:")
+    if info["data_dirs"]:
+        for d in info["data_dirs"]:
+            out(f"  [{d['index']:>2}] {d['name']:<16} RVA=0x{d['rva']:08X} size=0x{d['size']:X}")
+    else:
+        out("  (无)")
+    out("")
+    out("packer hints:")
+    for h in info["packer_hints"]:
+        out("  - " + h)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Windows 外部 dump
+# ---------------------------------------------------------------------------
+def _enable_debug_priv():
+    try:
+        advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+        class LUID(ctypes.Structure):
+            _fields_ = [("LowPart", ctypes.c_ulong), ("HighPart", ctypes.c_long)]
+
+        class LUID_AND_ATTRIBUTES(ctypes.Structure):
+            _fields_ = [("Luid", LUID), ("Attributes", ctypes.c_ulong)]
+
+        class TOKEN_PRIVILEGES(ctypes.Structure):
+            _fields_ = [("PrivilegeCount", ctypes.c_ulong),
+                        ("Privileges", LUID_AND_ATTRIBUTES * 1)]
+
+        k32.GetCurrentProcess.restype = ctypes.c_void_p
+        token = ctypes.c_void_p()
+        if not advapi.OpenProcessToken(k32.GetCurrentProcess(), 0x0020 | 0x0008,
+                                       ctypes.byref(token)):
+            return False, winerr_text(ctypes.get_last_error())
+        luid = LUID()
+        if not advapi.LookupPrivilegeValueW(None, "SeDebugPrivilege", ctypes.byref(luid)):
+            return False, winerr_text(ctypes.get_last_error())
+        tp = TOKEN_PRIVILEGES()
+        tp.PrivilegeCount = 1
+        tp.Privileges[0].Luid = luid
+        tp.Privileges[0].Attributes = 0x0002  # SE_PRIVILEGE_ENABLED
+        ok = advapi.AdjustTokenPrivileges(token, False, ctypes.byref(tp), 0, None, None)
+        err = ctypes.get_last_error()
+        k32.CloseHandle(token)
+        if not ok or err:
+            return False, winerr_text(err)
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _open_process(pid, access):
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = ctypes.c_void_p
+    k32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_bool, ctypes.c_ulong]
+    h = k32.OpenProcess(access, False, int(pid))
+    if not h:
+        return None, ctypes.get_last_error()
+    return h, 0
+
+
+def _close_handle(h):
+    if h:
+        try:
+            ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(ctypes.c_void_p(h))
+        except Exception:
+            pass
+
+
+def _enum_modules(h):
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    HMODULE = ctypes.c_void_p
+
+    class MODULEINFO(ctypes.Structure):
+        _fields_ = [("lpBaseOfDll", ctypes.c_void_p),
+                    ("SizeOfImage", ctypes.c_ulong),
+                    ("EntryPoint", ctypes.c_void_p)]
+
+    arr = (HMODULE * 2048)()
+    needed = ctypes.c_ulong(0)
+    ok = False
+    try:
+        psapi.EnumProcessModulesEx.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(HMODULE), ctypes.c_ulong,
+            ctypes.POINTER(ctypes.c_ulong), ctypes.c_ulong]
+        psapi.EnumProcessModulesEx.restype = ctypes.c_bool
+        ok = psapi.EnumProcessModulesEx(ctypes.c_void_p(h), arr, ctypes.sizeof(arr),
+                                        ctypes.byref(needed), 3)
+    except Exception:
+        ok = False
+    if not ok:
+        psapi.EnumProcessModules.argtypes = [
+            ctypes.c_void_p, ctypes.POINTER(HMODULE), ctypes.c_ulong,
+            ctypes.POINTER(ctypes.c_ulong)]
+        psapi.EnumProcessModules.restype = ctypes.c_bool
+        ok = psapi.EnumProcessModules(ctypes.c_void_p(h), arr, ctypes.sizeof(arr),
+                                      ctypes.byref(needed))
+    if not ok:
+        return None, f"EnumProcessModules 失败：{winerr_text(ctypes.get_last_error())}"
+
+    # GetModuleBaseNameW / GetModuleFileNameExW 在 psapi.dll；K32* 才是 kernel32
+    psapi.GetModuleBaseNameW.argtypes = [ctypes.c_void_p, HMODULE, ctypes.c_wchar_p, ctypes.c_ulong]
+    psapi.GetModuleBaseNameW.restype = ctypes.c_ulong
+    psapi.GetModuleFileNameExW.argtypes = [ctypes.c_void_p, HMODULE, ctypes.c_wchar_p, ctypes.c_ulong]
+    psapi.GetModuleFileNameExW.restype = ctypes.c_ulong
+    psapi.GetModuleInformation.argtypes = [
+        ctypes.c_void_p, HMODULE, ctypes.POINTER(MODULEINFO), ctypes.c_ulong]
+    psapi.GetModuleInformation.restype = ctypes.c_bool
+
+    count = needed.value // ctypes.sizeof(ctypes.c_void_p)
+    mods = []
+    for i in range(count):
+        hm = arr[i]
+        mi = MODULEINFO()
+        if not psapi.GetModuleInformation(ctypes.c_void_p(h), hm,
+                                          ctypes.byref(mi), ctypes.sizeof(mi)):
+            continue
+        name_buf = ctypes.create_unicode_buffer(1024)
+        path_buf = ctypes.create_unicode_buffer(2048)
+        try:
+            psapi.GetModuleBaseNameW(ctypes.c_void_p(h), hm, name_buf, 1024)
+        except Exception:
+            name_buf.value = ""
+        try:
+            psapi.GetModuleFileNameExW(ctypes.c_void_p(h), hm, path_buf, 2048)
+        except Exception:
+            path_buf.value = ""
+        mods.append({
+            "name": name_buf.value,
+            "path": path_buf.value,
+            "base": int(mi.lpBaseOfDll or 0),
+            "size": int(mi.SizeOfImage or 0),
+            "entry": int(mi.EntryPoint or 0),
+        })
+    return mods, ""
+
+
+def _read_remote(h, addr, size):
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    buf = ctypes.create_string_buffer(size)
+    read = ctypes.c_size_t(0)
+    k32.ReadProcessMemory.argtypes = [ctypes.c_void_p, ctypes.c_void_p,
+                                      ctypes.c_void_p, ctypes.c_size_t,
+                                      ctypes.POINTER(ctypes.c_size_t)]
+    k32.ReadProcessMemory.restype = ctypes.c_bool
+    ok = k32.ReadProcessMemory(ctypes.c_void_p(h), ctypes.c_void_p(addr),
+                               buf, size, ctypes.byref(read))
+    if not ok:
+        return None, 0, winerr_text(ctypes.get_last_error())
+    return buf.raw[:read.value], read.value, ""
+
+
+def cmd_dump(a):
+    if not IS_WIN:
+        die("dump 子命令仅支持 Windows（依赖 OpenProcess/ReadProcessMemory）")
+    try:
+        pid = int(a.pid)
+    except ValueError:
+        die(f"--pid 不是整数：{a.pid}")
+
+    if a.debug_priv:
+        ok, err = _enable_debug_priv()
+        out(f"[i] SeDebugPrivilege: {'已启用' if ok else '未启用（' + err + '）'}")
+
+    rights = 0x0400 | 0x0010  # PROCESS_QUERY_INFORMATION | PROCESS_VM_READ
+    h, err = _open_process(pid, rights)
+    if not h:
+        die(f"OpenProcess(pid={pid}) 失败：{winerr_text(err)}\n"
+            f"    → 可能权限不足/进程已退出/受保护。可用 --debug-priv 重试，或换 dump 时机。")
+    try:
+        mods, merr = _enum_modules(h)
+        if not mods:
+            die(f"模块枚举失败：{merr or '没有模块'}")
+        if a.module:
+            needle = a.module.lower()
+            chosen = None
+            for m in mods:
+                if (needle == (m["name"] or "").lower()
+                        or needle == os.path.basename(m["path"] or "").lower()
+                        or needle == (m["path"] or "").lower()):
+                    chosen = m
+                    break
+            if not chosen:
+                names = ", ".join(m["name"] or "?" for m in mods[:20])
+                die(f"找不到模块 {a.module!r}。当前模块（前 20）：{names}")
+        else:
+            chosen = mods[0]
+            out(f"[i] 未指定 --module，默认取主模块：{chosen['name']}")
+
+        if not chosen["base"]:
+            die(f"模块 {chosen['name']} 基址为 0，无法 dump")
+        size = int(a.size, 0) if a.size else chosen["size"]
+        if size <= 0:
+            die(f"模块 {chosen['name']} SizeOfImage 为 0；用 --size 显式指定")
+
+        head, n, herr = _read_remote(h, chosen["base"], min(0x1000, size))
+        if not head:
+            die(f"读模块首部失败：{herr}\n"
+                f"    → 外部 ReadProcessMemory 也可能被 guard/保护拦住；换时机或换页。")
+        if head[:2] != b"MZ":
+            die(f"模块基址 0x{chosen['base']:X} 首部不是 MZ（读到 {head[:8]!r}）；"
+                f"确认 --module / 进程位数")
+
+        out_path = os.path.abspath(os.path.expanduser(a.out))
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        tmp_path = out_path + ".part"
+        bad_ranges = []
+        written = 0
+        chunk = 0x10000
+        page = 0x1000
+        try:
+            with open(tmp_path, "wb") as f:
+                off = 0
+                while off < size:
+                    n = min(chunk, size - off)
+                    data, got, rerr = _read_remote(h, chosen["base"] + off, n)
+                    if data is not None and got == n:
+                        f.write(data)
+                        written += n
+                        off += n
+                        continue
+                    # 大块失败 → 退到 4KB 页级抢救；仍失败则填 0 并记录
+                    for p in range(0, n, page):
+                        pn = min(page, n - p)
+                        d, gn, e = _read_remote(h, chosen["base"] + off + p, pn)
+                        if d is not None and gn == pn:
+                            f.write(d)
+                            written += pn
+                        else:
+                            if a.strict:
+                                raise RuntimeError(
+                                    f"地址 0x{chosen['base'] + off + p:X} 读取失败：{e}")
+                            f.write(b"\0" * pn)
+                            bad_ranges.append((off + p, pn, e))
+                    off += n
+                if written < size:
+                    f.write(b"\0" * (size - written))
+            os.replace(tmp_path, out_path)
+        except Exception as exc:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+            die(f"dump 失败：{exc}")
+
+        out(f"[OK] dump 写出：{out_path}")
+        out(f"     pid={pid}  module={chosen['name']}  base=0x{chosen['base']:X}  "
+            f"SizeOfImage=0x{size:X}")
+        out(f"     可读 {written} / {size} 字节；不可读页 {len(bad_ranges)} 个")
+        if bad_ranges:
+            out("[WARN] 这是**不完整 dump**：不可读页已填 0，不是假成功。NTSTATUS 文案：")
+            for off, sz, e in bad_ranges[:10]:
+                out(f"       +0x{off:X} ({sz} B) : {e}")
+            if len(bad_ranges) > 10:
+                out(f"       ... 另有 {len(bad_ranges) - 10} 页")
+            out("     → 先重建/检查节表；若关键代码页不可读，换 dump 时机或改用 pe-sieve/Scylla。")
+            return 2
+        return 0
+    finally:
+        _close_handle(h)
+
+
+# ---------------------------------------------------------------------------
+# rebuild
+# ---------------------------------------------------------------------------
+def _section_data(pe, s, layout, target_size):
+    size = len(pe.data)
+    if layout == "virtual":
+        src_off = s["va"]
+        src_len = min(target_size, max(0, size - src_off)) if src_off < size else 0
+    else:
+        src_off = s["raw_ptr"]
+        src_len = min(s["raw_size"], target_size, max(0, size - src_off)) if src_off < size else 0
+    if src_len <= 0 or src_off < 0 or src_off >= size:
+        return b""
+    return pe.data[src_off:src_off + src_len]
+
+
+def cmd_rebuild(a):
+    pe = load_pe(a.dump)
+    layout = a.layout
+    if layout == "auto":
+        layout = detect_layout(pe)
+    if layout not in ("raw", "virtual"):
+        die(f"--layout 只能是 auto/raw/virtual，收到 {a.layout}")
+    refresh_entropies(pe, layout)
+
+    file_align = pe.file_alignment or 0x200
+    sect_align = pe.section_alignment or 0x1000
+    header_min = max(pe.size_of_headers or 0, pe.sect_off + pe.nsect * 40, 0x400)
+    size_of_headers = align(header_min, file_align)
+    if size_of_headers > 0x100000:
+        die(f"SizeOfHeaders 异常大：0x{size_of_headers:X}")
+    if size_of_headers > len(pe.data):
+        out(f"[WARN] 原 SizeOfHeaders=0x{size_of_headers:X} 大于 dump 文件，"
+            f"按文件大小截断；dump 可能不完整")
+
+    # 受保护节：入口 + 所有非零数据目录所在节（不能清，否则 IAT/TLS/资源会坏）
+    protected = set()
+    entry_sec = pe.section_of_rva(pe.entry_rva)
+    if entry_sec:
+        protected.add(entry_sec["index"])
+    for d in pe.data_dirs:
+        if d["rva"]:
+            s = pe.section_of_rva(d["rva"])
+            if s:
+                protected.add(s["index"])
+
+    extra_clear = {x.strip() for x in (a.clear_names or "").split(",") if x.strip()}
+    sections_out = []
+    cleared = []
+    cursor = size_of_headers
+    max_image = 0
+    for s in pe.sections:
+        vsize = s["vsize"] or s["raw_size"]
+        target_size = max(vsize, s["raw_size"])
+        if target_size > 0x20000000:
+            die(f"节 {s['name']} 展开后过大（0x{target_size:X}），dump 可能损坏")
+        should_clear = False
+        if not a.no_clear and s["index"] not in protected:
+            if s["name"] in PACKER_SECTIONS or s["name"] in extra_clear:
+                should_clear = True
+            elif a.clear_entropy and s["entropy"] >= a.entropy_threshold and s["raw_size"] >= 0x1000:
+                should_clear = True
+        if should_clear:
+            content = b""
+            new_raw_size = 0
+            new_raw_ptr = 0
+            vsize_out = vsize
+            cleared.append(s["name"] or f"<section{s['index']}>")
+        else:
+            content = _section_data(pe, s, layout, target_size)
+            new_raw_size = align(target_size, file_align)
+            new_raw_ptr = cursor
+            cursor += new_raw_size
+            vsize_out = max(vsize, len(content))
+        max_image = max(max_image, s["va"] + max(vsize_out, len(content), target_size if not should_clear else 0))
+        sections_out.append({
+            "index": s["index"], "name": s["name"], "va": s["va"],
+            "vsize": vsize_out, "old_raw_size": s["raw_size"], "old_raw_ptr": s["raw_ptr"],
+            "new_raw_size": new_raw_size, "new_raw_ptr": new_raw_ptr,
+            "content": content, "cleared": should_clear, "entropy": s["entropy"],
+        })
+
+    size_of_image = align(max(max_image, pe.size_of_image if a.keep_image_size else 0), sect_align)
+    if size_of_image <= 0:
+        die("重建后 SizeOfImage 为 0")
+    if size_of_image > 0x80000000:
+        die(f"重建后 SizeOfImage 过大：0x{size_of_image:X}")
+
+    total = cursor
+    if total > 0x80000000:
+        die(f"重建后文件过大：0x{total:X}")
+    buf = bytearray(total)
+    head_copy = min(size_of_headers, len(pe.data))
+    buf[:head_copy] = pe.data[:head_copy]
+
+    for so in sections_out:
+        if so["content"]:
+            start = so["new_raw_ptr"]
+            end = start + len(so["content"])
+            if end > len(buf):
+                die(f"节 {so['name']} 写入越界")
+            buf[start:end] = so["content"]
+        # 修节头：VirtualSize / VirtualAddress / SizeOfRawData / PointerToRawData
+        b = pe.sect_off + so["index"] * 40
+        struct.pack_into("<IIII", buf, b + 8, so["vsize"], so["va"],
+                         so["new_raw_size"], so["new_raw_ptr"])
+
+    # 修可选头：SizeOfImage / SizeOfHeaders / CheckSum
+    struct.pack_into("<I", buf, pe.opt_off + 56, size_of_image)
+    struct.pack_into("<I", buf, pe.opt_off + 60, size_of_headers)
+    struct.pack_into("<I", buf, pe.opt_off + 64, 0)
+    # 保留原节表名称/标志；raw 指针已改，数据目录 RVA 不变（虚拟地址不变）
+
+    out_path = os.path.abspath(os.path.expanduser(a.out))
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "wb") as f:
+        f.write(buf)
+
+    out(f"[OK] rebuild 写出：{out_path}")
+    out(f"     输入布局：{layout}（auto 判定；可用 --layout 覆盖）")
+    out(f"     SizeOfHeaders=0x{size_of_headers:X}  SizeOfImage=0x{size_of_image:X}  "
+        f"文件大小=0x{len(buf):X}")
+    out(f"     入口 RVA=0x{pe.entry_rva:X}  "
+        f"{'（在受保护节）' if entry_sec and entry_sec['index'] in protected else ''}")
+    out("     idx  name            VA          VSize       RawPtr      RawSize     Clear")
+    for so in sections_out:
+        out(f"     {so['index']:>3}  {so['name']:<14}  0x{so['va']:08X}  0x{so['vsize']:08X}  "
+            f"0x{so['new_raw_ptr']:08X}  0x{so['new_raw_size']:08X}  "
+            f"{'YES' if so['cleared'] else ''}")
+    if cleared:
+        out(f"[WARN] 已清壳节：{', '.join(cleared)}")
+        out("       如果 OEP/导入/资源落在这些节，请用 --no-clear 或手工保留后重跑。")
+    else:
+        out("[i] 没有清任何节（未命中壳节名/熵阈值，或都在受保护列表）。")
+    if entry_sec and entry_sec["name"] in cleared:
+        out("[ERR] 入口节被清除了！这是不允许的；请立即用 --no-clear 重跑。")
+        return 3
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# IAT 体检
+# ---------------------------------------------------------------------------
+def _is_ordinal(entry, pe32p):
+    return bool(entry & (1 << (63 if pe32p else 31)))
+
+
+def _classify_thunk(entry, pe):
+    if _is_ordinal(entry, pe.pe32p):
+        return "resolved"
+    # 在 dump/磁盘文件里，未解析项通常仍是 RVA（指向 hint/name）或落在镜像内的 VA
+    if 0 < entry < pe.size_of_image:
+        return "unresolved"
+    if pe.image_base <= entry < pe.image_base + max(pe.size_of_image, 1):
+        return "unresolved"
+    if entry == 0:
+        return "zero"
+    return "resolved"
+
+
+def cmd_iat(a):
+    pe = load_pe(a.dump)
+    layout = a.layout
+    if layout == "auto":
+        layout = detect_layout(pe)
+    if layout not in ("raw", "virtual"):
+        die(f"--layout 只能是 auto/raw/virtual，收到 {a.layout}")
+    if len(pe.data_dirs) <= 1:
+        die("没有导入目录（数据目录不足）")
+    imp = pe.data_dirs[1]
+    out(f"file   : {os.path.abspath(pe.path)}")
+    out(f"layout : {layout}  image_base=0x{pe.image_base:X}  SizeOfImage=0x{pe.size_of_image:X}")
+    if not imp["rva"]:
+        out("IMPORT : RVA=0（无导入目录）")
+        out("未解析 = 全部（没有可用的导入描述符）；请用 Scylla 人工补 IAT。")
+        if a.json:
+            out(json.dumps({"file": pe.path, "layout": layout, "modules": [],
+                            "resolved": 0, "unresolved": 0, "descriptors": 0,
+                            "note": "IMPORT RVA=0"}, ensure_ascii=False, indent=2))
+        return 0
+
+    off = pe.rva_to_off(imp["rva"], layout)
+    if off is None:
+        die(f"导入目录 RVA=0x{imp['rva']:X} 无法映射到文件偏移（layout={layout}）")
+
+    modules = []
+    total_res = total_unres = 0
+    desc_count = 0
+    for idx in range(512):
+        b = off + idx * 20
+        if b + 20 > len(pe.data):
+            break
+        oft, timestamp, forwarder, name_rva, ft = struct.unpack_from("<IIIII", pe.data, b)
+        if not any((oft, timestamp, forwarder, name_rva, ft)):
+            break
+        desc_count += 1
+        name = pe.cstr(name_rva, layout) if name_rva else None
+        if name is None:
+            name = f"<invalid name RVA=0x{name_rva:X}>"
+        # IAT 状态看 FirstThunk（内存 dump 里是已解析的绝对地址）；
+        # OriginalFirstThunk 只是 hint/name 表，永远像 RVA，不能拿来判断“未解析”。
+        thunk_rva = ft or oft
+        thunk_off = pe.rva_to_off(thunk_rva, layout) if thunk_rva else None
+        res = unres = 0
+        entries = []
+        if thunk_off is None:
+            modules.append({"name": name, "descriptor_rva": imp["rva"] + idx * 20,
+                            "thunks": 0, "resolved": 0, "unresolved": 0,
+                            "note": "thunk 数组无法映射"})
+            continue
+        step = 8 if pe.pe32p else 4
+        for j in range(4096):
+            p = thunk_off + j * step
+            if p + step > len(pe.data):
+                break
+            entry = struct.unpack_from("<Q" if pe.pe32p else "<I", pe.data, p)[0]
+            if entry == 0:
+                break
+            cls = _classify_thunk(entry, pe)
+            if cls == "resolved":
+                res += 1
+            else:
+                unres += 1
+                if len(entries) < 12:
+                    entries.append(f"0x{entry:X}")
+        total_res += res
+        total_unres += unres
+        modules.append({"name": name, "descriptor_rva": imp["rva"] + idx * 20,
+                        "thunks": res + unres, "resolved": res, "unresolved": unres,
+                        "unresolved_samples": entries})
+
+    out(f"IMPORT : RVA=0x{imp['rva']:X} size=0x{imp['size']:X} descriptors={desc_count}")
+    out("")
+    out("module                          thunks  resolved  unresolved  samples")
+    out("------------------------------  ------  --------  ----------  ------------------------------")
+    for m in modules:
+        out(f"{m['name'][:30]:<30}  {m['thunks']:>6}  {m['resolved']:>8}  "
+            f"{m['unresolved']:>10}  {', '.join(m.get('unresolved_samples', []))}")
+    out("")
+    out(f"合计：已解析={total_res}  未解析={total_unres}  描述符={desc_count}")
+    out("[i] 说明：resolved 只表示 thunk 不再指向镜像内 RVA；内存 dump 的绝对地址"
+        "在重建/跨机后可能失效，仍需 Scylla 验证或重解析。")
+    if layout == "raw" and total_res == 0 and total_unres > 0:
+        out("[i] 输入看起来是磁盘上的原始 PE（未加载）：IAT 尚未绑定，全部显示未解析是正常的。")
+        out("    要在 dump 后的内存镜像上跑 iat，才能判断 IAT 是否真的被壳保留/破坏。")
+    if total_unres:
+        out("[ACTION] 未解析 > 0：用 Scylla（x86/x64）自动搜索 + 手工补；")
+        out("         目标是 Scylla 里 unresolved = 0，然后重新 dump/rebuild 回归。")
+        out("         本脚本只报现状，不自动修 IAT（不假装成功）。")
+    else:
+        out("[OK] 未解析 = 0（按启发式分类）；仍需干净机器验证导入是否真能解析。")
+    if a.json:
+        out(json.dumps({"file": os.path.abspath(pe.path), "layout": layout,
+                        "import_rva": imp["rva"], "descriptors": desc_count,
+                        "modules": modules, "resolved": total_res,
+                        "unresolved": total_unres}, ensure_ascii=False, indent=2))
+    return 0 if total_unres == 0 else 2
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+def build_parser():
+    p = argparse.ArgumentParser(
+        prog="dump-restore.py",
+        description="脱壳工具链：pe-info / dump（外部 RPM）/ rebuild（展开节+清壳节）/ iat 体检",
+        epilog="示例：python Tool/scripts/dump-restore.py pe-info <target.exe>")
+    sub = p.add_subparsers(dest="cmd")
+
+    p1 = sub.add_parser("pe-info", help="看节表/镜像大小/入口/熵/数据目录")
+    p1.add_argument("pe", help="目标 PE 文件")
+    p1.add_argument("--json", action="store_true", help="输出 JSON")
+    p1.set_defaults(func=cmd_pe_info)
+
+    p2 = sub.add_parser("dump", help="用外部 ReadProcessMemory 按模块 dump（Windows）")
+    p2.add_argument("--pid", required=True, help="目标进程 PID")
+    p2.add_argument("--out", required=True, help="输出 dump 文件")
+    p2.add_argument("--module", help="模块名/路径（默认主模块；注入 DLL 用 version.dll 等）")
+    p2.add_argument("--size", help="覆盖 SizeOfImage，如 0x1A0000")
+    p2.add_argument("--strict", action="store_true", help="任一页读失败立即失败（默认填 0 并标记 partial）")
+    p2.add_argument("--debug-priv", action="store_true", help="尝试启用 SeDebugPrivilege")
+    p2.set_defaults(func=cmd_dump)
+
+    p3 = sub.add_parser("rebuild", help="展开节、修 raw 指针、清壳节")
+    p3.add_argument("--dump", required=True, help="输入 dump/PE")
+    p3.add_argument("--out", required=True, help="输出重建 PE")
+    p3.add_argument("--layout", default="auto", choices=["auto", "raw", "virtual"],
+                    help="输入布局：auto（默认）/raw（磁盘布局）/virtual（内存布局）")
+    p3.add_argument("--no-clear", action="store_true", help="不清任何壳节")
+    p3.add_argument("--clear-names", default="", help="额外要清的节名，逗号分隔")
+    p3.add_argument("--clear-entropy", action="store_true",
+                    help="同时按熵清节（默认只按已知壳节名；高熵可能是正常压缩数据）")
+    p3.add_argument("--entropy-threshold", type=float, default=7.2,
+                    help="--clear-entropy 的阈值（默认 7.2）")
+    p3.add_argument("--keep-image-size", action="store_true",
+                    help="SizeOfImage 不小于原值（默认按节重新计算）")
+    p3.set_defaults(func=cmd_rebuild)
+
+    p4 = sub.add_parser("iat", help="打印 IAT 已解析/未解析；未解析提示 Scylla")
+    p4.add_argument("--dump", required=True, help="输入 dump/PE")
+    p4.add_argument("--layout", default="auto", choices=["auto", "raw", "virtual"],
+                    help="输入布局：auto（默认）/raw/virtual")
+    p4.add_argument("--json", action="store_true", help="输出 JSON")
+    p4.set_defaults(func=cmd_iat)
+    return p
+
+
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not getattr(args, "cmd", None):
+        parser.print_help()
+        return 0
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        die("用户中断", 130)

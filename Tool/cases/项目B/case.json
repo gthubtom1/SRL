@@ -1,0 +1,48 @@
+{
+  "id": "项目B",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64",
+  "protection": [
+    "multi-process",
+    "background-service",
+    "winhttp-import",
+    "auto-updater"
+  ],
+  "authority": "server",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "v6.8.1/dist/winhttp.dll",
+      "sha256": ""
+    },
+    {
+      "path": "v6.8.1/src/winhttp_proxy.rs",
+      "sha256": ""
+    },
+    {
+      "path": "项目B-6.8.1_nx_main_manual_patch_points.txt",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "事件驱动架构中直接短路信号分发函数入口会让 Qt 信号 member_remove_ad_ok 断链；应下沉到分支条件跳转处 NOP，保证通知链路完整",
+    "只改前端 UI 无法抵抗 Service 守护进程回写：必须同时收敛 parse/serialize/is_valid_infos 三处并本地化端点",
+    "厂商重编译后跨编译单元平移量不同（UI/网络/广告层各异），必须分单元锚定，不能套用统一偏移",
+    "四大主程序均静态导入 winhttp.dll，可用单文件原生裸汇编桩实现零改名劫持；Updater 启动即 ExitProcess(0) 阻断静默覆盖"
+  ],
+  "tags": [
+    "多进程",
+    "winhttp.dll",
+    "代理DLL",
+    "Qt信号",
+    "自动更新"
+  ],
+  "refs": [
+    "README.md",
+    "项目B-6.8.1_nx_main_manual_patch_points.txt",
+    "v6.8.1/docs/v6.8.1_analysis_summary.md",
+    "v6.8.1/docs/v6.8.1_verification_checklist.md"
+  ],
+  "updated": "2026-10-21"
+}

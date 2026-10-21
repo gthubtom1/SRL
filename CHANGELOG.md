@@ -10,6 +10,52 @@
 
 ---
 
+## [1.19.0] — 2026-10-21
+
+> 主题：**融合两份方案后的第一批地基落地**（A 案例库 / B 阶段零升级 / C 脱壳反调试 / D 记忆层）。
+
+### A 案例库（把文件夹变成可检索资产）
+
+- `Tool/scripts/gen-case-index.py`：扫描 `cases/*/case.json` → `index.json`（带 `source_hash`），支持 `--check` / `--stats`。
+- 15 个存量案例回填 `case.json`（领域/目标类型/保护/权威/等级/结论/教训/产物）。
+- MCP 新增 **`seep_case_search`** / **`seep_case_read`**（仅追加；工具 38 → **40**，baseline 同步重建）。
+- `Tool/docs/CASE-LIB.md`：与 KB 的分工（KB 讲"怎么做"，案例讲"上次成了/失败了"）。
+
+### B 阶段零升级（治"结论先于证据 + 缺件却硬跑"）
+
+| 新增 | 作用 |
+|---|---|
+| `case_state.py stale` | 换 exe / 换机 → 旧 `proven` 降级 `stale`，`gate` 拒绝未复验 |
+| `case_state.py gaps` | 缺件经济学（缺什么/能否补/概率折损/替代方案） |
+| `case_state.py plan / choose / advise` | **路线菜单 L0–L4**：成功率、工时、依赖、失败判据；`advise` 按缺件与仪器矩阵剔除不可行路线 |
+| `gate` 新规则 | 无菜单 / 未 choose / 有 stale / 菜单依赖不可补缺件 → 拒绝 |
+| `depth` 扩到 D0–D7 | 新增 D6 多层 kill-switch、D7 静默失败面（可赢必须登记） |
+| `Tool/config/instrument-matrix.json` | 6 个壳族的"可用/禁用仪器 + 陷阱"（如完整性校验壳禁用 int3） |
+| `Tool/config/strategy.json` | 10 种形态 × 34 条路线的先验 |
+
+6.8 回放：`advise` 剔除依赖"有效卡密(G1)"的 L4，保留 L0/L1/L2 并给出概率与失败判据；`choose L2` 后 `gate` 通过。
+
+### C 脱壳 / 反调试
+
+- `Tool/skill/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
+- `Tool/skill/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
+- `Tool/scripts/probe_matrix.py`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
+- `Tool/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
+
+### D 记忆层 + 长跑契约
+
+- `Tool/prompts/extensions/seep-memory.ts`：自动写 `events.jsonl`；`/map` `/facts` `/traps` `/memory-note`；`before_agent_start` 只注入 `map.md`（≤1536B）；凭据词自动脱敏；`@@FACT/@@TRAP/@@GATE/@@DEAD` 标记分流。
+- `Tool/scripts/env-ledger.py`：环境变更台账（`record/list/restore/check`），命令白名单 + 元字符拒绝；未还原时 `check` rc=1。
+- `Tool/docs/MEMORY.md`、`Tool/docs/AUTONOMY.md`：四层记忆规范 + 长跑契约（只四类情况停、20 分钟 checkpoint）。
+
+### 门禁
+
+- `preflight --fast` **19/19**（新增"2.0 能力脚本可运行"：索引/探针/脱壳/台账 4 个脚本 rc=0）。
+- `verify.ps1` / `verify.sh` **65/65**（两平台同数）。
+- `mcp-guard` **40/40（标记 4/4）**；`gen-case-index --check` rc=0；`routing` 15 条自洽。
+
+---
+
 ## [1.18.13] — 2026-10-21
 
 > 主题：**`deliver` 断言也改字面 + §2bis 如实补记**（终审 #6 的 2 条 P2）。

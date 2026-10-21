@@ -1,0 +1,48 @@
+{
+  "id": "项目I",
+  "domain": "windows-license",
+  "target_type": "PE32+ x64 (DLL)",
+  "protection": [
+    "7zip-sfx",
+    "rsa",
+    "machine-binding",
+    "rollback-guard"
+  ],
+  "authority": "server",
+  "goal_level": "L3",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "src/SabPatchEngine.cs",
+      "sha256": ""
+    },
+    {
+      "path": "src/SabActivate.cs",
+      "sha256": ""
+    },
+    {
+      "path": "src/SabRollbackGuard.cs",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "LicenseHash = md5hex(key)，且仅当默认值 >0x1e 才写入；机器码由主板 SMART + word-swap 与 'RSMB' UUID 两路派生",
+    "Ghidra 会把同一 128B 输出缓冲切成 local_b8/local_98/local_78 等多个栈变量，必须按实际写入宽度合并理解",
+    "CNG RSAPUBLICBLOB 布局与 CryptoAPI RSA1 不同：RSA1|BitLength|cbPublicExp=3|cbModulus=128|cbPrime1=0|cbPrime2=0",
+    "防回退需验证 explorer 重启后模块重载与状态保持，并记录注册表 before/after diff"
+  ],
+  "tags": [
+    "RSA",
+    "机器码",
+    "CNG",
+    "防回退",
+    "CWE-602"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "docs/algorithm.md",
+    "src/SabRollbackGuard.cs"
+  ],
+  "updated": "2026-10-21"
+}

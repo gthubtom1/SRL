@@ -1,0 +1,713 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-21T09:23:36Z",
+  "source_hash": "dec9afab8b6f2c2e1ec4dd18338d0fc695b52d130429453b087d6ab661e88786",
+  "case_count": 15,
+  "cases": [
+    {
+      "dir": "案例-6.9换肤壳",
+      "id": "案例-6.9换肤壳",
+      "domain": "windows-shell",
+      "target_type": "PE32+ x64",
+      "protection": [
+        "packer",
+        "antidebug",
+        "page-guard",
+        "resource-payload"
+      ],
+      "authority": "local",
+      "goal_level": "L1",
+      "outcome": "partial",
+      "artifacts": [],
+      "lessons": [
+        "节区熵 >7 且存在 >1MB 非标节时禁止全量反编译（26MB 带壳样本实测 280s 超时被杀）",
+        "先问“改的是搬运工还是货物”：21MB 的 .rsrc/DATA102（XWGZSkins）才是皮肤包，不要在 .ace0 混淆壳层死磕",
+        "PAGE_GUARD 内存断点会触发目标自检崩溃；改用 Explorer 原生启动拉起窗口，再 MinHook",
+        "导入表零网络 API，无需卡密；资源内是 zstd 帧（28 b5 2f fd），可剥离后直接解压"
+      ],
+      "tags": [
+        "加壳",
+        "反调试",
+        "资源剥离",
+        "zstd",
+        "被否决方案"
+      ],
+      "refs": [
+        "README.md",
+        "docs/走查与思路沉淀.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目A",
+      "id": "项目A",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "v2/dist/version.dll",
+          "sha256": ""
+        },
+        {
+          "path": "v2/docs/授权旁路漏洞分析报告.md",
+          "sha256": ""
+        },
+        {
+          "path": "defense_hardening.c",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "宿主为 twinBASIC 运行时：在 DllMain 阶段或跨堆写 BSTR 会触发 0xC0000374；应在宿主初始化完成后用宿主 IAT 的 OLEAUT32!SysAllocString 分配，并限制重试次数",
+        "注册验证只做 xy01..xy05 四字符前缀弱比较并直接置 license_type，属典型 CWE-602 客户端裁决，无签名/无服务端权威",
+        "标题栏/关于框与底层授权状态是两条解耦的呈现链：只改 UI 会留下试用分支，真正的激活开关是 license_type 全局状态字",
+        "目标无壳、无网络 API、无完整性自检；防护加固规范（动态代码策略/加载目录白名单/函数入口巡检）只能作为厂商侧补强建议"
+      ],
+      "tags": [
+        "CWE-602",
+        "twinBASIC",
+        "BSTR",
+        "version.dll",
+        "授权状态字"
+      ],
+      "refs": [
+        "v2/README.md",
+        "v2/docs/授权旁路漏洞分析报告.md",
+        "v2/dist/手动验证指南.md",
+        "defense_hardening_spec.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目B",
+      "id": "项目B",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64",
+      "protection": [
+        "multi-process",
+        "background-service",
+        "winhttp-import",
+        "auto-updater"
+      ],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "v6.8.1/dist/winhttp.dll",
+          "sha256": ""
+        },
+        {
+          "path": "v6.8.1/src/winhttp_proxy.rs",
+          "sha256": ""
+        },
+        {
+          "path": "项目B-6.8.1_nx_main_manual_patch_points.txt",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "事件驱动架构中直接短路信号分发函数入口会让 Qt 信号 member_remove_ad_ok 断链；应下沉到分支条件跳转处 NOP，保证通知链路完整",
+        "只改前端 UI 无法抵抗 Service 守护进程回写：必须同时收敛 parse/serialize/is_valid_infos 三处并本地化端点",
+        "厂商重编译后跨编译单元平移量不同（UI/网络/广告层各异），必须分单元锚定，不能套用统一偏移",
+        "四大主程序均静态导入 winhttp.dll，可用单文件原生裸汇编桩实现零改名劫持；Updater 启动即 ExitProcess(0) 阻断静默覆盖"
+      ],
+      "tags": [
+        "多进程",
+        "winhttp.dll",
+        "代理DLL",
+        "Qt信号",
+        "自动更新"
+      ],
+      "refs": [
+        "README.md",
+        "项目B-6.8.1_nx_main_manual_patch_points.txt",
+        "v6.8.1/docs/v6.8.1_analysis_summary.md",
+        "v6.8.1/docs/v6.8.1_verification_checklist.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目C",
+      "id": "项目C",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64",
+      "protection": [
+        "authenticode",
+        "blowfish-registry",
+        "offline-license"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "poc/patch_binary.py",
+          "sha256": ""
+        },
+        {
+          "path": "poc/version.def",
+          "sha256": ""
+        },
+        {
+          "path": "runtime/config.ini",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "版本号存的是掩码变形值 T(v)=((2*(v&0xD5555555))|((v>>1)&0x55555555))：补丁要写 0x98/0x3D4/0x1B20，而不是 100/980/6944",
+        "显示层伪造应下沉到最后一跳的 SetDlgItemTextW，避免与模板引擎/STL 字符串 ABI 搏斗",
+        "控件类名必须运行时 GetClassNameW 实测（ID 名为 IDC_STATIC_LICENSE 实为 Edit），未命中分支必须打日志，否则失败被静默吞掉",
+        "zig-clang 会吞掉宽字符串字面量里的 \\r：改用 \\u000D\\u000A，并在运行时 NormalizeCrlf 兜底"
+      ],
+      "tags": [
+        "CWE-602",
+        "version.dll",
+        "SetDlgItemTextW",
+        "Blowfish",
+        "CRLF"
+      ],
+      "refs": [
+        "poc/RE_FINDINGS.md",
+        "poc/TASK_RETRO.md",
+        "poc/patch_binary.py"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目D",
+      "id": "项目D",
+      "domain": "windows-license",
+      "target_type": "PE32 x86",
+      "protection": [
+        "anti-tamper-threads",
+        "auto-updater"
+      ],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "项目D_Pro_Tool/src/Program.cs",
+          "sha256": ""
+        },
+        {
+          "path": "项目D_Pro_Tool/tests/PatchEngineTests.cs",
+          "sha256": ""
+        },
+        {
+          "path": "tools/03_gen_signatures.py",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "硬编码绝对偏移在重编译后全部失效（实测位移 -896~+64），必须使用多版本共同稳定区的双态 AOB 特征码",
+        "模糊匹配只能产生候选：数据段漂移会出现汉明距离仅 2 的假阳性，必须精确字节 + 反汇编双重确认",
+        "客户端特权态天然易失：官方更新器会静默覆盖补丁，需切断更新定时器并让引擎 fail-closed",
+        "注册表策略面会被官方针对性封堵（删 Serial 恰好命中 11.3 新增弹框分支）；应优先在二进制判定面打桩"
+      ],
+      "tags": [
+        "AOB",
+        "跨版本迁移",
+        "反篡改",
+        "CWE-602",
+        "更新器"
+      ],
+      "refs": [
+        "README.md",
+        "docs/reverse-engineering.md",
+        "docs/algorithm.md",
+        "项目D_Pro_Tool/README.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目E",
+      "id": "项目E",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64",
+      "protection": [
+        "execryptor",
+        "online-activation",
+        "ipc-helper",
+        "clock-rollback"
+      ],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/Patcher.cs",
+          "sha256": ""
+        },
+        {
+          "path": "src/LicenseWriter.cs",
+          "sha256": ""
+        },
+        {
+          "path": "auto_activate.ps1",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "授权验签在 Helper 的 EXECryptor VM 中，无 keygen 路径；主程序只消费 VerifySerialNumberW 返回的 JSON，补丁应打在结果消费侧",
+        "主程序依赖 Helper，patch 副本必须与 Helper 同目录运行，否则启动即 TerminateProcess",
+        "注册表 RN/RC 会在读取后被回写，补丁需同时处理内存授权状态与注册表写入",
+        "试用戳 RF/RL 为 XOR 编码，时钟回拨检测在注册后不生效；但授权仍以 Helper 在线核验为准"
+      ],
+      "tags": [
+        "EXECryptor",
+        "在线激活",
+        "Helper",
+        "CWE-602",
+        "注册表"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/algorithm.md",
+        "src/Patcher.cs"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目F",
+      "id": "项目F",
+      "domain": "dotnet-license",
+      "target_type": "PE32 (.NET) x86",
+      "protection": [
+        ".net-obfuscator",
+        "method-body-encryption",
+        "string-encryption",
+        "control-flow-obfuscation"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/LicenseAlgo.cs",
+          "sha256": ""
+        },
+        {
+          "path": "src/项目FActivate.cs",
+          "sha256": ""
+        },
+        {
+          "path": "docs/algorithm.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "定制 .NET 混淆器把方法体剥离到嵌入资源，静态只见 stub：必须动态解壳并 Hook DynamicILInfo.GetTokenFor 建立 token 到成员的映射",
+        "同源 Generate/Verify 互验会掩盖移植错误，必须用独立实现逐字符对照（曾暴露 C# 96 位整数拼接错误）",
+        "v7 把加密面从全量缩到 5 个方法但校验算法未变，v6 keygen 可零适配复用",
+        "还原算法后用反射调用安装版 CheckLicense 返回 True 做真机验收，而不是只信自测"
+      ],
+      "tags": [
+        "keygen",
+        ".NET",
+        "DynamicILInfo",
+        "Harmony",
+        "CWE-602"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/algorithm.md",
+        "src/LicenseAlgo.cs"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目G",
+      "id": "项目G",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64 (Qt)",
+      "protection": [
+        "online-activation",
+        "server-signature",
+        "aes-grace-token",
+        "ini-license"
+      ],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/项目G_activate.py",
+          "sha256": ""
+        },
+        {
+          "path": "src/项目G_gui.py",
+          "sha256": ""
+        },
+        {
+          "path": "tools/test_activate.py",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "服务端签发的 payload 自引用校验（sha384(payload)==key_hash）导致 keygen 离线不可行，只能补本地判定",
+        "27MB Qt 二进制放弃 Ghidra 全量分析：PE 节表->字符串 VA->LEA rip 引用点->局部分片反汇编，秒级定位",
+        "本地判定点单一且无自校验，补丁重启持久；升级覆盖可由登录守卫自动修复",
+        "V2 响应签名 sig=sha1(TEMPLATE+payload[32:]) 与 AES-CBC grace token 都必须按真实结构解析，不能猜字段"
+      ],
+      "tags": [
+        "Qt",
+        "在线激活",
+        "签名校验",
+        "AOB",
+        "补丁"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/algorithm.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目H",
+      "id": "项目H",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64 (Qt)",
+      "protection": [
+        "ed25519",
+        "offline-activation",
+        "antidebug",
+        "qt"
+      ],
+      "authority": "server",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "src/keygen/algo.py",
+          "sha256": ""
+        },
+        {
+          "path": "src/keygen/cli.py",
+          "sha256": ""
+        },
+        {
+          "path": "tools/test_keygen.py",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "Qt6 的 QByteArray/QString 不是简单指针：data 在 +8、size 在 +16，Frida 读取前必须先确认布局",
+        "离线激活码 = XOR->gunzip->XOR + Ed25519 验签；替换内嵌公钥（RVA 0x249FA0）后可用自签 keygen 通过",
+        "该版本离线激活状态只在内存、不落盘，重启回免费版；持久化需另打启动 patch 且可能回退对话框",
+        "反调试 CheckRemoteDebuggerPresent 会切换 XOR 路径，必须无调试器复现"
+      ],
+      "tags": [
+        "Ed25519",
+        "离线激活",
+        "Qt6",
+        "Frida",
+        "公钥替换"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/algorithm.md",
+        "src/keygen/algo.py"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目I",
+      "id": "项目I",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64 (DLL)",
+      "protection": [
+        "7zip-sfx",
+        "rsa",
+        "machine-binding",
+        "rollback-guard"
+      ],
+      "authority": "server",
+      "goal_level": "L3",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/SabPatchEngine.cs",
+          "sha256": ""
+        },
+        {
+          "path": "src/SabActivate.cs",
+          "sha256": ""
+        },
+        {
+          "path": "src/SabRollbackGuard.cs",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "LicenseHash = md5hex(key)，且仅当默认值 >0x1e 才写入；机器码由主板 SMART + word-swap 与 'RSMB' UUID 两路派生",
+        "Ghidra 会把同一 128B 输出缓冲切成 local_b8/local_98/local_78 等多个栈变量，必须按实际写入宽度合并理解",
+        "CNG RSAPUBLICBLOB 布局与 CryptoAPI RSA1 不同：RSA1|BitLength|cbPublicExp=3|cbModulus=128|cbPrime1=0|cbPrime2=0",
+        "防回退需验证 explorer 重启后模块重载与状态保持，并记录注册表 before/after diff"
+      ],
+      "tags": [
+        "RSA",
+        "机器码",
+        "CNG",
+        "防回退",
+        "CWE-602"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/algorithm.md",
+        "src/SabRollbackGuard.cs"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目J",
+      "id": "项目J",
+      "domain": "windows-license",
+      "target_type": "PE32 x86 (EPL)",
+      "protection": [
+        "packer",
+        "code-encryption",
+        "online-cardkey",
+        "rwx-section",
+        "no-aslr"
+      ],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/apply_patch.py",
+          "sha256": ""
+        },
+        {
+          "path": "src/poc_frida_bypass.js",
+          "sha256": ""
+        },
+        {
+          "path": "docs/protocol-and-patch.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "判据：无 ASLR（DllCharacteristics 未置 DYNAMIC_BASE）且目标段 RWX/可提权时，可免脱壳用 WriteProcessMemory 运行期改内存",
+        ".ev3n 段 rawsize=0，磁盘上不存在可改指令；补丁仅运行期有效，进程退出即失效",
+        "Hook ws2_32!recv 并读取 returnAddress，可一次把调用链钉在业务函数，比全量反汇编快一个数量级",
+        "本地裁决点是 cmp [ebp-4],0 / je 失败分支；置全局已授权标志后仍有心跳二次复检，必须一并处理"
+      ],
+      "tags": [
+        "易语言",
+        "全量加密壳",
+        "在线卡密",
+        "运行期补丁",
+        "RWX"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/protocol-and-patch.md",
+        "src/apply_patch.py"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目K",
+      "id": "项目K",
+      "domain": "dotnet-license",
+      "target_type": "PE32+ x64 (.NET/WPF)",
+      "protection": [
+        "themida",
+        "method-body-virtualization",
+        "string-encryption",
+        "embedded-assembly"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/ProjectKUnlock.cs",
+          "sha256": ""
+        },
+        {
+          "path": "src/install.ps1",
+          "sha256": ""
+        },
+        {
+          "path": "src/uninstall.ps1",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "Themida 已 Hook clrjit!ICorJitCompiler::compileMethod vtable；在其之上再挂一层可截获 9632 个方法的真实 IL",
+        "授权载荷 AES-128-CBC 的 Key/IV 完全由本地机器码切片派生，且无签名/无 MAC，双存储写入即可伪造永久授权",
+        "只伪造授权只能活 1-2 分钟：启动约 15s 后云控复验失败会改写 Invalid 并 Environment.Exit(0)，需选择性代理 + 秒级看门狗",
+        "AppDomainManager 是 CLR 级引导变量，会污染之后启动的所有 .NET 进程；必须提供卸载/还原脚本"
+      ],
+      "tags": [
+        "Themida",
+        "JIT Hook",
+        "云控剥离",
+        "AppDomainManager",
+        "AES"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "src/ProjectKUnlock.cs"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目L",
+      "id": "项目L",
+      "domain": "windows-license",
+      "target_type": "PE32+ x64 (Qt5)",
+      "protection": [
+        "dll-proxy-surface",
+        "offline-license",
+        "cloud-config"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/项目L_hook.c",
+          "sha256": ""
+        },
+        {
+          "path": "src/项目L_bridge.c",
+          "sha256": ""
+        },
+        {
+          "path": "src/proxy.def",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "目标 IAT 从 项目L_Auth.dll 导入 282 个符号；改名原库 + 同名代理库是零改动官方字节的最小侵入路线",
+        "全部 PRO/VIP 特权是本地布尔/枚举函数，无签名绑定、无服务端权威闭环（CWE-602）",
+        "代理库内可同时做内存补丁、内嵌本地翻译网关与云控更新剥离，单文件可移植",
+        "官方原库与 EXE 的磁盘 SHA256 可保持不变，验证时应以哈希对照证明零篡改"
+      ],
+      "tags": [
+        "DLL代理",
+        "Qt5",
+        "CWE-602",
+        "翻译网关",
+        "云控"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "src/proxy.def"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目M",
+      "id": "项目M",
+      "domain": "java-license",
+      "target_type": "Java JAR (install4j, x64 JVM)",
+      "protection": [
+        "install4j-launcher",
+        "class-obfuscation",
+        "rsa-license",
+        "reflection-dispatch"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "src/BurpLoaderAgent.jar",
+          "sha256": ""
+        },
+        {
+          "path": "src/hijack/version.dll",
+          "sha256": ""
+        },
+        {
+          "path": "src/hijack/version.rs",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "VERSION.dll 不在 KnownDLLs：可在应用目录劫持并在 DllMain 改写主模块 IAT 槽位 #27 (GetProcAddress)，拦截 JNI_CreateJavaVM 注入 -javaagent",
+        "验签入口 burp.Zfqu.ZL 空实现 + 状态机 burp.Zwxg.Zu 恒返回已授权 Zyeo，即可绕过弹窗并全量解锁 Professional",
+        "JDK 26 的 java.lang.classfile 可零第三方依赖完成运行时字节码改写，原 JAR 零字节修改",
+        "客户端无 JAR 哈希自检、无 javaagent 检测，是主要防御缺口；加固应优先补这两项"
+      ],
+      "tags": [
+        "CWE-602",
+        "javaagent",
+        "DLL劫持",
+        "JNI",
+        "字节码插桩"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/dll-hijack-and-agent.md",
+        "src/BurpLoaderAgent.java"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "项目N",
+      "id": "项目N",
+      "domain": "dotnet-license",
+      "target_type": "PE32 (.NET/WPF)",
+      "protection": [
+        "eazfuscator",
+        "assembly-encryption",
+        "code-virtualization",
+        "string-encryption",
+        "antidebug"
+      ],
+      "authority": "server",
+      "goal_level": "L4",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "tools/bx_patch.py",
+          "sha256": ""
+        },
+        {
+          "path": "docs/protection-layers.md",
+          "sha256": ""
+        }
+      ],
+      "lessons": [
+        "Eazfuscator 程序集代码加密的密钥由其它节区内容哈希派生，同时构成反篡改：改动兄弟节区会导致目标节区解不开",
+        "字符串解密不必静态还原：反射加载原程序集并逐 id 调用客户端自身 Decrypt(int) 可 100% 转储；每个样本必须用独立进程，避免 Assembly.LoadFrom 复用实例",
+        "VM 三层（RSA-2048 封装 / 位置相关流 XOR / Ascii85 方法令牌）可分离还原，722,260 字节字节码可转明文",
+        "授权装载状态机把 null/空串/\"null\" 当“无需校验”（Fail-Open），但不足以点亮 PRO 徽章；71 个特权开关以明文布尔存 HKCU，可写即可改"
+      ],
+      "tags": [
+        "Eazfuscator",
+        "代码虚拟化",
+        "Fail-Open",
+        "CWE-602",
+        "HKCU"
+      ],
+      "refs": [
+        "README.txt",
+        "docs/reverse-engineering.md",
+        "docs/protection-layers.md",
+        "tools/bx_patch.py"
+      ],
+      "updated": "2026-10-21"
+    }
+  ]
+}

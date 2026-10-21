@@ -1,5 +1,5 @@
 {
-  "count": 38,
+  "count": 40,
   "tools": [
     "seep_apk_decompile",
     "seep_apk_gen_hook",
@@ -7,6 +7,8 @@
     "seep_apk_smali_search",
     "seep_apk_unpack",
     "seep_auto_triage",
+    "seep_case_read",
+    "seep_case_search",
     "seep_create_skill",
     "seep_decompile_auto",
     "seep_ensure_tool",

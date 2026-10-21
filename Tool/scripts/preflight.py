@@ -427,6 +427,27 @@ def check_newtools():
             note4 = str(e)[:120]
     add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
+    # ⑤ 2.0 新增能力脚本：必须"能在干净 checkout 里跑"（只查 --help / --check，不重跑重活）
+    extra = [("案例索引", "gen-case-index.py", ["--check"]),
+             ("探针矩阵", "probe_matrix.py", ["--help"]),
+             ("脱壳流水线", "dump-restore.py", ["--help"]),
+             ("环境台账", "env-ledger.py", ["--help"])]
+    bad5 = []
+    for label, fn, args in extra:
+        fp = os.path.join(TOOL, "scripts", fn)
+        if not os.path.isfile(fp):
+            bad5.append(label + "(缺文件)")
+            continue
+        try:
+            r = subprocess.run([py, fp] + args, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=90)
+            if r.returncode != 0:
+                bad5.append("%s(rc=%d)" % (label, r.returncode))
+        except Exception as e:
+            bad5.append(label + "(" + str(e)[:30] + ")")
+    add("7 新脚本", "2.0 能力脚本可运行（索引/探针/脱壳/台账）", not bad5,
+        "；".join(bad5) if bad5 else "4 个脚本均 rc=0")
+
 
 def check_persona_gate():
     """人设卡不得改写授权门：每张卡必须带 §六 指针或 Carve-out 条款。

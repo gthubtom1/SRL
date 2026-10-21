@@ -2663,6 +2663,302 @@ def seep_create_skill(skill_name: str, description: str = "", title: str = "") -
         return f"[ERROR]: 执行异常: {type(exc).__name__}: {exc}"
 
 
+# === SEEP-EXT: case-lib BEGIN ===
+# 案例库检索：Tool/cases/*/case.json（结构约定见 Tool/docs/CASE-LIB.md）。
+# 只读、无副作用；索引缺失或 source_hash 过期时自动退回实时扫描。
+_CASE_FIELD_WEIGHTS = (
+    ("id", 10),
+    ("tags", 6),
+    ("lessons", 4),
+    ("domain", 3),
+    ("protection", 3),
+    ("target_type", 2),
+    ("authority", 1),
+    ("outcome", 1),
+    ("refs", 1),
+)
+
+
+def _case_lib_dir() -> str:
+    """案例库根目录（仓库根/Tool/cases，不使用 SEEP_WORKSPACE 覆盖）。"""
+    repo_root = os.path.dirname(os.path.dirname(BASE_DIR))  # Tool/mcp -> Tool -> 仓库根
+    return os.path.join(repo_root, "Tool", "cases")
+
+
+def _case_files() -> list:
+    """返回 [(目录名, case.json 绝对路径)]，按目录名排序。"""
+    root = _case_lib_dir()
+    found = []
+    if not os.path.isdir(root):
+        return found
+    for name in sorted(os.listdir(root)):
+        path = os.path.join(root, name)
+        if not os.path.isdir(path) or name.startswith(".") or name == "__pycache__":
+            continue
+        case_path = os.path.join(path, "case.json")
+        if os.path.isfile(case_path):
+            found.append((name, case_path))
+    return found
+
+
+def _case_source_hash(pairs) -> str:
+    """与 gen-case-index.py 一致：相对路径 + 原始字节，按目录名排序后 SHA-256。"""
+    import hashlib
+    digest = hashlib.sha256()
+    for dirname, path in pairs:
+        rel = "Tool/cases/%s/case.json" % dirname
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\x00")
+        digest.update(raw)
+        digest.update(b"\x00")
+    return digest.hexdigest()
+
+
+def _case_normalize(raw, dirname):
+    """把 case.json 归一成稳定结构；坏字段退回安全默认值。"""
+    if not isinstance(raw, dict):
+        raw = {}
+    entry = {"dir": dirname}
+    for field, default in (
+        ("id", ""), ("domain", ""), ("target_type", ""),
+        ("protection", []), ("authority", ""), ("goal_level", ""),
+        ("outcome", ""), ("artifacts", []), ("lessons", []),
+        ("tags", []), ("refs", []), ("updated", ""),
+    ):
+        value = raw.get(field, default)
+        if isinstance(default, list):
+            if not isinstance(value, list):
+                value = []
+            elif field == "artifacts":
+                value = [x for x in value if isinstance(x, dict)]
+            else:
+                value = [x for x in value if isinstance(x, str)]
+        elif not isinstance(value, str):
+            value = ""
+        entry[field] = value
+    if not entry["id"]:
+        entry["id"] = dirname
+    return entry
+
+
+def _case_load(prefer_index: bool = True):
+    """载入案例：索引新鲜则用索引，否则实时扫描。返回 (cases, source)。"""
+    pairs = _case_files()
+    if not pairs:
+        return [], "empty"
+    current_hash = _case_source_hash(pairs)
+    root = _case_lib_dir()
+    index_path = os.path.join(root, "index.json")
+    if prefer_index and os.path.isfile(index_path):
+        try:
+            with open(index_path, "r", encoding="utf-8", errors="replace") as fh:
+                index = json.load(fh)
+            cases = index.get("cases") if isinstance(index, dict) else None
+            if isinstance(cases, list) and index.get("source_hash") == current_hash:
+                normalized = [c for c in cases if isinstance(c, dict) and c.get("dir")]
+                if normalized:
+                    return normalized, "index"
+        except Exception:
+            pass
+    cases = []
+    for dirname, path in pairs:
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                raw = json.load(fh)
+        except Exception:
+            raw = {}
+        cases.append(_case_normalize(raw, dirname))
+    return cases, "scan"
+
+
+def _case_tokens(query: str) -> list:
+    parts = re.split(r"[\s,;/|、，。；：!?()（）\[\]【】]+", (query or "").strip())
+    return [p.lower() for p in (x.strip() for x in parts) if p][:8]
+
+
+def _case_text(entry, field: str) -> str:
+    value = entry.get(field, "")
+    if isinstance(value, list):
+        return "\n".join(str(x) for x in value)
+    return str(value or "")
+
+
+@server.tool()
+def seep_case_search(
+    query: str = "",
+    domain: str = "",
+    protection: str = "",
+    level: str = "",
+    outcome: str = "",
+    limit: int = 10,
+) -> str:
+    """在本地案例库（Tool/cases/*/case.json）中检索历史案例，返回 JSON 列表。
+
+    优先使用 Tool/cases/index.json；索引缺失或 source_hash 过期时自动实时扫描。
+    按 query 对 id/tags/lessons/domain/protection 等字段做加权子串打分，
+    domain/level/outcome 为精确过滤（大小写不敏感），protection 为子串过滤。
+
+    Args:
+        query: 检索关键词，空格分隔多 token（中英均可）；空串表示只按过滤器枚举
+        domain: 领域过滤，如 windows-license / dotnet-license / java-license / windows-shell
+        protection: 保护层子串过滤，如 themida / ed25519 / vm / antidebug
+        level: 目标等级过滤，L1 / L2 / L3 / L4
+        outcome: 结论过滤，success / partial / blocked
+        limit: 最大返回条数，默认 10（钳制在 1..100）
+    """
+    try:
+        cases, _source = _case_load(prefer_index=True)
+        try:
+            max_items = int(limit if limit is not None else 10)
+        except Exception:
+            max_items = 10
+        max_items = max(1, min(max_items, 100))
+
+        tokens = _case_tokens(query)
+        domain_l = (domain or "").strip().lower()
+        protection_l = (protection or "").strip().lower()
+        level_l = (level or "").strip().upper()
+        outcome_l = (outcome or "").strip().lower()
+
+        results = []
+        for entry in cases:
+            if domain_l and domain_l not in str(entry.get("domain", "")).lower():
+                continue
+            if level_l and level_l != str(entry.get("goal_level", "")).upper():
+                continue
+            if outcome_l and outcome_l != str(entry.get("outcome", "")).lower():
+                continue
+            if protection_l and protection_l not in _case_text(entry, "protection").lower():
+                continue
+
+            score = 0
+            if tokens:
+                for field, weight in _CASE_FIELD_WEIGHTS:
+                    hay = _case_text(entry, field).lower()
+                    if not hay:
+                        continue
+                    for token in tokens:
+                        if token in hay:
+                            score += weight
+                # 完整查询命中 id/tags 额外加权，避免多 token 被单字段稀释
+                whole = (query or "").strip().lower()
+                if whole and whole in str(entry.get("id", "")).lower():
+                    score += 10
+                elif whole and whole in _case_text(entry, "tags").lower():
+                    score += 5
+                if score <= 0:
+                    continue  # 有关键词但零命中：不把噪声塞进结果
+
+            lessons = entry.get("lessons") or []
+            lead = str(lessons[0]) if lessons else ""
+            summary = "%s · %s · %s · %s · %s" % (
+                entry.get("id", entry.get("dir", "")),
+                entry.get("domain", "") or "(domain未填)",
+                entry.get("goal_level", "") or "(level未填)",
+                entry.get("outcome", "") or "(outcome未填)",
+                entry.get("target_type", "") or "(target未填)",
+            )
+            if lead:
+                summary += " — " + lead[:160]
+            results.append({
+                "id": entry.get("id", entry.get("dir", "")),
+                "score": score,
+                "summary": summary,
+                "path": "Tool/cases/%s/case.json" % entry.get("dir", ""),
+            })
+
+        results.sort(key=lambda x: (-x["score"], x["id"]))
+        return json.dumps(results[:max_items], indent=2, ensure_ascii=False)
+    except Exception as exc:
+        return "[ERROR]: 案例检索失败: %s: %s" % (type(exc).__name__, exc)
+
+
+@server.tool()
+def seep_case_read(case_id: str) -> str:
+    """读取单个案例的完整上下文：case.json 全文 + facts.jsonl 前 20 行 + README 前 80 行。
+
+    Args:
+        case_id: 案例标识，可用 case.json 的 id 或目录名（如 "项目K" / "案例-6.9换肤壳"），
+                  可通过 seep_case_search 获得
+    """
+    try:
+        key = (case_id or "").strip()
+        if not key:
+            return "[ERROR]: case_id 不能为空"
+        cases, _source = _case_load(prefer_index=False)
+        target = None
+        for entry in cases:
+            if key == str(entry.get("id", "")) or key == str(entry.get("dir", "")):
+                target = entry
+                break
+        if target is None:
+            for entry in cases:
+                if key.lower() in (str(entry.get("id", "")).lower(), str(entry.get("dir", "")).lower()):
+                    target = entry
+                    break
+        if target is None:
+            available = "、".join(str(c.get("id", c.get("dir", ""))) for c in cases[:20])
+            return "[ERROR]: Case not found: %s（可用案例：%s；可先用 seep_case_search 检索）" % (key, available or "无")
+
+        case_dir = os.path.join(_case_lib_dir(), target.get("dir", ""))
+        case_path = os.path.join(case_dir, "case.json")
+        parts = []
+        if os.path.isfile(case_path):
+            with open(case_path, "r", encoding="utf-8", errors="replace") as fh:
+                parts.append("[case.json]\n" + fh.read().strip())
+        else:
+            parts.append("[case.json]\n(缺失，以下为内存归一化结果)\n" + json.dumps(target, indent=2, ensure_ascii=False))
+
+        facts_path = os.path.join(case_dir, "facts.jsonl")
+        if os.path.isfile(facts_path):
+            lines = []
+            try:
+                with open(facts_path, "r", encoding="utf-8", errors="replace") as fh:
+                    for idx, line in enumerate(fh):
+                        if idx >= 20:
+                            break
+                        line = line.rstrip("\r\n")
+                        if line.strip():
+                            lines.append(line)
+            except Exception as exc:
+                lines.append("(读取失败: %s)" % exc)
+            parts.append("[facts.jsonl 前20行]\n" + ("\n".join(lines) if lines else "(空)"))
+        else:
+            parts.append("[facts.jsonl 前20行]\n(未提供 facts.jsonl)")
+
+        readme_path = ""
+        readme_label = "[README 前80行]"
+        for candidate in ("README.md", "README.txt"):
+            p = os.path.join(case_dir, candidate)
+            if os.path.isfile(p):
+                readme_path = p
+                break
+        if not readme_path:
+            # 有些案例把总览放在 docs/ 或 v2/README.md：按 refs 顺序回退到第一篇文档
+            for ref in (target.get("refs") or []):
+                p = os.path.join(case_dir, str(ref).replace("/", os.sep))
+                if os.path.isfile(p) and str(ref).lower().endswith((".md", ".txt")):
+                    readme_path = p
+                    readme_label = "%s (回退 refs: %s)" % (readme_label, ref)
+                    break
+        if readme_path:
+            try:
+                with open(readme_path, "r", encoding="utf-8", errors="replace") as fh:
+                    lines = fh.read().splitlines()[:80]
+                parts.append(readme_label + "\n" + "\n".join(lines))
+            except Exception as exc:
+                parts.append(readme_label + "\n(读取失败: %s)" % exc)
+        else:
+            parts.append("[README 前80行]\n(未提供 README.md / README.txt，refs 中也没有可读文档)")
+
+        return "\n\n".join(parts)
+    except Exception as exc:
+        return "[ERROR]: 案例读取失败: %s: %s" % (type(exc).__name__, exc)
+# === SEEP-EXT: case-lib END ===
+
+
 # ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------

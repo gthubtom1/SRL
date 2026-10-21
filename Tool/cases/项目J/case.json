@@ -1,0 +1,49 @@
+{
+  "id": "项目J",
+  "domain": "windows-license",
+  "target_type": "PE32 x86 (EPL)",
+  "protection": [
+    "packer",
+    "code-encryption",
+    "online-cardkey",
+    "rwx-section",
+    "no-aslr"
+  ],
+  "authority": "server",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "src/apply_patch.py",
+      "sha256": ""
+    },
+    {
+      "path": "src/poc_frida_bypass.js",
+      "sha256": ""
+    },
+    {
+      "path": "docs/protocol-and-patch.md",
+      "sha256": ""
+    }
+  ],
+  "lessons": [
+    "判据：无 ASLR（DllCharacteristics 未置 DYNAMIC_BASE）且目标段 RWX/可提权时，可免脱壳用 WriteProcessMemory 运行期改内存",
+    ".ev3n 段 rawsize=0，磁盘上不存在可改指令；补丁仅运行期有效，进程退出即失效",
+    "Hook ws2_32!recv 并读取 returnAddress，可一次把调用链钉在业务函数，比全量反汇编快一个数量级",
+    "本地裁决点是 cmp [ebp-4],0 / je 失败分支；置全局已授权标志后仍有心跳二次复检，必须一并处理"
+  ],
+  "tags": [
+    "易语言",
+    "全量加密壳",
+    "在线卡密",
+    "运行期补丁",
+    "RWX"
+  ],
+  "refs": [
+    "README.txt",
+    "docs/reverse-engineering.md",
+    "docs/protocol-and-patch.md",
+    "src/apply_patch.py"
+  ],
+  "updated": "2026-10-21"
+}
