@@ -64,6 +64,57 @@ ERROR --close()--> CLOSED                                 [INFERRED]
 
 判据：给定一条**新**消息序列，能预测下一个合法状态；非法迁移要有实际拒绝证据。
 
+## 3.1 自动推断 + 边覆盖率
+
+手工推边漏得快，让模型"看图说边"又容易编。两条路要分开记来源：
+
+| 传统（可机检） | 自动 / LLM 辅助（须复核） |
+|---|---|
+| 报文聚类：同长度/同前缀/同间隔聚成消息族 | LLM 读帧序列，直接给"状态名 + 迁移"候选 |
+| 字段边界：偏移/长度/端序拟合（见 `05-binary-framing.md`） | LLM 给字段语义与长度猜测 |
+| 请求-响应配对：`request_id`/`seq`/反向下一条 | LLM 给配对关系与"是否必需前置" |
+| 边的依据是 `frames.jsonl` 里的实帧号 | 边的依据是先验知识，**没有帧号** |
+
+自动方法的"评估方式"照抄这三条即可落地：
+
+- **RFCLLM**（arXiv 2609.13389，2026-09）：把协议理解写成判别式任务打分——给定报文预测
+  下一条消息/下一个状态是否成立，而非让模型自由生成散文。
+- **PSMBENCH**（NeurIPS'25 / 2026）：协议逆向基准集，逐边计 exact-match 与迁移准确率。
+- **USENIX Security 2026 对抗式 LLM 生成格式规范**：攻击方 LLM 生成候选格式规范、解析方按规范
+  解析，以"解析成功率是否提升"判定规范真假——本质是把 LLM 输出当**假设**，再用解析器证伪。
+
+硬规则（违反即降档，不是措辞问题）：
+
+- LLM 只能产出**候选边**：每条带 `"source":"llm"`，报告里标 `inferred`。
+- **未观测边不得画成实线**：图上用虚线/`INFERRED`，报告里单列，不混进观测边计数。
+- 边覆盖率 `edge_coverage = observed_edges / inferred_edges`（推断边 = 候选边全集）；
+  **<60% 不得声称状态机成立**，只能写"部分建模，覆盖率 X%"。
+- `llm_unverified` 单独计数：LLM 给的边在拿到真实帧号前，永远只是未验证。
+
+机检（纯标准库，不用 tshark）：
+
+```bash
+python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
+  --state-model artifacts/edges.json --json
+# -> observed_edges / inferred_edges / edge_coverage / unobserved[] / llm_unverified[] / verdict
+```
+
+输入形状：`{"illegal_transition_proof":"...","edges":[{"from","to","evidence_frame"}]}`。
+`evidence_frame` 为 `null`/`0` 即"未观测"；形状错误或文件缺失一律 rc=2（`ok:false`）。
+
+判据字段（缺一整列不得写"状态机成立"）：
+
+| 字段 | 含义 | 成立线 |
+|---|---|---|
+| `observed_edges` | 有实测帧号的边数 | ≥1 条覆盖认证/订阅等关键迁移 |
+| `inferred_edges` | 候选边全集（含 LLM 推断） | 与观测边分列报数，不得合并 |
+| `edge_coverage` | 观测 / 推断 | **≥0.60** |
+| `llm_unverified` | LLM 给出但无帧号的边 | 必须为 0 才可写"已确认"，否则降"疑似" |
+| `illegal_transition_proof` | 非法迁移被拒的证据（帧号 + 行为） | 非空，负例见 §5 |
+
+出处：RFCLLM（arXiv 2609.13389，2026-09）、PSMBENCH（NeurIPS'25 / 2026）、
+USENIX Security 2026 对抗式 LLM 生成格式规范。LLM 只负责提假设，证伪永远靠帧。
+
 ## 4. 认证与会话材料
 
 | 材料 | 观察点 | 重放陷阱 |

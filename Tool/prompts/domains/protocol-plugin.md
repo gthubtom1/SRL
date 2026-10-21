@@ -8,8 +8,8 @@
 ### 01 tshark 首轮分诊（源：performing-network-traffic-analysis-with-tshark）
 - 触发词：`tshark`、抓包分析、conv,tcp、io,phs、首轮分诊
 - 前置：pcap 在手；知道抓包点与是否 TLS；`tshark -v` 可用（缺失则用 pcap-summary.py 降级）
-- 步骤：1) `tshark -r x.pcapng -q -z io,phs` 看协议分层 2) `-q -z conv,tcp` 列会话与方向 3) 对主线流 `-Y 'tcp.stream==N && tcp.len>0' -T fields -e tcp.payload` 取字节
-- 判据：能说出"主协议层 + 会话数 + 每个方向字节数"；`conv,tcp` 的帧数总和等于 `io,phs` 的 frame 数
+- 步骤：1) `tshark -r x.pcapng -q -z io,phs` 看协议分层 2) `-q -z conv,tcp` 列会话与方向 3) 对主线流 `-Y 'tcp.stream==N && tcp.len>0' -T fields -e tcp.payload` 取字节 4) 首轮只建**边集骨架** `edges.json`（`from/to/evidence_frame`，无帧号的边留 `null`），跑 `pcap-summary.py --state-model edges.json --json`
+- 判据：能说出"主协议层 + 会话数 + 每个方向字节数"；`conv,tcp` 的帧数总和等于 `io,phs` 的 frame 数；首轮 `edge_coverage` 写进报告（骨架阶段通常 <0.6，只作基线，不作结论）
 - 失败判据：只有 `data`/`tls` 层且无 keylog → 停，转进程内明文；不要靠加过滤器硬凑
 - reference：Tool/skill/protocol-plugin/references/04-walkthrough-websocket-replay.md
 
@@ -32,8 +32,8 @@
 ### 04 DNS 查询/响应配对与字段表（源：performing-dns-enumeration-and-zone-transfer）
 - 触发词：`dns`、qname、qtype、AXFR、事务 id、响应配对
 - 前置：有 DNS 流量或可对本地 resolver 发查询；不对外网做区域传送
-- 步骤：1) `tshark -r x -Y dns -T fields -e frame.number -e dns.id -e dns.flags.response -e dns.qry.name -e dns.qry.type` 2) 按 `dns.id` 配对请求/响应 3) 统计 qname 长度/标签数/熵，判断是否异常编码
-- 判据：请求与响应按 id 一一配对；qname 的标签 ≤63 B、总长 ≤253；异常样本能被量化（长度/熵）
+- 步骤：1) `tshark -r x -Y dns -T fields -e frame.number -e dns.id -e dns.flags.response -e dns.qry.name -e dns.qry.type` 2) 按 `dns.id` 配对请求/响应 3) 统计 qname 长度/标签数/熵，判断是否异常编码 4) 把配对结果写成边集 `{"from":"QUERY","to":"RESPONSE","evidence_frame":N}`，用 `pcap-summary.py --state-model edges.json --json` 算配对率
+- 判据：请求与响应按 id 一一配对；qname 的标签 ≤63 B、总长 ≤253；异常样本能被量化（长度/熵）；无响应的 qid 必须进 `unobserved[]`，不得计为已配对（`edge_coverage` 只算有帧号的边）
 - 失败判据：只在缓存里看到响应无请求 → 抓包点不在递归路径上，换点重抓
 - reference：Tool/skill/protocol-plugin/references/05-binary-framing.md
 
@@ -112,8 +112,8 @@
 ### 14 ARP 报文结构与异常检测（源：detecting-arp-poisoning-in-network-traffic）
 - 触发词：`arp`、 gratuitous arp、MAC-IP 映射、冲突、重复通告
 - 前置：抓包含 ARP；知道本网段正常映射基线
-- 步骤：1) `-Y arp -T fields -e arp.opcode -e arp.src.proto_ipv4 -e arp.src.hw_mac` 2) 统计同一 IP 出现的 MAC 集合 3) 对冲突项回取原始帧确认（不是解析误差）
-- 判据：冲突能被 ≥2 条帧复现，且时间上后到的通告覆盖先前的；单条异常只写"疑似"
+- 步骤：1) `-Y arp -T fields -e arp.opcode -e arp.src.proto_ipv4 -e arp.src.hw_mac` 2) 统计同一 IP 出现的 MAC 集合 3) 对冲突项回取原始帧确认（不是解析误差）4) 把"旧映射 → 新映射"写成边 `{"from":"IP@MAC_old","to":"IP@MAC_new","evidence_frame":N}`，跑 `--state-model`
+- 判据：冲突能被 ≥2 条帧复现，且时间上后到的通告覆盖先前的；单条异常只写"疑似"；`illegal_transition_proof` 要写成"帧号 + 被覆盖的旧映射"，无此证据的边只算 `unobserved`
 - 失败判据：把虚拟机/HA 的正常漂移当投毒 → 先排除已知的 MAC 漂移来源
 - reference：Tool/skill/protocol-plugin/references/06-app-state-machine.md
 
@@ -128,8 +128,8 @@
 ### 16 SMB2 协商与会话帧（源：exploiting-smb-vulnerabilities-with-metasploit）
 - 触发词：`smb`、SMB2、NEGOTIATE、SESSION_SETUP、TREE_CONNECT、NetBIOS 头
 - 前置：有 SMB 抓包或本地 Samba/Windows 靶机；不做凭据爆破
-- 步骤：1) 按 4 字节 NetBIOS length 分帧 2) 解析 SMB2 header（ProtocolId/Command/MessageId/TreeId）3) 按 MessageId 配对请求/响应
-- 判据：NetBIOS length = 后续字节数；Command 与 MessageId 配对一致；能说出协商出的 dialect
+- 步骤：1) 按 4 字节 NetBIOS length 分帧 2) 解析 SMB2 header（ProtocolId/Command/MessageId/TreeId）3) 按 MessageId 配对请求/响应 4) 把 NEGOTIATE→SESSION_SETUP→TREE_CONNECT→CREATE 的每条迁移写成边集，跑 `pcap-summary.py --state-model edges.json --json`
+- 判据：NetBIOS length = 后续字节数；Command 与 MessageId 配对一致；能说出协商出的 dialect；每条边的 `evidence_frame` 必须指向真实帧（dissector 推断出来的边标 `"source":"llm"`，计入 `llm_unverified`，`edge_coverage ≥0.60` 才可写"状态机成立"）
 - 失败判据：SMB3 加密（share encryption）下只见密文 → 记录"加密共享"，不做猜测
 - reference：Tool/skill/protocol-plugin/references/06-app-state-machine.md
 
@@ -192,7 +192,7 @@
 ### 24 S7comm 功能码与 PDU 分帧（源：performing-s7comm-protocol-security-analysis）
 - 触发词：`s7comm`、TPKT、COTP、ROSCTR、功能码、PLC、102 端口
 - 前置：有 S7 抓包或本地 PLC 仿真（Snap7）；默认只读，不写寄存器
-- 步骤：1) 按 TPKT(4B) + COTP + S7 header 分层定界 2) 解析 ROSCTR/PDU reference/function code 3) 按 PDU reference 配对请求与响应
-- 判据：TPKT length = 后续字节数；COTP 后 S7 header 偏移固定；功能码与响应项一一对应
+- 步骤：1) 按 TPKT(4B) + COTP + S7 header 分层定界 2) 解析 ROSCTR/PDU reference/function code 3) 按 PDU reference 配对请求与响应 4) 把"读/写功能码迁移"写成边集并用 `--state-model` 算 `edge_coverage`；未见过的写操作边一律 `inferred`
+- 判据：TPKT length = 后续字节数；COTP 后 S7 header 偏移固定；功能码与响应项一一对应；轮询类重复边不重复计数（同一 `from/to` 取首个 `evidence_frame`），写操作边未观测时不得画实线
 - 失败判据：只看到轮询未见配置下发 → 不能推断"支持写操作"；写操作会触发物理动作，禁止默认尝试
 - reference：Tool/skill/protocol-plugin/references/06-app-state-machine.md
