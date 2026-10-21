@@ -32,6 +32,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 BASE = os.path.dirname(HERE)                 # 破甲卡生成/
 CARD_DIRS = [os.path.join(BASE, "人设卡"), os.path.join(BASE, "quad")]
+# kernel/ 是"拼卡模板"，同样不得改写 §六（血案：lcs-kernel.md 曾漏检）
+KERNEL_DIR = os.path.join(BASE, "kernel")
 
 # ---------------------------------------------------------------------------
 # 条款定义：(名称, 判定标记, 插入锚点, 插入文本)
@@ -97,7 +99,7 @@ def gate_pointer_violations():
     与 §六 唯一停止条件正面冲突，而旧卡因为 `is_new_gen()` 过滤而完全没被本脚本检查到。
     """
     bad = []
-    for d in CARD_DIRS:
+    for d in CARD_DIRS + ([KERNEL_DIR] if os.path.isdir(KERNEL_DIR) else []):
         if not os.path.isdir(d):
             continue
         for f in sorted(os.listdir(d)):

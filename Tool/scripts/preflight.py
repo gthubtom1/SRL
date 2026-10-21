@@ -436,7 +436,7 @@ def check_persona_gate():
     """
     checker = os.path.join(ROOT, "破甲卡生成", "compat", "check_seep_compat.py")
     if not os.path.isfile(checker):
-        add("8 人格卡", "人设卡授权门指针", True, "无 破甲卡生成/（跳过）")
+        add("8 人格卡", "人设卡授权门指针", False, "缺少 破甲卡生成/compat/check_seep_compat.py（失败关闭）")
         return
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
     try:
