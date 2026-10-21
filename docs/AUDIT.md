@@ -373,4 +373,9 @@
 
 ### R6 终审（全新上下文）
 
-> 进行中（session `01a16094`）；结论在本节后续提交补全。
+| 轮次 | 子代理 | 结论 |
+| :-- | :-- | :-- |
+| R6（初轮） | `01a16094-55ec-7273-bc78-a9c4410fef4d` | P0=0，P1=2：①`patch-verify` 回滚不能用于「已打补丁文件」（证据链过度声明）；②审计期间 tag 被移动 |
+| R6b（复验） | 同会话 | **P0=0 / P1=0 / 可交付**：已补丁文件回滚 rc=0（`from_patched=true`，`restored_sha256=8308abb8…`）、重复补丁 rc=2；HEAD 与 v1.23.0 同为 `f91f73f`、工作区干净；preflight 35/35、gate 101/101、双平台 verify 65/0、索引 rc=0、protocol04 产物合法 JSON |
+
+**R6 修复**：`patch-verify` 允许 `before == result_sha256` 时走回滚（只从独立 backup 恢复），非回滚路径对已补丁文件 rc=2；`protocol04/artifacts/pcap-summary.json` 重生成（此前是 JSON+文本拼接，非法）；47 案例重算哈希；发布冻结于 `7745aeb`（`f91f73f` 为其父提交，代码产物等同；两者差异仅 `docs/AUDIT.md`）。
