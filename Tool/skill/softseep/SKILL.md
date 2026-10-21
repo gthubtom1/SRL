@@ -205,6 +205,12 @@ metadata:
 > **表外未知工具只报『路径已发现』，绝不假装能控**，也绝不靠 `-h/--help` 现场试探（有些软件没 `-h`，一探就崩）。
 > 补工具进能力表时，先联网检索其 GitHub/官方文档。
 
+### 调试路线（x64dbg，无 headless 等价物）
+
+1. 自启宿主：`powershell -File Tool/scripts/tool-run.ps1 -Tool x64dbg -Target <样本>`（9094 就绪约 1–2s）
+2. 连接后按顺序：`GetDebugState` → `LoadBinary`（若未带样本启动）→ `WaitForPause` → `SetBreakpoint` → `run` → `WaitForEvent`
+3. **不要**让用户手动打开 x64dbg；**不要**问"允许 attach 吗"——直接做（沙箱资产）。
+
 ### codemode 调用约定（省掉每会话的探测开销）
 
 seep 的 MCP 工具在 **codemode 命名空间**下，名字是 `mcp__seep__seep_<tool>`，**可直接调用**：
