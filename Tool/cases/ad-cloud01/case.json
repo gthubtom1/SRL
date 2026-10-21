@@ -10,7 +10,7 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "2bcbc8eb6f6cacba7e182cb720b42760528e6e25e5a394b9ed2b1b795f2ff979"
+      "sha256": "da96a643f4ac0647325abe3364906d6f57149163f8bfcc983a968bf8b839e91a"
     }
   ],
   "lessons": [

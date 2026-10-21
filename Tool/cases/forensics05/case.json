@@ -95,15 +95,15 @@
     },
     {
       "path": "artifacts/check-global-metadata-dat.json",
-      "sha256": "bb1558b0f7c04a04557142a59b0cc31fdd3f8ad9f99a5733521d7460fadc42a6"
+      "sha256": "fc9b08800958ee9f1e70cd3f20bc78fe71c847c312b32e92c43828d517c9e1f2"
     },
     {
       "path": "artifacts/check-data-unity3d.json",
-      "sha256": "d5f0533f3876d464a10b65f552e21da5a4c23f95d108fa4667a9e10255b4c5a6"
+      "sha256": "13ee9c02c93cbf8c2b2a4e6f7724cb0da3c031665e59c46d86dad578b00cd075"
     },
     {
       "path": "artifacts/check-GameAssembly-dll.json",
-      "sha256": "609eae1787e9a0d1eccc03b586fb4af88a5e5c8ce278fda6787e47f3c1b0467b"
+      "sha256": "8731b546001d5dd28f64547a795e05eb6a32f9d63e085329cedd193d33535880"
     },
     {
       "path": "artifacts/timeline.json",
@@ -111,7 +111,7 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "a4929b49b925f6ce09fc3b135276f2cb6a15419c528e65357a0d351daf0edeca"
+      "sha256": "80464907e8c8df8e5581a4e66710be485e8837db28ce3b2b45dc92b7cd150568"
     }
   ],
   "lessons": [

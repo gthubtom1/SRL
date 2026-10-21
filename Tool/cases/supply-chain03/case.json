@@ -10,15 +10,15 @@
   "artifacts": [
     {
       "path": "artifacts/ci.json",
-      "sha256": "6474f9d2ea75bd27fc7cf50ac8d83943418164d41c1dcecd6224110c58cb3b6b"
+      "sha256": "c68a5bad3029be14ec463f1b9223a044ad24d2dd228e1159282b3f60ce352857"
     },
     {
       "path": "artifacts/sc.json",
-      "sha256": "6d9c9fcbf5c1db2a12e34961ba0ec7e75ca08bbc30f1eba894a62f2366a4389c"
+      "sha256": "0699184a074d8578de0007df3c9cc8aa2fb0707f06ec470431070345453a4778"
     },
     {
       "path": "artifacts/target.json",
-      "sha256": "5351c952fb08f7d136ca8baab41ba8f02ddebc2064be9f5a051f0c4c99d26de8"
+      "sha256": "d949a917a9f2b5782b4a3d8297924a69a6b89e8c88f0293e3119d6e2d535396d"
     }
   ],
   "lessons": [

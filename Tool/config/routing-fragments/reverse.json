@@ -14,7 +14,7 @@
           "note": "逆向工具链：判据=工具输出可复算"
         },
         {
-          "must": "(?i)(?:脱壳|加壳|反调试|反虚拟机|本地化补丁|算法还原|特征码|代码洞|\\btrampoline\\b|\\bcode\\s*cave\\b|\\bhook\\s*(?:api|函数|dll|表|inline|detour|导入))",
+          "must": "(?i)(?:脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|\\btrampoline\\b|\\bcode\\s*cave\\b|\\bhook\\s*(?:api|函数|dll|表|inline|detour|导入)|\\bwasm\\b|wasm2c|wabt|\\bEAC\\b|EasyAntiCheat|BattlEye|Vanguard|反作弊|授权锁|UltraLock|\\bHVCI\\b|\\bKDP\\b)",
           "note": "逆向动作：判据=补丁清单/脱壳判据/失败判据"
         },
         {

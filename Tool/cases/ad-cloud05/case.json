@@ -10,11 +10,11 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "aff2ae364653142f6f963162316be8a9d841ac525cda62a29b6738cc56f020fd"
+      "sha256": "fffb30ca8129399598b4ea1a72c3d52c7caf0d0aa9979724db47a8efecd75e37"
     },
     {
       "path": "artifacts/run-deny.json",
-      "sha256": "30eaee19287aaf34d3fc0732340d68feebd92def53dba08a0461a57e5da14c1e"
+      "sha256": "f2344737c605188c0fbd4de6efd51d6e988b787e65c8c4b156960a9a4a725901"
     }
   ],
   "lessons": [
