@@ -10,6 +10,20 @@
 
 ---
 
+## [1.19.1] — 2026-10-21
+
+> 主题：**收口 2.0 的 E（模型纪律）与 H（工具/生成链）**。
+
+| 项 | 内容 |
+|---|---|
+| E 模型纪律 | `AGENTS.md` §五 新增铁律：**判型 / 可行性裁定 / 路线选择必须用强模型；flash 只做搬运**（附实测：flash 20 秒错判 → 3 小时全废） |
+| H 工具 | `Tool/config/tool-capabilities.json` 新增 **`es`（Everything CLI）**：`exe_candidates`、`cli_cmd`、`install_hint`、`notes`（缺索引服务时立即失败而非卡住）；工具能力表 35 → **36** |
+| H 生成链 | `Tool/mcp/.baseline/tools.json` 重建为 **40**（案例库新增 2 个工具）；`mcp-guard` 40/40、标记 4/4 |
+| H 门禁 | `preflight --fast` **19/19**：新增「2.0 能力脚本可运行」（索引/探针/脱壳/台账）+ 任务卡同源（`gen-task-cards --check` 接入） |
+| 验收 | `verify.ps1` / `verify.sh` 65/65；`gen-case-index --check` rc=0；`routing` 15 条自洽 |
+
+---
+
 ## [1.19.0] — 2026-10-21
 
 > 主题：**融合两份方案后的第一批地基落地**（A 案例库 / B 阶段零升级 / C 脱壳反调试 / D 记忆层）。

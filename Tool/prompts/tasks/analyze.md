@@ -53,6 +53,6 @@ python Tool/scripts/case_state.py gate       --case $C     # 必须返回 0，�
 零已证事实、空证据、深度/仪器缺项、无裁定 —— 闸都会拒绝，别绕过。
 
 【只回这三行 + 报告路径】
-VERSION_SEEN = 1.19.0
+VERSION_SEEN = 1.19.1
 VERDICT      = 可赢 / 部分可赢 / 不可赢（一句话理由）
 NEXT         = 01-gate-bypass / 只能到 M1 / 放弃并说明

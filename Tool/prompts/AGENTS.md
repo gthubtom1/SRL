@@ -167,6 +167,8 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
   **坑（已修，别踩回去）**：① `tool-run.ps1` 必须带 UTF-8 BOM，否则 `powershell` 5.1 解析报错（`preflight` 有守）；
   ② 启动必须走 `Invoke-CimMethod Win32_Process Create` 脱离式，**禁用** `Start-Process -RedirectStandard*`——
   GUI 子进程占着句柄会让 PowerShell 挂死，外层一杀 x64dbg 跟着死。
+- **模型纪律（铁律）**：判型 / 可行性裁定 / 路线选择必须用强模型；flash 级模型只做搬运（跑命令、抄结果、格式化）。
+  判型错一次的代价是整轮返工（实测：flash 在 20 秒内给出错误 GATE，后面 3 小时全废）。
 - **未证结论不许加速（铁律）**：第一条结论必须由**本轮实测**产生；旧报告 / 上一轮结论只能当假设。
   M0 全貌（结构+存活+动态依赖）没出来之前，**不许产出交付物**；每 20 分钟写一次进度账
   （已证 / 待验 / 下一步 / ETA），连续两次无新增证据 → 停手重判型，并主动找一条能推翻当前结论的证据。
