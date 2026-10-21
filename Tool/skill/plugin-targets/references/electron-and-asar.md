@@ -199,3 +199,11 @@ grep -RInE 'nodeIntegration|contextIsolation|sandbox|webPreferences|preload' wor
 **失败判据**：只有 preload 或只有 main 一端 → 标 `inferred`；无法证明 sender 可被外部页面触达 → 不写“越权/RCE”；签名/白名单阻止动态验证 → 转静态。
 
 > 关联：`references/04-walkthrough-chrome-extension.md` 的通用取证流程、`references/02-failure-criteria.md` 第 13–15 条。
+
+## 2026 补充出处
+
+- `electron/asar` **v4.2.1（2026-07-21）**：新增 header/offset/path 校验与循环软链防护（#419–#423）——
+  说明 2026 年的 asar 解析器已把「畸形 header/越界 offset」当成一类真实攻击面；旧版仍可被构造包触发。
+- Check Point Research **2026-08-31**《Breaking the Seal: Static Deobfuscation of JSCeal's Compiled V8 Bytecode》：
+  真实家族用 V8 字节码（`.jsc`）分发，静态去混淆可行 → 与本文 bytenode 路线一致。
+- `jscd`（2026，纯 Rust 静态解析，Node 8→26 / V8 5.8–14.6，约 25k `.jsc` 零失败）：不依赖改版 V8 的替代路线。
