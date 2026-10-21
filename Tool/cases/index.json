@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "5a6dbedbe5c03f5498753676e1921a48ff6bfa3b9407acf38258ace4c2a88821",
+  "source_hash": "df102dd540e3a261d85e2de4583ee91601ed0c7684d147eb4dbc2980f12b6518",
   "case_count": 47,
   "cases": [
     {
@@ -668,76 +668,64 @@
       "updated": "2026-10-21"
     },
     {
-      "dir": "forensics05",
-      "id": "forensics05",
+      "dir": "forensics06",
+      "id": "forensics06",
       "domain": "forensics-mobile",
-      "target_type": "Unity IL2CPP + AssetBundle 客户端教学夹具（自建，无真实游戏资源/账号）",
-      "evidence_kind": "fixture",
+      "target_type": "真实 Windows 启动时间线：Microsoft-Windows-Kernel-Boot/Operational EVTX 只读副本（无用户名）",
+      "evidence_kind": "real",
       "protection": [],
       "authority": "local-owner-authorized",
-      "goal_level": "L2",
+      "goal_level": "L3",
       "outcome": "partial",
       "artifacts": [
         {
-          "path": "input/global-metadata.dat",
-          "sha256": "a7c978725a760e8b9e475042db94f480d293700927c26a717decb690476a4601"
+          "path": "input/Kernel-Boot-Operational.evtx",
+          "sha256": "4f45adc7ef74e727007852665e5eef42e526394d8fae80cf61cf6e304f44bfb9"
         },
         {
-          "path": "input/data.unity3d",
-          "sha256": "8976b8114857626a9186abbbbad34cf4e6ee7fbda0df5466d209fff986634c60"
-        },
-        {
-          "path": "input/GameAssembly.dll",
-          "sha256": "bdf33b3ca96b8daf8e2e623e3da433a6897b985bd68de8f994421ad75fb4f888"
-        },
-        {
-          "path": "artifacts/check-global-metadata-dat.json",
-          "sha256": "fc9b08800958ee9f1e70cd3f20bc78fe71c847c312b32e92c43828d517c9e1f2"
-        },
-        {
-          "path": "artifacts/check-data-unity3d.json",
-          "sha256": "13ee9c02c93cbf8c2b2a4e6f7724cb0da3c031665e59c46d86dad578b00cd075"
-        },
-        {
-          "path": "artifacts/check-GameAssembly-dll.json",
-          "sha256": "8731b546001d5dd28f64547a795e05eb6a32f9d63e085329cedd193d33535880"
+          "path": "artifacts/check.json",
+          "sha256": "103dab1b6ef106e1f1c143207d73fb2996b2ec60bbf7f0bfa069d905be8dc0e5"
         },
         {
           "path": "artifacts/timeline.json",
-          "sha256": "79b83150ed9a22ca1fa71cf0d38d522e1b8c2fbf0c8e4422e8d9ce6a95e18217"
+          "sha256": "c368880d8a3399171bf9a0f60f7766e302ceabc308c112daaccf8473bb595964"
         },
         {
-          "path": "artifacts/run.json",
-          "sha256": "0a563a91ac587c4058fb390b287acdcd2322514231b84a4a60ebd0c0473d6f2a"
+          "path": "artifacts/events.json",
+          "sha256": "0a7d5aa8c92bdef2a3707edc2a238dd36675732f031e5d33e9e6435ae60c9b58"
+        },
+        {
+          "path": "artifacts/accept.json",
+          "sha256": "490944f34ed099140a097ca7fa6b76aea59fabfddd407c38ac9bf644e8fd504f"
         }
       ],
       "repro": "",
       "lessons": [
-        "跑的是 forensics-check.py 对 global-metadata.dat、data.unity3d、GameAssembly.dll 三份夹具做头部识别，命令 `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/global-metadata.dat --json`，rc=0；另两份各 rc=0，fs-timeline.py 生成 9 条文件系统时间事件。",
-        "发现：元数据 magic/version=29、AssetBundle UnityFS format=6/Unity 2022.3.10f1、GameAssembly 为 PE；三者版本可对应，但夹具不含真实方法/地址/资源。",
-        "边界：本机没有 Il2CppDumper/Cpp2IL/AssetStudio，无法产出 dump.cs/script.json/资源清单；按失败判据标 blocked_at=tool-missing，不伪造方法地址或资源内容。",
-        "还差什么：在工具可用环境跑 Il2CppDumper 得到 dump.cs/script.json，用 IDA/Ghidra 落地址；用 AssetStudio/UnityPy 导出 CAB/TextAsset；把服务器下发字段与客户端方法、运行时偏移连成链。",
-        "失败判据：元数据版本与 GameAssembly 不匹配、AssetBundle 头不是 UnityFS/UnityWeb/UnityRaw、或运行时偏移两次读取不一致，均停并降级。",
-        "R3 修复：timeline.json 的事件补 action 字段（由 fs-timeline 的 derive_action 按 kind 派生，与工具输出同源），并去掉 generated_at 以便复跑；哈希已重算。"
+        "跑的是真实 Microsoft-Windows-Kernel-Boot/Operational EVTX 只读副本（14 条记录）。命令：`cd Tool/cases/forensics06 && python ../../skill/forensics-mobile/scripts/forensics-check.py --file input/Kernel-Boot-Operational.evtx --json > artifacts/check.json`，rc=0；再跑 `python ../../skill/forensics-mobile/scripts/fs-timeline.py --input input/Kernel-Boot-Operational.evtx --out artifacts/timeline.json`，rc=0。结果：14 个 evtx-record 事件，2026-10-08T22:12:34.767210Z → 2026-10-21T02:48:14.122314Z。",
+        "事件 ID 分布用 PowerShell 只读查询得到：`powershell -NoProfile -Command \"Get-WinEvent -Path 'input\\Kernel-Boot-Operational.evtx' | Sort-Object RecordId | Select-Object RecordId,Id,ProviderName\"`，rc=0；14 条 = 12×292（固件 SBAT 读取失败）+ 1×51（VSM 密钥预计算）+ 1×45（VSM 密钥缓存状态）。",
+        "边界：只有启动/固件测量通道，没有 Security.evtx 的 4624/4688、没有进程树、没有 pcap，因此不能把事件归因到具体用户/进程，也不能判断 292 是安全启动失败还是固件/主板兼容性问题；时间线只能说明“何时记录了什么测量状态”。",
+        "隐私：EVTX 内嵌两个 NetBIOS 主机名（DESKTOP-*），不含用户名/SID/路径；timeline/events 产物不输出主机名。对外分享前应按 input/README.md 做等长占位替换并重算哈希。",
+        "还差什么：补 Security.evtx（4624/4688）、System.evtx、Prefetch 与 NTP 偏差，才能把启动事件与登录/进程执行对齐；如果要解释 292 的根因，需要固件版本、Secure Boot 状态与 TPM PCR 日志。",
+        "复现边界：单主机、单通道、14 条事件，`repro.status=recorded`；任何结论都不超出该 EVTX 的记录范围。"
       ],
       "tags": [
         "R26",
         "forensics",
-        "fixture",
-        "unity",
-        "il2cpp",
-        "assetbundle",
-        "game-client"
+        "real",
+        "evtx",
+        "windows",
+        "boot",
+        "timeline"
       ],
       "refs": [
         "Tool/skill/forensics-mobile/SKILL.md",
         "Tool/skill/forensics-mobile/references/01-criteria.md",
         "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
-        "Tool/skill/forensics-mobile/references/game-client-il2cpp.md",
+        "Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md",
         "Tool/skill/forensics-mobile/references/evidence-chain.md",
         "Tool/config/forensics-mobile-matrix.json",
-        "Tool/cases/forensics05/input/global-metadata.dat",
-        "Tool/cases/forensics05/artifacts/timeline.json"
+        "Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx",
+        "Tool/cases/forensics06/artifacts/timeline.json"
       ],
       "updated": "2026-10-21"
     },
