@@ -322,9 +322,9 @@
 | P0-10 mal/llm | MCP 工具投毒 / A2A 越权 + `mal-accept.py` | MCPTox AAAI'26、A2ABreak 2026-09 |
 | P0-11 forensics | MemProcFS 5.19 / Volatility 3 v2.27 | MemProcFS 2026-10、Volatility Timeline 2026-01 |
 | P0-12 plugin | ASAR integrity 绕过 / V8 bytecode / Electron IPC + `plugin-accept.py` | Electron GHSA、rce.moe、BH USA 2025/26 |
-| P1 | 路由修正 7 条误判 + 新增 R30(WASM)/R31(LLM-Agent)；串味测试 24→**48**；产物确定性（105 个文本产物归一 + 47 案例重算哈希）；`driver-triage` 未做（记 DEFERRALS）；4 个 accept 补齐；CI `gates.yml` | 见 `git log v1.22.0..v1.23.0` |
+| P1 | 路由修正 7 条误判 + 新增 R30(WASM)/R31(LLM-Agent)/R32(hypervisor·eBPF·TEE)/R33(托管运行时)；串味测试 24→**60**；产物确定性（105 个文本产物归一 + 47 案例重算哈希）；`driver-triage.py` 已实现（self-test 19 项）；4 个 accept 补齐；CI `gates.yml` | 见 `git log v1.22.0..v1.23.0` |
 | P2 | KB 2026 战例 8 篇（每 board ≤10）+ `docs/GLOSSARY.md` | 各 board README 索引 |
-| 门禁 | 80 → **101** 条断言：每域「判据字段脚本背书 ≥1」+「2026 内容在场」+ 变更反例回归 | `domain-gate --all` 101/101 |
+| 门禁 | 80 → **101** 条断言：每域「判据字段脚本背书或 inferred 白名单」+「2026 内容在场」+ 四类变更反例（`--mutation-test`） | `domain-gate --all` 101/101 |
 
 **确定性修复（重要）**：`.gitattributes` 使 .json/.py/.sh 检出为 LF，而历史 case.json 的 sha256 是 CRLF 时代算的 →
 全新 clone/worktree 必红。本轮把 105 个文本产物归一为「git 会检出的行尾」，47 个案例重算哈希并回写。
@@ -336,7 +336,7 @@
 | R5（初轮） | `01a1606a-49b2-7273-bc78-a9b98e003cb7` | 不可交付：P0=2（索引过期/CRLF 漂移、AUDIT 占位）、P1=5（部署假红、generated_at、隐私用户名、LLM 篇无命令、工作树） |
 | R5b（复验） | 同会话 | **可交付（P0=0，P1=0）**：干净检出 `gen-case-index --check` rc=0、`domain-gate --all` 101/101、`preflight --fast` 25/25；主仓 preflight 28/28、双平台 verify 65/0；`generated_at` 0 命中且反例注入会红；隐私 `toti/C:/Users` 0 命中；LLM 篇三条命令实测 rc=0 |
 
-**修复清单（v1.23.0 tag `f42790b`）**：`.gitattributes` 对案例证据 `-text` + renormalize + 47 案例重算哈希；`index.json` 重建；29 个 JSON 去掉 `generated_at` 并加门禁断言；`protocol04/run.json` 的 `ls -l` 用户名/uid 脱敏；部署哈希比较按 LF 归一（`_norm_sha`）；`llm-security` 补 3 条可执行命令；AUDIT 占位清除。
+**修复清单（v1.23.0（冻结于本次提交））**：`.gitattributes` 对案例证据 `-text` + renormalize + 47 案例重算哈希；`index.json` 重建；29 个 JSON 去掉 `generated_at` 并加门禁断言；`protocol04/run.json` 的 `ls -l` 用户名/uid 脱敏；部署哈希比较按 LF 归一（`_norm_sha`）；`llm-security` 补 3 条可执行命令；AUDIT 占位清除。
 ## 交付基线（2026-10-21，v1.22.0）
 
 | 项 | 命令 | 结果 |
@@ -378,4 +378,15 @@
 | R6（初轮） | `01a16094-55ec-7273-bc78-a9c4410fef4d` | P0=0，P1=2：①`patch-verify` 回滚不能用于「已打补丁文件」（证据链过度声明）；②审计期间 tag 被移动 |
 | R6b（复验） | 同会话 | **P0=0 / P1=0 / 可交付**：已补丁文件回滚 rc=0（`from_patched=true`，`restored_sha256=8308abb8…`）、重复补丁 rc=2；HEAD 与 v1.23.0 同为 `f91f73f`、工作区干净；preflight 35/35、gate 101/101、双平台 verify 65/0、索引 rc=0、protocol04 产物合法 JSON |
 
-**R6 修复**：`patch-verify` 允许 `before == result_sha256` 时走回滚（只从独立 backup 恢复），非回滚路径对已补丁文件 rc=2；`protocol04/artifacts/pcap-summary.json` 重生成（此前是 JSON+文本拼接，非法）；47 案例重算哈希；发布冻结于 `7745aeb`（`f91f73f` 为其父提交，代码产物等同；两者差异仅 `docs/AUDIT.md`）。
+**R6 修复**：`patch-verify` 允许 `before == result_sha256` 时走回滚（只从独立 backup 恢复），非回滚路径对已补丁文件 rc=2；`protocol04/artifacts/pcap-summary.json` 重生成（此前是 JSON+文本拼接，非法）；47 案例重算哈希；v1.23.0 冻结于本次提交（tag 与 HEAD 同一）。
+
+### R7 整改（对齐 R6 终审 4 条）
+
+| # | 驳回 | 处置 | 验证 |
+| :-- | :-- | :-- | :-- |
+| 1 | `--mutation-test` 不存在，反例仅 2/4 类 | 新增 CLI 开关，四类反例（sha256 / timeframe / 只读声明 / 伪 real）各自建临时副本并断言必红；`_case_errors` 复用同一逻辑，「有命令」判定收紧为 `rc=\d` 或解释器/工具名 | `--mutation-test` PASS，四类均出现对应 error |
+| 2 | DEFERRALS D6/D10 与交付物矛盾 | D6 改为「已完成（60 条剧本卡）」、D10 改为「已实现（19 项 self-test，HVCI/WDAC 为静态线索）」；D11/D12 同步真实状态 | 文件与 `driver-triage.py`/任务卡一致 |
+| 3 | AUDIT 出现三套冻结哈希与过期数字 | 统一为「冻结于本次提交」，v1.23 交付表 48→60、补 R32/R33、driver-triage 标已实现 | `grep -c "48\|R30/R31\|未做" docs/AUDIT.md` 相关表述已清 |
+| 4 | ad-repro 声称 ESC9–17 但 ESC12 无判定分支 | 从 `esc_order` 移除 ESC12，改为显式 blocker「需 CA 主机本地权限，离线不可判定」，文档保留说明 | `ad-repro --self-test` 9 项 rc=0 |
+
+最终冻结：`v1.23.0` tag 与 HEAD 同一（本次提交），工作区干净。preflight **35/35**、domain-gate **101/101**、`--mutation-test` PASS、双平台 verify 65/0。

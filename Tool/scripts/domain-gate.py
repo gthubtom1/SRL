@@ -242,8 +242,9 @@ def check_cases(dom, spec):
         if c.get("evidence_kind") == "real":
             _txt = "\n".join(c.get("lessons") or [])
             _rp = c.get("repro") or {}
-            if ("rc=" not in _txt) and ("python " not in _txt) and ("命令" not in _txt) \
-                    and _rp.get("status") != "not-recorded":
+            _has_cmd = bool(re.search(r"rc\s*=\s*\d", _txt)) or bool(
+                re.search(r"(python|powershell|bash|\.py|\.ps1|tshark|gcc)", _txt))
+            if (not _has_cmd) and _rp.get("status") != "not-recorded":
                 bad.append(os.path.basename(cd) + "(real 但无命令/rc 且未标 not-recorded)")
         # 交叉一致性（审计 P0）：case.json 里写到的 input 必须存在；
         # target_type 声称的样本类型必须有对应扩展名；run.json 与 timeline.json 的事件数必须一致。
@@ -740,55 +741,19 @@ def check_2026_presence(dom, spec):
     add(dom, "2026 基线内容在场", bool(hits), "命中 %d 处（例：%s）" % (len(hits), ", ".join(hits[:2]) or "-"))
 
 
-def check_mutation_test():
-    """反例回归：在临时副本上改 sha256 / timeframe / 只读声明，门禁必须变红。"""
-    import shutil
-    import tempfile
-    tmp = tempfile.mkdtemp(prefix="seep-mut-")
-    try:
-        dst = os.path.join(tmp, "Tool", "cases", "web-pentest99")
-        os.makedirs(os.path.join(dst, "artifacts"), exist_ok=True)
-        art = os.path.join(dst, "artifacts", "run.json")
-        open(art, "w", encoding="utf-8", newline="\n").write('{"ok": true}\n')
-        h = hashlib.sha256(open(art, "rb").read()).hexdigest()
-        case = {
-            "id": "web-pentest99", "domain": "web-pentest", "target_type": "本地夹具（教学）",
-            "evidence_kind": "fixture", "protection": [], "authority": "local",
-            "goal_level": "L1", "outcome": "partial",
-            "artifacts": [{"path": "artifacts/run.json", "sha256": h}],
-            "lessons": ["夹具；命令：python x.py；rc=0"], "refs": [],
-            "updated": "2026-10-22",
-        }
-        cf = os.path.join(dst, "case.json")
-        json.dump(case, open(cf, "w", encoding="utf-8"))
-        ok_clean = _case_errors(dst) == []
-        bad = dict(case)
-        bad["artifacts"] = [{"path": "artifacts/run.json", "sha256": "0" * 64}]
-        json.dump(bad, open(cf, "w", encoding="utf-8"))
-        ok_sha = _case_errors(dst) != []
-        case2 = dict(case, timeframe={"start": "2026-10-21T00:00:00Z", "end": "2026-10-21T00:01:00Z"})
-        case2["artifacts"] = case["artifacts"]
-        json.dump(case2, open(cf, "w", encoding="utf-8"))
-        tl = os.path.join(dst, "artifacts", "timeline.json")
-        json.dump({"ok": True, "events": [{"time_utc": "2026-10-21T00:05:00Z", "kind": "evtx-record",
-                                           "action": "x", "actor": "a", "object": "o"}]},
-                  open(tl, "w", encoding="utf-8"))
-        ok_tf = any("timeframe" in e for e in _case_errors(dst))
-        add("全局", "变更反例回归（sha256/timeframe 必须红）", ok_clean and ok_sha and ok_tf,
-            "clean=%s sha_red=%s tf_red=%s" % (ok_clean, ok_sha, ok_tf))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
 def _case_errors(cd):
-    """在临时副本上复用 check_cases 的核心字段/哈希/时间线断言（不写 results）。"""
+    """单案例四类一致性断言（反例回归复用）：sha256 / timeframe / 只读声明 / 伪 real。"""
     errs = []
-    c = rj(os.path.join(cd, "case.json"))
+    try:
+        c = rj(os.path.join(cd, "case.json"))
+    except Exception:  # noqa: BLE001
+        return ["case-json"]
+    blob = json.dumps(c, ensure_ascii=False)
     for art in c.get("artifacts") or []:
-        p = os.path.join(cd, art.get("path", ""))
-        if not os.path.isfile(p):
+        fp = os.path.join(cd, art.get("path", ""))
+        if not os.path.isfile(fp):
             errs.append("phantom")
-        elif sha256(p) != str(art.get("sha256")).lower():
+        elif sha256(fp) != str(art.get("sha256")).lower():
             errs.append("sha256")
     tlf = os.path.join(cd, "artifacts", "timeline.json")
     if os.path.isfile(tlf):
@@ -796,10 +761,93 @@ def _case_errors(cd):
         evs = tl.get("events") or []
         if evs:
             latest = max(str(e.get("time_utc")) for e in evs)
-            end = str((c.get("timeframe") or {}).get("end") or "")
-            if end and not latest.startswith(end[:19]):
+            end_t = str((c.get("timeframe") or {}).get("end") or "")
+            if end_t and not latest.startswith(end_t[:19]):
                 errs.append("timeframe")
+            times = {str(e.get("time_utc")) for e in evs}
+            for f in c.get("findings") or []:
+                if str(f.get("confidence")) == "observed":
+                    ft = str(f.get("time_utc") or "")
+                    if ft and ft not in times:
+                        errs.append("observed-time")
+                        break
+    if re.search(r"均只读|all read-only", blob):
+        for dp, dn, fn in os.walk(os.path.join(cd, "input")):
+            for f in fn:
+                if os.access(os.path.join(dp, f), os.W_OK):
+                    errs.append("readonly-claim")
+                    break
+            else:
+                continue
+            break
+    if c.get("evidence_kind") == "real":
+        txt = "\n".join(c.get("lessons") or [])
+        rp = c.get("repro") or {}
+        _has_cmd = bool(re.search(r"rc\s*=\s*\d", txt)) or bool(
+            re.search(r"(python|powershell|bash|\.py|\.ps1|tshark|gcc)", txt))
+        if (not _has_cmd) and rp.get("status") != "not-recorded":
+            errs.append("fake-real")
     return errs
+
+
+def check_mutation_test():
+    """反例回归：sha256 / timeframe / 只读声明 / 伪 real 四类都必须被抓红。"""
+    import shutil
+    import tempfile
+
+    def build(tmp, mutate):
+        d = os.path.join(tmp, "c")
+        os.makedirs(os.path.join(d, "input"), exist_ok=True)
+        os.makedirs(os.path.join(d, "artifacts"), exist_ok=True)
+        open(os.path.join(d, "input", "a.bin"), "wb").write(b"x")
+        art = os.path.join(d, "artifacts", "run.json")
+        open(art, "w", encoding="utf-8", newline="\n").write('{"ok": true}\n')
+        h = hashlib.sha256(open(art, "rb").read()).hexdigest()
+        case = {"id": "mut", "domain": "web-pentest", "target_type": "fixture 夹具",
+                "evidence_kind": "fixture", "protection": [], "authority": "local",
+                "goal_level": "L1", "outcome": "partial",
+                "artifacts": [{"path": "artifacts/run.json", "sha256": h}],
+                "lessons": ["cmd: python x.py; rc=0"], "refs": [], "updated": "2026-10-22"}
+        mutate(d, case, art, h)
+        json.dump(case, open(os.path.join(d, "case.json"), "w", encoding="utf-8"))
+
+    def noop(d, c, art, h):
+        pass
+
+    def mut_sha(d, c, art, h):
+        c["artifacts"] = [{"path": "artifacts/run.json", "sha256": "0" * 64}]
+
+    def mut_tf(d, c, art, h):
+        c["timeframe"] = {"start": "2026-10-21T00:00:00Z", "end": "2026-10-21T00:01:00Z"}
+        json.dump({"ok": True, "events": [{"time_utc": "2026-10-21T00:05:00Z",
+                                           "kind": "evtx-record", "action": "x",
+                                           "actor": "a", "object": "o"}]},
+                  open(os.path.join(d, "artifacts", "timeline.json"), "w", encoding="utf-8"))
+
+    def mut_ro(d, c, art, h):
+        c["lessons"] = ["均只读封存；json"]
+
+    def mut_fake(d, c, art, h):
+        c["evidence_kind"] = "real"
+        c["lessons"] = ["本场景代表真实目标，无命令"]
+        c.pop("timeframe", None)
+
+    res = {}
+    for name, fn in (("clean", noop), ("sha256", mut_sha), ("timeframe", mut_tf),
+                     ("readonly-claim", mut_ro), ("fake-real", mut_fake)):
+        tmp = tempfile.mkdtemp(prefix="seep-mut-")
+        try:
+            build(tmp, fn)
+            res[name] = _case_errors(os.path.join(tmp, "c"))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    ok = (res["clean"] == [] and "sha256" in res["sha256"]
+          and "timeframe" in res["timeframe"]
+          and "readonly-claim" in res["readonly-claim"]
+          and "fake-real" in res["fake-real"])
+    add("全局", "变更反例回归（sha256/timeframe/只读/伪 real）", ok,
+        json.dumps(res, ensure_ascii=False)[:260])
 
 
 # ---------------------------------------------------------------- [9] routing
@@ -990,9 +1038,16 @@ def main():
     ap.add_argument("--cleanup", action="store_true")
     ap.add_argument("--deploy", action="store_true")
     ap.add_argument("--spec", action="store_true")
+    ap.add_argument("--mutation-test", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
     only = a.domain[0] if a.domain else None
+    if a.mutation_test:
+        check_mutation_test()
+        bad = [r for r in results if not r["ok"]]
+        print(("PASS" if not bad else "FAIL") + " mutation-test: "
+              + (results[0]["detail"] if results else ""))
+        return 0 if not bad else 1
     if not any([a.all, a.domain, a.links, a.routing, a.cleanup, a.deploy, a.spec]):
         a.all = True
     if a.domain:

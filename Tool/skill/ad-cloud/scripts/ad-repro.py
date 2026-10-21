@@ -526,7 +526,7 @@ def eval_adcs_esc(d):
         blockers.append("wsus-not-https")
 
     # 固定顺序，避免输出随遍历顺序漂移
-    esc_order = ["ESC9", "ESC10", "ESC11", "ESC12", "ESC13", "ESC14", "ESC15", "ESC16", "ESC17"]
+    esc_order = ["ESC9", "ESC10", "ESC11",  "ESC13", "ESC14", "ESC15", "ESC16", "ESC17"]
     flags = [e for e in esc_order if e in flags]
 
     auth_ok = _bool(d.get("auth_succeeded"))
