@@ -67,6 +67,7 @@ Users provide plain-language technical goals; the agent autonomously performs pl
 | 🛡️ **Model Refusal in Security Audits** | Three-tier mitigation: `BLOCK_NONE` injection + transparent terminology mapping + cognitive redirection |
 | 📚 **Ephemeral Knowledge** | 292 technical field journals + 14 desensitized paradigms + "search KB before executing" enforced discipline |
 | 📦 **Setup Friction** | One-click `install.ps1` → supports Pi Agent, Claude Code, DeepSeek Harness (DSH), Codex / OpenCode |
+| 🧭 **Where to start after a context reset** | `优化方案.md` (single source of truth): 30-item defect ledger, target classes A–I, six stages / five gates / four ledgers, batches B–F |
 
 ---
 
