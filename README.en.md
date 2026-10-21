@@ -174,7 +174,7 @@ Seep\ (251 MB)
 ├── CHANGELOG.md                   ← User-facing release notes
 │
 ├── Tool\
-│   ├── skill\                     ← 9 specialized reverse engineering skills
+│   ├── skill\                     ← 17 specialized skills (00–05 stage skills + general toolkit)
 │   │   ├── softseep\              ← ⭐ Master orchestrator (Router + 8 on-demand references)
 │   │   ├── apkseep\               ← End-to-end Android APK/DEX/SO skill (115 files)
 │   │   ├── ida-reverse\           ← IDA Pro automated spawning & MCP coordination

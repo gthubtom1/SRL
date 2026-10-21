@@ -22,7 +22,7 @@
 
 ## 二、 官方部署资产核验基准表 (Baseline Manifests)
 
-### 1. 🛠️ 技能系统基准表 (Skills System - 11 大组件)
+### 1. 🛠️ 技能系统基准表 (Skills System - 17 大组件（含 00–05 阶段技能）)
 
 目标安装路径以 Pi Agent 规范为例（`~/.pi/agent/skills/`，Windows 下为 `$env:USERPROFILE\.pi\agent\skills\`）：
 
@@ -57,7 +57,7 @@ MCP 配置文件所在位置：
 | **M3** | **`js-reverse`** | `npx -y js-reverse-mcp` | 23 项（本包实测 v4.0.5，以运行时为准） | `npx -y js-reverse-mcp --version` | 🟡 **按需组件**。未安装 Node 时仅 Web 逆向受限，原生二进制不受影响。修复：安装 Node.js 18+ |
 | **M4** | **`playwright`** | `npx -y @playwright/mcp` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | 依赖 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | 🟡 **按需组件**。未配 Token 时无头浏览器受限，原生逆向不受影响。 |
 
-> **附加断言（不计入 61 项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
+> **附加断言（不计入 62 项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
 > （`replaceable`：`codemode` / `tool-search` / `mcp`）抢名。有冲突时退码 1，说明该扩展会顶掉内置并导致 `[Extension issues]`。
 > 详细背景见 `Tool/docs/MCP-SETUP.md` §三。
 

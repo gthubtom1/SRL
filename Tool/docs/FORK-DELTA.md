@@ -56,7 +56,7 @@
 
 | 技能 | 类型 | 说明 | 回滚 |
 |---|---|---|---|
-| `version-migration` | 新增（我们） | 跨版本追版 + AOB 特征迁移 | 删目录 + 删路由 R3 |
+| `version-migration` | 新增（我们） | 跨版本追版 + AOB 特征迁移 | 删目录 + 删路由 R14 |
 | `unpack-loop` | 新增（我们） | 脱壳闭环（判据驱动 / 三路线 / 两次熔断） | 删目录 + 删路由 R9 |
 | `ida-assistant` | **改名**（原 `safe-skills/ida-reverse`） | 避免与顶层 `ida-reverse` 同名覆盖 | 改回原名会重新触发覆盖缺陷 |
 

@@ -89,9 +89,9 @@
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
-- 体检从 50 项 → **61 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
+- 体检从 50 项 → **62 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
-**基线定档（v1.8.4 起）**：架构 / 工具名 / 配置格式 / 状态文件 / 61 项体检 / 上游隔离边界 六项冻结，
+**基线定档（v1.8.4 起）**：架构 / 工具名 / 配置格式 / 状态文件 / 62 项体检 / 上游隔离边界 六项冻结，
 未来只做「新增技能、末尾追加工具、补文档与检查项」三类纯增量叠加。详见
 [`MANUAL/BASELINE-FREEZE.md`](MANUAL/BASELINE-FREEZE.md)。
 
@@ -273,7 +273,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP 脱壳 SOP
     ├── POC-VALIDATION.md          ← Frida 自愈循环与 PoC 沙箱验证
     ├── DEPLOYMENT.md              ← 全景部署与多 Agent 集成指南
-    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（61 项）
+    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（62 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
     ├── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
@@ -451,7 +451,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 7. 部署完备性校验（9 大维度 61 项全绿）
+### 7. 部署完备性校验（9 大维度 62 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
@@ -462,7 +462,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 61 项全部通过)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 62 项全部通过)" width="880">
 </p>
 
 ---
