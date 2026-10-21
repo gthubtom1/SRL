@@ -393,8 +393,19 @@ def check_newtools():
                                     encoding="utf-8", errors="replace", timeout=60)
                 r2 = subprocess.run([py, cs, "gate", "--case", td], capture_output=True, text=True,
                                     encoding="utf-8", errors="replace", timeout=60)
-                ok3 = (r1.returncode == 0 and r2.returncode == 1)
-                note3 = "空案子 gate 正确拒绝（rc=1）" if ok3 else f"init={r1.returncode} gate={r2.returncode}"
+                # 负向 1：空/空格证据不许证明（血案：prove --evidence "" 曾 rc=0）
+                subprocess.run([py, cs, "claim", "--case", td, "--id", "C01", "--text", "x",
+                                "--status", "hypothesis"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=60)
+                r3 = subprocess.run([py, cs, "prove", "--case", td, "--id", "C01", "--evidence", "   "],
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+                # 负向 2：claim 阶段也不许空证据
+                r4 = subprocess.run([py, cs, "claim", "--case", td, "--id", "C02", "--text", "y",
+                                     "--status", "proven", "--evidence", ""],
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+                ok3 = (r1.returncode == 0 and r2.returncode == 1 and r3.returncode == 2 and r4.returncode == 2)
+                note3 = ("空案子 gate=1；空格证据 prove=2；空证据 claim=2" if ok3
+                         else f"init={r1.returncode} gate={r2.returncode} prove={r3.returncode} claim={r4.returncode}")
         except Exception as e:
             note3 = str(e)[:120]
     add("7 新脚本", "case_state 出口闸可运行", ok3, note3)

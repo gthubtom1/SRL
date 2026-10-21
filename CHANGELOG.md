@@ -10,6 +10,22 @@
 
 ---
 
+## [1.18.5] — 2026-10-21
+
+> 主题：**闸的空证据漏洞 + 上游台账快照标注 + 提示词同源**（完成审计第 5 次驳回的 4 条）。
+
+| 级别 | 问题 | 修复（逐条自验） |
+|---|---|---|
+| **P1** | `case_state.py prove --evidence ""` / `claim --status proven --evidence "  "` **被接受并 rc=0**，随后 `gate` 放行 → 「无证据不许 proven」形同虚设 | 两处都改为 `strip()` 后拒绝（rc=2）；`gate` 另加「没有任何已证事实（proven）→ 拒绝」（rc=1）。实测：prove=2、claim=2、零事实 gate=1 |
+| **P1** | 上述漏洞没有回归保护 | `preflight` 的 case_state 自检扩成**四个断言**：init=0 / 空案 gate=1 / 空格证据 prove=2 / 空证据 claim=2 |
+| **P1/P2** | `FORK-DELTA.md` §六 自动段仍是 v1.10.x 旧快照（新增 154 / 修改 49），且不含 00–05 与新脚本；本机无 `upstream` ref 无法重跑 | §六 顶部加「必读：这是旧快照」说明 + 重跑命令（`git remote add upstream … && fetch --unshallow && python fork-delta.py`），并指明**重跑前以 §一–§3.7 人工台账为准** |
+| P2 | `analyze.md` 与 `逆向分析报告提示词.md` 的 D0–D5 段逐字重复，且两处 `VERSION_SEEN = 1.14` | 任务卡由提示词 body **同源重生成**；两处版本戳统一到 **1.18.5** |
+| P2 | `softseep/references/license-validation.md` 仍复制「门 → 决策树」与退出判据 | 改为指针（只在 `client-license-validation-bypass` §0 定义） |
+
+验收：`preflight --fast` 16/16、`verify.ps1` 65/65、`verify.sh` 65/65、routing 15 条、mcp-guard 38/38。
+
+---
+
 ## [1.18.4] — 2026-10-21
 
 > 主题：**终审通过后的留痕与两处消歧**（无 P0/P1）。
