@@ -150,15 +150,26 @@ def die(msg, code=2):
 def cmd_init(a):
     d, fp, sp = paths(a.case)
     os.makedirs(d, exist_ok=True)
+    mf = _manifest(a.case)
+    # ★ 上游唯一恢复点：ai_manifest.json 里可能已有 seep 子键（甚至整份 CTF 进度）。
+    #   没有 --force 就绝不覆盖 —— 否则 init 会静默清空已登记的深度/裁定（实测过的数据丢失）。
+    if os.path.isfile(mf) and not a.force:
+        try:
+            with open(mf, encoding="utf-8") as f:
+                man = json.load(f)
+        except Exception:
+            man = {}
+        if isinstance(man.get("seep"), dict):
+            die("ai_manifest.json 里已有 seep 状态；要重建加 --force（当前不会覆盖）")
     if os.path.isfile(sp) and not a.force:
-        die(f"已有 state.json：{sp}（要重建加 --force）")
+        die("已有 state.json：%s（要重建加 --force）" % sp)
     st = {"schema": "seep-case/1", "target": os.path.abspath(a.target) if a.target else "",
           "depth": {}, "verdict": None, "max_level": None,
           "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
-    save_state(a.case, st)
-    open(fp, "a", encoding="utf-8").close()
     backend = save_state(a.case, st)
-    print(f"[OK] 案子已建：{d}  facts: {fp}  state: {backend}")
+    open(fp, "a", encoding="utf-8").close()
+    print("[OK] 案子已建：%s  facts: %s  state: %s" % (d, fp, backend))
+
 
 
 def cmd_claim(a):

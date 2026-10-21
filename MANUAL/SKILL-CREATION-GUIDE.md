@@ -36,7 +36,7 @@
 **加完四件事必跑**（缺一不可）：
 ```bash
 python Tool/scripts/verify-routing-coherence.py   # 路由 ↔ 技能落位自洽
-python Tool/scripts/check-budget.py               # 技能数 ≤ 12、first-party ≤ 900
+python Tool/scripts/check-budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
 powershell -File setup/verify.ps1 -Detailed       # 62 项全绿
 python Tool/scripts/smoke-e2e.py                  # 端到端 12 环
 ```

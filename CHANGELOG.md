@@ -10,6 +10,24 @@
 
 ---
 
+## [1.17.6] — 2026-10-21
+
+> 主题：**第四轮复核的 4 条 P1 + 3 条 P2**（同类活口清尾）。
+
+| 级别 | 问题 | 修复 |
+|---|---|---|
+| P1 | `MANUAL/SKILL-CREATION-GUIDE.md` 仍写"技能数 ≤ 12" | 改为"不设上限，仅统计" |
+| P1 | `优化方案.md` 状态账路径仍写 `state.json` | 改为 `ai_manifest.json#seep`（无 manifest 才 `state.json`） |
+| P1 | **`case_state.py init` 会静默覆盖 `ai_manifest.json` 的 `seep`**（实测把 `verdict=可赢` + `depth` 清空） | 无 `--force` 时拒绝并提示；实跑验证原有 `verdict`/`autopilot.round` 全部保留 |
+| P1 | `Tool/docs/BOOTSTRAP.md` 期望值 61/61、11/11 | 改 62/62、16/16 |
+| P2 | BASELINE-FREEZE 的 MANUAL 计数 13（实为 14） | 改 14 |
+| P2 | TOOLKIT_GUIDE"六项硬上限"（实为 5 硬 + 1 统计） | 措辞修正 |
+| P2 | softseep 残留的"门 → 决策树映射"表（与 client-license 逐字重复） | 改指针 |
+
+验收：`preflight --fast` 16/16、`verify.ps1` 62/62、`verify.sh` 62/62、routing 15 条、mcp-guard 38/38。
+
+---
+
 ## [1.17.5] — 2026-10-21
 
 > 主题：**独立完成审计（completion auditor）驳回后的 6 项收口** —— 不是自己说了算。
