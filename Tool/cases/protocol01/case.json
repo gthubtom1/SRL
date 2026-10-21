@@ -82,11 +82,11 @@
     },
     {
       "path": "artifacts/streams/s00_10.20.0.15_49152-10.20.0.5_80.bin",
-      "sha256": "c4615b3a28c365c3bffacc554f8127bb9ab29cff84de3c8ddbe9e8239011e05f"
+      "sha256": "f3287641bb0383833e2aeec27c1fe71a2c481b110c4af9ff5fc063026e30273e"
     },
     {
       "path": "artifacts/streams/s01_10.20.0.5_80-10.20.0.15_49152.bin",
-      "sha256": "71b5c4915b82a6268a4a4817b9dbfb0ff0c7504b1249367e3fc1513bfd3387cd"
+      "sha256": "f1a42bcb76bca9ff7d53c04b614ce1bbd014d1efbf4966ce48763c704a224b6d"
     }
   ],
   "evidence": [

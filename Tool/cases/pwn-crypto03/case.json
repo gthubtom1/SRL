@@ -30,7 +30,7 @@
     },
     {
       "path": "artifacts/stack_overflow.dis",
-      "sha256": "ef94e0e8be57bf0fe790a1ed14308fec397e0ab7408d71a19a4d529cb2f56112"
+      "sha256": "d9625e4c28d396af68cadacba162687efe5aeb9ae5cc31e686e21218e0d2cc63"
     },
     {
       "path": "artifacts/probe.txt",
