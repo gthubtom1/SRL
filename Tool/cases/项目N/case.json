@@ -15,11 +15,11 @@
   "artifacts": [
     {
       "path": "tools/bx_patch.py",
-      "sha256": ""
+      "sha256": "3d8d48149eaf2cafaa263b28d4de386699b057081f76870401d1305d6d3664f1"
     },
     {
       "path": "docs/protection-layers.md",
-      "sha256": ""
+      "sha256": "697cba7aba7b3af6811d5a869e6bb78ec5bc06e0ae45ff6185f2644b57be8e24"
     }
   ],
   "lessons": [

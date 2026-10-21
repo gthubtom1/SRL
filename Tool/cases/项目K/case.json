@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/ProjectKUnlock.cs",
-      "sha256": ""
+      "sha256": "d17e3e59304d1055a390224a59549562808dc5aee9a2b1989e5c7ac7b5755023"
     },
     {
       "path": "src/install.ps1",
-      "sha256": ""
+      "sha256": "a8cbd680b9cecefa73f92de2bf190fa05d3ee379c413ab5ace0b72eba3fb3117"
     },
     {
       "path": "src/uninstall.ps1",
-      "sha256": ""
+      "sha256": "2eb8d62eaef5854afd7285f1cb6dfecb29e020868cd9285ab67a65fe260dc835"
     }
   ],
   "lessons": [

@@ -9,15 +9,15 @@
   "artifacts": [
     {
       "path": "v2/dist/version.dll",
-      "sha256": ""
+      "sha256": "cc428f85e55ef12d53302696c6f76d74aa364e0d3214da3a0b36bdb128cb8391"
     },
     {
       "path": "v2/docs/授权旁路漏洞分析报告.md",
-      "sha256": ""
+      "sha256": "5e49e35f83b0b9cbba42c4c57fe2fd44e7f9393dc5e37af82552c9d6ffe995dc"
     },
     {
       "path": "defense_hardening.c",
-      "sha256": ""
+      "sha256": "ffaa832a028d58b5a4c56ea5c160b64e4613250ffce6b2b90e7f1a009df68dbd"
     }
   ],
   "lessons": [

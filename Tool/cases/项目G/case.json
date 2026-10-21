@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/项目G_activate.py",
-      "sha256": ""
+      "sha256": "28d6d93f0e9d55352eb8109862e5ded10ce8d5f570b576728967476210ab2e94"
     },
     {
       "path": "src/项目G_gui.py",
-      "sha256": ""
+      "sha256": "0ef4a29263393d75cd9ea0ef198bf0013b0fb93001a6da949a834f42f5aa4268"
     },
     {
       "path": "tools/test_activate.py",
-      "sha256": ""
+      "sha256": "c13b0cf8eedd277c063aa426c8996fbb3bf44c9cc09809af622845b50953418d"
     }
   ],
   "lessons": [

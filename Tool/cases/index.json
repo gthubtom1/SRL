@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T09:23:36Z",
-  "source_hash": "dec9afab8b6f2c2e1ec4dd18338d0fc695b52d130429453b087d6ab661e88786",
+  "generated_at": "2026-10-21T10:17:06Z",
+  "source_hash": "d147d03403c8fb6db12b772a40501652e64dd64d35b8fb05eb3a90b09a647d46",
   "case_count": 15,
   "cases": [
     {
@@ -50,15 +50,15 @@
       "artifacts": [
         {
           "path": "v2/dist/version.dll",
-          "sha256": ""
+          "sha256": "cc428f85e55ef12d53302696c6f76d74aa364e0d3214da3a0b36bdb128cb8391"
         },
         {
           "path": "v2/docs/授权旁路漏洞分析报告.md",
-          "sha256": ""
+          "sha256": "5e49e35f83b0b9cbba42c4c57fe2fd44e7f9393dc5e37af82552c9d6ffe995dc"
         },
         {
           "path": "defense_hardening.c",
-          "sha256": ""
+          "sha256": "ffaa832a028d58b5a4c56ea5c160b64e4613250ffce6b2b90e7f1a009df68dbd"
         }
       ],
       "lessons": [
@@ -99,15 +99,15 @@
       "artifacts": [
         {
           "path": "v6.8.1/dist/winhttp.dll",
-          "sha256": ""
+          "sha256": "ab9a0dbcef0cbd43c828d66c736909d49aec03e2006d25cf7e6edde141d6584b"
         },
         {
           "path": "v6.8.1/src/winhttp_proxy.rs",
-          "sha256": ""
+          "sha256": "279dff85d9d9591b9d8c4119f10659836bd51d8ab7ffbd751b68000f7eb18a58"
         },
         {
           "path": "项目B-6.8.1_nx_main_manual_patch_points.txt",
-          "sha256": ""
+          "sha256": "acc424915189368cd909b47b46e50b6f52b9fff3d8875932dabf357d2c023678"
         }
       ],
       "lessons": [
@@ -147,15 +147,15 @@
       "artifacts": [
         {
           "path": "poc/patch_binary.py",
-          "sha256": ""
+          "sha256": "0ebf0c89aa907161bda160a1401a59322d0ce1bd24993d7c9f9f12bcca6b4ba3"
         },
         {
           "path": "poc/version.def",
-          "sha256": ""
+          "sha256": "722e5cf22d02757b2a9da9d616f522c7c5b433a12364898f39961569bdb55182"
         },
         {
           "path": "runtime/config.ini",
-          "sha256": ""
+          "sha256": "901e20f580e8ba3f43548a64fd06717864718910419e47923f719aa4397f994c"
         }
       ],
       "lessons": [
@@ -193,15 +193,15 @@
       "artifacts": [
         {
           "path": "项目D_Pro_Tool/src/Program.cs",
-          "sha256": ""
+          "sha256": "c78b6c70b092a2e035433ed1c7e8f1e3073825e2b45d5841b0d7373ae4bbd3db"
         },
         {
           "path": "项目D_Pro_Tool/tests/PatchEngineTests.cs",
-          "sha256": ""
+          "sha256": "f9f595e4efdedd59054dd185d43c5e59ff6309e007f5e10bd0920053d1dbe6fc"
         },
         {
           "path": "tools/03_gen_signatures.py",
-          "sha256": ""
+          "sha256": "9a970b42c4fd63048a1688bbae5d98b8295652854a16c68536b0c3933184caae"
         }
       ],
       "lessons": [
@@ -242,15 +242,15 @@
       "artifacts": [
         {
           "path": "src/Patcher.cs",
-          "sha256": ""
+          "sha256": "74d34ea51c6b66f4812b19d2cbccb4f69297780c512caa6420ea2738d3af7460"
         },
         {
           "path": "src/LicenseWriter.cs",
-          "sha256": ""
+          "sha256": "856b004db3889857fc110418b2c53abfab6a92ad487fc8af3d3cf3b923791aa8"
         },
         {
           "path": "auto_activate.ps1",
-          "sha256": ""
+          "sha256": "27b8a6f1531781014afa5838f265950a7e1c0dcc047d8e3ba82c31bf3dd2ed0f"
         }
       ],
       "lessons": [
@@ -291,15 +291,15 @@
       "artifacts": [
         {
           "path": "src/LicenseAlgo.cs",
-          "sha256": ""
+          "sha256": "30525cc2f25d2259af0ba8ae55bf4abc62e69b462c425018b43348abd962ea99"
         },
         {
           "path": "src/项目FActivate.cs",
-          "sha256": ""
+          "sha256": "29058cbbe9616d0b1fea28aa688f1b950e01da7dfd51e8cfd0a37af3fe218b15"
         },
         {
           "path": "docs/algorithm.md",
-          "sha256": ""
+          "sha256": "2acc55c71c445b8181cb5b00dfe7cbc7975a714caf9e3da809c59e6fcf7bfb48"
         }
       ],
       "lessons": [
@@ -340,15 +340,15 @@
       "artifacts": [
         {
           "path": "src/项目G_activate.py",
-          "sha256": ""
+          "sha256": "28d6d93f0e9d55352eb8109862e5ded10ce8d5f570b576728967476210ab2e94"
         },
         {
           "path": "src/项目G_gui.py",
-          "sha256": ""
+          "sha256": "0ef4a29263393d75cd9ea0ef198bf0013b0fb93001a6da949a834f42f5aa4268"
         },
         {
           "path": "tools/test_activate.py",
-          "sha256": ""
+          "sha256": "c13b0cf8eedd277c063aa426c8996fbb3bf44c9cc09809af622845b50953418d"
         }
       ],
       "lessons": [
@@ -388,15 +388,15 @@
       "artifacts": [
         {
           "path": "src/keygen/algo.py",
-          "sha256": ""
+          "sha256": "ec37e5ffd46d42cb17e834e690470f1de569641002eb0da78c50cbaf3f8ad286"
         },
         {
           "path": "src/keygen/cli.py",
-          "sha256": ""
+          "sha256": "29ead050042e788169b0ceed9957deabbbc250a9a59a531f686651efe7b07cf2"
         },
         {
           "path": "tools/test_keygen.py",
-          "sha256": ""
+          "sha256": "237d53559ae2d645e444eefd338b9c8d9ea97031e4d0e019645d83c2d4265cc0"
         }
       ],
       "lessons": [
@@ -437,15 +437,15 @@
       "artifacts": [
         {
           "path": "src/SabPatchEngine.cs",
-          "sha256": ""
+          "sha256": "0c84a203c679b288794075f9fb5e3fdc84ff1373df949dcf773545f6ce6dd3e6"
         },
         {
           "path": "src/SabActivate.cs",
-          "sha256": ""
+          "sha256": "2e250dc7464ea327dee7f1f8e7ba1a2dc75bb4cdab5cf51fd041dbca474a1298"
         },
         {
           "path": "src/SabRollbackGuard.cs",
-          "sha256": ""
+          "sha256": "23ff973b502b1402048319cc1385ea9640e03899658f495043c09c6931d19b4b"
         }
       ],
       "lessons": [
@@ -487,15 +487,15 @@
       "artifacts": [
         {
           "path": "src/apply_patch.py",
-          "sha256": ""
+          "sha256": "be14038a31857cf2623859f28d377b3ffbd4ff381169b2b1f3dbb09b9b0dec87"
         },
         {
           "path": "src/poc_frida_bypass.js",
-          "sha256": ""
+          "sha256": "5f44f59b86cad22d37a82fbb1b0f1c350e508b0e2f10992716647a48f908c64c"
         },
         {
           "path": "docs/protocol-and-patch.md",
-          "sha256": ""
+          "sha256": "9c76e55ec9ab956e81ef1331aa45adf48e5033fe7c3698a83b29fd1ba9532da0"
         }
       ],
       "lessons": [
@@ -536,15 +536,15 @@
       "artifacts": [
         {
           "path": "src/ProjectKUnlock.cs",
-          "sha256": ""
+          "sha256": "d17e3e59304d1055a390224a59549562808dc5aee9a2b1989e5c7ac7b5755023"
         },
         {
           "path": "src/install.ps1",
-          "sha256": ""
+          "sha256": "a8cbd680b9cecefa73f92de2bf190fa05d3ee379c413ab5ace0b72eba3fb3117"
         },
         {
           "path": "src/uninstall.ps1",
-          "sha256": ""
+          "sha256": "2eb8d62eaef5854afd7285f1cb6dfecb29e020868cd9285ab67a65fe260dc835"
         }
       ],
       "lessons": [
@@ -583,15 +583,15 @@
       "artifacts": [
         {
           "path": "src/项目L_hook.c",
-          "sha256": ""
+          "sha256": "4ecca58375c483470dbad2972a7b11b12781af03baf26d8c116f19d012f14d0a"
         },
         {
           "path": "src/项目L_bridge.c",
-          "sha256": ""
+          "sha256": "62432c5454759d4551c6c51e3f511670e0dcd2a4855f734f45a01149be5c82b7"
         },
         {
           "path": "src/proxy.def",
-          "sha256": ""
+          "sha256": "c83bc9a26b7a935da34292ba4165831052ac6a95bd5e6edc2781f125fde790d0"
         }
       ],
       "lessons": [
@@ -631,15 +631,15 @@
       "artifacts": [
         {
           "path": "src/BurpLoaderAgent.jar",
-          "sha256": ""
+          "sha256": "8c5ca91fa2c1e81416b9120a94f6e89f02a731e07ca83e45d8ff245e40dc029b"
         },
         {
           "path": "src/hijack/version.dll",
-          "sha256": ""
+          "sha256": "6da9fe6d3115d88ae075f4b631bb611f369e8892e7e85c23daced7e8f0c52d75"
         },
         {
           "path": "src/hijack/version.rs",
-          "sha256": ""
+          "sha256": "87b3a3309ccdc5c8862f020bea43978a2b75520d3041e3a910c416a1b5a27962"
         }
       ],
       "lessons": [
@@ -681,11 +681,11 @@
       "artifacts": [
         {
           "path": "tools/bx_patch.py",
-          "sha256": ""
+          "sha256": "3d8d48149eaf2cafaa263b28d4de386699b057081f76870401d1305d6d3664f1"
         },
         {
           "path": "docs/protection-layers.md",
-          "sha256": ""
+          "sha256": "697cba7aba7b3af6811d5a869e6bb78ec5bc06e0ae45ff6185f2644b57be8e24"
         }
       ],
       "lessons": [

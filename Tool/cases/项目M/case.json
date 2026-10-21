@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/BurpLoaderAgent.jar",
-      "sha256": ""
+      "sha256": "8c5ca91fa2c1e81416b9120a94f6e89f02a731e07ca83e45d8ff245e40dc029b"
     },
     {
       "path": "src/hijack/version.dll",
-      "sha256": ""
+      "sha256": "6da9fe6d3115d88ae075f4b631bb611f369e8892e7e85c23daced7e8f0c52d75"
     },
     {
       "path": "src/hijack/version.rs",
-      "sha256": ""
+      "sha256": "87b3a3309ccdc5c8862f020bea43978a2b75520d3041e3a910c416a1b5a27962"
     }
   ],
   "lessons": [

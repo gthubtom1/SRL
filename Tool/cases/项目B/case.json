@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "v6.8.1/dist/winhttp.dll",
-      "sha256": ""
+      "sha256": "ab9a0dbcef0cbd43c828d66c736909d49aec03e2006d25cf7e6edde141d6584b"
     },
     {
       "path": "v6.8.1/src/winhttp_proxy.rs",
-      "sha256": ""
+      "sha256": "279dff85d9d9591b9d8c4119f10659836bd51d8ab7ffbd751b68000f7eb18a58"
     },
     {
       "path": "项目B-6.8.1_nx_main_manual_patch_points.txt",
-      "sha256": ""
+      "sha256": "acc424915189368cd909b47b46e50b6f52b9fff3d8875932dabf357d2c023678"
     }
   ],
   "lessons": [

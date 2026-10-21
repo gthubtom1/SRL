@@ -14,15 +14,15 @@
   "artifacts": [
     {
       "path": "src/LicenseAlgo.cs",
-      "sha256": ""
+      "sha256": "30525cc2f25d2259af0ba8ae55bf4abc62e69b462c425018b43348abd962ea99"
     },
     {
       "path": "src/项目FActivate.cs",
-      "sha256": ""
+      "sha256": "29058cbbe9616d0b1fea28aa688f1b950e01da7dfd51e8cfd0a37af3fe218b15"
     },
     {
       "path": "docs/algorithm.md",
-      "sha256": ""
+      "sha256": "2acc55c71c445b8181cb5b00dfe7cbc7975a714caf9e3da809c59e6fcf7bfb48"
     }
   ],
   "lessons": [
