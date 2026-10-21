@@ -10,6 +10,22 @@
 
 ---
 
+## [1.17.8] — 2026-10-21
+
+> 主题：**终审复核留痕 + 清掉该轮 5 条 P2**。
+
+| 类型 | 内容 |
+|---|---|
+| 留痕 | `Tool/docs/AUDIT-2026-10-21.md` 新增 §四：终审子代理会话 ID、复核时 HEAD、范围、**结论原文**（"无 P0/P1 遗留；同意宣布收口"） |
+| P2 | `preflight.py` 最后一处子进程补 `encoding="utf-8", errors="replace"`（`PYTHONIOENCODING=utf-8` 下也稳定） |
+| P2 | `mcp-guard.py` 基线缺失时不再 `UnboundLocalError`，改为干净 `[FAIL]` rc=1；`--baseline` 提示写明"自生成基线只能保证此后只增" |
+| P2 | `client-license-validation-bypass` §G-Auth 加「历史表述（已废止）」注记，指向 `AGENTS.md` §六 |
+| P2 | 审计文档里 P1-17 的严重度与摘要表统一 |
+
+验收：`preflight --fast` 16/16、`verify.ps1` 62/62、`verify.sh` 62/62、routing 15 条、mcp-guard 38/38。
+
+---
+
 ## [1.17.7] — 2026-10-21
 
 > 主题：**闭环台账补全 + 终审复核留痕**。
