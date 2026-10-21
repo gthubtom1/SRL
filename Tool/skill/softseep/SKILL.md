@@ -215,7 +215,11 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 ") ?? "";
 ```
 
-- 常用签名：`seep_kb_search({ query, category?, limit? })` / `seep_kb_read({ article_path, max_chars? })` / `seep_status()`
+- 常用签名（**参数名不能猜**，写错会被 pydantic 拒绝）：
+  `seep_auto_triage({ binary_path, task_name? })`
+  `seep_packer_detect({ binary_path })`
+  `seep_r2_info({ binary_path })` / `seep_r2_functions({ binary_path, filter_name?, limit? })`
+  `seep_kb_search({ query, category?, limit? })` / `seep_kb_read({ article_path, max_chars? })` / `seep_status({})`
 - **不确定签名时只查一条**：`searchTools("seep_kb")`，不要 `describeNamespace` 整个 namespace（一次调用就够，别花两次）
 - 返回统一取 `structuredContent.result`（字符串），失败时取 `content[].text`
 - 知识库根**是常量**：`Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认）——不要 `find`/`grep` 去找它

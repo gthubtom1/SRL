@@ -162,7 +162,28 @@ powershell -File Tool/scripts/tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode 
 
 ---
 
-## 五、 提效规则：先查知识库再动手（Zero-Waste Recon）
+## 五、 提效规则：开工三件套（不做这四步就动手 = 违规）
+
+任何逆向 / 审计任务，**动第一下手之前**必须完成：
+
+1. **读技能**：`read Tool/skill/softseep/SKILL.md`（总控）+ 按平台读子技能
+   （`apkseep` / `ida-reverse` / `unpack-loop` / `client-license-validation-bypass`）。
+   **不读技能就开工，等于放弃判型、七道门、熔断与交付纪律。**
+2. **跑体检**：`seep_auto_triage(<目标>)` —— 哈希/架构/壳/熵/敏感字符串一次拿到。
+3. **判壳/反调试**：`seep_packer_detect(<目标>)` —— 决定走静态、动态还是脱壳路线。
+4. **查 KB 一次**：`seep_kb_search("<壳名/自毁/VEH/授权>")`。
+
+**MCP 工具参数纪律**（血案：会话 `01a15b90` 把 `binary_path` 写成 `file`，一次 rejected 之后
+就再没用过 MCP 工具，改用 184 次 bash 手搓 strings/pefile）：
+
+- seep 工具在 codemode 下，名为 `mcp__seep__seep_<tool>`；**参数名拿不准就先 `describeTool()`，不许猜**；
+- 常用签名：`seep_auto_triage(binary_path=..., task_name=?)`、`seep_packer_detect(binary_path=...)`、
+  `seep_r2_info(binary_path=...)`、`seep_kb_search(query=..., limit=?)`；
+- 一次调用失败要**读错误信息改参数重试**，不是换回手搓。
+
+---
+
+## 五之二、 Zero-Waste Recon（先查知识库再动手）
 
 ```
 信号（JWT/SQLi/SSRF/壳/混淆/native/加密...）
