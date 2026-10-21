@@ -9,6 +9,7 @@ never echoed: only a sha256 fingerprint is reported.
 
 Examples:
   python ad-repro.py --kind kerberoast --input evidence.json
+  python ad-repro.py --kind adcs-esc --input adcs-find.json     # ESC9-ESC17 offline
   python ad-repro.py --input bundle.json --json
   python ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
   python ad-repro.py --self-test
@@ -35,7 +36,7 @@ if sys.platform == "win32":
 
 VERSION = "1.0.0"
 EVENT_NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
-KINDS = ("kerberoast", "asrep", "adcs", "delegation", "k8s-rbac", "windows-events")
+KINDS = ("kerberoast", "asrep", "adcs", "adcs-esc", "delegation", "k8s-rbac", "windows-events")
 
 
 class ReproError(Exception):
@@ -318,6 +319,254 @@ def eval_adcs(d):
             "只拿到 pfx、certipy auth 失败：证书用途/UPN/DC 不匹配，是素材不是打穿。",
             "EPA/LDAP signing/SMB signing 已开：ESC8 relay 基本不可用，转凭据直连。",
             "没有模板/ACL 数据：不要凭 CA 名称或默认模板猜 ESC。",
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# ADCS ESC9-ESC17 (certipy find -json style, offline)
+# ---------------------------------------------------------------------------
+CERT_MAPPING_BITS = {"subject": 0x1, "issuer": 0x2, "upn": 0x4, "s4u2self": 0x8}
+SECURITY_EXT_OID = "1.3.6.1.4.1.311.25.2"      # szOID_NTDS_CA_SECURITY_EXT
+NIST_SHA256_OID = "2.16.840.1.101.3.4.2.1"     # szOID_NIST_sha256
+WEAK_MARKERS = ("<SR>", "SKI>", "SHA1", "SHA256", "RFC822")
+
+
+def _first(d, keys, default=None):
+    """First present, non-empty field among several spellings."""
+    if not isinstance(d, dict):
+        return default
+    for k in keys:
+        if k in d:
+            v = d[k]
+            if v is not None and v != "":
+                return v
+    return default
+
+
+def _int_or_none(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value).strip(), 0)
+    except (TypeError, ValueError):
+        return None
+
+
+def _mapping_mask(value):
+    """CertificateMappingMethods bits: 0x1 subject, 0x2 issuer, 0x4 UPN, 0x8 S4U2Self."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, (list, tuple)):
+        mask = 0
+        for item in value:
+            key = str(item).strip().lower().replace("-", "").replace("_", "")
+            mask |= CERT_MAPPING_BITS.get(key, 0)
+        return mask
+    text = str(value).strip()
+    try:
+        return int(text, 0)
+    except ValueError:
+        pass
+    mask, found = 0, False
+    for token in re.split(r"[,;|/\s]+", text.lower()):
+        token = token.replace("-", "").replace("_", "")
+        if token in CERT_MAPPING_BITS:
+            mask |= CERT_MAPPING_BITS[token]
+            found = True
+    return mask if found else None
+
+
+def _eku_has(policies, *needles):
+    blob = " ".join(str(x) for x in _list(policies)).lower()
+    return any(n.lower() in blob for n in needles)
+
+
+def eval_adcs_esc(d):
+    """ESC9-ESC17 from a certipy-find-shaped document; never contacts the CA."""
+    cas = [c for c in _list(_first(d, ("Certificate Authorities", "cas", "ca"), []))
+           if isinstance(c, dict)]
+    templates = [t for t in _list(_first(d, ("Certificate Templates", "templates"), []))
+                 if isinstance(t, dict)]
+    accounts = [a for a in _list(d.get("accounts")) if isinstance(a, dict)]
+    scb = _int_or_none(_first(d, ("StrongCertificateBindingEnforcement", "strong_cert_binding",
+                                  "strong_cert_binding_enforcement")))
+    mm = _mapping_mask(_first(d, ("CertificateMappingMethods", "mapping_methods")))
+    icpr_raw = _first(d, ("icpr_encrypt",))
+    icpr = None if icpr_raw is None else _bool(icpr_raw, None)
+    if icpr is None:
+        enf = _first(d, ("Enforce Encryption for Requests", "enforce_encryption"))
+        if enf is None:
+            for c in cas:
+                enf = _first(c, ("Enforce Encryption for Requests", "enforce_encryption"))
+                if enf is not None:
+                    break
+        if enf is not None:
+            icpr = str(enf).strip().lower() in ("enabled", "true", "yes", "1", "on")
+    wsus = d.get("wsus") if isinstance(d.get("wsus"), dict) else {}
+    wsus_raw = _first(d, ("wsus_https", "WSUS HTTPS"))
+    if wsus_raw is None:
+        wsus_raw = wsus.get("https")
+    wsus_https = None if wsus_raw is None else _bool(wsus_raw, None)
+    if not (cas or templates or accounts or scb is not None or mm is not None
+            or icpr is not None or wsus_https is not None):
+        raise ReproError("adcs-esc-schema",
+                         "no CA/template/account/binding fields found; refusing to guess ESC")
+
+    flags, findings, rows, blockers = [], [], [], []
+    for i, t in enumerate(templates):
+        name = str(_first(t, ("Template Name", "name", "template_name")) or ("template-%d" % i))
+        schema = _int_or_none(_first(t, ("Schema Version", "schema_version",
+                                         "msPKI-Template-Schema-Version")))
+        enroll = _bool(_first(t, ("enroll_allowed", "Enroll")), False)
+        san_enforced = _bool(_first(t, ("san_enforced",)), True)
+        app = _first(t, ("Application Policies", "application_policies",
+                         "msPKI-Certificate-Application-Policy"), [])
+        client_auth = _eku_has(app, "client authentication", "smart card logon", "any purpose",
+                               "1.3.6.1.5.5.7.3.2", "1.3.6.1.4.1.311.20.2.2", "2.5.29.37.0")
+        server_auth = _bool(t.get("server_auth_eku")) or _eku_has(
+            app, "server authentication", "1.3.6.1.5.5.7.3.1")
+        dns_san = _bool(t.get("dns_san_allowed")) or not san_enforced
+        group_link = _first(t, ("issuance_policy_group", "msDS-OIDToGroupLink", "oid_group_link"))
+        group_links = [str(x) for x in _list(t.get("issuance_policy_groups")
+                                             or t.get("oid_group_links"))]
+        policy_group = bool(group_link) or any(
+            x.strip().lower() not in ("", "none", "null") for x in group_links)
+        app_editable = _bool(t.get("application_policies_editable"),
+                             schema is not None and schema <= 1)
+        tflags = []
+        if enroll and policy_group:
+            tflags.append("ESC13")
+        if enroll and schema is not None and schema <= 1 and (not _list(app) or app_editable):
+            tflags.append("ESC15")
+        row = {"index": i, "template_fp": _fp(name), "schema": schema, "enroll_allowed": enroll,
+               "san_enforced": san_enforced, "client_auth_eku": client_auth,
+               "server_auth_eku": server_auth, "dns_san_allowed": dns_san,
+               "policy_group_link": policy_group, "application_policies": len(_list(app)),
+               "esc": tflags}
+        rows.append(row)
+        for e in tflags:
+            if e not in flags:
+                flags.append(e)
+            findings.append({"severity": "high" if e == "ESC13" else "medium",
+                             "title": "%s candidate on a template" % e,
+                             "evidence": "template[%d]" % i})
+        if not enroll:
+            blockers.append("no-enroll-right(template[%d])" % i)
+
+    ca_rows, sec_ext_off, nist_limited = [], False, False
+    for i, c in enumerate(cas):
+        dis = [str(x) for x in _list(_first(c, ("DisableExtensionList", "disable_extension_list")))]
+        blob = " ".join(dis).lower()
+        sec_off = _bool(_first(c, ("security_ext_disabled", "Security Extension Disabled")), False) \
+            or SECURITY_EXT_OID in blob
+        nist = NIST_SHA256_OID in blob or "szoid_nist_sha256" in blob
+        ca_rows.append({"index": i,
+                        "ca_fp": _fp(_first(c, ("CA Name", "name", "ca_name"))),
+                        "security_ext_disabled": sec_off, "nist_sha256_limited": nist})
+        sec_ext_off = sec_ext_off or sec_off
+        nist_limited = nist_limited or nist
+
+    weak_alt_ids = []
+    for i, a in enumerate(accounts):
+        vals = [str(x) for x in _list(_first(a, ("altSecurityIdentities", "alt_security_identities")))]
+        for v in vals:
+            strong = any(m in v.upper() for m in WEAK_MARKERS)
+            weak_alt_ids.append({"account_fp": _fp(_first(a, ("account", "name", "sam"))),
+                                 "value_fp": _fp(v), "strong": strong})
+        if _bool(a.get("alt_security_identities_writable")):
+            weak_alt_ids.append({"account_fp": _fp(_first(a, ("account", "name", "sam"))),
+                                 "value_fp": "", "strong": False})
+
+    server_auth_obtainable = _bool(d.get("server_auth_cert_obtained")) or any(
+        r["server_auth_eku"] and r["dns_san_allowed"] and r["enroll_allowed"] for r in rows)
+
+    if scb is not None and scb < 2:
+        flags.append("ESC9")
+        findings.append({"severity": "high", "title": "Esc9 weak certificate binding (UPN still honoured)",
+                         "evidence": "StrongCertificateBindingEnforcement=%d" % scb})
+    elif scb is not None:
+        blockers.append("strong-binding-enforced")
+    if mm is not None and mm & CERT_MAPPING_BITS["upn"]:
+        flags.append("ESC10")
+        findings.append({"severity": "high", "title": "Esc10 UPN certificate mapping enabled",
+                         "evidence": "CertificateMappingMethods=0x%x" % mm})
+    if icpr is False:
+        flags.append("ESC11")
+        findings.append({"severity": "high", "title": "Esc11 ICPR does not enforce encryption",
+                         "evidence": "Enforce Encryption for Requests=Disabled"})
+    elif icpr is True:
+        blockers.append("icpr-encrypted")
+    if any(not x["strong"] for x in weak_alt_ids):
+        flags.append("ESC14")
+        findings.append({"severity": "high", "title": "Esc14 weak explicit mapping (altSecurityIdentities)",
+                         "evidence": "weak mappings=%d" % sum(1 for x in weak_alt_ids if not x["strong"])})
+    if sec_ext_off or nist_limited:
+        flags.append("ESC16")
+        findings.append({"severity": "high", "title": "Esc16 CA-wide extension restriction (no SID extension)",
+                         "evidence": "security_ext_disabled=%s nist_sha256_limited=%s"
+                                     % (sec_ext_off, nist_limited)})
+    if wsus_https is True:
+        if server_auth_obtainable:
+            flags.append("ESC17")
+            findings.append({"severity": "high",
+                             "title": "Esc17 HTTPS WSUS relayable with an ADCS server-auth cert",
+                             "evidence": "wsus_https=true server_auth_obtainable=true"})
+        else:
+            blockers.append("no-server-auth-template")
+    elif wsus_https is False:
+        blockers.append("wsus-not-https")
+
+    # 固定顺序，避免输出随遍历顺序漂移
+    esc_order = ["ESC9", "ESC10", "ESC11", "ESC12", "ESC13", "ESC14", "ESC15", "ESC16", "ESC17"]
+    flags = [e for e in esc_order if e in flags]
+
+    auth_ok = _bool(d.get("auth_succeeded"))
+    relay_ok = _bool(d.get("relay_cert_obtained"))
+    update_ok = _bool(d.get("update_delivered")) or _bool(wsus.get("update_delivered"))
+    proven = auth_ok or relay_ok or update_ok
+    if flags and not proven:
+        blockers.append("no-last-step-evidence")
+    verdict = "confirmed" if (flags and proven) else ("candidate" if flags else "blocked")
+    checks = [
+        _check("strong-cert-binding", scb is not None,
+               "StrongCertificateBindingEnforcement=%s (0/1 = ESC9)" % (
+                   "unknown" if scb is None else scb)),
+        _check("certificate-mapping", mm is not None,
+               "CertificateMappingMethods=%s (0x4 = UPN => ESC10)" % (
+                   "unknown" if mm is None else "0x%x" % mm)),
+        _check("icpr-encryption", icpr is not None,
+               "ICPR Enforce Encryption for Requests=%s (False => ESC11)" % (
+                   "unknown" if icpr is None else icpr)),
+        _check("wsus-https", wsus_https is not None,
+               "WSUS HTTPS=%s (true => ESC17 when a server-auth cert is issuable)" % (
+                   "unknown" if wsus_https is None else wsus_https)),
+        _check("esc-rule-hit", bool(flags),
+               "ESC families matched: %s" % (",".join(flags) or "none")),
+        _check("last-step-proof", proven,
+               "auth/relay/update evidence present=%s" % proven),
+    ]
+    return _result(
+        "adcs-esc", verdict, checks, findings,
+        esc_flags=flags, strong_cert_binding=scb, mapping_methods=mm,
+        icpr_encrypt=icpr, wsus_https=wsus_https,
+        templates=rows, cas=ca_rows, alt_security_identities=weak_alt_ids,
+        blockers=blockers,
+        failure=[
+            "没有 CA/模板/绑定字段：不要凭 CA 名称或默认模板猜 ESC（脚本会 rc=2 拒判）。",
+            "StrongCertificateBindingEnforcement=2 或证书带 SID 扩展：ESC9/ESC10 不成立。",
+            "Enforce Encryption for Requests=Enabled：ESC11 relay 会 rpc_s_access_denied，转 ESC8/凭据直连。",
+            "只有配置位命中（candidate）：先补一次授权内的只读/低影响验证，再写 confirmed。",
+            "ESC17 有 Server Auth 证书但没有 MITM 位置/客户端拒绝证书：最多 candidate。",
+            "装了更新不等于提权：要写清落地标记文件与执行账号。",
         ],
     )
 
@@ -661,6 +910,8 @@ def eval_one(d):
         return eval_asrep(d)
     if kind == "adcs":
         return eval_adcs(d)
+    if kind == "adcs-esc":
+        return eval_adcs_esc(d)
     if kind == "delegation":
         return eval_delegation(d)
     if kind == "k8s-rbac":
@@ -734,6 +985,50 @@ def _self_test():
         if got != expected:
             raise ReproError("self-test", "expected %s, got %s for %s" % (expected, got, bundle["kind"]))
         checks += 1
+    esc_doc = {
+        "kind": "adcs-esc",
+        "StrongCertificateBindingEnforcement": 0,
+        "CertificateMappingMethods": "0x4",
+        "Certificate Authorities": [{
+            "CA Name": "LAB-CA",
+            "Enforce Encryption for Requests": "Disabled",
+            "DisableExtensionList": ["1.3.6.1.4.1.311.25.2", "2.16.840.1.101.3.4.2.1"],
+        }],
+        "Certificate Templates": [
+            {"Template Name": "WebServer", "Schema Version": 1, "Enroll": True,
+             "Application Policies": ["Server Authentication"], "san_enforced": False},
+            {"Template Name": "OpsIssuance", "Schema Version": 2, "Enroll": True,
+             "Application Policies": ["Client Authentication"],
+             "issuance_policy_group": "CN=Helpdesk-Ops,OU=Groups,DC=corp,DC=local"},
+        ],
+        "accounts": [
+            {"account": "svc_wsus", "altSecurityIdentities": ["X509:<I>DC=corp,DC=local<SR>1a2b3c"]},
+            {"account": "helpdesk", "altSecurityIdentities": ["X509:<I>DC=corp,DC=local<S>CN=helpdesk"]},
+        ],
+        "wsus": {"https": True},
+        "update_delivered": True,
+    }
+    esc_out = run_bundle(esc_doc)["results"][0]
+    if esc_out["verdict"] != "confirmed":
+        raise ReproError("self-test", "adcs-esc expected confirmed, got %s" % esc_out["verdict"])
+    want_flags = ["ESC9", "ESC10", "ESC11", "ESC13", "ESC14", "ESC15", "ESC16", "ESC17"]
+    missing = [f for f in want_flags if f not in esc_out["esc_flags"]]
+    if missing:
+        raise ReproError("self-test", "adcs-esc missed flags %s" % ",".join(missing))
+    if (esc_out["strong_cert_binding"] != 0 or esc_out["mapping_methods"] != 0x4
+            or esc_out["icpr_encrypt"] is not False or esc_out["wsus_https"] is not True):
+        raise ReproError("self-test", "adcs-esc normalised fields wrong: %s" % json.dumps(
+            {k: esc_out[k] for k in ("strong_cert_binding", "mapping_methods",
+                                     "icpr_encrypt", "wsus_https")}))
+    checks += 1
+    try:
+        run_bundle({"kind": "adcs-esc", "note": "no CA/template/binding fields"})
+    except ReproError as exc:
+        if exc.blocked_at == "self-test":
+            raise
+        checks += 1
+    else:
+        raise ReproError("self-test", "adcs-esc accepted an empty document (should refuse)")
     xml = ("<Events xmlns='http://schemas.microsoft.com/win/2004/08/events/event'>"
            "<Event><System><EventID>4624</EventID><TimeCreated SystemTime='2026-01-01T00:00:00Z'/>"
            "<Computer>LAB-PC</Computer><Channel>Security</Channel><EventRecordID>7</EventRecordID></System>"
@@ -761,7 +1056,7 @@ def _self_test():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="Offline recomputation of ad-cloud judgement rules (Kerberoast/AS-REP/ADCS/delegation/K8s RBAC/Windows events).")
+        description="Offline recomputation of ad-cloud judgement rules (Kerberoast/AS-REP/ADCS/ESC9-17/delegation/K8s RBAC/Windows events).")
     ap.add_argument("--input", help="JSON evidence bundle")
     ap.add_argument("--kind", help="force one check kind: " + ", ".join(KINDS))
     ap.add_argument("--json", action="store_true", help="emit one JSON object (default)")
