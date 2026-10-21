@@ -31,7 +31,7 @@
     "Tool/skill/pwn-crypto/SKILL.md",
     "Tool/skill/pwn-crypto/references/crypto-attacks.md",
     "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
-    "kb/pwn-crypto/crypto-oracle-playbook.md"
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/02-heap-and-sandbox.md"
   ],
   "updated": "2026-10-21"
 }

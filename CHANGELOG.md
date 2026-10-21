@@ -10,6 +10,19 @@
 
 ---
 
+## [1.21.3] — 2026-10-21
+
+> 主题：**清终审 P2**（4 条案例 refs 幻影 + 断言补强 + 文档数字）。
+
+- 4 个案例（pwn-crypto01/02、malware-analysis01/02）的 `refs` 由不存在的 `kb/<dom>/*.md` 改为真实的
+  `Tool/mcp/Tool/reverselab/kb/<dom>/techniques/*.md`。
+- `preflight.check_domain_packs()` 新增 **refs 可解析**断言（本地路径必须存在，http(s) 放行），
+  防止再出现"指向不存在文件"的案例引用。
+- `AUDIT-2026-10-21.md` 文末复现块数字更新为 20/20、24 条、40/40（此前停留在旧值）。
+- 验收：preflight 20/20、verify 65/65 双平台、routing 24、mcp-guard 40/40、索引 33。
+
+---
+
 ## [1.21.2] — 2026-10-21
 
 > 主题：**完成审计驳回的 8 项**（不是改文档，是把"浅"变成"深"）。
@@ -17,7 +30,7 @@
 | 级别 | 问题 | 修复 |
 |---|---|---|
 | P1 | 3 篇 refs 超 200 行 | 压缩到 191/199/200 行，命令与判据保留 |
-| P1 | 18 个案例是空壳（无产物、缺字段） | 12 个案例真跑脚本产出 `artifacts/run.json`（含 sha256 与退出码），6 个补齐 `protection/authority/goal_level/outcome/lessons` 并清掉幻影路径 |
+| P1 | 18 个案例是空壳（无产物、缺字段） | 12 个案例真跑脚本产出 `artifacts/run.json`（含 sha256 与退出码），6 个补齐 `protection/authority/goal_level/outcome/lessons`（refs 幻影在 1.21.3 修正） |
 | P1 | protocol/plugin/forensics 矩阵不足 12 条 | 补到 **13/12/12** 条（面/检测点/判据/工具/误报） |
 | P1 | R26 复用 R9 的核心词「内存转储」 | 从 R26 关键词移除（保留 内存镜像/取证/volatility） |
 | P1 | 2 个 SKILL 缺「失败判据」 | `malware-analysis`、`ad-cloud` 各补一节 |
