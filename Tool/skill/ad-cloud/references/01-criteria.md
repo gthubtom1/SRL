@@ -38,6 +38,17 @@
 | Windows 认证遥测 | Security.evtx / `wevtutil` XML | 4768/4769=Kerberos，4776=NTLM，4624 LogonType 3/10=网络/RDP，4672=特殊权限，4625/4771=失败；EventRecordID 连续 | 事件计数 + 时间窗 + 账号/来源（脱敏）+ 日志断档说明 | 单机日志不能代表域；审计未开导致假阴性；4672 服务登录是常态 |
 | 主机凭据面 | 证书存储、LSA 注册表、`klist` | 证书 EKU 是否含 Client Authentication/Smart Card Logon；是否有私钥；`RunAsPPL`/`NoLmHash`/`EnableLUA` 值；票据缓存数量 | 证书 subject/thumbprint/EKU（不导出私钥）+ 注册表键值 + 票据计数 | 有证书≠能 PKINIT；UAC 关闭是加固缺口不是域提权；服务证书不能当客户端证书 |
 
+## 1.1 ESC9 / ESC11 / ESC17 判据（字段可机检）
+
+> 离线复算：`python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input <certipy-find.json>`。
+> 下列字段名与脚本输出一致，可直接断言；`esc_flags[]` 与 `verdict` 必须同时成立才算数。
+
+| 场景 | 输入面 | 判据（字段/可机检） | 证据形态 | 误报风险 |
+| :-- | :-- | :-- | :-- | :-- |
+| ADCS ESC9（强绑定关闭） | `certipy find -json` + KDC 注册表 | `strong_cert_binding==0` 且 `esc_flags` 含 `ESC9`；证书无 SID 扩展；改名/映射后 `certipy auth` 得目标 TGT/ccache，`verdict==confirmed` | `strong_cert_binding` 原值 + 改名前后的 UPN 声明 + pfx 指纹 + `auth` 返回的 TGT 指纹 | 值=2 或证书带 SID=不可利用；改 UPN 触发审计/锁定；只拿到 pfx 未 PKINIT 只是 `candidate` |
+| ADCS ESC11（ICPR 未强制加密） | CA 加密要求 + relay 日志 | `icpr_encrypt==false` 且 `esc_flags` 含 `ESC11`；relay 收到机器账号认证 + CA 签发证书 + `auth` 得 TGT，三步齐才 `confirmed` | `icpr_encrypt` 原值 + relay 日志行（来源/时间）+ 证书指纹 + TGT 指纹 | 加密已强制时 relay 必失败；只能打 HTTP 且 EPA 已开；无强制认证面/端点不可达=未验证 |
+| ADCS ESC17（HTTPS WSUS 中继） | WSUS 传输配置 + ADCS 模板 + 客户端更新日志 | `wsus_https==true` 且 `esc_flags` 含 `ESC17`；中继证书 subject=WSUS FQDN 且含 Server Auth EKU；客户端更新日志出现下载/安装与标记文件，`verdict==confirmed` | `wsus_https` 原值 + 中继证书 subject/EKU/指纹 + 客户端 `WindowsUpdateClient` 事件与标记文件路径 | 客户端证书 pinning/mTLS 或只走 HTTP=不可用；有 Server Auth 证书但无 MITM 位置只是 `candidate`；装了更新不等于提权，要写清落地证据 |
+
 ## 2. 每条结论的最小证据包
 
 | 结论类型 | 必须有的四件 |

