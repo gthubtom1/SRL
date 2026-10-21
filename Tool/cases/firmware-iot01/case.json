@@ -16,7 +16,7 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "b2b768ebbefcdbe10fdd4c532b74e716af6e757cdb06db59dd08e806e7e62b78"
+      "sha256": "0119c517e10e9a23065b93dc5475bfb3ceaf0cce94c9eea4b519027c7b0bb6a5"
     }
   ],
   "interfaces": {

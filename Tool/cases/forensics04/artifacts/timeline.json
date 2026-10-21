@@ -1,7 +1,6 @@
 {
   "ok": true,
   "tool": "fs-timeline.py",
-  "generated_at": null,
   "timezone": "UTC",
   "events": [
     {

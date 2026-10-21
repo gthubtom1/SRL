@@ -1,12 +1,11 @@
 {
   "case": "protocol04",
-  "generated_at": "2026-10-21T14:41:42Z",
   "cwd": "Tool\\cases\\protocol04",
   "runs": [
     {
       "cmd": "bash input/capture_live.sh",
       "rc": 0,
-      "stdout": "listening on 127.0.0.1:18321\nGET /v1/ping -> 200 (lab-0001)\nreq1 GET /v1/ping -> 200\nGET /v1/telemetry?seq=2 -> 200 (lab-0002)\nreq2 GET /v1/telemetry -> 200\nPOST /v1/echo -> 200 (lab-0003)\nreq3 POST /v1/echo -> 200\n-rw-r--r-- 1 toti 197121 4596 Oct 21 22:41 artifacts/live.pcapng\n",
+      "stdout": "listening on 127.0.0.1:18321\nGET /v1/ping -> 200 (lab-0001)\nreq1 GET /v1/ping -> 200\nGET /v1/telemetry?seq=2 -> 200 (lab-0002)\nreq2 GET /v1/telemetry -> 200\nPOST /v1/echo -> 200 (lab-0003)\nreq3 POST /v1/echo -> 200\n-rw-r--r-- 1 <user> <group> 4596 <timestamp> artifacts/live.pcapng\n",
       "stderr": ""
     },
     {

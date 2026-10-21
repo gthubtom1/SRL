@@ -72,7 +72,7 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "fbfb7cae3ca002b820ad803d513303fdd9739d83bf8de9e0912bb31469a42e9c"
+      "sha256": "db3b5054eaa9c5ceda9faa208ddda8d1e4a89c4298b8f941cf60314944daeef5"
     },
     {
       "path": "artifacts/parse.json",

@@ -1,7 +1,6 @@
 {
   "tool": "fw-triage",
   "version": "1.0.0",
-  "generated_at": "2026-10-21T12:37:44Z",
   "file": "Tool/cases/项目A/v2/dist/version.dll",
   "ok": true,
   "size": 257024,

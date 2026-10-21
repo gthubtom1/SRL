@@ -78,6 +78,14 @@ def sha256(p):
     return h.hexdigest()
 
 
+
+def _norm_sha(p):
+    """文本文件按 LF 归一后取哈希：避免 CRLF/LF 工作树造成部署假红（R5 P1-1）。"""
+    if os.path.splitext(p)[1].lower() in (".md", ".py", ".json", ".txt", ".yml", ".yaml"):
+        raw = open(p, "rb").read().replace(bytes([13, 10]), bytes([10]))
+        return hashlib.sha256(raw).hexdigest()
+    return sha256(p)
+
 def rel(p):
     return os.path.relpath(p, ROOT).replace(os.sep, "/")
 
@@ -329,6 +337,16 @@ def check_cases(dom, spec):
             bad.append(os.path.basename(cd) + "(outcome=planned 不许入库)")
         if not (c.get("lessons") or []):
             bad.append(os.path.basename(cd) + "(lessons 为空)")
+        # 产物必须是确定性的：JSON artifact 不允许写非空 generated_at（R5 P1-2）。
+        for art in c.get("artifacts") or []:
+            ap = art.get("path") or ""
+            if ap.endswith(".json"):
+                try:
+                    _d = rj(os.path.join(cd, ap))
+                except Exception:  # noqa: BLE001
+                    _d = {}
+                if isinstance(_d, dict) and _d.get("generated_at"):
+                    bad.append("%s(%s 含非空 generated_at，复跑会漂)" % (os.path.basename(cd), ap))
         for art in c.get("artifacts") or []:
             ap = art.get("path") or ""
             want = (art.get("sha256") or "").lower()
@@ -887,7 +905,7 @@ def check_deploy(only=None):
                 t = os.path.join(dst, os.path.relpath(s, src))
                 if not os.path.isfile(t):
                     bad.append("%s(缺 %s)" % (spec["skill"], os.path.relpath(s, src)))
-                elif sha256(s) != sha256(t):
+                elif _norm_sha(s) != _norm_sha(t):
                     bad.append("%s(%s 哈希不一致)" % (spec["skill"], os.path.relpath(s, src)))
     add("全局", "部署哈希一致（仓库 ↔ ~/.pi/agent/skills）", not bad,
         "；".join(bad[:6]) + ("…" if len(bad) > 6 else "") if bad

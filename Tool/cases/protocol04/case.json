@@ -86,7 +86,7 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "54f57ec5178e022713966683703b7335d4b404198d288663be0a7aed1f8b500a"
+      "sha256": "2f3e40d1d57dfca60718808e0d7b9240961451f6bda7171b1c7a0638be447dfd"
     },
     {
       "path": "artifacts/tshark-capture.err",
@@ -142,7 +142,8 @@
     "结论：3 个独立 TCP 会话（curl 未复用连接），每个会话 1 请求 1 响应；响应以 Content-Length 定界，Set-Cookie/X-Session-Id 逐请求递增，Bearer 头是本案例自造的假值。",
     "抓包卫生：必须用 BPF（-f 'tcp port 18321'）把范围收敛到本案例端口，否则回环会混入同机其它进程的真实流量；本案例第一次未过滤时抓到了无关会话，已废弃重抓。",
     "分帧证据：pcap-summary.py --extract 导出的 s00/s01 .bin 可直接喂给 proto-repro.py 或自写解析器；frames.jsonl 记录逐包 payload_hex，可复算 Content-Length 与 body 长度。",
-    "边界：样本无 TLS/keep-alive/4xx 分支，不能据此推断真实服务端的鉴权与错误语义；重放与构造新请求按 references/08-replay-and-new-request.md 在本地回显服务上另做。"
+    "边界：样本无 TLS/keep-alive/4xx 分支，不能据此推断真实服务端的鉴权与错误语义；重放与构造新请求按 references/08-replay-and-new-request.md 在本地回显服务上另做。",
+    "隐私清洗（R5）：artifacts/run.json 里 `ls -l` 输出含本机用户名/uid，已替换为 <user>/<group>/<timestamp>；其余字节与结论不变。"
   ],
   "tags": [
     "R24",

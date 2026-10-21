@@ -36,3 +36,7 @@
 *.png binary
 *.ico binary
 *.pdf binary
+
+# v1.23: 案例证据按字节保存（禁止 eol 归一，否则 case.json 哈希在干净检出里漂移）
+Tool/cases/**/artifacts/** -text
+Tool/cases/**/input/** -text

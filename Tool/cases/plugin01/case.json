@@ -62,7 +62,7 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "bfd27d6c2c764f77e1a4051ddb0572340d6df55369d7a498173a1be8da69c008"
+      "sha256": "c04d0d7c4ce6e7ea3db95bb93ebea4d0e4b7826775dae01d098898fbb847d928"
     },
     {
       "path": "artifacts/plugin-triage.json",
