@@ -46,3 +46,5 @@
 4. **脚本统一 CLI**：`--self-test` 已全覆盖；下一步统一 `--json/--root/--out` 契约与退出码语义。
 5. **KB 反哺**：现场日志（`kb/field_journal_*`）满 3 篇同主题即沉淀为 `techniques/` 一篇。
 6. 延迟项与未排期能力见 `docs/DEFERRALS.md`（台账，不计入「能做什么」）。
+7. **5 分钟快速路径**：`docs/QUICKSTART.md`（新 agent/换会话先看）。
+8. **上游同步**：`docs/UPSTREAM.md` + `Tool/scripts/upstream-delta.py`，每季度跑一次内容差分。

@@ -335,6 +335,9 @@ Seep\ (251 MB)
 
 ## 🚀 快速开始与部署
 
+> **5 分钟快速路径**：[docs/QUICKSTART.md](docs/QUICKSTART.md) ｜ **上游同步与差分**：[docs/UPSTREAM.md](docs/UPSTREAM.md)
+
+
 > **换电脑时不需要你手动跑脚本**：让 Agent 说一句「这台还没配」，它会先 `python Tool/scripts/env-check.py` 自检，
 > 未就绪则自己执行 `setup/install.ps1` 并校验（流程见 `Tool/docs/BOOTSTRAP.md`）。
 
