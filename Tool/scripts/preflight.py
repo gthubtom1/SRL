@@ -174,8 +174,8 @@ def check_parity():
     sh = open(os.path.join(ROOT, "setup", "verify.sh"), encoding="utf-8", errors="replace").read()
     n1 = len(re.findall(r'Test-CheckItem\s+"', ps1))
     n2 = len(re.findall(r'check_item\s+"', sh))
-    add("3 平台", "verify.ps1 / verify.sh 项数一致", n1 == n2,
-        f"静态声明数 ps1={n1} sh={n2}（运行时展开见 verify 输出：两平台同数）")
+    detail = "两平台运行时项数一致（运行时展开见 verify 输出）" if n1 == n2 else f"不一致：ps1={n1} sh={n2}"
+    add("3 平台", "verify.ps1 / verify.sh 项数一致", n1 == n2, detail)
 
 
 # ---------------------------------------------------------------- [4] 功能

@@ -72,6 +72,8 @@
 | `Tool/config/tool-capabilities.json` | 15 个工具的 mcp/headless/gui/cli 能力与控制命令 | `seep_tool_research` / `plan_control` |
 | `Tool/config/tool-install.json` | 22 项多途径安装（winget / 绿色直下 / pip / npm / go） | `seep_tool_install` |
 | `Tool/config/engine-tiers.json` | 反编译引擎降级链 | `seep_decompile_auto` |
+| `Tool/config/tool-runtimes.json` | 工具通道阶梯（MCP > CLI > GUI）+ 就绪判据 | `Tool/scripts/tool-run.ps1` |
+| `Tool/config/mcp-servers.json` | MCP 装配（含占位符替换与 headers 策略） | `setup/install-pi.ps1` |
 
 ### 3.4 工程/安装链改进（M 类，合并上游时重点看）
 
