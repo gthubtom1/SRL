@@ -158,7 +158,7 @@ python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --aws-creds ~/.
 # 五类判定离线复算（Kerberoast/AS-REP/ADCS/委派/K8s RBAC）+ Windows 事件
 python Tool/skill/ad-cloud/scripts/ad-repro.py --input bundle.json --json
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input events.json
-python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input adcs-find.json   # ESC9-17 离线判定
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input adcs-find.json   # ESC9-17 离线判定（ESC12 需 CA 主机本地权限，只登记 blocker）
 python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
 
 # IAM 策略离线评估（不调用 STS/IAM）

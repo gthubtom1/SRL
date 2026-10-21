@@ -505,6 +505,11 @@ def eval_adcs_esc(d):
                          "evidence": "Enforce Encryption for Requests=Disabled"})
     elif icpr is True:
         blockers.append("icpr-encrypted")
+
+    # ESC12（CA 主机本地权限）无法离线判定：输入若声明该面，只登记 blocker，不产出 esc 家族。
+    _raw = json.dumps(d).lower() if isinstance(d, dict) else ""
+    if ("esc12" in _raw) or ("private_key_exported" in _raw):
+        blockers.append("esc12-local-ca-access(\u9700 CA \u4e3b\u673a\u672c\u5730\u6743\u9650\uff0c\u79bb\u7ebf\u4e0d\u5224\u5b9a)")
     if any(not x["strong"] for x in weak_alt_ids):
         flags.append("ESC14")
         findings.append({"severity": "high", "title": "Esc14 weak explicit mapping (altSecurityIdentities)",

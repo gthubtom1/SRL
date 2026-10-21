@@ -639,7 +639,9 @@ def check_v123_deliverables():
         add("12 v1.23", "路由串味测试 >=60 条", False, str(e)[:60])
 
     hits = []
-    for f in glob.glob(os.path.join(ROOT, "Tool", "cases", "*", "artifacts", "*.json")):
+    for f in (glob.glob(os.path.join(ROOT, "Tool", "cases", "*", "artifacts", "*.json"))
+          + glob.glob(os.path.join(ROOT, "Tool", "docs", "*.json"))
+          + glob.glob(os.path.join(ROOT, "Tool", "config", "*.json"))):
         try:
             d = json.load(open(f, encoding="utf-8"))
         except Exception:

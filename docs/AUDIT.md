@@ -390,3 +390,13 @@
 | 4 | ad-repro 声称 ESC9–17 但 ESC12 无判定分支 | 从 `esc_order` 移除 ESC12，改为显式 blocker「需 CA 主机本地权限，离线不可判定」，文档保留说明 | `ad-repro --self-test` 9 项 rc=0 |
 
 最终冻结：`v1.23.0` tag 与 HEAD 同一（本次提交），工作区干净。preflight **35/35**、domain-gate **101/101**、`--mutation-test` PASS、双平台 verify 65/0。
+
+### R8 整改（对齐 R7 终审 4 条）
+
+| # | 驳回 | 处置 | 验证 |
+| :-- | :-- | :-- | :-- |
+| 1 | `DEFERRALS` D6 仍未改（R7 台账虚假） | 按行替换 D6 为「任务卡剧本化已完成：60 条剧本卡、150 条命令实跑」 | `grep "D6" docs/DEFERRALS.md` 显示已完成 |
+| 2 | `ad-repro` 声称 ESC9–17，但 ESC12 被静默丢弃 | 输入含 `ESC12`/`private_key_exported` 时登记 blocker `esc12-local-ca-access`（离线不判定）；SKILL 口径同步改为「ESC12 需 CA 主机本地权限，只登记 blocker」 | 构造含 ESC12 的输入：`blockers=["esc12-local-ca-access(...)"]` |
+| 3 | P0-12/P0-06 出处仅 2025 | plugin 补 2026 出处：`electron/asar v4.2.1`（2026-07-21）、Check Point《Breaking the Seal》(2026-08-31)、`jscd`(2026)；web 补 zhero《Re:CACHE》(2026) | 两篇 reference 末尾「2026 补充出处」节 |
+| 4 | `Tool/docs/tool-index.json` 仍含真实 generated_at | 固定为 1970 纪元；preflight 时间戳扫描面扩到 `Tool/docs/*.json` 与 `Tool/config/*.json` | preflight 断言 PASS |
+
