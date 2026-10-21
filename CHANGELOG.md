@@ -10,6 +10,49 @@
 
 ---
 
+## [1.14.1] — 2026-10-21
+
+> 主题：**把"规则"变成"闸"** —— 阶段零的三条要求不再靠自觉。
+
+### 自查发现的三处"空承诺"（自己挖出来的）
+
+| 空承诺 | 现状 |
+|---|---|
+| 00 技能要求 `facts.jsonl`，却没有任何工具生成或校验它 | ❌ → 本次补 `case_state.py` |
+| 讲了两轮的 **M0–M3 交付分级**，技能里 0 处落地 | ❌ → 本次写进 00（裁定→上限）与 01（分级验收） |
+| `逆向开工提示词-短版.md` 的 `prompt-rev` 还停在 1.13 | ❌ → 统一到 1.14 |
+
+### 新增 `Tool/scripts/case_state.py`（阶段零出口闸）
+
+```bash
+python Tool/scripts/case_state.py init    --case <目录> --target <样本>
+python Tool/scripts/case_state.py claim   --case <目录> --id C01 --text "权威在服务端" --status hypothesis --how triage
+python Tool/scripts/case_state.py prove   --case <目录> --id C01 --evidence "procmon: 第1秒 winhttp 请求"
+python Tool/scripts/case_state.py refute  --case <目录> --id C01 --by C05     # 旧结论保留，不删
+python Tool/scripts/case_state.py depth   --case <目录> --level D2 --result pass --note "..."
+python Tool/scripts/case_state.py verdict --case <目录> --value 部分可赢 --note "..."
+python Tool/scripts/case_state.py gate    --case <目录>   # 不过就 exit 1，进不了 01
+python Tool/scripts/case_state.py resume  --case <目录>   # 换会话接续：已证/待验/下一步
+```
+
+闸会拦：深度没登记、`proven` 没证据、`proven` 没写"怎么测的"、没给裁定、
+**裁定"不可赢"却想按 M3 交付**（自动压回 M1，越级直接报错）。
+
+### 阶段零 → 阶段一 的传导
+
+| 裁定 | 交付上限 | 01 阶段允许做什么 |
+|---|---|---|
+| 可赢 | M3 | 完整成品 |
+| 部分可赢 | M2 | 功能面通 + 列出受限项 |
+| 不可赢 | M1 | 只证"能起、能进界面"，不许承诺成品 |
+
+### 验收
+
+`preflight --fast` **15/15**（新增 case_state 自检：空案子 gate 必须正确拒绝）、
+`verify.ps1` 61/61、`verify.sh` 61/61。
+
+---
+
 ## [1.14.0] — 2026-10-21
 
 > 主题：**补上"阶段零"** —— 先把样本分析透、出可复现报告，再谈成品。

@@ -366,6 +366,21 @@ def check_newtools():
             note2 = str(e)[:120]
     add("7 新脚本", "migrate 追版引擎可运行", ok2, note2)
 
+    # ③ case_state.py：阶段零出口闸（空跑一次 gate，必须在缺失时返回 1 而不是崩）
+    cs = os.path.join(TOOL, "scripts", "case_state.py")
+    ok3, note3 = False, "文件缺失"
+    if os.path.isfile(cs):
+        try:
+            import tempfile
+            with tempfile.TemporaryDirectory() as td:
+                r1 = subprocess.run([py, cs, "init", "--case", td], capture_output=True, text=True, timeout=60)
+                r2 = subprocess.run([py, cs, "gate", "--case", td], capture_output=True, text=True, timeout=60)
+                ok3 = (r1.returncode == 0 and r2.returncode == 1)
+                note3 = "空案子 gate 正确拒绝（rc=1）" if ok3 else f"init={r1.returncode} gate={r2.returncode}"
+        except Exception as e:
+            note3 = str(e)[:120]
+    add("7 新脚本", "case_state 出口闸可运行", ok3, note3)
+
 
 def main():
     ap = argparse.ArgumentParser()
