@@ -1,0 +1,113 @@
+{
+  "id": "plugin06",
+  "domain": "plugin-targets",
+  "route": "R25",
+  "target_type": "本机已安装的 Chrome MV3 扩展（Tampermonkey 5.5.1，userscript 管理器；只截取入口/权限/签名相关文件）",
+  "evidence_kind": "real",
+  "protection": [
+    "Chrome 扩展完整性链：manifest key→固定扩展 ID + _metadata/verified_contents.json 树哈希（原样保留，未改包、未绕过签名，仅静态分析）"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "package": {
+    "file": "input/real-extension.zip",
+    "version": "5.5.1",
+    "manifest_version": 3,
+    "extension_id": "dhdgffkkebhmkfjojejmpbldmpobfkfo",
+    "source": "<CHROME_EXT> = ~/AppData/Local/Google/Chrome/User Data/Default/Extensions/dhdgffkkebhmkfjojejmpbldmpobfkfo/5.5.1_0",
+    "unpacked": [
+      "manifest.json",
+      "background.js",
+      "offscreen.js",
+      "content.js",
+      "page.js",
+      "extension.js",
+      "action.html",
+      "options.html",
+      "offscreen.html",
+      "userscript.html",
+      "background.html",
+      "_locales/en/messages.json",
+      "_metadata/verified_contents.json"
+    ]
+  },
+  "entrypoints": {
+    "manifest": "manifest.json",
+    "background": "background.js",
+    "popup": "action.html",
+    "options": "options.html",
+    "offscreen": "offscreen.html",
+    "injection_host": "userscript.html",
+    "content_scripts": "（manifest 未声明：注入走 userScripts/scripting 动态 API）"
+  },
+  "data_flow": [
+    "manifest.json → background.service_worker=background.js（MV3 SW；content_scripts=[]、web_accessible_resources=[]，静态注入面为空）",
+    "background.js:275 userScripts.register/update/configureWorld + background.js:258 tabs.executeScript + background.js:276 scripting.executeScript → 把用户脚本注入目标页面（世界由 configureWorld 决定）",
+    "background.js:220 chrome.offscreen.createDocument({url:'offscreen.html'}) → offscreen.js 承担 SW 不具备的 DOM/剪贴板/XMLHttpRequest 能力",
+    "用户脚本 GM_* → content.js/page.js 页面桥 → runtime.sendMessage → background.js 分发（webRequest/cookies/storage/xhr）",
+    "background.js:262 webRequest.onBeforeRequest/onBeforeSendHeaders（含 webRequestBlocking）+ background.js:277 declarativeNetRequest.updateSessionRules → 请求改写",
+    "background.js:283 cookies.getAll/remove/set + background.js:233 indexedDB 脚本库 → 用户脚本元数据/代码存储",
+    "外发：background.js:334 https://a.tampermonkey.net/matomo.php（使用统计，siteId=4）；用户主动开启云同步后走 accounts.tampermonkey.net oauth2 + Dropbox/OneDrive/Google Drive/Yandex 端点",
+    "background.js:454 / extension.js:412 / offscreen.js:37 runtime.sendNativeMessage('application') —— manifest 未声明 nativeMessaging，该路径在 Chrome 上被拒（代码痕迹，不是可用通道）"
+  ],
+  "artifacts": [
+    {
+      "path": "input/real-extension.zip",
+      "sha256": "8228f1a05c99943739f3f36928c54be815883b066fa5dd5d0d8470d12570ab18"
+    },
+    {
+      "path": "artifacts/plugin-triage.json",
+      "sha256": "44ec2b34f41dc2adfb21e1a9b9804c31f906fd98b961253ef01cbb600ea7aa4f"
+    },
+    {
+      "path": "artifacts/provenance.json",
+      "sha256": "ca2060fbcde5abf9650012fc8df999edc8972b263bcfa6b7195c28f5b6ed82cd"
+    },
+    {
+      "path": "artifacts/repro/plugin-repro.json",
+      "sha256": "92f54d6b0a4b68e1ca80578fc38671704e69d931ece36220649e0e04e35c6502"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "a23ca39af03355f86aa1d66a8d0aedddf4766cda5e65d53e90141ed7c6e6ae68"
+    }
+  ],
+  "lessons": [
+    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin06/input/real-extension.zip --json，rc=0；container=zip、13 个文件、MV3 / Tampermonkey 5.5.1，permissions 17 条、host_permissions=<all_urls>、content_scripts 与 web_accessible_resources 均为空。",
+    "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin06/input/real-extension.zip --out Tool/cases/plugin06/artifacts/repro --json，rc=0；入口 background.service_worker=background.js / action.popup=action.html / options_page=options.html 三处 exists=true；17 条权限中 9 条拿到代码行号（webRequest background.js:262、userScripts background.js:275、scripting background.js:276、offscreen background.js:220、cookies background.js:283），8 条 unexplained-static（notifications/tabs/idle/alarms/webRequestBlocking/chrome://favicon//unlimitedStorage/declarativeNetRequestWithHostAccess，纯声明未命中代码，不作恶意结论）。",
+    "验收：python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin06 --json，rc=0；权限证据全部落在 .js 代码文件（manifest 不自证），全部产物 sha256 复算一致。",
+    "四件事-入口：manifest 只给 background/action/options 三个静态入口，没有 content_scripts——注入面 100% 走动态 API（background.js:275 userScripts.register/configureWorld、background.js:258 tabs.executeScript、background.js:276 scripting.executeScript），再加 background.js:220 offscreen.createDocument 拉起 offscreen.js 补 SW 缺的 DOM/剪贴板能力；extension.js/page.js/userscript.html 是注入到页面的 API 桥与沙箱宿主。",
+    "四件事-关键逻辑/数据来源：关键逻辑=用户脚本注册与世界配置→注入→GM_* 桥→background 分发，叠加 webRequest（84 处命中）请求改写与 declarativeNetRequest 会话规则（background.js:277）；数据来源=用户脚本元数据/代码（chrome.storage + IndexedDB background.js:233）、页面 DOM 与 cookie（cookies 组 background.js:283）、webRequest 事件；外发仅见使用统计 a.tampermonkey.net/matomo.php（background.js:334）与用户主动开启的云同步（accounts.tampermonkey.net oauth2、Dropbox/OneDrive/Google Drive/Yandex），静态未见静默回传脚本库或凭据的路径。",
+    "四件事-最小可改单元：background.js（1109 行，minimal_unit.flow_hits=12，数据流命中最多）——只改 background.js:275-277 这一层（userScripts/DNR 适配）即可切换注入与请求改写策略；改前备份、一次只改一个变量，避免把「能注入」误当「已可控」。",
+    "边界：静态子集分析（13/86 个文件）——未在 Chrome 加载解压目录、未观察 SW 唤醒与 userScripts.register 时序、未实跑任何用户脚本；未做 native host：manifest 根本没有 nativeMessaging 权限，而 background.js:454/extension.js:412/offscreen.js:37 仍 sendNativeMessage('application')，该路径必然被 Chrome 拒绝（代码痕迹≠可用通道）；_metadata/verified_contents.json 只记录存在性与安装时间，未逐文件复算树哈希。",
+    "来源可追溯：artifacts/provenance.json 记录 13 个文件的来源路径/字节数/sha256，均为字节级复制（内容未改、签名未动）；源安装目录按只读引用，案例内一律用 <CHROME_EXT> 占位，不写死用户名。"
+  ],
+  "tags": [
+    "R25",
+    "plugin",
+    "chrome-extension",
+    "mv3",
+    "real",
+    "userScripts",
+    "webRequest",
+    "tampermonkey",
+    "partial"
+  ],
+  "refs": [
+    "Tool/skill/plugin-targets/SKILL.md",
+    "Tool/skill/plugin-targets/references/01-criteria.md",
+    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/plugin-targets/references/04-walkthrough-chrome-extension.md",
+    "Tool/skill/plugin-targets/references/browser-extension.md",
+    "Tool/config/plugin-targets-matrix.json",
+    "Tool/cases/plugin06/input/real-extension.zip",
+    "Tool/cases/plugin06/artifacts/provenance.json",
+    "Tool/cases/plugin06/artifacts/repro/plugin-repro.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』；artifacts/run.json 逐条记录 cmd/rc"
+  }
+}

@@ -14,3 +14,4 @@
 - `项目L` — 见 `项目L/case.json`
 - `项目M` — 见 `项目M/case.json`
 - `项目N` — 见 `项目N/case.json`
+- `plugin01` — MV3 ZIP 夹具（权限/消息/远端基线）— 见 `plugin01/case.json`；2026-10 归档：同形态已由真实案例 `plugin03`/`plugin06` 覆盖，域内保留 `plugin02` 作 ZIP 夹具基线

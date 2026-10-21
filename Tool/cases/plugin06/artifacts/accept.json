@@ -1,0 +1,27 @@
+{
+  "ok": true,
+  "script": "plugin-accept.py",
+  "domain": "plugin-targets",
+  "root": "D:\\seep-wt-p2",
+  "case_count": 1,
+  "cases": [
+    {
+      "case": "plugin06",
+      "ok": true,
+      "problems": [],
+      "facts": {
+        "dir": "plugin06",
+        "id": "plugin06",
+        "evidence_kind": "real",
+        "outcome": "partial",
+        "hash_modes": [
+          "raw"
+        ],
+        "recorded": true,
+        "runs": 2,
+        "permission_evidence": "checked=17"
+      }
+    }
+  ],
+  "problems": []
+}
