@@ -1,0 +1,82 @@
+{
+  "id": "plugin05",
+  "domain": "plugin-targets",
+  "route": "R25",
+  "target_type": "VS Code VSIX 扩展现场打包教学夹具（extension/package.json + activationEvents + child_process）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "package": {
+    "file": "input/ext.vsix",
+    "version": "0.2.0",
+    "manifest_version": null,
+    "source": "现场用 zipfile 打包 VSIX 目录结构（未签名、未安装）",
+    "unpacked": [
+      "extension/package.json",
+      "extension/extension.js",
+      "extension/README.md"
+    ]
+  },
+  "entrypoints": {
+    "package": "extension/package.json",
+    "main": "extension/extension.js",
+    "activation_events": [
+      "onCommand:lab.scan",
+      "onLanguage:json"
+    ]
+  },
+  "data_flow": [
+    "VS Code 激活 onCommand:lab.scan → extension/extension.js activate()",
+    "extension.js → child_process.execFile('git') → 工作区路径（workspaceFolders）",
+    "结果 → vscode.window.showInformationMessage（无远端外发）"
+  ],
+  "artifacts": [
+    {
+      "path": "input/ext.vsix",
+      "sha256": "c1e7b75b59903bcde02bd4169737611662eb4303541e47ec2e0701926dc60417"
+    },
+    {
+      "path": "artifacts/plugin-triage.json",
+      "sha256": "67fd29403f2d0b4da3b40bea72426d06a2bb5ae7a00326fd11ae9312170e2a7d"
+    },
+    {
+      "path": "artifacts/repro/plugin-repro.json",
+      "sha256": "d30f970000ead2e21f6505bba4919303a5d55365aebf08076bc0d3760464f16d"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "e65b56cd0018f20f875ef3f900b1888dc53c764ed2af5f95e007cf6d0e284dda"
+    }
+  ],
+  "lessons": [
+    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json，rc=0；扩展名 .vsix 与 extension/package.json 双重识别为 VSIX，2 个激活事件。",
+    "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out Tool/cases/plugin05/artifacts/repro --json，rc=0；入口解析到 extension/extension.js（activate），并抽出 execFile 调用。",
+    "判据：激活事件 → 命令 → 关键文件/进程调用链完整；capabilities.untrustedWorkspaces.supported=false 说明受限工作区应禁用，但夹具未在真实 VS Code 中加载。",
+    "边界：未签名、未安装、未执行；child_process 调用只做静态定位，未验证参数注入或工作区边界。"
+  ],
+  "tags": [
+    "R25",
+    "plugin",
+    "vsix",
+    "vscode",
+    "fixture",
+    "activationEvents",
+    "partial"
+  ],
+  "refs": [
+    "Tool/skill/plugin-targets/SKILL.md",
+    "Tool/skill/plugin-targets/references/01-criteria.md",
+    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/plugin-targets/references/ide-plugins.md",
+    "Tool/config/plugin-targets-matrix.json",
+    "Tool/cases/plugin05/input/ext.vsix",
+    "Tool/cases/plugin05/artifacts/repro/plugin-repro.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

@@ -64,7 +64,8 @@
         "03-static-analysis/01-struct-reconstruction.md",
         "03-static-analysis/02-disasm-jit-asm.md",
         "03-static-analysis/03-x64dbg-breakpoints.md",
-        "03-static-analysis/04-reclass-reconstruction.md"
+        "03-static-analysis/04-reclass-reconstruction.md",
+        "03-static-analysis/05-dynamic-api-resolution.md"
       ],
       "priority": 10
     },
@@ -158,7 +159,8 @@
         "ioc extraction"
       ],
       "files": [
-        "06-ioc-extraction/01-ioc-extraction.md"
+        "06-ioc-extraction/01-ioc-extraction.md",
+        "06-ioc-extraction/02-persistence-startup-chain.md"
       ],
       "priority": 8
     },
@@ -197,43 +199,6 @@
         "08-patch/01-code-patching.md"
       ],
       "priority": 8
-    },
-    {
-      "id": "av-evasion",
-      "signals": [
-        "免杀",
-        "av evasion",
-        "antivirus bypass",
-        "shellcode",
-        "loader",
-        "cobalt strike",
-        "meterpreter",
-        "veh",
-        "syscall bypass",
-        "anti sandbox",
-        "杀软绕过",
-        "payload",
-        "msfvenom",
-        "shellcode encrypt",
-        "shellcode obfuscate",
-        "花指令",
-        "junk code",
-        "uuid shellcode",
-        "mac shellcode",
-        "反沙箱",
-        "免杀loader",
-        "defender bypass",
-        "火绒绕过",
-        "360免杀",
-        "卡巴斯基绕过",
-        "edr bypass",
-        "内存保护",
-        "进程注入免杀"
-      ],
-      "files": [
-        "09-av-evasion/01-ai-powered-evasion.md"
-      ],
-      "priority": 10
     },
     {
       "id": "license-keygen",
@@ -312,6 +277,71 @@
         "10-license-keygen/08-cross-version-aob-migration.md",
         "10-license-keygen/09-runtime-callstack-locating.md",
         "10-license-keygen/10-multiversion-signature-narrowing.md"
+      ],
+      "priority": 9
+    },
+    {
+      "id": "project-paradigms",
+      "signals": [
+        "project paradigm",
+        "monolithic offline",
+        "multi-process",
+        "license",
+        "keygen",
+        "self-reference",
+        "pubkey swap",
+        "weak modulus",
+        "项目范式",
+        "复现路径"
+      ],
+      "files": [
+        "11-project-paradigms/01-project-patterns-a-j.md",
+        "11-project-paradigms/02-project-decision-and-stats.md"
+      ],
+      "priority": 7
+    },
+    {
+      "id": "report-template",
+      "signals": [
+        "report",
+        "report skeleton",
+        "cwe-602",
+        "evidence grading",
+        "报告",
+        "证据分级"
+      ],
+      "files": [
+        "13-report-template/01-report-skeleton.md"
+      ],
+      "priority": 6
+    },
+    {
+      "id": "ui-verification",
+      "signals": [
+        "ui acceptance",
+        "em_getlinecount",
+        "wm_gettext",
+        "control dump",
+        "ui 验收",
+        "控件",
+        "crlf"
+      ],
+      "files": [
+        "14-ui-verification/01-ui-acceptance.md"
+      ],
+      "priority": 6
+    },
+    {
+      "id": "decision",
+      "signals": [
+        "failure criteria",
+        "switch route",
+        "熔断",
+        "失败判据",
+        "换路"
+      ],
+      "files": [
+        "15-decision/failure-criteria.md"
       ],
       "priority": 9
     }

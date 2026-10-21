@@ -16,7 +16,7 @@
 
 ## 跨文件引用
 
-- JWT 签名: [02-auth/jwt/](../02-auth/jwt/)
+- JWT 签名: 02-auth/jwt/
 - OAuth state/signature: [02-auth/oauth-sso.md](../02-auth/oauth-sso.md)
 - SAML XML Signature: [02-auth/saml-attacks.md](../02-auth/saml-attacks.md)
 - 支付回调签名: [12-payment/payment-callback-async.md](../12-payment/payment-callback-async.md)

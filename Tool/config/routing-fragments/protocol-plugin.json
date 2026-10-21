@@ -12,6 +12,65 @@
       ]
     }
   },
+  "boundary_policy": {
+    "status": "proposed-awaiting-merge",
+    "why": "routing.json 是其它 agent 的写入范围，本域不直接改 SSOT；下面这份是词的边界收紧版，由协调器跑 python Tool/scripts/merge-routing-fragment.py --write --only protocol-plugin 合入后才生效。",
+    "pattern": "(?i)(私有协议|协议逆向|协议复刻|抓包|\\bpcap\\b|\\btshark\\b|\\bwireshark\\b|\\bmitmproxy\\b|状态机|报文|重放|\\bprotobuf\\b|\\bflatbuffers\\b|\\bwebsocket\\b|\\bmodbus\\b|\\bmqtt\\b|\\bhttp/2\\b|\\bquic\\b)",
+    "forbid": [
+      "(?i)\\bspider\\b",
+      "(?i)\\bbios\\b",
+      "(?i)\\bprincipal\\b",
+      "(?i)\\bzipalign\\b",
+      "(?i)\\bscaffold\\b"
+    ],
+    "scope": "拉丁词用 \\b 锚定，CJK 用双字词；明确不抢 web 的 spider、firmware 的 bios、ad-cloud 的 principal，也不吃 apk 的 zipalign / supply-chain 的 scaffold。"
+  },
+  "boundary_tests": [
+    {
+      "text": "抓包分析私有协议并重建分帧",
+      "expect": "hit"
+    },
+    {
+      "text": "用 tshark 读 pcap 里的 websocket 帧",
+      "expect": "hit"
+    },
+    {
+      "text": "状态机重放验证并构造新请求",
+      "expect": "hit"
+    },
+    {
+      "text": "protobuf 字段号与 wire type 解析",
+      "expect": "hit"
+    },
+    {
+      "text": "modbus 功能码与寄存器地址解析",
+      "expect": "hit"
+    },
+    {
+      "text": "爬虫 spider 抓取目录并枚举路径",
+      "expect": "miss"
+    },
+    {
+      "text": "bios 固件 SPI flash dump 与 UART 接入",
+      "expect": "miss"
+    },
+    {
+      "text": "Kerberos principal 枚举与 SPN 发现",
+      "expect": "miss"
+    },
+    {
+      "text": "npm scaffold 生成项目后检查 lockfile 完整性",
+      "expect": "miss"
+    },
+    {
+      "text": "用 zipalign 对齐后 apksigner 重签",
+      "expect": "miss"
+    },
+    {
+      "text": "分析 src/xxx.dll 的导出表与 IAT 修复",
+      "expect": "miss"
+    }
+  ],
   "priority_hint": {
     "after": "R22"
   }

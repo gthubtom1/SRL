@@ -89,7 +89,9 @@ def check_dangling():
     dangling = []
     allow = (load_allow().get("allow") or {})
     for p in walk():
-        if os.path.splitext(p)[1].lower() not in TEXT_EXT or p.startswith("CHANGELOG"):
+        # CHANGELOG 是历史记录（含已删除文件的历史路径），不参与悬空引用检查；
+        # 它现在在 docs/CHANGELOG.md，所以用"路径含 CHANGELOG"而不是前缀判断。
+        if os.path.splitext(p)[1].lower() not in TEXT_EXT or "CHANGELOG" in p:
             continue
         try:
             text = open(os.path.join(ROOT, p), encoding="utf-8", errors="replace").read()
@@ -170,13 +172,30 @@ def check_numbers(fast):
 
 
 # ---------------------------------------------------------------- [3] 平台
-def check_parity():
+def check_parity(fast=False):
+    """双平台：① 检查项数一致；② 有 bash 就**真跑** verify.sh，rc 必须 0。
+
+    血案（R4 复审）：旧版只比项数，verify.sh 的 CLAUDE.md/DSH-PROFILE.md 路径漏改、
+    实际 63/2 失败，而 preflight 仍报「项数一致」——用项数掩盖了真失败。
+    """
     ps1 = open(os.path.join(ROOT, "setup", "verify.ps1"), encoding="utf-8", errors="replace").read()
     sh = open(os.path.join(ROOT, "setup", "verify.sh"), encoding="utf-8", errors="replace").read()
     n1 = len(re.findall(r'Test-CheckItem\s+"', ps1))
     n2 = len(re.findall(r'check_item\s+"', sh))
-    detail = "两平台运行时项数一致（运行时展开见 verify 输出）" if n1 == n2 else f"不一致：ps1={n1} sh={n2}"
-    add("3 平台", "verify.ps1 / verify.sh 项数一致", n1 == n2, detail)
+    add("3 平台", "verify.ps1 / verify.sh 项数一致", n1 == n2,
+        "项数一致（%d）" % n1 if n1 == n2 else "不一致：ps1=%d sh=%d" % (n1, n2))
+    if fast:
+        return
+    bash = shutil.which("bash")
+    if not bash:
+        add("3 平台", "verify.sh 实跑（bash 不可用则跳过）", True, "skipped: no bash in PATH")
+        return
+    rc, out = run([bash, os.path.join("setup", "verify.sh")], timeout=900)
+    line = ""
+    for ln in (out or "").splitlines():
+        if "核心检查通过" in ln:
+            line = re.sub(r"\[[0-9;]*m", "", ln).strip()
+    add("3 平台", "verify.sh 实跑（rc=0）", rc == 0, line or ("rc=%d" % rc))
 
 
 # ---------------------------------------------------------------- [4] 功能
@@ -522,99 +541,75 @@ def check_taskcards_gate():
 
 
 def check_domain_packs():
-    """领域九件套：技能/参考/脚本/矩阵/案例/KB 六类必须齐（缺一即 FAIL）。
+    """领域存在性（六类齐）：深度条款已全部搬到 domain-gate.py（单一实现）。
 
-    血案：v1.20.0 的六个新域只有 SKILL.md，判据无法执行、经验无法复用。
-    九件套的机检版只覆盖"可自动判的六件"，softseep 登记与人工判据由 review 兜底。
+    历史：v1.20 的九件套在这里查"有没有"，v1.22 起深度断言（篇幅/必备篇/
+    --self-test/案例 sha256/链接图/串味/部署）统一由 domain-gate.py 负责，
+    这里只保留"目录与文件存在"，避免两份实现漂移。
     """
     packs = {
-        "web-pentest": ("web-check", "web-pentest-matrix.json", 4, 2, "web-pentest"),
-        "supply-chain-security": ("sc-check", "supply-chain-security-matrix.json", 4, 2, "supply-chain"),
-        "pwn-crypto": ("pwn-check", "pwn-crypto-matrix.json", 4, 2, "pwn-crypto"),
-        "malware-analysis": ("mal-triage", "malware-analysis-matrix.json", 4, 2, "malware-analysis"),
-        "firmware-iot": ("fw-triage", "firmware-iot-matrix.json", 4, 2, "firmware-iot"),
-        "ad-cloud": ("adcloud-check", "ad-cloud-matrix.json", 4, 2, "ad-cloud"),
-        "protocol-plugin": ("pcap-summary", "protocol-plugin-matrix.json", 4, 2, "protocol"),
-        "plugin-targets": ("plugin-triage", "plugin-targets-matrix.json", 4, 2, "plugin"),
-        "forensics-mobile": ("forensics-check", "forensics-mobile-matrix.json", 4, 2, "forensics"),
+        "web-pentest": "web-pentest",
+        "supply-chain-security": "supply-chain-security",
+        "pwn-crypto": "pwn-crypto",
+        "malware-analysis": "malware-analysis",
+        "firmware-iot": "firmware-iot",
+        "ad-cloud": "ad-cloud",
+        "protocol-plugin": "protocol-plugin",
+        "plugin-targets": "plugin-targets",
+        "forensics-mobile": "forensics-mobile",
     }
     bad = []
-    for dom, (script_key, matrix, min_refs, min_cases, kb) in packs.items():
-        sk = os.path.join(TOOL, "skill", dom, "SKILL.md")
-        if not os.path.isfile(sk):
+    for dom, sk in packs.items():
+        skp = os.path.join(TOOL, "skill", sk, "SKILL.md")
+        if not os.path.isfile(skp):
             bad.append(dom + "(缺 SKILL)")
             continue
-        txt = open(sk, encoding="utf-8", errors="replace").read()
-        if len(txt.splitlines()) > 220:
-            bad.append("%s(SKILL %d>220)" % (dom, len(txt.splitlines())))
-        if "失败判据" not in txt:
-            bad.append(dom + "(缺失败判据)")
-        if not glob.glob(os.path.join(TOOL, "skill", dom, "scripts", "*.py")):
-            bad.append(dom + "(缺域内 scripts/)")
-        refs = os.path.join(TOOL, "skill", dom, "references")
-        n = len([f for f in os.listdir(refs) if f.endswith(".md")]) if os.path.isdir(refs) else 0
-        if n < min_refs:
-            bad.append("%s(refs %d<%d)" % (dom, n, min_refs))
-        if os.path.isdir(refs):
-            for f in os.listdir(refs):
-                if f.endswith(".md"):
-                    ln = len(open(os.path.join(refs, f), encoding="utf-8", errors="replace").read().splitlines())
-                    if ln > 200:
-                        bad.append("%s(%s %d>200)" % (dom, f, ln))
-        cand = glob.glob(os.path.join(TOOL, "scripts", "*" + script_key + "*.py")) +                glob.glob(os.path.join(TOOL, "skill", dom, "scripts", "*.py"))
-        if not cand:
-            bad.append(dom + "(缺脚本)")
-        else:
-            try:
-                r = subprocess.run([sys.executable, cand[0], "--help"], capture_output=True,
-                                   text=True, encoding="utf-8", errors="replace", timeout=60)
-                if r.returncode != 0:
-                    bad.append("%s(脚本 --help rc=%d)" % (dom, r.returncode))
-            except Exception:
-                bad.append(dom + "(脚本不可执行)")
-        if not os.path.isfile(os.path.join(TOOL, "config", matrix)):
-            bad.append(dom + "(缺矩阵)")
-        cdir = os.path.join(ROOT, "Tool", "cases")
-        c = len([d for d in os.listdir(cdir)
-                 if d.startswith(dom.split("-")[0]) and os.path.isfile(os.path.join(cdir, d, "case.json"))])
-        if c < min_cases:
-            bad.append("%s(cases %d<%d)" % (dom, c, min_cases))
-        kbdir = os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb", kb)
-        if not os.path.isfile(os.path.join(kbdir, "README.md")):
-            bad.append(dom + "(缺 KB board)")
-        else:
-            tech = len(glob.glob(os.path.join(kbdir, "techniques", "*.md"))) +                    len([x for x in glob.glob(os.path.join(kbdir, "*.md"))
-                        if os.path.basename(x) != "README.md"])
-            if tech < 2:
-                bad.append("%s(KB techniques %d<2)" % (dom, tech))
+        if not os.path.isdir(os.path.join(TOOL, "skill", sk, "scripts")):
+            bad.append(dom + "(缺 scripts/)")
+        refs = os.path.join(TOOL, "skill", sk, "references")
+        if not (os.path.isdir(refs) and glob.glob(os.path.join(refs, "*.md"))):
+            bad.append(dom + "(缺 references/)")
         if not os.path.isfile(os.path.join(TOOL, "config", "routing-fragments", dom + ".json")):
             bad.append(dom + "(缺路由片段)")
-        # 案例字段：必填 + artifact 必须真实存在
-        need = ("id", "domain", "protection", "authority", "goal_level", "outcome", "lessons")
-        for cd in glob.glob(os.path.join(cdir, dom.split("-")[0] + "*")):
-            cf = os.path.join(cd, "case.json")
-            if not os.path.isfile(cf):
-                continue
-            try:
-                cj = json.load(open(cf, encoding="utf-8"))
-            except Exception:
-                bad.append(os.path.basename(cd) + "(case.json 解析失败)")
-                continue
-            if cj.get("outcome") == "planned":
-                bad.append(os.path.basename(cd) + "(outcome=planned)")
-            miss = [k for k in need if k not in cj]
-            if miss:
-                bad.append("%s(缺字段 %s)" % (os.path.basename(cd), ",".join(miss)))
-            for r in cj.get("refs") or []:
-                if isinstance(r, str) and not r.startswith("http") and "://" not in r:
-                    if not os.path.isfile(os.path.join(ROOT, r)) and not os.path.isfile(os.path.join(cd, r)):
-                        bad.append("%s(refs 幻影 %s)" % (os.path.basename(cd), r[:40]))
-            for art in cj.get("artifacts") or []:
-                ap = art.get("path") or ""
-                if ap and not os.path.isfile(os.path.join(cd, ap)):
-                    bad.append("%s(幻影产物 %s)" % (os.path.basename(cd), ap))
-    add("10 领域", "领域九件套（技能/参考/脚本/矩阵/案例/KB）", not bad,
-        "；".join(bad)[:180] if bad else "9 个领域六类齐全")
+    add("10 领域", "领域六类文件在场（深度另由 domain-gate 判）", not bad,
+        "；".join(bad)[:160] if bad else "9 域 SKILL/scripts/references/路由片段齐全")
+
+
+def check_domain_depth():
+    """十域深度契约（九件套 2.0）：跑 domain-gate.py，把结果压成 4 条断言。
+
+    为什么要单列：v1.21.5 的九件套只查"有没有"，查不出"能不能打"。
+    深度契约（refs 必备四篇 / 脚本 --self-test / 案例 sha256 复算 / KB 失败判据 /
+    链接图无孤儿 / 路由串味 / 部署哈希）全部由 domain-gate.py 实现，这里只做汇总，
+    避免 preflight 再长 300 行、也避免两份实现漂移。
+    """
+    gate = os.path.join(TOOL, "scripts", "domain-gate.py")
+    if not os.path.isfile(gate):
+        add("11 深度", "十域深度契约（domain-gate.py）", False, "缺 Tool/scripts/domain-gate.py")
+        return
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    try:
+        r = subprocess.run([sys.executable, gate, "--all", "--json"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=600, env=env)
+        data = json.loads(r.stdout)
+    except Exception as e:  # noqa: BLE001
+        add("11 深度", "十域深度契约（domain-gate.py）", False, "运行失败:" + str(e)[:80])
+        return
+    rows = data.get("results") or []
+    buckets = {
+        "十域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）":
+            [x for x in rows if x["domain"] not in ("全局",)],
+        "链接图无孤儿": [x for x in rows if "链接图" in x["name"]],
+        "路由串味测试集": [x for x in rows if "串味" in x["name"]],
+        "仓库清理 + 部署哈希": [x for x in rows if "清理" in x["name"] or "部署" in x["name"]],
+        "路由片段合入 SSOT + 案例索引同源":
+            [x for x in rows if "合入 SSOT" in x["name"] or "案例索引" in x["name"]],
+    }
+    for label, rs in buckets.items():
+        bad = [x for x in rs if not x["ok"]]
+        detail = "；".join((x["domain"] + ":" + x["name"] + "(" + x["detail"][:60] + ")")
+                          for x in bad[:4]) if bad else "%d 条子断言全绿" % len(rs)
+        add("11 深度", label, (not bad) and bool(rs), detail)
 
 
 def main():
@@ -625,7 +620,7 @@ def main():
 
     check_dangling()
     check_numbers(args.fast)
-    check_parity()
+    check_parity(args.fast)
     check_assets()
     check_portable()
     check_ps_encoding()
@@ -633,6 +628,7 @@ def main():
     check_persona_gate()
     check_taskcards_gate()
     check_domain_packs()
+    check_domain_depth()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

@@ -1,0 +1,6 @@
+4	0	GET	/v1/ping	127.0.0.1:18321					
+8	0		/v1/ping		200	application/json	33	sid=lab-0001; Path=/	
+17	1	GET	/v1/telemetry?seq=2	127.0.0.1:18321					Bearer lab-token
+21	1		/v1/telemetry?seq=2		200	application/json	38	sid=lab-0002; Path=/	
+30	2	POST	/v1/echo	127.0.0.1:18321		application/json	13		
+34	2		/v1/echo		200	application/json	44	sid=lab-0003; Path=/	

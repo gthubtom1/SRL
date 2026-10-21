@@ -64,7 +64,7 @@ When you plan to change a request parameter (a path, a `position`, an id), probe
 - A `400` with a validation message tells you the field is whitelisted, and hands you the full list of valid values.
 - A `404` tells you the path is exact.
 
-**This matters before you patch**: redirecting a parameter to an invalid value may produce an error status that the client treats as fatal (`pitfalls.md` P5). Knowing the failure mode in advance prevents breaking the app.
+**This matters before you patch**: redirecting a parameter to an invalid value may produce an error status that the client treats as fatal (`pitfalls-1-packaging-and-dex.md`). Knowing the failure mode in advance prevents breaking the app.
 
 ## Behaviors that help you and behaviors that do not
 

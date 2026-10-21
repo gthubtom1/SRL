@@ -1,0 +1,4 @@
+input/stack_overflow.c: In function 'vuln':
+input/stack_overflow.c:17:5: warning: call to 'gets' declared with attribute warning: Using gets() is always unsafe - use fgets() instead [-Wattribute-warning]
+   17 |     gets(buf);                  /* 真实漏洞点 */
+      |     ^~~~~~~~~

@@ -164,9 +164,9 @@ Test-CheckItem "架构" "MCP专用运行时强约定 (Tool/mcp/Tool/)" { Test-Pa
 # -----------------------------------------------------------------------------
 # 1b. 版本与更新链路
 # -----------------------------------------------------------------------------
-Test-CheckItem "版本" "版本标识与变更日志 (VERSION + CHANGELOG.md)" {
-    (Test-Path (Join-Path $Root 'VERSION')) -and (Test-Path (Join-Path $Root 'CHANGELOG.md'))
-} "缺失 VERSION 或 CHANGELOG.md，重新拉取仓库" "两者在位" "$Root\VERSION"
+Test-CheckItem "版本" "版本标识与变更日志 (VERSION + docs/CHANGELOG.md)" {
+    (Test-Path (Join-Path $Root 'VERSION')) -and (Test-Path (Join-Path $Root 'docs/CHANGELOG.md'))
+} "缺失 VERSION 或 docs/CHANGELOG.md，重新拉取仓库" "两者在位" "$Root\VERSION"
 
 Test-CheckItem "版本" "已有用户一键更新脚本 (update.ps1 + update.sh)" {
     (Test-Path (Join-Path $Root 'setup\update.ps1')) -and (Test-Path (Join-Path $Root 'setup\update.sh'))
@@ -246,8 +246,8 @@ Test-CheckItem "提示词" "提示词槽位 / 边界锚 / 人格守卫三者就�
     $kbLocalWired -and $kbLocalDir
 } "SYSTEM.md 槽位未释放 / 边界锚缺失 / 人格守卫仍是枚举式名单" "槽位空 + 双层锚 + 结构判定守卫" "$ToolDir\prompts"
 Test-CheckItem "提示词" "通用跨 Agent 规范 (AGENTS.md)" { Test-Path (Join-Path $ToolDir 'prompts\AGENTS.md') } "检查 AGENTS.md" "规范文件存在" "$ToolDir\prompts\AGENTS.md"
-Test-CheckItem "提示词" "Claude Code 项目级规范 (CLAUDE.md 在项目根)" { Test-Path (Join-Path $Root 'CLAUDE.md') } "项目根缺失 CLAUDE.md" "CLAUDE.md 在根目录" "$Root\CLAUDE.md"
-Test-CheckItem "提示词" "DeepSeek Harness 配置文件 (DSH-PROFILE.md)" { Test-Path (Join-Path $Root 'DSH-PROFILE.md') } "缺失 DSH-PROFILE.md" "DSH-PROFILE.md 在根目录" "$Root\DSH-PROFILE.md"
+Test-CheckItem "提示词" "Claude Code 项目级规范 (Tool/prompts/contracts/CLAUDE.md 在项目根)" { Test-Path (Join-Path $Root 'Tool/prompts/contracts/CLAUDE.md') } "项目根缺失 Tool/prompts/contracts/CLAUDE.md" "Tool/prompts/contracts/CLAUDE.md 在根目录" "$Root\Tool/prompts/contracts/CLAUDE.md"
+Test-CheckItem "提示词" "DeepSeek Harness 配置文件 (Tool/prompts/contracts/DSH-PROFILE.md)" { Test-Path (Join-Path $Root 'Tool/prompts/contracts/DSH-PROFILE.md') } "缺失 Tool/prompts/contracts/DSH-PROFILE.md" "Tool/prompts/contracts/DSH-PROFILE.md 在根目录" "$Root\Tool/prompts/contracts/DSH-PROFILE.md"
 Test-CheckItem "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" {
     Test-Path (Join-Path $ToolDir 'prompts\extensions\security-audit-interceptor.ts')
 } "安全拦截扩展缺失，无法实现 lab: 状态机与防拒功能" "扩展文件在位" "$ToolDir\prompts\extensions\security-audit-interceptor.ts"

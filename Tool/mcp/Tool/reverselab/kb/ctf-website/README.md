@@ -23,3 +23,18 @@ python scripts/misc/kb_doc_audit.py
 技术文档要求可运行示例、工作流、证据闭环和 MCP 工具映射。
 
 写作口径统一为：入口信号、打点脚本、路径分叉、下一跳、成功标志和 Evidence。每篇文章都要能被 Agent 直接拿来执行一轮路径推进。
+
+## 索引补充
+
+- [Web payload 种子库](payloads/web-payload-seeds.md)
+- [24h 循环编排（00-workflow）](techniques/00-workflow/24h-loop-orchestration.md)
+
+## 子目录索引
+
+- [checklists/README.md](checklists/README.md)
+- [payloads/README.md](payloads/README.md)
+- [techniques/02-auth/jwt/README.md](techniques/02-auth/jwt/README.md)
+- [techniques/09-cve/README.md](techniques/09-cve/README.md)
+- [techniques/11-dos/README.md](techniques/11-dos/README.md)
+- [techniques/13-signature/README.md](techniques/13-signature/README.md)
+- [techniques/24-database/README.md](techniques/24-database/README.md)

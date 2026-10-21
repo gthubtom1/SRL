@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "payload": "{\"type\":\"request\",\"data\":\"4242424242424242424\"}",
+  "payload_len": 48,
+  "frame_len": 54,
+  "mask": "11223344",
+  "frame_hex": "81b0112233446a00473d6147117e3350563564474030330e1120705652662b0007762510077625100776251007762510077625004e4e",
+  "predicted_response": {
+    "type": "response",
+    "data": "4242424242424242424"
+  },
+  "predicted_response_frame_len": 51,
+  "out": "artifacts/new-frame.bin"
+}

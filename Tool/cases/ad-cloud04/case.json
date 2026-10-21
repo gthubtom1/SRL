@@ -1,0 +1,46 @@
+{
+  "id": "ad-cloud04",
+  "domain": "ad-cloud",
+  "target_type": "离线 AD/K8s 证据包夹具（五类判定复算）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local offline fixture",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "443ed7f2256b6a8dbf6d3f1a08b536ffa23f242902917f86b849e50bb9a2220d"
+    }
+  ],
+  "lessons": [
+    "本次跑到：在 `input/bundle.json` 写 5 条离线证据（Kerberoast TGS、AS-REP、ADCS ESC1/ESC8 模板、Unconstrained 委派、K8s create pods/get secrets），执行 `cd Tool/cases/ad-cloud04 && python ../../skill/ad-cloud/scripts/ad-repro.py --input input/bundle.json --json > artifacts/run.json`，rc=0。",
+    "结果：summary={'candidate': 5}；五条都只到 candidate：有 TGS/AS-REP/模板/委派属性/宽 RBAC，但没有破解明文、没有 certipy auth 成功、没有服务票据、没有宿主 id 或可用 Secret，因此不能写 confirmed。",
+    "边界：输入是手写教学夹具，不是真实域/集群；ad-repro 只复算判定，不验签、不连 DC/CA/API server，也不执行 certipy/nxc/kubectl。",
+    "下一步：每条 candidate 都要补一个在线只读或低影响动作——`certipy auth`/`getST` 成功、`kubectl auth can-i` + 绑定核对、宿主 id 或 Secret 实际可用——缺一项就只能保持 candidate。",
+    "失败判据：把‘有模板’写成 ESC1 可利用、把‘有委派属性’写成已拿票据、把‘有 create pods’写成已逃逸，都是本案例要防的过度结论。"
+  ],
+  "tags": [
+    "offline",
+    "repro",
+    "kerberoast",
+    "asrep",
+    "adcs",
+    "delegation",
+    "k8s",
+    "candidate"
+  ],
+  "refs": [
+    "Tool/skill/ad-cloud/references/01-criteria.md",
+    "Tool/skill/ad-cloud/references/03-model-pitfalls.md",
+    "Tool/skill/ad-cloud/references/kerberos-and-adcs.md",
+    "Tool/skill/ad-cloud/references/k8s-and-container.md",
+    "Tool/skill/ad-cloud/scripts/ad-repro.py",
+    "Tool/config/ad-cloud-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

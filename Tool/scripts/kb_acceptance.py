@@ -80,7 +80,10 @@ def main():
     paths = [h["path"] for h in hits]
     if args.verbose:
         print(f"    'vmp 脱壳' -> {paths[:5]}")
-    check("vmp 脱壳 覆盖 PE 侧", any(p.startswith("pe-reverse/") for p in paths), str(paths[:4]))
+    # 归档（_archive/pe-reverse/）仍是 PE 知识，计入 PE 侧覆盖；否则一归档验收就假红。
+    check("vmp 脱壳 覆盖 PE 侧",
+          any(p.startswith("pe-reverse/") or p.startswith("_archive/pe-reverse/") for p in paths),
+          str(paths[:4]))
     check("vmp 脱壳 覆盖 APK 侧", any(p.startswith("apk-reverse/") for p in paths), str(paths[:4]))
 
     # 6：单词查询的标题加权（"反作弊"必须压过同族噪音篇，靠 title 命中）

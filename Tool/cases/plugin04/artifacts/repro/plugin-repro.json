@@ -1,0 +1,118 @@
+{
+  "ok": true,
+  "script": "plugin-repro.py",
+  "container": "asar",
+  "sha256": "4f01c2092f2c7926e624303c6f9a96d85f94ea84bb7d9bfae0b5b65d88a60cfd",
+  "source": "Tool/cases/plugin04/input/app.asar",
+  "unpacked": "Tool/cases/plugin04/artifacts/repro/unpack",
+  "file_count": 6,
+  "extracted_count": 6,
+  "skipped": [],
+  "entrypoints": [
+    {
+      "kind": "package.main",
+      "path": "main.js",
+      "exists": true
+    },
+    {
+      "kind": "electron.preload",
+      "path": "preload.js",
+      "exists": true
+    }
+  ],
+  "manifest": {},
+  "package": {
+    "path": "package.json",
+    "name": "lab-electron-plugin",
+    "version": "0.3.0",
+    "main": "main.js",
+    "activationEvents": [],
+    "contributes_commands": [],
+    "capabilities": null,
+    "engines": null
+  },
+  "plugin_xml": {},
+  "permissions": [],
+  "host_permissions": [],
+  "data_flow": [
+    {
+      "kind": "fetch",
+      "hits": [
+        {
+          "file": "main.js",
+          "line": 14,
+          "snippet": "fetch('https://collector.example.invalid/ingest', { method: 'POST', body: JSON.stringify(blob) });"
+        }
+      ]
+    },
+    {
+      "kind": "shell.openExternal",
+      "hits": [
+        {
+          "file": "main.js",
+          "line": 10,
+          "snippet": "await shell.openExternal(url);"
+        }
+      ]
+    },
+    {
+      "kind": "ipcRenderer",
+      "hits": [
+        {
+          "file": "preload.js",
+          "line": 3,
+          "snippet": "open: (url) => ipcRenderer.invoke('lab:open', url),"
+        },
+        {
+          "file": "preload.js",
+          "line": 4,
+          "snippet": "telemetry: (blob) => ipcRenderer.send('lab:telemetry', blob)"
+        }
+      ]
+    },
+    {
+      "kind": "ipcMain",
+      "hits": [
+        {
+          "file": "main.js",
+          "line": 9,
+          "snippet": "ipcMain.handle('lab:open', async (_e, url) => {"
+        },
+        {
+          "file": "main.js",
+          "line": 13,
+          "snippet": "ipcMain.on('lab:telemetry', (_e, blob) => {"
+        }
+      ]
+    }
+  ],
+  "native": {
+    "node_modules": [],
+    "v8_bytecode": [],
+    "sourcemaps": [],
+    "unity_plugin_dlls": []
+  },
+  "unity": {},
+  "minimal_unit": {
+    "path": "main.js",
+    "lines": 17,
+    "symbols": [
+      "createWindow"
+    ],
+    "flow_hits": 4,
+    "why": "入口文件且命中的数据流/危险调用最多；先在此处下断或做最小改动"
+  },
+  "notes": [
+    "无 source map：先 prettier/格式化，再按行号下断"
+  ],
+  "blocked": [
+    "tool-missing:jadx",
+    "tool-missing:dnSpy",
+    "tool-missing:Cpp2IL"
+  ],
+  "next_probe": [
+    "按 main/preload/renderer 三层复核 IPC channel 与校验点",
+    "对远端 URL 做离线域名/证书/更新链核对；协议复刻转 protocol-plugin",
+    "最小可改单元改动前先备份，一次只改一个变量并留基线"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "case": "forensics03",
+  "generated_at": null,
+  "cwd": "Tool/cases/forensics03",
+  "timeline_summary": {
+    "events": 69,
+    "start_utc": "2026-10-08T22:15:25.951311Z",
+    "end_utc": "2026-10-21T19:15:38.018519Z",
+    "by_kind": {
+      "evtx-record": 59,
+      "browser-history": 7,
+      "filesystem-mtime": 3
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "runs": [
+    {
+      "input": "input/AppReadiness.evtx",
+      "cmd": "forensics-check.py --file input/AppReadiness.evtx --json",
+      "rc": 0,
+      "ok": true,
+      "type": "evtx",
+      "summary": {
+        "type": "evtx"
+      }
+    },
+    {
+      "input": "input/History.sqlite",
+      "cmd": "forensics-check.py --file input/History.sqlite --json",
+      "rc": 0,
+      "ok": true,
+      "type": "sqlite",
+      "summary": {
+        "type": "sqlite"
+      }
+    },
+    {
+      "input": "input/explorer-key-names.txt",
+      "cmd": "forensics-check.py --file input/explorer-key-names.txt --json",
+      "rc": 0,
+      "ok": true,
+      "type": "data",
+      "summary": {
+        "type": "data"
+      }
+    }
+  ],
+  "note": "registry face = key-name inventory only (no hive, no values) to keep PII out; timeline built from real EVTX + Edge History + fs mtime."
+}

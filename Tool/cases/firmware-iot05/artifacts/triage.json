@@ -1,0 +1,117 @@
+{
+  "tool": "fw-triage",
+  "version": "1.1.0",
+  "generated_at": "2026-10-21T13:52:50Z",
+  "file": "Tool/cases/firmware-iot05/input/ota-fixture.zip",
+  "ok": true,
+  "size": 1503,
+  "size_human": "1.5 KiB",
+  "sha256": "8911e755e34b425eb34fa6b44848b1522a257eb08f2cdec3e950a705e809b47a",
+  "containers": [
+    {
+      "offset": 0,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 120,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 226,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 335,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 432,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 519,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 652,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    },
+    {
+      "offset": 800,
+      "type": "zip",
+      "description": "ZIP archive",
+      "confidence": "high"
+    }
+  ],
+  "containers_truncated": 0,
+  "entropy": {
+    "overall": 5.259,
+    "max_block": 5.259,
+    "high_block_ratio": 0.0,
+    "sampled_bytes": 1503,
+    "sample_truncated": false,
+    "interpretation": "low entropy: mostly plaintext/metadata; look for headers and scripts"
+  },
+  "credential_clues": [
+    {
+      "offset": 76,
+      "type": "passwd-entry",
+      "snippet": "admin:<redacted>:1000:1000:Admin:/home/admin:/bin/sh"
+    },
+    {
+      "offset": 682,
+      "type": "private-key",
+      "snippet": "-----BEGIN ... PRIVATE KEY----- <redacted>"
+    }
+  ],
+  "clues_truncated": false,
+  "service_hints": {
+    "telnet": 396,
+    "http": 498,
+    "nvram": 415,
+    "init": 267
+  },
+  "tools": {
+    "binwalk": true,
+    "7z": true,
+    "unsquashfs": false,
+    "sasquatch": false,
+    "ubireader_extract_images": false,
+    "jefferson": false,
+    "cramfsck": false,
+    "zstd": false,
+    "strings": true
+  },
+  "suggested_commands": [
+    "file Tool/cases/firmware-iot05/input/ota-fixture.zip && sha256sum Tool/cases/firmware-iot05/input/ota-fixture.zip",
+    "strings -a -n 6 Tool/cases/firmware-iot05/input/ota-fixture.zip | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
+    "dd if=Tool/cases/firmware-iot05/input/ota-fixture.zip of=work/fw-triage/part.bin bs=1 skip=0  # carve first embedded container",
+    "python3 - <<'PY'\nfrom pathlib import Path\nsrc = Path('Tool/cases/firmware-iot05/input/ota-fixture.zip').read_bytes()\noff = 0\ndst = Path('work/fw-triage/carved-at-0.bin')\ndst.parent.mkdir(parents=True, exist_ok=True)\ndst.write_bytes(src[off:])\nprint('carved', len(src) - off, 'bytes ->', dst)\nPY",
+    "binwalk -E Tool/cases/firmware-iot05/input/ota-fixture.zip | head -40",
+    "binwalk -e --run-as=root -C work/fw-triage Tool/cases/firmware-iot05/input/ota-fixture.zip",
+    "binwalk --dd='.*' -C work/fw-triage/raw Tool/cases/firmware-iot05/input/ota-fixture.zip",
+    "7z x Tool/cases/firmware-iot05/input/ota-fixture.zip -owork/fw-triage/zip",
+    "grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd' work/fw-triage/rootfs/etc 2>/dev/null | head -60",
+    "find work/fw-triage/rootfs -type f \\( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \\) -print"
+  ],
+  "verdict": "container magic found (zip); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.",
+  "limits": [
+    "Triage only: it does not unpack, emulate, or prove J1/J2/J3.",
+    "Credential clues are candidates; confirm file:line in the extracted rootfs and redact values.",
+    "Offsets are absolute in the supplied file; carve before running unsquashfs/ubireader on an embedded image."
+  ]
+}

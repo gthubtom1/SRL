@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics04\\work\\unpacked\\Payload\\App.app\\keychain-2.db",
+  "type": "sqlite",
+  "format": "sqlite",
+  "confidence": "observed",
+  "meta": {
+    "format": "sqlite",
+    "tables": [
+      "genp",
+      "inet"
+    ],
+    "table_count": 2,
+    "integrity": "ok",
+    "sidecars": []
+  },
+  "timeline": {
+    "start_utc": "2026-10-19T19:14:00Z",
+    "end_utc": "2026-10-19T19:14:00Z",
+    "basis": "filesystem mtime only; content time requires acquisition record",
+    "timezone": "UTC display of local mtime",
+    "clock_skew": "unknown",
+    "precision": "filesystem dependent"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "表结构/行数",
+    "WAL/SHM/journal 残留",
+    "已删除记录恢复",
+    "时间字段与写入进程",
+    "敏感字段（脱敏）"
+  ],
+  "integrity": {
+    "sha256": "c8e8b3feac41eb08d76d230db7b106e5b412b7e3e347bd1cdf8fd52bf3e54cec",
+    "size": 12288,
+    "mtime_utc": "2026-10-19T19:14:00Z",
+    "readonly": false,
+    "warnings": [
+      "文件可写：分析前应设为只读或使用副本"
+    ],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

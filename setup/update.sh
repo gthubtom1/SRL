@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 AGENT_DIR="$HOME/.pi/agent"
 VERSION_FILE="$ROOT/VERSION"
-CHANGELOG_FILE="$ROOT/CHANGELOG.md"
+CHANGELOG_FILE="$ROOT/docs/CHANGELOG.md"
 MCP_JSON="$AGENT_DIR/mcp.json"
 
 # 仓库地址解析（修复：原先硬编码 angusdevgo 原版仓库，导致 fork 用户“更新工作台”

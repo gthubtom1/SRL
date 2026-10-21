@@ -1,6 +1,6 @@
 # Ad removal
 
-Goal: ads stop appearing, and **nothing else breaks**. Read `pitfalls.md` P5 and P6 before patching anything here.
+Goal: ads stop appearing, and **nothing else breaks**. Read `pitfalls-1-packaging-and-dex.md` P5 and P6 before patching anything here.
 
 
 **Load this when:** an ad, promo, splash or rewarded video must stop appearing, or an ad-related SDK was found in recon. It gives the enumeration step that decides *which* layer the ad lives on, then the removal per layer.
@@ -36,7 +36,7 @@ Do not assume "ads" is one thing. Enumerate first.
   — a generic `*Config` payload carrying per-feature blocks (`splash`, `noticePopup`,
   `updatePopup`, `tabbar`, `banner`).
 - The client renders whatever the list contains. If the list is empty there is nothing
-  to show, but see `pitfalls.md` P5 on **how not** to empty it: never make a shared
+  to show, but see `pitfalls-1-packaging-and-dex.md` on **how not** to empty it: never make a shared
   request fail.
 - Sponsored cards that look like content (a VPN promo, a network-accelerator card, a
   third-party product) are usually exactly this.
@@ -132,8 +132,8 @@ From safest to riskiest (full technique table in `dex-patching.md`):
 3. **No-op the show/preload methods** — only when 1 and 2 are insufficient, always preserving callbacks.
 4. **Global gate state** — one startup write covers every reader (timestamp / preference keys above).
 5. **Filter server-issued ad data at the consumption layer** — drop entries for the target position before they reach UI state.
-6. *(avoid)* **Renderer-level suppression** — only if the component is genuinely ad-exclusive. Check `pitfalls.md` P6 first.
-7. *(avoid)* **Transport-level blocking** — see `pitfalls.md` P5.
+6. *(avoid)* **Renderer-level suppression** — only if the component is genuinely ad-exclusive. Check `pitfalls-1-packaging-and-dex.md` first.
+7. *(avoid)* **Transport-level blocking** — see `pitfalls-1-packaging-and-dex.md`.
 
 ## Step 4: verify — three independent kinds of evidence
 
@@ -151,7 +151,7 @@ Logcat silence alone is weak evidence. A credible "ads are gone" claim needs all
 Additional cheap evidence:
 4. **DNS / socket level** — a runtime `InetAddress` hook. Before: a burst of ad/tracker domains. After: none. Many ad SDKs bypass the system proxy, so a proxy log can miss them while this does not.
 5. **Exercise the screens that had ads** and confirm nothing unrelated regressed: images, playback, lists, pagination, downloads, login.
-6. **Clean install** — uninstall first, then install. Data left from a previous run can hide a failed init patch (`pitfalls.md` P11).
+6. **Clean install** — uninstall first, then install. Data left from a previous run can hide a failed init patch (`pitfalls-2-environment-and-evidence.md`).
 
 Frame the result at the right strength: *"the ad was hidden"* vs *"the ad subsystem never started"*. Only evidence 3 and 4 support the second (`verification.md` §the claim ladder).
 

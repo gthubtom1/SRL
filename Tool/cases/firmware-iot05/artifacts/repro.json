@@ -1,0 +1,117 @@
+{
+  "tool": "fw-repro",
+  "version": "1.0.0",
+  "generated_at": "2026-10-21T13:52:50Z",
+  "file": "Tool/cases/firmware-iot05/input/ota-fixture.zip",
+  "ok": true,
+  "out_dir": "work/fw-case05",
+  "size": 1503,
+  "sha256": "8911e755e34b425eb34fa6b44848b1522a257eb08f2cdec3e950a705e809b47a",
+  "analysed_bytes": 1503,
+  "truncated": false,
+  "formats": [
+    {
+      "type": "zip",
+      "offset": 0,
+      "note": "ZIP local file header"
+    }
+  ],
+  "primary": "zip",
+  "extraction": {
+    "status": "extracted",
+    "dest": "work/fw-case05",
+    "attempts": [],
+    "members": 8,
+    "blocked": []
+  },
+  "rootfs": {
+    "dirs": 9,
+    "files": 8,
+    "bytes": 507,
+    "key_files": [
+      {
+        "kind": "inittab",
+        "path": "rootfs/etc/inittab"
+      },
+      {
+        "kind": "passwd",
+        "path": "rootfs/etc/passwd"
+      },
+      {
+        "kind": "shadow",
+        "path": "rootfs/etc/shadow"
+      },
+      {
+        "kind": "init.d",
+        "path": "rootfs/etc/init.d/rcS"
+      },
+      {
+        "kind": "init.d",
+        "path": "rootfs/etc/init.d/S50httpd"
+      },
+      {
+        "kind": "private-key",
+        "path": "rootfs/etc/ssl/private/device.key"
+      },
+      {
+        "kind": "cgi",
+        "path": "rootfs/www/cgi-bin/upgrade"
+      }
+    ],
+    "findings": [
+      {
+        "kind": "empty-password",
+        "path": "rootfs/etc/passwd",
+        "line": 1,
+        "snippet": "root::0:0:root:/root:/bin/sh"
+      },
+      {
+        "kind": "shadow-hash",
+        "path": "rootfs/etc/shadow",
+        "line": 1,
+        "snippet": "root:$1$deadbeef$abcdefghijklmnopqrstuv:19000:0:99999:7:::"
+      },
+      {
+        "kind": "telnetd",
+        "path": "rootfs/etc/init.d/rcS",
+        "line": 2,
+        "snippet": "telnetd -l /bin/sh"
+      },
+      {
+        "kind": "nvram",
+        "path": "rootfs/etc/init.d/rcS",
+        "line": 3,
+        "snippet": "nvram get wan_ip"
+      },
+      {
+        "kind": "httpd",
+        "path": "rootfs/etc/init.d/S50httpd",
+        "line": 2,
+        "snippet": "uhttpd -p 80 -h /www"
+      },
+      {
+        "kind": "private-key",
+        "path": "rootfs/etc/ssl/private/device.key",
+        "line": 1,
+        "snippet": "-----BEGIN ... PRIVATE KEY----- <redacted>"
+      },
+      {
+        "kind": "cgi-system",
+        "path": "rootfs/www/cgi-bin/upgrade",
+        "line": 3,
+        "snippet": "system(\"tar -xzf $QUERY_STRING -C /tmp\")"
+      },
+      {
+        "kind": "shell-meta",
+        "path": "rootfs/www/cgi-bin/upgrade",
+        "line": 3,
+        "snippet": "$QUERY_STRING -C /tmp\")"
+      }
+    ],
+    "top_dirs": [
+      "rootfs"
+    ],
+    "truncated": false
+  },
+  "verdict": "rootfs extracted and 8 candidate findings located. Confirm each at file:line, redact values, then verify login/service in an isolated environment."
+}

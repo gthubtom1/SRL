@@ -911,7 +911,25 @@ def cmd_resume(a):
     print(f"  下一步：{st.get('next_action') or '（未写）'}")
 
 
+def _self_test():
+    checks = 0
+    try:
+        g = {"id": "G1", "missing": "有效卡密", "repairable": "no", "delta": -0.45}
+        assert _blocking_gaps([g]) == [g]; checks += 1
+        assert _depends({"needs": "G1"}, g); checks += 1
+        assert _mentions("缺 G1 导致不可赢", g); checks += 1
+        assert len(now()) >= 19; checks += 1
+        print(json.dumps({"ok": True, "checks": checks}, ensure_ascii=True))
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        print(json.dumps({"ok": False, "blocked_at": "self-test",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)}, ensure_ascii=True))
+        return 2
+
+
 def main():
+    if "--self-test" in sys.argv[1:]:
+        sys.exit(_self_test())
     ap = argparse.ArgumentParser(description="案子事实账 / 深度门 / 可行性裁定 / 出口闸")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

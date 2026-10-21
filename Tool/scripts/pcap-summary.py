@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """兼容入口：转发到 Tool/skill/protocol-plugin/scripts/pcap-summary.py。"""
 import os
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -9,4 +10,6 @@ TARGET = os.path.join(ROOT, "skill", "protocol-plugin", "scripts", "pcap-summary
 if not os.path.isfile(TARGET):
     print("pcap-summary.py not found: %s" % TARGET, file=sys.stderr)
     sys.exit(2)
-os.execv(sys.executable, [sys.executable, TARGET] + sys.argv[1:])
+# 兼容入口必须**透传退出码**：os.execv 在 Windows 上会让调用方拿到 0，
+# 失败被自动化当成成功（R4 复审实测：pcap-summary 失败 rc=0）。
+sys.exit(subprocess.call([sys.executable, TARGET] + sys.argv[1:]))

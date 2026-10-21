@@ -77,7 +77,7 @@ Pi Agent 是原生支持 Skill 渐进式披露、拦截扩展与 `lab：` 状态
 
 ### 2. 🟠 Claude Code 专属接入流程
 
-Claude Code 原生支持项目级上下文（`CLAUDE.md`）与项目级 MCP 注册（`.mcp.json`），是配置最简洁的智能体。
+Claude Code 原生支持项目级上下文（`Tool/prompts/contracts/CLAUDE.md`）与项目级 MCP 注册（`.mcp.json`），是配置最简洁的智能体。
 
 1. **环境自愈生成**：
    在项目根目录下运行一键配置生成脚本，确保 `.mcp.json` 中的命令指向当前实际路径：
@@ -202,7 +202,7 @@ cd <你的工作台目录>
 |---|---|---|
 | 1 | 记录当前版本与用户自有数据指纹 | — |
 | 2 | 自动探测代理并 `git pull` 拉取最新代码 | 有本地改动时先 `git stash` 保存 |
-| 3 | 打印 `CHANGELOG.md` 本次变更说明 | 更新前先预览 |
+| 3 | 打印 `docs/CHANGELOG.md` 本次变更说明 | 更新前先预览 |
 | 4 | 调用 `install.ps1` 幂等增量同步 | **自动备份**到 `~/.pi/agent/backup-<时间戳>/` |
 | 5 | 校验用户自有数据零丢失 | 对比更新前后的 MCP 条目 |
 | 6 | 跑官方基准自检并输出报告 | 47/46 项门禁 |
@@ -234,7 +234,7 @@ cd <你的工作台目录>
 如果你当初是下载 ZIP 解压的，没有 `.git` 目录：
 
 1. 下载最新 ZIP 并解压到**临时目录**；
-2. 用新目录**覆盖**旧目录中的 `Tool/`、`setup/`、`MANUAL/`、`README*.md`、`CHANGELOG.md`、`VERSION`；
+2. 用新目录**覆盖**旧目录中的 `Tool/`、`setup/`、`MANUAL/`、`README*.md`、`docs/CHANGELOG.md`、`VERSION`；
    > **切勿**覆盖你自己的 `work/`、`project/`、`logs/` 等数据目录；
 3. 进入新目录运行 `setup/update.ps1 -NoPull`（或 `setup/update.sh --no-pull`）完成配置同步。
 
@@ -252,7 +252,7 @@ cd <你的工作台目录>
 
 ### 8. 更新前先看变更
 
-每次更新的内容都记录在 **[CHANGELOG.md](../CHANGELOG.md)**，包含新增 / 变更 / 修复 / 安全四类，
+每次更新的内容都记录在 **[docs/CHANGELOG.md](../docs/CHANGELOG.md)**，包含新增 / 变更 / 修复 / 安全四类，
 并标注哪些需要手工干预。建议更新前扫一眼。
 
 ---
@@ -414,7 +414,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 
 更新脚本幂等且无损：自动 `git stash` 保护本地改动 → 自动备份配置 → 增量合并 `mcp.json`
 （**绝不删除用户自行添加的 MCP 条目**）→ 更新后自动跑基准自检。
-完成后必须提醒用户：**完全重启 Agent 会话**，再发 `lab：` 继续开工。变更内容见仓库根 `CHANGELOG.md`。
+完成后必须提醒用户：**完全重启 Agent 会话**，再发 `lab：` 继续开工。变更内容见仓库根 `docs/CHANGELOG.md`。
 
 ### A.3 上游仓库定点隔离同步（防外溢）
 

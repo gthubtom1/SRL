@@ -1,0 +1,94 @@
+{
+  "schema": "seep.ci-perm-audit/1",
+  "ok": true,
+  "tool": {
+    "name": "ci-perm-audit.py",
+    "mode": "offline-static",
+    "guarantees": [
+      "read-only",
+      "no network",
+      "no yaml dependency",
+      "line numbers preserved"
+    ]
+  },
+  "target": {
+    "path": ".github/workflows",
+    "workflows_total": 1
+  },
+  "workflows": [
+    {
+      "name": "upstream-sync.yml",
+      "file": ".github/workflows/upstream-sync.yml",
+      "triggers": [
+        {
+          "name": "schedule",
+          "line": 4
+        },
+        {
+          "name": "workflow_dispatch",
+          "line": 7
+        }
+      ],
+      "permissions": {
+        "contents": "write",
+        "pull-requests": "write"
+      },
+      "token_default": "write:contents,pull-requests",
+      "action_pins": [
+        {
+          "action": "actions/checkout@v4",
+          "line": 29,
+          "pinned": false,
+          "ref": "v4"
+        },
+        {
+          "action": "actions/setup-python@v5",
+          "line": 34,
+          "pinned": false,
+          "ref": "v5"
+        }
+      ],
+      "checkout_refs": [],
+      "secrets_refs": [
+        {
+          "name": "GITHUB_TOKEN",
+          "line": 49
+        }
+      ],
+      "jobs": [
+        "check-and-sync"
+      ],
+      "line_count": 129
+    }
+  ],
+  "findings": [
+    {
+      "rule": "action-unpinned",
+      "severity": "medium",
+      "workflow": ".github/workflows/upstream-sync.yml",
+      "line": 29,
+      "evidence": "uses: actions/checkout@v4",
+      "why": "第三方 action 用可移动 tag/branch",
+      "fix": "固定到 40 位 commit SHA；docker action 固定 sha256；用 Dependabot 更新。"
+    },
+    {
+      "rule": "action-unpinned",
+      "severity": "medium",
+      "workflow": ".github/workflows/upstream-sync.yml",
+      "line": 34,
+      "evidence": "uses: actions/setup-python@v5",
+      "why": "第三方 action 用可移动 tag/branch",
+      "fix": "固定到 40 位 commit SHA；docker action 固定 sha256；用 Dependabot 更新。"
+    }
+  ],
+  "summary": {
+    "findings_total": 2,
+    "by_severity": {
+      "medium": 2
+    },
+    "high_or_critical": 0
+  },
+  "limits": {
+    "note": "缩进扫描，不解析 YAML 锚点/merge key；动态生成或 reusable workflow 的权限需人工补看。"
+  }
+}

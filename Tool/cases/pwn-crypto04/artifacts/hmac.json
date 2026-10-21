@@ -1,0 +1,9 @@
+{
+  "mode": "hmac",
+  "algo": "sha256",
+  "digest": "fdf3ec979c0fd5ce039916c957832a2f2a96f1cf1d609eba7bf1ee2a72f639ac",
+  "expected": "fdf3ec979c0fd5ce039916c957832a2f2a96f1cf1d609eba7bf1ee2a72f639ac",
+  "verified": true,
+  "tamper_rejected": true,
+  "ok": true
+}

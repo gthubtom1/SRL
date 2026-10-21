@@ -50,7 +50,7 @@
 
 ## Reusable pattern
 - **Before accepting a silence as a finding, ask whether the instrument could have spoken.** This is
-  `pitfalls.md` P26's rule pointed at a *log channel* rather than at a script: check that the channel
+  `pitfalls-3-patching-and-artifacts.md`'s rule pointed at a *log channel* rather than at a script: check that the channel
   has ever delivered for a healthy case.
 - **Prefer a channel that is a file over a channel that is a daemon.** `logcat` depends on `logd`;
   a file in the module's own directory depends on the module.

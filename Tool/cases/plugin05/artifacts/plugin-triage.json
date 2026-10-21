@@ -1,0 +1,102 @@
+{
+  "container": "vsix",
+  "sha256": "c1e7b75b59903bcde02bd4169737611662eb4303541e47ec2e0701926dc60417",
+  "size": 1114,
+  "file_count": 4,
+  "top_level": [
+    "[Content_Types].xml",
+    "extension"
+  ],
+  "interesting_files": [
+    "extension/package.json"
+  ],
+  "entrypoints": {
+    "manifest": null,
+    "package": "extension/package.json",
+    "plugin_xml": null
+  },
+  "manifest": {},
+  "package": {
+    "name": "lab-vsix-plugin",
+    "version": "0.2.0",
+    "main": "./extension.js",
+    "activationEvents": [
+      "onCommand:lab.scan",
+      "onLanguage:json"
+    ],
+    "commands": [
+      {
+        "command": "lab.scan",
+        "title": "Lab: Scan workspace"
+      }
+    ],
+    "menus": [],
+    "keybindings": null,
+    "configuration": false,
+    "dependencies": [],
+    "devDependencies": [],
+    "scripts": {},
+    "engines": {
+      "vscode": "^1.80.0"
+    },
+    "preload": null,
+    "capabilities": {
+      "untrustedWorkspaces": {
+        "supported": false
+      }
+    },
+    "extensionKind": null,
+    "os": null
+  },
+  "plugin_xml": {},
+  "suspicious_apis": {
+    "child_process": {
+      "count": 1,
+      "files": [
+        "extension/extension.js"
+      ],
+      "examples": [
+        "vscode'); const { execFile } = require('child_process'); function activate(context) {   const cmd = vscode.commands.registerCommand('"
+      ]
+    },
+    "exec_spawn": {
+      "count": 1,
+      "files": [
+        "extension/extension.js"
+      ],
+      "examples": [
+        "aceFolders?.[0]?.uri.fsPath || '.';     execFile('git', ['-C', root, 'status', '--short'], (err, stdout) => {       vscode.window"
+      ]
+    }
+  },
+  "remote_urls": [],
+  "scanned_text_files": 3,
+  "permission_surface": {
+    "permissions": [],
+    "optional_permissions": [],
+    "host_permissions": [],
+    "high": [
+      "untrustedWorkspaces:restricted"
+    ],
+    "broad_hosts": [],
+    "vsix": {
+      "untrustedWorkspaces": {
+        "supported": false
+      },
+      "virtualWorkspaces": null,
+      "extensionKind": null,
+      "activationEvents": [
+        "onCommand:lab.scan",
+        "onLanguage:json"
+      ],
+      "engines": {
+        "vscode": "^1.80.0"
+      }
+    }
+  },
+  "unity": {},
+  "ok": true,
+  "path": "Tool/cases/plugin05/input/ext.vsix",
+  "type": "VS Code VSIX 扩展",
+  "conclusion": "入口已定位；高风险面=child_process,exec_spawn,untrustedWorkspaces:restricted；需人工确认数据流与最小可改单元"
+}

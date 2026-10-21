@@ -192,9 +192,9 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 - **正确做法**：docstring 如实写清“直接执行的是 r2，高阶引擎只探测并告知”。**宁可说小，不可说大。**
 
 ### 坑 3：CHANGELOG / VERSION 不更新
-- **现象**：加了一堆功能，`CHANGELOG.md` 无记录、`VERSION` 还是旧的。
+- **现象**：加了一堆功能，`docs/CHANGELOG.md` 无记录、`VERSION` 还是旧的。
 - **后果**：破坏原版“严格维护 CHANGELOG + 语义化版本”的工程习惯，别人升级时不知道多了什么。
-- **正确做法**：每批功能 → `CHANGELOG.md` 加条目 + `VERSION` bump（如 1.6.0 → 1.7.0）。
+- **正确做法**：每批功能 → `docs/CHANGELOG.md` 加条目 + `VERSION` bump（如 1.6.0 → 1.7.0）。
 
 ### 坑 4：新工具的依赖没进 setup → 别人拉下来跑不了
 - **现象**：`seep_pe_resources` 依赖 `pefile`、`http_replay` 依赖 `curl_cffi`，但 `setup/install-python.ps1` 只装 mcp/pytest/frida。

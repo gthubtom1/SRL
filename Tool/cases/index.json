@@ -1,14 +1,15 @@
 {
   "schema": 1,
-  "generated_at": "2026-10-21T12:41:52Z",
-  "source_hash": "e9f9fd3640f62ef6ac9f9185e8276dad21eab7933c290408cdf8210620342335",
-  "case_count": 33,
+  "generated_at": "2026-10-21T20:33:22Z",
+  "source_hash": "6cd17b31303ac3ca19f8fe1279854840a2b19972a10ea3b69ef66e92c9cb3761",
+  "case_count": 47,
   "cases": [
     {
       "dir": "ad-cloud01",
       "id": "ad-cloud01",
       "domain": "ad-cloud",
       "target_type": "离线 kubeconfig 夹具",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local offline fixture",
       "goal_level": "L3",
@@ -19,6 +20,7 @@
           "sha256": "2bcbc8eb6f6cacba7e182cb720b42760528e6e25e5a394b9ed2b1b795f2ff979"
         }
       ],
+      "repro": "",
       "lessons": [
         "本次跑到：在 input/ 写最小 kubeconfig.yaml（含 clusters/contexts/users 与宽权限假 token），执行 cd Tool/cases/ad-cloud01 && python ../../scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json，rc=0。",
         "结果：ok=true，4 条 finding：K8S-TRANSPORT-002（insecure-skip-tls-verify）、K8S-RBAC-002/003/006（假 JWT 的 cluster-admin SA 名、system:masters/system:serviceaccounts 组、选中上下文宽权限 SA）。",
@@ -46,6 +48,7 @@
       "id": "ad-cloud02",
       "domain": "ad-cloud",
       "target_type": "离线 kubeconfig 夹具",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local offline fixture",
       "goal_level": "L2",
@@ -56,6 +59,7 @@
           "sha256": "bff79a3d1780fcef9e794371a59cc502dc950c19e5da47d74dba587bc73edcc8"
         }
       ],
+      "repro": "",
       "lessons": [
         "本次跑到：在 input/ 写最小 kubeconfig.yaml（含 clusters/contexts/users 与宽权限假 token），执行 cd Tool/cases/ad-cloud02 && python ../../scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json，rc=0。",
         "结果：ok=true，4 条 finding：K8S-TRANSPORT-002（insecure-skip-tls-verify）、K8S-RBAC-002/003/006（假 JWT 的 cluster-admin SA 名、system:masters/system:serviceaccounts 组、选中上下文宽权限 SA）。",
@@ -80,10 +84,141 @@
       "updated": "2026-10-21"
     },
     {
+      "dir": "ad-cloud03",
+      "id": "ad-cloud03",
+      "domain": "ad-cloud",
+      "target_type": "本机 Windows Security 事件日志（wevtutil /f:xml 导出，用户名/主机/IP 已脱敏）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local host read-only",
+      "goal_level": "L1",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "d96542192e132653d0ad2d2d661fef349ce43e93e7de8ff8962165ee7338b287"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：在授权本机执行 `MSYS_NO_PATHCONV=1 wevtutil qe Security '/q:*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4768 or EventID=4769 or EventID=4648)]]' /f:xml /c:100 /rd:true > /tmp/sec2.xml`（rc=0），再执行 `python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml /tmp/sec2.xml --out input/security-events.json`（rc=0，脱敏）与 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input input/security-events.json --json > artifacts/run.json`（rc=0）。",
+        "结果：100 条真实事件，4624=50、4672=50，LogonType 全为 5（服务登录），4768/4769/4776/4625 均为 0；判定 blocked（没有 Kerberos 遥测），唯一 finding 是 4672 特殊权限分配（medium），不能据此写成域内提权。",
+        "边界：本机 `Win32_ComputerSystem.PartOfDomain=False`（WORKGROUP），没有域账号、DC、证书模板或云凭据；单机 Security 日志的缺失不能证明域内没有攻击，只能证明这台主机没有相应遥测。",
+        "下一步：若是域主机，先确认 Kerberos 审计与 `Microsoft-Windows-Kerberos/Operational` 是否开启，再在授权范围内从 DC 导出 Security 日志做 4768/4769/4625/4672 关联；本机则把 4672 服务登录当作基线而不是结论。",
+        "失败判据：把 4672 直接写成提权、把无 4768/4769 写成‘域内安全’、把服务登录类型 5 当成交互登录，都是误判；事件日志缺失时先查审计策略与日志断档。",
+        "R4 修复：ad-repro 实现 EventRecordID 连续性判据（record_id_gaps / telemetry_untrusted + record-id-continuity check）；本案例 100 条事件 record_id 连续（gaps=0），故「未见 Kerberos/NTLM」的结论在该片段内可信，但仍不可外推到全量日志。 artifacts/run.json 已重生成，哈希重算。"
+      ],
+      "tags": [
+        "windows",
+        "evtx",
+        "security-log",
+        "kerberos",
+        "real",
+        "telemetry"
+      ],
+      "refs": [
+        "Tool/skill/ad-cloud/references/04-walkthrough-windows-auth-events.md",
+        "Tool/skill/ad-cloud/references/01-criteria.md",
+        "Tool/skill/ad-cloud/references/02-failure-criteria.md",
+        "Tool/skill/ad-cloud/scripts/ad-repro.py",
+        "Tool/config/ad-cloud-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "ad-cloud04",
+      "id": "ad-cloud04",
+      "domain": "ad-cloud",
+      "target_type": "离线 AD/K8s 证据包夹具（五类判定复算）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local offline fixture",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "443ed7f2256b6a8dbf6d3f1a08b536ffa23f242902917f86b849e50bb9a2220d"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：在 `input/bundle.json` 写 5 条离线证据（Kerberoast TGS、AS-REP、ADCS ESC1/ESC8 模板、Unconstrained 委派、K8s create pods/get secrets），执行 `cd Tool/cases/ad-cloud04 && python ../../skill/ad-cloud/scripts/ad-repro.py --input input/bundle.json --json > artifacts/run.json`，rc=0。",
+        "结果：summary={'candidate': 5}；五条都只到 candidate：有 TGS/AS-REP/模板/委派属性/宽 RBAC，但没有破解明文、没有 certipy auth 成功、没有服务票据、没有宿主 id 或可用 Secret，因此不能写 confirmed。",
+        "边界：输入是手写教学夹具，不是真实域/集群；ad-repro 只复算判定，不验签、不连 DC/CA/API server，也不执行 certipy/nxc/kubectl。",
+        "下一步：每条 candidate 都要补一个在线只读或低影响动作——`certipy auth`/`getST` 成功、`kubectl auth can-i` + 绑定核对、宿主 id 或 Secret 实际可用——缺一项就只能保持 candidate。",
+        "失败判据：把‘有模板’写成 ESC1 可利用、把‘有委派属性’写成已拿票据、把‘有 create pods’写成已逃逸，都是本案例要防的过度结论。"
+      ],
+      "tags": [
+        "offline",
+        "repro",
+        "kerberoast",
+        "asrep",
+        "adcs",
+        "delegation",
+        "k8s",
+        "candidate"
+      ],
+      "refs": [
+        "Tool/skill/ad-cloud/references/01-criteria.md",
+        "Tool/skill/ad-cloud/references/03-model-pitfalls.md",
+        "Tool/skill/ad-cloud/references/kerberos-and-adcs.md",
+        "Tool/skill/ad-cloud/references/k8s-and-container.md",
+        "Tool/skill/ad-cloud/scripts/ad-repro.py",
+        "Tool/config/ad-cloud-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "ad-cloud05",
+      "id": "ad-cloud05",
+      "domain": "ad-cloud",
+      "target_type": "离线 IAM 策略夹具（身份策略 + permissions boundary）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local offline fixture",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "aff2ae364653142f6f963162316be8a9d841ac525cda62a29b6738cc56f020fd"
+        },
+        {
+          "path": "artifacts/run-deny.json",
+          "sha256": "30eaee19287aaf34d3fc0732340d68feebd92def53dba08a0461a57e5da14c1e"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：`cd Tool/cases/ad-cloud05 && python ../../skill/ad-cloud/scripts/cloud-iam-eval.py --input input/policy.json --action iam:CreatePolicyVersion --resource arn:aws:iam::123456789012:policy/demo > artifacts/run.json`（rc=0），同一输入对 `s3:GetObject` + `demo-bucket/secret/a.txt` 再跑一次得到 `artifacts/run-deny.json`（rc=0）。",
+        "结果：iam:CreatePolicyVersion 判定 allow，并列出 iam:createpolicyversion/iam:passrole 等 privesc 组合；s3 读取判定 deny，因为显式 Deny 优先；两次都只基于策略文本，没有调用 STS/IAM。",
+        "边界：这是手写策略夹具，不是真实账号；评估器只覆盖 StringEquals/StringLike/ArnEquals/ArnLike/Bool 条件，不建模资源策略、会话策略、SCP 全部语义，因此 allow 不等于凭据仍有效。",
+        "下一步：用真实只读 `aws sts get-caller-identity` 确认身份，再 `aws iam list-attached-user-policies` / `get-policy-version` 对照；任何写操作（CreatePolicyVersion/PassRole）必须单独授权并先备份。",
+        "失败判据：看到 `Action:*` 就写‘管理员’，或忽略 boundary/Deny 直接下结论，都会高估权限；策略文本 allow 与实际调用成功之间还差一次在线验证。"
+      ],
+      "tags": [
+        "aws",
+        "iam",
+        "policy",
+        "boundary",
+        "offline",
+        "privesc"
+      ],
+      "refs": [
+        "Tool/skill/ad-cloud/references/cloud-native.md",
+        "Tool/skill/ad-cloud/references/01-criteria.md",
+        "Tool/skill/ad-cloud/scripts/cloud-iam-eval.py",
+        "Tool/config/ad-cloud-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
       "dir": "firmware-iot01",
       "id": "firmware-iot01",
       "domain": "firmware-iot",
       "target_type": "非固件二进制（夹具：PE32+ DLL）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "J1",
@@ -94,6 +229,7 @@
           "sha256": "48e2725532670cc280aa75a4877413308cf8b8a2d6def5170ebeee515cc4b2d8"
         }
       ],
+      "repro": "",
       "lessons": [
         "本次跑到：fw-triage.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；离线只读分诊。",
         "真实识别：offset 0 为 PE/COFF（high），overall entropy 6.346；另有 2 处 jffs2 弱命中但只是字节模式误报，credential_clues=0，不能据此称为固件。",
@@ -121,6 +257,7 @@
       "id": "firmware-iot02",
       "domain": "firmware-iot",
       "target_type": "非固件二进制（夹具：PE32 EXE）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "J2",
@@ -131,6 +268,7 @@
           "sha256": "1306db11f8e29ab8bfb363cd0731d874c60409d2932c2478ee5d23167972f12e"
         }
       ],
+      "repro": "",
       "lessons": [
         "本次跑到：fw-triage.py --file Tool/samples/real/monologix-crackmes/CrackMe1.exe --json > artifacts/run.json，rc=0；离线只读分诊。",
         "真实识别：offset 0 为 PE/COFF（high），另命中 gzip/jffs2 弱模式；overall entropy 7.57、high_block_ratio 0.667、credential_clues=0，整体更像高熵 PE 资源而非 NAND/UBI 固件。",
@@ -154,10 +292,151 @@
       "updated": "2026-10-21"
     },
     {
+      "dir": "firmware-iot03",
+      "id": "firmware-iot03",
+      "domain": "firmware-iot",
+      "target_type": "真实 Broadcom BCM43341 Wi-Fi 固件镜像（Windows DriverStore 中的 rtecdc.bin）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "J1",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/triage.json",
+          "sha256": "6c3b77502e521a70c9147ca4c4b19e8f12b8bb1cab6f2c829d2ace085a88c9c6"
+        },
+        {
+          "path": "artifacts/repro.json",
+          "sha256": "7f344fd490e8bc759d1dbebd538018421c4a9b0d260c684efc10e80877aa54c4"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json > artifacts/triage.json，rc=0；随后 fw-repro.py 同输入 --out-dir work/fw-case03 --json > artifacts/repro.json，rc=0。",
+        "真实识别：sha256=3dc1138c...，406260 字节，整体熵 7.055；fw-repro 在 offset 252828/252980/253132/254156 命中 BRCM 标签，尾部得到 Version 6.10.225.19、FWID 01-97a5222f、PDT 2015-08-07。",
+        "误报处理：triage 另报 offset 291825 的 JFFS2 弱签名和 offset 318183 的 bzip2；fw-repro 按 strong/weak 分层把 BRCM 定为主格式，未把弱签名当 rootfs。",
+        "卡点：这是 vendor firmware blob，没有 SquashFS/UBI/rootfs，也没有 UART/JTAG 实物，J1/J2/J3 均未达成；只有固件身份与版本可确认。",
+        "下一步：若拿到含 BRCM 头的整片 SPI dump，先用固件内长度字段切段，再对 ucode/CLM 段分别做熵与字符串比对；不要用 binwalk -e 递归提取。",
+        "边界：固件版本串可以证明镜像身份，但不能证明设备在跑同一版本；需要真机只读读取或厂商签名清单交叉验证。"
+      ],
+      "tags": [
+        "real-firmware",
+        "broadcom",
+        "brcm-tag",
+        "entropy",
+        "false-positive-containers",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/firmware-iot/SKILL.md",
+        "Tool/skill/firmware-iot/references/01-criteria.md",
+        "Tool/skill/firmware-iot/references/06-container-carving-and-entropy.md",
+        "Tool/config/firmware-iot-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "firmware-iot04",
+      "id": "firmware-iot04",
+      "domain": "firmware-iot",
+      "target_type": "真实 Windows UEFI 启动应用 SecConfig.efi（PE32+，本机 System32）",
+      "evidence_kind": "real",
+      "protection": [
+        "Secure Boot (host policy, not analyzed)"
+      ],
+      "authority": "local",
+      "goal_level": "J1",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/triage.json",
+          "sha256": "37c0cb166599d07d993d562a5de657d1f7e7192a0c60dde42a9e67d9c2788e7f"
+        },
+        {
+          "path": "artifacts/repro.json",
+          "sha256": "61981d49873609b3a3bf1185e0200c678a78c9b118fe452b40327c245c1515e1"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json > artifacts/triage.json，rc=0；随后 fw-repro.py --out-dir work/fw-case04 --json > artifacts/repro.json，rc=0。",
+        "真实识别：sha256=820a15d9...，1346960 字节；PE32+ x86-64，subsystem=16（Windows boot application, UEFI-era），9 个节，.text 熵 6.491，整体熵 6.489。",
+        "误报处理：triage 在 10818/24253/40228/96461 等处报 gzip，并在 18587 报 JFFS2；fw-repro 把 PE 定为主格式，抽取状态记为 not-applicable，避免把压缩资源当固件容器。",
+        "卡点：只有单个 PE 文件，没有固件卷（FV）、没有 db/dbx/KEK/PK 变量导出，也没有 ESP 全量；无法验证 Secure Boot 策略或启动链完整性。",
+        "下一步：在授权主机上导出 UEFI 变量与固件卷（chipsec/uefi-firmware-parser），核对 dbx 是否覆盖该 boot app 的哈希，再做签名链验证。",
+        "边界：PE 节熵和字符串只能说明镜像形态；不等于启动链可信，也不构成 J1/J2/J3。"
+      ],
+      "tags": [
+        "real-firmware",
+        "uefi",
+        "pe32+",
+        "secure-boot",
+        "entropy",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/firmware-iot/SKILL.md",
+        "Tool/skill/firmware-iot/references/01-criteria.md",
+        "Tool/skill/firmware-iot/references/04-walkthrough-uefi-efi.md",
+        "Tool/skill/firmware-iot/references/05-uefi-and-secure-boot.md",
+        "Tool/config/firmware-iot-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "firmware-iot05",
+      "id": "firmware-iot05",
+      "domain": "firmware-iot",
+      "target_type": "夹具：合成 OTA 固件包（ZIP 内含 rootfs、init 脚本与 CGI）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "J2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/triage.json",
+          "sha256": "1efa7048b3eb6dc515751f1d71083f04b5fb04d14bde9afd150442cd3cf46267"
+        },
+        {
+          "path": "artifacts/repro.json",
+          "sha256": "b1b50d6a91e90e355e6c4d07b0527ed1b5c38b7ae0ece7a739e4c6c341e996ab"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 python Tool/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw-case05 --json > artifacts/repro.json，rc=0；triage 同输入 rc=0。",
+        "解包结果：ZIP 主格式 offset 0，stdlib 解出 8 个文件；rootfs 扫描定位 root 空口令（etc/passwd:1）、shadow hash（etc/shadow:1）、telnetd（etc/init.d/rcS:2）、uhttpd（etc/init.d/S50httpd:2）。",
+        "危险链：www/cgi-bin/upgrade:3 的 system(\"tar -xzf $QUERY_STRING ...\") 与 shell-meta 命中同一行，说明升级 CGI 把查询串拼进 shell；这只是静态线索。",
+        "边界：夹具证明“解包→定位→脱敏”链路可用，不证明任何真实设备存在该漏洞；J1/J2 未达成，禁止把夹具结论写成设备可利用。",
+        "下一步：换真实固件后先算哈希并跑同一命令，确认 rootfs 完整度、服务运行用户和 CGI 可达性，再在隔离仿真中复现。",
+        "更正（R2 审计）：本案例只做到解包+静态线索（emulation.mode=none、service_ok=false），按 01-criteria 的 J2 定义（服务真监听）不成立，outcome 由 confirmed 降为 partial。要升 J2 必须补「qemu 起服务 → 端口监听 → 登录/接口返回」三件证据。"
+      ],
+      "tags": [
+        "fixture",
+        "ota",
+        "zip",
+        "rootfs",
+        "credential-clues",
+        "cgi-injection",
+        "confirmed"
+      ],
+      "refs": [
+        "Tool/skill/firmware-iot/SKILL.md",
+        "Tool/skill/firmware-iot/references/01-criteria.md",
+        "Tool/skill/firmware-iot/references/02-failure-criteria.md",
+        "Tool/skill/firmware-iot/references/filesystem-and-credentials.md",
+        "Tool/config/firmware-iot-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
       "dir": "forensics01",
       "id": "forensics01",
       "domain": "forensics-mobile",
-      "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话）",
+      "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话，教学夹具）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -172,6 +451,7 @@
           "sha256": "f89194fe6de06adb73fed6eb6d14b083d945612a90a0ea20a6300d45a657a005"
         }
       ],
+      "repro": "",
       "lessons": [
         "实际分析：forensics-check.py --file input/capture.pcap，rc=0；识别 pcap/EN10MB，3 包、未截断，时间线 2026-10-20T03:14:05Z–03:14:05.910000Z，输入 sha256 与 artifacts 记录一致。",
         "发现：补充 pcap-summary.py 后确认 2 个方向性会话；10.20.0.15:49152 → 10.20.0.5:80 的 GET /login 携带 Authorization: Bearer abc，响应 200 OK 且 Set-Cookie sid=deadbeef，随后同连接带该 Cookie 访问 /dashboard。",
@@ -188,7 +468,8 @@
       ],
       "refs": [
         "Tool/skill/forensics-mobile/SKILL.md",
-        "Tool/skill/forensics-mobile/references/forensics.md",
+        "Tool/skill/forensics-mobile/references/01-criteria.md",
+        "Tool/skill/forensics-mobile/references/network-pcap-and-log.md",
         "Tool/skill/forensics-mobile/references/evidence-chain.md",
         "Tool/config/forensics-mobile-matrix.json",
         "Tool/cases/forensics01/input/capture.pcap",
@@ -200,7 +481,8 @@
       "dir": "forensics02",
       "id": "forensics02",
       "domain": "forensics-mobile",
-      "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录）",
+      "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录，教学夹具）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -215,6 +497,7 @@
           "sha256": "fc70fb00be6f042e0b1fff203693f1c1c1cc065b48efef0784523bcd7f2d94db"
         }
       ],
+      "repro": "",
       "lessons": [
         "实际分析：forensics-check.py --file input/app.log，rc=0；工具将类型判为 data/unknown，仅返回 sha256、大小和基于文件 mtime 的时间线，明确警告类型未确认；补充 grep 命中第 2–7 行。",
         "发现：198.51.100.23 对 svc-backup 先连续失败 5 次后成功；04:58:44Z 外联 drop.example.invalid 并带 Bearer abc；05:01:19Z 执行 curl -d @/etc/shadow；05:03:55Z 生成 /tmp/.cache/9f3a.tar.gz；05:06:10Z 查询 telemetry.suspicious.invalid。",
@@ -231,7 +514,8 @@
       ],
       "refs": [
         "Tool/skill/forensics-mobile/SKILL.md",
-        "Tool/skill/forensics-mobile/references/forensics.md",
+        "Tool/skill/forensics-mobile/references/01-criteria.md",
+        "Tool/skill/forensics-mobile/references/network-pcap-and-log.md",
         "Tool/skill/forensics-mobile/references/evidence-chain.md",
         "Tool/config/forensics-mobile-matrix.json",
         "Tool/cases/forensics02/input/app.log",
@@ -240,39 +524,270 @@
       "updated": "2026-10-21"
     },
     {
+      "dir": "forensics03",
+      "id": "forensics03",
+      "domain": "forensics-mobile",
+      "target_type": "真实 Windows 取证：AppReadiness EVTX + Edge History + 注册表键名清单（不含原始注册表文件与值）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local-owner-authorized",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/check-evtx.json",
+          "sha256": "9504e533333f87e53fbbb1e30783fa5b32eee28d70028adb0f7851f578277158"
+        },
+        {
+          "path": "artifacts/check-history.json",
+          "sha256": "45a89391716d1d481475c0357797febc2830d0f5a8f65948115159225eb52fef"
+        },
+        {
+          "path": "artifacts/check-registry-keys.json",
+          "sha256": "677da5f17962663706f4bddd2ec6a6fc588523130a73f12da004e496698bfd30"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "7d7c1be5c2a8d4bce381f092174c6639b9da16a661288fff28b730a76ac97123"
+        },
+        {
+          "path": "artifacts/timeline.json",
+          "sha256": "b0a5286aa6bb5865b37b9a718df984b11cf07c500ca95421fb87b4110effd51e"
+        },
+        {
+          "path": "input/AppReadiness.evtx",
+          "sha256": "a1e797541c1ae292777dbc33a1eb1e785cb3936b1b574ec82e3280845a21dbd9"
+        },
+        {
+          "path": "input/History.sqlite",
+          "sha256": "89b33c083d91b79d47412c20642172bddcdf3ef26d491f31e95868ea3bb01d4e"
+        },
+        {
+          "path": "input/explorer-key-names.txt",
+          "sha256": "0ef13b7d6a8ca8fe32e25e6ff8d51036908646c6f61a8122d171cbec048ab3d7"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是什么：真实 EVTX + 真实 Edge History + 注册表键名清单（仅键路径、无值）。命令：`python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/AppReadiness.evtx --input input/History.sqlite --input input --out artifacts/timeline.json`，rc=0；结果：69 个事件（EVTX 59 / 浏览器 7 / 文件系统 mtime 3），UTC 时间线。",
+        "发现：EVTX 在 2026-10-20 03:20:24Z/03:22:23Z 有记录；Edge 在 2026-10-08 有 7 次访问；注册表面只保留键名清单（60 行键路径），**没有**键写入时间与值——不再声称键写入时间。三者可排成 UTC 时间线；浏览器时间按 Chromium 1601 纪元微秒换算，未混用 FILETIME 100ns。",
+        "边界：三份证据来自同一台本机，缺少进程树/pcap/登录事件，无法把 Explorer 键写入归因到具体进程；浏览器访问与 AppReadiness 事件相隔 12 天，不能声称因果。",
+        "还差什么：补充 Security.evtx 的 4624/4688、$MFT 或 USN journal、pcap 与 NTP 偏差；对浏览器 URL 中的查询参数做脱敏后再对外分享；把 hive 的 LOG1/LOG2 事务日志一起封存以解释脏页。",
+        "隐私：History.sqlite 只读取 urls/visits，不读取 cookies/Login Data；案例输入保留 URL 原文，外发前应脱敏。",
+        "权限边界：%WINDIR%/System32/config/{SOFTWARE,SYSTEM,SAM} 与 %SystemDrive%/$MFT 均 Permission denied（未提权、未绕过 ACL），因此案例用 fsutil 只读查询卷元数据 + 用 Get-ChildItem 导出 Explorer 键名清单（无值）；没有伪造 hive/MFT 内容。",
+        "R2 修复：fs-timeline 增加事件级 action 字段（时间/主体/动作/对象四要素），timeline.json 重新生成，哈希已重算；evidence-accept 现在会校验 69 条事件的 action 与 actor 形态。",
+        "隐私整改（复审）：真实注册表 hive 含本机个人路径（PII），已按脱敏纪律移出案例；registry 面改用「键名清单」（input/explorer-key-names.txt，仅键路径、无值无数据）。timeline 由真实 EVTX + Edge History + 文件系统 mtime 重建（不含 hive），artifacts 全部重算哈希。"
+      ],
+      "tags": [
+        "R26",
+        "forensics",
+        "real",
+        "evtx",
+        "registry",
+        "browser-history",
+        "timeline"
+      ],
+      "refs": [
+        "Tool/skill/forensics-mobile/SKILL.md",
+        "Tool/skill/forensics-mobile/references/01-criteria.md",
+        "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+        "Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md",
+        "Tool/skill/forensics-mobile/references/disk-and-filesystem.md",
+        "Tool/skill/forensics-mobile/references/evidence-chain.md",
+        "Tool/config/forensics-mobile-matrix.json",
+        "Tool/cases/forensics03/input/AppReadiness.evtx",
+        "Tool/cases/forensics03/artifacts/timeline.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "forensics04",
+      "id": "forensics04",
+      "domain": "forensics-mobile",
+      "target_type": "iOS .ipa 与 Keychain/plist/SQLite 教学夹具（自建，无真实账号数据）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local-owner-authorized",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/App.ipa",
+          "sha256": "ac9ed18c9c22159b35c7d94743c45cf144608a3ac28c319fabda0728764c5ba7"
+        },
+        {
+          "path": "artifacts/check-ipa.json",
+          "sha256": "50b0d21c212e70eff7cfb57b80091368dde370ff09e214aa26c28b2cfa2eeb0a"
+        },
+        {
+          "path": "artifacts/check-macho.json",
+          "sha256": "0ab227a5eab6a756763cf85edf6cefb932ad3b4515f11ac2e614c82b81d07455"
+        },
+        {
+          "path": "artifacts/check-keychain.json",
+          "sha256": "7781a29b3af7dc4fd00c2091a2b7fcbb2e7612db3b3734ae0da43e105bcbc698"
+        },
+        {
+          "path": "artifacts/timeline.json",
+          "sha256": "c4b8af4ab2d03e9d4dc1b2880c3d432ab4a75bbf0e565873b81d90dfbcf889b1"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "26a973634e9cdef74b13e51450d6f6cd29da8e3b38725e2ed6b19dfcf4878873"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 forensics-check.py 对 .ipa、Mach-O、keychain-2.db 三份夹具做类型/结构初检，命令 `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/App.ipa --json`，rc=0；随后对 AppBinary/keychain-2.db 各跑一次 rc=0，并用 fs-timeline.py 生成 3 条文件系统时间事件。",
+        "发现：IPA 有 9 个 entry，Info.plist 是二进制 plist，AppBinary 是 Mach-O 64-bit arm64，keychain-2.db 为 SQLite（genp/inet 表）；这些是“结构/能力面”，不是“实际行为”。",
+        "边界：夹具没有真实签名链、没有 cryptid/entitlements 解码、没有运行时行为；不能据此判断越狱检测、网络请求或 Keychain 明文。",
+        "还差什么：在授权 macOS/测试机上跑 codesign/otool/plutil，补齐 LC_ENCRYPTION_INFO、entitlements、URL Scheme；对 keychain 只做元数据，不导出 secret。",
+        "失败判据：若 cryptid=1 未脱壳，停静态结论；若 Info.plist 无法解析/签名不一致，先查重签；若 keychain 表结构异常，只做文件级元数据。",
+        "R3 修复：timeline.json 的事件补 action 字段（由 fs-timeline 的 derive_action 按 kind 派生，与工具输出同源），并去掉 generated_at 以便复跑；哈希已重算。"
+      ],
+      "tags": [
+        "R26",
+        "forensics",
+        "fixture",
+        "ios",
+        "ipa",
+        "mach-o",
+        "keychain",
+        "plist"
+      ],
+      "refs": [
+        "Tool/skill/forensics-mobile/SKILL.md",
+        "Tool/skill/forensics-mobile/references/01-criteria.md",
+        "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+        "Tool/skill/forensics-mobile/references/ios-macos-artifacts.md",
+        "Tool/skill/forensics-mobile/references/evidence-chain.md",
+        "Tool/config/forensics-mobile-matrix.json",
+        "Tool/cases/forensics04/input/App.ipa",
+        "Tool/cases/forensics04/artifacts/timeline.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "forensics05",
+      "id": "forensics05",
+      "domain": "forensics-mobile",
+      "target_type": "Unity IL2CPP + AssetBundle 客户端教学夹具（自建，无真实游戏资源/账号）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local-owner-authorized",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/global-metadata.dat",
+          "sha256": "a7c978725a760e8b9e475042db94f480d293700927c26a717decb690476a4601"
+        },
+        {
+          "path": "input/data.unity3d",
+          "sha256": "8976b8114857626a9186abbbbad34cf4e6ee7fbda0df5466d209fff986634c60"
+        },
+        {
+          "path": "input/GameAssembly.dll",
+          "sha256": "bdf33b3ca96b8daf8e2e623e3da433a6897b985bd68de8f994421ad75fb4f888"
+        },
+        {
+          "path": "artifacts/check-global-metadata-dat.json",
+          "sha256": "bb1558b0f7c04a04557142a59b0cc31fdd3f8ad9f99a5733521d7460fadc42a6"
+        },
+        {
+          "path": "artifacts/check-data-unity3d.json",
+          "sha256": "d5f0533f3876d464a10b65f552e21da5a4c23f95d108fa4667a9e10255b4c5a6"
+        },
+        {
+          "path": "artifacts/check-GameAssembly-dll.json",
+          "sha256": "609eae1787e9a0d1eccc03b586fb4af88a5e5c8ce278fda6787e47f3c1b0467b"
+        },
+        {
+          "path": "artifacts/timeline.json",
+          "sha256": "12971ff94c42d28511e2892bd852a891a18a46b0e4ccdca9a35e19d40770c442"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "a4929b49b925f6ce09fc3b135276f2cb6a15419c528e65357a0d351daf0edeca"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 forensics-check.py 对 global-metadata.dat、data.unity3d、GameAssembly.dll 三份夹具做头部识别，命令 `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/global-metadata.dat --json`，rc=0；另两份各 rc=0，fs-timeline.py 生成 9 条文件系统时间事件。",
+        "发现：元数据 magic/version=29、AssetBundle UnityFS format=6/Unity 2022.3.10f1、GameAssembly 为 PE；三者版本可对应，但夹具不含真实方法/地址/资源。",
+        "边界：本机没有 Il2CppDumper/Cpp2IL/AssetStudio，无法产出 dump.cs/script.json/资源清单；按失败判据标 blocked_at=tool-missing，不伪造方法地址或资源内容。",
+        "还差什么：在工具可用环境跑 Il2CppDumper 得到 dump.cs/script.json，用 IDA/Ghidra 落地址；用 AssetStudio/UnityPy 导出 CAB/TextAsset；把服务器下发字段与客户端方法、运行时偏移连成链。",
+        "失败判据：元数据版本与 GameAssembly 不匹配、AssetBundle 头不是 UnityFS/UnityWeb/UnityRaw、或运行时偏移两次读取不一致，均停并降级。",
+        "R3 修复：timeline.json 的事件补 action 字段（由 fs-timeline 的 derive_action 按 kind 派生，与工具输出同源），并去掉 generated_at 以便复跑；哈希已重算。"
+      ],
+      "tags": [
+        "R26",
+        "forensics",
+        "fixture",
+        "unity",
+        "il2cpp",
+        "assetbundle",
+        "game-client"
+      ],
+      "refs": [
+        "Tool/skill/forensics-mobile/SKILL.md",
+        "Tool/skill/forensics-mobile/references/01-criteria.md",
+        "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+        "Tool/skill/forensics-mobile/references/game-client-il2cpp.md",
+        "Tool/skill/forensics-mobile/references/evidence-chain.md",
+        "Tool/config/forensics-mobile-matrix.json",
+        "Tool/cases/forensics05/input/global-metadata.dat",
+        "Tool/cases/forensics05/artifacts/timeline.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
       "dir": "malware-analysis01",
       "id": "malware-analysis01",
       "domain": "malware-analysis",
-      "target_type": "PE32 / EXE（静态分诊夹具）",
-      "protection": [],
-      "authority": "local",
+      "target_type": "Windows 11 系统自带 PE（C:/Windows/System32/notepad.exe，良性对照）",
+      "evidence_kind": "real",
+      "protection": [
+        "catalog-signature(未验证)"
+      ],
+      "authority": "local-readonly",
       "goal_level": "L2",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "4cf674bdd3fbf26a90015e0bdaf4363f0250b698374d7ae248fcaf0448f4ea5d"
+          "sha256": "5c61f1aa5c1c2f4db0e8d510bfebd3b2717843dd72d228a7b4a81b16963d6bb2"
+        },
+        {
+          "path": "artifacts/iocs.json",
+          "sha256": "8e44fb3d6e490e8492f01ed552c28b8feeb2de6c4086ed946471f8ed79bd9613"
+        },
+        {
+          "path": "artifacts/unpack.json",
+          "sha256": "06774d2c5fe2c10e4a961e593c36f77293142dc6d161b3bdc412e0c4f855db10"
         }
       ],
+      "repro": "",
       "lessons": [
-        "本次跑到：mal-triage.py --file Tool/samples/real/monologix-crackmes/CrackMe1.exe --json > artifacts/run.json，rc=0；静态分诊，未做行为沙箱。",
-        "结果：PE32 x86 EXE，entropy 7.5698，.rsrc 熵 7.98 被标记为可能的压缩/加密异常；44 个导入，命中 IsDebuggerPresent/QueryPerformanceCounter 与 CRT system，verdict=medium(score 3)，并生成建议 YARA（未部署）。",
-        "卡点：没有样本运行授权、隔离快照或沙箱采集；没有 Procmon/ETW/pcap/pe-sieve 数据，不能证明外联、持久化或 C2。",
-        "下一步：在隔离快照中运行 3–5 分钟，采集进程/文件/网络/内存，归一化为 JSONL，再用干净集验证 YARA；高风险结论至少需文件+网络或进程+内存两类互证。",
-        "边界：静态分诊只说明样本结构与导入可疑，不能替代行为证据；不要在本机直接执行未知 PE。"
+        "本次跑到：python Tool/scripts/mal-triage.py --file /c/Windows/System32/notepad.exe --json > artifacts/run.json（rc=1，因启发式 high），另有 ioc-extract.py（rc=0）与 mal-unpack.py（rc=0）。",
+        "结果：sha256=da5807bb0997cc6b5132950ec87eda2b33b1ac4533cf1f7a22a6f3b576ed7c5b，PE32+ x86_64，入口在 .text，无 W+X、无高熵代码节、无 overlay；mal-unpack 判 not-packed。",
+        "判据链：high(score=6) 只由通用导入触发（MapViewOfFile/IsDebuggerPresent/GetProcAddress）；IOC 去噪后 URL 全为 microsoft.com 帮助链接，剩余 5.1.0.0/6.0.0.0 是版本串，无网络 API/PCAP 互证 → 良性倾向。",
+        "卡点：Get-AuthenticodeSignature 模块不可用，签名链未验证；未执行、未联网，不能写“无 C2”，只能写“本次静态未发现可外联 IOC”。",
+        "边界：系统 PE 只读分析、不复制、不上传；行为结论需隔离 VM 快照与 pcap/内存。",
+        "R3 修复：用当前版本工具重生成产物（plugin03 的权限证据已剔除 manifest.json 自证；malware01 的 iocs 不再把 5.1.0.0 当公网 IP，ips=0 / filtered=8），哈希已重算。"
       ],
       "tags": [
         "PE",
-        "static-triage",
-        "entropy",
-        "yara-suggestion",
-        "no-sandbox",
-        "partial"
+        "real-system-binary",
+        "benign-control",
+        "false-positive-analysis",
+        "static-only"
       ],
       "refs": [
         "Tool/skill/malware-analysis/SKILL.md",
-        "Tool/skill/malware-analysis/references/unpacking-and-config.md",
-        "Tool/skill/malware-analysis/references/triage-and-ioc.md",
+        "Tool/skill/malware-analysis/references/01-criteria.md",
+        "Tool/skill/malware-analysis/references/04-walkthrough-real-pe.md",
+        "Tool/skill/malware-analysis/references/05-behavior-timeline.md",
         "Tool/mcp/Tool/reverselab/kb/malware-analysis/techniques/01-triage-and-ioc.md"
       ],
       "updated": "2026-10-21"
@@ -281,37 +796,145 @@
       "dir": "malware-analysis02",
       "id": "malware-analysis02",
       "domain": "malware-analysis",
-      "target_type": "PE32 / EXE（静态分诊夹具）",
+      "target_type": "PE32 第三方 keygenme 样本（maxxor KeygenMe V7，含注入 API 与外部域名）",
+      "evidence_kind": "real",
       "protection": [],
-      "authority": "local",
+      "authority": "local-readonly",
       "goal_level": "L2",
       "outcome": "partial",
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "50aabaf13c0b80d75e923f057d422dcb131365253a1b73a9fa43dcb42b9d0db7"
+          "sha256": "6f797c5f4e18b28c8f0d6abb4df601237dedaffd59e946a85f228a2b77f18b81"
+        },
+        {
+          "path": "artifacts/iocs.json",
+          "sha256": "abdbd6941ad5c6819402d440df3232c4368320892c4b5b5c2c37f4bc170727ad"
+        },
+        {
+          "path": "artifacts/unpack.json",
+          "sha256": "410b97d42e7aa71d39bb5399fb4fe57ee4e009de98761f3eb35ada9fa608168d"
         }
       ],
+      "repro": "",
       "lessons": [
-        "本次跑到：mal-triage.py --file Tool/samples/real/monologix-crackmes/Crackme2.exe --json > artifacts/run.json，rc=0；静态分诊，未做行为沙箱。",
-        "结果：PE32 x86 EXE，entropy 7.5982，.rsrc 熵 7.98 被标记为可能的压缩/加密异常；44 个导入，命中 IsDebuggerPresent/QueryPerformanceCounter 与 CRT system，verdict=medium(score 3)，并生成建议 YARA（未部署）。",
-        "卡点：没有沙箱、样本运行授权或采集环境；本次没有 timeline.jsonl、pcap 或可验证的 YARA 命中。",
-        "下一步：在快照隔离环境运行样本 3–5 分钟，采集进程/文件/网络/内存并归一化成含 ts_utc/pid/ppid/image/action/object/result/evidence 的 JSONL，再用干净集验证 YARA。",
-        "边界：静态分诊未观测行为；长睡眠/VM 检测/PID 复用等结论必须回到采集阶段补证据。"
+        "本次跑到：python Tool/scripts/mal-triage.py --file \"Tool/samples/real/maxxor-keygenme-v7/KeygenMe V7.exe\" --json > artifacts/run.json（rc=0，medium）；ioc-extract.py / mal-unpack.py 各 rc=0。",
+        "结果：sha256=c999ab160f652e1c6980c50507e1aacb9058d3aa359c92dd74bf3fc5ae5fd47b，PE32 x86，11KB；导入 OpenProcess/VirtualAllocEx/WriteProcessMemory/CreateRemoteThread/AdjustTokenPrivileges；字符串含 www.rtn-team.cc 与 6.0.0.0/7.0.0.0。",
+        "判据链：注入 API + 提权 API + 外部域名同时出现 → 可疑（medium），但无沙箱/PCAP/内存证据，不能判“已实施注入/外联”；mal-unpack 判 not-packed（无壳）。",
+        "卡点：没有隔离运行授权与采集环境；ioc-extract 的域名置信度 high 只代表“唯一且可外联”，仍需 PCAP/行为互证。",
+        "下一步：隔离快照运行 3–5 分钟，采集进程/文件/网络/内存，归一化为 JSONL；若确证注入目标与 C2 再升级为 confirmed。"
       ],
       "tags": [
         "PE",
-        "static-triage",
-        "entropy",
-        "yara-suggestion",
+        "real-third-party",
+        "injection-imports",
+        "domain-ioc",
         "no-sandbox",
         "partial"
       ],
       "refs": [
         "Tool/skill/malware-analysis/SKILL.md",
-        "Tool/skill/malware-analysis/references/sandbox-and-timeline.md",
-        "Tool/skill/malware-analysis/references/yara-sigma-and-sandbox.md",
+        "Tool/skill/malware-analysis/references/01-criteria.md",
+        "Tool/skill/malware-analysis/references/02-failure-criteria.md",
+        "Tool/skill/malware-analysis/references/06-config-decryption.md",
         "Tool/mcp/Tool/reverselab/kb/malware-analysis/techniques/02-unpacking-and-config.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "malware-analysis03",
+      "id": "malware-analysis03",
+      "domain": "malware-analysis",
+      "target_type": "PE32 合成 UPX 壳夹具（UPX0/UPX1 节名 + 内嵌 PE overlay）",
+      "evidence_kind": "fixture",
+      "protection": [
+        "UPX-like"
+      ],
+      "authority": "local-readonly",
+      "goal_level": "L2",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "b24f5246a5dc39547b5bccf985b847d5e4b7bd3517b3881039d0d2923a18f55b"
+        },
+        {
+          "path": "artifacts/iocs.json",
+          "sha256": "e3b67f50a3a9b3e02bb8e5bd203b6815204ab218577d1086337bd1633034ab7f"
+        },
+        {
+          "path": "artifacts/unpack.json",
+          "sha256": "5109eda8d452867431c3baaac448bf1d87de7a3c012e0feceab69d279e0ac0f1"
+        },
+        {
+          "path": "artifacts/dump/carved-00.exe",
+          "sha256": "5cc5c1087404a0b06374c9cfd92dc44b923e9e3cc451028e2b1d3c7788ccb57d"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：python Tool/cases/malware-analysis03/input/make-packed.py 生成夹具；随后 mal-triage.py（rc=0）、ioc-extract.py（rc=0）、mal-unpack.py --out-dir artifacts/dump（rc=0，partial-dump）。",
+        "结果：mal-unpack 识别 UPX（节名 upx0/upx1 + UPX! 签名），blocked_at=tool-missing:upx（本机无 upx），但 carve 出 overlay 内嵌 PE（artifacts/dump/carved-00.exe，sha256=5cc5c108...）。",
+        "判据：识别=节名/签名命中；不能 dump 主壳=blocked_at 说明；能 dump 的子载荷=独立 hash 再分诊。二者同时存在时 verdict=partial-dump，主壳仍为未确认。",
+        "边界：夹具不是可执行的 UPX 压缩体，`upx -d` 不适用；真实 UPX 样本要换有 upx 的隔离机或手脱（见 references/02-failure-criteria.md）。"
+      ],
+      "tags": [
+        "PE",
+        "fixture",
+        "upx-like",
+        "carve",
+        "blocked-at",
+        "partial-dump"
+      ],
+      "refs": [
+        "Tool/skill/malware-analysis/SKILL.md",
+        "Tool/skill/malware-analysis/references/02-failure-criteria.md",
+        "Tool/skill/malware-analysis/references/06-config-decryption.md",
+        "Tool/mcp/Tool/reverselab/kb/malware-analysis/techniques/02-unpacking-and-config.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "malware-analysis04",
+      "id": "malware-analysis04",
+      "domain": "malware-analysis",
+      "target_type": "OOXML 宏文档夹具（现场生成 .docm，含 AutoOpen 宏文本）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local-readonly",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "a18567f48c5b24d1ac3c8d9e0cb6d1fe1063057b18f60a3300dd1f16e5c04fdd"
+        },
+        {
+          "path": "artifacts/iocs.json",
+          "sha256": "946d3127f136f907ef149a9783b93a983d0c58234c3aa82c500f3835cccee132"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：python Tool/cases/malware-analysis04/input/make-macro.py 生成夹具；mal-triage.py（rc=0，low）与 ioc-extract.py（rc=0，urls=1/domains=1）。",
+        "结果：type=Office/ZIP，字符串分类命中“防御规避”（powershell -enc + mshta），ioc 命中 http://cdn-fixture.top/loader.hta（high）。",
+        "判据链：AutoOpen/Document_Open 入口 + Shell/CreateObject 链 + 可外联 URL 同时出现 → 宏执行链可疑；但夹具的 vbaProject.bin 是教学占位，不是可执行 VBA 工程，未运行、未验证落地。",
+        "卡点：本机无 oletools/olevba，未做 OLE 流级解析；结论只能到“宏文本具备执行链”，不能到“宏已执行/已下载”。",
+        "下一步：在隔离 VM 用 Word 打开并抓 Procmon/pcap（高风险，需授权与快照），或用 olevba 解析宏源与自动执行入口。"
+      ],
+      "tags": [
+        "OOXML",
+        "docm",
+        "macro-fixture",
+        "ioc",
+        "static-only",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/malware-analysis/SKILL.md",
+        "Tool/skill/malware-analysis/references/01-criteria.md",
+        "Tool/skill/malware-analysis/references/03-model-pitfalls.md",
+        "Tool/mcp/Tool/reverselab/kb/malware-analysis/techniques/01-triage-and-ioc.md"
       ],
       "updated": "2026-10-21"
     },
@@ -319,7 +942,8 @@
       "dir": "plugin01",
       "id": "plugin01",
       "domain": "plugin-targets",
-      "target_type": "Chrome/Edge MV3 扩展 ZIP（本地构造样本）",
+      "target_type": "Chrome/Edge MV3 扩展 ZIP（本地构造夹具样本）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -331,9 +955,14 @@
         },
         {
           "path": "artifacts/run.json",
-          "sha256": "698420571182a1cbf185cc260a1bb558927bdd4511e450bbe3dd54e32a8f2c42"
+          "sha256": "bfd27d6c2c764f77e1a4051ddb0572340d6df55369d7a498173a1be8da69c008"
+        },
+        {
+          "path": "artifacts/plugin-triage.json",
+          "sha256": "d2c95ca929cb9598c580be2c2bf7b273cf7e34c86eb54b99fd0673a048a96a5e"
         }
       ],
+      "repro": "",
       "lessons": [
         "实际分析：plugin-triage.py --path input/ext.zip，rc=0；识别 ZIP 浏览器扩展包，3 个文件，manifest MV3 / Lab Session Helper 1.2.0。",
         "发现：权限 storage/scripting/cookies，host_permissions https://*.example.invalid/*；命中 chrome_cookies 与 network_request，远程 URL 为 https://api.example.invalid/session。",
@@ -350,11 +979,12 @@
       ],
       "refs": [
         "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/01-criteria.md",
+        "Tool/skill/plugin-targets/references/02-failure-criteria.md",
         "Tool/skill/plugin-targets/references/browser-extension.md",
-        "Tool/skill/plugin-targets/references/electron-and-asar.md",
         "Tool/config/plugin-targets-matrix.json",
         "Tool/cases/plugin01/input/ext.zip",
-        "Tool/cases/plugin01/artifacts/run.json"
+        "Tool/cases/plugin01/artifacts/plugin-triage.json"
       ],
       "updated": "2026-10-21"
     },
@@ -362,7 +992,8 @@
       "dir": "plugin02",
       "id": "plugin02",
       "domain": "plugin-targets",
-      "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造样本）",
+      "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造夹具样本）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -374,9 +1005,14 @@
         },
         {
           "path": "artifacts/run.json",
-          "sha256": "3444dc7f726ff1ce8efc1afc00b510cc4720da3937468735dc5c9ac371368c35"
+          "sha256": "4638c479e710b7a146c8c9f19b54bd0cbce1990d7b54a78126fbbcdebea36a7b"
+        },
+        {
+          "path": "artifacts/plugin-triage.json",
+          "sha256": "358c707c0007a6999d2fb528814163fa602fca29de8e9ae68ac538720c750c21"
         }
       ],
+      "repro": "",
       "lessons": [
         "实际分析：plugin-triage.py --path input/ext2.zip，rc=0；识别 ZIP 浏览器扩展包，3 个文件，manifest MV3 / Telemetry Bridge 0.4.2。",
         "发现：权限 nativeMessaging/tabs/storage/scripting/webRequest，host_permissions <all_urls>，content script 在 document_start 且 all_frames=true，externally_connectable 为 *://*/*，update_url 指向 suspicious-cdn.invalid。",
@@ -393,11 +1029,187 @@
       ],
       "refs": [
         "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/01-criteria.md",
+        "Tool/skill/plugin-targets/references/02-failure-criteria.md",
         "Tool/skill/plugin-targets/references/browser-extension.md",
-        "Tool/skill/plugin-targets/references/desktop-plugins.md",
         "Tool/config/plugin-targets-matrix.json",
         "Tool/cases/plugin02/input/ext2.zip",
-        "Tool/cases/plugin02/artifacts/run.json"
+        "Tool/cases/plugin02/artifacts/plugin-triage.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "plugin03",
+      "id": "plugin03",
+      "domain": "plugin-targets",
+      "target_type": "本机已安装的 Chrome MV3 扩展（Quicker 1.2.4，扩展 ID klggb…，只截取入口/权限相关文件）",
+      "evidence_kind": "real",
+      "protection": [
+        "Chrome 扩展签名/商店校验（未改包，仅静态分析）"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/real-extension.zip",
+          "sha256": "874f1b86b184b3304031df3f3b93c4cd850af2ff4c9f03451601d15d6e9ffc9b"
+        },
+        {
+          "path": "artifacts/provenance.json",
+          "sha256": "151bfae711bc5d30510b7d8e4374660ff16c399e56c2126b0031196b366f11d8"
+        },
+        {
+          "path": "artifacts/plugin-triage.json",
+          "sha256": "e2585c9b21dda0f867559dfff58d2137cf0fb1aabc944b73f8c283dab0b66c13"
+        },
+        {
+          "path": "artifacts/repro/plugin-repro.json",
+          "sha256": "7366883794e398ae72e1314432b973e9dc534a40b7b86914600805ba7b13b494"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "0a11bbaa7d41cf089ffb9f8ed3baf47c3f9a9c250fd8a1c817695ffbb759c2e3"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json，rc=0；识别 ZIP 浏览器扩展包，6 个文件，MV3 / Quicker 1.2.4（native host 名 com.getquicker.chromeagent）。",
+        "权限面：nativeMessaging/debugger 为 critical，scripting/userScripts 为 high，host_permissions=<all_urls>；plugin-repro.py 对 12/13 个声明权限找到代码证据，sidePanel 在截取子集中未出现（unexplained-static，不是恶意结论）。",
+        "数据流：content/content.js → chrome.runtime.sendMessage → background/background.js；background 中 connectNative(chrome.runtime.connectNative)、chrome.debugger、fetch/XHR、chrome.cookies 均可指到文件与行号；最小可改单元=background/background.js（14 处数据流命中）。",
+        "边界：只做静态子集分析，未加载浏览器、未连接 native host、未验证远端；高权限不等于滥用，需结合动态消息与 host 侧样本。",
+        "来源可追溯：artifacts/provenance.json 记录 6 个原始文件的来源路径、字节数与 sha256；输入包内容未修改，仅截取子集。",
+        "R3 修复：用当前版本工具重生成产物（plugin03 的权限证据已剔除 manifest.json 自证；malware01 的 iocs 不再把 5.1.0.0 当公网 IP，ips=0 / filtered=8），哈希已重算。"
+      ],
+      "tags": [
+        "R25",
+        "plugin",
+        "chrome-extension",
+        "mv3",
+        "real",
+        "nativeMessaging",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/01-criteria.md",
+        "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+        "Tool/skill/plugin-targets/references/04-walkthrough-chrome-extension.md",
+        "Tool/skill/plugin-targets/references/browser-extension.md",
+        "Tool/config/plugin-targets-matrix.json",
+        "Tool/cases/plugin03/input/real-extension.zip",
+        "Tool/cases/plugin03/artifacts/provenance.json",
+        "Tool/cases/plugin03/artifacts/repro/plugin-repro.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "plugin04",
+      "id": "plugin04",
+      "domain": "plugin-targets",
+      "target_type": "Electron asar 现场打包教学夹具（main/preload/renderer + IPC）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/app.asar",
+          "sha256": "4f01c2092f2c7926e624303c6f9a96d85f94ea84bb7d9bfae0b5b65d88a60cfd"
+        },
+        {
+          "path": "artifacts/plugin-triage.json",
+          "sha256": "fcc6b2716ede992dd9ed3b5993257dc8ea6b3c57c85bb1685b01ca27be1ede59"
+        },
+        {
+          "path": "artifacts/repro/plugin-repro.json",
+          "sha256": "cbc2c376bc9850c7efc7e361be5199d39f3f503af937bc6255e989bd57cbcea9"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "0310919f54d42b37a023e71910eeb52056feec13efa44d209f479bf67f5b46b8"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json，rc=0；识别 asar 头、6 个文件、main.js/preload.js 入口。",
+        "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json，rc=0；解包并抽出 ipcMain/ipcRenderer/shell.openExternal/fetch 四条数据流。",
+        "最小可改单元：main.js（4 处数据流命中，符号 createWindow）；preload.js 是 renderer 与主进程的桥，改返回值前先备份并留基线。",
+        "边界：夹具由仓库脚本按 asar 头格式生成，不是真实 Electron 发行包；未运行 Electron、未验证 IPC 实际参数与远端响应。"
+      ],
+      "tags": [
+        "R25",
+        "plugin",
+        "asar",
+        "electron",
+        "fixture",
+        "ipc",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/01-criteria.md",
+        "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+        "Tool/skill/plugin-targets/references/electron-and-asar.md",
+        "Tool/config/plugin-targets-matrix.json",
+        "Tool/cases/plugin04/input/app.asar",
+        "Tool/cases/plugin04/artifacts/repro/plugin-repro.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "plugin05",
+      "id": "plugin05",
+      "domain": "plugin-targets",
+      "target_type": "VS Code VSIX 扩展现场打包教学夹具（extension/package.json + activationEvents + child_process）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/ext.vsix",
+          "sha256": "c1e7b75b59903bcde02bd4169737611662eb4303541e47ec2e0701926dc60417"
+        },
+        {
+          "path": "artifacts/plugin-triage.json",
+          "sha256": "67fd29403f2d0b4da3b40bea72426d06a2bb5ae7a00326fd11ae9312170e2a7d"
+        },
+        {
+          "path": "artifacts/repro/plugin-repro.json",
+          "sha256": "d30f970000ead2e21f6505bba4919303a5d55365aebf08076bc0d3760464f16d"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "e65b56cd0018f20f875ef3f900b1888dc53c764ed2af5f95e007cf6d0e284dda"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json，rc=0；扩展名 .vsix 与 extension/package.json 双重识别为 VSIX，2 个激活事件。",
+        "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out Tool/cases/plugin05/artifacts/repro --json，rc=0；入口解析到 extension/extension.js（activate），并抽出 execFile 调用。",
+        "判据：激活事件 → 命令 → 关键文件/进程调用链完整；capabilities.untrustedWorkspaces.supported=false 说明受限工作区应禁用，但夹具未在真实 VS Code 中加载。",
+        "边界：未签名、未安装、未执行；child_process 调用只做静态定位，未验证参数注入或工作区边界。"
+      ],
+      "tags": [
+        "R25",
+        "plugin",
+        "vsix",
+        "vscode",
+        "fixture",
+        "activationEvents",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/plugin-targets/SKILL.md",
+        "Tool/skill/plugin-targets/references/01-criteria.md",
+        "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+        "Tool/skill/plugin-targets/references/ide-plugins.md",
+        "Tool/config/plugin-targets-matrix.json",
+        "Tool/cases/plugin05/input/ext.vsix",
+        "Tool/cases/plugin05/artifacts/repro/plugin-repro.json"
       ],
       "updated": "2026-10-21"
     },
@@ -405,7 +1217,8 @@
       "dir": "protocol01",
       "id": "protocol01",
       "domain": "protocol-plugin",
-      "target_type": "本地 pcap 抓包样本：HTTP/1.1 登录与会话请求（GET /login + Bearer）",
+      "target_type": "本地夹具 pcap：HTTP/1.1 登录与会话请求（GET /login + Bearer + Set-Cookie，3 包 / 628 B，手工构造）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -417,14 +1230,36 @@
         },
         {
           "path": "artifacts/run.json",
-          "sha256": "c7244158e67b6d035a3629878b5f3caa31e08568353e9518546a7033fc0191c9"
+          "sha256": "38b5074085f2d4a96c07e022dc626e81ee875094323a8d78b9b623e634cf14d9"
+        },
+        {
+          "path": "artifacts/pcap-summary.json",
+          "sha256": "38493c0020c83c8574191e8b66dbafb705e4fbc21f03955b9113a7d3cfd12cba"
+        },
+        {
+          "path": "artifacts/tshark-http.tsv",
+          "sha256": "28e52a13a975010e1d40ca71d06afa3c7cb729031542103706df548cb8a64508"
+        },
+        {
+          "path": "artifacts/streams/frames.jsonl",
+          "sha256": "1ecae1fc4263712e2d4f45b5c58310c88d7d97fde1cf665377e49038bb19c648"
+        },
+        {
+          "path": "artifacts/streams/s00_10.20.0.15_49152-10.20.0.5_80.bin",
+          "sha256": "c4615b3a28c365c3bffacc554f8127bb9ab29cff84de3c8ddbe9e8239011e05f"
+        },
+        {
+          "path": "artifacts/streams/s01_10.20.0.5_80-10.20.0.15_49152.bin",
+          "sha256": "71b5c4915b82a6268a4a4817b9dbfb0ff0c7504b1249367e3fc1513bfd3387cd"
         }
       ],
+      "repro": "",
       "lessons": [
-        "实际分析：pcap-summary.py 解析 input/sample.pcap，rc=0；格式 pcap/EN10MB，3 包、2 个方向性 TCP 会话，未截断。",
-        "发现：10.20.0.15:49152 → 10.20.0.5:80 的请求含 GET /login、Host: lab.example.test、Authorization: Bearer abc；响应 200 OK 并 Set-Cookie sid=deadbeef；随后 GET /dashboard 复用该 Cookie。",
-        "边界：脚本只做包级明文片段提取，不做 TCP 流重组；样本无 SYN/TLS，token 为静态值，未验证过期/重放/错误码。",
-        "还差什么：抓一条真实完整会话（含握手与失败分支）、按流重组、写 replay.py 构造新请求并预测响应；当前 target_type 已改为 HTTP pcap，不再是 WebSocket 设计稿。"
+        "跑的是 cd Tool/cases/protocol01 && python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.pcap --json --extract artifacts/streams --tshark-check，rc=0；tshark -Y http 取头部字段也是 rc=0。",
+        "结论：3 包 628 B 的手工 pcap 可被两套解析器（标准库 / tshark）同时读出 GET /login、Host: lab.example.test、Authorization: Bearer abc、Set-Cookie: sid=deadbeef，且 36 B 响应体与 Content-Length 一致。",
+        "工具边界：tshark 只列出 2 条请求、没把反向 200 响应归入同一 tcp.stream —— 样本缺 SYN/握手，说明\"tshark 没显示\"不等于\"没发生\"，必须用原始字节复核。",
+        "产物用途：artifacts/streams/*.bin 是方向性字节流，可直接喂给 proto-repro.py（换成 HTTP 字段表）或自写分帧器；frames.jsonl 逐包 payload_hex 可复算长度。",
+        "边界：这是夹具，不含握手/失败分支/TLS，token 是静态假值；不能据此推断真实服务的鉴权与过期语义，重放与构造按 references/08-replay-and-new-request.md 另做。"
       ],
       "tags": [
         "R24",
@@ -432,14 +1267,17 @@
         "http",
         "pcap",
         "bearer",
+        "fixture",
         "partial"
       ],
       "refs": [
         "Tool/skill/protocol-plugin/SKILL.md",
-        "Tool/skill/protocol-plugin/references/protocol-reverse.md",
-        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md",
+        "Tool/skill/protocol-plugin/references/01-criteria.md",
+        "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
+        "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+        "Tool/mcp/Tool/reverselab/kb/protocol/techniques/framing-and-fields.md",
+        "Tool/mcp/Tool/reverselab/kb/protocol/techniques/capture-to-replay.md",
         "Tool/config/protocol-plugin-matrix.json",
-        "Tool/cases/protocol01/input/sample.pcap",
         "Tool/cases/protocol01/artifacts/run.json"
       ],
       "updated": "2026-10-21"
@@ -448,7 +1286,8 @@
       "dir": "protocol02",
       "id": "protocol02",
       "domain": "protocol-plugin",
-      "target_type": "本地二进制帧样本：magic SPRX + 长度前缀 + CRC32（3 帧）",
+      "target_type": "本地夹具二进制帧：magic SPRX + u16 长度前缀 + CRC32（3 帧 / 141 B，手工构造）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L3",
@@ -464,14 +1303,32 @@
         },
         {
           "path": "artifacts/run.json",
-          "sha256": "1d85499760ddb77bd4f3d07547acb26546fe36b25385740c8d034d0363a80361"
+          "sha256": "fbfb7cae3ca002b820ad803d513303fdd9739d83bf8de9e0912bb31469a42e9c"
+        },
+        {
+          "path": "artifacts/parse.json",
+          "sha256": "81f8ce53e7a67747f70c3806edf610d66a6d49f06c40c84b26fd248166f2ec89"
+        },
+        {
+          "path": "artifacts/rebuild.json",
+          "sha256": "2765636d24f14112245a901e397498ba4c2c892499d299705a9be1ac877ff170"
+        },
+        {
+          "path": "artifacts/new-frame.bin",
+          "sha256": "8799d325c260ac4f8a5bd08124c2220a891ae302dba803dfc41f1da619243ced"
+        },
+        {
+          "path": "artifacts/new-frame-parse.json",
+          "sha256": "c9474f0e37976dd384f0478e705fe44690dadfbb61170c58e1357f4393e609ce"
         }
       ],
+      "repro": "",
       "lessons": [
-        "实际分析：按 input/notes.md 帧表解析 input/sample.bin，3 帧共 141 B；magic=SPRX、version=1、type=1/2/3、seq=1/2/3，length 仅覆盖 payload，CRC32 覆盖 header+payload，三个 CRC 均可复现。",
-        "发现：payload 依次为 HELLO/AUTH/TELEMETRY 明文 JSON（36/30/27 B）；原设计中的 AES-CBC 加密段在本样本中不存在。",
-        "工具边界：pcap-summary.py 对 sample.bin 返回 pcap_parse_error；兼容入口 rc=0、直调目标 rc=2，入口在 Windows 上丢失子进程退出码。",
-        "还差什么：真实 TCP pcap、≥3 帧反推 length/CRC 覆盖、半包/粘包/乱序重同步测试与 parser.py；当前只能证明该 3 帧样本自洽，不能证明真实流量格式。"
+        "跑的是 cd Tool/cases/protocol02 && python ../../../Tool/skill/protocol-plugin/scripts/proto-repro.py --input input/sample.bin --json，rc=0；随后 --rebuild --frame-index 2 --set type=4 --set seq=4 --payload-text ... --out artifacts/new-frame.bin，rc=0；最后对新帧再跑一次解析，rc=0。",
+        "结论：3 帧 141 B 按字段表解析：magic=SPRX、version=1、type=1/2/3、seq=1/2/3，length 只覆盖 payload，CRC32 覆盖 header+payload；三个 CRC 全部 want==got。",
+        "重建：type=4/seq=4 的新帧 43 B，长度与 CRC 由同一张表重算，再解析回来 crc_ok=true；但**没有服务端**验证，所以只到\"结构自洽\"，不写\"服务端接受\"。",
+        "工具边界：同一份 sample.bin，Tool/scripts 兼容入口 rc=0（os.execv 在 Windows 丢退出码），skill 版 rc=2；结论以 skill 版的 JSON 与退出码为准。",
+        "还差什么：真实 TCP pcap、≥5 帧反推长度/CRC、半包/粘包/乱序重同步测试、服务端接受性验证；当前只能证明该 3 帧样本自洽。"
       ],
       "tags": [
         "R24",
@@ -479,16 +1336,210 @@
         "binary",
         "crc32",
         "framing",
+        "fixture",
         "partial"
       ],
       "refs": [
         "Tool/skill/protocol-plugin/SKILL.md",
-        "Tool/skill/protocol-plugin/references/binary-protocols.md",
-        "Tool/skill/protocol-plugin/references/state-machine-and-replay.md",
+        "Tool/skill/protocol-plugin/references/01-criteria.md",
+        "Tool/skill/protocol-plugin/references/05-binary-framing.md",
+        "Tool/skill/protocol-plugin/references/07-crypto-and-checksum.md",
+        "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+        "Tool/mcp/Tool/reverselab/kb/protocol/techniques/framing-and-fields.md",
+        "Tool/mcp/Tool/reverselab/kb/protocol/techniques/checksum-and-crypto-segment.md",
         "Tool/config/protocol-plugin-matrix.json",
-        "Tool/cases/protocol02/input/sample.bin",
-        "Tool/cases/protocol02/input/notes.md",
         "Tool/cases/protocol02/artifacts/run.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "protocol03",
+      "id": "protocol03",
+      "domain": "protocol-plugin",
+      "target_type": "真实 WebSocket 抓包（dumpcap 4.1.0 / Linux 回环 / Go-http-client；来源清单见 input/README.md）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/websocket.pcapng",
+          "sha256": "ea9fcd3de02bf1824cdcff4bb61f842a6135fbc5d6b154cad00927ed3aa776d2"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "5ceea7510d9aa3d013c8198b93d22ab3264aa7b6c1b4f046ad1edb9fa4bc59e2"
+        },
+        {
+          "path": "artifacts/pcap-summary.json",
+          "sha256": "f97fc328bbfc0c91a5275d47ba5ab23099dee49b2419da06ea090380d2cbe10c"
+        },
+        {
+          "path": "artifacts/ws-frames.tsv",
+          "sha256": "12c865e6825223056545689ccfdc89d3e462cec1aabc7e40dbbb25945052b635"
+        },
+        {
+          "path": "artifacts/ws-handshake.tsv",
+          "sha256": "3ef1d046caa9bb6ced498d7c1c7c6e6a16dfdfe2c3d1214f52519527a40c364c"
+        },
+        {
+          "path": "artifacts/new-frame.bin",
+          "sha256": "dcb34a833e41acabc4bc0b21f0afbe61ab795209718745ecbed7168a4a00d3af"
+        },
+        {
+          "path": "artifacts/rebuild.json",
+          "sha256": "8595334f993915f16133bc3e2906d89cd61c630eff2710189eb9f05c302e3cd8"
+        },
+        {
+          "path": "artifacts/streams/frames.jsonl",
+          "sha256": "067b99b6fedf36d5f8b203dbcd0b0160cc96fddb4faaea990cd019e931a24159"
+        },
+        {
+          "path": "artifacts/streams/s00_127.0.0.1_44380-127.0.0.1_8080.bin",
+          "sha256": "382d6fa39f38ef0a123f3cbabebfd9e1421e0074e239f8cb4db388e0cddb47e5"
+        },
+        {
+          "path": "artifacts/streams/s01_127.0.0.1_8080-127.0.0.1_44380.bin",
+          "sha256": "20be7eb6e9357305b4f37608029dce747c1bf3e1c86f7eff6d44d06eb1358c16"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 cd Tool/cases/protocol03 && python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/websocket.pcapng --json --extract artifacts/streams --tshark-check，rc=0；随后 tshark -Y websocket 取帧头字段（rc=0）与 python input/build_ws_frame.py artifacts/new-frame.bin（rc=0）。",
+        "结论：ws 帧长公式 frame_len = 2 + (mask?4:0) + payload_length 在 8/8 帧成立；客户端 4 帧全部 mask=1 且掩码键逐帧随机，服务端 4 帧 mask=0；4 组请求-响应 data 完全相等，属回显型业务。",
+        "状态机：HANDSHAKE→OPEN→WAIT_RESPONSE→OPEN 由 4 组样本确认；CLOSED、ping/pong、error 帧在本样本中没有样本，标 INFERRED 未画成实线。",
+        "构造：按 RFC 6455 造了一条新的 54 B 客户端帧（data=4242…，掩码键 11223344），预测响应 51 B；本案例未启动本地回显服务，所以只到\"结构自洽\"，不写\"已确认\"。",
+        "边界：样本是回环明文，不含鉴权/TLS/压缩；真实目标若有 permessage-deflate 必须先 inflate 再 parse，若有 mTLS 则抓包只见密文。",
+        "更正（R2 审计）：01-criteria 要求「服务端接受新构造帧 + 重复 3 次」，本案例只做离线解析与结构重建，未连服务端，故 outcome 由 success 降为 partial。另：target_type 原写「Wireshark 官方 test/captures」与抓包元数据不符，已改为实际来源描述。"
+      ],
+      "tags": [
+        "R24",
+        "protocol",
+        "websocket",
+        "pcap",
+        "real",
+        "framing",
+        "replay"
+      ],
+      "refs": [
+        "Tool/skill/protocol-plugin/SKILL.md",
+        "Tool/skill/protocol-plugin/references/01-criteria.md",
+        "Tool/skill/protocol-plugin/references/04-walkthrough-websocket-replay.md",
+        "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
+        "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+        "Tool/config/protocol-plugin-matrix.json",
+        "Tool/cases/protocol03/input/build_ws_frame.py",
+        "Tool/cases/protocol03/artifacts/run.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "protocol04",
+      "id": "protocol04",
+      "domain": "protocol-plugin",
+      "target_type": "本机回环现场抓包（tshark + 本地 Python 回显服务）：HTTP/1.1 三条请求 / 三个 TCP 会话，含 Bearer 头与 Set-Cookie",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/conversations.txt",
+          "sha256": "037d3ec016a0eae65f881f2813de2736203faa26f8b1e574846751cef305d4fd"
+        },
+        {
+          "path": "artifacts/http-fields.tsv",
+          "sha256": "bafad11e9fe52b27f7880796f4139cd738384e6f030237582b68e071eae2cb67"
+        },
+        {
+          "path": "artifacts/live.pcapng",
+          "sha256": "0a60e59556e808319a5071418b480b455cebba1c3b0614a17299391ed69d0805"
+        },
+        {
+          "path": "artifacts/pcap-summary.err",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "artifacts/pcap-summary.json",
+          "sha256": "cc011ceecc32ed96da6dc9354df1d120c3b868c84ea6c1570a10e23a4883ea3f"
+        },
+        {
+          "path": "artifacts/README.md",
+          "sha256": "313365556c38f2656fdf7c7338c1cf2014f76fa9bd0a1aa54dcf1d75ca43a284"
+        },
+        {
+          "path": "artifacts/run.json",
+          "sha256": "54f57ec5178e022713966683703b7335d4b404198d288663be0a7aed1f8b500a"
+        },
+        {
+          "path": "artifacts/tshark-capture.err",
+          "sha256": "d5b53b42efdb65f97159829a8bb362a49e9c296d5a63d1586b8ddcc2ffc623c1"
+        },
+        {
+          "path": "artifacts/streams/frames.jsonl",
+          "sha256": "2bc2e20ab4a1813ecb06c08155afe5782b2e149338467b4178830ce35d32d479"
+        },
+        {
+          "path": "artifacts/streams/s00_127.0.0.1_63536-127.0.0.1_18321.bin",
+          "sha256": "b595d5580c4e32f40c8456eea81ef0a092126fa66c646ac8f727fc0b7632ed51"
+        },
+        {
+          "path": "artifacts/streams/s01_127.0.0.1_18321-127.0.0.1_63536.bin",
+          "sha256": "0af9fe5877d277e4d2a142488d95a6d26e29dd2d733c91b7d991bc261198d004"
+        },
+        {
+          "path": "artifacts/streams/s02_127.0.0.1_63537-127.0.0.1_18321.bin",
+          "sha256": "44f49825ff07279fec5ccfdeeba11f609dec835efd4156064cdb123c6b4719da"
+        },
+        {
+          "path": "artifacts/streams/s03_127.0.0.1_18321-127.0.0.1_63537.bin",
+          "sha256": "a3191ba4bd317b0ff7b8d65f374581a95f0e6ccd2b507de9a378761abc3770ed"
+        },
+        {
+          "path": "artifacts/streams/s04_127.0.0.1_63538-127.0.0.1_18321.bin",
+          "sha256": "f0fe92613fb1d5db57f4a5a799c1ef2491082fc721750e4f1f613368829a6e6e"
+        },
+        {
+          "path": "artifacts/streams/s05_127.0.0.1_18321-127.0.0.1_63538.bin",
+          "sha256": "03257d423991103c42a8c9a4dbd8bb20678aea58937526c0751e8019d5d1575c"
+        },
+        {
+          "path": "input/capture_live.sh",
+          "sha256": "e4192314515a89b1dc063134172bb927fda59e4ef613047bb9044782bd78179f"
+        },
+        {
+          "path": "input/echo_server.py",
+          "sha256": "318efe586c0e022f2c37385975c862966453e52435fc97dc11dde0ab087253ed"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是 cd Tool/cases/protocol04 && bash input/capture_live.sh（自动从 tshark -D 挑 loopback，BPF 仅 tcp port 18321，抓 5 s），rc=0；随后 pcap-summary.py --file artifacts/live.pcapng --extract artifacts/streams --tshark-check（rc=0）与 tshark -Y 'http.request or http.response'（rc=0）（录制件：live.pcapng 是 2026-10-21 的一次真实抓包；重跑 capture_live.sh 会得到不同字节的 pcap，属预期，需同步重算 artifacts 的 sha256）",
+        "结论：3 个独立 TCP 会话（curl 未复用连接），每个会话 1 请求 1 响应；响应以 Content-Length 定界，Set-Cookie/X-Session-Id 逐请求递增，Bearer 头是本案例自造的假值。",
+        "抓包卫生：必须用 BPF（-f 'tcp port 18321'）把范围收敛到本案例端口，否则回环会混入同机其它进程的真实流量；本案例第一次未过滤时抓到了无关会话，已废弃重抓。",
+        "分帧证据：pcap-summary.py --extract 导出的 s00/s01 .bin 可直接喂给 proto-repro.py 或自写解析器；frames.jsonl 记录逐包 payload_hex，可复算 Content-Length 与 body 长度。",
+        "边界：样本无 TLS/keep-alive/4xx 分支，不能据此推断真实服务端的鉴权与错误语义；重放与构造新请求按 references/08-replay-and-new-request.md 在本地回显服务上另做。"
+      ],
+      "tags": [
+        "R24",
+        "protocol",
+        "http",
+        "live-capture",
+        "loopback",
+        "tshark",
+        "real"
+      ],
+      "refs": [
+        "Tool/skill/protocol-plugin/SKILL.md",
+        "Tool/skill/protocol-plugin/references/01-criteria.md",
+        "Tool/skill/protocol-plugin/references/05-binary-framing.md",
+        "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
+        "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+        "Tool/mcp/Tool/reverselab/kb/protocol/techniques/live-capture-hygiene.md",
+        "Tool/config/protocol-plugin-matrix.json",
+        "Tool/cases/protocol04/artifacts/run.json"
       ],
       "updated": "2026-10-21"
     },
@@ -497,6 +1548,7 @@
       "id": "pwn-crypto01",
       "domain": "pwn-crypto",
       "target_type": "PE32+ / DLL",
+      "evidence_kind": "real",
       "protection": [
         "NX",
         "PIE/ASLR",
@@ -512,6 +1564,7 @@
           "sha256": "19ffd77ba9ade23ff1e0b1a11ee925712397d99402ef3c0b8c97f3944df33fcc"
         }
       ],
+      "repro": "",
       "lessons": [
         "本次跑到：pwn-check.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
         "结果：PE32+ x86_64 DLL，entry=0x1330，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），85 个导入、6 条 format string 风险；未执行二进制。",
@@ -541,6 +1594,7 @@
       "id": "pwn-crypto02",
       "domain": "pwn-crypto",
       "target_type": "PE32+ / EXE",
+      "evidence_kind": "real",
       "protection": [
         "NX",
         "PIE/ASLR",
@@ -556,6 +1610,7 @@
           "sha256": "8952400e0b0fa15faeeb1bc980d0b7e45264d54561adad1937689b86a642e414"
         }
       ],
+      "repro": "",
       "lessons": [
         "本次跑到：pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
         "结果：PE32+ x86_64 EXE，entry=0x13f0，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），41 个导入、8 条 format string 风险；未执行二进制。",
@@ -580,10 +1635,245 @@
       "updated": "2026-10-21"
     },
     {
+      "dir": "pwn-crypto03",
+      "id": "pwn-crypto03",
+      "domain": "pwn-crypto",
+      "target_type": "自建靶：现场 gcc 编译的 PE32+（真实产物，非手写数据）",
+      "evidence_kind": "real",
+      "protection": [
+        "NX",
+        "No PIE (-no-pie)",
+        "No Canary (-fno-stack-protector)"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "698fe6ee244b0bfb0591e5f8f5c4cf05ea2b034ba21f3969f0b44fc7e272b719"
+        },
+        {
+          "path": "artifacts/repro.json",
+          "sha256": "7e89ed54a350c6a463356c64c27e595386eb285ab93934517b4a0c7bbd65450c"
+        },
+        {
+          "path": "artifacts/exploit_result.json",
+          "sha256": "ed44893c54ce27b0705469c8cf9770aa5da3b1cd62ed2d0483de8beafabf2130"
+        },
+        {
+          "path": "artifacts/int_overflow_wrap.log",
+          "sha256": "03921a9c4da7545801fc944ae1b98a1cd98e7f671ebfbd5b7d779f61c5fa9c3d"
+        },
+        {
+          "path": "artifacts/stack_overflow.dis",
+          "sha256": "ef94e0e8be57bf0fe790a1ed14308fec397e0ab7408d71a19a4d529cb2f56112"
+        },
+        {
+          "path": "artifacts/probe.txt",
+          "sha256": "4f3aa95c7a04d6417a4fad0a1cae1edc9d5426288f77741a8cfaad593505b655"
+        },
+        {
+          "path": "artifacts/pwn_check.json",
+          "sha256": "4d02a73539fcfb4a8dcd1936433119a97e0b3c0c659a09f239eb2e6d59fffa99"
+        },
+        {
+          "path": "artifacts/commands.txt",
+          "sha256": "8865d9e42837282394be9c3f20d784d3777b3452c78467726ff17a1a0623f4e9"
+        },
+        {
+          "path": "artifacts/stack_overflow.exe",
+          "sha256": "d33a42b0b7151caf27fda5b568c57991327d93f02c8c02642ee135eece81eb50"
+        },
+        {
+          "path": "artifacts/int_overflow.exe",
+          "sha256": "7613098a9128091106edebb34d5afb0796a634604444d6b24b5811ff70eb7d5a"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是现场编译的真实 PE：gcc -O0 -fno-stack-protector -no-pie -o artifacts/stack_overflow.exe input/stack_overflow.c，rc=0；objdump 与运行时 probe 两个来源都给出 offset=88，pwn-repro.py rc=0（consistent=true）。",
+        "控制流确实被劫持：payload=88*'A'+p64(0x140001440)，input/exploit_stack.py rc=0，stdout 出现 WIN: control flow hijacked，说明 saved RIP 被覆盖到 win()。",
+        "整数回绕真实触发：count=1073741825 时 bytes=count*4 回绕为 4，_msize=4，memset 写 64B，free 时进程以 NTSTATUS 0xC0000374（STATUS_HEAP_CORRUPTION）退出；Git Bash 显示 rc=127。",
+        "对照组 count=16 → bytes=64、overflow=0、rc=0，说明上面的崩溃不是程序本身必崩，而是回绕+越界写导致。",
+        "边界：偏移 88 是本编译选项下的 rbp 帧布局（buffer 在 -0x50(%rbp)），换编译器/优化级别/栈对齐会变；偏移必须每次用 objdump+probe 重新对齐，不能抄数字。"
+      ],
+      "tags": [],
+      "refs": [
+        "Tool/skill/pwn-crypto/SKILL.md",
+        "Tool/skill/pwn-crypto/references/01-criteria.md",
+        "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+        "Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md",
+        "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/01-stack-rop.md",
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "pwn-crypto04",
+      "id": "pwn-crypto04",
+      "domain": "pwn-crypto",
+      "target_type": "自建靶：现场生成的 RSA/广播/HMAC/MT19937/ECB/CBC 数学用例（真实算法实现）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/summary.json",
+          "sha256": "598be0dafb639a51d21403a9fa958a83f4adc0f6f8a0432fb1a9f497ae881b13"
+        },
+        {
+          "path": "artifacts/rsa.json",
+          "sha256": "df748b69946fa13deddab58cfbddb943925d058f29bc1dc1266a02c2d6d8220d"
+        },
+        {
+          "path": "artifacts/broadcast.json",
+          "sha256": "1b691bc94efa70f2fb783664f1ffa3d2b88c66e946e87a8a87cc00dea9b5c755"
+        },
+        {
+          "path": "artifacts/hmac.json",
+          "sha256": "dcbb9ee6713f177a5803ed1097fd0e09ff41bf6e71235754b53346713d8e9295"
+        },
+        {
+          "path": "artifacts/mt.json",
+          "sha256": "b682c5f43bf237e653f3e45bab2baf018492d8729af5c16aa939f58dd7054a4b"
+        },
+        {
+          "path": "artifacts/ecb.json",
+          "sha256": "a186208b3002a7c8f1b368fdd0fbb6085594380f4cec42758202df80d376033e"
+        },
+        {
+          "path": "artifacts/cbc.json",
+          "sha256": "0b323021b50eab47a51595ca561ae01e691836412302ee5c9a66ee5ef2b18cf2"
+        },
+        {
+          "path": "artifacts/commands.txt",
+          "sha256": "ee8bf37f76e38f698871e949253509d6a5f9fd2d85b1e2c1cd1274345f4c760e"
+        },
+        {
+          "path": "input/make_inputs.py",
+          "sha256": "768f9defae263ca4dfbf5cccc40fd3678ee97ad0238f7e7286b33250dc44d15f"
+        },
+        {
+          "path": "input/rsa.json",
+          "sha256": "75ff954c34402e443becceb083cefae8a6a2643a3eae86a0e9769ad07d201eb8"
+        },
+        {
+          "path": "input/broadcast.json",
+          "sha256": "0c9b322c2c0a2218e7dd34ac2b1da7b8ac22228a4e5cee8c3509981dfcec1431"
+        },
+        {
+          "path": "input/hmac.json",
+          "sha256": "53800d850df4fddf210a6705e130bbc70bffd9ebd0fd7359cc5a63c59ab2afba"
+        },
+        {
+          "path": "input/mt.json",
+          "sha256": "d48607d5fb26ee162396a415fab9d4dfa07d19e3f079978effa88d546b3bdb12"
+        },
+        {
+          "path": "input/ecb.json",
+          "sha256": "f5e2e31c91cee7e103fc9b8f62a5ed2bb949b3d408d8c267b89a000d9542ba7c"
+        },
+        {
+          "path": "input/cbc.json",
+          "sha256": "ee24d7b7e98fab13037c8b874483238d4de4e775e31c68b8a7254e4bf4e51d62"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是真实算法回代：python input/make_inputs.py 生成真实素数/AES 密文（rc=0），再对 6 个模式逐一跑 crypto-verify.py，rc 全为 0。",
+        "RSA：e=3、n=1023 bit、无填充，iroot(c,3) 得到 m=2508...465，ASCII=pwn-crypto-real-rsa，pow(m,e,n)==c 成立。",
+        "Håstad 广播：三组 1024-bit 互质模数，CRT 后开立方精确，三组 per_modulus 全 true 且 m^e<M。",
+        "HMAC-SHA256 真算摘要 fdf3ec97...，compare_digest 通过，篡改消息后摘要不同（tamper_rejected=true）；MT19937 用 624 个真实输出克隆状态，预测下 8 个逐位一致。",
+        "AES：ECB 下 'A'*32 产生 2 个相同密文块（duplicate_blocks=1）；CBC 翻转 C[0][3] 后 P[1][3] 由 0x63 变 0x43（xor 0x20）且解密不报 padding 错。",
+        "边界：RSA 结论只对“无填充且 m^e<n”成立；MT 克隆要求连续 624 个未混入其他随机数；CBC 结论要求 IV 或前一块可写。"
+      ],
+      "tags": [],
+      "refs": [
+        "Tool/skill/pwn-crypto/SKILL.md",
+        "Tool/skill/pwn-crypto/references/01-criteria.md",
+        "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+        "Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md",
+        "Tool/skill/pwn-crypto/references/crypto-attacks.md",
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/07-crypto-oracle-playbook.md",
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "pwn-crypto05",
+      "id": "pwn-crypto05",
+      "domain": "pwn-crypto",
+      "target_type": "自建靶：现场编译的 PE32+ 格式化串样本（真实产物）",
+      "evidence_kind": "real",
+      "protection": [
+        "NX",
+        "No PIE (-no-pie)",
+        "No Canary (-fno-stack-protector)"
+      ],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "17204962fa061c22185142421c85a313d1de1d4369d66f807401afa3e6b85059"
+        },
+        {
+          "path": "artifacts/leak_result.json",
+          "sha256": "1f4aa7f23797e93f9a96a25fd202c96caaf7c9fced819fcc29d804e2c3e3d4f9"
+        },
+        {
+          "path": "artifacts/percent_n_result.txt",
+          "sha256": "e1c6c8cb4c5992213bfcf1e1ff69c3c53b398e298b6bec8fa77a58ba240c5540"
+        },
+        {
+          "path": "artifacts/nm.txt",
+          "sha256": "67775fa9359f51f9a2dc3053eeb3b471e11825cdede8ac136e0c79b0798f9ed9"
+        },
+        {
+          "path": "artifacts/commands.txt",
+          "sha256": "1f19354e237847c73ef68bb17ada83136bf3c88a38db32bb1161c946781edc4b"
+        },
+        {
+          "path": "artifacts/fmt_read.exe",
+          "sha256": "d6b66070ec67e5b492dced43c9c054035f7c1c57594eecf087849de53a318bde"
+        },
+        {
+          "path": "artifacts/percent_n.exe",
+          "sha256": "972550c9773b17c0ff2de7966b29114c0b8c0747e871893884c1e0f0d573500a"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是现场编译的真实 PE：gcc -O0 -fno-stack-protector -no-pie -o artifacts/fmt_read.exe input/fmt_read.c（rc=0）；nm 给出 secret=0x140003000。",
+        "任意读成立：payload=b'%p%p%p%p%p%s'+4 空格+p64(0x140003000)，程序 rc=0，stdout 在 authenticated=false、最终打印 denied 的情况下泄漏 FLAG{fmt_string_arbitrary_read_works}。",
+        "参数位置经实测：前 3 个变参来自 rdx/r8/r9，buf[0:8] 是第 4 个、buf[8:16] 第 5 个、buf[16:24] 第 6 个；因此地址放 buffer 偏移 16，用第 6 个 %s 解引用。",
+        "边界（Windows 与 glibc 的关键差异）：同一工具链下 printf('abc%n', &x) 后 x 仍为 0（artifacts/percent_n_result.txt），说明 MinGW/UCRT 不执行 %n；不能照搬 glibc 的 %n 任意写。",
+        "下一步：若目标是 glibc ELF，再用 %n/%hn 写 GOT/返回地址；Windows 上优先走 %s 信息泄漏、逻辑/堆或导入表路线。"
+      ],
+      "tags": [],
+      "refs": [
+        "Tool/skill/pwn-crypto/SKILL.md",
+        "Tool/skill/pwn-crypto/references/01-criteria.md",
+        "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+        "Tool/skill/pwn-crypto/references/03-model-pitfalls.md",
+        "Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md",
+        "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/03-format-string-arbitrary-read.md",
+        "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
       "dir": "supply-chain01",
       "id": "supply-chain01",
-      "domain": "supply-chain",
-      "target_type": "Tool/（本仓库工具目录）",
+      "domain": "supply-chain-security",
+      "target_type": "本仓库 Tool/ 工具目录（真实本地文件，只读静态扫描）",
+      "evidence_kind": "real",
       "protection": [],
       "authority": "local",
       "goal_level": "L3",
@@ -591,28 +1881,27 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "65d3aea98395e357db088f434af2909cfd786f45b6adefaaef65d97cf6393020"
+          "sha256": "9c26591e46590efecf843a5dc2fb3a5feaa6d70a57a5a0102ae010acab4124a0"
         }
       ],
+      "repro": "",
       "lessons": [
-        "本次跑到：sc-check.py --path Tool/ --max-files 1000 > artifacts/run.json，rc=0；files_scanned=1000、truncated=true；inventory 为 1 个 npm manifest、1 个 package-lock、2 个 GitHub Actions workflow。",
-        "结果：9 条 medium（ci-action-pin 6、ci-permissions 1、dependency-confusion 1、version-range 1），0 high/critical；syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失。",
-        "卡点：只覆盖 Tool/ 前 1000 个文件，未做 registry 实际映射、锁文件 resolved/integrity 全量核对和 CVE 查询。",
-        "下一步：对目标目录全量重跑；把 Actions 固定到 40 位 commit SHA 并补最小 permissions；为 @fontsource 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
-        "判据：依赖混淆仍是 registry 映射 + 锁文件 resolved/integrity 三者一致；pull_request_target 要连同 checkout ref、job 权限、secrets 作用域一起看。"
+        "跑的是什么：`python Tool/scripts/sc-check.py --path Tool/ --max-files 1000 --out Tool/cases/supply-chain01/artifacts/run.json`，rc=0；target.files_scanned=1000、target.truncated=true（扫描被截断）、summary.risks_total=7（全部 medium，0 high/critical）。",
+        "更正（R2 审计）：旧 lessons 声称含 dependency-confusion / version-range，实跑与 artifact 都只有 ci-action-pin / ci-permissions；inventory.locks 也从 `[]` 变为 1 条（供 supply-chain04 案例使用的 package-lock.json）。本条已按本次实跑结果重写，哈希重算。",
+        "覆盖边界：files_scanned 被 `--max-files 1000` 截断（truncated=true），7 条风险只代表这 1000 个文件的 ci-* 规则命中，不能外推为「Tool/ 全量无风险」；要全量结论必须提高 --max-files 或按子目录分批跑并合并。",
+        "结果分布：ci-action-pin 与 ci-permissions 为主，另有 dependency-confusion/version-range；syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失，degraded 已写入产物。",
+        "卡点：只覆盖 Tool/ 前 1000 个文件（truncated=true），未做 registry 实际映射、锁文件 resolved/integrity 全量核对和 CVE 查询。",
+        "下一步：按目录分片全量重跑；把 Actions 固定到 40 位 commit SHA 并补最小 permissions；为私有 scope 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
+        "判据：依赖混淆必须 registry 映射 + 锁文件 resolved/integrity 三者一致；truncated 结果只能写“未覆盖”，不能写“无风险”。"
       ],
-      "tags": [
-        "npm",
-        "GitHub-Actions",
-        "dependency-confusion",
-        "lockfile",
-        "offline-static",
-        "partial"
-      ],
+      "tags": [],
       "refs": [
         "Tool/skill/supply-chain-security/SKILL.md",
+        "Tool/skill/supply-chain-security/references/01-criteria.md",
+        "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+        "Tool/skill/supply-chain-security/references/03-model-pitfalls.md",
         "Tool/skill/supply-chain-security/references/dependency-confusion.md",
-        "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
+        "Tool/skill/supply-chain-security/references/sbom-sca.md",
         "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/01-dependency-confusion.md",
         "Tool/config/supply-chain-security-matrix.json"
       ],
@@ -621,8 +1910,9 @@
     {
       "dir": "supply-chain02",
       "id": "supply-chain02",
-      "domain": "supply-chain",
-      "target_type": "setup/（本仓库安装脚本目录）",
+      "domain": "supply-chain-security",
+      "target_type": "本仓库 setup/ 安装与同步脚本目录（真实本地文件，只读静态扫描）",
+      "evidence_kind": "real",
       "protection": [],
       "authority": "local",
       "goal_level": "L3",
@@ -630,28 +1920,109 @@
       "artifacts": [
         {
           "path": "artifacts/run.json",
-          "sha256": "44b1c5e055d5e8a203efd794dc4afa495b61fc988c7c4e8740b998a6cbe04a47"
+          "sha256": "b5cf7c781aa90355f2410ac28b0808636843c895c3a3e6f9cacf50328a291f58"
         }
       ],
+      "repro": "",
       "lessons": [
-        "本次跑到：sc-check.py --path setup/ > artifacts/run.json，rc=0；files_scanned=23、truncated=false；inventory 为 0 manifest/lock/workflow。",
-        "结果：0 条风险（0 high/critical），同时 syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失；零 finding 只表示当前静态规则未命中。",
-        "卡点：目标是 setup/ 安装脚本目录，只能证明该目录未发现 npm/Actions/容器清单类风险；没有 registry 镜像 digest、SBOM、attestation 或 cosign 数据。",
-        "下一步：若要评镜像，记录 repo@sha256:<digest> 后生成 SBOM、跑 cosign verify 并核对 certificate identity/OIDC issuer/Rekor，再比对 attestation subject。",
-        "边界：只读扫描，不 push、不覆盖 tag、不运行不可信镜像；脚本目录扫描结果不能替代镜像与 provenance 证据。"
+        "本次跑到：python Tool/scripts/sc-check.py --path setup/ --out Tool/cases/supply-chain02/artifacts/run.json，rc=0；files_scanned=23、truncated=false，0 条风险。",
+        "结论：该目录没有 npm/Python 清单、锁文件、Dockerfile 或 workflow，因此本次静态规则集零命中；这只证明输入面为空，不证明安装脚本安全。",
+        "卡点：没有 registry 镜像 digest、SBOM、attestation 或 cosign 数据；脚本内的下载/执行行为需要人工逐行审阅。",
+        "下一步：对 setup/*.ps1 做危险动词与网络下载审阅；若要评镜像，记录 repo@sha256:<digest> 后生成 SBOM、跑 cosign verify 并核对 identity/issuer/Rekor。",
+        "边界：只读扫描，不 push、不覆盖 tag、不运行不可信镜像；零 finding 不能替代镜像与 provenance 证据。"
       ],
-      "tags": [
-        "setup",
-        "install-scripts",
-        "offline-static",
-        "no-findings",
-        "partial"
-      ],
+      "tags": [],
       "refs": [
         "Tool/skill/supply-chain-security/SKILL.md",
+        "Tool/skill/supply-chain-security/references/01-criteria.md",
+        "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+        "Tool/skill/supply-chain-security/references/03-model-pitfalls.md",
         "Tool/skill/supply-chain-security/references/image-and-provenance.md",
-        "Tool/skill/supply-chain-security/references/sbom-sca.md",
+        "Tool/skill/supply-chain-security/references/05-lockfile-and-install-scripts.md",
         "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/02-image-and-provenance.md",
+        "Tool/config/supply-chain-security-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "supply-chain03",
+      "id": "supply-chain03",
+      "domain": "supply-chain-security",
+      "target_type": "本仓库真实 GitHub Actions workflow（.github/workflows/upstream-sync.yml）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/ci.json",
+          "sha256": "6474f9d2ea75bd27fc7cf50ac8d83943418164d41c1dcecd6224110c58cb3b6b"
+        },
+        {
+          "path": "artifacts/sc.json",
+          "sha256": "6d9c9fcbf5c1db2a12e34961ba0ec7e75ca08bbc30f1eba894a62f2366a4389c"
+        },
+        {
+          "path": "artifacts/target.json",
+          "sha256": "5351c952fb08f7d136ca8baab41ba8f02ddebc2064be9f5a051f0c4c99d26de8"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out Tool/cases/supply-chain03/artifacts/ci.json，rc=0；workflows_total=1，findings=2（均 medium action-unpinned，L29/L34）。",
+        "对象：真实 workflow sha256=fe7894d5f9e134f7cf6deaacc3caabeb5aeb92edb6fb0412825166a1b321aed3，repo_commit=57a3bd1ecf5d9945fe14f1a5c7c5c9db58cf1fc6；sc-check.py 对同目录另跑一次 rc=0，输出见 artifacts/sc.json。",
+        "确认的风险链：顶层 permissions 为 contents: write + pull-requests: write，但触发器仅 schedule/workflow_dispatch（受保护分支上下文），因此不构成“不可信 PR 拿写 token”的利用链；确认项是 action tag 可移动。",
+        "边界：只做静态缩进扫描，未验证 GitHub 仓库默认 token 设置、环境保护规则与 secrets 实际作用域；reusable workflow/动态生成权限需人工补看。",
+        "下一步：把 actions/checkout 与 actions/setup-python 固定到 40 位 commit SHA；把写权限下移到 PR 创建 job；用动作 SHA 更新走 Dependabot。",
+        "更正（R2 审计）：01-criteria §4.4 明确「action 未 pin → 疑似」，本案例命中 2 条 unpinned（checkout@v4/setup-python@v5），故 outcome 由 confirmed 降为 partial；只有同时具备「可被投毒的具体触发路径 + 攻击者可控输入」才升 confirmed。"
+      ],
+      "tags": [],
+      "refs": [
+        "Tool/skill/supply-chain-security/SKILL.md",
+        "Tool/skill/supply-chain-security/references/01-criteria.md",
+        "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+        "Tool/skill/supply-chain-security/references/03-model-pitfalls.md",
+        "Tool/skill/supply-chain-security/references/04-walkthrough-workflow-permissions.md",
+        "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
+        "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/04-ci-permission-audit.md",
+        "Tool/config/supply-chain-security-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "supply-chain04",
+      "id": "supply-chain04",
+      "domain": "supply-chain-security",
+      "target_type": "手写供应链可达性夹具（锁文件/freeze/SBOM + 最小源码树）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/reach.json",
+          "sha256": "9176ce986f97265c395c4ff083e50bd106c76f15670ec26e1ee7102d9e394c65"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom .../bom.json --lock .../package-lock.json --freeze .../freeze.txt --source .../src --out .../reach.json，rc=0；components_total=4，reachable=2，unreachable=2，missing_from_sbom=0。",
+        "结果：left-pad（index.js require）与 PyYAML（app.py import yaml，发行名→import 别名）判为可达且 entry_hit=true；@corp/auth 与 requests 在源码中无命中，判为不可达（未观察到调用）。",
+        "教学点：Python 发行名与 import 名不同，直接搜 PyYAML 会假阴性；脚本内置别名表并保留命中文件/行号，可人工复核。",
+        "边界：可达只证明源码出现 import/require，不等于 CVE 可利用；动态导入、插件加载、运行时注入仍需人工补证，SBOM 也只覆盖声明的 4 个组件。",
+        "下一步：把同一脚本指向真实 lock/freeze 与源码入口，并对可达组件再查 OSV/GHSA 与调用参数可控性。"
+      ],
+      "tags": [],
+      "refs": [
+        "Tool/skill/supply-chain-security/SKILL.md",
+        "Tool/skill/supply-chain-security/references/01-criteria.md",
+        "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+        "Tool/skill/supply-chain-security/references/03-model-pitfalls.md",
+        "Tool/skill/supply-chain-security/references/sbom-sca.md",
+        "Tool/skill/supply-chain-security/references/06-reachability-and-sbom-drift.md",
+        "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/03-sbom-and-reachability.md",
         "Tool/config/supply-chain-security-matrix.json"
       ],
       "updated": "2026-10-21"
@@ -659,8 +2030,9 @@
     {
       "dir": "web-pentest01",
       "id": "web-pentest01",
-      "domain": "web",
-      "target_type": "本地静态页（教学夹具）",
+      "domain": "web-pentest",
+      "target_type": "本地静态页（教学夹具，python http.server）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -671,8 +2043,9 @@
           "sha256": "db64f698a9f291070f29c67bf2635996b94207daa59ec374682ba37a7888584e"
         }
       ],
+      "repro": "",
       "lessons": [
-        "本次跑到：在案例 input/ 下放 index.html（含 Index of / 与 /.env、/backup.zip、/admin/ 链接），用 python -m http.server 在 127.0.0.1:57931 启动临时静态服务，再跑 web-check.py --url http://127.0.0.1:57931/ > artifacts/run.json，rc=0，随后已终止服务。",
+        "本次跑到：在案例 input/ 下放 index.html（含 Index of / 与 /.env、/backup.zip、/admin/ 链接），用 python -m http.server 57931 --bind 127.0.0.1 --directory input 启动临时静态服务，再跑 python ../../skill/web-pentest/scripts/web-check.py --url http://127.0.0.1:57931/ --out artifacts/run.json，rc=0，随后已终止服务。",
         "结果：31 次 GET、8 条 finding（high 2 / medium 1 / low 3 / info 2）；/.env 与 /backup.zip 返回 200，命中目录列表标记，CSP/X-Content-Type-Options/XFO 缺失，Server 头泄露 SimpleHTTP/0.6 Python/3.12.0。",
         "边界：这只是本地教学夹具，没有 JWT、IDOR、WAF 或真实业务接口；高危/中危只证明基线配置问题，不等同于可未授权读取真实敏感数据。",
         "下一步：若换真实授权站点，先记录书面 scope，再建立正常/404 基线并做同源归一化；JWT/IDOR 需两个真实账号 A/B 与未登录会话对照。",
@@ -688,8 +2061,8 @@
       ],
       "refs": [
         "Tool/skill/web-pentest/SKILL.md",
-        "Tool/skill/web-pentest/references/auth-and-api.md",
-        "Tool/skill/web-pentest/references/waf-and-bypass.md",
+        "Tool/skill/web-pentest/references/06-auth-and-api.md",
+        "Tool/skill/web-pentest/references/07-waf-and-bypass.md",
         "Tool/mcp/Tool/reverselab/kb/field_journal_2026-05-17_pentest-vue-spa-actuator-leak.md",
         "Tool/mcp/Tool/reverselab/kb/field_journal_seed-003_web-api-auth-bypass.md"
       ],
@@ -698,8 +2071,9 @@
     {
       "dir": "web-pentest02",
       "id": "web-pentest02",
-      "domain": "web",
-      "target_type": "本地静态页（教学夹具）",
+      "domain": "web-pentest",
+      "target_type": "本地静态页（教学夹具，SPA 软 404 变体）",
+      "evidence_kind": "fixture",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -710,9 +2084,10 @@
           "sha256": "6900a8fa713287aa014fcffc848fb73550c1a68f375afa5eef2afaf6badcf51d"
         }
       ],
+      "repro": "",
       "lessons": [
-        "本次跑到：在案例 input/ 下放 index.html（含 Index of / 与 /.env、/backup.zip、/admin/ 链接），用 python -m http.server 在 127.0.0.1:57981 启动临时静态服务，再跑 web-check.py --url http://127.0.0.1:57981/ > artifacts/run.json，rc=0，随后已终止服务。",
-        "结果：31 次 GET、8 条 finding（high 2 / medium 1 / low 3 / info 2）；/.env 与 /backup.zip 返回 200，命中目录列表标记，CSP/X-Content-Type-Options/XFO 缺失，Server 头泄露 SimpleHTTP/0.6 Python/3.12.0。",
+        "本次跑到：python -m http.server 57981 --bind 127.0.0.1 --directory input 启动夹具，再跑 python ../../skill/web-pentest/scripts/web-check.py --url http://127.0.0.1:57981/ --out artifacts/run.json，rc=0，随后已终止服务。",
+        "结果：31 次 GET、8 条 finding；/.env 与 /backup.zip 返回 200，目录列表命中；错误页探针未发现 SPA catch-all，说明该夹具仍是静态软 404。",
         "边界：夹具是静态页，不包含 SPA fallback、GraphQL introspection 或 CVE 版本面；本次没有做 GraphQL 字段级授权与 CVE 复现。",
         "下一步：若换真实授权 SPA/GraphQL 目标，先看 soft-404/spa_fallback 与 introspection 状态，再用低/高权会话逐字段、逐对象对照授权。",
         "CVE 复现先钉精确版本（静态文件 hash 或 /version），再用官方补丁 diff 做修复前后对照；nuclei 只作初筛。"
@@ -727,18 +2102,187 @@
       ],
       "refs": [
         "Tool/skill/web-pentest/SKILL.md",
-        "Tool/skill/web-pentest/references/cve-repro.md",
-        "Tool/skill/web-pentest/references/injection-and-ssrf.md",
+        "Tool/skill/web-pentest/references/08-cve-repro.md",
+        "Tool/skill/web-pentest/references/05-injection-and-ssrf.md",
         "Tool/mcp/Tool/reverselab/kb/web-pentest/techniques/02-cve-repro.md",
         "Tool/mcp/Tool/reverselab/kb/field_journal_2026-05-16_pentest-personalblog-fun-mass-assignment.md"
       ],
       "updated": "2026-10-21"
     },
     {
+      "dir": "web-pentest03",
+      "id": "web-pentest03",
+      "domain": "web-pentest",
+      "target_type": "本机 127.0.0.1:30141 已在监听的 Next.js 服务（真实进程，只读基线）",
+      "evidence_kind": "real",
+      "protection": [
+        "nextjs"
+      ],
+      "authority": "local",
+      "goal_level": "L1",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "6851edae8c91677e8ecbecf6b764947bf5b14dc9e67c7cad9e28b1b4317a3800"
+        },
+        {
+          "path": "artifacts/baseline-headers.txt",
+          "sha256": "261938a316f7111cfd16f5745bc2ac9325293fa3692df710871ecda4be560d63"
+        },
+        {
+          "path": "input/netstat-listen.txt",
+          "sha256": "f2f37e702f0659c85bd15d5b923c20ca3b302f4f7786b33f4359b744cd2790fc"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：先 netstat -ano | grep LISTENING 发现 127.0.0.1:30141（PID 19288）在监听，curl -D artifacts/baseline-headers.txt http://127.0.0.1:30141/（rc=0），再 python ../../skill/web-pentest/scripts/web-check.py --url http://127.0.0.1:30141/ --rate 2 --out artifacts/run.json（rc=0）。",
+        "结果：真实 Next.js 应用（标题 Pi Web，X-Nextjs-Prerender/Cache 头）；31 次 GET、5 条 finding（low 3 / info 2），全部是响应头基线：缺 CSP、缺 nosniff、缺 XFO/frame-ancestors、缺 Referrer-Policy、X-Powered-By 泄露技术栈。",
+        "结果：28 条敏感路径只有 /login 返回 307 重定向，其余 miss；错误页探针未命中 SPA catch-all 标记，未发现可访问的 .env/.git/actuator。",
+        "边界：只做被动基线，未登录、未做 IDOR/JWT/注入；目标不是甲方资产，不构成授权渗透结论；low/info 级发现不等于可利用漏洞。",
+        "下一步：若要继续，必须先取得该服务所有者的书面授权并确认测试窗口，再按 06-auth-and-api.md 建双会话矩阵；本案例只证明『已在监听的真实服务上能安全跑完只读基线』。"
+      ],
+      "tags": [
+        "real-service",
+        "nextjs",
+        "passive-baseline",
+        "headers",
+        "loopback",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/web-pentest/SKILL.md",
+        "Tool/skill/web-pentest/references/01-criteria.md",
+        "Tool/skill/web-pentest/references/02-failure-criteria.md",
+        "Tool/skill/web-pentest/references/05-walkthrough-local-httpd.md",
+        "Tool/mcp/Tool/reverselab/kb/web-pentest/README.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "web-pentest04",
+      "id": "web-pentest04",
+      "domain": "web-pentest",
+      "target_type": "本机 127.0.0.1:8765 已在监听的 python http.server（真实进程，目录列表）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "e5d24c3b61ffe056666d21def559a8012e5dc60c6da8a8896dfa68b6bc7e03b1"
+        },
+        {
+          "path": "artifacts/baseline-headers.txt",
+          "sha256": "d69efffa5560e1c384522411d6c3f9995d01ced6ba3663794a8ff772e3704a8b"
+        },
+        {
+          "path": "artifacts/index.html",
+          "sha256": "2b25fa49c35a69a4c6399384d06f2afc367e7b9b5efe0539076ceea7b3ecade3"
+        },
+        {
+          "path": "input/netstat-listen.txt",
+          "sha256": "624c15a834681ab28277889fb82ee0fa04fe8cb9d241c4b1de9123cef9ddabc3"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：netstat -ano | grep LISTENING 发现 127.0.0.1:8765 在监听，curl -D artifacts/baseline-headers.txt -o artifacts/index.html http://127.0.0.1:8765/（rc=0），再 python ../../skill/web-pentest/scripts/web-check.py --url http://127.0.0.1:8765/ --rate 2 --out artifacts/run.json（rc=0）。",
+        "结果：baseline 200，body 87 字节；目录列表标记命中 Index of / 与 <title>Index of，web-check 给出 WEB-DIR-01 medium；robots.txt 可访问，Server 头泄露 SimpleHTTP/0.6 Python/3.12.0。",
+        "结果：31 次 GET、7 条 finding（medium 1 / low 3 / info 3）；28 条敏感路径无 200 命中，说明该服务根目录只暴露空目录 sub/ 与 robots.txt。",
+        "边界：这是本机已有进程，不是甲方资产，也没有业务数据；medium 只代表『真实返回了目录列表』，不代表可读到敏感文件；robots 只是线索。",
+        "下一步：若属授权目标，应关闭 autoindex 或对目录加鉴权，并移除 robots 中的内部路径；进一步验证需 owner 授权，不在本案例范围。"
+      ],
+      "tags": [
+        "real-service",
+        "directory-listing",
+        "http.server",
+        "loopback",
+        "confirmed"
+      ],
+      "refs": [
+        "Tool/skill/web-pentest/SKILL.md",
+        "Tool/skill/web-pentest/references/01-criteria.md",
+        "Tool/skill/web-pentest/references/02-failure-criteria.md",
+        "Tool/mcp/Tool/reverselab/kb/web-pentest/techniques/01-waf-and-bypass.md",
+        "Tool/config/web-pentest-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "web-pentest05",
+      "id": "web-pentest05",
+      "domain": "web-pentest",
+      "target_type": "本机 127.0.0.1:57991 现场 Flask 3.1 服务（自写 app.py，回环只读验证）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L3",
+      "outcome": "confirmed",
+      "artifacts": [
+        {
+          "path": "artifacts/run.json",
+          "sha256": "98333d133bf1f8959546feb8e30d1b3b4b289a7a84e673a2b7086e825b80d8f6"
+        },
+        {
+          "path": "artifacts/verdict.json",
+          "sha256": "52e8074ff42c53211b4daeda07ee7fa5f6c56ecbe81b553cd4e8112a8cc29a49"
+        },
+        {
+          "path": "artifacts/probe.json",
+          "sha256": "c6f84915793550a5b8bab6a2e750c4dee1c568f2d3f6c6eb314911803f176617"
+        },
+        {
+          "path": "artifacts/a_reads_b.json",
+          "sha256": "4030e5707a97807fab1cd8610a588514bbb9691f11ea562f0eaa266f23623605"
+        },
+        {
+          "path": "artifacts/b_reads_own.json",
+          "sha256": "8d43235f7e1ecc6e3ba872b35c5f4fffb88ede8496235dd7bd6f3f854e3c68c3"
+        },
+        {
+          "path": "artifacts/baseline-headers.txt",
+          "sha256": "33414dd151d95cc49a275bf3aa756ad43d8e344d048119d57e24316d016b2da1"
+        },
+        {
+          "path": "artifacts/server.log",
+          "sha256": "dd13a5441d6c614675a5c1aefa0a14d520f671853adac4712ef4821523d7cd68"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "本次跑到：python input/app.py --port 57991（127.0.0.1）起服务，curl -D artifacts/baseline-headers.txt 取首页（rc=0），python input/collect_probe.py --base http://127.0.0.1:57991 --out artifacts/probe.json --raw-dir artifacts（rc=0，6 次 GET），再 python ../../skill/web-pentest/scripts/web-repro.py --probe artifacts/probe.json --out artifacts/verdict.json（rc=0），最后 web-check.py --url http://127.0.0.1:57991/ --out artifacts/run.json（rc=0），服务已 taskkill。",
+        "结果：verdict=confirmed——alice 的 X-User 会话读 /api/orders/1002（bob 的订单）返回 200，响应含 bob 的唯一标记 1002/bob/bob@example.test/monitor；bob 自读为对照，长度 97 vs 99，差异只来自 viewer 字段。",
+        "结果：web-check 31 次 GET、6 条 finding（low 3 / info 3）：缺 CSP/nosniff/XFO、缺 Referrer-Policy、robots.txt 泄露 /api/ 与 /internal/；敏感路径 28 条无 200 命中。",
+        "边界：app.py 是自写演示服务，不是真实产品；『确认』只证明该服务确实缺少对象级鉴权，且我们的 web-repro 判据可复算。没有测试写操作、注入或 WAF。",
+        "下一步：把同一 probe schema 用到授权真实 API：需要两个真实账号 A/B、B 的唯一标记、以及同一对象 ID；若响应长度差异 >40% 或命中拒绝页特征，web-repro 会判 unconfirmed。"
+      ],
+      "tags": [
+        "real-service",
+        "flask",
+        "bola",
+        "idor",
+        "live-probe",
+        "confirmed"
+      ],
+      "refs": [
+        "Tool/skill/web-pentest/SKILL.md",
+        "Tool/skill/web-pentest/references/06-auth-and-api.md",
+        "Tool/skill/web-pentest/references/04-walkthrough-flask-bola.md",
+        "Tool/skill/web-pentest/references/03-model-pitfalls.md",
+        "Tool/config/web-pentest-matrix.json"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
       "dir": "案例-6.9换肤壳",
       "id": "案例-6.9换肤壳",
-      "domain": "windows-shell",
+      "domain": "reverse",
       "target_type": "PE32+ x64",
+      "evidence_kind": "real",
       "protection": [
         "packer",
         "antidebug",
@@ -748,7 +2292,25 @@
       "authority": "local",
       "goal_level": "L1",
       "outcome": "partial",
-      "artifacts": [],
+      "artifacts": [
+        {
+          "path": "README.md",
+          "sha256": "4f4e325b6567e4296d4e943099c479a79fbd5a72e9b1409804747f62d3405804"
+        },
+        {
+          "path": ".agents/notes/rejected/PAGE_GUARD内存断点.md",
+          "sha256": "739e33aedf3027ea8c7b9492cf1c5a1aa667a1a8ff58b005c3ec34a2c4684333"
+        },
+        {
+          "path": ".agents/notes/rejected/全量反编译带壳程序.md",
+          "sha256": "a2f7624d82ff1fd5c8014ab299b8c95758538e8b8427b7685051bafb966a8cc1"
+        },
+        {
+          "path": "docs/走查与思路沉淀.md",
+          "sha256": "2124a79ad6f8d5a65c21ec734a2a390da5a910e7f0d851e1a41a7154d53375a4"
+        }
+      ],
+      "repro": "",
       "lessons": [
         "节区熵 >7 且存在 >1MB 非标节时禁止全量反编译（26MB 带壳样本实测 280s 超时被杀）",
         "先问“改的是搬运工还是货物”：21MB 的 .rsrc/DATA102（XWGZSkins）才是皮肤包，不要在 .ace0 混淆壳层死磕",
@@ -763,16 +2325,75 @@
         "被否决方案"
       ],
       "refs": [
-        "README.md",
-        "docs/走查与思路沉淀.md"
+        "Tool/cases/案例-6.9换肤壳/README.md"
+      ],
+      "updated": "2026-10-21"
+    },
+    {
+      "dir": "案例-真实补丁a",
+      "id": "案例-真实补丁a",
+      "domain": "reverse",
+      "target_type": "真实第三方 crackme（MIT，crackerjack a.exe，PE32+ x64）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "local",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "input/a.exe",
+          "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+        },
+        {
+          "path": "artifacts/patch-manifest.json",
+          "sha256": "8c55c9811ec386f4d95bfbdd2fde777ad0eecc1707f31c28db20c9676ccf6d89"
+        },
+        {
+          "path": "artifacts/a.patched.exe",
+          "sha256": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00"
+        },
+        {
+          "path": "artifacts/patch-manifest.json.rollback.backup",
+          "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+        },
+        {
+          "path": "artifacts/a.rollback.exe",
+          "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "跑的是什么：真实第三方 crackme `Tool/samples/real/crackerjack/a.exe`（sha256 8308abb8…6f30），复制到本案例 input/ 后未改原文件。",
+        "命令与 rc：`objdump -d a.exe` 定位 main 的两段比较（0x140002882 je、0x14000289f jne）；用 patch-verify.py --file input/a.exe --manifest artifacts/patch-manifest.json --out artifacts/a.patched.exe，rc=0，输出 ok=true、patches=2、before/after 哈希与清单一致。",
+        "结果：原版 `wrong`→FAIL、`trance`→PASS；补丁版 `wrong` 与 `anything` 均→PASS（run-wrong.txt / run-anything.txt，各 1 行 PASS）。两处补丁均 2 字节，等长，无需重定位与代码洞。",
+        "判据：等长约束满足（2→2）、原字节匹配、补丁后哈希与清单 result_sha256 一致、行为差可复现（同一输入原版 FAIL/补丁版 PASS），四条同时成立才算补丁生效。",
+        "边界：这是源码级简单比较（编译期把 \"trance\" 拆成两个 imm32），不代表真实商业软件；无壳、无反调试、无签名校验、无完整性自检。真实目标需先按 09-patch-engineering.md 评估重定位/校验和/签名链。",
+        "回滚：清单 + patch-verify.py --rollback 可复原；input/a.exe 始终保留原始哈希。",
+        "回滚实测（R2 修复后）：patch-verify 在打补丁前落独立备份 `patch-manifest.json.rollback.backup` 并把 backup/backup_sha256 写回 manifest；`--rollback --out artifacts/a.rollback.exe` rc=0，输出 sha256=8308abb8…6f30（= 原文件），说明回滚不是「拿当前文件冒充备份」。"
+      ],
+      "tags": [
+        "patch",
+        "equal-length",
+        "real-target",
+        "crackme",
+        "verification",
+        "rollback"
+      ],
+      "refs": [
+        "Tool/skill/softseep/references/01-criteria.md",
+        "Tool/skill/softseep/references/02-failure-criteria.md",
+        "Tool/skill/softseep/references/09-patch-engineering.md",
+        "Tool/skill/softseep/scripts/patch-verify.py",
+        "Tool/samples/real/crackerjack/a.c"
       ],
       "updated": "2026-10-21"
     },
     {
       "dir": "项目A",
       "id": "项目A",
-      "domain": "windows-license",
+      "domain": "reverse",
       "target_type": "PE32+ x64",
+      "evidence_kind": "real",
       "protection": [],
       "authority": "local",
       "goal_level": "L2",
@@ -791,6 +2412,7 @@
           "sha256": "ffaa832a028d58b5a4c56ea5c160b64e4613250ffce6b2b90e7f1a009df68dbd"
         }
       ],
+      "repro": "",
       "lessons": [
         "宿主为 twinBASIC 运行时：在 DllMain 阶段或跨堆写 BSTR 会触发 0xC0000374；应在宿主初始化完成后用宿主 IAT 的 OLEAUT32!SysAllocString 分配，并限制重试次数",
         "注册验证只做 xy01..xy05 四字符前缀弱比较并直接置 license_type，属典型 CWE-602 客户端裁决，无签名/无服务端权威",
@@ -805,18 +2427,19 @@
         "授权状态字"
       ],
       "refs": [
-        "v2/README.md",
-        "v2/docs/授权旁路漏洞分析报告.md",
-        "v2/dist/手动验证指南.md",
-        "defense_hardening_spec.md"
+        "Tool/cases/项目A/v2/README.md",
+        "Tool/cases/项目A/v2/docs/授权旁路漏洞分析报告.md",
+        "Tool/cases/项目A/v2/dist/手动验证指南.md",
+        "Tool/cases/项目A/defense_hardening_spec.md"
       ],
       "updated": "2026-10-21"
     },
     {
       "dir": "项目B",
       "id": "项目B",
-      "domain": "windows-license",
+      "domain": "reverse",
       "target_type": "PE32+ x64",
+      "evidence_kind": "real",
       "protection": [
         "multi-process",
         "background-service",
@@ -840,6 +2463,7 @@
           "sha256": "acc424915189368cd909b47b46e50b6f52b9fff3d8875932dabf357d2c023678"
         }
       ],
+      "repro": "",
       "lessons": [
         "事件驱动架构中直接短路信号分发函数入口会让 Qt 信号 member_remove_ad_ok 断链；应下沉到分支条件跳转处 NOP，保证通知链路完整",
         "只改前端 UI 无法抵抗 Service 守护进程回写：必须同时收敛 parse/serialize/is_valid_infos 三处并本地化端点",
@@ -854,307 +2478,19 @@
         "自动更新"
       ],
       "refs": [
-        "README.md",
-        "项目B-6.8.1_nx_main_manual_patch_points.txt",
-        "v6.8.1/docs/v6.8.1_analysis_summary.md",
-        "v6.8.1/docs/v6.8.1_verification_checklist.md"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目C",
-      "id": "项目C",
-      "domain": "windows-license",
-      "target_type": "PE32+ x64",
-      "protection": [
-        "authenticode",
-        "blowfish-registry",
-        "offline-license"
-      ],
-      "authority": "local",
-      "goal_level": "L3",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "poc/patch_binary.py",
-          "sha256": "0ebf0c89aa907161bda160a1401a59322d0ce1bd24993d7c9f9f12bcca6b4ba3"
-        },
-        {
-          "path": "poc/version.def",
-          "sha256": "722e5cf22d02757b2a9da9d616f522c7c5b433a12364898f39961569bdb55182"
-        },
-        {
-          "path": "runtime/config.ini",
-          "sha256": "901e20f580e8ba3f43548a64fd06717864718910419e47923f719aa4397f994c"
-        }
-      ],
-      "lessons": [
-        "版本号存的是掩码变形值 T(v)=((2*(v&0xD5555555))|((v>>1)&0x55555555))：补丁要写 0x98/0x3D4/0x1B20，而不是 100/980/6944",
-        "显示层伪造应下沉到最后一跳的 SetDlgItemTextW，避免与模板引擎/STL 字符串 ABI 搏斗",
-        "控件类名必须运行时 GetClassNameW 实测（ID 名为 IDC_STATIC_LICENSE 实为 Edit），未命中分支必须打日志，否则失败被静默吞掉",
-        "zig-clang 会吞掉宽字符串字面量里的 \\r：改用 \\u000D\\u000A，并在运行时 NormalizeCrlf 兜底"
-      ],
-      "tags": [
-        "CWE-602",
-        "version.dll",
-        "SetDlgItemTextW",
-        "Blowfish",
-        "CRLF"
-      ],
-      "refs": [
-        "poc/RE_FINDINGS.md",
-        "poc/TASK_RETRO.md",
-        "poc/patch_binary.py"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目D",
-      "id": "项目D",
-      "domain": "windows-license",
-      "target_type": "PE32 x86",
-      "protection": [
-        "anti-tamper-threads",
-        "auto-updater"
-      ],
-      "authority": "local",
-      "goal_level": "L2",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "项目D_Pro_Tool/src/Program.cs",
-          "sha256": "c78b6c70b092a2e035433ed1c7e8f1e3073825e2b45d5841b0d7373ae4bbd3db"
-        },
-        {
-          "path": "项目D_Pro_Tool/tests/PatchEngineTests.cs",
-          "sha256": "f9f595e4efdedd59054dd185d43c5e59ff6309e007f5e10bd0920053d1dbe6fc"
-        },
-        {
-          "path": "tools/03_gen_signatures.py",
-          "sha256": "9a970b42c4fd63048a1688bbae5d98b8295652854a16c68536b0c3933184caae"
-        }
-      ],
-      "lessons": [
-        "硬编码绝对偏移在重编译后全部失效（实测位移 -896~+64），必须使用多版本共同稳定区的双态 AOB 特征码",
-        "模糊匹配只能产生候选：数据段漂移会出现汉明距离仅 2 的假阳性，必须精确字节 + 反汇编双重确认",
-        "客户端特权态天然易失：官方更新器会静默覆盖补丁，需切断更新定时器并让引擎 fail-closed",
-        "注册表策略面会被官方针对性封堵（删 Serial 恰好命中 11.3 新增弹框分支）；应优先在二进制判定面打桩"
-      ],
-      "tags": [
-        "AOB",
-        "跨版本迁移",
-        "反篡改",
-        "CWE-602",
-        "更新器"
-      ],
-      "refs": [
-        "README.md",
-        "docs/reverse-engineering.md",
-        "docs/algorithm.md",
-        "项目D_Pro_Tool/README.md"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目E",
-      "id": "项目E",
-      "domain": "windows-license",
-      "target_type": "PE32+ x64",
-      "protection": [
-        "execryptor",
-        "online-activation",
-        "ipc-helper",
-        "clock-rollback"
-      ],
-      "authority": "server",
-      "goal_level": "L2",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/Patcher.cs",
-          "sha256": "74d34ea51c6b66f4812b19d2cbccb4f69297780c512caa6420ea2738d3af7460"
-        },
-        {
-          "path": "src/LicenseWriter.cs",
-          "sha256": "856b004db3889857fc110418b2c53abfab6a92ad487fc8af3d3cf3b923791aa8"
-        },
-        {
-          "path": "auto_activate.ps1",
-          "sha256": "27b8a6f1531781014afa5838f265950a7e1c0dcc047d8e3ba82c31bf3dd2ed0f"
-        }
-      ],
-      "lessons": [
-        "授权验签在 Helper 的 EXECryptor VM 中，无 keygen 路径；主程序只消费 VerifySerialNumberW 返回的 JSON，补丁应打在结果消费侧",
-        "主程序依赖 Helper，patch 副本必须与 Helper 同目录运行，否则启动即 TerminateProcess",
-        "注册表 RN/RC 会在读取后被回写，补丁需同时处理内存授权状态与注册表写入",
-        "试用戳 RF/RL 为 XOR 编码，时钟回拨检测在注册后不生效；但授权仍以 Helper 在线核验为准"
-      ],
-      "tags": [
-        "EXECryptor",
-        "在线激活",
-        "Helper",
-        "CWE-602",
-        "注册表"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/algorithm.md",
-        "src/Patcher.cs"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目F",
-      "id": "项目F",
-      "domain": "dotnet-license",
-      "target_type": "PE32 (.NET) x86",
-      "protection": [
-        ".net-obfuscator",
-        "method-body-encryption",
-        "string-encryption",
-        "control-flow-obfuscation"
-      ],
-      "authority": "local",
-      "goal_level": "L3",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/LicenseAlgo.cs",
-          "sha256": "30525cc2f25d2259af0ba8ae55bf4abc62e69b462c425018b43348abd962ea99"
-        },
-        {
-          "path": "src/项目FActivate.cs",
-          "sha256": "29058cbbe9616d0b1fea28aa688f1b950e01da7dfd51e8cfd0a37af3fe218b15"
-        },
-        {
-          "path": "docs/algorithm.md",
-          "sha256": "2acc55c71c445b8181cb5b00dfe7cbc7975a714caf9e3da809c59e6fcf7bfb48"
-        }
-      ],
-      "lessons": [
-        "定制 .NET 混淆器把方法体剥离到嵌入资源，静态只见 stub：必须动态解壳并 Hook DynamicILInfo.GetTokenFor 建立 token 到成员的映射",
-        "同源 Generate/Verify 互验会掩盖移植错误，必须用独立实现逐字符对照（曾暴露 C# 96 位整数拼接错误）",
-        "v7 把加密面从全量缩到 5 个方法但校验算法未变，v6 keygen 可零适配复用",
-        "还原算法后用反射调用安装版 CheckLicense 返回 True 做真机验收，而不是只信自测"
-      ],
-      "tags": [
-        "keygen",
-        ".NET",
-        "DynamicILInfo",
-        "Harmony",
-        "CWE-602"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/algorithm.md",
-        "src/LicenseAlgo.cs"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目G",
-      "id": "项目G",
-      "domain": "windows-license",
-      "target_type": "PE32+ x64 (Qt)",
-      "protection": [
-        "online-activation",
-        "server-signature",
-        "aes-grace-token",
-        "ini-license"
-      ],
-      "authority": "server",
-      "goal_level": "L2",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/项目G_activate.py",
-          "sha256": "28d6d93f0e9d55352eb8109862e5ded10ce8d5f570b576728967476210ab2e94"
-        },
-        {
-          "path": "src/项目G_gui.py",
-          "sha256": "0ef4a29263393d75cd9ea0ef198bf0013b0fb93001a6da949a834f42f5aa4268"
-        },
-        {
-          "path": "tools/test_activate.py",
-          "sha256": "c13b0cf8eedd277c063aa426c8996fbb3bf44c9cc09809af622845b50953418d"
-        }
-      ],
-      "lessons": [
-        "服务端签发的 payload 自引用校验（sha384(payload)==key_hash）导致 keygen 离线不可行，只能补本地判定",
-        "27MB Qt 二进制放弃 Ghidra 全量分析：PE 节表->字符串 VA->LEA rip 引用点->局部分片反汇编，秒级定位",
-        "本地判定点单一且无自校验，补丁重启持久；升级覆盖可由登录守卫自动修复",
-        "V2 响应签名 sig=sha1(TEMPLATE+payload[32:]) 与 AES-CBC grace token 都必须按真实结构解析，不能猜字段"
-      ],
-      "tags": [
-        "Qt",
-        "在线激活",
-        "签名校验",
-        "AOB",
-        "补丁"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/algorithm.md"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目H",
-      "id": "项目H",
-      "domain": "windows-license",
-      "target_type": "PE32+ x64 (Qt)",
-      "protection": [
-        "ed25519",
-        "offline-activation",
-        "antidebug",
-        "qt"
-      ],
-      "authority": "server",
-      "goal_level": "L3",
-      "outcome": "partial",
-      "artifacts": [
-        {
-          "path": "src/keygen/algo.py",
-          "sha256": "ec37e5ffd46d42cb17e834e690470f1de569641002eb0da78c50cbaf3f8ad286"
-        },
-        {
-          "path": "src/keygen/cli.py",
-          "sha256": "29ead050042e788169b0ceed9957deabbbc250a9a59a531f686651efe7b07cf2"
-        },
-        {
-          "path": "tools/test_keygen.py",
-          "sha256": "237d53559ae2d645e444eefd338b9c8d9ea97031e4d0e019645d83c2d4265cc0"
-        }
-      ],
-      "lessons": [
-        "Qt6 的 QByteArray/QString 不是简单指针：data 在 +8、size 在 +16，Frida 读取前必须先确认布局",
-        "离线激活码 = XOR->gunzip->XOR + Ed25519 验签；替换内嵌公钥（RVA 0x249FA0）后可用自签 keygen 通过",
-        "该版本离线激活状态只在内存、不落盘，重启回免费版；持久化需另打启动 patch 且可能回退对话框",
-        "反调试 CheckRemoteDebuggerPresent 会切换 XOR 路径，必须无调试器复现"
-      ],
-      "tags": [
-        "Ed25519",
-        "离线激活",
-        "Qt6",
-        "Frida",
-        "公钥替换"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/algorithm.md",
-        "src/keygen/algo.py"
+        "Tool/cases/项目B/README.md",
+        "Tool/cases/项目B/项目B-6.8.1_nx_main_manual_patch_points.txt",
+        "Tool/cases/项目B/v6.8.1/docs/v6.8.1_analysis_summary.md",
+        "Tool/cases/项目B/v6.8.1/docs/v6.8.1_verification_checklist.md"
       ],
       "updated": "2026-10-21"
     },
     {
       "dir": "项目I",
       "id": "项目I",
-      "domain": "windows-license",
+      "domain": "reverse",
       "target_type": "PE32+ x64 (DLL)",
+      "evidence_kind": "real",
       "protection": [
         "7zip-sfx",
         "rsa",
@@ -1178,6 +2514,7 @@
           "sha256": "23ff973b502b1402048319cc1385ea9640e03899658f495043c09c6931d19b4b"
         }
       ],
+      "repro": "",
       "lessons": [
         "LicenseHash = md5hex(key)，且仅当默认值 >0x1e 才写入；机器码由主板 SMART + word-swap 与 'RSMB' UUID 两路派生",
         "Ghidra 会把同一 128B 输出缓冲切成 local_b8/local_98/local_78 等多个栈变量，必须按实际写入宽度合并理解",
@@ -1192,250 +2529,10 @@
         "CWE-602"
       ],
       "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/algorithm.md",
-        "src/SabRollbackGuard.cs"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目J",
-      "id": "项目J",
-      "domain": "windows-license",
-      "target_type": "PE32 x86 (EPL)",
-      "protection": [
-        "packer",
-        "code-encryption",
-        "online-cardkey",
-        "rwx-section",
-        "no-aslr"
-      ],
-      "authority": "server",
-      "goal_level": "L2",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/apply_patch.py",
-          "sha256": "be14038a31857cf2623859f28d377b3ffbd4ff381169b2b1f3dbb09b9b0dec87"
-        },
-        {
-          "path": "src/poc_frida_bypass.js",
-          "sha256": "5f44f59b86cad22d37a82fbb1b0f1c350e508b0e2f10992716647a48f908c64c"
-        },
-        {
-          "path": "docs/protocol-and-patch.md",
-          "sha256": "9c76e55ec9ab956e81ef1331aa45adf48e5033fe7c3698a83b29fd1ba9532da0"
-        }
-      ],
-      "lessons": [
-        "判据：无 ASLR（DllCharacteristics 未置 DYNAMIC_BASE）且目标段 RWX/可提权时，可免脱壳用 WriteProcessMemory 运行期改内存",
-        ".ev3n 段 rawsize=0，磁盘上不存在可改指令；补丁仅运行期有效，进程退出即失效",
-        "Hook ws2_32!recv 并读取 returnAddress，可一次把调用链钉在业务函数，比全量反汇编快一个数量级",
-        "本地裁决点是 cmp [ebp-4],0 / je 失败分支；置全局已授权标志后仍有心跳二次复检，必须一并处理"
-      ],
-      "tags": [
-        "易语言",
-        "全量加密壳",
-        "在线卡密",
-        "运行期补丁",
-        "RWX"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/protocol-and-patch.md",
-        "src/apply_patch.py"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目K",
-      "id": "项目K",
-      "domain": "dotnet-license",
-      "target_type": "PE32+ x64 (.NET/WPF)",
-      "protection": [
-        "themida",
-        "method-body-virtualization",
-        "string-encryption",
-        "embedded-assembly"
-      ],
-      "authority": "local",
-      "goal_level": "L3",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/ProjectKUnlock.cs",
-          "sha256": "d17e3e59304d1055a390224a59549562808dc5aee9a2b1989e5c7ac7b5755023"
-        },
-        {
-          "path": "src/install.ps1",
-          "sha256": "a8cbd680b9cecefa73f92de2bf190fa05d3ee379c413ab5ace0b72eba3fb3117"
-        },
-        {
-          "path": "src/uninstall.ps1",
-          "sha256": "2eb8d62eaef5854afd7285f1cb6dfecb29e020868cd9285ab67a65fe260dc835"
-        }
-      ],
-      "lessons": [
-        "Themida 已 Hook clrjit!ICorJitCompiler::compileMethod vtable；在其之上再挂一层可截获 9632 个方法的真实 IL",
-        "授权载荷 AES-128-CBC 的 Key/IV 完全由本地机器码切片派生，且无签名/无 MAC，双存储写入即可伪造永久授权",
-        "只伪造授权只能活 1-2 分钟：启动约 15s 后云控复验失败会改写 Invalid 并 Environment.Exit(0)，需选择性代理 + 秒级看门狗",
-        "AppDomainManager 是 CLR 级引导变量，会污染之后启动的所有 .NET 进程；必须提供卸载/还原脚本"
-      ],
-      "tags": [
-        "Themida",
-        "JIT Hook",
-        "云控剥离",
-        "AppDomainManager",
-        "AES"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "src/ProjectKUnlock.cs"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目L",
-      "id": "项目L",
-      "domain": "windows-license",
-      "target_type": "PE32+ x64 (Qt5)",
-      "protection": [
-        "dll-proxy-surface",
-        "offline-license",
-        "cloud-config"
-      ],
-      "authority": "local",
-      "goal_level": "L3",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/项目L_hook.c",
-          "sha256": "4ecca58375c483470dbad2972a7b11b12781af03baf26d8c116f19d012f14d0a"
-        },
-        {
-          "path": "src/项目L_bridge.c",
-          "sha256": "62432c5454759d4551c6c51e3f511670e0dcd2a4855f734f45a01149be5c82b7"
-        },
-        {
-          "path": "src/proxy.def",
-          "sha256": "c83bc9a26b7a935da34292ba4165831052ac6a95bd5e6edc2781f125fde790d0"
-        }
-      ],
-      "lessons": [
-        "目标 IAT 从 项目L_Auth.dll 导入 282 个符号；改名原库 + 同名代理库是零改动官方字节的最小侵入路线",
-        "全部 PRO/VIP 特权是本地布尔/枚举函数，无签名绑定、无服务端权威闭环（CWE-602）",
-        "代理库内可同时做内存补丁、内嵌本地翻译网关与云控更新剥离，单文件可移植",
-        "官方原库与 EXE 的磁盘 SHA256 可保持不变，验证时应以哈希对照证明零篡改"
-      ],
-      "tags": [
-        "DLL代理",
-        "Qt5",
-        "CWE-602",
-        "翻译网关",
-        "云控"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "src/proxy.def"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目M",
-      "id": "项目M",
-      "domain": "java-license",
-      "target_type": "Java JAR (install4j, x64 JVM)",
-      "protection": [
-        "install4j-launcher",
-        "class-obfuscation",
-        "rsa-license",
-        "reflection-dispatch"
-      ],
-      "authority": "local",
-      "goal_level": "L3",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "src/BurpLoaderAgent.jar",
-          "sha256": "8c5ca91fa2c1e81416b9120a94f6e89f02a731e07ca83e45d8ff245e40dc029b"
-        },
-        {
-          "path": "src/hijack/version.dll",
-          "sha256": "6da9fe6d3115d88ae075f4b631bb611f369e8892e7e85c23daced7e8f0c52d75"
-        },
-        {
-          "path": "src/hijack/version.rs",
-          "sha256": "87b3a3309ccdc5c8862f020bea43978a2b75520d3041e3a910c416a1b5a27962"
-        }
-      ],
-      "lessons": [
-        "VERSION.dll 不在 KnownDLLs：可在应用目录劫持并在 DllMain 改写主模块 IAT 槽位 #27 (GetProcAddress)，拦截 JNI_CreateJavaVM 注入 -javaagent",
-        "验签入口 burp.Zfqu.ZL 空实现 + 状态机 burp.Zwxg.Zu 恒返回已授权 Zyeo，即可绕过弹窗并全量解锁 Professional",
-        "JDK 26 的 java.lang.classfile 可零第三方依赖完成运行时字节码改写，原 JAR 零字节修改",
-        "客户端无 JAR 哈希自检、无 javaagent 检测，是主要防御缺口；加固应优先补这两项"
-      ],
-      "tags": [
-        "CWE-602",
-        "javaagent",
-        "DLL劫持",
-        "JNI",
-        "字节码插桩"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/dll-hijack-and-agent.md",
-        "src/BurpLoaderAgent.java"
-      ],
-      "updated": "2026-10-21"
-    },
-    {
-      "dir": "项目N",
-      "id": "项目N",
-      "domain": "dotnet-license",
-      "target_type": "PE32 (.NET/WPF)",
-      "protection": [
-        "eazfuscator",
-        "assembly-encryption",
-        "code-virtualization",
-        "string-encryption",
-        "antidebug"
-      ],
-      "authority": "server",
-      "goal_level": "L4",
-      "outcome": "success",
-      "artifacts": [
-        {
-          "path": "tools/bx_patch.py",
-          "sha256": "3d8d48149eaf2cafaa263b28d4de386699b057081f76870401d1305d6d3664f1"
-        },
-        {
-          "path": "docs/protection-layers.md",
-          "sha256": "697cba7aba7b3af6811d5a869e6bb78ec5bc06e0ae45ff6185f2644b57be8e24"
-        }
-      ],
-      "lessons": [
-        "Eazfuscator 程序集代码加密的密钥由其它节区内容哈希派生，同时构成反篡改：改动兄弟节区会导致目标节区解不开",
-        "字符串解密不必静态还原：反射加载原程序集并逐 id 调用客户端自身 Decrypt(int) 可 100% 转储；每个样本必须用独立进程，避免 Assembly.LoadFrom 复用实例",
-        "VM 三层（RSA-2048 封装 / 位置相关流 XOR / Ascii85 方法令牌）可分离还原，722,260 字节字节码可转明文",
-        "授权装载状态机把 null/空串/\"null\" 当“无需校验”（Fail-Open），但不足以点亮 PRO 徽章；71 个特权开关以明文布尔存 HKCU，可写即可改"
-      ],
-      "tags": [
-        "Eazfuscator",
-        "代码虚拟化",
-        "Fail-Open",
-        "CWE-602",
-        "HKCU"
-      ],
-      "refs": [
-        "README.txt",
-        "docs/reverse-engineering.md",
-        "docs/protection-layers.md",
-        "tools/bx_patch.py"
+        "Tool/cases/项目I/README.txt",
+        "Tool/cases/项目I/docs/reverse-engineering.md",
+        "Tool/cases/项目I/docs/algorithm.md",
+        "Tool/cases/项目I/src/SabRollbackGuard.cs"
       ],
       "updated": "2026-10-21"
     }

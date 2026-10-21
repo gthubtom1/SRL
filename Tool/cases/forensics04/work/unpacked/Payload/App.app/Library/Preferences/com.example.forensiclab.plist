@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Account</key>
+	<string>fixture-user</string>
+	<key>FeatureFlags</key>
+	<array>
+		<string>timeline</string>
+		<string>ios</string>
+	</array>
+	<key>LastRun</key>
+	<string>2026-10-20T03:14:05Z</string>
+</dict>
+</plist>

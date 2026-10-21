@@ -92,7 +92,7 @@
 
 ## 脱敏要求
 
-> **本文件可能随仓库同步到远程，必须脱敏。完整规范见 [`anonymization.md`](anonymization.md)（占位符总表 + 自动检测脚本）。**
+> **本文件可能随仓库同步到远程，必须脱敏。完整规范见 `anonymization.md`（占位符总表 + 自动检测脚本）。**
 
 - 目标域名/IP：用 `{target_domain}` / `{target_ip}` 替代（详见 `anonymization.md`）
 - 真实 URL 路径：保留结构，替换域名

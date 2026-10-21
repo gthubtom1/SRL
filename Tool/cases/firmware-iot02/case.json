@@ -2,6 +2,7 @@
   "id": "firmware-iot02",
   "domain": "firmware-iot",
   "target_type": "非固件二进制（夹具：PE32 EXE）",
+  "evidence_kind": "fixture",
   "vendor": "",
   "model": "",
   "firmware_version": "",
@@ -62,5 +63,9 @@
     "Tool/skill/firmware-iot/references/emulation-and-fuzz.md",
     "Tool/config/firmware-iot-matrix.json"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
 }

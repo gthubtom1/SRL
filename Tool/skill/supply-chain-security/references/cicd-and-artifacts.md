@@ -1,6 +1,9 @@
 # CI/CD 与制品完整性速查
 
 > 配套 `supply-chain-security/SKILL.md`。只读审计；不改生产流水线，不推送包。
+>
+> **适用**：审计 GitHub Actions/GitLab CI/Jenkins 的触发、权限、secrets、action pin，以及制品签名/来源。
+> **不适用**：需要修改生产流水线、伪造签名、或对未授权仓库/镜像操作；应用层漏洞不在此文。
 
 ## 1. GitHub Actions 审计
 
@@ -120,3 +123,68 @@ Secret：<name/scope>（不写值）
 结论：<可利用/不符合基线/不可达>
 修复：<最小改动> + <验证命令>
 ```
+
+## 9. K8s 清单 / IaC 扫描
+
+```bash
+kubesec scan deploy.yaml                         # 输出 score 与每项 reason
+trivy config --format json --output iac.json .   # Dockerfile/K8s/Terraform
+checkov -d . --framework kubernetes,terraform --output json > checkov.json
+terraform providers lock -platform=linux_amd64   # 生成/校验 .terraform.lock.hcl 的 zh: 哈希
+terraform init -backend=false                    # 只读初始化，不碰远端 state
+```
+
+- 先钉对象：`git rev-parse HEAD`、清单文件 sha256；多环境 overlay 要写明实际部署的是哪一份。
+- `kubesec scan` 的 `score<0` 只是信号；逐条把 `reason` 对到字段：
+  `securityContext.privileged=true`、`hostPath` 挂载、`hostNetwork=true`/`hostPID=true`、
+  `runAsUser: 0`、`allowPrivilegeEscalation` 未禁用、capabilities 含 `SYS_ADMIN`。
+- `trivy config`/`checkov` 的命中必须有 `file:line` 或资源名 + 字段路径（如
+  `Deployment/spec/template/spec/containers[0].securityContext.privileged`）。
+- Terraform：`.terraform.lock.hcl` 里每个 provider 有版本与 `zh:` 哈希；provider/module 来源固定 registry/commit；
+  不把 `terraform plan` 的远端 state 当只读证据。
+
+**判据**：命中项能对应到“可被工作负载利用的具体字段”，且该字段在**实际部署的清单**里存在；
+`kubesec_score<0` 或 `iac_field` ∈ {`privileged`, `hostPath`, `hostNetwork`, `runAsUser:0`}，
+并能说明利用后果（逃逸/挂载宿主机/提权），写 `iac_confirmed=true`。
+**失败判据**：只有 info 级或“建议加 runAsNonRoot”；只有镜像 CVE 没有清单字段；命中的是未部署的样例/模板；
+score 为负但 reason 全是 `INFO`。这些情况写 `iac_confirmed=false`，不要升 high。
+
+## 10. secrets 扫描与真伪验证
+
+```bash
+gitleaks detect --source . --no-git --report-format json --report-path gitleaks.json
+trufflehog filesystem . --json --no-update > trufflehog.jsonl
+detect-secrets scan --all-files > detect-secrets.json
+```
+
+- 先按规则看前缀与长度：AWS `AKIA`/`ASIA` + 20 位、GitHub `ghp_`/`github_pat_`、Slack `xox[baprs]-`、
+  Stripe `sk_live_`、私钥 `-----BEGIN ... PRIVATE KEY-----`；前缀不对的“高熵串”先降级。
+- 校验和/结构：JWT 三段可解码、信用卡 Luhn、AWS key 的 base32 结构；能离线复算的先复算。
+- 真伪验证只在授权范围内做**只读**调用（如 `aws sts get-caller-identity`、`GET /user`）；
+  不写数据、不改权限。不能从仓库推导时，字段写 `secret_rotated=unverified`，不要猜“已轮换/未轮换”。
+- 命中后先查历史与派生：`git log -S<fingerprint>`、镜像层、CI 日志；确认是否仍在用。
+- 报告只留指纹：`sha256(secret)[:12]`，不贴完整值；真实密钥走撤销/轮换流程。
+
+**判据**：`secret_prefix_ok=true` + `secret_length_ok=true` +（可离线时）`secret_checksum_ok=true`，
+且 `secret_rotated` ∈ {`true`,`false`,`unverified`}；真实凭据有轮换/撤销记录（`rotation_ref`），才写 `secret_status=confirmed`。
+**失败判据**：只有“熵高”；示例 token/文档占位符；前缀或长度不符；无法验证却写 `confirmed`；
+把 `unverified` 写成“已失效”。出现任一情况只写 `secret_status=suspected`。
+
+## 11. 失败判据（看到即降级）
+
+| 现象 | 判定 | 改走哪条 | 代价 |
+| :-- | :-- | :-- | :-- |
+| 只命中 `pull_request_target` 关键字 | 未证明利用链 | 核对 checkout ref、job permissions、secrets 作用域 | 低：只读核对 |
+| action 未 pin 但 token 只读、无 secrets | 加固项，不是漏洞 | 记录 pin 建议，交 Dependabot/PR | 低：改 CI 配置 |
+| 只有 tag 没有 digest | 对象不可钉住 | 取 RepoDigests/crane digest 后重跑来源验证 | 中：需要 registry 访问 |
+| `cosign verify` rc=0 但未核对 identity/issuer | 只证明“有签名” | 补 certificate identity/issuer 与 Rekor 条目 | 低：一次重跑 |
+| reusable workflow/动态权限未展开 | 扫描覆盖不足 | 展开 reusable workflow 源文件，人工补看 | 中：需要上游仓库读权限 |
+| 自托管 runner 但只跑受保护分支 | 风险下降 | 核对分支保护与审批；不写“可横向” | 低：读仓库设置 |
+| 构建成功/能启动 | 不等于可信构建 | 走 digest+签名+attestation subject 对照 | 中：需要 provenance 数据 |
+
+## 12. 边界
+
+- 只读审计；不改生产 workflow、不推送、不触发发布。
+- 不把 YAML 缩进扫描当完整解析；锚点/merge key/reusable workflow 必须人工补看。
+- 不验证 secrets 的实际值，只记录名称、作用域与引用行。
+- 制品来源结论必须绑定 digest；应用层漏洞 → `web-pentest`，容器逃逸 → `ad-cloud`。

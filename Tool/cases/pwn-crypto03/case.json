@@ -1,0 +1,77 @@
+{
+  "id": "pwn-crypto03",
+  "domain": "pwn-crypto",
+  "target_type": "自建靶：现场 gcc 编译的 PE32+（真实产物，非手写数据）",
+  "evidence_kind": "real",
+  "protection": [
+    "NX",
+    "No PIE (-no-pie)",
+    "No Canary (-fno-stack-protector)"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "confirmed",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "698fe6ee244b0bfb0591e5f8f5c4cf05ea2b034ba21f3969f0b44fc7e272b719"
+    },
+    {
+      "path": "artifacts/repro.json",
+      "sha256": "7e89ed54a350c6a463356c64c27e595386eb285ab93934517b4a0c7bbd65450c"
+    },
+    {
+      "path": "artifacts/exploit_result.json",
+      "sha256": "ed44893c54ce27b0705469c8cf9770aa5da3b1cd62ed2d0483de8beafabf2130"
+    },
+    {
+      "path": "artifacts/int_overflow_wrap.log",
+      "sha256": "03921a9c4da7545801fc944ae1b98a1cd98e7f671ebfbd5b7d779f61c5fa9c3d"
+    },
+    {
+      "path": "artifacts/stack_overflow.dis",
+      "sha256": "ef94e0e8be57bf0fe790a1ed14308fec397e0ab7408d71a19a4d529cb2f56112"
+    },
+    {
+      "path": "artifacts/probe.txt",
+      "sha256": "4f3aa95c7a04d6417a4fad0a1cae1edc9d5426288f77741a8cfaad593505b655"
+    },
+    {
+      "path": "artifacts/pwn_check.json",
+      "sha256": "4d02a73539fcfb4a8dcd1936433119a97e0b3c0c659a09f239eb2e6d59fffa99"
+    },
+    {
+      "path": "artifacts/commands.txt",
+      "sha256": "8865d9e42837282394be9c3f20d784d3777b3452c78467726ff17a1a0623f4e9"
+    },
+    {
+      "path": "artifacts/stack_overflow.exe",
+      "sha256": "d33a42b0b7151caf27fda5b568c57991327d93f02c8c02642ee135eece81eb50"
+    },
+    {
+      "path": "artifacts/int_overflow.exe",
+      "sha256": "7613098a9128091106edebb34d5afb0796a634604444d6b24b5811ff70eb7d5a"
+    }
+  ],
+  "lessons": [
+    "跑的是现场编译的真实 PE：gcc -O0 -fno-stack-protector -no-pie -o artifacts/stack_overflow.exe input/stack_overflow.c，rc=0；objdump 与运行时 probe 两个来源都给出 offset=88，pwn-repro.py rc=0（consistent=true）。",
+    "控制流确实被劫持：payload=88*'A'+p64(0x140001440)，input/exploit_stack.py rc=0，stdout 出现 WIN: control flow hijacked，说明 saved RIP 被覆盖到 win()。",
+    "整数回绕真实触发：count=1073741825 时 bytes=count*4 回绕为 4，_msize=4，memset 写 64B，free 时进程以 NTSTATUS 0xC0000374（STATUS_HEAP_CORRUPTION）退出；Git Bash 显示 rc=127。",
+    "对照组 count=16 → bytes=64、overflow=0、rc=0，说明上面的崩溃不是程序本身必崩，而是回绕+越界写导致。",
+    "边界：偏移 88 是本编译选项下的 rbp 帧布局（buffer 在 -0x50(%rbp)），换编译器/优化级别/栈对齐会变；偏移必须每次用 objdump+probe 重新对齐，不能抄数字。"
+  ],
+  "refs": [
+    "Tool/skill/pwn-crypto/SKILL.md",
+    "Tool/skill/pwn-crypto/references/01-criteria.md",
+    "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+    "Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md",
+    "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/01-stack-rop.md",
+    "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

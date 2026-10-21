@@ -554,7 +554,7 @@ Functions split into non-contiguous chunks connected by unconditional jumps. Def
 
 ### Control Flow Flattening (Advanced)
 
-> 完整的 OLLVM 脱密工作流、变种生态（Hikari/Polaris/O-MVLL/Tigress/Hodur 等）和社区工具调研见 [ollvm-deobfuscation.md](references/ollvm-deobfuscation.md)。
+> 完整的 OLLVM 脱密工作流、变种生态（Hikari/Polaris/O-MVLL/Tigress/Hodur 等）和社区工具调研见 ollvm-deobfuscation.md。
 
 Beyond basic switch-case (see patterns.md): modern OLLVM variants use:
 - **Bogus control flow:** Fake branches with opaque predicates

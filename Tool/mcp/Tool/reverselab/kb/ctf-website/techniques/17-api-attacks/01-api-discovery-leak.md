@@ -393,7 +393,7 @@ class SourceMapExtractor:
             html = r.text
 
         # 查找 <script src="...">
-        scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html)
+        scripts = re.findall(r'<script[^>]+src="\'["\']', html)
         # 查找 webpack runtime
         webpack = re.findall(r'/[a-f0-9]{20}\.js', html)
         return scripts + webpack
@@ -461,11 +461,11 @@ class SourceMapExtractor:
             if not content:
                 continue
             # API 端点字符串
-            paths = re.findall(r"['\"`]((?:/api|/admin|/internal|/private|/manage|/debug)(?:/[a-zA-Z0-9_.-]+)+)['\"`]", content)
+            paths = re.findall(r"'\"`(?:/[a-zA-Z0-9_.-]+)+)['\"`]", content)
             for p in paths:
                 endpoints["paths"].add(p)
             # fetch/axios 调用
-            urls = re.findall(r"(?:fetch|axios|ajax|get|post|put|delete)\s*\(\s*['\"`]([^'\"`]+)['\"`]", content, re.IGNORECASE)
+            urls = re.findall(r"(?:fetch|axios|ajax|get|post|put|delete)\s*\(\s*'\"`['\"`]", content, re.IGNORECASE)
             for u in urls:
                 if u.startswith('/') or 'api' in u.lower():
                     endpoints["paths"].add(u)
@@ -475,7 +475,7 @@ class SourceMapExtractor:
                 if any(kw in f.lower() for kw in ['admin', 'secret', 'internal', 'hidden', 'debug']):
                     endpoints["functions"].add(f)
             # 硬编码密钥
-            keys = re.findall(r'(?:api[_-]?key|secret|token|password)\s*[:=]\s*['\"`]([A-Za-z0-9_\-=]{16,})['\"`]', content, re.IGNORECASE)
+            keys = re.findall(r'(?:api[_-]?key|secret|token|password)\s*[:=]\s*'\"`['\"`]', content, re.IGNORECASE)
             for k in keys:
                 endpoints["api_keys"].add(k)
 
@@ -510,10 +510,10 @@ Source Map 里真正有价值的不只是 URL 字符串，还包括调用函数�
 # sourcemap_route_infer.py — 从源码片段推断 method/path/body/header
 import re
 
-CALL_PATTERNS = [
-    re.compile(r"fetch\(\s*[`'\"](?P<path>[^`'\"]+)[`'\"]\s*,\s*\{(?P<opts>.*?)\}\s*\)", re.S),
-    re.compile(r"axios\.(?P<method>get|post|put|patch|delete)\(\s*[`'\"](?P<path>[^`'\"]+)[`'\"](?P<tail>.*?)\)", re.S),
-    re.compile(r"apiClient\.(?P<method>get|post|put|patch|delete)\(\s*[`'\"](?P<path>[^`'\"]+)[`'\"](?P<tail>.*?)\)", re.S),
+CALL_PATTERNS = 
+    re.compile(r"fetch\(\s*[`'\"[`'\"]\s*,\s*\{(?P<opts>.*?)\}\s*\)", re.S),
+    re.compile(r"axios\.(?P<method>get|post|put|patch|delete)\(\s*`'\"`'\"\)", re.S),
+    re.compile(r"apiClient\.(?P<method>get|post|put|patch|delete)\(\s*`'\"`'\"\)", re.S),
 ]
 
 def infer_routes_from_source(source):
@@ -522,10 +522,10 @@ def infer_routes_from_source(source):
         for m in pattern.finditer(source):
             method = (m.groupdict().get("method") or "GET").upper()
             opts = m.groupdict().get("opts") or m.groupdict().get("tail") or ""
-            method_match = re.search(r"method\s*:\s*[`'\"]([A-Z]+)[`'\"]", opts)
+            method_match = re.search(r"method\s*:\s*`'\"[`'\"]", opts)
             if method_match:
                 method = method_match.group(1)
-            headers = sorted(set(re.findall(r"[`'\"](Authorization|X-[A-Za-z0-9-]+|Content-Type)[`'\"]", opts)))
+            headers = sorted(set(re.findall(r"`'\"[`'\"]", opts)))
             params = sorted(set(re.findall(r"\b(userId|accountId|tenantId|orderId|id|role|amount)\b", opts)))
             routes.append({
                 "method": method,

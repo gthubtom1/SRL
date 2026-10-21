@@ -1,0 +1,277 @@
+{
+  "tool": "ad-repro",
+  "version": "1.0.0",
+  "generated_at": "2026-10-21T14:24:58Z",
+  "ok": true,
+  "offline": true,
+  "results": [
+    {
+      "kind": "kerberoast",
+      "verdict": "candidate",
+      "checks": [
+        {
+          "check": "etype-crackable",
+          "ok": true,
+          "detail": "RC4(23)/AES(17/18) TGS identified; etype 23 is cheapest offline",
+          "severity": "info"
+        },
+        {
+          "check": "plaintext-or-reuse",
+          "ok": false,
+          "detail": "cracked plaintext or directly reusable ticket",
+          "severity": "info"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "medium",
+          "title": "crackable TGS collected, not yet cracked",
+          "evidence": "ticket[0] etype=23"
+        }
+      ],
+      "failure_criteria": [
+        "只拿到 TGS hash 未破解：这是素材，不是打穿；继续字典/规则或转委派/ADCS。",
+        "账号是机器号或 krbtgt：不是 Kerberoast 目标，换有 SPN 的用户账号。",
+        "etype 17/18（AES）：仍可离线破解但成本高；不要用 RC4 的模式/字典直接下结论。",
+        "认证失败已达锁定预算：立即停手，换账号或换来源。"
+      ],
+      "tickets": [
+        {
+          "index": 0,
+          "principal_fp": "04b9f4869120b6e0",
+          "spn_fp": "67b867543e9c3aac",
+          "etype": 23,
+          "hash_present": true,
+          "hash_fp": "",
+          "crackable_offline": true,
+          "cracked": false,
+          "reusable": false,
+          "disabled_or_machine": false
+        }
+      ]
+    },
+    {
+      "kind": "asrep",
+      "verdict": "candidate",
+      "checks": [
+        {
+          "check": "preauth-disabled",
+          "ok": true,
+          "detail": "DONT_REQ_PREAUTH observed; AS-REP is requestable without a password",
+          "severity": "info"
+        },
+        {
+          "check": "plaintext-or-reuse",
+          "ok": false,
+          "detail": "cracked plaintext or reusable material",
+          "severity": "info"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "medium",
+          "title": "AS-REP material for a pre-auth-disabled account",
+          "evidence": "user[0] etype=23"
+        }
+      ],
+      "failure_criteria": [
+        "账号已启用预认证：AS-REP 请求会失败，转 Kerberoast/ADCS。",
+        "只拿到 AS-REP hash 未破解：是素材不是打穿。",
+        "批量请求导致 4625/4771 告警或锁定：立即降速/停手。",
+        "账号已禁用：即使有 AS-REP 也不能用于登录。"
+      ],
+      "users": [
+        {
+          "index": 0,
+          "principal_fp": "9f4d10730006eef4",
+          "dont_req_preauth": true,
+          "asrep_present": true,
+          "etype": 23,
+          "hash_fp": "",
+          "cracked": false,
+          "reusable": false,
+          "account_disabled": false
+        }
+      ]
+    },
+    {
+      "kind": "adcs",
+      "verdict": "candidate",
+      "checks": [
+        {
+          "check": "esc-rule-hit",
+          "ok": true,
+          "detail": "ESC families matched: ESC1,ESC8",
+          "severity": "info"
+        },
+        {
+          "check": "enroll-and-approval",
+          "ok": true,
+          "detail": "current principal can enroll without manager approval",
+          "severity": "info"
+        },
+        {
+          "check": "auth-succeeded",
+          "ok": false,
+          "detail": "certipy auth / PKINIT obtained a TGT",
+          "severity": "info"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "high",
+          "title": "ESC1 candidate on a template",
+          "evidence": "template[0]"
+        },
+        {
+          "severity": "high",
+          "title": "ESC8 candidate on a template",
+          "evidence": "template[0]"
+        }
+      ],
+      "failure_criteria": [
+        "certipy find 报 vulnerable 但当前账号无 Enroll：不可利用，转 ESC4/ESC5/ESC7。",
+        "模板要求 manager approval 或 CA 拒绝 SAN：ESC1/ESC6 不成立，别反复试。",
+        "只拿到 pfx、certipy auth 失败：证书用途/UPN/DC 不匹配，是素材不是打穿。",
+        "EPA/LDAP signing/SMB signing 已开：ESC8 relay 基本不可用，转凭据直连。",
+        "没有模板/ACL 数据：不要凭 CA 名称或默认模板猜 ESC。"
+      ],
+      "templates": [
+        {
+          "index": 0,
+          "template_fp": "3d434fbf819b390e",
+          "enroll_allowed": true,
+          "san_enforced": false,
+          "client_auth_eku": true,
+          "any_purpose": false,
+          "manager_approval": false,
+          "ca_san_allowed": true,
+          "acl_writable": false,
+          "agent_template": false,
+          "http_endpoint": true,
+          "ntlm_relay_allowed": true,
+          "esc": [
+            "ESC1",
+            "ESC8"
+          ],
+          "blockers": []
+        }
+      ],
+      "ca": {
+        "name_fp": "38b9527322775bca",
+        "http_endpoint": true,
+        "ntlm_relay_allowed": true
+      }
+    },
+    {
+      "kind": "delegation",
+      "verdict": "candidate",
+      "checks": [
+        {
+          "check": "delegation-attribute",
+          "ok": true,
+          "detail": "unconstrained/constrained/RBCD attribute seen",
+          "severity": "info"
+        },
+        {
+          "check": "target-in-scope",
+          "ok": true,
+          "detail": "target SPN/principal is inside the delegation scope",
+          "severity": "info"
+        },
+        {
+          "check": "service-ticket",
+          "ok": false,
+          "detail": "S4U/getST returned a usable service ticket",
+          "severity": "info"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "high",
+          "title": "delegation path: unconstrained",
+          "evidence": "account[0] target="
+        }
+      ],
+      "failure_criteria": [
+        "msDS-AllowedToDelegateTo 不含目标 SPN：constrained 不成立，换目标或转 RBCD。",
+        "没有可控主机：unconstrained 拿不到 TGT，先找可控机器或转其他路径。",
+        "目标禁用协议转换/TGT 委派：S4U2Self/S4U2Proxy 会失败，别重复请求。",
+        "只有属性没有服务票据：是候选路径，不是打穿。",
+        "RBCD 无写权限或目标已设置 msDS-AllowedToActOnBehalfOfOtherIdentity：先清理/换目标。"
+      ],
+      "accounts": [
+        {
+          "index": 0,
+          "account_fp": "7e1b33d26620abb9",
+          "paths": [
+            "unconstrained"
+          ],
+          "blockers": [],
+          "ticket_obtained": false,
+          "target_fp": ""
+        }
+      ]
+    },
+    {
+      "kind": "k8s-rbac",
+      "verdict": "candidate",
+      "checks": [
+        {
+          "check": "authz-allowed",
+          "ok": true,
+          "detail": "allowed rules=2",
+          "severity": "info"
+        },
+        {
+          "check": "create-pods",
+          "ok": true,
+          "detail": "create pods/daemonsets/jobs",
+          "severity": "info"
+        },
+        {
+          "check": "escape-primitive",
+          "ok": true,
+          "detail": "privileged/hostPath/hostPID/hostNetwork",
+          "severity": "info"
+        },
+        {
+          "check": "host-proof",
+          "ok": false,
+          "detail": "host id or host filesystem read",
+          "severity": "info"
+        },
+        {
+          "check": "secret-proof",
+          "ok": false,
+          "detail": "secret read and proven usable",
+          "severity": "info"
+        }
+      ],
+      "findings": [
+        {
+          "severity": "high",
+          "title": "RBAC path: pod-escape",
+          "evidence": "allowed=2 rules"
+        }
+      ],
+      "failure_criteria": [
+        "can-i 全为 no：停止提权尝试，转 Secret/CI 凭据或应用层。",
+        "有 create pods 但 PSA/Quota/Admission 拒绝：不是逃逸成功，记录拒绝原因。",
+        "hostNetwork 存在不等于宿主文件系统可读；必须有宿主 id/文件证据。",
+        "Secret 可读但为空/过期/不能登录：是素材不是凭据。",
+        "SA 名称像 cluster-admin 不能替代 auth can-i 与绑定核对。"
+      ],
+      "paths": [
+        "pod-escape"
+      ],
+      "blockers": [
+        "secret readable but not proven usable"
+      ],
+      "allowed_count": 2
+    }
+  ],
+  "summary": {
+    "candidate": 5
+  }
+}

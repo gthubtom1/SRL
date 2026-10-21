@@ -7,7 +7,7 @@
 | Cost | three arms plus one harness correction; the two defects below both produce a *believable* zero-event trace, so they would have been read as a target finding |
 | Outcome | the crash half has a clean cause (`exclude` fixes it); the zero-event half does not, and is now an explicit warning in the script rather than a silent empty log |
 | Evidence | `references/evidence-summary.md` §The capability matrix; `references/evidence-summary.md` §The capability matrix (device attempts A and B) |
-| Related | `references/native-dbi-and-deobfuscation.md`; `scripts/stalker_trace.js`, `scripts/stalker_report.py`; `pitfalls.md` P26 |
+| Related | `references/native-dbi-and-deobfuscation.md`; `scripts/stalker_trace.js`, `scripts/stalker_report.py`; `pitfalls-3-patching-and-artifacts.md` |
 
 ## Assertions and grade
 | # | Assertion | Grade | Evidence |

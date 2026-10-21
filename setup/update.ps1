@@ -39,7 +39,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
 $AgentDir  = Join-Path $env:USERPROFILE '.pi\agent'
 $VersionFile = Join-Path $Root 'VERSION'
-$ChangeLogFile = Join-Path $Root 'CHANGELOG.md'
+$ChangeLogFile = Join-Path $Root 'docs/CHANGELOG.md'
 $McpJson   = Join-Path $AgentDir 'mcp.json'
 
 $script:Warnings = @()

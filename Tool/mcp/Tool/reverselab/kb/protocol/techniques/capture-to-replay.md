@@ -2,6 +2,8 @@
 
 > 核心问题：**服务端为什么接受下一帧？**
 > 先原样复现，再单变量构造；每次改动保留基线、原始字节与响应哈希。
+> 深水区：`Tool/skill/protocol-plugin/references/06-app-state-machine.md` 与
+> `08-replay-and-new-request.md`；构造器用 `scripts/proto-repro.py --rebuild`。
 
 ## 1. 会话切片
 
@@ -9,7 +11,7 @@
 tshark -r capture.pcapng -q -z conv,tcp
 tshark -r capture.pcapng -Y "tcp.stream==7" -T fields \
   -e frame.number -e frame.time_epoch -e ip.src -e tcp.srcport \
-  -e ip.dst -e tcp.dstport -e tcp.seq -e tcp.len -e data.data > stream7.tsv
+  -e ip.dst -e tcp.dstport -e tcp.seq -e tcp.len -e tcp.payload > stream7.tsv
 ```
 
 每条消息记录：
@@ -80,6 +82,7 @@ def recv(sock, n=4096):
 - 高频/并发/破坏性测试需单独授权并限速。
 
 **判据**：原样重放与基线一致（时间/nonce 变化可解释）；单变量响应符合预测。
+长度/校验一律由构造器重算（`proto-repro.py --rebuild`），不手工改十六进制。
 
 ## 5. 负例矩阵
 
@@ -102,4 +105,11 @@ def recv(sock, n=4096):
 - [ ] 配对规则、心跳/超时/重连参数可复述。
 - [ ] 能构造服务端接受的新业务请求并预测响应。
 - [ ] 负例覆盖长度、校验、nonce、token、seq、必选字段。
-- [ ] 他人按 `schema.md + replay.py` 能复跑。
+- [ ] 他人按 `schema.json + proto-repro.py` 能复跑。
+- [ ] `artifacts/run.json` 里每条命令都有 cmd/rc，失败也有记录。
+
+## 7. 边界与失败判据
+
+- 只有 T1（原样重放）时只能写"部分复刻"，卡点必须点名（签名/nonce/风控/mTLS）。
+- 任何字段改动都被拒 → 先做签名覆盖实验，再考虑放弃；不要靠换账号绕过。
+- 出现越权读（换 id 读到他人数据）→ 立即停并按授权流程上报。

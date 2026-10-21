@@ -1,105 +1,133 @@
-# 证据链与完整性
+# 证据链：四要素、哈希链、案例字段与污染控制
 
-> 配套 `forensics-mobile/SKILL.md` 的 §A4。目标：**任何结论都能被第三方按同样命令复述，且能证明“这份证据没被换过”。**
-> 只对自有或明确授权的镜像、抓包、设备操作；原件只读，分析在副本。
+> **适用**：任何要提交/复核的取证结论；尤其是内存、磁盘、EVTX、hive、浏览器 History、iOS/游戏客户端混合案例。
+> **不适用**：只做探索性排查、不打算复现的临时观察；但一旦写进报告，就必须按本页补齐。
+> 目标：第三方拿同样的证据与命令，能得到同样的结论；任何“换过/写过/缺时区”都能被看出来。
 
-## 1. 四要素与结论格式
+## 1. 四要素（每条结论必填）
 
-每条结论必须能填满：
-
-| 要素 | 必填 | 示例 |
-|---|---|---|
-| 时间 | UTC + 原时区/偏移 | `2026-10-20T03:14:07Z`（设备 UTC+8，偏差 +2s） |
-| 主体 | 用户/进程/设备/账号 | `PID 4242 / user alice / bundle com.example.app` |
-| 动作 | 读取/写入/外联/执行/删除 | `POST https://example.invalid/api/upload` |
-| 对象 | 路径/inode/URL/五元组/注册表键 | `/Users/alice/Documents/a.docx`（sha256 …） |
+| 要素 | 必填 | 示例 | 机检 |
+|---|---|---|---|
+| 时间 | UTC + 原时区/偏移 | `2026-10-20T03:14:07Z`（UTC+8，偏差 +2s） | `time_utc` 可解析 ISO |
+| 主体 | 用户/进程/设备/账号 | `PID 4242 / alice / com.example.app` | `actor` 非空 |
+| 动作 | 读取/写入/外联/执行/删除 | `POST https://example.invalid/api/upload` | `action` 非空 |
+| 对象 | 路径/inode/URL/五元组/键 | `/home/alice/a.docx`（sha256 …） | `object` 非空 |
+| 置信 | observed/inferred/unverified | `observed` | 枚举校验 |
 
 ```json
 {"claim":"PID 4242 在 03:14Z 外联 203.0.113.9:443",
- "time_utc":"2026-10-20T03:14:07Z","actor":"PID 4242 (updater.exe)",
+ "time_utc":"2026-10-20T03:14:07Z","actor":"PID 4242 (updater)",
  "action":"TLS connect + POST","object":"203.0.113.9:443 /api/upload",
- "confidence":"observed","evidence_refs":["mem.raw#pid=4242","capture.pcap#tcp.stream=7"],
+ "confidence":"observed","evidence_refs":["mem.raw#pid=4242","capture#tcp.stream=7"],
  "command":"vol.py -f mem.raw windows.netscan.NetScan"}
 ```
 
-**判据**：把 `command` 原样交给另一个人，他能得到同一对象/同一时间，且 `evidence_refs` 能定位到具体条目。
+规则：
 
-## 2. 采集与封存
+- 缺主体或对象 → 不是结论，是线索；写 `unverified` 或删掉。
+- 时间只有本地时间 → 先换算 UTC，保留原值与偏移；换算方法写清。
+- 同一结论多源冲突 → 并列，标各自置信；不要挑“好看”的那个。
 
-```bash
-mkdir -p case/{evidence,work,export,report}
-cp --reflink=auto <image> case/evidence/ 2>/dev/null || cp <image> case/evidence/
-sha256sum case/evidence/* | tee case/evidence/SHA256SUMS
-stat -c '%n %s %y %a' case/evidence/* | tee case/evidence/STAT.txt
-chmod 444 case/evidence/* 2>/dev/null
-```
-
-- 记录：采集人、采集时间、设备归属、采集工具/版本、写保护方式、存储介质编号。
-- 内存先采、网络次之、磁盘最后；断电/重启会毁掉易失证据。
-- 移动设备记录：型号、系统版本、越狱/root 状态、锁屏状态、飞行模式、时区。
-- 云端/远端证据记录：账号、租户、API、导出时间、导出范围。
-
-**判据**：`SHA256SUMS` + `STAT.txt` + 采集记录三件齐全，且原件权限为只读。
-
-## 3. 哈希与副本策略
+## 2. 哈希链（证据完整性）
 
 ```bash
-sha256sum evidence/mem.raw
-sha256sum -c evidence/SHA256SUMS
-cmp -n 1048576 evidence/mem.raw work/copy.raw && echo "first 1MiB identical"
+# 采集端：原件 + 副本 + 清单
+sha256sum input/* | tee input/SHA256SUMS
+# 分析端：每次产物单独算，不覆盖 input/
+sha256sum artifacts/* > artifacts/SHA256SUMS
 ```
 
-- 大镜像可先算分段哈希（每 1GiB）再算全量；记录块大小与顺序。
-- 工作副本命名带 `work/` 前缀；报告只引用 `evidence/` 的哈希。
-- 每次导出/转换（pcap→json、内存→dump）都记录**输入哈希 → 命令 → 输出哈希**。
-- 哈希不一致先停：可能是复制错误、坏道、或证据被改；不要“重新算一次”掩盖。
+要求：
 
-**判据**：输入/输出哈希链完整，任一步可重放；不一致有明确处置记录。
+- `input/` 只读；`artifacts/` 可写；产物不写回 `input/`。
+- 案例 `artifacts[]` 里每个路径都有 64 位 sha256；门禁会复算，不一致即 FAIL。
+- 大镜像可先 `--no-hash` 初检，但提交时必须补全或说明“未哈希原因”。
+- 哈希算法、工具版本、命令、时间、操作者写进 `acquisition`/`lessons`。
 
-## 4. 时间线归一
+最小案例字段（`Tool/cases/<id>/case.json`）：
 
-```bash
-# pcap：epoch → UTC
-tshark -r capture.pcap -T fields -e frame.time_epoch -e frame.time | head
-# 文件系统：bodyfile → UTC 时间线
-fls -r -m "/" -o 2048 disk.img > bodyfile.txt
-mactime -b bodyfile.txt -d -z UTC > timeline.csv
-# 统一排序（示例：ISO8601 第一列）
-sort -t',' -k1,1 timeline.csv > timeline.sorted.csv
+```json
+{
+  "id": "forensics03", "domain": "forensics-mobile",
+  "target_type": "真实 Windows 主机取证包", "evidence_kind": "real",
+  "protection": [], "authority": "local", "goal_level": "L3",
+  "outcome": "partial",
+  "acquisition": {"method":"...","tool":"...","collected_at":"...Z",
+                  "timezone":"UTC","clock_skew":"unknown"},
+  "timeframe": {"start":"...Z","end":"...Z","clock_skew":"unknown"},
+  "artifacts": [{"path":"artifacts/timeline.json","sha256":"..."}],
+  "findings": [{"time_utc":"...Z","actor":"...","action":"...","object":"...",
+                "confidence":"observed","evidence_refs":["input/..."]}],
+  "lessons": ["跑的是 …，命令 …，rc=0；…"],
+  "refs": ["Tool/skill/forensics-mobile/references/01-criteria.md"],
+  "updated": "2026-10-21"
+}
 ```
 
-- 所有时间存两份：原值 + UTC；保留时区、夏令时、NTP 偏差、文件系统精度。
-- 时钟偏差用同一事件的多源时间对齐（登录日志/包时间/文件 mtime），不要直接改原值。
-- 时间线冲突先查：时区、单位（秒/毫秒/100ns）、FAT 2s、APFS 纳秒、日志服务器延迟。
-- 采集顺序也会造成“后发生的事件时间更早”，在报告中说明。
+## 3. 采集记录（acquisition）
 
-**判据**：任一时间点能回答“哪个证据源、原值多少、如何换算、误差多少”。
+必填：`method`（live/copy/crash/export）、`tool`、`collected_at`、`timezone`、`clock_skew`、`source`、`readonly`。
 
-## 5. 完整性提示与常见污染
+补充建议：
 
-| 风险 | 检查 | 处置 |
+- 设备/主机名、OS build、磁盘序列号（脱敏）、采集人、授权范围。
+- 采集顺序：内存 → 网络 → 磁盘；断电/重启会毁掉易失证据。
+- 采集工具版本与参数（`dd bs=...`、`ewfacquire -c ...`、`vol.py` 版本）。
+- 若原件曾被挂载/运行/改时间戳，写“污染时间窗 + 影响范围”，不要隐瞒。
+
+## 4. 时间线冲突处理
+
+| 冲突 | 常见原因 | 处理 |
 |---|---|---|
-| 原件被写 | `stat` mtime/权限、哈希复算 | 停，换副本，记录 |
-| 直接挂载/打开 | 是否产生 `.journal`/`.wal`/`.shm` | 先复制三件套再打开 |
-| SQLite 回写 | 打开后 mtime 变化 | 用只读 URI 或副本 |
-| 内存镜像截断 | 文件大小 vs 声明大小 | 标“不完整”，限制结论 |
-| pcap 丢包 | `capinfos` 的 dropped/truncated | 标“可能缺会话” |
-| 时区混用 | 时间线原值/UTC 对照 | 统一并保留原值 |
-| 证据脱敏 | token/密码/个人信息 | 报告打码，原始证据单独封存 |
+| 设备时间与服务器差整数小时 | 时区/夏令时 | 统一 UTC，保留原偏移；用登录/HTTP Date 校准 |
+| 文件 mtime 早于创建时间 | 时间戳篡改/复制保留 | 并列 `$SI`/`$FN`，标“可能篡改” |
+| EVTX 时间跳变/RecordId 空洞 | 日志清除/滚动 | 写“日志不完整”，不据此排因果 |
+| 浏览器时间在 1601/1970 | 纪元换算错 | 按库类型重算，抽样对照 |
+| 内存时间与磁盘时间差几分钟 | 采集顺序/缓存 | 写采集窗口，不强行对齐到秒 |
+| ZIP/IPA 时间与安装时间不符 | DOS 时间/本地时区 | 只做参考，不做运行时间证据 |
+
+原则：**保留原值 + 统一 UTC + 显式偏差**；冲突不掩盖，写“无法判定顺序”。
+
+## 5. 污染控制清单
+
+- [ ] 原件只读；分析在副本；副本哈希与原件一致。
+- [ ] SQLite 复制 `-wal/-shm/-journal`；用 `mode=ro&immutable=1`。
+- [ ] 注册表用 `reg save` 导副本；不 `reg load` 原件；带 `LOG1/LOG2`。
+- [ ] 镜像不写挂载；用 `icat`/`fls` 按偏移读；必要时 `ro,loop,noatime`。
+- [ ] 不运行样本、不执行包内二进制、不 `chkdsk`。
+- [ ] 导出对象按 `tcp.stream`/inode/记录号唯一命名，不覆盖。
+- [ ] 每次写产物后重算哈希，更新案例。
+- [ ] 对外分享前脱敏 URL 参数、用户名、SID、设备标识、Keychain 元数据。
+
+## 6. 机检与人工复核
 
 ```bash
-# SQLite 只读打开（避免写 WAL）
-sqlite3 'file:app.db?mode=ro&immutable=1' 'PRAGMA integrity_check; .tables'
+python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json
 ```
 
-**判据**：报告能说明“哪些动作可能改变证据”，以及为什么当前结论不受影响。
+机检能证明：
 
-## 6. 证据链交付清单
+- 字段齐全、domain/outcome/evidence_kind 自洽；
+- artifacts 路径存在、sha256 复算一致、无 `../` 逃逸；
+- acquisition/timeframe 字段齐全、时间可解析；
+- findings 四要素/置信枚举/evidence_refs 存在；
+- lessons[0] 写了命令与 rc；refs 指向真实文件；
+- timeline.json 有 `ok=true` 且事件非空。
 
-- [ ] 来源、采集人/时间、工具/版本、授权范围。
-- [ ] 原件只读 + SHA256 + 大小 + 存储位置。
-- [ ] 工作副本与导出物的输入/输出哈希链。
-- [ ] 时间线统一 UTC，保留原值、时区与偏差。
-- [ ] 每条结论四要素齐全，标 observed/inferred/unverified。
-- [ ] 失败/缺口单独列出，不用“dump 成功”代替结论。
-- [ ] 敏感信息已脱敏，原始证据访问受控。
+机检不能证明：
+
+- 结论为真、时间未被篡改、主体归因正确；
+- 工具没有 bug、哈希链覆盖了所有副本；
+- 证据采集合法/授权充分。
+
+所以最终报告仍需人工写：`observed/inferred/unverified`、反证、边界、代价。
+
+## 7. 失败判据与边界
+
+- 关键证据哈希不一致/原件被写 → 该链作废，重采或说明污染范围。
+- 四要素缺主体或对象 → 降级为线索，不进结论段。
+- 时间线缺时区/时钟偏差且无法补齐 → 只写“候选顺序”，不写因果。
+- 采集记录缺 method/tool/collected_at/timezone → 不能证明“这是什么时候、怎么拿到的”。
+- 只读边界被突破（注入/写内存/改文件） → 停，记录动作与影响。
+
+> 相关：`01-criteria.md`、`02-failure-criteria.md`、`04-walkthrough-windows-evtx-registry.md`、`disk-and-filesystem.md`。

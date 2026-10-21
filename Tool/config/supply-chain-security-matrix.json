@@ -6,136 +6,400 @@
   "rows": [
     {
       "category": "lockfile",
+      "match": [
+        "package.json",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "requirements.txt",
+        "poetry.lock",
+        "go.sum",
+        "Cargo.lock",
+        "Gemfile.lock"
+      ],
       "checkpoint": "package-lock/yarn.lock/pnpm-lock/Pipfile.lock/poetry.lock/go.sum/Cargo.lock/Gemfile.lock/composer.lock",
       "criteria": "每个应用生态有锁文件；锁文件与清单同源；CI 使用冻结安装（npm ci / --frozen-lockfile / -mod=readonly）",
-      "tools": ["sc-check.py", "git ls-files", "CI 配置 grep"],
-      "false_positive_risk": "medium：库项目可不提交 Cargo.lock；monorepo 根锁文件覆盖子包"
+      "fail": "锁文件缺失/与清单不同源，或 CI 使用非冻结安装 → 只能写“依赖面未锁定”，不能写“可复现构建”。",
+      "tools": [
+        "sc-check.py",
+        "git ls-files",
+        "CI 配置 grep"
+      ],
+      "false_positive_risk": "medium：库项目可不提交 Cargo.lock；monorepo 根锁文件覆盖子包",
+      "commands": "git ls-files '*lock*' '*lock.json' 'go.sum'; python Tool/scripts/sc-check.py --path . --out sc.json",
+      "pitfalls": "把“有锁文件”当“可复现”；忽略 CI 用 npm install 而非 npm ci"
     },
     {
       "category": "version-range",
+      "match": [
+        "^",
+        "~",
+        ">=",
+        "*",
+        "latest",
+        "git+",
+        "http:",
+        "file:",
+        "workspace:"
+      ],
       "checkpoint": "^ ~ >= * latest git+ http file: workspace:",
       "criteria": "生产依赖可追到精确版本或受控范围；URL/git/file 依赖有不可变 commit 与来源说明",
-      "tools": ["sc-check.py", "npm ls", "pip freeze", "go list -m all"],
-      "false_positive_risk": "medium：^/~ 是 npm 常规语义；workspace: 是 monorepo 本地协议"
+      "fail": "只有宽版本/URL 依赖但没有锁文件或解析结果 → 不写“会装到恶意版本”，只写范围风险。",
+      "tools": [
+        "sc-check.py",
+        "npm ls",
+        "pip freeze",
+        "go list -m all"
+      ],
+      "false_positive_risk": "medium：^/~ 是 npm 常规语义；workspace: 是 monorepo 本地协议",
+      "commands": "jq -r '.dependencies|to_entries[]|select(.value|test(\"[*^~]|latest|git+|http\"))' package.json",
+      "pitfalls": "把 ^/~ 一律当漏洞；忽略锁文件已固定实际版本"
     },
     {
       "category": "sbom",
+      "match": [
+        "bom.json",
+        "cyclonedx",
+        "spdx",
+        "syft",
+        "cdxgen"
+      ],
       "checkpoint": "CycloneDX/SPDX、直接+传递依赖、生成时间、subject digest",
       "criteria": "SBOM 对应 commit 或 image digest；组件能追到锁文件/OS 包；工具与版本可复现",
-      "tools": ["syft", "cdxgen", "sc-check.py（清单盘点）"],
-      "false_positive_risk": "medium：SBOM 格式合法但内容过期；语言包与 OS 包边界不清"
+      "fail": "SBOM 无 subject/commit，或组件数与锁文件差 >20% → 清单不可信，重生成或降级到锁文件解析。",
+      "tools": [
+        "syft",
+        "cdxgen",
+        "sc-check.py（清单盘点）"
+      ],
+      "false_positive_risk": "medium：SBOM 格式合法但内容过期；语言包与 OS 包边界不清",
+      "commands": "syft dir:. -o cyclonedx-json=bom.json; python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom bom.json --source .",
+      "pitfalls": "SBOM 格式合法就信；不核对 subject 与 commit/digest"
     },
     {
       "category": "sca-reachability",
+      "match": [
+        "CVE-",
+        "GHSA-",
+        "osv",
+        "grype",
+        "trivy"
+      ],
       "checkpoint": "OSV/GHSA 命中、调用链、运行时加载、补丁版本",
       "criteria": "高危项有可达/不可达结论与证据；不可达写明原因；仅版本匹配不算确认",
-      "tools": ["osv-scanner", "grype", "trivy", "semgrep"],
-      "false_positive_risk": "high：传递依赖未打包、死代码、仅测试依赖、backport 已修复"
+      "fail": "只有版本命中、无调用链/运行时加载证据 → 疑似，不写“可利用/可 RCE”。",
+      "tools": [
+        "osv-scanner",
+        "grype",
+        "trivy",
+        "semgrep"
+      ],
+      "false_positive_risk": "high：传递依赖未打包、死代码、仅测试依赖、backport 已修复",
+      "commands": "osv-scanner scan -r . --format json > osv.json; python Tool/skill/supply-chain-security/scripts/sbom-reach.py --lock package-lock.json --source .",
+      "pitfalls": "版本命中即写 RCE；不查调用链、运行时加载、backport"
     },
     {
       "category": "dependency-confusion-npm",
+      "match": [
+        "@scope/",
+        ".npmrc",
+        "resolved",
+        "integrity"
+      ],
       "checkpoint": "私有 scope、.npmrc registry、锁文件 resolved/integrity",
       "criteria": "每个私有 scope 有显式 registry 映射；锁文件 resolved 指向受控源且有 integrity",
-      "tools": ["sc-check.py", "npm config get", "npm view（授权联网）"],
-      "false_positive_risk": "high：公开 scope 被误判为私有；企业私有包也托管在公共 registry"
+      "fail": "只看到私有 scope 名，未验证 registry 实际解析与锁文件 resolved → 只写“配置缺失/未锁定”。",
+      "tools": [
+        "sc-check.py",
+        "npm config get",
+        "npm view（授权联网）"
+      ],
+      "false_positive_risk": "high：公开 scope 被误判为私有；企业私有包也托管在公共 registry",
+      "commands": "cat .npmrc; jq -r '.packages|to_entries[]|select(.value.resolved)|.value.resolved' package-lock.json | head",
+      "pitfalls": "只看到 @corp/ 就写可抢注；不核对 registry 映射与 resolved"
     },
     {
       "category": "dependency-confusion-python",
+      "match": [
+        "internal-",
+        "pip.conf",
+        "--extra-index-url",
+        "--index-url"
+      ],
       "checkpoint": "内部包名、pip.conf index-url、--extra-index-url、hash",
       "criteria": "内部包只从受控 index 解析；公共源不能回退；安装使用 --require-hashes",
-      "tools": ["sc-check.py", "pip config list", "pip download（隔离环境）"],
-      "false_positive_risk": "high：包名含 internal 但是公开库；镜像站同时代理公共与私有"
+      "fail": "包名像内部包，但没有 index 配置或解析结果 → 疑似，不写“可被抢注”。",
+      "tools": [
+        "sc-check.py",
+        "pip config list",
+        "pip download（隔离环境）"
+      ],
+      "false_positive_risk": "high：包名含 internal 但是公开库；镜像站同时代理公共与私有",
+      "commands": "pip config list; grep -nE 'index-url|extra-index-url|require-hashes' requirements.txt pip.conf 2>/dev/null",
+      "pitfalls": "把 internal- 前缀当私有包；忽略镜像站同时代理公私源"
     },
     {
       "category": "dependency-confusion-nuget-maven",
+      "match": [
+        "packageSourceMapping",
+        "nuget.config",
+        "SNAPSHOT",
+        "settings.xml"
+      ],
       "checkpoint": "packageSourceMapping、feed 顺序、groupId 镜像、SNAPSHOT",
       "criteria": "私有命名空间只映射到私有 feed；公共源不可回退；生产禁止 SNAPSHOT",
-      "tools": ["dotnet nuget list source", "mvn help:effective-settings", "sc-check.py"],
-      "false_positive_risk": "medium：企业 Nexus 同时代理 nuget.org/Maven Central，需看 mapping 而非 source 列表"
+      "fail": "只有 source 列表、无 packageSourceMapping/解析顺序 → 需人工确认映射，不写“公共源可回退”。",
+      "tools": [
+        "dotnet nuget list source",
+        "mvn help:effective-settings",
+        "sc-check.py"
+      ],
+      "false_positive_risk": "medium：企业 Nexus 同时代理 nuget.org/Maven Central，需看 mapping 而非 source 列表",
+      "commands": "dotnet nuget list source; grep -n 'packageSourceMapping' -A20 nuget.config; mvn help:effective-settings",
+      "pitfalls": "只看 source 列表；不看 mapping 顺序与回退"
     },
     {
       "category": "install-scripts",
+      "match": [
+        "preinstall",
+        "postinstall",
+        "prepare",
+        "node-gyp",
+        "curl",
+        "wget",
+        "base64",
+        "eval"
+      ],
       "checkpoint": "preinstall/postinstall/prepare、node-gyp、下载二进制、base64/eval",
       "criteria": "安装期执行的每条命令有来源与必要性；下载内容有 hash；无法解释的脚本单列风险",
-      "tools": ["jq .scripts package.json", "grep -RInE", "sc-check.py"],
-      "false_positive_risk": "medium：esbuild/sharp 等原生包正常下载预编译二进制；需核对 URL 与校验"
+      "fail": "脚本存在但未读内容/未核对下载 hash，或 URL 是官方 CDN 且有校验 → 加固项，不写“投毒”。",
+      "tools": [
+        "jq .scripts package.json",
+        "grep -RInE",
+        "sc-check.py"
+      ],
+      "false_positive_risk": "medium：esbuild/sharp 等原生包正常下载预编译二进制；需核对 URL 与校验",
+      "commands": "jq -r '.scripts // {}' package.json; grep -RInE 'curl|wget|base64|eval|child_process' package.json scripts",
+      "pitfalls": "把官方 CDN 下载预编译包当投毒；不核对 hash 与域名"
     },
     {
       "category": "ci-permissions",
+      "match": [
+        "permissions:",
+        "write-all",
+        "contents: write",
+        "pull-requests: write"
+      ],
       "checkpoint": "permissions: write-all / 缺省 / job 级最小权限",
       "criteria": "每个 workflow 有显式最小 permissions；发布 job 才给 contents/packages write",
-      "tools": ["sc-check.py", "actionlint", "GitHub API"],
-      "false_positive_risk": "medium：仓库默认权限可能是只读；job 级 permissions 可覆盖顶层"
+      "fail": "仓库默认权限未知，或只看到顶层写权限但 job 级已收窄 → 不写“token 过大可提权”。",
+      "tools": [
+        "sc-check.py",
+        "actionlint",
+        "GitHub API"
+      ],
+      "false_positive_risk": "medium：仓库默认权限可能是只读；job 级 permissions 可覆盖顶层",
+      "commands": "python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out ci.json",
+      "pitfalls": "只看顶层 permissions；忽略 job 级覆盖与仓库默认权限"
     },
     {
       "category": "ci-trigger",
+      "match": [
+        "pull_request_target",
+        "workflow_run",
+        "issue_comment",
+        "self-hosted"
+      ],
       "checkpoint": "pull_request_target、workflow_run、issue_comment、self-hosted",
       "criteria": "不可信触发不接触 secrets/写 token；checkout 的 ref 不是 PR head；自托管只跑受保护分支",
-      "tools": ["sc-check.py", "actionlint", "只读导出 workflow"],
-      "false_positive_risk": "high：pull_request_target + 审批环境保护 + 只读 job 可能是安全设计"
+      "fail": "只有触发器关键字，没有 checkout PR head/secrets/写权限组合 → 疑似，不写“已被利用”。",
+      "tools": [
+        "sc-check.py",
+        "actionlint",
+        "只读导出 workflow"
+      ],
+      "false_positive_risk": "high：pull_request_target + 审批环境保护 + 只读 job 可能是安全设计",
+      "commands": "grep -RInE 'pull_request_target|workflow_run|issue_comment|self-hosted' .github/workflows",
+      "pitfalls": "关键字命中即写已被利用；不看 checkout/secrets/权限组合"
     },
     {
       "category": "ci-action-pin",
+      "match": [
+        "uses:",
+        "@v",
+        "@main",
+        "docker://"
+      ],
       "checkpoint": "uses: owner/action@tag|branch|sha、docker:// digest、local action",
       "criteria": "第三方 action 固定 40 位 commit SHA；docker action 固定 sha256；更新走 Dependabot/PR",
-      "tools": ["sc-check.py", "pin-github-action", "GitHub API"],
-      "false_positive_risk": "medium：官方 action 的 major tag 是常见做法，但仍是可移动引用"
+      "fail": "action 未 pin，但 token 只读且无 secrets → 加固项，不写“tag 已被重写/投毒”。",
+      "tools": [
+        "sc-check.py",
+        "pin-github-action",
+        "GitHub API"
+      ],
+      "false_positive_risk": "medium：官方 action 的 major tag 是常见做法，但仍是可移动引用",
+      "commands": "grep -RInE 'uses:' .github/workflows; python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows",
+      "pitfalls": "未 pin 就写已被投毒；忽略 token 只读且无 secrets"
     },
     {
       "category": "ci-injection",
+      "match": [
+        "${{ github.event",
+        "github.head_ref",
+        "${{ inputs"
+      ],
       "checkpoint": "run/script 中的 ${{ github.event.* }}、github.head_ref、参数插值",
       "criteria": "不可信事件字段不直接进入 shell；通过 env + 引号/白名单传递",
-      "tools": ["sc-check.py", "actionlint", "semgrep"],
-      "false_positive_risk": "medium：表达式只用于 if/with 且未进入 shell 时不可注入"
+      "fail": "表达式只用于 if/with，或值经过白名单/引号 → 不是 shell 注入，降级。",
+      "tools": [
+        "sc-check.py",
+        "actionlint",
+        "semgrep"
+      ],
+      "false_positive_risk": "medium：表达式只用于 if/with 且未进入 shell 时不可注入",
+      "commands": "grep -RInE '\\$\\{\\{ *github\\.(event|head_ref)|\\$\\{\\{ *inputs' .github/workflows",
+      "pitfalls": "把 if/with 里的表达式当 shell 注入；不看是否进入 run"
     },
     {
       "category": "ci-secrets",
+      "match": [
+        "secrets.",
+        "secrets: inherit"
+      ],
       "checkpoint": "secrets.* 作用域、环境保护、OIDC、长期密钥",
       "criteria": "PR/不可信触发拿不到 secrets；优先 OIDC 短期凭据；密钥有轮换记录",
-      "tools": ["sc-check.py", "GitHub API", "gitleaks"],
-      "false_positive_risk": "medium：GITHUB_TOKEN 出现在 secrets 上下文但权限只读；环境保护已限制"
+      "fail": "PR/不可信触发实际拿不到 secrets，或环境保护已限制 → 降级为配置观察。",
+      "tools": [
+        "sc-check.py",
+        "GitHub API",
+        "gitleaks"
+      ],
+      "false_positive_risk": "medium：GITHUB_TOKEN 出现在 secrets 上下文但权限只读；环境保护已限制",
+      "commands": "grep -RInE 'secrets\\.|secrets: inherit' .github/workflows",
+      "pitfalls": "看到 secrets 就写泄漏；不看触发者与环境保护"
     },
     {
       "category": "image-tag",
+      "match": [
+        "FROM ",
+        "image:",
+        "latest",
+        "@sha256:"
+      ],
       "checkpoint": "FROM image:tag / :latest / @sha256、compose image:",
       "criteria": "基础镜像与部署镜像固定 repo@sha256；tag 只作可读别名",
-      "tools": ["sc-check.py", "crane digest", "skopeo inspect"],
-      "false_positive_risk": "medium：多阶段 FROM <stage> 是本地别名；scratch 无 digest"
+      "fail": "只有 tag、没有 digest 对照（RepoDigests/crane digest）→ 对象不可钉住，签名/来源结论无效。",
+      "tools": [
+        "sc-check.py",
+        "crane digest",
+        "skopeo inspect"
+      ],
+      "false_positive_risk": "medium：多阶段 FROM <stage> 是本地别名；scratch 无 digest",
+      "commands": "grep -RInE '^FROM |image:' Dockerfile* docker-compose*.yml; docker image inspect <image> --format '{{.RepoDigests}}'",
+      "pitfalls": "把 tag 当 digest；多阶段 FROM <stage> 误判"
     },
     {
       "category": "dockerfile-secrets",
+      "match": [
+        "ARG ",
+        "ENV ",
+        "COPY .env",
+        "curl | sh",
+        "USER root"
+      ],
       "checkpoint": "ARG/ENV 密钥、COPY .env、curl|sh、ADD http、USER root",
       "criteria": "镜像层与 history 无密钥；构建期下载有 hash；运行时非 root",
-      "tools": ["sc-check.py", "docker history", "trivy image", "syft"],
-      "false_positive_risk": "medium：ARG 只用于构建且未写入最终层；chown/chmod 需要 root 的构建阶段"
+      "fail": "ARG 只在构建阶段且未写入最终层，或基础镜像自带非 root → 不写“密钥入镜像/必逃逸”。",
+      "tools": [
+        "sc-check.py",
+        "docker history",
+        "trivy image",
+        "syft"
+      ],
+      "false_positive_risk": "medium：ARG 只用于构建且未写入最终层；chown/chmod 需要 root 的构建阶段",
+      "commands": "docker history --no-trunc <image>; grep -nE 'ARG|ENV|COPY|USER' Dockerfile",
+      "pitfalls": "ARG 未入最终层也报密钥入镜像；忽略构建阶段需要 root"
     },
     {
       "category": "registry-integrity",
+      "match": [
+        "integrity",
+        "resolved",
+        "sha512",
+        "sha1"
+      ],
       "checkpoint": "resolved 来源、integrity/hash、registry TLS、镜像 manifest",
       "criteria": "每个锁定条目有 integrity/hash；resolved 指向受控 registry；TLS 校验开启",
-      "tools": ["sc-check.py", "npm audit signatures", "cosign"],
-      "false_positive_risk": "medium：私有 registry 使用自签 CA 但已固定证书；旧锁文件格式无 integrity"
+      "fail": "旧锁格式无 integrity，或私有源自签 CA 但已固定证书 → 记录缺口，不写“可被中间人替换”。",
+      "tools": [
+        "sc-check.py",
+        "npm audit signatures",
+        "cosign"
+      ],
+      "false_positive_risk": "medium：私有 registry 使用自签 CA 但已固定证书；旧锁文件格式无 integrity",
+      "commands": "jq -r '.packages|to_entries[]|select(.value.integrity|not)|.key' package-lock.json; npm config get registry",
+      "pitfalls": "旧锁格式无 integrity 直接判可被替换；忽略私有源自签已固定"
     },
     {
       "category": "signature",
+      "match": [
+        "cosign",
+        "gpg",
+        "minisign",
+        "verify"
+      ],
       "checkpoint": "cosign keyless/key、gpg/minisign、证书 identity/issuer、Rekor",
       "criteria": "签名通过 + identity/issuer 与预期流水线匹配 + 签名对象 digest 一致",
-      "tools": ["cosign", "gpg", "minisign"],
-      "false_positive_risk": "high：只看到 verify 退出码 0 未核对身份；自签证书冒充官方"
+      "fail": "verify rc=0 但未核对 certificate identity/issuer/签名对象 digest → 只写“存在签名”，不写“可信”。",
+      "tools": [
+        "cosign",
+        "gpg",
+        "minisign"
+      ],
+      "false_positive_risk": "high：只看到 verify 退出码 0 未核对身份；自签证书冒充官方",
+      "commands": "cosign verify <image> --certificate-identity <id> --certificate-oidc-issuer <issuer>",
+      "pitfalls": "只看 rc=0；不核对 identity/issuer/digest/Rekor"
     },
     {
       "category": "provenance",
+      "match": [
+        "attestation",
+        "slsa",
+        "provenance",
+        "builder.id"
+      ],
       "checkpoint": "SLSA attestation、builder.id、materials、configSource、subject digest",
       "criteria": "subject digest 一致 + builder 可信 + 源码 commit 可追 + 构建参数无未审计注入",
-      "tools": ["cosign verify-attestation", "slsa-verifier", "jq"],
-      "false_positive_risk": "high：attestation 可手工生成；SLSA level 数字不等于本次构建可信"
+      "fail": "attestation subject 与部署 digest 不一致，或未核对 builder/configSource → 未验证来源。",
+      "tools": [
+        "cosign verify-attestation",
+        "slsa-verifier",
+        "jq"
+      ],
+      "false_positive_risk": "high：attestation 可手工生成；SLSA level 数字不等于本次构建可信",
+      "commands": "cosign verify-attestation <image> --type slsaprovenance; cosign download attestation <image>",
+      "pitfalls": "attestation 存在即可信；不核对 subject、builder、configSource"
     },
     {
       "category": "license-policy",
+      "match": [
+        "license",
+        "NOASSERTION",
+        "GPL",
+        "AGPL"
+      ],
       "checkpoint": "许可证标识、copyleft、未知许可证、停止维护依赖",
       "criteria": "许可证能从 SBOM/锁文件追到组件；政策冲突由法务确认，本表只列证据",
-      "tools": ["syft", "licensee", "scancode-toolkit"],
-      "false_positive_risk": "high：许可证声明与实际不一致；双许可/例外条款需人工判断"
+      "fail": "许可证未知/双许可/例外条款未读 → 只列组件与声明证据，交法务，不下冲突结论。",
+      "tools": [
+        "syft",
+        "licensee",
+        "scancode-toolkit"
+      ],
+      "false_positive_risk": "high：许可证声明与实际不一致；双许可/例外条款需人工判断",
+      "commands": "syft dir:. -o spdx-json=sbom.spdx.json; jq -r '.packages[]|[.name,.licenseConcluded]|@tsv' sbom.spdx.json",
+      "pitfalls": "把 GPL 声明当违法；把 NOASSERTION 当冲突"
     }
   ]
 }

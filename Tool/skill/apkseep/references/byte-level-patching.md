@@ -185,7 +185,7 @@ Keep these properties; they are what make the edit auditable a month later:
 
 - The change needs new instructions, a new register, or a different call — go to method rewriting.
 - The change is a **short string constant** whose new value is a different length — you cannot grow the
-  string in place. Equal-length string swaps work (`pitfalls.md` P2 on the string-id ordering guard).
+  string in place. Equal-length string swaps work (`pitfalls-1-packaging-and-dex.md` on the string-id ordering guard).
   **A different-length value is not a byte patch at all**: `scripts/dex_strpatch.py` enforces equal
   length and will refuse it, so the work belongs to method rewriting (`references/dex-patching.md`)
   or a full rebuild — do not look for a "different-length byte patcher" in this kit, there isn't one.

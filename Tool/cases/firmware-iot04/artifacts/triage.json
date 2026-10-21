@@ -1,0 +1,200 @@
+{
+  "tool": "fw-triage",
+  "version": "1.1.0",
+  "generated_at": "2026-10-21T13:52:31Z",
+  "file": "Tool/cases/firmware-iot04/input/SecConfig.efi",
+  "ok": true,
+  "size": 1346960,
+  "size_human": "1.3 MiB",
+  "sha256": "820a15d9746c2877484f203f1d4678001d9a60173b3bfd6bf05884d41bba623e",
+  "containers": [
+    {
+      "offset": 0,
+      "type": "pe",
+      "description": "PE/COFF (DOS MZ header)",
+      "confidence": "high"
+    },
+    {
+      "offset": 10818,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 18587,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 24253,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 40228,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 96461,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 107922,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 149936,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 260886,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 265942,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 289472,
+      "type": "gzip",
+      "description": "gzip stream",
+      "confidence": "high"
+    },
+    {
+      "offset": 319649,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 320574,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 454285,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 614320,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 787761,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 883941,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 933201,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 993371,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 1023497,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 1181261,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (LE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 1183978,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 1186024,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 1187049,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    }
+  ],
+  "containers_truncated": 1,
+  "entropy": {
+    "overall": 6.489,
+    "max_block": 8.0,
+    "high_block_ratio": 0.015,
+    "sampled_bytes": 1346960,
+    "sample_truncated": false,
+    "interpretation": "mixed entropy: container + padding/compressed regions likely"
+  },
+  "credential_clues": [],
+  "clues_truncated": false,
+  "service_hints": {},
+  "tools": {
+    "binwalk": true,
+    "7z": true,
+    "unsquashfs": false,
+    "sasquatch": false,
+    "ubireader_extract_images": false,
+    "jefferson": false,
+    "cramfsck": false,
+    "zstd": false,
+    "strings": true
+  },
+  "suggested_commands": [
+    "file Tool/cases/firmware-iot04/input/SecConfig.efi && sha256sum Tool/cases/firmware-iot04/input/SecConfig.efi",
+    "strings -a -n 6 Tool/cases/firmware-iot04/input/SecConfig.efi | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
+    "dd if=Tool/cases/firmware-iot04/input/SecConfig.efi of=work/fw-triage/part.bin bs=1 skip=0  # carve first embedded container",
+    "python3 - <<'PY'\nfrom pathlib import Path\nsrc = Path('Tool/cases/firmware-iot04/input/SecConfig.efi').read_bytes()\noff = 0\ndst = Path('work/fw-triage/carved-at-0.bin')\ndst.parent.mkdir(parents=True, exist_ok=True)\ndst.write_bytes(src[off:])\nprint('carved', len(src) - off, 'bytes ->', dst)\nPY",
+    "binwalk -E Tool/cases/firmware-iot04/input/SecConfig.efi | head -40",
+    "binwalk -e --run-as=root -C work/fw-triage Tool/cases/firmware-iot04/input/SecConfig.efi",
+    "binwalk --dd='.*' -C work/fw-triage/raw Tool/cases/firmware-iot04/input/SecConfig.efi",
+    "jefferson -d work/fw-triage/jffs2 Tool/cases/firmware-iot04/input/SecConfig.efi",
+    "# missing jefferson: python3 -m pip install --user jefferson  (needs approval)",
+    "python3 -c \"import gzip,pathlib; pathlib.Path(r'work/fw-triage/gzip.out').write_bytes(gzip.open(r'Tool/cases/firmware-iot04/input/SecConfig.efi','rb').read())\"",
+    "gzip -dc Tool/cases/firmware-iot04/input/SecConfig.efi > work/fw-triage/gzip.out",
+    "grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd' work/fw-triage/rootfs/etc 2>/dev/null | head -60",
+    "find work/fw-triage/rootfs -type f \\( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \\) -print"
+  ],
+  "verdict": "container magic found (gzip, jffs2, pe); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.",
+  "limits": [
+    "Triage only: it does not unpack, emulate, or prove J1/J2/J3.",
+    "Credential clues are candidates; confirm file:line in the extracted rootfs and redact values.",
+    "Offsets are absolute in the supplied file; carve before running unsquashfs/ubireader on an embedded image."
+  ]
+}

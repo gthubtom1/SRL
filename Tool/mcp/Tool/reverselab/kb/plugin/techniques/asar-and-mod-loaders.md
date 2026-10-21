@@ -2,6 +2,13 @@
 
 > 目标：**主进程/preload/renderer** 或 **加载器/插件类/patch 目标** 的边界清楚，能指到最小可改单元。
 
+## 0. 入口信号
+
+- 文件头 `04 00 00 00` 的 `app.asar`，或 `resources/app/`、`app.asar.unpacked/`。
+- `package.json` 有 `main`/`build.preload`；目录有 `.node`/`.jsc`。
+- 游戏目录有 `BepInEx/`、`MelonLoader/`、`doorstop_config.ini`。
+- `GameAssembly.dll` + `global-metadata.dat`（IL2CPP）或 `Managed/Assembly-CSharp.dll`（Mono）。
+
 ## 1. Electron asar 结构
 
 ```bash
@@ -82,3 +89,10 @@ Il2CppDumper GameAssembly.dll global-metadata.dat out/
 - 插件日志未加载，两次修正路径/版本仍失败 → 停，报加载链。
 - 目标方法找不到/被内联/混淆 → 标“patch 目标未定”，不猜方法名。
 - 在线反作弊触发 → 立即停，只做外部观测或离线副本。
+
+## 7. 边界
+
+- asar 不是加密；能列目录不代表能读 `.jsc`/原生模块。
+- Unity 只做加载链、插件类与 patch 目标的静态/离线验证；在线反作弊环境只做外部观测。
+- 不提供绕过签名/白名单/反作弊的方法。
+- 协议/分帧交 `protocol-plugin`（R24）。

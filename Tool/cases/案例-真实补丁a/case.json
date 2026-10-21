@@ -1,0 +1,70 @@
+{
+  "id": "案例-真实补丁a",
+  "domain": "reverse",
+  "target_type": "真实第三方 crackme（MIT，crackerjack a.exe，PE32+ x64）",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "input/a.exe",
+      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+    },
+    {
+      "path": "artifacts/patch-manifest.json",
+      "sha256": "8c55c9811ec386f4d95bfbdd2fde777ad0eecc1707f31c28db20c9676ccf6d89"
+    },
+    {
+      "path": "artifacts/a.patched.exe",
+      "sha256": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00"
+    },
+    {
+      "path": "artifacts/patch-manifest.json.rollback.backup",
+      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+    },
+    {
+      "path": "artifacts/a.rollback.exe",
+      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+    }
+  ],
+  "evidence_dir": "artifacts",
+  "scope": {
+    "authorization": "local third-party MIT crackme shipped with repo; offline only",
+    "hosts": [],
+    "forbidden": [
+      "network",
+      "real vendor binary"
+    ]
+  },
+  "lessons": [
+    "跑的是什么：真实第三方 crackme `Tool/samples/real/crackerjack/a.exe`（sha256 8308abb8…6f30），复制到本案例 input/ 后未改原文件。",
+    "命令与 rc：`objdump -d a.exe` 定位 main 的两段比较（0x140002882 je、0x14000289f jne）；用 patch-verify.py --file input/a.exe --manifest artifacts/patch-manifest.json --out artifacts/a.patched.exe，rc=0，输出 ok=true、patches=2、before/after 哈希与清单一致。",
+    "结果：原版 `wrong`→FAIL、`trance`→PASS；补丁版 `wrong` 与 `anything` 均→PASS（run-wrong.txt / run-anything.txt，各 1 行 PASS）。两处补丁均 2 字节，等长，无需重定位与代码洞。",
+    "判据：等长约束满足（2→2）、原字节匹配、补丁后哈希与清单 result_sha256 一致、行为差可复现（同一输入原版 FAIL/补丁版 PASS），四条同时成立才算补丁生效。",
+    "边界：这是源码级简单比较（编译期把 \"trance\" 拆成两个 imm32），不代表真实商业软件；无壳、无反调试、无签名校验、无完整性自检。真实目标需先按 09-patch-engineering.md 评估重定位/校验和/签名链。",
+    "回滚：清单 + patch-verify.py --rollback 可复原；input/a.exe 始终保留原始哈希。",
+    "回滚实测（R2 修复后）：patch-verify 在打补丁前落独立备份 `patch-manifest.json.rollback.backup` 并把 backup/backup_sha256 写回 manifest；`--rollback --out artifacts/a.rollback.exe` rc=0，输出 sha256=8308abb8…6f30（= 原文件），说明回滚不是「拿当前文件冒充备份」。"
+  ],
+  "tags": [
+    "patch",
+    "equal-length",
+    "real-target",
+    "crackme",
+    "verification",
+    "rollback"
+  ],
+  "refs": [
+    "Tool/skill/softseep/references/01-criteria.md",
+    "Tool/skill/softseep/references/02-failure-criteria.md",
+    "Tool/skill/softseep/references/09-patch-engineering.md",
+    "Tool/skill/softseep/scripts/patch-verify.py",
+    "Tool/samples/real/crackerjack/a.c"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

@@ -232,3 +232,23 @@ AI Agent 可调用以下 MCP 工具自动完成或加速上述攻击链步骤：
 - 静态结论绑定函数、Xref、导入、字符串和反编译片段；动态结论绑定断点、寄存器、栈、内存与调用时序。
 - 记录样本哈希、dump/patch 路径、原始字节、新字节和行为差异。
 - 将 x64dbg/Frida/Procmon/Ghidra 输出保存到 `exports/windows/`，按同一输入重跑，确认断点命中、内存变化和输出差异。
+
+---
+
+## 附：TLS Callback（独立成篇）
+
+> TLS callback 的定位、断点、副作用记录与工具映射已独立成篇：`02-pe-structure/02-tls-callback-analysis.md`。
+> 本节只保留与**脱壳**直接相关的一句判据：TLS callback 在 EntryPoint 之前执行，是壳解密 / 反调试 / OEP 跳转的常见落点；若「EntryPoint 断点从未命中」，先检查 TLS Directory 是否非空（`triage_pe` → `IMAGE_DIRECTORY_ENTRY_TLS`）。
+
+与 `04-dynamic-analysis/05-anti-debug-bypass.md`、`references/10-anti-debug.md` 交叉阅读。
+
+## 失败判据与边界（TLS 附节）
+
+| 现象 | 判定 | 改走哪条 |
+| :--- | :--- | :--- |
+| 入口断点没命中，进程已退出 | TLS callback 先执行 | 在 TLS callback / 系统断点下断；不要只断 EntryPoint |
+| 跳过 TLS callback 后解密失败 | 回调承担了解密/初始化 | 保留回调，只 patch 自检分支；或先 dump 再跳过 |
+| 多个回调只看到一个 | `AddressOfCallBacks` 数组有多项 | 遍历到 NULL 结尾；逐项下断 |
+| callback 里读 PEB/DRx | 反调试在入口前 | 先过反调试；或外部观测 |
+
+**边界**：TLS 目录/回调只在 PE 上有；ELF 的 `.init_array`/Mach-O 的 `mod_init_func` 是等价早期执行链，但结构不同，不要硬套偏移。

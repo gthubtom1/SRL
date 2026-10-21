@@ -1,0 +1,9 @@
+HTTP/1.0 200 OK
+Server: ProtoLab/1.0 Python/3.12.0
+Date: Wed, 21 Oct 2026 16:04:19 GMT
+Content-Type: application/json
+Content-Length: 33
+Set-Cookie: sid=lab-0001; Path=/
+X-Session-Id: lab-0001
+
+{"ok":true,"kind":"ping","seq":1}

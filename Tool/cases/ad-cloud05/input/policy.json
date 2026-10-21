@@ -1,0 +1,23 @@
+{
+  "identity": "arn:aws:iam::123456789012:user/ci-runner",
+  "conditions_context": {"aws:PrincipalArn": "arn:aws:iam::123456789012:role/ci-runner"},
+  "policies": [
+    {
+      "name": "CiRunnerInline",
+      "document": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {"Effect": "Allow", "Action": ["iam:CreatePolicyVersion", "iam:PassRole"], "Resource": "*"},
+          {"Effect": "Allow", "Action": ["s3:GetObject", "s3:ListBucket"], "Resource": "arn:aws:s3:::demo-bucket/*"},
+          {"Effect": "Deny", "Action": "s3:GetObject", "Resource": "arn:aws:s3:::demo-bucket/secret/*"}
+        ]
+      }
+    }
+  ],
+  "boundary": {
+    "Version": "2012-10-17",
+    "Statement": [
+      {"Effect": "Allow", "Action": ["s3:GetObject", "s3:ListBucket", "iam:CreatePolicyVersion"], "Resource": "*"}
+    ]
+  }
+}

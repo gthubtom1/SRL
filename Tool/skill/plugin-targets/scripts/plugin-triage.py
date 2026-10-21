@@ -21,12 +21,48 @@ import io
 import json
 import os
 import re
+import shutil
+import struct
 import sys
+import tempfile
 import zipfile
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 MAX_TEXT = 2 * 1024 * 1024
 MAX_FILES = 4000
 TEXT_EXT = {".js", ".mjs", ".cjs", ".ts", ".json", ".xml", ".html", ".htm", ".css", ".txt", ".yml", ".yaml", ".properties"}
+
+# 权限面分级（浏览器扩展 + 常见宿主）：只做风险排序，不代替代码路径证据。
+PERM_RISK = {
+    "nativeMessaging": "critical", "debugger": "critical", "proxy": "high",
+    "management": "high", "cookies": "high", "webRequest": "high",
+    "webRequestBlocking": "high", "scripting": "high", "userScripts": "high",
+    "history": "high", "bookmarks": "high", "clipboardRead": "high",
+    "sessions": "high", "audioCapture": "high", "videoCapture": "high",
+    "enterprise.deviceAttributes": "high", "enterprise.networkingAttributes": "high",
+    "enterprise.platformKeys": "high", "downloads": "medium",
+    "tabs": "medium", "webNavigation": "medium", "declarativeNetRequest": "medium",
+    "declarativeNetRequestWithHostAccess": "medium", "declarativeNetRequestFeedback": "low",
+    "offscreen": "medium", "identity": "medium", "geolocation": "medium",
+    "topSites": "medium", "clipboardWrite": "medium", "storage": "low",
+    "unlimitedStorage": "low", "activeTab": "low", "sidePanel": "low",
+    "contextMenus": "low", "alarms": "low", "notifications": "low",
+    "tabGroups": "low", "tts": "low", "idle": "low",
+}
+HOST_RISK = [
+    ("<all_urls>", "critical"),
+    ("*://*/*", "high"),
+    ("http://*/*", "high"),
+    ("https://*/*", "medium"),
+]
+UNITY_MARKERS = ("global-metadata.dat", "gameassembly.dll", "bepinex",
+                 "melonloader", "assembly-csharp.dll", "doorstop_config.ini")
 
 SUSPICIOUS = [
     ("eval", re.compile(rb"\beval\s*\(")),
@@ -59,6 +95,13 @@ class TriageError(Exception):
     pass
 
 
+def rel_path(p):
+    try:
+        return os.path.relpath(p).replace(os.sep, "/")
+    except ValueError:
+        return str(p).replace(os.sep, "/")
+
+
 def sha256_file(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -78,6 +121,83 @@ def read_text(data, limit=MAX_TEXT):
         return data.decode("latin-1", "replace")
     return data[:limit]
 
+
+def _risk(name):
+    key = str(name)
+    if key in PERM_RISK:
+        return PERM_RISK[key]
+    if key.startswith("http://") or key.startswith("*://") or key.startswith("<all_urls"):
+        return "high"
+    if key.startswith("https://"):
+        return "medium"
+    return "unknown"
+
+
+def host_risk(pattern):
+    p = str(pattern)
+    for prefix, risk in HOST_RISK:
+        if p == prefix or (prefix == "<all_urls>" and p == "<all_urls>"):
+            return risk
+    return "low" if p and "://" in p else "unknown"
+
+
+def permission_surface(manifest, pkg=None):
+    """权限面：名称→风险；宽 host；VSIX capabilities。仅分级，不判定恶意。"""
+    if not isinstance(manifest, dict):
+        manifest = {}
+    perms = manifest.get("permissions") or []
+    if isinstance(perms, str):
+        perms = [perms]
+    opt = manifest.get("optional_permissions") or []
+    if isinstance(opt, str):
+        opt = [opt]
+    hosts = manifest.get("host_permissions") or []
+    if isinstance(hosts, str):
+        hosts = [hosts]
+    surf = {
+        "permissions": [{"name": p, "risk": _risk(p)} for p in perms],
+        "optional_permissions": [{"name": p, "risk": _risk(p)} for p in opt],
+        "host_permissions": [{"pattern": h, "risk": host_risk(h)} for h in hosts],
+    }
+    surf["high"] = [x["name"] for x in surf["permissions"] if x["risk"] in ("critical", "high")]
+    surf["broad_hosts"] = [x["pattern"] for x in surf["host_permissions"] if x["risk"] in ("critical", "high")]
+    if isinstance(pkg, dict):
+        cap = pkg.get("capabilities") or {}
+        surf["vsix"] = {
+            "untrustedWorkspaces": (cap or {}).get("untrustedWorkspaces"),
+            "virtualWorkspaces": (cap or {}).get("virtualWorkspaces"),
+            "extensionKind": pkg.get("extensionKind"),
+            "activationEvents": pkg.get("activationEvents") or [],
+            "engines": pkg.get("engines") or {},
+        }
+        surf["high"] = list(surf["high"])
+        if surf["vsix"]["untrustedWorkspaces"] and not (
+                surf["vsix"]["untrustedWorkspaces"] or {}).get("supported"):
+            surf["high"].append("untrustedWorkspaces:restricted")
+    return surf
+
+
+def unity_surface(names):
+    """从文件名识别 BepInEx/MelonLoader/IL2CPP（不执行、不反编译）。"""
+    norm = [str(n).replace("\\", "/") for n in names]
+    low = [n.lower() for n in norm]
+    if not any(any(m in n for m in UNITY_MARKERS) for n in low):
+        return {}
+    loader = None
+    if any("bepinex" in n for n in low):
+        loader = "BepInEx"
+    elif any("melonloader" in n for n in low):
+        loader = "MelonLoader"
+    il2cpp = any(n.endswith("gameassembly.dll") or n.endswith("global-metadata.dat") for n in low)
+    plugin_dlls = [n for n in norm
+                   if re.search(r"(bepinex/plugins|melonloader/mods)/[^/]+\.dll$", n, re.I)]
+    metadata = next((n for n in norm if n.lower().endswith("global-metadata.dat")), None)
+    return {
+        "loader": loader,
+        "runtime": "il2cpp" if il2cpp else ("mono" if any("assembly-csharp.dll" in n for n in low) else "unknown"),
+        "il2cpp_metadata": metadata,
+        "plugin_dlls": plugin_dlls[:40],
+    }
 
 def parse_json_text(text):
     try:
@@ -170,6 +290,9 @@ def package_surface(pkg):
         "scripts": pkg.get("scripts") or {},
         "engines": pkg.get("engines") or {},
         "preload": (pkg.get("preload") or (pkg.get("build") or {}).get("preload") if isinstance(pkg.get("build"), dict) else pkg.get("preload")),
+        "capabilities": pkg.get("capabilities") or {},
+        "extensionKind": pkg.get("extensionKind"),
+        "os": pkg.get("os"),
     }
 
 
@@ -218,6 +341,12 @@ def zip_analysis(path):
     elif raw[:4] == b"PK\x03\x04":
         ext = os.path.splitext(path)[1].lower()
         container = {".vsix": "vsix", ".jar": "jar", ".xpi": "xpi"}.get(ext, "zip")
+        if container == "zip":
+            # 扩展名不可信：contents 里出现 extension/package.json 或 .vsixmanifest 即按 VSIX
+            _n = zipfile.ZipFile(io.BytesIO(raw)).namelist()
+            _n = [x.replace("\\", "/").lower() for x in _n]
+            if any(x.endswith("extension/package.json") for x in _n) or                     any(x.endswith("extension.vsixmanifest") for x in _n):
+                container = "vsix"
     else:
         raise TriageError("不是 ZIP/CRX/VSIX/JAR（magic=%s）" % raw[:8].hex())
     try:
@@ -280,6 +409,8 @@ def zip_analysis(path):
         "suspicious_apis": hits,
         "remote_urls": urls,
         "scanned_text_files": scanned,
+        "permission_surface": permission_surface(manifest, pkg),
+        "unity": unity_surface(names),
     }
 
 
@@ -291,7 +422,7 @@ def parse_asar_header(path):
     header_size = int.from_bytes(head[4:8], "little")
     with open(path, "rb") as fh:
         data = fh.read()
-    start = data.find(b"{", 8, 128)
+    start = data.find(b"{", 12, 512)
     if start < 0:
         raise TriageError("asar 头中未找到 JSON 起点")
     decoder = json.JSONDecoder()
@@ -315,8 +446,8 @@ def walk_asar(node, prefix=""):
             entries.extend(walk_asar(info, p))
         else:
             entries.append({
-                "path": p, "dir": False, "size": info.get("size", 0),
-                "offset": info.get("offset", 0), "unpacked": bool(info.get("unpacked", False)),
+                "path": p, "dir": False, "size": int(info.get("size") or 0),
+                "offset": int(info.get("offset") or 0), "unpacked": bool(info.get("unpacked", False)),
                 "link": info.get("link"),
             })
     return entries
@@ -421,6 +552,8 @@ def dir_analysis(path):
         "suspicious_apis": hits,
         "remote_urls": urls,
         "scanned_text_files": scanned,
+        "permission_surface": permission_surface(manifest, pkg),
+        "unity": unity_surface(names),
     }
 
 
@@ -439,7 +572,7 @@ def analyze(path):
         else:
             raise TriageError("无法识别的容器（magic=%s）；支持 crx/vsix/asar/zip/目录" % magic.hex())
     result["ok"] = True
-    result["path"] = os.path.abspath(path)
+    result["path"] = rel_path(path)
     result["type"] = _type_label(result)
     result["conclusion"] = _conclusion(result)
     return result
@@ -447,9 +580,16 @@ def analyze(path):
 
 def _type_label(r):
     c = r.get("container")
+    u = r.get("unity") or {}
+    if u:
+        bits = [x for x in (u.get("loader"), u.get("runtime")) if x]
+        return "Unity Mod 包（%s）" % "/".join(bits) if bits else "Unity Mod 包"
     if c == "crx":
         return "Chrome/Edge CRX 扩展"
     if c == "vsix":
+        m = r.get("manifest") or {}
+        if m.get("manifest_version"):
+            return "VSIX/ZIP 浏览器扩展包（含 manifest.json）"
         return "VS Code VSIX 扩展"
     if c == "jar":
         return "JetBrains/JAR 插件"
@@ -477,6 +617,10 @@ def _conclusion(r):
     high = [k for k in ("nativeMessaging", "debugger", "child_process", "exec_spawn",
                         "shell_openExternal", "nodeIntegration_true", "contextIsolation_false")
             if k in apis]
+    surf = r.get("permission_surface") or {}
+    for name in surf.get("high") or []:
+        if name not in high:
+            high.append(name)
     if not have:
         return "未找到 manifest/package/plugin.xml：只能确认容器与文件结构，入口未闭环"
     if high:
@@ -530,6 +674,19 @@ def print_human(r):
         print("%-24s count=%-4d files=%s" % (k, v["count"], ", ".join(v["files"][:4])))
         for ex in v.get("examples", [])[:2]:
             print("    | %s" % ex)
+    surf = r.get("permission_surface") or {}
+    if surf:
+        print("\n-- permission risk --")
+        print("high      : %s" % (", ".join(surf.get("high") or []) or "(none)"))
+        print("broad host: %s" % (", ".join(surf.get("broad_hosts") or []) or "(none)"))
+        if surf.get("vsix"):
+            print("vsix caps : %s" % json.dumps(surf["vsix"], ensure_ascii=False)[:300])
+    u = r.get("unity") or {}
+    if u:
+        print("\n-- unity --")
+        print("loader/runtime: %s / %s" % (u.get("loader"), u.get("runtime")))
+        print("metadata      : %s" % u.get("il2cpp_metadata"))
+        print("plugin dlls   : %s" % ", ".join(u.get("plugin_dlls") or []))
     print("\n-- remote URLs --")
     for u in (r.get("remote_urls") or [])[:60]:
         print("  %s" % u)
@@ -538,30 +695,152 @@ def print_human(r):
     print("\nconclusion: %s" % r.get("conclusion"))
 
 
+def _zip_bytes(files):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in files.items():
+            zf.writestr(name, data if isinstance(data, bytes) else data.encode("utf-8"))
+    return buf.getvalue()
+
+
+def _asar_bytes(files):
+    """按 asar 头格式现场打包（fixture/自检用，不依赖 npx asar）。"""
+    metas, parts, off = {}, [], 0
+    for name, data in files.items():
+        blob = data if isinstance(data, bytes) else data.encode("utf-8")
+        pad = (-off) % 4
+        parts.append(b"\x00" * pad)
+        off += pad
+        metas[name] = {"size": len(blob), "offset": str(off)}
+        parts.append(blob)
+        off += len(blob)
+    hb = json.dumps({"files": metas}, separators=(",", ":")).encode("utf-8")
+    core = struct.pack("<I", 4) + b"\x00\x00\x00\x00" + struct.pack("<I", len(hb)) + hb
+    pad = (-len(core)) % 4
+    prefix = core + b"\x00" * pad
+    prefix = prefix[:4] + struct.pack("<I", len(prefix) - 8) + prefix[8:]
+    return prefix + b"".join(parts)
+
+
+def self_test():
+    """离线内置样本：crx / vsix / asar / unity / mv3 zip 五种结构。"""
+    checks = []
+    tmp = tempfile.mkdtemp(prefix="plugin-triage-selftest-")
+    try:
+        mv3 = {
+            "manifest.json": json.dumps({
+                "manifest_version": 3, "name": "SelfTest", "version": "1.0",
+                "permissions": ["storage", "nativeMessaging", "cookies"],
+                "host_permissions": ["<all_urls>"],
+                "background": {"service_worker": "background.js"},
+                "content_scripts": [{"matches": ["<all_urls>"], "js": ["content.js"]}],
+            }),
+            "background.js": "chrome.runtime.onMessage.addListener(function(){});\n"
+                             "var port=chrome.runtime.connectNative('com.demo.host');\n",
+            "content.js": "chrome.runtime.sendMessage({t:'x'});\n",
+        }
+        p_zip = os.path.join(tmp, "ext.zip")
+        open(p_zip, "wb").write(_zip_bytes(mv3))
+        r = analyze(p_zip)
+        checks.append(r["container"] == "zip")
+        checks.append("nativeMessaging" in (r.get("permission_surface") or {}).get("high", []))
+        checks.append("nativeMessaging" in (r.get("suspicious_apis") or {}))
+
+        p_crx = os.path.join(tmp, "ext.crx")
+        open(p_crx, "wb").write(b"Cr24" + struct.pack("<II", 3, 0) + _zip_bytes(mv3))
+        r = analyze(p_crx)
+        checks.append(r["container"] == "crx")
+        checks.append("CRX" in (r.get("type") or ""))
+
+        p_vsix = os.path.join(tmp, "ext.vsix")
+        open(p_vsix, "wb").write(_zip_bytes({
+            "extension/package.json": json.dumps({
+                "name": "demo", "version": "1.0.0", "main": "./extension.js",
+                "activationEvents": ["onCommand:demo.hello"],
+                "contributes": {"commands": [{"command": "demo.hello", "title": "Hello"}]},
+                "capabilities": {"untrustedWorkspaces": {"supported": False}},
+                "engines": {"vscode": "^1.80.0"},
+            }),
+            "extension/extension.js": "const vscode=require('vscode');\n",
+        }))
+        r = analyze(p_vsix)
+        checks.append(r["container"] == "vsix")
+        checks.append("onCommand:demo.hello" in (r.get("package") or {}).get("activationEvents", []))
+        checks.append(bool((r.get("permission_surface") or {}).get("vsix")))
+
+        p_asar = os.path.join(tmp, "app.asar")
+        open(p_asar, "wb").write(_asar_bytes({
+            "package.json": json.dumps({"name": "demo", "main": "main.js"}),
+            "main.js": "const {ipcMain}=require('electron');\n",
+        }))
+        r = analyze(p_asar)
+        checks.append(r["container"] == "asar")
+        checks.append((r.get("entrypoints") or {}).get("main") == "main.js")
+
+        udir = os.path.join(tmp, "game")
+        os.makedirs(os.path.join(udir, "BepInEx", "plugins"))
+        open(os.path.join(udir, "GameAssembly.dll"), "wb").write(b"MZ")
+        open(os.path.join(udir, "global-metadata.dat"), "wb").write(b"meta")
+        open(os.path.join(udir, "BepInEx", "plugins", "DemoMod.dll"), "wb").write(b"MZ")
+        r = analyze(udir)
+        u = r.get("unity") or {}
+        checks.append(u.get("loader") == "BepInEx")
+        checks.append(u.get("runtime") == "il2cpp")
+        checks.append(bool(u.get("plugin_dlls")))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if not all(checks):
+        raise TriageError("self-test 断言失败：%s" % [i for i, ok in enumerate(checks) if not ok])
+    print(json.dumps({"ok": True, "script": "plugin-triage.py", "checks": len(checks)},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="纯标准库插件初筛：CRX/VSIX/ASAR/ZIP/目录（manifest 权限面、入口、可疑 API、远程 URL）")
-    ap.add_argument("--path", "-p", required=True, help="crx/vsix/asar/zip 文件或解压目录")
+        description="纯标准库插件初筛：CRX/VSIX/ASAR/ZIP/目录/Unity"
+                    "（结构、权限面、入口、可疑 API、远程 URL）")
+    ap.add_argument("--path", "-p", default=None, help="crx/vsix/asar/zip 文件或解压目录")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--out", help="写出 plugin-triage.json 的目录")
+    ap.add_argument("--self-test", action="store_true", help="离线内置样本自检（不需要 --path）")
     args = ap.parse_args(argv)
+    if args.self_test:
+        try:
+            return self_test()
+        except Exception as exc:  # noqa: BLE001
+            print(json.dumps({"ok": False, "blocked_at": "self-test", "reason": str(exc)[:200]},
+                             ensure_ascii=False))
+            return 2
+    if not args.path:
+        ap.error("--path 必填（或使用 --self-test）")
     try:
         result = analyze(args.path)
     except TriageError as exc:
-        err = {"ok": False, "error": "triage_failed", "path": args.path, "detail": str(exc),
+        err = {"ok": False, "blocked_at": "container", "reason": str(exc), "path": args.path,
                "hint": "先 file/xxd 确认容器；CRX/ZIP 可用 zipfile，asar 需标准头"}
-        print(json.dumps(err, ensure_ascii=False) if args.json else "[FAIL] %s" % exc)
+        print(json.dumps(err, ensure_ascii=False))
+        if not args.json:
+            print("[FAIL] %s" % exc, file=sys.stderr)
         return 2
     except OSError as exc:
-        err = {"ok": False, "error": "io_error", "path": args.path, "detail": str(exc)}
-        print(json.dumps(err, ensure_ascii=False) if args.json else "[FAIL] %s" % exc)
+        err = {"ok": False, "blocked_at": "io", "reason": str(exc), "path": args.path}
+        print(json.dumps(err, ensure_ascii=False))
+        if not args.json:
+            print("[FAIL] %s" % exc, file=sys.stderr)
+        return 2
+    except Exception as exc:  # noqa: BLE001
+        err = {"ok": False, "blocked_at": "parse", "reason": str(exc)[:200], "path": args.path}
+        print(json.dumps(err, ensure_ascii=False))
+        if not args.json:
+            print("[FAIL] %s" % exc, file=sys.stderr)
         return 2
     if args.out:
         os.makedirs(args.out, exist_ok=True)
         out = os.path.join(args.out, "plugin-triage.json")
         with open(out, "w", encoding="utf-8") as fh:
             json.dump(result, fh, ensure_ascii=False, indent=2)
-        print("wrote: %s" % out)
+        print("wrote: %s" % out, file=sys.stderr if args.json else sys.stdout)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:

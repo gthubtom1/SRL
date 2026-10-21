@@ -1,0 +1,47 @@
+{
+  "id": "supply-chain03",
+  "domain": "supply-chain-security",
+  "target_type": "本仓库真实 GitHub Actions workflow（.github/workflows/upstream-sync.yml）",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/ci.json",
+      "sha256": "6474f9d2ea75bd27fc7cf50ac8d83943418164d41c1dcecd6224110c58cb3b6b"
+    },
+    {
+      "path": "artifacts/sc.json",
+      "sha256": "6d9c9fcbf5c1db2a12e34961ba0ec7e75ca08bbc30f1eba894a62f2366a4389c"
+    },
+    {
+      "path": "artifacts/target.json",
+      "sha256": "5351c952fb08f7d136ca8baab41ba8f02ddebc2064be9f5a051f0c4c99d26de8"
+    }
+  ],
+  "lessons": [
+    "本次跑到：python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out Tool/cases/supply-chain03/artifacts/ci.json，rc=0；workflows_total=1，findings=2（均 medium action-unpinned，L29/L34）。",
+    "对象：真实 workflow sha256=fe7894d5f9e134f7cf6deaacc3caabeb5aeb92edb6fb0412825166a1b321aed3，repo_commit=57a3bd1ecf5d9945fe14f1a5c7c5c9db58cf1fc6；sc-check.py 对同目录另跑一次 rc=0，输出见 artifacts/sc.json。",
+    "确认的风险链：顶层 permissions 为 contents: write + pull-requests: write，但触发器仅 schedule/workflow_dispatch（受保护分支上下文），因此不构成“不可信 PR 拿写 token”的利用链；确认项是 action tag 可移动。",
+    "边界：只做静态缩进扫描，未验证 GitHub 仓库默认 token 设置、环境保护规则与 secrets 实际作用域；reusable workflow/动态生成权限需人工补看。",
+    "下一步：把 actions/checkout 与 actions/setup-python 固定到 40 位 commit SHA；把写权限下移到 PR 创建 job；用动作 SHA 更新走 Dependabot。",
+    "更正（R2 审计）：01-criteria §4.4 明确「action 未 pin → 疑似」，本案例命中 2 条 unpinned（checkout@v4/setup-python@v5），故 outcome 由 confirmed 降为 partial；只有同时具备「可被投毒的具体触发路径 + 攻击者可控输入」才升 confirmed。"
+  ],
+  "refs": [
+    "Tool/skill/supply-chain-security/SKILL.md",
+    "Tool/skill/supply-chain-security/references/01-criteria.md",
+    "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+    "Tool/skill/supply-chain-security/references/03-model-pitfalls.md",
+    "Tool/skill/supply-chain-security/references/04-walkthrough-workflow-permissions.md",
+    "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
+    "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/04-ci-permission-audit.md",
+    "Tool/config/supply-chain-security-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

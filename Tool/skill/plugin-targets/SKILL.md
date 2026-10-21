@@ -1,189 +1,214 @@
 ---
 name: plugin-targets
-description: 【插件/扩展/Mod】浏览器扩展（Chrome/Edge/Firefox）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity BepInEx/MelonLoader 与输入法/驱动级插件的逆向与取证。以“入口、关键逻辑、数据来源、最小可改单元”四件事齐全为判据，覆盖 manifest 权限面、content script 隔离世界、service worker、原生模块、插件签名与更新链，并给出缺工具时的降级路线。
+description: 【插件/扩展/Mod】浏览器扩展（Chrome/Edge/Firefox，MV2/MV3）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity BepInEx/MelonLoader（Mono/IL2CPP）、输入法/驱动级插件的逆向与取证。以“入口、权限/扩展点、数据来源、最小可改单元”四件事齐全为判据；覆盖 service worker 生命周期、隔离世界、main/preload/renderer、IPC、native host、签名与更新链，并给出缺工具时的降级路线。
 license: MIT
-compatibility: Windows/Linux/macOS；解压用 unzip/7z，asar 用 npx asar，.NET 用 ilspycmd/dnSpy，Unity 用 IL2CPP 工具链；全部缺省时可用 `seep_domain_audit(mode="plugin")` 做清单与风险初筛。
+compatibility: Windows/Linux/macOS；解包用 unzip/7z，asar 用 npx asar 或仓库脚本，.NET 用 ilspycmd/dnSpy，Unity 用 Il2CppDumper/Cpp2IL，Java 用 jadx/CFR；全部缺省时可用内置 `plugin-triage.py`/`plugin-repro.py` 做结构与证据初筛。
 metadata:
-  version: "1.1.0"
+  version: "2.0.0"
   category: plugin-targets
   routes: "R25"
-  hard_gates: "入口可指认 / 权限可解释 / 数据流可追 / 最小可改单元可验证"
-  references: "references/browser-extension.md, references/desktop-plugins.md, references/electron-and-asar.md, references/unity-and-mods.md"
+  hard_gates: "入口可指认 / 权限或扩展点可解释 / 数据流可追 / 最小可改单元可验证"
+  references: "references/01-criteria.md, references/02-failure-criteria.md, references/03-model-pitfalls.md, references/04-walkthrough-chrome-extension.md, references/browser-extension.md, references/ide-plugins.md, references/electron-and-asar.md, references/unity-and-mods.md, references/desktop-plugins.md"
 ---
 
 # plugin-targets — 插件 / 扩展 / Mod（R25）
 
-> 只回答一件事：**这个插件从哪进入宿主、读了什么数据、把数据送到哪、最小可改单元是什么。**
-> 不把“解包成功”当完成，也不把“看到 manifest”当分析。仅对自有或明确授权的插件/宿主操作。
+> 只回答一件事：**这个插件从哪进入宿主、拿到什么权限/扩展点、读了什么数据、把数据送到哪、最小可改单元是什么。**
+> 不把“解包成功”当完成，也不把“看到 manifest/权限”当分析。只对自有或明确授权的插件/宿主操作。
 
-**分工（硬边界）**：插件 / 扩展 / Mod → **本技能（R25）**；协议 / 抓包 / 分帧 / 状态机 / 重放 → **`protocol-plugin`（R24）**。插件里的私有协议不要在本技能内硬解，先交出入口与载荷，再由 protocol-plugin 复刻。
+## 1. 适用 / 不适用（边界）
 
-## 0. 判型与边界
+| 适用 | 不适用（转哪个域） |
+|---|---|
+| 浏览器扩展 `.crx`/`.xpi`/商店安装目录（MV2/MV3） | 普通网页 JS 签名/补环境 → `mcp-js-reverse-playbook` |
+| VS Code/Cursor `.vsix`、JetBrains `.jar` | 纯协议/抓包/分帧/状态机/重放 → `protocol-plugin`（R24） |
+| Electron `app.asar`/`resources/app`、preload、`.node`/`.jsc` | APK 壳/重打包/Xposed 模块深拆 → `apkseep` |
+| Unity BepInEx/MelonLoader（Mono/IL2CPP）、Harmony patch | PE 壳/反调试/驱动二进制深挖 → `unpack-loop`/`softseep` |
+| 输入法/驱动级插件、OBS/StreamDeck、native messaging host | 供应链 lockfile/构建完整性 → `supply-chain-security` |
 
-| 形态 | 包体 | 入口 | 终点判据 |
+**硬边界**：
+
+- 插件里的私有协议不要在本技能内硬解：先交出“入口 + 载荷位置 + 触发条件”，再由 `protocol-plugin` 复刻。
+- 不提供绕过商店签名、企业白名单、驱动签名强制、反作弊的方法；授权测试也要记录环境与回退。
+- 原始包只读；解包/改动只在副本；动态观测只在隔离 profile/虚拟机/离线副本。
+
+## 2. 前置检查（3 件）
+
+1. **授权与来源**：记录包路径/URL、版本、商店 ID、安装时间、宿主版本；确认有权分析。
+2. **证据目录**：`work/{unpack,repro,evidence}`；原包算 sha256，先备份。
+3. **工具探测**：`unzip`/`7z`、`python`、`node`/`npx asar`、`ilspycmd`/`dnSpy`、`jadx`、`Il2CppDumper`/`Cpp2IL`；缺失走降级（§8），不要卡在安装工具。
+
+```bash
+sha256sum plugin.crx
+python Tool/skill/plugin-targets/scripts/plugin-triage.py --path plugin.crx --json
+python Tool/skill/plugin-targets/scripts/plugin-repro.py --path plugin.crx --out work/repro --json
+```
+
+## 3. 判型表
+
+| 形态 | 包体/识别 | 入口 | 终点判据 |
 |---|---|---|---|
-| 浏览器扩展 | `.crx`/`.xpi`/解压目录 | `manifest.json` → background/service_worker | 权限面 + 消息流 + 关键逻辑 |
-| VS Code 扩展 | `.vsix`（zip） | `extension/package.json` → `main`/`activationEvents` | 激活点 + 命令/贡献点 |
-| JetBrains 插件 | `.jar`/`.zip` | `META-INF/plugin.xml` → action/extension | 扩展点 + 服务 |
-| Electron | `app.asar`/`resources/app` | `package.json` → main | 主进程/预加载/原生模块 |
-| Unity Mod | BepInEx/MelonLoader | `BepInEx/plugins/*.dll` | 插件类 + Harmony patch 目标 |
-| 输入法/驱动 | `.ime`/`.sys`/DLL | 注册表/服务/加载器 | 加载链 + 通信协议 |
+| 浏览器扩展 | `.crx`/`.xpi`/解压目录；`manifest.json` | `background.service_worker`/`content_scripts` | 权限面 + 消息流 + 关键逻辑 |
+| VS Code 扩展 | `.vsix`（zip）；`extension/package.json` | `main`/`activationEvents` | 激活点 + 命令/贡献点 |
+| JetBrains 插件 | `.jar`/`.zip`；`META-INF/plugin.xml` | action/extension/service | 扩展点 + 服务 |
+| Electron | `app.asar`/`resources/app` | `package.json` → main/preload | 主进程/preload/原生模块 |
+| Unity Mod | BepInEx/MelonLoader 目录 | `BepInEx/plugins/*.dll` 等 | 插件类 + Harmony patch 目标 |
+| 输入法/驱动 | `.ime`/`.sys`/DLL/服务 | 注册表/服务/加载器 | 加载链 + 通信协议 |
+| Native host | 系统 `NativeMessagingHosts/*.json` | host 可执行文件 | 扩展 ID ↔ allowed_origins ↔ 进程 |
 
-**边界**：普通网页 JS 签名/补环境走 `mcp-js-reverse-playbook`；APK 走 `apkseep`；PE 壳/反调试走 `unpack-loop`；客户端授权旁路走 `01`–`05`。本技能只读取这些产物，不重复其方法。
+## 4. 判据表（确认 / 疑似）
 
-**四条硬规则**：① 先备份/复制，原包只读；② 先静态后动态，动态只在隔离环境；③ 一次只改一个变量并留基线；④ 同一路径两次失败就换观测层。
+> 机检脚本：`plugin-triage.py`（结构/权限面）、`plugin-repro.py`（解包/权限证据/数据流/最小单元）。
+> “确认”必须能指到 file/line 或动态证据；“疑似”只能写 `inferred`，并列出缺环。
 
-## 1. 收货与清单（先留证据）
-
-```bash
-sha256sum plugin.crx > SHA256SUMS
-mkdir -p work/{unpack,export,evidence}
-unzip -q plugin.crx -d work/unpack        # crx 也是 zip；失败再用 7z
-file work/unpack/* | head
-find work/unpack -maxdepth 2 -type f | sort
-```
-
-- 记录来源 URL、版本、商店 ID、签名状态、安装时间、宿主版本。
-- 浏览器扩展的商店 ID 与 `manifest.key` 可用于确认“同一个扩展”；升级后对比 key 是否变化。
-- 判据：包体哈希、文件清单、manifest/package.json、入口文件四项齐全。
-
-## 2. 浏览器扩展（Chrome/Edge/Firefox）
-
-### 2.1 manifest 权限面
-
-```bash
-jq . work/unpack/manifest.json
-jq '{mv: .manifest_version, perms: .permissions, host: .host_permissions,
-     bg: .background, cs: .content_scripts, war: .web_accessible_resources}' \
-   work/unpack/manifest.json
-```
-
-- 高危组合：`<all_urls>` + `webRequest`/`declarativeNetRequest` + `cookies`；`debugger`；`nativeMessaging`；`externally_connectable`；`content_scripts` 注入所有站点。
-- MV3 的 `service_worker` 是事件驱动，可能被浏览器随时回收；持久状态在 `chrome.storage`/IndexedDB。
-- `web_accessible_resources` 暴露给页面的文件是页面与扩展的桥；`matches` 越宽，攻击面越大。
-- 判据：每个权限能对应到一条实际代码路径；不能解释的权限单独列出。
-
-### 2.2 入口与数据流
-
-```bash
-# 找入口与消息面
-grep -RInE "chrome\.(runtime|tabs|storage|cookies|webRequest|declarativeNetRequest|scripting)|browser\." work/unpack --include='*.js' | head -80
-grep -RInE "sendMessage|onMessage|connectNative|externally_connectable|postMessage" work/unpack --include='*.js' | head -80
-```
-
-- 三条链必须画出来：**页面 → content script → background → 远端/本地**；**background → tabs/scripting → 页面**；**扩展 → native host → 本机进程**。
-- `content_scripts` 默认在 isolated world；只有注入 `<script>` 或 `world:"MAIN"` 才进页面上下文，两者能力不同。
-- 存储：`chrome.storage.local/sync`、`IndexedDB`、`localStorage`（content script 看到的是页面域）、Cookie。
-- 判据：能指出消息类型、发送方/接收方、携带字段、落盘位置。
-
-### 2.3 动态观测
-
-```text
-1. chrome://extensions → 开发者模式 → 加载已解压的扩展
-2. 打开该扩展的 service worker → DevTools → Network/Sources/Console
-3. 页面 DevTools → Application → Extension storage / IndexedDB
-4. 需要看页面上下文时，在 content script 注入点下断，或 CDP 附加 target
-```
-
-- 只读优先：先记录消息与存储，再考虑改返回值；改动前导出 baseline。
-- 判据：静态入口与运行时消息能对上，且能解释某条存储是何时由谁写入。
-
-## 3. 桌面插件（VSIX / JetBrains / asar / Unity Mod）
-
-### 3.1 VS Code `.vsix`
-
-```bash
-unzip -q ext.vsix -d work/unpack
-jq '{name, version, main, activationEvents, contributes, capabilities}' work/unpack/extension/package.json
-```
-
-- `main` 是入口；`activationEvents` 决定何时加载（`onCommand`、`onLanguage`、`*` 最宽）。
-- `contributes` 看命令、配置、语言服务、任务、调试器；`capabilities.untrustedWorkspaces` 看是否在受限工作区禁用。
-- 判据：激活事件 → 命令/语言服务 → 关键文件读写/网络请求，链路完整。
-
-### 3.2 JetBrains `.jar`
-
-```bash
-unzip -l plugin.jar | head -40
-unzip -p plugin.jar META-INF/plugin.xml
-# 反编译（授权）
-jadx -d work/jadx plugin.jar   # 或 CFR/procyon
-```
-
-- `plugin.xml` 的 `<actions>`、`<extensions>`、`<applicationService>` 是入口；`idea-version` 决定兼容范围。
-- 判据：扩展点 → Action/Service → 关键逻辑与数据源。
-
-### 3.3 Electron `asar`
-
-```bash
-npx asar list app.asar | head -80
-npx asar extract app.asar work/asar
-jq '{name, version, main, dependencies, scripts}' work/asar/package.json
-```
-
-- `main` 是主进程；`preload` 是渲染进程与 Node 的桥；`contextIsolation:false`/`nodeIntegration:true` 会放大风险。
-- `*.node` 原生模块要单独 `file`/`strings`；`bytenode` 的 `.jsc` 需 V8 字节码工具，不能当普通 JS。
-- 判据：主进程/预加载/渲染三层边界清楚，能指出 IPC 通道与校验点。
-
-### 3.4 Unity Mod（BepInEx/MelonLoader）
-
-```bash
-find . -iname 'BepInEx' -o -iname 'MelonLoader' -o -iname '*.dll' | head
-ilspycmd Mod.dll -o work/mod-src
-grep -RInE "Harmony(Patch|Prefix|Postfix)|MelonMod|OnUpdate|RegisterType" work/mod-src | head -40
-```
-
-- 先找插件入口（`BaseUnityPlugin.Load` / `MelonMod.OnInitializeMelon`），再找 patch 目标（原游戏方法）。
-- 判据：插件类 → patch 目标 → 修改的字段/返回值 → 可观察效果。
-
-## 4. 签名、更新与持久化
-
-- 扩展/插件更新链：商店签名、`update_url`、企业策略、开发者模式旁加载；记录“谁可以推送更新”。
-- Windows 驱动/输入法：签名者、加载服务、注册表启动项、与用户态进程的通信（IOCTL/命名管道/共享内存）。
-- 判据：能说明“装一次后如何持续存在”，以及卸载是否彻底。
-
-## 5. 工具与降级
-
-| 能力 | 首选 | 降级 |
+| 类别 | 确认（observed） | 疑似（inferred/unverified） |
 |---|---|---|
-| 解包 | `unzip`/`7z` | Python `zipfile`、`bsdtar` |
-| manifest/JSON | `jq` | Python `json`（注释用 json5） |
-| asar | `npx asar` | 解析 asar header（JSON 长度+偏移） |
-| .NET | `ilspycmd`/`dnSpy` | `monodis`、`r2 -A` |
-| JS | DevTools/CDP | `js-reverse` 工具链、`prettier` 后手读 |
-| 清单/风险初筛 | `seep_domain_audit(mode="plugin")` | 本文命令 + `seep_auto_triage` |
+| 容器/入口 | `container` 明确；manifest/package/plugin.xml 可解析；入口文件 `exists=true` | 只有扩展名/魔数；入口声明但文件缺失 |
+| 权限面 | `permissions[].status=observed` 且 evidence 有 file/line；宽 host 与代码一致 | 权限能列但无代码路径（`unexplained-static`） |
+| MV3/隔离世界 | 有唤醒源 + 持久状态；能说清 ISOLATED/MAIN 与 `postMessage` 校验 | SW 休眠导致未观测；变量对不上 |
+| 数据流 | 至少一条 `data_flow` 边有 file/line（sendMessage/fetch/connectNative/ipc） | 只有 API 命中、无参数来源；只有一端 |
+| VSIX/JetBrains | 激活事件/扩展点→实现→关键 API 有行号；版本匹配 | 只有 `activationEvents:*`；class 找不到 |
+| Electron | main/preload 存在；IPC 通道成对；`webPreferences` 可读 | 只有 `.jsc`/原生模块；IPC 只有一端 |
+| Unity | 加载器/运行时/日志齐全；patch 目标在游戏程序集/`dump.cs` 存在 | 插件未加载；目标被内联/混淆 |
+| 原生/驱动 | 加载链→入口→用户态调用方/设备可指认 | 仅安装未加载；只有注册项 |
+| 最小单元 | `minimal_unit.path` 存在，有符号/行号、baseline、回退 | 选到 bundle 头部/生成文件；改动不可回退 |
 
-缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_tool_install`；安装需确认。降级要标注“验证到什么程度”。
+## 5. 失败判据（看到即降级）
 
-## 6. 坑
+> 完整表见 `references/02-failure-criteria.md`（22 条）。这里只列“立即停/换层”的硬条件。
 
-1. **crx 版本头**：Chrome 的 CRX3 头不是 zip 开头，先找 `PK\x03\x04` 再解。
-2. **MV3 service worker 休眠**：看不到网络不等于没发；用 `chrome://serviceworker-internals` 或 DevTools 唤醒。
-3. **isolated world 误判**：content script 里 `window` 不是页面 `window`；变量对不上先查 world。
-4. **source map 缺失**：压缩代码先 `prettier` + `source-map` 还原，别硬读一行。
-5. **asar 不是加密**：能列目录不代表能读 `.jsc`/原生模块；字节码要单独处理。
-6. **插件版本与宿主不匹配**：VSIX `engines.vscode`、JetBrains `idea-version`、BepInEx 版本都会导致“加载失败”。
-7. **签名/白名单**：企业宿主可能只加载签名插件；改完不签名 = 不加载，别误判为代码错。
-8. **更新覆盖**：开发者模式旁加载会被商店版覆盖；记录加载来源与更新策略。
-9. **隐私**：插件常读 Cookie/token；证据脱敏，不把凭据写进报告。
+| 现象 | 判定 | 改走哪条 |
+|---|---|---|
+| 同一包两次 `blocked_at=container` | 容器/偏移不可信 | 只报哈希 + `file`/`xxd`；转安装目录/`strings` |
+| manifest 入口文件全缺 | 包被裁剪/构建不完整 | 标“入口未闭环”；查 `web_accessible_resources`/内联脚本 |
+| 权限全 `unexplained-static` | 权限未落地 | 扩大解包范围；查动态 API 拼接；仍无 → 标未闭环，不写“恶意” |
+| MV3 SW 休眠、Network 空白 | 观测缺失 | 触发 `onInstalled/onMessage/alarms`；查 storage；不写“无网络” |
+| native host 只有扩展侧 | host 样本缺失 | 查系统 `NativeMessagingHosts`；无 → 停 |
+| VSIX `main` 缺失/仅 `*` | 入口未闭环 | 查 `browser`/contributes/实际文件 |
+| asar 头解析两次失败 | 偏移错/非标准 asar | 只报容器与哈希；转 `strings`/安装目录 |
+| 全 `.jsc` 且版本不匹配 | 字节码不可读 | 记录版本/加载器；找 source map；只做字符串面 |
+| IPC 只有一端 | 链路不完整 | 补齐另一端；标 `inferred` |
+| Unity 插件未加载/IL2CPP 版本不匹配 | 加载链/工具链失败 | 查日志/版本；两次失败即停 |
+| 改包后拒绝加载 | 签名/白名单/完整性 | 停；记录校验层；转静态/更新链 |
+| 触发反作弊/EDR/企业策略 | 环境风险 | 立即停；记录环境；换离线副本 |
 
-## 7. 验收与失败判据
+**停止规则**：同一路径两次失败就换观测层；缺环不升格；签名/白名单/版本失败两次即停；反作弊/EDR 立即停；协议拿不到明文/帧边界交 R24。
 
-**完成判据（缺一不可）**
+## 6. 模型常见失误（≥8 条）
 
-- [ ] 包体哈希、版本、来源、宿主版本齐全，原包只读。
+> 完整 18 条见 `references/03-model-pitfalls.md`。每条都是“错误动作 → 为什么错 → 正确动作”。
+
+1. **把“解包成功”当“分析完成”**：解包只证明容器可读；正确动作是跑 `plugin-repro.py`，要求入口 exists、权限有 file/line、至少一条数据流、最小单元可指认。
+2. **看到权限就下“恶意”结论**：权限是能力声明；正确动作是逐条找证据与 sink，缺 sink 写 `inferred`。
+3. **把 MV3 SW 当持久后台页**：SW 会休眠、模块全局变量会丢；正确动作是触发唤醒源、查 `chrome.storage`/IndexedDB。
+4. **在 content script 里读页面变量**：默认 ISOLATED world；正确动作是查 `world:"MAIN"`/注入桥/`postMessage`。
+5. **把 `sendMessage` 当任意页面可调用**：还需注入范围 + `externally_connectable` + 无 `sender` 校验；三者齐备才写“可被外部触发”。
+6. **把 CRX3 头当 zip 直接解**：`Cr24` + 版本/头长度 + ZIP；先找 `PK\x03\x04`，失败两次转商店目录。
+7. **把 asar 当加密 / 把 `.jsc` 当 JS**：asar 是 JSON 头 + 偏移；`.jsc` 是 V8 字节码，需版本匹配。
+8. **只看 `contextBridge` 就断言 RCE**：还要看 main handler 的参数校验与 sink；缺一段写 `inferred`。
+9. **把 VSIX `activationEvents:*` 当“启动即执行一切”**：真正行为在 `activate()`/命令里，且可能被 `engines`/受限工作区拦住。
+10. **把 `plugin.xml` 当完整调用链**：它只是注册表；class 可能被 shade/重定位，找不到就标“入口不一致”。
+11. **把 Unity 插件 DLL 当独立程序**：patch 目标在游戏程序集/`dump.cs`；必须两边对上。
+12. **把 IL2CPP `dump.cs` 当原始源码**：它是结构恢复；关键偏移回 `GameAssembly.dll` 验证，版本不匹配即停。
+13. **忽略签名/白名单/更新链反复改包**：先记录校验层；两次失败即停。
+14. **把“命中敏感 API”当“数据已外发”**：追参数来源与 URL/命令常量，区分 API 命中与数据流边。
+15. **在真实账号/生产宿主上动态观测**：用隔离 profile/虚拟机/离线副本，先备份 baseline。
+16. **报告把 `inferred` 写成 `observed`**：每条结论标级别；缺环写清楚。
+17. **在插件层硬解私有协议**：交 `protocol-plugin`（R24），本域只交入口与载荷位置。
+18. **忽略宿主/插件/运行时版本自洽**：记录版本；不匹配先换环境或只做静态。
+
+## 7. 流程（每阶段有完成判据）
+
+### 阶段 A：收货与判型
+
+```bash
+sha256sum target > SHA256SUMS
+python Tool/skill/plugin-targets/scripts/plugin-triage.py --path target --json
+```
+
+完成判据：`container` 明确；清单可解析；入口清单存在；原包只读。
+
+### 阶段 B：解包与入口
+
+```bash
+python Tool/skill/plugin-targets/scripts/plugin-repro.py --path target --out work/repro --json
+```
+
+完成判据：`entrypoints` 至少一个 `exists=true`；后台/内容脚本/main/preload/插件 DLL 可指认；`unpacked` 路径可复跑。
+
+### 阶段 C：权限/扩展点落地
+
+```bash
+jq '{permissions,optional_permissions,host_permissions,background,content_scripts,
+     externally_connectable,update_url}' work/repro/unpack/manifest.json
+```
+
+完成判据：每个高危权限有 `status=observed` + file/line；不能解释的单列；VSIX/JetBrains 的激活事件/扩展点对到实现。
+
+### 阶段 D：数据流与最小单元
+
+完成判据：至少一条“输入 → 插件 → 输出”有代码证据；`minimal_unit.path/symbols` 可指认；有 baseline 与回退方式；协议部分单独标注交 R24。
+
+### 阶段 E：动态/签名/更新（可选）
+
+完成判据：隔离环境；只读优先；一次一个变量；两次加载失败即停；记录签名者/更新通道/受限工作区。
+
+### 阶段 F：结论与复算
+
+完成判据：结论按 `observed/inferred/unverified/blocked` 标注；命令/rc/哈希/产物齐全；案例产物 sha256 可复算。
+
+## 8. 参考索引（逐篇）
+
+| 文件 | 用途 |
+|---|---|
+| `references/01-criteria.md` | 判据总表：场景/输入面/机检判据/证据形态/误报风险 |
+| `references/02-failure-criteria.md` | 失败判据 22 条：现象/判定/改走哪条/代价 |
+| `references/03-model-pitfalls.md` | 模型常见失误 18 条：错误动作/为什么错/正确动作 |
+| `references/04-walkthrough-chrome-extension.md` | 真实案例走查：本机 Chrome MV3 扩展（Quicker 1.2.4） |
+| `references/browser-extension.md` | MV3 service worker、隔离世界、权限面、消息面 |
+| `references/ide-plugins.md` | VSIX/JetBrains 激活点、扩展点、受限工作区、签名更新 |
+| `references/electron-and-asar.md` | asar 结构、main/preload/renderer、IPC、原生模块/`.jsc` |
+| `references/unity-and-mods.md` | BepInEx/MelonLoader、Mono/IL2CPP、Harmony patch、验证流程 |
+| `references/desktop-plugins.md` | OBS/StreamDeck、输入法/驱动、native host、签名/持久化 |
+
+## 9. 脚本用法
+
+```bash
+# 结构 + 权限面 + 可疑 API + 远程 URL（只读，不解包落盘）
+python Tool/skill/plugin-targets/scripts/plugin-triage.py --path target.crx --json
+python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+
+# 解包 + 入口/权限证据 + 数据流 + 最小可改单元
+python Tool/skill/plugin-targets/scripts/plugin-repro.py --path target.vsix --out work/repro --json
+
+# 离线自检（无外网/无真实目标）
+python Tool/skill/plugin-targets/scripts/plugin-triage.py --self-test
+python Tool/skill/plugin-targets/scripts/plugin-repro.py --self-test
+
+# 兼容入口（转发到 skill 脚本）
+python Tool/scripts/plugin-triage.py --path target.crx
+```
+
+退出码：0 成功；2 结构化失败（`{"ok": false, "blocked_at": "...", "reason": "..."}`）。脚本不执行包内代码、不联网。
+
+## 10. 任务卡入口
+
+- `Tool/prompts/domains/plugin-targets.md`（24 张，源技能名取自 `Tool/config/taskcard-sources.json`，均为最近邻，卡名标「借」）。
+- 推荐顺序：01/02/03（浏览器）→ 04/22（Electron）→ 15/14（Unity）→ 17/10（IDE/签名）→ 09/23（native/持久化）→ 20（综合）。
+
+## 11. KB board 入口
+
+- `Tool/mcp/Tool/reverselab/kb/plugin/README.md`（board 索引 + 10 分钟初筛 + 三条硬判据 + 失败判据 + 邻域边界）。
+- 逐篇：`manifest-and-permissions.md`、`asar-and-mod-loaders.md`、`mv3-service-worker-isolation.md`、`asar-main-process.md`、`unity-il2cpp-bepinex.md`、`ide-plugin-vsix-jetbrains.md`、`plugin-failure-criteria.md`。
+
+## 12. 交付检查清单
+
+- [ ] 包哈希、版本、来源、宿主版本齐全，原包只读。
 - [ ] manifest/package.json/plugin.xml 的权限与入口逐条解释。
-- [ ] 页面/宿主 → 插件 → 远端/本地的数据流能画出来。
-- [ ] 最小可改单元已定位，并有“改前/改后”的可观察差异。
-- [ ] 动态观测在隔离环境，未影响真实账号与生产数据。
-- [ ] 结论标注 observed/inferred/unverified；缺环不冒充完成。
+- [ ] 页面/宿主 → 插件 → 远端/本地的数据流至少一条有 file/line。
+- [ ] 最小可改单元已定位，有 baseline 与回退。
+- [ ] 动态观测在隔离环境，未影响真实账号/生产数据。
+- [ ] 结论标注 observed/inferred/unverified/blocked；缺环不冒充完成。
+- [ ] 协议/分帧问题已明确交给 `protocol-plugin`（R24）。
 
-**失败判据（何时停）**
-
-- 包体无法解出可读清单/入口，且两次换工具仍失败 → 停，只报包体哈希与容器结论。
-- 权限/入口能列出但无法对应到任何代码路径 → 标“权限面未闭环”，不写“恶意”。
-- 动态加载两次失败（签名/白名单/版本不匹配）→ 停，转静态与更新链分析，不反复改包。
-- 插件内含协议但无法取到明文/帧边界 → 交 protocol-plugin（R24），不在本技能猜字段。
-- 触发反作弊/企业策略/账号风控 → 立即停，记录环境，不换号绕过。
-
-> 细节：`references/browser-extension.md`、`references/desktop-plugins.md`、`references/electron-and-asar.md`、`references/unity-and-mods.md`。
+> 失败判据、边界与降级详见 `references/02-failure-criteria.md` 与 `references/03-model-pitfalls.md`。

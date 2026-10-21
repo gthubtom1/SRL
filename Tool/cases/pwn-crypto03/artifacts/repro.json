@@ -1,0 +1,24 @@
+{
+  "ok": true,
+  "evidence": [
+    {
+      "method": "objdump-rbp",
+      "buffer_disp": 80,
+      "rsp_sub": 112,
+      "offset": 88,
+      "func": "vuln"
+    },
+    {
+      "method": "runtime-probe",
+      "buf": "0x5ffdd0",
+      "frame": "0x5ffe20",
+      "buffer_disp": 80,
+      "offset": 88
+    }
+  ],
+  "offsets": [
+    88
+  ],
+  "consistent": true,
+  "offset": 88
+}

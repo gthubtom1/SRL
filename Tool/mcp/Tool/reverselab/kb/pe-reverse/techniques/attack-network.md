@@ -1,9 +1,6 @@
 # PE 逆向攻击网
-
 线性分析链不够。攻击网 = 多入口、多分叉、跨分类交织的图结构。每个节点是一个 Primitive，每条边是一个分析步骤或工具操作。
-
 ## 全网图 (Mermaid)
-
 ```mermaid
 graph TD
     %% === Layer 0: Entry Points ===
@@ -12,7 +9,6 @@ graph TD
     PATCH["Patch<br/>08-patch"]
     PATCH_BYTES["Patch Bytes<br/>08-patch"]
     MEMDUMP["Memory Dump<br/>06-ioc-extraction"]
-
     %% === Layer 1: Triage ===
     TRIAGE["Triage<br/>01-triage"]
     PESTRUCT["PE Structure<br/>02-pe-structure"]
@@ -23,7 +19,6 @@ graph TD
     HASH["Hash<br/>01-triage"]
     STRINGS["Strings<br/>01-triage"]
     IMPORTS["Imports<br/>02-pe-structure"]
-
     %% === Layer 2: Static Analysis ===
     GHIDRA["Ghidra<br/>03-static-analysis"]
     FUNC_MAP["Function Map<br/>03-static-analysis"]
@@ -32,7 +27,6 @@ graph TD
     DISASM["Disasm/JIT<br/>03-static-analysis"]
     RECLASS["ReClass<br/>03-static-analysis"]
     API_RESOLVER["Dynamic API Resolver<br/>03-static-analysis"]
-
     %% === Layer 3: Dynamic Analysis ===
     X64DBG["x64dbg<br/>04-dynamic-analysis"]
     BREAKPOINT["Breakpoint<br/>03-static-analysis"]
@@ -45,7 +39,6 @@ graph TD
     DIRECT_SYSCALL["Direct Syscall<br/>04-dynamic-analysis"]
     PROCMON["Procmon<br/>04-dynamic-analysis"]
     ANTIDEBUG["Anti-Debug<br/>04-dynamic-analysis"]
-
     %% === Layer 4: Crypto / Unpack ===
     UNPACK_CRYPTO["Crypto Unpack<br/>05-crypto-unpack"]
     ALGO_ID["Algorithm ID<br/>general/crypto"]
@@ -53,7 +46,6 @@ graph TD
     PROTO_REV["Protocol Rev<br/>general/protocol"]
     VMP_ENTRY["VMP VM Entry<br/>05-crypto-unpack"]
     VMP_DEVIRT["VMP Devirtualize<br/>05-crypto-unpack"]
-
     %% === Layer 5: IOC / Detection ===
     IOC["IOC Extraction<br/>06-ioc-extraction"]
     C2["C2 Address<br/>06-ioc-extraction"]

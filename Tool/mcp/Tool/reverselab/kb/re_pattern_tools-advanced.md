@@ -174,7 +174,7 @@ Free, open-source alternative to BinDiff, runs as IDA plugin.
 
 ## Deobfuscation Frameworks
 
-> OLLVM 脱密的完整工作流、变种生态和社区工具调研见 [ollvm-deobfuscation.md](references/ollvm-deobfuscation.md)。
+> OLLVM 脱密的完整工作流、变种生态和社区工具调研见 ollvm-deobfuscation.md。
 
 ### d810-ng (IDA) — 本地首选
 

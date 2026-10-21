@@ -1,0 +1,46 @@
+{
+  "id": "ad-cloud05",
+  "domain": "ad-cloud",
+  "target_type": "离线 IAM 策略夹具（身份策略 + permissions boundary）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local offline fixture",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "aff2ae364653142f6f963162316be8a9d841ac525cda62a29b6738cc56f020fd"
+    },
+    {
+      "path": "artifacts/run-deny.json",
+      "sha256": "30eaee19287aaf34d3fc0732340d68feebd92def53dba08a0461a57e5da14c1e"
+    }
+  ],
+  "lessons": [
+    "本次跑到：`cd Tool/cases/ad-cloud05 && python ../../skill/ad-cloud/scripts/cloud-iam-eval.py --input input/policy.json --action iam:CreatePolicyVersion --resource arn:aws:iam::123456789012:policy/demo > artifacts/run.json`（rc=0），同一输入对 `s3:GetObject` + `demo-bucket/secret/a.txt` 再跑一次得到 `artifacts/run-deny.json`（rc=0）。",
+    "结果：iam:CreatePolicyVersion 判定 allow，并列出 iam:createpolicyversion/iam:passrole 等 privesc 组合；s3 读取判定 deny，因为显式 Deny 优先；两次都只基于策略文本，没有调用 STS/IAM。",
+    "边界：这是手写策略夹具，不是真实账号；评估器只覆盖 StringEquals/StringLike/ArnEquals/ArnLike/Bool 条件，不建模资源策略、会话策略、SCP 全部语义，因此 allow 不等于凭据仍有效。",
+    "下一步：用真实只读 `aws sts get-caller-identity` 确认身份，再 `aws iam list-attached-user-policies` / `get-policy-version` 对照；任何写操作（CreatePolicyVersion/PassRole）必须单独授权并先备份。",
+    "失败判据：看到 `Action:*` 就写‘管理员’，或忽略 boundary/Deny 直接下结论，都会高估权限；策略文本 allow 与实际调用成功之间还差一次在线验证。"
+  ],
+  "tags": [
+    "aws",
+    "iam",
+    "policy",
+    "boundary",
+    "offline",
+    "privesc"
+  ],
+  "refs": [
+    "Tool/skill/ad-cloud/references/cloud-native.md",
+    "Tool/skill/ad-cloud/references/01-criteria.md",
+    "Tool/skill/ad-cloud/scripts/cloud-iam-eval.py",
+    "Tool/config/ad-cloud-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

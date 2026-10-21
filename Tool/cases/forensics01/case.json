@@ -2,12 +2,13 @@
   "id": "forensics01",
   "domain": "forensics-mobile",
   "route": "R26",
-  "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话）",
+  "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话，教学夹具）",
   "platform": "linux",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
   "outcome": "partial",
+  "evidence_kind": "fixture",
   "acquisition": {
     "method": "pcap",
     "tool": "python 手工构造 + forensics-check.py 1.0 + pcap-summary.py 1.0",
@@ -90,11 +91,16 @@
   ],
   "refs": [
     "Tool/skill/forensics-mobile/SKILL.md",
-    "Tool/skill/forensics-mobile/references/forensics.md",
+    "Tool/skill/forensics-mobile/references/01-criteria.md",
+    "Tool/skill/forensics-mobile/references/network-pcap-and-log.md",
     "Tool/skill/forensics-mobile/references/evidence-chain.md",
     "Tool/config/forensics-mobile-matrix.json",
     "Tool/cases/forensics01/input/capture.pcap",
     "Tool/cases/forensics01/artifacts/run.json"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
 }

@@ -58,16 +58,22 @@
 
 ```
 softseep/
-├── SKILL.md                    ← 总控（253 行）：G-Auth 门 + 自动判型 + 路由矩阵
-└── references/                 ← 按需加载，不预先全读
-    ├── windows-sop.md          6 步标准化流水线
-    ├── patching-dictionary.md  汇编打桩速查字典
-    ├── defense-in-depth.md     五层纵深防御
-    ├── ui-verification.md      跨进程 UI 验收工装
-    ├── compiler-pitfalls.md    编译器陷阱（写代理 DLL 前必读）
-    ├── project-paradigms.md    九型范式库（项目A~I 的技术内核）
-    ├── license-validation.md   许可/激活/卡密校验手册（16 节）
-    └── tooling.md              工具脚本索引
+├── SKILL.md                         ← 总控（518 行）：G-Auth 门 + 判据表 + 路由矩阵
+└── references/                      ← 按需加载，不预先全读（10 篇，全部 ≤400 行）
+    ├── 01-criteria.md               判据表（授权权威/补丁生效/脱壳/算法正确性）
+    ├── 02-failure-criteria.md       失败判据表（现象→改走哪条→代价）
+    ├── 03-model-pitfalls.md         模型常见失误（19 条）
+    ├── 04-walkthrough-project-a.md  真实案例走查（项目A）
+    ├── windows-sop.md               6 步流水线 + 工具索引 + 纵深防御
+    ├── license-validation.md        许可/激活/卡密校验手册（16 节）
+    ├── 07-disassembly-deep-read.md  x64/ARM64 调用约定、栈帧、编译器模式（吸收 compiler-pitfalls）
+    ├── 08-symbol-recovery.md        PDB/RSDS、FLIRT/Lumina、RTTI、vtable
+    ├── 09-patch-engineering.md      等长/重定位/IAT/回滚（吸收 patching-dictionary）
+    └── 10-anti-debug.md             反调试识别与决策（单列卷）
+
+九型范式库 → `kb/pe-reverse/techniques/11-project-paradigms/`
+UI 验收工装 → `kb/pe-reverse/techniques/14-ui-verification/`
+报告骨架   → `kb/pe-reverse/techniques/13-report-template/`
 ```
 
 ### apkseep 内部构成（渐进式披露）
@@ -184,7 +190,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | **tools/skills/mcp/** | `Tool/mcp/Tool/reverselab/tools/skills/mcp/` | 3 个 MCP 源码 |
 | **docs/** | `Tool/mcp/Tool/reverselab/docs/` | 含 `llms.txt`（seep MCP 引用的 LLM 索引） |
 | **scripts/** | `Tool/mcp/Tool/reverselab/scripts/` | 知识库辅助脚本 |
-| **AGENTS.md / CLAUDE.md / SKILLS.md / AI-USAGE.md** | `Tool/mcp/Tool/reverselab/` | reverselab 自带的 agent 协议 |
+| **AGENTS.md / Tool/prompts/contracts/CLAUDE.md / SKILLS.md / AI-USAGE.md** | `Tool/mcp/Tool/reverselab/` | reverselab 自带的 agent 协议 |
 
 > 已剔除工作目录：`cases/ logs/ tmp/ exports/ samples/ projects/ patches/ reports/ notes/ site/`
 

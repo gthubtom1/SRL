@@ -1,0 +1,140 @@
+{
+  "id": "forensics04",
+  "domain": "forensics-mobile",
+  "route": "R26",
+  "target_type": "iOS .ipa 与 Keychain/plist/SQLite 教学夹具（自建，无真实账号数据）",
+  "platform": "ios",
+  "protection": [],
+  "authority": "local-owner-authorized",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "evidence_kind": "fixture",
+  "acquisition": {
+    "method": "fixture build + read-only copy",
+    "tool": "python zipfile/plistlib/sqlite3 + forensics-check.py 1.1 + fs-timeline.py 1.0",
+    "collected_at": "2026-10-21T14:38:39Z",
+    "timezone": "UTC",
+    "operator": "case fixture",
+    "source": "自建 Payload/App.app（Info.plist/AppBinary/UnityFramework/keychain-2.db/app.sqlite）",
+    "clock_skew": "0；夹具时间由构造脚本写入，不代表真实设备时间",
+    "readonly": "构建后 chmod a-w"
+  },
+  "questions": [
+    "这个 .ipa 的包结构、签名/权限入口、Mach-O 架构、Keychain 与数据文件结构是什么；能否在不读取明文 secret 的前提下说明二进制与数据文件的关系？"
+  ],
+  "timeframe": {
+    "start": "2026-10-20T03:14:00Z",
+    "end": "2026-10-21T14:38:44Z",
+    "clock_skew": "0（夹具）"
+  },
+  "findings": [
+    {
+      "claim": "App.ipa 是 9 个 entry 的 ZIP；含 Payload/App.app/Info.plist、embedded.mobileprovision、Frameworks/UnityFramework.framework/UnityFramework、keychain-2.db、Documents/app.sqlite",
+      "time_utc": "2026-10-20T03:14:00Z",
+      "actor": "ipa fixture builder",
+      "action": "create zip entries（分析时刻，非事件时刻）",
+      "object": "input/App.ipa（sha256 见 artifacts）",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "input/App.ipa",
+        "artifacts/check-ipa.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/App.ipa --json"
+    },
+    {
+      "claim": "解包后的 AppBinary 是 Mach-O 64-bit arm64 executable（magic feedfacf，cputype 0x0100000c），可作为静态分析入口",
+      "time_utc": "2026-10-20T03:14:00Z",
+      "actor": "Payload/App.app/AppBinary",
+      "action": "Mach-O identify（分析时刻，非事件时刻）",
+      "object": "work/unpacked/Payload/App.app/AppBinary",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "artifacts/check-macho.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file work/unpacked/Payload/App.app/AppBinary --json"
+    },
+    {
+      "claim": "keychain-2.db 是 SQLite，含 genp/inet 表；仅做结构与行数检查，未读取/导出 data 字段明文",
+      "time_utc": "2026-10-20T03:14:00Z",
+      "actor": "Payload/App.app/keychain-2.db",
+      "action": "sqlite schema/integrity（分析时刻，非事件时刻）",
+      "object": "work/unpacked/Payload/App.app/keychain-2.db（tables genp,inet）",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "artifacts/check-keychain.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file work/unpacked/Payload/App.app/keychain-2.db --json"
+    },
+    {
+      "claim": "证据副本 App.ipa 的 ctime/mtime/atime 可归一为 UTC；mtime=2026-10-21T14:38:39.083564Z，ctime=14:38:39.082565Z，atime=14:38:44.879358Z",
+      "time_utc": "2026-10-21T14:38:39.083564Z",
+      "actor": "analysis copy",
+      "action": "filesystem timestamps",
+      "object": "input/App.ipa",
+      "confidence": "observed",
+      "evidence_refs": [
+        "artifacts/timeline.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input --all-times --out artifacts/timeline.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "input/App.ipa",
+      "sha256": "ac9ed18c9c22159b35c7d94743c45cf144608a3ac28c319fabda0728764c5ba7"
+    },
+    {
+      "path": "artifacts/check-ipa.json",
+      "sha256": "50b0d21c212e70eff7cfb57b80091368dde370ff09e214aa26c28b2cfa2eeb0a"
+    },
+    {
+      "path": "artifacts/check-macho.json",
+      "sha256": "0ab227a5eab6a756763cf85edf6cefb932ad3b4515f11ac2e614c82b81d07455"
+    },
+    {
+      "path": "artifacts/check-keychain.json",
+      "sha256": "7781a29b3af7dc4fd00c2091a2b7fcbb2e7612db3b3734ae0da43e105bcbc698"
+    },
+    {
+      "path": "artifacts/timeline.json",
+      "sha256": "c4b8af4ab2d03e9d4dc1b2880c3d432ab4a75bbf0e565873b81d90dfbcf889b1"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "26a973634e9cdef74b13e51450d6f6cd29da8e3b38725e2ed6b19dfcf4878873"
+    }
+  ],
+  "lessons": [
+    "跑的是 forensics-check.py 对 .ipa、Mach-O、keychain-2.db 三份夹具做类型/结构初检，命令 `python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/App.ipa --json`，rc=0；随后对 AppBinary/keychain-2.db 各跑一次 rc=0，并用 fs-timeline.py 生成 3 条文件系统时间事件。",
+    "发现：IPA 有 9 个 entry，Info.plist 是二进制 plist，AppBinary 是 Mach-O 64-bit arm64，keychain-2.db 为 SQLite（genp/inet 表）；这些是“结构/能力面”，不是“实际行为”。",
+    "边界：夹具没有真实签名链、没有 cryptid/entitlements 解码、没有运行时行为；不能据此判断越狱检测、网络请求或 Keychain 明文。",
+    "还差什么：在授权 macOS/测试机上跑 codesign/otool/plutil，补齐 LC_ENCRYPTION_INFO、entitlements、URL Scheme；对 keychain 只做元数据，不导出 secret。",
+    "失败判据：若 cryptid=1 未脱壳，停静态结论；若 Info.plist 无法解析/签名不一致，先查重签；若 keychain 表结构异常，只做文件级元数据。",
+    "R3 修复：timeline.json 的事件补 action 字段（由 fs-timeline 的 derive_action 按 kind 派生，与工具输出同源），并去掉 generated_at 以便复跑；哈希已重算。"
+  ],
+  "tags": [
+    "R26",
+    "forensics",
+    "fixture",
+    "ios",
+    "ipa",
+    "mach-o",
+    "keychain",
+    "plist"
+  ],
+  "refs": [
+    "Tool/skill/forensics-mobile/SKILL.md",
+    "Tool/skill/forensics-mobile/references/01-criteria.md",
+    "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+    "Tool/skill/forensics-mobile/references/ios-macos-artifacts.md",
+    "Tool/skill/forensics-mobile/references/evidence-chain.md",
+    "Tool/config/forensics-mobile-matrix.json",
+    "Tool/cases/forensics04/input/App.ipa",
+    "Tool/cases/forensics04/artifacts/timeline.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

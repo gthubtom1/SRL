@@ -1,0 +1,1075 @@
+{
+  "ok": true,
+  "tool": "fs-timeline.py",
+  "generated_at": null,
+  "timezone": "UTC",
+  "events": [
+    {
+      "time_utc": "2026-10-08T22:15:25.951311Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=1",
+      "detail": {
+        "chunk": 0,
+        "record_id": 1,
+        "record_offset": 512,
+        "record_size": 1704
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:16:03.382615Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=2",
+      "detail": {
+        "chunk": 0,
+        "record_id": 2,
+        "record_offset": 2216,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:16:06.733640Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=3",
+      "detail": {
+        "chunk": 0,
+        "record_id": 3,
+        "record_offset": 2592,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:16:33.655717Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=4",
+      "detail": {
+        "chunk": 0,
+        "record_id": 4,
+        "record_offset": 2968,
+        "record_size": 544
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:17:53.132363Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=5",
+      "detail": {
+        "chunk": 0,
+        "record_id": 5,
+        "record_offset": 3512,
+        "record_size": 600
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:06.462443Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=6",
+      "detail": {
+        "chunk": 0,
+        "record_id": 6,
+        "record_offset": 4112,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:33.854298Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=7",
+      "detail": {
+        "chunk": 0,
+        "record_id": 7,
+        "record_offset": 4520,
+        "record_size": 4048
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:40.447505Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=8",
+      "detail": {
+        "chunk": 0,
+        "record_id": 8,
+        "record_offset": 8568,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:40.451017Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=9",
+      "detail": {
+        "chunk": 0,
+        "record_id": 9,
+        "record_offset": 9032,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:40.655288Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=10",
+      "detail": {
+        "chunk": 0,
+        "record_id": 10,
+        "record_offset": 9496,
+        "record_size": 936
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:57.517092Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=11",
+      "detail": {
+        "chunk": 0,
+        "record_id": 11,
+        "record_offset": 10432,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:19:57.530918Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=12",
+      "detail": {
+        "chunk": 0,
+        "record_id": 12,
+        "record_offset": 10896,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:20:38.728998Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=13",
+      "detail": {
+        "chunk": 0,
+        "record_id": 13,
+        "record_offset": 11264,
+        "record_size": 992
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:22:23.725101Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=14",
+      "detail": {
+        "chunk": 0,
+        "record_id": 14,
+        "record_offset": 12256,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:22:24.009899Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=15",
+      "detail": {
+        "chunk": 0,
+        "record_id": 15,
+        "record_offset": 12720,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:22:26.108813Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=16",
+      "detail": {
+        "chunk": 0,
+        "record_id": 16,
+        "record_offset": 13184,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:22:26.108838Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=17",
+      "detail": {
+        "chunk": 0,
+        "record_id": 17,
+        "record_offset": 13648,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:22:44.198126Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=18",
+      "detail": {
+        "chunk": 0,
+        "record_id": 18,
+        "record_offset": 14112,
+        "record_size": 472
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:25:14.203227Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=19",
+      "detail": {
+        "chunk": 0,
+        "record_id": 19,
+        "record_offset": 14584,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:27:22.232508Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=20",
+      "detail": {
+        "chunk": 0,
+        "record_id": 20,
+        "record_offset": 14992,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:27:44.216352Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=21",
+      "detail": {
+        "chunk": 0,
+        "record_id": 21,
+        "record_offset": 15368,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:28:09.101477Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=22",
+      "detail": {
+        "chunk": 0,
+        "record_id": 22,
+        "record_offset": 15776,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:30:14.218334Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=23",
+      "detail": {
+        "chunk": 0,
+        "record_id": 23,
+        "record_offset": 16152,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:31:51.732701Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=24",
+      "detail": {
+        "chunk": 0,
+        "record_id": 24,
+        "record_offset": 16560,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:32:44.222206Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=25",
+      "detail": {
+        "chunk": 0,
+        "record_id": 25,
+        "record_offset": 16936,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:35:14.229328Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=26",
+      "detail": {
+        "chunk": 0,
+        "record_id": 26,
+        "record_offset": 17344,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:37:44.242248Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=27",
+      "detail": {
+        "chunk": 0,
+        "record_id": 27,
+        "record_offset": 17752,
+        "record_size": 408
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:37:57.411285Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=28",
+      "detail": {
+        "chunk": 0,
+        "record_id": 28,
+        "record_offset": 18160,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:38:26.117763Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=29",
+      "detail": {
+        "chunk": 0,
+        "record_id": 29,
+        "record_offset": 18536,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:38:54.962231Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=30",
+      "detail": {
+        "chunk": 0,
+        "record_id": 30,
+        "record_offset": 19000,
+        "record_size": 680
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:40:14.243688Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=31",
+      "detail": {
+        "chunk": 0,
+        "record_id": 31,
+        "record_offset": 19680,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:40:14.261073Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=32",
+      "detail": {
+        "chunk": 0,
+        "record_id": 32,
+        "record_offset": 20072,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:49:22.657877Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "https://cn.bing.com/search?pglt=547&q=oh+my+pi%E6%B1%89%E5%8C%96&cvid=a4b1f11d57a94245a794ece5d8b085ac&gs_lcrp=EgRlZGdlKgYIABBFGDkyBggAEEUYOTIGCAEQABhA0gEINjI3MWowajeoAgiwAgE&FORM=ANSPA1&PC=U531",
+      "detail": {
+        "title": "oh my pi汉化 - 搜索",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:49:40.128110Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "https://github.com/tt1bt/oh-my-pi-zh",
+      "detail": {
+        "title": "GitHub - tt1bt/oh-my-pi-zh: omp (oh-my-pi) CLI 简体中文汉化补丁 / Chinese localization patch for the omp CLI · GitHub",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:49:49.994444Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "https://github.com/tt1bt/oh-my-pi-zh#%E6%96%B9%E5%BC%8F%E4%BA%8C%E4%B8%80%E8%A1%8C%E8%84%9A%E6%9C%AC",
+      "detail": {
+        "title": "GitHub - tt1bt/oh-my-pi-zh: omp (oh-my-pi) CLI 简体中文汉化补丁 / Chinese localization patch for the omp CLI · GitHub",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:49:49.998547Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "https://github.com/tt1bt/oh-my-pi-zh#%E6%96%B9%E5%BC%8F%E4%BA%8C%E4%B8%80%E8%A1%8C%E8%84%9A%E6%9C%AC",
+      "detail": {
+        "title": "GitHub - tt1bt/oh-my-pi-zh: omp (oh-my-pi) CLI 简体中文汉化补丁 / Chinese localization patch for the omp CLI · GitHub",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T22:55:33.206657Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "https://www.kimi.com/code/authorize_device?user_code=8I7V-EI1K",
+      "detail": {
+        "title": "Kimi AI 官网 - K3 上线，专为智能体编程与知识工作打造",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T23:08:29.955414Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=33",
+      "detail": {
+        "chunk": 0,
+        "record_id": 33,
+        "record_offset": 20440,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T23:10:59.940778Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=34",
+      "detail": {
+        "chunk": 0,
+        "record_id": 34,
+        "record_offset": 20816,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T23:10:59.956608Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=35",
+      "detail": {
+        "chunk": 0,
+        "record_id": 35,
+        "record_offset": 21208,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T23:13:51.105603Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "http://www.hostbuf.com/?install_fs",
+      "detail": {
+        "title": "FinalShell官网",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-08T23:13:51.105603Z",
+      "source": "History.sqlite",
+      "kind": "browser-history",
+      "action": "url-visited",
+      "actor": "browser-visit",
+      "object": "https://www.hostbuf.com/?install_fs",
+      "detail": {
+        "title": "FinalShell官网",
+        "timestamp_basis": "chromium 1601-epoch us"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:42:05.769295Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=36",
+      "detail": {
+        "chunk": 0,
+        "record_id": 36,
+        "record_offset": 21576,
+        "record_size": 536
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:42:05.770680Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=37",
+      "detail": {
+        "chunk": 0,
+        "record_id": 37,
+        "record_offset": 22112,
+        "record_size": 536
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:42:05.771292Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=38",
+      "detail": {
+        "chunk": 0,
+        "record_id": 38,
+        "record_offset": 22648,
+        "record_size": 536
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:42:05.771757Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=39",
+      "detail": {
+        "chunk": 0,
+        "record_id": 39,
+        "record_offset": 23184,
+        "record_size": 536
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:44:35.757064Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=40",
+      "detail": {
+        "chunk": 0,
+        "record_id": 40,
+        "record_offset": 23720,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T10:44:35.772975Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=41",
+      "detail": {
+        "chunk": 0,
+        "record_id": 41,
+        "record_offset": 24112,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T11:06:30.851752Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=42",
+      "detail": {
+        "chunk": 0,
+        "record_id": 42,
+        "record_offset": 24480,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T11:08:30.568017Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=43",
+      "detail": {
+        "chunk": 0,
+        "record_id": 43,
+        "record_offset": 24944,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T11:08:30.584032Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=44",
+      "detail": {
+        "chunk": 0,
+        "record_id": 44,
+        "record_offset": 25336,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T12:01:08.376452Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=45",
+      "detail": {
+        "chunk": 0,
+        "record_id": 45,
+        "record_offset": 25704,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T12:03:38.367976Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=46",
+      "detail": {
+        "chunk": 0,
+        "record_id": 46,
+        "record_offset": 26080,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T12:03:38.384059Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=47",
+      "detail": {
+        "chunk": 0,
+        "record_id": 47,
+        "record_offset": 26472,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T12:16:55.408756Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=48",
+      "detail": {
+        "chunk": 0,
+        "record_id": 48,
+        "record_offset": 26840,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T12:19:25.415401Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=49",
+      "detail": {
+        "chunk": 0,
+        "record_id": 49,
+        "record_offset": 27216,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T12:19:25.432777Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=50",
+      "detail": {
+        "chunk": 0,
+        "record_id": 50,
+        "record_offset": 27608,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T16:07:49.547505Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=51",
+      "detail": {
+        "chunk": 0,
+        "record_id": 51,
+        "record_offset": 27976,
+        "record_size": 376
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T16:10:19.534708Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=52",
+      "detail": {
+        "chunk": 0,
+        "record_id": 52,
+        "record_offset": 28352,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-09T16:10:19.551492Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=53",
+      "detail": {
+        "chunk": 0,
+        "record_id": 53,
+        "record_offset": 28744,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T02:01:26.335949Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=54",
+      "detail": {
+        "chunk": 0,
+        "record_id": 54,
+        "record_offset": 29112,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T02:03:25.991688Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=55",
+      "detail": {
+        "chunk": 0,
+        "record_id": 55,
+        "record_offset": 29576,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-13T02:03:26.006597Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=56",
+      "detail": {
+        "chunk": 0,
+        "record_id": 56,
+        "record_offset": 29968,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-20T03:20:24.110691Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=57",
+      "detail": {
+        "chunk": 0,
+        "record_id": 57,
+        "record_offset": 30336,
+        "record_size": 464
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-20T03:22:23.275618Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=58",
+      "detail": {
+        "chunk": 0,
+        "record_id": 58,
+        "record_offset": 30800,
+        "record_size": 392
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-20T03:22:23.292580Z",
+      "source": "AppReadiness.evtx",
+      "kind": "evtx-record",
+      "action": "event-logged",
+      "actor": "event-record",
+      "object": "AppReadiness.evtx#chunk=0/record=59",
+      "detail": {
+        "chunk": 0,
+        "record_id": 59,
+        "record_offset": 31192,
+        "record_size": 368
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-21T14:25:32.961463Z",
+      "source": "AppReadiness.evtx",
+      "kind": "filesystem-mtime",
+      "action": "file-modified",
+      "actor": "file",
+      "object": "AppReadiness.evtx",
+      "detail": {
+        "path": "AppReadiness.evtx",
+        "size": 69632,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:25:32.961463Z",
+        "atime_utc": "2026-10-21T19:15:40.653589Z",
+        "ctime_utc": "2026-10-21T14:25:32.961463Z",
+        "birthtime_utc": "2026-10-21T14:25:32.961463Z"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-21T14:25:33.011466Z",
+      "source": "History.sqlite",
+      "kind": "filesystem-mtime",
+      "action": "file-modified",
+      "actor": "file",
+      "object": "History.sqlite",
+      "detail": {
+        "path": "History.sqlite",
+        "size": 249856,
+        "mode": "0o444",
+        "mtime_utc": "2026-10-21T14:25:33.011466Z",
+        "atime_utc": "2026-10-21T19:15:40.682559Z",
+        "ctime_utc": "2026-10-21T14:25:33.010466Z",
+        "birthtime_utc": "2026-10-21T14:25:33.010466Z"
+      },
+      "confidence": "observed"
+    },
+    {
+      "time_utc": "2026-10-21T19:15:38.018519Z",
+      "source": "explorer-key-names.txt",
+      "kind": "filesystem-mtime",
+      "action": "file-modified",
+      "actor": "file",
+      "object": "explorer-key-names.txt",
+      "detail": {
+        "path": "explorer-key-names.txt",
+        "size": 5703,
+        "mode": "0o666",
+        "mtime_utc": "2026-10-21T19:15:38.018519Z",
+        "atime_utc": "2026-10-21T19:15:38.066151Z",
+        "ctime_utc": "2026-10-21T19:15:37.835638Z",
+        "birthtime_utc": "2026-10-21T19:15:37.835638Z"
+      },
+      "confidence": "observed"
+    }
+  ],
+  "summary": {
+    "events": 69,
+    "start_utc": "2026-10-08T22:15:25.951311Z",
+    "end_utc": "2026-10-21T19:15:38.018519Z",
+    "by_kind": {
+      "evtx-record": 59,
+      "browser-history": 7,
+      "filesystem-mtime": 3
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "inputs": [
+    {
+      "path": "input/AppReadiness.evtx",
+      "kind": "evtx",
+      "sha256": "a1e797541c1ae292777dbc33a1eb1e785cb3936b1b574ec82e3280845a21dbd9",
+      "size": 69632,
+      "events": 59
+    },
+    {
+      "path": "input/History.sqlite",
+      "kind": "sqlite",
+      "sha256": "89b33c083d91b79d47412c20642172bddcdf3ef26d491f31e95868ea3bb01d4e",
+      "size": 249856,
+      "events": 7
+    },
+    {
+      "path": "input",
+      "kind": "filesystem",
+      "sha256": null,
+      "size": 0,
+      "events": 3
+    }
+  ],
+  "warnings": []
+}

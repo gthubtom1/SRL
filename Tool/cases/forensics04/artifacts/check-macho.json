@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics04\\work\\unpacked\\Payload\\App.app\\AppBinary",
+  "type": "macho",
+  "format": "Mach-O/Fat",
+  "confidence": "observed",
+  "meta": {},
+  "timeline": {
+    "start_utc": "2026-10-19T19:14:00Z",
+    "end_utc": "2026-10-19T19:14:00Z",
+    "basis": "filesystem mtime only; content time requires acquisition record",
+    "timezone": "UTC display of local mtime",
+    "clock_skew": "unknown",
+    "precision": "filesystem dependent"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "架构/LC_UUID/加密信息 cryptid",
+    "依赖库与 rpath",
+    "符号/字符串",
+    "entitlements/签名 Team ID",
+    "与数据文件/网络端点的对应"
+  ],
+  "integrity": {
+    "sha256": "fd26912a6a727da480a0e23495ece83d95a0614901e10ac7269866c106c2c22f",
+    "size": 32,
+    "mtime_utc": "2026-10-19T19:14:00Z",
+    "readonly": false,
+    "warnings": [
+      "文件可写：分析前应设为只读或使用副本"
+    ],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

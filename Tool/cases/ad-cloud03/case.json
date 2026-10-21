@@ -1,0 +1,44 @@
+{
+  "id": "ad-cloud03",
+  "domain": "ad-cloud",
+  "target_type": "本机 Windows Security 事件日志（wevtutil /f:xml 导出，用户名/主机/IP 已脱敏）",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "local host read-only",
+  "goal_level": "L1",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "d96542192e132653d0ad2d2d661fef349ce43e93e7de8ff8962165ee7338b287"
+    }
+  ],
+  "lessons": [
+    "本次跑到：在授权本机执行 `MSYS_NO_PATHCONV=1 wevtutil qe Security '/q:*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4768 or EventID=4769 or EventID=4648)]]' /f:xml /c:100 /rd:true > /tmp/sec2.xml`（rc=0），再执行 `python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml /tmp/sec2.xml --out input/security-events.json`（rc=0，脱敏）与 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input input/security-events.json --json > artifacts/run.json`（rc=0）。",
+    "结果：100 条真实事件，4624=50、4672=50，LogonType 全为 5（服务登录），4768/4769/4776/4625 均为 0；判定 blocked（没有 Kerberos 遥测），唯一 finding 是 4672 特殊权限分配（medium），不能据此写成域内提权。",
+    "边界：本机 `Win32_ComputerSystem.PartOfDomain=False`（WORKGROUP），没有域账号、DC、证书模板或云凭据；单机 Security 日志的缺失不能证明域内没有攻击，只能证明这台主机没有相应遥测。",
+    "下一步：若是域主机，先确认 Kerberos 审计与 `Microsoft-Windows-Kerberos/Operational` 是否开启，再在授权范围内从 DC 导出 Security 日志做 4768/4769/4625/4672 关联；本机则把 4672 服务登录当作基线而不是结论。",
+    "失败判据：把 4672 直接写成提权、把无 4768/4769 写成‘域内安全’、把服务登录类型 5 当成交互登录，都是误判；事件日志缺失时先查审计策略与日志断档。",
+    "R4 修复：ad-repro 实现 EventRecordID 连续性判据（record_id_gaps / telemetry_untrusted + record-id-continuity check）；本案例 100 条事件 record_id 连续（gaps=0），故「未见 Kerberos/NTLM」的结论在该片段内可信，但仍不可外推到全量日志。 artifacts/run.json 已重生成，哈希重算。"
+  ],
+  "tags": [
+    "windows",
+    "evtx",
+    "security-log",
+    "kerberos",
+    "real",
+    "telemetry"
+  ],
+  "refs": [
+    "Tool/skill/ad-cloud/references/04-walkthrough-windows-auth-events.md",
+    "Tool/skill/ad-cloud/references/01-criteria.md",
+    "Tool/skill/ad-cloud/references/02-failure-criteria.md",
+    "Tool/skill/ad-cloud/scripts/ad-repro.py",
+    "Tool/config/ad-cloud-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "id": "plugin03",
+  "domain": "plugin-targets",
+  "route": "R25",
+  "target_type": "本机已安装的 Chrome MV3 扩展（Quicker 1.2.4，扩展 ID klggb…，只截取入口/权限相关文件）",
+  "evidence_kind": "real",
+  "protection": [
+    "Chrome 扩展签名/商店校验（未改包，仅静态分析）"
+  ],
+  "authority": "local",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "package": {
+    "file": "input/real-extension.zip",
+    "version": "1.2.4",
+    "manifest_version": 3,
+    "extension_id": "klggbkjfmbonefdcfkiidhcmfjdfnepa",
+    "source": "~/AppData/Local/Google/Chrome/User Data/Default/Extensions/klggbkjfmbonefdcfkiidhcmfjdfnepa/1.2.4_0",
+    "unpacked": [
+      "manifest.json",
+      "background/background.js",
+      "content/content.js",
+      "content/styles.css",
+      "popup/popup.html",
+      "_locales/en/messages.json"
+    ]
+  },
+  "entrypoints": {
+    "manifest": "manifest.json",
+    "background": "background/background.js",
+    "content_script": "content/content.js",
+    "popup": "popup/popup.html"
+  },
+  "data_flow": [
+    "content/content.js（ISOLATED，all_frames）→ chrome.runtime.sendMessage → background/background.js",
+    "background/background.js → chrome.runtime.connectNative(com.getquicker.chromeagent)",
+    "background/background.js → chrome.debugger / fetch/XHR / chrome.cookies / chrome.storage → 远端或本机 agent"
+  ],
+  "artifacts": [
+    {
+      "path": "input/real-extension.zip",
+      "sha256": "874f1b86b184b3304031df3f3b93c4cd850af2ff4c9f03451601d15d6e9ffc9b"
+    },
+    {
+      "path": "artifacts/provenance.json",
+      "sha256": "151bfae711bc5d30510b7d8e4374660ff16c399e56c2126b0031196b366f11d8"
+    },
+    {
+      "path": "artifacts/plugin-triage.json",
+      "sha256": "e2585c9b21dda0f867559dfff58d2137cf0fb1aabc944b73f8c283dab0b66c13"
+    },
+    {
+      "path": "artifacts/repro/plugin-repro.json",
+      "sha256": "7366883794e398ae72e1314432b973e9dc534a40b7b86914600805ba7b13b494"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "0a11bbaa7d41cf089ffb9f8ed3baf47c3f9a9c250fd8a1c817695ffbb759c2e3"
+    }
+  ],
+  "lessons": [
+    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json，rc=0；识别 ZIP 浏览器扩展包，6 个文件，MV3 / Quicker 1.2.4（native host 名 com.getquicker.chromeagent）。",
+    "权限面：nativeMessaging/debugger 为 critical，scripting/userScripts 为 high，host_permissions=<all_urls>；plugin-repro.py 对 12/13 个声明权限找到代码证据，sidePanel 在截取子集中未出现（unexplained-static，不是恶意结论）。",
+    "数据流：content/content.js → chrome.runtime.sendMessage → background/background.js；background 中 connectNative(chrome.runtime.connectNative)、chrome.debugger、fetch/XHR、chrome.cookies 均可指到文件与行号；最小可改单元=background/background.js（14 处数据流命中）。",
+    "边界：只做静态子集分析，未加载浏览器、未连接 native host、未验证远端；高权限不等于滥用，需结合动态消息与 host 侧样本。",
+    "来源可追溯：artifacts/provenance.json 记录 6 个原始文件的来源路径、字节数与 sha256；输入包内容未修改，仅截取子集。",
+    "R3 修复：用当前版本工具重生成产物（plugin03 的权限证据已剔除 manifest.json 自证；malware01 的 iocs 不再把 5.1.0.0 当公网 IP，ips=0 / filtered=8），哈希已重算。"
+  ],
+  "tags": [
+    "R25",
+    "plugin",
+    "chrome-extension",
+    "mv3",
+    "real",
+    "nativeMessaging",
+    "partial"
+  ],
+  "refs": [
+    "Tool/skill/plugin-targets/SKILL.md",
+    "Tool/skill/plugin-targets/references/01-criteria.md",
+    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/plugin-targets/references/04-walkthrough-chrome-extension.md",
+    "Tool/skill/plugin-targets/references/browser-extension.md",
+    "Tool/config/plugin-targets-matrix.json",
+    "Tool/cases/plugin03/input/real-extension.zip",
+    "Tool/cases/plugin03/artifacts/provenance.json",
+    "Tool/cases/plugin03/artifacts/repro/plugin-repro.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

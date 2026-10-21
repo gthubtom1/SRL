@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics04\\input\\App.ipa",
+  "type": "zip",
+  "format": "ipa",
+  "confidence": "observed",
+  "meta": {
+    "format": "zip",
+    "file_count": 9,
+    "top_level": [
+      "Payload"
+    ],
+    "interesting_files": [
+      "Payload/App.app/Info.plist",
+      "Payload/App.app/embedded.mobileprovision",
+      "Payload/App.app/Library/Preferences/com.example.forensiclab.plist",
+      "Payload/App.app/Documents/app.sqlite",
+      "Payload/App.app/keychain-2.db"
+    ],
+    "latest_entry_utc": "2026-10-20T03:14:00Z"
+  },
+  "timeline": {
+    "start_utc": null,
+    "end_utc": "2026-10-20T03:14:00Z",
+    "basis": "zip entry timestamps (often local time)",
+    "timezone": "unknown",
+    "clock_skew": "unknown; ZIP timestamps are not reliable evidence",
+    "precision": "2 seconds (DOS time)"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "manifest/Info.plist/package.json/plugin.xml",
+    "权限与签名/entitlements",
+    "keychain-2.db/app.db 等数据文件",
+    "框架/插件/资源清单",
+    "内嵌二进制（Mach-O/DEX/PE）",
+    "远程 URL 与配置"
+  ],
+  "integrity": {
+    "sha256": "ac9ed18c9c22159b35c7d94743c45cf144608a3ac28c319fabda0728764c5ba7",
+    "size": 2824,
+    "mtime_utc": "2026-10-21T14:38:39.083564Z",
+    "readonly": true,
+    "warnings": [],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

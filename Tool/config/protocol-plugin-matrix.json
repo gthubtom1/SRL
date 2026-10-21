@@ -2,190 +2,535 @@
   "schemaVersion": "1.0",
   "domain": "protocol-plugin",
   "route": "R24",
-  "description": "协议复刻矩阵（声明式）：按协议形态给出可用工具/命令/完成判据/失败判据/陷阱。插件类目标不在本表，见 plugin-targets-matrix.json（R25）。",
-  "updated": "2026-10-20",
+  "description": "协议复刻矩阵（声明式）：按协议形态给出可用工具/命令/完成判据/失败判据/陷阱。插件类目标不在本表，见 plugin-targets-matrix.json（R25）。判据细节见 Tool/skill/protocol-plugin/references/01-criteria.md，失败判据见 02-failure-criteria.md，真实 pcap 练习见 Tool/mcp/Tool/reverselab/kb/protocol/techniques/real-pcap-drills.md。",
+  "updated": "2026-10-21",
   "families": [
     {
       "id": "http-rest",
       "name": "HTTP/REST/JSON",
-      "match": ["http", "rest", "json", "api", "graphql", "openapi", "swagger"],
-      "tools": ["tshark", "mitmproxy", "curl", "seep_http_replay"],
+      "match": [
+        "http",
+        "rest",
+        "json",
+        "api",
+        "graphql",
+        "openapi",
+        "swagger"
+      ],
+      "tools": [
+        "tshark",
+        "mitmproxy",
+        "curl",
+        "seep_http_replay"
+      ],
       "commands": [
         "tshark -r capture.pcap -q -z conv,tcp",
-        "mitmdump -p 8080 -w flows.mitm",
+        "tshark -r capture.pcap -Y 'http.request or http.response' -T fields -e frame.number -e tcp.stream -e http.request.method -e http.request.uri -e http.response.code -e http.set_cookie",
+        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --json --extract artifacts/streams",
         "curl -i -X POST <url> -H 'Content-Type: application/json' --data @body.json"
       ],
-      "criteria": ["同输入同输出", "能构造新业务请求", "状态码/业务码可预测", "证据可复跑"],
-      "fail": ["401/403/风控且无法解释", "签名/nonce 不可复现", "只能原样重放"],
-      "pitfalls": ["header 顺序/大小写/Host 影响签名", "压缩与分块传输", "cookie/token 绑定 UA/IP"]
+      "criteria": [
+        "同输入同输出",
+        "能构造新业务请求",
+        "状态码/业务码可预测",
+        "证据可复跑"
+      ],
+      "fail": [
+        "401/403/风控且无法解释",
+        "签名/nonce 不可复现",
+        "只能原样重放"
+      ],
+      "pitfalls": [
+        "header 顺序/大小写/Host 影响签名",
+        "压缩与分块传输",
+        "cookie/token 绑定 UA/IP"
+      ]
     },
     {
       "id": "websocket",
       "name": "WebSocket/SSE 长连接",
-      "match": ["websocket", "ws", "wss", "sse", "event-stream", "长连接", "心跳"],
-      "tools": ["tshark", "mitmproxy", "浏览器 DevTools", "Python websockets"],
-      "commands": [
-        "tshark -r capture.pcapng -Y 'websocket' -T fields -e frame.number -e websocket.opcode -e websocket.payload",
-        "mitmweb -p 8080 --set web_port=8081",
-        "python3 - <<'PY'\nimport websocket\nws=websocket.create_connection('ws://127.0.0.1:18080/ws')\nws.send('{\"op\":\"hello\"}')\nprint(ws.recv())\nPY"
+      "match": [
+        "websocket",
+        "ws",
+        "wss",
+        "sse",
+        "event-stream",
+        "长连接",
+        "心跳"
       ],
-      "criteria": ["按 FIN/opcode 重组消息", "握手头齐全", "心跳/重连参数可解释", "新消息可构造"],
-      "fail": ["TCP 段与消息边界混淆", "permessage-deflate 未解", "掩码/长度解析错误"],
-      "pitfalls": ["控制帧穿插", "半帧/多帧", "代理不改写握手头", "压缩上下文跨消息"]
+      "tools": [
+        "tshark",
+        "mitmproxy",
+        "浏览器 DevTools",
+        "Python websockets"
+      ],
+      "commands": [
+        "tshark -r Tool/samples/real/protocol-pcaps/websocket.pcapng -Y 'websocket' -T fields -e frame.number -e websocket.opcode -e websocket.fin -e websocket.mask -e websocket.payload_length -e tcp.len -e tcp.payload",
+        "tshark -r capture.pcapng -q -z follow,tcp,ascii,0",
+        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcapng --json --extract artifacts/streams"
+      ],
+      "criteria": [
+        "frame_len = 2 + (mask?4:0) + payload_length 在 ≥3 帧成立",
+        "客户端 mask=1 且掩码键逐帧随机，服务端 mask=0",
+        "控制帧(ping/pong/close)与业务消息分开统计",
+        "permessage-deflate 时先 inflate 再 parse"
+      ],
+      "fail": [
+        "TCP 段与消息边界混淆",
+        "permessage-deflate 未解",
+        "掩码/长度解析错误"
+      ],
+      "pitfalls": [
+        "控制帧穿插",
+        "半帧/多帧",
+        "代理不改写握手头",
+        "压缩上下文跨消息"
+      ]
     },
     {
       "id": "binary-framed",
       "name": "二进制帧（magic/length/CRC）",
-      "match": ["二进制", "binary", "magic", "length", "crc", "tlv", "定长", "分帧"],
-      "tools": ["pcap-summary.py", "xxd", "reveng", "Kaitai Struct", "scapy"],
+      "match": [
+        "二进制",
+        "binary",
+        "magic",
+        "length",
+        "crc",
+        "tlv",
+        "定长",
+        "分帧"
+      ],
+      "tools": [
+        "pcap-summary.py",
+        "xxd",
+        "reveng",
+        "Kaitai Struct",
+        "scapy"
+      ],
       "commands": [
-        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --json",
+        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --json --extract artifacts/streams",
+        "python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/streams/s00_*.bin --json",
         "xxd -g1 -l 128 frame.bin",
         "reveng -w 16 -s 3a4b 5c6d 7e8f"
       ],
-      "criteria": ["长度公式能预测未见帧", "校验覆盖范围明确", "错误帧被拒", "解析器可重同步"],
-      "fail": ["长度含头/含尾无法确定", "CRC 参数无法闭环", "假 magic 导致误分帧"],
-      "pitfalls": ["大小端", "长度含自身", "填充/对齐", "TCP 重传/乱序"]
+      "criteria": [
+        "长度公式能预测未见帧（3 帧解 a/b 唯一）",
+        "校验覆盖范围明确且改 1 字节可复算",
+        "解析器对垃圾字节能重同步并记录 skipped_bytes",
+        "proto-repro.py --rebuild 的新帧能被同表解析回 crc_ok=true"
+      ],
+      "fail": [
+        "长度含头/含尾无法确定",
+        "CRC 参数无法闭环",
+        "假 magic 导致误分帧"
+      ],
+      "pitfalls": [
+        "大小端",
+        "长度含自身",
+        "填充/对齐",
+        "TCP 重传/乱序"
+      ]
     },
     {
       "id": "protobuf-flatbuffers",
       "name": "protobuf/flatbuffers/自定义序列化",
-      "match": ["protobuf", "proto3", "flatbuffers", "thrift", "msgpack", "cbor", "序列化"],
-      "tools": ["protoc", "flatc", "tshark", "Python protobuf"],
+      "match": [
+        "protobuf",
+        "proto3",
+        "flatbuffers",
+        "thrift",
+        "msgpack",
+        "cbor",
+        "序列化"
+      ],
+      "tools": [
+        "protoc",
+        "flatc",
+        "tshark",
+        "Python protobuf"
+      ],
       "commands": [
         "protoc --decode_raw < payload.bin",
         "flatc --json --raw-binary schema.fbs -- payload.bin",
         "tshark -r capture.pcap -Y 'tcp.port==9527' -T fields -e data.data"
       ],
-      "criteria": ["字段号/wire type 可解释", "嵌套/重复字段边界正确", "能编码新消息并被接受"],
-      "fail": ["无 schema 且字段号冲突", "vtable/offset 越界", "压缩后再序列化未分层"],
-      "pitfalls": ["字段号不是业务 id", "默认值/未知字段", "varint 溢出", "flatbuffers vtable 共享"]
+      "criteria": [
+        "字段号/wire type 可解释",
+        "嵌套/重复字段边界正确",
+        "能编码新消息并被接受"
+      ],
+      "fail": [
+        "无 schema 且字段号冲突",
+        "vtable/offset 越界",
+        "压缩后再序列化未分层"
+      ],
+      "pitfalls": [
+        "字段号不是业务 id",
+        "默认值/未知字段",
+        "varint 溢出",
+        "flatbuffers vtable 共享"
+      ]
     },
     {
       "id": "tls-mtls",
       "name": "TLS/mTLS/pinning 下的明文获取",
-      "match": ["tls", "https", "mtls", "pinning", "ssl", "证书", "双向认证"],
-      "tools": ["SSLKEYLOGFILE", "mitmproxy", "Frida", "Wireshark"],
+      "match": [
+        "tls",
+        "https",
+        "mtls",
+        "pinning",
+        "ssl",
+        "证书",
+        "双向认证"
+      ],
+      "tools": [
+        "SSLKEYLOGFILE",
+        "mitmproxy",
+        "Frida",
+        "Wireshark"
+      ],
       "commands": [
         "export SSLKEYLOGFILE=$PWD/keys.log",
         "tshark -r capture.pcap -o tls.keylog_file:keys.log -Y 'http.request' -T fields -e http.host -e http.request.uri",
+        "tshark -r Tool/samples/real/protocol-pcaps/http2-data-reassembly.pcap -q -z io,phs",
         "frida-trace -f app.exe -m 'SSL_write' -m 'SSL_read'"
       ],
-      "criteria": ["能取得应用层明文", "证书校验位置明确", "keylog/进程内证据可复现"],
-      "fail": ["mTLS 缺客户端证书", "pinning 在校验层无法绕过", "只抓到密文"],
-      "pitfalls": ["keylog 只对支持 NSS 的客户端有效", "代理改写请求体污染基线", "证书固定与双向认证不同"]
+      "criteria": [
+        "能取得应用层明文",
+        "证书校验位置明确",
+        "keylog/进程内证据可复现"
+      ],
+      "fail": [
+        "mTLS 缺客户端证书",
+        "pinning 在校验层无法绕过",
+        "只抓到密文"
+      ],
+      "pitfalls": [
+        "keylog 只对支持 NSS 的客户端有效",
+        "代理改写请求体污染基线",
+        "证书固定与双向认证不同"
+      ]
     },
     {
       "id": "udp-custom",
       "name": "UDP/自定义无连接协议",
-      "match": ["udp", "quic", "自定义协议", "无连接", "游戏协议", "心跳"],
-      "tools": ["tshark", "scapy", "pcap-summary.py", "Python socket"],
+      "match": [
+        "udp",
+        "quic",
+        "自定义协议",
+        "无连接",
+        "游戏协议",
+        "心跳"
+      ],
+      "tools": [
+        "tshark",
+        "scapy",
+        "pcap-summary.py",
+        "Python socket"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'udp' -T fields -e frame.number -e ip.src -e udp.srcport -e ip.dst -e udp.dstport -e data.data",
         "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file capture.pcap --top 50",
         "python3 - <<'PY'\nfrom scapy.all import *\nsend(IP(dst='127.0.0.1')/UDP(dport=9527)/Raw(load=b'\\x01\\x02'))\nPY"
       ],
-      "criteria": ["事务 id/分片/重传规则可解释", "能构造新事务", "乱序/丢包可恢复"],
-      "fail": ["无事务 id 无法配对", "分片重组不完整", "只看到单向流量"],
-      "pitfalls": ["UDP 无连接需应用层 seq", "MTU 分片", "NAT 超时", "重传与幂等"]
+      "criteria": [
+        "事务 id/分片/重传规则可解释",
+        "能构造新事务",
+        "乱序/丢包可恢复"
+      ],
+      "fail": [
+        "无事务 id 无法配对",
+        "分片重组不完整",
+        "只看到单向流量"
+      ],
+      "pitfalls": [
+        "UDP 无连接需应用层 seq",
+        "MTU 分片",
+        "NAT 超时",
+        "重传与幂等"
+      ]
     },
     {
       "id": "dns-tunnel",
       "name": "DNS/DoH/DoT 承载",
-      "match": ["dns", "doh", "dot", "txt 记录", "隧道", "域名", "qname"],
-      "tools": ["tshark", "zeek", "Python dnspython", "dnscat2"],
+      "match": [
+        "dns",
+        "doh",
+        "dot",
+        "txt 记录",
+        "隧道",
+        "域名",
+        "qname"
+      ],
+      "tools": [
+        "tshark",
+        "zeek",
+        "Python dnspython",
+        "dnscat2"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'dns' -T fields -e dns.qry.name -e dns.qry.type -e dns.flags.rcode",
         "zeek -r capture.pcap dns",
         "python3 - <<'PY'\nimport dns.message\nprint(dns.message.make_query('a.example.invalid', 'TXT'))\nPY"
       ],
-      "criteria": ["qname 编码/分片可还原为字节流", "查询与响应按事务 id 配对", "能构造新查询并得到可解释的应答"],
-      "fail": ["qname 高熵但无法还原编码", "应答被截断或缺 EDNS 支持", "DoH/DoT 无 keylog 只见密文"],
-      "pitfalls": ["标签 63 字节/总长 253 限制", "大小写与末尾点归一化", "缓存 TTL 与真实应答不一致", "DoH 复用 HTTP/2 连接"]
+      "criteria": [
+        "qname 编码/分片可还原为字节流",
+        "查询与响应按事务 id 配对",
+        "能构造新查询并得到可解释的应答"
+      ],
+      "fail": [
+        "qname 高熵但无法还原编码",
+        "应答被截断或缺 EDNS 支持",
+        "DoH/DoT 无 keylog 只见密文"
+      ],
+      "pitfalls": [
+        "标签 63 字节/总长 253 限制",
+        "大小写与末尾点归一化",
+        "缓存 TTL 与真实应答不一致",
+        "DoH 复用 HTTP/2 连接"
+      ]
     },
     {
       "id": "mail-smtp-imap",
       "name": "SMTP/IMAP/POP3 邮件协议",
-      "match": ["smtp", "imap", "pop3", "邮件", "mime", "esmtp", "starttls"],
-      "tools": ["tshark", "swaks", "openssl s_client", "Python smtplib/imaplib"],
+      "match": [
+        "smtp",
+        "imap",
+        "pop3",
+        "邮件",
+        "mime",
+        "esmtp",
+        "starttls"
+      ],
+      "tools": [
+        "tshark",
+        "swaks",
+        "openssl s_client",
+        "Python smtplib/imaplib"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'smtp || imap' -T fields -e frame.number -e tcp.stream -e data.text",
         "swaks --to a@example.invalid --server 127.0.0.1:2525 --data body.eml",
         "openssl s_client -connect 127.0.0.1:993 -quiet"
       ],
-      "criteria": ["命令/应答状态码可预测", "MIME 边界与传输编码可还原", "认证方式(PLAIN/LOGIN/OAUTH)明确"],
-      "fail": ["STARTTLS 后无法解密", "多行应答续行解析错误", "MIME 嵌套编码无法还原"],
-      "pitfalls": ["CRLF 行尾敏感", "多行应答以 250- 续行", "APPEND 的 literal 长度", "能力集随 EHLO 变化"]
+      "criteria": [
+        "命令/应答状态码可预测",
+        "MIME 边界与传输编码可还原",
+        "认证方式(PLAIN/LOGIN/OAUTH)明确"
+      ],
+      "fail": [
+        "STARTTLS 后无法解密",
+        "多行应答续行解析错误",
+        "MIME 嵌套编码无法还原"
+      ],
+      "pitfalls": [
+        "CRLF 行尾敏感",
+        "多行应答以 250- 续行",
+        "APPEND 的 literal 长度",
+        "能力集随 EHLO 变化"
+      ]
     },
     {
       "id": "ics-modbus-s7",
       "name": "工控协议（Modbus/S7/OPC UA）",
-      "match": ["modbus", "s7", "s7comm", "opc ua", "iec 104", "dnp3", "工控", "plc"],
-      "tools": ["tshark", "pymodbus", "scapy", "PLCScan"],
+      "match": [
+        "modbus",
+        "s7",
+        "s7comm",
+        "opc ua",
+        "iec 104",
+        "dnp3",
+        "工控",
+        "plc"
+      ],
+      "tools": [
+        "tshark",
+        "pymodbus",
+        "scapy",
+        "PLCScan"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'modbus || s7comm' -T fields -e frame.number -e modbus.func_code -e modbus.reference_num -e s7comm.header.rosctr",
         "python3 - <<'PY'\nfrom pymodbus.client import ModbusTcpClient\nc = ModbusTcpClient('127.0.0.1', port=1502)\nprint(c.read_holding_registers(0, 10, slave=1))\nPY",
         "tshark -r capture.pcap -q -z io,phs"
       ],
-      "criteria": ["功能码/寄存器地址/会话配对可解释", "能读一个非关键寄存器并复现", "只读边界与写操作风险分级明确"],
-      "fail": ["功能码为私有扩展且无文档", "PLC 拒绝非白名单客户端", "只抓到轮询未见配置下发"],
-      "pitfalls": ["事务 id 与连接绑定", "寄存器大端字节序", "S7 PDU 协商影响分帧", "写操作可能触发物理动作，默认只读"]
+      "criteria": [
+        "功能码/寄存器地址/会话配对可解释",
+        "能读一个非关键寄存器并复现",
+        "只读边界与写操作风险分级明确"
+      ],
+      "fail": [
+        "功能码为私有扩展且无文档",
+        "PLC 拒绝非白名单客户端",
+        "只抓到轮询未见配置下发"
+      ],
+      "pitfalls": [
+        "事务 id 与连接绑定",
+        "寄存器大端字节序",
+        "S7 PDU 协商影响分帧",
+        "写操作可能触发物理动作，默认只读"
+      ]
     },
     {
       "id": "mqtt-coap",
       "name": "MQTT/CoAP/AMQP 消息协议",
-      "match": ["mqtt", "coap", "amqp", "publish", "subscribe", "qos", "物联网"],
-      "tools": ["tshark", "mosquitto_pub/sub", "Python paho-mqtt", "scapy"],
+      "match": [
+        "mqtt",
+        "coap",
+        "amqp",
+        "publish",
+        "subscribe",
+        "qos",
+        "物联网"
+      ],
+      "tools": [
+        "tshark",
+        "mosquitto_pub/sub",
+        "Python paho-mqtt",
+        "scapy"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'mqtt || coap' -T fields -e mqtt.topic -e mqtt.msgtype -e coap.code",
         "mosquitto_sub -h 127.0.0.1 -p 1883 -t '#' -v -C 5",
         "python3 - <<'PY'\nimport paho.mqtt.client as m\nc = m.Client(); c.connect('127.0.0.1', 1883); c.subscribe('#'); c.loop_start()\nPY"
       ],
-      "criteria": ["topic 层级/通配符语义可解释", "QoS 重发与报文 id 配对正确", "能发布新 topic 并观测到消费端"],
-      "fail": ["broker 强制认证且无凭据", "payload 二次加密无法解", "只看到 retained 消息无实时流量"],
-      "pitfalls": ["QoS1/2 重发与去重", "retained 消息混淆时序", "CoAP token 与 observe", "MQTT5 属性长度编码"]
+      "criteria": [
+        "topic 层级/通配符语义可解释",
+        "QoS 重发与报文 id 配对正确",
+        "能发布新 topic 并观测到消费端"
+      ],
+      "fail": [
+        "broker 强制认证且无凭据",
+        "payload 二次加密无法解",
+        "只看到 retained 消息无实时流量"
+      ],
+      "pitfalls": [
+        "QoS1/2 重发与去重",
+        "retained 消息混淆时序",
+        "CoAP token 与 observe",
+        "MQTT5 属性长度编码"
+      ]
     },
     {
       "id": "db-wire",
       "name": "数据库线协议（MySQL/PostgreSQL/MSSQL/Redis）",
-      "match": ["mysql", "postgres", "mssql", "redis", "线协议", "数据库", "tns"],
-      "tools": ["tshark", "strings", "Python pymysql/psycopg2", "Wireshark 解析插件"],
+      "match": [
+        "mysql",
+        "postgres",
+        "mssql",
+        "redis",
+        "线协议",
+        "数据库",
+        "tns"
+      ],
+      "tools": [
+        "tshark",
+        "strings",
+        "Python pymysql/psycopg2",
+        "Wireshark 解析插件"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'mysql || pgsql || tds' -T fields -e frame.number -e mysql.query -e pgsql.query",
         "tshark -r capture.pcap -Y 'redis' -T fields -e redis.command -e redis.key",
         "python3 -c \"import pymysql; print(pymysql.connect(host='127.0.0.1', user='u', password='p', database='d'))\""
       ],
-      "criteria": ["握手/认证方式与能力标志可解释", "查询语句与结果集边界正确", "能构造新查询并得到可预测结果"],
-      "fail": ["TLS 通道无 keylog", "认证插件(scram/caching_sha2)无法复现", "只看到半连接握手"],
-      "pitfalls": ["MySQL 包序号与 16MB 分包", "PostgreSQL 扩展查询与简单查询不同", "TDS PRELOGIN 选项", "Redis 内联命令与 RESP 混用"]
+      "criteria": [
+        "握手/认证方式与能力标志可解释",
+        "查询语句与结果集边界正确",
+        "能构造新查询并得到可预测结果"
+      ],
+      "fail": [
+        "TLS 通道无 keylog",
+        "认证插件(scram/caching_sha2)无法复现",
+        "只看到半连接握手"
+      ],
+      "pitfalls": [
+        "MySQL 包序号与 16MB 分包",
+        "PostgreSQL 扩展查询与简单查询不同",
+        "TDS PRELOGIN 选项",
+        "Redis 内联命令与 RESP 混用"
+      ]
     },
     {
       "id": "rdp-vnc",
       "name": "远程桌面/会话协议（RDP/VNC/SPICE）",
-      "match": ["rdp", "vnc", "spice", "远程桌面", "rfx", "nla", "剪贴板重定向"],
-      "tools": ["tshark", "xfreerdp", "vncdotool", "RDP 解析插件"],
+      "match": [
+        "rdp",
+        "vnc",
+        "spice",
+        "远程桌面",
+        "rfx",
+        "nla",
+        "剪贴板重定向"
+      ],
+      "tools": [
+        "tshark",
+        "xfreerdp",
+        "vncdotool",
+        "RDP 解析插件"
+      ],
       "commands": [
         "tshark -r capture.pcap -Y 'rdp || vnc' -T fields -e frame.number -e rdp.neg_req_protocols -e vnc.protocol_version",
         "xfreerdp /v:127.0.0.1:13389 /u:lab /cert:ignore +auth-only",
         "vncdotool -s 127.0.0.1::15900 capture screen.png"
       ],
-      "criteria": ["协商阶段/加密级别/认证方式明确", "剪贴板与文件通道边界可指认", "能建立新会话到登录框为止"],
-      "fail": ["CredSSP/NLA 无凭据", "图形通道压缩无法解", "会话录制被策略禁止"],
-      "pitfalls": ["RDP 标准端口与动态端口", "安全层协商前后字段含义不同", "VNC 认证类型由服务器选择", "剪贴板重定向是独立通道"]
+      "criteria": [
+        "协商阶段/加密级别/认证方式明确",
+        "剪贴板与文件通道边界可指认",
+        "能建立新会话到登录框为止"
+      ],
+      "fail": [
+        "CredSSP/NLA 无凭据",
+        "图形通道压缩无法解",
+        "会话录制被策略禁止"
+      ],
+      "pitfalls": [
+        "RDP 标准端口与动态端口",
+        "安全层协商前后字段含义不同",
+        "VNC 认证类型由服务器选择",
+        "剪贴板重定向是独立通道"
+      ]
     },
     {
       "id": "auth-sso",
       "name": "认证/单点登录（OAuth2/OIDC/SAML/NTLM/Kerberos）",
-      "match": ["oauth", "oidc", "saml", "ntlm", "kerberos", "sso", "jwt", "openid"],
-      "tools": ["mitmproxy", "curl", "requests-oauthlib", "impacket"],
+      "match": [
+        "oauth",
+        "oidc",
+        "saml",
+        "ntlm",
+        "kerberos",
+        "sso",
+        "jwt",
+        "openid"
+      ],
+      "tools": [
+        "mitmproxy",
+        "curl",
+        "requests-oauthlib",
+        "impacket"
+      ],
       "commands": [
         "curl -s -D - 'http://127.0.0.1:18080/.well-known/openid-configuration'",
         "python3 - <<'PY'\nimport base64, json\njwt = 'eyJ...'\nprint(json.loads(base64.urlsafe_b64decode(jwt.split('.')[1] + '==')))\nPY",
         "python3 -m impacket.examples.GetNPUsers example.invalid/ -no-pass -usersfile users.txt"
       ],
-      "criteria": ["令牌类型/受众/有效期/签名算法可解释", "换票链路(授权码/设备码/刷新)可复现", "越权判据是跨账号对象可读而非仅状态码"],
-      "fail": ["签名校验无法离线验证", "MFA/条件访问阻止换票", "只解出 JWT 声明而无换票能力"],
-      "pitfalls": ["aud/iss 与多资源绑定", "刷新令牌轮换", "时钟偏移导致 nbf 失败", "SAML 断言签名与响应签名是两层"]
+      "criteria": [
+        "令牌类型/受众/有效期/签名算法可解释",
+        "换票链路(授权码/设备码/刷新)可复现",
+        "越权判据是跨账号对象可读而非仅状态码"
+      ],
+      "fail": [
+        "签名校验无法离线验证",
+        "MFA/条件访问阻止换票",
+        "只解出 JWT 声明而无换票能力"
+      ],
+      "pitfalls": [
+        "aud/iss 与多资源绑定",
+        "刷新令牌轮换",
+        "时钟偏移导致 nbf 失败",
+        "SAML 断言签名与响应签名是两层"
+      ]
     }
   ]
 }

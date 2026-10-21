@@ -1,18 +1,28 @@
-# PE Reverse 逆向工程知识库 — Windows 二进制分析 24 篇
+# PE Reverse — 逆向域知识入口（10 篇）
 
-Windows PE/二进制逆向技术库，共 **10 类、31 篇正文**。
+> 域契约：KB 6–10 篇。这里放**作战入口**；历史沉淀在 `../_archive/pe-reverse/`（不删内容、不计入域数量）。
+> 配套技能：`Tool/skill/softseep/SKILL.md`。
 
-## 入口
+## 作战入口
 
-- [完整技术索引](techniques/README.md)
-- Board：`boards/windows/README.md`
-- 模板：`templates/notes/windows-pe-analysis.md`
+- [01-pe-header-parsing.md](techniques/02-pe-structure/01-pe-header-parsing.md)
+- [02-tls-callback-analysis.md](techniques/02-pe-structure/02-tls-callback-analysis.md)
+- [01-struct-reconstruction.md](techniques/03-static-analysis/01-struct-reconstruction.md)
+- [05-anti-debug-bypass.md](techniques/04-dynamic-analysis/05-anti-debug-bypass.md)
+- [01-pe-unpack-dump.md](techniques/05-crypto-unpack/01-pe-unpack-dump.md)
+- [01-code-patching.md](techniques/08-patch/01-code-patching.md)
+- [02-validation-function-location.md](techniques/10-license-keygen/02-validation-function-location.md)
+- [failure-criteria.md](techniques/15-decision/failure-criteria.md)
+- [attack-network.md](techniques/attack-network.md)
+
+## 归档
+
+- [PE Reverse 归档库（历史技术与范式库）](../_archive/pe-reverse/README.md)
 
 ## 分析链
 
 ```text
-样本哈希/类型/保护 → Ghidra 静态分析 → x64dbg/Frida/Procmon 动态验证
-→ 脱壳/配置恢复 → IOC → YARA/Sigma → Patch 副本 → 报告
+样本哈希/类型/保护 → 结构解析 → 静态重建 → 动态验证 → 脱壳/配置 → IOC
+→ 补丁（等长/重定位/回滚）→ 报告
 ```
 
-`06-ioc-extraction` 与 `07-yara-sigma` 已有正文，不再是待补充分类。分析时记录样本哈希、dump/patch 路径、原始字节、新字节和行为差异。

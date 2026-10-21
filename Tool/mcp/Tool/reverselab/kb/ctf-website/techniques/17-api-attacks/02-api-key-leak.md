@@ -151,8 +151,8 @@ class GitHubDorker:
     KEY_PATTERNS = {
         # AWS
         "AWS_ACCESS_KEY_ID": r"AKIA[0-9A-Z]{16}",
-        "AWS_SECRET_ACCESS_KEY": r"(?i)aws[_-]?(?:secret|access)[_-]?key['\"]?\s*[:=]\s*['\"]([A-Za-z0-9/+=]{40})['\"]",
-        "AWS_SESSION_TOKEN": r"(?i)aws[_-]?session[_-]?token['\"]?\s*[:=]\s*['\"]([A-Za-z0-9/+=]{40,})['\"]",
+        "AWS_SECRET_ACCESS_KEY": r"(?i)aws[_-]?(?:secret|access)[_-]?key['\"]?\s*[:=]\s*'\"['\"]",
+        "AWS_SESSION_TOKEN": r"(?i)aws[_-]?session[_-]?token['\"]?\s*[:=]\s*'\"['\"]",
 
         # Google Cloud
         "GCP_API_KEY": r"AIza[0-9A-Za-z_-]{35}",
@@ -160,8 +160,8 @@ class GitHubDorker:
         "GCP_JSON_KEY": r"\"type\":\s*\"service_account\"",
 
         # Azure
-        "AZURE_CLIENT_SECRET": r"(?i)azure[_-]?(?:client|app)[_-]?(?:secret|key)['\"]?\s*[:=]\s*['\"]([A-Za-z0-9_\-]{34})['\"]",
-        "AZURE_SUBSCRIPTION_KEY": r"(?i)subscription[_-]?key['\"]?\s*[:=]\s*['\"]([A-Za-z0-9]{32})['\"]",
+        "AZURE_CLIENT_SECRET": r"(?i)azure[_-]?(?:client|app)[_-]?(?:secret|key)['\"]?\s*[:=]\s*'\"['\"]",
+        "AZURE_SUBSCRIPTION_KEY": r"(?i)subscription[_-]?key['\"]?\s*[:=]\s*'\"['\"]",
 
         # Stripe
         "STRIPE_SECRET_KEY": r"sk_live_[0-9a-zA-Z]{24,}",
@@ -175,8 +175,8 @@ class GitHubDorker:
         "FIREBASE_PROJECT_ID": r"\"projectId\":\s*\"[a-z0-9-]+\"",
 
         # PayPal
-        "PAYPAL_CLIENT_ID": r"(?i)paypal[_-]?client[_-]?id['\"]?\s*[:=]\s*['\"]([A-Za-z0-9_-]{80})['\"]",
-        "PAYPAL_SECRET": r"(?i)paypal[_-]?secret['\"]?\s*[:=]\s*['\"]([A-Za-z0-9_-]{80})['\"]",
+        "PAYPAL_CLIENT_ID": r"(?i)paypal[_-]?client[_-]?id['\"]?\s*[:=]\s*'\"['\"]",
+        "PAYPAL_SECRET": r"(?i)paypal[_-]?secret['\"]?\s*[:=]\s*'\"['\"]",
 
         # Slack
         "SLACK_BOT_TOKEN": r"xoxb-[0-9]{10,13}-[0-9]{10,13}-[a-zA-Z0-9]{24}",
@@ -184,12 +184,12 @@ class GitHubDorker:
         "SLACK_WEBHOOK": r"https://hooks\.slack\.com/services/T[a-zA-Z0-9_]{8,}/B[a-zA-Z0-9_]{8,}/[a-zA-Z0-9_]{24}",
 
         # GitHub
-        "GITHUB_TOKEN": r"(?i)github[_-]?token['\"]?\s*[:=]\s*['\"](ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{85})['\"]",
+        "GITHUB_TOKEN": r"(?i)github[_-]?token['\"]?\s*[:=]\s*'\"['\"]",
         "GITHUB_SSH_KEY": r"-----BEGIN (RSA |EC )?PRIVATE KEY-----",
 
         # Generic
-        "API_KEY_GENERIC": r"(?i)(?:api[_-]?key|apikey|secret[_-]?key|secret_token)['\"]?\s*[:=]\s*['\"]([A-Za-z0-9_\-=]{20,})['\"]",
-        "ENV_FILE": r"(?i)(?:password|passwd|pwd|secret|token)['\"]?\s*[:=]\s*['\"]([^'\"]{8,})['\"]",
+        "API_KEY_GENERIC": r"(?i)(?:api[_-]?key|apikey|secret[_-]?key|secret_token)['\"]?\s*[:=]\s*'\"['\"]",
+        "ENV_FILE": r"(?i)(?:password|passwd|pwd|secret|token)['\"]?\s*[:=]\s*'\"['\"]",
     }
 
     def search_code(self, query: str, max_pages=5) -> list:

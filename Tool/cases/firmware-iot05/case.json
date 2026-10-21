@@ -1,0 +1,79 @@
+{
+  "id": "firmware-iot05",
+  "domain": "firmware-iot",
+  "target_type": "夹具：合成 OTA 固件包（ZIP 内含 rootfs、init 脚本与 CGI）",
+  "vendor": "fixture",
+  "model": "ota-fixture",
+  "firmware_version": "1.0.0-fixture",
+  "soc": "N/A",
+  "arch": "N/A",
+  "storage": "ZIP OTA package",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "J2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/triage.json",
+      "sha256": "1efa7048b3eb6dc515751f1d71083f04b5fb04d14bde9afd150442cd3cf46267"
+    },
+    {
+      "path": "artifacts/repro.json",
+      "sha256": "b1b50d6a91e90e355e6c4d07b0527ed1b5c38b7ae0ece7a739e4c6c341e996ab"
+    }
+  ],
+  "interfaces": {
+    "uart": {
+      "pads": "N/A",
+      "baud": 0,
+      "voltage": "N/A",
+      "shell": false
+    },
+    "jtag": {
+      "adapter": "",
+      "idcode": "",
+      "verified": false
+    },
+    "spi": {
+      "chip": "",
+      "voltage": "N/A",
+      "read_hash": ""
+    }
+  },
+  "emulation": {
+    "mode": "none",
+    "boot_ok": false,
+    "service_ok": false,
+    "notes": "未执行：夹具只验证解包与静态证据链，没有内核/网络服务。"
+  },
+  "lessons": [
+    "跑的是 python Tool/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw-case05 --json > artifacts/repro.json，rc=0；triage 同输入 rc=0。",
+    "解包结果：ZIP 主格式 offset 0，stdlib 解出 8 个文件；rootfs 扫描定位 root 空口令（etc/passwd:1）、shadow hash（etc/shadow:1）、telnetd（etc/init.d/rcS:2）、uhttpd（etc/init.d/S50httpd:2）。",
+    "危险链：www/cgi-bin/upgrade:3 的 system(\"tar -xzf $QUERY_STRING ...\") 与 shell-meta 命中同一行，说明升级 CGI 把查询串拼进 shell；这只是静态线索。",
+    "边界：夹具证明“解包→定位→脱敏”链路可用，不证明任何真实设备存在该漏洞；J1/J2 未达成，禁止把夹具结论写成设备可利用。",
+    "下一步：换真实固件后先算哈希并跑同一命令，确认 rootfs 完整度、服务运行用户和 CGI 可达性，再在隔离仿真中复现。",
+    "更正（R2 审计）：本案例只做到解包+静态线索（emulation.mode=none、service_ok=false），按 01-criteria 的 J2 定义（服务真监听）不成立，outcome 由 confirmed 降为 partial。要升 J2 必须补「qemu 起服务 → 端口监听 → 登录/接口返回」三件证据。"
+  ],
+  "tags": [
+    "fixture",
+    "ota",
+    "zip",
+    "rootfs",
+    "credential-clues",
+    "cgi-injection",
+    "confirmed"
+  ],
+  "refs": [
+    "Tool/skill/firmware-iot/SKILL.md",
+    "Tool/skill/firmware-iot/references/01-criteria.md",
+    "Tool/skill/firmware-iot/references/02-failure-criteria.md",
+    "Tool/skill/firmware-iot/references/filesystem-and-credentials.md",
+    "Tool/config/firmware-iot-matrix.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

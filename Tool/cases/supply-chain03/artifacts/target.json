@@ -1,0 +1,7 @@
+{
+  "evidence_kind": "real",
+  "target": ".github/workflows/upstream-sync.yml",
+  "workflow_sha256": "fe7894d5f9e134f7cf6deaacc3caabeb5aeb92edb6fb0412825166a1b321aed3",
+  "repo_commit": "57a3bd1ecf5d9945fe14f1a5c7c5c9db58cf1fc6",
+  "note": "真实仓库 workflow 快照；ci.json/sc.json 由本仓库脚本对该文件所在目录生成"
+}

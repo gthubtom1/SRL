@@ -2,7 +2,7 @@
   "id": "plugin02",
   "domain": "plugin-targets",
   "route": "R25",
-  "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造样本）",
+  "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造夹具样本）",
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
@@ -45,7 +45,11 @@
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "3444dc7f726ff1ce8efc1afc00b510cc4720da3937468735dc5c9ac371368c35"
+      "sha256": "4638c479e710b7a146c8c9f19b54bd0cbce1990d7b54a78126fbbcdebea36a7b"
+    },
+    {
+      "path": "artifacts/plugin-triage.json",
+      "sha256": "358c707c0007a6999d2fb528814163fa602fca29de8e9ae68ac538720c750c21"
     }
   ],
   "lessons": [
@@ -64,11 +68,12 @@
   ],
   "refs": [
     "Tool/skill/plugin-targets/SKILL.md",
+    "Tool/skill/plugin-targets/references/01-criteria.md",
+    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
     "Tool/skill/plugin-targets/references/browser-extension.md",
-    "Tool/skill/plugin-targets/references/desktop-plugins.md",
     "Tool/config/plugin-targets-matrix.json",
     "Tool/cases/plugin02/input/ext2.zip",
-    "Tool/cases/plugin02/artifacts/run.json"
+    "Tool/cases/plugin02/artifacts/plugin-triage.json"
   ],
   "updated": "2026-10-21",
   "manifest": {
@@ -106,5 +111,10 @@
       ]
     },
     "update_url": "https://updates.suspicious-cdn.invalid/ext/update.xml"
+  },
+  "evidence_kind": "fixture",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
   }
 }

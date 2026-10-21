@@ -1,0 +1,50 @@
+{
+  "ok": true,
+  "schema": "sprx",
+  "source": {
+    "file": "artifacts/new-frame.bin",
+    "sha256": "8799d325c260ac4f8a5bd08124c2220a891ae302dba803dfc41f1da619243ced",
+    "bytes": 43
+  },
+  "stats": {
+    "bytes": 43,
+    "consumed": 43,
+    "skipped_bytes": 0,
+    "trailing_bytes": 0,
+    "errors": []
+  },
+  "frame_count": 1,
+  "frames": [
+    {
+      "index": 0,
+      "offset": 0,
+      "frame_len": 43,
+      "header_len": 12,
+      "payload_len": 27,
+      "fields": {
+        "magic": "SPRX",
+        "version": 1,
+        "type": 4,
+        "length": 27,
+        "seq": 4
+      },
+      "payload_hex": "7b2274656d70223a32322e302c22737461747573223a226f6b227d",
+      "payload": {
+        "temp": 22.0,
+        "status": "ok"
+      },
+      "checks": [
+        {
+          "name": "crc32",
+          "algo": "crc32",
+          "ok": true,
+          "want": "0x69d9aa84",
+          "got": "0x69d9aa84",
+          "covers": "header+payload"
+        }
+      ],
+      "crc_ok": true,
+      "sha256": "8799d325c260ac4f8a5bd08124c2220a891ae302dba803dfc41f1da619243ced"
+    }
+  ]
+}

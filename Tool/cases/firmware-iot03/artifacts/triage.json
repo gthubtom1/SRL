@@ -1,0 +1,75 @@
+{
+  "tool": "fw-triage",
+  "version": "1.1.0",
+  "generated_at": "2026-10-21T13:52:30Z",
+  "file": "Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+  "ok": true,
+  "size": 406260,
+  "size_human": "396.7 KiB",
+  "sha256": "3dc1138c4795caeada1f66937516a7411c0b24f50c51336f208fad7963455a3f",
+  "containers": [
+    {
+      "offset": 291825,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 305914,
+      "type": "jffs2",
+      "description": "JFFS2 node magic 0x1985 (BE)",
+      "confidence": "medium"
+    },
+    {
+      "offset": 318183,
+      "type": "bzip2",
+      "description": "bzip2 stream",
+      "confidence": "high"
+    }
+  ],
+  "containers_truncated": 0,
+  "entropy": {
+    "overall": 7.055,
+    "max_block": 7.097,
+    "high_block_ratio": 0.0,
+    "sampled_bytes": 406260,
+    "sample_truncated": false,
+    "interpretation": "mixed entropy: container + padding/compressed regions likely"
+  },
+  "credential_clues": [],
+  "clues_truncated": false,
+  "service_hints": {
+    "nvram": 256389
+  },
+  "tools": {
+    "binwalk": true,
+    "7z": true,
+    "unsquashfs": false,
+    "sasquatch": false,
+    "ubireader_extract_images": false,
+    "jefferson": false,
+    "cramfsck": false,
+    "zstd": false,
+    "strings": true
+  },
+  "suggested_commands": [
+    "file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin && sha256sum Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+    "strings -a -n 6 Tool/cases/firmware-iot03/input/43341b0rtecdc.bin | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
+    "dd if=Tool/cases/firmware-iot03/input/43341b0rtecdc.bin of=work/fw-triage/part.bin bs=1 skip=291825  # carve first embedded container",
+    "python3 - <<'PY'\nfrom pathlib import Path\nsrc = Path('Tool/cases/firmware-iot03/input/43341b0rtecdc.bin').read_bytes()\noff = 291825\ndst = Path('work/fw-triage/carved-at-291825.bin')\ndst.parent.mkdir(parents=True, exist_ok=True)\ndst.write_bytes(src[off:])\nprint('carved', len(src) - off, 'bytes ->', dst)\nPY",
+    "binwalk -E Tool/cases/firmware-iot03/input/43341b0rtecdc.bin | head -40",
+    "binwalk -e --run-as=root -C work/fw-triage Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+    "binwalk --dd='.*' -C work/fw-triage/raw Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+    "jefferson -d work/fw-triage/jffs2 Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+    "# missing jefferson: python3 -m pip install --user jefferson  (needs approval)",
+    "bzip2 -dc Tool/cases/firmware-iot03/input/43341b0rtecdc.bin > work/fw-triage/bzip2.out",
+    "grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd' work/fw-triage/rootfs/etc 2>/dev/null | head -60",
+    "find work/fw-triage/rootfs -type f \\( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \\) -print"
+  ],
+  "verdict": "container magic found (bzip2, jffs2); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.",
+  "limits": [
+    "Triage only: it does not unpack, emulate, or prove J1/J2/J3.",
+    "Credential clues are candidates; confirm file:line in the extracted rootfs and redact values.",
+    "Offsets are absolute in the supplied file; carve before running unsquashfs/ubireader on an embedded image."
+  ]
+}

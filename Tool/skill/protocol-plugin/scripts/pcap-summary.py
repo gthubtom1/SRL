@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""pcap-summary.py -- 纯标准库 pcap/pcapng 会话聚合与明文片段导出。
+"""pcap-summary.py -- 纯标准库 pcap/pcapng 会话聚合、字节流导出与明文片段提取。
 
-用法:
+用途
+----
+协议复刻的第一步是「谁和谁、说了什么、每个方向有多少字节」。本脚本不依赖 tshark：
+自行解析 pcap 全局头/包记录与 pcapng 的 SHB/IDB/EPB/SPB，按**方向性五元组**聚合，
+导出每个会话的字节流（供分帧脚本续接），并提取可疑明文片段。
+
+用法
+----
     python pcap-summary.py --file capture.pcap
     python pcap-summary.py --file capture.pcapng --json --out out/
-    python pcap-summary.py --file capture.pcap --top 30 --min-len 8
+    python pcap-summary.py --file capture.pcap --extract streams/
+    python pcap-summary.py --file capture.pcap --tshark-check
+    python pcap-summary.py --self-test
 
-不依赖 tshark：解析 pcap 全局头/包记录或 pcapng 的 IDB/EPB/SPB，
-按五元组聚合会话，并提取可疑明文片段（HTTP、认证、SQL、JSON、URL 等）。
-仅用于自有或明确授权的流量。
+输入：本地 pcap / pcapng（EN10MB / RAW-IP / LINUX_SLL / LINUX_SLL2 / NULL）。
+输出：人类可读摘要或 JSON；`--out` 写 pcap-summary.json + snippets.txt；
+      `--extract` 写 `<session>.bin` 双向字节流 + frames.jsonl（逐包 hex）。
+退出码：0 成功（含 tshark 缺失的降级）；2 输入/解析失败（结构化 JSON `ok:false`）。
+
+边界：只做包级解析与方向性聚合，不做 TCP 重传去重/乱序重排；需要严格重组时用
+tshark `-z follow,tcp,raw`。仅用于自有或明确授权的流量，导出物按敏感数据处置。
 """
 
 from __future__ import annotations
@@ -21,8 +34,16 @@ import os
 import re
 import socket
 import struct
+import subprocess
 import sys
+import tempfile
 from collections import OrderedDict
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
 
 PCAP_MAGICS = {
     b"\xd4\xc3\xb2\xa1": ("<", 1_000_000, "pcap"),
@@ -50,6 +71,7 @@ KEYWORDS = (
     b"<html", b"<?xml", b"{\"", b"ws://", b"wss://", b"http://", b"https://",
 )
 TEXT_RE = re.compile(rb"[\x20-\x7e]{4,}")
+MAX_HEX = 4096
 
 
 class PcapError(Exception):
@@ -76,11 +98,12 @@ def iter_pcap(path):
             return
         if head not in PCAP_MAGICS:
             raise PcapError("不是 pcap/pcapng（magic=%s）" % head.hex())
-        endian, frac, kind = PCAP_MAGICS[head]
+        endian, frac, _kind = PCAP_MAGICS[head]
         rest = fh.read(20)
         if len(rest) < 20:
             raise PcapError("pcap 全局头不足 24 字节")
-        _, _, _, _, _, _, network = struct.unpack(endian + "IHHIIII", head + rest)
+        _m, _a, _b, _tz, _sig, _snap, network = struct.unpack(
+            endian + "IHHiIII", head + rest)
         while True:
             rec = fh.read(16)
             if not rec:
@@ -116,18 +139,36 @@ def _iter_pcapng(fh):
         if btype == 1:  # IDB
             if len(body) < 8:
                 raise PcapError("pcapng IDB 过短")
-            interfaces.append(_u16(body, 0, endian))
+            linktype = _u16(body, 0, endian)
+            # if_tsresol (option 9)：默认 1e-6，值为 10 的负幂次（高位置 1 时为 2 的负幂次）
+            exp = 6
+            rest = body[8:]
+            while len(rest) >= 4:
+                code, olen = struct.unpack_from(endian + "HH", rest, 0)
+                if code == 0:
+                    break
+                val = rest[4:4 + olen]
+                if code == 9 and val:
+                    if val[0] & 0x80:
+                        exp = None  # 2 的幂次，少见；退化为原始值
+                    else:
+                        exp = val[0]
+                rest = rest[4 + olen + ((-olen) % 4):]
+            interfaces.append((linktype, exp))
         elif btype == 6:  # EPB
             if len(body) < 20:
                 raise PcapError("pcapng EPB 过短")
-            iface, ts_hi, ts_lo, cap, _orig = struct.unpack_from(endian + "IIIII", body, 0)
-            linktype = interfaces[iface] if iface < len(interfaces) else 1
-            yield ((ts_hi << 32) | ts_lo) / 1_000_000.0, linktype, body[20:20 + cap]
+            iface, ts_hi, ts_lo, cap, _orig = struct.unpack_from(
+                endian + "IIIII", body, 0)
+            linktype, exp = interfaces[iface] if iface < len(interfaces) else (1, 6)
+            raw_ts = (ts_hi << 32) | ts_lo
+            ts = raw_ts if exp is None else raw_ts / float(10 ** exp)
+            yield ts, linktype, body[20:20 + cap]
         elif btype == 3:  # SPB (no timestamp)
             if len(body) < 4:
                 raise PcapError("pcapng SPB 过短")
-            _orig = _u32(body, 0, endian)
-            yield 0.0, interfaces[0] if interfaces else 1, body[4:]
+            lt0 = interfaces[0][0] if interfaces else 1
+            yield 0.0, lt0, body[4:]
         pos += blen
 
 
@@ -257,12 +298,13 @@ def _snippets(payload, limit=8):
     return out
 
 
-def summarize(path, top=20, min_len=4):
+def summarize(path, top=20, min_len=4, extract=None):
     sessions = OrderedDict()
     packet_count = 0
     first_ts = None
     last_ts = None
     linktype = None
+    frame_rows = []
 
     for ts, lt, data in iter_pcap(path):
         packet_count += 1
@@ -281,6 +323,7 @@ def summarize(path, top=20, min_len=4):
                 "dst": p["dst"], "dport": p["dport"], "packets": 0,
                 "payload_bytes": 0, "first_ts": ts, "last_ts": ts,
                 "flags": set(), "snippets": [], "snippet_total": 0,
+                "_blob": bytearray(), "_frames": [],
             }
         s["packets"] += 1
         s["payload_bytes"] += len(p["payload"])
@@ -289,22 +332,35 @@ def summarize(path, top=20, min_len=4):
         if p["flags"]:
             s["flags"].add(p["flags"])
         if p["payload"]:
+            s["_blob"] += p["payload"]
             for text in _snippets(p["payload"]):
                 if len(text) < min_len:
                     continue
                 s["snippet_total"] += 1
                 if len(s["snippets"]) < 8 and text not in s["snippets"]:
                     s["snippets"].append(text)
+        s["_frames"].append(len(p["payload"]))
+        frame_rows.append({
+            "frame": packet_count, "ts": ts, "proto": p["proto"],
+            "src": p["src"], "sport": p["sport"], "dst": p["dst"], "dport": p["dport"],
+            "payload_len": len(p["payload"]),
+            "payload_hex": p["payload"][:MAX_HEX].hex(),
+            "truncated": len(p["payload"]) > MAX_HEX,
+        })
 
     rows = []
-    for s in sessions.values():
+    blobs = {}
+    for idx, s in enumerate(sessions.values()):
+        s["stream_idx"] = idx
         s["flags"] = sorted(s["flags"])
+        s["frame_payload_lens"] = s.pop("_frames")
+        blobs[idx] = bytes(s.pop("_blob", b""))
         rows.append(s)
     rows.sort(key=lambda x: (x["payload_bytes"], x["packets"]), reverse=True)
     suspicious = [s for s in rows if s["snippet_total"]]
-    return {
+    summary = {
         "ok": True,
-        "file": os.path.abspath(path),
+        "file": path.replace(os.sep, "/"),
         "sha256": _sha256(path),
         "size": os.path.getsize(path),
         "format": "pcapng" if _is_pcapng(path) else "pcap",
@@ -320,6 +376,60 @@ def summarize(path, top=20, min_len=4):
         "suspicious_session_count": len(suspicious),
         "suspicious_snippet_count": sum(s["snippet_total"] for s in suspicious),
     }
+    if extract:
+        summary["extract"] = _write_extract(extract, rows, blobs, frame_rows)
+    return summary
+
+
+def _write_extract(outdir, rows, blobs, frame_rows):
+    os.makedirs(outdir, exist_ok=True)
+    written = []
+    for s in rows:
+        blob = blobs.get(s["stream_idx"], b"")
+        if not blob:
+            continue
+        name = "s%02d_%s_%s-%s_%s.bin" % (
+            s["stream_idx"], s["src"].replace(":", "_"), s["sport"],
+            s["dst"].replace(":", "_"), s["dport"])
+        p = os.path.join(outdir, name)
+        with open(p, "wb") as fh:
+            fh.write(blob)
+        written.append({"path": name, "bytes": len(blob), "sha256": _sha256(p)})
+    fpath = os.path.join(outdir, "frames.jsonl")
+    with open(fpath, "w", encoding="utf-8", newline="\n") as fh:
+        for row in frame_rows:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    written.append({"path": "frames.jsonl", "lines": len(frame_rows)})
+    return {"dir": outdir, "files": written}
+
+
+def tshark_probe(path):
+    """结构化探测 tshark；缺失时返回降级结论而不是抛异常。"""
+    exe = _which("tshark")
+    if not exe:
+        return {"available": False, "blocked_at": "tool-missing",
+                "reason": "未找到 tshark；已用标准库解析降级",
+                "degraded_to": "stdlib-pcap-parser"}
+    try:
+        r = subprocess.run([exe, "-r", path, "-q", "-z", "io,phs"],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120)
+    except Exception as exc:  # noqa: BLE001
+        return {"available": True, "error": str(exc)[:120]}
+    lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
+    return {"available": True, "rc": r.returncode,
+            "protocol_hierarchy": lines[:12]}
+
+
+def _which(name):
+    for p in os.environ.get("PATH", "").split(os.pathsep):
+        cand = os.path.join(p, name + ".exe")
+        if os.path.isfile(cand):
+            return cand
+        cand = os.path.join(p, name)
+        if os.path.isfile(cand):
+            return cand
+    return ""
 
 
 def _sha256(path):
@@ -363,49 +473,158 @@ def _print_human(summary):
         print("(no keyword-bearing plaintext snippets)")
 
 
+# ------------------------------------------------------------------ self-test
+def _mk_eth_ip_tcp(src, dst, sport, dport, payload=b"", seq=1, flags=0x18):
+    tcp = struct.pack("!HHIIHHHH", sport, dport, seq, 0,
+                       (5 << 12) | flags, 8192, 0, 0)
+    total = 20 + len(tcp) + len(payload)
+    ip = struct.pack("!BBHHHBBH4s4s", 0x45, 0, total, 0x1234, 0, 64, 6, 0,
+                     socket.inet_aton(src), socket.inet_aton(dst))
+    eth = b"\x02\x00\x00\x00\x00\x01" + b"\x02\x00\x00\x00\x00\x02" + b"\x08\x00"
+    return eth + ip + tcp + payload
+
+
+def _mk_pcap(packets):
+    out = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1)
+    for i, (ts, data) in enumerate(packets):
+        sec = int(ts)
+        usec = int(round((ts - sec) * 1_000_000))
+        out += struct.pack("<IIII", sec, usec, len(data), len(data)) + data
+    return out
+
+
+def _mk_pcapng(packets):
+    def block(btype, body):
+        body += b"\x00" * ((-len(body)) % 4)
+        total = 12 + len(body)
+        return struct.pack("<II", btype, total) + body + struct.pack("<I", total)
+
+    shb = block(0x0A0D0D0A, struct.pack("<IHHq", 0x1A2B3C4D, 1, 0, -1))
+    idb = block(1, struct.pack("<HHI", 1, 0, 65535))
+    out = shb + idb
+    for ts, data in packets:
+        us = int(ts * 1_000_000)
+        body = struct.pack("<IIIII", 0, us >> 32, us & 0xFFFFFFFF,
+                           len(data), len(data)) + data
+        out += block(6, body)
+    return out
+
+
+def self_test():
+    checks = []
+    tmp = tempfile.mkdtemp(prefix="pcap-self-test-")
+    req = b"GET /selftest HTTP/1.1\r\nHost: selftest.invalid\r\n\r\n"
+    rsp = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
+    packets = [(1700000000.100000, _mk_eth_ip_tcp("10.0.0.1", "10.0.0.2", 40001, 80, req)),
+               (1700000000.200000, _mk_eth_ip_tcp("10.0.0.2", "10.0.0.1", 80, 40001, rsp))]
+
+    pcap_path = os.path.join(tmp, "min.pcap")
+    with open(pcap_path, "wb") as fh:
+        fh.write(_mk_pcap(packets))
+    s = summarize(pcap_path)
+    checks.append(("pcap 解析包数=2", s["packet_count"] == 2 and s["format"] == "pcap"))
+    checks.append(("方向性会话=2", s["sessions_total"] == 2))
+    got = " ".join(x for sess in s["sessions"] for x in sess["snippets"])
+    checks.append(("明文片段含 GET /selftest", "GET /selftest" in got))
+
+    png_path = os.path.join(tmp, "min.pcapng")
+    with open(png_path, "wb") as fh:
+        fh.write(_mk_pcapng(packets))
+    s2 = summarize(png_path)
+    checks.append(("pcapng 解析包数=2", s2["packet_count"] == 2 and s2["format"] == "pcapng"))
+
+    exdir = os.path.join(tmp, "ex")
+    s3 = summarize(pcap_path, extract=exdir)
+    files = [f["path"] for f in (s3.get("extract") or {}).get("files", [])]
+    ok_ext = any(f.endswith(".bin") for f in files) and "frames.jsonl" in files
+    checks.append(("--extract 导出字节流+frames.jsonl", ok_ext))
+
+    bad = os.path.join(tmp, "bad.bin")
+    with open(bad, "wb") as fh:
+        fh.write(b"NOTAPCAP" * 4)
+    try:
+        summarize(bad)
+        checks.append(("非 pcap 被拒", False))
+    except PcapError as exc:
+        checks.append(("非 pcap 被拒", "不是 pcap" in str(exc)))
+
+    probe = tshark_probe(pcap_path)
+    checks.append(("tshark 探测结构化降级", isinstance(probe, dict) and "available" in probe))
+
+    bad_checks = [n for n, ok in checks if not ok]
+    print(json.dumps({
+        "ok": not bad_checks,
+        "self_test": True,
+        "checks": len(checks),
+        "passed": len(checks) - len(bad_checks),
+        "failed": bad_checks,
+        "tmp": tmp,
+    }, ensure_ascii=False))
+    return 0 if not bad_checks else 1
+
+
 def _write_out(summary, outdir):
     os.makedirs(outdir, exist_ok=True)
-    with open(os.path.join(outdir, "pcap-summary.json"), "w", encoding="utf-8") as fh:
-        json.dump(summary, fh, ensure_ascii=False, indent=2)
-    with open(os.path.join(outdir, "snippets.txt"), "w", encoding="utf-8") as fh:
+    clean = {k: v for k, v in summary.items() if k != "extract"}
+    with open(os.path.join(outdir, "pcap-summary.json"), "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(clean, fh, ensure_ascii=False, indent=2)
+    with open(os.path.join(outdir, "snippets.txt"), "w", encoding="utf-8", newline="\n") as fh:
         for s in summary["sessions"]:
             for text in s["snippets"]:
                 fh.write("%s:%s -> %s:%s\t%s\n" % (
                     s["src"], s["sport"], s["dst"], s["dport"], text))
-    print("wrote: %s" % os.path.join(outdir, "pcap-summary.json"))
-    print("wrote: %s" % os.path.join(outdir, "snippets.txt"))
+    print("wrote: %s" % os.path.join(outdir, "pcap-summary.json").replace(os.sep, "/"))
+    print("wrote: %s" % os.path.join(outdir, "snippets.txt").replace(os.sep, "/"))
+
+
+def _fail(code, error, detail="", blocked_at="input", **extra):
+    """统一失败形状：ok / blocked_at / reason 三件套必填（DOMAIN-SPEC §3）。
+
+    历史 bug：这里的 JSON 只有 error/detail，与其它域不一致，自动化无法判断卡点。
+    """
+    err = {"ok": False, "blocked_at": blocked_at,
+           "reason": error if not detail else "%s: %s" % (error, detail),
+           "error": error, "detail": detail}
+    err.update(extra)
+    print(json.dumps(err, ensure_ascii=False))
+    return code
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="纯标准库 pcap/pcapng 会话聚合与可疑明文片段导出（无需 tshark）")
-    ap.add_argument("--file", "-f", required=True, help="pcap/pcapng 文件")
+        description="纯标准库 pcap/pcapng 会话聚合、字节流导出与明文片段提取（无需 tshark）",
+        epilog="退出码：0 成功/降级；2 输入或解析失败（JSON ok:false）。")
+    ap.add_argument("--file", "-f", help="pcap/pcapng 文件（--self-test 时可省略）")
     ap.add_argument("--top", type=int, default=20, help="输出会话数（默认 20）")
     ap.add_argument("--min-len", type=int, default=4, help="明文片段最小长度（默认 4）")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--out", help="写出 pcap-summary.json 与 snippets.txt 的目录")
+    ap.add_argument("--extract", metavar="DIR",
+                    help="导出每个方向性会话的 .bin 字节流与 frames.jsonl")
+    ap.add_argument("--tshark-check", action="store_true",
+                    help="用 tshark 交叉验证协议分层；缺失则结构化降级")
+    ap.add_argument("--self-test", action="store_true",
+                    help="离线自检：内置最小 pcap/pcapng 字节流")
     args = ap.parse_args(argv)
 
+    if args.self_test:
+        return self_test()
+    if not args.file:
+        return _fail(2, "missing_argument", "--file 必填（或使用 --self-test）")
     if not os.path.isfile(args.file):
-        err = {"ok": False, "error": "file_not_found", "file": args.file,
-               "hint": "确认路径；支持 pcap/pcapng，不支持 pcapng 的加密/压缩封装"}
-        print(json.dumps(err, ensure_ascii=False) if args.json else "[FAIL] %s" % err["hint"])
-        return 2
+        return _fail(2, "file_not_found", "确认路径；支持 pcap/pcapng", file=args.file)
+
     try:
-        summary = summarize(args.file, top=max(1, args.top), min_len=max(1, args.min_len))
+        summary = summarize(args.file, top=max(1, args.top),
+                            min_len=max(1, args.min_len), extract=args.extract)
     except PcapError as exc:
-        err = {"ok": False, "error": "pcap_parse_error", "file": args.file,
-               "detail": str(exc), "hint": "先 file/xxd 确认 magic；损坏包可用 editcap 切片后重试"}
-        if args.json:
-            print(json.dumps(err, ensure_ascii=False))
-        else:
-            print("[FAIL] %s" % exc)
-            print("hint: %s" % err["hint"])
-        return 2
+        return _fail(2, "pcap_parse_error", str(exc), file=args.file,
+                     hint="先 file/xxd 确认 magic；损坏包可用 editcap 切片后重试")
     except OSError as exc:
-        err = {"ok": False, "error": "io_error", "file": args.file, "detail": str(exc)}
-        print(json.dumps(err, ensure_ascii=False) if args.json else "[FAIL] %s" % exc)
-        return 2
+        return _fail(2, "io_error", str(exc), file=args.file)
+
+    if args.tshark_check:
+        summary["tshark"] = tshark_probe(args.file)
 
     if args.out:
         _write_out(summary, args.out)
@@ -413,6 +632,14 @@ def main(argv=None):
         print(json.dumps(summary, ensure_ascii=False, indent=2))
     else:
         _print_human(summary)
+        if args.extract:
+            print("\n-- extract --")
+            for f in summary["extract"]["files"]:
+                print("  %s" % f)
+        if args.tshark_check:
+            t = summary["tshark"]
+            print("\n-- tshark --")
+            print("  available=%s %s" % (t.get("available"), t.get("blocked_at", "")))
     return 0
 
 

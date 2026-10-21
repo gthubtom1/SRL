@@ -193,7 +193,7 @@ import csv
 import re
 from collections import Counter, defaultdict
 
-HEX_COUNTER = re.compile(r"^([A-Z]{2})[0-9A-F]([A-Z0-9._-]{3,})$", re.I)
+HEX_COUNTER = re.compile(r"^([A-Z]{2})0-9A-F$", re.I)
 
 def charset_of(v):
     if re.fullmatch(r"[0-9]+", v):

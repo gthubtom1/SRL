@@ -2,6 +2,13 @@
 
 > 目标：把“权限/入口”逐条落到代码路径；看不到数据流就只是清单，不是结论。
 
+## 0. 入口信号
+
+- `.crx`/`.xpi`/解压目录，或 `.vsix`/`.jar` 的 ZIP 头。
+- 存在 `manifest.json`、`extension/package.json` 或 `META-INF/plugin.xml`。
+- 清单里出现 `permissions`/`activationEvents`/`<actions>`。
+- 商店安装目录或侧载目录可直接读，且能算哈希。
+
 ## 1. 容器识别
 
 ```bash
@@ -91,3 +98,10 @@ jadx -d out/ plugin.jar
 - MV3 SW 休眠导致动态缺失 → 主动唤醒，仍缺失则标 `unverified`。
 - 签名/企业白名单阻止加载 → 记录校验层，不反复改包。
 - 压缩 bundle 无 source map 且无法定位 → 先 prettier/字符串表，不硬读一行。
+
+## 7. 边界
+
+- 只做清单/入口/权限的静态映射；动态消息与存储写入需另做隔离观测。
+- 不把“权限声明”当“已使用”，不把“解包成功”当“分析完成”。
+- 签名/企业策略/版本不匹配导致的加载失败，记录校验层，不反复改包。
+- 协议/分帧交 `protocol-plugin`（R24）。

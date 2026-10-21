@@ -174,7 +174,7 @@ def error_fingerprint(target: str):
                 print(f"  {path}: {fw} → {m.group(0)[:80]}")
 
         # 精确版本号提取
-        versions = re.findall(r'([\w.-]+)[/ ](\d+\.\d+\.\d+)', text)
+        versions = re.findall(r'([\w.-]+)/ ', text)
         for name, ver in versions[:5]:
             print(f"    {name}: {ver}")
 ```

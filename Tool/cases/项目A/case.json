@@ -1,6 +1,6 @@
 {
   "id": "项目A",
-  "domain": "windows-license",
+  "domain": "reverse",
   "target_type": "PE32+ x64",
   "protection": [],
   "authority": "local",
@@ -34,10 +34,15 @@
     "授权状态字"
   ],
   "refs": [
-    "v2/README.md",
-    "v2/docs/授权旁路漏洞分析报告.md",
-    "v2/dist/手动验证指南.md",
-    "defense_hardening_spec.md"
+    "Tool/cases/项目A/v2/README.md",
+    "Tool/cases/项目A/v2/docs/授权旁路漏洞分析报告.md",
+    "Tool/cases/项目A/v2/dist/手动验证指南.md",
+    "Tool/cases/项目A/defense_hardening_spec.md"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "evidence_kind": "real",
+  "repro": {
+    "status": "not-recorded",
+    "reason": "历史归档：现场命令未逐字留存，仅有产物哈希与结论；复现入口见 artifacts/ 与 lessons"
+  }
 }

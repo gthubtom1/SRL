@@ -17,7 +17,7 @@
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
 | F5 | **体检基准项** | `verify.ps1` / `verify.sh` 的 **65 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
 | F6 | **上游隔离边界** | `Tool/upstream/<项目>/` 的零外溢规则（`setup/upstream-rules.json`） | 防外溢是许可合规与工程安全的底线 |
-| F7 | **从零入口** | 仓库根 `AGENTS.md`（bootstrap 指路牌）+ `README` 的「先拿到代码」三选一 | Codex / DSH / OpenCode 在仓库根只读 `AGENTS.md`；删了它们就找不到协议全文 |
+| F7 | **从零入口** | `Tool/prompts/contracts/AGENTS.md`（bootstrap 指路牌，部署/软链到项目根）+ `README` 的「先拿到代码」三选一 | 宿主从项目根读 `AGENTS.md`；仓库内以 `Tool/prompts/contracts/` 为源 |
 
 > 需要改动上述任何一项时：**不是不能改，而是必须单独开分支、写迁移脚本、同步改体检项**，并当作**大版本（2.0.0）**发布。默认拒绝。
 
@@ -42,7 +42,7 @@ python Tool/scripts/new-skill.py <skill-name> --desc "一句话描述" --title "
 
 1. 只允许在 `seep_mcp_server.py` **文件末尾**追加 `@server.tool()` 函数（或紧邻同类扩展块），**绝不修改既有工具实现**；
 2. 新工具必须有：一句中文 `docstring`（描述+Args）、`[ERROR]` 前缀的失败返回、绝不裸抛异常；
-3. 同步更新：`Tool/skill/softseep/SKILL.md`（扩展工具速查表）、`Tool/docs/EXT-ASSETS.md`、`README.md` 的工具数、`CHANGELOG.md`；
+3. 同步更新：`Tool/skill/softseep/SKILL.md`（扩展工具速查表）、`Tool/docs/EXT-ASSETS.md`、`README.md` 的工具数、`docs/CHANGELOG.md`；
 4. 在 `Tool/mcp/test_ext_assets.py` 里补一条自测（**只加不减**）。
 
 **验收（五道闸，缺一不可）**：
@@ -91,7 +91,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
   - [ ] Tool/mcp/test_ext_assets.py（新增自测）
   - [ ] Tool/docs/EXT-ASSETS.md
   - [ ] README.md（工具数）
-  - [ ] CHANGELOG.md（新增小版本条目）
+  - [ ] docs/CHANGELOG.md（新增小版本条目）
   - [ ] VERSION
 - 五道闸结果：
   - test_seep_mcp  __/9

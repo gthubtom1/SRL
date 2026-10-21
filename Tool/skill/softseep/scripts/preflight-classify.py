@@ -27,6 +27,7 @@ import math
 import os
 import struct
 import sys
+import tempfile
 import zipfile
 
 # ---- 容器/格式魔数 ----
@@ -505,14 +506,84 @@ def to_hint(info: dict) -> str:
     return " ".join(parts)
 
 
+HELP_TEXT = """preflight-classify.py — softseep 判型前的目标预判器
+
+用法:
+  python preflight-classify.py <path> [--hint]
+  python preflight-classify.py --self-test
+  python preflight-classify.py --help
+
+输入:
+  <path>   单个文件或目录（只读，不执行目标）
+  --hint   每个目标打印一行可直接喂给 softseep 的提示词
+
+输出:
+  默认 JSON（platform/protection/suggested_type/sections/hint）；--hint 时一行文本
+
+退出码:
+  0 成功（无论识别到什么）
+  2 路径不存在 / 参数错误 / self-test 失败
+
+self-test:
+  离线生成最小 PE，验证 magic/PE 解析/JSON 输出；不联网、不读外部样本。
+"""
+
+
+def self_test() -> int:
+    checks = 0
+    try:
+        assert sniff(b"MZ\x90\x00") == "pe"; checks += 1
+        assert entropy(b"\x00" * 32) == 0.0; checks += 1
+        data = bytearray(0x400)
+        data[0:2] = b"MZ"
+        struct.pack_into("<I", data, 0x3C, 0x80)
+        data[0x80:0x84] = b"PE\0\0"
+        struct.pack_into("<HH", data, 0x84, 0x8664, 1)      # machine, nsec
+        struct.pack_into("<H", data, 0x94, 0xF0)           # SizeOfOptionalHeader
+        opt = 0x98
+        struct.pack_into("<H", data, opt, 0x20B)           # PE32+
+        struct.pack_into("<I", data, opt + 16, 0x1000)     # AddressOfEntryPoint
+        struct.pack_into("<I", data, opt + 108, 16)        # NumberOfRvaAndSizes
+        sec = opt + 0xF0
+        data[sec:sec + 8] = b".text\0\0\0"
+        struct.pack_into("<IIII", data, sec + 8, 0x1000, 0x1000, 0, 0)
+        parsed = parse_pe(bytes(data))
+        assert parsed.get("format") == "pe" and parsed.get("machine") == "x86-64"; checks += 1
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".bin") as f:
+            f.write(data)
+            tmp = f.name
+        try:
+            info = classify(tmp)
+            assert info.get("format") == "pe" and info.get("platform") == "Windows"; checks += 1
+            assert info.get("sections") and info["sections"][0]["name"] == ".text"; checks += 1
+        finally:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+        print(json.dumps({"ok": True, "checks": checks}, ensure_ascii=True))
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        print(json.dumps({"ok": False, "blocked_at": "self-test",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)}, ensure_ascii=True))
+        return 2
+
+
 def main(argv: list[str]) -> int:
+    if "--help" in argv or "-h" in argv:
+        print(HELP_TEXT)
+        return 0
+    if "--self-test" in argv:
+        return self_test()
     if not argv:
-        print(__doc__)
+        print(json.dumps({"ok": False, "blocked_at": "args",
+                          "reason": "缺少 <path>；用 --help 看用法"}, ensure_ascii=True))
         return 2
     target = argv[0]
     as_hint = "--hint" in argv
     if not os.path.exists(target):
-        print(json.dumps({"error": "not found", "path": target}, ensure_ascii=False))
+        print(json.dumps({"ok": False, "blocked_at": "input",
+                          "reason": "路径不存在：%s" % target}, ensure_ascii=True))
         return 2
     paths = []
     if os.path.isdir(target):
@@ -522,6 +593,10 @@ def main(argv: list[str]) -> int:
                 paths.append(p)
     else:
         paths.append(target)
+    if not paths:
+        print(json.dumps({"ok": False, "blocked_at": "input",
+                          "reason": "目录中没有文件：%s" % target}, ensure_ascii=True))
+        return 2
     results = []
     for p in paths:
         try:

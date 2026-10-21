@@ -7,9 +7,20 @@
       "keywords": [
         {
           "must": "(?i)(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)",
-          "note": "内网/云：判据=可复现的凭据或提权证据"
+          "mustAll": [
+            "(?i)(?<![a-z0-9])(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)(?![a-z0-9])"
+          ],
+          "note": "内网/云：判据=可复现的凭据或提权证据；must 与 SSOT R23 保持一致，mustAll 是词边界收紧（不抢 web 的 spider、firmware 的 bios）。"
+        },
+        {
+          "mustAll": [
+            "(?i)\\bkubectl\\b",
+            "(?i)\\b(rbac|can-i|clusterrole|rolebinding|serviceaccount|secret|k8s)\\b"
+          ],
+          "note": "补充命中 kubectl+RBAC 的常见说法；本次按约束不改 routing.json，待合入 SSOT。"
         }
-      ]
+      ],
+      "merge_note": "按任务约束不改 Tool/scripts/routing.json；本片段的 must 必须与 SSOT R23 完全一致才能通过合入检查，mustAll 为待合入的词边界收紧。"
     }
   },
   "priority_hint": {

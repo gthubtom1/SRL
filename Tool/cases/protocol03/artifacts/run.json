@@ -1,0 +1,37 @@
+{
+  "case": "protocol03",
+  "generated_at": "2026-10-21T14:41:34Z",
+  "cwd": "Tool\\cases\\protocol03",
+  "runs": [
+    {
+      "cmd": "rm -rf artifacts/streams",
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "cmd": "python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/websocket.pcapng --json --extract artifacts/streams --tshark-check",
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"file\": \"input/websocket.pcapng\",\n  \"sha256\": \"ea9fcd3de02bf1824cdcff4bb61f842a6135fbc5d6b154cad00927ed3aa776d2\",\n  \"size\": 2904,\n  \"format\": \"pcapng\",\n  \"linktype\": 1,\n  \"linktype_name\": \"EN10MB/Ethernet\",\n  \"packet_count\": 18,\n  \"first_ts\": 1694247103.066897,\n  \"last_ts\": 1694247103.0680234,\n  \"duration_s\": 0.0011265277862548828,\n  \"session_count\": 2,\n  \"sessions\": [\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 44380,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 8080,\n      \"packets\": 10,\n      \"payload_bytes\": 403,\n      \"first_ts\": 1694247103.066897,\n      \"last_ts\": 1694247103.0680234,\n      \"flags\": [\n        2,\n        16,\n        17,\n        24\n      ],\n      \"snippets\": [\n        \"GET /ws HTTP/1.1\",\n        \"Host: localhost:8080\",\n        \"User-Agent: Go-http-client/1.1\",\n        \"Connection: Upgrade\",\n        \"Sec-WebSocket-Key: gMZehv+rgbF79AzLgIG9Hw==\",\n        \"Sec-WebSocket-Version: 13\",\n        \"Upgrade: websocket\"\n      ],\n      \"snippet_total\": 7,\n      \"stream_idx\": 0,\n      \"frame_payload_lens\": [\n        0,\n        0,\n        187,\n        0,\n        54,\n        54,\n        54,\n        54,\n        0,\n        0\n      ]\n    },\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 8080,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 44380,\n      \"packets\": 8,\n      \"payload_bytes\": 333,\n      \"first_ts\": 1694247103.0669062,\n      \"last_ts\": 1694247103.068017,\n      \"flags\": [\n        16,\n        17,\n        18,\n        24\n      ],\n      \"snippets\": [\n        \"HTTP/1.1 101 Switching Protocols\",\n        \"Upgrade: websocket\",\n        \"Connection: Upgrade\",\n        \"Sec-WebSocket-Accept: MPGznO7WEpEGvXiPGvj3vxkmtv4=\",\n        \"1{\\\"type\\\":\\\"response\\\",\\\"data\\\":\\\"1265307447409499018\\\"}\",\n        \"1{\\\"type\\\":\\\"response\\\",\\\"data\\\":\\\"7820623503489255511\\\"}\",\n        \"1{\\\"type\\\":\\\"response\\\",\\\"data\\\":\\\"1426939729363796099\\\"}\",\n        \"1{\\\"type\\\":\\\"response\\\",\\\"data\\\":\\\"1030177915652144116\\\"}\"\n      ],\n      \"snippet_total\": 8,\n      \"stream_idx\": 1,\n      \"frame_payload_lens\": [\n        0,\n        0,\n        129,\n        51,\n        51,\n        51,\n        51,\n        0\n      ]\n    }\n  ],\n  \"sessions_total\": 2,\n  \"suspicious_session_count\": 2,\n  \"suspicious_snippet_count\": 15,\n  \"extract\": {\n    \"dir\": \"artifacts/streams\",\n    \"files\": [\n      {\n        \"path\": \"s00_127.0.0.1_44380-127.0.0.1_8080.bin\",\n        \"bytes\": 403,\n        \"sha256\": \"382d6fa39f38ef0a123f3cbabebfd9e1421e0074e239f8cb4db388e0cddb47e5\"\n      },\n      {\n        \"path\": \"s01_127.0.0.1_8080-127.0.0.1_44380.bin\",\n        \"bytes\": 333,\n        \"sha256\": \"20be7eb6e9357305b4f37608029dce747c1bf3e1c86f7eff6d44d06eb1358c16\"\n      },\n      {\n        \"path\": \"frames.jsonl\",\n        \"lines\": 18\n      }\n    ]\n  },\n  \"tshark\": {\n    \"available\": true,\n    \"rc\": 0,\n    \"protocol_hierarchy\": [\n      \"===================================================================\",\n      \"Protocol Hierarchy Statistics\",\n      \"Filter: \",\n      \"frame                                    frames:18 bytes:1940\",\n      \"  eth                                    frames:18 bytes:1940\",\n      \"    ip                                   frames:18 bytes:1940\",\n      \"      tcp                                frames:18 bytes:1940\",\n      \"        http                             frames:2 bytes:448\",\n      \"        websocket                        frames:8 bytes:948\",\n      \"          data-text-lines                frames:8 bytes:948\",\n      \"===================================================================\"\n    ]\n  }\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": "tshark -r input/websocket.pcapng -Y websocket -T fields -e frame.number -e websocket.opcode -e websocket.fin -e websocket.mask -e websocket.payload_length -e tcp.len -e websocket.masking_key -e tcp.payload",
+      "rc": 0,
+      "stdout": "8\t1\tTrue\tTrue\t48\t54\t9fc7b2e7\t81b09fc7b2e7e4e5c69eefa290ddbdb5d796eaa2c193bdeb9083feb3d3c5a5e583d5a9f281d7a8f386d0abf78bd3a6fe82d6a7e5cfed\n9\t1\tTrue\tFalse\t49\t51\t\t81317b2274797065223a22726573706f6e7365222c2264617461223a2231323635333037343437343039343939303138227d0a\n10\t1\tTrue\tTrue\t48\t54\t8db50908\t81b08db50908f6977d71fdd02b32afc76c79f8d07a7caf992b6cecc1682ab7973e30bf853f3abe80393bb98d303ab8803c39bc977402\n11\t1\tTrue\tFalse\t49\t51\t\t81317b2274797065223a22726573706f6e7365222c2264617461223a2237383230363233353033343839323535353131227d0a\n12\t1\tTrue\tTrue\t48\t54\t7e8c1f05\t81b07e8c1f0505ae6b7c0ee93d3f5cfe7a740be96c715ca03d611ff87e2744ae2e314cba263647bb2d3c4dba2c3247ba2f3c47ae620f\n13\t1\tTrue\tFalse\t49\t51\t\t81317b2274797065223a22726573706f6e7365222c2264617461223a2231343236393339373239333633373936303939227d0a\n14\t1\tTrue\tTrue\t48\t54\t50685920\t81b0506859202b4a2d59200d7b1a721a3c51250d2a5472447b44311c38026a4a68106358681767516815665d6b11645c6811664a242a\n15\t1\tTrue\tFalse\t49\t51\t\t81317b2274797065223a22726573706f6e7365222c2264617461223a2231303330313737393135363532313434313136227d0a\n",
+      "stderr": ""
+    },
+    {
+      "cmd": "tshark -r input/websocket.pcapng -Y http -T fields -e frame.number -e http.request.method -e http.request.uri -e http.response.code -e http.upgrade -e http.sec_websocket_key -e http.sec_websocket_accept",
+      "rc": 0,
+      "stdout": "4\tGET\t/ws\t\twebsocket\tgMZehv+rgbF79AzLgIG9Hw==\t\n6\t\t/ws\t101\twebsocket\t\tMPGznO7WEpEGvXiPGvj3vxkmtv4=\n",
+      "stderr": ""
+    },
+    {
+      "cmd": "python input/build_ws_frame.py artifacts/new-frame.bin",
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"payload\": \"{\\\"type\\\":\\\"request\\\",\\\"data\\\":\\\"4242424242424242424\\\"}\",\n  \"payload_len\": 48,\n  \"frame_len\": 54,\n  \"mask\": \"11223344\",\n  \"frame_hex\": \"81b0112233446a00473d6147117e3350563564474030330e1120705652662b0007762510077625100776251007762510077625004e4e\",\n  \"predicted_response\": {\n    \"type\": \"response\",\n    \"data\": \"4242424242424242424\"\n  },\n  \"predicted_response_frame_len\": 51,\n  \"out\": \"artifacts/new-frame.bin\"\n}\n",
+      "stderr": ""
+    }
+  ]
+}

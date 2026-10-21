@@ -26,6 +26,13 @@ import struct
 import sys
 import zipfile
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
+
 PCAP_MAGICS = {
     b"\xd4\xc3\xb2\xa1": ("<", 1_000_000, "pcap"),
     b"\xa1\xb2\xc3\xd4": (">", 1_000_000, "pcap"),
@@ -76,8 +83,19 @@ def identify(path):
     head = read_head(path, 8192)
     if not head:
         return {"kind": "empty", "format": "empty", "confidence": "observed"}
+    ext = os.path.splitext(path)[1].lower()
     if head[:4] in PCAP_MAGICS:
         return {"kind": "pcap", "format": "pcap", "confidence": "observed"}
+    if head[:8] == b"ElfFile\x00":
+        return {"kind": "evtx", "format": "EVTX", "confidence": "observed"}
+    if head[:4] == b"regf":
+        return {"kind": "registry", "format": "REGF hive", "confidence": "observed"}
+    if head[:8] in (b"UnityFS\x00", b"UnityWeb", b"UnityRaw"):
+        return {"kind": "unity-bundle", "format": "UnityFS/AssetBundle", "confidence": "observed"}
+    if head[:4] == b"\xaf\x1b\xb1\xfa":
+        return {"kind": "il2cpp-metadata", "format": "IL2CPP global-metadata", "confidence": "observed"}
+    if head[:8] == b"bplist00" or (ext == ".plist" and head.lstrip().startswith(b"<?xml")):
+        return {"kind": "plist", "format": "binary/XML plist", "confidence": "observed"}
     if head[:4] == b"\x0a\x0d\x0d\x0a":
         return {"kind": "pcap", "format": "pcapng", "confidence": "observed"}
     if head[:4] == b"PK\x03\x04":
@@ -91,7 +109,7 @@ def identify(path):
         return {"kind": "sqlite", "format": "sqlite", "confidence": "observed"}
     if head[:4] == b"\x04\x00\x00\x00":
         return {"kind": "asar", "format": "asar", "confidence": "observed"}
-    if head[:4] == b"MZ":
+    if head[:2] == b"MZ":
         return {"kind": "pe", "format": "PE", "confidence": "observed"}
     if head[:4] == b"\x7fELF":
         return {"kind": "elf", "format": "ELF", "confidence": "observed"}
@@ -289,6 +307,16 @@ def extractables(kind, fmt, path):
                    "时间字段与写入进程", "敏感字段（脱敏）"],
         "macho": ["架构/LC_UUID/加密信息 cryptid", "依赖库与 rpath", "符号/字符串",
                   "entitlements/签名 Team ID", "与数据文件/网络端点的对应"],
+        "evtx": ["通道/提供程序与事件 ID", "记录 FILETIME 与 RecordId", "登录/进程/服务/任务事件",
+                 "与注册表、文件系统时间线交叉对齐"],
+        "registry": ["键最后写入时间与键路径", "Run/服务/IFEO/UserAssist 持久化项",
+                     "USB/挂载点/最近文档", "hive 头时间与事务日志"],
+        "unity-bundle": ["Unity 版本与压缩/加密标志", "CAB-* 资源清单", "Texture2D/TextAsset/AudioClip",
+                         "manifest 与运行时加载关系"],
+        "il2cpp-metadata": ["元数据版本与 GameAssembly 匹配", "方法/字段/字符串字面量",
+                            "与 dump.cs/函数地址对齐", "类型与协议字段映射"],
+        "plist": ["键值与数据类型", "Bundle ID/URL Scheme/ATS", "NSKeyedArchiver 解归档",
+                  "与二进制/数据库/网络端点的对应"],
         "pe": ["节区/熵/导入导出", "资源与 overlay", "PDB/版本信息", "字符串与配置"],
         "elf": ["节区/架构/动态依赖", "导入导出符号", "编译路径/字符串", "配置与证书"],
         "asar": ["package.json/main/preload", "IPC channel 与原生模块", "asar 完整性/签名",
@@ -296,6 +324,90 @@ def extractables(kind, fmt, path):
         "data": ["file/strings/entropy", "文件 carve", "哈希与来源说明"],
     }.get(kind, [])
     return common + table
+
+
+def _filetime_iso(value):
+    if not value:
+        return None
+    try:
+        dt = _dt.datetime(1601, 1, 1, tzinfo=_dt.timezone.utc) + _dt.timedelta(
+            microseconds=int(value) // 10)
+    except (OverflowError, ValueError):
+        return None
+    return dt.isoformat().replace("+00:00", "Z")
+
+
+def evtx_meta(path, max_items=MAX_ITEMS):
+    raw = open(path, "rb").read(min(os.path.getsize(path), 64 * 1024 * 1024))
+    if len(raw) < 4096 or raw[:8] != b"ElfFile\x00":
+        return {"error": "not evtx"}
+    chunks = struct.unpack_from("<H", raw, 0x2A)[0]
+    count = 0
+    first = last = None
+    records = []
+    for idx in range(min(chunks, 4096)):
+        base = 4096 + idx * 0x10000
+        if base + 0x200 > len(raw) or raw[base:base + 8] != b"ElfChnk\x00":
+            continue
+        free = struct.unpack_from("<I", raw, base + 0x30)[0]
+        if not (0x200 <= free <= 0x10000):
+            continue
+        p, end = base + 0x200, base + free
+        while p + 28 <= end and raw[p:p + 4] == b"**\x00\x00":
+            size = struct.unpack_from("<I", raw, p + 4)[0]
+            if size < 28 or p + size > end:
+                break
+            ts = struct.unpack_from("<Q", raw, p + 0x10)[0]
+            rid = struct.unpack_from("<Q", raw, p + 8)[0]
+            iso = _filetime_iso(ts)
+            if iso:
+                first = iso if first is None or iso < first else first
+                last = iso if last is None or iso > last else last
+                if len(records) < max_items:
+                    records.append({"record_id": rid, "time_utc": iso,
+                                    "chunk": idx, "size": size})
+            count += 1
+            p += (size + 7) & ~7
+    return {"chunk_count": chunks, "record_count": count,
+            "first_record_utc": first, "last_record_utc": last,
+            "records_sample": records, "truncated": count > len(records)}
+
+
+def registry_meta(path):
+    head = read_head(path, 4096)
+    if len(head) < 0x30 or head[:4] != b"regf":
+        return {"error": "not regf"}
+    hive_size = struct.unpack_from("<I", head, 0x28)[0]
+    root = struct.unpack_from("<I", head, 0x24)[0]
+    last_write = struct.unpack_from("<Q", head, 0x0C)[0]
+    return {"hive_size": hive_size, "root_cell_offset": root,
+            "header_last_write_utc": _filetime_iso(last_write),
+            "hbin_count_estimate": hive_size // 0x1000}
+
+
+def unity_meta(path):
+    raw = read_head(path, 512)
+    sig = raw[:8].rstrip(b"\x00").decode("latin-1", "replace")
+    pos = 8
+    version = struct.unpack_from("<I", raw, pos)[0] if len(raw) >= pos + 4 else None
+    pos += 4
+
+    def cstr(at):
+        end = raw.find(b"\x00", at)
+        if end < 0:
+            end = min(len(raw), at + 128)
+        return raw[at:end].decode("utf-8", "replace")[:128]
+
+    return {"signature": sig, "format_version": version,
+            "unity_version": cstr(pos) if pos < len(raw) else None,
+            "unity_revision": None}
+
+
+def il2cpp_meta(path):
+    head = read_head(path, 64)
+    if len(head) < 8 or head[:4] != b"\xaf\x1b\xb1\xfa":
+        return {"error": "not il2cpp metadata"}
+    return {"magic": "0xFAB11BAF", "version": struct.unpack_from("<I", head, 4)[0]}
 
 
 def timeline_fields(ident, meta, st):
@@ -315,6 +427,17 @@ def timeline_fields(ident, meta, st):
                 "basis": "zip entry timestamps (often local time)", "timezone": "unknown",
                 "clock_skew": "unknown; ZIP timestamps are not reliable evidence",
                 "precision": "2 seconds (DOS time)"}
+    if ident["kind"] == "evtx" and meta and meta.get("first_record_utc"):
+        return {"start_utc": meta.get("first_record_utc"), "end_utc": meta.get("last_record_utc"),
+                "basis": "EVTX record FILETIME (100ns since 1601, UTC)", "timezone": "UTC",
+                "clock_skew": "host clock; compare with NTP/other logs",
+                "precision": "100 nanoseconds"}
+    if ident["kind"] == "registry" and meta and meta.get("header_last_write_utc"):
+        return {"start_utc": meta.get("header_last_write_utc"),
+                "end_utc": meta.get("header_last_write_utc"),
+                "basis": "REGF header last-write; per-key times via fs-timeline.py --kind registry",
+                "timezone": "UTC", "clock_skew": "host clock",
+                "precision": "100 nanoseconds"}
     return {"start_utc": iso(st.st_mtime), "end_utc": iso(st.st_mtime),
             "basis": "filesystem mtime only; content time requires acquisition record",
             "timezone": "UTC display of local mtime", "clock_skew": "unknown",
@@ -339,7 +462,7 @@ def integrity(path, ident, meta, do_hash):
     if ident["kind"] == "data":
         warnings.append("类型未确认：不要直接挂载/执行")
     return {
-        "sha256": sha256_file(path) if do_hash and st.st_size <= MAX_HASH else None,
+        "sha256": sha256_file(path) if do_hash and os.path.isfile(path) and st.st_size <= MAX_HASH else None,
         "size": st.st_size,
         "mtime_utc": iso(st.st_mtime),
         "readonly": not os.access(path, os.W_OK),
@@ -365,6 +488,18 @@ def analyze(path, do_hash=True, max_items=MAX_ITEMS):
     elif ident["kind"] == "asar":
         head = read_head(path, 64)
         meta = {"header_hex": head[:16].hex(), "asar_header_size": int.from_bytes(head[4:8], "little") if len(head) >= 8 else None}
+    elif ident["kind"] == "evtx":
+        meta = evtx_meta(path, max_items)
+    elif ident["kind"] == "registry":
+        meta = registry_meta(path)
+    elif ident["kind"] == "unity-bundle":
+        meta = unity_meta(path)
+    elif ident["kind"] == "il2cpp-metadata":
+        meta = il2cpp_meta(path)
+    elif ident["kind"] == "plist":
+        head = read_head(path, 16)
+        meta = {"encoding": "binary" if head[:8] == b"bplist00" else "xml",
+                "header_hex": head.hex()}
 
     timeline = timeline_fields(ident, meta, st)
     result = {
@@ -402,6 +537,18 @@ def print_human(r):
         print("files     : %s" % ", ".join(x["path"] for x in (m.get("files") or [])[:20]))
     elif r["type"] == "memory":
         print("memory    : hints=%s" % json.dumps(m.get("hints") or {}, ensure_ascii=False))
+    elif r["type"] == "evtx":
+        print("evtx      : chunks=%s records=%s first=%s last=%s" % (
+            m.get("chunk_count"), m.get("record_count"),
+            m.get("first_record_utc"), m.get("last_record_utc")))
+    elif r["type"] == "registry":
+        print("registry  : hive_size=%s root=%s header_last_write=%s" % (
+            m.get("hive_size"), m.get("root_cell_offset"), m.get("header_last_write_utc")))
+    elif r["type"] == "unity-bundle":
+        print("unity     : signature=%s version=%s unity=%s" % (
+            m.get("signature"), m.get("format_version"), m.get("unity_version")))
+    elif r["type"] == "il2cpp-metadata":
+        print("il2cpp    : magic=%s version=%s" % (m.get("magic"), m.get("version")))
     print("\n-- timeline --")
     for k, v in (r.get("timeline") or {}).items():
         print("%-12s: %s" % (k, v))
@@ -414,26 +561,136 @@ def print_human(r):
     print("\nconclusion: %s" % r.get("conclusion"))
 
 
+def self_test():
+    import io
+    import tempfile
+
+    checks = 0
+    try:
+        with tempfile.TemporaryDirectory(prefix="forensics-check-selftest-") as tmp:
+            pcap = os.path.join(tmp, "sample.pcap")
+            with open(pcap, "wb") as fh:
+                fh.write(struct.pack("<IHHIIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1))
+                fh.write(struct.pack("<IIII", 1700000000, 0, 20, 20) + b"\x00" * 20)
+            res = analyze(pcap)
+            assert res["type"] == "pcap" and res["meta"]["packet_count"] == 1
+            checks += 1
+
+            zpath = os.path.join(tmp, "sample.ipa")
+            with zipfile.ZipFile(zpath, "w") as zf:
+                zf.writestr("Payload/App.app/Info.plist", b"bplist00")
+                zf.writestr("Payload/App.app/AppBinary", b"\xcf\xfa\xed\xfe")
+            zres = analyze(zpath)
+            assert zres["type"] == "zip" and zres["meta"]["file_count"] == 2
+            checks += 1
+
+            db = os.path.join(tmp, "history.db")
+            con = sqlite3.connect(db)
+            con.execute("CREATE TABLE t (id INTEGER)")
+            con.commit()
+            con.close()
+            sres = analyze(db)
+            assert sres["type"] == "sqlite" and sres["meta"]["integrity"] == "ok"
+            checks += 1
+
+            evtx = os.path.join(tmp, "sample.evtx")
+            with open(evtx, "wb") as fh:
+                head = bytearray(4096)
+                head[:8] = b"ElfFile\x00"
+                struct.pack_into("<H", head, 0x2A, 0)
+                fh.write(head)
+            assert analyze(evtx)["type"] == "evtx"
+            checks += 1
+
+            regf = os.path.join(tmp, "sample.hiv")
+            with open(regf, "wb") as fh:
+                head = bytearray(4096)
+                head[:4] = b"regf"
+                struct.pack_into("<I", head, 0x24, 0x20)
+                struct.pack_into("<I", head, 0x28, 0)
+                fh.write(head)
+            assert analyze(regf)["type"] == "registry"
+            checks += 1
+
+            unity = os.path.join(tmp, "sample.bundle")
+            with open(unity, "wb") as fh:
+                fh.write(b"UnityFS\x00" + struct.pack("<I", 6) + b"2022.3.10f1\x00" + b"2022.3.10f1\x00")
+            ures = analyze(unity)
+            assert ures["type"] == "unity-bundle" and ures["meta"]["unity_version"] == "2022.3.10f1"
+            checks += 1
+
+            meta = os.path.join(tmp, "global-metadata.dat")
+            with open(meta, "wb") as fh:
+                fh.write(b"\xaf\x1b\xb1\xfa" + struct.pack("<I", 29))
+            assert analyze(meta)["type"] == "il2cpp-metadata"
+            checks += 1
+
+            plist = os.path.join(tmp, "Info.plist")
+            with open(plist, "wb") as fh:
+                fh.write(b"bplist00" + b"\x00" * 32)
+            assert analyze(plist)["type"] == "plist"
+            checks += 1
+
+            directory = os.path.join(tmp, "evidence")
+            os.makedirs(directory)
+            with open(os.path.join(directory, "note.txt"), "w", encoding="utf-8") as fh:
+                fh.write("self-test\n")
+            dres = analyze(directory)
+            assert dres["type"] == "directory" and dres["meta"]["file_count"] == 1
+            checks += 1
+
+            unknown = os.path.join(tmp, "unknown.bin")
+            with open(unknown, "wb") as fh:
+                fh.write(b"nothing known here")
+            assert analyze(unknown)["type"] == "data"
+            checks += 1
+
+            try:
+                analyze(os.path.join(tmp, "missing.bin"))
+                raise AssertionError("missing file must raise CheckError")
+            except CheckError:
+                checks += 1
+        print(json.dumps({"ok": True, "checks": checks,
+                          "note": "offline self-test: pcap/zip/sqlite/evtx/regf/unity/il2cpp/plist/dir/unknown/missing"},
+                         ensure_ascii=False))
+        return 0
+    except Exception as exc:  # noqa: BLE001
+        print(json.dumps({"ok": False, "blocked_at": "self-test", "reason": str(exc)},
+                         ensure_ascii=False))
+        return 2
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="纯标准库取证初检：镜像/pcap/目录/应用包的类型、时间线、可提取对象与完整性提示")
-    ap.add_argument("--file", "-f", required=True, help="镜像、pcap、目录或应用包路径")
+    ap.add_argument("--file", "-f", help="镜像、pcap、目录、EVTX、hive 或应用包路径")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--out", help="写出 forensics-check.json 的目录")
     ap.add_argument("--no-hash", action="store_true", help="跳过 SHA256（大镜像快速初检）")
     ap.add_argument("--max-items", type=int, default=MAX_ITEMS, help="目录/zip 列出的最大条目数")
+    ap.add_argument("--self-test", action="store_true", help="离线自检并打印 JSON 结论")
     args = ap.parse_args(argv)
+    if args.self_test:
+        return self_test()
+    if not args.file:
+        print(json.dumps({"ok": False, "blocked_at": "usage",
+                          "reason": "需要 --file；或用 --self-test"}, ensure_ascii=False))
+        return 2
     if not os.path.exists(args.file):
-        err = {"ok": False, "error": "not_found", "file": args.file,
+        err = {"ok": False, "blocked_at": "input", "reason": "路径不存在", "file": args.file,
                "hint": "确认路径；目录/文件均可，原件请只读"}
-        print(json.dumps(err, ensure_ascii=False) if args.json else "[FAIL] %s" % err["hint"])
+        print(json.dumps(err, ensure_ascii=False))
+        if not args.json:
+            print("[FAIL] %s" % err["hint"], file=sys.stderr)
         return 2
     try:
         result = analyze(args.file, do_hash=not args.no_hash, max_items=max(1, args.max_items))
     except (CheckError, OSError, zipfile.BadZipFile) as exc:
-        err = {"ok": False, "error": "check_failed", "file": args.file, "detail": str(exc),
+        err = {"ok": False, "blocked_at": "parse", "reason": str(exc), "file": args.file,
                "hint": "先 file/xxd 确认类型；损坏镜像/包用副本重试，不要改原件"}
-        print(json.dumps(err, ensure_ascii=False) if args.json else "[FAIL] %s" % exc)
+        print(json.dumps(err, ensure_ascii=False))
+        if not args.json:
+            print("[FAIL] %s" % exc, file=sys.stderr)
         return 2
     if args.out:
         os.makedirs(args.out, exist_ok=True)

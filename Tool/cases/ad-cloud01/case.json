@@ -2,6 +2,7 @@
   "id": "ad-cloud01",
   "domain": "ad-cloud",
   "target_type": "离线 kubeconfig 夹具",
+  "evidence_kind": "fixture",
   "protection": [],
   "authority": "local offline fixture",
   "goal_level": "L3",
@@ -32,5 +33,9 @@
     "Tool/skill/ad-cloud/references/ad-attacks.md",
     "Tool/config/ad-cloud-matrix.json"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
 }

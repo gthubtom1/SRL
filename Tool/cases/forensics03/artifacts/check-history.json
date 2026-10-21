@@ -1,0 +1,70 @@
+{
+  "ok": true,
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics03\\input\\History.sqlite",
+  "type": "sqlite",
+  "format": "sqlite",
+  "confidence": "observed",
+  "meta": {
+    "format": "sqlite",
+    "tables": [
+      "cluster_keywords",
+      "cluster_visit_duplicates",
+      "clusters",
+      "clusters_and_visits",
+      "content_annotations",
+      "context_annotations",
+      "downloads",
+      "downloads_slices",
+      "downloads_url_chains",
+      "edge_downloads",
+      "edge_favicons",
+      "edge_keyword_search_terms_source",
+      "edge_urls",
+      "edge_visits",
+      "history_sync_metadata",
+      "journey_continuation_queries",
+      "journey_history_entries",
+      "journey_sync_metadata",
+      "journeys",
+      "keyword_search_terms",
+      "meta",
+      "segment_usage",
+      "segments",
+      "sqlite_sequence",
+      "urls",
+      "visit_source",
+      "visited_links",
+      "visits"
+    ],
+    "table_count": 28,
+    "integrity": "ok",
+    "sidecars": []
+  },
+  "timeline": {
+    "start_utc": "2026-10-21T14:25:33.011466Z",
+    "end_utc": "2026-10-21T14:25:33.011466Z",
+    "basis": "filesystem mtime only; content time requires acquisition record",
+    "timezone": "UTC display of local mtime",
+    "clock_skew": "unknown",
+    "precision": "filesystem dependent"
+  },
+  "extractables": [
+    "原件副本与 SHA256（封存）",
+    "采集记录：人/时间/工具/授权范围",
+    "统一 UTC 时间线（保留原时区与时钟偏差）",
+    "表结构/行数",
+    "WAL/SHM/journal 残留",
+    "已删除记录恢复",
+    "时间字段与写入进程",
+    "敏感字段（脱敏）"
+  ],
+  "integrity": {
+    "sha256": "89b33c083d91b79d47412c20642172bddcdf3ef26d491f31e95868ea3bb01d4e",
+    "size": 249856,
+    "mtime_utc": "2026-10-21T14:25:33.011466Z",
+    "readonly": true,
+    "warnings": [],
+    "recommendation": "原件只读封存；在副本上分析；每次导出记录输入/输出哈希"
+  },
+  "conclusion": "类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合"
+}

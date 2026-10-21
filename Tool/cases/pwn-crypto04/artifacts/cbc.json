@@ -1,0 +1,11 @@
+{
+  "mode": "cbc",
+  "target_block": 1,
+  "byte_index": 3,
+  "xor": 32,
+  "target_offset": 19,
+  "plaintext_before_hex": "63",
+  "plaintext_after_hex": "43",
+  "verified": true,
+  "ok": true
+}

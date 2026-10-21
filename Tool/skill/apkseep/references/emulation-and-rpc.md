@@ -272,7 +272,7 @@ harmless connectivity probe — `getPackageName` over RPC — works in the templ
   `--mode http` endpoint (`POST /call {"export": "...", "args": [...]}`, `GET /exports`,
   `POST /reload`);
 - spawn or attach (by name or by pid — attach-by-name fails on incomplete process enumeration,
-  `references/dynamic-frida.md` §Attach by PID);
+  `references/dynamic-frida-1-setup-and-probe.md);
 - automatic reconnect: a detached session (app restart, killed server, ROM reaping the server)
   re-attaches, reloads the script and retries the call, with per-request retry cycles and
   exponential backoff; a killed-and-restarted device server is recovered by dropping the cached

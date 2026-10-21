@@ -1,0 +1,12 @@
+GET /login HTTP/1.1
+Host: lab.example.test
+User-Agent: lab-client/0.9.3
+Accept: */*
+Authorization: Bearer abc
+Connection: keep-alive
+
+GET /dashboard HTTP/1.1
+Host: lab.example.test
+Cookie: sid=deadbeef
+Connection: keep-alive
+

@@ -38,5 +38,10 @@
     "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
     "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/02-heap-and-sandbox.md"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "evidence_kind": "real",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
 }

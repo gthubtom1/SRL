@@ -1,0 +1,79 @@
+{
+  "id": "plugin04",
+  "domain": "plugin-targets",
+  "route": "R25",
+  "target_type": "Electron asar 现场打包教学夹具（main/preload/renderer + IPC）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "package": {
+    "file": "input/app.asar",
+    "version": "0.3.0",
+    "source": "plugin-repro.py 内置 asar 打包器现场生成（无 npx asar/Electron 运行时）",
+    "entrypoints": [
+      "main.js",
+      "preload.js",
+      "renderer.js"
+    ]
+  },
+  "entrypoints": {
+    "package": "package.json",
+    "main": "main.js",
+    "preload": "preload.js",
+    "renderer": "renderer.html"
+  },
+  "data_flow": [
+    "renderer.html/renderer.js → window.lab.open/telemetry → preload.js contextBridge",
+    "preload.js → ipcRenderer.invoke('lab:open') → main.js ipcMain.handle → shell.openExternal",
+    "preload.js → ipcRenderer.send('lab:telemetry') → main.js ipcMain.on → fetch https://collector.example.invalid/ingest"
+  ],
+  "artifacts": [
+    {
+      "path": "input/app.asar",
+      "sha256": "4f01c2092f2c7926e624303c6f9a96d85f94ea84bb7d9bfae0b5b65d88a60cfd"
+    },
+    {
+      "path": "artifacts/plugin-triage.json",
+      "sha256": "fcc6b2716ede992dd9ed3b5993257dc8ea6b3c57c85bb1685b01ca27be1ede59"
+    },
+    {
+      "path": "artifacts/repro/plugin-repro.json",
+      "sha256": "cbc2c376bc9850c7efc7e361be5199d39f3f503af937bc6255e989bd57cbcea9"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "0310919f54d42b37a023e71910eeb52056feec13efa44d209f479bf67f5b46b8"
+    }
+  ],
+  "lessons": [
+    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json，rc=0；识别 asar 头、6 个文件、main.js/preload.js 入口。",
+    "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json，rc=0；解包并抽出 ipcMain/ipcRenderer/shell.openExternal/fetch 四条数据流。",
+    "最小可改单元：main.js（4 处数据流命中，符号 createWindow）；preload.js 是 renderer 与主进程的桥，改返回值前先备份并留基线。",
+    "边界：夹具由仓库脚本按 asar 头格式生成，不是真实 Electron 发行包；未运行 Electron、未验证 IPC 实际参数与远端响应。"
+  ],
+  "tags": [
+    "R25",
+    "plugin",
+    "asar",
+    "electron",
+    "fixture",
+    "ipc",
+    "partial"
+  ],
+  "refs": [
+    "Tool/skill/plugin-targets/SKILL.md",
+    "Tool/skill/plugin-targets/references/01-criteria.md",
+    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/plugin-targets/references/electron-and-asar.md",
+    "Tool/config/plugin-targets-matrix.json",
+    "Tool/cases/plugin04/input/app.asar",
+    "Tool/cases/plugin04/artifacts/repro/plugin-repro.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

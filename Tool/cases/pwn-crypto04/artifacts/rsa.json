@@ -1,0 +1,10 @@
+{
+  "mode": "rsa",
+  "n_bits": 1023,
+  "e": 3,
+  "m": "2508087315653289579855653910185379363848090465",
+  "ascii": "pwn-crypto-real-rsa",
+  "verified": true,
+  "check": "iroot(c,e) 精确且回代成立",
+  "ok": true
+}

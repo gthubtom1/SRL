@@ -23,7 +23,7 @@ the evidence record condensed in `references/evidence-summary.md` §Where the fu
 | Java2C vs extraction shell vs JNI sinking | the misdiagnosis that sends you hunting a decrypted DEX that never exists | `java2c-and-jni-sinking.md`, `scripts/java2c_probe.py` |
 | Native layer | `.so` hosts, tamper-triggered self-termination, forged ELF, neutralising a terminate path | `native-and-so.md`, `native-tamper-and-suicide.md` |
 | Flutter / Dart AOT | analysing and patching `libapp.so` **given a snapshot dump** | `dart-aot.md` |
-| Runtime and server side | Frida analysis, API probing, feature-scoped TLS failures, update/forced-upgrade neutralisation | `dynamic-frida.md`, `server-api.md`, `tls-and-cert.md`, `updates-and-forced-upgrade.md` |
+| Runtime and server side | Frida analysis, API probing, feature-scoped TLS failures, update/forced-upgrade neutralisation | `dynamic-frida-1-setup-and-probe.md`, `dynamic-frida-2-failures-and-anti-instrumentation.md`, `server-api.md`, `tls-and-cert.md`, `updates-and-forced-upgrade.md` |
 | Verification discipline | the claim ladder, control builds, capture-and-look, bounded waits | `verification.md`, `long-task-discipline.md` |
 
 ## Also covered, by documented routes — mostly *inferred* rather than measured
@@ -34,7 +34,7 @@ route was not measured on this repository's evidence**. Treat them as leads with
 | Area | What it gives you |
 |---|---|
 | Module-side delivery | an LSPosed/Xposed module when a repack is refused — `lsposed-and-modules.md` |
-| Extraction shells and the VMP boundary | how to *measure* that the bodies are empty, and where recovery stops — `advanced-unpacking.md` |
+| Extraction shells and the VMP boundary | how to *measure* that the bodies are empty, and where recovery stops — `advanced-unpacking-1-shapes-and-active-invocation.md`, `advanced-unpacking-2-root-dump-and-vmp-boundary.md` |
 | Calling a routine instead of reading it | emulation (Unidbg/Unicorn) versus service-ifying the live function over Frida RPC — `emulation-and-rpc.md` |
 | Instruction-level tracing | Stalker traces and the trace-to-CFG route against OLLVM, with its measured boundaries — `native-dbi-and-deobfuscation.md` |
 | Protocols beyond REST | schema-free protobuf, gRPC frames, QUIC/HTTP3 limits, native-side pinning — `protocol-reverse.md` |
@@ -68,3 +68,14 @@ and shipping a kernel module · a Stalker trace guaranteed on every device.
 Each has a reason and, where one exists, an evidence boundary — in `references/coverage-and-limits.md`.
 **Silence in that record is not support**, and a route that is only "documented" is not a route that
 was measured.
+
+## Split reference index
+
+The four long references are lossless directory pages; every part below is a separate file of ≤400 lines.
+
+| Directory page | Parts |
+|---|---|
+| `pitfalls.md` | `pitfalls-1-packaging-and-dex.md`, `pitfalls-2-environment-and-evidence.md`, `pitfalls-3-patching-and-artifacts.md`, `pitfalls-4-native-and-install.md`, `pitfalls-5-verification-and-decoding.md` |
+| `advanced-unpacking.md` | `advanced-unpacking-1-shapes-and-active-invocation.md`, `advanced-unpacking-2-root-dump-and-vmp-boundary.md` |
+| `toolchain.md` | `toolchain-1-tiers-and-capability-gaps.md`, `toolchain-2-runtime-signing-and-trust.md` |
+| `dynamic-frida.md` | `dynamic-frida-1-setup-and-probe.md`, `dynamic-frida-2-failures-and-anti-instrumentation.md` |

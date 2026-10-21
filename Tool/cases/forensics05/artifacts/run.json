@@ -1,0 +1,69 @@
+{
+  "case": "forensics05",
+  "generated_at": "2026-10-21T14:40:47.465153Z",
+  "cwd": "Tool/cases/forensics05",
+  "timeline_summary": {
+    "events": 9,
+    "start_utc": "2026-10-21T14:39:47.170395Z",
+    "end_utc": "2026-10-21T14:39:50.791397Z",
+    "by_kind": {
+      "filesystem-mtime": 3,
+      "filesystem-ctime": 3,
+      "filesystem-atime": 3
+    },
+    "timezone": "UTC",
+    "clock_skew": "unknown; cross-check acquisition record and NTP",
+    "ordering": "time_utc ascending, source/object tie-break"
+  },
+  "runs": [
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+        "--file",
+        "Tool/cases/forensics05/input/global-metadata.dat",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics05\\\\input\\\\global-metadata.dat\",\n  \"type\": \"il2cpp-metadata\",\n  \"format\": \"IL2CPP global-metadata\",\n  \"confidence\": \"observed\",\n  \"meta\": {\n    \"magic\": \"0xFAB11BAF\",\n    \"version\": 29\n  },\n  \"timeline\": {\n    \"start_utc\": \"2026-10-21T14:39:47.170395Z\",\n    \"end_utc\": \"2026-10-21T14:39:47.170395Z\",\n    \"basis\": \"filesystem mtime only; content time requires acquisition record\",\n    \"timezone\": \"UTC display of local mtime\",\n    \"clock_skew\": \"unknown\",\n    \"precision\": \"filesystem dependent\"\n  },\n  \"extractables\": [\n    \"原件副本与 SHA256（封存）\",\n    \"采集记录：人/时间/工具/授权范围\",\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\n    \"元数据版本与 GameAssembly 匹配\",\n    \"方法/字段/字符串字面量\",\n    \"与 dump.cs/函数地址对齐\",\n    \"类型与协议字段映射\"\n  ],\n  \"integrity\": {\n    \"sha256\": \"a7c978725a760e8b9e475042db94f480d293700927c26a717decb690476a4601\",\n    \"size\": 564,\n    \"mtime_utc\": \"2026-10-21T14:39:47.170395Z\",\n    \"readonly\": true,\n    \"warnings\": [],\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\n  },\n  \"conclusion\": \"类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+        "--file",
+        "Tool/cases/forensics05/input/data.unity3d",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics05\\\\input\\\\data.unity3d\",\n  \"type\": \"unity-bundle\",\n  \"format\": \"UnityFS/AssetBundle\",\n  \"confidence\": \"observed\",\n  \"meta\": {\n    \"signature\": \"UnityFS\",\n    \"format_version\": 6,\n    \"unity_version\": \"2022.3.10f1\",\n    \"unity_revision\": null\n  },\n  \"timeline\": {\n    \"start_utc\": \"2026-10-21T14:39:47.171430Z\",\n    \"end_utc\": \"2026-10-21T14:39:47.171430Z\",\n    \"basis\": \"filesystem mtime only; content time requires acquisition record\",\n    \"timezone\": \"UTC display of local mtime\",\n    \"clock_skew\": \"unknown\",\n    \"precision\": \"filesystem dependent\"\n  },\n  \"extractables\": [\n    \"原件副本与 SHA256（封存）\",\n    \"采集记录：人/时间/工具/授权范围\",\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\n    \"Unity 版本与压缩/加密标志\",\n    \"CAB-* 资源清单\",\n    \"Texture2D/TextAsset/AudioClip\",\n    \"manifest 与运行时加载关系\"\n  ],\n  \"integrity\": {\n    \"sha256\": \"8976b8114857626a9186abbbbad34cf4e6ee7fbda0df5466d209fff986634c60\",\n    \"size\": 1080,\n    \"mtime_utc\": \"2026-10-21T14:39:47.171430Z\",\n    \"readonly\": true,\n    \"warnings\": [],\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\n  },\n  \"conclusion\": \"类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+        "--file",
+        "Tool/cases/forensics05/input/GameAssembly.dll",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"path\": \"D:\\\\Seep-Reverse-Lab\\\\Tool\\\\cases\\\\forensics05\\\\input\\\\GameAssembly.dll\",\n  \"type\": \"pe\",\n  \"format\": \"PE\",\n  \"confidence\": \"observed\",\n  \"meta\": {},\n  \"timeline\": {\n    \"start_utc\": \"2026-10-21T14:39:47.171430Z\",\n    \"end_utc\": \"2026-10-21T14:39:47.171430Z\",\n    \"basis\": \"filesystem mtime only; content time requires acquisition record\",\n    \"timezone\": \"UTC display of local mtime\",\n    \"clock_skew\": \"unknown\",\n    \"precision\": \"filesystem dependent\"\n  },\n  \"extractables\": [\n    \"原件副本与 SHA256（封存）\",\n    \"采集记录：人/时间/工具/授权范围\",\n    \"统一 UTC 时间线（保留原时区与时钟偏差）\",\n    \"节区/熵/导入导出\",\n    \"资源与 overlay\",\n    \"PDB/版本信息\",\n    \"字符串与配置\"\n  ],\n  \"integrity\": {\n    \"sha256\": \"bdf33b3ca96b8daf8e2e623e3da433a6897b985bd68de8f994421ad75fb4f888\",\n    \"size\": 2372,\n    \"mtime_utc\": \"2026-10-21T14:39:47.171430Z\",\n    \"readonly\": true,\n    \"warnings\": [],\n    \"recommendation\": \"原件只读封存；在副本上分析；每次导出记录输入/输出哈希\"\n  },\n  \"conclusion\": \"类型与可提取对象已列出；四要素与证据链需结合采集记录人工闭合\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "cmd": [
+        "python",
+        "Tool/skill/forensics-mobile/scripts/evidence-accept.py",
+        "--case",
+        "Tool/cases/forensics05",
+        "--json"
+      ],
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"case\": \"forensics05\",\n  \"domain\": \"forensics-mobile\",\n  \"checks\": 86,\n  \"failures\": [],\n  \"warnings\": [\n    \"artifact 可写：artifacts/check-global-metadata-dat.json（应只读封存）\",\n    \"artifact 可写：artifacts/check-data-unity3d.json（应只读封存）\",\n    \"artifact 可写：artifacts/check-GameAssembly-dll.json（应只读封存）\",\n    \"artifact 可写：artifacts/timeline.json（应只读封存）\"\n  ],\n  \"artifacts\": 7,\n  \"findings\": 4\n}\n",
+      "stderr": ""
+    }
+  ],
+  "note": "夹具仅含头部/占位字节；本机无 Il2CppDumper/Cpp2IL/AssetStudio，未产出 dump.cs 或资源导出。"
+}

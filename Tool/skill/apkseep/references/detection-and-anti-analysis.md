@@ -34,7 +34,7 @@ same app run without it.** Everything else that looks like detection is usually 
 | app dies right after attach | hook timing, a bad script, or a genuine RASP layer | run the same app with **no** hooks: alive? then it is your instrumentation or a hooking detector |
 | app refuses to start at all | ABI mismatch, missing native lib for this device, install problem | check the live mapping (`scripts/lib_map.py`) and that a clean unmodified build starts |
 | app exits on this device only | emulator/root detection, **or** a device-state problem | run preflight; try the same build on a different device class |
-| app hangs forever | a frozen thread from a bad patch, or a real ANR | `pitfalls.md` P7 and the "never make it not return" rule |
+| app hangs forever | a frozen thread from a bad patch, or a real ANR | `pitfalls-1-packaging-and-dex.md` and the "never make it not return" rule |
 | dynamic tool "cannot attach" | **the tool cannot work on this environment at all** | see Step 4 — this is the one people waste days on |
 
 **Rule: reproduce with the control first.** Instrumentation-free run, then instrumented run, same
@@ -83,7 +83,7 @@ measuring a target you already modified. Do them in order and stop as soon as on
 - **Stage order is a funnel, not a checklist.** Stage 1 is five minutes and rules out whole classes of
   problem; Stage 5 requires the offsets Stage 2 produced. Skipping forward costs more than it saves.
 - **Every stage ends in `observed` or in a stated negative.** "No hook fired" is only a fact once you
-  have shown the hook can fire on this target (`pitfalls.md` P25/P26 in tool form).
+  have shown the hook can fire on this target (`pitfalls-2-environment-and-evidence.md` P25/P26 in tool form).
 
 **Strength note.** The stages are a restatement, for judgement purposes, of a six-phase
 anti-instrumentation pipeline published in `index-login/MobileRE-Skill`

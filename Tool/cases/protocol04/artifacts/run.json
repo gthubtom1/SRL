@@ -1,0 +1,37 @@
+{
+  "case": "protocol04",
+  "generated_at": "2026-10-21T14:41:42Z",
+  "cwd": "Tool\\cases\\protocol04",
+  "runs": [
+    {
+      "cmd": "bash input/capture_live.sh",
+      "rc": 0,
+      "stdout": "listening on 127.0.0.1:18321\nGET /v1/ping -> 200 (lab-0001)\nreq1 GET /v1/ping -> 200\nGET /v1/telemetry?seq=2 -> 200 (lab-0002)\nreq2 GET /v1/telemetry -> 200\nPOST /v1/echo -> 200 (lab-0003)\nreq3 POST /v1/echo -> 200\n-rw-r--r-- 1 toti 197121 4596 Oct 21 22:41 artifacts/live.pcapng\n",
+      "stderr": ""
+    },
+    {
+      "cmd": "rm -rf artifacts/streams",
+      "rc": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "cmd": "python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file artifacts/live.pcapng --json --extract artifacts/streams --tshark-check",
+      "rc": 0,
+      "stdout": "{\n  \"ok\": true,\n  \"file\": \"artifacts/live.pcapng\",\n  \"sha256\": \"b430981182a02aa65751602b06dbe0f15cfb32c0446a98f83e83b2bde461013f\",\n  \"size\": 4596,\n  \"format\": \"pcapng\",\n  \"linktype\": 0,\n  \"linktype_name\": \"NULL/LOOP\",\n  \"packet_count\": 39,\n  \"first_ts\": 1792593697.090246,\n  \"last_ts\": 1792593697.148547,\n  \"duration_s\": 0.05830097198486328,\n  \"session_count\": 6,\n  \"sessions\": [\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 18321,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 57774,\n      \"packets\": 6,\n      \"payload_bytes\": 246,\n      \"first_ts\": 1792593697.148055,\n      \"last_ts\": 1792593697.148547,\n      \"flags\": [\n        16,\n        17,\n        18,\n        24\n      ],\n      \"snippets\": [\n        \"HTTP/1.0 200 OK\",\n        \"Server: ProtoLab/1.0 Python/3.12.0\",\n        \"Date: Wed, 21 Oct 2026 14:41:37 GMT\",\n        \"Content-Type: application/json\",\n        \"Content-Length: 44\",\n        \"Set-Cookie: sid=lab-0003; Path=/\",\n        \"X-Session-Id: lab-0003\",\n        \"{\\\"ok\\\":true,\\\"kind\\\":\\\"echo\\\",\\\"bytes\\\":13,\\\"seq\\\":3}\"\n      ],\n      \"snippet_total\": 8,\n      \"stream_idx\": 5,\n      \"frame_payload_lens\": [\n        0,\n        0,\n        202,\n        44,\n        0,\n        0\n      ]\n    },\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 18321,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 57773,\n      \"packets\": 6,\n      \"payload_bytes\": 240,\n      \"first_ts\": 1792593697.116359,\n      \"last_ts\": 1792593697.116862,\n      \"flags\": [\n        16,\n        17,\n        18,\n        24\n      ],\n      \"snippets\": [\n        \"HTTP/1.0 200 OK\",\n        \"Server: ProtoLab/1.0 Python/3.12.0\",\n        \"Date: Wed, 21 Oct 2026 14:41:37 GMT\",\n        \"Content-Type: application/json\",\n        \"Content-Length: 38\",\n        \"Set-Cookie: sid=lab-0002; Path=/\",\n        \"X-Session-Id: lab-0002\",\n        \"{\\\"ok\\\":true,\\\"kind\\\":\\\"telemetry\\\",\\\"seq\\\":2}\"\n      ],\n      \"snippet_total\": 8,\n      \"stream_idx\": 3,\n      \"frame_payload_lens\": [\n        0,\n        0,\n        202,\n        38,\n        0,\n        0\n      ]\n    },\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 18321,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 57772,\n      \"packets\": 6,\n      \"payload_bytes\": 235,\n      \"first_ts\": 1792593697.090286,\n      \"last_ts\": 1792593697.090794,\n      \"flags\": [\n        16,\n        17,\n        18,\n        24\n      ],\n      \"snippets\": [\n        \"HTTP/1.0 200 OK\",\n        \"Server: ProtoLab/1.0 Python/3.12.0\",\n        \"Date: Wed, 21 Oct 2026 14:41:37 GMT\",\n        \"Content-Type: application/json\",\n        \"Content-Length: 33\",\n        \"Set-Cookie: sid=lab-0001; Path=/\",\n        \"X-Session-Id: lab-0001\",\n        \"{\\\"ok\\\":true,\\\"kind\\\":\\\"ping\\\",\\\"seq\\\":1}\"\n      ],\n      \"snippet_total\": 8,\n      \"stream_idx\": 1,\n      \"frame_payload_lens\": [\n        0,\n        0,\n        202,\n        33,\n        0,\n        0\n      ]\n    },\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 57774,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 18321,\n      \"packets\": 7,\n      \"payload_bytes\": 152,\n      \"first_ts\": 1792593697.148021,\n      \"last_ts\": 1792593697.148539,\n      \"flags\": [\n        2,\n        16,\n        17,\n        24\n      ],\n      \"snippets\": [\n        \"POST /v1/echo HTTP/1.1\",\n        \"Host: 127.0.0.1:18321\",\n        \"User-Agent: curl/8.21.0\",\n        \"Accept: */*\",\n        \"Content-Type: application/json\",\n        \"Content-Length: 13\",\n        \"{\\\"temp\\\":21.5}\"\n      ],\n      \"snippet_total\": 7,\n      \"stream_idx\": 4,\n      \"frame_payload_lens\": [\n        0,\n        0,\n        152,\n        0,\n        0,\n        0,\n        0\n      ]\n    },\n    {\n      \"proto\": \"TCP\",\n      \"src\": \"127.0.0.1\",\n      \"sport\": 57773,\n      \"dst\": \"127.0.0.1\",\n      \"dport\": 18321,\n      \"packets\": 7,\n      \"payload_bytes\": 130,\n      \"first_ts\": 1792593697.116322,\n      \"last_ts\": 1792593697.116853,\n      \"flags\": [\n        2,\n        16,\n        17,\n        24\n      ],\n      \"snippets\": [\n        \"GET /v1/telemetry?seq=",
+      "stderr": ""
+    },
+    {
+      "cmd": "tshark -r artifacts/live.pcapng -Y 'http.request or http.response' -T fields -e frame.number -e tcp.stream -e http.request.method -e http.request.uri -e http.host -e http.response.code -e http.content_type -e http.content_length -e http.set_cookie -e http.authorization",
+      "rc": 0,
+      "stdout": "4\t0\tGET\t/v1/ping\t127.0.0.1:18321\t\t\t\t\t\n8\t0\t\t/v1/ping\t\t200\tapplication/json\t33\tsid=lab-0001; Path=/\t\n17\t1\tGET\t/v1/telemetry?seq=2\t127.0.0.1:18321\t\t\t\t\tBearer lab-token\n21\t1\t\t/v1/telemetry?seq=2\t\t200\tapplication/json\t38\tsid=lab-0002; Path=/\t\n30\t2\tPOST\t/v1/echo\t127.0.0.1:18321\t\tapplication/json\t13\t\t\n34\t2\t\t/v1/echo\t\t200\tapplication/json\t44\tsid=lab-0003; Path=/\t\n",
+      "stderr": ""
+    },
+    {
+      "cmd": "tshark -r artifacts/live.pcapng -q -z conv,tcp",
+      "rc": 0,
+      "stdout": "================================================================================\nTCP Conversations\nFilter:<No Filter>\n                                                           |       <-      | |       ->      | |     Total     |    Relative    |   Duration   |\n                                                           | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |      Start     |              |\n127.0.0.1:57772            <-> 127.0.0.1:18321                  6 511 bytes       7 406 bytes      13 917 bytes     0.000000000         0.0005\n127.0.0.1:57773            <-> 127.0.0.1:18321                  6 516 bytes       7 450 bytes      13 966 bytes     0.026076000         0.0005\n127.0.0.1:57774            <-> 127.0.0.1:18321                  6 522 bytes       7 472 bytes      13 994 bytes     0.057775000         0.0005\n================================================================================\n",
+      "stderr": ""
+    }
+  ]
+}

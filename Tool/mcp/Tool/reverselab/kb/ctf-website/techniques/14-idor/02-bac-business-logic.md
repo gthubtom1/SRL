@@ -256,7 +256,7 @@ class HiddenEndpointScanner:
             if c.startswith('/') or 'admin' in c.lower() or 'api' in c.lower():
                 self.found.add(("GET", c, 200, "from html comment"))
         # JS 变量: var API_BASE = '/api/v2'
-        js_vars = re.findall(r'(?:url|path|endpoint|api|route)\s*[=:]\s*["\']([^"\']+)["\']',
+        js_vars = re.findall(r'(?:url|path|endpoint|api|route)\s*[=:]\s*"\'["\']',
                              html, re.IGNORECASE)
         for v in js_vars:
             if v.startswith('/'):

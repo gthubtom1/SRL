@@ -1,0 +1,6 @@
+    4   0.000171    127.0.0.1 → 127.0.0.1    HTTP 130 GET /v1/ping HTTP/1.1 
+    8   0.000584    127.0.0.1 → 127.0.0.1    HTTP/JSON 77 HTTP/1.0 200 OK , JSON (application/json)
+   17   0.020851    127.0.0.1 → 127.0.0.1    HTTP 174 GET /v1/telemetry?seq=2 HTTP/1.1 
+   21   0.021224    127.0.0.1 → 127.0.0.1    HTTP/JSON 82 HTTP/1.0 200 OK , JSON (application/json)
+   30   0.040293    127.0.0.1 → 127.0.0.1    HTTP/JSON 196 POST /v1/echo HTTP/1.1 , JSON (application/json)
+   34   0.040584    127.0.0.1 → 127.0.0.1    HTTP/JSON 88 HTTP/1.0 200 OK , JSON (application/json)

@@ -1,0 +1,157 @@
+{
+  "id": "forensics03",
+  "domain": "forensics-mobile",
+  "route": "R26",
+  "target_type": "真实 Windows 取证：AppReadiness EVTX + Edge History + 注册表键名清单（不含原始注册表文件与值）",
+  "platform": "windows",
+  "protection": [],
+  "authority": "local-owner-authorized",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "evidence_kind": "real",
+  "acquisition": {
+    "method": "live triage read-only copy",
+    "tool": "cp + PowerShell Get-ChildItem（键名清单导出） + fs-timeline.py 1.0 + forensics-check.py 1.1",
+    "collected_at": "2026-10-21T14:25:32Z（EVTX/History）；键名清单导出 2026-10-21T19:15:38Z",
+    "timezone": "UTC（主机本地 UTC+8，已换算并保留原时区说明）",
+    "operator": "local authorized analyst",
+    "source": "%WINDIR%/System32/winevt/Logs/Microsoft-Windows-AppReadiness%4Operational.evtx；Explorer 键名清单（Get-ChildItem，仅键路径、无值）；%LOCALAPPDATA%/Microsoft/Edge/User Data/Default/History",
+    "clock_skew": "unknown；同一主机单源，未与 NTP/域控时间交叉校准",
+    "readonly": "复制后尝试 chmod a-w；Windows 上是否只读以 check-*.json 的 readonly 字段为准（本案例 explorer-key-names.txt 为 false：Windows 复制后仍可写，原件未写）",
+    "volume": "fsutil fsinfo ntfsinfo C: -> NTFS 3.1, 4096 B/cluster, 1024 B/FileRecord, MFT start LCN 0xc0000；$MFT 读取 Permission denied；SOFTWARE/SYSTEM/SAM 读取 Permission denied；注册表面只导出键名清单，未导出原始 hive（PII）。"
+  },
+  "questions": [
+    "2026-10-20 03:20Z–03:23Z 主机上出现了哪些 AppReadiness 事件、Explorer 键最后写入与浏览器访问，能否归一到同一 UTC 时间线并说明主体/动作/对象？"
+  ],
+  "timeframe": {
+    "start": "2026-10-08T22:15:25Z",
+    "end": "2026-10-21T19:15:38Z",
+    "clock_skew": "unknown；单主机，未与 NTP 对齐"
+  },
+  "findings": [
+    {
+      "claim": "AppReadiness.evtx 共有 59 条记录，首条 2026-10-08T22:15:25.951311Z、末条 2026-10-20T03:22:23.292580Z；2026-10-20 03:20:24Z/03:22:23Z 各有记录，可用 RecordId 复现",
+      "time_utc": "2026-10-20T03:22:23.292580Z",
+      "actor": "Microsoft-Windows-AppReadiness/Operational",
+      "action": "emit EVTX records 57-59",
+      "object": "AppReadiness.evtx#chunk=0/record=57..59（sha256 a1e79754…）",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/AppReadiness.evtx",
+        "artifacts/timeline.json",
+        "artifacts/check-evtx.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/AppReadiness.evtx --json"
+    },
+    {
+      "claim": "注册表面只保留键名清单（input/explorer-key-names.txt，60 行、A–C 前缀样本，如 Accent / Advanced / AutoplayHandlers / ComDlg32）：能证明这些子树存在，不能声称键写入时间与值。",
+      "time_utc": "2026-10-21T19:15:38.018519Z",
+      "actor": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer（键名清单）",
+      "action": "registry key inventory (structure only)",
+      "object": "explorer-key-names.txt；sha256 0ef13b7d…（60 行 A–C 前缀键路径，无值/无写入时间）",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/explorer-key-names.txt",
+        "artifacts/timeline.json",
+        "artifacts/check-registry-keys.json"
+      ],
+      "command": "powershell -NoProfile -Command \"Get-ChildItem 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer' -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name\""
+    },
+    {
+      "claim": "Edge History 只读副本含 7 条 urls/visits 记录，访问时间 2026-10-08T22:49:22Z–23:13:51Z；未读取 cookies 值",
+      "time_utc": "2026-10-08T23:13:51.105603Z",
+      "actor": "Edge History（浏览器进程未在证据中）",
+      "action": "browser visit",
+      "object": "https://www.hostbuf.com/?install_fs 等 7 条 URL（sha256 89b33c08…）",
+      "confidence": "observed",
+      "evidence_refs": [
+        "input/History.sqlite",
+        "artifacts/timeline.json",
+        "artifacts/check-history.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/History.sqlite --json"
+    },
+    {
+      "claim": "EVTX/History 的 mtime 为 14:25:32.961Z / 14:25:33.011Z，键名清单在 19:15:38.018Z 导出；三者在 timeline 的 filesystem-mtime 事件一致。Windows 上副本仍可写（check-registry-keys.json readonly=false），但**原件未被修改**，分析过程只读。",
+      "time_utc": "2026-10-21T19:15:38.018519Z",
+      "actor": "采集/复制进程（未保留 PID）",
+      "action": "copy/export evidence files",
+      "object": "input/ 3 个文件（mtime 14:25:32.961Z / 14:25:33.011Z / 19:15:38.018Z）",
+      "confidence": "inferred",
+      "evidence_refs": [
+        "artifacts/timeline.json"
+      ],
+      "command": "python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input --json"
+    }
+  ],
+  "timeline_artifact": "artifacts/timeline.json",
+  "artifacts": [
+    {
+      "path": "artifacts/check-evtx.json",
+      "sha256": "9504e533333f87e53fbbb1e30783fa5b32eee28d70028adb0f7851f578277158"
+    },
+    {
+      "path": "artifacts/check-history.json",
+      "sha256": "45a89391716d1d481475c0357797febc2830d0f5a8f65948115159225eb52fef"
+    },
+    {
+      "path": "artifacts/check-registry-keys.json",
+      "sha256": "677da5f17962663706f4bddd2ec6a6fc588523130a73f12da004e496698bfd30"
+    },
+    {
+      "path": "artifacts/run.json",
+      "sha256": "7d7c1be5c2a8d4bce381f092174c6639b9da16a661288fff28b730a76ac97123"
+    },
+    {
+      "path": "artifacts/timeline.json",
+      "sha256": "b0a5286aa6bb5865b37b9a718df984b11cf07c500ca95421fb87b4110effd51e"
+    },
+    {
+      "path": "input/AppReadiness.evtx",
+      "sha256": "a1e797541c1ae292777dbc33a1eb1e785cb3936b1b574ec82e3280845a21dbd9"
+    },
+    {
+      "path": "input/History.sqlite",
+      "sha256": "89b33c083d91b79d47412c20642172bddcdf3ef26d491f31e95868ea3bb01d4e"
+    },
+    {
+      "path": "input/explorer-key-names.txt",
+      "sha256": "0ef13b7d6a8ca8fe32e25e6ff8d51036908646c6f61a8122d171cbec048ab3d7"
+    }
+  ],
+  "lessons": [
+    "跑的是什么：真实 EVTX + 真实 Edge History + 注册表键名清单（仅键路径、无值）。命令：`python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/AppReadiness.evtx --input input/History.sqlite --input input --out artifacts/timeline.json`，rc=0；结果：69 个事件（EVTX 59 / 浏览器 7 / 文件系统 mtime 3），UTC 时间线。",
+    "发现：EVTX 在 2026-10-20 03:20:24Z/03:22:23Z 有记录；Edge 在 2026-10-08 有 7 次访问；注册表面只保留键名清单（60 行键路径），**没有**键写入时间与值——不再声称键写入时间。三者可排成 UTC 时间线；浏览器时间按 Chromium 1601 纪元微秒换算，未混用 FILETIME 100ns。",
+    "边界：三份证据来自同一台本机，缺少进程树/pcap/登录事件，无法把 Explorer 键写入归因到具体进程；浏览器访问与 AppReadiness 事件相隔 12 天，不能声称因果。",
+    "还差什么：补充 Security.evtx 的 4624/4688、$MFT 或 USN journal、pcap 与 NTP 偏差；对浏览器 URL 中的查询参数做脱敏后再对外分享；把 hive 的 LOG1/LOG2 事务日志一起封存以解释脏页。",
+    "隐私：History.sqlite 只读取 urls/visits，不读取 cookies/Login Data；案例输入保留 URL 原文，外发前应脱敏。",
+    "权限边界：%WINDIR%/System32/config/{SOFTWARE,SYSTEM,SAM} 与 %SystemDrive%/$MFT 均 Permission denied（未提权、未绕过 ACL），因此案例用 fsutil 只读查询卷元数据 + 用 Get-ChildItem 导出 Explorer 键名清单（无值）；没有伪造 hive/MFT 内容。",
+    "R2 修复：fs-timeline 增加事件级 action 字段（时间/主体/动作/对象四要素），timeline.json 重新生成，哈希已重算；evidence-accept 现在会校验 69 条事件的 action 与 actor 形态。",
+    "隐私整改（复审）：真实注册表 hive 含本机个人路径（PII），已按脱敏纪律移出案例；registry 面改用「键名清单」（input/explorer-key-names.txt，仅键路径、无值无数据）。timeline 由真实 EVTX + Edge History + 文件系统 mtime 重建（不含 hive），artifacts 全部重算哈希。"
+  ],
+  "tags": [
+    "R26",
+    "forensics",
+    "real",
+    "evtx",
+    "registry",
+    "browser-history",
+    "timeline"
+  ],
+  "refs": [
+    "Tool/skill/forensics-mobile/SKILL.md",
+    "Tool/skill/forensics-mobile/references/01-criteria.md",
+    "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+    "Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md",
+    "Tool/skill/forensics-mobile/references/disk-and-filesystem.md",
+    "Tool/skill/forensics-mobile/references/evidence-chain.md",
+    "Tool/config/forensics-mobile-matrix.json",
+    "Tool/cases/forensics03/input/AppReadiness.evtx",
+    "Tool/cases/forensics03/artifacts/timeline.json"
+  ],
+  "updated": "2026-10-21",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首条的『命令与 rc』"
+  }
+}

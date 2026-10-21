@@ -244,7 +244,7 @@ adb -s <serial> shell "su -c 'screencap -p /sdcard/x.png'" && adb -s <serial> pu
 ```
 
 If that is also empty, do not fight it — but note that **a 0-byte capture is not evidence the screen is
-blank** (`pitfalls.md` P20). And if `uiautomator dump` fails with `could not get idle state`, retry once;
+blank** (`pitfalls-2-environment-and-evidence.md`). And if `uiautomator dump` fails with `could not get idle state`, retry once;
 a paused animation is usually the cause.
 
 ### Verify form input by reading it back
@@ -284,9 +284,9 @@ Failure signatures worth memorizing:
 | Log line | Likely cause |
 |---|---|
 | `FATAL EXCEPTION` + Java stack | App-level crash — read the stack |
-| `VerifyError` / `IncompatibleClassChangeError` | Damaged dex (round-trip or bad rewrite) → `pitfalls.md` P3 |
-| `Failure starting process` (no stack, by `ActivityManager`) | ART refused the dex, or device state is broken → `pitfalls.md` P4, P9 |
-| `ClassNotFoundException: <App.Application>` | Dex rejected wholesale (ordering / structure) → `pitfalls.md` P2 |
+| `VerifyError` / `IncompatibleClassChangeError` | Damaged dex (round-trip or bad rewrite) → `pitfalls-1-packaging-and-dex.md` |
+| `Failure starting process` (no stack, by `ActivityManager`) | ART refused the dex, or device state is broken → `pitfalls-2-environment-and-evidence.md` P4, P9 |
+| `ClassNotFoundException: <App.Application>` | Dex rejected wholesale (ordering / structure) → `pitfalls-1-packaging-and-dex.md` |
 | `uncaughtException` with **no stack**, right after launch | A crash-reporter SDK swallowed it. Check whether the process is gone, and look for the SDK's own log file under the app's data dir |
 | App alive but nothing rendered | A swallowed exception in the UI path; hunt the crash-reporter's log file |
 
@@ -303,4 +303,4 @@ Failure signatures worth memorizing:
 
 ## Determinism
 
-Before concluding anything from a failure: **reboot the device and retry**, and **run a control build with zero patches**. A surprising share of "my patch broke it" turns out to be device state (`pitfalls.md` P9).
+Before concluding anything from a failure: **reboot the device and retry**, and **run a control build with zero patches**. A surprising share of "my patch broke it" turns out to be device state (`pitfalls-2-environment-and-evidence.md`).

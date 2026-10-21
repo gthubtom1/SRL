@@ -104,7 +104,7 @@ Agent 会把自己生成的上下文（环境变量、`AGENTS.md`、技能清单
 <realtime_conversation> <realtime_delegation>
 <command-name>      <command-message>       <local-command-stdout>
 <user-prompt-submit-hook> <session-context>
-# AGENTS.md instructions   # AGENTS.md   # CLAUDE.md
+# AGENTS.md instructions   # AGENTS.md   # Tool/prompts/contracts/CLAUDE.md
 ```
 
 **包裹型上下文**（`# Context from my IDE setup:` / `# Files mentioned by the user:` /

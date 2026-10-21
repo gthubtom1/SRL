@@ -1,6 +1,6 @@
 {
   "id": "案例-6.9换肤壳",
-  "domain": "windows-shell",
+  "domain": "reverse",
   "target_type": "PE32+ x64",
   "protection": [
     "packer",
@@ -11,7 +11,24 @@
   "authority": "local",
   "goal_level": "L1",
   "outcome": "partial",
-  "artifacts": [],
+  "artifacts": [
+    {
+      "path": "README.md",
+      "sha256": "4f4e325b6567e4296d4e943099c479a79fbd5a72e9b1409804747f62d3405804"
+    },
+    {
+      "path": ".agents/notes/rejected/PAGE_GUARD内存断点.md",
+      "sha256": "739e33aedf3027ea8c7b9492cf1c5a1aa667a1a8ff58b005c3ec34a2c4684333"
+    },
+    {
+      "path": ".agents/notes/rejected/全量反编译带壳程序.md",
+      "sha256": "a2f7624d82ff1fd5c8014ab299b8c95758538e8b8427b7685051bafb966a8cc1"
+    },
+    {
+      "path": "docs/走查与思路沉淀.md",
+      "sha256": "2124a79ad6f8d5a65c21ec734a2a390da5a910e7f0d851e1a41a7154d53375a4"
+    }
+  ],
   "lessons": [
     "节区熵 >7 且存在 >1MB 非标节时禁止全量反编译（26MB 带壳样本实测 280s 超时被杀）",
     "先问“改的是搬运工还是货物”：21MB 的 .rsrc/DATA102（XWGZSkins）才是皮肤包，不要在 .ace0 混淆壳层死磕",
@@ -26,8 +43,12 @@
     "被否决方案"
   ],
   "refs": [
-    "README.md",
-    "docs/走查与思路沉淀.md"
+    "Tool/cases/案例-6.9换肤壳/README.md"
   ],
-  "updated": "2026-10-21"
+  "updated": "2026-10-21",
+  "evidence_kind": "real",
+  "repro": {
+    "status": "not-recorded",
+    "reason": "历史归档：现场命令未逐字留存，仅有产物哈希与结论；复现入口见 artifacts/ 与 lessons"
+  }
 }

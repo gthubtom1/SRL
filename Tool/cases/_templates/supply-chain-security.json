@@ -1,0 +1,39 @@
+{
+  "id": "<用例编号，如 supply-chain-security01>",
+  "domain": "supply-chain-security",
+  "target_type": "<本地靶场（教学夹具）| 真实目标描述>",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "<门禁会复算>"
+    }
+  ],
+  "repro": {
+    "status": "recorded",
+    "evidence": "lessons[0] 写命令 + rc"
+  },
+  "evidence_dir": "artifacts",
+  "scope": {
+    "authorization": "local fixture / authorized target",
+    "hosts": [],
+    "forbidden": []
+  },
+  "lessons": [
+    "跑的是什么：…；命令：`…`；rc=0",
+    "结果：…（关键字段/计数/哈希）",
+    "判据：…（对应 references/01-criteria.md 的哪一行）",
+    "边界：…（没验证什么，为什么）",
+    "复现：…（一条可复制命令）"
+  ],
+  "tags": [],
+  "refs": [
+    "Tool/skill/supply-chain-security/references/01-criteria.md",
+    "Tool/skill/supply-chain-security/references/02-failure-criteria.md"
+  ],
+  "updated": "YYYY-MM-DD"
+}

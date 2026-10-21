@@ -1,0 +1,124 @@
+{
+  "container": "zip",
+  "sha256": "1103cad9d78f2438555e0ea80ff74d384a29c22a9060782eba2b37473eb682dc",
+  "size": 1194,
+  "file_count": 3,
+  "top_level": [
+    "background.js",
+    "content.js",
+    "manifest.json"
+  ],
+  "interesting_files": [
+    "manifest.json"
+  ],
+  "entrypoints": {
+    "manifest": "manifest.json",
+    "package": null,
+    "plugin_xml": null
+  },
+  "manifest": {
+    "manifest_version": 3,
+    "name": "Lab Session Helper",
+    "version": "1.2.0",
+    "permissions": [
+      "storage",
+      "scripting",
+      "cookies"
+    ],
+    "optional_permissions": [],
+    "host_permissions": [
+      "https://*.example.invalid/*"
+    ],
+    "background": {
+      "service_worker": "background.js",
+      "scripts": [],
+      "type": null,
+      "persistent": null
+    },
+    "content_scripts": [
+      {
+        "matches": [
+          "https://*.example.invalid/*"
+        ],
+        "js": [
+          "content.js"
+        ],
+        "css": [],
+        "run_at": "document_idle",
+        "world": "ISOLATED",
+        "all_frames": false
+      }
+    ],
+    "web_accessible_resources": [],
+    "externally_connectable": null,
+    "commands": null,
+    "options_page": null,
+    "devtools_page": null,
+    "action": {
+      "default_title": "Lab Session Helper"
+    },
+    "csp": null,
+    "key": null,
+    "update_url": null
+  },
+  "package": {},
+  "plugin_xml": {},
+  "suspicious_apis": {
+    "chrome_cookies": {
+      "count": 1,
+      "files": [
+        "background.js"
+      ],
+      "examples": [
+        "f (msg && msg.type === \"collect\") {     chrome.cookies.getAll({ domain: \"example.invalid\" }, async (cookies) => {       const res = aw"
+      ]
+    },
+    "network_request": {
+      "count": 1,
+      "files": [
+        "background.js"
+      ],
+      "examples": [
+        "(cookies) => {       const res = await fetch(API, {         method: \"POST\",         headers: { \"Content-Type\": \"application/j"
+      ]
+    }
+  },
+  "remote_urls": [
+    "https://*.example.invalid/*",
+    "https://api.example.invalid/session"
+  ],
+  "scanned_text_files": 3,
+  "permission_surface": {
+    "permissions": [
+      {
+        "name": "storage",
+        "risk": "low"
+      },
+      {
+        "name": "scripting",
+        "risk": "high"
+      },
+      {
+        "name": "cookies",
+        "risk": "high"
+      }
+    ],
+    "optional_permissions": [],
+    "host_permissions": [
+      {
+        "pattern": "https://*.example.invalid/*",
+        "risk": "low"
+      }
+    ],
+    "high": [
+      "scripting",
+      "cookies"
+    ],
+    "broad_hosts": []
+  },
+  "unity": {},
+  "ok": true,
+  "path": "Tool/cases/plugin01/input/ext.zip",
+  "type": "ZIP 浏览器扩展包",
+  "conclusion": "入口已定位；高风险面=scripting,cookies；需人工确认数据流与最小可改单元"
+}
