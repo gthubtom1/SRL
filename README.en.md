@@ -65,7 +65,7 @@ Users provide plain-language technical goals; the agent autonomously performs pl
 | 🔧 **Toolchain Fragmentation** | 37 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
 | 🧠 **Agent Decision Drift** | `softseep` orchestrator: two-stage auto-classification (Platform × 9 Task Types) + 7-gate decision tree |
 | 🛡️ **Model Refusal in Security Audits** | Three-tier mitigation: `BLOCK_NONE` injection + transparent terminology mapping + cognitive redirection |
-| 📚 **Ephemeral Knowledge** | 319 technical field journals + 14 desensitized paradigms + "search KB before executing" enforced discipline |
+| 📚 **Ephemeral Knowledge** | 327 technical field journals + 14 desensitized paradigms + "search KB before executing" enforced discipline |
 | 📦 **Setup Friction** | One-click `install.ps1` → supports Pi Agent, Claude Code, DeepSeek Harness (DSH), Codex / OpenCode |
 | 🧭 **Where to start after a context reset** | `优化方案.md` (single source of truth): 30-item defect ledger, target classes A–I, six stages / five gates / four ledgers, batches B–F |
 
@@ -194,7 +194,7 @@ Seep\ (251 MB)
 │   │       │   ├── ida-pro-mcp\   ← IDA bridge adapter
 │   │       │   ├── js-reverse-mcp\← Web / JS debugging engine
 │   │       │   └── playwright-mcp\← Headless browser automation
-│   │       └── reverselab\        ← 319 field journals + attack chains
+│   │       └── reverselab\        ← 327 field journals + attack chains
 │   │
 │   ├── prompts\                   ← Agent coordination specs & runtime extensions
 │   │   ├── SEEP.md              ← assembly contract (5-layer precedence + pointers; see MANUAL/PROMPT-LAYERS.md)
@@ -250,7 +250,7 @@ The bundled `seep` MCP server exposes **38 native tools** across seven functiona
 | | `seep_apk_unpack` | Apktool resource + Smali disassembly | — |
 | | `seep_apk_smali_search` | Smali pattern search (crypto keys, auth gates) | `limit=` |
 | | `seep_apk_gen_hook` | Ready-to-run Frida hooks with stack traces | — |
-| **Knowledge Base** | `seep_kb_search` | Full-text search across 319 field journals | `limit=` |
+| **Knowledge Base** | `seep_kb_search` | Full-text search across 327 field journals | `limit=` |
 | | `seep_kb_read` | Full technical reference retrieval by topic | — |
 | | `seep_kb_checklist` | Emergency triage checklists & attack matrices | — |
 | | `seep_kb_payloads` | Security test seeds (JWT, SSRF, SSTI, SQLi) | — |
