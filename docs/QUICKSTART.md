@@ -18,7 +18,7 @@ python Tool/scripts/seep-start.py --domain <域> --case <案子名> [--target <�
 
 - `<域>` ∈ `web-pentest` `pwn-crypto` `firmware-iot` `ad-cloud` `protocol-plugin`
   `plugin-targets` `forensics-mobile` `malware-analysis` `supply-chain-security` `reverse` `site-clone`
-- 它会：建 `Tool/cases/<案子名>/`、建 `evidence/<案子名>/`、打印该域**下一步 3 条命令**。
+- 它会：建 `work/<案子名>/`（含 `artifacts/`、`scope.md` 与 `facts.jsonl`），打印该域**下一步 3 条命令**；要沉淀成正式案例时再按 `Tool/cases/_templates/` 复制到 `Tool/cases/<案子名>/`。
 
 ## 2. 读一张卡就动手（不读整本技能）
 

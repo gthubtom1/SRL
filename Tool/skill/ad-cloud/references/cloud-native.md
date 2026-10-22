@@ -5,15 +5,15 @@
 ## 0. 环境与证据
 
 ```bash
-mkdir -p evidence/{cloud,k8s,container,ci}
-date -Is | tee evidence/run.start
+mkdir -p work/<case>/{cloud,k8s,container,ci}
+date -Is | tee work/<case>/run.start
 aws --version; kubectl version --client; trivy --version
 ```
 
 所有云调用先记录身份与区域，避免误打其他账号：
 
 ```bash
-aws sts get-caller-identity --profile <profile> | tee evidence/cloud/whoami.json
+aws sts get-caller-identity --profile <profile> | tee work/<case>/cloud/whoami.json
 aws configure get region --profile <profile>
 ```
 

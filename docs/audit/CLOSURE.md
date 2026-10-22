@@ -109,3 +109,13 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | :-- | :-- | :-- |
 | README 索引写「22 个」、缺 `game-client-il2cpp` 行、`apk-unpack` 仍挂 `il2cpp、metadata` | 已修 | 表头改 23；新增 `game-client-il2cpp` 行（触发词 il2cpp/global-metadata/GameAssembly/AssetBundle/Unity 客户端）；`apk-unpack` 行改为「加固脱壳、VMP、DexVMP、反调试」 |
 | 门禁盲区（README 被 SKIP_FILES 跳过） | 已修 | `playbook-check.py` 增断言：README 索引行集合 == 磁盘配方集合、表头计数 == 磁盘数；不一致即 `bad` 项（`--self-test` 15/15 含该负例） |
+
+## 第五轮驳回补充（QUICKSTART 首屏路径 / 文档命令路径 lint）
+
+| 来源 | 问题 | 状态 | 证据 |
+| :-- | :-- | :-- | :-- |
+| 首屏路径错 | `docs/QUICKSTART.md:21` 写「建 `Tool/cases/<案子名>/`、`evidence/<案子名>/`」 | 已修 | 改为「建 `work/<案子名>/`（含 artifacts/scope/facts），正式案例再复制到 `Tool/cases/<案子名>/`」 |
+| 门禁覆盖不到 | 旧扫描根只有 `Tool/prompts`+`Tool/skill`，且只匹配 `evidence/<case>` | 已修 | 扫描根扩到 docs/、MANUAL/、Tool/docs、Tool/playbooks、Tool/cases、README×3；匹配 `evidence/<case>`、`evidence/<案子名>`、`evidence/<C>`；并新增「README/QUICKSTART 里 `python Tool/...py` 必须存在」检查（明细带 relpath） |
+| 域内口径 | `ad-cloud` 3 篇 references 用 `evidence/` 作为工作目录 | 已修 | 统一为 `work/<case>/`（22 处） |
+| 文档命令路径错 | 4 个第一方文件把 `sc-check.py` 写在 `Tool/skill/supply-chain-security/scripts/`（实际在 `Tool/scripts/`） | 已修 | 全部改为 `Tool/scripts/sc-check.py`；案例产物重算哈希、索引重生成、部署副本同步 |
+| 反例验证 | 新增 lint 是否真能拦住 | 已验证 | 临时在 QUICKSTART 追加 `python Tool/nope/missing.py` 与 `evidence/<案子名>/x` → `preflight --fast` **37/38 FAIL**；移除后 38/38 |

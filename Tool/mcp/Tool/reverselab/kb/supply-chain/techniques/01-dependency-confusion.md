@@ -31,7 +31,7 @@ related_articles: ["supply-chain/02-image-and-provenance"]
 
 ## 步骤 1：离线盘点
 ```bash
-python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
+python Tool/scripts/sc-check.py --path . --out sc.json
 python - <<'PY'
 import json
 d=json.load(open('sc.json'))
