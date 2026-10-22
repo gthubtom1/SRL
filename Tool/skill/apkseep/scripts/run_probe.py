@@ -40,6 +40,7 @@ NOTES
   * Log file: a timestamped name is generated unless --log is given.
 """
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -200,7 +201,11 @@ def main():
         logger.line(host_ts() + ' FATAL cannot import the frida python module.\n' +
                     FRIDA_INSTALL_HINT)
         logger.close()
-        return 3
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "frida python module not importable; " +
+                                    FRIDA_INSTALL_HINT.replace('\n', ' ')},
+                         ensure_ascii=False))
+        return 2
     logger.line('[host %s] frida python %s' % (host_ts(), getattr(frida, '__version__', '?')))
 
     # 2) adb

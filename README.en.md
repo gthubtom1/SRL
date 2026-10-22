@@ -49,7 +49,7 @@
 
 ---
 
-> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.25.0)**: 23 → **40** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
+> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.26.0)**: 23 → **40** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
 > The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 65). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
 
 ## 🌟 Project Overview
@@ -164,8 +164,9 @@ The agent autonomously:
 
 ```
 Seep\ (251 MB)
-├── README.md                      ← This file (English default)
+├── README.md                      ← Primary README (Chinese)
 ├── README.zh.md                   ← Chinese documentation (中文文档)
+├── README.en.md                   ← This file (English)
 ├── Tool/prompts/contracts/CLAUDE.md                      ← Project-level instructions for Claude Code
 ├── .mcp.json                      ← Project-level MCP registration (Claude Code / OpenCode)
 ├── Tool/prompts/contracts/DSH-PROFILE.md                 ← DeepSeek Harness Cordis plugin config template
@@ -176,8 +177,8 @@ Seep\ (251 MB)
 │
 ├── Tool\
 │   ├── skill\                     ← 30 domain skills (00–05 stage skills + general toolkit)
-│   │   ├── softseep\              ← ⭐ Master orchestrator (Router + 8 on-demand references)
-│   │   ├── apkseep\               ← End-to-end Android APK/DEX/SO skill (115 files)
+│   │   ├── softseep\              ← ⭐ Master orchestrator (Router + 10 on-demand references)
+│   │   ├── apkseep\               ← End-to-end Android APK/DEX/SO skill (123 files: 54 refs / 57 scripts)
 │   │   ├── ida-reverse\           ← IDA Pro automated spawning & MCP coordination
 │   │   ├── client-license-validation-bypass\ ← Cross-runtime license attack playbook
 │   │   └── safe-skills\           ← 5 standalone tool packages
@@ -188,8 +189,8 @@ Seep\ (251 MB)
 │   │   └── Tool\                  ← ⚠️ Hardcoded relative runtime path (do not rename)
 │   │       ├── safe\              ← Pre-bundled cross-platform toolchains
 │   │       │   ├── jadx\          ← 75 MB (v1.5.6)
-│   │       │   ├── radare2\       ← 39 MB (v6.2.2 full suite)
-│   │       │   ├── apktool\       ← 24 MB (v3.0.3)
+│   │       │   ├── radare2\       ← 38 MB (v5.9.8 full suite; check `--version` for the live value)
+│   │       │   ├── apktool\       ← 24 MB (v2.11.0; check `--version` for the live value)
 │   │       │   ├── hook-mcp\      ← Frida / LSPosed instrumentation templates
 │   │       │   ├── ida-pro-mcp\   ← IDA bridge adapter
 │   │       │   ├── js-reverse-mcp\← Web / JS debugging engine
@@ -230,7 +231,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP Tool Matrix
 
-The bundled `seep` MCP server exposes **40 native tools** across seven functional groups:
+The bundled `seep` MCP server exposes **40 native tools** across eight functional groups:
 
 | Category | Tool | Functionality | Token Mode |
 |---|---|---|---|
@@ -254,6 +255,8 @@ The bundled `seep` MCP server exposes **40 native tools** across seven functiona
 | | `seep_kb_read` | Full technical reference retrieval by topic | — |
 | | `seep_kb_checklist` | Emergency triage checklists & attack matrices | — |
 | | `seep_kb_payloads` | Security test seeds (JWT, SSRF, SSTI, SQLi) | — |
+| **Case Library** | `seep_case_search` | Search settled cases by domain/protection/level/outcome (index.json cache, live scan fallback) | `limit=` |
+| | `seep_case_read` | Full case.json + first 20 facts.jsonl lines + first 80 README lines | — |
 | **Orchestration** | `seep_task_init` | Initializes isolated audit sandbox directory | — |
 | | `seep_auto_triage` | Automated full-sample health check | — |
 | | `seep_gen_security_report` | Synthesizes 3-part compliance security report | — |

@@ -118,7 +118,7 @@ cd /d/Seep-Reverse-Lab
 python Tool/scripts/domain-gate.py --domain <domain>
 ```
 
-除「全局」四条（链接图/路由串味/清理/部署）外，本域 7 条必须全 PASS。
+除「全局」四条（链接图/路由串味/清理/部署）外，本域 10 条必须全 PASS。
 若 links 报你域的文件是孤儿，就去 SKILL/README/案例里加引用。
 
 最后回报：

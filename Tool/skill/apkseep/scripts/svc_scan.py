@@ -50,11 +50,12 @@ try:
     from capstone import Cs, CS_ARCH_ARM64, CS_ARCH_ARM, CS_MODE_ARM, CS_MODE_THUMB
     from capstone.arm64 import ARM64_OP_IMM, ARM64_OP_REG
     from capstone.arm import ARM_OP_IMM, ARM_OP_REG
+    CAPSTONE_OK = True
 except ImportError:  # pragma: no cover - dependency message is the point
-    sys.stderr.write(
-        "capstone is required: python -m pip install capstone\n"
-        "(this repository's other native scripts use it as well)\n")
-    raise SystemExit(1)
+    CAPSTONE_OK = False
+    # Keep --help working on a host without capstone; main() emits the structured error.
+    CS_ARCH_ARM64 = CS_ARCH_ARM = CS_MODE_ARM = CS_MODE_THUMB = 0
+    ARM64_OP_IMM = ARM64_OP_REG = ARM_OP_IMM = ARM_OP_REG = 0
 
 # arm64 syscall numbers (linux, asm-generic). Only the ones worth naming: a scan
 # report that names `futex` is more useful than one that prints 98.
@@ -333,6 +334,13 @@ def main(argv=None):
                     help="stop after N sites (0 = no limit); for a hostile blob where the "
                          "point is the histogram, not every offset")
     args = ap.parse_args(argv)
+
+    if not CAPSTONE_OK:
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "capstone is required: python -m pip install capstone "
+                                    "(this repository's other native scripts use it as well)"},
+                         ensure_ascii=False))
+        return 2
 
     try:
         with open(args.path, "rb") as fh:

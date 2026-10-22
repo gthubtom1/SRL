@@ -111,7 +111,7 @@ tools / rules / docs pi 内置
 
 | MCP | 工具数 | 用途 |
 | :-- | :--: | :-- |
-| **seep** | 38 | Radare2 逆向 + APK（JADX/Apktool）+ Frida Hook 生成 + KB 检索 + 多引擎降级 + 工具自愈 |
+| **seep** | 40 | Radare2 逆向 + APK（JADX/Apktool）+ Frida Hook 生成 + KB 检索 + 多引擎降级 + 工具自愈 |
 | **ida** | ~100+（随 `ida-pro-mcp` 版本） | IDA 全链路（反编译 / 交叉引用 / 结构体恢复），**需自备授权** |
 | **playwright** | — | 浏览器自动化（Web 审计 / JS 逆向） |
 

@@ -96,6 +96,23 @@ def now():
     return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
+URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+
+def store_target(target):
+    """--target 归一化：URL（http:// 或 https://）原样保存，本地路径才转绝对路径。
+
+    血案：--target https://example.com 曾存成 D:\\...\\https:\\example.com（假本地路径），
+    show 后与输入不一致。
+    """
+    t = (target or "").strip()
+    if not t:
+        return ""
+    if URL_RE.match(t):
+        return t
+    return os.path.abspath(t)
+
+
 def _manifest(case):
     return os.path.join(os.path.abspath(case), "ai_manifest.json")
 
@@ -342,7 +359,7 @@ def cmd_init(a):
             die("ai_manifest.json 里已有 seep 状态；要重建加 --force（当前不会覆盖）")
     if os.path.isfile(sp) and not a.force:
         die("已有 state.json：%s（要重建加 --force）" % sp)
-    st = {"schema": "seep-case/1", "target": os.path.abspath(a.target) if a.target else "",
+    st = {"schema": "seep-case/1", "target": store_target(a.target),
           "depth": {}, "verdict": None, "max_level": None,
           "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
     backend = save_state(a.case, st)
@@ -950,6 +967,11 @@ def _self_test():
         assert _depends({"needs": "G1"}, g); checks += 1
         assert _mentions("缺 G1 导致不可赢", g); checks += 1
         assert len(now()) >= 19; checks += 1
+        # --target 归一化：URL 原样，本地路径绝对化
+        assert store_target("https://example.com/a?b=1") == "https://example.com/a?b=1"; checks += 1
+        assert store_target("HTTP://Example.com") == "HTTP://Example.com"; checks += 1
+        assert store_target("") == ""; checks += 1
+        assert store_target("rel/x.bin") == os.path.abspath("rel/x.bin"); checks += 1
         print(json.dumps({"ok": True, "checks": checks}, ensure_ascii=True))
         return 0
     except Exception as exc:  # noqa: BLE001

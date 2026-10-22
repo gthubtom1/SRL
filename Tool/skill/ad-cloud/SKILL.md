@@ -161,6 +161,9 @@ python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input eve
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input adcs-find.json   # ESC9-17 离线判定（ESC12 需 CA 主机本地权限，只登记 blocker）
 python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
 
+# 案例证据链机检（字段/哈希/证明链/凭据红线）
+python Tool/skill/ad-cloud/scripts/ad-accept.py --case Tool/cases/ad-cloud01 --json
+
 # IAM 策略离线评估（不调用 STS/IAM）
 python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input policy.json \
   --action iam:CreatePolicyVersion --resource arn:aws:iam::123456789012:policy/demo

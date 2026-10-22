@@ -23,7 +23,7 @@
 | # | Skill | 本包位置 | 安装目标 | 文件数 | 体积 |
 | :--- | :--- | :--- | :--- | :---: | :--- |
 | 1 | **softseep** ⭐总控 | `Tool/skill/softseep/` | `~/.pi/agent/skills/softseep/` | 11 | 364 KB |
-| 2 | **apkseep** | `Tool/skill/apkseep/` | `~/.pi/agent/skills/apkseep/` | 113 | 2.2 MB |
+| 2 | **apkseep** | `Tool/skill/apkseep/` | `~/.pi/agent/skills/apkseep/` | 123 | 2.2 MB |
 | 3 | **ida-reverse** | `Tool/skill/ida-reverse/` | `~/.pi/agent/skills/ida-reverse/` | 1 | 4 KB |
 | 4 | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/` | `~/.pi/agent/skills/` | 1 | 32 KB |
 | 5 | **reverse-engineering** | `Tool/skill/safe-skills/reverse-engineering/` | 同上 | 15 | 380 KB |
@@ -81,8 +81,8 @@ UI 验收工装 → `kb/pe-reverse/techniques/14-ui-verification/`
 ```
 apkseep/
 ├── SKILL.md        （432 行）
-├── references/     45 个（symptom index / gates / 13 问分类 …）
-├── scripts/        56 个（dex_patch_bytes / dex_mem_scan / doctor …）
+├── references/     54 个（含 `coverage/`、`precedents/` 子目录共 61 个）
+├── scripts/        57 个（顶层 54 个 + `dexpatch/` 子目录 3 个）
 ├── evals/          （评测用例）
 └── evidence/       （能力矩阵与已知限制）
 ```
@@ -95,7 +95,7 @@ apkseep/
 > 本节只讲“由哪些文件夹组成”。
 > 📦 **各工具下载来源** → 见 **`Tool/docs/DOWNLOADS.md`**
 
-### ① seep MCP（38 工具）— 自研
+### ① seep MCP（40 工具）— 自研
 
 | 组成 | 位置 | 说明 |
 | :--- | :--- | :--- |
@@ -103,7 +103,7 @@ apkseep/
 | **自检脚本** | `Tool/mcp/test_seep_mcp.py` | 9 个测试套件 |
 | **启动器** | `Tool/mcp/run_seep_mcp.bat` | Windows 启动封装 |
 | **⭐ 运行时根目录** | **`Tool/mcp/Tool/`** | MCP 内部硬编码 `TOOL_DIR = <脚本目录>/Tool` |
-| **⭐ 知识库依赖** | `Tool/mcp/Tool/reverselab/kb/`（**289 篇 .md**） | `seep_kb_search` 等 4 个工具读这里 |
+| **⭐ 知识库依赖** | `Tool/mcp/Tool/reverselab/kb/`（**409 篇 .md**） | `seep_kb_search` 等 4 个工具读这里 |
 | **LLM 索引** | `Tool/mcp/Tool/reverselab/docs/llms.txt` | MCP 启动时读取 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/radare2/bin/`（脚本下载） | `seep_r2_*` 8 个工具 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/jadx/bin/` + `.../apktool/`（脚本下载） | `seep_apk_*` 5 个工具 |
@@ -185,7 +185,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 
 | 组成 | 本包位置 | 说明 |
 | :--- | :--- | :--- |
-| **kb/** | `Tool/mcp/Tool/reverselab/kb/` | **289 篇 .md**（ctf-website / apk-reverse / pe-reverse / general） |
+| **kb/** | `Tool/mcp/Tool/reverselab/kb/` | **409 篇 .md**（ctf-website / apk-reverse / pe-reverse / general） |
 | **boards/** | `Tool/mcp/Tool/reverselab/boards/` | 攻击网（按信号路由到技术文件） |
 | **tools/skills/mcp/** | `Tool/mcp/Tool/reverselab/tools/skills/mcp/` | 3 个 MCP 源码 |
 | **docs/** | `Tool/mcp/Tool/reverselab/docs/` | 含 `llms.txt`（seep MCP 引用的 LLM 索引） |
@@ -221,7 +221,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 
 | 工具 | 服务的 MCP / Skill | 下载目标 | 体积 |
 | :--- | :--- | :--- | :--- |
-| **radare2** | `seep_r2_*`（8 工具） | `Tool/mcp/Tool/safe/radare2/` | ~39 MB |
+| **radare2** | `seep_r2_*`（8 工具） | `Tool/mcp/Tool/safe/radare2/` | ~38 MB |
 | **jadx** | `seep_apk_decompile` | `Tool/mcp/Tool/safe/jadx/` | ~460 MB |
 | **apktool** | `seep_apk_unpack` | `Tool/mcp/Tool/safe/apktool/` | ~24 MB |
 | **playwright-mcp** | playwright MCP | `Tool/mcp/Tool/safe/playwright-mcp/` | ~45 MB |
@@ -233,7 +233,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 ## 八、依赖链速查（排障用）
 
 ```
-seep_kb_* 四个工具   →  Tool/mcp/Tool/reverselab/kb/（289 篇）
+seep_kb_* 四个工具   →  Tool/mcp/Tool/reverselab/kb/（409 篇）
 seep_r2_* 八个工具   →  Tool/mcp/Tool/safe/radare2/bin/
 seep_apk_* 五个工具  →  Tool/mcp/Tool/safe/jadx/ + apktool/
 seep_apk_gen_hook   →  Tool/mcp/Tool/safe/hook-mcp/templates/

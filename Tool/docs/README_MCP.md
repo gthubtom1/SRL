@@ -2,7 +2,7 @@
 
 `seep` 是面向安全研究员与 AI Agent（Pi Agent、Claude、Cursor、OpenCode、VS Code 等）的混合型逆向工程与 CTF 战术 MCP Server。
 
-它将 Radare2 二进制逆向套件、JADX / Apktool 安卓反编译链、动态 Hook 生成器与 ReverseLab 183+ 攻防战术知识库聚合为一个标准 MCP 服务。
+它将 Radare2 二进制逆向套件、JADX / Apktool 安卓反编译链、动态 Hook 生成器与 ReverseLab 409 篇攻防战术知识库聚合为一个标准 MCP 服务。
 
 ---
 
@@ -29,7 +29,7 @@
 - `seep_apk_gen_hook`：自动根据类名与方法签名生成 Frida (JavaScript) 或 LSPilot / BeanShell 动态 Hook 插件。
 
 ### 4. ReverseLab 攻防知识库与 CTF Payload 库
-- `seep_kb_search`：在 183+ 篇攻防知识库（Web/PE/APK/CVE/内核）中进行全文检索并输出高分推荐。
+- `seep_kb_search`：在 409 篇攻防知识库（Web/PE/APK/CVE/内核）中进行全文检索并输出高分推荐。
 - `seep_kb_read`：读取任意技术手册或实战指南全文。
 - `seep_kb_checklist`：获取《Web CTF 前 30 分钟应急排查指南》、全攻击矩阵、证据链标准等战术清单。
 - `seep_kb_payloads`：快速调取高危 Exploit 种子与 Payload（JWT, SSRF, 原型链污染, SSTI, SQLi, 反序列化等）。

@@ -48,6 +48,7 @@ A reachable frida-server (``frida-server -l 127.0.0.1:27099`` plus
 interpreter. ``adb`` is used only for the device-side steps and for screenshots.
 """
 import argparse
+import json
 import subprocess
 import sys
 import time
@@ -134,8 +135,10 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
 
     if frida is None:
-        print("[!] the 'frida' python package is not importable; install it with "
-              "'pip install frida' (host side)", file=sys.stderr)
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "the 'frida' python package is not importable; install it "
+                                    "with 'pip install frida' (host side)"},
+                         ensure_ascii=False))
         return 2
 
     patched = {"done": False}

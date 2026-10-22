@@ -12,7 +12,7 @@
 | # | 冻结项 | 具体内容 | 为什么不能动 |
 |---|---|---|---|
 | F1 | **目录骨架** | `Tool/skill/`、`Tool/mcp/`、`Tool/mcp/Tool/`、`Tool/prompts/`、`Tool/scripts/`、`Tool/config/`、`MANUAL/`、`setup/` | `seep_mcp_server.py` 的 `TOOL_DIR = <脚本目录>/Tool` 是硬编码相对路径；`Tool/mcp/Tool/` 一搬，40 个工具全瘫 |
-| F2 | **MCP 工具名** | 已发布的 38 个 `seep_*` 工具名与参数签名 | Skill / SOP / 报告模板 / 用户习惯全部按名引用；改名 = 静默失效 |
+| F2 | **MCP 工具名** | 已发布的 40 个 `seep_*` 工具名与参数签名 | Skill / SOP / 报告模板 / 用户习惯全部按名引用；改名 = 静默失效 |
 | F3 | **Agent 配置格式** | `~/.pi/agent/mcp.json`、`.mcp.json`、`opencode.jsonc`、`cordis.generated.yml` 的字段结构 | 四个 Agent 宿主共同消费；字段改名 = 宿主起不来 |
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
 | F5 | **体检基准项** | `verify.ps1` / `verify.sh` 的 **65 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
@@ -139,7 +139,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
 | 单文件行数 | 2996（MCP 主服务） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（排除 upstream 与 `Tool/mcp/Tool`） | 822 | **900** | 超了说明在"堆文件"而不是"做能力" |
+| first-party 文件（排除 upstream 与 `Tool/mcp/Tool`） | 823 | **900** | 超了说明在"堆文件"而不是"做能力" |
 
 ### 7.2 三不原则
 

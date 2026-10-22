@@ -100,7 +100,7 @@ Claude Code 原生支持项目级上下文（`Tool/prompts/contracts/CLAUDE.md`�
    ```text
    /mcp
    ```
-   检查 `seep` 服务是否显示为绿色 `connected`，且暴露出 38 个工具。
+   检查 `seep` 服务是否显示为绿色 `connected`，且暴露 40 个工具。
 5. **执行一键校验**：
    在 Claude 对话框直接发送：
    ```text
@@ -166,7 +166,7 @@ OpenCode 原生支持项目级与全局级 MCP 工具，其配置标准为 `open
    }
    ```
 3. **指令载入与启动**：
-   在项目根目录下直接运行 `opencode`。OpenCode 会自动解析根目录的 `opencode.jsonc` 挂载 38 项 `seep` 工具，并自动加载项目根目录的 `AGENTS.md` 作为作战协议。发送 `check` 即可开启自检！
+   在项目根目录下直接运行 `opencode`。OpenCode 会自动解析根目录的 `opencode.jsonc` 挂载 40 项 `seep` 工具，并自动加载项目根目录的 `AGENTS.md` 作为作战协议。发送 `check` 即可开启自检！
          "env": { "PYTHONIOENCODING": "utf-8" }
        }
      }
@@ -453,19 +453,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 #### 1. 🛠️ 技能系统（11 项）
 | 技能名 | 目标路径 | 期望文件数 | 实际状态 |
 |---|---|---|---|
-| softseep | ~/.pi/agent/skills/softseep/ | ≥9（含 8 refs） | 🟢 READY / 🔴 MISSING |
+| softseep | ~/.pi/agent/skills/softseep/ | ≥15（含 10 refs） | 🟢 READY / 🔴 MISSING |
 
 #### 2. 🔌 MCP 服务引擎（4 个）
 | 服务名 | 期望工具数 | 实际连通性 | 状态 |
 |---|---|---|---|
-| seep（自研） | 38 | Connected | 🟢 READY |
+| seep（自研） | 40 | Connected | 🟢 READY |
 | ida（商业） | ~100+（随版本） | 未监听 13337 | 🟡 DEGRADED（已降级 Radare2） |
 
 #### 3. 🔧 内置工具箱与知识库
 | 工具 | 预期 | 实际 | 状态 |
 |---|---|---|---|
-| Radare2 v6.2.2 / Jadx v1.5.6 / Apktool v3.0.3 | 在 `Tool/mcp/Tool/safe/` | 物理就绪 | 🟢 |
-| 攻防知识库 | ≥289 篇 | 292 篇 | 🟢 |
+| Radare2 v5.9.8 / Jadx v1.5.6 / Apktool v2.11.0（版本均以 `--version` 为准） | 在 `Tool/mcp/Tool/safe/` | 物理就绪 | 🟢 |
+| 攻防知识库 | ≥289 篇 | 409 篇 | 🟢 |
 
 #### 4. 🚀 结论与开工指引
 全部核心项通过 → “工作台处于 [READY / 完备就绪] 状态，重启终端后输入 lab： 即可开启测试。”

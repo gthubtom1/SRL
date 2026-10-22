@@ -35,7 +35,7 @@
   "source_hash": "<sha256>",
   "case_count": 15,
   "cases": [
-    {"dir": "项目A", "id": "项目A", "domain": "windows-license", "...": "..."}
+    {"dir": "项目A", "id": "项目A", "domain": "reverse", "...": "..."}
   ]
 }
 ```

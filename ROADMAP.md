@@ -18,7 +18,7 @@
 
 - Windows/PE 全链路：判壳 → 静态 → 动态 → 脱壳 → 符号恢复 → 补丁工程 → 反调试对抗。
   入口 `softseep`，参考卷 10 篇（`Tool/skill/softseep/references/`）。
-- Android：`apkseep`（43 篇参考 / 55 个脚本）+ `unpack-loop` + `binary-diff`。
+- Android：`apkseep`（54 篇参考，含子目录共 61 篇 / 57 个脚本）+ `unpack-loop` + `binary-diff`。
 - IDA / radare2 / x64dbg 三条工具通道，统一走 `Tool/scripts/tool-run.ps1`（MCP 优先，headless 次之，GUI 最后）。
 
 ### 三、十一个域（可独立开打）
@@ -37,6 +37,8 @@
 | 取证/iOS·macOS | `forensics-mobile` | 时间 / 主体 / 动作 / 对象四要素可还原 |
 | 恶意样本 | `malware-analysis` | 行为时间线 + IOC + 可验证 YARA/Sigma |
 | 供应链 | `supply-chain-security` | 可达漏洞有 PoC，或投毒链有证据 |
+| 二进制逆向 / 总控 | `reverse` | 判型正确 + 结构/壳/权威/钥匙四件齐，报告可复现 |
+| 网站 1:1 复刻 | `site-clone` | 路由/截图/DOM/资源/交互/数据边界六项均有数值 |
 
 ## 下一步（按优先级）
 
