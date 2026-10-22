@@ -102,3 +102,10 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | `Tool/scripts/domain-gate.py:994` | detail「十域 SKILL…」 | 动态 `%d 域`（11） |
 | `Tool/scripts/preflight.py` | 「十域深度契约」×3 | 「全域深度契约」 |
 | `Tool/scripts/preflight.py:683` | 标签「（10 域）」 | 「（≥10 份）」 |
+
+### 配方人类入口（Tool/playbooks/README.md）同步 + 防复发
+
+| 项 | 处理 | 证据 |
+| :-- | :-- | :-- |
+| README 索引写「22 个」、缺 `game-client-il2cpp` 行、`apk-unpack` 仍挂 `il2cpp、metadata` | 已修 | 表头改 23；新增 `game-client-il2cpp` 行（触发词 il2cpp/global-metadata/GameAssembly/AssetBundle/Unity 客户端）；`apk-unpack` 行改为「加固脱壳、VMP、DexVMP、反调试」 |
+| 门禁盲区（README 被 SKIP_FILES 跳过） | 已修 | `playbook-check.py` 增断言：README 索引行集合 == 磁盘配方集合、表头计数 == 磁盘数；不一致即 `bad` 项（`--self-test` 15/15 含该负例） |
