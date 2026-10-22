@@ -798,21 +798,40 @@ def check_language():
         n = len(pat.findall(t))
         if n:
             hits.append("%s(%d)" % (os.path.basename(f), n))
-    stale = []
-    for r_ in (os.path.join(TOOL, "prompts"), os.path.join(TOOL, "skill")):
+    stale, badcmd = [], []
+    roots_ = [os.path.join(TOOL, "prompts"), os.path.join(TOOL, "skill"),
+              os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL"),
+              os.path.join(TOOL, "docs"), os.path.join(TOOL, "playbooks"),
+              os.path.join(TOOL, "cases"), os.path.join(ROOT, "README.md"),
+              os.path.join(ROOT, "README.zh.md"), os.path.join(ROOT, "README.en.md")]
+    files_ = []
+    for r_ in roots_:
+        if os.path.isfile(r_):
+            files_.append(r_)
+            continue
         for dp, dn, fn in os.walk(r_):
-            for f in fn:
-                if not f.endswith(".md"):
-                    continue
-                fp = os.path.join(dp, f)
-                try:
-                    t = open(fp, encoding="utf-8", errors="replace").read()
-                except Exception:
-                    continue
-                if "evidence/<case>" in t:
-                    stale.append(os.path.relpath(fp, ROOT).replace(os.sep, "/"))
+            if "/audit" in dp.replace(os.sep, "/") or "/_archive" in dp.replace(os.sep, "/"):
+                continue
+            files_ += [os.path.join(dp, f) for f in fn if f.endswith(".md")]
+    for fp in files_:
+        try:
+            t = open(fp, encoding="utf-8", errors="replace").read()
+        except Exception:
+            continue
+        relp = os.path.relpath(fp, ROOT).replace(os.sep, "/")
+        for pat in ("evidence/<case>", "evidence/<\u6848\u5b50\u540d>", "evidence/<C>"):
+            if pat in t:
+                stale.append(relp)
+                break
+        base = os.path.basename(fp)
+        if base in ("QUICKSTART.md", "README.md", "README.zh.md", "README.en.md"):
+            for m in re.finditer(r"python\s+(Tool/[A-Za-z0-9_\-./]+\.py)", t):
+                if not os.path.isfile(os.path.join(ROOT, m.group(1).replace("/", os.sep))):
+                    badcmd.append("%s -> %s" % (relp, m.group(1)))
     if stale:
-        hits = list(hits) + ["%s(evidence/<case>)" % x for x in stale[:4]]
+        hits = list(hits) + ["%s(旧案目录口径)" % x for x in stale[:4]]
+    if badcmd:
+        hits = list(hits) + ["%s(文档命令脚本不存在)" % x for x in badcmd[:4]]
 
     add("13 措辞", "无任务禁令措辞（scope 由用户声明）", not hits,
         "%d 个文件：%s" % (len(hits), "；".join(hits[:6])) if hits else "0 命中")

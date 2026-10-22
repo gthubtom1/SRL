@@ -19,7 +19,7 @@
 find . -maxdepth 3 \( -name package.json -o -name .npmrc -o -name requirements.txt \
   -o -name pyproject.toml -o -name pip.conf -o -name nuget.config \
   -o -name composer.json -o -name go.mod \) -not -path '*/node_modules/*'
-python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
+python Tool/scripts/sc-check.py --path . --out sc.json
 ```
 
 **判据**：每个私有包名都能追到“私有 registry + 锁文件条目 + integrity”；三者缺一，就是候选风险。
