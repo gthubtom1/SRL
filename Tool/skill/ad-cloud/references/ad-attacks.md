@@ -313,3 +313,65 @@ impacket-GetNPUsers "<domain>/" -dc-ip <dc> -usersfile users.txt -no-pass -forma
 - 不保存 challenge、票据、hash 原文；只留指纹与时间。
 - 不在客户未授权的第三方资产上做任何协商或枚举；扫描范围严格等于清单。
 - 发现匿名可写、可 relay、可 roast 时，先停手写证据，再按授权单决定是否验证。
+
+## 12. 外部接入面：SSL VPN / 邮件前端 / 身份云（只读）
+
+> 适用：目标只有域名/IP 与登录页，没有凭据。**硬约束：只读、不爆破、不投毒**——
+> 不提交凭据、不做口令喷洒/默认口令尝试、不写对象、不发畸形利用包；只取首页、静态资源、
+> 公开 metadata、协议协商与错误码分类。pre-auth RCE PoC、强制认证、relay 另需单独授权单，
+> 且先做检测型验证。频率：同目标同路径 ≤1 次/小时，不刷 CVE 路径字典。
+
+### 12.1 四列判据（指纹 → 只读判据 → 失败判据 → 代价）
+
+| 面 | 暴露面指纹（只看响应） | 只读验证判据（可机检） | 失败判据 | 代价 |
+| :-- | :-- | :-- | :-- | :-- |
+| Cisco ASA / AnyConnect | `/+CSCOE+/logon.html`、`Set-Cookie: webvpn=`、页内 `AnyConnect` | 200/302 且首页含 `CSCOE`；`/+CSCOE+/saml/sp/metadata` 返回 XML，可读出 `AuthnRequestsSigned`/`WantAssertionsSigned` | 路径 404 且首页无厂商字样；metadata 要登录 → 记 `blocked` | 低：每个请求进 WAF/SIEM |
+| Fortinet FortiGate | `/remote/login`、`Set-Cookie: SVPNCOOKIE=`、页内 `FortiGate` | 登录页 200 且含 `FortiGate`/`SSL-VPN`；`/remote/saml/metadata` 可读 | 404/统一错误页（banner 被抹）→ 只记“疑似 VPN” | 低 |
+| Citrix NetScaler / ADC | `/vpn/index.html`、`Set-Cookie: NSC_AAA=`、`/menu/neo` | 首页 200 且含 `NetScaler`/`Citrix Gateway`；saml 端点可读 | 403 且无 `NSC_*` cookie → 不是网关面 | 低 |
+| Palo Alto GlobalProtect | `/global-protect/login.esp`、`panui-<ver>`、`PHPSESSID` | 登录页 200 且含 `GlobalProtect Portal`；`panui-` 版本串入档 | 404/仅跳转门户首页 | 低 |
+| Pulse / Ivanti Connect Secure | `/dana-na/auth/url_default/welcome.cgi`、`DSAuthSession=` | 200 且页内含 `Pulse Secure`/`Ivanti`；版本串可读 | 302 到统一登录、无 `dana-na` 路径 | 低 |
+| SonicWall / F5 | `swap=`/`swapauth=`、`/my.policy`、`BIGipServer*` | 登录页含 `SonicWall`/`NetExtender`/`BIG-IP` | 只有通用 401/403 | 低 |
+| Exchange / OWA | `X-OWA-Version`、`X-FEServer`、`WWW-Authenticate: Negotiate` | 一次 Type-1 negotiate（**不带凭据**）拿到 NTLM type 2，离线解析域名/OS/时间戳 → `ad-repro --kind ntlm-type2`；`/owa/healthcheck.htm` 200 | 无 `X-OWA-Version` 且 negotiate 不回 type 2；`/owa/` 401 但无挑战 | 低；只有 Type-1，无认证尝试 |
+| Zimbra | `/zimbra/`、页题 `Zimbra`、`/service/soap/` | 匿名 `GetVersionInfoRequest` 返回 `<VersionString>`/`<ReleaseString>`（不认证、不枚举用户） | SOAP 要求 authToken；只回登录页 → 只记版本面 | 低；用户枚举属越界（会产生登录失败日志） |
+| Okta | `<tenant>.okta.com/login`、`/.well-known/okta-organization` | well-known 返回 `id`/`issuer`/endpoints；登录页重定向链里出现租户 slug | 404/统一错误；org 未公开 well-known | 低；因素枚举需已授权会话 |
+| M365 / Entra | `*.onmicrosoft.com`、`login.microsoftonline.com` 重定向、`autodiscover.*` | `getuserrealm.srf?login=<domain>&xml=1` 得 `NameSpaceType`（Managed/Federated）与 `AuthURL`；`<domain>/.well-known/openid-configuration` 得 tenant/issuer | 域不属该租户；openid-configuration 404 → 换域 | 低；**不发 ROPC/不做 AADSTS 尝试**（那需授权单） |
+
+判据：指纹命中 + 至少一个**公开端点**返回可解析字段（XML/JSON/版本串）。
+失败判据：只有端口开放或登录页 HTML，无厂商字符串、无 metadata、无版本字段 → `blocked`，
+只记“暴露面未知”，不得用默认口令、CVE 路径字典或用户名枚举把它升级成验证。
+
+### 12.2 身份云只读核查（Okta / Entra）
+
+```bash
+# 租户/联邦关系（不认证）
+curl -s 'https://login.microsoftonline.com/getuserrealm.srf?login=user@<domain>&xml=1'
+curl -s 'https://login.microsoftonline.com/<domain>/.well-known/openid-configuration'
+curl -s 'https://<tenant>.okta.com/.well-known/okta-organization'
+curl -s 'https://<tenant>.okta.com/.well-known/openid-configuration'
+```
+
+| 可读字段 | 含义 | 结论上限 |
+| :-- | :-- | :-- |
+| `NameSpaceType=Managed` | 云内认证，口令路径存在 | `candidate`（认证面） |
+| `NameSpaceType=Federated` + `AuthURL` | 联邦到 ADFS/Okta/Ping | 转 IdP 面，仍只读 |
+| `tenant_id` / `issuer` | 租户身份与多租户判定 | 资产归属证据 |
+| Okta `id`/`issuer` | 组织身份；slug 是否可猜 | `candidate`（租户存在） |
+| 登录页因素图标/文案 | 仅 UI 提示，不是配置真值 | 不作判据 |
+
+失败判据：域名与租户不匹配（`AADSTS90002`/404）、`AuthURL` 指向授权清单外的第三方 IdP
+→ 停，不跨租户/跨组织探测。**AADSTS 错误码分类（50034/50126/50076/53003）必须提交凭据，
+属“认证尝试”，只在授权单允许时按 ≤1 次/账号执行**，见 `m365`-类材料与 `02-failure-criteria.md`。
+
+### 12.3 结论上限与证据包
+
+| 观察 | 最高结论 | 升级还需 |
+| :-- | :-- | :-- |
+| 厂商登录页 + metadata 可读 | `candidate`（暴露面） | 授权单：单版本 CVE 检测（不写、不重启） |
+| OWA/VPN 管理面 NTLM type 2 可解析 | `candidate` | relay 授权 + 受害者认证 + 目标侧 4624/4688 |
+| Zimbra 版本可读 | `candidate` | 授权校验补丁级；不得上传/遍历 |
+| Okta/Entra 租户与联邦可读 | `candidate` | 授权后的只读目录/日志审计 |
+| 只有端口/登录页 | `blocked`/`unknown` | 补资产归属与授权，不猜服务 |
+
+证据包（四件）：授权编号与清单条目；时间与源 IP；请求方法+路径+状态码+响应头/字段片段；
+`未做` 声明（未爆破/未提交凭据/未写/未投毒/未发利用包）。
+

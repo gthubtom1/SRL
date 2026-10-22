@@ -1,6 +1,6 @@
-# ad-cloud 任务卡（26 张）
+# ad-cloud 任务卡（28 张）
 
-> 源：`Tool/config/taskcard-sources.json` 的 `ad-cloud` 键（24 张上游卡）+ 2 张本地硬化卡（25 横向移动 / 26 公网外部视角）。每张卡六段；命令只在授权范围内执行。
+> 源：`Tool/config/taskcard-sources.json` 的 `ad-cloud` 键（24 张上游卡）+ 4 张本地硬化卡（25 横向移动 / 26 公网外部视角 / 27 容器逃逸与集群控制面 / 28 边缘接入面与身份云）。每张卡六段；命令只在授权范围内执行。
 > 统一红线：口令/hash/票据/证书私钥/AK-SK/token 只留指纹，不落明文；同账号认证失败 2 次即停。
 
 ### 01 BloodHound 采集与图谱复核（源：performing-active-directory-bloodhound-analysis）
@@ -242,4 +242,29 @@
   3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0｜期望输出：usage 含 `ntlm-type2` 与 `--kind`
 - 判据：type 2 能解析出域/OS/时间戳只到 candidate；LDAP rootDSE resultCode=0 只到 candidate；KDC 错误码 6/25/AS-REP 可分类；challenge 只留指纹；全程未爆破、未写、未投毒
 - 失败判据：只有端口开放无协议响应、type 2 解析失败、LDAP 匿名 49/8、KDC 只回 25、时差 >5 分钟 → 记 blocked/unknown，不得用口令字典或写入把“只读枚举”升级成验证
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md
+
+### 27 容器逃逸与集群控制面（privileged/hostPath/kubelet/etcd）四列判据（源：本地硬化）
+- 触发词：容器逃逸、privileged、hostPath、cgroup release_agent、runc、kubelet、etcd、admission、PSA
+- 前置：有容器内执行权限/SA token/kubeconfig；授权允许只读 API，创建标记 Pod 需单独授权；已登记清理方式
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0｜期望输出：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`、`anonymous_risk`=false、findings 含 `K8S-TRANSPORT-002`/`K8S-RBAC-003`/`K8S-RBAC-006`
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json --json` → rc=0｜期望输出：`"kind": "k8s-rbac"`、`"verdict": "candidate"`、`allowed_count`=2、`checks` 5 条，且 `host-proof`=false / `secret-proof`=false（有权限面但无宿主证据 → 只能 candidate）
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  4) 容器内原语：`capsh --print`、`stat -fc %T /sys/fs/cgroup/`、`test -w /var/run/docker.sock`；宿主侧：`nsenter -t 1 -m -u -i -n -p -- hostname`（仅授权容器；rc=0 且返回节点 hostname ≠ 容器 hostname 才升级 confirmed）
+- 判据：容器内原语可机检为真 + 宿主侧独立证据（节点 hostname/节点文件哈希/节点 auditd）+ `auth can-i` yes 后实际动作成功；缺宿主证据最高 candidate
+- 失败判据：缺 CAP_SYS_ADMIN/只读挂载/seccomp、cgroup v2 无 release_agent、runc 已升级、10255 只读、etcd 只回 version/health、PSA/Quota 拒 → 对应原语 blocked，按 `k8s-and-container.md` 3.5/4 节换面，不反复提权
+- reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 28 边缘接入面与身份云只读指纹（VPN/OWA/Zimbra/Okta/Entra）（源：本地硬化）
+- 触发词：SSL VPN、AnyConnect、FortiGate、NetScaler、GlobalProtect、OWA、Zimbra、Okta、Entra、NTLM type 2
+- 前置：清单只有域名/IP；书面允许只读指纹与公开 metadata；禁止提交凭据、口令喷洒、用户枚举、投毒
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json` → rc=0｜期望输出：`"verdict": "candidate"`、`"dns_domain": "corp.local"`、`"os_version": "10.0.20348"`、`"timestamp": "2026-10-21T14:00:00Z"`、`"auth_attempted": false`、`checks` 6 条全 true
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  3) `curl -skI https://<target>/+CSCOE+/logon.html` → rc=0｜期望：200/302 且 `Set-Cookie: webvpn=`/页内 `AnyConnect`；404 且无厂商串 = blocked，换厂商
+  4) `curl -s 'https://login.microsoftonline.com/getuserrealm.srf?login=<user>@<domain>&xml=1'` → rc=0｜期望：`<NameSpaceType>Managed|Federated</NameSpaceType>` + `AuthURL`；域不匹配/404 = 换域
+  5) 其余只读面：Okta `/.well-known/okta-organization` 取 `id`/`issuer`；Zimbra 匿名 `GetVersionInfoRequest` 取 `VersionString`；OWA 只看 `X-OWA-Version` / 一次无凭据 Type-1 negotiate
+- 判据：指纹命中 + 公开端点返回可解析字段（XML/JSON/版本串）；NTLM type 2 只到 candidate；证据包里能写“未提交凭据/未爆破/未投毒/未发利用包”
+- 失败判据：只有端口/登录页、metadata 要登录、租户不匹配、SOAP 要求 authToken、AuthURL 指向清单外 IdP → blocked/unknown；不得用默认口令、CVE 路径字典或用户名枚举升级验证
 - reference：Tool/skill/ad-cloud/references/ad-attacks.md
