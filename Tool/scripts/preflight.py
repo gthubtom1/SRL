@@ -166,6 +166,21 @@ def check_numbers(fast):
                 n = int(m.group(1))
                 if n != a[key]:
                     claims.append("%s: %s 写 %d，实际 %d" % (p, key, n, a[key]))
+    # BASELINE-FREEZE 的 first-party 文件数必须等于 check-budget 实测（防口径漂移）
+    bf = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
+    cb = os.path.join(TOOL, "scripts", "check-budget.py")
+    if os.path.isfile(bf) and os.path.isfile(cb):
+        try:
+            btxt = open(bf, encoding="utf-8", errors="replace").read()
+            mb = re.search(r"first-party[^|]*\|\s*(\d+)\s*\|", btxt)
+            _rc, bout = run([sys.executable, cb], timeout=120)
+            mc = re.search(r"first-party[^0-9]*(\d+)\s*/", bout)
+            if mb and mc and int(mb.group(1)) != int(mc.group(1)):
+                claims.append("BASELINE-FREEZE: first-party 写 %s，实测 %s"
+                              % (mb.group(1), mc.group(1)))
+        except Exception as _exc:  # noqa: BLE001
+            claims.append("BASELINE 对账失败: %s" % str(_exc)[:40])
+
     add("2 数字", "文档数字 vs 实测", not claims,
         "实测 tools=%d skills=%d kb=%d manual=%d" % (a["tools"], a["skills"], a["kb"], a["manual"])
         + ("；" + "；".join(claims[:4]) if claims else ""))
