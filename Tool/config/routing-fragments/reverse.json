@@ -42,6 +42,26 @@
           "note": "托管运行时：判据=能还原 IL/字节码语义并复算行为，观测/取证优先，不写绕过"
         }
       ]
+    },
+    "R34": {
+      "label": "账号任务自动化（签到/每日任务/多账号/青龙）",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(青龙|qinglong|签到|每日任务|积分|账号池|多账号|掉登录|自动续|cron|定时任务|批量执行器)",
+          "note": "先落 playbook：qinglong-signin / multi-account-runner"
+        }
+      ]
+    },
+    "R35": {
+      "label": "网站 1:1 复刻",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(1:1\\s*复刻|复刻(?:这个)?(?:网站|站点)|扒站|整站下载|离线副本|像素对比|镜像站点)",
+          "note": "先落 playbook：site-clone-1to1"
+        }
+      ]
     }
   },
   "priority_hint": {

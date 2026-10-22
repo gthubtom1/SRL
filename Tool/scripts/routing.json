@@ -21,6 +21,8 @@
     "R31",
     "R6",
     "R32",
+    "R35",
+    "R34",
     "R33",
     "R30",
     "R4",
@@ -518,6 +520,26 @@
         {
           "must": "(?i)(\\bMCP\\b|model\\s*context\\s*protocol|工具投毒|tool\\s*poisoning|prompt\\s*注入|提示词注入|\\bA2A\\b|agent2agent|越狱提示|system\\s*prompt\\s*泄露|rag\\s*注入)",
           "note": "Agent 协议安全：判据=能复现投毒/越权且跨工具影响"
+        }
+      ]
+    },
+    "R34": {
+      "label": "账号任务自动化（签到/每日任务/多账号/青龙）",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(青龙|qinglong|签到|每日任务|积分|账号池|多账号|掉登录|自动续|cron|定时任务|批量执行器)",
+          "note": "先落 playbook：qinglong-signin / multi-account-runner"
+        }
+      ]
+    },
+    "R35": {
+      "label": "网站 1:1 复刻",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(1:1\\s*复刻|复刻(?:这个)?(?:网站|站点)|扒站|整站下载|离线副本|像素对比|镜像站点)",
+          "note": "先落 playbook：site-clone-1to1"
         }
       ]
     }

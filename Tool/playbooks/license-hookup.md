@@ -1,5 +1,5 @@
 # 接自有授权平台（本地 HMAC / 在线票据）
-- 触发词：自有授权、授权平台、卡密系统、到期时间、机器码、HMAC、在线票据、发卡
+- 触发词：自有授权、授权平台、卡密系统、到期时间、机器码、HMAC、在线票据、发卡、试用期、永久
 - 输入（用户提供）：`<已旁路产物>`、`<授权 API 基址>`、`<产品 ID>`、`<盐/公钥占位>`、`<机器码算法>`、`<功能位>`；范围由用户提供的 scope 决定。
 - 用到的能力（capability id）：`tool:ida` `tool:x64dbg` `repo:case_state` `repo:probe_api` `repo:tls_check` `repo:patch-verify` `repo:reverse-accept` `repo:web-check`
 - 步骤：1) `python Tool/skill/softseep/scripts/preflight-classify.py <TARGET> --hint` → rc=0，定位启动、功能入口、到期检查三处挂载点；2) 本地 HMAC 模式：卡密 = HMAC-SHA256(机器码, 盐) 前 N 位，生成器与验签器落 `work/<case>/license/`，用 `python Tool/scripts/case_state.py claim --case work/<case> --id L1 --text "本地 HMAC 可复算"` 后 `prove --id L1 --evidence work/<case>/license/vectors.json` → rc=0；3) 在线模式：`python Tool/skill/apkseep/scripts/probe_api.py --base <LICENSE_API> --path /verify --param <card> --header <product:...>` → rc=0，票据字段（到期/机器码/功能位）写 `work/<case>/license/ticket.json`；4) `python Tool/skill/apkseep/scripts/tls_check.py <LICENSE_HOST> --json` → rc=0，确认证书与 SNI；5) 挂载改动写 `work/<case>/patch.json`，`python Tool/skill/softseep/scripts/patch-verify.py --file <TARGET> --manifest work/<case>/patch.json --out work/<case>/out/<name>` → rc=0；6) 五条验收：无卡密停授权页、有效卡密全开、到期拦截、换机器按策略、断网提示，逐条写 `acceptance/`，`python Tool/skill/softseep/scripts/reverse-accept.py --case <case> --json` → rc=0；7) `python Tool/scripts/preflight.py --fast` → rc=0。
