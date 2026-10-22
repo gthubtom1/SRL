@@ -7,7 +7,7 @@
 ## 0. 一句话
 
 把「8.0/10 合格」推到「成品级」：**修掉 5 类真实摩擦（MCP 参数不一致、假话术、路由盲区、薄壳阶段技能、文档↔事实漂移）**，
-新增 **3 条可机检门禁**（MCP 参数契约 / 技能路由探针 / first-party 口径），
+新增 **2 条可机检门禁**（MCP 参数契约 / 技能路由探针）+ **1 处统计口径修正**（first-party 改 `git ls-files`，消除 820↔834 漂移），
 并行硬化 **4 个域**（web-pentest / ad-cloud / llm-security / firmware-iot），
 把外部 Pentest 技能库按许可分层**只索引不复制**地接入。
 
@@ -51,8 +51,8 @@
 
 ### 2.5 文档↔事实漂移（本轮审计自己抓到的）
 - 问题：`check-budget.py` 用 `os.walk` 数 first-party 文件，把 `.pytest_cache/`、`.pi/` 等运行时目录算进去，同一份代码在不同机器得到 820↔834，`BASELINE-FREEZE` 无法对账。
-- 改动：改成 `git ls-files`（未跟踪文件不计），口径写进 `MANUAL/BASELINE-FREEZE.md`；基线定为 **814/900**。
-- 证据：`check-budget.py` → `OK first-party 引擎文件 814 / 900`，`preflight` 的「文档数字 vs 实测」项 PASS。
+- 改动：改成 `git ls-files`（未跟踪文件不计），口径写进 `MANUAL/BASELINE-FREEZE.md`；基线定为 **815/900**。
+- 证据：`check-budget.py` → `OK first-party 引擎文件 815 / 900`，`preflight` 的「文档数字 vs 实测」项 PASS。
 
 ## 3. 四个域的硬化（并行分支，已合并）
 
