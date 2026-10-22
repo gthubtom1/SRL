@@ -1,0 +1,307 @@
+{
+ "external_attempts": [
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/"
+  },
+  {
+   "url": "https://api.youtest.me/info/country",
+   "host": "api.youtest.me",
+   "method": "GET",
+   "resource_type": "fetch",
+   "page": "http://127.0.0.1:50455/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/404/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/contact/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/find/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/?error=player_or_user_data_missing_completed_page"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/player/name/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/?error=player_and_user_data_missing_playing_quiz"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/user/name?error=user_data_missing"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/user/name/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/logo.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/trustQuiz.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/mfflQuiz.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/fakeFriendFinder2.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/fakeFriendFinder.png",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/user/scoreboard/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/logo.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/share/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/trustQuiz.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/share/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/mfflQuiz.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/share/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/fakeFriendFinder2.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/share/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/fakeFriendFinder.png",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/share/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/?error=user_data_not_found_share_page&no_redirect=1"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/logo.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/answers/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/trustQuiz.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/answers/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/mfflQuiz.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/answers/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/fakeFriendFinder2.webp",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/answers/"
+  },
+  {
+   "url": "https://youtest.me/static/assets/promo/fakeFriendFinder.png",
+   "host": "youtest.me",
+   "method": "GET",
+   "resource_type": "image",
+   "page": "http://127.0.0.1:50455/user/scoreboard/answers/"
+  },
+  {
+   "url": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "host": "pagead2.googlesyndication.com",
+   "method": "GET",
+   "resource_type": "script",
+   "page": "http://127.0.0.1:50455/user/scoreboard/answers/"
+  }
+ ],
+ "replayed": [
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/?error=player_or_user_data_missing_completed_page"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/?error=no_user_data_player_name_page"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/?error=player_and_user_data_missing_playing_quiz"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?error=user_data_missing",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/user/creating/"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?error=user_data_missing",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/user/name?error=user_data_missing"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
+   "mock": "_replay/bodies/6df946c0-_next_data_MF0PX5Om9anXYG9uRYEC-_user_creating.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
+   "page": "http://127.0.0.1:50455/user/name?error=user_data_missing"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
+   "mock": "_replay/bodies/6df946c0-_next_data_MF0PX5Om9anXYG9uRYEC-_user_creating.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
+   "page": "http://127.0.0.1:50455/user/name/"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/?error=user_data_missing_scoreboard"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1",
+   "mock": "_replay/bodies/d9c21784-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json_no_redirect_1.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1",
+   "page": "http://127.0.0.1:50455/?error=user_data_not_found_share_page&no_redirect=1"
+  },
+  {
+   "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+   "page": "http://127.0.0.1:50455/?error=user_data_not_found_share_page&no_redirect=1"
+  }
+ ],
+ "whitelist": [
+  {
+   "host": "api.youtest.me",
+   "count": 1,
+   "resource_types": {
+    "fetch": 1
+   },
+   "sample": "https://api.youtest.me/info/country",
+   "classification": "backend-required-api",
+   "reason": "跨域数据接口 GET /info/country；同源克隆范围外，抓取阶段即拦截"
+  },
+  {
+   "host": "pagead2.googlesyndication.com",
+   "count": 12,
+   "resource_types": {
+    "script": 12
+   },
+   "sample": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
+   "classification": "policy-excluded-third-party",
+   "reason": "广告/追踪；抓取阶段一律 abort，不属于同源副本"
+  },
+  {
+   "host": "youtest.me",
+   "count": 15,
+   "resource_types": {
+    "image": 15
+   },
+   "sample": "https://youtest.me/static/assets/promo/logo.webp",
+   "classification": "policy-excluded-cross-origin-brand-asset",
+   "reason": "母品牌域 promo 图片；违反同源约束，未抓取，离线显示占位（非核心 UI）"
+  }
+ ],
+ "unexpected": []
+}
