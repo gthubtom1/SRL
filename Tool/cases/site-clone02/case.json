@@ -36,6 +36,10 @@
     {
       "path": "artifacts/diff.json",
       "sha256": "1dd6cc29a7ec161924e24e09b019356e33b18c24ecfb55eb5bbdfcd4703ce8dd"
+    },
+    {
+      "path": "artifacts/accept.json",
+      "sha256": "55a14641276916e0c6dbf5df4085839369e1faaf37d523a7d661d55f1077dc0d"
     }
   ],
   "lessons": [
