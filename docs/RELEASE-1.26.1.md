@@ -51,15 +51,15 @@
 
 ### 2.5 文档↔事实漂移（本轮审计自己抓到的）
 - 问题：`check-budget.py` 用 `os.walk` 数 first-party 文件，把 `.pytest_cache/`、`.pi/` 等运行时目录算进去，同一份代码在不同机器得到 820↔834，`BASELINE-FREEZE` 无法对账。
-- 改动：改成 `git ls-files`（未跟踪文件不计），口径写进 `MANUAL/BASELINE-FREEZE.md`；基线定为 **815/900**。
-- 证据：`check-budget.py` → `OK first-party 引擎文件 815 / 900`，`preflight` 的「文档数字 vs 实测」项 PASS。
+- 改动：改成 `git ls-files`（未跟踪文件不计），口径写进 `MANUAL/BASELINE-FREEZE.md`；基线定为 **819/900**。
+- 证据：`check-budget.py` → `OK first-party 引擎文件 819 / 900`，`preflight` 的「文档数字 vs 实测」项 PASS。
 
 ## 3. 四个域的硬化（并行分支，已合并）
 
 | 域 | 加厚了什么 | 证据 |
 | :-- | :-- | :-- |
-| web-pentest | `race-probe.py`（608 行：并发批 + 账本读回 + 远端安全闸 + 默认 dry-run，self-test 22 项）；07 卷补 2026 前置适配矩阵；06 卷补断言类攻击（SAML/OAuth/JWT）对照表；KB 第 9 篇 `10-cache-poison-gate.md`；矩阵 18→19 条 | `domain-gate --domain web-pentest` 10/10；`race-probe --self-test` → 22 checks |
-| ad-cloud | `06-lateral-movement.md`（210 行：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD 四列判据）；`ad-attacks.md` §11 公网 445/389/88 只读外部视角；`ad-repro.py --kind ntlm-type2`；任务卡 24→26 张，5 张剧本化真跑 | `domain-gate --domain ad-cloud` 10/10；`ad-repro --self-test` → 10 checks / 8 kinds |
+| web-pentest | `race-probe.py`（1091 行：并发批 + **HTTP/1.1 单包 last-byte sync** + h2 单包（缺库结构化 blocked）+ 账本读回 + 远端安全闸 + 默认 dry-run，self-test 34 项）；07 卷补 2026 前置适配矩阵；06 卷补断言类攻击（SAML/OAuth/JWT）对照表；KB 第 9 篇 `10-cache-poison-gate.md`；矩阵 18→23 条 | `domain-gate --domain web-pentest` 10/10；`race-probe --self-test` → 34 checks |
+| ad-cloud | `06-lateral-movement.md`（210 行：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD 四列判据）；`ad-attacks.md` §11 公网 445/389/88 只读外部视角；`ad-repro.py --kind ntlm-type2`；任务卡 24→28 张，7 张剧本化真跑 | `domain-gate --domain ad-cloud` 10/10；`ad-repro --self-test` → 10 checks / 8 kinds |
 | llm-security | `agentic-owasp-asi.md`（ASI01–ASI10 四列判据）、`mcp-attack-surface.md`（7 类入口 + 探针）、`probe-agent.py`（818 行 / 12 探针 / 离线 fixture） | `--self-test` ok:true；`--builtin vulnerable` → 0/12（设计预期） |
 | firmware-iot | `hardware-interfaces.md` 并入「无线与近场」章（802.11 握手/PMKID/WPA3/企业级/WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）；路由 R22 加无线关键词 | `domain-gate --domain firmware-iot` 10/10；无线探针 3 条全中 |
 
@@ -89,3 +89,17 @@ python Tool/scripts/mcp-param-contract.py        # 契约
 python Tool/scripts/skill-route-probe.py         # 33 条路由探针
 powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY
 ```
+
+## 7. 二轮吸收（Pentest 库真正落地的部分）
+
+第一轮只用了三块，第二轮按「好用就融」把剩下的高价值内容全部落到现有篇章（不新增第 11 篇 reference）：
+
+| 域 | 这次新增的判据 | 证据 |
+| :-- | :-- | :-- |
+| web-pentest | 单包竞态（HTTP/1.1 last-byte sync + h2 单包，缺库时结构化 blocked）；WebSocket CSWSH / 子协议降级 / 消息层越权；gRPC reflection / grpc-gateway / 消息级鉴权；WordPress 链（指纹→插件 CVE→REST 授权→xmlrpc）；`error_log` 字段挖掘；缓存投毒三组对照（未键控头 / 欺骗 / 键注入） | 矩阵 19→**23**；`race-probe --self-test` **34** 项；任务卡 18/19 剧本化真跑 |
+| ad-cloud | 容器逃逸原语（privileged / hostPath / docker.sock / CAP_SYS_ADMIN / cgroup release_agent / runc CVE）；集群控制面五面（SA token、RBAC can-i、kubelet 10250、etcd 2379、admission webhook）；云 IAM 四步链与 8 条提权路径；边缘接入面（VPN/OWA/Zimbra/Okta/M365）只读指纹 | 矩阵 23→**26**；任务卡 →**28** 张（7 张剧本化）；`k8s-and-container.md` 199→335 行 |
+| signin-automation | 六原语（会话池 / 定时通知 / 验证码分支 / 滑块缺口 / 旋转角度 / TLS 指纹）；指纹面 12 项 + JA3·JA4 + H2 伪头序；OPSEC 参数表（间隔分布、并发上限、代理轮换、启动参数）；`opsec-check.py` 五判据自测 12 项 | SKILL 35→**264** 行；新增 `references/01-fingerprint-and-pacing.md`（147 行） |
+| forensics-mobile | 主机遥测与反取证痕迹：ETW-TI / 内核回调 / AMSI / Sysmon 事件与字段 / 只读枚举命令 / 清理动作的自证痕迹与补偿证据 | `disk-and-filesystem.md` 158→262 行；domain-gate 10/10 |
+| 00-analysis | 报告模板：一页骨架 + 证据分级（proven/hypothesis/refuted/stale）+ 资产归属段 + 14 条「证据不足」反例 + 提交前 60 秒清单 | `references/05-report-template.md`（194 行），SKILL 已入索引 |
+
+口径：这些都写成了「前置条件 → 可机检判据 → 失败判据 → 代价」的表；素材原文不整段复制，命令与字段按本仓脚本可执行性重写。
