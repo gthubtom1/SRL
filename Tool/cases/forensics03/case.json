@@ -117,6 +117,10 @@
     {
       "path": "input/explorer-key-names.txt",
       "sha256": "0ef13b7d6a8ca8fe32e25e6ff8d51036908646c6f61a8122d171cbec048ab3d7"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "683851021fa185e6c7c96e27681f96babacbb435a0ed000c628ca3a0e6773583"
     }
   ],
   "lessons": [

@@ -352,14 +352,25 @@ def check_cases(dom, spec):
                     bad.append("%s(%s 含非空 generated_at，复跑会漂)" % (os.path.basename(cd), ap))
         listed = {(a.get("path") or "").replace("\\", "/") for a in (c.get("artifacts") or [])}
         adir = os.path.join(cd, "artifacts")
+        manifest = {}
+        mf = os.path.join(adir, "MANIFEST.sha256")
+        if os.path.isfile(mf):
+            for ln in open(mf, encoding="utf-8", errors="replace").read().splitlines():
+                parts = ln.split(None, 1)
+                if len(parts) == 2:
+                    manifest[parts[1].strip()] = parts[0].lower()
         if os.path.isdir(adir):
-            for fn in sorted(os.listdir(adir)):
-                fp = os.path.join(adir, fn)
-                if not os.path.isfile(fp) or fn.lower().startswith("readme"):
-                    continue
-                relp = "artifacts/" + fn
-                if relp not in listed:
-                    bad.append("%s(%s 未登记到 artifacts[])" % (os.path.basename(cd), relp))
+            for dp, dn, fn in os.walk(adir):
+                for f in sorted(fn):
+                    fp = os.path.join(dp, f)
+                    relp = os.path.relpath(fp, cd).replace("\\", "/")
+                    if relp.lower().endswith("readme.md") or relp.endswith("MANIFEST.sha256"):
+                        continue
+                    if relp in listed:
+                        continue
+                    if manifest.get(relp) == sha256(fp):
+                        continue
+                    bad.append("%s(%s 未登记且不在 MANIFEST)" % (os.path.basename(cd), relp))
         for art in c.get("artifacts") or []:
             ap = art.get("path") or ""
             want = (art.get("sha256") or "").lower()

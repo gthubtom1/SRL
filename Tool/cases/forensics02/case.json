@@ -25,6 +25,10 @@
     {
       "path": "artifacts/run.json",
       "sha256": "a7472439e3eac676b22170b412faf95f9b235e6f7bb5ae6d90da7a25410fe18c"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "1e77962dd1837122dbab3b41a09c98215ee48daf8c378c58e550d9a91e16f51f"
     }
   ],
   "evidence": [],

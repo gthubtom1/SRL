@@ -11,6 +11,10 @@
     {
       "path": "artifacts/reach.json",
       "sha256": "7ca6b895f7857ca7576c7953a293479db0d60870f0f98c59830cfb062d5d934d"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "19a14aaef6507a4a9ed7a70d99aa3e9d8ee461e8c9e775c6c80468adbf683cd4"
     }
   ],
   "lessons": [

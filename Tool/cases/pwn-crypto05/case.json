@@ -39,6 +39,10 @@
     {
       "path": "artifacts/percent_n.exe",
       "sha256": "972550c9773b17c0ff2de7966b29114c0b8c0747e871893884c1e0f0d573500a"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "a0df463f4df58e00dd6bc5475532ae198c65440efb37bcfc26a5d5ef96e88d24"
     }
   ],
   "lessons": [

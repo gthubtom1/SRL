@@ -59,6 +59,10 @@
     {
       "path": "artifacts/probe_stdout.txt",
       "sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "bb27366298562ac93b4ea0f689af7abc6c667efb194b5fcfb59de40fb2876071"
     }
   ],
   "lessons": [

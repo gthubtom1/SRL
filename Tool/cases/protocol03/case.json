@@ -106,6 +106,10 @@
     {
       "path": "artifacts/streams/s01_127.0.0.1_8080-127.0.0.1_44380.bin",
       "sha256": "c47cb7b8b5aa186d803c0bc2bf6534df2b2d108631a50d20b4751a8113f69a7c"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "1ce1601420ecb39c63dc9f365f263c580f1e602a55ebe86cfe3d47fde6c0cca5"
     }
   ],
   "evidence": [

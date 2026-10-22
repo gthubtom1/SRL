@@ -89,6 +89,10 @@
     {
       "path": "artifacts/new-frame-parse.json",
       "sha256": "c9474f0e37976dd384f0478e705fe44690dadfbb61170c58e1357f4393e609ce"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "bfe8f676eca5983e4dc3e90ce41f11b17d89cee2234360e6fbc265e95df17eaa"
     }
   ],
   "evidence": [

@@ -62,7 +62,7 @@ Users provide plain-language technical goals; the agent autonomously performs pl
 
 | Pain Point | Solution |
 |---|---|
-| 🔧 **Toolchain Fragmentation** | 37 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
+| 🔧 **Toolchain Fragmentation** | 40 MCP tools wrapping Radare2, JADX, Apktool, Frida — unified API, zero manual switching |
 | 🧠 **Agent Decision Drift** | `softseep` orchestrator: two-stage auto-classification (Platform × 9 Task Types) + 7-gate decision tree |
 | 🛡️ **Model Refusal in Security Audits** | Three-tier mitigation: `BLOCK_NONE` injection + transparent terminology mapping + cognitive redirection |
 | 📚 **Ephemeral Knowledge** | 409 technical field journals + 14 desensitized paradigms + "search KB before executing" enforced discipline |
@@ -175,7 +175,7 @@ Seep\ (251 MB)
 ├── docs/CHANGELOG.md                   ← User-facing release notes
 │
 ├── Tool\
-│   ├── skill\                     ← 23 domain skills (00–05 stage skills + general toolkit)
+│   ├── skill\                     ← 30 domain skills (00–05 stage skills + general toolkit)
 │   │   ├── softseep\              ← ⭐ Master orchestrator (Router + 8 on-demand references)
 │   │   ├── apkseep\               ← End-to-end Android APK/DEX/SO skill (115 files)
 │   │   ├── ida-reverse\           ← IDA Pro automated spawning & MCP coordination

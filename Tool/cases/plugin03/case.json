@@ -56,6 +56,10 @@
     {
       "path": "artifacts/run.json",
       "sha256": "5e9bf39a07c0e062a8afe8d4a6d6f00e98bc69b86095684b7e5fce2f2736e81c"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "e0d06f074f7fc84c99e8325fdb5bb5fae90310630c80507a3231a8b64607dfe0"
     }
   ],
   "lessons": [

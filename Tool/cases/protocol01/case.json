@@ -87,6 +87,10 @@
     {
       "path": "artifacts/streams/s01_10.20.0.5_80-10.20.0.15_49152.bin",
       "sha256": "f1a42bcb76bca9ff7d53c04b614ce1bbd014d1efbf4966ce48763c704a224b6d"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "11e41009250d95630c4df49cd6d92abdab672692291ebf91d9c1835222cc3004"
     }
   ],
   "evidence": [

@@ -28,6 +28,10 @@
     {
       "path": "artifacts/accept.json",
       "sha256": "348b5360e9550ff1dd8176d879bec2822d530bd815ebe6f78ba327020baa808f"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "31e6ce1d8403e6d7dfc6fe2c56427bcf9b714a245f8e84f8369f6253b54b888e"
     }
   ],
   "lessons": [

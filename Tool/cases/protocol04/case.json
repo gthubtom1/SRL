@@ -127,6 +127,10 @@
     {
       "path": "input/echo_server.py",
       "sha256": "318efe586c0e022f2c37385975c862966453e52435fc97dc11dde0ab087253ed"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "b36ec47c5130753568512240395584415f2d06ec77d0a944f21e51a1b7bcb334"
     }
   ],
   "evidence": [

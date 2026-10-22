@@ -3,8 +3,8 @@
 > 本文件由 `Tool/scripts/intent-coverage.py` 的 JSON 结果生成；探针在 `Tool/config/intent-probes.json`，共 90。
 > 覆盖口径：触发词命中期望配方即算 covered；未命中按缺口列出，并给 2–3 个 capability 组合。
 
-- 总数：**90**
-- 已覆盖：**90**
+- 总数：**93**
+- 已覆盖：**93**
 - 缺口：**0**
 - 覆盖率：**100%**
 - 跨域误命中：**0**
