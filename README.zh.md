@@ -85,6 +85,12 @@
 | **接力棒（换会话先读）** | `ROADMAP.md`（能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore） |
 | **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
+| **门禁 43 项** | `python Tool/scripts/preflight.py`：全量 **43/43**、`--fast` **40/40**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
+| **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 40 工具数基线，防「模型第一次调用就传错参数」 |
+| **技能路由探针** | `skill-route-probe.py`：33 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
+| **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |
+| **固件/物联网无线近场** | `firmware-iot` 新增 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC 章节 |
+| **02/03 阶段硬化** | 判据表 + 失败判据 + 最小实现，阶段产出可验收、失败可止损 |
 
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
@@ -201,6 +207,9 @@ Agent 自主完成：
 - ⚡ **DeepSeek Harness (DSH) 秒级自愈套件**：解决官方与插件在 Windows 上的扫描超时与端口冲突，4 秒极速冷启动，自动提取 Token URL 与 MCP 在线核验 (`start-dsh.ps1` / `stop-dsh.ps1`)
 - 🛡️ **实测抗拒答综合防线**：Gemini-Safe 提示词语义重塑（`gemini-safe.flag`，377 token 拒答 → 3300 字深度分析）、L1 拦截器动态可观测日志（`l1-log.flag`）、底座级 `BLOCK_NONE` 注入
 - 🔌 **离线预置全量内置**：所有工具链物理打包（251 MB），部署后零外网依赖
+- 🛰️ **OSINT / 资产与人员测绘（R36）**：域名、证书、组织与人员画像 → 资产面收敛，配方 `osint-recon`
+- 📡 **固件/物联网无线近场**：`firmware-iot` 覆盖 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC 的采集与判据
+- 🧱 **02/03 阶段硬化**：判据表 + 失败判据 + 最小实现，先能验收再谈扩展
 
 ---
 
