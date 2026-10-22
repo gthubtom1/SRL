@@ -372,7 +372,7 @@ class H(BaseHTTPRequestHandler):
     do_GET = _go
     do_POST = _go
 
-ap = JsonArgParser()
+ap = argparse.ArgumentParser()
 ap.add_argument("--port", type=int, default=0)
 a = ap.parse_args()
 s = ThreadingHTTPServer(("127.0.0.1", a.port), H)
