@@ -1,0 +1,26 @@
+{
+  "id": "firmware-extract",
+  "title": "固件解包与文件系统提取",
+  "inputs": [
+    "固件镜像",
+    "期望架构"
+  ],
+  "outputs": [
+    "解包目录",
+    "熵/容器报告",
+    "rootfs"
+  ],
+  "scripts": [
+    "Tool/skill/firmware-iot/scripts/fw-triage.py",
+    "Tool/scripts/fw-triage.py"
+  ],
+  "refs": [
+    "Tool/skill/firmware-iot/references/firmware-unpack.md",
+    "Tool/skill/firmware-iot/references/06-container-carving-and-entropy.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "rootfs-emulate",
+    "ioc-extract"
+  ]
+}

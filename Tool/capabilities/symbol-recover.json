@@ -1,0 +1,22 @@
+{
+  "id": "symbol-recover",
+  "title": "符号恢复",
+  "inputs": [
+    "去符号二进制",
+    "库特征/调用约定"
+  ],
+  "outputs": [
+    "函数名映射",
+    "重命名后的 IDB/脚本"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/softseep/references/08-symbol-recovery.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "license-locate",
+    "native-hook"
+  ],
+  "note": "待补符号恢复批处理脚本，当前用 IDA FLIRT + Ghidra 签名匹配手工完成"
+}

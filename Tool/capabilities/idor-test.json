@@ -1,0 +1,22 @@
+{
+  "id": "idor-test",
+  "title": "IDOR 对象引用测试",
+  "inputs": [
+    "资源 ID 空间",
+    "两个账号的会话"
+  ],
+  "outputs": [
+    "越权读写矩阵",
+    "证据链"
+  ],
+  "scripts": [
+    "Tool/skill/web-pentest/scripts/web-repro.py"
+  ],
+  "refs": [
+    "Tool/skill/web-pentest/references/04-walkthrough-flask-bola.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "authz-test"
+  ]
+}

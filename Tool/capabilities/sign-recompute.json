@@ -1,0 +1,23 @@
+{
+  "id": "sign-recompute",
+  "title": "签名复算",
+  "inputs": [
+    "参与字段",
+    "算法与密钥/证书"
+  ],
+  "outputs": [
+    "可复算签名",
+    "对拍记录"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/sig_probe.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/signature-derived-keys.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "protocol-construct"
+  ],
+  "note": "待补跨语言签名复算器，当前用 Python 重写 + 单请求对拍手工完成；sig_probe.py 只取平台返回的签名字符串"
+}

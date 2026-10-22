@@ -1,0 +1,26 @@
+{
+  "id": "protocol-construct",
+  "title": "协议构包",
+  "inputs": [
+    "帧结构",
+    "字段取值域",
+    "校验算法"
+  ],
+  "outputs": [
+    "新请求帧",
+    "响应断言"
+  ],
+  "scripts": [
+    "Tool/skill/protocol-plugin/scripts/proto-repro.py",
+    "Tool/skill/apkseep/scripts/protobuf_decode_raw.py"
+  ],
+  "refs": [
+    "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+    "Tool/skill/protocol-plugin/references/05-binary-framing.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "protocol-replay",
+    "sign-recompute"
+  ]
+}

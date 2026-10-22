@@ -1,0 +1,23 @@
+{
+  "id": "site-rebuild",
+  "title": "站点复刻与本地重建",
+  "inputs": [
+    "路由清单",
+    "静态资源"
+  ],
+  "outputs": [
+    "本地可跑站点",
+    "接口 mock"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/05-backend-rebuild/SKILL.md",
+    "Tool/skill/02-ui-rebrand/SKILL.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "site-crawl",
+    "visual-diff"
+  ],
+  "note": "待补复刻脚手架脚本，当前用 05-backend-rebuild 清单 + 静态服务器手工完成"
+}

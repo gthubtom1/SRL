@@ -1,0 +1,23 @@
+{
+  "id": "license-bypass",
+  "title": "授权绕过与验证",
+  "inputs": [
+    "校验点地址",
+    "原判定分支"
+  ],
+  "outputs": [
+    "补丁前后行为对比",
+    "绕过证据"
+  ],
+  "scripts": [
+    "Tool/skill/softseep/scripts/patch-verify.py"
+  ],
+  "refs": [
+    "Tool/skill/softseep/references/license-validation.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "patch-apply",
+    "patch-rollback"
+  ]
+}

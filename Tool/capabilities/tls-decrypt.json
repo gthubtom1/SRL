@@ -1,0 +1,24 @@
+{
+  "id": "tls-decrypt",
+  "title": "TLS 解密与明文还原",
+  "inputs": [
+    "pcap 文件",
+    "SSLKEYLOGFILE 或 RSA 私钥"
+  ],
+  "outputs": [
+    "明文流",
+    "解密后 JSON/帧"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/tls_check.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/tls-and-cert.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "traffic-capture",
+    "protocol-replay"
+  ],
+  "note": "待补 keylog→明文 pcap 自动化脚本，当前用 tshark --tls.keylog_file 手工完成；tls_check.py 只覆盖证书链体检"
+}

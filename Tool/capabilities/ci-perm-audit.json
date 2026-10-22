@@ -1,0 +1,24 @@
+{
+  "id": "ci-perm-audit",
+  "title": "CI 权限审计",
+  "inputs": [
+    "workflow YAML",
+    "仓库权限设置"
+  ],
+  "outputs": [
+    "权限矩阵",
+    "提权路径"
+  ],
+  "scripts": [
+    "Tool/skill/supply-chain-security/scripts/ci-perm-audit.py",
+    "Tool/skill/supply-chain-security/scripts/sc-accept.py"
+  ],
+  "refs": [
+    "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
+    "Tool/skill/supply-chain-security/references/04-walkthrough-workflow-permissions.md"
+  ],
+  "maturity": "battle-tested",
+  "compose": [
+    "sbom-build"
+  ]
+}

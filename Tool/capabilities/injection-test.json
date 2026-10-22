@@ -1,0 +1,23 @@
+{
+  "id": "injection-test",
+  "title": "注入与 SSRF 测试",
+  "inputs": [
+    "参数点位",
+    "回显/盲注通道"
+  ],
+  "outputs": [
+    "payload 集",
+    "命中证据"
+  ],
+  "scripts": [
+    "Tool/skill/web-pentest/scripts/web-repro.py"
+  ],
+  "refs": [
+    "Tool/skill/web-pentest/references/05-injection-and-ssrf.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "authz-test",
+    "cache-test"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "ioc-extract",
+  "title": "IOC 抽取与置信度分级",
+  "inputs": [
+    "样本或文档"
+  ],
+  "outputs": [
+    "IOC JSON",
+    "置信度分级"
+  ],
+  "scripts": [
+    "Tool/skill/malware-analysis/scripts/ioc-extract.py"
+  ],
+  "refs": [
+    "Tool/skill/malware-analysis/references/04-walkthrough-real-pe.md"
+  ],
+  "maturity": "battle-tested",
+  "compose": [
+    "yara-write",
+    "timeline"
+  ]
+}

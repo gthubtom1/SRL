@@ -1,0 +1,23 @@
+{
+  "id": "state-machine",
+  "title": "会话状态机建模",
+  "inputs": [
+    "pcap 或请求序列",
+    "状态转移假设"
+  ],
+  "outputs": [
+    "状态机 JSON",
+    "合法跳转表",
+    "非法跳转样例"
+  ],
+  "scripts": [
+    "Tool/skill/protocol-plugin/scripts/pcap-summary.py"
+  ],
+  "refs": [
+    "Tool/skill/protocol-plugin/references/06-app-state-machine.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "protocol-replay"
+  ]
+}

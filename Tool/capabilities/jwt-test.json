@@ -1,0 +1,22 @@
+{
+  "id": "jwt-test",
+  "title": "JWT 结构与校验测试",
+  "inputs": [
+    "JWT 样例",
+    "允许算法清单"
+  ],
+  "outputs": [
+    "解析结果",
+    "算法混淆/弱密钥证据"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/web-pentest/references/06-auth-and-api.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "authz-test",
+    "session-pool"
+  ],
+  "note": "待补 JWT 解析与弱密钥校验脚本，当前用 jwt_tool + 手工 base64 解码完成"
+}

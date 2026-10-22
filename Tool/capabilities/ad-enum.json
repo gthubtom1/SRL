@@ -1,0 +1,25 @@
+{
+  "id": "ad-enum",
+  "title": "AD 枚举",
+  "inputs": [
+    "域控制器地址",
+    "低权域凭据"
+  ],
+  "outputs": [
+    "用户/组/ACL 清单",
+    "委派关系图"
+  ],
+  "scripts": [
+    "Tool/skill/ad-cloud/scripts/ad-repro.py",
+    "Tool/skill/ad-cloud/scripts/ad-accept.py"
+  ],
+  "refs": [
+    "Tool/skill/ad-cloud/references/ad-attacks.md",
+    "Tool/skill/ad-cloud/references/04-walkthrough-windows-auth-events.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "adcs-abuse",
+    "memory-forensics"
+  ]
+}

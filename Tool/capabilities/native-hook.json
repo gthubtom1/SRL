@@ -1,0 +1,27 @@
+{
+  "id": "native-hook",
+  "title": "Native 层 Hook 与注入",
+  "inputs": [
+    "目标 so 模块名",
+    "进程/包名"
+  ],
+  "outputs": [
+    "hook js 脚本",
+    "运行时日志",
+    "RPC 端点"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/frida_probe.js",
+    "Tool/skill/apkseep/scripts/rpc_template.js",
+    "Tool/skill/apkseep/scripts/spawn_patch_detach.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/dynamic-frida-1-setup-and-probe.md",
+    "Tool/skill/apkseep/references/native-dbi-and-deobfuscation.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "sign-locate",
+    "anti-debug-bypass"
+  ]
+}

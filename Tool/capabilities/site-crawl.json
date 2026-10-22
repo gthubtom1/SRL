@@ -1,0 +1,23 @@
+{
+  "id": "site-crawl",
+  "title": "站点爬取与路由枚举",
+  "inputs": [
+    "入口 URL",
+    "登录态"
+  ],
+  "outputs": [
+    "URL/路由清单",
+    "接口与参数样本"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/web-pentest/references/07-waf-and-bypass.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "authz-test",
+    "injection-test",
+    "cache-test"
+  ],
+  "note": "待补爬取编排脚本，当前用浏览器 devtools 导出 HAR + httpx 手工整理"
+}

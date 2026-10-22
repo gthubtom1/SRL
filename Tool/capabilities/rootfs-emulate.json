@@ -1,0 +1,24 @@
+{
+  "id": "rootfs-emulate",
+  "title": "rootfs 仿真运行",
+  "inputs": [
+    "rootfs",
+    "QEMU 机器类型"
+  ],
+  "outputs": [
+    "可交互 shell",
+    "启动日志",
+    "服务指纹"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/firmware-iot/references/emulation-and-fuzz.md",
+    "Tool/skill/firmware-iot/references/filesystem-and-credentials.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "firmware-extract",
+    "authz-test"
+  ],
+  "note": "待补 rootfs 启动编排脚本，当前用 qemu-system + chroot 手工完成"
+}

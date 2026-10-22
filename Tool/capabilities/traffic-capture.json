@@ -1,0 +1,27 @@
+{
+  "id": "traffic-capture",
+  "title": "抓包与流摘要",
+  "inputs": [
+    "接口名或 pcap 路径",
+    "过滤表达式"
+  ],
+  "outputs": [
+    "pcap 文件",
+    "流摘要 JSON",
+    "TLS 握手元数据"
+  ],
+  "scripts": [
+    "Tool/skill/protocol-plugin/scripts/pcap-summary.py",
+    "Tool/scripts/pcap-summary.py"
+  ],
+  "refs": [
+    "Tool/skill/protocol-plugin/references/05-binary-framing.md",
+    "Tool/skill/forensics-mobile/references/network-pcap-and-log.md"
+  ],
+  "maturity": "battle-tested",
+  "compose": [
+    "tls-decrypt",
+    "protocol-replay",
+    "state-machine"
+  ]
+}

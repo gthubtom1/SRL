@@ -1,0 +1,25 @@
+{
+  "id": "permission-evidence",
+  "title": "权限证据聚合",
+  "inputs": [
+    "manifest/权限声明",
+    "运行时可观测调用"
+  ],
+  "outputs": [
+    "权限-调用对照表",
+    "最小权限建议"
+  ],
+  "scripts": [
+    "Tool/scripts/apk/manifest-summary.ps1",
+    "Tool/skill/apkseep/scripts/capabilities.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/account-gates.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "ipc-audit",
+    "plugin-unpack"
+  ],
+  "note": "待补权限证据聚合脚本，当前用 manifest-summary.ps1 + capabilities.py 手工汇总"
+}

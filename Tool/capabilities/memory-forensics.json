@@ -1,0 +1,21 @@
+{
+  "id": "memory-forensics",
+  "title": "内存取证",
+  "inputs": [
+    "内存镜像",
+    "符号表/版本"
+  ],
+  "outputs": [
+    "进程/网络/凭证提取结果"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/forensics-mobile/references/memory-forensics.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "timeline",
+    "evidence-accept"
+  ],
+  "note": "待补内存镜像摄取脚本，当前用 volatility3 指定插件手工完成"
+}
