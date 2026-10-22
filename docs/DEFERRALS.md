@@ -34,7 +34,7 @@
 
 | id | 延迟项 | 现状 / 触发条件 |
 | :-- | :-- | :-- |
-| D20 | `offensive-*` 79 篇（SnailSploit 上游 / UNKNOWN 许可）未归档索引 | 已定档「只索引正文、不进树」（见 `docs/UPSTREAM.md` §6.3）；触发条件：需要某篇具体命令时按篇重写 |
+| D20 | **索引已交付**：79 篇 `offensive-*`（UNKNOWN 许可）的归档索引在 `kb/_archive/pentest-checklist/README.md`（79 行表 + 建议动作），未收清单在同目录 `NOT-ABSORBED.md` | 剩余缺口：表里「可重写吸收」的 10 篇**正文**尚未逐篇落库（纪律：正文不进树，按篇重写）；触发条件：需要某篇的具体命令时 |
 | D21 | 无线近场未独立成域（当前挂 `firmware-iot` 的 `hardware-interfaces.md` 无线章 + 路由 R22） | 硬件探针（monitor 网卡 / BLE / 802.15.4 / sub-GHz）未纳入 `probe_matrix.py`；触发条件：连续 3 个无线案例稳定后升域 |
-| D22 | 竞态/时序只有判据与实验骨架，无 `race-probe.py` 脚本 | 需 HTTP/2 单包与账本读回的可复跑脚本；触发条件：出现第 2 个需要竞态验证的案例 |
+| D22 | **脚本已交付**：`Tool/skill/web-pentest/scripts/race-probe.py`（608 行；并发批 + 账本读回 + 远端安全闸 + 默认 dry-run；`--self-test` 22 项；已接 `web-pentest-matrix.json`(19 条) / SKILL §9 / references 09 / 能力表 `race-test`） | 剩余缺口：**HTTP/2 单包（last-byte sync）** 未实现，当前口径是「同批并发 + 读回账本」；触发条件：目标为 HTTP/2 且并发批打不出窗口压缩时补 |
 | D23 | OSINT 只有配方（`osint-recon`），无专用脚本（secret_scan / h1-ref 未重写） | 上游脚本无 `--help` / `--self-test`；触发条件：需要批量密钥扫描或 H1 公开报告检索时按规范重写 |
