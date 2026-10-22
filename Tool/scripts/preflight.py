@@ -231,6 +231,16 @@ def check_functional(fast):
         ("relay-rules-sync", [py, os.path.join(TOOL, "scripts", "compliance-relay", "extract-rules.py"), "--check"]),
         ("kb-acceptance", [py, os.path.join(TOOL, "scripts", "kb_acceptance.py")]),
     ]
+    # --out 指向不存在的父目录时必须自动创建并落盘（B-P0-3：判绿无产物）
+    import tempfile
+    tmp = tempfile.mkdtemp(prefix="seep-out-")
+    target = os.path.join(tmp, "a", "b", "web.json")
+    rc_w, _o = run([py, os.path.join(TOOL, "skill", "web-pentest", "scripts", "web-check.py"),
+                    "--url", "http://127.0.0.1:9/", "--out", target], timeout=120)
+    add("4 功能", "out-artifact（--out 自动建目录并落盘）",
+        os.path.isfile(target) and rc_w in (0, 3),
+        "rc=%d file=%s" % (rc_w, "yes" if os.path.isfile(target) else "missing"))
+
     if not fast:
         items.append(("smoke-e2e", [py, os.path.join(TOOL, "scripts", "smoke-e2e.py")]))
     for name, cmd in items:
