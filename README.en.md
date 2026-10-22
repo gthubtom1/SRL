@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20Tools-38%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP%20Tools-40%20Integrated-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/Verifier-65%2F65%20Passed-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/Knowledge%20Base-409%20Journals-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/Paradigms-14%20Cases%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
@@ -377,7 +377,7 @@ Run the 9-dimension health verifier (58 checks) against `MANUAL/DEPLOYMENT-CHECK
 | Agent chat | Send `check` (or `doctor` / `检查`) — agent runs and reports inline |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep Health Verifier Dashboard (58 Checks Passed across 9 Dimensions)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep Health Verifier Dashboard (65 Checks Passed across 9 Dimensions)" width="880">
 </p>
 
 ---

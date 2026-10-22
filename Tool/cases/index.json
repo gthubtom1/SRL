@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "f6784a53227d6197fc6bca7a79f187fb670bfcc446d9d1094b3774ebafc27e3e",
+  "source_hash": "6bba55f73a1abcbd215b97283a10cd6d5ba3aaa61e4981c5732fdede462aeefd",
   "case_count": 51,
   "cases": [
     {
@@ -2019,7 +2019,7 @@
     {
       "dir": "site-clone-drill01",
       "id": "site-clone-drill01",
-      "domain": "web-pentest",
+      "domain": "site-clone",
       "target_type": "Next.js 静态导出站点（SSR shell + Cloudflare Pages）：https://block.youtest.me",
       "evidence_kind": "real",
       "protection": [],
