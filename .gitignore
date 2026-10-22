@@ -102,3 +102,6 @@ tools.local.json
 
 # 分析稿：仅本地保留，不入库（目标第 5 条）
 docs/audit/ANALYSIS-*.md
+
+# pi 目标状态目录（本地运行期）
+.pi/
