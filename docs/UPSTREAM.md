@@ -89,12 +89,12 @@ git commit -m "sync(upstream): <文件>（五问通过）"
 | `triage-validation` + `recon-scope-triage` + `hunt-race-condition` | `Tool/skill/web-pentest/references/09-ownership-and-timing-proof.md` | 重写为「归属判据表 / 软 404 基线 / 竞态账本读回 / 失败判据表」 |
 | 无线 14 篇（wifi / wpa2 / wpa3 / wpa-ent / wps / deauth / krack / evil-twin / ble / classic / z-wave / zigbee / lorawan / wifi-recon） | `Tool/skill/firmware-iot/references/hardware-interfaces.md` 的「无线与近场」章 | 重写为判据表 + 失败判据表 + 模型失误；路由挂 R22 |
 | `osint-methodology` + `offensive-osint` 的工序 | `Tool/playbooks/osint-recon.md` + 路由 R36 | 重写为可跑命令序列（先被动、再存活、后代码/人员面），判据可机检 |
+| `offensive-*` 79 篇（UNKNOWN 许可） | `Tool/mcp/Tool/reverselab/kb/_archive/pentest-checklist/README.md` + `NOT-ABSORBED.md` | 只建索引（79 行表 + 一句话价值 + 建议动作 + 复核命令），正文**不进树**；需要具体命令时按篇重写 |
 
 ### 6.3 待吸收（已分档，按需再取）
 
 | 档 | 内容 | 前置条件 |
 | :-- | :-- | :-- |
-| 归档后索引 | 79 个 `offensive-*` | 需在 `kb/_archive/` 建索引并逐条标 `license: UNKNOWN`；正文只留 `work/`（gitignore） |
 | 只摘片段 | `hunt-http-smuggling` 的 2026 适配矩阵 / `hunt-cache-poison` 的 Gate 0 / `hunt-oauth\|saml\|jwt` 的断言攻击表 / `offensive-lateral-movement\|data-exfiltration` 的通道可行性判据 | 每处 ≤1 张表，并入现有 reference，不得挤压 6–10 篇上限 |
 | 独立新域 | 无线近场（若要升域） | 需 9 件套 + `domain_spec.py` / `routing` / `DOMAIN-SPEC-v2.md` 三处契约变更；当前以 R22 + 单章承载，够用不升域 |
 | 不收 | 课程转录 6 篇、`hunt-misc` / `security-arsenal` / `wstg-web-pentest`（泛清单）、`offensive-c2-frameworks`（与本仓「可复现判据 + 取证」定位正交） | — |
