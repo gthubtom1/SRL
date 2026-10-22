@@ -7,8 +7,9 @@
   [1] 逐篇取「步骤」行里的反引号代码段
   [2] 只保留以 `python ` 开头的片段（其余如 powershell / 路径 / 字段名不计）
   [3] 每条命令解析出脚本路径，先校验脚本文件存在
-  [4] 命令里带占位参数（`<TARGET>`、`work/<case>`…）时跳过实跑，只校验脚本存在
-  [5] 不带占位的命令实跑 `--help`，要求 rc=0
+  [4] 用 AST 读出目标脚本的 argparse 声明（`--flag` 与 `choices`），
+      对**所有**命令（含占位命令）校验参数名存在、枚举值合法
+  [5] 不带占位的命令再实跑 `--help`，要求 rc=0
 
 输出：`{ok, total, bad:[{playbook,cmd,reason}]}`。
 `total` 是被检查的命令条数（按配方内去重），`bad` 是脚本缺失或 `--help` 非 0 的条目。
@@ -24,6 +25,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import glob
 import json
 import os
@@ -31,6 +33,9 @@ import re
 import subprocess
 import sys
 import tempfile
+import warnings
+
+warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -98,6 +103,9 @@ def check_command(cmd: str, root: str) -> dict:
     target = token if os.path.isabs(token) else os.path.join(root, token.replace("/", os.sep))
     if not os.path.isfile(target):
         return {"cmd": cmd, "reason": "脚本不存在: " + token, "skipped": False}
+    problems = flag_problems(cmd, target)
+    if problems:
+        return {"cmd": cmd, "reason": problems, "skipped": False}
     if PLACEHOLDER_RE.search(cmd):
         return {"cmd": cmd, "reason": "", "skipped": True}
     try:
@@ -185,6 +193,10 @@ def self_test() -> int:
               "import sys\nprint('usage: good.py')\nsys.exit(0 if '--help' in sys.argv else 3)\n")
         write(os.path.join(scripts, "broken.py"),
               "import sys\nprint('boom', file=sys.stderr)\nsys.exit(4)\n")
+        write(os.path.join(scripts, "level.py"),
+              "import argparse\np=argparse.ArgumentParser()\n"
+              "p.add_argument('--level', choices=['M1','M2','M3','M4'])\n"
+              "p.add_argument('--json', action='store_true')\nargs=p.parse_args()\n")
 
         write(os.path.join(books, "alpha.md"), "\n".join([
             "# alpha",
@@ -200,13 +212,22 @@ def self_test() -> int:
             "2) `python Tool/scripts/broken.py --json` → rc=1；"
             "3) `python -c print(1)` → rc=1。",
         ]))
+        write(os.path.join(books, "gamma.md"), "\n".join([
+            "# gamma",
+            "- 步骤：1) `python Tool/scripts/level.py --level L2 --json` → rc=0（枚举非法）；"
+            "2) `python Tool/scripts/level.py --nope <SAMPLE>` → rc=0（参数不存在）。",
+        ]))
         write(os.path.join(books, "README.md"), "- 步骤：`python Tool/scripts/missing.py`\n")
 
         res = run_check(books, root)
         expect("json 顶层字段齐全",
                {"ok", "total", "bad"} <= set(res))
-        expect("只统计 python 片段（alpha 2 条 + beta 3 条 = 5）", res["total"] == 5)
-        expect("坏命令被捕获（缺脚本/--help 非 0/-c 各一）", len(res["bad"]) == 3)
+        expect("只统计 python 片段（alpha 2 + beta 3 + gamma 2 = 7）", res["total"] == 7)
+        expect("坏命令被捕获（缺脚本/--help 非 0/-c/枚举/参数各一）", len(res["bad"]) == 5)
+        expect("枚举值非法被捕获（--level L2）",
+               any("取值非法" in b["reason"] and "gamma" == b["playbook"] for b in res["bad"]))
+        expect("未知参数被捕获（占位命令也查）",
+               any("未知参数" in b["reason"] for b in res["bad"]))
         reasons = {(b["playbook"], b["reason"].split(":")[0]) for b in res["bad"]}
         expect("占位命令只校验脚本存在（broken 的 --help 不实跑）",
                not any(b["playbook"] == "alpha" and "broken.py" in b["cmd"] for b in res["bad"]))
@@ -232,25 +253,70 @@ def self_test() -> int:
     return 0 if not bad else 1
 
 
-def _flag_ok(cmd):
-    """非占位命令：每个 --flag 必须出现在目标脚本 --help 里（flag-existence）。"""
-    import re as _re, subprocess as _sp, sys as _sys, os as _os
-    m = _re.search(r"python\s+(\S+\.py)", cmd)
-    if not m:
-        return True, ""
-    script = m.group(1)
-    if not _os.path.isfile(script):
-        return False, "script missing"
+_CLI_CACHE: dict = {}
+
+
+def script_flags(target: str):
+    """AST 读目标脚本的 argparse：{--flag: set(choices) 或 None}；读不到返回 None。"""
+    if target in _CLI_CACHE:
+        return _CLI_CACHE[target]
     try:
-        r = _sp.run([_sys.executable, script, "--help"], capture_output=True, text=True,
-                    timeout=60, encoding="utf-8", errors="replace")
-    except Exception as e:
-        return False, "help failed: %s" % str(e)[:30]
-    help_txt = (r.stdout or "") + (r.stderr or "")
-    for flag in _re.findall(r"(--[a-z0-9][a-z0-9-]*)", cmd):
-        if flag not in help_txt:
-            return False, "unknown flag %s" % flag
-    return True, ""
+        with open(target, encoding="utf-8", errors="replace") as fh:
+            tree = ast.parse(fh.read())
+    except (OSError, SyntaxError, ValueError):
+        _CLI_CACHE[target] = None
+        return None
+    flags: dict = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        name = getattr(fn, "attr", None) or getattr(fn, "id", None)
+        if name != "add_argument":
+            continue
+        opts = [a.value for a in node.args
+                if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+        if not opts:
+            continue
+        choices = None
+        for kw in node.keywords:
+            if kw.arg == "choices":
+                try:
+                    choices = {str(v) for v in ast.literal_eval(kw.value)}
+                except (ValueError, SyntaxError, TypeError):
+                    choices = None
+        for opt in opts:
+            if opt.startswith("--"):
+                flags[opt] = choices
+                for extra in opts:
+                    if extra.startswith("-") and not extra.startswith("--"):
+                        flags.setdefault(extra, choices)
+    _CLI_CACHE[target] = flags
+    return flags
+
+
+def flag_problems(cmd: str, target: str) -> str:
+    """校验命令里的参数名与枚举值；返回空串表示通过。"""
+    flags = script_flags(target)
+    if not flags:
+        return ""
+    tokens = cmd.split()[2:]
+    for i, tok in enumerate(tokens):
+        if not tok.startswith("-"):
+            continue
+        name, _, inline = tok.partition("=")
+        if name not in flags:
+            return "未知参数: " + name
+        choices = flags[name]
+        if not choices:
+            continue
+        value = inline or (tokens[i + 1] if i + 1 < len(tokens) else "")
+        if not value or PLACEHOLDER_RE.search(value):
+            continue
+        if value not in choices:
+            return "参数 %s 取值非法: %s（允许 %s）" % (
+                name, value, "/".join(sorted(choices)))
+    return ""
 
 
 def main() -> int:

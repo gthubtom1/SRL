@@ -129,9 +129,14 @@ test_routing_coherence() {
     local chk="$TOOL_DIR/scripts/verify-routing-coherence.py"
     [ -f "$chk" ] || return 1
     [ -n "$PY_BIN" ] || return 0
-    ( cd "$ROOT" && "$PY_BIN" "$chk" >/dev/null 2>&1 )
+    ( cd "$ROOT" && "$PY_BIN" "$chk" >/dev/null 2>&1 ) || return 1
+    for gate in playbook-check.py capability-gate.py; do
+        [ -f "$TOOL_DIR/scripts/$gate" ] || return 1
+        ( cd "$ROOT" && "$PY_BIN" "$TOOL_DIR/scripts/$gate" >/dev/null 2>&1 ) || return 1
+    done
+    return 0
 }
-check_item "路由" "任务路由表自洽 (routing.json ↔ 技能落位)" test_routing_coherence
+check_item "路由" "路由/配方/能力三层自洽 (routing ↔ 配方命令 ↔ 能力 DAG)" test_routing_coherence
 check_item "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" test -f "$ROOT/setup/uninstall.ps1" -a -f "$ROOT/setup/uninstall.sh"
 
 # 2. 知识库

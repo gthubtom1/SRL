@@ -19,6 +19,12 @@ jobs:
         run: python Tool/scripts/domain-gate.py --all
       - name: routing coherence
         run: python Tool/scripts/verify-routing-coherence.py
+      - name: playbook commands
+        run: python Tool/scripts/playbook-check.py
+      - name: capability dag
+        run: python Tool/scripts/capability-gate.py --json
+      - name: intent coverage
+        run: python Tool/scripts/intent-coverage.py --json
       - name: case index
         run: python Tool/scripts/gen-case-index.py --check
   gates-linux:

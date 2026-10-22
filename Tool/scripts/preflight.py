@@ -685,6 +685,26 @@ def check_v123_deliverables():
 
 
 
+def check_playbook_gate():
+    """三层门禁：配方命令（含占位命令的参数/枚举校验）/ 能力 DAG / 意图覆盖。"""
+    for label, script, extra in (
+            ("配方命令门禁", "playbook-check.py", ["--json"]),
+            ("能力层门禁", "capability-gate.py", ["--json"]),
+            ("意图覆盖门禁", "intent-coverage.py", ["--json"])):
+        sp = os.path.join(TOOL, "scripts", script)
+        if not os.path.isfile(sp):
+            add("13 三层", label, False, script + "(missing)")
+            continue
+        rc, out = run([sys.executable, sp] + extra, timeout=300)
+        try:
+            data = json.loads(out[out.index("{"):]) if "{" in out else {}
+        except (ValueError, TypeError):
+            data = {}
+        ok = rc == 0 and data.get("ok") is True
+        add("13 三层", label, ok,
+            "rc=%d ok=%r" % (rc, data.get("ok")) if not ok else "rc=0 ok=true")
+
+
 def check_language():
     """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
     import re as _re
@@ -737,6 +757,7 @@ def main():
     check_domain_packs()
     check_domain_depth()
     check_v123_deliverables()
+    check_playbook_gate()
     check_language()
     check_functional(args.fast)
 

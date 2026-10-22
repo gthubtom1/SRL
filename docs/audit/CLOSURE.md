@@ -13,7 +13,7 @@
 | 5 | forge 缺失、生成链断裂 | D-P0-2 / E-P0-2 | 已修 | `Tool/scripts/forge.py` 三合一 + 生成即门禁 |
 | 6 | 路由与配方对同一句相反答案 | D-P0-3 | 已修 | R34/R35 对齐；kerberoast 词边界；片段同步 |
 | 7 | 矩阵不可信 | D-P0-4 | 已修 | 脚本重算 45×11 |
-| 8 | 配方命令漂移 15/22 | B-P0-2 | 部分 | 28 条实跑、138 条占位只校验脚本存在（口径已披露） |
+| 8 | 配方命令漂移 15/22 | B-P0-2 | 已修 | 6 处 `--level L2`→`M2`、6 处 `--json`/参数/路径对齐；playbook-check 用 AST 读 argparse，对 166 条命令（含 138 条占位）校验参数名与枚举值，坏命令 0；已接入 preflight/verify.sh/verify.ps1/CI |
 | 9 | 证据链可静默成功 | B-P0-3 | 已修 | mutation-test 四类 + accept 脚本 |
 | 10 | 05-backend-rebuild 只有文档 | B-P0-4 / E-P0-1 | 已修 | 4 脚本 + 8 refs + L3 演练 |
 | 11 | site-clone 未接入三层 | B-P0-1 | 已修 | 4 能力 + 配方 + 路由 |
@@ -31,7 +31,7 @@ ad-cloud 第 2 个真实案例（本机非域环境）；全量 264 张卡剧本
 ## 验证
 
 ```
-python Tool/scripts/preflight.py            # 36/36
+python Tool/scripts/preflight.py            # 39/39（含三层门禁：配方命令/能力 DAG/意图覆盖）
 python Tool/scripts/domain-gate.py --all    # 110/110
 python Tool/scripts/intent-coverage.py      # 93/93
 bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
@@ -48,3 +48,36 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | C-P1-5 | lessons 不执行 | 部分修 | accept 校验命令文本；执行由案例复跑脚本承担 |
 | C-P1-6/7 | 两个门禁结论相反 | 已修 | 片段门禁按文件数报数并与 SSOT 同步 |
 | A-P1-6/10/11/12 | DOMAIN-SPEC 十域/文档 0 入链/清单计数 | 已修 | 统一十一域；docs/README 建索引；清单计数同步 |
+
+## B / D 报告 P1 台账
+
+| 来源 | 问题 | 状态 | 依据 |
+| :-- | :-- | :-- | :-- |
+| B-P1-1 | `sign-recompute` 只取平台包签名，不是请求签名复算 | 转 DEFERRALS | 需新增请求签名复算脚本 |
+| B-P1-2 | `site-crawl/site-rebuild/visual-diff` 注册表过期 | 已修 | 四能力已指向 `site-*.py` |
+| B-P1-3 | `tls-decrypt` 只有证书体检 | 转 DEFERRALS | 需 keylog 解密脚本 |
+| B-P1-4 | `license-locate` 无脚本 | 转 DEFERRALS | 依赖 IDA/Ghidra 交叉引用 |
+| B-P1-5 | `permission-evidence` 脚本参数错配 | 转 DEFERRALS | 需 APK 侧 manifest 解析脚本 |
+| B-P1-6 | `ipc-audit` 脚本不是 IPC | 转 DEFERRALS | 需 binder 服务枚举脚本 |
+| B-P1-7 | `yara-write` 无编译校验 | 转 DEFERRALS | 依赖 `yarac`，本机缺失走降级分支 |
+| B-P1-8 | memory/rootfs/adcs 缺 `blocked_at` 分支 | 转 DEFERRALS | 工具缺失时按文档手工走 |
+| B-P1-9 | 配方判据字段与脚本输出不一致 | 已修 | `ioc_counts→iocs`、`entropy_blocks→entropy.overall`、`source_url→url`、去掉脚本不产出的 `pool_size` |
+| B-P1-10 | `site-clone-drill01` 域标错 | 已修 | `case.json.domain=site-clone`，索引重算 |
+| D-P1-1 | 意图覆盖自证 | 已修 | 探针 93 条（含 30 条极端说法），覆盖 93/93 |
+| D-P1-2 | 30 条极端意图只命中 6/30 | 已修 | 词表补齐后同一批全部落到期望配方 |
+| D-P1-3 | 词表漏项 / 误报 | 已修 | 小程序/鸿蒙/OTA/BLE/Modbus/Cloudflare/Docker/SaaS/PyInstaller/Go/Rust/套壳/电视车机 |
+| D-P1-4 | 路由跨域误判 6/40 | 已修 | `\bast\b`（kerberoast→R23）、R9 去 `iat`、R12 增去广告/UI 改版 |
+| D-P1-5 | R34/R35 与配方不一致 | 部分 | note 已对齐；routing schema 仍无 `playbook` 字段 |
+| D-P1-6 | 同一能力 4 套注册表 | 转 DEFERRALS | 合并成本高于收益，按别名映射维持 |
+| D-P1-7 | 能力多为二次提纲 | 转 DEFERRALS | 按使用顺序补独立判据 |
+| D-P1-8 | 计数与版本漂移 | 已修 | VERSION/README/INDEX/AUDIT/BASELINE 同步，INDEX 由 intent-coverage 生成 |
+| D-P1-9 | `new-skill.py` 路由规则无词边界 | 转 DEFERRALS | 新技能命名以英文 id 为准 |
+
+## 三层门禁接线（本轮新增）
+
+| 位置 | 断言 |
+| :-- | :-- |
+| `preflight.py`（section 13） | `playbook-check --json`、`capability-gate --json`、`intent-coverage --json` 三者 rc=0 且 JSON `ok=true` |
+| `setup/verify.sh` | 原「路由自洽」项内追加 playbook-check + capability-gate（项数保持 65） |
+| `setup/verify.ps1` | 同一位置追加两门禁（项数保持 65） |
+| `.github/workflows/gates.yml` | windows job 增 playbook/capability/intent 三步 |

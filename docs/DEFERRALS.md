@@ -18,3 +18,11 @@
 | D10 | `driver-triage.py` **已实现（v1.23.0）**：815 行、self-test 19 项；HVCI/WDAC 仅静态线索 | 真实驱动样本复核 + 动态加载性判定排下一批 |
 | D11 | 判据字段已改为「每个字段必须被脚本输出或在 inferred 白名单」，11 域 0 未覆盖 | 下一批把白名单占比降到 20% 以下 |
 | D12 | iOS / 反作弊 / 托管运行时：已有独立 KB board（各 4 篇+README）与 R26/R29/R33 路由 | 未升独立技能；连续 3 个案例稳定后再升 |
+
+## v1.25.0 终版后的 P1 台账（按使用顺序补）
+
+| id | 项 | 触发条件 |
+| :-- | :-- | :-- |
+| D13 | B 报告 10 条深度 P1（sign-recompute / tls-decrypt / license-locate / permission-evidence / ipc-audit / yara-write 等） | 该能力被真实任务用到时，按 `docs/audit/CLOSURE.md` 对应行补脚本 |
+| D14 | D 报告 4 条架构 P1（4 套注册表合并、能力独立判据、routing `playbook` 字段、new-skill 词边界） | 新增域/新增能力时优先做；不阻塞既有 11 域 |
+| D15 | probe 级能力（`maturity=probe`）补独立脚本 | 该能力第一次产出真实案例时 |

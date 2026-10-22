@@ -1,6 +1,6 @@
 {
   "id": "site-clone-drill01",
-  "domain": "web-pentest",
+  "domain": "site-clone",
   "target_type": "Next.js 静态导出站点（SSR shell + Cloudflare Pages）：https://block.youtest.me",
   "evidence_kind": "real",
   "protection": [],

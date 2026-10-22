@@ -181,14 +181,21 @@ Test-CheckItem "架构" "上游定点防外溢规则与同步引擎 (upstream-ru
 
 # 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
 # 且 priority / fallbackId 与 routes 一一对应。路由指向空气时，运行期极难发现。
-Test-CheckItem "路由" "任务路由表自洽 (routing.json 与技能落位一致)" {
+Test-CheckItem "路由" "路由/配方/能力三层自洽 (routing ↔ 配方命令 ↔ 能力 DAG)" {
     $scriptsDir = Join-Path $ToolDir 'scripts'
     $chk = Join-Path $scriptsDir 'verify-routing-coherence.py'
     if (-not (Test-Path -LiteralPath $chk)) { return $false }
     $py = Get-Command python -ErrorAction SilentlyContinue
     if (-not $py) { return $true }
     & python $chk 2>&1 | Out-Null
-    $LASTEXITCODE -eq 0
+    if ($LASTEXITCODE -ne 0) { return $false }
+    foreach ($gate in @('playbook-check.py', 'capability-gate.py')) {
+        $gp = Join-Path $scriptsDir $gate
+        if (-not (Test-Path -LiteralPath $gp)) { return $false }
+        & python $gp 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { return $false }
+    }
+    $true
 } "路由表与技能落位不一致（或 routing.json 缺失）；运行 python Tool/scripts/verify-routing-coherence.py 查看详情" "routes/priority/fallback/skill 全部自洽" "Tool/scripts/routing.json"
 
 Test-CheckItem "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" {
