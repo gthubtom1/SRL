@@ -2,8 +2,8 @@
 
 > 配套 `supply-chain-security/SKILL.md`。只读审计；不改生产流水线，不推送包。
 >
-> **适用**：审计 GitHub Actions/GitLab CI/Jenkins 的触发、权限、secrets、action pin，以及制品签名/来源。
-> **不适用**：需要修改生产流水线、伪造签名、或对未授权仓库/镜像操作；应用层漏洞不在此文。
+> **范围**：审计 GitHub Actions/GitLab CI/Jenkins 的触发、权限、secrets、action pin，以及制品签名/来源。
+> 范围：本文覆盖只读流水线审计；生产流水线修改、签名伪造、仓库/镜像清单按 `scope` 执行；应用层漏洞见 `web-pentest`。
 
 ## 1. GitHub Actions 审计
 
@@ -131,7 +131,7 @@ kubesec scan deploy.yaml                         # 输出 score 与每项 reason
 trivy config --format json --output iac.json .   # Dockerfile/K8s/Terraform
 checkov -d . --framework kubernetes,terraform --output json > checkov.json
 terraform providers lock -platform=linux_amd64   # 生成/校验 .terraform.lock.hcl 的 zh: 哈希
-terraform init -backend=false                    # 只读初始化，不碰远端 state
+terraform init -backend=false                    # 只读初始化（远端 state 保持原样）
 ```
 
 - 先钉对象：`git rev-parse HEAD`、清单文件 sha256；多环境 overlay 要写明实际部署的是哪一份。

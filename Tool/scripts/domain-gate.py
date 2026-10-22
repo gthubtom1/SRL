@@ -158,9 +158,11 @@ def check_skill(dom, spec):
         bad.append("%d 行 > %d" % (n, LIMITS["skill_max"]))
     if n < LIMITS["skill_min"]:
         bad.append("%d 行 < %d（深度不足）" % (n, LIMITS["skill_min"]))
-    for marker in ("判据", "失败判据", "模型常见失误", "边界"):
+    for marker in ("判据", "失败判据", "模型常见失误"):
         if marker not in t:
             bad.append("缺『%s』节" % marker)
+    if ("范围" not in t) and ("边界" not in t):
+        bad.append("缺『范围/边界』节")
     if "references/" not in t:
         bad.append("SKILL 未索引任何 reference")
     add(dom, "SKILL.md 篇幅与四节", not bad, "；".join(bad) if bad else "%d 行" % n)

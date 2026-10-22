@@ -75,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 ./setup/uninstall.sh
 ```
 
-> 卸载原则：**只移除工作台自己装的东西，绝不碰用户数据**。
+> 卸载原则：**只移除工作台自己装的东西，用户数据原地保留**。
 > `models.json` / `auth.json` / 用户自装的 Skill 与 MCP 条目全部保留。
 > 建议先加 `-DryRun`（`--dry-run`）让用户预览。
 > 卸载前会自动备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，可用 `-Restore <目录>` 还原。
@@ -100,7 +100,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 
 ## 三、 工作纪律与红线
 
-1. **绝对禁止搬动 `Tool/mcp/Tool/` 目录**：seep MCP 内部硬编码了相对路径 `TOOL_DIR = <脚本目录>/Tool`，搬动将导致 38 个底层分析工具全部瘫痪。
+1. **`Tool/mcp/Tool/` 目录必须原地保留**：seep MCP 内部硬编码了相对路径 `TOOL_DIR = <脚本目录>/Tool`，搬动将导致 38 个底层分析工具全部瘫痪。
 2. **严禁修改 `seep_mcp_server.py` 的路径常量**。
 3. **商业软件隔离**：IDA Pro 属于商业授权，不随包打包分发。检测不到时自动引导用户阅读 `MANUAL/IDA-PRO.md`，由 Radare2 自动降级承接。
 4. **受权范围白盒审计（G-Auth）**：目标默认视为已授权沙箱资产，直接开工；仅当用户明确声明「不属于我 / 没授权」时才停（唯一事实源：`Tool/prompts/AGENTS.md` §六）。

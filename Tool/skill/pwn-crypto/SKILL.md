@@ -19,22 +19,22 @@ metadata:
 > 机检入口：`python Tool/scripts/domain-gate.py --domain pwn-crypto`；
 > 真实案例：`Tool/cases/pwn-crypto01`–`05`；知识库：`Tool/mcp/Tool/reverselab/kb/pwn-crypto/`。
 
-## 1. 适用 / 不适用（边界）
+## 1. 范围与路由（边界）
 
-**适用**
+**本域输入面**
 
 - CTF pwn/crypto、授权靶场、自有 ELF/PE 程序的白盒验证；
 - 输入：ELF/`.so`/`libc.so.6`、PE `.exe/.dll`、远程 `host:port`、密码学参数或加解密 oracle；
 - 输出：`exploit.py`/`solve.py`、偏移与保护位证据、稳定复现命令、flag 或“已排除路线”。
 
-**不适用**
+**相邻域与路由**
 
-- 未授权目标、真实生产凭据/证书、持久化、横向移动、拒绝服务；
+- 目标清单由 `scope` 声明；真实生产凭据/证书只留指纹；持久化/横向移动/DoS 按单独授权单执行；
 - 纯静态算法还原、协议测绘（交 `reverse-engineering`/`ida-reverse`）；
 - APK/DEX/SO、Frida/脱壳/重打包（交 `apkseep`）；
 - Web/API/JWT 业务逻辑（交 `web-pentest` 或对应 Web 技能）；
-- 智能合约（EVM）不在本域边界内：本域无 EVM 运行时/链上环境，合约审计走外部审计流程，DApp API 面交 `web-pentest`；
-- “只要扫描报告、不做复现”的场合——本技能的判据全部要求可复跑。
+- 智能合约（EVM）由外部审计流程承担：本域提供字节码静态分析与数学回代，链上运行时与交易证据在该流程侧；DApp API 面交 `web-pentest`；
+- 只要扫描报告的场合走扫描器/`web-pentest`——本技能的判据全部要求可复跑。
 
 **平台边界**
 
@@ -136,7 +136,7 @@ cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 8. 把 `%p` 泄漏当任意读 → 必须要 `%s` 解引用到目标字节或符号低 12 位匹配。
 9. 堆题不看 glibc 版本 → 2.32+ safe-linking、2.34+ 无 hook，偏移会全错。
 10. 把“分布像随机”当 PRNG 可预测 → 必须 624 个连续 32-bit 输出克隆并逐位比对。
-11. RSA 不做回代就宣布明文 → 必须 `pow(m,e,n)==c`；广播还要每组成立。
+11. RSA 宣布明文前必须回代 `pow(m,e,n)==c`；广播还要每组成立。
 12. 平台语义混用（PE ↔ ELF）→ PE 找 RELRO/GOT/`__free_hook` 是方向错误。
 13. 一次成功写成“9/10 稳定” → 全新进程/连接 ≥10 次统计才算。
 14. 忽略中文/英文路由差异 → 报告里统一用“确认/疑似/失败”三档，避免“基本可用”。

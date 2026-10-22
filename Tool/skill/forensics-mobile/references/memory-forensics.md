@@ -1,7 +1,7 @@
 # 内存取证：从镜像到“谁在何时做了什么”
 
-> **适用**：Windows/Linux/macOS 的内存镜像、崩溃转储、休眠文件、虚拟机快照（`mem.raw`、`*.dmp`、`*.vmem`、`hiberfil.sys`）。
-> **不适用**：没有采集记录的“网上下的内存样本”；未授权设备；把内存当唯一证据给恶意定性（需磁盘/流量/日志交叉）。
+> **范围**：Windows/Linux/macOS 的内存镜像、崩溃转储、休眠文件、虚拟机快照（`mem.raw`、`*.dmp`、`*.vmem`、`hiberfil.sys`）。
+> 前置：有采集记录的内存样本、授权设备、磁盘/流量/日志交叉证据；内存单独不足以做恶意定性。
 > 目标：把易失证据变成可复述的进程/网络/模块/注册表时间线，并明确哪些是 `observed`、哪些只是 `inferred`。
 
 ## 1. 采集与封存
@@ -208,7 +208,7 @@ python3 vol.py -f mem.raw windows.eventlog.EventLog      # 与 /sys/eventlog 交
 
 - 只读：不写内存、不注入、不挂钩、不加载驱动；动态验证只在离线副本/授权测试机。
 - 不把内存里的字符串当“用户看过/执行过”；没有进程/时间/路径就不算。
-- 不绕过反作弊、不隐藏痕迹、不提供反取证手法。
+- 只做只读内存取证：进程/网络/模块/注入页 + 哈希；产物按 `evidence-chain.md` 留痕。
 - 内存结论必须与磁盘/流量/日志至少一个独立源交叉；否则标 `unverified`。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`03-model-pitfalls.md`、`disk-and-filesystem.md`、`evidence-chain.md`。

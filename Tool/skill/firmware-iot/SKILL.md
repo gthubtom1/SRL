@@ -6,7 +6,7 @@ compatibility: Linux 主机优先（binwalk/ubireader/unsquashfs/QEMU 原生）�
 metadata:
   version: "2.0.0"
   category: firmware-iot
-  hard_gates: "只读备份 / 先判芯片与接口 / 上电前量电压 / 不碰第三方设备 / 三判据闭环"
+  hard_gates: "只读备份 / 先判芯片与接口 / 上电前量电压 / 设备与镜像清单由 scope 声明 / 三判据闭环"
 ---
 
 # firmware-iot — 固件 / IoT / 硬件接入
@@ -17,9 +17,9 @@ metadata:
 
 ---
 
-## 一、适用 / 不适用（边界）
+## 一、范围与路由（边界）
 
-**适用**
+**本域输入面**
 
 - 路由器、交换机、摄像头、NVR、NAS、打印机、智能家居、工控网关等**嵌入式 Linux/RTOS 固件**。
 - 厂商 OTA 包、官网下载固件、SPI/NAND/eMMC 闪存镜像、UART/U-Boot 转储。
@@ -28,17 +28,17 @@ metadata:
 - 目标问题：默认/硬编码凭据、私钥与证书、启动脚本提权、Web/CGI 命令注入、
   未授权接口、调试口暴露、OTA 签名缺失、Secure Boot 策略缺陷。
 
-**不适用**
+**相邻域与路由**
 
 - APK/AAB、DEX/SO、重打包 → `apkseep`。
 - 桌面 PE/ELF 算法题、纯逆向 → `softseep` / `ida-reverse` / `binary-diff`。
 - 纯云 API/前端 → `web-pentest`；内网身份 → `ad-cloud`。
-- 未授权的第三方设备、公网扫描、写他人闪存、绕过厂商计费/授权。
+- 第三方设备/网段/闪存写入清单由 `scope` 声明，清单内按任务执行。
 - 把“解包成功”“FirmAE success”“binwalk 识别出 12 个签名”当作交付。
 
 ## 二、前置检查（3 件，缺一停）
 
-1. **授权与归属**：设备/固件属于自己或书面授权范围；明确测试窗口与禁止项。
+1. **授权与归属**：设备/固件属于自己或书面授权范围；明确测试窗口与回滚清单。
 2. **只读备份**：原始镜像 + SHA256 + 获取命令/URL；所有解包/补丁只在副本上做。
 3. **可恢复性**：知道变砖后的恢复路径（SPI 夹子/编程器、U-Boot TFTP、厂商恢复模式）；
    上电前量 VCC-GND 与 IO 电平，确认 1.8V/3.3V。
@@ -251,7 +251,7 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 - **不是 APK**：Android 应用/DEX/SO 走 `apkseep`；本技能只处理设备固件与嵌入式 rootfs。
 - **不是 PE 算法题**：桌面 PE/.NET/普通 ELF 走 `softseep`/`ida-reverse`；UEFI 组件只做固件判据。
 - **不是纯 Web**：只测云端 API/前端时走 Web 技能；本技能的网络验证仅围绕设备自身服务。
-- **不做未授权硬件接入**：不接第三方设备、不扫公网、不写他人闪存、不绕过厂商授权/计费。
-- **不做“解包即成功”**：没有 shell/服务/漏洞证据时只能算侦察，不得标为完成。
+- **硬件接入范围由 `scope` 声明**：设备清单由用户提供，清单内按任务执行；闪存写入按授权单。
+- **“解包即成功”是误判**：有 shell/服务/漏洞证据才算完成，否则只算侦察。
 - 硬件操作先备份、先量电压、先共地；写操作只在授权且可恢复的设备上做。
 - 所有结论标明 E0–E3 与 J1/J2/J3；未验证项写“未验证”，不臆造。

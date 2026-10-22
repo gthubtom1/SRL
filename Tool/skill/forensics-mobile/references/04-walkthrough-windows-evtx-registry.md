@@ -1,8 +1,8 @@
 # 04 · 真实案例走查：Windows EVTX + 注册表键名清单 + 浏览器 History
 
 > **目标**：在一台本机 Windows 上，只读复制 AppReadiness 事件日志与 Edge History，并导出 Explorer 的**键名清单**（无值、无原始 hive），归一出 UTC 时间线，用案例验收脚本机检四要素。
-> **适用**：本机/授权主机的 Windows 取证初检、时间线重建、证据链验收。
-> **不适用**：未授权设备；需要管理员才能读的 Security.evtx/SAM/SYSTEM（本案例没有）；把浏览器 URL 当“用户意图”的定性。
+> **范围**：本机/授权主机的 Windows 取证初检、时间线重建、证据链验收。
+> 前置：授权设备、管理员权限（读 Security.evtx/SAM/SYSTEM 所需）、原始事件；浏览器 URL 只作线索，意图需其他证据。
 
 ## 1. 环境与授权
 
@@ -25,7 +25,7 @@ cp "$WINDIR/System32/winevt/Logs/Microsoft-Windows-AppReadiness%4Operational.evt
 powershell -NoProfile -Command "Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Recurse -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name" \
   | sed "s/^HKEY_CURRENT_USER//" > input/explorer-key-names.txt
 
-# 3) 浏览器 History：只读复制，不碰 cookies/Login Data
+# 3) 浏览器 History：只读复制（cookies/Login Data 留在原件）
 cp "$LOCALAPPDATA/Microsoft/Edge/User Data/Default/History" input/History.sqlite
 
 # 4) 封存为只读，并记录哈希

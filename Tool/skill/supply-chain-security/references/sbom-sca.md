@@ -2,8 +2,8 @@
 
 > 配套 `supply-chain-security/SKILL.md`。只在授权仓库/镜像上扫描。
 >
-> **适用**：已有 commit/digest 或锁文件，需要生成/核对 SBOM、把 SCA 告警收敛为可达/不可达结论。
-> **不适用**：没有对象标识、未授权联网、要求 CVE 武器化或投毒验证；运行时利用属于 `pwn-crypto`/`web-pentest`。
+> **范围**：已有 commit/digest 或锁文件，需要生成/核对 SBOM、把 SCA 告警收敛为可达/不可达结论。
+> 前置：对象标识 + 联网授权；CVE 武器化与投毒验证由 `pwn-crypto`/`web-pentest` 承担；运行时利用同理。
 
 ## 1. 锁定对象
 

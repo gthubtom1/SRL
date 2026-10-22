@@ -4,8 +4,8 @@
 > 本文只给“可运行骨架 + 判据”，偏移一律用当前 libc/调试器复核，不抄死数字。
 
 
-**适用**：本文件给 tcache/UAF、IO_FILE、seccomp ORW 的骨架与版本判据，偏移必须用目标 libc 复核。
-**不适用**：没有目标 libc 的盲打、非 glibc 分配器（如 Windows 堆）的 tcache 套用、未授权目标。
+**本域输入面**：本文件给 tcache/UAF、IO_FILE、seccomp ORW 的骨架与版本判据，偏移必须用目标 libc 复核。
+**路由**：没有目标 libc 的盲打按 `mitigation-matrix.md` 的先验处理；非 glibc 分配器（如 Windows 堆）走对应平台卷；目标范围由 `scope` 声明。
 ## 0. 堆题开局（先定版本与分配器）
 
 ```bash

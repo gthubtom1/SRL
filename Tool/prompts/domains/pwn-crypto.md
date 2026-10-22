@@ -2,7 +2,7 @@
 
 > 源技能名取自 `Tool/config/taskcard-sources.json` 的 `pwn-crypto` 键（24 条，逐条对应）。
 > 每张卡固定六段：触发词 / 前置 / 步骤 / 判据 / 失败判据 / reference。
-> 只用于授权实验室资产；涉及生产系统的条目只做检测/原理验证，不做破坏性操作。
+> 只用于授权实验室资产；生产系统条目只做检测/原理验证，破坏性操作另立授权单。
 > 统一入口：`Tool/skill/pwn-crypto/SKILL.md`；机检：`python Tool/scripts/domain-gate.py --domain pwn-crypto`。
 
 ### 01 栈溢出偏移与 saved RIP 控制（源：performing-binary-exploitation-analysis）
@@ -71,7 +71,7 @@
 
 ### 09 口令哈希识别与真实回代（源：performing-hash-cracking-with-hashcat）
 - 触发词：hashcat、口令哈希、NTLM、bcrypt、字典
-- 前置：有授权哈希样本；知道算法/盐/迭代；不碰真实生产凭据。
+- 前置：有授权哈希样本；知道算法/盐/迭代；生产凭据按 `scope` 清单（只留指纹）。
 - 步骤：1) `hashid -m '<hash>'`（rc=0，得 hashcat 模式号）；2) `hashcat -m <mode> -a 0 hash.txt wordlist.txt --potfile-disable -o cracked.txt`（rc=0=已破解，rc=1=字典耗尽，rc=255=参数/设备错）；3) 回代 `python -c "import hashlib;assert hashlib.<alg>(b'<plain>').hexdigest().lower()=='<hash>'"`（rc=0）；4) 记耗时/成功率。
 - 判据：hashcat rc=0 且 `cracked.txt` 有明文；回代 `assert` rc=0；不是“看起来像密码”。
 - 失败判据：hashcat rc=1 只能写“字典未命中”，不得写“强口令”；回代失败即该明文作废 → 换规则/掩码，仍失败如实写“未解出”。
@@ -143,10 +143,10 @@
 
 ### 18 永恒之蓝漏洞验证（授权隔离）（源：exploiting-ms17-010-eternalblue-vulnerability）
 - 触发词：MS17-010、永恒之蓝、SMB、隔离靶机
-- 前置：仅隔离实验网；有快照；禁止生产/公网。
+- 前置：仅隔离实验网；有快照；生产/公网另立授权。
 - 步骤：1) 确认 SMB 版本与补丁级别；2) 用检测脚本/模块验证可达性；3) 记录流量与结果；4) 立即回滚。
 - 判据：隔离环境可重复验证；检测证据完整。
-- 失败判据：无隔离、无授权、或造成破坏 → 立即停止，不做“再试一次”。
+- 失败判据：无隔离、无授权、或造成破坏 → 立即停止，改走回滚/复盘流程。
 - reference：Tool/skill/pwn-crypto/references/02-failure-criteria.md
 
 ### 19 Zerologon 原理与检测（源：exploiting-zerologon-vulnerability-cve-2020-1472）
@@ -191,7 +191,7 @@
 
 ### 24 SSRF 到内网访问的验证（边界）（源：performing-ssrf-vulnerability-exploitation）
 - 触发词：SSRF、内网、回环、元数据、URL 白名单
-- 前置：授权测试环境；有可控 URL 参数；禁止访问真实云元数据。
+- 前置：授权测试环境；有可控 URL 参数；云元数据入口按 `scope` 清单限定。
 - 步骤：1) 用回环/自建服务验证请求；2) 测协议/重定向绕过；3) 记录请求日志；4) 判断归属域。
 - 判据：服务端确实发起请求（日志/回显）；不触碰真实内网资产。
 - 失败判据：只看到错误页、无请求证据 → 不成立；真实生产目标立即停止，交 Web 域。

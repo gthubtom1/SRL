@@ -1,7 +1,7 @@
 # 上游同步与差分（UPSTREAM）
 
 > **原版**：`angusdevgo/Seep-Reverse-Lab`（git remote 名 `upstream`，本仓 `origin` = `gthubtom1/Seep-Reverse-Lab`）
-> **原则**：**不做整仓 merge**。先内容差分 → 按 FORK-DELTA §四 五问逐条评估 → 只 cherry-pick 单文件 → 跑门禁。
+> **原则**：**只做单文件 cherry-pick**（整仓 merge 走 fork 同步流程）。先内容差分 → 按 FORK-DELTA §四 五问逐条评估 → 只 cherry-pick 单文件 → 跑门禁。
 > 原因：两仓历史可能不共享祖先（浅克隆/重建过），merge 会把两套历史拧在一起，回滚成本极高。
 
 ## 0. 一次性配置（已做，换机器要重做）

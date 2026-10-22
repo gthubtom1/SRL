@@ -3,8 +3,8 @@
 > 配套 `supply-chain-security/SKILL.md`。只审计自有/授权仓库；**不发布、不抢占、不向公共 registry 上传任何测试包**。
 > 一句话原理：包管理器按“名字”解析，而不是按“来源”解析；私有包名一旦在公共 registry 可被同名注册，构建就可能装到攻击者的包。
 >
-> **适用**：仓库含私有 scope/内部包名，需要判断“下一次安装会不会解析到公共同名包”。
-> **不适用**：未授权的 registry 探测、抢注/发布验证、与授权范围无关的内部命名空间枚举。
+> **范围**：仓库含私有 scope/内部包名，需要判断“下一次安装会不会解析到公共同名包”。
+> 范围：registry 探测、抢注/发布验证按 `scope` 清单执行；内部命名空间枚举限于授权范围。
 
 ## 0. 先画依赖来源图
 
@@ -110,7 +110,7 @@ grep -RInE '^(corp|internal|company|private)[-_]' requirements*.txt pyproject.to
 - npm：`@corp:registry=https://npm.corp.example/`；提交锁文件；CI 用 `npm ci`；开启 `npm audit signatures`（如可用）。
 - pip：`index-url=https://pypi.corp.example/simple`；禁用 `extra-index-url` 公共源；使用 `--require-hashes`。
 - NuGet：`packageSourceMapping` 把 `Company.*` 只映射到私有 feed。
-- Maven：`settings.xml` 镜像 `*` 到内部 Nexus/Artifactory；禁止 SNAPSHOT 进生产。
+- Maven：`settings.xml` 镜像 `*` 到内部 Nexus/Artifactory；SNAPSHOT 只留开发仓，生产走 release 版本。
 - Go：`GOPRIVATE=corp.example.com/*`；`GONOSUMDB` 同步；`GOPROXY` 指向内部 proxy。
 - 通用：锁文件 + integrity/hash + CI 冻结安装 + 依赖更新走 PR 审核。
 
@@ -125,7 +125,7 @@ grep -RInE '^(corp|internal|company|private)[-_]' requirements*.txt pyproject.to
 
 ## 7. 边界
 
-- 不做抢注、不发布包、不向公共源上传任何内容。
+- 抢注/发布/上传只在授权私有 registry 内、按 `scope` 清单执行。
 - 不查询与授权范围无关的私有包名；不枚举公司内部 namespace。
 - 依赖混淆只是供应链风险的一类；CVE 可达性、CI 权限、镜像签名分别见同目录其他文档。
 - 离线基线由 `scripts/sc-check.py` 覆盖；联网确认必须单独获得授权并记录时间、源、响应码。

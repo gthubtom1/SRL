@@ -1,7 +1,7 @@
 # 磁盘 / 文件系统取证：分区、inode、$MFT 与时间线
 
-> **适用**：`disk.img`、`*.E01`、分区镜像、`$MFT`/`$UsnJrnl` 副本、Windows EVTX、注册表 hive、浏览器 History。
-> **不适用**：未授权设备；在原件上挂载/运行/改时间戳；把 `fls` 列表当“文件内容已恢复”。
+> **范围**：`disk.img`、`*.E01`、分区镜像、`$MFT`/`$UsnJrnl` 副本、Windows EVTX、注册表 hive、浏览器 History。
+> 前置：授权设备；分析在副本上进行（原件只读封存）；`fls` 列表只是目录线索，文件内容需另行恢复。
 > 目标：把“哪个对象、在哪个时间、被谁怎样操作”落到分区/文件系统/inode/键/记录级，并能用命令复现。
 
 ## 1. 先确认镜像完整性
@@ -92,7 +92,7 @@ python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/Explorer
 - 脏页/事务：同时复制 `.LOG1/.LOG2`；只读头可能落后于最新事务。
 - 持久化面：Run/RunOnce、Services、IFEO、Winlogon、AppInit_DLLs、TaskScheduler、UserAssist、ShellBags、USBSTOR。
 
-## 7. 浏览器 History（只读、不碰 cookie）
+## 7. 浏览器 History（只读；cookie 留在原件）
 
 ```bash
 cp "$LOCALAPPDATA/Microsoft/Edge/User Data/Default/History" input/History.sqlite

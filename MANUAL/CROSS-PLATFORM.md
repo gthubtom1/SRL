@@ -112,7 +112,7 @@ chmod +x setup/install.sh setup/verify.sh
   ```
 
 ### 3. Linux 报 `externally-managed-environment` (PEP 668)
-- **根因**：Debian 12 / Ubuntu 23+ 默认禁止直接全局 `pip install`。
+- **根因**：Debian 12 / Ubuntu 23+ 默认要求 venv / `--user`（PEP 668）。
 - **解决**：
   加上 `--break-system-packages`，或使用当前 Agent 专属虚拟环境：
   ```bash

@@ -31,7 +31,7 @@ metadata:
 ```
 
 **三条铁律**：
-1. **门控不可绕过** —— 先 G-Auth，再判型，再分发；禁止直接调子能力；
+1. **门控不可绕过** —— 先 G-Auth，再判型，再分发；子能力只经总控调用；
 2. **判型是 softseep 的职责，不是用户的负担** —— 用户说大白话，本主控自己归类；
    **绝不把"请选择平台/类型"的选择题甩回给用户**；
 3. **判型不可跳过** —— 不先判平台与类型就开工 = 违规（错平台代价是整轮工作作废）。
@@ -69,16 +69,16 @@ metadata:
 
 ---
 
-## 适用 / 不适用（边界）
+## 范围与路由（边界）
 
-**适用**：已授权的 Windows PE / .NET / Go / Rust / Linux ELF / macOS Mach-O / ARM64 客户端；授权校验、补丁本地化、脱壳、算法还原、协议分析、样本研判、UI 显示层、加固对抗、逆向测绘。
+**本域输入面**：已授权的 Windows PE / .NET / Go / Rust / Linux ELF / macOS Mach-O / ARM64 客户端；授权校验、补丁本地化、脱壳、算法还原、协议分析、样本研判、UI 显示层、加固对抗、逆向测绘。
 
-**不适用**：
+**相邻域与路由**：
 
 - Android APK/DEX/SO → `apkseep`；iOS 取证/签名 → `forensics-mobile`。
 - 纯 Web/API 漏洞 → `web-pentest`；二进制漏洞利用/密码学 → `pwn-crypto`。
 - 加壳脱壳闭环 → `unpack-loop`（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
-- 生产环境未授权目标、真实用户数据、凭据外泄 → 不做。
+- 生产环境与真实用户数据按 `scope` 清单执行；凭据外泄一律停并上报。
 
 **边界**：本技能默认目标是**受权沙箱资产**；仅当用户明确声明「不属于我 / 没有授权」时停在门口确认一次。授权不覆盖「下载/安装/写文件/改环境」，后者单独确认。
 
@@ -166,7 +166,7 @@ metadata:
 ## 【总控路由】
 
 > softseep 是本工作体系的唯一入口与总调度。任何任务先到此判型，再分发到对应
-> Skill / MCP / 脚本。**禁止绕过总控直接调用子能力** —— 绕过即丢失门控、纪律与证据链。
+> Skill / MCP / 脚本。**子能力只经总控调用** —— 绕过即丢失门控、纪律与证据链。
 
 ### ⓪ 自动判型 —— 这是 softseep 的职责，不是用户的负担（不可跳）
 
@@ -267,7 +267,7 @@ metadata:
 | | **00-analysis** | `Tool/skill/00-analysis/SKILL.md` | **阶段零**：D0–D5 深度门 → 8 节可复现报告 → 可行性裁定（可赢/部分可赢/不可赢）+ 推荐路线；不许产出交付物 |
 | | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
 | | **04-version-migrate** | `Tool/skill/04-version-migrate/SKILL.md` | **阶段④**：读版本账 → AOB 滑窗对齐 → UI/授权跟着迁 → 重建+回归（引擎 `Tool/scripts/migrate.py`） |
-| | **05-backend-rebuild** | `Tool/skill/05-backend-rebuild/SKILL.md` | **阶段⑤**：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证 → 回归（**仅 T2/T3 触发**，T1 禁止做后端） |
+| | **05-backend-rebuild** | `Tool/skill/05-backend-rebuild/SKILL.md` | **阶段⑤**：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证 → 回归（**仅 T2/T3 触发**，T1 移交阶段③） |
 | | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
 | | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
 | | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |

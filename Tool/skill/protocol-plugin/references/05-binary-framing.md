@@ -1,8 +1,8 @@
 # 05 二进制分帧 — magic / 长度 / TLV / 半包粘包
 
-> 适用：私有二进制协议、定长头 + 变长体、TLV、带校验的自定义帧。
-> 不适用：纯文本行协议（HTTP/SMTP）的分帧见 `04-walkthrough-websocket-replay.md` 与
-> `07-crypto-and-checksum.md`；插件装载链 → `plugin-targets`（R25）。
+> 范围：私有二进制协议、定长头 + 变长体、TLV、带校验的自定义帧。
+> 路由：纯文本行协议（HTTP/SMTP）的分帧见 `04-walkthrough-websocket-replay.md` 与
+> `07-crypto-and-checksum.md`；插件装载链由 `plugin-targets`（R25）承担。
 > 字段表工具：`scripts/proto-repro.py`；字节流来源：`scripts/pcap-summary.py --extract`。
 
 ## 1. 分帧的四种基本形态

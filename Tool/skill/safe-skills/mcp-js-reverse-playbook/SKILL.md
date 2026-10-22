@@ -90,7 +90,7 @@ description: 在使用 js-reverse-mcp 做前端 JavaScript 逆向时使用，适
 规则：
 
 - 本地补环境必须以页面观测证据为依据
-- 不允许空想式补 `window/document/navigator/crypto/storage`
+- 补环境只用真实抓到的对象：`window/document/navigator/crypto/storage` 按页面实际值落地
 - 每次只记录一个最小因果补丁决策
 
 ### 4. Patch

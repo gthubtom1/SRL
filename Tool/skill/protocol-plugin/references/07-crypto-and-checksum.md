@@ -1,7 +1,7 @@
 # 07 加密段与校验 — 先证伪"像 AES"，再谈解明文
 
-> 适用：帧尾/帧头有校验字段、载荷熵高、长度按 8/16 对齐、可能有压缩或加密的私有协议。
-> 不适用：TLS 握手本身的分析（看 `tshark -Y tls` + `04-walkthrough`）；插件装载链 → `plugin-targets`。
+> 范围：帧尾/帧头有校验字段、载荷熵高、长度按 8/16 对齐、可能有压缩或加密的私有协议。
+> 路由：TLS 握手本身的分析见 `tshark -Y tls` + `04-walkthrough`；插件装载链由 `plugin-targets` 承担。
 > 分帧见 `05-binary-framing.md`；重放见 `08-replay-and-new-request.md`。
 
 ## 1. 判断顺序（不要跳步）
@@ -154,6 +154,6 @@ python -c "import json,sys;d=json.load(sys.stdin);[print(f['index'],f['checks'])
 
 ## 8. 边界
 
-- 本节只讲"识别与验证"；不提供任何针对生产系统的解密/绕过步骤。
+- 本节只讲"识别与验证"：产物是熵/块长/魔数证据与明文回代；生产系统的解密动作按 `scope` 与授权单执行。
 - 压缩/序列化的分层解析与分帧见 `05-binary-framing.md`；重放验收见 `08-replay-and-new-request.md`。
 - 所有加密结论必须附：算法族、模式、IV/nonce 来源、覆盖范围、验证实验；缺一项即为"疑似"。

@@ -1,7 +1,7 @@
 # 桌面原生插件：OBS / StreamDeck / 输入法 / 驱动
 
-> 适用：OBS 插件 DLL、StreamDeck `.sdPlugin`、输入法（`.ime`/DLL/TIP）、驱动/服务、Native Messaging host、媒体管线原生插件。
-> 不适用：VSIX/JetBrains（→ `ide-plugins.md`）、Electron/asar（→ `electron-and-asar.md`）、Unity Mod（→ `unity-and-mods.md`）。
+> 范围：OBS 插件 DLL、StreamDeck `.sdPlugin`、输入法（`.ime`/DLL/TIP）、驱动/服务、Native Messaging host、媒体管线原生插件。
+> 路由：VSIX/JetBrains 由 `ide-plugins.md` 承担；Electron/asar 由 `electron-and-asar.md` 承担；Unity Mod 由 `unity-and-mods.md` 承担。
 > 目标：**加载链 → 注册/导出入口 → 数据/通信面 → 最小可改单元**；只读枚举，不加载未签名驱动。
 
 ## 1. 形态与安装位置
@@ -158,7 +158,7 @@ cat "$HOME/.config/google-chrome/NativeMessagingHosts/com.example.host.json" 2>/
 - 插件 DLL 加载失败且两次修正依赖/ABI/路径仍失败 → 停，报加载链结论，不继续改二进制。
 - 输入法/驱动“已安装”但服务/驱动未运行 → 标“未加载”，不要用安装状态推断行为。
 - 只能看到注册项/导出表，无法指到用户态调用方 → 标 `inferred`，不写“可任意调用”。
-- 触发签名强制/EDR/企业策略/蓝屏 → 立即停，记录环境；不提供绕过驱动签名/白名单的方法。
+- 触发签名强制/EDR/企业策略/蓝屏 → 立即停，记录环境；驱动签名/白名单按校验层归档。
 - 只读枚举优先；不加载未签名驱动、不在生产机触发 IOCTL、不替换日用输入法。
 - 通信协议/帧格式 → 交 `protocol-plugin`（R24）。
 

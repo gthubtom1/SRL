@@ -1,7 +1,7 @@
 # Unity Mod：BepInEx / MelonLoader / IL2CPP / Harmony
 
-> 适用：Unity 游戏的 BepInEx/MelonLoader 插件、Mono `Assembly-CSharp.dll`、IL2CPP `GameAssembly.dll` + `global-metadata.dat`、Harmony patch。
-> 不适用：Unity 资源包/AssetBundle 的纯格式解析（可用 AssetStudio 等，不在本域主线）、在线反作弊绕过、纯协议复刻（→ `protocol-plugin` R24）。
+> 范围：Unity 游戏的 BepInEx/MelonLoader 插件、Mono `Assembly-CSharp.dll`、IL2CPP `GameAssembly.dll` + `global-metadata.dat`、Harmony patch。
+> 路由：Unity 资源包/AssetBundle 的纯格式解析用 AssetStudio 等专用工具；在线反作弊绕过按对应授权任务执行；纯协议复刻由 `protocol-plugin`（R24）承担。
 > 目标：**插件类 → patch 目标 → 修改的字段/返回值 → 可观察效果**；只在自有或明确授权的离线副本/测试服操作。
 
 ## 1. 先判运行时与加载器
@@ -147,7 +147,7 @@ grep -RInE "package\.path|package\.cpath|require\(|loadstring|dofile|debug\.seth
 - 目标方法找不到或被内联/混淆，两次换工具仍无法定位 → 标“patch 目标未定”，不猜方法名。
 - IL2CPP 元数据与 `GameAssembly` 版本不匹配 → 停，换对应版本工具；错版本输出不可信。
 - patch 生效但无行为差异 → 先查是否命中正确方法/字段，不叠加第二个 patch。
-- 触发反作弊/封号/蓝屏 → 立即停，记录环境；不提供绕过反作弊或隐藏注入的方法。
+- 触发反作弊/封号/蓝屏 → 立即停，记录环境；反作弊校验按校验层归档。
 - 插件内协议/分帧 → 交 `protocol-plugin`（R24）。
 
 > 关联：`references/desktop-plugins.md`（原生桌面插件）、`references/electron-and-asar.md`（Electron 边界）、`references/02-failure-criteria.md` 第 16–18 条。

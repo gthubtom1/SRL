@@ -1,7 +1,7 @@
 # 01 判据表：插件 / 扩展 / Mod
 
-> 适用：浏览器扩展（MV2/MV3）、VSIX/JetBrains、Electron/asar、Unity BepInEx/MelonLoader、输入法/驱动级插件。
-> 不适用：纯协议复刻（→ `protocol-plugin` R24）、APK 壳/重打包（→ `apkseep`）、普通 PE 脱壳（→ `unpack-loop`）、供应链 lockfile 审计（→ `supply-chain-security`）。
+> 范围：浏览器扩展（MV2/MV3）、VSIX/JetBrains、Electron/asar、Unity BepInEx/MelonLoader、输入法/驱动级插件。
+> 路由：纯协议复刻由 `protocol-plugin`（R24）承担；APK 壳/重打包由 `apkseep` 承担；普通 PE 脱壳由 `unpack-loop` 承担；供应链 lockfile 审计由 `supply-chain-security` 承担。
 > 本表判据尽量做成“可机检”：命令能跑、输出字段能对上、文件/行号能指认。看不到就写 `unverified`，不升格为结论。
 
 ## 1. 总表
@@ -80,7 +80,7 @@ python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json
 - 动态加载两次失败（签名/白名单/版本不匹配）→ 转静态与更新链，不反复改包。
 - 插件内含协议但取不到明文/帧边界 → 交 `protocol-plugin`（R24）。
 - 触发反作弊/企业策略/账号风控 → 立即停，记录环境，不换号绕过。
-- 本文只做授权范围内的插件结构、入口、权限与数据流分析；不提供绕过签名/白名单/反作弊的方法。
+- 本文只做授权范围内的插件结构、入口、权限与数据流分析；签名/白名单/反作弊校验按 `02-failure-criteria.md` 记录为校验层。
 
 ## 附：上游技能卡索引（24 张）
 

@@ -30,7 +30,7 @@ metadata:
 Win: 卷序列号 + 主板 UUID + 系统盘序列号 → 拼接 → SHA-256 → 取前 16 字节 hex
 Android: ANDROID_ID + Build.FINGERPRINT → 同上
 ```
-- 只做"取指纹"，**不做反篡改**（那是加固阶段的事）；
+- 只做"取指纹"，反篡改由加固阶段承担；
 - 指纹变化要给出明确提示（让用户知道是换了硬件，而不是"卡密错误"）。
 
 ---
@@ -79,7 +79,7 @@ Android: ANDROID_ID + Build.FINGERPRINT → 同上
 授权挂载点写进版本账的 `license[]`：`id / mode（local-hmac|online-ticket）/ site（指向哪个位点）/ endpoint`。
 追版时按 `site` 重挂到新 RVA，不用重新设计授权对接。
 
-## 7. 禁止项
+## 7. 返工项
 
 - ❌ 改业务逻辑或绕过点（那是 01 的事）
 - ❌ 把盐/私钥硬编码到可被 `strings` 直接读到的位置（至少做异或/分段）

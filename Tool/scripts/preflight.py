@@ -683,6 +683,41 @@ def check_v123_deliverables():
     add("12 v1.23", "判据 inferred 白名单（10 域）", len(allow) >= 10, "%d" % len(allow))
 
 
+
+
+def check_language():
+    """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
+    import re as _re
+    pat = _re.compile(r"不碰|禁止用于|仅限|不得用于|不允许|不提供|不适用|超出范围|禁止\s*(?:操作|使用|测试|访问)")
+    roots = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "prompts"),
+             os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL")]
+    skip = ("CHANGELOG", "AUDIT", "DEFERRALS", "STYLE.md", "/_archive/")
+    hits = []
+    for r in roots:
+        for dp, dn, fn in os.walk(r):
+            for f in fn:
+                if not f.endswith(".md"):
+                    continue
+                fp = os.path.join(dp, f)
+                rel = os.path.relpath(fp, ROOT).replace(os.sep, "/")
+                if any(s in rel for s in skip):
+                    continue
+                try:
+                    t = open(fp, encoding="utf-8", errors="replace").read()
+                except OSError:
+                    continue
+                n = len(pat.findall(t))
+                if n:
+                    hits.append("%s(%d)" % (rel, n))
+    for f in glob.glob(os.path.join(ROOT, "README*.md")):
+        t = open(f, encoding="utf-8", errors="replace").read()
+        n = len(pat.findall(t))
+        if n:
+            hits.append("%s(%d)" % (os.path.basename(f), n))
+    add("13 措辞", "无任务禁令措辞（scope 由用户声明）", not hits,
+        "%d 个文件：%s" % (len(hits), "；".join(hits[:6])) if hits else "0 命中")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -701,6 +736,7 @@ def main():
     check_domain_packs()
     check_domain_depth()
     check_v123_deliverables()
+    check_language()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

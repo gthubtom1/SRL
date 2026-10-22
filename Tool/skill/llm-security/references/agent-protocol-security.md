@@ -153,10 +153,10 @@ pcap / proxy log                           # 跨源与 push URL
 ## 6. 防护基线（架构级）
 
 - **定义不可变**：工具 manifest 签名/哈希固定；批准后变更需重新审批并展示 delta。
-- **身份绑定**：MCP 用 per-server 凭据与最小 scope；工具名加 server 命名空间；禁止跨源同名覆盖。
+- **身份绑定**：MCP 用 per-server 凭据与最小 scope；工具名加 server 命名空间；跨源同名工具按命名空间隔离。
 - **服务端授权**：tenant/user 由服务端从认证上下文注入，模型不可改；高风险工具二次授权。
 - **数据面控制**：出站 allowlist、artifact/URL 域名限制、push notification 白名单；canary 监测。
-- **A2A**：peer 证书/JWT 绑定 subject 与 skill；任务携带最终用户授权链；禁止信任传递；artifact 类型/大小/域名校验。
+- **A2A**：peer 证书/JWT 绑定 subject 与 skill；任务携带最终用户授权链；peer 信任逐跳校验；artifact 类型/大小/域名校验。
 - **审批与日志**：不可逆动作人工确认；记录 call_id/task_id/参数/结果/审批人，脱敏保存。
 - **供应链**：pin 版本/哈希、私有 registry、安装前审查 description/schema 变更。
 

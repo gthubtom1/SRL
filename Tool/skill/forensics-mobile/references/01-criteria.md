@@ -1,7 +1,7 @@
 # 01 · 判据表：什么算“取证闭环”
 
-> **适用**：内存镜像、pcap、磁盘/分区镜像、Windows EVTX/注册表、iOS/macOS 应用包、Unity 客户端。
-> **不适用**：Android APK/DEX/SO（走 `apkseep`）、授权旁路与反作弊对抗（不在本域）、纯恶意样本行为定性（走 `malware-analysis`）。
+> **范围**：内存镜像、pcap、磁盘/分区镜像、Windows EVTX/注册表、iOS/macOS 应用包、Unity 客户端。
+> 路由：Android APK/DEX/SO 由 `apkseep` 承担；授权旁路与计费/功能解锁由 `01`–`05` 承担；恶意样本行为定性由 `malware-analysis` 承担。
 > 所有判据都要求“输入可哈希、命令可复跑、结论可被第三方复述”；只看到字符串不算。
 
 ## 1. 判据总表
@@ -86,7 +86,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 ## 5. 边界
 
 - 只做只读观测：不挂载可写、不运行样本、不注入、不改内存、不改时间戳。
-- 不提供反取证、隐蔽驻留、绕过授权/反作弊的手法。
+- 取证只做可复算证据链：采集→校验→关联；报告按 `evidence-chain.md` 留痕。
 - 证据价值 = 可复现性 × 完整性 × 归因强度；缺一项就降级为“线索”而不是“结论”。
 - 对外分享前脱敏：URL 查询参数、用户名、SID、设备序列号、Keychain 元数据。
 

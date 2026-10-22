@@ -258,7 +258,7 @@ python Tool/scripts/probe-refusal.py --list
 
 | Provider | 现象 | 原因 / 修法 |
 |---|---|---|
-| WB2API | `realm_mismatch`：该密钥仅限国内版模型 | 模型名带了 `global:` 前缀，去掉前缀即可 |
+| WB2API | `realm_mismatch`：该密钥适用于国内版模型 | 模型名带了 `global ` 前缀，去掉前缀即可 |
 | Xiaomi `mimo-v2.5` | `IncompleteRead` | 偶发网络中断，重试或改用 `mimo-v2.6-flash` |
 | LinuxDo `gpt-6-luna` | 返回 HTML | `baseUrl` 指向的是网页而非 API 端点，需修正 |
 

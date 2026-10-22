@@ -1,7 +1,7 @@
 # Electron / asar：主进程、preload 与原生模块
 
-> 适用：`app.asar`/`resources/app/`、Electron 安装包、`app.asar.unpacked`、bytenode `.jsc`。
-> 不适用：纯浏览器扩展（→ `browser-extension.md`）、Unity Mod（→ `unity-and-mods.md`）、纯协议复刻（→ `protocol-plugin` R24）。
+> 范围：`app.asar`/`resources/app/`、Electron 安装包、`app.asar.unpacked`、bytenode `.jsc`。
+> 路由：纯浏览器扩展由 `browser-extension.md` 承担；Unity Mod 由 `unity-and-mods.md` 承担；纯协议复刻由 `protocol-plugin`（R24）承担。
 > 目标：把 **主进程 / preload / renderer** 三层边界、IPC 通道、原生模块契约说清楚；asar 不是加密，能列目录不等于能读字节码。
 
 ## 1. 形态与容器
@@ -133,12 +133,12 @@ strings -n 8 work/repro/unpack/native.node | head -80
 - 能列文件但 `main`/`preload` 均被字节码/加密覆盖，且无版本匹配工具 → 标“入口未读”，不把字符串当逻辑。
 - IPC 链路只能看到一端（renderer 或 main 缺失）→ 标 `inferred`，不写“可任意调用”。
 - 触发代码签名/更新器/反作弊校验 → 停，记录校验层，不反复改包。
-- 不提供绕过商店签名、企业白名单或更新签名的方法；授权测试也要记录环境与回退。
+- 商店签名、企业白名单、更新签名按校验层归档；授权测试记录环境与回退。
 - 远端协议/帧格式交 `protocol-plugin`（R24）。
 
 ## 9. ASAR integrity 绕过：fuse 组合与旁路验收
 
-Electron 的 asar 完整性由 fuse 决定，不是 asar 自己声明。`embeddedAsarIntegrityValidation` 开启后，主进程核对 `resources/app.asar` 头哈希/内嵌 `ElectronAsarIntegrity` 记录；`onlyLoadAppFromAsar` 进一步禁止 `resources/app/` 目录回退。
+Electron 的 asar 完整性由 fuse 决定，不是 asar 自己声明。`embeddedAsarIntegrityValidation` 开启后，主进程核对 `resources/app.asar` 头哈希/内嵌 `ElectronAsarIntegrity` 记录；`onlyLoadAppFromAsar` 进一步关闭 `resources/app/` 目录回退。
 
 ```bash
 npx @electron/fuses read --app ./App.exe                 # 读 fuse 线；rc=0 才有结论
