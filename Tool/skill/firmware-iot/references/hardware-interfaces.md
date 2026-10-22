@@ -170,6 +170,48 @@ sigrok-cli -d <driver>:conn=/dev/ttyACM0 --config samplerate=1m \
 > 位置：`firmware-iot` 的物理层延伸。固件解包告诉你"设备信任谁"，无线侧告诉你"这层信任能不能从空中打掉"。
 > 硬件前提写在每节开头：没有对应硬件就**明确记 `blocked_at=no-radio`**，不许用"理论上可以"冒充已验证。
 
+### 0-A. 先跑本机能力探针（先确认"能不能做"，再谈"怎么做"）
+
+本章所有判据都依赖射频硬件。动手前先花 10 秒问一句：**这台机器现在有哪几样仪器？**
+
+```bash
+python Tool/scripts/probe_matrix.py --radio-only --json                  # ≤10s，不需要 --target
+python Tool/scripts/probe_matrix.py --radio-only --out work/<case>/radio.json
+python Tool/scripts/probe_matrix.py --self-test                          # 离线自检：只测判定/解析函数，无硬件访问
+```
+
+探针只做能力枚举：**不进入 monitor mode、不调用主动扫描、不发送任何射频、不改网卡状态**，
+缺命令/缺权限/超时都返回结构化 `blocked`，不抛裸栈。结果挂在探针矩阵的
+`probes[name=radio]` 里（与 baseline/external/network 同一份 JSON）。
+
+| 字段 | 含义 |
+| :-- | :-- |
+| `wifi` | `{present, monitor_capable, iface, adapters}`；`monitor_capable=false/true/null` 三态，`null` = 未判定（不是不支持） |
+| `bluetooth` | `{present, adapters, stack}`；`present` 只认适配器/控制器，枚举器与服务设备不算 |
+| `subghz` | SDR / sub-GHz / 802.15.4 / BLE sniffer 的 USB VID:PID 命中（RTL-SDR `0bda:2838`、HackRF `1d50:6089`、CC2531 `0451:16a8`、nRF52 `1915:520f` 等） |
+| `nfc` | Proxmark3 `9ac4:4b8f`、ACR122U `072f:2200`、PN533 `04cc:2533` 等读卡器命中 |
+| `blocked_at` / `reason` | 卡在哪一步 + 人话原因（见下表） |
+| `read_only` | 恒为 `true`：本探针不做任何模式切换或发射 |
+
+`blocked_at` 取值与处置：
+
+| `blocked_at` | 含义 | 改走哪条 / 代价 |
+| :-- | :-- | :-- |
+| `null` | 至少一条 802.11 monitor 路径可用 | 按 §1 做抓包/握手；仍先确认授权与 WIPS 观测 |
+| `no-monitor-mode` | 有 WiFi，但平台/驱动没有 monitor mode（Windows 原生 NDIS 最常见） | 外置可 monitor 网卡（AR9271/RTL8812AU/MT7612U）+ Linux 侧或专用驱动；否则 802.11 判据记不可用 |
+| `monitor-unverified` | 有 WiFi，但当前手段判定不了 monitor | Linux 装 `iw` 后重跑；macOS/受限驱动换外置卡；未判定 ≠ 不支持 |
+| `no-wifi` | 只有 BLE/SDR/802.15.4/NFC，没有 WiFi | 802.11 路线记不可用，转 §2/§3/§4 的近场路线 |
+| `no-radio` | 一张无线/近场硬件都没有 | 本章全部判据记 `blocked_at=no-radio`，转固件侧/有线侧或外接适配器 |
+| `command-missing` | 枚举命令缺失（`iw`/`iwconfig`/`lsusb`/`hciconfig`…） | 装 iproute2+iw+usbutils+bluez 后重跑；**缺命令不等于没硬件** |
+| `no-permission` | 枚举被拒（需 root/管理员） | 提权会话重跑；探针本身仍只读 |
+| `timeout` | 10s 预算内没枚举完 | 拆开重跑/降低负载；不得写成"无硬件" |
+| `probe-error` | 探针内部异常 | 看 `commands`/`evidence` 排查；不代表目标不可分析 |
+
+两条使用纪律：
+
+1. **枚举到 ≠ 能打**：`present=true` 只说明接口在场。BLE 能不能注入、网卡能不能注入、NFC 能不能克隆，都要另做验证（见各节判据）。
+2. **结论要带 `radio.json`**：报告里写清网卡型号/`iface`/`monitor_capable`/`blocked_at`，否则别人复跑不出来。
+
 ### 0. 判据总表（先看这张，再决定动不动硬件）
 
 | 场景 | 输入面 | 可机检判据（PASS 长什么样） | 证据形态 | 误报风险 |
