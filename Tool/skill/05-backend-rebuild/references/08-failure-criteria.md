@@ -57,7 +57,7 @@ python Tool/scripts/preflight.py --fast
 | 7 | 回归全绿 | `switched.json` `verdict=pass`，`counts.pass=counts.cases` |
 | 8 | 切换不污染 | `applied=false`；系统 hosts 未被修改 |
 | 9 | 演练可复算 | 删 `work/` 重跑，除端口/耗时外一致 |
-| 10 | 门禁 | `preflight --fast` 37/37 且悬空引用 0 |
+| 10 | 门禁 | `preflight --fast` 全绿且悬空引用 0 |
 
 ## 4. 症状 → 根因 → 动作
 

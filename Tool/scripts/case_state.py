@@ -869,7 +869,6 @@ def cmd_deliver(a):
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
-        die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
     st.setdefault("deliveries", []).append(
         {"level": a.level, "evidence": a.evidence, "note": a.note or "", "ts": now()})
     st["next_action"] = {"M1": "补功能面，冲 M2", "M2": "冲 M3（UI/授权）",

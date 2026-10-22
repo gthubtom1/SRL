@@ -181,6 +181,41 @@ def check_numbers(fast):
         except Exception as _exc:  # noqa: BLE001
             claims.append("BASELINE 对账失败: %s" % str(_exc)[:40])
 
+    # 文档里的 preflight 计数必须与 Tool/config/gate-counts.json（唯一数字源）一致
+    gc = os.path.join(TOOL, "config", "gate-counts.json")
+    if os.path.isfile(gc):
+        try:
+            g = json.load(open(gc, encoding="utf-8"))
+            docs = []
+            for r_ in (os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL"),
+                       os.path.join(TOOL, "skill"), os.path.join(TOOL, "docs"),
+                       os.path.join(ROOT, "README.md"), os.path.join(ROOT, "README.zh.md"),
+                       os.path.join(ROOT, "README.en.md")):
+                if os.path.isfile(r_):
+                    docs.append(r_)
+                    continue
+                for dp, dn, fn in os.walk(r_):
+                    if "audit" in dp.replace(os.sep, "/").split("/"):
+                        continue
+                    docs += [os.path.join(dp, f) for f in fn if f.endswith(".md")]
+            HISTORY = ("AUDIT.md", "CHANGELOG.md", "DEFERRALS.md", "CLOSURE.md")
+            for fp in docs:
+                if os.path.basename(fp) in HISTORY or os.path.basename(fp).startswith("AUDIT"):
+                    continue
+                try:
+                    t = open(fp, encoding="utf-8", errors="replace").read()
+                except Exception:
+                    continue
+                for m in re.finditer(r"preflight[^\n]{0,14}?(?:--fast\s*)?[**`]*\s*(\d+)/(\d+)", t):
+                    n, tot = int(m.group(1)), int(m.group(2))
+                    want = g["preflight_fast"] if "fast" in m.group(0) else g["preflight_full"]
+                    if n != want:
+                        claims.append("%s: 写 %d/%d，应为 %d/%d"
+                                      % (os.path.relpath(fp, ROOT).replace(os.sep, "/"),
+                                         n, tot, want, want))
+        except Exception as _exc:  # noqa: BLE001
+            claims.append("gate-counts 对账失败: %s" % str(_exc)[:40])
+
     add("2 数字", "文档数字 vs 实测", not claims,
         "实测 tools=%d skills=%d kb=%d manual=%d" % (a["tools"], a["skills"], a["kb"], a["manual"])
         + ("；" + "；".join(claims[:4]) if claims else ""))

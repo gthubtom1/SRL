@@ -1,0 +1,6 @@
+{
+  "schema": "seep.gate-counts/1",
+  "note": "门禁断言的唯一数字源；preflight 用它核对文档里的 preflight 计数。",
+  "preflight_full": 41,
+  "preflight_fast": 38
+}
