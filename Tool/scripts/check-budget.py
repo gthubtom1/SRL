@@ -17,6 +17,7 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,23 +46,47 @@ def count_skills():
 
 
 def first_party_files():
+    """引擎文件计数（2026-10-22 修正：只数 git 已跟踪文件）。
+
+    旧实现走 os.walk，会把 `.pytest_cache/`、`.pi/`、`evidence/` 这类运行时/
+    忽略目录也算进去，导致同一份代码在不同机器/不同 worktree 上得出不同数字
+    （实测漂移 820↔834），BASELINE 无法对账。现在优先用 `git ls-files`，
+    拿不到 git（导出包/浅环境）时回退到 walk，但跳过所有点目录。
+    """
+    skip = ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool",
+            "/破甲卡生成", "/cases", "/audit", "/work",
+            "/.git/", "/.pytest_cache/", "/.pi/", "/evidence/")
+    repo = os.path.dirname(ROOT)
+
+    try:
+        out = subprocess.run(["git", "-C", repo, "ls-files", "-z"],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             timeout=60)
+        if out.returncode == 0 and out.stdout:
+            names = [p for p in out.stdout.decode("utf-8", "replace").split("\0") if p]
+            total = 0
+            for rel in names:
+                norm = "/" + rel.replace(os.sep, "/")
+                if any(s in norm for s in skip):
+                    continue
+                total += 1
+            return total
+    except Exception:
+        pass
+
     total = 0
     for dirpath, dirs, files in os.walk(ROOT):
         norm = dirpath.replace(os.sep, "/")
-        # 说明：本预算衡量「引擎文件」规模，不含导入素材（破甲卡生成/ 的 relab2 工程），
-        # 也不含案例库证据（Tool/cases：真实样本/抓包/产物，单独一行预算，避免用扩容掩盖引擎膨胀）。
-        if any(s in norm for s in ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool",
-                                   "/破甲卡生成", "/cases", "/audit", "/work")):
+        dirs[:] = [d for d in dirs if not d.startswith(".")]
+        if any(s in norm for s in skip):
             dirs[:] = []
             continue
         total += len(files)
-    # 加上仓库根的一层（setup/MANUAL/README 等）
-    repo = os.path.dirname(ROOT)
     for name in os.listdir(repo):
         p = os.path.join(repo, name)
-        if os.path.isfile(p):
+        if os.path.isfile(p) and not name.startswith("."):
             total += 1
-    for sub in ("setup", "MANUAL", "docs"):  # 引擎目录；导入素材不计入
+    for sub in ("setup", "MANUAL", "docs"):
         d = os.path.join(repo, sub)
         if os.path.isdir(d):
             for dirpath, dirs, files in os.walk(d):
