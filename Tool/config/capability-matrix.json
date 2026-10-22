@@ -335,6 +335,32 @@
       "site-clone": "partial",
       "reverse": "partial"
     },
+    "osint-h1-ref": {
+      "web-pentest": "full",
+      "pwn-crypto": "partial",
+      "firmware-iot": "via-compose",
+      "ad-cloud": "partial",
+      "protocol-plugin": "partial",
+      "plugin-targets": "partial",
+      "forensics-mobile": "via-compose",
+      "malware-analysis": "via-compose",
+      "supply-chain-security": "partial",
+      "site-clone": "partial",
+      "reverse": "partial"
+    },
+    "osint-secret-scan": {
+      "web-pentest": "full",
+      "pwn-crypto": "partial",
+      "firmware-iot": "via-compose",
+      "ad-cloud": "partial",
+      "protocol-plugin": "partial",
+      "plugin-targets": "partial",
+      "forensics-mobile": "partial",
+      "malware-analysis": "partial",
+      "supply-chain-security": "partial",
+      "site-clone": "partial",
+      "reverse": "partial"
+    },
     "patch-apply": {
       "web-pentest": "partial",
       "pwn-crypto": "partial",
