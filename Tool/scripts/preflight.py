@@ -859,6 +859,28 @@ def check_skill_route():
     add("15 路由探针", "30 条大白话 → 技能命中", ok, detail)
 
 
+def check_race_e2e():
+    """HTTP/2 单包真机 e2e：racy 必须 fail、safe 必须 pass（本地回环，不联网）。"""
+    sp = os.path.join(TOOL, "scripts", "h2-race-e2e.py")
+    if not os.path.isfile(sp):
+        add("15 路由探针", "HTTP/2 单包 e2e（racy/safe）", False, "h2-race-e2e.py(missing)")
+        return
+    rc, out = run([sys.executable, sp, "--json"], timeout=180)
+    data = {}
+    if "{" in (out or ""):
+        try:
+            data, _end = json.JSONDecoder().raw_decode((out or "")[out.index("{"):])
+        except (ValueError, TypeError):
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    ok = rc == 0 and data.get("ok") is True and not data.get("skipped")
+    detail = ("racy=fail / safe=pass，判定与账本读回一致" if ok else
+              "rc=%d ok=%r skipped=%r blocked=%r" % (rc, data.get("ok"),
+                                                    data.get("skipped"), data.get("blocked_at")))
+    add("15 路由探针", "HTTP/2 单包 e2e（racy/safe）", ok, detail)
+
+
 def check_language():
     """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
     import re as _re
@@ -951,6 +973,7 @@ def main():
     check_playbook_gate()
     check_mcp_contract()
     check_skill_route()
+    check_race_e2e()
     check_language()
     check_functional(args.fast)
 

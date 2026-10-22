@@ -8,7 +8,7 @@
 
 ## 0. 现状判断（一句话）
 
-门禁层是真的（preflight 43/43、domain-gate 110/110、verify 65/0），但**「文档↔事实」「配方↔脚本」「证据链↔真实产物」三处仍在漂**；其中最危险的不是写错数字，是**脚本给出高置信度的错答案**（captcha-angle 在对称图上错 90° 仍报 0.974）。
+门禁层是真的（preflight 44/44、domain-gate 110/110、verify 65/0），但**「文档↔事实」「配方↔脚本」「证据链↔真实产物」三处仍在漂**；其中最危险的不是写错数字，是**脚本给出高置信度的错答案**（captcha-angle 在对称图上错 90° 仍报 0.974）。
 
 ---
 
@@ -84,7 +84,7 @@
 ## 验收总门（合并后必须全绿）
 
 ```
-python Tool/scripts/preflight.py                 # 43/43
+python Tool/scripts/preflight.py                 # 44/44
 python Tool/scripts/domain-gate.py --all         # 110/110
 python Tool/scripts/playbook-check.py            # 坏命令 0
 python Tool/scripts/capability-gate.py           # 47 / dangling 0 / cycles 0
