@@ -67,6 +67,10 @@
     {
       "path": "input/cbc.json",
       "sha256": "dda533038c7cad5a9085b32df7a70613879ccfae69d6006f5a1a1fc4217907ab"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "5765c95f0b1de09da337456da6658d03c3e8e2fa1f6a5f80e4e0e3e1bdf96f0e"
     }
   ],
   "lessons": [

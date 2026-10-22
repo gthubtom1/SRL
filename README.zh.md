@@ -222,7 +222,7 @@ Seep\ (251 MB)
 ├── docs/CHANGELOG.md                   ← 面向用户的版本变更日志
 │
 ├── Tool\
-│   ├── skill\                     ← 29 个技能
+│   ├── skill\                     ← 30 个技能
 │   │   ├── softseep\              ← ⭐ 总控调度器（判型路由 + 8 专题按需库）
 │   │   ├── apkseep\               ← Android 全链路逆向（113 个工程文件）
 │   │   ├── ida-reverse\           ← IDA Pro 自动化联动（13337 唤醒规约）

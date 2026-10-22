@@ -15,6 +15,10 @@
     {
       "path": "artifacts/run-deny.json",
       "sha256": "f2344737c605188c0fbd4de6efd51d6e988b787e65c8c4b156960a9a4a725901"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "abe70841821817d215a9ef5535380bd770383af2232cf2a75db6f12c8310aff5"
     }
   ],
   "lessons": [

@@ -13,7 +13,7 @@
 | 十一域（重点） | `web-pentest` `pwn-crypto` `firmware-iot` `ad-cloud` `protocol-plugin` `plugin-targets` `forensics-mobile` `malware-analysis` `supply-chain-security` `site-clone` `reverse`（= `softseep`） | §1–§8 全部 |
 | 其它技能 | `apkseep` `unpack-loop` `binary-diff` `ida-reverse` `llm-security` … | 仅 §7 链接图 + §6 单篇 ≤400 行 |
 
-**逆向域同契约**：`reverse` 与其它十域一样执行 §1–§8（3–5 案例 / 6–10 篇 KB）。
+**逆向域同契约**：`reverse` 与其它十一域一样执行 §1–§8（3–5 案例 / 6–10 篇 KB）。
 历史沉淀**不删除**，而是归档：案例 → `Tool/cases/_archive/`，深层 KB → `kb/_archive/pe-reverse/`。
 归档**不计入**域数量断言，但仍必须被索引、仍受链接完整性检查（§7）。
 
@@ -27,7 +27,7 @@
 | `references/*.md` | 400 行 | 60 行 | 60 行以下说明只是口号，不足以复现 |
 | `kb/**/techniques/*.md` | 200 行 | 50 行 | 知识库条目是一招一页 |
 
-## 2. references 篇数与必备篇（十域）
+## 2. references 篇数与必备篇（十一域）
 
 每域 **6–10 篇**，其中 4 篇是**固定职责**，文件名必须能被门禁识别：
 
@@ -130,7 +130,7 @@
 ## 10. 部署一致
 
 `~/.pi/agent/skills/<name>/SKILL.md` 若存在，其 sha256 必须与仓库同路径一致；
-逐域（十域）比对，任一不一致 FAIL（提醒重跑 `setup/install.ps1 -SkillsOnly`）。
+逐域（十一域）比对，任一不一致 FAIL（提醒重跑 `setup/install.ps1 -SkillsOnly`）。
 
 ## 11. 清理
 
@@ -149,7 +149,7 @@
 ## 12. 门禁用法
 
 ```bash
-python Tool/scripts/domain-gate.py --all            # 十域全量
+python Tool/scripts/domain-gate.py --all            # 十一域全量
 python Tool/scripts/domain-gate.py --domain web-pentest --json
 python Tool/scripts/domain-gate.py --links          # 只跑链接图
 python Tool/scripts/domain-gate.py --routing        # 只跑串味测试集

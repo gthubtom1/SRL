@@ -48,6 +48,10 @@
     {
       "path": "artifacts/accept.json",
       "sha256": "42d803504320f90ef780cacdc2eb658c6103a9088c01e595922d7d7110d039cd"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "12b3eee1cbf5fca4e4f54ef920a82b0698d9f01a32c3834a306143e9261eaa44"
     }
   ],
   "lessons": [

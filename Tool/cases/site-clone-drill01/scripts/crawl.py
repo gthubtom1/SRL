@@ -39,7 +39,7 @@ CASE = os.path.dirname(HERE)
 OUT = os.path.join(CASE, "artifacts", "crawl")
 CHROME = os.environ.get(
     "SEEP_CHROME",
-    os.path.expanduser("~/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe"),
+    (os.environ.get("CHROME_PATH") or os.path.expanduser("~/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe")),
 )
 
 FREEZE_CSS = (

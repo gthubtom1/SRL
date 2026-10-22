@@ -22,7 +22,7 @@
 
 ## P1（已修）
 
-计数漂移（README/ROADMAP/DEFERRALS/SPEC/AUDIT）、`work/plans/` 恢复、`docs/audit/` 不参与 lint、隐私路径脱敏、意图探针 90/90、ROADMAP「十一个域」。
+计数漂移（README/ROADMAP/DEFERRALS/SPEC/AUDIT）、`work/plans/` 恢复、`docs/audit/` 不参与 lint、隐私路径脱敏、意图探针 93/93、ROADMAP「十一个域」。
 
 ## P1（转 DEFERRALS）
 
@@ -33,6 +33,18 @@ ad-cloud 第 2 个真实案例（本机非域环境）；全量 264 张卡剧本
 ```
 python Tool/scripts/preflight.py            # 36/36
 python Tool/scripts/domain-gate.py --all    # 110/110
-python Tool/scripts/intent-coverage.py      # 90/90
+python Tool/scripts/intent-coverage.py      # 93/93
 bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 ```
+
+## C / A 报告其余 P1 处置
+
+| 来源 | 问题 | 状态 | 说明 |
+| :-- | :-- | :-- | :-- |
+| C-P1-1 | 脚本覆盖不足（部分脚本无 self-test） | 转 DEFERRALS | 按使用顺序补，已列入 D 项 |
+| C-P1-2 | 失败 rc 契约不统一（个别 rc=1） | 部分修 | 新脚本统一 rc=2；老脚本逐域回归 |
+| C-P1-3 | mutation-test 未扩到全部反例 | 部分修 | 已覆盖 sha/timeframe/只读/伪 real 四类 |
+| C-P1-4 | 脚本断言只查子串 | 转 DEFERRALS | 需语义断言，排下一批 |
+| C-P1-5 | lessons 不执行 | 部分修 | accept 校验命令文本；执行由案例复跑脚本承担 |
+| C-P1-6/7 | 两个门禁结论相反 | 已修 | 片段门禁按文件数报数并与 SSOT 同步 |
+| A-P1-6/10/11/12 | DOMAIN-SPEC 十域/文档 0 入链/清单计数 | 已修 | 统一十一域；docs/README 建索引；清单计数同步 |

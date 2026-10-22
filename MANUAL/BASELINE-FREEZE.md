@@ -11,7 +11,7 @@
 
 | # | 冻结项 | 具体内容 | 为什么不能动 |
 |---|---|---|---|
-| F1 | **目录骨架** | `Tool/skill/`、`Tool/mcp/`、`Tool/mcp/Tool/`、`Tool/prompts/`、`Tool/scripts/`、`Tool/config/`、`MANUAL/`、`setup/` | `seep_mcp_server.py` 的 `TOOL_DIR = <脚本目录>/Tool` 是硬编码相对路径；`Tool/mcp/Tool/` 一搬，38 个工具全瘫 |
+| F1 | **目录骨架** | `Tool/skill/`、`Tool/mcp/`、`Tool/mcp/Tool/`、`Tool/prompts/`、`Tool/scripts/`、`Tool/config/`、`MANUAL/`、`setup/` | `seep_mcp_server.py` 的 `TOOL_DIR = <脚本目录>/Tool` 是硬编码相对路径；`Tool/mcp/Tool/` 一搬，40 个工具全瘫 |
 | F2 | **MCP 工具名** | 已发布的 38 个 `seep_*` 工具名与参数签名 | Skill / SOP / 报告模板 / 用户习惯全部按名引用；改名 = 静默失效 |
 | F3 | **Agent 配置格式** | `~/.pi/agent/mcp.json`、`.mcp.json`、`opencode.jsonc`、`cordis.generated.yml` 的字段结构 | 四个 Agent 宿主共同消费；字段改名 = 宿主起不来 |
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
@@ -68,7 +68,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 
 | 返工动作 | 后果 |
 |---|---|
-| 搬动/重命名 `Tool/mcp/Tool/` | 38 个工具全部失效（`TOOL_DIR` 硬编码） |
+| 搬动/重命名 `Tool/mcp/Tool/` | 40 个工具全部失效（`TOOL_DIR` 硬编码） |
 | 修改 `seep_mcp_server.py` 顶部的路径常量 | 同上 |
 | 删除或重命名既有 `seep_*` 工具 | Skill/SOP/用户习惯全部断链 |
 | 让 `register_mcp` 无条件写仓库根 `.mcp.json` | 跑一次测试就污染受跟踪文件（v1.8.0 曾发生） |
@@ -139,7 +139,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
 | 单文件行数 | 2996（MCP 主服务） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（排除 upstream 与 `Tool/mcp/Tool`） | 643 | **900** | 超了说明在"堆文件"而不是"做能力" |
+| first-party 文件（排除 upstream 与 `Tool/mcp/Tool`） | 812 | **900** | 超了说明在"堆文件"而不是"做能力" |
 
 ### 7.2 三不原则
 
@@ -155,7 +155,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 
 ### 7.3 加功能前的四问（答不上来就不加）
 
-1. 能不能用**现有 38 个工具 + 现有技能**组合出来？（能 → 不加）
+1. 能不能用**现有 40 个工具 + 现有技能**组合出来？（能 → 不加）
 2. 它属于"新战术域"还是"已有域的新手段"？（后者 → 写进现有技能的 references，不新建技能）
 3. 它会不会让模型多一个选择题？（会 → 默认不暴露，或挂到降级链末端）
 4. 删掉它，哪条链路会断？（答"不会断" → 说明它不是必需的，优先不加）

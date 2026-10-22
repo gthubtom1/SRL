@@ -50,6 +50,10 @@
     {
       "path": "artifacts/plugin-triage.json",
       "sha256": "358c707c0007a6999d2fb528814163fa602fca29de8e9ae68ac538720c750c21"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "fa10b50726ceeeb7f947615804a4bf42a3e25357b203e86949a797c639956ed3"
     }
   ],
   "lessons": [

@@ -23,6 +23,10 @@
     {
       "path": "artifacts/repro.json",
       "sha256": "47b18c3f608f35a1af2b8b763d04965de59359118000e3be2f4da8cf0651ff1d"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "7e46f36ee5b618e4fa7bf0fa0817df50b05e7fd50d8aba5f218f9208096fea98"
     }
   ],
   "interfaces": {
