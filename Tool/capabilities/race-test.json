@@ -1,0 +1,40 @@
+{
+  "id": "race-test",
+  "title": "竞态与时序验证（账本读回）",
+  "domain": "web-pentest",
+  "triggers": [
+    "竞态",
+    "并发",
+    "race condition",
+    "重复领取",
+    "幂等键",
+    "库存扣减",
+    "一次性令牌",
+    "账本读回"
+  ],
+  "aliases": [
+    "race-test",
+    "race-probe",
+    "race-condition"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "业务接口 URL 与方法/body",
+    "账本（余额/次数/库存）读回 URL 与账号 token"
+  ],
+  "outputs": [
+    "before/after/ledger_delta",
+    "verdict(pass|fail|na) + reproduced + status_codes"
+  ],
+  "scripts": [
+    "Tool/skill/web-pentest/scripts/race-probe.py"
+  ],
+  "refs": [
+    "Tool/skill/web-pentest/references/09-ownership-and-timing-proof.md",
+    "Tool/mcp/Tool/reverselab/kb/web-pentest/techniques/04-object-authz-proof.md"
+  ],
+  "maturity": "usable",
+  "note": "脚本已上线（--help/--self-test rc=0，本机 fixture 实测 pass/fail/blocked 三路）；暂未有配方在『用到的能力』行按 id 引用，故 reserved:true，等配方侧接线后去掉。",
+  "reserved": true,
+  "compose": []
+}
