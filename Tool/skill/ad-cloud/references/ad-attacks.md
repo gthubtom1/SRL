@@ -375,3 +375,6 @@ curl -s 'https://<tenant>.okta.com/.well-known/openid-configuration'
 证据包（四件）：授权编号与清单条目；时间与源 IP；请求方法+路径+状态码+响应头/字段片段；
 `未做` 声明（未爆破/未提交凭据/未写/未投毒/未发利用包）。
 
+> 投递/钓鱼面（附件宏执行链、LNK/ISO、OAuth 同意钓鱼、二维码钓鱼）只看**遥测判据**，
+> 已并入 `Tool/skill/web-pentest/references/01-criteria.md` §9（本域 refs 已满额，且邮件网关/条件访问日志与 Web 侧会话证据同源）。
+

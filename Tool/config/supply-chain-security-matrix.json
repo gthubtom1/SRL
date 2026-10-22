@@ -400,6 +400,32 @@
       "false_positive_risk": "high：许可证声明与实际不一致；双许可/例外条款需人工判断",
       "commands": "syft dir:. -o spdx-json=sbom.spdx.json; jq -r '.packages[]|[.name,.licenseConcluded]|@tsv' sbom.spdx.json",
       "pitfalls": "把 GPL 声明当违法；把 NOASSERTION 当冲突"
+    },
+    {
+      "category": "ci-credential-surface",
+      "checkpoint": "env dump / runner token / OIDC 联邦 / 构建日志 / 缓存投毒 / registry 凭据",
+      "match": [
+        "CI 凭据",
+        "secrets 泄露",
+        "GITHUB_TOKEN",
+        "CI_JOB_TOKEN",
+        "runner token",
+        "OIDC",
+        "id_token",
+        "cache poisoning",
+        "构建日志"
+      ],
+      "criteria": "六面任一成立且有一次独立只读校验：变量名与 secrets 名单交集非空 + 日志呈 *** 掩码 + 单次授权内只读调用 rc=0；或 runner/job token 领到带 secrets/写权限的 job；或 id_token 的 sub/ref 与 trust 条件不匹配仍 assume 成功且身份 Arn 为目标 role；或 cache marker 在高权 job 恢复后 sha256 一致；或日志命中 secret_prefix_ok 且仍在用（git log -S）；或 registry 只读鉴权 200。证据含 run/job id、命令 rc、指纹 sha256[:12]。",
+      "fail": "只有 *** 掩码或只有变量名 → 变量存在，不是凭据可用；只有高熵串/示例 token → 未验证；token 有效但无 job/secrets → 权限面未展开；cache key 可猜但无写入回读 → 未验证；只有 registry 主机名 → 未验证。任一情况写 candidate，不进影响面。",
+      "tools": [
+        "ci-perm-audit.py",
+        "GitHub/GitLab secrets API（只读）",
+        "jq",
+        "sha256sum"
+      ],
+      "false_positive_risk": "high：掩码命中不等于值可用；平台自动注入变量（GITHUB_*/CI_*）会被误当 secret；示例 token/已轮换凭据；cache 共享但下游不使用该路径",
+      "commands": "curl -sS -H \"Authorization: token $GITHUB_TOKEN\" https://api.github.com/repos/$REPO/actions/secrets | jq -r '.secrets[].name'; python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out ci.json; jq '.secrets_refs[]?' ci.json; grep -rhoE '(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36})' logs_*/ | sha256sum",
+      "pitfalls": "把 *** 掩码当证据；把 OIDC token 存在当可 assume；为“有结论”去注册 rogue runner 或污染共享 cache；把 secret 值写进证据目录"
     }
   ]
 }

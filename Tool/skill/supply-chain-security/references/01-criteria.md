@@ -43,8 +43,9 @@
 | 安装钩子网络面（2026 蠕虫） | `package.json scripts.preinstall/postinstall` | `postinstall_net=true`：钩子命令含 `curl`/`wget`/`node -e`/`bun`/`child_process`/`net.`/`http`；与 `bun_payload` 或 `ci_token_scan` 同时命中才升确认，单独命中只算疑似 | `sc-check.py` 的 `rule_hits[].rule=SC-101 postinstall-network`（`file`/`line`/`evidence` 原命令） | 中：esbuild/sharp 等原生包会合法下载预编译二进制；`prepare` 用于本地开发；内网镜像地址也命中 `http` |
 | 远程/动态依赖（RDD） | 依赖值、锁文件 `resolved` | `rdd_ref=true`：依赖值匹配 `^(file:\|link:\|https?://\|git\+)`；或版本为 `*`/空且锁文件 `resolved` 指向远程 tarball；`file:`/`link:` 本身只算疑似 | `sc-check.py` 的 `rule_hits[].rule=SC-102 rdd-ref` + 锁文件 `resolved` 原文 + 依赖名 | 高：monorepo 的 `file:`/`link:` 是常规做法；受控内网 tarball 镜像；`workspace:` 协议不在本规则范围 |
 | action 可移动 tag | workflow `uses: owner/repo@ref` | `action_tag_mutable=true`：`@vN`/`@vN.N.N` 等可移动引用且非 40 位 commit SHA；叠加写权限与不可信触发才升级 | `sc-check.py` 的 `rule_hits[].rule=SC-103 action-tag-mutable`（`file`/`line`/`uses` 原文） | 中：官方 action 的 major tag 是常见做法；pin 后仍需看 job 权限与 `secrets` 作用域 |
+| CI 凭据提取面 | secrets 名单、受控 step 的 env、runner token、OIDC id_token、构建日志、cache key、registry 配置 | 六面任一成立：变量名∩名单非空且有独立只读校验 rc=0；或 runner/job token 领到带 secrets 的 job；或 claims 与 trust 条件不匹配仍 assume 成功；或 cache marker 在高权 job 命中同一 sha256；或日志命中 `secret_prefix_ok=true` 且仍在用；或 registry 只读鉴权返回 200 | `ci.json`（`secrets_refs[]`）+ run/job id + 日志行号 + `sha256[:12]` 指纹 + 一次校验 rc | 高：只有 `***` 掩码 / 只有高熵串 / token 有效但无 job / cache key 可猜，都只算配置缺失 |
 
-数据行数：23 行（门禁要求 ≥8）。新增场景只许追加，不许删掉“误报风险”列。
+数据行数：24 行（门禁要求 ≥8）。新增场景只许追加，不许删掉“误报风险”列。
 
 ## 2. 判据的机检落点
 
