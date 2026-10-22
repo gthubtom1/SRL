@@ -1,6 +1,6 @@
 # supply-chain-security 报告模板
 
-> 复制到 `evidence/<case>/report.md`。truncated 结果只能写“未覆盖”，不能写“无风险”。
+> 复制到 `work/<case>/report.md`。truncated 结果只能写“未覆盖”，不能写“无风险”。
 
 ## 1 目标与授权
 - 目标：<仓库/镜像/SBOM/CI / commit 或 digest / 版本>
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/scripts/sc-check.py --path evidence/<case>/artifacts/repo --max-files 1000 --out evidence/<case>/artifacts/sc.json
-python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom evidence/<case>/artifacts/bom.json --source evidence/<case>/artifacts/src --out evidence/<case>/artifacts/reach.json
-python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out evidence/<case>/artifacts/ci.json
+python Tool/scripts/sc-check.py --path work/<case>/artifacts/repo --max-files 1000 --out work/<case>/artifacts/sc.json
+python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom work/<case>/artifacts/bom.json --source work/<case>/artifacts/src --out work/<case>/artifacts/reach.json
+python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out work/<case>/artifacts/ci.json
 ```

@@ -27,9 +27,9 @@ docker pull <image>@sha256:<digest>
 ## 1. SBOM 与镜像内容
 
 ```bash
-syft <image> -o cyclonedx-json=evidence/<case>/image.cdx.json
-syft <image>@sha256:<digest> -o spdx-json=evidence/<case>/image.spdx.json
-trivy image --scanners vuln,secret <image>@sha256:<digest> -f json -o evidence/<case>/image.trivy.json
+syft <image> -o cyclonedx-json=work/<case>/image.cdx.json
+syft <image>@sha256:<digest> -o spdx-json=work/<case>/image.spdx.json
+trivy image --scanners vuln,secret <image>@sha256:<digest> -f json -o work/<case>/image.trivy.json
 
 # 层与历史：找构建工具、凭据、临时文件
 docker history --no-trunc <image>@sha256:<digest>

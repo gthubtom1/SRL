@@ -1,6 +1,6 @@
 # reverse 报告模板
 
-> 复制到 `evidence/<case>/report.md`。逆向结论必须有函数/偏移/状态字证据。
+> 复制到 `work/<case>/report.md`。逆向结论必须有函数/偏移/状态字证据。
 
 ## 1 目标与授权
 - 目标：<样本 / 版本 / sha256 / 架构 / 保护>
@@ -50,7 +50,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/softseep/scripts/preflight-classify.py evidence/<case>/artifacts/target.bin
-python Tool/scripts/mal-triage.py --file evidence/<case>/artifacts/target.bin --json
+python Tool/skill/softseep/scripts/preflight-classify.py work/<case>/artifacts/target.bin
+python Tool/scripts/mal-triage.py --file work/<case>/artifacts/target.bin --json
 python Tool/skill/softseep/scripts/patch-verify.py --self-test
 ```

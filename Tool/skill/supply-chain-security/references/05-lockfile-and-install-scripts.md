@@ -89,7 +89,7 @@ cat nuget.config 2>/dev/null
 ## 5. 证据形态
 
 ```text
-evidence/<case>/
+work/<case>/
   locks.sha256          # 所有锁文件的 sha256
   manifest-diff.txt     # manifest 直接依赖 vs 锁文件条目
   integrity-missing.txt # 缺 integrity 的条目

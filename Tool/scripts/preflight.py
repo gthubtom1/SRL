@@ -738,6 +738,22 @@ def check_language():
         n = len(pat.findall(t))
         if n:
             hits.append("%s(%d)" % (os.path.basename(f), n))
+    stale = []
+    for r_ in (os.path.join(TOOL, "prompts"), os.path.join(TOOL, "skill")):
+        for dp, dn, fn in os.walk(r_):
+            for f in fn:
+                if not f.endswith(".md"):
+                    continue
+                fp = os.path.join(dp, f)
+                try:
+                    t = open(fp, encoding="utf-8", errors="replace").read()
+                except Exception:
+                    continue
+                if "evidence/<case>" in t:
+                    stale.append(os.path.relpath(fp, ROOT).replace(os.sep, "/"))
+    if stale:
+        hits = list(hits) + ["%s(evidence/<case>)" % x for x in stale[:4]]
+
     add("13 措辞", "无任务禁令措辞（scope 由用户声明）", not hits,
         "%d 个文件：%s" % (len(hits), "；".join(hits[:6])) if hits else "0 命中")
 

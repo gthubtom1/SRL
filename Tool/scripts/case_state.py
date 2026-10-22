@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
@@ -164,7 +165,10 @@ def load_facts(case):
 
 
 def append_fact(case, fact):
-    _, fp, _ = paths(case)
+    d, fp, _ = paths(case)
+    if not os.path.isdir(d):
+        die_json("case-not-found",
+                 "案例目录不存在：%s（先跑 case_state.py init --case <目录>）" % d)
     with open(fp, "a", encoding="utf-8") as f:
         f.write(json.dumps(fact, ensure_ascii=False) + "\n")
 
@@ -172,6 +176,32 @@ def append_fact(case, fact):
 def die(msg, code=2):
     print(f"[ERR] {msg}")
     sys.exit(code)
+
+
+def die_json(blocked_at, reason, code=2):
+    """结构化失败：{ok:false, blocked_at, reason} + rc=2（供门禁与配方判据机检）。"""
+    print(json.dumps({"ok": False, "blocked_at": blocked_at, "reason": reason},
+                     ensure_ascii=False))
+    sys.exit(code)
+
+
+EVIDENCE_PATH_RE = re.compile(
+    r"[\\/]|\.(?:json|jsonl|txt|log|md|bin|dmp|png|jpe?g|csv|xml|html|pcapng?|so|apk|exe|dll|zip|tar|gz)$",
+    re.I)
+
+
+def require_evidence(value, case=None):
+    """形似路径的证据必须真实存在；纯文本证据（"来源: 说明"）照旧允许。"""
+    ev = (value or "").strip()
+    if not ev or not EVIDENCE_PATH_RE.search(ev):
+        return ev
+    cands = [ev]
+    if case:
+        cands.append(os.path.join(os.path.abspath(case), ev))
+    if any(os.path.exists(c) for c in cands):
+        return ev
+    die_json("evidence-missing",
+             '证据路径不存在：%s（文本证据写成 "来源: 说明"，不要写不存在的文件路径）' % ev)
 
 
 def _json_path(case, name):
@@ -332,7 +362,7 @@ def cmd_claim(a):
     by = (getattr(a, "by", "") or "").strip()
     if a.status == "refuted" and not by:
         die("refuted 必须带非空 --by（指向推翻它的证据/claim id），否则历史不可追溯")
-    ev = (a.evidence or "").strip()
+    ev = require_evidence(a.evidence, a.case)
     if a.status == "proven" and not ev:
         die("proven 必须带非空 --evidence（空串/空格不算证据；没有证据只能写 hypothesis）")
     fact = {"id": a.id, "claim": a.text, "status": a.status,
@@ -351,7 +381,7 @@ def _rewrite_facts(case, facts):
 
 
 def cmd_prove(a):
-    ev = (a.evidence or "").strip()
+    ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("prove 必须带非空 --evidence（空串/空格不算证据）")
     facts = load_facts(a.case)

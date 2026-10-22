@@ -13,6 +13,8 @@
 ## [1.25.0] — 2026-10-22
 > 终版收口：能力层接线（45 能力 / DAG / 矩阵重算）、forge 三合一生成器、配方命令门禁、05-backend-rebuild 4 脚本 + L3 演练、site-clone 接入、意图 93/93、路由修正、全仓脱敏。
 - 门禁：preflight 40/40、domain-gate 110/110、双平台 verify 65/0、意图 93/93。
+- 证据链收口：`case_state prove/claim/deliver` 对形似路径的 `--evidence` 校验存在性（缺失返回 `{ok:false,blocked_at:"evidence-missing"}` rc=2），缺失案例目录返回 `case-not-found` rc=2；案例目录口径统一为 `work/<case>`（`seep-start` 与全部配方/报告模板一致）。
+- 环境探测：drill 脚本的 chromium 查找改为 env → `PLAYWRIGHT_BROWSERS_PATH` → ms-playwright 目录 → PATH，找不到时输出 `blocked_at:"tool-missing"` rc=2。
 - 归属修正：Unity / IL2CPP / `global-metadata` / AssetBundle 归 **forensics-mobile**（配方 `game-client-il2cpp`，源自 `references/game-client-il2cpp.md` 的 Il2CppDumper 链路）；`apk-unpack` 收窄为 DexVMP / native 脱壳，`apk-ad-removal` 不再声明 Unity 名义覆盖。
 
 ## [1.24.2] — 2026-10-22

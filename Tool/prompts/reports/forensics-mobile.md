@@ -1,6 +1,6 @@
 # forensics-mobile 报告模板
 
-> 复制到 `evidence/<case>/report.md`。取证结论必须能回到采集记录与哈希。
+> 复制到 `work/<case>/report.md`。取证结论必须能回到采集记录与哈希。
 
 ## 1 目标与授权
 - 目标：<镜像/EVTX/hive/APK/IPA/容器 / 来源 / sha256>
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/forensics-mobile/scripts/forensics-check.py --file evidence/<case>/artifacts/AppReadiness.evtx --json
-python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input evidence/<case>/artifacts/History.sqlite --out evidence/<case>/artifacts/timeline.json --json
-python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case evidence/<case> --json
+python Tool/skill/forensics-mobile/scripts/forensics-check.py --file work/<case>/artifacts/AppReadiness.evtx --json
+python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input work/<case>/artifacts/History.sqlite --out work/<case>/artifacts/timeline.json --json
+python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case work/<case> --json
 ```

@@ -1,6 +1,6 @@
 # protocol-plugin 报告模板
 
-> 复制到 `evidence/<case>/report.md`。状态机结论必须有边覆盖率与帧证据。
+> 复制到 `work/<case>/report.md`。状态机结论必须有边覆盖率与帧证据。
 
 ## 1 目标与授权
 - 目标：<pcap/pcapng / 私有协议 / 端点 / 版本 / sha256>
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file evidence/<case>/artifacts/capture.pcapng --json --extract evidence/<case>/artifacts/streams
-python Tool/skill/protocol-plugin/scripts/proto-repro.py --input evidence/<case>/artifacts/sample.bin --json
+python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file work/<case>/artifacts/capture.pcapng --json --extract work/<case>/artifacts/streams
+python Tool/skill/protocol-plugin/scripts/proto-repro.py --input work/<case>/artifacts/sample.bin --json
 python Tool/skill/protocol-plugin/scripts/proto-accept.py --json
 ```
