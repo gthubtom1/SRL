@@ -23,6 +23,7 @@
 | iOS Reverse | [ios](ios/README.md) | Mach-O / entitlements / JB 检测面 / Frida / Keychain |
 | Anti-Cheat | [anticheat](anticheat/README.md) | EAC·BE·Vanguard 客户端取证（只读，不绕过） |
 | Managed Runtime | [managed](managed/README.md) | .NET / Java / Python / WASM 授权面 |
+| 归档（只读索引） | [_archive/pentest-checklist](_archive/pentest-checklist/README.md) | 79 篇 `offensive-*` 索引：许可 UNKNOWN，只索引不复制原文 |
 
 ## 根目录：AI 复盘
 
