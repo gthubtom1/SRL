@@ -408,3 +408,10 @@
 - **意图覆盖**：`Tool/config/intent-probes.json` 60 条口语意图 + `intent-coverage.py`，当前 **60/60 覆盖（100%）**。
 - **路由**：新增 R34（账号自动化/青龙）、R35（网站 1:1 复刻），共 31 条，自洽 rc=0。
 - 验收：`domain-gate --all` 101/101；`preflight --fast` 33/33。
+
+## v1.25.0 —— 终版收口（B/C/D/E 四份审计 + 修复）
+
+- 审计：B（深度）/C（可跑性）/D（架构）/E（上下文遗漏）四份落盘 `docs/audit/`；A（一致性）超时未落盘，其范围由 C/D/E 交叉覆盖。
+- **P0 修复**：能力层接线（44 个 id 加 domain/triggers/aliases，compose 改 DAG，矩阵按脚本重算）；新增 `forge.py`（playbook/capability/domain 三合一，生成即跑门禁）+ `docs/PROMOTION.md`（三次规则）+ `playbook-check.py`（配方命令必须可执行）；`05-backend-rebuild` 补 4 脚本（api-surface/schema-infer/backend-scaffold/switch-verify）+ 8 refs + L3 演练；site-clone 接入 4 能力与配方；配方命令对齐真实脚本。
+- **P1 修复**：意图探针 60→**90 条**，覆盖 100%（0 未覆盖）；路由修正（`kerberoast` 词边界、R34/R35 与配方对齐）；VERSION/ROADMAP/AUDIT 计数同步；`work/plans/` 恢复；`docs/audit/` 不参与措辞与悬空检查。
+- 验收：`domain-gate --all` **110/110**；`preflight --fast` **33/33**；`intent-coverage` 90/90；`capability-gate` 悬空 0；措辞 lint 0 命中。

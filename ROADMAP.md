@@ -21,7 +21,7 @@
 - Android：`apkseep`（43 篇参考 / 55 个脚本）+ `unpack-loop` + `binary-diff`。
 - IDA / radare2 / x64dbg 三条工具通道，统一走 `Tool/scripts/tool-run.ps1`（MCP 优先，headless 次之，GUI 最后）。
 
-### 三、九个安全域（可独立开打）
+### 三、十一个域（可独立开打）
 
 每域都有：判据表 / 失败判据表 / 模型常见失误 / 真实案例走查 / 2–4 个可跑脚本（`--self-test` 离线绿）
 / 3–5 个案例（≥1 个真跑）/ 6–10 篇 KB / 20–30 张任务卡 / 路由片段。

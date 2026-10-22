@@ -41,7 +41,7 @@ OFF = os.path.join(CASE, "artifacts", "offline")
 DIFF = os.path.join(CASE, "artifacts", "diff.json")
 CHROME = os.environ.get(
     "SEEP_CHROME",
-    "C:/Users/toti/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe",
+    "<HOME>/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe",
 )
 
 FREEZE_CSS = (
