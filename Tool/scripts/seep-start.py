@@ -39,11 +39,16 @@ CASE_STATE = os.path.join(HERE, "case_state.py")
 DOMAINS = (
     "web-pentest", "pwn-crypto", "firmware-iot", "ad-cloud", "protocol-plugin",
     "plugin-targets", "forensics-mobile", "malware-analysis",
-    "supply-chain-security", "reverse",
+    "supply-chain-security", "reverse", "site-clone",
 )
 
 # 每域 3 条下一步命令。{case_dir}=evidence/<case>，{target}=--target 或域默认样本。
 COMMANDS = {
+    "site-clone": [
+        "python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01 --json",
+        "python Tool/skill/site-clone/scripts/site-diff.py --crawl Tool/cases/site-clone01/artifacts/crawl --rebuild Tool/cases/site-clone01/artifacts/rebuild --out {case_dir}/artifacts/diff.json",
+        "python Tool/skill/site-clone/scripts/site-crawl.py --self-test",
+    ],
     "web-pentest": [
         "python Tool/skill/web-pentest/scripts/web-accept.py --root .",
         "python Tool/skill/web-pentest/scripts/web-repro.py --probe Tool/cases/web-pentest05/artifacts/probe.json --out {case_dir}/artifacts/web-verdict.json",
@@ -176,7 +181,7 @@ def start(domain, case, target, root=ROOT):
 
 def self_test():
     checks = []
-    checks.append(("domains", len(COMMANDS) == 10 and all(d in COMMANDS for d in DOMAINS)
+    checks.append(("domains", len(COMMANDS) == len(DOMAINS) and all(d in COMMANDS for d in DOMAINS)
                    and all(len(COMMANDS[d]) == 3 for d in DOMAINS)))
     tmp = tempfile.mkdtemp(prefix="seep-start-selftest-")
     case = "selftest"
@@ -208,7 +213,7 @@ def self_test():
 def main(argv=None):
     p = argparse.ArgumentParser(
         description="建案子 + evidence scope + 打印该域下一步 3 条命令")
-    p.add_argument("--domain", choices=DOMAINS, help="十域之一")
+    p.add_argument("--domain", choices=DOMAINS, help="十一域之一")
     p.add_argument("--case", help="案子名（只允许字母/数字/中文/-/_；落到 evidence/<case>）")
     p.add_argument("--target", default="", help="目标路径/URL/样本（可选）")
     p.add_argument("--self-test", action="store_true", help="离线自检，rc=0")

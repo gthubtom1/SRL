@@ -50,7 +50,7 @@
 ---
 
 > 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.25.0)**: 23 → **40** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
-> The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 55). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
+> The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 65). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
 
 ## 🌟 Project Overview
 
