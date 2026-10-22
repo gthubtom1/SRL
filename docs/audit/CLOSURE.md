@@ -11,9 +11,9 @@
 | 3 | 路由片段门禁假绿（11 份报成 14 份、字段丢失仍 rc=0） | A-P0-3 | 已修 | 按文件数报数；11 份片段全量从 SSOT 同步 label/skill/keywords |
 | 4 | 能力层死层（44 id 与配方/意图脱钩） | D-P0-1 | 已修 | domain/triggers/aliases + DAG + 被引用断言 |
 | 5 | forge 缺失、生成链断裂 | D-P0-2 / E-P0-2 | 已修 | `Tool/scripts/forge.py` 三合一 + 生成即门禁 |
-| 6 | 路由与配方对同一句相反答案（Unity il2cpp：路由 R26 forensics-mobile ↔ 配方 apk-unpack） | D-P0-3 | 已修 | ① `forensics-mobile.json`/`routing.json` 的 R26 移除 il2cpp/gameassembly/global-metadata/assetbundle/unityfs；② 上述关键词落到 R1（`apkseep`），与 `apk-unpack` 配方同域；③ `ROUTING_TESTS` 三条 il2cpp 用例改 `expect apkseep / forbid forensics-mobile`，`domain-gate --routing` 60/60；④ 新门禁 `route-playbook-parity.py`（60 用例 / 22 配方 / 不一致 0，自测含正负例）接入 preflight 13 三层、verify.sh/ps1、CI |
+| 6 | 路由与配方对同一句相反答案（Unity il2cpp） | D-P0-3 | 已修 | 归属按「谁真有配方」定：`apkseep/SKILL.md:150` 明示 Not covered Unity/IL2CPP，`forensics-mobile/references/game-client-il2cpp.md` 有 Il2CppDumper 链路 → ① R26 保留 il2cpp/gameassembly/global-metadata/assetbundle/unityfs，R1 移除这些词；② ROUTING_TESTS 三条用例回 `expect forensics-mobile / forbid apkseep`，`domain-gate --routing` 60/60；③ 新增配方 `game-client-il2cpp`（8 步均为仓库内真实脚本）；④ 意图探针 4 条指向该配方，覆盖 93/93；⑤ `apk-unpack` 收窄为 DexVMP/native，`apk-ad-removal` 去掉 Unity/IL2CPP/global-metadata/AssetBundle 名义声明；⑥ `route-playbook-parity`（60 用例 / 23 配方 / 0 不一致，自测含正负例）接入 preflight/verify/CI；⑦ CHANGELOG v1.25.0 记录归属修正 |
 | 7 | 矩阵不可信 | D-P0-4 | 已修 | 脚本重算 45×11 |
-| 8 | 配方命令漂移 15/22 | B-P0-2 | 已修 | 6 处 `--level L2`→`M2`、6 处 `--json`/参数/路径对齐；playbook-check 用 AST 读 argparse，对 166 条命令（含 138 条占位）校验参数名与枚举值，坏命令 0；已接入 preflight/verify.sh/verify.ps1/CI |
+| 8 | 配方命令漂移 15/22 | B-P0-2 | 已修 | 6 处 `--level L2`→`M2`、6 处 `--json`/参数/路径对齐；playbook-check 用 AST 读 argparse + 运行时错误文案枚举，对全部命令（含占位）校验参数名与枚举值；现 23 篇 / 170 条 / 坏命令 0；已接入 preflight/verify.sh/verify.ps1/CI |
 | 9 | 证据链可静默成功 | B-P0-3 | 已修 | mutation-test 四类 + accept 脚本 |
 | 10 | 05-backend-rebuild 只有文档 | B-P0-4 / E-P0-1 | 已修 | 4 脚本 + 8 refs + L3 演练 |
 | 11 | site-clone 未接入三层（入口 `seep-start --domain site-clone` rc=2） | B-P0-1 | 已修 | 4 能力 + 配方 + 路由；`seep-start.py` DOMAINS 增 `site-clone`（3 条真实命令），入口实跑 rc=0 |

@@ -133,8 +133,8 @@ def self_test():
          _verdict("forensics-mobile", ["apk-unpack"], [], {"apk-unpack": ["apkseep"]})[0] is False),
         ("正例：路由 apkseep + 配方 apk-unpack 判一致",
          _verdict("apkseep", ["apk-unpack"], [], {"apk-unpack": ["apkseep"]})[0] is True),
-        ("il2cpp 归 apkseep", not any("il2cpp" in b["text"].lower() and
-                                      b["skill"] != "apkseep" for b in res["bad"])),
+        ("il2cpp 归 forensics-mobile", not any("il2cpp" in b["text"].lower() and
+                                                b["skill"] != "forensics-mobile" for b in res["bad"])),
     ]
     failed = [n for n, ok in checks if not ok]
     print(json.dumps({"ok": not failed, "tool": "route-playbook-parity.py",

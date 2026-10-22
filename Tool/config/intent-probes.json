@@ -354,7 +354,7 @@
     {
       "id": "plug-03",
       "text": "Unity 游戏的 il2cpp 和 global-metadata 怎么解",
-      "expect": "apk-unpack",
+      "expect": "game-client-il2cpp",
       "forbid": []
     },
     {
@@ -384,7 +384,7 @@
     {
       "id": "game-04",
       "text": "Unity 游戏 il2cpp 加密，想改内存",
-      "expect": "apk-unpack",
+      "expect": "game-client-il2cpp",
       "forbid": []
     },
     {
@@ -528,13 +528,13 @@
     {
       "id": "unity-01",
       "text": "Unity IL2CPP 去广告，global-metadata 怎么改",
-      "expect": "apk-ad-removal",
+      "expect": "game-client-il2cpp",
       "forbid": []
     },
     {
       "id": "unity-02",
       "text": "Unity 游戏去广告，AssetBundle 里的广告配置",
-      "expect": "apk-ad-removal",
+      "expect": "game-client-il2cpp",
       "forbid": []
     },
     {
