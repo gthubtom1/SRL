@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "5a6dbedbe5c03f5498753676e1921a48ff6bfa3b9407acf38258ace4c2a88821",
-  "case_count": 47,
+  "source_hash": "9d3a68c856af37d008cd85a34f3c1ac454f1945b30bf0f7814c6ad870b21a45f",
+  "case_count": 48,
   "cases": [
     {
       "dir": "ad-cloud01",
@@ -1868,6 +1868,91 @@
         "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/06-failure-criteria-playbook.md"
       ],
       "updated": "2026-10-21"
+    },
+    {
+      "dir": "site-clone-drill01",
+      "id": "site-clone-drill01",
+      "domain": "web-pentest",
+      "target_type": "Next.js 静态导出站点（SSR shell + Cloudflare Pages）：https://block.youtest.me",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "server",
+      "goal_level": "L2",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "artifacts/diff.json",
+          "sha256": "13c452682982da46ffe9d1b907f8c87898f7527136929327228410b047c442c8"
+        },
+        {
+          "path": "artifacts/crawl/network.json",
+          "sha256": "e8e41bc02f9f298ee372c7c31faa238c991cb35e855753680abd42d3b071fb50"
+        },
+        {
+          "path": "artifacts/crawl/har.json",
+          "sha256": "afcd130486c674cf4636ab5006f954e5ee3698fd8407fbbf4e9415d217258488"
+        },
+        {
+          "path": "artifacts/crawl/routes.json",
+          "sha256": "7d2592278dfc7c03cd058c73cd93ab5f6baa62a6d770d0e19ecb94c9d2d1c393"
+        },
+        {
+          "path": "artifacts/rebuild-report.json",
+          "sha256": "5e8d2cc84a00c57ea95761fcc3ebe49655c0c8078dc09995931383265dd5732e"
+        },
+        {
+          "path": "artifacts/site/_replay/mocks.json",
+          "sha256": "4f7bbc75740d97e2e6f5c055af45af2c9b76162be324e69dfbb6f62f1d5b9b77"
+        },
+        {
+          "path": "artifacts/site/index.html",
+          "sha256": "31d6a31e96e85fe1fa171a0b18ecb01c1b5e35a32cb2e7cdeb89c53e7e24e927"
+        },
+        {
+          "path": "artifacts/crawl/shots/index.png",
+          "sha256": "85fa48cc73fcf2678c86d3bfc105ac8bc4ad9abf86020b9c5b0126437db9df17"
+        },
+        {
+          "path": "artifacts/offline/shots/index.png",
+          "sha256": "b9e5a83b6a4f645ed8a4540db28724d1718c068c84f694732524682da6698c64"
+        },
+        {
+          "path": "artifacts/MANIFEST.sha256",
+          "sha256": "7a308fda89184390490eae7769cd9dc13def092ab8ba57a896416f2a66057b33"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "抓取/重建/对比命令与 rc：`cd Tool/cases/site-clone-drill01 && python scripts/crawl.py`（rc=0，12/12 页）；`python scripts/rebuild.py`（rc=0，assets=166，dangling=0）；`python scripts/replay_diff.py`（rc=0，生成 artifacts/diff.json）；`python scripts/manifest.py`（rc=0，412 个文件）；`python Tool/scripts/preflight.py --fast`（rc=0）。",
+        "结果：buildManifest 推断 12 条路由，抓到 166 个同源资源、13 次 XHR/fetch（12 次 `_next/data` 数据接口）、60 次跨域/非 GET 被策略拦截；离线副本静态像素差 0.0000%、原始像素差 1.10%、DOM 相似度 0.9765，外联残留 28 次全在 3 主机白名单内、unexpected=0。",
+        "1:1 到哪一层：公开静态前端已到 1:1（HTML/CSS/JS/字体/图/音频/Lottie 全本地化，12 页静态像素差全 0），并可用录制 `_next/data` 离线回放客户端路由。缺哪一层：所有写入/会话态必须后端——创建测验、玩家加入/答题、成绩榜、逐题答案、分享落地页、账号；这些页在无会话时被路由守卫重定向，已标 `backend-required`（7 页），另 5 页为 `recorded-snapshot`，`local-mock` 0 页。",
+        "判据：Next.js 静态导出站要 1:1，必须同时抓 (a) 每条路由的 document HTML，(b) `_buildManifest.js` 里 per-route chunk，(c) `_next/data/<buildId>/<route>.json`。只抓 HTML 会在离线时因缺 data/chunk 出现 404 与空壳；本次补抓后 rebuild dangling=0。",
+        "像素对比必须先排除动画 WebP：本站 6 个资源含 `ANIM` 块（characters.webp、bubu.webp 等），逐帧不可比，原始差 1.1% 几乎全来自它们；按包围盒遮罩后 12/12 页为 0.00%。不遮罩会把动画相位误判成克隆失败。",
+        "截图时机判据：SPA 客户端重定向期间 DOM 会停在 `Loading...`，仅等 networkidle 会抓到中间态（实测 /user/creating 差 15%）；应等 `[class*=LoadingScreen]` 消失 + DOM 节点/文本/URL 连续 2 s 不变，再注入禁动画 CSS。",
+        "同源约束的代价：`api.youtest.me/info/country`（国家旗帜）与母品牌 `youtest.me/static/assets/promo/*` 图片（首页 promo 区）不能抓，离线回退默认值/占位图；这两类在 diff 中单列白名单与理由，不伪造数据。",
+        "失败判据：若离线副本外联出现白名单外主机、或某页静态像素差 >1%、或 DOM 文本 Dice <0.9，先查是否漏抓 per-route chunk / data JSON、是否被第三方脚本重定向，而不是先怀疑 CSS 差异。"
+      ],
+      "tags": [
+        "site-clone",
+        "nextjs",
+        "static-export",
+        "playwright",
+        "har-replay",
+        "pixel-diff",
+        "dom-similarity",
+        "offline-replica",
+        "cloudflare"
+      ],
+      "refs": [
+        "README.md",
+        "input/README.md",
+        "scripts/crawl.py",
+        "scripts/rebuild.py",
+        "scripts/replay_diff.py",
+        "artifacts/diff.json",
+        "artifacts/crawl/network.json"
+      ],
+      "updated": "2026-10-22"
     },
     {
       "dir": "supply-chain01",

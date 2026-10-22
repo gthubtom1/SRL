@@ -1,0 +1,1980 @@
+{
+ "log": {
+  "entries": [
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 6376,
+      "text_path": "html/index.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/08wcqpjubxajm.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 139632,
+      "text_path": "assets/_next/static/chunks/08wcqpjubxajm.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0ukfx_qbxumdr.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 79093,
+      "text_path": "assets/_next/static/chunks/0ukfx_qbxumdr.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/media/2ba5a01c16198eaa-s.p.0pki~sd4qkzeh.woff2"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "font/woff2",
+      "size": 79368,
+      "text_path": "assets/_next/static/media/2ba5a01c16198eaa-s.p.0pki~sd4qkzeh.woff2"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/media/2d9580cd2d6dd3ad-s.p.0t69_0wb6v0u3.woff2"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "font/woff2",
+      "size": 8316,
+      "text_path": "assets/_next/static/media/2d9580cd2d6dd3ad-s.p.0t69_0wb6v0u3.woff2"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/logo-f.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 13092,
+      "text_path": "assets/static/assets/img/logo-f.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0rb~p3bmskwsr.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 17551,
+      "text_path": "assets/_next/static/chunks/0rb~p3bmskwsr.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0~mcfyy64030u.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 36844,
+      "text_path": "assets/_next/static/chunks/0~mcfyy64030u.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0oj4kbjrn-tj0.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 92548,
+      "text_path": "assets/_next/static/chunks/0oj4kbjrn-tj0.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/07-8jo3gnm_sy.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 204381,
+      "text_path": "assets/_next/static/chunks/07-8jo3gnm_sy.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0j0.9slfgsxxc.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 11876,
+      "text_path": "assets/_next/static/chunks/turbopack-0j0.9slfgsxxc.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0gx6fe39p6b14.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 24977,
+      "text_path": "assets/_next/static/chunks/0gx6fe39p6b14.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0_55~adsylifu.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 36384,
+      "text_path": "assets/_next/static/chunks/0_55~adsylifu.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/01e16brc67b~a.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35247,
+      "text_path": "assets/_next/static/chunks/01e16brc67b~a.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/13~wt5gbe3po_.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 7694,
+      "text_path": "assets/_next/static/chunks/13~wt5gbe3po_.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0v8966vf0-a2j.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 20487,
+      "text_path": "assets/_next/static/chunks/0v8966vf0-a2j.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/15h0r~s5~e-qj.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 9788,
+      "text_path": "assets/_next/static/chunks/15h0r~s5~e-qj.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0wsyanpc20a2v.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12008,
+      "text_path": "assets/_next/static/chunks/turbopack-0wsyanpc20a2v.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/MF0PX5Om9anXYG9uRYEC-/_buildManifest.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 1246,
+      "text_path": "assets/_next/static/MF0PX5Om9anXYG9uRYEC-/_buildManifest.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/MF0PX5Om9anXYG9uRYEC-/_ssgManifest.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 323,
+      "text_path": "assets/_next/static/MF0PX5Om9anXYG9uRYEC-/_ssgManifest.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/MF0PX5Om9anXYG9uRYEC-/_clientMiddlewareManifest.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 96,
+      "text_path": "assets/_next/static/MF0PX5Om9anXYG9uRYEC-/_clientMiddlewareManifest.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/fonts/Oktah-Round-Latin.woff2"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "font/woff2",
+      "size": 31548,
+      "text_path": "assets/static/assets/fonts/Oktah-Round-Latin.woff2"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/home/strip.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 2450,
+      "text_path": "assets/static/assets/img/user/home/strip.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/home/clouds.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 8076,
+      "text_path": "assets/static/assets/img/user/home/clouds.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/home/language-selector-globe.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 4449,
+      "text_path": "assets/static/assets/img/user/home/language-selector-globe.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-23.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1158,
+      "text_path": "assets/static/assets/img/doodles/doodle-23.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-1.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 696,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-1.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/home/characters.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 61782,
+      "text_path": "assets/static/assets/img/user/home/characters.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-22.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 6489,
+      "text_path": "assets/static/assets/img/doodles/doodle-22.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-5.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 390,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-5.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-4.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 400,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-4.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-6.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 336,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-6.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-3.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 389,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-3.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-7.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 351,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-7.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-24.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1251,
+      "text_path": "assets/static/assets/img/doodles/doodle-24.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-8.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 543,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-8.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-2.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 739,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-2.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-25.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 3485,
+      "text_path": "assets/static/assets/img/doodles/doodle-25.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-28.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 949,
+      "text_path": "assets/static/assets/img/doodles/doodle-28.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-21.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1279,
+      "text_path": "assets/static/assets/img/doodles/doodle-21.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-27.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 741,
+      "text_path": "assets/static/assets/img/doodles/doodle-27.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-32.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 491,
+      "text_path": "assets/static/assets/img/doodles/doodle-32.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-29.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 731,
+      "text_path": "assets/static/assets/img/doodles/doodle-29.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-30.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 444,
+      "text_path": "assets/static/assets/img/doodles/doodle-30.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-31.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 434,
+      "text_path": "assets/static/assets/img/doodles/doodle-31.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-26.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1359,
+      "text_path": "assets/static/assets/img/doodles/doodle-26.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-33.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 534,
+      "text_path": "assets/static/assets/img/doodles/doodle-33.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-34.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 420,
+      "text_path": "assets/static/assets/img/doodles/doodle-34.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0u8675kwrg9r-.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 0,
+      "text_path": "assets/_next/static/chunks/0u8675kwrg9r-.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0u8675kwrg9r-.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 494,
+      "text_path": "assets/_next/static/chunks/0u8675kwrg9r-.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/json",
+      "size": 56,
+      "text_path": "data/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/10_tc.jk2if4a.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 26712,
+      "text_path": "assets/_next/static/chunks/10_tc.jk2if4a.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/05csbyd.gf37y.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 28274,
+      "text_path": "assets/_next/static/chunks/05csbyd.gf37y.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0sp4j4k5pc-xk.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 885,
+      "text_path": "assets/_next/static/chunks/0sp4j4k5pc-xk.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/00j2j~d58jh3c.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35247,
+      "text_path": "assets/_next/static/chunks/00j2j~d58jh3c.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/05lijon8lyzwk.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 1585,
+      "text_path": "assets/_next/static/chunks/05lijon8lyzwk.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0r.y20u.y5v_q.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 7241,
+      "text_path": "assets/_next/static/chunks/0r.y20u.y5v_q.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0kphhsp1k1aqa.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12076,
+      "text_path": "assets/_next/static/chunks/turbopack-0kphhsp1k1aqa.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/favicon.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1648239,
+      "text_path": "assets/favicon.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/404"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 6585,
+      "text_path": "html/404.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/scoreboard/bubu.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 31726,
+      "text_path": "assets/static/assets/img/user/scoreboard/bubu.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0ma5wgtg4v.ia.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12995,
+      "text_path": "assets/_next/static/chunks/0ma5wgtg4v.ia.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-05z2v-kxcd2bp.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 11876,
+      "text_path": "assets/_next/static/chunks/turbopack-05z2v-kxcd2bp.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/contact"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 18510,
+      "text_path": "html/contact.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/17fgq6lf42vm9.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 1863,
+      "text_path": "assets/_next/static/chunks/17fgq6lf42vm9.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/clouds.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1560,
+      "text_path": "assets/static/assets/img/user/clouds.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/contact/insta.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 7676,
+      "text_path": "assets/static/assets/img/contact/insta.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0bwrl~ab9-nkm.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 11162,
+      "text_path": "assets/_next/static/chunks/0bwrl~ab9-nkm.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0l~rr8vx6fdm8.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 25299,
+      "text_path": "assets/_next/static/chunks/0l~rr8vx6fdm8.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0hvi~~.rs1r1y.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 36384,
+      "text_path": "assets/_next/static/chunks/0hvi~~.rs1r1y.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/164~-ei_nxu1x.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35226,
+      "text_path": "assets/_next/static/chunks/164~-ei_nxu1x.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/09-9v-ugzxn85.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 1346,
+      "text_path": "assets/_next/static/chunks/09-9v-ugzxn85.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0p__5a_57ech2.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12076,
+      "text_path": "assets/_next/static/chunks/turbopack-0p__5a_57ech2.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/find"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 7207,
+      "text_path": "html/find.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-10.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 2971,
+      "text_path": "assets/static/assets/img/doodles/doodle-10.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-16.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 2206,
+      "text_path": "assets/static/assets/img/doodles/doodle-16.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-11.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 2516,
+      "text_path": "assets/static/assets/img/doodles/doodle-11.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/player/home/note-card.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 8201,
+      "text_path": "assets/static/assets/img/player/home/note-card.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0-62qcssllg3~.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35247,
+      "text_path": "assets/_next/static/chunks/0-62qcssllg3~.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/12cu-nvl9~mqs.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 39758,
+      "text_path": "assets/_next/static/chunks/12cu-nvl9~mqs.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0-30~iqt6xjym.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 61138,
+      "text_path": "assets/_next/static/chunks/0-30~iqt6xjym.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0m3epvfc4kug5.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12107,
+      "text_path": "assets/_next/static/chunks/turbopack-0m3epvfc4kug5.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/player/completed"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 6434,
+      "text_path": "html/player_completed.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/01h~omh1u1niq.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 7271,
+      "text_path": "assets/_next/static/chunks/01h~omh1u1niq.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/059n0uda7s_7o.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 29798,
+      "text_path": "assets/_next/static/chunks/059n0uda7s_7o.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/07rj4_rq8v022.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35247,
+      "text_path": "assets/_next/static/chunks/07rj4_rq8v022.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/03-1-~~jrxlc0.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 34671,
+      "text_path": "assets/_next/static/chunks/03-1-~~jrxlc0.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0kx_tf.94vdtd.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 39592,
+      "text_path": "assets/_next/static/chunks/0kx_tf.94vdtd.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0u8cg9y-uw54a.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12141,
+      "text_path": "assets/_next/static/chunks/turbopack-0u8cg9y-uw54a.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/player/clouds-bg.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 8760,
+      "text_path": "assets/static/assets/img/player/clouds-bg.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/audio/whoosh.mp3"
+    },
+    "response": {
+     "status": 206,
+     "content": {
+      "mimeType": "audio/mpeg",
+      "size": 5099,
+      "text_path": "assets/static/assets/audio/whoosh.mp3"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/00tih~xwa5382.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 411,
+      "text_path": "assets/_next/static/chunks/00tih~xwa5382.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/?error=player_or_user_data_missing_completed_page"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 6376,
+      "text_path": "html/index.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/player/name"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 7828,
+      "text_path": "html/player_name.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0s~-hwvpvcglz.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 1676,
+      "text_path": "assets/_next/static/chunks/0s~-hwvpvcglz.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-9.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 23673,
+      "text_path": "assets/static/assets/img/doodles/white-doodles/doodle-white-9.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/05zssyju-.q0l.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35247,
+      "text_path": "assets/_next/static/chunks/05zssyju-.q0l.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0dk-tb69p.psf.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 39674,
+      "text_path": "assets/_next/static/chunks/0dk-tb69p.psf.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0.ybpjb0_u9o3.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12009,
+      "text_path": "assets/_next/static/chunks/turbopack-0.ybpjb0_u9o3.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/player/playing"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 6755,
+      "text_path": "html/player_playing.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0r9mi31c8pl.h.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 10087,
+      "text_path": "assets/_next/static/chunks/0r9mi31c8pl.h.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/10mq5uz-5a8t8.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 36895,
+      "text_path": "assets/_next/static/chunks/10mq5uz-5a8t8.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0dh0so.lkxpra.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 25505,
+      "text_path": "assets/_next/static/chunks/0dh0so.lkxpra.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/14zbh_10z6_cm.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 32364,
+      "text_path": "assets/_next/static/chunks/14zbh_10z6_cm.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-0q._w4fn52q6m.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12042,
+      "text_path": "assets/_next/static/chunks/turbopack-0q._w4fn52q6m.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/09.3y96y1zgwj.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 0,
+      "text_path": "assets/_next/static/chunks/09.3y96y1zgwj.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/?error=player_and_user_data_missing_playing_quiz"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 6376,
+      "text_path": "html/index.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/user/creating"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 10428,
+      "text_path": "html/user_creating.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0fe5wv1ceydl-.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35942,
+      "text_path": "assets/_next/static/chunks/0fe5wv1ceydl-.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0c5mn5mfc5hfp.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35838,
+      "text_path": "assets/_next/static/chunks/0c5mn5mfc5hfp.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0-wizdbp200w2.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 37728,
+      "text_path": "assets/_next/static/chunks/0-wizdbp200w2.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-134vtm_fub7ig.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12041,
+      "text_path": "assets/_next/static/chunks/turbopack-134vtm_fub7ig.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0rz43xaq7pfv5.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 0,
+      "text_path": "assets/_next/static/chunks/0rz43xaq7pfv5.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/user/name?error=user_data_missing"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 8062,
+      "text_path": "html/user_name.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-3.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1536,
+      "text_path": "assets/static/assets/img/doodles/doodle-3.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-19.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 453,
+      "text_path": "assets/static/assets/img/doodles/doodle-19.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/name/speech-bubble.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 1149,
+      "text_path": "assets/static/assets/img/user/name/speech-bubble.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-13.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 980,
+      "text_path": "assets/static/assets/img/doodles/doodle-13.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/name/name-input-bubu-mascot.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 56624,
+      "text_path": "assets/static/assets/img/user/name/name-input-bubu-mascot.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/name/male.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 6078,
+      "text_path": "assets/static/assets/img/user/name/male.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/user/name/female.webp"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/webp",
+      "size": 26644,
+      "text_path": "assets/static/assets/img/user/name/female.webp"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/static/assets/img/doodles/doodle-37.svg"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "image/svg+xml",
+      "size": 520,
+      "text_path": "assets/static/assets/img/doodles/doodle-37.svg"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/json",
+      "size": 57,
+      "text_path": "data/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/12jcfe2csa502.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 0,
+      "text_path": "assets/_next/static/chunks/12jcfe2csa502.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/user/name"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 8062,
+      "text_path": "html/user_name.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/user/scoreboard"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 18171,
+      "text_path": "html/user_scoreboard.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0w_w2jy2c8aj2.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 4744,
+      "text_path": "assets/_next/static/chunks/0w_w2jy2c8aj2.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/059o4rye8uhf3.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 28924,
+      "text_path": "assets/_next/static/chunks/059o4rye8uhf3.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0~23i46ti-3.y.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 44033,
+      "text_path": "assets/_next/static/chunks/0~23i46ti-3.y.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-09j6gq2em-m~-.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12174,
+      "text_path": "assets/_next/static/chunks/turbopack-09j6gq2em-m~-.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/user/share"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 18358,
+      "text_path": "html/user_share.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0nl~mb~qpld0u.css"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/css",
+      "size": 4132,
+      "text_path": "assets/_next/static/chunks/0nl~mb~qpld0u.css"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/11gfg2_9rk9ds.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 5057,
+      "text_path": "assets/_next/static/chunks/11gfg2_9rk9ds.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/09wh-h-fmjc07.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 63324,
+      "text_path": "assets/_next/static/chunks/09wh-h-fmjc07.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0puna8c-2tj1p.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 20522,
+      "text_path": "assets/_next/static/chunks/0puna8c-2tj1p.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-12prgg564umbu.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12142,
+      "text_path": "assets/_next/static/chunks/turbopack-12prgg564umbu.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/json",
+      "size": 56,
+      "text_path": "data/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/user/scoreboard/answers"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "text/html",
+      "size": 17755,
+      "text_path": "html/user_scoreboard_answers.html"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/0c4rf0hf4-got.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 35053,
+      "text_path": "assets/_next/static/chunks/0c4rf0hf4-got.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/turbopack-01sma16hotlmf.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 12042,
+      "text_path": "assets/_next/static/chunks/turbopack-01sma16hotlmf.js"
+     }
+    }
+   },
+   {
+    "request": {
+     "method": "GET",
+     "url": "https://block.youtest.me/_next/static/chunks/031j-xmtltx_m.js"
+    },
+    "response": {
+     "status": 200,
+     "content": {
+      "mimeType": "application/javascript",
+      "size": 63324,
+      "text_path": "assets/_next/static/chunks/031j-xmtltx_m.js"
+     }
+    }
+   }
+  ]
+ }
+}
