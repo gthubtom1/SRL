@@ -62,7 +62,7 @@
 ## 3. 证据形态的最低要求
 
 ```text
-evidence/<case>/
+work/<case>/
   scope.md              # 授权人/工单/窗口/对象/动作白名单
   cmd.log               # 真实命令 + 时间 + rc
   target.json           # commit/digest/锁文件 sha256

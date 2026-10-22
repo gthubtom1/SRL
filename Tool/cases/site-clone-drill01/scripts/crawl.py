@@ -37,10 +37,39 @@ BUILD_ID_FALLBACK = ""
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASE = os.path.dirname(HERE)
 OUT = os.path.join(CASE, "artifacts", "crawl")
-CHROME = os.environ.get(
-    "SEEP_CHROME",
-    (os.environ.get("CHROME_PATH") or os.path.expanduser("~/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe")),
-)
+def _find_chrome():
+    """按 env -> PLAYWRIGHT_BROWSERS_PATH -> ms-playwright 目录 -> PATH 顺序找 chromium。"""
+    import glob as _glob
+    import shutil as _shutil
+    cands = []
+    for env in ("SEEP_CHROME", "CHROME_PATH", "CHROME_BIN"):
+        v = os.environ.get(env)
+        if v:
+            cands.append(v)
+    roots = []
+    if os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        roots.append(os.environ["PLAYWRIGHT_BROWSERS_PATH"])
+    roots += [os.path.expanduser("~/AppData/Local/ms-playwright"),
+              os.path.expanduser("~/.cache/ms-playwright"),
+              "/root/.cache/ms-playwright"]
+    for root in roots:
+        if not root or not os.path.isdir(root):
+            continue
+        for pat in ("chromium-*/chrome-win64/chrome.exe", "chromium-*/chrome-linux/chrome",
+                    "chromium-*/chrome-mac*/Chromium.app/Contents/MacOS/Chromium",
+                    "chromium_headless_shell-*/**/chrome*"):
+            cands += sorted(_glob.glob(os.path.join(root, pat), recursive=True))
+    for name in ("chrome", "chrome.exe", "chromium", "chromium-browser", "google-chrome"):
+        hit = _shutil.which(name)
+        if hit:
+            cands.append(hit)
+    for c in cands:
+        if c and os.path.isfile(c):
+            return c
+    return ""
+
+
+CHROME = _find_chrome()
 
 FREEZE_CSS = (
     "*,*::before,*::after{animation:none!important;animation-delay:0s!important;"
@@ -223,6 +252,13 @@ def main() -> int:
             except Exception:
                 pass
         return handler
+
+    if not CHROME:
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "未找到 chromium：设 PLAYWRIGHT_BROWSERS_PATH 或 "
+                                    "CHROME_PATH，或装 playwright chromium"},
+                         ensure_ascii=False))
+        return 2
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True, executable_path=CHROME)

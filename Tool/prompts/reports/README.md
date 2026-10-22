@@ -1,20 +1,20 @@
 # 报告模板总览
 
-> 10 个域各一份，复制到 `evidence/<case>/report.md` 后填写。只写有证据的结论：
+> 10 个域各一份，复制到 `work/<case>/report.md` 后填写。只写有证据的结论：
 > `confirmed`（判据全中且可复跑）/ `candidate`（线索或环境不足）/ `blocked`（失败判据命中）。
 > 单份模板 ≤60 行；不要把“疑似”写成“确认”。
 
 ## 用法
 
 1. `python Tool/scripts/seep-start.py --domain <域> --case <case> [--target <路径>]`
-2. 把原始输出放进 `evidence/<case>/artifacts/`，命令与 rc 写进模板「证据清单」。
+2. 把原始输出放进 `work/<case>/artifacts/`，命令与 rc 写进模板「证据清单」。
 3. 逐条填「判据命中表」与「失败判据记录」；缺证据的判据只能记 `candidate`。
-4. 复跑命令必须从仓库根可执行；路径用相对路径或 `evidence/<case>/...`。
+4. 复跑命令必须从仓库根可执行；路径用相对路径或 `work/<case>/...`。
 
 ## 证据目录规范
 
 ```
-evidence/<case>/
+work/<case>/
 ├── scope.md          # 目标、授权、时间窗、范围外、速率/只读边界
 ├── artifacts/        # 原始 JSON/日志/截图/导出的帧；不手改，只追加
 │   ├── <tool>-<yyyymmdd-HHMMSS>.json

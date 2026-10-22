@@ -1,6 +1,6 @@
 # pwn-crypto 报告模板
 
-> 复制到 `evidence/<case>/report.md`。只写有偏移/回代/崩溃证据的结论。
+> 复制到 `work/<case>/report.md`。只写有偏移/回代/崩溃证据的结论。
 
 ## 1 目标与授权
 - 目标：<二进制 / 服务 / 密码挑战 / 版本 / sha256>
@@ -47,7 +47,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/scripts/pwn-check.py --file evidence/<case>/artifacts/target.bin --json
-python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump evidence/<case>/artifacts/target.dis --func <func> --probe-log evidence/<case>/artifacts/probe.txt
+python Tool/scripts/pwn-check.py --file work/<case>/artifacts/target.bin --json
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump work/<case>/artifacts/target.dis --func <func> --probe-log work/<case>/artifacts/probe.txt
 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test
 ```

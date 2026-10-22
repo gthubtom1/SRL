@@ -1,6 +1,6 @@
 # plugin-targets 报告模板
 
-> 复制到 `evidence/<case>/report.md`。权限/入口必须能回到 manifest 或包内文件。
+> 复制到 `work/<case>/report.md`。权限/入口必须能回到 manifest 或包内文件。
 
 ## 1 目标与授权
 - 目标：<CRX/VSIX/ASAR/ZIP/Unity 包 / 版本 / sha256>
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path evidence/<case>/artifacts/package.zip --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path evidence/<case>/artifacts/package.zip --out evidence/<case>/artifacts/repro --json
+python Tool/skill/plugin-targets/scripts/plugin-triage.py --path work/<case>/artifacts/package.zip --json
+python Tool/skill/plugin-targets/scripts/plugin-repro.py --path work/<case>/artifacts/package.zip --out work/<case>/artifacts/repro --json
 python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json
 ```

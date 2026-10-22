@@ -1,6 +1,6 @@
 # firmware-iot 报告模板
 
-> 复制到 `evidence/<case>/report.md`。固件结论必须区分静态线索与 J1/J2/J3。
+> 复制到 `work/<case>/report.md`。固件结论必须区分静态线索与 J1/J2/J3。
 
 ## 1 目标与授权
 - 目标：<设备/型号/固件版本/镜像 sha256>
@@ -48,7 +48,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/scripts/fw-triage.py --file evidence/<case>/artifacts/firmware.bin --json
-python Tool/skill/firmware-iot/scripts/fw-repro.py --file evidence/<case>/artifacts/firmware.bin --out-dir evidence/<case>/artifacts/fw --json
+python Tool/scripts/fw-triage.py --file work/<case>/artifacts/firmware.bin --json
+python Tool/skill/firmware-iot/scripts/fw-repro.py --file work/<case>/artifacts/firmware.bin --out-dir work/<case>/artifacts/fw --json
 python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json
 ```

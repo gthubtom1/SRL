@@ -1,6 +1,6 @@
 # ad-cloud 报告模板
 
-> 复制到 `evidence/<case>/report.md`。只留凭据指纹，不落明文。
+> 复制到 `work/<case>/report.md`。只留凭据指纹，不落明文。
 
 ## 1 目标与授权
 - 目标：<域 / CA / AWS 账号 / K8s 集群 / 订阅>
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/ad-cloud/scripts/ad-repro.py --input evidence/<case>/artifacts/bundle.json --json
-python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input evidence/<case>/artifacts/policy.json --action s3:GetObject --resource '*'
-python Tool/scripts/adcloud-check.py --kubeconfig evidence/<case>/artifacts/kubeconfig.yaml --json
+python Tool/skill/ad-cloud/scripts/ad-repro.py --input work/<case>/artifacts/bundle.json --json
+python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input work/<case>/artifacts/policy.json --action s3:GetObject --resource '*'
+python Tool/scripts/adcloud-check.py --kubeconfig work/<case>/artifacts/kubeconfig.yaml --json
 ```

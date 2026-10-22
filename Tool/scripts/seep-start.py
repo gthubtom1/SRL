@@ -8,9 +8,9 @@
     python Tool/scripts/seep-start.py --self-test
 
 做的事：
-    1) 调 Tool/scripts/case_state.py init --case evidence/<case> --target <target>
+    1) 调 Tool/scripts/case_state.py init --case work/<case> --target <target>
        （失败打印结构化 JSON 错误，rc=2）；
-    2) 建 evidence/<case>/artifacts/ 与 scope.md；
+    2) 建 work/<case>/artifacts/ 与 scope.md；
     3) 从本文件内置小表打印该域下一步 3 条命令（全部是仓库内真实脚本与参数）。
 
 退出码：0 成功 / 2 参数或 case_state.init 失败。
@@ -42,7 +42,7 @@ DOMAINS = (
     "supply-chain-security", "reverse", "site-clone",
 )
 
-# 每域 3 条下一步命令。{case_dir}=evidence/<case>，{target}=--target 或域默认样本。
+# 每域 3 条下一步命令。{case_dir}=work/<case>，{target}=--target 或域默认样本。
 COMMANDS = {
     "site-clone": [
         "python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01 --json",
@@ -154,7 +154,7 @@ def _next_commands(domain, case_dir, target):
 
 
 def start(domain, case, target, root=ROOT):
-    case_dir = os.path.join(root, "evidence", case)
+    case_dir = os.path.join(root, "work", case)
     cmd = [sys.executable, CASE_STATE, "init", "--case", case_dir]
     if target:
         cmd += ["--target", target]
@@ -185,7 +185,7 @@ def self_test():
                    and all(len(COMMANDS[d]) == 3 for d in DOMAINS)))
     tmp = tempfile.mkdtemp(prefix="seep-start-selftest-")
     case = "selftest"
-    case_dir = os.path.join(tmp, "evidence", case)
+    case_dir = os.path.join(tmp, "work", case)
     # 用真实 case_state.py 在临时目录建案，不污染仓库 evidence/。
     cmd = [sys.executable, CASE_STATE, "init", "--case", case_dir]
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
@@ -214,7 +214,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(
         description="建案子 + evidence scope + 打印该域下一步 3 条命令")
     p.add_argument("--domain", choices=DOMAINS, help="十一域之一")
-    p.add_argument("--case", help="案子名（只允许字母/数字/中文/-/_；落到 evidence/<case>）")
+    p.add_argument("--case", help="案子名（只允许字母/数字/中文/-/_；落到 work/<case>）")
     p.add_argument("--target", default="", help="目标路径/URL/样本（可选）")
     p.add_argument("--self-test", action="store_true", help="离线自检，rc=0")
     a = p.parse_args(argv)

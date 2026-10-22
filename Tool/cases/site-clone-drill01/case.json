@@ -14,15 +14,15 @@
     },
     {
       "path": "artifacts/crawl/network.json",
-      "sha256": "e8e41bc02f9f298ee372c7c31faa238c991cb35e855753680abd42d3b071fb50"
+      "sha256": "f6435f417314f614329b3239af9faef31070cb68a16065157eec27c426bbff00"
     },
     {
       "path": "artifacts/crawl/har.json",
-      "sha256": "afcd130486c674cf4636ab5006f954e5ee3698fd8407fbbf4e9415d217258488"
+      "sha256": "20d3853ad5e86eac0c395e2f623e0443bf7d469489a78bcc892793e16407ba07"
     },
     {
       "path": "artifacts/crawl/routes.json",
-      "sha256": "7d2592278dfc7c03cd058c73cd93ab5f6baa62a6d770d0e19ecb94c9d2d1c393"
+      "sha256": "cfb48b4142a25f90b4d63537f0a3d6c2a19c26da998275edd28b3f400bcee9c6"
     },
     {
       "path": "artifacts/rebuild-report.json",
@@ -38,7 +38,7 @@
     },
     {
       "path": "artifacts/crawl/shots/index.png",
-      "sha256": "85fa48cc73fcf2678c86d3bfc105ac8bc4ad9abf86020b9c5b0126437db9df17"
+      "sha256": "88fa311828261d57cfd7325956466176d033035d61f5b47f3b659e3a8c8f0401"
     },
     {
       "path": "artifacts/offline/shots/index.png",
@@ -46,7 +46,7 @@
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "7a308fda89184390490eae7769cd9dc13def092ab8ba57a896416f2a66057b33"
+      "sha256": "a5b0193e73633454e1ff9e294186b62bc412d152415e22ae99f895f910332f9f"
     }
   ],
   "lessons": [
