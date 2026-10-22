@@ -7,7 +7,7 @@ license: MIT — see LICENSE at the repository root
 #   https://github.com/newliver666/apk-reverse  (MIT License,
 #   Copyright (c) 2026 apk-reverse contributors)
 #   The upstream repository carries the tool-verification evidence record
-#   (docs/tool-verification/), the offline test suite (tests/), and the
+#   (Tool/upstream/apk-reverse/docs/tool-verification/), the offline test suite (tests/), and the
 #   capability registry. A copy is bundled at share/upstream/apk-reverse/.
 # ---------------------------------------------------------------------------
 compatibility: "Python 3.9+。静态分析（DEX/ELF/Protobuf/LeakScan）离线可用；动态探测需 adb / frida-server；重打包签名需 zipalign + apksigner。运行 scripts/doctor.py --json 查看环境能力。"

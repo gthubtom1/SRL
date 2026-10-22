@@ -213,7 +213,7 @@ any of the newer documents as a verified path.
   weaker read-path check is what was run instead, and the distinction is stated in the evidence file
   rather than papered over.
 
-**Where the record lives.** The full record is `docs/tool-verification/` at the **repository root, not
+**Where the record lives.** The full record is `Tool/upstream/apk-reverse/docs/tool-verification/` at the **repository root, not
 shipped** with the skill; `references/evidence-summary.md` is the condensation that does travel, and
 `references/routing.md` is the inventory. Neither the per-topic records nor the public-target
 regression matrix ships inside an installed skill, so an installed copy carries the claim but not its

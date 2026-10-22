@@ -64,7 +64,7 @@
 ## Write back to the repository
 - [ ] `references/desensitization-and-leak-scans.md` — the reasoning, the split rule, and the
       failure-mode table; this case is its motivating evidence.
-- [ ] The evidence record's own index — `docs/tool-verification/README.md` at the **repository root,
+- [ ] The evidence record's own index — `Tool/upstream/apk-reverse/docs/tool-verification/README.md` at the **repository root,
       not shipped** — carries the topic entry. The in-skill condensation is
       `references/evidence-summary.md`.
 - [ ] `references/precedents/README.md` — indexed as case 5.

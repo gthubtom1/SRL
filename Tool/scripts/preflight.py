@@ -240,6 +240,21 @@ def check_numbers(fast):
                 if lit in t_:
                     claims.append("%s: 残留旧值 %r" % (rel_, lit))
 
+    # 版本身份：README×3 的 Release 徽章必须等于 VERSION
+    try:
+        ver_ = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+        for rf in ("README.md", "README.zh.md", "README.en.md"):
+            rp_ = os.path.join(ROOT, rf)
+            if not os.path.isfile(rp_):
+                continue
+            rt_ = open(rp_, encoding="utf-8", errors="replace").read()
+            for mm in re.finditer(r"Release-v(\d+\.\d+\.\d+)", rt_):
+                if mm.group(1) != ver_:
+                    claims.append("%s: Release 徽章写 v%s，VERSION 是 %s"
+                                  % (rf, mm.group(1), ver_))
+    except Exception as _exc:  # noqa: BLE001
+        claims.append("版本一致性检查失败: %s" % str(_exc)[:40])
+
     add("2 数字", "文档数字 vs 实测", not claims,
         "实测 tools=%d skills=%d kb=%d manual=%d" % (a["tools"], a["skills"], a["kb"], a["manual"])
         + ("；" + "；".join(claims[:4]) if claims else ""))
