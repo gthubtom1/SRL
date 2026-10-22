@@ -1,0 +1,8 @@
+# 内存 / 磁盘 / EVTX 时间线 + 四要素
+- 触发词：取证、时间线、内存镜像、磁盘镜像、EVTX、注册表、四要素、哈希链
+- 输入（用户提供）：`<memory.dmp>`、`<disk.E01/raw>`、`<EVTX>`、`<hive>`、`<pcap>`、`<采集时间与时区>`；范围由用户提供的 scope 决定，原件只读封存。
+- 用到的能力（capability id）：`tool:tshark` `tool:dumpcap` `repo:case_state` `repo:seep-start` `repo:forensics-check` `repo:fs-timeline` `repo:evidence-accept` `repo:pcap-summary`
+- 步骤：1) `python Tool/scripts/seep-start.py --domain forensics-mobile --case <case> --target <IMAGE>` → rc=0，写清采集人/时间/工具/时区/时钟偏差；2) `python Tool/scripts/forensics-check.py --file <IMAGE> --json --out work/<case>/fs` → rc=0，识别类型、头、时间范围与可提取对象；3) `python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input <EVTX> --input <HIVE> --input <HISTORY.sqlite> --input <IMAGE> --out work/<case>/artifacts/timeline.json --json` → rc=0，统一 UTC 并保留原时区；4) 交叉验证流量：`python Tool/scripts/pcap-summary.py --file <PCAP> --json --out work/<case>/net` → rc=0，把五元组/PID/时间与时间线对齐；5) 四要素写入 `case.json` 的 `findings[]`（time_utc/actor/action/object/confidence/evidence_refs），`python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case <case> --json` → rc=0；6) `python Tool/scripts/preflight.py --fast` → rc=0。
+- 判据（可机检）：`forensics-check.json` 有 magic 类型与时间范围；`timeline.json.ok=true` 且 `events` 非空，每条有 action；`findings[]` 每条四要素齐全且 confidence 合法；`artifacts[].sha256` 复算一致；`evidence-accept` rc=0。
+- 失败判据 + 换路：镜像头损坏 → 先 carve 分区再解析；EVTX RecordId 有空洞 → 写“日志不完整”，不写“没发生”；hive 键遍历为 0 → 先 `reg save` 再读；时间差整数小时 → 重算时区/纪元并保留双时间；哈希不一致 → 重采并说明污染范围；无 pcap 佐证 → 结论降为 `inferred`。
+- 交付物：`work/<case>/artifacts/timeline.json`、`findings.json`、`net/`、`case.json`、`report.md`（来源/哈希/时间线/四要素四段）。
