@@ -17,6 +17,8 @@
 - 环境探测：drill 脚本的 chromium 查找改为 env → `PLAYWRIGHT_BROWSERS_PATH` → ms-playwright 目录 → PATH，找不到时输出 `blocked_at:"tool-missing"` rc=2。
 - 归属修正：Unity / IL2CPP / `global-metadata` / AssetBundle 归 **forensics-mobile**（配方 `game-client-il2cpp`，源自 `references/game-client-il2cpp.md` 的 Il2CppDumper 链路）；`apk-unpack` 收窄为 DexVMP / native 脱壳，`apk-ad-removal` 不再声明 Unity 名义覆盖。
 
+- 产物落盘：`web-check` / `sc-check` 的 `--out` 会自动创建父目录，写失败返回 `{"ok":false,"blocked_at":"out-unwritable"}` rc=2；`preflight` 新增 `out-artifact` 断言（--out 指到不存在目录必须落盘）。
+
 ## [1.24.2] — 2026-10-22
 > site-clone 第 11 域上线（crawl/rebuild/diff/accept + 8 refs + KB + 24 卡），措辞清理，部署同步。
 
