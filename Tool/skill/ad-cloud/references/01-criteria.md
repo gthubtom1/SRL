@@ -49,6 +49,26 @@
 | ADCS ESC11（ICPR 未强制加密） | CA 加密要求 + relay 日志 | `icpr_encrypt==false` 且 `esc_flags` 含 `ESC11`；relay 收到机器账号认证 + CA 签发证书 + `auth` 得 TGT，三步齐才 `confirmed` | `icpr_encrypt` 原值 + relay 日志行（来源/时间）+ 证书指纹 + TGT 指纹 | 加密已强制时 relay 必失败；只能打 HTTP 且 EPA 已开；无强制认证面/端点不可达=未验证 |
 | ADCS ESC17（HTTPS WSUS 中继） | WSUS 传输配置 + ADCS 模板 + 客户端更新日志 | `wsus_https==true` 且 `esc_flags` 含 `ESC17`；中继证书 subject=WSUS FQDN 且含 Server Auth EKU；客户端更新日志出现下载/安装与标记文件，`verdict==confirmed` | `wsus_https` 原值 + 中继证书 subject/EKU/指纹 + 客户端 `WindowsUpdateClient` 事件与标记文件路径 | 客户端证书 pinning/mTLS 或只走 HTTP=不可用；有 Server Auth 证书但无 MITM 位置只是 `candidate`；装了更新不等于提权，要写清落地证据 |
 
+## 1.2 横向移动与公网外部视角判据
+
+> 横向移动的完整四列表（前置/可机检/失败/代价）见 `references/06-lateral-movement.md`；
+> 公网只读探针与越界红线见 `references/ad-attacks.md` §11。
+> 本节只补“结论上限”：**认证成功 ≠ 执行成功；暴露面 ≠ 可利用**。
+
+| 场景 | 输入面 | 判据（可机检） | 证据形态 | 误报风险 |
+| :-- | :-- | :-- | :-- | :-- |
+| NTLM relay → SMB | 目标 SMB signing 未强制；有可诱导的入站认证 | 攻击端 relay 出现 SUCCEED；目标侧 4624 `logon_type`=3 + 4776，管理员再加 4672；建服务时 7045/4697；有命令回显或目标文件输出 | relay 日志行（来源/时间）+ 目标 4624/7045 + 命令回显；三者缺一只到 `candidate` | 只有 SUCCEED 没有目标侧日志=握手证据；relay 目标与受害者不是同一台 |
+| NTLM relay → WinRM | 5985/5986 可达；WinRM 接受 NTLM | 认证后能否拿到命令回显；WinRM 默认要求消息签名/加密，relay 无会话密钥；无回显即 `blocked` | WinRM Operational 会话记录 + 目标 4624 `logon_type`=3；无 4688 即未执行 | 把 SUCCEED 写成“WinRM 已横向”是典型误判 |
+| NTLM relay → LDAPS | DC 636 可达；EPA/通道绑定未强制（389 则是 LDAP signing 未强制） | relay 返回 “Adding computer account/Delegation rights modified”；回读对象/属性含受控 SID；DC 侧 4624 `logon_type`=3 + 4776 + 5136 | 写入回执 + ldapsearch 回读 + DC 日志；缺回读只到 `candidate` | 认证成功但无目录写权限；EPA 开启时必然失败；写属性未清理=持久化 |
+| Pass-the-Hash | 有 NTLM hash；目标接受 NTLM；hash 对应本地管理员/域高权 | 攻击端出现 Pwn3d! 或远程 whoami 回显；目标 4624 `logon_type`=3 + 4776 + 4672；失败 4625 | hash 指纹（不落明文）+ 命令输出 + 目标日志 | 目标只收 Kerberos / Protected Users 会直接拒绝；机器账号 hash 会轮换 |
+| WMI | 目标管理员凭据/hash；135 + 动态 RPC 可达 | 远程 whoami 回显；或 wmic 返回 ReturnValue=0 且目标出现 4688（父进程 WmiPrvSE.exe）+ 4624 `logon_type`=3 | 命令输出 + 4688 父子进程 + 4672 | ReturnValue=0 只证明创建请求成功；非管理员 hash 会 Access denied |
+| schtasks | 目标管理员或计划任务管理权限；Task Scheduler 运行 | 创建返回 SUCCESS + /query 列表；目标 4698 + 4688（动作）+ 4699（删除） | 创建/查询/删除三次 rc + 4698/4699 | 任务创建但不运行（/ru 或登录类型不对）；不删任务算持久化 |
+| DCOM | 目标管理员；135 可达；目标注册可用 DCOM 对象 | 目标出现 4688（父进程 mmc.exe/dllhost.exe）+ 4624 `logon_type`=3；激活不抛异常 | 进程父子关系 + 目标日志 | 对象可用性因版本/会话而异；0x80070005/0x80080005 即路径不通 |
+| RBCD 横向 | 对目标计算机对象有写权限；有带 SPN 的可控账号；允许协议转换 | 写入成功 + 回读含受控 SID + 服务票据 + 目标侧 whoami 回显；DC 5136/4769 | 写入回执 + 回读 + 票据指纹 + 目标日志 | 写入成功但 KDC_ERR_BADOPTION；票据可用但目标拒绝；必须备份原值并清理 |
+| 公网 445：NTLM type 2 | 只有 IP/域名；SMB negotiate 返回 type 2 challenge | 离线解析 `message_type`=2，能从 AV pair 取 `dns_domain`/`os_version`/`timestamp`，`challenge_fp` 只作指纹，`auth_attempted`=false → 最高 `candidate` | ad-repro 输出（域/OS/时间戳/指纹）+ 原始 challenge 的 sha256 | OS 版本/域名可伪造；challenge 是随机数；只有暴露面不等于可 relay |
+| 公网 389/636：LDAP 匿名 | 无凭据；rootDSE 可读 | base scope 查询 resultCode=0，返回 namingContexts/defaultNamingContext/dnsHostName/domainFunctionality | rootDSE 字段（脱敏）+ 时间 + 授权清单编号 | 匿名可读 rootDSE ≠ 可读目录对象；任何写操作必须另走授权单 |
+| 公网 88：Kerberos 枚举 | 书面给定的用户名清单；只读 AS-REQ | KDC 返回 6（不存在）/25（需预认证）/AS-REP（可 roast）；DC 侧 4768 计数与时间窗一致 | 清单 + 错误码分布 + 4768 计数（账号脱敏） | 批量清单=枚举告警；AS-REP 未授权不得离线破解；时差 >5 分钟会假阴性 |
+
 ## 2. 每条结论的最小证据包
 
 | 结论类型 | 必须有的四件 |
@@ -107,3 +127,7 @@
 | `detecting-privilege-escalation-in-kubernetes-pods` | K8s Pod 提权检测（源：detecting-privilege-escalation-in-kubernetes-pods） | `Tool/skill/ad-cloud/references/k8s-and-container.md` | 配置允许特权/hostPath/hostPID 且 audit 有对应创建/执行；有实际宿主证据才升级为 confirm… |
 | `performing-kubernetes-etcd-security-assessment` | etcd 安全评估的只读边界（源：performing-kubernetes-etcd-security-assessment） | `Tool/skill/ad-cloud/references/k8s-and-container.md` | 未授权访问被拒或授权只读成功；证书/端口/权限有客观返回；不修改任何 key |
 | `performing-kubernetes-cis-benchmark-with-kube-bench` | kube-bench CIS 基线复核（源：performing-kubernetes-cis-benchmark-with-kube-bench） | `Tool/skill/ad-cloud/references/k8s-and-container.md` | FAIL 项有配置文件/进程参数证据；能映射到具体风险与修复；不把 FAIL 直接写成提权 |
+
+> 本地硬化卡 25（横向移动）/ 26（公网外部视角）无上游对应，不计入上表；
+> 其判据分别落在 `Tool/skill/ad-cloud/references/06-lateral-movement.md` 与
+> `Tool/skill/ad-cloud/references/ad-attacks.md` §11。
