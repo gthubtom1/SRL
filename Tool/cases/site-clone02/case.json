@@ -1,0 +1,72 @@
+{
+  "id": "site-clone02",
+  "domain": "site-clone",
+  "route": "R60",
+  "target_type": "公开静态单页 https://example.com（IANA Example Domain）",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "public read-only",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "input/scope.txt",
+      "sha256": "ad1e202bb9f9507cda9c035497c375af5d66eb8c5b6d46f9af4896da882483f6"
+    },
+    {
+      "path": "artifacts/crawl/site-graph.json",
+      "sha256": "6e900b0573d69d14d6dc1d73bea59651fda8caaf92c217fda4cdc703e94fc51b"
+    },
+    {
+      "path": "artifacts/crawl/pages/root.html",
+      "sha256": "4827fcf413a703d735933f5e10110865f46dfd313cd4a24efc9d2f3f04790d9a"
+    },
+    {
+      "path": "artifacts/crawl/screenshots/root.png",
+      "sha256": "c27076a2d6b45a734d89f6f066cac4b2c2902963cefa669d87882d432733584f"
+    },
+    {
+      "path": "artifacts/rebuild/rebuild.json",
+      "sha256": "22ee7b0ccf52b1463d4608b939aa322034513fd5146a5972dbf0d2fcec940f54"
+    },
+    {
+      "path": "artifacts/rebuild/screenshots/root.png",
+      "sha256": "c27076a2d6b45a734d89f6f066cac4b2c2902963cefa669d87882d432733584f"
+    },
+    {
+      "path": "artifacts/diff.json",
+      "sha256": "1dd6cc29a7ec161924e24e09b019356e33b18c24ecfb55eb5bbdfcd4703ce8dd"
+    }
+  ],
+  "lessons": [
+    "实际抓取：python Tool/skill/site-clone/scripts/site-crawl.py --url https://example.com/ --out Tool/cases/site-clone02/artifacts/crawl --max-pages 5 --max-depth 2 --rps 2，rc=0；1 路由、1 资产、missing_rate=0.0。",
+    "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 2，rc=0；1 页、本地 404=0、外链=0。",
+    "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；pixel=0.0、DOM=1.0、missing_rate=0.0、交互 8/8，status=PASS。",
+    "边界：example.com 是单页静态文档，没有 JS/API/登录；本案例证明静态站可 1:1，不代表 SPA 或登录站可 1:1。",
+    "失败判据：把静态单页的 0.0 像素差当成所有站点可达，或忽略外链 iana.org 被本地阻断的事实。"
+  ],
+  "tags": [
+    "site-clone",
+    "static",
+    "example.com",
+    "1to1",
+    "pass"
+  ],
+  "refs": [
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/skill/site-clone/references/02-failure-criteria.md",
+    "Tool/skill/site-clone/references/03-model-pitfalls.md",
+    "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
+    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+    "Tool/config/site-clone-matrix.json",
+    "Tool/skill/site-clone/references/05-static-mirror-limits.md"
+  ],
+  "updated": "2026-10-22",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首三条的命令与 rc"
+  },
+  "backend_required": []
+}

@@ -1,0 +1,60 @@
+{
+  "id": "site-clone03",
+  "domain": "site-clone",
+  "route": "R60",
+  "target_type": "本地两页 HTML/CSS/SVG 夹具（python http.server 回环，site-clone 验收夹具）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "local fixture",
+  "goal_level": "L2",
+  "outcome": "success",
+  "artifacts": [
+    {
+      "path": "input/scope.txt",
+      "sha256": "b441a020a4c0f0ce30efb109e6926f2b679b4f76f0858eb2c50610240d9e8a1e"
+    },
+    {
+      "path": "artifacts/crawl/site-graph.json",
+      "sha256": "8596497b8b54de5fc40a9157e9d05ceaf44e638164033a37a0738825f293deba"
+    },
+    {
+      "path": "artifacts/rebuild/rebuild.json",
+      "sha256": "89860b13907172212b9ab0f7372fd9924b0fd0501b8349f36e6ba2a09a96a626"
+    },
+    {
+      "path": "artifacts/diff.json",
+      "sha256": "9556e3c2ee25b56fa151be0187003652bb2b4e39fbad68f388f87c2ff64cbe30"
+    }
+  ],
+  "lessons": [
+    "实际抓取：在夹具目录执行 python -m http.server 18766 --bind 127.0.0.1；另开终端 python Tool/skill/site-clone/scripts/site-crawl.py --url http://127.0.0.1:18766/ --out .../artifacts/crawl --max-pages 5 --max-depth 2 --rps 20，rc=0；3 路由、3 资产、missing_rate=0.0。",
+    "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；3 页、本地 404=0、外链=0、交互 9 条。",
+    "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；pixel=0.0、DOM=1.0、missing_rate=0.0、交互 9/9，status=PASS。",
+    "夹具用途：给 site-accept.py --self-test 之外提供一条真实脚本链（crawl→rebuild→diff→accept）的离线回归样本；不依赖外网和 Playwright 下载。",
+    "失败判据：把夹具结果当真实站点结论，或用 127.0.0.1 夹具证明 Cloudflare/登录态/后端逻辑可复刻。"
+  ],
+  "tags": [
+    "site-clone",
+    "fixture",
+    "offline",
+    "loopback",
+    "pass"
+  ],
+  "refs": [
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/skill/site-clone/references/02-failure-criteria.md",
+    "Tool/skill/site-clone/references/03-model-pitfalls.md",
+    "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
+    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+    "Tool/config/site-clone-matrix.json",
+    "Tool/mcp/Tool/reverselab/kb/site-clone/techniques/01-static-mirror-boundary.md"
+  ],
+  "updated": "2026-10-22",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首三条的命令与 rc"
+  },
+  "backend_required": []
+}
