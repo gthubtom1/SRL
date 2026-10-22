@@ -36,6 +36,7 @@
 | 19 | EVM/智能合约（域边界） | 合约源码、链上地址、Foundry 工程 | 本域无 EVM 运行时：只允许写 `evm_runtime=false`、`out_of_scope=true`、`route=web-pentest\|external-audit`；不得产出 `confirmed` | `scope.md` 的边界声明 + 转交链接 | 高：任何“链上已验证”结论都不可在本域复算 |
 | 20 | FSOP（`_IO_wfile_jumps`/`_IO_str_jumps`） | 可写堆 + `_IO_list_all`/stderr 可覆盖 + glibc 2.34+ | `io_file_vtable` ∈ {`_IO_wfile_jumps`,`_IO_str_jumps`}；`_IO_flush_all_lockp` 命中且 `bt` 见 `__doallocate→system`；`fsop_works=true` 需 marker/shell | `fsop.json`（vtable 符号、wide_data/lock 地址、rc、marker） | 高：vtable 越界 `_IO_vtable_check` abort 会被误读成“打通”；只伪造结构没走 flush |
 | 21 | 退出链（`exit_funcs` / `tls_dtor_list`） | `__run_exit_handlers` 可写链表或 TLS 可写 + 正常 `exit()` | `exit_funcs_target` 指向受控函数且断点命中后真执行；或 `tls_dtor_hit=true`（`func`=受控地址、`obj` 可控） | `exit_chain.json`（flavor、mangled 前后指针、rc、marker） | 高：未解 `PTR_MANGLE` 就宣布成功；进程 `_exit()/abort()` 跳过 handler |
+| 22 | TOCTOU / 文件竞态 | 先 check 后 use 的 SUID/服务二进制、先 stat 再 open 的脚本；低权可写目录；竞态窗口放大器（FUSE sleep / RENAME_EXCHANGE / CPU 绑定） | `strace -f -e trace=file` 中同一用户可控路径出现 ≥2 次解析；竞态循环的胜出轮次/总轮次可统计（例 win=7/200）；post-use 原语可复算：读到 root-only 文件首行、写到 root 路径后回读、以更高权限输出 `id | whoami` | `toctou.json`（路径、解析次数、win/rounds、post-use 输出 sha256）+ 失败侧证据（单次解析、`O_NOFOLLOW`、mkstemp 持 fd、无写权限） | 高：只有静态候选/单次解析；进程崩了但无对象替换；目标实际用 fd 操作；文件系统不支持 RENAME_EXCHANGE（EINVAL）；Windows 路径已规范化 |
 
 ## 2. 机检命令与判定阈值
 

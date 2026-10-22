@@ -27,7 +27,10 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 
 - 纯 Web/API 漏洞（SQLi/XSS/SSRF 打应用层、反序列化、文件上传、越权接口）→ **R20 / web-pentest**。
 - 纯二进制逆向/脱壳 → `ida-reverse`、`unpack-loop`；固件/IoT → `firmware-iot`。
-- 供应链投毒、钓鱼、免杀投递 → 不在本 skill 默认范围；供应链走 `supply-chain-security`。
+- 供应链投毒、钓鱼、免杀投递 → 不在本 skill 默认范围；供应链走 `supply-chain-security`；
+  钓鱼/投递的**防御可观测面**判据（附件宏执行链、LNK/ISO、OAuth 同意钓鱼、二维码钓鱼的邮件网关/EDR/条件访问遥测）
+  放在 `Tool/skill/web-pentest/references/01-criteria.md` §9（理由：本域 refs 已满 10 篇且 `ad-attacks.md` 已到 377/400 行，
+  而投递面的日志主体是邮件网关与 SSO 条件访问，与 Web 侧会话/令牌证据同源）。
 - 目标清单与动作等级由 `scope` 声明；生产 DoS、删改日志、持久化按单独授权单执行。
 
 ## 2. 前置检查（3 件）
@@ -96,6 +99,8 @@ aws sts get-caller-identity
   → 不能写域内提权；先查域成员/审计/缺口。
 - 横向：目标无 4688/7045/4698/命令回显、relay 认证后无会话、WinRM 默认要求加密
   → 只到 candidate；转 WMI/schtasks/凭据直连，不要重复 relay。
+- 工具侧：`nxc`/`impacket` 打印 `(Pwn3d!)`/`SUCCEED`（客户端判定）而目标侧无 4688/7045/4624
+  → 只到 candidate；按 `06-lateral-movement.md` §7.3 补目标侧证据，不要换工具重跑。
 - 公网：只有端口开放、type 2 解析失败、LDAP 匿名 49/8、KDC 只回 25
   → 暴露面记录，不写可利用；禁止用口令字典把“只读枚举”升级成爆破。
 - 同一手法同参数连续失败两次 → 换路线，不堆时间。
@@ -156,7 +161,7 @@ aws sts get-caller-identity
 | `references/04-walkthrough-windows-auth-events.md` | 真实 Windows Security 日志走查（wevtutil + ad-repro） |
 | `references/05-delegation-and-rbcd.md` | 委派/RBCD 深水：属性、票据链、失败判据 |
 | `references/ad-attacks.md` | AD 枚举/ACL/relay/横向命令速查 + 公网 445/389/88 只读外部视角 + 外部接入面（VPN/OWA/Zimbra/Okta/Entra）四列判据 |
-| `references/06-lateral-movement.md` | 横向移动四列判据：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD |
+| `references/06-lateral-movement.md` | 横向移动四列判据：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD；§7 NetExec/impacket 协议矩阵（smb/winrm/ldap/mssql/rdp）与 `--shares`/`--sessions`/`--loggedon-users` 只读用法、“什么输出算证据” |
 | `references/kerberos-and-adcs.md` | Kerberos/ADCS 命令与 ESC 细节 |
 | `references/k8s-and-container.md` | K8s RBAC/Secret/逃逸原语四列表/控制面五面（SA token/kubelet/etcd/admission）/CI 细节 |
 | `references/cloud-native.md` | AK-SK 四步链（sts→枚举→提权）/提权路径逐条判据/元数据/IAM 失败与未建模项 |

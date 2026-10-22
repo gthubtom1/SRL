@@ -58,9 +58,10 @@ docker image inspect <image> --format '{{.Id}} {{.RepoDigests}}'
 | 安装脚本 | 每条安装期命令有来源/必要性；下载有 hash | 有 `postinstall` 未读内容 | manifest 原文 + URL + hash |
 | CI 权限 | 显式最小 permissions；写权限只在发布 job | 顶层 `write-all` 但触发器受控 | `ci.json` 的 permissions + 行号 |
 | CI 触发 | 不可信触发不接触 secrets/写 token；不 checkout PR head | 只命中 `pull_request_target` 关键字 | triggers/checkout_refs/secrets_refs |
+| CI 凭据面 | 变量名与 secrets 名单交集 + 一次独立只读校验 rc=0（或 runner/OIDC/cache 任一提取面判据成立） | 只有 `***` 掩码/只有高熵串/token 有效但无 job | `ci.json` + run id + 变量名 + 指纹 + 校验 rc |
 | 制品来源 | digest 一致 + 签名 identity/issuer 匹配 + attestation subject 一致 | 只有签名 rc=0 或只有 tag | cosign 输出 + Rekor + attestation |
 
-完整表（18 行，含误报风险）：`references/01-criteria.md`。
+完整表（24 行，含误报风险）：`references/01-criteria.md`。
 
 ## 4. 失败判据（看到即降级）
 
@@ -68,6 +69,7 @@ docker image inspect <image> --format '{{.Id}} {{.RepoDigests}}'
 - 只有 tag 没有 digest；SBOM 对不上 commit/digest。
 - 锁文件缺 integrity 却宣称“可复现构建”。
 - 只凭 `pull_request_target` 关键字命中，未核对 checkout 内容、job 权限与 secrets 作用域。
+- 只看到 secrets 变量名/`***` 掩码，或只有 runner/OIDC token “有效”，就写“凭据可用”（缺一次独立只读校验）。
 - 只看到私有 scope 名，未验证 registry 的实际解析结果。
 - 签名/来源未验证，或用“能构建”代替“可信构建”。
 - 扫描 `truncated=true`、`degraded[]` 非空、`missing_tools` 含 SCA/签名工具，却写“无风险”。
@@ -168,7 +170,7 @@ cosign verify-attestation <image> --type slsaprovenance
 | `references/05-lockfile-and-install-scripts.md` | 锁文件完整性、安装脚本执行面、registry 交叉点 |
 | `references/06-reachability-and-sbom-drift.md` | SBOM 漂移、Python 发行名别名、从可达走到可利用 |
 | `references/sbom-sca.md` | SBOM/SCA/可达性速查与证据模板 |
-| `references/cicd-and-artifacts.md` | GitHub Actions/GitLab/Jenkins、签名与发布、报告模板 |
+| `references/cicd-and-artifacts.md` | GitHub Actions/GitLab/Jenkins、签名与发布、报告模板；§12 CI 凭据提取面（env dump / runner token / OIDC 联邦 / 日志 / 缓存投毒 / registry 六面判据） |
 | `references/dependency-confusion.md` | npm/pip/NuGet/Maven 依赖混淆与修复清单 |
 | `references/image-and-provenance.md` | 镜像 digest、cosign、SLSA、构建链一致性 |
 

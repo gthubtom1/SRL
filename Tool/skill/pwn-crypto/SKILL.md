@@ -102,6 +102,7 @@ cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 | 5 | seccomp / ORW | BPF 读全；`openat/read/write` 序列与白名单一致；stdout 含 flag | 只看到 `seccomp` 字符串或导入 |
 | 6 | 密码学（RSA/分组/PRNG） | `pow(m,e,n)==c`；广播每组回代 + `m^e<M`；ECB 重复块；CBC `before^after==xor`；MT 下 N 个逐位一致 | `iroot` 得到可打印字节但未回代；只看到“像随机” |
 | 7 | 稳定性 / 交付 | 全新进程/连接 10 次≥9；远程有 flag/root 证据；失败路线已记录 | 一次成功、gdb 下成功、本地关 ASLR 成功 |
+| 8 | TOCTOU / 文件竞态 | 同一用户可控路径 ≥2 次解析；竞态 win/rounds 可统计（如 win=7/200）+ post-use 原语可复算（读到 root 文件/写入 root 路径回读/更高权限 `id`） | 只有静态候选；崩溃但无对象替换；目标用 fd 操作（`O_NOFOLLOW`/`mkstemp`） |
 
 **判据使用规则**
 
@@ -118,6 +119,7 @@ cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 - `%n` 探针后变量仍为 0（UCRT）→ 只保留任意读；写路线转堆/逻辑或换 glibc 目标。
 - `malloc` 不返回 target / `free` corruption → 定 glibc 版本；2.34+ 放弃 `__free_hook`。
 - 整数只证明“理论回绕”、进程正常退出 → 没有真实越界，补 `_msize/写入长度/状态码`。
+- 同一路径 ≥3 轮 0 胜，或 strace 里该路径只有 1 次解析 → 不是 TOCTOU；换放大器/换目标，不要宣布“竞态成立”。
 - seccomp 白名单没有 `open/read/write` 且拼不出 ORW → 转 SROP/栈迁移；仍不行就如实写“无法读出 flag”。
 - `pow(m,e,n)!=c` → 填充/同一消息/模数互质至少一条不成立，退回假设，不要宣布“解出明文”。
 - 成功率 6–8/10 → 栈对齐/竞态未解决，不写“稳定”。
@@ -198,7 +200,7 @@ grep -l 'uid=\|FLAG{' /tmp/run.* | wc -l
 | `references/02-failure-criteria.md` | 失败判据表（现象/判定/改走哪条/代价） | 卡住、想换路线、写“已排除” |
 | `references/03-model-pitfalls.md` | 14 条模型常见失误（错误动作→为什么错→正确动作） | 写 exploit 前自检、复盘 |
 | `references/04-walkthrough-local-pe.md` | 真实案例走查：现场编译 PE 的栈溢出/整数/格式化串 + 密码学回代 | 想照着复跑、需要真实输出片段 |
-| `references/binary-exploitation.md` | pwntools/gdb 骨架：ret2libc、格式化串、栈迁移、稳定性 | 阶段 B/C 写脚本 |
+| `references/binary-exploitation.md` | pwntools/gdb 骨架：ret2libc、格式化串、栈迁移、稳定性；§7 TOCTOU/文件竞态判据（符号链接替换、临时文件命名、RENAME_EXCHANGE、Windows 重解析点） | 阶段 B/C 写脚本 |
 | `references/crypto-attacks.md` | RSA/分组/PRNG/证书的可运行求解骨架与回代 | 阶段 B/C 做密码学 |
 | `references/heap-and-sandbox.md` | tcache/UAF、IO_FILE、seccomp ORW 骨架与版本判据 | 堆题、沙箱题 |
 | `references/mitigation-matrix.md` | 保护位 × 手法 × 判据矩阵 + 决策树 + 误判清单 | 阶段 A 排路线、解释保护位 |

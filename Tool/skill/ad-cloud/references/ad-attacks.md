@@ -372,9 +372,7 @@ curl -s 'https://<tenant>.okta.com/.well-known/openid-configuration'
 | Okta/Entra 租户与联邦可读 | `candidate` | 授权后的只读目录/日志审计 |
 | 只有端口/登录页 | `blocked`/`unknown` | 补资产归属与授权，不猜服务 |
 
-证据包（四件）：授权编号与清单条目；时间与源 IP；请求方法+路径+状态码+响应头/字段片段；
-`未做` 声明（未爆破/未提交凭据/未写/未投毒/未发利用包）。
-
+证据包（四件）：授权编号与清单条目；时间与源 IP；请求方法+路径+状态码+响应头片段；`未做` 声明（未爆破/未提交凭据/未写/未投毒/未发利用包）。
 
 ### 12.4 怎么跑（离线优先，在线只读）
 
@@ -395,3 +393,6 @@ python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint --input t
 产品专属 cookie/版本串 + 专属路径=high。`high` 只表示指纹吻合，结论上限仍是 `candidate`
 （暴露面）；无指纹时 `product=null, verdict=blocked`，不得用默认口令或 CVE 路径字典升级。
 `--self-test` 断言 10 类全对，且 OWA 缺 `X-OWA-Version` 时不得判 high。
+
+> 投递/钓鱼面（附件宏执行链、LNK/ISO、OAuth 同意钓鱼、二维码钓鱼）只看**遥测判据**，
+> 已并入 `Tool/skill/web-pentest/references/01-criteria.md` §9（本域 refs 已满额，且邮件网关/条件访问日志与 Web 侧会话证据同源）。
