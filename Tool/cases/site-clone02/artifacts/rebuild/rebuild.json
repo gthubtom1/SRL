@@ -1,0 +1,114 @@
+{
+  "api": [],
+  "assets": [
+    {
+      "bytes": 1963,
+      "content_type": "text/javascript; charset=utf-8",
+      "file": "site/s.js",
+      "sha256": "535ef2c3425a9d1214bcd1a8d5430d904444135e48a4f113ba1e6f6e29925b0a",
+      "status": 200,
+      "url": "https://example.com/s.js"
+    }
+  ],
+  "assets_failed": [],
+  "backend_required": [],
+  "crawl": "Tool/cases/site-clone02/artifacts/crawl",
+  "data_boundary": {
+    "/": "recorded-snapshot"
+  },
+  "elapsed_s": 7.47,
+  "interactions": [
+    {
+      "applicable": true,
+      "expected": "Example Domain",
+      "kind": "title"
+    },
+    {
+      "applicable": true,
+      "expected": "该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。 This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it",
+      "kind": "body_text_head"
+    },
+    {
+      "applicable": true,
+      "expected": 0,
+      "kind": "stylesheet_count"
+    },
+    {
+      "applicable": true,
+      "expected": 21,
+      "kind": "dom_nodes"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "link_count"
+    },
+    {
+      "applicable": true,
+      "expected": 6,
+      "kind": "paragraph_count"
+    },
+    {
+      "applicable": true,
+      "expected": 0,
+      "kind": "image_count"
+    },
+    {
+      "applicable": true,
+      "expected": "en",
+      "kind": "document_lang"
+    }
+  ],
+  "local_pages": [
+    {
+      "final_url": "http://127.0.0.1:52257/",
+      "html": "local/root.html",
+      "route": "/",
+      "screenshot": "screenshots/root.png",
+      "status": 200
+    }
+  ],
+  "local_requests": [
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": null,
+      "url": "http://127.0.0.1:52257/"
+    }
+  ],
+  "mock": {
+    "entries": 0,
+    "har": "har.json",
+    "route": "mock/playwright-route.js"
+  },
+  "ok": true,
+  "origin": "https://example.com",
+  "pages": [
+    {
+      "bytes": 2402,
+      "file": "site/index.html",
+      "final_url": "https://example.com/",
+      "route": "/",
+      "status": 200,
+      "url": "https://example.com/"
+    }
+  ],
+  "preview": {
+    "port": 52257,
+    "root": "Tool/cases/site-clone02/artifacts/rebuild\\site"
+  },
+  "resources": {
+    "external_links": 0,
+    "external_samples": [],
+    "http_404": 0,
+    "requests": 1
+  },
+  "schema": "seep.site-rebuild/1",
+  "site_root": "site",
+  "target": "https://example.com/",
+  "viewport": {
+    "dpr": 1.0,
+    "height": 720,
+    "width": 1280
+  }
+}

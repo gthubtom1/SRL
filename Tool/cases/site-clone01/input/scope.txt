@@ -1,0 +1,5 @@
+target=https://block.youtest.me/
+authorization=用户明确授权对 block.youtest.me 做 1:1 复刻取证；仅 GET；默认 2 rps
+allow_hosts=api.youtest.me (GET only, recorded for HAR mock)
+bounds=max_pages=20, max_depth=3; no login, no write, no POST
+note=Cloudflare 前置；Next.js static export (_buildManifest.js sortedPages)

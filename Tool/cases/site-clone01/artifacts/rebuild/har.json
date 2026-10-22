@@ -1,0 +1,291 @@
+{
+  "log": {
+    "creator": {
+      "name": "site-rebuild.py",
+      "version": "1.0"
+    },
+    "entries": [
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://api.youtest.me/info/country"
+        },
+        "response": {
+          "bodySize": 55,
+          "content": {
+            "mimeType": "application/json; charset=utf-8",
+            "size": 55,
+            "text": "{\"country\":\"SG\",\"timestamp\":\"2026-10-22T00:11:46.599Z\"}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json; charset=utf-8"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      },
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/player/completed.json"
+        },
+        "response": {
+          "bodySize": 94,
+          "content": {
+            "mimeType": "application/json",
+            "size": 94,
+            "text": "{\"pageProps\":{\"title\":\"Quiz Completed\",\"description\":\"Thank you for playing!\"},\"__N_SSG\":true}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      },
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json"
+        },
+        "response": {
+          "bodySize": 57,
+          "content": {
+            "mimeType": "application/json",
+            "size": 57,
+            "text": "{\"pageProps\":{\"title\":\"creating quiz...\"},\"__N_SSG\":true}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      },
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json"
+        },
+        "response": {
+          "bodySize": 56,
+          "content": {
+            "mimeType": "application/json",
+            "size": 56,
+            "text": "{\"pageProps\":{\"title\":\"Enter your name\"},\"__N_SSG\":true}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      },
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?error=user_data_missing"
+        },
+        "response": {
+          "bodySize": 56,
+          "content": {
+            "mimeType": "application/json",
+            "size": 56,
+            "text": "{\"pageProps\":{\"title\":\"Enter your name\"},\"__N_SSG\":true}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      },
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1"
+        },
+        "response": {
+          "bodySize": 56,
+          "content": {
+            "mimeType": "application/json",
+            "size": 56,
+            "text": "{\"pageProps\":{\"title\":\"Enter your name\"},\"__N_SSG\":true}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      },
+      {
+        "cache": {},
+        "request": {
+          "bodySize": 0,
+          "cookies": [],
+          "headers": [],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "method": "GET",
+          "queryString": [],
+          "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/share.json"
+        },
+        "response": {
+          "bodySize": 56,
+          "content": {
+            "mimeType": "application/json",
+            "size": 56,
+            "text": "{\"pageProps\":{\"title\":\"Share your quiz\"},\"__N_SSG\":true}"
+          },
+          "cookies": [],
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "headersSize": -1,
+          "httpVersion": "HTTP/1.1",
+          "redirectURL": "",
+          "status": 200,
+          "statusText": "OK"
+        },
+        "startedDateTime": "1970-01-01T00:00:00.000Z",
+        "time": 0,
+        "timings": {
+          "receive": 0,
+          "send": 0,
+          "wait": 0
+        }
+      }
+    ],
+    "version": "1.2"
+  }
+}

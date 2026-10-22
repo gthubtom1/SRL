@@ -1,0 +1,1884 @@
+{
+  "api": [
+    {
+      "bytes": 55,
+      "content_type": "application/json; charset=utf-8",
+      "file": "mock/api/api.youtest.me/info/country",
+      "sha256": "6425c96bd82267f7a357b36a07993beb3765a8efe1d0b4c278f84ae102fd89c5",
+      "status": 200,
+      "url": "https://api.youtest.me/info/country"
+    },
+    {
+      "bytes": 94,
+      "content_type": "application/json",
+      "file": "site/_next/data/MF0PX5Om9anXYG9uRYEC-/player/completed.json",
+      "sha256": "2694bcca7f222f406d701ae7a217125994be89ceff4acd20d3b345f78a9e5de2",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/player/completed.json"
+    },
+    {
+      "bytes": 57,
+      "content_type": "application/json",
+      "file": "site/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
+      "sha256": "c5f96d94e86de9874fefe69fbb29f11c8d1b6d28c46bc5860301aaa72ba10080",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json"
+    },
+    {
+      "bytes": 56,
+      "content_type": "application/json",
+      "file": "site/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+      "sha256": "7b516373016c01c1f7e580babf1f3468717542a10204bf0c2c0eeaa1e6922f09",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json"
+    },
+    {
+      "bytes": 56,
+      "content_type": "application/json",
+      "file": "site/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+      "sha256": "7b516373016c01c1f7e580babf1f3468717542a10204bf0c2c0eeaa1e6922f09",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?error=user_data_missing"
+    },
+    {
+      "bytes": 56,
+      "content_type": "application/json",
+      "file": "site/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+      "sha256": "7b516373016c01c1f7e580babf1f3468717542a10204bf0c2c0eeaa1e6922f09",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1"
+    },
+    {
+      "bytes": 56,
+      "content_type": "application/json",
+      "file": "site/_next/data/MF0PX5Om9anXYG9uRYEC-/user/share.json",
+      "sha256": "c67cdc6a328819ced4bae081595e0feb7c9dfb6bda642b624b0e2404cfa580c4",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/share.json"
+    }
+  ],
+  "assets": [
+    {
+      "bytes": 1246,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/MF0PX5Om9anXYG9uRYEC-/_buildManifest.js",
+      "sha256": "8ea25a6182ce282cb7bf376e5dc2fb9710a615955b69e1fdf207c146b718ba10",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/MF0PX5Om9anXYG9uRYEC-/_buildManifest.js"
+    },
+    {
+      "bytes": 96,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/MF0PX5Om9anXYG9uRYEC-/_clientMiddlewareManifest.js",
+      "sha256": "5483e3295dc35dfe29ea932efc85341c916f10ff78ff5b0e965e003710893a4a",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/MF0PX5Om9anXYG9uRYEC-/_clientMiddlewareManifest.js"
+    },
+    {
+      "bytes": 323,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/MF0PX5Om9anXYG9uRYEC-/_ssgManifest.js",
+      "sha256": "a0e2967bc8911cb03033228eb85013333208ecb07ccca426bdabc7699c342eaa",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/MF0PX5Om9anXYG9uRYEC-/_ssgManifest.js"
+    },
+    {
+      "bytes": 61138,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0-30~iqt6xjym.js",
+      "sha256": "50612ad58187eecab6ad50ff456f6b194964e1b590c1a2eb795438b9d277ff83",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0-30~iqt6xjym.js"
+    },
+    {
+      "bytes": 35247,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0-62qcssllg3~.js",
+      "sha256": "951e6eb4bba2e4742fa9c631733343b475949ea67f1c355fcf9f6f7e4bf27b5c",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0-62qcssllg3~.js"
+    },
+    {
+      "bytes": 37728,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0-wizdbp200w2.js",
+      "sha256": "1dd0f2dd140f2d70a350ff092c948969ee4fbac6f431dc193865c2e096c317e9",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0-wizdbp200w2.js"
+    },
+    {
+      "bytes": 35247,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/00j2j~d58jh3c.js",
+      "sha256": "cf5a3d212746e34f2d284fb4eb61e08d00c764d59abce343be57f3e6fea297ff",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/00j2j~d58jh3c.js"
+    },
+    {
+      "bytes": 411,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/00tih~xwa5382.js",
+      "sha256": "83651ce14a6352070b350dcac2c80b7d7954dd2123d91911f7b505968fa8a631",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/00tih~xwa5382.js"
+    },
+    {
+      "bytes": 35247,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/01e16brc67b~a.js",
+      "sha256": "de52011043b1afaa1188463a1ecc0f604082fd5033d79ce2500cbd87e49ca56a",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/01e16brc67b~a.js"
+    },
+    {
+      "bytes": 7271,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/01h~omh1u1niq.css",
+      "sha256": "f38f2d2ef926734616fe6bb45fe33179c1510d28cde08c7fb06d0a32f83a7b04",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/01h~omh1u1niq.css"
+    },
+    {
+      "bytes": 34671,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/03-1-~~jrxlc0.js",
+      "sha256": "d3fea7546c037ca3cb870683685544dc4fc891080b3a1d2a9ae9786f54cfe6b2",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/03-1-~~jrxlc0.js"
+    },
+    {
+      "bytes": 63324,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/031j-xmtltx_m.js",
+      "sha256": "069710efec675474cc2b5435ffecaa1d724353f527f346b54c0dac6e04e7ef46",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/031j-xmtltx_m.js"
+    },
+    {
+      "bytes": 29798,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/059n0uda7s_7o.js",
+      "sha256": "1c8f18329a3be248089ea3cbf715c78b23c1efd6686b6e9cc19142aff39e2f14",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/059n0uda7s_7o.js"
+    },
+    {
+      "bytes": 28924,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/059o4rye8uhf3.js",
+      "sha256": "58a7bb6625590888a71a9920954a67fb2811347be3a6c8c2b10631276d44e5f8",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/059o4rye8uhf3.js"
+    },
+    {
+      "bytes": 28274,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/05csbyd.gf37y.js",
+      "sha256": "8ac92db01bed3da6a55d1dbddc7e413a89129089ad69bbdec8d02ad730b69873",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/05csbyd.gf37y.js"
+    },
+    {
+      "bytes": 1585,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/05lijon8lyzwk.css",
+      "sha256": "fae01a3ca994da688d1b620f536b724ba4cb2a7c79d171d21e1af894ba17e9c6",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/05lijon8lyzwk.css"
+    },
+    {
+      "bytes": 35247,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/05zssyju-.q0l.js",
+      "sha256": "b56341c64a579c47348f5938d841193afd00f7f6f44a95a7c28a26defe377b04",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/05zssyju-.q0l.js"
+    },
+    {
+      "bytes": 204381,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/07-8jo3gnm_sy.js",
+      "sha256": "407d5cd9a543501224623693cd8907ea19ae2af427dd55fe6662b82d519b417c",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/07-8jo3gnm_sy.js"
+    },
+    {
+      "bytes": 35247,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/07rj4_rq8v022.js",
+      "sha256": "c1b67f18019aa69c89fe6611e1ba3dbc7c2990a0289e62711f15e3a8c5f15e8c",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/07rj4_rq8v022.js"
+    },
+    {
+      "bytes": 139632,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/08wcqpjubxajm.css",
+      "sha256": "6fec29fc41f89235f07261a09bb5f5ae2810d48ccfb3b185133d6d4b40b9ce8a",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/08wcqpjubxajm.css"
+    },
+    {
+      "bytes": 1346,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/09-9v-ugzxn85.js",
+      "sha256": "b33459408bd1e9d384a3d2218a45cd44249cfc51bcf0f3f0453a758f8ea71078",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/09-9v-ugzxn85.js"
+    },
+    {
+      "bytes": 572,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/09.3y96y1zgwj.js",
+      "sha256": "b26df3da3f4ca2a0392da2fd44741636725249d8043d0a5fd5e47b26a36baa8d",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/09.3y96y1zgwj.js"
+    },
+    {
+      "bytes": 63324,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/09wh-h-fmjc07.js",
+      "sha256": "8b26a4324c90f2d9c25a764d91c2e09a3da3c198849e499ddd2f43cbb95a55a7",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/09wh-h-fmjc07.js"
+    },
+    {
+      "bytes": 36384,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0_55~adsylifu.js",
+      "sha256": "1c24f13ec3490122538bec73e415f545897380ca6d98b20af64ee28ad61242f7",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0_55~adsylifu.js"
+    },
+    {
+      "bytes": 11162,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0bwrl~ab9-nkm.js",
+      "sha256": "5cf3d10e26ff713d47c7ccab9110336dc05c5034dd42b8f09d3005e42dd3e8e1",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0bwrl~ab9-nkm.js"
+    },
+    {
+      "bytes": 35053,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0c4rf0hf4-got.js",
+      "sha256": "72677b10afa2850cb1ff08f86980ee83d20bb071a87e337234558fdf9e431a01",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0c4rf0hf4-got.js"
+    },
+    {
+      "bytes": 35838,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0c5mn5mfc5hfp.js",
+      "sha256": "96fb9841184dfef4e4e4c20efcbf95a7480554fad71e69726031d54df97ac266",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0c5mn5mfc5hfp.js"
+    },
+    {
+      "bytes": 25505,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0dh0so.lkxpra.js",
+      "sha256": "3d82f92e02d47fd910ea3ac198906d0eb2d849adeee3e28039eb4d3e6a70ab98",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0dh0so.lkxpra.js"
+    },
+    {
+      "bytes": 39674,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0dk-tb69p.psf.js",
+      "sha256": "25294e21872642d6acb904ecc7bd4ecb7bbf1949195e17345e815ab9f0bde7f0",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0dk-tb69p.psf.js"
+    },
+    {
+      "bytes": 35942,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0fe5wv1ceydl-.js",
+      "sha256": "ce8d5b63586ae988d5cc1b160c6afcbfe9e7c53ead03edc908390532bd7bc823",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0fe5wv1ceydl-.js"
+    },
+    {
+      "bytes": 24977,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0gx6fe39p6b14.js",
+      "sha256": "66eefec3d661c7d98c717ffd09037884f03a4ee91a5dbd09fb532a25fcdf73b8",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0gx6fe39p6b14.js"
+    },
+    {
+      "bytes": 36384,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0hvi~~.rs1r1y.js",
+      "sha256": "5a8626ac51b37048fad4100406e6b93e88f79995f408a1f65c3846e52fba3580",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0hvi~~.rs1r1y.js"
+    },
+    {
+      "bytes": 39592,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0kx_tf.94vdtd.js",
+      "sha256": "95b07e9e2453be354cb6b7fb63322268181bed2e8df25d191b3f9031c869998f",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0kx_tf.94vdtd.js"
+    },
+    {
+      "bytes": 25299,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0l~rr8vx6fdm8.js",
+      "sha256": "041b701c753ee31b4761f128270d12fdf07e0574332d9f73538c5535c14ac818",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0l~rr8vx6fdm8.js"
+    },
+    {
+      "bytes": 12995,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0ma5wgtg4v.ia.js",
+      "sha256": "7a9e620982ca1b3fcc182e8e9f8fcfd0512b9bd679f57cd5f7a0c0293d1b5437",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0ma5wgtg4v.ia.js"
+    },
+    {
+      "bytes": 4132,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/0nl~mb~qpld0u.css",
+      "sha256": "a064b69c574b57e5e8697196f35e3717be6062c94d67085c4696f9fe4c172c7b",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0nl~mb~qpld0u.css"
+    },
+    {
+      "bytes": 92548,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0oj4kbjrn-tj0.js",
+      "sha256": "09cb3117e914fa5de803357cf903f764573144f96a12c221d70988e24d422fc4",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0oj4kbjrn-tj0.js"
+    },
+    {
+      "bytes": 20522,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0puna8c-2tj1p.js",
+      "sha256": "e3bd7f1fd8537678446ae4af7022e2a5615937ae6e3aa1817cb8271ae2da153a",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0puna8c-2tj1p.js"
+    },
+    {
+      "bytes": 7241,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/0r.y20u.y5v_q.css",
+      "sha256": "fa9dbc478acd69c50eb722b87dce7866e56c5385ce3f16eb127c2d243cc83e22",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0r.y20u.y5v_q.css"
+    },
+    {
+      "bytes": 10087,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/0r9mi31c8pl.h.css",
+      "sha256": "df012a21c853156b227332f0a087d0d57222fad93262cc0084adff63bc01c476",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0r9mi31c8pl.h.css"
+    },
+    {
+      "bytes": 17551,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0rb~p3bmskwsr.js",
+      "sha256": "f5f69c23e22ba7b3f46c42ecef843c5f2a1aa06883aa4725131ea0aeb2dd01a3",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0rb~p3bmskwsr.js"
+    },
+    {
+      "bytes": 567,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0rz43xaq7pfv5.js",
+      "sha256": "d7262d3040dca1b92d52c63adca292261db423b57fd545198e23bc350e64b072",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0rz43xaq7pfv5.js"
+    },
+    {
+      "bytes": 885,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0sp4j4k5pc-xk.js",
+      "sha256": "f1537566162917d88e21539872e395ff20a8bad9bbc2d5eb9a900c669ffc4cc1",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0sp4j4k5pc-xk.js"
+    },
+    {
+      "bytes": 1676,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/0s~-hwvpvcglz.css",
+      "sha256": "b5a29bfe6cac33d75db1766d4bc32de57e32f25b2b2ff08bd0b08cfcb585d854",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0s~-hwvpvcglz.css"
+    },
+    {
+      "bytes": 494,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0u8675kwrg9r-.js",
+      "sha256": "f444a5a781c7e3b2948e05a4e79395b6c5c7a67b95dd4676f9a12d630c80fc0f",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0u8675kwrg9r-.js"
+    },
+    {
+      "bytes": 79093,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/0ukfx_qbxumdr.css",
+      "sha256": "bfe0ff8daa5871dd1e580084c2fefefa6b1d7a1d36d07a0deed015d5beb14fa1",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0ukfx_qbxumdr.css"
+    },
+    {
+      "bytes": 20487,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0v8966vf0-a2j.js",
+      "sha256": "7280708ae5f0bec613fc1a7410017e25a25f33730f5210d94a923e0ce513a12e",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0v8966vf0-a2j.js"
+    },
+    {
+      "bytes": 4744,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0w_w2jy2c8aj2.js",
+      "sha256": "bdd8a650c0616c9229e69175f279339175825895e910ce4b3b5e7c27793e7632",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0w_w2jy2c8aj2.js"
+    },
+    {
+      "bytes": 44033,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0~23i46ti-3.y.js",
+      "sha256": "eeaf32fbd7c0e7cbdecaa26c4810aafc188a7588dbfa86d75fe05774d3e03af7",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0~23i46ti-3.y.js"
+    },
+    {
+      "bytes": 36844,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/0~mcfyy64030u.js",
+      "sha256": "b4b146d6e391e35c3ebf3e3ab6018c4e13eaa5e758b33fd0524cf1dda7da927c",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/0~mcfyy64030u.js"
+    },
+    {
+      "bytes": 26712,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/10_tc.jk2if4a.js",
+      "sha256": "9b19aa62a245d508e7aecedd3d683e1b26684296912701f8fd830cf353f05b92",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/10_tc.jk2if4a.js"
+    },
+    {
+      "bytes": 36895,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/10mq5uz-5a8t8.js",
+      "sha256": "f19f6ec483b98b216413b446c13316d758bc01b1ae4aa4a62d05a0e5769f8b8b",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/10mq5uz-5a8t8.js"
+    },
+    {
+      "bytes": 5057,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/11gfg2_9rk9ds.js",
+      "sha256": "8c30685a45ca15397e07b426d7263cf8626eb84a39cecbdcd10a36100fe42163",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/11gfg2_9rk9ds.js"
+    },
+    {
+      "bytes": 39758,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/12cu-nvl9~mqs.js",
+      "sha256": "78be0de7e091815e5f74b6d03e3c7e405a1f91b931d2f7cd6d330f4779a8b92a",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/12cu-nvl9~mqs.js"
+    },
+    {
+      "bytes": 460,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/12jcfe2csa502.js",
+      "sha256": "e2d075372a37bfa630308276be5008db930c191230429ef1e94cf56e9ba30eba",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/12jcfe2csa502.js"
+    },
+    {
+      "bytes": 7694,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/13~wt5gbe3po_.js",
+      "sha256": "888b2db1cd3cc7d8754cf7b02b9bdd3b9386d2c49eeb173e809a88a3cb6fe816",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/13~wt5gbe3po_.js"
+    },
+    {
+      "bytes": 32364,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/14zbh_10z6_cm.js",
+      "sha256": "c7c545a4fb2b504f6769e00cbbde779160bc000478052ef82ea1449d8a2750d5",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/14zbh_10z6_cm.js"
+    },
+    {
+      "bytes": 9788,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/15h0r~s5~e-qj.js",
+      "sha256": "0588c81a21e0b306deba19252745084c8a8f9b23ac7af480d6c57c86747495bd",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/15h0r~s5~e-qj.js"
+    },
+    {
+      "bytes": 35226,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/164~-ei_nxu1x.js",
+      "sha256": "a90dfcdae968b40a2077c180a778dc76e877f0cf1fe094dbdf8a0e8fd0a7de68",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/164~-ei_nxu1x.js"
+    },
+    {
+      "bytes": 1863,
+      "content_type": "text/css; charset=utf-8",
+      "file": "site/_next/static/chunks/17fgq6lf42vm9.css",
+      "sha256": "0399d496649ca3340750a425e72a0f412edc8ee09ebb826f3d9e73ec1ce3f196",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/17fgq6lf42vm9.css"
+    },
+    {
+      "bytes": 12009,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0.ybpjb0_u9o3.js",
+      "sha256": "a58448300a8be94569e8706f7702299efaca511e9080a61490ee125e6e22c1b9",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0.ybpjb0_u9o3.js"
+    },
+    {
+      "bytes": 12042,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-01sma16hotlmf.js",
+      "sha256": "664f44f40b5066a8743da24dbcdd0ab6472ab4b588c53fc2133078b10657eda9",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-01sma16hotlmf.js"
+    },
+    {
+      "bytes": 11876,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-05z2v-kxcd2bp.js",
+      "sha256": "68b5cc0ac0e378c35ae3f0e618ce7dea4d2e2b98cba46c272881ce080ea3cad8",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-05z2v-kxcd2bp.js"
+    },
+    {
+      "bytes": 12174,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-09j6gq2em-m~-.js",
+      "sha256": "0e1c18a63e917ee402adb948e529dffae6648043ddb8085e259f50e039a88821",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-09j6gq2em-m~-.js"
+    },
+    {
+      "bytes": 11876,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0j0.9slfgsxxc.js",
+      "sha256": "2fa345be188764c4619bf09670989de168809abe3df404a664267dd7a0961551",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0j0.9slfgsxxc.js"
+    },
+    {
+      "bytes": 12076,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0kphhsp1k1aqa.js",
+      "sha256": "37b4cf84d3ee3db551c751d6e1df019917dab005c33594d4ff131a42113c4af8",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0kphhsp1k1aqa.js"
+    },
+    {
+      "bytes": 12107,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0m3epvfc4kug5.js",
+      "sha256": "c3d32723b12632bed930feb07f7ad826feee4589eda806daa40146a420462018",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0m3epvfc4kug5.js"
+    },
+    {
+      "bytes": 12076,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0p__5a_57ech2.js",
+      "sha256": "1901111d8f45dfa29927247f2113f92df68352b853913fcc365cdd1800b609e5",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0p__5a_57ech2.js"
+    },
+    {
+      "bytes": 12042,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0q._w4fn52q6m.js",
+      "sha256": "6894054dff2ecde287d73a45169606de0a809679b813c423bb5132393ac264a8",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0q._w4fn52q6m.js"
+    },
+    {
+      "bytes": 12141,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0u8cg9y-uw54a.js",
+      "sha256": "7e1d8e1adda2f8913f56606104c55dc34f623f2abccdf8a894cb63090bac93df",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0u8cg9y-uw54a.js"
+    },
+    {
+      "bytes": 12008,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-0wsyanpc20a2v.js",
+      "sha256": "fd290071ec0d022b1336727edf59a1c2d571c79d500f872feb19686852582600",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-0wsyanpc20a2v.js"
+    },
+    {
+      "bytes": 12142,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-12prgg564umbu.js",
+      "sha256": "76f09ac6dffccc10139740738a36a126dbb36f5db07d981c51172c52c850b777",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-12prgg564umbu.js"
+    },
+    {
+      "bytes": 12041,
+      "content_type": "application/javascript",
+      "file": "site/_next/static/chunks/turbopack-134vtm_fub7ig.js",
+      "sha256": "4af6b5e6b10c87ee9b0ebaa3b55602cffac4b3bb8707495fa171baa144ce4736",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/chunks/turbopack-134vtm_fub7ig.js"
+    },
+    {
+      "bytes": 79368,
+      "content_type": "font/woff2",
+      "file": "site/_next/static/media/2ba5a01c16198eaa-s.p.0pki~sd4qkzeh.woff2",
+      "sha256": "74ddcc52bb99d6883fc22dd194eb6ab76a83b04b6393b6ab6f8e82be03b3725e",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/media/2ba5a01c16198eaa-s.p.0pki~sd4qkzeh.woff2"
+    },
+    {
+      "bytes": 8316,
+      "content_type": "font/woff2",
+      "file": "site/_next/static/media/2d9580cd2d6dd3ad-s.p.0t69_0wb6v0u3.woff2",
+      "sha256": "a7deb7f1a531bf42e84820b938b4206b2919ded9caa781148811a56d038a35e7",
+      "status": 200,
+      "url": "https://block.youtest.me/_next/static/media/2d9580cd2d6dd3ad-s.p.0t69_0wb6v0u3.woff2"
+    },
+    {
+      "bytes": 1648239,
+      "content_type": "image/svg+xml",
+      "file": "site/favicon.svg",
+      "sha256": "d0f3d8bfedb0b6b7f55d40f39f7aa3d523a62dd73f722d265829421334b8bfa3",
+      "status": 200,
+      "url": "https://block.youtest.me/favicon.svg"
+    },
+    {
+      "bytes": 102695,
+      "content_type": "audio/mpeg",
+      "file": "site/static/assets/audio/complete-bg.mp3",
+      "sha256": "ef29a8bea18596fffa7af154e63f86105cc31d2b47818ff4ead4502d964b090a",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/audio/complete-bg.mp3"
+    },
+    {
+      "bytes": 5099,
+      "content_type": "audio/mpeg",
+      "file": "site/static/assets/audio/whoosh.mp3",
+      "sha256": "f2ad486f59e74d394186c978e129fd80fcb44f5ed97b2893d1c323d89083d433",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/audio/whoosh.mp3"
+    },
+    {
+      "bytes": 31548,
+      "content_type": "font/woff2",
+      "file": "site/static/assets/fonts/Oktah-Round-Latin.woff2",
+      "sha256": "7c5e120127675a98a9780c690b52e185db771d258a990a13a884b7d681db8aca",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/fonts/Oktah-Round-Latin.woff2"
+    },
+    {
+      "bytes": 7676,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/contact/insta.webp",
+      "sha256": "4d7e926dbd8f058b2fff661e1d48ba229a08191e89f6eb7579295dd27ebdbf39",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/contact/insta.webp"
+    },
+    {
+      "bytes": 2971,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-10.svg",
+      "sha256": "fb2757f9f3de7f48cfd6b165d78c7be6a9e33cd3dc2a0548f2e4dac2b70df2da",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-10.svg"
+    },
+    {
+      "bytes": 2516,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-11.svg",
+      "sha256": "f94e2af84a52348b721cc20d3405d490514fa8d07b948d84bb45bd902b410ee6",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-11.svg"
+    },
+    {
+      "bytes": 1711,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-12.svg",
+      "sha256": "ffa784d5c1c70b5a1314fd421e2885b1669cdcd818d2cde2fcf0b0f9bec00ceb",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-12.svg"
+    },
+    {
+      "bytes": 980,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-13.svg",
+      "sha256": "619d6881f3c2da4a83dcb8e45b864364d5d4ea739af74c58098e8a7d2bef835b",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-13.svg"
+    },
+    {
+      "bytes": 817,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-14.svg",
+      "sha256": "214727fac1d75053d5b73a57cb6cfc059580248788e4184af79cafd780bb5eff",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-14.svg"
+    },
+    {
+      "bytes": 8706,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-15.svg",
+      "sha256": "327361fef2aa906dfd49f947dfba598e139bc7f351cc28de1e7e98517c6cb79e",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-15.svg"
+    },
+    {
+      "bytes": 2206,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-16.svg",
+      "sha256": "106ee91ed1f74d2d272f845dfc7b7cf3f8e56094fd27785dcd83033026fabacb",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-16.svg"
+    },
+    {
+      "bytes": 2069,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-17.svg",
+      "sha256": "676d1614c5864184ea0e5c35a7e5a132ee3a99940f15b9d08a5467e3dc9f984f",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-17.svg"
+    },
+    {
+      "bytes": 1181,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-18.svg",
+      "sha256": "fac602d17b6bccb785552e923d124468f9c109fda463e16d94f4af632a4cfca2",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-18.svg"
+    },
+    {
+      "bytes": 453,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-19.svg",
+      "sha256": "8e4210c64588b372a4e1308a5e378f1bfc67ad56500c6c288262bd6791538439",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-19.svg"
+    },
+    {
+      "bytes": 319,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-20.svg",
+      "sha256": "da6fa24bb9d88087c346ecb7ca22d57be9bf0f6a7edcd3eace81f02ec5b5e879",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-20.svg"
+    },
+    {
+      "bytes": 1279,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-21.svg",
+      "sha256": "ffc53b0cb871076426db79fe6cac7b3c742aa665e7fbf1bf5d9a6581dc14f6d0",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-21.svg"
+    },
+    {
+      "bytes": 6489,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-22.svg",
+      "sha256": "cb2e0c79393c84fe3d9cc9cac5915e6bc8c6472127c18e1fbf74409d29f3517d",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-22.svg"
+    },
+    {
+      "bytes": 1158,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-23.svg",
+      "sha256": "04fd475dd97a12bfabb5b8e34cb006c52dc87b42757ab8bef47e5b75cba96272",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-23.svg"
+    },
+    {
+      "bytes": 1251,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-24.svg",
+      "sha256": "c71ccea1e82fd4a52bdaa33f08a42eda27ca08b6a1a7c6207ad0747ae65b0ff8",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-24.svg"
+    },
+    {
+      "bytes": 3485,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-25.svg",
+      "sha256": "b04bc753ee02f1f9c6872b23372d9ff97235a5cbe7508c12e02d91bc6a609f8d",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-25.svg"
+    },
+    {
+      "bytes": 1359,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-26.svg",
+      "sha256": "53e55b7561bfe9887e62f088b13b54d25d87047b40b733c04cc14176bcc82a7a",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-26.svg"
+    },
+    {
+      "bytes": 741,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-27.svg",
+      "sha256": "65f686275bebd2af8035d534941b1e46121bb441e7175fd257dcd8382c207550",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-27.svg"
+    },
+    {
+      "bytes": 949,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-28.svg",
+      "sha256": "2ec582a2e29b79988efaf568cd020c8a317d9de2dbb2efd3549f53776f1e6e3e",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-28.svg"
+    },
+    {
+      "bytes": 731,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-29.svg",
+      "sha256": "be7f6eda6f11c4b2bfb073f54f871ec0268ad264a20fa4157e895512b0f072c0",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-29.svg"
+    },
+    {
+      "bytes": 1536,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-3.svg",
+      "sha256": "0ea6433fedcd5fdb72e0d21df6a20640231ad9e9c790bc8d279ce8e8c844fd20",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-3.svg"
+    },
+    {
+      "bytes": 444,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-30.svg",
+      "sha256": "9ce977ac044f465335d69aef4c1745f9a036217a5058c5fd81fdf2285b30b370",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-30.svg"
+    },
+    {
+      "bytes": 434,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-31.svg",
+      "sha256": "04d74d9bc845c3e5f847962b86d8a3325b66e4c208669408cb35b431f2c774c7",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-31.svg"
+    },
+    {
+      "bytes": 491,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-32.svg",
+      "sha256": "d6ca3f079d154554371b565e1b70ca92cb8ecd20738a90de04828a4cea9915cb",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-32.svg"
+    },
+    {
+      "bytes": 534,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-33.svg",
+      "sha256": "f6ecf07925bf4ebd927ce5c0f7d068a8e1482992f020e5ba76fbd4d02c1450e1",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-33.svg"
+    },
+    {
+      "bytes": 420,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-34.svg",
+      "sha256": "ce8c6f369de486479228806c3958e78c3a2b26dd22ceb7b897de3ffbfa5fb86e",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-34.svg"
+    },
+    {
+      "bytes": 520,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/doodle-37.svg",
+      "sha256": "1ca18504ee2de427115d1b85e60b26eb4d0776f036f31ad90dbdc0a41122f4e3",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/doodle-37.svg"
+    },
+    {
+      "bytes": 696,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-1.svg",
+      "sha256": "dbe033b62fec0e463cc62dea85b3bbb1aa8fcae559bca2767f883da01e560570",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-1.svg"
+    },
+    {
+      "bytes": 739,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-2.svg",
+      "sha256": "6ec4a3f6bd58b0f84ceadb6cf7a5a57ff5c43985f85a5091bd1db10529ab2022",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-2.svg"
+    },
+    {
+      "bytes": 389,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-3.svg",
+      "sha256": "5530ade9d3a26d950e0f42fd7ac72db0728e17b3d621ae9f71c5270e51eb1b18",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-3.svg"
+    },
+    {
+      "bytes": 400,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-4.svg",
+      "sha256": "f4b75c84f92a8e64a4ac8ce84f59953af2d562c2c0d6b01b4b0e5051b71564ae",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-4.svg"
+    },
+    {
+      "bytes": 390,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-5.svg",
+      "sha256": "093ce9aaf8c8b0d5abea066c1d612f9ef4d0a3a7e40b7c39725fa0938678eb03",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-5.svg"
+    },
+    {
+      "bytes": 336,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-6.svg",
+      "sha256": "a4ffbb142b025c44ef105542e1f3e2421e485dd447c81825cef187d092953e1b",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-6.svg"
+    },
+    {
+      "bytes": 351,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-7.svg",
+      "sha256": "9e7e8f96bab3e744f8319c296bbf556b53ab61d5002ca3ec1d0d46387c39b8e8",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-7.svg"
+    },
+    {
+      "bytes": 543,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-8.svg",
+      "sha256": "608ed9a58ebc1d92c7fe62c21de6a34b45a01966d7a2ff3b4671ed509e8c97e6",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-8.svg"
+    },
+    {
+      "bytes": 23673,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/doodles/white-doodles/doodle-white-9.svg",
+      "sha256": "408fa637d06c2505549641c6c8460617309d136d001acd809ead50def738d6d6",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/doodles/white-doodles/doodle-white-9.svg"
+    },
+    {
+      "bytes": 13092,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/logo-f.webp",
+      "sha256": "79d39e4da38a80722f0e23deeff8f543b9e4ad23ac90f1c48f4051e341b7c0a8",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/logo-f.webp"
+    },
+    {
+      "bytes": 8760,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/player/clouds-bg.webp",
+      "sha256": "9f9bfbed4c944771657a6287071bd69fc91a071d078a28f6b5a7ac779fa0d836",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/clouds-bg.webp"
+    },
+    {
+      "bytes": 468,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/player/home/arrow-down.svg",
+      "sha256": "42045fc865e79d832313f06ed7af35403d7793973a74b43c78eaf01b90014b9c",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/arrow-down.svg"
+    },
+    {
+      "bytes": 4640,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/player/home/block-phone.webp",
+      "sha256": "1402e952f66d35f002b7aef11abceeb8418ce3d18abc0d9c3ffc798b05915b10",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/block-phone.webp"
+    },
+    {
+      "bytes": 112774,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/player/home/character-bubu.webp",
+      "sha256": "cd06e2e594117c9563fabb39627a1af11d3f9950e1344465dd2662c4164238b4",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/character-bubu.webp"
+    },
+    {
+      "bytes": 706,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/player/home/globe.svg",
+      "sha256": "5d6b03724f1d7abc0c1ede6db1fb7f4e18cdeaf58073c28e088150a5e1c93605",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/globe.svg"
+    },
+    {
+      "bytes": 8201,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/player/home/note-card.svg",
+      "sha256": "367fda8749945ed6c69302f48054d20ff06b1b651bb8ed81264d576937ffcd85",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/note-card.svg"
+    },
+    {
+      "bytes": 50348,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/player/home/player-home-bg-2.webp",
+      "sha256": "8ffdabf4b6aaa019ef550dc0e8f3818156f71667541ce810f11f1632f7d8f1ab",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/player-home-bg-2.webp"
+    },
+    {
+      "bytes": 4097,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/player/home/thought-cloud-3.svg",
+      "sha256": "1c12e179f0276d63d57f67dd54d5afad2c210927d7fd678f4d01ae72446ff4d8",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/player/home/thought-cloud-3.svg"
+    },
+    {
+      "bytes": 1560,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/user/clouds.svg",
+      "sha256": "d5eaca9f657f05c25e7b3ee071372545b4f499fda859dbb2642f13c66ceeb332",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/clouds.svg"
+    },
+    {
+      "bytes": 61782,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/user/home/characters.webp",
+      "sha256": "9d4e93508e60ef56bc4cadfcfc59a6696023ce50b7f87c0120655aff5c03f50f",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/home/characters.webp"
+    },
+    {
+      "bytes": 8076,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/user/home/clouds.webp",
+      "sha256": "094a0f2d826f85ba8570568dd14fea11ae283e7d5e5d68284d3d210863b8a940",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/home/clouds.webp"
+    },
+    {
+      "bytes": 4449,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/user/home/language-selector-globe.svg",
+      "sha256": "68a9e9da2df485241135ef14822f4064ba46e61dc0531e5d4f7e5ef7c235d15b",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/home/language-selector-globe.svg"
+    },
+    {
+      "bytes": 2450,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/user/home/strip.svg",
+      "sha256": "e4cdff0c46db4a912cf2c1e11645572efc91bd26bfd0900f8d74ba7859f19b24",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/home/strip.svg"
+    },
+    {
+      "bytes": 26644,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/user/name/female.webp",
+      "sha256": "83f2cd59a430e9c39e624346fea947e8d6ef20c45b3da26e4a12d2a6be3c78c9",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/name/female.webp"
+    },
+    {
+      "bytes": 6078,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/user/name/male.webp",
+      "sha256": "91ce1270e9797bf65081dbbe935062666aef26a15ca1664100682a0cb29bb1d7",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/name/male.webp"
+    },
+    {
+      "bytes": 56624,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/user/name/name-input-bubu-mascot.webp",
+      "sha256": "07eb609712373cf993553c6e076e89f8718e6fd2ab541b23775033489b5c40f7",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/name/name-input-bubu-mascot.webp"
+    },
+    {
+      "bytes": 1149,
+      "content_type": "image/svg+xml",
+      "file": "site/static/assets/img/user/name/speech-bubble.svg",
+      "sha256": "95d63ae808db9455db4976e4d8ce12c7a1be515e49516c81ac1a139f47015cb1",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/name/speech-bubble.svg"
+    },
+    {
+      "bytes": 31726,
+      "content_type": "image/webp",
+      "file": "site/static/assets/img/user/scoreboard/bubu.webp",
+      "sha256": "0d8a96353bab304e2e65fcbf7a74ff5bd185d9ba9794f2a18dc797d560ac5d84",
+      "status": 200,
+      "url": "https://block.youtest.me/static/assets/img/user/scoreboard/bubu.webp"
+    }
+  ],
+  "assets_failed": [],
+  "backend_required": [
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/find"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/completed"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/name"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/playing"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/creating"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/scoreboard"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/scoreboard/answers"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/share"
+    },
+    {
+      "api": "https://api.youtest.me/info/country",
+      "reason": "cross-origin API; only a recorded snapshot is replayable",
+      "status": 200
+    }
+  ],
+  "crawl": "Tool/cases/site-clone01/artifacts/crawl",
+  "data_boundary": {
+    "/": "local-mock",
+    "/404": "recorded-snapshot",
+    "/contact": "recorded-snapshot",
+    "/find": "backend-required",
+    "/player/completed": "backend-required",
+    "/player/name": "backend-required",
+    "/player/playing": "backend-required",
+    "/user/creating": "backend-required",
+    "/user/name": "local-mock",
+    "/user/scoreboard": "backend-required",
+    "/user/scoreboard/answers": "backend-required",
+    "/user/share": "backend-required"
+  },
+  "elapsed_s": 108.5,
+  "interactions": [
+    {
+      "applicable": true,
+      "expected": "Find Friends you can't trust - Don't Block Me",
+      "kind": "title"
+    },
+    {
+      "applicable": true,
+      "expected": "Find your Fake Friends create your quiz & block your fake friends create quiz how to play? find your fake friends & decide who to block🚫 ✍️ CREATE YOUR QUIZ Ans",
+      "kind": "body_text_head"
+    },
+    {
+      "applicable": true,
+      "expected": 4,
+      "kind": "stylesheet_count"
+    },
+    {
+      "applicable": true,
+      "expected": 168,
+      "kind": "dom_nodes"
+    },
+    {
+      "applicable": true,
+      "expected": "Find your Fake Friends",
+      "kind": "heading_text"
+    },
+    {
+      "applicable": true,
+      "expected": 0,
+      "kind": "link_count"
+    },
+    {
+      "applicable": true,
+      "expected": 4,
+      "kind": "paragraph_count"
+    },
+    {
+      "applicable": true,
+      "expected": 27,
+      "kind": "image_count"
+    },
+    {
+      "applicable": true,
+      "expected": "en",
+      "kind": "document_lang"
+    },
+    {
+      "applicable": true,
+      "expected": {
+        "opened": false,
+        "options": 0
+      },
+      "kind": "language_menu"
+    },
+    {
+      "applicable": false,
+      "error": "Locator.fill: Timeout 3000ms exceeded.\nCall log:\n  - waiting for locator(\"input[type=text]:visible, input:not([type]):vi",
+      "expected": null,
+      "kind": "text_input"
+    }
+  ],
+  "local_pages": [
+    {
+      "final_url": "http://127.0.0.1:64964/",
+      "html": "local/root.html",
+      "route": "/",
+      "screenshot": "screenshots/root.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/404/",
+      "html": "local/404.html",
+      "route": "/404",
+      "screenshot": "screenshots/404.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/contact/",
+      "html": "local/contact.html",
+      "route": "/contact",
+      "screenshot": "screenshots/contact.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/find/",
+      "html": "local/find.html",
+      "route": "/find",
+      "screenshot": "screenshots/find.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/player/completed/",
+      "html": "local/player_completed.html",
+      "route": "/player/completed",
+      "screenshot": "screenshots/player_completed.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/player/name/",
+      "html": "local/player_name.html",
+      "route": "/player/name",
+      "screenshot": "screenshots/player_name.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/player/playing/",
+      "html": "local/player_playing.html",
+      "route": "/player/playing",
+      "screenshot": "screenshots/player_playing.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/user/creating/",
+      "html": "local/user_creating.html",
+      "route": "/user/creating",
+      "screenshot": "screenshots/user_creating.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/user/name/",
+      "html": "local/user_name.html",
+      "route": "/user/name",
+      "screenshot": "screenshots/user_name.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/user/scoreboard/",
+      "html": "local/user_scoreboard.html",
+      "route": "/user/scoreboard",
+      "screenshot": "screenshots/user_scoreboard.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/user/scoreboard/answers/",
+      "html": "local/user_scoreboard_answers.html",
+      "route": "/user/scoreboard/answers",
+      "screenshot": "screenshots/user_scoreboard_answers.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:64964/user/share/",
+      "html": "local/user_share.html",
+      "route": "/user/share",
+      "screenshot": "screenshots/user_share.png",
+      "status": 200
+    }
+  ],
+  "local_requests": [
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": null,
+      "url": "http://127.0.0.1:64964/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/404/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/01h~omh1u1niq.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/05lijon8lyzwk.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/08wcqpjubxajm.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/09.3y96y1zgwj.js"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0nl~mb~qpld0u.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0r.y20u.y5v_q.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0r9mi31c8pl.h.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0rz43xaq7pfv5.js"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0s~-hwvpvcglz.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0u8675kwrg9r-.js"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/0ukfx_qbxumdr.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/12jcfe2csa502.js"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/_next/static/chunks/17fgq6lf42vm9.css"
+    },
+    {
+      "method": "GET",
+      "resource_type": "font",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/media/2ba5a01c16198eaa-s.p.0pki~sd4qkzeh.woff2"
+    },
+    {
+      "method": "GET",
+      "resource_type": "font",
+      "status": null,
+      "url": "http://127.0.0.1:64964/_next/static/media/2d9580cd2d6dd3ad-s.p.0t69_0wb6v0u3.woff2"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/contact/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "other",
+      "status": null,
+      "url": "http://127.0.0.1:64964/favicon.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/find/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/player/completed/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/player/name/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/player/playing/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "font",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/fonts/Oktah-Round-Latin.woff2"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/contact/insta.webp"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-10.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-11.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-13.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-16.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-19.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-21.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-22.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-23.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-24.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-25.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-26.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-27.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-28.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-29.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-3.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-30.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-31.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-32.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-33.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/doodle-34.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-1.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-2.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-3.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-4.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-5.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-6.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-7.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-8.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/doodles/white-doodles/doodle-white-9.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/logo-f.webp"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/player/home/note-card.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/clouds.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/home/characters.webp"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/home/clouds.webp"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/home/language-selector-globe.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/home/strip.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/name/name-input-bubu-mascot.webp"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/name/speech-bubble.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/static/assets/img/user/scoreboard/bubu.webp"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/user/creating/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/user/name/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/user/scoreboard/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/user/scoreboard/answers/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:64964/user/share/"
+    }
+  ],
+  "mock": {
+    "entries": 7,
+    "har": "har.json",
+    "route": "mock/playwright-route.js"
+  },
+  "ok": true,
+  "origin": "https://block.youtest.me",
+  "pages": [
+    {
+      "bytes": 29221,
+      "file": "site/index.html",
+      "final_url": "https://block.youtest.me/",
+      "route": "/",
+      "status": 200,
+      "url": "https://block.youtest.me/"
+    },
+    {
+      "bytes": 5250,
+      "file": "site/404/index.html",
+      "final_url": "https://block.youtest.me/404",
+      "route": "/404",
+      "status": 200,
+      "url": "https://block.youtest.me/404"
+    },
+    {
+      "bytes": 16673,
+      "file": "site/contact/index.html",
+      "final_url": "https://block.youtest.me/contact",
+      "route": "/contact",
+      "status": 200,
+      "url": "https://block.youtest.me/contact"
+    },
+    {
+      "bytes": 29588,
+      "file": "site/find/index.html",
+      "final_url": "https://block.youtest.me/",
+      "route": "/find",
+      "status": 200,
+      "url": "https://block.youtest.me/find"
+    },
+    {
+      "bytes": 29424,
+      "file": "site/player/completed/index.html",
+      "final_url": "https://block.youtest.me/?error=player_or_user_data_missing_completed_page",
+      "route": "/player/completed",
+      "status": 200,
+      "url": "https://block.youtest.me/player/completed"
+    },
+    {
+      "bytes": 29553,
+      "file": "site/player/name/index.html",
+      "final_url": "https://block.youtest.me/?error=no_user_data_player_name_page",
+      "route": "/player/name",
+      "status": 200,
+      "url": "https://block.youtest.me/player/name"
+    },
+    {
+      "bytes": 29504,
+      "file": "site/player/playing/index.html",
+      "final_url": "https://block.youtest.me/?error=player_and_user_data_missing_playing_quiz",
+      "route": "/player/playing",
+      "status": 200,
+      "url": "https://block.youtest.me/player/playing"
+    },
+    {
+      "bytes": 11631,
+      "file": "site/user/creating/index.html",
+      "final_url": "https://block.youtest.me/user/name?error=user_data_missing",
+      "route": "/user/creating",
+      "status": 200,
+      "url": "https://block.youtest.me/user/creating"
+    },
+    {
+      "bytes": 11120,
+      "file": "site/user/name/index.html",
+      "final_url": "https://block.youtest.me/user/name",
+      "route": "/user/name",
+      "status": 200,
+      "url": "https://block.youtest.me/user/name"
+    },
+    {
+      "bytes": 29430,
+      "file": "site/user/scoreboard/index.html",
+      "final_url": "https://block.youtest.me/?error=user_data_missing_scoreboard",
+      "route": "/user/scoreboard",
+      "status": 200,
+      "url": "https://block.youtest.me/user/scoreboard"
+    },
+    {
+      "bytes": 16579,
+      "file": "site/user/scoreboard/answers/index.html",
+      "final_url": "https://block.youtest.me/user/scoreboard/answers",
+      "route": "/user/scoreboard/answers",
+      "status": 200,
+      "url": "https://block.youtest.me/user/scoreboard/answers"
+    },
+    {
+      "bytes": 29585,
+      "file": "site/user/share/index.html",
+      "final_url": "https://block.youtest.me/?error=user_data_not_found_share_page&no_redirect=1",
+      "route": "/user/share",
+      "status": 200,
+      "url": "https://block.youtest.me/user/share"
+    }
+  ],
+  "preview": {
+    "port": 64964,
+    "root": "Tool/cases/site-clone01/artifacts/rebuild\\site"
+  },
+  "resources": {
+    "external_links": 0,
+    "external_samples": [],
+    "http_404": 0,
+    "requests": 69
+  },
+  "schema": "seep.site-rebuild/1",
+  "site_root": "site",
+  "target": "https://block.youtest.me/",
+  "viewport": {
+    "dpr": 1.0,
+    "height": 720,
+    "width": 1280
+  }
+}

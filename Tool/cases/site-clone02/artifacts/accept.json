@@ -1,0 +1,26 @@
+{
+  "backend_required": [],
+  "case": "site-clone02",
+  "criteria": {
+    "data_boundary": true,
+    "dom": true,
+    "interactions": true,
+    "pixel": true,
+    "resources": true,
+    "route_coverage": true
+  },
+  "issues": [],
+  "schema": "seep.site-accept/1",
+  "status": "PASS",
+  "values": {
+    "dom_min_similarity": 1.0,
+    "external_links": 0,
+    "http_404": 0,
+    "interactions_passed": 8,
+    "interactions_total": 8,
+    "missing_rate": 0.0,
+    "pixel_max_ratio": 0.0,
+    "pixel_threshold": 0.01,
+    "unlabeled_pages": []
+  }
+}
