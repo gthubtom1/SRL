@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""{{name}}-{{role}}.py —— {{title}} 域的 {{role}} 脚本骨架。
+
+生成器：`python Tool/scripts/forge.py domain {{name}}`。
+约定：
+  --self-test   内部断言，rc=0 表示骨架自洽
+  --case <DIR>  案例目录；骨架阶段返回 rc=2 + 结构化 reason
+  --json        机读输出
+退出码：0 通过 / 1 判定不成立 / 2 输入缺失或骨架未实现。
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+
+ROLE = "{{role}}"
+SCHEMA = "seep.domain.{{name}}." + ROLE + "/1"
+
+
+def normalize(value) -> str:
+    return " ".join(str(value or "").split())
+
+
+def sha256_file(path: str) -> str:
+    if not os.path.isfile(path):
+        return ""
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def criteria(findings) -> dict:
+    blocking = [f for f in findings if isinstance(f, dict) and f.get("blocking")]
+    total = len(findings)
+    return {
+        "ok": not blocking and total > 0,
+        "total": total,
+        "blocking": len(blocking),
+        "reason": "" if not blocking else "blocking-findings",
+    }
+
+
+def run(case_dir: str) -> dict:
+    """TODO: 换成 {{role}} 的真实判定；骨架阶段保持 rc=2。"""
+    case_json = os.path.join(case_dir, "case.json")
+    return {
+        "ok": False,
+        "schema": SCHEMA,
+        "role": ROLE,
+        "case": case_dir,
+        "reason": "skeleton-not-implemented",
+        "criteria": criteria([]),
+        "evidence": {"case_json": case_json, "sha256": sha256_file(case_json)},
+    }
+
+
+def self_test() -> int:
+    checks, failures = 0, []
+
+    def expect(label, cond):
+        nonlocal checks
+        checks += 1
+        if not cond:
+            failures.append(label)
+
+    expect("normalize 折叠空白", normalize("  a \n b  ") == "a b")
+    expect("空判据不通过", criteria([])["ok"] is False)
+    expect("有判据且无阻断通过", criteria([{"blocking": False}])["ok"] is True)
+    expect("阻断判据不通过", criteria([{"blocking": True}])["ok"] is False)
+    expect("缺失文件哈希为空", sha256_file(os.path.join("no", "such.json")) == "")
+    expect("schema 含域与角色", SCHEMA == "seep.domain.{{name}}." + ROLE + "/1")
+    print(json.dumps({"ok": not failures, "checks": checks,
+                      "tool": "{{name}}-{{role}}.py", "failures": failures},
+                     ensure_ascii=False))
+    return 0 if not failures else 1
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="{{title}} 域 {{role}} 脚本（{{name}}）")
+    ap.add_argument("--case", default=None, help="案例目录 work/<case>")
+    ap.add_argument("--json", action="store_true", help="输出 JSON")
+    ap.add_argument("--self-test", action="store_true", help="内部断言")
+    args = ap.parse_args()
+    if args.self_test:
+        return self_test()
+    if not args.case:
+        msg = {"ok": False, "schema": SCHEMA, "reason": "missing-case"}
+        print(json.dumps(msg, ensure_ascii=False) if args.json else msg["reason"])
+        return 2
+    result = run(os.path.abspath(args.case))
+    print(json.dumps(result, ensure_ascii=False, indent=2) if args.json
+          else json.dumps(result, ensure_ascii=False))
+    return 0 if result.get("ok") else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

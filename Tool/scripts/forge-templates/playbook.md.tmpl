@@ -1,0 +1,8 @@
+# {{title}}
+- 触发词：{{name}}、{{trigger_words}}、三次规则、配方
+- 输入（用户提供）：`<TARGET>`、`<case>`、`<样本或站点>`、`<scope 与授权>`；范围由用户提供的 scope 决定。
+- 用到的能力（capability id）：`{{capabilities}}`
+- 步骤：1) `python Tool/scripts/case_state.py init --case work/<case> --target <TARGET>` → rc=0，先落 scope、目标哈希与时间线；2) `python Tool/scripts/kb-query.py --query "<{{name}} 相关家族/壳/授权>" --limit 10` → rc=0，把可复用判据补进 `notes.md`；3) 主路径：`python {{main_script}} <TARGET> --json` → rc=0，记录关键字段与证据路径；4) `python Tool/scripts/case_state.py prove --case work/<case> --id P1 --evidence <证据文件>` → rc=0；5) 收尾：`python Tool/scripts/preflight.py --fast` → rc=0。
+- 判据（可机检）：`case_state show` 中 P1 为 proven；主路径 JSON 的 `ok=true` 且关键字段齐全；证据文件存在且 sha256 可复算；`preflight --fast` rc=0。
+- 失败判据 + 换路：主脚本 rc=2 → 按 `blocked_at` 记录缺项并换输入面；字段缺失 → 回第 2 步补 KB 判据；证据不可复算 → 重跑并保留原始输出；目标超出 scope → 停手并转交对应域。
+- 交付物：`work/<case>/notes.md`、`work/<case>/probe.json`、证据文件、`work/<case>/report.md`（目标/仪器/结论/证据四段）。
