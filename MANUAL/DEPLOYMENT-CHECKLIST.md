@@ -1,6 +1,6 @@
 # MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
 
-> **版本**：随 `VERSION`（当前 1.26.0）；本节数字以 `setup/verify.*` 实跑为准  
+> **版本**：随 `VERSION`（当前 1.26.1）；本节数字以 `setup/verify.*` 实跑为准  
 > **适用范围**：Pi Agent / Claude Code / DeepSeek Harness / Codex / OpenCode  
 > **核心用途**：部署资产核验的**基准清单**。注意：代码层的事实源是 `setup/verify.*` 与 `Tool/scripts/preflight.py` 的**实跑输出**；
 > 本清单必须与它们双向对齐（本清单每条 → verify 有对应项；verify 每项 → 本清单有说明）。发现不一致时以实跑为准。  
