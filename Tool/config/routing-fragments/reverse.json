@@ -49,8 +49,13 @@
       "keywords": [
         {
           "must": "(?i)(青龙|qinglong|签到|每日任务|积分|账号池|多账号|掉登录|自动续|cron|定时任务|批量执行器)",
-          "note": "先落 playbook：qinglong-signin / multi-account-runner"
+          "note": "skill=softseep 总控；配方 qinglong-signin / app-daily-task / multi-account-runner（见 playbooks 索引）"
         }
+      ],
+      "playbooks": [
+        "qinglong-signin",
+        "app-daily-task",
+        "multi-account-runner"
       ]
     }
   },

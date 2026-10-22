@@ -91,7 +91,7 @@
       "skill": "mcp-js-reverse-playbook/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)js.?逆向|javascript|webpack|混淆|obfuscat|ast|补环境|浏览器|playwright|selenium|hook.?js|signature.?js|加密参数"
+          "must": "(?i)js.?逆向|javascript|webpack|混淆|obfuscat|\\bast\\b|补环境|浏览器|playwright|selenium|hook.?js|signature.?js|加密参数"
         }
       ]
     },
@@ -128,7 +128,7 @@
       "skill": "unpack-loop/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)脱壳|加壳|脱壳|加壳|壳类型|壳检测|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|\\bdump\\b|转储|oep|\\biat\\b|scylla|pe-sieve|内存转储"
+          "must": "(?i)脱壳|加壳|脱壳|加壳|壳类型|壳检测|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|\\bdump\\b|转储|oep|scylla|pe-sieve|内存转储"
         }
       ]
     },
@@ -147,6 +147,10 @@
       "keywords": [
         {
           "must": "(?i)(改[^。，,]{0,6}界面|界面[^。，,]{0,6}改|换[^。，,]{0,8}品牌|品牌改造|去作者|去掉作者|替换界面|界面改造|去联系方式)"
+        },
+        {
+          "must": "(?i)(去掉?[^。，,]{0,6}(?:启动|开屏|弹窗)?广告|广告弹窗|去广告|UI\\s*改版|改版[^。，,]{0,6}(?:标题|图标|文案|界面))",
+          "note": "去广告/UI 改版：落 02-ui-rebrand；桌面成品交付可转 01-gate-bypass"
         }
       ]
     },
@@ -529,8 +533,14 @@
       "keywords": [
         {
           "must": "(?i)(青龙|qinglong|签到|每日任务|积分|账号池|多账号|掉登录|自动续|cron|定时任务|批量执行器)",
-          "note": "先落 playbook：qinglong-signin / multi-account-runner"
+          "note": "skill=softseep 总控；配方 qinglong-signin / app-daily-task / multi-account-runner（见 playbooks 索引）"
         }
+      ],
+      "note": "skill=softseep 总控；配方 qinglong-signin / app-daily-task / multi-account-runner（见 playbooks 索引）",
+      "playbooks": [
+        "qinglong-signin",
+        "app-daily-task",
+        "multi-account-runner"
       ]
     },
     "R35": {
@@ -539,7 +549,7 @@
       "keywords": [
         {
           "must": "(?i)((?:1\\s*[:：]\\s*1|一比一|整站|全站).{0,10}(复刻|克隆|镜像|clone)|(?:复刻|克隆|镜像|clone).{0,10}(网站|站点|前端|页面)|离线副本|site[- ]?clone)",
-          "note": "复刻类：判据=路由/像素/DOM/资源/交互/数据边界六项；先授权再抓"
+          "note": "skill=site-clone；配方 site-clone-1to1（crawl→rebuild→diff→accept）；判据=路由/像素/DOM/资源/交互/数据边界六项"
         },
         {
           "must": "(?i)(\\bwget\\b.{0,16}(镜像|mirror|整站)|\\bhttrack\\b|\\bhar\\b.{0,10}(回放|replay|mock)|\\bplaywright\\b.{0,12}(page\\.route|route|mock|har))",
@@ -553,7 +563,9 @@
           "must": "(?i)(\\bdom\\b.{0,8}(快照|snapshot|冻结|freeze)|像素.{0,6}(差分|diff|对比)|(?:路由|route).{0,6}(覆盖|coverage).{0,8}(站点|网站|复刻))",
           "note": "差分类：DOM/像素/路由覆盖，必须给数值"
         }
-      ]
+      ],
+      "note": "skill=site-clone；配方 site-clone-1to1（crawl→rebuild→diff→accept）；判据=路由/像素/DOM/资源/交互/数据边界六项",
+      "playbook": "site-clone-1to1"
     }
   }
 }

@@ -1,6 +1,23 @@
 {
   "id": "cloud-iam",
   "title": "云 IAM 权限评估",
+  "domain": "ad-cloud",
+  "triggers": [
+    "云 IAM",
+    "IAM 权限",
+    "AK/SK",
+    "AccessKey",
+    "云原生权限",
+    "元数据服务",
+    "角色信任",
+    "最小权限"
+  ],
+  "aliases": [
+    "cloud-iam",
+    "iam",
+    "云权限"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "云账号/角色",
     "策略文档"
@@ -16,8 +33,8 @@
     "Tool/skill/ad-cloud/references/cloud-native.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
-    "ad-enum",
     "k8s-enum"
   ]
 }

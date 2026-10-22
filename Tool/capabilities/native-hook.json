@@ -1,6 +1,22 @@
 {
   "id": "native-hook",
   "title": "Native 层 Hook 与注入",
+  "domain": "reverse",
+  "triggers": [
+    "Native Hook",
+    "frida hook",
+    "so hook",
+    "inline hook",
+    "注入 so",
+    "native 注入",
+    "hook 安卓"
+  ],
+  "aliases": [
+    "native-hook",
+    "frida-hook",
+    "so-hook"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "目标 so 模块名",
     "进程/包名"
@@ -20,8 +36,8 @@
     "Tool/skill/apkseep/references/native-dbi-and-deobfuscation.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
-    "sign-locate",
-    "anti-debug-bypass"
+    "sign-locate"
   ]
 }

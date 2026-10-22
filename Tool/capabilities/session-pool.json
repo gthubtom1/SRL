@@ -1,6 +1,22 @@
 {
   "id": "session-pool",
   "title": "多账号会话池",
+  "domain": "web-pentest",
+  "triggers": [
+    "多账号",
+    "账号池",
+    "会话池",
+    "Cookie 池",
+    "掉登录",
+    "自动续登",
+    "session pool"
+  ],
+  "aliases": [
+    "session-pool",
+    "账号池",
+    "cookie-pool"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "accounts.json（cookie/token/device_id）",
     "并发/限速"
@@ -17,8 +33,6 @@
     "Tool/skill/apkseep/references/account-gates.md"
   ],
   "maturity": "usable",
-  "compose": [
-    "schedule-notify",
-    "captcha-branch"
-  ]
+  "reserved": true,
+  "compose": []
 }

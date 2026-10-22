@@ -1,6 +1,21 @@
 {
   "id": "jwt-test",
   "title": "JWT 结构与校验测试",
+  "domain": "web-pentest",
+  "triggers": [
+    "JWT",
+    "token 校验",
+    "alg none",
+    "密钥混淆",
+    "JWT 伪造",
+    "bearer token"
+  ],
+  "aliases": [
+    "jwt",
+    "jwt-test",
+    "token校验"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "JWT 样例",
     "允许算法清单"
@@ -14,9 +29,10 @@
     "Tool/skill/web-pentest/references/06-auth-and-api.md"
   ],
   "maturity": "probe",
+  "note": "待补 JWT 解析与弱密钥校验脚本，当前用 jwt_tool + 手工 base64 解码完成",
+  "reserved": true,
   "compose": [
     "authz-test",
     "session-pool"
-  ],
-  "note": "待补 JWT 解析与弱密钥校验脚本，当前用 jwt_tool + 手工 base64 解码完成"
+  ]
 }

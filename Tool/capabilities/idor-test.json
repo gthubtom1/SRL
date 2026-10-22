@@ -1,6 +1,21 @@
 {
   "id": "idor-test",
   "title": "IDOR 对象引用测试",
+  "domain": "web-pentest",
+  "triggers": [
+    "IDOR",
+    "对象引用",
+    "越权改 id",
+    "遍历 id",
+    "不安全的直接对象引用",
+    "用户 id 替换"
+  ],
+  "aliases": [
+    "idor",
+    "对象引用测试",
+    "id-traversal"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "资源 ID 空间",
     "两个账号的会话"
@@ -16,7 +31,5 @@
     "Tool/skill/web-pentest/references/04-walkthrough-flask-bola.md"
   ],
   "maturity": "usable",
-  "compose": [
-    "authz-test"
-  ]
+  "compose": []
 }

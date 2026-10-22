@@ -1,6 +1,21 @@
 {
   "id": "license-locate",
   "title": "授权点定位",
+  "domain": "reverse",
+  "triggers": [
+    "授权点定位",
+    "校验函数",
+    "卡密校验",
+    "license 校验",
+    "找授权判断",
+    "注册码校验"
+  ],
+  "aliases": [
+    "license-locate",
+    "授权定位",
+    "license-find"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "目标二进制",
     "授权输入样例"
@@ -16,9 +31,9 @@
     "Tool/skill/client-license-validation-bypass/SKILL.md"
   ],
   "maturity": "probe",
+  "note": "待补授权点定位脚本，当前用 IDA/Ghidra 交叉引用 + softseep 授权校验清单手工完成",
+  "reserved": true,
   "compose": [
-    "license-bypass",
     "symbol-recover"
-  ],
-  "note": "待补授权点定位脚本，当前用 IDA/Ghidra 交叉引用 + softseep 授权校验清单手工完成"
+  ]
 }

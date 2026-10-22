@@ -10,14 +10,19 @@
   [4] scripts[] 与 refs[] 里的相对路径必须存在（缺失即失败）
   [5] compose[] 指向的 id 必须已注册
   [6] 覆盖矩阵每行必须覆盖全部任务族，取值 ∈ {full, partial, via-compose}
+  [7] 每个能力 id 必须被 ≥1 份配方引用，或在 JSON 里显式标 `reserved: true`
+  [8] compose[] 必须构成 DAG（检测并报出环路径）
 
 输出 covered / dangling：covered 是自洽可直接编排的能力；dangling 是缺文件、
-缺 compose 目标或字段不全的能力（逐项列出缺失物）。
+缺 compose 目标、字段不全或既未被引用又未 reserved 的能力（逐项列出缺失物）。
+
+矩阵不手填：`--emit-matrix` 会按能力自带 domain + compose 闭包重算 11 域矩阵。
 
 用法:
     python Tool/scripts/capability-gate.py
     python Tool/scripts/capability-gate.py --json
     python Tool/scripts/capability-gate.py --matrix Tool/config/capability-matrix.json
+    python Tool/scripts/capability-gate.py --emit-matrix
     python Tool/scripts/capability-gate.py --self-test
 退出码：0 全绿 / 1 有 dangling 或 schema 错误 / 2 输入缺失。
 """
@@ -44,13 +49,166 @@ MATURITIES = ("probe", "usable", "battle-tested")
 MATRIX_VALUES = ("full", "partial", "via-compose")
 REQUIRED = ("id", "title", "inputs", "outputs", "scripts", "refs", "maturity", "compose")
 ABS_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\\\\\|/(?:home|Users|etc|var|tmp|opt|mnt|root|usr)/)")
-DEFAULT_FAMILIES = ["account-automation", "site-rebuild", "client-license",
-                    "reverse-mapping", "firmware", "forensics", "protocol",
-                    "supply-chain", "plugin", "malware"]
+
+# 11 个域（与 Tool/scripts/lib/domain_spec.py 的 DOMAINS 一致）。
+DOMAIN_ORDER = ["web-pentest", "pwn-crypto", "firmware-iot", "ad-cloud",
+                "protocol-plugin", "plugin-targets", "forensics-mobile",
+                "malware-analysis", "supply-chain-security", "site-clone", "reverse"]
+DEFAULT_FAMILIES = DOMAIN_ORDER
+
+# 域间相邻关系：能力对本域=full，对相邻域=partial，其余=via-compose。
+DOMAIN_ADJACENCY = {
+    "web-pentest": {"pwn-crypto", "protocol-plugin", "supply-chain-security", "ad-cloud", "site-clone"},
+    "pwn-crypto": {"web-pentest", "reverse", "protocol-plugin"},
+    "firmware-iot": {"reverse", "forensics-mobile", "protocol-plugin"},
+    "ad-cloud": {"web-pentest", "supply-chain-security", "reverse"},
+    "protocol-plugin": {"web-pentest", "firmware-iot", "reverse", "pwn-crypto"},
+    "plugin-targets": {"reverse", "web-pentest"},
+    "forensics-mobile": {"malware-analysis", "reverse", "firmware-iot"},
+    "malware-analysis": {"forensics-mobile", "reverse"},
+    "supply-chain-security": {"web-pentest", "ad-cloud", "reverse"},
+    "site-clone": {"web-pentest", "reverse"},
+    "reverse": {"plugin-targets", "forensics-mobile", "malware-analysis",
+                "pwn-crypto", "firmware-iot", "web-pentest",
+                "supply-chain-security", "site-clone"},
+}
 
 
 def repo_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def compose_cycles(objects) -> list:
+    """返回 compose 图里的环（每条环是 id 列表，首尾相同）。"""
+    graph = {}
+    for path, stem, obj in objects:
+        if not isinstance(obj, dict):
+            continue
+        cid = obj.get("id") if isinstance(obj.get("id"), str) else stem
+        graph[cid] = [t for t in (obj.get("compose") or []) if isinstance(t, str)]
+    color = {}
+    stack = []
+    cycles = []
+    seen = set()
+
+    def dfs(node):
+        color[node] = 1
+        stack.append(node)
+        for nxt in graph.get(node, []):
+            if nxt not in graph:
+                continue
+            if color.get(nxt, 0) == 0:
+                dfs(nxt)
+            elif color.get(nxt) == 1:
+                pos = stack.index(nxt)
+                cycle = stack[pos:] + [nxt]
+                key = tuple(cycle)
+                if key not in seen:
+                    seen.add(key)
+                    cycles.append(cycle)
+        stack.pop()
+        color[node] = 2
+
+    for node in graph:
+        if color.get(node, 0) == 0:
+            dfs(node)
+    return cycles
+
+
+def recipe_references(objects, playbooks_dir: str) -> dict:
+    """找出被 ≥1 份配方引用的能力 id。
+
+    引用形态（任一即算）：
+      * 配方里出现裸 id（词边界）；
+      * 命名空间写法 repo:/apk:/tool:/mcp:<id>（裸 id 词边界已覆盖）；
+      * 配方步骤里出现能力 scripts[] 的脚本 basename。
+    """
+    texts = []
+    if os.path.isdir(playbooks_dir):
+        for path in sorted(glob.glob(os.path.join(playbooks_dir, "*.md"))):
+            if os.path.basename(path).lower() in ("index.md", "readme.md"):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                    texts.append((os.path.basename(path), fh.read()))
+            except OSError:
+                continue
+    if not texts:
+        # 没有配方目录（例如 forge 的临时 stage）：此时无从判断引用，不误杀。
+        return None
+    refs = {}
+    for path, stem, obj in objects:
+        if not isinstance(obj, dict):
+            continue
+        cid = obj.get("id") if isinstance(obj.get("id"), str) else stem
+        names = {cid}
+        for script in obj.get("scripts") or []:
+            if isinstance(script, str) and script.strip():
+                names.add(os.path.splitext(os.path.basename(script.replace("\\", "/")))[0])
+        hits = []
+        for name, text in texts:
+            for token in names:
+                pat = r"(?<![a-z0-9_-])" + re.escape(token) + r"(?![a-z0-9_-])"
+                if re.search(pat, text, re.IGNORECASE):
+                    hits.append(name)
+                    break
+        if hits:
+            refs[cid] = hits
+    return refs
+
+
+def reachable_domains(cid, caps: dict, memo: dict) -> set:
+    if cid in memo:
+        return memo[cid]
+    memo[cid] = set()
+    out = set()
+    for nxt in (caps.get(cid) or {}).get("compose") or []:
+        if nxt not in caps or nxt == cid:
+            continue
+        out.add((caps[nxt] or {}).get("domain"))
+        out |= reachable_domains(nxt, caps, memo)
+    memo[cid] = out
+    return out
+
+
+def emit_matrix(caps: dict, path: str) -> dict:
+    """从能力自带 domain + compose 闭包生成 11 域覆盖矩阵（不手填）。"""
+    memo = {}
+    rows = {}
+    tally = {v: 0 for v in MATRIX_VALUES}
+    for cid in sorted(caps):
+        obj = caps[cid] or {}
+        dom = obj.get("domain")
+        reach = reachable_domains(cid, caps, memo)
+        cells = {}
+        for family in DOMAIN_ORDER:
+            if dom == family:
+                value = "full"
+            elif family in DOMAIN_ADJACENCY.get(dom, set()) \
+                    or dom in DOMAIN_ADJACENCY.get(family, set()) \
+                    or family in reach:
+                value = "partial"
+            else:
+                value = "via-compose"
+            cells[family] = value
+            tally[value] += 1
+        rows[cid] = cells
+    data = {
+        "schema": MATRIX_SCHEMA,
+        "generated_at": "1970-01-01T00:00:00Z",
+        "generator": "Tool/scripts/capability-gate.py --emit-matrix",
+        "source": "Tool/capabilities/*.json",
+        "families": list(DOMAIN_ORDER),
+        "values": list(MATRIX_VALUES),
+        "notes": "full=能力本域直接覆盖；partial=相邻域或经 compose 可达；via-compose=需与其它能力组合后覆盖",
+        "capabilities": rows,
+    }
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    return {"path": path, "rows": len(rows), "families": len(DOMAIN_ORDER),
+            "cells": tally}
 
 
 def rel(path: str, root: str) -> str:
@@ -60,7 +218,8 @@ def rel(path: str, root: str) -> str:
         return os.path.basename(path)
 
 
-def validate_capability(obj, stem: str, root: str, ids: set) -> dict:
+def validate_capability(obj, stem: str, root: str, ids: set,
+                        referenced: set | None = None) -> dict:
     problems = []
     if not isinstance(obj, dict):
         return {"id": stem, "problems": ["顶层必须是 JSON 对象"]}
@@ -81,6 +240,18 @@ def validate_capability(obj, stem: str, root: str, ids: set) -> dict:
         problems.append("maturity 必须 ∈ %s，实际 %r" % ("/".join(MATURITIES), maturity))
     if maturity == "probe" and not str(obj.get("note") or "").strip():
         problems.append("probe 能力必须带 note（写清待补脚本与当前手工路径）")
+    for key in ("triggers", "aliases"):
+        if key in obj and not isinstance(obj.get(key), list):
+            problems.append("%s 必须是数组" % key)
+    if "domain" in obj and obj.get("domain") not in DOMAIN_ORDER:
+        problems.append("domain 必须 ∈ %s，实际 %r"
+                        % ("/".join(DOMAIN_ORDER), obj.get("domain")))
+    if "version" in obj and not str(obj.get("version") or "").strip():
+        problems.append("version 必须是非空字符串")
+    if "reserved" in obj and not isinstance(obj.get("reserved"), bool):
+        problems.append("reserved 必须是布尔值")
+    if referenced is not None and cid not in referenced and obj.get("reserved") is not True:
+        problems.append("未被任何配方引用且未标 reserved:true")
 
     missing_paths = []
     for key in ("scripts", "refs"):
@@ -157,12 +328,16 @@ def validate_matrix(path: str, ids: set, root: str) -> dict:
     return info
 
 
-def run_gate(caps_dir: str, matrix_path: str, root: str) -> dict:
+def run_gate(caps_dir: str, matrix_path: str, root: str,
+             playbooks_dir: str | None = None) -> dict:
+    if playbooks_dir is None:
+        playbooks_dir = os.path.join(root, "Tool", "playbooks")
     result = {
         "ok": True,
         "schema": SCHEMA,
         "caps_dir": rel(caps_dir, root),
-        "counts": {"capabilities": 0, "covered": 0, "dangling": 0},
+        "counts": {"capabilities": 0, "covered": 0, "dangling": 0,
+                   "referenced": 0, "reserved": 0, "cycles": 0},
         "covered": [],
         "dangling": [],
         "by_maturity": {m: 0 for m in MATURITIES},
@@ -198,8 +373,20 @@ def run_gate(caps_dir: str, matrix_path: str, root: str) -> dict:
             result["errors"].append("id 重复: %s（%s）" % (cid, ", ".join(where)))
 
     result["counts"]["capabilities"] = len(objects)
+    refs = recipe_references(objects, playbooks_dir)
+    result["references"] = ({cid: where for cid, where in sorted(refs.items())}
+                            if refs is not None else {})
+    cycles = compose_cycles(objects)
+    result["counts"]["cycles"] = len(cycles)
+    for cycle in cycles:
+        result["errors"].append("compose 必须是 DAG，检测到环: " + " -> ".join(cycle))
+    referenced = set(refs) if refs is not None else None
+    result["counts"]["referenced"] = len(referenced or ())
+    result["counts"]["reserved"] = sum(
+        1 for _, _, obj in objects
+        if isinstance(obj, dict) and obj.get("reserved") is True)
     for path, stem, obj in objects:
-        report = validate_capability(obj, stem, root, ids)
+        report = validate_capability(obj, stem, root, ids, referenced)
         maturity = report.get("maturity")
         if maturity in result["by_maturity"]:
             result["by_maturity"][maturity] += 1
@@ -233,6 +420,9 @@ def render_text(res: dict) -> str:
              "能力 %d / covered %d / dangling %d" % (
                  res["counts"]["capabilities"], res["counts"]["covered"],
                  res["counts"]["dangling"])]
+    lines.append("被配方引用 %d / reserved %d / compose 环 %d" % (
+        res["counts"].get("referenced", 0), res["counts"].get("reserved", 0),
+        res["counts"].get("cycles", 0)))
     maturity = ", ".join("%s=%d" % (k, v) for k, v in res["by_maturity"].items())
     lines.append("成熟度: " + maturity)
     for entry in res["dangling"]:
@@ -249,10 +439,14 @@ def render_text(res: dict) -> str:
 
 
 def self_test() -> int:
-    """在临时目录里造夹具，覆盖 covered / dangling / 重复 id / 矩阵缺格。"""
+    """临时夹具：covered / dangling / 重复 id / 矩阵缺格 / 配方引用 / reserved / DAG 环。"""
     with tempfile.TemporaryDirectory() as tmp:
         caps = os.path.join(tmp, "capabilities")
         os.makedirs(caps)
+        pbdir = os.path.join(tmp, "playbooks")
+        os.makedirs(pbdir)
+        with open(os.path.join(pbdir, "ref.md"), "w", encoding="utf-8") as fh:
+            fh.write("- 用到的能力（capability id）：`cap-a` `repo:cap-b`\n")
         good_a = {"id": "cap-a", "title": "A", "inputs": [], "outputs": [],
                   "scripts": [], "refs": [], "maturity": "usable",
                   "compose": ["cap-b"]}
@@ -260,12 +454,13 @@ def self_test() -> int:
                   "scripts": [], "refs": [], "maturity": "usable", "compose": []}
         probe_c = {"id": "cap-c", "title": "C", "inputs": [], "outputs": [],
                    "scripts": [], "refs": [], "maturity": "probe",
-                   "compose": [], "note": "待补脚本，当前手工完成"}
+                   "compose": [], "note": "待补脚本，当前手工完成", "reserved": True}
         dangling_d = {"id": "cap-d", "title": "D", "inputs": [], "outputs": [],
                       "scripts": ["Tool/scripts/does-not-exist.py"], "refs": [],
-                      "maturity": "usable", "compose": ["cap-zzz"]}
+                      "maturity": "usable", "compose": ["cap-zzz"], "reserved": True}
         plain_e = {"id": "cap-e", "title": "E", "inputs": [], "outputs": [],
-                      "scripts": [], "refs": [], "maturity": "usable", "compose": []}
+                      "scripts": [], "refs": [], "maturity": "usable",
+                      "compose": [], "reserved": True}
         payloads = {"cap-a.json": good_a, "cap-b.json": good_b, "cap-c.json": probe_c,
                     "cap-d.json": dangling_d, "cap-e.json": plain_e}
         for name, obj in payloads.items():
@@ -285,7 +480,7 @@ def self_test() -> int:
         with open(matrix_path, "w", encoding="utf-8") as fh:
             json.dump(matrix, fh, ensure_ascii=False)
 
-        res = run_gate(caps, matrix_path, tmp)
+        res = run_gate(caps, matrix_path, tmp, pbdir)
         checks = [
             (res["counts"]["capabilities"] == 6, "fixture count"),
             (res["counts"]["covered"] == 4, "covered set"),
@@ -299,8 +494,52 @@ def self_test() -> int:
             (res["by_maturity"]["probe"] == 1, "maturity tally"),
             (res["matrix"]["present"] is True, "matrix read"),
             (len(res["matrix"]["missing_cells"]) == 1, "matrix gap reported"),
+            (res["counts"]["referenced"] == 2, "recipe reference tally"),
+            (res["counts"]["reserved"] == 3, "reserved tally"),
+            (res["counts"]["cycles"] == 0, "clean compose is a DAG"),
             (res["ok"] is False, "gate fails on gaps"),
         ]
+
+        # 环夹具：compose 必须被识别为 DAG 违规
+        cycle_dir = os.path.join(tmp, "cycle")
+        os.makedirs(cycle_dir)
+        cycle_caps = {
+            "cap-x.json": {"id": "cap-x", "title": "X", "inputs": [], "outputs": [],
+                           "scripts": [], "refs": [], "maturity": "usable",
+                           "compose": ["cap-y"], "reserved": True},
+            "cap-y.json": {"id": "cap-y", "title": "Y", "inputs": [], "outputs": [],
+                           "scripts": [], "refs": [], "maturity": "usable",
+                           "compose": ["cap-x"], "reserved": True},
+        }
+        for name, obj in cycle_caps.items():
+            with open(os.path.join(cycle_dir, name), "w", encoding="utf-8") as fh:
+                json.dump(obj, fh, ensure_ascii=False)
+        cycle_matrix = os.path.join(tmp, "cycle-matrix.json")
+        with open(cycle_matrix, "w", encoding="utf-8") as fh:
+            json.dump({"schema": MATRIX_SCHEMA, "families": families,
+                       "capabilities": {"cap-x": dict(cells), "cap-y": dict(cells)}},
+                      fh, ensure_ascii=False)
+        cycle_res = run_gate(cycle_dir, cycle_matrix, tmp, pbdir)
+        checks.append((cycle_res["counts"]["cycles"] >= 1, "compose cycle detected"))
+        checks.append((any("DAG" in e for e in cycle_res["errors"]), "cycle error reported"))
+        checks.append((cycle_res["ok"] is False, "cycle gate fails"))
+
+        # 未引用且未 reserved 的夹具必须红
+        unref_dir = os.path.join(tmp, "unref")
+        os.makedirs(unref_dir)
+        with open(os.path.join(unref_dir, "cap-u.json"), "w", encoding="utf-8") as fh:
+            json.dump({"id": "cap-u", "title": "U", "inputs": [], "outputs": [],
+                       "scripts": [], "refs": [], "maturity": "usable",
+                       "compose": []}, fh, ensure_ascii=False)
+        unref_matrix = os.path.join(tmp, "unref-matrix.json")
+        with open(unref_matrix, "w", encoding="utf-8") as fh:
+            json.dump({"schema": MATRIX_SCHEMA, "families": families,
+                       "capabilities": {"cap-u": dict(cells)}}, fh, ensure_ascii=False)
+        unref_res = run_gate(unref_dir, unref_matrix, tmp, pbdir)
+        checks.append((unref_res["ok"] is False, "unreferenced capability fails"))
+        checks.append((any("未被任何配方引用" in "; ".join(e["problems"])
+                           for e in unref_res["dangling"]),
+                       "unreferenced capability reported"))
 
         # 干净夹具必须通过
         clean = os.path.join(tmp, "clean")
@@ -313,7 +552,7 @@ def self_test() -> int:
             json.dump({"schema": MATRIX_SCHEMA, "families": families,
                        "capabilities": {"cap-a": dict(cells), "cap-b": dict(cells)}},
                       fh, ensure_ascii=False)
-        clean_res = run_gate(clean, clean_matrix, tmp)
+        clean_res = run_gate(clean, clean_matrix, tmp, pbdir)
         checks.append((clean_res["ok"] is True, "clean fixture passes"))
         checks.append((render_text(clean_res).startswith("capability-gate: PASS"),
                        "text renderer"))
@@ -326,7 +565,8 @@ def self_test() -> int:
                 return 2
         print(json.dumps({"ok": True, "checks": len(checks),
                           "tool": "capability-gate.py",
-                          "fixtures": {"dirty": 6, "clean": 2}}, ensure_ascii=False))
+                          "fixtures": {"dirty": 6, "clean": 2, "cycle": 2, "unref": 1}},
+                         ensure_ascii=False))
         return 0
 
 
@@ -338,6 +578,9 @@ def main() -> int:
                     help="仓库根（默认按本脚本位置推断，通常无需指定）")
     ap.add_argument("--caps-dir", default=None, help="能力目录（默认 <root>/Tool/capabilities）")
     ap.add_argument("--matrix", default=None, help="覆盖矩阵（默认 <root>/Tool/config/capability-matrix.json）")
+    ap.add_argument("--playbooks-dir", default=None, help="配方目录（默认 <root>/Tool/playbooks）")
+    ap.add_argument("--emit-matrix", action="store_true",
+                    help="从能力自带 domain + compose 闭包重算矩阵并回写（不手填）")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--self-test", action="store_true", help="临时夹具自测")
     args = ap.parse_args()
@@ -352,7 +595,33 @@ def main() -> int:
                "reason": "能力目录必须存在: %s" % rel(caps_dir, root)}
         print(json.dumps(msg, ensure_ascii=False) if args.json else msg["reason"])
         return 2
-    res = run_gate(caps_dir, matrix, root)
+    playbooks_dir = (os.path.abspath(args.playbooks_dir) if args.playbooks_dir
+                     else os.path.join(root, "Tool", "playbooks"))
+    if args.emit_matrix:
+        caps = {}
+        errors = []
+        for path in sorted(glob.glob(os.path.join(caps_dir, "*.json"))):
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    obj = json.load(fh)
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append("%s: %s" % (rel(path, root), str(exc)[:120]))
+                continue
+            if isinstance(obj, dict) and isinstance(obj.get("id"), str):
+                caps[obj["id"]] = obj
+        if errors:
+            msg = {"ok": False, "blocked_at": "emit-matrix", "errors": errors}
+            print(json.dumps(msg, ensure_ascii=False) if args.json else "\n".join(errors))
+            return 2
+        summary = emit_matrix(caps, matrix)
+        summary["path"] = rel(matrix, root)
+        summary["ok"] = True
+        print(json.dumps(summary, ensure_ascii=False, indent=2) if args.json
+              else "矩阵已生成: %s（%d 行 × %d 域；%s）" % (
+                  summary["path"], summary["rows"], summary["families"],
+                  ", ".join("%s=%d" % (k, summary["cells"][k]) for k in MATRIX_VALUES)))
+        return 0
+    res = run_gate(caps_dir, matrix, root, playbooks_dir)
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:

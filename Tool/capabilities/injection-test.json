@@ -1,6 +1,22 @@
 {
   "id": "injection-test",
   "title": "注入与 SSRF 测试",
+  "domain": "web-pentest",
+  "triggers": [
+    "SQL 注入",
+    "命令注入",
+    "SSRF",
+    "模板注入",
+    "注入测试",
+    "参数注入",
+    "反序列化"
+  ],
+  "aliases": [
+    "injection",
+    "sqli",
+    "ssrf"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "参数点位",
     "回显/盲注通道"

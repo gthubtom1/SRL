@@ -1,5 +1,5 @@
 # 反作弊客户端取证与兼容性分析（只读取证面 + 判据）
-- 触发词：反作弊、anti-cheat、EAC、BattlEye、Vanguard、驱动、兼容性、取证
+- 触发词：反作弊、anti-cheat、EAC、BattlEye、Vanguard、驱动、兼容性、取证、驱动兼容、兼容层
 - 输入（用户提供）：`<客户端安装目录>`、`<驱动 .sys>`、`<内存或崩溃转储>`、`<EVTX/hive>`、`<pcap>`、`<兼容性矩阵>`；范围由用户提供的 scope 决定，取证面只读。
 - 用到的能力（capability id）：`tool:pe-sieve` `tool:capa` `tool:ghidra` `tool:ida` `tool:tshark` `repo:case_state` `repo:driver-triage` `repo:forensics-check` `repo:fs-timeline` `repo:pcap-summary` `repo:evidence-accept`
 - 步骤：1) `python Tool/scripts/case_state.py init --case work/<case> --target <CLIENT>` → rc=0，记录版本、哈希、采集时间与时区；2) `python Tool/scripts/driver-triage.py --file <DRIVER.sys> --json --top 20` → rc=0，记录设备名、IOCTL、危险导入与风险分；3) `python Tool/scripts/forensics-check.py --file <MEMORY.dmp> --json --out work/<case>/mem` → rc=0，记录模块、进程、句柄、注入页候选；4) `python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input <EVTX> --input <HIVE> --out work/<case>/artifacts/timeline.json --json` → rc=0，统一 UTC；5) `python Tool/scripts/pcap-summary.py --file <PCAP> --json --out work/<case>/net` → rc=0，对齐反作弊心跳/更新/遥测端点；6) 兼容性矩阵写 `work/<case>/compat-matrix.json`（OS build、驱动签名、HVCI、游戏版本、结果），`python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case <case> --json` → rc=0；7) `python Tool/scripts/preflight.py --fast` → rc=0。

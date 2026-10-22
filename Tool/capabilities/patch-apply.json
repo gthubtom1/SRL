@@ -1,6 +1,22 @@
 {
   "id": "patch-apply",
   "title": "补丁应用",
+  "domain": "reverse",
+  "triggers": [
+    "打补丁",
+    "补丁应用",
+    "patch 字节",
+    "改字节",
+    "dex patch",
+    "so patch",
+    "二进制补丁"
+  ],
+  "aliases": [
+    "patch-apply",
+    "打补丁",
+    "byte-patch"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "原始产物",
     "字节/指令级改动"
@@ -21,7 +37,6 @@
   ],
   "maturity": "usable",
   "compose": [
-    "patch-rollback",
-    "license-bypass"
+    "patch-rollback"
   ]
 }

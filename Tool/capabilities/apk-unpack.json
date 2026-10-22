@@ -1,6 +1,30 @@
 {
   "id": "apk-unpack",
   "title": "APK 解包与重打包",
+  "domain": "reverse",
+  "triggers": [
+    "APK 脱壳",
+    "加固",
+    "il2cpp",
+    "global-metadata",
+    "DexVMP",
+    "VMP",
+    "内存 dump",
+    "反调试",
+    "鸿蒙",
+    "HAP",
+    "ArkTS",
+    "HarmonyOS",
+    "元服务",
+    "重打包",
+    "解包 APK"
+  ],
+  "aliases": [
+    "apk-unpack",
+    "apk脱壳",
+    "unpack-apk"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "APK/APKS 路径",
     "目标 ABI"

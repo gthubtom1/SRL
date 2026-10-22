@@ -42,7 +42,7 @@ if sys.platform == "win32":
 
 EXCLUDE_DIRS = {".git", "node_modules", ".next", "__pycache__", ".venv"}
 SKIP_REF_DIRS = ("work", "Tool/mcp/Tool/safe", "Tool/upstream", "Tool/mcp/Tool/reverselab",
-                 "破甲卡生成", "Tool/cases")
+                 "破甲卡生成", "Tool/cases", "docs/audit")
 TEXT_EXT = {".md", ".ps1", ".sh", ".py", ".json", ".jsonc", ".yml", ".ts", ".mjs"}
 
 results = []   # (section, name, ok, detail)
@@ -691,6 +691,7 @@ def check_language():
     pat = _re.compile(r"不碰|禁止用于|仅限|不得用于|不允许|不提供|不适用|超出范围|禁止\s*(?:操作|使用|测试|访问)")
     roots = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "prompts"),
              os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL")]
+    audit_dir = os.path.join(ROOT, "docs", "audit")
     skip = ("CHANGELOG", "AUDIT", "DEFERRALS", "STYLE.md", "/_archive/")
     hits = []
     for r in roots:
@@ -700,7 +701,7 @@ def check_language():
                     continue
                 fp = os.path.join(dp, f)
                 rel = os.path.relpath(fp, ROOT).replace(os.sep, "/")
-                if any(s in rel for s in skip):
+                if any(s in rel for s in skip) or rel.startswith("docs/audit/"):
                     continue
                 try:
                     t = open(fp, encoding="utf-8", errors="replace").read()

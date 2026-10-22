@@ -1,6 +1,21 @@
 {
   "id": "tls-decrypt",
   "title": "TLS 解密与明文还原",
+  "domain": "pwn-crypto",
+  "triggers": [
+    "TLS 解密",
+    "HTTPS 解密",
+    "keylog",
+    "明文还原",
+    "sslkeylog",
+    "证书固定解密"
+  ],
+  "aliases": [
+    "tls-decrypt",
+    "tls解密",
+    "https-decrypt"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "pcap 文件",
     "SSLKEYLOGFILE 或 RSA 私钥"
@@ -16,9 +31,9 @@
     "Tool/skill/apkseep/references/tls-and-cert.md"
   ],
   "maturity": "probe",
+  "note": "待补 keylog→明文 pcap 自动化脚本，当前用 tshark --tls.keylog_file 手工完成；tls_check.py 只覆盖证书链体检",
   "compose": [
     "traffic-capture",
     "protocol-replay"
-  ],
-  "note": "待补 keylog→明文 pcap 自动化脚本，当前用 tshark --tls.keylog_file 手工完成；tls_check.py 只覆盖证书链体检"
+  ]
 }

@@ -1,6 +1,22 @@
 {
   "id": "plugin-unpack",
   "title": "插件/扩展解包",
+  "domain": "plugin-targets",
+  "triggers": [
+    "插件解包",
+    "扩展解包",
+    "CRX",
+    "VSIX",
+    "asar",
+    "Electron 解包",
+    "浏览器扩展"
+  ],
+  "aliases": [
+    "plugin-unpack",
+    "插件解包",
+    "extension-unpack"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "crx/xpi/asar/vsix 路径"
   ],
@@ -17,8 +33,5 @@
     "Tool/skill/plugin-targets/references/browser-extension.md"
   ],
   "maturity": "usable",
-  "compose": [
-    "permission-evidence",
-    "ipc-audit"
-  ]
+  "compose": []
 }

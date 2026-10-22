@@ -1,6 +1,27 @@
 {
   "id": "firmware-extract",
   "title": "固件解包与文件系统提取",
+  "domain": "firmware-iot",
+  "triggers": [
+    "固件提取",
+    "固件解包",
+    "rootfs",
+    "squashfs",
+    "UBI",
+    "JFFS2",
+    "binwalk",
+    "OTA",
+    "电视盒子",
+    "车机",
+    "分区表",
+    "文件系统提取"
+  ],
+  "aliases": [
+    "firmware-extract",
+    "fw-extract",
+    "固件解包"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "固件镜像",
     "期望架构"

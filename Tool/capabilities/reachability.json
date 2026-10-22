@@ -1,6 +1,21 @@
 {
   "id": "reachability",
   "title": "可达性分析",
+  "domain": "supply-chain-security",
+  "triggers": [
+    "可达性",
+    "reachability",
+    "SBOM 可达",
+    "依赖调用链",
+    "漏洞可达",
+    "调用图"
+  ],
+  "aliases": [
+    "reachability",
+    "可达性分析",
+    "reach"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "SBOM/锁文件",
     "源码入口"

@@ -1,6 +1,20 @@
 {
   "id": "state-machine",
   "title": "会话状态机建模",
+  "domain": "protocol-plugin",
+  "triggers": [
+    "状态机",
+    "会话状态",
+    "状态迁移",
+    "状态建模",
+    "协议状态"
+  ],
+  "aliases": [
+    "state-machine",
+    "状态机建模",
+    "fsm"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "pcap 或请求序列",
     "状态转移假设"
@@ -17,7 +31,5 @@
     "Tool/skill/protocol-plugin/references/06-app-state-machine.md"
   ],
   "maturity": "usable",
-  "compose": [
-    "protocol-replay"
-  ]
+  "compose": []
 }

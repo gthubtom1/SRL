@@ -1,6 +1,22 @@
 {
   "id": "rootfs-emulate",
   "title": "rootfs 仿真运行",
+  "domain": "firmware-iot",
+  "triggers": [
+    "rootfs 仿真",
+    "固件仿真",
+    "rehosting",
+    "QEMU 启动",
+    "FirmAE",
+    "chroot 运行",
+    "服务起不来"
+  ],
+  "aliases": [
+    "rootfs-emulate",
+    "固件仿真",
+    "rehost"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "rootfs",
     "QEMU 机器类型"
@@ -16,9 +32,7 @@
     "Tool/skill/firmware-iot/references/filesystem-and-credentials.md"
   ],
   "maturity": "probe",
-  "compose": [
-    "firmware-extract",
-    "authz-test"
-  ],
-  "note": "待补 rootfs 启动编排脚本，当前用 qemu-system + chroot 手工完成"
+  "note": "待补 rootfs 启动编排脚本，当前用 qemu-system + chroot 手工完成",
+  "reserved": true,
+  "compose": []
 }

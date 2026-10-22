@@ -1,6 +1,24 @@
 {
   "id": "captcha-branch",
   "title": "验证码分支处置",
+  "domain": "web-pentest",
+  "triggers": [
+    "验证码",
+    "captcha",
+    "滑块",
+    "点选",
+    "图形码",
+    "短信码",
+    "人机验证",
+    "Cloudflare",
+    "OCR 识别"
+  ],
+  "aliases": [
+    "captcha",
+    "验证码分支",
+    "captcha-bypass"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "响应特征（图片/滑块/无感 200）"
   ],
@@ -15,6 +33,7 @@
     "Tool/skill/apkseep/references/account-gates.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
     "session-pool"
   ]
