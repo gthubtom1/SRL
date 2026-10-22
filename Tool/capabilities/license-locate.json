@@ -1,0 +1,24 @@
+{
+  "id": "license-locate",
+  "title": "授权点定位",
+  "inputs": [
+    "目标二进制",
+    "授权输入样例"
+  ],
+  "outputs": [
+    "校验函数地址",
+    "授权字段映射",
+    "决策树"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/softseep/references/license-validation.md",
+    "Tool/skill/client-license-validation-bypass/SKILL.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "license-bypass",
+    "symbol-recover"
+  ],
+  "note": "待补授权点定位脚本，当前用 IDA/Ghidra 交叉引用 + softseep 授权校验清单手工完成"
+}

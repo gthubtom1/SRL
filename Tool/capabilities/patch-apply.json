@@ -1,0 +1,27 @@
+{
+  "id": "patch-apply",
+  "title": "补丁应用",
+  "inputs": [
+    "原始产物",
+    "字节/指令级改动"
+  ],
+  "outputs": [
+    "打过补丁的产物",
+    "补丁清单与校验和"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/dex_patch_bytes.py",
+    "Tool/skill/apkseep/scripts/dex_strpatch.py",
+    "Tool/skill/apkseep/scripts/so_constpatch.py",
+    "Tool/scripts/dump-restore.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/byte-level-patching.md",
+    "Tool/skill/apkseep/references/dex-patching.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "patch-rollback",
+    "license-bypass"
+  ]
+}

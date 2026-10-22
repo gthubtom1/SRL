@@ -1,0 +1,23 @@
+{
+  "id": "anti-debug-bypass",
+  "title": "反调试绕过",
+  "inputs": [
+    "目标进程",
+    "检测点清单"
+  ],
+  "outputs": [
+    "检测点绕过脚本",
+    "存活时长证据"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/anti_detect_probe.js"
+  ],
+  "refs": [
+    "Tool/skill/softseep/references/10-anti-debug.md",
+    "Tool/skill/apkseep/references/detection-and-anti-analysis.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "native-hook"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "ipc-audit",
+  "title": "IPC/组件暴露审计",
+  "inputs": [
+    "组件清单",
+    "intent/filter 定义"
+  ],
+  "outputs": [
+    "暴露面矩阵",
+    "可利用路径"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/svc_scan.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/native-and-so.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "permission-evidence"
+  ],
+  "note": "待补导出组件枚举脚本，当前用 manifest 解析 + adb shell dumpsys 手工完成；svc_scan.py 只判 svc 直调可见性"
+}

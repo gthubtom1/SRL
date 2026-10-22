@@ -1,0 +1,24 @@
+{
+  "id": "sbom-build",
+  "title": "SBOM 生成",
+  "inputs": [
+    "源码树或镜像",
+    "包管理器清单"
+  ],
+  "outputs": [
+    "CycloneDX/SPDX JSON",
+    "组件清单"
+  ],
+  "scripts": [
+    "Tool/skill/supply-chain-security/scripts/sbom-reach.py"
+  ],
+  "refs": [
+    "Tool/skill/supply-chain-security/references/sbom-sca.md",
+    "Tool/skill/supply-chain-security/references/image-and-provenance.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "reachability",
+    "ci-perm-audit"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "sign-locate",
+  "title": "签名/校验点定位",
+  "inputs": [
+    "解密后的请求样例",
+    "包名与入口"
+  ],
+  "outputs": [
+    "签名函数地址",
+    "参与字段清单",
+    "调用链"
+  ],
+  "scripts": [
+    "Tool/skill/apkseep/scripts/find_refs.py",
+    "Tool/skill/apkseep/scripts/dex_find_insn.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/signature-derived-keys.md",
+    "Tool/skill/protocol-plugin/references/07-crypto-and-checksum.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "sign-recompute",
+    "protocol-replay"
+  ]
+}

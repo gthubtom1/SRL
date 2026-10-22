@@ -1,0 +1,21 @@
+{
+  "id": "cache-test",
+  "title": "缓存键与投毒测试",
+  "inputs": [
+    "URL 与缓存头",
+    "变体参数"
+  ],
+  "outputs": [
+    "缓存键判定",
+    "命中/未命中矩阵"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/web-pentest/references/07-waf-and-bypass.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "authz-test"
+  ],
+  "note": "待补缓存键探测脚本，当前用 curl 对比 X-Cache/Age 手工完成"
+}

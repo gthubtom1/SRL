@@ -1,0 +1,24 @@
+{
+  "id": "schedule-notify",
+  "title": "调度与通知编排",
+  "inputs": [
+    "cron 表达式",
+    "任务/账号",
+    "渠道"
+  ],
+  "outputs": [
+    "幂等键",
+    "重试策略",
+    "通知载荷模板"
+  ],
+  "scripts": [
+    "Tool/skill/signin-automation/scripts/schedule-notify.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/long-task-discipline.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "session-pool"
+  ]
+}

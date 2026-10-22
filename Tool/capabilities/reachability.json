@@ -1,0 +1,22 @@
+{
+  "id": "reachability",
+  "title": "可达性分析",
+  "inputs": [
+    "SBOM/锁文件",
+    "源码入口"
+  ],
+  "outputs": [
+    "可达组件表",
+    "不可达说明"
+  ],
+  "scripts": [
+    "Tool/skill/supply-chain-security/scripts/sbom-reach.py"
+  ],
+  "refs": [
+    "Tool/skill/supply-chain-security/references/06-reachability-and-sbom-drift.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "sbom-build"
+  ]
+}

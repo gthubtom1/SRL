@@ -1,0 +1,22 @@
+{
+  "id": "visual-diff",
+  "title": "视觉/UI 差异比对",
+  "inputs": [
+    "两组截图",
+    "视口与字体基线"
+  ],
+  "outputs": [
+    "差异图",
+    "差异比例与区域"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/02-ui-rebrand/SKILL.md"
+  ],
+  "maturity": "probe",
+  "compose": [
+    "site-rebuild",
+    "site-crawl"
+  ],
+  "note": "待补截图对比脚本，当前用浏览器截图 + ImageMagick compare 手工完成"
+}

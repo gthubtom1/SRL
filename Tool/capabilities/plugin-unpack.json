@@ -1,0 +1,24 @@
+{
+  "id": "plugin-unpack",
+  "title": "插件/扩展解包",
+  "inputs": [
+    "crx/xpi/asar/vsix 路径"
+  ],
+  "outputs": [
+    "解包目录",
+    "加载入口",
+    "权限声明"
+  ],
+  "scripts": [
+    "Tool/skill/plugin-targets/scripts/plugin-triage.py"
+  ],
+  "refs": [
+    "Tool/skill/plugin-targets/references/electron-and-asar.md",
+    "Tool/skill/plugin-targets/references/browser-extension.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "permission-evidence",
+    "ipc-audit"
+  ]
+}

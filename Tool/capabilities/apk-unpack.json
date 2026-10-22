@@ -1,0 +1,27 @@
+{
+  "id": "apk-unpack",
+  "title": "APK 解包与重打包",
+  "inputs": [
+    "APK/APKS 路径",
+    "目标 ABI"
+  ],
+  "outputs": [
+    "smali/dex",
+    "解包目录",
+    "重签名 APK"
+  ],
+  "scripts": [
+    "Tool/scripts/apk/decode.sh",
+    "Tool/scripts/apk/decode.ps1",
+    "Tool/skill/apkseep/scripts/repack.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/packers.md",
+    "Tool/skill/apkseep/references/advanced-unpacking.md"
+  ],
+  "maturity": "battle-tested",
+  "compose": [
+    "native-hook",
+    "patch-apply"
+  ]
+}

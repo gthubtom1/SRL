@@ -1,0 +1,23 @@
+{
+  "id": "protocol-replay",
+  "title": "协议重放",
+  "inputs": [
+    "原始请求/帧",
+    "会话前置状态"
+  ],
+  "outputs": [
+    "重放结果",
+    "差异报告"
+  ],
+  "scripts": [
+    "Tool/skill/protocol-plugin/scripts/proto-repro.py"
+  ],
+  "refs": [
+    "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "protocol-construct",
+    "state-machine"
+  ]
+}

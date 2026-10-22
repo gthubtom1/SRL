@@ -1,0 +1,24 @@
+{
+  "id": "tls-fingerprint",
+  "title": "TLS 指纹对齐",
+  "inputs": [
+    "目标 URL",
+    "期望 JA3/JA4"
+  ],
+  "outputs": [
+    "请求计划",
+    "curl_cffi 档位",
+    "头序与 H2 开关"
+  ],
+  "scripts": [
+    "Tool/skill/signin-automation/scripts/tls-fingerprint.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/tls-and-cert.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "traffic-capture",
+    "tls-decrypt"
+  ]
+}

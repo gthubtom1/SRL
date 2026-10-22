@@ -1,0 +1,23 @@
+{
+  "id": "timeline",
+  "title": "时间线归并",
+  "inputs": [
+    "evtx/hive/文件系统/sqlite"
+  ],
+  "outputs": [
+    "UTC 时间线 JSON",
+    "异常窗口"
+  ],
+  "scripts": [
+    "Tool/skill/forensics-mobile/scripts/fs-timeline.py"
+  ],
+  "refs": [
+    "Tool/skill/malware-analysis/references/05-behavior-timeline.md",
+    "Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md"
+  ],
+  "maturity": "battle-tested",
+  "compose": [
+    "evidence-accept",
+    "memory-forensics"
+  ]
+}

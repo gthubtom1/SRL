@@ -1,0 +1,21 @@
+{
+  "id": "captcha-branch",
+  "title": "验证码分支处置",
+  "inputs": [
+    "响应特征（图片/滑块/无感 200）"
+  ],
+  "outputs": [
+    "处置分支",
+    "next_action"
+  ],
+  "scripts": [
+    "Tool/skill/signin-automation/scripts/captcha-branch.py"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/account-gates.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "session-pool"
+  ]
+}

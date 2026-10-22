@@ -1,0 +1,23 @@
+{
+  "id": "patch-rollback",
+  "title": "补丁回滚与基线复验",
+  "inputs": [
+    "补丁前基线",
+    "补丁清单"
+  ],
+  "outputs": [
+    "回滚后产物",
+    "哈希一致性报告"
+  ],
+  "scripts": [
+    "Tool/scripts/dump-restore.py",
+    "Tool/skill/softseep/scripts/patch-verify.py"
+  ],
+  "refs": [
+    "Tool/skill/softseep/references/09-patch-engineering.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "patch-apply"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "evidence-accept",
+  "title": "证据受理与哈希复算",
+  "inputs": [
+    "证据目录",
+    "case 清单"
+  ],
+  "outputs": [
+    "受理记录",
+    "sha256 复算表"
+  ],
+  "scripts": [
+    "Tool/skill/forensics-mobile/scripts/evidence-accept.py",
+    "Tool/skill/forensics-mobile/scripts/forensics-check.py"
+  ],
+  "refs": [
+    "Tool/skill/forensics-mobile/references/evidence-chain.md"
+  ],
+  "maturity": "battle-tested",
+  "compose": [
+    "ioc-extract"
+  ]
+}

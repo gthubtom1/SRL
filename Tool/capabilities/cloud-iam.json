@@ -1,0 +1,23 @@
+{
+  "id": "cloud-iam",
+  "title": "云 IAM 权限评估",
+  "inputs": [
+    "云账号/角色",
+    "策略文档"
+  ],
+  "outputs": [
+    "权限矩阵",
+    "危险动作清单"
+  ],
+  "scripts": [
+    "Tool/skill/ad-cloud/scripts/cloud-iam-eval.py"
+  ],
+  "refs": [
+    "Tool/skill/ad-cloud/references/cloud-native.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "ad-enum",
+    "k8s-enum"
+  ]
+}
