@@ -177,3 +177,139 @@ impacket-wmiexec "$DOMAIN/$USER@<target>" -hashes ":$NTLM"
 3. 证据能支撑报告复现且已脱敏？
 
 三条全满足才写"已打穿"；否则写"待验证"并给出下一步。
+
+## 11. 公网外部视角：445 / 389 / 88 只读暴露面
+
+> 适用：目标在公网或 DMZ，只有域名/IP 清单，没有域账号。目的不是“打进去”，而是
+> **在不接触凭据、不写入、不投毒的前提下，判定暴露面与可继续验证的边界**。
+> 越界红线（硬约束）：**不爆破（含口令喷洒）、不写（LDAP/SMB/AD 对象）、不投毒
+> （LLMNR/NBT-NS/mDNS/WPAD/伪造 DC/票据注入）**；relay/强制认证另需单独授权单。
+
+### 11.1 先固定只读动作清单
+
+| 允许（只读） | 禁止（越界） |
+| :-- | :-- |
+| TCP 握手与端口探测（授权网段）：`nmap -Pn -p 445,389,636,88,5985 --open <cidr>` | 任何口令尝试、hash 投递、口令喷洒 |
+| SMB negotiate（不认证）读 dialect/signing/域/OS 提示 | SMB 会话建立后写文件、建服务、执行命令 |
+| LDAP rootDSE 匿名/空绑定读 `namingContexts` 等 | LDAP add/modify/delete、改 ACL、加 RBCD |
+| 对**给定用户名清单**发 AS-REQ 观察错误码（只读枚举） | 用字典爆破用户名、猜口令、请求票据后离线破解 |
+| 离线解析已抓到的 type 2 challenge | LLMNR/NBT-NS/mDNS/WPAD 投毒、伪造 DC/KDC |
+
+频率预算：同一目标每种协议 ≤3 次/24h；Kerberos 只对给定清单跑 **1 轮**；
+看到 DC 侧 4768/4771 异常升高或业务告警立即停。
+
+### 11.2 445/SMB：NTLM type 2 challenge 解析
+
+```bash
+# 只做 negotiate，不带凭据；输出含 signing / dialect / 域名 / OS 提示
+nxc smb <ip> -u '' -p ''
+# 也可用 nmap 脚本读取 SMB 协商信息（只读）
+nmap -Pn -p 445 --script smb2-security-mode,smb-os-discovery <ip>
+```
+
+关注字段（都只是**暴露面**，不是凭据）：
+
+- `SMB signing: False` → relay 到 SMB 的候选面（还要看 relay 目标与受害者）。
+- `SMBv1: True` / `dialect` → 老协议面，先记录，不据此写“可打”。
+- `domain` / `computer name` / `OS version` → 命名与版本指纹，可能与真实补丁级不符。
+
+抓到 type 2 challenge（base64 或 hex）后**离线**解析，不联网：
+
+```bash
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 \
+  --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json
+```
+
+期望输出字段（`verdict=candidate` 表示“暴露面成立”，不是登录成功）：
+
+| 字段 | 含义 | 误判风险 |
+| :-- | :-- | :-- |
+| `target_name` / `nb_domain` / `dns_domain` / `dns_tree` | NetBIOS/DNS 域与树名 | 目标可被策略伪装；只作命名指纹 |
+| `nb_computer` / `dns_computer` | 计算机名/FQDN | 与资产清单交叉核对，别把别名当新资产 |
+| `os_version` | 版本结构体（major.minor.build） | 客户端可伪造/被策略伪装，不等于补丁级 |
+| `timestamp` | AV pair 7（FILETIME→UTC） | 服务端时钟可能偏；Kerberos 容忍 ±5 分钟 |
+| `flags` / `flags_hex` | 协商位（SIGN/SEAL/NTLM/TARGET_INFO/VERSION…） | 只说明协商能力，不说明配置强制 |
+| `challenge_fp` | 8 字节 server challenge 的指纹 | 随机数，不可复用；不要当凭据保存 |
+| `auth_attempted` | 恒为 false（本工具不发认证） | 若为 true 说明有人改了工具，停用 |
+
+判据：`signature`+`message-type-2` 两个 check 为 true，且能取到域/OS/时间戳；
+**只有 type 2 = `candidate`**。要升级到 `confirmed`，必须有 relay 成功 + 目标侧执行/会话证据
+（见 `06-lateral-movement.md`），且 relay 已获授权。
+
+### 11.3 389/636：LDAP 匿名与空绑定
+
+```bash
+# rootDSE（base scope，只读）
+ldapsearch -x -H "ldap://<ip>" -s base -b "" "(objectClass=*)" \
+  namingContexts defaultNamingContext rootDomainNamingContext dnsHostName \
+  domainFunctionality forestFunctionality supportedLDAPVersion supportedControl
+# 空绑定（部分实现允许）：-D "" -w ""
+ldapsearch -x -H "ldap://<ip>" -D "" -w "" -s base -b "" "(objectClass=*)"
+# LDAPS 只读探测（证书告警用 -o tls_reqcert=never，须在授权范围内）
+ldapsearch -x -H "ldaps://<ip>:636" -s base -b "" "(objectClass=*)"
+```
+
+期望（匿名/空绑定被允许时）：`resultCode: 0`，返回 `defaultNamingContext: DC=corp,DC=local`、
+`dnsHostName`、`domainFunctionality`、`supportedControl`（如 `1.2.840.113556.1.4.319` 分页）。
+
+失败判据（看到即停，不要换口令重试）：
+
+- `ldap_bind: Invalid credentials (49)`：匿名被拒；不要用猜的口令“验证”。
+- `ldap_bind: Strong(er) authentication required (8)`：要求签名/TLS，属收敛项。
+- `Insufficient access (50)` / `unwilling to perform (53)`：绑定成功但读 rootDSE 被限。
+- 连接超时/拒绝：端口未开放或 ACL 拦截。
+
+判据：匿名 rootDSE 可读 → `candidate`（信息面）；**不能**据此写“可匿名读目录/可改对象”。
+只有实际 `search` 到授权范围内的对象且返回属性，才升级为“匿名可读”的证据；
+任何写操作（add/modify/RBCD/ACL）都必须另走授权单。
+
+### 11.4 88：Kerberos 用户名枚举（只读）
+
+```bash
+# 只对给定清单，1 轮，不猜口令
+kerbrute userenum --dc <dc_ip> -d <domain> users.txt -o kerb-users.txt
+# 或对单账号观察错误码（不请求可破解票据）
+impacket-GetNPUsers "<domain>/" -dc-ip <dc> -usersfile users.txt -no-pass -format hashcat
+```
+
+读法：
+
+- `KDC_ERR_C_PRINCIPAL_UNKNOWN (6)` → 用户名不存在（或域不匹配）。
+- `KDC_ERR_PREAUTH_REQUIRED (25)` → 账号存在且启用预认证（正常账号）。
+- 直接返回 AS-REP → 账号 `DONT_REQ_PREAUTH`（AS-REP roastable）；**未授权不要离线破解**。
+- `KDC_ERR_CLIENT_REVOKED (18)` / `ACCOUNT_DISABLED` → 账号存在但禁用。
+- `KRB_AP_ERR_SKEW (37)` → 本机与 KDC 时差 >5 分钟，先对时再判断。
+
+失败判据：`KDC has no support for encryption type`、连接超时、域不存在（`KDC_ERR_WRONG_REALM`）
+→ 记录为“88 暴露但枚举不可用”，不要继续换字典。
+
+代价与边界：每次 AS-REQ 都会在 DC 留 4768；批量清单会形成明显枚举模式。
+只允许对书面给定的用户名清单跑 1 轮；**不得**用常见用户名/口令字典扩充清单。
+
+### 11.5 暴露面 ≠ 可利用（结论上限）
+
+| 观察 | 最高结论 | 升级为 confirmed 还需要 |
+| :-- | :-- | :-- |
+| 445 开放 + `SMB signing: False` | `candidate`（relay 候选） | 授权 relay + 受害者认证 + 目标侧 4624/4688/7045 |
+| 解析出 type 2（域/OS/时间戳） | `candidate`（暴露面） | relay 成功并拿到会话/命令输出 |
+| LDAP 匿名 rootDSE 可读 | `candidate`（信息面） | 授权范围内实际读到对象属性，或匿名写（另需授权） |
+| Kerberos 返回“账号存在”/AS-REP | `candidate`（枚举面） | 授权离线破解出明文，或用票据完成一次只读访问 |
+| 88 开放但只回 `PREAUTH_REQUIRED` | `blocked`（无 roast 面） | 换合法凭据或转其它面 |
+| 只有端口开放、无协议响应 | `blocked` | 先确认网络路径/防火墙，不要猜服务 |
+
+### 11.6 证据包与红线
+
+```text
+目标：<ip>/<fqdn>（授权清单编号）
+只读动作：<nmap / nxc negotiate / ldapsearch base / kerbrute 1 轮>（rc=0）
+原始输出：<字段/错误码/时间>（账号与来源脱敏）
+解析结果：<ad-repro verdict=candidate + 域/OS/时间戳指纹>
+未做：未爆破、未写、未投毒、未建会话、未请求可破解票据
+边界：<授权时间窗/频率/停止条件>
+下一步：<需要哪张授权单才能升级验证>
+```
+
+- 不把公网暴露面写进“已攻破”；报告里分开写“暴露面 / 可利用性 / 修复建议”。
+- 不保存 challenge、票据、hash 原文；只留指纹与时间。
+- 不在客户未授权的第三方资产上做任何协商或枚举；扫描范围严格等于清单。
+- 发现匿名可写、可 relay、可 roast 时，先停手写证据，再按授权单决定是否验证。

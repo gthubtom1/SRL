@@ -1,0 +1,22 @@
+{
+  "kind": "adcs",
+  "ca": {
+    "name": "CORP-CA",
+    "http_endpoint": true,
+    "ntlm_relay_allowed": true
+  },
+  "templates": [
+    {
+      "name": "CorpWebServer",
+      "enroll_allowed": true,
+      "san_enforced": false,
+      "client_auth_eku": true,
+      "manager_approval": false,
+      "ca_san_allowed": true,
+      "http_endpoint": true,
+      "ntlm_relay_allowed": true
+    }
+  ],
+  "auth_succeeded": false,
+  "note": "从 bundle.json 拆出的单类夹具：用于 --kind 强制复算，避免多类 bundle 触发 schema 校验失败。"
+}
