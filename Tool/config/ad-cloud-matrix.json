@@ -637,6 +637,119 @@
         "reg query",
         "klist"
       ]
+    },
+    {
+      "id": "AD-21",
+      "surface": "横向移动（执行面）",
+      "match": [
+        "PtH",
+        "Pass-the-Hash",
+        "WMI",
+        "WinRM",
+        "schtasks",
+        "DCOM",
+        "RBCD",
+        "4624 类型 3",
+        "4688",
+        "7045",
+        "4698"
+      ],
+      "check": "源主机/账号/工具 + 目标协议端口 + 目标侧进程/服务/任务/命令输出 + 目标日志（4624/4688/7045/4698/5136）",
+      "criteria": "目标侧出现预期身份的 4688（父进程 WmiPrvSE.exe/mmc.exe/services.exe）、7045、4698 或命令回显；relay 需目标 4624 logon_type=3 + 4776；只认证成功或 ReturnValue=0 只能写 candidate。",
+      "tools": [
+        "nxc smb/wmi/winrm",
+        "impacket-wmiexec/smbexec",
+        "schtasks",
+        "DCOM/MMC20.Application",
+        "rbcd.py",
+        "ad-repro.py"
+      ],
+      "fail": "无目标侧 4624/4688/7045/4698、认证 SUCCEED 无会话、Access denied/0x80070005、SMB/LDAP signing 强制：当前手法 blocked，换 WMI/schtasks/凭据直连，不重复 relay。",
+      "pitfalls": [
+        "relay 目标与强制认证受害者不是同一台",
+        "WinRM 默认要求消息签名/加密，relay 认证成功也拿不到 shell",
+        "ReturnValue=0 不等于命令执行成功",
+        "建服务/计划任务/RBCD 不清理就是持久化"
+      ],
+      "commands": [
+        "ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json",
+        "nxc smb <target> -u <user> -H <hash>",
+        "impacket-wmiexec <domain>/<user>@<target> -hashes ':<hash>' 'whoami'",
+        "schtasks /s <target> /create /tn <name> /tr <cmd>"
+      ]
+    },
+    {
+      "id": "AD-22",
+      "surface": "NTLM relay 目标面",
+      "match": [
+        "ntlmrelayx",
+        "SMB signing",
+        "LDAP signing",
+        "EPA",
+        "LDAPS",
+        "WinRM relay",
+        "SUCCEED"
+      ],
+      "check": "SMB signing / LDAP signing / LDAPS 通道绑定(EPA) / WinRM 消息保护 / relay 日志与目标侧日志对照",
+      "criteria": "SMB signing=False 或 LDAP signing 未强制或 EPA 未强制；relay 日志出现 SUCCEED；目标侧 4624 logon_type=3 + 4776，写操作再加 5136/7045；有命令回显/对象回读才 confirmed。",
+      "tools": [
+        "nxc smb --gen-relay-list",
+        "impacket-ntlmrelayx",
+        "nxc ldap -M ldap-checker",
+        "ldapsearch"
+      ],
+      "fail": "SMB signing: True、LDAP signing required、EPA/通道绑定开启、认证 SUCCEED 但无目标日志/回显：该 relay 面 blocked，转 ADCS/凭据直连或 ACL 路径。",
+      "pitfalls": [
+        "只 relay 到 LDAP 不等于能拿证书",
+        "WinRM relay 认证成功无 shell 是默认行为",
+        "relay 写入对象不回读=无法证明",
+        "强制认证可能触发业务告警，需单独授权"
+      ],
+      "commands": [
+        "nxc smb <target> -u '' -p '' --gen-relay-list relay.txt",
+        "impacket-ntlmrelayx -t smb://<target> -smb2support",
+        "impacket-ntlmrelayx -t ldaps://<dc> --add-computer",
+        "nxc ldap <dc> -u <user> -p <pass> -M ldap-checker"
+      ]
+    },
+    {
+      "id": "AD-23",
+      "surface": "公网外部视角（445/389/88 只读）",
+      "match": [
+        "445",
+        "389",
+        "636",
+        "88",
+        "NTLM type 2",
+        "LDAP anonymous",
+        "rootDSE",
+        "Kerberos userenum",
+        "AS-REQ"
+      ],
+      "check": "SMB negotiate 的 type 2 challenge、LDAP rootDSE 匿名/空绑定、给定清单的 AS-REQ 错误码；频率预算与停止条件",
+      "criteria": "ad-repro --kind ntlm-type2 输出 message_type=2 且 dns_domain/os_version/timestamp 可取；LDAP base scope resultCode=0 且返回 namingContexts；KDC 错误码 6/25/AS-REP 可分类；全程不爆破、不写、不投毒，结论最高 candidate。",
+      "tools": [
+        "nxc smb -u '' -p ''",
+        "nmap smb2-security-mode/smb-os-discovery",
+        "ldapsearch -s base -b ''",
+        "kerbrute userenum",
+        "ad-repro.py --kind ntlm-type2"
+      ],
+      "fail": "只有端口开放无协议响应、type 2 解析失败、LDAP 49/8、KDC 只回 PREAUTH_REQUIRED、时差 >5 分钟：暴露面记录为 blocked/unknown，不得用口令字典或写入升级验证。",
+      "pitfalls": [
+        "OS 版本/域名可被伪装，只作指纹",
+        "server challenge 是随机数，不可当凭据",
+        "匿名 rootDSE ≠ 可读目录对象",
+        "Kerberos 批量枚举会触发 4768 告警",
+        "公网暴露面不等于可 relay"
+      ],
+      "commands": [
+        "nxc smb <ip> -u '' -p ''",
+        "nmap -Pn -p 445,389,636,88,5985 --open <cidr>",
+        "ldapsearch -x -H ldap://<ip> -s base -b '' '(objectClass=*)'",
+        "kerbrute userenum --dc <dc> -d <domain> users.txt",
+        "ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
+      ]
     }
   ]
 }
