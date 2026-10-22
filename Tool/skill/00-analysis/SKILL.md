@@ -119,6 +119,9 @@ python Tool/scripts/case_state.py instrument --case $C --name x64dbg --status bl
 
 **"可复现"的定义**：每条结论后面都有 `[工具 + 命令/参数 + 关键输出]`。只写"经分析发现"= 不算证据。
 
+> **模板**：一页可复制骨架、逐字段判据、「证据不足」反例清单、提交前 60 秒自检 → [`references/05-report-template.md`](references/05-report-template.md)。
+> 本节只规定「必须有哪 8 节」，模板规定「每节必须写到什么程度」。
+
 ---
 
 ## 4. 可行性裁定（这一节比技术细节更重要）
@@ -324,3 +327,14 @@ D6/D7 缺失只告警；但裁定=可赢时必须至少 `na` + 原因。
 - ❌ 用"看起来像 / 应该是"代替实测（D1–D4 全都要真跑）
 - ❌ 结论改口不留旧结论与被推翻的证据
 - ❌ 把"不可赢"包装成"部分可赢"去迎合期待
+
+---
+
+## 8. 参考索引（逐篇）
+
+| 篇 | 用途 |
+|---|---|
+| [`references/05-report-template.md`](references/05-report-template.md) | 一页可复用报告模板：标题/影响面/复现步骤（命令与原始报文）/证据分级（proven vs hypothesis）/资产归属/修复建议/时间线，另附「证据不足」反例清单与提交前 60 秒清单 |
+
+> 本阶段没有 `01-criteria`/`02-failure-criteria` 系列（那是交付域的九件套）；
+> 阶段零的「判据」就是本文件 §2 的深度门与 §3 的报告结构，机检由 `Tool/scripts/case_state.py gate` 承担。
