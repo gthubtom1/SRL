@@ -19,6 +19,8 @@
 
 - 产物落盘：`web-check` / `sc-check` 的 `--out` 会自动创建父目录，写失败返回 `{"ok":false,"blocked_at":"out-unwritable"}` rc=2；`preflight` 新增 `out-artifact` 断言（--out 指到不存在目录必须落盘）。
 
+- 验证码求解原语：新增 `Tool/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90+置信度）；两者纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
+
 ## [1.24.2] — 2026-10-22
 > site-clone 第 11 域上线（crawl/rebuild/diff/accept + 8 refs + KB + 24 卡），措辞清理，部署同步。
 

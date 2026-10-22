@@ -1,0 +1,34 @@
+{
+  "id": "captcha-angle",
+  "title": "旋转验证码角度求解（本地旋转搜索）",
+  "domain": "web-pentest",
+  "triggers": [
+    "旋转验证码",
+    "角度",
+    "rotate",
+    "转正",
+    "旋转图片"
+  ],
+  "aliases": [
+    "captcha-angle",
+    "旋转验证码",
+    "角度"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "验证码图片（背景/滑块/旋转图，来自 HTTP 响应）",
+    "目标平台的一次挑战"
+  ],
+  "outputs": [
+    "angle.json（angle / angle_mod90 / confidence）"
+  ],
+  "scripts": [
+    "Tool/scripts/captcha-angle.py"
+  ],
+  "refs": [
+    "Tool/playbooks/captcha-handling.md",
+    "Tool/skill/signin-automation/SKILL.md"
+  ],
+  "maturity": "usable",
+  "compose": []
+}

@@ -101,7 +101,33 @@
       "site-clone": "partial",
       "reverse": "partial"
     },
+    "captcha-angle": {
+      "web-pentest": "full",
+      "pwn-crypto": "partial",
+      "firmware-iot": "via-compose",
+      "ad-cloud": "partial",
+      "protocol-plugin": "partial",
+      "plugin-targets": "partial",
+      "forensics-mobile": "via-compose",
+      "malware-analysis": "via-compose",
+      "supply-chain-security": "partial",
+      "site-clone": "partial",
+      "reverse": "partial"
+    },
     "captcha-branch": {
+      "web-pentest": "full",
+      "pwn-crypto": "partial",
+      "firmware-iot": "via-compose",
+      "ad-cloud": "partial",
+      "protocol-plugin": "partial",
+      "plugin-targets": "partial",
+      "forensics-mobile": "via-compose",
+      "malware-analysis": "via-compose",
+      "supply-chain-security": "partial",
+      "site-clone": "partial",
+      "reverse": "partial"
+    },
+    "captcha-gap": {
       "web-pentest": "full",
       "pwn-crypto": "partial",
       "firmware-iot": "via-compose",
