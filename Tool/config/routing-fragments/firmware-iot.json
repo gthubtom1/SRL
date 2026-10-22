@@ -52,6 +52,10 @@
             "(?i)(security|安全|firmware|固件|device|设备|评估|assessment)"
           ],
           "note": "iot 必须带安全/设备语境，避免普通单词误命中"
+        },
+        {
+          "must": "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包)",
+          "note": "无线近场：判据=动作可复现（重放/未鉴权写/口令解出）；硬件缺失记 blocked_at=no-radio；参考 references/hardware-interfaces.md 的无线章节"
         }
       ]
     }

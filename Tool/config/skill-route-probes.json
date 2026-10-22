@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "1.0",
+  "description": "技能路由探针（master-route.ps1 视角）：每条按用户真实口吻写，断言命中的 PRIMARY 技能。与 intent-probes.json（配方路由）互补——配方路由由 Python 匹配，技能路由由 PowerShell 匹配，两套实现必须各自被断言覆盖。",
+  "why": "2026-10-22 审计发现 .NET 正则的 \\b 把 CJK 当 word 字符，于是「APK去广告」「Unity IL2CPP透视」这类英文词紧跟中文的口吻全部匹配不上、直接掉兜底；由于当时没有技能路由门禁，这个问题活了很久。",
+  "probes": [
+    {
+      "id": "rev-pe-01",
+      "text": "帮我逆向这个exe的注册码，有UPX壳",
+      "expect_skill": "unpack-loop/SKILL.md"
+    },
+    {
+      "id": "rev-pe-02",
+      "text": "分析这个PE文件，看它是不是加壳了",
+      "expect_skill": "unpack-loop/SKILL.md"
+    },
+    {
+      "id": "license-01",
+      "text": "破解卡密登录验证，做成能用的成品",
+      "expect_skill": "01-gate-bypass/SKILL.md"
+    },
+    {
+      "id": "license-02",
+      "text": "这个软件的授权是本地文件校验，想旁路掉",
+      "expect_skill": "01-gate-bypass/SKILL.md"
+    },
+    {
+      "id": "web-js-01",
+      "text": "前端JS找签名算法，逆向登录加密",
+      "expect_skill": "mcp-js-reverse-playbook/SKILL.md"
+    },
+    {
+      "id": "web-js-02",
+      "text": "JS逆向 网页加密参数 sign 算法还原",
+      "expect_skill": "mcp-js-reverse-playbook/SKILL.md"
+    },
+    {
+      "id": "web-pentest-01",
+      "text": "网站渗透测试，先做信息收集和目录爆破",
+      "expect_skill": "web-pentest/SKILL.md"
+    },
+    {
+      "id": "apk-01",
+      "text": "APK去广告并脱壳",
+      "expect_skill": "apkseep/SKILL.md"
+    },
+    {
+      "id": "apk-02",
+      "text": "Frida hook 安卓APP 绕 SSL pinning",
+      "expect_skill": "apkseep/SKILL.md"
+    },
+    {
+      "id": "miniapp-01",
+      "text": "小程序逆向，抓包看接口签名",
+      "expect_skill": "apkseep/SKILL.md"
+    },
+    {
+      "id": "game-01",
+      "text": "游戏辅助，Unity IL2CPP透视",
+      "expect_skill": "forensics-mobile/SKILL.md"
+    },
+    {
+      "id": "game-02",
+      "text": "Unity 游戏客户端，AssetBundle 里有资源",
+      "expect_skill": "forensics-mobile/SKILL.md"
+    },
+    {
+      "id": "captcha-01",
+      "text": "写一个滑块验证码识别",
+      "expect_skill": "softseep/SKILL.md",
+      "expect_route": "R34"
+    },
+    {
+      "id": "captcha-02",
+      "text": "极验点选验证码怎么过",
+      "expect_skill": "softseep/SKILL.md",
+      "expect_route": "R34"
+    },
+    {
+      "id": "privesc-01",
+      "text": "提权 linux suid 找可利用的二进制",
+      "expect_skill": "ad-cloud/SKILL.md"
+    },
+    {
+      "id": "privesc-02",
+      "text": "Windows UAC 绕过拿到管理员",
+      "expect_skill": "ad-cloud/SKILL.md"
+    },
+    {
+      "id": "osint-01",
+      "text": "查个人信息 osint 社工库",
+      "expect_skill": "softseep/SKILL.md",
+      "expect_route": "R36"
+    },
+    {
+      "id": "osint-02",
+      "text": "对 example.com 做子域名枚举和资产测绘",
+      "expect_skill": "softseep/SKILL.md",
+      "expect_route": "R36"
+    },
+    {
+      "id": "malware-01",
+      "text": "分析这个word宏病毒样本",
+      "expect_skill": "malware-analysis/SKILL.md"
+    },
+    {
+      "id": "firmware-01",
+      "text": "路由器固件解包找后门",
+      "expect_skill": "firmware-iot/SKILL.md"
+    },
+    {
+      "id": "protocol-01",
+      "text": "抓包复刻私有协议",
+      "expect_skill": "protocol-plugin/SKILL.md"
+    },
+    {
+      "id": "plugin-01",
+      "text": "Electron 打包 asar 解包",
+      "expect_skill": "plugin-targets/SKILL.md"
+    },
+    {
+      "id": "supply-01",
+      "text": "docker 镜像供应链审计",
+      "expect_skill": "supply-chain-security/SKILL.md"
+    },
+    {
+      "id": "ui-01",
+      "text": "改UI去掉作者联系方式",
+      "expect_skill": "02-ui-rebrand/SKILL.md"
+    },
+    {
+      "id": "hookup-01",
+      "text": "自己搭授权平台接卡密",
+      "expect_skill": "03-license-hookup/SKILL.md"
+    },
+    {
+      "id": "migrate-01",
+      "text": "新版本更新了，迁移旧补丁",
+      "expect_skill": "04-version-migrate/SKILL.md"
+    },
+    {
+      "id": "llm-01",
+      "text": "LLM提示词注入测试",
+      "expect_skill": "llm-security/SKILL.md"
+    },
+    {
+      "id": "ad-01",
+      "text": "内网渗透，域控横向",
+      "expect_skill": "ad-cloud/SKILL.md"
+    },
+    {
+      "id": "pwn-01",
+      "text": "这个程序有栈溢出，帮我写ROP",
+      "expect_skill": "pwn-crypto/SKILL.md"
+    },
+    {
+      "id": "clone-01",
+      "text": "把这个网站1:1复刻下来做离线副本",
+      "expect_skill": "site-clone/SKILL.md"
+    },
+    {
+      "id": "wireless-01",
+      "text": "WIFI握手包抓取破解，WPA2",
+      "expect_skill": "firmware-iot/SKILL.md"
+    },
+    {
+      "id": "wireless-02",
+      "text": "蓝牙BLE门锁 GATT 未授权写入",
+      "expect_skill": "firmware-iot/SKILL.md"
+    },
+    {
+      "id": "wireless-03",
+      "text": "Zigbee 入网密钥怎么解",
+      "expect_skill": "firmware-iot/SKILL.md"
+    }
+  ]
+}

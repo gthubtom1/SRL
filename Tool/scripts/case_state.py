@@ -502,12 +502,18 @@ def cmd_plan(a):
         return
     level = (a.level or "").strip().upper()
     route = (a.route or "").strip()
+    if not level and route:
+        # 宽容写法：`--add "L2 patch"` 直接从路线名里推等级；推不出就让用户显式给
+        m = re.search(r"L([0-4])", route, re.I)
+        if m:
+            level = "L" + m.group(1)
     if not level or not route:
-        die("plan 需要 --level L0-L4 与 --route（或用 --list / --from-advise）")
+        die("plan 需要 --route（别名 --add）+ 成功率先验 --p（别名 --prob）；"\
+            "等级可写在路线名里（如 --add \"L2 patch\"），也可 --level L2；或用 --list / --from-advise")
     if level not in PLAN_LEVELS:
         die(f"level 只能是 {PLAN_LEVELS}")
     if a.p is None:
-        die("plan 必须给 --p（成功率先验，0~1；不是拍脑袋，要写清乘出来的因子）")
+        die("plan 必须给 --p（别名 --prob；成功率先验 0~1，不是拍脑袋，要写清乘出来的因子）")
     if not (0.0 <= float(a.p) <= 1.0):
         die("--p 必须在 0~1 之间")
     if any(x.get("level") == level and x.get("route") == route for x in plan):
@@ -677,6 +683,12 @@ def _plan_from_advise(a):
 def cmd_depth(a):
     if a.level not in LEVELS:
         die(f"level 只能是 {LEVELS}")
+    if not a.result:
+        # --prove "说明" 的简写：视为 pass；无说明又无 result 就是没登记，直接退
+        if (a.note or "").strip():
+            a.result = "pass"
+        else:
+            die("result 必填（pass / fail / na）；想简写用 --prove \"说明\" 表示 pass")
     if a.result not in ("pass", "fail", "na"):
         die("result 只能是 pass / fail / na")
     st = load_state(a.case)
@@ -1024,9 +1036,9 @@ def main():
     p = sub.add_parser("plan", help="路线菜单（L0–L4 + 成功率 + 工时 + 失败判据）")
     p.add_argument("--case", required=True)
     p.add_argument("--level", default="", help="L0–L4")
-    p.add_argument("--route", default="")
-    p.add_argument("--p", type=float, default=None, help="成功率先验 0~1")
-    p.add_argument("--hours", default=""); p.add_argument("--needs", default="")
+    p.add_argument("--route", "--add", dest="route", default="", help="路线名（--add 亦可）")
+    p.add_argument("--p", "--prob", "--success", dest="p", type=float, default=None, help="成功率先验 0~1（--prob 亦可）")
+    p.add_argument("--hours", "--eta", dest="hours", default=""); p.add_argument("--needs", default="")
     p.add_argument("--fail", dest="fail_criteria", default="", help="失败判据（什么现象就停手）")
     p.add_argument("--from-advise", action="store_true", help="把 advise 的可行路线一次性导入")
     p.add_argument("--form", default="", help="配合 --from-advise：指定形态 id")
@@ -1044,8 +1056,9 @@ def main():
     p.set_defaults(func=cmd_advise)
 
     p = sub.add_parser("depth"); p.add_argument("--case", required=True)
-    p.add_argument("--level", required=True); p.add_argument("--result", required=True)
-    p.add_argument("--note", default="")
+    p.add_argument("--level", "--set", dest="level", required=True, help="D0–D7（--set 亦可）")
+    p.add_argument("--result", default="", help="pass / fail / na；配 --prove 时可省，默认 pass")
+    p.add_argument("--note", "--prove", dest="note", default="", help="备注/证据说明（--prove 亦可，表示这条已 pass）")
     p.set_defaults(func=cmd_depth)
 
     p = sub.add_parser("instrument"); p.add_argument("--case", required=True)
@@ -1065,7 +1078,7 @@ def main():
     p.set_defaults(func=cmd_gate)
 
     p = sub.add_parser("deliver"); p.add_argument("--case", required=True)
-    p.add_argument("--level", required=True); p.add_argument("--evidence", required=True)
+    p.add_argument("--level", required=True); p.add_argument("--evidence", "--ev", dest="evidence", required=True)
     p.add_argument("--note", default="")
     p.set_defaults(func=cmd_deliver)
 

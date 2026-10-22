@@ -45,6 +45,7 @@
     "R16",
     "R2",
     "R7",
+    "R36",
     "R0"
   ],
   "routes": {
@@ -55,6 +56,10 @@
         {
           "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
           "note": "Android 全链路（DEX/SO/重打包/动态插桩）"
+        },
+        {
+          "must": "(?i)(小程序|miniprogram|\\bwxapkg\\b|微信.{0,6}(?:小程序|逆向|抓包)|快应用)",
+          "note": "小程序/快应用包：与 APK 同族，但走 wxapkg 解包 + 前置校验定位；配方见 apk-unpack / apk-ad-removal"
         }
       ]
     },
@@ -92,6 +97,10 @@
       "keywords": [
         {
           "must": "(?i)js.?逆向|javascript|webpack|混淆|obfuscat|\\bast\\b|补环境|浏览器|playwright|selenium|hook.?js|signature.?js|加密参数"
+        },
+        {
+          "must": "(?i)(前端.{0,8}(?:js|javascript|逆向|分析|加密)|\\bjs\\b\\s*(?:逆向|分析|调试|扒)|签名算法|\\bsign\\b\\s*算法|\\bsignature.{0,12}(?:算法|还原|复现)|加密参数)",
+          "note": "网页/前端逆向口吻（句子里没写「逆向」二字也要命中）：先定位发请求那一层，再看加密参数从哪来"
         }
       ]
     },
@@ -210,6 +219,13 @@
             "(?i)\\b(rbac|can-i|clusterrole|rolebinding|serviceaccount|secret|k8s)\\b"
           ],
           "note": "补充命中 kubectl+RBAC 的常见说法；本次按约束不改 routing.json，待合入 SSOT。"
+        },
+        {
+          "must": "(?i)(\\bsuid\\b|\\bsudo\\b|\\bprivesc\\b|\\buac\\b|提权|内核\\s*(?:提权|漏洞)|capabilit(?:y|ies)\\s*(?:提权|逃逸)|命名管道|\\bseimpersonate|\\bpotato\\b|docker.{0,6}(?:逃逸|提权)|服务\\s*(?:配置|路径)\\s*(?:错配|提权))",
+          "mustAll": [
+            "(?i)(?<![a-z0-9])(suid|sudo|privesc|uac|提权|命名管道|seimpersonate|potato|逃逸)(?![a-z0-9])"
+          ],
+          "note": "本机提权（Linux SUID/sudo/capability、Windows UAC/服务/令牌）：判据=拿到可复现的提权证据；mustAll 收紧词边界，不抢 web 的提权接口。"
         }
       ]
     },
@@ -264,6 +280,10 @@
             "(?i)(security|安全|firmware|固件|device|设备|评估|assessment)"
           ],
           "note": "iot 必须带安全/设备语境，避免普通单词误命中"
+        },
+        {
+          "must": "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包)",
+          "note": "无线近场：判据=动作可复现（重放/未鉴权写/口令解出）；硬件缺失记 blocked_at=no-radio；参考 references/hardware-interfaces.md 的无线章节"
         }
       ]
     },
@@ -534,6 +554,10 @@
         {
           "must": "(?i)(青龙|qinglong|签到|每日任务|积分|账号池|多账号|掉登录|自动续|cron|定时任务|批量执行器)",
           "note": "skill=softseep 总控；配方 qinglong-signin / app-daily-task / multi-account-runner（见 playbooks 索引）"
+        },
+        {
+          "must": "(?i)(滑块|缺口识别|旋转角度|拼图验证码|点选验证码|\\bcaptcha\\b|re ?captcha|极验|geetest|验证码识别|打码)",
+          "note": "验证码/滑块/旋转原语：captcha-gap.py 与 captcha-angle.py（纯 numpy+Pillow，离线自测）；配方 captcha-handling"
         }
       ],
       "note": "skill=softseep 总控；配方 qinglong-signin / app-daily-task / multi-account-runner（见 playbooks 索引）",
@@ -566,6 +590,20 @@
       ],
       "note": "skill=site-clone；配方 site-clone-1to1（crawl→rebuild→diff→accept）；判据=路由/像素/DOM/资源/交互/数据边界六项",
       "playbook": "site-clone-1to1"
+    },
+    "R36": {
+      "label": "OSINT / 资产与人员情报测绘",
+      "skill": "softseep/SKILL.md",
+      "keywords": [
+        {
+          "must": "(?i)(osint|情报(?:收集|测绘)|资产测绘|攻击面(?:测绘|梳理)|子域(?:名)?(?:枚举|爆破|收集)|证书透明|\\bct\\s*日志\\b|\\basn\\b|网段归属|旁站|源站\\s*ip|cdn\\s*回源|谷歌?语法|google\\s*dorks?|\\bgh\\s+api\\b|代码泄露|秘钥?泄露|凭据泄露|人员画像|员工名录|邮箱格式)",
+          "note": "情报测绘：判据=每条结论带公开来源 URL + 抓取时间；源站必须两条独立证据；配方 osint-recon"
+        }
+      ],
+      "note": "skill=softseep 总控；配方 osint-recon（先被动、再存活、后代码/人员面）",
+      "playbooks": [
+        "osint-recon"
+      ]
     }
   }
 }

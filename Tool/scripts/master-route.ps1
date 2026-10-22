@@ -13,6 +13,12 @@ $ErrorActionPreference = 'Stop'
 # Lowercase for Latin tokens; CJK unchanged by ToLowerInvariant.
 $t = if ($Hint) { $Hint.ToLowerInvariant() } else { '' }
 
+# ★ 2026-10-22 审计 P0：.NET 正则的 \b 把 CJK 也当 word 字符，所以「APK去广告」「Unity IL2CPP透视」
+#   这类「英文词紧跟中文」的输入，规则里的 \bapk\b / il2cpp\b 全部匹配不上 → 直接掉进兵底。
+#   修法：匹配前在 ASCII 与 CJK 交界处补空格（只改用于匹配的副本，不动原输入）。
+$t = [regex]::Replace($t, '([ -~])([　-〿一-鿿＀-￯])', '$1 $2')
+$t = [regex]::Replace($t, '([　-〿一-鿿＀-￯])([ -~])', '$1 $2')
+
 $scriptDir = $PSScriptRoot
 if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $skillsRoot = Split-Path -Parent $scriptDir
