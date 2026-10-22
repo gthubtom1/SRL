@@ -32,7 +32,7 @@ ls Tool/prompts/domains/<域>.md          # 24 张卡，每张=触发词/前置/
 
 | 场景 | 命令 |
 | :-- | :-- |
-| 不知道目标是什么 | `python Tool/scripts/preflight-classify.py <样本>`（逆向域） |
+| 不知道目标是什么 | `python Tool/skill/softseep/scripts/preflight-classify.py <样本>`（逆向域） |
 | 网站/接口基线 | `python Tool/skill/web-pentest/scripts/web-check.py --url <URL>` |
 | 网站 1:1 复刻 | `python Tool/skill/site-clone/scripts/site-crawl.py --url <URL> --out <目录>` |
 
