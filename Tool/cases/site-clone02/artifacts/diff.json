@@ -1,0 +1,141 @@
+{
+  "criteria": {
+    "data_boundary": {
+      "backend_required": [],
+      "pages": {
+        "/": "recorded-snapshot"
+      },
+      "pass": true,
+      "unlabeled": []
+    },
+    "dom": {
+      "min_similarity": 1.0,
+      "pages": [
+        {
+          "depth": [
+            8,
+            8
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            19,
+            19
+          ],
+          "pass": true,
+          "route": "/",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        }
+      ],
+      "pass": true,
+      "threshold": 0.98
+    },
+    "interactions": {
+      "pass": true,
+      "passed": 8,
+      "rows": [
+        {
+          "actual": "Example Domain",
+          "expected": "Example Domain",
+          "kind": "title",
+          "pass": true
+        },
+        {
+          "actual": "该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。 This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it",
+          "expected": "该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。 This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it",
+          "kind": "body_text_head",
+          "pass": true
+        },
+        {
+          "actual": 0,
+          "expected": 0,
+          "kind": "stylesheet_count",
+          "pass": true
+        },
+        {
+          "actual": 21,
+          "expected": 22,
+          "kind": "dom_nodes",
+          "pass": true
+        },
+        {
+          "actual": 1,
+          "expected": 1,
+          "kind": "link_count",
+          "pass": true
+        },
+        {
+          "actual": 6,
+          "expected": 6,
+          "kind": "paragraph_count",
+          "pass": true
+        },
+        {
+          "actual": 0,
+          "expected": 0,
+          "kind": "image_count",
+          "pass": true
+        },
+        {
+          "actual": "en",
+          "expected": "en",
+          "kind": "document_lang",
+          "pass": true
+        }
+      ],
+      "threshold": 5,
+      "total": 8
+    },
+    "pixel": {
+      "max_ratio": 0.0,
+      "mean_ratio": 0.0,
+      "mode": "static",
+      "pages": [
+        {
+          "available": true,
+          "masked_boxes": 0,
+          "masked_ratio": 0.0,
+          "mean": 0.0,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.0,
+          "route": "/",
+          "size": [
+            1280,
+            720
+          ]
+        }
+      ],
+      "pass": true,
+      "threshold": 0.01
+    },
+    "resources": {
+      "assets_failed": 0,
+      "external_links": 0,
+      "external_samples": [],
+      "http_404": 0,
+      "pass": true,
+      "requests": 1,
+      "samples_404": []
+    },
+    "route_coverage": {
+      "crawled": 1,
+      "expected": 1,
+      "missing_rate": 0.0,
+      "missing_routes": [],
+      "pass": true
+    }
+  },
+  "mode": "static",
+  "ok": true,
+  "origin": "https://example.com",
+  "schema": "seep.site-diff/1",
+  "summary": {
+    "backend_required": [],
+    "passed": 6,
+    "status": "PASS",
+    "total": 6
+  },
+  "target": "https://example.com/"
+}

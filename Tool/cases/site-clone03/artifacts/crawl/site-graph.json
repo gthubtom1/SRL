@@ -1,0 +1,192 @@
+{
+  "api": [],
+  "assets": [
+    {
+      "content_type": "text/javascript",
+      "host": "127.0.0.1",
+      "method": "GET",
+      "resource_type": "script",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/app.js"
+    },
+    {
+      "content_type": "image/svg+xml",
+      "host": "127.0.0.1",
+      "method": "GET",
+      "resource_type": "image",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/mark.svg"
+    },
+    {
+      "content_type": "text/css",
+      "host": "127.0.0.1",
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/style.css"
+    }
+  ],
+  "backend_required": [],
+  "coverage": {
+    "crawled": 3,
+    "expected": 3,
+    "missing": 0,
+    "missing_rate": 0.0
+  },
+  "data_boundary": {
+    "/": "recorded-snapshot",
+    "/about.html": "recorded-snapshot",
+    "/index.html": "recorded-snapshot"
+  },
+  "engine": "playwright",
+  "external": [],
+  "interactions": [
+    {
+      "applicable": true,
+      "expected": "Clone Fixture Home",
+      "kind": "title"
+    },
+    {
+      "applicable": true,
+      "expected": "Clone Fixture This is a deterministic local fixture used by site-clone03. It has two pages, one stylesheet, two SVG images and one link. Menu About this fixture",
+      "kind": "body_text_head"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "stylesheet_count"
+    },
+    {
+      "applicable": true,
+      "expected": 22,
+      "kind": "dom_nodes"
+    },
+    {
+      "applicable": true,
+      "expected": "Clone Fixture",
+      "kind": "heading_text"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "link_count"
+    },
+    {
+      "applicable": true,
+      "expected": 3,
+      "kind": "paragraph_count"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "image_count"
+    },
+    {
+      "applicable": true,
+      "expected": "en",
+      "kind": "document_lang"
+    }
+  ],
+  "limits": {
+    "max_depth": 2,
+    "max_pages": 5,
+    "rps": 20.0
+  },
+  "missing_routes": [],
+  "ok": true,
+  "origin": "http://127.0.0.1:18766",
+  "route_universe": [
+    "/",
+    "/about.html",
+    "/index.html"
+  ],
+  "routes": [
+    {
+      "api_urls": [],
+      "depth": 0,
+      "depth_nodes": 10,
+      "final_url": "http://127.0.0.1:18766/",
+      "html": "pages/root.html",
+      "images": [
+        {
+          "h": 48,
+          "src": "http://127.0.0.1:18766/mark.svg",
+          "w": 48,
+          "x": 284,
+          "y": 244
+        }
+      ],
+      "nodes": 21,
+      "route": "/",
+      "screenshot": "screenshots/root.png",
+      "status": 200,
+      "text_head": "Clone Fixture Home Clone Fixture This is a deterministic local fixture used by site-clone03. It has two pages, one stylesheet, two SVG images and one link. Menu Alpha Beta About this fixture fixture footer",
+      "text_sha256": "6e6eb2f6cbb72d5c6609e1e55e88c336919fdf2a1d221e130986068fd157535a",
+      "title": "Clone Fixture Home",
+      "url": "http://127.0.0.1:18766/"
+    },
+    {
+      "api_urls": [],
+      "depth": 1,
+      "depth_nodes": 7,
+      "final_url": "http://127.0.0.1:18766/about.html",
+      "html": "pages/about_html.html",
+      "images": [
+        {
+          "h": 32,
+          "src": "http://127.0.0.1:18766/mark.svg",
+          "w": 32,
+          "x": 284,
+          "y": 203
+        }
+      ],
+      "nodes": 12,
+      "route": "/about.html",
+      "screenshot": "screenshots/about_html.png",
+      "status": 200,
+      "text_head": "Clone Fixture About About the Fixture Second page of the local fixture. Back home",
+      "text_sha256": "d3671637bbe56c822e2ed906fd24cb91bd0bce3f5836cbcf605ff56dc80cad6c",
+      "title": "Clone Fixture About",
+      "url": "http://127.0.0.1:18766/about.html"
+    },
+    {
+      "api_urls": [],
+      "depth": 2,
+      "depth_nodes": 10,
+      "final_url": "http://127.0.0.1:18766/index.html",
+      "html": "pages/index_html.html",
+      "images": [
+        {
+          "h": 48,
+          "src": "http://127.0.0.1:18766/mark.svg",
+          "w": 48,
+          "x": 284,
+          "y": 244
+        }
+      ],
+      "nodes": 21,
+      "route": "/index.html",
+      "screenshot": "screenshots/index_html.png",
+      "status": 200,
+      "text_head": "Clone Fixture Home Clone Fixture This is a deterministic local fixture used by site-clone03. It has two pages, one stylesheet, two SVG images and one link. Menu Alpha Beta About this fixture fixture footer",
+      "text_sha256": "6e6eb2f6cbb72d5c6609e1e55e88c336919fdf2a1d221e130986068fd157535a",
+      "title": "Clone Fixture Home",
+      "url": "http://127.0.0.1:18766/index.html"
+    }
+  ],
+  "schema": "seep.site-crawl/1",
+  "skipped_non_get": [],
+  "stats": {
+    "api": 0,
+    "assets": 3,
+    "external": 0,
+    "non_get": 0,
+    "pages": 3
+  },
+  "target": "http://127.0.0.1:18766/",
+  "viewport": {
+    "dpr": 1.0,
+    "height": 720,
+    "width": 1280
+  }
+}

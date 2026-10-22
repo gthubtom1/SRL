@@ -1,0 +1,191 @@
+{
+  "api": [],
+  "assets": [
+    {
+      "bytes": 145,
+      "content_type": "",
+      "file": "site/app.js",
+      "sha256": "d6fec05cb1e156afd84c2fde945cd881988efaa4108e89bc117e412b7192d478",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/app.js"
+    },
+    {
+      "bytes": 214,
+      "content_type": "",
+      "file": "site/mark.svg",
+      "sha256": "4e0aefb934501fd0f3b0c2babc9bde4a7fc4a93efa1968a1abb8757c0b86e61f",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/mark.svg"
+    },
+    {
+      "bytes": 403,
+      "content_type": "",
+      "file": "site/style.css",
+      "sha256": "c91203077ec1cdb39c2705fc62e6a6ac0d41f3c1bccba8e4966249b62fe6d06f",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/style.css"
+    }
+  ],
+  "assets_failed": [],
+  "backend_required": [],
+  "crawl": "Tool/cases/site-clone03/artifacts/crawl",
+  "data_boundary": {
+    "/": "recorded-snapshot",
+    "/about.html": "recorded-snapshot",
+    "/index.html": "recorded-snapshot"
+  },
+  "elapsed_s": 14.73,
+  "interactions": [
+    {
+      "applicable": true,
+      "expected": "Clone Fixture Home",
+      "kind": "title"
+    },
+    {
+      "applicable": true,
+      "expected": "Clone Fixture This is a deterministic local fixture used by site-clone03. It has two pages, one stylesheet, two SVG images and one link. Menu About this fixture",
+      "kind": "body_text_head"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "stylesheet_count"
+    },
+    {
+      "applicable": true,
+      "expected": 21,
+      "kind": "dom_nodes"
+    },
+    {
+      "applicable": true,
+      "expected": "Clone Fixture",
+      "kind": "heading_text"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "link_count"
+    },
+    {
+      "applicable": true,
+      "expected": 3,
+      "kind": "paragraph_count"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "image_count"
+    },
+    {
+      "applicable": true,
+      "expected": "en",
+      "kind": "document_lang"
+    }
+  ],
+  "local_pages": [
+    {
+      "final_url": "http://127.0.0.1:50300/",
+      "html": "local/root.html",
+      "route": "/",
+      "screenshot": "screenshots/root.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:50300/about.html",
+      "html": "local/about_html.html",
+      "route": "/about.html",
+      "screenshot": "screenshots/about_html.png",
+      "status": 200
+    },
+    {
+      "final_url": "http://127.0.0.1:50300/index.html",
+      "html": "local/index_html.html",
+      "route": "/index.html",
+      "screenshot": "screenshots/index_html.png",
+      "status": 200
+    }
+  ],
+  "local_requests": [
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": null,
+      "url": "http://127.0.0.1:50300/"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:50300/about.html"
+    },
+    {
+      "method": "GET",
+      "resource_type": "document",
+      "status": 200,
+      "url": "http://127.0.0.1:50300/index.html"
+    },
+    {
+      "method": "GET",
+      "resource_type": "image",
+      "status": null,
+      "url": "http://127.0.0.1:50300/mark.svg"
+    },
+    {
+      "method": "GET",
+      "resource_type": "stylesheet",
+      "status": null,
+      "url": "http://127.0.0.1:50300/style.css"
+    }
+  ],
+  "mock": {
+    "entries": 0,
+    "har": "har.json",
+    "route": "mock/playwright-route.js"
+  },
+  "ok": true,
+  "origin": "http://127.0.0.1:18766",
+  "pages": [
+    {
+      "bytes": 847,
+      "file": "site/index.html",
+      "final_url": "http://127.0.0.1:18766/",
+      "route": "/",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/"
+    },
+    {
+      "bytes": 420,
+      "file": "site/about.html",
+      "final_url": "http://127.0.0.1:18766/about.html",
+      "route": "/about.html",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/about.html"
+    },
+    {
+      "bytes": 847,
+      "file": "site/index.html",
+      "final_url": "http://127.0.0.1:18766/index.html",
+      "route": "/index.html",
+      "status": 200,
+      "url": "http://127.0.0.1:18766/index.html"
+    }
+  ],
+  "preview": {
+    "port": 50300,
+    "root": "Tool/cases/site-clone03/artifacts/rebuild\\site"
+  },
+  "resources": {
+    "external_links": 0,
+    "external_samples": [],
+    "http_404": 0,
+    "requests": 5
+  },
+  "schema": "seep.site-rebuild/1",
+  "site_root": "site",
+  "target": "http://127.0.0.1:18766/",
+  "viewport": {
+    "dpr": 1.0,
+    "height": 720,
+    "width": 1280
+  }
+}

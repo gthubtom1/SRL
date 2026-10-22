@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "site-clone",
+  "description": "网站 1:1 复刻矩阵：类目 → 判据 → 工具/命令 → 失败判据。所有阈值可被 site-crawl/rebuild/diff/accept 复算；HAR 只回放读快照，写操作/登录态一律标 backend-required。",
+  "updated": "2026-10-22",
+  "rows": [
+    {
+      "category": "route-coverage",
+      "checkpoint": "同源路由宇宙（链接 + _buildManifest.sortedPages + sitemap）",
+      "match": ["路由覆盖", "missing_rate", "buildManifest", "sortedPages", "sitemap", "漏页"],
+      "tools": ["site-crawl.py", "Playwright", "curl"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-crawl.py --url https://target/ --out work/crawl --max-pages 20 --max-depth 3 --rps 2",
+        "python -c \"import json;d=json.load(open('work/crawl/site-graph.json'));print(d['coverage'])\""
+      ],
+      "criteria": "missing_rate = missing/expected <= 0.02；route_universe 必须来自链接 + _buildManifest.js + sitemap；missing_routes[] 为空或逐条解释",
+      "fail": "只抓首页链接、不解析 buildManifest；动态路由无 sitemap 却写 100%；把 /404、/500 混入业务页",
+      "pitfalls": "Next.js 首页可能没有任何 <a>；sortedPages 含 /_app、/_error 需排除；客户端跳转不改变 URL 时以 final_url 为准"
+    },
+    {
+      "category": "pixel-static",
+      "checkpoint": "静态页同视口/DPR 截图",
+      "match": ["像素", "pixel", "截图", "screenshot", "静态", "ratio"],
+      "tools": ["Playwright screenshot", "Pillow", "numpy", "site-diff.py"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-diff.py --crawl work/crawl --rebuild work/rebuild --out work/diff.json",
+        "python -c \"import json;d=json.load(open('work/diff.json'));print(d['criteria']['pixel'])\""
+      ],
+      "criteria": "同 viewport/DPR/浏览器版本；ratio <= 0.01（静态）；同时保留 raw_ratio；截图使用 animations=disabled",
+      "fail": "尺寸不一致直接 resize；不禁用动画；滚动位置不同；字体 fallback 未记录",
+      "pitfalls": "广告位/浮动装饰/轮播造成假差异；系统字体缺失导致换行；截图时间不同"
+    },
+    {
+      "category": "pixel-spa",
+      "checkpoint": "SPA/Next.js 渲染后截图",
+      "match": ["SPA", "Next.js", "hydration", "像素", "pixel", "masked_ratio"],
+      "tools": ["site-diff.py", "Pillow", "numpy", "Playwright"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-diff.py --crawl work/crawl --rebuild work/rebuild --out work/diff.json --pixel-threshold 0.03"
+      ],
+      "criteria": "ratio <= 0.03；动画 WebP 区域用 masked_ratio 单列，但必须报告 raw_ratio；masked_boxes 可定位",
+      "fail": "只报 masked 不报 raw；hydration 失败导致整页重渲染；_next/data 404 未修",
+      "pitfalls": "动画 WebP 帧不同；hydration 时序；语言/翻译动态文本；广告 iframe 被阻断后布局变化"
+    },
+    {
+      "category": "dom",
+      "checkpoint": "渲染后 DOM 节点/层级/文本/标签序列",
+      "match": ["DOM", "节点", "层级", "文本相似度", "dom_nodes", "min_similarity"],
+      "tools": ["Playwright page.content()", "HTMLParser", "SequenceMatcher", "site-diff.py"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-diff.py --crawl work/crawl --rebuild work/rebuild --out work/diff.json"
+      ],
+      "criteria": "node_ratio、depth_ratio、text_similarity、tag_similarity 均 >= 0.98；删除 script/style/noscript 后比较",
+      "fail": "用 curl HTML 代替渲染 DOM；只看文本不看节点；随机 token/时间戳未归一化",
+      "pitfalls": "script/style 注入污染；广告 iframe；软 404 错误页；hydration 前后 DOM 不同"
+    },
+    {
+      "category": "resources",
+      "checkpoint": "CSS/JS/字体/图片/srcset/动态请求",
+      "match": ["资源", "404", "外链", "http_404", "external_links", "srcset", "font"],
+      "tools": ["site-rebuild.py", "http.server", "Playwright response", "curl"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-rebuild.py --crawl work/crawl --out work/rebuild --rps 2",
+        "python -c \"import json;d=json.load(open('work/rebuild/rebuild.json'));print(d['resources'])\""
+      ],
+      "criteria": "http_404 == 0；白名单外 external_links == 0；CSS url()/srcset/woff2 全部本地化；assets_failed 仅信息项",
+      "fail": "只检查 HTML 不检查 CSS url()；query string 未剥离；外链 <a> 未改写；软 404 只看状态码",
+      "pitfalls": "CDN 403、软 404、data URI 被误算外链、字体 MIME 错误"
+    },
+    {
+      "category": "interactions",
+      "checkpoint": "关键交互脚本离线重放",
+      "match": ["交互", "interactions", "language_menu", "text_input", "selector", "重放"],
+      "tools": ["Playwright locator", "site-crawl.py", "site-rebuild.py", "site-diff.py"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-crawl.py --url https://target/ --out work/crawl --rps 2",
+        "python Tool/skill/site-clone/scripts/site-rebuild.py --crawl work/crawl --out work/rebuild --rps 2"
+      ],
+      "criteria": "interactions_passed >= 5；每条有 kind/expected/actual/applicable；用 aria-label/role/可见性过滤",
+      "fail": "只用位置 selector；动画未完成就点击；少于 5 条就写交互一致；登录态缺失误判为不一致",
+      "pitfalls": "selector 漂移、动画 timeout、语言菜单需要 JS、输入框 readonly"
+    },
+    {
+      "category": "data-boundary",
+      "checkpoint": "逐页三态标注与 backend_required",
+      "match": ["数据边界", "backend_required", "recorded-snapshot", "local-mock", "登录", "写操作"],
+      "tools": ["site-crawl.py", "site-rebuild.py", "site-accept.py"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01",
+        "python -c \"import json;d=json.load(open('work/rebuild/rebuild.json'));print(d['backend_required'])\""
+      ],
+      "criteria": "每页 ∈ recorded-snapshot/local-mock/backend-required；线上 302 ?error=...、跨域 API、写接口必须进 backend_required[]",
+      "fail": "把错误重定向页当正常页；把 HAR 回放当后端；登录后页面标 recorded-snapshot",
+      "pitfalls": "Cloudflare challenge 200；软 404；local-mock 与 backend-required 混淆"
+    },
+    {
+      "category": "har-mock",
+      "checkpoint": "recorded_snapshot → HAR → page.route",
+      "match": ["HAR", "page.route", "mock", "fulfill", "route", "回放"],
+      "tools": ["Playwright page.route", "site-rebuild.py", "Chrome DevTools HAR"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-rebuild.py --crawl work/crawl --out work/rebuild --rps 2",
+        "node -e \"require('./work/rebuild/mock/playwright-route.js')\""
+      ],
+      "criteria": "HAR 条数等于录制的 GET API 数；未命中请求 abort；本地 _next/data 已落地；跨域 API 走 mock",
+      "fail": "未命中 continue 导致联网；只 mock 同源不 mock 跨域；HAR 含 Cookie/Token 未脱敏",
+      "pitfalls": "HAR 只是读快照；写操作不能回放；录制时间窗过期"
+    },
+    {
+      "category": "static-mirror",
+      "checkpoint": "wget/HTTrack 静态镜像边界",
+      "match": ["wget", "HTTrack", "镜像", "mirror", "静态站", "资产"],
+      "tools": ["wget --mirror", "HTTrack", "site-crawl.py"],
+      "commands": [
+        "wget --mirror --page-requisites --convert-links --wait=0.5 --limit-rate=200k https://static.example/",
+        "httrack https://static.example/ -O work/httrack"
+      ],
+      "criteria": "仅用于服务器直出、无 JS、无登录、无写操作的静态站；仍需 site-crawl 补截图/DOM/路由判据",
+      "fail": "用 wget/HTTrack 产物直接写 1:1；SPA 只抓到壳；登录后页面缺失",
+      "pitfalls": "只看文件下载完成，不看 DOM/截图/交互；广告/统计一起抓下来"
+    },
+    {
+      "category": "nextjs",
+      "checkpoint": "Next.js 静态导出路由与 _next/data",
+      "match": ["Next.js", "nextExport", "buildId", "_next/data", "buildManifest", "SSR"],
+      "tools": ["site-crawl.py", "Playwright", "curl"],
+      "commands": [
+        "curl -sS https://target/_next/static/<buildId>/_buildManifest.js",
+        "python Tool/skill/site-clone/scripts/site-crawl.py --url https://target/ --out work/crawl --rps 2 --allow-host api.target"
+      ],
+      "criteria": "sortedPages 全部进 route_universe；buildId 用于 _next/data 路径；客户端重定向记录 final_url",
+      "fail": "只抓首页；不解析 sortedPages；_next/data 404 未落地",
+      "pitfalls": "首页无 <a>；静态导出仍有客户端重定向；buildId 随部署变化"
+    },
+    {
+      "category": "cloudflare",
+      "checkpoint": "Cloudflare/WAF 前置",
+      "match": ["Cloudflare", "CF-RAY", "challenge", "WAF", "拦截", "429"],
+      "tools": ["curl -D", "Playwright", "site-crawl.py"],
+      "commands": [
+        "curl -sS -D - -o /dev/null https://target/ | sed -n '1,12p'",
+        "python Tool/skill/site-clone/scripts/site-crawl.py --url https://target/ --out work/crawl --rps 1"
+      ],
+      "criteria": "状态码 + 标题/正文/资源一起看；challenge 页不能当业务页；429 立即退避",
+      "fail": "200 即认为抓成功；challenge 页被当首页；429 继续重试",
+      "pitfalls": "challenge 200、软 404、边缘缓存、bot management"
+    },
+    {
+      "category": "auth",
+      "checkpoint": "登录态/Cookie/Token/storage",
+      "match": ["登录", "Cookie", "Token", "JWT", "localStorage", "session", "OAuth", "SAML"],
+      "tools": ["Playwright context", "site-crawl.py", "site-accept.py"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01",
+        "python -c \"import json;d=json.load(open('work/rebuild/rebuild.json'));print(d['data_boundary'])\""
+      ],
+      "criteria": "登录后页面默认 backend-required；有授权也只读；Cookie/Token/个人信息不入库；OAuth/OIDC/SAML 回调不复刻",
+      "fail": "登录后页面标 recorded-snapshot；HAR 含 Cookie；伪造 OAuth 回调；用测试账号做写操作",
+      "pitfalls": "token 过期、HttpOnly/SameSite、服务端 session、IndexedDB 个人数据"
+    },
+    {
+      "category": "animation",
+      "checkpoint": "动画/交互快照保留",
+      "match": ["动画", "animation", "clone-space-mcp", "WebP", "轮播", "opacity"],
+      "tools": ["clone-space-mcp", "Playwright animations=disabled", "Pillow"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-diff.py --crawl work/crawl --rebuild work/rebuild --out work/diff.json"
+      ],
+      "criteria": "截图 animations=disabled；动画 WebP 用 masked_ratio 单列并报告 raw_ratio；冻结 DOM 时恢复 img opacity:0 可见状态",
+      "fail": "不固定动画帧；只报 masked；删 JS 后 logo/插画永久隐藏",
+      "pitfalls": "动画 WebP 帧不同、入场动画 inline opacity:0、轮播位置漂移"
+    },
+    {
+      "category": "evidence",
+      "checkpoint": "命令/rc/hash/时间窗可复算",
+      "match": ["证据", "sha256", "rc", "repro", "case.json", "复算"],
+      "tools": ["site-accept.py", "sha256sum", "git"],
+      "commands": [
+        "python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01 --write",
+        "sha256sum Tool/cases/site-clone01/artifacts/diff.json"
+      ],
+      "criteria": "artifacts[].sha256 复算一致；lessons[0] 含命令与 rc；repro.status=recorded；JSON 无 generated_at",
+      "fail": "手写数字；截图无命令；artifact 幻影；JSON 带生成时间导致复跑漂移",
+      "pitfalls": "hash 大小写、CRLF、生成时间、路径相对性"
+    }
+  ]
+}
