@@ -105,3 +105,9 @@ docs/audit/ANALYSIS-*.md
 
 # pi 目标状态目录（本地运行期）
 .pi/
+
+# 本地运行期产物（审计/调试残留，不进版本库）
+.pytest_cache/
+Hook.log
+IDAHook.log
+evidence/
