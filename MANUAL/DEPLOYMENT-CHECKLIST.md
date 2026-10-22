@@ -93,7 +93,7 @@ MCP 配置文件所在位置：
 
 | # | 模块名 | 所在相对目录 | 官方预期数量 | 作用与覆盖面 |
 |---|---|---|---|---|
-| **K1** | **战术实战笔记 (KB)** | `Tool/mcp/Tool/reverselab/kb/` | **≥289 篇** Markdown 文件 | `ctf-website`、`pe-reverse`、`apk-reverse`、`windows`、`general` 全量攻防笔记 |
+| **K1** | **战术实战笔记 (KB)**（冻结基线：新增知识走案例与配方，不再往 KB 堆文档） | `Tool/mcp/Tool/reverselab/kb/` | **≥289 篇** Markdown 文件 | `ctf-website`、`pe-reverse`、`apk-reverse`、`windows`、`general` 全量攻防笔记 |
 | **K2** | **攻击网图谱 (Boards)** | `Tool/mcp/Tool/reverselab/boards/` | 多平台拓扑文件 | 信号到战术文档的拓扑路由关系 |
 | **K3** | **脱敏实战案例库** | `Tool/cases/` | **14 个项目工程**（项目 A ~ N，含 `_archive/` 归档）+ 2 个复刻演练（site-clone01–03 / drill01） | 覆盖单进程、多进程、VM、.NET算号、RSA、Java/install4j 双层鉴权、.NET VM 混淆加固等架构 |
 | **K4** | **上游开源完整镜像** | `Tool/upstream/` | **3 大开源项目** | `apk-reverse`、`open-tgtylab`、`open-reverselab` 完整单测与镜像 |

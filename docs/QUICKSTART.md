@@ -45,6 +45,8 @@ python Tool/scripts/preflight.py --fast              # 全局（悬空引用/篇
 
 ## 5. 常见卡点（先看这里，别硬猜）
 
+> **Git Bash 下 `/path` 会被改写成 `C:/Program Files/Git/path`**：给 Python 脚本传绝对路径时加 `MSYS_NO_PATHCONV=1`（例：`MSYS_NO_PATHCONV=1 python Tool/skill/apkseep/scripts/probe_api.py --path /api/x`）。
+
 | 现象 | 处理 |
 | :-- | :-- |
 | 工具找不到 | `python Tool/scripts/mcp-doctor.py --fix` 或 `tool-run.ps1 -Tool <id>` |

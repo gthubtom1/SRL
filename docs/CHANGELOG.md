@@ -17,6 +17,7 @@
 - 一致性：MCP 工具 38→40（README 矩阵补 `seep_case_search`/`seep_case_read`）、KB 292→409、radare2 5.9.8 / apktool 2.11.0、能力数统一 47、ROADMAP 与 softseep 域表 11 行、apkseep 54/61/57/123、组件 17→11、README 自指、AUDIT R1–R8、DEFERRALS 61。
 - 配方可用性：`web-api-sign-reverse` 改用 `mcp__js_reverse__*` 真实序列 + `sign_check.json` 判据；`web-check` 输出补 `url/status/headers`；`qinglong-signin` 写明 `env-ledger check` 的 rc=1 语义；`captcha-handling` 补 claim 步骤；6 个 frida/capstone 脚本统一 `blocked_at:"tool-missing"` rc=2。
 - 门禁：preflight 41/41、domain-gate 110/110、playbook-check 175 条坏命令 0、capability-gate 47/悬空 0、双平台 verify 65/0。
+- 收尾：`start_mcp.py` 改为延迟导入（`--help` rc=0；无 IDA 时 `blocked_at:"tool-missing"` rc=2，不再是死文件）；`DEPLOYMENT-CHECKLIST` K1 写明 KB 是冻结基线（新增知识走案例与配方）；`QUICKSTART` 补 Git Bash `MSYS_NO_PATHCONV=1` 提示。
 
 ## [1.25.0] — 2026-10-22
 > 终版收口：能力层接线（47 能力 = 44 基线 + 3 新增 / DAG / 矩阵重算）、forge 三合一生成器、配方命令门禁、05-backend-rebuild 4 脚本 + L3 演练、site-clone 接入、意图 93/93、路由修正、全仓脱敏。
