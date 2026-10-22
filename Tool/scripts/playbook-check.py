@@ -232,6 +232,27 @@ def self_test() -> int:
     return 0 if not bad else 1
 
 
+def _flag_ok(cmd):
+    """非占位命令：每个 --flag 必须出现在目标脚本 --help 里（flag-existence）。"""
+    import re as _re, subprocess as _sp, sys as _sys, os as _os
+    m = _re.search(r"python\s+(\S+\.py)", cmd)
+    if not m:
+        return True, ""
+    script = m.group(1)
+    if not _os.path.isfile(script):
+        return False, "script missing"
+    try:
+        r = _sp.run([_sys.executable, script, "--help"], capture_output=True, text=True,
+                    timeout=60, encoding="utf-8", errors="replace")
+    except Exception as e:
+        return False, "help failed: %s" % str(e)[:30]
+    help_txt = (r.stdout or "") + (r.stderr or "")
+    for flag in _re.findall(r"(--[a-z0-9][a-z0-9-]*)", cmd):
+        if flag not in help_txt:
+            return False, "unknown flag %s" % flag
+    return True, ""
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="配方命令门禁：校验 Tool/playbooks/*.md 步骤里的 python 命令")

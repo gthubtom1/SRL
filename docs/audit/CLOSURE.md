@@ -18,7 +18,7 @@
 | 10 | 05-backend-rebuild 只有文档 | B-P0-4 / E-P0-1 | 已修 | 4 脚本 + 8 refs + L3 演练 |
 | 11 | site-clone 未接入三层 | B-P0-1 | 已修 | 4 能力 + 配方 + 路由 |
 | 12 | `--case` 空集判绿 | C-P0-2 | 已修 | 不存在案例目录返回 rc=2 `case-not-found` |
-| 13 | 门禁不枚举 artifacts 目录 | C-P0-3 | 已修 | 未登记产物即 FAIL（artifacts 根级） |
+| 13 | 门禁不枚举 artifacts 目录 | C-P0-3 | 已修 | 递归全量：未登记且未被 MANIFEST.sha256 覆盖即 FAIL |
 
 ## P1（已修）
 

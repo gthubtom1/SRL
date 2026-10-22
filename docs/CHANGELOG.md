@@ -11,8 +11,8 @@
 ---
 
 ## [1.25.0] — 2026-10-22
-> 终版收口：能力层接线（45 能力 / DAG / 矩阵重算）、forge 三合一生成器、配方命令门禁、05-backend-rebuild 4 脚本 + L3 演练、site-clone 接入、意图 90/90、路由修正、全仓脱敏。
-- 门禁：preflight 36/36、domain-gate 110/110、双平台 verify 65/0、意图 90/90。
+> 终版收口：能力层接线（45 能力 / DAG / 矩阵重算）、forge 三合一生成器、配方命令门禁、05-backend-rebuild 4 脚本 + L3 演练、site-clone 接入、意图 93/93、路由修正、全仓脱敏。
+- 门禁：preflight 36/36、domain-gate 110/110、双平台 verify 65/0、意图 93/93。
 
 ## [1.24.2] — 2026-10-22
 > site-clone 第 11 域上线（crawl/rebuild/diff/accept + 8 refs + KB + 24 卡），措辞清理，部署同步。
