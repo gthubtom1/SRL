@@ -1,23 +1,43 @@
 {
   "id": "site-rebuild",
   "title": "站点复刻与本地重建",
+  "domain": "site-clone",
+  "triggers": [
+    "站点复刻",
+    "整站重建",
+    "本地重建",
+    "离线副本",
+    "静态镜像",
+    "rebuild"
+  ],
+  "aliases": [
+    "site-rebuild",
+    "站点重建",
+    "mirror-rebuild"
+  ],
+  "version": "1.0.0",
   "inputs": [
-    "路由清单",
-    "静态资源"
+    "crawl 输出目录（site-graph.json）",
+    "静态资源/API 录制",
+    "本地端口"
   ],
   "outputs": [
-    "本地可跑站点",
-    "接口 mock"
+    "rebuild.json",
+    "har.json",
+    "mock/playwright-route.js",
+    "site/ 本地站点",
+    "本地截图/DOM"
   ],
-  "scripts": [],
+  "scripts": [
+    "Tool/skill/site-clone/scripts/site-rebuild.py"
+  ],
   "refs": [
-    "Tool/skill/05-backend-rebuild/SKILL.md",
-    "Tool/skill/02-ui-rebrand/SKILL.md"
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/site-clone/references/06-spa-har-and-mock.md"
   ],
-  "maturity": "probe",
+  "maturity": "usable",
   "compose": [
-    "site-crawl",
     "visual-diff"
-  ],
-  "note": "待补复刻脚手架脚本，当前用 05-backend-rebuild 清单 + 静态服务器手工完成"
+  ]
 }
