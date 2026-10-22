@@ -33,7 +33,7 @@
 - 为什么错：入场动画由 JS 改 inline `opacity/transform`；删 JS 后元素永久隐藏。
 - 正确动作：`site-rebuild.py` 冻结 DOM 时对 `img[style*=opacity:0]` 恢复可见状态；截图复核。
 
-## 6. 保留 JS 却不提供 `_next/data`
+## 6. 保留 JS 却由相邻能力承担 `_next/data`
 
 - 错误动作：`--keep-js` 重建后直接 diff。
 - 为什么错：Next.js hydration 会请求 `_next/data/...json`，本地 404 或重渲染，DOM/像素双漂移。

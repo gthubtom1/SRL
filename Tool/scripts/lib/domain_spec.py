@@ -76,6 +76,13 @@ DOMAINS = {
         "case_globs": ["supply-chain*"],
         "ext_scripts": ["Tool/scripts/sc-check.py"],
     },
+    "site-clone": {
+        "skill": "site-clone",
+        "board": "site-clone",
+        "matrix": "site-clone-matrix.json",
+        "case_globs": ["site-clone*"],
+        "ext_scripts": [],
+    },
     "reverse": {
         "skill": "softseep",
         "board": "pe-reverse",

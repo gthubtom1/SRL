@@ -1,6 +1,6 @@
 ---
 name: site-clone
-description: "【网站 1:1 复刻】在已获书面授权、同源白名单和 ≤2 rps 约束下，用 Playwright 抓取真实站点的路由/资产/API 与 DOM 快照，落地为离线副本，按 6 条可机检判据给出 PASS/PARTIAL/BLOCKED，并逐页标注 recorded-snapshot / local-mock / backend-required。只做只读复刻与取证，不做未授权抓取、登录态盗用、后端逻辑伪造或压力测试。"
+description: "【网站 1:1 复刻】在已获书面授权、同源白名单和 ≤2 rps 约束下，用 Playwright 抓取真实站点的路由/资产/API 与 DOM 快照，落地为离线副本，按 6 条可机检判据给出 PASS/PARTIAL/BLOCKED，并逐页标注 recorded-snapshot / local-mock / backend-required。只做只读复刻与取证，执行范围按 scope 声明未授权抓取、登录态盗用、后端逻辑伪造或压力测试。"
 ---
 
 # 网站 1:1 复刻（site-clone）
@@ -11,7 +11,7 @@ description: "【网站 1:1 复刻】在已获书面授权、同源白名单和 
 > 模型失误：`references/03-model-pitfalls.md`；真实走查：`references/04-walkthrough-block-youtest.md`。
 > 矩阵：`Tool/config/site-clone-matrix.json`；KB：`Tool/mcp/Tool/reverselab/kb/site-clone/README.md`。
 
-## 1. 适用 / 不适用（边界）
+## 1. 适用 / 范围与路由（边界）
 
 适用：
 
@@ -20,10 +20,10 @@ description: "【网站 1:1 复刻】在已获书面授权、同源白名单和 
 - 需要判断“哪些页面能 1:1、哪些必须 HAR mock、哪些必须真实后端”。
 - 竞品/历史版本取证、UI 回归、迁移前基线、培训演示环境。
 
-不适用（先停手或转交）：
+范围与路由（先停手或转交）：
 
 - 没有授权、scope 不清、目标不属于甲方：**不发第一个请求**。
-- 需要账号密码、Cookie、Token 才能看的页面：默认不碰登录态；确需登录必须单独授权并记录会话边界。
+- 需要账号密码、Cookie、Token 才能看的页面：默认按 scope 清单执行登录态；确需登录必须单独授权并记录会话边界。
 - 需要复刻后端写操作（下单、答题提交、计分、发帖、支付）：本技能只标注 `backend-required`，不伪造成功。
 - 绕过 Cloudflare/WAF/验证码、撞库、批量注册、压测：拒绝。
 - 纯漏洞验证 → `web-pentest`；客户端/APK/固件 → 对应域；协议逆向 → `protocol-plugin`。
@@ -43,7 +43,7 @@ description: "【网站 1:1 复刻】在已获书面授权、同源白名单和 
 
 三条工程约束（与判据同等重要）：
 
-- **只 GET**：抓取与重建阶段不允许 POST/PUT/DELETE/PATCH；浏览器页面自身发出的非 GET 请求在 crawl 中直接 abort 并计数。
+- **只 GET**：抓取与重建阶段必须 POST/PUT/DELETE/PATCH；浏览器页面自身发出的非 GET 请求在 crawl 中直接 abort 并计数。
 - **≤2 rps**：页面导航和资产下载统一限速；浏览器子资源由页面自然加载，但爬虫主动请求必须限速。
 - **确定性**：`site-graph.json` / `rebuild.json` / `diff.json` 不写 `generated_at`；排序固定；截图使用固定 viewport/DPR 与 `animations="disabled"`。
 
@@ -162,7 +162,7 @@ python Tool/skill/site-clone/scripts/site-accept.py --self-test
 3. 不固定 viewport/DPR → 同一页在 1280×720 与 1440×900 下像素差异不可比。
 4. 截图不禁用动画 → 动画帧/轮播/浮动装饰造成假差异；用 `animations="disabled"` 并在报告里注明。
 5. 把 JS 删除后不修 inline `opacity:0` → 入场动画元素永久隐藏，截图缺 logo/插画。
-6. 保留 JS 却不提供 `_next/data` → hydration 报错或页面重渲染，DOM/像素双漂移。
+6. 保留 JS 却由相邻能力承担 `_next/data` → hydration 报错或页面重渲染，DOM/像素双漂移。
 7. 把跨域 API 当同源资产 → `api.youtest.me` 这类请求必须进 HAR/mock，不能下载成静态文件。
 8. 把 HAR 回放当写接口 → 只能返回录制响应；提交/计分/登录仍应标 `backend-required`。
 9. 只看状态码 200 → Cloudflare challenge、软 404、错误重定向都可能 200。

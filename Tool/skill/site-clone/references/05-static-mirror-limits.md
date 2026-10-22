@@ -11,7 +11,7 @@
 | 保持目录/链接改写 | 部分 | 是 | 是（本地路由 + 资产路径） |
 | 执行 JS / 渲染 SPA | 否 | 否 | 是（`page.content()`） |
 | 抓 XHR/fetch JSON | 否 | 否 | 是（录制到 `api/`） |
-| 登录后页面 | 否（除非手工带 Cookie） | 否 | 默认不碰；需单独授权 |
+| 登录后页面 | 否（除非手工带 Cookie） | 否 | 默认按 scope 清单执行；需单独授权 |
 | 截图/DOM/交互证据 | 否 | 否 | 是（截图 + DOM + interactions） |
 | HAR mock | 否 | 否 | 是（`har.json` + `page.route`） |
 | 后端写操作 | 否 | 否 | 不复制，标 `backend-required` |

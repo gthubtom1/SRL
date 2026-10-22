@@ -1,7 +1,7 @@
 {
   "origin": "site-clone",
   "routes": {
-    "R60": {
+    "R35": {
       "label": "网站 1:1 复刻（抓取/重建/差分/验收）",
       "skill": "site-clone/SKILL.md",
       "keywords": [

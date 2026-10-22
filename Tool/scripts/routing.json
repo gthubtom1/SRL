@@ -535,11 +535,23 @@
     },
     "R35": {
       "label": "网站 1:1 复刻",
-      "skill": "softseep/SKILL.md",
+      "skill": "site-clone/SKILL.md",
       "keywords": [
         {
-          "must": "(?i)(1:1\\s*复刻|复刻(?:这个)?(?:网站|站点)|扒站|整站下载|离线副本|像素对比|镜像站点)",
-          "note": "先落 playbook：site-clone-1to1"
+          "must": "(?i)((?:1\\s*[:：]\\s*1|一比一|整站|全站).{0,10}(复刻|克隆|镜像|clone)|(?:复刻|克隆|镜像|clone).{0,10}(网站|站点|前端|页面)|离线副本|site[- ]?clone)",
+          "note": "复刻类：判据=路由/像素/DOM/资源/交互/数据边界六项；先授权再抓"
+        },
+        {
+          "must": "(?i)(\\bwget\\b.{0,16}(镜像|mirror|整站)|\\bhttrack\\b|\\bhar\\b.{0,10}(回放|replay|mock)|\\bplaywright\\b.{0,12}(page\\.route|route|mock|har))",
+          "note": "工具类：wget/HTTrack 只做静态；SPA 用 Playwright route/HAR"
+        },
+        {
+          "must": "(?i)(\\bbackend_required\\b|backend-required|(?:登录态|后端逻辑|写操作).{0,12}(复刻|克隆|离线))",
+          "note": "边界类：登录/写操作/实时状态不可复制，必须标 backend_required"
+        },
+        {
+          "must": "(?i)(\\bdom\\b.{0,8}(快照|snapshot|冻结|freeze)|像素.{0,6}(差分|diff|对比)|(?:路由|route).{0,6}(覆盖|coverage).{0,8}(站点|网站|复刻))",
+          "note": "差分类：DOM/像素/路由覆盖，必须给数值"
         }
       ]
     }

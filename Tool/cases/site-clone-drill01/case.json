@@ -71,13 +71,7 @@
     "cloudflare"
   ],
   "refs": [
-    "README.md",
-    "input/README.md",
-    "scripts/crawl.py",
-    "scripts/rebuild.py",
-    "scripts/replay_diff.py",
-    "artifacts/diff.json",
-    "artifacts/crawl/network.json"
+    "README.md"
   ],
   "updated": "2026-10-22",
   "repro": {
