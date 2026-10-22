@@ -11,7 +11,7 @@
 """
 from __future__ import annotations
 
-# 十域（重点域）：refs 6-10 + 四个必备篇 + 2-4 脚本 + 3-5 案例 + 6-10 KB + 20-30 任务卡
+# 十一域（重点域）：refs 6-10 + 四个必备篇 + 2-4 脚本 + 3-5 案例 + 6-10 KB + 20-30 任务卡
 DOMAINS = {
     "web-pentest": {
         "skill": "web-pentest",
@@ -154,7 +154,7 @@ ROUTING_TESTS = [
     {"text": "分析这个 Chrome 扩展的 manifest 权限", "expect_any": ["plugin-targets"],
      "forbid": ["softseep", "web-pentest"]},
     # v1.23 新增：2026 域探针（24 条）
-    {"text": "帮我逆一下这个 Unity 游戏的 il2cpp", "expect_any": ["forensics-mobile"], "forbid": ["plugin-targets", "apkseep"]},
+    {"text": "帮我逆一下这个 Unity 游戏的 il2cpp", "expect_any": ["apkseep"], "forbid": ["plugin-targets", "forensics-mobile"]},
     {"text": "这个驱动有反调试", "expect_any": ["softseep"], "forbid": ["unpack-loop", "web-pentest"]},
     {"text": "这个样本的 C2 配置怎么解", "expect_any": ["malware-analysis"], "forbid": ["softseep", "web-pentest"]},
     {"text": "这个固件的 web 界面命令注入", "expect_any": ["firmware-iot"], "forbid": ["web-pentest"]},
@@ -208,8 +208,8 @@ ROUTING_TESTS = [
      "forbid": ["web-pentest", "apkseep"]},
     {"text": "radare2 无头分析这个 ELF", "expect_any": ["radare2"],
      "forbid": ["web-pentest", "softseep"]},
-    {"text": "unity il2cpp assetbundle 解包", "expect_any": ["forensics-mobile"],
-     "forbid": ["apkseep", "apk-reverse", "web-pentest"]},
+    {"text": "unity il2cpp assetbundle 解包", "expect_any": ["apkseep"],
+     "forbid": ["forensics-mobile", "apk-reverse", "web-pentest"]},
     {"text": "snyk 扫依赖 看可达性", "expect_any": ["supply-chain-security"],
      "forbid": ["softseep", "web-pentest"]},
     # v1.24 新增：R32 hypervisor/eBPF/TEE 与 R33 托管运行时（12 条，总计 60）
@@ -227,8 +227,8 @@ ROUTING_TESTS = [
      "forbid": ["web-pentest", "apkseep"]},
     {"text": "wasm2c 转 C 后怎么读", "expect_any": ["softseep"],
      "forbid": ["web-pentest"]},
-    {"text": "Unity il2cpp 的 global-metadata 解密", "expect_any": ["forensics-mobile"],
-     "forbid": ["apkseep", "apk-reverse", "web-pentest"]},
+    {"text": "Unity il2cpp 的 global-metadata 解密", "expect_any": ["apkseep"],
+     "forbid": ["forensics-mobile", "apk-reverse", "web-pentest"]},
     {"text": "BattlEye 服务项在哪取证", "expect_any": ["softseep", "forensics-mobile"],
      "forbid": ["web-pentest", "apkseep"]},
     {"text": "APK 里 so 被 VMP 了怎么脱", "expect_any": ["apkseep", "apk-reverse"],

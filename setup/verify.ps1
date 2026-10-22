@@ -189,7 +189,7 @@ Test-CheckItem "路由" "路由/配方/能力三层自洽 (routing ↔ 配方命
     if (-not $py) { return $true }
     & python $chk 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { return $false }
-    foreach ($gate in @('playbook-check.py', 'capability-gate.py')) {
+    foreach ($gate in @('playbook-check.py', 'capability-gate.py', 'route-playbook-parity.py')) {
         $gp = Join-Path $scriptsDir $gate
         if (-not (Test-Path -LiteralPath $gp)) { return $false }
         & python $gp 2>&1 | Out-Null

@@ -680,7 +680,7 @@ def check_v123_deliverables():
         "; ".join(bad7) if bad7 else "2 个工具 rc=0")
 
     allow = glob.glob(os.path.join(TOOL, "config", "criteria-inferred", "*.json"))
-    add("12 v1.23", "判据 inferred 白名单（10 域）", len(allow) >= 10, "%d" % len(allow))
+    add("12 v1.23", "判据 inferred 白名单（≥10 份）", len(allow) >= 10, "%d" % len(allow))
 
 
 
@@ -690,7 +690,8 @@ def check_playbook_gate():
     for label, script, extra in (
             ("配方命令门禁", "playbook-check.py", ["--json"]),
             ("能力层门禁", "capability-gate.py", ["--json"]),
-            ("意图覆盖门禁", "intent-coverage.py", ["--json"])):
+            ("意图覆盖门禁", "intent-coverage.py", ["--json"]),
+            ("路由↔配方一致", "route-playbook-parity.py", ["--json"])):
         sp = os.path.join(TOOL, "scripts", script)
         if not os.path.isfile(sp):
             add("13 三层", label, False, script + "(missing)")
@@ -710,7 +711,9 @@ def check_language():
     import re as _re
     pat = _re.compile(r"不碰|禁止用于|仅限|不得用于|不允许|不提供|不适用|超出范围|不产出|不做成品|禁止\s*(?:操作|使用|测试|访问)")
     roots = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "prompts"),
-             os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL")]
+             os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL"),
+             os.path.join(TOOL, "docs"), os.path.join(TOOL, "playbooks"),
+             os.path.join(TOOL, "capabilities"), os.path.join(ROOT, "Tool", "cases")]
     audit_dir = os.path.join(ROOT, "docs", "audit")
     skip = ("CHANGELOG", "AUDIT", "DEFERRALS", "STYLE.md", "/_archive/")
     hits = []

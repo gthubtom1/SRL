@@ -112,7 +112,7 @@ python Tool/scripts/check-extension-conflicts.py      # 有冲突 → 退出码 
 
 | 环节 | 它到底做什么 | 会不会碰扩展层 |
 |---|---|---|
-| `seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_install` | 探测并安装**外部工具本体**（exe / pip / npm 全局包 / 运行时） | ❌ 不碰 `settings.json` 的 `packages` |
+| `seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_install` | 探测并安装**外部工具本体**（exe / pip / npm 全局包 / 运行时） | ✗ 不改动 `settings.json` 的 `packages` |
 | `seep_tool_register_mcp` | 只往 `mcp.json` 的 **`mcpServers`** 加一条服务器配置 | ❌ 不装 pi 扩展、不改 packages |
 
 两层加固：
@@ -239,7 +239,8 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 
 ### 8.1 x64dbg 的 MCP：原生就能接（实测）
 
-x64dbg 插件 `x64dbg-MCP-Server.dp64`（`x64dbgeleased\plugins\`）在 x64dbg 启动时自动起服务
+x64dbg 插件 `x64dbg-MCP-Server.dp64`（`x64dbg
+eleased\plugins\`）在 x64dbg 启动时自动起服务
 （`mcp_config.json` 里 `AutoStart:true`，端口 9094，鉴权 `Authorization: Bearer <AuthToken>`）。
 
 **实测结论：它原生支持 streamable HTTP**，不需要任何桥接：

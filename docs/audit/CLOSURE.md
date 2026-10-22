@@ -11,7 +11,7 @@
 | 3 | 路由片段门禁假绿（11 份报成 14 份、字段丢失仍 rc=0） | A-P0-3 | 已修 | 按文件数报数；11 份片段全量从 SSOT 同步 label/skill/keywords |
 | 4 | 能力层死层（44 id 与配方/意图脱钩） | D-P0-1 | 已修 | domain/triggers/aliases + DAG + 被引用断言 |
 | 5 | forge 缺失、生成链断裂 | D-P0-2 / E-P0-2 | 已修 | `Tool/scripts/forge.py` 三合一 + 生成即门禁 |
-| 6 | 路由与配方对同一句相反答案 | D-P0-3 | 已修 | R34/R35 对齐；kerberoast 词边界；片段同步 |
+| 6 | 路由与配方对同一句相反答案（Unity il2cpp：路由 R26 forensics-mobile ↔ 配方 apk-unpack） | D-P0-3 | 已修 | ① `forensics-mobile.json`/`routing.json` 的 R26 移除 il2cpp/gameassembly/global-metadata/assetbundle/unityfs；② 上述关键词落到 R1（`apkseep`），与 `apk-unpack` 配方同域；③ `ROUTING_TESTS` 三条 il2cpp 用例改 `expect apkseep / forbid forensics-mobile`，`domain-gate --routing` 60/60；④ 新门禁 `route-playbook-parity.py`（60 用例 / 22 配方 / 不一致 0，自测含正负例）接入 preflight 13 三层、verify.sh/ps1、CI |
 | 7 | 矩阵不可信 | D-P0-4 | 已修 | 脚本重算 45×11 |
 | 8 | 配方命令漂移 15/22 | B-P0-2 | 已修 | 6 处 `--level L2`→`M2`、6 处 `--json`/参数/路径对齐；playbook-check 用 AST 读 argparse，对 166 条命令（含 138 条占位）校验参数名与枚举值，坏命令 0；已接入 preflight/verify.sh/verify.ps1/CI |
 | 9 | 证据链可静默成功 | B-P0-3 | 已修 | mutation-test 四类 + accept 脚本 |
@@ -31,7 +31,7 @@ ad-cloud 第 2 个真实案例（本机非域环境）；全量 264 张卡剧本
 ## 验证
 
 ```
-python Tool/scripts/preflight.py            # 39/39（含三层门禁：配方命令/能力 DAG/意图覆盖）
+python Tool/scripts/preflight.py            # 40/40（含四道门禁：配方命令/能力 DAG/意图覆盖/路由↔配方）
 python Tool/scripts/domain-gate.py --all    # 110/110
 python Tool/scripts/intent-coverage.py      # 93/93
 bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
@@ -47,7 +47,7 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | C-P1-4 | 脚本断言只查子串 | 转 DEFERRALS | 需语义断言，排下一批 |
 | C-P1-5 | lessons 不执行 | 转 DEFERRALS | 目前只校验命令文本；执行态见 D18（需沙箱重放） |
 | C-P1-6/7 | 两个门禁结论相反 | 已修 | 片段门禁按文件数报数并与 SSOT 同步 |
-| A-P1-6/10/11/12 | DOMAIN-SPEC 十域/文档 0 入链/清单计数 | 已修 | 统一十一域；docs/README 建索引；清单计数同步 |
+| A-P1-6/10/11/12 | DOMAIN-SPEC 十域/文档 0 入链/清单计数 | 已修 | 统一十一域；`docs/README.md` 索引 docs/*.md 与 Tool/docs 全部 20 篇（STAGE0/WORKSPACE_RULES 有入链）；`WORKSPACE_RULES.md` 重写为「scope 由用户声明 + 产物归位」；lint 根并入 Tool/docs、Tool/playbooks、Tool/capabilities、Tool/cases（仅 3 处命中已改写）；清单计数同步 |
 
 ## B / D 报告 P1 台账
 
@@ -91,3 +91,14 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | A-P1-2 | `QUICKSTART.md:42` 写「本域 7 条」 | 已修 | 改为「本域 10 条断言」（单域实测 10/10） |
 | 新门禁盲点 | `playbook-check` 只读 `add_argument(choices=…)`，`case_state.py` 用运行时 `die()` 报允许值 → `--level L2` 仍判绿 | 已修 | 新增 `runtime_enum()`：从源码报错文案（`只能是 / must be one of`）提取枚举并校验；自测 15/15；驳回用例复现 `ok=false, reason=参数 --level 取值非法: L2（允许 M1/M2/M3/M4）` |
 | A-P1-6 漏网 | `domain-gate.py:1052` detail 硬编码「10 域覆盖」 | 已修 | 改为 `"%d 域覆盖" % len(DOMAINS)`（11） |
+
+### 十域残留清零（实测）
+
+| 位置 | 原值 | 现值 |
+| :-- | :-- | :-- |
+| `Tool/cases/_templates/README.md:1` | `# 案例模板（十域）` | `# 案例模板（十一域）` |
+| `Tool/scripts/lib/domain_spec.py` | 注释「十域（重点域）」 | 「十一域（重点域）」 |
+| `Tool/scripts/domain-gate.py:712` | 「不只十域」 | 「不只单域」 |
+| `Tool/scripts/domain-gate.py:994` | detail「十域 SKILL…」 | 动态 `%d 域`（11） |
+| `Tool/scripts/preflight.py` | 「十域深度契约」×3 | 「全域深度契约」 |
+| `Tool/scripts/preflight.py:683` | 标签「（10 域）」 | 「（≥10 份）」 |

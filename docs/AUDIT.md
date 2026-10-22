@@ -414,4 +414,4 @@
 - 审计：B（深度）/C（可跑性）/D（架构）/E（上下文遗漏）四份落盘 `docs/audit/`；A（一致性）报告后续落盘并已修复，逐条见 `docs/audit/CLOSURE.md`。
 - **P0 修复**：能力层接线（44 个 id 加 domain/triggers/aliases，compose 改 DAG，矩阵按脚本重算）；新增 `forge.py`（playbook/capability/domain 三合一，生成即跑门禁）+ `docs/PROMOTION.md`（三次规则）+ `playbook-check.py`（配方命令必须可执行）；`05-backend-rebuild` 补 4 脚本（api-surface/schema-infer/backend-scaffold/switch-verify）+ 8 refs + L3 演练；site-clone 接入 4 能力与配方；配方命令对齐真实脚本。
 - **P1 修复**：意图探针 60→**93 条**，覆盖 100%（0 未覆盖）；路由修正（`kerberoast` 词边界、R34/R35 与配方对齐）；VERSION/ROADMAP/AUDIT 计数同步；`work/plans/` 恢复；`docs/audit/` 不参与措辞与悬空检查。
-- 验收：`domain-gate --all` **110/110**；`preflight --fast` **36/36**（全量 39/39）；`intent-coverage` 93/93；`capability-gate` 悬空 0；措辞 lint 0 命中。
+- 验收：`domain-gate --all` **110/110**；`preflight --fast` **37/37**（全量 40/40）；`intent-coverage` 93/93；`capability-gate` 悬空 0；措辞 lint 0 命中。

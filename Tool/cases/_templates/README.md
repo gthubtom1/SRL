@@ -1,4 +1,4 @@
-# 案例模板（十域）
+# 案例模板（十一域）
 
 > 每份模板的字段与 `Tool/scripts/domain-gate.py` 的 `CASE_FIELDS` 同源；
 > `evidence_kind` 决定 `target_type` 的写法（fixture 必须含「夹具/教学/fixture」）。

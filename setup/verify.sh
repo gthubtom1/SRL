@@ -130,7 +130,7 @@ test_routing_coherence() {
     [ -f "$chk" ] || return 1
     [ -n "$PY_BIN" ] || return 0
     ( cd "$ROOT" && "$PY_BIN" "$chk" >/dev/null 2>&1 ) || return 1
-    for gate in playbook-check.py capability-gate.py; do
+    for gate in playbook-check.py capability-gate.py route-playbook-parity.py; do
         [ -f "$TOOL_DIR/scripts/$gate" ] || return 1
         ( cd "$ROOT" && "$PY_BIN" "$TOOL_DIR/scripts/$gate" >/dev/null 2>&1 ) || return 1
     done

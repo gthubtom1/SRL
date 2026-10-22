@@ -25,6 +25,8 @@ jobs:
         run: python Tool/scripts/capability-gate.py --json
       - name: intent coverage
         run: python Tool/scripts/intent-coverage.py --json
+      - name: route-playbook parity
+        run: python Tool/scripts/route-playbook-parity.py --json
       - name: case index
         run: python Tool/scripts/gen-case-index.py --check
   gates-linux:
