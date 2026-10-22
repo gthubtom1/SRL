@@ -201,7 +201,72 @@ impacket-wmiexec -k -no-pass '<domain>/administrator@<target>' 'whoami'
 | 目标日志断档 / 单机无 4768/4769 | 遥测不可信或非域 | 补 DC 日志/审计策略 | 不能据此写“未发生” |
 | 同一手法同参数连续失败两次 | 路径大概率不通 | 按本表换面 | 继续堆时间=负收益 |
 
-## 7. 边界
+## 7. NetExec / impacket 家族：协议矩阵与只读判据
+
+> 素材：归档 `offensive-netexec`（nxc，CrackMapExec 后继）。本节只保留**可判定的用法**：
+> 哪些命令是只读、哪些会写、什么输出才算证据。命令按占位符改写，不抄具体 IP/口令。
+> 家族边界：nxc 面向“多协议 × 多目标批量”，impacket 面向“单目标细粒度”。同一动作两边都跑会给同一账号翻倍认证，
+> **预算按账号算，不按工具算**。
+
+### 7.1 动作分级（先定级再敲命令）
+
+| 档 | 命令族 | 目标侧留下什么 | 需要 |
+| :-- | :-- | :-- | :-- |
+| 只读 | `--shares` `--sessions` `--loggedon-users` `--reg-sessions` `--users` `--groups` `--pass-pol` `--disks` `--rid-brute` `ldap --bloodhound` | 4624/4625（每次认证）、IPC$/SRVSVC/LSARPC 访问、远程注册表读（4656/4661） | 授权清单 + 账号失败预算 |
+| 低影响写 | `-x`/`-X` 执行、`--put-file/--get-file`、`--modify-group`、`--change-password` | 4688、临时文件/服务（7045）、目录对象修改（4728/4732/5136） | 单独授权单 + 清理与回读 |
+| 高影响 | `--sam` `--lsa` `--ntds` `--dpapi` `-M lsassy` `--delegate` `-M coerce_plus` `-M zerologon` | LSASS/注册表/ntds.dit 访问、强制认证、票据、服务创建 | 单独授权 + 凭据红线 + 回滚登记 |
+
+### 7.2 协议矩阵（只读列）
+
+| 协议 | 只读命令模板 | 输出里能当证据的字段 | 不成立 / 降级信号 |
+| :-- | :-- | :-- | :-- |
+| SMB 共享面 | `nxc smb <target> -u <user> -p '<pass>' -d <dom> --shares` | 认证行 `[+] <DOM>\<user>`；共享表的名 + `READ`/`WRITE` 权限列；指纹行 `signing:True/False`、`SMBv1` | `STATUS_LOGON_FAILURE`；只有 `Guest`；共享表非空但 `READ` 列为空（等于不可读） |
+| SMB 会话面 | `--sessions` / `--loggedon-users` / `--reg-sessions` | 会话表（主机名 + 账号 + 会话 id）；与目标 4624 `LogonType=3/2` 时间窗对得上；`--reg-sessions` 免管理员但依赖 Remote Registry | 空表、`Access is denied`（非管理员/无注册表权限）→ 只写“未取得会话视图”，不写“无用户在线” |
+| SMB 对象面 | `--users` `--groups` `--local-group` `--disks` `--pass-pol` `--rid-brute` | 对象计数与属性；`--pass-pol` 的 `lockoutThreshold`/`lockoutDuration` 决定后续认证预算 | 匿名/低权读不到策略（不等于无锁定）；`--rid-brute` 只看 RID→SID 映射，不是凭据 |
+| LDAP | `nxc ldap <DC_IP> -u <u> -p '<pass>' -d <dom> --users --groups --pass-pol`；`--bloodhound --collection DCOnly` | 对象/属性计数；`pwdHistoryLength`、`lockoutThreshold`、组嵌套；BloodHound JSON 的边能回到原始属性 | `invalidCredentials`、`ldap_bind` 49/8；结果为空但认证成功（无读权）→ 只记“目录面不可读” |
+| WinRM | `nxc winrm <target> -u <u> -p '<pass>' -d <dom>`，执行用 `-X 'whoami'` | 只有 `-X` **有回显**且目标 4688 父进程为 `wsmprovhost.exe` 才算执行；否则只证明“认证通过” | `[+]` 但无回显 → candidate；`401/403`；目标只收 Kerberos；5985 通但 WinRM 服务未启用 |
+| MSSQL | `nxc mssql <target> -u <u> -p '<pass>' --local-auth -q 'SELECT @@version'` | 版本串 + 登录模式（SQL/Windows）+ `IS_SRVROLEMEMBER('sysadmin')`；`-q` 是查询，`-x` 才走 `xp_cmdshell` | `Login failed for user`；查询成功但非 sysadmin；`xp_cmdshell` 关闭；1433 只回握手 → 只记暴露面 |
+| RDP | `nxc rdp <target> -u <u> -p '<pass>'`；`--screenshot` 仅在授权且非 NLA 阻断时 | 认证结果 + `NLA` 状态；截图仅作补充证据 | `401`、NLA 直接拒绝、只回登录页 → `blocked`；不要用截图代替授权 |
+
+### 7.3 什么输出算证据（前置 → 可机检判据 → 失败判据 → 代价）
+
+| 观察面 | 前置条件 | 可机检判据 | 失败判据 | 代价 |
+| :-- | :-- | :-- | :-- | :-- |
+| 共享枚举（`--shares`） | 一个域或本地账号；445 可达；SMB signing 已知 | nxc 输出有 `[+]` 认证行 + 共享表带权限列；`--log` 文件能逐行对应到本次时间；`signing:True/False` 写入证据 | 只有共享名无权限列；`READ` 为空；认证成功但共享列表只有 `IPC$` | 低：每次认证进 4624/4625，可能触发阈值告警 |
+| 会话/登录用户（`--sessions`/`--loggedon-users`） | 管理员权限（`--loggedon-users` 还依赖远程注册表/服务） | 会话表非空且账号/主机与目标 4624、4634 时间窗一致；同一证据包里有两个以上主机时能区分来源 | 空表/拒绝访问；只有本机会话；时间线与目标日志不重叠 | 中：读注册表会触发 4656/4661，`loggedon-users` 可能落服务 |
+| 命令执行（`-x`/`-X`） | 已 `Pwn3d!`；执行属低影响写，需单独授权 | 攻击端有回显 + 目标侧 4688（父进程符合手法）或 7045/4698 + 清理回读 | 只有 `Pwn3d!`、只有 `ReturnValue=0`；目标无 4688/7045；WinRM 认证成功无回显 | 高：服务/临时文件/计划任务都会留痕，必须清理 |
+| MSSQL 只读查询（`-q`） | 一个 SQL 或域账号；1433 可达 | 版本串 + 角色判定（`sysadmin` 1/0）+ 库清单三者同时落进证据；查询文本存档 | 只有登录成功；查询被拒（无 VIEW 权限）；`-q` 与 `-x` 混用（后者是执行） | 低到中：查询进 SQL 审计与服务器日志 |
+| OIDC/票据后的 impacket 动作 | 已有 hash/ccache；目标服务可达 | `getST`/`wmiexec` 返回票据文件与回显；目标 4769 + 4624 类型 3；ccache 只留指纹 | 只有 `SUCCEED`/票据落盘但无访问；`KDC_ERR_BADOPTION` | 中：4769 高保真；票据文件属凭据红线 |
+
+### 7.4 常见误读（写进报告前逐条对）
+
+1. `(Pwn3d!)` 是**工具按协议推出的最高权限**，不是目标侧证据；没有回显/4688/7045 就只是 `candidate`。
+2. `--sessions` 空 = 没有**可见**会话，不是“没人登录”；先确认是不是管理员。
+3. `--shares` 列出共享 ≠ 可读；以 `READ` 权限列为准，必要时用 `--get-file`/`ls` 做一次只读取证。
+4. `--pass-pol` 读不到 ≠ 无锁定策略；读不到就按保守假设（5 次/30 分钟）安排预算。
+5. `--jitter` 是**按主机**生效，多目标喷洒时认证总数 = 账号 × 主机；预算按账号算。
+6. `--continue-on-success` 配合大用户表会产生大面积 4625；先用小名单验证口令，再扩。
+7. 关掉 `audit_mode` 会把口令/hash 明文写进 `~/.nxc/logs`，违反凭据红线；报告只留指纹。
+8. 同一动作 nxc 与 impacket 的落痕不同（`wmiexec` 建 `RemCom` 服务、`smbexec` 落临时文件/服务、`atexec` 建计划任务）；证据必须按**实际用的那个工具**去目标侧取。
+9. `--local-auth` 与域认证是两套凭据面，成功/失败计数分开记；把两者混在一起会误判“域管已到手”。
+10. 同一手法同参数连续失败两次 → 按 §6 换面，不要换工具重试。
+
+```bash
+# 只读优先：先读预算与面，再枚举，不做写入
+nxc smb <DC_IP> -u '' -p '' --pass-pol          # 读不到就按默认锁定策略保守处理
+nxc smb <target> -u <user> -p '<pass>' -d <domain> \
+  --shares --sessions --loggedon-users --log work/<case>/nxc.log
+nxc ldap <DC_IP> -u <user> -p '<pass>' -d <domain> --users --groups --pass-pol
+nxc mssql <target> -u <user> -p '<pass>' -d <domain> \
+  -q 'SELECT @@version, IS_SRVROLEMEMBER(''sysadmin'');'
+# 同一动作的 impacket 对照（单目标细粒度）
+impacket-wmiexec <domain>/<user>@<target> -hashes ':<NTLM>' 'whoami'
+```
+
+- `--log` 落盘文件含明文凭据：只放在授权证据目录，交付前按 `sha256[:12]` 脱敏。
+- 批量目标先小范围（≤3 台）验证口令与路径，再扩到网段；扩展前重算预算。
+
+## 8. 边界
 
 - 只在授权清单内的源/目标主机上执行；跨网段、跨域、跨租户一律先补授权。
 - 强制认证、relay、写 AD 对象、建服务/任务属于高影响动作：单独授权单 + 备份 + 回滚登记。

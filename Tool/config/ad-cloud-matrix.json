@@ -866,6 +866,47 @@
         "curl -s 'https://<tenant>.okta.com/.well-known/okta-organization'",
         "python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
       ]
+    },
+    {
+      "id": "AD-27",
+      "surface": "NetExec / impacket 家族（协议×只读判据）",
+      "match": [
+        "nxc",
+        "netexec",
+        "crackmapexec",
+        "--shares",
+        "--sessions",
+        "--loggedon-users",
+        "--pass-pol",
+        "mssql",
+        "winrm",
+        "rdp",
+        "impacket",
+        "Pwn3d"
+      ],
+      "check": "先定动作档（只读/低影响写/高影响）；协议面：smb（--shares/--sessions/--loggedon-users/--users/--pass-pol）、ldap（--users/--groups/--pass-pol/--bloodhound）、winrm（-X 回显）、mssql（-q 查询 vs -x 执行）、rdp（认证 + NLA）；命令带 --log 落盘位置",
+      "criteria": "只读面：认证行 `[+] <DOM>\\<user>` + 共享表带 READ/WRITE 权限列 + signing 指纹；会话面：会话表非空且与目标 4624 LogonType=2/3、4634 时间窗一致；执行面：仅当 `-x`/`-X` 有回显且目标 4688（父进程符合手法）或 7045/4698 齐备才算 confirmed；mssql 只读查询需版本串 + IS_SRVROLEMEMBER + 库清单三项；impacket 对照需 getST/wmiexec 票据与回显同时到位。",
+      "tools": [
+        "nxc（netexec）",
+        "impacket 套件",
+        "wevtutil / Get-WinEvent",
+        "ad-repro.py --kind windows-events"
+      ],
+      "fail": "只有 `(Pwn3d!)`/`SUCCEED` 无回显、无目标日志 → candidate；`--sessions` 空表 = 无可见会话（非管理员），不写「无用户登录」；`--shares` 有共享名但 READ 为空 → 不可读；`--pass-pol` 读不到 → 不等于无锁定策略；`-q` 与 `-x` 混用把只读查询当执行；`--local-auth` 与域认证计数混记 → 预算误判。",
+      "pitfalls": [
+        "把工具客户端判定当目标侧证据",
+        "--sessions 空表写成无人登录",
+        "列出共享当可读",
+        "jitter 按主机生效、多目标叠加翻倍认证",
+        "关掉 audit_mode 把明文凭据写进 ~/.nxc/logs"
+      ],
+      "commands": [
+        "nxc smb <DC_IP> -u '' -p '' --pass-pol",
+        "nxc smb <target> -u <user> -p '<pass>' -d <domain> --shares --sessions --loggedon-users --log work/<case>/nxc.log",
+        "nxc ldap <DC_IP> -u <user> -p '<pass>' -d <domain> --users --groups --pass-pol",
+        "nxc mssql <target> -u <user> -p '<pass>' -d <domain> -q 'SELECT @@version, IS_SRVROLEMEMBER(''sysadmin'');'",
+        "impacket-wmiexec <domain>/<user>@<target> -hashes ':<NTLM>' 'whoami'"
+      ]
     }
   ]
 }

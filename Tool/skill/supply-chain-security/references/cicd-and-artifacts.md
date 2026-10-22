@@ -182,7 +182,56 @@ detect-secrets scan --all-files > detect-secrets.json
 | 自托管 runner 但只跑受保护分支 | 风险下降 | 核对分支保护与审批；不写“可横向” | 低：读仓库设置 |
 | 构建成功/能启动 | 不等于可信构建 | 走 digest+签名+attestation subject 对照 | 中：需要 provenance 数据 |
 
-## 12. 边界
+## 12. CI 凭据提取面（env dump / runner token / OIDC / 日志 / 缓存 / registry）
+
+> 素材：归档 `offensive-cicd-secrets`（MITRE T1552 Unsecured Credentials）。此处只吸收**判据**：
+> 凭据暴露到哪一步才算“可提取”、哪一步只能算“配置缺失”，以及什么样的一次结果才算证据。
+> 不写编码外带技巧、不写日志掩码绕过；凭据只留指纹。
+>
+> 前提：要么有一次**授权内**的构建执行（自有仓库/授权测试分支跑受控 step），要么只有构建日志、
+> cache/artifact、registry 的只读权限。**没有构建执行权时只有后三行（日志/缓存/registry）可判。**
+
+| 提取面 | 前置条件 | 可机检判据（字段/输出） | 失败判据 | 代价 |
+| :-- | :-- | :-- | :-- | :-- |
+| 环境变量注入面 | 受控 step 能跑 `env`；secrets 以 env 注入到 job/step；已拿到 secrets **名单**（API 只给名字，不给值） | 运行时变量名与 `ci.json` 的 `secrets_refs[]`（及仓库/组织级 secrets 名单）交集非空；值在日志里呈 `***` 掩码；再用该值做**一次只读**校验（如 registry `GET /v2/` 鉴权读、云 `sts get-caller-identity`）rc=0 | 只有掩码命中、无独立校验；命中的是平台自动注入变量（`GITHUB_*`/`CI_*`）；值为 `changeme`/长度 <8 的占位符 | 中：每次执行都进 CI 审计与日志；把 secret 值落盘/外传违反凭据红线 |
+| runner / job token 复用 | 自托管 runner 或可被 claim 的 job 队列；拿到注册 token 或 job token | 用注册 token 请求 job 队列（GitLab `POST /api/v4/jobs/request`、GitHub register 端点）返回 2xx **且领到的 job 有 secrets/写权限**；证据含 job id 与该 job 的 secrets 名单 | `401/403`（token 已轮换）；领到 job 但 job 无 secrets、只读；只证明 token 有效（注册 token ≠ job token 权限） | 高：注册 rogue runner 触发 `runner_registered` 审计；必须注销并回读已消失 |
+| OIDC 联邦滥用 | 云端 trust policy 的 `sub` 通配（`repo:org/*`、`repo:org/*:*`）或只校验 `aud`；能在我方授权仓库/分支请求 id_token | `ACTIONS_ID_TOKEN_REQUEST_URL` 取到 id_token，`cut -d. -f2 \| base64 -d` 得 `sub`/`ref`/`repository` 与 trust 条件不匹配仍 `assume-role-with-web-identity` rc=0，且 `get-caller-identity` 的 Arn 是目标 role | `AccessDenied`/`InvalidIdentityToken`（说明 policy 校验到 `sub`/`ref`）；claims 与实际一致（正常行为）；只有 role ARN 可猜、无 token | 高：每次 assume 在 CloudTrail 留 `AssumeRoleWithWebIdentity`；测试仓库必须在授权清单内 |
+| 构建日志泄漏 | 能只读构建日志（Actions run logs / GitLab job trace / Jenkins consoleText） | 日志命中 `secret_prefix_ok`（前缀+长度+结构）的凭据串，且能对应到 secrets 名单或环境变量名；`git log -S<fingerprint>` 或锁文件/部署配置证明仍在用 | 只有高熵串/示例 token/文档占位符；已被掩码成 `***`；只出现在已轮换的旧 run；`secret_prefix_ok=false` | 中：下载日志会把敏感内容落到工作机，先定脱敏与存放位置 |
+| 缓存投毒 | 工作流用 `actions/cache`/GitLab `cache:`，cache key 由不可信输入决定（PR 可影响的 `hashFiles`/分支名），下游 job 以更高权限恢复同一 key | 低权 job 写入 marker 文件 → 高权 job 恢复到同一路径且 `sha256` 一致（`cache.hit=true` 且 marker 真实存在），marker 在高权 job 中可被读取/执行 | cache miss/跨分支 key 不共享；marker 存在但高权 job 不使用该路径；只有 key 可猜未验证写入 | 高：需要两次真实 run，计入 CI 账单与审计；污染公共/共享 cache 属越界 |
+| registry / 制品凭据 | 构建环境有 `~/.docker/config.json`、`docker-credential-*` 或 `IMAGE_PUSH_TOKEN` 类变量 | `config.json` 的 `auths[]`/`credHelpers[]` 里有 registry 主机 + 一条对**授权 registry** 的只读 `GET /v2/_catalog`（或 `HEAD /v2/<repo>/manifests/<tag>`）返回 200 | 只有 `credHelpers` 名而无凭据；`401 unauthorized`；token 只对 public repo 有效 | 中：registry 拉取会产生审计日志；不得列举他人命名空间 |
+
+**什么算证据（四件，缺一降级为“配置缺失”）**
+
+1. 对象：run id / pipeline id / job id + commit SHA + 触发者；
+2. 命令与 rc：受控 step 的命令行、退出码、执行时间；
+3. 原始输出片段：变量名 + `***` 掩码形态，或日志行号 + `sha256(secret)[:12]` 指纹；
+4. 一次独立只读校验：对**授权**资源做单次 `GET`/`get-caller-identity`/`HEAD` 并 rc=0；
+   没有这一步，只能写“变量存在”，不能写“凭据可用”。
+
+```bash
+# 1) 名单侧（只读，API 不给值）
+curl -sS -H "Authorization: token $GITHUB_TOKEN" \
+  "https://api.github.com/repos/$REPO/actions/secrets" | jq -r '.secrets[].name'
+# 2) 受控 step 内（授权分支）只取名字与掩码形态，不落值
+env | grep -iE '^(AWS_|AZURE_|GCP_|GITHUB_|GITLAB_|DOCKER_|NPM_|VAULT_)' | cut -d= -f1 | sort
+# 3) OIDC claims 与实际上下文是否一致（不解出可用 token）
+curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
+  | jq -r .value | cut -d. -f2 | base64 -d 2>/dev/null | jq '{sub,ref,repository,aud}'
+# 4) 日志侧：先按前缀过滤，命中后只留指纹
+grep -rhoE '(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|glpat-[A-Za-z0-9_-]{20})' logs_*/ | \
+  while read -r s; do printf '%s %s\n' "$(printf %s "$s" | sha256sum | cut -c1-12)" "${s:0:4}"; done | sort -u
+```
+
+**失败判据速查**：只有 `***` 掩码没有独立校验 → 变量存在；只有高熵串 → 未验证；
+只有 token 有效但无 job/secrets → 权限面未展开；只有 cache key 可猜 → 未验证写入；
+只有 registry 主机名 → 未验证可用。以上任一情况在本域一律写 `candidate`，不进影响面。
+
+**边界**：不注册 rogue runner、不污染共享 cache、不把 secret 值写进证据目录；
+OIDC 测试只在授权仓库内做；日志/registry 侧只读。跨域细节：`references/04-walkthrough-workflow-permissions.md`
+（权限面走查）、`Tool/skill/ad-cloud/references/cloud-native.md`（拿到云凭据之后的 IAM 判据）。
+
+## 13. 边界
 
 - 只读审计；不改生产 workflow、不推送、不触发发布。
 - 不把 YAML 缩进扫描当完整解析；锚点/merge key/reusable workflow 必须人工补看。

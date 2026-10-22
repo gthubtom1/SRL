@@ -480,6 +480,46 @@
         "本地关 ASLR 当远程结论",
         "gdb 下成功当真实成功"
       ]
+    },
+    {
+      "id": "PC-18",
+      "category": "TOCTOU / 竞态（文件与权限面）",
+      "match": [
+        "TOCTOU",
+        "竞态",
+        "race condition",
+        "符号链接",
+        "symlink race",
+        "renameat2",
+        "重解析点",
+        "junction",
+        "O_NOFOLLOW",
+        "mkstemp",
+        "临时文件"
+      ],
+      "tools": [
+        "strace -f -e trace=file",
+        "renameat2(RENAME_EXCHANGE) via syscall",
+        "FUSE/fusepy 慢文件系统",
+        "sched_setaffinity / cgroup.freeze",
+        "procmon（Windows）",
+        "mklink /J（junction）"
+      ],
+      "commands": [
+        "strace -f -e trace=file ./target 2>&1 | awk -F'\"' '/access|stat|lstat|open|readlink/ {print $2}' | sort | uniq -c | sort -rn | head -20",
+        "while true; do ln -sfn /etc/shadow ./out; ln -sfn ./legit ./out; done & for i in $(seq 200); do ./victim --output ./out >/dev/null 2>&1; done",
+        "cmd /c mklink /J %LOCALAPPDATA%\\Temp\\stage %SystemRoot%\\Temp\\stage",
+        "dir /AL"
+      ],
+      "criteria": "静态：同一用户可控路径在 strace 里出现 ≥2 次解析（check 与 use 分离）；动态：竞态循环 win/rounds 可统计（例 win=7/200）且窗口放大器写明（FUSE getattr sleep / RENAME_EXCHANGE / CPU 绑定 / cgroup freeze）；post-use 原语可复算：读到 root-only 文件首行 + sha256、写到 root 路径后回读、以更高权限输出 id/whoami",
+      "fail": "只有静态候选或单次解析；进程崩了但无对象替换；目标实际用 fd 操作（O_NOFOLLOW / openat+fstat / mkstemp 全程持 fd）；文件系统不支持 RENAME_EXCHANGE（EINVAL）；Windows 路径已规范化或带 OPEN_REPARSE_POINT；≥3 轮 0 胜 → blocked，记录已试放大器",
+      "pitfalls": [
+        "把“代码里看起来有窗口”当 TOCTOU",
+        "一次命中就写稳定（不报 win/rounds）",
+        "PE 与 ELF 的路径/权限语义混用",
+        "容器里读到的文件当宿主失守证据",
+        "放大器（FUSE/cgroup）压垮宿主或影响其他进程"
+      ]
     }
   ]
 }
