@@ -322,6 +322,19 @@
       "site-clone": "partial",
       "reverse": "full"
     },
+    "opsec-check": {
+      "web-pentest": "full",
+      "pwn-crypto": "partial",
+      "firmware-iot": "via-compose",
+      "ad-cloud": "partial",
+      "protocol-plugin": "partial",
+      "plugin-targets": "partial",
+      "forensics-mobile": "via-compose",
+      "malware-analysis": "via-compose",
+      "supply-chain-security": "partial",
+      "site-clone": "partial",
+      "reverse": "partial"
+    },
     "patch-apply": {
       "web-pentest": "partial",
       "pwn-crypto": "partial",
@@ -398,6 +411,19 @@
       "malware-analysis": "via-compose",
       "supply-chain-security": "via-compose",
       "site-clone": "via-compose",
+      "reverse": "partial"
+    },
+    "race-test": {
+      "web-pentest": "full",
+      "pwn-crypto": "partial",
+      "firmware-iot": "via-compose",
+      "ad-cloud": "partial",
+      "protocol-plugin": "partial",
+      "plugin-targets": "partial",
+      "forensics-mobile": "via-compose",
+      "malware-analysis": "via-compose",
+      "supply-chain-security": "partial",
+      "site-clone": "partial",
       "reverse": "partial"
     },
     "reachability": {

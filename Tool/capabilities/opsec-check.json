@@ -1,0 +1,41 @@
+{
+  "id": "opsec-check",
+  "title": "会话 OPSEC 判据（会话有效/指纹稳定/节奏/TLS/H2 头序）",
+  "domain": "web-pentest",
+  "triggers": [
+    "会话有效性",
+    "指纹一致",
+    "请求节奏",
+    "限速判据",
+    "JA4 校验",
+    "HTTP2 头序",
+    "opsec check"
+  ],
+  "aliases": [
+    "opsec-check",
+    "opsec",
+    "会话判据"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "session.json（requests[] + claimed + limits）",
+    "opsec.json 里的速率/窗口上限"
+  ],
+  "outputs": [
+    "opsec.json（verdicts.session_valid / fp_stable / pacing_ok / tls_match / h2_order_match）",
+    "blocked_at + next_action"
+  ],
+  "scripts": [
+    "Tool/skill/signin-automation/scripts/opsec-check.py"
+  ],
+  "refs": [
+    "Tool/skill/signin-automation/SKILL.md",
+    "Tool/skill/signin-automation/references/01-fingerprint-and-pacing.md"
+  ],
+  "maturity": "usable",
+  "reserved": true,
+  "compose": [
+    "session-pool",
+    "tls-fingerprint"
+  ]
+}
