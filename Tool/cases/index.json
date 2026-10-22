@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "4f42fbb9248fdb0fdeae71fb664bbefb4c2430761fbc49b7bfcddc2ed6f31751",
-  "case_count": 48,
+  "source_hash": "0b580aba530f87f532cacca6ec2cf6ed9c90da83e5eddcc5a75aa6e52bd19a7a",
+  "case_count": 51,
   "cases": [
     {
       "dir": "ad-cloud01",
@@ -1951,13 +1951,211 @@
         "cloudflare"
       ],
       "refs": [
-        "README.md",
-        "input/README.md",
-        "scripts/crawl.py",
-        "scripts/rebuild.py",
-        "scripts/replay_diff.py",
-        "artifacts/diff.json",
-        "artifacts/crawl/network.json"
+        "README.md"
+      ],
+      "updated": "2026-10-22"
+    },
+    {
+      "dir": "site-clone01",
+      "id": "site-clone01",
+      "domain": "site-clone",
+      "target_type": "真实 Next.js 静态导出站点 block.youtest.me（Cloudflare 前置，用户书面授权）",
+      "evidence_kind": "real",
+      "protection": [
+        "Cloudflare bot management",
+        "Next.js hydration",
+        "cross-origin api.youtest.me"
+      ],
+      "authority": "user-authorized",
+      "goal_level": "L3",
+      "outcome": "partial",
+      "artifacts": [
+        {
+          "path": "input/scope.txt",
+          "sha256": "f6e1d158056089f2017f01148adcf769aa70684168ade86c27fc9ef2f7e3b764"
+        },
+        {
+          "path": "artifacts/crawl/site-graph.json",
+          "sha256": "feb9bda42a07b3f613ce023ebe648ea73770b7cc2e5eaebf7674e82914372562"
+        },
+        {
+          "path": "artifacts/crawl/pages/root.html",
+          "sha256": "6575e55b3956325f5488b4a878093f07e1d077d6b3fa2e50210350e3b9947754"
+        },
+        {
+          "path": "artifacts/crawl/screenshots/root.png",
+          "sha256": "a98349d3e6bdfecae46ac0e4efcfc557b129f8bc104217b4443409b315d9c7ff"
+        },
+        {
+          "path": "artifacts/rebuild/rebuild.json",
+          "sha256": "fc3a38b3ab06237c2152d865b84840a46786ad63456b819d1a4c0908935207db"
+        },
+        {
+          "path": "artifacts/rebuild/har.json",
+          "sha256": "f944c5e0c1f6e125c0c96eed21d27b088b22d7b61b8f063f7210d6df3a2617c3"
+        },
+        {
+          "path": "artifacts/rebuild/screenshots/root.png",
+          "sha256": "485ed038cd0d3420e89e13c0f7408a31aca500dfbf72ca85004adfff767dc4ba"
+        },
+        {
+          "path": "artifacts/diff.json",
+          "sha256": "0f44d7542729d90a35987f36c4d6dbf4a918d1ec0cb3e6c8d7d3b566cc7b1234"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "实际抓取：python Tool/skill/site-clone/scripts/site-crawl.py --url https://block.youtest.me/ --out Tool/cases/site-clone01/artifacts/crawl --max-pages 20 --max-depth 3 --rps 2 --allow-host api.youtest.me，rc=0；route_universe=12、crawled=12、missing_rate=0.0，assets=141、api=7、external=14。",
+        "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；12 页落地、135 个同源资产、HAR 7 条、本地 404=0、外链=0、交互 11 条（冻结 DOM 模式）。",
+        "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；missing_rate=0.0、pixel raw_max=0.0282 / animated-masked=0.0040（SPA 阈值 0.03）、DOM min=1.000、404=0、外链=0、交互 9/10。",
+        "验收：python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01，status=PASS（6/6）；backend_required=9 条。",
+        "后端边界：/find、/player/completed、/player/name、/player/playing、/user/creating、/user/scoreboard、/user/scoreboard/answers、/user/share 需要用户/测验会话状态，线上会 302 到 /?error=...；api.youtest.me/info/country 为跨域 API，只能回放录制快照。登录、创建测验、答题提交、计分、分享/榜单均未复刻。",
+        "失败判据：把静态冻结 DOM 当作可写后端、用 HAR 回放冒充真实提交、或在 Cloudflare 拦截页上继续加重试，都会把 PARTIAL 误写成 PASS。"
+      ],
+      "tags": [
+        "site-clone",
+        "nextjs",
+        "cloudflare",
+        "spa",
+        "har",
+        "dom-freeze",
+        "partial"
+      ],
+      "refs": [
+        "Tool/skill/site-clone/SKILL.md",
+        "Tool/skill/site-clone/references/01-criteria.md",
+        "Tool/skill/site-clone/references/02-failure-criteria.md",
+        "Tool/skill/site-clone/references/03-model-pitfalls.md",
+        "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
+        "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+        "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+        "Tool/config/site-clone-matrix.json",
+        "Tool/skill/site-clone/references/07-auth-and-backend-boundary.md",
+        "Tool/mcp/Tool/reverselab/kb/site-clone/techniques/06-failure-criteria.md"
+      ],
+      "updated": "2026-10-22"
+    },
+    {
+      "dir": "site-clone02",
+      "id": "site-clone02",
+      "domain": "site-clone",
+      "target_type": "公开静态单页 https://example.com（IANA Example Domain）",
+      "evidence_kind": "real",
+      "protection": [],
+      "authority": "public read-only",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "input/scope.txt",
+          "sha256": "ad1e202bb9f9507cda9c035497c375af5d66eb8c5b6d46f9af4896da882483f6"
+        },
+        {
+          "path": "artifacts/crawl/site-graph.json",
+          "sha256": "6e900b0573d69d14d6dc1d73bea59651fda8caaf92c217fda4cdc703e94fc51b"
+        },
+        {
+          "path": "artifacts/crawl/pages/root.html",
+          "sha256": "4827fcf413a703d735933f5e10110865f46dfd313cd4a24efc9d2f3f04790d9a"
+        },
+        {
+          "path": "artifacts/crawl/screenshots/root.png",
+          "sha256": "c27076a2d6b45a734d89f6f066cac4b2c2902963cefa669d87882d432733584f"
+        },
+        {
+          "path": "artifacts/rebuild/rebuild.json",
+          "sha256": "22ee7b0ccf52b1463d4608b939aa322034513fd5146a5972dbf0d2fcec940f54"
+        },
+        {
+          "path": "artifacts/rebuild/screenshots/root.png",
+          "sha256": "c27076a2d6b45a734d89f6f066cac4b2c2902963cefa669d87882d432733584f"
+        },
+        {
+          "path": "artifacts/diff.json",
+          "sha256": "1dd6cc29a7ec161924e24e09b019356e33b18c24ecfb55eb5bbdfcd4703ce8dd"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "实际抓取：python Tool/skill/site-clone/scripts/site-crawl.py --url https://example.com/ --out Tool/cases/site-clone02/artifacts/crawl --max-pages 5 --max-depth 2 --rps 2，rc=0；1 路由、1 资产、missing_rate=0.0。",
+        "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 2，rc=0；1 页、本地 404=0、外链=0。",
+        "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；pixel=0.0、DOM=1.0、missing_rate=0.0、交互 8/8，status=PASS。",
+        "边界：example.com 是单页静态文档，没有 JS/API/登录；本案例证明静态站可 1:1，不代表 SPA 或登录站可 1:1。",
+        "失败判据：把静态单页的 0.0 像素差当成所有站点可达，或忽略外链 iana.org 被本地阻断的事实。"
+      ],
+      "tags": [
+        "site-clone",
+        "static",
+        "example.com",
+        "1to1",
+        "pass"
+      ],
+      "refs": [
+        "Tool/skill/site-clone/SKILL.md",
+        "Tool/skill/site-clone/references/01-criteria.md",
+        "Tool/skill/site-clone/references/02-failure-criteria.md",
+        "Tool/skill/site-clone/references/03-model-pitfalls.md",
+        "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
+        "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+        "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+        "Tool/config/site-clone-matrix.json",
+        "Tool/skill/site-clone/references/05-static-mirror-limits.md"
+      ],
+      "updated": "2026-10-22"
+    },
+    {
+      "dir": "site-clone03",
+      "id": "site-clone03",
+      "domain": "site-clone",
+      "target_type": "本地两页 HTML/CSS/SVG 夹具（python http.server 回环，site-clone 验收夹具）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "local fixture",
+      "goal_level": "L2",
+      "outcome": "success",
+      "artifacts": [
+        {
+          "path": "input/scope.txt",
+          "sha256": "b441a020a4c0f0ce30efb109e6926f2b679b4f76f0858eb2c50610240d9e8a1e"
+        },
+        {
+          "path": "artifacts/crawl/site-graph.json",
+          "sha256": "8596497b8b54de5fc40a9157e9d05ceaf44e638164033a37a0738825f293deba"
+        },
+        {
+          "path": "artifacts/rebuild/rebuild.json",
+          "sha256": "89860b13907172212b9ab0f7372fd9924b0fd0501b8349f36e6ba2a09a96a626"
+        },
+        {
+          "path": "artifacts/diff.json",
+          "sha256": "9556e3c2ee25b56fa151be0187003652bb2b4e39fbad68f388f87c2ff64cbe30"
+        }
+      ],
+      "repro": "",
+      "lessons": [
+        "实际抓取：在夹具目录执行 python -m http.server 18766 --bind 127.0.0.1；另开终端 python Tool/skill/site-clone/scripts/site-crawl.py --url http://127.0.0.1:18766/ --out .../artifacts/crawl --max-pages 5 --max-depth 2 --rps 20，rc=0；3 路由、3 资产、missing_rate=0.0。",
+        "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；3 页、本地 404=0、外链=0、交互 9 条。",
+        "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；pixel=0.0、DOM=1.0、missing_rate=0.0、交互 9/9，status=PASS。",
+        "夹具用途：给 site-accept.py --self-test 之外提供一条真实脚本链（crawl→rebuild→diff→accept）的离线回归样本；不依赖外网和 Playwright 下载。",
+        "失败判据：把夹具结果当真实站点结论，或用 127.0.0.1 夹具证明 Cloudflare/登录态/后端逻辑可复刻。"
+      ],
+      "tags": [
+        "site-clone",
+        "fixture",
+        "offline",
+        "loopback",
+        "pass"
+      ],
+      "refs": [
+        "Tool/skill/site-clone/SKILL.md",
+        "Tool/skill/site-clone/references/01-criteria.md",
+        "Tool/skill/site-clone/references/02-failure-criteria.md",
+        "Tool/skill/site-clone/references/03-model-pitfalls.md",
+        "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
+        "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+        "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+        "Tool/config/site-clone-matrix.json",
+        "Tool/mcp/Tool/reverselab/kb/site-clone/techniques/01-static-mirror-boundary.md"
       ],
       "updated": "2026-10-22"
     },

@@ -52,16 +52,6 @@
           "note": "先落 playbook：qinglong-signin / multi-account-runner"
         }
       ]
-    },
-    "R35": {
-      "label": "网站 1:1 复刻",
-      "skill": "softseep/SKILL.md",
-      "keywords": [
-        {
-          "must": "(?i)(1:1\\s*复刻|复刻(?:这个)?(?:网站|站点)|扒站|整站下载|离线副本|像素对比|镜像站点)",
-          "note": "先落 playbook：site-clone-1to1"
-        }
-      ]
     }
   },
   "priority_hint": {

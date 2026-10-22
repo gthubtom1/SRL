@@ -10,7 +10,7 @@
 
 | 集合 | 域 | 深度条款 |
 | :-- | :-- | :-- |
-| 十域（重点） | `web-pentest` `pwn-crypto` `firmware-iot` `ad-cloud` `protocol-plugin` `plugin-targets` `forensics-mobile` `malware-analysis` `supply-chain-security` `reverse`（= `softseep`） | §1–§8 全部 |
+| 十域（重点） | `web-pentest` `pwn-crypto` `firmware-iot` `ad-cloud` `protocol-plugin` `plugin-targets` `forensics-mobile` `malware-analysis` `supply-chain-security` `site-clone` `reverse`（= `softseep`） | §1–§8 全部 |
 | 其它技能 | `apkseep` `unpack-loop` `binary-diff` `ida-reverse` `llm-security` … | 仅 §7 链接图 + §6 单篇 ≤400 行 |
 
 **逆向域同契约**：`reverse` 与其它十域一样执行 §1–§8（3–5 案例 / 6–10 篇 KB）。
