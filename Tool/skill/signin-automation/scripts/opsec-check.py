@@ -1,0 +1,397 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""opsec-check.py -- 把一次账号任务的会话日志压成五条可机检判据的结论。
+
+判据（与 SKILL.md §3 判据表逐条对应）：
+    1. session_valid    cookie 复用后接口返回 200 且响应含用户标识
+    2. fp_stable        同一会话内 UA/时区/语言/字体集/WebGL/屏幕/硬件并发数/WebRTC 不变
+    3. pacing_ok        连续 N 次窗口 rps <= 上限，且窗口内 0 个 429、0 个滑块挑战
+    4. tls_match        会话内 JA3/JA4 唯一，且与声称的浏览器/JA4 前缀一致
+    5. h2_order_match   HTTP/2 伪头顺序唯一，且与声称的浏览器一致
+
+只读本地日志：不联网、不发请求、不读 cookie 明文（日志里只保留 `has_user_marker`）。
+
+输入（session.json）:
+    {
+      "claimed": {
+        "browser": "chrome",
+        "ja4_prefix": ["t13d1516h2"],
+        "h2_pseudo_order": [":method", ":authority", ":scheme", ":path"]
+      },
+      "limits": {"max_rps": 2.0, "window": 5},
+      "requests": [
+        {"ts": 0.0, "status": 200, "cookie_reuse": true, "has_user_marker": true,
+         "ua": "...Chrome/124...", "timezone": "Asia/Shanghai", "locale": "zh-CN",
+         "fonts_hash": "sha256:ab12", "webgl_vendor": "Google Inc.",
+         "screen": "1920x1080", "hardware_concurrency": 8,
+         "webrtc_ip": "203.0.113.9", "ja3": "cd08e31494f9531f560d64c695473da9",
+         "ja4": "t13d1516h2_8daaf6152771_02713d6af862",
+         "h2_pseudo_order": [":method", ":authority", ":scheme", ":path"]}
+      ]
+    }
+
+用法:
+    python Tool/skill/signin-automation/scripts/opsec-check.py --session session.json
+    python Tool/skill/signin-automation/scripts/opsec-check.py --session s.json --json --out p.json
+    python Tool/skill/signin-automation/scripts/opsec-check.py --self-test
+
+退出码：0 五条全过；3 全过但有 at-risk 警告（如间隔方差过小）；2 结构化失败
+（`{"ok": false, "blocked_at": ..., "reason": ...}`）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import statistics
+import sys
+
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
+
+SCHEMA = "seep.opsec-check/1"
+
+# 同一会话内必须恒定的指纹面（缺字段不算变，但也不算证据）。
+FP_FIELDS = ("ua", "ch_platform", "timezone", "locale", "fonts_hash",
+             "webgl_vendor", "webgl_renderer", "screen",
+             "hardware_concurrency", "device_memory", "webrtc_ip")
+
+# 浏览器 → HTTP/2 伪头顺序（来源：tls/HTTP2 指纹公开资料，见 references/01）。
+H2_ORDERS = {
+    "chrome": [":method", ":authority", ":scheme", ":path"],
+    "edge": [":method", ":authority", ":scheme", ":path"],
+    "firefox": [":method", ":path", ":authority", ":scheme"],
+    "safari": [":method", ":scheme", ":authority", ":path"],
+    "okhttp": [":method", ":path", ":authority", ":scheme"],
+}
+
+# 间隔变异系数下限：低于此值说明是固定 sleep，不是人。
+CV_FLOOR = 0.05
+
+
+def fail(blocked_at: str, reason: str, code: int = 2) -> int:
+    print(json.dumps({"ok": False, "blocked_at": blocked_at, "reason": reason},
+                     ensure_ascii=False))
+    return code
+
+
+def _as_float(value, default=0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _uniq(values) -> list:
+    seen, out = set(), []
+    for v in values:
+        key = json.dumps(v, ensure_ascii=False, sort_keys=True)
+        if key not in seen:
+            seen.add(key)
+            out.append(v)
+    return out
+
+
+def check_session(requests: list) -> dict:
+    """判据 1：cookie 复用 → 200 → 响应含用户标识。"""
+    reused = [r for r in requests if r.get("cookie_reuse")]
+    if not reused:
+        return {"pass": False, "detail": "没有任何 cookie 复用请求：拿不到会话有效性证据",
+                "next": "先登录一次拿 cookie，再用同一 cookie 复访一次接口"}
+    hits = [r for r in reused if int(_as_float(r.get("status"), 0)) == 200
+            and r.get("has_user_marker")]
+    statuses = [int(_as_float(r.get("status"), 0)) for r in reused]
+    if hits:
+        return {"pass": True, "reused_requests": len(reused),
+                "detail": "cookie 复用后 200 且含用户标识（%d/%d）" % (len(hits), len(reused)),
+                "next": "入池轮转"}
+    return {"pass": False, "reused_requests": len(reused), "statuses": statuses,
+            "detail": "cookie 复用请求存在但没有一次同时满足 200 + 用户标识："
+                      "可能是 200 的登录页/空 JSON 壳",
+            "next": "换 cookie 获取方式或重抓登录链，不要把它当有效会话"}
+
+
+def check_fingerprint(requests: list) -> dict:
+    """判据 2：同一会话的指纹面不得漂移。"""
+    drift, evidence, missing = {}, {}, []
+    for field in FP_FIELDS:
+        values = _uniq([r.get(field) for r in requests if r.get(field) not in (None, "")])
+        if not values:
+            missing.append(field)
+            continue
+        evidence[field] = values if len(values) > 1 else values[0]
+        if len(values) > 1:
+            drift[field] = values
+    if not evidence:
+        return {"pass": False, "detail": "日志里没有任何指纹字段，无法判定一致性",
+                "next": "把 deviceandbrowserinfo 一类回显结果按请求落到 session.json"}
+    if drift:
+        return {"pass": False, "drift": drift,
+                "detail": "同一会话内指纹漂移：%s" % "、".join(sorted(drift)),
+                "next": "固定 profile（同一 fingerprint seed）+ 同一出口 IP，重跑整段"}
+    return {"pass": True, "evidence": evidence, "missing_fields": missing,
+            "detail": "%d 个指纹面在 %d 次请求内一致" % (len(evidence), len(requests)),
+            "next": "继续"}
+
+
+def check_pacing(requests: list, max_rps: float, window: int) -> dict:
+    """判据 3：滑动窗口 rps 上限 + 0 个 429/滑块 + 间隔不能像固定 sleep。"""
+    stamps = sorted(_as_float(r.get("ts")) for r in requests)
+    window = max(2, int(window or 5))
+    worst, worst_span = 0.0, None
+    for i in range(0, max(len(stamps) - window + 1, 0)):
+        span = stamps[i + window - 1] - stamps[i]
+        if span <= 0:
+            rps = float("inf")
+        else:
+            rps = (window - 1) / span
+        if rps > worst:
+            worst, worst_span = rps, [stamps[i], stamps[i + window - 1]]
+    gaps = [b - a for a, b in zip(stamps, stamps[1:])]
+    cv = None
+    if len(gaps) >= 3 and statistics.mean(gaps) > 0:
+        cv = round(statistics.pstdev(gaps) / statistics.mean(gaps), 4)
+    codes = [int(_as_float(r.get("status"), 0)) for r in requests]
+    n429 = sum(1 for c in codes if c == 429)
+    challenges = [r for r in requests if r.get("challenge")]
+    slider = [c for c in challenges if str(c.get("challenge")).lower() in
+              ("slider", "geetest", "puzzle", "rotate", "turnstile")]
+    base = {"window": window, "max_window_rps": round(worst, 3) if worst != float("inf") else None,
+            "window_span": worst_span, "gap_cv": cv, "status_429": n429,
+            "challenges": len(challenges), "slider_challenges": len(slider)}
+    if n429 or slider:
+        return dict(base, **{"pass": False,
+                             "detail": "窗口内出现 429×%d / 滑块×%d：节奏已触发风控"
+                                       % (n429, len(slider)),
+                             "next": "降到 max_rps 的一半并串行；连续两次仍触发就换出口/改时段"})
+    if worst > max_rps:
+        return dict(base, **{"pass": False,
+                             "detail": "最坏窗口 %.2f rps 超过上限 %.2f" % (worst, max_rps),
+                             "next": "按 --max-rps 重新排期，或把窗口放大后复查"})
+    warn = []
+    if cv is not None and cv < CV_FLOOR:
+        warn.append("间隔变异系数 %.3f < %.2f（像固定 sleep）" % (cv, CV_FLOOR))
+    if worst_span and worst_span[1] - worst_span[0] <= 0:
+        warn.append("多个请求同一时间戳（并发打满）")
+    detail = "最坏窗口 %.2f rps ≤ %.2f，0 个 429、0 个滑块" % (worst, max_rps)
+    return dict(base, **{"pass": True, "warnings": warn, "detail": detail,
+                         "next": "维持；warnings 非空时把间隔改成对数正态分布"})
+
+
+def check_tls(requests: list, claimed: dict) -> dict:
+    """判据 4：JA3/JA4 会话内唯一，且与声称的浏览器前缀一致。"""
+    ja3 = _uniq([r.get("ja3") for r in requests if r.get("ja3")])
+    ja4 = _uniq([r.get("ja4") for r in requests if r.get("ja4")])
+    if not ja3 and not ja4:
+        return {"pass": False, "detail": "日志里没有 JA3/JA4：TLS 指纹未测量",
+                "next": "用 tls.peet.ws/api/all 一类只读回显端点抓一次，再落到 session.json"}
+    if len(ja3) > 1 or len(ja4) > 1:
+        return {"pass": False, "ja3": ja3, "ja4": ja4,
+                "detail": "同一会话出现多种 TLS 指纹：说明有多条客户端/代理在混用",
+                "next": "把 curl_cffi impersonate 档位固定死，代理侧 TLS 终止要关掉"}
+    prefixes = [p for p in (claimed.get("ja4_prefix") or []) if p]
+    if prefixes and ja4 and not any(str(ja4[0]).startswith(p) for p in prefixes):
+        return {"pass": False, "ja4": ja4[0], "expected_prefix": prefixes,
+                "detail": "JA4 %s 与声称的浏览器前缀不匹配" % ja4[0],
+                "next": "换 impersonate 档位（见 tls-fingerprint.py --client）再抓一次"}
+    return {"pass": True, "ja3": ja3[0] if ja3 else None, "ja4": ja4[0] if ja4 else None,
+            "detail": "TLS 指纹会话内唯一" + ("且前缀匹配" if prefixes else "（未给前缀基线）"),
+            "next": "继续"}
+
+
+def check_h2(requests: list, claimed: dict) -> dict:
+    """判据 5：HTTP/2 伪头顺序唯一，且与声称的浏览器一致。"""
+    orders = _uniq([list(r.get("h2_pseudo_order") or []) for r in requests
+                    if r.get("h2_pseudo_order")])
+    if not orders:
+        return {"pass": False, "detail": "日志里没有 h2_pseudo_order：伪头顺序未测量",
+                "next": "抓一次 HTTP/2 请求（h2spec/nghttp2 回显或 tls.peet.ws）再落盘"}
+    if len(orders) > 1:
+        return {"pass": False, "orders": orders,
+                "detail": "同一会话出现多种伪头顺序",
+                "next": "库层统一（curl_cffi 的 impersonate 自带顺序），不要手拼 header"}
+    expect = [str(x).lower() for x in (claimed.get("h2_pseudo_order") or [])]
+    browser = str(claimed.get("browser") or "").lower()
+    if not expect and browser in H2_ORDERS:
+        expect = H2_ORDERS[browser]
+    actual = [str(x).lower() for x in orders[0]]
+    if expect and actual != [str(x).lower() for x in expect]:
+        return {"pass": False, "actual": actual, "expected": expect,
+                "detail": "伪头顺序 %s 与声称的 %s 不一致" % (actual, browser or "基线"),
+                "next": "换与 UA 同族的客户端档位；顺序由库决定，手拼无效"}
+    return {"pass": True, "order": actual,
+            "detail": "伪头顺序唯一" + ("且与 %s 一致" % browser if browser else ""),
+            "next": "继续"}
+
+
+def evaluate(payload: dict) -> tuple:
+    if not isinstance(payload, dict):
+        return 2, {"ok": False, "blocked_at": "input", "reason": "session.json 顶层必须是对象"}
+    requests = payload.get("requests")
+    if not isinstance(requests, list) or not requests:
+        return 2, {"ok": False, "blocked_at": "input", "reason": "requests[] 必须是非空数组"}
+    claimed = payload.get("claimed") or {}
+    limits = payload.get("limits") or {}
+    max_rps = _as_float(limits.get("max_rps"), 2.0)
+    window = int(_as_float(limits.get("window"), 5))
+    verdicts = {
+        "session_valid": check_session(requests),
+        "fp_stable": check_fingerprint(requests),
+        "pacing_ok": check_pacing(requests, max_rps, window),
+        "tls_match": check_tls(requests, claimed),
+        "h2_order_match": check_h2(requests, claimed),
+    }
+    failed = [k for k, v in verdicts.items() if not v["pass"]]
+    warnings = [w for v in verdicts.values() for w in (v.get("warnings") or [])]
+    next_action = None
+    for key in ("pacing_ok", "session_valid", "fp_stable", "tls_match", "h2_order_match"):
+        if not verdicts[key]["pass"]:
+            next_action = verdicts[key]["next"]
+            break
+    code = 2 if failed else (3 if warnings else 0)
+    out = {
+        "ok": not failed,
+        "schema": SCHEMA,
+        "network_requests": 0,
+        "verdicts": verdicts,
+        "failed": failed,
+        "warnings": warnings,
+        "blocked_at": None if not failed else (
+            "rate-limit" if "pacing_ok" in failed else failed[0]),
+        "next_action": next_action,
+        "detail": "五条判据：" + ("全过" if not failed else "未过 " + "、".join(failed)),
+    }
+    return code, out
+
+
+def _fixture_ok() -> dict:
+    order = H2_ORDERS["chrome"]
+    base = {"ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0",
+            "timezone": "Asia/Shanghai", "locale": "zh-CN", "fonts_hash": "sha256:ab12",
+            "webgl_vendor": "Google Inc.", "webgl_renderer": "ANGLE (NVIDIA)",
+            "screen": "1920x1080", "hardware_concurrency": 8, "device_memory": 8,
+            "webrtc_ip": "203.0.113.9", "ja3": "cd08e31494f9531f560d64c695473da9",
+            "ja4": "t13d1516h2_8daaf6152771_02713d6af862",
+            "h2_pseudo_order": order, "cookie_reuse": True, "has_user_marker": True}
+    gaps = [0.0, 2.42, 5.13, 7.44, 10.31, 12.77, 15.68, 18.02]
+    requests = []
+    for i, ts in enumerate(gaps):
+        row = dict(base, ts=ts, status=200, challenge=None)
+        requests.append(row)
+    return {"claimed": {"browser": "chrome", "ja4_prefix": ["t13d1516h2"],
+                        "h2_pseudo_order": order},
+            "limits": {"max_rps": 2.0, "window": 5},
+            "requests": requests}
+
+
+def self_test() -> int:
+    checks = []
+
+    def ok(label, condition):
+        checks.append((bool(condition), label))
+
+    code, out = evaluate(_fixture_ok())
+    ok("good fixture rc=0", code == 0)
+    ok("good fixture ok", out["ok"] is True)
+    ok("five verdicts present", len(out["verdicts"]) == 5)
+
+    # 负向 1：429 → 节奏判失败
+    bad = _fixture_ok()
+    bad["requests"][3]["status"] = 429
+    code, out = evaluate(bad)
+    ok("429 -> rc=2", code == 2)
+    ok("429 -> blocked_at rate-limit", out["blocked_at"] == "rate-limit")
+
+    # 负向 2：UA 漂移 → 指纹失败
+    bad = _fixture_ok()
+    bad["requests"][2]["ua"] = "Mozilla/5.0 (X11; Linux x86_64) Firefox/144.0"
+    code, out = evaluate(bad)
+    ok("ua drift -> rc=2", code == 2 and not out["verdicts"]["fp_stable"]["pass"])
+
+    # 负向 3：伪头顺序与声称浏览器不符
+    bad = _fixture_ok()
+    bad["claimed"]["h2_pseudo_order"] = H2_ORDERS["firefox"]
+    code, out = evaluate(bad)
+    ok("h2 order mismatch -> rc=2", code == 2 and not out["verdicts"]["h2_order_match"]["pass"])
+
+    # 负向 4：JA4 前缀不匹配
+    bad = _fixture_ok()
+    bad["claimed"]["ja4_prefix"] = ["t13d1715h2"]
+    code, out = evaluate(bad)
+    ok("ja4 prefix mismatch -> rc=2", code == 2 and not out["verdicts"]["tls_match"]["pass"])
+
+    # 负向 5：无 cookie 复用 → 会话无效
+    bad = _fixture_ok()
+    for row in bad["requests"]:
+        row["cookie_reuse"] = False
+    code, out = evaluate(bad)
+    ok("no cookie reuse -> rc=2", code == 2 and not out["verdicts"]["session_valid"]["pass"])
+
+    # 负向 6：间隔完全固定 → at-risk rc=3
+    fixed = _fixture_ok()
+    for i, row in enumerate(fixed["requests"]):
+        row["ts"] = round(i * 1.0, 3)
+    code, out = evaluate(fixed)
+    ok("fixed interval -> rc=3", code == 3 and out["warnings"])
+
+    # 负向 7：空 requests → 结构化失败
+    code, out = evaluate({"requests": []})
+    ok("empty requests -> rc=2", code == 2 and out["ok"] is False)
+
+    # 负向 8：窗口内超速率上限
+    fast = _fixture_ok()
+    for i, row in enumerate(fast["requests"]):
+        row["ts"] = i * 0.1
+    code, out = evaluate(fast)
+    ok("over rate limit -> rc=2", code == 2 and not out["verdicts"]["pacing_ok"]["pass"])
+
+    bad_checks = [label for passed, label in checks if not passed]
+    if bad_checks:
+        return fail("self-test", "assertion failed: %s" % "；".join(bad_checks))
+    print(json.dumps({"ok": True, "checks": len(checks), "tool": "opsec-check.py",
+                      "criteria": ["session_valid", "fp_stable", "pacing_ok",
+                                   "tls_match", "h2_order_match"]}, ensure_ascii=False))
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="会话日志 → 五条 OPSEC 判据（会话有效/指纹稳定/节奏/ TLS 指纹 /H2 头序），离线")
+    ap.add_argument("--session", metavar="PATH", help="session.json（requests[] + claimed）")
+    ap.add_argument("--json", action="store_true", help="紧凑单行 JSON（默认缩进）")
+    ap.add_argument("--out", metavar="PATH", help="把结论写入文件（自动建父目录）")
+    ap.add_argument("--self-test", action="store_true", help="内置正负样本离线自测")
+    args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
+    if not args.session:
+        ap.print_help()
+        return 2
+    if not os.path.isfile(args.session):
+        return fail("input", "找不到 session.json: %s" % args.session)
+    try:
+        with open(args.session, encoding="utf-8") as fh:
+            payload = json.load(fh)
+    except (OSError, ValueError) as exc:
+        return fail("input", "session.json 读不出或不是 JSON: %s" % str(exc)[:120])
+
+    code, out = evaluate(payload)
+    text = json.dumps(out, ensure_ascii=False,
+                      **({} if args.json else {"indent": 2}))
+    print(text)
+    if args.out:
+        parent = os.path.dirname(os.path.abspath(args.out))
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent, exist_ok=True)
+        with open(args.out, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps(out, ensure_ascii=False, indent=2) + "\n")
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
