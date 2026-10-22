@@ -29,3 +29,12 @@
 | D16 | 11 个存量脚本失败路径 rc 不统一（裸 Traceback / rc=1 纯文本） | 该脚本所在域下次实跑时统一为 `{ok:false,blocked_at,reason}` + rc=2 |
 | D17 | `domain-gate --mutation-test` 未注入 `generated_at` 反例 | 下次改 domain-gate 时补第 5 类注入 |
 | D18 | `lessons` 只校验命令文本、不执行 | 需要沙箱重放该案例时补执行态 |
+
+## v1.26.1 新增台账（Pentest 库吸收 + 无线近场）
+
+| id | 延迟项 | 现状 / 触发条件 |
+| :-- | :-- | :-- |
+| D20 | `offensive-*` 79 篇（SnailSploit 上游 / UNKNOWN 许可）未归档索引 | 已定档「只索引正文、不进树」（见 `docs/UPSTREAM.md` §6.3）；触发条件：需要某篇具体命令时按篇重写 |
+| D21 | 无线近场未独立成域（当前挂 `firmware-iot` 的 `hardware-interfaces.md` 无线章 + 路由 R22） | 硬件探针（monitor 网卡 / BLE / 802.15.4 / sub-GHz）未纳入 `probe_matrix.py`；触发条件：连续 3 个无线案例稳定后升域 |
+| D22 | 竞态/时序只有判据与实验骨架，无 `race-probe.py` 脚本 | 需 HTTP/2 单包与账本读回的可复跑脚本；触发条件：出现第 2 个需要竞态验证的案例 |
+| D23 | OSINT 只有配方（`osint-recon`），无专用脚本（secret_scan / h1-ref 未重写） | 上游脚本无 `--help` / `--self-test`；触发条件：需要批量密钥扫描或 H1 公开报告检索时按规范重写 |

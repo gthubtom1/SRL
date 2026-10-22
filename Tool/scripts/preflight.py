@@ -805,6 +805,60 @@ def check_playbook_gate():
             "rc=%d ok=%r" % (rc, data.get("ok")) if not ok else "rc=0 ok=true")
 
 
+def check_mcp_contract():
+    """MCP 参数契约：路径别名 / required / description / 工具数基线（2026-10-22 审计 P0）。"""
+    sp = os.path.join(TOOL, "scripts", "mcp-param-contract.py")
+    if not os.path.isfile(sp):
+        add("14 MCP 契约", "路径参数别名 + 工具数基线", False, "mcp-param-contract.py(missing)")
+        return
+    rc, out = run([sys.executable, sp, "--json"], timeout=180)
+    data = {}
+    if "{" in (out or ""):
+        try:
+            data, _end = json.JSONDecoder().raw_decode((out or "")[out.index("{"):])
+        except (ValueError, TypeError):
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    ok = rc == 0 and data.get("ok") is True
+    detail = "rc=%d ok=%r" % (rc, data.get("ok"))
+    if not ok:
+        vs = data.get("violations") or []
+        detail = "%d 项违规：%s" % (len(vs), "; ".join(
+            "%s/%s" % (v.get("rule"), v.get("tool")) for v in vs[:4])) if vs else detail
+    else:
+        detail = "%d 个工具 / %d 个吃路径，全部支持 binary_path↔target_path 别名" % (
+            data.get("tool_count", 0), data.get("path_tool_count", 0))
+    add("14 MCP 契约", "路径参数别名 + 工具数基线", ok, detail)
+
+
+def check_skill_route():
+    """技能路由探针：30 条大白话必须落到对的技能（防 \\b 与 CJK 交界类静默误路由）。"""
+    sp = os.path.join(TOOL, "scripts", "skill-route-probe.py")
+    if not os.path.isfile(sp):
+        add("15 路由探针", "30 条大白话 → 技能命中", False, "skill-route-probe.py(missing)")
+        return
+    rc, out = run([sys.executable, sp, "--json"], timeout=600)
+    data = {}
+    if "{" in (out or ""):
+        try:
+            data, _end = json.JSONDecoder().raw_decode((out or "")[out.index("{"):])
+        except (ValueError, TypeError):
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    ok = rc == 0 and data.get("ok") is True
+    if ok:
+        detail = "%d 条探针全部命中（或本机无 PowerShell 已跳过）" % data.get("probes", 0)
+    else:
+        fs = data.get("fails") or []
+        detail = "%d/%d 失败：%s" % (
+            len(fs), data.get("probes", 0),
+            "; ".join("%s→%s" % (f.get("id"), f.get("skill")) for f in fs[:3])) if fs \
+            else "rc=%d ok=%r" % (rc, data.get("ok"))
+    add("15 路由探针", "30 条大白话 → 技能命中", ok, detail)
+
+
 def check_language():
     """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
     import re as _re
@@ -895,6 +949,8 @@ def main():
     check_domain_depth()
     check_v123_deliverables()
     check_playbook_gate()
+    check_mcp_contract()
+    check_skill_route()
     check_language()
     check_functional(args.fast)
 

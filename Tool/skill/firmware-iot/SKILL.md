@@ -205,7 +205,7 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 | `references/firmware-unpack.md` | 解包主参考：获取/容器/解包/仿真/交付清单 |
 | `references/filesystem-and-credentials.md` | rootfs 审计：账号、shadow、私钥/证书、启动链、服务入口 |
 | `references/emulation-and-fuzz.md` | qemu-user/system、FirmAE、NVRAM/`/dev` 桩、fuzz 接线 |
-| `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线 |
+| `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据 |
 
 矩阵：`Tool/config/firmware-iot-matrix.json`（14 条，match/criteria/fail/tools/pitfalls）。
 路由片段：`Tool/config/routing-fragments/firmware-iot.json`（词边界，避免抢 Web/APK 词）。

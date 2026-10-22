@@ -69,6 +69,73 @@ HOOK_TEMPLATES_DIR = os.path.join(SAFE_DIR, "hook-mcp", "templates")
 if os.path.isdir(R2_BIN_DIR) and R2_BIN_DIR not in os.environ.get("PATH", ""):
     os.environ["PATH"] = R2_BIN_DIR + os.pathsep + os.environ.get("PATH", "")
 
+
+# ---------------------------------------------------------------------------
+# 路径参数别名层（2026-10-22 审计 P0：工具间 target_path / binary_path 命名不一致
+# 曾导致模型在 184 次调用里改用 bash 手搓 strings/pefile）
+#
+# 契约：所有吃「一个文件/目录路径」的工具，必须同时接受
+#   binary_path / target_path / apk_path / file_path / sample_path /
+#   artifact_path / pcap_path / dir_path
+# 任一别名，值互通；schema 里全部可见，调用方不必猜。
+# ---------------------------------------------------------------------------
+_PATH_ALIAS_NAMES = (
+    "binary_path", "target_path", "apk_path", "file_path",
+    "sample_path", "artifact_path", "pcap_path", "dir_path",
+)
+
+
+def _path_alias(fn):
+    """给工具函数加「路径参数别名」能力（schema 可见 + 运行期归一）。"""
+    import functools as _ft
+    import inspect as _inspect
+
+    sig = _inspect.signature(fn)
+    primary = None
+    for name in sig.parameters:
+        if name.endswith("_path") or name == "directory" or name.startswith("file_"):
+            primary = name
+            break
+    if primary is None:
+        return fn
+
+    extras = [a for a in _PATH_ALIAS_NAMES if a not in sig.parameters]
+    # 全局转 keyword-only：主参数改成可选后，后面的必填位置参数（如 smali_search 的 pattern）
+    # 会触发 "non-default argument follows default argument"；而 keyword-only 组允许
+    # 「有默认值在前、无默认值在后」，且 MCP 客户端本来就按名字传参。
+    params = []
+    for name, p in sig.parameters.items():
+        default = p.default
+        if name == primary and default is _inspect.Parameter.empty:
+            default = ""
+        params.append(_inspect.Parameter(
+            name, _inspect.Parameter.KEYWORD_ONLY,
+            default=default, annotation=p.annotation,
+        ))
+    for a in extras:
+        params.append(_inspect.Parameter(a, _inspect.Parameter.KEYWORD_ONLY, default="", annotation=str))
+    new_sig = sig.replace(parameters=params)
+
+    @_ft.wraps(fn)
+    def wrapper(*args, **kwargs):
+        supplied = [(a, kwargs.pop(a)) for a in extras if kwargs.get(a)]
+        if supplied and not args and not kwargs.get(primary):
+            kwargs[primary] = supplied[0][1]
+        if not args and not kwargs.get(primary):
+            return (
+                f"[ERROR] {fn.__name__} 缺少路径参数："
+                f"{' / '.join([primary] + extras)} 任一即可（别名互通）"
+            )
+        return fn(*args, **kwargs)
+
+    wrapper.__signature__ = new_sig
+    wrapper.__annotations__ = {**getattr(fn, "__annotations__", {}), **{a: str for a in extras}}
+    wrapper.__doc__ = (
+        (fn.__doc__ or "")
+        + f"\n\n路径参数：{' / '.join([primary] + extras)} 等价，任选其一。"
+    )
+    return wrapper
+
 # ---------------------------------------------------------------------------
 # MCP Server 实例
 # ---------------------------------------------------------------------------
@@ -219,6 +286,7 @@ def seep_status() -> str:
 # 2. 二进制逆向分析工具 (Radare2 引擎)
 # ---------------------------------------------------------------------------
 @server.tool()
+@_path_alias
 def seep_r2_info(binary_path: str) -> str:
     """提取二进制文件 (PE/ELF/Mach-O) 的关键元信息：架构、位数、大小、大小端、编译器、语言以及关键安全防御机制 (Canary, NX, PIE, RELRO, ASLR)。
 
@@ -234,6 +302,7 @@ def seep_r2_info(binary_path: str) -> str:
     return _clean_r2_output(out)
 
 @server.tool()
+@_path_alias
 def seep_r2_cmd(binary_path: str, command: str, analyze: bool = True) -> str:
     """在目标二进制文件上执行任意 radare2 命令。
 
@@ -259,6 +328,7 @@ def seep_r2_cmd(binary_path: str, command: str, analyze: bool = True) -> str:
     return _clean_r2_output(out)
 
 @server.tool()
+@_path_alias
 def seep_r2_strings(binary_path: str, filter_text: Optional[str] = None, all_sections: bool = False, limit: int = 100) -> str:
     """从二进制文件中提取字符串（包含数据段或全段字符串），支持关键词过滤。
 
@@ -290,6 +360,7 @@ def seep_r2_strings(binary_path: str, filter_text: Optional[str] = None, all_sec
         return "\n".join(result)
 
 @server.tool()
+@_path_alias
 def seep_r2_functions(binary_path: str, filter_name: Optional[str] = None, limit: int = 100) -> str:
     """列出二进制文件的函数列表、入口点与导入导出符号。
 
@@ -322,6 +393,7 @@ def seep_r2_functions(binary_path: str, filter_name: Optional[str] = None, limit
         return "\n".join(res)
 
 @server.tool()
+@_path_alias
 def seep_r2_disasm(
     binary_path: str,
     target: str = "main",
@@ -398,6 +470,7 @@ def seep_r2_disasm(
     return result or "[Disassembly empty or symbol not found]"
 
 @server.tool()
+@_path_alias
 def seep_r2_decompile(
     binary_path: str,
     target: str = "main",
@@ -463,6 +536,7 @@ def seep_r2_decompile(
     return result or "[Decompile output empty]"
 
 @server.tool()
+@_path_alias
 def seep_r2_diff(file_a: str, file_b: str, mode: str = "code") -> str:
     """使用 radiff2 比对两个二进制文件的差异。
 
@@ -509,6 +583,7 @@ def seep_r2_asm(code_or_hex: str, arch: str = "x86", bits: int = 64, disasm: boo
 # 3. Android APK 逆向与动态 Hook 生成
 # ---------------------------------------------------------------------------
 @server.tool()
+@_path_alias
 def seep_r2_xrefs(
     binary_path: str,
     target: str,
@@ -546,6 +621,7 @@ def seep_r2_xrefs(
 
     return "\n".join(result_lines)
 @server.tool()
+@_path_alias
 def seep_apk_info(apk_path: str) -> str:
     """原生解析 APK 压缩包结构：统计 DEX 文件、Native .so 架构动态库、资源分布，并提取 AndroidManifest.xml 关键字符串（免 Java 环境）。
 
@@ -594,6 +670,7 @@ def seep_apk_info(apk_path: str) -> str:
         return f"[ERROR]: Failed to parse APK zip: {str(e)}"
 
 @server.tool()
+@_path_alias
 def seep_apk_decompile(apk_path: str, output_dir: Optional[str] = None, deobfuscate: bool = True) -> str:
     """使用内置 JADX 反编译器将 APK 或 DEX 文件全量反编译为 Java 源码工程。
 
@@ -624,6 +701,7 @@ def seep_apk_decompile(apk_path: str, output_dir: Optional[str] = None, deobfusc
     return f"Decompilation finished.\nOutput directory: {output_dir}\nLog: {out[:500]}..."
 
 @server.tool()
+@_path_alias
 def seep_apk_unpack(apk_path: str, output_dir: Optional[str] = None, no_src: bool = False) -> str:
     """使用内置 Apktool 解包 APK 资源文件、清晰明文 AndroidManifest.xml 以及 Smali 汇编代码。
 
@@ -652,6 +730,7 @@ def seep_apk_unpack(apk_path: str, output_dir: Optional[str] = None, no_src: boo
     return f"Apktool unpack finished.\nOutput directory: {output_dir}\nLog: {out[:500]}..."
 
 @server.tool()
+@_path_alias
 def seep_apk_smali_search(directory: str, pattern: str, case_sensitive: bool = False, limit: int = 50) -> str:
     """在解包后的 Smali 代码或源码目录中进行敏感词/签名/加解密密钥快速排查。
 
@@ -1144,7 +1223,36 @@ def _hash_file(path: str, chunk: int = 1 << 20):
     return md5.hexdigest(), sha256.hexdigest()
 
 
+def _triage_next_actions(matched: List[Dict[str, Any]], bin_info: Dict[str, Any], task_name: Optional[str]) -> List[str]:
+    """按实测命中生成下一步动作（不再是无条件硬编码文案）。"""
+    actions: List[str] = []
+    if matched:
+        sample = str(matched[0].get("string", ""))[:40]
+        actions.append(
+            f"命中 {len(matched)} 条鉴权/密钥/网络关键词（首条：{sample}）；"
+            "下一步对命中 vaddr 做 xref，找判定分支（seep_r2_xrefs）"
+        )
+    else:
+        actions.append(
+            "未命中鉴权关键词：字符串可能被加密/压缩/壳化；先 seep_packer_detect 判壳，"
+            "再用 seep_r2_strings(all_sections=true) 全段重扫"
+        )
+    lang = str(bin_info.get("lang", "")).lower()
+    if lang in ("cil", "c#", "dotnet", "msil") or "msil" in lang:
+        actions.append("语言=CIL/.NET：dnSpy/ILSpy 看 IL，混淆先 de4dot，再看 license/trial 判定方法")
+    if not bin_info:
+        actions.append("rabin2 未能解析：文件可能截断/加壳/非标准格式，先确认完整性再继续")
+    actions.append(
+        "读决策逻辑：seep_decompile_auto(binary_path=…) 取伪代码；"
+        "要交付补丁：按 01-gate-bypass 四路线（补丁/代理 DLL/重打包/注入器）验证"
+    )
+    if task_name:
+        actions.append(f"报告目录：{task_name}/reports/（传 task_name 时自动落盘 triage.json）")
+    return actions
+
+
 @server.tool()
+@_path_alias
 def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     """
     一键全自动靶向侦察 (Auto Triage)：
@@ -1195,6 +1303,7 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
         except Exception:
             pass
 
+    _actions = _triage_next_actions(matched_strings, bin_info, task_name)
     triage_result = {
         "file_name": t_path.name,
         "file_size": f"{file_size / (1024 * 1024):.2f} MB",
@@ -1214,12 +1323,8 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
             "compiler": bin_info.get("compiler", "unknown")
         },
         "auth_related_strings_sampled": matched_strings[:15],
-        "recommended_action": (
-            "检测到高价值鉴权关键词与符号，建议下一步："
-            "1. 若存在 IDA 环境，直接使用 mcp_ida_get_function_by_name 或地址枚举决策分支；"
-            "2. 若为本地逻辑判定，使用 seep_apk_gen_hook 或生成免杀热补丁跳板验证；"
-            "3. 报告与验证代码请归档入对应任务的 reports/ 与 patches/。"
-        )
+        "next_actions": _actions,
+        "recommended_action": _actions[0],
     }
     
     if task_name:
@@ -1722,6 +1827,7 @@ def _ghidra_decompile(binary_path: str, target: str, output_mode: str = "fold") 
 
 
 @server.tool()
+@_path_alias
 def seep_decompile_auto(
     binary_path: str,
     target: str = "main",
@@ -1849,6 +1955,7 @@ def _sniff_container(b: bytes) -> str:
 
 
 @server.tool()
+@_path_alias
 def seep_pe_resources(binary_path: str, min_size: int = 4096, extract_dir: str = "", top: int = 20) -> str:
     """枚举 PE 资源节与高熵载荷，并对可疑资源做"魔数嗅探"，可选剥离到目录。
 
@@ -2060,6 +2167,7 @@ def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: in
 
 
 @server.tool()
+@_path_alias
 def seep_pcap_extract(pcap_path: str, host_filter: str = "", mode: str = "summary",
                       port: int = 0, max_rows: int = 40) -> str:
     """从 pcap/pcapng 提取通信端点、HTTP 请求/响应、以及可选端口/主机的 TCP 载荷。
@@ -2206,6 +2314,7 @@ def _read_pe_imports(path: str) -> list:
 
 
 @server.tool()
+@_path_alias
 def seep_packer_detect(binary_path: str) -> str:
     """加壳/反调试静态识别：判壳 + 反调试导入 + 反虚拟机字符串，并给出处置路由。
 

@@ -66,7 +66,7 @@
 
 ### `captcha-handling`（3 条）
 
-配方能力面：`repo:case_state` `repo:web-check` `repo:temp_ocr` `repo:run_probe` `repo:frida_rpc_serve` `repo:probe_api` `tool:frida` `tool:fiddler` `mcp:playwright`
+配方能力面：`repo:case_state` `repo:web-check` `repo:temp_ocr` `repo:captcha-gap` `repo:captcha-angle` `repo:run_probe` `repo:frida_rpc_serve` `repo:probe_api` `tool:frida` `tool:fiddler` `mcp:playwright`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -259,7 +259,7 @@
 
 ### `web-api-sign-reverse`（1 条）
 
-配方能力面：`repo:case_state` `repo:kb-query` `repo:web-check` `repo:web-repro` `repo:web-accept` `repo:probe_api` `tool:fiddler` `tool:tshark` `mcp:playwright`
+配方能力面：`repo:case_state` `repo:kb-query` `repo:web-check` `repo:web-repro` `repo:web-accept` `repo:probe_api` `tool:fiddler` `tool:tshark` `mcp:js-reverse`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |

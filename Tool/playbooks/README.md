@@ -24,7 +24,7 @@
 
 同一个配方只列真正会用到的能力；步骤里出现的脚本必须能在仓库内找到。
 
-## 索引（23 个）
+## 索引（24 个）
 
 ### 账号 / 定时任务
 
@@ -39,6 +39,7 @@
 
 | 配方 | 触发词 | 核心能力 |
 | :-- | :-- | :-- |
+| [osint-recon](osint-recon.md) | 情报收集、资产测绘、子域枚举、ASN、源站、代码泄露、人员画像 | `repo:kb-query` `repo:web-check` `repo:case_state` `tool:subfinder` `tool:httpx` |
 | [site-clone-1to1](site-clone-1to1.md) | 1:1 复刻、crawl、像素 diff、DOM diff | `tool:katana` `tool:ffuf` `repo:web-check` |
 | [web-api-sign-reverse](web-api-sign-reverse.md) | Web 签名、补环境、复算、重放 | `repo:web-check` `repo:web-repro` `repo:kb-query` |
 | [backend-rebuild](backend-rebuild.md) | 后端复刻、API 面、协议、切换 | `repo:pcap-summary` `repo:proto-repro` `repo:web-accept` |

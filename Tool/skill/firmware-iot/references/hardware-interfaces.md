@@ -164,3 +164,116 @@ sigrok-cli -d <driver>:conn=/dev/ttyACM0 --config samplerate=1m \
 - [ ] JTAG IDCODE / SPI 芯片型号与容量有输出；两次读取哈希一致。
 - [ ] 原始镜像与恢复镜像均有 SHA256；写操作有回滚方案。
 - [ ] 真机只做授权范围内的只读/低影响验证；未造成不可逆损坏。
+
+## 无线与近场（802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz）
+
+> 位置：`firmware-iot` 的物理层延伸。固件解包告诉你"设备信任谁"，无线侧告诉你"这层信任能不能从空中打掉"。
+> 硬件前提写在每节开头：没有对应硬件就**明确记 `blocked_at=no-radio`**，不许用"理论上可以"冒充已验证。
+
+### 0. 判据总表（先看这张，再决定动不动硬件）
+
+| 场景 | 输入面 | 可机检判据（PASS 长什么样） | 证据形态 | 误报风险 |
+| :-- | :-- | :-- | :-- | :-- |
+| WPA2-PSK 口令强度 | AP 的 4 次 EAPOL 握手 **或** PMKID | `hashcat -m 22000` 返回 `Status: Cracked`；或 `aircrack-ng` 显示 `KEY FOUND` | `.hc22000` + crack 输出 + 时间戳 | 抓到的是不完整握手（缺 M1/M2）→ 必然"跑不出"，不算口令强 |
+| PMKID 可获取性 | AP 的 RSN IE（`RSN PMKID` 支持） | `hcxdumptool` 输出 `PMKID` 行且长度 32 hex | `.pcapng` + PMKID 十六进制 | AP 不返回 PMKID 不代表口令强，只说明该路径不可用 |
+| WPA3-SAE 降级 | 过渡模式（WPA2/WPA3 混合） | 能连到 WPA2 侧且与 WPA3 侧同口令 → 降级成立 | 两次关联的 assoc 帧 + 同一 PSK 验证 | 纯 WPA3 网络无降级面，判 `na` |
+| WPA-Enterprise 凭据 | EAP 类型 = PEAP/MSCHAPv2 | `asleap`/`hashcat -m 5500` 拿到明文口令 | 挑战/响应 `challenge:response` 对 + crack 输出 | EAP-TLS 只有证书，无口令可破 → 记 `blocked_at=mutual-tls` |
+| WPS PIN | AP 开启 WPS 且 `WSC IE` 可读 | `reaver` 显示 `WPS PIN: '12345670'` 或 Pixie Dust 在 ≤60s 出 PSK | `reaver` 日志 + 出 PIN 时间 | 锁定（`WPS Locked: Yes`）→ 只能等冷却或判不可用 |
+| BLE 未授权写 | GATT 服务的可写 characteristic | 无配对状态下 `gatttool -b <MAC> --char-write-req -a <HANDLE> -n <VAL>` 返回成功 | ATT Write 响应 + 设备侧状态变化截图 | 写成功但设备忽略值 → 只算"接口可达"，不算"控制成立" |
+| BLE 配对降级 | 配对特性（Just Works / 无 MITM 保护） | 中间人配对成功且两端不报错 | 两段配对日志 + 时间线 | 需要同时具备两块可注入的射频，缺一记 `blocked` |
+| Zigbee/Thread 入网密钥 | 抓到的 802.15.4 帧（入网交互） | 从 Transport Key 帧解出 NWK Key，能解出后续加密载荷 | 解密后的明文 APS 帧 | 用默认 TC Link Key（ZigbeeAlliance09）解不开 → 目标已换 key，改走 sniff-after-join |
+| Z-Wave S0/S2 | 配对过程中的帧 + 设备 DSK | S0：解出 `Network Key`；S2：DSK 校验通过 | 抓包 + 解密后的命令帧 | S2 带 DSK 的可信配对不可破 → 判 `na` |
+| sub-GHz / LoRaWAN 重放 | 固定码遥控 **或** ABP 会话 | 重放后设备执行同一动作；ABP 帧计数器未单调 → 可重放 | 两次抓包 + 设备动作 | OTAA 每次入网换密钥 → 重放无效，改走 `Join-Accept` 重放 |
+| NFC/RFID 克隆 | 卡片 UID + 扇区数据 | 克隆卡在原设备上通过校验（门禁开、消费成功） | dump 文件 + 现场验证记录 | 只读 UID 的门禁克隆 UID 即可；带加密扇区的要密钥 |
+
+### 1. 802.11：从"能抓"到"能证"
+
+硬件：支持 monitor mode + 包注入的网卡（ath9k_htc / MT7612U 一类）；`iw dev` 能看到 `type monitor` 才算可用。
+
+```bash
+## 1) 进入监听（先确认接口名与信道）
+sudo airmon-ng start wlan0
+sudo airodump-ng wlan0mon --band abg -w work/<case>/scan
+
+## 2) 定向抓握手（BSSID 与信道从 scan 结果取）
+sudo airodump-ng wlan0mon --bssid <BSSID> -c <CH> -w work/<case>/cap
+
+## 3) 主动踢一次以催握手（会留痕，先确认授权与 WIPS 情况）
+sudo aireplay-ng --deauth 3 -a <BSSID> -c <CLIENT> wlan0mon
+
+## 4) 转 hashcat 格式并离线跑（本机不做在线爆破）
+hcxpcapngtool -o work/<case>/hs.hc22000 work/<case>/cap-01.cap
+hashcat -m 22000 work/<case>/hs.hc22000 <WORDLIST> --status --status-timer 10
+```
+
+判定要点：
+- **握手完整性**：`hcxpcapngtool` 输出里 `EAPOL pairs written to 22000 hash file` 必须是 1 以上；为 0 就是没抓到可用握手。
+- **PMKID 与握手是两条独立路径**：PMKID 不需要客户端在场，优先试。
+- **WPA3 纯模式**：SAE 的 `Commit/Confirm` 交换无法离线爆破，只能走"过渡模式降级"或"客户端侧漏洞"，不要把 SAE 抓包当 WPA2 握手去跑 hashcat。
+
+### 2. BLE / Classic：先枚举，再验证"有没有鉴权"
+
+硬件：CSR4.0 / nRF52 一类可注入的适配器；`bluetoothctl` + `gatttool`/`bettercap` 足够做枚举。
+
+```bash
+## 枚举 + 读 GATT
+sudo bettercap -iface hci0 -eval "ble.recon on"
+gatttool -b <MAC> --primary
+gatttool -b <MAC> --characteristics
+
+## 关键验证：未配对状态下能不能写
+gatttool -b <MAC> --char-write-req -a <HANDLE> -n <HEX_VALUE>
+```
+
+判定要点：**"写成功"只证明 ATT 层没鉴权，必须再确认设备侧行为变化**（锁开、灯亮、状态位翻转）。只写成功不改行为 → 记 `hypothesis`，不记 proven。
+Classic（SPP/HFP）走 `sdptool browse <MAC>` 看服务面；配对降级看是否接受 `Just Works`。
+
+### 3. 802.15.4（Zigbee / Thread）
+
+硬件：CC2531/CC2652 + `zigbee2mqtt` 或 `whsniff` + Wireshark 的 Zigbee 解析器。
+
+判定要点：
+- 抓 `Transport Key` 帧解 NWK Key：只有拿到 key 之后解出的 APS 载荷才算证据。
+- 默认 TC Link Key（`ZigbeeAlliance09`）能解开入网交互 → 说明用的是默认信任锚，可直接推出网络密钥。
+- 解不开 → 目标已启用自定义 link key，改走"入网后嗅探 + 已知明文攻击"或转固件侧找 key（`references/filesystem-and-credentials.md`）。
+
+### 4. Z-Wave / sub-GHz / LoRaWAN
+
+- Z-Wave：Zniffer 抓配对帧；S0 的 `Network Key` 随 `Security Scheme 0` 帧以固定异或流下发，可离线解；S2 带 DSK 的可信配对基本不可破，判 `na`。
+- sub-GHz（315/433/868/915）：先判"固定码还是滚动码"——连续两次按下抓到的码相同 = 固定码，重放成立；不同 = 滚动码，需要 `RollJam` 类双向压制，代价高。
+- LoRaWAN：ABP 会话固定，帧计数器（FCnt）不增即重放成立；OTAA 每次入网新密钥，只能打 `Join-Accept` 重放或设备端漏洞。
+
+```bash
+## sub-GHz 固定码对照
+hackrf_transfer -r work/<case>/press1.iq -f <FREQ_HZ> -s 1000000 -n 4000000
+hackrf_transfer -r work/<case>/press2.iq -f <FREQ_HZ> -s 1000000 -n 4000000
+## 两次样本比特流一致 → 固定码；不一致 → 滚动码
+```
+
+### 5. 失败判据（现象 → 判定 → 改走哪条 → 代价）
+
+| 现象 | 判定 | 改走哪条 | 代价 |
+| :-- | :-- | :-- | :-- |
+| `hcxpcapngtool` 输出 0 组 EAPOL，PMKID 也为空 | 抓包面不成立 | 换注入位置/换网卡；或改客户端侧（已控主机上读 `wpa_supplicant.conf`） | 需物理靠近或已控端点 |
+| hashcat 跑满字典无结果 | 口令不在字典内 | 换规则/掩码（`-a 3`）；或判"口令强度足够"并停 | 算力与时间，可能数天 |
+| WPS `Locked: Yes` | AP 侧锁定 | 等冷却窗口（通常 60s–数小时）；或放弃 WPS 路线 | 时间不可控 |
+| BLE 写 characteristic 返回 `Insufficient Authentication` | 有鉴权 | 先解配对（Just Works 可 MITM）；或走固件侧找配对逻辑 | 需双射频 |
+| 802.15.4 抓不到 Transport Key | 设备已入网且不回放入网帧 | 等重新入网/断电重启；或改固件侧取 key | 需触发条件与窗口 |
+| Z-Wave S2 + DSK | 可信配对 | 判 `na`，转设备端或云端接口 | 无解，止损 |
+| NFC 扇区读失败 | 扇区受密钥保护 | 已知密钥字典 / 嵌套攻击 / 转读卡器侧 | 需额外硬件与时间 |
+| 任何无线电操作被 WIPS 告警或目标侧断网 | 已产生可观测痕迹 | 停手、记录时间点、回报用户 | 授权与 OPSEC 风险 |
+
+### 6. 模型常见失误（本节专治"看起来很懂"）
+
+1. **把"抓到包"当"破解成功"**：没有 `KEY FOUND`/`Status: Cracked` 就不算，抓包只是输入面。
+2. **PMKID 拿不到就断言口令强**：只说明该 AP 不返回 PMKID，握手路径可能仍然可打。
+3. **拿 WPA3 抓包喂 hashcat -m 22000**：SAE 不是 PSK，跑不出来不是字典问题。
+4. **BLE 写成功就宣布"未授权控制"**：必须补设备侧行为证据。
+5. **用默认 TC Link Key 解不开就判"加密不可破"**：可能是自定义 key，固件里常有。
+6. **忽略痕迹**：deauth、WPS 爆破、BLE 泛洪都会被 WIDS/终端日志记录，动手前先确认授权范围与可观测性。
+
+### 7. 与固件侧的接合点
+
+- 无线侧拿到的是"空中接口信任模型"；固件侧（`references/filesystem-and-credentials.md`）拿到的是"设备内部信任锚"（预置 PSK、link key、云 token）。
+- 两边结论冲突时，以**可复现的那一侧**为准：能重放出动作的算 proven，只在固件里看到常量算 hypothesis（可能未被使用）。
+- 交付时把射频条件写清：网卡型号、信道、距离、是否注入、是否触发告警——否则别人复跑不出来。
