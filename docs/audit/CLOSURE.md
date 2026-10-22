@@ -81,3 +81,13 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | `setup/verify.sh` | 原「路由自洽」项内追加 playbook-check + capability-gate（项数保持 65） |
 | `setup/verify.ps1` | 同一位置追加两门禁（项数保持 65） |
 | `.github/workflows/gates.yml` | windows job 增 playbook/capability/intent 三步 |
+
+## 第四轮驳回补充（README 正文 / K3 / QUICKSTART / 门禁盲点）
+
+| 来源 | 问题 | 状态 | 依据 |
+| :-- | :-- | :-- | :-- |
+| A-P1-1 | `README.en.md:52` 写 `23 → 38 MCP tools`、`:221` 58 items、`:371` 58 checks | 已修 | 现为 `23 → 40 MCP tools` / `65 items` / `65 checks`；`grep "58 items\|58 checks"` = 0 |
+| A-P1-12 | `DEPLOYMENT-CHECKLIST.md:98` K3 案例数被改成 5 | 已修 | 改为「14 个项目工程（项目 A ~ N，含 `_archive/` 归档）+ 2 个复刻演练」；磁盘实测 `项目*` = 14 |
+| A-P1-2 | `QUICKSTART.md:42` 写「本域 7 条」 | 已修 | 改为「本域 10 条断言」（单域实测 10/10） |
+| 新门禁盲点 | `playbook-check` 只读 `add_argument(choices=…)`，`case_state.py` 用运行时 `die()` 报允许值 → `--level L2` 仍判绿 | 已修 | 新增 `runtime_enum()`：从源码报错文案（`只能是 / must be one of`）提取枚举并校验；自测 15/15；驳回用例复现 `ok=false, reason=参数 --level 取值非法: L2（允许 M1/M2/M3/M4）` |
+| A-P1-6 漏网 | `domain-gate.py:1052` detail 硬编码「10 域覆盖」 | 已修 | 改为 `"%d 域覆盖" % len(DOMAINS)`（11） |
