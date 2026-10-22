@@ -36,5 +36,9 @@
 | :-- | :-- | :-- |
 | D20 | **索引已交付**：79 篇 `offensive-*`（UNKNOWN 许可）的归档索引在 `kb/_archive/pentest-checklist/README.md`（79 行表 + 建议动作），未收清单在同目录 `NOT-ABSORBED.md` | 剩余缺口：表里「可重写吸收」的 10 篇**正文**尚未逐篇落库（纪律：正文不进树，按篇重写）；触发条件：需要某篇的具体命令时 |
 | D21 | 无线近场未独立成域（当前挂 `firmware-iot` 的 `hardware-interfaces.md` 无线章 + 路由 R22） | 硬件探针（monitor 网卡 / BLE / 802.15.4 / sub-GHz）未纳入 `probe_matrix.py`；触发条件：连续 3 个无线案例稳定后升域 |
-| D22 | **脚本已交付**：`Tool/skill/web-pentest/scripts/race-probe.py`（608 行；并发批 + 账本读回 + 远端安全闸 + 默认 dry-run；`--self-test` 22 项；已接 `web-pentest-matrix.json`(19 条) / SKILL §9 / references 09 / 能力表 `race-test`） | 剩余缺口：**HTTP/2 单包（last-byte sync）** 未实现，当前口径是「同批并发 + 读回账本」；触发条件：目标为 HTTP/2 且并发批打不出窗口压缩时补 |
+| D22 | **脚本已交付**：`Tool/skill/web-pentest/scripts/race-probe.py`（1029 行；`--mode concurrent|single-packet|h2-single-packet`；HTTP/1.1 最后一字节同步 + h2 单包（缺 `h2` 库时返回 `blocked_at=h2-lib-missing`）+ 账本读回 + 远端安全闸 + 默认 dry-run；`--self-test` 34 项；已接矩阵 23 条 / SKILL §9 / references 09 / 能力表 `race-test`） | 剩余缺口：**真实 HTTP/2 服务端多 stream 未端到端验证**（只用 stub 与「h2 打 HTTP/1.1 端点→blocked」覆盖了失败路径）；触发条件：遇到 h2 目标时补一次实跑 |
 | D23 | OSINT 只有配方（`osint-recon`），无专用脚本（secret_scan / h1-ref 未重写） | 上游脚本无 `--help` / `--self-test`；触发条件：需要批量密钥扫描或 H1 公开报告检索时按规范重写 |
+
+| D24 | HTTP/2 单包只有失败路径验证（stub + 打 HTTP/1.1 端点→blocked），无真实 h2 服务端多 stream 实跑 | 出现 h2 目标时补一次端到端；风险点：不同实现的并发流上限与 SETTINGS 差异 |
+| D25 | ad-cloud 边缘接入面（VPN/OWA/Zimbra/Okta/M365）只写了只读指纹判据，未联网验证过 | 有授权目标时按卡 28 跑一次，回写 `evidence_kind=real` |
+| D26 | `00-analysis` 只有 SKILL + 1 篇 report-template，未纳入 `domain_spec.DOMAINS` 九件套（无 cases/矩阵/任务卡） | 若要把它当独立域考核，需补 01–04 必备篇 + 矩阵 + 任务卡；当前按「阶段技能」对待，不进 domain-gate |

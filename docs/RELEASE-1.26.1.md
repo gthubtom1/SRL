@@ -58,7 +58,7 @@
 
 | 域 | 加厚了什么 | 证据 |
 | :-- | :-- | :-- |
-| web-pentest | `race-probe.py`（1091 行：并发批 + **HTTP/1.1 单包 last-byte sync** + h2 单包（缺库结构化 blocked）+ 账本读回 + 远端安全闸 + 默认 dry-run，self-test 34 项）；07 卷补 2026 前置适配矩阵；06 卷补断言类攻击（SAML/OAuth/JWT）对照表；KB 第 9 篇 `10-cache-poison-gate.md`；矩阵 18→23 条 | `domain-gate --domain web-pentest` 10/10；`race-probe --self-test` → 34 checks |
+| web-pentest | `race-probe.py`（1029 行：并发批 + **HTTP/1.1 单包 last-byte sync** + h2 单包（缺库结构化 blocked）+ 账本读回 + 远端安全闸 + 默认 dry-run，self-test 34 项）；07 卷补 2026 前置适配矩阵；06 卷补断言类攻击（SAML/OAuth/JWT）对照表；KB 第 9 篇 `10-cache-poison-gate.md`；矩阵 18→23 条 | `domain-gate --domain web-pentest` 10/10；`race-probe --self-test` → 34 checks |
 | ad-cloud | `06-lateral-movement.md`（210 行：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD 四列判据）；`ad-attacks.md` §11 公网 445/389/88 只读外部视角；`ad-repro.py --kind ntlm-type2`；任务卡 24→28 张，7 张剧本化真跑 | `domain-gate --domain ad-cloud` 10/10；`ad-repro --self-test` → 10 checks / 8 kinds |
 | llm-security | `agentic-owasp-asi.md`（ASI01–ASI10 四列判据）、`mcp-attack-surface.md`（7 类入口 + 探针）、`probe-agent.py`（818 行 / 12 探针 / 离线 fixture） | `--self-test` ok:true；`--builtin vulnerable` → 0/12（设计预期） |
 | firmware-iot | `hardware-interfaces.md` 并入「无线与近场」章（802.11 握手/PMKID/WPA3/企业级/WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）；路由 R22 加无线关键词 | `domain-gate --domain firmware-iot` 10/10；无线探针 3 条全中 |
