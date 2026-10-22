@@ -21,6 +21,7 @@
 - **外部库接入**：Pentest-Skills-Merged 按许可分层处理——MIT 约 136 篇可重写、`offensive-*` 79 篇按 UNKNOWN 只建索引（`kb/_archive/pentest-checklist/`）、6 篇课程转录不收；纪律写进 `docs/UPSTREAM.md` §6。
 - **交付记录**：`docs/RELEASE-1.26.1.md`（做了什么 / 每条证据 / 剩余延迟项）。
 - 门禁：preflight 43/43、domain-gate 110/110、verify 65/0、smoke-e2e 12/12、技能路由探针 33/33。
+- **二轮吸收（Pentest 库）**：web-pentest 补单包竞态（last-byte sync + h2 单包，缺库结构化 blocked）、WebSocket CSWSH、gRPC reflection、WordPress 链、`error_log` 挖掘、缓存三组对照（矩阵 19→23、`race-probe --self-test` 34 项）；ad-cloud 补容器逃逸原语、集群控制面五面、云 IAM 提权链、边缘接入面只读指纹（矩阵 26 条、任务卡 28 张）；signin-automation 从 35 行扩到 264 行（六原语 + 指纹/JA3·JA4/H2 头序 + OPSEC 参数表 + `opsec-check.py`）；forensics-mobile 补 ETW-TI/内核回调/AMSI/Sysmon 遥测与反取证自证痕迹；00-analysis 补报告模板（证据分级 + 14 条反例）。
 
 ## [1.26.0] — 2026-10-22
 > 能力补充 + 真实可用性收口（三个只读审计 + 三批并行修复）。
