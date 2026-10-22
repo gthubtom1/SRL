@@ -12,26 +12,32 @@
     frida-attach  对 baseline 进程 frida -p：能挂吗？
     external      OpenProcess + ReadProcessMemory：有权限外部读内存吗？
     network       是否观察到出站 TCP / tshark、dumpcap 是否可用
+    radio         无线/近场能力枚举：WiFi 是否可 monitor、蓝牙、SDR/802.15.4、NFC（**只读，不发射频**）
 
 设计纪律：
-    · 单探针超时 20s，整体不超过 90s；`--quick` 只做 baseline + external。
+    · 单探针超时 20s（radio 10s），整体不超过 90s；`--quick` 只做 baseline + external。
     · 纯标准库；工具发现走 `Tool/mcp/tool_autodiscover.py`，回退 `shutil.which`。
     · 不写死本机绝对路径；不 `-h` 试探任何工具。
     · DLL 不能直接启动是设计内卡点：明确写 blocked + 原因，不伪装成功。
     · 所有启动的子进程在探针结束/脚本退出时清理，避免留下靶机进程。
+    · radio 探针只做能力枚举：绝不进入 monitor mode、绝不调用扫描/发包 API、绝不发任何射频。
 
 用法：
     python Tool/scripts/probe_matrix.py --target Tool/cases/项目A/v2/dist/version.dll --json
     python Tool/scripts/probe_matrix.py --target <exe> --out work/<task>/probe.json
     python Tool/scripts/probe_matrix.py --target <exe> --quick --json
+    python Tool/scripts/probe_matrix.py --radio-only --json      # 不需要 --target
+    python Tool/scripts/probe_matrix.py --self-test              # 只测判定函数，不碰硬件
 """
 from __future__ import annotations
 
 import argparse
 import ctypes
+import glob
 import hashlib
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -49,7 +55,8 @@ except Exception:
 IS_WIN = sys.platform == "win32"
 PER_PROBE_TIMEOUT = 20
 TOTAL_BUDGET = 90
-PROBE_NAMES = ["baseline", "x64dbg", "frida-spawn", "frida-attach", "external", "network"]
+RADIO_BUDGET = 10
+PROBE_NAMES = ["baseline", "x64dbg", "frida-spawn", "frida-attach", "external", "network", "radio"]
 QUICK_NAMES = ["baseline", "external"]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -387,6 +394,7 @@ class ProbeContext:
         self.quick = quick
         self.start = time.monotonic()
         self.deadline = self.start + TOTAL_BUDGET
+        self.total_budget = TOTAL_BUDGET
         self.meta = _parse_pe(self.target)
         self.proc = None
         self.pid = None
@@ -724,12 +732,766 @@ def probe_network(ctx):
 
 
 # ---------------------------------------------------------------------------
+# radio 探针：只读能力枚举（WiFi/monitor、BLE、802.15.4、sub-GHz、NFC）
+#
+# 纪律（硬约束）：
+#   · 只读枚举：不切换 monitor mode、不调用主动扫描、不发任何射频、不改任何网卡状态。
+#   · 缺命令/缺权限/超时 → 结构化 blocked（blocked_at），绝不异常穿透。
+#   · 单探针 10s 预算；超预算的子命令直接放弃并显式记录。
+#
+# blocked_at 取值：
+#   null               至少一条 802.11 monitor 路径可用
+#   no-radio           未发现任何无线/近场硬件
+#   no-wifi            有 BLE/SDR/802.15.4/NFC，但没有 WiFi 适配器
+#   no-monitor-mode    有 WiFi 但平台/驱动不提供 monitor mode（Windows 最常见）
+#   monitor-unverified 有 WiFi 但当前手段无法判定 monitor（缺 iw / 平台私有接口）
+#   command-missing    枚举命令缺失，无法确认硬件
+#   no-permission      枚举命令被拒（需 root/管理员）
+#   timeout            10s 内未完成枚举
+#   probe-error        探针内部异常（仍返回结构化字段）
+# ---------------------------------------------------------------------------
+RADIO_USB_WHITELIST = [
+    # (vid, pid, 名称, 类别)；类别决定落到 wifi / subghz / nfc
+    ("0bda", "2838", "RTL-SDR (RTL2832U+R820T2)", "sdr"),
+    ("0bda", "2832", "RTL2832U DVB-T (SDR 可用)", "sdr"),
+    ("1d50", "6089", "HackRF One", "sdr"),
+    ("1d50", "604b", "HackRF Jawbreaker", "sdr"),
+    ("1d50", "60a1", "rad1o (HackRF 变体)", "sdr"),
+    ("0451", "16a8", "CC2531 Zigbee/802.15.4 sniffer", "ieee802154"),
+    ("0451", "16ae", "CC2531 (alt firmware)", "ieee802154"),
+    ("0451", "16a5", "CC2530", "ieee802154"),
+    ("1915", "520f", "nRF52 USB dongle (BLE sniffer)", "ble-sniffer"),
+    ("1915", "520a", "nRF52 DK", "ble-sniffer"),
+    ("1915", "521f", "nRF52840 dongle", "ble-sniffer"),
+    ("9ac4", "4b8f", "Proxmark3", "nfc"),
+    ("9ac4", "4b8d", "Proxmark3 (RDV4)", "nfc"),
+    ("072f", "2200", "ACS ACR122U NFC 读卡器", "nfc"),
+    ("072f", "223b", "ACS ACR1252 NFC 读卡器", "nfc"),
+    ("04e6", "5591", "SCM SCL3711 NFC 读卡器", "nfc"),
+    ("04cc", "2533", "NXP PN533 NFC", "nfc"),
+    ("0cf3", "9271", "Atheros AR9271 (ath9k_htc, 可 monitor)", "wifi-monitor"),
+    ("0bda", "8812", "Realtek RTL8812AU (可 monitor)", "wifi-monitor"),
+    ("0bda", "8813", "Realtek RTL8814AU (可 monitor)", "wifi-monitor"),
+    ("0bda", "a811", "Realtek RTL8811AU (可 monitor)", "wifi-monitor"),
+    ("0e8d", "7612", "MediaTek MT7612U (可 monitor)", "wifi-monitor"),
+    ("148f", "5572", "Ralink RT5572 (可 monitor)", "wifi-monitor"),
+    ("148f", "7601", "MediaTek MT7601U (可 monitor，注入受限)", "wifi-monitor"),
+]
+
+_WIFI_WORDS = ("wireless", "wi-fi", "wifi", "wlan", "802.11", "无线", "wlan0")
+_BT_WORDS = ("bluetooth", "蓝牙")
+# PnP 里的「蓝牙枚举器/服务设备」不是适配器，不能当成可用蓝牙硬件
+_BT_SERVICE_WORDS = ("enumerator", "枚举器", "protocol tdi", "personal area network",
+                     "rfcomm", "pan ")
+_DENY_WORDS = ("permission denied", "operation not permitted", "must be root",
+               "access is denied", "not permitted", "拒绝访问", "权限不足")
+
+
+def _decode_bytes(b):
+    """命令输出解码：优先 utf-8，其次 gbk/cp936（Windows netsh 中文），最后 latin-1。"""
+    if not b:
+        return ""
+    if isinstance(b, str):
+        return b
+    for enc in ("utf-8", "gbk", "cp936", "latin-1"):
+        try:
+            return b.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return b.decode("utf-8", "replace")
+
+
+def _run_cmd(cmd, timeout):
+    """只读枚举命令。任何失败都转成结构化字段，不抛异常。"""
+    res = {"cmd": " ".join(cmd) + " " if isinstance(cmd, (list, tuple)) else str(cmd),
+           "rc": None, "out": "", "err": "", "missing": False,
+           "denied": False, "timed_out": False}
+    res["cmd"] = res["cmd"].strip()
+    if not timeout or timeout <= 0:
+        res["timed_out"] = True
+        res["err"] = "预算不足，未执行"
+        return res
+    try:
+        p = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True,
+                           timeout=timeout)
+        res["rc"] = p.returncode
+        res["out"] = _decode_bytes(p.stdout)
+        res["err"] = _decode_bytes(p.stderr)
+    except FileNotFoundError:
+        res["missing"] = True
+        res["err"] = "命令不存在"
+    except subprocess.TimeoutExpired as exc:
+        res["timed_out"] = True
+        res["out"] = _decode_bytes(exc.stdout)
+        res["err"] = _decode_bytes(exc.stderr) or "超时"
+    except Exception as exc:  # noqa: BLE001
+        res["err"] = str(exc)
+    low = (res["err"] or "").lower()
+    if any(k in low for k in _DENY_WORDS):
+        res["denied"] = True
+    return res
+
+
+def _sys_glob(pattern):
+    """只读 sysfs / dev 探测。"""
+    try:
+        return sorted(glob.glob(pattern))
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _usb_hit(vid, pid):
+    """纯判定：vid/pid（不带 0x、大小写不敏感）是否在白名单。"""
+    v = str(vid or "").lower().replace("0x", "").zfill(4)
+    p = str(pid or "").lower().replace("0x", "").zfill(4)
+    for wv, wp, name, kind in RADIO_USB_WHITELIST:
+        if v == wv and p == wp:
+            return {"vid_pid": f"{wv}:{wp}", "name": name, "kind": kind}
+    return None
+
+
+def _usb_whitelist_hits(text):
+    """从 lsusb / sysfs / PnP ID 文本里匹配白名单（去重，保持稳定顺序）。"""
+    t = (text or "").lower()
+    hits = []
+    if not t:
+        return hits
+    for vid, pid, name, kind in RADIO_USB_WHITELIST:
+        # 接受 lsusb 的 `0bda:2838`、sysfs 的 `0bda_2838`、PnP 的 `VID_0BDA&PID_2838`
+        if (f"{vid}:{pid}" in t or f"{vid}_{pid}" in t
+                or f"vid_{vid}&pid_{pid}" in t):
+            hits.append({"vid_pid": f"{vid}:{pid}", "name": name, "kind": kind})
+    return hits
+
+
+def _parse_iw_dev(text):
+    """`iw dev` → [{iface, type}]。"""
+    ifaces, cur = [], None
+    for line in (text or "").splitlines():
+        m = re.match(r"\s*Interface\s+(\S+)", line)
+        if m:
+            cur = {"iface": m.group(1), "type": ""}
+            ifaces.append(cur)
+            continue
+        m = re.match(r"\s*type\s+(\S+)", line)
+        if m and cur is not None:
+            cur["type"] = m.group(1).lower()
+    return ifaces
+
+
+def _parse_iw_list_monitor(text):
+    """`iw list` 的 Supported interface modes 段是否包含 monitor。
+
+    返回 True/False；找不到该段返回 None（不等于不支持）。
+    """
+    t = text or ""
+    key = "Supported interface modes"
+    if key not in t:
+        return None
+    seg = t.split(key, 1)[1]
+    modes, started = [], False
+    for line in seg.splitlines():
+        s = line.strip()
+        if s.startswith("*"):
+            started = True
+            modes.append(s.lstrip("* ").strip().lower())
+        elif started and s:
+            break
+    if not modes:
+        return None
+    return "monitor" in modes
+
+
+def _parse_iwconfig(text):
+    """`iwconfig` 回退：取接口名；Mode:Monitor 直接算 monitor 可用。"""
+    ifaces, cur = [], None
+    for line in (text or "").splitlines():
+        if not line or line[0].isspace():
+            if cur is not None and "mode:monitor" in line.lower():
+                cur["monitor"] = True
+            continue
+        m = re.match(r"(\S+)\s+(.*)", line)
+        if not m:
+            continue
+        if "ieee 802.11" in m.group(2).lower() or "no wireless extensions" in m.group(2).lower():
+            cur = {"iface": m.group(1), "type": "", "monitor": False}
+            ifaces.append(cur)
+        else:
+            cur = None
+    return ifaces
+
+
+def _parse_hciconfig(text):
+    """`hciconfig -a` → 适配器名列表。"""
+    names = []
+    for line in (text or "").splitlines():
+        m = re.match(r"(hci\d+):", line.strip())
+        if m and m.group(1) not in names:
+            names.append(m.group(1))
+    return names
+
+
+def _parse_netsh_wlan(text):
+    """`netsh wlan show interfaces` → {present, iface, reason}（只读查询）。"""
+    t = text or ""
+    low = t.lower()
+    dead = ("no wireless interface", "there is no wireless interface",
+            "没有无线", "无线自动配置服务", "wlansvc", "not running", "未运行", "未启动")
+    if any(k in low for k in dead) and "ssid" not in low:
+        return {"present": False, "iface": "", "reason": "netsh 报告无无线接口或 WLAN 服务未运行"}
+    m = re.search(r"(?im)^\s*(?:name|名称)\s*:\s*(\S.*)$", t)
+    iface = m.group(1).strip() if m else ""
+    present = bool(iface) or "ssid" in low or "radio types" in low or "无线电类型" in t
+    return {"present": present, "iface": iface,
+            "reason": "" if present else "netsh 无有效无线接口行"}
+
+
+def _parse_ps_json(text):
+    """PowerShell ConvertTo-Json 输出 → dict（容忍前置噪声/警告）。"""
+    t = (text or "").strip()
+    if not t:
+        return {}
+    i, j = t.find("{"), t.rfind("}")
+    if i < 0 or j <= i:
+        return {}
+    try:
+        obj = json.loads(t[i:j + 1])
+        return obj if isinstance(obj, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _as_list(v):
+    if isinstance(v, list):
+        return v
+    if isinstance(v, dict):
+        return [v]
+    return []
+
+
+def _looks_wireless(*texts):
+    blob = " ".join(str(t or "") for t in texts).lower()
+    if "bluetooth" in blob or "蓝牙" in blob:
+        return False
+    return any(w in blob for w in _WIFI_WORDS)
+
+
+def _parse_ioreg_usb(text):
+    """macOS `ioreg -p IOUSB -l` → 白名单命中（idVendor/idProduct 是十进制）。"""
+    hits = []
+    for block in re.split(r"\+-o ", text or ""):
+        mv = re.search(r'"idVendor"\s*=\s*(\d+)', block)
+        mp = re.search(r'"idProduct"\s*=\s*(\d+)', block)
+        if not (mv and mp):
+            continue
+        hit = _usb_hit(f"{int(mv.group(1)):04x}", f"{int(mp.group(1)):04x}")
+        if hit and hit not in hits:
+            hits.append(hit)
+    return hits
+
+
+def _absorb_usb_hits(hits, wifi, subghz, nfc):
+    """白名单命中分流：wifi-monitor → wifi.adapters；nfc → nfc；其余 → subghz。"""
+    for h in hits or []:
+        kind = h.get("kind")
+        if kind == "wifi-monitor":
+            label = f"{h['name']} [{h['vid_pid']}]"
+            if label not in wifi["adapters"]:
+                wifi["adapters"].append(label)
+            wifi["present"] = True
+            continue
+        item = {"vid_pid": h["vid_pid"], "name": h["name"],
+                "kind": kind, "present": True}
+        bucket = nfc if kind == "nfc" else subghz
+        if item not in bucket:
+            bucket.append(item)
+
+
+def _radio_inventory(wifi, bluetooth, subghz, nfc):
+    mc = wifi.get("monitor_capable")
+    mc_txt = "可 monitor" if mc is True else ("不可 monitor" if mc is False else "monitor 未判定")
+    bits = [f"wifi={'有' if wifi.get('present') else '无'}({mc_txt}"
+            f"{', iface=' + wifi['iface'] if wifi.get('iface') else ''})",
+            f"bluetooth={'有' if bluetooth.get('present') else '无'}"]
+    if subghz:
+        bits.append("subghz=" + ", ".join(f"{x['name']}[{x['vid_pid']}]" for x in subghz))
+    else:
+        bits.append("subghz=无")
+    bits.append("nfc=" + (", ".join(f"{x['name']}[{x['vid_pid']}]" for x in nfc) if nfc else "无"))
+    return "；".join(bits)
+
+
+def _decide_radio(wifi, bluetooth, subghz, nfc, flags=None):
+    """纯判定函数：返回 (status, blocked_at, reason)。
+
+    flags 可含 missing / denied / timeout。优先级：能力结论 > 枚举失败类型。
+    """
+    flags = flags or {}
+    mc = wifi.get("monitor_capable")
+    inv = _radio_inventory(wifi, bluetooth, subghz, nfc)
+    others = bool(bluetooth.get("present")) or bool(subghz) or bool(nfc)
+
+    if mc is True:
+        return "ok", None, (
+            f"WiFi 支持 monitor mode（{inv}）：802.11 抓包/握手路线可用。"
+            "本探针只读枚举，未切换模式、未抓包、未发射频。")
+    if wifi.get("present"):
+        if mc is False:
+            return ("partial" if others else "blocked"), "no-monitor-mode", (
+                f"有 WiFi 适配器，但当前平台/驱动不提供 monitor mode（{inv}）："
+                "Windows 原生 NDIS 驱动不向用户态暴露 monitor；需外置可 monitor 网卡"
+                "（AR9271/RTL8812AU/MT7612U 等）+ Linux 侧或专用驱动。"
+                "探针未尝试切换模式；无线章相关判据记 blocked_at=no-monitor-mode。")
+        return "partial", "monitor-unverified", (
+            f"有 WiFi 适配器，但当前枚举手段无法判定 monitor 能力（{inv}）："
+            "Linux 装 iw 后重跑 `--radio-only`，或换外置可 monitor 网卡。"
+            "未判定 ≠ 不支持，不能直接写成结论。")
+    if others:
+        return "partial", "no-wifi", (
+            f"未发现 WiFi 适配器，但存在其它射频/近场硬件（{inv}）："
+            "BLE/802.15.4/sub-GHz/NFC 路线可评估，802.11 相关判据记 blocked_at=no-wifi。")
+    if flags.get("timeout"):
+        return "blocked", "timeout", (
+            "10s 预算内未完成枚举：拆开重跑或降低系统负载后重试；"
+            "此时不能写“无硬件”，只记 blocked_at=timeout。")
+    if flags.get("denied"):
+        return "blocked", "no-permission", (
+            "枚举命令存在但被拒绝（需 root/管理员）：用提权会话重跑 `--radio-only`；"
+            "探针本身仍只做只读枚举，不做任何模式切换。")
+    if flags.get("missing"):
+        return "blocked", "command-missing", (
+            "平台枚举命令缺失（iw/iwconfig/hciconfig/lsusb 等）：装 iproute2+iw+usbutils+bluez"
+            "（或 Windows 用 netsh/PowerShell）后重跑；缺命令不能当成无硬件。")
+    if flags.get("error"):
+        return "blocked", "probe-error", (
+            f"探针内部异常：{flags.get('error')}；已采集字段仍保留，看 commands/evidence 排查。"
+            "这不代表目标不能分析，也不代表本机无无线硬件。")
+    return "blocked", "no-radio", (
+        f"未发现任何无线/近场硬件（{inv}）：无线章所有判据记 blocked_at=no-radio，"
+        "改走固件侧/有线侧或外接适配器后再验证。")
+
+
+_PS_ENUM = r"""
+$ErrorActionPreference = 'SilentlyContinue'
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+$r = [ordered]@{}
+$n = @()
+$n = Get-CimInstance -ClassName Win32_NetworkAdapter -ErrorAction SilentlyContinue |
+  Where-Object { $_.PhysicalAdapter -eq $true } |
+  ForEach-Object { [ordered]@{ name = "$($_.Name)"; net = "$($_.NetConnectionID)"; mac = "$($_.MACAddress)"; pnp = "$($_.PNPDeviceID)"; type = "$($_.AdapterType)" } }
+$r.nics = @($n)
+$p = @()
+$p = Get-CimInstance -ClassName Win32_PnPEntity -ErrorAction SilentlyContinue |
+  Where-Object { $_.PNPDeviceID -like 'USB\*' -or $_.PNPDeviceID -like 'BTH\*' -or $_.PNPDeviceID -like 'PCI\*' } |
+  ForEach-Object { [ordered]@{ name = "$($_.Name)"; id = "$($_.PNPDeviceID)"; class = "$($_.Class)"; status = "$($_.Status)" } }
+$r.pnp = @($p)
+$r | ConvertTo-Json -Depth 5 -Compress
+"""
+
+
+def _run_powershell(script_text, timeout, tmpdir):
+    exe = shutil.which("powershell") or shutil.which("pwsh")
+    if not exe:
+        return None
+    path = os.path.join(tmpdir or tempfile.gettempdir(), "seep_radio_enum.ps1")
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(script_text)
+    except Exception:  # noqa: BLE001
+        return None
+    return _run_cmd([exe, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                     "-File", path], timeout)
+
+
+def _log_cmd(cmds, r, flags):
+    cmds.append({"cmd": r["cmd"], "rc": r["rc"], "timed_out": r["timed_out"],
+                 "missing": r["missing"], "denied": r["denied"]})
+    if r["missing"]:
+        flags["missing"] = True
+    if r["denied"]:
+        flags["denied"] = True
+    if r["timed_out"]:
+        flags["timeout"] = True
+
+
+def _radio_windows(deadline, tmpdir, wifi, bluetooth, subghz, nfc, notes, cmds, flags):
+    def left(reserve=0.2):
+        return max(0.0, deadline - time.monotonic() - reserve)
+
+    # 1) netsh：只查当前接口状态，不触发扫描
+    r = _run_cmd(["netsh", "wlan", "show", "interfaces"], min(3.0, left()))
+    _log_cmd(cmds, r, flags)
+    nw = _parse_netsh_wlan(r["out"])
+    if nw["present"]:
+        wifi["present"] = True
+        wifi["iface"] = nw["iface"] or wifi["iface"]
+    else:
+        notes.append("netsh wlan: " + (nw["reason"] or "未报告无线接口"))
+
+    # 2) PowerShell 一次拿全：网卡 / PnP（USB/BTH/PCI）
+    pr = _run_powershell(_PS_ENUM, min(6.0, left()), tmpdir)
+    data = {}
+    if pr is None:
+        notes.append("未发现 powershell/pwsh：USB/BT 枚举降级")
+        flags["missing"] = True
+    else:
+        _log_cmd(cmds, pr, flags)
+        data = _parse_ps_json(pr["out"])
+        if not data:
+            notes.append("PowerShell 枚举无可用 JSON（Get-CimInstance 可能不可用）")
+
+    nics, pnp = _as_list(data.get("nics")), _as_list(data.get("pnp"))
+    # 网卡：名字/类型命中无线关键词即视为 WiFi 适配器
+    for n in nics:
+        name, net = str(n.get("name", "")), str(n.get("net", ""))
+        if "virtual" in name.lower() or "wi-fi direct" in name.lower() or "虚拟" in name:
+            continue
+        if _looks_wireless(name, n.get("type", "")):
+            wifi["present"] = True
+            label = f"{name}（{net}）" if net else name
+            if label not in wifi["adapters"]:
+                wifi["adapters"].append(label)
+            if not wifi["iface"] and net:
+                wifi["iface"] = net
+    # PnP：蓝牙适配器 + USB 白名单
+    bt_adapters, usb_blob = [], []
+    for e in pnp:
+        name, pid, cls = str(e.get("name", "")), str(e.get("id", "")), str(e.get("class", ""))
+        if cls.lower() == "bluetooth" or pid.upper().startswith("BTH\\") or any(w in name.lower() for w in _BT_WORDS):
+            low_name = name.lower()
+            is_service = any(w in low_name for w in _BT_SERVICE_WORDS)
+            if name and not is_service and name not in bt_adapters:
+                bt_adapters.append(name)
+        if pid:
+            usb_blob.append(pid)
+        if name:
+            usb_blob.append(name)
+    bluetooth["adapters"] = bt_adapters
+    bluetooth["present"] = bool(bt_adapters)
+    sysroot = os.environ.get("SystemRoot") or r"C:\Windows"
+    cpl = os.path.join(sysroot, "System32", "bthprops.cpl")
+    bluetooth["stack"] = {"bthprops_cpl": os.path.isfile(cpl),
+                          "pnp_bluetooth": bool(bt_adapters),
+                          "source": "Get-CimInstance Win32_PnPEntity"}
+    if not bluetooth["present"] and bluetooth["stack"]["bthprops_cpl"]:
+        notes.append("bthprops.cpl 在场只说明蓝牙控制面板文件存在，不等于有适配器；未计为 present")
+
+    hits = _usb_whitelist_hits(" ".join(usb_blob))
+    _absorb_usb_hits(hits, wifi, subghz, nfc)
+    if not hits:
+        notes.append("USB 白名单（RTL-SDR/HackRF/CC2531/nRF52/Proxmark3 等）未命中")
+
+    # 3) monitor 判定（Windows 不做任何模式切换）
+    if any(h.get("kind") == "wifi-monitor" for h in hits):
+        wifi["monitor_capable"] = None
+        notes.append("发现疑似可 monitor 的外置网卡，但 Windows 需 Npcap/专用驱动；"
+                     "探针不切换模式，monitor_capable 记 null")
+    elif wifi["present"]:
+        wifi["monitor_capable"] = False
+        notes.append("Windows 原生 NDIS 驱动不向用户态暴露 monitor mode")
+
+
+def _radio_linux(deadline, wifi, bluetooth, subghz, nfc, notes, cmds, flags):
+    def left(reserve=0.2):
+        return max(0.0, deadline - time.monotonic() - reserve)
+
+    def run(cmd, t):
+        r = _run_cmd(cmd, min(t, left()))
+        _log_cmd(cmds, r, flags)
+        return r
+
+    # WiFi：sysfs（无需命令）+ iw dev / iwconfig 回退
+    sys_ieee = _sys_glob("/sys/class/ieee80211/*")
+    sys_wireless = _sys_glob("/sys/class/net/*/wireless")
+    sys_phy = _sys_glob("/sys/class/net/*/phy80211")
+    r = run(["iw", "dev"], 2.0)
+    ifaces = _parse_iw_dev(r["out"]) if not r["missing"] else []
+    if not ifaces and r["missing"]:
+        r2 = run(["iwconfig"], 2.0)
+        ifaces = _parse_iwconfig(r2["out"])
+        if ifaces:
+            notes.append("iw 缺失，退回 iwconfig（只能看 Mode:Monitor，无法判定能力位）")
+            if any(i.get("monitor") for i in ifaces):
+                wifi["monitor_capable"] = True
+    names = [i["iface"] for i in ifaces]
+    if not names:
+        names = [os.path.basename(os.path.dirname(p)) for p in sys_wireless + sys_phy]
+    wifi["present"] = bool(names) or bool(sys_ieee)
+    if names:
+        wifi["iface"] = names[0]
+        wifi["adapters"] = names
+    if wifi["present"] and not r["missing"]:
+        rl = run(["iw", "list"], 2.5)
+        mc = _parse_iw_list_monitor(rl["out"])
+        if mc is not None:
+            wifi["monitor_capable"] = mc
+            if not mc:
+                notes.append("iw list 的 Supported interface modes 不含 monitor")
+
+    # 蓝牙：hciconfig，回退 sysfs
+    rb = run(["hciconfig", "-a"], 2.0)
+    bt_adapters = [] if rb["missing"] else _parse_hciconfig(rb["out"])
+    sys_bt = _sys_glob("/sys/class/bluetooth/*")
+    if not bt_adapters and sys_bt:
+        bt_adapters = [os.path.basename(p) for p in sys_bt]
+    bluetooth["adapters"] = bt_adapters
+    bluetooth["present"] = bool(bt_adapters)
+    bluetooth["stack"] = {"hciconfig": not rb["missing"],
+                          "sysfs_bluetooth": bool(sys_bt),
+                          "source": "hciconfig/sysfs"}
+
+    # USB 白名单：lsusb，回退 /sys/bus/usb/devices
+    ru = run(["lsusb"], 2.0)
+    if ru["missing"] or not ru["out"]:
+        ids = []
+        for d in _sys_glob("/sys/bus/usb/devices/*"):
+            try:
+                v = Path(d, "idVendor").read_text(encoding="utf-8", errors="replace").strip()
+                p = Path(d, "idProduct").read_text(encoding="utf-8", errors="replace").strip()
+                ids.append(f"{v}:{p}")
+            except Exception:  # noqa: BLE001
+                continue
+        hits = _usb_whitelist_hits(" ".join(ids))
+        if ru["missing"]:
+            notes.append("lsusb 缺失，改用 /sys/bus/usb/devices 只读枚举")
+    else:
+        hits = _usb_whitelist_hits(ru["out"])
+    _absorb_usb_hits(hits, wifi, subghz, nfc)
+    if not hits:
+        notes.append("USB 白名单未命中（RTL-SDR/HackRF/CC2531/nRF52/Proxmark3 等）")
+
+    # NFC：设备节点 + pcscd 套接字（都不触发读卡/射频）
+    nfc_dev = _sys_glob("/dev/nfc*")
+    pcsc = any(os.path.exists(p) for p in ("/run/pcscd/pcscd.comm",
+                                           "/var/run/pcscd/pcscd.comm"))
+    if nfc_dev or pcsc:
+        notes.append(f"NFC 侧：/dev/nfc*={len(nfc_dev)}，pcscd={pcsc}（未调用读卡器）")
+
+    if wifi["monitor_capable"] is None and wifi["present"] and \
+            any(h.get("kind") == "wifi-monitor" for h in hits):
+        wifi["monitor_capable"] = True
+        notes.append("外置可 monitor 网卡（白名单芯片）在场；驱动未加载时仍需确认")
+
+
+def _radio_macos(deadline, wifi, bluetooth, subghz, nfc, notes, cmds, flags):
+    def left(reserve=0.2):
+        return max(0.0, deadline - time.monotonic() - reserve)
+
+    def run(cmd, t):
+        r = _run_cmd(cmd, min(t, left()))
+        _log_cmd(cmds, r, flags)
+        return r
+
+    r = run(["networksetup", "-listallhardwareports"], 2.5)
+    ifaces = []
+    cur_port = ""
+    for line in (r["out"] or "").splitlines():
+        m = re.match(r"\s*Hardware Port:\s*(.+)", line)
+        if m:
+            cur_port = m.group(1).strip()
+            continue
+        m = re.match(r"\s*Device:\s*(\S+)", line)
+        if m and _looks_wireless(cur_port):
+            ifaces.append(m.group(1))
+    wifi["present"] = bool(ifaces)
+    if ifaces:
+        wifi["iface"] = ifaces[0]
+        wifi["adapters"] = ifaces
+        wifi["monitor_capable"] = None
+        notes.append("macOS 原生用户态不直接提供 monitor 能力判定（airport 已受限）；"
+                     "探针不切换模式，monitor_capable 记 null")
+
+    rb = run(["system_profiler", "SPBluetoothDataType"], 3.0)
+    low = (rb["out"] or "").lower()
+    bt_present = "bluetooth controller" in low or "bluetooth power" in low or "蓝牙控制器" in (rb["out"] or "")
+    bluetooth["present"] = bool(bt_present)
+    bluetooth["adapters"] = []
+    bluetooth["stack"] = {"system_profiler": not rb["missing"], "source": "SPBluetoothDataType"}
+
+    ru = run(["ioreg", "-p", "IOUSB", "-w0", "-l"], 3.0)
+    hits = _parse_ioreg_usb(ru["out"]) if not ru["missing"] else []
+    _absorb_usb_hits(hits, wifi, subghz, nfc)
+    if not hits:
+        notes.append("USB 白名单未命中（ioreg IOUSB）")
+
+
+def probe_radio(ctx):
+    """只读枚举本机无线/近场能力。绝不切换模式、绝不发射频。"""
+    t0 = time.monotonic()
+    budget = min(RADIO_BUDGET, getattr(ctx, "remaining", lambda: RADIO_BUDGET)() or RADIO_BUDGET)
+    deadline = t0 + max(1.0, budget)
+    tmpdir = getattr(ctx, "tmpdir", None)
+    owns_tmp = False
+    if not tmpdir:
+        tmpdir = tempfile.mkdtemp(prefix="seep_radio_")
+        owns_tmp = True
+
+    wifi = {"present": False, "monitor_capable": None, "iface": "", "adapters": []}
+    bluetooth = {"present": False, "adapters": [], "stack": {}}
+    subghz, nfc = [], []
+    notes, cmds, flags = [], [], {}
+    try:
+        try:
+            if sys.platform == "win32":
+                _radio_windows(deadline, tmpdir, wifi, bluetooth, subghz, nfc, notes, cmds, flags)
+            elif sys.platform == "darwin":
+                _radio_macos(deadline, wifi, bluetooth, subghz, nfc, notes, cmds, flags)
+            else:
+                _radio_linux(deadline, wifi, bluetooth, subghz, nfc, notes, cmds, flags)
+        except Exception as exc:  # noqa: BLE001
+            # 平台枚举自身异常：保留已采集字段，显式标记，不穿透
+            flags["error"] = str(exc)
+            notes.append(f"枚举异常（已降级）：{exc}")
+
+        status, blocked_at, reason = _decide_radio(wifi, bluetooth, subghz, nfc, flags)
+        if flags.get("error") and blocked_at is None:
+            status = "partial"
+        elapsed = time.monotonic() - t0
+        evidence = (f"platform={sys.platform}；{_radio_inventory(wifi, bluetooth, subghz, nfc)}；"
+                    f"{elapsed:.1f}s 只读枚举（未进 monitor、未发射频）")
+        if notes:
+            evidence += "；" + "；".join(notes[:4])
+        return {
+            "name": "radio", "status": status, "evidence": evidence, "note": reason,
+            "wifi": wifi, "bluetooth": bluetooth, "subghz": subghz, "nfc": nfc,
+            "blocked_at": blocked_at, "reason": reason,
+            "read_only": True, "platform": sys.platform,
+            "elapsed_s": round(elapsed, 2),
+            "commands": cmds,
+        }
+    finally:
+        if owns_tmp:
+            try:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+# ---------------------------------------------------------------------------
 # 主流程
 # ---------------------------------------------------------------------------
+
+
+class RadioContext:
+    """radio-only 模式的轻量上下文：不需要 target，只需要 10s 预算和临时目录。"""
+
+    def __init__(self):
+        self.target = ""
+        self.quick = False
+        self.start = time.monotonic()
+        self.total_budget = RADIO_BUDGET
+        self.deadline = self.start + RADIO_BUDGET
+        self.meta = {}
+        self.proc = None
+        self.pid = None
+        self.tmpdir = tempfile.mkdtemp(prefix="seep_radio_")
+
+    def remaining(self):
+        return max(0.0, self.deadline - time.monotonic())
+
+    def probe_timeout(self):
+        return max(0.0, min(RADIO_BUDGET, self.remaining()))
+
+
+def _self_test():
+    """只测判定/解析函数：不枚举硬件、不起子进程、不发任何射频。"""
+    checks = []
+
+    def ck(name, cond, detail=""):
+        checks.append({"name": name, "ok": bool(cond), "detail": detail})
+
+    hits = _usb_whitelist_hits("Bus 001 Device 004: ID 0bda:2838 Realtek RTL2838 DVB-T")
+    ck("lsusb 命中 RTL-SDR", any(h["vid_pid"] == "0bda:2838" for h in hits), str(hits))
+    hits = _usb_whitelist_hits(r"USB\VID_1D50&PID_6089\0000000000")
+    ck("PnP ID 命中 HackRF", any(h["vid_pid"] == "1d50:6089" for h in hits), str(hits))
+    hits = _usb_whitelist_hits("0451:16a8")
+    ck("CC2531 白名单命中", any(h["kind"] == "ieee802154" for h in hits), str(hits))
+    hits = _usb_whitelist_hits("9ac4:4b8f")
+    ck("Proxmark3 归到 nfc", any(h["kind"] == "nfc" for h in hits), str(hits))
+    ck("无关设备不误报", _usb_whitelist_hits(
+        "Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub") == [])
+    ck("空文本不误报", _usb_whitelist_hits("") == [])
+
+    ck("iw list 有 monitor", _parse_iw_list_monitor(
+        "\tSupported interface modes:\n\t\t * IBSS\n\t\t * monitor\n\t\t * managed\n") is True)
+    ck("iw list 无 monitor", _parse_iw_list_monitor(
+        "\tSupported interface modes:\n\t\t * managed\n\t\t * AP\n") is False)
+    ck("iw list 缺段 → None", _parse_iw_list_monitor("no modes here") is None)
+    ifs = _parse_iw_dev("phy#0\n\tInterface wlan0\n\t\tifindex 3\n\t\ttype managed\n")
+    ck("iw dev 解析 iface/type",
+       bool(ifs) and ifs[0]["iface"] == "wlan0" and ifs[0]["type"] == "managed", str(ifs))
+    ifc = _parse_iwconfig("wlan0     IEEE 802.11  ESSID:off/any\n          Mode:Monitor  Tx-Power=20 dBm\n")
+    ck("iwconfig 解析 + Mode:Monitor",
+       bool(ifc) and ifc[0]["iface"] == "wlan0" and ifc[0]["monitor"] is True, str(ifc))
+    hci = _parse_hciconfig("hci0:   Type: Primary  Bus: USB\n\tBD Address: 00:11:22:33:44:55\n")
+    ck("hciconfig 解析 hci0", hci == ["hci0"], str(hci))
+
+    nw = _parse_netsh_wlan("Name                   : WLAN\nSSID                   : Lab\n"
+                           "State                  : connected\n")
+    ck("netsh 解析无线接口", nw["present"] and nw["iface"] == "WLAN", str(nw))
+    nw = _parse_netsh_wlan("There is no wireless interface on the system.\n")
+    ck("netsh 无接口 → present=False", nw["present"] is False, str(nw))
+
+    st, ba, rs = _decide_radio(
+        {"present": True, "monitor_capable": True, "iface": "wlan0", "adapters": []},
+        {"present": False}, [], [])
+    ck("monitor 可用 → ok / blocked_at=null", st == "ok" and ba is None, f"{st}/{ba} {rs[:20]}")
+    st, ba, _ = _decide_radio(
+        {"present": True, "monitor_capable": False, "iface": "WLAN", "adapters": []},
+        {"present": False}, [], [])
+    ck("有网卡无 monitor → no-monitor-mode", st == "blocked" and ba == "no-monitor-mode", f"{st}/{ba}")
+    st, ba, _ = _decide_radio(
+        {"present": True, "monitor_capable": None, "iface": "en0", "adapters": []},
+        {"present": False}, [], [])
+    ck("monitor 未判定 → monitor-unverified", st == "partial" and ba == "monitor-unverified", f"{st}/{ba}")
+    st, ba, _ = _decide_radio(
+        {"present": False, "monitor_capable": None, "iface": "", "adapters": []},
+        {"present": False}, [], [])
+    ck("无硬件 → no-radio / blocked", st == "blocked" and ba == "no-radio", f"{st}/{ba}")
+    st, ba, _ = _decide_radio(
+        {"present": False, "monitor_capable": None, "iface": "", "adapters": []},
+        {"present": True}, [{"vid_pid": "0bda:2838", "name": "RTL-SDR"}], [])
+    ck("只有 SDR → no-wifi / partial", st == "partial" and ba == "no-wifi", f"{st}/{ba}")
+    st, ba, _ = _decide_radio(
+        {"present": True, "monitor_capable": False, "iface": "WLAN", "adapters": []},
+        {"present": True}, [], [])
+    ck("网卡无 monitor 但有 BT → partial + no-monitor-mode",
+       st == "partial" and ba == "no-monitor-mode", f"{st}/{ba}")
+    st, ba, _ = _decide_radio(
+        {"present": False, "monitor_capable": None, "iface": "", "adapters": []},
+        {"present": False}, [], [], {"missing": True})
+    ck("缺命令 → command-missing", ba == "command-missing", str(ba))
+    st, ba, _ = _decide_radio(
+        {"present": False, "monitor_capable": None, "iface": "", "adapters": []},
+        {"present": False}, [], [], {"denied": True})
+    ck("缺权限 → no-permission", ba == "no-permission", str(ba))
+    st, ba, _ = _decide_radio(
+        {"present": False, "monitor_capable": None, "iface": "", "adapters": []},
+        {"present": False}, [], [], {"timeout": True})
+    ck("超时 → timeout", ba == "timeout", str(ba))
+    st, ba, _ = _decide_radio(
+        {"present": False, "monitor_capable": None, "iface": "", "adapters": []},
+        {"present": False}, [], [], {"error": "boom"})
+    ck("内部异常 → probe-error", ba == "probe-error", str(ba))
+
+    # 只读断言：文件里不得出现会切模式/发射频的命令（字符串拼接避免自命中）
+    src = Path(__file__).read_text(encoding="utf-8", errors="replace")
+    banned = ["airmon" + "-ng", "aireplay" + "-ng", "Wlan" + "Scan",
+              "hackrf" + "_transfer", "iwconfig" + " monitor"]
+    found = [b for b in banned if b in src]
+    ck("radio 探针不含切模式/发射频命令", not found, ",".join(found))
+
+    ok = all(c["ok"] for c in checks)
+    _out(json.dumps({"ok": ok, "checks": checks}, ensure_ascii=False, indent=2))
+    return 0 if ok else 1
+
+
 def _run_probe(name, fn, ctx):
     if ctx.remaining() < 2:
-        return _status(name, "blocked", "整体 90s 预算耗尽，该探针未执行",
-                       "不是静默跳过：预算到点会显式记录；可拆成多次运行或加 --quick")
+        total = getattr(ctx, "total_budget", TOTAL_BUDGET)
+        return _status(name, "blocked", f"整体 {total}s 预算耗尽，该探针未执行",
+                       "不是静默跳过：预算到点会显式记录；可拆成多次运行或加 --quick；"
+                       "radio 可单独跑 --radio-only")
     t0 = time.monotonic()
     try:
         return fn(ctx)
@@ -740,37 +1502,96 @@ def _run_probe(name, fn, ctx):
         _ = time.monotonic() - t0
 
 
+def _build_payload(target, probes, ctx, extra_meta=None):
+    meta = {
+        "arch": (ctx.meta or {}).get("arch"),
+        "is_dll": (ctx.meta or {}).get("is_dll"),
+        "entry_rva": (ctx.meta or {}).get("entry_rva"),
+        "size_of_image": (ctx.meta or {}).get("size_of_image"),
+        "quick": bool(getattr(ctx, "quick", False)),
+        "elapsed_s": round(time.monotonic() - ctx.start, 1),
+        "budget_s": getattr(ctx, "total_budget", TOTAL_BUDGET),
+        "per_probe_timeout_s": PER_PROBE_TIMEOUT,
+    }
+    if extra_meta:
+        meta.update(extra_meta)
+    return {
+        "target": target,
+        "sha256": _sha256(target) if target else None,
+        "probes": probes,
+        "meta": meta,
+    }
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="probe_matrix.py",
-        description="脱壳/反调试仪器探针矩阵：baseline / x64dbg / frida-spawn / frida-attach / external / network",
-        epilog="示例：python Tool/scripts/probe_matrix.py --target <exe> --json")
-    parser.add_argument("--target", required=True, help="目标 PE（exe/dll）路径")
+        description=("脱壳/反调试仪器探针矩阵：baseline / x64dbg / frida-spawn / frida-attach / "
+                     "external / network / radio"),
+        epilog=("示例：python Tool/scripts/probe_matrix.py --target <exe> --json；"
+                "仅查无线能力：python Tool/scripts/probe_matrix.py --radio-only --json"))
+    parser.add_argument("--target", help="目标 PE（exe/dll）路径；--radio-only 时可省略")
     parser.add_argument("--json", action="store_true", help="打印 JSON 到 stdout")
     parser.add_argument("--out", help="把 JSON 写到指定文件")
     parser.add_argument("--quick", action="store_true", help="只做 baseline + external（更快）")
+    parser.add_argument("--radio-only", action="store_true",
+                        help="只做 radio 探针（WiFi/蓝牙/SDR/802.15.4/NFC 只读能力枚举，≤10s）")
+    parser.add_argument("--self-test", action="store_true",
+                        help="只测 radio 的判定/解析函数（不碰硬件、不起子进程）")
     args = parser.parse_args(argv)
 
-    target = os.path.abspath(os.path.expanduser(args.target))
-    if not os.path.isfile(target):
-        _out(f"[ERR] 目标不存在：{target}")
+    if args.self_test:
+        return _self_test()
+
+    target = None
+    if args.target:
+        target = os.path.abspath(os.path.expanduser(args.target))
+        if not os.path.isfile(target):
+            _out(f"[ERR] 目标不存在：{target}")
+            return 2
+    if target is None and not args.radio_only:
+        _out("[ERR] 需要 --target；只想看本机无线/近场能力用 --radio-only（不需要目标）")
         return 2
+
+    # --radio-only：只跑 radio，不需要目标，也不碰任何靶机进程
+    if args.radio_only:
+        ctx = RadioContext()
+        try:
+            result = _run_probe("radio", probe_radio, ctx)
+        finally:
+            shutil.rmtree(ctx.tmpdir, ignore_errors=True)
+        payload = _build_payload(target, [result], ctx, {"radio_only": True})
+        text = json.dumps(payload, ensure_ascii=False, indent=2)
+        if args.out:
+            out_path = os.path.abspath(os.path.expanduser(args.out))
+            os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(text + "\n")
+            _out(f"[OK] 已写入 {out_path}")
+        if args.json:
+            _out(text)
+        elif not args.out:
+            _out(f"radio: {result['status']} blocked_at={result['blocked_at']}")
+            _out(f"  evidence: {result['evidence']}")
+            _out(f"  reason:   {result['reason']}")
+        return 0
 
     ctx = ProbeContext(target, args.quick)
     results = {}
-    ran = set()
 
     # 先跑 baseline，后续 external/attach/network 复用其进程
-    results["baseline"] = _run_probe("baseline", probe_baseline, ctx); ran.add("baseline")
+    results["baseline"] = _run_probe("baseline", probe_baseline, ctx)
     if not args.quick:
         # 外部读/网络尽早做，避免后续 GUI 探针拖太久导致 baseline 已退出
-        results["external"] = _run_probe("external", probe_external, ctx); ran.add("external")
-        results["network"] = _run_probe("network", probe_network, ctx); ran.add("network")
-        results["frida-attach"] = _run_probe("frida-attach", probe_frida_attach, ctx); ran.add("frida-attach")
-        results["frida-spawn"] = _run_probe("frida-spawn", probe_frida_spawn, ctx); ran.add("frida-spawn")
-        results["x64dbg"] = _run_probe("x64dbg", probe_x64dbg, ctx); ran.add("x64dbg")
+        results["external"] = _run_probe("external", probe_external, ctx)
+        results["network"] = _run_probe("network", probe_network, ctx)
+        # radio 与目标无关，但会让目标多存活 10s；放在网络观察之后
+        results["radio"] = _run_probe("radio", probe_radio, ctx)
+        results["frida-attach"] = _run_probe("frida-attach", probe_frida_attach, ctx)
+        results["frida-spawn"] = _run_probe("frida-spawn", probe_frida_spawn, ctx)
+        results["x64dbg"] = _run_probe("x64dbg", probe_x64dbg, ctx)
     else:
-        results["external"] = _run_probe("external", probe_external, ctx); ran.add("external")
+        results["external"] = _run_probe("external", probe_external, ctx)
 
     # 清理 baseline
     if ctx.proc is not None and ctx.proc.poll() is None:
@@ -790,21 +1611,8 @@ def main(argv=None):
         else:
             probes.append(_status(name, "blocked", "该探针未执行（不在本次模式内）",
                                   "使用不带 --quick 的模式可启用"))
-    payload = {
-        "target": target,
-        "sha256": _sha256(target),
-        "probes": probes,
-        "meta": {
-            "arch": ctx.meta.get("arch"),
-            "is_dll": ctx.meta.get("is_dll"),
-            "entry_rva": ctx.meta.get("entry_rva"),
-            "size_of_image": ctx.meta.get("size_of_image"),
-            "quick": bool(args.quick),
-            "elapsed_s": round(time.monotonic() - ctx.start, 1),
-            "budget_s": TOTAL_BUDGET,
-            "per_probe_timeout_s": PER_PROBE_TIMEOUT,
-        },
-    }
+    payload = _build_payload(target, probes, ctx)
+
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if args.out:
         out_path = os.path.abspath(os.path.expanduser(args.out))
@@ -819,6 +1627,8 @@ def main(argv=None):
         _out(f"sha256: {payload['sha256']}")
         for p in probes:
             _out(f"- {p['name']:<13} {p['status']:<8} {p['evidence']}")
+            if p.get("blocked_at"):
+                _out(f"  blocked_at: {p['blocked_at']}")
             if p.get("note"):
                 _out(f"  note: {p['note']}")
         _out(f"elapsed: {payload['meta']['elapsed_s']}s / budget {TOTAL_BUDGET}s")
