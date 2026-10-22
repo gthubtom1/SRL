@@ -1,0 +1,23 @@
+{
+ "base": "https://block.youtest.me",
+ "mocks": {
+  "/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json": {
+   "status": 200,
+   "content_type": "application/json",
+   "body": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json"
+  },
+  "/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json": {
+   "status": 200,
+   "content_type": "application/json",
+   "body": "_replay/bodies/6df946c0-_next_data_MF0PX5Om9anXYG9uRYEC-_user_creating.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json"
+  },
+  "/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1": {
+   "status": 200,
+   "content_type": "application/json",
+   "body": "_replay/bodies/d9c21784-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json_no_redirect_1.json",
+   "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1"
+  }
+ }
+}
