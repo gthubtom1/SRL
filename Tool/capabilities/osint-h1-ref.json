@@ -1,0 +1,40 @@
+{
+  "id": "osint-h1-ref",
+  "title": "HackerOne 公开已披露报告检索（同类打法参照）",
+  "domain": "web-pentest",
+  "triggers": [
+    "公开报告",
+    "已披露报告",
+    "同类漏洞",
+    "打法参照",
+    "hackerone",
+    "hacktivity",
+    "漏洞赏金",
+    "历史披露",
+    "参考报告"
+  ],
+  "aliases": [
+    "osint-h1-ref",
+    "h1-ref",
+    "公开报告检索",
+    "h1 参考"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "关键词（产品名 / 漏洞类）",
+    "limit（默认 10）"
+  ],
+  "outputs": [
+    "reports：title/url/severity/program/reporter/bounty/cwe",
+    "count / scanned / strategy",
+    "blocked_at：network-error / graphql-error / bad-response"
+  ],
+  "scripts": [
+    "Tool/scripts/osint-h1-ref.py"
+  ],
+  "refs": [
+    "Tool/playbooks/osint-recon.md"
+  ],
+  "maturity": "usable",
+  "compose": []
+}

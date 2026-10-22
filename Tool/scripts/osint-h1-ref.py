@@ -1,0 +1,394 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""osint-h1-ref.py —— 查 HackerOne 公开已披露报告，给 OSINT 阶段找同类打法。
+
+为什么有用：目标产品被打过什么、用什么手法、有没有公开报告，是「该测什么」
+最省时间的参照。只读公开数据（disclosed hacktivity），不需要 API key，不碰私有
+报告、不发消息、不写目标侧任何东西。
+
+接口：POST https://hackerone.com/graphql（HackerOne Hacktivity 搜索索引）。
+  首选服务端关键词过滤（terms/title）；若该索引字段不可用（GraphQL errors），
+  自动退回「拉一页已披露报告 + 本地按标题/CWE/程序名过滤」，并在结果里写
+  strategy，避免把「退回」当「没有」。
+
+用法:
+    python Tool/scripts/osint-h1-ref.py --query "shopify" --limit 10 --json
+    python Tool/scripts/osint-h1-ref.py --query "ssrf" --limit 5 --out work/<case>/h1.json
+    python Tool/scripts/osint-h1-ref.py --query "<产品>" --limit 10 --json
+    python Tool/scripts/osint-h1-ref.py --self-test     # 离线样本，不联网
+
+输出 JSON：
+  {"ok":bool,"schema":...,"query":...,"count":n,"scanned":m,"strategy":...,
+   "reports":[{title,url,severity,program,reporter,bounty,currency,votes,cwe,cves}],
+   "blocked_at":null|"network-error"|"graphql-error"|"bad-response"|"args"}
+
+退出码：0 查询成功 / 2 参数错误、网络失败或响应不可解析（blocked_at 里写原因）。
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
+
+SCHEMA = "seep.osint-h1-ref/1"
+GRAPHQL_URL = "https://hackerone.com/graphql"
+DEFAULT_TIMEOUT = 10
+DEFAULT_LIMIT = 10
+MAX_LIMIT = 100
+HEADERS = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (compatible; seep-osint-h1-ref/1.0)",
+    "Origin": "https://hackerone.com",
+    "Referer": "https://hackerone.com/hacktivity",
+}
+
+# 只取公开可见字段：标题/链接/评级/团队/报告人/赏金/票数。不要 disclosed_at
+# （H1 在 substate 过滤 + 该字段组合下会 500）。
+REPORT_FIELDS = """... on HacktivityDocument {
+  id
+  severity_rating
+  total_awarded_amount
+  currency
+  cwe
+  cve_ids
+  votes
+  team { handle name }
+  reporter { username }
+  report { _id title url }
+}"""
+
+
+def gql_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def build_query(keyword: str = "", first: int = 50, server_keyword: bool = True) -> str:
+    """内联 GraphQL（H1 对「命名变量 + substate 过滤 + report 字段」会崩，故内联）。
+
+    服务端关键词走 `multi_match(fields: ["title"])`：实测 H1 的
+    TermsFilterInput 不接受 title，multi_match / query_string(fields=) 可用。
+    """
+    filters = ['{terms: {substate: ["resolved"]}}']
+    must = ""
+    if server_keyword and keyword:
+        must = ', must: [{multi_match: {query: "%s", fields: ["title"]}}]' % gql_escape(keyword)
+    return (
+        '{ search(index: CompleteHacktivityReportIndex, first: %d, '
+        'query: {bool: {filter: [%s]%s}}) '
+        '{ total_count pageInfo { endCursor } nodes { %s } } }'
+        % (first, ", ".join(filters), must, REPORT_FIELDS)
+    )
+
+
+def post_graphql(query: str, timeout: int) -> dict:
+    payload = json.dumps({"query": query}).encode("utf-8")
+    req = urllib.request.Request(GRAPHQL_URL, data=payload, headers=HEADERS,
+                                 method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        body = resp.read()
+    return json.loads(body.decode("utf-8", "replace"))
+
+
+def normalize_node(node: dict) -> dict | None:
+    """把 H1 的 node 收敛成扁平结构；没有 report 的条目（未披露）直接丢掉。"""
+    if not isinstance(node, dict):
+        return None
+    report = node.get("report") or {}
+    if not isinstance(report, dict):
+        return None
+    title = (report.get("title") or "").strip()
+    rid = report.get("_id") or node.get("id") or ""
+    url = report.get("url") or ("https://hackerone.com/reports/%s" % rid if rid else "")
+    if not title or not url:
+        return None
+    team = node.get("team") or {}
+    reporter = node.get("reporter") or {}
+    cves = node.get("cve_ids") or []
+    return {
+        "title": title,
+        "url": url,
+        "id": str(rid),
+        "severity": (node.get("severity_rating") or "none"),
+        "program": team.get("handle") or "",
+        "program_name": team.get("name") or "",
+        "reporter": reporter.get("username") or "",
+        "bounty": node.get("total_awarded_amount") or 0,
+        "currency": node.get("currency") or "usd",
+        "votes": node.get("votes") or 0,
+        "cwe": node.get("cwe") or "",
+        "cves": [str(c) for c in cves] if isinstance(cves, list) else [],
+    }
+
+
+def parse_response(data: dict) -> list[dict]:
+    """从 GraphQL 响应里取 nodes；无 data / 有 errors 时返回空列表（调用方判错）。"""
+    if not isinstance(data, dict):
+        return []
+    search = ((data.get("data") or {}).get("search")) or {}
+    nodes = search.get("nodes") or []
+    out = []
+    for node in nodes:
+        item = normalize_node(node)
+        if item:
+            out.append(item)
+    return out
+
+
+def dedupe(reports: list[dict]) -> list[dict]:
+    """按 id / url 去重：同一份报告在不同页/不同索引里会重复出现。"""
+    seen, out = set(), []
+    for rep in reports:
+        key = rep.get("id") or rep.get("url")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(rep)
+    return out
+
+
+def keyword_matches(report: dict, keyword: str) -> bool:
+    """本地兜底过滤：标题 / CWE / 程序名（大小写不敏感，正则安全降级为子串）。"""
+    if not keyword:
+        return True
+    hay = " ".join([report.get("title", ""), report.get("cwe", ""),
+                    report.get("program", ""), report.get("program_name", "")])
+    try:
+        return re.search(keyword, hay, re.IGNORECASE) is not None
+    except re.error:
+        return keyword.lower() in hay.lower()
+
+
+def search(query: str, limit: int, timeout: int) -> dict:
+    """两段式：先服务端关键词过滤；失败则退回整页 + 本地过滤。"""
+    attempts = [
+        ("server-keyword", build_query(query, first=min(50, max(limit, 10)),
+                                       server_keyword=True), False),
+        ("client-filter", build_query(query, first=50, server_keyword=False), True),
+    ]
+    last_error = None
+    for strategy, gql, client_filter in attempts:
+        try:
+            data = post_graphql(gql, timeout)
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            return {"ok": False, "blocked_at": "network-error",
+                    "reason": str(exc)[:160]}
+        if not isinstance(data, dict) or data.get("errors") or not data.get("data"):
+            errs = []
+            if isinstance(data, dict):
+                errs = [str(e.get("message"))[:120] for e in (data.get("errors") or [])
+                        if isinstance(e, dict)]
+            last_error = "; ".join(errs) or "响应缺少 data 字段"
+            continue
+        reports = dedupe(parse_response(data))
+        scanned = len(reports)
+        if client_filter or not strategy.startswith("server"):
+            reports = [r for r in reports if keyword_matches(r, query)]
+        return {"ok": True, "blocked_at": None, "strategy": strategy,
+                "scanned": scanned, "reports": reports[:limit]}
+    return {"ok": False, "blocked_at": "graphql-error", "reason": last_error or "未知错误"}
+
+
+def render_text(payload: dict) -> str:
+    if not payload.get("ok"):
+        return "osint-h1-ref: BLOCKED (%s) %s" % (
+            payload.get("blocked_at"), payload.get("reason", ""))
+    lines = ["osint-h1-ref: %d 条（关键词=%r / 策略=%s / 已扫描=%d）"
+             % (payload["count"], payload.get("query"),
+                payload.get("strategy"), payload.get("scanned", 0))]
+    for i, rep in enumerate(payload["reports"], 1):
+        lines.append("[%02d] %s" % (i, rep["title"]))
+        lines.append("     严重度: %s | 程序: %s | 报告人: %s"
+                     % (rep["severity"], rep["program"] or "-", rep["reporter"] or "-"))
+        if rep.get("bounty"):
+            lines.append("     赏金: %s %s | 票数: %s"
+                         % (rep["bounty"], str(rep.get("currency", "")).upper(),
+                            rep.get("votes", 0)))
+        if rep.get("cves"):
+            lines.append("     CVE: " + ", ".join(rep["cves"]))
+        lines.append("     " + rep["url"])
+    if not payload["reports"]:
+        lines.append("  （无匹配；换个关键词或产品别名再试）")
+    return "\n".join(lines)
+
+
+def emit(payload: dict, out_path: str | None) -> None:
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    if out_path:
+        target = os.path.abspath(out_path)
+        parent = os.path.dirname(target)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(target, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text + "\n")
+        print("[out] 已写入 %s" % out_path, file=sys.stderr)
+    print(text)
+
+
+# ---------------------------------------------------------------- 离线样本
+SAMPLE_RESPONSE = {
+    "data": {"search": {
+        "total_count": 9,
+        "pageInfo": {"endCursor": "NQ=="},
+        "nodes": [
+            {"id": "gid://hackerone/Report/1001",
+             "severity_rating": "high", "total_awarded_amount": 5000,
+             "currency": "usd", "cwe": "CWE-918: Server-Side Request Forgery (SSRF)",
+             "cve_ids": [], "votes": 120,
+             "team": {"handle": "acme", "name": "Acme Corp"},
+             "reporter": {"username": "alice"},
+             "report": {"_id": "1001", "title": "SSRF in image proxy",
+                        "url": "https://hackerone.com/reports/1001"}},
+            # 跨页重复：必须被去重掉
+            {"id": "gid://hackerone/Report/1001",
+             "severity_rating": "high", "total_awarded_amount": 5000,
+             "currency": "usd", "cwe": "CWE-918: Server-Side Request Forgery (SSRF)",
+             "cve_ids": [], "votes": 120,
+             "team": {"handle": "acme", "name": "Acme Corp"},
+             "reporter": {"username": "alice"},
+             "report": {"_id": "1001", "title": "SSRF in image proxy",
+                        "url": "https://hackerone.com/reports/1001"}},
+            {"id": "gid://hackerone/Report/1002",
+             "severity_rating": "medium", "total_awarded_amount": None,
+             "currency": "usd", "cwe": "CWE-79: Cross-site Scripting (XSS)",
+             "cve_ids": ["CVE-2020-0001"], "votes": 7,
+             "team": {"handle": "acme", "name": "Acme Corp"},
+             "reporter": {"username": "bob"},
+             "report": {"_id": "1002", "title": "Stored XSS in profile",
+                        "url": "https://hackerone.com/reports/1002"}},
+            # 未披露 / 无 report 字段：必须丢弃，不能当作 0 条结果里的噪音
+            {"id": "gid://hackerone/Report/1003", "severity_rating": "none",
+             "report": None, "team": {"handle": "acme", "name": "Acme Corp"}},
+        ]}},
+}
+SAMPLE_ERRORS = {"errors": [{"message": "Internal server error"}]}
+
+
+def self_test() -> int:
+    """离线断言：解析 / 去重 / 关键词过滤 / 错误分支；一律不联网。"""
+    checks, bad = [], []
+
+    def expect(label, cond):
+        checks.append(label)
+        if not cond:
+            bad.append(label)
+
+    raw_reports = parse_response(SAMPLE_RESPONSE)
+    reports = dedupe(raw_reports)
+    expect("解析出 3 条（重复计入、未披露被去掉）", len(raw_reports) == 3)
+    expect("去重后剩 2 条有效报告", len(reports) == 2)
+    expect("去重后 id 唯一", len(dedupe(reports + reports)) == 2)
+    expect("字段收敛（标题/链接/评级/程序）",
+           reports[0]["title"] == "SSRF in image proxy"
+           and reports[0]["url"] == "https://hackerone.com/reports/1001"
+           and reports[0]["severity"] == "high"
+           and reports[0]["program"] == "acme"
+           and reports[0]["reporter"] == "alice"
+           and reports[0]["bounty"] == 5000)
+    expect("CWE/CVE 字段可用",
+           "SSRF" in reports[0]["cwe"] and reports[1]["cves"] == ["CVE-2020-0001"])
+    expect("关键词过滤（ssrf，大小写不敏感）",
+           len([r for r in reports if keyword_matches(r, "ssrf")]) == 1)
+    expect("关键词过滤（xss）",
+           len([r for r in reports if keyword_matches(r, "xss")]) == 1)
+    expect("正则元字符不会崩（降级为子串）",
+           keyword_matches(reports[0], "ssrf(") is False)
+    expect("空关键词不过滤", all(keyword_matches(r, "") for r in reports))
+    expect("错误响应识别为不可用",
+           (SAMPLE_ERRORS.get("errors") is not None) and parse_response(SAMPLE_ERRORS) == [])
+    expect("缺 data 时 parse 返回空", parse_response({"data": None}) == [])
+
+    gql = build_query('ac"me\\x', first=10, server_keyword=True)
+    expect("GraphQL 关键词转义", '"ac\\"me\\\\x"' in gql)
+    expect("查询含 substate=resolved", '"resolved"' in gql)
+    expect("查询带 report 字段", "title" in gql and "url" in gql)
+    expect("请求字段不含易崩的 disclosed_at", "disclosed_at" not in gql)
+    plain = build_query("", first=10, server_keyword=False)
+    expect("无关键词时不加 title 过滤", "must" not in plain)
+
+    payload = {"ok": True, "query": "ssrf", "count": 1, "scanned": 2,
+               "strategy": "server-keyword", "reports": reports[:1],
+               "blocked_at": None}
+    expect("文本渲染可读", "hackerone.com/reports/1001" in render_text(payload))
+    blocked = {"ok": False, "blocked_at": "network-error", "reason": "timeout"}
+    expect("失败渲染带 blocked_at", "network-error" in render_text(blocked))
+    expect("limit 生效", len(reports[:1]) == 1)
+
+    if bad:
+        print(json.dumps({"ok": False, "blocked_at": "self-test",
+                          "tool": "osint-h1-ref.py", "failures": bad},
+                         ensure_ascii=False))
+        return 2
+    print(json.dumps({"ok": True, "checks": len(checks), "tool": "osint-h1-ref.py",
+                      "fixtures": {"nodes": 4, "unique": 2}}, ensure_ascii=False))
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="HackerOne 公开已披露报告检索（只读公开 GraphQL，无需 API key）",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__)
+    ap.add_argument("--query", default=None,
+                    help="关键词：产品名 / 漏洞类（如 ssrf、oauth、shopify）")
+    ap.add_argument("--limit", type=int, default=DEFAULT_LIMIT,
+                    help="最多返回条数（默认 10，上限 %d）" % MAX_LIMIT)
+    ap.add_argument("--json", action="store_true", help="只输出 JSON（机器可读）")
+    ap.add_argument("--out", default=None, help="把 JSON 结果写入文件（自动建目录）")
+    ap.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
+                    help="单次请求超时秒数（默认 10）")
+    ap.add_argument("--self-test", action="store_true",
+                    help="内置离线响应样本自测（不联网）")
+    args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
+
+    if not args.query or not args.query.strip():
+        payload = {"ok": False, "schema": SCHEMA, "query": args.query,
+                   "count": 0, "reports": [], "blocked_at": "args",
+                   "reason": "必须给 --query（产品名或漏洞类关键词）"}
+        print(json.dumps(payload, ensure_ascii=False))
+        return 2
+    if args.limit <= 0 or args.limit > MAX_LIMIT:
+        payload = {"ok": False, "schema": SCHEMA, "query": args.query,
+                   "count": 0, "reports": [], "blocked_at": "args",
+                   "reason": "--limit 必须在 1..%d" % MAX_LIMIT}
+        print(json.dumps(payload, ensure_ascii=False))
+        return 2
+
+    result = search(args.query.strip(), args.limit, max(1, args.timeout))
+    payload = {
+        "ok": bool(result.get("ok")),
+        "schema": SCHEMA,
+        "query": args.query.strip(),
+        "count": len(result.get("reports") or []),
+        "scanned": result.get("scanned", 0),
+        "strategy": result.get("strategy"),
+        "reports": result.get("reports") or [],
+        "blocked_at": result.get("blocked_at"),
+        "source": GRAPHQL_URL,
+    }
+    if result.get("reason"):
+        payload["reason"] = result["reason"]
+
+    if args.json:
+        emit(payload, args.out)
+    else:
+        emit(payload, args.out)
+        print(render_text(payload))
+    return 0 if payload["ok"] else 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
