@@ -1,0 +1,37 @@
+{
+  "id": "captcha-gap",
+  "title": "滑块缺口定位（本地 CV，不调外部识别）",
+  "domain": "web-pentest",
+  "triggers": [
+    "滑块",
+    "缺口",
+    "拼图",
+    "gap",
+    "slider",
+    "验证码图片"
+  ],
+  "aliases": [
+    "captcha-gap",
+    "滑块",
+    "缺口"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "验证码图片（背景/滑块/旋转图，来自 HTTP 响应）",
+    "目标平台的一次挑战"
+  ],
+  "outputs": [
+    "gap.json（x / confidence / candidates）"
+  ],
+  "scripts": [
+    "Tool/scripts/captcha-gap.py"
+  ],
+  "refs": [
+    "Tool/playbooks/captcha-handling.md",
+    "Tool/skill/signin-automation/SKILL.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "captcha-angle"
+  ]
+}

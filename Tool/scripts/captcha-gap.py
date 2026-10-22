@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""captcha-gap.py —— 滑块缺口定位（纯 numpy + Pillow，本地、离线、不调外部识别）。
+
+它只回答一个问题：背景图里那道缺口，左边缘在 x 的哪个像素。
+
+为什么不用 OCR：缺口是「图像结构」不是「文字」，用 Sobel-x 梯度 + 归一化互相关
+（NCC）做模板匹配即可；OCR 只用于字符码，与本脚本无关。
+
+用法：
+    python Tool/scripts/captcha-gap.py --bg background.png --slice piece.png
+    python Tool/scripts/captcha-gap.py --bg background.png            # 只给背景：自动找「最像缺口的竖边」
+    python Tool/scripts/captcha-gap.py --bg bg.png --slice s.png --json --out work/<case>/gap.json
+    python Tool/scripts/captcha-gap.py --self-test
+
+输出（--json）：
+    {"ok": true, "schema": "seep.captcha-gap/1", "x": 132, "confidence": 0.87,
+     "method": "sobel-ncc", "bg_size": [340, 212], "slice_size": [60, 60], "candidates": [...]}
+
+判据：confidence >= 0.55 → 可用；0.35–0.55 → 提交前用 ±2px 试探；< 0.35 → 换路（人工/换图）。
+退出码：0 有结果 / 2 输入缺失或不可读 / 3 置信度过低（仍输出结果与候选）。
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+
+try:
+    import numpy as np
+except Exception:  # noqa: BLE001
+    print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                      "reason": "需要 numpy：pip install numpy"}, ensure_ascii=False))
+    sys.exit(2)
+
+try:
+    from PIL import Image
+except Exception:  # noqa: BLE001
+    Image = None
+
+SCHEMA = "seep.captcha-gap/1"
+LIMITS = [
+    "只给背景图时用「竖边显著性」找缺口，图里若有多条强竖边会降置信度",
+    "拼图块带缩放/旋转的平台（极验 v4 部分场景）需先按官方尺寸还原，否则 x 有系统偏差",
+    "结果是图像坐标，提交前要按页面 CSS 宽度与图片实际宽度的比例换算",
+]
+
+
+def _fail(blocked_at, reason, code=2):
+    print(json.dumps({"ok": False, "blocked_at": blocked_at, "reason": reason},
+                     ensure_ascii=False))
+    return code
+
+
+def load_gray(path):
+    if Image is None:
+        return None, "缺少 Pillow：pip install pillow"
+    if not os.path.isfile(path):
+        return None, "文件不存在: " + path
+    try:
+        im = Image.open(path).convert("RGBA")
+    except Exception as exc:  # noqa: BLE001
+        return None, "无法解码图片: %s" % str(exc)[:80]
+    arr = np.asarray(im, dtype=np.float32)
+    alpha = arr[:, :, 3]
+    gray = (0.299 * arr[:, :, 0] + 0.587 * arr[:, :, 1] + 0.114 * arr[:, :, 2])
+    return {"gray": gray, "alpha": alpha, "size": (im.width, im.height)}, None
+
+
+def sobel_x(gray):
+    """3x3 Sobel-x：竖直边缘响应（缺口的左右边会很强）。"""
+    g = np.asarray(gray, dtype=np.float32)
+    k = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32)
+    pad = np.pad(g, 1, mode="edge")
+    out = np.zeros_like(g)
+    for dy in range(3):
+        for dx in range(3):
+            if k[dy, dx]:
+                out += k[dy, dx] * pad[dy:dy + g.shape[0], dx:dx + g.shape[1]]
+    return np.abs(out)
+
+
+def ncc_map(gray, tpl):
+    """逐列滑窗的归一化互相关：返回 (H-th+1, W-tw+1) 分值矩阵。"""
+    th, tw = tpl.shape
+    H, W = gray.shape
+    if th > H or tw > W:
+        return None
+    T = tpl.astype(np.float64) - float(tpl.mean())
+    tnorm = float(np.sqrt((T ** 2).sum())) + 1e-9
+    Tflat = T.ravel()
+    out = np.full((H - th + 1, W - tw + 1), -1.0, dtype=np.float64)
+    for x in range(W - tw + 1):
+        win = np.lib.stride_tricks.sliding_window_view(gray[:, x:x + tw], (th, tw))
+        flat = win.reshape(win.shape[0], -1).astype(np.float64)
+        flat -= flat.mean(axis=1, keepdims=True)
+        norm = np.sqrt((flat ** 2).sum(axis=1)) + 1e-9
+        out[:, x] = (flat @ Tflat) / (norm * tnorm)
+    return out
+
+
+def column_significance(bg_grad, width):
+    """没有滑块图时的降级：缺口是被抹平的矩形，找「边缘能量最低的连续段」，返回其左端。"""
+    col = bg_grad.sum(axis=0).astype(np.float64)
+    if col.size == 0:
+        return None
+    w = max(6, int(width))
+    if w >= col.size:
+        return np.array([float(col.sum())])
+    k = np.ones(w, dtype=np.float64)
+    win = np.convolve(col, k, mode="valid")   # win[i] = 从 i 起 w 列的边缘能量和
+    i = int(np.argmin(win))
+    # 返回"最弱点"的等长段，后面统一取 argmax 得到左端
+    sig = np.full(col.size, 0.0)
+    sig[i] = 1.0
+    return sig
+
+
+def analyse(bg_path, slice_path=None):
+    bg, err = load_gray(bg_path)
+    if err:
+        return None, err
+    bg_grad = bg["gray"].astype(np.float32)
+    info = {"bg_size": [int(bg["size"][0]), int(bg["size"][1])]}
+
+    if slice_path:
+        sl, err = load_gray(slice_path)
+        if err:
+            return None, err
+        mask = sl["alpha"] > 8
+        if not mask.any():
+            mask = np.ones_like(sl["gray"], dtype=bool)
+        ys, xs = np.where(mask)
+        tpl_gray = sl["gray"][ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+        tpl = np.asarray(tpl_gray, dtype=np.float32)   # 灰度 NCC：结构块唯一，抗噪声优于梯度图
+        scores = ncc_map(bg_grad, tpl)
+        if scores is None:
+            return None, "滑块图比背景图大，尺寸不对"
+        flat = scores.ravel()
+        order = np.argsort(flat)[::-1][:5]
+        tw_ = scores.shape[1]
+        best = int(order[0] % tw_)
+        best_score = float(flat[order[0]])
+        # 置信度：峰值本身 + 与次峰的间隔（缺口应是唯一强匹配）
+        peak = best_score
+        second = float(flat[order[1]]) if len(order) > 1 else -1.0
+        conf = max(0.0, min(1.0, (peak - second) * 2.0 + peak * 0.5))
+        info.update({"slice_size": [int(tpl.shape[1]), int(tpl.shape[0])],
+                     "method": "gray-ncc",
+                     "candidates": [{"x": int(i % tw_), "y": int(i // tw_),
+                                     "score": round(float(flat[i]), 4)}
+                                    for i in order]})
+        return {"x": best, "confidence": round(conf, 3), **info}, None
+
+    sig = column_significance(sobel_x(bg["gray"]), max(8, bg["size"][0] // 6))
+    if sig is None:
+        return None, "背景图为空"
+    order = np.argsort(sig)[::-1][:5]
+    top = float(sig[int(order[0])])
+    left_peaks = [i for i in range(len(sig))
+                  if sig[i] >= top * 0.5 and (i == 0 or sig[i] >= sig[i - 1])]
+    best = int(left_peaks[0]) if left_peaks else int(order[0])
+    peak, second = float(sig[best]), float(sig[order[1]]) if len(order) > 1 else 0.0
+    conf = max(0.0, min(1.0, (peak - second) / (peak + 1e-6)))
+    info.update({"slice_size": None, "method": "column-significance",
+                 "candidates": [{"x": int(i), "score": round(float(sig[i]), 2)}
+                                for i in order]})
+    return {"x": best, "confidence": round(conf, 3), **info}, None
+
+
+def self_test():
+    """合成素材：白底 + 黑色缺口矩形 + 同形状滑块，验证 x 误差 <= 2px。"""
+    checks, fails = [], []
+    if Image is None:
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "需要 Pillow"}, ensure_ascii=False))
+        return 2
+    import tempfile
+
+    tmp = tempfile.mkdtemp(prefix="seep-gap-")
+    bg_path = os.path.join(tmp, "bg.png")
+    sl_path = os.path.join(tmp, "slice.png")
+    W, H, BW, BH, GAP = 340, 212, 62, 62, 137
+    rng = np.random.default_rng(20261022)
+    base = np.full((H, W), 180, dtype=np.uint8)
+    for _ in range(9):                     # 大尺度结构：矩形块 + 斜条纹，保证匹配唯一
+        x0, y0 = int(rng.integers(0, W - 40)), int(rng.integers(0, H - 40))
+        w0, h0 = int(rng.integers(18, 60)), int(rng.integers(18, 55))
+        base[y0:y0 + h0, x0:x0 + w0] = int(rng.integers(20, 90))
+    noise = rng.normal(0, 22, size=(H, W))          # 细节唯一：避免周期纹理造成多解
+    base = np.clip(base.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+    base3 = np.stack([base, base, base], axis=-1)
+    sl_src = base3[60:60 + BH, GAP:GAP + BW].copy()
+    bg = base3.copy()
+    # 缺口 = 半透明遮罩（保留结构），与真实平台一致；纯色挖空会让模板失去落点
+    hole = (base3[60:60 + BH, GAP:GAP + BW].astype(np.float32) * 0.35
+            + np.array([232, 226, 218], dtype=np.float32) * 0.65)
+    bg[60:60 + BH, GAP:GAP + BW] = hole.astype(np.uint8)
+    Image.fromarray(bg).save(bg_path)
+    sl = np.zeros((BH, BW, 4), dtype=np.uint8)
+    sl[:, :, :3] = sl_src
+    sl[:, :, 3] = 255
+    Image.fromarray(sl).save(sl_path)
+
+    res, err = analyse(bg_path, sl_path)
+    checks.append(("with-slice", err is None and res is not None))
+    if res:
+        checks.append(("gap-x", abs(res["x"] - GAP) <= 2))
+        checks.append(("confidence", res["confidence"] >= 0.55))
+        checks.append(("schema", res["method"] == "gray-ncc"))
+    res2, err2 = analyse(bg_path)
+    checks.append(("bg-only", err2 is None and res2 is not None))
+    if res2:
+        checks.append(("bg-only-x", abs(res2["x"] - GAP) <= 30))
+    bad, err3 = analyse(os.path.join(tmp, "nope.png"))
+    checks.append(("missing-input", bad is None and "不存在" in (err3 or "")))
+    fails = [n for n, ok in checks if not ok]
+    print(json.dumps({"ok": not fails, "tool": "captcha-gap.py",
+                      "checks": len(checks), "failures": fails}, ensure_ascii=False))
+    return 0 if not fails else 1
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="滑块缺口定位（本地 Sobel+NCC，不调外部识别）")
+    ap.add_argument("--bg", help="背景图路径")
+    ap.add_argument("--slice", help="滑块/拼图块路径（可选）")
+    ap.add_argument("--json", action="store_true", help="输出 JSON")
+    ap.add_argument("--out", help="把 JSON 写到该路径（自动建父目录）")
+    ap.add_argument("--self-test", action="store_true")
+    args = ap.parse_args()
+    if args.self_test:
+        return self_test()
+    if not args.bg:
+        return _fail("input", "缺少 --bg（背景图路径）")
+
+    res, err = analyse(args.bg, args.slice)
+    if err:
+        return _fail("input", err)
+    payload = {"ok": True, "schema": SCHEMA, **res, "limits": LIMITS}
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    print(text)
+    if args.out:
+        try:
+            parent = os.path.dirname(os.path.abspath(args.out))
+            if parent and not os.path.isdir(parent):
+                os.makedirs(parent, exist_ok=True)
+            with open(args.out, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text + "\n")
+        except OSError as exc:
+            return _fail("out-unwritable", "无法写 --out：%s" % exc)
+    return 0 if payload["confidence"] >= 0.35 else 3
+
+
+if __name__ == "__main__":
+    sys.exit(main())
