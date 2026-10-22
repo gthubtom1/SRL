@@ -216,8 +216,12 @@ def main(argv=None):
     work = os.path.abspath(args.work)
     if not os.path.isfile(os.path.join(case, "artifacts", "diff.json")):
         return blocked("case", f"案例产物缺失：{case}")
-    if not work.replace("\\", "/").split("/work/")[0].endswith("Seep-Reverse-Lab") and "/work/" not in work.replace("\\", "/"):
-        return blocked("work", "产物目录必须在仓库根 work/ 下（不写仓库）")
+    try:
+        work_root = os.path.abspath(os.path.join(REPO, "work"))
+        if os.path.commonpath([work, work_root]) != work_root:
+            return blocked("work", "产物目录必须在仓库根 work/ 下（不写仓库）")
+    except ValueError:
+        return blocked("work", "产物目录与仓库不在同一盘符")
     if not args.keep and os.path.isdir(work):
         shutil.rmtree(work)
     os.makedirs(work, exist_ok=True)

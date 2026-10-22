@@ -405,7 +405,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(argv=None):
-    ap = JsonArgParser(description="seep 本地 mock 后端")
+    ap = argparse.ArgumentParser(description="seep 本地 mock 后端")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--strict", action="store_true")
