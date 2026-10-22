@@ -1,0 +1,45 @@
+{
+  "id": "site-accept",
+  "title": "站点复刻验收与后端边界标注",
+  "domain": "site-clone",
+  "triggers": [
+    "复刻验收",
+    "PASS/PARTIAL/BLOCKED",
+    "六条判据",
+    "backend-required",
+    "accept.json",
+    "站点验收"
+  ],
+  "aliases": [
+    "site-accept",
+    "复刻验收",
+    "site-acceptance"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "site-clone 案例目录（case.json）",
+    "artifacts/crawl/site-graph.json",
+    "artifacts/rebuild/rebuild.json",
+    "artifacts/diff.json"
+  ],
+  "outputs": [
+    "accept.json",
+    "六项 criteria 布尔与数值",
+    "backend_required[]",
+    "PASS/PARTIAL/BLOCKED"
+  ],
+  "scripts": [
+    "Tool/skill/site-clone/scripts/site-accept.py"
+  ],
+  "refs": [
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/skill/site-clone/references/07-auth-and-backend-boundary.md"
+  ],
+  "maturity": "usable",
+  "compose": [
+    "site-crawl",
+    "site-rebuild",
+    "visual-diff"
+  ]
+}

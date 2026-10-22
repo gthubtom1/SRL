@@ -1,23 +1,47 @@
 {
   "id": "site-crawl",
   "title": "站点爬取与路由枚举",
+  "domain": "site-clone",
+  "triggers": [
+    "整站抓取",
+    "路由枚举",
+    "crawl",
+    "sitemap",
+    "DOM 快照",
+    "站点爬取",
+    "截图"
+  ],
+  "aliases": [
+    "site-crawl",
+    "整站抓取",
+    "crawler"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "入口 URL",
-    "登录态"
+    "授权 scope",
+    "允许抓取的 host",
+    "登录态（可选）",
+    "viewport/DPR"
   ],
   "outputs": [
-    "URL/路由清单",
-    "接口与参数样本"
+    "site-graph.json",
+    "pages/*.html",
+    "screenshots/*.png",
+    "api/*",
+    "routes[]/assets[]/coverage"
   ],
-  "scripts": [],
+  "scripts": [
+    "Tool/skill/site-clone/scripts/site-crawl.py"
+  ],
   "refs": [
-    "Tool/skill/web-pentest/references/07-waf-and-bypass.md"
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/config/site-clone-matrix.json"
   ],
-  "maturity": "probe",
+  "maturity": "usable",
   "compose": [
-    "authz-test",
-    "injection-test",
-    "cache-test"
-  ],
-  "note": "待补爬取编排脚本，当前用浏览器 devtools 导出 HAR + httpx 手工整理"
+    "site-rebuild",
+    "visual-diff"
+  ]
 }

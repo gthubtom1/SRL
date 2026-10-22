@@ -1,22 +1,42 @@
 {
   "id": "visual-diff",
-  "title": "视觉/UI 差异比对",
+  "title": "视觉/DOM/网络三路差分",
+  "domain": "site-clone",
+  "triggers": [
+    "像素对比",
+    "DOM diff",
+    "视觉差分",
+    "network diff",
+    "截图对比",
+    "三路差分"
+  ],
+  "aliases": [
+    "visual-diff",
+    "像素对比",
+    "dom-diff"
+  ],
+  "version": "1.0.0",
   "inputs": [
-    "两组截图",
-    "视口与字体基线"
+    "crawl 输出目录",
+    "rebuild 输出目录",
+    "viewport/DPR/字体基线",
+    "像素阈值"
   ],
   "outputs": [
-    "差异图",
-    "差异比例与区域"
+    "diff.json",
+    "pixel ratio/raw_ratio/masked_ratio",
+    "DOM 相似度",
+    "请求集合差异",
+    "backend_required[]"
   ],
-  "scripts": [],
+  "scripts": [
+    "Tool/skill/site-clone/scripts/site-diff.py"
+  ],
   "refs": [
-    "Tool/skill/02-ui-rebrand/SKILL.md"
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/skill/site-clone/references/02-failure-criteria.md"
   ],
-  "maturity": "probe",
-  "compose": [
-    "site-rebuild",
-    "site-crawl"
-  ],
-  "note": "待补截图对比脚本，当前用浏览器截图 + ImageMagick compare 手工完成"
+  "maturity": "usable",
+  "compose": []
 }
