@@ -1,0 +1,4 @@
+target=https://example.com/
+authorization=公开静态示例页；仅 GET；2 rps
+bounds=max_pages=5, max_depth=2; no login, no API
+note=IANA Example Domain；单页，外链 iana.org 已本地阻断

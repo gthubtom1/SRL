@@ -1,0 +1,75 @@
+{
+  "backend_required": [
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/find"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/completed"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/name"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/playing"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/creating"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/scoreboard"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/scoreboard/answers"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/share"
+    },
+    {
+      "api": "https://api.youtest.me/info/country",
+      "reason": "cross-origin API; only a recorded snapshot is replayable",
+      "status": 200
+    }
+  ],
+  "case": "site-clone01",
+  "criteria": {
+    "data_boundary": true,
+    "dom": true,
+    "interactions": true,
+    "pixel": true,
+    "resources": true,
+    "route_coverage": true
+  },
+  "issues": [
+    "phantom ref: Tool/skill/site-clone/SKILL.md",
+    "phantom ref: Tool/skill/site-clone/references/01-criteria.md",
+    "phantom ref: Tool/skill/site-clone/references/02-failure-criteria.md",
+    "phantom ref: Tool/skill/site-clone/references/03-model-pitfalls.md",
+    "phantom ref: Tool/skill/site-clone/references/04-walkthrough-block-youtes",
+    "phantom ref: Tool/skill/site-clone/references/05-static-mirror-limits.md",
+    "phantom ref: Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+    "phantom ref: Tool/config/site-clone-matrix.json",
+    "phantom ref: Tool/skill/site-clone/references/07-auth-and-backend-boundar",
+    "phantom ref: Tool/mcp/Tool/reverselab/kb/site-clone/techniques/06-failure"
+  ],
+  "schema": "seep.site-accept/1",
+  "status": "PASS",
+  "values": {
+    "dom_min_similarity": 1.0,
+    "external_links": 0,
+    "http_404": 0,
+    "interactions_passed": 9,
+    "interactions_total": 10,
+    "missing_rate": 0.0,
+    "pixel_max_ratio": 0.004026,
+    "pixel_threshold": 0.03,
+    "unlabeled_pages": []
+  }
+}

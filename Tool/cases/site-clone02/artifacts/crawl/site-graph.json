@@ -1,0 +1,118 @@
+{
+  "api": [],
+  "assets": [
+    {
+      "content_type": "text/javascript; charset=utf-8",
+      "host": "example.com",
+      "method": "GET",
+      "resource_type": "script",
+      "status": 200,
+      "url": "https://example.com/s.js"
+    }
+  ],
+  "backend_required": [],
+  "coverage": {
+    "crawled": 1,
+    "expected": 1,
+    "missing": 0,
+    "missing_rate": 0.0
+  },
+  "data_boundary": {
+    "/": "recorded-snapshot"
+  },
+  "engine": "playwright",
+  "external": [
+    {
+      "host": "iana.org",
+      "reason": "off-origin anchor",
+      "resource_type": "anchor",
+      "url": "https://iana.org/help/example-domains"
+    }
+  ],
+  "interactions": [
+    {
+      "applicable": true,
+      "expected": "Example Domain",
+      "kind": "title"
+    },
+    {
+      "applicable": true,
+      "expected": "该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。 This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it",
+      "kind": "body_text_head"
+    },
+    {
+      "applicable": true,
+      "expected": 0,
+      "kind": "stylesheet_count"
+    },
+    {
+      "applicable": true,
+      "expected": 22,
+      "kind": "dom_nodes"
+    },
+    {
+      "applicable": true,
+      "expected": 1,
+      "kind": "link_count"
+    },
+    {
+      "applicable": true,
+      "expected": 6,
+      "kind": "paragraph_count"
+    },
+    {
+      "applicable": true,
+      "expected": 0,
+      "kind": "image_count"
+    },
+    {
+      "applicable": true,
+      "expected": "en",
+      "kind": "document_lang"
+    }
+  ],
+  "limits": {
+    "max_depth": 2,
+    "max_pages": 5,
+    "rps": 2.0
+  },
+  "missing_routes": [],
+  "ok": true,
+  "origin": "https://example.com",
+  "route_universe": [
+    "/"
+  ],
+  "routes": [
+    {
+      "api_urls": [],
+      "depth": 0,
+      "depth_nodes": 8,
+      "final_url": "https://example.com/",
+      "html": "pages/root.html",
+      "images": [],
+      "nodes": 19,
+      "route": "/",
+      "screenshot": "screenshots/root.png",
+      "status": 200,
+      "text_head": "Example Domain 该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。 This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes. هذا النطاق مُخصص للاستخدام ",
+      "text_sha256": "96dbd5280e11fdd2dcfd8226d1f8382e3c1f03c6f4b9e94fd15eef67bad1e7ea",
+      "title": "Example Domain",
+      "url": "https://example.com/"
+    }
+  ],
+  "schema": "seep.site-crawl/1",
+  "skipped_non_get": [],
+  "stats": {
+    "api": 0,
+    "assets": 1,
+    "external": 1,
+    "non_get": 0,
+    "pages": 1
+  },
+  "target": "https://example.com/",
+  "viewport": {
+    "dpr": 1.0,
+    "height": 720,
+    "width": 1280
+  }
+}

@@ -1,0 +1,576 @@
+{
+  "criteria": {
+    "data_boundary": {
+      "backend_required": [
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/find"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/player/completed"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/player/name"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/player/playing"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/user/creating"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/user/scoreboard"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/user/scoreboard/answers"
+        },
+        {
+          "reason": "route needs user/quiz backend state; live server redirects to an error page",
+          "route": "/user/share"
+        },
+        {
+          "api": "https://api.youtest.me/info/country",
+          "reason": "cross-origin API; only a recorded snapshot is replayable",
+          "status": 200
+        }
+      ],
+      "pages": {
+        "/": "local-mock",
+        "/404": "recorded-snapshot",
+        "/contact": "recorded-snapshot",
+        "/find": "backend-required",
+        "/player/completed": "backend-required",
+        "/player/name": "backend-required",
+        "/player/playing": "backend-required",
+        "/user/creating": "backend-required",
+        "/user/name": "local-mock",
+        "/user/scoreboard": "backend-required",
+        "/user/scoreboard/answers": "backend-required",
+        "/user/share": "backend-required"
+      },
+      "pass": true,
+      "unlabeled": []
+    },
+    "dom": {
+      "min_similarity": 1.0,
+      "pages": [
+        {
+          "depth": [
+            77,
+            77
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            165,
+            165
+          ],
+          "pass": true,
+          "route": "/",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            42,
+            42
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            58,
+            58
+          ],
+          "pass": true,
+          "route": "/404",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            52,
+            52
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            133,
+            133
+          ],
+          "pass": true,
+          "route": "/contact",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            81,
+            81
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            169,
+            169
+          ],
+          "pass": true,
+          "route": "/find",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            78,
+            78
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            166,
+            166
+          ],
+          "pass": true,
+          "route": "/player/completed",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            80,
+            80
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            168,
+            168
+          ],
+          "pass": true,
+          "route": "/player/name",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            80,
+            80
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            168,
+            168
+          ],
+          "pass": true,
+          "route": "/player/playing",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            70,
+            70
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            107,
+            107
+          ],
+          "pass": true,
+          "route": "/user/creating",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            65,
+            65
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            102,
+            102
+          ],
+          "pass": true,
+          "route": "/user/name",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            79,
+            79
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            167,
+            167
+          ],
+          "pass": true,
+          "route": "/user/scoreboard",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            52,
+            52
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            134,
+            134
+          ],
+          "pass": true,
+          "route": "/user/scoreboard/answers",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        },
+        {
+          "depth": [
+            81,
+            81
+          ],
+          "depth_ratio": 1.0,
+          "node_ratio": 1.0,
+          "nodes": [
+            169,
+            169
+          ],
+          "pass": true,
+          "route": "/user/share",
+          "tag_similarity": 1.0,
+          "text_similarity": 1.0
+        }
+      ],
+      "pass": true,
+      "threshold": 0.98
+    },
+    "interactions": {
+      "pass": true,
+      "passed": 9,
+      "rows": [
+        {
+          "actual": "Find Friends you can't trust - Don't Block Me",
+          "expected": "Find Friends you can't trust - Don't Block Me",
+          "kind": "title",
+          "pass": true
+        },
+        {
+          "actual": "Find your Fake Friends create your quiz & block your fake friends create quiz how to play? find your fake friends & decide who to block🚫 ✍️ CREATE YOUR QUIZ Ans",
+          "expected": "Find your Fake Friends create your quiz & block your fake friends create quiz how to play? find your fake friends & decide who to block🚫 ✍️ CREATE YOUR QUIZ Ans",
+          "kind": "body_text_head",
+          "pass": true
+        },
+        {
+          "actual": 4,
+          "expected": 4,
+          "kind": "stylesheet_count",
+          "pass": true
+        },
+        {
+          "actual": 168,
+          "expected": 193,
+          "kind": "dom_nodes",
+          "pass": false
+        },
+        {
+          "actual": "Find your Fake Friends",
+          "expected": "Find your Fake Friends",
+          "kind": "heading_text",
+          "pass": true
+        },
+        {
+          "actual": 0,
+          "expected": 0,
+          "kind": "link_count",
+          "pass": true
+        },
+        {
+          "actual": 4,
+          "expected": 4,
+          "kind": "paragraph_count",
+          "pass": true
+        },
+        {
+          "actual": 27,
+          "expected": 27,
+          "kind": "image_count",
+          "pass": true
+        },
+        {
+          "actual": "en",
+          "expected": "en",
+          "kind": "document_lang",
+          "pass": true
+        },
+        {
+          "actual": {
+            "opened": false,
+            "options": 0
+          },
+          "expected": {
+            "opened": false,
+            "options": 0
+          },
+          "kind": "language_menu",
+          "pass": true
+        }
+      ],
+      "threshold": 5,
+      "total": 10
+    },
+    "pixel": {
+      "max_ratio": 0.004026,
+      "mean_ratio": 0.002013,
+      "mode": "spa",
+      "pages": [
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.2671,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.018759,
+          "route": "/",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.092179,
+          "mean": 0.0,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.0,
+          "route": "/404",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 0,
+          "masked_ratio": 0.0,
+          "mean": 0.0,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.0,
+          "route": "/contact",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.4587,
+          "pixels": 921600,
+          "ratio": 0.004026,
+          "raw_ratio": 0.02824,
+          "route": "/find",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.4587,
+          "pixels": 921600,
+          "ratio": 0.004026,
+          "raw_ratio": 0.02824,
+          "route": "/player/completed",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.4587,
+          "pixels": 921600,
+          "ratio": 0.004026,
+          "raw_ratio": 0.02824,
+          "route": "/player/name",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.4587,
+          "pixels": 921600,
+          "ratio": 0.004026,
+          "raw_ratio": 0.02824,
+          "route": "/player/playing",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.020069,
+          "mean": 0.0224,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.000711,
+          "route": "/user/creating",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.020069,
+          "mean": 0.0224,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.000711,
+          "route": "/user/name",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.4587,
+          "pixels": 921600,
+          "ratio": 0.004026,
+          "raw_ratio": 0.02824,
+          "route": "/user/scoreboard",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 0,
+          "masked_ratio": 0.0,
+          "mean": 0.0,
+          "pixels": 921600,
+          "ratio": 0.0,
+          "raw_ratio": 0.0,
+          "route": "/user/scoreboard/answers",
+          "size": [
+            1280,
+            720
+          ]
+        },
+        {
+          "available": true,
+          "masked_boxes": 1,
+          "masked_ratio": 0.045211,
+          "mean": 1.4587,
+          "pixels": 921600,
+          "ratio": 0.004026,
+          "raw_ratio": 0.02824,
+          "route": "/user/share",
+          "size": [
+            1280,
+            720
+          ]
+        }
+      ],
+      "pass": true,
+      "threshold": 0.03
+    },
+    "resources": {
+      "assets_failed": 0,
+      "external_links": 0,
+      "external_samples": [],
+      "http_404": 0,
+      "pass": true,
+      "requests": 69,
+      "samples_404": []
+    },
+    "route_coverage": {
+      "crawled": 12,
+      "expected": 12,
+      "missing_rate": 0.0,
+      "missing_routes": [],
+      "pass": true
+    }
+  },
+  "mode": "spa",
+  "ok": true,
+  "origin": "https://block.youtest.me",
+  "schema": "seep.site-diff/1",
+  "summary": {
+    "backend_required": [
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/find"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/player/completed"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/player/name"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/player/playing"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/user/creating"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/user/scoreboard"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/user/scoreboard/answers"
+      },
+      {
+        "reason": "route needs user/quiz backend state; live server redirects to an error page",
+        "route": "/user/share"
+      },
+      {
+        "api": "https://api.youtest.me/info/country",
+        "reason": "cross-origin API; only a recorded snapshot is replayable",
+        "status": 200
+      }
+    ],
+    "passed": 6,
+    "status": "PASS",
+    "total": 6
+  },
+  "target": "https://block.youtest.me/"
+}

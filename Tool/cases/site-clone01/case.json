@@ -1,0 +1,122 @@
+{
+  "id": "site-clone01",
+  "domain": "site-clone",
+  "route": "R60",
+  "target_type": "真实 Next.js 静态导出站点 block.youtest.me（Cloudflare 前置，用户书面授权）",
+  "evidence_kind": "real",
+  "protection": [
+    "Cloudflare bot management",
+    "Next.js hydration",
+    "cross-origin api.youtest.me"
+  ],
+  "authority": "user-authorized",
+  "goal_level": "L3",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "input/scope.txt",
+      "sha256": "f6e1d158056089f2017f01148adcf769aa70684168ade86c27fc9ef2f7e3b764"
+    },
+    {
+      "path": "artifacts/crawl/site-graph.json",
+      "sha256": "feb9bda42a07b3f613ce023ebe648ea73770b7cc2e5eaebf7674e82914372562"
+    },
+    {
+      "path": "artifacts/crawl/pages/root.html",
+      "sha256": "6575e55b3956325f5488b4a878093f07e1d077d6b3fa2e50210350e3b9947754"
+    },
+    {
+      "path": "artifacts/crawl/screenshots/root.png",
+      "sha256": "a98349d3e6bdfecae46ac0e4efcfc557b129f8bc104217b4443409b315d9c7ff"
+    },
+    {
+      "path": "artifacts/rebuild/rebuild.json",
+      "sha256": "fc3a38b3ab06237c2152d865b84840a46786ad63456b819d1a4c0908935207db"
+    },
+    {
+      "path": "artifacts/rebuild/har.json",
+      "sha256": "f944c5e0c1f6e125c0c96eed21d27b088b22d7b61b8f063f7210d6df3a2617c3"
+    },
+    {
+      "path": "artifacts/rebuild/screenshots/root.png",
+      "sha256": "485ed038cd0d3420e89e13c0f7408a31aca500dfbf72ca85004adfff767dc4ba"
+    },
+    {
+      "path": "artifacts/diff.json",
+      "sha256": "0f44d7542729d90a35987f36c4d6dbf4a918d1ec0cb3e6c8d7d3b566cc7b1234"
+    }
+  ],
+  "lessons": [
+    "实际抓取：python Tool/skill/site-clone/scripts/site-crawl.py --url https://block.youtest.me/ --out Tool/cases/site-clone01/artifacts/crawl --max-pages 20 --max-depth 3 --rps 2 --allow-host api.youtest.me，rc=0；route_universe=12、crawled=12、missing_rate=0.0，assets=141、api=7、external=14。",
+    "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；12 页落地、135 个同源资产、HAR 7 条、本地 404=0、外链=0、交互 11 条（冻结 DOM 模式）。",
+    "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；missing_rate=0.0、pixel raw_max=0.0282 / animated-masked=0.0040（SPA 阈值 0.03）、DOM min=1.000、404=0、外链=0、交互 9/10。",
+    "验收：python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01，status=PASS（6/6）；backend_required=9 条。",
+    "后端边界：/find、/player/completed、/player/name、/player/playing、/user/creating、/user/scoreboard、/user/scoreboard/answers、/user/share 需要用户/测验会话状态，线上会 302 到 /?error=...；api.youtest.me/info/country 为跨域 API，只能回放录制快照。登录、创建测验、答题提交、计分、分享/榜单均未复刻。",
+    "失败判据：把静态冻结 DOM 当作可写后端、用 HAR 回放冒充真实提交、或在 Cloudflare 拦截页上继续加重试，都会把 PARTIAL 误写成 PASS。"
+  ],
+  "tags": [
+    "site-clone",
+    "nextjs",
+    "cloudflare",
+    "spa",
+    "har",
+    "dom-freeze",
+    "partial"
+  ],
+  "refs": [
+    "Tool/skill/site-clone/SKILL.md",
+    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/skill/site-clone/references/02-failure-criteria.md",
+    "Tool/skill/site-clone/references/03-model-pitfalls.md",
+    "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
+    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+    "Tool/config/site-clone-matrix.json",
+    "Tool/skill/site-clone/references/07-auth-and-backend-boundary.md",
+    "Tool/mcp/Tool/reverselab/kb/site-clone/techniques/06-failure-criteria.md"
+  ],
+  "updated": "2026-10-22",
+  "repro": {
+    "status": "recorded",
+    "evidence": "见 lessons 首三条的命令与 rc"
+  },
+  "backend_required": [
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/find"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/completed"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/name"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/player/playing"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/creating"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/scoreboard"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/scoreboard/answers"
+    },
+    {
+      "reason": "route needs user/quiz backend state; live server redirects to an error page",
+      "route": "/user/share"
+    },
+    {
+      "api": "https://api.youtest.me/info/country",
+      "reason": "cross-origin API; only a recorded snapshot is replayable",
+      "status": 200
+    }
+  ]
+}
