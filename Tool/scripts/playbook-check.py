@@ -212,18 +212,27 @@ def self_test() -> int:
             "2) `python Tool/scripts/broken.py --json` → rc=1；"
             "3) `python -c print(1)` → rc=1。",
         ]))
+        write(os.path.join(scripts, "die_style.py"),
+              "import argparse\np=argparse.ArgumentParser()\n"
+              "p.add_argument('--level')\nargs=p.parse_args()\n"
+              "if args.level not in ('M1','M2','M3','M4'):\n"
+              "    print('level \u53ea\u80fd\u662f M1 / M2 / M3 / M4'); raise SystemExit(2)\n")
         write(os.path.join(books, "gamma.md"), "\n".join([
             "# gamma",
             "- 步骤：1) `python Tool/scripts/level.py --level L2 --json` → rc=0（枚举非法）；"
-            "2) `python Tool/scripts/level.py --nope <SAMPLE>` → rc=0（参数不存在）。",
+            "2) `python Tool/scripts/level.py --nope <SAMPLE>` → rc=0（参数不存在）；"
+            "3) `python Tool/scripts/die_style.py --level L2` → rc=2（运行时枚举，无 choices=）。",
         ]))
         write(os.path.join(books, "README.md"), "- 步骤：`python Tool/scripts/missing.py`\n")
 
         res = run_check(books, root)
         expect("json 顶层字段齐全",
                {"ok", "total", "bad"} <= set(res))
-        expect("只统计 python 片段（alpha 2 + beta 3 + gamma 2 = 7）", res["total"] == 7)
-        expect("坏命令被捕获（缺脚本/--help 非 0/-c/枚举/参数各一）", len(res["bad"]) == 5)
+        expect("只统计 python 片段（alpha 2 + beta 3 + gamma 3 = 8）", res["total"] == 8)
+        expect("坏命令被捕获（缺脚本/--help 非 0/-c/枚举/参数/运行时枚举 = 6）",
+               len(res["bad"]) == 6)
+        expect("无 choices= 的运行时枚举也被拦住（die 文案）",
+               any("取值非法" in b["reason"] and "die_style.py" in b["cmd"] for b in res["bad"]))
         expect("枚举值非法被捕获（--level L2）",
                any("取值非法" in b["reason"] and "gamma" == b["playbook"] for b in res["bad"]))
         expect("未知参数被捕获（占位命令也查）",
@@ -254,6 +263,43 @@ def self_test() -> int:
 
 
 _CLI_CACHE: dict = {}
+_ENUM_CACHE: dict = {}
+ENUM_MSG_RE = re.compile(
+    r"(?:只能是|只能是以下之一|只接受|必须是|must be one of|one of)\s*[:：]?\s*"
+    r"([A-Za-z0-9_.\-/ |,]{2,80})")
+
+
+def runtime_enum(target: str, flags: dict) -> dict:
+    """从脚本源码的报错文案里提取枚举（`level 只能是 M1 / M2 / M3 / M4`）。
+
+    有些脚本不写 `add_argument(choices=...)`，只在运行时 die() 报允许值；
+    只读 choices 会漏判，故补这一层。
+    """
+    key = (target, tuple(sorted(flags)))
+    if key in _ENUM_CACHE:
+        return _ENUM_CACHE[key]
+    out: dict = {}
+    dests = {f.lstrip("-").replace("-", "_"): f for f in flags}
+    try:
+        with open(target, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
+    except OSError:
+        _ENUM_CACHE[key] = out
+        return out
+    for line in lines:
+        m = ENUM_MSG_RE.search(line)
+        if not m:
+            continue
+        allowed = {t for t in re.split(r"[/|,\s]+", m.group(1).strip())
+                   if 1 <= len(t) <= 24 and not t.isdigit()}
+        if len(allowed) < 2:
+            continue
+        low = line.lower()
+        for dest, flag in dests.items():
+            if dest and dest in low:
+                out.setdefault(flag, set()).update(allowed)
+    _ENUM_CACHE[key] = out
+    return out
 
 
 def script_flags(target: str):
@@ -308,6 +354,8 @@ def flag_problems(cmd: str, target: str) -> str:
         if name not in flags:
             return "未知参数: " + name
         choices = flags[name]
+        if not choices:
+            choices = runtime_enum(target, flags).get(name)
         if not choices:
             continue
         value = inline or (tokens[i + 1] if i + 1 < len(tokens) else "")

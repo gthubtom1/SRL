@@ -39,7 +39,7 @@ ls Tool/prompts/domains/<域>.md          # 24 张卡，每张=触发词/前置/
 ## 4. 交付前只跑这两条
 
 ```bash
-python Tool/scripts/domain-gate.py --domain <域>     # 本域 7 条
+python Tool/scripts/domain-gate.py --domain <域>     # 本域 10 条断言
 python Tool/scripts/preflight.py --fast              # 全局（悬空引用/篇幅/路由/清理）
 ```
 

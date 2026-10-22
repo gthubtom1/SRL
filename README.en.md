@@ -49,7 +49,7 @@
 
 ---
 
-> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.8.4)**: 23 → **38** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
+> 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.25.0)**: 23 → **40** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
 > The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 55). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
 
 ## 🌟 Project Overview
@@ -218,7 +218,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP unpacking SOP
     ├── POC-VALIDATION.md          ← Frida self-healing loop & PoC sandbox validation
     ├── DEPLOYMENT.md              ← Comprehensive deployment & multi-Agent setup guide
-    ├── DEPLOYMENT-CHECKLIST.md    ← Official deployment baseline checklist (58 items)
+    ├── DEPLOYMENT-CHECKLIST.md    ← Official deployment baseline checklist (65 items)
     ├── CROSS-PLATFORM.md          ← Cross-platform (Windows/Linux/macOS) execution guide
     ├── COMPLIANCE-RELAY.md        ← Transport-layer compliance relay & auto-retry architecture
     └── MODEL-REFUSAL-MATRIX.md    ← Measured refusal matrix & Gemini-safe prompt reshaping
@@ -368,7 +368,7 @@ Everything affected is backed up to `~/.pi/agent/backup-uninstall-<timestamp>/` 
 
 ### 6. Verify Your Deployment
 
-Run the 9-dimension health verifier (58 checks) against `MANUAL/DEPLOYMENT-CHECKLIST.md` using any of these methods:
+Run the 9-dimension health verifier (65 checks) against `MANUAL/DEPLOYMENT-CHECKLIST.md` using any of these methods:
 
 | Method | Command |
 |---|---|

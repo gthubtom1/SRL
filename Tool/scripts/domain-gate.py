@@ -1049,7 +1049,7 @@ def check_spec():
     for dom in DOMAINS:
         if dom not in (open(p, encoding="utf-8", errors="replace").read() if os.path.isfile(p) else ""):
             bad.append("SPEC 未提及域 " + dom)
-    add("全局", "契约未漂移（SPEC ↔ domain_spec.py）", not bad, "；".join(bad) if bad else "10 域覆盖")
+    add("全局", "契约未漂移（SPEC ↔ domain_spec.py）", not bad, "；".join(bad) if bad else ("%d 域覆盖" % len(DOMAINS)))
 
 
 def main():
