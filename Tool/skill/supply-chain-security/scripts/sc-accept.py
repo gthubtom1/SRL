@@ -196,6 +196,12 @@ def accept(root, only=None):
     dirs = sorted(x for x in glob.glob(pattern) if os.path.isdir(x))
     if only:
         dirs = [d for d in dirs if os.path.basename(d) == only]
+    if only and not dirs:
+        return {"tool": "sc-accept", "version": VERSION, "ok": False, "domain": DOMAIN,
+                "root": root, "cases": 0, "real": 0, "recorded_real": 0,
+                "blocked_at": "case-not-found", "reason": "no case dir named %r" % only,
+                "failures": [{"case": only, "id": None, "errors": ["case not found"]}],
+                "results": []}
     results = [validate_case(d, root) for d in dirs]
     real = sum(1 for r in results if r.get("evidence_kind") in ("real", "self-built"))
     recorded_real = sum(1 for r in results
@@ -395,6 +401,8 @@ def main(argv=None):
                     print("[FAIL] " + err)
         print("cases=%d real=%d recorded_real=%d ok=%s" % (
             summary["cases"], summary["real"], summary["recorded_real"], summary["ok"]))
+    if summary.get("blocked_at") == "case-not-found":
+        return 2
     return 0 if summary["ok"] else 1
 
 

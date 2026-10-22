@@ -566,6 +566,24 @@
       "text": "人机验证加短信码，多账号登录怎么过",
       "expect": "captcha-handling",
       "forbid": []
+    },
+    {
+      "id": "fwemu-01",
+      "text": "固件解包后 qemu 起不来，服务没监听",
+      "expect": "firmware-emulate",
+      "forbid": []
+    },
+    {
+      "id": "fwemu-02",
+      "text": "路由器固件仿真跑不起来，卡在 init 链",
+      "expect": "firmware-emulate",
+      "forbid": []
+    },
+    {
+      "id": "fwemu-03",
+      "text": "IoT 固件 rehosting 缺 NVRAM 设备节点",
+      "expect": "firmware-emulate",
+      "forbid": []
     }
   ]
 }

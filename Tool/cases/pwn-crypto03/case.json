@@ -51,6 +51,14 @@
     {
       "path": "artifacts/int_overflow.exe",
       "sha256": "7613098a9128091106edebb34d5afb0796a634604444d6b24b5811ff70eb7d5a"
+    },
+    {
+      "path": "artifacts/build_warnings.txt",
+      "sha256": "638fbcf2f0a6e9fc331a8e0a95b331d04315c03e6b0d63f6fdd964c6a2e2c84e"
+    },
+    {
+      "path": "artifacts/probe_stdout.txt",
+      "sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
     }
   ],
   "lessons": [

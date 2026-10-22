@@ -350,6 +350,16 @@ def check_cases(dom, spec):
                     _d = {}
                 if isinstance(_d, dict) and _d.get("generated_at"):
                     bad.append("%s(%s 含非空 generated_at，复跑会漂)" % (os.path.basename(cd), ap))
+        listed = {(a.get("path") or "").replace("\\", "/") for a in (c.get("artifacts") or [])}
+        adir = os.path.join(cd, "artifacts")
+        if os.path.isdir(adir):
+            for fn in sorted(os.listdir(adir)):
+                fp = os.path.join(adir, fn)
+                if not os.path.isfile(fp) or fn.lower().startswith("readme"):
+                    continue
+                relp = "artifacts/" + fn
+                if relp not in listed:
+                    bad.append("%s(%s 未登记到 artifacts[])" % (os.path.basename(cd), relp))
         for art in c.get("artifacts") or []:
             ap = art.get("path") or ""
             want = (art.get("sha256") or "").lower()
@@ -681,8 +691,8 @@ def check_repro_and_templates():
             if isinstance(r, str) and "://" not in r and not r.startswith("<"):
                 if not os.path.isfile(os.path.join(ROOT, r)):
                     bad.append("%s(refs 幻影 %s)" % (os.path.basename(t), r[:40]))
-    add("全局", "真实案例证据链 + 十份模板同源", not bad,
-        "；".join(bad[:5]) if bad else "real 案例证据链可追溯，10 份模板与 CASE_FIELDS 同源")
+    add("全局", "真实案例证据链 + 十一份模板同源", not bad,
+        "；".join(bad[:5]) if bad else "real 案例证据链可追溯，%d 份模板与 CASE_FIELDS 同源" % len(glob.glob(os.path.join(ROOT, "Tool", "cases", "_templates", "*.json"))))
 
 
 

@@ -688,7 +688,7 @@ def check_v123_deliverables():
 def check_language():
     """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
     import re as _re
-    pat = _re.compile(r"不碰|禁止用于|仅限|不得用于|不允许|不提供|不适用|超出范围|禁止\s*(?:操作|使用|测试|访问)")
+    pat = _re.compile(r"不碰|禁止用于|仅限|不得用于|不允许|不提供|不适用|超出范围|不产出|不做成品|禁止\s*(?:操作|使用|测试|访问)")
     roots = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "prompts"),
              os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL")]
     audit_dir = os.path.join(ROOT, "docs", "audit")

@@ -1,7 +1,7 @@
 # 案例库（Tool/cases）使用说明
 
 > 这里存放**已发生过的真实逆向案例**，不是"怎么做"的知识库。
-> 知识库（`Tool/reverselab/kb/` + `Tool/mcp/kb_local/`）回答"这类问题通常怎么打"；
+> 知识库（`Tool/mcp/Tool/reverselab/kb/` + `Tool/mcp/kb_local/`）回答"这类问题通常怎么打"；
 > 案例库回答"上一次这个目标，哪条路成了、哪条路炸了、为什么"。
 
 ## 1. 目录结构

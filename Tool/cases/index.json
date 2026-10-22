@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "0b580aba530f87f532cacca6ec2cf6ed9c90da83e5eddcc5a75aa6e52bd19a7a",
+  "source_hash": "2f6c93f8d9473582fd4208f5b2760a0e24bad06b4370163ad57de1683420dc05",
   "case_count": 51,
   "cases": [
     {
@@ -1696,6 +1696,14 @@
         {
           "path": "artifacts/int_overflow.exe",
           "sha256": "7613098a9128091106edebb34d5afb0796a634604444d6b24b5811ff70eb7d5a"
+        },
+        {
+          "path": "artifacts/build_warnings.txt",
+          "sha256": "638fbcf2f0a6e9fc331a8e0a95b331d04315c03e6b0d63f6fdd964c6a2e2c84e"
+        },
+        {
+          "path": "artifacts/probe_stdout.txt",
+          "sha256": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03"
         }
       ],
       "repro": "",
@@ -2001,6 +2009,10 @@
         {
           "path": "artifacts/diff.json",
           "sha256": "0f44d7542729d90a35987f36c4d6dbf4a918d1ec0cb3e6c8d7d3b566cc7b1234"
+        },
+        {
+          "path": "artifacts/accept.json",
+          "sha256": "42d803504320f90ef780cacdc2eb658c6103a9088c01e595922d7d7110d039cd"
         }
       ],
       "repro": "",
@@ -2073,6 +2085,10 @@
         {
           "path": "artifacts/diff.json",
           "sha256": "1dd6cc29a7ec161924e24e09b019356e33b18c24ecfb55eb5bbdfcd4703ce8dd"
+        },
+        {
+          "path": "artifacts/accept.json",
+          "sha256": "55a14641276916e0c6dbf5df4085839369e1faaf37d523a7d661d55f1077dc0d"
         }
       ],
       "repro": "",
@@ -2129,6 +2145,10 @@
         {
           "path": "artifacts/diff.json",
           "sha256": "9556e3c2ee25b56fa151be0187003652bb2b4e39fbad68f388f87c2ff64cbe30"
+        },
+        {
+          "path": "artifacts/accept.json",
+          "sha256": "348b5360e9550ff1dd8176d879bec2822d530bd815ebe6f78ba327020baa808f"
         }
       ],
       "repro": "",
@@ -2650,6 +2670,22 @@
         {
           "path": "artifacts/a.rollback.exe",
           "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+        },
+        {
+          "path": "artifacts/run-anything.txt",
+          "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        },
+        {
+          "path": "artifacts/run-original-trance.txt",
+          "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+        },
+        {
+          "path": "artifacts/run-original-wrong.txt",
+          "sha256": "4f8e9e45f8a9e1843b81eaf3bdf52a6b778d415d23bf985774a9d34a43f69bd5"
+        },
+        {
+          "path": "artifacts/run-wrong.txt",
+          "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
         }
       ],
       "repro": "",
