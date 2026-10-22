@@ -709,7 +709,7 @@ def check_repro_and_templates():
 
 
 def check_global_reference_limits():
-    """全仓单篇 reference ≤400 行（不只十域）——审计 P1 的要求。"""
+    """全仓单篇 reference ≤400 行（不只单域）——审计 P1 的要求。"""
     bad = []
     files = glob.glob(os.path.join(TOOL, "skill", "**", "references", "*.md"), recursive=True)
     files = [f for f in files if os.path.isfile(f)]
@@ -991,7 +991,7 @@ def check_deploy(only=None):
                     bad.append("%s(%s 哈希不一致)" % (spec["skill"], os.path.relpath(s, src)))
     add("全局", "部署哈希一致（仓库 ↔ ~/.pi/agent/skills）", not bad,
         "；".join(bad[:6]) + ("…" if len(bad) > 6 else "") if bad
-        else "十域 SKILL/references/scripts 哈希一致")
+        else ("%d 域 SKILL/references/scripts 哈希一致" % len(DOMAINS)))
 
 
 

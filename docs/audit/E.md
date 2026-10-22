@@ -1,5 +1,8 @@
 # E 轮独立复核：用户要求清单落地核对
 
+> **状态标注（v1.25.0 终版）**：本报告是审查时点快照。其中「部分/未达成/缺失」各项已在 v1.25.0 修复，逐条状态见 `docs/audit/CLOSURE.md`；本文件保留原始判定以便追溯。
+
+
 - 仓库/基线：`D:/Seep-Reverse-Lab`，HEAD `a9d2a40`，`VERSION=1.23.1`，工作树仅有未跟踪的 `docs/audit/`。
 - 方式：只读源码 + 跑门禁 + 独立计数（临时脚本在 /tmp，不落仓库）；未改代码、未 commit。
 - 当前门禁：`domain-gate.py --all` 110/110；`preflight.py --fast` 31/33（2 个 FAIL 见第 8 行）。

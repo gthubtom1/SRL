@@ -16,7 +16,7 @@
 | 8 | 配方命令漂移 15/22 | B-P0-2 | 已修 | 6 处 `--level L2`→`M2`、6 处 `--json`/参数/路径对齐；playbook-check 用 AST 读 argparse，对 166 条命令（含 138 条占位）校验参数名与枚举值，坏命令 0；已接入 preflight/verify.sh/verify.ps1/CI |
 | 9 | 证据链可静默成功 | B-P0-3 | 已修 | mutation-test 四类 + accept 脚本 |
 | 10 | 05-backend-rebuild 只有文档 | B-P0-4 / E-P0-1 | 已修 | 4 脚本 + 8 refs + L3 演练 |
-| 11 | site-clone 未接入三层 | B-P0-1 | 已修 | 4 能力 + 配方 + 路由 |
+| 11 | site-clone 未接入三层（入口 `seep-start --domain site-clone` rc=2） | B-P0-1 | 已修 | 4 能力 + 配方 + 路由；`seep-start.py` DOMAINS 增 `site-clone`（3 条真实命令），入口实跑 rc=0 |
 | 12 | `--case` 空集判绿 | C-P0-2 | 已修 | 不存在案例目录返回 rc=2 `case-not-found` |
 | 13 | 门禁不枚举 artifacts 目录 | C-P0-3 | 已修 | 递归全量：未登记且未被 MANIFEST.sha256 覆盖即 FAIL |
 

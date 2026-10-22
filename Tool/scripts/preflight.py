@@ -576,7 +576,7 @@ def check_domain_packs():
 
 
 def check_domain_depth():
-    """十域深度契约（九件套 2.0）：跑 domain-gate.py，把结果压成 4 条断言。
+    """全域名深度契约（九件套 2.0）：跑 domain-gate.py，把结果压成 4 条断言。
 
     为什么要单列：v1.21.5 的九件套只查"有没有"，查不出"能不能打"。
     深度契约（refs 必备四篇 / 脚本 --self-test / 案例 sha256 复算 / KB 失败判据 /
@@ -585,7 +585,7 @@ def check_domain_depth():
     """
     gate = os.path.join(TOOL, "scripts", "domain-gate.py")
     if not os.path.isfile(gate):
-        add("11 深度", "十域深度契约（domain-gate.py）", False, "缺 Tool/scripts/domain-gate.py")
+        add("11 深度", "全域深度契约（domain-gate.py）", False, "缺 Tool/scripts/domain-gate.py")
         return
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
     try:
@@ -593,11 +593,11 @@ def check_domain_depth():
                            text=True, encoding="utf-8", errors="replace", timeout=600, env=env)
         data = json.loads(r.stdout)
     except Exception as e:  # noqa: BLE001
-        add("11 深度", "十域深度契约（domain-gate.py）", False, "运行失败:" + str(e)[:80])
+        add("11 深度", "全域深度契约（domain-gate.py）", False, "运行失败:" + str(e)[:80])
         return
     rows = data.get("results") or []
     buckets = {
-        "十域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）":
+        "全域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）":
             [x for x in rows if x["domain"] not in ("全局",)],
         "链接图无孤儿": [x for x in rows if "链接图" in x["name"]],
         "路由串味测试集": [x for x in rows if "串味" in x["name"]],
