@@ -18,6 +18,7 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 - 已有 kubeconfig/SA token/容器执行权限，要判断 RBAC、Secret、逃逸面。
 - 已有 AK/SK、CI 变量、元数据响应，要判断云身份与权限面。
 - 已有 Windows Security 日志/证书存储/注册表，要做 AD 遥测与主机基线复核。
+- 公网/DMZ 只出现 445/389/88，需要只读判定暴露面（NTLM type 2、LDAP rootDSE、Kerberos 用户名枚举），不爆破/不写/不投毒。
 - 需要输出“当前权限 → 目标权限”的可复现路径、证据与失败判据。
 
 ### 相邻域与路由
@@ -44,7 +45,7 @@ python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --json
 aws sts get-caller-identity
 ```
 
-## 3. 判据表（本域 6 类）
+## 3. 判据表（本域 8 类）
 
 > 完整表（含输入面/证据形态/误报风险）见 `references/01-criteria.md`。
 > 结论词：`confirmed`（可复现证据）/ `candidate`（条件成立但缺最后一步）/ `blocked`（不成立或预算耗尽）。
@@ -57,6 +58,8 @@ aws sts get-caller-identity
 | K8s RBAC/逃逸 | `auth can-i` yes + 实际只读动作成功；宿主 `id`/宿主文件读取；Secret 实际可用 | 有 create pods/get secrets 但被 PSA/Quota 拒绝，或 Secret 未验证 |
 | 云凭据/IAM | `sts get-caller-identity` 成功；策略文本 + boundary/SCP 不拦 + 实际 API 成功；元数据取到临时凭据并验证 | 本地有 AK/SK 明文；策略文本 allow；元数据端点可达但未取到凭据 |
 | 遥测/主机基线 | 事件 ID + LogonType + 账号/来源 + 时间线一致；证书 EKU/私钥/票据计数可复现 | 单条 4672/4624；单机无 4768/4769；有证书但未 PKINIT |
+| 横向移动 | 目标侧有预期身份的 4688/7045/4698 或命令输出，源/目标/时间可复算；relay 需目标侧 4624 类型 3 + 4776 | 只有攻击端 SUCCEED/ReturnValue=0；目标拒绝/签名强制；无目标日志 |
+| 公网外部视角 | 只读 negotiate/bind/AS-REQ 的原始返回：NTLM type 2 可解析、LDAP rootDSE resultCode=0、KDC 错误码可分类；不爆破/不写/不投毒 | 445 开放但无 type 2；匿名被拒；88 只回 PREAUTH_REQUIRED；把暴露面写成已打穿 |
 
 ### 3.1 每条结论的最小证据包
 
@@ -87,6 +90,10 @@ aws sts get-caller-identity
   → 记录权限面，换来源。
 - 遥测：单机无 4768/4769（非域或审计未开）、EventRecordID 断档、只有 4672 类型 5
   → 不能写域内提权；先查域成员/审计/缺口。
+- 横向：目标无 4688/7045/4698/命令回显、relay 认证后无会话、WinRM 默认要求加密
+  → 只到 candidate；转 WMI/schtasks/凭据直连，不要重复 relay。
+- 公网：只有端口开放、type 2 解析失败、LDAP 匿名 49/8、KDC 只回 25
+  → 暴露面记录，不写可利用；禁止用口令字典把“只读枚举”升级成爆破。
 - 同一手法同参数连续失败两次 → 换路线，不堆时间。
 
 ## 5. 模型常见失误（≥8 条）
@@ -144,7 +151,8 @@ aws sts get-caller-identity
 | `references/03-model-pitfalls.md` | 14 条模型常见失误与纠正 |
 | `references/04-walkthrough-windows-auth-events.md` | 真实 Windows Security 日志走查（wevtutil + ad-repro） |
 | `references/05-delegation-and-rbcd.md` | 委派/RBCD 深水：属性、票据链、失败判据 |
-| `references/ad-attacks.md` | AD 枚举/ACL/relay/横向命令速查 |
+| `references/ad-attacks.md` | AD 枚举/ACL/relay/横向命令速查 + 公网 445/389/88 只读外部视角 |
+| `references/06-lateral-movement.md` | 横向移动四列判据：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD |
 | `references/kerberos-and-adcs.md` | Kerberos/ADCS 命令与 ESC 细节 |
 | `references/k8s-and-container.md` | K8s RBAC/Secret/逃逸/CI 细节 |
 | `references/cloud-native.md` | AK-SK/元数据/IAM/云原生细节 |
@@ -155,10 +163,11 @@ aws sts get-caller-identity
 # 离线 kubeconfig / AWS 凭据分诊（只读，不联网）
 python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --aws-creds ~/.aws/credentials --json
 
-# 五类判定离线复算（Kerberoast/AS-REP/ADCS/委派/K8s RBAC）+ Windows 事件
+# 七类判定离线复算（Kerberoast/AS-REP/ADCS/ESC9-17/委派/K8s RBAC/Windows 事件）
 python Tool/skill/ad-cloud/scripts/ad-repro.py --input bundle.json --json
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input events.json
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input adcs-find.json   # ESC9-17 离线判定（ESC12 需 CA 主机本地权限，只登记 blocker）
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input ntlm-type2.json  # 公网 445：离线解析 NTLM type 2（域/OS/时间戳/指纹）
 python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
 
 # 案例证据链机检（字段/哈希/证明链/凭据红线）
@@ -179,13 +188,14 @@ python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --self-test
 
 ## 9. 任务卡入口
 
-`Tool/prompts/domains/ad-cloud.md`：24 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
-DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube-bench。
-每张卡含触发词/前置/步骤/判据/失败判据/reference。
+`Tool/prompts/domains/ad-cloud.md`：26 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
+DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube-bench、
+横向移动路径选择、公网 445/389/88 只读外部视角。
+每张卡含触发词/前置/步骤/判据/失败判据/reference；其中 11 张是“命令 → 期望 rc=0 → 期望字段”的剧本卡。
 
 ## 10. KB board 入口
 
-`Tool/mcp/Tool/reverselab/kb/ad-cloud/README.md`：7 篇技术页 + 三条硬判据 + 失败判据 + 邻域边界。
+`Tool/mcp/Tool/reverselab/kb/ad-cloud/README.md`：8 篇技术页 + 失败判据（共 9 篇）+ 三条硬判据 + 邻域边界。
 
 | 页 | 用途 |
 | :-- | :-- |
@@ -196,6 +206,7 @@ DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube
 | `techniques/05-adcs-esc-decision.md` | ESC1–ESC8 成立条件 |
 | `techniques/06-cloud-credentials-metadata.md` | 云凭据/元数据/IAM |
 | `techniques/07-failure-criteria.md` | 失败判据表 |
+| `techniques/2026-esc17-wsus-relay.md` | ESC17 HTTPS WSUS 中继判据（2026 基线） |
 
 ## 11. 边界
 

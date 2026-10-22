@@ -1,0 +1,35 @@
+{
+  "kind": "k8s-rbac",
+  "can_i": [
+    {
+      "verb": "create",
+      "resource": "pods",
+      "allowed": true
+    },
+    {
+      "verb": "get",
+      "resource": "secrets",
+      "allowed": true
+    },
+    {
+      "verb": "impersonate",
+      "resource": "serviceaccounts",
+      "allowed": false
+    }
+  ],
+  "pod_security": {
+    "privileged": true,
+    "host_path": true,
+    "host_pid": false,
+    "host_network": true
+  },
+  "secrets": {
+    "readable": true,
+    "usable": false
+  },
+  "escape": {
+    "host_id": false,
+    "host_fs_read": false
+  },
+  "note": "从 bundle.json 拆出的单类夹具：用于 --kind 强制复算，避免多类 bundle 触发 schema 校验失败。"
+}

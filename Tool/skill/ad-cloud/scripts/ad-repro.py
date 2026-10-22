@@ -10,6 +10,7 @@ never echoed: only a sha256 fingerprint is reported.
 Examples:
   python ad-repro.py --kind kerberoast --input evidence.json
   python ad-repro.py --kind adcs-esc --input adcs-find.json     # ESC9-ESC17 offline
+  python ad-repro.py --kind ntlm-type2 --input ntlm-type2.json  # 445 只读外部视角
   python ad-repro.py --input bundle.json --json
   python ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
   python ad-repro.py --self-test
@@ -21,10 +22,13 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import base64
+import datetime
 import hashlib
 import json
 import os
 import re
+import struct
 import sys
 import xml.etree.ElementTree as ET
 
@@ -36,7 +40,8 @@ if sys.platform == "win32":
 
 VERSION = "1.0.0"
 EVENT_NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
-KINDS = ("kerberoast", "asrep", "adcs", "adcs-esc", "delegation", "k8s-rbac", "windows-events")
+KINDS = ("kerberoast", "asrep", "adcs", "adcs-esc", "delegation", "k8s-rbac",
+         "windows-events", "ntlm-type2")
 
 
 class ReproError(Exception):
@@ -903,6 +908,142 @@ def extract_evtx_xml(path, redact=True):
 
 
 # ---------------------------------------------------------------------------
+# NTLM type 2 challenge (445/389 external view, read-only)
+# ---------------------------------------------------------------------------
+NTLM_FLAGS = [
+    (0x00000001, "UNICODE"), (0x00000002, "OEM"),
+    (0x00000004, "REQUEST_TARGET"), (0x00000010, "SIGN"),
+    (0x00000020, "SEAL"), (0x00000040, "DATAGRAM"),
+    (0x00000080, "LM_KEY"), (0x00000200, "NTLM"),
+    (0x00000800, "ANONYMOUS"), (0x00008000, "ALWAYS_SIGN"),
+    (0x00010000, "TARGET_TYPE_DOMAIN"), (0x00020000, "TARGET_TYPE_SERVER"),
+    (0x00080000, "EXTENDED_SESSIONSECURITY"), (0x00100000, "IDENTIFY"),
+    (0x00800000, "TARGET_INFO"), (0x02000000, "VERSION"),
+    (0x20000000, "128"), (0x40000000, "KEY_EXCH"), (0x80000000, "56"),
+]
+NTLM_AV = {1: "nb_computer", 2: "nb_domain", 3: "dns_computer",
+           4: "dns_domain", 5: "dns_tree", 6: "av_flags", 7: "timestamp",
+           8: "single_host", 9: "target_name", 10: "channel_bindings"}
+NTLM_NEGOTIATE_VERSION = 0x02000000
+FILETIME_EPOCH = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
+
+
+def _u16(raw):
+    return raw.decode("utf-16-le", "replace")
+
+
+def _filetime(value):
+    try:
+        return (FILETIME_EPOCH + datetime.timedelta(microseconds=value / 10)).isoformat() \
+            .replace("+00:00", "Z")
+    except (OverflowError, OSError, ValueError):
+        return "invalid"
+
+
+def _ntlm_message(value):
+    """Accept base64 (SMB/LDAP capture) or hex (pcap copy); never contact network."""
+    if not isinstance(value, str) or not value.strip():
+        raise ReproError("schema", "ntlm-type2 needs message=<base64|hex>")
+    s = re.sub(r"\s+", "", value)
+    try:
+        if len(s) % 2 == 0 and re.fullmatch(r"[0-9a-fA-F]+", s):
+            return bytes.fromhex(s)
+        return base64.b64decode(s, validate=True)
+    except Exception:  # noqa: BLE001
+        raise ReproError("schema", "message is neither base64 nor hex")
+
+
+def _parse_ntlm_type2(raw):
+    out = {"signature_ok": False, "message_type": None, "target_name": "",
+           "flags": [], "flags_hex": "", "challenge_fp": "", "os_version": "",
+           "av": {}, "timestamp": ""}
+    if len(raw) < 32 or raw[:8] != b"NTLMSSP\x00":
+        return out
+    out["signature_ok"] = True
+    mtype = struct.unpack_from("<I", raw, 8)[0]
+    out["message_type"] = mtype
+    if mtype != 2:
+        return out
+    tlen, _, toff = struct.unpack_from("<HHI", raw, 12)
+    flags = struct.unpack_from("<I", raw, 20)[0]
+    out["flags_hex"] = "0x%08x" % flags
+    out["flags"] = [name for bit, name in NTLM_FLAGS if flags & bit]
+    out["challenge_fp"] = _fp(raw[24:32])
+    tinfo_len, _, tinfo_off = struct.unpack_from("<HHI", raw, 40)
+    if flags & NTLM_NEGOTIATE_VERSION and len(raw) >= 56:
+        out["os_version"] = "%d.%d.%d" % (
+            raw[48], raw[49], struct.unpack_from("<H", raw, 50)[0])
+    if tlen and toff + tlen <= len(raw):
+        out["target_name"] = _u16(raw[toff:toff + tlen])
+    p, end = tinfo_off, min(len(raw), tinfo_off + tinfo_len)
+    while p + 4 <= end:
+        aid, ln = struct.unpack_from("<HH", raw, p)
+        p += 4
+        val = raw[p:p + ln]
+        p += ln
+        if aid == 0:
+            break
+        if aid == 7 and len(val) >= 8:
+            out["timestamp"] = _filetime(struct.unpack_from("<Q", val)[0])
+        elif aid == 6 and len(val) >= 4:
+            out["av"]["av_flags"] = "0x%08x" % struct.unpack_from("<I", val)[0]
+        elif aid in NTLM_AV:
+            out["av"][NTLM_AV[aid]] = _u16(val)
+    return out
+
+
+def eval_ntlm_type2(d):
+    parsed = _parse_ntlm_type2(_ntlm_message(d.get("message") or d.get("ntlm")))
+    av = parsed["av"]
+    domain = av.get("dns_domain") or av.get("nb_domain") or ""
+    computer = av.get("dns_computer") or av.get("nb_computer") or ""
+    ok = parsed["signature_ok"] and parsed["message_type"] == 2
+    checks = [
+        _check("signature", parsed["signature_ok"], "NTLMSSP signature"),
+        _check("message-type-2", parsed["message_type"] == 2,
+               "message_type=%r" % parsed["message_type"]),
+        _check("target-info", bool(av), "av_pairs=%d" % len(av)),
+        _check("domain-identified", bool(domain), "domain=%s" % (domain or "-")),
+        _check("os-version", bool(parsed["os_version"]), "os=%s" % (parsed["os_version"] or "-")),
+        _check("timestamp", bool(parsed["timestamp"]),
+               "timestamp=%s" % (parsed["timestamp"] or "-")),
+    ]
+    verdict = "candidate" if ok else "blocked"
+    findings = []
+    if ok:
+        findings.append({
+            "severity": "info",
+            "title": "NTLM type 2 challenge exposed (read-only)",
+            "evidence": "domain=%s computer=%s os=%s" % (domain or "-", computer or "-",
+                                                         parsed["os_version"] or "-"),
+        })
+    return _result(
+        "ntlm-type2", verdict, checks, findings,
+        target_name=parsed["target_name"],
+        nb_domain=av.get("nb_domain", ""),
+        dns_domain=av.get("dns_domain", ""),
+        dns_tree=av.get("dns_tree", ""),
+        nb_computer=av.get("nb_computer", ""),
+        dns_computer=av.get("dns_computer", ""),
+        os_version=parsed["os_version"],
+        timestamp=parsed["timestamp"],
+        flags=parsed["flags"],
+        flags_hex=parsed["flags_hex"],
+        challenge_fp=parsed["challenge_fp"],
+        auth_attempted=False,
+        summary={"av_pairs": len(av), "domain": domain, "computer": computer,
+                 "os_version": parsed["os_version"], "timestamp": parsed["timestamp"]},
+        failure=[
+            "只拿到 type 2 challenge：这是暴露面证据，不是登录成功；不得写 confirmed。",
+            "challenge 是服务端随机数，不可复用；不要当凭据保存或回传。",
+            "OS 版本/域名字段可能被策略伪装或伪造，只能当指纹，不能当补丁级结论。",
+            "SMB signing 强制或目标只收 Kerberos 时 relay 仍不可用；转只读枚举或凭据直连。",
+            "非 NTLMSSP/非 type 2 的字节流：先核对抓包方向与端口，不要猜。",
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
 def eval_one(d):
@@ -921,6 +1062,8 @@ def eval_one(d):
         return eval_delegation(d)
     if kind == "k8s-rbac":
         return eval_k8s_rbac(d)
+    if kind == "ntlm-type2":
+        return eval_ntlm_type2(d)
     return eval_windows_events(d)
 
 
@@ -990,6 +1133,14 @@ def _self_test():
         if got != expected:
             raise ReproError("self-test", "expected %s, got %s for %s" % (expected, got, bundle["kind"]))
         checks += 1
+    ntlm_b64 = "TlRMTVNTUAACAAAACAAIADgAAAAzgoriAAECAwQFBgcAAAAAAAAAAHoAegBAAAAACgB8TwAAAA9DAE8AUgBQAAEACABEAEMAMAAxAAIACABDAE8AUgBQAAMAHgBkAGMAMAAxAC4AYwBvAHIAcAAuAGwAbwBjAGEAbAAEABQAYwBvAHIAcAAuAGwAbwBjAGEAbAAFABQAYwBvAHIAcAAuAGwAbwBjAGEAbAAHAAgAAHBHdmRh3QEAAAAA"
+    ntlm = run_bundle({"kind": "ntlm-type2", "message": ntlm_b64})["results"][0]
+    if (ntlm["verdict"] != "candidate" or ntlm["dns_domain"] != "corp.local"
+            or ntlm["os_version"] != "10.0.20348"
+            or not ntlm["timestamp"].startswith("2026-10-21T14:00:00")):
+        raise ReproError("self-test", "ntlm-type2 parse failed: %s" % json.dumps(
+            {k: ntlm.get(k) for k in ("verdict", "dns_domain", "os_version", "timestamp")}))
+    checks += 1
     esc_doc = {
         "kind": "adcs-esc",
         "StrongCertificateBindingEnforcement": 0,
@@ -1061,7 +1212,7 @@ def _self_test():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="Offline recomputation of ad-cloud judgement rules (Kerberoast/AS-REP/ADCS/ESC9-17/delegation/K8s RBAC/Windows events).")
+        description="Offline recomputation of ad-cloud judgement rules (Kerberoast/AS-REP/ADCS/ESC9-17/delegation/K8s RBAC/Windows events/NTLM type2).")
     ap.add_argument("--input", help="JSON evidence bundle")
     ap.add_argument("--kind", help="force one check kind: " + ", ".join(KINDS))
     ap.add_argument("--json", action="store_true", help="emit one JSON object (default)")
