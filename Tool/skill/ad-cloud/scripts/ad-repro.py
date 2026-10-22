@@ -11,6 +11,9 @@ Examples:
   python ad-repro.py --kind kerberoast --input evidence.json
   python ad-repro.py --kind adcs-esc --input adcs-find.json     # ESC9-ESC17 offline
   python ad-repro.py --kind ntlm-type2 --input ntlm-type2.json  # 445 只读外部视角
+  python ad-repro.py --kind edge-fingerprint --fixture Tool/cases/ad-cloud01
+  python ad-repro.py --kind edge-fingerprint --url https://vpn.example.com/
+  python ad-repro.py --kind edge-fingerprint --input targets.json  # [{"url","product_hint"}]
   python ad-repro.py --input bundle.json --json
   python ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
   python ad-repro.py --self-test
@@ -18,6 +21,7 @@ Examples:
 Exit codes:
   0  judgement computed (individual checks may be "blocked")
   2  bad input / unsupported schema / internal error
+  3  --strict and at least one edge-fingerprint target is "blocked"
 """
 from __future__ import annotations
 
@@ -28,8 +32,12 @@ import hashlib
 import json
 import os
 import re
+import ssl
 import struct
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 import xml.etree.ElementTree as ET
 
 if sys.platform == "win32":
@@ -39,9 +47,11 @@ if sys.platform == "win32":
         pass
 
 VERSION = "1.0.0"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))))))
 EVENT_NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
 KINDS = ("kerberoast", "asrep", "adcs", "adcs-esc", "delegation", "k8s-rbac",
-         "windows-events", "ntlm-type2")
+         "windows-events", "ntlm-type2", "edge-fingerprint")
 
 
 class ReproError(Exception):
@@ -1044,6 +1054,550 @@ def eval_ntlm_type2(d):
 
 
 # ---------------------------------------------------------------------------
+# Edge access surface fingerprints (VPN / OWA / Zimbra / Okta / M365)
+# ---------------------------------------------------------------------------
+# 只读口径：HEAD 优先、GET 兜底，不提交凭据、不带 Cookie jar、不跟随登录、
+# 不发利用包。confidence 只描述「指纹吻合度」，不是可利用性。
+EDGE_PRODUCTS = {
+    "cisco-asa": {
+        "label": "Cisco ASA / AnyConnect",
+        "cookies": ("webvpn",),
+        "specific_cookies": ("webvpn",),
+        "headers": {"server": ("cisco",)},
+        "specific_headers": (),
+        "paths": ("/+cscoe+/logon.html", "/+cscoe+/saml/sp/metadata", "/+cscoe+/"),
+        "body": ("anyconnect", "cisco adaptive security appliance", "cscoe"),
+        "specific_body": ("anyconnect", "cscoe"),
+        "next_readonly": "GET /+CSCOE+/saml/sp/metadata（只读 XML，看 AuthnRequestsSigned）",
+    },
+    "fortinet-fortigate": {
+        "label": "Fortinet FortiGate SSL-VPN",
+        "cookies": ("svpncookie",),
+        "specific_cookies": ("svpncookie",),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/remote/login", "/remote/saml/metadata"),
+        "body": ("fortigate", "fortinet", "ssl-vpn"),
+        "specific_body": ("fortigate", "fortinet"),
+        "next_readonly": "GET /remote/saml/metadata（只读 XML）",
+    },
+    "citrix-netscaler": {
+        "label": "Citrix NetScaler / ADC",
+        "cookies": ("nsc_aaa", "nsc_*", "lastmrh_session"),
+        "specific_cookies": ("nsc_aaa", "nsc_*", "lastmrh_session"),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/vpn/index.html", "/menu/neo", "/vpn/"),
+        "body": ("netscaler", "citrix gateway", "citrix adc"),
+        "specific_body": ("netscaler", "citrix gateway"),
+        "next_readonly": "GET /vpn/index.html（只读首页，确认网关面）",
+    },
+    "paloalto-globalprotect": {
+        "label": "Palo Alto GlobalProtect",
+        # PHPSESSID 是通用 cookie，只能算弱线索；版本串 panui- 才是专属。
+        "cookies": ("phpsessid",),
+        "specific_cookies": (),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/global-protect/login.esp", "/global-protect/portal/"),
+        "body": ("globalprotect portal", "panui-", "palo alto networks"),
+        "specific_body": ("globalprotect portal", "panui-"),
+        "next_readonly": "GET /global-protect/login.esp（只读，记 panui- 版本串）",
+    },
+    "pulse-ivanti": {
+        "label": "Pulse Secure / Ivanti Connect Secure",
+        "cookies": ("dsauthsession", "dsid"),
+        "specific_cookies": ("dsauthsession",),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/dana-na/auth/url_default/welcome.cgi", "/dana-na/"),
+        "body": ("pulse secure", "ivanti", "connect secure"),
+        "specific_body": ("pulse secure", "ivanti"),
+        "next_readonly": "GET /dana-na/auth/url_default/welcome.cgi（只读欢迎页）",
+    },
+    "sonicwall-f5": {
+        "label": "SonicWall / F5 BIG-IP",
+        "cookies": ("swap", "swapauth", "lastmrh_session", "mrhsession",
+                    "bigipserver*"),
+        "specific_cookies": ("swap", "swapauth", "lastmrh_session", "mrhsession",
+                             "bigipserver*"),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/my.policy", "/cgi-bin/welcome", "/cgi-bin/welcome.cgi",
+                  "/sonicui/"),
+        "body": ("sonicwall", "netextender", "big-ip", "f5 networks"),
+        "specific_body": ("sonicwall", "netextender", "big-ip"),
+        "next_readonly": "GET /my.policy 或 /cgi-bin/welcome（只读，区分 F5 APM 与 SonicWall）",
+    },
+    "microsoft-owa": {
+        "label": "Microsoft Exchange / OWA",
+        # ASP.NET_SessionId 是通用 cookie；X-OWA-Version / X-OWA-CANARY 才是专属。
+        "cookies": ("x-owa-canary", "cadata", "asp.net_sessionid"),
+        "specific_cookies": ("x-owa-canary",),
+        "headers": {"x-owa-version": (), "x-feserver": (),
+                    "www-authenticate": ("negotiate", "ntlm")},
+        "specific_headers": ("x-owa-version",),
+        "paths": ("/owa/", "/owa", "/autodiscover/autodiscover.xml", "/ecp/"),
+        "body": ("outlook web app", "outlook on the web", "exchange"),
+        "specific_body": (),  # 正文不算专属，避免无 X-OWA-Version 时误判 high
+        "next_readonly": "HEAD /owa/ 只看 X-OWA-Version / X-FEServer；NTLM 证据转 --kind ntlm-type2",
+    },
+    "zimbra": {
+        "label": "Zimbra Collaboration",
+        "cookies": ("zm_auth_token", "zm_test", "zm_login"),
+        "specific_cookies": ("zm_auth_token", "zm_test", "zm_login"),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/zimbra/", "/zimbraadmin/", "/service/soap/"),
+        "body": ("zimbra",),
+        "specific_body": ("zimbra",),
+        "next_readonly": "匿名 POST /service/soap/ GetVersionInfoRequest（不认证、不枚举用户）",
+    },
+    "okta": {
+        "label": "Okta",
+        "cookies": ("dt", "idx", "sid", "jsessionid"),
+        "specific_cookies": ("dt", "idx"),
+        "headers": {"x-okta-request-id": ()},
+        "specific_headers": ("x-okta-request-id",),
+        "paths": ("/.well-known/okta-organization", "/oauth2/", "/login/default",
+                  "/.well-known/openid-configuration"),
+        "body": ("okta",),
+        "specific_body": ("okta-organization", "okta.com"),
+        "next_readonly": "GET /.well-known/okta-organization 与 openid-configuration（只读）",
+    },
+    "m365-entra": {
+        "label": "Microsoft 365 / Entra ID",
+        "cookies": ("estsauth", "estsauthpersistent", "aadsso"),
+        "specific_cookies": ("estsauth", "estsauthpersistent", "aadsso"),
+        "headers": {},
+        "specific_headers": (),
+        "paths": ("/getuserrealm.srf", "/.well-known/openid-configuration",
+                  "/common/oauth2/"),
+        "body": ("namespacetype", "login.microsoftonline.com", "microsoftonline.com",
+                 "sts.windows.net"),
+        "specific_body": ("namespacetype", "login.microsoftonline.com",
+                          "sts.windows.net"),
+        "next_readonly": "GET getuserrealm.srf?login=<user>@<domain>&xml=1（不提交凭据）",
+    },
+}
+
+EDGE_CONF_RANK = {"high": 3, "med": 2, "low": 1, "none": 0}
+EDGE_VERDICT_TEXT = {
+    "high": "指纹置信 high（专属 cookie/版本串 + 专属路径）；暴露面 candidate，不等于可利用。",
+    "med": "指纹置信 med（两条独立线索一致）；暴露面 candidate，需公开 metadata/版本串补证。",
+    "low": "指纹置信 low（单条线索）；只记疑似暴露面，不得据此判版本或漏洞。",
+    "none": "无厂商指纹；记 blocked/unknown，不猜服务、不用默认口令或 CVE 路径字典升级。",
+}
+
+
+def _norm_headers(raw):
+    """dict / ["Name: value"] / [{name,value}] → [(lower-name, value)]。"""
+    out = []
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            for vv in _list(v):
+                out.append((str(k).strip().lower(), str(vv).strip()))
+    else:
+        for item in _list(raw):
+            if isinstance(item, dict):
+                out.append((str(item.get("name") or "").strip().lower(),
+                            str(item.get("value") or "").strip()))
+            elif isinstance(item, str) and ":" in item:
+                name, value = item.split(":", 1)
+                out.append((name.strip().lower(), value.strip()))
+    return [(n, v) for n, v in out if n]
+
+
+def _cookie_names(headers):
+    names = set()
+    for name, value in headers:
+        if name != "set-cookie":
+            continue
+        first = value.split(";", 1)[0]
+        if "=" in first:
+            names.add(first.split("=", 1)[0].strip().lower())
+    return names
+
+
+def _cookie_hit(names, patterns):
+    for pat in patterns:
+        pat = pat.lower()
+        if pat.endswith("*"):
+            if any(n.startswith(pat[:-1]) for n in names):
+                return True
+        elif pat in names:
+            return True
+    return False
+
+
+def _norm_path(value):
+    text = str(value or "/").strip()
+    if "://" in text:
+        tail = text.split("://", 1)[1]
+        text = ("/" + tail.split("/", 1)[1]) if "/" in tail else "/"
+    text = text.split("?", 1)[0].split("#", 1)[0]
+    if not text.startswith("/"):
+        text = "/" + text
+    return text or "/"
+
+
+def _norm_edge_responses(raw):
+    rows = []
+    for item in _list(raw):
+        if not isinstance(item, dict):
+            continue
+        headers = _norm_headers(item.get("headers"))
+        body = " ".join(str(item.get(k) or "") for k in
+                        ("title", "body", "body_excerpt", "snippet", "text"))
+        rows.append({
+            "path": _norm_path(item.get("path") or item.get("url")),
+            "status": item.get("status"),
+            "method": str(item.get("method") or "HEAD").upper(),
+            "headers": headers,
+            "body": body,
+            "location": [v for n, v in headers if n == "location"],
+        })
+    return rows
+
+
+def _edge_path_hit(actual, patterns):
+    path = actual.lower()
+    for pat in patterns:
+        pat = pat.lower()
+        if path == pat or (pat.endswith("/") and path.startswith(pat)):
+            return pat
+    return None
+
+
+def _edge_clues(spec, responses):
+    clues, seen = [], set()
+
+    def push(family, header, path, value, strong):
+        key = (family, header.lower(), path.lower(), value.lower())
+        if key in seen:
+            return
+        seen.add(key)
+        clues.append({"family": family, "header": header, "path": path,
+                      "value": value, "strong": bool(strong)})
+
+    for row in responses:
+        cookies = _cookie_names(row["headers"])
+        for name in sorted(cookies):
+            if _cookie_hit({name}, spec["cookies"]):
+                push("cookie", "Set-Cookie", row["path"], name,
+                     _cookie_hit({name}, spec["specific_cookies"]))
+        for name, value in row["headers"]:
+            if name in spec["headers"]:
+                wanted = spec["headers"][name]
+                if not wanted or any(w in value.lower() for w in wanted):
+                    push("header", name, row["path"], value[:80] or "present",
+                         name in spec["specific_headers"])
+        for pat in spec["paths"]:
+            if _edge_path_hit(row["path"], (pat,)):
+                push("path", "", row["path"], "%s" % (row["status"] or "hit"), True)
+            for loc in row["location"]:
+                if _edge_path_hit(_norm_path(loc), (pat,)):
+                    push("path", "Location", _norm_path(loc),
+                         "%s" % (row["status"] or "hit"), True)
+        lowered = row["body"].lower()
+        for marker in spec["body"]:
+            if marker in lowered:
+                push("body", "", row["path"], marker, marker in spec["specific_body"])
+    return clues
+
+
+def _edge_confidence(clues):
+    families = {c["family"] for c in clues}
+    strong_non_path = any(c["strong"] and c["family"] != "path" for c in clues)
+    if strong_non_path and "path" in families:
+        return "high"
+    if len(families) >= 2:
+        return "med"
+    if families:
+        return "low"
+    return "none"
+
+
+def eval_edge_target(target, responses, mode="fixture", requests=0):
+    """One target → one classified result.  Never authenticates."""
+    url = str(target.get("url") or "")
+    hint = str(target.get("product_hint") or "").strip()
+    response_rows = _norm_edge_responses(responses)
+    if not url and response_rows:
+        url = str(target.get("label") or "fixture")
+    per_product = {}
+    for pid, spec in EDGE_PRODUCTS.items():
+        clues = _edge_clues(spec, response_rows)
+        if clues:
+            per_product[pid] = (clues, _edge_confidence(clues))
+    hint_known = hint in EDGE_PRODUCTS
+    hint_unknown = bool(hint) and not hint_known
+    if not per_product:
+        return {
+            "url": url,
+            "product": None,
+            "product_label": None,
+            "confidence": "none",
+            "verdict": "blocked",
+            "judgement": EDGE_VERDICT_TEXT["none"],
+            "evidence": [],
+            "clues": [],
+            "auth_attempted": False,
+            "credentials_sent": False,
+            "mode": mode,
+            "requests": requests,
+            "product_hint": hint or None,
+            "hint_mismatch": False,
+            "hint_unknown": hint_unknown,
+            "alternatives": [],
+            "blocked_at": "no-fingerprint",
+            "next_readonly": None,
+        }
+    ranked = sorted(
+        per_product.items(),
+        key=lambda kv: (EDGE_CONF_RANK[kv[1][1]],
+                        sum(1 for c in kv[1][0] if c["strong"]),
+                        len(kv[1][0]),
+                        1 if hint_known and kv[0] == hint else 0),
+        reverse=True,
+    )
+    pid, (clues, confidence) = ranked[0]
+    alternatives = [k for k, v in ranked[1:] if v[1] == confidence]
+    if confidence == "med" and alternatives:
+        confidence = "low"
+    evidence = []
+    for c in sorted(clues, key=lambda x: (x["family"] != "path", x["family"], x["value"])):
+        evidence.append({"clue": c["family"], "header": c["header"],
+                         "path": c["path"], "value": c["value"]})
+    spec = EDGE_PRODUCTS[pid]
+    judgement = EDGE_VERDICT_TEXT[confidence]
+    if hint_known and pid != hint:
+        judgement += " product_hint=%s 与实际指纹不一致，以实际响应为准。" % hint
+    elif hint_known:
+        judgement += " product_hint 与指纹一致。"
+    if alternatives:
+        judgement += " 存在同分候选（%s），按路径线索人工复核。" % ", ".join(alternatives)
+    return {
+        "url": url,
+        "product": pid,
+        "product_label": spec["label"],
+        "confidence": confidence,
+        "verdict": "candidate",
+        "judgement": judgement,
+        "evidence": evidence,
+        "clues": ["%s:%s" % (c["family"], c["value"]) for c in clues],
+        "auth_attempted": False,
+        "credentials_sent": False,
+        "mode": mode,
+        "requests": requests,
+        "product_hint": hint or None,
+        "hint_mismatch": bool(hint_known and pid != hint),
+        "hint_unknown": hint_unknown,
+        "alternatives": alternatives,
+        "blocked_at": None,
+        "next_readonly": spec["next_readonly"],
+    }
+
+
+def _edge_blocked_result(target, reason, blocked_at="edge-network", mode="live"):
+    """Network/probe failure 不能中断其它目标；按单目标 blocked 记。"""
+    return {
+        "url": str(target.get("url") or target.get("label") or ""),
+        "product": None,
+        "product_label": None,
+        "confidence": "none",
+        "verdict": "blocked",
+        "judgement": EDGE_VERDICT_TEXT["none"],
+        "evidence": [],
+        "clues": [],
+        "auth_attempted": False,
+        "credentials_sent": False,
+        "mode": mode,
+        "requests": 0,
+        "product_hint": str(target.get("product_hint") or "") or None,
+        "hint_mismatch": False,
+        "hint_unknown": False,
+        "alternatives": [],
+        "blocked_at": blocked_at,
+        "reason": reason,
+        "next_readonly": None,
+    }
+
+
+# 只读在线探测：HEAD 优先，GET 兜底；不跟随重定向、不带 Cookie、不加 Authorization。
+EDGE_LIVE_PATHS = ("/+CSCOE+/logon.html", "/remote/login", "/vpn/index.html",
+                   "/global-protect/login.esp", "/dana-na/auth/url_default/welcome.cgi",
+                   "/owa/", "/zimbra/", "/.well-known/okta-organization",
+                   "/getuserrealm.srf", "/.well-known/openid-configuration")
+EDGE_TIMEOUT = 6
+EDGE_MAX_PROBES = 7
+
+
+def _edge_live_guard(url):
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ReproError("edge-target", "url must be absolute http(s): %r" % url)
+    host = parts.hostname.lower()
+    if (host.endswith(".invalid") or host in ("example.com", "example.org")
+            or host.endswith(".example")):
+        raise ReproError("edge-network",
+                         "refusing to probe placeholder host %s; use --fixture" % host)
+    return parts
+
+
+class _EdgeNoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # noqa: D401
+        return None
+
+
+def _redact_cookie(value):
+    first, _, rest = str(value).partition(";")
+    name = first.split("=", 1)[0].strip()
+    return "%s=REDACTED%s" % (name, (";" + rest) if rest else "")
+
+
+def _edge_probe(url, method):
+    parts = _edge_live_guard(url)
+    req = urllib.request.Request(url, method=method, headers={
+        "User-Agent": "seep-edge-fingerprint/%s (read-only)" % VERSION,
+        "Accept": "*/*",
+    })
+    ctx = ssl._create_unverified_context()  # 与 curl -k 同义，只读指纹
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=ctx), _EdgeNoRedirect())
+    try:
+        resp = opener.open(req, timeout=EDGE_TIMEOUT)
+        status, headers, body = resp.status, resp.headers, resp.read(4096)
+    except urllib.error.HTTPError as exc:
+        status, headers, body = exc.code, exc.headers, exc.read(4096)
+    except Exception as exc:  # noqa: BLE001
+        raise ReproError("edge-network", "%s %s failed: %s: %s" % (
+            method, parts.path or "/", type(exc).__name__, exc))
+    keep = {}
+    for name in ("server", "x-powered-by", "x-owa-version", "x-feserver",
+                 "www-authenticate", "location", "x-okta-request-id"):
+        value = headers.get(name)
+        if value:
+            keep[name.title()] = value
+    set_cookie = headers.get_all("set-cookie") or []
+    if set_cookie:
+        keep["Set-Cookie"] = [_redact_cookie(c) for c in set_cookie]
+    text = body.decode("utf-8", "replace")
+    return {"path": parts.path or "/", "method": method, "status": status,
+            "headers": keep, "body_excerpt": text[:1200]}
+
+
+def probe_edge_live(target):
+    url = str(target.get("url") or "")
+    base = _edge_live_guard(url)
+    root = "%s://%s%s" % (base.scheme, base.netloc, base.path or "/")
+    hint = str(target.get("product_hint") or "")
+    wanted = list(EDGE_PRODUCTS[hint]["paths"]) if hint in EDGE_PRODUCTS else []
+    if not wanted:
+        wanted = list(EDGE_LIVE_PATHS)
+    responses, sent = [], 0
+    for path in [base.path or "/"] + wanted:
+        if sent >= EDGE_MAX_PROBES:
+            break
+        full = urllib.parse.urljoin(root, path)
+        if any(r["path"] == _norm_path(full) for r in responses):
+            continue
+        try:
+            row = _edge_probe(full, "HEAD")
+            if row["status"] in (405, 501) or not row["headers"]:
+                row = _edge_probe(full, "GET")
+        except ReproError as exc:
+            if exc.blocked_at == "edge-network":
+                continue
+            raise
+        responses.append(row)
+        sent += 1
+    if not responses:
+        raise ReproError("edge-network", "no response for %s (offline? use --fixture)" % url)
+    return responses, sent
+
+
+def run_edge(targets, offline=False):
+    if not targets:
+        raise ReproError("edge-input", "provide --url, --input or --fixture")
+    results, any_live = [], False
+    for target in targets:
+        if not isinstance(target, dict):
+            raise ReproError("edge-input", "each target must be an object")
+        recorded = (target.get("responses") or target.get("samples")
+                    or target.get("probes"))
+        if recorded:
+            results.append(eval_edge_target(target, recorded, mode="fixture", requests=0))
+            continue
+        if offline:
+            raise ReproError("edge-input", "fixture target %r has no recorded responses"
+                             % (target.get("url") or target.get("label")))
+        any_live = True
+        try:
+            responses, count = probe_edge_live(target)
+        except ReproError as exc:
+            if exc.blocked_at != "edge-network":
+                raise
+            results.append(_edge_blocked_result(target, exc.reason,
+                                                blocked_at=exc.blocked_at))
+            continue
+        results.append(eval_edge_target(target, responses, mode="live", requests=count))
+    summary = {}
+    for r in results:
+        key = "%s/%s" % (r["verdict"], r["confidence"])
+        summary[key] = summary.get(key, 0) + 1
+    return {
+        "ok": True,
+        "kind": "edge-fingerprint",
+        "offline": not any_live,
+        "auth_attempted": False,
+        "credentials_sent": False,
+        "results": results,
+        "summary": summary,
+        "blocked_at": None,
+    }
+
+
+def _edge_targets_from_doc(doc):
+    if isinstance(doc, list):
+        items = doc
+    elif isinstance(doc, dict):
+        for key in ("probes", "targets", "checks", "entries"):
+            if isinstance(doc.get(key), list):
+                items = doc[key]
+                break
+        else:
+            items = [doc]
+    else:
+        raise ReproError("edge-input", "edge-fingerprint input must be an object or a list")
+    out = []
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise ReproError("edge-input", "target[%d] is not an object" % i)
+        if item.get("kind") and item.get("kind") != "edge-fingerprint":
+            raise ReproError("edge-input", "target[%d] kind is not edge-fingerprint" % i)
+        out.append(item)
+    return out
+
+
+def _edge_fixture_file(path):
+    if os.path.isfile(path):
+        return path
+    if not os.path.isdir(path):
+        raise ReproError("edge-input", "fixture path not found: %s" % path)
+    for rel in ("edge-fingerprint.json", os.path.join("input", "edge-fingerprint.json")):
+        cand = os.path.join(path, rel)
+        if os.path.isfile(cand):
+            return cand
+    import glob
+    cands = sorted(glob.glob(os.path.join(path, "*edge*fixture*.json")) +
+                   glob.glob(os.path.join(path, "input", "*edge*.json")))
+    if len(cands) == 1:
+        return cands[0]
+    raise ReproError("edge-input", "no edge-fingerprint.json under %s" % path)
+
+
+# ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
 def eval_one(d):
@@ -1064,6 +1618,13 @@ def eval_one(d):
         return eval_k8s_rbac(d)
     if kind == "ntlm-type2":
         return eval_ntlm_type2(d)
+    if kind == "edge-fingerprint":
+        recorded = d.get("responses") or d.get("samples") or d.get("probes") or []
+        if not recorded:
+            raise ReproError("edge-input",
+                             "bundle edge-fingerprint needs recorded responses; "
+                             "use --url/--fixture for live or fixture probes")
+        return eval_edge_target(d, recorded, mode="fixture", requests=0)
     return eval_windows_events(d)
 
 
@@ -1205,16 +1766,94 @@ def _self_test():
     if parsed["event_count"] != 1 or parsed["events"][0]["target_user"] != "USER":
         raise ReproError("self-test", "evtx xml extraction failed")
     checks += 1
+
+    # -- edge-fingerprint: 10 类全部正确分类（仓库内脱敏样例） -------------------------------------------------
+    fixture = os.path.join(REPO_ROOT, "Tool", "cases", "ad-cloud01", "input",
+                           "edge-fingerprint.json")
+    if not os.path.isfile(fixture):
+        raise ReproError("self-test", "missing edge fixture: %s" % fixture)
+    with open(fixture, encoding="utf-8-sig") as fh:
+        edge_doc = json.load(fh)
+    edge_out = run_edge(_edge_targets_from_doc(edge_doc), offline=True)
+    want_edge = {
+        "cisco-asa": "high",
+        "fortinet-fortigate": "high",
+        "citrix-netscaler": "high",
+        "paloalto-globalprotect": "high",
+        "pulse-ivanti": "high",
+        "sonicwall-f5": "high",
+        "microsoft-owa": "med",       # 样例故意缺 X-OWA-Version：不得判 high
+        "zimbra": "high",
+        "okta": "high",
+        "m365-entra": "high",
+    }
+    if len(edge_out["results"]) != len(want_edge):
+        raise ReproError("self-test", "edge fixture has %d probes, want %d" % (
+            len(edge_out["results"]), len(want_edge)))
+    for row in edge_out["results"]:
+        got = row["confidence"]
+        want = want_edge.get(row["product"])
+        if want is None or got != want:
+            raise ReproError("self-test", "edge %r expected %r, got %r/%r" % (
+                row["url"], want, row["product"], got))
+        if (row["verdict"] != "candidate" or row["auth_attempted"]
+                or row["credentials_sent"]):
+            raise ReproError("self-test", "edge classification crossed the read-only line: %s"
+                             % json.dumps(row, ensure_ascii=False)[:160])
+        checks += 1
+
+    # 错配不误判：OWA 无 X-OWA-Version/专属 cookie 时最高只能 med。
+    owa_neg = eval_edge_target({"url": "https://owa.edge.invalid/owa/",
+                                "product_hint": "microsoft-owa"}, [
+        {"path": "/owa/auth/logon.aspx", "status": 401,
+         "headers": {"X-FEServer": "MAIL01", "WWW-Authenticate": "Negotiate",
+                     "Set-Cookie": ["ASP.NET_SessionId=REDACTED; path=/"]},
+         "title": "Sign in", "body_excerpt": "Exchange"}])
+    if owa_neg["product"] != "microsoft-owa" or owa_neg["confidence"] == "high":
+        raise ReproError("self-test", "OWA without X-OWA-Version must not be high: %s"
+                         % owa_neg["confidence"])
+    checks += 1
+    owa_pos = eval_edge_target({"url": "https://owa.edge.invalid/owa/"}, [
+        {"path": "/owa/", "status": 200,
+         "headers": {"X-OWA-Version": "15.2.1258.12",
+                     "Set-Cookie": ["X-OWA-CANARY=REDACTED; path=/"]},
+         "title": "Outlook"}])
+    if owa_pos["product"] != "microsoft-owa" or owa_pos["confidence"] != "high":
+        raise ReproError("self-test", "OWA with X-OWA-Version should be high")
+    checks += 1
+    # 错配 hint 不能凭空造产品。
+    mismatch = eval_edge_target({"url": "https://asa.edge.invalid/",
+                                 "product_hint": "zimbra"}, [
+        {"path": "/+CSCOE+/logon.html", "status": 200,
+         "headers": {"Set-Cookie": ["webvpn=REDACTED"]}, "title": "AnyConnect"}])
+    if mismatch["product"] != "cisco-asa" or not mismatch["hint_mismatch"]:
+        raise ReproError("self-test", "hint must not override observed fingerprint")
+    checks += 1
+    # 无厂商指纹时记 blocked，而不是猜服务。
+    generic = eval_edge_target({"url": "https://www.edge.invalid/"}, [
+        {"path": "/", "status": 200, "headers": {"Server": "nginx"}, "title": "Welcome"}])
+    if generic["product"] is not None or generic["verdict"] != "blocked" \
+            or generic["confidence"] != "none":
+        raise ReproError("self-test", "generic page must stay blocked/none")
+    checks += 1
+
     print(json.dumps({"ok": True, "tool": "ad-repro", "checks": checks,
-                      "kinds": len(KINDS)}, ensure_ascii=False))
+                      "kinds": len(KINDS), "edge_products": len(EDGE_PRODUCTS)},
+                     ensure_ascii=False))
     return 0
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="Offline recomputation of ad-cloud judgement rules (Kerberoast/AS-REP/ADCS/ESC9-17/delegation/K8s RBAC/Windows events/NTLM type2).")
-    ap.add_argument("--input", help="JSON evidence bundle")
+        description="Offline recomputation of ad-cloud judgement rules (Kerberoast/AS-REP/ADCS/ESC9-17/delegation/K8s RBAC/Windows events/NTLM type2/edge fingerprints).",
+        epilog="退出码：0 判定完成 / 2 输入错误或 blocked / 3 --strict 下有 blocked 目标")
+    ap.add_argument("--input", help="JSON evidence bundle (or edge target list)")
     ap.add_argument("--kind", help="force one check kind: " + ", ".join(KINDS))
+    ap.add_argument("--url", help="edge-fingerprint: probe one read-only URL (HEAD first)")
+    ap.add_argument("--fixture", metavar="DIR_OR_FILE",
+                    help="edge-fingerprint: replay recorded responses from a fixture")
+    ap.add_argument("--strict", action="store_true",
+                    help="edge-fingerprint: exit 3 when any target is blocked")
     ap.add_argument("--json", action="store_true", help="emit one JSON object (default)")
     ap.add_argument("--out", help="write JSON to this file instead of stdout")
     ap.add_argument("--extract-evtx-xml", metavar="XML",
@@ -1238,8 +1877,37 @@ def main(argv=None):
             else:
                 print(text)
             return 0
+        edge_mode = (args.kind == "edge-fingerprint") or bool(args.fixture) or bool(args.url)
+        if edge_mode:
+            if args.kind and args.kind != "edge-fingerprint":
+                raise ReproError("schema", "--url/--fixture only support --kind edge-fingerprint")
+            targets = []
+            if args.url:
+                targets.append({"url": args.url})
+            if args.input:
+                if not os.path.isfile(args.input):
+                    raise ReproError("read-input", "file not found: %s" % args.input)
+                with open(args.input, encoding="utf-8-sig") as fh:
+                    targets += _edge_targets_from_doc(json.load(fh))
+            if args.fixture:
+                fx = _edge_fixture_file(args.fixture)
+                with open(fx, encoding="utf-8-sig") as fh:
+                    targets += _edge_targets_from_doc(json.load(fh))
+            out = run_edge(targets, offline=bool(args.fixture))
+            out["fixture"] = args.fixture
+            text = json.dumps(out, ensure_ascii=False, indent=2)
+            if args.out:
+                with open(args.out, "w", encoding="utf-8", newline="\n") as fh:
+                    fh.write(text + "\n")
+                print(json.dumps({"ok": True, "out": args.out, "kind": out["kind"],
+                                  "summary": out["summary"]}, ensure_ascii=False))
+            else:
+                print(text)
+            if args.strict and any(r["verdict"] == "blocked" for r in out["results"]):
+                return 3
+            return 0
         if not args.input:
-            raise ReproError("input", "provide --input, --extract-evtx-xml or --self-test")
+            raise ReproError("input", "provide --input, --url, --fixture, --extract-evtx-xml or --self-test")
         if not os.path.isfile(args.input):
             raise ReproError("read-input", "file not found: %s" % args.input)
         with open(args.input, encoding="utf-8-sig") as fh:
@@ -1255,12 +1923,17 @@ def main(argv=None):
             print(text)
         return 0
     except ReproError as exc:
-        print(json.dumps({"ok": False, "blocked_at": exc.blocked_at,
-                          "reason": exc.reason}, ensure_ascii=False))
+        err = {"ok": False, "blocked_at": exc.blocked_at, "reason": exc.reason}
+        if args.kind:
+            err["kind"] = args.kind
+        print(json.dumps(err, ensure_ascii=False))
         return 2
     except Exception as exc:  # noqa: BLE001
-        print(json.dumps({"ok": False, "blocked_at": "internal",
-                          "reason": "%s: %s" % (type(exc).__name__, exc)}, ensure_ascii=False))
+        err = {"ok": False, "blocked_at": "internal",
+               "reason": "%s: %s" % (type(exc).__name__, exc)}
+        if args.kind:
+            err["kind"] = args.kind
+        print(json.dumps(err, ensure_ascii=False))
         return 2
 
 
