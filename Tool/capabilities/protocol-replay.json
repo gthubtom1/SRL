@@ -1,6 +1,28 @@
 {
   "id": "protocol-replay",
   "title": "协议重放",
+  "domain": "protocol-plugin",
+  "triggers": [
+    "协议重放",
+    "私有协议",
+    "分帧",
+    "报文",
+    "重放",
+    "WebSocket",
+    "BLE",
+    "GATT",
+    "蓝牙",
+    "Modbus",
+    "工控",
+    "PLC",
+    "HID"
+  ],
+  "aliases": [
+    "protocol-replay",
+    "重放",
+    "packet-replay"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "原始请求/帧",
     "会话前置状态"
@@ -17,7 +39,6 @@
   ],
   "maturity": "usable",
   "compose": [
-    "protocol-construct",
     "state-machine"
   ]
 }

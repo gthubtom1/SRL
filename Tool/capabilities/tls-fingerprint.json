@@ -1,6 +1,21 @@
 {
   "id": "tls-fingerprint",
   "title": "TLS 指纹对齐",
+  "domain": "pwn-crypto",
+  "triggers": [
+    "TLS 指纹",
+    "JA3",
+    "JA3S",
+    "指纹对齐",
+    "客户端指纹",
+    "tls fingerprint"
+  ],
+  "aliases": [
+    "tls-fingerprint",
+    "ja3",
+    "指纹"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "目标 URL",
     "期望 JA3/JA4"
@@ -17,6 +32,7 @@
     "Tool/skill/apkseep/references/tls-and-cert.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
     "traffic-capture",
     "tls-decrypt"

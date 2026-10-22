@@ -1,6 +1,22 @@
 {
   "id": "protocol-construct",
   "title": "协议构包",
+  "domain": "protocol-plugin",
+  "triggers": [
+    "协议构包",
+    "构造请求",
+    "构造新请求",
+    "组包",
+    "报文构造",
+    "protobuf 构造",
+    "协议构造"
+  ],
+  "aliases": [
+    "protocol-construct",
+    "构包",
+    "packet-build"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "帧结构",
     "字段取值域",

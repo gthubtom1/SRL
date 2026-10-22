@@ -1,6 +1,21 @@
 {
   "id": "patch-rollback",
   "title": "补丁回滚与基线复验",
+  "domain": "reverse",
+  "triggers": [
+    "补丁回滚",
+    "基线复验",
+    "回滚补丁",
+    "patch rollback",
+    "还原原始文件",
+    "补丁验收"
+  ],
+  "aliases": [
+    "patch-rollback",
+    "回滚",
+    "baseline-recheck"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "补丁前基线",
     "补丁清单"
@@ -17,7 +32,5 @@
     "Tool/skill/softseep/references/09-patch-engineering.md"
   ],
   "maturity": "usable",
-  "compose": [
-    "patch-apply"
-  ]
+  "compose": []
 }

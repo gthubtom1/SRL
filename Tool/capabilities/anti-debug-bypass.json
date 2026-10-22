@@ -1,6 +1,23 @@
 {
   "id": "anti-debug-bypass",
   "title": "反调试绕过",
+  "domain": "reverse",
+  "triggers": [
+    "反调试",
+    "反调试绕过",
+    "anti-debug",
+    "ptrace",
+    "调试检测",
+    "检测 x64dbg",
+    "frida 反检测",
+    "反虚拟机"
+  ],
+  "aliases": [
+    "anti-debug",
+    "antidebug",
+    "反调试绕过"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "目标进程",
     "检测点清单"
@@ -17,6 +34,7 @@
     "Tool/skill/apkseep/references/detection-and-anti-analysis.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
     "native-hook"
   ]

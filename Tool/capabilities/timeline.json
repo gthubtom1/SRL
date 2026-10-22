@@ -1,6 +1,21 @@
 {
   "id": "timeline",
   "title": "时间线归并",
+  "domain": "forensics-mobile",
+  "triggers": [
+    "时间线",
+    "时间线归并",
+    "事件时间线",
+    "EVTX 时间线",
+    "取证时间线",
+    "mactime"
+  ],
+  "aliases": [
+    "timeline",
+    "时间线",
+    "fs-timeline"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "evtx/hive/文件系统/sqlite"
   ],
@@ -16,8 +31,5 @@
     "Tool/skill/forensics-mobile/references/04-walkthrough-windows-evtx-registry.md"
   ],
   "maturity": "battle-tested",
-  "compose": [
-    "evidence-accept",
-    "memory-forensics"
-  ]
+  "compose": []
 }

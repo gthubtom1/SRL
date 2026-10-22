@@ -1,5 +1,5 @@
 # SBOM / 可达性 / CI 权限 / 签名
-- 触发词：供应链、SBOM、SCA、可达性、锁文件、CI 权限、action pin、签名、attestation
+- 触发词：供应链、SBOM、SCA、可达性、锁文件、CI 权限、action pin、签名、attestation、Docker、容器镜像
 - 输入（用户提供）：`<repo>`、`<commit>`、`<lock 文件>`、`<SBOM>`、`<镜像 digest>`、`<CI 平台>`；范围由用户提供的 scope 决定，只做只读审计。
 - 用到的能力（capability id）：`tool:nuclei` `repo:case_state` `repo:seep-start` `repo:sc-check` `repo:sbom-reach` `repo:ci-perm-audit` `repo:sc-accept` `repo:kb-query`
 - 步骤：1) `python Tool/scripts/seep-start.py --domain supply-chain-security --case <case> --target <REPO>` → rc=0，记录 commit、锁文件哈希与工作区状态；2) `python Tool/scripts/sc-check.py --path <REPO> --out work/<case>/sc.json` → rc=0 或 1（high/critical 命中=1），读 `rule_hits` 与 `degraded`；3) `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom <BOM> --lock <LOCK> --freeze work/<case>/freeze.txt --source <REPO> --out work/<case>/reach.json` → rc=0，标每个组件 reachable/unreachable；4) `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path <REPO>/.github/workflows --out work/<case>/ci.json` → rc=0，列 permissions、triggers、checkout refs、secrets refs；5) `python Tool/scripts/kb-query.py --query "dependency confusion" --limit 20` → rc=0，补判据；6) `python Tool/skill/supply-chain-security/scripts/sc-accept.py --case <case> --json` → rc=0，最后 `python Tool/scripts/preflight.py --fast` → rc=0。

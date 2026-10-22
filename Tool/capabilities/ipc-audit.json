@@ -1,6 +1,22 @@
 {
   "id": "ipc-audit",
   "title": "IPC/组件暴露审计",
+  "domain": "plugin-targets",
+  "triggers": [
+    "IPC",
+    "组件暴露",
+    "ContentProvider",
+    "Binder",
+    "服务暴露",
+    "Android 组件",
+    "IPC 审计"
+  ],
+  "aliases": [
+    "ipc",
+    "ipc-audit",
+    "组件暴露"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "组件清单",
     "intent/filter 定义"
@@ -16,8 +32,9 @@
     "Tool/skill/apkseep/references/native-and-so.md"
   ],
   "maturity": "probe",
+  "note": "待补导出组件枚举脚本，当前用 manifest 解析 + adb shell dumpsys 手工完成；svc_scan.py 只判 svc 直调可见性",
+  "reserved": true,
   "compose": [
     "permission-evidence"
-  ],
-  "note": "待补导出组件枚举脚本，当前用 manifest 解析 + adb shell dumpsys 手工完成；svc_scan.py 只判 svc 直调可见性"
+  ]
 }

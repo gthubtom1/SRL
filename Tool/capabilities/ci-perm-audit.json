@@ -1,6 +1,23 @@
 {
   "id": "ci-perm-audit",
   "title": "CI 权限审计",
+  "domain": "supply-chain-security",
+  "triggers": [
+    "CI 权限",
+    "GitHub Actions",
+    "workflow 权限",
+    "secrets",
+    "pull_request_target",
+    "流水线权限",
+    "action pin",
+    "权限过大"
+  ],
+  "aliases": [
+    "ci-perm",
+    "ci-permissions",
+    "流水线权限"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "workflow YAML",
     "仓库权限设置"

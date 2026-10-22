@@ -1,6 +1,22 @@
 {
   "id": "evidence-accept",
   "title": "证据受理与哈希复算",
+  "domain": "forensics-mobile",
+  "triggers": [
+    "证据受理",
+    "哈希复算",
+    "sha256 校验",
+    "证据链",
+    "四要素",
+    "取证验收",
+    "证据清单"
+  ],
+  "aliases": [
+    "evidence-accept",
+    "证据验收",
+    "hash-verify"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "证据目录",
     "case 清单"

@@ -1,6 +1,22 @@
 {
   "id": "ioc-extract",
   "title": "IOC 抽取与置信度分级",
+  "domain": "malware-analysis",
+  "triggers": [
+    "IOC",
+    "威胁指标",
+    "C2 地址",
+    "域名哈希",
+    "样本指标",
+    "IOC 分级",
+    "置信度"
+  ],
+  "aliases": [
+    "ioc",
+    "ioc-extract",
+    "威胁情报"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "样本或文档"
   ],

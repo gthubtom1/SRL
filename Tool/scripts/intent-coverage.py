@@ -266,7 +266,8 @@ class Catalog:
         self.sources["capability_count"] = len(self.capabilities)
 
     def _add_cap(self, cid, title=None, source="", triggers=None, weight=4):
-        if not cid or ":" not in str(cid):
+        # 能力层 SSOT（Tool/capabilities/*.json）用的是裸 id；这里不再要求命名空间。
+        if not cid or not str(cid).strip():
             return
         cid = str(cid)
         entry = self.capabilities.setdefault(cid, {
@@ -298,7 +299,11 @@ class Catalog:
                 self.warnings.append(f"{path.name}: {exc}")
                 continue
             if isinstance(data, dict):
-                entries = data.get("capabilities") or data.get("items") or data.get("tools") or []
+                if data.get("id"):
+                    # 单对象文件：Tool/capabilities/<id>.json
+                    entries = [data]
+                else:
+                    entries = data.get("capabilities") or data.get("items") or data.get("tools") or []
             elif isinstance(data, list):
                 entries = data
             else:
@@ -311,7 +316,11 @@ class Catalog:
                 triggers = item.get("triggers") or item.get("keywords") or item.get("match") or []
                 if isinstance(triggers, str):
                     triggers = [triggers]
-                self._add_cap(cid, title, str(path.relative_to(self.root)), triggers, weight=8)
+                aliases = item.get("aliases") or []
+                if isinstance(aliases, str):
+                    aliases = [aliases]
+                self._add_cap(cid, title, str(path.relative_to(self.root)),
+                              list(triggers) + list(aliases), weight=8)
 
     def _load_tool_capabilities(self):
         path = self.root / "Tool" / "config" / "tool-capabilities.json"

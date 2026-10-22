@@ -1,6 +1,23 @@
 {
   "id": "license-bypass",
   "title": "授权绕过与验证",
+  "domain": "reverse",
+  "triggers": [
+    "授权绕过",
+    "卡密绕过",
+    "注册机",
+    "跳过校验",
+    "破解",
+    "免激活",
+    "license bypass",
+    "patch 授权"
+  ],
+  "aliases": [
+    "license-bypass",
+    "卡密绕过",
+    "gate-bypass"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "校验点地址",
     "原判定分支"

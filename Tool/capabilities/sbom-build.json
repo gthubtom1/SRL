@@ -1,6 +1,22 @@
 {
   "id": "sbom-build",
   "title": "SBOM 生成",
+  "domain": "supply-chain-security",
+  "triggers": [
+    "SBOM",
+    "软件物料清单",
+    "CycloneDX",
+    "SPDX",
+    "依赖清单",
+    "生成 SBOM",
+    "SCA"
+  ],
+  "aliases": [
+    "sbom",
+    "sbom-build",
+    "物料清单"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "源码树或镜像",
     "包管理器清单"
@@ -17,8 +33,5 @@
     "Tool/skill/supply-chain-security/references/image-and-provenance.md"
   ],
   "maturity": "usable",
-  "compose": [
-    "reachability",
-    "ci-perm-audit"
-  ]
+  "compose": []
 }

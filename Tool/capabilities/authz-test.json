@@ -1,6 +1,23 @@
 {
   "id": "authz-test",
   "title": "授权/越权测试",
+  "domain": "web-pentest",
+  "triggers": [
+    "越权",
+    "水平越权",
+    "垂直越权",
+    "授权测试",
+    "BOLA",
+    "对象级授权",
+    "未授权访问",
+    "authz"
+  ],
+  "aliases": [
+    "authz",
+    "authorization-test",
+    "越权测试"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "基线账号与低权账号",
     "接口清单"

@@ -1,6 +1,21 @@
 {
   "id": "sign-recompute",
   "title": "签名复算",
+  "domain": "pwn-crypto",
+  "triggers": [
+    "签名复算",
+    "复算 sign",
+    "sign 算法",
+    "签名算法还原",
+    "校验和复算",
+    "HMAC 复算"
+  ],
+  "aliases": [
+    "sign-recompute",
+    "签名复算",
+    "sign-recalc"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "参与字段",
     "算法与密钥/证书"
@@ -16,8 +31,6 @@
     "Tool/skill/apkseep/references/signature-derived-keys.md"
   ],
   "maturity": "probe",
-  "compose": [
-    "protocol-construct"
-  ],
-  "note": "待补跨语言签名复算器，当前用 Python 重写 + 单请求对拍手工完成；sig_probe.py 只取平台返回的签名字符串"
+  "note": "待补跨语言签名复算器，当前用 Python 重写 + 单请求对拍手工完成；sig_probe.py 只取平台返回的签名字符串",
+  "compose": []
 }

@@ -1,6 +1,21 @@
 {
   "id": "yara-write",
   "title": "YARA/Sigma 规则编写与自测",
+  "domain": "malware-analysis",
+  "triggers": [
+    "YARA",
+    "Sigma",
+    "规则编写",
+    "检测规则",
+    "yara 规则",
+    "sigma 规则"
+  ],
+  "aliases": [
+    "yara",
+    "sigma",
+    "rule-write"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "样本特征",
     "误报基线"
@@ -14,9 +29,7 @@
     "Tool/skill/malware-analysis/references/07-yara-and-sigma-engineering.md"
   ],
   "maturity": "probe",
-  "compose": [
-    "ioc-extract",
-    "timeline"
-  ],
-  "note": "待补规则生成与自测脚本，当前用 yarac 编译 + 已知干净集手工回归完成"
+  "note": "待补规则生成与自测脚本，当前用 yarac 编译 + 已知干净集手工回归完成",
+  "reserved": true,
+  "compose": []
 }

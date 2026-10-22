@@ -1,6 +1,22 @@
 {
   "id": "schedule-notify",
   "title": "调度与通知编排",
+  "domain": "web-pentest",
+  "triggers": [
+    "定时任务",
+    "调度",
+    "cron",
+    "通知",
+    "微信群通知",
+    "定时执行",
+    "任务编排"
+  ],
+  "aliases": [
+    "schedule-notify",
+    "定时通知",
+    "cron-notify"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "cron 表达式",
     "任务/账号",
@@ -18,6 +34,7 @@
     "Tool/skill/apkseep/references/long-task-discipline.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
     "session-pool"
   ]

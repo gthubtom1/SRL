@@ -1,6 +1,22 @@
 {
   "id": "cache-test",
   "title": "缓存键与投毒测试",
+  "domain": "web-pentest",
+  "triggers": [
+    "缓存投毒",
+    "缓存键",
+    "cache poisoning",
+    "X-Cache",
+    "Age 头",
+    "CDN 缓存",
+    "ETag 缓存"
+  ],
+  "aliases": [
+    "cache-test",
+    "cache-poisoning",
+    "缓存欺骗"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "URL 与缓存头",
     "变体参数"
@@ -14,8 +30,9 @@
     "Tool/skill/web-pentest/references/07-waf-and-bypass.md"
   ],
   "maturity": "probe",
+  "note": "待补缓存键探测脚本，当前用 curl 对比 X-Cache/Age 手工完成",
+  "reserved": true,
   "compose": [
     "authz-test"
-  ],
-  "note": "待补缓存键探测脚本，当前用 curl 对比 X-Cache/Age 手工完成"
+  ]
 }

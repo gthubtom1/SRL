@@ -1,5 +1,5 @@
 # 固件提取 + rootfs 判据
-- 触发词：固件提取、固件解包、rootfs、squashfs、UBI、JFFS2、binwalk、镜像、UART、串口、shell
+- 触发词：固件提取、固件解包、rootfs、squashfs、UBI、JFFS2、binwalk、镜像、UART、串口、shell、OTA、电视盒子、车机、分区表
 - 输入（用户提供）：`<firmware.bin>`、`<设备型号>`、`<来源与哈希>`、`<提取输出目录>`、`<架构线索>`；范围由用户提供的 scope 决定。
 - 用到的能力（capability id）：`tool:binwalk` `repo:case_state` `repo:fw-triage` `repo:fw-repro` `repo:fw-accept` `repo:kb-query` `repo:seep-start`
 - 步骤：1) `python Tool/scripts/seep-start.py --domain firmware-iot --case <case> --target <FW>` → rc=0，记录来源、哈希与只读副本；2) `python Tool/scripts/fw-triage.py --file <FW> --json --out-dir work/<case>/fw` → rc=0，输出 magic/container/entropy/凭据线索与建议解包命令；3) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file <FW> --out-dir work/<case>/fw --json` → rc=0，执行 carve/extract 并输出 rootfs 证据；4) rootfs 判据：`work/<case>/fw/rootfs` 同时含 `/etc`、`/bin` 或 `/usr/bin`、`/lib`，把目录树写 `work/<case>/rootfs-manifest.json`，`python Tool/scripts/case_state.py claim --case work/<case> --id F1 --text "rootfs 三目录齐全且架构自洽"` 后 `prove --id F1 --evidence work/<case>/rootfs-manifest.json` → rc=0；5) `python Tool/scripts/kb-query.py --query "squashfs" --limit 10` → rc=0，把容器/文件系统条目补进 `notes.md`；6) `python Tool/skill/firmware-iot/scripts/fw-accept.py --case <case> --json` → rc=0，最后 `python Tool/scripts/preflight.py --fast` → rc=0。

@@ -1,6 +1,21 @@
 {
   "id": "permission-evidence",
   "title": "权限证据聚合",
+  "domain": "plugin-targets",
+  "triggers": [
+    "权限证据",
+    "权限清单",
+    "manifest 权限",
+    "权限聚合",
+    "权限取证",
+    "权限对比"
+  ],
+  "aliases": [
+    "permission-evidence",
+    "权限证据",
+    "perm-evidence"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "manifest/权限声明",
     "运行时可观测调用"
@@ -17,9 +32,9 @@
     "Tool/skill/apkseep/references/account-gates.md"
   ],
   "maturity": "probe",
+  "note": "待补权限证据聚合脚本，当前用 manifest-summary.ps1 + capabilities.py 手工汇总",
+  "reserved": true,
   "compose": [
-    "ipc-audit",
     "plugin-unpack"
-  ],
-  "note": "待补权限证据聚合脚本，当前用 manifest-summary.ps1 + capabilities.py 手工汇总"
+  ]
 }

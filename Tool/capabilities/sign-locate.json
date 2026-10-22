@@ -1,6 +1,21 @@
 {
   "id": "sign-locate",
   "title": "签名/校验点定位",
+  "domain": "reverse",
+  "triggers": [
+    "签名定位",
+    "校验点定位",
+    "找签名函数",
+    "sign 参数定位",
+    "校验函数定位",
+    "hook 签名"
+  ],
+  "aliases": [
+    "sign-locate",
+    "签名定位",
+    "sign-find"
+  ],
+  "version": "1.0.0",
   "inputs": [
     "解密后的请求样例",
     "包名与入口"
@@ -19,6 +34,7 @@
     "Tool/skill/protocol-plugin/references/07-crypto-and-checksum.md"
   ],
   "maturity": "usable",
+  "reserved": true,
   "compose": [
     "sign-recompute",
     "protocol-replay"

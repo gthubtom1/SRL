@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "description": "60 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、逆向测绘、固件、取证、协议、供应链、插件与反作弊。每条只描述用户会怎么说，不写实现细节。",
+  "description": "90 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、逆向测绘、固件、取证、协议、供应链、插件、反作弊，以及 D 轮审计的 30 条极端场景（小程序/鸿蒙/OTA/BLE/Modbus/Cloudflare/容器/SaaS/多运行时/套壳/电视车机/iOS/Unity/驱动兼容）。每条只描述用户会怎么说，不写实现细节。",
   "families": {
     "account": 10,
     "web-clone": 8,
@@ -11,7 +11,20 @@
     "protocol": 6,
     "supply-chain": 4,
     "plugin": 4,
-    "anti-cheat": 4
+    "anti-cheat": 4,
+    "miniapp": 2,
+    "harmony": 2,
+    "ota": 2,
+    "ble-modbus": 4,
+    "captcha-extreme": 3,
+    "container": 2,
+    "saas": 2,
+    "runtime": 3,
+    "shell": 1,
+    "tv-car": 2,
+    "ios-unity": 3,
+    "driver": 2,
+    "apk-extreme": 2
   },
   "probes": [
     {
@@ -372,6 +385,186 @@
       "id": "game-04",
       "text": "Unity 游戏 il2cpp 加密，想改内存",
       "expect": "apk-unpack",
+      "forbid": []
+    },
+    {
+      "id": "mini-01",
+      "text": "小程序每天自动签到，抓包看签到接口",
+      "expect": "qinglong-signin",
+      "forbid": []
+    },
+    {
+      "id": "mini-02",
+      "text": "微信小程序 wxapkg 解包，找签到和加密参数",
+      "expect": "app-daily-task",
+      "forbid": []
+    },
+    {
+      "id": "harm-01",
+      "text": "鸿蒙 HAP 解包，ArkTS 代码怎么还原",
+      "expect": "apk-unpack",
+      "forbid": []
+    },
+    {
+      "id": "harm-02",
+      "text": "HarmonyOS 元服务逆向，.abc 字节码怎么读",
+      "expect": "apk-unpack",
+      "forbid": []
+    },
+    {
+      "id": "ota-01",
+      "text": "IoT OTA 升级包怎么解，签名校验在哪",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "ota-02",
+      "text": "电视盒子 OTA 固件提取，分区和签名一起看",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "ble-01",
+      "text": "BLE 手环协议逆向，GATT 特征值怎么抓",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "ble-02",
+      "text": "蓝牙手柄 HID 报文怎么重放",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "iot-01",
+      "text": "Modbus 工控协议怎么构造新请求",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "iot-02",
+      "text": "PLC 工控协议复刻，寄存器读写报文",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "captcha-ext-01",
+      "text": "Cloudflare 人机验证过不去，自动化登录怎么接",
+      "expect": "captcha-handling",
+      "forbid": []
+    },
+    {
+      "id": "captcha-ext-02",
+      "text": "登录有滑块和点选，验证码分支怎么走",
+      "expect": "captcha-handling",
+      "forbid": []
+    },
+    {
+      "id": "container-01",
+      "text": "Docker 镜像抠服务，把二进制和配置提出来",
+      "expect": "supply-chain-audit",
+      "forbid": []
+    },
+    {
+      "id": "container-02",
+      "text": "从容器镜像里把服务抠出来单独跑",
+      "expect": "supply-chain-audit",
+      "forbid": []
+    },
+    {
+      "id": "saas-01",
+      "text": "把 SaaS 后台复刻成本地版，接口全 mock",
+      "expect": "backend-rebuild",
+      "forbid": []
+    },
+    {
+      "id": "saas-02",
+      "text": "SaaS 控制台 1:1 复刻，断网也能用",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "runtime-01",
+      "text": "PyInstaller 打包的 exe 怎么解出 pyc",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "runtime-02",
+      "text": "Go 静态编译程序怎么恢复符号和函数名",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "runtime-03",
+      "text": "Rust 写的程序逆向，怎么找授权点",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "shell-01",
+      "text": "套壳 App 去广告，H5 壳里怎么改",
+      "expect": "apk-ad-removal",
+      "forbid": []
+    },
+    {
+      "id": "tv-01",
+      "text": "电视盒子固件提取，rootfs 和分区表",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "car-01",
+      "text": "车机系统逆向，CAN 报文和固件怎么入手",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "ios-01",
+      "text": "iOS 砸壳，Mach-O 解密 dump 怎么做",
+      "expect": "forensics-timeline",
+      "forbid": []
+    },
+    {
+      "id": "unity-01",
+      "text": "Unity IL2CPP 去广告，global-metadata 怎么改",
+      "expect": "apk-ad-removal",
+      "forbid": []
+    },
+    {
+      "id": "unity-02",
+      "text": "Unity 游戏去广告，AssetBundle 里的广告配置",
+      "expect": "apk-ad-removal",
+      "forbid": []
+    },
+    {
+      "id": "driver-01",
+      "text": "驱动兼容层怎么写，让老驱动在新系统跑",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "driver-02",
+      "text": "EAC 反作弊驱动在新系统加载失败，兼容性怎么查",
+      "expect": "anti-cheat-forensics",
+      "forbid": []
+    },
+    {
+      "id": "apk-ext-01",
+      "text": "APK 加固脱壳，DexVMP 内存 dump",
+      "expect": "apk-unpack",
+      "forbid": []
+    },
+    {
+      "id": "apk-ext-02",
+      "text": "APK 去广告，开屏和 Banner 都去掉",
+      "expect": "apk-ad-removal",
+      "forbid": []
+    },
+    {
+      "id": "captcha-ext-03",
+      "text": "人机验证加短信码，多账号登录怎么过",
+      "expect": "captcha-handling",
       "forbid": []
     }
   ]
