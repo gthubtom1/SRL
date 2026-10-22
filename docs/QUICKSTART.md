@@ -40,7 +40,8 @@ ls Tool/prompts/domains/<域>.md          # 24 张卡，每张=触发词/前置/
 
 ```bash
 python Tool/scripts/domain-gate.py --domain <域>     # 本域 10 条断言
-python Tool/scripts/preflight.py --fast              # 全局（悬空引用/篇幅/路由/清理）
+python Tool/scripts/preflight.py --fast              # 全局快检（悬空引用/篇幅/路由/清理）
+# 当前基线：preflight --fast 40/40；preflight 全量 43/43
 ```
 
 ## 5. 常见卡点（先看这里，别硬猜）
@@ -49,7 +50,32 @@ python Tool/scripts/preflight.py --fast              # 全局（悬空引用/篇
 
 | 现象 | 处理 |
 | :-- | :-- |
-| 工具找不到 | `python Tool/scripts/mcp-doctor.py --fix` 或 `tool-run.ps1 -Tool <id>` |
+| 工具找不到 / `mcp__x64dbg__*` 不存在 | 先 `python Tool/scripts/mcp-doctor.py --session` 判定是否要 `/mcp reconnect <name>`；宿主没起再 `--fix`（后台拉起 + 复验），也可 `tool-run.ps1 -Tool <id>` |
 | 门禁说「案例 sha256 不符」 | 先 `git status` 看是否换行符漂移；案例证据按字节保存（`-text`），不要手改产物 |
 | 路由把任务分错域 | 看 `Tool/scripts/routing.json` 的 priority；改路由只走主分支 |
 | 不知道用哪篇 reference | 该域 `references/01-criteria.md` 顶部的「场景 → 判据」表 |
+
+## 6. case_state.py 的宽容别名（照旧写法也不会报错）
+
+`Tool/scripts/case_state.py` 对高频参数保留了口语别名，左右两列完全等价：
+
+| 正式写法 | 等价别名 | 用途 |
+| :-- | :-- | :-- |
+| `depth --level D2` | `depth --set D2` | 登记深度 D0–D7 |
+| `depth --note "..."` | `depth --prove "..."` | 备注；`--prove` 同时表示这一级已 pass |
+| `plan --route "..."` | `plan --add "..."` | 登记一条候选路线 |
+| `plan --p 0.85` | `plan --prob 0.85`（或 `--success`） | 成功率先验 0–1 |
+| `plan --hours "1-2"` | `plan --eta "1-2"` | 预计工时 |
+| `deliver --evidence "..."` | `deliver --ev "..."` | 交付证据 |
+
+直接可拷的例子：
+
+```bash
+python Tool/scripts/case_state.py depth   --case work/<案子> --set D2 --prove "LoadLibrary 命中 winhttp"
+python Tool/scripts/case_state.py plan    --case work/<案子> --add "字节补丁" --prob 0.85 --eta "1-2" \
+                                          --fail "打完仍无界面"
+python Tool/scripts/case_state.py gaps    --case work/<案子> --add --id G1 --missing "有效卡密" --repairable no
+python Tool/scripts/case_state.py deliver --case work/<案子> --level L2 --ev "断网截图 + 复现日志"
+```
+
+> 旧写法里 `--add` 同时被 `plan`（加路线）和 `gaps`（登记缺件）使用；两者都受支持，不要因为帮助文本只写 `--route`/`--add` 其中一种就以为另一种报错。

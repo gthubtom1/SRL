@@ -52,6 +52,17 @@
 > 🧬 **This repository is an enhanced fork of [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)** — original Seep v1.6.0 **plus a batch of purely-additive extensions (now v1.26.0)**: 23 → **40** MCP tools (protocol replay / resource carve / live-memory strings / pcap / packer detection / web recon / multi-engine decompile / 6-layer tool auto-discovery + MCP auto-adapt).
 > The original core is fully preserved: `seep_mcp_server.py` has **0 lines deleted** vs upstream, original baseline `test_seep_mcp.py` stays **9/9**, health checks **only grow** (50 → 65). To revert to pristine upstream: `git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git && git fetch upstream && git checkout -b pure upstream/main`.
 
+**Engineering enhancements (non-tool, since v1.8.4):**
+
+| Capability | What it adds |
+|---|---|
+| **43-check preflight** | `python Tool/scripts/preflight.py`: **43/43** full, **40/40** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
+| **MCP parameter contract** | `mcp-param-contract.py`: 8 path aliases interoperate (`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`) + a 40-tool baseline, so the first call cannot be rejected for guessing a parameter name |
+| **Skill-route probe** | `skill-route-probe.py`: 33 plain-language prompts → expected skill (`master-route.ps1` view); catches CJK word-boundary regressions |
+| **32 routes (+R36)** | New **R36 OSINT / asset & personnel mapping** (recipe `osint-recon`); routes 31 → 32, skills remain 30 |
+| **Firmware/IoT wireless near-field** | `firmware-iot` adds 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC chapters |
+| **Phase 02/03 hardening** | Criteria tables + failure criteria + minimal implementation; each phase is verifiable and fail-fast |
+
 ## 🌟 Project Overview
 
 Seep consolidates fragmented reverse engineering toolchains (Radare2 / JADX / Apktool / Frida / IDA), operational knowledge bases, prompt engineering contracts, and battle-tested field experience into an **Agent-Native Autonomous Workbench**.
@@ -154,6 +165,9 @@ The agent autonomously:
 - ⚡ **DeepSeek Harness (DSH) Self-Healing Launcher**: 4s fast cold-start with automated zombie cleanup, web token URL extraction, and MCP verification suite (`start-dsh.ps1` / `stop-dsh.ps1`).
 - 🛡️ **Measured Anti-Refusal Defense**: Gemini-safe prompt reshaping (`gemini-safe.flag`), L1 observable decision logging (`l1-log.flag`), and native `BLOCK_NONE` payload gating.
 - 🔌 **Offline-Ready**: All toolchains pre-bundled (251 MB), zero network dependencies after setup
+- 🛰️ **OSINT / Asset & Personnel Mapping (R36)**: domains, certificates, organizations and people → converge the asset surface; recipe `osint-recon`
+- 📡 **Firmware/IoT Wireless Near-Field**: `firmware-iot` covers 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC collection and criteria
+- 🧱 **Phase 02/03 Hardening**: criteria tables + failure criteria + minimal implementation — verifiable before extensible
 
 ---
 
