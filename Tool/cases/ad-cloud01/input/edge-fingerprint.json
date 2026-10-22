@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "kind": "edge-fingerprint",
+  "note": "10 类边缘接入面脱敏只读响应样例（域名 .invalid、cookie 值与版本号已打码）。只用于离线复算，不做任何网络请求。",
+  "probes": [
+    {
+      "label": "asa-anyconnect",
+      "url": "https://asa01.edge.invalid/",
+      "product_hint": "cisco-asa",
+      "responses": [
+        {
+          "path": "/",
+          "method": "HEAD",
+          "status": 302,
+          "headers": {
+            "Server": "nginx",
+            "Location": "/+CSCOE+/logon.html"
+          }
+        },
+        {
+          "path": "/+CSCOE+/logon.html",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Server": "nginx",
+            "Set-Cookie": ["webvpn=REDACTED; path=/; Secure; HttpOnly"]
+          },
+          "title": "Cisco AnyConnect | Edge",
+          "body_excerpt": "<title>Cisco AnyConnect</title>"
+        }
+      ]
+    },
+    {
+      "label": "fortigate-ssl-vpn",
+      "url": "https://vpn01.edge.invalid/",
+      "product_hint": "fortinet-fortigate",
+      "responses": [
+        {
+          "path": "/remote/login",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Server": "xxxxxxxx-xxxx",
+            "Set-Cookie": ["SVPNCOOKIE=REDACTED; path=/; Secure; HttpOnly"]
+          },
+          "title": "FortiGate SSL-VPN",
+          "body_excerpt": "<b>FortiGate</b> SSL-VPN"
+        }
+      ]
+    },
+    {
+      "label": "citrix-netscaler",
+      "url": "https://gw01.edge.invalid/",
+      "product_hint": "citrix-netscaler",
+      "responses": [
+        {
+          "path": "/vpn/index.html",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Set-Cookie": [
+              "NSC_AAA=REDACTED; path=/; Secure",
+              "LastMRH_Session=REDACTED; path=/"
+            ]
+          },
+          "title": "Citrix Gateway",
+          "body_excerpt": "<h1>Citrix Gateway</h1>"
+        }
+      ]
+    },
+    {
+      "label": "paloalto-globalprotect",
+      "url": "https://gp01.edge.invalid/",
+      "product_hint": "paloalto-globalprotect",
+      "responses": [
+        {
+          "path": "/global-protect/login.esp",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Server": "nginx",
+            "Set-Cookie": ["PHPSESSID=REDACTED; path=/; Secure; HttpOnly"]
+          },
+          "title": "GlobalProtect Portal",
+          "body_excerpt": "<h1>GlobalProtect Portal</h1><script src=\"/global-protect/panui-6.0.0.js\"></script>"
+        }
+      ]
+    },
+    {
+      "label": "pulse-ivanti",
+      "url": "https://ps01.edge.invalid/",
+      "product_hint": "pulse-ivanti",
+      "responses": [
+        {
+          "path": "/dana-na/auth/url_default/welcome.cgi",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Set-Cookie": ["DSAuthSession=REDACTED; path=/; Secure; HttpOnly"]
+          },
+          "title": "Pulse Secure",
+          "body_excerpt": "<h1>Pulse Secure</h1><p>Connect Secure</p>"
+        }
+      ]
+    },
+    {
+      "label": "sonicwall",
+      "url": "https://ssl01.edge.invalid/",
+      "product_hint": "sonicwall-f5",
+      "responses": [
+        {
+          "path": "/cgi-bin/welcome",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Set-Cookie": ["swap=REDACTED; path=/"]
+          },
+          "title": "SonicWall SSL-VPN",
+          "body_excerpt": "<h1>SonicWall</h1><p>NetExtender</p>"
+        }
+      ]
+    },
+    {
+      "label": "owa-without-version-header",
+      "url": "https://mail.edge.invalid/owa/",
+      "product_hint": "microsoft-owa",
+      "responses": [
+        {
+          "path": "/owa/",
+          "method": "HEAD",
+          "status": 302,
+          "headers": {
+            "X-FEServer": "MAIL01",
+            "Location": "/owa/auth/logon.aspx"
+          }
+        },
+        {
+          "path": "/owa/auth/logon.aspx",
+          "method": "GET",
+          "status": 401,
+          "headers": {
+            "X-FEServer": "MAIL01",
+            "WWW-Authenticate": "Negotiate, NTLM",
+            "Set-Cookie": ["ASP.NET_SessionId=REDACTED; path=/; HttpOnly"]
+          },
+          "title": "Sign in",
+          "body_excerpt": "<h1>Exchange</h1><p>Sign in to Outlook</p>"
+        }
+      ]
+    },
+    {
+      "label": "zimbra",
+      "url": "https://mail02.edge.invalid/",
+      "product_hint": "zimbra",
+      "responses": [
+        {
+          "path": "/zimbra/",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Set-Cookie": ["ZM_TEST=true; path=/; Secure"]
+          },
+          "title": "Zimbra Web Client",
+          "body_excerpt": "<title>Zimbra Web Client</title>"
+        },
+        {
+          "path": "/service/soap/",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Content-Type": "text/xml"
+          },
+          "body_excerpt": "<VersionString>9.0.0_REDACTED</VersionString>"
+        }
+      ]
+    },
+    {
+      "label": "okta",
+      "url": "https://acme.okta.invalid/",
+      "product_hint": "okta",
+      "responses": [
+        {
+          "path": "/.well-known/okta-organization",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json",
+            "Set-Cookie": ["DT=REDACTED; path=/; Secure"]
+          },
+          "body_excerpt": "{\"id\":\"00oREDACTED\",\"issuer\":\"https://acme.okta.com\"}"
+        }
+      ]
+    },
+    {
+      "label": "m365-entra",
+      "url": "https://login.microsoftonline.invalid/",
+      "product_hint": "m365-entra",
+      "responses": [
+        {
+          "path": "/getuserrealm.srf",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/xml"
+          },
+          "body_excerpt": "<RealmInfo><NameSpaceType>Managed</NameSpaceType><DomainName>contoso.invalid</DomainName></RealmInfo>"
+        },
+        {
+          "path": "/.well-known/openid-configuration",
+          "method": "GET",
+          "status": 200,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body_excerpt": "{\"issuer\":\"https://login.microsoftonline.com/REDACTED/v2.0\"}"
+        }
+      ]
+    }
+  ]
+}
