@@ -1,7 +1,7 @@
 # 游戏客户端：Unity Mono / IL2CPP / AssetBundle 取证链路
 
-> **适用**：Unity 客户端（PC/移动/主机）的 `Assembly-CSharp.dll`、`GameAssembly`/`UnityFramework`、`global-metadata.dat`、`*.unity3d`/AssetBundle、运行时字段观测。
-> **不适用**：在线反作弊对抗、注入/挂钩/改内存、盗号/外挂/绕过授权；也不适用于非 Unity 引擎的通用逆向（走 `softseep`）。
+> **范围**：Unity 客户端（PC/移动/主机）的 `Assembly-CSharp.dll`、`GameAssembly`/`UnityFramework`、`global-metadata.dat`、`*.unity3d`/AssetBundle、运行时字段观测。
+> 路由：本域做取证与关系说明；在线反作弊对抗、注入/挂钩/改内存、盗号/外挂按对应授权任务执行；非 Unity 引擎的通用逆向由 `softseep` 承担。
 > 目标：把“服务器下发 → 客户端字段 → 二进制/元数据 → 资源/内存偏移 → UI/上报”连成一条可复述的链。
 
 ## 1. 判断 Mono 还是 IL2CPP
@@ -110,7 +110,7 @@ Memory.scan(Module.findBaseAddress('GameAssembly.dll').add(0x123456), 0x100, '41
 
 ## 9. 边界
 
-- 只做取证与关系说明：不提供外挂、破解、绕过反作弊、盗号、自动脚本。
+- 只做取证与关系说明：产物是检测点、设备状态与行为证据。
 - 不注入、不挂钩、不改内存、不加载驱动；动态验证只在离线副本/授权测试服。
 - 不传播游戏资源/密钥/账号数据；报告脱敏。
 - 版本/哈希/偏移三件套必须一起写；缺一不可复现。

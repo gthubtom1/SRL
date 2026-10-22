@@ -1,6 +1,6 @@
 ---
 name: binary-diff
-description: 【二进制差分 / 补丁分析】跨版本符号迁移、函数匹配、补丁差分与 N-day 漏洞定位。覆盖 BinDiff/Diaphora/ghidriff/radiff2、PDB/符号恢复、AOB 签名迁移、patch Tuesday 与 1-day 复现。以“匹配关系可验证、补丁前后差异能落到函数/字段、PoC 能区分修复前后”为判据，不做无授权的目标攻击。
+description: 【二进制差分 / 补丁分析】跨版本符号迁移、函数匹配、补丁差分与 N-day 漏洞定位。覆盖 BinDiff/Diaphora/ghidriff/radiff2、PDB/符号恢复、AOB 签名迁移、patch Tuesday 与 1-day 复现。以“匹配关系可验证、补丁前后差异能落到函数/字段、PoC 能区分修复前后”为判据；目标攻击在 `scope` 清单内执行。
 license: MIT
 compatibility: Linux/WSL2/Windows；IDA Pro + BinDiff/Diaphora、Ghidra、radare2/radiff2、ghidriff、Python 3.10+。商业工具需授权。
 metadata:
@@ -12,7 +12,7 @@ metadata:
 # binary-diff — 二进制差分 / 补丁分析
 
 > 只回答一件事：**两个版本之间，哪些函数/数据变了、变化意味着什么、能否用 PoC 或符号迁移证明。**
-> 不做“看起来像”的匹配；每个匹配/差异都要有地址、反汇编或调用链证据。
+> 匹配必须有地址、反汇编或调用链证据；“看起来像”只能算线索。
 
 ## 0. 两条路线（先选目标）
 
@@ -146,6 +146,6 @@ patched：同一 PoC → 被拒绝/不崩溃
 - [ ] 差异落到函数/基本块/字段，而非“整体不同”。
 - [ ] 符号迁移抽查自洽；或补丁差异有 PoC 前后对比。
 - [ ] 结论标注 observed/inferred/unverified；未验证的利用链不写成结论。
-- [ ] 未对未授权目标投放 PoC。
+- [ ] PoC 只投放在 `scope` 清单内的目标。
 
 > 细节：`references/symbol-migration.md`、`references/patch-diff.md`。

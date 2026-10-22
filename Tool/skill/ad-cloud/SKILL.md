@@ -1,6 +1,6 @@
 ---
 name: ad-cloud
-description: 【内网/AD/云原生】用于授权范围内的内网渗透、Active Directory 攻击链与云原生环境评估。覆盖域内枚举与 BloodHound、Kerberoasting / AS-REP、ADCS ESC1-17（含 ESC9/10 弱绑定、ESC11 ICPR relay、ESC13/14 映射、ESC15 旧 schema、ESC16 CA 全局扩展限制、ESC17 HTTPS WSUS 中继）、NTLM relay、委派/RBCD、PtH/WMI/WinRM/SMB 横向，以及 AK-SK 泄露、元数据 SSRF、K8s RBAC 与容器逃逸、CI/CD 凭据、Windows 认证遥测。判据是拿到可复现的凭据或权限提升证据，不做 Web 漏洞（走 R20）。
+description: 【内网/AD/云原生】用于授权范围内的内网渗透、Active Directory 攻击链与云原生环境评估。覆盖域内枚举与 BloodHound、Kerberoasting / AS-REP、ADCS ESC1-17（含 ESC9/10 弱绑定、ESC11 ICPR relay、ESC13/14 映射、ESC15 旧 schema、ESC16 CA 全局扩展限制、ESC17 HTTPS WSUS 中继）、NTLM relay、委派/RBCD、PtH/WMI/WinRM/SMB 横向，以及 AK-SK 泄露、元数据 SSRF、K8s RBAC 与容器逃逸、CI/CD 凭据、Windows 认证遥测。判据是拿到可复现的凭据或权限提升证据；Web 漏洞由 R20 承担。
 ---
 
 # 内网 / AD / 云原生作业规范
@@ -9,9 +9,9 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 **判据是什么、失败长什么样、证据怎么留**。命令细节见 `references/`，判定复算见
 `scripts/ad-repro.py` 与 `scripts/cloud-iam-eval.py`。
 
-## 1. 适用 / 不适用
+## 1. 范围与路由
 
-### 适用
+### 本域输入面
 
 - 已有内网 foothold（shell / 跳板机 / 低权域账号），要判断能走多远。
 - 域内枚举、BloodHound、Kerberoast/AS-REP、ACL 滥用、委派/RBCD、ADCS、relay、横向。
@@ -20,17 +20,17 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 - 已有 Windows Security 日志/证书存储/注册表，要做 AD 遥测与主机基线复核。
 - 需要输出“当前权限 → 目标权限”的可复现路径、证据与失败判据。
 
-### 不适用
+### 相邻域与路由
 
 - 纯 Web/API 漏洞（SQLi/XSS/SSRF 打应用层、反序列化、文件上传、越权接口）→ **R20 / web-pentest**。
 - 纯二进制逆向/脱壳 → `ida-reverse`、`unpack-loop`；固件/IoT → `firmware-iot`。
 - 供应链投毒、钓鱼、免杀投递 → 不在本 skill 默认范围；供应链走 `supply-chain-security`。
-- 未授权目标、生产拒绝服务、删改日志、默认持久化。
+- 目标清单与动作等级由 `scope` 声明；生产 DoS、删改日志、持久化按单独授权单执行。
 
 ## 2. 前置检查（3 件）
 
 1. **授权边界**：资产清单（网段/域名/云账号/集群/主机）、允许的动作等级、时间窗、禁做项。
-   清单外不扫、不碰；持久化/写域对象/IAM 必须单独授权并登记回滚。
+   扫描范围严格等于清单；持久化/写域对象/IAM 按单独授权单执行并登记回滚。
 2. **基本盘**：域名/NetBIOS、DC/CA、DNS、当前账号与权限、已控主机、时间同步；
    K8s 的 context/cluster/user/token 有效期；云的身份/账号/订阅。
 3. **凭据与预算**：凭据来源、锁定阈值（`--pass-pol`）、认证失败预算（同账号 ≤2 次即停）、
@@ -196,11 +196,11 @@ DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube
 
 ## 11. 边界
 
-- 不做 Web 漏洞：SQLi/XSS/SSRF 打应用层、反序列化、文件上传、越权接口 → R20。
-- 不做未授权钓鱼、免杀、供应链投毒、生产拒绝服务；不删除/篡改日志。
+- Web 漏洞（SQLi/XSS/SSRF 打应用层、反序列化、文件上传、越权接口）由 R20 承担。
+- 钓鱼/免杀/供应链投毒/生产 DoS 按 `scope` 清单执行；日志只读，删除/篡改需单独授权单。
 - 不绕过客户明确声明的 EDR/审计要求；不把真实用户数据带出授权范围。
 - 不默认持久化；持久化必须单独授权并登记清理方式。
-- 云上不碰授权账号外资源，不创建计费资源，不修改 IAM/集群策略（除非授权且已备份）。
+- 云上操作严格限定在授权账号清单内；计费资源按需显式声明；IAM/集群策略变更按授权单执行并先备份。
 - 真实口令、hash、票据、证书私钥、AK/SK、token 一律不落盘/不回传；只留指纹与声明。
 - 离线结论必须标 `offline`/`unknown`；在线只做只读或明确授权的低影响验证。
 - 风险与修复建议分开写；不把“能打穿”直接等同于“必须立刻修”。

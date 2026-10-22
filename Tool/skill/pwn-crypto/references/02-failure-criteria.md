@@ -1,7 +1,7 @@
 # 02-failure-criteria.md — pwn-crypto 失败判据表
 
-> **适用**：已经拿到目标/样本，正在决定“继续原路线还是换支路”的时刻。
-> **不适用**：还没做基线（sha256/保护位）就谈失败；也不用于给未授权目标找借口。
+> **范围**：已经拿到目标/样本，正在决定“继续原路线还是换支路”的时刻。
+> 入口：先做基线（sha256/保护位）再判失败；授权边界见 `../SKILL.md` 前置检查。
 > 规则：同一路径连续 3 轮无进展，或同类动态尝试 2 次失败，必须停手换路线并写清代价。
 
 ## 1. 失败判据总表
@@ -26,7 +26,7 @@
 | 16 | Windows 上照搬 glibc 的 `%n`/GOT/`__free_hook` 手法 | 平台语义不同（无 ELF RELRO、UCRT 禁 `%n`、无 glibc hook） | 改用 PE 语义：导入表/CFG/SecurityCookie/`VirtualProtect`；或换 Linux 靶机验证 | 高：整条利用链要重写 |
 | 17 | 本地 10 次成功 6–8 次，报告写“基本稳定” | 栈未对齐/ASLR/竞态导致的偶发成功 | 先加 `ret` 对齐、固定 argv/env/cwd；重跑 ≥10 次；低于 9/10 判“未成立” | 低：补对齐与统计 |
 | 18 | 远程与本地行为不一致且无法解释 | libc/启动参数/缓冲/fork/cwd 差异 | 在远程做一次泄漏校验；用同版本 libc 本地复现；仍不一致就记录为边界，不硬编地址 | 高：需要远程调试窗口 |
-| 19 | EVM/智能合约 | 本域无运行时 | 改走 web-pentest（API 面）或不做 | 低 |
+| 19 | EVM/智能合约 | 本域无运行时 | 改走 web-pentest（API 面）/外部流程 | 低 |
 | 20 | `nm -D libc.so.6 \| grep -E '__free_hook\|__malloc_hook'` 返回空，或 gdb `p &__free_hook` 报 no symbol | glibc ≥2.34 已删除 hook，不是符号偏移算错 | 改走 `_IO_wfile_jumps`/`_IO_str_jumps` FSOP、`exit_funcs`、`tls_dtor_list`、`setcontext` 链（`heap-and-sandbox.md` §6）；仍按 `io_file_vtable`/`exit_funcs_target`/`tls_dtor_hit`/`fsop_works` 建判据 | 低：一次 nm 即可判死，避免整条堆链白做 |
 | 21 | 泄漏低 12 位能对上，但 gadget/符号落到错误位置（`__libc_system` 打不开 shell、`setcontext` 入口偏移不生效） | libc 偏移漂移：换了发行版/build、或抄了别人环境的偏移 | 用 `strings libc.so.6 \| grep -m1 'GNU C Library'` + build-id 重算；`pwn-check.py --file libc.so.6 --json` 交叉；重新 dump `setcontext`/`_IO_wfile_jumps` 偏移 | 高：整条链需重算，不得只改一个数字 |
 

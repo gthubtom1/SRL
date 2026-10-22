@@ -1,7 +1,7 @@
 # 浏览器扩展：MV3 service worker 与隔离世界
 
-> 适用：Chrome/Edge（MV2/MV3）、Firefox（MV2/MV3 差异）、`.crx`/`.xpi`/商店安装目录。
-> 不适用：普通网页 JS 逆向/补环境（→ `mcp-js-reverse-playbook`）、纯协议复刻（→ `protocol-plugin` R24）、APK 壳（→ `apkseep`）。
+> 范围：Chrome/Edge（MV2/MV3）、Firefox（MV2/MV3 差异）、`.crx`/`.xpi`/商店安装目录。
+> 路由：普通网页 JS 逆向/补环境由 `mcp-js-reverse-playbook` 承担；纯协议复刻由 `protocol-plugin`（R24）承担；APK 壳由 `apkseep` 承担。
 > 目标：把“权限声明”变成“代码路径”，把“页面 → content → background → native/远端”画成有行号的边。
 
 ## 1. 来源与容器
@@ -155,7 +155,7 @@ page DOM/event
 - 宽 host + 读表单/Cookie + 远端上报。
 - `nativeMessaging` + 下载/执行二进制（host 侧）。
 - `externally_connectable` 允许任意站点触发敏感动作。
-- MV3 禁止远端代码，但 `importScripts`/`eval`/`unsafe-eval` 仍可能出现（会被商店拒绝）。
+- MV3 只允许打包内代码，但 `importScripts`/`eval`/`unsafe-eval` 仍可能出现（会被商店拒绝）。
 - 供应链：内嵌第三方 SDK/统计脚本；对比商店版与旁加载版哈希、`_metadata` 哈希树。
 - 更新链：`update_url`、企业策略、旁加载覆盖；记录“谁可以推送更新”。
 
@@ -205,7 +205,7 @@ jq '{name,version,match,grant,connect,require,updateURL}' work/repro/userscript.
 - MV3 SW 休眠导致动态观测缺失 → 标“未观测”，不写“无网络”。
 - isolated world 变量对不上 → 查 `world`/注入桥，不要改页面代码硬试。
 - native host 缺失 → 只写扩展侧调用点，host 行为 `unverified`。
-- 触发企业策略/EDR/账号风控 → 立即停，记录环境；不提供绕过签名/白名单的方法。
+- 触发企业策略/EDR/账号风控 → 立即停，记录环境；签名/白名单按校验层归档。
 - 插件内私有协议/分帧 → 交 `protocol-plugin`（R24）。
 
 > 关联：`references/04-walkthrough-chrome-extension.md`（真实扩展走查）、`references/01-criteria.md`、`references/02-failure-criteria.md`。

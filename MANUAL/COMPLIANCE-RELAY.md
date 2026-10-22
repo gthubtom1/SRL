@@ -331,9 +331,9 @@ python Tool/scripts/check-gemini-safety.py --model gemini-2.5-flash
 | **仅覆盖支持自定义 `baseUrl` 的客户端** | 硬编码端点的官方登录流程无法接入 |
 | **不改 system prompt** | 若拒绝由 Agent 自身的系统提示词触发，本层无法缓解（需 L1/L2 层配合） |
 | **本地必须走 http 回环** | 若某客户端强制 HTTPS 端点，需要额外配置自签证书 |
-| **不处理响应** | 响应（含 SSE 流式）原样透传，不做任何改写 |
-| **非 JSON 请求体透传** | 文件上传等非 JSON 请求体不做改写，直接转发 |
-| **不做常驻** | 不随系统启动，不注册服务；关闭中继后需切回原配置 |
+| **响应原样透传** | 响应（含 SSE 流式）逐字节转发，改写为零 |
+| **非 JSON 请求体透传** | 文件上传等非 JSON 请求体直接转发 |
+| **按需进程** | 手动启动/停止，不注册服务；关闭中继后需切回原配置 |
 
 ---
 
@@ -363,4 +363,4 @@ python Tool/scripts/check-gemini-safety.py --model gemini-2.5-flash
 3. 运行 `python -m unittest discover -s Tool/scripts/compliance-relay/tests` 确认全绿；
 4. `setup/verify.ps1` 自检会自动校验两侧是否同步（`extract-rules.py --check`）。
 
-> **禁止手工编辑 `sensitive-rules.json`** —— 该文件是生成物，会被下次提取覆盖。
+> **`sensitive-rules.json` 是生成物**：改动走提取脚本，手工编辑会被下次提取覆盖。

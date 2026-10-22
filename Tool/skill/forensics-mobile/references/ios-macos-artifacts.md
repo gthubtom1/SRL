@@ -1,7 +1,7 @@
 # iOS / macOS 制品：IPA、Mach-O、Keychain、plist 与数据库
 
-> **适用**：iOS `.ipa`/`.app`、Mach-O/Fat 二进制、`embedded.mobileprovision`、`keychain-2.db`、`Info.plist`/偏好 plist、应用 SQLite，以及 macOS 上的同类制品。
-> **不适用**：Android APK/DEX/SO（走 `apkseep`）；未授权设备/账号；绕过授权、反作弊或隐私边界。
+> **范围**：iOS `.ipa`/`.app`、Mach-O/Fat 二进制、`embedded.mobileprovision`、`keychain-2.db`、`Info.plist`/偏好 plist、应用 SQLite，以及 macOS 上的同类制品。
+> 路由：Android APK/DEX/SO 由 `apkseep` 承担；设备/账号按 `scope` 清单执行；授权与隐私边界按 `evidence-chain.md` 记录。
 > 目标：说明“这个包能碰哪些数据与能力、二进制与数据文件如何对应、证据是否可信”。
 
 ## 1. IPA 解包与包结构
@@ -119,7 +119,7 @@ frida-trace -U -f com.example.app -m "-[NSURLSession dataTaskWithRequest:*]"
 - API：`fork`/`posix_spawn`、`sysctl`、`dyld` 镜像名、沙盒外可写、`DYLD_INSERT_LIBRARIES`。
 - 完整性：`codesign`/`CSCommon`、`__RESTRICT` 段、`get-task-allow`。
 
-记录三件事：检测点在哪（类/方法/字符串/路径）、设备状态（越狱/注入）、检测结果（真假及 UI/网络行为）。绕过只作为“验证检测点”的实验，在自有测试机、离线账号进行；不得用于规避反作弊/授权或隐藏痕迹。
+记录三件事：检测点在哪（类/方法/字符串/路径）、设备状态（越狱/注入）、检测结果（真假及 UI/网络行为）。检测点验证在自有测试机、离线账号进行，产物只记录检测点与行为差异（`evidence-chain.md`）。
 
 ## 8. macOS 侧差异
 
@@ -140,8 +140,8 @@ frida-trace -U -f com.example.app -m "-[NSURLSession dataTaskWithRequest:*]"
 
 ## 10. 边界
 
-- 只分析自有/授权 IPA、测试机、备份；不碰第三方账号/设备/云。
-- 不提供绕过授权、反作弊、隐蔽驻留、反取证手法；越狱绕过只用于验证检测点。
+- 只分析自有/授权 IPA、测试机、备份；账号/设备/云资源按 `scope` 清单执行。
+- 产物限于证据链（采集→校验→关联）；越狱绕过实验只用于验证检测点。
 - 不导出/传播 Keychain 明文、cookie、token；报告脱敏。
 - 包结构/签名/权限是“能力面”，不是“实际行为”；行为结论要运行时/网络/数据文件交叉。
 

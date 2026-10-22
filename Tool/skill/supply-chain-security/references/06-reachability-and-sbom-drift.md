@@ -1,7 +1,7 @@
 # 06 · SBOM 漂移与可达性对账
 
-> 适用：已有 SBOM（CycloneDX/SPDX）或锁文件/freeze，需要回答“组件是否进了源码、SBOM 是否漏项、可达是否成立”。
-> 不适用：没有组件清单也没有源码；也不覆盖二进制内嵌依赖（需 `strings`/符号表另做）。
+> 范围：已有 SBOM（CycloneDX/SPDX）或锁文件/freeze，需要回答“组件是否进了源码、SBOM 是否漏项、可达是否成立”。
+> 前置：组件清单 + 源码；二进制内嵌依赖用 `strings`/符号表另做。
 > 工具：`scripts/sbom-reach.py`（本域）、`sc-check.py`（清单盘点）、外部 `syft`/`osv-scanner`（可选）。
 
 ## 1. 三个集合，先画清边界

@@ -1,7 +1,7 @@
 # 04-walkthrough-local-pe.md — 真实案例走查：现场编译的 PE 漏洞程序 + 真算法回代
 
-> **适用**：想在 Windows/MinGW 环境复现“栈溢出偏移→控制流劫持→整数回绕→格式化串任意读”的完整证据链。
-> **不适用**：需要 Linux libc/ROP 的题目（本机没有 ELF 工具链，改用 WSL/远端靶机）。
+> **范围**：想在 Windows/MinGW 环境复现“栈溢出偏移→控制流劫持→整数回绕→格式化串任意读”的完整证据链。
+> 环境：需要 Linux libc/ROP 的题目改用 WSL/远端靶机（本机工具链见 `scripts/`）。
 > 案例目录：`Tool/cases/pwn-crypto03`（栈溢出+整数）、`Tool/cases/pwn-crypto05`（格式化串）、
 > `Tool/cases/pwn-crypto04`（RSA/HMAC/MT19937/AES）。以下命令均在仓库根执行。
 

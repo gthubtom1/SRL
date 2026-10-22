@@ -1,7 +1,7 @@
 # 04 walkthrough · 真实 workflow 权限面审计（本仓库 upstream-sync.yml）
 
-> 适用：需要判断一条 GitHub Actions 流水线“权限是否过大、触发器是否危险、action 是否能被重写”时。
-> 不适用：没有仓库读权限、或要审计 GitLab/Jenkins（本走查只覆盖 GitHub Actions）；也不覆盖运行时 secrets 实际值。
+> 范围：需要判断一条 GitHub Actions 流水线“权限是否过大、触发器是否危险、action 是否能被重写”时。
+> 前置：仓库读权限；本走查覆盖 GitHub Actions（GitLab/Jenkins 走对应流水线卷）；运行时 secrets 实际值只记录引用。
 > 对象：`Seep-Reverse-Lab/.github/workflows/upstream-sync.yml`（仓库内真实文件，非夹具）。
 > 脚本：`Tool/skill/supply-chain-security/scripts/ci-perm-audit.py`、`Tool/scripts/sc-check.py`。
 

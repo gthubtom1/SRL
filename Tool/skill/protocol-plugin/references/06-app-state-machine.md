@@ -1,8 +1,8 @@
 # 06 应用层协议与状态机 — 服务端为什么接受下一帧
 
-> 适用：需要重建"握手 → 认证 → 业务 → 关闭"的会话型协议（私有 TCP/UDP、WebSocket、
+> 范围：需要重建"握手 → 认证 → 业务 → 关闭"的会话型协议（私有 TCP/UDP、WebSocket、
 > 数据库线协议、工控轮询、MQTT 等）。
-> 不适用：无状态单请求接口（只看 `01-criteria.md` 即可）；插件加载链 → `plugin-targets`（R25）。
+> 路由：无状态单请求接口只看 `01-criteria.md`；插件加载链由 `plugin-targets`（R25）承担。
 > 分帧见 `05-binary-framing.md`；重放与构造见 `08-replay-and-new-request.md`。
 
 ## 1. 先把会话切片

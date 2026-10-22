@@ -84,23 +84,23 @@
 - 前置：持久化必须单独书面授权；已登记目标、手法、回滚方式与责任人
 - 步骤：1) 优先选可完全回滚的测试对象；2) 记录修改前值/对象/时间；3) 验证后立即按登记回滚，并再次只读确认
 - 判据：持久化动作有授权编号、前后对比、回滚成功证据；没有遗留计划任务/账号/票据
-- 失败判据：无法回滚、影响生产、授权未覆盖持久化 → 不做；已经做了则立即停并上报
+- 失败判据：无法回滚、影响生产、授权未覆盖持久化 → 停并上报（已执行的部分按回滚单处理）
 - reference：Tool/skill/ad-cloud/references/02-failure-criteria.md
 
 ### 10 分层模型下的路径降噪（源：configuring-active-directory-tiered-model）
 - 触发词：Tier 0、Tier 1、分层模型、域控、跳板机、凭据隔离
 - 前置：有域资产清单与分层定义；授权允许只读枚举
-- 步骤：1) 标注 Tier 0（DC/CA/域管）、Tier 1（服务器）、Tier 2（工作站）；2) 查跨层登录/本地管理员复用/委派；3) 优先验证跨层路径，不碰同层低价值目标
+- 步骤：1) 标注 Tier 0（DC/CA/域管）、Tier 1（服务器）、Tier 2（工作站）；2) 查跨层登录/本地管理员复用/委派；3) 优先验证跨层路径（同层低价值目标按 scope 清单取舍）
 - 判据：存在跨层凭据复用或委派路径，且能在原始属性/会话上复现；记录层级与资产
 - 失败判据：分层不清、无法确认资产层级、跨层路径只是名称相似 → 标 candidate，先补资产图
 - reference：Tool/skill/ad-cloud/references/ad-attacks.md
 
 ### 11 蜜罐/蜜标识别与避免误报（源：deploying-active-directory-honeytokens）
 - 触发词：蜜罐、honeytoken、诱饵账号、假 SPN、告警
-- 前置：授权允许枚举；已知环境可能有蜜标；不做真实凭据尝试
+- 前置：授权允许枚举；已知环境可能有蜜标；凭据尝试按授权单与预算执行
 - 步骤：1) 查账号创建时间/登录时间/SPN/组成员是否异常“完美”；2) 查对象是否只被 BloodHound 边引用、无真实会话；3) 对可疑对象只做只读属性核对，不请求票据/不登录
 - 判据：对象属性与真实业务不符（无登录、无邮箱、名称诱导、单独 OU），且多源一致；标“疑似蜜标”并停止接触
-- 失败判据：无法区分真实/蜜标、对象有真实会话、请求会触发高保真告警 → 不碰，记录后换目标
+- 失败判据：无法区分真实/蜜标、对象有真实会话、请求会触发高保真告警 → 记录后换目标
 - reference：Tool/skill/ad-cloud/references/03-model-pitfalls.md
 
 ### 12 AWS 提权评估的身份与策略面（源：performing-aws-privilege-escalation-assessment）
@@ -140,7 +140,7 @@
 - 前置：有授权项目/域名/关键字；只读枚举；不下载对象
 - 步骤：1) 固定身份 `gcloud config list`/`gcloud auth list`；2) 用 gcpbucketbrute 只读枚举候选桶；3) 对命中桶只做 `list`/`describe`，记录桶名、权限、对象数（不导出内容）
 - 判据：桶存在且当前身份可 list/read，返回官方 API 响应；记录项目/桶/权限
-- 失败判据：403/404、只有名称猜测、桶属于授权外项目 → 不碰，缩小 scope
+- 失败判据：403/404、只有名称猜测、桶属于授权外项目 → 缩小 scope
 - reference：Tool/skill/ad-cloud/references/cloud-native.md
 
 ### 17 Okta/云身份目录审计（源：managing-cloud-identity-with-okta）
@@ -210,5 +210,5 @@
 - 前置：有节点只读/Job 执行授权；明确 kube-bench 版本与 CIS 版本
 - 步骤：1) 在测试节点/Job 跑 kube-bench，保存 JSON；2) 按 master/node/etcd/policies 分组看 FAIL；3) 对每条 FAIL 只读复核配置文件与运行参数，区分“基线不合规”与“可利用”
 - 判据：FAIL 项有配置文件/进程参数证据；能映射到具体风险与修复；不把 FAIL 直接写成提权
-- 失败判据：版本不匹配、权限不足、FAIL 项被托管服务覆盖 → 标 unknown/不适用，不硬套 CIS
+- 失败判据：版本不匹配、权限不足、FAIL 项被托管服务覆盖 → 标 unknown/未覆盖，不硬套 CIS
 - reference：Tool/skill/ad-cloud/references/k8s-and-container.md

@@ -1,7 +1,7 @@
 # 05 · 锁文件完整性与安装脚本执行面
 
-> 适用：npm/Python/Go/Rust/Ruby/PHP/.NET 仓库要判断“下一次安装会装到什么、安装期会执行什么”。
-> 不适用：只读消费已构建镜像（那属于 `image-and-provenance.md`）；也不覆盖运行时动态加载。
+> 范围：npm/Python/Go/Rust/Ruby/PHP/.NET 仓库要判断“下一次安装会装到什么、安装期会执行什么”。
+> 路由：只读消费已构建镜像由 `image-and-provenance.md` 承担；运行时动态加载由 `06-reachability-and-sbom-drift.md` 承担。
 > 目标：把“有锁文件”推进到“锁文件与清单同源、条目有 integrity、resolved 受控、安装脚本可解释”。
 
 ## 1. 锁文件不是布尔值

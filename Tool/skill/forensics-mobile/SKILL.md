@@ -11,9 +11,9 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 > 只回答一件事：**这份内存、流量、磁盘、日志或客户端，能不能还原出「谁在什么时候做了什么」，且第三方能按同样命令复述。**
 > “看到可疑字符串”不是结论；结论必须带来源、时间、主体、动作与哈希。仅对自有或明确授权的镜像、设备、客户端操作。
 
-## 1. 适用 / 不适用
+## 1. 范围与路由
 
-**适用**
+**本域输入面**
 
 - 内存镜像/崩溃转储：进程、命令行、网络连接、模块、注入页、内存 hive。
 - 流量：pcap/pcapng 会话重组、HTTP 对象导出、DNS/TLS SNI、应用/代理日志。
@@ -22,11 +22,11 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 - iOS/macOS：IPA 包结构、Mach-O、签名/entitlements、Keychain/plist/SQLite。
 - Unity 客户端：Mono/IL2CPP 判定、`global-metadata`、`dump.cs`、AssetBundle、运行时只读字段。
 
-**不适用**
+**相邻域与路由**
 
 - Android APK/DEX/SO、脱壳、重打包 → `apkseep`；PE 通用逆向 → `softseep`。
 - 恶意样本行为定性/家族归类 → `malware-analysis`；授权旁路/计费/功能解锁 → `01`–`05`。
-- 未授权设备/账号/云资源；在线反作弊对抗；注入/挂钩/改内存/反取证。
+- 设备/账号/云资源清单由 `scope` 声明；在线反作弊对抗、注入/挂钩/改内存、反取证按对应授权任务执行。
 
 ## 2. 前置检查（3 件）
 
@@ -191,8 +191,8 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 
 ## 11. 边界
 
-- **不做 Android/授权旁路**：APK/DEX/SO、脱壳、重打包走 `apkseep`；License/计费/功能解锁走 `01`–`05`。
-- **不做未授权采集与反作弊对抗**：不碰第三方设备/账号/云资源；不注入、不挂钩、不改内存、不加载驱动；不提供隐蔽驻留或反取证手法。
+- **Android/授权旁路由邻域承担**：APK/DEX/SO、脱壳、重打包 → `apkseep`；License/计费/功能解锁 → `01`–`05`。
+- **采集范围由 `scope` 声明**：设备/账号/云资源清单由用户提供，清单内按任务执行；取证只读副本，只做可复算证据链（采集→校验→关联）。
 - **只读观测**：原件只读、副本分析、全程哈希；任何写操作都必须停并记录。
 - **失败即停**：缺时区/主体/对象、哈希不一致、原件被写、加密未解、版本不匹配 → 报“未闭环”，不把 dump/解包成功当结论。
 - **机检≠结论**：脚本 PASS 只证明格式/哈希自洽；结论真伪、归因强度、授权合规仍需人工复核。

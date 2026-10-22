@@ -52,7 +52,7 @@
 
 1. 任何脚本 `--self-test` 必须在**没有外网、没有真实目标**的情况下 rc=0，并打印 `{"ok": true, ...}`；
 2. 失败必须输出结构化 `{"ok": false, "blocked_at": "...", "reason": "..."}` 且 rc=1/2，不许抛裸栈；
-3. 禁止硬编码本机绝对路径；路径由 `__file__` 推导或 `--root` 传入。
+3. 路径必须由 `__file__` 推导或 `--root` 传入（本机绝对路径属返工）。
 
 ## 4. cases（每域 3–5 个）
 
@@ -79,7 +79,7 @@
 - `target_type` 必须与 `evidence_kind` 自洽：`fixture` 的 target_type 必须含「夹具/教学/fixture」之一；`real` 的不得含这些词；
 - `artifacts[].sha256` 由门禁**复算**，不一致即 FAIL；
 - `refs` 指向的文件必须存在；
-- 禁止 `outcome: "planned"`（想做的进 ROADMAP，不进案例）。
+- `outcome` 只取实测值；想做的进 ROADMAP，不进案例。
 
 ## 5. KB（每域 6–10 篇，含 1 篇失败判据）
 

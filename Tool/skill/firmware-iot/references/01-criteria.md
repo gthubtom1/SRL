@@ -1,8 +1,8 @@
 # 01 判据表：固件/IoT 什么时候算“打下来了”
 
 > 配套 `firmware-iot/SKILL.md`、`Tool/config/firmware-iot-matrix.json`。
-> **适用**：路由器/摄像头/NAS/工控网关等嵌入式 Linux/RTOS 固件，以及 UEFI/裸 firmware blob。
-> **不适用**：APK/DEX（走 `apkseep`）、桌面 PE/ELF 算法题（走 `softseep`/`ida-reverse`）、纯云 API（走 `web-pentest`）。
+> **范围**：路由器/摄像头/NAS/工控网关等嵌入式 Linux/RTOS 固件，以及 UEFI/裸 firmware blob。
+> 路由：APK/DEX 由 `apkseep` 承担；桌面 PE/ELF 算法题由 `softseep`/`ida-reverse` 承担；纯云 API 由 `web-pentest` 承担。
 >
 > 本域只认三种闭环：**J1 能进 shell、J2 能跑起关键服务、J3 能复现漏洞**。
 > “解包成功”“binwalk 识别出 12 个签名”“FirmAE 说 success”都不是判据。

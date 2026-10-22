@@ -1,8 +1,8 @@
 # 05 委派与 RBCD 深水篇（Delegation / RBCD）
 
-> 适用：已有一个域账号，枚举到 `TRUSTED_FOR_DELEGATION`、`msDS-AllowedToDelegateTo`
+> 范围：已有一个域账号，枚举到 `TRUSTED_FOR_DELEGATION`、`msDS-AllowedToDelegateTo`
 > 或对目标计算机对象有写权限，想判断能否换成目标身份的服务票据。
-> 不适用：没有域账号、没有 LDAP 只读权限、或没有授权修改域对象时；先回到 `ad-attacks.md`。
+> 前置：域账号、LDAP 只读权限、域对象修改授权；缺任一项先回到 `ad-attacks.md`。
 > 一句话：委派是**票据链**问题，不是“属性存在就成功”；每一步都要有票据/服务访问证据。
 
 ## 1. 三种委派先分清
@@ -90,7 +90,7 @@ impacket-wmiexec -k -no-pass "$DOMAIN/administrator@<target>"
 
 失败判据：
 
-- `KDC_ERR_BADOPTION`/`STATUS_NO_MATCH`：SPN 不在列表/协议转换不允许 → 换目标或转 RBCD。
+- `KDC_ERR_BADOPTION`/`STATUS_NO_MATCH`：SPN 不在列表/协议转换受限 → 换目标或转 RBCD。
 - 票据拿到但目标拒绝：目标服务未注册 SPN/防火墙/服务账号权限不足 → 不是委派成功。
 - 反复 `getST` 会刷 4769；控制频率。
 
@@ -158,15 +158,15 @@ impacket-getST -spn 'cifs/<target>' -impersonate administrator \
 ## 8. 失败判据
 
 - 只有委派属性，没有服务票据/目标访问 → `candidate`，不是打穿。
-- SPN 不匹配、协议转换不允许、目标禁用委派 → 当前路径 blocked，换目标/RBCD/ADCS。
+- SPN 不匹配、协议转换受限、目标禁用委派 → 当前路径 blocked，换目标/RBCD/ADCS。
 - RBCD 写入失败或目标已有值 → 不覆盖，转 ACL/其他目标。
 - 票据拿到但目标拒绝 → 查服务注册/权限/防火墙，不要重复请求。
 - 时钟偏移/票据过期 → 先对时/重取，再判断路径。
 
 ## 9. 边界
 
-- 只枚举授权域内的对象；不修改未授权 OU/计算机/模板。
+- 只枚举授权域内的对象；OU/计算机/模板修改按授权单执行。
 - RBCD/ACL/模板修改属于高风险写操作：先备份、单独授权、登记回滚与清理。
 - 不默认持久化；委派票据/证书只用于本次授权验证，不长期保留。
 - 票据、证书、hash、口令只留指纹；报告不出现明文。
-- 不做未授权强制认证/relay；这类动作可能影响业务与触发高保真告警。
+- 强制认证/relay 只在授权清单内执行；这类动作可能影响业务与触发高保真告警。

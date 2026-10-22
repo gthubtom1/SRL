@@ -80,7 +80,7 @@
 - 前置：已知宿主与企业策略来源；只读注册表/策略文件；不改生产策略
 - 步骤：1) 查浏览器/IDE 的企业策略与允许列表；2) 记录插件签名者/版本/加载来源；3) 对照 `capabilities.untrustedWorkspaces`/`idea-version`/`engines`
 - 判据：安装来源、签名者、更新通道、卸载残留四项齐全；策略阻止加载时能指出是哪一层
-- 失败判据：签名/白名单阻止加载两次 → 停，记录校验层；不提供绕过方法
+- 失败判据：签名/白名单阻止加载两次 → 停，记录校验层
 - reference：Tool/skill/plugin-targets/references/ide-plugins.md
 
 ### 11 插件命令/工具注册面的权限审计（借）（源：auditing-mcp-servers-for-tool-poisoning）
@@ -136,7 +136,7 @@
 - 前置：已取得包与安装来源；只读签名/更新配置；不修改生产签名
 - 步骤：1) `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json` → rc=0，期望：`"container": "vsix"`、entrypoints.package=`extension/package.json`；2) `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out work/plugin17 --json` → rc=0，期望：`"ok": true`、entrypoints 含 package/extension.js；3) `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"case_count": 5`
 - 判据：安装来源、签名者、更新通道、卸载残留四项齐全；改动触发哪层校验可说明
-- 失败判据：签名/白名单阻止加载两次 → 停；不提供绕过签名/白名单的方法
+- 失败判据：签名/白名单阻止加载两次 → 停；签名/白名单按校验层归档
 - reference：Tool/skill/plugin-targets/references/ide-plugins.md
 
 ### 18 插件包静态扫描流水线（借）（源：implementing-devsecops-security-scanning）
@@ -157,7 +157,7 @@
 
 ### 20 浏览器扩展攻击面穿透测试（借）（源：performing-web-application-penetration-test）
 - 触发词：扩展攻击面、权限组合、注入、外联、最小单元、穿透
-- 前置：自有/授权扩展与隔离浏览器；记录 baseline；不碰真实账号
+- 前置：自有/授权扩展与隔离浏览器；记录 baseline；账号按 `scope` 清单
 - 步骤：1) 按 `01-criteria.md` 过权限/入口/消息/存储；2) 选一个最小单元做单变量改动；3) 触发同一事件，对比消息/存储/网络
 - 判据：入口+权限+数据流+最小单元四件齐全；改动有 baseline 与回退
 - 失败判据：动态两次失败（签名/策略/版本）→ 转静态与更新链；不反复改包

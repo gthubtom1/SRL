@@ -4,8 +4,8 @@
 > PE 没有 ELF 的 RELRO/canary 语义，用 DllCharacteristics、导入表、load config 近似。
 
 
-**适用**：本文件把 checksec/DllCharacteristics 的观测映射到首选手法与最小证据，用于开局排序。
-**不适用**：把保护位当成“能不能打”的最终结论；PE 与 ELF 术语混用；未授权目标。
+**本域输入面**：本文件把 checksec/DllCharacteristics 的观测映射到首选手法与最小证据，用于开局排序。
+**用法**：保护位是输入，不是“能不能打”的最终结论；PE 与 ELF 术语按平台分册；目标范围由 `scope` 声明。
 ## 1. 总表
 
 | # | 观测 | 阻断什么 | 首试手法 | 成立判据 | 失败/误判 |
@@ -32,7 +32,7 @@
 | 20 | PE `CFG` | 间接调用劫持 | 改数据/逻辑；找未登记回调 | 目标调用点不在 CFG 检查内 | 认为 CFG 等于不能利用 |
 | 21 | 32-bit x86 | 无 | ret2dlresolve、栈迁移、SROP（int 0x80） | 调用约定/对齐正确，参数在栈上 | 用 x64 gadget；忘了 `int 0x80` ABI |
 | 22 | ARM64 | 无 | gadget 搜索、`x0–x7` 参数、`svc 0` | 寄存器/对齐/缓存一致 | 套用 x86 寄存器名 |
-| 23 | 沙箱禁止 `execve` | 直接 shell | ORW / `openat` / `sendfile` | 读到 flag 或外带成功 | 只拿 shell 却被 seccomp 杀 |
+| 23 | 沙箱只放行白名单 syscall（`execve` 被 seccomp 拦截） | 直接 shell | ORW / `openat` / `sendfile` | 读到 flag 或外带成功 | 只拿 shell 却被 seccomp 杀 |
 | 24 | 无泄漏点 | 地址随机 | 部分覆盖、暴力、侧信道、逻辑漏洞 | 多次运行成功率可量化 | 把一次碰撞当稳定 |
 
 ## 2. 保护位到路线的决策树

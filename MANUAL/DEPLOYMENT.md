@@ -259,7 +259,7 @@ cd <你的工作台目录>
 
 ## 五、 卸载与回滚 (How to Uninstall)
 
-> 卸载脚本遵循 **「只移除工作台自己装的东西，绝不碰你的数据」** 原则。
+> 卸载脚本遵循 **「只移除工作台自己装的东西，用户数据原地保留」** 原则。
 
 ### 1. 先预览（推荐）
 
@@ -299,7 +299,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 
 | 参数 | 作用 |
 |---|---|
-| `-DryRun` / `--dry-run` | 只预览，不做任何修改 |
+| `-DryRun` / `--dry-run` | 只预览，磁盘零写入 |
 | `-Yes` / `--yes` | 跳过交互确认 |
 | `-KeepSkills` / `--keep-skills` | 保留已安装的技能 |
 | `-KeepPrompts` / `--keep-prompts` | 保留提示词与扩展 |
@@ -435,7 +435,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 
 （Linux / macOS 用 `./setup/uninstall.sh`）
 
-建议先加 `-DryRun`（`--dry-run`）让用户预览。卸载原则：**只移除工作台自己装的东西，绝不碰用户数据**；
+建议先加 `-DryRun`（`--dry-run`）让用户预览。卸载原则：**只移除工作台自己装的东西，用户数据原地保留**；
 `models.json` / `auth.json` / 用户自装的 Skill 与 MCP 条目全部保留，卸载前自动备份，可 `-Restore` 还原。
 
 ### A.5 主动校验与结构化汇报（★ 强制执行官方基准校对）

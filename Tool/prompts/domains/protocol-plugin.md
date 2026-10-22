@@ -127,10 +127,10 @@
 
 ### 16 SMB2 协商与会话帧（源：exploiting-smb-vulnerabilities-with-metasploit）
 - 触发词：`smb`、SMB2、NEGOTIATE、SESSION_SETUP、TREE_CONNECT、NetBIOS 头
-- 前置：有 SMB 抓包或本地 Samba/Windows 靶机；不做凭据爆破
+- 前置：有 SMB 抓包或本地 Samba/Windows 靶机；凭据爆破另立授权任务
 - 步骤：1) 按 4 字节 NetBIOS length 分帧 2) 解析 SMB2 header（ProtocolId/Command/MessageId/TreeId）3) 按 MessageId 配对请求/响应 4) 把 NEGOTIATE→SESSION_SETUP→TREE_CONNECT→CREATE 的每条迁移写成边集，跑 `pcap-summary.py --state-model edges.json --json`
 - 判据：NetBIOS length = 后续字节数；Command 与 MessageId 配对一致；能说出协商出的 dialect；每条边的 `evidence_frame` 必须指向真实帧（dissector 推断出来的边标 `"source":"llm"`，计入 `llm_unverified`，`edge_coverage ≥0.60` 才可写"状态机成立"）
-- 失败判据：SMB3 加密（share encryption）下只见密文 → 记录"加密共享"，不做猜测
+- 失败判据：SMB3 加密（share encryption）下只见密文 → 记录"加密共享"，字段留 `unknown`
 - reference：Tool/skill/protocol-plugin/references/06-app-state-machine.md
 
 ### 17 流量基线：会话/字段分布（源：implementing-network-traffic-baselining）
@@ -194,5 +194,5 @@
 - 前置：有 S7 抓包或本地 PLC 仿真（Snap7）；默认只读，不写寄存器
 - 步骤：1) 按 TPKT(4B) + COTP + S7 header 分层定界 2) 解析 ROSCTR/PDU reference/function code 3) 按 PDU reference 配对请求与响应 4) 把"读/写功能码迁移"写成边集并用 `--state-model` 算 `edge_coverage`；未见过的写操作边一律 `inferred`
 - 判据：TPKT length = 后续字节数；COTP 后 S7 header 偏移固定；功能码与响应项一一对应；轮询类重复边不重复计数（同一 `from/to` 取首个 `evidence_frame`），写操作边未观测时不得画实线
-- 失败判据：只看到轮询未见配置下发 → 不能推断"支持写操作"；写操作会触发物理动作，禁止默认尝试
+- 失败判据：只看到轮询未见配置下发 → 不能推断"支持写操作"；写操作会触发物理动作，默认只读、写操作按授权单
 - reference：Tool/skill/protocol-plugin/references/06-app-state-machine.md

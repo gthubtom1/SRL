@@ -1,7 +1,7 @@
 # 01-criteria · 供应链判据表（可机检版）
 
-> 适用：已授权的源码仓库、锁文件、容器镜像、构建流水线审计；目标是把“扫描器说有问题”收敛成“可复核的利用链或明确的不可达”。
-> 不适用：未授权仓库/镜像、要求投毒或发布测试包、纯许可证法务结论、CVE 武器化。
+> 范围：已授权的源码仓库、锁文件、容器镜像、构建流水线审计；目标是把“扫描器说有问题”收敛成“可复核的利用链或明确的不可达”。
+> 路由：仓库/镜像清单由 `scope` 声明；投毒/发布测试包按 `dependency-confusion.md` 的授权条目执行；许可证法务结论由法务流程承担；CVE 武器化由 `pwn-crypto`/`web-pentest` 承担。
 > 配套：`Tool/skill/supply-chain-security/SKILL.md`、`Tool/scripts/sc-check.py`、`scripts/sbom-reach.py`、`scripts/ci-perm-audit.py`、`Tool/config/supply-chain-security-matrix.json`。
 > 表中的“可机检”指能落成 JSON 字段、哈希或计数，由脚本复算；不是“看起来像”。
 
@@ -10,7 +10,7 @@
 | 档位 | 含义 | 允许写进报告的位置 |
 | :-- | :-- | :-- |
 | 确认（confirmed） | 判据全部成立，证据可逐字节复算 | 标题、影响面、修复项 |
-| 疑似（suspected） | 有信号，但缺一条硬判据 | 正文线索，禁止进标题 |
+| 疑似（suspected） | 有信号，但缺一条硬判据 | 只进正文线索 |
 | 未确认（unconfirmed） | 判据不成立或不可复现 | 工作记录 / 失败判据 |
 
 任何一条“确认”必须同时给出 **对象标识（commit/digest/锁文件 hash）、检测命令与 rc、原始输出、复算脚本结论** 四类证据。
@@ -63,7 +63,7 @@
 
 ```text
 evidence/<case>/
-  scope.md              # 授权人/工单/窗口/对象/禁止动作
+  scope.md              # 授权人/工单/窗口/对象/动作白名单
   cmd.log               # 真实命令 + 时间 + rc
   target.json           # commit/digest/锁文件 sha256
   sc.json               # sc-check.py 原始输出
@@ -98,8 +98,8 @@ evidence/<case>/
 
 ## 6. 边界
 
-- 不推送恶意包、不抢注包名、不改生产流水线、不拉取未授权镜像。
-- 不做 CVE 武器化；只做版本、可达性、补丁差异与影响面判断。
+- 推送/抢注/生产流水线变更/私有镜像拉取按 `scope` 清单执行。
+- 本文只做版本、可达性、补丁差异与影响面判断；CVE 武器化由 `pwn-crypto`/`web-pentest` 承担。
 - 不替法务下许可证结论；只列组件、许可证标识与证据。
 - Web/API 漏洞 → `web-pentest`；APK/固件逆向 → `apkseep`/`firmware-iot`；本域只消费制品与清单。
 

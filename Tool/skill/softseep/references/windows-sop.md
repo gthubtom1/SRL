@@ -25,7 +25,7 @@
 | 场景 | 阈值 | 到点后强制转 |
 |---|---|---|
 | 静态判壳 / 找 OEP | 约 **2 分钟**无关键结论 | 转动态（调试 / Hook / 内存 Dump） |
-| 动态 attach 被反调试打掉 | **2 次** | 停手，先过自检层（ScyllaHide / 反反调试），**不做第三次裸 attach** |
+| 动态 attach 被反调试打掉 | **2 次** | 停手，先过自检层（ScyllaHide / 反反调试），**第三次改纯静态/外部观测** |
 | 单一技术假说（某函数 / 某参数 / 某 Payload） | **15 步**无确定性正向反馈 | 强制正交切线（内存→协议→资源→Dump 轮转） |
 | 内存打桩导致目标崩溃 | **2 次** | 疑内存自检，转内存 Dump 或改走协议层 |
 
@@ -330,7 +330,7 @@ policy.ProhibitDynamicCode = 1;
 SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &policy, sizeof(policy));
 ```
 
-在内核 VAD 树层面禁止把 `.text` 重新改为可写，`VirtualProtect` 会直接返回错误码 487。
+内核 VAD 树层面 `.text` 保持只读：重设为可写时 `VirtualProtect` 直接返回错误码 487。
 
 ### 第三道防线：只读节完整性与 Inline Hook 巡检
 

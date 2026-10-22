@@ -307,7 +307,7 @@ pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\rebuild-sign-install.p
 - 如果做了 patch，说明改了什么
 - 如果做了 Hook，说明 Hook 了哪个类/方法/导出函数
 
-## 禁止事项
+## 返工事项
 
 - 不要一开始就盲目改 smali
 - 不要在没看 manifest 和主入口前就写 Hook

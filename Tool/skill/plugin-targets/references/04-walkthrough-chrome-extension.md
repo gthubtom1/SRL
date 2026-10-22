@@ -1,7 +1,7 @@
 # 04 真实案例走查：本机 Chrome MV3 扩展（Quicker 1.2.4）
 
-> 适用：想照着复跑“真实安装扩展 → 结构/权限/入口/数据流/最小单元”的完整链路。
-> 不适用：需要证明“恶意”或“已外发”的取证；本走查只做静态子集分析，未加载浏览器、未连接 native host。
+> 范围：想照着复跑“真实安装扩展 → 结构/权限/入口/数据流/最小单元”的完整链路。
+> 结论边界：本走查只做静态子集分析（未加载浏览器、未连接 native host）；“恶意/已外发”的定性需动态证据。
 > 样本来源：本机 Chrome 用户扩展目录（`~/AppData/Local/Google/Chrome/User Data/Default/Extensions/klggb…/1.2.4_0`），截取 6 个入口/权限相关文件，内容未修改。仓库内输入为 `Tool/cases/plugin03/input/real-extension.zip`。
 
 ## 1. 目标与假设

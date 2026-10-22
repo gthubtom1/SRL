@@ -1,7 +1,7 @@
 # 04 真实走查：本机 Windows Security 日志的 AD 遥测 triage
 
-> 适用：拿到一台 Windows 主机的 Security.evtx/wevtutil 导出，想判断它有没有 AD/Kerberos/横向证据。
-> 不适用：没有授权的主机、生产 DC 的高峰时段、或只拿到二手截图没有原始事件。
+> 范围：拿到一台 Windows 主机的 Security.evtx/wevtutil 导出，想判断它有没有 AD/Kerberos/横向证据。
+> 前置：授权主机、避开生产 DC 高峰时段、保留原始事件（二手截图只作线索）。
 > 目标不是“打穿”，而是**把一条真实日志变成可复算的结论，并明确它不能证明什么**。
 
 ## 1. 目标与环境

@@ -2,7 +2,7 @@
 name: llm-security
 description: 【LLM / AI Agent 安全】对 LLM 应用、RAG、Agent、MCP 工具链与提示词/技能包做授权安全评估：直接/间接提示注入、工具滥用、记忆投毒、数据外泄、权限提升、模型与插件供应链。以“可复现的输入→行为差异→影响面”为判据，覆盖 OWASP LLM/Agentic 风险与防护验证。
 license: MIT
-compatibility: Python 3.10+；garak/PyRIT/promptfoo 可选；MCP 配置与技能包用纯标准库审计。测试只在授权账号/隔离环境，禁止对第三方生产系统投放。
+compatibility: Python 3.10+；garak/PyRIT/promptfoo 可选；MCP 配置与技能包用纯标准库审计。测试只在授权账号/隔离环境；第三方生产系统投放按授权单执行。
 metadata:
   version: "1.0.0"
   category: llm-security
@@ -149,7 +149,7 @@ garak --model_type rest --model_name <name> --probes promptinject
 
 - [ ] 授权范围、隔离环境、模型版本、系统提示哈希齐全。
 - [ ] 至少一条“输入→行为差异→工具/数据影响”的可复现链。
-- [ ] 直接与间接注入各测过（不适用要说明）。
+- [ ] 直接与间接注入各测过（该面不涉及的，在报告里写明覆盖范围）。
 - [ ] 工具权限/审批/MCP 供应链有清单与风险结论。
 - [ ] 防护建议是架构级（最小权限/沙箱/出站白名单/审批），不是“加一句提示”。
 - [ ] 未读取真实用户数据、未外发真实凭据、未影响第三方系统。

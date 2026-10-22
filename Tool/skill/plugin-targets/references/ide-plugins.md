@@ -1,7 +1,7 @@
 # IDE 插件：VSIX / JetBrains 与签名更新
 
-> 适用：VS Code/Cursor `.vsix`、JetBrains `.jar`/`.zip`、Open VSX/市场安装目录、企业侧载插件。
-> 不适用：Electron/asar 主进程（→ `electron-and-asar.md`）、浏览器扩展（→ `browser-extension.md`）、纯协议复刻（→ `protocol-plugin` R24）。
+> 范围：VS Code/Cursor `.vsix`、JetBrains `.jar`/`.zip`、Open VSX/市场安装目录、企业侧载插件。
+> 路由：Electron/asar 主进程由 `electron-and-asar.md` 承担；浏览器扩展由 `browser-extension.md` 承担；纯协议复刻由 `protocol-plugin`（R24）承担。
 > 目标：**激活/扩展点 → 命令/服务 → 文件/网络/进程 → 签名与更新链**，并给出可回退的最小可改单元。
 
 ## 1. 包体与安装来源
@@ -133,7 +133,7 @@ java -jar cfr.jar plugin.jar --outputdir work/cfr
 - `terraform` provider：独立二进制 + gRPC。`TF_PLUGIN_MAGIC_COOKIE` 握手，首行形如 `1|5|tcp|127.0.0.1:PORT|grpc`；二进制在 `.terraform/providers/<registry>/<ns>/<type>/<ver>/<os_arch>/`；`.terraform.lock.hcl` 的 `h1:`/`zh:` 哈希是完整性判据。
 - Jupyter：`jupyter server extension list` / `jupyter nbextension list`；server extension 在 `jupyter_server_config.json` 的 `ServerApp.jpserver_extensions`（旧键 `nbserver_extensions`）中启用，入口 `_jupyter_server_extension_points()` → `_load_jupyter_server_extension(serverapp)`，用 `web_app.add_handlers` 注册静态/API 路由。
 - 静态路由要查三处：有无 `@tornado.web.authenticated`、路径是否经 `url_path_join(base_url, ...)`、`static_url_prefix` 指向哪个目录。未加 `authenticated` 的路由在无 token 配置下即可被读。
-- 三者共同点：插件与宿主同权限，宿主不做沙箱；供应链在索引/仓库（krew、registry、pip/npm）。
+- 三者共同点：插件与宿主同权限，沙箱责任在插件侧；供应链在索引/仓库（krew、registry、pip/npm）。
 
 ```bash
 kubectl plugin list 2>&1 | head -20
@@ -152,7 +152,7 @@ grep -RInE 'jpserver_extensions|nbserver_extensions|add_handlers|url_path_join' 
 - `engines.vscode`/`idea-version` 不匹配导致加载失败 → 换环境或只做静态，不改版本字段后宣称“已验证”。
 - `plugin.xml` 的 class 在 jar 中找不到 → 标“入口不一致”，全量搜 class/多版本 `META-INF`。
 - Kotlin/JS bundle 反编译不可读，且无 source map → 只给入口/字符串面，不把 `$lambda$` 当业务逻辑。
-- 签名/白名单/受限工作区阻止加载 → 停，记录校验层；不提供绕过企业策略/市场签名的方法。
+- 签名/白名单/受限工作区阻止加载 → 停，记录校验层（企业策略/市场签名）。
 - 插件内私有协议 → 交 `protocol-plugin`（R24）。
 
 > 关联：`references/01-criteria.md` 第 9–11 条、`references/02-failure-criteria.md` 第 9–12/19 条、`references/desktop-plugins.md`（原生桌面插件）。

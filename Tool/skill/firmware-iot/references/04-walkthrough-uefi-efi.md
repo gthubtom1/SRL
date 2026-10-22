@@ -1,8 +1,8 @@
 # 04 真实案例走查：从 UEFI PE 到 Broadcom 固件 blob
 
 > 配套 `firmware-iot/SKILL.md`、案例 `Tool/cases/firmware-iot03`、`firmware-iot04`。
-> **适用**：只拿到单个 `.efi` 或 vendor firmware blob，没有 rootfs、没有设备时的静态走查。
-> **不适用**：把本节结论外推到“设备可被攻破”；这里没有 J1/J2/J3。
+> **范围**：只拿到单个 `.efi` 或 vendor firmware blob，没有 rootfs、没有设备时的静态走查。
+> 结论边界：本节只覆盖本样本的 J1/J2/J3；结论不外推到“设备可被攻破”。
 >
 > 目标：用**可复跑**的命令回答三件事——这是什么、从哪来、下一步该做什么。
 > 环境：Windows + Git Bash，`binwalk`/`7z`/`file`/`strings` 可用；`unsquashfs`/`ubireader` 缺失。

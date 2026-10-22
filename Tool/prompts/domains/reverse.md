@@ -30,7 +30,7 @@
 
 ### 04 勒索加密例程与密钥流还原（源：reverse-engineering-ransomware-encryption-routine）
 - 触发词：勒索、加密例程、AES、ChaCha20、密钥流、文件遍历、RSA
-- 前置：样本在隔离环境；准备文件系统快照/测试文件；禁止对真实数据运行
+- 前置：样本在隔离环境；准备文件系统快照/测试文件；只对副本运行
 - 步骤：1) 定位文件遍历与加密调用；2) 识别算法原语/模式/IV/密钥来源；3) 用测试文件验证加密前后长度、头尾、重命名规则
 - 判据：算法/模式/密钥派生可写成伪代码；测试文件加密结果可复算；密钥来源（本地/外发）明确
 - 失败判据：只有算法常量没有密钥流 → 转动态断点/内存取证；无法复算 → 不写「已还原」
@@ -78,15 +78,15 @@
 
 ### 10 Bootkit/rootkit 启动链与持久化面（源：analyzing-bootkit-and-rootkit-samples）
 - 触发词：bootkit、rootkit、MBR、UEFI、启动链、持久化、驱动
-- 前置：隔离虚拟机/可回滚快照；准备磁盘/固件镜像；禁止在生产机运行
+- 前置：隔离虚拟机/可回滚快照；准备磁盘/固件镜像；只在隔离快照内运行
 - 步骤：1) 枚举启动项/服务/驱动/计划任务；2) 定位引导链写入点与内核模块；3) 记录持久化机制与清除路径
 - 判据：持久化链每一跳有路径/键值/文件证据；启动顺序可解释；清除后复验
-- 失败判据：只看到用户态持久化 → 不要写 bootkit；无法回滚 → 停止，不碰生产环境
+- 失败判据：只看到用户态持久化 → 结论止于用户态（bootkit 属硬件层，另立任务）；无法回滚 → 停止，生产环境按 `scope` 清单
 - reference：Tool/skill/softseep/references/10-anti-debug.md
 
 ### 11 Linux 内核 rootkit 模块与 hook 面（源：analyzing-linux-kernel-rootkits）
 - 触发词：Linux kernel、rootkit、LKM、syscall table、hook、/proc、隐藏模块
-- 前置：隔离内核/虚拟机；准备内核符号/模块列表；禁止宿主加载
+- 前置：隔离内核/虚拟机；准备内核符号/模块列表；只在内核 VM 内加载
 - 步骤：1) 比对 `/proc/modules`/`lsmod`/sysfs 与磁盘模块；2) 查 syscall/文件操作/网络 hook；3) 记录隐藏对象与通信方式
 - 判据：隐藏模块/被 hook 的函数有地址/字节证据；行为差异可复现；清理后可复验
 - 失败判据：只看到用户态异常 → 不写内核 rootkit；无隔离环境 → 停手
@@ -134,10 +134,10 @@
 
 ### 17 MS17-010/EternalBlue 漏洞面核对（源：exploiting-ms17-010-eternalblue-vulnerability）
 - 触发词：MS17-010、EternalBlue、SMB、445、漏洞面
-- 前置：仅授权隔离靶场；禁止对公网扫描；准备补丁/版本信息
+- 前置：仅授权隔离靶场；扫描限于靶场；准备补丁/版本信息
 - 步骤：1) 核对目标 SMB 版本/补丁；2) 在隔离靶场复现漏洞面；3) 记录利用前置与失败条件
 - 判据：目标版本/补丁状态可机检；隔离靶场行为可复现；不影响真实网络
-- 失败判据：目标已打补丁/不可达 → 停止，不扩大扫描；未授权 → 不做
+- 失败判据：目标已打补丁/不可达 → 停止，扫描范围不扩大；授权清单外 → 停并交回用户
 - reference：Tool/skill/softseep/references/01-criteria.md
 
 ### 18 DEP/ASLR 等内存保护实现核对（源：implementing-memory-protection-with-dep-aslr）

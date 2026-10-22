@@ -1,8 +1,8 @@
 # 01 判据表 — 什么算"协议复刻成功"
 
-> 适用：TCP/UDP/HTTP/WebSocket/私有二进制协议的**离线复刻**与授权环境重放。
-> 不适用：插件/扩展装载链（→ `plugin-targets`，R25）、纯前端 JS 签名（→ js-reverse）、
-> 纯算法还原（→ `ida-reverse`）。总流程见 `../SKILL.md`，失败判据见 `02-failure-criteria.md`。
+> 范围：TCP/UDP/HTTP/WebSocket/私有二进制协议的**离线复刻**与授权环境重放。
+> 路由：插件/扩展装载链由 `plugin-targets`（R25）承担；纯前端 JS 签名由 js-reverse 承担；
+> 纯算法还原由 `ida-reverse` 承担。总流程见 `../SKILL.md`，失败判据见 `02-failure-criteria.md`。
 >
 > 本表每一行都给出**可机检判据**：能用脚本/命令算出真假，而不是"看起来像"。
 > 判据分「确认」与「疑似」两档；只有确认档能写进结论文档。
@@ -26,8 +26,8 @@
 | 长度字段语义闭合 | ≥3 条不同长度的帧 | 用 `len_field = a*payload + b` 拟合，`a/b` 唯一；能预测**未见帧**的 `frame_len`，误差 0 | 字段表 + 3 帧实测表（偏移/长度/端序） | 长度含头/含尾/含自身三种假设都能拟合小样本；必须靠"改长度→服务端行为"区分 |
 | 校验算法可复算 | 每帧的原文 + 末尾校验字段 | `proto-repro.py` 报 `crc_ok=true`；改 1 字节载荷后同一帧 `crc_ok=false`；算法/初值/覆盖范围可写成一个函数 | 校验字段 want/got 十六进制 + 覆盖范围（header+payload） | 简单和/异或/Adler32 也能"碰巧"匹配 3 帧；样本 <5 帧时不要把 CRC32 写死 |
 | 帧被服务端接受 | 本地/授权服务端 | 新构造帧得到与预测一致的响应（同一业务码/同一状态迁移），重复 3 次稳定 | 发送字节 hex + 响应字节 hex + RTT | 服务端"回了包"不等于"接受了业务"（可能是通用错误帧） |
-| 状态迁移可解释 | 消息序列（含握手/认证/业务/关闭） | 每条边有 ≥1 条样本；非法迁移（跳过认证、错 seq）有实际拒绝证据；`state_before/event/state_after` 三元组可回指帧号 | `frames.jsonl` + 状态图 + 拒绝样本 | 把"没观测到"当成"不允许"；重连/心跳被误当业务消息 |
-| 状态机成立 | 观测边集 + 非法迁移负例（`edges.json`） | `edge_coverage ≥0.60`（`observed_edges/inferred_edges`）；`llm_unverified == 0`；每条观测边有 `evidence_frame`；`illegal_transition_proof` 非空且指到帧号 | `pcap-summary.py --state-model edges.json --json` 的 `verdict=state_machine_established` + 状态图 | LLM 推断边被当实线计入（见 `06-app-state-machine.md` §3.1）；把"未观测"当"不允许" |
+| 状态迁移可解释 | 消息序列（含握手/认证/业务/关闭） | 每条边有 ≥1 条样本；非法迁移（跳过认证、错 seq）有实际拒绝证据；`state_before/event/state_after` 三元组可回指帧号 | `frames.jsonl` + 状态图 + 拒绝样本 | 把"没观测到"当成"协议拒绝"；重连/心跳被误当业务消息 |
+| 状态机成立 | 观测边集 + 非法迁移负例（`edges.json`） | `edge_coverage ≥0.60`（`observed_edges/inferred_edges`）；`llm_unverified == 0`；每条观测边有 `evidence_frame`；`illegal_transition_proof` 非空且指到帧号 | `pcap-summary.py --state-model edges.json --json` 的 `verdict=state_machine_established` + 状态图 | LLM 推断边被当实线计入（见 `06-app-state-machine.md` §3.1）；把"未观测"当"协议拒绝" |
 | 状态机不成立 | 同上（同一份边集） | `edge_coverage <0.60` 或 `llm_unverified >0` 或 `illegal_transition_proof` 为空；非法迁移全部"无响应"；此时只能写"部分建模（覆盖率 X%）" | 同上（`verdict=state_machine_not_established`） | 用虚线边凑覆盖率；把心跳/重连刷成业务边把分母做小 |
 | 同输入同输出 | 原样重放的请求 | 同请求重复 3 次，响应体哈希/关键字段一致；允许变化项（时间戳/nonce）能逐项解释 | 3 次响应的 sha256 与差异字段 diff | 负载均衡/多实例/时间窗导致"每次都不同"，误判为协议不可复刻 |
 | 认证材料可复现 | token/cookie/nonce/时间戳/签名 | 能指出材料来源（哪一帧哪个字段）、有效期、绑定维度（IP/UA/设备）、是否一次性 | 材料字段表 + 过期/复用实验记录 | 把"能原样重放"当成"能续期"；token 可能只是会话表 key |
