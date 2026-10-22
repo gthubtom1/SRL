@@ -53,9 +53,9 @@
 
 ## P2：整洁度（有时间再做，不阻塞）
 
-- 3 个真死文件（C 报告已定位）删除或并入。
-- KB 冻结：不再新增，文档不再吹「持续扩充」。
-- Git Bash 会把 `/path` 改写成 `C:/Program Files/Git/path`：QUICKSTART 加一句「Git Bash 下用 `MSYS_NO_PATHCONV=1`」。
+- ~~3 个真死文件~~：实测 `Tool/scripts` 仅 `start_mcp.py` 一个未被引用，已改为延迟导入并接进 PROVENANCE（不再是死文件）。
+- ~~KB 冻结~~：已在 `DEPLOYMENT-CHECKLIST` K1 写明「冻结基线：新增知识走案例与配方」。
+- ~~Git Bash 路径改写~~：`QUICKSTART` 已加 `MSYS_NO_PATHCONV=1` 提示与示例。
 - 审计稿曾推高 first-party 计数：`check-budget` 已排除 `/audit` 与 `/work`（已完成，first-party 823）；该口径在 `Tool/scripts/check-budget.py` 内注释说明。
 
 ---
@@ -101,5 +101,5 @@ git status --porcelain                           # 空
 | F1 P0-1…P0-6 | 已完成 | captcha-angle 歧义检测（`ambiguous` + `equivalence_class`，自测 9/9）；temp_ocr 落盘 `ocr.json` 且失败 rc=2（自测 7/7）；probe_api 非 2xx → rc=3、新增 `--method/--data`（自测 12/12）；case_state URL target 保真；seep-start 样例提示 + URL 首条命令；capability-gate 引用统计拆三类（精确 id 8 / 脚本别名 19 / reserved 20） |
 | F2 P0-7…P0-12、P1-1…P1-9 | 已完成 | MCP 38→40（含 README 矩阵补两行）、KB 292→409、radare2 5.9.8 / apktool 2.11.0、能力 45/44→47、cases/README 旧域→现行 11 域、ROADMAP 与 softseep 域表 11 行、17→11 组件、apkseep 54/61/57/123、softseep refs 10、7→10 条、README 自指、AUDIT R1–R8、DEFERRALS 61 |
 | F3 P1-10…P1-13 | 已完成 | web-api 配方改为 `mcp__js_reverse__*` 真实序列 + `sign_check.json` 判据；web-check 输出补 `url/status/headers`；qinglong 写明 rc=1 语义；captcha-handling 补 claim 步骤；6 个 frida/capstone 脚本统一 `blocked_at:"tool-missing"` rc=2 |
-| P2 | 部分完成 | 已完成：`check-budget` 排除 `/audit` 与 `/work`（first-party 823）；下一阶段：3 个死文件、KB 冻结表述、Git Bash 路径提示 |
+| P2 | 已完成 | `check-budget` 排除 `/audit` 与 `/work`（first-party 823）；`start_mcp.py` 改为延迟导入（`--help` rc=0、无 IDA 时 `blocked_at:"tool-missing"` rc=2，不再是死文件）；`DEPLOYMENT-CHECKLIST` K1 写明 KB 是冻结基线；`QUICKSTART` 加 Git Bash `MSYS_NO_PATHCONV=1` 提示 |
 | 不做 | 保持 | 不加域、不加 capability、不追 264 卡剧本化、accept 全量重构不做（试点未启动） |
