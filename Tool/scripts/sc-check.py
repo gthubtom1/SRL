@@ -913,10 +913,15 @@ def run(args):
     print(text)
     if args.out:
         try:
+            parent = os.path.dirname(os.path.abspath(args.out))
+            if parent and not os.path.isdir(parent):
+                os.makedirs(parent, exist_ok=True)
             with open(args.out, "w", encoding="utf-8") as fh:
                 fh.write(text + "\n")
         except OSError as exc:
-            print("[sc-check] cannot write --out: %s" % exc, file=sys.stderr)
+            print(json.dumps({"ok": False, "blocked_at": "out-unwritable",
+                              "reason": "无法写 --out：%s" % exc}, ensure_ascii=False))
+            return 2
     return 1 if counts["critical"] + counts["high"] else 0
 
 

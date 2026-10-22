@@ -866,7 +866,9 @@ def cmd_deliver(a):
         die("level 只能是 M1 / M2 / M3 / M4")
     if RANK[a.level] > RANK.get(cap, 1):
         die(f"越级交付：裁定 {st['verdict']} 的上限是 {cap}，不接受 {a.level}")
-    if not (a.evidence or "").strip():
+    ev = require_evidence(a.evidence, a.case)
+    if not ev:
+        die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
         die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
     st.setdefault("deliveries", []).append(
         {"level": a.level, "evidence": a.evidence, "note": a.note or "", "ts": now()})
