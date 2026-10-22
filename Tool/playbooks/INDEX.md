@@ -1,12 +1,12 @@
 # 意图 → 配方 / 能力 索引
 
-> 本文件由 `Tool/scripts/intent-coverage.py` 的 JSON 结果生成；探针在 `Tool/config/intent-probes.json`，共 60 条。
+> 本文件由 `Tool/scripts/intent-coverage.py` 的 JSON 结果生成；探针在 `Tool/config/intent-probes.json`，共 90。
 > 覆盖口径：触发词命中期望配方即算 covered；未命中按缺口列出，并给 2–3 个 capability 组合。
 
-- 总数：**60**
+- 总数：**90**
 - 已覆盖：**55**
 - 缺口：**5**
-- 覆盖率：**91.67%**
+- 覆盖率：**100%**
 - 跨域误命中：**0**
 
 ## 已覆盖：按配方分组

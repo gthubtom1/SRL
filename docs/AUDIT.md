@@ -403,7 +403,7 @@
 ## v1.24.0 —— 去边界 + 能力层 + 配方层（架构级）
 
 - **措辞**：142 个 md、448 行改写，任务禁令 397 处清零；`docs/STYLE.md` 落规范；preflight 新增「无任务禁令措辞」lint（33/33 通过）。范围一律改为「由用户提供的 scope 决定」，方法边界改为「本域负责 X；Y 由 Z 承担」。
-- **能力层**：`Tool/capabilities/*.json` 44 个原子能力（id/输入/输出/脚本/判据/成熟度/compose），`Tool/scripts/capability-gate.py` 校验悬空=0；新增 4 个原语 `session-pool` / `schedule-notify` / `captcha-branch` / `tls-fingerprint`（均 `--self-test` rc=0）。
+- **能力层**：`Tool/capabilities/*.json` 45 个原子能力（id/输入/输出/脚本/判据/成熟度/compose），`Tool/scripts/capability-gate.py` 校验悬空=0；新增 4 个原语 `session-pool` / `schedule-notify` / `captcha-branch` / `tls-fingerprint`（均 `--self-test` rc=0）。
 - **配方层**：`Tool/playbooks/` 22 个任务配方 + INDEX/README；以后新需求先用配方组合能力，不新增域。
 - **意图覆盖**：`Tool/config/intent-probes.json` 60 条口语意图 + `intent-coverage.py`，当前 **60/60 覆盖（100%）**。
 - **路由**：新增 R34（账号自动化/青龙）、R35（网站 1:1 复刻），共 31 条，自洽 rc=0。

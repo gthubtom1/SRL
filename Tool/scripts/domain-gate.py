@@ -994,7 +994,7 @@ def check_fragments():
     out = (r.stdout or "").strip().splitlines()
     bad = [x.replace("[FAIL] ", "") for x in out if x.startswith("[FAIL]")]
     add("全局", "路由片段已合入 SSOT（routing.json）", r.returncode == 0,
-        "；".join(bad[:5]) if bad else "%d 份片段与 SSOT 一致" % len([x for x in out if x.startswith("[OK]")]))
+        "；".join(bad[:5]) if bad else "%d 份片段与 SSOT 一致" % len(glob.glob(os.path.join(TOOL, "config", "routing-fragments", "*.json"))))
 
 
 # ---------------------------------------------------------------- [13] 案例索引

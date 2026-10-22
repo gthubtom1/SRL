@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.10.10-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
+  <a href="https://github.com/gthubtom1/Seep-Reverse-Lab"><img src="https://img.shields.io/badge/Release-v1.25.0-brightgreen.svg?style=for-the-badge&logo=github" alt="Release"></a>
   <a href="https://github.com/gthubtom1/Seep-Reverse-Lab/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg?style=for-the-badge" alt="License"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/Architecture-x86%20%7C%20x64%20%7C%20ARM64-orange?style=for-the-badge" alt="Architecture">
@@ -222,7 +222,7 @@ Seep\ (251 MB)
 ├── docs/CHANGELOG.md                   ← 面向用户的版本变更日志
 │
 ├── Tool\
-│   ├── skill\                     ← 23 个领域技能
+│   ├── skill\                     ← 29 个技能
 │   │   ├── softseep\              ← ⭐ 总控调度器（判型路由 + 8 专题按需库）
 │   │   ├── apkseep\               ← Android 全链路逆向（113 个工程文件）
 │   │   ├── ida-reverse\           ← IDA Pro 自动化联动（13337 唤醒规约）
