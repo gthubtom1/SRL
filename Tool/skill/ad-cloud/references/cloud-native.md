@@ -64,6 +64,52 @@ aws s3api list-objects-v2 --bucket <bucket> --max-items 20
 
 判据：能证明对象可读（head/list 成功）即可作为证据；批量导出需要额外授权。
 
+### 1.4 四步链：泄露 → 身份 → 枚举 → 提权（每步可机检）
+
+| 步 | 命令（只读） | 通过判据（可机检） | 失败判据 | 产物/代价 |
+| :-- | :-- | :-- | :-- | :-- |
+| 0 泄露定位 | `grep -RnE 'AKIA[A-Z0-9]{16}\|ASIA[A-Z0-9]{16}' <repo>`；`stat -c '%a %n' ~/.aws/credentials` | 命中处有明文 secret（不仅是 AK）、文件权限过宽或已入 git 历史 | 占位符/示例 key、只有 access_key 无 secret、`.env.example` | 低；只记录路径/commit/指纹 |
+| 1 身份 | `AWS_PROFILE=<p> aws sts get-caller-identity`（或显式三变量） | 返回 `UserId`/`Account`/`Arn`；ARN 能区分 user/assumed-role | `InvalidClientTokenId`/`ExpiredToken`/`SignatureDoesNotMatch` → 凭据无效，停 | 低；STS 会进 CloudTrail |
+| 2 枚举 | `aws iam list-attached-user-policies`、`list-user-policies`、`list-groups-for-user`、`list-attached-role-policies`、`list-role-policies`、`get-account-authorization-details` | 能拿到策略文档本体（`PolicyVersion.Document`）与 trust policy；资源类 `describe-*`/`list-*` 至少一类成功 | 只有 `List*` 无 `Get*`；全 AccessDenied → 权限面 `unknown`，不猜 | 中：`list-users`/`get-account-authorization-details` 在大账号噪声大 |
+| 3 提权匹配 | `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input policy.json --action <Action> --resource <ARN> --json`；PMapper/`enumerate-iam` | `decision=allow` + `privesc[].severity` + `matched[].policy` 指向具体语句；boundary/SCP 未拦 | 显式 `Deny`/boundary 不含该 action/条件无法满足 → `blocked` | 离线零噪声；在线 `simulate-principal-policy` 也属只读 |
+| 4 最小验证 | 先用只读 API 证权（`get-user`、`describe-*`、`get-secret-value --version-stage AWSCURRENT` 若已授权） | 低影响 API 返回 200 且响应字段与策略一致 | 文本 allow 但 API `AccessDenied` → 条件 key 未满足或 SCP 拦，转 blocked | 写操作（建策略/建 key/PassRole）单独授权单 |
+
+> 脚本只算“文本 allow”；`boundary`/SCP/资源策略/条件键未建模时结论最高 `candidate`。
+> 输出字段读法：`decision`（allow/deny）、`privesc[].severity`、`matched[]`、`deny_statements[]`。
+
+### 1.5 提权路径逐条判据（CreatePolicyVersion / PassRole / AssumeRole）
+
+| 路径 | 前置权限 | 最小验证（先只读） | 可机检判据 | 失败判据 | 代价 |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| `iam:CreatePolicyVersion` | 对某个已附加策略有权限；或对自身 inline/attached policy | `cloud-iam-eval --action iam:CreatePolicyVersion`；`aws iam list-policy-versions --policy-arn <arn>` | eval `decision=allow` + `privesc.severity=critical`；实际调用返回 `PolicyVersion` 且 `IsDefault=false` | 显式 Deny、boundary 不含该 action、`SetAsDefault` 被拒 | 高：新版本可回滚删除；必须记录版本号并 `delete-policy-version` |
+| `iam:SetDefaultPolicyVersion` | 目标策略已有旧管理员版本 | `list-policy-versions` 看历史版本 | 存在旧版本且当前主体能 set-default；调用后权限变化可复现 | 无旧版本、版本已被删、boundary 拦 | 中高；可回切 |
+| `iam:AttachUserPolicy` / `PutUserPolicy` | 对自身/可控用户 | `list-attached-user-policies`；eval 对应 action | 挂载后 `get-caller-identity` 不变但新 API 成功（权限面扩大） | `EntityAlreadyExists`、boundary 截断、SCP 拦 | 高：必须 `detach-user-policy` 回滚 |
+| `iam:PassRole` + `lambda:CreateFunction`/`InvokeFunction` | PassRole 到高权角色 + 建/调函数 | `get-role --role-name <r>` 看 trust 与 attached；`list-functions` | 函数 `Role` 指向高权角色，且能建后调用返回受控输出（如 `get-caller-identity` 的 ARN） | trust 的 Principal 不含 lambda、函数创建被拒、VPC/权限边界拦 | 高：计费 + 代码残留；必须删函数 |
+| `iam:PassRole` + `ec2:RunInstances` | PassRole 到实例配置文件 + RunInstances | `describe-instance-profiles`；`get-role` | 实例以高权 profile 启动，IMDS 取到的 ARN 为目标角色 | 无实例 profile、AMI/子网受限、SCP 拦 | 极高：计费 + 实例残留；必须 terminate |
+| `iam:PassRole` + `cloudformation:CreateStack` | PassRole + 建栈 | `list-stacks` 看现有 stack role 模式 | 栈以高权角色创建并输出受控资源 | 模板校验失败、权限边界、服务角色不存在 | 高：栈/资源残留，必须 delete-stack |
+| `sts:AssumeRole` | 目标角色 trust 允许当前主体 | `get-role --role-name <r>` 读 `AssumeRolePolicyDocument`（Principal/ExternalId/条件） | `assume-role` 返回 `Credentials`，再 `get-caller-identity` ARN 变为目标角色 | trust 限定其他账号/需 `ExternalId`/需 MFA → 不成立 | 低：只产生临时会话，入 CloudTrail |
+| `iam:UpdateAssumeRolePolicy` | 能改目标角色 trust | `get-role` 读原 trust（先备份） | 改写后 `assume-role` 成功；回读 trust 含当前主体 | 无写权限、SCP/边界拦、角色被保护 | 极高：改信任关系会影响所有使用者；必须回写原文档 |
+| `iam:CreateAccessKey` | 对目标用户有权限 | `list-access-keys --user-name <u>`（只读） | 新建 key 后 `get-caller-identity` 为该用户；记录 key id 指纹 | 每用户 2 key 上限、MFA 条件、SCP 拦 | 高：必须 `delete-access-key` |
+| `cognito-identity:GetId` → `GetCredentialsForIdentity`（未认证身份池） | 无（需 IdentityPoolId） | `get-id --no-sign-request` → `get-credentials-for-identity --no-sign-request` | 匿名拿到 ASIA 临时凭据 + `get-caller-identity` 返回 `Cognito_<Pool>Unauth_Role` | `NotAuthorizedException`（未开未认证身份）→ 不可利用 | 低：匿名调用，但需说明数据影响面 |
+
+判据统一：**前置权限在策略文本中 allow（且 boundary/SCP 不拦）+ 至少一个只读 API 已证权 +
+提权动作有可回滚证据**。只有策略文本 allow 时写 `candidate`，不得写“已提权”。
+
+### 1.6 失败判据与未建模项（看到就降级）
+
+| 现象 | 判定 | 改走 | 代价 |
+| :-- | :-- | :-- | :-- |
+| `AccessDenied` 但策略文本 allow | 条件键（`aws:PrincipalArn`/`aws:SourceIp`/MFA）或 SCP 未建模 | 补 `conditions_context` 后重跑 eval；或在线 `simulate-principal-policy` | 低 |
+| `ExpiredToken`/`InvalidClientTokenId` | 凭据已失效/被轮换 | 找新来源，不拿死 key 写“有效凭据” | 低 |
+| 只有 `List*`/`Get*` 只读权限 | 无提权路径 | 转数据面（S3 对象/Secret）或横向到 CI | 低 |
+| 角色 trust 需 `ExternalId`/指定账号 | confused-deputy 不成立 | 换角色/换账号，不猜 ExternalId | 低 |
+| 组织级 SCP 拒绝整个服务 | 账号层 allow 无效 | 换区域/服务或记 `blocked` | 中（枚举噪声） |
+| 权限边界（`boundary`）不含目标 action | 提权被截断 | 找 boundary 内的写权限（如 `s3:PutObject` 打供应链） | 低 |
+
+未建模项必须写进报告：资源策略、`NotAction`/`NotResource`、`aws:PrincipalOrgID`、
+permissions boundary 的隐式 deny、SCP 层级、KMS/Secrets 的资源策略。这些都可能把
+“文本 allow”变成实际 deny；反之也可能把 `Deny` 覆盖成 allow（显式 deny 优先）。
+
 ## 2. 元数据 SSRF
 
 ### AWS（IMDSv2）
