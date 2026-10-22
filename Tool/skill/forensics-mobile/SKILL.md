@@ -19,6 +19,7 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 - 流量：pcap/pcapng 会话重组、HTTP 对象导出、DNS/TLS SNI、应用/代理日志。
 - 磁盘：分区表、文件系统、inode、已删文件、`$MFT`/USN、mactime 时间线。
 - Windows 制品：EVTX 记录时间线、注册表 hive 键最后写入、浏览器 History。
+- 主机遥测与反取证残留：ETW provider / ETW-TI / 内核回调 / AMSI / Sysmon 事件字段，以及日志清除、USN 日志删除、Prefetch 缺失、时间戳篡改的**自证痕迹与补偿证据**（检测侧，不写规避）。
 - iOS/macOS：IPA 包结构、Mach-O、签名/entitlements、Keychain/plist/SQLite。
 - Unity 客户端：Mono/IL2CPP 判定、`global-metadata`、`dump.cs`、AssetBundle、运行时只读字段。
 
@@ -151,7 +152,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 | `references/04-walkthrough-windows-evtx-registry.md` | 真实 Windows EVTX+hive+History 走查 |
 | `references/memory-forensics.md` | 内存镜像/Volatility3/进程/网络/注入/hive |
 | `references/network-pcap-and-log.md` | pcap 会话/对象导出/DNS/TLS/应用日志 |
-| `references/disk-and-filesystem.md` | 分区/inode/$MFT/EVTX/REGF/History 时间线 |
+| `references/disk-and-filesystem.md` | 分区/inode/$MFT/EVTX/REGF/History 时间线 + 主机遥测与反取证痕迹判据（§10） |
 | `references/ios-macos-artifacts.md` | IPA/Mach-O/Keychain/plist/SQLite/越狱检测 |
 | `references/game-client-il2cpp.md` | Unity Mono/IL2CPP/AssetBundle/运行时只读 |
 | `references/evidence-chain.md` | 四要素/哈希链/案例字段/污染控制 |
