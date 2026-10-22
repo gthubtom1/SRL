@@ -1,0 +1,21 @@
+{
+  "id": "{{name}}",
+  "title": "{{title}}",
+  "inputs": [
+    "{{name}} 的输入样本或目标",
+    "scope 与授权说明"
+  ],
+  "outputs": [
+    "结构化结果（ok/字段/证据路径）",
+    "可复算的证据文件"
+  ],
+  "scripts": [
+    "Tool/scripts/{{name}}.py"
+  ],
+  "refs": [
+    "Tool/capabilities/{{name}}.md"
+  ],
+  "maturity": "probe",
+  "note": "骨架：脚本默认路径返回 rc=2；补齐真实判定与至少 1 个真实案例后升 usable。",
+  "compose": []
+}

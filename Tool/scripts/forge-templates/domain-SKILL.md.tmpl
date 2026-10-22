@@ -1,0 +1,128 @@
+---
+name: {{name}}
+description: "【{{title}}】按输入面、判据、证据三段执行的可复跑域技能；先定 scope 与授权，再按 check → accept 产出可复算结论。"
+---
+
+# {{title}}（{{name}}）
+
+> 唯一交付标准：换一台干净机器，按同一组输入重跑，得出的数值与结论可复算。
+> 判据表：`references/01-criteria.md`；失败判据：`references/02-failure-criteria.md`；
+> 模型失误：`references/03-model-pitfalls.md`；真实走查：`references/04-walkthrough-{{name}}.md`；
+> 输入与范围：`references/05-inputs-and-scope.md`；证据与交接：`references/06-evidence-and-handoff.md`。
+
+## 1. 适用范围与边界
+
+适用：
+
+- 用户已给出明确目标、scope 与授权说明，输入样本可获取。
+- 需要把一次手工结论沉淀成可复跑、可机检的流程。
+- 需要与既有 playbook / capability 组合，避免每次从零写脚本。
+
+边界（先停手或转交）：
+
+- scope 不清、目标不属于甲方、授权缺失：先补 scope，不进入执行步骤。
+- 输入是线上资产且需要写操作：只做只读观测，写操作单独立项并记录。
+- 纯 Web 漏洞验证 → `web-pentest`；客户端/APK/固件 → 对应域；协议逆向 → `protocol-plugin`。
+- 已有配方能覆盖时优先复用配方，不重复造第二套命令序列。
+
+## 2. 触发词
+
+{{trigger_words}}
+
+## 3. 能力面（capability id）
+
+{{capabilities}}
+
+能力解析规则与 `Tool/playbooks/README.md` 一致：`tool:` / `apk:` / `repo:` / `mcp:`。
+本域脚本：
+
+- `scripts/{{name}}-check.py`：输入面判定与结构化结果。
+- `scripts/{{name}}-accept.py`：判据汇总与验收结论。
+
+## 4. 执行步骤
+
+1. 落 scope：`python Tool/scripts/case_state.py init --case work/<case> --target <TARGET>` → rc=0。
+2. 环境自检：`python Tool/scripts/preflight.py --fast` → rc=0。
+3. 输入面判定：`python Tool/skill/{{name}}/scripts/{{name}}-check.py --case work/<case> --json` → rc=0，记录字段与证据路径。
+4. 结论汇总：`python Tool/skill/{{name}}/scripts/{{name}}-accept.py --case work/<case> --json` → rc=0。
+5. 证据入账：`python Tool/scripts/case_state.py prove --case work/<case> --id <ID> --evidence <路径>` → rc=0。
+6. 交付：`python Tool/scripts/case_state.py deliver --case work/<case> --level L2 --evidence <路径>` → rc=0。
+
+每一步都要把 rc、JSON 关键字段、证据路径写回 `work/<case>/notes.md`；rc 非 0 时按第 6 节换路。
+
+## 5. 判据（可机检）
+
+| # | 判据 | 机检字段 | 通过阈值 |
+| :- | :-- | :-- | :-- |
+| 1 | 输入面齐全 | `inputs_present` | 必填项 100% |
+| 2 | 判定可复算 | `run.json.sha256` | 两次重跑一致 |
+| 3 | 判据逐条成立 | `criteria.ok` | true 且 total ≥ 1 |
+| 4 | 证据可追溯 | `evidence[]` | 每个结论至少 1 份证据 |
+| 5 | 失败可归因 | `reason` | 非空且可机读 |
+| 6 | 交付不越界 | `scope.md` | 所有动作在 scope 内 |
+
+完整表（场景 / 输入面 / 取值 / 误报风险）见 `references/01-criteria.md`。
+
+## 6. 失败判据 + 换路
+
+- check rc=2 且 `reason=missing-input` → 补输入，或换更窄输入面。
+- 判定结果两次不一致 → 检查样本哈希与环境，先固定变量再重跑。
+- 判据为空但结论为通过 → 视为无效结论，回第 3 步重算。
+- 证据无法复算 → 保留原始输出，重新生成证据并记录差异。
+- 目标超出 scope → 停手，记录 `blocked_at=scope`，转交对应域。
+
+## 7. 模型常见失误
+
+- 把「看起来一致」当判据：必须落成数值或哈希。
+- 只跑主路径，不跑失败路径：至少各跑一次并留证。
+- 复用旧结论但不核对输入哈希：输入一变，结论作废。
+- 在技能里写死本机绝对路径：所有路径相对仓库根或 `work/<case>`。
+
+## 8. 交付物
+
+- `work/<case>/scope.md`、`notes.md`、`case.json`
+- `work/<case>/run.json`（check 输出）与 `accept.json`
+- 证据目录与 sha256 清单
+- `work/<case>/report.md`（目标 / 输入面 / 判据 / 结论 / 证据五段）
+
+## 9. 参考
+
+- `references/01-criteria.md`
+- `references/02-failure-criteria.md`
+- `references/03-model-pitfalls.md`
+- `references/04-walkthrough-{{name}}.md`
+- `references/05-inputs-and-scope.md`
+- `references/06-evidence-and-handoff.md`
+- `Tool/playbooks/README.md`（配方层）与 `docs/PROMOTION.md`（晋升规则）
+
+## 10. 判据取值与阈值
+
+| 判据 | 字段 | 取值 | 阈值 | 失败含义 |
+| :-- | :-- | :-- | :-- | :-- |
+| 输入面齐全 | `inputs_present` | 0–1 | = 1 | 输入缺失，先补输入 |
+| 判定可复算 | `run.json.sha256` | hex | 两次一致 | 结果不稳定，固定变量 |
+| 判据成立 | `criteria.ok` | bool | true | 存在阻断判据 |
+| 判据数量 | `criteria.total` | int | ≥ 1 | 判据为空视为无效 |
+| 阻断数量 | `criteria.blocking` | int | = 0 | 有阻断，换路 |
+| 证据覆盖 | `evidence[]` | list | ≥ 结论数 | 有无证结论 |
+| 交付边界 | `scope.md` | 文本 | 全部动作在内 | 越界，停手 |
+
+> 阈值只允许在本表与 `references/01-criteria.md` 两处出现；两边不一致时以 `01-criteria.md` 为准，并回改本表。
+
+## 11. 与配方 / 能力层的关系
+
+- 配方层（`Tool/playbooks/`）：一次任务的命令序列，可短、可专用。
+- 能力层（`Tool/capabilities/`）：可被 `compose` 复用的最小判定单元。
+- 本域：把配方与能力组合成可独立交付的技能，并为每条判据配证据。
+- 晋升顺序见 `docs/PROMOTION.md`：第 1 次落案例、第 2 次升配方、第 3 次升能力；域只做被动收敛。
+
+## 12. 复跑自检
+
+```
+python Tool/scripts/preflight.py --fast
+python Tool/skill/{{name}}/scripts/{{name}}-check.py --self-test
+python Tool/skill/{{name}}/scripts/{{name}}-accept.py --self-test
+```
+
+三条都 rc=0 才允许把本域的结论标记为可交付。
+

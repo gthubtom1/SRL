@@ -1,0 +1,45 @@
+# 能力卡：{{title}}
+
+- capability id：`{{name}}`
+- 成熟度：`probe`（骨架；补齐判定与真实案例后改 `usable`）
+- 脚本：`Tool/scripts/{{name}}.py`
+- 触发词：{{name}}、{{trigger_words}}
+
+## 适用
+
+- 第 3 次遇到同一类输入面，且现有 playbook 已有可复跑命令序列。
+- 需要一个可被 `compose` 引用、可单独 `--self-test` 的最小能力。
+
+## 输入 / 输出
+
+| 方向 | 字段 | 说明 |
+| :-- | :-- | :-- |
+| 输入 | `--input` | 样本、目标或中间产物路径 |
+| 输入 | `--json` | 机读输出开关 |
+| 输出 | `ok` | 判定是否成立 |
+| 输出 | `reason` | 不成立时的结构化原因 |
+| 输出 | `evidence` | 证据路径与 sha256 |
+
+## 步骤
+
+1. `python Tool/scripts/{{name}}.py --self-test` → rc=0，先确认骨架自洽。
+2. `python Tool/scripts/{{name}}.py --input <TARGET> --json` → rc=0，落结构化结果。
+3. 把结果与证据写进案例：`case_state.py prove` / `deliver`。
+
+## 判据（可机检）
+
+- `--self-test` rc=0。
+- 默认路径缺输入时 rc=2，且输出 `{"ok": false, "reason": ...}`。
+- 真实输入 `ok=true` 时 `evidence` 存在且 sha256 可复算。
+
+## 失败判据 + 换路
+
+- rc=2 且 `reason=missing-input` → 补输入或换更窄输入面。
+- 判定与案例结论冲突 → 回案例重算，差异写进 `notes.md`。
+- 单次可用但不可复算 → 保持 `probe`，先补证据与 fixture。
+
+## 证据
+
+- `work/<case>/probe.json`
+- `work/<case>/notes.md`
+- 原始输出（stdout/stderr）与输入哈希

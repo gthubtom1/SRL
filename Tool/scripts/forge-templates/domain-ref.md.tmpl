@@ -1,0 +1,70 @@
+# {{num}} · {{ref_title}}（{{name}}）
+
+> 本篇是 `{{name}}` 域的第 {{num}} 篇参考，聚焦「{{ref_title}}」。
+> 上游判据：`references/01-criteria.md`；失败换路：`references/02-failure-criteria.md`。
+
+## 这一篇回答什么
+
+- {{purpose_1}}
+- {{purpose_2}}
+- {{purpose_3}}
+
+## 输入面
+
+| 输入 | 必填 | 说明 |
+| :-- | :-- | :-- |
+| `<TARGET>` | 是 | 本次目标，需带哈希 |
+| `<case>` | 是 | `work/<case>` 案例目录 |
+| `<scope>` | 是 | 授权与边界说明 |
+| `<证据目录>` | 否 | 默认 `work/<case>/artifacts` |
+
+## 操作序列
+
+1. `python Tool/scripts/case_state.py init --case work/<case> --target <TARGET>` → rc=0。
+2. `python Tool/skill/{{name}}/scripts/{{name}}-check.py --case work/<case> --json` → rc=0。
+3. 记录字段：`ok`、`reason`、`criteria.total`、`evidence[]`。
+4. 证据落盘后再下结论；结论与证据必须一一对应。
+
+## 判据
+
+- 结果字段齐全，且 `reason` 在失败时非空。
+- 同一输入重跑两次，`run.json` 的关键字段一致。
+- 每条结论都能指向一个证据文件与 sha256。
+
+## 失败判据
+
+- rc=2 且 `reason=missing-input`：输入面不齐，先补输入。
+- rc=1 且 `criteria.blocking>0`：存在阻断判据，按 `02-failure-criteria.md` 换路。
+- 两次结果不一致：先固定环境变量与样本哈希，再判定。
+
+## 常见误判
+
+- 用单次观测代替复算：至少两次重跑。
+- 把中间产物当证据：证据必须是可复算的原始输出。
+- 忽略 scope：超出 scope 的动作不计入结论。
+
+## 取证与留痕
+
+- 原始输出：`work/<case>/artifacts/<step>-stdout.txt`
+- 结构化结果：`work/<case>/run.json`
+- 证据清单：`work/<case>/evidence.md`（路径 + sha256 + 采集时间）
+
+## 交接
+
+- 结论写进 `report.md`，并注明本域版本与脚本哈希。
+- 需要其它域时，在 `notes.md` 写明转交理由与已取证据。
+
+## 检查清单
+
+- [ ] 输入面与 scope 已落盘，目标哈希已记录。
+- [ ] check / accept 两条命令都 rc=0 或 rc=1（有明确 reason）。
+- [ ] 关键字段已摘录到 `notes.md`，证据路径可点开。
+- [ ] 失败路径至少跑过一次，并记录了换路动作。
+- [ ] 复跑一次，关键字段与首次一致。
+
+## 维护约定
+
+- 本篇阈值或步骤变更时，同步 `01-criteria.md` 与 SKILL 的判据表。
+- 新增证据形态时，在 `06-evidence-and-handoff.md` 补一行说明。
+- 本篇只保留可执行内容；历史讨论进 `Tool/cases/` 或 KB，不留在本域正文。
+

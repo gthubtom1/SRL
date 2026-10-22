@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""{{name}}.py —— {{title}} 能力骨架（capability id: {{name}}）。
+
+生成器：`python Tool/scripts/forge.py capability {{name}}`。
+骨架约定：
+  --self-test       内部断言，rc=0 表示骨架自洽
+  --input <PATH>    真实输入；骨架阶段返回 rc=2 并给出结构化 reason
+  --json            机读输出
+退出码：0 通过 / 1 判定不成立 / 2 输入缺失或骨架未实现。
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import sys
+
+SCHEMA = "seep.capability.{{name}}/1"
+
+
+def normalize(value) -> str:
+    return " ".join(str(value or "").split())
+
+
+def verdict(findings) -> dict:
+    blocking = [f for f in findings if isinstance(f, dict) and f.get("blocking")]
+    return {
+        "ok": not blocking,
+        "blocking": len(blocking),
+        "reason": "" if not blocking else "blocking-findings",
+    }
+
+
+def evidence(path: str) -> dict:
+    if not os.path.isfile(path):
+        return {"path": path, "present": False, "sha256": ""}
+    with open(path, "rb") as fh:
+        digest = hashlib.sha256(fh.read()).hexdigest()
+    return {"path": path, "present": True, "sha256": digest}
+
+
+def analyze(path: str) -> dict:
+    """TODO: 换成真实判定；骨架阶段保持 rc=2。"""
+    return {
+        "ok": False,
+        "schema": SCHEMA,
+        "input": path,
+        "reason": "skeleton-not-implemented",
+        "findings": [],
+        "evidence": [evidence(path)],
+    }
+
+
+def self_test() -> int:
+    checks, failures = 0, []
+
+    def expect(label, cond):
+        nonlocal checks
+        checks += 1
+        if not cond:
+            failures.append(label)
+
+    expect("normalize 折叠空白", normalize("  a \n b  ") == "a b")
+    expect("normalize 空值", normalize(None) == "")
+    expect("verdict 无阻断为 ok", verdict([])["ok"] is True)
+    expect("verdict 有阻断为 fail", verdict([{"blocking": True}])["ok"] is False)
+    expect("verdict reason 可机读", verdict([{"blocking": True}])["reason"] == "blocking-findings")
+    expect("evidence 缺失不抛", evidence(os.path.join("no", "such", "file"))["present"] is False)
+    expect("schema 前缀正确", SCHEMA.startswith("seep.capability."))
+    print(json.dumps({"ok": not failures, "checks": checks, "tool": "{{name}}.py",
+                      "failures": failures}, ensure_ascii=False))
+    return 0 if not failures else 1
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="{{title}} 能力骨架（{{name}}）")
+    ap.add_argument("--input", default=None, help="输入样本或目标路径")
+    ap.add_argument("--json", action="store_true", help="输出 JSON")
+    ap.add_argument("--self-test", action="store_true", help="内部断言")
+    args = ap.parse_args()
+    if args.self_test:
+        return self_test()
+    if not args.input:
+        msg = {"ok": False, "schema": SCHEMA, "reason": "missing-input"}
+        print(json.dumps(msg, ensure_ascii=False) if args.json else msg["reason"])
+        return 2
+    result = analyze(os.path.abspath(args.input))
+    print(json.dumps(result, ensure_ascii=False, indent=2) if args.json
+          else json.dumps(result, ensure_ascii=False))
+    return 0 if result.get("ok") else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
