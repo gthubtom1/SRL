@@ -172,6 +172,7 @@ python Tool/skill/ad-cloud/scripts/ad-repro.py --input bundle.json --json
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input events.json
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input adcs-find.json   # ESC9-17 离线判定（ESC12 需 CA 主机本地权限，只登记 blocker）
 python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input ntlm-type2.json  # 公网 445：离线解析 NTLM type 2（域/OS/时间戳/指纹）
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint --fixture Tool/cases/ad-cloud01  # 边缘接入面 10 类只读指纹（VPN/OWA/Zimbra/Okta/M365）
 python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml security.xml --redact --out events.json
 
 # 案例证据链机检（字段/哈希/证明链/凭据红线）

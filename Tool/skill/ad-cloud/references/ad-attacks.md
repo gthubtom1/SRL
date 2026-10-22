@@ -321,20 +321,20 @@ impacket-GetNPUsers "<domain>/" -dc-ip <dc> -usersfile users.txt -no-pass -forma
 > 公开 metadata、协议协商与错误码分类。pre-auth RCE PoC、强制认证、relay 另需单独授权单，
 > 且先做检测型验证。频率：同目标同路径 ≤1 次/小时，不刷 CVE 路径字典。
 
-### 12.1 四列判据（指纹 → 只读判据 → 失败判据 → 代价）
+### 12.1 五列判据（指纹 → 只读判据 → 失败判据 → 代价 → 脚本字段）
 
-| 面 | 暴露面指纹（只看响应） | 只读验证判据（可机检） | 失败判据 | 代价 |
-| :-- | :-- | :-- | :-- | :-- |
-| Cisco ASA / AnyConnect | `/+CSCOE+/logon.html`、`Set-Cookie: webvpn=`、页内 `AnyConnect` | 200/302 且首页含 `CSCOE`；`/+CSCOE+/saml/sp/metadata` 返回 XML，可读出 `AuthnRequestsSigned`/`WantAssertionsSigned` | 路径 404 且首页无厂商字样；metadata 要登录 → 记 `blocked` | 低：每个请求进 WAF/SIEM |
-| Fortinet FortiGate | `/remote/login`、`Set-Cookie: SVPNCOOKIE=`、页内 `FortiGate` | 登录页 200 且含 `FortiGate`/`SSL-VPN`；`/remote/saml/metadata` 可读 | 404/统一错误页（banner 被抹）→ 只记“疑似 VPN” | 低 |
-| Citrix NetScaler / ADC | `/vpn/index.html`、`Set-Cookie: NSC_AAA=`、`/menu/neo` | 首页 200 且含 `NetScaler`/`Citrix Gateway`；saml 端点可读 | 403 且无 `NSC_*` cookie → 不是网关面 | 低 |
-| Palo Alto GlobalProtect | `/global-protect/login.esp`、`panui-<ver>`、`PHPSESSID` | 登录页 200 且含 `GlobalProtect Portal`；`panui-` 版本串入档 | 404/仅跳转门户首页 | 低 |
-| Pulse / Ivanti Connect Secure | `/dana-na/auth/url_default/welcome.cgi`、`DSAuthSession=` | 200 且页内含 `Pulse Secure`/`Ivanti`；版本串可读 | 302 到统一登录、无 `dana-na` 路径 | 低 |
-| SonicWall / F5 | `swap=`/`swapauth=`、`/my.policy`、`BIGipServer*` | 登录页含 `SonicWall`/`NetExtender`/`BIG-IP` | 只有通用 401/403 | 低 |
-| Exchange / OWA | `X-OWA-Version`、`X-FEServer`、`WWW-Authenticate: Negotiate` | 一次 Type-1 negotiate（**不带凭据**）拿到 NTLM type 2，离线解析域名/OS/时间戳 → `ad-repro --kind ntlm-type2`；`/owa/healthcheck.htm` 200 | 无 `X-OWA-Version` 且 negotiate 不回 type 2；`/owa/` 401 但无挑战 | 低；只有 Type-1，无认证尝试 |
-| Zimbra | `/zimbra/`、页题 `Zimbra`、`/service/soap/` | 匿名 `GetVersionInfoRequest` 返回 `<VersionString>`/`<ReleaseString>`（不认证、不枚举用户） | SOAP 要求 authToken；只回登录页 → 只记版本面 | 低；用户枚举属越界（会产生登录失败日志） |
-| Okta | `<tenant>.okta.com/login`、`/.well-known/okta-organization` | well-known 返回 `id`/`issuer`/endpoints；登录页重定向链里出现租户 slug | 404/统一错误；org 未公开 well-known | 低；因素枚举需已授权会话 |
-| M365 / Entra | `*.onmicrosoft.com`、`login.microsoftonline.com` 重定向、`autodiscover.*` | `getuserrealm.srf?login=<domain>&xml=1` 得 `NameSpaceType`（Managed/Federated）与 `AuthURL`；`<domain>/.well-known/openid-configuration` 得 tenant/issuer | 域不属该租户；openid-configuration 404 → 换域 | 低；**不发 ROPC/不做 AADSTS 尝试**（那需授权单） |
+| 面 | 暴露面指纹（只看响应） | 只读验证判据（可机检） | 失败判据 | 代价 | 脚本判据字段（`--kind edge-fingerprint`） |
+| :-- | :-- | :-- | :-- | :-- | :-- |
+| Cisco ASA / AnyConnect | `/+CSCOE+/logon.html`、`Set-Cookie: webvpn=`、页内 `AnyConnect` | 200/302 且首页含 `CSCOE`；`/+CSCOE+/saml/sp/metadata` 返回 XML，可读出 `AuthnRequestsSigned`/`WantAssertionsSigned` | 路径 404 且首页无厂商字样；metadata 要登录 → 记 `blocked` | 低：每个请求进 WAF/SIEM | `product=cisco-asa, confidence=high, evidence=[cookie webvpn, path /+CSCOE+/logon.html]` |
+| Fortinet FortiGate | `/remote/login`、`Set-Cookie: SVPNCOOKIE=`、页内 `FortiGate` | 登录页 200 且含 `FortiGate`/`SSL-VPN`；`/remote/saml/metadata` 可读 | 404/统一错误页（banner 被抹）→ 只记“疑似 VPN” | 低 | `product=fortinet-fortigate, confidence=high, evidence=[cookie SVPNCOOKIE, path /remote/login]` |
+| Citrix NetScaler / ADC | `/vpn/index.html`、`Set-Cookie: NSC_AAA=`、`/menu/neo` | 首页 200 且含 `NetScaler`/`Citrix Gateway`；saml 端点可读 | 403 且无 `NSC_*` cookie → 不是网关面 | 低 | `product=citrix-netscaler, confidence=high, evidence=[cookie NSC_AAA/LastMRH_Session, path /vpn/index.html]` |
+| Palo Alto GlobalProtect | `/global-protect/login.esp`、`panui-<ver>`、`PHPSESSID` | 登录页 200 且含 `GlobalProtect Portal`；`panui-` 版本串入档 | 404/仅跳转门户首页 | 低 | `product=paloalto-globalprotect, confidence=high, evidence=[body panui-, path /global-protect/login.esp]` |
+| Pulse / Ivanti Connect Secure | `/dana-na/auth/url_default/welcome.cgi`、`DSAuthSession=` | 200 且页内含 `Pulse Secure`/`Ivanti`；版本串可读 | 302 到统一登录、无 `dana-na` 路径 | 低 | `product=pulse-ivanti, confidence=high, evidence=[cookie DSAuthSession, path /dana-na/auth/url_default/welcome.cgi]` |
+| SonicWall / F5 | `swap=`/`swapauth=`、`/my.policy`、`BIGipServer*` | 登录页含 `SonicWall`/`NetExtender`/`BIG-IP` | 只有通用 401/403 | 低 | `product=sonicwall-f5, confidence=high, evidence=[cookie swap|LastMRH_Session|BIGipServer*, path /cgi-bin/welcome|/my.policy]` |
+| Exchange / OWA | `X-OWA-Version`、`X-FEServer`、`WWW-Authenticate: Negotiate` | 一次 Type-1 negotiate（**不带凭据**）拿到 NTLM type 2，离线解析域名/OS/时间戳 → `ad-repro --kind ntlm-type2`；`/owa/healthcheck.htm` 200 | 无 `X-OWA-Version` 且 negotiate 不回 type 2；`/owa/` 401 但无挑战 | 低；只有 Type-1，无认证尝试 | `product=microsoft-owa, confidence=med（无 X-OWA-Version/X-OWA-CANARY 时最高 med）, evidence=[path /owa/, header www-authenticate]` |
+| Zimbra | `/zimbra/`、页题 `Zimbra`、`/service/soap/` | 匿名 `GetVersionInfoRequest` 返回 `<VersionString>`/`<ReleaseString>`（不认证、不枚举用户） | SOAP 要求 authToken；只回登录页 → 只记版本面 | 低；用户枚举属越界（会产生登录失败日志） | `product=zimbra, confidence=high, evidence=[cookie ZM_TEST, path /zimbra/]` |
+| Okta | `<tenant>.okta.com/login`、`/.well-known/okta-organization` | well-known 返回 `id`/`issuer`/endpoints；登录页重定向链里出现租户 slug | 404/统一错误；org 未公开 well-known | 低；因素枚举需已授权会话 | `product=okta, confidence=high, evidence=[cookie DT, path /.well-known/okta-organization]` |
+| M365 / Entra | `*.onmicrosoft.com`、`login.microsoftonline.com` 重定向、`autodiscover.*` | `getuserrealm.srf?login=<domain>&xml=1` 得 `NameSpaceType`（Managed/Federated）与 `AuthURL`；`<domain>/.well-known/openid-configuration` 得 tenant/issuer | 域不属该租户；openid-configuration 404 → 换域 | 低；**不发 ROPC/不做 AADSTS 尝试**（那需授权单） | `product=m365-entra, confidence=high, evidence=[body NameSpaceType, path /getuserrealm.srf]` |
 
 判据：指纹命中 + 至少一个**公开端点**返回可解析字段（XML/JSON/版本串）。
 失败判据：只有端口开放或登录页 HTML，无厂商字符串、无 metadata、无版本字段 → `blocked`，
@@ -375,3 +375,23 @@ curl -s 'https://<tenant>.okta.com/.well-known/openid-configuration'
 证据包（四件）：授权编号与清单条目；时间与源 IP；请求方法+路径+状态码+响应头/字段片段；
 `未做` 声明（未爆破/未提交凭据/未写/未投毒/未发利用包）。
 
+
+### 12.4 怎么跑（离线优先，在线只读）
+
+```bash
+export PYTHONIOENCODING=utf-8
+# 1) 离线复算：10 类脱敏样例，零网络，rc=0
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint \
+  --fixture Tool/cases/ad-cloud01/input/edge-fingerprint.json
+# 2) 在线只读：HEAD 优先、GET 兜底；不提交凭据、不带 Cookie jar、不跟随登录
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint --url https://<host>/
+# 3) 多目标：[{"url","product_hint"}, ...]；--strict 时有 blocked 目标返回 rc=3
+python Tool/skill/ad-cloud/scripts/ad-repro.py --kind edge-fingerprint --input targets.json --strict
+```
+
+输出固定 `{"ok", "kind":"edge-fingerprint", "results":[...], "blocked_at"}`；每条含
+`product / confidence(low|med|high) / evidence[{header,path,value}] / judgement`，且
+`auth_attempted` 恒为 `false`。判定口径：单条线索=low；两条独立线索（不同家族）=med；
+产品专属 cookie/版本串 + 专属路径=high。`high` 只表示指纹吻合，结论上限仍是 `candidate`
+（暴露面）；无指纹时 `product=null, verdict=blocked`，不得用默认口令或 CVE 路径字典升级。
+`--self-test` 断言 10 类全对，且 OWA 缺 `X-OWA-Version` 时不得判 high。
