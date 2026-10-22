@@ -46,9 +46,17 @@ import time
 
 try:
     import frida
-except ImportError:  # pragma: no cover
-    sys.stderr.write("frida is required: pip install frida (host package must match the device server)\n")
-    sys.exit(2)
+    FRIDA_ERROR = None
+except ImportError as exc:  # pragma: no cover
+    frida = None
+    FRIDA_ERROR = str(exc)
+
+
+def tool_missing(reason):
+    """Structured dependency failure: recipes can machine-check blocked_at."""
+    print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                      "reason": str(reason)[:500]}, ensure_ascii=False))
+    return 2
 
 
 # Device-side failures worth retrying: a target that is still starting, a server
@@ -59,7 +67,7 @@ RETRYABLE = tuple(
     getattr(frida, name)
     for name in ("TransportError", "NotSupportedError", "ServerNotRunningError",
                  "ProcessNotFoundError", "InvalidOperationError", "TimedOutError")
-    if hasattr(frida, name)
+    if frida is not None and hasattr(frida, name)
 )
 
 
@@ -402,6 +410,10 @@ def main(argv=None):
     parser.add_argument("--backoff", type=float, default=1.0,
                         help="first reconnect delay (seconds); doubles per attempt")
     opts = parser.parse_args(argv)
+
+    if frida is None:
+        return tool_missing("frida is required: pip install frida (host package must match "
+                            "the device server): %s" % FRIDA_ERROR)
 
     if opts.mode == "call" and not opts.export:
         parser.error("--mode call requires --export")

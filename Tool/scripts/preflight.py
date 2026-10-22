@@ -216,6 +216,30 @@ def check_numbers(fast):
         except Exception as _exc:  # noqa: BLE001
             claims.append("gate-counts 对账失败: %s" % str(_exc)[:40])
 
+    # 旧值残留机检（第一方活文档；历史 CHANGELOG/AUDIT/HANDOFF 与 audit 目录跳过）
+    STALE_LITERALS = ["38 个底层分析工具", "38 工具", "38 个原生工具",
+                      "292+", "v6.2.2", "v3.0.3", "Skills - 9项", "10 大逆向 Skill", "本域 7 条", "= 8/8"]
+    SKIP_NAMES = ("CHANGELOG", "AUDIT", "HANDOFF", "ANALYSIS", "DEFERRALS", "OPTIMIZATION")
+    for root_, _dirs, files_ in os.walk(ROOT):
+        normd = root_.replace(os.sep, "/")
+        if any(x in normd for x in ("/work", "/node_modules", "/__pycache__", "/upstream",
+                                    "/cases", "/audit", "/mcp/Tool")):
+            continue
+        for f_ in files_:
+            if not f_.endswith(".md"):
+                continue
+            if any(f_.startswith(x) for x in SKIP_NAMES):
+                continue
+            fp_ = os.path.join(root_, f_)
+            try:
+                t_ = open(fp_, encoding="utf-8", errors="replace").read()
+            except Exception:
+                continue
+            rel_ = os.path.relpath(fp_, ROOT).replace(os.sep, "/")
+            for lit in STALE_LITERALS:
+                if lit in t_:
+                    claims.append("%s: 残留旧值 %r" % (rel_, lit))
+
     add("2 数字", "文档数字 vs 实测", not claims,
         "实测 tools=%d skills=%d kb=%d manual=%d" % (a["tools"], a["skills"], a["kb"], a["manual"])
         + ("；" + "；".join(claims[:4]) if claims else ""))

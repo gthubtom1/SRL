@@ -16,7 +16,12 @@
 
 输出（--json）：
     {"ok": true, "schema": "seep.captcha-angle/1", "angle": 17.0, "confidence": 0.83,
-     "method": "rotate-search", "size": [280, 280], "candidates": [{"angle": 17.0, "score": 0.91}]}
+     "ambiguous": false, "method": "rotate-search", "size": [280, 280],
+     "candidates": [{"angle": 17.0, "score": 0.91}]}
+
+90° 等价类：图对 90° 旋转对称时 4 个候选角（θ/θ+90/θ+180/θ+270）分数几乎相同，
+只能定到等价类。此时输出 "ambiguous": true 且 confidence <= 0.35（不再假装高置信度），
+并只用 angle_mod90 作为等价类代表；有箭头/文字等方向线索的图仍给唯一高置信角。
 
 判据：confidence >= 0.6 → 直接提交；0.35–0.6 → 提交前在 ±1.5° 内试 2–3 次；< 0.35 → 换路（人工/换图）。
 退出码：0 有结果 / 2 输入缺失或不可读 / 3 置信度过低（仍输出结果）。
@@ -41,6 +46,13 @@ except Exception:  # noqa: BLE001
     Image = None
 
 SCHEMA = "seep.captcha-angle/1"
+# 4 个 90° 等价候选的分数极差 / 最高分低于该比例 → 判为「等价类不可分」。
+AMBIGUOUS_SPREAD = 0.03
+AMBIGUOUS_CONF_CAP = 0.35
+# 方向项权重：把「上/下 + 左/右亮度不平衡」并入候选分数。
+# 投影分数本身对 90° 旋转不变（rows.var+cols.var 换轴后相同），单靠它永远分不出
+# 4 个等价类；方向项才能区分 θ 与 θ+90。90° 对称图上 4 类方向项相同 → 极差≈0。
+DIR_WEIGHT = 1.0
 LIMITS = [
     "图像本身没有方向性（纯色/放射对称）时置信度会低，属正常，不是算错",
     "只给角度，不含方向符号约定；有的平台要求 ±180 归一，按目标站点文档换算",
@@ -84,22 +96,60 @@ def edge_map(gray):
     return np.sqrt(gx ** 2 + gy ** 2)
 
 
-def score_angle(gray, angle):
-    """把图反向旋转 angle 后，边缘投影的尖锐度（越尖越说明对齐了）。"""
+def _rotate_crop(gray, angle):
+    """把图反向旋转 angle，裁掉旋转产生的边角（评分与方向项共用一次旋转结果）。"""
     if Image is None:
-        return 0.0
+        return None
     im = Image.fromarray(gray.astype(np.uint8))
     rot = im.rotate(angle, resample=Image.BICUBIC, expand=False, fillcolor=int(np.median(gray)))
     arr = np.asarray(rot, dtype=np.float32)
     h, w = arr.shape
-    m = max(2, int(min(h, w) * 0.08))          # 裁掉旋转产生的边角
-    arr = arr[m:h - m, m:w - m]
+    m = max(2, int(min(h, w) * 0.08))
+    return arr[m:h - m, m:w - m]
+
+
+def _directional(arr):
+    """上/下、左/右亮度不平衡（对 90° 旋转敏感，对 90° 对称图的 4 个等价类相同）。"""
+    h, w = arr.shape
+    up = float(arr[:h // 2].mean())
+    dn = float(arr[h // 2:].mean())
+    lf = float(arr[:, :w // 2].mean())
+    rt = float(arr[:, w // 2:].mean())
+    vbal = (dn - up) / (abs(dn) + abs(up) + 1e-9)
+    hbal = (rt - lf) / (abs(rt) + abs(lf) + 1e-9)
+    return vbal + 0.5 * hbal
+
+
+def score_angle(gray, angle):
+    """把图反向旋转 angle 后，边缘投影的尖锐度（越尖越说明对齐了）。"""
+    arr = _rotate_crop(gray, angle)
+    if arr is None or arr.size == 0 or min(arr.shape) < 4:
+        return 0.0
     e = edge_map(arr)
     rows = e.sum(axis=1)
     cols = e.sum(axis=0)
     if rows.size < 3 or cols.size < 3:
         return 0.0
     return float(rows.var() + cols.var())
+
+
+def class_scores(gray, base_angle):
+    """90° 等价类的 4 个候选分数 + 相对极差（max-min 除以最高分）。
+
+    投影分数对 90° 旋转不变，所以再加上方向项（DIR_WEIGHT）；
+    90° 对称图上 4 个候选只有重采样噪声差 → 极差 < AMBIGUOUS_SPREAD。
+    """
+    rows = []
+    for k in range(4):
+        a = (base_angle + 90.0 * k) % 360.0
+        arr = _rotate_crop(gray, a)
+        sc = score_angle(gray, a)
+        d = _directional(arr) if arr is not None and min(arr.shape) >= 4 else 0.0
+        rows.append((a, sc, d))
+    top = max(r[1] for r in rows) or 1.0
+    comb = [r[1] / top + DIR_WEIGHT * r[2] for r in rows]
+    spread = (max(comb) - min(comb)) / (abs(max(comb)) + 1e-9)
+    return [(round(a, 1), round(c, 4)) for (a, _, _), c in zip(rows, comb)], spread
 
 
 def solve(gray, lo=0.0, hi=360.0):
@@ -128,10 +178,20 @@ def solve(gray, lo=0.0, hi=360.0):
     conf = 0.0
     if fine_s > 0 and second >= 0:
         conf = max(0.0, min(1.0, (fine_s - second) / (abs(fine_s) + 1e-9)))
+    # 90° 等价类检查：θ / θ+90 / θ+180 / θ+270 四个候选分数接近 → 只能定到等价类。
+    class_list, spread = class_scores(gray, fine_a)
+    ambiguous = bool(spread < AMBIGUOUS_SPREAD)
+    if ambiguous:
+        conf = min(conf, AMBIGUOUS_CONF_CAP)
+    candidates = [{"angle": round(fine_a, 1), "score": round(fine_s, 2)},
+                  {"angle": round(best_a, 1), "score": round(best_s, 2)}]
+    for a, c in class_list:
+        candidates.append({"angle": a, "score": c})
     return {"angle": round(fine_a, 1), "angle_mod90": round(fine_a % 90.0, 1),
-            "confidence": round(conf, 3), "method": "rotate-search",
-            "candidates": [{"angle": round(fine_a, 1), "score": round(fine_s, 2)},
-                           {"angle": round(best_a, 1), "score": round(best_s, 2)}]}
+            "confidence": round(conf, 3), "ambiguous": ambiguous,
+            "equivalence_class": [a for a, _ in class_list],
+            "equivalence_spread": round(spread, 4),
+            "method": "rotate-search", "candidates": candidates}
 
 
 def self_test():
@@ -164,6 +224,26 @@ def self_test():
         checks.append(("angle-mod90-err<=2", abs(res["angle_mod90"] - (truth % 90)) <= 2.0))
         checks.append(("confidence", res["confidence"] >= 0.35))
         checks.append(("schema", res["method"] == "rotate-search"))
+        checks.append(("asymmetric-not-ambiguous", res.get("ambiguous") is False))
+
+    # 对称图：居中圆环 + 居中方框（4 折 = 90° 旋转不变）→ 必须 ambiguous。
+    sym_path = os.path.join(tmp, "sym.png")
+    rng2 = np.random.default_rng(20261023)
+    sym = np.full((n, n), 175, dtype=np.uint8)
+    ring = np.abs(np.hypot(xx - n / 2.0, yy - n / 2.0) - 70) < 12
+    box = (np.abs(xx - n / 2.0) < 90) & (np.abs(yy - n / 2.0) < 90) & ~(
+        (np.abs(xx - n / 2.0) < 55) & (np.abs(yy - n / 2.0) < 55))
+    sym[ring] = 30
+    sym[box] = 60
+    sym = np.clip(sym + rng2.normal(0, 8, size=(n, n)), 0, 255).astype(np.uint8)
+    Image.fromarray(sym).rotate(-25.0, resample=Image.BICUBIC, expand=False,
+                                fillcolor=175).save(sym_path)
+    gray_s, err_s = load_gray(sym_path)
+    checks.append(("sym-load", err_s is None and gray_s is not None))
+    if gray_s is not None:
+        rs = solve(gray_s)
+        checks.append(("symmetric-ambiguous", rs.get("ambiguous") is True))
+        checks.append(("symmetric-confidence<=0.35", rs["confidence"] <= 0.35))
     gray2, err2 = load_gray(os.path.join(tmp, "nope.png"))
     checks.append(("missing-input", gray2 is None and "不存在" in (err2 or "")))
     fails = [nm for nm, ok in checks if not ok]

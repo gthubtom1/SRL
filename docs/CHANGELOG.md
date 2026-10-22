@@ -10,8 +10,16 @@
 
 ---
 
+## [1.26.0] — 2026-10-22
+> 能力补充 + 真实可用性收口（三个只读审计 + 三批并行修复）。
+- 验证码求解原语：新增 `Tool/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90/ambiguous+置信度）；纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
+- 真错修复：`captcha-angle` 检出 90° 等价类不可分时返回 `ambiguous:true`（不再高置信度给错角）；`temp_ocr` 落盘 `ocr.json` 且失败 rc=2；`probe_api` 非 2xx→rc=3 并支持 `--method/--data`；`case_state` 保留 URL 形态 target；`seep-start` 标注样例路径并对 URL 目标给 `web-check` 首步；`capability-gate` 引用统计拆「精确 id / 脚本别名 / reserved」。
+- 一致性：MCP 工具 38→40（README 矩阵补 `seep_case_search`/`seep_case_read`）、KB 292→409、radare2 5.9.8 / apktool 2.11.0、能力数统一 47、ROADMAP 与 softseep 域表 11 行、apkseep 54/61/57/123、组件 17→11、README 自指、AUDIT R1–R8、DEFERRALS 61。
+- 配方可用性：`web-api-sign-reverse` 改用 `mcp__js_reverse__*` 真实序列 + `sign_check.json` 判据；`web-check` 输出补 `url/status/headers`；`qinglong-signin` 写明 `env-ledger check` 的 rc=1 语义；`captcha-handling` 补 claim 步骤；6 个 frida/capstone 脚本统一 `blocked_at:"tool-missing"` rc=2。
+- 门禁：preflight 41/41、domain-gate 110/110、playbook-check 175 条坏命令 0、capability-gate 47/悬空 0、双平台 verify 65/0。
+
 ## [1.25.0] — 2026-10-22
-> 终版收口：能力层接线（45 能力 / DAG / 矩阵重算）、forge 三合一生成器、配方命令门禁、05-backend-rebuild 4 脚本 + L3 演练、site-clone 接入、意图 93/93、路由修正、全仓脱敏。
+> 终版收口：能力层接线（47 能力 = 44 基线 + 3 新增 / DAG / 矩阵重算）、forge 三合一生成器、配方命令门禁、05-backend-rebuild 4 脚本 + L3 演练、site-clone 接入、意图 93/93、路由修正、全仓脱敏。
 - 门禁：preflight 41/41、domain-gate 110/110、双平台 verify 65/0、意图 93/93。
 - 证据链收口：`case_state prove/claim/deliver` 对形似路径的 `--evidence` 校验存在性（缺失返回 `{ok:false,blocked_at:"evidence-missing"}` rc=2），缺失案例目录返回 `case-not-found` rc=2；案例目录口径统一为 `work/<case>`（`seep-start` 与全部配方/报告模板一致）。
 - 环境探测：drill 脚本的 chromium 查找改为 env → `PLAYWRIGHT_BROWSERS_PATH` → ms-playwright 目录 → PATH，找不到时输出 `blocked_at:"tool-missing"` rc=2。
@@ -19,7 +27,6 @@
 
 - 产物落盘：`web-check` / `sc-check` 的 `--out` 会自动创建父目录，写失败返回 `{"ok":false,"blocked_at":"out-unwritable"}` rc=2；`preflight` 新增 `out-artifact` 断言（--out 指到不存在目录必须落盘）。
 
-- 验证码求解原语：新增 `Tool/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90+置信度）；两者纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
 
 ## [1.24.2] — 2026-10-22
 > site-clone 第 11 域上线（crawl/rebuild/diff/accept + 8 refs + KB + 24 卡），措辞清理，部署同步。

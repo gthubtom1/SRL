@@ -6,7 +6,7 @@
 
 ## 一、 项目背景与定位
 
-本工程为面向 AI Agent 的**多平台客户端逆向工程与授权流安全审计（CWE-602）工作台**。深度覆盖 Windows PE/DLL、Android APK/DEX/SO、Linux ELF。包含 10 大逆向 Skill、4 大核心 MCP 服务、292+ 篇实战知识库与 14 个脱敏工业架构范式。
+本工程为面向 AI Agent 的**多平台客户端逆向工程与授权流安全审计（CWE-602）工作台**。深度覆盖 Windows PE/DLL、Android APK/DEX/SO、Linux ELF。包含 11 大逆向 Skill、4 大核心 MCP 服务、409 篇实战知识库与 14 个脱敏工业架构范式。
 
 ---
 
@@ -91,16 +91,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 
 - **汇报输出要求**：
   Agent 读取命令返回后，必须以 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准为蓝本，在对话框向用户输出清晰的结构化校对看板，包含：
-  1. **🛠️ 技能系统 (Skills - 9项)**：逐项列出【技能名】\|【目标路径】\|【期望文件数】\|【实际文件数】\|【可用状态 (🟢 READY / 🔴 MISSING)】；
+  1. **🛠️ 技能系统 (Skills - 30 个技能目录)**：逐项列出【技能名】\|【目标路径】\|【期望文件数】\|【实际文件数】\|【可用状态 (🟢 READY / 🔴 MISSING)】；
   2. **🔌 MCP 服务 (4大引擎)**：逐项列出【服务名】\|【期望工具数】\|【实际状态】\|【状态判定】\|【降级或修复说明】（未装 IDA 时明确标明 `🟡 DEGRADED: 已由内置 Radare2 自动承接`）；
-  3. **🔧 物理内置工具箱**：Radare2 (v6.2.2)、Jadx (v1.5.6)、Apktool (v3.0.3) 与 292+ 知识库状态；
+  3. **🔧 物理内置工具箱**：Radare2 (v5.9.8)、Jadx (v1.5.6)、Apktool (v2.11.0) 与 409 篇知识库状态；
   4. **🚀 总结与开工建议**：告知用户工作台当前可用能力，并提示重启会话输入 `lab：` 开启白盒审计。
 
 ---
 
 ## 三、 工作纪律与红线
 
-1. **`Tool/mcp/Tool/` 目录必须原地保留**：seep MCP 内部硬编码了相对路径 `TOOL_DIR = <脚本目录>/Tool`，搬动将导致 38 个底层分析工具全部瘫痪。
+1. **`Tool/mcp/Tool/` 目录必须原地保留**：seep MCP 内部硬编码了相对路径 `TOOL_DIR = <脚本目录>/Tool`，搬动将导致 40 个底层分析工具全部瘫痪。
 2. **严禁修改 `seep_mcp_server.py` 的路径常量**。
 3. **商业软件隔离**：IDA Pro 属于商业授权，不随包打包分发。检测不到时自动引导用户阅读 `MANUAL/IDA-PRO.md`，由 Radare2 自动降级承接。
 4. **受权范围白盒审计（G-Auth）**：目标默认视为已授权沙箱资产，直接开工；仅当用户明确声明「不属于我 / 没授权」时才停（唯一事实源：`Tool/prompts/AGENTS.md` §六）。
@@ -121,7 +121,7 @@ Seep\
 │
 ├── Tool\
 │   ├── skill\         11 个 Skill（以 softseep 为总控）
-│   ├── mcp\           seep MCP（38 工具）+ Tool\ 运行时依赖
+│   ├── mcp\           seep MCP（40 工具）+ Tool\ 运行时依赖
 │   │   └── Tool\safe\ 内置 Jadx、Radare2、Apktool、Hook 引擎等
 │   ├── prompts\       SEEP.md、AGENTS.md 与安全扩展
 │   ├── cases\         15 个脱敏项目工程（项目 A ~ 项目 N + 案例-6.9换肤壳）

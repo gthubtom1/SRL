@@ -9,7 +9,7 @@
 |---|---|
 | 目录 | `Tool/mcp/Tool/reverselab/` |
 | 上游项目 | `open-reverselab`（`Tool/upstream/open-reverselab/` 为镜像） |
-| 用途 | `seep_kb_search` / `seep_kb_read` 的知识库根（292 篇 + 索引） |
+| 用途 | `seep_kb_search` / `seep_kb_read` 的知识库根（409 篇 + 索引） |
 | 同步方式 | `setup/sync-upstream.ps1` → 先落 `Tool/upstream/`，再按 `setup/upstream-rules.json` 的 `preserve_local` 选择是否覆盖 |
 
 ## 本地改动（**同步时必须保留**）

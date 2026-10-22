@@ -271,13 +271,13 @@ metadata:
 | | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
 | | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
 | | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
-| **MCP** | **seep**（38 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
+| **MCP** | **seep**（40 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp__ida__*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **运行时** | `Tool/mcp/Tool/` | `safe/`（radare2/jadx/apktool/hook 模板）+ `reverselab/`（KB/boards/MCP 源码） | **严禁搬动或改名**（MCP 内部 `TOOL_DIR` 硬编码） |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
 | | `Tool/scripts/apk/` | `decode.ps1` / `rebuild-sign-install.ps1` / `frida-run.ps1` | APK 三件套 |
-| **知识库** | reverselab | `Tool/mcp/Tool/reverselab/kb/`（292 篇 .md） | 攻防方法论 |
+| **知识库** | reverselab | `Tool/mcp/Tool/reverselab/kb/`（409 篇 .md） | 攻防方法论 |
 | | seep KB | `seep_kb_search` / `_read` / `_checklist` / `_payloads` | 在线检索 |
 
 ### 扩展工具速查（8 个，按场景直接调）
@@ -514,5 +514,7 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 | 取证 / iOS·macOS / 游戏 | R26 | `forensics-mobile` | 证据链四要素齐全 |
 | 恶意样本分析 | R27 | `malware-analysis` | 行为时间线 + 可验证检测规则 |
 | 供应链 / CI-CD | R28 | `supply-chain-security` | 可达漏洞有 PoC 或投毒链有证据 |
+| 逆向测绘 / 补丁本地化 | R29 | `reverse` | 结构/壳/权威/钥匙四处齐全，补丁可回滚 |
+| 站点 1:1 复刻 | R35 | `site-clone` | 像素/DOM/请求集三项达标，后端缺口列 `backend_required` |
 
 > 每个域都是"九件套"：SKILL + ≥4 references + ≥1 可跑脚本 + 矩阵配置 + ≥2 案例 + KB board + 路由 + 本表登记 + 门禁断言。

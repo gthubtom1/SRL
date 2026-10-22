@@ -99,7 +99,14 @@ def load_refs(path):
 
 
 def disasm_window(sample, addr, before, after, pp, refs):
-    from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
+    try:
+        from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
+    except ImportError:
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "capstone is required for disassembly: "
+                                    "python -m pip install capstone"},
+                         ensure_ascii=False))
+        raise SystemExit(2)
 
     text_addr, blob = text_section(sample)
     end_of_text = text_addr + len(blob)

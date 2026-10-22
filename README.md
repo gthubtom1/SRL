@@ -55,7 +55,7 @@
 
 ## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）
 
-> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.25.0）。**
+> **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.26.0）。**
 > 原版的一切能力、体检、案例、知识库完整保留；我们只在其上补了原版没有的场景。
 
 **加了什么（23 → 40 个 MCP 工具，全部纯增量）**：
@@ -91,7 +91,7 @@
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
 - 体检从 50 项 → **65 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
-**基线定档（v1.8.4 起，当前 v1.25.0）**：架构 / 工具名 / 配置格式 / 状态文件 / 65 项体检 / 上游隔离边界 六项冻结，
+**基线定档（v1.8.4 起，当前 v1.26.0）**：架构 / 工具名 / 配置格式 / 状态文件 / 65 项体检 / 上游隔离边界 六项冻结，
 未来只做「新增技能、末尾追加工具、补文档与检查项」三类纯增量叠加。详见
 [`MANUAL/BASELINE-FREEZE.md`](MANUAL/BASELINE-FREEZE.md)。
 
@@ -215,8 +215,8 @@ Agent 自主完成：
 
 ```
 Seep\ (251 MB)
-├── README.md                      ← 全局说明（英文默认）
-├── README.zh.md                   ← 本文件（中文文档）
+├── README.md                      ← 本文件（中文文档，默认入口）
+├── README.zh.md                   ← 中文文档（同内容镜像入口）
 ├── Tool/prompts/contracts/CLAUDE.md                      ← Claude Code 项目级原生指令
 ├── .mcp.json                      ← 项目级 MCP 注册文件（Claude Code / OpenCode）
 ├── Tool/prompts/contracts/DSH-PROFILE.md                 ← DeepSeek Harness Cordis 插件配置模板
@@ -227,8 +227,8 @@ Seep\ (251 MB)
 │
 ├── Tool\
 │   ├── skill\                     ← 30 个技能（00–05 六个阶段技能 + 通用套件）
-│   │   ├── softseep\              ← ⭐ 总控调度器（判型路由 + 8 专题按需库）
-│   │   ├── apkseep\               ← Android 全链路逆向（113 个工程文件）
+│   │   ├── softseep\              ← ⭐ 总控调度器（判型路由 + 10 篇 references 按需库）
+│   │   ├── apkseep\               ← Android 全链路逆向（123 个工程文件：54 refs / 57 scripts）
 │   │   ├── ida-reverse\           ← IDA Pro 自动化联动（13337 唤醒规约）
 │   │   ├── client-license-validation-bypass\ ← 跨运行时卡密/授权审计
 │   │   ├── version-migration\     ← 跨版本追版与 AOB 特征迁移
@@ -240,8 +240,8 @@ Seep\ (251 MB)
 │   │   └── Tool\                  ← ⚠️ 硬编码相对路径，必须原地保留（重命名/搬移会断链）
 │   │       ├── safe\              ← 物理内置工具箱
 │   │       │   ├── jadx\          ← 75 MB（v1.5.6）
-│   │       │   ├── radare2\       ← 39 MB（v6.2.2 全套）
-│   │       │   ├── apktool\       ← 24 MB（v3.0.3）
+│   │       │   ├── radare2\       ← 38 MB（v5.9.8 全套；版本以 `--version` 为准）
+│   │       │   ├── apktool\       ← 24 MB（v2.11.0；版本以 `--version` 为准）
 │   │       │   ├── hook-mcp\      ← Frida / LSPosed 动态注入模板
 │   │       │   ├── ida-pro-mcp\   ← IDA 桥接适配层
 │   │       │   ├── js-reverse-mcp\← Web / JS 调试引擎
@@ -286,7 +286,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP 工具矩阵
 
-自研 `seep` MCP 服务暴露 **40 个原生工具**，分七大功能组：
+自研 `seep` MCP 服务暴露 **40 个原生工具**，分八大功能组：
 
 | 分类 | 工具 | 核心功能 | 上下文控制 |
 |---|---|---|---|
@@ -310,6 +310,8 @@ Seep\ (251 MB)
 | | `seep_kb_read` | 按主题精确读取完整技术手册 | — |
 | | `seep_kb_checklist` | 应急排查清单与攻击矩阵 | — |
 | | `seep_kb_payloads` | JWT / SSRF / SSTI / SQLi 载荷模板 | — |
+| **案例库** | `seep_case_search` | 按域/保护层/深度/结果检索已沉淀案例（index.json 缓存，缺失时实时扫） | `limit=` |
+| | `seep_case_read` | 读案例全文（case.json + facts.jsonl 前 20 行 + README 前 80 行） | — |
 | **流水线编排** | `seep_task_init` | 初始化隔离审计沙盒目录 | — |
 | | `seep_auto_triage` | 未知样本全量自动体检 | — |
 | | `seep_gen_security_report` | 三段式合规安全报告生成 | — |

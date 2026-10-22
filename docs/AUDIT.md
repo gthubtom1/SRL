@@ -1,4 +1,4 @@
-# AUDIT —— 多轮审查台账（R1–R10）
+# AUDIT —— 多轮审查台账（R1–R8）
 
 > 规则：每轮用**全新上下文子代理**；P0/P1 未清不得进入下一轮；
 > 结论只写「证据 + 判定 + 动作」，不写感受。门禁命令与本文件同源：
@@ -412,7 +412,7 @@
 ## v1.25.0 —— 终版收口（B/C/D/E 四份审计 + 修复）
 
 - 审计：B（深度）/C（可跑性）/D（架构）/E（上下文遗漏）四份落盘 `docs/audit/`；A（一致性）报告后续落盘并已修复，逐条见 `docs/audit/CLOSURE.md`。
-- **P0 修复**：能力层接线（44 个 id 加 domain/triggers/aliases，compose 改 DAG，矩阵按脚本重算）；新增 `forge.py`（playbook/capability/domain 三合一，生成即跑门禁）+ `docs/PROMOTION.md`（三次规则）+ `playbook-check.py`（配方命令必须可执行）；`05-backend-rebuild` 补 4 脚本（api-surface/schema-infer/backend-scaffold/switch-verify）+ 8 refs + L3 演练；site-clone 接入 4 能力与配方；配方命令对齐真实脚本。
+- **P0 修复**：能力层接线（47 个 id = 44 基线 + 3 新增，加 domain/triggers/aliases，compose 改 DAG，矩阵按脚本重算）；新增 `forge.py`（playbook/capability/domain 三合一，生成即跑门禁）+ `docs/PROMOTION.md`（三次规则）+ `playbook-check.py`（配方命令必须可执行）；`05-backend-rebuild` 补 4 脚本（api-surface/schema-infer/backend-scaffold/switch-verify）+ 8 refs + L3 演练；site-clone 接入 4 能力与配方；配方命令对齐真实脚本。
 - **P1 修复**：意图探针 60→**93 条**，覆盖 100%（0 未覆盖）；路由修正（`kerberoast` 词边界、R34/R35 与配方对齐）；VERSION/ROADMAP/AUDIT 计数同步；`work/plans/` 恢复；`docs/audit/` 不参与措辞与悬空检查。
 - 补充（终版前）：`--out` 自动建父目录、`deliver` 证据存在性校验、`preflight` 新增 `out-artifact` 断言（--out 指到不存在目录必须落盘）。
 - 验收：`domain-gate --all` **110/110**；`preflight --fast` **38/38**（全量 41/41）；`intent-coverage` 93/93；`capability-gate` 悬空 0；措辞 lint 0 命中。

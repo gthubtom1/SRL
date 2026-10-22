@@ -11,6 +11,10 @@
   [5] compose[] 指向的 id 必须已注册
   [6] 覆盖矩阵每行必须覆盖全部任务族，取值 ∈ {full, partial, via-compose}
   [7] 每个能力 id 必须被 ≥1 份配方引用，或在 JSON 里显式标 `reserved: true`
+      「被引用」拆三类报告（ok 判定不变）：
+        referenced_by_id      配方 `用到的能力` 行里出现该 `capability id` 本身（精确匹配）
+        referenced_by_script  只命中 `repo:<脚本stem>` 或脚本路径（脚本别名，非 id 引用）
+        reserved              JSON 里 reserved:true（既未引用也没上线）
   [8] compose[] 必须构成 DAG（检测并报出环路径）
 
 输出 covered / dangling：covered 是自洽可直接编排的能力；dangling 是缺文件、
@@ -115,14 +119,7 @@ def compose_cycles(objects) -> list:
     return cycles
 
 
-def recipe_references(objects, playbooks_dir: str) -> dict:
-    """找出被 ≥1 份配方引用的能力 id。
-
-    引用形态（任一即算）：
-      * 配方里出现裸 id（词边界）；
-      * 命名空间写法 repo:/apk:/tool:/mcp:<id>（裸 id 词边界已覆盖）；
-      * 配方步骤里出现能力 scripts[] 的脚本 basename。
-    """
+def _playbook_texts(playbooks_dir: str):
     texts = []
     if os.path.isdir(playbooks_dir):
         for path in sorted(glob.glob(os.path.join(playbooks_dir, "*.md"))):
@@ -133,8 +130,68 @@ def recipe_references(objects, playbooks_dir: str) -> dict:
                     texts.append((os.path.basename(path), fh.read()))
             except OSError:
                 continue
+    return texts
+
+
+NS_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*:")
+
+
+def recipe_capability_refs(objects, playbooks_dir: str):
+    """按「配方 `用到的能力` 行」分类引用（返回 (by_id, by_script)，无配方时 None）。
+
+    血案：旧版拿脚本 basename 在整个配方正文里做子串匹配，步骤里提一句脚本就算
+    “被引用”，47 个能力里真正按 id 被 `用到的能力` 行引用的只有 8 个，gate 却报 27。
+
+    by_id:     `用到的能力` 行的反引号 token 中，裸 id 或 `<命名空间>:<id>` 的 id 部分精确等于能力 id。
+    by_script: 同一行里命中 `repo:<脚本 stem>` 或命中脚本 stem（脚本别名，不是 id 引用）。
+    两者互斥：命中 id 就只计 by_id（脚本别名不再重复计）。
+    """
+    texts = _playbook_texts(playbooks_dir)
     if not texts:
         # 没有配方目录（例如 forge 的临时 stage）：此时无从判断引用，不误杀。
+        return None
+    tokens = {}
+    for name, text in texts:
+        toks = []
+        for line in text.splitlines():
+            if "用到的能力" in line:
+                toks.extend(re.findall(r"`([^`]+)`", line))
+        tokens[name] = toks
+    by_id, by_script = {}, {}
+    for path, stem, obj in objects:
+        if not isinstance(obj, dict):
+            continue
+        cid = obj.get("id") if isinstance(obj.get("id"), str) else stem
+        stems = set()
+        for script in obj.get("scripts") or []:
+            if isinstance(script, str) and script.strip():
+                stems.add(os.path.splitext(os.path.basename(script.replace("\\", "/")))[0])
+        id_hits, script_hits = [], []
+        for name, toks in tokens.items():
+            bases = [t.split(":", 1)[1] if NS_RE.match(t) else t for t in toks]
+            if cid in toks or cid in bases:
+                id_hits.append(name)
+            elif any(t.startswith("repo:") and t.split(":", 1)[1] in stems for t in toks) \
+                    or any(st and st in t for t in toks for st in stems):
+                script_hits.append(name)
+        if id_hits:
+            by_id[cid] = id_hits
+        elif script_hits:
+            by_script[cid] = script_hits
+    return by_id, by_script
+
+
+def recipe_references(objects, playbooks_dir: str) -> dict:
+    """找出被 ≥1 份配方引用的能力 id（宽松口径，仅用于 ok 判定）。
+
+    引用形态（任一即算）：
+      * 配方里出现裸 id（词边界）；
+      * 命名空间写法 repo:/apk:/tool:/mcp:<id>（裸 id 词边界已覆盖）；
+      * 配方步骤里出现能力 scripts[] 的脚本 basename。
+    分类统计用 recipe_capability_refs（只认 `用到的能力` 行，id 优先）。
+    """
+    texts = _playbook_texts(playbooks_dir)
+    if not texts:
         return None
     refs = {}
     for path, stem, obj in objects:
@@ -337,7 +394,8 @@ def run_gate(caps_dir: str, matrix_path: str, root: str,
         "schema": SCHEMA,
         "caps_dir": rel(caps_dir, root),
         "counts": {"capabilities": 0, "covered": 0, "dangling": 0,
-                   "referenced": 0, "reserved": 0, "cycles": 0},
+                   "referenced": 0, "referenced_by_id": 0,
+                   "referenced_by_script": 0, "reserved": 0, "cycles": 0},
         "covered": [],
         "dangling": [],
         "by_maturity": {m: 0 for m in MATURITIES},
@@ -382,6 +440,19 @@ def run_gate(caps_dir: str, matrix_path: str, root: str,
         result["errors"].append("compose 必须是 DAG，检测到环: " + " -> ".join(cycle))
     referenced = set(refs) if refs is not None else None
     result["counts"]["referenced"] = len(referenced or ())
+    # 三类拆分：id 精确引用 / 脚本别名 / reserved（ok 判定仍只看 referenced ∪ reserved）。
+    classified = recipe_capability_refs(objects, playbooks_dir)
+    by_id, by_script = ({}, {}) if classified is None else classified
+    if referenced is not None:
+        by_id = {cid: where for cid, where in by_id.items() if cid in referenced}
+        by_script = {cid: where for cid, where in by_script.items() if cid in referenced}
+        for cid in referenced - set(by_id) - set(by_script):
+            # 只在步骤正文里出现脚本名/路径（宽松口径已命中）→ 归脚本别名。
+            by_script[cid] = list((refs or {}).get(cid) or [])
+    result["references_by_id"] = {cid: where for cid, where in sorted(by_id.items())}
+    result["references_by_script"] = {cid: where for cid, where in sorted(by_script.items())}
+    result["counts"]["referenced_by_id"] = len(by_id)
+    result["counts"]["referenced_by_script"] = len(by_script)
     result["counts"]["reserved"] = sum(
         1 for _, _, obj in objects
         if isinstance(obj, dict) and obj.get("reserved") is True)
@@ -420,8 +491,11 @@ def render_text(res: dict) -> str:
              "能力 %d / covered %d / dangling %d" % (
                  res["counts"]["capabilities"], res["counts"]["covered"],
                  res["counts"]["dangling"])]
-    lines.append("被配方引用 %d / reserved %d / compose 环 %d" % (
-        res["counts"].get("referenced", 0), res["counts"].get("reserved", 0),
+    lines.append("被配方引用 %d（精确 id %d / 脚本别名 %d）/ reserved %d / compose 环 %d" % (
+        res["counts"].get("referenced", 0),
+        res["counts"].get("referenced_by_id", 0),
+        res["counts"].get("referenced_by_script", 0),
+        res["counts"].get("reserved", 0),
         res["counts"].get("cycles", 0)))
     maturity = ", ".join("%s=%d" % (k, v) for k, v in res["by_maturity"].items())
     lines.append("成熟度: " + maturity)
@@ -495,6 +569,13 @@ def self_test() -> int:
             (res["matrix"]["present"] is True, "matrix read"),
             (len(res["matrix"]["missing_cells"]) == 1, "matrix gap reported"),
             (res["counts"]["referenced"] == 2, "recipe reference tally"),
+            (res["counts"]["referenced_by_id"] == 2, "reference-by-id tally"),
+            (res["counts"]["referenced_by_script"] == 0, "reference-by-script tally"),
+            (res["counts"]["referenced_by_id"]
+             + res["counts"]["referenced_by_script"]
+             == res["counts"]["referenced"], "reference split is a partition"),
+            ("cap-a" in res["references_by_id"] and "cap-b" in res["references_by_id"],
+             "references_by_id detail"),
             (res["counts"]["reserved"] == 3, "reserved tally"),
             (res["counts"]["cycles"] == 0, "clean compose is a DAG"),
             (res["ok"] is False, "gate fails on gaps"),
@@ -523,6 +604,31 @@ def self_test() -> int:
         checks.append((cycle_res["counts"]["cycles"] >= 1, "compose cycle detected"))
         checks.append((any("DAG" in e for e in cycle_res["errors"]), "cycle error reported"))
         checks.append((cycle_res["ok"] is False, "cycle gate fails"))
+
+        # 脚本别名夹具：`用到的能力` 行只有 repo:<脚本 stem>，能力 id 未出现 → 计 by_script
+        alias = os.path.join(tmp, "alias")
+        os.makedirs(alias)
+        alias_caps = {"cap-g.json": {"id": "cap-g", "title": "G", "inputs": [],
+                                      "outputs": [], "scripts": ["Tool/scripts/alias-impl.py"],
+                                      "refs": [], "maturity": "usable", "compose": []}}
+        for name, obj in alias_caps.items():
+            with open(os.path.join(alias, name), "w", encoding="utf-8") as fh:
+                json.dump(obj, fh, ensure_ascii=False)
+        alias_pb = os.path.join(tmp, "alias-playbooks")
+        os.makedirs(alias_pb)
+        with open(os.path.join(alias_pb, "alias.md"), "w", encoding="utf-8") as fh:
+            fh.write("- 用到的能力（capability id）：`repo:alias-impl`\n")
+        alias_matrix = os.path.join(tmp, "alias-matrix.json")
+        with open(alias_matrix, "w", encoding="utf-8") as fh:
+            json.dump({"schema": MATRIX_SCHEMA, "families": families,
+                       "capabilities": {"cap-g": dict(cells)}}, fh, ensure_ascii=False)
+        alias_res = run_gate(alias, alias_matrix, tmp, alias_pb)
+        checks.append((alias_res["counts"]["referenced_by_id"] == 0,
+                       "script alias is not an id reference"))
+        checks.append((alias_res["counts"]["referenced_by_script"] == 1,
+                       "script alias tally"))
+        checks.append((alias_res["counts"]["referenced"] == 1,
+                       "script alias still counts as referenced"))
 
         # 未引用且未 reserved 的夹具必须红
         unref_dir = os.path.join(tmp, "unref")
@@ -565,7 +671,8 @@ def self_test() -> int:
                 return 2
         print(json.dumps({"ok": True, "checks": len(checks),
                           "tool": "capability-gate.py",
-                          "fixtures": {"dirty": 6, "clean": 2, "cycle": 2, "unref": 1}},
+                          "fixtures": {"dirty": 6, "clean": 2, "cycle": 2,
+                                        "unref": 1, "alias": 1}},
                          ensure_ascii=False))
         return 0
 

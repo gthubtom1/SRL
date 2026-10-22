@@ -51,7 +51,7 @@ def first_party_files():
         # 说明：本预算衡量「引擎文件」规模，不含导入素材（破甲卡生成/ 的 relab2 工程），
         # 也不含案例库证据（Tool/cases：真实样本/抓包/产物，单独一行预算，避免用扩容掩盖引擎膨胀）。
         if any(s in norm for s in ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool",
-                                   "/破甲卡生成", "/cases")):
+                                   "/破甲卡生成", "/cases", "/audit", "/work")):
             dirs[:] = []
             continue
         total += len(files)

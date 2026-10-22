@@ -24,7 +24,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 
 | MCP | 工具数 | 用途 | 依赖 | 安装方式 |
 | :--- | :---: | :--- | :--- | :--- |
-| **seep** ⭐ | **38** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 + 扩展资产 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
+| **seep** ⭐ | **40** | 二进制逆向 + APK 逆向 + Frida 生成 + 知识库 + 扩展资产 | radare2 / jadx / apktool | 本包自带 + 脚本下载工具 |
 | **ida** | **40+**（实测 48，随 ida-pro-mcp 版本变） | IDA 全套分析链 | **你自备的 IDA Pro** | `setup\install-ida.ps1` 自动装（需 `mcp<2`，见 §九） |
 | **js-reverse** | **24** | 前端 JS 逆向 / 调试器 / 网络取证 | npx | 自动（npx 按需拉取） |
 | **playwright** | **25** | 浏览器自动化 | npx | 自动（npx 按需拉取） |
@@ -33,7 +33,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 > 等固定几个根，深度 ≤2），便携版/绿化版（如 `D:\Tools\disasm\IDA Pro 9.3`）也能命中。
 > 也可以显式指定：`powershell -File .\setup\install-ida.ps1 -IdaRoot "X:\你的\IDA"`。
 
-### seep MCP 的 38 个工具
+### seep MCP 的 40 个工具
 
 | 分组 | 工具 |
 | :--- | :--- |
@@ -41,8 +41,9 @@ MCP（工具层）           →  给 agent「实际干活的手」
 | 二进制 r2 (9) | `seep_r2_info` · `_cmd` · `_strings` · `_functions` · `_disasm` · `_decompile` · `_diff` · `_asm` · `_xrefs` |
 | Android (5) | `seep_apk_info` · `_decompile` · `_unpack` · `_smali_search` · `_gen_hook` |
 | 知识库 (4) | `seep_kb_search` · `_read` · `_checklist` · `_payloads` |
+| 案例库 (2) | `seep_case_search` · `_read` |
 | 流程编排 (3) | `seep_task_init` · `seep_auto_triage` · `seep_gen_security_report` |
-| 扩展资产 (14) | `seep_ensure_tool` · `seep_decompile_auto` · `seep_pe_resources` · `seep_mem_strings` · `seep_pcap_extract` · `seep_packer_detect` · `seep_http_replay` · `seep_web_recon` · `seep_tool_discover` · `seep_tool_control_plan` · `seep_tool_research` · `seep_tool_register_mcp` · `seep_tool_install` · `seep_tool_state` |
+| 扩展资产 (15) | `seep_ensure_tool` · `seep_decompile_auto` · `seep_pe_resources` · `seep_mem_strings` · `seep_pcap_extract` · `seep_packer_detect` · `seep_http_replay` · `seep_web_recon` · `seep_tool_discover` · `seep_tool_control_plan` · `seep_tool_research` · `seep_tool_register_mcp` · `seep_tool_install` · `seep_tool_state` · `seep_create_skill` |
 
 ---
 
@@ -311,11 +312,11 @@ python seep_mcp_server.py
 
 | 口径 | 含义 | 本包数值 | 怎么核实 |
 |---|---|---|---|
-| **① 自有工具数** | 我们自己的 `seep` MCP 服务暴露的工具（`@server.tool()` 装饰的函数） | **38** | `grep -c "^@server.tool()" Tool/mcp/seep_mcp_server.py`，或连上 MCP 发 `tools/list` |
+| **① 自有工具数** | 我们自己的 `seep` MCP 服务暴露的工具（`@server.tool()` 装饰的函数） | **40** | `grep -c "^@server.tool()" Tool/mcp/seep_mcp_server.py`，或连上 MCP 发 `tools/list` |
 | **② 单个外部 MCP 的工具数** | `ida` / `js-reverse` / `playwright` / `ghidra` **各自进程**暴露的工具，由各自项目决定 | ida 约 100+（随 ida-pro-mcp 版本）/ js-reverse 23（v4.0.5）/ playwright 随版本 | 连上对应 MCP 发 `tools/list`（最权威），或看其源码 / README |
 | **③ 全工作台"可见工具总数"** | ① + 所有② | **不固定**（取决于装了哪几个外部 MCP、什么版本） | 由当前会话的 MCP 客户端汇总 |
 
-**为什么我们只承诺 ①=38**：
+**为什么我们只承诺 ①=40**：
 
 - ② 的数字**不属于我们**，会随上游发版变化（同一个包不同版本工具数就不同）；
 - 所以文档里任何"总数"都只应是**参考值**，判定是否可用要跑 `tools/list`，不要背数字。

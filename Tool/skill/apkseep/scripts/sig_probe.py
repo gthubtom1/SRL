@@ -29,6 +29,7 @@ Notes
 
 import argparse
 import io
+import json
 import struct
 import subprocess
 import sys
@@ -158,7 +159,9 @@ def run_live(pkg, serial, host, timeout):
     try:
         import frida
     except ImportError:
-        print('[!] frida not installed: pip install frida', file=sys.stderr)
+        print(json.dumps({"ok": False, "blocked_at": "tool-missing",
+                          "reason": "frida not installed: pip install frida"},
+                         ensure_ascii=False))
         return 2
 
     try:

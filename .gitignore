@@ -99,3 +99,6 @@ tools.local.json
 !Tool/cases/**/artifacts/*.log
 !Tool/cases/**/input/**/*.log
 !Tool/cases/**/input/*.log
+
+# 分析稿：仅本地保留，不入库（目标第 5 条）
+docs/audit/ANALYSIS-*.md

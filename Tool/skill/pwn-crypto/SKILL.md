@@ -267,7 +267,7 @@ python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 - **密码学**：`pow(m,e,n)==c`、逐块/逐位比对；贴参数、明文来源与脚本输出。
 - **证据留存**：`sha256`、保护位、libc 版本/内核/ASLR 状态、工具版本、失败路线。
 - **停止条件**：同一路径 3 轮无进展 → 换路线；同类动态尝试 2 次失败 → 停下汇报。
-- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 本域 7 条 + 全局契约 1 条 = 8/8；
+- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 本域 10 条断言全绿（实测 10/10）；
   案例级再跑 `pwn-accept.py --root . --json`（字段/哈希/真跑/refs/保护位一致性）。
 
 > 边界再强调：本技能只用于授权实验室资产；不伪造“稳定 9/10”，不隐藏失败，

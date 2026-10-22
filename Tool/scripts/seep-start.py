@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -105,6 +106,14 @@ DEFAULT_TARGET = {
     "reverse": "Tool/samples/real/crackerjack/a.exe",
 }
 
+URL_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+# 打印命令前的提示：内置命令是「样例路径」，真实目标必须先取基线。
+NEXT_HINT = (
+    "提示：以下为该域**样例路径**，把 `<case>`/证据换成你的；"
+    "对真实目标先跑 web-check 取基线（`python Tool/skill/web-pentest/scripts/web-check.py --url <URL> --out <case>/artifacts/page.json`）。"
+)
+
 
 def _err(step, case, cmd, rc, stdout="", stderr=""):
     return {
@@ -150,7 +159,12 @@ def _scope(case, domain, target, case_dir):
 def _next_commands(domain, case_dir, target):
     rel = os.path.relpath(case_dir, ROOT).replace(os.sep, "/")
     tgt = target or DEFAULT_TARGET.get(domain, "<target>")
-    return [c.format(case_dir=rel, target=_quote(tgt)) for c in COMMANDS[domain]]
+    cmds = [c.format(case_dir=rel, target=_quote(tgt)) for c in COMMANDS[domain]]
+    if target and URL_RE.match(target.strip()):
+        # 真实 URL 目标：内置样例命令零证据，第一条必须是基线抓取。
+        cmds[0] = ("python Tool/skill/web-pentest/scripts/web-check.py --url %s "
+                   "--out %s/artifacts/page.json" % (_quote(target.strip()), rel))
+    return cmds
 
 
 def start(domain, case, target, root=ROOT):
@@ -175,6 +189,7 @@ def start(domain, case, target, root=ROOT):
         "case_dir": case_dir,
         "artifacts": art,
         "scope": scope,
+        "next_hint": NEXT_HINT,
         "next": _next_commands(domain, case_dir, target),
     }
 
@@ -202,6 +217,15 @@ def self_test():
     cmds = _next_commands("web-pentest", case_dir, "")
     checks.append(("three_commands", len(cmds) == 3
                    and all(c.startswith("python Tool/") for c in cmds)))
+    # P0-5：提示行存在；URL 目标时首条命令带 --url 且不是内置样例。
+    checks.append(("next-hint", "样例路径" in NEXT_HINT and "web-check" in NEXT_HINT))
+    url_cmds = _next_commands("web-pentest", case_dir, "https://example.com")
+    checks.append(("url-target-first-web-check",
+                   "web-check.py --url https://example.com" in url_cmds[0]
+                   and url_cmds[0].endswith("artifacts/page.json")))
+    checks.append(("url-target-keeps-three", len(url_cmds) == 3))
+    reverse_cmds = _next_commands("reverse", case_dir, "https://example.com")
+    checks.append(("url-target-any-domain", "--url https://example.com" in reverse_cmds[0]))
     failed = [name for name, ok in checks if not ok]
     print(json.dumps({"ok": not failed, "tool": "seep-start.py",
                       "checks": len(checks), "failed": failed,
@@ -239,6 +263,7 @@ def main(argv=None):
     print("[OK] artifacts: %s" % data["artifacts"])
     print("[OK] scope: %s" % data["scope"])
     print("下一步 3 条命令（从仓库根执行）：")
+    print("  " + NEXT_HINT)
     for i, c in enumerate(data["next"], 1):
         print("  %d) %s" % (i, c))
     return 0

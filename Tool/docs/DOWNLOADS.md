@@ -25,7 +25,7 @@
 | # | 组件 | 上游来源 | 本包位置 | 体积 |
 | :-: | :--- | :--- | :--- | :--- |
 | 1 | **jadx** | GitHub `skylot/jadx` | `Tool/mcp/Tool/safe/jadx/` | 461 MB |
-| 2 | **radare2** | GitHub `radareorg/radare2` | `Tool/mcp/Tool/safe/radare2/` | 39 MB |
+| 2 | **radare2** | GitHub `radareorg/radare2` | `Tool/mcp/Tool/safe/radare2/` | 38 MB |
 | 3 | **apktool** | GitHub `iBotPeaches/Apktool` | `Tool/mcp/Tool/safe/apktool/` | 24 MB |
 | 4 | **playwright-mcp** | npm `@playwright/mcp` | `Tool/mcp/Tool/safe/playwright-mcp/` | 45 MB |
 | 5 | **js-reverse-mcp** | npm `js-reverse-mcp` | `Tool/mcp/Tool/safe/js-reverse-mcp/` | 234 MB |
@@ -107,13 +107,13 @@ npm:pi-goal-x
 | :--- | :--- |
 | **上游** | https://github.com/radareorg/radare2 |
 | **下载地址** | `https://api.github.com/repos/radareorg/radare2/releases/latest` → asset `radare2-<版本>-w64.zip` |
-| **实测版本** | `radare2-6.2.2-w64.zip` |
+| **实测版本** | `radare2-5.9.8-w64.zip`（`rabin2 -v` 输出 5.9.8；版本以 `--version` 为准，升级后同改此处） |
 | **正则匹配** | `^radare2-.*-w64\.zip$` ⚠️ **注意是 `w64` 不是 `windows`** |
 | **目标** | `Tool/mcp/Tool/safe/radare2/` |
 | **服务的工具** | `seep_r2_*`（**8 个工具**） |
 | **许可** | LGPL-3.0 |
 
-> ⚠️ **易错点**：radare2 的 Windows 包名用 `w64`（如 `radare2-6.2.2-w64.zip`），
+> ⚠️ **易错点**：radare2 的 Windows 包名用 `w64`（如 `radare2-5.9.8-w64.zip`），
 > 不是 `windows`。早期若写成 `windows.*\.zip$` 会**匹配不到任何 asset**，导致下载静默失败。
 
 ### 3. apktool — APK 解包/重打包
@@ -122,7 +122,7 @@ npm:pi-goal-x
 | :--- | :--- |
 | **上游** | https://github.com/iBotPeaches/Apktool |
 | **下载地址** | `https://api.github.com/repos/iBotPeaches/Apktool/releases/latest` → asset `apktool_<版本>.jar` |
-| **实测版本** | `apktool_3.0.3.jar` |
+| **实测版本** | `apktool_2.11.0.jar`（jar 内 `apktool.properties` 自述 2.11.0；版本以 `--version` 为准） |
 | **正则匹配** | `^apktool_[\d.]+\.jar$` |
 | **目标** | `Tool/mcp/Tool/safe/apktool/`（脚本另写 `apktool.bat`） |
 | **服务的工具** | `seep_apk_unpack` |
