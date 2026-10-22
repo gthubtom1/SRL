@@ -41,7 +41,7 @@ ls Tool/prompts/domains/<域>.md          # 24 张卡，每张=触发词/前置/
 ```bash
 python Tool/scripts/domain-gate.py --domain <域>     # 本域 10 条断言
 python Tool/scripts/preflight.py --fast              # 全局快检（悬空引用/篇幅/路由/清理）
-# 当前基线：preflight --fast 40/40；preflight 全量 43/43
+# 当前基线：preflight --fast 41/41；preflight 全量 44/44
 ```
 
 ## 5. 常见卡点（先看这里，别硬猜）

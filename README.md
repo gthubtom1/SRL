@@ -85,7 +85,7 @@
 | **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
 | **接力棒（换会话先读）** | `ROADMAP.md`（现在能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore），不再随仓库分发 |
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
-| **门禁 43 项** | `python Tool/scripts/preflight.py`：全量 **43/43**、`--fast` **40/40**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
+| **门禁 44 项** | `python Tool/scripts/preflight.py`：全量 **44/44**、`--fast` **41/41**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
 | **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 40 工具数基线，防「模型第一次调用就传错参数」 |
 | **技能路由探针** | `skill-route-probe.py`：33 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
 | **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |

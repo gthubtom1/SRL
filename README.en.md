@@ -56,7 +56,7 @@
 
 | Capability | What it adds |
 |---|---|
-| **43-check preflight** | `python Tool/scripts/preflight.py`: **43/43** full, **40/40** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
+| **43-check preflight** | `python Tool/scripts/preflight.py`: **44/44** full, **41/41** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
 | **MCP parameter contract** | `mcp-param-contract.py`: 8 path aliases interoperate (`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`) + a 40-tool baseline, so the first call cannot be rejected for guessing a parameter name |
 | **Skill-route probe** | `skill-route-probe.py`: 33 plain-language prompts → expected skill (`master-route.ps1` view); catches CJK word-boundary regressions |
 | **32 routes (+R36)** | New **R36 OSINT / asset & personnel mapping** (recipe `osint-recon`); routes 31 → 32, skills remain 30 |
