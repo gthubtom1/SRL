@@ -2,27 +2,81 @@
   "schema": "seep.playbook-domains/1",
   "note": "配方 -> 归属域技能目录（用于路由↔配方一致性门禁）。一个配方可跨多个域。",
   "map": {
-    "anti-cheat-forensics": ["reverse", "forensics-mobile"],
-    "apk-ad-removal": ["apkseep"],
-    "apk-unpack": ["apkseep"],
-    "app-daily-task": ["signin-automation"],
-    "backend-rebuild": ["05-backend-rebuild", "web-pentest", "site-clone"],
-    "captcha-handling": ["signin-automation", "web-pentest"],
-    "firmware-emulate": ["firmware-iot"],
-    "firmware-extract": ["firmware-iot"],
-    "forensics-timeline": ["forensics-mobile"],
-    "license-bypass-deliver": ["01-gate-bypass", "client-license-validation-bypass", "reverse"],
-    "license-hookup": ["03-license-hookup"],
-    "malware-triage": ["malware-analysis"],
-    "multi-account-runner": ["signin-automation"],
-    "plugin-analysis": ["plugin-targets"],
-    "protocol-replay": ["protocol-plugin"],
-    "qinglong-signin": ["signin-automation"],
-    "reverse-survey": ["reverse"],
-    "site-clone-1to1": ["site-clone"],
-    "supply-chain-audit": ["supply-chain-security"],
-    "ui-rebrand": ["02-ui-rebrand"],
-    "version-migrate": ["04-version-migrate", "version-migration"],
-    "web-api-sign-reverse": ["web-pentest"]
+    "anti-cheat-forensics": [
+      "reverse",
+      "forensics-mobile"
+    ],
+    "apk-ad-removal": [
+      "apkseep"
+    ],
+    "apk-unpack": [
+      "apkseep"
+    ],
+    "app-daily-task": [
+      "signin-automation"
+    ],
+    "backend-rebuild": [
+      "05-backend-rebuild",
+      "web-pentest",
+      "site-clone"
+    ],
+    "captcha-handling": [
+      "signin-automation",
+      "web-pentest"
+    ],
+    "firmware-emulate": [
+      "firmware-iot"
+    ],
+    "firmware-extract": [
+      "firmware-iot"
+    ],
+    "forensics-timeline": [
+      "forensics-mobile"
+    ],
+    "license-bypass-deliver": [
+      "01-gate-bypass",
+      "client-license-validation-bypass",
+      "reverse"
+    ],
+    "license-hookup": [
+      "03-license-hookup"
+    ],
+    "malware-triage": [
+      "malware-analysis"
+    ],
+    "multi-account-runner": [
+      "signin-automation"
+    ],
+    "plugin-analysis": [
+      "plugin-targets"
+    ],
+    "protocol-replay": [
+      "protocol-plugin"
+    ],
+    "qinglong-signin": [
+      "signin-automation"
+    ],
+    "reverse-survey": [
+      "reverse"
+    ],
+    "site-clone-1to1": [
+      "site-clone"
+    ],
+    "supply-chain-audit": [
+      "supply-chain-security"
+    ],
+    "ui-rebrand": [
+      "02-ui-rebrand"
+    ],
+    "version-migrate": [
+      "04-version-migrate",
+      "version-migration"
+    ],
+    "web-api-sign-reverse": [
+      "web-pentest"
+    ],
+    "game-client-il2cpp": [
+      "forensics-mobile"
+    ]
   }
 }

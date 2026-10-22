@@ -55,10 +55,6 @@
         {
           "must": "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
           "note": "Android 全链路（DEX/SO/重打包/动态插桩）"
-        },
-        {
-          "must": "(?i)(?:\\bil2cpp\\b|\\bgameassembly\\b|\\bglobal-metadata(?:\\.dat)?\\b|\\bassetbundle\\b|\\bunityfs\\b)",
-          "note": "Unity(Android) IL2CPP 元数据/资源包：归 APK 逆向（与 apk-unpack 配方同域）"
         }
       ]
     },
@@ -296,8 +292,8 @@
           "note": "iOS/macOS 制品：包/签名/Mach-O/Keychain；\\bios\\b 不会命中 bios"
         },
         {
-          "must": "(?i)(?:\\bunityframework\\b|unity\\s*(?:资源|客户端)|游戏客户端)",
-          "note": "iOS/游戏客户端：UnityFramework/资源包只读观测（Android IL2CPP 归 APK）"
+          "must": "(?i)(?:\\bil2cpp\\b|\\bgameassembly\\b|\\bunityframework\\b|\\bassetbundle\\b|\\bunityfs\\b|\\bglobal-metadata(?:\\.dat)?\\b|unity\\s*(?:资源|客户端)|游戏客户端)",
+          "note": "游戏客户端：IL2CPP 元数据/AssetBundle；配方见 references/game-client-il2cpp.md"
         },
         {
           "must": "(?i)(?:浏览器取证|history\\s*sqlite|\\bhindsight\\b|places\\.sqlite|\\bvisit_time\\b)",

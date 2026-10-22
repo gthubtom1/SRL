@@ -247,12 +247,12 @@
 
 | 项 | 状态 | 依据 |
 | :-- | :-- | :-- |
-| 十域九件套 2.0 | 完成 | `domain-gate --all` 80/80（当前）；每域 4 条必备篇 + 8–10 篇 references + 3–4 脚本 + 4–5 案例 + 6–9 篇 KB + 24 张任务卡 |
+| 十域（当时）九件套 2.0 | 完成 | `domain-gate --all` 80/80（当前）；每域 4 条必备篇 + 8–10 篇 references + 3–4 脚本 + 4–5 案例 + 6–9 篇 KB + 24 张任务卡 |
 | 逆向域补漏 | 完成 | 反汇编深读 / 符号恢复 / 补丁工程 / 反调试 四篇 + 九型范式库与 UI 验收迁入 KB |
 | 链接与孤儿 | 完成 | 路径级/同域链接 + 相对链接解析（README.md 必须有路径级入链）；**521 文件全部有入链；757 条 Markdown 相对链接 0 死链** |
 | 路由串味 | 完成 | 执行器与门禁同语义（priority-first、mustAll 生效、fallback 不竞争）；26 句 gate↔PS 0 不一致；24 条固定测试集全绿 |
 | 仓库清理 | 完成 | `优化方案*.md` → `work/plans/`；根目录只留 README + ROADMAP（61 行） |
-| 部署一致 | 完成 | 十域 SKILL/references/scripts 哈希一致 |
+| 部署一致 | 完成 | 当时十域 SKILL/references/scripts 哈希一致 |
 | 真实任务演练 | 完成 | `案例-真实补丁a`：真实第三方 crackme，2 处等长补丁 + 独立备份 + 回滚到原哈希 |
 | 延迟项 D1–D9 | 记录 | 见 `ROADMAP.md`「已知延迟项」；每条都有现状与触发条件，不做空头承诺 |
 
@@ -350,7 +350,7 @@
 | 根目录 | `ls *.md` / `git ls-files "*.md" \| grep -v /` | 仅 `README*.md` + `ROADMAP.md`（4 个）；`优化方案*` tracked=0 |
 | 脱敏 | `setup/verify.ps1` 隐私项 | PASS（1260 个 tracked 文件 hits=0） |
 | 全仓 refs | `domain-gate` 新断言 | **161 篇 references 全部 ≤400 行**（最大 399） |
-| 部署一致 | `python Tool/scripts/domain-gate.py --deploy` | 1/1，十域 SKILL/references/scripts 哈希一致 |
+| 部署一致 | `python Tool/scripts/domain-gate.py --deploy` | 1/1，当时十域 SKILL/references/scripts 哈希一致 |
 | 双平台 | preflight [3 平台] | 项数一致（61）；且有 bash 时**真跑** `verify.sh` 要求 rc=0（本轮 65/0） |
 | 真实演练 | `Tool/cases/案例-真实补丁a` | 真实第三方 crackme：2 处等长补丁 → `bdcb074e…`；`--rollback` → `8308abb8…`（= 原文件） |
 
