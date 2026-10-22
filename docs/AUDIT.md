@@ -400,3 +400,11 @@
 | 3 | P0-12/P0-06 出处仅 2025 | plugin 补 2026 出处：`electron/asar v4.2.1`（2026-07-21）、Check Point《Breaking the Seal》(2026-08-31)、`jscd`(2026)；web 补 zhero《Re:CACHE》(2026) | 两篇 reference 末尾「2026 补充出处」节 |
 | 4 | `Tool/docs/tool-index.json` 仍含真实 generated_at | 固定为 1970 纪元；preflight 时间戳扫描面扩到 `Tool/docs/*.json` 与 `Tool/config/*.json` | preflight 断言 PASS |
 
+## v1.24.0 —— 去边界 + 能力层 + 配方层（架构级）
+
+- **措辞**：142 个 md、448 行改写，任务禁令 397 处清零；`docs/STYLE.md` 落规范；preflight 新增「无任务禁令措辞」lint（33/33 通过）。范围一律改为「由用户提供的 scope 决定」，方法边界改为「本域负责 X；Y 由 Z 承担」。
+- **能力层**：`Tool/capabilities/*.json` 44 个原子能力（id/输入/输出/脚本/判据/成熟度/compose），`Tool/scripts/capability-gate.py` 校验悬空=0；新增 4 个原语 `session-pool` / `schedule-notify` / `captcha-branch` / `tls-fingerprint`（均 `--self-test` rc=0）。
+- **配方层**：`Tool/playbooks/` 22 个任务配方 + INDEX/README；以后新需求先用配方组合能力，不新增域。
+- **意图覆盖**：`Tool/config/intent-probes.json` 60 条口语意图 + `intent-coverage.py`，当前 **60/60 覆盖（100%）**。
+- **路由**：新增 R34（账号自动化/青龙）、R35（网站 1:1 复刻），共 31 条，自洽 rc=0。
+- 验收：`domain-gate --all` 101/101；`preflight --fast` 33/33。
