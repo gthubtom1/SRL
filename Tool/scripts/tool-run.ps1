@@ -48,6 +48,12 @@ $CachePath = Join-Path $env:USERPROFILE '.seep\tool-paths.json'
 
 function Out-Json($obj) { $obj | ConvertTo-Json -Depth 8 -Compress }
 
+function Write-NextStep([string]$toolName) {
+    # x64dbg 等 http 宿主是在会话启动之后才起来的：pi 本轮不会注册 mcp__<name>__* 工具。
+    # 这行是给人和 Agent 看的下一步，JSON 仍保持最后一行（机读契约不变）。
+    Write-Output ("下一步：在本会话 TUI 里执行 /mcp reconnect " + $toolName + "（仅当宿主是在本会话启动之后起的）")
+}
+
 if (-not (Test-Path $ConfigPath)) {
     Out-Json @{ status = 'FAILED'; stage = 'config'; reason = "缺少 $ConfigPath"; next = '重新 clone 仓库或修复 tool-runtimes.json' }
     exit 2
@@ -202,6 +208,7 @@ foreach ($m in $modes) {
     # 带端点的通道
     $port = [int]$m.ready.port
     if (Test-Port $port) {
+        Write-NextStep $Tool
         Out-Json @{ status = 'ALREADY_READY'; tool = $Tool; mode = $m.id; port = $port; endpoint = $m.endpoint; auth = $m.auth; note = '服务已在跑；若本会话 MCP 仍不可用，在 TUI 执行 /mcp reconnect ' + $Tool }
         exit 0
     }
@@ -254,6 +261,7 @@ foreach ($m in $modes) {
     while ($sw.Elapsed.TotalSeconds -lt $limit) {
         if (Test-Port $port 500) {
             Write-Cache $m.start.toolId $exe $res.via
+            Write-NextStep $Tool
             Out-Json @{
                 status   = 'READY'; tool = $Tool; mode = $m.id; kind = $m.kind; exe = $exe; via = $res.via
                 target   = $Target; port = $port; seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
