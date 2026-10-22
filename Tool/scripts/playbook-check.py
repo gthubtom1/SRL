@@ -149,6 +149,24 @@ def run_check(playbooks_dir: str, root: str) -> dict:
             if report["reason"]:
                 result["bad"].append({"playbook": name, "cmd": cmd,
                                       "reason": report["reason"]})
+    # README 索引与磁盘配方必须一致（README 是人的入口，漏行=同一说法两个答案）
+    readme = os.path.join(playbooks_dir, "README.md")
+    disk = {os.path.basename(p)[:-3] for p in files}
+    if os.path.isfile(readme):
+        txt = open(readme, encoding="utf-8", errors="replace").read()
+        listed = {m.group(1) for m in re.finditer(r"\[([a-z0-9][a-z0-9-]+)\]\(([a-z0-9-]+)\.md\)", txt)
+                  if m.group(1) == m.group(2)}
+        missing, extra = sorted(disk - listed), sorted(listed - disk)
+        m = re.search(r"## 索引（(\d+) 个）", txt)
+        count_ok = bool(m) and int(m.group(1)) == len(disk)
+        if missing or extra or not count_ok:
+            result["bad"].append({
+                "playbook": "README",
+                "cmd": "Tool/playbooks/README.md",
+                "reason": "索引与磁盘不一致：缺 %s；多 %s；表头计数 %s（磁盘 %d）"
+                          % (missing or "-", extra or "-",
+                             m.group(1) if m else "缺失", len(disk))})
+
     result["ok"] = not result["bad"]
     return result
 
@@ -229,8 +247,8 @@ def self_test() -> int:
         expect("json 顶层字段齐全",
                {"ok", "total", "bad"} <= set(res))
         expect("只统计 python 片段（alpha 2 + beta 3 + gamma 3 = 8）", res["total"] == 8)
-        expect("坏命令被捕获（缺脚本/--help 非 0/-c/枚举/参数/运行时枚举 = 6）",
-               len(res["bad"]) == 6)
+        expect("坏命令被捕获（缺脚本/--help 非 0/-c/枚举/参数/运行时枚举 = 6 + README 索引 1）",
+               len(res["bad"]) == 7)
         expect("无 choices= 的运行时枚举也被拦住（die 文案）",
                any("取值非法" in b["reason"] and "die_style.py" in b["cmd"] for b in res["bad"]))
         expect("枚举值非法被捕获（--level L2）",
@@ -246,7 +264,9 @@ def self_test() -> int:
                any(b["playbook"] == "beta" and "脚本不存在" in b["reason"] for b in res["bad"]))
         expect("python -m/-c 被捕获",
                any(b["playbook"] == "beta" and "python 选项开头" in b["reason"] for b in res["bad"]))
-        expect("README 被跳过", all(b["playbook"] != "README" for b in res["bad"]))
+        expect("README 索引与磁盘不一致被捕获",
+               any(b["playbook"] == "README" and "索引与磁盘不一致" in b["reason"]
+                   for b in res["bad"]))
         expect("reason 覆盖两类以上", len(reasons) >= 3)
         expect("整体 ok=false", res["ok"] is False)
 

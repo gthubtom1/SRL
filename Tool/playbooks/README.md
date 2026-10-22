@@ -24,7 +24,7 @@
 
 同一个配方只列真正会用到的能力；步骤里出现的脚本必须能在仓库内找到。
 
-## 索引（22 个）
+## 索引（23 个）
 
 ### 账号 / 定时任务
 
@@ -58,7 +58,7 @@
 | 配方 | 触发词 | 核心能力 |
 | :-- | :-- | :-- |
 | [apk-ad-removal](apk-ad-removal.md) | 去广告、去弹窗、插屏、开屏 | `apk:static_dex` `apk:smali_roundtrip` `apk:repack_signed` |
-| [apk-unpack](apk-unpack.md) | 加固脱壳、il2cpp、metadata、VMP | `apk:frida_dynamic` `apk:dex_dump_analysis` `apk:dart_aot_full` |
+| [apk-unpack](apk-unpack.md) | 加固脱壳、VMP、DexVMP、反调试 | `apk:frida_dynamic` `apk:dex_dump_analysis` `apk:dart_aot_full` |
 | [firmware-extract](firmware-extract.md) | 固件提取、rootfs、squashfs、UBI | `repo:fw-triage` `repo:fw-repro` `tool:binwalk` |
 | [firmware-emulate](firmware-emulate.md) | 固件仿真、rehosting、启动失败 | `repo:fw-repro` `repo:fw-accept` `repo:probe_api` |
 
@@ -66,6 +66,7 @@
 
 | 配方 | 触发词 | 核心能力 |
 | :-- | :-- | :-- |
+| [game-client-il2cpp](game-client-il2cpp.md) | il2cpp、global-metadata、GameAssembly、AssetBundle、Unity 客户端 | `repo:case_state` `repo:forensics-check` `repo:evidence-accept` |
 | [forensics-timeline](forensics-timeline.md) | 内存、磁盘、EVTX、时间线、四要素 | `repo:forensics-check` `repo:fs-timeline` `repo:evidence-accept` |
 | [malware-triage](malware-triage.md) | 样本分诊、IOC、YARA、Sigma | `repo:mal-triage` `repo:ioc-extract` `repo:mal-accept` |
 | [supply-chain-audit](supply-chain-audit.md) | SBOM、可达性、CI 权限、签名 | `repo:sc-check` `repo:sbom-reach` `repo:ci-perm-audit` |
