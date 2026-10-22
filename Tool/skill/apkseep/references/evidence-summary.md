@@ -70,11 +70,11 @@ Six entries, deliberately: everything the table needs beyond your install is her
 in this skill should point outside itself. **All six sit at the repository root and are not installed
 by `npx skills add`; their paths are names, not openable files, in your copy.**
 
-- `docs/tool-verification/README.md` — the index of the evidence record (repository root, not shipped)
-- `docs/tool-verification/TOOL-VERDICTS.md` — one verdict per script and external toolchain, with the independent cross-check behind it (repository root, not shipped)
-- `docs/tool-verification/FINDINGS.md` — defects, contradictions and boundary evidence about the skill itself (repository root, not shipped)
-- `docs/tool-verification/REPO-DECISIONS.md` — what changed as a result, and what deliberately did not (repository root, not shipped)
-- `docs/tool-verification/EXTENSION-*.md` — one file per topic, each with its own strength note and the exact commands (repository root, not shipped)
+- `Tool/upstream/apk-reverse/docs/tool-verification/README.md` — the index of the evidence record (repository root, not shipped)
+- `Tool/upstream/apk-reverse/docs/tool-verification/TOOL-VERDICTS.md` — one verdict per script and external toolchain, with the independent cross-check behind it (repository root, not shipped)
+- `Tool/upstream/apk-reverse/docs/tool-verification/FINDINGS.md` — defects, contradictions and boundary evidence about the skill itself (repository root, not shipped)
+- `Tool/upstream/apk-reverse/docs/tool-verification/REPO-DECISIONS.md` — what changed as a result, and what deliberately did not (repository root, not shipped)
+- `Tool/upstream/apk-reverse/docs/tool-verification/EXTENSION-*.md` — one file per topic, each with its own strength note and the exact commands (repository root, not shipped)
 - `tests/benchmark.md` — the B1–B13 public-target regression matrix: what happened, including the negative results (repository root, not shipped)
 
 The reference documents still cite those paths where the detail matters, because a repository reader
