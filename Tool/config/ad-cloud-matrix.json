@@ -750,6 +750,122 @@
         "kerbrute userenum --dc <dc> -d <domain> users.txt",
         "ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
       ]
+    },
+    {
+      "id": "AD-24",
+      "surface": "容器逃逸原语（privileged/hostPath/socket/cgroup/runc）",
+      "match": [
+        "privileged",
+        "CAP_SYS_ADMIN",
+        "hostPath",
+        "docker.sock",
+        "release_agent",
+        "runc",
+        "CVE-2024-21626"
+      ],
+      "check": "CapEff/mount/cgroup 版本/socket 可写性/宿主 namespace inode；原语能否在容器内机检为真；宿主侧是否有独立证据",
+      "criteria": "容器内原语为真（capsh/mount/findmnt 可证）+ 宿主侧独立证据（节点 hostname、节点文件哈希、节点 auditd）+ 复现与清理命令齐全；缺宿主证据最高 candidate，配置 privileged 本身不算逃逸",
+      "tools": [
+        "capsh --print",
+        "nsenter -t 1",
+        "docker -H unix:///var/run/docker.sock",
+        "ctr",
+        "stat -fc %T /sys/fs/cgroup/",
+        "runc --version",
+        "findmnt"
+      ],
+      "fail": "缺 CAP_SYS_ADMIN/只读挂载/seccomp/PSA 拦、cgroup v2 无 release_agent、runc 已升级、宿主 PID 不可见：对应原语 blocked，换原语或转 Secret/CI，不在同一原语上反复提权。",
+      "pitfalls": [
+        "把 privileged:true 配置当成已逃逸",
+        "hostNetwork 只共享网络命名空间，不等于宿主文件系统",
+        "/proc/1/root 读到的可能仍是容器文件系统（PID 1 不是节点 init）",
+        "cgroup v2 上强套 v1 release_agent 步骤",
+        "runc CVE 只看版本号不看 PoC 输出"
+      ],
+      "commands": [
+        "capsh --print",
+        "cat /proc/self/status | grep -E 'CapEff|Seccomp'",
+        "nsenter -t 1 -m -u -i -n -p -- hostname",
+        "curl -s --unix-socket /var/run/docker.sock http://localhost/version",
+        "python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json --json"
+      ]
+    },
+    {
+      "id": "AD-25",
+      "surface": "集群控制面（kubelet 10250/10255、etcd 2379、admission webhook/PSA）",
+      "match": [
+        "10250",
+        "10255",
+        "2379",
+        "nodes/proxy",
+        "validatingwebhookconfigurations",
+        "failurePolicy",
+        "pod-security.kubernetes.io"
+      ],
+      "check": "kubelet /run 是否回显、/exec 是否 302 流、nodes/proxy 是否可走、etcd range 是否返回 kvs、webhook failurePolicy/namespaceSelector/objectSelector、namespace PSA 标签",
+      "criteria": "10250 /run 返回字面 id/hostname 输出或 /exec 流走通；etcd range 返回真实 key/value（并说明是否 EncryptionConfiguration 密文）；webhook selector 确实排除目标 ns 且授权后创建成功；10255/version/health 只算 candidate",
+      "tools": [
+        "curl -sk https://<node>:10250/run/<ns>/<pod>/<ctr> -d cmd=id",
+        "kubectl get validatingwebhookconfigurations -o json",
+        "kubectl get ns --show-labels",
+        "curl -s http://<etcd>:2379/v3/kv/range",
+        "ETCDCTL_API=3 etcdctl"
+      ],
+      "fail": "10255 只读不等于可执行；/exec 裸 POST 的 302 既不是已执行也不是已修补；etcd 只回 version/health、400/401、或只连上 2380 peer 端口 → 不是未授权客户端访问；failurePolicy=Fail + selector 全覆盖 + PSA restricted + 无节点写权限 → 绕过面 blocked。",
+      "pitfalls": [
+        "把 10255 信息面写成 kubelet RCE",
+        "把 /exec 的 302 当失败/成功",
+        "把 etcd version 能读写成可 dump Secret",
+        "忽略 EncryptionConfiguration 导致误判明文",
+        "webhook 有 selector 不等于能创建（还要 PSA/Quota）"
+      ],
+      "commands": [
+        "curl -sk -X POST https://<node>:10250/run/<ns>/<pod>/<ctr> -d cmd=id",
+        "curl -s http://<etcd>:2379/version",
+        "kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o json",
+        "kubectl get ns --show-labels",
+        "python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json"
+      ]
+    },
+    {
+      "id": "AD-26",
+      "surface": "外部接入面（SSL VPN / 邮件前端 / 身份云，只读）",
+      "match": [
+        "+CSCOE+",
+        "FortiGate",
+        "NetScaler",
+        "GlobalProtect",
+        "dana-na",
+        "X-OWA-Version",
+        "Zimbra",
+        "okta.com",
+        "getuserrealm",
+        "NameSpaceType"
+      ],
+      "check": "登录页厂商指纹与 Cookie、公开 metadata/well-known、X-OWA-Version、匿名 SOAP GetVersionInfo、租户/联邦字段；频率与「未提交凭据」声明",
+      "criteria": "指纹命中 + 至少一个公开端点返回可解析字段（XML/JSON/版本串）；OWA 仅用无凭据 Type-1 negotiate 得 type 2 并可离线解析；Okta/Entra 只读 well-known/getuserrealm；全程未提交凭据、未爆破、未投毒、未发利用包",
+      "tools": [
+        "curl -skI",
+        "ad-repro.py --kind ntlm-type2",
+        "getuserrealm.srf",
+        "openid-configuration",
+        "/.well-known/okta-organization"
+      ],
+      "fail": "只有端口/登录页、无厂商字符串、metadata 要登录、租户与域名不匹配、AuthURL 指向清单外 IdP → blocked/unknown；不得用默认口令、CVE 路径字典或用户名枚举把只读枚举升级成验证；AADSTS 码分类需提交凭据，属认证尝试，另需授权单。",
+      "pitfalls": [
+        "把 401/登录页当成漏洞",
+        "版本 banner 与真实补丁级不一致",
+        "metadata 可达但需登录仍写「可读」",
+        "Zimbra/Okta 用户枚举会产生登录失败日志",
+        "把暴露面写进「已攻破」"
+      ],
+      "commands": [
+        "curl -skI https://<target>/+CSCOE+/logon.html",
+        "curl -sk https://<target>/owa/ -H 'Authorization: Negotiate TlRMTVNTUAABAAAAB4IIogAAAAAAAAAAAAAAAAAAAAAGAbEdAAAADw=='",
+        "curl -s 'https://login.microsoftonline.com/getuserrealm.srf?login=<user>@<domain>&xml=1'",
+        "curl -s 'https://<tenant>.okta.com/.well-known/okta-organization'",
+        "python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
+      ]
     }
   ]
 }

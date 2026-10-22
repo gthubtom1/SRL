@@ -19,6 +19,8 @@ description: 【内网/AD/云原生】用于授权范围内的内网渗透、Act
 - 已有 AK/SK、CI 变量、元数据响应，要判断云身份与权限面。
 - 已有 Windows Security 日志/证书存储/注册表，要做 AD 遥测与主机基线复核。
 - 公网/DMZ 只出现 445/389/88，需要只读判定暴露面（NTLM type 2、LDAP rootDSE、Kerberos 用户名枚举），不爆破/不写/不投毒。
+- 外部接入面只有登录页：SSL VPN（ASA/FortiGate/NetScaler/GlobalProtect/Pulse）、邮件前端（OWA/Zimbra）、身份云（Okta/Entra）——只读指纹与公开 metadata，不提交凭据。
+- 容器内只有 shell：需要判定逃逸原语（privileged/hostPath/socket/cgroup release_agent/runc）与集群控制面（kubelet 10250、etcd 2379、admission）能不能走。
 - 需要输出“当前权限 → 目标权限”的可复现路径、证据与失败判据。
 
 ### 相邻域与路由
@@ -45,7 +47,7 @@ python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --json
 aws sts get-caller-identity
 ```
 
-## 3. 判据表（本域 8 类）
+## 3. 判据表（本域 10 类）
 
 > 完整表（含输入面/证据形态/误报风险）见 `references/01-criteria.md`。
 > 结论词：`confirmed`（可复现证据）/ `candidate`（条件成立但缺最后一步）/ `blocked`（不成立或预算耗尽）。
@@ -60,6 +62,8 @@ aws sts get-caller-identity
 | 遥测/主机基线 | 事件 ID + LogonType + 账号/来源 + 时间线一致；证书 EKU/私钥/票据计数可复现 | 单条 4672/4624；单机无 4768/4769；有证书但未 PKINIT |
 | 横向移动 | 目标侧有预期身份的 4688/7045/4698 或命令输出，源/目标/时间可复算；relay 需目标侧 4624 类型 3 + 4776 | 只有攻击端 SUCCEED/ReturnValue=0；目标拒绝/签名强制；无目标日志 |
 | 公网外部视角 | 只读 negotiate/bind/AS-REQ 的原始返回：NTLM type 2 可解析、LDAP rootDSE resultCode=0、KDC 错误码可分类；不爆破/不写/不投毒 | 445 开放但无 type 2；匿名被拒；88 只回 PREAUTH_REQUIRED；把暴露面写成已打穿 |
+| 容器逃逸原语 | 容器内原语机检为真 + 宿主侧独立证据（节点 hostname/节点文件哈希/auditd）+ 复现与清理齐全 | 有 privileged/hostPath/socket 配置，但缺 CAP/只读挂载/PSA 拦，或读到的仍是容器文件系统 |
+| 外部接入面/身份云 | 指纹命中 + 公开端点返回可解析字段（metadata/well-known/版本串）；全程无凭据提交 | 只有登录页无厂商串；metadata 要登录；租户不匹配；把暴露面写成已攻破 |
 
 ### 3.1 每条结论的最小证据包
 
@@ -151,11 +155,11 @@ aws sts get-caller-identity
 | `references/03-model-pitfalls.md` | 14 条模型常见失误与纠正 |
 | `references/04-walkthrough-windows-auth-events.md` | 真实 Windows Security 日志走查（wevtutil + ad-repro） |
 | `references/05-delegation-and-rbcd.md` | 委派/RBCD 深水：属性、票据链、失败判据 |
-| `references/ad-attacks.md` | AD 枚举/ACL/relay/横向命令速查 + 公网 445/389/88 只读外部视角 |
+| `references/ad-attacks.md` | AD 枚举/ACL/relay/横向命令速查 + 公网 445/389/88 只读外部视角 + 外部接入面（VPN/OWA/Zimbra/Okta/Entra）四列判据 |
 | `references/06-lateral-movement.md` | 横向移动四列判据：relay→SMB/WinRM/LDAPS、PtH、WMI、schtasks、DCOM、RBCD |
 | `references/kerberos-and-adcs.md` | Kerberos/ADCS 命令与 ESC 细节 |
-| `references/k8s-and-container.md` | K8s RBAC/Secret/逃逸/CI 细节 |
-| `references/cloud-native.md` | AK-SK/元数据/IAM/云原生细节 |
+| `references/k8s-and-container.md` | K8s RBAC/Secret/逃逸原语四列表/控制面五面（SA token/kubelet/etcd/admission）/CI 细节 |
+| `references/cloud-native.md` | AK-SK 四步链（sts→枚举→提权）/提权路径逐条判据/元数据/IAM 失败与未建模项 |
 
 ## 8. 脚本用法
 
@@ -188,10 +192,10 @@ python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --self-test
 
 ## 9. 任务卡入口
 
-`Tool/prompts/domains/ad-cloud.md`：26 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
+`Tool/prompts/domains/ad-cloud.md`：28 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
 DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube-bench、
-横向移动路径选择、公网 445/389/88 只读外部视角。
-每张卡含触发词/前置/步骤/判据/失败判据/reference；其中 11 张是“命令 → 期望 rc=0 → 期望字段”的剧本卡。
+横向移动路径选择、公网 445/389/88 只读外部视角、容器逃逸与集群控制面、边缘接入面与身份云。
+每张卡含触发词/前置/步骤/判据/失败判据/reference；其中 13 张是“命令 → 期望 rc=0 → 期望字段”的剧本卡。
 
 ## 10. KB board 入口
 
