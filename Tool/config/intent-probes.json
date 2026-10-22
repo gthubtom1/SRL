@@ -1,0 +1,378 @@
+{
+  "schemaVersion": "1.0",
+  "description": "60 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、逆向测绘、固件、取证、协议、供应链、插件与反作弊。每条只描述用户会怎么说，不写实现细节。",
+  "families": {
+    "account": 10,
+    "web-clone": 8,
+    "client-license": 8,
+    "reverse-survey": 6,
+    "firmware": 5,
+    "forensics": 5,
+    "protocol": 6,
+    "supply-chain": 4,
+    "plugin": 4,
+    "anti-cheat": 4
+  },
+  "probes": [
+    {
+      "id": "acct-01",
+      "text": "青龙面板里挂六个号，每天自动签到，掉登录就重登",
+      "expect": "qinglong-signin",
+      "forbid": []
+    },
+    {
+      "id": "acct-02",
+      "text": "把 APP 每日任务做成定时脚本，早上八点自己跑",
+      "expect": "app-daily-task",
+      "forbid": []
+    },
+    {
+      "id": "acct-03",
+      "text": "账号池里多账号跑积分，Cookie 分开存，别串号",
+      "expect": "multi-account-runner",
+      "forbid": []
+    },
+    {
+      "id": "acct-04",
+      "text": "抓一下签到接口，看看积分和连续天数怎么算",
+      "expect": "app-daily-task",
+      "forbid": []
+    },
+    {
+      "id": "acct-05",
+      "text": "青龙里的登录态过期了自动续，别每次扫码",
+      "expect": "qinglong-signin",
+      "forbid": []
+    },
+    {
+      "id": "acct-06",
+      "text": "每个号跑完把结果通知到微信群",
+      "expect": "multi-account-runner",
+      "forbid": []
+    },
+    {
+      "id": "acct-07",
+      "text": "在青龙里用浏览器把网页签到流程跑一遍，顺手抓请求",
+      "expect": "qinglong-signin",
+      "forbid": []
+    },
+    {
+      "id": "acct-08",
+      "text": "账号池多账号签到，限速并换代理 IP，不然风控",
+      "expect": "multi-account-runner",
+      "forbid": []
+    },
+    {
+      "id": "acct-09",
+      "text": "把 App 签到请求的签名参数复现出来，别硬编码",
+      "expect": "app-daily-task",
+      "forbid": []
+    },
+    {
+      "id": "acct-10",
+      "text": "多账号并发跑，限速和重试都要有",
+      "expect": "multi-account-runner",
+      "forbid": []
+    },
+    {
+      "id": "webclone-01",
+      "text": "把这个站 1:1 复刻，前端 JavaScript 和样式都要一样",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "webclone-02",
+      "text": "写个爬虫整站克隆，HTML/CSS/图片全扒下来",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "webclone-03",
+      "text": "复刻站要断网能用，接口全部走本地 mock",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "webclone-04",
+      "text": "后端复刻前先抓包，把接口和返回结构摸清",
+      "expect": "backend-rebuild",
+      "forbid": []
+    },
+    {
+      "id": "webclone-05",
+      "text": "用浏览器截图做像素对比，看复刻页面差在哪",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "webclone-06",
+      "text": "整站克隆前先把 webpack 拆开，找页面路由和接口",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "webclone-07",
+      "text": "原站登录后才有内容，要带着 Cookie crawl 一遍再存页面",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "webclone-08",
+      "text": "整站克隆前先侦察原站接口和静态资源路径",
+      "expect": "site-clone-1to1",
+      "forbid": []
+    },
+    {
+      "id": "lic-01",
+      "text": "卡密能用的都试出来了，帮我把校验跳过去",
+      "expect": "license-bypass-deliver",
+      "forbid": []
+    },
+    {
+      "id": "lic-02",
+      "text": "试用期改成永久，别让它到期",
+      "expect": "license-hookup",
+      "forbid": []
+    },
+    {
+      "id": "lic-03",
+      "text": "机器码绑定了，换台电脑就提示无效",
+      "expect": "license-hookup",
+      "forbid": []
+    },
+    {
+      "id": "lic-04",
+      "text": "软件更新了，新版本追一下",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "lic-05",
+      "text": "UI 改版：去掉弹窗，标题换成自己的",
+      "expect": "ui-rebrand",
+      "forbid": []
+    },
+    {
+      "id": "lic-06",
+      "text": "启动广告弹窗去掉，出个可用成品",
+      "expect": "license-bypass-deliver",
+      "forbid": []
+    },
+    {
+      "id": "lic-07",
+      "text": "卡密是服务器发的，后端复刻时接口也要对齐",
+      "expect": "backend-rebuild",
+      "forbid": []
+    },
+    {
+      "id": "lic-08",
+      "text": "先把它怎么校验卡密的逻辑摸清，出份分析",
+      "expect": "license-bypass-deliver",
+      "forbid": []
+    },
+    {
+      "id": "rev-01",
+      "text": "先做逆向测绘和结构梳理，评估可行性：这个 exe 加了 VMP 壳，脱壳后 dump 内存",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "rev-02",
+      "text": "先做逆向测绘和结构梳理，看它反调试怎么检测 x64dbg",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "rev-03",
+      "text": "逆向测绘结构，用 IDA 看这个 so 的伪代码和交叉引用",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "rev-04",
+      "text": "用 radare2 无头分析这个 ELF，列出函数和导入表",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "rev-05",
+      "text": "查一下这个 DLL 的导出表和 IAT 修复，先出逆向测绘结构",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "rev-06",
+      "text": "先做逆向测绘看壳检测，判断是 UPX 还是 Themida",
+      "expect": "reverse-survey",
+      "forbid": []
+    },
+    {
+      "id": "fw-01",
+      "text": "路由器固件解包，找 squashfs 和 rootfs",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "fw-02",
+      "text": "UART 接哪几个针脚，串口怎么进 shell",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "fw-03",
+      "text": "固件提取后把设备树 dtb 拿出来看启动参数",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "fw-04",
+      "text": "固件提取时顺便看 OTA 升级包怎么解，签名怎么验",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "fw-05",
+      "text": "SPI flash 用 ch341a 读出来，再做固件提取",
+      "expect": "firmware-extract",
+      "forbid": []
+    },
+    {
+      "id": "for-01",
+      "text": "分析这个恶意样本的 C2 和 IOC",
+      "expect": "malware-triage",
+      "forbid": []
+    },
+    {
+      "id": "for-02",
+      "text": "内存镜像用 volatility 看进程和网络连接，拉时间线",
+      "expect": "forensics-timeline",
+      "forbid": []
+    },
+    {
+      "id": "for-03",
+      "text": "EVTX 事件日志拉时间线，做哈希链",
+      "expect": "forensics-timeline",
+      "forbid": []
+    },
+    {
+      "id": "for-04",
+      "text": "先做恶意样本分诊，看这个木马的持久化和注册表",
+      "expect": "malware-triage",
+      "forbid": []
+    },
+    {
+      "id": "for-05",
+      "text": "手机 IPA 的 keychain 和 entitlements 怎么读出来",
+      "expect": "forensics-timeline",
+      "forbid": []
+    },
+    {
+      "id": "proto-01",
+      "text": "抓包看这个 App 的私有协议，报文结构怎么分帧",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "proto-02",
+      "text": "WebSocket 长连接心跳和消息格式怎么复刻，先按私有协议分帧",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "proto-03",
+      "text": "protobuf 的字段号怎么反推，二进制协议怎么拆",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "proto-04",
+      "text": "前端 JS 里的 sign 参数怎么算，参数排序和密钥",
+      "expect": "web-api-sign-reverse",
+      "forbid": []
+    },
+    {
+      "id": "proto-05",
+      "text": "Android App 证书固定（pinning）抓包解不开，先按私有协议分帧",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "proto-06",
+      "text": "重放登录请求并构造新请求，Cookie 和签名一起带上",
+      "expect": "protocol-replay",
+      "forbid": []
+    },
+    {
+      "id": "sc-01",
+      "text": "供应链 SBOM 里看 npm 依赖有没有投毒",
+      "expect": "supply-chain-audit",
+      "forbid": []
+    },
+    {
+      "id": "sc-02",
+      "text": "CI 权限太大，workflow 里 secrets 会不会泄露",
+      "expect": "supply-chain-audit",
+      "forbid": []
+    },
+    {
+      "id": "sc-03",
+      "text": "docker 镜像有没有后门，做个 SBOM 和可达性",
+      "expect": "supply-chain-audit",
+      "forbid": []
+    },
+    {
+      "id": "sc-04",
+      "text": "GitHub Actions 的 pull_request_target，先审 CI 权限和 action pin",
+      "expect": "supply-chain-audit",
+      "forbid": []
+    },
+    {
+      "id": "plug-01",
+      "text": "浏览器扩展的 manifest 权限和 content script 看一下",
+      "expect": "plugin-analysis",
+      "forbid": []
+    },
+    {
+      "id": "plug-02",
+      "text": "Electron 的 app.asar 解包，看主进程 IPC",
+      "expect": "plugin-analysis",
+      "forbid": []
+    },
+    {
+      "id": "plug-03",
+      "text": "Unity 游戏的 il2cpp 和 global-metadata 怎么解",
+      "expect": "apk-unpack",
+      "forbid": []
+    },
+    {
+      "id": "plug-04",
+      "text": "VS Code 插件的 VSIX 解包，看激活事件",
+      "expect": "plugin-analysis",
+      "forbid": []
+    },
+    {
+      "id": "game-01",
+      "text": "游戏有 EAC 反作弊，怎么过检测",
+      "expect": "anti-cheat-forensics",
+      "forbid": []
+    },
+    {
+      "id": "game-02",
+      "text": "BattlEye 服务项和驱动在哪取证",
+      "expect": "anti-cheat-forensics",
+      "forbid": []
+    },
+    {
+      "id": "game-03",
+      "text": "Vanguard 内核驱动一直拦调试器，看兼容性",
+      "expect": "anti-cheat-forensics",
+      "forbid": []
+    },
+    {
+      "id": "game-04",
+      "text": "Unity 游戏 il2cpp 加密，想改内存",
+      "expect": "apk-unpack",
+      "forbid": []
+    }
+  ]
+}
