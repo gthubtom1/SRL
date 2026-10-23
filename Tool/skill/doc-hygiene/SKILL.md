@@ -71,7 +71,11 @@ python scripts/doc-audit.py --root . --json | head -40
   "quiet_dirs": ["assets/docs"],
   "version_file": "VERSION",
   "history_markers": ["历史", "非现状", "归档", "historical"],
-  "leftover_words": ["TODO", "FIXME", "待补", "待办", "占位", "后续", "未实现", "TBD"],
+  "leftover_scope": ["docs/", "ROADMAP.md", "BACKLOG.md"],
+  "leftover_strong": ["TODO", "FIXME", "待补", "待办", "占位", "未实现", "TBD"],
+  "leftover_weak": ["后续", "下一步", "遗留"],
+  "leftover_skip_files": ["CHANGELOG.md", "docs/history/"],
+  "leftover_checkbox_files": ["ROADMAP.md", "BACKLOG.md", "TODO.md"],
   "dead_path_allow": ["examples/"],
   "orphan_allow": ["CHANGELOG.md"],
   "link_sources": ["package.json", "docs/index.json"],
@@ -95,6 +99,15 @@ python scripts/doc-audit.py --root . --json | head -40
 7. **冷启动验收**（见 §7）+ 出报告。
 
 ## 5. 遗留盘点：四分类（本技能的核心）
+
+**先划范围（很重要）**：遗留只从**规划文档区**取——根目录文件（README/ROADMAP/BACKLOG…）+ `docs/`。
+技能文档、知识库、插件说明、判据表里的 `TODO/占位/后续` 是**技术术语或示例**，不是项目待办，扫进来只会制造噪音。
+配置项 `leftover_scope` 显式声明范围；`leftover_skip_files` 用来排除 CHANGELOG 这类"按时间记录、天然含旧词"的文件。
+
+**强弱两级标记**：
+- 强标记（直接算遗留）：`TODO / FIXME / 待办 / 待补 / 待做 / 待实现 / 未实现 / 占位 / TBD`
+- 弱标记（只在像清单时才算法）：`后续 / 下一步 / 遗留 / 暂不`——必须出现在 `-`/`*` 列表行或以「：」结尾，散文里的同词不算
+- 另有：`- [ ]` 未勾选清单项，**只在待办类文档**（`ROADMAP/BACKLOG/TODO/plan*`，由 `leftover_checkbox_files` 指定）里才算遗留；规格、风格、评审模板里的清单是判据，不算
 
 对 DG07 提取出的每一条，按这个判定表处理，**不许留"以后再说"**：
 

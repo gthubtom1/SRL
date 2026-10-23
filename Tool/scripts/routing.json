@@ -36,6 +36,7 @@
     "R28",
     "R27",
     "R9",
+    "R38",
     "R29",
     "R11",
     "R12",
@@ -616,6 +617,17 @@
         }
       ],
       "note": "skill=doc-hygiene（通用：任何项目可用）；脚本 doc-audit.py 只读审计 + --report 出报告；核心是遗留四分类与 backlog"
+    },
+    "R38": {
+      "label": "二进制差分 / 补丁分析",
+      "skill": "binary-diff/SKILL.md",
+      "keywords": [
+        {
+          "must": "(二进制|函数|符号|特征码|代码).{0,6}(差分|比对|对比|迁移)|BinDiff|Diaphora|ghidriff|radiff2|patch ?tuesday|补丁差分|N-day|跨版本.{0,6}(迁移|对齐|比对)",
+          "note": "判据=匹配关系可验证 + 差异落到函数/字段 + PoC 能区分修复前后"
+        }
+      ],
+      "note": "skill=binary-diff；跨版本追版走 R14（04-version-migrate），两者边界：R14 是成品追版，R38 是差异分析与漏洞定位"
     }
   }
 }

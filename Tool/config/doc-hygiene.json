@@ -32,22 +32,6 @@
     "归档",
     "historical"
   ],
-  "leftover_words": [
-    "TODO",
-    "FIXME",
-    "待办",
-    "待补",
-    "待做",
-    "待完善",
-    "待实现",
-    "后续",
-    "未实现",
-    "占位",
-    "暂不",
-    "TBD",
-    "下一步",
-    "遗留"
-  ],
   "dead_path_allow": [
     "Tool/upstream/",
     "Tool/plugins/",
@@ -73,7 +57,20 @@
   ],
   "leftover_skip_files": [
     "CHANGELOG.md",
-    "Tool/skill/doc-hygiene/SKILL.md",
-    "docs/history/"
+    "docs/history/",
+    "docs/AUDIT-REQUEST.md",
+    "docs/AUDIT-REPORT-TEMPLATE.md"
+  ],
+  "leftover_scope": [
+    "docs/",
+    "ROADMAP.md",
+    "BACKLOG.md",
+    "FORK-BRIEF.md"
+  ],
+  "leftover_checkbox_files": [
+    "ROADMAP.md",
+    "BACKLOG.md",
+    "docs/DEFERRALS.md",
+    "docs/RELEASE-"
   ]
 }

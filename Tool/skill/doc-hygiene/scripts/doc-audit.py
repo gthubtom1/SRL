@@ -48,9 +48,10 @@ DEFAULTS = {
                ".venv", "venv", "target", ".next", "coverage"],
     "version_file": "VERSION",
     "history_markers": ["历史", "非现状", "归档", "deprecated", "historical", "not current"],
-    "leftover_words": ["TODO", "FIXME", "XXX", "HACK", "待办", "待补", "待做", "待完善",
-                       "待实现", "后续", "未实现", "占位", "暂不", "暂时不", "TBD",
-                       "下一步", "遗留", "先不做", "以后再", "v2 再", "二期"],
+    "leftover_scope": [],          # 空=自动：根目录文件 + docs/ 下的文档
+    "leftover_strong": ["TODO", "FIXME", "XXX", "HACK", "待办", "待补", "待做", "待完善",
+                        "待实现", "未实现", "占位", "TBD"],
+    "leftover_weak": ["后续", "下一步", "遗留", "暂不", "暂时不", "先不做", "以后再"],
     "stale_days": 365,
     "thin_doc_lines": 5,
     "dup_overlap": 0.7,
@@ -60,6 +61,7 @@ DEFAULTS = {
     "thin_doc_allow": [],
     "link_sources": [],
     "leftover_skip_files": [],
+    "leftover_checkbox_files": ["ROADMAP.md", "BACKLOG.md", "TODO.md", "plan.md", "PLAN.md"],
 }
 
 TEXT_EXT = (".md", ".markdown")
@@ -172,6 +174,12 @@ def audit(root, cfg):
                if os.path.isfile(os.path.join(root, i))}
     hist_dirs = tuple(h.strip("/") for h in cfg["history_dirs"])
     inb = inbound_index(docs, root, cfg)
+    corpus = ""
+    for _d in docs:
+        try:
+            corpus += read(_d)
+        except Exception:
+            pass
     quiet = tuple(q.strip("/") for q in cfg.get("quiet_dirs", []))
     findings = []
 
@@ -231,18 +239,54 @@ def audit(root, cfg):
                 break
 
         # DG04 孤儿（无任何入链，且不是入口/索引）
-        if (not in_hist) and r not in entries and r not in indexes and inb.get(r, 0) == 0                 and not any(a in r for a in cfg.get("orphan_allow", [])):
+        dir_referenced = (os.path.basename(r).lower() == "readme.md"
+                          and os.path.dirname(r) and os.path.dirname(r) in corpus)
+        if (not in_hist) and r not in entries and r not in indexes and inb.get(r, 0) == 0                 and not dir_referenced                 and not any(a in r for a in cfg.get("orphan_allow", [])):
             if not any(r.startswith(h + "/") for h in hist_dirs):
                 add("DG04", "warn", r, "没有任何文档引用它（孤儿文档）",
                     "把它挂进入口/索引，或确认是废弃件后归档/删除")
 
-        # DG07 遗留盘点（info 级：不是错误，但要进台账）
-        skip_lf = in_hist or any(s in r for s in cfg.get("leftover_skip_files", []))
-        for i, ln in enumerate(lines, 1) if not skip_lf else ():
-            for w in cfg["leftover_words"]:
-                if w in ln:
-                    leftovers.append({"file": r, "line": i, "word": w, "text": ln.strip()[:180]})
-                    break
+        # DG07 遗留盘点：只扫「规划文档区」（默认根目录文件 + docs/），
+        # 技能/知识库/插件文档里的 TODO 是技术示例或判据术语，不是项目遗留。
+        scope = cfg.get("leftover_scope") or []
+        if scope:
+            in_scope = any(r.startswith(s) for s in scope)
+        else:
+            in_scope = ("/" not in r) or r.startswith("docs/")
+        skip_lf = (in_hist or not in_scope
+                   or any(s in r for s in cfg.get("leftover_skip_files", [])))
+        if not skip_lf:
+            for i, ln in enumerate(lines, 1):
+                s = ln.strip()
+                hit = ""
+                def mentioned(word):
+                    # 「TODO」「待填」这类被引号包住的词是"提到它"，不是"要做它"
+                    for a, b in (("「", "」"), ("“", "”"), ('"', '"'), ("`", "`")):
+                        if a + word + b in ln:
+                            return True
+                    return False
+
+                for w in cfg["leftover_strong"]:
+                    if w in ln and not mentioned(w):
+                        hit = w
+                        break
+                if not hit:
+                    cb_files = cfg.get("leftover_checkbox_files") or []
+                    unchecked = re.match(r"^[-*]\s*\[ \]\s*(.+)$", s)
+                    # 未勾选清单一律算遗留，但只在「规划/待办类文档」里算；
+                    # 规格/风格/评审模板里的清单是判据，不是项目遗留。
+                    if unchecked and any(f in r for f in cb_files):
+                        hit = "checkbox"
+                    elif not unchecked:
+                        for w in cfg["leftover_weak"]:
+                            if w in ln and not mentioned(w):
+                                hit = w
+                                break
+                        # 弱词只认列表项；引用块、表格行、散文一律不算
+                        if hit and not s.startswith(("-", "*")):
+                            hit = ""
+                if hit:
+                    leftovers.append({"file": r, "line": i, "word": hit, "text": s[:180]})
 
         # DG08 历史目录缺横幅
         if any(r.startswith(h + "/") for h in hist_dirs):
@@ -444,6 +488,19 @@ def self_test() -> int:
         rules = {f["rule"] for f in rh["findings"]}
         expect("归档缺横幅被抓", "DG08" in rules)
         expect("版本过期被抓", "DG11" in rules)
+
+        scope_case = os.path.join(tmp, "scope")
+        mk(scope_case, {
+            "README.md": "# P\n\n- [d](docs/d.md)\n",
+            "docs/d.md": "# D\n\nTODO: 真的项目待办\n",
+            "skill/x/SKILL.md": "# S\n\n示例里出现 TODO 与占位，这是技术说明\n",
+            "docs/plan.md": "# Plan\n\n- [ ] 还没做的清单项\n",
+        })
+        rs = audit(scope_case, cfg_load(None))
+        files = {x["file"] for x in rs["leftovers"]}
+        expect("范围外技术文档不算遗留", "skill/x/SKILL.md" not in files)
+        expect("docs 里的 TODO 算遗留", "docs/d.md" in files)
+        expect("未勾选清单算遗留", any(x["word"] == "checkbox" for x in rs["leftovers"]))
 
         rep = render_report(rb, cfg_load(None))
         expect("报告含遗留台账", "遗留事项台账" in rep)

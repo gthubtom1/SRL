@@ -20,7 +20,7 @@
 | 部署体检 | `powershell -File setup/verify.ps1 -Detailed` | **核心 65 项通过 / [READY]** |
 | 端到端 | `python Tool/scripts/smoke-e2e.py` | **12 passed, 0 failed** |
 | MCP 参数契约 | `python Tool/scripts/mcp-param-contract.py` | 40 工具 / 17 吃路径，全绿 |
-| 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **36 条，失败 0** |
+| 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **38 条，失败 0** |
 | 知识库可用性 | `python Tool/scripts/kb_acceptance.py` | **9/9 通过** |
 
 ## 2. 五类摩擦的修法（问题 → 改动 → 证据）
