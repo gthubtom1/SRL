@@ -166,7 +166,7 @@
 
 ---
 
-## 8. 给审查模型的作业单
+## 8. 审查指引（只读）
 
 ### 8.1 先跑这四条（不跑就下结论 = 报告不可信）
 
@@ -177,29 +177,34 @@ python Tool/scripts/smoke-e2e.py                # 期望 12/12（真调 9 个 MC
 powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 ```
 
-### 8.2 允许你做
+### 8.2 你的权限：只读（**这份仓库不接受第三方直接改动**）
 
-- 修改域内：`Tool/skill/<域>/SKILL.md`、`references/`、`scripts/`、`Tool/config/*-matrix.json`、`Tool/prompts/domains/*.md`
-- 新增配方：`Tool/playbooks/*.md`（跑 `playbook-check.py`，命令必须可执行）
-- 新增能力：`Tool/capabilities/*.json`（跑 `capability-gate.py`，要有 `compose` 或 `reserved`）
-- 新增门禁：`Tool/scripts/*.py`（`--help`/`--self-test` rc=0），并**同步** `Tool/config/gate-counts.json` 与文档计数
-- 修复债务：优先 DEBT-02/03/04/10/11（有明确判据）
+外部审查员的唯一交付物是**报告**。写文件、删文件、装依赖、改配置、改 git 状态一律不做——
+否则「门禁全绿」就分不清是原本就绿，还是被改绿的。
 
-### 8.3 不要做
+- 只读委托书（权限边界 + 命令白名单 + 报告必答 10 问）：`docs/AUDIT-REQUEST.md`
+- 报告骨架（逐字段填）：`docs/AUDIT-REPORT-TEMPLATE.md`
+- 想验证但必须写文件才能验证的：**不验证**，写进报告的「不确定项」，说明需要什么条件。
 
-- 直接改 `Tool/scripts/routing.json`（走 `routing-fragments` + merge 脚本）
-- 改 `Tool/config/gate-counts.json` / `MANUAL/BASELINE-FREEZE.md` 来"让门禁变绿"（数字必须来自实测）
-- 删 `Tool/cases/` 下的真实案例或改动其证据文件
-- 动 `Tool/upstream/`、`Tool/mcp/Tool/safe/`、`破甲卡生成/`
-- 往 KB 里灌新文章（KB 冻结；新知识进案例/配方）
-- 引入新依赖到 `Tool/mcp/seep_mcp_server.py`（3200 行预算 + 离线可用约束）
-- 把历史文档（§6.2）当现状，或把"明确不做"（§5）当缺陷
+### 8.3 只读审查期间不许做的事
 
-### 8.4 提交一个改动的完整流程
+1. 任何写入：`edit` / `write` / `patch` / 重定向 / `sed -i` / 生成文件进仓库
+2. 任何 git 状态变更：`add` / `commit` / `checkout` / `reset` / `stash` / `clean` / `push` / `merge` / `worktree add`
+3. 安装依赖：`pip install` / `npm i` / `winget` / `go install`
+4. 安装/部署/卸载脚本：`setup/install*.ps1`、`setup/update.ps1`、`setup/uninstall.ps1`、`Tool/scripts/tool-run.ps1`、`Tool/scripts/mcp-doctor.py --fix`
+5. 改动 `~/.pi/agent/`（提示词、技能部署目录、`mcp.json`、settings）
+6. 删除或移动仓库内任何文件
+7. 访问外部网络目标（审查阶段只跑离线/回环）
+
+### 8.4 改动由谁实施
+
+改动**只由项目方**（仓库所有者）按报告逐条实施。审查员在报告里给出：
+「改哪个文件第几行 → 改成什么 → 为什么 → 改后能改良什么 → 风险 → 验收命令 → 工作量」，
+**只写不实施**。项目方实施时走 `docs/AUDIT-REQUEST.md` 之外的另一条通道：
 
 1. 改文件 → 2. `python Tool/scripts/domain-gate.py --domain <域>`（10/10）→
-3. `python Tool/scripts/preflight.py --fast`（全绿；若新增文件，更新 BASELINE 为实测值）→
-4. `python Tool/scripts/preflight.py`（44/44）→ 5. 在 `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（说明"改了什么 / 为什么 / 证据"）。
+3. `python Tool/scripts/preflight.py --fast`（全绿；新增文件要同步 BASELINE 实测值）→
+4. `python Tool/scripts/preflight.py`（44/44）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
 
 ### 8.5 常见误解（审查时逐条自查）
 

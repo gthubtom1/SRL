@@ -1,5 +1,12 @@
 # docs 索引
 
+> **审查相关文件怎么分（别读错）**
+> · `FORK-BRIEF.md` = 交接书：这个仓是谁、加了什么、契约与债务（**外部审查先读这个**）
+> · `AUDIT-REQUEST.md` = 只读委托书：权限边界 / 命令白名单 / 报告必答 10 问
+> · `AUDIT-REPORT-TEMPLATE.md` = 报告骨架（逐字段填）
+> · `AUDIT.md` + `audit/*.md` = **历史**台账（旧数字，非现状）
+> · `AGENT-BRIEF.md` = **内部子代理**作业简报（外部审查员请按 AUDIT-REQUEST 走只读流程）
+
 - **先读**：[FORK-BRIEF.md](FORK-BRIEF.md)（给外部审查模型的交接书：差异/需求/契约/债务/文档地图）
 - **第三方审查**：[AUDIT-REQUEST.md](AUDIT-REQUEST.md)（只读委托书：权限边界 / 只读命令白名单 / 报告必答项）｜[AUDIT-REPORT-TEMPLATE.md](AUDIT-REPORT-TEMPLATE.md)（报告骨架）
 - [AGENT-BRIEF.md](AGENT-BRIEF.md)
