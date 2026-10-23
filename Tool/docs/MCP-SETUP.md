@@ -20,7 +20,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 
 ---
 
-## 二、已注册 MCP（4 个）
+## 二、已注册 MCP（5 个）
 
 | MCP | 工具数 | 用途 | 依赖 | 安装方式 |
 | :--- | :---: | :--- | :--- | :--- |
@@ -28,6 +28,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
 | **ida** | **40+**（实测 48，随 ida-pro-mcp 版本变） | IDA 全套分析链 | **你自备的 IDA Pro** | `setup\install-ida.ps1` 自动装（需 `mcp<2`，见 §九） |
 | **js-reverse** | **24** | 前端 JS 逆向 / 调试器 / 网络取证 | npx | 自动（npx 按需拉取） |
 | **playwright** | **25** | 浏览器自动化 | npx | 自动（npx 按需拉取） |
+| **x64dbg** | **80**（宿主插件，随宿主起） | 动态调试（断点/单步/读内存） | 自备 x64dbg | `Tool/scripts/tool-run.ps1 -Tool x64dbg`（http 9094，需 `/mcp reconnect`） |
 
 > IDA 不在默认路径也没关系：`install-ida.ps1` 会做**有界目录扫描**（只扫 `D:\Tools`、`D:\Tools\disasm`
 > 等固定几个根，深度 ≤2），便携版/绿化版（如 `D:\Tools\disasm\IDA Pro 9.3`）也能命中。

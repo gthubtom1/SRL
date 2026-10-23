@@ -103,7 +103,7 @@ apkseep/
 | **自检脚本** | `Tool/mcp/test_seep_mcp.py` | 9 个测试套件 |
 | **启动器** | `Tool/mcp/run_seep_mcp.bat` | Windows 启动封装 |
 | **⭐ 运行时根目录** | **`Tool/mcp/Tool/`** | MCP 内部硬编码 `TOOL_DIR = <脚本目录>/Tool` |
-| **⭐ 知识库依赖** | `Tool/mcp/Tool/reverselab/kb/`（**409 篇 .md**） | `seep_kb_search` 等 4 个工具读这里 |
+| **⭐ 知识库依赖** | `Tool/mcp/Tool/reverselab/kb/`（**412 篇 .md**） | `seep_kb_search` 等 4 个工具读这里 |
 | **LLM 索引** | `Tool/mcp/Tool/reverselab/docs/llms.txt` | MCP 启动时读取 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/radare2/bin/`（脚本下载） | `seep_r2_*` 8 个工具 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/jadx/bin/` + `.../apktool/`（脚本下载） | `seep_apk_*` 5 个工具 |
@@ -185,7 +185,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 
 | 组成 | 本包位置 | 说明 |
 | :--- | :--- | :--- |
-| **kb/** | `Tool/mcp/Tool/reverselab/kb/` | **409 篇 .md**（ctf-website / apk-reverse / pe-reverse / general） |
+| **kb/** | `Tool/mcp/Tool/reverselab/kb/` | **412 篇 .md**（ctf-website / apk-reverse / pe-reverse / general） |
 | **boards/** | `Tool/mcp/Tool/reverselab/boards/` | 攻击网（按信号路由到技术文件） |
 | **tools/skills/mcp/** | `Tool/mcp/Tool/reverselab/tools/skills/mcp/` | 3 个 MCP 源码 |
 | **docs/** | `Tool/mcp/Tool/reverselab/docs/` | 含 `llms.txt`（seep MCP 引用的 LLM 索引） |
@@ -233,7 +233,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 ## 八、依赖链速查（排障用）
 
 ```
-seep_kb_* 四个工具   →  Tool/mcp/Tool/reverselab/kb/（409 篇）
+seep_kb_* 四个工具   →  Tool/mcp/Tool/reverselab/kb/（412 篇）
 seep_r2_* 八个工具   →  Tool/mcp/Tool/safe/radare2/bin/
 seep_apk_* 五个工具  →  Tool/mcp/Tool/safe/jadx/ + apktool/
 seep_apk_gen_hook   →  Tool/mcp/Tool/safe/hook-mcp/templates/
