@@ -1,5 +1,8 @@
 # AUDIT —— 多轮审查台账（R1–R8）
 
+> ⚠️ **历史快照（非现状）**：本文记录的是当时的口径与数字，可能与本仓当前状态不一致。
+> 当前状态以 `docs/FORK-BRIEF.md` + `docs/RELEASE-1.26.1.md` + 实跑门禁为准。
+
 > 规则：每轮用**全新上下文子代理**；P0/P1 未清不得进入下一轮；
 > 结论只写「证据 + 判定 + 动作」，不写感受。门禁命令与本文件同源：
 > `python Tool/scripts/preflight.py`、`python Tool/scripts/domain-gate.py --all`。

@@ -63,6 +63,8 @@
 | **Firmware/IoT wireless near-field** | `firmware-iot` adds 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC chapters |
 | **Phase 02/03 hardening** | Criteria tables + failure criteria + minimal implementation; each phase is verifiable and fail-fast |
 
+> 🤖 **AI / 审查者请先读 [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
+
 ## 🌟 Project Overview
 
 Seep consolidates fragmented reverse engineering toolchains (Radare2 / JADX / Apktool / Frida / IDA), operational knowledge bases, prompt engineering contracts, and battle-tested field experience into an **Agent-Native Autonomous Workbench**.
