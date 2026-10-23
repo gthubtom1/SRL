@@ -6,6 +6,7 @@
 >
 > 版本基线：`v1.26.1`｜门禁实测：`preflight 44/44`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
 > 权威交接台账：`docs/RELEASE-1.26.1.md`（做了什么 / 每条证据 / 剩余项）
+> 若你是被请来做**只读审查**的：直接看 `docs/AUDIT-REQUEST.md`（权限边界 + 只读命令白名单 + 报告必答项）与 `docs/AUDIT-REPORT-TEMPLATE.md`（报告骨架）。**不要修改仓库。**
 
 ---
 
