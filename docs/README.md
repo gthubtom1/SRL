@@ -1,6 +1,7 @@
 # docs 索引
 
 - **先读**：[FORK-BRIEF.md](FORK-BRIEF.md)（给外部审查模型的交接书：差异/需求/契约/债务/文档地图）
+- **第三方审查**：[AUDIT-REQUEST.md](AUDIT-REQUEST.md)（只读委托书：权限边界 / 只读命令白名单 / 报告必答项）｜[AUDIT-REPORT-TEMPLATE.md](AUDIT-REPORT-TEMPLATE.md)（报告骨架）
 - [AGENT-BRIEF.md](AGENT-BRIEF.md)
 - [AUDIT.md](AUDIT.md)
 - [CHANGELOG.md](CHANGELOG.md)
