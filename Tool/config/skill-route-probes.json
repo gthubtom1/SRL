@@ -191,6 +191,12 @@
       "expect_route": "R37"
     },
     {
+      "id": "dochyg-04",
+      "text": "tidy up the docs, they are stale and messy",
+      "expect_skill": "doc-hygiene/SKILL.md",
+      "expect_route": "R37"
+    },
+    {
       "id": "bindiff-01",
       "text": "新旧版本二进制做差分，看补丁改了哪个函数",
       "expect_skill": "binary-diff/SKILL.md",

@@ -15,7 +15,7 @@
 - **MCP 参数契约**：17 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
 - **假话术修复**：`seep_auto_triage` 的 `recommended_action` 不再无条件声称「检测到高价值鉴权关键词」，改为按实测命中生成 `next_actions` 数组（命中 / 未命中 / CIL / rabin2 解析失败 各走一路）。
 - **路由修复（根因）**：`.NET` 的 `` 把 CJK 当 word 字符，导致「APK去广告」「Unity IL2CPP透视」等英文词紧跟中文的口吻全部掉兜底；`master-route.ps1` 改为匹配前在 ASCII↔CJK 交界补空格。补 R1（小程序）/R6（前端 JS·签名算法）/R23（本机提权）/R34（验证码·滑块）/R22（无线近场）关键词；新增 **R36 OSINT**（配方 `osint-recon`）。
-- **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（38 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
+- **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（39 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
 - **阶段技能硬化**：`02-ui-rebrand` 与 `03-license-hookup` 从 86/87 行补到「判据表 + 失败判据表 + 模型失误 + 可跑命令」；03 附离线 HMAC 发卡/校验最小实现、时间回拨防护、失败码表。
 - **域硬化**：web-pentest（`race-probe.py` 608 行 + 单包/断言攻击判据 + KB 第 9 篇）、ad-cloud（横向移动四列判据 + 公网 NTLM/LDAP 外部视角 + 任务卡 26 张）、llm-security（ASI01–ASI10 + MCP 攻击面 + `probe-agent.py` 12 探针）、firmware-iot（无线近场：802.11/BLE/802.15.4/Z-Wave/sub-GHz/NFC）。
 - **外部库接入**：Pentest-Skills-Merged 按许可分层处理——MIT 约 136 篇可重写、`offensive-*` 79 篇按 UNKNOWN 只建索引（`kb/_archive/pentest-checklist/`）、6 篇课程转录不收；纪律写进 `docs/UPSTREAM.md` §6。

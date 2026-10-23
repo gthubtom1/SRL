@@ -612,7 +612,7 @@
       "skill": "doc-hygiene/SKILL.md",
       "keywords": [
         {
-          "must": "(整理|清理|治理|归档).{0,6}文档|文档.{0,4}(太多|太旧|过期|腐化|清理|整理|治理)|交接(文档|项目|前)|换(模型|人|AI).{0,8}(审|读|看)|新会话.{0,8}(读|接手)|冷启动|文档卫生",
+          "must": "(整理|清理|治理|归档).{0,6}文档|文档.{0,4}(太多|太旧|过期|腐化|清理|整理|治理)|交接(文档|项目|前)|换(模型|人|AI).{0,8}(审|读|看)|新会话.{0,8}(读|接手)|冷启动|文档卫生|(tidy|clean)( up)?( the)?( docs| documentation)|doc(umentation)? (audit|hygiene)|handoff|onboard(ing)? a new model|leftover todos",
           "note": "meta 技能：盘点→三分法→归档/删除→计数对齐→冷启动演练→过门禁；门禁 doc-audit.py（7 项）"
         }
       ],
