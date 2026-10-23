@@ -1,0 +1,74 @@
+{
+  "entry_docs": [
+    "README.md",
+    "README.zh.md"
+  ],
+  "index_docs": [
+    "docs/README.md"
+  ],
+  "history_dirs": [
+    "docs/history"
+  ],
+  "ignore": [
+    "Tool/mcp",
+    "Tool/upstream",
+    "Tool/cases",
+    "Tool/samples",
+    "work",
+    ".pi",
+    "evidence",
+    "破甲卡生成",
+    "node_modules",
+    ".git"
+  ],
+  "quiet_dirs": [
+    "Tool/prompts",
+    "Tool/capabilities"
+  ],
+  "version_file": "VERSION",
+  "history_markers": [
+    "历史",
+    "非现状",
+    "归档",
+    "historical"
+  ],
+  "leftover_words": [
+    "TODO",
+    "FIXME",
+    "待办",
+    "待补",
+    "待做",
+    "待完善",
+    "待实现",
+    "后续",
+    "未实现",
+    "占位",
+    "暂不",
+    "TBD",
+    "下一步",
+    "遗留"
+  ],
+  "dead_path_allow": [
+    "Tool/upstream/",
+    "Tool/plugins/",
+    "work/",
+    "relay-config.json",
+    ".../"
+  ],
+  "orphan_allow": [
+    "Tool/playbooks/INDEX.md",
+    "tool-index.md"
+  ],
+  "thin_doc_allow": [
+    "tool-index.md"
+  ],
+  "stale_days": 365,
+  "thin_doc_lines": 5,
+  "dup_overlap": 0.75,
+  "link_sources": [
+    "Tool/scripts/routing.json",
+    "Tool/config/*.json",
+    "README.md",
+    "docs/*.md"
+  ]
+}

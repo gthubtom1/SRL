@@ -886,12 +886,16 @@ def check_race_e2e():
 
 
 def check_doc_hygiene():
-    """文档卫生：冷启动可读（现状卡/索引分区/归档横幅/过期数字/死路径/重复入口/预算漂移）。"""
-    sp = os.path.join(TOOL, "skill", "doc-hygiene", "scripts", "doc-hygiene-check.py")
+    """文档治理审计：冷启动可读 + 遗留盘点（死链/孤儿/重复/版本/归档横幅/索引/遗留）。"""
+    sp = os.path.join(TOOL, "skill", "doc-hygiene", "scripts", "doc-audit.py")
+    cfg = os.path.join(TOOL, "config", "doc-hygiene.json")
     if not os.path.isfile(sp):
-        add("16 文档", "冷启动可读（doc-hygiene）", False, "doc-hygiene-check.py(missing)")
+        add("16 文档", "文档治理审计（doc-audit）", False, "doc-audit.py(missing)")
         return
-    rc, out = run([sys.executable, sp, "--json"], timeout=180)
+    cmd = [sys.executable, sp, "--root", ROOT, "--json"]
+    if os.path.isfile(cfg):
+        cmd += ["--config", cfg]
+    rc, out = run(cmd, timeout=240)
     data = {}
     if "{" in (out or ""):
         try:
@@ -900,11 +904,17 @@ def check_doc_hygiene():
             data = {}
     if not isinstance(data, dict):
         data = {}
-    vs = data.get("violations") or []
+    s = data.get("summary") or {}
     ok = rc == 0 and data.get("ok") is True
-    detail = ("7 项体检 0 违规（现状卡/索引/归档横幅/数字/死路径/重复入口/预算）" if ok else
-              "%d 处违规：%s" % (len(vs), "; ".join("%s(%s)" % (v.get("rule"), v.get("target")) for v in vs[:3])))
-    add("16 文档", "冷启动可读（doc-hygiene）", ok, detail)
+    if ok:
+        detail = "%d 篇 / error 0 / warn %d / 遗留 %d 条（详见 doc-audit.py --report）" % (
+            s.get("docs", 0), sum(1 for x in (data.get("findings") or [])
+                                  if x.get("severity") == "warn"), s.get("leftovers", 0))
+    else:
+        errs = [x for x in (data.get("findings") or []) if x.get("severity") == "error"]
+        detail = "rc=%d / error %d：%s" % (rc, len(errs),
+                                          "; ".join("%s(%s)" % (e.get("rule"), e.get("target")) for e in errs[:3]))
+    add("16 文档", "文档治理审计（doc-audit）", ok, detail)
 
 
 def check_language():
