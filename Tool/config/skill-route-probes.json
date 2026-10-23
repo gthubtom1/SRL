@@ -189,6 +189,18 @@
       "text": "新会话读项目状态会不会被旧文档误导",
       "expect_skill": "doc-hygiene/SKILL.md",
       "expect_route": "R37"
+    },
+    {
+      "id": "bindiff-01",
+      "text": "新旧版本二进制做差分，看补丁改了哪个函数",
+      "expect_skill": "binary-diff/SKILL.md",
+      "expect_route": "R38"
+    },
+    {
+      "id": "bindiff-02",
+      "text": "用 Diaphora 做特征码迁移，定位 N-day",
+      "expect_skill": "binary-diff/SKILL.md",
+      "expect_route": "R38"
     }
   ]
 }

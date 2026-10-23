@@ -100,7 +100,7 @@
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
 | **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **45/45**、`--fast` **42/42**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
 | **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 40 工具数基线，防「模型第一次调用就传错参数」 |
-| **技能路由探针** | `skill-route-probe.py`：36 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
+| **技能路由探针** | `skill-route-probe.py`：38 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
 | **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |
 | **固件/物联网无线近场** | `firmware-iot` 新增 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC 章节 |
 | **02/03 阶段硬化** | 判据表 + 失败判据 + 最小实现，阶段产出可验收、失败可止损 |
