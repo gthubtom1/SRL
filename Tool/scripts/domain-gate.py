@@ -966,6 +966,23 @@ def check_cleanup():
 
 
 # ---------------------------------------------------------------- [11] 部署
+def _all_skills():
+    """列出仓库内全部技能：(部署名, Tool/skill 下的相对路径)。safe-skills 子技能按扁平名部署。"""
+    out = []
+    base = os.path.join(TOOL, "skill")
+    if not os.path.isdir(base):
+        return out
+    for n in sorted(os.listdir(base)):
+        p = os.path.join(base, n)
+        if n == "safe-skills" and os.path.isdir(p):
+            for sub in sorted(os.listdir(p)):
+                if os.path.isfile(os.path.join(p, sub, "SKILL.md")):
+                    out.append((sub, "safe-skills/" + sub))
+        elif os.path.isfile(os.path.join(p, "SKILL.md")):
+            out.append((n, n))
+    return out
+
+
 def check_deploy(only=None):
     agent = os.path.join(os.path.expanduser("~"), ".pi", "agent", "skills")
     if not os.path.isdir(agent):
@@ -991,9 +1008,24 @@ def check_deploy(only=None):
                     bad.append("%s(缺 %s)" % (spec["skill"], os.path.relpath(s, src)))
                 elif _norm_sha(s) != _norm_sha(t):
                     bad.append("%s(%s 哈希不一致)" % (spec["skill"], os.path.relpath(s, src)))
+    # 覆盖 11 域之外的技能（doc-hygiene / binary-diff / safe-skills 子技能等）：
+    # 换机器只跑 install 而漏部署某个技能时，这里会直接报「未部署」。
+    covered = {os.path.basename(str(spec["skill"]).rstrip("/")) for spec in DOMAINS.values()}
+    extra = []
+    for name, rel in _all_skills():
+        if name in covered:
+            continue
+        src = os.path.join(TOOL, "skill", rel, "SKILL.md")
+        dst = os.path.join(agent, name, "SKILL.md")
+        if not os.path.isfile(dst):
+            extra.append("%s(未部署)" % name)
+        elif _norm_sha(src) != _norm_sha(dst):
+            extra.append("%s(SKILL.md 哈希不一致)" % name)
+    bad += extra
+
     add("全局", "部署哈希一致（仓库 ↔ ~/.pi/agent/skills）", not bad,
         "；".join(bad[:6]) + ("…" if len(bad) > 6 else "") if bad
-        else ("%d 域 SKILL/references/scripts 哈希一致" % len(DOMAINS)))
+        else ("%d 域 + %d 个其余技能 哈希一致" % (len(DOMAINS), len(_all_skills()) - len(covered))))
 
 
 
