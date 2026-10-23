@@ -70,5 +70,10 @@
     "Tool/config/*.json",
     "README.md",
     "docs/*.md"
+  ],
+  "leftover_skip_files": [
+    "CHANGELOG.md",
+    "Tool/skill/doc-hygiene/SKILL.md",
+    "docs/history/"
   ]
 }

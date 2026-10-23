@@ -59,6 +59,7 @@ DEFAULTS = {
     "orphan_allow": [],
     "thin_doc_allow": [],
     "link_sources": [],
+    "leftover_skip_files": [],
 }
 
 TEXT_EXT = (".md", ".markdown")
@@ -236,7 +237,8 @@ def audit(root, cfg):
                     "把它挂进入口/索引，或确认是废弃件后归档/删除")
 
         # DG07 遗留盘点（info 级：不是错误，但要进台账）
-        for i, ln in enumerate(lines, 1):
+        skip_lf = in_hist or any(s in r for s in cfg.get("leftover_skip_files", []))
+        for i, ln in enumerate(lines, 1) if not skip_lf else ():
             for w in cfg["leftover_words"]:
                 if w in ln:
                     leftovers.append({"file": r, "line": i, "word": w, "text": ln.strip()[:180]})
