@@ -952,7 +952,9 @@ def check_cleanup():
         # 只把「整行就是待填」当空台账；审计正文里引用这个词（说明历史缺陷）不算。
         if any(ln.strip().startswith("待填") for ln in t.splitlines()):
             bad.append("docs/AUDIT.md 仍有『待填』占位行——空台账不算审计")
-        for k in ("R1", "R2", "R3", "R4"):
+        # 两种合法形态：①完整台账（含 R1–R4 结论）②索引页（正文已归档到 docs/history/ 并给出链接）
+        is_index = ("history/" in t) and ("历史" in t)
+        for k in ([] if is_index else ["R1", "R2", "R3", "R4"]):
             if "## " + k not in t:
                 bad.append("docs/AUDIT.md 缺 %s 结论" % k)
                 continue

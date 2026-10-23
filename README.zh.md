@@ -55,6 +55,18 @@
 
 > 🤖 **AI / 审查者请先读 [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
 
+
+> ## 现状卡（冷启动只看这 8 行）
+>
+> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（30 技能 / 11 域 / 24 配方 / 40 个 MCP 工具）
+> - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
+> - **版本**：`v1.26.1`（`VERSION`）
+> - **门禁**：`preflight 44/44`、`domain-gate 110/110`、`verify 65/0`、`smoke-e2e 12/12`
+> - **先读**：[`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)（差异/需求/契约/债务）→ [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)（最近交付台账）
+> - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（不许改仓库，只出报告）
+> - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*`、`HANDOFF-*`、`OPTIMIZATION-*`）——**不作现状**
+> - **自检**：`python Tool/scripts/preflight.py`
+
 ## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）
 
 > **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.26.1）。**

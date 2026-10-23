@@ -222,7 +222,7 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
 | 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/unpack-loop/SKILL.md`<br>`Tool/skill/version-migration/SKILL.md` |
 | 脚本 | `Tool/scripts/check-budget.py`<br>`Tool/scripts/fork-delta.py`<br>`Tool/scripts/new-skill.py`<br>`Tool/scripts/smoke-e2e.py`<br>`Tool/scripts/verify-routing-coherence.py` |
-| 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`Tool/docs/HANDOFF-交接文档.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
+| 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |
 | 根目录 | `README.en.md` |
 | 其他 | `Tool/cases/案例-6.9换肤壳/.agents/notes/rejected/PAGE_GUARD内存断点.md`<br>`Tool/cases/案例-6.9换肤壳/.agents/notes/rejected/全量反编译带壳程序.md`<br>`Tool/cases/案例-6.9换肤壳/README.md`<br>`Tool/cases/案例-6.9换肤壳/docs/走查与思路沉淀.md`<br>`Tool/samples/README.md`<br>`Tool/samples/build.ps1`<br>`Tool/samples/real/README.md`<br>`Tool/samples/real/android-apks/AndroGoat.apk`<br>… 另 123 个 |
