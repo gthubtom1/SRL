@@ -513,7 +513,7 @@ def self_test() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="通用文档治理审计（只读）")
-    ap.add_argument("--root", default=".")
+    ap.add_argument("--root", default=".", help="要审计的项目根目录（默认当前目录）")
     ap.add_argument("--config", default="")
     ap.add_argument("--report", default="", help="把 Markdown 报告写到该路径")
     ap.add_argument("--json", action="store_true")
