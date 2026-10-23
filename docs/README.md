@@ -1,5 +1,6 @@
 # docs 索引
 
+- **先读**：[FORK-BRIEF.md](FORK-BRIEF.md)（给外部审查模型的交接书：差异/需求/契约/债务/文档地图）
 - [AGENT-BRIEF.md](AGENT-BRIEF.md)
 - [AUDIT.md](AUDIT.md)
 - [CHANGELOG.md](CHANGELOG.md)

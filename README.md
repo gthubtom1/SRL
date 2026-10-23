@@ -53,6 +53,8 @@
 
 ---
 
+> 🤖 **AI / 审查者请先读 [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
+
 ## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）
 
 > **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.26.1）。**
