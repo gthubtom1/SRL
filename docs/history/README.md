@@ -9,7 +9,7 @@
 3. `docs/RELEASE-1.26.1.md`——最近一轮交付台账
 4. `ROADMAP.md`——现在能做什么
 5. `docs/DEFERRALS.md`——延迟项 + 明确不做
-6. 实跑 `python Tool/scripts/preflight.py`（应为 44/44）
+6. 实跑 `python Tool/scripts/preflight.py`（应为 45/45）
 
 ## 归档清单
 

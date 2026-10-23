@@ -15,12 +15,12 @@
 - **MCP 参数契约**：17 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
 - **假话术修复**：`seep_auto_triage` 的 `recommended_action` 不再无条件声称「检测到高价值鉴权关键词」，改为按实测命中生成 `next_actions` 数组（命中 / 未命中 / CIL / rabin2 解析失败 各走一路）。
 - **路由修复（根因）**：`.NET` 的 `` 把 CJK 当 word 字符，导致「APK去广告」「Unity IL2CPP透视」等英文词紧跟中文的口吻全部掉兜底；`master-route.ps1` 改为匹配前在 ASCII↔CJK 交界补空格。补 R1（小程序）/R6（前端 JS·签名算法）/R23（本机提权）/R34（验证码·滑块）/R22（无线近场）关键词；新增 **R36 OSINT**（配方 `osint-recon`）。
-- **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（33 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
+- **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（36 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
 - **阶段技能硬化**：`02-ui-rebrand` 与 `03-license-hookup` 从 86/87 行补到「判据表 + 失败判据表 + 模型失误 + 可跑命令」；03 附离线 HMAC 发卡/校验最小实现、时间回拨防护、失败码表。
 - **域硬化**：web-pentest（`race-probe.py` 608 行 + 单包/断言攻击判据 + KB 第 9 篇）、ad-cloud（横向移动四列判据 + 公网 NTLM/LDAP 外部视角 + 任务卡 26 张）、llm-security（ASI01–ASI10 + MCP 攻击面 + `probe-agent.py` 12 探针）、firmware-iot（无线近场：802.11/BLE/802.15.4/Z-Wave/sub-GHz/NFC）。
 - **外部库接入**：Pentest-Skills-Merged 按许可分层处理——MIT 约 136 篇可重写、`offensive-*` 79 篇按 UNKNOWN 只建索引（`kb/_archive/pentest-checklist/`）、6 篇课程转录不收；纪律写进 `docs/UPSTREAM.md` §6。
 - **交付记录**：`docs/RELEASE-1.26.1.md`（做了什么 / 每条证据 / 剩余延迟项）。
-- 门禁：preflight 44/44、domain-gate 110/110、verify 65/0、smoke-e2e 12/12、技能路由探针 33/33。
+- 门禁：preflight 45/45、domain-gate 110/110、verify 65/0、smoke-e2e 12/12、技能路由探针 33/33。
 - **三轮补齐（延迟项清零）**：新增 `h2-race-e2e.py`（内置 h2c 服务端 racy/safe 两档，进 preflight 成为第 44 项）；`ad-repro.py --kind edge-fingerprint` 覆盖 10 类边缘产品（离线 fixture 复算，`auth_attempted` 恒 false）；新增 `osint-secret-scan.py`（65 条模式）+ `osint-h1-ref.py`（H1 公开报告）；`probe_matrix.py --radio-only` 无线硬件能力枚举；归档库剩余 4 篇（CI 凭据/NetExec/初始接入遥测/TOCTOU）并入 supply-chain/ad-cloud/web-pentest/pwn-crypto。无线升域与 00-analysis 纳入九件套**明确不做**（理由写进 `docs/DEFERRALS.md`）。
 - **二轮吸收（Pentest 库）**：web-pentest 补单包竞态（last-byte sync + h2 单包，缺库结构化 blocked）、WebSocket CSWSH、gRPC reflection、WordPress 链、`error_log` 挖掘、缓存三组对照（矩阵 19→23、`race-probe --self-test` 34 项）；ad-cloud 补容器逃逸原语、集群控制面五面、云 IAM 提权链、边缘接入面只读指纹（矩阵 26 条、任务卡 28 张）；signin-automation 从 35 行扩到 264 行（六原语 + 指纹/JA3·JA4/H2 头序 + OPSEC 参数表 + `opsec-check.py`）；forensics-mobile 补 ETW-TI/内核回调/AMSI/Sysmon 遥测与反取证自证痕迹；00-analysis 补报告模板（证据分级 + 14 条反例）。
 
