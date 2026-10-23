@@ -124,9 +124,9 @@
 
 | 文件 | 性质 | 为什么会误导 |
 | :-- | :-- | :-- |
-| `docs/AUDIT.md` | v1.19–v1.25 多轮审查台账（R1–R8） | 里面有「门禁 41 项」「first-party 823」「38 项」之类旧口径，与今天不同 |
-| `docs/audit/A.md … E.md`、`CLOSURE.md` | 早期审计报告与闭环记录 | 它们描述的是**当时**发现的问题；部分已修、部分转 DEFERRALS |
-| `docs/OPTIMIZATION-2.0.md` | v1.25 之后的一次优化清单 | 条目多以「待做」语态写；实际已完成大半，见 RELEASE 台账 |
+| `docs/history/AUDIT-2026-10-21.md` + `docs/history/audit/*` | v1.19–v1.25 多轮审查台账（R1–R8） | 里面有「门禁 41 项」「first-party 823」「38 项」之类旧口径，与今天不同 |
+| `docs/history/audit/A.md … E.md`、`CLOSURE.md` | 早期审计报告与闭环记录 | 它们描述的是**当时**发现的问题；部分已修、部分转 DEFERRALS |
+| `docs/history/OPTIMIZATION-2.0.md` | v1.25 之后的一次优化清单 | 条目多以「待做」语态写；实际已完成大半，见 RELEASE 台账 |
 | `work/plans/优化方案*.md` | 用户本地规划笔记（gitignored，**不进版本库**） | 是过程稿，非规格；clone 下来不会存在 |
 | `docs/PROMOTION.md` | 「三次规则」晋升流程说明 | 流程文档，不是能力清单 |
 

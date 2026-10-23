@@ -23,7 +23,7 @@
 
 | id | 项 | 触发条件 |
 | :-- | :-- | :-- |
-| D13 | B 报告 10 条深度 P1（sign-recompute / tls-decrypt / license-locate / permission-evidence / ipc-audit / yara-write 等） | 该能力被真实任务用到时，按 `docs/audit/CLOSURE.md` 对应行补脚本 |
+| D13 | B 报告 10 条深度 P1（sign-recompute / tls-decrypt / license-locate / permission-evidence / ipc-audit / yara-write 等） | 该能力被真实任务用到时，按 `docs/history/audit/CLOSURE.md` 对应行补脚本 |
 | D14 | D 报告 4 条架构 P1（4 套注册表合并、能力独立判据、routing `playbook` 字段、new-skill 词边界） | 新增域/新增能力时优先做；不阻塞既有 11 域 |
 | D15 | probe 级能力（`maturity=probe`）补独立脚本 | 该能力第一次产出真实案例时 |
 | D16 | 11 个存量脚本失败路径 rc 不统一（裸 Traceback / rc=1 纯文本） | 该脚本所在域下次实跑时统一为 `{ok:false,blocked_at,reason}` + rc=2 |

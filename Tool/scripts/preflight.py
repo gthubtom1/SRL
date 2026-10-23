@@ -93,6 +93,8 @@ def check_dangling():
         # 它现在在 docs/CHANGELOG.md，所以用"路径含 CHANGELOG"而不是前缀判断。
         if os.path.splitext(p)[1].lower() not in TEXT_EXT or "CHANGELOG" in p:
             continue
+        if p.replace(os.sep, "/").startswith("docs/history/"):
+            continue
         try:
             text = open(os.path.join(ROOT, p), encoding="utf-8", errors="replace").read()
         except Exception:
@@ -202,6 +204,8 @@ def check_numbers(fast):
             for fp in docs:
                 if os.path.basename(fp) in HISTORY or os.path.basename(fp).startswith("AUDIT"):
                     continue
+                if "/history/" in fp.replace(os.sep, "/"):
+                    continue
                 try:
                     t = open(fp, encoding="utf-8", errors="replace").read()
                 except Exception:
@@ -223,7 +227,7 @@ def check_numbers(fast):
     for root_, _dirs, files_ in os.walk(ROOT):
         normd = root_.replace(os.sep, "/")
         if any(x in normd for x in ("/work", "/node_modules", "/__pycache__", "/upstream",
-                                    "/cases", "/audit", "/mcp/Tool")):
+                                    "/cases", "/audit", "/mcp/Tool", "/history")):
             continue
         for f_ in files_:
             if not f_.endswith(".md"):
@@ -899,7 +903,7 @@ def check_language():
                     continue
                 fp = os.path.join(dp, f)
                 rel = os.path.relpath(fp, ROOT).replace(os.sep, "/")
-                if any(s in rel for s in skip) or rel.startswith("docs/audit/"):
+                if any(s in rel for s in skip) or rel.startswith("docs/audit/") or rel.startswith("docs/history/"):
                     continue
                 try:
                     t = open(fp, encoding="utf-8", errors="replace").read()
@@ -925,7 +929,7 @@ def check_language():
             files_.append(r_)
             continue
         for dp, dn, fn in os.walk(r_):
-            if "/audit" in dp.replace(os.sep, "/") or "/_archive" in dp.replace(os.sep, "/"):
+            if any(x in dp.replace(os.sep, "/") for x in ("/audit", "/_archive", "/history")):
                 continue
             files_ += [os.path.join(dp, f) for f in fn if f.endswith(".md")]
     for fp in files_:

@@ -96,7 +96,7 @@ git show <commit>:<path>
 7. 需要细节时再看具体 `Tool/skill/<域>/SKILL.md` 与 `references/`。
 
 **不要**把以下当作现状（`docs/FORK-BRIEF.md` §6 有完整说明）：`docs/AUDIT.md`、`docs/audit/*.md`、
-`docs/OPTIMIZATION-2.0.md`、`work/plans/*`、`work/` 下任何产物、`.pi/`。
+`docs/history/OPTIMIZATION-2.0.md`、`work/plans/*`、`work/` 下任何产物、`.pi/`。
 **不要**审查：`Tool/upstream/`、`Tool/mcp/Tool/safe/`（内置工具链二进制）、`破甲卡生成/`（项目方另一个侧项目）。
 
 ---
