@@ -60,7 +60,6 @@
 | [DOWNLOADS.md](../Tool/docs/DOWNLOADS.md) | 离线资产清单与来源 |
 | [EXT-ASSETS.md](../Tool/docs/EXT-ASSETS.md) | 扩展资产说明 |
 | [TOOLKIT_GUIDE.md](../Tool/docs/TOOLKIT_GUIDE.md) | 工具链使用指南 |
-| [README_MCP.md](../Tool/docs/README_MCP.md) | MCP 服务说明 |
 | [tool-index.md](../Tool/docs/tool-index.md) | 工具索引（自动生成） |
 
 ## 6. 手册（`MANUAL/`）
