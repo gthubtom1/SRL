@@ -885,6 +885,28 @@ def check_race_e2e():
     add("15 路由探针", "HTTP/2 单包 e2e（racy/safe）", ok, detail)
 
 
+def check_doc_hygiene():
+    """文档卫生：冷启动可读（现状卡/索引分区/归档横幅/过期数字/死路径/重复入口/预算漂移）。"""
+    sp = os.path.join(TOOL, "skill", "doc-hygiene", "scripts", "doc-hygiene-check.py")
+    if not os.path.isfile(sp):
+        add("16 文档", "冷启动可读（doc-hygiene）", False, "doc-hygiene-check.py(missing)")
+        return
+    rc, out = run([sys.executable, sp, "--json"], timeout=180)
+    data = {}
+    if "{" in (out or ""):
+        try:
+            data, _end = json.JSONDecoder().raw_decode((out or "")[out.index("{"):])
+        except (ValueError, TypeError):
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    vs = data.get("violations") or []
+    ok = rc == 0 and data.get("ok") is True
+    detail = ("7 项体检 0 违规（现状卡/索引/归档横幅/数字/死路径/重复入口/预算）" if ok else
+              "%d 处违规：%s" % (len(vs), "; ".join("%s(%s)" % (v.get("rule"), v.get("target")) for v in vs[:3])))
+    add("16 文档", "冷启动可读（doc-hygiene）", ok, detail)
+
+
 def check_language():
     """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
     import re as _re
@@ -978,6 +1000,7 @@ def main():
     check_mcp_contract()
     check_skill_route()
     check_race_e2e()
+    check_doc_hygiene()
     check_language()
     check_functional(args.fast)
 

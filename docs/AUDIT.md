@@ -4,7 +4,7 @@
 > **正文已整体移入 `docs/history/`**，这里只保留索引与阅读指引。
 >
 > **当前状态看这里**：`README.md` 顶部「现状卡」→ `docs/FORK-BRIEF.md` → `docs/RELEASE-1.26.1.md`
-> **要跑门禁**：`python Tool/scripts/preflight.py`（应为 44/44）
+> **要跑门禁**：`python Tool/scripts/preflight.py`（应为 45/45）
 > **外部审查（只读）**：`docs/AUDIT-REQUEST.md` + `docs/AUDIT-REPORT-TEMPLATE.md`
 
 ## 历史档案

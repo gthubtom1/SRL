@@ -171,6 +171,24 @@
       "id": "wireless-03",
       "text": "Zigbee 入网密钥怎么解",
       "expect_skill": "firmware-iot/SKILL.md"
+    },
+    {
+      "id": "dochyg-01",
+      "text": "帮我整理一下项目里的文档，太多了又旧",
+      "expect_skill": "doc-hygiene/SKILL.md",
+      "expect_route": "R37"
+    },
+    {
+      "id": "dochyg-02",
+      "text": "我要换个模型来接手，先把没用的旧文档清理掉",
+      "expect_skill": "doc-hygiene/SKILL.md",
+      "expect_route": "R37"
+    },
+    {
+      "id": "dochyg-03",
+      "text": "新会话读项目状态会不会被旧文档误导",
+      "expect_skill": "doc-hygiene/SKILL.md",
+      "expect_route": "R37"
     }
   ]
 }

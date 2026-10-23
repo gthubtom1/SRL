@@ -1,6 +1,6 @@
 # 5 分钟快速路径（新 agent / 换会话先看这个）
 
-> 目标：**5 分钟内跑出第一条有效结论**，不被 110 条门禁和 30 个技能吓住。
+> 目标：**5 分钟内跑出第一条有效结论**，不被 110 条门禁和 31 个技能吓住。
 > 详细契约见 `docs/DOMAIN-SPEC-v2.md`；接力棒见 `ROADMAP.md`；差分见 `docs/UPSTREAM.md`。
 
 ## 0. 一条命令确认环境（10 秒）
@@ -41,7 +41,7 @@ ls Tool/prompts/domains/<域>.md          # 24 张卡，每张=触发词/前置/
 ```bash
 python Tool/scripts/domain-gate.py --domain <域>     # 本域 10 条断言
 python Tool/scripts/preflight.py --fast              # 全局快检（悬空引用/篇幅/路由/清理）
-# 当前基线：preflight --fast 41/41；preflight 全量 44/44
+# 当前基线：preflight --fast 42/42；preflight 全量 45/45
 ```
 
 ## 5. 常见卡点（先看这里，别硬猜）

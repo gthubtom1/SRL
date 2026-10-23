@@ -1,7 +1,7 @@
 {
   "schema": "seep.gate-counts/1",
   "note": "门禁断言的唯一数字源；preflight 用它核对文档里的 preflight 计数，mcp-param-contract 用它核对 MCP 工具数基线。",
-  "preflight_full": 44,
-  "preflight_fast": 41,
+  "preflight_full": 45,
+  "preflight_fast": 42,
   "mcp_seep_tools": 40
 }

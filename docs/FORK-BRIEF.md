@@ -4,7 +4,7 @@
 > 本文是**唯一交接事实源**：身份、差异、需求、契约、已知债务、以及「哪些文档不能当现状」。
 > 读完本文 + 跑一遍第 9 节的门禁，你就能在不误解的前提下给出可信报告。
 >
-> 版本基线：`v1.26.1`｜门禁实测：`preflight 44/44`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
+> 版本基线：`v1.26.1`｜门禁实测：`preflight 45/45`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
 > 权威交接台账：`docs/RELEASE-1.26.1.md`（做了什么 / 每条证据 / 剩余项）
 > 若你是被请来做**只读审查**的：直接看 `docs/AUDIT-REQUEST.md`（权限边界 + 只读命令白名单 + 报告必答项）与 `docs/AUDIT-REPORT-TEMPLATE.md`（报告骨架）。**不要修改仓库。**
 
@@ -16,7 +16,7 @@
 | :-- | :-- |
 | 这是什么 | 面向**客户端授权白盒审计 + 二进制/Web/移动/固件逆向**的「AI 作战系统」：技能 + 配方 + 能力 + 门禁 + 知识库 + MCP 工具链 |
 | 从哪来 | 上游 `angusdevgo/Seep-Reverse-Lab`（本仓 `origin` = `gthubtom1/Seep-Reverse-Lab`，`upstream` 已配置） |
-| 规模 | 30 个技能 / 11 个域 / 24 篇配方 / 51 个能力 / 32 条路由 / 412 篇 KB / 53 个案例 / 40 个 MCP 工具（seep 服务） |
+| 规模 | 31 个技能 / 11 个域 / 24 篇配方 / 51 个能力 / 33 条路由 / 412 篇 KB / 53 个案例 / 40 个 MCP 工具（seep 服务） |
 | 形态 | 纯本地、可离线；自带工具链（radare2 / jadx / apktool / frida 模板）约 565MB |
 | 设计哲学 | **判据优先、反造假**：每条结论必须能在 `case_state` 里证明；写不出可机检判据的内容不进技能 |
 | 现在状态 | 功能完整，门禁全绿；有 14 条**已登记债务**（第 8 节），无「假装完成」的项 |
@@ -49,7 +49,7 @@
 
 | 类别 | 加的东西 | 怎么验 |
 | :-- | :-- | :-- |
-| **门禁层（最大差异）** | `preflight.py`（44 项）、`domain-gate.py`（域深度 110 项）、`capability-gate.py`、`playbook-check.py`、`skill-route-probe.py`、`mcp-param-contract.py`、`intent-coverage.py`、`check-budget.py`、`case_state.py`（案子账/深度门/出口闸） | `python Tool/scripts/preflight.py`、`python Tool/scripts/domain-gate.py --all` |
+| **门禁层（最大差异）** | `preflight.py`（45 项）、`domain-gate.py`（域深度 110 项）、`capability-gate.py`、`playbook-check.py`、`skill-route-probe.py`、`mcp-param-contract.py`、`intent-coverage.py`、`check-budget.py`、`case_state.py`（案子账/深度门/出口闸） | `python Tool/scripts/preflight.py`、`python Tool/scripts/domain-gate.py --all` |
 | **判据化域（11 个）** | 每域九件套：判据表 / 失败判据表 / 模型坑 / 走查 / 脚本（`--help`+`--self-test` 双绿）/ 案例（≥1 real）/ KB / 矩阵 / 任务卡 / 路由片段 | `python Tool/scripts/domain-gate.py --domain <域>` |
 | **五阶段流水线** | `00-analysis`（先摸透再动手）→ `01-gate-bypass`（旁路卡密）→ `02-ui-rebrand`（改 UI 去品牌）→ `03-license-hookup`（接自有授权）→ `04-version-migrate`（跨版本追版）→ `05-backend-rebuild`（T2/T3 才触发） | 各 `Tool/skill/0*/SKILL.md` + `case_state.py` 闸 |
 | **MCP 工具层** | 23 → 40 个工具（pcap / 资源雕刻 / 内存字符串 / 加壳识别 / web recon / 多引擎反编译 / 六层工具发现 / 案例检索）；**统一路径参数别名**（8 个名字互通） | `python Tool/scripts/mcp-param-contract.py`、`python Tool/scripts/smoke-e2e.py` |
@@ -70,7 +70,7 @@
 2. **交付形态**：不是"报告写完就完"，而是"产物能用"——旁路 → 改品牌 → 接自有授权 → 追版，四个阶段各有出口闸。
 3. **覆盖广度**：Windows/PE、Android、Web/JS、iOS/macOS、固件/IoT、内网/AD/云、协议、插件、供应链、LLM/Agent、站点复刻，共 11 域，每域要能**独立开打**。
 4. **可信性（最重要）**：模型容易"看起来很懂"——所以全仓的硬约束是**可机检判据** + **证据落地** + **反造假闸**。任何"大概/通常/可能"式结论，必须有判据或标 `hypothesis`。
-5. **跨模型稳定**：同一套技能/路由/门禁要给不同模型（强/弱）用，所以：路由有探针（33 条大白话）、工具有别名（不必猜参数名）、文档有单一事实源（避免各说一套）。
+5. **跨模型稳定**：同一套技能/路由/门禁要给不同模型（强/弱）用，所以：路由有探针（36 条大白话）、工具有别名（不必猜参数名）、文档有单一事实源（避免各说一套）。
 6. **可维护**：新增能力走"注册表 + 门禁 + 配方"，不靠堆脚本；文档数字由机器对账，不靠人记。
 
 ---
@@ -162,7 +162,7 @@
 | DEBT-11 | x64dbg 走 http(9094)：宿主晚于会话启动时本轮拿不到工具 | 调试流程多一步 `/mcp reconnect` | `python Tool/scripts/mcp-doctor.py --session` |
 | DEBT-12 | `破甲卡生成/` 与主项目耦合低但同仓 | 审查者易误判为"无关代码" | 见 §6.4 |
 | DEBT-13 | 历史审计文档与新口径并存（`docs/AUDIT.md` 等） | 数字误读风险 | 见 §6.2 |
-| DEBT-14 | 路由探针覆盖 33 条口吻，尚未覆盖全部 32 条路由 | 新口吻可能掉兜底 | `python Tool/scripts/skill-route-probe.py` |
+| DEBT-14 | 路由探针覆盖 36 条口吻，尚未覆盖全部 33 条路由 | 新口吻可能掉兜底 | `python Tool/scripts/skill-route-probe.py` |
 
 ---
 
@@ -171,7 +171,7 @@
 ### 8.1 先跑这四条（不跑就下结论 = 报告不可信）
 
 ```bash
-python Tool/scripts/preflight.py                # 期望 44/44
+python Tool/scripts/preflight.py                # 期望 45/45
 python Tool/scripts/domain-gate.py --all        # 期望 110/110
 python Tool/scripts/smoke-e2e.py                # 期望 12/12（真调 9 个 MCP 工具）
 powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
@@ -204,13 +204,13 @@ powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 
 1. 改文件 → 2. `python Tool/scripts/domain-gate.py --domain <域>`（10/10）→
 3. `python Tool/scripts/preflight.py --fast`（全绿；新增文件要同步 BASELINE 实测值）→
-4. `python Tool/scripts/preflight.py`（44/44）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
+4. `python Tool/scripts/preflight.py`（45/45）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
 
 ### 8.5 常见误解（审查时逐条自查）
 
 | # | 错误理解 | 正确理解 |
 | :-- | :-- | :-- |
-| 1 | "`docs/AUDIT.md` 写门禁只有 41 项，所以现在也只跑 41 项" | 那是 v1.25 快照；现在 44 项，以 `gate-counts.json` 与实跑为准 |
+| 1 | "`docs/AUDIT.md` 写门禁只有 41 项，所以现在也只跑 41 项" | 那是 v1.25 快照；现在 45 项，以 `gate-counts.json` 与实跑为准 |
 | 2 | "README 说 11 域，但 wireless 没有独立 SKILL，所以是缺失" | 无线是**有意不做**独立域（§5），能力在 firmware-iot + R22 |
 | 3 | "`race-probe` 报 `ok:true` 说明没漏洞" | `ok` 只表示结论可信；漏洞看 `vulnerable` / `reproduced` |
 | 4 | "`seep_auto_triage` 说命中鉴权关键词，所以一定有" | 看 `auth_related_strings_sampled` 与 `next_actions[0]`，文案不再无条件断言 |

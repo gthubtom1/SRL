@@ -2,7 +2,7 @@
 
 > 本文件是 **v1.26.1 的交付台账**：做了什么、每条改动的证据在哪、还剩什么没做。
 > 目的很直接——读者只看这一篇，就能复核本轮所有主张，不用翻对话记录。
-> 复核入口：`python Tool/scripts/preflight.py`（应为 44/44）。
+> 复核入口：`python Tool/scripts/preflight.py`（应为 45/45）。
 
 ## 0. 一句话
 
@@ -15,12 +15,12 @@
 
 | 门禁 | 命令 | 结果 |
 | :-- | :-- | :-- |
-| 全量体检 | `python Tool/scripts/preflight.py` | **44/44 通过** |
+| 全量体检 | `python Tool/scripts/preflight.py` | **45/45 通过** |
 | 域深度 | `python Tool/scripts/domain-gate.py --all` | **110/110 通过** |
 | 部署体检 | `powershell -File setup/verify.ps1 -Detailed` | **核心 65 项通过 / [READY]** |
 | 端到端 | `python Tool/scripts/smoke-e2e.py` | **12 passed, 0 failed** |
 | MCP 参数契约 | `python Tool/scripts/mcp-param-contract.py` | 40 工具 / 17 吃路径，全绿 |
-| 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **33 条，失败 0** |
+| 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **36 条，失败 0** |
 | 知识库可用性 | `python Tool/scripts/kb_acceptance.py` | **9/9 通过** |
 
 ## 2. 五类摩擦的修法（问题 → 改动 → 证据）
@@ -47,7 +47,7 @@
 ### 2.4 02/03 阶段技能是薄壳
 - 问题：`02-ui-rebrand` 86 行、`03-license-hookup` 87 行，只有清单没有判据。
 - 改动：02 补「判据表 8 行（品牌串残留=0 / 图标哈希 / 功能回归 / 流量差集 / 三档分辨率…）+ 失败判据表 + 模型失误 + 可跑命令」；03 补「判据表 8 行 + 失败判据表 + 离线 HMAC 发卡与校验最小实现 + 时间回拨防护 + 失败码表」。
-- 证据：`domain-gate` 不受影响（阶段技能非域），`preflight` 44/44 含链接与措辞检查。
+- 证据：`domain-gate` 不受影响（阶段技能非域），`preflight` 45/45 含链接与措辞检查。
 
 ### 2.5 文档↔事实漂移（本轮审计自己抓到的）
 - 问题：`check-budget.py` 用 `os.walk` 数 first-party 文件，把 `.pytest_cache/`、`.pi/` 等运行时目录算进去，同一份代码在不同机器得到 820↔834，`BASELINE-FREEZE` 无法对账。
@@ -82,7 +82,7 @@
 ## 6. 复跑步骤（换机器也能验）
 
 ```bash
-python Tool/scripts/preflight.py                 # 44/44
+python Tool/scripts/preflight.py                 # 45/45
 python Tool/scripts/domain-gate.py --all         # 110/110
 python Tool/scripts/smoke-e2e.py                 # 12/12
 python Tool/scripts/mcp-param-contract.py        # 契约
@@ -108,11 +108,11 @@ powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY
 
 | 原延迟项 | 现在的状态 | 证据 |
 | :-- | :-- | :-- |
-| D24 HTTP/2 单包无真机验证 | **已完成**：`Tool/scripts/h2-race-e2e.py` 内置最小 h2c 服务端两档（racy/safe）+ 账本，复用 race-probe 判定；已进 preflight 成为常驻断言 | `h2-race-e2e.py` → `racy=fail` / `safe=pass`，36 项检查；preflight 第 44 项 PASS |
+| D24 HTTP/2 单包无真机验证 | **已完成**：`Tool/scripts/h2-race-e2e.py` 内置最小 h2c 服务端两档（racy/safe）+ 账本，复用 race-probe 判定；已进 preflight 成为常驻断言 | `h2-race-e2e.py` → `racy=fail` / `safe=pass`，36 项检查；preflight 第 45 项 PASS |
 | D25 边缘接入面只写文档 | **已完成（离线可机检）**：`ad-repro.py --kind edge-fingerprint` 覆盖 10 类产品（ASA/FortiGate/NetScaler/GlobalProtect/Pulse/SonicWall·F5/OWA/Zimbra/Okta/M365），`--fixture` 复算 9 high + 1 med，`auth_attempted` 恒 false | `ad-repro.py --self-test` → 24 项 / 9 kinds；卡 28 已换成真跑命令 |
 | D23 OSINT 无脚本 | **已完成**：`osint-secret-scan.py`（65 条模式、默认脱敏、37 项自测）+ `osint-h1-ref.py`（H1 公开 GraphQL，19 项自测），已进配方与能力表 | `capability-gate` 51/51、悬空 0；`playbook-check` 命令 184 条 0 坏 |
 | D20 归档库 10 篇正文未落库 | **已完成**：剩余 4 篇（CI 凭据 / NetExec / 初始接入遥测 / TOCTOU）并入 supply-chain-security、ad-cloud、web-pentest、pwn-crypto 现有篇 + 矩阵各 +1 | 四域 `domain-gate` 各 10/10 |
 | D21 无线近场未独立成域 | **明确不做**（理由见 `docs/DEFERRALS.md`「明确不做」）：本机无无线硬件，升域会得到没有 real 案例的空壳；改为补 `probe_matrix.py --radio-only` 探针（WiFi/BLE/SDR/802.15.4/NFC 能力枚举，只读，25 项自测） | `probe_matrix.py --radio-only --json` → `blocked_at=no-monitor-mode` + 适配器清单 |
 | D26 00-analysis 未纳入九件套 | **明确不做**：它是阶段技能，硬套九件套会与 00 阶段产物重复计量 | 见 DEFERRALS「明确不做」 |
 
-门禁随之更新：preflight **44/44**、`--fast` **41/41**（新增「HTTP/2 单包 e2e」一项）。
+门禁随之更新：preflight **45/45**、`--fast` **42/42**（新增「HTTP/2 单包 e2e」一项）。
