@@ -116,3 +116,14 @@
 ## 八、需要用户动作
 
 **重启一次会话**：让同步过的 `AGENTS.md` / `SEEP.md` / 9 个包（含修好的工具表）生效。
+
+---
+
+## 新会话 / 换模型怎么接上（不读手写摘要）
+
+```bash
+python Tool/scripts/case_state.py handoff --repo              # 仓库级：HEAD / 未提交 / 最近提交
+python Tool/scripts/case_state.py handoff --case Tool/cases/<C>   # 案例级：目标/状态/能否继续/下一步
+```
+两个输出都**由账本现算**，所以不可能过期；`preflight` 会检查 `docs/HANDOFF.md` 的生成块
+是否落后超过 3 个提交。

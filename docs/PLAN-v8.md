@@ -509,8 +509,8 @@ python Tool/scripts/gate.py --trap T01-softseep-net --answer <回答.txt>
 
 | # | 做什么 | 落点 | 成本 | 收益 | 类型 |
 | :-: | :-- | :-- | --: | :-- | :-: |
-| **S1** | **把会漂的数字删掉**：`NOW.md` 里不写"45/45、9/9、N 行"，改成"跑哪条命令看" | 文档（纯减法） | 10 分钟 | 消灭"文档落后"这一类返工（今天实际发生过） | A |
-| **S2** | **续接快照由命令生成**：`case_state.py handoff --case <C>` 输出 ≤40 行（已证结论 / 待验 / stale / 未决 ASK / 最近 3 条 event / 下一步），全部从账本现算；新会话第一件事读它 | `case.py` 加一个子命令（**不新增脚本**，符合"全局 7 脚本"目标） | ~1 小时 | **最高**：直接解决"新对话没上下文" | A |
+| **S1** | ✅ **已做**：把会漂的数字删掉：`NOW.md` 里不写"45/45、9/9、N 行"，改成"跑哪条命令看" | 文档（纯减法） | 10 分钟 | 消灭"文档落后"这一类返工（今天实际发生过） | A |
+| **S2** | ✅ **已做**：续接快照由命令生成：`case_state.py handoff --case <C>` 输出 ≤40 行（已证结论 / 待验 / stale / 未决 ASK / 最近 3 条 event / 下一步），全部从账本现算；新会话第一件事读它 | `case.py` 加一个子命令（**不新增脚本**，符合"全局 7 脚本"目标） | ~1 小时 | **最高**：直接解决"新对话没上下文" | A |
 | **S3** | **项目/版本目录约定**（只写约定 + 可选 `init --layout` 生成骨架）：`versions/upstream/` 与 `versions/ours/`、`docs/`（长期）、`reports/`（交付）、`_tmp/`（可弃，gitignore） | `Tool/cases/README.md` + `case_state.py init` | 30 分钟 | 高：更新时能一眼定位"上游 vs 我们" | B |
 | **S4** | 目录卫生 lint：case 目录里出现约定外文件 → **warn** 不红 | `preflight` | 20 分钟 | 低（只是提示） | C |
 
@@ -529,7 +529,20 @@ python Tool/scripts/gate.py --trap T01-softseep-net --answer <回答.txt>
 - S3 属于"约定"，等真做第二个项目时再落也不迟（现在没有多版本项目在跑）。
 - S4 收益低，不做。
 
-### 11.5 验收判据（做了的话怎么算成功）
+### 11.4bis 先例调研（2026-10-24 实测检索，决定"怎么做"）
+
+| 先例 | 做法 | 我们采纳/否决 | 理由 |
+| :-- | :-- | :-: | :-- |
+| **Cline Memory Bank** | 6 个**手写** md（projectbrief / productContext / systemPatterns / techContext / activeContext / progress），agent 每轮维护 | **否决** | 手写必漂；本项目实测同型故障：`HANDOFF.md` 09:55 手写「52/52 绿 / S1 还没开始」，当天就错 |
+| **Anthropic《Effective harnesses for long-running agents》** | init 脚本 + progress 文件 + git 历史；**需求/功能清单用 JSON**（模型不易篡改）；每轮只推一个功能；结束必须提交 | **采纳** | 与我们 `facts.jsonl` 同构；JSON 优先于 md 的判断直接支持 S3 的 `features[]` |
+| **handover.sh** | 稳定规约（AGENTS.md）与可变状态（HANDOFF）**分离** | **采纳** | 我们已是此结构，缺的是"可变状态要生成" |
+| **handover-skills（/handover、/resume）** | 「state transfer, not conversation summary」 | **采纳** | 就是 S2 的形态 |
+| **PowerContext RFC 0048** | Handoff 必答四问：目标 / 当前状态 / 能否继续 / 下一步 | **采纳** | `handoff --case` 的输出结构照此排 |
+| **agent-crystallize** | 每次停点写 durable markdown | 部分采纳 | 我们已有更结构化的 facts 账本 |
+
+**由此定下的三条**：① 状态**生成**、不手写；② 需求用 JSON（可机判 pass/fail）；③ 新会话第一件事是读生成块，不读手写摘要。
+
+### 11.5 验收判据（怎么算成功）
 
 | # | 判据 |
 | :-: | :-- |

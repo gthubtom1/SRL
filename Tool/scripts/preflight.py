@@ -1009,6 +1009,38 @@ def check_trap_bait():
         not bad, "；".join(bad[:5]) if bad else "0 处教唆 / 0 条漏拦")
 
 
+def check_handoff_fresh():
+    """HANDOFF 状态块新鲜度：生成块里的 HEAD 与当前 HEAD 距离 ≤3 个提交。
+
+    背景：`docs/HANDOFF.md` 曾是手写状态，同一天内就写错（声称「52/52 绿 / S1 还没开始」，
+    实际 S1–S5 已完成）。改成命令生成的块后，还要防「忘记重新生成」→ 落后 3 个提交即红。
+    修法：`python Tool/scripts/case_state.py handoff --repo > 生成块`（或按文件内说明替换）。
+    """
+    import re as _re
+    import subprocess as _sp
+
+    f = os.path.join(ROOT, "docs", "HANDOFF.md")
+    if not os.path.isfile(f):
+        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", False, "缺 docs/HANDOFF.md")
+        return
+    txt = open(f, encoding="utf-8", errors="replace").read()
+    m = _re.search(r"handoff:HEAD=([0-9a-f]{7,40})", txt)
+    if not m:
+        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", False,
+            "没有生成块：跑 case_state.py handoff --repo 后替换 §1")
+        return
+    try:
+        out = _sp.run(("git", "rev-list", "--count", "%s..HEAD" % m.group(1)),
+                      cwd=ROOT, capture_output=True, text=True,
+                      encoding="utf-8", errors="replace", timeout=20).stdout.strip()
+        lag = int(out) if out.isdigit() else 999
+    except Exception:
+        lag = 999
+    add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", lag <= 3,
+        "落后 %d 个提交（≤3 才绿）；重新生成：case_state.py handoff --repo" % lag
+        if lag > 3 else "落后 %d 个提交" % lag)
+
+
 def check_extension_deploy():
     """扩展部署一致性：仓库 `Tool/prompts/extensions/*.ts` ↔ `~/.pi/agent/extensions/*.ts`。
 
@@ -1116,6 +1148,7 @@ def main():
     check_side_effect_undo()
     check_trap_bait()
     check_extension_deploy()
+    check_handoff_fresh()
     check_tool_ladder()
     check_functional(args.fast)
 
