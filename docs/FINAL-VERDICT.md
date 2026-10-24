@@ -32,6 +32,15 @@
 | 7 | 83 处「（S4 已删…）」把可执行命令改成散文（含部署技能正文；且 6 处文件其实存在） | FINAL-3 A1 | 48 处**还原真实路径**，其余改说明文字 |
 | 8 | 残留 7 处同型 | FINAL-3 | 一并清理 |
 
+## 二bis、终审 1 号报告的 3 条 A 类 · 复核关闭（2026-10-24）
+
+| 报告指出的问题 | 复核结果 |
+| :-- | :-- |
+| 授权门硬闸（`firmware-iot` 缺一停+书面授权 / `web-pentest` 工单号有效期） | ✅ 已清（`grep 书面授权\|缺一停` 无命中） |
+| 7 处断命令（散文化后无法执行，如 `fw-triage`） | ✅ 已还原真实路径（`python Tool/skill/firmware-iot/scripts/fw-triage.py --file …`） |
+| `firmware-iot` 两条路由正则尾部 `)b` 恒不命中 | ✅ 已修；实测「固件升级 / 设备树 dts / U-Boot bootloader」均命中路由 230 |
+| 附带：`tool-acquire.py --radio-only` 不存在该参数 | ✅ 已改为 `--tool <tool_id> --json` |
+
 ## 三、不做（B/C 类，已记账）
 
 | 项 | 类型 | 为什么不做 |

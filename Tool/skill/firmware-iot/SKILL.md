@@ -234,7 +234,7 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --json
 
 # 无线/近场能力枚举：WiFi monitor / 蓝牙 / SDR / 802.15.4 / NFC（只读，≤10s，不需要 --target）
 # 输出 probes[name=radio]：wifi/bluetooth/subghz/nfc + blocked_at（no-monitor-mode|no-radio|no-wifi|…）
-python `Tool/scripts/tool-acquire.py` --radio-only --json > work/radio.json
+python `Tool/scripts/tool-acquire.py` --tool <tool_id> --json   # 逐工具探活；不支持批量 --radio-only
 python `Tool/scripts/tool-acquire.py` --self-test   # 离线自检：只测判定/解析函数，无硬件访问
 
 # 三个脚本都有离线自检（rc=0，最后一行含 "ok": true）
