@@ -5,9 +5,11 @@ argument-hint: "<目标路径或一句话需求>"
 
 你正在使用 SEEP 的 **softseep** 域技能链。目标/需求：`${@:-（未给，先问我）}`
 
+**如果没有给目标（或只给了一句模糊需求）**：先只问一句「目标是什么 / 你想让我做到哪一步」，不要开始分析、不要写脚本。
+
 **第一步（只做这三件事，不许动手）：**
 1. 读 `@SEEP_ROOT@/Tool/skill/softseep/SKILL.md`（这是本域方法论，必须整篇读）
-2. 若目标涉及加壳/加密/虚拟化：再读 `@SEEP_ROOT@/MANUAL/UNPACKING.md` 与 `ANTI-DEBUG.md`
+2. 若目标涉及加壳/加密/虚拟化：再读 `@SEEP_ROOT@/MANUAL/UNPACKING.md` 与 `@SEEP_ROOT@/MANUAL/ANTI-DEBUG.md`
    - 需要时链接子技能：`@SEEP_ROOT@/Tool/skill/_pending/ida-reverse/SKILL.md`
    - 需要时链接子技能：`@SEEP_ROOT@/Tool/skill/_pending/binary-diff/SKILL.md`
    - 需要时链接子技能：`@SEEP_ROOT@/Tool/skill/_pending/00-triage/SKILL.md`
@@ -17,4 +19,4 @@ argument-hint: "<目标路径或一句话需求>"
 - 用户给的后继目标（补丁/源码级）不改变第一步；第一步永远是判型与上限
 - 缺输入就问（问不是退缩），不许假设"没有"就往下走
 - 只有跑过命令拿到证据的结论才算结论；没跑过的写"未验证"
-- 先 `python Tool/scripts/route.py --resolve "$@"` 路由；判壳用 `seep_packer_detect`，别对密文字节反汇编
+- 判壳用 `seep_packer_detect`，别对密文字节反汇编
