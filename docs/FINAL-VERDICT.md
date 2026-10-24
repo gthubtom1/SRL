@@ -41,6 +41,14 @@
 | `firmware-iot` 两条路由正则尾部 `)b` 恒不命中 | ✅ 已修；实测「固件升级 / 设备树 dts / U-Boot bootloader」均命中路由 230 |
 | 附带：`tool-acquire.py --radio-only` 不存在该参数 | ✅ 已改为 `--tool <tool_id> --json` |
 
+## 二ter、终审 2 号报告的 3 条 A 类 · 复核与补修
+
+| 报告指出 | 复核结果 |
+| :-- | :-- |
+| A1 apk 反编译/解包无条件报 finished | ✅ 已修（三道判据：含 ERROR / `No classes to decompile` / 输出目录空） |
+| A3 `cmd-guard.ts:131` 取末 token → 读文档被拦 | ✅ 已修（改为首个非选项 token） |
+| **A2 工具链探活「skip 记 pass」共 4 处** | 修了 2 处（mcp-doctor ok 语义），**本次补修剩余 3 处**：<br>① `preflight` bash 缺失 → 由 `True/skipped` 改为 **False/unsupported（红）**<br>② mcp-doctor 那项改名，明确「只判脚本不崩，不判服务可用」（不再 oversell）<br>③ `tool-acquire --selftest` 判据由「steps 非空」改为 **verdict==USABLE**（旧判据恒 PASS） |
+
 ## 三、不做（B/C 类，已记账）
 
 | 项 | 类型 | 为什么不做 |

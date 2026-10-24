@@ -245,7 +245,8 @@ def check_parity(fast=False):
         return
     bash = shutil.which("bash")
     if not bash:
-        add("3 平台", "verify.sh 实跑（bash 不可用则跳过）", True, "skipped: no bash in PATH")
+        # 环境缺失 = unsupported = 红（BLUEPRINT §3.2 #8/#3：unknown/skipped 永不记 pass）
+        add("3 平台", "verify.sh 实跑（需要 bash）", False, "unsupported: 本机没有 bash，verify.sh 未跑")
         return
     rc, out = run([bash, os.path.join("setup", "verify.sh")], timeout=900)
     line = ""
@@ -457,7 +458,7 @@ def check_newtools():
                 note = f"输出不是 JSON：{(r.stderr or body)[:120]}"
         except Exception as e:
             note = str(e)[:120]
-    add("7 新脚本", "mcp-doctor 可运行（输出 JSON）", ok, note)
+    add("7 新脚本", "mcp-doctor 可运行（**只判脚本不崩，不判服务可用**）", ok, note)
 
 
     # ③ case_state.py：阶段零出口闸（空跑一次 gate，必须在缺失时返回 1 而不是崩）

@@ -348,8 +348,11 @@ def selftest() -> int:
     print(f"x64dbg L0: {'可用' if r['verdict'] == 'USABLE' else r['verdict']}  "
           f"{r['steps'][0].get('detail', '')}")
     print(f"结论：{r['verdict']}")
-    print("PASS" if r["steps"] else "FAIL")
-    return 0 if r["steps"] else 1
+    # 旧判据是 "steps 非空" —— 而 acquire() 总会先 append s0，于是**永远 PASS**（FINAL-2 A2）。
+    # 现在只认「真的探到了可用的 L0」，这才是探活的判据。
+    _ok = r["verdict"] == "USABLE"
+    print("PASS" if _ok else "FAIL")
+    return 0 if _ok else 1
 
 
 def main() -> int:
