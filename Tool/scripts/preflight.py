@@ -1083,6 +1083,36 @@ def check_need_ask_contract():
         "；".join(bad[:4]) if bad else "许可/运行环境/样本完整性 三问，packer_detect 与 triage 均返回 need_from_user")
 
 
+def check_domain_commands():
+    """领域命令卡（/rev /apk /unpack …）：每个引用的 SKILL.md 必须存在，部署副本不得残留占位符。
+
+    为什么需要（2026-10-24）：自动路由靠 description 命中，命中不了就整条链不加载（实测：那个会话 0 次读技能）。
+    显式 `/命令` 是"100% 会加载"的那条路——参考 REA 的"可复制提示模板"与上游 open-reverselab 的 kb_router。
+    这条判据保证：卡里写的路径真的存在（改名/归档就会红），且部署后占位符已替换（否则模型会读到 /Tool/... 这种空路径）。
+    """
+    import glob as _g
+    import re as _re
+    src = os.path.join(TOOL, "prompts", "tasks")
+    bad, n = [], 0
+    for f in sorted(_g.glob(os.path.join(src, "*.md"))):
+        t = open(f, encoding="utf-8", errors="replace").read()
+        if "@SEEP_ROOT@" not in t:
+            continue          # 老任务卡（不带占位符）不参与
+        n += 1
+        for rel in set(_re.findall(r"@SEEP_ROOT@/([A-Za-z0-9_./-]+\.md)", t)):
+            if not os.path.exists(os.path.join(ROOT, rel)):
+                bad.append("%s→缺 %s" % (os.path.basename(f), rel))
+    dep = os.path.expanduser("~/.pi/agent/prompts")
+    leftover = [os.path.basename(p) for p in _g.glob(os.path.join(dep, "*.md"))
+                if "@SEEP_ROOT@" in open(p, encoding="utf-8", errors="replace").read()]
+    if leftover:
+        bad.append("部署副本残留占位符: " + ", ".join(leftover[:3]))
+    if n < 10:
+        bad.append("领域命令只有 %d 条（应 ≥10：9 域 + unpack）" % n)
+    add("2 单一事实源", "领域命令卡（%d 条 /命令，路径真实 + 部署无占位符）" % n, not bad,
+        "；".join(bad[:4]) if bad else "%d 条命令卡，引用的 SKILL 全部存在，部署副本已替换" % n)
+
+
 def check_route_first_contract():
     """「先路由后动手」必须是**自动注入层**里的硬条款，且路由命令可执行。
 
@@ -1428,6 +1458,7 @@ def main():
     check_need_ask_contract()
     check_trigger_matrix()
     check_route_first_contract()
+    check_domain_commands()
     check_tool_ladder()
     check_functional(args.fast)
 

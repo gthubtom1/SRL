@@ -95,8 +95,23 @@ $srcTasks = Join-Path $srcPrompt 'tasks'
 $dstTasks = Join-Path $AgentDir 'prompts'
 if (Test-Path $srcTasks) {
     if (-not (Test-Path $dstTasks)) { New-Item -ItemType Directory -Path $dstTasks -Force | Out-Null }
+    # @SEEP_ROOT@ 占位符在这里替换成实际仓库根（正斜杠），
+    # 这样命令卡里能写"绝对可读"的技能路径，而仓库本身不含机器专属路径（可移植性判据会红）
+    $sep = [char]92
+    $rootFwd = "$Root".Replace($sep, '/')
+    if ([string]::IsNullOrWhiteSpace($rootFwd)) {
+        Write-Warn "@SEEP_ROOT@ 替换失败（仓库根为空）——命令卡保留占位符，请检查"
+    }
     foreach ($f in (Get-ChildItem $srcTasks -Filter '*.md' -ErrorAction SilentlyContinue)) {
-        Copy-Item $f.FullName (Join-Path $dstTasks $f.Name) -Force
+        $raw = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
+        if ($raw -match '@SEEP_ROOT@') {
+            if ([string]::IsNullOrWhiteSpace($rootFwd)) {
+                Write-Warn "任务卡缺根路径，保留占位符: $($f.Name)"
+            } else {
+                $raw = $raw.Replace('@SEEP_ROOT@', $rootFwd)
+            }
+        }
+        Set-Content -LiteralPath (Join-Path $dstTasks $f.Name) -Value $raw -Encoding UTF8 -NoNewline
         Write-Ok "task card: /$([System.IO.Path]::GetFileNameWithoutExtension($f.Name))"
     }
 }

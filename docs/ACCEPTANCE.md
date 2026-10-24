@@ -108,6 +108,6 @@ python Tool/skill/softseep/scripts/skill-route-probe.py --json        # 技能�
 本轮漏跑时抓到的真 bug（都是"检查项本身写错"，不是数据错）：
 | bug | 表现 | 修法 |
 | :-- | :-- | :-- |
-| `domain-gate.check_spec()` 找 `docs/DOMAIN-SPEC-v2.md` | 文件其实在 `docs/history/X-DOMAIN-SPEC-v2.md` → 整条契约漂移判据永远红 | 改路径 |
-| 3 个案例模板的 refs 指向归档前路径（`Tool/skill/ad-cloud/`） | 证据链判据报"幻影引用" | 批量改到 `_pending/` |
+| `domain-gate.check_spec()` 找 `docs/history/X-DOMAIN-SPEC-v2.md` | 文件其实在 `docs/history/X-DOMAIN-SPEC-v2.md` → 整条契约漂移判据永远红 | 改路径 |
+| 3 个案例模板的 refs 指向归档前路径（`Tool/skill/_pending/ad-cloud/`） | 证据链判据报"幻影引用" | 批量改到 `_pending/` |
 | `Tool/docs/tool-index.md` 把内置工具标 `Missing` | 会让人去联网装**已随仓库打包**的 radare2/jadx/apktool | 按 8 层探测重写（16/16 就位，不写机器路径） |
