@@ -7,7 +7,7 @@
 
 ## 一、一句话现状
 
-方向已从"继续加"改成"先减法"。**S1/S2 已完成；S3 步骤 1+2 已落地**——9 个域包 + `route.py`/`gate.py`，索引 **32→9**，技能索引 **2,809 → 739 tok**（preflight 43/43 全绿）。
+方向已从"继续加"改成"先减法"。**S1/S2/S3 已完成**（9 域包 + `route.py`/`gate.py`、索引 32→9、`routing.json` 已删），**S5 只差 8 个包的证据**：`gate.py` 现在 **1 pass / 8 fail**，preflight 43/43 全绿。
 根因（实测）：常驻 29,415 token（其中宿主基座 14,676 改不动）/ `Tool/scripts` 51 个 `.py` / 32 技能里 19 个零样本 / **76 会话 4,536 次 toolCall 里 MCP 调用 0 次**。
 
 ## 二、唯一顺序（不许跳、不换序）
@@ -16,39 +16,33 @@
 | :-: | :-- | --: | :-: |
 | **S1** | 只删不加 ✅ **已完成**（preflight 52→43 全绿、脚本 106→59、脏项 108→0，两次提交在 `s1-subtract`） | 3h | ✅ |
 | **S2** | 杀 fail-open：报告生成器无证据则拒绝；超限拒绝不截断；`unknown` 不计 pass；状态副本收口 | 1d | ✅ **已完成（4/4，打红证据见 §三）** |
-| S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | 🔄 **包/闸/索引已完成；剩「删 routing.json」（10 个读者要改指 `route.py`）** |
+| S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | ✅ **已完成**（含删 `routing.json`；过程中用探针抓出 3 个真 bug） |
 | S4 | 全局收口：`Tool/scripts` → 7；状态 → 4；工具面 40→16 | 1d | ⬜ |
-| S5 | KPI 回放：3 靶 + 1 真实目标 | 1d | ⬜ |
+| S5 | KPI 回放：3 靶 + 1 真实目标 | 1d | 🔄 **1/9 包已通过**（softseep ← golden-crackme，13 条 claim 重测为 observed）；KPI.md 首行已填 |
 
-## 三、当前这一步 = S3「立包与闸」（细节只认 `docs/BLUEPRINT.md` §2.1–§2.4 + §5）
+## 三、当前这一步 = S5「KPI 回放」（唯一 KPI 表在根目录 `KPI.md`）
 
-**已落地（步骤 1）**：8 个域包 + `softseep` 各有 `pack.json`（`.strict()` 语义），新增 `Tool/scripts/route.py` 与 `Tool/scripts/gate.py`。
+**已通过 1 个包**（证明 `gate.py` 的 pass 路径真的能走通）：
 
-| 判据 | 现状 | 命令 |
-| :-- | :-- | :-- |
-| ② 死路由 = 0 | **34 条路由 / 9 个包 / 死路由 0**（routing.json 的 35 条里 R23 `ad-cloud` 按 BLUEPRINT 进 `_pending` 不索引） | `python Tool/scripts/route.py --check` |
-| ③ Σl1 ≤1,260 字 | **502 字**（每包 48–66 字，全部 ≤140） | `python -c "import glob,json;print(sum(len(json.load(open(f,encoding='utf-8'))['l1']) for f in glob.glob('Tool/skill/*/pack.json')))"` |
-| ① 每包有绿或红 + `unknown→pass` = 0 | **pass 0 / fail 9**，`unknown_as_pass` 结构上恒 0；9 个包的 G2/G3 全绿，**红全在 G4/G5** | `python Tool/scripts/gate.py --all` |
+```
+[PASS] softseep   ok G2 pack-schema / ok G3 route-parity / ok G4 pack-witness(rc=0) / ok G5 evidence-ledger(claim 14 / strong 13)
+```
 
-**为什么 0 绿是当前真值**：G5 要求「整包 ≥1 条 `observed/derived` 证据」，而现在 4 个有 facts 的 case 全是 `unknown`
-（S2 引入 confidence 后没重声明），其余 5 个包连 claim 都没有。**把包变绿是 S5 的 KPI 回放工作**（重跑 witness → 显式声明 observed），不是在 S3 里补一行 `observed` 就能勾掉的复选框。
+怎么做到的：把 golden-crackme 的 13 条 claim **逐条用本轮实测重跑**（r2 `iI/iS/p=e/p=d/ii/izz/afl/axt/pdf/px` + `tool-acquire` 探 radare2 与 ghidra），
+输出落 `Tool/cases/golden-crackme/capture/reverify-2026-10-24.log`（已进 MANIFEST），然后 `prove --confidence observed --authority shipped-artifact`。
 
-**步骤 2 已完成：索引 32→9**（KPI 前后对比）
+**回放抓出一条真错**：F-013 写的「rabin2 6.2.0」与实测不符（`rabin2 -v` = **5.9.8**）→ 已 `refute` 保留历史 + 新增 F-014 记录实测版本。
+这正是「旧报告只能当假设、第一条结论必须本轮实测产生」的价值。
 
-| KPI | 前 | 后 |
-| :-- | --: | --: |
-| 索引里的技能 | 32 | **9**（8 域包 + softseep） |
-| 宿主技能索引 token | 2,809 | **739**（-73%） |
-| 可控制层 token | 14,739 | **12,669**（目标 ≤8,000，还差 4,669） |
-| 归档区 | — | `Tool/skill/_pending/` 19 个目录（不索引、不路由、不部署） |
-| 工具类技能内容 | 6 个独立技能 | **softseep/references/tools/** 6 篇 L3 参考（r2 / IDA×2 / 通用逆向 / JS 逆向 / 二进制差分） |
+**其余 8 个包 fail 的原因（不是没做，是没有可背书的证据）**：
 
-做法：`git mv` 19 个目录 → `_pending/`；`routing.json` 的 `skill` 目标改指归档路径；`softseep/SKILL.md` 调度表改 9 包 + 显式链 6 篇工具参考；`install.ps1|sh` 跳过 `_` 前缀；
-部署侧删掉 24 个旧技能目录（现在 `~/.pi/agent/skills` 只有 9 个）。**踩到的 8 处联动**（都修了）：
-悬空引用 111 处 → 路径重写 103 文件；`domain_spec.py` 三域改 `archived:true`；路由串味/配方 parity 归一化 `_pending/` 前缀；
-`doc-audit` DG02 死链 15 条 → 回指原目录；ad-cloud/plugin-targets/site-clone 的 `accept/repro` 自检把「向上 4 层」当仓库根 → 改 `_repo_root()` 向上找 `Tool/cases`；2 个兼容壳的 `TARGET` 用 `os.path.join` 拼路径没被字面替换命中。
+| pack | 卡点 |
+| :-- | :-- |
+| apkseep | leaf-apk 的 F-104/F-105 依赖 `zipalign`、`aapt`（本机未装）→ 无法复验 |
+| malware-analysis | leaf-pe-packed 依赖 `upx`（本机未装）→ 静态部分可复验但不足以整案通过 |
+| 其余 6 个包 | 案例目录在、`facts.jsonl` 为空：从没在真实目标上跑过 |
 
-**S3 只剩一件**：删 `routing.json`（路由已进 `pack.json`，但仍有 10 个读者：`master-route.ps1` / `verify-routing-coherence.py` / `route-playbook-parity.py` / `domain-gate.py`×2 / `domain-pack-check.py` / `intent-coverage.py` / `merge-routing-fragment.py` + 片段目录 / `new-skill.py` / `setup/verify.*`）。改指 `route.py` 后即可删。
+**要变绿只有两条路**：装齐 `upx`/`zipalign`/`aapt` 后重跑 leaf-apk 与 leaf-pe-packed；或拿一个新真实目标按 `pack.json` 的 witness 跑一轮（S5 的 3 靶 + 1 真实目标）。
 
 ## 三bis、S1 结论（教训，别重踩）
 

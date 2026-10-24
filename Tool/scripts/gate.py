@@ -194,11 +194,14 @@ def g5_evidence(pack):
             conf = str(f.get("confidence") or "").strip().lower()
             auth = str(f.get("authority") or "").strip().lower()
             fid = f.get("id")
-            if conf not in CONFIDENCE:
-                bad.append("%s/%s 缺 confidence（按 unknown 计，不计 pass）" % (cname, fid))
+            status = str(f.get("status") or "").strip().lower()
             if auth and auth not in AUTHORITY:
                 bad.append("%s/%s authority 非法：%s" % (cname, fid, auth))
-            if str(f.get("status") or "").lower() == "proven":
+            # 证据契约只管「能替 pass 背书的 claim」（proven）；refuted / hypothesis 是历史记录，
+            # 不参与 pass（verify 也不把它们当通过），因此不因缺 confidence 而红。
+            if status == "proven":
+                if conf not in CONFIDENCE:
+                    bad.append("%s/%s proven 缺 confidence（按 unknown 计，不计 pass）" % (cname, fid))
                 if conf in STRONG and auth not in ("", "none"):
                     strong += 1
                 if not any(str(e).strip() for e in (f.get("evidence") or [])):

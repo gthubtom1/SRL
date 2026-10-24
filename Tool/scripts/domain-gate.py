@@ -950,7 +950,9 @@ def check_cleanup():
     # 根目录 md allowlist（DOMAIN-SPEC §11）：人读入口 + 宿主直接读取的 agent 契约。
     # 契约（DOMAIN-SPEC §11）：根目录只允许 README*/ROADMAP。
     # 过程文档→work/plans，提示词→Tool/prompts/sources，agent 契约→Tool/prompts/contracts。
-    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md"}
+    # KPI.md 是 BLUEPRINT §6 规定的根级台账（唯一 KPI 表），不是过程文档：
+    # 它的存在本身就是「新增必须先有一行 KPI 前后对比」这条刹车。
+    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md", "KPI.md"}
     for f in sorted(glob.glob(os.path.join(ROOT, "*.md"))):
         b = os.path.basename(f)
         if b.startswith("优化方案"):
