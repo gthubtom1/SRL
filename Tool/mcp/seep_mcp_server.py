@@ -249,7 +249,8 @@ from seep_contract import (  # noqa: E402
     RESULT_BUDGET_CHARS, budget_gate as _budget_gate, build_report_md,
     case_evidence_dir as _case_evidence_dir, empty_output as _empty_output,
     is_err_payload as _is_err_payload, missing_report_fields, page_footer as _page_footer,
-    resource_constraint as _resource_constraint, strong_claim_ids as _strong_claim_ids)
+    resource_constraint as _resource_constraint, strong_claim_ids as _strong_claim_ids,
+    audit_tool_effects as _audit_tool_effects)
 
 
 def _find_java() -> Optional[str]:
@@ -1549,16 +1550,9 @@ def seep_gen_security_report(
     }, indent=2, ensure_ascii=False)
 
 
-# ---------------------------------------------------------------------------
-# 扩展资产（relab2 / REA 适配版，2026-10 增补）
-# 这两个工具是"增量挂载"：不修改任何既有工具逻辑，只在末尾追加。
-#   seep_ensure_tool      —— 工具四级探测与缺工具自愈建议（源自 relab2 ensure_tool + Bootstrap 四级递进）
-#   seep_decompile_auto   —— 多引擎降级反编译 IDA→REA→R2（源自 REA 的 provider 降级链思想）
-# ---------------------------------------------------------------------------
+# 扩展资产（relab2 / REA 适配版）：seep_ensure_tool 四级探测自愈 / seep_decompile_auto 多引擎降级 IDA→REA→R2
 
-# 工具根目录：由 tool_autodiscover.candidate_roots() 动态计算
-# （环境变量 → 用户级 → 各盘符常见目录名 → POSIX；绝不写死 D:\Tools 之类）。
-# 插件不可用时退回一个最小用户级清单，保证功能不中断。
+# 工具根：tool_autodiscover.candidate_roots()（env → 用户级 → 盘符常见目录 → POSIX），插件不可用时用下面的兜底。
 _FALLBACK_ROOTS = [
     os.environ.get("SEEP_TOOL_ROOT", ""),
     os.environ.get("REVERSE_TOOL_ROOT", ""),
@@ -3155,6 +3149,16 @@ def seep_case_read(case_id: str) -> str:
     except Exception as exc:
         return "[ERROR]: 案例读取失败: %s: %s" % (type(exc).__name__, exc)
 # === SEEP-EXT: case-lib END ===
+
+
+# D1 · import 期审计（BLUEPRINT §4）：登记表必须与注册的工具集一一对应。
+# 缺一条就拒绝启动 —— 宁可起不来，也不要静默多一个「没有效果标注」的能力。
+try:
+    EFFECT_ANNOTATIONS = _audit_tool_effects(
+        [t.name for t in server._tool_manager.list_tools()],
+        os.path.join(os.path.dirname(BASE_DIR), "config", "tool-effects.json"))
+except Exception as _e:   # 文件缺失 / 不一致 / 字段不合规，一律拒绝启动
+    raise SystemExit("[FATAL] %s: %s" % (type(_e).__name__, _e))
 
 
 # ---------------------------------------------------------------------------

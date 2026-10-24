@@ -176,3 +176,39 @@ python Tool/scripts/case_state.py verify --case {evidence_dir or '<案例目录>
 
 `verify` 返回 `pass` 才算本报告的证据链完整；返回 `fail` / `unknown` 时本报告不得作为交付依据。
 """
+
+
+# ── D1 · 工具效果登记审计（缺登记 → server 起不来）────────────────────────────
+class MissingEffectAudit(RuntimeError):
+    """有工具没在 tool-effects.json 登记：拒绝启动，而不是静默多给一个无标注的能力。"""
+
+
+EFFECT_FIELDS = ("mutates_target", "writes_filesystem", "executes_foreign_code",
+                 "touches_network", "may_discard_data")
+
+
+def audit_tool_effects(tool_names, config_path):
+    """比对 @server.tool() 集合与登记表；不一致抛 MissingEffectAudit。
+
+    返回 name → annotations（MCP 语义：只读/破坏性/联网），供上层按需派生。
+    """
+    with open(config_path, "r", encoding="utf-8") as fh:
+        doc = json.load(fh)
+    reg = doc.get("tools") or {}
+    live, dead = set(tool_names), set(reg)
+    missing, extra = sorted(live - dead), sorted(dead - live)
+    bad_field = [n for n, e in reg.items()
+                 if not isinstance(e, dict) or set(e) != set(EFFECT_FIELDS)]
+    if missing or extra or bad_field:
+        raise MissingEffectAudit(
+            "tool-effects.json 与 @server.tool() 不一致 —— missing=%s extra=%s 字段不合规=%s"
+            % (missing, extra, bad_field))
+    ann = {}
+    for name, e in reg.items():
+        ann[name] = {
+            "readOnlyHint": not (e["writes_filesystem"] or e["mutates_target"]
+                                 or e["may_discard_data"]),
+            "destructiveHint": bool(e["mutates_target"] or e["may_discard_data"]),
+            "openWorldHint": bool(e["touches_network"]),
+        }
+    return ann

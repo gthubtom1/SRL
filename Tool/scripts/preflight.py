@@ -517,6 +517,24 @@ def check_newtools():
             note4 = str(e)[:120]
     add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
+    # ④bis G7 工具登记（BLUEPRINT D1）：登记表条目数必须等于工具数；缺一条 server 起不来。
+    try:
+        import json as _j
+        effects = _j.load(open(os.path.join(TOOL, "config", "tool-effects.json"),
+                               encoding="utf-8")).get("tools") or {}
+        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"),
+                   encoding="utf-8").read()
+        n_tool = len(re.findall(r"^def seep_\w+\(", src, re.M))
+        fields = {"mutates_target", "writes_filesystem", "executes_foreign_code",
+                  "touches_network", "may_discard_data"}
+        bad = [n for n, e in effects.items() if set(e or {}) != fields]
+        ok_t = (len(effects) == n_tool) and not bad
+        add("14 MCP 契约", "G7 工具效果登记（tool-effects.json == 工具数，缺登记拒启动）", ok_t,
+            f"登记 {len(effects)} / 工具 {n_tool}" if ok_t
+            else f"登记 {len(effects)} ≠ 工具 {n_tool}；字段不合规 {bad[:3]}")
+    except Exception as e:  # noqa: BLE001
+        add("14 MCP 契约", "G7 工具效果登记（tool-effects.json）", False, str(e)[:80])
+
     # ⑤ 2.0 新增能力脚本：必须"能在干净 checkout 里跑"（只查 --help / --check，不重跑重活）
     extra = [("案例索引", "case_state.py", ["index", "--check"]),
              ("探针矩阵", "probe_matrix.py", ["--help"]),
