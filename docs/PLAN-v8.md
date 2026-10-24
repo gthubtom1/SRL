@@ -511,7 +511,7 @@ python Tool/scripts/gate.py --trap T01-softseep-net --answer <回答.txt>
 | :-: | :-- | :-- | --: | :-- | :-: |
 | **S1** | ✅ **已做**：把会漂的数字删掉：`NOW.md` 里不写"45/45、9/9、N 行"，改成"跑哪条命令看" | 文档（纯减法） | 10 分钟 | 消灭"文档落后"这一类返工（今天实际发生过） | A |
 | **S2** | ✅ **已做**：续接快照由命令生成：`case_state.py handoff --case <C>` 输出 ≤40 行（已证结论 / 待验 / stale / 未决 ASK / 最近 3 条 event / 下一步），全部从账本现算；新会话第一件事读它 | `case.py` 加一个子命令（**不新增脚本**，符合"全局 7 脚本"目标） | ~1 小时 | **最高**：直接解决"新对话没上下文" | A |
-| **S3** | **项目/版本目录约定**（只写约定 + 可选 `init --layout` 生成骨架）：`versions/upstream/` 与 `versions/ours/`、`docs/`（长期）、`reports/`（交付）、`_tmp/`（可弃，gitignore） | `Tool/cases/README.md` + `case_state.py init` | 30 分钟 | 高：更新时能一眼定位"上游 vs 我们" | B |
+| **S3** | **项目/版本定位**：**不建 `versions/` 目录**（实测否决：上游身份已在 `case.json.target_files[].sha256`，我们的版本已在 git commit/tag，再存一份二进制 = 往 252MB 仓库里重复塞）。改为约定：交付级达成时打 tag（`m2-<case>`），`handoff --repo` 显示最近 tag；案例目录只补 `docs/`（长期）/ `reports/`（交付）/ `_tmp/`（可弃，gitignore） | `Tool/cases/README.md` + tag 约定 | 20 分钟 | 高 | B |
 | **S4** | 目录卫生 lint：case 目录里出现约定外文件 → **warn** 不红 | `preflight` | 20 分钟 | 低（只是提示） | C |
 
 ### 11.3 为什么不做成插件 / 技能
