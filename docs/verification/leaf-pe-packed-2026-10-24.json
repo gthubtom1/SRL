@@ -19,7 +19,7 @@
     }
   },
   "source_sha256": {
-    "facts.jsonl": "9faa57278f9028164b878f0e8a8d3f516ad00eb13a25e65fca6ff63a6950e1a2",
+    "facts.jsonl": "489d0d1945515b8021e4b8979c1cc7fac9d66b9bdab353e1d45e7c573a678517",
     "artifacts/MANIFEST.sha256": "e58eef16d8cc5fe6913230b2a06a65f6b2eba6fdf4a7e14377e9be2ce09993b4"
   },
   "interpretation": "upx 3.91w 解壳 + r2 复测后声明 observed，背书 0 → 15；3 条需活体进程/运行的降为 inferred 并排除",

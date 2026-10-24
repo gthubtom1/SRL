@@ -304,6 +304,6 @@ preflight 第 19 组                  每叶必须有"怎么算做成"+ 缺样�
 | 路径树 / 走查 / 基线 | 「path-tree.json」(S1 已删)、「path-walk.py」(S1 已删)、「path-tree-baseline.json」(S1 已删) |
 | 决策环 + Manager Mode | `Tool/prompts/contracts/_archived/DECISION-LOOP.md` |
 | 工具四阶梯 | `Tool/prompts/contracts/_archived/TOOL-LADDER.md` |
-| 待你拍板的清单 | `docs/DECISIONS-PENDING.md` |
+| 待你拍板的清单 | `docs/history/DECISIONS-PENDING.md` |
 | 外部盲审（最狠的一份） | `work/audit/REVIEW-CLEANROOM.md` |
 | 用户原话与需求台账 | `work/audit/DIALOGUE-user.md`、`work/audit/REQUIREMENTS-LEDGER.md` |

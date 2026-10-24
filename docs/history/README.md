@@ -5,7 +5,7 @@
 当前状态的唯一入口（按顺序）：
 
 1. `README.md` 顶部「现状卡」——版本、门禁、一句话定位
-2. `docs/FORK-BRIEF.md`——二开差异、需求、契约、债务
+2. `docs/history/FORK-BRIEF.md`——二开差异、需求、契约、债务
 3. `docs/RELEASE-1.26.1.md`——最近一轮交付台账
 4. `ROADMAP.md`——现在能做什么
 5. `docs/DEFERRALS.md`——延迟项 + 明确不做

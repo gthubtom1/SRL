@@ -44,7 +44,7 @@
 > - **What**: an AI workbench for client-side license white-box auditing + binary/Web/mobile/firmware reverse engineering (31 skills / 11 domains / 24 playbooks / 40 MCP tools)
 > - **Origin**: a fork of `angusdevgo/Seep-Reverse-Lab`; this repo is `gthubtom1/Seep-Reverse-Lab`
 > - **Version**: `v1.26.1` (`VERSION`) | **Gates**: preflight 55/55, domain-gate 110/110, verify 65/0, preflight.py 12/12
-> - **Read first**: [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md) → [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)
+> - **Read first**: [`docs/history/FORK-BRIEF.md`](docs/history/FORK-BRIEF.md) → [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)
 > - **External audit (read-only)**: [`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md) — report only, never modify the repo
 > - **Historical docs**: [`docs/history/`](docs/history/) (`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`) — not current state
 > - **Self-check**: `python Tool/scripts/preflight.py`
@@ -73,7 +73,7 @@
 | **Firmware/IoT wireless near-field** | `firmware-iot` adds 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC chapters |
 | **Phase 02/03 hardening** | Criteria tables + failure criteria + minimal implementation; each phase is verifiable and fail-fast |
 
-> 🤖 **AI / 审查者请先读 [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
+> 🤖 **AI / 审查者请先读 [`docs/history/FORK-BRIEF.md`](docs/history/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
 
 
 ## 🌟 Project Overview

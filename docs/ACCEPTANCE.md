@@ -47,7 +47,45 @@ python Tool/scripts/case_state.py handoff --repo   # 当前状态（生成，不
 | 商业加固壳（DexVMP/jiagu/梆梆）未实测 | B | 需构建链 + 真实加固样本 |
 | 4 条 refuted claim 缺 confidence | C | refuted 不计 pass，不影响任何判据 |
 
-## 五、结论
+## 六、负向验收（变异测试）—— 证明"判据不是装饰"
+
+只验"好代码绿"不够：那可能是判据根本不起作用（本项目就出过"空判据 0 条却 PASS"和"skip 记 pass"）。
+所以在**一次性 clone**（`/d/tmp/fresh`）里故意弄坏 7 处，坏完 `git checkout` 还原，零风险。
+
+| 变异 | 期望 | 实测 |
+| :-- | :-- | :-: |
+| MANIFEST 哈希篡改 | gate/preflight 变红 | ✅ |
+| 删除被引用的证据文件 | 变红 | ✅ |
+| 技能里写错工具名（`seep_r2_decompileXX`） | 新判据「技能里的工具引用」变红 | ✅ |
+| 回执 source 哈希改错 | 新判据「回执未漂移」变红 | ✅ |
+| 守卫正则写坏（`([unclosed`） | 「对抗陷阱对撞」变红 | ✅ |
+| 扩展改一个字节（与部署不一致） | 「扩展部署一致」变红 | ✅ |
+| facts 里删掉 evidence 但保留 proven | 变红 | ✅ |
+
+**7/7 全部被抓**。再补一轮"精准变异"（同时把回执同步成篡改后的真实哈希，排除"回执替 gate 挡枪"）：
+MANIFEST 哈希错 → `G4 pack-witness` 红；proven 无证据 → `G5 evidence-ledger` 红；强度降级 → `G6 verification-receipt` 红，**3/3**。
+
+## 七、冷启动会话验收 —— 两个无上下文子代理（只读）
+
+派两个全新会话（`explore` 型，无 shell、不能写文件），只给仓库路径，让它们自己判断"现在在哪、下一步做什么、这个目标能到哪一级"。
+
+**它们抓到的真问题（已全部修复）**
+
+| 问题 | 后果 |
+| :-- | :-- |
+| **4 个 witness 案例缺 `kind:"state"` 行** | `case_state.py deliver` 一律被拒（"还没给可行性裁定"）→ 交付闸门在一级功能上不可用。已按 case.json 自身记录补 state 行（写明迁移来源，不编造裁定），`deliver` 实测恢复可用 |
+| **README / docs/README 的"冷启动必读"指向 S1 之前的世界**（写 preflight 55/55、domain-gate 110/110） | 新会话先读到的是旧世界数字。已改为"数字跑命令看"，入口改为 HANDOFF → NOW → PLAN-v8 |
+| **`docs/history/DECISIONS-PENDING.md` 是 S1 之前的另一个世界**，却挂在 `docs/` 根 | 会被当现状读。已移入 `docs/history/`（`FORK-BRIEF.md` 同） |
+| **`KPI.md` 标题说"9 个包已通过、下表保留为空"，表里却有 4 行 fail** | 自相矛盾。已修 |
+| **HANDOFF 新鲜度判据把 HANDOFF 从"旧值残留机检"里排除了**，且容差 ≤3 让漂移静默变绿 | 专门防"手写状态腐烂"的护栏，正好对当前这次腐烂失效。已收紧到 ≤1 并从跳过名单移除 |
+| `PLAN-v8` / `FINAL-VERDICT` 仍写 44/44 | 数字漂移。已改为跑命令看 |
+
+**它们的判断是对的**：信 `ACCEPTANCE.md` 的实测数字、信 `PLAN-v8` §6.10 的"已决定不做"，
+并把 `NOW.md` §五 的三件"待决定"识别为过期待办 —— 该处已改为"已定为不做"，与 §6.10 对齐。
+
+> 结论：**冷启动验收比自审有效**。它不共享我的上下文，所以不会替我圆场。
+
+## 八、结论
 
 按 `PLAN-v8` §9 的终止条件（S1 门禁全绿 / S2 每域有见证 / S3 无已知 fail-open / S4 无已知伤机路径），
 **四项全满足** ⇒ 判定"可用"，停止优化。

@@ -47,8 +47,8 @@
 >
 > - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（9 个技能包 / 8 个域 / 24 条配方 / 20 个 MCP 工具 / 15 个全局脚本）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
-> - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 55/55、domain-gate 110/110、verify 65/0、preflight.py 12/12
-> - **先读**：[`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)（差异/需求/契约/债务）→ [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)（最近交付台账）
+> - **门禁**：数字不写在这里（写了必漂）——跑 `python Tool/scripts/preflight.py --fast` 看
+> - **先读**：[`docs/HANDOFF.md`](docs/HANDOFF.md)（状态块由命令生成）→ [`docs/NOW.md`](docs/NOW.md)（现在该做什么）→ [`docs/PLAN-v8.md`](docs/PLAN-v8.md)（需求/DoD/审查协议/终止条件）
 > - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（只出报告，不改仓库）
 > - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`）——**不作现状**
 > - **自检**：`python Tool/scripts/preflight.py`
@@ -63,7 +63,7 @@
 
 ---
 
-> 🤖 **AI / 审查者请先读 [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
+> 🤖 **AI / 审查者请先读 [`docs/history/FORK-BRIEF.md`](docs/history/FORK-BRIEF.md)**：二开差异、用户需求、不可破坏的契约、已知债务、以及「哪些文档是历史快照」。不看它会误判。
 
 
 ## 🧬 本仓库是 Seep 的二开增强版（Fork 自 angusdevgo/Seep-Reverse-Lab）

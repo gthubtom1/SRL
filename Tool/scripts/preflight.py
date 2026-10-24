@@ -187,7 +187,7 @@ def check_numbers(fast):
     # 旧值残留机检（第一方活文档；历史 CHANGELOG/AUDIT/HANDOFF 与 audit 目录跳过）
     STALE_LITERALS = ["38 个底层分析工具", "38 工具", "38 个原生工具",
                       "292+", "v6.2.2", "v3.0.3", "Skills - 9项", "10 大逆向 Skill", "本域 7 条", "= 8/8"]
-    SKIP_NAMES = ("CHANGELOG", "AUDIT", "HANDOFF", "ANALYSIS", "DEFERRALS", "OPTIMIZATION")
+    SKIP_NAMES = ("CHANGELOG", "AUDIT", "ANALYSIS", "DEFERRALS", "OPTIMIZATION")
     for root_, _dirs, files_ in os.walk(ROOT):
         normd = root_.replace(os.sep, "/")
         if any(x in normd for x in ("/work", "/node_modules", "/__pycache__", "/upstream",
@@ -1081,12 +1081,12 @@ def check_handoff_fresh():
 
     f = os.path.join(ROOT, "docs", "HANDOFF.md")
     if not os.path.isfile(f):
-        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", False, "缺 docs/HANDOFF.md")
+        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", False, "缺 docs/HANDOFF.md")
         return
     txt = open(f, encoding="utf-8", errors="replace").read()
     m = _re.search(r"handoff:HEAD=([0-9a-f]{7,40})", txt)
     if not m:
-        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", False,
+        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", False,
             "没有生成块：跑 case_state.py handoff --repo 后替换 §1")
         return
     sha = m.group(1)
@@ -1096,7 +1096,7 @@ def check_handoff_fresh():
                        capture_output=True, text=True, encoding="utf-8",
                        errors="replace", timeout=20).returncode == 0
         if not have:
-            add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", True,
+            add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", True,
                 "浅克隆/提交不在本地对象库，跳过比对（重新生成一次即可）")
             return
         out = _sp.run(("git", "rev-list", "--count", "%s..HEAD" % sha),
@@ -1105,8 +1105,8 @@ def check_handoff_fresh():
         lag = int(out) if out.isdigit() else 999
     except Exception:
         lag = 999
-    add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", lag <= 3,
-        "落后 %d 个提交（≤3 才绿）；重新生成：case_state.py handoff --repo" % lag
+    add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", lag <= 1,
+        "落后 %d 个提交（≤1 才绿）；重新生成：case_state.py handoff --repo" % lag
         if lag > 3 else "落后 %d 个提交" % lag)
 
 

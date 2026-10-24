@@ -19,7 +19,7 @@
     }
   },
   "source_sha256": {
-    "facts.jsonl": "7302813357c4ebae51ecf099a49dd5c29632d52deb16dc6a40576bc4252d3c08",
+    "facts.jsonl": "215e3b5fa806d0a47d1e0874d7d103cda6308c9fd3bc710642fdff9163b15978",
     "artifacts/MANIFEST.sha256": "3d49be843cf8ab070bf49de4c23cfa6aef35ed7e031373585ddac8a7e183adce"
   },
   "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",

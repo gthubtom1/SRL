@@ -19,7 +19,7 @@
     }
   },
   "source_sha256": {
-    "facts.jsonl": "0373ec46f74889fc6c8563f64d8268152dcb9993c9faec2059a82263e27e4b1c",
+    "facts.jsonl": "8b95c2d20f2cf39b5f024aff3c9aaa24f4dc90d17881257ce2e011d3af880509",
     "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353"
   },
   "interpretation": "unzip/aapt/zipalign/jarsigner/adb 全量重测后声明 observed，背书 0 → 4；重建与签名破坏两项如实降为 inferred",

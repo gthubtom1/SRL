@@ -1,13 +1,13 @@
 # docs 索引
 
-> **冷启动只读三份**：`../README.md` 顶部现状卡 → `FORK-BRIEF.md` → `RELEASE-1.26.1.md`。
+> **冷启动只读三份**：`../README.md` 顶部现状卡 → `HANDOFF.md`（状态块，命令生成）→ `NOW.md`（现在该做什么）。`history/FORK-BRIEF.md`/`RELEASE-1.26.1.md`/`history/DECISIONS-PENDING.md` 属**历史**，不作现状。
 > 其余按需查；带「历史」标记的一律**不作现状**。
 
 ## 1. 现状与交接（权威）
 
 | 文件 | 作用 |
 | :-- | :-- |
-| [FORK-BRIEF.md](FORK-BRIEF.md) | 交接书：这个仓是谁、相对上游加了什么、用户需求、不可破坏的契约、已知债务、文档地图、常见误解 |
+| [FORK-BRIEF.md](history/FORK-BRIEF.md) | 交接书：这个仓是谁、相对上游加了什么、用户需求、不可破坏的契约、已知债务、文档地图、常见误解 |
 | [RELEASE-1.26.1.md](RELEASE-1.26.1.md) | 最近一轮交付台账（做了什么 / 证据 / 剩余项） |
 | [DEFERRALS.md](DEFERRALS.md) | 延迟项台账 + **明确不做**（附理由） |
 | [history/X-DOMAIN-SPEC-v2.md](history/X-DOMAIN-SPEC-v2.md) | 域契约（九件套判据） |

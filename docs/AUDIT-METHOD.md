@@ -159,12 +159,12 @@
 
 > ⛔ **本节结论已被反转（2026-10-24）**：当时的解法是“写脚本同步文档数字”，而 `BLUEPRINT.md` 的结论是**文档里取消一切计数**（不写死数字，就没有可腐烂的数字）。本节只作为“检查器也会腐烂”的案例保留。
 
-我在 `docs/DECISIONS-PENDING.md` 里写了"preflight 45/45 通过"。preflight 的「文档数字 vs 实测」这一项立刻打红：
+我在 `docs/history/DECISIONS-PENDING.md` 里写了"preflight 45/45 通过"。preflight 的「文档数字 vs 实测」这一项立刻打红：
 
 ```
-docs/DECISIONS-PENDING.md: 写 45/45，应为 42/42
+docs/history/DECISIONS-PENDING.md: 写 45/45，应为 42/42
 docs/history/X-EXECUTION-MODEL-v2.md: 写 42/42，应为 45/45
-docs/FORK-BRIEF.md: 写 45/45，应为 48/48   （两处）
+docs/history/FORK-BRIEF.md: 写 45/45，应为 48/48   （两处）
 docs/QUICKSTART.md: 写 42/42，应为 45/45
 ```
 

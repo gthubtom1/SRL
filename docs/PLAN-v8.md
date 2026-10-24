@@ -399,7 +399,7 @@ python Tool/scripts/gate.py --trap T01-softseep-net --answer <回答.txt>
 
 | # | 停止条件 | 当前 | 结论 |
 | :-: | :-- | :-- | :-: |
-| S1 | 所有**门禁**绿（结构 + 判据 + 真实目标） | `preflight` 44/44、`gate` 9/9 | ✅ |
+| S1 | 所有**门禁**绿（结构 + 判据 + 真实目标） | `preflight` 全绿（跑 `python Tool/scripts/preflight.py --fast` 看）、`gate` 9/9 | ✅ |
 | S2 | 每个域有 **≥1 个可复跑见证**（D1） | 9/9 | ✅ |
 | S3 | **无已知 fail-open**（无证据出报告 / 截断 / unknown 当 pass / 缺登记启动） | D5/D9/D10 全绿，且都有打红实测 | ✅ |
 | S4 | **无已知"会伤用户机器"的路径**（L3/L4 有原则 + 有兜底 + 有实测拦截） | 原则已立、禁手 24 条、实拦 3 次 | ✅ |

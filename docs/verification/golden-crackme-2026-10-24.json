@@ -19,7 +19,7 @@
     }
   },
   "source_sha256": {
-    "facts.jsonl": "7fd04877ae348bb786691168e338944394f04a5097db108c27be0fcde6e1c942",
+    "facts.jsonl": "5bc109b6019f2c6323ed42c9971b4a4e74424e63c235e3758326ea6f53261b82",
     "artifacts/MANIFEST.sha256": "929979476ccafd02cb65b6e5f705e1782529f604c3f7e03b6954f7fbce3d75cd"
   },
   "interpretation": "逐条重跑 r2/tool-acquire 后显式声明 observed+shipped-artifact，背书从 0 → 13；顺带 refute 了一条错版本号",

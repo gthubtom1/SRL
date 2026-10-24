@@ -5,7 +5,7 @@
 > 需要改动时，你在报告里写「改哪个文件、第几行、改成什么、为什么、改后收益、怎么验证」，由项目方自己决定是否实施。
 
 版本基线：`v1.26.1`｜生成时间：2026-10-22
-配套文件：`docs/FORK-BRIEF.md`（项目身份与契约）、`docs/AUDIT-REPORT-TEMPLATE.md`（报告骨架）
+配套文件：`docs/history/FORK-BRIEF.md`（项目身份与契约）、`docs/AUDIT-REPORT-TEMPLATE.md`（报告骨架）
 
 ---
 
@@ -87,7 +87,7 @@ git show <commit>:<path>
 
 ## 5. 读什么（顺序不能乱）
 
-1. `docs/FORK-BRIEF.md` —— 身份、契约、文档地图、明确不做、已知债务、常见误解。
+1. `docs/history/FORK-BRIEF.md` —— 身份、契约、文档地图、明确不做、已知债务、常见误解。
 2. `docs/RELEASE-1.26.1.md` —— 最近一轮交付台账（做了什么 / 证据 / 剩余）。
 3. `docs/history/X-DOMAIN-SPEC-v2.md` —— 域契约（九件套）。
 4. `docs/UPSTREAM.md` —— 与上游差异、吸收纪律。
@@ -95,7 +95,7 @@ git show <commit>:<path>
 6. `ROADMAP.md` —— 现在能做什么。
 7. 需要细节时再看具体 `Tool/skill/<域>/SKILL.md` 与 `references/`。
 
-**不要**把以下当作现状（`docs/FORK-BRIEF.md` §6 有完整说明）：`docs/AUDIT.md`（索引）、`docs/history/audit/*.md`、
+**不要**把以下当作现状（`docs/history/FORK-BRIEF.md` §6 有完整说明）：`docs/AUDIT.md`（索引）、`docs/history/audit/*.md`、
 `docs/history/OPTIMIZATION-2.0.md`、`work/plans/*`、`work/` 下任何产物、`.pi/`。
 **不要**审查：`Tool/upstream/`、`Tool/mcp/Tool/safe/`（内置工具链二进制）、`破甲卡生成/`（项目方另一个侧项目）。
 
@@ -106,7 +106,7 @@ git show <commit>:<path>
 1. **总体判定**：这个项目现在能否交付使用？给出 1–10 分与一句话理由。
 2. **门禁可信度**：44/110/65/12 这些数字是不是真的？你自己跑出来是多少？与文档是否一致？
 3. **与上游的差异是否成立**：文档声称的增量（第 2 类）哪些能验证、哪些是纸面？
-4. **需求覆盖度**：项目方的 6 条设计目标（`docs/FORK-BRIEF.md` §3）逐条打分 + 证据。
+4. **需求覆盖度**：项目方的 6 条设计目标（`docs/history/FORK-BRIEF.md` §3）逐条打分 + 证据。
 5. **缺陷清单**：按严重度分级，每条必须有**复现命令 + 原始输出**。
 6. **改进清单**：每条写「改什么 / 为什么 / 改后能改良什么 / 风险 / 怎么验证 / 工作量」。
 7. **文档一致性**：还有哪些文档在说旧数字/旧结论？逐条列「文件:行 + 现状 vs 实际」。

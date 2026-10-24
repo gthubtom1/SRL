@@ -1,7 +1,7 @@
 # D 轮独立审计：三层架构能否“以后只小改”
 
 > ⚠️ **历史快照（非现状）**：本文记录的是当时的口径与数字，可能与本仓当前状态不一致。
-> 当前状态以 `docs/FORK-BRIEF.md` + `docs/RELEASE-1.26.1.md` + 实跑门禁为准。
+> 当前状态以 `docs/history/FORK-BRIEF.md` + `docs/RELEASE-1.26.1.md` + 实跑门禁为准。
 
 - 仓库/基线：`D:/Seep-Reverse-Lab`，HEAD `a9d2a40`，`VERSION=1.23.1`，`git status` clean。
 - 方式：只读 + 跑门禁 + 自写探针（放 `/tmp`，不落仓库）；未改代码、未 commit。
