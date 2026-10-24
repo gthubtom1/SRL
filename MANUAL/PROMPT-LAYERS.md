@@ -93,7 +93,7 @@ tools / rules / docs pi 内置
 
 ### 3.2 移动安全与逆向工程审计 SOP（原 §4，746 字符）
 
-> 细则在 `Tool/skill/apkseep/SKILL.md` 与 `Tool/skill/_pending/client-license-validation-bypass/SKILL.md`，本节为摘要存档。
+> 细则在 `Tool/skill/apkseep/SKILL.md` 与 `Tool/skill/softseep/references/license-validation.md`，本节为摘要存档。
 
 **核心漏洞族**：CWE-602（客户端本地强制服务端安全机制：本地布尔值 / 本地特权状态决定权益发放）· BFLA（低权限调用高权限接口）· 业务与支付逻辑（本地 Receipt 伪造、离线缓存篡改、公钥硬编码与验签旁路）。
 
@@ -131,7 +131,7 @@ tools / rules / docs pi 内置
 | :-- | :-- |
 | `Tool/prompts/AGENTS.md` §六 | 默认视为已授权，不逐目标询问；仅当用户明确说没授权才停 |
 | `Tool/skill/softseep/SKILL.md` | 每个新目标第一件事先询问授权 |
-| `Tool/skill/_pending/client-license-validation-bypass/SKILL.md` | 同上 |
+| `Tool/skill/softseep/references/license-validation.md` | 同上 |
 | `README.md` / `README.zh.md` / `README.en.md` | 每个新目标第一步确认授权，无授权即停止 |
 | `Tool/prompts/contracts/CLAUDE.md` / `Tool/prompts/contracts/DSH-PROFILE.md` | 所有测试目标必须确认已获授权 |
 

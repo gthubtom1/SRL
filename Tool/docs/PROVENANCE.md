@@ -25,7 +25,7 @@
 | 1 | **softseep** ⭐总控 | `Tool/skill/softseep/` | `~/.pi/agent/skills/softseep/` | 11 | 364 KB |
 | 2 | **apkseep** | `Tool/skill/apkseep/` | `~/.pi/agent/skills/apkseep/` | 123 | 2.2 MB |
 | 3 | **ida-reverse** | `Tool/skill/_pending/ida-reverse/` | `~/.pi/agent/skills/ida-reverse/` | 1 | 4 KB |
-| 4 | **client-license-validation-bypass** | `Tool/skill/_pending/client-license-validation-bypass/` | `~/.pi/agent/skills/` | 1 | 32 KB |
+| 4 | **client-license-validation-bypass** | `Tool/skill/softseep/references/` | `~/.pi/agent/skills/` | 1 | 32 KB |
 | 5 | **reverse-engineering** | `Tool/skill/_pending/safe-skills/reverse-engineering/` | 同上 | 15 | 380 KB |
 | 6 | **apk-reverse** | `Tool/skill/_pending/safe-skills/apk-reverse/` | 同上 | 8 | 52 KB |
 | 7 | **radare2** | `Tool/skill/_pending/safe-skills/radare2/` | 同上 | 3 | 20 KB |

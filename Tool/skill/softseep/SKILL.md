@@ -275,7 +275,7 @@ metadata:
 
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
-| "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路）（分析型参考卷：`Tool/skill/_pending/client-license-validation-bypass/SKILL.md`（许可校验专项）） |
+| "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路）（分析型参考卷：`Tool/skill/softseep/references/license-validation.md`（许可校验专项）） |
 | "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `Tool/skill/_pending/unpack-loop/SKILL.md`（脱壳闭环）**（判据驱动，不硬走流程） |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
 | "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `KB 11-project-paradigms/01-project-patterns-a-j.md` |
@@ -482,7 +482,7 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 ### 七道门（G0–G6）
 
-> **只在这一处定义**：`Tool/skill/_pending/client-license-validation-bypass/SKILL.md` §0「执行顺序门」。
+> **只在这一处定义**：`Tool/skill/softseep/references/license-validation.md` §0「执行顺序门」。
 > 本文件不再复制表格（上一版两份逐字重复，已合并）。做授权/卡密类目标时按 R2 → `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路），
 > 由它在需要时加载该参考卷。
 

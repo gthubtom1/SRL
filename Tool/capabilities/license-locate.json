@@ -28,7 +28,7 @@
   "scripts": [],
   "refs": [
     "Tool/skill/softseep/references/license-validation.md",
-    "Tool/skill/_pending/client-license-validation-bypass/SKILL.md"
+    "Tool/skill/softseep/references/license-validation.md"
   ],
   "maturity": "probe",
   "note": "待补授权点定位脚本，当前用 IDA/Ghidra 交叉引用 + softseep 授权校验清单手工完成",

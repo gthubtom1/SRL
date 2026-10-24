@@ -2206,7 +2206,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 修复（链路断点 —— 全仓断链审计发现）
 
 - **`softseep/SKILL.md` 资源表 4 处路径指向不存在的目录**（调度时会「在外面乱转」的根因）：
-  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/_pending/client-license-validation-bypass/SKILL.md`
+  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/softseep/references/license-validation.md`
   - `Tool/safe/skills/` → `Tool/skill/_pending/safe-skills/`（并列出真实 5 个技能名）
   - `Tool/reverselab/kb/`（316 文件）→ `Tool/mcp/Tool/reverselab/kb/`（292 篇 .md）
   - `Tool/aotopsy/`（**该目录根本不存在**，上游也从未分发）→ 删除该行
