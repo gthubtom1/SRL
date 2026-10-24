@@ -1,20 +1,13 @@
 ---
-description: 脱壳/反调试/dump 闭环（加壳样本） —— 加载 unpack-loop 技能链，先判型再动手
+description: 脱壳/反调试/dump 闭环 —— 读 unpack-loop
 argument-hint: "<目标路径或一句话需求>"
 ---
 
-你正在使用 SEEP 的 **unpack-loop** 域技能链。目标/需求：`${@:-（未给，先问我）}`
+用 SEEP 的 **unpack-loop** 域处理下面这件事：
 
-**如果没有给目标（或只给了一句模糊需求）**：先只问一句「目标是什么 / 你想让我做到哪一步」，不要开始分析、不要写脚本。
+目标/需求：`${@:-（未给）}`
 
-**第一步（只做这三件事，不许动手）：**
-1. 读 `@SEEP_ROOT@/Tool/skill/_pending/unpack-loop/SKILL.md`（这是本域方法论，必须整篇读）
-2. 若目标涉及加壳/加密/虚拟化：再读 `@SEEP_ROOT@/MANUAL/UNPACKING.md` 与 `@SEEP_ROOT@/MANUAL/ANTI-DEBUG.md`
+**动作**：读 `@SEEP_ROOT@/Tool/skill/_pending/unpack-loop/SKILL.md`，整篇读完再按它执行。
+（若没给目标：先只问一句"目标是什么 / 想让我做到哪一步"，不要开始分析、不要写脚本。）
 
-3. 输出：**判型结论 + 交付上限 M1–M4 + 我缺什么（许可/凭据 · 运行许可与环境 · 样本完整性）**
-
-**硬规则**：
-- 用户给的后继目标（补丁/源码级）不改变第一步；第一步永远是判型与上限
-- 缺输入就问（问不是退缩），不许假设"没有"就往下走
-- 只有跑过命令拿到证据的结论才算结论；没跑过的写"未验证"
-- 先用 `seep_packer_detect` 判壳；壳识别→反调试对抗→OEP→dump→IAT 修复，每步留证据
+配套手册：`@SEEP_ROOT@/MANUAL/UNPACKING.md`、`@SEEP_ROOT@/MANUAL/ANTI-DEBUG.md`
