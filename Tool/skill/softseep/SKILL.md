@@ -258,19 +258,22 @@ metadata:
 
 | 类别 | 资源 | 调用方式 | 用途 |
 | :--- | :--- | :--- | :--- |
-| **Skill** | softseep（本体） | 本文件 + `references/` | 总控 + Windows 战术 |
+| **Skill（索引只有 9 个包）** | softseep（本体） | 本文件 + `references/` | 总控 + 阶段协议 + Windows 战术 |
 | | **apkseep** | `~/.pi/agent/skills/apkseep/SKILL.md` | Android APK/DEX/SO 全链路 |
-| | **ida-reverse** | `~/.pi/agent/skills/ida-reverse/SKILL.md` | IDA 自动唤醒 + 联动 |
-| | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
-| | **unpack-loop** | `Tool/skill/unpack-loop/SKILL.md` | 加壳脱壳与内存转储闭环（判据驱动 / 三路线 / 两次熔断） |
-| | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
-| | **00-analysis** | `Tool/skill/00-analysis/SKILL.md` | **阶段零**：D0–D5 深度门 → 8 节可复现报告 → 可行性裁定（可赢/部分可赢/不可赢）+ 推荐路线；不许产出交付物 |
-| | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
-| | **04-version-migrate** | `Tool/skill/04-version-migrate/SKILL.md` | **阶段④**：读版本账 → AOB 滑窗对齐 → UI/授权跟着迁 → 重建+回归（引擎 `Tool/scripts/migrate.py`） |
-| | **05-backend-rebuild** | `Tool/skill/05-backend-rebuild/SKILL.md` | **阶段⑤**：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证 → 回归（**仅 T2/T3 触发**，T1 移交阶段③） |
-| | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
-| | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
-| | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
+| | **web-pentest** | `~/.pi/agent/skills/web-pentest/SKILL.md` | Web/API 漏洞验证 + 站点复刻 |
+| | **malware-analysis** | `~/.pi/agent/skills/malware-analysis/SKILL.md` | 样本研判 / 脱壳 / IOC·YARA |
+| | **supply-chain-security** | `~/.pi/agent/skills/supply-chain-security/SKILL.md` | 依赖 / 镜像 / CI-CD 供应链 |
+| | **forensics-mobile** | `~/.pi/agent/skills/forensics-mobile/SKILL.md` | 取证 / iOS·macOS / 游戏客户端 |
+| | **firmware-iot** | `~/.pi/agent/skills/firmware-iot/SKILL.md` | 固件 / IoT / 硬件接入 |
+| | **protocol-plugin** | `~/.pi/agent/skills/protocol-plugin/SKILL.md` | 私有协议复刻 + 插件/Mod |
+| | **pwn-crypto** | `~/.pi/agent/skills/pwn-crypto/SKILL.md` | 二进制利用 + 密码学 |
+| **工具类参考（L3，不占索引）** | [`references/tools/tool-radare2.md`](references/tools/tool-radare2.md) | 驱 r2/rabin2 时 | 函数分析 / 补丁 / 差分 |
+| | [`references/tools/tool-ida-assistant.md`](references/tools/tool-ida-assistant.md) | 需 IDA + MCP 桥接时 | 唤醒 / 加载 / 反编译 / xref |
+| | [`references/tools/tool-ida-reverse.md`](references/tools/tool-ida-reverse.md) | 要全自动批量反编译时 | 静默等分析 / 批量出伪代码 |
+| | [`references/tools/tool-reverse-engineering.md`](references/tools/tool-reverse-engineering.md) | 目标混淆/加壳/虚拟化时 | 先搞清怎么跑再谈利用 |
+| | [`references/tools/tool-js-reverse.md`](references/tools/tool-js-reverse.md) | 前端签名链路时 | JS 逆向 + 补环境复现 |
+| | [`references/tools/tool-binary-diff.md`](references/tools/tool-binary-diff.md) | 跨版本/补丁差分时 | 符号迁移 / AOB 特征迁移 |
+| **归档区（不索引、不路由）** | `_pending/` | `Tool/skill/_pending/` | 8 个阶段文案（00-analysis…05-backend-rebuild）+ ad-cloud / llm-security / site-clone / unpack-loop / plugin-targets / version-migration / signin-automation / client-license-validation-bypass / doc-hygiene / safe-skills；**需要时按路径直接读，不参与路由** |
 | **MCP** | **seep**（40 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp__ida__*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
@@ -395,7 +398,7 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 ### 七道门（G0–G6）
 
-> **只在这一处定义**：`Tool/skill/client-license-validation-bypass/SKILL.md` §0「执行顺序门」。
+> **只在这一处定义**：`Tool/skill/_pending/client-license-validation-bypass/SKILL.md` §0「执行顺序门」。
 > 本文件不再复制表格（上一版两份逐字重复，已合并）。做授权/卡密类目标时按 R2 → `01-gate-bypass`，
 > 由它在需要时加载该参考卷。
 

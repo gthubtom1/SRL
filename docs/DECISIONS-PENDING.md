@@ -13,7 +13,7 @@
 | 1 | `SEEP.md` 从 4,183 → 2,148 字节（退成指针，照原版 `CLAUDE.md` 275B 的做法） | `Tool/prompts/SEEP.md` + 部署态 | 低（正文都有归属处） | `work/audit/SEEP-full-backup.md` |
 | 2 | 入口模板解禁 ASK：删掉"不许甩 A/B/C 选择题"，加回"人操作时必须发卡" | `Tool/prompts/tasks/reverse*.md`、`sources/*.md` | 低 | git |
 | 3 | MANUAL 承诺改成条件式（去掉"全自主 8~15 分钟/静默自愈/放入目录即可生效"） | `MANUAL/ZERO-TO-HERO-WORKFLOW.md` | 低 | git |
-| 4 | 新建快筛技能 `00-triage`（20 分钟出画像卡六字段） | `Tool/skill/00-triage/` | 低（新文件） | 删目录 |
+| 4 | 新建快筛技能 `00-triage`（20 分钟出画像卡六字段） | `Tool/skill/_pending/00-triage/` | 低（新文件） | 删目录 |
 | 5 | `00-analysis` / `01-gate-bypass` 加前置与"按画像卡选 1 个子技能" | 两个 SKILL.md | 中（改了流程入口） | git |
 | 6 | 三个子代理 profile（stage / forensics / verify） | `~/.pi/agent/agents/*.md` | 低（新文件） | 删文件 |
 | 7 | `mcp.json` 的 x64dbg 从 http 改成 **stdio 桥** | `~/.pi/agent/mcp.json`（备份 `mcp.json.bak-*`） | **中：要重启才生效** | 恢复备份 |

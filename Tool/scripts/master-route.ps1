@@ -139,7 +139,7 @@ if ([string]::IsNullOrWhiteSpace($OutDir)) {
 $primaryPath = $cfg.routes.$primary.skill
 $primaryLabel = $cfg.routes.$primary.label
 # 技能根解析：兼容 skills/<name>/SKILL.md、Tool/skill/<name>/SKILL.md、
-# Tool/skill/safe-skills/<name>/SKILL.md 三种落位。
+# Tool/skill/_pending/safe-skills/<name>/SKILL.md 三种落位。
 $skillRel = $primaryPath -replace '/', [IO.Path]::DirectorySeparatorChar
 $skillRootCandidates = @(
     (Join-Path $skillsRoot $skillRel),

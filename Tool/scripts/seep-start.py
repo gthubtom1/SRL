@@ -46,9 +46,9 @@ DOMAINS = (
 # 每域 3 条下一步命令。{case_dir}=work/<case>，{target}=--target 或域默认样本。
 COMMANDS = {
     "site-clone": [
-        "python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01 --json",
-        "python Tool/skill/site-clone/scripts/site-diff.py --crawl Tool/cases/site-clone01/artifacts/crawl --rebuild Tool/cases/site-clone01/artifacts/rebuild --out {case_dir}/artifacts/diff.json",
-        "python Tool/skill/site-clone/scripts/site-crawl.py --self-test",
+        "python Tool/skill/_pending/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01 --json",
+        "python Tool/skill/_pending/site-clone/scripts/site-diff.py --crawl Tool/cases/site-clone01/artifacts/crawl --rebuild Tool/cases/site-clone01/artifacts/rebuild --out {case_dir}/artifacts/diff.json",
+        "python Tool/skill/_pending/site-clone/scripts/site-crawl.py --self-test",
     ],
     "web-pentest": [
         "python Tool/skill/web-pentest/scripts/web-accept.py --root .",
@@ -66,8 +66,8 @@ COMMANDS = {
         "python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json",
     ],
     "ad-cloud": [
-        "python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json",
-        "python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action iam:CreatePolicyVersion --resource '*'",
+        "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json",
+        "python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action iam:CreatePolicyVersion --resource '*'",
         "python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json",
     ],
     "protocol-plugin": [
@@ -76,9 +76,9 @@ COMMANDS = {
         "python Tool/skill/protocol-plugin/scripts/proto-accept.py --json",
     ],
     "plugin-targets": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json",
-        "python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/_archive/plugin01/input/ext.zip --out {case_dir}/artifacts/repro --json",
-        "python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/_archive/plugin01/input/ext.zip --out {case_dir}/artifacts/repro --json",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --json",
     ],
     "forensics-mobile": [
         "python Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics03/input/AppReadiness.evtx --json",

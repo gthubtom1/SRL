@@ -36,6 +36,8 @@ def count_skills():
         p = os.path.join(base, d)
         if not os.path.isdir(p):
             continue
+        if d.startswith(("_", ".")):   # S3：`_pending/` 是归档区，不索引
+            continue
         if d == "safe-skills":
             for sub in os.listdir(p):
                 if os.path.isdir(os.path.join(p, sub)):

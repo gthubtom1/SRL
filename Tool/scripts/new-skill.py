@@ -100,7 +100,7 @@ def register_to_softseep(name: str, desc: str) -> bool:
             return True  # 已经注册过
 
         # 找到资源表末尾插入
-        anchor = "| | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |"
+        anchor = "| | **client-license-validation-bypass** | `Tool/skill/_pending/client-license-validation-bypass/SKILL.md` | 许可校验专项 |"
         new_row = f"| | **{name}** | `Tool/skill/{name}/SKILL.md` | {desc[:20]} |"
         if anchor in content:
             content = content.replace(anchor, f"{anchor}\n{new_row}")

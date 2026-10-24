@@ -53,5 +53,5 @@ dump 里拿到运行时 VA，报告里却按镜像基址算 RVA，于是后续�
 
 ## 交叉引用
 
-- 打法：`Tool/skill/01-gate-bypass/SKILL.md`
-- 地址口径坑：`Tool/skill/00-analysis/SKILL.md`
+- 打法：`Tool/skill/_pending/01-gate-bypass/SKILL.md`
+- 地址口径坑：`Tool/skill/_pending/00-analysis/SKILL.md`

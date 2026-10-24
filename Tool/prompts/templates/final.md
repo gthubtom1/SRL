@@ -65,6 +65,6 @@
 
 ## 交叉引用
 
-- 打法：`Tool/skill/01-gate-bypass/SKILL.md`
+- 打法：`Tool/skill/_pending/01-gate-bypass/SKILL.md`
 - 上一份模板：`Tool/prompts/templates/dynamic.md`
 - 案例元数据写法：`Tool/cases/web-pentest01/case.json`

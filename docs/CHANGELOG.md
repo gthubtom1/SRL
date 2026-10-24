@@ -265,8 +265,8 @@
 
 ### C 脱壳 / 反调试
 
-- `Tool/skill/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
-- `Tool/skill/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
+- `Tool/skill/_pending/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
+- `Tool/skill/_pending/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
 - `Tool/scripts/probe_matrix.py`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
 - `Tool/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
 
@@ -656,7 +656,7 @@
 | **交付分级是纸面闸** | 新增 `case_state.py deliver --level M1..M4`：超过裁定上限**直接拒**；`show/resume` 显示已登记交付 |
 | **gate 可洗白** | 全 na 拒绝、na 必须写原因、裁定与深度绑定（可赢要 D0–D4 pass / 部分可赢要 D0–D3 / 不可赢要 D0–D2） |
 | **MCP 只增不删无验证** | 新增 `mcp-guard.py` + `Tool/mcp/.baseline/tools.json`（38 工具）：工具消失/数量下降/`SEEP-EXT` 标记不成对/占位假实现 一律 exit 1；preflight 接入 |
-| **阶段⑤只存在文档** | 新增 `Tool/skill/05-backend-rebuild/SKILL.md` + 路由 **R16**；T1/T2/T3 触发、三层 API 面、路由形态、8 项 checklist |
+| **阶段⑤只存在文档** | 新增 `Tool/skill/_pending/05-backend-rebuild/SKILL.md` + 路由 **R16**；T1/T2/T3 触发、三层 API 面、路由形态、8 项 checklist |
 | **重复路由** | 删 R3（与 R14 重复）；R1 的 `frida` 收窄为 Android 语境；R9 去掉单字「壳」 |
 | **深度门复制** | 01 技能的 D0–D5 副本删除，改为指向 00（一份定义） |
 | **preflight 可移植检查失明** | 修两处根因：`load_allow()` 返回层级错误 + 正则多一层反斜杠；修后首次真正扫出 39 处，逐一处置（修 2 处真硬编码 + 6 条合理白名单） |
@@ -922,7 +922,7 @@ D0–D5 各有产物；8 节齐全；每条结论有证据编号；`facts.jsonl`
 
 | 新增 | 作用 |
 |---|---|
-| `Tool/skill/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
+| `Tool/skill/_pending/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
 | `Tool/scripts/migrate.py` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
 | `Tool/docs/MIGRATION.md` | `manifest.json` 规范（schema `seep-migration/1`）+ 目录约定 + 常见漂移模式 |
 | 01/02/03 技能各加"顺手记账" | 位点 / UI 素材 / 授权挂载点分别写入 `sites[]` / `ui[]` / `license[]` —— 没有账，下次更新只能重做 |
@@ -1960,7 +1960,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 |---|---|
 | `setup/install-pi.ps1`、`setup/merge_agent_config.py` | 包清单 12 → **11**（移除 `npm:pi-mcp-extension`）；新增 `RETIRED_PACKAGES` 剔除逻辑 |
 | `Tool/docs/DOWNLOADS.md`、`MANUAL/PREREQUISITES.md` | 包数 12 → 11；删除手动安装示例中的该包 |
-| `Tool/prompts/SYSTEM.md`、`Tool/skill/ida-reverse/SKILL.md`、`Tool/skill/softseep/SKILL.md`、`Tool/docs/{DOWNLOADS,MCP-SETUP,TOOLKIT_GUIDE}.md` | 工具命名 `mcp_ida_*` → **`mcp__ida__*`**（12 处） |
+| `Tool/prompts/SYSTEM.md`、`Tool/skill/_pending/ida-reverse/SKILL.md`、`Tool/skill/softseep/SKILL.md`、`Tool/docs/{DOWNLOADS,MCP-SETUP,TOOLKIT_GUIDE}.md` | 工具命名 `mcp_ida_*` → **`mcp__ida__*`**（12 处） |
 | `Tool/docs/MCP-SETUP.md` §三 | 新增"装任何 pi 扩展前先跑命名自检"，并注明**加 MCP 服务器不触发** |
 | `MANUAL/DEPLOYMENT-CHECKLIST.md` | MCP 段附"附加断言（不计入 60 项）" |
 
@@ -2206,8 +2206,8 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 修复（链路断点 —— 全仓断链审计发现）
 
 - **`softseep/SKILL.md` 资源表 4 处路径指向不存在的目录**（调度时会「在外面乱转」的根因）：
-  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/client-license-validation-bypass/SKILL.md`
-  - `Tool/safe/skills/` → `Tool/skill/safe-skills/`（并列出真实 5 个技能名）
+  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/_pending/client-license-validation-bypass/SKILL.md`
+  - `Tool/safe/skills/` → `Tool/skill/_pending/safe-skills/`（并列出真实 5 个技能名）
   - `Tool/reverselab/kb/`（316 文件）→ `Tool/mcp/Tool/reverselab/kb/`（292 篇 .md）
   - `Tool/aotopsy/`（**该目录根本不存在**，上游也从未分发）→ 删除该行
   - 新增一行「运行时 `Tool/mcp/Tool/` 严禁搬动」提醒。
@@ -2248,7 +2248,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 清理
 
 - 删除误提交的根目录垃圾文件 `提示词`（内容只是一句粘贴残留）。
-- 清除两处作者本机绝对路径（`Tool/mcp/test_ext_assets.py`、`Tool/skill/version-migration/SKILL.md`），
+- 清除两处作者本机绝对路径（`Tool/mcp/test_ext_assets.py`、`Tool/skill/_pending/version-migration/SKILL.md`），
   并把隐私门禁正则从"只认原作者昵称"扩展为"个人绝对路径（用户目录 / 个人项目目录形态，含反斜杠与正斜杠两种写法）"。
 - `Tool/mcp/seep_mcp_server.py` 工作副本 CRLF 归位为 LF（与 `.gitattributes` 一致）。
 

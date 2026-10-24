@@ -18,7 +18,7 @@
     }
   ],
   "lessons": [
-    "本次跑到：在授权本机执行 `MSYS_NO_PATHCONV=1 wevtutil qe Security '/q:*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4768 or EventID=4769 or EventID=4648)]]' /f:xml /c:100 /rd:true > /tmp/sec2.xml`（rc=0），再执行 `python Tool/skill/ad-cloud/scripts/ad-repro.py --extract-evtx-xml /tmp/sec2.xml --out input/security-events.json`（rc=0，脱敏）与 `python Tool/skill/ad-cloud/scripts/ad-repro.py --kind windows-events --input input/security-events.json --json > artifacts/run.json`（rc=0）。",
+    "本次跑到：在授权本机执行 `MSYS_NO_PATHCONV=1 wevtutil qe Security '/q:*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4768 or EventID=4769 or EventID=4648)]]' /f:xml /c:100 /rd:true > /tmp/sec2.xml`（rc=0），再执行 `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --extract-evtx-xml /tmp/sec2.xml --out input/security-events.json`（rc=0，脱敏）与 `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind windows-events --input input/security-events.json --json > artifacts/run.json`（rc=0）。",
     "结果：100 条真实事件，4624=50、4672=50，LogonType 全为 5（服务登录），4768/4769/4776/4625 均为 0；判定 blocked（没有 Kerberos 遥测），唯一 finding 是 4672 特殊权限分配（medium），不能据此写成域内提权。",
     "边界：本机 `Win32_ComputerSystem.PartOfDomain=False`（WORKGROUP），没有域账号、DC、证书模板或云凭据；单机 Security 日志的缺失不能证明域内没有攻击，只能证明这台主机没有相应遥测。",
     "下一步：若是域主机，先确认 Kerberos 审计与 `Microsoft-Windows-Kerberos/Operational` 是否开启，再在授权范围内从 DC 导出 Security 日志做 4768/4769/4625/4672 关联；本机则把 4672 服务登录当作基线而不是结论。",
@@ -34,10 +34,10 @@
     "telemetry"
   ],
   "refs": [
-    "Tool/skill/ad-cloud/references/04-walkthrough-windows-auth-events.md",
-    "Tool/skill/ad-cloud/references/01-criteria.md",
-    "Tool/skill/ad-cloud/references/02-failure-criteria.md",
-    "Tool/skill/ad-cloud/scripts/ad-repro.py",
+    "Tool/skill/_pending/ad-cloud/references/04-walkthrough-windows-auth-events.md",
+    "Tool/skill/_pending/ad-cloud/references/01-criteria.md",
+    "Tool/skill/_pending/ad-cloud/references/02-failure-criteria.md",
+    "Tool/skill/_pending/ad-cloud/scripts/ad-repro.py",
     "Tool/config/ad-cloud-matrix.json"
   ],
   "updated": "2026-10-21",

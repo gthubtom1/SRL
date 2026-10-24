@@ -7,7 +7,7 @@
 
 ## 一、一句话现状
 
-方向已从"继续加"改成"先减法"。**S1 已完成、S2 已完成；S3 步骤 1 已落地**（9 个 `pack.json` + `route.py` + `gate.py`，preflight 43/43 全绿）。
+方向已从"继续加"改成"先减法"。**S1/S2 已完成；S3 步骤 1+2 已落地**——9 个域包 + `route.py`/`gate.py`，索引 **32→9**，技能索引 **2,809 → 739 tok**（preflight 43/43 全绿）。
 根因（实测）：常驻 29,415 token（其中宿主基座 14,676 改不动）/ `Tool/scripts` 51 个 `.py` / 32 技能里 19 个零样本 / **76 会话 4,536 次 toolCall 里 MCP 调用 0 次**。
 
 ## 二、唯一顺序（不许跳、不换序）
@@ -16,7 +16,7 @@
 | :-: | :-- | --: | :-: |
 | **S1** | 只删不加 ✅ **已完成**（preflight 52→43 全绿、脚本 106→59、脏项 108→0，两次提交在 `s1-subtract`） | 3h | ✅ |
 | **S2** | 杀 fail-open：报告生成器无证据则拒绝；超限拒绝不截断；`unknown` 不计 pass；状态副本收口 | 1d | ✅ **已完成（4/4，打红证据见 §三）** |
-| S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | 🔄 **进行中：包/闸已立，剩「索引 32→9」+ 删 routing.json** |
+| S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | 🔄 **包/闸/索引已完成；剩「删 routing.json」（10 个读者要改指 `route.py`）** |
 | S4 | 全局收口：`Tool/scripts` → 7；状态 → 4；工具面 40→16 | 1d | ⬜ |
 | S5 | KPI 回放：3 靶 + 1 真实目标 | 1d | ⬜ |
 
@@ -33,9 +33,22 @@
 **为什么 0 绿是当前真值**：G5 要求「整包 ≥1 条 `observed/derived` 证据」，而现在 4 个有 facts 的 case 全是 `unknown`
 （S2 引入 confidence 后没重声明），其余 5 个包连 claim 都没有。**把包变绿是 S5 的 KPI 回放工作**（重跑 witness → 显式声明 observed），不是在 S3 里补一行 `observed` 就能勾掉的复选框。
 
-**S3 剩余两件（下一步）**：
-1. **索引 32→9**：24 个非包技能移入 skill 根下的 `_pending/`（下一步创建；不索引、不路由）；`softseep/SKILL.md` 的调度表改指 9 个包。收益可量化：宿主技能索引 2,809 tok → 预计 ≤800。
-2. **删 `routing.json`**：路由已进 `pack.json`，但还有 3 个读者（`master-route.ps1` / `verify-routing-coherence.py` / `route-playbook-parity.py`）必须先改指 `route.py`，否则 `preflight` 的「路由↔配方一致」当场红。
+**步骤 2 已完成：索引 32→9**（KPI 前后对比）
+
+| KPI | 前 | 后 |
+| :-- | --: | --: |
+| 索引里的技能 | 32 | **9**（8 域包 + softseep） |
+| 宿主技能索引 token | 2,809 | **739**（-73%） |
+| 可控制层 token | 14,739 | **12,669**（目标 ≤8,000，还差 4,669） |
+| 归档区 | — | `Tool/skill/_pending/` 19 个目录（不索引、不路由、不部署） |
+| 工具类技能内容 | 6 个独立技能 | **softseep/references/tools/** 6 篇 L3 参考（r2 / IDA×2 / 通用逆向 / JS 逆向 / 二进制差分） |
+
+做法：`git mv` 19 个目录 → `_pending/`；`routing.json` 的 `skill` 目标改指归档路径；`softseep/SKILL.md` 调度表改 9 包 + 显式链 6 篇工具参考；`install.ps1|sh` 跳过 `_` 前缀；
+部署侧删掉 24 个旧技能目录（现在 `~/.pi/agent/skills` 只有 9 个）。**踩到的 8 处联动**（都修了）：
+悬空引用 111 处 → 路径重写 103 文件；`domain_spec.py` 三域改 `archived:true`；路由串味/配方 parity 归一化 `_pending/` 前缀；
+`doc-audit` DG02 死链 15 条 → 回指原目录；ad-cloud/plugin-targets/site-clone 的 `accept/repro` 自检把「向上 4 层」当仓库根 → 改 `_repo_root()` 向上找 `Tool/cases`；2 个兼容壳的 `TARGET` 用 `os.path.join` 拼路径没被字面替换命中。
+
+**S3 只剩一件**：删 `routing.json`（路由已进 `pack.json`，但仍有 10 个读者：`master-route.ps1` / `verify-routing-coherence.py` / `route-playbook-parity.py` / `domain-gate.py`×2 / `domain-pack-check.py` / `intent-coverage.py` / `merge-routing-fragment.py` + 片段目录 / `new-skill.py` / `setup/verify.*`）。改指 `route.py` 后即可删。
 
 ## 三bis、S1 结论（教训，别重踩）
 

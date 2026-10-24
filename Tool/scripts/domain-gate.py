@@ -916,7 +916,12 @@ def check_routing():
     bad = []
     for t in ROUTING_TESTS:
         rid, skill = _match_route(routes, prio, t["text"], fallback)
-        got = (skill.split("/")[0] if skill else (rid or "None"))
+        # S3：路由目标可能带归档前缀，归一化成「逻辑技能名」再比
+        norm = skill.replace("\\", "/")
+        for pre in ("_pending/safe-skills/", "_pending/"):
+            if norm.startswith(pre):
+                norm = norm[len(pre):]
+        got = (norm.split("/")[0] if norm else (rid or "None"))
         if got not in (t.get("expect_any") or []):
             bad.append("『%s』→ %s（期望 %s）" % (t["text"][:24], got,
                                              "/".join(t.get("expect_any") or [])))
@@ -974,6 +979,8 @@ def _all_skills():
         return out
     for n in sorted(os.listdir(base)):
         p = os.path.join(base, n)
+        if n.startswith(("_", ".")):   # S3：_pending/ 是归档区，不参与索引/部署
+            continue
         if n == "safe-skills" and os.path.isdir(p):
             for sub in sorted(os.listdir(p)):
                 if os.path.isfile(os.path.join(p, sub, "SKILL.md")):
@@ -991,6 +998,8 @@ def check_deploy(only=None):
     bad = []
     for dom, spec in DOMAINS.items():
         if only and dom != only:
+            continue
+        if spec.get("archived"):      # S3：归档域不参与部署（本来就不部署）
             continue
         src = os.path.join(TOOL, "skill", spec["skill"])
         dst = os.path.join(agent, spec["skill"])

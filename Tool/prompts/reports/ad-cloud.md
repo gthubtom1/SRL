@@ -11,8 +11,8 @@
 ## 2 证据清单
 | # | 文件 | sha256 | 命令 | rc | 说明 |
 |---|---|---|---|---|---|
-| E01 | artifacts/ad-repro.json | <sha256> | `python Tool/skill/ad-cloud/scripts/ad-repro.py --input <bundle> --json` | 0 | ADCS/Kerberos/RBAC |
-| E02 | artifacts/iam-eval.json | <sha256> | `python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input <policy> --action <a> --resource <r>` | 0 | IAM allow/deny |
+| E01 | artifacts/ad-repro.json | <sha256> | `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input <bundle> --json` | 0 | ADCS/Kerberos/RBAC |
+| E02 | artifacts/iam-eval.json | <sha256> | `python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input <policy> --action <a> --resource <r>` | 0 | IAM allow/deny |
 | E03 | artifacts/adcloud-check.json | <sha256> | `python Tool/scripts/adcloud-check.py --kubeconfig <kc> --json` | 0 | 本地 kubeconfig/AWS |
 
 ## 3 判据命中表
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/ad-cloud/scripts/ad-repro.py --input work/<case>/artifacts/bundle.json --json
-python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input work/<case>/artifacts/policy.json --action s3:GetObject --resource '*'
+python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input work/<case>/artifacts/bundle.json --json
+python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input work/<case>/artifacts/policy.json --action s3:GetObject --resource '*'
 python Tool/scripts/adcloud-check.py --kubeconfig work/<case>/artifacts/kubeconfig.yaml --json
 ```

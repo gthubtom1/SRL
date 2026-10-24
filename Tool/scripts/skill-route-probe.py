@@ -77,7 +77,7 @@ def run_router(ps: str, hint: str) -> dict:
 
 def _norm_skill(s: str) -> str:
     s = (s or "").strip().replace("\\", "/")
-    for pre in ("skills/", "Tool/skill/", "./"):
+    for pre in ("skills/", "Tool/skill/", "./", "_pending/safe-skills/", "_pending/"):
         if s.startswith(pre):
             s = s[len(pre):]
     return s

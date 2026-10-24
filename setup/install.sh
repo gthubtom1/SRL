@@ -102,6 +102,8 @@ if [ -d "$TOOL_DIR/skill" ]; then
     for s in "$TOOL_DIR/skill/"*; do
         if [ -d "$s" ]; then
             sname=$(basename "$s")
+            # ★ S3「索引 32→9」：`_pending/` 是归档区（不索引、不路由、不部署）
+            case "$sname" in _*) continue ;; esac
             if [ "$sname" = "safe-skills" ]; then
                 for sub in "$s/"*; do
                     [ -d "$sub" ] || continue

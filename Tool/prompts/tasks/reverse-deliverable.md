@@ -30,5 +30,5 @@ DELIVERY = 产物形态 + 为什么选它
 - 本阶段只做"旁路 + 可用"；改 UI / 接授权 / 复刻后端是 02 / 03 / 05 的事，不要提前做。
 
 【按技能执行】
-`Tool/skill/01-gate-bypass/SKILL.md`（旁路与交付）、需要时加载 `unpack-loop`（脱壳）、
+`Tool/skill/_pending/01-gate-bypass/SKILL.md`（旁路与交付）、需要时加载 `unpack-loop`（脱壳）、
 `client-license-validation-bypass`（授权校验参考卷）、`ida-reverse` / `radare2`（静态分析）。

@@ -130,13 +130,13 @@ def actual_numbers():
     kb = sum(1 for dp, dn, fn in os.walk(os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb"))
              for f in fn if f.endswith(".md"))
     manual = len([f for f in os.listdir(os.path.join(ROOT, "MANUAL")) if f.endswith(".md")])
+    # S3「索引 32→9」：只数索引里的包；`_pending/` 是归档区，不算技能
     skills = 0
     sd = os.path.join(TOOL, "skill")
     for n in os.listdir(sd):
-        p = os.path.join(sd, n)
-        if n == "safe-skills":
-            skills += len([x for x in os.listdir(p) if os.path.isdir(os.path.join(p, x))])
-        elif os.path.isfile(os.path.join(p, "SKILL.md")):
+        if n.startswith(("_", ".")):
+            continue
+        if os.path.isfile(os.path.join(sd, n, "SKILL.md")):
             skills += 1
     return {"tools": tools, "kb": kb, "manual": manual, "skills": skills}
 
@@ -565,32 +565,24 @@ def check_domain_packs():
     --self-test/案例 sha256/链接图/串味/部署）统一由 domain-gate.py 负责，
     这里只保留"目录与文件存在"，避免两份实现漂移。
     """
-    packs = {
-        "web-pentest": "web-pentest",
-        "supply-chain-security": "supply-chain-security",
-        "pwn-crypto": "pwn-crypto",
-        "malware-analysis": "malware-analysis",
-        "firmware-iot": "firmware-iot",
-        "ad-cloud": "ad-cloud",
-        "protocol-plugin": "protocol-plugin",
-        "plugin-targets": "plugin-targets",
-        "forensics-mobile": "forensics-mobile",
-    }
+    # 包判据以 pack.json 为唯一事实源（S3）：SKILL.md + pack.json 必须在，
+    # scripts/ 与 references/ 至少有一个（纯文档包也允许，但不能两头都空）。
     bad = []
-    for dom, sk in packs.items():
-        skp = os.path.join(TOOL, "skill", sk, "SKILL.md")
-        if not os.path.isfile(skp):
-            bad.append(dom + "(缺 SKILL)")
-            continue
-        if not os.path.isdir(os.path.join(TOOL, "skill", sk, "scripts")):
-            bad.append(dom + "(缺 scripts/)")
-        refs = os.path.join(TOOL, "skill", sk, "references")
-        if not (os.path.isdir(refs) and glob.glob(os.path.join(refs, "*.md"))):
-            bad.append(dom + "(缺 references/)")
-        if not os.path.isfile(os.path.join(TOOL, "config", "routing-fragments", dom + ".json")):
-            bad.append(dom + "(缺路由片段)")
-    add("10 领域", "领域六类文件在场（深度另由 domain-gate 判）", not bad,
-        "；".join(bad)[:160] if bad else "9 域 SKILL/scripts/references/路由片段齐全")
+    sd = os.path.join(TOOL, "skill")
+    pack_ids = sorted(n for n in os.listdir(sd)
+                      if not n.startswith(("_", "."))
+                      and os.path.isfile(os.path.join(sd, n, "pack.json")))
+    for sk in pack_ids:
+        if not os.path.isfile(os.path.join(sd, sk, "SKILL.md")):
+            bad.append(sk + "(缺 SKILL)")
+        scripts = os.path.isdir(os.path.join(sd, sk, "scripts"))
+        refs = os.path.isdir(os.path.join(sd, sk, "references")) and             bool(glob.glob(os.path.join(sd, sk, "references", "*.md")))
+        if not (scripts or refs):
+            bad.append(sk + "(scripts/ 与 references/ 都缺)")
+    if len(pack_ids) != 9:
+        bad.append("包数 %d ≠ 9（索引目标）" % len(pack_ids))
+    add("10 领域", "域包文件在场（9 包 SKILL+pack.json；深度另由 domain-gate/gate.py 判）", not bad,
+        "；".join(bad)[:160] if bad else "9 包 SKILL/pack.json/scripts|references 齐全")
 
 
 def check_domain_depth():
@@ -799,6 +791,8 @@ def check_race_e2e():
 def check_doc_hygiene():
     """文档治理审计：冷启动可读 + 遗留盘点（死链/孤儿/重复/版本/归档横幅/索引/遗留）。"""
     sp = os.path.join(TOOL, "skill", "doc-hygiene", "scripts", "doc-audit.py")
+    if not os.path.isfile(sp):   # S3：doc-hygiene 移入归档区
+        sp = os.path.join(TOOL, "skill", "_pending", "doc-hygiene", "scripts", "doc-audit.py")
     cfg = os.path.join(TOOL, "config", "doc-hygiene.json")
     if not os.path.isfile(sp):
         add("16 文档", "文档治理审计（doc-audit）", False, "doc-audit.py(missing)")
@@ -927,16 +921,22 @@ def check_tool_ladder():
     add("18 工具阶梯", "tool-acquire 自检（L0 判据=真探活，不是端口在听）", ok, line.strip()[:140])
 
     # 阶段技能是否接了指针
-    missing = []
+    missing, absent = [], []
     for name in ("00-triage", "00-analysis", "01-gate-bypass"):
         fp = os.path.join(TOOL, "skill", name, "SKILL.md")
         if not os.path.isfile(fp):
+            fp = os.path.join(TOOL, "skill", "_pending", name, "SKILL.md")
+        if not os.path.isfile(fp):
+            absent.append(name)          # 找不到文件 = 红，不再静默跳过
             continue
         body = open(fp, encoding="utf-8", errors="replace").read()
         if "tool-acquire.py" not in body:
             missing.append(name)
-    add("18 工具阶梯", "阶段技能已接阶梯指针", not missing,
-        "缺：" + ", ".join(missing) if missing else "3 个阶段技能均已接")
+    bad_stage = absent + missing
+    add("18 工具阶梯", "阶段技能已接阶梯指针", not bad_stage,
+        ("缺文件：" + ", ".join(absent) if absent else "") +
+        ("；未接指针：" + ", ".join(missing) if missing else "")
+        or "3 个阶段技能均已接")
 
 
 def main():

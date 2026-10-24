@@ -107,7 +107,12 @@ def run(only_tests=None):
     for t in tests:
         text = t["text"]
         rid, skill = dg._match_route(routes, prio, text, fallback)
-        skill_dir = (skill or "").split("/")[0]
+        # S3：路由目标可能带归档前缀（_pending/ / safe-skills/），归一化成逻辑技能名
+        _norm = (skill or "").replace("\\", "/")
+        for _pre in ("_pending/safe-skills/", "_pending/"):
+            if _norm.startswith(_pre):
+                _norm = _norm[len(_pre):]
+        skill_dir = _norm.split("/")[0]
         hit = []
         for pb, words in books.items():
             if any(w in text.lower() for w in _distinctive(words, freq)):

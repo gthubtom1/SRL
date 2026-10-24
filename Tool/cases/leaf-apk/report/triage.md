@@ -95,6 +95,6 @@ jarsigner -verify /tmp/diva_final.apk    # rc=0
 
 ## 交叉引用
 
-- 打法：`Tool/skill/00-triage/SKILL.md`、`Tool/skill/apkseep/SKILL.md`
+- 打法：`Tool/skill/_pending/00-triage/SKILL.md`、`Tool/skill/apkseep/SKILL.md`
 - 样本来源声明：`Tool/samples/real/android-apks/README.md`
 - 下一份：`report/static.md`（阶段 0b）

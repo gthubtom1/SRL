@@ -119,12 +119,12 @@
 
 | 项 | 位置 | 解决什么 | 怎么撤 |
 |---|---|---|---|
-| 阶段零 分析 | `Tool/skill/00-analysis/SKILL.md` | 结论先于证据（20 秒下结论的血案） | 删目录 + 去掉 routing R15 |
-| 阶段一 旁路 | `Tool/skill/01-gate-bypass/SKILL.md` | 交付纪律：M1–M4 分级 | 删目录 + R11/R2 指回旧技能 |
-| 阶段二 UI | `Tool/skill/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
-| 阶段三 授权 | `Tool/skill/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
-| 阶段四 追版 | `Tool/skill/04-version-migrate/SKILL.md` + `Tool/scripts/migrate.py` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
-| 阶段五 后端复刻 | `Tool/skill/05-backend-rebuild/SKILL.md` | 客户端+后端全栈（仅 T2/T3 触发） | 删目录 + R16 |
+| 阶段零 分析 | `Tool/skill/_pending/00-analysis/SKILL.md` | 结论先于证据（20 秒下结论的血案） | 删目录 + 去掉 routing R15 |
+| 阶段一 旁路 | `Tool/skill/_pending/01-gate-bypass/SKILL.md` | 交付纪律：M1–M4 分级 | 删目录 + R11/R2 指回旧技能 |
+| 阶段二 UI | `Tool/skill/_pending/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
+| 阶段三 授权 | `Tool/skill/_pending/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
+| 阶段四 追版 | `Tool/skill/_pending/04-version-migrate/SKILL.md` + `Tool/scripts/migrate.py` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
+| 阶段五 后端复刻 | `Tool/skill/_pending/05-backend-rebuild/SKILL.md` | 客户端+后端全栈（仅 T2/T3 触发） | 删目录 + R16 |
 | 案子闸 | `Tool/scripts/case_state.py` | 事实账 / 深度门 / 裁定 / `gate` / `deliver` | 删脚本 + 恢复 00/01 的文字规则 |
 | MCP 只增不删闸 | `Tool/scripts/mcp-guard.py` + `Tool/mcp/.baseline/tools.json` | 把"净删除 0 行"从承诺变成可执行 | 删两者 + preflight 对应项 |
 | MCP 验连 | `Tool/scripts/mcp-doctor.py` | 连不上必须报（不许静默） | 删脚本（verify 仍有基础断言） |
@@ -220,7 +220,7 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 |---|---|
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
-| 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/unpack-loop/SKILL.md`<br>`Tool/skill/version-migration/SKILL.md` |
+| 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/_pending/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
 | 脚本 | `Tool/scripts/check-budget.py`<br>`Tool/scripts/fork-delta.py`<br>`Tool/scripts/new-skill.py`<br>`Tool/scripts/smoke-e2e.py`<br>`Tool/scripts/verify-routing-coherence.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |
@@ -232,7 +232,7 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 | 分类 | 文件 |
 |---|---|
 | MCP 服务 | `Tool/mcp/seep_mcp_server.py` |
-| 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
+| 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/_pending/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
 | 提示词/扩展 | `Tool/prompts/AGENTS.md`<br>`Tool/prompts/SEEP.md`<br>`Tool/prompts/extensions/load-system-prompt.ts`<br>`Tool/prompts/extensions/security-audit-interceptor.ts` |
 | 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/master-route.ps1`<br>`Tool/scripts/routing.json` |
 | 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md`<br>`Tool/docs/TOOLKIT_GUIDE.md` |

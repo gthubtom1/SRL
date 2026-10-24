@@ -27,10 +27,10 @@
     "危险动作清单"
   ],
   "scripts": [
-    "Tool/skill/ad-cloud/scripts/cloud-iam-eval.py"
+    "Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py"
   ],
   "refs": [
-    "Tool/skill/ad-cloud/references/cloud-native.md"
+    "Tool/skill/_pending/ad-cloud/references/cloud-native.md"
   ],
   "maturity": "usable",
   "reserved": true,

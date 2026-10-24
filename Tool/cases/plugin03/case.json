@@ -63,7 +63,7 @@
     }
   ],
   "lessons": [
-    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json，rc=0；识别 ZIP 浏览器扩展包，6 个文件，MV3 / Quicker 1.2.4（native host 名 com.getquicker.chromeagent）。",
+    "实际分析：python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json，rc=0；识别 ZIP 浏览器扩展包，6 个文件，MV3 / Quicker 1.2.4（native host 名 com.getquicker.chromeagent）。",
     "权限面：nativeMessaging/debugger 为 critical，scripting/userScripts 为 high，host_permissions=<all_urls>；plugin-repro.py 对 12/13 个声明权限找到代码证据，sidePanel 在截取子集中未出现（unexplained-static，不是恶意结论）。",
     "数据流：content/content.js → chrome.runtime.sendMessage → background/background.js；background 中 connectNative(chrome.runtime.connectNative)、chrome.debugger、fetch/XHR、chrome.cookies 均可指到文件与行号；最小可改单元=background/background.js（14 处数据流命中）。",
     "边界：只做静态子集分析，未加载浏览器、未连接 native host、未验证远端；高权限不等于滥用，需结合动态消息与 host 侧样本。",
@@ -80,11 +80,11 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/plugin-targets/SKILL.md",
-    "Tool/skill/plugin-targets/references/01-criteria.md",
-    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/plugin-targets/references/04-walkthrough-chrome-extension.md",
-    "Tool/skill/plugin-targets/references/browser-extension.md",
+    "Tool/skill/_pending/plugin-targets/SKILL.md",
+    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/04-walkthrough-chrome-extension.md",
+    "Tool/skill/_pending/plugin-targets/references/browser-extension.md",
     "Tool/config/plugin-targets-matrix.json",
     "Tool/cases/plugin03/input/real-extension.zip",
     "Tool/cases/plugin03/artifacts/provenance.json",

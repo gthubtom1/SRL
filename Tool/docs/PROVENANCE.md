@@ -24,15 +24,15 @@
 | :--- | :--- | :--- | :--- | :---: | :--- |
 | 1 | **softseep** ⭐总控 | `Tool/skill/softseep/` | `~/.pi/agent/skills/softseep/` | 11 | 364 KB |
 | 2 | **apkseep** | `Tool/skill/apkseep/` | `~/.pi/agent/skills/apkseep/` | 123 | 2.2 MB |
-| 3 | **ida-reverse** | `Tool/skill/ida-reverse/` | `~/.pi/agent/skills/ida-reverse/` | 1 | 4 KB |
-| 4 | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/` | `~/.pi/agent/skills/` | 1 | 32 KB |
-| 5 | **reverse-engineering** | `Tool/skill/safe-skills/reverse-engineering/` | 同上 | 15 | 380 KB |
-| 6 | **apk-reverse** | `Tool/skill/safe-skills/apk-reverse/` | 同上 | 8 | 52 KB |
-| 7 | **radare2** | `Tool/skill/safe-skills/radare2/` | 同上 | 3 | 20 KB |
-| 8 | **mcp-js-reverse-playbook** | `Tool/skill/safe-skills/mcp-js-reverse-playbook/` | 同上 | 13 | 24 KB |
-| 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/safe-skills/ida-assistant/` | 同上 | 3 | 28 KB |
-| 10 | **version-migration** | `Tool/skill/version-migration/` | `~/.pi/agent/skills/version-migration/` | 1 | 6 KB |
-| 11 | **unpack-loop** | `Tool/skill/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
+| 3 | **ida-reverse** | `Tool/skill/_pending/ida-reverse/` | `~/.pi/agent/skills/ida-reverse/` | 1 | 4 KB |
+| 4 | **client-license-validation-bypass** | `Tool/skill/_pending/client-license-validation-bypass/` | `~/.pi/agent/skills/` | 1 | 32 KB |
+| 5 | **reverse-engineering** | `Tool/skill/_pending/safe-skills/reverse-engineering/` | 同上 | 15 | 380 KB |
+| 6 | **apk-reverse** | `Tool/skill/_pending/safe-skills/apk-reverse/` | 同上 | 8 | 52 KB |
+| 7 | **radare2** | `Tool/skill/_pending/safe-skills/radare2/` | 同上 | 3 | 20 KB |
+| 8 | **mcp-js-reverse-playbook** | `Tool/skill/_pending/safe-skills/mcp-js-reverse-playbook/` | 同上 | 13 | 24 KB |
+| 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/_pending/safe-skills/ida-assistant/` | 同上 | 3 | 28 KB |
+| 10 | **version-migration** | `Tool/skill/_pending/version-migration/` | `~/.pi/agent/skills/version-migration/` | 1 | 6 KB |
+| 11 | **unpack-loop** | `Tool/skill/_pending/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
 
 ### ⚠ 上游开源归属与完整镜像（合规声明）
 

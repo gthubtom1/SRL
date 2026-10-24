@@ -6,7 +6,7 @@
     "scoring": "PRIMARY = priority 顺序里第一个命中的域（fallback R0 不参与竞争）；分数只用于展示命中条数。兵底理由：每条规则都是人工写的词边界，度量不应由「谁写得条数多」决定（2026-10-21 审计 P0-2）。",
     "skillRoots": [
       "Tool/skill/<name>/SKILL.md",
-      "Tool/skill/safe-skills/<name>/SKILL.md",
+      "Tool/skill/_pending/safe-skills/<name>/SKILL.md",
       "skills/<name>/SKILL.md（旧 reverse-skill 布局兼容）"
     ],
     "maintainers": [
@@ -68,7 +68,7 @@
     },
     "R2": {
       "label": "授权 / 许可 / 卡密审计（经阶段一执行）",
-      "skill": "01-gate-bypass/SKILL.md",
+      "skill": "_pending/01-gate-bypass/SKILL.md",
       "keywords": [
         {
           "must": "(?i)授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|\\btrial\\b|keygen|激活(?!函数)|凭据|校验串",
@@ -78,7 +78,7 @@
     },
     "R4": {
       "label": "IDA Pro 深度反编译",
-      "skill": "ida-reverse/SKILL.md",
+      "skill": "_pending/ida-reverse/SKILL.md",
       "keywords": [
         {
           "must": "(?i)\\bida\\b|idat|idalib|hex.?rays|反编译|交叉引用|xref|结构体恢复|伪代码"
@@ -87,7 +87,7 @@
     },
     "R5": {
       "label": "Radare2 命令行分析",
-      "skill": "radare2/SKILL.md",
+      "skill": "_pending/safe-skills/radare2/SKILL.md",
       "keywords": [
         {
           "must": "(?i)radare2|\\br2\\b|rabin2|radiff2|rasm2|r2pipe|命令行逆向|无头分析|headless"
@@ -96,7 +96,7 @@
     },
     "R6": {
       "label": "JS / Web 前端逆向",
-      "skill": "mcp-js-reverse-playbook/SKILL.md",
+      "skill": "_pending/safe-skills/mcp-js-reverse-playbook/SKILL.md",
       "keywords": [
         {
           "must": "(?i)js.?逆向|javascript|webpack|混淆|obfuscat|\\bast\\b|补环境|浏览器|playwright|selenium|hook.?js|signature.?js|加密参数"
@@ -109,7 +109,7 @@
     },
     "R7": {
       "label": "通用二进制逆向",
-      "skill": "reverse-engineering/SKILL.md",
+      "skill": "_pending/safe-skills/reverse-engineering/SKILL.md",
       "keywords": [
         {
           "must": "(?i)\\bpe\\b|\\belf\\b|macho|dll|\\.so\\b|逆向|反汇编|脱壳|加壳|upx|vmp|混淆|静态分析"
@@ -118,7 +118,7 @@
     },
     "R8": {
       "label": "APK 反编译 / 重打包（通用战术包）",
-      "skill": "apk-reverse/SKILL.md",
+      "skill": "_pending/safe-skills/apk-reverse/SKILL.md",
       "keywords": [
         {
           "must": "(?i)apk.{0,8}解包|解包.{0,8}apk|反编译.?apk|apk.?反编译|zipalign|apksigner|资源替换|改包"
@@ -137,7 +137,7 @@
     },
     "R9": {
       "label": "加壳/脱壳与内存转储",
-      "skill": "unpack-loop/SKILL.md",
+      "skill": "_pending/unpack-loop/SKILL.md",
       "keywords": [
         {
           "must": "(?i)脱壳|加壳|脱壳|加壳|壳类型|壳检测|upx|aspack|themida|vmprotect|vmp|enigma|mpress|混淆壳|\\bdump\\b|转储|oep|scylla|pe-sieve|内存转储"
@@ -146,7 +146,7 @@
     },
     "R11": {
       "label": "阶段① 授权旁路与可用成品交付",
-      "skill": "01-gate-bypass/SKILL.md",
+      "skill": "_pending/01-gate-bypass/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(旁路[^。，,]{0,8}卡密|卡密[^。，,]{0,8}旁路|绕过[^。，,]{0,8}卡密|跳过卡密|去卡密|免激活|破解|能进主界面|能用的成品|可用成品|成品交付)"
@@ -155,7 +155,7 @@
     },
     "R12": {
       "label": "阶段② 改 UI 与去品牌",
-      "skill": "02-ui-rebrand/SKILL.md",
+      "skill": "_pending/02-ui-rebrand/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(改[^。，,]{0,6}界面|界面[^。，,]{0,6}改|换[^。，,]{0,8}品牌|品牌改造|去作者|去掉作者|替换界面|界面改造|去联系方式)"
@@ -168,7 +168,7 @@
     },
     "R13": {
       "label": "阶段③ 接自有授权平台",
-      "skill": "03-license-hookup/SKILL.md",
+      "skill": "_pending/03-license-hookup/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(接.{0,4}授权|授权平台|卡密系统|到期时间|发卡|授权页|机器码绑定)"
@@ -177,7 +177,7 @@
     },
     "R14": {
       "label": "跨版本追版（新版迁移）",
-      "skill": "04-version-migrate/SKILL.md",
+      "skill": "_pending/04-version-migrate/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(新版本|新版|追版|版本迁移|迁移到新|升级到\\s*\\d|适配新版|更新了.{0,6}(版本|程序|exe)|原作者.{0,8}更新)",
@@ -187,7 +187,7 @@
     },
     "R15": {
       "label": "阶段零 分析报告（先摸透再动手）",
-      "skill": "00-analysis/SKILL.md",
+      "skill": "_pending/00-analysis/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(先.{0,4}分析|分析(一下|透彻|清楚)|出.{0,3}报告|摸清|摸透|评估.{0,4}(可行性|难度)|能不能赢|授权面.{0,4}(在哪|怎么))",
@@ -197,7 +197,7 @@
     },
     "R16": {
       "label": "阶段⑤ 后端复刻（T2/T3）",
-      "skill": "05-backend-rebuild/SKILL.md",
+      "skill": "_pending/05-backend-rebuild/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(后端|后台|服务端).{0,8}(复刻|重建|自建|还原|反推)|复刻.{0,6}(后端|后台|服务端)|(api|接口).{0,6}(复刻|重建|测绘|面)|下发.{0,4}(脚本|容器|包)|上游同步",
@@ -207,7 +207,7 @@
     },
     "R23": {
       "label": "内网/AD/云原生",
-      "skill": "ad-cloud/SKILL.md",
+      "skill": "_pending/ad-cloud/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(域控|域内|kerberos|kerberoast|as-rep|adcs|ntlm|bloodhound|横向移动|内网渗透|权限维持|k8s|kubernetes|容器逃逸|ak/sk|accesskey|云原生|元数据服务|iam)",
@@ -340,7 +340,7 @@
     },
     "R25": {
       "label": "插件/扩展/Mod 逆向",
-      "skill": "plugin-targets/SKILL.md",
+      "skill": "_pending/plugin-targets/SKILL.md",
       "keywords": [
         {
           "must": "(?i)\\b(crx|xpi|vsix|asar|bytenode|jsc)\\b|v8\\s*字节码",
@@ -542,7 +542,7 @@
     },
     "R31": {
       "label": "LLM / Agent 协议安全（MCP/A2A）",
-      "skill": "llm-security/SKILL.md",
+      "skill": "_pending/llm-security/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(\\bMCP\\b|model\\s*context\\s*protocol|工具投毒|tool\\s*poisoning|prompt\\s*注入|提示词注入|\\bA2A\\b|agent2agent|越狱提示|system\\s*prompt\\s*泄露|rag\\s*注入)",
@@ -572,7 +572,7 @@
     },
     "R35": {
       "label": "网站 1:1 复刻",
-      "skill": "site-clone/SKILL.md",
+      "skill": "_pending/site-clone/SKILL.md",
       "keywords": [
         {
           "must": "(?i)((?:1\\s*[:：]\\s*1|一比一|整站|全站).{0,10}(复刻|克隆|镜像|clone)|(?:复刻|克隆|镜像|clone).{0,10}(网站|站点|前端|页面)|离线副本|site[- ]?clone)",
@@ -610,7 +610,7 @@
     },
     "R37": {
       "label": "文档卫生 / 冷启动可读性",
-      "skill": "doc-hygiene/SKILL.md",
+      "skill": "_pending/doc-hygiene/SKILL.md",
       "keywords": [
         {
           "must": "(整理|清理|治理|归档).{0,6}文档|文档.{0,4}(太多|太旧|过期|腐化|清理|整理|治理)|交接(文档|项目|前)|换(模型|人|AI).{0,8}(审|读|看)|新会话.{0,8}(读|接手)|冷启动|文档卫生|(tidy|clean)( up)?( the)?( docs| documentation)|doc(umentation)? (audit|hygiene)|handoff|onboard(ing)? a new model|leftover todos",
@@ -621,7 +621,7 @@
     },
     "R38": {
       "label": "二进制差分 / 补丁分析",
-      "skill": "binary-diff/SKILL.md",
+      "skill": "_pending/binary-diff/SKILL.md",
       "keywords": [
         {
           "must": "(二进制|函数|符号|特征码|代码).{0,6}(差分|比对|对比|迁移)|BinDiff|Diaphora|ghidriff|radiff2|patch ?tuesday|补丁差分|N-day|跨版本.{0,6}(迁移|对齐|比对)",
@@ -632,7 +632,7 @@
     },
     "R39": {
       "label": "阶段①a 快筛（20 分钟出画像卡）",
-      "skill": "00-triage/SKILL.md",
+      "skill": "_pending/00-triage/SKILL.md",
       "keywords": [
         {
           "must": "(?i)(快筛|初筛|快速分析|先快速看|先大致看|先粗看|目标画像|画像卡|20 ?分钟|半小时内出结论)",

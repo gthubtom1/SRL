@@ -35,7 +35,8 @@ DOMAINS = {
         "ext_scripts": ["Tool/scripts/fw-triage.py"],
     },
     "ad-cloud": {
-        "skill": "ad-cloud",
+        "skill": "_pending/ad-cloud",   # S3：索引 32→9 后归档，不部署
+        "archived": True,
         "board": "ad-cloud",
         "matrix": "ad-cloud-matrix.json",
         "case_globs": ["ad-cloud*"],
@@ -49,7 +50,8 @@ DOMAINS = {
         "ext_scripts": ["Tool/scripts/pcap-summary.py"],
     },
     "plugin-targets": {
-        "skill": "plugin-targets",
+        "skill": "_pending/plugin-targets",   # S3：索引 32→9 后归档，不部署
+        "archived": True,
         "board": "plugin",
         "matrix": "plugin-targets-matrix.json",
         "case_globs": ["plugin*"],
@@ -77,7 +79,8 @@ DOMAINS = {
         "ext_scripts": ["Tool/scripts/sc-check.py"],
     },
     "site-clone": {
-        "skill": "site-clone",
+        "skill": "_pending/site-clone",   # S3：索引 32→9 后归档，不部署
+        "archived": True,
         "board": "site-clone",
         "matrix": "site-clone-matrix.json",
         "case_globs": ["site-clone*"],

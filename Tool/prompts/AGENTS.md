@@ -158,6 +158,6 @@ launch-gui.ps1 -Target <exe> -Mode shell   # 必须自己拉：走 explorer（�
 
 | 资源 | 路径 |
 | :--- | :--- |
-| 九型范式库 / 许可手册 / Android / IDA | `Tool/skill/softseep/SKILL.md`、`references/license-validation.md`、`Tool/skill/apkseep/SKILL.md`、`Tool/skill/ida-reverse/SKILL.md` |
+| 九型范式库 / 许可手册 / Android / IDA | `Tool/skill/softseep/SKILL.md`、`references/license-validation.md`、`Tool/skill/apkseep/SKILL.md`、`Tool/skill/_pending/ida-reverse/SKILL.md` |
 | 知识库 / MCP 服务 / 部署 / 执行模型 v2 | `Tool/mcp/Tool/reverselab/kb/`、`Tool/mcp/seep_mcp_server.py`、`MANUAL/DEPLOYMENT.md`、`MANUAL/DEPLOYMENT-CHECKLIST.md`、`docs/history/X-EXECUTION-MODEL-v2.md` |
 | 启动 / 网络还原 / 预算 / 通道 / 守卫规则 | `Tool/scripts/launch-gui.ps1`、`Tool/scripts/net-rollback.py`、`Tool/scripts/prompt-budget.py`、`Tool/config/tool-runtimes.json`、`Tool/prompts/extensions/cmd-guard.rules.json` |

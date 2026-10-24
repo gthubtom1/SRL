@@ -33,9 +33,9 @@
   "fixture"
  ],
  "refs": [
-  "Tool/skill/00-triage/SKILL.md",
-  "Tool/skill/00-analysis/SKILL.md",
-  "Tool/skill/01-gate-bypass/SKILL.md"
+  "Tool/skill/_pending/00-triage/SKILL.md",
+  "Tool/skill/_pending/00-analysis/SKILL.md",
+  "Tool/skill/_pending/01-gate-bypass/SKILL.md"
  ],
  "updated": "2026-10-24"
 }

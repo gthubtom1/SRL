@@ -370,7 +370,7 @@ class Catalog:
         patterns = [
             "Tool/scripts/*.py",
             "Tool/skill/*/scripts/*.py",
-            "Tool/skill/safe-skills/*/scripts/*.py",
+            "Tool/skill/_pending/safe-skills/*/scripts/*.py",
             "Tool/skill/*/scripts/*/*.py",
         ]
         found = []

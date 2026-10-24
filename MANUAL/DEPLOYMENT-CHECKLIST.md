@@ -34,11 +34,11 @@
 | **S3** | **`ida-reverse`** | `~/.pi/agent/skills/ida-reverse/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 IDA 13337 端口自动唤醒规约 | 🟢 **核心**。IDA 自动化调度器。修复：重跑 `install-pi.ps1` |
 | **S4** | **`client-license-validation-bypass`** | `~/.pi/agent/skills/client-license-validation-bypass/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 CWE-602 战术树与补丁/算号决策 | 🟢 **核心**。授权审计战术库。修复：重跑 `install-pi.ps1` |
 | **S5** | **`version-migration`** | `~/.pi/agent/skills/version-migration/` | `SKILL.md` (≥1 项) | `SKILL.md` | 跨版本追版与 AOB 特征迁移流程在位 | 🟢 **核心**。追版专用。修复：重跑 `install-pi.ps1` |
-| **S6** | **`reverse-engineering`** (safe) | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references（实为 15 文件） | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/reverse-engineering` |
-| **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/apk-reverse` |
-| **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/radare2` |
-| **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/mcp-js-reverse-playbook` |
-| **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/ida-assistant` |
+| **S6** | **`reverse-engineering`** (safe) | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references（实为 15 文件） | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/reverse-engineering` |
+| **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/apk-reverse` |
+| **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/radare2` |
+| **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/mcp-js-reverse-playbook` |
+| **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/ida-assistant` |
 | **S11** | **`unpack-loop`** | `~/.pi/agent/skills/unpack-loop/` | `SKILL.md` (≥1 项) | `SKILL.md` | 含「判据驱动 / 三路线 / 两次熔断」的脱壳闭环 | 🟢 **核心**。加壳目标必用。修复：重跑 `install-pi.ps1` |
 
 ---

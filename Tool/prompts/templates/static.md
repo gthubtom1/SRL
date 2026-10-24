@@ -58,5 +58,5 @@
 
 ## 交叉引用
 
-- 打法：`Tool/skill/00-analysis/SKILL.md`
+- 打法：`Tool/skill/_pending/00-analysis/SKILL.md`
 - 上一份模板：`Tool/prompts/templates/triage.md`

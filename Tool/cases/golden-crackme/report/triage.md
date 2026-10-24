@@ -28,5 +28,5 @@
 
 ## 交叉引用
 
-- 打法：`Tool/skill/00-triage/SKILL.md`
+- 打法：`Tool/skill/_pending/00-triage/SKILL.md`
 - 下一份：`report/static.md`

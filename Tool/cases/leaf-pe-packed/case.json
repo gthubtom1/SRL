@@ -53,7 +53,7 @@
   "Tool/cases/leaf-pe-packed/target/a_upx.exe",
   "Tool/samples/real/crackerjack/a.exe",
   "Tool/cases/golden-crackme/report/triage.md",
-  "Tool/skill/unpack-loop/SKILL.md"
+  "Tool/skill/_pending/unpack-loop/SKILL.md"
  ],
  "updated": "2026-10-24"
 }

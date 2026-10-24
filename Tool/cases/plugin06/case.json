@@ -78,9 +78,9 @@
     }
   ],
   "lessons": [
-    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin06/input/real-extension.zip --json，rc=0；container=zip、13 个文件、MV3 / Tampermonkey 5.5.1，permissions 17 条、host_permissions=<all_urls>、content_scripts 与 web_accessible_resources 均为空。",
-    "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin06/input/real-extension.zip --out Tool/cases/plugin06/artifacts/repro --json，rc=0；入口 background.service_worker=background.js / action.popup=action.html / options_page=options.html 三处 exists=true；17 条权限中 9 条拿到代码行号（webRequest background.js:262、userScripts background.js:275、scripting background.js:276、offscreen background.js:220、cookies background.js:283），8 条 unexplained-static（notifications/tabs/idle/alarms/webRequestBlocking/chrome://favicon//unlimitedStorage/declarativeNetRequestWithHostAccess，纯声明未命中代码，不作恶意结论）。",
-    "验收：python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin06 --json，rc=0；权限证据全部落在 .js 代码文件（manifest 不自证），全部产物 sha256 复算一致。",
+    "实际分析：python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin06/input/real-extension.zip --json，rc=0；container=zip、13 个文件、MV3 / Tampermonkey 5.5.1，permissions 17 条、host_permissions=<all_urls>、content_scripts 与 web_accessible_resources 均为空。",
+    "复现：python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin06/input/real-extension.zip --out Tool/cases/plugin06/artifacts/repro --json，rc=0；入口 background.service_worker=background.js / action.popup=action.html / options_page=options.html 三处 exists=true；17 条权限中 9 条拿到代码行号（webRequest background.js:262、userScripts background.js:275、scripting background.js:276、offscreen background.js:220、cookies background.js:283），8 条 unexplained-static（notifications/tabs/idle/alarms/webRequestBlocking/chrome://favicon//unlimitedStorage/declarativeNetRequestWithHostAccess，纯声明未命中代码，不作恶意结论）。",
+    "验收：python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin06 --json，rc=0；权限证据全部落在 .js 代码文件（manifest 不自证），全部产物 sha256 复算一致。",
     "四件事-入口：manifest 只给 background/action/options 三个静态入口，没有 content_scripts——注入面 100% 走动态 API（background.js:275 userScripts.register/configureWorld、background.js:258 tabs.executeScript、background.js:276 scripting.executeScript），再加 background.js:220 offscreen.createDocument 拉起 offscreen.js 补 SW 缺的 DOM/剪贴板能力；extension.js/page.js/userscript.html 是注入到页面的 API 桥与沙箱宿主。",
     "四件事-关键逻辑/数据来源：关键逻辑=用户脚本注册与世界配置→注入→GM_* 桥→background 分发，叠加 webRequest（84 处命中）请求改写与 declarativeNetRequest 会话规则（background.js:277）；数据来源=用户脚本元数据/代码（chrome.storage + IndexedDB background.js:233）、页面 DOM 与 cookie（cookies 组 background.js:283）、webRequest 事件；外发仅见使用统计 a.tampermonkey.net/matomo.php（background.js:334）与用户主动开启的云同步（accounts.tampermonkey.net oauth2、Dropbox/OneDrive/Google Drive/Yandex），静态未见静默回传脚本库或凭据的路径。",
     "四件事-最小可改单元：background.js（1109 行，minimal_unit.flow_hits=12，数据流命中最多）——只改 background.js:275-277 这一层（userScripts/DNR 适配）即可切换注入与请求改写策略；改前备份、一次只改一个变量，避免把「能注入」误当「已可控」。",
@@ -99,11 +99,11 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/plugin-targets/SKILL.md",
-    "Tool/skill/plugin-targets/references/01-criteria.md",
-    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/plugin-targets/references/04-walkthrough-chrome-extension.md",
-    "Tool/skill/plugin-targets/references/browser-extension.md",
+    "Tool/skill/_pending/plugin-targets/SKILL.md",
+    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/04-walkthrough-chrome-extension.md",
+    "Tool/skill/_pending/plugin-targets/references/browser-extension.md",
     "Tool/config/plugin-targets-matrix.json",
     "Tool/cases/plugin06/input/real-extension.zip",
     "Tool/cases/plugin06/artifacts/provenance.json",
