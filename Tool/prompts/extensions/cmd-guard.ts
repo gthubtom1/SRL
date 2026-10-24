@@ -106,6 +106,38 @@ interface DenyRule {
  *   2. **用 shell 拉起 GUI 目标** → warn。父进程链本身就是反自动化检测面（真实双击父进程 = explorer.exe）。
  *   3. 只读查询（netsh winhttp show / Get-NetIPAddress / ipconfig /all）一律不拦。
  */
+/**
+ * ★ 只读查看器判定（2026-10-24 误伤修正）
+ *
+ * 事故：`sed -n '61,62p' <一份含 flashrom 字样的文档>` 被判"刷固件"拦下 —— 读文档被自己的护栏挡住。
+ * 原则：**只要那一段命令的程序是文本查看器，它就不可能执行 payload**，与 heredoc 同性质。
+ */
+const READONLY_PROGRAMS = new Set([
+	"grep", "egrep", "fgrep", "rg", "ag", "ack", "findstr", "select-string", "get-content",
+	"cat", "gc", "head", "tail", "less", "more", "type", "sed", "awk", "cut", "sort", "uniq",
+	"wc", "diff", "comm", "xxd", "od", "hexdump", "strings", "file", "stat", "ls", "dir",
+]);
+
+function isReadOnlySegment(cmd: string, at: number): boolean {
+	const before = cmd.slice(0, at);
+	// 找到命中位置所在那一段的起点（最近的分隔符）
+	const seps = [before.lastIndexOf("|"), before.lastIndexOf(";"), before.lastIndexOf("&&"),
+		before.lastIndexOf("||"), before.lastIndexOf("\n")];
+	const start = Math.max(0, ...seps) + 1;
+	let seg = cmd.slice(start, at).trim();
+	// 去掉引号/括号/前缀命令（sudo、env、xargs 等不影响"是否是查看器"的判断：
+	// 只要段内出现了引号包裹，说明命中串是**参数**而不是程序名）
+	if (/^["'`]/.test(seg)) return true;
+	const prog = (seg.split(/\s+/).pop() || "").toLowerCase().replace(/^[("']+/, "");
+	if (READONLY_PROGRAMS.has(prog)) return true;
+	// git 的只读子命令
+	if (/\bgit\s+(show|log|diff|grep)\b/i.test(cmd.slice(start, at + 1))) return true;
+	// 命中串本身被引号包住 → 它是参数/字面量，不是被执行的程序
+	const hitText = cmd.slice(at, at + 40);
+	if (/^["'`]/.test(hitText)) return true;
+	return false;
+}
+
 const BUILTIN_DENY: DenyRule[] = [
 	// ── 网络写操作（block，最高优先）──
 	{
@@ -790,6 +822,11 @@ export default function cmdGuard(pi: any): void {
 				const heredocAt = cmd.search(/<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?/);
 				if (heredocAt >= 0 && typeof hit.index === "number" && hit.index > heredocAt) {
 					notes.push(`（heredoc 数据区里出现了「${rule.label}」字样，按文本处理，未阻断）`);
+					continue;
+				}
+				// ★ 只读查看器例外（2026-10-24）：grep/sed/cat/Get-Content 看文档时命中禁手词，属于"读到"不是"要做"。
+				if (typeof hit.index === "number" && isReadOnlySegment(cmd, hit.index)) {
+					notes.push(`（只读查看：出现「${rule.label}」字样，按文本处理，未阻断）`);
 					continue;
 				}
 				const body =

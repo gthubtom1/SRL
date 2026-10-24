@@ -128,6 +128,13 @@
       "re": "(>|>>|Out-File|Set-Content|Add-Content)[^\\n]*(drivers[\\\\/]etc[\\\\/]hosts|\\\\betc[\\\\/]hosts)",
       "label": "改系统 hosts 文件",
       "hint": "写 hosts 是整机劫持（所有程序都受影响）。要劫持某个域名，只在目标进程内改解析结果（Frida hook getaddrinfo/`connect`），或用只对该进程生效的回环代理。"
+    },
+    {
+      "id": "sys-eventlog-clear",
+      "severity": "block",
+      "re": "(wevtutil(\\.exe)?\\s+(cl|clear-log)\\b|Clear-EventLog|Remove-EventLog)",
+      "label": "清空/删除系统事件日志",
+      "hint": "清空事件日志 = 销毁取证基线，同时抹掉用户机器的审计痕迹。\n要「看得清」应该是过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security'}`，或先 `wevtutil epl Security out.evtx` 导出再分析。\n确实要清（例如自己的实验机）先导出备份，再在命令里加 cmd-guard-skip。"
     }
   ],
   "_disableDeny说明": "按 id 关掉某条内置禁手。内置 id: net-ip-alias / net-iface-write / net-winhttp-write / net-dns-write / net-route-write / net-winsock-reset / launch-start-process / launch-cmd-start / launch-subprocess。只有「本机就是一次性靶机、且已 snapshot」时才关。",

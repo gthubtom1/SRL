@@ -304,6 +304,53 @@ def g6_receipt(pack):
     return bad, {"case": case, "receipt": os.path.relpath(rp, ROOT).replace(os.sep, "/")}
 
 
+
+def g4b_target(pack):
+    """G4b：witness 案例必须有**真实输入资产**（D1 的机检版）。
+
+    判据：
+      1) `<case>/target/` 存在且至少 1 个文件（不是空目录占位）；
+      2) `case.json.target_files[]` 里每个文件都在、哈希与磁盘一致
+         （防止"写了 sha256 但文件换过"）；
+      3) target_files 至少 1 条（没登记等于没资产）。
+    """
+    import hashlib as _h
+    import re as _re
+    cmd = str((pack.get("witness") or {}).get("cmd") or "")
+    m = _re.search(r"--case\s+(\S+)", cmd)
+    if not m:
+        return ["witness 无 --case，无法定位目标案例"], {}
+    case = os.path.basename(os.path.normpath(m.group(1)))
+    cdir = os.path.join(CASES_DIR, case)
+    tdir = os.path.join(cdir, "target")
+    bad = []
+    if not os.path.isdir(tdir):
+        return ["%s 缺 target/（无可复跑的真实输入）" % case], {"case": case}
+    files = [f for f in os.listdir(tdir) if os.path.isfile(os.path.join(tdir, f))]
+    if not files:
+        bad.append("%s/target/ 为空" % case)
+    cj = os.path.join(cdir, "case.json")
+    rec = {}
+    try:
+        rec = json.load(open(cj, encoding="utf-8")).get("target_files") or {}
+    except Exception:
+        rec = {}
+    if isinstance(rec, list):
+        rec = {x.get("path"): x for x in rec if isinstance(x, dict)}
+    if not rec:
+        bad.append("%s：case.json 没有 target_files[]（资产未登记 sha256）" % case)
+    for rel, meta in (rec or {}).items():
+        fp = os.path.join(cdir, rel)
+        if not os.path.isfile(fp):
+            bad.append("target_files 指向不存在的文件：%s" % rel)
+            continue
+        want = (meta or {}).get("sha256") or ""
+        got = _h.sha256(open(fp, "rb").read()).hexdigest()
+        if want != got:
+            bad.append("%s 的 sha256 与登记值不一致（资产被替换过）" % rel)
+    return bad, {"case": case, "targets": len(files)}
+
+
 def judge(pack, route_index, run_witness=True):
     gates = {}
 
@@ -319,6 +366,8 @@ def judge(pack, route_index, run_witness=True):
     add("G5 evidence-ledger", bad5, info5)
     bad6, info6 = g6_receipt(pack)
     add("G6 verification-receipt", bad6, info6)
+    bad7, info7 = g4b_target(pack)
+    add("G4b target-asset", bad7, info7)
     verdict = "pass" if all(g["status"] == "pass" for g in gates.values()) else "fail"
     return {"pack": pack.get("id"), "verdict": verdict, "gates": gates}
 

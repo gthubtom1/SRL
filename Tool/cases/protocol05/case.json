@@ -40,5 +40,12 @@
   "Tool/skill/protocol-plugin/scripts/proto-repro.py",
   "Tool/skill/protocol-plugin/references/01-criteria.md"
  ],
- "updated": "2026-10-24"
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/RADIUS.pcap",
+   "sha256": "9cd173ba614345281e4b66927f3b17b357519540bbc0feedbc15dbc7ba8ad921",
+   "source": "github.com/the-tcpdump-group/tcpdump tests/RADIUS.pcap（BSD）"
+  }
+ ]
 }

@@ -55,5 +55,12 @@
   "Tool/cases/golden-crackme/report/triage.md",
   "Tool/skill/_pending/unpack-loop/SKILL.md"
  ],
- "updated": "2026-10-24"
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/a_upx.exe",
+   "sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+   "source": "仓库内既有夹具（见 case.json 的 lessons/refs）"
+  }
+ ]
 }

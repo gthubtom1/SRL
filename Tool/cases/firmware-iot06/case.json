@@ -45,5 +45,12 @@
   "Tool/skill/firmware-iot/scripts/fw-repro.py",
   "Tool/skill/firmware-iot/references/01-criteria.md"
  ],
- "updated": "2026-10-24"
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/cramfs.bin",
+   "sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
+   "source": "github.com/ReFirmLabs/binwalk tests/inputs/cramfs.bin（BSD-2）"
+  }
+ ]
 }

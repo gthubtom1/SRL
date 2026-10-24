@@ -43,5 +43,12 @@
   "Tool/samples/real/android-apks/README.md",
   "Tool/skill/apkseep/SKILL.md"
  ],
- "updated": "2026-10-24"
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/diva.apk",
+   "sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+   "source": "仓库内既有夹具（见 case.json 的 lessons/refs）"
+  }
+ ]
 }

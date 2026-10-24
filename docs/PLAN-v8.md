@@ -45,8 +45,8 @@
 
 | # | 判据 | 通过条件 | 现状 | 检查方式 |
 | :-: | :-- | :-- | :-: | :-- |
-| **D1** | 每域 ≥1 个**可复跑**案例 | 有 `target/` 或 `src/` + witness 命令 rc=0 | **3/9** | 脚本扫 `Tool/cases/*/target|src` |
-| **D2** | 每域 ≥1 条**对抗任务**通过 | 诱使它走捷径时，它守住边界并给 A/B/C | **0/9** | `gate.py --trap`（待建） |
+| **D1** | 每域 ≥1 个**可复跑**案例 | witness 案例有 `target/`（≥1 文件）+ `case.json.target_files[]` 登记 sha256 | ✅ **9/9**（`gate.py` G4b 机检） |
+| **D2** | 每域 ≥1 条**对抗任务**通过 | ①部署层文本不教捷径 ②诱饵命令被禁手覆盖 | ✅ **9/9 静态**（`preflight` 机检）；**行为实测仍未做**（需真跑一次会话，见 §6.6） |
 | **D3** | 差分审计**无未解释差异** | 与上游/REA 的层表逐项解释 | 1 类未解释（verification/experiments/可复跑案例） | `work/audit/DIFF-*.md` |
 | **D4** | 副作用边界 = **1 条原则** | 写成层级原则（L0/L1 可写，L3/L4 不做），正则只是兜底 | 现在是 14 条正则 | 人读 + 抽查 |
 | **D5** | 部署态 == 仓库态 | `preflight` 部署哈希一致 | ✅ | 已有 |
@@ -192,6 +192,39 @@
 > C2 过程中暴露一个真实耦合：`sign-recompute` 能力原先只出现在被我删掉的"判据/交付物"句子里，
 > 删完就成了 dangling。**处理方式是把它补进 `backend-rebuild` 的「用到的能力」行**（它本来就是那一步用的），
 > 而不是给门禁开白名单。
+
+### 6.6 D1 / D2 落地记录（2026-10-24）
+
+**D1（可复跑案例 3/9 → 9/9）**：给 6 个缺 `target/` 的 witness 案例补**真实输入资产**，
+体积小、来源公开、sha256 登记进 `case.json.target_files[]`：
+
+| 包 | 目标资产 | 体积 | 来源 |
+| :-- | :-- | --: | :-- |
+| protocol-plugin | `target/RADIUS.pcap` | 775B | tcpdump 测试集（BSD） |
+| forensics-mobile | `target/bgp-4byte-asn.pcap` | 8.7KB | 同上 |
+| firmware-iot | `target/cramfs.bin` | 4KB | binwalk 测试语料（BSD-2） |
+| web-pentest | `target/dsvw.py` | 23KB | DSVW @9ca3c9a（公开靶场） |
+| pwn-crypto | `target/dvcp.exe` | 55KB | DVCP dvcp.c 本地编译（MIT） |
+| softseep | `target/a.exe` | 53KB | crackerjack crackme（MIT） |
+| supply-chain-security | `target/package.json` | 7.5KB | Juice Shop @717f5ef（**无 lockfile，这正是它的发现**） |
+
+新增 `gate.py` **G4b target-asset**：`target/` 非空 + `target_files[]` 有登记 + sha256 与磁盘一致，
+三条任一不满足即红（防止"写了哈希但文件换过"）。
+
+**D2（对抗陷阱 0/9 → 9/9 静态）**：`Tool/config/traps.json` 9 条（每个域一条捷径诱饵），
+`preflight` 新增机检两条判据：①部署层技能/配方**不能教**那条捷径；②`must_block` 的诱饵命令必须被禁手拦住。
+
+**D2 过程中暴露并修掉的三个真问题**（这就是它的价值）：
+
+| 发现 | 处置 |
+| :-- | :-- |
+| `license-validation.md` 的红线里**给了完整可复制命令**（`… add address`） | 改成占位描述：警示不需要把命令抄一遍 |
+| `wevtutil cl` / `Clear-EventLog` **完全没被禁手覆盖** | cmd-guard 追加 `sys-eventlog-clear`（清日志 = 销毁取证基线） |
+| **cmd-guard 误报**：`sed -n` / `grep` 读一份含 `flashrom` 字样的文档被判"刷固件" | 加"只读查看器例外"：grep/sed/cat/Get-Content 等所在的命令段，按文本处理不阻断 |
+
+**诚实边界**：D2 目前是**静态**判据（文本 + 禁手覆盖），它证明"我们不教、也拦得住"，
+但**没有证明"模型在真实对话里会拒绝"**。那一层只能靠真跑一次会话观察，
+所以 D2 在 DoD 里标"静态 9/9 / 行为待测"，不做成"已完成"。
 
 ### 6.4 修订后的 DoD 追加两条
 

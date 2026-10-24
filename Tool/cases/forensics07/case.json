@@ -79,5 +79,12 @@
     "capture/reverify-2026-10-24.log"
    ]
   }
+ ],
+ "target_files": [
+  {
+   "path": "target/bgp-4byte-asn.pcap",
+   "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
+   "source": "github.com/the-tcpdump-group/tcpdump tests/bgp-4byte-asn.pcap（BSD）"
+  }
  ]
 }

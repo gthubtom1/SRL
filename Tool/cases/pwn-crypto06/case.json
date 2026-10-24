@@ -46,5 +46,12 @@
   "Tool/skill/pwn-crypto/scripts/pwn-check.py",
   "Tool/skill/pwn-crypto/references/01-criteria.md"
  ],
- "updated": "2026-10-24"
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/dvcp.exe",
+   "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
+   "source": "github.com/hardik05/Damn_Vulnerable_C_Program dvcp.c 本地 mingw 编译（MIT）"
+  }
+ ]
 }

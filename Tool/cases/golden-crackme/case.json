@@ -37,5 +37,12 @@
   "Tool/skill/_pending/00-analysis/SKILL.md",
   "Tool/skill/_pending/01-gate-bypass/SKILL.md"
  ],
- "updated": "2026-10-24"
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/a.exe",
+   "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+   "source": "crackerjack crackme（MIT），仓库内已有样本"
+  }
+ ]
 }

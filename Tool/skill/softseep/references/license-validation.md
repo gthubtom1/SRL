@@ -170,7 +170,7 @@ UI Automation 枚举 Edit/Button/CheckBox 的 Name/Value,`ValuePattern.SetValue`
 
 ### 5.3 接管假服务端：**只对目标进程生效**（不许改整机网络）
 
-> **红线（2026-10-23 血案后的修订）**：`netsh interface ipv4 add address <c2_ip>` 抢回环、
+> **红线（2026-10-23 血案后的修订）**：给网卡挂 /32 别名（命令略） 抢回环、
 > 写系统 `hosts`、`netsh winhttp set proxy` 都属于**整机生效**的系统级改动 ——
 > 假服务单一死，用户整机断网。**cmd-guard 已对这类命令 block**。本节原来的写法已废弃。
 

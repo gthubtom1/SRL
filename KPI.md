@@ -23,6 +23,7 @@
 | 2026-10-24 | **真实固件**：binwalk 测试语料 ×3（arcadyan / squashfs v2 / cramfs） | firmware-iot | **upper-bound** | facts 7 条 / 背书 7；提取未产出可用 rootfs（7z dangerous-link） | 12,689 | ~20 | 0 | `python Tool/scripts/gate.py --pack firmware-iot` |
 | 2026-10-24 | **真实靶场**：DSVW（公开单文件 Python，本地回环）只读漏洞验证 | web-pentest | **delivered** | MANIFEST 2 文件 / facts 8 条 / 背书 8 | 12,689 | ~12 | 0 | `python Tool/scripts/gate.py --pack web-pentest` |
 | 2026-10-24 | **能力改动**：verification receipt（取经 REA 机制 1，最小落地） | 9 个 witness 案例 | **delivered** | receipt 9 份（md 5 槽 + json baseline/final + 源 sha256）；`gate.py` 新增 G6；删回执 / 改事实账都能打红 | 12,597 | ~30 | 0 | `python Tool/scripts/gate.py --all` |
+| 2026-10-24 | **D1+D2**：9 包补齐真实输入资产 + 9 条对抗陷阱静态对撞 | 全部 9 包 | **delivered** | target 12 个文件全部登记 sha256；G4b 机检；D2 静态 0 处教唆 / 0 条漏拦；顺带修 3 个真问题（可复制命令/缺禁手/只读误报） | 12,597 | ~60 | 0 | `python Tool/scripts/gate.py --all` + `preflight --fast` |
 
 ## 回放抓出的错（这是回放唯一不可替代的价值）
 
