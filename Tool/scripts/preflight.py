@@ -1009,6 +1009,41 @@ def check_trap_bait():
         not bad, "；".join(bad[:5]) if bad else "0 处教唆 / 0 条漏拦")
 
 
+def check_extension_deploy():
+    """扩展部署一致性：仓库 `Tool/prompts/extensions/*.ts` ↔ `~/.pi/agent/extensions/*.ts`。
+
+    为什么需要：改了扩展但没重新部署，会话里跑的还是旧代码（实测踩到过：cmd-guard 的只读豁免已修，
+    部署侧仍是旧版，而 skills 哈希检查不覆盖 extensions）→ 表现为"改完没生效"。
+    判据：仓库里每个 .ts 都必须在部署侧存在且 sha256 相同；部署侧多出的 .ts 只看 warn（可能是用户自己的）。
+    """
+    import hashlib as _h
+    src = os.path.join(TOOL, "prompts", "extensions")
+    dst = os.path.join(os.path.expanduser("~"), ".pi", "agent", "extensions")
+    if not os.path.isdir(src):
+        add("13 措辞", "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）", False, "缺 Tool/prompts/extensions")
+        return
+    if not os.path.isdir(dst):
+        add("13 措辞", "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）", False,
+            "未部署：跑 setup/install-pi.ps1")
+        return
+    bad, n = [], 0
+    for f in sorted(os.listdir(src)):
+        if not f.endswith(".ts"):
+            continue
+        n += 1
+        a = os.path.join(src, f)
+        b = os.path.join(dst, f)
+        if not os.path.isfile(b):
+            bad.append(f + "(未部署)")
+            continue
+        ha = _h.sha256(open(a, "rb").read()).hexdigest()
+        hb = _h.sha256(open(b, "rb").read()).hexdigest()
+        if ha != hb:
+            bad.append(f + "(哈希不一致)")
+    add("13 措辞", "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）", not bad,
+        "；".join(bad[:4]) if bad else "%d 个扩展哈希一致" % n)
+
+
 def check_tool_ladder():
     """工具获取阶梯接线检查（behavior gate 第 1 项）。
 
@@ -1080,6 +1115,7 @@ def main():
     check_language()
     check_side_effect_undo()
     check_trap_bait()
+    check_extension_deploy()
     check_tool_ladder()
     check_functional(args.fast)
 
