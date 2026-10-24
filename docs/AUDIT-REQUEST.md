@@ -48,7 +48,7 @@ python Tool/skill/softseep/scripts/playbook-check.py
 python Tool/scripts/kb_acceptance.py
 python Tool/scripts/budget.py
 python Tool/scripts/route.py
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）
+python （`smoke-e2e` 已不存在：按上面的替代路径走）
 python Tool/scripts/mcp-doctor.py --quick
 python Tool/scripts/mcp-doctor.py --session
 

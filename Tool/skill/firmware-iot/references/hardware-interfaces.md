@@ -175,9 +175,9 @@ sigrok-cli -d <driver>:conn=/dev/ttyACM0 --config samplerate=1m \
 本章所有判据都依赖射频硬件。动手前先花 10 秒问一句：**这台机器现在有哪几样仪器？**
 
 ```bash
-python `tool-acquire.py`（S4 已删：一次性） --radio-only --json                  # ≤10s，不需要 --target
-python `tool-acquire.py`（S4 已删：一次性） --radio-only --out work/<case>/radio.json
-python `tool-acquire.py`（S4 已删：一次性） --self-test                          # 离线自检：只测判定/解析函数，无硬件访问
+python `Tool/scripts/tool-acquire.py` --radio-only --json                  # ≤10s，不需要 --target
+python `Tool/scripts/tool-acquire.py` --radio-only --out work/<case>/radio.json
+python `Tool/scripts/tool-acquire.py` --self-test                          # 离线自检：只测判定/解析函数，无硬件访问
 ```
 
 探针只做能力枚举：**不进入 monitor mode、不调用主动扫描、不发送任何射频、不改网卡状态**，

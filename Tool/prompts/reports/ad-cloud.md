@@ -13,7 +13,7 @@
 |---|---|---|---|---|---|
 | E01 | artifacts/ad-repro.json | <sha256> | `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input <bundle> --json` | 0 | ADCS/Kerberos/RBAC |
 | E02 | artifacts/iam-eval.json | <sha256> | `python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input <policy> --action <a> --resource <r>` | 0 | IAM allow/deny |
-| E03 | artifacts/adcloud-check.json | <sha256> | `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig <kc> --json` | 0 | 本地 kubeconfig/AWS |
+| E03 | artifacts/adcloud-check.json | <sha256> | `python `Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py` --kubeconfig <kc> --json` | 0 | 本地 kubeconfig/AWS |
 
 ## 3 判据命中表
 | 判据 | 期望 | 实测 | 证据# | 结论 |
@@ -51,5 +51,5 @@
 ```bash
 python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input work/<case>/artifacts/bundle.json --json
 python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input work/<case>/artifacts/policy.json --action s3:GetObject --resource '*'
-python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig work/<case>/artifacts/kubeconfig.yaml --json
+python `Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py` --kubeconfig work/<case>/artifacts/kubeconfig.yaml --json
 ```

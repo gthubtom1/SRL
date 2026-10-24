@@ -142,8 +142,8 @@ metadata:
 本阶段每改一处，立刻记账到版本账（`Tool/docs/MIGRATION.md`）：
 
 ```bash
-python `migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐） init --case <case目录> --exe "<本次原件>" --version <版本号>
-python `migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐） add-site --case <case目录> --version <版本号>     --id <短名> --sem "<一句话语义>" --rva 0x<位点RVA> --window 24 --wildcard-rel --orig "<原字节>" --new "<新字节>"
+python （`migrate` 已不存在：按上面的替代路径走） init --case <case目录> --exe "<本次原件>" --version <版本号>
+python （`migrate` 已不存在：按上面的替代路径走） add-site --case <case目录> --version <版本号>     --id <短名> --sem "<一句话语义>" --rva 0x<位点RVA> --window 24 --wildcard-rel --orig "<原字节>" --new "<新字节>"
 ```
 
 **没有账 = 原作者一更新就得从头再来**；有账，下一版用 `04-version-migrate` 半小时迁完。

@@ -39,7 +39,7 @@
 - **许可**：GPLv3（`LICENSE`，34KB 原文，未修改）。
 - **二开原则**（`docs/UPSTREAM.md` §2）：只做**单文件 cherry-pick**，不整仓 merge；每次同步按「五问」评估；共享文件（routing / gate / spec / README）只在主分支改。
 - **同步状态（2026-10-22 快照）**：仅上游有 140 条 / 仅本仓有 1015 条 / 两边都有但内容不同 82 条 / 相同 273 条。
-  口径与复跑命令见 `docs/UPSTREAM.md` §1（`python （S4 已删：一次性上游差分） --print`）。
+  口径与复跑命令见 `docs/UPSTREAM.md` §1（`（该脚本 S4 已删，见下方替代路径） --print`）。
 
 ---
 
@@ -52,7 +52,7 @@
 | **门禁层（最大差异）** | `preflight.py`（45 项）、`domain-gate.py`（域深度 110 项）、`capability-gate.py`、`playbook-check.py`、`skill-route-probe.py`、`mcp-param-contract.py`、`intent-coverage.py`、`check-budget.py`、`case_state.py`（案子账/深度门/出口闸） | `python Tool/scripts/preflight.py`、`python Tool/scripts/domain-gate.py --all` |
 | **判据化域（11 个）** | 每域九件套：判据表 / 失败判据表 / 模型坑 / 走查 / 脚本（`--help`+`--self-test` 双绿）/ 案例（≥1 real）/ KB / 矩阵 / 任务卡 / 路由片段 | `python Tool/scripts/domain-gate.py --domain <域>` |
 | **五阶段流水线** | `00-analysis`（先摸透再动手）→ `01-gate-bypass`（旁路卡密）→ `02-ui-rebrand`（改 UI 去品牌）→ `03-license-hookup`（接自有授权）→ `04-version-migrate`（跨版本追版）→ `05-backend-rebuild`（T2/T3 才触发） | 各 `Tool/skill/0*/SKILL.md` + `case_state.py` 闸 |
-| **MCP 工具层** | 23 → 40 个工具（pcap / 资源雕刻 / 内存字符串 / 加壳识别 / web recon / 多引擎反编译 / 六层工具发现 / 案例检索）；**统一路径参数别名**（8 个名字互通） | `python Tool/skill/softseep/scripts/mcp-param-contract.py`、`python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）` |
+| **MCP 工具层** | 23 → 40 个工具（pcap / 资源雕刻 / 内存字符串 / 加壳识别 / web recon / 多引擎反编译 / 六层工具发现 / 案例检索）；**统一路径参数别名**（8 个名字互通） | `python Tool/skill/softseep/scripts/mcp-param-contract.py`、`python （`smoke-e2e` 已不存在：按上面的替代路径走）` |
 | **反造假机制** | `case_state.py` 拒绝不存在的证据路径；`gate` 要求 D0–D5 全 pass + ≥2 条候选路线 + ≥2 种仪器；`deliver` 按 M1–M4 分级，越级被拒 | `python Tool/scripts/case_state.py --help`、`case_state.py prove --evidence <不存在路径>` 会 rc≠0 |
 | **能力/配方层** | 51 个能力（DAG，悬空 0）+ 24 篇可跑配方（命令进闸，`--help` 实跑校验） | `python Tool/skill/softseep/scripts/capability-gate.py --json`、`python Tool/skill/softseep/scripts/playbook-check.py` |
 | **知识库** | 412 篇（含 `field_journal_*` 现场日志、`_archive/` 归档索引）；检索走 MCP `seep_kb_search` | `python Tool/scripts/kb_acceptance.py` |
@@ -173,7 +173,7 @@
 ```bash
 python Tool/scripts/preflight.py                # 期望 55/55
 python Tool/scripts/domain-gate.py --all        # 期望 110/110
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                # 期望 12/12（真调 9 个 MCP 工具）
+python （`smoke-e2e` 已不存在：按上面的替代路径走）                # 期望 12/12（真调 9 个 MCP 工具）
 powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 ```
 

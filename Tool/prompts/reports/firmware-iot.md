@@ -11,7 +11,7 @@
 ## 2 证据清单
 | # | 文件 | sha256 | 命令 | rc | 说明 |
 |---|---|---|---|---|---|
-| E01 | artifacts/triage.json | <sha256> | `python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file <fw> --json` | 0 | 容器/熵/凭据线索 |
+| E01 | artifacts/triage.json | <sha256> | `python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file <fw> --json` | 0 | 容器/熵/凭据线索 |
 | E02 | artifacts/repro.json | <sha256> | `python Tool/skill/firmware-iot/scripts/fw-repro.py --file <fw> --out-dir ... --json` | 0 | 解包/rootfs/file:line |
 | E03 | artifacts/accept.json | <sha256> | `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` | 0 | 案例验收 |
 
@@ -48,7 +48,7 @@
 
 ## 7 复跑命令
 ```bash
-python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file work/<case>/artifacts/firmware.bin --json
+python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file work/<case>/artifacts/firmware.bin --json
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file work/<case>/artifacts/firmware.bin --out-dir work/<case>/artifacts/fw --json
 python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json
 ```

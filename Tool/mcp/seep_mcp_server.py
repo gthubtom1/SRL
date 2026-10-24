@@ -624,6 +624,12 @@ def seep_apk_decompile(apk_path: str, output_dir: Optional[str] = None, deobfusc
     cmd.append(os.path.abspath(apk_path))
 
     out = _run_cmd(cmd, timeout=300)
+    _bad = (_is_err_payload(out) or ("[ERROR" in (out or ""))
+            or ("No classes to decompile" in (out or ""))
+            or (not os.path.isdir(output_dir)) or (not os.listdir(output_dir)))
+    if _bad:
+        return _empty_output("seep_apk_decompile",
+                             "jadx 没有产出（或目录为空）：原始输出在 out，别把「没跑成」当「跑完了」")
     return f"Decompilation finished.\nOutput directory: {output_dir}\nLog: {out[:500]}..."
 
 @server.tool()
@@ -653,6 +659,10 @@ def seep_apk_unpack(apk_path: str, output_dir: Optional[str] = None, no_src: boo
     cmd.extend(["-o", output_dir, os.path.abspath(apk_path)])
 
     out = _run_cmd(cmd, timeout=300)
+    if _is_err_payload(out) or "[ERROR" in (out or "") or not os.path.isdir(output_dir) \
+            or not os.listdir(output_dir):
+        return _empty_output("seep_apk_unpack",
+                             "apktool 没有产出（或目录为空）：原始输出在 out，别把「没跑成」当「跑完了」")
     return f"Apktool unpack finished.\nOutput directory: {output_dir}\nLog: {out[:500]}..."
 
 @server.tool()

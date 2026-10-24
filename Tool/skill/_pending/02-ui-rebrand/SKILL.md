@@ -83,7 +83,7 @@ metadata:
 | 功能面无退化 | 01 阶段的 FEATURES 清单逐项复测 | 覆盖数 = 清单数（例：12/12），每项附操作截图 | 只测主路径 → 边界功能（导出/批量）最容易因改布局而失效 |
 | 授权面未破 | 01 的旁路复验 + 无卡密启动一次 | 与改 UI 前行为一致；无新增授权弹窗 | 改了关于页版本号导致校验分支走 else → 必须重跑 |
 | 布局无错位 | 三档分辨率（1024×768 / 1366×768 / 1920×1080）+ 125% 缩放 | 控件不重叠、不被裁切、列表滚动正常 | 只在开发机分辨率看 → 用户机器上按钮跑出屏幕 |
-| 无新增网络请求 | 改前后各抓一次启动流量：`python `pcap-summary`（S4 已删：壳，真身在 protocol-plugin/scripts/） --file <capture.pcapng> --json` | 域名集合差集为空（除非你自己加的更新检查） | 更新检查被移除但遥测还在 → 差集能查出来 |
+| 无新增网络请求 | 改前后各抓一次启动流量：`python `Tool/skill/protocol-plugin/scripts/pcap-summary.py` --file <capture.pcapng> --json` | 域名集合差集为空（除非你自己加的更新检查） | 更新检查被移除但遥测还在 → 差集能查出来 |
 | 可回滚 | 01 产物副本 + `rollback.ps1` | 执行后产物 SHA256 回到 01 版本 | 只备份 exe 不备份资源 → 回滚后仍花屏 |
 
 ## 7. 失败判据（现象 → 判定 → 改走哪条 → 代价）
@@ -116,7 +116,7 @@ metadata:
 # 2) 字符串残留复查（改完必跑）
 strings -a <产物> | rg -i "<原作者>|<旧域名>|<群号>|<邮箱>"
 # 3) 改前后流量对照（抓包后）
-python `pcap-summary`（S4 已删：壳，真身在 protocol-plugin/scripts/） --file <capture.pcapng> --json
+python `Tool/skill/protocol-plugin/scripts/pcap-summary.py` --file <capture.pcapng> --json
 # 4) 交付前回归登记
 python Tool/scripts/case_state.py claim --case work/<case> --id C9 --text "UI 改造后功能 12/12 通过"
 ```

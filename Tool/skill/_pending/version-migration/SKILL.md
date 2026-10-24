@@ -9,7 +9,7 @@ metadata:
 
 > **定位说明**：本技能是「追版算法」的细节卷（AOB 双态特征码 / 差分辅助）。
 > 完整生命周期（版本账、UI 与授权迁移、七步流水线、兜底三重、验收）见 **`04-version-migrate`**，
-> 引擎实现在 ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）`，规范在 `Tool/docs/MIGRATION.md`。
+> 引擎实现在 `（`migrate` 已不存在：按上面的替代路径走）`，规范在 `Tool/docs/MIGRATION.md`。
 
 # 客户端跨版本增量追版与特征迁移技能 (Version Migration & Differential Adaptation)
 

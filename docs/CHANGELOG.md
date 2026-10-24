@@ -267,7 +267,7 @@
 
 - `Tool/skill/_pending/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
 - `Tool/skill/_pending/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
-- ``probe_matrix`（S4 已删：一次性）`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
+- `（`probe_matrix` 已不存在：按上面的替代路径走）`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
 - `Tool/skill/malware-analysis/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
 
 ### D 记忆层 + 长跑契约
@@ -923,7 +923,7 @@ D0–D5 各有产物；8 节齐全；每条结论有证据编号；`facts.jsonl`
 | 新增 | 作用 |
 |---|---|
 | `Tool/skill/_pending/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
-| ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
+| `（`migrate` 已不存在：按上面的替代路径走）` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
 | `Tool/docs/MIGRATION.md` | `manifest.json` 规范（schema `seep-migration/1`）+ 目录约定 + 常见漂移模式 |
 | 01/02/03 技能各加"顺手记账" | 位点 / UI 素材 / 授权挂载点分别写入 `sites[]` / `ui[]` / `license[]` —— 没有账，下次更新只能重做 |
 | 路由 `R14` | "软件更新了 / 追版 / 新版迁一下" → 04（实测 7/7 判型正确，不影响 01/02/03 与 apkseep） |
@@ -2041,7 +2041,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 修复：BOM 回归（本轮文档批量改写引入）
 
 - 批量改文档时用了 `utf-8-sig` 写回，导致 **15 个 .md 与 1 个 .py 被加上 BOM** —— 其中
-  `（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
+  `（已删除）` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
 - 处置：`setup/clean-format.py` 增加**通用 BOM 剥离**（除 `.ps1/.psm1/.bat/.cmd` 外一律去 BOM），
   并在本次全仓执行（112 个 Python 文件语法校验全过）。
 
@@ -2067,7 +2067,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 
 > 主题：**补上最后一块架构缺口（端到端链路验收），然后冻结。**
 
-### 新增：``smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`（端到端冒烟）
+### 新增：`（`smoke-e2e` 已不存在：按上面的替代路径走）`（端到端冒烟）
 
 - **为什么**：体检 60 项 + 三套单测只证明"资产在位 / 单元正确"，**不证明链路连通**。
   弱模型真正会卡住的地方恰恰是"链条中段断了"（如：triage 出结果 → 判壳 → 反编译，中间某一环报错）。
@@ -2075,7 +2075,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   `auto_triage → 整文件哈希 → packer_detect → r2_info → r2_functions → decompile_auto →
    kb_search → task_init → gen_security_report → tool_discover`，
   全部在临时工作区（`SEEP_WORKSPACE`）执行，**不污染仓库**；约 13 秒；不联网、不依赖商业工具。
-- **怎么用**：`python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`（`--sample` 指定样本，`--keep` 保留现场排障）。
+- **怎么用**：`python （`smoke-e2e` 已不存在：按上面的替代路径走）`（`--sample` 指定样本，`--keep` 保留现场排障）。
 - **接入**：`FORK-DELTA` §五 与 `BASELINE-FREEZE` 的验收闸门从"五道"扩为"六道"
   （体检仍 60 项不变，端到端独立一条）。
 
@@ -2107,7 +2107,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 - **内容**：一句话结论（纯超集 0 删除）→ 三类差分的判读法 → **能力差分台账**（工具/技能/配置/工程修复/证据类修复，
   逐条含"解决什么 + 文件位置 + 回滚方式"）→ **上游同步 SOP（5 步命令）** → **并入前五问评估表** →
   **5 个冲突高发区** → 五道闸验收 → 自动生成的文件级差分清单。
-- **新增生成器** ``upstream-delta`（S4 已删：一次性）`：文件级差分由脚本刷新（手写部分只维护"为什么/值不值得/怎么撤"），
+- **新增生成器** `（`upstream-delta` 已不存在：按上面的替代路径走）`：文件级差分由脚本刷新（手写部分只维护"为什么/值不值得/怎么撤"），
   **彻底避免台账过期**；无 `upstream` remote 时给出一次性配置提示。
 
 ### 修复

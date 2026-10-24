@@ -18,10 +18,10 @@
 | **IDA Pro MCP 唤醒** | `Tool/scripts/trigger_ida_mcp.ps1` | 静默启动 IDA Pro 64 并自动挂载 MCP 分析链路 |
 | **任务路由** | `Tool/scripts/route.py` + `pack.json` | 按口语判型 → 选技能（32 条路由，自洽由 `route.py --check` 断言） |
 | **路由自洽校验** | `Tool/scripts/route.py` | routes / priority / fallback / 技能落位 四重断言 |
-| **端到端冒烟** | ``preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）` | 真实样本跑通整条链路（12 环 / 13 秒），不污染仓库 |
+| **端到端冒烟** | ``Tool/scripts/preflight.py`` | 真实样本跑通整条链路（12 环 / 13 秒），不污染仓库 |
 | **反臃肿预算** | `Tool/scripts/budget.py` | 工具/技能/脚本/手册/行数/文件数 5 项硬上限 + 1 项仅统计（技能数，见 BASELINE-FREEZE §7.1 v1.17.5 修订）自检 |
-| **差分台账刷新** | ``upstream-delta`（S4 已删：一次性）` | 自动生成 `Tool/docs/FORK-DELTA.md` 的文件级差分清单 |
-| **新技能脚手架** | `（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）` | 生成标准 SKILL.md + 自动注册 + 无 BOM 校验 |
+| **差分台账刷新** | `（`upstream-delta` 已不存在：按上面的替代路径走）` | 自动生成 `Tool/docs/FORK-DELTA.md` 的文件级差分清单 |
+| **新技能脚手架** | `（已删除）` | 生成标准 SKILL.md + 自动注册 + 无 BOM 校验 |
 
 ---
 

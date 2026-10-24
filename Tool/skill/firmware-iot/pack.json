@@ -10,10 +10,10 @@
         "(?i)\\b(uart|jtag|swd|spi\\s+(?:flash|dump|programmer)|openocd|flashrom|ch341a|picocom|minicom)\\b",
         "(?i)\\b(binwalk|ubireader|unsquashfs|sasquatch|jefferson|cramfsck)\\b",
         "(?i)\\b(squashfs|ubifs?|jffs2|cramfs|\\buti\\b|mtd|nanddump)\\b",
-        "(?i)(?:\\bota\\b|\\bfirmware\\s+update\\b|固件升级|升级包)b",
+        "(?i)(?:\\bota\\b|\\bfirmware\\s+update\\b|固件升级|升级包)",
         "(?i)\\b(uefi|secure\\s*boot|\\bpk\\b|\\bkek\\b|\\bdbx?\\b|tpm\\s*(?:2\\.0|eventlog))\\b",
         "(?i)\\b(bios|uefi)\\b",
-        "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)b",
+        "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)",
         "(?i)\\biot\\b",
         "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包)"
       ],

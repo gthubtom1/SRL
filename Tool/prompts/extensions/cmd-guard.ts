@@ -128,7 +128,10 @@ function isReadOnlySegment(cmd: string, at: number): boolean {
 	// 去掉引号/括号/前缀命令（sudo、env、xargs 等不影响"是否是查看器"的判断：
 	// 只要段内出现了引号包裹，说明命中串是**参数**而不是程序名）
 	if (/^["'`]/.test(seg)) return true;
-	const prog = (seg.split(/\s+/).pop() || "").toLowerCase().replace(/^[("']+/, "");
+	// 取段内**首个非选项 token** 作为程序名（旧实现取 pop() 最后一个，
+	// 于是 `grep -n flashrom x.md` 被解析成程序名 "flashrom" → 读文档被当成刷固件拦下）
+	const toks = seg.split(/\s+/).filter(Boolean).map((t) => t.toLowerCase().replace(/^[("']+/, ""));
+	const prog = (toks.find((t) => !t.startsWith("-") && !t.includes("=")) || toks[0] || "");
 	if (READONLY_PROGRAMS.has(prog)) return true;
 	// git 的只读子命令
 	if (/\bgit\s+(show|log|diff|grep)\b/i.test(cmd.slice(start, at + 1))) return true;

@@ -143,7 +143,7 @@ MCP 配置文件所在位置：
 |---|---|---|
 | `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
 | `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
-| ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (patch-verify.py)` |
+| `（`migrate` 已不存在：按上面的替代路径走）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (patch-verify.py)` |
 | `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
 | `Tool/skill/softseep/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
 

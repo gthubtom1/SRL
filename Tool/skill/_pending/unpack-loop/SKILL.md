@@ -70,7 +70,7 @@ metadata:
 > 步骤间有**回退边**，受"两阶段熔断"约束。探针矩阵先行：
 >
 > ```bash
-> python `probe_matrix`（S4 已删：一次性） --target <target> --json --out work/<task>/probe.json
+> python （`probe_matrix` 已不存在：按上面的替代路径走） --target <target> --json --out work/<task>/probe.json
 > ```
 
 | # | 步骤 | 一句话 | 核心判据 |
@@ -94,9 +94,9 @@ metadata:
 
 - 动作：
   ```bash
-  python `probe_matrix`（S4 已删：一次性） --target <target> --json
+  python （`probe_matrix` 已不存在：按上面的替代路径走） --target <target> --json
   # 只做 baseline + external 的快速检查：
-  python `probe_matrix`（S4 已删：一次性） --target <target> --quick --json
+  python （`probe_matrix` 已不存在：按上面的替代路径走） --target <target> --quick --json
   ```
   记录每个探针：`ok | partial | blocked | killed` + evidence + note；把可用仪器写进 `case_state.py instrument`。
 - **完成判据**：至少 1 种非 baseline 仪器可用（`ok/partial`）；并且明确写出：

@@ -18,7 +18,7 @@
 | 全量体检 | `python Tool/scripts/preflight.py` | **53/53 通过** |
 | 域深度 | `python Tool/scripts/domain-gate.py --all` | **110/110 通过** |
 | 部署体检 | `powershell -File setup/verify.ps1 -Detailed` | **核心 65 项通过 / [READY]** |
-| 端到端 | `python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）` | **12 passed, 0 failed** |
+| 端到端 | `python （`smoke-e2e` 已不存在：按上面的替代路径走）` | **12 passed, 0 failed** |
 | MCP 参数契约 | `python Tool/skill/softseep/scripts/mcp-param-contract.py` | 40 工具 / 18 吃路径，全绿 |
 | 技能路由探针 | `python Tool/skill/softseep/scripts/skill-route-probe.py` | **39 条，失败 0** |
 | 知识库可用性 | `python Tool/scripts/kb_acceptance.py` | **9/9 通过** |
@@ -84,7 +84,7 @@
 ```bash
 python Tool/scripts/preflight.py                 # 45/45
 python Tool/scripts/domain-gate.py --all         # 110/110
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                 # 12/12
+python （`smoke-e2e` 已不存在：按上面的替代路径走）                 # 12/12
 python Tool/skill/softseep/scripts/mcp-param-contract.py        # 契约
 python Tool/skill/softseep/scripts/skill-route-probe.py         # 33 条路由探针
 powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY

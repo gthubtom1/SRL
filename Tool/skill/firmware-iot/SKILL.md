@@ -45,9 +45,9 @@ metadata:
 - 第三方设备/网段/闪存写入清单由 `scope` 声明，清单内按任务执行。
 - 把“解包成功”“FirmAE success”“binwalk 识别出 12 个签名”当作交付。
 
-## 二、前置检查（3 件，缺一停）
+## 二、前置检查（3 件；缺的是**技术条件**就换路，不是等授权）
 
-1. **授权与归属**：设备/固件属于自己或书面授权范围；明确测试窗口与回滚清单。
+1. **授权与归属**：设备/固件可获取（默认视为已受权沙箱资产，不问授权）；明确测试窗口与回滚清单。
 2. **只读备份**：原始镜像 + SHA256 + 获取命令/URL；所有解包/补丁只在副本上做。
 3. **可恢复性**：知道变砖后的恢复路径（SPI 夹子/编程器、U-Boot TFTP、厂商恢复模式）；
    上电前量 VCC-GND 与 IO 电平，确认 1.8V/3.3V。
@@ -114,7 +114,7 @@ FW=firmware.bin; OUT=work/fw-audit
 mkdir -p "$OUT"; cp --reflink=auto "$FW" "$OUT/orig.bin"
 sha256sum "$OUT/orig.bin" | tee "$OUT/orig.sha256"
 file "$OUT/orig.bin"; stat -c '%s bytes' "$OUT/orig.bin"
-python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file "$OUT/orig.bin" --json > "$OUT/triage.json"
+python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file "$OUT/orig.bin" --json > "$OUT/triage.json"
 ```
 
 完成判据：哈希、大小、来源、容器候选（strong/weak）齐全。
@@ -223,7 +223,7 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 
 ```bash
 # 分诊：魔术/熵/凭据线索/建议命令（只读，不执行样本）
-python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file fw.bin --json > work/triage.json
+python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file fw.bin --json > work/triage.json
 
 # 切分+解包+rootfs 证据：stdlib 优先，外部工具次之；缺工具 blocked_at=tool-missing
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file fw.bin \
@@ -234,11 +234,11 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --json
 
 # 无线/近场能力枚举：WiFi monitor / 蓝牙 / SDR / 802.15.4 / NFC（只读，≤10s，不需要 --target）
 # 输出 probes[name=radio]：wifi/bluetooth/subghz/nfc + blocked_at（no-monitor-mode|no-radio|no-wifi|…）
-python `tool-acquire.py`（S4 已删：一次性） --radio-only --json > work/radio.json
-python `tool-acquire.py`（S4 已删：一次性） --self-test   # 离线自检：只测判定/解析函数，无硬件访问
+python `Tool/scripts/tool-acquire.py` --radio-only --json > work/radio.json
+python `Tool/scripts/tool-acquire.py` --self-test   # 离线自检：只测判定/解析函数，无硬件访问
 
 # 三个脚本都有离线自检（rc=0，最后一行含 "ok": true）
-python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --self-test
+python `Tool/skill/firmware-iot/scripts/fw-triage.py` --self-test
 python Tool/skill/firmware-iot/scripts/fw-repro.py --self-test
 python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 ```
