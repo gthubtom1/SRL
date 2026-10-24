@@ -91,10 +91,6 @@ foreach ($f in @('SEEP.md', 'AGENTS.md')) {
 
 # 任务卡（prompt templates）：Tool/prompts/tasks/*.md → ~/.pi/agent/prompts/<name>.md
 #   pi 把每个文件当一条 /slash 命令；这是"用户说一句话就开工"的入口，不进系统提示词（不占每轮上下文）。
-# 命令卡从技能自动生成（约定优于配置：加技能只需一个 SKILL.md）
-$gen = Join-Path $ToolDir 'scripts\gen-commands.py'
-if (Test-Path $gen) { & python $gen 2>&1 | ForEach-Object { Write-Info $_ } }
-
 $srcTasks = Join-Path $srcPrompt 'tasks'
 $dstTasks = Join-Path $AgentDir 'prompts'
 if (Test-Path $srcTasks) {

@@ -1110,6 +1110,69 @@ def check_case_contract_files():
         not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
 
 
+def check_dropin_skills():
+    """拖拽式加技能：任何丢进技能目录的东西，只要是合法 SKILL.md 就能用（不跑脚本、不改配置）。
+
+    设计（2026-10-24，用户点破）：别人加技能就是"拖进 skills 文件夹"，下次启动自动加载。
+    我们原来要求 5 处改动 + 跑脚本，这是反常识。现在只保留一个硬要求：
+    `SKILL.md` 的 frontmatter 必须有 name + description（description 是模型选择它的唯一依据）。
+    这条判据检查**实际被加载的技能目录**（~/.pi/agent/skills），所以它就是用户拖拽后的体检。
+    """
+    import re as _re
+    base = os.path.expanduser("~/.pi/agent/skills")
+    if not os.path.isdir(base):
+        add("2 单一事实源", "拖拽式技能（SKILL.md 合法即生效）", False, "未部署技能目录")
+        return
+    bad, ok_n, thin = [], 0, []
+    for d in sorted(os.listdir(base)):
+        f = os.path.join(base, d, "SKILL.md")
+        if not os.path.isfile(f):
+            if os.path.isdir(os.path.join(base, d)):
+                bad.append("%s(无 SKILL.md)" % d)
+            continue
+        t = open(f, encoding="utf-8", errors="replace").read()
+        nm = _re.search(r"^name:\s*(\S+)", t, _re.M)
+        de = _re.search(r"^description:\s*(.+)$", t, _re.M)
+        if not nm or not de:
+            bad.append("%s(frontmatter 缺 name/description)" % d)
+            continue
+        ok_n += 1
+        if len(de.group(1)) < 20:
+            thin.append(d)      # 描述太短 → 模型很难选中（提示，不判红）
+    detail = "%d 个技能 frontmatter 合法" % ok_n
+    if thin:
+        detail += "；描述偏短（不易被选中）: " + ", ".join(thin[:4])
+    add("2 单一事实源", "拖拽式技能（丢进目录即生效，SKILL.md 合法即可）", not bad,
+        detail if not bad else "；".join(bad[:4]))
+
+
+def check_case_contract_files():
+    """新案必须有范围契约（scope.md）：这是 case-guard 的等价物，防"scope 未就绪就动手"。
+
+    实现方式：功能测试（在临时目录 init 一个案子，验证 case.json/facts.jsonl/scope.md 都在），
+    **不追溯** 66 个旧案例（L15：不为已结束的目标补账）。
+    """
+    import shutil as _sh
+    import tempfile as _tf
+    bad = []
+    tmp = _tf.mkdtemp(prefix="seep-scope-")
+    try:
+        r = run([sys.executable, os.path.join(TOOL, "scripts", "case_state.py"),
+                 "init", "--case", tmp, "--target", "dummy.exe"], timeout=120)
+        for f in ("case.json", "facts.jsonl", "scope.md"):
+            if not os.path.isfile(os.path.join(tmp, f)):
+                bad.append("init 未生成 %s" % f)
+    except Exception as e:  # noqa: BLE001
+        bad.append("init 跑不起来 %s" % str(e)[:60])
+    finally:
+        _sh.rmtree(tmp, ignore_errors=True)
+    for doc in ("docs/PRODUCT.md", "docs/LESSONS.md"):
+        if not os.path.isfile(os.path.join(ROOT, doc)):
+            bad.append("缺 %s" % doc)
+    add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 产品与教训文档在位",
+        not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
+
+
 def check_domain_commands():
     """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
 
@@ -1529,7 +1592,7 @@ def main():
     check_need_ask_contract()
     check_trigger_matrix()
     check_route_first_contract()
-    check_domain_commands()
+    check_dropin_skills()
     check_case_contract_files()
     check_tool_ladder()
     check_functional(args.fast)
