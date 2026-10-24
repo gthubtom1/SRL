@@ -8,14 +8,19 @@
  *   事件账是**动作**账，必须由插件自动写 —— 两者不能混。
  *
  * 落盘位置（硬约定，与 case_state.py events 子命令对齐）：
- *   <case>/events.jsonl      每行一个 JSON：
+ *   <case>/facts.jsonl      每行一个 JSON（S2 起与结论账同账本，kind:"event"）：
  *     ts      ISO 时间戳（结账时刻）
+ *     kind    "event"（恒为 event：与 claim / state 行区分）
+ *     event   "tool"（本插件写的事件类型）
  *     eid     单调递增的事件号（<毫秒>-<序号>，字符串排序即时间序）
  *     tool    工具名（bash / read / edit / mcp__xxx …）
  *     ok      该次调用是否成功（!isError）
  *     durMs   工具真实执行耗时（tool_call 到 tool_result 的墙钟差值）
  *     risk    "block" / "warn" / null —— **规则等级**，见下
  *     summary ≤200 字输入摘要（已脱敏；不写文件正文）
+ *
+ * 为什么不再写 events.jsonl：事件账以前单独一份，gate / verify 根本不读它，
+ * 于是「跑过什么」无法参与判定。现在 tool 动作以 kind:"event" 进唯一账本。
  *
  * case 目录解析顺序：
  *   1. 环境变量 SEEP_CASE_DIR
@@ -241,6 +246,8 @@ function record(cwd: string, row: EventRow): void {
 			if (!caseExists(cwd)) return;
 			const line = JSON.stringify({
 				ts: new Date().toISOString(),
+				kind: "event",
+				event: "tool",
 				eid: nextEid(),
 				tool: row.tool,
 				ok: row.ok,
@@ -248,7 +255,7 @@ function record(cwd: string, row: EventRow): void {
 				risk: row.risk,
 				summary: clip(row.summary, MAX_SUMMARY),
 			});
-			await fs.promises.appendFile(path.join(caseDirOf(cwd), "events.jsonl"), line + "\n", "utf-8");
+			await fs.promises.appendFile(path.join(caseDirOf(cwd), "facts.jsonl"), line + "\n", "utf-8");
 		} catch {
 			/* 静默 */
 		}

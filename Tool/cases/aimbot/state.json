@@ -1,9 +1,0 @@
-{
-  "schema": "seep-case/1",
-  "target": "D:\\Project\\ai自瞄\\AGameCrash64.exe",
-  "depth": {},
-  "verdict": null,
-  "max_level": null,
-  "next_action": "跑 D0 结构 + D1 存活",
-  "updated": "2026-10-23T18:42:50"
-}
