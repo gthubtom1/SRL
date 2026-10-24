@@ -26,7 +26,7 @@
 | 判型与分发（唯一入口） | `Tool/skill/softseep/SKILL.md` |
 | 执行口径（唯一方案） | `docs/history/X-PLAN-FINAL.md` |
 | 路由单一事实源 | `Tool/skill/*/pack.json`（现算入口 `Tool/scripts/route.py`） |
-| 工具能力 / 降级 / 安装 | `Tool/config/tool-capabilities.json` + `seep_status` |
+| 工具能力 / 降级 / 安装 | `Tool/config/tool-capabilities.json` + `python Tool/scripts/mcp-doctor.py` |
 | 战术方法论 | `seep_kb_search` → `seep_kb_read` |
 | 知识库根（固定路径，勿 find/grep 去找） | `Tool/mcp/Tool/reverselab/kb` |
 | 提示词分层 / 人格卡兼容 / 迁移存档 / G-Auth 裁决 | `MANUAL/PROMPT-LAYERS.md` |

@@ -84,7 +84,7 @@ cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 
 - 需要固定基址时用 `setarch "$(uname -m)" -R ./chall`，并在报告中注明“关闭 ASLR”；
 - 远程只信远程泄漏，不把本地偏移当远程地址；
-- 工具缺失先查能力表（`seep_tool_research` / `Tool/mcp/tool_autodiscover.py`），不要反复安装。
+- 工具缺失先查能力表（`python Tool/scripts/tool-acquire.py` / `Tool/mcp/tool_autodiscover.py`），不要反复安装。
 
 **完成判据**：知道哪些工具可用、哪些要走降级分支（`blocked_at: "tool-missing"`）。
 

@@ -95,7 +95,7 @@ headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target
 ## 五之二、Zero-Waste Recon
 
 信号（JWT/壳/混淆/native/加密）→ 查 KB → 读匹配技术文件（含可跑 Frida/C++ 代码）→ 看末尾「MCP 工具映射」→ 优先 MCP 工具 → 多路径并行探测。
-知识库根固定 `Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认），不要用 find/grep 去找。
+知识库根固定 `Tool/mcp/Tool/reverselab/kb`（`python Tool/scripts/mcp-doctor.py --json` 可确认），不要用 find/grep 去找。
 
 | 用户指令 | 首选路径 |
 |---|---|
