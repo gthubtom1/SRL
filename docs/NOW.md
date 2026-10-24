@@ -24,8 +24,8 @@
 
 ## 一、一句话现状
 
-**S1–S5 全部完成，收尾审计进行中。** 9 个域包全绿（每包带 6 道判据）、preflight **45/45**、
-门禁从"自证"改成"验产物"（含 verification receipt 与对抗陷阱）。
+**S1–S5 全部完成，收尾审计已完成。** 9 个域包全绿（每包 6 道判据），门禁从"自证"改成"验产物"
+（含 verification receipt、对抗陷阱、扩展部署一致性）。**数字不写在这里——跑 §三 的命令看。**
 常驻可控制层（**不开人设时**）**5,146 tok** —— 已低于 8,000 目标；开了人设卡约 12.7k。
 
 ## 二、唯一顺序（不许跳、不换序）
@@ -36,21 +36,21 @@
 | **S2** | 杀 fail-open：无证据拒绝出报告、超限拒绝不截断、`unknown` 不计 pass | ✅ |
 | **S3** | 立包与闸：9 个 `pack.json` + `route.py`/`gate.py`，索引 32→9，删 `routing.json` | ✅ |
 | **S4** | 全局收口：D1 登记表、状态 4 类、工具 40→20、脚本 51→15 | ✅ |
-| **S5** | KPI 回放：3 靶 + 6 个真实目标 → **9/9 包绿** | ✅ |
+| **S5** | KPI 回放：3 靶 + 6 个真实目标 → 全部包绿 | ✅ |
 
 ## 三、当前这一步 = 收尾审计（不再是建设）
 
 **实测数字（随时可复算）**
 
-| 项 | 命令 | 现值 |
-| :-- | :-- | --: |
-| 门禁自查 | `python Tool/scripts/preflight.py --fast` | **45/45** |
-| 按包判定 | `python Tool/scripts/gate.py --all` | **pass 9 / fail 0**（每包 6 道：G2/G3/G4/G4b/G5/G6） |
-| 路由自洽 | `python Tool/scripts/route.py --check` | 34 条 / 0 死路由 |
-| 仓库预算 | `python Tool/scripts/budget.py` | 全绿 |
-| 常驻层 | `python Tool/scripts/budget.py --prompt` | 可控制 12,693（含未启用人设 7,451）／**不含人设 5,242** |
-| 真实任务台账 | `KPI.md` | 12 行 |
-| 完成度 | `PLAN-v8` §2 的 D1–D10 | **7 项达成 / D2 行为复测通过但有 2 处待补（已补）/ D4 达成** |
+| 项 | 命令（数字只看它的输出） |
+| :-- | :-- |
+| 门禁自查 | `python Tool/scripts/preflight.py --fast` |
+| 按包判定 | `python Tool/scripts/gate.py --all` |
+| 路由自洽 | `python Tool/scripts/route.py --check` |
+| 仓库预算 | `python Tool/scripts/budget.py` |
+| 常驻层 token | `python Tool/scripts/budget.py --prompt` |
+| 证据强度 | `python Tool/scripts/case_state.py verify --all` |
+| 真实任务台账 | `KPI.md`（每做一次真实任务加一行） |
 
 **本轮新增的三条可打红判据**（都在 `preflight` / `gate.py` 里，不是文档口号）
 
@@ -63,7 +63,7 @@
 
 **已确认的遗留（都不是"没做"，是需要人拍板）**
 
-1. **常驻 token 目标未达**：8,000 目标只在"人设不启用"时达标（5,242）。压缩方案见 §四。
+1. **常驻 token 目标未达**：8,000 目标只在"人设不启用"时达标（跑 `budget.py --prompt` 看当前值）。压缩方案见 §四。
 2. **`Tool/scripts` 是 15 个而不是 BLUEPRINT 写的 7**：`case_state.py` / `net-rollback.py` / `tool-acquire.py`
    被 `AGENTS.md`（第 2 层）点名 → 按"7 核心 + 点名 3 + 待并诊断 5"收口。
 3. **人设门禁盲区**：`check_seep_compat.py` 只扫仓库 `人设卡/` 与 `quad/`，**不扫 `~/.pi/agent/personas/`**；
