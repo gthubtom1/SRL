@@ -118,3 +118,8 @@ mgmt_full.part
 # 100MB 级真实目标不入库（只在 case.json 记外部路径 + sha256）
 Tool/cases/*/target/*.apk
 !Tool/cases/leaf-apk/target/*.apk
+
+# 证据必须入库：Tool/cases/**/capture 下的 .log 是 MANIFEST 与 claim 引用的事实依据
+!Tool/cases/**/capture/
+!Tool/cases/**/capture/**/*.log
+!Tool/cases/**/capture/*.log
