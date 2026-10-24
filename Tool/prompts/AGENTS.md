@@ -86,7 +86,7 @@ headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target
 
 0. **先路由，后动手**（Do NOT do first, route later）：`python Tool/scripts/route.py --resolve "<用户原话>"` → 输出 PRIMARY 包 + **一句话依据**；未命中再走 `softseep`。没路由就开始写脚本 = 方向可能全错。
 0.5 **建案 + 过闸**：`case_state.py init --case <目录> --target <样本>` → 阶段零登记深度/仪器/裁定 → 进阶段一必须 `gate` 返回 0 → 交付用 `deliver --level M1..M4 --evidence "<截图/日志>"`。→ `Tool/scripts/case_state.py`
-1. **读技能**：`Tool/skill/softseep/SKILL.md` + 按平台读子技能（`apkseep` / `ida-reverse` / `unpack-loop` / `client-license-validation-bypass`）。不读技能 = 放弃判型与交付纪律。
+1. **读技能**：先 `Tool/skill/softseep/SKILL.md`（总控）；再按平台读 `Tool/skill/<pack>/SKILL.md`。被归档的 18 个子技能（如脱壳闭环 `unpack-loop`）不在技能索引里，需要时按路径读，清单与何时用见 `Tool/skill/_pending/INDEX.md`。
 2. **体检** `seep_auto_triage(<目标>)`；3. **判壳** `seep_packer_detect(<目标>)`；4. **查 KB** `seep_kb_search("<壳名/自毁/VEH/授权>")`。
 
 **MCP 参数纪律**：seep 工具在 codemode 下名为 `mcp__seep__seep_<tool>`，**参数名拿不准先 `describeTool()`，不许猜**；失败要读错误改参数重试，不是换回手搓（血案：把 `binary_path` 写成 `file`，一次 rejected 后改用 184 次 bash 手搓）。签名：`seep_auto_triage(binary_path=)`、`seep_packer_detect(binary_path=)`、`seep_r2_info(binary_path=)`、`seep_kb_search(query=)`。

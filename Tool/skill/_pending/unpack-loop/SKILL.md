@@ -1,6 +1,6 @@
 ---
 name: unpack-loop
-description: 加壳软件脱壳与内存转储闭环。当目标是加壳/加密壳/虚拟机保护（UPX、ASPack、Themida、VMProtect、Enigma、.NET 混淆壳等），或需要判断"这个壳值不值得脱、能不能继续做白盒鉴权审计"时使用。先判壳再选路线（可脱 / 只能运行期打补丁 / 建议放弃），七步流水线每步有完成判据，两阶段熔断，绝不硬走固定流程。
+description: "这个软件加壳了怎么脱/脱壳/dump 内存/OEP 怎么找/反调试怎么过/IAT 怎么修 (.exe/.dll/.sys/.apk/.so，UPX/ASPack/VMProtect/Themida/ACE 等商业壳与自研壳)。加壳软件脱壳与内存转储闭环：壳识别 → 反调试对抗 → OEP 定位 → dump → IAT 修复 → 复验。"
 license: MIT
 compatibility: Windows 10/11 x64（主力）；Linux ELF 加壳可走 pe-sieve 替代路线。依赖 seep MCP + 可选 x64dbg / pe-sieve / Scylla / ScyllaHide / Frida。
 metadata:

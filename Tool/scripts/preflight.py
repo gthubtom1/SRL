@@ -1131,10 +1131,17 @@ def check_trigger_matrix():
         return
 
     descs = {}
-    for d in os.listdir(os.path.join(TOOL, "skill")):
-        f = os.path.join(TOOL, "skill", d, "SKILL.md")
+    dep = set(os.listdir(os.path.expanduser("~/.pi/agent/skills"))) if os.path.isdir(
+        os.path.expanduser("~/.pi/agent/skills")) else set()
+    # 顶层 9 包 + 归档区（归档的只有**部署了**才算可见，否则模型看不到 = 等于不存在）
+    cand = [(d, os.path.join(TOOL, "skill", d, "SKILL.md")) for d in os.listdir(os.path.join(TOOL, "skill"))]
+    cand += [(d, os.path.join(TOOL, "skill", "_pending", d, "SKILL.md"))
+             for d in os.listdir(os.path.join(TOOL, "skill", "_pending"))]
+    for d, f in cand:
         if not os.path.isfile(f):
             continue
+        if "_pending" in f and d not in dep:
+            continue   # 归档且未部署 → 不进候选（探针若期望它会命中"技能缺失"）
         m = _re.search(r"^description:\s*(.+)$", open(f, encoding="utf-8").read(), _re.M)
         descs[d] = (m.group(1) if m else "").lower()
 
