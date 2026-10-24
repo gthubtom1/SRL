@@ -46,7 +46,7 @@
  "target_files": [
   {
    "path": "target/package.json",
-   "sha256": "fd88518d22d30d36b0935879456c727333d2d2ba68125b618077d82c89bc6df5",
+   "sha256": "81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c",
    "source": "github.com/juice-shop/juice-shop package.json @717f5ef（MIT）—— 只存清单快照，不存整仓"
   }
  ]
