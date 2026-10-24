@@ -58,13 +58,20 @@ def _cache_read():
 
 def _cache_get(tid, exe_names):
     """缓存命中且路径仍可用才算命中（工具可能被卸载/挪走）。"""
-    e = (_cache_read().get("tools") or {}).get(tid)
+    raw = _cache_read()
+    e = (raw.get("tools") or {}).get(tid)
+    if not isinstance(e, dict) or not e.get("available"):
+        legacy = raw.get(tid)          # 旧结构：顶层 <id> = {"exe": ...}
+        e = {"available": True, "command": (legacy or {}).get("exe")} if isinstance(legacy, dict) else None
     if not isinstance(e, dict) or not e.get("available"):
         return None
     cmd = e.get("command") or ""
     if not cmd:
         return None
     if os.path.isfile(cmd):
+        # 迁移：老缓存可能只有 tools{} 没有顶层 <id>.exe（bridge/launch 读的是后者）→ 补写一次
+        if not isinstance(raw.get(tid), dict):
+            _cache_put(tid, cmd, e.get("via") or "cache", e.get("arch"))
         return {"command": cmd, "via": "cache"}
     # 路径失效：若是 exe 名而非绝对路径（如 PATH 命中记的是命令名），交给后面各层
     base = os.path.basename(cmd).lower()
@@ -82,6 +89,10 @@ def _cache_put(tid, command, via, arch=None):
             "available": True, "command": command, "via": via, "arch": arch,
             "checked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
+        # 双写：mcp-bridge-x64dbg.py / mcp-launch.py 读的是**顶层** <id>.exe 旧结构。
+        # 只写 tools{} 会把它们的条目覆盖掉（实测踩到：x64dbg MCP 变 401、tools/list 0 个）。
+        d[tid] = {"exe": command, "via": via,
+                  "verified": time.strftime("%Y-%m-%d %H:%M:%S")}
         d["schemaVersion"] = d.get("schemaVersion") or "1.0"
         os.makedirs(LOCAL_STATE_DIR, exist_ok=True)
         tmp = _PATH_CACHE_FILE + ".tmp"

@@ -79,8 +79,10 @@ def x64_dir() -> str:
     cache = os.path.join(os.path.expanduser("~"), ".seep", "tool-paths.json")
     try:
         with open(cache, encoding="utf-8-sig") as f:
-            entry = (json.load(f) or {}).get("x64dbg")
-        exe = entry.get("exe") if isinstance(entry, dict) else entry
+            raw = json.load(f) or {}
+        # 新结构 tools{"x64dbg"}{command} 与旧结构顶层 {"x64dbg"}{exe} 都要认
+        entry = raw.get("x64dbg") or ((raw.get("tools") or {}).get("x64dbg") or {})
+        exe = entry.get("exe") or entry.get("command") if isinstance(entry, dict) else entry
         if isinstance(exe, str) and os.path.isfile(exe):
             return os.path.dirname(exe)
     except Exception:

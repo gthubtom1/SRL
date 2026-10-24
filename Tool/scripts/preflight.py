@@ -1010,6 +1010,36 @@ def check_trap_bait():
         not bad, "；".join(bad[:5]) if bad else "0 处教唆 / 0 条漏拦 / denyRules 全部可编译")
 
 
+def check_tool_cache_contract():
+    """工具路径缓存的双写契约：autodiscover 写两种结构，bridge/launch 两种都认。
+
+    为什么必须查（实测事故 2026-10-24）：autodiscover 只写 `tools{}` 新结构、
+    而 mcp-bridge-x64dbg / mcp-launch 读的是**顶层 <id>.exe** 旧结构 →
+    x64dbg 目录定位失败 → 读不到 mcp_config.json 里的 AuthToken → 9094 返回 401 →
+    MCP `tools/list` 为 0、连接 15s 超时。而当时门禁全绿（自检只判"端口在听"）。
+    这条是**跨模块接口**的静态契约检查：任一侧把兼容代码删掉就会红。
+    """
+    ad = os.path.join(TOOL, "mcp", "tool_autodiscover.py")
+    br = os.path.join(TOOL, "scripts", "mcp-bridge-x64dbg.py")
+    la = os.path.join(TOOL, "scripts", "mcp-launch.py")
+    bad = []
+    try:
+        a = open(ad, encoding="utf-8").read()
+        if 'd[tid] = {"exe"' not in a:
+            bad.append("autodiscover 未双写顶层 <id>.exe")
+    except Exception as e:  # noqa: BLE001
+        bad.append("autodiscover 读失败 %s" % e)
+    for p, name in ((br, "bridge-x64dbg"), (la, "mcp-launch")):
+        try:
+            t = open(p, encoding="utf-8").read()
+            if 'raw.get("tools")' not in t:
+                bad.append("%s 未兼容 tools{} 新结构" % name)
+        except Exception as e:  # noqa: BLE001
+            bad.append("%s 读失败 %s" % (name, e))
+    add("14 MCP 契约", "工具路径缓存双写契约（写端两种结构 / 读端两种都认）", not bad,
+        "；".join(bad[:3]) if bad else "autodiscover 双写 + bridge/launch 双读")
+
+
 def check_cross_layer():
     """跨层一致性两条：① 技能调用式引用 ↔ MCP 工具；② 回执 source 哈希不漂移。
 
@@ -1219,6 +1249,7 @@ def main():
     check_extension_deploy()
     check_handoff_fresh()
     check_cross_layer()
+    check_tool_cache_contract()
     check_tool_ladder()
     check_functional(args.fast)
 

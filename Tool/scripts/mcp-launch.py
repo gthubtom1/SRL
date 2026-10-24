@@ -116,8 +116,10 @@ def _cache_ida_dirs() -> list[str]:
     dirs: list[str] = []
     try:
         with open(cache, encoding="utf-8-sig") as f:
-            entry = (json.load(f) or {}).get("ida")
-        exe = entry.get("exe") if isinstance(entry, dict) else entry
+            raw = json.load(f) or {}
+        # 两种结构都认：顶层 {"ida":{"exe":...}}（tool-run.ps1 旧）与 tools{"ida"}{command}（autodiscover 新）
+        entry = raw.get("ida") or ((raw.get("tools") or {}).get("ida") or {})
+        exe = entry.get("exe") or entry.get("command") if isinstance(entry, dict) else entry
         if isinstance(exe, str):
             d = os.path.dirname(exe)
             for _ in range(2):                     # exe 可能在安装根，也可能在根下一层
