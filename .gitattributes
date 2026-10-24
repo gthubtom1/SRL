@@ -1,42 +1,12 @@
-# -----------------------------------------------------------------------------
-# Seep Reverse Lab — Git 跨平台换行符与编码自动化管理规约
-# -----------------------------------------------------------------------------
-
-# 默认全局：自动探测文本文件，统一以 LF 换行归档
+# 证据与二进制必须字节稳定：禁止任何换行转换（否则 sha256 在不同机器/重新检出后必变）
+Tool/cases/**        -text
+Tool/mcp/Tool/safe/** -text
+*.exe  -text
+*.dll  -text
+*.apk  -text
+*.so   -text
+*.bin  -text
+*.jar  -text
+*.zip  -text
+# 其余文本统一 LF，避免 Windows/Linux 检出差异
 * text=auto eol=lf
-
-# Linux / macOS 核心执行脚本：绝对强制严格 LF（绝不允许混入 \r，防 ^M bad interpreter）
-*.sh text eol=lf
-*.bash text eol=lf
-
-# Windows 原生脚本：保持 CRLF 换行
-*.ps1 text eol=crlf
-*.bat text eol=crlf
-*.cmd text eol=crlf
-
-# 编程语言源代码与配置：统一强制严格 LF
-*.py text eol=lf
-*.ts text eol=lf
-*.js text eol=lf
-*.json text eol=lf
-*.jsonc text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
-*.toml text eol=lf
-*.md text eol=lf
-
-# 二进制文件：严格保持二进制原样，禁用任何换行符转换
-*.exe binary
-*.dll binary
-*.so binary
-*.dylib binary
-*.jar binary
-*.zip binary
-*.7z binary
-*.png binary
-*.ico binary
-*.pdf binary
-
-# v1.23: 案例证据按字节保存（禁止 eol 归一，否则 case.json 哈希在干净检出里漂移）
-Tool/cases/**/artifacts/** -text
-Tool/cases/**/input/** -text
