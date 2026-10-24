@@ -1029,8 +1029,17 @@ def check_handoff_fresh():
         add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", False,
             "没有生成块：跑 case_state.py handoff --repo 后替换 §1")
         return
+    sha = m.group(1)
     try:
-        out = _sp.run(("git", "rev-list", "--count", "%s..HEAD" % m.group(1)),
+        # 先确认该提交在本地对象库里（浅克隆/新机器上可能没有 → 无法比对，跳过而不是假红）
+        have = _sp.run(("git", "cat-file", "-e", "%s^{commit}" % sha), cwd=ROOT,
+                       capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=20).returncode == 0
+        if not have:
+            add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤3 提交）", True,
+                "浅克隆/提交不在本地对象库，跳过比对（重新生成一次即可）")
+            return
+        out = _sp.run(("git", "rev-list", "--count", "%s..HEAD" % sha),
                       cwd=ROOT, capture_output=True, text=True,
                       encoding="utf-8", errors="replace", timeout=20).stdout.strip()
         lag = int(out) if out.isdigit() else 999
