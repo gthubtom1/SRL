@@ -29,7 +29,7 @@
   "allow": [
     "cmd-guard-skip"
   ],
-  "_denyRules说明": "追加禁手（按**副作用层级**分类，不是按命令长相）：L3 系统级（网络/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/hosts）与 L4 破坏性（分区/格式化/卷闪）一律 block —— 逆向任务永远不需要，出事要重装或重启。L2 用户级（HKCU）只 warn，要求先备份并记账。需要放行：先 `python Tool/scripts/net-rollback.py snapshot`（只覆盖网络类），再在命令里加 `cmd-guard-skip`。",
+  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再在命令里加 `cmd-guard-skip`。",
   "denyRules": [
     {
       "id": "sys-driver-install",
