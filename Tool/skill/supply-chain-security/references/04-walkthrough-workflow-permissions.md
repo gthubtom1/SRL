@@ -3,7 +3,7 @@
 > 范围：需要判断一条 GitHub Actions 流水线“权限是否过大、触发器是否危险、action 是否能被重写”时。
 > 前置：仓库读权限；本走查覆盖 GitHub Actions（GitLab/Jenkins 走对应流水线卷）；运行时 secrets 实际值只记录引用。
 > 对象：`Seep-Reverse-Lab/.github/workflows/upstream-sync.yml`（仓库内真实文件，非夹具）。
-> 脚本：`Tool/skill/supply-chain-security/scripts/ci-perm-audit.py`、`Tool/scripts/sc-check.py`。
+> 脚本：`Tool/skill/supply-chain-security/scripts/ci-perm-audit.py`、`Tool/skill/supply-chain-security/scripts/sc-check.py`。
 
 ## 1. 目标与对象钉住
 
@@ -65,7 +65,7 @@ rc=0（无 high）。注意 `ok: true` 只表示“扫描完成”，不表示�
 ## 3. 用第二个脚本交叉核对
 
 ```bash
-python Tool/scripts/sc-check.py \
+python Tool/skill/supply-chain-security/scripts/sc-check.py \
   --path .github/workflows \
   --out Tool/cases/supply-chain03/artifacts/sc.json
 echo $?

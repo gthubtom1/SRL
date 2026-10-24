@@ -78,7 +78,7 @@ test_ext_assets() {
     local mp="$TOOL_DIR/docs/MERGE-PLAYBOOK.md"
     [ -f "$sp" ] && [ -f "$et" ] && [ -f "$ed" ] && [ -f "$mp" ] && \
         grep -q 'def seep_ensure_tool' "$sp" && grep -q 'def seep_packer_detect' "$sp" && \
-        grep -q 'def seep_http_replay' "$sp" && grep -q 'def seep_web_recon' "$sp"
+        grep -q 'def seep_http_replay' "$sp" && grep -q 'def web-check.py' "$sp"
 }
 
 test_tool_autodiscover() {
@@ -123,13 +123,13 @@ check_item "架构" "MCP专用运行时强约定 (Tool/mcp/Tool/)" test -d "$TOO
 check_item "版本" "版本标识与变更日志 (VERSION + docs/CHANGELOG.md)" test -f "$ROOT/VERSION" -a -f "$ROOT/docs/CHANGELOG.md"
 check_item "版本" "已有用户一键更新脚本 (update.ps1 + update.sh)" test -f "$ROOT/setup/update.ps1" -a -f "$ROOT/setup/update.sh"
 check_item "架构" "上游定点防外溢规则与同步引擎 (upstream-rules.json + sync-upstream.py)" test -f "$ROOT/setup/upstream-rules.json" -a -f "$ROOT/setup/sync-upstream.py" -a -f "$ROOT/setup/sync-upstream.sh" -a -f "$ROOT/update.bat"
-# 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
+# 任务路由自洽性：pack.json 里的每个 route.skill 必须真实存在，
 # 且 priority / fallbackId 与 routes 一一对应。
 test_routing_coherence() {
-    local chk="$TOOL_DIR/scripts/verify-routing-coherence.py"
+    local chk="$TOOL_DIR/scripts/route.py"
     [ -f "$chk" ] || return 1
     [ -n "$PY_BIN" ] || return 0
-    ( cd "$ROOT" && "$PY_BIN" "$chk" >/dev/null 2>&1 ) || return 1
+    ( cd "$ROOT" && "$PY_BIN" "$chk" --check >/dev/null 2>&1 ) || return 1
     for gate in playbook-check.py capability-gate.py route-playbook-parity.py; do
         [ -f "$TOOL_DIR/scripts/$gate" ] || return 1
         ( cd "$ROOT" && "$PY_BIN" "$TOOL_DIR/scripts/$gate" >/dev/null 2>&1 ) || return 1
@@ -147,7 +147,7 @@ test_kb_count() {
     n=$(find "$KB_DIR" -name '*.md' | wc -l | tr -d ' ')
     [ "$n" -ge 280 ]
 }
-check_item "知识库" "战术实战笔记 (292 篇完整检索库 ≥280 篇)" test_kb_count
+check_item "知识库" "战术实战笔记 (412 篇完整检索库 ≥280 篇)" test_kb_count
 check_item "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" test -d "$TOOL_DIR/mcp/Tool/reverselab/tools/skills/mcp"
 
 
@@ -159,8 +159,8 @@ check_seep_contract() {
     len=$("$PY_BIN" -c "import sys;print(len(open(sys.argv[1],encoding='utf-8').read()))" "$p" 2>/dev/null || wc -m < "$p")
     [ "${len:-99999}" -le 2500 ] || return 1
     grep -q "AGENTS.md" "$p" || return 1
-    grep -q "routing.json" "$p" || return 1
-    grep -q "seep_status" "$p" || return 1
+    grep -q "route.py" "$p" || return 1
+    grep -q "mcp-doctor.py" "$p" || return 1
     if grep -qE "[0-9]+[[:space:]]*个工具" "$p"; then return 1; fi
     return 0
 }
@@ -353,11 +353,11 @@ test_case_state_smoke() {
 check_item "脚本" "案子闸可执行 (case_state.py init + gate)" test_case_state_smoke
 
 test_migrate_smoke() {
-    local mg="$TOOL_DIR/scripts/migrate.py"
+    local mg="$TOOL_DIR/scripts/patch-verify.py"
     [ -f "$mg" ] || return 1
     python "$mg" --help 2>&1 | grep -q align
 }
-check_item "脚本" "追版引擎可执行 (migrate.py)" test_migrate_smoke
+check_item "脚本" "追版引擎可执行 (patch-verify.py)" test_migrate_smoke
 
 test_mcp_doctor_smoke() {
     local md="$TOOL_DIR/scripts/mcp-doctor.py"

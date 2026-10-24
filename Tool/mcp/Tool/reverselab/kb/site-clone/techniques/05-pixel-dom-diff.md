@@ -49,7 +49,7 @@ spa   : ratio <= 0.03
 - 报告不能只写 masked。
 
 ```bash
-python Tool/skill/site-clone/scripts/site-diff.py \
+python Tool/skill/_pending/site-clone/scripts/site-diff.py \
   --crawl work/crawl --rebuild work/rebuild --out work/diff.json
 python -c "import json;d=json.load(open('work/diff.json'));print(d['criteria']['pixel'])"
 ```

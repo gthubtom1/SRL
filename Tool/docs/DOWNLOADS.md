@@ -15,7 +15,7 @@
 | :--- | :--- | :--- |
 | ✅ **已内置** | jadx · radare2 · apktool · playwright-mcp · js-reverse-mcp · ida-pro-mcp · hook-mcp | 随包提供，解压即用 |
 | 🔴 **需自备** | **IDA Pro 本体**（商业授权） | 见 `MANUAL/IDA-PRO.md` |
-| 🔴 **需自填** | 模型 API 密钥 · playwright token | 由你自行配置（本包不含凭据） |
+| 🔴 **需自填** | 模型 API 密钥 | 由你自行配置（本包不含凭据） |
 | ⚙️ **需 pip 装** | `mcp` · `pytest` · `frida-tools` | `install-python.ps1` 自动 |
 
 ---
@@ -138,7 +138,7 @@ npm:pi-goal-x
 | **安装** | `npm install @playwright/mcp` |
 | **目标** | `Tool/mcp/Tool/safe/playwright-mcp/` |
 | **备注** | 也可直接用 `npx -y @playwright/mcp@latest`（无需安装） |
-| **需自填** | `PLAYWRIGHT_MCP_EXTENSION_TOKEN`（由你自行配置） |
+| **启动参数** | `--headless` —— **无需 token**，不装浏览器扩展也能用 |
 
 ### 5. js-reverse-mcp — JS 逆向
 
@@ -290,7 +290,7 @@ powershell -ExecutionPolicy Bypass -File .\verify.ps1
 | **IDA Pro 本体**（1.6 GB） | 商业授权，不得分发 —— 见 `MANUAL/IDA-PRO.md` |
 | **模型 API 密钥** | 隐私，由使用者自行配置 |
 | **GitHub PAT / Sentry DSN** | 上游 `.env.example` 仅留空模板 |
-| **Playwright token** | 需自备，由使用者自行配置 |
+| **Playwright token** | 不需要 —— playwright 以 `--headless` 启动，无需 token（已废弃：旧版 `--extension` 模式才要求自填 token） |
 
 ---
 

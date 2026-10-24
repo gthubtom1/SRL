@@ -50,7 +50,7 @@
   "thin_doc_lines": 5,
   "dup_overlap": 0.75,
   "link_sources": [
-    "Tool/scripts/routing.json",
+    "Tool/skill/<pack>/pack.json",
     "Tool/config/*.json",
     "README.md",
     "docs/*.md"

@@ -1,0 +1,54 @@
+{
+ "cmd": "printf 'wrong' | Tool/cases/golden-crackme/artifacts/a.patched.exe",
+ "exit": 0,
+ "stdout_head": "PASS",
+ "expect": "stdout 出现 PASS 即通过：补丁件在错误输入 wrong 下仍输出 PASS，证明校验分支已被旁路",
+ "artifact": "artifacts/a.patched.exe",
+ "artifact_sha256": "3ea3a26ac1d8cd65516b6253afa089b09fbe78cc6e95a89d2422289ac6e69d15",
+ "patch": {
+  "paddr": "0x1e82",
+  "va": "0x140002882",
+  "rva": "0x2882",
+  "from": "74 13",
+  "to": "eb 1d",
+  "bytes_changed": 2,
+  "semantics": "je 0x140002897 -> jmp 0x1400028a1 (直落 PASS 块)"
+ },
+ "runs": [
+  {
+   "input": "trance",
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a"
+  },
+  {
+   "input": "wrong",
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a"
+  },
+  {
+   "input": "",
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a"
+  },
+  {
+   "input": "x",
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a"
+  },
+  {
+   "input": "tranceXYZ",
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a"
+  }
+ ],
+ "verdict_of_runs": {
+  "patched_trance": "PASS",
+  "patched_wrong": "PASS"
+ },
+ "note": "方案 A（用户 ack=A）。任务原提议的 90 90 为反例，见 artifacts/exp_nop9090.exe 与 report/dynamic.md §4"
+}

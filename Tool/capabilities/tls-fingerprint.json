@@ -26,7 +26,7 @@
     "头序与 H2 开关"
   ],
   "scripts": [
-    "Tool/skill/signin-automation/scripts/tls-fingerprint.py"
+    "Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/tls-and-cert.md"

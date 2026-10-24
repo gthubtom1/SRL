@@ -255,7 +255,7 @@ def self_test():
                 "evidence_kind": kind, "protection": [], "authority": "local",
                 "goal_level": "L2", "outcome": outcome,
                 "artifacts": [{"path": "artifacts/run.json", "sha256": sha256_file(art)}],
-                "lessons": ["ran python Tool/scripts/sc-check.py --path ., rc=0"],
+                "lessons": ["ran python Tool/skill/supply-chain-security/scripts/sc-check.py --path ., rc=0"],
                 "refs": list(refs), "updated": "2026-10-21",
                 "repro": {"status": "recorded"},
             }
@@ -322,7 +322,7 @@ def self_test():
                        and agg_bad["recorded_real"] == 0
                        and any(f["case"] == "<domain>" for f in agg_bad["failures"])))
         # 8) aggregate passes once the real case records command+rc
-        real_case["lessons"] = ["ran python Tool/scripts/sc-check.py --path ., rc=0"]
+        real_case["lessons"] = ["ran python Tool/skill/supply-chain-security/scripts/sc-check.py --path ., rc=0"]
         real_case["repro"] = {"status": "recorded"}
         with open(os.path.join(real_dir, "case.json"), "w", encoding="utf-8") as fh:
             json.dump(real_case, fh, ensure_ascii=False)

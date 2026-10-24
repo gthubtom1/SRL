@@ -63,7 +63,7 @@
 ### 08 CI 供应链攻击面排查（源：detecting-supply-chain-attacks-in-ci-cd）
 - 触发词：CI 投毒、`pull_request_target`、`workflow_run`、secrets、runner
 - 前置：workflow 只读导出；仓库权限/分支保护已知；不改流水线
-- 步骤：1) `python Tool/scripts/sc-check.py --path Tool/ --max-files 1000 --out work/sc08.json` → rc=0，期望：`"files_scanned": 1000`、`"truncated": true`、`"risks_total": 7`；2) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc08-case.json` → rc=0，期望：`"files_scanned": 1`、`"risks_total": 0`；3) `python Tool/scripts/sc-check.py --self-test` → rc=0，期望：`{"ok": true, "checks": 17}`
+- 步骤：1) `python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/ --max-files 1000 --out work/sc08.json` → rc=0，期望：`"files_scanned": 1000`、`"truncated": true`、`"risks_total": 7`；2) `python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc08-case.json` → rc=0，期望：`"files_scanned": 1`、`"risks_total": 0`；3) `python Tool/skill/supply-chain-security/scripts/sc-check.py --self-test` → rc=0，期望：`{"ok": true, "checks": 17}`
 - 判据：不可信输入 × 写权限 × 执行面三者同时成立才写高危链
 - 失败判据：只命中关键字、未看组合；只能写“疑似”
 - reference：Tool/skill/supply-chain-security/references/cicd-and-artifacts.md
@@ -159,7 +159,7 @@
 ### 20 grype 镜像扫描（源：scanning-container-images-with-grype）
 - 触发词：`grype`、镜像扫描、SBOM 输入、CVE、基础镜像
 - 前置：镜像 digest；grype 版本；授权拉取
-- 步骤：1) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain04/input --out work/sc20.json` → rc=0，期望：`"files_scanned": 7`、`"risks_total": 0`；2) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc20-case.json` → rc=0，期望：`"files_scanned": 1`、`"ok": true`；3) `python Tool/scripts/sc-check.py --self-test` → rc=0，期望：`"checks": 17`
+- 步骤：1) `python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/cases/supply-chain04/input --out work/sc20.json` → rc=0，期望：`"files_scanned": 7`、`"risks_total": 0`；2) `python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc20-case.json` → rc=0，期望：`"files_scanned": 1`、`"ok": true`；3) `python Tool/skill/supply-chain-security/scripts/sc-check.py --self-test` → rc=0，期望：`"checks": 17`
 - 判据：结果绑定 digest；高危项有包路径与修复版本；OS 包与语言包分开
 - 失败判据：扫 tag 不扫 digest、未去重、把 OS 包 CVE 当应用漏洞
 - reference：Tool/skill/supply-chain-security/references/02-failure-criteria.md
@@ -191,7 +191,7 @@
 ### 24 Terraform 基础设施供应链审计（源：auditing-terraform-infrastructure-for-security）
 - 触发词：Terraform、provider、module、lock file、`.terraform.lock.hcl`
 - 前置：IaC 只读；provider/module 来源已知；不 apply
-- 步骤：1) `python Tool/skill/supply-chain-security/scripts/sc-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 4`、`"real": 3`；2) `python Tool/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc24.json` → rc=0，期望：`"ok": true` 且 tool.guarantees 含 `no network`；3) `python Tool/scripts/sc-check.py --self-test` → rc=0，期望：`"mode": "builtin-fixture"`
+- 步骤：1) `python Tool/skill/supply-chain-security/scripts/sc-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 4`、`"real": 3`；2) `python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/cases/supply-chain03/input --out work/sc24.json` → rc=0，期望：`"ok": true` 且 tool.guarantees 含 `no network`；3) `python Tool/skill/supply-chain-security/scripts/sc-check.py --self-test` → rc=0，期望：`"mode": "builtin-fixture"`
 - 判据：provider/module 固定版本或 commit；lock 文件存在；无明文凭据
 - 失败判据：module 指向 branch/latest、lock 缺失；只写“不可复现”
 - reference：Tool/skill/supply-chain-security/references/01-criteria.md

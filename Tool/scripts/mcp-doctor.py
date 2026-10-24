@@ -139,7 +139,7 @@ def probe_http(cfg, quick=False):
         if isinstance(msg2, dict) and isinstance(msg2.get("result"), dict):
             n = len(msg2["result"].get("tools") or [])
             return {"ok": True, "stage": "tools", "tools": n}
-        return {"ok": True, "stage": "initialize", "tools": None,
+        return {"ok": False, "stage": "initialize", "tools": None,
                 "error": "initialize 通了但 tools/list 没解析出结果"}
     except Exception as e:
         return {"ok": False, "stage": "tools", "error": f"tools/list 失败：{type(e).__name__}: {e}"}
@@ -153,7 +153,7 @@ def probe_stdio(cfg, _quick=False):
     hit = which(cmd) or (cmd if os.path.isfile(cmd) else "")
     if not hit:
         return {"ok": False, "stage": "spawn", "error": f"命令不存在：{cmd}"}
-    return {"ok": True, "stage": "offline", "tools": None,
+    return {"ok": False, "stage": "offline", "tools": None,
             "error": "stdio 服务：只验证了可执行文件存在（真正拉起由 pi 负责）"}
 
 

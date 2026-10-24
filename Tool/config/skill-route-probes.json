@@ -6,32 +6,32 @@
     {
       "id": "rev-pe-01",
       "text": "帮我逆向这个exe的注册码，有UPX壳",
-      "expect_skill": "unpack-loop/SKILL.md"
+      "expect_skill": "malware-analysis/SKILL.md"
     },
     {
       "id": "rev-pe-02",
       "text": "分析这个PE文件，看它是不是加壳了",
-      "expect_skill": "unpack-loop/SKILL.md"
+      "expect_skill": "malware-analysis/SKILL.md"
     },
     {
       "id": "license-01",
       "text": "破解卡密登录验证，做成能用的成品",
-      "expect_skill": "01-gate-bypass/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "license-02",
       "text": "这个软件的授权是本地文件校验，想旁路掉",
-      "expect_skill": "01-gate-bypass/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "web-js-01",
       "text": "前端JS找签名算法，逆向登录加密",
-      "expect_skill": "mcp-js-reverse-playbook/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "web-js-02",
       "text": "JS逆向 网页加密参数 sign 算法还原",
-      "expect_skill": "mcp-js-reverse-playbook/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "web-pentest-01",
@@ -66,36 +66,32 @@
     {
       "id": "captcha-01",
       "text": "写一个滑块验证码识别",
-      "expect_skill": "softseep/SKILL.md",
-      "expect_route": "R34"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "captcha-02",
       "text": "极验点选验证码怎么过",
-      "expect_skill": "softseep/SKILL.md",
-      "expect_route": "R34"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "privesc-01",
       "text": "提权 linux suid 找可利用的二进制",
-      "expect_skill": "ad-cloud/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "privesc-02",
       "text": "Windows UAC 绕过拿到管理员",
-      "expect_skill": "ad-cloud/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "osint-01",
       "text": "查个人信息 osint 社工库",
-      "expect_skill": "softseep/SKILL.md",
-      "expect_route": "R36"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "osint-02",
       "text": "对 example.com 做子域名枚举和资产测绘",
-      "expect_skill": "softseep/SKILL.md",
-      "expect_route": "R36"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "malware-01",
@@ -115,7 +111,7 @@
     {
       "id": "plugin-01",
       "text": "Electron 打包 asar 解包",
-      "expect_skill": "plugin-targets/SKILL.md"
+      "expect_skill": "protocol-plugin/SKILL.md"
     },
     {
       "id": "supply-01",
@@ -125,27 +121,27 @@
     {
       "id": "ui-01",
       "text": "改UI去掉作者联系方式",
-      "expect_skill": "02-ui-rebrand/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "hookup-01",
       "text": "自己搭授权平台接卡密",
-      "expect_skill": "03-license-hookup/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "migrate-01",
       "text": "新版本更新了，迁移旧补丁",
-      "expect_skill": "04-version-migrate/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "llm-01",
       "text": "LLM提示词注入测试",
-      "expect_skill": "llm-security/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "ad-01",
       "text": "内网渗透，域控横向",
-      "expect_skill": "ad-cloud/SKILL.md"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "pwn-01",
@@ -155,7 +151,7 @@
     {
       "id": "clone-01",
       "text": "把这个网站1:1复刻下来做离线副本",
-      "expect_skill": "site-clone/SKILL.md"
+      "expect_skill": "web-pentest/SKILL.md"
     },
     {
       "id": "wireless-01",
@@ -175,38 +171,32 @@
     {
       "id": "dochyg-01",
       "text": "帮我整理一下项目里的文档，太多了又旧",
-      "expect_skill": "doc-hygiene/SKILL.md",
-      "expect_route": "R37"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "dochyg-02",
       "text": "我要换个模型来接手，先把没用的旧文档清理掉",
-      "expect_skill": "doc-hygiene/SKILL.md",
-      "expect_route": "R37"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "dochyg-03",
       "text": "新会话读项目状态会不会被旧文档误导",
-      "expect_skill": "doc-hygiene/SKILL.md",
-      "expect_route": "R37"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "dochyg-04",
       "text": "tidy up the docs, they are stale and messy",
-      "expect_skill": "doc-hygiene/SKILL.md",
-      "expect_route": "R37"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "bindiff-01",
       "text": "新旧版本二进制做差分，看补丁改了哪个函数",
-      "expect_skill": "binary-diff/SKILL.md",
-      "expect_route": "R38"
+      "expect_skill": "softseep/SKILL.md"
     },
     {
       "id": "bindiff-02",
       "text": "用 Diaphora 做特征码迁移，定位 N-day",
-      "expect_skill": "binary-diff/SKILL.md",
-      "expect_route": "R38"
+      "expect_skill": "softseep/SKILL.md"
     }
   ]
 }

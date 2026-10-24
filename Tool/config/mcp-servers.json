@@ -6,7 +6,8 @@
     "{ROOT_WIN}": "仓库根的 Windows 路径（同上）"
   },
   "_字段": {
-    "onlyIfMissing": "true = 用户已有同名条目时不覆盖（用于带用户凭据的条目，如 playwright token）",
+    "onlyIfMissing": "true = 用户已有同名条目时不覆盖（只用于**真的带用户凭据**的条目；playwright 已改为无凭据的 --headless，故不再用它，否则重装会保留旧的 --extension + 占位 token 条目）",
+    "playwright": "服务名。参数固定 `-y @playwright/mcp@latest --headless`：**不要改回 `--extension`** —— 扩展模式要求 ①真实 PLAYWRIGHT_MCP_EXTENSION_TOKEN ②本机装了对应浏览器扩展，缺任一个就报 `Playwright Extension not found`；headless 模式开箱即用，无需 token。",
     "lifecycle": "备注字段，pi 内核不读：真正连接发生在**会话启动**；宿主没起 → 整个会话没有该 MCP 工具。agent 用 Tool/scripts/tool-run.ps1 拉起后，需 /mcp reconnect <name> 才能挂上。"
   },
   "servers": {
@@ -34,14 +35,10 @@
       "args": [
         "-y",
         "@playwright/mcp@latest",
-        "--extension"
+        "--headless"
       ],
-      "env": {
-        "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "<YOUR_PLAYWRIGHT_TOKEN>"
-      },
       "transport": "stdio",
-      "lifecycle": "lazy",
-      "onlyIfMissing": true
+      "lifecycle": "lazy"
     }
   },
   "_可选条目示例": {

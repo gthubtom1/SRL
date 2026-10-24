@@ -35,7 +35,7 @@
         "CA 存在不等于与目标集群匹配"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "kubectl config view"
       ]
     },
@@ -62,7 +62,7 @@
         "离线 anonymous_risk 不是“可访问”"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "kubectl auth can-i --list",
         "curl API"
       ]
@@ -91,7 +91,7 @@
         "JWT 只解码不验签，sub/groups 可伪造"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "python base64/json",
         "kubectl auth whoami"
       ]
@@ -124,7 +124,7 @@
         "kubectl auth can-i --list",
         "kubectl get clusterrolebinding",
         "kubectl-who-can",
-        "python Tool/scripts/adcloud-check.py --help"
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help"
       ]
     },
     {
@@ -369,7 +369,7 @@
         "AK 前缀不能判断权限"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "aws sts get-caller-identity",
         "grep"
       ]
@@ -404,7 +404,7 @@
         "aws iam list-*",
         "aws sts get-caller-identity",
         "PMapper",
-        "python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --help"
+        "python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --help"
       ]
     },
     {
@@ -436,7 +436,7 @@
         "python GetUserSPNs.py --help",
         "hashcat -m 13100/19700/19800",
         "Rubeus",
-        "python Tool/skill/ad-cloud/scripts/ad-repro.py --help"
+        "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --help"
       ]
     },
     {
@@ -467,7 +467,7 @@
         "python GetNPUsers.py --help",
         "hashcat -m 18200/19900",
         "Rubeus",
-        "python Tool/skill/ad-cloud/scripts/ad-repro.py --help"
+        "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --help"
       ]
     },
     {
@@ -534,7 +534,7 @@
         "certipy find/req/auth",
         "certipy relay",
         "ntlmrelayx --adcs",
-        "python Tool/skill/ad-cloud/scripts/ad-repro.py --help"
+        "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --help"
       ]
     },
     {
@@ -787,7 +787,7 @@
         "cat /proc/self/status | grep -E 'CapEff|Seccomp'",
         "nsenter -t 1 -m -u -i -n -p -- hostname",
         "curl -s --unix-socket /var/run/docker.sock http://localhost/version",
-        "python Tool/skill/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json --json"
+        "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json --json"
       ]
     },
     {
@@ -824,7 +824,7 @@
         "curl -s http://<etcd>:2379/version",
         "kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o json",
         "kubectl get ns --show-labels",
-        "python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json"
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json"
       ]
     },
     {
@@ -864,7 +864,7 @@
         "curl -sk https://<target>/owa/ -H 'Authorization: Negotiate TlRMTVNTUAABAAAAB4IIogAAAAAAAAAAAAAAAAAAAAAGAbEdAAAADw=='",
         "curl -s 'https://login.microsoftonline.com/getuserrealm.srf?login=<user>@<domain>&xml=1'",
         "curl -s 'https://<tenant>.okta.com/.well-known/okta-organization'",
-        "python Tool/skill/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
+        "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
       ]
     },
     {

@@ -1,0 +1,146 @@
+{
+  "schema": "seep.tool-effects/1",
+  "tools": {
+    "seep_apk_decompile": {
+      "writes_filesystem": true,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_apk_info": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_apk_smali_search": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_apk_unpack": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_auto_triage": {
+      "writes_filesystem": true,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_case_read": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_ensure_tool": {
+      "writes_filesystem": true,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": true
+    },
+    "seep_gen_security_report": {
+      "writes_filesystem": true,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_http_replay": {
+      "writes_filesystem": true,
+      "executes_foreign_code": false,
+      "touches_network": true,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_kb_read": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_kb_search": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_mem_strings": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_packer_detect": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_pcap_extract": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": true,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_r2_cmd": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_r2_decompile": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_r2_disasm": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_r2_info": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_r2_strings": {
+      "writes_filesystem": false,
+      "executes_foreign_code": true,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    },
+    "seep_tool_discover": {
+      "writes_filesystem": false,
+      "executes_foreign_code": false,
+      "touches_network": false,
+      "mutates_target": false,
+      "may_discard_data": false
+    }
+  },
+  "_note": "D1：每个 @server.tool() 必须在此登记，缺一条 server 在 import 期抛错（起不来）。\n含义 —— mutates_target: 改目标文件；writes_filesystem: 落盘；executes_foreign_code: 起子进程；\ntouches_network: 主动联网；may_discard_data: 可能删/覆盖数据。默认全 false，拿不准的按 true 记。"
+}

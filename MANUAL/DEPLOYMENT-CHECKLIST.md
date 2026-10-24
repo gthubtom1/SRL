@@ -16,7 +16,7 @@
 | 状态标识 | 语义 | 说明与影响 |
 |---|---|---|
 | 🟢 **`[READY]` 完备就绪** | 部署成功且可用 | 文件/依赖全部在位，可执行代码与语法解析 100% 正常。 |
-| 🟡 **`[DEGRADED]` 合规降级 / 可选未配** | 可选扩展未装，已降级承接 | 属于外部商业软件（如 IDA Pro）或可选按需工具（如 Playwright Token）。**核心逆向主链路不受影响**，系统已自动启用免费/内置替代方案（如 Radare2 套件）。 |
+| 🟡 **`[DEGRADED]` 合规降级 / 可选未配** | 可选扩展未装，已降级承接 | 属于外部商业软件（如 IDA Pro）或可选按需工具（如 Playwright 无头浏览器）。**核心逆向主链路不受影响**，系统已自动启用免费/内置替代方案（如 Radare2 套件）。 |
 | 🔴 **`[MISSING]` 阻断性缺失** | 核心组件缺失或异常 | 核心文件丢失或基础运行库（如 Python MCP 协议）未装，将导致部分核心流水线不可用。必须按修复指引处理。 |
 
 ---
@@ -34,11 +34,11 @@
 | **S3** | **`ida-reverse`** | `~/.pi/agent/skills/ida-reverse/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 IDA 13337 端口自动唤醒规约 | 🟢 **核心**。IDA 自动化调度器。修复：重跑 `install-pi.ps1` |
 | **S4** | **`client-license-validation-bypass`** | `~/.pi/agent/skills/client-license-validation-bypass/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 CWE-602 战术树与补丁/算号决策 | 🟢 **核心**。授权审计战术库。修复：重跑 `install-pi.ps1` |
 | **S5** | **`version-migration`** | `~/.pi/agent/skills/version-migration/` | `SKILL.md` (≥1 项) | `SKILL.md` | 跨版本追版与 AOB 特征迁移流程在位 | 🟢 **核心**。追版专用。修复：重跑 `install-pi.ps1` |
-| **S6** | **`reverse-engineering`** (safe) | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references（实为 15 文件） | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/reverse-engineering` |
-| **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/apk-reverse` |
-| **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/radare2` |
-| **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/mcp-js-reverse-playbook` |
-| **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/safe-skills/ida-assistant` |
+| **S6** | **`reverse-engineering`** (safe) | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references（实为 15 文件） | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/reverse-engineering` |
+| **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/apk-reverse` |
+| **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/radare2` |
+| **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/mcp-js-reverse-playbook` |
+| **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/ida-assistant` |
 | **S11** | **`unpack-loop`** | `~/.pi/agent/skills/unpack-loop/` | `SKILL.md` (≥1 项) | `SKILL.md` | 含「判据驱动 / 三路线 / 两次熔断」的脱壳闭环 | 🟢 **核心**。加壳目标必用。修复：重跑 `install-pi.ps1` |
 
 ---
@@ -56,7 +56,7 @@ MCP 配置文件所在位置：
 | **M1** | **`seep`** ⭐自研核心 | `python <SEEP_ROOT>/Tool/mcp/seep_mcp_server.py` | **40 项** | `python Tool/mcp/test_seep_mcp.py` 语法解析与测试通过 | 🔴 **阻断项**。若缺失无法调用 R2/JADX/Apktool/KB。修复：运行 `powershell setup\install.ps1` |
 | **M2** | **`ida`** 外部商业 | `<IDA_PYTHON> .../ida_pro_mcp/server.py` | ~100 项起（随 ida-pro-mcp 版本变化，以运行时 tools/list 为准） | 探测 `127.0.0.1:13337` 端口或 IDA 进程 | 🟡 **可选降级**。未装或无授权时自动降级为内置 Radare2 无头分析套件，主干链路 100% 可用。指引详见 `MANUAL/IDA-PRO.md` |
 | **M3** | **`js-reverse`** | `npx -y js-reverse-mcp` | 23 项（本包实测 v4.0.5，以运行时为准） | `npx -y js-reverse-mcp --version` | 🟡 **按需组件**。未安装 Node 时仅 Web 逆向受限，原生二进制不受影响。修复：安装 Node.js 18+ |
-| **M4** | **`playwright`** | `npx -y @playwright/mcp` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | 依赖 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | 🟡 **按需组件**。未配 Token 时无头浏览器受限，原生逆向不受影响。 |
+| **M4** | **`playwright`** | `npx -y @playwright/mcp@latest --headless` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | `npx -y @playwright/mcp@latest --version` | 🟡 **按需组件**。**无需 token**（`--headless`）；首次运行需联网拉包，离线时无头浏览器受限，原生逆向不受影响。 |
 
 > **附加断言（不计入 65 项核心项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
 > （`replaceable`：`codemode` / `tool-search` / `mcp`）抢名。有冲突时退码 1，说明该扩展会顶掉内置并导致 `[Extension issues]`。
@@ -143,9 +143,9 @@ MCP 配置文件所在位置：
 |---|---|---|
 | `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
 | `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
-| `Tool/scripts/migrate.py` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (migrate.py)` |
+| `（`migrate` 已不存在：按上面的替代路径走）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (patch-verify.py)` |
 | `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
-| `Tool/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
+| `Tool/skill/softseep/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
 
 > 换机器 clone 后，这五项任一缺失或腐坏，`verify` / `preflight` 会直接变红 —— 这是审计 D1 要求的"新脚本必须进两平台门禁"。
 
@@ -168,10 +168,10 @@ MCP 配置文件所在位置：
 #### 2. 🔌 MCP 服务引擎 (4项)
 | 服务名 | 配置文件载体 | 期望工具数 | 实际状态 | 状态判定 | 降级/处置说明 |
 |---|---|---|---|---|---|
-| seep (自研) | ~/.pi/agent/mcp.json | 40 工具 | Connected (40) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
+| seep (自研) | ~/.pi/agent/mcp.json | 20 工具 | Connected (40) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
 | ida (商业) | ~/.pi/agent/mcp.json | ~100+ 工具（随版本） | 未监听 (13337) | 🟡 DEGRADED | 已自动降级为内置 Radare2，主链路 100% 可用 |
 | js-reverse | ~/.pi/agent/mcp.json | 23 工具 | 可用 (npx) | 🟢 READY | JS 逆向引擎就绪 |
-| playwright | ~/.pi/agent/mcp.json | 以运行时为准 | Token待配置 | 🟡 DEGRADED | 无头浏览器可选，不影响二进制逆向 |
+| playwright | ~/.pi/agent/mcp.json | 以运行时为准 | 无需 Token（`--headless`） | 🟡 DEGRADED | 懒连接（lazy），首次调用前不建连；不影响二进制逆向 |
 
 #### 3. 🔧 运行时与内置工具箱 (Native Tools)
 | 工具 | 预期版本/文件 | 实际状态 | 状态 | 说明 |

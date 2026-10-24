@@ -1,0 +1,56 @@
+{
+ "id": "firmware-iot06",
+ "domain": "firmware-iot",
+ "target_type": "真实固件镜像 ×3（binwalk 测试语料，BSD-2）：路由器容器 / squashfs v2 / cramfs",
+ "evidence_kind": "real",
+ "protection": [],
+ "authority": "shipped-artifact（公开镜像原件，sha256 固定）",
+ "goal_level": "L1",
+ "outcome": "partial",
+ "artifacts": [
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "c2115769182515a94dd9fc93470e6c06d43dfa5289bc2e27a6b121c1bb7ee103"
+  },
+  {
+   "path": "artifacts/tree-squashfs-v2.txt",
+   "sha256": "5b1e3c4e8254abf31d505a0df218d069a9744669dc6d4b9625155974ed931173"
+  },
+  {
+   "path": "artifacts/tree-cramfs.txt",
+   "sha256": "110ca87d485aa8ed8de78a01f533cc1d446165b47fae916cdd00c6d2b2ec66a5"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "fw-triage.py --file <img> --json；fw-repro.py --file <img> --out-dir <tmp> --json；rc=0"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "命令：python Tool/skill/firmware-iot/scripts/fw-triage.py --file squashfs_v2.bin --json；rc=0",
+  "7z 解 squashfs 会按 dangerous-link 策略跳过相对软链，busybox 落成 0 字节 —— 条目数好看，内容没到手",
+  "arcadyan.bin 的 gzip 段解压报 Unknown compression method：容器魔数命中 ≠ 能解，必须真解一次才算",
+  "outcome 记 partial 而不是 success：三个镜像都没产出可用的完整 rootfs"
+ ],
+ "tags": [
+  "firmware",
+  "squashfs",
+  "cramfs",
+  "jffs2",
+  "real-target",
+  "partial"
+ ],
+ "refs": [
+  "Tool/skill/firmware-iot/scripts/fw-triage.py",
+  "Tool/skill/firmware-iot/scripts/fw-repro.py",
+  "Tool/skill/firmware-iot/references/01-criteria.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/cramfs.bin",
+   "sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
+   "source": "github.com/ReFirmLabs/binwalk tests/inputs/cramfs.bin（BSD-2）"
+  }
+ ]
+}

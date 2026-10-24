@@ -40,7 +40,7 @@ python Tool/skill/supply-chain-security/scripts/sbom-reach.py \
   --lock package-lock.json --source src --entry 'main.py' --out reach.json
 
 # 3) 清单盘点与风险线索
-python Tool/scripts/sc-check.py --path . --out sc.json
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
 ```
 
 输出关键字段：

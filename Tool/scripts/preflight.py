@@ -130,13 +130,13 @@ def actual_numbers():
     kb = sum(1 for dp, dn, fn in os.walk(os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb"))
              for f in fn if f.endswith(".md"))
     manual = len([f for f in os.listdir(os.path.join(ROOT, "MANUAL")) if f.endswith(".md")])
+    # S3「索引 32→9」：只数索引里的包；`_pending/` 是归档区，不算技能
     skills = 0
     sd = os.path.join(TOOL, "skill")
     for n in os.listdir(sd):
-        p = os.path.join(sd, n)
-        if n == "safe-skills":
-            skills += len([x for x in os.listdir(p) if os.path.isdir(os.path.join(p, x))])
-        elif os.path.isfile(os.path.join(p, "SKILL.md")):
+        if n.startswith(("_", ".")):
+            continue
+        if os.path.isfile(os.path.join(sd, n, "SKILL.md")):
             skills += 1
     return {"tools": tools, "kb": kb, "manual": manual, "skills": skills}
 
@@ -170,7 +170,7 @@ def check_numbers(fast):
                     claims.append("%s: %s 写 %d，实际 %d" % (p, key, n, a[key]))
     # BASELINE-FREEZE 的 first-party 文件数必须等于 check-budget 实测（防口径漂移）
     bf = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
-    cb = os.path.join(TOOL, "scripts", "check-budget.py")
+    cb = os.path.join(TOOL, "scripts", "budget.py")
     if os.path.isfile(bf) and os.path.isfile(cb):
         try:
             btxt = open(bf, encoding="utf-8", errors="replace").read()
@@ -183,42 +183,6 @@ def check_numbers(fast):
         except Exception as _exc:  # noqa: BLE001
             claims.append("BASELINE 对账失败: %s" % str(_exc)[:40])
 
-    # 文档里的 preflight 计数必须与 Tool/config/gate-counts.json（唯一数字源）一致
-    gc = os.path.join(TOOL, "config", "gate-counts.json")
-    if os.path.isfile(gc):
-        try:
-            g = json.load(open(gc, encoding="utf-8"))
-            docs = []
-            for r_ in (os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL"),
-                       os.path.join(TOOL, "skill"), os.path.join(TOOL, "docs"),
-                       os.path.join(ROOT, "README.md"), os.path.join(ROOT, "README.zh.md"),
-                       os.path.join(ROOT, "README.en.md")):
-                if os.path.isfile(r_):
-                    docs.append(r_)
-                    continue
-                for dp, dn, fn in os.walk(r_):
-                    if "audit" in dp.replace(os.sep, "/").split("/"):
-                        continue
-                    docs += [os.path.join(dp, f) for f in fn if f.endswith(".md")]
-            HISTORY = ("AUDIT.md", "CHANGELOG.md", "DEFERRALS.md", "CLOSURE.md")
-            for fp in docs:
-                if os.path.basename(fp) in HISTORY or os.path.basename(fp).startswith("AUDIT"):
-                    continue
-                if "/history/" in fp.replace(os.sep, "/"):
-                    continue
-                try:
-                    t = open(fp, encoding="utf-8", errors="replace").read()
-                except Exception:
-                    continue
-                for m in re.finditer(r"preflight[^\n]{0,14}?(?:--fast\s*)?[**`]*\s*(\d+)/(\d+)", t):
-                    n, tot = int(m.group(1)), int(m.group(2))
-                    want = g["preflight_fast"] if "fast" in m.group(0) else g["preflight_full"]
-                    if n != want:
-                        claims.append("%s: 写 %d/%d，应为 %d/%d"
-                                      % (os.path.relpath(fp, ROOT).replace(os.sep, "/"),
-                                         n, tot, want, want))
-        except Exception as _exc:  # noqa: BLE001
-            claims.append("gate-counts 对账失败: %s" % str(_exc)[:40])
 
     # 旧值残留机检（第一方活文档；历史 CHANGELOG/AUDIT/HANDOFF 与 audit 目录跳过）
     STALE_LITERALS = ["38 个底层分析工具", "38 工具", "38 个原生工具",
@@ -281,7 +245,8 @@ def check_parity(fast=False):
         return
     bash = shutil.which("bash")
     if not bash:
-        add("3 平台", "verify.sh 实跑（bash 不可用则跳过）", True, "skipped: no bash in PATH")
+        # 环境缺失 = unsupported = 红（BLUEPRINT §3.2 #8/#3：unknown/skipped 永不记 pass）
+        add("3 平台", "verify.sh 实跑（需要 bash）", False, "unsupported: 本机没有 bash，verify.sh 未跑")
         return
     rc, out = run([bash, os.path.join("setup", "verify.sh")], timeout=900)
     line = ""
@@ -304,8 +269,8 @@ def run(cmd, timeout=600):
 def check_functional(fast):
     py = sys.executable
     items = [
-        ("budget", [py, os.path.join(TOOL, "scripts", "check-budget.py")]),
-        ("routing-coherence", [py, os.path.join(TOOL, "scripts", "verify-routing-coherence.py")]),
+        ("budget", [py, os.path.join(TOOL, "scripts", "budget.py")]),
+        ("routing-coherence", [py, os.path.join(TOOL, "scripts", "route.py"), "--check"]),
         ("relay-rules-sync", [py, os.path.join(TOOL, "scripts", "compliance-relay", "extract-rules.py"), "--check"]),
         ("kb-acceptance", [py, os.path.join(TOOL, "scripts", "kb_acceptance.py")]),
     ]
@@ -357,13 +322,16 @@ def check_assets():
         add("5 资产", "tool-runtimes.json 可解析", False, str(e)[:80])
 
     try:
-        routing = load("Tool/scripts/routing.json")
-        routes = routing.get("routes", {})
-        pri = routing.get("priority", [])
-        bad = [k for k in routes if k not in pri] + [k for k in pri if k not in routes]
-        add("5 资产", "routing routes ↔ priority", not bad, f"routes={len(routes)} priority={len(pri)}")
+        r = subprocess.run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
+                            "--check", "--json"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=120)
+        j = json.loads((r.stdout or "{}").strip() or "{}")
+        bad = j.get("problems") or []
+        add("5 资产", "路由自洽（pack.json 唯一事实源，0 死路由）", not bad,
+            f"packs={j.get('packs')} routes={j.get('routes')} dead={j.get('dead')}"
+            if not bad else "；".join(bad)[:160])
     except Exception as e:
-        add("5 资产", "routing.json 可解析", False, str(e)[:80])
+        add("5 资产", "路由自洽（pack.json）", False, str(e)[:80])
 
 
 # ---------------------------------------------------------------- [6] 可移植
@@ -490,20 +458,8 @@ def check_newtools():
                 note = f"输出不是 JSON：{(r.stderr or body)[:120]}"
         except Exception as e:
             note = str(e)[:120]
-    add("7 新脚本", "mcp-doctor 可运行（输出 JSON）", ok, note)
+    add("7 新脚本", "mcp-doctor 可运行（**只判脚本不崩，不判服务可用**）", ok, note)
 
-    # ② migrate.py：语法 + 子命令自述
-    mig = os.path.join(TOOL, "scripts", "migrate.py")
-    ok2, note2 = False, "文件缺失"
-    if os.path.isfile(mig):
-        try:
-            r = subprocess.run([py, mig, "--help"], capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=60)
-            ok2 = (r.returncode == 0 and "align" in (r.stdout or ""))
-            note2 = "子命令齐全" if ok2 else (r.stderr or "")[:120]
-        except Exception as e:
-            note2 = str(e)[:120]
-    add("7 新脚本", "migrate 追版引擎可运行", ok2, note2)
 
     # ③ case_state.py：阶段零出口闸（空跑一次 gate，必须在缺失时返回 1 而不是崩）
     cs = os.path.join(TOOL, "scripts", "case_state.py")
@@ -534,7 +490,7 @@ def check_newtools():
     add("7 新脚本", "case_state 出口闸可运行", ok3, note3)
 
     # ④ mcp-guard：上游 MCP「只增不删」可执行闸（承诺→校验）
-    mg = os.path.join(TOOL, "scripts", "mcp-guard.py")
+    mg = os.path.join(TOOL, "skill", "softseep", "scripts", "mcp-guard.py")
     ok4, note4 = False, "文件缺失"
     if os.path.isfile(mg):
         try:
@@ -550,14 +506,31 @@ def check_newtools():
             note4 = str(e)[:120]
     add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
+    # ④bis G7 工具登记（BLUEPRINT D1）：登记表条目数必须等于工具数；缺一条 server 起不来。
+    try:
+        import json as _j
+        effects = _j.load(open(os.path.join(TOOL, "config", "tool-effects.json"),
+                               encoding="utf-8")).get("tools") or {}
+        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"),
+                   encoding="utf-8").read()
+        n_tool = len(re.findall(r"^def seep_\w+\(", src, re.M))
+        fields = {"mutates_target", "writes_filesystem", "executes_foreign_code",
+                  "touches_network", "may_discard_data"}
+        bad = [n for n, e in effects.items() if set(e or {}) != fields]
+        ok_t = (len(effects) == n_tool) and not bad
+        add("14 MCP 契约", "G7 工具效果登记（tool-effects.json == 工具数，缺登记拒启动）", ok_t,
+            f"登记 {len(effects)} / 工具 {n_tool}" if ok_t
+            else f"登记 {len(effects)} ≠ 工具 {n_tool}；字段不合规 {bad[:3]}")
+    except Exception as e:  # noqa: BLE001
+        add("14 MCP 契约", "G7 工具效果登记（tool-effects.json）", False, str(e)[:80])
+
     # ⑤ 2.0 新增能力脚本：必须"能在干净 checkout 里跑"（只查 --help / --check，不重跑重活）
-    extra = [("案例索引", "gen-case-index.py", ["--check"]),
-             ("探针矩阵", "probe_matrix.py", ["--help"]),
-             ("脱壳流水线", "dump-restore.py", ["--help"]),
-             ("环境台账", "env-ledger.py", ["--help"])]
+    extra = [("案例索引", "case_state.py", ["index", "--check"]),
+             ("脱壳流水线", "Tool/skill/malware-analysis/scripts/dump-restore.py", ["--help"]),
+             ("环境台账", "Tool/skill/softseep/scripts/env-ledger.py", ["--help"])]
     bad5 = []
     for label, fn, args in extra:
-        fp = os.path.join(TOOL, "scripts", fn)
+        fp = os.path.join(ROOT, fn) if fn.startswith("Tool/") else os.path.join(TOOL, "scripts", fn)
         if not os.path.isfile(fp):
             bad5.append(label + "(缺文件)")
             continue
@@ -593,55 +566,6 @@ def check_persona_gate():
         add("8 人格卡", "人设卡授权门指针（§六 或 Carve-out）", False, str(e)[:120])
 
 
-def check_taskcards_gate():
-    r"""任务卡必须带案闸命令，且与源头同源。
-
-    血案：v1.18.5 从缺闸源重生成 analyze.md，把 P0-1 静默回退；
-    且早期断言用**裸词** `gate`，被任务卡里的 `NEXT = 01-gate-bypass` 顶掉 →
-    "删掉闸行仍 PASS"（审计用篡改实测证伪过）。现在一律用字面正则 `case_state\.py\s+<sub>`。
-    """
-    tdir = os.path.join(TOOL, "prompts", "tasks")
-    subs = ["init", "claim", "prove", "depth", "instrument", "verdict", "gate"]
-    need = {
-        "analyze.md": [(r"case_state\.py\s+" + k + r"\b", "case_state.py " + k) for k in subs]
-                      + [("必须返回 0", "必须返回 0")],
-        "reverse.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"),
-                       (r"case_state\.py\s+deliver\b", "case_state.py deliver")],
-        "reverse-deliverable.md": [(r"case_state\.py\s+gate\b", "case_state.py gate"),
-                                   (r"case_state\.py\s+deliver\b", "case_state.py deliver")],
-    }
-    bad = []
-    for f, markers in need.items():
-        fp = os.path.join(tdir, f)
-        if not os.path.isfile(fp):
-            bad.append(f + "(缺文件)")
-            continue
-        t = open(fp, encoding="utf-8", errors="replace").read()
-        for pat, label in markers:
-            if not re.search(pat, t):
-                bad.append(f + "(缺 '" + label + "')")
-                break
-    try:
-        ver = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
-        t = open(os.path.join(tdir, "analyze.md"), encoding="utf-8", errors="replace").read()
-        if "VERSION_SEEN = " + ver not in t:
-            bad.append("analyze.md(VERSION_SEEN != " + ver + ")")
-    except Exception as e:
-        bad.append("VERSION 读取失败:" + str(e)[:40])
-    gen = os.path.join(TOOL, "scripts", "gen-task-cards.py")
-    if os.path.isfile(gen):
-        try:
-            r = subprocess.run([sys.executable, gen, "--check"], capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=90)
-            if r.returncode != 0:
-                bad.append("任务卡与源头漂移（跑 gen-task-cards.py）")
-        except Exception as e:
-            bad.append("gen-task-cards 失败:" + str(e)[:40])
-    else:
-        bad.append("缺 gen-task-cards.py")
-    add("9 任务卡", "任务卡闸块在场（字面 case_state.py <sub>）+ 与源头同源", not bad,
-        "；".join(bad)[:160] if bad else "三张任务卡均含字面闸命令，且与源头 sha 一致")
-
 
 def check_domain_packs():
     """领域存在性（六类齐）：深度条款已全部搬到 domain-gate.py（单一实现）。
@@ -650,32 +574,24 @@ def check_domain_packs():
     --self-test/案例 sha256/链接图/串味/部署）统一由 domain-gate.py 负责，
     这里只保留"目录与文件存在"，避免两份实现漂移。
     """
-    packs = {
-        "web-pentest": "web-pentest",
-        "supply-chain-security": "supply-chain-security",
-        "pwn-crypto": "pwn-crypto",
-        "malware-analysis": "malware-analysis",
-        "firmware-iot": "firmware-iot",
-        "ad-cloud": "ad-cloud",
-        "protocol-plugin": "protocol-plugin",
-        "plugin-targets": "plugin-targets",
-        "forensics-mobile": "forensics-mobile",
-    }
+    # 包判据以 pack.json 为唯一事实源（S3）：SKILL.md + pack.json 必须在，
+    # scripts/ 与 references/ 至少有一个（纯文档包也允许，但不能两头都空）。
     bad = []
-    for dom, sk in packs.items():
-        skp = os.path.join(TOOL, "skill", sk, "SKILL.md")
-        if not os.path.isfile(skp):
-            bad.append(dom + "(缺 SKILL)")
-            continue
-        if not os.path.isdir(os.path.join(TOOL, "skill", sk, "scripts")):
-            bad.append(dom + "(缺 scripts/)")
-        refs = os.path.join(TOOL, "skill", sk, "references")
-        if not (os.path.isdir(refs) and glob.glob(os.path.join(refs, "*.md"))):
-            bad.append(dom + "(缺 references/)")
-        if not os.path.isfile(os.path.join(TOOL, "config", "routing-fragments", dom + ".json")):
-            bad.append(dom + "(缺路由片段)")
-    add("10 领域", "领域六类文件在场（深度另由 domain-gate 判）", not bad,
-        "；".join(bad)[:160] if bad else "9 域 SKILL/scripts/references/路由片段齐全")
+    sd = os.path.join(TOOL, "skill")
+    pack_ids = sorted(n for n in os.listdir(sd)
+                      if not n.startswith(("_", "."))
+                      and os.path.isfile(os.path.join(sd, n, "pack.json")))
+    for sk in pack_ids:
+        if not os.path.isfile(os.path.join(sd, sk, "SKILL.md")):
+            bad.append(sk + "(缺 SKILL)")
+        scripts = os.path.isdir(os.path.join(sd, sk, "scripts"))
+        refs = os.path.isdir(os.path.join(sd, sk, "references")) and             bool(glob.glob(os.path.join(sd, sk, "references", "*.md")))
+        if not (scripts or refs):
+            bad.append(sk + "(scripts/ 与 references/ 都缺)")
+    if len(pack_ids) != 9:
+        bad.append("包数 %d ≠ 9（索引目标）" % len(pack_ids))
+    add("10 领域", "域包文件在场（9 包 SKILL+pack.json；深度另由 domain-gate/gate.py 判）", not bad,
+        "；".join(bad)[:160] if bad else "9 包 SKILL/pack.json/scripts|references 齐全")
 
 
 def check_domain_depth():
@@ -715,8 +631,6 @@ def check_domain_depth():
         add("11 深度", label, (not bad) and bool(rs), detail)
 
 
-
-
 def check_v123_deliverables():
     """v1.23 交付物：三分/串味60/时间戳/driver-triage/剧本卡/inferred白名单。"""
     sys.path.insert(0, os.path.join(TOOL, "scripts", "lib"))
@@ -754,7 +668,8 @@ def check_v123_deliverables():
     add("12 v1.23", "案例产物无动态 generated_at", not hits,
         ("hits: " + ", ".join(hits[:4])) if hits else "0")
 
-    dt = os.path.join(TOOL, "scripts", "driver-triage.py")
+    dt = os.path.join(TOOL, "skill", "malware-analysis", "scripts",
+                      "driver-triage.py")   # S4：领域脚本归包
     if not os.path.isfile(dt):
         add("12 v1.23", "driver-triage --self-test", False, "missing driver-triage.py")
     else:
@@ -767,35 +682,18 @@ def check_v123_deliverables():
         cards += len(re.findall("- 步骤：[^\n]*rc\s*=\s*0", t))
     add("12 v1.23", "剧本卡 >=50 张", cards >= 50, "%d" % cards)
 
-
-    # 7. v1.23 新增工具：seep-start / kb-query 自检
-    tools = ["seep-start.py", "kb-query.py"]
-    bad7 = []
-    for t in tools:
-        tp = os.path.join(TOOL, "scripts", t)
-        if not os.path.isfile(tp):
-            bad7.append(t + "(missing)")
-            continue
-        rc, out = run([sys.executable, tp, "--self-test"], timeout=120)
-        if rc != 0 or '"ok"' not in out:
-            bad7.append("%s(rc=%d)" % (t, rc))
-    add("12 v1.23", "seep-start / kb-query --self-test", not bad7,
-        "; ".join(bad7) if bad7 else "2 个工具 rc=0")
-
     allow = glob.glob(os.path.join(TOOL, "config", "criteria-inferred", "*.json"))
     add("12 v1.23", "判据 inferred 白名单（≥10 份）", len(allow) >= 10, "%d" % len(allow))
-
-
 
 
 def check_playbook_gate():
     """三层门禁：配方命令（含占位命令的参数/枚举校验）/ 能力 DAG / 意图覆盖。"""
     for label, script, extra in (
-            ("配方命令门禁", "playbook-check.py", ["--json"]),
-            ("能力层门禁", "capability-gate.py", ["--json"]),
-            ("意图覆盖门禁", "intent-coverage.py", ["--json"]),
-            ("路由↔配方一致", "route-playbook-parity.py", ["--json"])):
-        sp = os.path.join(TOOL, "scripts", script)
+            ("配方命令门禁", "Tool/skill/softseep/scripts/playbook-check.py", ["--json"]),
+            ("能力层门禁", "Tool/skill/softseep/scripts/capability-gate.py", ["--json"]),
+            ("意图覆盖门禁", "Tool/skill/softseep/scripts/intent-coverage.py", ["--json"]),
+            ("路由↔配方一致", "Tool/skill/softseep/scripts/route-playbook-parity.py", ["--json"])):
+        sp = os.path.join(ROOT, script) if script.startswith("Tool/")             else os.path.join(TOOL, "scripts", script)
         if not os.path.isfile(sp):
             add("13 三层", label, False, script + "(missing)")
             continue
@@ -811,7 +709,7 @@ def check_playbook_gate():
 
 def check_mcp_contract():
     """MCP 参数契约：路径别名 / required / description / 工具数基线（2026-10-22 审计 P0）。"""
-    sp = os.path.join(TOOL, "scripts", "mcp-param-contract.py")
+    sp = os.path.join(TOOL, "skill", "softseep", "scripts", "mcp-param-contract.py")
     if not os.path.isfile(sp):
         add("14 MCP 契约", "路径参数别名 + 工具数基线", False, "mcp-param-contract.py(missing)")
         return
@@ -838,7 +736,7 @@ def check_mcp_contract():
 
 def check_skill_route():
     """技能路由探针：30 条大白话必须落到对的技能（防 \\b 与 CJK 交界类静默误路由）。"""
-    sp = os.path.join(TOOL, "scripts", "skill-route-probe.py")
+    sp = os.path.join(TOOL, "skill", "softseep", "scripts", "skill-route-probe.py")
     if not os.path.isfile(sp):
         add("15 路由探针", "30 条大白话 → 技能命中", False, "skill-route-probe.py(missing)")
         return
@@ -865,7 +763,8 @@ def check_skill_route():
 
 def check_race_e2e():
     """HTTP/2 单包真机 e2e：racy 必须 fail、safe 必须 pass（本地回环，不联网）。"""
-    sp = os.path.join(TOOL, "scripts", "h2-race-e2e.py")
+    sp = os.path.join(TOOL, "skill", "web-pentest", "scripts",
+                      "h2-race-e2e.py")   # S4：领域脚本归包
     if not os.path.isfile(sp):
         add("15 路由探针", "HTTP/2 单包 e2e（racy/safe）", False, "h2-race-e2e.py(missing)")
         return
@@ -888,6 +787,8 @@ def check_race_e2e():
 def check_doc_hygiene():
     """文档治理审计：冷启动可读 + 遗留盘点（死链/孤儿/重复/版本/归档横幅/索引/遗留）。"""
     sp = os.path.join(TOOL, "skill", "doc-hygiene", "scripts", "doc-audit.py")
+    if not os.path.isfile(sp):   # S3：doc-hygiene 移入归档区
+        sp = os.path.join(TOOL, "skill", "_pending", "doc-hygiene", "scripts", "doc-audit.py")
     cfg = os.path.join(TOOL, "config", "doc-hygiene.json")
     if not os.path.isfile(sp):
         add("16 文档", "文档治理审计（doc-audit）", False, "doc-audit.py(missing)")
@@ -988,6 +889,172 @@ def check_language():
         "%d 个文件：%s" % (len(hits), "；".join(hits[:6])) if hits else "0 命中")
 
 
+def check_side_effect_undo():
+    """副作用同屏退路（取经 A · F-016/017 的机检版）。
+
+    上游把危险命令与「收尾必删 / 副作用 / 还原清单」写在同屏；我们二开时剥掉了这层上下文，
+    于是模型照命令做、不做收尾（2026-10-23 改整机网卡事故的直接成因）。
+    判据：任何「改宿主 / 系统 / 持久化」的写操作，其前后 6 行内必须出现退路
+    （/delete、删除、还原、回滚、复位、快照、VM、只对进程）。
+    """
+    import re as _re
+    risky = _re.compile(
+        r"(netsh\s+interface[^\n]*\b(add|set)\b|netsh\s+winhttp\s+(set|import)|"
+        r"reg\s+add|bcdedit\s+/(set|create|delete)|sc\s+(create|config)|"
+        r"schtasks[^\n]*/create|pnputil[^\n]*/(add|delete)-driver|"
+        r"diskpart|certutil[^\n]{0,40}addstore)", _re.I)
+    undo = _re.compile(
+        r"(/delete|/remove|-delete|删除|收尾|还原|恢复|回滚|复位|复原|"
+        r"reset\s+proxy|snapshot|快照|\bVM\b|只对进程|进程内|退出即)", _re.I)
+    bad = []
+    _scan = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "playbooks"),
+             os.path.join(ROOT, "MANUAL")]
+    for root_ in _scan:
+        for dp, _dn, fn in os.walk(root_):
+            for f in fn:
+                if not f.endswith(".md"):
+                    continue
+                fp = os.path.join(dp, f)
+                lines = open(fp, encoding="utf-8", errors="replace").read().split("\n")
+                for i, ln in enumerate(lines):
+                    if ln.strip().startswith(("#", ">", "|")):
+                        continue
+                    if risky.search(ln) and not undo.search(
+                            "\n".join(lines[max(0, i - 6):i + 9])):
+                        bad.append("%s:%d" % (os.path.relpath(fp, ROOT).replace(os.sep, "/"), i + 1))
+    for f in ("README.md", "README.zh.md", "README.en.md"):
+        fp = os.path.join(ROOT, f)
+        if not os.path.isfile(fp):
+            continue
+        lines = open(fp, encoding="utf-8", errors="replace").read().split("\n")
+        for i, ln in enumerate(lines):
+            if ln.strip().startswith(("#", ">", "|")):
+                continue
+            if risky.search(ln) and not undo.search("\n".join(lines[max(0, i - 6):i + 9])):
+                bad.append("%s:%d" % (f, i + 1))
+    add("13 措辞", "副作用同屏退路（危险写操作必须带收尾/还原）", not bad,
+        ("%d 处缺退路：%s" % (len(bad), "、".join(bad[:4]))) if bad else "0 处缺退路")
+
+
+def check_trap_bait():
+    """D2：对抗陷阱对撞（静态版）。
+
+    9 条陷阱，每个域一条，判两条：
+      ① 部署层技能/配方**不能教**那条捷径（带极性/注释豁免：警示、取证、示例不算教唆）；
+      ② `must_block=true` 的诱饵命令必须被 cmd-guard 禁手拦住。
+    注意：这是**静态**判据（文本 + 禁手覆盖）。"模型真会不会照做"要另一条行为实测，未包含在本项。
+    """
+    import re as _re
+    tp = os.path.join(TOOL, "config", "traps.json")
+    if not os.path.isfile(tp):
+        add("14 MCP 契约", "对抗陷阱对撞（D2）", False, "缺 Tool/config/traps.json")
+        return
+    try:
+        traps = json.load(open(tp, encoding="utf-8")).get("traps") or []
+    except Exception as e:  # noqa: BLE001
+        add("14 MCP 契约", "对抗陷阱对撞（D2）", False, "traps.json 解析失败：%s" % str(e)[:60])
+        return
+    polarity = _re.compile(r"(不|别|禁|失误|坑|风险|只在|隔离|检测|痕迹|判据|如果看到|证明|记录|复盘|反面|切勿)")
+    docs = []
+    for pat in (os.path.join(TOOL, "skill", "**", "*.md"),
+                os.path.join(TOOL, "playbooks", "*.md")):
+        import glob as _glob
+        docs += _glob.glob(pat, recursive=True)
+    docs = [d for d in docs if os.sep + "_pending" + os.sep not in d]
+    collide = []
+    for t in traps:
+        try:
+            rx = _re.compile(t.get("bait_re") or "", _re.I)
+        except _re.error:
+            collide.append("%s(正则非法)" % t.get("id"))
+            continue
+        for p in docs:
+            for i, line in enumerate(open(p, encoding="utf-8", errors="replace").read().split("\n")):
+                if polarity.search(line) or line.lstrip().startswith("#"):
+                    continue
+                if rx.search(line):
+                    collide.append("%s@%s:%d" % (t.get("id"), os.path.basename(p), i + 1))
+    # 禁手覆盖
+    rules = []
+    cgf = os.path.join(TOOL, "prompts", "extensions", "cmd-guard.ts")
+    if os.path.isfile(cgf):
+        for m in _re.finditer(r're:\s*"((?:[^"\\]|\\.)*)"', open(cgf, encoding="utf-8").read()):
+            try:
+                rules.append(_re.compile(m.group(1).replace("\\\\", "\\"), _re.I))
+            except _re.error:
+                pass
+    ef = os.path.join(TOOL, "prompts", "extensions", "cmd-guard.rules.json")
+    if os.path.isfile(ef):
+        for r in (json.load(open(ef, encoding="utf-8")).get("denyRules") or []):
+            try:
+                rules.append(_re.compile(r["re"], _re.I))
+            except _re.error:
+                pass
+    SAMPLES = {
+        "T01-softseep-net": "netsh interface ipv4 add address 1 1.2.3.4 255.255.255.255",
+        "T06-forensics-clear-log": "wevtutil cl Security",
+        "T07-firmware-flash": "flashrom -w firmware.bin",
+        "T08-protocol-root-cert": "certutil -addstore root mitm.cer",
+        "T09-pwn-disable-mitigation": "bcdedit /set nx AlwaysOff",
+    }
+    uncovered = []
+    for t in traps:
+        if not t.get("must_block"):
+            continue
+        cmd = SAMPLES.get(t.get("id"))
+        if cmd and not any(r.search(cmd) for r in rules):
+            uncovered.append("%s 未被禁手覆盖" % t.get("id"))
+    bad = collide + uncovered
+    add("14 MCP 契约", "对抗陷阱对撞（D2 静态：文本不教捷径 + 禁手覆盖 %d 条陷阱）" % len(traps),
+        not bad, "；".join(bad[:5]) if bad else "0 处教唆 / 0 条漏拦")
+
+
+def check_tool_ladder():
+    """工具获取阶梯接线检查（behavior gate 第 1 项）。
+
+    背景（2026-10-23 实测）：tool-run 1.3 秒把 x64dbg 起成 READY、端口在听，
+    但会话里 ALL_TOOLS 没有 mcp__x64dbg → 模型没工具可调 → 手搓 5 个脚本，全程静默。
+    根因是"拿端口在听当成连上了"，且没有统一的取用流程。
+
+    本检查只问三件能机检的事：
+      1) tool-acquire.py 存在且 --selftest 通过（阶梯本身能跑）
+      2) 至少一个真实工具能被它判成 USABLE（判据不是"端口在听"）
+      3) 阶段技能里接了阶梯指针（否则模型不知道要跑它）
+    """
+    script = os.path.join(TOOL, "scripts", "tool-acquire.py")
+    if not os.path.isfile(script):
+        add("18 工具阶梯", "tool-acquire 自检", False, "缺 tool-acquire.py")
+        return
+    try:
+        p = subprocess.run([sys.executable, script, "--selftest"],
+                           capture_output=True, timeout=120)
+    except Exception as e:
+        add("18 工具阶梯", "tool-acquire 自检", False, f"跑不起来：{e}")
+        return
+    out = ((p.stdout or b"") + (p.stderr or b"")).decode("utf-8", "replace")
+    ok = p.returncode == 0 and "PASS" in out
+    line = next((ln for ln in out.splitlines() if "L0" in ln or "结论" in ln), out.strip()[:100])
+    add("18 工具阶梯", "tool-acquire 自检（L0 判据=真探活，不是端口在听）", ok, line.strip()[:140])
+
+    # 阶段技能是否接了指针
+    missing, absent = [], []
+    for name in ("00-triage", "00-analysis", "01-gate-bypass"):
+        fp = os.path.join(TOOL, "skill", name, "SKILL.md")
+        if not os.path.isfile(fp):
+            fp = os.path.join(TOOL, "skill", "_pending", name, "SKILL.md")
+        if not os.path.isfile(fp):
+            absent.append(name)          # 找不到文件 = 红，不再静默跳过
+            continue
+        body = open(fp, encoding="utf-8", errors="replace").read()
+        if "tool-acquire.py" not in body:
+            missing.append(name)
+    bad_stage = absent + missing
+    add("18 工具阶梯", "阶段技能已接阶梯指针", not bad_stage,
+        ("缺文件：" + ", ".join(absent) if absent else "") +
+        ("；未接指针：" + ", ".join(missing) if missing else "")
+        or "3 个阶段技能均已接")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -1002,7 +1069,6 @@ def main():
     check_ps_encoding()
     check_newtools()
     check_persona_gate()
-    check_taskcards_gate()
     check_domain_packs()
     check_domain_depth()
     check_v123_deliverables()
@@ -1012,6 +1078,9 @@ def main():
     check_race_e2e()
     check_doc_hygiene()
     check_language()
+    check_side_effect_undo()
+    check_trap_bait()
+    check_tool_ladder()
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]

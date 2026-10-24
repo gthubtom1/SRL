@@ -11,7 +11,7 @@
 
 | # | 冻结项 | 具体内容 | 为什么不能动 |
 |---|---|---|---|
-| F1 | **目录骨架** | `Tool/skill/`、`Tool/mcp/`、`Tool/mcp/Tool/`、`Tool/prompts/`、`Tool/scripts/`、`Tool/config/`、`MANUAL/`、`setup/` | `seep_mcp_server.py` 的 `TOOL_DIR = <脚本目录>/Tool` 是硬编码相对路径；`Tool/mcp/Tool/` 一搬，40 个工具全瘫 |
+| F1 | **目录骨架** | `Tool/skill/`、`Tool/mcp/`、`Tool/mcp/Tool/`、`Tool/prompts/`、`Tool/scripts/`、`Tool/config/`、`MANUAL/`、`setup/` | `seep_mcp_server.py` 的 `TOOL_DIR = <脚本目录>/Tool` 是硬编码相对路径；`Tool/mcp/Tool/` 一搬，20 个工具全瘫 |
 | F2 | **MCP 工具名** | 已发布的 40 个 `seep_*` 工具名与参数签名 | Skill / SOP / 报告模板 / 用户习惯全部按名引用；改名 = 静默失效 |
 | F3 | **Agent 配置格式** | `~/.pi/agent/mcp.json`、`.mcp.json`、`opencode.jsonc`、`cordis.generated.yml` 的字段结构 | 四个 Agent 宿主共同消费；字段改名 = 宿主起不来 |
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
@@ -30,7 +30,7 @@
 ```bash
 lab：new-skill <skill-name>
 # 或
-python Tool/scripts/new-skill.py <skill-name> --desc "一句话描述" --title "中文全称"
+（该脚本 S4 已删，见下方替代路径） <skill-name> --desc "一句话描述" --title "中文全称"
 ```
 
 脚手架会：创建 `Tool/skill/<name>/SKILL.md`（UTF-8 无 BOM）→ 注册进 `softseep/SKILL.md` 调度表 → 同步到 `~/.pi/agent/skills/`。
@@ -50,9 +50,9 @@ python Tool/scripts/new-skill.py <skill-name> --desc "一句话描述" --title "
 ```bash
 python Tool/mcp/test_seep_mcp.py          # 基线 9/9
 python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
-python Tool/scripts/verify-routing-coherence.py   # 路由自洽
+python Tool/scripts/route.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
-python Tool/scripts/smoke-e2e.py                  # 端到端链路 12 项（真实样本）
+python `Tool/scripts/preflight.py`                  # 端到端链路 12 项（真实样本）
 powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ```
 
@@ -68,7 +68,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 
 | 返工动作 | 后果 |
 |---|---|
-| 搬动/重命名 `Tool/mcp/Tool/` | 40 个工具全部失效（`TOOL_DIR` 硬编码） |
+| 搬动/重命名 `Tool/mcp/Tool/` | 20 个工具全部失效（`TOOL_DIR` 硬编码） |
 | 修改 `seep_mcp_server.py` 顶部的路径常量 | 同上 |
 | 删除或重命名既有 `seep_*` 工具 | Skill/SOP/用户习惯全部断链 |
 | 让 `register_mcp` 无条件写仓库根 `.mcp.json` | 跑一次测试就污染受跟踪文件（v1.8.0 曾发生） |
@@ -117,7 +117,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ## 六、 出问题时的第一反应
 
 1. **先跑体检**：`check.ps1` 或 `./setup/verify.sh` —— 65 项里红哪一项，就是坏在哪一层；
-2. **再看路由**：`python Tool/scripts/verify-routing-coherence.py` —— 路由指向不存在的技能会静默失效；
+2. **再看路由**：`python Tool/scripts/route.py` —— 路由指向不存在的技能会静默失效；
 3. **再跑三套测试**：MCP 基线 / 扩展资产 / 中继；
 4. **仍未定位**：`git diff` 最近一次变更，按"四、变更清单模板"逐项对照。
 
@@ -134,12 +134,12 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 
 | 对象 | 当前 | 硬上限 | 说明 |
 |---|---:|---:|---|
-| MCP 工具（`seep_*`） | 40 | **45** | 新能力优先"用现有工具组合"，其次才加工具 |
-| 技能（Skill） | 30 | **无上限**（v1.17.5 修订） | 用户明确要求"技能数量不设限"：按需扩展，靠 first-party 文件数（≤900）与单技能 ≤12KB 兜底，不再按条数封顶 |
+| MCP 工具（`seep_*`） | 20 | **45** | 新能力优先"用现有工具组合"，其次才加工具 |
+| 技能（Skill） | 9（8 域包 + softseep；其余 19 个在 `_pending/` 归档区） | **无上限**（v1.17.5 修订） | 用户明确要求"技能数量不设限"：按需扩展，靠 first-party 文件数（≤900）与单技能 ≤12KB 兜底，不再按条数封顶 |
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
-| 单文件行数 | 2996（MCP 主服务） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 830 | **900** | 超了说明在"堆文件"而不是"做能力" |
+| 单文件行数 | 2306（MCP 主服务，S4 工具面 40→20 后） | **3200** | 超了要拆模块，而不是继续追加 |
+| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 879 | **900** | 超了说明在"堆文件"而不是"做能力" |
 
 ### 7.2 三不原则
 
@@ -155,7 +155,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 
 ### 7.3 加功能前的四问（答不上来就不加）
 
-1. 能不能用**现有 40 个工具 + 现有技能**组合出来？（能 → 不加）
+1. 能不能用**现有 20 个工具 + 现有技能**组合出来？（能 → 不加）
 2. 它属于"新战术域"还是"已有域的新手段"？（后者 → 写进现有技能的 references，不新建技能）
 3. 它会不会让模型多一个选择题？（会 → 默认不暴露，或挂到降级链末端）
 4. 删掉它，哪条链路会断？（答"不会断" → 说明它不是必需的，优先不加）
@@ -163,7 +163,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ### 7.4 每次提交的自检
 
 ```bash
-python Tool/scripts/check-budget.py
+python Tool/scripts/budget.py
 ```
 
 该脚本会核对：MCP 工具数 ≤45、技能数（v1.17.5 起不设上限，脚本只统计不断言）、setup 脚本 ≤22、MANUAL ≤16、
@@ -172,7 +172,7 @@ python Tool/scripts/check-budget.py
 端到端链路另跑一条（不占预算、约 13 秒）：
 
 ```bash
-python Tool/scripts/smoke-e2e.py
+python `Tool/scripts/preflight.py`
 ```
 
 它用真实样本把「triage → 判壳 → 画像 → 函数 → 反编译 → KB → 工作区 → 报告 → 工具发现」跑一遍，

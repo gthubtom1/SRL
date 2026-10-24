@@ -1,0 +1,29 @@
+{
+  "schema": "seep.verification/1",
+  "case": "supply-chain05",
+  "date": "2026-10-24",
+  "problem": "该案例为本轮为真实目标新建，此前无事实账（baseline = 空账）",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/supply-chain05",
+  "cohorts": {
+    "baseline": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 8,
+      "proven": 8,
+      "strong": 8,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "facts.jsonl": "6f7684f4fbddc80fe2d7fb4681616ca3c9ddb7b1ae69884c4d1c30caec505913",
+    "artifacts/MANIFEST.sha256": "67ac56aabb22721bf36d34a77f1ff943d1788f43da2ab9d6cec18f5b0c3b39a5"
+  },
+  "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
+  "limitations": [
+    "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+  ]
+}

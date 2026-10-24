@@ -12,7 +12,7 @@
 | # | 文件 | sha256 | 命令 | rc | 说明 |
 |---|---|---|---|---|---|
 | E01 | artifacts/preflight.json | <sha256> | `python Tool/skill/softseep/scripts/preflight-classify.py <sample>` | 0 | 平台/保护/节 |
-| E02 | artifacts/triage.json | <sha256> | `python Tool/scripts/mal-triage.py --file <sample> --json` | 0 | 导入/字符串/overlay |
+| E02 | artifacts/triage.json | <sha256> | `python Tool/skill/malware-analysis/scripts/mal-triage.py --file <sample> --json` | 0 | 导入/字符串/overlay |
 | E03 | artifacts/unpack.json | <sha256> | `python Tool/skill/malware-analysis/scripts/mal-unpack.py --file <sample> --json` | 0 | 壳/OEP/dump |
 | E04 | artifacts/patch-verify.json | <sha256> | `python Tool/skill/softseep/scripts/patch-verify.py --file ... --manifest ...` | 0 | 补丁/回滚 |
 
@@ -51,6 +51,6 @@
 ## 7 复跑命令
 ```bash
 python Tool/skill/softseep/scripts/preflight-classify.py work/<case>/artifacts/target.bin
-python Tool/scripts/mal-triage.py --file work/<case>/artifacts/target.bin --json
+python Tool/skill/malware-analysis/scripts/mal-triage.py --file work/<case>/artifacts/target.bin --json
 python Tool/skill/softseep/scripts/patch-verify.py --self-test
 ```

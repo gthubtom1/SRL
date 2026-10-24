@@ -5,13 +5,17 @@
  *   1. 记忆由插件**自动记录**，不要塞进提示词；
  *   2. 只在需要时**触发式读取**（启动只给一张地图，不是把整本流水账灌进上下文）。
  *
- * 目录布局（全部在 <case>/memory/ 下）：
- *   events.jsonl  原始事件流（本插件自动写；默认不读）
- *   facts.jsonl   结论 / 证据速记（标记 @@FACT 写入；权威账仍是 case_state.py）
- *   map.md        当前地图（agent 每 20 分钟维护；启动时注入，硬上限 1.5KB）
- *   traps.md      踩过的坑（@@TRAP / 用户 / agent）
- *   gates.md      门禁结论（@@GATE）
- *   dead.md       死路（@@DEAD）
+ * 目录布局（S2 起状态副本已收口）：
+ *   <case>/facts.jsonl      唯一账本：claim（case_state.py 写）/ kind:"event"（本插件写）
+ *                           **不再有 memory/facts.jsonl 第二份副本**
+ *   <case>/memory/map.md    当前地图（agent 每 20 分钟维护；启动时注入，硬上限 1.5KB）
+ *   <case>/memory/traps.md  踩过的坑（@@TRAP）
+ *   <case>/memory/gates.md  门禁结论（@@GATE）
+ *   <case>/memory/dead.md   死路（@@DEAD）
+ *
+ * 为什么改：@@FACT 以前写 <case>/memory/facts.jsonl，而 case_state.py 读 <case>/facts.jsonl ——
+ * 同一语义两份账，扩展写的那份 gate 根本不看。现在只写一份账本（append-only）。
+ * 标记写入的事件行带 confidence:"unknown" / authority:"none"：**永不计 pass**（S2-4）。
  *
  * case 目录：
  *   process.env.SEEP_CASE_DIR，缺省 ./.seep-case
@@ -25,9 +29,9 @@
  *
  * 命令：
  *   /map             打印 memory/map.md（≤40 行）
- *   /facts           打印 memory/facts.jsonl 最近 20 条摘要
+ *   /facts           打印 <case>/facts.jsonl 最近 20 条（claim / state / event 混存）
  *   /traps           打印 memory/traps.md
- *   /memory-note X   追加一条 note 事件
+ *   /memory-note X   追加一条 note 事件（进 facts.jsonl，kind:"event"）
  *
  * 关闭：不设 SEEP_CASE_DIR 且当前目录没有 .seep-case 时，本扩展等同空转。
  */
@@ -114,6 +118,11 @@ function memFile(name: string): string {
 	return path.join(memoryDir(), name);
 }
 
+/** 唯一账本：<case>/facts.jsonl（与 case_state.py 同一份，不再有 memory/ 副本）。 */
+function ledgerFile(): string {
+	return path.join(caseDir(), "facts.jsonl");
+}
+
 /* ────────────────────────────── 小工具 ────────────────────────────── */
 
 function nowISO(): string {
@@ -195,10 +204,14 @@ async function appendLine(file: string, line: string): Promise<void> {
 	}
 }
 
-async function appendJsonl(name: string, obj: Record<string, unknown>): Promise<void> {
+/** 追加一行到唯一账本（append-only；任何异常静默，扩展不能阻塞会话）。 */
+async function appendLedger(obj: Record<string, unknown>): Promise<void> {
+	if (!caseExists()) return;
 	try {
-		await appendLine(memFile(name), JSON.stringify(obj));
-	} catch {}
+		await fs.promises.appendFile(ledgerFile(), JSON.stringify(obj) + "\n", "utf-8");
+	} catch {
+		/* 静默 */
+	}
 }
 
 interface EventEntry {
@@ -213,8 +226,8 @@ interface EventEntry {
 function recordEvent(entry: Omit<EventEntry, "ts">): void {
 	enqueue(async () => {
 		try {
-			const row: EventEntry = { ts: nowISO(), ...entry };
-			await appendJsonl("events.jsonl", row as unknown as Record<string, unknown>);
+			// 事件行走同一个账本（kind:"event"）：S2 前写在 memory/events.jsonl，gate 读不到
+			await appendLedger({ ts: nowISO(), ...entry, kind: "event", event: entry.kind });
 		} catch {}
 	});
 }
@@ -289,29 +302,25 @@ function persistMarkers(items: { file: string; kind: string; body: string }[], c
 	if (!items.length) return;
 	enqueue(async () => {
 		try {
-			if (!(await ensureMemoryDir())) return;
 			for (const it of items) {
 				const { text, redacted } = scrub(it.body);
 				if (redacted) {
 					// 标记里带凭据：不写目标文件，只在事件流里留一条 redacted
-					await appendJsonl("events.jsonl", {
-						ts: nowISO(),
-						kind: "note",
-						summary: "redacted",
-						redacted: true,
-						cwd,
+					await appendLedger({
+						ts: nowISO(), kind: "event", event: "note",
+						summary: "redacted", redacted: true, cwd,
 					});
 					continue;
 				}
-				if (it.file.endsWith(".jsonl")) {
-					await appendJsonl(it.file, {
-						ts: nowISO(),
-						source: "marker",
-						kind: it.kind,
-						text,
-						cwd,
+				if (it.kind === "fact") {
+					// 结论速记 → 唯一账本。confidence 默认为 unknown：没标 observed/derived 就不计 pass。
+					await appendLedger({
+						ts: nowISO(), kind: "fact", claim: text,
+						confidence: "unknown", authority: "none",
+						source: "marker", cwd,
 					});
 				} else {
+					if (!(await ensureMemoryDir())) continue;
 					await appendLine(memFile(it.file), `- [${nowISO()}] ${text}`);
 				}
 			}
@@ -487,32 +496,33 @@ export default function seepMemory(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("facts", {
-		description: `打印 memory/facts.jsonl 最近 ${FACTS_LAST_N} 条摘要`,
+		description: `打印 <case>/facts.jsonl 最近 ${FACTS_LAST_N} 条（claim / state / event）`,
 		handler: async (_args: string, ctx: ExtensionCommandContext) => {
 			try {
 				if (!caseExists()) {
 					emit(ctx, missingCaseMessage(), "warning");
 					return;
 				}
-				const raw = await readText(memFile("facts.jsonl"));
+				const raw = await readText(ledgerFile());
 				const lines = raw
 					.replace(/\r\n/g, "\n")
 					.split("\n")
 					.map((l) => l.trim())
 					.filter(Boolean);
 				if (!lines.length) {
-					emit(ctx, `facts.jsonl 为空或不存在：${memFile("facts.jsonl")}`, "warning");
+					emit(ctx, `facts.jsonl 为空或不存在：${ledgerFile()}`, "warning");
 					return;
 				}
 				const tail = lines.slice(-FACTS_LAST_N);
-				const out: string[] = [`=== memory/facts.jsonl（最近 ${tail.length} 条）===`];
+				const out: string[] = [`=== facts.jsonl（最近 ${tail.length} 条 / 共 ${lines.length}）===`];
 				tail.forEach((line, i) => {
 					try {
 						const o = JSON.parse(line);
-						const ts = String(o.ts ?? "").replace("T", " ").slice(0, 19);
-						const tag = o.kind || o.source || o.status || "fact";
-						const text = clip(String(o.text ?? o.summary ?? line), 180);
-						out.push(`${String(i + 1).padStart(2)}. [${ts}] (${tag}) ${text}`);
+						const ts = String(o.ts ?? o.created ?? "").replace("T", " ").slice(0, 19);
+						const tag = o.kind || o.status || "claim";
+						const text = clip(String(o.claim ?? o.text ?? o.summary ?? line), 180);
+						const conf = o.confidence ? `/${o.confidence}` : "";
+						out.push(`${String(i + 1).padStart(2)}. [${ts}] (${tag}${conf}) ${text}`);
 					} catch {
 						out.push(`${String(i + 1).padStart(2)}. ${clip(line, 180)}`);
 					}
@@ -548,7 +558,7 @@ export default function seepMemory(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("memory-note", {
-		description: "追加一条 note 到 memory/events.jsonl：/memory-note <文本>",
+		description: "追加一条 note 事件到 facts.jsonl（kind:event）：/memory-note <文本>",
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			try {
 				if (!caseExists()) {
@@ -566,7 +576,7 @@ export default function seepMemory(pi: ExtensionAPI) {
 					ctx,
 					redacted
 						? "已记录 note（内容命中凭据词，已按隐私红线脱敏为 redacted）。"
-						: "已记录 note 到 memory/events.jsonl。",
+						: "已记录 note 到 facts.jsonl（kind:event）。",
 				);
 			} catch (e) {
 				emit(ctx, `/memory-note 写入失败（已忽略）：${(e as Error)?.message ?? e}`, "warning");

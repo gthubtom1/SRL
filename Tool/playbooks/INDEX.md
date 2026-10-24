@@ -1,6 +1,6 @@
 # 意图 → 配方 / 能力 索引
 
-> 本文件由 `Tool/scripts/gen-playbook-index.py` 从 `intent-coverage.py --json` 生成；探针在 `Tool/config/intent-probes.json`，共 93。
+> 本文件由 「gen-playbook-index.py」(S1 已删) 从 `intent-coverage.py --json` 生成；探针在 `Tool/config/intent-probes.json`，共 93。
 > 覆盖口径：触发词命中期望配方即算 covered；未命中按缺口列出，并给 2–3 个 capability 组合。
 
 - 总数：**93**

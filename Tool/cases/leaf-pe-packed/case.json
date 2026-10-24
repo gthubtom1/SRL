@@ -1,0 +1,66 @@
+{
+ "id": "leaf-pe-packed",
+ "domain": "reverse",
+ "target_type": "PE32+ x86-64 Windows CUI（MinGW 控制台）；本夹具 = Tool/samples/real/crackerjack/a.exe 经 UPX 3.91w 压缩后的副本（53782 → 41494 字节）",
+ "evidence_kind": "fixture",
+ "protection": [
+  "UPX 3.91w（win64/pe 标准压缩壳，非改壳）：节表只剩 UPX0/UPX1/UPX2，UPX0 RawSize=0，UPX! 魔数在文件偏移 0x205，入口由原 .text 0x1400013f0 搬到 0x140014fc0（UPX1 内），UPX1 载荷香农熵 7.638"
+ ],
+ "authority": "原件为纯本地判定（sym.main 内两条立即数比较，无网络无签名）；但压缩后磁盘面无业务代码，判定点静态不可达——权威面只能经脱壳（upx -d）或运行期内存观测触及",
+ "goal_level": "L1",
+ "outcome": "success",
+ "artifacts": [
+  "artifacts/a_upx.patched.exe",
+  "artifacts/MANIFEST.sha256",
+  "unpacked/a_unpacked.exe",
+  "capture/run.json",
+  "capture/run2.json",
+  "report/static.md",
+  "report/dynamic.md",
+  "report/final.md"
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "0a 复跑见 report/triage.md 末节（cp a.exe → upx --best → r2 → upx -t）；0b–4 复跑链：upx -d target/a_upx.exe -o unpacked/a_unpacked.exe → r2 -c 'aa; pdf @ sym.main' 定位 → python 改 0x1e82 74 13→eb 1d → printf 'wrong' | artifacts/a_upx.patched.exe（期望 PASS）→ sha256sum -c artifacts/MANIFEST.sha256。壳识别 F-001..F-005，脱壳/补丁 F-101..F-114（facts.jsonl 共 19 条）"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "存在理由：路径树叶子 R-PE-PACK-UPX 原本没有 witness 样本，等于『纸上能力』；本 case 用仓库自带 a.exe 自压出真壳样本，让 path-walk 能真走一遍。",
+  "核心结论（为什么这条叶子重要）：有壳时磁盘面被压缩，静态拿不到业务代码——节表只剩 UPX*/UPX0 RawSize=0、入口被换成解压桩、可分析函数从 76 塌到 4 且无 sym.main、载荷熵 5.834→7.638。这直接决定第一刀：先脱壳回到静态可读，还是放弃磁盘改走内存。",
+  "识别四条依据（任一可独立判壳，四条齐=高置信）：① 节名 UPX0/UPX1/UPX2；② UPX! 魔数 @0x205（原件 0 处）；③ 入口 0x140014fc0 落在 UPX1 而非 .text；④ 载荷熵 7.638 ≥ 7.5。",
+  "磁盘改不动：把 UPX1 内偏移 0x1200 一个字节取反，upx -t 立刻报 checksum error（0 ok / 1 error）——压缩件上的静态补丁必须先脱壳，否则连壳自校验都过不去。",
+  "壳可逆：upx -t 自检 OK、upx -l 报 win64/pe，属标准壳（直接 upx -d 还原），不需要 dump + IAT 重建；这条决定 unpack-loop 走『直接脱』分叉。",
+  "边界（0a 时写的，已被 0b–4 推进）：本 case 0a 只做快筛画像卡；triage 里的 4 条复跑命令全部为仓库相对路径，第三行 upx 的绝对路径是本机工具位置，换机按 tool-acquire.py --tool upx 重查。",
+  "脱壳实测（0b–2）：upx 5.2.1 能还原 3.91w 压出的件（53782B、入口回 0x1400013f0）；脱壳件与原件仅 80 字节不同且全在头部(7)+.idata(73)，.text 零差异，所以 paddr = RVA − 0xa00 可直接复用。",
+  "内存复核（2）：ReadProcessMemory 读运行中压缩件 base+0x2860 共 79 字节，与脱壳件磁盘 0x1e60 逐字节相同（MATCH True），base+0x2882=74 13——证明 UPX 自解压保持原 RVA 布局、upx -d 产物不是近似而是等同。",
+  "同一文件偏移在不同载体含义不同（3）：0x1e82 在脱壳件/原件 = 74 13（VA 0x140002882 分叉），在压缩件 = 73 00（VA 0x140014c82，UPX1 解压桩）。因此补丁必须打在脱壳件上，压缩件既不承载业务字节也过不了 checksum 自校验。",
+  "补丁与负例（3/4）：0x1e82 74 13→eb 1d（je→jmp 0x1400028a1 = lea rcx,str.PASS），patched+wrong=PASS、五输入全 PASS；负例 unpacked 未打补丁+wrong=FAIL，证明补丁是必要原因。交付 M3。"
+ ],
+ "tags": [
+  "fixture",
+  "upx",
+  "packed",
+  "triage",
+  "path-tree",
+  "R-PE-PACK-UPX",
+  "unpack-loop"
+ ],
+ "refs": [
+  "Tool/cases/leaf-pe-packed/report/triage.md",
+  "Tool/cases/leaf-pe-packed/report/static.md",
+  "Tool/cases/leaf-pe-packed/report/dynamic.md",
+  "Tool/cases/leaf-pe-packed/report/final.md",
+  "Tool/cases/leaf-pe-packed/target/a_upx.exe",
+  "Tool/samples/real/crackerjack/a.exe",
+  "Tool/cases/golden-crackme/report/triage.md",
+  "Tool/skill/_pending/unpack-loop/SKILL.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/a_upx.exe",
+   "sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+   "source": "仓库内既有夹具（见 case.json 的 lessons/refs）"
+  }
+ ]
+}

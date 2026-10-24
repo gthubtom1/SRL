@@ -34,5 +34,5 @@
 ## 复现
 
 ```
-python Tool/scripts/pcap-summary.py --file input/sample.bin --json   # 预期 rc=2，非 pcap
+python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.bin --json   # 预期 rc=2，非 pcap
 ```

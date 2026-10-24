@@ -28,7 +28,7 @@
     "通知载荷模板"
   ],
   "scripts": [
-    "Tool/skill/signin-automation/scripts/schedule-notify.py"
+    "Tool/skill/_pending/signin-automation/scripts/schedule-notify.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/long-task-discipline.md"

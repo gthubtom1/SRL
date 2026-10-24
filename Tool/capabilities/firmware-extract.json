@@ -33,7 +33,7 @@
   ],
   "scripts": [
     "Tool/skill/firmware-iot/scripts/fw-triage.py",
-    "Tool/scripts/fw-triage.py"
+    "Tool/skill/firmware-iot/scripts/fw-triage.py"
   ],
   "refs": [
     "Tool/skill/firmware-iot/references/firmware-unpack.md",

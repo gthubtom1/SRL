@@ -98,7 +98,7 @@ Content-Type: text/html
 ### 片段 C：弱签名误报
 
 ```text
-$ python Tool/scripts/fw-triage.py --file fw.bin --json
+$ python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file fw.bin --json
 "containers": [{"type": "jffs2", "offset": 291825, "confidence": "medium"}]
 $ python Tool/skill/firmware-iot/scripts/fw-repro.py --file fw.bin --json
 "primary": "brcm", "brcm": {"tag_offsets": [252828, ...]}

@@ -21,7 +21,7 @@
 机检入口（本仓脚本，离线只读）：
 
 ```bash
-python Tool/scripts/fw-triage.py --file fw.bin --json     # 魔术/熵/凭据线索/建议命令
+python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file fw.bin --json     # 魔术/熵/凭据线索/建议命令
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file fw.bin --json
 python Tool/skill/firmware-iot/scripts/fw-accept.py       # 案例字段/hash/refs 复算
 ```

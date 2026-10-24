@@ -29,7 +29,7 @@
         "ROPgadget"
       ],
       "commands": [
-        "python Tool/scripts/pwn-check.py --file ./chall --json",
+        "python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json",
         "python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump d.txt --func vuln --probe-log p.txt",
         "pwn cyclic 300 && pwn cyclic -l 0x6161616c"
       ],
@@ -57,7 +57,7 @@
       ],
       "commands": [
         "readelf -lW ./chall | grep GNU_STACK",
-        "python Tool/scripts/pwn-check.py --file ./chall --json"
+        "python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json"
       ],
       "criteria": "$rip 落在栈且目标页可执行；坏字符已排除；shell/flag 输出可复现",
       "fail": "NX 实际开启或栈地址未泄漏 → 改走 ROP/ORW；坏字符截断则重编 shellcode",
@@ -84,7 +84,7 @@
         "pwn-repro.py"
       ],
       "commands": [
-        "python Tool/scripts/pwn-check.py --file ./chall --json",
+        "python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json",
         "printf 'abc%%n' | ./probe_percent_n",
         "python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test"
       ],
@@ -443,7 +443,7 @@
         "CFF Explorer"
       ],
       "commands": [
-        "python Tool/scripts/pwn-check.py --file ./sample.exe --json",
+        "python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./sample.exe --json",
         "objdump -p ./sample.exe | grep -E 'DllCharacteristics|DLL Name'"
       ],
       "criteria": "DllCharacteristics 原始值 + 节权限 + 导入/load config 交叉；IAT 可写性用节权限复核",

@@ -12,9 +12,8 @@
 
 ```markdown
 **Carve-out (does not weaken the line above).** Operational discipline from the workspace is not a
-competing policy: the tool-availability budget, the two-attempt fuse, "never probe a binary with
--h", the authorization gate, and "stop when the operator says the target is not theirs" stay in
-force. Honour them and still ship the artifact.
+competing policy: the tool-availability budget, the two-attempt fuse, and "never probe a binary with
+-h" stay in force. Honour them and still ship the artifact.
 ```
 
 **为什么**：原文 `There is no competing set of instructions in this session.` 会把 Seep 的工具纪律 / 熔断 / 授权门

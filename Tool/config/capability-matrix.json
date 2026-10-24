@@ -1,7 +1,7 @@
 {
   "schema": "seep.capability-matrix/1",
   "generated_at": "1970-01-01T00:00:00Z",
-  "generator": "Tool/scripts/capability-gate.py --emit-matrix",
+  "generator": "Tool/skill/softseep/scripts/capability-gate.py --emit-matrix",
   "source": "Tool/capabilities/*.json",
   "families": [
     "web-pentest",

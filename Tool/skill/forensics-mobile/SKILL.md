@@ -1,6 +1,6 @@
 ---
 name: forensics-mobile
-description: 【取证 / iOS·macOS / 游戏客户端】内存镜像、pcap 流量、磁盘/文件系统、Windows EVTX/注册表、iOS IPA/Mach-O/Keychain/plist、Unity Mono/IL2CPP/AssetBundle 与进程内存的只读取证。以“能还原谁在什么时候做了什么、能说明二进制与数据/资源的关系”为硬判据，覆盖 Volatility3/tshark/sleuthkit/otool/codesign 与缺工具时的降级路线。
+description: 【取证 / iOS·macOS / 游戏客户端】内存镜像、pcap、磁盘与文件系统、EVTX/注册表、IPA/Mach-O/Keychain、Unity Mono/IL2CPP/AssetBundle 只读取证（Volatility3/tshark/sleuthkit）。
 license: MIT
 compatibility: Linux/WSL2 优先（volatility3、tshark、sleuthkit 原生）；macOS 提供 otool/codesign/security；iOS 动态侧需授权测试机与 frida-server；Windows 支持 EVTX/REGF 二进制解析与 reg save。
 metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与来源 / 只读副本+哈希 / 统一 UTC / 四要素可复述"}
@@ -10,6 +10,15 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 
 > 只回答一件事：**这份内存、流量、磁盘、日志或客户端，能不能还原出「谁在什么时候做了什么」，且第三方能按同样命令复述。**
 > “看到可疑字符串”不是结论；结论必须带来源、时间、主体、动作与哈希。仅对自有或明确授权的镜像、设备、客户端操作。
+
+## 阶段契约（与 softseep 一致，**先判再做**）
+
+① 先摸清能不能测（仪器/授权位置/是否服务端权威）→ ② 给**裁定**（可赢 / 部分可赢 / 不可赢）+ **交付上限 M1–M4** → ③ 按上限执行。
+- 用户说"要源码级/成品级"是**愿望**，不是判据：判不上去就**说清卡在哪一轴**，给能到的那一级。
+- 用户只要低级别、但发现能更高 → 主动告知，由用户定。**不许硬冲，也不许静默降级。**
+- 命中任一 **卡点**（要用户手里的凭据 / 需物理动作 / 只可能从真实进程取证据且目标反自动化 / 同形状失败 2 次）→
+  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
+- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
 
 ## 1. 范围与路由
 
@@ -174,7 +183,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 ```
 
-- 兼容入口：`python Tool/scripts/forensics-check.py --file ...` 转发到技能内脚本。
+- 兼容入口：`python `Tool/skill/forensics-mobile/scripts/forensics-check.py` --file ...` 转发到技能内脚本。
 - 所有脚本：`--help` rc=0；`--self-test` 离线 rc=0 且打印 `{"ok": true, ...}`；失败输出 `{"ok": false, "blocked_at": "...", "reason": "..."}` rc=2。
 - 路径由 `__file__`/`--root` 推导，不硬编码本机绝对路径；只读，不联网写操作。
 
@@ -196,4 +205,4 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 - **采集范围由 `scope` 声明**：设备/账号/云资源清单由用户提供，清单内按任务执行；取证只读副本，只做可复算证据链（采集→校验→关联）。
 - **只读观测**：原件只读、副本分析、全程哈希；任何写操作都必须停并记录。
 - **失败即停**：缺时区/主体/对象、哈希不一致、原件被写、加密未解、版本不匹配 → 报“未闭环”，不把 dump/解包成功当结论。
-- **机检≠结论**：脚本 PASS 只证明格式/哈希自洽；结论真伪、归因强度、授权合规仍需人工复核。
+- **机检≠结论**：脚本 PASS 只证明格式/哈希自洽；结论真伪、归因强度、证据链强度仍需人工复核。

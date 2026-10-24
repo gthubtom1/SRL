@@ -239,15 +239,15 @@ Gemini 只用来做**通用知识问答**与**产出审计清单**。
 
 ```bash
 # 横向对照：用同一条提示词测所有 provider
-python Tool/scripts/probe-refusal.py --provider CPAMP --model gemini-3.8-flash-high
-python Tool/scripts/probe-refusal.py --provider DeepSeek --model deepseek-v4-pro
+python 破甲卡生成/probe-refusal.py --provider CPAMP --model gemini-3.8-flash-high
+python 破甲卡生成/probe-refusal.py --provider DeepSeek --model deepseek-v4-pro
 
 # 自定义提示词复现被拦场景
-python Tool/scripts/probe-refusal.py --provider CPAMP --model gemini-3.8-flash-high \
+python 破甲卡生成/probe-refusal.py --provider CPAMP --model gemini-3.8-flash-high \
     --prompt "您的提示词"
 
 # 列出所有可用 provider 与模型
-python Tool/scripts/probe-refusal.py --list
+python 破甲卡生成/probe-refusal.py --list
 ```
 
 > 密钥从 `~/.pi/agent/models.json` 读取，**绝不打印、绝不落盘**。

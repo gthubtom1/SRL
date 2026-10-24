@@ -16,7 +16,7 @@ file app.asar
 xxd -g1 -l 64 app.asar
 npx asar list app.asar | head -80
 npx asar extract app.asar app/
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar --json
 ```
 
 - 头 4 字节 `04 00 00 00`；后接 header 长度与 JSON 树。

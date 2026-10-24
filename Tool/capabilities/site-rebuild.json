@@ -29,12 +29,12 @@
     "本地截图/DOM"
   ],
   "scripts": [
-    "Tool/skill/site-clone/scripts/site-rebuild.py"
+    "Tool/skill/_pending/site-clone/scripts/site-rebuild.py"
   ],
   "refs": [
-    "Tool/skill/site-clone/SKILL.md",
-    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
-    "Tool/skill/site-clone/references/06-spa-har-and-mock.md"
+    "Tool/skill/_pending/site-clone/SKILL.md",
+    "Tool/skill/_pending/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/_pending/site-clone/references/06-spa-har-and-mock.md"
   ],
   "maturity": "usable",
   "compose": [

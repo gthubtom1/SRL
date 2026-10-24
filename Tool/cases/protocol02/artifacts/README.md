@@ -2,7 +2,7 @@
 
 - 输入：`input/sample.bin`（141 B，3 帧 SPRX 夹具）；帧格式见 `input/notes.md`。
 - 运行（完整 cmd/rc/stdout 见 `run.json`）：
-  1. `python ../../../Tool/scripts/pcap-summary.py --file input/sample.bin --json`，rc=0；
+  1. `python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.bin --json`，rc=0；
      stdout 为 `ok=false / pcap_parse_error / magic=53505258`。兼容入口在 Windows 上丢失了
      目标脚本退出码，**不能据此判成功**。
   2. `python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.bin --json`，rc=2，同一错误。

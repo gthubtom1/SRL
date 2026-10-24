@@ -1,0 +1,72 @@
+{
+  "schema": "seep.pack/1",
+  "id": "forensics-mobile",
+  "l1": "目标是内存镜像/pcap/磁盘/EVTX/注册表、IPA/Mach-O/Keychain，或 Unity 资源只读取证时打开。",
+  "routes": [
+    {
+      "label": "取证/iOS·macOS/游戏客户端",
+      "must": [
+        "(?i)(?:\\bvolatility3?\\b|\\brekall\\b|\\bmem\\.raw\\b|\\bmemory\\s*dump\\b|内存镜像|内存取证|崩溃转储)",
+        "(?i)(?:\\bpcapng?\\b|\\btshark\\b|\\bwireshark\\b|流量分析|网络取证|会话重组|dns\\s*隧道)",
+        "(?i)(?:\\bsleuthkit\\b|\\bmmls\\b|\\bfls\\b|\\bicat\\b|\\bmactime\\b|磁盘镜像|分区镜像|文件系统取证|\\$mft\\b)",
+        "(?i)(?:\\bevtx\\b|\\bwinevt\\b|事件日志|注册表\\s*(?:hive|取证|导出)|\\breg\\s+save\\b|\\bamcache\\b|\\bprefetch\\b|\\bshellbag|\\bjumplist|\\busbstor\\b)",
+        "(?i)(?:\\b(?:ios|ipados|iphone|ipad|ipa|macos|mach-o|keychain|codesign|entitlements)\\b|embedded\\.mobileprovision)",
+        "(?i)(?:\\bil2cpp\\b|\\bgameassembly\\b|\\bunityframework\\b|\\bassetbundle\\b|\\bunityfs\\b|\\bglobal-metadata(?:\\.dat)?\\b|unity\\s*(?:资源|客户端)|游戏客户端)",
+        "(?i)(?:浏览器取证|history\\s*sqlite|\\bhindsight\\b|places\\.sqlite|\\bvisit_time\\b)",
+        "(?i)(?:数字取证|取证分析|取证调查|主机取证|移动取证|证据链|时间线重建.{0,12}(?:证据|取证))",
+        "(?i)(?:^|[^A-Za-z])il2cpp(?![A-Za-z])"
+      ],
+      "priority": 180
+    }
+  ],
+  "stages": [
+    "0-analysis",
+    "1-ask",
+    "2-dyn",
+    "3-patch",
+    "4-verify"
+  ],
+  "tools": [
+    "seep_pcap_extract",
+    "seep_mem_strings",
+    "seep_r2_cmd"
+  ],
+  "cases": [
+    "forensics01",
+    "forensics02",
+    "forensics03",
+    "forensics04",
+    "forensics06",
+    "forensics07"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/forensics07",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "iOS 取证只做文件级，不做全盘解密",
+    "游戏客户端只读 Mono/IL2CPP 资源，不改运行时"
+  ],
+  "invalidation": [
+    "需要写操作或改机器状态",
+    "目标数据已不可复现（无镜像/无 pcap）"
+  ]
+}

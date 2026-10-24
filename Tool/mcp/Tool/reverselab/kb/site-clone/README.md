@@ -1,6 +1,6 @@
 # Site Clone 知识库 — 网站 1:1 复刻
 
-> Board：`site-clone`。配套技能：`Tool/skill/site-clone/SKILL.md`。
+> Board：`site-clone`。配套技能：`Tool/skill/_pending/site-clone/SKILL.md`。
 > 本库只收“可复现、有判据、有边界”的复刻方法；静态镜像、HAR 回放、DOM 冻结、像素/DOM 差分、后端边界各一篇。
 > 维护口径：一篇一招，50–200 行；入口信号 → 可复制命令 → 确认判据 → 失败判据 → 边界。
 
@@ -57,18 +57,18 @@
 - 证据缺命令/rc/hash，或触发 429/5xx 仍继续。
 
 详细表与降级路线见 [06-failure-criteria.md](techniques/06-failure-criteria.md) 与
-`Tool/skill/site-clone/references/02-failure-criteria.md`。
+`Tool/skill/_pending/site-clone/references/02-failure-criteria.md`。
 
 ## 技能参考（深水区）
 
-- [01-criteria.md](../../../../../../Tool/skill/site-clone/references/01-criteria.md) — 六条判据与数值阈值。
-- [02-failure-criteria.md](../../../../../../Tool/skill/site-clone/references/02-failure-criteria.md) — 14 行失败判据。
-- [03-model-pitfalls.md](../../../../../../Tool/skill/site-clone/references/03-model-pitfalls.md) — 14 条模型失误。
-- [04-walkthrough-block-youtest.md](../../../../../../Tool/skill/site-clone/references/04-walkthrough-block-youtest.md) — 真实 Next.js 站点走查。
-- [05-static-mirror-limits.md](../../../../../../Tool/skill/site-clone/references/05-static-mirror-limits.md) — wget/HTTrack 边界。
-- [06-spa-har-and-mock.md](../../../../../../Tool/skill/site-clone/references/06-spa-har-and-mock.md) — HAR 回放。
-- [07-auth-and-backend-boundary.md](../../../../../../Tool/skill/site-clone/references/07-auth-and-backend-boundary.md) — 登录/后端边界。
-- [08-tool-ecosystem-2026.md](../../../../../../Tool/skill/site-clone/references/08-tool-ecosystem-2026.md) — 2026 工具矩阵。
+- [01-criteria.md](../../../../../../Tool/skill/_pending/site-clone/references/01-criteria.md) — 六条判据与数值阈值。
+- [02-failure-criteria.md](../../../../../../Tool/skill/_pending/site-clone/references/02-failure-criteria.md) — 14 行失败判据。
+- [03-model-pitfalls.md](../../../../../../Tool/skill/_pending/site-clone/references/03-model-pitfalls.md) — 14 条模型失误。
+- [04-walkthrough-block-youtest.md](../../../../../../Tool/skill/_pending/site-clone/references/04-walkthrough-block-youtest.md) — 真实 Next.js 站点走查。
+- [05-static-mirror-limits.md](../../../../../../Tool/skill/_pending/site-clone/references/05-static-mirror-limits.md) — wget/HTTrack 边界。
+- [06-spa-har-and-mock.md](../../../../../../Tool/skill/_pending/site-clone/references/06-spa-har-and-mock.md) — HAR 回放。
+- [07-auth-and-backend-boundary.md](../../../../../../Tool/skill/_pending/site-clone/references/07-auth-and-backend-boundary.md) — 登录/后端边界。
+- [08-tool-ecosystem-2026.md](../../../../../../Tool/skill/_pending/site-clone/references/08-tool-ecosystem-2026.md) — 2026 工具矩阵。
 
 ## 案例
 

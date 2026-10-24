@@ -82,7 +82,7 @@
 ### 10 binwalk 固件提取与目录树验证（源：performing-firmware-extraction-with-binwalk）
 - 触发词：binwalk、固件镜像、SquashFS/UBI
 - 前置：原始镜像只读；有 SHA256；知道目标架构
-- 步骤：1) `python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json` → rc=0，期望：containers 含 `"type": "jffs2"`（offset 291825）与 `"type": "bzip2"`；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw10 --json` → rc=0，期望：`"primary": "zip"`、`"extraction": {"status": "extracted"`、`"rootfs": {"files": 8`；3) `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 5`、`"real": 2`
+- 步骤：1) `python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json` → rc=0，期望：containers 含 `"type": "jffs2"`（offset 291825）与 `"type": "bzip2"`；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw10 --json` → rc=0，期望：`"primary": "zip"`、`"extraction": {"status": "extracted"`、`"rootfs": {"files": 8`；3) `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 5`、`"real": 2`
 - 判据：目录树完整且 busybox/init 架构与 SoC 一致
 - 失败判据：只有签名/碎片、无目录树：转 sasquatch/ubireader 或厂商头路线
 - 剧本：`unsquashfs -d "$ROOT" -f part.bin` → rc=0 期望 `/etc`+`/bin`+`/lib` 齐全且 `file bin/busybox` 架构自洽；rc=1 期望 `unsupported compression`，转 02-failure ① 与 sasquatch。
@@ -99,7 +99,7 @@
 ### 12 chipsec 审计 UEFI 固件（源：auditing-uefi-firmware-with-chipsec）
 - 触发词：SPI dump、UEFI 变量、chipsec
 - 前置：授权主机/设备；已备份变量与 flash；chipsec 版本确认
-- 步骤：1) `python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json` → rc=0，期望：containers[0] 为 `"type": "pe"`（offset 0，confidence high）；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --out-dir work/fw12 --json` → rc=0，期望：`"primary": "pe"`、`"extraction.status": "not-applicable"`、verdict 含 `UEFI boot component`；3) `python Tool/scripts/fw-triage.py --self-test` → rc=0，期望：`{"ok": true, "checks": 7}`
+- 步骤：1) `python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file Tool/cases/firmware-iot04/input/SecConfig.efi --json` → rc=0，期望：containers[0] 为 `"type": "pe"`（offset 0，confidence high）；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --out-dir work/fw12 --json` → rc=0，期望：`"primary": "pe"`、`"extraction.status": "not-applicable"`、verdict 含 `UEFI boot component`；3) `python `Tool/skill/firmware-iot/scripts/fw-triage.py` --self-test` → rc=0，期望：`{"ok": true, "checks": 7}`
 - 判据：FV 可解析且变量/签名链证据自洽
 - 失败判据：变量读不到/FV 解析失败：确认权限/驱动/截断，缺工具记 blocked_at
 - reference：Tool/skill/firmware-iot/references/05-uefi-and-secure-boot.md
@@ -139,7 +139,7 @@
 ### 17 IoT 设备安全评估（固件优先）（源：performing-iot-security-assessment）
 - 触发词：摄像头/路由器/智能家居固件与服务
 - 前置：授权设备与网络；已备份固件；测试窗口明确
-- 步骤：1) `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 5`、`"real": 2`；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw17 --json` → rc=0，期望：`"rootfs.files": 8` 且 verdict 仍提示 J1/J2 未达成；3) `python Tool/scripts/fw-triage.py --self-test` → rc=0，期望：`"checks": 7`
+- 步骤：1) `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0，期望：`"ok": true`、`"cases": 5`、`"real": 2`；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw17 --json` → rc=0，期望：`"rootfs.files": 8` 且 verdict 仍提示 J1/J2 未达成；3) `python `Tool/skill/firmware-iot/scripts/fw-triage.py` --self-test` → rc=0，期望：`"checks": 7`
 - 判据：至少一条 J1/J2/J3 有证据，且标明等级
 - 失败判据：只有端口扫描/版本号：不算评估完成，转固件静态与仿真
 - 剧本：`python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0 期望 5 个案例字段/hash/refs 全过；rc=1 期望列出不符案例，先修证据再写 J1/J2/J3。
@@ -196,7 +196,7 @@
 ### 24 OT 流量分析与固件版本关联（源：implementing-ot-network-traffic-analysis-with-nozomi）
 - 触发词：OT 流量、资产指纹、固件版本
 - 前置：授权镜像/探针；只读流量；有资产基线
-- 步骤：1) `python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json` → rc=0，期望：sha256=`3dc1138c...3455a3f`、containers 含 `jffs2`/`bzip2`；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --out-dir work/fw24 --json` → rc=0，期望：`"primary": "brcm"`、verdict 含 `vendor firmware blob`；3) `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0，期望：`"ok": true`
+- 步骤：1) `python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json` → rc=0，期望：sha256=`3dc1138c...3455a3f`、containers 含 `jffs2`/`bzip2`；2) `python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --out-dir work/fw24 --json` → rc=0，期望：`"primary": "brcm"`、verdict 含 `vendor firmware blob`；3) `python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json` → rc=0，期望：`"ok": true`
 - 判据：资产-协议-固件版本可对应，差异有证据
 - 失败判据：指纹模糊/版本冲突：记录不确定性，不据此定性漏洞
 - reference：Tool/skill/firmware-iot/references/01-criteria.md

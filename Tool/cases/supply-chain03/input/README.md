@@ -11,7 +11,7 @@ sha256sum .github/workflows/upstream-sync.yml
 git rev-parse HEAD
 python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py \
   --path .github/workflows --out Tool/cases/supply-chain03/artifacts/ci.json
-python Tool/scripts/sc-check.py \
+python Tool/skill/supply-chain-security/scripts/sc-check.py \
   --path .github/workflows --out Tool/cases/supply-chain03/artifacts/sc.json
 ```
 

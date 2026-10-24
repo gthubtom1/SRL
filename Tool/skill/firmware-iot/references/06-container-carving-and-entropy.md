@@ -111,7 +111,7 @@ print("carved", len(src) - off)
 ## 4. 真实例子：Broadcom blob 的“假 bzip2”
 
 ```bash
-python Tool/scripts/fw-triage.py --file 43341b0rtecdc.bin --json
+python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file 43341b0rtecdc.bin --json
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file 43341b0rtecdc.bin --json
 ```
 

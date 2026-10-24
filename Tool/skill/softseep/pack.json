@@ -1,0 +1,221 @@
+{
+  "schema": "seep.pack/1",
+  "id": "softseep",
+  "l1": "任何逆向/白盒/许可/脱壳/UI 二开任务的阶段总控：判型、阶段闸、交付分级；无更具体匹配时兜底。",
+  "routes": [
+    {
+      "label": "LLM / Agent 协议安全（MCP/A2A）",
+      "must": [
+        "(?i)(\\bMCP\\b|model\\s*context\\s*protocol|工具投毒|tool\\s*poisoning|prompt\\s*注入|提示词注入|\\bA2A\\b|agent2agent|越狱提示|system\\s*prompt\\s*泄露|rag\\s*注入)"
+      ],
+      "priority": 320
+    },
+    {
+      "label": "JS / Web 前端逆向",
+      "must": [
+        "(?i)js.?逆向|javascript|webpack|混淆|obfuscat|\\bast\\b|补环境|浏览器|playwright|selenium|hook.?js|signature.?js|加密参数",
+        "(?i)(前端.{0,8}(?:js|javascript|逆向|分析|加密)|\\bjs\\b\\s*(?:逆向|分析|调试|扒)|签名算法|\\bsign\\b\\s*算法|\\bsignature.{0,12}(?:算法|还原|复现)|加密参数)"
+      ],
+      "priority": 310
+    },
+    {
+      "label": "Hypervisor / eBPF / TEE 内核观测",
+      "must": [
+        "(?i)(\\bhypervisor\\b|\\bhyperdbg\\b|EPT\\s*hook|\\bebpf\\b|eBPF|XDP|\\bTEE\\b|TrustZone|\\bSGX\\b|SEV-SNP|内核\\s*驱动.*(?:对抗|观测))"
+      ],
+      "priority": 300
+    },
+    {
+      "label": "账号任务自动化（签到/每日任务/多账号/青龙）",
+      "must": [
+        "(?i)(青龙|qinglong|签到|每日任务|积分|账号池|多账号|掉登录|自动续|cron|定时任务|批量执行器)",
+        "(?i)(滑块|缺口识别|旋转角度|拼图验证码|点选验证码|\\bcaptcha\\b|re ?captcha|极验|geetest|验证码识别|打码)"
+      ],
+      "priority": 280
+    },
+    {
+      "label": "托管运行时字节码（.NET/Java/Python）",
+      "must": [
+        "(?i)(\\bdnSpy\\b|\\bILSpy\\b|ConfuserEx|\\.NET\\s*(?:逆向|反编译)|javap|ProGuard|\\.jar\\b\\s*(?:授权|校验)|pycdc|PyInstaller|\\.pyc\\b|assembly-csharp)"
+      ],
+      "priority": 270
+    },
+    {
+      "label": "WASM / 字节码逆向",
+      "must": [
+        "(?i)(\\bwasm\\b|\\.wat\\b|wasm2c|wasm2wat|wasm-objdump|wabt|wasmtime|wasmer|webassembly)"
+      ],
+      "priority": 260
+    },
+    {
+      "label": "IDA Pro 深度反编译",
+      "must": [
+        "(?i)\\bida\\b|idat|idalib|hex.?rays|反编译|交叉引用|xref|结构体恢复|伪代码"
+      ],
+      "priority": 250
+    },
+    {
+      "label": "Radare2 命令行分析",
+      "must": [
+        "(?i)radare2|\\br2\\b|rabin2|radiff2|rasm2|r2pipe|命令行逆向|无头分析|headless"
+      ],
+      "priority": 240
+    },
+    {
+      "label": "二进制差分 / 补丁分析",
+      "must": [
+        "(二进制|函数|符号|特征码|代码).{0,6}(差分|比对|对比|迁移)|BinDiff|Diaphora|ghidriff|radiff2|patch ?tuesday|补丁差分|N-day|跨版本.{0,6}(迁移|对齐|比对)"
+      ],
+      "priority": 140
+    },
+    {
+      "label": "逆向工程 / PE 二进制 / 补丁与脱壳",
+      "must": [
+        "(?i)(?:\\bPE32(?:\\+)?\\b|\\bMZ\\b|\\bDLL\\b|\\bEXE\\b|\\bSYS\\b|e_lfanew|\\bIAT\\b|\\bTLS\\s*callback\\b|\\bRVA\\b|节表|导入表|导出表|\\bCLR\\b|\\bBSJB\\b)",
+        "(?i)(?:\\bx64dbg\\b|\\bIDA\\b|\\bGhidra\\b|\\bradare2\\b|\\brizin\\b|\\bFrida\\b|\\bWinDbg\\b|\\bPE-bear\\b|\\bILSpy\\b|\\bdnSpy\\b)",
+        "(?i)(?:脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|\\btrampoline\\b|\\bcode\\s*cave\\b|\\bhook\\s*(?:api|函数|dll|表|inline|detour|导入)|\\bwasm\\b|wasm2c|wabt|\\bEAC\\b|EasyAntiCheat|BattlEye|Vanguard|反作弊|授权锁|UltraLock|\\bHVCI\\b|\\bKDP\\b)",
+        "(?i)(?:\\bVMProtect\\b|\\bThemida\\b|\\bWinLicense\\b|\\bUPX\\b|\\bASPack\\b|\\bMPRESS\\b|\\bScylla\\b|\\bEnigma\\b)"
+      ],
+      "priority": 130
+    },
+    {
+      "label": "阶段① 授权旁路与可用成品交付",
+      "must": [
+        "(?i)(旁路[^。，,]{0,8}卡密|卡密[^。，,]{0,8}旁路|绕过[^。，,]{0,8}卡密|跳过卡密|去卡密|免激活|破解|能进主界面|能用的成品|可用成品|成品交付)"
+      ],
+      "priority": 120
+    },
+    {
+      "label": "阶段② 改 UI 与去品牌",
+      "must": [
+        "(?i)(改[^。，,]{0,6}界面|界面[^。，,]{0,6}改|换[^。，,]{0,8}品牌|品牌改造|去作者|去掉作者|替换界面|界面改造|去联系方式)",
+        "(?i)(去掉?[^。，,]{0,6}(?:启动|开屏|弹窗)?广告|广告弹窗|去广告|UI\\s*改版|改版[^。，,]{0,6}(?:标题|图标|文案|界面))"
+      ],
+      "priority": 110
+    },
+    {
+      "label": "阶段③ 接自有授权平台",
+      "must": [
+        "(?i)(接.{0,4}授权|授权平台|卡密系统|到期时间|发卡|授权页|机器码绑定)"
+      ],
+      "priority": 100
+    },
+    {
+      "label": "跨版本追版（新版迁移）",
+      "must": [
+        "(?i)(新版本|新版|追版|版本迁移|迁移到新|升级到\\s*\\d|适配新版|更新了.{0,6}(版本|程序|exe)|原作者.{0,8}更新)"
+      ],
+      "priority": 90
+    },
+    {
+      "label": "阶段零 分析报告（先摸透再动手）",
+      "must": [
+        "(?i)(先.{0,4}分析|分析(一下|透彻|清楚)|出.{0,3}报告|摸清|摸透|评估.{0,4}(可行性|难度)|能不能赢|授权面.{0,4}(在哪|怎么))"
+      ],
+      "priority": 80
+    },
+    {
+      "label": "阶段①a 快筛（20 分钟出画像卡）",
+      "must": [
+        "(?i)(快筛|初筛|快速分析|先快速看|先大致看|先粗看|目标画像|画像卡|20 ?分钟|半小时内出结论)",
+        "(?i)(有没有壳|什么架构|是什么软件|什么类型的程序|值不值得深入)"
+      ],
+      "priority": 70
+    },
+    {
+      "label": "阶段⑤ 后端复刻（T2/T3）",
+      "must": [
+        "(?i)(后端|后台|服务端).{0,8}(复刻|重建|自建|还原|反推)|复刻.{0,6}(后端|后台|服务端)|(api|接口).{0,6}(复刻|重建|测绘|面)|下发.{0,4}(脚本|容器|包)|上游同步"
+      ],
+      "priority": 60
+    },
+    {
+      "label": "授权 / 许可 / 卡密审计（经阶段一执行）",
+      "must": [
+        "(?i)授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|\\btrial\\b|keygen|激活(?!函数)|凭据|校验串"
+      ],
+      "priority": 50
+    },
+    {
+      "label": "通用二进制逆向",
+      "must": [
+        "(?i)\\bpe\\b|\\belf\\b|macho|dll|\\.so\\b|逆向|反汇编|脱壳|加壳|upx|vmp|混淆|静态分析"
+      ],
+      "priority": 40
+    },
+    {
+      "label": "OSINT / 资产与人员情报测绘",
+      "must": [
+        "(?i)(osint|情报(?:收集|测绘)|资产测绘|攻击面(?:测绘|梳理)|子域(?:名)?(?:枚举|爆破|收集)|证书透明|\\bct\\s*日志\\b|\\basn\\b|网段归属|旁站|源站\\s*ip|cdn\\s*回源|谷歌?语法|google\\s*dorks?|\\bgh\\s+api\\b|代码泄露|秘钥?泄露|凭据泄露|人员画像|员工名录|邮箱格式)"
+      ],
+      "priority": 30
+    },
+    {
+      "label": "文档卫生 / 冷启动可读性",
+      "must": [
+        "(整理|清理|治理|归档).{0,6}文档|文档.{0,4}(太多|太旧|过期|腐化|清理|整理|治理)|交接(文档|项目|前)|换(模型|人|AI).{0,8}(审|读|看)|新会话.{0,8}(读|接手)|冷启动|文档卫生|(tidy|clean)( up)?( the)?( docs| documentation)|doc(umentation)? (audit|hygiene)|handoff|onboard(ing)? a new model|leftover todos"
+      ],
+      "priority": 20
+    },
+    {
+      "label": "未命中兜底：总控判型",
+      "must": [
+        "(?i).*"
+      ],
+      "priority": 10
+    }
+  ],
+  "stages": [
+    "intake",
+    "0a",
+    "0b",
+    "1",
+    "2",
+    "3",
+    "4",
+    "done"
+  ],
+  "tools": [
+    "seep_case_read",
+    "seep_kb_search",
+    "seep_gen_security_report"
+  ],
+  "cases": [
+    "golden-crackme",
+    "_p2fixture",
+    "案例-真实补丁a",
+    "项目A",
+    "项目B",
+    "项目I",
+    "案例-6.9换肤壳"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/golden-crackme",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "本身不是领域能力：只做阶段契约与交付判定，领域细节必须落到 8 个域包之一",
+    "无证据时拒绝出报告（S2）"
+  ],
+  "invalidation": [
+    "目标已明确落到某个域包 → 以域包判据为准，本包只做阶段闸"
+  ]
+}

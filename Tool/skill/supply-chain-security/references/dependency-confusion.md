@@ -19,7 +19,7 @@
 find . -maxdepth 3 \( -name package.json -o -name .npmrc -o -name requirements.txt \
   -o -name pyproject.toml -o -name pip.conf -o -name nuget.config \
   -o -name composer.json -o -name go.mod \) -not -path '*/node_modules/*'
-python Tool/scripts/sc-check.py --path . --out sc.json
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
 ```
 
 **判据**：每个私有包名都能追到“私有 registry + 锁文件条目 + integrity”；三者缺一，就是候选风险。
@@ -167,7 +167,7 @@ grep -RInE '^(corp|internal|company|private)[-_]' requirements*.txt pyproject.to
 ### 8.4 只读排查顺序
 
 ```bash
-python Tool/scripts/sc-check.py --path . --out sc.json   # SC-101/102/103
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json   # SC-101/102/103
 grep -RInE '"(pre|post)install"' --include=package.json . | grep -v node_modules
 grep -n '"resolved": *"https\?://' package-lock.json | head
 git log --oneline -5 -- package.json package-lock.json    # 版本突变更像蠕虫发版

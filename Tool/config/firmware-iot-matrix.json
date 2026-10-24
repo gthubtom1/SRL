@@ -64,7 +64,7 @@
       ],
       "commands": [
         "binwalk -E fw.bin | head -40",
-        "python Tool/scripts/fw-triage.py --file fw.bin --json"
+        "python Tool/skill/firmware-iot/scripts/fw-triage.py --file fw.bin --json"
       ],
       "fail": "只有 weak 魔术、或高熵无 strong 魔术：转 06-container-carving-and-entropy.md 的切分/硬件路线，不能直接写“已加密”",
       "pitfalls": [

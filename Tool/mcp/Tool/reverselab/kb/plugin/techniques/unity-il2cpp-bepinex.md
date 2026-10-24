@@ -12,8 +12,8 @@
 ```bash
 find . -maxdepth 4 \( -iname 'BepInEx' -o -iname 'MelonLoader' -o -iname 'doorstop_config.ini' \
   -o -iname 'LogOutput.log' -o -iname 'Latest.log' \) -print
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path . --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path . --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path . --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path . --out work/repro --json
 
 # Mono
 ilspycmd Managed/Assembly-CSharp.dll -o work/game-src
@@ -67,4 +67,4 @@ grep -RInE "HarmonyPatch|Harmony\.Patch|Prefix|Postfix|Transpiler|BaseUnityPlugi
 - 不提供绕过反作弊或隐藏注入的方法。
 - 插件内协议交 `protocol-plugin`（R24）。
 
-> 关联：`Tool/skill/plugin-targets/references/unity-and-mods.md`、`references/02-failure-criteria.md`。
+> 关联：`Tool/skill/_pending/plugin-targets/references/unity-and-mods.md`、`references/02-failure-criteria.md`。

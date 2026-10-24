@@ -27,7 +27,7 @@
     "next_action"
   ],
   "scripts": [
-    "Tool/skill/signin-automation/scripts/captcha-branch.py"
+    "Tool/skill/_pending/signin-automation/scripts/captcha-branch.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/account-gates.md"

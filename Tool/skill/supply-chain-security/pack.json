@@ -1,0 +1,69 @@
+{
+  "schema": "seep.pack/1",
+  "id": "supply-chain-security",
+  "l1": "目标是仓库/锁文件/容器镜像/CI-CD：SBOM、依赖投毒、可达性、制品签名与来源证明时打开。",
+  "routes": [
+    {
+      "label": "供应链/依赖/CI-CD",
+      "must": [
+        "(?i)(?:(?:\\bsbom\\b|\\bsca\\b|\\bslsa\\b|\\bcosign\\b|\\bsigstore\\b|\\bprovenance\\b|\\blockfile\\b|\\bpackage-lock\\b|\\byarn\\.lock\\b|\\bpnpm-lock\\b|\\bgo\\.sum\\b|\\bcargo\\.lock\\b|\\bcomposer\\.lock\\b|\\bnuget\\b|\\bpip\\.conf\\b|\\bcyclonedx\\b|\\bspdx\\b)|依赖混淆|依赖投毒|供应链|软件物料清单|锁文件|来源证明|镜像签名|基础镜像|流水线权限|制品签名|依赖.{0,4}(?:扫描|审计|漏洞|风险)|扫描依赖|扫.{0,2}依赖|docker\\s*image|容器镜像|镜像.{0,6}(后门|投毒|劫持)|npm\\s*(?:worm|投毒|恶意包)|ChainDrop|Shai-Hulud|SANDWORM|postinstall)",
+        "(?i)(?:\\bgithub actions\\b|\\bgitlab ci\\b|\\bci/cd\\b|\\bpull_request_target\\b|\\bworkflow_run\\b|\\bwrite-all\\b)",
+        "(?i)(?=.*?(?:(?:\\bnpm\\b|\\bpip\\b|\\bnuget\\b|\\bmaven\\b|\\bgradle\\b)))(?=.*?(?:(?:\\bregistry\\b|\\bindex-url\\b|\\bpackageSourceMapping\\b|依赖混淆|抢注|投毒)))",
+        "(?i)(?=.*?(?:(?:\\bci\\b|\\bworkflow\\b|流水线)))(?=.*?(?:(?:\\bpermissions?\\b|\\bsecrets?\\b|\\btoken\\b|权限)))",
+        "(?i)(?:\\btyposquat(?:ting)?\\b|仿冒包|恶意 ?npm ?包)",
+        "(?i)依赖.{0,6}(投毒|混淆|混淆|劫持|安全|审计|检查)",
+        "(?i)(投毒|typosquat|依赖混淆|dependency confusion|恶意包)",
+        "(?i)(dockerfile|镜像).{0,12}(latest|未钉|不可复现|digest|安全|审计|供应链)",
+        "(?i)(仓库|代码库).{0,8}(依赖|供应链|第三方)"
+      ],
+      "priority": 170
+    }
+  ],
+  "stages": [
+    "0-analysis",
+    "1-ask",
+    "2-dyn",
+    "3-patch",
+    "4-verify"
+  ],
+  "tools": [
+    "seep_kb_search",
+    "seep_kb_read"
+  ],
+  "cases": [
+    "supply-chain01",
+    "supply-chain02",
+    "supply-chain03",
+    "supply-chain04",
+    "supply-chain05"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/supply-chain05",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "不做在线漏洞库全量比对（离线规则为主）",
+    "镜像层分析未覆盖 Windows 容器"
+  ],
+  "invalidation": [
+    "目标为单一二进制且无依赖声明（转 malware-analysis）"
+  ]
+}

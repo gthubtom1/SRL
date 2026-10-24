@@ -6,7 +6,7 @@
 
 ## 用法
 
-1. `python Tool/scripts/seep-start.py --domain <域> --case <case> [--target <路径>]`
+1. `python `case_state.py init`（seep-start 已删：它就是 init + 目录布局） --domain <域> --case <case> [--target <路径>]`
 2. 把原始输出放进 `work/<case>/artifacts/`，命令与 rc 写进模板「证据清单」。
 3. 逐条填「判据命中表」与「失败判据记录」；缺证据的判据只能记 `candidate`。
 4. 复跑命令必须从仓库根可执行；路径用相对路径或 `work/<case>/...`。

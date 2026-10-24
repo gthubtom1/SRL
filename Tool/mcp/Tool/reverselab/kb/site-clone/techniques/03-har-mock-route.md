@@ -52,7 +52,7 @@ crawl/site-graph.json.api[]  # url/method/status/content_type/body_file/sha256/b
 ## 重建（rebuild）
 
 ```bash
-python Tool/skill/site-clone/scripts/site-rebuild.py \
+python Tool/skill/_pending/site-clone/scripts/site-rebuild.py \
   --crawl work/crawl --out work/rebuild --rps 2
 ```
 

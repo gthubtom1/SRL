@@ -149,9 +149,9 @@ def accept(root, only=None):
     real = sum(1 for r in results if r.get("evidence_kind") in ("real", "self-built"))
     errors = []
     if len(results) < 3:
-        errors.append("only %d cases (need 3-5)" % len(results))
-    if len(results) > 5:
-        errors.append("%d cases (need 3-5)" % len(results))
+        errors.append("only %d cases (need 3-7，S5 真实目标会新增案例)" % len(results))
+    if len(results) > 7:   # 与 domain_spec.LIMITS["cases_max"] 同步（S5 会为真实目标新增案例）
+        errors.append("%d cases (need 3-7)" % len(results))
     if real < 1:
         errors.append("no evidence_kind=real case")
     failed = [r for r in results if not r["ok"]]

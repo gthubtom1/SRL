@@ -12,7 +12,7 @@
 
 ## [1.26.1] — 2026-10-22
 > 摩擦修复 + 门禁补强 + 四个域硬化（五路并行分支，全部合并回 main）。
-- **MCP 参数契约**：17 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
+- **MCP 参数契约**：18 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/skill/softseep/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
 - **假话术修复**：`seep_auto_triage` 的 `recommended_action` 不再无条件声称「检测到高价值鉴权关键词」，改为按实测命中生成 `next_actions` 数组（命中 / 未命中 / CIL / rabin2 解析失败 各走一路）。
 - **路由修复（根因）**：`.NET` 的 `` 把 CJK 当 word 字符，导致「APK去广告」「Unity IL2CPP透视」等英文词紧跟中文的口吻全部掉兜底；`master-route.ps1` 改为匹配前在 ASCII↔CJK 交界补空格。补 R1（小程序）/R6（前端 JS·签名算法）/R23（本机提权）/R34（验证码·滑块）/R22（无线近场）关键词；新增 **R36 OSINT**（配方 `osint-recon`）。
 - **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（39 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
@@ -26,7 +26,7 @@
 
 ## [1.26.0] — 2026-10-22
 > 能力补充 + 真实可用性收口（三个只读审计 + 三批并行修复）。
-- 验证码求解原语：新增 `Tool/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90/ambiguous+置信度）；纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
+- 验证码求解原语：新增 `Tool/skill/web-pentest/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90/ambiguous+置信度）；纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
 - 真错修复：`captcha-angle` 检出 90° 等价类不可分时返回 `ambiguous:true`（不再高置信度给错角）；`temp_ocr` 落盘 `ocr.json` 且失败 rc=2；`probe_api` 非 2xx→rc=3 并支持 `--method/--data`；`case_state` 保留 URL 形态 target；`seep-start` 标注样例路径并对 URL 目标给 `web-check` 首步；`capability-gate` 引用统计拆「精确 id / 脚本别名 / reserved」。
 - 一致性：MCP 工具 38→40（README 矩阵补 `seep_case_search`/`seep_case_read`）、KB 292→409、radare2 5.9.8 / apktool 2.11.0、能力数统一 47、ROADMAP 与 softseep 域表 11 行、apkseep 54/61/57/123、组件 17→11、README 自指、AUDIT R1–R8、DEFERRALS 61。
 - 配方可用性：`web-api-sign-reverse` 改用 `mcp__js_reverse__*` 真实序列 + `sign_check.json` 判据；`web-check` 输出补 `url/status/headers`；`qinglong-signin` 写明 `env-ledger check` 的 rc=1 语义；`captcha-handling` 补 claim 步骤；6 个 frida/capstone 脚本统一 `blocked_at:"tool-missing"` rc=2。
@@ -77,7 +77,7 @@
 
 > 主题：**九件套 2.0 —— 每个域都能独立打一场**。R1–R4 四轮独立子代理审计，P0/P1 全部回修。
 
-### 深度契约（docs/DOMAIN-SPEC-v2.md）
+### 深度契约（docs/history/X-DOMAIN-SPEC-v2.md）
 - SKILL.md ≤600 行；单篇 reference ≤400 行；每域 references 6–10 篇，必备 `01-criteria` / `02-failure-criteria` / `03-model-pitfalls` / `04-walkthrough-*`。
 - 每域脚本 2–4 个：`--help` 与 `--self-test` 必须 rc=0，失败输出 `{"ok": false, "blocked_at", "reason"}` + rc=2。
 - 每域案例 3–5 个（reverse 16），≥1 个 `evidence_kind=real` 且 `repro.status=recorded`；新增 `repro` 字段与 `evidence_kind` 校验。
@@ -265,15 +265,15 @@
 
 ### C 脱壳 / 反调试
 
-- `Tool/skill/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
-- `Tool/skill/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
-- `Tool/scripts/probe_matrix.py`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
-- `Tool/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
+- `Tool/skill/_pending/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
+- `Tool/skill/_pending/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
+- `（`probe_matrix` 已不存在：按上面的替代路径走）`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
+- `Tool/skill/malware-analysis/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
 
 ### D 记忆层 + 长跑契约
 
 - `Tool/prompts/extensions/seep-memory.ts`：自动写 `events.jsonl`；`/map` `/facts` `/traps` `/memory-note`；`before_agent_start` 只注入 `map.md`（≤1536B）；凭据词自动脱敏；`@@FACT/@@TRAP/@@GATE/@@DEAD` 标记分流。
-- `Tool/scripts/env-ledger.py`：环境变更台账（`record/list/restore/check`），命令白名单 + 元字符拒绝；未还原时 `check` rc=1。
+- `Tool/skill/softseep/scripts/env-ledger.py`：环境变更台账（`record/list/restore/check`），命令白名单 + 元字符拒绝；未还原时 `check` rc=1。
 - `Tool/docs/MEMORY.md`、`Tool/docs/AUTONOMY.md`：四层记忆规范 + 长跑契约（只四类情况停、20 分钟 checkpoint）。
 
 ### 门禁
@@ -334,7 +334,7 @@
 | 级别 | 问题 | 修复（逐条自验） |
 |---|---|---|
 | P2 | `check_taskcards_gate()` 只查一个字面标记：若重生成保留 `gate` 却丢 `init/claim/prove/…` 仍放行 | 断言扩到 **7 条子命令 + 「必须返回 0」**，并新增 `VERSION_SEEN == VERSION` 校验 |
-| P2 | 源提示词 CRLF、任务卡 LF，手工重生成会产生整文件假 diff（诱发"顺手重排"式回退） | 新增 `Tool/scripts/gen-task-cards.py`：**脚本化生成 + 写死 LF**，并在源头缺闸块时**拒绝生成**；`--check` 校验同源（实跑 rc=0） |
+| P2 | 源提示词 CRLF、任务卡 LF，手工重生成会产生整文件假 diff（诱发"顺手重排"式回退） | 新增 「gen-task-cards.py」(S1 已删)：**脚本化生成 + 写死 LF**，并在源头缺闸块时**拒绝生成**；`--check` 校验同源（实跑 rc=0） |
 | P2 | `PROMPT-LAYERS` 用「已确认授权的沙盒范围」，字面可与"默认已授权"读岔 | 改为「受权范围内（默认成立，见 `AGENTS.md` §六）」 |
 | 留痕 | 终审 #4 未记录 | `AUDIT-2026-10-21.md` §四 追加「终审 #4」：会话 `01a15d6a-721b-7691-b3f6-14de4fd8cf61`、HEAD `305d3a4`、结论原文（**无 P0/P1 遗留；同意收口**） |
 
@@ -656,7 +656,7 @@
 | **交付分级是纸面闸** | 新增 `case_state.py deliver --level M1..M4`：超过裁定上限**直接拒**；`show/resume` 显示已登记交付 |
 | **gate 可洗白** | 全 na 拒绝、na 必须写原因、裁定与深度绑定（可赢要 D0–D4 pass / 部分可赢要 D0–D3 / 不可赢要 D0–D2） |
 | **MCP 只增不删无验证** | 新增 `mcp-guard.py` + `Tool/mcp/.baseline/tools.json`（38 工具）：工具消失/数量下降/`SEEP-EXT` 标记不成对/占位假实现 一律 exit 1；preflight 接入 |
-| **阶段⑤只存在文档** | 新增 `Tool/skill/05-backend-rebuild/SKILL.md` + 路由 **R16**；T1/T2/T3 触发、三层 API 面、路由形态、8 项 checklist |
+| **阶段⑤只存在文档** | 新增 `Tool/skill/_pending/05-backend-rebuild/SKILL.md` + 路由 **R16**；T1/T2/T3 触发、三层 API 面、路由形态、8 项 checklist |
 | **重复路由** | 删 R3（与 R14 重复）；R1 的 `frida` 收窄为 Android 语境；R9 去掉单字「壳」 |
 | **深度门复制** | 01 技能的 D0–D5 副本删除，改为指向 00（一份定义） |
 | **preflight 可移植检查失明** | 修两处根因：`load_allow()` 返回层级错误 + 正则多一层反斜杠；修后首次真正扫出 39 处，逐一处置（修 2 处真硬编码 + 6 条合理白名单） |
@@ -922,8 +922,8 @@ D0–D5 各有产物；8 节齐全；每条结论有证据编号；`facts.jsonl`
 
 | 新增 | 作用 |
 |---|---|
-| `Tool/skill/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
-| `Tool/scripts/migrate.py` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
+| `Tool/skill/_pending/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
+| `（`migrate` 已不存在：按上面的替代路径走）` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
 | `Tool/docs/MIGRATION.md` | `manifest.json` 规范（schema `seep-migration/1`）+ 目录约定 + 常见漂移模式 |
 | 01/02/03 技能各加"顺手记账" | 位点 / UI 素材 / 授权挂载点分别写入 `sites[]` / `ui[]` / `license[]` —— 没有账，下次更新只能重做 |
 | 路由 `R14` | "软件更新了 / 追版 / 新版迁一下" → 04（实测 7/7 判型正确，不影响 01/02/03 与 apkseep） |
@@ -1960,7 +1960,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 |---|---|
 | `setup/install-pi.ps1`、`setup/merge_agent_config.py` | 包清单 12 → **11**（移除 `npm:pi-mcp-extension`）；新增 `RETIRED_PACKAGES` 剔除逻辑 |
 | `Tool/docs/DOWNLOADS.md`、`MANUAL/PREREQUISITES.md` | 包数 12 → 11；删除手动安装示例中的该包 |
-| `Tool/prompts/SYSTEM.md`、`Tool/skill/ida-reverse/SKILL.md`、`Tool/skill/softseep/SKILL.md`、`Tool/docs/{DOWNLOADS,MCP-SETUP,TOOLKIT_GUIDE}.md` | 工具命名 `mcp_ida_*` → **`mcp__ida__*`**（12 处） |
+| `Tool/prompts/SYSTEM.md`、`Tool/skill/_pending/ida-reverse/SKILL.md`、`Tool/skill/softseep/SKILL.md`、`Tool/docs/{DOWNLOADS,MCP-SETUP,TOOLKIT_GUIDE}.md` | 工具命名 `mcp_ida_*` → **`mcp__ida__*`**（12 处） |
 | `Tool/docs/MCP-SETUP.md` §三 | 新增"装任何 pi 扩展前先跑命名自检"，并注明**加 MCP 服务器不触发** |
 | `MANUAL/DEPLOYMENT-CHECKLIST.md` | MCP 段附"附加断言（不计入 60 项）" |
 
@@ -2041,7 +2041,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 修复：BOM 回归（本轮文档批量改写引入）
 
 - 批量改文档时用了 `utf-8-sig` 写回，导致 **15 个 .md 与 1 个 .py 被加上 BOM** —— 其中
-  `Tool/scripts/new-skill.py` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
+  `（已删除）` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
 - 处置：`setup/clean-format.py` 增加**通用 BOM 剥离**（除 `.ps1/.psm1/.bat/.cmd` 外一律去 BOM），
   并在本次全仓执行（112 个 Python 文件语法校验全过）。
 
@@ -2067,7 +2067,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 
 > 主题：**补上最后一块架构缺口（端到端链路验收），然后冻结。**
 
-### 新增：`Tool/scripts/smoke-e2e.py`（端到端冒烟）
+### 新增：`（`smoke-e2e` 已不存在：按上面的替代路径走）`（端到端冒烟）
 
 - **为什么**：体检 60 项 + 三套单测只证明"资产在位 / 单元正确"，**不证明链路连通**。
   弱模型真正会卡住的地方恰恰是"链条中段断了"（如：triage 出结果 → 判壳 → 反编译，中间某一环报错）。
@@ -2075,7 +2075,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   `auto_triage → 整文件哈希 → packer_detect → r2_info → r2_functions → decompile_auto →
    kb_search → task_init → gen_security_report → tool_discover`，
   全部在临时工作区（`SEEP_WORKSPACE`）执行，**不污染仓库**；约 13 秒；不联网、不依赖商业工具。
-- **怎么用**：`python Tool/scripts/smoke-e2e.py`（`--sample` 指定样本，`--keep` 保留现场排障）。
+- **怎么用**：`python （`smoke-e2e` 已不存在：按上面的替代路径走）`（`--sample` 指定样本，`--keep` 保留现场排障）。
 - **接入**：`FORK-DELTA` §五 与 `BASELINE-FREEZE` 的验收闸门从"五道"扩为"六道"
   （体检仍 60 项不变，端到端独立一条）。
 
@@ -2107,7 +2107,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 - **内容**：一句话结论（纯超集 0 删除）→ 三类差分的判读法 → **能力差分台账**（工具/技能/配置/工程修复/证据类修复，
   逐条含"解决什么 + 文件位置 + 回滚方式"）→ **上游同步 SOP（5 步命令）** → **并入前五问评估表** →
   **5 个冲突高发区** → 五道闸验收 → 自动生成的文件级差分清单。
-- **新增生成器** `Tool/scripts/fork-delta.py`：文件级差分由脚本刷新（手写部分只维护"为什么/值不值得/怎么撤"），
+- **新增生成器** `（`upstream-delta` 已不存在：按上面的替代路径走）`：文件级差分由脚本刷新（手写部分只维护"为什么/值不值得/怎么撤"），
   **彻底避免台账过期**；无 `upstream` remote 时给出一次性配置提示。
 
 ### 修复
@@ -2148,13 +2148,13 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   `uninstall.ps1` / `uninstall.sh` 同步修正。
 - **`generate-configs.ps1` 与已提交的 `.mcp.json` 不一致**：生成内容缺 `ghidra`，跑一次 `install.ps1` 就产生 diff
   并丢掉条目。现已与仓库版本严格一致，并改为**内容相同则跳过写入**（幂等）。
-- **`Tool/scripts/master-route.ps1` 一跑就 exit 2**：`configPath` 指向 `Tool/config/routing.json`，实际文件在
-  `Tool/scripts/routing.json`。已修路径解析（含旧布局兜底）与技能落位解析（三种布局），输出不再硬编码 `skills/` 前缀。
+- **`Tool/scripts/route.py` 一跑就 exit 2**：`configPath` 指向 `Tool/config/routing.json`，实际文件在
+  `Tool/skill/<pack>/pack.json`。已修路径解析（含旧布局兜底）与技能落位解析（三种布局），输出不再硬编码 `skills/` 前缀。
 - **`routing.json` 44 条路由全部指向不存在的技能**（vendor 自上游 reverse-skill 大仓的残留：mobile-reverse /
   firmware-pentest / pwn-chain 等本包均未内置，连 fallback R0 也解析不到）。已按**本包真实内置的 9 个技能**重写
   为 9 条路由（apkseep / client-license-validation-bypass / version-migration / ida-reverse / radare2 /
   mcp-js-reverse-playbook / reverse-engineering / apk-reverse / softseep 兜底），并新增可执行的
-  `Tool/scripts/verify-routing-coherence.py`（routes ↔ priority ↔ fallback ↔ 技能落位 四重断言，已接入体检）。
+  `Tool/scripts/route.py`（routes ↔ priority ↔ fallback ↔ 技能落位 四重断言，已接入体检）。
 - **`case-init` 生成的 scope/workitems 引用不存在的 `skills/ops/*`**：已改为指向本包真实文件
   （`MANUAL/POC-VALIDATION.md` / `Tool/skill/softseep/SKILL.md` / `Tool/scripts/case-init.ps1`）。
 - **`seep_task_init` / `seep_gen_security_report` 把任务产物建进 `Tool/mcp/`**：已改为 `<仓库根>/work/`
@@ -2201,13 +2201,13 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 - `MANUAL/BASELINE-FREEZE.md` 新增 §七「反臃肿预算」：数量硬上限（工具 ≤45 / 技能 ≤12 / setup ≤22 /
   MANUAL ≤16 / 单文件 ≤3200 行 / first-party ≤900 文件）、**三不原则**（不加框架层、同一能力只允许一个实现、
   不加并行状态）、**加功能前四问**。
-- 新增 `Tool/scripts/check-budget.py`：一条命令核对上述预算，超限即非零退出。
+- 新增 `Tool/scripts/budget.py`：一条命令核对上述预算，超限即非零退出。
 
 ### 修复（链路断点 —— 全仓断链审计发现）
 
 - **`softseep/SKILL.md` 资源表 4 处路径指向不存在的目录**（调度时会「在外面乱转」的根因）：
-  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/client-license-validation-bypass/SKILL.md`
-  - `Tool/safe/skills/` → `Tool/skill/safe-skills/`（并列出真实 5 个技能名）
+  - `Tool/client-license-validation-bypass/SKILL.md` → `Tool/skill/_pending/client-license-validation-bypass/SKILL.md`
+  - `Tool/safe/skills/` → `Tool/skill/_pending/safe-skills/`（并列出真实 5 个技能名）
   - `Tool/reverselab/kb/`（316 文件）→ `Tool/mcp/Tool/reverselab/kb/`（292 篇 .md）
   - `Tool/aotopsy/`（**该目录根本不存在**，上游也从未分发）→ 删除该行
   - 新增一行「运行时 `Tool/mcp/Tool/` 严禁搬动」提醒。
@@ -2248,7 +2248,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 清理
 
 - 删除误提交的根目录垃圾文件 `提示词`（内容只是一句粘贴残留）。
-- 清除两处作者本机绝对路径（`Tool/mcp/test_ext_assets.py`、`Tool/skill/version-migration/SKILL.md`），
+- 清除两处作者本机绝对路径（`Tool/mcp/test_ext_assets.py`、`Tool/skill/_pending/version-migration/SKILL.md`），
   并把隐私门禁正则从"只认原作者昵称"扩展为"个人绝对路径（用户目录 / 个人项目目录形态，含反斜杠与正斜杠两种写法）"。
 - `Tool/mcp/seep_mcp_server.py` 工作副本 CRLF 归位为 LF（与 `.gitattributes` 一致）。
 
@@ -2417,7 +2417,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   - 设 `PI_SAFETY_LOG=1` 后，每次判定写入 `~/.pi/agent/logs/l1-safety.log`，
     判定分为 `INJECT` / `SKIP` / **`SKIP-INEFFECTIVE`**（名字像 Gemini 但形状是 `messages`，
     注入必然无效的告警）。日志超 512KB 自动截断。
-- **🧪 Gemini 安全设置验证工具**（`Tool/scripts/check-gemini-safety.py`）
+- **🧪 Gemini 安全设置验证工具**（`破甲卡生成/check-gemini-safety.py`）
   - 用同一提示词分别以「不注入 / 注入 `BLOCK_NONE`」请求 Google 原生接口，
     对比 `finishReason` 给出**可证伪的结论**：有效 / 无法区分 / 无效。
   - 纯标准库，密钥仅从 `GEMINI_API_KEY` 环境变量读取，**绝不打印、绝不落盘**。

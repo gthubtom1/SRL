@@ -14,6 +14,15 @@ metadata:
 > 只回答一件事：**这个制品由什么组成、哪个依赖/构建步骤能被利用、证据是否足以让维护者修复。**
 > SCA 告警 ≠ 漏洞；构建成功 ≠ 可信构建；tag ≠ digest。仅对自有或明确授权的仓库/镜像/流水线操作。
 
+## 阶段契约（与 softseep 一致，**先判再做**）
+
+① 先摸清能不能测（仪器/授权位置/是否服务端权威）→ ② 给**裁定**（可赢 / 部分可赢 / 不可赢）+ **交付上限 M1–M4** → ③ 按上限执行。
+- 用户说"要源码级/成品级"是**愿望**，不是判据：判不上去就**说清卡在哪一轴**，给能到的那一级。
+- 用户只要低级别、但发现能更高 → 主动告知，由用户定。**不许硬冲，也不许静默降级。**
+- 命中任一 **卡点**（要用户手里的凭据 / 需物理动作 / 只可能从真实进程取证据且目标反自动化 / 同形状失败 2 次）→
+  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
+- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+
 ## 1. 范围与路由（边界）
 
 **本域输入面**
@@ -120,7 +129,7 @@ python Tool/skill/supply-chain-security/scripts/sbom-reach.py \
 ### 阶段 C：锁文件与 registry
 
 ```bash
-python Tool/scripts/sc-check.py --path . --out sc.json
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
 jq '{inventory: .inventory.locks, risks: [.risks[] | select(.category|test("lock|registry|version"))]}' sc.json
 ```
 
@@ -178,7 +187,7 @@ cosign verify-attestation <image> --type slsaprovenance
 
 | 脚本 | 用途 | 示例 |
 | :-- | :-- | :-- |
-| `Tool/scripts/sc-check.py` | 离线盘点锁文件/宽版本/CI 权限/action pin/镜像 tag/依赖混淆 | `python Tool/scripts/sc-check.py --path . --out sc.json` |
+| `Tool/skill/supply-chain-security/scripts/sc-check.py` | 离线盘点锁文件/宽版本/CI 权限/action pin/镜像 tag/依赖混淆 | `python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json` |
 | `scripts/sbom-reach.py` | SBOM/锁文件/freeze → 源码 import/require 可达性 | `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --lock package-lock.json --source . --out reach.json` |
 | `scripts/ci-perm-audit.py` | workflow 权限面/危险触发器/action pin（行号级） | `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out ci.json` |
 

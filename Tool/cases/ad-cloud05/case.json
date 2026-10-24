@@ -37,9 +37,9 @@
     "privesc"
   ],
   "refs": [
-    "Tool/skill/ad-cloud/references/cloud-native.md",
-    "Tool/skill/ad-cloud/references/01-criteria.md",
-    "Tool/skill/ad-cloud/scripts/cloud-iam-eval.py",
+    "Tool/skill/_pending/ad-cloud/references/cloud-native.md",
+    "Tool/skill/_pending/ad-cloud/references/01-criteria.md",
+    "Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py",
     "Tool/config/ad-cloud-matrix.json"
   ],
   "updated": "2026-10-21",

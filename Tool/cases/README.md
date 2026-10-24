@@ -9,7 +9,6 @@
 ```
 Tool/cases/
 ├─ README.md                 ← 本文件（约定与流程）
-├─ index.json                ← 由脚本生成的派生索引（不要手改）
 ├─ 项目A/
 │  ├─ case.json              ← 必填：结构化元数据（唯一事实来源）
 │  ├─ README.md / README.txt ← 建议：案例总览
@@ -23,7 +22,7 @@ Tool/cases/
 ```
 
 - `case.json` 是**唯一结构性入口**；README/docs 负责细节与证据。
-- `index.json` 是缓存，可随时用脚本重建，**不要手工编辑**。
+- 索引**不落盘**：需要时 `python Tool/scripts/case_state.py index` 现算（S2 起已删 `index.json`）。
 - 二进制样本默认不入库；需要时放 `work/` 或案例自己的 `samples/`。
 
 ## 2. `case.json` 字段
@@ -73,33 +72,31 @@ Tool/cases/
 2. 写 `case.json`，至少填 `id/domain/target_type/authority/goal_level/outcome/updated`。
 3. 补 `README.md`（总览）与 `docs/`（方法论/算法/复盘），把路径写进 `refs`。
 4. 有产物则放 `src/`、`tools/`、`dist/`，并在 `artifacts` 登记；能算哈希就填 `sha256`。
-5. 重新生成索引：
+5. 现算索引（不落缓存文件，S2 起 `index.json` 已删）：
 
    ```bash
-   python Tool/scripts/gen-case-index.py --stats
-   python Tool/scripts/gen-case-index.py --check   # 应 rc=0
+   python Tool/scripts/case_state.py index --stats
+   python Tool/scripts/case_state.py index --check   # 应 rc=0
    ```
 
 6. 如果新增了案例目录却忘了写 `case.json`，`--check` 会报错并列出目录。
 
 ## 4. 索引与新鲜度
 
-`gen-case-index.py` 扫描 `Tool/cases/*/case.json`，输出：
+**不再有索引文件。** `case_state.py index` 每次调用现扫 `Tool/cases/*/case.json` 并归一化输出：
+`schema` / `root` / `case_count` / `problems[]` / `cases[]`（含 `dir`）。
 
-- `schema`：索引结构版本（当前 `1`）；
-- `generated_at`：生成时间（UTC）；
-- `source_hash`：所有 `case.json` 的**相对路径 + 内容字节**按目录名排序后的 SHA-256；
-- `case_count` 与 `cases[]`：归一化后的案例条目（含 `dir`）。
-
-`source_hash` 是新鲜度判据：MCP 读取时会用它和磁盘现算值比对，不一致就退回实时扫描，避免返回过期索引。
-`--check` 忽略 `generated_at`，只比较 `schema`、`source_hash`、`case_count`、`cases`。
+为什么删掉缓存副本：旧的 `index.json` 由 `gen-case-index.py` 生成（S2 已删），
+它硬编码 `"repro": {}`，导致 `case.json` 50/56 有 repro、`index.json` 55/55 全空 ——
+派生缓存一旦落盘就必然和事实源分叉。现算没有新鲜度问题，`--check` 只判
+「每个 `case.json` 可解析 + id 与目录名一致 + 枚举值合法 + id 不重复」。
 
 ## 5. 如何被 MCP 检索
 
 两个工具（见 `Tool/mcp/seep_mcp_server.py` 的 `SEEP-EXT: case-lib` 块）：
 
 - `seep_case_search(query, domain, protection, level, outcome, limit)`：
-  优先读 `index.json`，索引过期或缺失时实时扫 `case.json`；对 `id/tags/lessons/domain/target_type/protection` 做加权子串打分，返回
+  实时扫 `case.json`（S2 起不再读 `index.json`）；对 `id/tags/lessons/domain/target_type/protection` 做加权子串打分，返回
   `{id, score, summary, path}` 列表。
 - `seep_case_read(case_id)`：
   返回该案 `case.json` 全文 + `facts.jsonl` 前 20 行 + README 前 80 行，用于把"上次怎么做的"直接喂给当前会话。
