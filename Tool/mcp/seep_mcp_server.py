@@ -14,6 +14,7 @@ import glob
 import shutil
 import signal
 import zipfile
+import hashlib
 import subprocess
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -970,9 +971,144 @@ def _triage_next_actions(matched: List[Dict[str, Any]], bin_info: Dict[str, Any]
         actions.append(f"报告目录：{task_name}/reports/（传 task_name 时自动落盘 triage.json）")
     return actions
 
+# ───────────────── 自动建案 + 缺输入就问（M2 / M4） ─────────────────
+_SEEP_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_AUTOCASE = os.environ.get("SEEP_AUTOCASE", "1") not in ("0", "false", "False")
+
+
+def _case_for(binary_path: str) -> Dict[str, Any]:
+    """分析类工具第一次碰到某个样本时自动建案（无账本 = 后面所有闸门失效）。
+
+    落地位置：`SEEP_CASE_DIR`（多项目隔离）或 `~/.seep/cases/auto/`。
+    **不放仓库**：放在 `Tool/cases/` 会被索引/门禁当成正式案例（实测踩到），而且会污染 git。
+    实现：直接复用 `case_state.py` 的 `paths/save_state/_ensure_case_meta`（不起子进程，毫秒级）。
+    """
+    out: Dict[str, Any] = {"enabled": _AUTOCASE}
+    if not _AUTOCASE:
+        return out
+    try:
+        p = os.path.abspath(binary_path)
+        if not os.path.isfile(p):
+            return out
+        h = hashlib.sha256(open(p, "rb").read()[:1 << 20]).hexdigest()[:8]
+        stem = os.path.splitext(os.path.basename(p))[0][:28] or "target"
+        base = os.environ.get("SEEP_CASE_DIR") or os.path.join(
+            os.path.expanduser("~"), ".seep", "cases", "auto")
+        cdir = os.path.join(base, "%s-%s" % (stem, h))
+        out["case"] = cdir.replace("\\", "/")
+        if os.path.isfile(os.path.join(cdir, "case.json")):
+            out["created"] = False
+            return out
+        mod = _case_state_module()
+        os.makedirs(cdir, exist_ok=True)
+        st = {"schema": "seep-case/1", "target": mod.store_target(p),
+              "depth": {}, "verdict": None, "max_level": None,
+              "stage": "intake", "stage_history": [],
+              "next_action": "D0 结构 + D1 存活（自动建案，未给裁定）", "updated": mod.now()}
+        mod.save_state(cdir, st)
+        mod._ensure_case_meta(cdir, st, "real")
+        out["created"] = True
+        out["next"] = ('python "%s/Tool/scripts/case_state.py" prove --case "%s" '
+                       '--id F-001 --claim "<结论>" --evidence "<证据路径>"'
+                       % (_SEEP_ROOT.replace("\\", "/"), cdir.replace("\\", "/")))
+    except Exception as e:  # noqa: BLE001
+        out["case_error"] = str(e)[:160]
+    return out
+
+
+_CS_MOD: Dict[str, Any] = {}
+
+
+def _case_state_module():
+    """把 case_state.py 当模块加载（同一份逻辑，不复制、不起子进程）。"""
+    if "m" in _CS_MOD:
+        return _CS_MOD["m"]
+    import importlib.util as _iu
+    p = os.path.join(_SEEP_ROOT, "Tool", "scripts", "case_state.py")
+    spec = _iu.spec_from_file_location("seep_case_state", p)
+    m = _iu.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    _CS_MOD["m"] = m
+    return m
+
+
+_NEEDS_CACHE: Dict[str, Any] = {}
+
+
+def _needs_table() -> List[Dict[str, Any]]:
+    if "t" in _NEEDS_CACHE:
+        return _NEEDS_CACHE["t"]
+    tab: List[Dict[str, Any]] = []
+    try:
+        d = json.load(open(os.path.join(_SEEP_ROOT, "Tool", "config", "user-inputs.json"), encoding="utf-8"))
+        tab = [x for x in (d.get("needs") or []) if isinstance(x, dict)]
+    except Exception:
+        tab = []
+    _NEEDS_CACHE["t"] = tab
+    return tab
+
+
+def _detect_needs(blob: bytes, extra_text: str = "", case_dir: str = "") -> List[Dict[str, Any]]:
+    """按信号表判断「这件事必须问用户」。命中即写入账本 ASK（best-effort）。"""
+    hits: List[Dict[str, Any]] = []
+    low = (blob or b"")[:8 << 20].lower()
+    try:
+        text = low.decode("utf-8", "ignore")
+    except Exception:
+        text = ""
+    text = text + " " + (extra_text or "").lower()
+    # 短 ASCII 关键词必须按词边界匹配（实测：密文里的随机子串会把 "hasp"/"pcap" 误命中）
+    try:
+        import re as _re
+    except Exception:
+        _re = None
+    for n in _needs_table():
+        sigs = n.get("signals") or []
+        if not sigs:
+            continue
+        hit = []
+        for x in sigs:
+            xl = x.lower()
+            if xl.isascii() and len(xl) >= 4 and _re is not None:
+                if _re.search(r"(?<![a-z0-9])" + _re.escape(xl) + r"(?![a-z0-9])", text):
+                    hit.append(x)
+            elif xl in text:
+                hit.append(x)
+        if hit:
+            hits.append({
+                "id": n.get("id"), "question": n.get("question"), "why": n.get("why"),
+                "if_yes": n.get("if_yes"), "if_no": n.get("if_no"),
+                "matched": hit[:4],
+                "ask": "把 question 原样问用户，并给出 if_yes / if_no 两条路线让用户选；"
+                       "**不许**自己假设『没有』就往下走",
+            })
+    if hits and case_dir:
+        try:
+            for h in hits[:2]:
+                subprocess.run([sys.executable, os.path.join(_SEEP_ROOT, "Tool", "scripts", "case_state.py"),
+                                "ask", "--case", case_dir, "--stuck", str(h.get("question"))[:120],
+                                "--option", "A 我有，按 if_yes 走", "--option", "B 我没有，按 if_no 走"],
+                               capture_output=True, text=True, encoding="utf-8",
+                               errors="replace", timeout=60)
+        except Exception:
+            pass
+    return hits
+
+
+def _needs_for_gui(tool_id: str) -> List[Dict[str, Any]]:
+    """GUI 工具没有 headless 时，改成请用户帮我开（而不是自己瞎试或放弃）。"""
+    for n in _needs_table():
+        if n.get("trigger") == "gui_required":
+            return [{"id": n.get("id"), "question": str(n.get("question")).replace("{tool}", tool_id),
+                     "why": n.get("why"), "if_yes": n.get("if_yes"), "if_no": n.get("if_no")}]
+    return []
+
+
+
 
 @server.tool()
 @_path_alias
+
 def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     """
     静态靶向侦察 (Auto Triage) —— **无证据则拒绝，不返回"看起来完整"的空壳**：
@@ -1080,7 +1216,26 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(triage_result, f, indent=2, ensure_ascii=False)
             triage_result["saved_report"] = out_file
-            
+    # M2/M4：自动建案 + 缺输入就问（triage 这一层也要挂，否则只走 triage 的会话仍然不问人）
+    try:
+        _case = _case_for(binary_path)
+        if _case.get("case"):
+            triage_result["case"] = _case
+        _blob = b""
+        try:
+            with open(binary_path, "rb") as _f:
+                _blob = _f.read(8 << 20)
+        except Exception:
+            pass
+        _needs = _detect_needs(_blob, " ".join(str(x) for x in (matched_strings or [])[:200])[:20000],
+                               _case.get("case") if _case.get("created") else "")
+        if _needs:
+            triage_result["need_from_user"] = _needs
+            triage_result["ask_policy"] = ("命中『需要用户输入』信号：先问，再动手。"
+                                           "用户答『没有』才走 if_no 路线，并把答案用 case_state.py ack 记进账本。")
+    except Exception as _e:  # noqa: BLE001
+        triage_result["case_error"] = str(_e)[:120]
+
     return json.dumps(triage_result, indent=2, ensure_ascii=False)
 
 
@@ -1939,6 +2094,29 @@ def seep_packer_detect(binary_path: str) -> str:
         acts.append({"why": "未检出壳 → 可直接反编译",
                      "tool": "mcp__seep__seep_r2_decompile", "args": {"binary_path": binp}})
     result["next_actions"] = acts
+
+    # M2/M4：自动建案 + 需要用户提供什么（命中就问，不许自己假设"没有"）
+    _case = _case_for(binary_path)
+    if _case.get("case"):
+        result["case"] = _case
+    if body_all_encrypted:
+        # 密文里做关键词匹配毫无意义（实测会命中随机子串）→ 只按"加固类型"问一条：
+        # 能不能启动（动态取解密后镜像），这同时是 L3 系统级副作用的许可闸。
+        _needs = []
+        for n in _needs_table():
+            if n.get("trigger") == "packed_needs_runtime":
+                _needs.append({"id": n.get("id"), "question": n.get("question"),
+                               "why": n.get("why"), "if_yes": n.get("if_yes"),
+                               "if_no": n.get("if_no"), "matched": ["packed+encrypted"]})
+        if _needs and _case.get("created"):
+            _detect_needs(b"", "", _case["case"])   # 记一条 ASK 进账本
+    else:
+        _needs = _detect_needs(blob, " ".join(result.get("antivm_strings") or []),
+                               _case.get("case") if _case.get("created") else "")
+    if _needs:
+        result["need_from_user"] = _needs
+        result["ask_policy"] = ("这些是**必须问用户**的输入；先问再动手。用户答『没有』才走 if_no 路线，"
+                               "并把答案记进账本（case_state.py ask/ack）。")
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 

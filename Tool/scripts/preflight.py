@@ -1051,6 +1051,39 @@ def check_tool_cache_contract():
         add("14 MCP 契约", "判壳输出可执行（next_actions / forbidden_next / warning 齐备）", False, str(e)[:80])
 
 
+def check_need_ask_contract():
+    """「缺输入就问」的契约：需求表每条都有问句+为什么+两条路线；工具必须暴露 need_from_user。
+
+    背景（2026-10-24）：那个会话全程没问过一句（卡密/账号/是否允许启动），自己假设"没有"就往下走
+    —— 方向赌在猜测上。'有没有卡密'会整条换路线，属于必须先问的一类。
+    """
+    import json as _j
+    p = os.path.join(TOOL, "config", "user-inputs.json")
+    bad = []
+    n = 0
+    try:
+        tab = _j.load(open(p, encoding="utf-8")).get("needs") or []
+        for x in tab:
+            n += 1
+            for k in ("id", "question", "why", "if_yes", "if_no"):
+                if not str(x.get(k) or "").strip():
+                    bad.append("%s 缺 %s" % (x.get("id", "?"), k))
+            if not (x.get("signals") or x.get("trigger")):
+                bad.append("%s 既无 signals 也无 trigger" % x.get("id", "?"))
+    except Exception as e:  # noqa: BLE001
+        bad.append("需求表读失败 %s" % e)
+    add("14 MCP 契约", "缺输入就问（需求表结构 + 工具暴露 need_from_user）", not bad,
+        "；".join(bad[:4]) if bad else "%d 条需求，全部含问句/理由/两条路线" % n)
+    try:
+        srv = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        need = ["_detect_needs(", "need_from_user", "_case_for(", "SEEP_AUTOCASE"]
+        miss = [x for x in need if x not in srv]
+        add("14 MCP 契约", "自动建案 + 缺输入就问已接线（禁止无账本干活）", not miss,
+            "缺: " + ", ".join(miss) if miss else "packer_detect / triage 均返回 case 与 need_from_user")
+    except Exception as e:  # noqa: BLE001
+        add("14 MCP 契约", "自动建案 + 缺输入就问已接线", False, str(e)[:80])
+
+
 def check_cross_layer():
     """跨层一致性两条：① 技能调用式引用 ↔ MCP 工具；② 回执 source 哈希不漂移。
 
@@ -1261,6 +1294,7 @@ def main():
     check_handoff_fresh()
     check_cross_layer()
     check_tool_cache_contract()
+    check_need_ask_contract()
     check_tool_ladder()
     check_functional(args.fast)
 
