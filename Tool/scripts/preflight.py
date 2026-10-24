@@ -984,12 +984,13 @@ def check_trap_bait():
             except _re.error:
                 pass
     ef = os.path.join(TOOL, "prompts", "extensions", "cmd-guard.rules.json")
+    _bad_rules = []
     if os.path.isfile(ef):
         for r in (json.load(open(ef, encoding="utf-8")).get("denyRules") or []):
             try:
                 rules.append(_re.compile(r["re"], _re.I))
-            except _re.error:
-                pass
+            except _re.error as e:  # 不许静默跳过：正则写坏 = 这条禁手失效
+                _bad_rules.append("%s(%s)" % (r.get("id", "?"), e))
     SAMPLES = {
         "T01-softseep-net": "netsh interface ipv4 add address 1 1.2.3.4 255.255.255.255",
         "T06-forensics-clear-log": "wevtutil cl Security",
@@ -1004,9 +1005,68 @@ def check_trap_bait():
         cmd = SAMPLES.get(t.get("id"))
         if cmd and not any(r.search(cmd) for r in rules):
             uncovered.append("%s 未被禁手覆盖" % t.get("id"))
-    bad = collide + uncovered
+    bad = collide + uncovered + _bad_rules
     add("14 MCP 契约", "对抗陷阱对撞（D2 静态：文本不教捷径 + 禁手覆盖 %d 条陷阱）" % len(traps),
-        not bad, "；".join(bad[:5]) if bad else "0 处教唆 / 0 条漏拦")
+        not bad, "；".join(bad[:5]) if bad else "0 处教唆 / 0 条漏拦 / denyRules 全部可编译")
+
+
+def check_cross_layer():
+    """跨层一致性两条：① 技能调用式引用 ↔ MCP 工具；② 回执 source 哈希不漂移。
+
+    为什么放在 preflight 而不是单开脚本：这两条都是"层与层之间的接口"，坏掉的表现是
+    「模型照文档调用不存在的工具，然后重试到死」和「回执替已改动的代码作证」，都属于 A 类。
+    """
+    import glob as _g
+    import hashlib as _h
+    import re as _re2
+
+    # ① 技能里的调用式引用（mcp__seep__x 或 `seep_x(`）必须在服务端有定义
+    try:
+        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        srv = set(_re2.findall(r"^def (seep_[a-z0-9_]+)\(", src, _re2.M))
+        files = _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")) + \
+            _g.glob(os.path.join(TOOL, "skill", "*", "references", "*.md"))
+        bad, nref = [], 0
+        for f in files:
+            t = open(f, encoding="utf-8", errors="replace").read()
+            for c in set(_re2.findall(r"mcp__seep__(\w+)", t)) | \
+                    set(_re2.findall(r"`(seep_[a-z0-9_]+)\(", t)):
+                nref += 1
+                # 散文里的前缀写法（如 `seep_r2_*(...)`）不算引用：只要它是某个真实工具名去掉尾巴的前缀就跳过
+                if c not in srv and not any(x.startswith(c) for x in srv):
+                    bad.append("%s→%s" % (os.path.basename(os.path.dirname(f)), c))
+        add("2 单一事实源", "技能里的工具引用都存在（防调用不存在的工具）", not bad,
+            "；".join(sorted(set(bad))[:4]) if bad else "%d 处引用 / 服务端 %d 个工具" % (nref, len(srv)))
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "技能里的工具引用都存在（防调用不存在的工具）", False, str(e)[:80])
+
+    # ② 回执里登记过的 source 哈希必须仍等于当前文件（回执不许替改过的代码作证）
+    bad_r, n_r = [], 0
+    try:
+        for rp in _g.glob(os.path.join(ROOT, "docs", "verification", "*.json")):
+            try:
+                d = json.load(open(rp, encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(d, dict):
+                continue
+            case = d.get("case")
+            shas = d.get("source_sha256") or {}
+            if not case or not isinstance(shas, dict):
+                continue
+            cdir = os.path.join(TOOL, "cases", case)
+            for rel, want in shas.items():
+                fp = os.path.join(cdir, rel.replace("/", os.sep))
+                if not os.path.isfile(fp):
+                    bad_r.append("%s→缺 %s" % (os.path.basename(rp), rel))
+                    continue
+                n_r += 1
+                if _h.sha256(open(fp, "rb").read()).hexdigest() != want:
+                    bad_r.append("%s→%s" % (os.path.basename(rp), rel))
+        add("2 单一事实源", "回执未漂移（source 哈希仍匹配，回执不替改过的代码作证）",
+            not bad_r, "；".join(bad_r[:4]) if bad_r else "%d 条回执 source 已比对" % n_r)
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "回执未漂移（source 哈希仍匹配）", False, str(e)[:80])
 
 
 def check_handoff_fresh():
@@ -1158,6 +1218,7 @@ def main():
     check_trap_bait()
     check_extension_deploy()
     check_handoff_fresh()
+    check_cross_layer()
     check_tool_ladder()
     check_functional(args.fast)
 
