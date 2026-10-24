@@ -57,6 +57,15 @@
 | A2 指针指向「不存在 / 自称失效」的文件 | ✅ 已修三处：`SEEP.md:27` → `docs/PLAN-v8.md`；`AGENTS.md §四之六`、`contracts/AGENTS.md:41` 的 `优化方案.md`（**文件不存在**）→ `docs/PLAN-v8.md` |
 | A3 「断网/飞行模式」写成必做且无退路；且同屏退路 lint 不扫 MANUAL/README（假绿） | ✅ 两处改写为「① VM 内断网（首选）② 只断目标进程 ③ 宿主断网=最后手段，须存档+恢复+用户同意」；**lint 扫描范围已扩到 MANUAL + 三份 README**（现报 0 处缺退路） |
 
+## 二quinquies、终审 4 号报告的 A 类 · 复核与补修
+
+| 报告指出 | 复核结果 |
+| :-- | :-- |
+| **F-002 门禁结构缺陷**：`gate.py:150` 的 MANIFEST 判据只判「文件在不在」，不看哈希 → **假哈希永不红** | ✅ **已修**：`_clause_ok` 的 `*.sha256` 分支改为**逐条校验哈希**（缺文件/哈希不符/行格式坏都算红）。打红实测：改坏 leaf-apk MANIFEST 第一行 → `FAIL G4`「哈希不符 capture/reverify…」（随后恢复即绿） |
+| F-002 4 例 MANIFEST 假哈希 | ✅ 上一轮已重算；本轮 gate 能真判后复核仍绿 |
+| F-005 leaf-apk 交付 apk（1,301,491B）未进 MANIFEST | ✅ 已补登记（MANIFEST + 回执 sha 同步更新） |
+| F-006 aimbot `evidence_kind=real` 但 lessons 无 `rc=`、无 target | ✅ lessons[0] 补「命令 + rc=0 + 目标在外部不存副本」；target 为空是有意的并写明 |
+
 ## 三、不做（B/C 类，已记账）
 
 | 项 | 类型 | 为什么不做 |

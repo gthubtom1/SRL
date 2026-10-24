@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -149,7 +150,28 @@ def _clause_ok(clause, rc, case_dir):
         return n >= need, ("facts %d < %d" % (n, need) if n < need else "")
     if c.endswith("manifest.sha256"):
         p = os.path.join(case_dir, clause.strip())
-        return os.path.isfile(p), ("缺 %s" % clause.strip() if not os.path.isfile(p) else "")
+        if not os.path.isfile(p):
+            return False, "缺 %s" % clause.strip()
+        # ★ 只判「文件在不在」会让假哈希永远不红（终审 4 号 F-002）。逐条核哈希。
+        bad = []
+        with open(p, encoding="utf-8", errors="replace") as fh:
+            for ln in fh:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                parts = ln.split(None, 1)
+                if len(parts) != 2:
+                    bad.append("行格式坏: %r" % ln[:40])
+                    continue
+                want, rel = parts[0].lower(), parts[1].strip()
+                fp = os.path.join(case_dir, rel) if not os.path.isabs(rel) else rel
+                if not os.path.isfile(fp):
+                    bad.append("缺文件 %s" % rel)
+                    continue
+                got = hashlib.sha256(open(fp, "rb").read()).hexdigest()
+                if got != want:
+                    bad.append("哈希不符 %s" % rel)
+        return (not bad), ("；".join(bad[:3]) if bad else "")
     return False, "无法机检的 expect 子句：%r（不当作通过）" % clause
 
 
