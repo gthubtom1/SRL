@@ -32,8 +32,8 @@
   ],
   "tags": [],
   "refs": [
-    "Tool/skill/plugin-targets/references/01-criteria.md",
-    "Tool/skill/plugin-targets/references/02-failure-criteria.md"
+    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md"
   ],
   "updated": "YYYY-MM-DD"
 }

@@ -91,3 +91,23 @@ MANIFEST 哈希错 → `G4 pack-witness` 红；proven 无证据 → `G5 evidence
 **四项全满足** ⇒ 判定"可用"，停止优化。
 
 再往下做都属于 B/C 类（能力扩充或口味），不构成"修 bug"。
+
+## 九、完整门禁清单（2026-10-24 补：此前只跑前两条就宣布"全绿"，漏掉 3 项）
+
+**"完成"的唯一口径 = 下面 6 条全绿 + 故障注入全被抓。少跑一条就不算。**
+
+```bash
+python Tool/scripts/preflight.py --fast                              # 53 项（结构/契约/触发面/部署）
+python Tool/scripts/gate.py --all                                    # 9 包 × 6 判据（证据强度）
+python Tool/scripts/domain-gate.py --all                             # 109 项（域契约/证据链/清理/部署/串味）
+python Tool/scripts/kb_acceptance.py                                 # 9 项（KB 检索验收语料）
+python Tool/skill/softseep/scripts/intent-coverage.py --json          # 意图覆盖（90 条探针）
+python Tool/skill/softseep/scripts/skill-route-probe.py --json        # 技能路由探针（含 CJK 边界）
+```
+
+本轮漏跑时抓到的真 bug（都是"检查项本身写错"，不是数据错）：
+| bug | 表现 | 修法 |
+| :-- | :-- | :-- |
+| `domain-gate.check_spec()` 找 `docs/DOMAIN-SPEC-v2.md` | 文件其实在 `docs/history/X-DOMAIN-SPEC-v2.md` → 整条契约漂移判据永远红 | 改路径 |
+| 3 个案例模板的 refs 指向归档前路径（`Tool/skill/ad-cloud/`） | 证据链判据报"幻影引用" | 批量改到 `_pending/` |
+| `Tool/docs/tool-index.md` 把内置工具标 `Missing` | 会让人去联网装**已随仓库打包**的 radare2/jadx/apktool | 按 8 层探测重写（16/16 就位，不写机器路径） |

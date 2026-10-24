@@ -1072,7 +1072,7 @@ def check_case_index():
 # ---------------------------------------------------------------- main
 def check_spec():
     """契约漂移：SPEC 文档行数/条数与 domain_spec.py 是否明显不一致。"""
-    p = os.path.join(ROOT, "docs", "DOMAIN-SPEC-v2.md")
+    p = os.path.join(ROOT, "docs", "history", "X-DOMAIN-SPEC-v2.md")
     bad = []
     if not os.path.isfile(p):
         bad.append("缺 docs/history/X-DOMAIN-SPEC-v2.md")
