@@ -13,7 +13,7 @@
 
 ```bash
 file target.crx target.vsix plugin.jar
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path target.crx
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx
 unzip -l target.vsix | head -40
 jar tf plugin.jar | head -40
 ```

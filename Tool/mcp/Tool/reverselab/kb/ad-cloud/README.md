@@ -1,6 +1,6 @@
 # AD & Cloud 知识库 — 域内攻击链与云原生
 
-> Board：`ad-cloud`。配套技能：`Tool/skill/ad-cloud/SKILL.md`。
+> Board：`ad-cloud`。配套技能：`Tool/skill/_pending/ad-cloud/SKILL.md`。
 > 只处理已授权的内网/云环境；结论必须是可复现的凭据或权限提升证据，不做 Web 漏洞。
 > 本板卡的目标不是“讲全攻击”，而是让每条路径都能回答：**判据是什么、失败长什么样、证据怎么留。**
 
@@ -65,8 +65,8 @@ python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config
 4. 离线复算优先：
 
 ```bash
-python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input adcs.json
-python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input policy.json \
+python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind adcs --input adcs.json
+python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input policy.json \
   --action iam:CreatePolicyVersion --resource arn:aws:iam::123456789012:policy/demo
 ```
 
@@ -87,7 +87,7 @@ python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input policy.json \
 
 | 场景 | 技能路径 |
 | :-- | :-- |
-| 主流程、判据、坑与边界 | `Tool/skill/ad-cloud/SKILL.md` |
+| 主流程、判据、坑与边界 | `Tool/skill/_pending/ad-cloud/SKILL.md` |
 | AD 枚举/ACL/relay/横向细节 | 技能 `references/ad-attacks.md` |
 | 云身份/元数据/CI 凭据 | 技能 `references/cloud-native.md` |
 | Kerberos/ADCS 命令细节 | 技能 `references/kerberos-and-adcs.md` |
@@ -96,7 +96,7 @@ python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py --input policy.json \
 | 真实日志走查 | 技能 `references/04-walkthrough-windows-auth-events.md` |
 | Web/API 入口或应用层漏洞 | `Tool/skill/web-pentest/SKILL.md` |
 | 镜像/依赖/CI 制品供应链 | `Tool/skill/supply-chain-security/SKILL.md` |
-| 拿到主机后的二进制分析 | `Tool/skill/ida-reverse/SKILL.md` |
+| 拿到主机后的二进制分析 | `Tool/skill/_pending/ida-reverse/SKILL.md` |
 
 ## 边界
 

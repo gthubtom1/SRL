@@ -51,10 +51,10 @@ wget --mirror --page-requisites --convert-links --wait=0.5 --limit-rate=200k \
   https://static.example/
 
 # 同一目标仍要补渲染证据
-python Tool/skill/site-clone/scripts/site-crawl.py \
+python Tool/skill/_pending/site-clone/scripts/site-crawl.py \
   --url https://static.example/ --out work/crawl --max-pages 20 --rps 2
-python Tool/skill/site-clone/scripts/site-rebuild.py --crawl work/crawl --out work/rebuild --rps 2
-python Tool/skill/site-clone/scripts/site-diff.py --crawl work/crawl --rebuild work/rebuild
+python Tool/skill/_pending/site-clone/scripts/site-rebuild.py --crawl work/crawl --out work/rebuild --rps 2
+python Tool/skill/_pending/site-clone/scripts/site-diff.py --crawl work/crawl --rebuild work/rebuild
 ```
 
 ## 确认判据

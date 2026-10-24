@@ -1,6 +1,6 @@
 # Plugin 知识库 — 插件 / 扩展 / Mod（R25）
 
-> 技能入口：`Tool/skill/plugin-targets/SKILL.md`。
+> 技能入口：`Tool/skill/_pending/plugin-targets/SKILL.md`。
 > 边界：协议/抓包/分帧/状态机 → `protocol-plugin`（R24）；APK 壳/重打包 → `apkseep`；PE 脱壳 → `unpack-loop`；供应链 lockfile → `supply-chain-security`。
 > 本 board 只处理：宿主如何加载插件、权限/入口如何落到代码、数据流到哪、最小可改单元是什么、失败时往哪转。
 
@@ -18,9 +18,9 @@
 ## 10 分钟初筛
 
 ```bash
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path target.crx --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path target.crx --out work/repro --json
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path target.crx --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar --json
 ```
 
 1. **判包型**：CRX/XPI/ZIP、VSIX、JAR、asar、Unity 目录。

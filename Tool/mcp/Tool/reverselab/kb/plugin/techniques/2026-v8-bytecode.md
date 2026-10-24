@@ -89,9 +89,9 @@ grep -nE 'https?://|token|license' jsc.strings | head -20
 
 ## 与 reference 的关系
 
-- Electron/asar 加载链：[electron-and-asar.md](../../../../../../../Tool/skill/plugin-targets/references/electron-and-asar.md)。
-- 入口与权限面：[browser-extension.md](../../../../../../../Tool/skill/plugin-targets/references/browser-extension.md)（同属“入口可指认”判据）。
-- 失败判据：[02-failure-criteria.md](../../../../../../../Tool/skill/plugin-targets/references/02-failure-criteria.md)。
+- Electron/asar 加载链：[electron-and-asar.md](../../../../../../../Tool/skill/_pending/plugin-targets/references/electron-and-asar.md)。
+- 入口与权限面：[browser-extension.md](../../../../../../../Tool/skill/_pending/plugin-targets/references/browser-extension.md)（同属“入口可指认”判据）。
+- 失败判据：[02-failure-criteria.md](../../../../../../../Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md)。
 - 同 board 邻近篇：[asar-main-process.md](asar-main-process.md)（main/preload/IPC 定位）、
   [asar-and-mod-loaders.md](asar-and-mod-loaders.md)（加载器识别）、
   [plugin-failure-criteria.md](plugin-failure-criteria.md)（何时转静态/转逆向）。

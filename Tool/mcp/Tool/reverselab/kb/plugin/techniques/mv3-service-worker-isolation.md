@@ -11,10 +11,10 @@
 
 ```bash
 # 结构 + 权限面
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.zip --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path extension.zip --json
 
 # 解包 + 权限证据 + 数据流 + 最小单元
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path extension.zip --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path extension.zip --out work/repro --json
 
 jq '{manifest_version,permissions,host_permissions,background,content_scripts,
      web_accessible_resources,externally_connectable}' work/repro/unpack/manifest.json
@@ -62,4 +62,4 @@ grep -nE "onInstalled|onStartup|onMessage|alarms\.|storage\.(local|sync|session)
 - MV3 远端代码被商店禁止，但 `eval`/`importScripts`/`unsafe-eval` 仍可能出现；只写代码事实，不写“已绕过商店”。
 - 协议/帧格式交 `protocol-plugin`（R24）。
 
-> 关联：`Tool/skill/plugin-targets/references/browser-extension.md`、`references/04-walkthrough-chrome-extension.md`。
+> 关联：`Tool/skill/_pending/plugin-targets/references/browser-extension.md`、`references/04-walkthrough-chrome-extension.md`。

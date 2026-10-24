@@ -69,7 +69,7 @@ impacket-ntlmrelayx -t 'http://<CA>/certsrv/certfnsh.asp' -smb2support --adcs
 把 `certipy find` 的关键字段写成 JSON，交给 `ad-repro.py`：
 
 ```bash
-python Tool/skill/ad-cloud/scripts/ad-repro.py --kind adcs --input adcs.json
+python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind adcs --input adcs.json
 ```
 
 输入示例（只放判定字段，不放证书/私钥）：
