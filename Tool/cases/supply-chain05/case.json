@@ -1,0 +1,46 @@
+{
+ "id": "supply-chain05",
+ "domain": "supply-chain-security",
+ "target_type": "公开开源仓库（OWASP Juice Shop，MIT）固定 commit 717f5efa886b",
+ "evidence_kind": "real",
+ "protection": [],
+ "authority": "shipped-artifact（真实仓库内容，非自建样本）",
+ "goal_level": "L2",
+ "outcome": "success",
+ "artifacts": [
+  {
+   "path": "artifacts/sc.json",
+   "sha256": "baa36ba47e90f57fd06fd431af91df7e04f4bf9c28fdd6d20281d2dc2a0b3bc6"
+  },
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "09c2db4a5db51d75a7373b7d01647e7acf59a76ffe452777d4caad520075c9cc"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "python Tool/skill/supply-chain-security/scripts/sc-check.py --path <clone> --out artifacts/sc.json；rc=0；summary.high_or_critical=10"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "真实仓库的 CI 注入面比依赖面更常见：2 个 workflow 在 shell 里直接插值 ${{ github.event... }}",
+  "pull_request_target 与 secrets 同时出现 = 最高危组合（fork PR 可触达 secrets）",
+  "npm 工程没有 lockfile（locks=[]）→ 依赖不可复现，SC-009/010 计为 high",
+  "镜像 :latest 标签 4 处 high：构建不可复现 + 供应链替换面",
+  "命令：python sc-check.py --path D:/tmp/target-supply --out artifacts/sc.json；rc=0"
+ ],
+ "tags": [
+  "supply-chain",
+  "ci-cd",
+  "github-actions",
+  "real-target",
+  "npm"
+ ],
+ "refs": [
+  "Tool/skill/supply-chain-security/scripts/sc-check.py",
+  "Tool/skill/supply-chain-security/references/05-lockfile-and-install-scripts.md",
+  "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
+  "Tool/skill/supply-chain-security/references/image-and-provenance.md"
+ ],
+ "updated": "2026-10-24"
+}

@@ -30,10 +30,11 @@
     "supply-chain01",
     "supply-chain02",
     "supply-chain03",
-    "supply-chain04"
+    "supply-chain04",
+    "supply-chain05"
   ],
   "witness": {
-    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/supply-chain01",
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/supply-chain05",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
     "budget_s": 180
   },
