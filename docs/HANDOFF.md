@@ -45,7 +45,7 @@
 
 | 事实 | 数字 | 复算 |
 | :-- | --: | :-- |
-| 常驻注入 | 29,415 tok（人设 7,451 + AGENTS 3,614 + SEEP 624 + 技能索引 2,809 + 边界 234 + 宿主 14,683） | `python Tool/scripts/prompt-budget.py` |
+| 常驻注入 | 29,415 tok（人设 7,451 + AGENTS 3,614 + SEEP 624 + 技能索引 2,809 + 边界 234 + 宿主 14,683） | `python Tool/scripts/budget.py --prompt` |
 | 强制语句 | 57 条（临界 20） | 同上最后一节 |
 | `Tool/scripts` | **106 文件 / 36,103 行**（跟踪 87 / 29,399 + 未提交 19 / 6,704） | 跟踪：`git ls-files Tool/scripts \| xargs wc -l \| tail -1`；含未提交：`find Tool/scripts -type f \| wc -l` |
 | 其中未提交 | **Tool/scripts 内 19 文件 / 6,704 行**；全仓 untracked **102 文件 / 26,566 行** | `git status --porcelain -uall` |

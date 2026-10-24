@@ -15,10 +15,10 @@
 `total` 是被检查的命令条数（按配方内去重），`bad` 是脚本缺失或 `--help` 非 0 的条目。
 
 用法：
-    python Tool/scripts/playbook-check.py
-    python Tool/scripts/playbook-check.py --json
-    python Tool/scripts/playbook-check.py --self-test
-    python Tool/scripts/playbook-check.py --root <repo> --playbooks-dir <dir>
+    python Tool/skill/softseep/scripts/playbook-check.py
+    python Tool/skill/softseep/scripts/playbook-check.py --json
+    python Tool/skill/softseep/scripts/playbook-check.py --self-test
+    python Tool/skill/softseep/scripts/playbook-check.py --root <repo> --playbooks-dir <dir>
 退出码：0 全绿 / 1 有坏命令 / 2 输入缺失。
 """
 
@@ -53,7 +53,16 @@ TIMEOUT = 30
 
 
 def repo_root() -> str:
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/）。"""
+    d = os.path.abspath(os.path.dirname(__file__))
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
 
 def rel(path: str, root: str) -> str:

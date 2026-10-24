@@ -20,13 +20,13 @@ jobs:
       - name: routing coherence
         run: python Tool/scripts/route.py
       - name: playbook commands
-        run: python Tool/scripts/playbook-check.py
+        run: python Tool/skill/softseep/scripts/playbook-check.py
       - name: capability dag
-        run: python Tool/scripts/capability-gate.py --json
+        run: python Tool/skill/softseep/scripts/capability-gate.py --json
       - name: intent coverage
-        run: python Tool/scripts/intent-coverage.py --json
+        run: python Tool/skill/softseep/scripts/intent-coverage.py --json
       - name: route-playbook parity
-        run: python Tool/scripts/route-playbook-parity.py --json
+        run: python Tool/skill/softseep/scripts/route-playbook-parity.py --json
       - name: case index
         run: python Tool/scripts/gen-case-index.py --check
   gates-linux:

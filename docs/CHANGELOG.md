@@ -2201,7 +2201,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 - `MANUAL/BASELINE-FREEZE.md` 新增 §七「反臃肿预算」：数量硬上限（工具 ≤45 / 技能 ≤12 / setup ≤22 /
   MANUAL ≤16 / 单文件 ≤3200 行 / first-party ≤900 文件）、**三不原则**（不加框架层、同一能力只允许一个实现、
   不加并行状态）、**加功能前四问**。
-- 新增 `Tool/scripts/check-budget.py`：一条命令核对上述预算，超限即非零退出。
+- 新增 `Tool/scripts/budget.py`：一条命令核对上述预算，超限即非零退出。
 
 ### 修复（链路断点 —— 全仓断链审计发现）
 

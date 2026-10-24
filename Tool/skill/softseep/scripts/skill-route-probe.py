@@ -17,10 +17,10 @@
     4. 断言 primary_skill / primary / primary_label 三项。
 
 用法:
-    python Tool/scripts/skill-route-probe.py
-    python Tool/scripts/skill-route-probe.py --json
-    python Tool/scripts/skill-route-probe.py --only web-js apk game
-    python Tool/scripts/skill-route-probe.py --self-test
+    python Tool/skill/softseep/scripts/skill-route-probe.py
+    python Tool/skill/softseep/scripts/skill-route-probe.py --json
+    python Tool/skill/softseep/scripts/skill-route-probe.py --only web-js apk game
+    python Tool/skill/softseep/scripts/skill-route-probe.py --self-test
 退出码：0 全绿（或本机无 PowerShell 时显式 skipped）/ 1 有探针失败 / 2 输入缺失。
 """
 
@@ -42,7 +42,20 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+ROOT = _repo_root(HERE)
 PROBES = os.path.join(ROOT, "Tool", "config", "skill-route-probes.json")
 ROUTER = os.path.join(ROOT, "Tool", "scripts", "route.py")
 TIMEOUT = 60
@@ -112,10 +125,10 @@ def main() -> int:
     if args.self_test:
         ok1 = judge({"expect_skill": "apkseep/SKILL.md"}, {"primary_skill": "skills/apkseep/SKILL.md"}) == []
         ok2 = judge({"expect_skill": "apkseep/SKILL.md"}, {"primary_skill": "skills/softseep/SKILL.md"}) != []
-        ok3 = judge({"expect_route": "R34"}, {"primary": "R0"}) != []
+        ok3 = judge({"expect_skill": "softseep/SKILL.md"}, {"primary_skill": ""}) != []
         ok4 = judge({"expect_label": "OSINT"}, {"primary_label": "OSINT / 资产测绘"}) == []
         failed = [n for n, ok in (("norm-skill", ok1), ("mismatch", ok2),
-                                  ("route", ok3), ("label", ok4)) if not ok]
+                                  ("missing-skill", ok3), ("label", ok4)) if not ok]
         print(json.dumps({"ok": not failed, "checks": 4, "failed": failed,
                           "tool": "skill-route-probe.py"}, ensure_ascii=False))
         return 0 if not failed else 1

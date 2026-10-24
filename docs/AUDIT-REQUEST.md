@@ -42,11 +42,11 @@ python Tool/scripts/domain-gate.py --all
 python Tool/scripts/domain-gate.py --domain <域>
 python Tool/scripts/domain-gate.py --links
 python Tool/skill/softseep/scripts/mcp-param-contract.py
-python Tool/scripts/skill-route-probe.py
-python Tool/scripts/capability-gate.py --json
-python Tool/scripts/playbook-check.py
+python Tool/skill/softseep/scripts/skill-route-probe.py
+python Tool/skill/softseep/scripts/capability-gate.py --json
+python Tool/skill/softseep/scripts/playbook-check.py
 python Tool/scripts/kb_acceptance.py
-python Tool/scripts/check-budget.py
+python Tool/scripts/budget.py
 python Tool/scripts/route.py
 python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）
 python Tool/scripts/mcp-doctor.py --quick

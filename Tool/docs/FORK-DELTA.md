@@ -184,7 +184,7 @@ python Tool/mcp/test_ext_assets.py                      # 73 passed
 python Tool/scripts/route.py         # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q # 84/84
 powershell -File setup/verify.ps1 -Detailed             # 65 项（./setup/verify.sh 同为 65 项）
-python Tool/scripts/check-budget.py                     # 反臃肿预算
+python Tool/scripts/budget.py                     # 反臃肿预算
 python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                        # 端到端链路（真实样本 12 项，约 13s）
 ```
 
@@ -221,7 +221,7 @@ python `upstream-delta`（S4 已删：一次性）        # 覆写 §六
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
 | 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/_pending/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
-| 脚本 | `Tool/scripts/check-budget.py`<br>``upstream-delta`（S4 已删：一次性）`<br>`（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）`<br>``smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`<br>`Tool/scripts/route.py` |
+| 脚本 | `Tool/scripts/budget.py`<br>``upstream-delta`（S4 已删：一次性）`<br>`（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）`<br>``smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`<br>`Tool/scripts/route.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |
 | 根目录 | `README.en.md` |

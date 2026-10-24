@@ -20,7 +20,7 @@
 | 部署体检 | `powershell -File setup/verify.ps1 -Detailed` | **核心 65 项通过 / [READY]** |
 | 端到端 | `python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）` | **12 passed, 0 failed** |
 | MCP 参数契约 | `python Tool/skill/softseep/scripts/mcp-param-contract.py` | 40 工具 / 18 吃路径，全绿 |
-| 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **39 条，失败 0** |
+| 技能路由探针 | `python Tool/skill/softseep/scripts/skill-route-probe.py` | **39 条，失败 0** |
 | 知识库可用性 | `python Tool/scripts/kb_acceptance.py` | **9/9 通过** |
 
 ## 2. 五类摩擦的修法（问题 → 改动 → 证据）
@@ -41,7 +41,7 @@
 - 改动：
   - `Tool/scripts/route.py`：匹配前在 ASCII ↔ CJK 交界补空格（只改匹配副本，不动原输入）。
   - `routing.json` + `routing-fragments/`：补 R1（小程序）、R6（前端 JS/签名算法）、R23（本机提权）、R34（验证码/滑块）、R22（无线近场）；新增 **R36 OSINT**（配方 `osint-recon`）。
-  - 新增门禁 `Tool/scripts/skill-route-probe.py` + `Tool/config/skill-route-probes.json`（33 条大白话 → 期望技能/路由）。
+  - 新增门禁 `Tool/skill/softseep/scripts/skill-route-probe.py` + `Tool/config/skill-route-probes.json`（33 条大白话 → 期望技能/路由）。
 - 证据：探针 33 条全中；`verify-routing-coherence` 32 路由自洽；`domain-gate` 路由串味测试 60 条全中。
 
 ### 2.4 02/03 阶段技能是薄壳
@@ -86,7 +86,7 @@ python Tool/scripts/preflight.py                 # 45/45
 python Tool/scripts/domain-gate.py --all         # 110/110
 python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                 # 12/12
 python Tool/skill/softseep/scripts/mcp-param-contract.py        # 契约
-python Tool/scripts/skill-route-probe.py         # 33 条路由探针
+python Tool/skill/softseep/scripts/skill-route-probe.py         # 33 条路由探针
 powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY
 ```
 

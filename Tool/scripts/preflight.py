@@ -170,7 +170,7 @@ def check_numbers(fast):
                     claims.append("%s: %s 写 %d，实际 %d" % (p, key, n, a[key]))
     # BASELINE-FREEZE 的 first-party 文件数必须等于 check-budget 实测（防口径漂移）
     bf = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
-    cb = os.path.join(TOOL, "scripts", "check-budget.py")
+    cb = os.path.join(TOOL, "scripts", "budget.py")
     if os.path.isfile(bf) and os.path.isfile(cb):
         try:
             btxt = open(bf, encoding="utf-8", errors="replace").read()
@@ -268,7 +268,7 @@ def run(cmd, timeout=600):
 def check_functional(fast):
     py = sys.executable
     items = [
-        ("budget", [py, os.path.join(TOOL, "scripts", "check-budget.py")]),
+        ("budget", [py, os.path.join(TOOL, "scripts", "budget.py")]),
         ("routing-coherence", [py, os.path.join(TOOL, "scripts", "route.py"), "--check"]),
         ("relay-rules-sync", [py, os.path.join(TOOL, "scripts", "compliance-relay", "extract-rules.py"), "--check"]),
         ("kb-acceptance", [py, os.path.join(TOOL, "scripts", "kb_acceptance.py")]),
@@ -688,11 +688,11 @@ def check_v123_deliverables():
 def check_playbook_gate():
     """三层门禁：配方命令（含占位命令的参数/枚举校验）/ 能力 DAG / 意图覆盖。"""
     for label, script, extra in (
-            ("配方命令门禁", "playbook-check.py", ["--json"]),
-            ("能力层门禁", "capability-gate.py", ["--json"]),
-            ("意图覆盖门禁", "intent-coverage.py", ["--json"]),
-            ("路由↔配方一致", "route-playbook-parity.py", ["--json"])):
-        sp = os.path.join(TOOL, "scripts", script)
+            ("配方命令门禁", "Tool/skill/softseep/scripts/playbook-check.py", ["--json"]),
+            ("能力层门禁", "Tool/skill/softseep/scripts/capability-gate.py", ["--json"]),
+            ("意图覆盖门禁", "Tool/skill/softseep/scripts/intent-coverage.py", ["--json"]),
+            ("路由↔配方一致", "Tool/skill/softseep/scripts/route-playbook-parity.py", ["--json"])):
+        sp = os.path.join(ROOT, script) if script.startswith("Tool/")             else os.path.join(TOOL, "scripts", script)
         if not os.path.isfile(sp):
             add("13 三层", label, False, script + "(missing)")
             continue
@@ -735,7 +735,7 @@ def check_mcp_contract():
 
 def check_skill_route():
     """技能路由探针：30 条大白话必须落到对的技能（防 \\b 与 CJK 交界类静默误路由）。"""
-    sp = os.path.join(TOOL, "scripts", "skill-route-probe.py")
+    sp = os.path.join(TOOL, "skill", "softseep", "scripts", "skill-route-probe.py")
     if not os.path.isfile(sp):
         add("15 路由探针", "30 条大白话 → 技能命中", False, "skill-route-probe.py(missing)")
         return

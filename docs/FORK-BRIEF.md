@@ -54,7 +54,7 @@
 | **五阶段流水线** | `00-analysis`（先摸透再动手）→ `01-gate-bypass`（旁路卡密）→ `02-ui-rebrand`（改 UI 去品牌）→ `03-license-hookup`（接自有授权）→ `04-version-migrate`（跨版本追版）→ `05-backend-rebuild`（T2/T3 才触发） | 各 `Tool/skill/0*/SKILL.md` + `case_state.py` 闸 |
 | **MCP 工具层** | 23 → 40 个工具（pcap / 资源雕刻 / 内存字符串 / 加壳识别 / web recon / 多引擎反编译 / 六层工具发现 / 案例检索）；**统一路径参数别名**（8 个名字互通） | `python Tool/skill/softseep/scripts/mcp-param-contract.py`、`python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）` |
 | **反造假机制** | `case_state.py` 拒绝不存在的证据路径；`gate` 要求 D0–D5 全 pass + ≥2 条候选路线 + ≥2 种仪器；`deliver` 按 M1–M4 分级，越级被拒 | `python Tool/scripts/case_state.py --help`、`case_state.py prove --evidence <不存在路径>` 会 rc≠0 |
-| **能力/配方层** | 51 个能力（DAG，悬空 0）+ 24 篇可跑配方（命令进闸，`--help` 实跑校验） | `python Tool/scripts/capability-gate.py --json`、`python Tool/scripts/playbook-check.py` |
+| **能力/配方层** | 51 个能力（DAG，悬空 0）+ 24 篇可跑配方（命令进闸，`--help` 实跑校验） | `python Tool/skill/softseep/scripts/capability-gate.py --json`、`python Tool/skill/softseep/scripts/playbook-check.py` |
 | **知识库** | 412 篇（含 `field_journal_*` 现场日志、`_archive/` 归档索引）；检索走 MCP `seep_kb_search` | `python Tool/scripts/kb_acceptance.py` |
 | **外部技术库吸收** | 用户桌面 Pentest 技能库按「好用就融」处理：MIT 部分重写吸收；`offensive-*` 79 篇建索引（`kb/_archive/pentest-checklist/`）；6 篇课程转录不收 | 读 `docs/UPSTREAM.md` §6 |
 
@@ -162,7 +162,7 @@
 | DEBT-11 | x64dbg 走 http(9094)：宿主晚于会话启动时本轮拿不到工具 | 调试流程多一步 `/mcp reconnect` | `python Tool/scripts/mcp-doctor.py --session` |
 | DEBT-12 | `破甲卡生成/` 与主项目耦合低但同仓 | 审查者易误判为"无关代码" | 见 §6.4 |
 | DEBT-13 | 历史审计文档与新口径并存（`docs/AUDIT.md` 等） | 数字误读风险 | 见 §6.2 |
-| DEBT-14 | 路由探针覆盖 36 条口吻，尚未覆盖全部 34 条路由 | 新口吻可能掉兜底 | `python Tool/scripts/skill-route-probe.py` |
+| DEBT-14 | 路由探针覆盖 36 条口吻，尚未覆盖全部 34 条路由 | 新口吻可能掉兜底 | `python Tool/skill/softseep/scripts/skill-route-probe.py` |
 
 ---
 

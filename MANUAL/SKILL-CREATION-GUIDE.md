@@ -36,7 +36,7 @@
 **加完四件事必跑**（缺一不可）：
 ```bash
 python Tool/scripts/route.py   # 路由 ↔ 技能落位自洽
-python Tool/scripts/check-budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
+python Tool/scripts/budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
 powershell -File setup/verify.ps1 -Detailed       # 65 项全绿
 python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端 12 环
 ```

@@ -23,11 +23,11 @@
 矩阵不手填：`--emit-matrix` 会按能力自带 domain + compose 闭包重算 11 域矩阵。
 
 用法:
-    python Tool/scripts/capability-gate.py
-    python Tool/scripts/capability-gate.py --json
-    python Tool/scripts/capability-gate.py --matrix Tool/config/capability-matrix.json
-    python Tool/scripts/capability-gate.py --emit-matrix
-    python Tool/scripts/capability-gate.py --self-test
+    python Tool/skill/softseep/scripts/capability-gate.py
+    python Tool/skill/softseep/scripts/capability-gate.py --json
+    python Tool/skill/softseep/scripts/capability-gate.py --matrix Tool/config/capability-matrix.json
+    python Tool/skill/softseep/scripts/capability-gate.py --emit-matrix
+    python Tool/skill/softseep/scripts/capability-gate.py --self-test
 退出码：0 全绿 / 1 有 dangling 或 schema 错误 / 2 输入缺失。
 """
 
@@ -79,7 +79,16 @@ DOMAIN_ADJACENCY = {
 
 
 def repo_root() -> str:
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/）。"""
+    d = os.path.abspath(os.path.dirname(__file__))
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
 
 def compose_cycles(objects) -> list:
@@ -253,7 +262,7 @@ def emit_matrix(caps: dict, path: str) -> dict:
     data = {
         "schema": MATRIX_SCHEMA,
         "generated_at": "1970-01-01T00:00:00Z",
-        "generator": "Tool/scripts/capability-gate.py --emit-matrix",
+        "generator": "Tool/skill/softseep/scripts/capability-gate.py --emit-matrix",
         "source": "Tool/capabilities/*.json",
         "families": list(DOMAIN_ORDER),
         "values": list(MATRIX_VALUES),

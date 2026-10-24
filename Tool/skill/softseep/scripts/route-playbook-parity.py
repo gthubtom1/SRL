@@ -34,7 +34,20 @@ for _s in (sys.stdout, sys.stderr):
 
 SCHEMA = "seep.route-playbook-parity/1"
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+ROOT = _repo_root(HERE)
 
 
 def _load_module(path, name):
@@ -46,7 +59,9 @@ def _load_module(path, name):
 
 def routing():
     """路由来自 pack.json（S3：routing.json 已删）。返回 (domain-gate 模块, routes, prio, fallback)。"""
-    dg = _load_module(os.path.join(HERE, "domain-gate.py"), "dg_parity")
+    dg = _load_module(os.path.join(_repo_root(HERE), "Tool", "scripts", "domain-gate.py"), "dg_parity")
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(_repo_root(HERE), "Tool", "scripts"))
     import route as route_mod
     res = route_mod.check()
     routes, prio = {}, []

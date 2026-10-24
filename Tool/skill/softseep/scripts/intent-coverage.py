@@ -13,10 +13,10 @@
   - 未命中时的 capability 组合建议（2-3 个 id）
 
 用法：
-    python Tool/scripts/intent-coverage.py
-    python Tool/scripts/intent-coverage.py --json
-    python Tool/scripts/intent-coverage.py --self-test
-    python Tool/scripts/intent-coverage.py --json > work/intent-coverage.json
+    python Tool/skill/softseep/scripts/intent-coverage.py
+    python Tool/skill/softseep/scripts/intent-coverage.py --json
+    python Tool/skill/softseep/scripts/intent-coverage.py --self-test
+    python Tool/skill/softseep/scripts/intent-coverage.py --json > work/intent-coverage.json
 
 退出码：0 = 正常产出；2 = 配置/目录不可用（输出 ok=false 的 JSON）。
 """
@@ -691,6 +691,14 @@ def _print_human(payload):
             print(f"      combine: {' + '.join(row['combination'])}")
 
 
+def _repo_root_path(p: Path) -> Path:
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/）。"""
+    for cand in [p.resolve().parent] + list(p.resolve().parents):
+        if (cand / "Tool" / "cases").is_dir():
+            return cand
+    return p.resolve().parents[2]
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="意图探针 -> 配方/能力 覆盖率统计")
     parser.add_argument("--json", action="store_true", help="输出 JSON")
@@ -699,7 +707,7 @@ def main(argv=None):
     parser.add_argument("--probes", default="", help="探针 JSON 路径")
     args = parser.parse_args(argv)
 
-    root = Path(args.root).resolve() if args.root else Path(__file__).resolve().parents[2]
+    root = Path(args.root).resolve() if args.root else _repo_root_path(Path(__file__))
     probes_path = Path(args.probes).resolve() if args.probes else root / "Tool" / "config" / "intent-probes.json"
 
     catalog = Catalog(root)
