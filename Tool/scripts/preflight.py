@@ -1039,6 +1039,17 @@ def check_tool_cache_contract():
     add("14 MCP 契约", "工具路径缓存双写契约（写端两种结构 / 读端两种都认）", not bad,
         "；".join(bad[:3]) if bad else "autodiscover 双写 + bridge/launch 双读")
 
+    # 判壳输出的可执行性契约：散文路线没人照着做（实测：模型拿到 route 仍去 capstone 反汇编密文）
+    try:
+        srv = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        need = ('result["next_actions"]', 'result["forbidden_next"]', 'result["warning"]')
+        missing = [n for n in need if n not in srv]
+        add("14 MCP 契约", "判壳输出可执行（next_actions / forbidden_next / warning 齐备）",
+            not missing, "缺: " + ", ".join(missing) if missing
+            else "packer_detect 返回可直接复制的下一步 + 禁止动作 + 密文警告")
+    except Exception as e:  # noqa: BLE001
+        add("14 MCP 契约", "判壳输出可执行（next_actions / forbidden_next / warning 齐备）", False, str(e)[:80])
+
 
 def check_cross_layer():
     """跨层一致性两条：① 技能调用式引用 ↔ MCP 工具；② 回执 source 哈希不漂移。

@@ -1900,6 +1900,45 @@ def seep_packer_detect(binary_path: str) -> str:
 
     result["manual"] = ["MANUAL/UNPACKING.md", "MANUAL/ANTI-DEBUG.md"]
     result["sections"] = sections
+
+    # ── 把"路线"变成可执行动作（散文没人照着做；命令能直接复制）──────────────
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    binp = os.path.abspath(binary_path)
+    acts: List[Dict[str, Any]] = []
+    nz = [x for x in sections if (x.get("raw_size") or 0) > 0]
+    # 「整盘加密」判据（两条任一）：
+    #  ① 标准代码/数据节（.text/.rdata/.data/.pdata）RawSize 全为 0 —— 内容被搬走
+    #  ② 单个节占了文件 90% 以上且熵 > 7.5 —— 所有内容被塞进一个加密块
+    _std = {".text", ".rdata", ".data", ".pdata", "_rdata", ".code", ".bss"}
+    _std_secs = [x for x in sections if str(x.get("name", "")).lower() in _std]
+    _zero_std = bool(_std_secs) and all((x.get("raw_size") or 0) == 0 for x in _std_secs)
+    _tot = sum((x.get("raw_size") or 0) for x in sections) or 1
+    _big = max(((x.get("raw_size") or 0), (x.get("entropy") or 0)) for x in sections) if sections else (0, 0)
+    _one_blob = (_big[0] / _tot) > 0.90 and _big[1] > 7.5
+    body_all_encrypted = _zero_std or _one_blob
+    if result["packed"]:
+        acts.append({"why": "判壳结论先落账本（否则后面所有结论都没有证据链）",
+                     "cmd": 'python "%s/Tool/scripts/case_state.py" init --case <案例目录> --target "%s"'
+                            % (root.replace("\\", "/"), binp.replace("\\", "/"))})
+        acts.append({"why": "脱壳流程：壳速查 + OEP/Dump（**不要**在密文上反汇编）",
+                     "read": os.path.join(root, "MANUAL", "UNPACKING.md")})
+        acts.append({"why": "反调试/反VM 处置（有壳通常配套）",
+                     "read": os.path.join(root, "MANUAL", "ANTI-DEBUG.md")})
+        acts.append({"why": "同类壳的历史战法（知识库 412 篇）",
+                     "tool": "mcp__seep__seep_kb_search", "args": {"query": "脱壳 OEP dump 壳 识别"}})
+        if body_all_encrypted:
+            result["warning"] = (
+                "原节 RawSize 基本全为 0、主体内容集中在一个高熵畸形节里 —— 文件字节是**密文**。"
+                "此时对文件做反汇编/字符串提取/熵剖面只会得到垃圾结论（实测踩过：capstone 反出 "
+                "`ret 0x2d5a`、`mov esi,0xa4395bd7` 之类无意义指令）。正确顺序：动态取解密后镜像 → "
+                "dump → 修 IAT → 再静态分析。"
+            )
+            result["forbidden_next"] = ["对文件字节做 capstone/反汇编", "对文件字节做 strings/关键字扫描",
+                                        "在文件里手工找 OEP 字节"]
+    else:
+        acts.append({"why": "未检出壳 → 可直接反编译",
+                     "tool": "mcp__seep__seep_r2_decompile", "args": {"binary_path": binp}})
+    result["next_actions"] = acts
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
