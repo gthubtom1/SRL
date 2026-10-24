@@ -888,6 +888,41 @@ def check_language():
         "%d 个文件：%s" % (len(hits), "；".join(hits[:6])) if hits else "0 命中")
 
 
+def check_side_effect_undo():
+    """副作用同屏退路（取经 A · F-016/017 的机检版）。
+
+    上游把危险命令与「收尾必删 / 副作用 / 还原清单」写在同屏；我们二开时剥掉了这层上下文，
+    于是模型照命令做、不做收尾（2026-10-23 改整机网卡事故的直接成因）。
+    判据：任何「改宿主 / 系统 / 持久化」的写操作，其前后 6 行内必须出现退路
+    （/delete、删除、还原、回滚、复位、快照、VM、只对进程）。
+    """
+    import re as _re
+    risky = _re.compile(
+        r"(netsh\s+interface[^\n]*\b(add|set)\b|netsh\s+winhttp\s+(set|import)|"
+        r"reg\s+add|bcdedit\s+/(set|create|delete)|sc\s+(create|config)|"
+        r"schtasks[^\n]*/create|pnputil[^\n]*/(add|delete)-driver|"
+        r"diskpart|certutil[^\n]{0,40}addstore)", _re.I)
+    undo = _re.compile(
+        r"(/delete|/remove|-delete|删除|收尾|还原|恢复|回滚|复位|复原|"
+        r"reset\s+proxy|snapshot|快照|\bVM\b|只对进程|进程内|退出即)", _re.I)
+    bad = []
+    for root_ in (os.path.join(TOOL, "skill"), os.path.join(TOOL, "playbooks")):
+        for dp, _dn, fn in os.walk(root_):
+            for f in fn:
+                if not f.endswith(".md"):
+                    continue
+                fp = os.path.join(dp, f)
+                lines = open(fp, encoding="utf-8", errors="replace").read().split("\n")
+                for i, ln in enumerate(lines):
+                    if ln.strip().startswith(("#", ">", "|")):
+                        continue
+                    if risky.search(ln) and not undo.search(
+                            "\n".join(lines[max(0, i - 6):i + 9])):
+                        bad.append("%s:%d" % (os.path.relpath(fp, ROOT).replace(os.sep, "/"), i + 1))
+    add("13 措辞", "副作用同屏退路（危险写操作必须带收尾/还原）", not bad,
+        ("%d 处缺退路：%s" % (len(bad), "、".join(bad[:4]))) if bad else "0 处缺退路")
+
+
 def check_tool_ladder():
     """工具获取阶梯接线检查（behavior gate 第 1 项）。
 
@@ -957,6 +992,7 @@ def main():
     check_race_e2e()
     check_doc_hygiene()
     check_language()
+    check_side_effect_undo()
     check_tool_ladder()
     check_functional(args.fast)
 
