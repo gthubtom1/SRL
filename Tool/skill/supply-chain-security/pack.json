@@ -10,7 +10,11 @@
         "(?i)(?:\\bgithub actions\\b|\\bgitlab ci\\b|\\bci/cd\\b|\\bpull_request_target\\b|\\bworkflow_run\\b|\\bwrite-all\\b)",
         "(?i)(?=.*?(?:(?:\\bnpm\\b|\\bpip\\b|\\bnuget\\b|\\bmaven\\b|\\bgradle\\b)))(?=.*?(?:(?:\\bregistry\\b|\\bindex-url\\b|\\bpackageSourceMapping\\b|依赖混淆|抢注|投毒)))",
         "(?i)(?=.*?(?:(?:\\bci\\b|\\bworkflow\\b|流水线)))(?=.*?(?:(?:\\bpermissions?\\b|\\bsecrets?\\b|\\btoken\\b|权限)))",
-        "(?i)(?:\\btyposquat(?:ting)?\\b|仿冒包|恶意 ?npm ?包)"
+        "(?i)(?:\\btyposquat(?:ting)?\\b|仿冒包|恶意 ?npm ?包)",
+        "(?i)依赖.{0,6}(投毒|混淆|混淆|劫持|安全|审计|检查)",
+        "(?i)(投毒|typosquat|依赖混淆|dependency confusion|恶意包)",
+        "(?i)(dockerfile|镜像).{0,12}(latest|未钉|不可复现|digest|安全|审计|供应链)",
+        "(?i)(仓库|代码库).{0,8}(依赖|供应链|第三方)"
       ],
       "priority": 170
     }
