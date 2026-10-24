@@ -18,8 +18,8 @@
 | 全量体检 | `python Tool/scripts/preflight.py` | **53/53 通过** |
 | 域深度 | `python Tool/scripts/domain-gate.py --all` | **110/110 通过** |
 | 部署体检 | `powershell -File setup/verify.ps1 -Detailed` | **核心 65 项通过 / [READY]** |
-| 端到端 | `python Tool/scripts/smoke-e2e.py` | **12 passed, 0 failed** |
-| MCP 参数契约 | `python Tool/scripts/mcp-param-contract.py` | 40 工具 / 18 吃路径，全绿 |
+| 端到端 | `python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）` | **12 passed, 0 failed** |
+| MCP 参数契约 | `python Tool/skill/softseep/scripts/mcp-param-contract.py` | 40 工具 / 18 吃路径，全绿 |
 | 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **39 条，失败 0** |
 | 知识库可用性 | `python Tool/scripts/kb_acceptance.py` | **9/9 通过** |
 
@@ -28,7 +28,7 @@
 ### 2.1 MCP 工具参数命名不一致（最高性价比）
 - 问题：`seep_auto_triage` 收 `target_path`，`seep_packer_detect` / `seep_r2_info` / `seep_decompile_auto` 收 `binary_path`。模型一次 rejected 之后会退回 bash 手搓 `strings`（历史血案 184 次调用）。
 - 改动：`Tool/mcp/seep_mcp_server.py` 加 `_path_alias` 装饰器——18 个吃路径的工具全部同时暴露 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再出现在 `required`。
-- 门禁：`Tool/scripts/mcp-param-contract.py`（判据：别名齐、required 不挡、description 非空、工具数对基线）。
+- 门禁：`Tool/skill/softseep/scripts/mcp-param-contract.py`（判据：别名齐、required 不挡、description 非空、工具数对基线）。
 - 证据：`mcp-param-contract.py --self-test` → `{"ok": true, "checks": 6}`；实跑 → `全绿：路径参数别名、required、description、工具数均一致`。
 
 ### 2.2 auto_triage 的硬编码假话术
@@ -84,8 +84,8 @@
 ```bash
 python Tool/scripts/preflight.py                 # 45/45
 python Tool/scripts/domain-gate.py --all         # 110/110
-python Tool/scripts/smoke-e2e.py                 # 12/12
-python Tool/scripts/mcp-param-contract.py        # 契约
+python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                 # 12/12
+python Tool/skill/softseep/scripts/mcp-param-contract.py        # 契约
 python Tool/scripts/skill-route-probe.py         # 33 条路由探针
 powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY
 ```

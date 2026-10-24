@@ -4,7 +4,7 @@
 > 1. 用户说"别一直停下来问"，模型却每 5 分钟请示一次；
 > 2. 为了跑案子停了驱动 / 改了代理 / 改了系统时间，跑完忘了还原，机器留在半坏状态。
 >
-> 本文件是**行为契约**；可执行的账在 `Tool/scripts/env-ledger.py`，可执行的记忆在
+> 本文件是**行为契约**；可执行的账在 `Tool/skill/softseep/scripts/env-ledger.py`，可执行的记忆在
 > `Tool/docs/MEMORY.md` + `seep-memory.ts`。
 
 ---
@@ -160,17 +160,17 @@
 
 ```powershell
 # 停驱动
-python Tool/scripts/env-ledger.py record --case D:/work/项目J `
+python Tool/skill/softseep/scripts/env-ledger.py record --case D:/work/项目J `
   --action "sc stop npcap" --before "running" --after "stopped" `
   --restore "sc start npcap"
 
 # 改系统代理
-python Tool/scripts/env-ledger.py record --case D:/work/项目J `
+python Tool/skill/softseep/scripts/env-ledger.py record --case D:/work/项目J `
   --action "设置系统代理 127.0.0.1:8080" --before "direct" --after "proxy=127.0.0.1:8080" `
   --restore "netsh winhttp reset proxy"
 
 # 改系统时间（时间偏移实验）
-python Tool/scripts/env-ledger.py record --case D:/work/项目J `
+python Tool/skill/softseep/scripts/env-ledger.py record --case D:/work/项目J `
   --action "系统时间 +30 天" --before "2026-10-21" --after "2026-11-20" `
   --restore "w32tm /resync"
 ```
@@ -193,11 +193,11 @@ python Tool/scripts/env-ledger.py record --case D:/work/项目J `
 ### 5.3 常用子命令
 
 ```powershell
-python Tool/scripts/env-ledger.py list    --case D:/work/项目J
-python Tool/scripts/env-ledger.py check   --case D:/work/项目J   # 未还原 → rc=1
-python Tool/scripts/env-ledger.py restore --case D:/work/项目J --dry-run
-python Tool/scripts/env-ledger.py restore --case D:/work/项目J
-python Tool/scripts/env-ledger.py check   --case D:/work/项目J   # 必须 rc=0
+python Tool/skill/softseep/scripts/env-ledger.py list    --case D:/work/项目J
+python Tool/skill/softseep/scripts/env-ledger.py check   --case D:/work/项目J   # 未还原 → rc=1
+python Tool/skill/softseep/scripts/env-ledger.py restore --case D:/work/项目J --dry-run
+python Tool/skill/softseep/scripts/env-ledger.py restore --case D:/work/项目J
+python Tool/skill/softseep/scripts/env-ledger.py check   --case D:/work/项目J   # 必须 rc=0
 ```
 
 `restore` 的行为：
@@ -215,17 +215,17 @@ python Tool/scripts/env-ledger.py check   --case D:/work/项目J   # 必须 rc=0
 
 ```powershell
 # 1. 还原所有环境变更
-python Tool/scripts/env-ledger.py restore --case D:/work/项目J
+python Tool/skill/softseep/scripts/env-ledger.py restore --case D:/work/项目J
 
 # 2. 门禁：必须返回 0
-python Tool/scripts/env-ledger.py check --case D:/work/项目J
+python Tool/skill/softseep/scripts/env-ledger.py check --case D:/work/项目J
 if ($LASTEXITCODE -ne 0) { Write-Error "环境未还原，禁止结案"; exit 1 }
 
 # 3. 记忆收尾：更新地图与结论
 #    - map.md 写"最终状态 + 未完成项"
 #    - @@FACT 落最终结论（或走 case_state.py claim/prove）
 # 4. 报告里列出本次环境变更
-python Tool/scripts/env-ledger.py list --case D:/work/项目J
+python Tool/skill/softseep/scripts/env-ledger.py list --case D:/work/项目J
 ```
 
 **禁止**：

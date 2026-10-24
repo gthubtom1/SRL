@@ -145,7 +145,7 @@ MCP 配置文件所在位置：
 | `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
 | ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (migrate.py)` |
 | `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
-| `Tool/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
+| `Tool/skill/softseep/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
 
 > 换机器 clone 后，这五项任一缺失或腐坏，`verify` / `preflight` 会直接变红 —— 这是审计 D1 要求的"新脚本必须进两平台门禁"。
 

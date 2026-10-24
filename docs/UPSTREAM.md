@@ -15,7 +15,7 @@ git fetch upstream main --deepen=200
 
 ```bash
 git fetch upstream main --deepen=200
-python Tool/scripts/upstream-delta.py --print      # 输出计数 + 前 40 条
+python （S4 已删：一次性上游差分） --print      # 输出计数 + 前 40 条
 # 报告落在 work/upstream-delta/delta-<时间>.json（gitignore）
 ```
 

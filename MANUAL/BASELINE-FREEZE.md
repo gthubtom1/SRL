@@ -30,7 +30,7 @@
 ```bash
 lab：new-skill <skill-name>
 # 或
-python Tool/scripts/new-skill.py <skill-name> --desc "一句话描述" --title "中文全称"
+python （S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`） <skill-name> --desc "一句话描述" --title "中文全称"
 ```
 
 脚手架会：创建 `Tool/skill/<name>/SKILL.md`（UTF-8 无 BOM）→ 注册进 `softseep/SKILL.md` 调度表 → 同步到 `~/.pi/agent/skills/`。
@@ -52,7 +52,7 @@ python Tool/mcp/test_seep_mcp.py          # 基线 9/9
 python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
 python Tool/scripts/route.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
-python Tool/scripts/smoke-e2e.py                  # 端到端链路 12 项（真实样本）
+python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端链路 12 项（真实样本）
 powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ```
 
@@ -139,7 +139,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
 | 单文件行数 | 2306（MCP 主服务，S4 工具面 40→20 后） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 856 | **900** | 超了说明在"堆文件"而不是"做能力" |
+| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 850 | **900** | 超了说明在"堆文件"而不是"做能力" |
 
 ### 7.2 三不原则
 
@@ -172,7 +172,7 @@ python Tool/scripts/check-budget.py
 端到端链路另跑一条（不占预算、约 13 秒）：
 
 ```bash
-python Tool/scripts/smoke-e2e.py
+python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）
 ```
 
 它用真实样本把「triage → 判壳 → 画像 → 函数 → 反编译 → KB → 工作区 → 报告 → 工具发现」跑一遍，

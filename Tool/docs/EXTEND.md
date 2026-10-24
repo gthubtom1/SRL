@@ -57,7 +57,7 @@
 ## 3. 加一个「技能」
 
 ```bash
-python Tool/scripts/new-skill.py <name> --desc "一句话描述"
+python （S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`） <name> --desc "一句话描述"
 ```
 
 脚手架会自动打通四处（缺一处就静默失效）：
@@ -158,7 +158,7 @@ python Tool/scripts/impact.py Tool/config/tool-capabilities.json
 ## 6. 回滚
 
 - 单文件：`git revert <commit>` 或直接删掉新增条目；
-- 技能：`python Tool/scripts/new-skill.py` 生成的四处在 `git status` 里一眼可见；
+- 技能：`python （S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）` 生成的四处在 `git status` 里一眼可见；
 - 本机配置：安装器每次都会备份到 `~/.pi/agent/backup-*`。
 
 ---

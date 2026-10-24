@@ -24,9 +24,9 @@
     5. 断言：`def seep_*` 里不存在 `raise NotImplementedError` 之类的"假实现占位"。
 
 用法：
-    python Tool/scripts/mcp-guard.py            # 校验（CI/preflight 用），违反则 exit 1
-    python Tool/scripts/mcp-guard.py --baseline # 重新生成基线（只在确认上游同步后做）
-    python Tool/scripts/mcp-guard.py --json
+    python Tool/skill/softseep/scripts/mcp-guard.py            # 校验（CI/preflight 用），违反则 exit 1
+    python Tool/skill/softseep/scripts/mcp-guard.py --baseline # 重新生成基线（只在确认上游同步后做）
+    python Tool/skill/softseep/scripts/mcp-guard.py --json
 """
 from __future__ import annotations
 
@@ -37,7 +37,20 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+ROOT = _repo_root(HERE)
 SERVER = os.path.join(ROOT, "Tool", "mcp", "seep_mcp_server.py")
 BASELINE = os.path.join(ROOT, "Tool", "mcp", ".baseline", "tools.json")
 
@@ -68,7 +81,7 @@ def check():
     begins = len(re.findall(r"SEEP-EXT[^\n]*?\bBEGIN\b", src, re.I))
     ends = len(re.findall(r"SEEP-EXT[^\n]*?\bEND\b", src, re.I))
     if base is None:
-        problems.append("基线缺失：先跑 `python Tool/scripts/mcp-guard.py --baseline`（当前基线为自生成，只能保证此后只增）")
+        problems.append("基线缺失：先跑 `python Tool/skill/softseep/scripts/mcp-guard.py --baseline`（当前基线为自生成，只能保证此后只增）")
     else:
         # 缩容不再一律红：BLUEPRINT §3.3 要求工具面 40→≤16，缩容是**计划内**动作。
         # 判据：消失的每个工具都必须在 reductions[].removed 里登记（带 date + reason），
@@ -94,12 +107,39 @@ def check():
     return problems, info
 
 
+def self_test():
+    """自检：解析器与「只增不删」判据，纯内存，不读真实文件。"""
+    failed, checks = [], 0
+    src = ("@server.tool()\ndef a(x: str) -> str:\n    pass\n\n"
+           "@server.tool()\n@wrapper\ndef b(y: int) -> str:\n    pass\n")
+    checks += 1
+    if parse_tools(src) != ["a", "b"]:
+        failed.append("parse_tools")
+    checks += 1
+    base = {"tools": ["a", "b"], "count": 2}
+    approved = {n for r in (base.get("reductions") or []) for n in (r.get("removed") or [])}
+    if [n for n in base["tools"] if n not in ["a"] and n not in approved] != ["b"]:
+        failed.append("lost-detect")
+    checks += 1
+    base2 = {"tools": ["a", "b"], "count": 2,
+             "reductions": [{"date": "2026-10-24", "reason": "x", "removed": ["b"]}]}
+    approved2 = {n for r in base2["reductions"] for n in r["removed"]}
+    if [n for n in base2["tools"] if n not in ["a"] and n not in approved2]:
+        failed.append("approved-reduction")
+    print(json.dumps({"ok": not failed, "tool": "mcp-guard", "checks": checks,
+                      "failed": failed}, ensure_ascii=False))
+    return 0 if not failed else 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--baseline", action="store_true", help="用当前文件重建基线")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--self-test", dest="self_test", action="store_true")
     a = ap.parse_args()
 
+    if a.self_test:
+        return self_test()
     if a.baseline:
         src = open(SERVER, encoding="utf-8", errors="replace").read()
         names = parse_tools(src)

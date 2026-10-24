@@ -307,9 +307,9 @@ rm ~/.pi/agent/l1-log.flag
 想知道 `BLOCK_NONE` 在您当前的 Gemini 模型上**还剩多少效力**，直接跑：
 
 ```bash
-python Tool/scripts/check-gemini-safety.py
-python Tool/scripts/check-gemini-safety.py --list-models
-python Tool/scripts/check-gemini-safety.py --model gemini-2.5-flash
+python 破甲卡生成/check-gemini-safety.py
+python 破甲卡生成/check-gemini-safety.py --list-models
+python 破甲卡生成/check-gemini-safety.py --model gemini-2.5-flash
 ```
 
 它会用**同一个提示词**分别以「不注入 / 注入 `BLOCK_NONE`」请求 Google 原生接口，

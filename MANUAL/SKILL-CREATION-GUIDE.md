@@ -25,7 +25,7 @@
 
 | # | 位置 | 作用 | 谁写 |
 |---|---|---|---|
-| 1 | `Tool/skill/<name>/SKILL.md` | 技能本体（frontmatter + SOP） | `python Tool/scripts/new-skill.py <name> --desc "..."` 自动建 |
+| 1 | `Tool/skill/<name>/SKILL.md` | 技能本体（frontmatter + SOP） | `python （S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`） <name> --desc "..."` 自动建 |
 | 2 | `Tool/skill/softseep/SKILL.md` 的"可调度资源"表 | 让总控**知道**这个技能存在 | 脚手架自动追加 |
 | 3 | `Tool/skill/<pack>/pack.json` 的 `routes` + `priority` | 让 `master-route.ps1` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
 | 4 | `~/.pi/agent/skills/<name>/` | 让 pi 会话**加载**它 | 脚手架自动同步 |
@@ -38,7 +38,7 @@
 python Tool/scripts/route.py   # 路由 ↔ 技能落位自洽
 python Tool/scripts/check-budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
 powershell -File setup/verify.ps1 -Detailed       # 65 项全绿
-python Tool/scripts/smoke-e2e.py                  # 端到端 12 环
+python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端 12 环
 ```
 
 

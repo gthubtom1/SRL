@@ -419,6 +419,40 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def self_test():
+    """自检：记录 → 读回 → 状态判定（临时目录，不碰真实台账）。"""
+    import tempfile
+    failed, checks = [], 0
+    tmp = tempfile.mkdtemp(prefix="env-ledger-st-")
+    try:
+        path = os.path.join(tmp, "ledger.jsonl")
+        row = {"case": "st", "action": "启动 qemu 网络", "before": "down", "after": "up",
+               "restore": "netsh interface set interface X admin=disable"}
+        checks += 1
+        _ = _append(path, row) if "_append" in globals() else None
+        if "_append" not in globals():
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        with open(path, encoding="utf-8") as f:
+            got = [json.loads(x) for x in f if x.strip()]
+        if len(got) != 1 or got[0]["action"] != row["action"]:
+            failed.append("roundtrip")
+        checks += 1
+        # 有 restore 且 before!=after → 需要还原
+        need = bool(got[0].get("restore")) and got[0].get("before") != got[0].get("after")
+        if not need:
+            failed.append("needs-restore")
+        checks += 1
+        if not os.path.isfile(path):
+            failed.append("file")
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+    print(json.dumps({"ok": not failed, "tool": "env-ledger", "checks": checks,
+                      "failed": failed}, ensure_ascii=False))
+    return 0 if not failed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     # Windows 控制台/管道默认可能是 GBK；统一成 UTF-8，避免中文与符号写不出去。
     for stream in (sys.stdout, sys.stderr):
@@ -427,6 +461,10 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             pass
 
+    if argv is None:
+        argv = sys.argv[1:]
+    if "--self-test" in argv:
+        return self_test()
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args))

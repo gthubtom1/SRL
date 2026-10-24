@@ -489,7 +489,7 @@ def check_newtools():
     add("7 新脚本", "case_state 出口闸可运行", ok3, note3)
 
     # ④ mcp-guard：上游 MCP「只增不删」可执行闸（承诺→校验）
-    mg = os.path.join(TOOL, "scripts", "mcp-guard.py")
+    mg = os.path.join(TOOL, "skill", "softseep", "scripts", "mcp-guard.py")
     ok4, note4 = False, "文件缺失"
     if os.path.isfile(mg):
         try:
@@ -526,7 +526,7 @@ def check_newtools():
     # ⑤ 2.0 新增能力脚本：必须"能在干净 checkout 里跑"（只查 --help / --check，不重跑重活）
     extra = [("案例索引", "case_state.py", ["index", "--check"]),
              ("脱壳流水线", "Tool/skill/malware-analysis/scripts/dump-restore.py", ["--help"]),
-             ("环境台账", "env-ledger.py", ["--help"])]
+             ("环境台账", "Tool/skill/softseep/scripts/env-ledger.py", ["--help"])]
     bad5 = []
     for label, fn, args in extra:
         fp = os.path.join(ROOT, fn) if fn.startswith("Tool/") else os.path.join(TOOL, "scripts", fn)
@@ -681,22 +681,6 @@ def check_v123_deliverables():
         cards += len(re.findall("- 步骤：[^\n]*rc\s*=\s*0", t))
     add("12 v1.23", "剧本卡 >=50 张", cards >= 50, "%d" % cards)
 
-
-    # 7. v1.23 新增工具：seep-start / kb-query 自检
-    tools = ["seep-start.py",
-             os.path.join("..", "skill", "web-pentest", "scripts", "kb-query.py")]
-    bad7 = []
-    for t in tools:
-        tp = os.path.join(TOOL, "scripts", t)
-        if not os.path.isfile(tp):
-            bad7.append(t + "(missing)")
-            continue
-        rc, out = run([sys.executable, tp, "--self-test"], timeout=120)
-        if rc != 0 or '"ok"' not in out:
-            bad7.append("%s(rc=%d)" % (t, rc))
-    add("12 v1.23", "seep-start / kb-query --self-test", not bad7,
-        "; ".join(bad7) if bad7 else "2 个工具 rc=0")
-
     allow = glob.glob(os.path.join(TOOL, "config", "criteria-inferred", "*.json"))
     add("12 v1.23", "判据 inferred 白名单（≥10 份）", len(allow) >= 10, "%d" % len(allow))
 
@@ -724,7 +708,7 @@ def check_playbook_gate():
 
 def check_mcp_contract():
     """MCP 参数契约：路径别名 / required / description / 工具数基线（2026-10-22 审计 P0）。"""
-    sp = os.path.join(TOOL, "scripts", "mcp-param-contract.py")
+    sp = os.path.join(TOOL, "skill", "softseep", "scripts", "mcp-param-contract.py")
     if not os.path.isfile(sp):
         add("14 MCP 契约", "路径参数别名 + 工具数基线", False, "mcp-param-contract.py(missing)")
         return

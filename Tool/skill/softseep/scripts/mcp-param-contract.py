@@ -22,11 +22,11 @@
       非空别名 → 空串别名漏进原函数 → TypeError）；可见「只查 schema」= 假阳性。
 
 用法:
-    python Tool/scripts/mcp-param-contract.py
-    python Tool/scripts/mcp-param-contract.py --json
-    python Tool/scripts/mcp-param-contract.py --server <path/to/seep_mcp_server.py>
-    python Tool/scripts/mcp-param-contract.py --no-runtime   # 只查 schema（排障/离线用）
-    python Tool/scripts/mcp-param-contract.py --self-test
+    python Tool/skill/softseep/scripts/mcp-param-contract.py
+    python Tool/skill/softseep/scripts/mcp-param-contract.py --json
+    python Tool/skill/softseep/scripts/mcp-param-contract.py --server <path/to/seep_mcp_server.py>
+    python Tool/skill/softseep/scripts/mcp-param-contract.py --no-runtime   # 只查 schema（排障/离线用）
+    python Tool/skill/softseep/scripts/mcp-param-contract.py --self-test
 退出码：0 全绿 / 1 有违规 / 2 输入缺失或服务无法加载。
 """
 
@@ -53,7 +53,20 @@ for _s in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
 TOOL = os.path.join(ROOT, "Tool")
 DEFAULT_SERVER = os.path.join(TOOL, "mcp", "seep_mcp_server.py")
 CAPS = os.path.join(TOOL, "config", "tool-capabilities.json")

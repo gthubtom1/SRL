@@ -20,7 +20,20 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+ROOT = _repo_root(HERE)
 TOOL = os.path.join(ROOT, "Tool")
 
 if sys.platform == "win32":

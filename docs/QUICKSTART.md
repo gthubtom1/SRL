@@ -13,7 +13,7 @@ python Tool/scripts/env-check.py --text     # 缺什么会直接说，并给安�
 ## 1. 一条命令开一个案子（30 秒）
 
 ```bash
-python Tool/scripts/seep-start.py --domain <域> --case <案子名> [--target <样本/网址>]
+python `case_state.py init`（seep-start 已删：它就是 init + 目录布局） --domain <域> --case <案子名> [--target <样本/网址>]
 ```
 
 - `<域>` ∈ `web-pentest` `pwn-crypto` `firmware-iot` `ad-cloud` `protocol-plugin`

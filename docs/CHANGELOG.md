@@ -12,7 +12,7 @@
 
 ## [1.26.1] — 2026-10-22
 > 摩擦修复 + 门禁补强 + 四个域硬化（五路并行分支，全部合并回 main）。
-- **MCP 参数契约**：18 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
+- **MCP 参数契约**：18 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/skill/softseep/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
 - **假话术修复**：`seep_auto_triage` 的 `recommended_action` 不再无条件声称「检测到高价值鉴权关键词」，改为按实测命中生成 `next_actions` 数组（命中 / 未命中 / CIL / rabin2 解析失败 各走一路）。
 - **路由修复（根因）**：`.NET` 的 `` 把 CJK 当 word 字符，导致「APK去广告」「Unity IL2CPP透视」等英文词紧跟中文的口吻全部掉兜底；`master-route.ps1` 改为匹配前在 ASCII↔CJK 交界补空格。补 R1（小程序）/R6（前端 JS·签名算法）/R23（本机提权）/R34（验证码·滑块）/R22（无线近场）关键词；新增 **R36 OSINT**（配方 `osint-recon`）。
 - **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（39 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
@@ -273,7 +273,7 @@
 ### D 记忆层 + 长跑契约
 
 - `Tool/prompts/extensions/seep-memory.ts`：自动写 `events.jsonl`；`/map` `/facts` `/traps` `/memory-note`；`before_agent_start` 只注入 `map.md`（≤1536B）；凭据词自动脱敏；`@@FACT/@@TRAP/@@GATE/@@DEAD` 标记分流。
-- `Tool/scripts/env-ledger.py`：环境变更台账（`record/list/restore/check`），命令白名单 + 元字符拒绝；未还原时 `check` rc=1。
+- `Tool/skill/softseep/scripts/env-ledger.py`：环境变更台账（`record/list/restore/check`），命令白名单 + 元字符拒绝；未还原时 `check` rc=1。
 - `Tool/docs/MEMORY.md`、`Tool/docs/AUTONOMY.md`：四层记忆规范 + 长跑契约（只四类情况停、20 分钟 checkpoint）。
 
 ### 门禁
@@ -2041,7 +2041,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 修复：BOM 回归（本轮文档批量改写引入）
 
 - 批量改文档时用了 `utf-8-sig` 写回，导致 **15 个 .md 与 1 个 .py 被加上 BOM** —— 其中
-  `Tool/scripts/new-skill.py` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
+  `（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）` 带 BOM 会直接 `SyntaxError`，`SKILL.md` 带 BOM 会被 Agent 静默跳过（体检当场转红）。
 - 处置：`setup/clean-format.py` 增加**通用 BOM 剥离**（除 `.ps1/.psm1/.bat/.cmd` 外一律去 BOM），
   并在本次全仓执行（112 个 Python 文件语法校验全过）。
 
@@ -2067,7 +2067,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 
 > 主题：**补上最后一块架构缺口（端到端链路验收），然后冻结。**
 
-### 新增：`Tool/scripts/smoke-e2e.py`（端到端冒烟）
+### 新增：``smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`（端到端冒烟）
 
 - **为什么**：体检 60 项 + 三套单测只证明"资产在位 / 单元正确"，**不证明链路连通**。
   弱模型真正会卡住的地方恰恰是"链条中段断了"（如：triage 出结果 → 判壳 → 反编译，中间某一环报错）。
@@ -2075,7 +2075,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   `auto_triage → 整文件哈希 → packer_detect → r2_info → r2_functions → decompile_auto →
    kb_search → task_init → gen_security_report → tool_discover`，
   全部在临时工作区（`SEEP_WORKSPACE`）执行，**不污染仓库**；约 13 秒；不联网、不依赖商业工具。
-- **怎么用**：`python Tool/scripts/smoke-e2e.py`（`--sample` 指定样本，`--keep` 保留现场排障）。
+- **怎么用**：`python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`（`--sample` 指定样本，`--keep` 保留现场排障）。
 - **接入**：`FORK-DELTA` §五 与 `BASELINE-FREEZE` 的验收闸门从"五道"扩为"六道"
   （体检仍 60 项不变，端到端独立一条）。
 
@@ -2107,7 +2107,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 - **内容**：一句话结论（纯超集 0 删除）→ 三类差分的判读法 → **能力差分台账**（工具/技能/配置/工程修复/证据类修复，
   逐条含"解决什么 + 文件位置 + 回滚方式"）→ **上游同步 SOP（5 步命令）** → **并入前五问评估表** →
   **5 个冲突高发区** → 五道闸验收 → 自动生成的文件级差分清单。
-- **新增生成器** `Tool/scripts/fork-delta.py`：文件级差分由脚本刷新（手写部分只维护"为什么/值不值得/怎么撤"），
+- **新增生成器** ``upstream-delta`（S4 已删：一次性）`：文件级差分由脚本刷新（手写部分只维护"为什么/值不值得/怎么撤"），
   **彻底避免台账过期**；无 `upstream` remote 时给出一次性配置提示。
 
 ### 修复
@@ -2417,7 +2417,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   - 设 `PI_SAFETY_LOG=1` 后，每次判定写入 `~/.pi/agent/logs/l1-safety.log`，
     判定分为 `INJECT` / `SKIP` / **`SKIP-INEFFECTIVE`**（名字像 Gemini 但形状是 `messages`，
     注入必然无效的告警）。日志超 512KB 自动截断。
-- **🧪 Gemini 安全设置验证工具**（`Tool/scripts/check-gemini-safety.py`）
+- **🧪 Gemini 安全设置验证工具**（`破甲卡生成/check-gemini-safety.py`）
   - 用同一提示词分别以「不注入 / 注入 `BLOCK_NONE`」请求 Google 原生接口，
     对比 `finishReason` 给出**可证伪的结论**：有效 / 无法区分 / 无效。
   - 纯标准库，密钥仅从 `GEMINI_API_KEY` 环境变量读取，**绝不打印、绝不落盘**。

@@ -34,10 +34,10 @@
 
 ## 用法
 
-    python Tool/scripts/mcp-handshake.py --check            # 握手 + 比对 + 更新基线
-    python Tool/scripts/mcp-handshake.py --check --json     # 机读
-    python Tool/scripts/mcp-handshake.py --check --no-write # 只报告，不动基线
-    python Tool/scripts/mcp-handshake.py --check --out X.json --mcp-json Y.json  # 测试用
+    python Tool/skill/softseep/scripts/mcp-handshake.py --check            # 握手 + 比对 + 更新基线
+    python Tool/skill/softseep/scripts/mcp-handshake.py --check --json     # 机读
+    python Tool/skill/softseep/scripts/mcp-handshake.py --check --no-write # 只报告，不动基线
+    python Tool/skill/softseep/scripts/mcp-handshake.py --check --out X.json --mcp-json Y.json  # 测试用
 
 退出码：0=BASELINE_WRITTEN / OK  1=DRIFT  2=PARTIAL（有 unreachable，其余一致）
 """
@@ -59,7 +59,20 @@ from datetime import datetime, timezone
 from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(os.path.dirname(HERE))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+REPO = _repo_root(HERE)
 DEFAULT_OUT = os.path.join(REPO, "Tool", "config", "packs.baseline.json")
 
 STDIO_TIMEOUT = 30          # stdio 握手硬超时（秒）
@@ -572,16 +585,47 @@ def compare(old: dict | None, new: dict) -> tuple[list[str], list[str]]:
 
 # ───────────────────────────── 主流程 ─────────────────────────────
 
+def self_test():
+    """自检：compare() 的漂移/不可达判定，纯内存，不发起握手。"""
+    failed, checks = [], 0
+    srv = {"a": {"state": "ok", "codeHash": "h1", "toolsCount": 20,
+                 "serverInfo": {"version": "1"}, "transport": "stdio"},
+           "b": {"state": "ok", "codeHash": "h2", "toolsCount": 5,
+                 "serverInfo": {"version": "1"}, "transport": "stdio"}}
+    base = {"servers": srv}
+    checks += 1
+    if any(compare(base, {k: dict(v) for k, v in srv.items()})):
+        failed.append("no-drift")
+    checks += 1
+    drifted = {k: dict(v) for k, v in srv.items()}
+    drifted["b"]["codeHash"] = "hX"
+    if not compare(base, drifted)[0]:
+        failed.append("hash-drift-detect")
+    checks += 1
+    gone = {"a": dict(srv["a"])}
+    if not compare(base, gone)[0]:
+        failed.append("server-removed-detect")
+    checks += 1
+    if compare(None, srv)[0]:
+        failed.append("no-baseline-should-not-drift")
+    print(json.dumps({"ok": not failed, "tool": "mcp-handshake", "checks": checks,
+                      "failed": failed}, ensure_ascii=False))
+    return 0 if not failed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     _utf8()
     ap = argparse.ArgumentParser(description="MCP 运行时握手 + 漂移检测")
     ap.add_argument("--check", action="store_true", help="握手并与基线比对（默认动作）")
     ap.add_argument("--json", action="store_true", help="机读输出")
+    ap.add_argument("--self-test", dest="self_test", action="store_true")
     ap.add_argument("--no-write", action="store_true", help="只报告，不更新基线文件")
     ap.add_argument("--mcp-json", default=None, help="覆盖 mcp.json 路径（测试用）")
     ap.add_argument("--out", default=None, help="覆盖基线文件路径（测试用）")
     ap.add_argument("--only", default=None, help="只握手名字匹配的 server（逗号分隔，测试用）")
     args = ap.parse_args(argv)
+    if args.self_test:
+        return self_test()
 
     src = args.mcp_json or agent_mcp_json()
     out_path = args.out or DEFAULT_OUT

@@ -74,9 +74,9 @@
 
 - **信号**：schema 看着齐（八个别名都在、主参数也不在 `required` 里），但真调一个只读工具就 `unexpected keyword argument` / `TypeError`；而且**连主参数名都挂** —— 不是"某些工具忘加装饰器"。
 - **为什么**：FastMCP 把 `arg_model` 的全部字段按默认值 dump 下来，别名层只 `pop` **非空**别名 → 空串别名照样漏进原函数签名。
-- **必做**：改完别名层必须跑**真调用探针**：`python Tool/scripts/mcp-param-contract.py`，它的 `[6]` 就是拿非主参数名真调 5 个代表工具，回包出现 `unexpected keyword argument` / `Field required` 即判红。
+- **必做**：改完别名层必须跑**真调用探针**：`python Tool/skill/softseep/scripts/mcp-param-contract.py`，它的 `[6]` 就是拿非主参数名真调 5 个代表工具，回包出现 `unexpected keyword argument` / `Field required` 即判红。
 - **负例**：只查 schema（`--no-runtime`）→ 全绿；再跑带 runtime 的版本 → 报错工具数 > 0。两次结果不同就证明"schema 齐"不等于"能调"，只查 schema 是假阳性。
-- **来源**：`Tool/scripts/mcp-param-contract.py:18–22`（判据 [6] 与 P1-8 记录）、实现见 `:72`；`docs/PLAN-SUMMARY.md:38–40`
+- **来源**：`Tool/skill/softseep/scripts/mcp-param-contract.py:18–22`（判据 [6] 与 P1-8 记录）、实现见 `:72`；`docs/PLAN-SUMMARY.md:38–40`
 
 ### T07 · 端口在听 ≠ 工具在表里
 
@@ -124,7 +124,7 @@
 - **为什么**：Git-Bash 的 `npx` 是无扩展名 sh shim，`CreateProcess` 不认；必须按 `PATHEXT` 找到伴生的 `.cmd` / `.exe`，且 `.cmd` 还要交给 `cmd /c` 才能起。
 - **必做**：拉起前做一次解析：按 `PATHEXT` 顺序找 `<name>+ext` 命中的真实文件；`.cmd/.bat` 用 `["cmd", "/c", path, ...]`；把解析结果打进日志，别用"我这儿能跑"当结论。
 - **负例**：解析结果应打印 `npx.cmd`（而非 `npx`）；用 `cmd /c npx.cmd ...` 手跑一次 rc=0 → 证明失败只在 spawn 形式，不在 npx 本身。
-- **来源**：`Tool/scripts/mcp-handshake.py:395,406–410`；`Tool/scripts/mcp-launch.py:289–290,341`
+- **来源**：`Tool/skill/softseep/scripts/mcp-handshake.py:395,406–410`；`Tool/scripts/mcp-launch.py:289–290,341`
 
 ### T13 · "改成 nop 就旁路"是错的
 
