@@ -2,7 +2,7 @@
 
 - 输入：`input/sample.pcap`（628 B，手工构造的 HTTP/1.1 夹具）。
 - 运行（完整 cmd/rc/stdout 见 `run.json`）：
-  1. `python ../../../Tool/scripts/pcap-summary.py --file input/sample.pcap --json`，rc=0（兼容入口）。
+  1. `python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.pcap --json`，rc=0（兼容入口）。
   2. `python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.pcap --json --extract artifacts/streams --tshark-check`，rc=0。
   3. `tshark -r input/sample.pcap -Y http -T fields ...`，rc=0。
 - 结果：pcap / EN10MB，3 包、2 个方向性 TCP 会话；明文含 `GET /login`、`Host: lab.example.test`、

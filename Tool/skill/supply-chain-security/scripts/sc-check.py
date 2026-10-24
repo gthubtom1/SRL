@@ -36,9 +36,9 @@ Output is always JSON on stdout (also written with --out). Missing external
 tools are reported in "degraded"; the scan itself always uses stdlib only.
 
 Usage:
-    python Tool/scripts/sc-check.py --path . --out sc.json
-    python Tool/scripts/sc-check.py --path Tool/ --max-files 5000
-    python Tool/scripts/sc-check.py --self-test
+    python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
+    python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/ --max-files 5000
+    python Tool/skill/supply-chain-security/scripts/sc-check.py --self-test
 
 --self-test is fully offline: it writes a minimal manifest/lock/workflow/
 Dockerfile into a temp dir, runs the same rules, and asserts the key
@@ -929,8 +929,8 @@ def main(argv):
     ap = argparse.ArgumentParser(
         prog="sc-check.py",
         description="离线供应链检查：锁文件 / 宽版本 / CI 权限与触发器 / action pin / 镜像 tag / 依赖混淆 / 2026 npm worm（SC-101/102/103）。只读文件，不联网、不构建。",
-        epilog="示例: python Tool/scripts/sc-check.py --path . --out sc.json；"
-               "自检: python Tool/scripts/sc-check.py --self-test")
+        epilog="示例: python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json；"
+               "自检: python Tool/skill/supply-chain-security/scripts/sc-check.py --self-test")
     ap.add_argument("--path", default="", help="要扫描的仓库/目录（相对仓库根或绝对路径）")
     ap.add_argument("--max-files", type=int, default=20000, help="最多扫描文件数（默认 20000）")
     ap.add_argument("--max-depth", type=int, default=8, help="最大目录深度（默认 8）")

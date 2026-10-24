@@ -109,7 +109,7 @@
       "tools": ["tshark", "seep_pcap_extract", "seep_http_replay", "mitmproxy", "Python socket"],
       "commands": [
         "tshark -r capture.pcapng -Y http -T fields -e http.host -e http.request.uri",
-        "python Tool/scripts/pcap-summary.py <pcap>",
+        "python Tool/skill/protocol-plugin/scripts/pcap-summary.py <pcap>",
         "python -m http.server 8080 --bind 0.0.0.0"
       ],
       "criteria": "多次会话令牌不同/服务端回填时间戳/响应体随会话封送 → 会话绑定；否则金样回放可验证；端点接管后请求落到本地监听器",

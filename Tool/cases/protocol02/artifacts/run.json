@@ -3,7 +3,7 @@
   "cwd": "Tool\\cases\\protocol02",
   "runs": [
     {
-      "cmd": "python ../../../Tool/scripts/pcap-summary.py --file input/sample.bin --json",
+      "cmd": "python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.bin --json",
       "rc": 0,
       "stdout": "{\"ok\": false, \"error\": \"pcap_parse_error\", \"detail\": \"不是 pcap/pcapng（magic=53505258）\", \"file\": \"input/sample.bin\", \"hint\": \"先 file/xxd 确认 magic；损坏包可用 editcap 切片后重试\"}\n",
       "stderr": ""

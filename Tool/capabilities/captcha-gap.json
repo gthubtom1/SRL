@@ -24,7 +24,7 @@
     "gap.json（x / confidence / candidates）"
   ],
   "scripts": [
-    "Tool/scripts/captcha-gap.py"
+    "Tool/skill/web-pentest/scripts/captcha-gap.py"
   ],
   "refs": [
     "Tool/playbooks/captcha-handling.md",

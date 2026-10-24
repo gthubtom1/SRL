@@ -10,7 +10,7 @@ description: "账号任务自动化的六个原语：会话池（多账号隔离
 > 执行范围由用户提供的 `scope` 决定：目标、账号、速率、通知渠道都是输入。
 >
 > 判据与 OPSEC 细节：`Tool/skill/_pending/signin-automation/references/01-fingerprint-and-pacing.md`。
-> 脚本：`Tool/skill/_pending/signin-automation/scripts/*.py` + `Tool/scripts/captcha-gap.py`、`Tool/scripts/captcha-angle.py`。
+> 脚本：`Tool/skill/_pending/signin-automation/scripts/*.py` + `Tool/skill/web-pentest/scripts/captcha-gap.py`、`Tool/skill/web-pentest/scripts/captcha-angle.py`。
 
 本域的唯一交付标准：**同一账号、同一指纹、同一节奏下，任务结果可重复；换号换机仍按判据成立**。
 “登录上了”不算，回填 200 的登录页也不算；只有**会话证据 + 指纹一致 + 节奏未触发风控**三者齐才算一条可用链路。
@@ -158,10 +158,10 @@ python Tool/skill/_pending/signin-automation/scripts/captcha-branch.py \
 
 短信类按 `manual` 处理：验证码只对人类可见，脚本侧只保留“请求已发出”的证据。
 
-### 5.4 滑块缺口（`Tool/scripts/captcha-gap.py`）
+### 5.4 滑块缺口（`Tool/skill/web-pentest/scripts/captcha-gap.py`）
 
 ```bash
-python Tool/scripts/captcha-gap.py --bg work/<case>/bg.png --slice work/<case>/slice.png \
+python Tool/skill/web-pentest/scripts/captcha-gap.py --bg work/<case>/bg.png --slice work/<case>/slice.png \
   --json --out work/<case>/gap.json
 ```
 
@@ -169,10 +169,10 @@ python Tool/scripts/captcha-gap.py --bg work/<case>/bg.png --slice work/<case>/s
 - 阈值：`confidence >= 0.55` 直接提交；`0.35–0.55` 用 ±2px 试探；`< 0.35` 换图或转人工（rc=3）。
 - 判据：`gap.json` 含 `x` 与 `confidence`；坐标与背景图宽度同量纲（不做 DPR 换算会偏一半）。
 
-### 5.5 旋转角度（`Tool/scripts/captcha-angle.py`）
+### 5.5 旋转角度（`Tool/skill/web-pentest/scripts/captcha-angle.py`）
 
 ```bash
-python Tool/scripts/captcha-angle.py --image work/<case>/rotate.png \
+python Tool/skill/web-pentest/scripts/captcha-angle.py --image work/<case>/rotate.png \
   --json --out work/<case>/angle.json
 ```
 
@@ -243,8 +243,8 @@ python Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py \
 | `Tool/skill/_pending/signin-automation/scripts/session-pool.py` | 多账号凭据池：状态、并发/限速、失效标记、轮转 | `--self-test` rc=0（9 项） |
 | `Tool/skill/_pending/signin-automation/scripts/schedule-notify.py` | cron 校验、幂等键、重试上限、三渠道通知载荷 | `--self-test` rc=0（12 项） |
 | `Tool/skill/_pending/signin-automation/scripts/captcha-branch.py` | 响应特征 → `ocr` / `interactive` / `manual` + `next_action` | `--self-test` rc=0（10 项） |
-| `Tool/scripts/captcha-gap.py` | 滑块缺口定位：Sobel + NCC → `x` / `confidence` | `--self-test` rc=0；`<0.35` 时 rc=3 |
-| `Tool/scripts/captcha-angle.py` | 旋转角度：粗搜 + 细搜 → `angle` / `angle_mod90` / `ambiguous` | `--self-test` rc=0；`<0.35` 或对称图 rc=3 |
+| `Tool/skill/web-pentest/scripts/captcha-gap.py` | 滑块缺口定位：Sobel + NCC → `x` / `confidence` | `--self-test` rc=0；`<0.35` 时 rc=3 |
+| `Tool/skill/web-pentest/scripts/captcha-angle.py` | 旋转角度：粗搜 + 细搜 → `angle` / `angle_mod90` / `ambiguous` | `--self-test` rc=0；`<0.35` 或对称图 rc=3 |
 | `Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py` | JA3/JA4 + 档位 + 头序 + H2 开关 → 请求计划 | `--self-test` rc=0（12 项） |
 | `Tool/skill/_pending/signin-automation/scripts/opsec-check.py` | 会话日志 → 五条判据（会话/指纹/节奏/TLS/H2） | `--self-test` rc=0（12 项）；未过 rc=2 |
 | `Tool/skill/_pending/signin-automation/references/01-fingerprint-and-pacing.md` | 指纹面清单、TLS/H2 指纹、检测方视角与“怎么自测” | 本文档；每条附只读回显端点用法 |
@@ -254,8 +254,8 @@ python Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py \
 ```bash
 python Tool/skill/_pending/signin-automation/scripts/opsec-check.py --session work/<case>/session.json \
   --out work/<case>/opsec.json          # rc=0 或 3 才算过；rc=2 按 next_action 改走
-python Tool/scripts/captcha-gap.py --help >/dev/null && echo ok-gap
-python Tool/scripts/captcha-angle.py --help >/dev/null && echo ok-angle
+python Tool/skill/web-pentest/scripts/captcha-gap.py --help >/dev/null && echo ok-gap
+python Tool/skill/web-pentest/scripts/captcha-angle.py --help >/dev/null && echo ok-angle
 python Tool/scripts/preflight.py --fast
 ```
 

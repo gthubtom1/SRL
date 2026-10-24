@@ -46,7 +46,7 @@ description: 【内网/AD/云原生】域内枚举与 BloodHound、Kerberoasting
 # 只读基本盘示例（按环境替换占位符）
 nxc smb <DC_IP> --pass-pol -u '' -p ''
 nxc smb <DC_IP> -u <user> -p '<pass>' -d <domain>
-python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --json
+python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig ~/.kube/config --json
 aws sts get-caller-identity
 ```
 
@@ -170,7 +170,7 @@ aws sts get-caller-identity
 
 ```bash
 # 离线 kubeconfig / AWS 凭据分诊（只读，不联网）
-python Tool/scripts/adcloud-check.py --kubeconfig ~/.kube/config --aws-creds ~/.aws/credentials --json
+python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig ~/.kube/config --aws-creds ~/.aws/credentials --json
 
 # 七类判定离线复算（Kerberoast/AS-REP/ADCS/ESC9-17/委派/K8s RBAC/Windows 事件）
 python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input bundle.json --json

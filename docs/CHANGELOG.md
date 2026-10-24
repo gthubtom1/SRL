@@ -26,7 +26,7 @@
 
 ## [1.26.0] — 2026-10-22
 > 能力补充 + 真实可用性收口（三个只读审计 + 三批并行修复）。
-- 验证码求解原语：新增 `Tool/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90/ambiguous+置信度）；纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
+- 验证码求解原语：新增 `Tool/skill/web-pentest/scripts/captcha-gap.py`（滑块缺口，Sobel+NCC，输出 x+置信度）与 `captcha-angle.py`（旋转角度，粗搜+细搜，输出 angle/angle_mod90/ambiguous+置信度）；纯 numpy+Pillow、本地离线、自带 `--self-test`，接进 `captcha-handling` 配方与 `signin-automation` 原语表。
 - 真错修复：`captcha-angle` 检出 90° 等价类不可分时返回 `ambiguous:true`（不再高置信度给错角）；`temp_ocr` 落盘 `ocr.json` 且失败 rc=2；`probe_api` 非 2xx→rc=3 并支持 `--method/--data`；`case_state` 保留 URL 形态 target；`seep-start` 标注样例路径并对 URL 目标给 `web-check` 首步；`capability-gate` 引用统计拆「精确 id / 脚本别名 / reserved」。
 - 一致性：MCP 工具 38→40（README 矩阵补 `seep_case_search`/`seep_case_read`）、KB 292→409、radare2 5.9.8 / apktool 2.11.0、能力数统一 47、ROADMAP 与 softseep 域表 11 行、apkseep 54/61/57/123、组件 17→11、README 自指、AUDIT R1–R8、DEFERRALS 61。
 - 配方可用性：`web-api-sign-reverse` 改用 `mcp__js_reverse__*` 真实序列 + `sign_check.json` 判据；`web-check` 输出补 `url/status/headers`；`qinglong-signin` 写明 `env-ledger check` 的 rc=1 语义；`captcha-handling` 补 claim 步骤；6 个 frida/capstone 脚本统一 `blocked_at:"tool-missing"` rc=2。
@@ -267,8 +267,8 @@
 
 - `Tool/skill/_pending/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
 - `Tool/skill/_pending/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
-- `Tool/scripts/probe_matrix.py`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
-- `Tool/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
+- ``probe_matrix`（S4 已删：一次性）`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
+- `Tool/skill/malware-analysis/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
 
 ### D 记忆层 + 长跑契约
 
@@ -923,7 +923,7 @@ D0–D5 各有产物；8 节齐全；每条结论有证据编号；`facts.jsonl`
 | 新增 | 作用 |
 |---|---|
 | `Tool/skill/_pending/04-version-migrate/SKILL.md` | 七步流水线：指纹 → 位点对齐 → UI 重定位 → 授权重挂 → 构建 → 回归 → 报告；含"兜底三重"（字符串锚 → xref → 反编译特征） |
-| `Tool/scripts/migrate.py` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
+| ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` | 引擎：PE 指纹（hash/节表/熵/壳线索）、AOB 自动掩码（rel32/rel8/RIP 相对）、滑窗对齐、命中率报告 |
 | `Tool/docs/MIGRATION.md` | `manifest.json` 规范（schema `seep-migration/1`）+ 目录约定 + 常见漂移模式 |
 | 01/02/03 技能各加"顺手记账" | 位点 / UI 素材 / 授权挂载点分别写入 `sites[]` / `ui[]` / `license[]` —— 没有账，下次更新只能重做 |
 | 路由 `R14` | "软件更新了 / 追版 / 新版迁一下" → 04（实测 7/7 判型正确，不影响 01/02/03 与 apkseep） |

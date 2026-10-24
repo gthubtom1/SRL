@@ -459,18 +459,6 @@ def check_newtools():
             note = str(e)[:120]
     add("7 新脚本", "mcp-doctor 可运行（输出 JSON）", ok, note)
 
-    # ② migrate.py：语法 + 子命令自述
-    mig = os.path.join(TOOL, "scripts", "migrate.py")
-    ok2, note2 = False, "文件缺失"
-    if os.path.isfile(mig):
-        try:
-            r = subprocess.run([py, mig, "--help"], capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=60)
-            ok2 = (r.returncode == 0 and "align" in (r.stdout or ""))
-            note2 = "子命令齐全" if ok2 else (r.stderr or "")[:120]
-        except Exception as e:
-            note2 = str(e)[:120]
-    add("7 新脚本", "migrate 追版引擎可运行", ok2, note2)
 
     # ③ case_state.py：阶段零出口闸（空跑一次 gate，必须在缺失时返回 1 而不是崩）
     cs = os.path.join(TOOL, "scripts", "case_state.py")
@@ -537,12 +525,11 @@ def check_newtools():
 
     # ⑤ 2.0 新增能力脚本：必须"能在干净 checkout 里跑"（只查 --help / --check，不重跑重活）
     extra = [("案例索引", "case_state.py", ["index", "--check"]),
-             ("探针矩阵", "probe_matrix.py", ["--help"]),
-             ("脱壳流水线", "dump-restore.py", ["--help"]),
+             ("脱壳流水线", "Tool/skill/malware-analysis/scripts/dump-restore.py", ["--help"]),
              ("环境台账", "env-ledger.py", ["--help"])]
     bad5 = []
     for label, fn, args in extra:
-        fp = os.path.join(TOOL, "scripts", fn)
+        fp = os.path.join(ROOT, fn) if fn.startswith("Tool/") else os.path.join(TOOL, "scripts", fn)
         if not os.path.isfile(fp):
             bad5.append(label + "(缺文件)")
             continue
@@ -680,7 +667,8 @@ def check_v123_deliverables():
     add("12 v1.23", "案例产物无动态 generated_at", not hits,
         ("hits: " + ", ".join(hits[:4])) if hits else "0")
 
-    dt = os.path.join(TOOL, "scripts", "driver-triage.py")
+    dt = os.path.join(TOOL, "skill", "malware-analysis", "scripts",
+                      "driver-triage.py")   # S4：领域脚本归包
     if not os.path.isfile(dt):
         add("12 v1.23", "driver-triage --self-test", False, "missing driver-triage.py")
     else:
@@ -695,7 +683,8 @@ def check_v123_deliverables():
 
 
     # 7. v1.23 新增工具：seep-start / kb-query 自检
-    tools = ["seep-start.py", "kb-query.py"]
+    tools = ["seep-start.py",
+             os.path.join("..", "skill", "web-pentest", "scripts", "kb-query.py")]
     bad7 = []
     for t in tools:
         tp = os.path.join(TOOL, "scripts", t)
@@ -789,7 +778,8 @@ def check_skill_route():
 
 def check_race_e2e():
     """HTTP/2 单包真机 e2e：racy 必须 fail、safe 必须 pass（本地回环，不联网）。"""
-    sp = os.path.join(TOOL, "scripts", "h2-race-e2e.py")
+    sp = os.path.join(TOOL, "skill", "web-pentest", "scripts",
+                      "h2-race-e2e.py")   # S4：领域脚本归包
     if not os.path.isfile(sp):
         add("15 路由探针", "HTTP/2 单包 e2e（racy/safe）", False, "h2-race-e2e.py(missing)")
         return

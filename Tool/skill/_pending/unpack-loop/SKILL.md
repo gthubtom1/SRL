@@ -70,7 +70,7 @@ metadata:
 > 步骤间有**回退边**，受"两阶段熔断"约束。探针矩阵先行：
 >
 > ```bash
-> python Tool/scripts/probe_matrix.py --target <target> --json --out work/<task>/probe.json
+> python `probe_matrix`（S4 已删：一次性） --target <target> --json --out work/<task>/probe.json
 > ```
 
 | # | 步骤 | 一句话 | 核心判据 |
@@ -85,7 +85,7 @@ metadata:
 
 ### 2.1 步骤 1：壳指纹
 
-- 动作：`seep_packer_detect` + `seep_r2_info`（入口段、节名、熵）+ `python Tool/scripts/dump-restore.py pe-info <target>`。
+- 动作：`seep_packer_detect` + `seep_r2_info`（入口段、节名、熵）+ `python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info <target>`。
 - **完成判据**：能说出壳名/家族 + 入口所在节 + 是否 CLR + 是否有 TLS/异常目录/高熵节。
 - 失败升级：判不出 → `seep_pe_resources` 找内嵌载荷（有些"壳"其实是资源里的第二个 PE）；仍判不出 → 按"自定义壳"处理，直接进步骤 2 用行为判定。
 - 卡点：`pe-info` 只是静态提示，不能替代 `seep_packer_detect` 的判壳结论。
@@ -94,9 +94,9 @@ metadata:
 
 - 动作：
   ```bash
-  python Tool/scripts/probe_matrix.py --target <target> --json
+  python `probe_matrix`（S4 已删：一次性） --target <target> --json
   # 只做 baseline + external 的快速检查：
-  python Tool/scripts/probe_matrix.py --target <target> --quick --json
+  python `probe_matrix`（S4 已删：一次性） --target <target> --quick --json
   ```
   记录每个探针：`ok | partial | blocked | killed` + evidence + note；把可用仪器写进 `case_state.py instrument`。
 - **完成判据**：至少 1 种非 baseline 仪器可用（`ok/partial`）；并且明确写出：
@@ -129,7 +129,7 @@ metadata:
 - 动作（任选，优先不触发目标内 guard 的方式）：
   ```bash
   # 外部 ReadProcessMemory（推荐；不注入、不改目标字节）
-  python Tool/scripts/dump-restore.py dump --pid <pid> --out work/<task>/dump.bin
+  python Tool/skill/malware-analysis/scripts/dump-restore.py dump --pid <pid> --out work/<task>/dump.bin
   # 或 pe-sieve / x64dbg + Scylla 插件
   pe-sieve /pid <pid> /dmode 3 /out <dir>
   ```
@@ -141,7 +141,7 @@ metadata:
 
 - 动作：
   ```bash
-  python Tool/scripts/dump-restore.py rebuild --dump work/<task>/dump.bin --out work/<task>/rebuilt.exe
+  python Tool/skill/malware-analysis/scripts/dump-restore.py rebuild --dump work/<task>/dump.bin --out work/<task>/rebuilt.exe
   ```
   脚本会：按 `SectionAlignment` 展开节、修 `PointerToRawData/SizeOfRawData`、更新 `SizeOfImage/SizeOfHeaders`、按节名清壳节（加 `--clear-entropy` 时同时按熵清；始终保留入口节和数据目录所在节）。
 - **完成判据**：
@@ -156,7 +156,7 @@ metadata:
 
 - 动作：
   ```bash
-  python Tool/scripts/dump-restore.py iat --dump work/<task>/rebuilt.exe
+  python Tool/skill/malware-analysis/scripts/dump-restore.py iat --dump work/<task>/rebuilt.exe
   ```
   未解析项用 Scylla（x86/x64）自动搜索 + 手工补；必要时按 `seep_r2_functions` 的 `sym.imp.*` 交叉核对。
 - **完成判据**：

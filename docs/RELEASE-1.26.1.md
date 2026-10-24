@@ -108,7 +108,7 @@ powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY
 
 | 原延迟项 | 现在的状态 | 证据 |
 | :-- | :-- | :-- |
-| D24 HTTP/2 单包无真机验证 | **已完成**：`Tool/scripts/h2-race-e2e.py` 内置最小 h2c 服务端两档（racy/safe）+ 账本，复用 race-probe 判定；已进 preflight 成为常驻断言 | `h2-race-e2e.py` → `racy=fail` / `safe=pass`，36 项检查；preflight 第 45 项 PASS |
+| D24 HTTP/2 单包无真机验证 | **已完成**：`Tool/skill/web-pentest/scripts/h2-race-e2e.py` 内置最小 h2c 服务端两档（racy/safe）+ 账本，复用 race-probe 判定；已进 preflight 成为常驻断言 | `h2-race-e2e.py` → `racy=fail` / `safe=pass`，36 项检查；preflight 第 45 项 PASS |
 | D25 边缘接入面只写文档 | **已完成（离线可机检）**：`ad-repro.py --kind edge-fingerprint` 覆盖 10 类产品（ASA/FortiGate/NetScaler/GlobalProtect/Pulse/SonicWall·F5/OWA/Zimbra/Okta/M365），`--fixture` 复算 9 high + 1 med，`auth_attempted` 恒 false | `ad-repro.py --self-test` → 24 项 / 9 kinds；卡 28 已换成真跑命令 |
 | D23 OSINT 无脚本 | **已完成**：`osint-secret-scan.py`（65 条模式、默认脱敏、37 项自测）+ `osint-h1-ref.py`（H1 公开 GraphQL，19 项自测），已进配方与能力表 | `capability-gate` 51/51、悬空 0；`playbook-check` 命令 184 条 0 坏 |
 | D20 归档库 10 篇正文未落库 | **已完成**：剩余 4 篇（CI 凭据 / NetExec / 初始接入遥测 / TOCTOU）并入 supply-chain-security、ad-cloud、web-pentest、pwn-crypto 现有篇 + 矩阵各 +1 | 四域 `domain-gate` 各 10/10 |

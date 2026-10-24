@@ -1,134 +1,134 @@
 {
-  "id": "protocol01",
-  "domain": "protocol-plugin",
-  "route": "R24",
-  "target_type": "本地夹具 pcap：HTTP/1.1 登录与会话请求（GET /login + Bearer + Set-Cookie，3 包 / 628 B，手工构造）",
-  "evidence_kind": "fixture",
-  "protection": [],
-  "authority": "local",
-  "goal_level": "L2",
-  "outcome": "partial",
-  "capture": {
-    "file": "input/sample.pcap",
-    "tool": "python 手工构造 + pcap-summary.py 2.0 + tshark 4.6.8",
-    "endpoint": "http://10.20.0.5:80",
-    "tls": false,
-    "client_version": "lab-client/0.9.3",
-    "captured_at": "2026-10-20T03:14:05Z（合成，非真实采集）"
+ "id": "protocol01",
+ "domain": "protocol-plugin",
+ "route": "R24",
+ "target_type": "本地夹具 pcap：HTTP/1.1 登录与会话请求（GET /login + Bearer + Set-Cookie，3 包 / 628 B，手工构造）",
+ "evidence_kind": "fixture",
+ "protection": [],
+ "authority": "local",
+ "goal_level": "L2",
+ "outcome": "partial",
+ "capture": {
+  "file": "input/sample.pcap",
+  "tool": "python 手工构造 + pcap-summary.py 2.0 + tshark 4.6.8",
+  "endpoint": "http://10.20.0.5:80",
+  "tls": false,
+  "client_version": "lab-client/0.9.3",
+  "captured_at": "2026-10-20T03:14:05Z（合成，非真实采集）"
+ },
+ "protocol": {
+  "layer": "HTTP/1.1 over TCP",
+  "framing": "HTTP request/response over TCP；样本无 SYN/ACK 握手，靠 CRLFCRLF 与 Content-Length 定界",
+  "handshake": "样本仅含 3 个数据包，未含 SYN/ACK 握手",
+  "states": [
+   "TCP_ESTABLISHED(INFERRED)",
+   "REQUEST /login",
+   "RESPONSE 200 OK",
+   "REQUEST /dashboard"
+  ],
+  "fields": [
+   {
+    "name": "method",
+    "type": "string",
+    "evidence": "observed: GET（tshark 与 pcap-summary 一致）"
+   },
+   {
+    "name": "path",
+    "type": "string",
+    "evidence": "observed: /login, /dashboard"
+   },
+   {
+    "name": "host",
+    "type": "string",
+    "evidence": "observed: lab.example.test"
+   },
+   {
+    "name": "authorization",
+    "type": "string",
+    "evidence": "observed: Bearer abc（假值）"
+   },
+   {
+    "name": "cookie",
+    "type": "string",
+    "evidence": "observed: sid=deadbeef"
+   },
+   {
+    "name": "content_length",
+    "type": "int",
+    "evidence": "observed: 36（响应 JSON body）"
+   }
+  ]
+ },
+ "artifacts": [
+  {
+   "path": "input/sample.pcap",
+   "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a"
   },
-  "protocol": {
-    "layer": "HTTP/1.1 over TCP",
-    "framing": "HTTP request/response over TCP；样本无 SYN/ACK 握手，靠 CRLFCRLF 与 Content-Length 定界",
-    "handshake": "样本仅含 3 个数据包，未含 SYN/ACK 握手",
-    "states": [
-      "TCP_ESTABLISHED(INFERRED)",
-      "REQUEST /login",
-      "RESPONSE 200 OK",
-      "REQUEST /dashboard"
-    ],
-    "fields": [
-      {
-        "name": "method",
-        "type": "string",
-        "evidence": "observed: GET（tshark 与 pcap-summary 一致）"
-      },
-      {
-        "name": "path",
-        "type": "string",
-        "evidence": "observed: /login, /dashboard"
-      },
-      {
-        "name": "host",
-        "type": "string",
-        "evidence": "observed: lab.example.test"
-      },
-      {
-        "name": "authorization",
-        "type": "string",
-        "evidence": "observed: Bearer abc（假值）"
-      },
-      {
-        "name": "cookie",
-        "type": "string",
-        "evidence": "observed: sid=deadbeef"
-      },
-      {
-        "name": "content_length",
-        "type": "int",
-        "evidence": "observed: 36（响应 JSON body）"
-      }
-    ]
+  {
+   "path": "artifacts/run.json",
+   "sha256": "34aa870ec4fce3180a8e0a133c984a417372283fba52cfc4ebfec08330b776be"
   },
-  "artifacts": [
-    {
-      "path": "input/sample.pcap",
-      "sha256": "721a890496a67fed9df25d9e5bee55af73dd0890c606cadf68cd841c5b893a7a"
-    },
-    {
-      "path": "artifacts/run.json",
-      "sha256": "7e50bda76261bb376d30ea5038646792384226b425534180a94781f3f07973c0"
-    },
-    {
-      "path": "artifacts/pcap-summary.json",
-      "sha256": "38493c0020c83c8574191e8b66dbafb705e4fbc21f03955b9113a7d3cfd12cba"
-    },
-    {
-      "path": "artifacts/tshark-http.tsv",
-      "sha256": "28e52a13a975010e1d40ca71d06afa3c7cb729031542103706df548cb8a64508"
-    },
-    {
-      "path": "artifacts/streams/frames.jsonl",
-      "sha256": "4d21938907ce10e03b6c5bf497613f01244b54ad99a417f85a60851a0a4756c1"
-    },
-    {
-      "path": "artifacts/streams/s00_10.20.0.15_49152-10.20.0.5_80.bin",
-      "sha256": "f3287641bb0383833e2aeec27c1fe71a2c481b110c4af9ff5fc063026e30273e"
-    },
-    {
-      "path": "artifacts/streams/s01_10.20.0.5_80-10.20.0.15_49152.bin",
-      "sha256": "f1a42bcb76bca9ff7d53c04b614ce1bbd014d1efbf4966ce48763c704a224b6d"
-    },
-    {
-      "path": "artifacts/MANIFEST.sha256",
-      "sha256": "11e41009250d95630c4df49cd6d92abdab672692291ebf91d9c1835222cc3004"
-    }
-  ],
-  "evidence": [
-    "observed: pcap-summary.py（skill 版）rc=0，format=pcap、linktype=1、packet_count=3、sessions_total=2、未截断",
-    "observed: tshark -Y http 认出 2 条请求（frame 1 GET /login 带 Authorization: Bearer abc；frame 3 GET /dashboard），响应 200 只在 pcap-summary 的明文片段里可见",
-    "observed: --extract 导出 2 个方向性 .bin（C2S 238 B / S2C 156 B）与 frames.jsonl（3 行，含 payload_hex）",
-    "observed: 响应体 {\"status\":\"ok\",\"role\":\"user\"} = 36 B，与 Content-Length: 36 一致",
-    "missing: TCP 握手、TLS、失败分支、重放验证；tshark 未把反向响应配成同一 tcp.stream（样本无握手，属工具边界）"
-  ],
-  "lessons": [
-    "跑的是 cd Tool/cases/protocol01 && python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.pcap --json --extract artifacts/streams --tshark-check，rc=0；tshark -Y http 取头部字段也是 rc=0。",
-    "结论：3 包 628 B 的手工 pcap 可被两套解析器（标准库 / tshark）同时读出 GET /login、Host: lab.example.test、Authorization: Bearer abc、Set-Cookie: sid=deadbeef，且 36 B 响应体与 Content-Length 一致。",
-    "工具边界：tshark 只列出 2 条请求、没把反向 200 响应归入同一 tcp.stream —— 样本缺 SYN/握手，说明\"tshark 没显示\"不等于\"没发生\"，必须用原始字节复核。",
-    "产物用途：artifacts/streams/*.bin 是方向性字节流，可直接喂给 proto-repro.py（换成 HTTP 字段表）或自写分帧器；frames.jsonl 逐包 payload_hex 可复算长度。",
-    "边界：这是夹具，不含握手/失败分支/TLS，token 是静态假值；不能据此推断真实服务的鉴权与过期语义，重放与构造按 references/08-replay-and-new-request.md 另做。"
-  ],
-  "tags": [
-    "R24",
-    "protocol",
-    "http",
-    "pcap",
-    "bearer",
-    "fixture",
-    "partial"
-  ],
-  "refs": [
-    "Tool/skill/protocol-plugin/SKILL.md",
-    "Tool/skill/protocol-plugin/references/01-criteria.md",
-    "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
-    "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
-    "Tool/mcp/Tool/reverselab/kb/protocol/techniques/framing-and-fields.md",
-    "Tool/mcp/Tool/reverselab/kb/protocol/techniques/capture-to-replay.md",
-    "Tool/config/protocol-plugin-matrix.json",
-    "Tool/cases/protocol01/artifacts/run.json"
-  ],
-  "updated": "2026-10-21",
-  "repro": {
-    "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+  {
+   "path": "artifacts/pcap-summary.json",
+   "sha256": "38493c0020c83c8574191e8b66dbafb705e4fbc21f03955b9113a7d3cfd12cba"
+  },
+  {
+   "path": "artifacts/tshark-http.tsv",
+   "sha256": "28e52a13a975010e1d40ca71d06afa3c7cb729031542103706df548cb8a64508"
+  },
+  {
+   "path": "artifacts/streams/frames.jsonl",
+   "sha256": "4d21938907ce10e03b6c5bf497613f01244b54ad99a417f85a60851a0a4756c1"
+  },
+  {
+   "path": "artifacts/streams/s00_10.20.0.15_49152-10.20.0.5_80.bin",
+   "sha256": "f3287641bb0383833e2aeec27c1fe71a2c481b110c4af9ff5fc063026e30273e"
+  },
+  {
+   "path": "artifacts/streams/s01_10.20.0.5_80-10.20.0.15_49152.bin",
+   "sha256": "f1a42bcb76bca9ff7d53c04b614ce1bbd014d1efbf4966ce48763c704a224b6d"
+  },
+  {
+   "path": "artifacts/MANIFEST.sha256",
+   "sha256": "11e41009250d95630c4df49cd6d92abdab672692291ebf91d9c1835222cc3004"
   }
+ ],
+ "evidence": [
+  "observed: pcap-summary.py（skill 版）rc=0，format=pcap、linktype=1、packet_count=3、sessions_total=2、未截断",
+  "observed: tshark -Y http 认出 2 条请求（frame 1 GET /login 带 Authorization: Bearer abc；frame 3 GET /dashboard），响应 200 只在 pcap-summary 的明文片段里可见",
+  "observed: --extract 导出 2 个方向性 .bin（C2S 238 B / S2C 156 B）与 frames.jsonl（3 行，含 payload_hex）",
+  "observed: 响应体 {\"status\":\"ok\",\"role\":\"user\"} = 36 B，与 Content-Length: 36 一致",
+  "missing: TCP 握手、TLS、失败分支、重放验证；tshark 未把反向响应配成同一 tcp.stream（样本无握手，属工具边界）"
+ ],
+ "lessons": [
+  "跑的是 cd Tool/cases/protocol01 && python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/sample.pcap --json --extract artifacts/streams --tshark-check，rc=0；tshark -Y http 取头部字段也是 rc=0。",
+  "结论：3 包 628 B 的手工 pcap 可被两套解析器（标准库 / tshark）同时读出 GET /login、Host: lab.example.test、Authorization: Bearer abc、Set-Cookie: sid=deadbeef，且 36 B 响应体与 Content-Length 一致。",
+  "工具边界：tshark 只列出 2 条请求、没把反向 200 响应归入同一 tcp.stream —— 样本缺 SYN/握手，说明\"tshark 没显示\"不等于\"没发生\"，必须用原始字节复核。",
+  "产物用途：artifacts/streams/*.bin 是方向性字节流，可直接喂给 proto-repro.py（换成 HTTP 字段表）或自写分帧器；frames.jsonl 逐包 payload_hex 可复算长度。",
+  "边界：这是夹具，不含握手/失败分支/TLS，token 是静态假值；不能据此推断真实服务的鉴权与过期语义，重放与构造按 references/08-replay-and-new-request.md 另做。"
+ ],
+ "tags": [
+  "R24",
+  "protocol",
+  "http",
+  "pcap",
+  "bearer",
+  "fixture",
+  "partial"
+ ],
+ "refs": [
+  "Tool/skill/protocol-plugin/SKILL.md",
+  "Tool/skill/protocol-plugin/references/01-criteria.md",
+  "Tool/skill/protocol-plugin/references/06-app-state-machine.md",
+  "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+  "Tool/mcp/Tool/reverselab/kb/protocol/techniques/framing-and-fields.md",
+  "Tool/mcp/Tool/reverselab/kb/protocol/techniques/capture-to-replay.md",
+  "Tool/config/protocol-plugin-matrix.json",
+  "Tool/cases/protocol01/artifacts/run.json"
+ ],
+ "updated": "2026-10-21",
+ "repro": {
+  "status": "recorded",
+  "evidence": "见 lessons 首条的『命令与 rc』"
+ }
 }

@@ -3,8 +3,8 @@
 """pwn-check.py — 纯标准库 PE/ELF 保护位与利用路线预判.
 
 用法:
-    python Tool/scripts/pwn-check.py --file ./chall
-    python Tool/scripts/pwn-check.py --file ./sample.exe --json
+    python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall
+    python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./sample.exe --json
 
 只读文件，不执行目标。输出 checksec 近似值、危险导入、format 串风险和
 下一步优先尝试的利用路线。PE 没有 ELF RELRO 概念，RELRO 以 N/A 标注；
@@ -499,7 +499,20 @@ def decide(b, strings):
     return routes
 
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def _repo_root(start):
+    """仓库根：向上找含 Tool/cases 的目录（S4 后脚本位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
+    d = os.path.abspath(start)
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "Tool", "cases")):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+
+
+ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
 
 
 def error_payload(blocked_at, reason):

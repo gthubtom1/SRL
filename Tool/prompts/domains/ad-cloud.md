@@ -171,8 +171,8 @@
 ### 19 Kubernetes 渗透测试的只读起步（源：performing-kubernetes-penetration-testing）
 - 触发词：Kubernetes、kubeconfig、API server、渗透测试、namespace
 - 前置：有 kubeconfig/SA token；授权允许只读 API；不创建资源
-- 步骤：1) `python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0，期望：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`；2) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`{"ok": true, "checks": 2}`；3) `python Tool/scripts/adcloud-check.py --help` → rc=0，期望：usage 含 `--kubeconfig`/`--aws-creds`
-  1) `python Tool/scripts/adcloud-check.py --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json` → rc=0｜期望输出：`"ok": true` + findings（如 `K8S-TRANSPORT-002`、`K8S-RBAC-00x`）。
+- 步骤：1) `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0，期望：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`；2) `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --self-test` → rc=0，期望：`{"ok": true, "checks": 2}`；3) `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help` → rc=0，期望：usage 含 `--kubeconfig`/`--aws-creds`
+  1) `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig input/kubeconfig.yaml --json > artifacts/run.json` → rc=0｜期望输出：`"ok": true` + findings（如 `K8S-TRANSPORT-002`、`K8S-RBAC-00x`）。
   2) `kubectl config current-context` → rc=0｜期望输出：单个 context 名；rc=1 = kubeconfig 不可用，停。
   3) `kubectl auth can-i --list` → rc=0｜期望输出：`Resources`/`Verbs` 表（≥ 1 行）；`Forbidden` 或空表 = 身份无效，转 Secret/CI。
 - 判据：context/token 有效、auth can-i 有明确结果、只读枚举成功；记录 API server 与 namespace
@@ -182,7 +182,7 @@
 ### 20 K8s RBAC 提权审计（源：auditing-kubernetes-rbac-privilege-escalation）
 - 触发词：RBAC、ClusterRole、RoleBinding、wildcard、escalate、bind
 - 前置：有只读 RBAC 权限；授权允许读 role/clusterrole/binding
-- 步骤：1) `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 9`；3) `python Tool/scripts/adcloud-check.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --input Tool/cases/ad-cloud04/input/bundle.json --json` → rc=0，期望：results 含 `"kind": "k8s-rbac"` 且 `"verdict": "candidate"`；2) `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --self-test` → rc=0，期望：`"kinds": 9`；3) `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --self-test` → rc=0，期望：`"ok": true`
   1) `kubectl get clusterrolebinding,rolebinding -A -o json > rbac.json` → rc=0｜期望输出：`items` ≥ 1 且 subject 含当前 SA/用户；空 `items` = 无可审面。
   2) 把绑定与当前身份整理成 `{"kind":"k8s-rbac","can_i":[...]}` 后跑 `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json` → rc=0｜期望输出：`"verdict": "candidate"`、`allowed_count`=2；自建输入时 `checks[].ok` 必须与 `auth can-i` 一致；rc=2 → 打印 `{"ok": false, "blocked_at": ...}`，先修输入。
   3) `kubectl auth can-i create pods --as=system:serviceaccount:<ns>:<sa>` → rc=0｜期望输出：`yes` 才算路径成立；`no` = blocked，转 Secret/CI。
@@ -248,7 +248,7 @@
 - 触发词：容器逃逸、privileged、hostPath、cgroup release_agent、runc、kubelet、etcd、admission、PSA
 - 前置：有容器内执行权限/SA token/kubeconfig；授权允许只读 API，创建标记 Pod 需单独授权；已登记清理方式
 - 步骤：（剧本：命令 → 退出码 → 期望输出；rc≠0 即停）
-  1) `python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0｜期望输出：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`、`anonymous_risk`=false、findings 含 `K8S-TRANSPORT-002`/`K8S-RBAC-003`/`K8S-RBAC-006`
+  1) `python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json` → rc=0｜期望输出：`"ok": true`、`"current_context": "lab-context-01"`、`"insecure_skip_tls_verify": true`、`anonymous_risk`=false、findings 含 `K8S-TRANSPORT-002`/`K8S-RBAC-003`/`K8S-RBAC-006`
   2) `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind k8s-rbac --input Tool/cases/ad-cloud04/input/k8s-rbac-only.json --json` → rc=0｜期望输出：`"kind": "k8s-rbac"`、`"verdict": "candidate"`、`allowed_count`=2、`checks` 5 条，且 `host-proof`=false / `secret-proof`=false（有权限面但无宿主证据 → 只能 candidate）
   3) `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --self-test` → rc=0｜期望输出：`{"ok": true, "checks": 24, "kinds": 9}`
   4) 容器内原语：`capsh --print`、`stat -fc %T /sys/fs/cgroup/`、`test -w /var/run/docker.sock`；宿主侧：`nsenter -t 1 -m -u -i -n -p -- hostname`（仅授权容器；rc=0 且返回节点 hostname ≠ 容器 hostname 才升级 confirmed）

@@ -7,7 +7,7 @@
 
 ```bash
 # 不联网的 kubeconfig 体检（本仓库脚本）
-python Tool/scripts/adcloud-check.py --kubeconfig <kubeconfig>
+python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig <kubeconfig>
 ```
 
 关注：`current-context` 是否正确、`insecure-skip-tls-verify`、无凭据用户、`system:serviceaccount:*:cluster-admin`、JWT `exp`/`groups`、`exec` 插件。

@@ -123,7 +123,7 @@
 | 阶段一 旁路 | `Tool/skill/_pending/01-gate-bypass/SKILL.md` | 交付纪律：M1–M4 分级 | 删目录 + R11/R2 指回旧技能 |
 | 阶段二 UI | `Tool/skill/_pending/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
 | 阶段三 授权 | `Tool/skill/_pending/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
-| 阶段四 追版 | `Tool/skill/_pending/04-version-migrate/SKILL.md` + `Tool/scripts/migrate.py` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
+| 阶段四 追版 | `Tool/skill/_pending/04-version-migrate/SKILL.md` + ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
 | 阶段五 后端复刻 | `Tool/skill/_pending/05-backend-rebuild/SKILL.md` | 客户端+后端全栈（仅 T2/T3 触发） | 删目录 + R16 |
 | 案子闸 | `Tool/scripts/case_state.py` | 事实账 / 深度门 / 裁定 / `gate` / `deliver` | 删脚本 + 恢复 00/01 的文字规则 |
 | MCP 只增不删闸 | `Tool/scripts/mcp-guard.py` + `Tool/mcp/.baseline/tools.json` | 把"净删除 0 行"从承诺变成可执行 | 删两者 + preflight 对应项 |

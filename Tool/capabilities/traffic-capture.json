@@ -28,7 +28,7 @@
   ],
   "scripts": [
     "Tool/skill/protocol-plugin/scripts/pcap-summary.py",
-    "Tool/scripts/pcap-summary.py"
+    "Tool/skill/protocol-plugin/scripts/pcap-summary.py"
   ],
   "refs": [
     "Tool/skill/protocol-plugin/references/05-binary-framing.md",

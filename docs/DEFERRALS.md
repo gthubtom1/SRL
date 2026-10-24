@@ -37,9 +37,9 @@
 | D20 | **已完成（索引 + 正文）**：79 篇 `offensive-*`（UNKNOWN 许可）的归档索引在 `kb/_archive/pentest-checklist/README.md`（79 行表 + 建议动作），未收清单在同目录 `NOT-ABSORBED.md` | 10 篇「可重写吸收」正文已全部落库（anti-forensics / bluetooth-ble / cicd-secrets / netexec / osint / phishing / reporting / toctou / wifi-recon / wpa2-psk） | 无 |
 | D21 | 无线近场未独立成域（当前挂 `firmware-iot` 的 `hardware-interfaces.md` 无线章 + 路由 R22） | 硬件探针（monitor 网卡 / BLE / 802.15.4 / sub-GHz）未纳入 `probe_matrix.py`；触发条件：连续 3 个无线案例稳定后升域 |
 | D22 | **脚本已交付**：`Tool/skill/web-pentest/scripts/race-probe.py`（1029 行；`--mode concurrent|single-packet|h2-single-packet`；HTTP/1.1 最后一字节同步 + h2 单包（缺 `h2` 库时返回 `blocked_at=h2-lib-missing`）+ 账本读回 + 远端安全闸 + 默认 dry-run；`--self-test` 34 项；已接矩阵 23 条 / SKILL §9 / references 09 / 能力表 `race-test`） | 剩余缺口：**真实 HTTP/2 服务端多 stream 未端到端验证**（只用 stub 与「h2 打 HTTP/1.1 端点→blocked」覆盖了失败路径）；触发条件：遇到 h2 目标时补一次实跑 |
-| D23 | **已完成**：`Tool/scripts/osint-secret-scan.py`（65 条模式、默认脱敏、self-test 37 项）与 `Tool/scripts/osint-h1-ref.py`（H1 公开 GraphQL，server-keyword + client-filter 兜底，self-test 19 项）已接入 `osint-recon` 配方与能力表 | 无（H1 schema 变动时以 `blocked_at=graphql-error` 暴露，不静默 0 条） |
+| D23 | **已完成**：`Tool/skill/web-pentest/scripts/osint-secret-scan.py`（65 条模式、默认脱敏、self-test 37 项）与 `Tool/skill/web-pentest/scripts/osint-h1-ref.py`（H1 公开 GraphQL，server-keyword + client-filter 兜底，self-test 19 项）已接入 `osint-recon` 配方与能力表 | 无（H1 schema 变动时以 `blocked_at=graphql-error` 暴露，不静默 0 条） |
 
-| D24 | **已完成**：`Tool/scripts/h2-race-e2e.py`（内置 h2c 服务端 racy/safe 两档 + 账本，复用 race-probe 判定）已进 preflight（44 项里的「HTTP/2 单包 e2e」），racy=fail / safe=pass 实测稳定 | 无（TLS 分片/前置代理会退化，文档已写明只得出「未打出时间窗压缩」） |
+| D24 | **已完成**：`Tool/skill/web-pentest/scripts/h2-race-e2e.py`（内置 h2c 服务端 racy/safe 两档 + 账本，复用 race-probe 判定）已进 preflight（44 项里的「HTTP/2 单包 e2e」），racy=fail / safe=pass 实测稳定 | 无（TLS 分片/前置代理会退化，文档已写明只得出「未打出时间窗压缩」） |
 | D25 | **已完成（离线可机检）**：`ad-repro.py --kind edge-fingerprint` 覆盖 10 类产品，`--fixture` 离线复算（9 high / 1 med）+ `--self-test` 24 项；在线路径仍需授权目标才跑 | 有授权目标时按卡 28 实跑一次，回写 `evidence_kind=real` |
 | D26 | `00-analysis` 只有 SKILL + 1 篇 report-template，未纳入 `domain_spec.DOMAINS` 九件套（无 cases/矩阵/任务卡） | 若要把它当独立域考核，需补 01–04 必备篇 + 矩阵 + 任务卡；当前按「阶段技能」对待，不进 domain-gate |
 

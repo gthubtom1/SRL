@@ -52,7 +52,7 @@
     "notes": "未执行：Broadcom Wi-Fi 固件是裸 blob，不含 rootfs/kernel，无法用 qemu 起服务。"
   },
   "lessons": [
-    "跑的是 python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json > artifacts/triage.json，rc=0；随后 fw-repro.py 同输入 --out-dir work/fw-case03 --json > artifacts/repro.json，rc=0。",
+    "跑的是 python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json > artifacts/triage.json，rc=0；随后 fw-repro.py 同输入 --out-dir work/fw-case03 --json > artifacts/repro.json，rc=0。",
     "真实识别：sha256=3dc1138c...，406260 字节，整体熵 7.055；fw-repro 在 offset 252828/252980/253132/254156 命中 BRCM 标签，尾部得到 Version 6.10.225.19、FWID 01-97a5222f、PDT 2015-08-07。",
     "误报处理：triage 另报 offset 291825 的 JFFS2 弱签名和 offset 318183 的 bzip2；fw-repro 按 strong/weak 分层把 BRCM 定为主格式，未把弱签名当 rootfs。",
     "卡点：这是 vendor firmware blob，没有 SquashFS/UBI/rootfs，也没有 UART/JTAG 实物，J1/J2/J3 均未达成；只有固件身份与版本可确认。",

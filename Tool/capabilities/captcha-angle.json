@@ -23,7 +23,7 @@
     "angle.json（angle / angle_mod90 / confidence）"
   ],
   "scripts": [
-    "Tool/scripts/captcha-angle.py"
+    "Tool/skill/web-pentest/scripts/captcha-angle.py"
   ],
   "refs": [
     "Tool/playbooks/captcha-handling.md",

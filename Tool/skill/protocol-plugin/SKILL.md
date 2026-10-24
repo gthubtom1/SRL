@@ -211,7 +211,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 | `proto-accept.py` | 案例目录 / 路由片段 | 判据复算结果 | 0 全过；2 有 FAIL |
 
 三个脚本都支持 `--self-test`（离线、rc=0、输出含 `"ok"`）与 `--help`（rc=0）。
-兼容入口：`Tool/scripts/pcap-summary.py` 转发到 skill 版（Windows 上可能丢子进程退出码，以 skill 版为准）。
+兼容入口：``pcap-summary`（S4 已删：壳，真身在 protocol-plugin/scripts/）` 转发到 skill 版（Windows 上可能丢子进程退出码，以 skill 版为准）。
 
 ## 8. 任务卡与 KB 入口
 

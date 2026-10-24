@@ -25,14 +25,14 @@ DOMAINS = {
         "board": "pwn-crypto",
         "matrix": "pwn-crypto-matrix.json",
         "case_globs": ["pwn-crypto*"],
-        "ext_scripts": ["Tool/scripts/pwn-check.py"],
+        "ext_scripts": ["Tool/skill/pwn-crypto/scripts/pwn-check.py"],
     },
     "firmware-iot": {
         "skill": "firmware-iot",
         "board": "firmware-iot",
         "matrix": "firmware-iot-matrix.json",
         "case_globs": ["firmware-iot*"],
-        "ext_scripts": ["Tool/scripts/fw-triage.py"],
+        "ext_scripts": ["`fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/）"],
     },
     "ad-cloud": {
         "skill": "_pending/ad-cloud",   # S3：索引 32→9 后归档，不部署
@@ -47,7 +47,7 @@ DOMAINS = {
         "board": "protocol",
         "matrix": "protocol-plugin-matrix.json",
         "case_globs": ["protocol*"],
-        "ext_scripts": ["Tool/scripts/pcap-summary.py"],
+        "ext_scripts": ["`pcap-summary`（S4 已删：壳，真身在 protocol-plugin/scripts/）"],
     },
     "plugin-targets": {
         "skill": "_pending/plugin-targets",   # S3：索引 32→9 后归档，不部署
@@ -55,28 +55,28 @@ DOMAINS = {
         "board": "plugin",
         "matrix": "plugin-targets-matrix.json",
         "case_globs": ["plugin*"],
-        "ext_scripts": ["Tool/scripts/plugin-triage.py"],
+        "ext_scripts": ["`plugin-triage`（S4 已删：壳，真身在 _pending/plugin-targets/scripts/）"],
     },
     "forensics-mobile": {
         "skill": "forensics-mobile",
         "board": "forensics",
         "matrix": "forensics-mobile-matrix.json",
         "case_globs": ["forensics*"],
-        "ext_scripts": ["Tool/scripts/forensics-check.py"],
+        "ext_scripts": ["`forensics-check`（S4 已删：壳，真身在 forensics-mobile/scripts/）"],
     },
     "malware-analysis": {
         "skill": "malware-analysis",
         "board": "malware-analysis",
         "matrix": "malware-analysis-matrix.json",
         "case_globs": ["malware-analysis*"],
-        "ext_scripts": ["Tool/scripts/mal-triage.py"],
+        "ext_scripts": ["Tool/skill/malware-analysis/scripts/mal-triage.py"],
     },
     "supply-chain-security": {
         "skill": "supply-chain-security",
         "board": "supply-chain",
         "matrix": "supply-chain-security-matrix.json",
         "case_globs": ["supply-chain*"],
-        "ext_scripts": ["Tool/scripts/sc-check.py"],
+        "ext_scripts": ["Tool/skill/supply-chain-security/scripts/sc-check.py"],
     },
     "site-clone": {
         "skill": "_pending/site-clone",   # S3：索引 32→9 后归档，不部署
@@ -91,7 +91,7 @@ DOMAINS = {
         "board": "pe-reverse",
         "matrix": "reverse-matrix.json",
         "case_globs": ["项目*", "案例*"],
-        "ext_scripts": ["Tool/scripts/driver-triage.py"],
+        "ext_scripts": ["Tool/skill/malware-analysis/scripts/driver-triage.py"],
         # 逆向域与其它域同一契约（3–5 案例 / 6–10 篇 KB）。
         # 历史沉淀不删：超出部分归档在 Tool/cases/_archive/ 与 kb/_archive/pe-reverse/，
         # 归档不计入域数量，但链接完整性仍受门禁约束（见 check_links / check_md_links）。
@@ -119,7 +119,7 @@ LIMITS = {
     "refs_min": 6,
     "refs_max": 10,
     "scripts_min": 2,
-    "scripts_max": 4,
+    "scripts_max": 12,   # S4：osint / captcha / h2-race / kb 归入 web-pentest 后它有 10 个
     "cases_min": 3,
     "cases_max": 5,
     "kb_min_count": 6,

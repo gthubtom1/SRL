@@ -13,7 +13,7 @@
 - 基线：`pwn-check.py` 只做静态预判；它给出 `NX/PIE/Canary/RELRO` 近似值，不执行目标。
 
 ```bash
-python Tool/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json
 ```
 
 原始输出片段（节选）：

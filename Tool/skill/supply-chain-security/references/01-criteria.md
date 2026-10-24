@@ -2,7 +2,7 @@
 
 > 范围：已授权的源码仓库、锁文件、容器镜像、构建流水线审计；目标是把“扫描器说有问题”收敛成“可复核的利用链或明确的不可达”。
 > 路由：仓库/镜像清单由 `scope` 声明；投毒/发布测试包按 `dependency-confusion.md` 的授权条目执行；许可证法务结论由法务流程承担；CVE 武器化由 `pwn-crypto`/`web-pentest` 承担。
-> 配套：`Tool/skill/supply-chain-security/SKILL.md`、`Tool/scripts/sc-check.py`、`scripts/sbom-reach.py`、`scripts/ci-perm-audit.py`、`Tool/config/supply-chain-security-matrix.json`。
+> 配套：`Tool/skill/supply-chain-security/SKILL.md`、`Tool/skill/supply-chain-security/scripts/sc-check.py`、`scripts/sbom-reach.py`、`scripts/ci-perm-audit.py`、`Tool/config/supply-chain-security-matrix.json`。
 > 表中的“可机检”指能落成 JSON 字段、哈希或计数，由脚本复算；不是“看起来像”。
 
 ## 0. 三档结论只有一种写法

@@ -11,7 +11,7 @@
 ## 2 证据清单
 | # | 文件 | sha256 | 命令 | rc | 说明 |
 |---|---|---|---|---|---|
-| E01 | artifacts/sc.json | <sha256> | `python Tool/scripts/sc-check.py --path <repo> --out ...` | 0 | 清单/CI/风险 |
+| E01 | artifacts/sc.json | <sha256> | `python Tool/skill/supply-chain-security/scripts/sc-check.py --path <repo> --out ...` | 0 | 清单/CI/风险 |
 | E02 | artifacts/reach.json | <sha256> | `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom ... --source ...` | 0 | 组件触达 |
 | E03 | artifacts/ci.json | <sha256> | `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows` | 0 | 权限/pin |
 
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/scripts/sc-check.py --path work/<case>/artifacts/repo --max-files 1000 --out work/<case>/artifacts/sc.json
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path work/<case>/artifacts/repo --max-files 1000 --out work/<case>/artifacts/sc.json
 python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom work/<case>/artifacts/bom.json --source work/<case>/artifacts/src --out work/<case>/artifacts/reach.json
 python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out work/<case>/artifacts/ci.json
 ```

@@ -174,7 +174,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 ```
 
-- 兼容入口：`python Tool/scripts/forensics-check.py --file ...` 转发到技能内脚本。
+- 兼容入口：`python `forensics-check`（S4 已删：壳，真身在 forensics-mobile/scripts/） --file ...` 转发到技能内脚本。
 - 所有脚本：`--help` rc=0；`--self-test` 离线 rc=0 且打印 `{"ok": true, ...}`；失败输出 `{"ok": false, "blocked_at": "...", "reason": "..."}` rc=2。
 - 路径由 `__file__`/`--root` 推导，不硬编码本机绝对路径；只读，不联网写操作。
 

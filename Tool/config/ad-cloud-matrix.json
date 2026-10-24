@@ -35,7 +35,7 @@
         "CA 存在不等于与目标集群匹配"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "kubectl config view"
       ]
     },
@@ -62,7 +62,7 @@
         "离线 anonymous_risk 不是“可访问”"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "kubectl auth can-i --list",
         "curl API"
       ]
@@ -91,7 +91,7 @@
         "JWT 只解码不验签，sub/groups 可伪造"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "python base64/json",
         "kubectl auth whoami"
       ]
@@ -124,7 +124,7 @@
         "kubectl auth can-i --list",
         "kubectl get clusterrolebinding",
         "kubectl-who-can",
-        "python Tool/scripts/adcloud-check.py --help"
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help"
       ]
     },
     {
@@ -369,7 +369,7 @@
         "AK 前缀不能判断权限"
       ],
       "commands": [
-        "python Tool/scripts/adcloud-check.py --help",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
         "aws sts get-caller-identity",
         "grep"
       ]
@@ -824,7 +824,7 @@
         "curl -s http://<etcd>:2379/version",
         "kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o json",
         "kubectl get ns --show-labels",
-        "python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json"
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json"
       ]
     },
     {

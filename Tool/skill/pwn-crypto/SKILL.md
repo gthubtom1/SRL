@@ -61,7 +61,7 @@ ldd ./chall
 ### 2.2 保护位：静态预判（只读，不执行目标）
 
 ```bash
-python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > pwn_check.json
 # 可选交叉复核
 checksec --file=./chall          # ELF
 readelf -lW ./chall | grep GNU_STACK
@@ -212,8 +212,8 @@ grep -l 'uid=\|FLAG{' /tmp/run.* | wc -l
 
 ```bash
 # 1) 静态预判（PE/ELF，只读，不执行目标）
-python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
-python Tool/scripts/pwn-check.py --self-test
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --self-test
 
 # 2) 偏移复算：objdump 位移 + 运行时 probe + cyclic 崩溃日志，三源对齐
 python Tool/skill/pwn-crypto/scripts/pwn-repro.py \

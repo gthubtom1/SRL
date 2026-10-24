@@ -26,7 +26,7 @@
         "CI 配置 grep"
       ],
       "false_positive_risk": "medium：库项目可不提交 Cargo.lock；monorepo 根锁文件覆盖子包",
-      "commands": "git ls-files '*lock*' '*lock.json' 'go.sum'; python Tool/scripts/sc-check.py --path . --out sc.json",
+      "commands": "git ls-files '*lock*' '*lock.json' 'go.sum'; python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json",
       "pitfalls": "把“有锁文件”当“可复现”；忽略 CI 用 npm install 而非 npm ci"
     },
     {

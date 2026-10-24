@@ -81,7 +81,7 @@ python Tool/scripts/new-skill.py <name> --desc "一句话描述"
 |---|---|---|---|
 | `00-analysis` | ⓿ | D0–D5 深度门 → 8 节可复现报告 → 可行性裁定 | `analysis-report.md` + `facts.jsonl`（不许交成品） |
 | `01-gate-bypass` | ① | 判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通 | 补丁后二进制 / 代理 DLL / 重签包 / 注入器 |
-| `04-version-migrate` | ④ | 读版本账 → AOB 滑窗对齐 → UI/授权迁移 → 重建回归 | 新版成品 + 差异报告（引擎 `Tool/scripts/migrate.py`，规范 `Tool/docs/MIGRATION.md`） |
+| `04-version-migrate` | ④ | 读版本账 → AOB 滑窗对齐 → UI/授权迁移 → 重建回归 | 新版成品 + 差异报告（引擎 ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）`，规范 `Tool/docs/MIGRATION.md`） |
 | `02-ui-rebrand` | ② | 改 UI、换品牌、去作者信息 | 改造后的同形态产物 |
 | `03-license-hookup` | ③ | 接你自己的授权平台（卡密 / 到期 / 机器码） | 带授权页的产物 + 发卡工具 |
 

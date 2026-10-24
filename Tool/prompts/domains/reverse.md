@@ -7,7 +7,7 @@
 ### 01 Ghidra 样本函数图与入口定位（源：reverse-engineering-malware-with-ghidra）
 - 触发词：Ghidra、函数图、入口定位、xref、反编译、sub_xxx
 - 前置：样本 SHA256 已记录；Ghidra/headless 可用或已有反编译缓存；确认授权沙箱
-- 步骤：1) `python Tool/skill/softseep/scripts/preflight-classify.py --help` → rc=0，期望：usage 含 `<path>` 与 `--self-test`；2) `python Tool/skill/softseep/scripts/preflight-classify.py Tool/samples/real/crackerjack/a.exe` → rc=0，期望：`"format": "pe"`、`"machine": "x86-64"`、`"has_clr": false`；3) `python Tool/scripts/mal-triage.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"type": "PE"`、section_anomalies 含 overlay
+- 步骤：1) `python Tool/skill/softseep/scripts/preflight-classify.py --help` → rc=0，期望：usage 含 `<path>` 与 `--self-test`；2) `python Tool/skill/softseep/scripts/preflight-classify.py Tool/samples/real/crackerjack/a.exe` → rc=0，期望：`"format": "pe"`、`"machine": "x86-64"`、`"has_clr": false`；3) `python Tool/skill/malware-analysis/scripts/mal-triage.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"type": "PE"`、section_anomalies 含 overlay
 - 判据：入口到关键节点的调用路径可打印；每个命名函数能说出「字符串/常量/调用者」依据；关键函数有反编译片段
 - 失败判据：只得到 `sub_xxx` 且无字符串/常量线索 → 转符号恢复/动态断点；分析 2 分钟无关键结论 → 转动态
 - reference：Tool/skill/softseep/references/01-criteria.md
@@ -47,7 +47,7 @@
 ### 06 PE Studio 静态 triage 与可疑面清单（源：performing-static-malware-analysis-with-pe-studio）
 - 触发词：PE Studio、triage、导入表、字符串、熵、签名、可疑面
 - 前置：样本只读；准备哈希/节表/导入/字符串输出目录
-- 步骤：1) `python Tool/scripts/mal-triage.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"type": "PE"`、`"section_anomalies"` 含 `overlay`；2) `python Tool/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"protections"` 含 NX/PIE；3) `python Tool/skill/softseep/scripts/preflight-classify.py Tool/samples/real/crackerjack/a.exe` → rc=0，期望：`"sections"` 含 `.text`/`.rdata`
+- 步骤：1) `python Tool/skill/malware-analysis/scripts/mal-triage.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"type": "PE"`、`"section_anomalies"` 含 `overlay`；2) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"protections"` 含 NX/PIE；3) `python Tool/skill/softseep/scripts/preflight-classify.py Tool/samples/real/crackerjack/a.exe` → rc=0，期望：`"sections"` 含 `.text`/`.rdata`
 - 判据：每个可疑面至少一条可机检证据；高熵节/无签名/异常导入有记录；不把「可疑」写成「恶意」
 - 失败判据：只有静态可疑面无法闭环 → 转动态/沙箱；不要用字符串直接定性质
 - reference：Tool/skill/softseep/references/01-criteria.md
@@ -71,7 +71,7 @@
 ### 09 UPX/压缩壳脱壳与 OEP 判据（源：analyzing-packed-malware-with-upx-unpacker）
 - 触发词：UPX、压缩壳、OEP、dump、IAT、脱壳
 - 前置：备份样本；准备 x64dbg/Scylla/upx；确认壳类型
-- 步骤：1) `python Tool/skill/malware-analysis/scripts/mal-unpack.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --out-dir work/rev09 --json` → rc=0，期望：`"packers"` 含 UPX 且 dumps 含 carve-embedded-pe；2) `python Tool/scripts/mal-triage.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --json` → rc=0，期望：节名 UPX0/UPX1 且 W+X；3) `python Tool/skill/malware-analysis/scripts/mal-unpack.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/malware-analysis/scripts/mal-unpack.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --out-dir work/rev09 --json` → rc=0，期望：`"packers"` 含 UPX 且 dumps 含 carve-embedded-pe；2) `python Tool/skill/malware-analysis/scripts/mal-triage.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --json` → rc=0，期望：节名 UPX0/UPX1 且 W+X；3) `python Tool/skill/malware-analysis/scripts/mal-unpack.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：内存出现原节名/明文导入；OEP 落在原 `.text`；IAT 可解析；dump 哈希记录
 - 失败判据：能运行但节仍高熵/IAT 坏 → 继续找 OEP；VM 壳转运行期取功能
 - reference：Tool/skill/softseep/references/09-patch-engineering.md
@@ -127,7 +127,7 @@
 ### 16 二进制利用面与缓解策略核对（源：performing-binary-exploitation-analysis）
 - 触发词：二进制利用、栈溢出、堆、ROP、DEP、ASLR、CFG
 - 前置：已授权靶标；准备调试器/保护检查工具；记录二进制哈希
-- 步骤：1) `python Tool/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：崩溃可复现；偏移/可控数据有调试器证据；缓解策略与利用可行性一致
 - 失败判据：只崩溃不可控 → 不写可利用；缓解阻断 → 转信息泄露/其它路线
 - reference：Tool/skill/softseep/references/07-disassembly-deep-read.md

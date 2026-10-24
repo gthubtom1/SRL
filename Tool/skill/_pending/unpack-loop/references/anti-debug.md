@@ -1,6 +1,6 @@
 # 反调试识别与绕过参考（unpack-loop / references）
 
-> 配套：`Tool/skill/_pending/unpack-loop/SKILL.md`、`Tool/scripts/probe_matrix.py`、`Tool/scripts/dump-restore.py`。
+> 配套：`Tool/skill/_pending/unpack-loop/SKILL.md`、``probe_matrix`（S4 已删：一次性）`、`Tool/skill/malware-analysis/scripts/dump-restore.py`。
 > 本文是**判据手册**，不是"一键绕过脚本合集"。每条技术都给出：识别特征 → 探测点 → 绕过 → 失败判据 → 工具 → 误判风险。
 >
 > **三条从实战复盘写死的结论（先看）**

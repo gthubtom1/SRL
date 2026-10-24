@@ -120,7 +120,7 @@ python Tool/skill/supply-chain-security/scripts/sbom-reach.py \
 ### 阶段 C：锁文件与 registry
 
 ```bash
-python Tool/scripts/sc-check.py --path . --out sc.json
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json
 jq '{inventory: .inventory.locks, risks: [.risks[] | select(.category|test("lock|registry|version"))]}' sc.json
 ```
 
@@ -178,7 +178,7 @@ cosign verify-attestation <image> --type slsaprovenance
 
 | 脚本 | 用途 | 示例 |
 | :-- | :-- | :-- |
-| `Tool/scripts/sc-check.py` | 离线盘点锁文件/宽版本/CI 权限/action pin/镜像 tag/依赖混淆 | `python Tool/scripts/sc-check.py --path . --out sc.json` |
+| `Tool/skill/supply-chain-security/scripts/sc-check.py` | 离线盘点锁文件/宽版本/CI 权限/action pin/镜像 tag/依赖混淆 | `python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.json` |
 | `scripts/sbom-reach.py` | SBOM/锁文件/freeze → 源码 import/require 可达性 | `python Tool/skill/supply-chain-security/scripts/sbom-reach.py --lock package-lock.json --source . --out reach.json` |
 | `scripts/ci-perm-audit.py` | workflow 权限面/危险触发器/action pin（行号级） | `python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out ci.json` |
 

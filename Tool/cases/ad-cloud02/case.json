@@ -35,7 +35,7 @@
     "Tool/skill/_pending/ad-cloud/SKILL.md",
     "Tool/skill/_pending/ad-cloud/references/k8s-and-container.md",
     "Tool/skill/_pending/ad-cloud/references/cloud-native.md",
-    "Tool/scripts/adcloud-check.py",
+    "Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
     "Tool/config/ad-cloud-matrix.json"
   ],
   "updated": "2026-10-21",

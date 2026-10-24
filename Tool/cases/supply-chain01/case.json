@@ -18,7 +18,7 @@
     }
   ],
   "lessons": [
-    "跑的是什么：`python Tool/scripts/sc-check.py --path Tool/ --max-files 1000 --out Tool/cases/supply-chain01/artifacts/run.json`，rc=0；target.files_scanned=1000、target.truncated=true（扫描被截断）、summary.risks_total=7（全部 medium，0 high/critical）。",
+    "跑的是什么：`python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/ --max-files 1000 --out Tool/cases/supply-chain01/artifacts/run.json`，rc=0；target.files_scanned=1000、target.truncated=true（扫描被截断）、summary.risks_total=7（全部 medium，0 high/critical）。",
     "更正（R2 审计）：旧 lessons 声称含 dependency-confusion / version-range，实跑与 artifact 都只有 ci-action-pin / ci-permissions；inventory.locks 也从 `[]` 变为 1 条（供 supply-chain04 案例使用的 package-lock.json）。本条已按本次实跑结果重写，哈希重算。",
     "覆盖边界：files_scanned 被 `--max-files 1000` 截断（truncated=true），7 条风险只代表这 1000 个文件的 ci-* 规则命中，不能外推为「Tool/ 全量无风险」；要全量结论必须提高 --max-files 或按子目录分批跑并合并。",
     "结果分布：ci-action-pin 与 ci-permissions 为主，另有 dependency-confusion/version-range；syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失，degraded 已写入产物。",

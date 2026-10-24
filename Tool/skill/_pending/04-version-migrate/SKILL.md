@@ -4,7 +4,7 @@ description: "【04｜第四阶段·跨版本追版】原作者更新了版本�
 metadata:
   stage: "4/4"
   prev: "03-license-hookup"
-  engine: "Tool/scripts/migrate.py"
+  engine: "`migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）"
 ---
 
 # 04 · 跨版本追版（新版一出来，半小时出成品）
@@ -44,7 +44,7 @@ metadata:
 ### ① 指纹比对
 
 ```bash
-python Tool/scripts/migrate.py fingerprint "<新版exe>"
+python `migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐） fingerprint "<新版exe>"
 ```
 
 判据：`format/machine` 与旧版一致；`packer_hint` 无新增告警。
@@ -53,7 +53,7 @@ python Tool/scripts/migrate.py fingerprint "<新版exe>"
 ### ② 位点对齐
 
 ```bash
-python Tool/scripts/migrate.py align --case <case目录> --old 6.8 --new "<新版exe>" --new-version 6.9
+python `migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐） align --case <case目录> --old 6.8 --new "<新版exe>" --new-version 6.9
 ```
 
 判据：输出 `N/N 唯一命中`。
@@ -97,7 +97,7 @@ powershell -File versions/6.9/build.ps1     # 或 01/02/03 阶段留下的构建
 ### ⑦ 差异报告 + 刷新版本账
 
 ```bash
-python Tool/scripts/migrate.py report --case <case目录> --old 6.8 --new-version 6.9
+python `migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐） report --case <case目录> --old 6.8 --new-version 6.9
 ```
 
 报告必须含：旧 RVA → 新 RVA 对照、命中率 N/M、需人工 K 处。

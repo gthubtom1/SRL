@@ -56,19 +56,19 @@ COMMANDS = {
         "python Tool/skill/web-pentest/scripts/web-check.py --self-test",
     ],
     "pwn-crypto": [
-        "python Tool/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json",
+        "python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json",
         "python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis --func vuln --probe-log Tool/cases/pwn-crypto03/artifacts/probe.txt",
         "python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test",
     ],
     "firmware-iot": [
-        "python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json",
+        "python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json",
         "python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir {case_dir}/artifacts/fw --json",
         "python Tool/skill/firmware-iot/scripts/fw-accept.py --root . --json",
     ],
     "ad-cloud": [
         "python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind adcs-esc --input Tool/cases/ad-cloud01/input/adcs-find.json",
         "python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --input Tool/cases/ad-cloud05/input/policy.json --action iam:CreatePolicyVersion --resource '*'",
-        "python Tool/scripts/adcloud-check.py --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json",
+        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json",
     ],
     "protocol-plugin": [
         "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file Tool/cases/protocol03/input/websocket.pcapng --json --extract {case_dir}/artifacts/streams",
@@ -86,18 +86,18 @@ COMMANDS = {
         "python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json",
     ],
     "malware-analysis": [
-        "python Tool/scripts/mal-triage.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --json",
+        "python Tool/skill/malware-analysis/scripts/mal-triage.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --json",
         "python Tool/skill/malware-analysis/scripts/mal-unpack.py --file Tool/cases/malware-analysis03/input/packed-upx.exe --out-dir {case_dir}/artifacts/unpack --json",
         "python Tool/skill/malware-analysis/scripts/ioc-extract.py --file Tool/cases/malware-analysis04/input/macro-loader.docm --json-out {case_dir}/artifacts/iocs.json",
     ],
     "supply-chain-security": [
-        "python Tool/scripts/sc-check.py --path Tool/ --max-files 1000 --out {case_dir}/artifacts/sc.json",
+        "python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/ --max-files 1000 --out {case_dir}/artifacts/sc.json",
         "python Tool/skill/supply-chain-security/scripts/sbom-reach.py --sbom Tool/cases/supply-chain04/input/bom.json --source Tool/cases/supply-chain04/input/src --out {case_dir}/artifacts/reach.json",
         "python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out {case_dir}/artifacts/ci.json",
     ],
     "reverse": [
         "python Tool/skill/softseep/scripts/preflight-classify.py {target}",
-        "python Tool/scripts/mal-triage.py --file {target} --json",
+        "python Tool/skill/malware-analysis/scripts/mal-triage.py --file {target} --json",
         "python Tool/scripts/case_state.py show --case {case_dir}",
     ],
 }

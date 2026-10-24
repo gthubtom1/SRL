@@ -105,7 +105,7 @@ FW=firmware.bin; OUT=work/fw-audit
 mkdir -p "$OUT"; cp --reflink=auto "$FW" "$OUT/orig.bin"
 sha256sum "$OUT/orig.bin" | tee "$OUT/orig.sha256"
 file "$OUT/orig.bin"; stat -c '%s bytes' "$OUT/orig.bin"
-python Tool/scripts/fw-triage.py --file "$OUT/orig.bin" --json > "$OUT/triage.json"
+python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file "$OUT/orig.bin" --json > "$OUT/triage.json"
 ```
 
 完成判据：哈希、大小、来源、容器候选（strong/weak）齐全。
@@ -214,7 +214,7 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 
 ```bash
 # 分诊：魔术/熵/凭据线索/建议命令（只读，不执行样本）
-python Tool/scripts/fw-triage.py --file fw.bin --json > work/triage.json
+python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --file fw.bin --json > work/triage.json
 
 # 切分+解包+rootfs 证据：stdlib 优先，外部工具次之；缺工具 blocked_at=tool-missing
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file fw.bin \
@@ -225,11 +225,11 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --json
 
 # 无线/近场能力枚举：WiFi monitor / 蓝牙 / SDR / 802.15.4 / NFC（只读，≤10s，不需要 --target）
 # 输出 probes[name=radio]：wifi/bluetooth/subghz/nfc + blocked_at（no-monitor-mode|no-radio|no-wifi|…）
-python Tool/scripts/probe_matrix.py --radio-only --json > work/radio.json
-python Tool/scripts/probe_matrix.py --self-test   # 离线自检：只测判定/解析函数，无硬件访问
+python `probe_matrix`（S4 已删：一次性） --radio-only --json > work/radio.json
+python `probe_matrix`（S4 已删：一次性） --self-test   # 离线自检：只测判定/解析函数，无硬件访问
 
 # 三个脚本都有离线自检（rc=0，最后一行含 "ok": true）
-python Tool/scripts/fw-triage.py --self-test
+python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --self-test
 python Tool/skill/firmware-iot/scripts/fw-repro.py --self-test
 python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 ```
