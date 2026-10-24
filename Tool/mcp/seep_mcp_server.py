@@ -231,7 +231,7 @@ def _run_cmd(cmd: List[str], cwd: Optional[str] = None, timeout: int = 60) -> st
             return f"[ERROR code {proc.returncode}]: {err}"
         if out and err:
             return f"{out}\n[STDERR]: {err}"
-        return out or err or "[Success, no output]"
+        return out or err
     except subprocess.TimeoutExpired:
         return f"[ERROR]: Command timed out after {timeout} seconds."
     except Exception as e:
@@ -241,6 +241,16 @@ def _clean_r2_output(text: str) -> str:
     """移除 ANSI 颜色控制字符"""
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
+
+# ── 结果契约层（S2-3）：预算/空态/证据筛选/报告模板拆到同目录 seep_contract.py ──
+# 拆的理由：主服务单文件 ≤3200 行（BASELINE-FREEZE §7）；模块是纯函数、无 IO、不注册工具。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from seep_contract import (  # noqa: E402
+    RESULT_BUDGET_CHARS, budget_gate as _budget_gate, build_report_md,
+    case_evidence_dir as _case_evidence_dir, empty_output as _empty_output,
+    is_err_payload as _is_err_payload, missing_report_fields, page_footer as _page_footer,
+    resource_constraint as _resource_constraint, strong_claim_ids as _strong_claim_ids)
+
 
 def _find_java() -> Optional[str]:
     """寻找 Java 运行时可执行路径（跨平台探测：PATH -> macOS JVM -> Linux JVM -> Windows JDK）"""
@@ -384,7 +394,15 @@ def seep_r2_cmd(binary_path: str, command: str, analyze: bool = True) -> str:
         os.path.abspath(binary_path)
     ]
     out = _run_cmd(cmd_args, timeout=90)
-    return _clean_r2_output(out)
+    cleaned = _clean_r2_output(out)
+    err = _is_err_payload(cleaned)
+    if err:
+        return _empty_output("seep_r2_cmd", "r2 报错：%s（确认命令拼写与地址/符号是否存在）" % err)
+    if not cleaned.strip():
+        return _empty_output("seep_r2_cmd", "r2 无输出：确认命令拼写与地址/符号是否存在")
+    return _budget_gate(
+        "seep_r2_cmd", cleaned,
+        "把命令拆小（afl→afl~sub、iz→iz~关键字、px 256→px 128 @ addr 与 px 128 @ addr+0x80）")
 
 @server.tool()
 @_path_alias
@@ -410,12 +428,14 @@ def seep_r2_strings(binary_path: str, filter_text: Optional[str] = None, all_sec
         matched = [l for l in lines[2:] if pat in l.lower()]
         result = header + matched[:limit]
         if len(matched) > limit:
-            result.append(f"... [Truncated: showing {limit} of {len(matched)} matched strings]")
+            result.append(_page_footer(len(result[2:]), len(matched), "seep_r2_strings",
+                                       "调大 limit，或加 filter_text 收窄"))
         return "\n".join(result)
     else:
         result = lines[:limit]
         if len(lines) > limit:
-            result.append(f"... [Truncated: showing {limit} of {len(lines)} strings]")
+            result.append(_page_footer(len(result), len(lines), "seep_r2_strings",
+                                       "调大 limit，或加 filter_text 收窄"))
         return "\n".join(result)
 
 @server.tool()
@@ -443,12 +463,14 @@ def seep_r2_functions(binary_path: str, filter_name: Optional[str] = None, limit
         filtered = [l for l in clean_lines if pat in l.lower()]
         res = filtered[:limit]
         if len(filtered) > limit:
-            res.append(f"... [Truncated: showing {limit} of {len(filtered)} functions]")
+            res.append(_page_footer(len(res), len(filtered), "seep_r2_functions",
+                                    "调大 limit，或加 filter_name 收窄"))
         return "\n".join(res) or "[No matching functions found]"
     else:
         res = clean_lines[:limit]
         if len(clean_lines) > limit:
-            res.append(f"... [Truncated: showing {limit} of {len(clean_lines)} functions]")
+            res.append(_page_footer(len(res), len(clean_lines), "seep_r2_functions",
+                                    "调大 limit，或加 filter_name 收窄"))
         return "\n".join(res)
 
 @server.tool()
@@ -458,7 +480,7 @@ def seep_r2_disasm(
     target: str = "main",
     lines: int = 60,
     output_mode: str = "full",
-    limit_tokens: int = 0,
+    limit_tokens: int = RESULT_BUDGET_CHARS,
 ) -> str:
     """反汇编指定函数或地址，支持三种输出模式以控制上下文消耗（Context Budget Control）。
 
@@ -470,7 +492,7 @@ def seep_r2_disasm(
             'full'   = 完整原始反汇编（默认，适合精细分析）
             'branch' = 仅保留条件跳转与调用指令（cmp/test/jcc/call/ret），聚焦控制流骨架
             'summary'= 不输出指令，只统计：函数大小、块数、调用链、导入函数列表（最省 Token）
-        limit_tokens: 最大输出字符数（0=不限制），超出时尾部截断并附注 Truncated 标记
+        limit_tokens: 最大输出字符数，默认 8000；**超限返回 resource_constraint，绝不截断**（0 表示只受 64KiB 硬预算约束）
     """
     if not os.path.isfile(binary_path):
         return f"[ERROR]: Target file does not exist: {binary_path}"
@@ -523,10 +545,17 @@ def seep_r2_disasm(
     else:
         result = "\n".join(output_lines)
 
-    if limit_tokens > 0 and len(result) > limit_tokens:
-        result = result[:limit_tokens] + f"\n... [TRUNCATED at {limit_tokens} chars — use offset/target narrowing for full output]"
-
-    return result or "[Disassembly empty or symbol not found]"
+    err = _is_err_payload(result)
+    if err:
+        return _empty_output("seep_r2_disasm",
+                             "r2 报错：%s（符号可能不存在，先用 seep_r2_functions 找目标）" % err)
+    if not result.strip():
+        return _empty_output("seep_r2_disasm",
+                             "反汇编为空：符号不存在或地址无代码，先 seep_r2_functions 找目标")
+    return _budget_gate(
+        "seep_r2_disasm", result,
+        "换 output_mode='branch' / 'summary'，或用 target 收窄到具体函数、lines 调小",
+        budget_chars=limit_tokens)
 
 @server.tool()
 @_path_alias
@@ -545,7 +574,7 @@ def seep_r2_decompile(
             'full'    = 完整伪代码（适合深度分析，默认）
             'fold'    = 折叠纯计算/赋值语句，仅保留 if/else/switch/return/API调用行（减少 ~60% Token）
             'summary' = 不输出伪代码，仅返回：函数签名、入参、出参、直接调用的 API/函数名列表（最省 Token）
-        limit_tokens: 最大输出字符数（默认 8000），超出则截断附 Truncated 标记；设 0 表示不限制
+        limit_tokens: 最大输出字符数，默认 8000；**超限返回 resource_constraint，绝不截断**；设 0 表示只受 64KiB 硬预算约束
     """
     if not os.path.isfile(binary_path):
         return f"[ERROR]: Target file does not exist: {binary_path}"
@@ -589,10 +618,17 @@ def seep_r2_decompile(
     else:
         result = "\n".join(output_lines)
 
-    if limit_tokens > 0 and len(result) > limit_tokens:
-        result = result[:limit_tokens] + f"\n... [TRUNCATED at {limit_tokens} chars — 使用 target 缩小范围或 output_mode='fold'/'summary' 降低消耗]"
-
-    return result or "[Decompile output empty]"
+    err = _is_err_payload(result)
+    if err:
+        return _empty_output("seep_r2_decompile",
+                             "r2 报错：%s（符号可能不存在，先用 seep_r2_functions 找目标）" % err)
+    if not result.strip():
+        return _empty_output("seep_r2_decompile",
+                             "伪代码为空：符号不存在或该函数无代码，先 seep_r2_functions")
+    return _budget_gate(
+        "seep_r2_decompile", result,
+        "用 output_mode='branch'/'summary' 降噪，或 target 换成更小的函数",
+        budget_chars=limit_tokens)
 
 @server.tool()
 @_path_alias
@@ -674,9 +710,11 @@ def seep_r2_xrefs(
     ] + shown
 
     if total > limit:
-        result_lines.append(f"... [已截断，剩余 {total - limit} 条未展示 | 增大 limit 或用 filter_name 缩小目标范围]"
-                            f"\n模块来源分布小计: {dict(list({l.split()[2] if len(l.split())>2 else '?' for l in lines}))[:3]}"
-        )
+        result_lines.append(_page_footer(len(shown), total, "seep_r2_xrefs",
+                                         "调大 limit，或先用 direction='to' 收窄目标"))
+        result_lines.append(
+            "模块来源分布小计: %s"
+            % dict(list({l.split()[2] if len(l.split()) > 2 else '?' for l in lines}))[:3])
 
     return "\n".join(result_lines)
 @server.tool()
@@ -830,7 +868,8 @@ def seep_apk_smali_search(directory: str, pattern: str, case_sensitive: bool = F
         return f"No matches found for '{pattern}' in {directory}"
     res = matches[:limit]
     if len(matches) >= limit:
-        res.append(f"... [Truncated: reached limit of {limit} matches]")
+        res.append(_page_footer(len(res), len(matches), "seep_apk_smali_search",
+                                "调大 limit，或把 pattern / directory 收窄"))
     return "\n".join(res)
 
 @server.tool()
@@ -1130,7 +1169,11 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
     with open(target, "r", encoding="utf-8", errors="replace") as fh:
         text = fh.read()
         if len(text) > max_chars:
-            return text[:max_chars] + f"\n\n... [Truncated: Total {len(text)} characters, showing first {max_chars}]"
+            return _resource_constraint(
+                "seep_kb_read", text,
+                "把 max_chars 调到 ≥ %d 再读全文" % len(text),
+                artifact_hint="全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
+                    len(text), _byte_len(text)))
         return text
 
 @server.tool()
@@ -1314,16 +1357,19 @@ def _triage_next_actions(matched: List[Dict[str, Any]], bin_info: Dict[str, Any]
 @_path_alias
 def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     """
-    一键全自动靶向侦察 (Auto Triage)：
-    对给定目标（PE/EXE/DLL/APK/ELF）进行 360° 综合体检：
-    1. 计算 MD5 / SHA256 文件哈希
-    2. 探测文件类型与架构位数 (32/64 bit, x86/ARM)
-    3. 枚举关键安全缓解机制 (Canary/NX/PIE/ASLR)
-    4. 提取高价值鉴权/密钥/网络特征字符串
-    5. 若提供 task_name，自动将完整报告输出到该任务的 reports/ 目录
+    静态靶向侦察 (Auto Triage) —— **无证据则拒绝，不返回"看起来完整"的空壳**：
+    哈希整文件流式（observed）；rabin2 可用才算二进制画像（否则 unknown）；命中才列鉴权串。
+    拒绝条件：rabin2 解析失败 **且** 字符串零命中 → {ok:false,error:"no_evidence"}，wrote_files=0
+    （旧实现此时会返回一份全 "unknown" 的画像并当作完成，等于把"没测"签成"测过"）。
     """
     if not os.path.exists(target_path):
-        return f"[ERROR] Target path not found: {target_path}"
+        return json.dumps({
+            "ok": False,
+            "error": "target_not_found",
+            "blocked_at": "seep_auto_triage",
+            "target_path": target_path,
+            "wrote_files": 0,
+        }, indent=2, ensure_ascii=False)
     
     t_path = Path(target_path).resolve()
     file_size = os.path.getsize(t_path)
@@ -1362,8 +1408,22 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
         except Exception:
             pass
 
+    rabin2_ok = bool(bin_info)
+    if not rabin2_ok and not matched_strings:  # 零证据 → 拒绝，不返回全 unknown 的空壳画像
+        return json.dumps({"ok": False, "error": "no_evidence", "blocked_at": "seep_auto_triage",
+                           "wrote_files": 0,
+                           "observed": {"file_name": t_path.name, "file_size_bytes": file_size,
+                                        "md5": md5_val, "sha256": sha256_val, "hash_scope": "full-file"},
+                           "reason": "rabin2 未能解析该文件，且鉴权关键词扫描零命中：拿不到任何二进制画像",
+                           "hint": "确认 rabin2 可用（seep_ensure_tool / seep_status），或改用 "
+                                   "seep_r2_info(binary_path=…) / seep_packer_detect(binary_path=…)；"
+                                   "文件可能截断、加壳或非标准格式"},
+                          indent=2, ensure_ascii=False)
+
     _actions = _triage_next_actions(matched_strings, bin_info, task_name)
     triage_result = {
+        "ok": True,
+        "status": "observed" if rabin2_ok else "partial",
         "file_name": t_path.name,
         "file_size": f"{file_size / (1024 * 1024):.2f} MB",
         "hashes": {
@@ -1371,6 +1431,15 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
             "sha256": sha256_val,
             "hash_scope": "full-file"  # 整文件流式计算，大文件不截断
         },
+        "confidence": {
+            "hashes": "observed",
+            "binary_profile": "observed" if rabin2_ok else "unknown",
+            "auth_strings": "observed" if matched_strings else "unknown",
+        },
+        "authority": "shipped-artifact",
+        "limitations": ["只做静态（读文件字节），不含运行期行为/内存态结论",
+                        "auth_related_strings_sampled 是关键词命中抽样，不等于授权逻辑位置"]
+        + ([] if rabin2_ok else ["rabin2 不可用：arch/bits/format/protection 均为 unknown"]),
         "binary_profile": {
             "arch": bin_info.get("arch", "unknown"),
             "bits": bin_info.get("bits", "unknown"),
@@ -1426,74 +1495,57 @@ def seep_gen_security_report(
     task_name: str,
     target_name: str,
     vuln_type: str = "CWE-602: 客户端鉴权与状态判定缺陷",
-    branch_location: str = "0x0",
+    branch_location: str = "",
     description: str = "",
     poc_summary: str = "",
-    defense_recommendation: str = ""
+    defense_recommendation: str = "",
+    disasm_snippet: str = "",
+    case_dir: str = "",
 ) -> str:
     """
-    自动生成专业级白盒安全漏洞评估报告。
-    按照正规合规标准排版，包含漏洞成因、位点、复现 PoC 与企业级防护加固方案。
-    报告自动落入任务文件夹的 reports/ 目录。
+    生成白盒安全评估报告 —— **无证据则拒绝**（不再有"缺省成功"路径）。
+
+    缺任一条即 `ok:false`，且 reports/ 下一个文件都不写：
+      1. task_name / target_name / description / poc_summary 非空；
+      2. branch_location 不是占位值（0x0 / unknown / tbd / 空）；
+      3. 本案 facts.jsonl 至少有 1 条 claim：status=proven + confidence∈{observed,derived} + evidence 非空。
+    反汇编摘录不提供时报告写"未提供"，**绝不编造指令**。
     """
-    clean_task = re.sub(r'[^\w\-]', '_', task_name.strip())
+    clean_task = re.sub(r'[^\w\-]', '_', (task_name or "").strip())
+    miss = missing_report_fields(clean_task, target_name, description, poc_summary, branch_location)
+    if miss:  # 缺字段 = 缺证据：一个文件都不写
+        return json.dumps({"ok": False, "error": "missing_evidence_fields", "fields": miss,
+                           "blocked_at": "seep_gen_security_report", "wrote_files": 0,
+                           "hint": "这些字段必须来自实测（反编译位点 / 跑过的 PoC / 现象）；不接受缺省模板。"},
+                          indent=2, ensure_ascii=False)
+
+    ev_dir = _case_evidence_dir(task_name, case_dir, _task_dir, _case_lib_dir)
+    strong = _strong_claim_ids(ev_dir) if ev_dir else []
+    if not strong:  # 无 observed/derived 证据 = 拒报告（旧文案「通过动态 Hook 成功验证」已删）
+        return json.dumps({"ok": False, "error": "no_evidence", "wrote_files": 0,
+                           "blocked_at": "seep_gen_security_report",
+                           "case_dir": ev_dir or "(未找到含 facts.jsonl 的案例目录)",
+                           "hint": "先 `case_state.py claim --case <目录> --id F-001 --text ... --status "
+                                   "proven --evidence '<实测输出>' --confidence observed --authority "
+                                   "shipped-artifact`，再回来出报告。"},
+                          indent=2, ensure_ascii=False)
+
     report_dir = os.path.join(_task_dir(clean_task), "reports")
     os.makedirs(report_dir, exist_ok=True)
-    
-    report_file = os.path.join(report_dir, f"{target_name}_security_assessment_report.md")
-    
+    report_file = os.path.join(report_dir, "%s_security_assessment_report.md"
+                               % re.sub(r'[^\w\-]', '_', target_name))
     now_str = subprocess.getoutput('date /t') if sys.platform == 'win32' else subprocess.getoutput('date')
-    
-    default_remediation = (
-        "1. **服务端统一鉴权 (Server-side Enforcement)**：将核心特权逻辑迁移至云端，客户端仅作为渲染终端，所有受限资源由服务端颁发带有时间戳和数字签名的 Token 换取。\n"
-        "2. **非对称公钥防篡改**：若需支持离线场景，必须使用 RSA/ECC 非对称签名，客户端仅保留公钥验签，私钥由授权服务器持有。\n"
-        "3. **内存完整性保护**：启用 Windows `ProcessDynamicCodePolicy` 抑制动态内存写入，并在核心敏感模块增加代码段自校验哈希。"
-    )
-    
-    remediation_text = defense_recommendation or default_remediation
-    
-    content = f"""# 软件安全评估与鉴权脆弱性走查报告
-
-- **目标资产**: `{target_name}`
-- **评估类型**: 白盒代码走查 / 客户端决策逻辑安全性验证
-- **缺陷分类**: `{vuln_type}`
-- **评估时间**: {now_str}
-- **报告归属**: `{clean_task}/reports/`
-
----
-
-## 1. 风险概述与脆弱性成因 (Vulnerability Summary)
-{description or "在白盒审计过程中，发现该客户端采用本地离线决策逻辑，缺乏服务端强鉴权与非对称加密验签。客户端程序完全依据本地存储状态或单一标志位分支进行权限放行，构成 CWE-602 本地判定信任缺陷。"}
-
----
-
-## 2. 关键判定决策位点 (Decision Branch Location)
-- **判定函数 / 偏移位点**: `{branch_location}`
-- **汇编指令与分支模式**:
-```text
-; 典型本地鉴权判断分支
-TEST EAX, EAX
-JZ   loc_restricted_feature  ; 本地跳转决定受限功能
-```
-
----
-
-## 3. 验证 PoC 与复现过程 (Proof of Concept)
-{poc_summary or "通过动态 Hook / 内存标志位修正，成功验证在不经过服务端鉴权的前提下，本地逻辑可以直接放行相关受限功能。验证代码已归档至 patches/ 目录。"}
-
----
-
-## 4. 纵深防护与企业级加固修复建议 (Remediation)
-{remediation_text}
-"""
-
+    content = build_report_md(clean_task, target_name, vuln_type, branch_location, description,
+                              poc_summary, defense_recommendation, disasm_snippet,
+                              ev_dir, strong, now_str)
     with open(report_file, "w", encoding="utf-8") as f:
         f.write(content)
-        
     return json.dumps({
-        "status": "Success",
-        "report_path": report_file,
-        "message": f"安全评估报告已正式生成并归档至: {clean_task}/reports/{os.path.basename(report_file)}"
+        "ok": True, "status": "Reported", "report_path": report_file,
+        "evidence_claims": strong, "confidence": "derived", "authority": "shipped-artifact",
+        "limitations": ["只覆盖 evidence_claims 里的结论；其余未验证部分不进本报告",
+                        "反汇编摘录为空表示本次未取，不代表不存在"],
+        "message": f"报告已生成并归档至: {clean_task}/reports/{os.path.basename(report_file)}",
     }, indent=2, ensure_ascii=False)
 
 
@@ -2872,21 +2924,6 @@ def _case_files() -> list:
     return found
 
 
-def _case_source_hash(pairs) -> str:
-    """与 gen-case-index.py 一致：相对路径 + 原始字节，按目录名排序后 SHA-256。"""
-    import hashlib
-    digest = hashlib.sha256()
-    for dirname, path in pairs:
-        rel = "Tool/cases/%s/case.json" % dirname
-        with open(path, "rb") as fh:
-            raw = fh.read()
-        digest.update(rel.encode("utf-8"))
-        digest.update(b"\x00")
-        digest.update(raw)
-        digest.update(b"\x00")
-    return digest.hexdigest()
-
-
 def _case_normalize(raw, dirname):
     """把 case.json 归一成稳定结构；坏字段退回安全默认值。"""
     if not isinstance(raw, dict):
@@ -2915,24 +2952,14 @@ def _case_normalize(raw, dirname):
 
 
 def _case_load(prefer_index: bool = True):
-    """载入案例：索引新鲜则用索引，否则实时扫描。返回 (cases, source)。"""
+    """载入案例：**始终实时扫描** case.json（S2 起已无索引文件可读）。
+
+    保留 prefer_index 形参只为不改调用点签名；它不再改变行为，
+    也就不存在「读过期缓存」这类失败模式。
+    """
     pairs = _case_files()
     if not pairs:
         return [], "empty"
-    current_hash = _case_source_hash(pairs)
-    root = _case_lib_dir()
-    index_path = os.path.join(root, "index.json")
-    if prefer_index and os.path.isfile(index_path):
-        try:
-            with open(index_path, "r", encoding="utf-8", errors="replace") as fh:
-                index = json.load(fh)
-            cases = index.get("cases") if isinstance(index, dict) else None
-            if isinstance(cases, list) and index.get("source_hash") == current_hash:
-                normalized = [c for c in cases if isinstance(c, dict) and c.get("dir")]
-                if normalized:
-                    return normalized, "index"
-        except Exception:
-            pass
     cases = []
     for dirname, path in pairs:
         try:
@@ -2965,9 +2992,9 @@ def seep_case_search(
     outcome: str = "",
     limit: int = 10,
 ) -> str:
-    """在本地案例库（Tool/cases/*/case.json）中检索历史案例，返回 JSON 列表。
+    """在本地案例库（Tool/cases/*/case.json）中实时检索历史案例，返回 JSON 列表。
 
-    优先使用 Tool/cases/index.json；索引缺失或 source_hash 过期时自动实时扫描。
+    索引不落盘（S2 起 index.json 已删）：每次调用现扫 case.json，没有缓存可过期。
     按 query 对 id/tags/lessons/domain/protection 等字段做加权子串打分，
     domain/level/outcome 为精确过滤（大小写不敏感），protection 为子串过滤。
 
