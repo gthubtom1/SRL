@@ -467,7 +467,7 @@ def seep_r2_disasm(
                              "反汇编为空：符号不存在或地址无代码，先 seep_r2_functions 找目标")
     return _budget_gate(
         "seep_r2_disasm", result,
-        "换 output_mode='branch' / 'summary'，或用 target 收窄到具体函数、lines 调小",
+        "换 output_mode='fold' / 'summary'，或用 target 收窄到具体函数、lines 调小",
         budget_chars=limit_tokens)
 
 @server.tool()

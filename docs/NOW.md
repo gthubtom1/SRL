@@ -24,7 +24,7 @@
 
 ## 一、一句话现状
 
-**S1–S5 全部完成，收尾审计进行中。** 9 个域包全绿（每包带 6 道判据）、preflight **44/44**、
+**S1–S5 全部完成，收尾审计进行中。** 9 个域包全绿（每包带 6 道判据）、preflight **45/45**、
 门禁从"自证"改成"验产物"（含 verification receipt 与对抗陷阱）。
 常驻可控制层（**不开人设时**）**5,146 tok** —— 已低于 8,000 目标；开了人设卡约 12.7k。
 
@@ -44,7 +44,7 @@
 
 | 项 | 命令 | 现值 |
 | :-- | :-- | --: |
-| 门禁自查 | `python Tool/scripts/preflight.py --fast` | **44/44** |
+| 门禁自查 | `python Tool/scripts/preflight.py --fast` | **45/45** |
 | 按包判定 | `python Tool/scripts/gate.py --all` | **pass 9 / fail 0**（每包 6 道：G2/G3/G4/G4b/G5/G6） |
 | 路由自洽 | `python Tool/scripts/route.py --check` | 34 条 / 0 死路由 |
 | 仓库预算 | `python Tool/scripts/budget.py` | 全绿 |
