@@ -668,9 +668,34 @@ def cmd_init(a):
     #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
     #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
     wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"))
-    print("[OK] 案子已建：%s  facts: %s  state: %s" % (d, fp, backend))
-    if wrote_meta:
-        print("[OK] case.json 骨架已写：evidence_kind=%s goal_level/domain/lessons 请按实际补"
+    # scope.md = 授权与边界契约（学 reverse-workbench-skill 的 case-guard）：
+    # 开工前先写"做什么 / 不做什么 / 环境"；scope 未就绪不许 ACT。
+    try:
+        scope_p = os.path.join(d, "scope.md")
+        if not os.path.isfile(scope_p):
+            tgt = (a.target or "").strip() or "（未指定）"
+            L = [
+                "# 范围契约（scope）", "",
+                "> 开工前填完这三节。没填完不许对目标动手（学 case-guard：scope 未就绪不 ACT）。", "",
+                "## 1. 目标与授权", "",
+                "- 目标：%s" % tgt,
+                "- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）", "",
+                "## 2. 边界（不做的事）", "",
+                "- 不改系统级配置（网卡/路由/DNS/驱动/服务/系统 hosts）",
+                "- 不动与目标无关的进程与文件",
+                "- 不碰凭据：卡密/账号/密钥由用户自己输入，不写入任何输出", "",
+                "## 3. 环境与交付预期", "",
+                "- 隔离方式：实体机 / 虚拟机 / 容器（写清楚；有快照更好）",
+                "- 网络：可断网 / 仅目标可达 / 其他",
+                "- 期望层级：M1 结构 / M2 功能面通 / M3 能跑+授权自家 / M4 全栈自洽（判型后确认）",
+            ]
+            with open(scope_p, "w", encoding="utf-8", newline=chr(10)) as _sf:
+                _sf.write(chr(10).join(L) + chr(10))
+            print("[OK] scope.md 已生成（开工前先填授权与边界）：%s" % scope_p)
+    except Exception as _e:  # noqa: BLE001
+        print("[WARN] scope.md 生成失败：%s" % _e)
+
+    print("[OK] case.json 骨架已写：evidence_kind=%s goal_level/domain/lessons 请按实际补"
               % getattr(a, "evidence_kind", "real"))
 
 
