@@ -24,7 +24,7 @@
 | 要什么 | 去哪 |
 | :-- | :-- |
 | 判型与分发（唯一入口） | `Tool/skill/softseep/SKILL.md` |
-| 执行口径（唯一方案） | `docs/history/X-PLAN-FINAL.md` |
+| 执行口径（唯一方案） | `docs/PLAN-v8.md`（需求/DoD/教训/终止条件） |
 | 路由单一事实源 | `Tool/skill/*/pack.json`（现算入口 `Tool/scripts/route.py`） |
 | 工具能力 / 降级 / 安装 | `Tool/config/tool-capabilities.json` + `python Tool/scripts/mcp-doctor.py` |
 | 战术方法论 | `seep_kb_search` → `seep_kb_read` |

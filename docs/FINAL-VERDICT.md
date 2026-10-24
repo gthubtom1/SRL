@@ -49,6 +49,14 @@
 | A3 `cmd-guard.ts:131` 取末 token → 读文档被拦 | ✅ 已修（改为首个非选项 token） |
 | **A2 工具链探活「skip 记 pass」共 4 处** | 修了 2 处（mcp-doctor ok 语义），**本次补修剩余 3 处**：<br>① `preflight` bash 缺失 → 由 `True/skipped` 改为 **False/unsupported（红）**<br>② mcp-doctor 那项改名，明确「只判脚本不崩，不判服务可用」（不再 oversell）<br>③ `tool-acquire --selftest` 判据由「steps 非空」改为 **verdict==USABLE**（旧判据恒 PASS） |
 
+## 二quater、终审 3 号报告的 3 条 A 类 · 复核与补修
+
+| 报告指出 | 复核结果 |
+| :-- | :-- |
+| A1 83 处「S4 已删」腐蚀命令 / 6 处标注错（如 `firmware-iot:237` 说 tool-acquire 已删） | ✅ 上一轮已清（48 处还原真实路径、其余改说明）；`firmware-iot:237` 现为可执行的 `--tool <tool_id>` |
+| A2 指针指向「不存在 / 自称失效」的文件 | ✅ 已修三处：`SEEP.md:27` → `docs/PLAN-v8.md`；`AGENTS.md §四之六`、`contracts/AGENTS.md:41` 的 `优化方案.md`（**文件不存在**）→ `docs/PLAN-v8.md` |
+| A3 「断网/飞行模式」写成必做且无退路；且同屏退路 lint 不扫 MANUAL/README（假绿） | ✅ 两处改写为「① VM 内断网（首选）② 只断目标进程 ③ 宿主断网=最后手段，须存档+恢复+用户同意」；**lint 扫描范围已扩到 MANUAL + 三份 README**（现报 0 处缺退路） |
+
 ## 三、不做（B/C 类，已记账）
 
 | 项 | 类型 | 为什么不做 |

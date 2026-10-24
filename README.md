@@ -207,7 +207,7 @@ Agent 自主完成：
 3. **`seep_kb_search`** → 命中知识库战术笔记 #142，CWE-602 匹配模式
 4. **`Tool/mcp/Tool/safe/hook-mcp/`** → 自动生成 `hook_verify.js` Frida 探针脚本
 5. 注入测试机 → 捕获 stdout → **自愈** `ClassNotFoundException` → 自动修正类路径重跑
-6. 飞行模式断网确认 ✓ → **`seep_gen_security_report`** → 三段式审计报告交付
+6. 断网确证（**优先 VM 内断网**；宿主断网需先存档状态并事后恢复）✓ → **`seep_gen_security_report`** → 三段式审计报告交付
 
 > 典型客户端应用全程耗时：**8–20 分钟，完全无人值守**。
 

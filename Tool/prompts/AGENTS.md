@@ -78,7 +78,7 @@ headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target
 
 ## 四之六、接力棒（换会话 / 压缩后先读）
 
-进度 / 缺陷 / 批次 → 仓库根 `优化方案.md`（唯一总纲）；能力建设 → `优化方案-2.0.md`。先读 §0–§5 再 `case_state.py resume --case <C>`。
+进度 / 缺陷 / 批次 → `docs/PLAN-v8.md`（唯一总纲）；能力建设 → 同一文件的「没做清单」。先读 §0–§5 再 `case_state.py resume --case <C>`。
 
 ---
 

@@ -907,7 +907,9 @@ def check_side_effect_undo():
         r"(/delete|/remove|-delete|删除|收尾|还原|恢复|回滚|复位|复原|"
         r"reset\s+proxy|snapshot|快照|\bVM\b|只对进程|进程内|退出即)", _re.I)
     bad = []
-    for root_ in (os.path.join(TOOL, "skill"), os.path.join(TOOL, "playbooks")):
+    _scan = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "playbooks"),
+             os.path.join(ROOT, "MANUAL")]
+    for root_ in _scan:
         for dp, _dn, fn in os.walk(root_):
             for f in fn:
                 if not f.endswith(".md"):
@@ -920,6 +922,16 @@ def check_side_effect_undo():
                     if risky.search(ln) and not undo.search(
                             "\n".join(lines[max(0, i - 6):i + 9])):
                         bad.append("%s:%d" % (os.path.relpath(fp, ROOT).replace(os.sep, "/"), i + 1))
+    for f in ("README.md", "README.zh.md", "README.en.md"):
+        fp = os.path.join(ROOT, f)
+        if not os.path.isfile(fp):
+            continue
+        lines = open(fp, encoding="utf-8", errors="replace").read().split("\n")
+        for i, ln in enumerate(lines):
+            if ln.strip().startswith(("#", ">", "|")):
+                continue
+            if risky.search(ln) and not undo.search("\n".join(lines[max(0, i - 6):i + 9])):
+                bad.append("%s:%d" % (f, i + 1))
     add("13 措辞", "副作用同屏退路（危险写操作必须带收尾/还原）", not bad,
         ("%d 处缺退路：%s" % (len(bad), "、".join(bad[:4]))) if bad else "0 处缺退路")
 
