@@ -182,6 +182,12 @@ UI Automation 枚举 Edit/Button/CheckBox 的 Name/Value,`ValuePattern.SetValue`
 | **② 进程启动参数** | 目标支持时用 `--proxy http://127.0.0.1:<port>` 或环境变量（`HTTP_PROXY` 仅对该进程） | 只有该进程 |
 | **③ VM 网络** | 整个目标丢进 VM，在 VM 里随便改（含 hosts/NAT） | 只有 VM |
 
+> **① 档的反制**：目标若做**证书 pinning**，只改解析不够，TLS 握手仍失败 —— 需同时 hook
+> `X509_verify_cert` / `SecTrustEvaluate` / 自研公钥哈希比对。② ③ 同理：换层级解决"落到哪"，不是"信任链怎么过"。
+
+> **唯一例外**：用户明确说"一次性靶机，随便改" → 按 `AGENTS.md` §五之三发 **ASK 卡**（四要素缺一不可：
+> 几步 / 我监控什么 / 我保证不动什么 / 我拿到什么，含 `net-rollback.py snapshot` 与还原命令），**命令由用户执行**。
+
 **禁止**：改宿主网卡 IP / 路由 / DNS / WinHTTP 全局代理 / 系统 hosts。
 **收尾**：① ② 不需要收尾（进程结束即复原）；③ 关 VM 即复原。
 

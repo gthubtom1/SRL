@@ -13,8 +13,9 @@
 
 ## 一、一句话现状
 
-**S1–S5 全部完成。** 9 个域包全绿、preflight 42/42、门禁从"自证"改成"验产物"。
-常驻可控制层（**不开人设时**）**5,146 tok** —— 已低于 8,000 目标；开了人设卡就变 12.6k。
+**S1–S5 全部完成，收尾审计进行中。** 9 个域包全绿（每包带 6 道判据）、preflight **44/44**、
+门禁从"自证"改成"验产物"（含 verification receipt 与对抗陷阱）。
+常驻可控制层（**不开人设时**）**5,146 tok** —— 已低于 8,000 目标；开了人设卡约 12.7k。
 
 ## 二、唯一顺序（不许跳、不换序）
 
@@ -32,32 +33,42 @@
 
 | 项 | 命令 | 现值 |
 | :-- | :-- | --: |
-| 门禁自查 | `python Tool/scripts/preflight.py --fast` | **42/42** |
-| 按包判定 | `python Tool/scripts/gate.py --all` | **pass 9 / fail 0** |
+| 门禁自查 | `python Tool/scripts/preflight.py --fast` | **44/44** |
+| 按包判定 | `python Tool/scripts/gate.py --all` | **pass 9 / fail 0**（每包 6 道：G2/G3/G4/G4b/G5/G6） |
 | 路由自洽 | `python Tool/scripts/route.py --check` | 34 条 / 0 死路由 |
 | 仓库预算 | `python Tool/scripts/budget.py` | 全绿 |
-| 常驻层 | `python Tool/scripts/budget.py --prompt` | 可控制 12,597（含未启用人设 7,451）／**不含人设 5,146** |
-| 真实任务台账 | `KPI.md` | 9 行 |
+| 常驻层 | `python Tool/scripts/budget.py --prompt` | 可控制 12,693（含未启用人设 7,451）／**不含人设 5,242** |
+| 真实任务台账 | `KPI.md` | 11 行 |
+| 完成度 | `PLAN-v8` §2 的 D1–D10 | **7 项达成 / D2 行为复测通过但有 2 处待补（已补）/ D4 达成** |
+
+**本轮新增的三条可打红判据**（都在 `preflight` / `gate.py` 里，不是文档口号）
+
+| 判据 | 在哪 | 怎么红 |
+| :-- | :-- | :-- |
+| 副作用同屏退路 | `preflight` lint | 危险写操作前后 6 行无收尾/还原 → 红 |
+| 对抗陷阱对撞（D2 静态） | `preflight` lint + `Tool/config/traps.json` | 部署层文本教捷径，或诱饵命令未被禁手覆盖 → 红 |
+| target 资产 / verification receipt | `gate.py` G4b / G6 | target 空、sha256 不符、回执缺或过期 → 红 |
 
 **已确认的遗留（都不是"没做"，是需要人拍板）**
 
-1. **常驻 token 目标未达**：8,000 目标只在"人设不启用"时达标（5,146）。一旦启用任一本人设卡就要到 12.6k+。
-   压缩方案已列在下方 §四，等用户点头。
+1. **常驻 token 目标未达**：8,000 目标只在"人设不启用"时达标（5,242）。压缩方案见 §四。
 2. **`Tool/scripts` 是 15 个而不是 BLUEPRINT 写的 7**：`case_state.py` / `net-rollback.py` / `tool-acquire.py`
-   被 `AGENTS.md`（第 2 层）点名，改名会让规则失效 → 按"7 核心 + 点名 3 + 待并诊断 5"收口。
-3. **人设门禁有盲区**：`破甲卡生成/compat/check_seep_compat.py` 只扫仓库 `人设卡/` 与 `quad/`，
-   **不扫 `~/.pi/agent/personas/`**；部署中的两张卡里 `p_vy9kxhj9.md` 与 §六 语义冲突（见 §五）。
+   被 `AGENTS.md`（第 2 层）点名 → 按"7 核心 + 点名 3 + 待并诊断 5"收口。
+3. **人设门禁盲区**：`check_seep_compat.py` 只扫仓库 `人设卡/` 与 `quad/`，**不扫 `~/.pi/agent/personas/`**；
+   部署中的 `p_vy9kxhj9.md` 与 §六 语义冲突（见 §五）。
+4. **D2 只做到"静态 + 一次行为抽测"**：静态 9/9；行为侧已用无上下文子代理实测一次并修掉
+   "换个名字绕"（网卡→hosts→iptables）。**没有**做成持续回归，每次改动后仍需人抽测一次。
 
 ## 四、AGENTS.md 可压缩项（等同意后执行；语义一条不改）
 
 | 小节 | 现 tok | 建议 |
 | :-- | --: | :-- |
 | §二 部署/更新/卸载/校验 | 177 | 压成 3 行指针（一年用几次，不该常驻）|
-| §三 拒答触发词表 | 167 | 只留一句"出现退缩形态立即转回技术分析"，词表移 `MANUAL/MODEL-REFUSAL-MATRIX.md` |
+| §三 拒答触发词表 | ✅ 已删（只留一句规则 + 指针，词表在 `MANUAL/MODEL-REFUSAL-MATRIX.md`） |
 | §五之二 Zero-Waste Recon 表 | 166 | 与 §五 开工五步合并 |
 | §四点五 8 条工具纪律 | 629 | 留判据句，删"血案经过"叙述 |
 | §五 里的 MCP 硬编码签名 | 内嵌 | 改成"以 `Tool/config/tool-effects.json` 为准 + `describeTool()`" |
-| **合计可省** | **≈950** | 3,512 → ≈2,550 |
+| **合计可省** | **≈700** | 3,608 → ≈2,900（含本轮新增的 §四点五-9 层级原则 +234）|
 
 ## 五、待决定的三件事
 
