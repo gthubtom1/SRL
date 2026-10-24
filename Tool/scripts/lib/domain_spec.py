@@ -121,7 +121,7 @@ LIMITS = {
     "scripts_min": 2,
     "scripts_max": 16,   # S4：softseep 收口了工作区卫生与三层门禁（13 个），web-pentest 10 个
     "cases_min": 3,
-    "cases_max": 5,
+    "cases_max": 7,   # S5 回放会为真实目标新增案例（pwn-crypto 已到 6）；原上限 5 挡住真实目标
     "kb_min_count": 6,
     "kb_max_count": 10,
     "matrix_min": 12,

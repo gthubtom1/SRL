@@ -31,10 +31,11 @@
     "pwn-crypto02",
     "pwn-crypto03",
     "pwn-crypto04",
-    "pwn-crypto05"
+    "pwn-crypto05",
+    "pwn-crypto06"
   ],
   "witness": {
-    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto01",
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto06",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
     "budget_s": 180
   },
