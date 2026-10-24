@@ -60,7 +60,9 @@
   },
   "limitations": [
     "只覆盖客户端侧；服务端校验不在此包范围",
-    "样本仅 1 个真实 APK（diva.apk），未见商业加固壳"
+    "已实测：native 反调试（ptrace+fork）/ root 检测 / 字符串隐藏（UnCrackable-L2）",
+    "**未实测商业加固壳**（DexVMP/jiagu/梆梆）：16 个壳特征在本包全部样本里计数为 0",
+    "Level3/4 类更强 native 保护样本只有源码（需 gradle 构建），未纳入"
   ],
   "invalidation": [
     "目标不是 Android 载体",

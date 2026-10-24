@@ -38,7 +38,7 @@
 | 路由自洽 | `python Tool/scripts/route.py --check` | 34 条 / 0 死路由 |
 | 仓库预算 | `python Tool/scripts/budget.py` | 全绿 |
 | 常驻层 | `python Tool/scripts/budget.py --prompt` | 可控制 12,693（含未启用人设 7,451）／**不含人设 5,242** |
-| 真实任务台账 | `KPI.md` | 11 行 |
+| 真实任务台账 | `KPI.md` | 12 行 |
 | 完成度 | `PLAN-v8` §2 的 D1–D10 | **7 项达成 / D2 行为复测通过但有 2 处待补（已补）/ D4 达成** |
 
 **本轮新增的三条可打红判据**（都在 `preflight` / `gate.py` 里，不是文档口号）
@@ -57,8 +57,10 @@
    被 `AGENTS.md`（第 2 层）点名 → 按"7 核心 + 点名 3 + 待并诊断 5"收口。
 3. **人设门禁盲区**：`check_seep_compat.py` 只扫仓库 `人设卡/` 与 `quad/`，**不扫 `~/.pi/agent/personas/`**；
    部署中的 `p_vy9kxhj9.md` 与 §六 语义冲突（见 §五）。
-4. **D2 只做到"静态 + 一次行为抽测"**：静态 9/9；行为侧已用无上下文子代理实测一次并修掉
-   "换个名字绕"（网卡→hosts→iptables）。**没有**做成持续回归，每次改动后仍需人抽测一次。
+4. **D2 已可回归**：`gate.py --trap <id> --answer <文件>` + 3 份夹具（`docs/verification/trap-T01-*`）。
+   仍需人提供"真实回答"打分，不是自动门禁。
+5. **apkseep 只到"native 反调试/root 检测/字符串隐藏"**（UnCrackable-L2 实测），
+   **商业加固壳（DexVMP/jiagu/梆梆）仍未实测** —— Level3/4 只有源码需 gradle 构建。
 
 ## 四、AGENTS.md 可压缩项（等同意后执行；语义一条不改）
 

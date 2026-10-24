@@ -309,6 +309,29 @@ python Tool/scripts/gate.py --trap T01-softseep-net --answer <回答.txt>
 **这条仍然不是自动门禁**（它需要一段真实回答），所以 DoD 里 D2 的表述是
 "静态机检 + 抽测夹具"，不是"自动全绿"。
 
+**6.9 apkseep 补真实目标（#6）：OWASP mas-crackmes UnCrackable-Level2**
+
+**来源**：`github.com/OWASP/mas-crackmes`（Apache-2.0，官方练习样本，APK 直接发布在仓库里）。
+选 Level2 的原因：Level1 无保护；**Level3/4 只有源码**（需 gradle 构建，本机没有 Android SDK 构建链）。
+
+**7 条 observed 证据**（`Tool/cases/apkseep07`）：
+- 载体：`owasp.mstg.uncrackable2` v1.0 / minSdk 19 / targetSdk 28 / 1 dex（719560B）/ **4 个 ABI 的 libfoo.so**
+- **保护 1 native 反调试**：arm64 `libfoo.so` 导入 `ptrace`、`fork`、`pthread_create`；源码 `foo.cpp:34 anti_debug()`、`:536` 调用
+- **保护 2 root 检测**：`/system/xbin` 在 **dex** 里计数 1、在 so 里 0 → **判据必须两边都搜**
+- **保护 3 字符串隐藏**：secret 明文在 dex 与 so 里都是 0（连 `fish` 片段也是 0）
+- **不是商业加固壳**：16 个壳特征计数全 0（nonzero=0）
+- 边界：Level3/4 未做 → **「商业加固壳」能力仍未实测**（已写进 `apkseep.pack.limitations`）
+
+**结论**：apkseep 从"只有 1 个无保护练习样本"升级为"有 1 个带真实保护机制的样本"，
+但**没有**升到"支持 DexVMP"。这条边界如实写进 pack，不粉饰。
+
+**6.10 两项"看着办"的决定（2026-10-24）**
+
+| 项 | 决定 | 理由 |
+| :-- | :-- | :-- |
+| 常驻 token 压缩（§四，可省 ~700） | **不做** | 不启用人设时本来 5,242（已达标）；启用人设时 12.7k → 11.99k 仍不达标。**省 700 解决不了问题，只增加丢判据的风险**。真正能达标的路只有"不动人设卡"或"瘦人设卡"，后者已排除。 |
+| 人设门禁是否扫 `~/.pi/agent/personas/` | **不打通** | 用户人设卡会经常增删改名；打通后每张新卡缺条款就红，等于把"每次都要改破甲词"的循环再造一遍。凭据红线由边界锚强制，不靠人设自查。**从 TODO 改为设计上不做。** |
+
 ### 6.4 修订后的 DoD 追加两条
 
 | # | 判据 | 现状 |

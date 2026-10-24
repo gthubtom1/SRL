@@ -1,0 +1,51 @@
+{
+ "id": "apkseep07",
+ "domain": "apkseep",
+ "target_type": "公开练习样本（OWASP mas-crackmes UnCrackable-Level2，Apache-2.0）：native 反调试 + root 检测",
+ "evidence_kind": "real",
+ "protection": [
+  "native-anti-debug(ptrace+fork)",
+  "root-detection(/system/xbin)",
+  "secret-not-in-plaintext"
+ ],
+ "authority": "shipped-artifact（官方发布的 APK 原件，sha256 固定）",
+ "goal_level": "L2",
+ "outcome": "success",
+ "artifacts": [
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "af3ba77ea4ac9d8aeb1746943a16539a5905a94d5f9f711d0e6052eb35951709"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "aapt dump badging + unzip 清点 + r2 ii libfoo.so + python 计数字符串；rc=0"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "命令：python Tool/skill/apkseep/scripts/doctor.py --capabilities --json；本案例只用 aapt/unzip/r2/python，rc=0",
+  "它不是商业加固壳：16 个壳特征全 0；保护是 native 反调试（ptrace+fork）+ root 检测 + 字符串隐藏",
+  "root 检测的明文线索在 **dex**（/system/xbin），不在 so —— 判据要两边都搜",
+  "secret 明文在 dex 与 so 里都不存在 → 只能运行期解出；这类样本静态只能拿到结构，拿不到答案",
+  "Level3/4 仓库只给源码（需 gradle 构建），本轮未做 —— 这是 apkseep 的真实能力边界"
+ ],
+ "tags": [
+  "apk",
+  "native-anti-debug",
+  "root-detection",
+  "owasp",
+  "real-target"
+ ],
+ "refs": [
+  "Tool/skill/apkseep/scripts/doctor.py",
+  "Tool/skill/apkseep/references/01-criteria.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/UnCrackable-Level2.apk",
+   "sha256": "0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0",
+   "source": "github.com/OWASP/mas-crackmes Android/Level2/app/release/"
+  }
+ ]
+}
