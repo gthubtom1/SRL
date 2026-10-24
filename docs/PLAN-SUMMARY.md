@@ -220,7 +220,7 @@ P4 记为「除人设卡外完成」；人设卡按用户决定**维持原样**�
 
 ### 第 1 层 · 反"假完成"协议（双用途）
 
-`Tool/prompts/contracts/ANTI-FALSE-DONE.md`
+`Tool/prompts/contracts/_archived/ANTI-FALSE-DONE.md`
 
 | 检查 | 判据 |
 | :-- | :-- |
@@ -299,11 +299,11 @@ preflight 第 19 组                  每叶必须有"怎么算做成"+ 缺样�
 | 想看什么 | 文件 |
 | :-- | :-- |
 | **唯一架构口径** | `docs/BLUEPRINT.md` |
-| 反"假完成"协议（双用途） | `Tool/prompts/contracts/ANTI-FALSE-DONE.md` |
+| 反"假完成"协议（双用途） | `Tool/prompts/contracts/_archived/ANTI-FALSE-DONE.md` |
 | 审查方法论（为什么过去必然失效 + 五道审计） | `docs/AUDIT-METHOD.md` |
 | 路径树 / 走查 / 基线 | 「path-tree.json」(S1 已删)、「path-walk.py」(S1 已删)、「path-tree-baseline.json」(S1 已删) |
-| 决策环 + Manager Mode | `Tool/prompts/contracts/DECISION-LOOP.md` |
-| 工具四阶梯 | `Tool/prompts/contracts/TOOL-LADDER.md` |
+| 决策环 + Manager Mode | `Tool/prompts/contracts/_archived/DECISION-LOOP.md` |
+| 工具四阶梯 | `Tool/prompts/contracts/_archived/TOOL-LADDER.md` |
 | 待你拍板的清单 | `docs/DECISIONS-PENDING.md` |
 | 外部盲审（最狠的一份） | `work/audit/REVIEW-CLEANROOM.md` |
 | 用户原话与需求台账 | `work/audit/DIALOGUE-user.md`、`work/audit/REQUIREMENTS-LEDGER.md` |

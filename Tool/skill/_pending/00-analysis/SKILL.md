@@ -8,10 +8,10 @@ metadata:
 
 # 00 · 分析透彻，出可复现报告
 
-> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
+> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/_archived/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
 
 
-> **怎么想**：本阶段每次判断按 `Tool/prompts/contracts/DECISION-LOOP.md` 的四步环留痕（观察→假设→决策→验证）；决策步必须写「被放弃的选项 + 依据」，否则不过闸。
+> **怎么想**：本阶段每次判断按 `Tool/prompts/contracts/_archived/DECISION-LOOP.md` 的四步环留痕（观察→假设→决策→验证）；决策步必须写「被放弃的选项 + 依据」，否则不过闸。
 
 
 > **前置（S0 快筛）**：进入本技能前，必须已有 `report/triage.md` + 目标画像卡六字段。

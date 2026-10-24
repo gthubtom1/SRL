@@ -8,7 +8,7 @@ metadata:
 
 # 01 · 旁路卡密，出「原版可用」成品
 
-> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
+> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/_archived/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
 
 
 > **通用性声明**：本技能与任何具体样本解耦。文中出现的**节名**（如 `.ace0`）、**错误码**（如 `0xC000023E`）、

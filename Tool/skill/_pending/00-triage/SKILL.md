@@ -8,17 +8,17 @@ metadata:
 
 # 00a · 快筛（S0）：20 分钟出「目标画像卡」
 
-> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
+> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/_archived/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
 
 
-> **陷阱库**：`Tool/prompts/contracts/TRAP-LIBRARY.md`（14 条实测坑，按「信号」自查，命中才用 —— 提示不是规则）。
+> **陷阱库**：`Tool/prompts/contracts/_archived/TRAP-LIBRARY.md`（14 条实测坑，按「信号」自查，命中才用 —— 提示不是规则）。
 
 > **唯一的成功标准**：20 分钟内产出一张**别人拿着同一份样本能核对**的画像卡。
 > 出不全没关系 —— 把"未知"写清、并说明卡在哪，本身就是结论。
 > **本档不做**：动态调试、内存 dump、断点、写补丁、抓包长时间观察。那些是 `00-analysis` 的 D1–D7。
 
 ## 阶段契约
-- **怎么想**：本阶段的每一次判断都要按 `Tool/prompts/contracts/DECISION-LOOP.md` 的四步环留痕（观察→假设→决策→验证），决策步必须写「被放弃的选项 + 依据」。
+- **怎么想**：本阶段的每一次判断都要按 `Tool/prompts/contracts/_archived/DECISION-LOOP.md` 的四步环留痕（观察→假设→决策→验证），决策步必须写「被放弃的选项 + 依据」。
 
 
 - **进入**：拿到目标文件/目录/URL；`case_state.py init` 已建案。
