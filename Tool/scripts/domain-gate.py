@@ -1054,18 +1054,18 @@ def check_fragments():
 
 # ---------------------------------------------------------------- [13] 案例索引
 def check_case_index():
-    p = os.path.join(TOOL, "scripts", "gen-case-index.py")
+    p = os.path.join(TOOL, "scripts", "case_state.py")
     if not os.path.isfile(p):
-        add("全局", "案例索引与磁盘一致", False, "缺 gen-case-index.py")
+        add("全局", "案例索引与磁盘一致", False, "缺 case_state.py")
         return
     try:
-        r = subprocess.run([sys.executable, p, "--check"], capture_output=True, text=True,
+        r = subprocess.run([sys.executable, p, "index", "--check"], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=120, cwd=ROOT)
         ok = r.returncode == 0
         tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
-        add("全局", "案例索引与磁盘一致（index.json）", ok, tail[-1][:100] if tail else "")
+        add("全局", "案例索引与磁盘一致（现算，无 index.json 缓存）", ok, tail[-1][:100] if tail else "")
     except Exception as e:  # noqa: BLE001
-        add("全局", "案例索引与磁盘一致（index.json）", False, str(e)[:80])
+        add("全局", "案例索引与磁盘一致（现算，无 index.json 缓存）", False, str(e)[:80])
 
 
 # ---------------------------------------------------------------- main

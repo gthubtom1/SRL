@@ -48,10 +48,15 @@
     deliver/ask/ack/gaps/plan）都会先查租约：无锁只警告 [WARN] NO_LEASE 仍执行，
     别人持锁则 rc=2 拒绝写；只读命令（gate/show/resume/events/advise）不查。
 
-阶段零出口物（B 批新增）：
-    facts.jsonl + state.json + gaps.json + plan.json（含 chosen / goal_level）。
+阶段零出口物（B 批新增；S2 起 state 不再单独落盘）：
+    facts.jsonl（唯一账本：claim / kind:"state" 重放行 / kind:"event"）+ gaps.json + plan.json。
+    state = 账本里最后一条 state 行重放（`replay` 查看 / --migrate 迁移 / --compact 瘦身）。
     gate 除原有断言外，还要求：stale 全部复验、plan ≥2 条候选、verdict 后必须 choose、
     不可补缺件要写进 verdict note 且菜单里不得有依赖它的路线。
+
+状态副本收口（S2-1）：
+    `replay`  状态重放（state 不存快照）      `index`  案例索引现算（不落 index.json）
+    `verify`  证据强度聚合（unknown 永不计 pass）
 
 阶段机 + 产物闸（P2-1）：
     state.stage ∈ intake|0a|0b|1|2|3|4|done，每次变更追进 stage_history。
@@ -381,16 +386,57 @@ def _manifest(case):
     return os.path.join(os.path.abspath(case), "ai_manifest.json")
 
 
-def load_state(case):
-    """案子状态。上游约定：`<case>/ai_manifest.json` 是唯一恢复点。
+LEDGER_STATE_KIND = "state"
+LEDGER_EVENT_KIND = "event"
 
-    因此：有 manifest 就把它里面的 `seep` 子键当状态（不另开第二份状态）；
-    没有 manifest（非上游 CTF 案子）才退回 `<case>/state.json`。
-    两套案子共用同一恢复协议，避免"同一目录两套状态互不知道"。
+def _state_default():
+    return {"schema": "seep-case/1", "target": "", "depth": {}, "verdict": None,
+            "max_level": None, "stage": "intake", "stage_history": [],
+            "next_action": "", "updated": now()}
+
+def load_ledger(case):
+    """唯一账本 facts.jsonl 的全部行（claim / kind:"state" / kind:"event" 混存，append-only）。
+
+    S2 起不再有第二份状态文件：state 由 state 行重放，事件账（工具流水）以 event 行
+    追加进同一账本。旧案子的 state.json / ai_manifest.json#seep 只当**只读**迁移源。
     """
-    d, _, sp = paths(case)
-    if not os.path.isdir(d):
-        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
+    _, fp, _ = paths(case)
+    if not os.path.isfile(fp):
+        return []
+    out = []
+    with open(fp, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                die("facts.jsonl 第 %d 行不是合法 JSON：%s（先修或备份后重写）" % (len(out) + 1, e))
+    return out
+
+def _entry_kind(entry):
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get("kind") or "").strip().lower()
+
+def _is_claim(entry):
+    """claim 行判据：有 id + status，且 kind 缺省或 claim。state/event 行不算 claim。"""
+    if not isinstance(entry, dict):
+        return False
+    if not str(entry.get("id") or "").strip() or not str(entry.get("status") or "").strip():
+        return False
+    return _entry_kind(entry) in ("", "claim")
+
+def load_facts(case):
+    """只返回 claim 行（gate / verify 的判据面），state / event 行不外泄给旧消费者。"""
+    return [e for e in load_ledger(case) if _is_claim(e)]
+
+def _legacy_state(case):
+    """只读兼容：S2 之前的历史副本（ai_manifest.json#seep 或 state.json）。
+
+    只读不写 —— 迁移动作用 `replay --migrate [--drop-legacy]` 显式执行。
+    """
     mf = _manifest(case)
     if os.path.isfile(mf):
         try:
@@ -400,52 +446,50 @@ def load_state(case):
                 return man["seep"]
         except Exception:
             pass
+    _, _, sp = paths(case)
     if os.path.isfile(sp):
-        with open(sp, encoding="utf-8") as f:
-            return json.load(f)
-    return {"schema": "seep-case/1", "target": "", "depth": {}, "verdict": None,
-            "max_level": None, "stage": "intake", "stage_history": [],
-            "next_action": "", "updated": now()}
+        try:
+            with open(sp, encoding="utf-8") as f:
+                obj = json.load(f)
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            return None
+    return None
+
+def load_state(case):
+    """案子状态 = facts.jsonl 里最后一条 kind:"state" 行重放（不存快照）。"""
+    d, _, _ = paths(case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
+    last = None
+    for e in load_ledger(case):
+        if _entry_kind(e) == LEDGER_STATE_KIND and isinstance(e.get("state"), dict):
+            last = e["state"]
+    st = _state_default()
+    if isinstance(last, dict):
+        st.update(last)
+        return st
+    legacy = _legacy_state(case)
+    if isinstance(legacy, dict):
+        st.update(legacy)
+    return st
 
 
 def save_state(case, st):
-    """写回。有 ai_manifest.json 就写进它的 `seep` 子键；否则写 state.json。
+    """写回 = 往账本追加一条 state 行（append-only，最后一条生效）。
 
-    写入走原子路径（P1-2）：不再直写目标文件，避免半截 JSON。
+    为什么重放而不是覆盖快照：两个会话同时写同一个 state.json 会静默丢条；
+    append-only 最坏情况是"多一行"，不是"少一条"。
     """
+    d, fp, _ = paths(case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    st = dict(st)
     st["updated"] = now()
-    mf = _manifest(case)
-    if os.path.isfile(mf):
-        try:
-            with open(mf, encoding="utf-8") as f:
-                man = json.load(f)
-        except Exception:
-            man = {}
-        man["seep"] = st
-        man.setdefault("schema", "reverselab.ai_manifest.v1")
-        _atomic_write_json(mf, man)
-        return "ai_manifest.json#seep"
-    _, _, sp = paths(case)
-    _atomic_write_json(sp, st)
-    return "state.json"
-
-
-
-def load_facts(case):
-    _, fp, _ = paths(case)
-    if not os.path.isfile(fp):
-        return []
-    out = []
-    with open(fp, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    out.append(json.loads(line))
-                except json.JSONDecodeError as e:
-                    die("facts.jsonl 第 %d 行不是合法 JSON：%s（先修或备份后重写）" % (len(out) + 1, e))
-    return out
-
+    _atomic_append_line(fp, json.dumps({"kind": LEDGER_STATE_KIND, "ts": st["updated"],
+                                        "state": st}, ensure_ascii=False))
+    return "facts.jsonl#state"
 
 def append_fact(case, fact):
     d, fp, _ = paths(case)
@@ -622,15 +666,18 @@ def cmd_init(a):
         if isinstance(man.get("seep"), dict):
             die("ai_manifest.json 里已有 seep 状态；要重建加 --force（当前不会覆盖）")
     if os.path.isfile(sp) and not a.force:
-        die("已有 state.json：%s（要重建加 --force）" % sp)
+        die("已有历史状态副本 state.json：%s（先 `replay --migrate --drop-legacy` 迁移，或加 --force 重建）" % sp)
+    has_state_row = any(_entry_kind(e) == LEDGER_STATE_KIND for e in load_ledger(a.case))
+    if has_state_row and not a.force:
+        die("facts.jsonl 里已有 state 重放行；要重建加 --force（当前不会覆盖）")
     st = {"schema": "seep-case/1", "target": store_target(a.target),
           "depth": {}, "verdict": None, "max_level": None,
           "stage": "intake", "stage_history": [],
           "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
     backend = save_state(a.case, st)
     open(fp, "a", encoding="utf-8").close()
-    # ★ 案例索引同源：preflight 要求 Tool/cases/*/case.json 与 index.json 一致。
-    #   init 以前只建 state.json + facts.jsonl，于是「新建一个 case」必然让 preflight FAIL
+    # ★ 案例索引同源：preflight / domain-gate 跑 `case_state.py index --check`。
+    #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
     #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
     wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"))
     print("[OK] 案子已建：%s  facts: %s  state: %s" % (d, fp, backend))
@@ -640,7 +687,7 @@ def cmd_init(a):
 
 
 def _ensure_case_meta(d, st, evidence_kind="real"):
-    """写 case.json 骨架（已存在就不动）。字段由 gen-case-index 归一。"""
+    """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。"""
     cj = os.path.join(d, "case.json")
     if os.path.isfile(cj):
         return False
@@ -773,6 +820,20 @@ def cmd_who(a):
     return 0
 
 
+CONFIDENCE_STATES = ("observed", "derived", "inferred", "unknown")
+AUTHORITY_STATES = ("shipped-artifact", "controlled-replay", "external-service",
+                    "reported", "none")
+
+
+def _norm_confidence(v, default="unknown"):
+    """证据强度四态（S2-4）：observed > derived > inferred > unknown。
+
+    unknown 永不计 pass：没有明确声明的 claim 一律落 unknown，不会被聚合器当成已证。
+    """
+    s = str(v or "").strip().lower()
+    return s if s in CONFIDENCE_STATES else default
+
+
 def cmd_claim(a):
     lease_guard(a.case)
     facts = load_facts(a.case)
@@ -791,6 +852,8 @@ def cmd_claim(a):
     fact = {"id": a.id, "claim": a.text, "status": a.status,
             "evidence": [ev] if ev else [],
             "how": a.how or "", "ttl": (a.ttl or "").strip(), "created": now(),
+            "confidence": _norm_confidence(getattr(a, "confidence", "")),
+            "authority": (str(getattr(a, "authority", "") or "").strip().lower() or "none"),
             "refuted_by": (by or None)}
     append_fact(a.case, fact)
     print(f"[OK] {a.id} = {a.status}  {a.text}")
@@ -810,6 +873,15 @@ def cmd_prove(a):
     hit = next((f for f in facts if f["id"] == a.id), None)
     if not hit:
         die(f"没有 claim {a.id}")
+    # S2-4：置信度/权威必须显式声明；不声明就维持 unknown（unknown 永不计 pass）
+    if getattr(a, "confidence", ""):
+        hit["confidence"] = _norm_confidence(a.confidence)
+    else:
+        hit.setdefault("confidence", "unknown")
+    if getattr(a, "authority", ""):
+        hit["authority"] = str(a.authority).strip().lower()
+    else:
+        hit.setdefault("authority", "none")
     was_stale = hit.get("status") == "stale"
     if was_stale:
         # 复验复活：保留失效原因做审计，但状态回 proven、证据追加
@@ -823,7 +895,12 @@ def cmd_prove(a):
     hit["updated"] = now()
     _rewrite_facts(a.case, facts)
     tail = "（原 stale 已复验复活）" if was_stale else ""
-    print(f"[OK] {a.id} 已证实{tail}（证据 {len(hit['evidence'])} 条）")
+    hint = ""
+    if hit.get("confidence") in ("unknown", "inferred") or hit.get("authority") in ("", "none"):
+        hint = ("\n[WARN] 本条 confidence=%s authority=%s → 聚合时不算 pass；"
+                "实测证据请显式声明 --confidence observed --authority shipped-artifact"
+                % (hit.get("confidence"), hit.get("authority")))
+    print(f"[OK] {a.id} 已证实{tail}（证据 {len(hit['evidence'])} 条）{hint}")
 
 
 def cmd_refute(a):
@@ -1169,8 +1246,19 @@ def _events_path(case):
     return os.path.join(os.path.abspath(case), "events.jsonl")
 
 
+def _ledger_events(case):
+    """事件行：S2 起事件账也进 facts.jsonl（kind:"event"），不再单开 events.jsonl。"""
+    rows = []
+    for e in load_ledger(case):
+        if _entry_kind(e) == LEDGER_EVENT_KIND:
+            rows.append(e)
+    return rows
+
+
 def _events_nonempty(case):
-    """事件账是否存在且非空。任何异常都当没有（提示行不许把老案子弄红）。"""
+    """事件账是否存在且非空（账本 event 行或历史 events.jsonl 任一都算）。"""
+    if _ledger_events(case):
+        return True
     try:
         p = _events_path(case)
         return os.path.isfile(p) and os.path.getsize(p) > 0
@@ -1181,34 +1269,35 @@ def _events_nonempty(case):
 def cmd_events(a):
     """事件账：动作级流水（谁跑了什么工具、成没成、多久）。只读，不改任何状态。
 
-    与 facts.jsonl 的分工：facts 是**结论**账（模型主动写，必须带证据），
-    events 是**动作**账（扩展自动写，不依赖模型自觉）。
-    缺事件账不是错误 —— 只说明这个 case 还没跑过带扩展的会话，所以恒 rc=0。
+    与 claim 行的分工：claim 是**结论**账（模型主动写，必须带证据），
+    event 行是**动作**账（扩展自动写，不依赖模型自觉）。
+    两者同一个账本 facts.jsonl（S2 合并），所以不可能出现「两份互相不知道」。
+    缺事件行不是错误 —— 只说明这个 case 还没跑过带扩展的会话，所以恒 rc=0。
     """
-    p = _events_path(a.case)
-    if not _events_nonempty(a.case):
-        print("没有事件账（本 case 尚未跑过带扩展的会话）")
-        print("  期望位置：%s" % p)
-        print("  事件账由 pi 扩展 seep-events 自动写；结论仍以 facts.jsonl / gate 为准。")
-        return 0
-
-    rows, badlines = [], 0
-    with open(p, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                badlines += 1
-                continue
-            if isinstance(obj, dict):
-                rows.append(obj)
+    rows = _ledger_events(a.case)
+    p = os.path.join(os.path.abspath(a.case), "facts.jsonl")
+    if not rows:
+        p = _events_path(a.case)
+        if not _events_nonempty(a.case):
+            print("没有事件账（本 case 尚未跑过带扩展的会话）")
+            print("  期望位置：%s（kind:\"event\" 行）" % os.path.join(os.path.abspath(a.case), "facts.jsonl"))
+            print("  事件账由 pi 扩展 seep-memory / seep-events 自动写；结论仍以 claim 行 / gate 为准。")
+            return 0
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(obj, dict):
+                    rows.append(obj)
 
     n = a.tail if isinstance(a.tail, int) and a.tail > 0 else 10
     print("[EVENTS] %s" % p)
-    print("总条数：%d%s" % (len(rows), ("（另有 %d 行不是合法 JSON，已跳过）" % badlines) if badlines else ""))
+    print("总条数：%d" % len(rows))
     if not rows:
         print("0 条有效事件（文件存在但为空）—— 本 case 尚未跑过带扩展的会话")
         return 0
@@ -1217,10 +1306,10 @@ def cmd_events(a):
     print("最近 %d 条（ts | tool | ok | risk | summary）：" % len(tail))
     for o in tail:
         ts = str(o.get("ts") or "")[:19].replace("T", " ")
-        tool = str(o.get("tool") or "?")
-        ok = "ok" if o.get("ok") else "FAIL"
+        tool = str(o.get("tool") or o.get("event") or o.get("kind") or "?")
+        ok = "ok" if o.get("ok", True) else "FAIL"
         risk = o.get("risk") or "-"
-        summ = str(o.get("summary") or "")
+        summ = str(o.get("summary") or o.get("text") or "")
         if len(summ) > 120:
             summ = summ[:120] + "…"
         print("  %s | %-14s | %-4s | %-5s | %s" % (ts, tool, ok, risk, summ))
@@ -1806,6 +1895,27 @@ def cmd_gate(a):
     if nohow:
         bad.append("proven 缺 how（怎么测的）：" + "、".join(nohow))
 
+    # ---- S2-4：置信度 / 权威（unknown 永不计 pass；gate 先告警，--strict 时阻断）
+    weak_conf = [f["id"] for f in facts
+                 if f["status"] == "proven"
+                 and _norm_confidence(f.get("confidence")) in WEAK_CONFIDENCE]
+    no_auth = [f["id"] for f in facts
+               if f["status"] == "proven"
+               and str(f.get("authority") or "none").strip().lower() in ("", "none")]
+    msg_conf = ("proven 但置信度不足（unknown/inferred）：" + "、".join(weak_conf)
+                + " —— verify 会整案判 unknown（不计 pass）；补 --confidence observed")
+    msg_auth = ("proven 但 authority 未声明：" + "、".join(no_auth)
+                + " —— 补 --authority shipped-artifact|controlled-replay|external-service")
+    if weak_conf or no_auth:
+        if a.strict:
+            for m in (msg_conf if weak_conf else "", msg_auth if no_auth else ""):
+                if m:
+                    bad.append(m)
+        else:
+            for m in (msg_conf if weak_conf else "", msg_auth if no_auth else ""):
+                if m:
+                    warn.append(m)
+
     # ---- TTL：stale 未复验 → 拒绝（证明可复活）
     stale = [f for f in facts if f.get("status") == "stale"]
     if stale:
@@ -2252,6 +2362,276 @@ def cmd_ack(a):
     print("[ACK] 现在可以从断点继续，不需要重头再来。")
 
 
+# ---------------------------------------------------------------- 状态重放（S2-1）
+def cmd_replay(a):
+    """状态重放 / 迁移 / 压缩：state 不存快照，只由账本 state 行重放。
+
+    --migrate      把历史 state.json（或 ai_manifest.json#seep）灌成一条 state 行
+    --drop-legacy  迁移后删除 state.json（默认不删，确认后再删）
+    --compact      只保留最后一条 state 行（账本瘦身，claim/event 不动）
+
+    为什么：state.json 与 ai_manifest#seep 是同一状态的两份副本，两端各自开局就会分叉；
+    append-only 账本只多行、不少条，重放结果唯一。
+    """
+    d, fp, sp = paths(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    if a.migrate or a.drop_legacy or a.compact:
+        lease_guard(a.case)
+    if a.migrate:
+        legacy = _legacy_state(a.case)
+        if not isinstance(legacy, dict):
+            print("[SKIP] 没有可迁移的历史状态（state.json / ai_manifest.json#seep 都不存在）")
+        else:
+            _atomic_append_line(fp, json.dumps(
+                {"kind": LEDGER_STATE_KIND, "ts": now(), "source": "migrate",
+                 "state": legacy}, ensure_ascii=False))
+            print("[OK] 历史状态已灌入账本：%s（source=migrate）" % fp)
+    if a.drop_legacy:
+        if os.path.isfile(sp):
+            os.remove(sp)
+            print("[OK] 已删除历史副本：%s" % sp)
+        else:
+            print("[SKIP] 没有 state.json 可删")
+    if a.compact:
+        ledger = load_ledger(a.case)
+        idxs = [i for i, e in enumerate(ledger) if _entry_kind(e) == LEDGER_STATE_KIND]
+        if len(idxs) <= 1:
+            print("[SKIP] state 行 %d 条，无需压缩" % len(idxs))
+        else:
+            keep = idxs[-1]
+            out = [e for i, e in enumerate(ledger) if i not in set(idxs) or i == keep]
+            _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out))
+            print("[OK] 账本压缩：state 行 %d → 1，总行 %d → %d" % (len(idxs), len(ledger), len(out)))
+
+    ledger = load_ledger(a.case)
+    st = load_state(a.case)
+    claims = [e for e in ledger if _is_claim(e)]
+    states = [e for e in ledger if _entry_kind(e) == LEDGER_STATE_KIND]
+    events = [e for e in ledger if _entry_kind(e) == LEDGER_EVENT_KIND]
+    legacy = _legacy_state(a.case)
+    print("[REPLAY] %s" % fp)
+    print("  账本行：%d（claim %d / state %d / event %d）"
+          % (len(ledger), len(claims), len(states), len(events)))
+    print("  重放状态：verdict=%s max_level=%s stage=%s depth=%d next=%s"
+          % (st.get("verdict"), st.get("max_level"), st.get("stage"),
+             len(st.get("depth") or {}), (st.get("next_action") or "")[:40]))
+    if isinstance(legacy, dict) and not states:
+        print("  [WARN] 仍在读历史副本（%s）：跑 --migrate --drop-legacy 收口"
+              % ("ai_manifest.json#seep" if _manifest(a.case) and os.path.isfile(_manifest(a.case))
+                 else "state.json"))
+    if getattr(a, "json", False):
+        print(json.dumps({"state": st, "ledger": {"total": len(ledger), "claims": len(claims),
+                                                    "states": len(states), "events": len(events)}},
+                         ensure_ascii=False, indent=2))
+    return 0
+
+
+# ---------------------------------------------------------------- 索引现算（S2-1）
+# 血案：Tool/cases/index.json 是第三份副本，gen-case-index.py 还会硬编码 "repro": {}，
+# 于是 case.json 50/56 有 repro、index.json 55/55 全空 —— 派生缓存一旦落盘就会分叉。
+# 现在索引只在调用时现算：磁盘上不存在可漂移的副本。
+CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection", "authority",
+               "goal_level", "outcome", "artifacts", "repro", "lessons", "tags", "refs",
+               "updated")
+CASE_LIST_FIELDS = ("protection", "lessons", "tags", "refs")
+EVIDENCE_KIND_OK = ("fixture", "real", "self-built", "historical")
+OUTCOME_OK = ("success", "partial", "blocked", "confirmed")  # confirmed = 历史同义词（success）
+
+
+def cases_root():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cases")
+
+
+def _norm_case(raw, dirname):
+    entry = {}
+    for k in CASE_FIELDS:
+        v = raw.get(k)
+        if k in CASE_LIST_FIELDS:
+            entry[k] = [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+        elif k == "artifacts":
+            entry[k] = [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+        elif k == "repro":
+            entry[k] = v if isinstance(v, dict) else {}
+        else:
+            entry[k] = v if isinstance(v, str) else ""
+    if not entry["id"]:
+        entry["id"] = dirname
+    entry["dir"] = dirname
+    return entry
+
+
+def scan_cases(root=None):
+    """现算案例索引。返回 (entries, problems)；problems 非空 = 索引本身不可信。"""
+    root = root or cases_root()
+    entries, problems = [], []
+    if not os.path.isdir(root):
+        return entries, ["案例目录不存在：%s" % root]
+    seen = {}
+    for name in sorted(os.listdir(root)):
+        d = os.path.join(root, name)
+        if not os.path.isdir(d) or name.startswith("."):
+            continue
+        cj = os.path.join(d, "case.json")
+        if not os.path.isfile(cj):
+            # `_archive` / `_templates` 这类容器目录不算案例；其他目录缺 case.json 就是漏登记
+            if not name.startswith("_"):
+                problems.append("%s：缺 case.json" % name)
+            continue
+        try:
+            with open(cj, encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception as e:
+            problems.append("%s：case.json 解析失败（%s）" % (name, str(e)[:60]))
+            continue
+        if not isinstance(raw, dict):
+            problems.append("%s：case.json 顶层不是对象" % name)
+            continue
+        entry = _norm_case(raw, name)
+        if entry["id"] != name:
+            problems.append("%s：case.json 的 id=%r 与目录名不一致" % (name, entry["id"]))
+        if entry["evidence_kind"] and entry["evidence_kind"] not in EVIDENCE_KIND_OK:
+            problems.append("%s：evidence_kind=%r 不在 %s"
+                            % (name, entry["evidence_kind"], "|".join(EVIDENCE_KIND_OK)))
+        if entry["outcome"] and entry["outcome"] not in OUTCOME_OK:
+            problems.append("%s：outcome=%r 不在 %s"
+                            % (name, entry["outcome"], "|".join(OUTCOME_OK)))
+        if entry["id"] in seen:
+            problems.append("id 重复：%s（%s 与 %s）" % (entry["id"], seen[entry["id"]], name))
+        seen[entry["id"]] = name
+        entries.append(entry)
+    return entries, problems
+
+
+def cmd_index(a):
+    """案例索引：现算（Tool/cases/*/case.json 是唯一事实来源，磁盘上不再存 index.json）。"""
+    root = getattr(a, "root", "") or cases_root()
+    entries, problems = scan_cases(root)
+    as_json = getattr(a, "json", False)
+    if as_json:
+        # JSON 模式只输出一个对象（把 problems 放进对象里，不在后面再追加人读行）
+        print(json.dumps({"schema": 1, "root": root, "case_count": len(entries),
+                          "problems": problems, "cases": entries},
+                         ensure_ascii=False, indent=2))
+        return 1 if problems else 0
+    print("[INDEX] %s  案例 %d 个（现算，无缓存副本）" % (root, len(entries)))
+    if getattr(a, "stats", False):
+        def _tally(field):
+            m = {}
+            for e in entries:
+                m[e.get(field) or "(空)"] = m.get(e.get(field) or "(空)", 0) + 1
+            return "，".join("%s=%d" % (k, v) for k, v in sorted(m.items()))
+        for f in ("domain", "evidence_kind", "outcome", "goal_level"):
+            print("  %-14s %s" % (f, _tally(f)))
+    if not getattr(a, "check", False) and not getattr(a, "stats", False):
+        for e in entries:
+            print("  %-22s %-16s %-10s %-5s %s" % (
+                e["id"], e["domain"][:16], e["evidence_kind"], e["goal_level"],
+                e["outcome"]))
+    if problems:
+        print("[FAIL] 索引不一致 %d 处：" % len(problems))
+        for p in problems:
+            print("   - " + p)
+        return 1
+    if getattr(a, "check", False):
+        print("[PASS] 案例索引与磁盘一致（%d 个 case.json）" % len(entries))
+    return 0
+
+
+# ---------------------------------------------------------------- 证据强度聚合（S2-4）
+# 血案：旧聚合把「没写 confidence」的 claim 当已证，于是一个空 case 也能签成 recorded。
+# 现在判据写死在这里，不接受任何包/脚本自行放宽。
+BAD_STATUSES = ("fail", "unknown", "unsupported", "truncated", "skipped")
+WEAK_CONFIDENCE = ("inferred", "unknown")
+STRONG_CONFIDENCE = ("observed", "derived")
+
+
+def verify_case(case):
+    """单案聚合：返回 {verdict: pass|fail|unknown, reasons, counts}。"""
+    facts = load_facts(case)
+    st = load_state(case)
+    counts = {k: 0 for k in CONFIDENCE_STATES}
+    bad, stale, weak, noauth = {}, [], [], []
+    for f in facts:
+        conf = _norm_confidence(f.get("confidence"))
+        counts[conf] = counts.get(conf, 0) + 1
+        status = str(f.get("status") or "").strip().lower()
+        if status in BAD_STATUSES:
+            bad[status] = bad.get(status, 0) + 1
+        if status == "stale":
+            stale.append(str(f.get("id")))
+        if status == "proven":
+            if conf in WEAK_CONFIDENCE:
+                weak.append("%s(%s)" % (f.get("id"), conf))
+            if str(f.get("authority") or "none").strip().lower() in ("", "none"):
+                noauth.append(str(f.get("id")))
+    proven = sum(1 for f in facts if str(f.get("status") or "").lower() == "proven")
+    fail_reasons, unknown_reasons = [], []
+    for k in sorted(bad):
+        fail_reasons.append("%s=%d（任一非零即不得 pass）" % (k, bad[k]))
+    if stale:
+        fail_reasons.append("stale 未复验：" + "、".join(stale))
+    if not facts:
+        unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
+    elif not proven:
+        unknown_reasons.append("没有 proven claim")
+    if weak:
+        unknown_reasons.append("proven 但置信度不足（inferred/unknown）：" + "、".join(weak))
+    if noauth:
+        unknown_reasons.append("proven 但 authority 未声明：" + "、".join(noauth))
+    verdict = "fail" if fail_reasons else ("unknown" if unknown_reasons else "pass")
+    return {"case": os.path.basename(os.path.abspath(case)), "verdict": verdict,
+            "claims": len(facts), "proven": proven, "confidence": counts,
+            "bad": bad, "stale": stale,
+            "reasons": fail_reasons + unknown_reasons,
+            "state_verdict": st.get("verdict"), "stage": st.get("stage")}
+
+
+def cmd_verify(a):
+    """证据强度聚合：unknown 永不计 pass。
+
+    判据（写死，不许各包自行放宽）：
+      * fail / unknown / unsupported / truncated / skipped 任一非零 → 整案 fail
+      * 有 stale 未复验 → fail
+      * 无 claim / 无 proven / proven 的 confidence ∈ {inferred,unknown} 或 authority=none → unknown
+      * 全部 proven 且 confidence ∈ {observed,derived} 且 authority 非 none → pass
+    """
+    if getattr(a, "all", False):
+        root = cases_root()
+        targets = []
+        if os.path.isdir(root):
+            for name in sorted(os.listdir(root)):
+                d = os.path.join(root, name)
+                if not os.path.isdir(d) or name.startswith("."):
+                    continue
+                if not os.path.isfile(os.path.join(d, "case.json")):
+                    continue
+                targets.append(d)
+    else:
+        if not (getattr(a, "case", "") or "").strip():
+            die("verify 需要 --case <目录> 或 --all")
+        targets = [a.case]
+    results = [verify_case(t) for t in targets]
+    if getattr(a, "json", False):
+        print(json.dumps({"schema": "seep.verify/1", "results": results},
+                         ensure_ascii=False, indent=2))
+    else:
+        for r in results:
+            mark = {"pass": "PASS", "fail": "FAIL", "unknown": "UNKNOWN"}[r["verdict"]]
+            print("[%s] %-22s claim %d（proven %d）conf=%s state=%s stage=%s" % (
+                mark, r["case"], r["claims"], r["proven"],
+                "/".join("%s:%d" % (k, v) for k, v in r["confidence"].items() if v),
+                r["state_verdict"], r["stage"]))
+            for why in r["reasons"]:
+                print("   - " + why)
+        n_pass = sum(1 for r in results if r["verdict"] == "pass")
+        n_fail = sum(1 for r in results if r["verdict"] == "fail")
+        n_unk = sum(1 for r in results if r["verdict"] == "unknown")
+        print("[VERIFY] %d 个案子：pass %d / fail %d / unknown %d（unknown 永不计 pass）"
+              % (len(results), n_pass, n_fail, n_unk))
+    return 0 if all(r["verdict"] == "pass" for r in results) else 1
+
+
 def main():
     if "--self-test" in sys.argv[1:]:
         sys.exit(_self_test())
@@ -2286,10 +2666,18 @@ def main():
     p.add_argument("--status", default="hypothesis"); p.add_argument("--evidence", default="")
     p.add_argument("--by", default="", help="status=refuted 时必填：谁推翻了它")
     p.add_argument("--how", default=""); p.add_argument("--ttl", default="")
+    p.add_argument("--confidence", default="", choices=[""] + list(CONFIDENCE_STATES),
+                   help="证据强度（S2-4）：observed/derived/inferred/unknown；缺省=unknown，永不计 pass")
+    p.add_argument("--authority", default="", choices=[""] + list(AUTHORITY_STATES),
+                   help="证据权威：shipped-artifact/controlled-replay/external-service/reported/none")
     p.set_defaults(func=cmd_claim)
 
     p = sub.add_parser("prove"); p.add_argument("--case", required=True)
     p.add_argument("--id", required=True); p.add_argument("--evidence", required=True)
+    p.add_argument("--confidence", default="", choices=[""] + list(CONFIDENCE_STATES),
+                   help="必须显式声明才算数（observed/derived）")
+    p.add_argument("--authority", default="", choices=[""] + list(AUTHORITY_STATES),
+                   help="证据权威（不接受 none 当已证）")
     p.set_defaults(func=cmd_prove)
 
     p = sub.add_parser("refute"); p.add_argument("--case", required=True)
@@ -2395,6 +2783,27 @@ def main():
     p.add_argument("--case", required=True)
     p.add_argument("--ack", required=True)
     p.set_defaults(func=cmd_ack)
+
+    p = sub.add_parser("replay", help="状态重放：state 不存快照，由账本 state 行重放（--migrate/--drop-legacy/--compact）")
+    p.add_argument("--case", required=True)
+    p.add_argument("--migrate", action="store_true", help="把历史 state.json / ai_manifest#seep 灌成一条 state 行")
+    p.add_argument("--drop-legacy", dest="drop_legacy", action="store_true", help="迁移后删除历史 state.json")
+    p.add_argument("--compact", action="store_true", help="只保留最后一条 state 行（claim/event 不动）")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_replay)
+
+    p = sub.add_parser("index", help="案例索引：现算（不落 index.json 缓存）")
+    p.add_argument("--check", action="store_true", help="索引与磁盘不一致则 rc=1")
+    p.add_argument("--stats", action="store_true", help="额外打印领域 / 真实性 / 结论分布")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--root", default="", help="案例根目录（缺省 Tool/cases）")
+    p.set_defaults(func=cmd_index)
+
+    p = sub.add_parser("verify", help="证据强度聚合：unknown 永不计 pass（fail/unknown/... 任一非零即不得 pass）")
+    p.add_argument("--case", default="", help="单案路径（与 --all 二选一）")
+    p.add_argument("--all", action="store_true", help="对 Tool/cases/* 全量跑")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_verify)
 
     p = sub.add_parser("show"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_show)
     p = sub.add_parser("resume"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_resume)

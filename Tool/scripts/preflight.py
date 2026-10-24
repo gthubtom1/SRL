@@ -515,7 +515,7 @@ def check_newtools():
     add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
     # ⑤ 2.0 新增能力脚本：必须"能在干净 checkout 里跑"（只查 --help / --check，不重跑重活）
-    extra = [("案例索引", "gen-case-index.py", ["--check"]),
+    extra = [("案例索引", "case_state.py", ["index", "--check"]),
              ("探针矩阵", "probe_matrix.py", ["--help"]),
              ("脱壳流水线", "dump-restore.py", ["--help"]),
              ("环境台账", "env-ledger.py", ["--help"])]
