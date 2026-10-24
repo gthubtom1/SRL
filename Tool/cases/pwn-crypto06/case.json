@@ -20,7 +20,7 @@
   },
   {
    "path": "capture/reverify-2026-10-24.log",
-   "sha256": "524d97ab1dae0579c780e786fdad03c4814e49037911f7b8b8e3f55844b6a524"
+   "sha256": "7c10c43a51df3d79953c2cfb7051c091549dde2f81c4dce0f1e3a34195045ef2"
   }
  ],
  "repro": {
