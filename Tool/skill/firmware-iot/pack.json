@@ -37,10 +37,11 @@
     "firmware-iot02",
     "firmware-iot03",
     "firmware-iot04",
-    "firmware-iot05"
+    "firmware-iot05",
+    "firmware-iot06"
   ],
   "witness": {
-    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/firmware-iot01",
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/firmware-iot06",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
     "budget_s": 180
   },

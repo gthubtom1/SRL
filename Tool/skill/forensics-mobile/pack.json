@@ -36,10 +36,11 @@
     "forensics02",
     "forensics03",
     "forensics04",
-    "forensics06"
+    "forensics06",
+    "forensics07"
   ],
   "witness": {
-    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/forensics01",
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/forensics07",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
     "budget_s": 180
   },

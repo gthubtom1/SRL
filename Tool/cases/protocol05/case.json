@@ -1,0 +1,44 @@
+{
+ "id": "protocol05",
+ "domain": "protocol-plugin",
+ "target_type": "真实抓包（tcpdump 官方测试集，BSD）：RADIUS over UDP，4 帧 / 2 会话",
+ "evidence_kind": "real",
+ "protection": [],
+ "authority": "shipped-artifact（公开抓包原件，sha256 固定）",
+ "goal_level": "L2",
+ "outcome": "success",
+ "artifacts": [
+  {
+   "path": "artifacts/crafted-radius.pcap",
+   "sha256": "f4ce6bb7fd58fc95d88c5d7db900a6bd175de6fb154b53cdc2825f883badb9a3"
+  },
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "a3fff8cda0c049644439af3341962bbe9800693c4678a01f8cde4105ac7532f0"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "pcap-summary.py --file RADIUS.pcap --extract …；自研解析器 + tshark 双源对齐；重构帧封回 pcap 由 tshark 判读；rc=0"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "命令：python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file RADIUS.pcap --json --extract /d/tmp/radius-streams；rc=0",
+  "对齐要用「多重集」比较：tshark 按抓包时序输出，按流分文件后逐个 zip 会得到假的 False",
+  "重构请求时 length 字段必须重算（20+属性总长），否则 tshark 会截断或报 malformed",
+  "Authenticator 需要共享密钥才能重算，没有密钥就显式记账「未重算」，别假装签名有效"
+ ],
+ "tags": [
+  "protocol",
+  "radius",
+  "binary-framing",
+  "real-target",
+  "pcap"
+ ],
+ "refs": [
+  "Tool/skill/protocol-plugin/scripts/pcap-summary.py",
+  "Tool/skill/protocol-plugin/scripts/proto-repro.py",
+  "Tool/skill/protocol-plugin/references/01-criteria.md"
+ ],
+ "updated": "2026-10-24"
+}

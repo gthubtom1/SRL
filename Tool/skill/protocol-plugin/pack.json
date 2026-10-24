@@ -47,10 +47,11 @@
     "plugin03",
     "plugin04",
     "plugin05",
-    "plugin06"
+    "plugin06",
+    "protocol05"
   ],
   "witness": {
-    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/protocol01",
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/protocol05",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
     "budget_s": 180
   },
