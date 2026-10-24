@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""一条命令跑完全部检查（程序员视角：这就是 `make test`）。
+
+为什么要有这个文件（2026-10-24）：之前在 AGENTS / README / 对话里出现 6 条命令、163 项"门禁"，
+使用者根本不知道"合格"指什么。真正的程序员做法是：**一个入口，退出码，失败指到文件**。
+
+用法：
+    python Tool/scripts/check.py            # 全量（约 3-4 分钟）
+    python Tool/scripts/check.py --fast     # 只跑快的（约 1 分钟；提交前用）
+    python Tool/scripts/check.py --list     # 列出会跑哪些套件
+
+退出码：0 = 全过；1 = 有失败。任何失败都会打印套件名 + 首行原因。
+"""
+import argparse
+import os
+import subprocess
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PY = sys.executable
+
+# (名字, 命令参数, 是否属于 fast, 失败时给人看的一句话)
+SUITES = [
+    ("lint",        ["Tool/scripts/preflight.py", "--fast"], True,
+     "结构/契约/入口/部署的一致性检查"),
+    ("skill-tests", ["Tool/skill/softseep/scripts/intent-coverage.py", "--json"], True,
+     "意图探针：用户说法能否命中对应技能"),
+    ("route-tests", ["Tool/skill/softseep/scripts/skill-route-probe.py", "--json"], True,
+     "路由探针：技能路由在中文边界上的行为"),
+    ("unit",        ["Tool/scripts/gate.py", "--all"], True,
+     "按域判定：9 个能力包各自的门槛与证据强度"),
+    ("e2e",         ["Tool/scripts/domain-gate.py", "--all"], False,
+     "端到端：域契约、证据链、清理、部署哈希"),
+    ("kb-tests",    ["Tool/scripts/kb_acceptance.py"], False,
+     "知识库检索验收语料"),
+]
+
+
+def run_one(name, argv, timeout=600):
+    t0 = time.time()
+    try:
+        p = subprocess.run([PY] + argv, cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=timeout)
+        out = (p.stdout or "") + (p.stderr or "")
+        rc = p.returncode
+    except subprocess.TimeoutExpired:
+        return name, False, "超时（>%ds）" % timeout, time.time() - t0
+    if "--json" in argv and "{" in out:
+        import json as _j
+        try:
+            d = _j.loads(out[out.index("{"):])
+            if isinstance(d, dict) and "ok" in d:
+                return name, rc == 0 and d.get("ok") is True, "ok=%r" % d.get("ok"), time.time() - t0
+        except Exception:
+            pass
+    # 取最后一行有信息量的输出（各脚本末行通常是「结果: x/y」或 [GATE] …）
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    tail = ""
+    for l in reversed(lines):
+        if ("结果:" in l) or ("[GATE]" in l) or ("[VERIFY]" in l) or ("ok" in l.lower()):
+            tail = l
+            break
+    if not tail:
+        # JSON 型套件（intent-coverage / skill-route-probe）末尾不是人话，改成读 ok 字段
+        import json as _j
+        if "{" in out:
+            try:
+                d = _j.loads(out[out.index("{"):])
+                tail = "ok=%r" % d.get("ok") if isinstance(d, dict) else ""
+            except Exception:
+                tail = ""
+    tail = tail or (lines[-1] if lines else "")
+    return name, rc == 0, tail, time.time() - t0
+
+
+def main():
+    ap = argparse.ArgumentParser(description="跑全部检查（相当于 make test）")
+    ap.add_argument("--fast", action="store_true", help="只跑快的子集（提交前用）")
+    ap.add_argument("--list", action="store_true", help="列出套件后退出")
+    a = ap.parse_args()
+
+    suites = [s for s in SUITES if (not a.fast) or s[2]]
+    if a.list:
+        for n, cmd, fast, why in suites:
+            print("%-12s %-6s %s" % (n, "fast" if fast else "full", why))
+        return 0
+
+    print("检查中（%s，%d 个套件）…\n" % ("fast" if a.fast else "full", len(suites)))
+    failed = []
+    for name, argv, _fast, why in suites:
+        n, ok, tail, secs = run_one(name, argv)
+        print("%s %-12s %5.1fs  %s" % ("PASS" if ok else "FAIL", name, secs, tail[:110]))
+        if not ok:
+            failed.append((name, why, tail))
+
+    print("-" * 72)
+    if not failed:
+        print("全部通过（%d 个套件）" % len(suites))
+        return 0
+    print("失败 %d 个套件：" % len(failed))
+    for name, why, tail in failed:
+        print("  · %s —— %s" % (name, why))
+        print("    %s" % tail[:160])
+    print("\n单独复跑：python Tool/scripts/check.py --list 看各套件命令；或用上面套件名对应的脚本直接跑")
+    return 1
+
+
+if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    sys.exit(main())

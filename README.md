@@ -51,7 +51,7 @@
 > - **先读**：[`docs/HANDOFF.md`](docs/HANDOFF.md)（状态块由命令生成）→ [`docs/NOW.md`](docs/NOW.md)（现在该做什么）→ [`docs/PLAN-v8.md`](docs/PLAN-v8.md)（需求/DoD/审查协议/终止条件）
 > - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（只出报告，不改仓库）
 > - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`）——**不作现状**
-> - **自检**：`python Tool/scripts/preflight.py`
+> - **测试**：`python Tool/scripts/check.py`（一条命令跑完 6 个套件；`--fast` 只跑快的）
 
 ---
 

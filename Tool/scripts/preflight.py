@@ -1114,33 +1114,32 @@ def check_domain_commands():
 
 
 def check_route_first_contract():
-    """「先路由后动手」必须是**自动注入层**里的硬条款，且路由命令可执行。
+    """入口契约：AGENTS（每轮注入）必须指明「选域」的显式入口，且路由测试工具仍可用。
 
-    依据（同类工作台对照，2026-10-24 检索）：
-    · Asaiuta/reverse-workbench-skill：`MASTER-ROUTING.md` 执行契约第 1 条「先路由后动手」，
-      并有 `smoke.ps1` 用**中文 Hint** 验证路由矩阵
-    · tqjeff/qingtianzhu-toolbox `routing.md`：`MUST complete routing BEFORE executing. Do NOT "do first, route later."`
-    · zhaoxuya520/reverse-skill：`RULES.md → MASTER-ROUTING → case-init(scope gate) → PRIMARY SKILL.md`
-    我们原来把路由写在 `route.py`（CLI）里，模型从不调用 —— 等于死数据。
-    这条判据保证：条款在 AGENTS（每轮注入）+ 命令真的能跑 + 探针表在。
+    设计变更（2026-10-24，用户拍的 A+A）：
+    · 显式入口 = 斜杠命令 `/rev` `/apk` …（100% 加载该域技能链）
+    · 兜底 = 技能 `description` 命中
+    · `route.py` 降级为**测试工具**（不再写进开工步骤）——但仍然必须能跑，否则兜底/测试失效
+    所以这条判据改成：AGENTS 含 `/rev` 之类的命令入口 + 含"选域"字样；`route.py --resolve` 仍能命中。
     """
     ag = os.path.join(TOOL, "prompts", "AGENTS.md")
     bad = []
     try:
         t = open(ag, encoding="utf-8").read()
-        if "route.py --resolve" not in t:
-            bad.append("AGENTS 未写 route.py --resolve 的用法")
-        if "先路由" not in t:
-            bad.append("AGENTS 未写「先路由后动手」")
+        if "选域" not in t:
+            bad.append("AGENTS 未写「选域」入口")
+        if "/rev" not in t and "/apk" not in t:
+            bad.append("AGENTS 未列斜杠命令入口（/rev、/apk …）")
+        if "description" not in t:
+            bad.append("AGENTS 未提 description 兜底")
     except Exception as e:  # noqa: BLE001
         bad.append("AGENTS 读失败 %s" % e)
-    # 命令必须真能跑（用一句真实用户说法）
     rc, out = run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
                    "--resolve", "初步分析一下这个软件"], timeout=60)
     if rc != 0 or "softseep" not in (out or ""):
-        bad.append("route.py --resolve 不可用或未命中 softseep（rc=%d）" % rc)
-    add("2 单一事实源", "先路由后动手（AGENTS 硬条款 + 命令可跑 + 探针表）", not bad,
-        "；".join(bad[:3]) if bad else "AGENTS 含条款，route.py --resolve 命中，探针表在")
+        bad.append("route.py --resolve 已失效（测试工具坏了）（rc=%d）" % rc)
+    add("2 单一事实源", "入口契约（AGENTS 写斜杠命令 + description 兜底；route.py 作测试仍可用）", not bad,
+        "；".join(bad[:3]) if bad else "AGENTS 含命令入口与兜底说明；route.py 测试可用")
 
 
 def check_trigger_matrix():
