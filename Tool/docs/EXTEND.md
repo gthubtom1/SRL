@@ -163,6 +163,29 @@ python Tool/scripts/gate.py Tool/config/tool-capabilities.json
 
 ---
 
+## 6bis. 换一台电脑 / 新装工具：三步（不需要插件，也不需要模型猜名字）
+
+**为什么不是"自进化插件"**：发现链本身已经通用（8 层：env → PATH → 常见根 → 注册表 → 开始菜单 →
+Everything → 递归扫描 → 别名映射），实测本机 36 项能力里 **35 项零漏检**（唯一缺的那个是真没装）。
+所以不需要"让模型自己搜名字然后自动写配置"——那会写错名字、还会把机器路径写进仓库。
+
+| 步 | 命令 | 做什么 |
+| :-: | :-- | :-- |
+| 1 | `python Tool/scripts/tool-acquire.py --sweep` | **本机体检**：能力表逐项探活，列出可用/缺失 + 路径 + 命中层 |
+| 2 | `python Tool/scripts/tool-acquire.py --tool <id>` | 缺的那项：拿安装建议（探活→启动→连上→装→求助阶梯） |
+| 3 | `python Tool/scripts/tool-acquire.py --add <id> --exe <真实路径>` | 装好后**记住它**（写 `~/.seep/tool-paths.json`，只本机、不进仓库；路径不存在直接拒） |
+
+**发现结果会自动记住**：命中即写机器级缓存（下次 `via=cache`，实测 1.27s → 0.000s），
+缓存读取用 `utf-8-sig`（PowerShell 写的文件带 BOM，否则会整份覆盖丢条目）。
+
+**名字不一致怎么办**：别名层已覆盖常见差异（实测 `Detect It Easy` → `diec.exe`、`Wireshark` → `tshark.EXE`、
+`IDA Pro` → `idat.exe`）。仍找不到时**不要猜**：`--tool <id>` 走发现链，`--add` 直接给真实路径。
+
+**要"所有机器都认"某工具**（而不是只本机）才动仓库：把 `--add` 打印出的条目补进
+`Tool/config/tool-capabilities.json`（只写"需要什么/候选 exe 名"，**不写路径**）。
+
+---
+
 ## 7. 反面清单（违反即返工）
 
 - ❌ 在提示词里硬编码工具数量 / 技能清单（会立刻过期，门禁会红）；

@@ -4,7 +4,7 @@
 
 设计哲学（务必遵守，否则又会变成臃肿的 relab2）：
   1. 逻辑进仓库（本文件 + Tool/config/tool-capabilities.json），状态留本机
-     （~/.seep/tools.local.json，已 gitignore），绝不让 GitHub 变重。
+     （~/.seep/tool-paths.json，在用户目录、不进仓库），绝不让 GitHub 变重。
   2. 六层递进发现：环境变量 -> PATH -> 常见安装目录 -> Windows 注册表
      -> 递归扫描(带 deny 规则) -> 别名映射。不能只查 PATH。
   3. 匹配架构/版本：读目标 PE 的 machine 字段，32 位选 x32dbg、64 位选 x64dbg。
@@ -19,6 +19,8 @@
 本模块既被 seep_mcp_server.py 以 `import tool_autodiscover` 调用（零副作用），
 也可独立命令行运行（见文件末尾 __main__）。
 """
+import io
+import time
 import os
 import sys
 import json
@@ -38,6 +40,59 @@ _INSTALL_FILE = os.path.join(_CONFIG_DIR, "tool-install.json")
 
 # 本机状态（绝不入库）
 LOCAL_STATE_DIR = os.path.expanduser(os.path.join("~", ".seep"))
+
+_PATH_CACHE_FILE = os.path.join(LOCAL_STATE_DIR, "tool-paths.json")
+
+
+def _cache_read():
+    """读机器级路径缓存（与 tool-run.ps1 共用同一文件与 schema）。"""
+    try:
+        # utf-8-sig：tool-run.ps1 用 PowerShell 写的文件带 BOM，用 utf-8 读会解析失败，
+        # 失败后整份覆盖会**丢掉已有条目**（实测踩到：r2/jadx 被新条目顶掉）。
+        with io.open(_PATH_CACHE_FILE, encoding="utf-8-sig") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _cache_get(tid, exe_names):
+    """缓存命中且路径仍可用才算命中（工具可能被卸载/挪走）。"""
+    e = (_cache_read().get("tools") or {}).get(tid)
+    if not isinstance(e, dict) or not e.get("available"):
+        return None
+    cmd = e.get("command") or ""
+    if not cmd:
+        return None
+    if os.path.isfile(cmd):
+        return {"command": cmd, "via": "cache"}
+    # 路径失效：若是 exe 名而非绝对路径（如 PATH 命中记的是命令名），交给后面各层
+    base = os.path.basename(cmd).lower()
+    if base in [n.lower() for n in (exe_names or [])] and shutil.which(cmd):
+        return {"command": cmd, "via": "cache"}
+    return None
+
+
+def _cache_put(tid, command, via, arch=None):
+    """命中即记住（只写用户目录，绝不写进仓库）。"""
+    try:
+        d = _cache_read()
+        tools = d.setdefault("tools", {})
+        tools[tid] = {
+            "available": True, "command": command, "via": via, "arch": arch,
+            "checked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        d["schemaVersion"] = d.get("schemaVersion") or "1.0"
+        os.makedirs(LOCAL_STATE_DIR, exist_ok=True)
+        tmp = _PATH_CACHE_FILE + ".tmp"
+        with io.open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, _PATH_CACHE_FILE)   # 原子替换，避免与 tool-run.ps1 并发写坏
+        return True
+    except Exception:
+        return False
+
+
 LOCAL_STATE_PATH = os.path.join(LOCAL_STATE_DIR, "tools.local.json")
 
 # ---------------------------------------------------------------------------
@@ -518,6 +573,11 @@ def discover(tool_id, target=None, use_registry=True):
     exe_names = _exe_candidates(tid, arch)
 
     layers = []
+    # 第 0 层：机器级缓存（上次发现的结果；每次都校验路径仍在）
+    hit = _cache_get(tid, exe_names)
+    if hit and not _path_excluded(hit, caps):
+        layers.append(("cache", hit))
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
     hit = _layer_env(tid, exe_names);  layers.append(("env", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
@@ -551,6 +611,8 @@ def discover(tool_id, target=None, use_registry=True):
 
 
 def _discover_result(raw, tid, caps, arch, exe_names, hit, layers):
+    if hit.get("via") != "cache":
+        _cache_put(tid, hit.get("command", ""), hit.get("via", "?"), arch)
     out = {
         "tool_id": tid, "input": raw, "available": True,
         "command": hit["command"], "via": hit["via"],

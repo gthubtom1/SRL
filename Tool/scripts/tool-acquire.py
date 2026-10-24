@@ -345,14 +345,81 @@ def list_tools() -> int:
 def selftest() -> int:
     print("== tool-acquire 自检 ==")
     r = acquire("x64dbg", allow_start=False)
-    print(f"x64dbg L0: {'可用' if r['verdict'] == 'USABLE' else r['verdict']}  "
-          f"{r['steps'][0].get('detail', '')}")
-    print(f"结论：{r['verdict']}")
-    # 旧判据是 "steps 非空" —— 而 acquire() 总会先 append s0，于是**永远 PASS**（FINAL-2 A2）。
-    # 现在只认「真的探到了可用的 L0」，这才是探活的判据。
-    _ok = r["verdict"] == "USABLE"
-    print("PASS" if _ok else "FAIL")
+    d0 = r["steps"][0].get("detail", "") if r.get("steps") else ""
+    print(f"x64dbg L0: {r['verdict']}  {d0}")
+    # 判据演进（两次踩坑记录）：
+    #   v1 只判 "steps 非空" → acquire() 总会先 append s0 ⇒ **永远 PASS**（FINAL-2 A2）
+    #   v2 判 verdict == USABLE → 等于要求「GUI 此刻正在运行」，新机器/没开调试器时**必红**，
+    #      门禁从此依赖活体状态（实测踩到：x64dbg 端口在听但 401 ⇒ 48/48 掉到 47/48）
+    #   v3（现行）判**鉴别力**：① 一定要真探过（有 detail）；② 端口在听但拒绝(401/403)时
+    #      **绝不许**判 USABLE（这才是那个 fail-open 的实质）；③ verdict 必须是诚实取值之一。
+    honest = {"USABLE", "NEED_START", "STARTED_BUT_NOT_LINKED", "NEED_USER"}
+    fail_open = (r["verdict"] == "USABLE") and ("401" in d0 or "403" in d0 or "refus" in d0.lower())
+    probed = bool(d0.strip())
+    _ok = (not fail_open) and probed and (r["verdict"] in honest)
+    print("PASS" if _ok else "FAIL",
+          "（反 fail-open：端口在听但拒绝时不许判 USABLE；不要求 GUI 正在运行）")
     return 0 if _ok else 1
+
+
+def sweep() -> int:
+    """本机工具体检：能力表里每个 tool_id 探一次（缓存优先），输出可用/缺失。"""
+    import os as _os
+    import sys as _sys
+    sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "mcp"))
+    import tool_autodiscover as _T
+
+    caps = _T._capabilities_table().get("tools", {})
+    rows, miss = [], []
+    for tid in sorted(caps):
+        try:
+            r = _T.discover(tid)
+        except Exception as e:  # noqa: BLE001
+            rows.append((tid, False, "EXC " + str(e)[:40], "-"))
+            miss.append(tid)
+            continue
+        ok = bool(r.get("available"))
+        rows.append((tid, ok, str(r.get("command") or "")[:52], str(r.get("via") or "-")))
+        if not ok:
+            miss.append(tid)
+    print("本机工具体检（能力表 %d 项；缓存优先，缺失项见 `--tool <id>` 拿安装建议）" % len(caps))
+    print("%-16s %-5s %-10s %s" % ("tool_id", "可用", "via", "路径"))
+    print("-" * 92)
+    for tid, ok, cmd, via in rows:
+        print("%-16s %-5s %-10s %s" % (tid, "是" if ok else "否", via, cmd))
+    print("-" * 92)
+    print("可用 %d / 缺失 %d" % (len(rows) - len(miss), len(miss)))
+    if miss:
+        print("缺失：" + "、".join(miss))
+        print("→ 装好后用 `tool-acquire.py --add <tool_id> --exe <真实exe路径>` 登记（只写本机，不进仓库）")
+    return 0
+
+
+def add_tool(tool_id: str, exe: str) -> int:
+    """把本机某个工具的**真实路径**登记进机器级缓存（不进仓库）。"""
+    import os as _os
+    import sys as _sys
+    sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "mcp"))
+    import tool_autodiscover as _T
+
+    if not tool_id:
+        print("用法：--add <tool_id> --exe <exe 路径>")
+        return 4
+    p = _os.path.expanduser(exe or "")
+    if not p or not _os.path.isfile(p):
+        print("[拒] 路径不存在：%r\n  不猜名字 —— 请给真实 exe 路径（可用 --sweep 看缺哪些，"
+              "或 --tool <id> 让发现链自己找）" % exe)
+        return 4
+    _T._cache_put(_T.normalize_tool_id(tool_id), p, "manual")
+    print("[OK] 已登记 %s → %s（只写 %s，不进仓库）"
+          % (tool_id, p, _T._PATH_CACHE_FILE))
+    print("\n如需让**所有机器**都知道这个工具（而不是只本机），把下面条目补进 "
+          "Tool/config/tool-capabilities.json 的 tools：")
+    print('  "%s": {"display": "%s", "exe_candidates": ["%s"], '
+          '"capabilities": {"cli": true, "gui": false, "headless": null, "mcp": false}, '
+          '"install_hint": "%s"}'
+          % (tool_id, tool_id, _os.path.basename(p), "按官方安装方式；本机路径由 --add 记住"))
+    return 0
 
 
 def main() -> int:
@@ -362,10 +429,17 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--sweep", action="store_true", help="本机工具体检（能力表逐项探活）")
+    ap.add_argument("--add", default="", help="登记本机新工具：--add <id> --exe <路径>")
+    ap.add_argument("--exe", default="", help="配合 --add 的真实可执行文件路径")
     a = ap.parse_args()
 
     if a.list:
         return list_tools()
+    if a.sweep:
+        return sweep()
+    if a.add:
+        return add_tool(a.add, a.exe)
     if a.selftest:
         return selftest()
     if not a.tool:
