@@ -1,0 +1,68 @@
+{
+  "schema": "seep.pack/1",
+  "id": "apkseep",
+  "l1": "目标是 APK/AAB/DEX/SO、Android 加固壳、抓包 pinning、或小程序 wxapkg 时打开。",
+  "routes": [
+    {
+      "label": "APK / Android 逆向",
+      "must": [
+        "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
+        "(?i)(小程序|miniprogram|\\bwxapkg\\b|微信.{0,6}(?:小程序|逆向|抓包)|快应用)"
+      ],
+      "priority": 350
+    },
+    {
+      "label": "APK 反编译 / 重打包（通用战术包）",
+      "must": [
+        "(?i)apk.{0,8}解包|解包.{0,8}apk|反编译.?apk|apk.?反编译|zipalign|apksigner|资源替换|改包"
+      ],
+      "priority": 340
+    }
+  ],
+  "stages": [
+    "0-analysis",
+    "1-ask",
+    "2-dyn",
+    "3-patch",
+    "4-verify"
+  ],
+  "tools": [
+    "seep_apk_unpack",
+    "seep_apk_info",
+    "seep_apk_smali_search",
+    "seep_apk_decompile"
+  ],
+  "cases": [
+    "leaf-apk"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/leaf-apk",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "只覆盖客户端侧；服务端校验不在此包范围",
+    "样本仅 1 个真实 APK（diva.apk），未见商业加固壳"
+  ],
+  "invalidation": [
+    "目标不是 Android 载体",
+    "需要脱壳且脱壳失败两次 → 转 malware-analysis"
+  ]
+}

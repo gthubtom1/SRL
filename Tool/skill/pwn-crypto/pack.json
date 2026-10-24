@@ -1,0 +1,66 @@
+{
+  "schema": "seep.pack/1",
+  "id": "pwn-crypto",
+  "l1": "目标含栈/堆溢出、格式化串、seccomp/ORW、ROP 链，或 RSA/ECC/AES/PRNG/HMAC 等密码学构造时打开。",
+  "routes": [
+    {
+      "label": "二进制利用/密码学攻击",
+      "must": [
+        "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc|FSOP|_IO_wfile_jumps|__free_hook|exit_funcs)\\b|glibc\\s*2\\.3",
+        "(?i)(栈溢出|堆溢出|格式化字符串|沙箱逃逸|控制流劫持|任意地址写|越界读写|整数回绕)",
+        "(?i)\\b(rsa|aes|ecb|cbc|gcm|hmac|mt19937|prng|coppersmith|lattice)\\b",
+        "(?i)\\b(pow\\s*\\(|modinv|iroot|hastad|wiener)\\b"
+      ],
+      "priority": 210
+    }
+  ],
+  "stages": [
+    "0-analysis",
+    "1-ask",
+    "2-dyn",
+    "3-patch",
+    "4-verify"
+  ],
+  "tools": [
+    "seep_r2_disasm",
+    "seep_r2_decompile",
+    "seep_mem_strings"
+  ],
+  "cases": [
+    "pwn-crypto01",
+    "pwn-crypto02",
+    "pwn-crypto03",
+    "pwn-crypto04",
+    "pwn-crypto05"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto01",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "无远程 pwn 靶机：仅本地二进制与自建 harness",
+    "密码学部分只覆盖实现层误用，不含协议级攻击面"
+  ],
+  "invalidation": [
+    "目标为纯 Web 应用（转 web-pentest）",
+    "目标为加壳样本（先 malware-analysis 脱壳）"
+  ]
+}

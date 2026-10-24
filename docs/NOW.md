@@ -7,7 +7,7 @@
 
 ## 一、一句话现状
 
-方向已从"继续加"改成"先减法"。**S1「只删不加」已完成；S2「杀 fail-open」4 件已全部落地并自验**（preflight 43/43 全绿、可控制层 14,739 tok 未变）。
+方向已从"继续加"改成"先减法"。**S1 已完成、S2 已完成；S3 步骤 1 已落地**（9 个 `pack.json` + `route.py` + `gate.py`，preflight 43/43 全绿）。
 根因（实测）：常驻 29,415 token（其中宿主基座 14,676 改不动）/ `Tool/scripts` 51 个 `.py` / 32 技能里 19 个零样本 / **76 会话 4,536 次 toolCall 里 MCP 调用 0 次**。
 
 ## 二、唯一顺序（不许跳、不换序）
@@ -16,32 +16,26 @@
 | :-: | :-- | --: | :-: |
 | **S1** | 只删不加 ✅ **已完成**（preflight 52→43 全绿、脚本 106→59、脏项 108→0，两次提交在 `s1-subtract`） | 3h | ✅ |
 | **S2** | 杀 fail-open：报告生成器无证据则拒绝；超限拒绝不截断；`unknown` 不计 pass；状态副本收口 | 1d | ✅ **已完成（4/4，打红证据见 §三）** |
-| S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | ⬜ **下一步** |
+| S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | 🔄 **进行中：包/闸已立，剩「索引 32→9」+ 删 routing.json** |
 | S4 | 全局收口：`Tool/scripts` → 7；状态 → 4；工具面 40→16 | 1d | ⬜ |
 | S5 | KPI 回放：3 靶 + 1 真实目标 | 1d | ⬜ |
 
-## 三、当前这一步 = S2「杀 fail-open」（细节只认 `docs/BLUEPRINT.md` §4 D1–D3 + §3.4）
+## 三、当前这一步 = S3「立包与闸」（细节只认 `docs/BLUEPRINT.md` §2.1–§2.4 + §5）
 
-四件已落地，**每条都要能打红**（红 = 拒绝，而非"看起来成功"）：
+**已落地（步骤 1）**：8 个域包 + `softseep` 各有 `pack.json`（`.strict()` 语义），新增 `Tool/scripts/route.py` 与 `Tool/scripts/gate.py`。
 
-| # | 改了什么 | 在哪 | 判据（怎么看见生效 / 打红） |
-| :-: | :-- | :-- | :-- |
-| 1 | **状态副本收口**：state 由 `facts.jsonl` 的 `kind:"state"` 行重放；索引 `case_state.py index` 现算；扩展停写 `memory/facts.jsonl` 与 `events.jsonl` | `Tool/scripts/case_state.py`、`Tool/prompts/extensions/seep-memory.ts`+`seep-events.ts` | `case_state.py replay --case <c>` 打印"账本行（claim/state/event）"；`ls Tool/cases/*/state.json` = 0；`ls Tool/cases/index.json` 不存在；`index --check` rc=0 |
-| 2 | **报告生成器无证据则拒绝**：删掉"通过动态 Hook…成功验证…已归档至 patches/"这类缺省文案；`seep_auto_triage` 无 rabin2 且零命中即拒 | `Tool/mcp/seep_mcp_server.py` | 空字段/占位 `branch_location` → `{ok:false,error:"missing_evidence_fields"}`；无 observed claim → `{ok:false,error:"no_evidence",wrote_files:0}` 且 `reports/` 不新增文件 |
-| 3 | **超限拒绝不截断**：`RESULT_BUDGET_BYTES=64KiB`；`limit_tokens` 默认 0→8000；`_run_cmd` 空输出不再回 "Success, no output" | `Tool/mcp/seep_mcp_server.py` | `grep -c "TRUNCATED" ` = 0；`seep_r2_disasm(limit_tokens=100)` → `{ok:false,error:"resource_constraint",bytes,continuation}`；坏符号 → `{ok:false,error:"empty_output"}` |
-| 4 | **unknown 永不计 pass**：claim 带 `confidence∈{observed,derived,inferred,unknown}`+`authority`；`case_state.py verify` 聚合（`fail/unknown/unsupported/truncated/skipped` 任一非零即不得 pass） | `Tool/scripts/case_state.py` | `verify --all` 四个 case 全报 `UNKNOWN`（旧实现把它们当 recorded）；`gate` 对缺 confidence 的 proven 打 WARN，`--strict` 时转红 |
+| 判据 | 现状 | 命令 |
+| :-- | :-- | :-- |
+| ② 死路由 = 0 | **34 条路由 / 9 个包 / 死路由 0**（routing.json 的 35 条里 R23 `ad-cloud` 按 BLUEPRINT 进 `_pending` 不索引） | `python Tool/scripts/route.py --check` |
+| ③ Σl1 ≤1,260 字 | **502 字**（每包 48–66 字，全部 ≤140） | `python -c "import glob,json;print(sum(len(json.load(open(f,encoding='utf-8'))['l1']) for f in glob.glob('Tool/skill/*/pack.json')))"` |
+| ① 每包有绿或红 + `unknown→pass` = 0 | **pass 0 / fail 9**，`unknown_as_pass` 结构上恒 0；9 个包的 G2/G3 全绿，**红全在 G4/G5** | `python Tool/scripts/gate.py --all` |
 
-**新增文件（唯一一件，附 KPI 前后对比）**：`Tool/mcp/seep_contract.py`（纯函数：预算/空态/证据筛选/报告模板；无 IO、无状态、不注册工具）。
-| KPI | 前 | 后 |
-| :-- | --: | --: |
-| MCP 主服务行数（≤3200） | 3417（超限红） | **3194** |
-| first-party 文件数（≤900） | 861 | 862 |
-| 工具面（40 条基线） | 40 | 40 |
-| 可控制层 token（≤8k 目标） | 14,739 | 14,739 |
-拆的理由只有一条：单文件预算已到 3194/3200，S2 的判据必须进代码，而 BASELINE-FREEZE §7 规定"超了要拆模块，不是继续追加"。
+**为什么 0 绿是当前真值**：G5 要求「整包 ≥1 条 `observed/derived` 证据」，而现在 4 个有 facts 的 case 全是 `unknown`
+（S2 引入 confidence 后没重声明），其余 5 个包连 claim 都没有。**把包变绿是 S5 的 KPI 回放工作**（重跑 witness → 显式声明 observed），不是在 S3 里补一行 `observed` 就能勾掉的复选框。
 
-**遗留（S5 必须处理，不是缺陷）**：4 个老 case 的 13/6/19 条 proven 都还没有 `confidence`/`authority` → 一律 `unknown`。
-这是**故意的**：自动补 `observed` 就是伪造。S5 KPI 回放时用 `prove --confidence observed --authority shipped-artifact` 逐条重声明。
+**S3 剩余两件（下一步）**：
+1. **索引 32→9**：24 个非包技能移入 skill 根下的 `_pending/`（下一步创建；不索引、不路由）；`softseep/SKILL.md` 的调度表改指 9 个包。收益可量化：宿主技能索引 2,809 tok → 预计 ≤800。
+2. **删 `routing.json`**：路由已进 `pack.json`，但还有 3 个读者（`master-route.ps1` / `verify-routing-coherence.py` / `route-playbook-parity.py`）必须先改指 `route.py`，否则 `preflight` 的「路由↔配方一致」当场红。
 
 ## 三bis、S1 结论（教训，别重踩）
 

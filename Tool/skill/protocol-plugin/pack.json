@@ -1,0 +1,75 @@
+{
+  "schema": "seep.pack/1",
+  "id": "protocol-plugin",
+  "l1": "目标是私有/二进制协议复刻，或插件/扩展/Mod、Electron asar、Unity 注入时打开。",
+  "routes": [
+    {
+      "label": "插件/扩展/Mod 逆向",
+      "must": [
+        "(?i)\\b(crx|xpi|vsix|asar|bytenode|jsc)\\b|v8\\s*字节码",
+        "(?i)\\b(bepinex|melonloader|harmonyos)\\b",
+        "(?i)\\b(nativemessaging|connectnative|sendnativemessage)\\b|NativeMessagingHosts"
+      ],
+      "priority": 330
+    },
+    {
+      "label": "协议/私有协议复刻",
+      "must": [
+        "(?i)(私有协议|协议逆向|协议复刻|抓包|pcap|tshark|wireshark|mitmproxy|状态机|报文|重放|protobuf|flatbuffers)"
+      ],
+      "priority": 190
+    }
+  ],
+  "stages": [
+    "0-analysis",
+    "1-ask",
+    "2-dyn",
+    "3-patch",
+    "4-verify"
+  ],
+  "tools": [
+    "seep_http_replay",
+    "seep_pcap_extract",
+    "seep_r2_disasm"
+  ],
+  "cases": [
+    "protocol01",
+    "protocol02",
+    "protocol03",
+    "protocol04",
+    "plugin02",
+    "plugin03",
+    "plugin04",
+    "plugin05",
+    "plugin06"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/protocol01",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "协议复刻判据是「同输入同输出 + 服务端接受新请求」，不做中间人改写",
+    "插件目标依赖宿主版本，跨版本需重做"
+  ],
+  "invalidation": [
+    "协议为公开标准且已有库（直接复用，不必复刻）"
+  ]
+}

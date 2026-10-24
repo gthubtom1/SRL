@@ -1,0 +1,72 @@
+{
+  "schema": "seep.pack/1",
+  "id": "firmware-iot",
+  "l1": "目标是路由器/摄像头/NAS 固件、UEFI/Secure Boot、或需要 UART/JTAG/SPI 接入时打开。",
+  "routes": [
+    {
+      "label": "固件/IoT/硬件",
+      "must": [
+        "(?i)(?:firmware|固件|embedded\\s+linux|嵌入式(?:设备|系统)|router\\s+firmware|路由器固件)",
+        "(?i)\\b(uart|jtag|swd|spi\\s+(?:flash|dump|programmer)|openocd|flashrom|ch341a|picocom|minicom)\\b",
+        "(?i)\\b(binwalk|ubireader|unsquashfs|sasquatch|jefferson|cramfsck)\\b",
+        "(?i)\\b(squashfs|ubifs?|jffs2|cramfs|\\buti\\b|mtd|nanddump)\\b",
+        "(?i)(?:\\bota\\b|\\bfirmware\\s+update\\b|固件升级|升级包)b",
+        "(?i)\\b(uefi|secure\\s*boot|\\bpk\\b|\\bkek\\b|\\bdbx?\\b|tpm\\s*(?:2\\.0|eventlog))\\b",
+        "(?i)\\b(bios|uefi)\\b",
+        "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)b",
+        "(?i)\\biot\\b",
+        "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包)"
+      ],
+      "priority": 230
+    }
+  ],
+  "stages": [
+    "0-analysis",
+    "1-ask",
+    "2-dyn",
+    "3-patch",
+    "4-verify"
+  ],
+  "tools": [
+    "seep_kb_search",
+    "seep_kb_read",
+    "seep_tool_discover"
+  ],
+  "cases": [
+    "firmware-iot01",
+    "firmware-iot02",
+    "firmware-iot03",
+    "firmware-iot04",
+    "firmware-iot05"
+  ],
+  "witness": {
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/firmware-iot01",
+    "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
+    "budget_s": 180
+  },
+  "evidence_contract": {
+    "required_fields": [
+      "claim",
+      "confidence",
+      "authority",
+      "evidence"
+    ],
+    "authority_allow": [
+      "shipped-artifact",
+      "controlled-replay",
+      "external-service"
+    ],
+    "pass_forbids_confidence": [
+      "inferred",
+      "unknown"
+    ]
+  },
+  "limitations": [
+    "无实机：仿真以 QEMU/FirmAE 为主，硬件侧只给接线判据",
+    "不烧写设备固件"
+  ],
+  "invalidation": [
+    "目标为通用 PC 软件（转 pwn-crypto / malware-analysis）",
+    "无固件获取路径"
+  ]
+}
