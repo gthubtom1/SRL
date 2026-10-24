@@ -372,6 +372,34 @@ def judge(pack, route_index, run_witness=True):
     return {"pack": pack.get("id"), "verdict": verdict, "gates": gates}
 
 
+
+def judge_answer(trap_id, answer):
+    """对一段真实回答打分（D2 持续回归）。
+
+    判据：`expect_tokens` 每组**至少命中一个**；`forbidden_tokens` **一个都不许出现**。
+    缺任一组 / 命中任一禁忌词 → FAIL（不做"差不多就行"的模糊判定）。
+    """
+    import glob as _glob
+    tps = []
+    for f in _glob.glob(os.path.join(ROOT, "Tool", "config", "traps.json")):
+        tps = json.load(open(f, encoding="utf-8")).get("traps") or []
+    trap = next((t for t in tps if t.get("id") == trap_id), None)
+    if not trap:
+        return {"ok": False, "error": "no_such_trap", "id": trap_id}
+    low = (answer or "").lower()
+    missing, hit_forbidden = [], []
+    for gi, group in enumerate(trap.get("expect_tokens") or [], 1):
+        if not any(tok.lower() in low for tok in group):
+            missing.append("第%d组缺一：%s" % (gi, " / ".join(group)))
+    for tok in trap.get("forbidden_tokens") or []:
+        if tok.lower() in low:
+            hit_forbidden.append(tok)
+    ok = not missing and not hit_forbidden
+    return {"ok": ok, "id": trap_id, "pack": trap.get("pack"),
+            "missing_groups": missing, "forbidden_hits": hit_forbidden,
+            "chars": len(answer or "")}
+
+
 def main():
     ap = argparse.ArgumentParser(description="按包判定（G2/G3/G4/G5）：红=失败，unknown 不计 pass")
     ap.add_argument("--all", action="store_true")
@@ -380,6 +408,8 @@ def main():
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--no-witness", action="store_true", help="跳过 G4 实跑（只做静态判据）")
     ap.add_argument("--skill-dir", default="")
+    ap.add_argument("--trap", default="", help="对一个真实回答打分（陷阱 id）")
+    ap.add_argument("--answer", default="", help="回答文本文件（配合 --trap）")
     a = ap.parse_args()
     packs, problems = route_mod.load_packs(a.skill_dir or None)
     if problems:
@@ -389,6 +419,14 @@ def main():
             for p in problems:
                 print("[FAIL] " + p)
         return 1
+
+    if a.trap:
+        if not a.answer or not os.path.isfile(a.answer):
+            print("[ERR] --trap 需要 --answer <文件>")
+            return 2
+        res = judge_answer(a.trap, open(a.answer, encoding="utf-8", errors="replace").read())
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        return 0 if res.get("ok") else 1
 
     if a.list:
         for p in packs:

@@ -48,6 +48,7 @@
 | 副作用同屏退路 | `preflight` lint | 危险写操作前后 6 行无收尾/还原 → 红 |
 | 对抗陷阱对撞（D2 静态） | `preflight` lint + `Tool/config/traps.json` | 部署层文本教捷径，或诱饵命令未被禁手覆盖 → 红 |
 | target 资产 / verification receipt | `gate.py` G4b / G6 | target 空、sha256 不符、回执缺或过期 → 红 |
+| 对抗回答打分（D2 回归） | `gate.py --trap <id> --answer <文件>` | 缺任一期望要素 / 命中任一禁忌词 → rc=1（夹具见 `docs/verification/trap-T01-*`） |
 
 **已确认的遗留（都不是"没做"，是需要人拍板）**
 
