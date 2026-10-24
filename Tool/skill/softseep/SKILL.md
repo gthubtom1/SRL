@@ -11,11 +11,19 @@ metadata:
 
 # softseep — 逆向工程总控入口（Orchestrator）
 
-> **本文件是总控，不是手册。** 它只回答三个问题：
-> **① 这是哪个平台的软件？ ② 属于什么逆向类型？ ③ 分发给谁？**
-> 具体战术细节一律在 `references/`，**按需加载，不预先全读**。
+> **本文件是总控，不是手册。** 只回答：① 哪个平台 ② 什么逆向类型 ③ 分发给谁。细节在 `references/`，按需加载。
 
 ---
+
+## 用户话 → 第一动作（先对号，再动手）
+
+| 用户这么说 | 第一件事 | 不要做 |
+| :-- | :-- | :-- |
+| 「初步分析一下这个软件」 | **判型三问**：什么平台/什么类型/有无壳或加固 → 给裁定 + 交付上限 M1–M4 | 写脚本、反汇编、启动样本 |
+| 「能不能破/能不能改」 | 同上 + 五轴打分（任一轴=5 即天花板） | 直接改字节或下补丁 |
+| 「帮我逆向/做成源码级」 | 先给路线三级（静态 / 需动态 / 需脱壳后再静态）+ 各级证据要求 | 在密文或壳上做静态精读 |
+
+**铁律**：用户给的"后续目标"（补丁/源码级）不改变第一步 —— 第一步永远是判型与上限。
 
 ## 先看这一条（S3 索引改革之后）
 
@@ -231,11 +239,7 @@ metadata:
 
 ### ⓪ 自动判型 —— 这是 softseep 的职责，不是用户的负担（不可跳）
 
-> **用户只输入大白话，判型全部由 softseep 完成。** 用户不需要懂术语、不需要选类型、
-> 不需要指定平台 —— 他说什么，本主控**自己判**，判完直接分发。
->
-> **判型失败的处理**：若平台或类型无法从输入推断（既无文件、也无明确动词），
-> **只问一句**最关键的澄清问题，然后继续。**绝不把选择题甩回给用户。**
+> **用户只输入大白话，判型全部由 softseep 完成。** 用户不需要懂术语、不需要选类型、 不需要指定平台 —— 他说什么，本主控**自己判**，判完直接分发。  **判型失败的处理**：若平台或类型无法从输入推断（既无文件、也无明确动词）， **只问一句**最关键的澄清问题，然后继续。**绝不把选择题甩回给用户。**
 
 #### 判型信号从哪里取（softseep 自己看）
 
@@ -503,18 +507,12 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 > **按需加载，不预先全读。** 判型后只加载对应文件。
 
-| reference | 何时加载 |
-| :--- | :--- |
-| `references/01-criteria.md` | 任何任务开头：选场景/输入面，准备可机检判据 |
-| `references/02-failure-criteria.md` | 卡住/崩/无效时：按现象换路，三条熔断 |
-| `references/03-model-pitfalls.md` | 动手前/复盘：19 条错误动作与正确动作 |
-| `references/04-walkthrough-project-a.md` | 要照着一个真实案例复跑时（项目 A 状态字补丁） |
-| `references/windows-sop.md` | Windows 补丁/本地化/脱壳/代理 DLL/UI 验收/纵深防御 |
-| `references/license-validation.md` | 许可/激活/卡密/订阅/网络授权（16 节全量手册） |
-| `references/07-disassembly-deep-read.md` | x64/ARM64 调用约定、栈帧、编译器模式、5 个陷阱 |
-| `references/08-symbol-recovery.md` | PDB/RSDS/GUID+Age symbol key/FLIRT/FID/RTTI/vtable/剥离函数指纹 |
-| `references/09-patch-engineering.md` | 等长/rel32/代码洞/重定位/IAT vs inline/checksum/manifest |
-| `references/10-anti-debug.md` | 反调试/反 VM 识别与决策（脱壳流程转 unpack-loop） |
+- **开头必看**：`01-criteria.md`（选场景/可机检判据）、`03-model-pitfalls.md`（19 条错误动作）
+- **卡住/崩**：`02-failure-criteria.md`（按现象换路，三条熔断）
+- **平台/补丁**：`windows-sop.md`（补丁/脱壳/代理 DLL/UI 验收）、`07-disassembly-deep-read.md`、`09-patch-engineering.md`
+- **授权/许可**：`license-validation.md`（16 节全量手册）
+- **对抗**：`10-anti-debug.md`（反调试/反 VM 决策）、`08-symbol-recovery.md`（PDB/GUID/FLIRT/RTTI）
+- **照案例复跑**：`04-walkthrough-project-a.md`
 
 ### MANUAL/ 战术手册索引（按需查阅）
 
