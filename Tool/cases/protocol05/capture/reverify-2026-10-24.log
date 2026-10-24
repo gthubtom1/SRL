@@ -1,0 +1,116 @@
+
+### 目标：tcpdump 官方测试抓包 RADIUS.pcap（BSD，真实捕获，非合成）
+pcap sha256 = 9cd173ba614345281e4b66927f3b17b357519540bbc0feedbc15dbc7ba8ad921
+pcap size = 775 bytes
+
+### 1) pcap-summary.py 会话聚合 + 字节流导出
+{
+  "ok": true,
+  "file": "D:/tmp/tcpdump-fixtures/tests/RADIUS.pcap",
+  "sha256": "9cd173ba614345281e4b66927f3b17b357519540bbc0feedbc15dbc7ba8ad921",
+  "size": 775,
+  "format": "pcap",
+  "linktype": 1,
+  "linktype_name": "EN10MB/Ethernet",
+  "packet_count": 4,
+  "first_ts": 1217631137.872968,
+  "last_ts": 1217631137.91685,
+  "duration_s": 0.043882131576538086,
+  "session_count": 2,
+  "sessions": [
+    {
+      "proto": "UDP",
+      "src": "10.0.0.1",
+      "sport": 1645,
+      "dst": "10.0.0.100",
+      "dport": 1812,
+      "packets": 2,
+      "payload_bytes": 313,
+      "first_ts": 1217631137.872968,
+      "last_ts": 1217631137.916736,
+      "flags": [],
+      "snippets": [
+        "John.McGuirk",
+        "John.McGuirkP"
+      ],
+      "snippet_total": 4,
+      "stream_idx": 0,
+      "frame_payload_lens": [
+        139,
+        174
+      ]
+    },
+    {
+      "proto": "UDP",
+      "src": "10.0.0.100",
+      "sport": 1812,
+      "dst": "10.0.0.1",
+      "dport": 1645,
+      "packets": 2,
+      "payload_bytes": 206,
+      "first_ts": 1217631137.875771,
+      "last_ts": 1217631137.91685,
+      "flags": [],
+      "snippets": [
+        "Hello, %uO",
+        "Hello, John.McGuirkO",
+        "John.McGuirk"
+      ],
+      "snippet_total": 3,
+      "stream_idx": 1,
+      "frame_payload_lens": [
+        109,
+        97
+      ]
+    }
+  ],
+  "sessions_total": 2,
+  "suspicious_session_count": 2,
+  "suspicious_snippet_count": 7,
+  "extract": {
+    "dir": "D:/tmp/radius-streams",
+    "files": [
+      {
+        "path": "s00_10.0.0.1_1645-10.0.0.100_1812.bin",
+        "bytes": 313,
+        "sha256": "fae7b40ad87d2f709a6e9945c721e51e7d6c679cafb5543ebb8acfa5598c43e1"
+      },
+      {
+        "path": "s01_10.0.0.100_1812-10.0.0.1_1645.bin",
+        "bytes": 206,
+        "sha256": "279369c143fb8cfb365623e6f804ebdcf78a1e20f9c1cce94b5b6d07343e12a9"
+      },
+      {
+        "path": "frames.jsonl",
+        "lines": 4
+      }
+    ]
+  }
+}
+
+### 2) 按 RFC 2865 布局逐帧解析（我方解析器）
+  [s00_10.0.0.1] code=1(Access-Request) id=5 length=139 auth=ecfe3d2fe447… attrs=4:NAS-IP-Address,5:NAS-Port,61:NAS-Port-Type,1:User-Name,30:Called-Station-Id,31:Calling-Station-Id,6:Service-Type,12:Framed-MTU,79:EAP-Message,80:Message-Authenticator
+  [s00_10.0.0.1] code=1(Access-Request) id=6 length=174 auth=6a6f38e6dae8… attrs=4:NAS-IP-Address,5:NAS-Port,61:NAS-Port-Type,1:User-Name,30:Called-Station-Id,31:Calling-Station-Id,6:Service-Type,12:Framed-MTU,24:State,79:EAP-Message,80:Message-Authenticator
+  [s01_10.0.0.1] code=11(Access-Challenge) id=5 length=109 auth=f05064918462… attrs=8:Framed-IP-Address,12:Framed-MTU,6:Service-Type,18:Reply-Message,79:EAP-Message,80:Message-Authenticator,24:State
+  [s01_10.0.0.1] code=2(Access-Accept) id=6 length=97 auth=fbba6a784c7d… attrs=8:Framed-IP-Address,12:Framed-MTU,6:Service-Type,18:Reply-Message,79:EAP-Message,80:Message-Authenticator,1:User-Name
+
+### 2b) tshark 的 dissect（独立实现，用于对齐）
+1	1	5	139	ecfe3d2fe4473ec6299095ee46aedf77	4,5,61,1,30,31,6,12,79,80
+2	11	5	109	f050649184625d36f14c9075b7a48b83	8,12,6,18,79,80,24
+3	1	6	174	6a6f38e6dae830304d2333e5d5364643	4,5,61,1,30,31,6,12,24,79,80
+4	2	6	97	fbba6a784c7decb314caf0f27944a37b	8,12,6,18,79,80,1
+
+对齐结论：tshark 4 帧 / 我方 4 帧；code+id+length 逐帧一致 = True
+
+### 3) 重构：复制首帧、只改 User-Name 与 NAS-Port，重算 length，再让 tshark 重新 dissect
+变更：NAS-Port 0000c35c -> 00003039；User-Name 'John.McGuirk' -> 'audit-probe-user'
+新帧长度字段 = 143，实际构造 143 字节（一致=True）
+替换为全零 authenticator（无共享密钥，未重算；这是本轮显式记账的边界）
+新帧 hex = 0105008f0000000000000000000000000000000004060a0000010506000030393d060000000f011261756469742d70726f62652d757365721e1330302d31392d30362d45412d42382d38431f1330302d31342d32322d45392d35342d35450606000000020c06000005dc4f1302000011014a6f686e2e4d63477569726b501228c5beb8842486da70db51316f9d7889
+我方解析器回读：code=1 id=5 length=143 attrs=4:NAS-IP-Address,5:NAS-Port,61:NAS-Port-Type,1:User-Name,30:Called-Station-Id,31:Calling-Station-Id,6:Service-Type,12:Framed-MTU,79:EAP-Message,80:Message-Authenticator
+
+### 4) 新帧封装为 pcap（ETH/IP/UDP），交 tshark 独立判读
+crafted pcap = Tool/cases/protocol05\artifacts\crafted-radius.pcap（225 字节）
+1	5	143	audit-probe-user	12345	4,5,61,1,30,31,6,12,79,80
+
+### 结束：证据 = 本日志 + artifacts/crafted-radius.pcap

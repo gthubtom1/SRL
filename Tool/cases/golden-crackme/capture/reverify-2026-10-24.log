@@ -1,0 +1,119 @@
+### F-001 iI+ie
+baddr    0x140000000
+binsz    53782
+bits     64
+class    PE32+
+machine  AMD 64
+[Entrypoints]
+1 entrypoints
+
+### F-002 entropy/unique/sections
+WARN: Relocs has not been applied. Please use `-e bin.relocs.apply=true` or `-e bin.cache=true` next time
+0x140001000 000 00a7 |#################################
+0x140001100 001 00a0 |################################
+0x140001200 002 00a7 |#################################
+0x140001300 003 009c |###############################
+0x140001400 004 00a3 |################################
+0x140001500 005 00a2 |################################
+0x140001600 006 00a8 |#################################
+0x140001700 007 00a9 |#################################
+0x140001800 008 00b3 |###################################
+0x140001900 009 00ad |##################################
+0x140001a00 00a 00af |###################################
+0x140001b00 00b 00a1 |################################
+0x140001c00 00c 00ae |##################################
+0x140001d00 00d 0098 |##############################
+0x140001e00 00e 00a6 |#################################
+0x140001f00 00f 00a6 |#################################
+0x140002000 010 0096 |##############################
+0x140002100 011 00b5 |####################################
+0x140002200 012 00b6 |####################################
+
+### F-003 iI stripped/linenum + .debug_info
+linenum  true
+stripped false
+0   0x00000600  0x1a00 0x140001000  0x2000 -r-x ---- .text
+10  0x00003e00  0x1200 0x14000c000  0x2000 -r-- ---- .debug_info
+
+### F-004 imports: CreateFile/GetModuleFileName/ReadFile
+  (empty above = 未导入)
+
+### F-005 imports: network/crypto/antidebug
+  (empty above = 均未导入)
+
+### F-006 VirtualProtect + relocator
+9   0x140008298 NONE FUNC KERNEL32.dll                          VirtualProtect
+INFO: Analyze all flags starting with sym. and entry0 (aa)
+INFO: Analyze imports (af@@@i)
+INFO: Analyze entrypoint (af@ entry0)
+INFO: Analyze symbols (af@@@s)
+INFO: Recovering variables (afva@@@F)
+INFO: Analyze all functions arguments/locals (afva@@@F)
+0x1400018b0   54    905 sym._pei386_runtime_relocator
+
+### F-007 strings trance/PASS/FAIL + xrefs
+108  0x00002203 0x140004003 6   7    .rdata          ascii trance
+109  0x0000220a 0x14000400a 4   5    .rdata          ascii PASS
+110  0x0000220f 0x14000400f 4   5    .rdata          ascii FAIL
+
+### F-008 sym.main size + xref
+INFO: Analyze all flags starting with sym. and entry0 (aa)
+INFO: Analyze imports (af@@@i)
+INFO: Analyze entrypoint (af@ entry0)
+INFO: Analyze symbols (af@@@s)
+INFO: Recovering variables (afva@@@F)
+INFO: Analyze all functions arguments/locals (afva@@@F)
+0x140002860    5     79 sym.main
+sym.__tmainCRTStartup 0x1400010c2 [CALL:--x] call sym.main
+
+### F-009/F-010 main body + patch bytes
+|           0x14000287a      817c242874..   cmp dword [var_28h], 0x6e617274 ; 'tran'
+|       ,=< 0x140002882      7413           je 0x140002897
+|     .---> 0x140002890      31c0           xor eax, eax
+|     ::`-> 0x140002897      817c242b6e..   cmp dword [var_2bh], 0x65636e ; 'nce'
+|     :`==< 0x14000289f      75e3           jne 0x140002884
+- offset -   8283 8485 8687 8889 8A8B 8C8D 8E8F 9091  23456789ABCDEF01
+0x140002882  7413                                     t.
+- offset -   9FA0 A1A2 A3A4 A5A6 A7A8 A9AA ABAC ADAE  F0123456789ABCDE
+0x14000289f  75e3                                     u.
+            0x140002890      31c0           xor eax, eax
+            0x140002892      4883c438       add rsp, 0x38
+
+### F-013 rabin2 vs r2
+Usage: rabin2 [-AcdeEghHiIjlLMqrRsSUvVxzZ] [-@ at] [-a arch] [-b bits] [-B addr]
+              [-C F:C:D] [-f str] [-m addr] [-n str] [-N m:M] [-P[-P] pdb]
+              [-o str] [-O help] [-k query] [-D lang mangledsymbol] file
+arch     x86
+baddr    0x140000000
+binsz    53782
+WARN: Relocs has not been applied. Please use `-e bin.relocs.apply=true` or `-e bin.cache=true` next time
+arch     x86
+baddr    0x140000000
+
+done
+### F-002 附加：unique/packer
+unique (count):   246  0xf6
+range (max-min):  255  0xff
+size (of block):  6656  0x1a00
+packer features nonzero: {} count= 0
+### F-011/F-012 tool-acquire
+{
+ "tool": "radare2",
+ "verdict": "USABLE",
+ "at": "L0",
+ "steps": [
+  {
+   "level": "L0",
+   "kind": "cli",
+{
+ "tool": "ghidra",
+ "verdict": "USABLE",
+ "at": "L0",
+ "steps": [
+  {
+   "level": "L0",
+   "kind": "cli",
+### F-013 rabin2 -v
+rabin2 5.9.8 1 @ windows-x86-64
+birth: git.5.9.8 Tue 11/19/2024__11:46:03.42
+### 采集时间：2026-10-24T06:44:38Z

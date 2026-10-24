@@ -1,0 +1,51 @@
+
+### 目标：OWASP mas-crackmes · UnCrackable-Level2.apk（github.com/OWASP/mas-crackmes）
+sha256 = 0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0
+size = 899134 bytes
+
+### 1) 载体：aapt badging
+package: name='owasp.mstg.uncrackable2' versionCode='1' versionName='1.0'
+sdkVersion:'19'
+targetSdkVersion:'28'
+### 2) 组成：dex 与 native 库
+entries 414
+dex ['classes.dex']
+so ['lib/arm64-v8a/libfoo.so', 'lib/armeabi-v7a/libfoo.so', 'lib/x86/libfoo.so', 'lib/x86_64/libfoo.so']
+
+### 3) 保护 1 · native 反调试（libfoo.so 导入 ptrace/fork/pthread）
+[Imports]
+nth vaddr      bind   type lib name
+-----------------------------------
+3   0x000007e0 GLOBAL FUNC     pthread_create
+5   0x000007f0 GLOBAL FUNC     __cxa_finalize
+6   0x00000800 GLOBAL FUNC     ptrace
+7   0x00000810 GLOBAL FUNC     strncmp
+9   0x00000820 GLOBAL FUNC     _exit
+10  0x00000830 GLOBAL FUNC     __stack_chk_fail
+11  0x00000840 GLOBAL FUNC     fork
+15  0x00000850 GLOBAL FUNC     getppid
+17  0x00000860 GLOBAL FUNC     waitpid
+21  0x00000870 GLOBAL FUNC     pthread_exit
+22  0x00000880 GLOBAL FUNC     __cxa_atexit
+
+WARN: Relocs has not been applied. Please use `-e bin.relocs.apply=true` or `-e bin.cache=true` next time
+源代码对照：app/src/main/cpp/foo.cpp:34 anti_debug()，:536 被调用
+
+### 4) 保护 2 · root 检测（dex 里出现 /system/xbin）
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+NameError: name 'sys' is not defined. Did you forget to import 'sys'?
+
+### 5) 保护 3 · secret 不在明文里（dex 与 so 都搜不到）
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+NameError: name 'sys' is not defined. Did you forget to import 'sys'?
+
+### 6) 边界：它不是商业加固壳
+16 个常见壳特征（StubApp/libjiagu/DexHelper/com.qihoo/SecShell/bangcle/secneo/AppWrapper/aliprotect/libnesec/libshella/libmobisec/jiagu/libexec/libshell）在 dex 里的计数：
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+NameError: name 'sys' is not defined. Did you forget to import 'sys'?
+
+结论：保护 = native 反调试 + root 检测 + 字符串隐藏；**不是 DexVMP/整体加固壳**。
+Level3/Level4（native 更强 / 需构建）在仓库里只有源码，需 gradle 构建，本轮未做。

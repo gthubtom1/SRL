@@ -1,0 +1,19 @@
+### 目标
+原件 = D:/Project/头条手机/release.apk（中文路径）
+ASCII 副本 = D:/tmp/tt-release.apk（**aapt 在 GBK 环境下打不开中文路径**，实测 Illegal byte sequence）
+size = 100524601
+sha256 = 4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b
+
+### aapt badging
+package: name='com.a6as5paod.cp6jgk9wc' versionCode='1' versionName='11.44.0' platformBuildVersionName='10' platformBuildVersionCode='29' compileSdkVersion='29' compileSdkVersionCodename='10'
+sdkVersion:'21'
+targetSdkVersion:'28'
+launchable-activity: name='com.wApVWbgl.kViTkD.wbaFs'  label='' icon=''
+
+### 组成
+entries 1430
+dex [('classes.dex', 8409288), ('classes2.dex', 693132), ('classes3.dex', 7284152), ('classes4.dex', 8350300), ('classes5.dex', 5201300), ('classes6.dex', 8068)]
+so_count 52
+
+### StubApp 上下文（判它是不是加固桩）
+b'roid.keep\x00$com.google.android.launcher/.StubApp\x00\x18com.google.android.music\x00.com.google.android.play.f'

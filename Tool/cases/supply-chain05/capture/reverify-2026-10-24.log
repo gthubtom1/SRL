@@ -1,0 +1,31 @@
+### supply-chain05 · 真实仓库回放（OWASP Juice Shop）
+repo: https://github.com/juice-shop/juice-shop.git
+commit: 717f5efa886b0417eeecb52378b03cf10567b7e2
+clone: git clone --depth 1（54MB 工作区）
+
+### 扫描命令（离线、stdlib only、不装包不联网）
+python Tool/skill/supply-chain-security/scripts/sc-check.py --path D:/tmp/target-supply --out Tool/cases/supply-chain05/artifacts/sc.json
+
+### 扫描结果摘要（sc.json summary/inventory 原文）
+summary.risks: critical=0 high=10 medium=29 low=1 info=0
+summary.high_or_critical: 10 / rule_hits_total: 3
+inventory.locks: []（npm 工程无 lockfile）
+inventory.dockerfiles: Dockerfile, infrastructure/Dockerfile, test/smoke/Dockerfile
+inventory.compose: docker-compose.test.yml, infrastructure/docker-compose.yml
+
+### high 明细（id / category / file:line）
+SC-001 ci-injection  .github/workflows/update-news-www-legacy.yml:19
+SC-002 ci-injection  .github/workflows/update-news-www.yml:19
+SC-003 ci-secrets    .github/workflows/pr-compliance.yml (secrets.* 同时出现)
+SC-004 ci-trigger    .github/workflows/pr-compliance.yml:4 (pull_request_target)
+SC-005 image-tag      Dockerfile:22
+SC-006 image-tag      docker-compose.test.yml:7
+SC-007 image-tag      infrastructure/docker-compose.yml:21
+SC-008 image-tag      test/smoke/Dockerfile:1
+SC-009 lockfile       frontend/package.json（无 lock）
+SC-010 lockfile       package.json（无 lock）
+
+### SC-103 可变 action 标签（rule_hits）
+.github/workflows/ci.yml:198
+.github/workflows/image_actions.yml:30
+.github/workflows/image_actions.yml:42

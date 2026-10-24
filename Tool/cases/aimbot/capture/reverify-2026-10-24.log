@@ -1,0 +1,81 @@
+### 目标
+path = D:/Project/ai自瞄/AGameCrash64.exe
+size = 17225216
+sha256 = 45dc17e0c6e675d961c09e022337cf082b57aefc64e48f99b2dd8641d02ba59d
+
+### r2 iI + iS
+arch     x86
+baddr    0x140000000
+binsz    17225216
+bintype  pe
+bits     64
+canary   true
+injprot  false
+retguard false
+class    PE32+
+cmp.csum 0x01073465
+compiled Mon Oct  9 05:20:51 2017
+
+crypto   false
+endian   little
+havecode true
+hdr.csum 0x00000000
+laddr    0x0
+lang     msvc
+linenum  false
+lsyms    false
+machine  AMD 64
+nx       true
+os       windows
+overlay  false
+cc       ms
+pic      true
+relocs   false
+signed   false
+sanitize false
+static   false
+stripped false
+subsys   Windows GUI
+va       true
+[Sections]
+
+nth paddr            size vaddr            vsize perm type name
+---------------------------------------------------------------
+0   0x00000000        0x0 0x140001000   0x48e000 -r-x ---- .text
+1   0x00000000        0x0 0x14048f000   0x511000 -r-- ---- .rdata
+2   0x00000000        0x0 0x1409a0000    0x9d000 -rw- ---- .data
+3   0x00000000        0x0 0x140a3d000    0x29000 -r-- ---- .pdata
+4   0x00000000        0x0 0x140a66000     0x3000 -r-- ---- _RDATA
+5   0x00000000        0x0 0x140a69000   0x90c000 -r-x ---- .ace0
+6   0x00000400      0x600 0x141375000     0x1000 -rw- ---- .LFT
+7   0x00000a00  0x106c800 0x141376000  0x106d000 -r-x ---- .(D6
+8   0x0106d200      0x200 0x1423e3000     0x1000 -r-- ---- .rsrc
+9   0x0106d400      0x200 0x1423e4000     0x1000 -r-- ---- .reloc
+
+WARN: Warning: read (delay import directory)
+WARN: Relocs has not been applied. Please use `-e bin.relocs.apply=true` or `-e bin.cache=true` next time
+
+### 节熵（p=e @ 各节）
+[Sections]
+
+nth paddr            size vaddr            vsize perm type name
+---------------------------------------------------------------
+0   0x00000000        0x0 0x140001000   0x48e000 -r-x ---- .text
+1   0x00000000        0x0 0x14048f000   0x511000 -r-- ---- .rdata
+2   0x00000000        0x0 0x1409a0000    0x9d000 -rw- ---- .data
+3   0x00000000        0x0 0x140a3d000    0x29000 -r-- ---- .pdata
+4   0x00000000        0x0 0x140a66000     0x3000 -r-- ---- _RDATA
+5   0x00000000        0x0 0x140a69000   0x90c000 -r-x ---- .ace0
+6   0x00000400      0x600 0x141375000     0x1000 -rw- ---- .LFT
+7   0x00000a00  0x106c800 0x141376000  0x106d000 -r-x ---- .(D6
+8   0x0106d200      0x200 0x1423e3000     0x1000 -r-- ---- .rsrc
+9   0x0106d400      0x200 0x1423e4000     0x1000 -r-- ---- .reloc
+
+Current section
+
+nth paddr            size vaddr            vsize perm type name
+---------------------------------------------------------------
+0   0x00000a00  0x106c800 0x141376000  0x106d000 -r-x ---- .(D6
+
+WARN: Warning: read (delay import directory)
+WARN: Relocs has not been applied. Please use `-e bin.relocs.apply=true` or `-e bin.cache=true` next time

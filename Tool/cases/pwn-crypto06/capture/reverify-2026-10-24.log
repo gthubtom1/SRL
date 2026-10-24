@@ -1,0 +1,60 @@
+
+### 环境：2026-10-24T08:00:43Z
+repo: https://github.com/hardik05/Damn_Vulnerable_C_Program
+commit: 8dcbd202887f587783952a320a2301de701be529
+build: gcc (mingw64) -o dvcp.exe dvcp.c  （默认无加固开关）
+binary sha256:
+5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e *D:/tmp/dvcp/dvcp.exe
+
+### 保护位（两个独立来源：r2 iI 与 pwn-check）
+baddr    0x140000000
+binsz    55022
+bits     64
+canary   false
+class    PE32+
+lang     c
+machine  AMD 64
+nx       true
+pic      true
+static   false
+stripped false
+--- pwn-check.py ---
+{"size": 55022, "protections": {"NX": "Enabled", "PIE": "Enabled (DYNAMIC_BASE/ASLR)", "Canary": "Not found", "RELRO": "N/A (PE 无 ELF RELRO)"}, "import_count": 44, "dangerous_n": 5, "next_routes": ["栈溢出 + ROP"]}
+
+### 入口与危险导入（r2 ii）
+4   0x1400082f0 NONE FUNC api-ms-win-crt-heap-l1-1-0.dll        malloc
+3   0x1400082e8 NONE FUNC api-ms-win-crt-heap-l1-1-0.dll        free
+2   0x140008328 NONE FUNC api-ms-win-crt-private-l1-1-0.dll     memcpy
+[Entrypoints]
+vaddr=0x1400013f0 paddr=0x000009f0 haddr=0x000000a8 type=program
+
+1 entrypoints
+
+### 漏洞位点：源码行号 + 编译后仍存在（grep 源码）
+51:			//integer overflow 0x7FFFFFFF+1=0
+57:			//heap buffer overflow
+60:			//double free	
+65:				//use after free
+72:			//integer underflow 0-1=-1
+78:			//heap buffer overflow
+81:			//divide by zero
+89:			//OOBR read bytes past stack/heap buffer
+90:			char OOBR = buff3[size3];
+91:			char OOBR_heap = buff4[size3];
+93:			//OOBW write bytes past stack/heap buffer
+98:				//memory leak here
+--- 关键语句 ---
+55:			char* buff1=(char*)malloc(size1);
+59:			free(buff1);
+61:			if (size1 % 2 == 0){
+62:				free(buff1);
+67:					buff1[0]='a';
+82:			int size3= img.width/img.height;
+90:			char OOBR = buff3[size3];
+94:			buff3[size3]='c';
+
+### 攻击面边界（这条必须写清，别夸大）
+本轮只做静态：未运行 dvcp.exe（宿主机纪律：不由 shell 拉起目标 exe）。
+因此以下结论**未**验证：可达性、崩溃可复现性、利用可控性（RIP/EIP 控制）。
+
+### 结束

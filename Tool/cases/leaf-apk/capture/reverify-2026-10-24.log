@@ -1,0 +1,47 @@
+
+### 环境：2026-10-24T07:46:47Z
+Android Asset Packaging Tool, v0.2-10229193
+Zip alignment utility
+Copyright (C) 2009 The Android Open Source Project
+
+jarsigner 21.0.12.1
+
+### F-101 dex/native/加固特征计数（python zipfile，不依赖 aapt）
+entries=379 dex=['classes.dex'] so=0 lib_entries=0
+dex0 size=1931680 magic=6465780a ver=30333500
+harden-feature hits: {'StubApp': 0, 'stubStubApp': 0, 'libjiagu': 0, 'DexHelper': 0, 'com.qihoo': 0, 'SecShell': 0, 'jiagu': 0, 'bangcle': 0, 'secneo': 0, 'libexec': 0, 'libshell': 0, 'AppWrapper': 0, 'aliprotect': 0, 'libnesec': 0, 'libshella': 0, 'libmobisec': 0}
+nonzero: 0
+
+### F-102 aapt dump badging
+package: name='jakhar.aseem.diva' versionCode='1' versionName='1.0'
+sdkVersion:'15'
+targetSdkVersion:'23'
+uses-permission: name='android.permission.WRITE_EXTERNAL_STORAGE'
+uses-permission: name='android.permission.READ_EXTERNAL_STORAGE'
+uses-permission: name='android.permission.INTERNET'
+launchable-activity: name='jakhar.aseem.diva.MainActivity'  label='Diva' icon=''
+
+### F-102b manifest application 节点（aapt dump xmltree）
+
+### F-104/F-105 现有产物的签名与对齐状态（若存在别的 apk 产物）
+total 1272
+-rw-r--r-- 1 toti 197121 1301491 Oct 24 06:41 diva_repatched_signed.apk
+-- Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk
+ 1059620 res/_7.png (OK)
+ 1060224 res/_N.png (OK)
+ 1060492 resources.arsc (OK)
+Verification succesful
+
+jar ����֤��
+
+
+### F-106 adb 设备与 ad 相关类
+/c/Users/toti/AppData/Local/Microsoft/WinGet/Packages/Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe/scrcpy-win64-v4.1/adb
+List of devices attached
+
+dex contains b'AdActivity': False
+dex contains b'com/google/ads': False
+dex contains b'admob': False
+dex contains b'/ads/': False
+
+### 结束

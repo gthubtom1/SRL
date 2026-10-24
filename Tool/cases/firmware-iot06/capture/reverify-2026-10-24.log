@@ -1,0 +1,75 @@
+
+### 语料来源：github.com/ReFirmLabs/binwalk · tests/inputs（BSD-2，真实镜像）
+arcadyan.bin       734208 B  sha256=461eda93f416b29d6be4055d15a9cc3c2bfb696928b3a0a171b8fceade8dc850
+squashfs_v2.bin   2587654 B  sha256=df727ab58e70ffac1c98c0bfd2786e4c949e03431eb2043f270292f33fb30475
+cramfs.bin           4096 B  sha256=1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216
+
+### 1) fw-triage：容器识别（三个镜像）
+
+-- arcadyan.bin: ok=True size=734208 entropy_overall=8.0
+   container gzip      @31076    conf=high  gzip stream
+   container gzip      @32580    conf=high  gzip stream
+   container jffs2     @48839    conf=medium  JFFS2 node magic 0x1985 (LE)
+   container jffs2     @105618   conf=medium  JFFS2 node magic 0x1985 (BE)
+   container gzip      @107394   conf=high  gzip stream
+   container gzip      @130827   conf=high  gzip stream
+   verdict: container magic found (gzip, jffs2); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.
+   credential_clues: 0 条；service_hints: {}
+
+-- squashfs_v2.bin: ok=True size=2587654 entropy_overall=7.999
+   container squashfs  @0        conf=high  SquashFS big-endian (sqsh)
+   container jffs2     @39597    conf=medium  JFFS2 node magic 0x1985 (LE)
+   container jffs2     @44326    conf=medium  JFFS2 node magic 0x1985 (LE)
+   container gzip      @44872    conf=high  gzip stream
+   container jffs2     @61406    conf=medium  JFFS2 node magic 0x1985 (BE)
+   container gzip      @84961    conf=high  gzip stream
+   verdict: container magic found (gzip, jffs2, squashfs); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.
+   credential_clues: 0 条；service_hints: {"http": 2372771, "init": 2586255}
+
+-- cramfs.bin: ok=True size=4096 entropy_overall=0.457
+   container cramfs    @0        conf=high  CramFS little-endian
+   verdict: container magic found (cramfs); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.
+   credential_clues: 0 条；service_hints: {}
+
+### 2) fw-repro：提取尝试（含失败）
+
+-- squashfs_v2.bin: ok=False
+   extraction.status=extract-failed members=0 rc=[2]
+   verdict=extraction did not produce a tree; treat as reconnaissance, not as unpack success.
+   blocked=extract-failed / extraction failed for squashfs; inspect extraction.attempts
+
+-- cramfs.bin: ok=True
+   extraction.status=extracted members=1 rc=[0]
+   verdict=rootfs extracted; no credential/service clue matched -- inspect init scripts and web root manually.
+   blocked=None / None
+
+-- arcadyan.bin: ok=False
+   extraction.status=extract-failed members=0 rc=[]
+   verdict=extraction did not produce a tree; treat as reconnaissance, not as unpack success.
+   blocked=extract-failed / extraction failed for gzip; inspect extraction.attempts
+
+### 3) 提取产物核对（目录树 / 非空文件数 / 关键文件）
+
+-- D:/tmp/fw-repro-sq/extracted-squashfs
+   条目 401 个，其中非空 4 个
+   顶层目录: bin, dev, etc, lib, linuxrc, sbin, usr, webs
+   非空示例: etc/ppp/options, etc/rsa_host_key, webs/logoc.gif, webs/menuup.gif
+   树清单 sha256(路径+大小, 排序) = 37af64df5edab39ec00672272d939ddcab2637de2ed9c4e184faa11fea6e5e24
+   etc/fstab             0 B  
+   etc/inetd.conf        0 B  
+   bin/busybox           0 B  
+
+-- D:/tmp/fw-cramfs.bin/extracted-cramfs
+   条目 1 个，其中非空 1 个
+   顶层目录: lsb-release
+   非空示例: lsb-release
+   树清单 sha256(路径+大小, 排序) = 09e3403141852fed7609f7821be53645cc977570d69bf893111d7d4d62034181
+
+### 4) 判据结论（失败也照实写）
+- squashfs_v2.bin：容器是 squashfs v2，7z 建出 401 条目但只有 4 个非空 —— 7z 按「dangerous link」策略
+  忽略了 usr/bin/top、usr/bin/tftp → ../../bin/busybox 这类相对软链，busybox 落成 0 字节。
+  **结论：提取不算成功**，只能当侦察（不能据此主张 rootfs 内容）。
+- cramfs.bin：7z rc=0，树内只有 lsb-release（Ubuntu 22.04）—— 这是 cramfs 格式的测试镜像，不是整机固件。
+- arcadyan.bin：容器线索为 gzip（多段）+ jffs2（LE/BE）；按 carve 策略先切 gzip 段 703132B，
+  解压报 "Unknown compression method" → 非标准包装，需人工按段切分。**两次尝试均失败，停止**。
+未启动、未仿真、未提取任何凭据（credential_clues 三个样本均为空），因此不主张「可登录/可利用」。

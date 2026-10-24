@@ -1,0 +1,93 @@
+
+### 环境：2026-10-24T07:43:38Z  upx/anchor
+upx 3.91
+NRV data compression library 0.84
+
+### F-001/F-005/F-109  upx -l 与 upx -t（本机 upx 版本 vs 样本壳版本）
+                       Ultimate Packer for eXecutables
+                          Copyright (C) 1996 - 2013
+UPX 3.91w       Markus Oberhumer, Laszlo Molnar & John Reiser   Sep 30th 2013
+
+        File size         Ratio      Format      Name
+   --------------------   ------   -----------   -----------
+     53782 ->     41494   77.15%    win64/pe     Tool/cases/leaf-pe-packed/target/a_upx.exe
+                       Ultimate Packer for eXecutables
+                          Copyright (C) 1996 - 2013
+UPX 3.91w       Markus Oberhumer, Laszlo Molnar & John Reiser   Sep 30th 2013
+
+testing Tool/cases/leaf-pe-packed/target/a_upx.exe [OK]
+
+Tested 1 file.
+
+### F-001/F-101/F-102/F-104  r2 iI / iS / ie（打包件）
+baddr    0x140000000
+binsz    41494
+bits     64
+class    PE32+
+machine  AMD 64
+subsys   Windows CUI
+nth paddr         size vaddr          vsize perm type name
+0   0x00000200     0x0 0x140001000  0x12000 -rwx ---- UPX0
+1   0x00000200  0x2400 0x140013000   0x3000 -rwx ---- UPX1
+2   0x00002600   0x400 0x140016000   0x1000 -rw- ---- UPX2
+vaddr=0x140014fc0 paddr=0x000021c0 haddr=0x000000a8 type=program
+1 entrypoints
+
+### F-104 入口对照（原件）
+[Entrypoints]
+vaddr=0x1400013f0 paddr=0x000009f0 haddr=0x000000a8 type=program
+
+1 entrypoints
+
+### F-103/F-105/F-107/F-108  python 层字节检查
+UPX! in packed: ['0x205']
+UPX! in orig  : []
+entropy UPX1 payload (off 0x200 len 0x2400): 7.638
+entropy orig .text   (off 0x600 len 0x1a00): 5.834
+packed 74 13  -> ['0x815', '0xfb5']
+packed 75 e3  -> ['0x527', '0xcad']
+packed tran   -> ['0xfb1']
+packed PASS   -> []
+orig   74 13  -> ['0xb6b', '0x1e82']
+orig   75 e3  -> ['0xa73', '0x17ab', '0x18bb', '0x1a3b', '0x1e9f']
+orig   PASS   -> ['0x220a']
+sizes: packed=41494 orig=53782
+
+### F-106 函数计数（打包件 vs 原件）
+INFO: Recovering variables (afva@@@F)
+INFO: Analyze all functions arguments/locals (afva@@@F)
+2
+INFO: Recovering variables (afva@@@F)
+INFO: Analyze all functions arguments/locals (afva@@@F)
+75
+INFO: Analyze symbols (af@@@s)
+INFO: Recovering variables (afva@@@F)
+INFO: Analyze all functions arguments/locals (afva@@@F)
+
+### F-110/F-111  upx -d 还原 + 与原件逐字节比
+                       Ultimate Packer for eXecutables
+                          Copyright (C) 1996 - 2013
+UPX 3.91w       Markus Oberhumer, Laszlo Molnar & John Reiser   Sep 30th 2013
+
+        File size         Ratio      Format      Name
+   --------------------   ------   -----------   -----------
+     53782 <-     41494   77.15%    win64/pe     a_unpacked.exe
+
+Unpacked 1 file.
+-rwxr-xr-x 1 toti 197121 53782 Oct 24 06:32 D:/tmp/upx-reverify/a_unpacked.exe
+unpacked=53782 orig=53782 identical=False
+diff bytes: 166 first: ['0xd5', '0xd8', '0xd9', '0xda', '0x131', '0x134', '0x168', '0x169'] last: ['0x3a61', '0x3a62', '0x3a63']
+
+### F-004  篡改 UPX1 载荷 → upx -t 必须报错（校验和/压缩流不可解）
+poked offset 0x1200: 00 -> ff
+                       Ultimate Packer for eXecutables
+                          Copyright (C) 1996 - 2013
+UPX 3.91w       Markus Oberhumer, Laszlo Molnar & John Reiser   Sep 30th 2013
+
+testing D:/tmp/upx-reverify/tampered.exe 
+upx: D:/tmp/upx-reverify/tampered.exe: Exception: checksum error
+
+Tested 1 file: 0 ok, 1 error.
+tampered upx -t rc=1
+
+### 结束
