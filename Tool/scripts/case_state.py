@@ -2548,6 +2548,10 @@ def verify_case(case):
             if str(f.get("authority") or "none").strip().lower() in ("", "none"):
                 noauth.append(str(f.get("id")))
     proven = sum(1 for f in facts if str(f.get("status") or "").lower() == "proven")
+    strong = sum(1 for f in facts
+                 if str(f.get("status") or "").lower() == "proven"
+                 and _norm_confidence(f.get("confidence")) in STRONG_CONFIDENCE
+                 and str(f.get("authority") or "none").strip().lower() not in ("", "none"))
     fail_reasons, unknown_reasons = [], []
     for k in sorted(bad):
         fail_reasons.append("%s=%d（任一非零即不得 pass）" % (k, bad[k]))
@@ -2557,14 +2561,18 @@ def verify_case(case):
         unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
     elif not proven:
         unknown_reasons.append("没有 proven claim")
-    if weak:
-        unknown_reasons.append("proven 但置信度不足（inferred/unknown）：" + "、".join(weak))
-    if noauth:
-        unknown_reasons.append("proven 但 authority 未声明：" + "、".join(noauth))
+    # 弱证据不算 pass 证据，但**不把整案拖成 unknown**：它们被"排除在证据集外"并明示出来。
+    # 判据（与 pack.json 的 evidence_contract.pass_forbids_confidence 一致）：
+    #   pass = 无 fail 类状态 + ≥1 条 observed/derived 背书；inferred/unknown 的 proven 只进 excluded。
+    excluded = weak + noauth
+    if not facts:
+        unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
+    elif strong == 0:
+        unknown_reasons.append("没有 observed/derived 背书（%d 条 claim 全是 inferred/unknown）" % len(facts))
     verdict = "fail" if fail_reasons else ("unknown" if unknown_reasons else "pass")
     return {"case": os.path.basename(os.path.abspath(case)), "verdict": verdict,
-            "claims": len(facts), "proven": proven, "confidence": counts,
-            "bad": bad, "stale": stale,
+            "claims": len(facts), "proven": proven, "strong": strong,
+            "confidence": counts, "bad": bad, "stale": stale, "excluded": excluded,
             "reasons": fail_reasons + unknown_reasons,
             "state_verdict": st.get("verdict"), "stage": st.get("stage")}
 
@@ -2600,12 +2608,15 @@ def cmd_verify(a):
     else:
         for r in results:
             mark = {"pass": "PASS", "fail": "FAIL", "unknown": "UNKNOWN"}[r["verdict"]]
-            print("[%s] %-22s claim %d（proven %d）conf=%s state=%s stage=%s" % (
-                mark, r["case"], r["claims"], r["proven"],
+            print("[%s] %-22s claim %d（proven %d / 背书 %d）conf=%s state=%s stage=%s" % (
+                mark, r["case"], r["claims"], r["proven"], r.get("strong", 0),
                 "/".join("%s:%d" % (k, v) for k, v in r["confidence"].items() if v),
                 r["state_verdict"], r["stage"]))
             for why in r["reasons"]:
                 print("   - " + why)
+            if r.get("excluded"):
+                print("   - 排除在证据集外（不计 pass）：" + "、".join(r["excluded"][:8])
+                      + ("…" if len(r["excluded"]) > 8 else ""))
         n_pass = sum(1 for r in results if r["verdict"] == "pass")
         n_fail = sum(1 for r in results if r["verdict"] == "fail")
         n_unk = sum(1 for r in results if r["verdict"] == "unknown")

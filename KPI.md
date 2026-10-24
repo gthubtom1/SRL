@@ -6,11 +6,22 @@
 | 日期 | 目标 | pack | 结果 | 证据 | 常驻 tok | 墙钟分 | ASK 次数 | 复现命令 |
 | :-- | :-- | :-- | :-- | :-- | --: | --: | --: | :-- |
 | 2026-10-24 | golden-crackme（crackerjack/a.exe，S5 witness 回放：重跑 13 条 claim 并声明 observed） | softseep | **delivered** | MANIFEST 5 文件 / facts 14 条 / unknown 1（F-013 已被实测推翻：rabin2 实为 5.9.8） | 12,669 | ~45 | 0 | `python Tool/scripts/gate.py --pack softseep` |
+| 2026-10-24 | leaf-pe-packed（a_upx.exe，UPX 3.91w）witness 回放：21 条 claim 重测 | malware-analysis | **delivered** | MANIFEST 6 文件 / facts 21 条 / 背书 15（observed）/ 排除 3（inferred：活体内存与运行期）| 12,689 | ~25 | 0 | `python Tool/scripts/gate.py --pack malware-analysis` |
+| 2026-10-24 | leaf-apk（diva.apk，未加固）witness 回放：6 条 claim 重测 | apkseep | **delivered** | MANIFEST 3 文件 / facts 6 条 / 背书 4（observed）/ 排除 2（inferred：apktool 重建、zipalign→jarsigner 破坏实验）| 12,689 | ~15 | 0 | `python Tool/scripts/gate.py --pack apkseep` |
 
-## 其余 8 个包为什么是 fail（不是"没做"，是"没有可背书的证据"）
+## 其余 6 个包为什么还是 fail（不是"没做"，是"没有可背书的证据"）
 
 | pack | 状态 | 卡在哪（可执行判据） |
 | :-- | :-- | :-- |
-| apkseep | fail | leaf-apk 6 条 claim，本轮可复验的是"无加固 / 载体身份 / smali 可编辑"等；F-104、F-105 依赖 `zipalign`、`aapt`（本机未安装）→ 无法复验 |
-| malware-analysis | fail | leaf-pe-packed 19 条 claim 依赖 `upx`（本机未安装）+ 内存转储；无 upx 时只能复验静态部分，不足以整案通过 |
 | pwn-crypto / firmware-iot / forensics-mobile / protocol-plugin / supply-chain-security / web-pentest | fail | 案例目录存在但 `facts.jsonl` 为空：从没在真实目标上跑过，没有 claim 可背书 |
+
+## 回放抓出的错（这是回放唯一不可替代的价值）
+
+| case | 原 claim | 本轮实测 | 处置 |
+| :-- | :-- | :-- | :-- |
+| leaf-pe-packed F-106 | 打包件 `aflc` = 3 个函数 | **2 个** | refute + 新增 F-115 |
+| leaf-pe-packed F-110 | upx 5.2.1 还原后与原件「一致」 | 本机 3.91w 还原成功但 **166 字节不同** | refute + 新增 F-116 |
+| leaf-pe-packed F-111 | 差异 80 字节 | **166 字节**（且与 F-110「一致」自相矛盾） | refute |
+| golden-crackme F-013 | rabin2 6.2.0 | **5.9.8** | refute + 新增 F-014 |
+
+> 4 条错误事实、全部来自「上一轮的报告当事实」。这就是为什么 S2 要求每条 claim 带 confidence 与 authority。
