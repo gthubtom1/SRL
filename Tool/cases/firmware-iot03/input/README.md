@@ -11,6 +11,6 @@
 复现产物：
 
 ```bash
-python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json > artifacts/triage.json
+python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json > artifacts/triage.json
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --out-dir work/fw-case03 --json > artifacts/repro.json
 ```

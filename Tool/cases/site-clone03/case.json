@@ -35,9 +35,9 @@
     }
   ],
   "lessons": [
-    "实际抓取：在夹具目录执行 python -m http.server 18766 --bind 127.0.0.1；另开终端 python Tool/skill/site-clone/scripts/site-crawl.py --url http://127.0.0.1:18766/ --out .../artifacts/crawl --max-pages 5 --max-depth 2 --rps 20，rc=0；3 路由、3 资产、missing_rate=0.0。",
-    "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；3 页、本地 404=0、外链=0、交互 9 条。",
-    "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；pixel=0.0、DOM=1.0、missing_rate=0.0、交互 9/9，status=PASS。",
+    "实际抓取：在夹具目录执行 python -m http.server 18766 --bind 127.0.0.1；另开终端 python Tool/skill/_pending/site-clone/scripts/site-crawl.py --url http://127.0.0.1:18766/ --out .../artifacts/crawl --max-pages 5 --max-depth 2 --rps 20，rc=0；3 路由、3 资产、missing_rate=0.0。",
+    "实际重建：python Tool/skill/_pending/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；3 页、本地 404=0、外链=0、交互 9 条。",
+    "实际差分：python Tool/skill/_pending/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；pixel=0.0、DOM=1.0、missing_rate=0.0、交互 9/9，status=PASS。",
     "夹具用途：给 site-accept.py --self-test 之外提供一条真实脚本链（crawl→rebuild→diff→accept）的离线回归样本；不依赖外网和 Playwright 下载。",
     "失败判据：把夹具结果当真实站点结论，或用 127.0.0.1 夹具证明 Cloudflare/登录态/后端逻辑可复刻。"
   ],
@@ -49,13 +49,13 @@
     "pass"
   ],
   "refs": [
-    "Tool/skill/site-clone/SKILL.md",
-    "Tool/skill/site-clone/references/01-criteria.md",
-    "Tool/skill/site-clone/references/02-failure-criteria.md",
-    "Tool/skill/site-clone/references/03-model-pitfalls.md",
-    "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
-    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
-    "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+    "Tool/skill/_pending/site-clone/SKILL.md",
+    "Tool/skill/_pending/site-clone/references/01-criteria.md",
+    "Tool/skill/_pending/site-clone/references/02-failure-criteria.md",
+    "Tool/skill/_pending/site-clone/references/03-model-pitfalls.md",
+    "Tool/skill/_pending/site-clone/references/04-walkthrough-block-youtest.md",
+    "Tool/skill/_pending/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/_pending/site-clone/references/06-spa-har-and-mock.md",
     "Tool/config/site-clone-matrix.json",
     "Tool/mcp/Tool/reverselab/kb/site-clone/techniques/01-static-mirror-boundary.md"
   ],

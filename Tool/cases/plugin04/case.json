@@ -52,8 +52,8 @@
     }
   ],
   "lessons": [
-    "实际分析：python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json，rc=0；识别 asar 头、6 个文件、main.js/preload.js 入口。",
-    "复现：python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json，rc=0；解包并抽出 ipcMain/ipcRenderer/shell.openExternal/fetch 四条数据流。",
+    "实际分析：python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json，rc=0；识别 asar 头、6 个文件、main.js/preload.js 入口。",
+    "复现：python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json，rc=0；解包并抽出 ipcMain/ipcRenderer/shell.openExternal/fetch 四条数据流。",
     "最小可改单元：main.js（4 处数据流命中，符号 createWindow）；preload.js 是 renderer 与主进程的桥，改返回值前先备份并留基线。",
     "边界：夹具由仓库脚本按 asar 头格式生成，不是真实 Electron 发行包；未运行 Electron、未验证 IPC 实际参数与远端响应。"
   ],
@@ -67,10 +67,10 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/plugin-targets/SKILL.md",
-    "Tool/skill/plugin-targets/references/01-criteria.md",
-    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/plugin-targets/references/electron-and-asar.md",
+    "Tool/skill/_pending/plugin-targets/SKILL.md",
+    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/electron-and-asar.md",
     "Tool/config/plugin-targets-matrix.json",
     "Tool/cases/plugin04/input/app.asar",
     "Tool/cases/plugin04/artifacts/repro/plugin-repro.json"

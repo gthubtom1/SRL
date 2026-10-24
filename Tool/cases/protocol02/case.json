@@ -1,137 +1,137 @@
 {
-  "id": "protocol02",
-  "domain": "protocol-plugin",
-  "route": "R24",
-  "target_type": "本地夹具二进制帧：magic SPRX + u16 长度前缀 + CRC32（3 帧 / 141 B，手工构造）",
-  "evidence_kind": "fixture",
-  "protection": [],
-  "authority": "local",
-  "goal_level": "L3",
-  "outcome": "partial",
-  "capture": {
-    "file": "input/sample.bin",
-    "tool": "python 手工构造 + notes.md 帧表 + pcap-summary.py / proto-repro.py",
-    "endpoint": "127.0.0.1:9527（设计值，样本不是抓包）",
-    "tls": false,
-    "client_version": "lab-sensor 1.4.0（设计值）",
-    "captured_at": "synthetic 2026-10-20（非真实采集）"
+ "id": "protocol02",
+ "domain": "protocol-plugin",
+ "route": "R24",
+ "target_type": "本地夹具二进制帧：magic SPRX + u16 长度前缀 + CRC32（3 帧 / 141 B，手工构造）",
+ "evidence_kind": "fixture",
+ "protection": [],
+ "authority": "local",
+ "goal_level": "L3",
+ "outcome": "partial",
+ "capture": {
+  "file": "input/sample.bin",
+  "tool": "python 手工构造 + notes.md 帧表 + pcap-summary.py / proto-repro.py",
+  "endpoint": "127.0.0.1:9527（设计值，样本不是抓包）",
+  "tls": false,
+  "client_version": "lab-sensor 1.4.0（设计值）",
+  "captured_at": "synthetic 2026-10-20（非真实采集）"
+ },
+ "protocol": {
+  "layer": "TCP（设计）/ 裸二进制文件（实际）",
+  "framing": "magic(4) + version(1) + type(1) + length(2, big-endian) + seq(4) + payload + crc32(4)",
+  "coverage": "length 只覆盖 payload；CRC32 覆盖 header(12B)+payload，不含 CRC 字段（3 帧样本内可复现）",
+  "encryption": "未观察到加密：payload 为明文 JSON；原 AES-CBC 假设未证实",
+  "states": [
+   "WAIT_MAGIC",
+   "WAIT_HEADER",
+   "WAIT_BODY",
+   "VERIFY",
+   "DISPATCH"
+  ],
+  "fields": [
+   {
+    "name": "magic",
+    "type": "bytes4",
+    "evidence": "observed: SPRX（3/3 帧）"
+   },
+   {
+    "name": "version",
+    "type": "u8",
+    "evidence": "observed: 1"
+   },
+   {
+    "name": "type",
+    "type": "u8",
+    "evidence": "observed: 1=HELLO, 2=AUTH, 3=TELEMETRY"
+   },
+   {
+    "name": "length",
+    "type": "u16 BE",
+    "evidence": "observed: 36/30/27，只覆盖 payload（frame_len = 12+length+4 三帧全成立）"
+   },
+   {
+    "name": "seq",
+    "type": "u32 BE",
+    "evidence": "observed: 1/2/3 递增"
+   },
+   {
+    "name": "crc32",
+    "type": "u32 BE",
+    "evidence": "observed: e59f1d6e/b0542e66/0280ee21，覆盖 header+payload"
+   }
+  ]
+ },
+ "artifacts": [
+  {
+   "path": "input/sample.bin",
+   "sha256": "110da7c87b2cb7d145506ca7549fd771d088b05f6e97f1b104de3e4c0f9803c4"
   },
-  "protocol": {
-    "layer": "TCP（设计）/ 裸二进制文件（实际）",
-    "framing": "magic(4) + version(1) + type(1) + length(2, big-endian) + seq(4) + payload + crc32(4)",
-    "coverage": "length 只覆盖 payload；CRC32 覆盖 header(12B)+payload，不含 CRC 字段（3 帧样本内可复现）",
-    "encryption": "未观察到加密：payload 为明文 JSON；原 AES-CBC 假设未证实",
-    "states": [
-      "WAIT_MAGIC",
-      "WAIT_HEADER",
-      "WAIT_BODY",
-      "VERIFY",
-      "DISPATCH"
-    ],
-    "fields": [
-      {
-        "name": "magic",
-        "type": "bytes4",
-        "evidence": "observed: SPRX（3/3 帧）"
-      },
-      {
-        "name": "version",
-        "type": "u8",
-        "evidence": "observed: 1"
-      },
-      {
-        "name": "type",
-        "type": "u8",
-        "evidence": "observed: 1=HELLO, 2=AUTH, 3=TELEMETRY"
-      },
-      {
-        "name": "length",
-        "type": "u16 BE",
-        "evidence": "observed: 36/30/27，只覆盖 payload（frame_len = 12+length+4 三帧全成立）"
-      },
-      {
-        "name": "seq",
-        "type": "u32 BE",
-        "evidence": "observed: 1/2/3 递增"
-      },
-      {
-        "name": "crc32",
-        "type": "u32 BE",
-        "evidence": "observed: e59f1d6e/b0542e66/0280ee21，覆盖 header+payload"
-      }
-    ]
+  {
+   "path": "input/notes.md",
+   "sha256": "263b3d3feb8b6f4e741ae211145392ff315bb33ffb2bf619a33cf13d5f905750"
   },
-  "artifacts": [
-    {
-      "path": "input/sample.bin",
-      "sha256": "110da7c87b2cb7d145506ca7549fd771d088b05f6e97f1b104de3e4c0f9803c4"
-    },
-    {
-      "path": "input/notes.md",
-      "sha256": "58b190565eaa995b92516b8e70841c1cc3cf3ada013d0fdd858e37d4fcdec9de"
-    },
-    {
-      "path": "artifacts/run.json",
-      "sha256": "db3b5054eaa9c5ceda9faa208ddda8d1e4a89c4298b8f941cf60314944daeef5"
-    },
-    {
-      "path": "artifacts/parse.json",
-      "sha256": "81f8ce53e7a67747f70c3806edf610d66a6d49f06c40c84b26fd248166f2ec89"
-    },
-    {
-      "path": "artifacts/rebuild.json",
-      "sha256": "2765636d24f14112245a901e397498ba4c2c892499d299705a9be1ac877ff170"
-    },
-    {
-      "path": "artifacts/new-frame.bin",
-      "sha256": "8799d325c260ac4f8a5bd08124c2220a891ae302dba803dfc41f1da619243ced"
-    },
-    {
-      "path": "artifacts/new-frame-parse.json",
-      "sha256": "c9474f0e37976dd384f0478e705fe44690dadfbb61170c58e1357f4393e609ce"
-    },
-    {
-      "path": "artifacts/MANIFEST.sha256",
-      "sha256": "bfe8f676eca5983e4dc3e90ce41f11b17d89cee2234360e6fbc265e95df17eaa"
-    }
-  ],
-  "evidence": [
-    "observed: proto-repro.py 解析 3 帧，stats={bytes:141, consumed:141, skipped:0, trailing:0, errors:[]}，三帧 crc_ok=true",
-    "observed: frame_len=52/46/43 与 12+length+4 完全一致；payload 解出 JSON：HELLO/AUTH/TELEMETRY",
-    "observed: 重建新帧（type=4, seq=4, {\"temp\":22.0,\"status\":\"ok\"}）= 43 B，同表解析回 crc_ok=true，hex=535052580104001b...69d9aa84",
-    "observed: pcap-summary.py（skill 版）对 sample.bin 返回 pcap_parse_error rc=2；Tool/scripts 兼容入口在 Windows 上丢失子进程退出码，rc=0 但 stdout 仍是 ok:false",
-    "missing: 真实 TCP 抓包、半包/粘包/乱序重同步的服务端验证、服务端是否接受 type=4"
-  ],
-  "lessons": [
-    "跑的是 cd Tool/cases/protocol02 && python ../../../Tool/skill/protocol-plugin/scripts/proto-repro.py --input input/sample.bin --json，rc=0；随后 --rebuild --frame-index 2 --set type=4 --set seq=4 --payload-text ... --out artifacts/new-frame.bin，rc=0；最后对新帧再跑一次解析，rc=0。",
-    "结论：3 帧 141 B 按字段表解析：magic=SPRX、version=1、type=1/2/3、seq=1/2/3，length 只覆盖 payload，CRC32 覆盖 header+payload；三个 CRC 全部 want==got。",
-    "重建：type=4/seq=4 的新帧 43 B，长度与 CRC 由同一张表重算，再解析回来 crc_ok=true；但**没有服务端**验证，所以只到\"结构自洽\"，不写\"服务端接受\"。",
-    "工具边界：同一份 sample.bin，Tool/scripts 兼容入口 rc=0（os.execv 在 Windows 丢退出码），skill 版 rc=2；结论以 skill 版的 JSON 与退出码为准。",
-    "还差什么：真实 TCP pcap、≥5 帧反推长度/CRC、半包/粘包/乱序重同步测试、服务端接受性验证；当前只能证明该 3 帧样本自洽。"
-  ],
-  "tags": [
-    "R24",
-    "protocol",
-    "binary",
-    "crc32",
-    "framing",
-    "fixture",
-    "partial"
-  ],
-  "refs": [
-    "Tool/skill/protocol-plugin/SKILL.md",
-    "Tool/skill/protocol-plugin/references/01-criteria.md",
-    "Tool/skill/protocol-plugin/references/05-binary-framing.md",
-    "Tool/skill/protocol-plugin/references/07-crypto-and-checksum.md",
-    "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
-    "Tool/mcp/Tool/reverselab/kb/protocol/techniques/framing-and-fields.md",
-    "Tool/mcp/Tool/reverselab/kb/protocol/techniques/checksum-and-crypto-segment.md",
-    "Tool/config/protocol-plugin-matrix.json",
-    "Tool/cases/protocol02/artifacts/run.json"
-  ],
-  "updated": "2026-10-21",
-  "repro": {
-    "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+  {
+   "path": "artifacts/run.json",
+   "sha256": "98e1a5c12d2c20e4b5498c3b646f2ebc61aae12b8a8dc616c1f18b5be46d3334"
+  },
+  {
+   "path": "artifacts/parse.json",
+   "sha256": "81f8ce53e7a67747f70c3806edf610d66a6d49f06c40c84b26fd248166f2ec89"
+  },
+  {
+   "path": "artifacts/rebuild.json",
+   "sha256": "2765636d24f14112245a901e397498ba4c2c892499d299705a9be1ac877ff170"
+  },
+  {
+   "path": "artifacts/new-frame.bin",
+   "sha256": "8799d325c260ac4f8a5bd08124c2220a891ae302dba803dfc41f1da619243ced"
+  },
+  {
+   "path": "artifacts/new-frame-parse.json",
+   "sha256": "c9474f0e37976dd384f0478e705fe44690dadfbb61170c58e1357f4393e609ce"
+  },
+  {
+   "path": "artifacts/MANIFEST.sha256",
+   "sha256": "40166e6259913c6cbaa7a787feceaff893c874d948ad037ebb7855fb108f36e3"
   }
+ ],
+ "evidence": [
+  "observed: proto-repro.py 解析 3 帧，stats={bytes:141, consumed:141, skipped:0, trailing:0, errors:[]}，三帧 crc_ok=true",
+  "observed: frame_len=52/46/43 与 12+length+4 完全一致；payload 解出 JSON：HELLO/AUTH/TELEMETRY",
+  "observed: 重建新帧（type=4, seq=4, {\"temp\":22.0,\"status\":\"ok\"}）= 43 B，同表解析回 crc_ok=true，hex=535052580104001b...69d9aa84",
+  "observed: pcap-summary.py（skill 版）对 sample.bin 返回 pcap_parse_error rc=2；Tool/scripts 兼容入口在 Windows 上丢失子进程退出码，rc=0 但 stdout 仍是 ok:false",
+  "missing: 真实 TCP 抓包、半包/粘包/乱序重同步的服务端验证、服务端是否接受 type=4"
+ ],
+ "lessons": [
+  "跑的是 cd Tool/cases/protocol02 && python ../../../Tool/skill/protocol-plugin/scripts/proto-repro.py --input input/sample.bin --json，rc=0；随后 --rebuild --frame-index 2 --set type=4 --set seq=4 --payload-text ... --out artifacts/new-frame.bin，rc=0；最后对新帧再跑一次解析，rc=0。",
+  "结论：3 帧 141 B 按字段表解析：magic=SPRX、version=1、type=1/2/3、seq=1/2/3，length 只覆盖 payload，CRC32 覆盖 header+payload；三个 CRC 全部 want==got。",
+  "重建：type=4/seq=4 的新帧 43 B，长度与 CRC 由同一张表重算，再解析回来 crc_ok=true；但**没有服务端**验证，所以只到\"结构自洽\"，不写\"服务端接受\"。",
+  "工具边界：同一份 sample.bin，Tool/scripts 兼容入口 rc=0（os.execv 在 Windows 丢退出码），skill 版 rc=2；结论以 skill 版的 JSON 与退出码为准。",
+  "还差什么：真实 TCP pcap、≥5 帧反推长度/CRC、半包/粘包/乱序重同步测试、服务端接受性验证；当前只能证明该 3 帧样本自洽。"
+ ],
+ "tags": [
+  "R24",
+  "protocol",
+  "binary",
+  "crc32",
+  "framing",
+  "fixture",
+  "partial"
+ ],
+ "refs": [
+  "Tool/skill/protocol-plugin/SKILL.md",
+  "Tool/skill/protocol-plugin/references/01-criteria.md",
+  "Tool/skill/protocol-plugin/references/05-binary-framing.md",
+  "Tool/skill/protocol-plugin/references/07-crypto-and-checksum.md",
+  "Tool/skill/protocol-plugin/references/08-replay-and-new-request.md",
+  "Tool/mcp/Tool/reverselab/kb/protocol/techniques/framing-and-fields.md",
+  "Tool/mcp/Tool/reverselab/kb/protocol/techniques/checksum-and-crypto-segment.md",
+  "Tool/config/protocol-plugin-matrix.json",
+  "Tool/cases/protocol02/artifacts/run.json"
+ ],
+ "updated": "2026-10-21",
+ "repro": {
+  "status": "recorded",
+  "evidence": "见 lessons 首条的『命令与 rc』"
+ }
 }

@@ -12,8 +12,8 @@
 
 ```bash
 # 先固定证据：包哈希、容器、rc
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path target --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path target --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path target --out work/repro --json
 
 # 工具缺失时确认降级面
 command -v ilspycmd jadx dnSpy 7z unzip node || true
@@ -53,4 +53,4 @@ command -v ilspycmd jadx dnSpy 7z unzip node || true
 - 签名/白名单/反作弊不提供绕过方法；授权测试也要记录环境与回退。
 - 协议/分帧/重放交 `protocol-plugin`（R24）；APK 壳交 `apkseep`；PE 脱壳交 `unpack-loop`。
 
-> 关联：`Tool/skill/plugin-targets/references/02-failure-criteria.md`、`references/01-criteria.md`。
+> 关联：`Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md`、`references/01-criteria.md`。

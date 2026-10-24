@@ -7,7 +7,7 @@
 1. **案例复算**：扫 `Tool/cases/protocol*/case.json`，逐条复算本域硬判据——
    必填字段、`evidence_kind` 与 `target_type` 自洽、`artifacts[].sha256` 真实、
    `refs` 不幻影、`lessons[0]` 写清"跑的是什么/命令/rc"、`outcome != planned`。
-2. **路由边界**：读 `Tool/config/routing-fragments/protocol-plugin.json`，
+2. **路由边界**：读 `Tool/skill/protocol-plugin/pack.json`，
    用其中的词边界规则跑 `boundary_tests`，确认不抢 web 的 spider、firmware 的 bios、
    ad-cloud 的 principal（也不吃 zipalign / scaffold）。
 
@@ -45,8 +45,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(SKILL)))
 CASES = os.path.join(ROOT, "Tool", "cases")
-FRAGMENT = os.path.join(ROOT, "Tool", "config", "routing-fragments",
-                        "protocol-plugin.json")
+# S3：路由片段目录已删，路由只活在 pack.json 的 routes 里
+FRAGMENT = os.path.join(ROOT, "Tool", "skill", "protocol-plugin", "pack.json")
 
 CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
                "authority", "goal_level", "outcome", "artifacts", "lessons",
@@ -201,15 +201,18 @@ def load_boundary():
     if os.path.isfile(FRAGMENT):
         try:
             frag = load(FRAGMENT)
-            kw = (frag.get("routes", {}).get("R24", {}).get("keywords") or [{}])[0]
-            bp = frag.get("boundary_policy") or {}
-            must = kw.get("must") or ""
-            mustall = kw.get("mustAll") or []
-            pattern = bp.get("pattern") or ("".join(mustall) if mustall else must)
-            forbid = bp.get("forbid") or kw.get("forbid") or BUILTIN_FORBID
-            tests = frag.get("boundary_tests") or BUILTIN_TESTS
+            routes = frag.get("routes") or []
+            # 只取「协议」那条路由（pack 里另有「插件/Mod」路由，混进来会把边界测试撑爆）
+            proto = [r for r in routes if "协议" in str(r.get("label") or "")]
+            musts = [m for r in (proto or routes) for m in (r.get("must") or [])]
+            # 内联 (?i) 不能出现在表达式中间（Python 3.11+ 会报错）：统一提到最前面
+            must = "(?i)" + "|".join("(?:%s)" % str(m).replace("(?i)", "", 1)
+                                     for m in musts)
+            pattern = must or BUILTIN_PATTERN
+            forbid = BUILTIN_FORBID
+            tests = BUILTIN_TESTS
             return {"source": os.path.relpath(FRAGMENT, ROOT).replace(os.sep, "/"),
-                    "status": bp.get("status") or "merged",
+                    "status": "pack",
                     "merged_must": must, "pattern": pattern, "forbid": forbid,
                     "tests": tests}
         except Exception:  # noqa: BLE001

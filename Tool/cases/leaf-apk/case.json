@@ -1,0 +1,54 @@
+{
+ "id": "leaf-apk",
+ "domain": "reverse",
+ "target_type": "APK（单 classes dex，dex 035，零 native 库）：公开教学靶场 DIVA，包名 jakhar.aseem.diva，minSdk 15 / targetSdk 23",
+ "evidence_kind": "fixture",
+ "protection": [
+  "未加固：整包仅 1 个 classes dex（1931680B）、无 lib 与 so、16 个加固特征串（StubApp/libjiagu/DexHelper/comqihoo/SecShell/bangcle/secneo/AppWrapper/aliprotect/libnesec/libshella 等）计数全为 0、manifest 的 application 节点无 android:name（装不下 StubApp 类入口）"
+ ],
+ "authority": "本样本无授权/卡密面（教学靶场，功能入口是 manifest 里的 17 个 activity 与 1 个 provider）；本叶子验证的是『smali 可改 → 重打包 → 对齐 → 签名』链路，不是绕过某个校验",
+ "goal_level": "L1",
+ "outcome": "partial",
+ "artifacts": [
+  "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk"
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "解包 apktool d -r 得 1792 个 smali；改 APICredsActivity 第 38 行 const-string → apktool b 得 Built apk → jarsigner 签名 → zipalign 对齐 → zipalign -c 得 Verification succesful、jarsigner -verify rc=0、aapt 能解析新包、grep 新串得 1。证据见 facts 的 F-101..F-106 与 report/triage.md"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "存在理由：路径树叶子 A-APK-PLAIN 原本没有样本，安卓这一支的所有失败都无法归因（是壳挡的，还是重打包没跑通）。本 case 给出最小可回放基线。",
+  "未加固四条独立依据：① 单 classes dex 且魔数版本正常；② 无 lib 目录项、无 so；③ 16 个加固特征串全 0；④ manifest application 无 android:name（加固包必须挂 StubApp/AppWrapper）。",
+  "链路已闭环：apktool d -r → 改 smali → apktool b → jarsigner → zipalign → 三道复核（zipalign -c、jarsigner -verify、aapt 解析）全过，且新 dex 里能 grep 到改后的字符串。",
+  "真坑（对齐顺序）：先 zipalign 再 jarsigner 会让对齐失效（zipalign -c 报 BAD -2 / BAD -1 → Verification FAILED）；v1 签名重写 zip 目录区，顺序必须是『先签名、再对齐』。",
+  "真坑（资源解码）：apktool 2.5.0 不带 -r 在本样本上卡死（反复 Load resource table，180s 超时，前期报 Invalid data detected -3416 字节 / Unknown data 17756 字节）；本次用 -r 绕过，代价是 res 不反编译、manifest 非文本。",
+  "未验证（诚实缺口）：无 adb 设备在线 → 真机安装与启动未验；样本无任何广告 SDK → 叶子见证物的『广告消失』不可验证；apksigner 缺失 → 只能产 v1 签名（targetSdk 23 恰好可用，API 24+ 需 v2/v3）。",
+  "边界：能证明『改得动、打得回、签得上』，不能证明『装上能跑、广告消失』；这两项必须由用户在真实带广告 APK + 在线设备上补验。"
+ ],
+ "tags": [
+  "fixture",
+  "apk",
+  "unhardened",
+  "triage",
+  "path-tree",
+  "A-APK-PLAIN",
+  "apktool",
+  "repackage"
+ ],
+ "refs": [
+  "Tool/cases/leaf-apk/report/triage.md",
+  "Tool/cases/leaf-apk/target/diva.apk",
+  "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk",
+  "Tool/samples/real/android-apks/README.md",
+  "Tool/skill/apkseep/SKILL.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/diva.apk",
+   "sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+   "source": "仓库内既有夹具（见 case.json 的 lessons/refs）"
+  }
+ ]
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "seep.verification/1",
+  "case": "pwn-crypto06",
+  "date": "2026-10-24",
+  "problem": "该案例为本轮为真实目标新建，此前无事实账（baseline = 空账）",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto06",
+  "cohorts": {
+    "baseline": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 9,
+      "proven": 9,
+      "strong": 9,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "facts.jsonl": "7302813357c4ebae51ecf099a49dd5c29632d52deb16dc6a40576bc4252d3c08",
+    "artifacts/MANIFEST.sha256": "d83ea98019eda8aa5c864917aadb8f371d3f1751ce3ee5e388f014556424d881"
+  },
+  "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
+  "limitations": [
+    "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+  ]
+}

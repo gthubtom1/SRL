@@ -91,7 +91,7 @@
             "idat64.exe",
             "idat.exe"
           ],
-          "note": "脚本模板见 Tool/skill/ida-reverse/；-A 自动分析、-S 执行脚本",
+          "note": "脚本模板见 Tool/skill/_pending/ida-reverse/；-A 自动分析、-S 执行脚本",
           "toolId": "ida"
         },
         {

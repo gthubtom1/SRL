@@ -54,7 +54,7 @@
     "notes": "未执行：UEFI PE 不是可启动 rootfs；未读取固件卷或 Secure Boot 变量。"
   },
   "lessons": [
-    "跑的是 python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json > artifacts/triage.json，rc=0；随后 fw-repro.py --out-dir work/fw-case04 --json > artifacts/repro.json，rc=0。",
+    "跑的是 python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json > artifacts/triage.json，rc=0；随后 fw-repro.py --out-dir work/fw-case04 --json > artifacts/repro.json，rc=0。",
     "真实识别：sha256=820a15d9...，1346960 字节；PE32+ x86-64，subsystem=16（Windows boot application, UEFI-era），9 个节，.text 熵 6.491，整体熵 6.489。",
     "误报处理：triage 在 10818/24253/40228/96461 等处报 gzip，并在 18587 报 JFFS2；fw-repro 把 PE 定为主格式，抽取状态记为 not-applicable，避免把压缩资源当固件容器。",
     "卡点：只有单个 PE 文件，没有固件卷（FV）、没有 db/dbx/KEK/PK 变量导出，也没有 ESP 全量；无法验证 Secure Boot 策略或启动链完整性。",

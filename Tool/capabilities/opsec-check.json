@@ -26,11 +26,11 @@
     "blocked_at + next_action"
   ],
   "scripts": [
-    "Tool/skill/signin-automation/scripts/opsec-check.py"
+    "Tool/skill/_pending/signin-automation/scripts/opsec-check.py"
   ],
   "refs": [
-    "Tool/skill/signin-automation/SKILL.md",
-    "Tool/skill/signin-automation/references/01-fingerprint-and-pacing.md"
+    "Tool/skill/_pending/signin-automation/SKILL.md",
+    "Tool/skill/_pending/signin-automation/references/01-fingerprint-and-pacing.md"
   ],
   "maturity": "usable",
   "reserved": true,

@@ -1,6 +1,6 @@
 # 参考手册：客户端许可 / 激活 / 卡密 校验模型实战手册
 
-> **来源**：`Tool/skill/client-license-validation-bypass/SKILL.md`（原独立 Skill，已并入 `softseep`）
+> **来源**：`Tool/skill/_pending/client-license-validation-bypass/SKILL.md`（原独立 Skill，已并入 `softseep`）
 > **定位**：跨运行时 × 跨校验模型的许可校验实战手册 —— 主流程 `SKILL.md` 的横向补充
 > **加载时机**：目标属于「许可 / 激活 / 卡密 / 订阅 / 试用 / 硬件绑定 / Token」类时
 > **边界**：仅已授权样本；与 scope、影响闸、证据门槛冲突时以后者为准。禁 DoS 扩大化、禁真实凭据外泄。
@@ -19,10 +19,10 @@
 
 先定权威归属,再选打法。门是通用骨架,案例仅示范一条路径。
 
-> **七道门（G0–G6）与五条通用禁令只在 `Tool/skill/client-license-validation-bypass/SKILL.md` §0 定义**，
+> **七道门（G0–G6）与五条通用禁令只在 `Tool/skill/_pending/client-license-validation-bypass/SKILL.md` §0 定义**，
 > 本参考卷不再复制（上一版两份逐字重复，已合并为单一事实源）。
 
-> **门 → 决策树映射与退出判据** 同属 §0，定义在 `Tool/skill/client-license-validation-bypass/SKILL.md`；
+> **门 → 决策树映射与退出判据** 同属 §0，定义在 `Tool/skill/_pending/client-license-validation-bypass/SKILL.md`；
 > 本参考卷不复制（避免两份漂移）。
 
 
@@ -168,14 +168,32 @@ UI Automation 枚举 Edit/Button/CheckBox 的 Name/Value,`ValuePattern.SetValue`
 | **多副本组合 2~3 处** | 以上混打 | **有效**(案例两次成功) |
 上限: 命中 **2~3 处** 安全;一次打 **13~24 处** 进程必崩(含已释放/复用堆块被写坏)。角色错打无效、全量打崩。
 
-### 5.3 提权回环接管(零竞速,案例决定性一招)
-```powershell
-netsh interface ipv4 add address 1 <c2_ip> 255.255.255.255   # 管理员：C2 IP 抢到回环 → 流量直达本地
-netsh interface ipv4 delete address 1 <c2_ip>                # 收尾必删
-```
-- **副作用(必须写明)**: 抢到本机后**你也够不到真服务器**(同机代理同样回环)⇒ 只能拒绝服务或纯中继,做不到"边转发边伪造"。只抢不通 ⇒ 客户端收到本地响应即静默退出,表现为"全体卡密突然失效",是有效 DoS(影响面大,慎用)。
-- 提权子进程会被会话/作业回收: 用**一次性脚本 + 结果落盘**,别设计常驻控制器。
-- 跨平台等价物: hosts 文件重定向(域名场景)、`iptables/pf` DNAT(Linux/mac)。
+### 5.3 接管假服务端：**只对目标进程生效**（不许改整机网络）
+
+> **红线（2026-10-23 血案后的修订）**：给网卡挂 /32 别名（命令略） 抢回环、
+> 写系统 `hosts`、`netsh winhttp set proxy` 都属于**整机生效**的系统级改动 ——
+> 假服务单一死，用户整机断网。**cmd-guard 已对这类命令 block**。本节原来的写法已废弃。
+
+按副作用从小到大，三档，**优先用 ①**：
+
+| 档 | 做法 | 副作用范围 |
+| :-- | :-- | :-- |
+| **① 进程内重定向（首选）** | Frida hook `getaddrinfo` / `WinHttpOpen` 的代理参数 / `connect`，把目标域名指到 `127.0.0.1:<port>` | 只有这一次进程；进程退出即恢复 |
+| **② 进程启动参数** | 目标支持时用 `--proxy http://127.0.0.1:<port>` 或环境变量（`HTTP_PROXY` 仅对该进程） | 只有该进程 |
+| **③ VM 网络** | 整个目标丢进 VM，在 VM 里随便改（含 hosts/NAT） | 只有 VM |
+
+> **① 档的反制**：目标若做**证书 pinning**，只改解析不够，TLS 握手仍失败 —— 需同时 hook
+> `X509_verify_cert` / `SecTrustEvaluate` / 自研公钥哈希比对。② ③ 同理：换层级解决"落到哪"，不是"信任链怎么过"。
+
+> **唯一例外**：用户明确说"一次性靶机，随便改" → 按 `AGENTS.md` §五之三发 **ASK 卡**（四要素缺一不可：
+> 几步 / 我监控什么 / 我保证不动什么 / 我拿到什么，含 `net-rollback.py snapshot` 与还原命令），**命令由用户执行**。
+
+**禁止**：改宿主网卡 IP / 路由 / DNS / WinHTTP 全局代理 / 系统 hosts。
+**收尾**：① ② 不需要收尾（进程结束即复原）；③ 关 VM 即复原。
+
+- 抢回环的**副作用**（仅在你真的在 VM 里做时适用）：抢到后你自己也够不到真服务器，
+  只能拒绝服务或纯中继，做不到"边转发边伪造"。这条是**风险说明**，不是操作建议。
+- 先查端口占用：`Get-NetTCPConnection -LocalPort <p> -State Listen`（只读，不拦）。
 
 ### 5.4 本地监听器陷阱
 绑前查占用(`Get-NetTCPConnection -LocalPort <p> -State Listen`)。Windows `SO_REUSEADDR` **允许同端口双绑** ⇒ 旧实例不退会让请求落到旧实例/别的进程。旧进程持日志句柄会让 `Remove-Item` **静默失败**(会看到两条 start 混写同一日志)⇒ 每轮独立日志名。**绑 `0.0.0.0` 而非 `127.0.0.1`**,才能让任意 `127/8`(含被接管的 C2 IP)命中。每次请求落盘 JSONL(方法/路径/全部头/体 hex)。

@@ -11,9 +11,9 @@
 ## 2 证据清单
 | # | 文件 | sha256 | 命令 | rc | 说明 |
 |---|---|---|---|---|---|
-| E01 | artifacts/plugin-triage.json | <sha256> | `python Tool/skill/plugin-targets/scripts/plugin-triage.py --path <pkg> --json` | 0 | 容器/权限/URL |
-| E02 | artifacts/plugin-repro.json | <sha256> | `python Tool/skill/plugin-targets/scripts/plugin-repro.py --path <pkg> --out ... --json` | 0 | 入口/数据流 |
-| E03 | artifacts/accept.json | <sha256> | `python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json` | 0 | 案例验收 |
+| E01 | artifacts/plugin-triage.json | <sha256> | `python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path <pkg> --json` | 0 | 容器/权限/URL |
+| E02 | artifacts/plugin-repro.json | <sha256> | `python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path <pkg> --out ... --json` | 0 | 入口/数据流 |
+| E03 | artifacts/accept.json | <sha256> | `python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --json` | 0 | 案例验收 |
 
 ## 3 判据命中表
 | 判据 | 期望 | 实测 | 证据# | 结论 |
@@ -49,7 +49,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path work/<case>/artifacts/package.zip --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path work/<case>/artifacts/package.zip --out work/<case>/artifacts/repro --json
-python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path work/<case>/artifacts/package.zip --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path work/<case>/artifacts/package.zip --out work/<case>/artifacts/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --json
 ```

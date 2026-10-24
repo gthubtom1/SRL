@@ -24,15 +24,15 @@
 | :--- | :--- | :--- | :--- | :---: | :--- |
 | 1 | **softseep** ⭐总控 | `Tool/skill/softseep/` | `~/.pi/agent/skills/softseep/` | 11 | 364 KB |
 | 2 | **apkseep** | `Tool/skill/apkseep/` | `~/.pi/agent/skills/apkseep/` | 123 | 2.2 MB |
-| 3 | **ida-reverse** | `Tool/skill/ida-reverse/` | `~/.pi/agent/skills/ida-reverse/` | 1 | 4 KB |
-| 4 | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/` | `~/.pi/agent/skills/` | 1 | 32 KB |
-| 5 | **reverse-engineering** | `Tool/skill/safe-skills/reverse-engineering/` | 同上 | 15 | 380 KB |
-| 6 | **apk-reverse** | `Tool/skill/safe-skills/apk-reverse/` | 同上 | 8 | 52 KB |
-| 7 | **radare2** | `Tool/skill/safe-skills/radare2/` | 同上 | 3 | 20 KB |
-| 8 | **mcp-js-reverse-playbook** | `Tool/skill/safe-skills/mcp-js-reverse-playbook/` | 同上 | 13 | 24 KB |
-| 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/safe-skills/ida-assistant/` | 同上 | 3 | 28 KB |
-| 10 | **version-migration** | `Tool/skill/version-migration/` | `~/.pi/agent/skills/version-migration/` | 1 | 6 KB |
-| 11 | **unpack-loop** | `Tool/skill/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
+| 3 | **ida-reverse** | `Tool/skill/_pending/ida-reverse/` | `~/.pi/agent/skills/ida-reverse/` | 1 | 4 KB |
+| 4 | **client-license-validation-bypass** | `Tool/skill/_pending/client-license-validation-bypass/` | `~/.pi/agent/skills/` | 1 | 32 KB |
+| 5 | **reverse-engineering** | `Tool/skill/_pending/safe-skills/reverse-engineering/` | 同上 | 15 | 380 KB |
+| 6 | **apk-reverse** | `Tool/skill/_pending/safe-skills/apk-reverse/` | 同上 | 8 | 52 KB |
+| 7 | **radare2** | `Tool/skill/_pending/safe-skills/radare2/` | 同上 | 3 | 20 KB |
+| 8 | **mcp-js-reverse-playbook** | `Tool/skill/_pending/safe-skills/mcp-js-reverse-playbook/` | 同上 | 13 | 24 KB |
+| 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/_pending/safe-skills/ida-assistant/` | 同上 | 3 | 28 KB |
+| 10 | **version-migration** | `Tool/skill/_pending/version-migration/` | `~/.pi/agent/skills/version-migration/` | 1 | 6 KB |
+| 11 | **unpack-loop** | `Tool/skill/_pending/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
 
 ### ⚠ 上游开源归属与完整镜像（合规声明）
 
@@ -95,7 +95,7 @@ apkseep/
 > 本节只讲“由哪些文件夹组成”。
 > 📦 **各工具下载来源** → 见 **`Tool/docs/DOWNLOADS.md`**
 
-### ① seep MCP（40 工具）— 自研
+### ① seep MCP（20 工具）— 自研
 
 | 组成 | 位置 | 说明 |
 | :--- | :--- | :--- |
@@ -107,7 +107,7 @@ apkseep/
 | **LLM 索引** | `Tool/mcp/Tool/reverselab/docs/llms.txt` | MCP 启动时读取 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/radare2/bin/`（脚本下载） | `seep_r2_*` 8 个工具 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/jadx/bin/` + `.../apktool/`（脚本下载） | `seep_apk_*` 5 个工具 |
-| **Hook 模板** | `Tool/mcp/Tool/safe/hook-mcp/templates/` | `seep_apk_gen_hook` |
+| **Hook 模板** | `Tool/mcp/Tool/safe/hook-mcp/templates/` | `Tool/mcp/Tool/safe/hook-mcp/` |
 
 > **关键（排障必读）**：`seep_mcp_server.py` 第 28–44 行硬编码：
 > ```python
@@ -121,15 +121,15 @@ apkseep/
 
 **工具分组**：
 ```
-状态环境(2)   seep_status · seep_ida_status
+状态环境(2)   mcp-doctor.py · mcp-doctor.py
 二进制 r2(9)  seep_r2_info · _cmd · _strings · _functions · _disasm · _decompile · _diff · _asm · _xrefs
 Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_hook
 知识库(4)     seep_kb_search · _read · _checklist · _payloads
-流程编排(3)   seep_task_init · seep_auto_triage · seep_gen_security_report
-扩展资产(14)  seep_ensure_tool · seep_decompile_auto · seep_pe_resources · seep_mem_strings ·
-             seep_pcap_extract · seep_packer_detect · seep_http_replay · seep_web_recon ·
-             seep_tool_discover · seep_tool_control_plan · seep_tool_research ·
-             seep_tool_register_mcp · seep_tool_install · seep_tool_state
+流程编排(3)   mkdir -p <task>/{samples,exports,patches,reports} · seep_auto_triage · seep_gen_security_report
+扩展资产(14)  seep_ensure_tool · seep_r2_decompile · seep_r2_cmd(iR) · seep_mem_strings ·
+             seep_pcap_extract · seep_packer_detect · seep_http_replay · web-check.py ·
+             seep_tool_discover · tool-acquire.py · tool-acquire.py --list ·
+             tool-acquire.py（ASK） · tool-acquire.py --tool <id> · tool-acquire.py --json
 ```
 
 ### ② ida MCP（约 100 工具，随版本变化）
@@ -147,7 +147,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | 组成 | 位置 | 说明 |
 | :--- | :--- | :--- |
 | **MCP 服务** | npm `@playwright/mcp` | `npx` 按需拉取 |
-| **扩展 token** | `mcp.json` 中 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | **需你自填** |
+| **扩展 token** | —（已移除） | **无需 token** —— 以 `--headless` 启动（旧版 `--extension` 模式才需自填，已废弃） |
 
 ### 可选注册：reverselab 自带的 3 个 MCP
 
@@ -203,7 +203,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | `case-init.ps1` | `Tool/scripts/` | 任务建档门禁（一任务一目录） |
 | `refresh-tool-index.ps1` | `Tool/scripts/` | 工具链健康自检 |
 | `trigger_ida_mcp.ps1` | `Tool/scripts/` | 静默唤醒 IDA + 挂 MCP |
-| `master-route.ps1` | `Tool/scripts/` | 主路由 |
+| `route.py` | `Tool/scripts/` | 主路由 |
 | `start_mcp.py` | `Tool/scripts/` | MCP 启动 |
 | `shot_ida.ps1` / `temp_ocr.ps1` | `Tool/scripts/` | 截图 / OCR 辅助 |
 | `apk/decode.ps1` | `Tool/scripts/apk/` | jadx + apktool 一键解包 |
@@ -236,9 +236,9 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 seep_kb_* 四个工具   →  Tool/mcp/Tool/reverselab/kb/（412 篇）
 seep_r2_* 八个工具   →  Tool/mcp/Tool/safe/radare2/bin/
 seep_apk_* 五个工具  →  Tool/mcp/Tool/safe/jadx/ + apktool/
-seep_apk_gen_hook   →  Tool/mcp/Tool/safe/hook-mcp/templates/
+Tool/mcp/Tool/safe/hook-mcp/   →  Tool/mcp/Tool/safe/hook-mcp/templates/
 ida MCP              →  自备 IDA Pro + Tool/mcp/Tool/safe/ida-pro-mcp/
-playwright MCP       →  npx + PLAYWRIGHT_MCP_EXTENSION_TOKEN
+playwright MCP       →  npx + --headless（无需 token）
 softseep 路由         →  Tool/skill/softseep/（含 8 个 references）
 apkseep 全链路        →  Tool/skill/apkseep/（45 refs + 56 scripts）
 ```

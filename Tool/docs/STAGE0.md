@@ -1,6 +1,6 @@
 # STAGE0 —— 阶段零出口物与出口闸（case_state.py）
 
-> 对应技能：`Tool/skill/00-analysis/SKILL.md`
+> 对应技能：`Tool/skill/_pending/00-analysis/SKILL.md`
 > 脚本：`Tool/scripts/case_state.py`
 > 配置：`Tool/config/instrument-matrix.json`、`Tool/config/strategy.json`
 >

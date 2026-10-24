@@ -4,7 +4,7 @@
 > 本文是**唯一交接事实源**：身份、差异、需求、契约、已知债务、以及「哪些文档不能当现状」。
 > 读完本文 + 跑一遍第 9 节的门禁，你就能在不误解的前提下给出可信报告。
 >
-> 版本基线：`v1.26.1`｜门禁实测：`preflight 45/45`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
+> 版本基线：`v1.26.1`｜门禁实测：`preflight 55/55`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
 > 权威交接台账：`docs/RELEASE-1.26.1.md`（做了什么 / 每条证据 / 剩余项）
 > 若你是被请来做**只读审查**的：直接看 `docs/AUDIT-REQUEST.md`（权限边界 + 只读命令白名单 + 报告必答项）与 `docs/AUDIT-REPORT-TEMPLATE.md`（报告骨架）。**不要修改仓库。**
 
@@ -24,7 +24,7 @@
 **阅读顺序（按这个顺序读，不要跳）**：
 1. 本文（FORK-BRIEF）
 2. `docs/RELEASE-1.26.1.md` —— 本轮交付台账（做了什么 / 证据 / 剩余）
-3. `docs/DOMAIN-SPEC-v2.md` —— 域契约（九件套）
+3. `docs/history/X-DOMAIN-SPEC-v2.md` —— 域契约（九件套）
 4. `docs/UPSTREAM.md` —— 与上游的差异口径与吸收纪律
 5. `docs/DEFERRALS.md` —— 延迟项 + **明确不做**（含理由）
 6. `ROADMAP.md` —— 现在能做什么 / 下一步
@@ -39,7 +39,7 @@
 - **许可**：GPLv3（`LICENSE`，34KB 原文，未修改）。
 - **二开原则**（`docs/UPSTREAM.md` §2）：只做**单文件 cherry-pick**，不整仓 merge；每次同步按「五问」评估；共享文件（routing / gate / spec / README）只在主分支改。
 - **同步状态（2026-10-22 快照）**：仅上游有 140 条 / 仅本仓有 1015 条 / 两边都有但内容不同 82 条 / 相同 273 条。
-  口径与复跑命令见 `docs/UPSTREAM.md` §1（`python Tool/scripts/upstream-delta.py --print`）。
+  口径与复跑命令见 `docs/UPSTREAM.md` §1（`（该脚本 S4 已删，见下方替代路径） --print`）。
 
 ---
 
@@ -52,9 +52,9 @@
 | **门禁层（最大差异）** | `preflight.py`（45 项）、`domain-gate.py`（域深度 110 项）、`capability-gate.py`、`playbook-check.py`、`skill-route-probe.py`、`mcp-param-contract.py`、`intent-coverage.py`、`check-budget.py`、`case_state.py`（案子账/深度门/出口闸） | `python Tool/scripts/preflight.py`、`python Tool/scripts/domain-gate.py --all` |
 | **判据化域（11 个）** | 每域九件套：判据表 / 失败判据表 / 模型坑 / 走查 / 脚本（`--help`+`--self-test` 双绿）/ 案例（≥1 real）/ KB / 矩阵 / 任务卡 / 路由片段 | `python Tool/scripts/domain-gate.py --domain <域>` |
 | **五阶段流水线** | `00-analysis`（先摸透再动手）→ `01-gate-bypass`（旁路卡密）→ `02-ui-rebrand`（改 UI 去品牌）→ `03-license-hookup`（接自有授权）→ `04-version-migrate`（跨版本追版）→ `05-backend-rebuild`（T2/T3 才触发） | 各 `Tool/skill/0*/SKILL.md` + `case_state.py` 闸 |
-| **MCP 工具层** | 23 → 40 个工具（pcap / 资源雕刻 / 内存字符串 / 加壳识别 / web recon / 多引擎反编译 / 六层工具发现 / 案例检索）；**统一路径参数别名**（8 个名字互通） | `python Tool/scripts/mcp-param-contract.py`、`python Tool/scripts/smoke-e2e.py` |
+| **MCP 工具层** | 23 → 40 个工具（pcap / 资源雕刻 / 内存字符串 / 加壳识别 / web recon / 多引擎反编译 / 六层工具发现 / 案例检索）；**统一路径参数别名**（8 个名字互通） | `python Tool/skill/softseep/scripts/mcp-param-contract.py`、`python （`smoke-e2e` 已不存在：按上面的替代路径走）` |
 | **反造假机制** | `case_state.py` 拒绝不存在的证据路径；`gate` 要求 D0–D5 全 pass + ≥2 条候选路线 + ≥2 种仪器；`deliver` 按 M1–M4 分级，越级被拒 | `python Tool/scripts/case_state.py --help`、`case_state.py prove --evidence <不存在路径>` 会 rc≠0 |
-| **能力/配方层** | 51 个能力（DAG，悬空 0）+ 24 篇可跑配方（命令进闸，`--help` 实跑校验） | `python Tool/scripts/capability-gate.py --json`、`python Tool/scripts/playbook-check.py` |
+| **能力/配方层** | 51 个能力（DAG，悬空 0）+ 24 篇可跑配方（命令进闸，`--help` 实跑校验） | `python Tool/skill/softseep/scripts/capability-gate.py --json`、`python Tool/skill/softseep/scripts/playbook-check.py` |
 | **知识库** | 412 篇（含 `field_journal_*` 现场日志、`_archive/` 归档索引）；检索走 MCP `seep_kb_search` | `python Tool/scripts/kb_acceptance.py` |
 | **外部技术库吸收** | 用户桌面 Pentest 技能库按「好用就融」处理：MIT 部分重写吸收；`offensive-*` 79 篇建索引（`kb/_archive/pentest-checklist/`）；6 篇课程转录不收 | 读 `docs/UPSTREAM.md` §6 |
 
@@ -79,9 +79,9 @@
 
 | # | 契约 | 位置 | 破坏后果 |
 | :-- | :-- | :-- | :-- |
-| C1 | 路由**单一事实源**是 `Tool/scripts/routing.json`；片段改 `Tool/config/routing-fragments/*.json` 后必须 `python Tool/scripts/merge-routing-fragment.py --write` | `verify-routing-coherence.py` / `merge-routing-fragment.py --check` | 路由静默失效、`domain-gate` 串味测试红 |
-| C2 | 域契约（九件套）：SKILL ≤600 行；references 6–10 篇、每篇 60–400 行；脚本 2–4 个且 `--help`/`--self-test` rc=0；KB 6–10 篇；矩阵 ≥12 条；任务卡 20–30 张；链路无孤儿 | `docs/DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py` | `domain-gate` 直接红 |
-| C3 | 计数**单一事实源**：`Tool/config/gate-counts.json`（preflight 条数、MCP 工具数基线）；first-party 预算口径 = `git ls-files` | `check-budget.py` / `check_numbers()` in `preflight.py` | 文档数字对账红 |
+| C1 | 路由**单一事实源**是 `Tool/skill/<pack>/pack.json`；片段改 `Tool/skill/<pack>/pack.json 的 routes 块（*.json` 后必须 `python Tool/scripts/route.py --write` | `verify-routing-coherence.py` / `merge-routing-fragment.py --check` | 路由静默失效、`domain-gate` 串味测试红 |
+| C2 | 域契约（九件套）：SKILL ≤600 行；references 6–10 篇、每篇 60–400 行；脚本 2–4 个且 `--help`/`--self-test` rc=0；KB 6–10 篇；矩阵 ≥12 条；任务卡 20–30 张；链路无孤儿 | `docs/history/X-DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py` | `domain-gate` 直接红 |
+| C3 | 计数**单一事实源**：`（已删除：数字口径取消）`（preflight 条数、MCP 工具数基线）；first-party 预算口径 = `git ls-files` | `check-budget.py` / `check_numbers()` in `preflight.py` | 文档数字对账红 |
 | C4 | 技能必须与部署目录哈希一致（`~/.pi/agent/skills`） | `domain-gate` 部署项 | 换机后行为不一致 |
 | C5 | PowerShell 脚本必须 **UTF-8 with BOM**；文档换行 LF | `check_ps_encoding()` | PS 5.1 解析失败 |
 | C6 | 案例证据必须真实存在（`case_state.py prove` 校验路径）+ sha256 可复算 | `Tool/cases/` + `domain-gate` | 反造假机制失效 |
@@ -112,7 +112,7 @@
 | 文件 | 作用 |
 | :-- | :-- |
 | `docs/RELEASE-1.26.1.md` | 本轮交付台账（做了什么/证据/剩余），**审查入口** |
-| `docs/DOMAIN-SPEC-v2.md` | 域契约（九件套判据） |
+| `docs/history/X-DOMAIN-SPEC-v2.md` | 域契约（九件套判据） |
 | `docs/UPSTREAM.md` | 与上游差异、吸收纪律、许可分层 |
 | `docs/DEFERRALS.md` | 延迟项 + 明确不做 |
 | `ROADMAP.md` | 现在能做什么 / 下一步 |
@@ -149,7 +149,7 @@
 
 | 编号 | 债务 | 影响面 | 复现/证据 |
 | :-- | :-- | :-- | :-- |
-| DEBT-01 | MCP 参数别名层依赖 FastMCP 对 `__signature__` 的处理 | 升级 `mcp` SDK 可能失效 | `python Tool/scripts/mcp-param-contract.py` |
+| DEBT-01 | MCP 参数别名层依赖 FastMCP 对 `__signature__` 的处理 | 升级 `mcp` SDK 可能失效 | `python Tool/skill/softseep/scripts/mcp-param-contract.py` |
 | DEBT-02 | `race-probe.py` 的竞态结论按「账本差值」判定，不是内核级语义 | 对"中间态可回滚"的系统可能误判 | `--self-test` 22+34 项；`h2-race-e2e.py` 双档对照 |
 | DEBT-03 | `h2-race-e2e.py` 只覆盖明文 h2c，无 TLS/前置代理 | 真实目标可能「打不出时间窗压缩」 | `docs/RELEASE-1.26.1.md` §8 |
 | DEBT-04 | `ad-repro.py --kind edge-fingerprint` 只用离线 fixture 验证过 | 真实设备指纹可能漏判 | `--fixture Tool/cases/ad-cloud01/input/edge-fingerprint.json` |
@@ -162,7 +162,7 @@
 | DEBT-11 | x64dbg 走 http(9094)：宿主晚于会话启动时本轮拿不到工具 | 调试流程多一步 `/mcp reconnect` | `python Tool/scripts/mcp-doctor.py --session` |
 | DEBT-12 | `破甲卡生成/` 与主项目耦合低但同仓 | 审查者易误判为"无关代码" | 见 §6.4 |
 | DEBT-13 | 历史审计文档与新口径并存（`docs/AUDIT.md` 等） | 数字误读风险 | 见 §6.2 |
-| DEBT-14 | 路由探针覆盖 36 条口吻，尚未覆盖全部 34 条路由 | 新口吻可能掉兜底 | `python Tool/scripts/skill-route-probe.py` |
+| DEBT-14 | 路由探针覆盖 36 条口吻，尚未覆盖全部 34 条路由 | 新口吻可能掉兜底 | `python Tool/skill/softseep/scripts/skill-route-probe.py` |
 
 ---
 
@@ -171,9 +171,9 @@
 ### 8.1 先跑这四条（不跑就下结论 = 报告不可信）
 
 ```bash
-python Tool/scripts/preflight.py                # 期望 45/45
+python Tool/scripts/preflight.py                # 期望 55/55
 python Tool/scripts/domain-gate.py --all        # 期望 110/110
-python Tool/scripts/smoke-e2e.py                # 期望 12/12（真调 9 个 MCP 工具）
+python （`smoke-e2e` 已不存在：按上面的替代路径走）                # 期望 12/12（真调 9 个 MCP 工具）
 powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 ```
 
@@ -204,13 +204,13 @@ powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 
 1. 改文件 → 2. `python Tool/scripts/domain-gate.py --domain <域>`（10/10）→
 3. `python Tool/scripts/preflight.py --fast`（全绿；新增文件要同步 BASELINE 实测值）→
-4. `python Tool/scripts/preflight.py`（45/45）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
+4. `python Tool/scripts/preflight.py`（55/55）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
 
 ### 8.5 常见误解（审查时逐条自查）
 
 | # | 错误理解 | 正确理解 |
 | :-- | :-- | :-- |
-| 1 | "`docs/AUDIT.md` 写门禁只有 41 项，所以现在也只跑 41 项" | 那是 v1.25 快照；现在 45 项，以 `gate-counts.json` 与实跑为准 |
+| 1 | "`docs/AUDIT.md` 写门禁只有 41 项，所以现在也只跑 41 项" | 那是 v1.25 快照；现在 45 项，以 （已删除） 与实跑为准 |
 | 2 | "README 说 11 域，但 wireless 没有独立 SKILL，所以是缺失" | 无线是**有意不做**独立域（§5），能力在 firmware-iot + R22 |
 | 3 | "`race-probe` 报 `ok:true` 说明没漏洞" | `ok` 只表示结论可信；漏洞看 `vulnerable` / `reproduced` |
 | 4 | "`seep_auto_triage` 说命中鉴权关键词，所以一定有" | 看 `auth_related_strings_sampled` 与 `next_actions[0]`，文案不再无条件断言 |
@@ -238,7 +238,7 @@ powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 | R0–R36 | 路由编号；R0 是兜底（总控判型） |
 | D1–D26 | 延迟项编号（`docs/DEFERRALS.md`），其中 D21/D26 已定为"不做" |
 | 九件套 | 域契约的九个必备件（SKILL/refs/scripts/cases/KB/matrix/任务卡/链路/路由） |
-| SSOT | 单一事实源：`routing.json`、`gate-counts.json`、`DOMAIN-SPEC-v2.md` |
+| SSOT | 单一事实源：`routing.json`、（已删除）、`DOMAIN-SPEC-v2.md` |
 
 ---
 

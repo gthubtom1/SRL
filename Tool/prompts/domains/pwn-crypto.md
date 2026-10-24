@@ -8,7 +8,7 @@
 ### 01 栈溢出偏移与 saved RIP 控制（源：performing-binary-exploitation-analysis）
 - 触发词：栈溢出、gets、strcpy、返回地址、cyclic、offset
 - 前置：本地 PE/ELF + 编译选项已知；`pwn-check.py` 已给出 NX/PIE/Canary。
-- 步骤：1) `python Tool/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Disabled"`；2) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis --func vuln --probe-log Tool/cases/pwn-crypto03/artifacts/probe.txt` → rc=0，期望：`"offset": 88`、`"consistent": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Disabled"`；2) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis --func vuln --probe-log Tool/cases/pwn-crypto03/artifacts/probe.txt` → rc=0，期望：`"offset": 88`、`"consistent": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：三条命令 rc=0；`repro.json` 的 `consistent=true` 且两源 `offset` 相同；marker 出现且 rc=0（只有崩溃不算）。
 - 失败判据：`pwn-repro` rc=1/`offset-mismatch`，或 exploit rc≠0 且无 marker → 先统一 `-O0 -fno-stack-protector -no-pie` 重测，见 `02-failure-criteria.md` #1/#2。
 - reference：Tool/skill/pwn-crypto/references/04-walkthrough-local-pe.md
@@ -16,7 +16,7 @@
 ### 02 堆喷射与 tcache 布局测量（源：analyzing-heap-spray-exploitation）
 - 触发词：堆喷射、heap spray、tcache、chunk 布局、malloc/free
 - 前置：确认 glibc 版本与分配器；有菜单式 alloc/free/show。
-- 步骤：1) `python Tool/scripts/pwn-check.py --file ./chall --json`（rc=0）；2) `strings -a libc.so.6 | grep -m1 'GNU C Library'`（rc=0，记版本/build id）；3) `gdb -q -batch -ex 'b malloc' -ex run -ex 'vis_heap_chunks' ./chall`（rc=0）；4) `for i in $(seq 10); do ./exploit.py >/tmp/r.$i 2>&1; echo $?; done`（期望 ≥9 次 rc=0 且 `malloc` 返回 target）。
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json`（rc=0）；2) `strings -a libc.so.6 | grep -m1 'GNU C Library'`（rc=0，记版本/build id）；3) `gdb -q -batch -ex 'b malloc' -ex run -ex 'vis_heap_chunks' ./chall`（rc=0）；4) `for i in $(seq 10); do ./exploit.py >/tmp/r.$i 2>&1; echo $?; done`（期望 ≥9 次 rc=0 且 `malloc` 返回 target）。
 - 判据：`vis_heap_chunks` 见重复/重叠 chunk；10 次中 ≥9 次 `malloc` 返回受控 target；全程无 `abort`。
 - 失败判据：`free(): invalid pointer`/abort、count 已满、target 未 0x10 对齐 → 见 `02-failure-criteria.md` #7；2.34+ 放弃 hook，转 `heap-and-sandbox.md` §6。
 - reference：Tool/skill/pwn-crypto/references/heap-and-sandbox.md
@@ -128,7 +128,7 @@
 ### 16 JWT none/签名剥离（源：performing-jwt-none-algorithm-attack）
 - 触发词：JWT none、签名剥离、alg=none
 - 前置：授权测试环境；抓到一枚有效 token。
-- 步骤：1) `python Tool/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
 - 判据：伪造 token 得 200 且响应体含受保护资源；无 token 得 401（证明鉴权分支确实在跑）；两请求 curl rc=0。
 - 失败判据：返回 401/403 → 结论“已修复”，写清服务端是否解析 `alg`；只在前端解码成功、服务端拒收不算成立。
 - reference：Tool/skill/pwn-crypto/references/01-criteria.md

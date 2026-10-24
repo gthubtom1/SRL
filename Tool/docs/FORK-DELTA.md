@@ -16,7 +16,7 @@
 
 1. **要判断"上游的新东西值不值得并入"** → 用 §四 的五问评估表，不要凭感觉。
 2. **要改我们的东西** → 先看 §三 台账里是否已有对应条目；有就改那条，别新增第二份实现（违反反臃肿原则）。
-3. **§六 是自动生成的**：跑 `python Tool/scripts/fork-delta.py` 刷新，**不要手改**。
+3. **§六 是自动生成的**：跑 `python （`upstream-delta` 已不存在：按上面的替代路径走）` 刷新，**不要手改**。
 
 ---
 
@@ -45,16 +45,16 @@
 | 工具 | 类别 | 解决什么 | 实现位置 | 回滚方式 |
 |---|---|---|---|---|
 | `seep_ensure_tool` | 工具自愈 | 四级探测 + 安装计划 | `seep_mcp_server.py`（扩展区） | 删函数块 |
-| `seep_decompile_auto` | 引擎降级 | IDA→Ghidra→REA→r2 | 同上 | 删函数块 |
-| `seep_pe_resources` | 资源层 | 资源载荷枚举/剥离 | 同上 + `pefile` | 删函数块 |
+| `seep_r2_decompile` | 引擎降级 | IDA→Ghidra→REA→r2 | 同上 | 删函数块 |
+| `seep_r2_cmd(iR)` | 资源层 | 资源载荷枚举/剥离 | 同上 + `pefile` | 删函数块 |
 | `seep_mem_strings` | 内存层 | 活体只读字符串 | 同上 + ctypes | 删函数块 |
 | `seep_pcap_extract` | 协议层 | pcap 端点/HTTP/载荷 | 同上 + tshark | 删函数块 |
 | `seep_packer_detect` | 判壳 | 壳/反调试/反 VM + 手册路由 | 同上 | 删函数块 |
 | `seep_http_replay` | 协议层 | 构造/重放 + TLS 指纹 + Cookie 会话 | 同上 + curl_cffi/requests | 删函数块 |
-| `seep_web_recon` | 侦察 | Web 指纹/安全头/入口 | 同上 | 删函数块 |
+| `web-check.py` | 侦察 | Web 指纹/安全头/入口 | 同上 | 删函数块 |
 | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 工具发现 | 六层探测 + 能力表 + 降级链 + 半自动安装 | `tool_autodiscover.py` + `Tool/config/*.json` | 删薄封装 + 保留插件 |
-| `seep_create_skill` | 扩展性 | 新技能脚手架 | 同上 + `Tool/scripts/new-skill.py` | 删函数块 |
-| `seep_case_search` | 案例库 | 按域/保护/深度检索案例（index 缓存 + 实时扫描） | 同上（`SEEP-EXT: case-lib`） | 删函数块 |
+| `手写 pack.json` | 扩展性 | 新技能脚手架 | 同上 + `（已删除）` | 删函数块 |
+| `case_state.py index` | 案例库 | 按域/保护/深度检索案例（index 缓存 + 实时扫描） | 同上（`SEEP-EXT: case-lib`） | 删函数块 |
 | `seep_case_read` | 案例库 | 读 case.json + facts.jsonl + README | 同上（`SEEP-EXT: case-lib`） | 删函数块 |
 
 > **合并上游注意**：上游若也新增工具，**名字冲突优先上游语义**，但要先比对签名——同名不同义会造成静默错误。
@@ -71,9 +71,9 @@
 
 | 文件 | 作用 | 谁在读 |
 |---|---|---|
-| `Tool/config/tool-capabilities.json` | 15 个工具的 mcp/headless/gui/cli 能力与控制命令 | `seep_tool_research` / `plan_control` |
-| `Tool/config/tool-install.json` | 22 项多途径安装（winget / 绿色直下 / pip / npm / go） | `seep_tool_install` |
-| `Tool/config/engine-tiers.json` | 反编译引擎降级链 | `seep_decompile_auto` |
+| `Tool/config/tool-capabilities.json` | 15 个工具的 mcp/headless/gui/cli 能力与控制命令 | `tool-acquire.py --list` / `plan_control` |
+| `Tool/config/tool-install.json` | 22 项多途径安装（winget / 绿色直下 / pip / npm / go） | `tool-acquire.py --tool <id>` |
+| `Tool/config/engine-tiers.json` | 反编译引擎降级链 | `seep_r2_decompile` |
 | `Tool/config/tool-runtimes.json` | 工具通道阶梯（MCP > CLI > GUI）+ 就绪判据 | `Tool/scripts/tool-run.ps1` |
 | `Tool/config/mcp-servers.json` | MCP 装配（含占位符替换与 headers 策略） | `setup/install-pi.ps1` |
 
@@ -84,8 +84,8 @@
 | Linux `mcp.json` 用 sed 生成 → 反斜杠路径 + 未替换占位符 + 覆写用户条目 | 新增跨平台增量合并器（只增不删/写前备份/备份轮转） | `setup/merge_agent_config.py` + `install.sh` |
 | 安装脚本 unzip 返回 1 时中断 | 显式兜住 | `setup/install.sh` |
 | 卸载无差别删 `extensions/*.ts` | 改为随包白名单 | `setup/uninstall.*` |
-| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/scripts/routing.json` + `verify-routing-coherence.py` |
-| `master-route.ps1` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/master-route.ps1` |
+| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/skill/<pack>/pack.json` + `route.py --check` |
+| `route.py` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/route.py` |
 | 体检只查"文件在不在" | 换功能性断言（路径可解析 / 含关键规约 / 实跑测试） | `setup/verify.*` |
 | 工具根写死 `D:\Tools` | **动态跨盘 + 用户级安装目标** | `tool_autodiscover.candidate_roots()` |
 | 无预算/无熔断/模型爱 `-h` 硬试 | 提示词硬约束 + 动态操作预算 | `Tool/prompts/{SYSTEM,AGENTS}.md` |
@@ -119,14 +119,14 @@
 
 | 项 | 位置 | 解决什么 | 怎么撤 |
 |---|---|---|---|
-| 阶段零 分析 | `Tool/skill/00-analysis/SKILL.md` | 结论先于证据（20 秒下结论的血案） | 删目录 + 去掉 routing R15 |
-| 阶段一 旁路 | `Tool/skill/01-gate-bypass/SKILL.md` | 交付纪律：M1–M4 分级 | 删目录 + R11/R2 指回旧技能 |
-| 阶段二 UI | `Tool/skill/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
-| 阶段三 授权 | `Tool/skill/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
-| 阶段四 追版 | `Tool/skill/04-version-migrate/SKILL.md` + `Tool/scripts/migrate.py` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
-| 阶段五 后端复刻 | `Tool/skill/05-backend-rebuild/SKILL.md` | 客户端+后端全栈（仅 T2/T3 触发） | 删目录 + R16 |
+| 阶段零 分析 | `Tool/skill/_pending/00-analysis/SKILL.md` | 结论先于证据（20 秒下结论的血案） | 删目录 + 去掉 routing R15 |
+| 阶段一 旁路 | `Tool/skill/_pending/01-gate-bypass/SKILL.md` | 交付纪律：M1–M4 分级 | 删目录 + R11/R2 指回旧技能 |
+| 阶段二 UI | `Tool/skill/_pending/02-ui-rebrand/SKILL.md` | 品牌替换与回归 | 删目录 + R12 |
+| 阶段三 授权 | `Tool/skill/_pending/03-license-hookup/SKILL.md` | 接自有授权平台 | 删目录 + R13 |
+| 阶段四 追版 | `Tool/skill/_pending/04-version-migrate/SKILL.md` + `（`migrate` 已不存在：按上面的替代路径走）` + `Tool/docs/MIGRATION.md` | 新版不用重来 | 删三者 + R14 |
+| 阶段五 后端复刻 | `Tool/skill/_pending/05-backend-rebuild/SKILL.md` | 客户端+后端全栈（仅 T2/T3 触发） | 删目录 + R16 |
 | 案子闸 | `Tool/scripts/case_state.py` | 事实账 / 深度门 / 裁定 / `gate` / `deliver` | 删脚本 + 恢复 00/01 的文字规则 |
-| MCP 只增不删闸 | `Tool/scripts/mcp-guard.py` + `Tool/mcp/.baseline/tools.json` | 把"净删除 0 行"从承诺变成可执行 | 删两者 + preflight 对应项 |
+| MCP 只增不删闸 | `Tool/skill/softseep/scripts/mcp-guard.py` + `Tool/mcp/.baseline/tools.json` | 把"净删除 0 行"从承诺变成可执行 | 删两者 + preflight 对应项 |
 | MCP 验连 | `Tool/scripts/mcp-doctor.py` | 连不上必须报（不许静默） | 删脚本（verify 仍有基础断言） |
 | 单一入口 | `ROADMAP.md`（根目录；`优化方案*.md` 已移出到 `work/plans/`） | 现状 + 下一步 | 删文件 + AGENTS 指针回退 |
 
@@ -171,7 +171,7 @@ git diff upstream/main..HEAD -- <某个 M 文件>
 1. `Tool/mcp/seep_mcp_server.py` —— 我们对它是**末尾纯追加**；上游若改中间函数，`git` 会冲突，**保留上游改动 + 我们的追加块**。
 2. `Tool/prompts/extensions/*.ts` —— 上游改过 `load-system-prompt.ts`，我们是重写版；**以我们的为准**，只吸收上游新发现的边界条件。
 3. `setup/install.sh` / `install-pi.ps1` —— 上游的 sed 生成已废弃；**不要回滚成上游写法**。
-4. `Tool/scripts/routing.json` —— 上游是 44 条空头路由；**不要并回**。
+4. `Tool/skill/<pack>/pack.json` —— 上游是 44 条空头路由；**不要并回**。
 5. `Tool/skill/softseep/SKILL.md` —— 上游会改调度表；合并时保留我们的行（`unpack-loop` / `version-migration` / 修正后的路径）。
 
 ---
@@ -181,11 +181,11 @@ git diff upstream/main..HEAD -- <某个 M 文件>
 ```bash
 python Tool/mcp/test_seep_mcp.py                        # 9/9
 python Tool/mcp/test_ext_assets.py                      # 73 passed
-python Tool/scripts/verify-routing-coherence.py         # 路由自洽
+python Tool/scripts/route.py         # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q # 84/84
 powershell -File setup/verify.ps1 -Detailed             # 65 项（./setup/verify.sh 同为 65 项）
-python Tool/scripts/check-budget.py                     # 反臃肿预算
-python Tool/scripts/smoke-e2e.py                        # 端到端链路（真实样本 12 项，约 13s）
+python Tool/scripts/budget.py                     # 反臃肿预算
+python `Tool/scripts/preflight.py`                        # 端到端链路（真实样本 12 项，约 13s）
 ```
 
 ---
@@ -195,20 +195,20 @@ python Tool/scripts/smoke-e2e.py                        # 端到端链路（真�
 ### 六·说明（必读：这是**旧快照**）
 
 本节是自动生成段的**历史快照**（停在 v1.10.x 统计：新增 154 / 修改 49），**不含** 00–05 阶段技能与
-`case_state.py` / `migrate.py` / `mcp-doctor.py` / `mcp-guard.py`。
+`case_state.py` / `patch-verify.py` / `mcp-doctor.py` / `mcp-guard.py`。
 原因：本机是 **shallow clone 且没有 `upstream` remote**，`fork-delta.py` 依赖 `upstream/main` 才能出数
 （实跑会退 2）。要重生成：
 
 ```bash
 git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git   # upstream-origin
 git fetch upstream --unshallow
-python Tool/scripts/fork-delta.py        # 覆写 §六
+python （`upstream-delta` 已不存在：按上面的替代路径走）        # 覆写 §六
 ```
 
 在重跑之前，**以 §一–§3.7 的人工台账为准**（那部分已随每次发版更新）。
 
 
-> 由 `python Tool/scripts/fork-delta.py` 生成，**请勿手改本节**。
+> 由 `python （`upstream-delta` 已不存在：按上面的替代路径走）` 生成，**请勿手改本节**。
 
 <!-- AUTO-DELTA:BEGIN -->
 
@@ -220,8 +220,8 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 |---|---|
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
-| 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/unpack-loop/SKILL.md`<br>`Tool/skill/version-migration/SKILL.md` |
-| 脚本 | `Tool/scripts/check-budget.py`<br>`Tool/scripts/fork-delta.py`<br>`Tool/scripts/new-skill.py`<br>`Tool/scripts/smoke-e2e.py`<br>`Tool/scripts/verify-routing-coherence.py` |
+| 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/_pending/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
+| 脚本 | `Tool/scripts/budget.py`<br>`（`upstream-delta` 已不存在：按上面的替代路径走）`<br>`（已删除）`<br>``Tool/scripts/preflight.py``<br>`Tool/scripts/route.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |
 | 根目录 | `README.en.md` |
@@ -232,12 +232,12 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 | 分类 | 文件 |
 |---|---|
 | MCP 服务 | `Tool/mcp/seep_mcp_server.py` |
-| 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
+| 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/_pending/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
 | 提示词/扩展 | `Tool/prompts/AGENTS.md`<br>`Tool/prompts/SEEP.md`<br>`Tool/prompts/extensions/load-system-prompt.ts`<br>`Tool/prompts/extensions/security-audit-interceptor.ts` |
-| 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/master-route.ps1`<br>`Tool/scripts/routing.json` |
+| 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/route.py`<br>`Tool/skill/<pack>/pack.json` |
 | 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md`<br>`Tool/docs/TOOLKIT_GUIDE.md` |
 | 安装与校验 | `setup/clean-format.py`<br>`setup/generate-configs.ps1`<br>`setup/install-ida.ps1`<br>`setup/install-pi.ps1`<br>`setup/install-python.ps1`<br>`setup/install.sh`<br>`setup/uninstall.ps1`<br>`setup/uninstall.sh`<br>… 另 4 个 |
 | 根目录 | `.gitignore`<br>`.mcp.json`<br>`docs/CHANGELOG.md`<br>`Tool/prompts/contracts/CLAUDE.md`<br>`Tool/prompts/contracts/DSH-PROFILE.md`<br>`README.md`<br>`README.zh.md`<br>`VERSION`<br>… 另 4 个 |
 
-> 生成时间：见本次提交；重新生成：`python Tool/scripts/fork-delta.py`
+> 生成时间：见本次提交；重新生成：`python （`upstream-delta` 已不存在：按上面的替代路径走）`
 <!-- AUTO-DELTA:END -->

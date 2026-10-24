@@ -11,7 +11,7 @@
 复现产物：
 
 ```bash
-python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --json > artifacts/triage.json
+python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --json > artifacts/triage.json
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot05/input/ota-fixture.zip --out-dir work/fw-case05 --json > artifacts/repro.json
 ```
 

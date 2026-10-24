@@ -32,11 +32,11 @@
     "routes[]/assets[]/coverage"
   ],
   "scripts": [
-    "Tool/skill/site-clone/scripts/site-crawl.py"
+    "Tool/skill/_pending/site-clone/scripts/site-crawl.py"
   ],
   "refs": [
-    "Tool/skill/site-clone/SKILL.md",
-    "Tool/skill/site-clone/references/01-criteria.md",
+    "Tool/skill/_pending/site-clone/SKILL.md",
+    "Tool/skill/_pending/site-clone/references/01-criteria.md",
     "Tool/config/site-clone-matrix.json"
   ],
   "maturity": "usable",

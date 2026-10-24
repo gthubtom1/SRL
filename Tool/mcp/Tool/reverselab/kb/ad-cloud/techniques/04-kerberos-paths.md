@@ -1,7 +1,7 @@
 # Kerberos 路径速判（kerberos-paths）
 
 > 从“有一个域账号”到“拿到可复现的高权凭据”，先选路径再敲命令。
-> 配套：`references/kerberos-and-adcs.md`、`Tool/skill/ad-cloud/SKILL.md`。
+> 配套：`references/kerberos-and-adcs.md`、`Tool/skill/_pending/ad-cloud/SKILL.md`。
 
 ## 1. 先固定基本盘
 

@@ -1,0 +1,26 @@
+{
+  "schema": "seep.verification/1",
+  "case": "<case>",
+  "date": "<YYYY-MM-DD>",
+  "problem": "<一句话：改之前是什么状态>",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/<case>",
+  "cohorts": {
+    "baseline": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    }
+  },
+  "source_sha256": {},
+  "interpretation": "<一句话：从 baseline 到 final 变了什么、为什么可信>",
+  "limitations": [
+    "<仍未验证的部分>"
+  ]
+}

@@ -12,8 +12,8 @@
 ```bash
 file app.asar
 xxd -g1 -l 64 app.asar
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
 
 jq '{name,version,main,build,scripts,dependencies,devDependencies}' work/repro/unpack/package.json
 grep -RInE "ipcMain\.(handle|on)|ipcRenderer\.(invoke|send)|contextBridge|shell\.openExternal|child_process" \
@@ -62,4 +62,4 @@ find work/repro/unpack -name '*.node' -o -name '*.jsc' -o -name '*.wasm' | sort
 - 远端协议交 `protocol-plugin`（R24）。
 - 不提供绕过代码签名/更新签名/企业白名单的方法。
 
-> 关联：`Tool/skill/plugin-targets/references/electron-and-asar.md`、`Tool/cases/plugin04/case.json`。
+> 关联：`Tool/skill/_pending/plugin-targets/references/electron-and-asar.md`、`Tool/cases/plugin04/case.json`。

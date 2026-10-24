@@ -66,7 +66,7 @@ aws iam get-policy-version --policy-arn <arn> --version-id <v>
 离线复算：
 
 ```bash
-python Tool/skill/ad-cloud/scripts/cloud-iam-eval.py \
+python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py \
   --input policy.json --action iam:CreatePolicyVersion \
   --resource arn:aws:iam::123456789012:policy/demo
 ```

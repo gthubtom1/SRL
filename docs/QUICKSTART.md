@@ -1,7 +1,7 @@
 # 5 分钟快速路径（新 agent / 换会话先看这个）
 
 > 目标：**5 分钟内跑出第一条有效结论**，不被 110 条门禁和 31 个技能吓住。
-> 详细契约见 `docs/DOMAIN-SPEC-v2.md`；接力棒见 `ROADMAP.md`；差分见 `docs/UPSTREAM.md`。
+> 详细契约见 `docs/history/X-DOMAIN-SPEC-v2.md`；接力棒见 `ROADMAP.md`；差分见 `docs/UPSTREAM.md`。
 
 ## 0. 一条命令确认环境（10 秒）
 
@@ -13,7 +13,7 @@ python Tool/scripts/env-check.py --text     # 缺什么会直接说，并给安�
 ## 1. 一条命令开一个案子（30 秒）
 
 ```bash
-python Tool/scripts/seep-start.py --domain <域> --case <案子名> [--target <样本/网址>]
+python `case_state.py init`（seep-start 已删：它就是 init + 目录布局） --domain <域> --case <案子名> [--target <样本/网址>]
 ```
 
 - `<域>` ∈ `web-pentest` `pwn-crypto` `firmware-iot` `ad-cloud` `protocol-plugin`
@@ -34,14 +34,14 @@ ls Tool/prompts/domains/<域>.md          # 24 张卡，每张=触发词/前置/
 | :-- | :-- |
 | 不知道目标是什么 | `python Tool/skill/softseep/scripts/preflight-classify.py <样本>`（逆向域） |
 | 网站/接口基线 | `python Tool/skill/web-pentest/scripts/web-check.py --url <URL>` |
-| 网站 1:1 复刻 | `python Tool/skill/site-clone/scripts/site-crawl.py --url <URL> --out <目录>` |
+| 网站 1:1 复刻 | `python Tool/skill/_pending/site-clone/scripts/site-crawl.py --url <URL> --out <目录>` |
 
 ## 4. 交付前只跑这两条
 
 ```bash
 python Tool/scripts/domain-gate.py --domain <域>     # 本域 10 条断言
 python Tool/scripts/preflight.py --fast              # 全局快检（悬空引用/篇幅/路由/清理）
-# 当前基线：preflight --fast 42/42；preflight 全量 45/45
+# 当前基线：preflight --fast 52/52；preflight 全量 55/55
 ```
 
 ## 5. 常见卡点（先看这里，别硬猜）
@@ -52,7 +52,7 @@ python Tool/scripts/preflight.py --fast              # 全局快检（悬空引�
 | :-- | :-- |
 | 工具找不到 / `mcp__x64dbg__*` 不存在 | 先 `python Tool/scripts/mcp-doctor.py --session` 判定是否要 `/mcp reconnect <name>`；宿主没起再 `--fix`（后台拉起 + 复验），也可 `tool-run.ps1 -Tool <id>` |
 | 门禁说「案例 sha256 不符」 | 先 `git status` 看是否换行符漂移；案例证据按字节保存（`-text`），不要手改产物 |
-| 路由把任务分错域 | 看 `Tool/scripts/routing.json` 的 priority；改路由只走主分支 |
+| 路由把任务分错域 | 看 `Tool/skill/<pack>/pack.json` 的 priority；改路由只走主分支 |
 | 不知道用哪篇 reference | 该域 `references/01-criteria.md` 顶部的「场景 → 判据」表 |
 
 ## 6. case_state.py 的宽容别名（照旧写法也不会报错）

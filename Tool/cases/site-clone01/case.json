@@ -55,10 +55,10 @@
     }
   ],
   "lessons": [
-    "实际抓取：python Tool/skill/site-clone/scripts/site-crawl.py --url https://block.youtest.me/ --out Tool/cases/site-clone01/artifacts/crawl --max-pages 20 --max-depth 3 --rps 2 --allow-host api.youtest.me，rc=0；route_universe=12、crawled=12、missing_rate=0.0，assets=141、api=7、external=14。",
-    "实际重建：python Tool/skill/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；12 页落地、135 个同源资产、HAR 7 条、本地 404=0、外链=0、交互 11 条（冻结 DOM 模式）。",
-    "实际差分：python Tool/skill/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；missing_rate=0.0、pixel raw_max=0.0282 / animated-masked=0.0040（SPA 阈值 0.03）、DOM min=1.000、404=0、外链=0、交互 9/10。",
-    "验收：python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01，status=PASS（6/6）；backend_required=9 条。",
+    "实际抓取：python Tool/skill/_pending/site-clone/scripts/site-crawl.py --url https://block.youtest.me/ --out Tool/cases/site-clone01/artifacts/crawl --max-pages 20 --max-depth 3 --rps 2 --allow-host api.youtest.me，rc=0；route_universe=12、crawled=12、missing_rate=0.0，assets=141、api=7、external=14。",
+    "实际重建：python Tool/skill/_pending/site-clone/scripts/site-rebuild.py --crawl .../crawl --out .../rebuild --rps 20，rc=0；12 页落地、135 个同源资产、HAR 7 条、本地 404=0、外链=0、交互 11 条（冻结 DOM 模式）。",
+    "实际差分：python Tool/skill/_pending/site-clone/scripts/site-diff.py --crawl .../crawl --rebuild .../rebuild --out .../diff.json，rc=0；missing_rate=0.0、pixel raw_max=0.0282 / animated-masked=0.0040（SPA 阈值 0.03）、DOM min=1.000、404=0、外链=0、交互 9/10。",
+    "验收：python Tool/skill/_pending/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01，status=PASS（6/6）；backend_required=9 条。",
     "后端边界：/find、/player/completed、/player/name、/player/playing、/user/creating、/user/scoreboard、/user/scoreboard/answers、/user/share 需要用户/测验会话状态，线上会 302 到 /?error=...；api.youtest.me/info/country 为跨域 API，只能回放录制快照。登录、创建测验、答题提交、计分、分享/榜单均未复刻。",
     "失败判据：把静态冻结 DOM 当作可写后端、用 HAR 回放冒充真实提交、或在 Cloudflare 拦截页上继续加重试，都会把 PARTIAL 误写成 PASS。"
   ],
@@ -72,15 +72,15 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/site-clone/SKILL.md",
-    "Tool/skill/site-clone/references/01-criteria.md",
-    "Tool/skill/site-clone/references/02-failure-criteria.md",
-    "Tool/skill/site-clone/references/03-model-pitfalls.md",
-    "Tool/skill/site-clone/references/04-walkthrough-block-youtest.md",
-    "Tool/skill/site-clone/references/05-static-mirror-limits.md",
-    "Tool/skill/site-clone/references/06-spa-har-and-mock.md",
+    "Tool/skill/_pending/site-clone/SKILL.md",
+    "Tool/skill/_pending/site-clone/references/01-criteria.md",
+    "Tool/skill/_pending/site-clone/references/02-failure-criteria.md",
+    "Tool/skill/_pending/site-clone/references/03-model-pitfalls.md",
+    "Tool/skill/_pending/site-clone/references/04-walkthrough-block-youtest.md",
+    "Tool/skill/_pending/site-clone/references/05-static-mirror-limits.md",
+    "Tool/skill/_pending/site-clone/references/06-spa-har-and-mock.md",
     "Tool/config/site-clone-matrix.json",
-    "Tool/skill/site-clone/references/07-auth-and-backend-boundary.md",
+    "Tool/skill/_pending/site-clone/references/07-auth-and-backend-boundary.md",
     "Tool/mcp/Tool/reverselab/kb/site-clone/techniques/06-failure-criteria.md"
   ],
   "updated": "2026-10-22",

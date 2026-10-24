@@ -26,11 +26,11 @@
     "权限声明"
   ],
   "scripts": [
-    "Tool/skill/plugin-targets/scripts/plugin-triage.py"
+    "Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py"
   ],
   "refs": [
-    "Tool/skill/plugin-targets/references/electron-and-asar.md",
-    "Tool/skill/plugin-targets/references/browser-extension.md"
+    "Tool/skill/_pending/plugin-targets/references/electron-and-asar.md",
+    "Tool/skill/_pending/plugin-targets/references/browser-extension.md"
   ],
   "maturity": "usable",
   "compose": []

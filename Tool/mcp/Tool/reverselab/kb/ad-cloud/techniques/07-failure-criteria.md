@@ -2,7 +2,7 @@
 
 > 入口信号：一条路径跑不动、工具报错、只拿到素材、或结论开始“像猜”。
 > 用法：先在表里找到现象，再按“改走哪条”换面；不要重复同参数硬撞。
-> 配套：`references/02-failure-criteria.md`、`Tool/skill/ad-cloud/SKILL.md`。
+> 配套：`references/02-failure-criteria.md`、`Tool/skill/_pending/ad-cloud/SKILL.md`。
 
 ## 1. 失败判据表
 

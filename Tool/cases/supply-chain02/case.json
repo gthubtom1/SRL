@@ -18,7 +18,7 @@
     }
   ],
   "lessons": [
-    "本次跑到：python Tool/scripts/sc-check.py --path setup/ --out Tool/cases/supply-chain02/artifacts/run.json，rc=0；files_scanned=23、truncated=false，0 条风险。",
+    "本次跑到：python Tool/skill/supply-chain-security/scripts/sc-check.py --path setup/ --out Tool/cases/supply-chain02/artifacts/run.json，rc=0；files_scanned=23、truncated=false，0 条风险。",
     "结论：该目录没有 npm/Python 清单、锁文件、Dockerfile 或 workflow，因此本次静态规则集零命中；这只证明输入面为空，不证明安装脚本安全。",
     "卡点：没有 registry 镜像 digest、SBOM、attestation 或 cosign 数据；脚本内的下载/执行行为需要人工逐行审阅。",
     "下一步：对 setup/*.ps1 做危险动词与网络下载审阅；若要评镜像，记录 repo@sha256:<digest> 后生成 SBOM、跑 cosign verify 并核对 identity/issuer/Rekor。",

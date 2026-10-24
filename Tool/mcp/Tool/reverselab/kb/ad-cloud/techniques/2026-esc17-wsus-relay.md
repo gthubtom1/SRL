@@ -89,9 +89,9 @@ nxc smb "$DC" -u 'DC$' -H "$NTHASH" -d "$DOMAIN" --shares
 
 ## 与 reference 的关系
 
-- ADCS 条件与 ESC 决策：[kerberos-and-adcs.md](../../../../../../../Tool/skill/ad-cloud/references/kerberos-and-adcs.md)、
+- ADCS 条件与 ESC 决策：[kerberos-and-adcs.md](../../../../../../../Tool/skill/_pending/ad-cloud/references/kerberos-and-adcs.md)、
   [05-adcs-esc-decision.md](05-adcs-esc-decision.md)（ESC1–ESC8 口径，本页只补 ESC17 的 WSUS 前缀）。
-- 中继与委派：[ad-attacks.md](../../../../../../../Tool/skill/ad-cloud/references/ad-attacks.md)。
-- 失败判据：[02-failure-criteria.md](../../../../../../../Tool/skill/ad-cloud/references/02-failure-criteria.md)。
+- 中继与委派：[ad-attacks.md](../../../../../../../Tool/skill/_pending/ad-cloud/references/ad-attacks.md)。
+- 失败判据：[02-failure-criteria.md](../../../../../../../Tool/skill/_pending/ad-cloud/references/02-failure-criteria.md)。
 - 同 board 邻近篇：[01-kerberos-and-adcs.md](01-kerberos-and-adcs.md)、[04-kerberos-paths.md](04-kerberos-paths.md)、
   [07-failure-criteria.md](07-failure-criteria.md)。

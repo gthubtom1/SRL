@@ -22,7 +22,7 @@
 ## 复跑
 
 ```bash
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin06/input/real-extension.zip --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin06/input/real-extension.zip --out Tool/cases/plugin06/artifacts/repro --json
-python Tool/skill/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin06 --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin06/input/real-extension.zip --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin06/input/real-extension.zip --out Tool/cases/plugin06/artifacts/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin06 --json
 ```

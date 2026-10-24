@@ -10,18 +10,18 @@
 
 | 脚本 / 工具 | 路径 | 核心用途 |
 | :--- | :--- | :--- |
-| **工具链自检** | `Tool/scripts/refresh-tool-index.ps1` | 秒级扫描系统已安装工具（IDA、Radare2、ADB、Python、Node 等）并生成状态表 |
+| **工具链自检** | 「refresh-tool-index.ps1」(S1 已删) | 秒级扫描系统已安装工具（IDA、Radare2、ADB、Python、Node 等）并生成状态表 |
 | **任务建档门禁** | `Tool/scripts/case-init.ps1` | 新任务一键在 `work/<case_name>` 独立建档，自动生成 `scope.md` 与证据链 |
 | **APK 反编译流水线** | `Tool/scripts/apk/decode.ps1` | 一键运行 `jadx` + `apktool` 解包反编译并生成组件摘要 |
 | **APK 重打包与签名** | `Tool/scripts/apk/rebuild-sign-install.ps1` | 修改 Smali 后全自动执行 `apktool b` -> 4字节对齐 -> 签名 -> ADB 推送安装 |
 | **Frida 动态注入** | `Tool/scripts/apk/frida-run.ps1` | 标准化设备枚举、进程列表与 Spawn/Attach 动态 Hook 运行 |
 | **IDA Pro MCP 唤醒** | `Tool/scripts/trigger_ida_mcp.ps1` | 静默启动 IDA Pro 64 并自动挂载 MCP 分析链路 |
-| **任务路由** | `Tool/scripts/master-route.ps1` + `routing.json` | 按口语判型 → 选技能（32 条路由，自洽由 `verify-routing-coherence.py` 断言） |
-| **路由自洽校验** | `Tool/scripts/verify-routing-coherence.py` | routes / priority / fallback / 技能落位 四重断言 |
-| **端到端冒烟** | `Tool/scripts/smoke-e2e.py` | 真实样本跑通整条链路（12 环 / 13 秒），不污染仓库 |
-| **反臃肿预算** | `Tool/scripts/check-budget.py` | 工具/技能/脚本/手册/行数/文件数 5 项硬上限 + 1 项仅统计（技能数，见 BASELINE-FREEZE §7.1 v1.17.5 修订）自检 |
-| **差分台账刷新** | `Tool/scripts/fork-delta.py` | 自动生成 `Tool/docs/FORK-DELTA.md` 的文件级差分清单 |
-| **新技能脚手架** | `Tool/scripts/new-skill.py` | 生成标准 SKILL.md + 自动注册 + 无 BOM 校验 |
+| **任务路由** | `Tool/scripts/route.py` + `pack.json` | 按口语判型 → 选技能（32 条路由，自洽由 `route.py --check` 断言） |
+| **路由自洽校验** | `Tool/scripts/route.py` | routes / priority / fallback / 技能落位 四重断言 |
+| **端到端冒烟** | ``Tool/scripts/preflight.py`` | 真实样本跑通整条链路（12 环 / 13 秒），不污染仓库 |
+| **反臃肿预算** | `Tool/scripts/budget.py` | 工具/技能/脚本/手册/行数/文件数 5 项硬上限 + 1 项仅统计（技能数，见 BASELINE-FREEZE §7.1 v1.17.5 修订）自检 |
+| **差分台账刷新** | `（`upstream-delta` 已不存在：按上面的替代路径走）` | 自动生成 `Tool/docs/FORK-DELTA.md` 的文件级差分清单 |
+| **新技能脚手架** | `（已删除）` | 生成标准 SKILL.md + 自动注册 + 无 BOM 校验 |
 
 ---
 

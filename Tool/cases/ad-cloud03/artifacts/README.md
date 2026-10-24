@@ -6,7 +6,7 @@
 MSYS_NO_PATHCONV=1 wevtutil qe Security \
   '/q:*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4768 or EventID=4769 or EventID=4648)]]' \
   /f:xml /c:100 /rd:true > /tmp/sec2.xml                       # rc=0
-python Tool/skill/ad-cloud/scripts/ad-repro.py \
+python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py \
   --extract-evtx-xml /tmp/sec2.xml --out input/security-events.json  # rc=0
 cd Tool/cases/ad-cloud03
 python ../../skill/ad-cloud/scripts/ad-repro.py \

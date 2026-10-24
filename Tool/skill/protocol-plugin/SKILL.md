@@ -15,6 +15,15 @@ metadata:
 > 只回答一件事：**这个协议能不能被复刻到"同输入同输出，且能构造新请求"？**
 > 先取证再推断；每个结论必须能回放到某条包、某个字段、某次运行。**不猜密钥，不猜字段，不猜状态。**
 
+## 阶段契约（与 softseep 一致，**先判再做**）
+
+① 先摸清能不能测（仪器/授权位置/是否服务端权威）→ ② 给**裁定**（可赢 / 部分可赢 / 不可赢）+ **交付上限 M1–M4** → ③ 按上限执行。
+- 用户说"要源码级/成品级"是**愿望**，不是判据：判不上去就**说清卡在哪一轴**，给能到的那一级。
+- 用户只要低级别、但发现能更高 → 主动告知，由用户定。**不许硬冲，也不许静默降级。**
+- 命中任一 **卡点**（要用户手里的凭据 / 需物理动作 / 只可能从真实进程取证据且目标反自动化 / 同形状失败 2 次）→
+  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
+- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+
 ## 0. 范围与路由（边界）
 
 **本域输入面**
@@ -211,7 +220,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 | `proto-accept.py` | 案例目录 / 路由片段 | 判据复算结果 | 0 全过；2 有 FAIL |
 
 三个脚本都支持 `--self-test`（离线、rc=0、输出含 `"ok"`）与 `--help`（rc=0）。
-兼容入口：`Tool/scripts/pcap-summary.py` 转发到 skill 版（Windows 上可能丢子进程退出码，以 skill 版为准）。
+兼容入口：``Tool/skill/protocol-plugin/scripts/pcap-summary.py`` 转发到 skill 版（Windows 上可能丢子进程退出码，以 skill 版为准）。
 
 ## 8. 任务卡与 KB 入口
 
@@ -220,10 +229,10 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 - 知识库 board：`Tool/mcp/Tool/reverselab/kb/protocol/README.md`
   —— 逐篇索引 7 篇 technique，含 `failure-criteria.md`。
 - 矩阵（13 个协议族，含 match/criteria/fail/pitfalls）：`Tool/config/protocol-plugin-matrix.json`。
-- 路由片段：`Tool/config/routing-fragments/protocol-plugin.json`
+- 路由片段：`Tool/skill/protocol-plugin/pack.json`
   —— `keywords` 与 SSOT 逐字一致（保证可合入）；词边界收紧版在 `boundary_policy`
   （含 `forbid`: spider/bios/principal/zipalign/scaffold），由 `proto-accept.py --routing-check`
-  机检；合入 SSOT 由协调器跑 `merge-routing-fragment.py --write`（本域不直接改 routing.json）。
+  机检；合入 SSOT 由协调器跑 `route.py --write`（本域不直接改 pack.json）。
 - 案例：`Tool/cases/protocol01`（HTTP 夹具）、`protocol02`（SPRX 夹具）、
   `protocol03`（真实 ws pcap）、`protocol04`（现场回环抓包）。
 

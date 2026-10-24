@@ -42,7 +42,7 @@
 
 ```bash
 # 1) 静态预判（只读，不执行目标）
-python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > pwn_check.json
 
 # 2) 偏移三源对齐（本机现场编译时用）
 python Tool/skill/pwn-crypto/scripts/pwn-repro.py \

@@ -2,7 +2,7 @@
 
 > 适用：审计自有/授权 Agent、MCP Server、A2A Peer。
 > 结论口径：**元数据里的字符串 ≠ 被执行；没有跨工具/跨 agent 影响，不判投毒成功。**
-> 配套：`Tool/skill/llm-security/references/agent-protocol-security.md`、`agent-tool-security.md`。
+> 配套：`Tool/skill/_pending/llm-security/references/agent-protocol-security.md`、`agent-tool-security.md`。
 
 ## 1. 一张图
 

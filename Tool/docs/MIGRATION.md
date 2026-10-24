@@ -10,7 +10,7 @@
 报告是给人看的，追版是脚本干的。脚本要的是**机读的位点清单**：每条位点带语义、带可搜索的
 特征码（AOB）、带改前改后字节。没有这份账，第二次更新就只能从头再来。
 
-所以阶段 01/02/03 每交付一次，必须顺手写一份 `versions/<版本>/manifest.json`（`migrate.py init` 建骨架）。
+所以阶段 01/02/03 每交付一次，必须顺手写一份 `versions/<版本>/manifest.json`（`patch-verify.py init` 建骨架）。
 
 ## 2. 目录约定
 
@@ -22,7 +22,7 @@
       build.ps1          ← 一条命令从原件复现成品（01/02/03 阶段产出）
     6.9/
       manifest.json      ← 追版后生成（指纹 + 对齐结果）
-      align.json         ← migrate.py align 的原始输出
+      align.json         ← patch-verify.py align 的原始输出
       migrate-report.md  ← 《迁移差异报告》
 ```
 
@@ -77,13 +77,13 @@
 
 | 步 | 命令 | 判据 |
 |---|---|---|
-| ① 指纹比对 | `migrate.py fingerprint <新版exe>` | 壳线索变了 → 停，先回过壳（01 路线 A–D） |
-| ② 位点对齐 | `migrate.py align --case C --old 6.8 --new <新版exe> --new-version 6.9` | 每条 `unique` 才算命中 |
+| ① 指纹比对 | `patch-verify.py fingerprint <新版exe>` | 壳线索变了 → 停，先回过壳（01 路线 A–D） |
+| ② 位点对齐 | `patch-verify.py align --case C --old 6.8 --new <新版exe> --new-version 6.9` | 每条 `unique` 才算命中 |
 | ③ UI 重定位 | 按 `ui[].container` 找新版对应资源槽 | 容器格式未变 → 直接贴；变了 → 报人工 |
 | ④ 授权重挂 | 按 `license[].site` 指到 ② 得到的新 RVA | 走通自己的授权页 |
 | ⑤ 构建 | `build.ps1` | 产物哈希与补丁清单可解释 |
 | ⑥ 验收 | `acceptance[]` 逐条 | 全绿才算交付 |
-| ⑦ 报告 | `migrate.py report --case C --old 6.8 --new-version 6.9` | 命中率 + 需人工清单 |
+| ⑦ 报告 | `patch-verify.py report --case C --old 6.8 --new-version 6.9` | 命中率 + 需人工清单 |
 
 ## 5. 对齐失败时的「兜底三重」
 
@@ -91,7 +91,7 @@
 
 1. **唯一字符串锚**：位点附近的报错文案 / 注册表键 / URL → 在新版搜字符串 → 取 xref；
 2. **xref 回溯**：找到引用该字符串的函数，比对函数开头 8–16 字节；
-3. **反编译特征**：`seep_decompile_auto` 取新旧函数伪代码，按常量、调用顺序、分支数量比对。
+3. **反编译特征**：`seep_r2_decompile` 取新旧函数伪代码，按常量、调用顺序、分支数量比对。
 
 三条都失败 → 该位点标 `need_manual`，**不许假装命中**。
 

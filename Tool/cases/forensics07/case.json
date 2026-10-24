@@ -1,0 +1,90 @@
+{
+ "id": "forensics07",
+ "domain": "forensics-mobile",
+ "target_type": "真实抓包（tcpdump 测试集，BSD）：BGP-4 with 4-byte ASN，91 帧 / 12 会话",
+ "evidence_kind": "real",
+ "protection": [],
+ "authority": "shipped-artifact（公开抓包原件，sha256 固定，帧数双算）",
+ "goal_level": "L2",
+ "outcome": "success",
+ "artifacts": [
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "df7391989388dba4757567f964d43557362a4c0cab1001687117a3266e8174c2"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "pcap-summary.py --json + tshark -z io,phs/endpoints + BGP 字段导出；帧数双算一致；rc=0"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "命令：python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file bgp-4byte-asn.pcap --json；rc=0",
+  "取证四要素必须落在具体字段上（time_epoch / ip.src / bgp.type / nlri_prefix），不能写散文",
+  "帧数要用两个实现互算：我方 packet_count vs tshark 帧数，一致才敢写进结论",
+  "链路层链路类型与时间戳来源要分开记：抓包时间是采集机时钟，不等于事件真实时间"
+ ],
+ "tags": [
+  "forensics",
+  "pcap",
+  "timeline",
+  "bgp",
+  "real-target"
+ ],
+ "refs": [
+  "Tool/skill/forensics-mobile/scripts/fs-timeline.py",
+  "Tool/skill/forensics-mobile/references/01-criteria.md"
+ ],
+ "updated": "2026-10-24",
+ "acquisition": {
+  "method": "公开语料取件（git clone --depth 1 --filter=blob:none --sparse，只取 tests/）",
+  "tool": "git + pcap-summary.py + tshark 4.4",
+  "collected_at": "2026-10-24T07:52:00Z",
+  "timezone": "UTC",
+  "clock_skew": "未校正：抓包时间来自采集机时钟，只能证相对顺序；本轮未做 NTP 偏差测量"
+ },
+ "timeframe": {
+  "start": "2014-03-18T19:12:03Z",
+  "end": "2014-03-18T19:12:24Z",
+  "clock_skew": "未校正（±1s 粗估，依据 BGP KEEPALIVE 30s 周期性未做拟合）"
+ },
+ "findings": [
+  {
+   "time_utc": "2014-03-18T19:12:03Z",
+   "actor": "10.0.0.1",
+   "action": "向对端发起 BGP 会话并宣告路由（OPEN/UPDATE）",
+   "object": "10.0.0.100:179（BGP peer）",
+   "confidence": "observed",
+   "evidence_refs": [
+    "capture/reverify-2026-10-24.log"
+   ]
+  },
+  {
+   "time_utc": "2014-03-18T19:12:24Z",
+   "actor": "10.0.0.100",
+   "action": "回 KEEPALIVE 维持会话",
+   "object": "10.0.0.1:179",
+   "confidence": "observed",
+   "evidence_refs": [
+    "capture/reverify-2026-10-24.log"
+   ]
+  },
+  {
+   "time_utc": "2014-03-18T19:12:24Z",
+   "actor": "10.0.0.1",
+   "action": "在 20.701s 窗口内共发 91 帧 / 12 条会话（端点与协议分层见日志）",
+   "object": "抓包窗口内的全部流量",
+   "confidence": "observed",
+   "evidence_refs": [
+    "capture/reverify-2026-10-24.log"
+   ]
+  }
+ ],
+ "target_files": [
+  {
+   "path": "target/bgp-4byte-asn.pcap",
+   "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
+   "source": "github.com/the-tcpdump-group/tcpdump tests/bgp-4byte-asn.pcap（BSD）"
+  }
+ ]
+}

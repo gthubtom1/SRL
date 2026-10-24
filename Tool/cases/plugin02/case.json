@@ -71,10 +71,10 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/plugin-targets/SKILL.md",
-    "Tool/skill/plugin-targets/references/01-criteria.md",
-    "Tool/skill/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/plugin-targets/references/browser-extension.md",
+    "Tool/skill/_pending/plugin-targets/SKILL.md",
+    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
+    "Tool/skill/_pending/plugin-targets/references/browser-extension.md",
     "Tool/config/plugin-targets-matrix.json",
     "Tool/cases/plugin02/input/ext2.zip",
     "Tool/cases/plugin02/artifacts/plugin-triage.json"

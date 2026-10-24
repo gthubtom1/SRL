@@ -1,0 +1,57 @@
+{
+ "id": "pwn-crypto06",
+ "domain": "pwn-crypto",
+ "target_type": "公开靶场（Damn Vulnerable C Program，MIT）本地 mingw 编译的 PE32+（真实可复现构建）",
+ "evidence_kind": "self-built",
+ "protection": [
+  "no-canary",
+  "nx-on",
+  "aslr-on(pic)",
+  "not-stripped",
+  "no-relro(PE)"
+ ],
+ "authority": "controlled-replay（源码公开可复现，编译与检测都在本机受控环境）",
+ "goal_level": "L2",
+ "outcome": "success",
+ "artifacts": [
+  {
+   "path": "artifacts/pwn-check.json",
+   "sha256": "58a6e65467f4956dcded07ad944202ca345577a7f315a833502d211212cc1d9a"
+  },
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "524d97ab1dae0579c780e786fdad03c4814e49037911f7b8b8e3f55844b6a524"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "gcc -o dvcp.exe dvcp.c；python pwn-check.py --file dvcp.exe --json；rc=0"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "命令：gcc -o dvcp.exe dvcp.c && python Tool/skill/pwn-crypto/scripts/pwn-check.py --file dvcp.exe --json；rc=0；跑的是公开仓库 8dcbd20 的源码本地编译件",
+  "PE 没有 RELRO：pwn-check 明确标 N/A，别照抄 ELF 的 checksec 话术",
+  "canary=false 来自 r2 iI 与 pwn-check 两处独立判据，互相印证",
+  "源码里的 5 类缺陷（整数溢出/堆溢出/double free/UAF/除零）编译后仍在，但**可达性未验证**"
+ ],
+ "tags": [
+  "pwn",
+  "pe",
+  "heap",
+  "integer-overflow",
+  "real-target",
+  "self-built"
+ ],
+ "refs": [
+  "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+  "Tool/skill/pwn-crypto/references/01-criteria.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/dvcp.exe",
+   "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
+   "source": "github.com/hardik05/Damn_Vulnerable_C_Program dvcp.c 本地 mingw 编译（MIT）"
+  }
+ ]
+}

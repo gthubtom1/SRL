@@ -12,14 +12,14 @@
 ```bash
 # VSIX
 unzip -l ext.vsix | head -40
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path ext.vsix --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path ext.vsix --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path ext.vsix --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path ext.vsix --out work/repro --json
 jq '{main,activationEvents,contributes,capabilities,engines,extensionDependencies}' \
   work/repro/unpack/extension/package.json
 
 # JetBrains
 unzip -p plugin.jar META-INF/plugin.xml
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path plugin.jar --out work/repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path plugin.jar --out work/repro --json
 jadx -d work/jadx plugin.jar    # 或 CFR
 ```
 
@@ -67,4 +67,4 @@ jadx -d work/jadx plugin.jar    # 或 CFR
 - 不提供绕过市场签名/企业白名单的方法。
 - 插件内协议交 `protocol-plugin`（R24）。
 
-> 关联：`Tool/skill/plugin-targets/references/ide-plugins.md`、`Tool/cases/plugin05/case.json`。
+> 关联：`Tool/skill/_pending/plugin-targets/references/ide-plugins.md`、`Tool/cases/plugin05/case.json`。

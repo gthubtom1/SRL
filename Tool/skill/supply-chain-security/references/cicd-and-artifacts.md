@@ -229,7 +229,7 @@ grep -rhoE '(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|glpat-[A-Za-z0-9_-]{20})' logs
 
 **边界**：不注册 rogue runner、不污染共享 cache、不把 secret 值写进证据目录；
 OIDC 测试只在授权仓库内做；日志/registry 侧只读。跨域细节：`references/04-walkthrough-workflow-permissions.md`
-（权限面走查）、`Tool/skill/ad-cloud/references/cloud-native.md`（拿到云凭据之后的 IAM 判据）。
+（权限面走查）、`Tool/skill/_pending/ad-cloud/references/cloud-native.md`（拿到云凭据之后的 IAM 判据）。
 
 ## 13. 边界
 

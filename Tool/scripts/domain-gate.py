@@ -3,7 +3,7 @@
 """domain-gate.py —— 领域深度门禁（九件套 2.0 的可执行版）。
 
 它回答一个问题：**这个域现在能不能独立打一场？**
-判据全部来自 `docs/DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py`：
+判据全部来自 `docs/history/X-DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py`：
 
     [1] 篇幅   SKILL ≤600 / ref 60–400 / KB 50–200
     [2] 必备篇 01-criteria / 02-failure-criteria / 03-model-pitfalls / 04-walkthrough-*
@@ -904,19 +904,37 @@ def _match_route(routes, priority, text, fallback=None):
     return None, ""
 
 
+
+def _pack_routes():
+    """从 pack.json 现算路由（S3：routing.json 已删，唯一事实源是包）。"""
+    import route as route_mod          # 同目录
+    res = route_mod.check()
+    routes, prio = {}, []
+    for i, (_p, pid, label, must) in enumerate(res.get("rows") or []):
+        rid = "P%02d" % i
+        routes[rid] = {"label": label, "skill": pid,
+                       "keywords": [{"must": m} for m in must]}
+        prio.append(rid)
+    routes["R0"] = {"label": "未命中（兜底 softseep）", "skill": "softseep", "keywords": []}
+    prio.append("R0")
+    return routes, prio, "R0"
+
+
 def check_routing():
-    rp = os.path.join(TOOL, "scripts", "routing.json")
     try:
-        d = rj(rp)
+        routes, prio, fallback = _pack_routes()
     except Exception as e:  # noqa: BLE001
-        add("全局", "路由串味测试集", False, "routing.json 坏:" + str(e)[:40])
+        add("全局", "路由串味测试集", False, "pack.json 路由坏:" + str(e)[:40])
         return
-    routes, prio = d.get("routes") or {}, d.get("priority") or []
-    fallback = (d.get("meta") or {}).get("fallbackId")
     bad = []
     for t in ROUTING_TESTS:
         rid, skill = _match_route(routes, prio, t["text"], fallback)
-        got = (skill.split("/")[0] if skill else (rid or "None"))
+        # S3：路由目标可能带归档前缀，归一化成「逻辑技能名」再比
+        norm = skill.replace("\\", "/")
+        for pre in ("_pending/safe-skills/", "_pending/"):
+            if norm.startswith(pre):
+                norm = norm[len(pre):]
+        got = (norm.split("/")[0] if norm else (rid or "None"))
         if got not in (t.get("expect_any") or []):
             bad.append("『%s』→ %s（期望 %s）" % (t["text"][:24], got,
                                              "/".join(t.get("expect_any") or [])))
@@ -932,7 +950,9 @@ def check_cleanup():
     # 根目录 md allowlist（DOMAIN-SPEC §11）：人读入口 + 宿主直接读取的 agent 契约。
     # 契约（DOMAIN-SPEC §11）：根目录只允许 README*/ROADMAP。
     # 过程文档→work/plans，提示词→Tool/prompts/sources，agent 契约→Tool/prompts/contracts。
-    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md"}
+    # KPI.md 是 BLUEPRINT §6 规定的根级台账（唯一 KPI 表），不是过程文档：
+    # 它的存在本身就是「新增必须先有一行 KPI 前后对比」这条刹车。
+    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md", "KPI.md"}
     for f in sorted(glob.glob(os.path.join(ROOT, "*.md"))):
         b = os.path.basename(f)
         if b.startswith("优化方案"):
@@ -974,6 +994,8 @@ def _all_skills():
         return out
     for n in sorted(os.listdir(base)):
         p = os.path.join(base, n)
+        if n.startswith(("_", ".")):   # S3：_pending/ 是归档区，不参与索引/部署
+            continue
         if n == "safe-skills" and os.path.isdir(p):
             for sub in sorted(os.listdir(p)):
                 if os.path.isfile(os.path.join(p, sub, "SKILL.md")):
@@ -991,6 +1013,8 @@ def check_deploy(only=None):
     bad = []
     for dom, spec in DOMAINS.items():
         if only and dom != only:
+            continue
+        if spec.get("archived"):      # S3：归档域不参与部署（本来就不部署）
             continue
         src = os.path.join(TOOL, "skill", spec["skill"])
         dst = os.path.join(agent, spec["skill"])
@@ -1029,43 +1053,20 @@ def check_deploy(only=None):
 
 
 
-# ---------------------------------------------------------------- [12] 片段合入
-def check_fragments():
-    """路由片段必须已合入 SSOT（routing.json）——判定交给 merge-routing-fragment.py。
-
-    单一实现：片段↔SSOT 的比较（含 mustAll/note）只在合并器里写一次，
-    门禁只调用它，避免"门禁只看 must、看不到 mustAll"这类盲区。
-    """
-    mg = os.path.join(TOOL, "scripts", "merge-routing-fragment.py")
-    if not os.path.isfile(mg):
-        add("全局", "路由片段已合入 SSOT（routing.json）", False, "缺 merge-routing-fragment.py")
-        return
-    try:
-        r = subprocess.run([sys.executable, mg, "--check"], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=120, cwd=ROOT)
-    except Exception as e:  # noqa: BLE001
-        add("全局", "路由片段已合入 SSOT（routing.json）", False, str(e)[:80])
-        return
-    out = (r.stdout or "").strip().splitlines()
-    bad = [x.replace("[FAIL] ", "") for x in out if x.startswith("[FAIL]")]
-    add("全局", "路由片段已合入 SSOT（routing.json）", r.returncode == 0,
-        "；".join(bad[:5]) if bad else "%d 份片段与 SSOT 一致" % len(glob.glob(os.path.join(TOOL, "config", "routing-fragments", "*.json"))))
-
-
 # ---------------------------------------------------------------- [13] 案例索引
 def check_case_index():
-    p = os.path.join(TOOL, "scripts", "gen-case-index.py")
+    p = os.path.join(TOOL, "scripts", "case_state.py")
     if not os.path.isfile(p):
-        add("全局", "案例索引与磁盘一致", False, "缺 gen-case-index.py")
+        add("全局", "案例索引与磁盘一致", False, "缺 case_state.py")
         return
     try:
-        r = subprocess.run([sys.executable, p, "--check"], capture_output=True, text=True,
+        r = subprocess.run([sys.executable, p, "index", "--check"], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=120, cwd=ROOT)
         ok = r.returncode == 0
         tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
-        add("全局", "案例索引与磁盘一致（index.json）", ok, tail[-1][:100] if tail else "")
+        add("全局", "案例索引与磁盘一致（现算，无 index.json 缓存）", ok, tail[-1][:100] if tail else "")
     except Exception as e:  # noqa: BLE001
-        add("全局", "案例索引与磁盘一致（index.json）", False, str(e)[:80])
+        add("全局", "案例索引与磁盘一致（现算，无 index.json 缓存）", False, str(e)[:80])
 
 
 # ---------------------------------------------------------------- main
@@ -1074,7 +1075,7 @@ def check_spec():
     p = os.path.join(ROOT, "docs", "DOMAIN-SPEC-v2.md")
     bad = []
     if not os.path.isfile(p):
-        bad.append("缺 docs/DOMAIN-SPEC-v2.md")
+        bad.append("缺 docs/history/X-DOMAIN-SPEC-v2.md")
     else:
         t = "\n".join(lines(p))
         for k in ("600", "400", "6–10", "20–30"):
@@ -1135,7 +1136,6 @@ def main():
         check_repro_and_templates()
         check_global_reference_limits()
         check_mutation_test()
-        check_fragments()
         check_case_index()
     if a.all or a.routing:
         check_routing()

@@ -1,0 +1,48 @@
+{
+ "id": "golden-crackme",
+ "domain": "reverse",
+ "target_type": "Windows PE64（MinGW/GCC 15.2.0，CUI，53KB，无壳，纯本地卡密式校验）",
+ "evidence_kind": "fixture",
+ "protection": [],
+ "authority": "本地常量：sym.main 内两条立即数比较（0x6e617274 'tran' + 0x0065636e 'nce'），无签名/无网络/无硬件绑定；样本为仓库自带夹具，范围由仓库声明",
+ "goal_level": "M3",
+ "outcome": "partial",
+ "artifacts": [],
+ "repro": {
+  "status": "static-done",
+  "evidence": "facts.jsonl 13 条 proven；report/triage.md + report/static.md 已过 0a/0b 闸"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "2026-10-24 黄金路径前半段（P3-1，会话 stint）：radare2 6.2.0 走完 识别→分析→裁定→路线，阶段 0a/0b 全过。",
+  "校验函数 sym.main = VA 0x140002860 / RVA 0x2860 / paddr 0x1e60（79B），由 sym.__tmainCRTStartup 在 0x1400010c2 调用。",
+  "判定是两条立即数比较而非 strcmp：0x14000287a cmp [var_28h],'tran' 与 0x140002897 cmp [var_2bh],'nce'（var_2bh=buf+3，末字节要求 0）→ 期望输入 trance 且长度恰 6。",
+  "分叉字节：0x140002882 = 74 13（je 跳过 FAIL，paddr 0x1e82），0x14000289f = 75 e3（jne 回 FAIL）。两分支都汇到 xor eax,eax，退出码恒 0，只能以 stdout 的 PASS/FAIL 判定。",
+  "无磁盘自校验：导入表无 CreateFileW/GetModuleFileName/ReadFile；唯一的 VirtualProtect 属 MinGW CRT 伪重定位器 _pei386_runtime_relocator。",
+  ".rdata 0x140004003 的明文 trance 无任何代码交叉引用，是编译器折叠立即数后残留的死常量（不是 strcmp 操作数）。",
+  "工具口径坑：本机 radare2 6.2.0 包里 rabin2.exe 与 r2 同入口，-I 意为打开前跑脚本 → rabin2 -I <file> 报 Missing file to open；改用 r2 核心命令 iI/iS/ii/izz/p=e/p=d。iSS 是内存段不是带熵节表；/ 搜索报 Invalid ':' subcommand，用 izz~ 替代。",
+  "纪律坑：无租约时并发 claim 会静默丢条（本次两路并行写 facts 丢了 4 条，已按顺序补回）；同一 case 的写操作要串行。"
+ ],
+ "tags": [
+  "license",
+  "crackme",
+  "pe",
+  "mingw",
+  "no-pack",
+  "local-constant",
+  "fixture"
+ ],
+ "refs": [
+  "Tool/skill/_pending/00-triage/SKILL.md",
+  "Tool/skill/_pending/00-analysis/SKILL.md",
+  "Tool/skill/_pending/01-gate-bypass/SKILL.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/a.exe",
+   "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+   "source": "crackerjack crackme（MIT），仓库内已有样本"
+  }
+ ]
+}

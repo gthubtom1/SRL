@@ -41,14 +41,14 @@ python Tool/scripts/preflight.py --fast
 python Tool/scripts/domain-gate.py --all
 python Tool/scripts/domain-gate.py --domain <域>
 python Tool/scripts/domain-gate.py --links
-python Tool/scripts/mcp-param-contract.py
-python Tool/scripts/skill-route-probe.py
-python Tool/scripts/capability-gate.py --json
-python Tool/scripts/playbook-check.py
+python Tool/skill/softseep/scripts/mcp-param-contract.py
+python Tool/skill/softseep/scripts/skill-route-probe.py
+python Tool/skill/softseep/scripts/capability-gate.py --json
+python Tool/skill/softseep/scripts/playbook-check.py
 python Tool/scripts/kb_acceptance.py
-python Tool/scripts/check-budget.py
-python Tool/scripts/verify-routing-coherence.py
-python Tool/scripts/smoke-e2e.py
+python Tool/scripts/budget.py
+python Tool/scripts/route.py
+python （`smoke-e2e` 已不存在：按上面的替代路径走）
 python Tool/scripts/mcp-doctor.py --quick
 python Tool/scripts/mcp-doctor.py --session
 
@@ -89,7 +89,7 @@ git show <commit>:<path>
 
 1. `docs/FORK-BRIEF.md` —— 身份、契约、文档地图、明确不做、已知债务、常见误解。
 2. `docs/RELEASE-1.26.1.md` —— 最近一轮交付台账（做了什么 / 证据 / 剩余）。
-3. `docs/DOMAIN-SPEC-v2.md` —— 域契约（九件套）。
+3. `docs/history/X-DOMAIN-SPEC-v2.md` —— 域契约（九件套）。
 4. `docs/UPSTREAM.md` —— 与上游差异、吸收纪律。
 5. `docs/DEFERRALS.md` —— 延迟项 + 明确不做。
 6. `ROADMAP.md` —— 现在能做什么。

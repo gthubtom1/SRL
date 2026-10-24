@@ -1,7 +1,7 @@
 # ROADMAP
 
 > 只写两件事：**现在能做什么**、**下一步做什么**。规划过程已移出仓库（`work/plans/`，gitignore）。
-> 深度契约见 `docs/DOMAIN-SPEC-v2.md`；门禁 `python Tool/scripts/preflight.py`。
+> 深度契约见 `docs/history/X-DOMAIN-SPEC-v2.md`；门禁 `python Tool/scripts/preflight.py`。
 
 ## 现在能做什么
 
@@ -49,4 +49,4 @@
 5. **KB 反哺**：现场日志（`kb/field_journal_*`）满 3 篇同主题即沉淀为 `techniques/` 一篇。
 6. 延迟项与未排期能力见 `docs/DEFERRALS.md`（台账，不计入「能做什么」）。
 7. **5 分钟快速路径**：`docs/QUICKSTART.md`（新 agent/换会话先看）。
-8. **上游同步**：`docs/UPSTREAM.md` + `Tool/scripts/upstream-delta.py`，每季度跑一次内容差分。
+8. **上游同步**：`docs/UPSTREAM.md` + `（已删除）`，每季度跑一次内容差分。

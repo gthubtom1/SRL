@@ -29,12 +29,12 @@
     "PASS/PARTIAL/BLOCKED"
   ],
   "scripts": [
-    "Tool/skill/site-clone/scripts/site-accept.py"
+    "Tool/skill/_pending/site-clone/scripts/site-accept.py"
   ],
   "refs": [
-    "Tool/skill/site-clone/SKILL.md",
-    "Tool/skill/site-clone/references/01-criteria.md",
-    "Tool/skill/site-clone/references/07-auth-and-backend-boundary.md"
+    "Tool/skill/_pending/site-clone/SKILL.md",
+    "Tool/skill/_pending/site-clone/references/01-criteria.md",
+    "Tool/skill/_pending/site-clone/references/07-auth-and-backend-boundary.md"
   ],
   "maturity": "usable",
   "compose": [

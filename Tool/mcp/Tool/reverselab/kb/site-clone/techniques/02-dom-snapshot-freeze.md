@@ -29,15 +29,15 @@ related_articles: ["site-clone/03-har-mock-route", "site-clone/05-pixel-dom-diff
 
 ```bash
 # 1) 渲染后抓 DOM/截图/API（只 GET，2 rps）
-python Tool/skill/site-clone/scripts/site-crawl.py \
+python Tool/skill/_pending/site-clone/scripts/site-crawl.py \
   --url https://target/ --out work/crawl --max-pages 20 --max-depth 3 --rps 2
 
 # 2) 默认冻结 DOM：删 script，保留渲染结果与 CSS
-python Tool/skill/site-clone/scripts/site-rebuild.py \
+python Tool/skill/_pending/site-clone/scripts/site-rebuild.py \
   --crawl work/crawl --out work/rebuild --rps 2
 
 # 3) 需要客户端交互时保留 JS（必须补 _next/data/HAR）
-python Tool/skill/site-clone/scripts/site-rebuild.py \
+python Tool/skill/_pending/site-clone/scripts/site-rebuild.py \
   --crawl work/crawl --out work/rebuild --rps 2 --keep-js
 ```
 

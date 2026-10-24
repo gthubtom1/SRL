@@ -1,6 +1,6 @@
 # 产物说明（firmware-iot04 / real）
 
-- `triage.json`：`python Tool/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json`，rc=0。
+- `triage.json`：`python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json`，rc=0。
 - `repro.json`：`python Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --out-dir work/fw-case04 --json`，rc=0。
 
 关键结论：`primary=pe`，PE32+ x86-64，9 节，`.text` 熵 6.491；

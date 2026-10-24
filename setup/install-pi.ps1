@@ -53,6 +53,8 @@ if ($hasOld) {
 $srcSkills = Join-Path $ToolDir 'skill'
 if (Test-Path $srcSkills) {
     foreach ($s in (Get-ChildItem $srcSkills -Directory)) {
+        # ★ S3「索引 32→9」：`_pending/` 是归档区（不索引、不路由、不部署）
+        if ($s.Name.StartsWith('_')) { continue }
         if ($s.Name -eq 'safe-skills') {
             foreach ($sub in (Get-ChildItem $s.FullName -Directory)) {
                 $dst = Join-Path $SkillsDir $sub.Name

@@ -29,7 +29,7 @@
     "Tool/skill/apkseep/scripts/dex_patch_bytes.py",
     "Tool/skill/apkseep/scripts/dex_strpatch.py",
     "Tool/skill/apkseep/scripts/so_constpatch.py",
-    "Tool/scripts/dump-restore.py"
+    "Tool/skill/malware-analysis/scripts/dump-restore.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/byte-level-patching.md",

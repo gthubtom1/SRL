@@ -1,0 +1,266 @@
+{
+  "file": "D:\\tmp\\dvcp\\dvcp.exe",
+  "size": 55022,
+  "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
+  "kind": "PE",
+  "arch": "x86_64",
+  "bits": 64,
+  "entry": "0x13f0",
+  "protections": {
+    "NX": "Enabled",
+    "PIE": "Enabled (DYNAMIC_BASE/ASLR)",
+    "Canary": "Not found",
+    "RELRO": "N/A (PE 无 ELF RELRO)"
+  },
+  "sections": [
+    {
+      "name": ".text",
+      "va": "0x1000",
+      "vsize": 7024,
+      "rawsize": 7168,
+      "writable": false,
+      "executable": true
+    },
+    {
+      "name": ".data",
+      "va": "0x3000",
+      "vsize": 160,
+      "rawsize": 512,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".rdata",
+      "va": "0x4000",
+      "vsize": 1624,
+      "rawsize": 2048,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".pdata",
+      "va": "0x5000",
+      "vsize": 576,
+      "rawsize": 1024,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".xdata",
+      "va": "0x6000",
+      "vsize": 468,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".bss",
+      "va": "0x7000",
+      "vsize": 384,
+      "rawsize": 0,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".idata",
+      "va": "0x8000",
+      "vsize": 2220,
+      "rawsize": 2560,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".tls",
+      "va": "0x9000",
+      "vsize": 16,
+      "rawsize": 512,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".reloc",
+      "va": "0xa000",
+      "vsize": 100,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/4",
+      "va": "0xb000",
+      "vsize": 80,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/19",
+      "va": "0xc000",
+      "vsize": 4518,
+      "rawsize": 4608,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/31",
+      "va": "0xe000",
+      "vsize": 181,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/45",
+      "va": "0xf000",
+      "vsize": 164,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/57",
+      "va": "0x10000",
+      "vsize": 72,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/70",
+      "va": "0x11000",
+      "vsize": 163,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": "/81",
+      "va": "0x12000",
+      "vsize": 504,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    }
+  ],
+  "import_count": 44,
+  "dangerous_imports": [
+    {
+      "library": "KERNEL32.dll",
+      "symbol": "VirtualProtect",
+      "category": "内存权限",
+      "severity": "中"
+    },
+    {
+      "library": "api-ms-win-crt-heap-l1-1-0.dll",
+      "symbol": "calloc",
+      "category": "堆",
+      "severity": "中"
+    },
+    {
+      "library": "api-ms-win-crt-heap-l1-1-0.dll",
+      "symbol": "free",
+      "category": "堆",
+      "severity": "中"
+    },
+    {
+      "library": "api-ms-win-crt-heap-l1-1-0.dll",
+      "symbol": "malloc",
+      "category": "堆",
+      "severity": "中"
+    },
+    {
+      "library": "api-ms-win-crt-private-l1-1-0.dll",
+      "symbol": "memcpy",
+      "category": "越界写",
+      "severity": "中"
+    }
+  ],
+  "format_string_risks": [
+    {
+      "string": "_matherr(): %s in %s(%g, %g)  (retval=%g)",
+      "tokens": [
+        "%s",
+        "%g"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "Address %p has no image-section",
+      "tokens": [
+        "%p"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "  VirtualQuery failed for %d bytes at address %p",
+      "tokens": [
+        "%d",
+        "%p"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "%d bit pseudo relocation at %p out of range, targeting %p, yielding the value %p.",
+      "tokens": [
+        "%d",
+        "%p"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "  VirtualProtect failed with code 0x%x",
+      "tokens": [
+        "%x"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "  Unknown pseudo relocation protocol version %d.",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "  Unknown pseudo relocation bit size %d.",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "runtime error %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    }
+  ],
+  "next_routes": [
+    {
+      "route": "栈溢出 + ROP",
+      "why": "导入不安全拷贝/输入函数；用 cyclic 找偏移，检查 canary 与 NX",
+      "first_steps": [
+        "cyclic 定位覆盖长度",
+        "有 canary 先泄漏/绕开",
+        "有 PIE 先泄漏代码/libc 基址；注意 16 字节对齐"
+      ],
+      "caveats": [
+        "PIE 开启：先泄漏代码基址，不能硬编码",
+        "NX 开启：不要指望栈上 shellcode，走 ROP/ORW"
+      ]
+    }
+  ],
+  "notes": [
+    "DllCharacteristics 其它标志: HIGH_ENTROPY_VA",
+    "PE 保护位为 DllCharacteristics 近似；IAT 可写性需看节权限与加载配置"
+  ]
+}

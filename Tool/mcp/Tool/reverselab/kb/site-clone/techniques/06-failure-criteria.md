@@ -59,7 +59,7 @@ related_articles: ["site-clone/01-static-mirror-boundary", "site-clone/07-auth-b
 ## 可复制命令
 
 ```bash
-python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01
+python Tool/skill/_pending/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01
 python -c "import json;d=json.load(open('Tool/cases/site-clone01/artifacts/diff.json'));print(d['summary'])"
 ```
 

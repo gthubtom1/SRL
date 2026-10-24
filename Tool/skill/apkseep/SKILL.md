@@ -1,6 +1,6 @@
 ---
 name: apkseep
-description: "Android APK/AAB/DEX/SO 逆向工程、客户端鉴权脆弱性走查（CWE-602）、DEX/SO 底层二进制微创补丁、动态 Frida/RPC 探测插桩、脱壳/Java2C/VMP 差分分析及重打包签名的全链路一体化作战技能。覆盖 Recon 资产画像、四大硬性质量门禁（G1-G4）、Anti-Tamper/Anti-Hook 对抗、双击失败熔断纪律与端到端闭环安全审计交付。"
+description: "【Android 逆向】APK/AAB/DEX/SO 逆向、客户端鉴权走查（CWE-602）、DEX/SO 微创补丁、Frida/RPC 插桩、脱壳/Java2C/VMP 差分、重打包签名全链路。"
 license: MIT — see LICENSE at the repository root
 # ---------------------------------------------------------------------------
 # ATTRIBUTION: This skill is derived from and tracks the upstream project
@@ -23,6 +23,26 @@ metadata:
 
 Goal: reach a **verified, installable, still-working artifact** fast — and avoid the whole class of
 mistakes that destroy an APK while looking completely healthy.
+
+## 操作坑（架构层，不是某个样本的问题）
+
+1. **aapt 在 GBK 环境下打不开中文路径**：对含中文的路径直接 `aapt dump badging` 会报
+   `Illegal byte sequence` / `no AndroidManifest.xml found`。**先复制到 ASCII 路径**再跑，
+   否则会误判成「这个 APK 没有 manifest」。
+2. **关键词命中 ≠ 加固**：`StubApp` 在普通应用里也可能是系统 launcher 的类名
+   （实测上下文 `com.google.android.launcher/.StubApp`）。判加固要看**上下文 + 壳入口类 + so 名**，
+   不能只数关键词；`libexec` / `libcompress` 这类名字也要落到具体 ABI 与导出符号再定性。
+3. **判据要 dex 与 so 两边都搜**：root 检测/密钥线索可能只在 dex（`/system/xbin`），
+   也可能只在 so（`ptrace`/`fork`）。只搜一边会得出「没有检测」的错误结论。
+
+## 阶段契约（与 softseep 一致，**先判再做**）
+
+① 先摸清能不能测（仪器/授权位置/是否服务端权威）→ ② 给**裁定**（可赢 / 部分可赢 / 不可赢）+ **交付上限 M1–M4** → ③ 按上限执行。
+- 用户说"要源码级/成品级"是**愿望**，不是判据：判不上去就**说清卡在哪一轴**，给能到的那一级。
+- 用户只要低级别、但发现能更高 → 主动告知，由用户定。**不许硬冲，也不许静默降级。**
+- 命中任一 **卡点**（要用户手里的凭据 / 需物理动作 / 只可能从真实进程取证据且目标反自动化 / 同形状失败 2 次）→
+  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
+- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
 
 ## G-Auth — the only gate that precedes everything else
 

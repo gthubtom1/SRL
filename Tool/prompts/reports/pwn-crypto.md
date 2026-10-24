@@ -11,7 +11,7 @@
 ## 2 证据清单
 | # | 文件 | sha256 | 命令 | rc | 说明 |
 |---|---|---|---|---|---|
-| E01 | artifacts/pwn-check.json | <sha256> | `python Tool/scripts/pwn-check.py --file <bin> --json` | 0 | 保护位/导入 |
+| E01 | artifacts/pwn-check.json | <sha256> | `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file <bin> --json` | 0 | 保护位/导入 |
 | E02 | artifacts/repro.json | <sha256> | `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump ... --func ... --probe-log ...` | 0 | 偏移三源 |
 | E03 | artifacts/crypto.json | <sha256> | `python Tool/skill/pwn-crypto/scripts/crypto-verify.py --rsa ...` | 0 | 密码回代 |
 
@@ -47,7 +47,7 @@
 
 ## 7 复跑命令
 ```bash
-python Tool/scripts/pwn-check.py --file work/<case>/artifacts/target.bin --json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file work/<case>/artifacts/target.bin --json
 python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump work/<case>/artifacts/target.dis --func <func> --probe-log work/<case>/artifacts/probe.txt
 python Tool/skill/pwn-crypto/scripts/crypto-verify.py --self-test
 ```

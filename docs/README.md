@@ -10,7 +10,7 @@
 | [FORK-BRIEF.md](FORK-BRIEF.md) | 交接书：这个仓是谁、相对上游加了什么、用户需求、不可破坏的契约、已知债务、文档地图、常见误解 |
 | [RELEASE-1.26.1.md](RELEASE-1.26.1.md) | 最近一轮交付台账（做了什么 / 证据 / 剩余项） |
 | [DEFERRALS.md](DEFERRALS.md) | 延迟项台账 + **明确不做**（附理由） |
-| [DOMAIN-SPEC-v2.md](DOMAIN-SPEC-v2.md) | 域契约（九件套判据） |
+| [history/X-DOMAIN-SPEC-v2.md](history/X-DOMAIN-SPEC-v2.md) | 域契约（九件套判据） |
 | [UPSTREAM.md](UPSTREAM.md) | 与上游差异口径、吸收纪律、外部技能库许可分层 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更（顶部为最新） |
 | [QUICKSTART.md](QUICKSTART.md) | 第一次上手（命令 + 计数基线） |

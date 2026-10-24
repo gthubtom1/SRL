@@ -28,5 +28,115 @@
   "_allow说明": "整条命令含其中任一子串就整条跳过守卫（救急用，慎用）。默认的 cmd-guard-skip 可以让单条命令临时放行。",
   "allow": [
     "cmd-guard-skip"
-  ]
+  ],
+  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再在命令里加 `cmd-guard-skip`。",
+  "denyRules": [
+    {
+      "id": "sys-driver-install",
+      "severity": "block",
+      "re": "\\bpnputil(\\.exe)?\\s.*(/add-driver|/delete-driver|/remove-device|/restart-device)",
+      "label": "装/删驱动或重启设备",
+      "hint": "装驱动要管理员权限 + 可能重启。逆向任务不需要：要在虚拟机里测就整机丢进 VM。"
+    },
+    {
+      "id": "sys-driver-cmd",
+      "severity": "block",
+      "re": "\\b(InstallUtil|devcon|DriverPackageInstall)\\b.*\\b(install|add|remove)\\b",
+      "label": "驱动安装工具",
+      "hint": "同上：驱动层操作一律在 VM/快照里做，不上宿主机。"
+    },
+    {
+      "id": "sys-service-write",
+      "severity": "block",
+      "re": "\\bsc(\\.exe)?\\s+(create|delete|config|start|stop)\\b|\\b(New|Set|Remove|Start|Stop|Restart|Suspend|Resume)-Service\\b|\\bservices\\.msc\\b",
+      "label": "增删改系统服务",
+      "hint": "改服务 = 改开机行为。要跑目标程序就直接跑它，不要注册成服务。"
+    },
+    {
+      "id": "sys-bcd-write",
+      "severity": "block",
+      "re": "\\bbcdedit(\\.exe)?\\s.*(/set|/delete|/create|/import|/enum\\s+.*\\s/delete)",
+      "label": "改引导配置",
+      "hint": "改 BCD 可能让机器起不来。禁止；需要改启动项请用户自己在 VM 里做。"
+    },
+    {
+      "id": "sys-firmware-update",
+      "severity": "block",
+      "re": "\\b(fwupd|fwupdate|flashrom|WinFlash)\\b",
+      "label": "刷固件",
+      "hint": "刷固件 = 变砖风险。禁止。"
+    },
+    {
+      "id": "sys-firewall-write",
+      "severity": "block",
+      "re": "\\bnetsh\\s+advfirewall\\s+(set|add|reset)\\b|\\b(New|Set|Remove)-NetFirewall(Rule|Profile)\\b|\\bSet-NetFirewallProfile\\b",
+      "label": "改防火墙规则",
+      "hint": "要放行/拦截端口，用进程内 hook 或 VM 网络；不要动宿主防火墙（会静默改全机策略）。"
+    },
+    {
+      "id": "sys-policy-write",
+      "severity": "block",
+      "re": "\\bsecedit\\s+/configure|\\bgpupdate\\s+/force|\\bSet-ExecutionPolicy\\b|\\bSet-MpPreference\\b|\\bAdd-MpPreference\\b",
+      "label": "改系统/执行策略或杀软配置",
+      "hint": "改执行策略或杀软排除项会削弱整机安全姿态。要跑自己的脚本用 `powershell -ExecutionPolicy Bypass -File`（进程级），不要改系统策略。"
+    },
+    {
+      "id": "sys-schtask-write",
+      "severity": "block",
+      "re": "\\bschtasks(\\.exe)?\\s+/(create|change|delete|run)\\b|\\b(Register|Unregister|Set)-ScheduledTask\\b",
+      "label": "计划任务（持久化）",
+      "hint": "写计划任务 = 在用户机器上留常驻项。逆向不需要；要定时跑用一次性命令或你自己的脚本循环。"
+    },
+    {
+      "id": "sys-cert-root",
+      "severity": "block",
+      "re": "\\bcertutil(\\.exe)?\\s.*(-addstore|-delstore)\\s+(root|CA|TrustedPublisher)|\\bImport-Certificate\\b.*-CertStoreLocation\\s+\\\"?Cert:\\\\\\\\LocalMachine",
+      "label": "往系统信任根加/删证书",
+      "hint": "改系统信任根会影响全机 TLS 校验。要解 TLS 就把证书装进目标进程的信任链（Frida hook / 进程级 CertStore），或干脆 SSLKEYLOGFILE。"
+    },
+    {
+      "id": "sys-reg-hklm-write",
+      "severity": "block",
+      "re": "\\breg(\\.exe)?\\s+(add|delete|import)\\b[^\\n]*\\bHKLM\\b|\\bNew-Item(Property)?\\b[^\\n]*HKLM:|Set-ItemProperty\\b[^\\n]*HKLM:",
+      "label": "改 HKLM（全局注册表）",
+      "hint": "写 HKLM 影响所有用户/整机行为。目标程序的配置一般只需 HKCU（用户级）；确实要写就显式加 cmd-guard-skip 并先导出备份。"
+    },
+    {
+      "id": "sys-reg-hkcu-write",
+      "severity": "warn",
+      "re": "\\breg(\\.exe)?\\s+(add|delete|import)\\b[^\\n]*\\bHKCU\\b|Set-ItemProperty\\b[^\\n]*HKCU:",
+      "label": "改 HKCU（用户级注册表）",
+      "hint": "允许，但请先导出 `reg export <key> backup.reg`，并在 facts 里记一笔（改了什么、怎么还原）。"
+    },
+    {
+      "id": "sys-disk-destructive",
+      "severity": "block",
+      "re": "\\b(diskpart|format(\\.com)?\\s+[a-z]:|Clear-Disk|Initialize-Disk|Remove-Partition|Format-Volume|mountvol\\s+/[dp])",
+      "label": "分区/格式化/卸载卷",
+      "hint": "破坏性磁盘操作，禁止。要准备干净的测试盘，让用户自己插拔。"
+    },
+    {
+      "id": "sys-shadow-delete",
+      "severity": "block",
+      "re": "\\bvssadmin(\\.exe)?\\s+delete\\s+shadows|\\bwmic\\s+shadowcopy\\s+delete|\\bGet-CimInstance\\s+Win32_ShadowCopy\\b.*Remove-CimInstance",
+      "label": "删卷影/系统还原点",
+      "hint": "删卷影 = 抹掉用户唯一的回滚路径。禁止。"
+    },
+    {
+      "id": "sys-hosts-write",
+      "severity": "block",
+      "re": "(>|>>|Out-File|Set-Content|Add-Content)[^\\n]*(drivers[\\\\/]etc[\\\\/]hosts|\\\\betc[\\\\/]hosts)",
+      "label": "改系统 hosts 文件",
+      "hint": "写 hosts 是整机劫持（所有程序都受影响）。要劫持某个域名，只在目标进程内改解析结果（Frida hook getaddrinfo/`connect`），或用只对该进程生效的回环代理。"
+    },
+    {
+      "id": "sys-eventlog-clear",
+      "severity": "block",
+      "re": "(wevtutil(\\.exe)?\\s+(cl|clear-log)\\b|Clear-EventLog|Remove-EventLog)",
+      "label": "清空/删除系统事件日志",
+      "hint": "清空事件日志 = 销毁取证基线，同时抹掉用户机器的审计痕迹。\n要「看得清」应该是过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security'}`，或先 `wevtutil epl Security out.evtx` 导出再分析。\n确实要清（例如自己的实验机）先导出备份，再在命令里加 cmd-guard-skip。"
+    }
+  ],
+  "_disableDeny说明": "按 id 关掉某条内置禁手。内置 id: net-ip-alias / net-iface-write / net-winhttp-write / net-dns-write / net-route-write / net-winsock-reset / launch-start-process / launch-cmd-start / launch-subprocess。只有「本机就是一次性靶机、且已 snapshot」时才关。",
+  "disableDeny": []
 }

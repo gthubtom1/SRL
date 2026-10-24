@@ -95,9 +95,9 @@ IDA 9.4+ 把 MCP 服务做成了可独立运行的 `idalib` 模块，由 supervi
 | 快速侦察（架构/壳/熵/字符串） | — | ✅ `seep_r2_info` / `seep_r2_strings` |
 | 反汇编（含交叉引用） | ✅ | ✅ `seep_r2_disasm` |
 | 反编译为类 C 伪代码 | ✅ Hex-Rays | ✅ `seep_r2_decompile` |
-| 二进制差分 | — | ✅ `seep_r2_diff` |
-| 汇编 ↔ 机器码 | — | ✅ `seep_r2_asm` |
-| 函数表 / 导入导出 | ✅ | ✅ `seep_r2_functions` |
+| 二进制差分 | — | ✅ `radiff2 CLI` |
+| 汇编 ↔ 机器码 | — | ✅ `seep_r2_cmd(rasm2)` |
+| 函数表 / 导入导出 | ✅ | ✅ `seep_r2_cmd(afl)` |
 | 结构体恢复 | ✅ | ⚠️ Ghidra |
 | 类型推断 | ✅ | ⚠️ Ghidra |
 
@@ -136,7 +136,7 @@ winget install EclipseAdoptium.Temurin.17.JDK
 - 壳检测与熵分析
 - 字符串与端点提取
 - 授权判定点定位
-- 补丁点确认（配合 `seep_r2_asm` 验字节）
+- 补丁点确认（配合 `seep_r2_cmd(rasm2)` 验字节）
 - Android SO 分析
 
 **不足**：

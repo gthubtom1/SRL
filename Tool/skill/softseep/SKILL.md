@@ -1,6 +1,6 @@
 ---
 name: softseep
-description: 【逆向工程总控入口 / Orchestrator】本 Skill 是整个工作体系的**唯一入口与总调度**。**用户只需输入大白话，softseep 自动完成两步判型**：① 平台（Windows/Android/Linux/Web/Flutter）② 逆向类型（授权许可 / 补丁本地化 / 脱壳解包 / 算法还原 / 协议分析 / 样本研判 / UI 伪造 / 加固对抗 / 测绘报告），随后自动分发到对应子能力。它自身不承载战术细节，所有深度内容在 `references/` 按需加载（Windows 6 步 SOP、汇编打桩字典、五层纵深防御、UI 验收工装、编译器陷阱、九型项目范式库、许可/激活/卡密校验手册、工具脚本索引）。内置 G-Auth 授权门、路由矩阵与调度纪律。当用户下达任何逆向、白盒审计、客户端逻辑验证、许可校验、补丁本地化、脱壳解包、算法还原、样本研判、UI 伪造、加固对抗或逆向测绘任务时，**首先加载此 Skill** —— 由它判型后分发到 apkseep / ida-reverse / seep MCP / ida MCP / playwright / Tool/scripts / reverselab 等子能力。
+description: 【逆向总控入口】任何逆向、白盒审计、客户端逻辑验证、许可校验、补丁本地化、脱壳解包、算法还原、协议分析、样本研判、UI 伪造、加固对抗、测绘任务先加载本技能，按平台+类型判型后分发子能力。
 license: MIT
 compatibility: Windows 10 / Windows 11 x64 为主。支持 Python 3.8+，搭配 C/C++ 编译器（Zig/MSVC）或 radare2/IDA Pro 逆向套件。跨平台等价路径见 `references/license-validation.md` §1 平台对照表。
 metadata:
@@ -17,6 +17,15 @@ metadata:
 
 ---
 
+## 先看这一条（S3 索引改革之后）
+
+索引里**只有 9 个包**：`softseep` + `apkseep` / `web-pentest` / `malware-analysis` /
+`supply-chain-security` / `forensics-mobile` / `firmware-iot` / `protocol-plugin` / `pwn-crypto`。
+
+其余技能（8 个阶段文案、脱壳闭环、IDA/r2 用法、站点复刻、插件/AD/LLM 等）**已归档**在仓库
+`Tool/skill/_pending/<name>/SKILL.md`：不进索引、不被路由，但**按路径可以直接读**。
+本文件出现 `Tool/skill/_pending/...` 的地方，就是「需要细节时去读那一份」，不是「加载一个技能」。
+
 ## 调度总流程
 
 ```
@@ -30,6 +39,22 @@ metadata:
   → ④ 执行 → 三段式报告
 ```
 
+### ③bis-0 副作用层级（动手前第一条，比判型更早）
+
+**判"能不能做"，不判"命令长什么样"；等价做法同层同禁**（换个名字绕不改性质）。
+
+- **L0/L1 可写**：目标文件（case/work 目录）、进程内存 —— 逆向唯一该动的地方。
+- **L2 可做先备还原**：HKCU 单键、**仅对该进程**生效的代理/环境变量。
+- **L3 不做**：网卡 IP/路由/DNS/全局代理、`iptables·nft·pf` NAT、**系统 hosts**、驱动、服务、引导、
+  防火墙、策略、计划任务、系统信任根、HKLM —— 出事要重装或重启。
+- **L4 不做**：分区、格式化、删卷影、清事件日志。
+
+命中 L3/L4 **不是甩一句"规则禁止"**，按序答：① 说清工程后果（整机副作用 + 回滚代价）→
+② 给同目的的低层做法（进程内 hook / 进程级参数 / 整机丢 VM）→ ③ 给能到哪一级（M1–M3）→
+④ 只有用户明确"一次性靶机随便改"才发 ASK 卡（四要素 + 快照，命令由用户执行）。
+**不给"怎么改系统才不出事"的操作路径** —— 那是把绕法教一遍。
+细则：`AGENTS.md` §四点五 第 9 条；接管假服务端三档见 `references/license-validation.md` §5.3。
+
 **三条铁律**：
 1. **门控不可绕过** —— 先 G-Auth，再判型，再分发；子能力只经总控调用；
 2. **判型是 softseep 的职责，不是用户的负担** —— 用户说大白话，本主控自己归类；
@@ -37,6 +62,39 @@ metadata:
 3. **判型不可跳过** —— 不先判平台与类型就开工 = 违规（错平台代价是整轮工作作废）。
 
 ---
+
+
+### ③bis 先判难度，再定交付级（**这一步不许省，也不许问用户**）
+
+用户说的是**愿望**（"我要源码级"），不是**判据**。任何交付承诺前必须先过这一步：
+
+**第 1 步 · 五轴打分（0–5，自己在内部做完，不输出表格）**
+壳/虚拟化 · 权威位置（本地 vs 服务端）· 交付形态 · 环境耦合 · 外部依赖（是否要卡密/是否服务端已停）
+
+**第 2 步 · 给裁定 + 上限（写进账本，不许自己抬也不许自己压）**
+
+| 裁定 | 什么情况 | 交付上限 |
+|---|---|---|
+| **可赢** | 五轴都 ≤3 | M3（能跑 + UI 自家 + 授权自家）／T3 才到 M4 |
+| **部分可赢** | 有一轴 = 5 但可绕 | M2–M3，**必须在报告里列出受限项** |
+| **不可赢** | 钥匙在服务端 / 服务端已停 / 硬件绑定不可绕 | **只能 M1**，附天花板一句话 |
+
+**第 3 步 · 双向反馈（这是"像工程师"而不是"像执行器"的关键）**
+- 用户要源码级、但实测只到补丁级 → **当场说清卡在哪一轴**，给能到的级别 + 要补什么才能上去；
+- 用户只要补丁级、但分析发现能到源码级 → **主动告知"可以更高"**，由用户定；
+- 两个方向都**不许沉默**：不许硬冲、也不许把"做不到"说成"已交付"。
+
+**第 4 步 · 什么时候必须停下来问用户（四个判据，命中任一就停）**
+1. 需要用户手里的东西（卡密 / 账号 / 硬件狗 / 验证码）；
+2. 必须用户自己做物理动作（插设备、双击启动、拆机）；
+3. 证据只能从真实运行进程里取，而目标有反自动化检测；
+4. 同一形状的尝试失败两次。
+
+停下来时**不再硬钻**，给一张 A/B/C 卡（`case_state.py ask`）：几步 / 我在监控什么 / 我保证不动什么 / 我拿到什么。
+**禁止**：用"用户说要源码级"当理由无限深钻；也禁止不打招呼就降级交差。
+
+> 早 10 分钟说"这条路只能到 M1"，比 3 小时后交一个用不了的东西有价值得多。
+> 完整五轴细则与打分表：`Tool/skill/_pending/00-analysis/SKILL.md` §4（需要时再读，不必预读）。
 
 ## 【G-Auth】授权门 —— 唯一横在一切之前的门
 
@@ -77,7 +135,7 @@ metadata:
 
 - Android APK/DEX/SO → `apkseep`；iOS 取证/签名 → `forensics-mobile`。
 - 纯 Web/API 漏洞 → `web-pentest`；二进制漏洞利用/密码学 → `pwn-crypto`。
-- 加壳脱壳闭环 → `unpack-loop`（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
+- 加壳脱壳闭环 → `Tool/skill/_pending/unpack-loop/SKILL.md`（脱壳闭环）（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
 - 生产环境与真实用户数据按 `scope` 清单执行；凭据外泄一律停并上报。
 
 **边界**：本技能默认目标是**受权沙箱资产**；仅当用户明确声明「不属于我 / 没有授权」时停在门口确认一次。授权不覆盖「下载/安装/写文件/改环境」，后者单独确认。
@@ -204,34 +262,34 @@ metadata:
 
 > 用户说什么不重要，**softseep 听懂意图后自己归类**。下表是内部推断规则。
 
-> **本表是 `Tool/scripts/routing.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
-> `verify-routing-coherence.py` 守自洽；发现本表与 routing.json 不一致时，**以 routing.json 为准**。
+> **本表是 `Tool/skill/<pack>/pack.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
+> `route.py --check` 守自洽；发现本表与 pack.json 不一致时，**以 pack.json 为准**。
 
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
-| "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | **`01-gate-bypass`**（分析型参考卷：`client-license-validation-bypass`） |
-| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `unpack-loop`**（判据驱动，不硬走流程） |
+| "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路）（分析型参考卷：`Tool/skill/_pending/client-license-validation-bypass/SKILL.md`（许可校验专项）） |
+| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `Tool/skill/_pending/unpack-loop/SKILL.md`（脱壳闭环）**（判据驱动，不硬走流程） |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
 | "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `KB 11-project-paradigms/01-project-patterns-a-j.md` |
 | "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |
 | "是不是病毒" / "分析样本" / "行为" / "IOC" | **样本研判** | ida MCP + YARA |
-| "改界面文字" / "关于对话框" / "显示不对" / "换品牌" | **UI 改造** | **`02-ui-rebrand`**（校验参考卷：`KB 14-ui-verification/01-ui-acceptance.md`） |
-| "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固/反调试** | 路由落 **`unpack-loop`**（R9）→ `seep_packer_detect` → `MANUAL/ANTI-DEBUG.md` + `seep_kb_search` |
+| "改界面文字" / "关于对话框" / "显示不对" / "换品牌" | **UI 改造** | `Tool/skill/_pending/02-ui-rebrand/SKILL.md`（阶段② 改界面）（校验参考卷：`KB 14-ui-verification/01-ui-acceptance.md`） |
+| "过检测" / "反调试" / "反 hook" / "完整性校验"（**进攻面：要绕过**） | **加固/反调试** | 转 `malware-analysis` 包（脱壳）→ `seep_packer_detect` → `MANUAL/ANTI-DEBUG.md` + `seep_kb_search` |
 | "出修复建议" / "加固方案"（**防御面：要交付整改**） | **加固对抗** | `references/windows-sop.md` §纵深防御（厂商视角的四层加固） |
-| "出个报告" / "整理成果" / "测绘" | **阶段零 分析** | **`00-analysis`**（R15；报告模板 `KB 11-project-paradigms/01-project-patterns-a-j.md`） |
-| "看看这个 exe" / "先分析透" / "出份报告"（无明确动词） | **阶段零 分析** | `00-analysis`（D0–D5 + 可复现报告 + 可行性裁定） |
-| "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_pe_resources` 枚举/剥离 |
+| "出个报告" / "整理成果" / "测绘" | **阶段零 分析** | `Tool/skill/_pending/00-analysis/SKILL.md`（阶段零 分析）（R15；报告模板 `KB 11-project-paradigms/01-project-patterns-a-j.md`） |
+| "看看这个 exe" / "先分析透" / "出份报告"（无明确动词） | **阶段零 分析** | `Tool/skill/_pending/00-analysis/SKILL.md`（阶段零 分析）（D0–D5 + 可复现报告 + 可行性裁定） |
+| "资源里有没有东西" / "皮肤包" / "内嵌 DLL" / "载荷" | **资源剥离** | `seep_r2_cmd(iR @ 0 / ii)` 枚举资源；剥离用 CLI |
 | "字符串看不到" / "运行期才解密" / "内存里的" | **内存取证** | `seep_mem_strings` 活体扫描 |
-| "先分析透" / "出份报告" / "摸清它到底怎么授权的" | **阶段零 分析 + 可复现报告** | **`00-analysis`** |
+| "先分析透" / "出份报告" / "摸清它到底怎么授权的" | **阶段零 分析 + 可复现报告** | `Tool/skill/_pending/00-analysis/SKILL.md`（阶段零 分析） |
 | "看看这个站有没有 SQL 注入" / "挖 SRC" / "漏洞复现" | **Web/API 漏洞验证** | **`web-pentest`**（R20） |
-| "旁路它的卡密" / "让它能进主界面" / "出可用成品" | **阶段① 授权旁路 + 交付** | **`01-gate-bypass`** |
-| "软件更新了" / "新版追一下" / "6.8 的活迁到 6.9" | **阶段④ 跨版本追版** | **`04-version-migrate`** |
+| "旁路它的卡密" / "让它能进主界面" / "出可用成品" | **阶段① 授权旁路 + 交付** | `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路） |
+| "软件更新了" / "新版追一下" / "6.8 的活迁到 6.9" | **阶段④ 跨版本追版** | `Tool/skill/_pending/04-version-migrate/SKILL.md`（阶段④ 追版） |
 | "这道 pwn 怎么做" / "RSA 怎么打" / "堆利用" | **二进制利用 / 密码学** | **`pwn-crypto`**（R21） |
-| "它的后端也要复刻" / "接口不止授权" / "脚本是下发的" | **阶段⑤ 后端复刻（T2/T3）** | **`05-backend-rebuild`** |
+| "它的后端也要复刻" / "接口不止授权" / "脚本是下发的" | **阶段⑤ 后端复刻（T2/T3）** | `Tool/skill/_pending/05-backend-rebuild/SKILL.md`（阶段⑤ 后端复刻） |
 | "解包这个固件" / "路由器怎么搞" / "UART 接哪" | **固件/IoT/硬件** | **`firmware-iot`**（R22） |
-| "改 UI" / "换品牌" / "去掉作者联系方式" | **阶段② 改界面与品牌** | **`02-ui-rebrand`** |
-| "接我自己的授权平台" / "卡密 / 到期 / 发卡" | **阶段③ 接授权** | **`03-license-hookup`** |
-| "这是个什么网站" / "指纹" / "安全头" / "接口发现" | **Web 侦察** | `seep_web_recon` 只读侦察 |
+| "改 UI" / "换品牌" / "去掉作者联系方式" | **阶段② 改界面与品牌** | `Tool/skill/_pending/02-ui-rebrand/SKILL.md`（阶段② 改界面） |
+| "接我自己的授权平台" / "卡密 / 到期 / 发卡" | **阶段③ 接授权** | `Tool/skill/_pending/03-license-hookup/SKILL.md`（阶段③ 接授权） |
+| "这是个什么网站" / "指纹" / "安全头" / "接口发现" | **Web 侦察** | `web-pentest` 包（`web-check.py --url`）只读侦察 |
 
 **复合意图**：一句话含多个意图（如"脱壳后破解会员"）⇒ **按依赖顺序串行**：
 脱壳 → 算法还原 → 授权分析 → 补丁 → 报告。
@@ -258,61 +316,83 @@ metadata:
 
 | 类别 | 资源 | 调用方式 | 用途 |
 | :--- | :--- | :--- | :--- |
-| **Skill** | softseep（本体） | 本文件 + `references/` | 总控 + Windows 战术 |
+| **Skill（索引只有 9 个包）** | softseep（本体） | 本文件 + `references/` | 总控 + 阶段协议 + Windows 战术 |
 | | **apkseep** | `~/.pi/agent/skills/apkseep/SKILL.md` | Android APK/DEX/SO 全链路 |
-| | **ida-reverse** | `~/.pi/agent/skills/ida-reverse/SKILL.md` | IDA 自动唤醒 + 联动 |
-| | **version-migration** | `Tool/skill/version-migration/SKILL.md` | 跨版本增量追版与特征迁移专项 |
-| | **unpack-loop** | `Tool/skill/unpack-loop/SKILL.md` | 加壳脱壳与内存转储闭环（判据驱动 / 三路线 / 两次熔断） |
-| | **client-license-validation-bypass** | `Tool/skill/client-license-validation-bypass/SKILL.md` | 许可校验专项 |
-| | **00-analysis** | `Tool/skill/00-analysis/SKILL.md` | **阶段零**：D0–D5 深度门 → 8 节可复现报告 → 可行性裁定（可赢/部分可赢/不可赢）+ 推荐路线；不许产出交付物 |
-| | **01-gate-bypass** | `Tool/skill/01-gate-bypass/SKILL.md` | **阶段①**：判壳/自毁处理 → 旁路卡密 → 原版能跑、功能全通（出可用成品） |
-| | **04-version-migrate** | `Tool/skill/04-version-migrate/SKILL.md` | **阶段④**：读版本账 → AOB 滑窗对齐 → UI/授权跟着迁 → 重建+回归（引擎 `Tool/scripts/migrate.py`） |
-| | **05-backend-rebuild** | `Tool/skill/05-backend-rebuild/SKILL.md` | **阶段⑤**：三层 API 面 → 签名复算 → 协议复刻 → 下发物 → 切换验证 → 回归（**仅 T2/T3 触发**，T1 移交阶段③） |
-| | **02-ui-rebrand** | `Tool/skill/02-ui-rebrand/SKILL.md` | **阶段②**：改 UI / 换品牌 / 去作者信息（基于阶段①产物） |
-| | **03-license-hookup** | `Tool/skill/03-license-hookup/SKILL.md` | **阶段③**：接你自己的授权平台（卡密 / 到期 / 机器码） |
-| | **safe-skills（5 个）** | `Tool/skill/safe-skills/` | reverse-engineering / apk-reverse / radare2 / mcp-js-reverse-playbook / ida-assistant |
-| **MCP** | **seep**（40 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
+| | **web-pentest** | `~/.pi/agent/skills/web-pentest/SKILL.md` | Web/API 漏洞验证 + 站点复刻 |
+| | **malware-analysis** | `~/.pi/agent/skills/malware-analysis/SKILL.md` | 样本研判 / 脱壳 / IOC·YARA |
+| | **supply-chain-security** | `~/.pi/agent/skills/supply-chain-security/SKILL.md` | 依赖 / 镜像 / CI-CD 供应链 |
+| | **forensics-mobile** | `~/.pi/agent/skills/forensics-mobile/SKILL.md` | 取证 / iOS·macOS / 游戏客户端 |
+| | **firmware-iot** | `~/.pi/agent/skills/firmware-iot/SKILL.md` | 固件 / IoT / 硬件接入 |
+| | **protocol-plugin** | `~/.pi/agent/skills/protocol-plugin/SKILL.md` | 私有协议复刻 + 插件/Mod |
+| | **pwn-crypto** | `~/.pi/agent/skills/pwn-crypto/SKILL.md` | 二进制利用 + 密码学 |
+| **工具类参考（L3，不占索引）** | [`references/tools/tool-radare2.md`](references/tools/tool-radare2.md) | 驱 r2/rabin2 时 | 函数分析 / 补丁 / 差分 |
+| | [`references/tools/tool-ida-assistant.md`](references/tools/tool-ida-assistant.md) | 需 IDA + MCP 桥接时 | 唤醒 / 加载 / 反编译 / xref |
+| | [`references/tools/tool-ida-reverse.md`](references/tools/tool-ida-reverse.md) | 要全自动批量反编译时 | 静默等分析 / 批量出伪代码 |
+| | [`references/tools/tool-reverse-engineering.md`](references/tools/tool-reverse-engineering.md) | 目标混淆/加壳/虚拟化时 | 先搞清怎么跑再谈利用 |
+| | [`references/tools/tool-js-reverse.md`](references/tools/tool-js-reverse.md) | 前端签名链路时 | JS 逆向 + 补环境复现 |
+| | [`references/tools/tool-binary-diff.md`](references/tools/tool-binary-diff.md) | 跨版本/补丁差分时 | 符号迁移 / AOB 特征迁移 |
+| **归档区（不索引、不路由）** | `_pending/` | `Tool/skill/_pending/` | 8 个阶段文案（00-analysis…05-backend-rebuild）+ ad-cloud / llm-security / site-clone / unpack-loop / plugin-targets / version-migration / signin-automation / client-license-validation-bypass / doc-hygiene / safe-skills；**需要时按路径直接读，不参与路由** |
+| **MCP** | **seep**（20 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp__ida__*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **运行时** | `Tool/mcp/Tool/` | `safe/`（radare2/jadx/apktool/hook 模板）+ `reverselab/`（KB/boards/MCP 源码） | **严禁搬动或改名**（MCP 内部 `TOOL_DIR` 硬编码） |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
 | | `Tool/scripts/apk/` | `decode.ps1` / `rebuild-sign-install.ps1` / `frida-run.ps1` | APK 三件套 |
 | **知识库** | reverselab | `Tool/mcp/Tool/reverselab/kb/`（409 篇 .md） | 攻防方法论 |
-| | seep KB | `seep_kb_search` / `_read` / `_checklist` / `_payloads` | 在线检索 |
+| | seep KB | `seep_kb_search` / `seep_kb_read` | 在线检索（清单与 payload 直接读正文）|
 
-### 扩展工具速查（8 个，按场景直接调）
+### 工具速查（20 个，按场景直接调）
 
-> 这些是 seep MCP 里的扩展工具，解决原版没有的“资源/内存/协议/加壳/工具发现”场景。**遇到对应场景直接调，不要手搓。**
-
-| 场景 | 调用 | 说明 |
-|---|---|---|
-| 不知道用哪个反编译引擎 / 缺商业工具 | `seep_decompile_auto(path, target, output_mode)` | 按 IDA→Ghidra/REA→R2 降级（无高阶引擎时落 r2 出真伪代码） |
-| 缺工具 / 不知装没装 | `seep_ensure_tool(tool_id, allow_install)` | 四级探测（env→PATH→map→scan）；缺工具给 install_plan |
-| 资源里藏载荷（皮肤包/内嵌 DLL） | `seep_pe_resources(path, extract_dir)` | 枚举 PE 资源树+节熵+容器嗅探，可剥离 |
-| 字符串运行期才解密 | `seep_mem_strings(pid, pattern)` | 只读扫活体进程内存，提 ASCII/UTF-16 + 虚拟地址 |
-| 卡密/授权在云端 | `seep_pcap_extract(pcap, mode)` | 提取端点/HTTP/指定端口 TCP 载荷 |
-| 判壳 / 反调试 / 反虚拟机 | `seep_packer_detect(path)` | 节名/节熵+反调试导入+反虚拟机 → 手册路由 |
-| 协议签到 / 接口重放 / 回包验证 | `seep_http_replay(url, method, headers, cookies, body, impersonate)` | curl_cffi TLS 指纹伪装 + Cookie 会话保持 |
-| Web 目标指纹/安全头/入口发现 | `seep_web_recon(url)` | 只读侦察（不攻击） |
-
-### 工具自动发现与自动适配 MCP（新增 6 个，2026-10）
-
-> 干活的 AI 缺工具时，**先搜本机、再决定怎么控它、绝不卡住**。逻辑在 `Tool/mcp/tool_autodiscover.py`，
-> 声明式能力表在 `Tool/config/tool-capabilities.json`（内容来自联网检索官方文档，**不用 `-h` 试探二进制**），
-> 发现状态落本机 `~/.seep/tools.local.json`（gitignore，绝不入库）。
+> S4 工具面 40→20：**每个工具都必须能对上判据**（产出的结论必须能被 facts 背书）。
+> 被删的 20 个不是能力消失，而是改走命令行：见下表「替代」。
 
 | 场景 | 调用 | 说明 |
 |---|---|---|
-| 不确定某工具装没装（要六层探测） | `seep_tool_discover(tool_id, target)` | env→PATH→常见目录→**注册表**→递归扫描→别名；给 PE 目标会按 machine 选 32/64 位 |
-| 发现到了，但不知道「怎么控制它」 | `seep_tool_control_plan(tool_id, target, apply_mcp)` | 降级链：已注册MCP→现注册(提示重启)→headless→GUI→自写Py |
-| 查某工具是否支持 MCP/headless/GUI | `seep_tool_research(tool_id)` | 读能力表；表外工具返回检索 query（不 `-h` 试探） |
-| 把工具的 MCP 注册进当前 agent | `seep_tool_register_mcp(tool_id, apply)` | 增量写 mcp.json（不删用户条目），返回需重启 |
-| 缺工具，要半自动装 | `seep_tool_install(tool_id, execute)` | 给命令+来源→确认→装→重探（白名单 pip/winget/npm/go） |
-| 看本机已发现过哪些工具 | `seep_tool_state()` | 读 `~/.seep/tools.local.json` |
+| 判载体 / 架构 / 安全缓解 | `seep_r2_info(path)` | r2 `iI`（arch/bits/canary/nx/pic/stripped）|
+| 任意 r2 命令（万能入口） | `seep_r2_cmd(path, command)` | `afl` / `axt` / `axf` / `iS` / `px` / `rasm2` / `iR` 全走这里 |
+| 反汇编一个函数 | `seep_r2_disasm(path, target, output_mode)` | full / branch / summary 三档 |
+| 反编译伪代码 | `seep_r2_decompile(path, target, output_mode)` | 多引擎不可用时落 r2 |
+| 字符串 | `seep_r2_strings(path, filter_text, all_sections)` | `-z` / `-zz` |
+| 判壳 / 反调试 / 反虚拟机 | `seep_packer_detect(path)` | 节名/节熵 + 反调试导入 |
+| 静态分诊（哈希+画像+特征串） | `seep_auto_triage(path)` | 无 rabin2 且零命中 → `ok:false`（S2）|
+| 出报告 | `seep_gen_security_report(...)` | 无 observed 证据 → `ok:false`（S2）|
+| APK 结构 / 解包 / 反编译 / smali 检索 | `seep_apk_info` `seep_apk_unpack` `seep_apk_decompile` `seep_apk_smali_search` | 四件套 |
+| 活体进程内存串 | `seep_mem_strings(pid, pattern)` | 只读扫 ASCII/UTF-16 |
+| 抓包提取端点/载荷 | `seep_pcap_extract(pcap, mode)` | 端点 / HTTP / 指定端口 TCP |
+| 接口重放 / 签名验证 | `seep_http_replay(url, ...)` | TLS 指纹伪装 + Cookie 会话 |
+| 案例检索 / 读取 | `seep_case_read(case_id)` | 全量索引用 `case_state.py index` |
+| 知识库 | `seep_kb_search` / `seep_kb_read` | 检索 → 读正文 |
+| 缺工具 / 工具路径探测 | `seep_tool_discover` / `seep_ensure_tool` | 八层探测；装软件仍走 `tool-acquire.py`（ASK）|
 
-> **判断铁律**：已知工具(IDA/x64dbg/Ghidra/r2/tshark/diec/jadx/apktool/frida)的能力写死在能力表里；
-> **表外未知工具只报『路径已发现』，绝不假装能控**，也绝不靠 `-h/--help` 现场试探（有些软件没 `-h`，一探就崩）。
-> 补工具进能力表时，先联网检索其 GitHub/官方文档。
+**已删工具对照表（下表名字**不可调用**，只是说明去哪儿找替代）**：
+
+| 已删 | 替代 |
+|---|---|
+| ~~`mcp-doctor.py`~~ / ~~`mcp-doctor.py`~~ / ~~`tool-acquire.py --json`~~ | `python Tool/scripts/mcp-doctor.py` |
+| ~~`seep_r2_cmd(afl)`~~ / `_xrefs` / `_asm` / `_diff` | `seep_r2_cmd(afl / axt / axf / rasm2)`；diff 用 `radiff2` CLI |
+| ~~`seep_kb_read`~~ / ~~`seep_kb_read`~~ | `seep_kb_read`（清单与 payload 本来就是 KB 正文）|
+| ~~`Tool/mcp/Tool/safe/hook-mcp/`~~ | Frida 模板在 `Tool/mcp/Tool/safe/hook-mcp/` |
+| ~~`web-check.py`~~ / ~~`seep_r2_cmd(iR)`~~ / ~~`seep_r2_decompile`~~ | `seep_r2_cmd` / `seep_r2_decompile` |
+| ~~`case_state.py index`~~ | `python Tool/scripts/case_state.py index [--json]` |
+| ~~`mkdir -p <task>/{samples,exports,patches,reports}`~~ | `mkdir -p <task>/{samples,exports,patches,reports}` |
+| ~~`tool-acquire.py --tool <id>`~~ / `_register_mcp` / `_research` / `_control_plan` | `python Tool/scripts/tool-acquire.py --tool <id>`（装/注册一律 ASK）|
+| ~~`手写 pack.json`~~ | 手写 `pack.json` + `SKILL.md`（**加技能不再零成本**，这是刻意的）|
+
+### 工具发现与工具链（S4 后只剩 2 个工具，其余走 CLI）
+
+> `seep_tool_discover` / `seep_ensure_tool` 保留（八层探测 + 缺工具自愈建议）；
+> 装软件、注册 MCP 一律**不由模型 apply** —— 走 `python Tool/scripts/tool-acquire.py --tool <id>`，
+> 由用户确认。能力表在 `Tool/config/tool-capabilities.json`；发现状态落 `~/.seep/tools.local.json`。
+
+| 场景 | 做法 |
+|---|---|
+| 不确定某工具装没装 | `seep_tool_discover(tool_id)`（env→PATH→常见目录→注册表→别名） |
+| 发现到了但缺启动方式 | `seep_ensure_tool(tool_id)`（给 install_plan，不执行） |
+| 要真装 / 真注册 MCP | `python Tool/scripts/tool-acquire.py --tool <id>`（ASK：用户确认后跑） |
+| 查工具链健康（MCP/扩展/端口） | `python Tool/scripts/mcp-doctor.py --json` |
+
+> **铁律**：表外未知工具只报「路径已发现」，绝不假装能控，也绝不 `-h/--help` 现场试探（有些软件一探就崩）。
+
 
 ### 调试路线（x64dbg，无 headless 等价物）
 
@@ -333,11 +413,11 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 - 常用签名（**参数名不能猜**，写错会被 pydantic 拒绝）：
   `seep_auto_triage({ binary_path, task_name? })`
   `seep_packer_detect({ binary_path })`
-  `seep_r2_info({ binary_path })` / `seep_r2_functions({ binary_path, filter_name?, limit? })`
-  `seep_kb_search({ query, category?, limit? })` / `seep_kb_read({ article_path, max_chars? })` / `seep_status({})`
+  `seep_r2_info({ binary_path })` / `seep_r2_strings({ binary_path, filter_text?, all_sections? })`
+  `seep_kb_search({ query, category?, limit? })` / `seep_kb_read({ article_path, max_chars? })`
 - **不确定签名时只查一条**：`searchTools("seep_kb")`，不要 `describeNamespace` 整个 namespace（一次调用就够，别花两次）
 - 返回统一取 `structuredContent.result`（字符串），失败时取 `content[].text`
-- 知识库根**是常量**：`Tool/mcp/Tool/reverselab/kb`（`seep_status` 可确认）——不要 `find`/`grep` 去找它
+- 知识库根**是常量**：`Tool/mcp/Tool/reverselab/kb`（`python Tool/scripts/mcp-doctor.py --json` 可确认）——不要 `find`/`grep` 去找它
 
 ### 网络 / 侦察 / 抓包 / .NET —— 首选工具（全部 CLI，无需 GUI）
 
@@ -375,7 +455,7 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 2. **子 Skill 加载后其纪律同样生效**：apkseep 的 G1-G4 门、ida-reverse 的唤醒规约，与本文件同等强制；
 3. **MCP 优先于手动**：有 `seep_*` / `mcp__ida__*` 工具就用工具，不手搓命令；
 4. **知识库优先于从零手写**：先 `seep_kb_search` 查方法论与现成代码；
-5. **缺工具自动自愈，严禁向用户求助中断任务**：分析推进中若需要任何外部工具（DIE/x64dbg/CDB/Ghidra/TShark 等），优先调用 `seep_tool_discover` 探测；若返回 missing，直接调用 `seep_tool_install(execute=True)` 触发多途径自适应安装（有 winget 走 winget，无 winget 机器自动降级为绿色直下）；若均走不通，立刻按降级链自写 Python 脚本现场分析，**严禁中途向用户伸手要工具而卡死任务**。
+5. **缺工具先探测、再问人（不要自己装）**：需要外部工具（DIE/x64dbg/CDB/Ghidra/TShark 等）时，先 `seep_tool_discover(tool_id)` 探活；探不到就发 ASK 卡，让用户跑 `python Tool/scripts/tool-acquire.py --tool <id>`（安装/注册**一律由用户确认**，模型不得自行 winget/pip 安装）。
 
 ---
 
@@ -395,8 +475,8 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 ### 七道门（G0–G6）
 
-> **只在这一处定义**：`Tool/skill/client-license-validation-bypass/SKILL.md` §0「执行顺序门」。
-> 本文件不再复制表格（上一版两份逐字重复，已合并）。做授权/卡密类目标时按 R2 → `01-gate-bypass`，
+> **只在这一处定义**：`Tool/skill/_pending/client-license-validation-bypass/SKILL.md` §0「执行顺序门」。
+> 本文件不再复制表格（上一版两份逐字重复，已合并）。做授权/卡密类目标时按 R2 → `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路），
 > 由它在需要时加载该参考卷。
 
 ### 门 → 决策树映射
@@ -501,20 +581,20 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 ---
 
-## 附：领域包一览（与 routing.json 对应，2026-10-21 起）
+## 附：领域包一览（与 pack.json 对应，2026-10-21 起）
 
 | 域 | 路由 | 技能 | 一句话判据 |
 |---|---|---|---|
 | Web/API 漏洞验证 | R20 | `web-pentest` | 注入对照实验闭环；越权跨会话取真实数据 |
 | 二进制利用 / 密码学 | R21 | `pwn-crypto` | 本地 10 次 ≥9 命中；RSA 回代 |
 | 固件 / IoT / 硬件 | R22 | `firmware-iot` | 能进 shell；服务真监听；漏洞可复现 |
-| 内网 / AD / 云原生 | R23 | `ad-cloud` | 凭据可复现；提权有客观输出 |
+| 内网 / AD / 云原生 | R23 | `Tool/skill/_pending/ad-cloud/SKILL.md`（内网/AD） | 凭据可复现；提权有客观输出 |
 | 协议复刻 | R24 | `protocol-plugin` | 能构造抓包外的新请求 |
-| 插件 / 扩展 / Mod | R25 | `plugin-targets` | 入口+关键逻辑+数据来源+最小可改单元 |
+| 插件 / 扩展 / Mod | R25 | `Tool/skill/_pending/plugin-targets/SKILL.md`（插件/Mod） | 入口+关键逻辑+数据来源+最小可改单元 |
 | 取证 / iOS·macOS / 游戏 | R26 | `forensics-mobile` | 证据链四要素齐全 |
 | 恶意样本分析 | R27 | `malware-analysis` | 行为时间线 + 可验证检测规则 |
 | 供应链 / CI-CD | R28 | `supply-chain-security` | 可达漏洞有 PoC 或投毒链有证据 |
 | 逆向测绘 / 补丁本地化 | R29 | `reverse` | 结构/壳/权威/钥匙四处齐全，补丁可回滚 |
-| 站点 1:1 复刻 | R35 | `site-clone` | 像素/DOM/请求集三项达标，后端缺口列 `backend_required` |
+| 站点 1:1 复刻 | R35 | `Tool/skill/_pending/site-clone/SKILL.md`（站点复刻） | 像素/DOM/请求集三项达标，后端缺口列 `backend_required` |
 
 > 每个域都是"九件套"：SKILL + ≥4 references + ≥1 可跑脚本 + 矩阵配置 + ≥2 案例 + KB board + 路由 + 本表登记 + 门禁断言。

@@ -27,7 +27,7 @@
     "轮转顺序"
   ],
   "scripts": [
-    "Tool/skill/signin-automation/scripts/session-pool.py"
+    "Tool/skill/_pending/signin-automation/scripts/session-pool.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/account-gates.md"

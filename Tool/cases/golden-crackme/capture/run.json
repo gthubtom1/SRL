@@ -1,0 +1,41 @@
+{
+ "cmd": "printf 'trance' | Tool/samples/real/crackerjack/a.exe",
+ "exit": 0,
+ "stdout_head": "PASS",
+ "expect": "stdout 出现 PASS 即通过（原件 + 正确输入 trance）；本程序退出码恒 0，退出码不能作判据",
+ "target": "Tool/samples/real/crackerjack/a.exe",
+ "captured_at": "2026-10-24",
+ "tool": "python subprocess (shell=False, stdin 直喂)",
+ "runs": [
+  {
+   "input": "trance",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\samples\\real\\crackerjack\\a.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stderr_raw": "",
+   "stdout_hex": "504153530d0a"
+  },
+  {
+   "input": "wrong",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\samples\\real\\crackerjack\\a.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "FAIL\r\n",
+   "stderr_raw": "",
+   "stdout_hex": "4641494c0d0a"
+  }
+ ],
+ "negative_control": {
+  "cmd": "printf 'wrong' | Tool/samples/real/crackerjack/a.exe",
+  "exit": 0,
+  "stdout_head": "FAIL",
+  "expect": "stdout 出现 FAIL 即证明原件确实做了校验（对照，防止「本来就通过」）"
+ },
+ "verdict_of_runs": {
+  "orig_trance": "PASS",
+  "orig_wrong": "FAIL"
+ }
+}

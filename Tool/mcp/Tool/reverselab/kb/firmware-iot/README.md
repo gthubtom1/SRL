@@ -85,10 +85,10 @@ python Tool/scripts/fw-triage.py --file "$OUT/orig.bin" --json | tee "$OUT/triag
 | 场景 | 技能路径 |
 |---|---|
 | 主流程、五步闭环、验收与边界 | `Tool/skill/firmware-iot/SKILL.md` |
-| 静态反汇编、定位解析器/命令注入点 | `Tool/skill/ida-reverse/SKILL.md` |
+| 静态反汇编、定位解析器/命令注入点 | `Tool/skill/_pending/ida-reverse/SKILL.md` |
 | 固件里的 Web/CGI 漏洞验证 | `Tool/skill/web-pentest/SKILL.md` |
-| 固件中泄露的云凭据/K8s token | `Tool/skill/ad-cloud/SKILL.md` |
-| 二进制补丁/版本差异 | `Tool/skill/binary-diff/SKILL.md` |
+| 固件中泄露的云凭据/K8s token | `Tool/skill/_pending/ad-cloud/SKILL.md` |
+| 二进制补丁/版本差异 | `Tool/skill/_pending/binary-diff/SKILL.md` |
 | APK/Android 侧 | `Tool/skill/apkseep/SKILL.md` |
 
 ## 边界

@@ -28,12 +28,12 @@
     "委派关系图"
   ],
   "scripts": [
-    "Tool/skill/ad-cloud/scripts/ad-repro.py",
-    "Tool/skill/ad-cloud/scripts/ad-accept.py"
+    "Tool/skill/_pending/ad-cloud/scripts/ad-repro.py",
+    "Tool/skill/_pending/ad-cloud/scripts/ad-accept.py"
   ],
   "refs": [
-    "Tool/skill/ad-cloud/references/ad-attacks.md",
-    "Tool/skill/ad-cloud/references/04-walkthrough-windows-auth-events.md"
+    "Tool/skill/_pending/ad-cloud/references/ad-attacks.md",
+    "Tool/skill/_pending/ad-cloud/references/04-walkthrough-windows-auth-events.md"
   ],
   "maturity": "usable",
   "reserved": true,

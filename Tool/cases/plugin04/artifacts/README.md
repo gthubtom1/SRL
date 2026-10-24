@@ -11,8 +11,8 @@
 复跑（在仓库根）：
 
 ```bash
-python Tool/skill/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json
-python Tool/skill/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out /tmp/plugin04-repro --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json
+python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out /tmp/plugin04-repro --json
 ```
 
 未运行 Electron；IPC 参数与远端响应未验证。

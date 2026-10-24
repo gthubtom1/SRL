@@ -187,26 +187,19 @@ if ($authStatusResolved -eq 'granted' -and $assets.Count -gt 0 -and ($netAllowsA
     }
 }
 
-# Optional master-route for primary skill
-$primary = 'reverse-engineering/SKILL.md'
+# Optional: 判型落到哪个包（S3：master-route.ps1 已删，唯一实现是 route.py --resolve）
+$primary = 'softseep/SKILL.md'
 $primaryId = 'R0'
-$routeScript = Join-Path $scriptDir 'master-route.ps1'
+$routeScript = Join-Path $scriptDir 'route.py'
 if ((Test-Path $routeScript) -and $Hint) {
-    $tmpBase = if ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }
-    $tmp = Join-Path $tmpBase ("case-init-route-" + [guid]::NewGuid().ToString('n'))
+    $json = & $HostExe (Join-Path $scriptDir 'route.py') --resolve $Hint --json 2>$null
     try {
-        & $HostExe -NoProfile -ExecutionPolicy Bypass -File $routeScript -Hint $Hint -OutDir $tmp 2>$null | Out-Null
-        $scopeRoute = Join-Path $tmp 'route-scope.md'
-        if (Test-Path $scopeRoute) {
-            . (Join-Path $scriptDir 'lib/RouteScope.ps1')
-            $rt = Get-Content $scopeRoute -Raw -Encoding UTF8
-            $parsed = Get-ReverseRouteScopeFields -Text $rt
-            if ($parsed.Skill) { $primary = $parsed.Skill }
-            if ($parsed.Id) { $primaryId = $parsed.Id }
+        $hits = ($json | Out-String | ConvertFrom-Json).hits
+        if ($hits -and $hits.Count -gt 0) {
+            $primary = "$($hits[0].pack)/SKILL.md"
+            $primaryId = "P$($hits[0].priority)"
         }
-    } finally {
-        Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
-    }
+    } catch { }
 }
 
 $created = Get-Date -Format 'o'
@@ -292,7 +285,7 @@ $assetsBlock
 - MANUAL/POC-VALIDATION.md          (授权范围与 PoC 闭环验证 SOP)
 - MANUAL/DEPLOYMENT-CHECKLIST.md    (资产与合规基准)
 - Tool/skill/softseep/SKILL.md      (G-Auth 授权门 + 判型调度)
-- Tool/scripts/master-route.ps1     (任务路由)
+- Tool/scripts/route.py             (任务路由：--resolve/--check)
 "@
 
 $timeline = @"

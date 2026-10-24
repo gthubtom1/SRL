@@ -68,7 +68,7 @@ related_articles: ["site-clone/03-har-mock-route", "site-clone/06-failure-criter
 ## 可复制命令
 
 ```bash
-python Tool/skill/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01
+python Tool/skill/_pending/site-clone/scripts/site-accept.py --case Tool/cases/site-clone01
 python -c "import json;d=json.load(open('work/rebuild/rebuild.json'));print(d['data_boundary']);print(d['backend_required'])"
 ```
 

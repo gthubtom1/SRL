@@ -30,25 +30,75 @@
     python Tool/scripts/case_state.py plan    --case <目录> --list
     python Tool/scripts/case_state.py choose  --case <目录> --level L2 --route "字节补丁"
     python Tool/scripts/case_state.py advise  --case <目录> --form pe-shelled
-    python Tool/scripts/case_state.py verdict --case <目录> --value 部分可赢 --note "缺有效卡密(G1)，钥匙在服务端"
+    python Tool/scripts/case_state.py verdict --case <目录> --value 部分可赢 --tier M2 \
+                                              --note "缺有效卡密(G1)，钥匙在服务端"
     python Tool/scripts/case_state.py gate    --case <目录>
+    python Tool/scripts/case_state.py gate    --case <目录> --stage 0a   # 阶段产物闸（按内容判）
+    python Tool/scripts/case_state.py stage   --case <目录> --set 0b      # 进阶前先过 [当前阶段) 的产物闸
+    python Tool/scripts/case_state.py stage   --case <目录> --set 2 --force --reason "历史产物已不在盘上"
+    python Tool/scripts/case_state.py stage   --case <目录> --show
     python Tool/scripts/case_state.py show    --case <目录>
     python Tool/scripts/case_state.py resume  --case <目录>
 
-阶段零出口物（B 批新增）：
-    facts.jsonl + state.json + gaps.json + plan.json（含 chosen / goal_level）。
+租约锁（P1-2：治「双会话同写静默丢条」+ 半截写盘）：
+    python Tool/scripts/case_state.py lock   --case <目录> [--ttl 3600] [--force]
+    python Tool/scripts/case_state.py unlock --case <目录> [--force]
+    python Tool/scripts/case_state.py who    --case <目录>
+    写盘命令（claim/prove/refute/stale/depth/verdict/instrument/choose/
+    deliver/ask/ack/gaps/plan）都会先查租约：无锁只警告 [WARN] NO_LEASE 仍执行，
+    别人持锁则 rc=2 拒绝写；只读命令（gate/show/resume/events/advise）不查。
+
+阶段零出口物（B 批新增；S2 起 state 不再单独落盘）：
+    facts.jsonl（唯一账本：claim / kind:"state" 重放行 / kind:"event"）+ gaps.json + plan.json。
+    state = 账本里最后一条 state 行重放（`replay` 查看 / --migrate 迁移 / --compact 瘦身）。
     gate 除原有断言外，还要求：stale 全部复验、plan ≥2 条候选、verdict 后必须 choose、
     不可补缺件要写进 verdict note 且菜单里不得有依赖它的路线。
+
+状态副本收口（S2-1）：
+    `replay`  状态重放（state 不存快照）      `index`  案例索引现算（不落 index.json）
+    `verify`  证据强度聚合（unknown 永不计 pass）
+
+阶段机 + 产物闸（P2-1）：
+    state.stage ∈ intake|0a|0b|1|2|3|4|done，每次变更追进 stage_history。
+    gate --stage <s> 只认磁盘产物的**内容**，不认自述：
+      0a report/triage.md    ≥300B + 六字段名（载体/保护/授权权威/改动面/检测器/交付壁垒）
+      0b report/static.md    ≥600B + `## ` 小节 ≥3 + 含 facts 或 证据
+      1  capture/login.json（凭据类）  能 json.load + 非空 device_id
+         capture/run.json（运行类）   能 json.load + 非空 cmd/stdout_head/expect + 整数 exit
+         两者二选一即可；都在时用凭据类，并在输出里注明 run.json 已忽略
+      2  report/dynamic.md   ≥600B + RVA / VA / 基址 三个词（地址台账三列）
+      3  artifacts/MANIFEST.sha256  每条 `sha256  path` 文件存在且哈希一致
+      4  report/final.md     ≥300B + 含 验收/功能 + state.verdict 非空
+    另：stage 不一致、awaiting_human 未 ack 都直接红。不带 --stage 时 gate 行为不变。
+
+进阶闸（P2-4 缝1：`stage --set` 以前不校验产物 → 可静默跳阶）：
+    从 S 前进到 T 之前，[S, T) 每个阶段的产物闸（与 `gate --stage` 同一套判据）都要先过；
+    不过 → rc=2 + 打印缺什么 + 给 --force 提示。三条豁免（都写理由，不许变成新的缝）：
+      ① intake → 0a：还没产物可查；
+      ② 回退（T 不晚于 S）：回退不是进阶，不产生新的「未挣到的阶段」；
+      ③ 复位/复核（T 在 stage_history 里到达过）：当时已过闸，重走只算复核。
+    --force 允许跳过，但必须配 --reason "..."（缺 reason → rc=2）；
+    state.stage_history 里记 forced:true + reason + skipped（跳掉的阶段）。
+
+两套词表（P2-4 缝2：`--tier` 以前只收 T1/T2/T3，但阶段用的是 M1–M4）：
+    T 词表 = 后端档位 T1–T4（05-backend-rebuild 三问定档）；M 词表 = 交付上限 M1–M4。
+    `verdict --tier` 两套都收，**哪个词表就原样存哪个槽位**（T→state.tier，M→state.max_level），
+    绝不改写用户输入；换算只用于展示：M1↔T1 / M2↔T2 / M3|M4↔T3（`show` 里同时打印两栏）。
 
 退出码：gate 0=通过 / 1=未通过；其它命令 0=成功 / 2=参数或状态错误
 """
 from __future__ import annotations
 
 import argparse
+import datetime
+import hashlib
 import json
 import os
 import re
+import shutil
+import socket
 import sys
+import tempfile
 import time
 
 LEVELS = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"]
@@ -82,18 +132,237 @@ INSTRUMENT_NAME = {
 }
 ISTATUS = ["ok", "partial", "blocked", "killed"]
 MAX_LEVEL_BY_VERDICT = {"可赢": "M3", "部分可赢": "M2", "不可赢": "M1"}
-# 后端档位（05-backend-rebuild 三问定档）：不可赢恒 M1；否则 T1→基准、T2→M3、T3→M4
-TIERS = ["T1", "T2", "T3"]
+# 后端档位（05-backend-rebuild 三问定档）：不可赢恒 M1；否则 T1→基准、T2→M3、T3/T4→M4
+# 缝2（P2-4）：这里原本只认 T1/T2/T3，和阶段/交付用的 M1–M4 是两套词表，用户传 M2 会被挡。
+# 现在两套都收，各存各的槽位（T→tier，M→max_level），换算只用于展示：
+#   M1↔T1 / M2↔T2 / M3|M4↔T3（T4 在 M 词表里没有更上级，展示成「无对应」）。
+TIERS_T = ["T1", "T2", "T3", "T4"]   # 后端档位词表
+TIERS_M = ["M1", "M2", "M3", "M4"]   # 交付上限词表（deliver 封顶用）
+TIERS = TIERS_T + TIERS_M
+M_TO_T = {"M1": "T1", "M2": "T2", "M3": "T3", "M4": "T3"}
+T_TO_M = {"T1": "M1", "T2": "M2", "T3": "M3|M4", "T4": "（无对应）"}
+# T 档位 → 交付上限（既有规则不变：T1 走裁定基准，T2→M3，T3/T4→M4）
+TIER_LEVEL = {"T1": None, "T2": "M3", "T3": "M4", "T4": "M4"}
 STATUSES = ["hypothesis", "proven", "refuted"]
+
+# ---------------------------------------------------------------- 阶段机（P2-1）
+# 血案：产物闸以前只认「文件存不存在」→ 空文件 / 400 字节垃圾都能过关，
+# 「2 分钟造假过关」是真实发生过的通关路径。现在每一阶段都按**文件内容**判。
+STAGES = ["intake", "0a", "0b", "1", "2", "3", "4", "done"]
+STAGE_NEXT = {"intake": "0a", "0a": "0b", "0b": "1", "1": "2",
+              "2": "3", "3": "4", "4": "done", "done": "done"}
+STAGE_NAME = {
+    "intake": "建案（init）",
+    "0a": "快筛画像卡（00-triage）",
+    "0b": "静态分析（00-analysis）",
+    "1": "登录/鉴权抓取",
+    "2": "动态分析 + 地址台账",
+    "3": "产物清单与哈希（MANIFEST）",
+    "4": "最终报告与验收",
+    "done": "结案",
+}
+# 这些阶段是「已经动手」的阶段：先要用户的回执，不许替人做主往下走
+STAGE_ACK_REQUIRED = {"1", "2", "3", "4"}
+TRIAGE_FIELDS = ["载体", "保护", "授权权威", "改动面", "检测器", "交付壁垒"]
+FINAL_WORDS = ["验收", "功能"]
+DYNAMIC_WORDS = ["RVA", "VA", "基址"]
 
 
 def paths(case):
     d = os.path.abspath(case)
-    return d, os.path.join(d, "facts.jsonl"), os.path.join(d, "state.json")
+    return d, os.path.join(d, "facts.jsonl")
 
 
 def now():
     return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+# ---------------------------------------------------------------- 原子写
+# 血案：整文件 json.dump 直写 + 跨会话无锁 = 写入被打断就留半截 JSON，整份账本从此读不出来。
+# 现在统一走 tempfile(同目录) → flush+fsync → os.replace，失败清理 tmp。
+
+def _tmp_sibling(path):
+    """在目标同目录开临时文件：只有同目录 rename 才是原子的（跨盘 os.replace 不是）。"""
+    d = os.path.dirname(os.path.abspath(path)) or "."
+    if not os.path.isdir(d):
+        os.makedirs(d, exist_ok=True)
+    return tempfile.mkstemp(dir=d, prefix=".tmp-" + os.path.basename(path) + "-", suffix=".part")
+
+
+def _drop_tmp(tmp):
+    if tmp and os.path.exists(tmp):
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+def _atomic_write_text(path, text):
+    """原子写文本：tempfile → write → flush+fsync → os.replace。失败清理 tmp。"""
+    fd, tmp = _tmp_sibling(path)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(text.encode("utf-8"))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+        tmp = None
+    finally:
+        _drop_tmp(tmp)
+
+
+def _atomic_write_json(path, obj):
+    _atomic_write_text(path, json.dumps(obj, ensure_ascii=False, indent=2))
+
+
+def _atomic_append_line(path, line):
+    """原子追加一行：先把旧内容抄进 tmp，再追加新行 → fsync → os.replace。
+
+    为什么不用 open("a")：追加写到一半断电/被杀就是半行 JSON，load_facts 从此必报错。
+    """
+    fd, tmp = _tmp_sibling(path)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            if os.path.isfile(path):
+                with open(path, "rb") as src:
+                    shutil.copyfileobj(src, out, 1 << 20)
+            out.write((line if line.endswith("\n") else line + "\n").encode("utf-8"))
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(tmp, path)
+        tmp = None
+    finally:
+        _drop_tmp(tmp)
+
+
+# ---------------------------------------------------------------- 租约锁（P1-2）
+# 为什么需要：两个会话同时开同一个 case 时，旧实现是「各自 load → 各自整文件覆盖」，
+# 后写的直接把先写的条目吃掉，且两边都不报错（静默丢条）。租约把「写权」显式化。
+
+LEASE_NAME = ".lease.json"
+LEASE_TTL_DEFAULT = 3600
+_LEASE_NOTED = False    # 同一进程里 [WARN] NO_LEASE 只打一行
+
+
+def _lease_path(case):
+    return os.path.join(os.path.abspath(case), LEASE_NAME)
+
+
+def _session_id():
+    """会话标识：SEEP_SESSION_ID 优先（跨进程可重入的判据），缺省用当前 pid。"""
+    s = (os.environ.get("SEEP_SESSION_ID") or "").strip()
+    return s or str(os.getpid())
+
+
+def _href():
+    try:
+        host = socket.gethostname()
+    except Exception:
+        host = "?"
+    return "%s:%s" % (host, os.getcwd())
+
+
+def _ts_epoch(v):
+    """lease 时间字段 → epoch 秒。支持 epoch 数字 / ISO / "YYYY-mm-dd HH:MM:SS"。"""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = str(v or "").strip()
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    try:
+        return datetime.datetime.fromisoformat(s[:-1] + "+00:00" if s.endswith("Z") else s).timestamp()
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M"):
+        try:
+            return time.mktime(time.strptime(s, fmt))
+        except Exception:
+            continue
+    return None
+
+
+def _read_lease(case):
+    """读租约。文件不存在/坏 JSON 一律当无锁（宁可放行 + 警告，也不要卡死老案子）。"""
+    p = _lease_path(case)
+    if not os.path.isfile(p):
+        return None
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def _write_lease(case, lease):
+    _atomic_write_json(_lease_path(case), lease)
+
+
+def _lease_status(lease):
+    """→ (expired, age_sec, ttl_sec)。过期判据：now - heartbeat_at > ttl_sec。
+
+    heartbeat_at 解析不出来时按「已过期」处理：锁坏了不该把案子的写权永久锁死。
+    """
+    try:
+        ttl = float(lease.get("ttl_sec"))
+    except (TypeError, ValueError):
+        ttl = float(LEASE_TTL_DEFAULT)
+    hb = _ts_epoch(lease.get("heartbeat_at"))
+    if hb is None:
+        return True, None, ttl
+    age = time.time() - hb
+    return (age > ttl), age, ttl
+
+
+def _lease_expired(lease):
+    return _lease_status(lease)[0]
+
+
+def _print_holder(lease, tag="当前持有者"):
+    expired, age, ttl = _lease_status(lease)
+    print("[LEASE] %s：session=%s  pid=%s  ttl=%ds" % (
+        tag, lease.get("session") or "?", lease.get("pid") or "?", int(ttl)))
+    print("        acquired_at=%s  heartbeat_at=%s  age=%s" % (
+        lease.get("acquired_at") or "-", lease.get("heartbeat_at") or "-",
+        "?" if age is None else "%ds" % int(age)))
+    if lease.get("href"):
+        print("        href=%s" % lease["href"])
+    if expired:
+        print("        状态：已过期（now - heartbeat_at > ttl_sec）—— 任何会话都可接管")
+
+
+def lease_guard(case, readonly=False):
+    """写盘前的租约闸。
+
+    - 无锁 / 已过期：打一行 [WARN] NO_LEASE，**仍然执行**（向后兼容既有用法）；
+    - 别的会话持有效锁：rc=2 拒绝写，并给出 --force / 换 case / 只读 三条建议；
+    - 自己持锁：静默放行。
+    """
+    global _LEASE_NOTED
+    if readonly:
+        return
+    lease = _read_lease(case)
+    me = _session_id()
+    if lease is None or _lease_expired(lease):
+        if not _LEASE_NOTED:
+            _LEASE_NOTED = True
+            print("[WARN] NO_LEASE —— %s 没有有效租约；本次写入继续（建议先 lock 再去掉这行警告）"
+                  % os.path.abspath(case))
+        return
+    if str(lease.get("session") or "") == me:
+        return
+    print("[ERR] 写被拒绝：该 case 已被另一个会话锁定（双会话同写会静默丢条）")
+    _print_holder(lease)
+    print("[ERR] 建议：python Tool/scripts/case_state.py lock --case %s --force   # 接管写权"
+          % case)
+    print("      或换一个 --case；只想看内容用 show / resume / gate / who（只读，不写盘）")
+    sys.exit(2)
 
 
 URL_RE = re.compile(r"^https?://", re.IGNORECASE)
@@ -113,81 +382,96 @@ def store_target(target):
     return os.path.abspath(t)
 
 
-def _manifest(case):
-    return os.path.join(os.path.abspath(case), "ai_manifest.json")
+LEDGER_STATE_KIND = "state"
+LEDGER_EVENT_KIND = "event"
+LEDGER_GAPS_KIND = "gaps"
+LEDGER_PLAN_KIND = "plan"
 
-
-def load_state(case):
-    """案子状态。上游约定：`<case>/ai_manifest.json` 是唯一恢复点。
-
-    因此：有 manifest 就把它里面的 `seep` 子键当状态（不另开第二份状态）；
-    没有 manifest（非上游 CTF 案子）才退回 `<case>/state.json`。
-    两套案子共用同一恢复协议，避免"同一目录两套状态互不知道"。
-    """
-    d, _, sp = paths(case)
-    if not os.path.isdir(d):
-        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
-    mf = _manifest(case)
-    if os.path.isfile(mf):
-        try:
-            with open(mf, encoding="utf-8") as f:
-                man = json.load(f)
-            if isinstance(man.get("seep"), dict):
-                return man["seep"]
-        except Exception:
-            pass
-    if os.path.isfile(sp):
-        with open(sp, encoding="utf-8") as f:
-            return json.load(f)
+def _state_default():
     return {"schema": "seep-case/1", "target": "", "depth": {}, "verdict": None,
-            "max_level": None, "next_action": "", "updated": now()}
+            "max_level": None, "stage": "intake", "stage_history": [],
+            "next_action": "", "updated": now()}
 
+def load_ledger(case):
+    """唯一账本 facts.jsonl 的全部行（claim / kind:"state" / kind:"event" 混存，append-only）。
 
-def save_state(case, st):
-    """写回。有 ai_manifest.json 就写进它的 `seep` 子键；否则写 state.json。"""
-    st["updated"] = now()
-    mf = _manifest(case)
-    if os.path.isfile(mf):
-        try:
-            with open(mf, encoding="utf-8") as f:
-                man = json.load(f)
-        except Exception:
-            man = {}
-        man["seep"] = st
-        man.setdefault("schema", "reverselab.ai_manifest.v1")
-        with open(mf, "w", encoding="utf-8") as f:
-            json.dump(man, f, ensure_ascii=False, indent=2)
-        return "ai_manifest.json#seep"
-    _, _, sp = paths(case)
-    with open(sp, "w", encoding="utf-8") as f:
-        json.dump(st, f, ensure_ascii=False, indent=2)
-    return "state.json"
-
-
-
-def load_facts(case):
-    _, fp, _ = paths(case)
+    S2 起不再有第二份状态文件：state 由 state 行重放，事件账（工具流水）以 event 行
+    追加进同一账本。S2 之前的两类历史副本已迁完，`replay --drop-legacy` 只负责清残留。
+    """
+    _, fp = paths(case)
     if not os.path.isfile(fp):
         return []
     out = []
     with open(fp, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if line:
-                try:
-                    out.append(json.loads(line))
-                except json.JSONDecodeError as e:
-                    die("facts.jsonl 第 %d 行不是合法 JSON：%s（先修或备份后重写）" % (len(out) + 1, e))
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                die("facts.jsonl 第 %d 行不是合法 JSON：%s（先修或备份后重写）" % (len(out) + 1, e))
     return out
 
+def _entry_kind(entry):
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get("kind") or "").strip().lower()
+
+def _is_claim(entry):
+    """claim 行判据：有 id + status，且 kind 缺省或 claim。state/event 行不算 claim。"""
+    if not isinstance(entry, dict):
+        return False
+    if not str(entry.get("id") or "").strip() or not str(entry.get("status") or "").strip():
+        return False
+    return _entry_kind(entry) in ("", "claim")
+
+def load_facts(case):
+    """只返回 claim 行（gate / verify 的判据面），state / event 行不外泄给旧消费者。"""
+    return [e for e in load_ledger(case) if _is_claim(e)]
+
+def _legacy_files(case):
+    """S2 之前的两类历史副本（迁移已全部完成）。这里只报残留，供 `replay --drop-legacy` 清理。"""
+    d, _ = paths(case)
+    return [p for p in (os.path.join(d, "state.json"),
+                        os.path.join(d, "ai_manifest.json")) if os.path.isfile(p)]
+
+def load_state(case):
+    """案子状态 = facts.jsonl 里最后一条 kind:"state" 行重放（不存快照）。"""
+    d, _ = paths(case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
+    last = None
+    for e in load_ledger(case):
+        if _entry_kind(e) == LEDGER_STATE_KIND and isinstance(e.get("state"), dict):
+            last = e["state"]
+    st = _state_default()
+    if isinstance(last, dict):
+        st.update(last)
+    return st
+
+
+def save_state(case, st):
+    """写回 = 往账本追加一条 state 行（append-only，最后一条生效）。
+
+    为什么重放而不是覆盖快照：两个会话同时写同一份快照会静默丢条；
+    append-only 最坏情况是"多一行"，不是"少一条"。
+    """
+    d, fp = paths(case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    st = dict(st)
+    st["updated"] = now()
+    _atomic_append_line(fp, json.dumps({"kind": LEDGER_STATE_KIND, "ts": st["updated"],
+                                        "state": st}, ensure_ascii=False))
+    return "facts.jsonl#state"
 
 def append_fact(case, fact):
-    d, fp, _ = paths(case)
+    d, fp = paths(case)
     if not os.path.isdir(d):
         die_json("case-not-found",
                  "案例目录不存在：%s（先跑 case_state.py init --case <目录>）" % d)
-    with open(fp, "a", encoding="utf-8") as f:
-        f.write(json.dumps(fact, ensure_ascii=False) + "\n")
+    _atomic_append_line(fp, json.dumps(fact, ensure_ascii=False))
 
 
 def die(msg, code=2):
@@ -240,24 +524,44 @@ def _load_list(case, name):
 
 
 def _save_list(case, name, data):
-    with open(_json_path(case, name), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    _atomic_write_json(_json_path(case, name), data)
+
+
+def _load_ledger_list(case, kind):
+    """账本里的列表型状态（gaps / plan）：最后一条 kind 行整体生效。
+
+    S4：gaps.json / plan.json 不再是独立文件 —— 状态文件只剩 4 类
+    （case.json / facts.jsonl / artifacts/MANIFEST.sha256 / packs.baseline.json）。
+    """
+    out = []
+    for e in load_ledger(case):
+        if _entry_kind(e) == kind and isinstance(e.get("items"), list):
+            out = e["items"]
+    return out
+
+
+def _append_ledger_list(case, kind, items):
+    d, fp = paths(case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    _atomic_append_line(fp, json.dumps({"kind": kind, "ts": now(), "items": items},
+                                       ensure_ascii=False))
 
 
 def load_gaps(case):
-    return _load_list(case, "gaps.json")
+    return _load_ledger_list(case, LEDGER_GAPS_KIND)
 
 
 def save_gaps(case, gaps):
-    _save_list(case, "gaps.json", gaps)
+    _append_ledger_list(case, LEDGER_GAPS_KIND, gaps)
 
 
 def load_plan(case):
-    return _load_list(case, "plan.json")
+    return _load_ledger_list(case, LEDGER_PLAN_KIND)
 
 
 def save_plan(case, plan):
-    _save_list(case, "plan.json", plan)
+    _append_ledger_list(case, LEDGER_PLAN_KIND, plan)
 
 
 def _blocking_gaps(gaps):
@@ -344,31 +648,181 @@ def print_gaps(gaps, title="缺件台账"):
 
 # ---------------------------------------------------------------- commands
 def cmd_init(a):
-    d, fp, sp = paths(a.case)
+    d, fp = paths(a.case)
     os.makedirs(d, exist_ok=True)
-    mf = _manifest(a.case)
-    # ★ 上游唯一恢复点：ai_manifest.json 里可能已有 seep 子键（甚至整份 CTF 进度）。
-    #   没有 --force 就绝不覆盖 —— 否则 init 会静默清空已登记的深度/裁定（实测过的数据丢失）。
-    if os.path.isfile(mf) and not a.force:
-        try:
-            with open(mf, encoding="utf-8") as f:
-                man = json.load(f)
-        except Exception:
-            man = {}
-        if isinstance(man.get("seep"), dict):
-            die("ai_manifest.json 里已有 seep 状态；要重建加 --force（当前不会覆盖）")
-    if os.path.isfile(sp) and not a.force:
-        die("已有 state.json：%s（要重建加 --force）" % sp)
+    left = _legacy_files(a.case)
+    if left and not a.force:
+        die("发现历史状态副本 %s：先 `replay --drop-legacy` 清理，或加 --force 重建"
+            % ", ".join(os.path.basename(x) for x in left))
+    has_state_row = any(_entry_kind(e) == LEDGER_STATE_KIND for e in load_ledger(a.case))
+    if has_state_row and not a.force:
+        die("facts.jsonl 里已有 state 重放行；要重建加 --force（当前不会覆盖）")
     st = {"schema": "seep-case/1", "target": store_target(a.target),
           "depth": {}, "verdict": None, "max_level": None,
+          "stage": "intake", "stage_history": [],
           "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
     backend = save_state(a.case, st)
     open(fp, "a", encoding="utf-8").close()
+    # ★ 案例索引同源：preflight / domain-gate 跑 `case_state.py index --check`。
+    #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
+    #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
+    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"))
     print("[OK] 案子已建：%s  facts: %s  state: %s" % (d, fp, backend))
+    if wrote_meta:
+        print("[OK] case.json 骨架已写：evidence_kind=%s goal_level/domain/lessons 请按实际补"
+              % getattr(a, "evidence_kind", "real"))
 
+
+def _ensure_case_meta(d, st, evidence_kind="real"):
+    """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。"""
+    cj = os.path.join(d, "case.json")
+    if os.path.isfile(cj):
+        return False
+    kind = evidence_kind if evidence_kind in ("fixture", "real", "self-built", "historical") else "real"
+    meta = {
+        "id": os.path.basename(d.rstrip("/\\")),
+        "domain": "reverse",
+        "target_type": st.get("target") or "",
+        "evidence_kind": kind,
+        "protection": [],
+        "authority": "",
+        "goal_level": "",
+        "outcome": "partial",
+        "artifacts": [],
+        "repro": {"status": "in-progress", "evidence": "facts.jsonl 尚空"},
+        "evidence_dir": ".",
+        "lessons": [],
+        "tags": [],
+        "refs": [],
+        "updated": now()[:10],
+    }
+    try:
+        with open(cj, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=1)
+    except OSError:
+        return False
+    return True
+
+
+
+def cmd_lock(a):
+    """拿写权租约。同一会话重复 lock = 续约；别人的锁未过期就拒绝（rc=1）。"""
+    d, _, _ = paths(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, a.case))
+    me = _session_id()
+    ttl = a.ttl if (a.ttl and a.ttl > 0) else LEASE_TTL_DEFAULT
+    ts = now()
+    old = _read_lease(a.case)
+    expired, age, old_ttl = _lease_status(old) if old else (True, None, float(ttl))
+    same = bool(old) and str(old.get("session") or "") == me
+
+    if old is not None and expired:
+        action = "TAKEOVER"      # 过期锁视为无锁，任何人都能接管
+    elif old is None:
+        action = "ACQUIRED"
+    elif same:
+        action = "RENEWED"       # 可重入：自己的锁重复 lock = 续约
+    elif a.force:
+        action = "TAKEOVER"
+    else:
+        action = None
+
+    if action is None:
+        # 别人的有效锁 + 无 --force → 拒绝，rc=1（不是 2：2 留给「写盘被挡」）
+        print("[LOCK] 拒绝：该 case 已被另一个会话锁定（rc=1）")
+        _print_holder(old)
+        print("[LOCK] 三条出路：")
+        print("       1) 接管写权：python Tool/scripts/case_state.py lock --case %s --force" % a.case)
+        print("       2) 换 case ：另开一个目录/会话，别和一个目录抢着写")
+        print("       3) 只读查看：python Tool/scripts/case_state.py who|show|resume|gate --case %s" % a.case)
+        return 1
+
+    lease = {"pid": os.getpid(), "session": me, "href": _href(),
+             "acquired_at": (old.get("acquired_at") if (same and not expired and old) else ts) or ts,
+             "heartbeat_at": ts, "ttl_sec": int(ttl)}
+    _write_lease(a.case, lease)
+    detail = {"ACQUIRED": "新锁", "RENEWED": "同一会话续约",
+              "TAKEOVER": ("过期%.0fs > ttl%d" % (age or 0, int(old_ttl or ttl)) if (old and expired)
+                           else "--force 强制接管")}[action]
+    print("%s  session=%s  case=%s  ttl=%ds（%s）" % (action, me, d, int(ttl), detail))
+    if action == "TAKEOVER" and old:
+        _print_holder(old, "被接管的前持有者")
+    return 0
+
+
+def cmd_unlock(a):
+    """释放租约。不是自己持有且无 --force 就拒绕（rc=1）。"""
+    d, _, _ = paths(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    me = _session_id()
+    old = _read_lease(a.case)
+    if old is None:
+        print("NO_LEASE —— %s 本来就没有锁（无需释放）" % d)
+        return 0
+    expired = _lease_expired(old)
+    same = str(old.get("session") or "") == me
+    if not same and not expired and not a.force:
+        print("[UNLOCK] 拒绝：锁不是本会话持有的（rc=1）")
+        _print_holder(old)
+        print("[UNLOCK] 建议：python Tool/scripts/case_state.py unlock --case %s --force" % a.case)
+        return 1
+    try:
+        os.remove(_lease_path(a.case))
+    except OSError as e:
+        die("删不掉 %s：%s" % (_lease_path(a.case), e))
+    note = "（过期锁强制清理）" if (expired and not same) else ""
+    print("RELEASED  session=%s  case=%s%s" % (old.get("session") or "?", d, note))
+    return 0
+
+
+def cmd_who(a):
+    """打印当前持锁者。无锁/过期一律 NO_LEASE 且 rc=0（方便脚本判）。"""
+    d, _, _ = paths(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    lease = _read_lease(a.case)
+    if lease is None:
+        print("NO_LEASE")
+        print("  说明：%s 没有租约文件（%s 不存在或不是合法 JSON）" % (d, LEASE_NAME))
+        return 0
+    expired, age, ttl = _lease_status(lease)
+    if expired:
+        print("NO_LEASE")
+        print("  说明：存在过期 lease -> session=%s  heartbeat_at=%s  age=%s > ttl=%ds（可被任意会话接管）"
+              % (lease.get("session") or "?", lease.get("heartbeat_at") or "-",
+                 "?" if age is None else "%ds" % int(age), int(ttl)))
+        return 0
+    me = _session_id()
+    print("LEASE  session=%s  pid=%s  ttl=%ds" % (
+        lease.get("session") or "?", lease.get("pid") or "?", int(ttl)))
+    if lease.get("href"):
+        print("  href=%s" % lease["href"])
+    print("  acquired_at=%s  heartbeat_at=%s  age=%s  剩余=%ds" % (
+        lease.get("acquired_at") or "-", lease.get("heartbeat_at") or "-",
+        "?" if age is None else "%ds" % int(age), int(ttl - (age or 0))))
+    print("  当前会话=%s（%s）" % (me, "就是持有者" if str(lease.get("session") or "") == me
+                                 else "不是持有者：写盘会被拒 rc=2"))
+    return 0
+
+
+CONFIDENCE_STATES = ("observed", "derived", "inferred", "unknown")
+AUTHORITY_STATES = ("shipped-artifact", "controlled-replay", "external-service",
+                    "reported", "none")
+
+
+def _norm_confidence(v, default="unknown"):
+    """证据强度四态（S2-4）：observed > derived > inferred > unknown。
+
+    unknown 永不计 pass：没有明确声明的 claim 一律落 unknown，不会被聚合器当成已证。
+    """
+    s = str(v or "").strip().lower()
+    return s if s in CONFIDENCE_STATES else default
 
 
 def cmd_claim(a):
+    lease_guard(a.case)
     facts = load_facts(a.case)
     if any(f["id"] == a.id for f in facts):
         die(f"claim {a.id} 已存在（要改用它自己的 prove/refute 子命令）")
@@ -385,19 +839,20 @@ def cmd_claim(a):
     fact = {"id": a.id, "claim": a.text, "status": a.status,
             "evidence": [ev] if ev else [],
             "how": a.how or "", "ttl": (a.ttl or "").strip(), "created": now(),
+            "confidence": _norm_confidence(getattr(a, "confidence", "")),
+            "authority": (str(getattr(a, "authority", "") or "").strip().lower() or "none"),
             "refuted_by": (by or None)}
     append_fact(a.case, fact)
     print(f"[OK] {a.id} = {a.status}  {a.text}")
 
 
 def _rewrite_facts(case, facts):
-    _, fp, _ = paths(case)
-    with open(fp, "w", encoding="utf-8") as f:
-        for x in facts:
-            f.write(json.dumps(x, ensure_ascii=False) + "\n")
+    _, fp = paths(case)
+    _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in facts))
 
 
 def cmd_prove(a):
+    lease_guard(a.case)
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("prove 必须带非空 --evidence（空串/空格不算证据）")
@@ -405,6 +860,15 @@ def cmd_prove(a):
     hit = next((f for f in facts if f["id"] == a.id), None)
     if not hit:
         die(f"没有 claim {a.id}")
+    # S2-4：置信度/权威必须显式声明；不声明就维持 unknown（unknown 永不计 pass）
+    if getattr(a, "confidence", ""):
+        hit["confidence"] = _norm_confidence(a.confidence)
+    else:
+        hit.setdefault("confidence", "unknown")
+    if getattr(a, "authority", ""):
+        hit["authority"] = str(a.authority).strip().lower()
+    else:
+        hit.setdefault("authority", "none")
     was_stale = hit.get("status") == "stale"
     if was_stale:
         # 复验复活：保留失效原因做审计，但状态回 proven、证据追加
@@ -418,10 +882,16 @@ def cmd_prove(a):
     hit["updated"] = now()
     _rewrite_facts(a.case, facts)
     tail = "（原 stale 已复验复活）" if was_stale else ""
-    print(f"[OK] {a.id} 已证实{tail}（证据 {len(hit['evidence'])} 条）")
+    hint = ""
+    if hit.get("confidence") in ("unknown", "inferred") or hit.get("authority") in ("", "none"):
+        hint = ("\n[WARN] 本条 confidence=%s authority=%s → 聚合时不算 pass；"
+                "实测证据请显式声明 --confidence observed --authority shipped-artifact"
+                % (hit.get("confidence"), hit.get("authority")))
+    print(f"[OK] {a.id} 已证实{tail}（证据 {len(hit['evidence'])} 条）{hint}")
 
 
 def cmd_refute(a):
+    lease_guard(a.case)
     by = (a.by or "").strip()
     if not by:
         die("refute 必须带非空 --by（指向推翻它的证据/claim id）")
@@ -443,6 +913,7 @@ def cmd_stale(a):
     复活方式：prove --id <id> --evidence "复验：..."（status 回 proven）。
     """
     reason = (a.reason or "").strip()
+    lease_guard(a.case)
     facts = load_facts(a.case)
     proven = [f for f in facts if f.get("status") == "proven"]
     if not proven:
@@ -467,6 +938,7 @@ def cmd_gaps(a):
         return
     if not a.add:
         die("gaps 需要 --add（登记缺件）或 --list（查看）")
+    lease_guard(a.case)   # 只有 --add 会写盘，--list 不查锁
     gid = (a.id or "").strip()
     missing = (a.missing or "").strip()
     if not gid or not missing:
@@ -500,6 +972,7 @@ def cmd_plan(a):
     if a.list_mode:
         print_plan(plan)
         return
+    lease_guard(a.case)   # 走到这里就是写盘（--list / --from-advise 已在上面分流）
     level = (a.level or "").strip().upper()
     route = (a.route or "").strip()
     if not level and route:
@@ -529,6 +1002,7 @@ def cmd_plan(a):
 
 
 def cmd_choose(a):
+    lease_guard(a.case)
     level = (a.level or "").strip().upper()
     route = (a.route or "").strip()
     if level not in PLAN_LEVELS:
@@ -658,6 +1132,7 @@ def _plan_from_advise(a):
     if not res["ok"]:
         _print_advise(res)
         die("advise 没有给出可行路线，不能导入；先补缺件或换 --form")
+    lease_guard(a.case)
     plan = load_plan(a.case)
     # ★ 从 advise 导入 = 以 advise 为准**重建**菜单（默认清空旧条目）。
     #   血案：只追加会让"已被缺件剔除的 L4"留在菜单里 → gate 永远因该条被拒。
@@ -681,6 +1156,7 @@ def _plan_from_advise(a):
 
 
 def cmd_depth(a):
+    lease_guard(a.case)
     if a.level not in LEVELS:
         die(f"level 只能是 {LEVELS}")
     if not a.result:
@@ -698,34 +1174,49 @@ def cmd_depth(a):
 
 
 def cmd_verdict(a):
+    lease_guard(a.case)
     if a.value not in VERDICTS:
         die(f"verdict 只能是 {VERDICTS}")
-    need = MAX_LEVEL_BY_VERDICT[a.value]
-    tier = (getattr(a, "tier", "") or "").strip().upper()
-    if tier and tier not in TIERS:
-        die(f"tier 只能是 {TIERS}")
+    base = MAX_LEVEL_BY_VERDICT[a.value]
+    # 缝2（P2-4）：--tier 同时收 T 词表（后端档位 T1–T4）与 M 词表（交付上限 M1–M4）。
+    # 哪个词表就原样存哪个槽：T → state.tier，M → state.max_level，不改写用户输入。
+    word = (getattr(a, "tier", "") or "").strip().upper()
+    if word and word not in TIERS:
+        die("--tier 只收 T1/T2/T3/T4 或 M1/M2/M3/M4（T=后端档位，M=交付上限；"
+            "换算 M1↔T1 / M2↔T2 / M3|M4↔T3，仅用于展示）")
+    manual = (getattr(a, "max_level", "") or "").strip().upper()
+    if manual and manual not in TIERS_M:
+        die("--max-level 只收 M1/M2/M3/M4（T 词表用 --tier）")
     # 档位规则（写明，避免"部分可赢+T2 直接跳 M4"的未定义行为）：
-    #   不可赢 → 恒 M1；否则 T1 → 裁定基准（可赢 M3 / 部分可赢 M2）；T2 → M3；T3 → M4
-    if a.value != "不可赢":
-        if tier == "T2":
-            need = "M3"
-        elif tier == "T3":
-            need = "M4"
-    else:
-        need = "M1"
-    if a.max_level and a.max_level != need:
-        die(f"{a.value}" + (f" + {tier}" if tier else "") + f" 对应的交付上限必须是 {need}（不能自己往上抬）")
+    #   不可赢 → 恒 M1；否则 T1 → 裁定基准（可赢 M3 / 部分可赢 M2）；T2 → M3；T3/T4 → M4
+    #   若用户直接给 M 词表，那就是交付上限本身（不抬高、不换算）。
+    tier_slot, level = None, base
+    if word.startswith("T"):
+        tier_slot = word
+        level = TIER_LEVEL[word] or base
+    elif word:
+        level = word
+    if a.value == "不可赢":
+        if word and level != "M1":
+            die(f"不可赢 = 恒 M1（不能自己往上抬到 {level}）：--tier M1 或 T1")
+        level = "M1"
+    if manual and manual != level:
+        die(f"{a.value}" + (f" + {word}" if word else "")
+            + f" 对应的交付上限必须是 {level}（不能自己往上抬）")
     st = load_state(a.case)
     st["verdict"] = a.value
-    st["tier"] = tier or None
-    st["max_level"] = need
+    st["tier"] = tier_slot           # T 词表原样（没给 T 词就是 None）
+    st["tier_input"] = word or None  # 用户原始输入：show 里回显，不被换算覆盖
+    st["max_level"] = level          # M 词表原样
     st["verdict_note"] = a.note or ""
     st["next_action"] = "进 01-gate-bypass" if a.value != "不可赢" else "只交 M1 + 天花板声明，不许承诺成品"
     save_state(a.case, st)
-    print(f"[OK] 裁定 = {a.value}，交付上限 = {need}")
+    print(f"[OK] 裁定 = {a.value}，交付上限 = {level}"
+          + (f"（--tier {word} 原样存；换算 {tier_view(word)}）" if word else ""))
 
 
 def cmd_instrument(a):
+    lease_guard(a.case)
     if a.name not in INSTRUMENTS:
         die(f"instrument 只能是 {INSTRUMENTS}")
     if a.status not in ISTATUS:
@@ -737,7 +1228,607 @@ def cmd_instrument(a):
     print(f"[OK] 仪器 {a.name} = {a.status}  {a.note or ''}")
 
 
+def _events_path(case):
+    """事件账文件：<case>/events.jsonl（由 pi 扩展 seep-events 自动写）。"""
+    return os.path.join(os.path.abspath(case), "events.jsonl")
+
+
+def _ledger_events(case):
+    """事件行：S2 起事件账也进 facts.jsonl（kind:"event"），不再单开 events.jsonl。"""
+    rows = []
+    for e in load_ledger(case):
+        if _entry_kind(e) == LEDGER_EVENT_KIND:
+            rows.append(e)
+    return rows
+
+
+def _events_nonempty(case):
+    """事件账是否存在且非空（账本 event 行或历史 events.jsonl 任一都算）。"""
+    if _ledger_events(case):
+        return True
+    try:
+        p = _events_path(case)
+        return os.path.isfile(p) and os.path.getsize(p) > 0
+    except Exception:
+        return False
+
+
+def cmd_events(a):
+    """事件账：动作级流水（谁跑了什么工具、成没成、多久）。只读，不改任何状态。
+
+    与 claim 行的分工：claim 是**结论**账（模型主动写，必须带证据），
+    event 行是**动作**账（扩展自动写，不依赖模型自觉）。
+    两者同一个账本 facts.jsonl（S2 合并），所以不可能出现「两份互相不知道」。
+    缺事件行不是错误 —— 只说明这个 case 还没跑过带扩展的会话，所以恒 rc=0。
+    """
+    rows = _ledger_events(a.case)
+    p = os.path.join(os.path.abspath(a.case), "facts.jsonl")
+    if not rows:
+        p = _events_path(a.case)
+        if not _events_nonempty(a.case):
+            print("没有事件账（本 case 尚未跑过带扩展的会话）")
+            print("  期望位置：%s（kind:\"event\" 行）" % os.path.join(os.path.abspath(a.case), "facts.jsonl"))
+            print("  事件账由 pi 扩展 seep-memory / seep-events 自动写；结论仍以 claim 行 / gate 为准。")
+            return 0
+        with open(p, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(obj, dict):
+                    rows.append(obj)
+
+    n = a.tail if isinstance(a.tail, int) and a.tail > 0 else 10
+    print("[EVENTS] %s" % p)
+    print("总条数：%d" % len(rows))
+    if not rows:
+        print("0 条有效事件（文件存在但为空）—— 本 case 尚未跑过带扩展的会话")
+        return 0
+
+    tail = rows[-n:]
+    print("最近 %d 条（ts | tool | ok | risk | summary）：" % len(tail))
+    for o in tail:
+        ts = str(o.get("ts") or "")[:19].replace("T", " ")
+        tool = str(o.get("tool") or o.get("event") or o.get("kind") or "?")
+        ok = "ok" if o.get("ok", True) else "FAIL"
+        risk = o.get("risk") or "-"
+        summ = str(o.get("summary") or o.get("text") or "")
+        if len(summ) > 120:
+            summ = summ[:120] + "…"
+        print("  %s | %-14s | %-4s | %-5s | %s" % (ts, tool, ok, risk, summ))
+
+    if getattr(a, "json", False):
+        print(json.dumps({"file": p, "total": len(rows), "tail": tail},
+                         ensure_ascii=False, indent=2))
+    return 0
+
+
+# ---------------------------------------------------------------- 阶段机（P2-1）
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _read_artifact(p):
+    """→ (ok, text, size)。读不到就不算存在（目录/权限错都当不过）。"""
+    if not os.path.isfile(p):
+        return False, "", 0
+    try:
+        with open(p, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return False, "", 0
+    return True, raw.decode("utf-8", "replace"), len(raw)
+
+
+def _word_in(text, word):
+    """按“两边不是字母”判词，避开 RVA 里包含 VA 这类假命中。"""
+    return re.search(r"(?<![A-Za-z])" + re.escape(word) + r"(?![A-Za-z])", text) is not None
+
+
+def _chk_triage(case, p, st=None):
+    ok, text, size = _read_artifact(p)
+    if not ok:
+        return ["文件不存在"]
+    probs = []
+    if size < 300:
+        probs.append("只有 %d 字节（要 ≥300）" % size)
+    lack = [f for f in TRIAGE_FIELDS if f not in text]
+    if lack:
+        probs.append("缺字段名：" + "、".join(lack))
+    return probs
+
+
+def _chk_static(case, p, st=None):
+    ok, text, size = _read_artifact(p)
+    if not ok:
+        return ["文件不存在"]
+    probs = []
+    if size < 600:
+        probs.append("只有 %d 字节（要 ≥600）" % size)
+    heads = sum(1 for ln in text.splitlines() if ln.strip().startswith("## "))
+    if heads < 3:
+        probs.append("只有 %d 个 `## ` 小节（要 ≥3）" % heads)
+    if ("facts" not in text) and ("证据" not in text):
+        probs.append("必须出现 `facts` 或 `证据`（结论要挂到事实账）")
+    return probs
+
+
+def _chk_login(case, p, st=None):
+    if not os.path.isfile(p):
+        return ["文件不存在"]
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        return ["不是合法 JSON：%s: %s" % (type(e).__name__, e)]
+    if not isinstance(d, dict):
+        return ["顶层必须是 JSON 对象"]
+    v = d.get("device_id")
+    if v is None:
+        # 宽容一层：嵌套对象里的 device_id 也算（登录响应常套 data）
+        def _dig(o, depth=0):
+            if depth > 4 or not isinstance(o, dict):
+                return None
+            if "device_id" in o:
+                return o["device_id"]
+            for x in o.values():
+                r = _dig(x, depth + 1)
+                if r is not None:
+                    return r
+            return None
+        v = _dig(d)
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return ["缺非空键 device_id"]
+    return []
+
+
+def _chk_run(case, p, st=None):
+    """运行类动态确认产物：无登录目标（crackme/CLI）的「真跑一遍」记录。
+
+    四个键缺一不可，且必须是**真实运行**才可能填出来的东西：
+      cmd          跑了什么命令（非空字符串）
+      exit         进程退出码（int；bool 是 int 的子类，这里明确排除）
+      stdout_head  截一段真实输出（非空字符串）
+      expect       说明「这段输出代表通过」（非空字符串）
+    """
+    if not os.path.isfile(p):
+        return ["文件不存在"]
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        return ["不是合法 JSON：%s: %s" % (type(e).__name__, e)]
+    if not isinstance(d, dict):
+        return ["顶层必须是 JSON 对象"]
+    probs = []
+    if not isinstance(d.get("cmd"), str) or not d.get("cmd").strip():
+        probs.append("缺非空字符串 cmd（跑的是什么命令）")
+    ex = d.get("exit")
+    if isinstance(ex, bool) or not isinstance(ex, int):
+        probs.append("缺整数 exit（进程退出码；bool / 字符串 / 缺失都不算）")
+    for k, why in (("stdout_head", "非空字符串 stdout_head（截一段真实输出）"),
+                   ("expect", "非空字符串 expect（说明「这段输出代表通过」）")):
+        v = d.get(k)
+        if not isinstance(v, str) or not v.strip():
+            probs.append("缺" + why)
+    return probs
+
+
+def _chk_dynamic(case, p, st=None):
+    ok, text, size = _read_artifact(p)
+    if not ok:
+        return ["文件不存在"]
+    probs = []
+    if size < 600:
+        probs.append("只有 %d 字节（要 ≥600）" % size)
+    lack = [w for w in DYNAMIC_WORDS if not _word_in(text, w)]
+    if lack:
+        probs.append("缺地址台账列：" + "、".join(lack))
+    return probs
+
+
+def _manifest_candidates(case, manifest_path, rel):
+    """path 的解析顺序：原样 → 相对 case 根 → 相对 manifest 所在目录。"""
+    if os.path.isabs(rel):
+        cands = [rel]
+    else:
+        cands = [rel,
+                 os.path.join(os.path.abspath(case), rel),
+                 os.path.join(os.path.dirname(os.path.abspath(manifest_path)), rel)]
+    return [c for c in cands if os.path.isfile(c)]
+
+
+def _chk_manifest(case, p, st=None):
+    ok, text, size = _read_artifact(p)
+    if not ok:
+        return ["文件不存在"]
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return ["文件是空的（至少 1 行 `sha256  path`）"]
+    probs, good, badfmt = [], 0, 0
+    for ln in lines:
+        if ln.startswith("#"):
+            continue
+        parts = ln.split(None, 1)
+        if len(parts) != 2 or not re.match(r"^[0-9a-fA-F]{64}$", parts[0]):
+            badfmt += 1
+            if len(probs) < 3:
+                probs.append("行格式不对（要 `sha256  path`）：%s" % ln[:60])
+            continue
+        dig, rel = parts[0].lower(), parts[1].strip()
+        cands = _manifest_candidates(case, p, rel)
+        if not cands:
+            probs.append("清单里的文件不存在：%s" % rel)
+            continue
+        try:
+            got = _sha256_file(cands[0])
+        except OSError as e:
+            probs.append("读不了 %s：%s" % (rel, e))
+            continue
+        if got != dig:
+            probs.append("哈希不一致：%s（记录 %s…，实际 %s…）" % (rel, dig[:12], got[:12]))
+            continue
+        good += 1
+    if badfmt and good == 0:
+        probs.insert(0, "没有 1 行合法 `sha256  path`")
+    elif good < 1:
+        probs.insert(0, "没有 1 行通过校验（要求至少 1 行合法、文件存在且哈希一致）")
+    return probs
+
+
+def _chk_final(case, p, st=None):
+    ok, text, size = _read_artifact(p)
+    if not ok:
+        return ["文件不存在"]
+    probs = []
+    if size < 300:
+        probs.append("只有 %d 字节（要 ≥300）" % size)
+    lack = [w for w in FINAL_WORDS if w not in text]
+    if lack:
+        probs.append("缺词：" + "、".join("`%s`" % w for w in lack))
+    if not str(((st or {}).get("verdict")) or "").strip():
+        probs.append("state.verdict 为空（先 verdict --value ...）")
+    return probs
+
+
+# stage → [(相对路径, 内容校验函数, 人读判据)]。顺序即打印顺序。
+STAGE_ARTIFACTS = {
+    "intake": [],
+    "0a": [("report/triage.md", _chk_triage,
+            "≥300 字节；同时出现六个字段名：载体 保护 授权权威 改动面 检测器 交付壁垒")],
+    "0b": [("report/static.md", _chk_static,
+            "≥600 字节；`## ` 小节 ≥3 个；出现 `facts` 或 `证据`")],
+    # 阶段 1 二选一（见 STAGE_ANY_OF）：凭据类 login.json 在前 = 优先级高
+    "1": [("capture/login.json", _chk_login, "能 json.load；含非空键 device_id"),
+          ("capture/run.json", _chk_run,
+           "能 json.load；含非空 cmd / stdout_head / expect + 整数 exit")],
+    "2": [("report/dynamic.md", _chk_dynamic, "≥600 字节；出现 RVA / VA / 基址")],
+    "3": [("artifacts/MANIFEST.sha256", _chk_manifest,
+            "至少 1 行 `sha256  path`；每行文件真实存在且哈希一致")],
+    "4": [("report/final.md", _chk_final,
+            "≥300 字节；含 `验收` 与 `功能`；state.verdict 非空")],
+    "done": [],
+}
+
+
+# 阶段 1 二选一（P2-5）：无登录目标（crackme / CLI）没有 login.json 可交，它的
+# 「动态确认」产物应是一条真实运行记录。两文件任一过关即过，书写顺序即优先级
+# （凭据类在前 → 两者都在时走凭据类，并注明 run.json 已忽略）。
+STAGE_ANY_OF = {"1"}
+
+ANY_OF_LABEL = {"capture/login.json": "凭据类", "capture/run.json": "运行类"}
+
+ANY_OF_FIX = {
+    "capture/login.json": "写 capture/login.json（登录/授权响应，含非空 device_id）",
+    "capture/run.json": ('写 capture/run.json（真跑一遍的记录，四个键齐全）：'
+                         '{"cmd":"...","exit":0,"stdout_head":"...",'
+                         '"expect":"这段输出代表通过"}'),
+}
+
+
+def _any_of_stage(case, stage, st=None):
+    """二选一产物评估 → (命中模式名|None, 命中路径|None, 附注[list], 未过项[list])。
+
+    过 = 其中一个产物的内容判据全过；`notes` 里带上「另一个也存在但已忽略」的说明。
+    全不过时 `probs` 里逐条列出每种模式缺什么，并同时给出两种补齐方式。
+    """
+    results = []
+    for rel, chk, hint in STAGE_ARTIFACTS.get(stage, []):
+        full = os.path.join(os.path.abspath(case), rel)
+        try:
+            subs = chk(case, full, st) or []
+        except Exception as e:  # noqa: BLE001 —— 产物坏了不许把闸崩掉
+            subs = ["校验时异常：%s: %s" % (type(e).__name__, e)]
+        results.append((rel, full, hint, subs))
+
+    names = " / ".join(ANY_OF_LABEL.get(r, r) for r, _c, _h in STAGE_ARTIFACTS.get(stage, []))
+    for rel, full, hint, subs in results:
+        if subs:
+            continue
+        notes = []
+        for orel, ofull, _oh, _os in results:
+            if orel != rel and os.path.isfile(ofull):
+                notes.append("（同时存在 %s，已忽略）" % orel)
+        return ANY_OF_LABEL.get(rel, rel), rel, notes, []
+
+    probs = ["产物未过：阶段 %s 的 %s 二选一都没满足" % (stage, names)]
+    for rel, full, hint, subs in results:
+        probs.append("· %s 未过 —— %s\n       判据：%s\n       路径：%s"
+                     % (rel, "；".join(subs), hint, full))
+    probs.append("补齐方式（二选一，不必两个都写）：")
+    for rel in [r for r, _c, _h in STAGE_ARTIFACTS.get(stage, [])]:
+        probs.append("  - " + ANY_OF_FIX.get(rel, "写 " + rel))
+    return None, None, [], probs
+
+
+def _cs_cmd(case, sub, extra=""):
+    """可直接复制执行的下一条命令（提示行专用）。"""
+    tail = (" " + extra) if extra else ""
+    return "python Tool/scripts/case_state.py %s --case %s%s" % (sub, case, tail)
+
+
+def _stage_problems(case, stage, st):
+    """返回该阶段的全部未过项（字符串，已带下一步命令）。空列表=过关。"""
+    if not STAGE_ARTIFACTS.get(stage):
+        return []
+    if stage in STAGE_ANY_OF:
+        return list(_any_of_stage(case, stage, st)[3])
+    probs = []
+    for rel, chk, hint in STAGE_ARTIFACTS.get(stage, []):
+        full = os.path.join(os.path.abspath(case), rel)
+        try:
+            subs = chk(case, full, st) or []
+        except Exception as e:  # noqa: BLE001 —— 产物坏了不许把闸崩掉
+            subs = ["校验时异常：%s: %s" % (type(e).__name__, e)]
+        if subs:
+            probs.append("产物未过：%s —— %s\n     判据：%s\n     路径：%s"
+                         % (rel, "；".join(subs), hint, full))
+    return probs
+
+
+# ---------------------------------------------------------------- 进阶闸（P2-4 缝1）
+# 血案：p2-replay 自己照实写过「唯一的缝」—— `stage --set` 不校验产物，
+# 直接 `stage --set 4` 就能在磁盘上留下一个没有任何产物支撑的假阶段号，
+# 拦住跳阶的只有「set 之后记得 gate」这条口头纪律。现在把纪律变成闸。
+STAGE_EXEMPT = {("intake", "0a")}   # 豁免①：建案后还没产物可查，直接进快筛
+
+
+def _stage_index(stage):
+    try:
+        return STAGES.index(str(stage))
+    except ValueError:
+        return -1
+
+
+def _max_stage_reached(st):
+    """历史上到达过的最高阶段（state.stage + 全部 stage_history[].stage）。"""
+    idx = _stage_index((st or {}).get("stage") or "intake")
+    if idx < 0:
+        idx = 0
+    for h in (st or {}).get("stage_history") or []:
+        if not isinstance(h, dict):
+            continue
+        i = _stage_index(h.get("stage") or "")
+        if i > idx:
+            idx = i
+    return idx
+
+
+def _advance_problems(case, cur, target, st):
+    """进阶闸：[cur, target) 每个阶段的产物闸都要先过。返回 [(阶段, [未过项...])]。
+
+    空列表 = 可以进阶。三条豁免（每条都写明理由，不许变成新的静默跳阶缝）：
+      ① intake → 0a：还没产物可查（建案后第一跳）；
+      ② 回退（target 不晚于 cur）：回退不是进阶，不产生新的「未挣到的阶段」；
+      ③ 复位/复核（target 在 stage_history 里到达过）：当时已过闸，重走只算复核
+         —— p2-replay 负例后的 `--set 4` 复位就走这条。
+    除豁免外，判据与 `gate --stage` 完全同一套（_stage_problems），不另开一套宽松口径。
+    """
+    ci, ti = _stage_index(cur), _stage_index(target)
+    if ci < 0 or ti < 0 or ti <= ci:
+        return []
+    if (cur, target) in STAGE_EXEMPT:
+        return []
+    if ti <= _max_stage_reached(st):
+        return []
+    out = []
+    for stage in STAGES[ci:ti]:
+        probs = _stage_problems(case, stage, st)
+        if probs:
+            out.append((stage, probs))
+    return out
+
+
+def _force_check(forced, reason):
+    """--force 必须带 --reason：返回错误文案，None 表示合法。"""
+    if forced and not str(reason or "").strip():
+        return ('--force 必须同时给 --reason "..."：跳过产物闸要留下为什么跳过（会写进 state.stage_history）')
+    return None
+
+
+def tier_view(word):
+    """展示用换算（不改用户输入值）：T 词表 → M 词表，M 词表 → T 词表。"""
+    w = str(word or "").strip().upper()
+    if w in M_TO_T:
+        return "≈ %s" % M_TO_T[w]
+    if w in T_TO_M:
+        return "≈ %s" % T_TO_M[w]
+    return ""
+
+
+def cmd_stage(a):
+    """阶段机：--set 写阶段（先过进阶产物闸）+ 记 history；--show 看当前/下一阶段/还缺什么。"""
+    d = os.path.abspath(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, a.case))
+    st = load_state(a.case)
+    cur = str(st.get("stage") or "intake")
+    if cur not in STAGES:
+        cur = "intake"
+    want = (getattr(a, "set", "") or "").strip()
+    do_show = bool(getattr(a, "show", False))
+    if not want and not do_show:
+        die("stage 需要 --set <阶段>（写）或 --show（看）")
+    if want:
+        if want not in STAGES:
+            die("阶段只能是：%s" % " / ".join(STAGES))
+        # 缝1：--force 必须配 --reason（否则“跳过闸”本身又成了一条静默路）
+        forced = bool(getattr(a, "force", False))
+        reason = (getattr(a, "reason", "") or "").strip()
+        bad = _force_check(forced, reason)
+        if bad:
+            die(bad)
+        blocked = _advance_problems(a.case, cur, want, st) if want != cur else []
+        if blocked and not forced:
+            print("[FAIL] 进阶被拦：%s → %s（stage --set 不再允许静默跳阶）" % (cur, want))
+            for stage_label, probs in blocked:
+                print("  阶段 %s（%s）—— %d 项未过："
+                      % (stage_label, STAGE_NAME.get(stage_label, "?"), len(probs)))
+                for it in probs:
+                    for i, ln in enumerate(str(it).splitlines()):
+                        print("    " + ("- " if i == 0 else "  ") + ln)
+            print("\n[FAIL] 共 %d 个阶段的产物闸未过（rc=2）：%s"
+                  % (len(blocked), "、".join(s for s, _ in blocked)))
+            print("       补齐后先跑闸：%s" % _cs_cmd(a.case, "gate", "--stage " + cur))
+            print("       确知要跳过（历史产物已不在盘上等）：%s"
+                  % _cs_cmd(a.case, "stage", '--set %s --force --reason "<为什么跳过>"' % want))
+            sys.exit(2)
+        lease_guard(a.case)
+        st["stage"] = want
+        hist = st.setdefault("stage_history", [])
+        if not isinstance(hist, list):
+            hist = st["stage_history"] = []
+        entry = {"stage": want, "at": now(), "from": cur}
+        if forced:
+            entry["forced"] = True
+            entry["reason"] = reason
+            if blocked:
+                entry["skipped"] = [s for s, _ in blocked]
+        else:
+            # 走到这里 blocked 必为空（否则上方已 exit 2）：记一笔「这次进阶过了哪几个阶段的闸」
+            gated = STAGES[_stage_index(cur):_stage_index(want)]
+            if gated:
+                entry["gated"] = gated
+        hist.append(entry)
+        save_state(a.case, st)
+        if forced and blocked:
+            print("[WARN] FORCED 跳过 %d 个阶段的产物闸：%s（原因：%s）"
+                  % (len(blocked), "、".join(s for s, _ in blocked), reason))
+        print("[OK] 阶段 %s → %s（%s）%s"
+              % (cur, want, STAGE_NAME.get(want, ""), "  forced" if forced else ""))
+        cur = want
+
+    nxt = STAGE_NEXT.get(cur, "done")
+    print("[STAGE] case=%s" % d)
+    print("  当前：%s（%s）" % (cur, STAGE_NAME.get(cur, "?")))
+    print("  下一：%s（%s）" % (nxt, STAGE_NAME.get(nxt, "?")))
+    hist = st.get("stage_history") or []
+    if hist:
+        tail = hist[-3:]
+        print("  最近变更：" + "；".join(
+            "%s@%s" % (h.get("stage"), str(h.get("at"))[5:19]) for h in tail if isinstance(h, dict)))
+    aw = st.get("awaiting_human") or {}
+    if aw and not str(aw.get("ack") or "").strip():
+        print("  [WAIT] 有未回执的卡：%s" % (aw.get("card") or "?"))
+        print("         回执后：%s" % _cs_cmd(a.case, "ack", "--ack <字母>"))
+
+    # 下一阶段还缺什么（只列仍未过的；过关就提示可以直接 stage --set）
+    if nxt != cur:
+        probs = _stage_problems(a.case, nxt, st)
+        if probs:
+            print("  进入 %s 还缺 %d 项：" % (nxt, len(probs)))
+            for it in probs:
+                for i, ln in enumerate(str(it).splitlines()):
+                    print("    " + ("- " if i == 0 else "  ") + ln)
+            print("  补齐后：%s" % _cs_cmd(a.case, "stage", "--set " + nxt))
+        else:
+            print("  进入 %s 的产物已齐 → %s" % (nxt, _cs_cmd(a.case, "stage", "--set " + nxt)))
+    else:
+        print("  已在终点阶段（%s）" % cur)
+
+
+def _stage_gate(a):
+    """gate --stage <s>：只认磁盘产物内容的阶段闸。不过就 rc=1 并给可复制命令。"""
+    stage = str(a.stage).strip()
+    if stage not in STAGES:
+        die("--stage 只能是：%s" % " / ".join(STAGES))
+    st = load_state(a.case)
+    cur = str(st.get("stage") or "intake")
+    if cur not in STAGES:
+        cur = "intake"
+    probs = []
+
+    # ① 阶段不一致：不许跳阶（跳阶=没登记就往下走）
+    if cur != stage:
+        probs.append("阶段不一致：state.stage=%s ≠ --stage %s\n"
+                     "     先登记：%s" % (cur, stage, _cs_cmd(a.case, "stage", "--set " + stage)))
+
+    # ② 等人回执未 ack：动手阶段（1–4）一律红
+    aw = st.get("awaiting_human") or {}
+    if aw and not str(aw.get("ack") or "").strip() and stage in STAGE_ACK_REQUIRED:
+        opts = list((aw.get("options") or {}).keys())
+        probs.append("还在等用户回执（ask 卡 %s）\n"
+                     "     必须先 ack（%s）"
+                     % (aw.get("card") or "?",
+                        _cs_cmd(a.case, "ack", "--ack " + (opts[0] if opts else "<字母>"))))
+
+    # ③ 产物内容判据（阶段 1 是二选一：凭据类 login.json / 运行类 run.json）
+    arts = STAGE_ARTIFACTS.get(stage, [])
+    mode = mode_rel = None
+    mode_notes = []
+    if stage in STAGE_ANY_OF:
+        mode, mode_rel, mode_notes, subs = _any_of_stage(a.case, stage, st)
+        if subs:
+            probs.append("\n     ".join(subs))
+    else:
+        for rel, chk, hint in arts:
+            full = os.path.join(os.path.abspath(a.case), rel)
+            try:
+                subs = chk(a.case, full, st) or []
+            except Exception as e:  # noqa: BLE001
+                subs = ["校验时异常：%s: %s" % (type(e).__name__, e)]
+            if subs:
+                probs.append("产物未过：%s —— %s\n     判据：%s\n     路径：%s"
+                             % (rel, "；".join(subs), hint, full))
+
+    if probs:
+        print("[FAIL] 阶段产物闸未通过：--stage %s（state.stage=%s）" % (stage, cur))
+        for i, p in enumerate(probs, 1):
+            print("   %d) %s" % (i, p))
+        nxt = STAGE_NEXT.get(stage, "done")
+        print("\n[FAIL] 共 %d 项未过；按上面的命令补齐后重跑：%s"
+              % (len(probs), _cs_cmd(a.case, "gate", "--stage " + stage)))
+        if nxt != stage:
+            print("       过关后：%s" % _cs_cmd(a.case, "stage", "--set " + nxt))
+        sys.exit(1)
+
+    if mode:
+        names = " / ".join(ANY_OF_LABEL.get(rel, rel) for rel, _c, _h in arts)
+        print("[PASS] 阶段 %s 产物闸通过（%s 二选一，走的是%s：%s）%s"
+              % (stage, names, mode, mode_rel, STAGE_NAME.get(stage, "")))
+        for n in mode_notes:
+            print("       " + n)
+    else:
+        print("[PASS] 阶段 %s 产物闸通过（%d 个产物按内容校验：%s）"
+              % (stage, len(arts), STAGE_NAME.get(stage, "")))
+    nxt = STAGE_NEXT.get(stage, "done")
+    if nxt != stage:
+        print("       下一阶段：%s（%s）→ %s"
+              % (nxt, STAGE_NAME.get(nxt, "?"), _cs_cmd(a.case, "stage", "--set " + nxt)))
+    sys.exit(0)
+
+
 def cmd_gate(a):
+    if getattr(a, "stage", ""):
+        return _stage_gate(a)   # P2-1：带 --stage 走阶段产物闸（按内容判）
     st = load_state(a.case)
     facts = load_facts(a.case)
     plan = load_plan(a.case)
@@ -790,6 +1881,27 @@ def cmd_gate(a):
              if f["status"] == "proven" and not str(f.get("how") or "").strip()]
     if nohow:
         bad.append("proven 缺 how（怎么测的）：" + "、".join(nohow))
+
+    # ---- S2-4：置信度 / 权威（unknown 永不计 pass；gate 先告警，--strict 时阻断）
+    weak_conf = [f["id"] for f in facts
+                 if f["status"] == "proven"
+                 and _norm_confidence(f.get("confidence")) in WEAK_CONFIDENCE]
+    no_auth = [f["id"] for f in facts
+               if f["status"] == "proven"
+               and str(f.get("authority") or "none").strip().lower() in ("", "none")]
+    msg_conf = ("proven 但置信度不足（unknown/inferred）：" + "、".join(weak_conf)
+                + " —— verify 会整案判 unknown（不计 pass）；补 --confidence observed")
+    msg_auth = ("proven 但 authority 未声明：" + "、".join(no_auth)
+                + " —— 补 --authority shipped-artifact|controlled-replay|external-service")
+    if weak_conf or no_auth:
+        if a.strict:
+            for m in (msg_conf if weak_conf else "", msg_auth if no_auth else ""):
+                if m:
+                    bad.append(m)
+        else:
+            for m in (msg_conf if weak_conf else "", msg_auth if no_auth else ""):
+                if m:
+                    warn.append(m)
 
     # ---- TTL：stale 未复验 → 拒绝（证明可复活）
     stale = [f for f in facts if f.get("status") == "stale"]
@@ -862,6 +1974,12 @@ def cmd_gate(a):
         for w in warn:
             print("   - " + w)
 
+    # ---- 事件账体检（P1-1）：只打一行提示，**不改退出码** ——
+    # 老案子没有 events.jsonl 是正常状态，不能因此变红。
+    if not _events_nonempty(a.case):
+        print("[WARN] NO_EVENTS —— 本 case 没有事件账（%s 缺失或为空）："
+              "只说明还没跑过带 seep-events 扩展的会话，不影响本闸结论" % _events_path(a.case))
+
     if bad:
         print("[FAIL] 阶段零出口闸未通过：")
         for b in bad:
@@ -887,6 +2005,7 @@ RANK = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
 
 def cmd_deliver(a):
     """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。"""
+    lease_guard(a.case)
     st = load_state(a.case)
     if not st.get("verdict"):
         die("还没给可行性裁定（verdict），不许交付")
@@ -913,12 +2032,17 @@ def cmd_show(a):
     plan = load_plan(a.case)
     print(f"案子：{a.case}")
     print(f"  目标：{st.get('target') or '-'}")
+    # 缝2（P2-4）：T 词表与 M 词表各存各的，这里两栅都打（并附展示用换算）
+    tier_v, lvl_v = st.get("tier"), st.get("max_level")
     print(f"  裁定：{st.get('verdict') or '（未给）'}"
-          + (f" / 后端档位 {st['tier']}" if st.get("tier") else "")
-          + (f"   交付上限：{st.get('max_level') or '-'}"
-             + (f"   选定等级：{st['goal_level']}"
-                + (f"（{st['goal_route']}）" if st.get("goal_route") else "")
-                if st.get("goal_level") else "")))
+          + (f"（原始 --tier 输入 {st['tier_input']}）" if st.get("tier_input") else ""))
+    print(f"  后端档位（T 词表）：{tier_v or '（未给）'}"
+          + (("  " + tier_view(tier_v)) if tier_v else ""))
+    print(f"  交付上限（M 词表）：{lvl_v or '-'}"
+          + (("  " + tier_view(lvl_v)) if lvl_v else "")
+          + (f"   选定等级：{st['goal_level']}"
+             + (f"（{st['goal_route']}）" if st.get("goal_route") else "")
+             if st.get("goal_level") else ""))
     if st.get("verdict_note"):
         print(f"  裁定理由：{st['verdict_note']}")
     inst = st.get("instruments") or {}
@@ -984,12 +2108,521 @@ def _self_test():
         assert store_target("HTTP://Example.com") == "HTTP://Example.com"; checks += 1
         assert store_target("") == ""; checks += 1
         assert store_target("rel/x.bin") == os.path.abspath("rel/x.bin"); checks += 1
+        # 租约（P1-2）：过期判据 = now - heartbeat_at > ttl_sec
+        fresh = {"ttl_sec": 3600, "heartbeat_at": now()}
+        assert _lease_status(fresh)[0] is False; checks += 1
+        old_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - 7200))
+        assert _lease_status({"ttl_sec": 3600, "heartbeat_at": old_iso})[0] is True; checks += 1
+        assert _lease_status({"ttl_sec": 3600, "heartbeat_at": "not-a-time"})[0] is True; checks += 1
+        assert _ts_epoch("2026-01-01T00:00:00") is not None; checks += 1
+        assert _session_id().strip() != ""; checks += 1
+        # 阶段产物闸（P2-1）：判据看**内容**不看存在（治「2 分钟造假过关」）
+        assert STAGES[0] == "intake" and STAGE_NEXT["0a"] == "0b"; checks += 1
+        assert STAGE_ARTIFACTS["0a"][0][0] == "report/triage.md"; checks += 1
+        assert [r for r, _c, _h in STAGE_ARTIFACTS["1"]] == \
+            ["capture/login.json", "capture/run.json"]; checks += 1
+        tmp = tempfile.mkdtemp(prefix="cs-selftest-")
+        try:
+            # 0a：400 字节垃圾（无六字段名）必须不过；补全字段名才过
+            p = os.path.join(tmp, "triage.md")
+            with open(p, "w", encoding="utf-8") as f:
+                f.write("x" * 400)
+            assert _chk_triage(tmp, p); checks += 1
+            with open(p, "w", encoding="utf-8") as f:
+                f.write("x" * 400 + "\n" + " ".join(TRIAGE_FIELDS) + "\n")
+            assert _chk_triage(tmp, p) == []; checks += 1
+            # 0b：≥600B + `## ` ≥3 + facts/证据
+            p2 = os.path.join(tmp, "static.md")
+            with open(p2, "w", encoding="utf-8") as f:
+                f.write("y" * 700 + "\n## a\n## b\n## c\n证据\n")
+            assert _chk_static(tmp, p2) == []; checks += 1
+            with open(p2, "w", encoding="utf-8") as f:
+                f.write("y" * 700)
+            assert _chk_static(tmp, p2); checks += 1
+            # 1：device_id 空串不算
+            p3 = os.path.join(tmp, "login.json")
+            with open(p3, "w", encoding="utf-8") as f:
+                json.dump({"device_id": ""}, f)
+            assert _chk_login(tmp, p3); checks += 1
+            with open(p3, "w", encoding="utf-8") as f:
+                json.dump({"device_id": "abc-123"}, f)
+            assert _chk_login(tmp, p3) == []; checks += 1
+            # 1（P2-5 新增分支）：无登录目标的「运行类」产物 capture/run.json
+            case1 = os.path.join(tmp, "case1")
+            os.makedirs(os.path.join(case1, "capture"), exist_ok=True)
+            run_json = os.path.join(case1, "capture", "run.json")
+            login_json = os.path.join(case1, "capture", "login.json")
+            # 正例：四个键齐 → 通过
+            with open(run_json, "w", encoding="utf-8") as f:
+                json.dump({"cmd": "./crackme --serial 1234", "exit": 0,
+                           "stdout_head": "PASS serial ok",
+                           "expect": "出现 PASS 即通过"}, f)
+            assert _chk_run(case1, run_json) == []; checks += 1
+            # 只在 run.json 时：阶段 1 二选一必须走「运行类」
+            assert _any_of_stage(case1, "1", {})[0] == "运行类"; checks += 1
+            # 反例：缺 expect → 必红且点名 expect
+            with open(run_json, "w", encoding="utf-8") as f:
+                json.dump({"cmd": "x", "exit": 0, "stdout_head": "ok"}, f)
+            lack = _chk_run(case1, run_json)
+            assert lack and any("expect" in x for x in lack); checks += 1
+            assert _any_of_stage(case1, "1", {})[0] is None; checks += 1
+            # 反例：两个文件都不在 → 红，且同时列出两种补齐方式
+            os.remove(run_json)
+            assert set(os.listdir(os.path.join(case1, "capture"))) == set(); checks += 1
+            fixes = "\n".join(_any_of_stage(case1, "1", {})[3])
+            assert "capture/login.json" in fixes and "capture/run.json" in fixes; checks += 1
+            # 两个都在 → 凭据类优先，并注明 run.json 已忽略
+            with open(run_json, "w", encoding="utf-8") as f:
+                json.dump({"cmd": "a", "exit": 0, "stdout_head": "b", "expect": "c"}, f)
+            with open(login_json, "w", encoding="utf-8") as f:
+                json.dump({"device_id": "dev-1"}, f)
+            both = _any_of_stage(case1, "1", {})
+            assert both[0] == "凭据类" and both[1] == "capture/login.json"; checks += 1
+            assert any("run.json" in n and "已忽略" in n for n in both[2]); checks += 1
+            os.remove(login_json)
+            # 运行类只认 int exit：字符串 / bool 都不算
+            with open(run_json, "w", encoding="utf-8") as f:
+                json.dump({"cmd": "a", "exit": "0", "stdout_head": "b", "expect": "c"}, f)
+            assert _chk_run(case1, run_json); checks += 1
+            # 2：只有 RVA 不算有 VA（子串假命中）
+            p4 = os.path.join(tmp, "dynamic.md")
+            with open(p4, "w", encoding="utf-8") as f:
+                f.write("z" * 700 + "\nRVA 基址\n")
+            assert _chk_dynamic(tmp, p4); checks += 1
+            with open(p4, "w", encoding="utf-8") as f:
+                f.write("z" * 700 + "\nRVA VA 基址\n")
+            assert _chk_dynamic(tmp, p4) == []; checks += 1
+            # 3：MANIFEST 哈希必须对得上真实文件
+            art = os.path.join(tmp, "artifacts")
+            os.makedirs(art, exist_ok=True)
+            blob = os.path.join(tmp, "a.bin")
+            with open(blob, "wb") as f:
+                f.write(b"hello")
+            p5 = os.path.join(art, "MANIFEST.sha256")
+            with open(p5, "w", encoding="utf-8") as f:
+                f.write("0" * 64 + "  a.bin\n")
+            assert _chk_manifest(tmp, p5); checks += 1
+            with open(p5, "w", encoding="utf-8") as f:
+                f.write(_sha256_file(blob) + "  a.bin\n")
+            assert _chk_manifest(tmp, p5) == []; checks += 1
+            # 4：final 还得 state.verdict 非空
+            p6 = os.path.join(tmp, "final.md")
+            with open(p6, "w", encoding="utf-8") as f:
+                f.write("验收 功能 " + "w" * 300)
+            assert _chk_final(tmp, p6, {"verdict": "部分可赢"}) == []; checks += 1
+            assert _chk_final(tmp, p6, {"verdict": ""}); checks += 1
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        # 进阶闸（P2-4 缝1）：`stage --set` 不许静默跳阶
+        tmp2 = tempfile.mkdtemp(prefix="cs-adv-")
+        try:
+            # ① intake → 0a 豁免（还没产物可查）
+            assert _advance_problems(tmp2, "intake", "0a", {"stage": "intake"}) == []; checks += 1
+            # ② 回退不查（回退不是进阶）
+            assert _advance_problems(tmp2, "4", "0a", {"stage": "4"}) == []; checks += 1
+            # ③ 新阶段 + 空盘：必须拦，且点名 0a / 0b
+            probs = _advance_problems(tmp2, "intake", "2", {"stage": "intake"})
+            assert probs and {s for s, _ in probs} >= {"0a", "0b"}; checks += 1
+            # ④ 补齐 triage.md（按 report/ 布局）后：0a → 0b 放行
+            os.makedirs(os.path.join(tmp2, "report"), exist_ok=True)
+            tp = os.path.join(tmp2, "report", "triage.md")
+            with open(tp, "w", encoding="utf-8") as f:
+                f.write("x" * 400 + "\n" + " ".join(TRIAGE_FIELDS) + "\n")
+            assert _advance_problems(tmp2, "0a", "0b", {"stage": "0a"}) == []; checks += 1
+            # ⑤ 复位/复核：target 在 stage_history 里到达过 → 不重查（重放负例复位走这条）
+            st_hist = {"stage": "0a", "stage_history": [{"stage": "4", "from": "3"}]}
+            assert _advance_problems(tmp2, "0a", "4", st_hist) == []; checks += 1
+            assert _max_stage_reached(st_hist) == _stage_index("4"); checks += 1
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+        # --force 必须带 --reason
+        assert _force_check(True, ""); checks += 1
+        assert _force_check(True, "回放测试") is None; checks += 1
+        assert _force_check(False, "") is None; checks += 1
+        # 缝2：两套词表都收；换算只用于展示
+        assert "T4" in TIERS and "M4" in TIERS and "X9" not in TIERS; checks += 1
+        assert M_TO_T["M4"] == "T3" and T_TO_M["T2"] == "M2"; checks += 1
+        assert tier_view("M2") == "≈ T2" and tier_view("T3") == "≈ M3|M4"; checks += 1
+        assert tier_view("X9") == ""; checks += 1
+        assert TIER_LEVEL["T2"] == "M3" and TIER_LEVEL["T1"] is None; checks += 1
         print(json.dumps({"ok": True, "checks": checks}, ensure_ascii=True))
         return 0
     except Exception as exc:  # noqa: BLE001
         print(json.dumps({"ok": False, "blocked_at": "self-test",
                           "reason": "%s: %s" % (type(exc).__name__, exc)}, ensure_ascii=True))
         return 2
+
+
+
+# ─────────────────── 对话内 A/B/C 问人（唯一允许的问人方式） ───────────────────
+#
+# 为什么不弹窗：弹窗（ask_user_question 那类）有三个问题 ——
+#   ① 选项只能 2–4 个、每项 ≤60 字，四要素长卡塞不进去；
+#   ② 它是一等工具调用，会把「等人」变成「一次工具往返」，上下文里留一堆结构化噪声；
+#   ③ 用户明确要求：就用对话框里列 A/B/C，他回一个字母。
+# 所以：卡写文件（给人复核）+ 正文里列 A/B/C（给人在对话里回）+ state 落 awaiting_human。
+
+def _ask_dir(case):
+    d, _ = paths(case)
+    p = os.path.join(d, "ask")
+    os.makedirs(p, exist_ok=True)
+    return p
+
+
+def cmd_ask(a):
+    """发一张对话内 A/B/C 卡，并把案子置为 awaiting_human。"""
+    d, _, _ = paths(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    opts = [x for x in (a.option or []) if x.strip()]
+    if len(opts) < 2:
+        die("至少要两个选项：--option \"A 你自己双击启动\" --option \"B 我用 explorer 拉起\"")
+    lease_guard(a.case)   # 写卡片文件 + state.awaiting_human
+
+    # 选项解析：首字母作 key
+    parsed = []
+    for o in opts:
+        m = re.match(r"^\s*([A-Za-z])[\.、:：)]?\s*(.+)$", o)
+        if m:
+            parsed.append((m.group(1).upper(), m.group(2).strip()))
+        else:
+            parsed.append((chr(65 + len(parsed)), o.strip()))
+
+    ts = now().replace(":", "").replace("-", "")[:15]
+    lines = ["# 需要你选（对话内回一个字母即可）", "",
+             f"- 时间：{now()}",
+             f"- 案子：{os.path.basename(d)}",
+             f"- 卡在哪：{a.stuck}", "",
+             "## 选项", ""]
+    for k, v in parsed:
+        lines.append(f"- **{k}** {v}")
+    if a.monitor:
+        lines += ["", "## 我这边正在做什么", "", a.monitor]
+    if a.guarantee:
+        lines += ["", "## 你操作期间我保证", "", a.guarantee]
+    if a.expect:
+        lines += ["", "## 我拿到什么", "", a.expect]
+    lines += ["", "---", "", f"直接回 `{parsed[0][0]}` / `{parsed[1][0]}` …… 即可。"]
+
+    fp = os.path.join(_ask_dir(a.case), f"{ts}.md")
+    with open(fp, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+    st = load_state(a.case)
+    st["awaiting_human"] = {"since": now(), "card": fp, "stuck": a.stuck,
+                            "options": {k: v for k, v in parsed}, "ack": None}
+    save_state(a.case, st)
+
+    # 给模型的下一个动作：把这段原样贴进对话（不要调弹窗工具）
+    print("[ASK] 已生成卡片：%s" % fp)
+    print("[ASK] 下面这段**原样贴进对话**（不要用弹窗工具）：\n")
+    print(f"【需要你选】{a.stuck}")
+    for k, v in parsed:
+        print(f"  {k}  {v}")
+    print(f"直接回 {' / '.join(k for k, _ in parsed)}")
+    if a.monitor:
+        print(f"\n我在做什么：{a.monitor}")
+    if a.guarantee:
+        print(f"你操作期间我保证：{a.guarantee}")
+    if a.expect:
+        print(f"我拿到什么：{a.expect}")
+    print("\n（回执后执行：python Tool/scripts/case_state.py ack --case %s --ack <字母>）" % a.case)
+
+
+def cmd_ack(a):
+    """记录用户回执，解除 awaiting_human。"""
+    lease_guard(a.case)
+    st = load_state(a.case)
+    aw = st.get("awaiting_human")
+    if not aw:
+        die("当前没有等待中的卡（awaiting_human 为空）。先 ask。")
+    letter = a.ack.strip().upper()[:1]
+    opts = aw.get("options") or {}
+    if opts and letter not in opts:
+        die("回执 %r 不在选项里：%s" % (letter, " / ".join(opts.keys())))
+    aw["ack"] = letter
+    aw["acked_at"] = now()
+    st["awaiting_human"] = aw
+    st["next_action"] = "用户选了 %s：%s" % (letter, (opts.get(letter) or "")[:80])
+    backend = save_state(a.case, st)
+    print("[ACK] 已记录：%s -> %s（%s）" % (letter, opts.get(letter, ""), backend))
+    print("[ACK] 现在可以从断点继续，不需要重头再来。")
+
+
+# ---------------------------------------------------------------- 状态重放（S2-1）
+def cmd_replay(a):
+    """状态重放 / 迁移 / 压缩：state 不存快照，只由账本 state 行重放。
+
+    --migrate      兼容旧调用（迁移已全部完成，现在只报告残留数量）
+    --drop-legacy  删除历史副本（state.json / ai_manifest.json，存在才删）
+    --compact      只保留最后一条 state 行（账本瘦身，claim/event 不动）
+
+    为什么：快照与账本行是同一状态的两份副本，两端各自开局就会分叉；
+    append-only 账本只多行、不少条，重放结果唯一。
+    """
+    d, fp = paths(a.case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    if a.migrate or a.drop_legacy or a.compact:
+        lease_guard(a.case)
+    if a.migrate:
+        left = _legacy_files(a.case)
+        print("[SKIP] 无需迁移：状态已全在账本里（残留副本 %d 个，用 --drop-legacy 清理）" % len(left))
+    if a.drop_legacy:
+        left = _legacy_files(a.case)
+        for p in left:
+            os.remove(p)
+            print("[OK] 已删除历史副本：%s" % p)
+        if not left:
+            print("[SKIP] 没有历史副本可删")
+    if a.compact:
+        ledger = load_ledger(a.case)
+        idxs = [i for i, e in enumerate(ledger) if _entry_kind(e) == LEDGER_STATE_KIND]
+        if len(idxs) <= 1:
+            print("[SKIP] state 行 %d 条，无需压缩" % len(idxs))
+        else:
+            keep = idxs[-1]
+            out = [e for i, e in enumerate(ledger) if i not in set(idxs) or i == keep]
+            _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out))
+            print("[OK] 账本压缩：state 行 %d → 1，总行 %d → %d" % (len(idxs), len(ledger), len(out)))
+
+    ledger = load_ledger(a.case)
+    st = load_state(a.case)
+    claims = [e for e in ledger if _is_claim(e)]
+    states = [e for e in ledger if _entry_kind(e) == LEDGER_STATE_KIND]
+    events = [e for e in ledger if _entry_kind(e) == LEDGER_EVENT_KIND]
+    other = len(ledger) - len(claims) - len(states) - len(events)
+    print("[REPLAY] %s" % fp)
+    print("  账本行：%d（claim %d / state %d / event %d / gaps+plan %d）"
+          % (len(ledger), len(claims), len(states), len(events), other))
+    print("  重放状态：verdict=%s max_level=%s stage=%s depth=%d next=%s"
+          % (st.get("verdict"), st.get("max_level"), st.get("stage"),
+             len(st.get("depth") or {}), (st.get("next_action") or "")[:40]))
+    left = _legacy_files(a.case)
+    if left:
+        print("  [WARN] 残留历史副本 %d 个：跑 --drop-legacy 收口（%s）"
+              % (len(left), ", ".join(os.path.basename(x) for x in left)))
+    if getattr(a, "json", False):
+        print(json.dumps({"state": st, "ledger": {"total": len(ledger), "claims": len(claims),
+                                                    "states": len(states), "events": len(events)}},
+                         ensure_ascii=False, indent=2))
+    return 0
+
+
+# ---------------------------------------------------------------- 索引现算（S2-1）
+# 血案：Tool/cases/index.json 是第三份副本，gen-case-index.py 还会硬编码 "repro": {}，
+# 于是 case.json 50/56 有 repro、index.json 55/55 全空 —— 派生缓存一旦落盘就会分叉。
+# 现在索引只在调用时现算：磁盘上不存在可漂移的副本。
+CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection", "authority",
+               "goal_level", "outcome", "artifacts", "repro", "lessons", "tags", "refs",
+               "updated")
+CASE_LIST_FIELDS = ("protection", "lessons", "tags", "refs")
+EVIDENCE_KIND_OK = ("fixture", "real", "self-built", "historical")
+OUTCOME_OK = ("success", "partial", "blocked", "confirmed")  # confirmed = 历史同义词（success）
+
+
+def cases_root():
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cases")
+
+
+def _norm_case(raw, dirname):
+    entry = {}
+    for k in CASE_FIELDS:
+        v = raw.get(k)
+        if k in CASE_LIST_FIELDS:
+            entry[k] = [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+        elif k == "artifacts":
+            entry[k] = [x for x in v if isinstance(x, dict)] if isinstance(v, list) else []
+        elif k == "repro":
+            entry[k] = v if isinstance(v, dict) else {}
+        else:
+            entry[k] = v if isinstance(v, str) else ""
+    if not entry["id"]:
+        entry["id"] = dirname
+    entry["dir"] = dirname
+    return entry
+
+
+def scan_cases(root=None):
+    """现算案例索引。返回 (entries, problems)；problems 非空 = 索引本身不可信。"""
+    root = root or cases_root()
+    entries, problems = [], []
+    if not os.path.isdir(root):
+        return entries, ["案例目录不存在：%s" % root]
+    seen = {}
+    for name in sorted(os.listdir(root)):
+        d = os.path.join(root, name)
+        if not os.path.isdir(d) or name.startswith("."):
+            continue
+        cj = os.path.join(d, "case.json")
+        if not os.path.isfile(cj):
+            # `_archive` / `_templates` 这类容器目录不算案例；其他目录缺 case.json 就是漏登记
+            if not name.startswith("_"):
+                problems.append("%s：缺 case.json" % name)
+            continue
+        try:
+            with open(cj, encoding="utf-8") as f:
+                raw = json.load(f)
+        except Exception as e:
+            problems.append("%s：case.json 解析失败（%s）" % (name, str(e)[:60]))
+            continue
+        if not isinstance(raw, dict):
+            problems.append("%s：case.json 顶层不是对象" % name)
+            continue
+        entry = _norm_case(raw, name)
+        if entry["id"] != name:
+            problems.append("%s：case.json 的 id=%r 与目录名不一致" % (name, entry["id"]))
+        if entry["evidence_kind"] and entry["evidence_kind"] not in EVIDENCE_KIND_OK:
+            problems.append("%s：evidence_kind=%r 不在 %s"
+                            % (name, entry["evidence_kind"], "|".join(EVIDENCE_KIND_OK)))
+        if entry["outcome"] and entry["outcome"] not in OUTCOME_OK:
+            problems.append("%s：outcome=%r 不在 %s"
+                            % (name, entry["outcome"], "|".join(OUTCOME_OK)))
+        if entry["id"] in seen:
+            problems.append("id 重复：%s（%s 与 %s）" % (entry["id"], seen[entry["id"]], name))
+        seen[entry["id"]] = name
+        entries.append(entry)
+    return entries, problems
+
+
+def cmd_index(a):
+    """案例索引：现算（Tool/cases/*/case.json 是唯一事实来源，磁盘上不再存 index.json）。"""
+    root = getattr(a, "root", "") or cases_root()
+    entries, problems = scan_cases(root)
+    as_json = getattr(a, "json", False)
+    if as_json:
+        # JSON 模式只输出一个对象（把 problems 放进对象里，不在后面再追加人读行）
+        print(json.dumps({"schema": 1, "root": root, "case_count": len(entries),
+                          "problems": problems, "cases": entries},
+                         ensure_ascii=False, indent=2))
+        return 1 if problems else 0
+    print("[INDEX] %s  案例 %d 个（现算，无缓存副本）" % (root, len(entries)))
+    if getattr(a, "stats", False):
+        def _tally(field):
+            m = {}
+            for e in entries:
+                m[e.get(field) or "(空)"] = m.get(e.get(field) or "(空)", 0) + 1
+            return "，".join("%s=%d" % (k, v) for k, v in sorted(m.items()))
+        for f in ("domain", "evidence_kind", "outcome", "goal_level"):
+            print("  %-14s %s" % (f, _tally(f)))
+    if not getattr(a, "check", False) and not getattr(a, "stats", False):
+        for e in entries:
+            print("  %-22s %-16s %-10s %-5s %s" % (
+                e["id"], e["domain"][:16], e["evidence_kind"], e["goal_level"],
+                e["outcome"]))
+    if problems:
+        print("[FAIL] 索引不一致 %d 处：" % len(problems))
+        for p in problems:
+            print("   - " + p)
+        return 1
+    if getattr(a, "check", False):
+        print("[PASS] 案例索引与磁盘一致（%d 个 case.json）" % len(entries))
+    return 0
+
+
+# ---------------------------------------------------------------- 证据强度聚合（S2-4）
+# 血案：旧聚合把「没写 confidence」的 claim 当已证，于是一个空 case 也能签成 recorded。
+# 现在判据写死在这里，不接受任何包/脚本自行放宽。
+BAD_STATUSES = ("fail", "unknown", "unsupported", "truncated", "skipped")
+WEAK_CONFIDENCE = ("inferred", "unknown")
+STRONG_CONFIDENCE = ("observed", "derived")
+
+
+def verify_case(case):
+    """单案聚合：返回 {verdict: pass|fail|unknown, reasons, counts}。"""
+    facts = load_facts(case)
+    st = load_state(case)
+    counts = {k: 0 for k in CONFIDENCE_STATES}
+    bad, stale, weak, noauth = {}, [], [], []
+    for f in facts:
+        conf = _norm_confidence(f.get("confidence"))
+        counts[conf] = counts.get(conf, 0) + 1
+        status = str(f.get("status") or "").strip().lower()
+        if status in BAD_STATUSES:
+            bad[status] = bad.get(status, 0) + 1
+        if status == "stale":
+            stale.append(str(f.get("id")))
+        if status == "proven":
+            if conf in WEAK_CONFIDENCE:
+                weak.append("%s(%s)" % (f.get("id"), conf))
+            if str(f.get("authority") or "none").strip().lower() in ("", "none"):
+                noauth.append(str(f.get("id")))
+    proven = sum(1 for f in facts if str(f.get("status") or "").lower() == "proven")
+    strong = sum(1 for f in facts
+                 if str(f.get("status") or "").lower() == "proven"
+                 and _norm_confidence(f.get("confidence")) in STRONG_CONFIDENCE
+                 and str(f.get("authority") or "none").strip().lower() not in ("", "none"))
+    fail_reasons, unknown_reasons = [], []
+    for k in sorted(bad):
+        fail_reasons.append("%s=%d（任一非零即不得 pass）" % (k, bad[k]))
+    if stale:
+        fail_reasons.append("stale 未复验：" + "、".join(stale))
+    if not facts:
+        unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
+    elif not proven:
+        unknown_reasons.append("没有 proven claim")
+    # 弱证据不算 pass 证据，但**不把整案拖成 unknown**：它们被"排除在证据集外"并明示出来。
+    # 判据（与 pack.json 的 evidence_contract.pass_forbids_confidence 一致）：
+    #   pass = 无 fail 类状态 + ≥1 条 observed/derived 背书；inferred/unknown 的 proven 只进 excluded。
+    excluded = weak + noauth
+    if not facts:
+        unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
+    elif strong == 0:
+        unknown_reasons.append("没有 observed/derived 背书（%d 条 claim 全是 inferred/unknown）" % len(facts))
+    verdict = "fail" if fail_reasons else ("unknown" if unknown_reasons else "pass")
+    return {"case": os.path.basename(os.path.abspath(case)), "verdict": verdict,
+            "claims": len(facts), "proven": proven, "strong": strong,
+            "confidence": counts, "bad": bad, "stale": stale, "excluded": excluded,
+            "reasons": fail_reasons + unknown_reasons,
+            "state_verdict": st.get("verdict"), "stage": st.get("stage")}
+
+
+def cmd_verify(a):
+    """证据强度聚合：unknown 永不计 pass。
+
+    判据（写死，不许各包自行放宽）：
+      * fail / unknown / unsupported / truncated / skipped 任一非零 → 整案 fail
+      * 有 stale 未复验 → fail
+      * 无 claim / 无 proven / proven 的 confidence ∈ {inferred,unknown} 或 authority=none → unknown
+      * 全部 proven 且 confidence ∈ {observed,derived} 且 authority 非 none → pass
+    """
+    if getattr(a, "all", False):
+        root = cases_root()
+        targets = []
+        if os.path.isdir(root):
+            for name in sorted(os.listdir(root)):
+                d = os.path.join(root, name)
+                if not os.path.isdir(d) or name.startswith("."):
+                    continue
+                if not os.path.isfile(os.path.join(d, "case.json")):
+                    continue
+                targets.append(d)
+    else:
+        if not (getattr(a, "case", "") or "").strip():
+            die("verify 需要 --case <目录> 或 --all")
+        targets = [a.case]
+    results = [verify_case(t) for t in targets]
+    if getattr(a, "json", False):
+        print(json.dumps({"schema": "seep.verify/1", "results": results},
+                         ensure_ascii=False, indent=2))
+    else:
+        for r in results:
+            mark = {"pass": "PASS", "fail": "FAIL", "unknown": "UNKNOWN"}[r["verdict"]]
+            print("[%s] %-22s claim %d（proven %d / 背书 %d）conf=%s state=%s stage=%s" % (
+                mark, r["case"], r["claims"], r["proven"], r.get("strong", 0),
+                "/".join("%s:%d" % (k, v) for k, v in r["confidence"].items() if v),
+                r["state_verdict"], r["stage"]))
+            for why in r["reasons"]:
+                print("   - " + why)
+            if r.get("excluded"):
+                print("   - 排除在证据集外（不计 pass）：" + "、".join(r["excluded"][:8])
+                      + ("…" if len(r["excluded"]) > 8 else ""))
+        n_pass = sum(1 for r in results if r["verdict"] == "pass")
+        n_fail = sum(1 for r in results if r["verdict"] == "fail")
+        n_unk = sum(1 for r in results if r["verdict"] == "unknown")
+        print("[VERIFY] %d 个案子：pass %d / fail %d / unknown %d（unknown 永不计 pass）"
+              % (len(results), n_pass, n_fail, n_unk))
+    return 0 if all(r["verdict"] == "pass" for r in results) else 1
 
 
 def main():
@@ -1000,17 +2633,44 @@ def main():
 
     p = sub.add_parser("init"); p.add_argument("--case", required=True)
     p.add_argument("--target", default=""); p.add_argument("--force", action="store_true")
+    p.add_argument("--evidence-kind", dest="evidence_kind", default="real",
+                   choices=["fixture", "real", "self-built", "historical"],
+                   help="案例真实性（写进 case.json，preflight 按此分档）")
     p.set_defaults(func=cmd_init)
+
+    p = sub.add_parser("lock", help="拿写权租约（同一会话重复 lock = 续约）")
+    p.add_argument("--case", required=True)
+    p.add_argument("--ttl", type=int, default=LEASE_TTL_DEFAULT,
+                   help="租约时长秒（默认 %d）：now - heartbeat_at > ttl 即视为过期" % LEASE_TTL_DEFAULT)
+    p.add_argument("--force", action="store_true", help="别人持有效锁时强制接管（打印 TAKEOVER）")
+    p.set_defaults(func=cmd_lock)
+
+    p = sub.add_parser("unlock", help="释放租约（不是自己持有且无 --force 则拒绝）")
+    p.add_argument("--case", required=True)
+    p.add_argument("--force", action="store_true", help="强行释放别人的锁（或过期锁）")
+    p.set_defaults(func=cmd_unlock)
+
+    p = sub.add_parser("who", help="打印当前持锁者；无锁打印 NO_LEASE（rc=0）")
+    p.add_argument("--case", required=True)
+    p.set_defaults(func=cmd_who)
 
     p = sub.add_parser("claim"); p.add_argument("--case", required=True)
     p.add_argument("--id", required=True); p.add_argument("--text", required=True)
     p.add_argument("--status", default="hypothesis"); p.add_argument("--evidence", default="")
     p.add_argument("--by", default="", help="status=refuted 时必填：谁推翻了它")
     p.add_argument("--how", default=""); p.add_argument("--ttl", default="")
+    p.add_argument("--confidence", default="", choices=[""] + list(CONFIDENCE_STATES),
+                   help="证据强度（S2-4）：observed/derived/inferred/unknown；缺省=unknown，永不计 pass")
+    p.add_argument("--authority", default="", choices=[""] + list(AUTHORITY_STATES),
+                   help="证据权威：shipped-artifact/controlled-replay/external-service/reported/none")
     p.set_defaults(func=cmd_claim)
 
     p = sub.add_parser("prove"); p.add_argument("--case", required=True)
     p.add_argument("--id", required=True); p.add_argument("--evidence", required=True)
+    p.add_argument("--confidence", default="", choices=[""] + list(CONFIDENCE_STATES),
+                   help="必须显式声明才算数（observed/derived）")
+    p.add_argument("--authority", default="", choices=[""] + list(AUTHORITY_STATES),
+                   help="证据权威（不接受 none 当已证）")
     p.set_defaults(func=cmd_prove)
 
     p = sub.add_parser("refute"); p.add_argument("--case", required=True)
@@ -1068,26 +2728,87 @@ def main():
 
     p = sub.add_parser("verdict"); p.add_argument("--case", required=True)
     p.add_argument("--value", required=True)
-    p.add_argument("--tier", default="", help="后端档位（见 05-backend-rebuild）：不可赢恒 M1；T1→裁定基准（可赢 M3/部分可赢 M2）；T2→M3；T3→M4")
+    p.add_argument("--tier", default="",
+                   help="后端档位 / 交付上限（两套词表都收，原样存）："
+                        "T1|T2|T3|T4（后端档位，05-backend-rebuild）或 M1|M2|M3|M4（交付上限）。"
+                        "档位规则：不可赢恒 M1；T1→裁定基准（可赢 M3/部分可赢 M2）；T2→M3；T3/T4→M4。"
+                        "展示用换算（不改输入值）：M1↔T1 / M2↔T2 / M3|M4↔T3")
     p.add_argument("--max-level", default="")
     p.add_argument("--note", default="")
     p.set_defaults(func=cmd_verdict)
 
+    p = sub.add_parser("events", help="事件账：工具动作流水（seep-events 扩展自动写；缺失不算错误，rc=0）")
+    p.add_argument("--case", required=True)
+    p.add_argument("--tail", type=int, default=10, help="只显示最近 N 条（默认 10）")
+    p.add_argument("--json", action="store_true", help="额外输出 JSON（机器可读）")
+    p.set_defaults(func=cmd_events)
+
     p = sub.add_parser("gate"); p.add_argument("--case", required=True)
     p.add_argument("--strict", action="store_true", help="连 hypothesis 也不许留")
+    p.add_argument("--stage", default="",
+                   help="阶段产物闸：intake|0a|0b|1|2|3|4|done（按文件内容判，不带则行为不变）")
     p.set_defaults(func=cmd_gate)
+
+    p = sub.add_parser("stage", help="阶段机：--set <阶段>（先过进阶产物闸）+ --reason 记 forced；--show 看当前/下一阶段/缺什么")
+    p.add_argument("--case", required=True)
+    p.add_argument("--set", dest="set", default="", help="/".join(STAGES))
+    p.add_argument("--show", action="store_true", help="打印当前阶段 + 下一阶段 + 还缺什么")
+    p.add_argument("--force", action="store_true",
+                   help="跳过进阶产物闸（必须配 --reason；会在 state.stage_history 记 forced:true + reason + skipped）")
+    p.add_argument("--reason", default="", help="配合 --force：为什么跳过产物闸")
+    p.set_defaults(func=cmd_stage)
 
     p = sub.add_parser("deliver"); p.add_argument("--case", required=True)
     p.add_argument("--level", required=True); p.add_argument("--evidence", "--ev", dest="evidence", required=True)
     p.add_argument("--note", default="")
     p.set_defaults(func=cmd_deliver)
 
+    p = sub.add_parser("ask", help="发一张对话内 A/B/C 卡（唯一允许的问人方式，不用弹窗）")
+    p.add_argument("--case", required=True)
+    p.add_argument("--stuck", required=True, help="一句话：卡在哪")
+    p.add_argument("--option", action="append", help='形如 "A 你自己双击启动目标"；至少两个')
+    p.add_argument("--monitor", default="", help="我这边正在监控什么")
+    p.add_argument("--guarantee", default="不动鼠标键盘、不改系统设置、不主动联网")
+    p.add_argument("--expect", default="", help="我拿到什么")
+    p.set_defaults(func=cmd_ask)
+
+    p = sub.add_parser("ack", help="记录用户回执（回一个字母），解除 awaiting_human")
+    p.add_argument("--case", required=True)
+    p.add_argument("--ack", required=True)
+    p.set_defaults(func=cmd_ack)
+
+    p = sub.add_parser("replay", help="状态重放：state 不存快照，由账本 state 行重放（--migrate/--drop-legacy/--compact）")
+    p.add_argument("--case", required=True)
+    p.add_argument("--migrate", action="store_true", help="兼容旧调用：迁移已完成，只报残留数量")
+    p.add_argument("--drop-legacy", dest="drop_legacy", action="store_true", help="删除历史副本（state.json / ai_manifest.json）")
+    p.add_argument("--compact", action="store_true", help="只保留最后一条 state 行（claim/event 不动）")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_replay)
+
+    p = sub.add_parser("index", help="案例索引：现算（不落 index.json 缓存）")
+    p.add_argument("--check", action="store_true", help="索引与磁盘不一致则 rc=1")
+    p.add_argument("--stats", action="store_true", help="额外打印领域 / 真实性 / 结论分布")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--root", default="", help="案例根目录（缺省 Tool/cases）")
+    p.set_defaults(func=cmd_index)
+
+    p = sub.add_parser("verify", help="证据强度聚合：unknown 永不计 pass（fail/unknown/... 任一非零即不得 pass）")
+    p.add_argument("--case", default="", help="单案路径（与 --all 二选一）")
+    p.add_argument("--all", action="store_true", help="对 Tool/cases/* 全量跑")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_verify)
+
     p = sub.add_parser("show"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_show)
     p = sub.add_parser("resume"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_resume)
 
     a = ap.parse_args()
-    a.func(a)
+    sys.exit(a.func(a) or 0)
 
 
 if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     main()

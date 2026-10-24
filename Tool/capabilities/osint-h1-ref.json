@@ -30,7 +30,7 @@
     "blocked_at：network-error / graphql-error / bad-response"
   ],
   "scripts": [
-    "Tool/scripts/osint-h1-ref.py"
+    "Tool/skill/web-pentest/scripts/osint-h1-ref.py"
   ],
   "refs": [
     "Tool/playbooks/osint-recon.md"

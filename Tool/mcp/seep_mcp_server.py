@@ -83,58 +83,117 @@ _PATH_ALIAS_NAMES = (
     "binary_path", "target_path", "apk_path", "file_path",
     "sample_path", "artifact_path", "pcap_path", "dir_path",
 )
+_PID_ALIAS_NAMES = (
+    "pid_or_name", "process_name", "process", "image_name",
+    "binary_path", "target_path", "file_path", "sample_path", "artifact_path",
+)
 
 
-def _path_alias(fn):
-    """给工具函数加「路径参数别名」能力（schema 可见 + 运行期归一）。"""
+def _has_value(v) -> bool:
+    """参数是否「真的传了值」：空串 / 纯空白 / None 都算没传。"""
+    return v is not None and (bool(v.strip()) if isinstance(v, str) else True)
+
+
+def _alias_layer(fn, primary, names, coerce, hint):
+    """通用参数别名层：schema 里暴露全部别名，运行期归一到主参数。
+
+    **踩过的坑（P1-8，P0 真 bug）**：FastMCP 的 arg_model 会把 schema 里全部字段
+    按默认值一起 dump 下来，所以别名总会以 `""` / `None` 的形态出现在 kwargs 里。
+    旧实现只 pop「非空」别名 —— 空串别名原样漏进被包函数，被 Python 判成
+    TypeError: unexpected keyword argument 'target_path'，**连正确传主参数名都必挂**。
+    所以这里**无条件弹出全部别名**，只把第一个非空值归一成主参数。
+    """
     import functools as _ft
     import inspect as _inspect
 
     sig = _inspect.signature(fn)
-    primary = None
-    for name in sig.parameters:
-        if name.endswith("_path") or name == "directory" or name.startswith("file_"):
-            primary = name
-            break
-    if primary is None:
-        return fn
-
-    extras = [a for a in _PATH_ALIAS_NAMES if a not in sig.parameters]
-    # 全局转 keyword-only：主参数改成可选后，后面的必填位置参数（如 smali_search 的 pattern）
-    # 会触发 "non-default argument follows default argument"；而 keyword-only 组允许
-    # 「有默认值在前、无默认值在后」，且 MCP 客户端本来就按名字传参。
-    params = []
-    for name, p in sig.parameters.items():
-        default = p.default
-        if name == primary and default is _inspect.Parameter.empty:
-            default = ""
-        params.append(_inspect.Parameter(
-            name, _inspect.Parameter.KEYWORD_ONLY,
-            default=default, annotation=p.annotation,
-        ))
-    for a in extras:
-        params.append(_inspect.Parameter(a, _inspect.Parameter.KEYWORD_ONLY, default="", annotation=str))
+    extras = [a for a in names if a not in sig.parameters]
+    # 全局转 keyword-only：主参数改成可选后，后面的必填位置参数（如 smali_search 的
+    # pattern）会触发 "non-default argument follows default argument"；keyword-only
+    # 允许「有默认值在前、无默认值在后」，且 MCP 客户端本来就按名字传参。
+    params = [_inspect.Parameter(
+        n, _inspect.Parameter.KEYWORD_ONLY,
+        default=(None if n == primary and p.default is _inspect.Parameter.empty else p.default),
+        annotation=p.annotation) for n, p in sig.parameters.items()]
+    params += [_inspect.Parameter(a, _inspect.Parameter.KEYWORD_ONLY, default="", annotation=str)
+               for a in extras]
     new_sig = sig.replace(parameters=params)
 
     @_ft.wraps(fn)
     def wrapper(*args, **kwargs):
-        supplied = [(a, kwargs.pop(a)) for a in extras if kwargs.get(a)]
-        if supplied and not args and not kwargs.get(primary):
-            kwargs[primary] = supplied[0][1]
-        if not args and not kwargs.get(primary):
-            return (
-                f"[ERROR] {fn.__name__} 缺少路径参数："
-                f"{' / '.join([primary] + extras)} 任一即可（别名互通）"
-            )
+        if args:  # 位置传参的老用法，原样透传
+            return fn(*args, **kwargs)
+        picked = ""
+        for alias in extras:
+            val = kwargs.pop(alias, "")
+            if not picked and _has_value(val):
+                picked = val
+        if isinstance(kwargs.get(primary), str):
+            kwargs[primary] = kwargs[primary].strip()
+        if not _has_value(kwargs.get(primary)):
+            if not _has_value(picked):
+                return (f"[ERROR] {fn.__name__} 缺少{hint}参数："
+                        f"{' / '.join([primary] + extras)} 任一即可（别名互通）")
+            try:
+                kwargs[primary] = coerce(picked)
+            except ValueError as exc:  # coerce 失败：回错误正文，不抛异常
+                return f"[ERROR] {fn.__name__} {exc}"
         return fn(*args, **kwargs)
 
     wrapper.__signature__ = new_sig
     wrapper.__annotations__ = {**getattr(fn, "__annotations__", {}), **{a: str for a in extras}}
     wrapper.__doc__ = (
         (fn.__doc__ or "")
-        + f"\n\n路径参数：{' / '.join([primary] + extras)} 等价，任选其一。"
+        + f"\n\n{hint}参数：{' / '.join([primary] + extras)} 等价，任选其一。"
     )
+    # 供门禁自检：运行时真的挂了别名层（而不是只把别名写进 schema）
+    wrapper.__seep_alias_primary__ = primary
+    wrapper.__seep_alias_names__ = (primary,) + tuple(extras)
     return wrapper
+
+
+def _path_alias(fn):
+    """给「吃一个文件/目录路径」的工具加路径别名能力。"""
+    import inspect as _inspect
+
+    primary = next((n for n in _inspect.signature(fn).parameters
+                    if n.endswith("_path") or n == "directory" or n.startswith("file_")), None)
+    if primary is None:
+        return fn
+    return _alias_layer(fn, primary, _PATH_ALIAS_NAMES, lambda v: v, "路径")
+
+
+def _resolve_pid(value):
+    """pid / 进程名 / 镜像路径 → pid:int；失败抛 ValueError（错误正文）。只读扫进程表。"""
+    if isinstance(value, bool):
+        raise ValueError(f"非法目标 {value!r}")
+    s = str(value).strip().strip('"').strip("'")
+    if s.lstrip("-").isdigit():
+        if int(s) <= 0:
+            raise ValueError(f"非法 pid={s}")
+        return int(s)
+    name = re.split(r"[\\/]", s)[-1] or s
+    if sys.platform == "win32":
+        rows = re.findall(r'^"([^"]+)","(\d+)"',
+                          _run_cmd(["tasklist", "/fo", "csv", "/nh"], timeout=25), re.M)
+        procs = [(int(pid), img) for img, pid in rows]
+    else:
+        rows = re.findall(r"^\s*(\d+)\s+(\S+)",
+                          _run_cmd(["ps", "-eo", "pid=,comm="], timeout=25), re.M)
+        procs = [(int(pid), img) for pid, img in rows]
+    hits = ([(p, i) for p, i in procs if i.lower() == name.lower()]
+            or [(p, i) for p, i in procs if name.lower() in i.lower()])
+    if not hits:
+        raise ValueError(f"无法定位目标进程：没有正在运行的进程匹配 {name!r}")
+    if len(hits) > 1:
+        raise ValueError("无法定位目标进程：%r 命中 %d 个进程，请用 pid 指定：%s" % (
+            name, len(hits), ", ".join(f"{i}(pid={p})" for p, i in hits[:8])))
+    return hits[0][0]
+
+
+def _pid_alias(fn, primary: str = "pid"):
+    """给「以进程为目标」的工具加别名能力（进程 ID / 进程名 / 镜像路径都可）。"""
+    return _alias_layer(fn, primary, _PID_ALIAS_NAMES, _resolve_pid, "目标进程")
 
 # ---------------------------------------------------------------------------
 # MCP Server 实例
@@ -172,7 +231,7 @@ def _run_cmd(cmd: List[str], cwd: Optional[str] = None, timeout: int = 60) -> st
             return f"[ERROR code {proc.returncode}]: {err}"
         if out and err:
             return f"{out}\n[STDERR]: {err}"
-        return out or err or "[Success, no output]"
+        return out or err
     except subprocess.TimeoutExpired:
         return f"[ERROR]: Command timed out after {timeout} seconds."
     except Exception as e:
@@ -182,6 +241,17 @@ def _clean_r2_output(text: str) -> str:
     """移除 ANSI 颜色控制字符"""
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
+
+# ── 结果契约层（S2-3）：预算/空态/证据筛选/报告模板拆到同目录 seep_contract.py ──
+# 拆的理由：主服务单文件 ≤3200 行（BASELINE-FREEZE §7）；模块是纯函数、无 IO、不注册工具。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from seep_contract import (  # noqa: E402
+    RESULT_BUDGET_CHARS, budget_gate as _budget_gate, build_report_md,
+    case_evidence_dir as _case_evidence_dir, empty_output as _empty_output,
+    is_err_payload as _is_err_payload, missing_report_fields, page_footer as _page_footer,
+    resource_constraint as _resource_constraint, strong_claim_ids as _strong_claim_ids,
+    audit_tool_effects as _audit_tool_effects)
+
 
 def _find_java() -> Optional[str]:
     """寻找 Java 运行时可执行路径（跨平台探测：PATH -> macOS JVM -> Linux JVM -> Windows JDK）"""
@@ -229,59 +299,6 @@ def _find_java() -> Optional[str]:
 # ---------------------------------------------------------------------------
 # 1. 状态与环境工具
 # ---------------------------------------------------------------------------
-@server.tool()
-def seep_status() -> str:
-    """检查 seep 逆向工具链状态、内置组件就绪度及系统环境配置。"""
-    java_path = _find_java()
-    java_ver = "NOT FOUND (JDK 17 LTS recommended)"
-    if java_path:
-        out = _run_cmd([java_path, "-version"])
-        first_line = out.splitlines()[0] if out else "Found"
-        java_ver = f"{java_path} ({first_line})"
-
-    r2_ver = "NOT FOUND"
-    if os.path.isfile(R2_EXE):
-        out = _run_cmd([R2_EXE, "-v"])
-        r2_ver = out.splitlines()[0] if out else "Ready"
-
-    jadx_status = "Ready (Batch/Jar present)" if os.path.isfile(JADX_BAT) else "Missing"
-    apktool_status = "Ready (Jar present)" if os.path.isfile(APKTOOL_JAR) else "Missing"
-    kb_status = f"Ready ({len(glob.glob(os.path.join(KB_DIR, '**', '*.md'), recursive=True))} documents)" if os.path.isdir(KB_DIR) else "Missing"
-
-    status = {
-        "name": "seep",
-        "description": "AI-Native Reverse Engineering Toolkit MCP Server",
-        "base_directory": BASE_DIR,
-        "components": {
-            "radare2_suite": {
-                "status": "Ready" if os.path.isfile(R2_EXE) else "Missing",
-                "binary": R2_EXE,
-                "version": r2_ver
-            },
-            "jadx_decompiler": {
-                "status": jadx_status,
-                "path": JADX_BAT
-            },
-            "apktool": {
-                "status": apktool_status,
-                "path": APKTOOL_JAR
-            },
-            "java_runtime": {
-                "status": "Ready" if java_path else "Not Installed / Not in PATH",
-                "detail": java_ver
-            },
-            "reverselab_knowledge_base": {
-                "status": kb_status,
-                "path": KB_DIR
-            },
-            "hook_templates": {
-                "status": "Ready" if os.path.isdir(HOOK_TEMPLATES_DIR) else "Missing",
-                "path": HOOK_TEMPLATES_DIR
-            }
-        }
-    }
-    return json.dumps(status, indent=2, ensure_ascii=False)
-
 # ---------------------------------------------------------------------------
 # 2. 二进制逆向分析工具 (Radare2 引擎)
 # ---------------------------------------------------------------------------
@@ -325,7 +342,15 @@ def seep_r2_cmd(binary_path: str, command: str, analyze: bool = True) -> str:
         os.path.abspath(binary_path)
     ]
     out = _run_cmd(cmd_args, timeout=90)
-    return _clean_r2_output(out)
+    cleaned = _clean_r2_output(out)
+    err = _is_err_payload(cleaned)
+    if err:
+        return _empty_output("seep_r2_cmd", "r2 报错：%s（确认命令拼写与地址/符号是否存在）" % err)
+    if not cleaned.strip():
+        return _empty_output("seep_r2_cmd", "r2 无输出：确认命令拼写与地址/符号是否存在")
+    return _budget_gate(
+        "seep_r2_cmd", cleaned,
+        "把命令拆小（afl→afl~sub、iz→iz~关键字、px 256→px 128 @ addr 与 px 128 @ addr+0x80）")
 
 @server.tool()
 @_path_alias
@@ -351,46 +376,15 @@ def seep_r2_strings(binary_path: str, filter_text: Optional[str] = None, all_sec
         matched = [l for l in lines[2:] if pat in l.lower()]
         result = header + matched[:limit]
         if len(matched) > limit:
-            result.append(f"... [Truncated: showing {limit} of {len(matched)} matched strings]")
+            result.append(_page_footer(len(result[2:]), len(matched), "seep_r2_strings",
+                                       "调大 limit，或加 filter_text 收窄"))
         return "\n".join(result)
     else:
         result = lines[:limit]
         if len(lines) > limit:
-            result.append(f"... [Truncated: showing {limit} of {len(lines)} strings]")
+            result.append(_page_footer(len(result), len(lines), "seep_r2_strings",
+                                       "调大 limit，或加 filter_text 收窄"))
         return "\n".join(result)
-
-@server.tool()
-@_path_alias
-def seep_r2_functions(binary_path: str, filter_name: Optional[str] = None, limit: int = 100) -> str:
-    """列出二进制文件的函数列表、入口点与导入导出符号。
-
-    Args:
-        binary_path: 目标二进制文件路径
-        filter_name: 过滤函数名或符号名（不区分大小写）
-        limit: 最大返回行数，默认 100
-    """
-    if not os.path.isfile(binary_path):
-        return f"[ERROR]: Target file does not exist: {binary_path}"
-
-    cmd = "aaa; afl"
-    out = _run_cmd([R2_EXE, "-q", "-e", "scr.color=0", "-c", cmd, os.path.abspath(binary_path)], timeout=60)
-    lines = _clean_r2_output(out).splitlines()
-
-    # 剔除分析阶段日志
-    clean_lines = [l for l in lines if not l.startswith("INFO:") and not l.startswith("WARN:")]
-    
-    if filter_name:
-        pat = filter_name.lower()
-        filtered = [l for l in clean_lines if pat in l.lower()]
-        res = filtered[:limit]
-        if len(filtered) > limit:
-            res.append(f"... [Truncated: showing {limit} of {len(filtered)} functions]")
-        return "\n".join(res) or "[No matching functions found]"
-    else:
-        res = clean_lines[:limit]
-        if len(clean_lines) > limit:
-            res.append(f"... [Truncated: showing {limit} of {len(clean_lines)} functions]")
-        return "\n".join(res)
 
 @server.tool()
 @_path_alias
@@ -399,7 +393,7 @@ def seep_r2_disasm(
     target: str = "main",
     lines: int = 60,
     output_mode: str = "full",
-    limit_tokens: int = 0,
+    limit_tokens: int = RESULT_BUDGET_CHARS,
 ) -> str:
     """反汇编指定函数或地址，支持三种输出模式以控制上下文消耗（Context Budget Control）。
 
@@ -411,7 +405,7 @@ def seep_r2_disasm(
             'full'   = 完整原始反汇编（默认，适合精细分析）
             'branch' = 仅保留条件跳转与调用指令（cmp/test/jcc/call/ret），聚焦控制流骨架
             'summary'= 不输出指令，只统计：函数大小、块数、调用链、导入函数列表（最省 Token）
-        limit_tokens: 最大输出字符数（0=不限制），超出时尾部截断并附注 Truncated 标记
+        limit_tokens: 最大输出字符数，默认 8000；**超限返回 resource_constraint，绝不截断**（0 表示只受 64KiB 硬预算约束）
     """
     if not os.path.isfile(binary_path):
         return f"[ERROR]: Target file does not exist: {binary_path}"
@@ -464,10 +458,17 @@ def seep_r2_disasm(
     else:
         result = "\n".join(output_lines)
 
-    if limit_tokens > 0 and len(result) > limit_tokens:
-        result = result[:limit_tokens] + f"\n... [TRUNCATED at {limit_tokens} chars — use offset/target narrowing for full output]"
-
-    return result or "[Disassembly empty or symbol not found]"
+    err = _is_err_payload(result)
+    if err:
+        return _empty_output("seep_r2_disasm",
+                             "r2 报错：%s（符号可能不存在，先用 seep_r2_functions 找目标）" % err)
+    if not result.strip():
+        return _empty_output("seep_r2_disasm",
+                             "反汇编为空：符号不存在或地址无代码，先 seep_r2_functions 找目标")
+    return _budget_gate(
+        "seep_r2_disasm", result,
+        "换 output_mode='branch' / 'summary'，或用 target 收窄到具体函数、lines 调小",
+        budget_chars=limit_tokens)
 
 @server.tool()
 @_path_alias
@@ -486,7 +487,7 @@ def seep_r2_decompile(
             'full'    = 完整伪代码（适合深度分析，默认）
             'fold'    = 折叠纯计算/赋值语句，仅保留 if/else/switch/return/API调用行（减少 ~60% Token）
             'summary' = 不输出伪代码，仅返回：函数签名、入参、出参、直接调用的 API/函数名列表（最省 Token）
-        limit_tokens: 最大输出字符数（默认 8000），超出则截断附 Truncated 标记；设 0 表示不限制
+        limit_tokens: 最大输出字符数，默认 8000；**超限返回 resource_constraint，绝不截断**；设 0 表示只受 64KiB 硬预算约束
     """
     if not os.path.isfile(binary_path):
         return f"[ERROR]: Target file does not exist: {binary_path}"
@@ -530,96 +531,21 @@ def seep_r2_decompile(
     else:
         result = "\n".join(output_lines)
 
-    if limit_tokens > 0 and len(result) > limit_tokens:
-        result = result[:limit_tokens] + f"\n... [TRUNCATED at {limit_tokens} chars — 使用 target 缩小范围或 output_mode='fold'/'summary' 降低消耗]"
-
-    return result or "[Decompile output empty]"
-
-@server.tool()
-@_path_alias
-def seep_r2_diff(file_a: str, file_b: str, mode: str = "code") -> str:
-    """使用 radiff2 比对两个二进制文件的差异。
-
-    Args:
-        file_a: 第一个二进制文件路径
-        file_b: 第二个二进制文件路径
-        mode: 比对模式，支持 'code' (函数代码比对 -C), 'hex' (十六进制比对 -x), 'stats' (差异摘要统计 -s)
-    """
-    if not os.path.isfile(file_a) or not os.path.isfile(file_b):
-        return f"[ERROR]: One or both files do not exist: '{file_a}', '{file_b}'"
-
-    flag_map = {
-        "code": "-C",
-        "hex": "-x",
-        "stats": "-s"
-    }
-    flag = flag_map.get(mode.lower(), "-C")
-    out = _run_cmd([RADIFF2_EXE, flag, os.path.abspath(file_a), os.path.abspath(file_b)], timeout=60)
-    return _clean_r2_output(out)
-
-@server.tool()
-def seep_r2_asm(code_or_hex: str, arch: str = "x86", bits: int = 64, disasm: bool = False) -> str:
-    """使用 rasm2 进行机器码组装 (汇编) 或逆向反汇编。
-
-    Args:
-        code_or_hex: 汇编指令字符串 (如 'xor eax, eax; ret') 或 十六进制机器码 (如 '31c0c3')
-        arch: 目标架构 (x86, arm, mips, riscv 等)，默认 x86
-        bits: 位数 (16, 32, 64)，默认 64
-        disasm: 为 True 时将 hex 转换为汇编代码；为 False 时将汇编代码转换为 hex 机器码。
-    """
-    if not os.path.isfile(RASM2_EXE):
-        return f"[ERROR]: rasm2.exe not found at {RASM2_EXE}"
-
-    cmd = [RASM2_EXE, "-a", arch, "-b", str(bits)]
-    if disasm:
-        cmd.extend(["-d", code_or_hex.strip()])
-    else:
-        cmd.append(code_or_hex.strip())
-
-    out = _run_cmd(cmd)
-    return out.strip()
+    err = _is_err_payload(result)
+    if err:
+        return _empty_output("seep_r2_decompile",
+                             "r2 报错：%s（符号可能不存在，先用 seep_r2_functions 找目标）" % err)
+    if not result.strip():
+        return _empty_output("seep_r2_decompile",
+                             "伪代码为空：符号不存在或该函数无代码，先 seep_r2_functions")
+    return _budget_gate(
+        "seep_r2_decompile", result,
+        "用 output_mode='branch'/'summary' 降噪，或 target 换成更小的函数",
+        budget_chars=limit_tokens)
 
 # ---------------------------------------------------------------------------
 # 3. Android APK 逆向与动态 Hook 生成
 # ---------------------------------------------------------------------------
-@server.tool()
-@_path_alias
-def seep_r2_xrefs(
-    binary_path: str,
-    target: str,
-    direction: str = "to",
-    limit: int = 10,
-) -> str:
-    """获取指定地址/函数的交叉引用关系，内置分页与统计摘要避免大量 xref 结果内爆上下文。
-
-    Args:
-        binary_path: 目标二进制文件路径
-        target: 目标函数名或地址（如 'sym.check_license', '0x401234'）
-        direction: 方向— 'to'=谁引用了它(调用方), 'from'=它引用了谁(被调用方)
-        limit: 最多返回多少条引用（默认 10），超出部分附加统计摘要
-    """
-    if not os.path.isfile(binary_path):
-        return f"[ERROR]: Target file does not exist: {binary_path}"
-
-    r2_cmd = f"aaa; {'axt' if direction == 'to' else 'axf'} @ {target}"
-    out = _run_cmd([R2_EXE, "-q", "-e", "scr.color=0", "-c", r2_cmd, os.path.abspath(binary_path)], timeout=60)
-    cleaned = _clean_r2_output(out)
-    lines = [l for l in cleaned.splitlines() if l.strip() and not l.startswith("INFO:") and not l.startswith("WARN:")]
-
-    total = len(lines)
-    shown = lines[:limit]
-    result_lines = [
-        f"[XREFS {direction.upper()} — {target} | 共 {total} 条引用，显示前 {min(limit, total)} 条]",
-        f"注意: 若 total 远大于 limit，考虑缩小 limit 或先查 summary 模式确定目标函数。",
-        "━" * 60,
-    ] + shown
-
-    if total > limit:
-        result_lines.append(f"... [已截断，剩余 {total - limit} 条未展示 | 增大 limit 或用 filter_name 缩小目标范围]"
-                            f"\n模块来源分布小计: {dict(list({l.split()[2] if len(l.split())>2 else '?' for l in lines}))[:3]}"
-        )
-
-    return "\n".join(result_lines)
 @server.tool()
 @_path_alias
 def seep_apk_info(apk_path: str) -> str:
@@ -698,6 +624,12 @@ def seep_apk_decompile(apk_path: str, output_dir: Optional[str] = None, deobfusc
     cmd.append(os.path.abspath(apk_path))
 
     out = _run_cmd(cmd, timeout=300)
+    _bad = (_is_err_payload(out) or ("[ERROR" in (out or ""))
+            or ("No classes to decompile" in (out or ""))
+            or (not os.path.isdir(output_dir)) or (not os.listdir(output_dir)))
+    if _bad:
+        return _empty_output("seep_apk_decompile",
+                             "jadx 没有产出（或目录为空）：原始输出在 out，别把「没跑成」当「跑完了」")
     return f"Decompilation finished.\nOutput directory: {output_dir}\nLog: {out[:500]}..."
 
 @server.tool()
@@ -727,6 +659,10 @@ def seep_apk_unpack(apk_path: str, output_dir: Optional[str] = None, no_src: boo
     cmd.extend(["-o", output_dir, os.path.abspath(apk_path)])
 
     out = _run_cmd(cmd, timeout=300)
+    if _is_err_payload(out) or "[ERROR" in (out or "") or not os.path.isdir(output_dir) \
+            or not os.listdir(output_dir):
+        return _empty_output("seep_apk_unpack",
+                             "apktool 没有产出（或目录为空）：原始输出在 out，别把「没跑成」当「跑完了」")
     return f"Apktool unpack finished.\nOutput directory: {output_dir}\nLog: {out[:500]}..."
 
 @server.tool()
@@ -771,123 +707,9 @@ def seep_apk_smali_search(directory: str, pattern: str, case_sensitive: bool = F
         return f"No matches found for '{pattern}' in {directory}"
     res = matches[:limit]
     if len(matches) >= limit:
-        res.append(f"... [Truncated: reached limit of {limit} matches]")
+        res.append(_page_footer(len(res), len(matches), "seep_apk_smali_search",
+                                "调大 limit，或把 pattern / directory 收窄"))
     return "\n".join(res)
-
-@server.tool()
-def seep_apk_gen_hook(
-    framework: str = "frida",
-    class_name: str = "com.example.app.MainActivity",
-    method_name: str = "checkFlag",
-    param_types: Optional[List[str]] = None,
-    return_type: str = "boolean",
-    hook_timing: str = "after"
-) -> str:
-    """根据类名与方法签名自动生成动态 Hook 脚本（支持 Frida JavaScript 与 LSPilot/BeanShell 两种框架）。
-
-    Hook 时机的语义（三种必须真的不同）：
-      · before  —— 先打印入参，再调用原方法并原样返回（只做前置观察/改参）
-      · after   —— 先调用原方法，再打印返回值并原样返回（默认，后置观察）
-      · replace —— 完全不调用原方法，直接返回指定值（拦截改写）
-
-    Args:
-        framework: Hook 框架，'frida' (默认) 或 'bsh' / 'lspilot'
-        class_name: 目标完整类名（如 com.example.app.SecurityHelper）
-        method_name: 目标方法名（如 verifyLicense）
-        param_types: 方法形参类型列表，例如 ['java.lang.String', 'int']，若重载方法需指定
-        return_type: 返回值类型，默认 'boolean'（void 时 replace 分支会裸 return）
-        hook_timing: Hook 时机，'before', 'after', 或 'replace'
-    """
-    params_str = ", ".join(param_types) if param_types else ""
-
-    if framework.lower() == "frida":
-        timing = (hook_timing or "after").lower()
-        if timing not in ("before", "after", "replace"):
-            timing = "after"
-        joined_types = "', '".join(param_types) if param_types else ""
-        overload_args = f"'{joined_types}'" if param_types else ""
-
-        # 返回值默认值（仅 replace 模式使用）
-        if return_type == "boolean":
-            default_ret = "true"
-        elif return_type == "void":
-            default_ret = ""          # void 不能返回具体值，裸 return
-        elif return_type in ("int", "long", "short", "byte", "float", "double"):
-            default_ret = "0"
-        else:
-            default_ret = "null"
-
-        overload_block = ""
-        if param_types:
-            overload_block = f"""    if (method.overloads && method.overloads.length > 0) {{
-        method = method.overload({overload_args});
-    }}
-"""
-
-        head = f"""// Frida Hook Script for {class_name}.{method_name}
-// Generated by seep MCP Toolkit  (timing={timing}, return_type={return_type})
-Java.perform(function () {{
-    var target = Java.use("{class_name}");
-    var method = target["{method_name}"];
-{overload_block}
-    method.implementation = function () {{
-        console.log("[*] Hooked {class_name}.{method_name} called");
-        for (var i = 0; i < arguments.length; i++) {{
-            console.log("    arg[" + i + "]: " + arguments[i]);
-        }}
-"""
-
-        if timing == "replace":
-            if default_ret == "":
-                body = """        console.log("[*] Original method skipped (void: return nothing)");
-        return;
-"""
-            else:
-                body = f"""        console.log("[*] Return value hijacked to: {default_ret}");
-        return {default_ret};
-"""
-        elif timing == "before":
-            body = f"""        var ret = this.{method_name}.apply(this, arguments);
-        return ret;
-"""
-        else:
-            body = f"""        var ret = this.{method_name}.apply(this, arguments);
-        console.log("[*] Original return value: " + ret);
-        return ret;
-"""
-
-        tail = """    };
-});
-"""
-        return head + body + tail
-
-    # LSPilot / BeanShell 模板
-    template_file = os.path.join(HOOK_TEMPLATES_DIR, f"hook_{(hook_timing or 'after').lower()}.bsh")
-    if not os.path.isfile(template_file):
-        template_file = os.path.join(HOOK_TEMPLATES_DIR, "hook_after.bsh")
-    if not os.path.isfile(template_file):
-        return (f"[ERROR]: Hook 模板缺失: {HOOK_TEMPLATES_DIR}"
-                f"（请确认 Tool/mcp/Tool/safe/hook-mcp/templates/ 完整）")
-
-    with open(template_file, "r", encoding="utf-8", errors="replace") as fh:
-        content = fh.read()
-
-    pre_find = ""
-    if param_types:
-        param_classes = ", ".join([f'ReflectUtils.findClass("{p}", hostLoader)' for p in param_types])
-        pre_find = f'Class[] paramTypes = new Class[] {{ {param_classes} }};\n    java.lang.reflect.Method targetMethod = ReflectUtils.findMethod(targetClass, "{method_name}", paramTypes);'
-    else:
-        pre_find = f'java.lang.reflect.Method targetMethod = ReflectUtils.findMethod(targetClass, "{method_name}", null);'
-
-    content = content.replace("${GEN_TIME}", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    content = content.replace("${PLUGIN_NAME}", f"hook_{method_name}")
-    content = content.replace("${TARGET_CLASS}", class_name)
-    content = content.replace("${TARGET_METHOD}", method_name)
-    content = content.replace("${TARGET_DESC}", f"({params_str})")
-    content = content.replace("${PRE_FIND_METHOD}", pre_find)
-    content = content.replace("${CALLBACK_CODE}", f'// TODO: Add custom manipulation for {method_name}')
-    return content
-
 
 # ---------------------------------------------------------------------------
 # 4. ReverseLab 攻防战术知识库与 CTF Payload 库
@@ -1071,69 +893,12 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
     with open(target, "r", encoding="utf-8", errors="replace") as fh:
         text = fh.read()
         if len(text) > max_chars:
-            return text[:max_chars] + f"\n\n... [Truncated: Total {len(text)} characters, showing first {max_chars}]"
+            return _resource_constraint(
+                "seep_kb_read", text,
+                "把 max_chars 调到 ≥ %d 再读全文" % len(text),
+                artifact_hint="全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
+                    len(text), _byte_len(text)))
         return text
-
-@server.tool()
-def seep_kb_checklist(checklist_type: str = "web_first_30_min") -> str:
-    """获取精炼的 CTF 竞技战术排查清单与工作流。
-
-    Args:
-        checklist_type: 清单类型，支持：
-            - 'web_first_30_min': Web CTF 前 30 分钟应急排查指南
-            - 'attack_matrix': 攻击面全景矩阵
-            - 'evidence': 证据链归档标准模板
-            - 'pe_ioc': PE 逆向 IOC 提取指南
-            - 'pe_persistence': PE 启动持久化链路排查
-            - 'yara_rules': YARA 规则编写指南
-    """
-    map_dict = {
-        "web_first_30_min": "ctf-website/checklists/web-ctf-first-30-min.md",
-        "attack_matrix": "ctf-website/checklists/attack-matrix.md",
-        "evidence": "ctf-website/checklists/evidence.md",
-        "pe_ioc": "pe-reverse/techniques/06-ioc-extraction/01-ioc-extraction.md",
-        "pe_persistence": "pe-reverse/techniques/06-ioc-extraction/02-persistence-startup-chain.md",
-        "yara_rules": "pe-reverse/techniques/07-yara-sigma/01-yara-rule-writing.md"
-    }
-    rel_path = map_dict.get(checklist_type.lower(), "ctf-website/checklists/web-ctf-first-30-min.md")
-    return seep_kb_read(rel_path)
-
-@server.tool()
-def seep_kb_payloads(category: str = "all") -> str:
-    """检索 CTF 常用高危漏洞 Exploit 种子与 Payload 集合（含 SQLi, SSTI, Prototype Pollution, JWT, SSRF, Deserialization 等）。
-
-    Args:
-        category: 类别过滤（'all', 'jwt', 'ssrf', 'sqli', 'ssti', 'prototype'），默认 'all'
-    """
-    payload_file = os.path.join(KB_DIR, "ctf-website", "payloads", "web-payload-seeds.md")
-    if not os.path.isfile(payload_file):
-        return "[ERROR]: Payload seeds file not found."
-
-    with open(payload_file, "r", encoding="utf-8", errors="replace") as fh:
-        content = fh.read()
-
-    if category.lower() == "all":
-        return content
-
-    # 提取对应章节
-    lines = content.splitlines()
-    selected_lines = []
-    capturing = False
-    target = category.lower()
-
-    for line in lines:
-        if line.startswith("#"):
-            if target in line.lower():
-                capturing = True
-            elif capturing and (line.startswith("## ") or line.startswith("# ")):
-                break
-        if capturing:
-            selected_lines.append(line)
-
-    if selected_lines:
-        return "\n".join(selected_lines)
-    return f"No section matching '{category}' in payloads file. Returning full document header:\n" + "\n".join(lines[:60])
-
 
 # ---------------------------------------------------------------------------
 # 5. 战术助手与安全评估增强工具 (Task Isolation, Triage, Report & IDA Bridge)
@@ -1159,51 +924,6 @@ def _task_dir(task_name: str) -> str:
     if not clean:
         raise ValueError("task_name 不能为空")
     return os.path.join(_workspace_root(), clean)
-
-
-@server.tool()
-def seep_task_init(task_name: str, description: str = "") -> str:
-    """
-    【工作空间铁律保障】为新任务一键在根目录下初始化独立的任务沙箱工作区。
-    自动创建规范子目录：samples/, exports/, patches/, reports/，
-    杜绝文件乱堆乱放和根目录污染。
-    """
-    clean_name = re.sub(r'[^\w\-]', '_', task_name.strip())
-    if not clean_name:
-        return "[ERROR] task_name 不能为空"
-
-    # 任务目录统一落在 <仓库根>/work/<name>（或 SEEP_WORKSPACE），不再进 Tool/mcp
-    task_path = _task_dir(clean_name)
-    subdirs = ["samples", "exports", "patches", "reports"]
-    
-    try:
-        os.makedirs(task_path, exist_ok=True)
-        created_dirs = [clean_name]
-        for sub in subdirs:
-            p = os.path.join(task_path, sub)
-            os.makedirs(p, exist_ok=True)
-            created_dirs.append(f"{clean_name}/{sub}")
-            
-        readme_path = os.path.join(task_path, "README.md")
-        if not os.path.exists(readme_path):
-            with open(readme_path, "w", encoding="utf-8") as f:
-                f.write(f"# 任务工作区: {clean_name}\n\n")
-                f.write(f"- 创建时间: {subprocess.getoutput('date /t') if sys.platform == 'win32' else subprocess.getoutput('date')}\n")
-                f.write(f"- 任务描述: {description or '授权软件安全检测与白盒鉴权脆弱性走查任务'}\n\n")
-                f.write("## 目录约定\n")
-                f.write("- `samples/`: 原始目标程序与待测样本\n")
-                f.write("- `exports/`: 反编译伪代码、字符串导出、日志与分析证据\n")
-                f.write("- `patches/`: 验证 PoC 代码、代理 DLL 跳板工程、热补丁\n")
-                f.write("- `reports/`: 最终安全评估与漏洞复现报告\n")
-        
-        return json.dumps({
-            "status": "Success",
-            "task_directory": task_path,
-            "created_directories": created_dirs,
-            "message": f"任务工作区 [{clean_name}] 已成功创建！后续所有产物请严格保存于该目录内部。"
-        }, indent=2, ensure_ascii=False)
-    except Exception as e:
-        return f"[ERROR] 初始化任务工作区失败: {str(e)}"
 
 
 def _hash_file(path: str, chunk: int = 1 << 20):
@@ -1255,16 +975,19 @@ def _triage_next_actions(matched: List[Dict[str, Any]], bin_info: Dict[str, Any]
 @_path_alias
 def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     """
-    一键全自动靶向侦察 (Auto Triage)：
-    对给定目标（PE/EXE/DLL/APK/ELF）进行 360° 综合体检：
-    1. 计算 MD5 / SHA256 文件哈希
-    2. 探测文件类型与架构位数 (32/64 bit, x86/ARM)
-    3. 枚举关键安全缓解机制 (Canary/NX/PIE/ASLR)
-    4. 提取高价值鉴权/密钥/网络特征字符串
-    5. 若提供 task_name，自动将完整报告输出到该任务的 reports/ 目录
+    静态靶向侦察 (Auto Triage) —— **无证据则拒绝，不返回"看起来完整"的空壳**：
+    哈希整文件流式（observed）；rabin2 可用才算二进制画像（否则 unknown）；命中才列鉴权串。
+    拒绝条件：rabin2 解析失败 **且** 字符串零命中 → {ok:false,error:"no_evidence"}，wrote_files=0
+    （旧实现此时会返回一份全 "unknown" 的画像并当作完成，等于把"没测"签成"测过"）。
     """
     if not os.path.exists(target_path):
-        return f"[ERROR] Target path not found: {target_path}"
+        return json.dumps({
+            "ok": False,
+            "error": "target_not_found",
+            "blocked_at": "seep_auto_triage",
+            "target_path": target_path,
+            "wrote_files": 0,
+        }, indent=2, ensure_ascii=False)
     
     t_path = Path(target_path).resolve()
     file_size = os.path.getsize(t_path)
@@ -1303,8 +1026,22 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
         except Exception:
             pass
 
+    rabin2_ok = bool(bin_info)
+    if not rabin2_ok and not matched_strings:  # 零证据 → 拒绝，不返回全 unknown 的空壳画像
+        return json.dumps({"ok": False, "error": "no_evidence", "blocked_at": "seep_auto_triage",
+                           "wrote_files": 0,
+                           "observed": {"file_name": t_path.name, "file_size_bytes": file_size,
+                                        "md5": md5_val, "sha256": sha256_val, "hash_scope": "full-file"},
+                           "reason": "rabin2 未能解析该文件，且鉴权关键词扫描零命中：拿不到任何二进制画像",
+                           "hint": "确认 rabin2 可用（seep_ensure_tool / seep_status），或改用 "
+                                   "seep_r2_info(binary_path=…) / seep_packer_detect(binary_path=…)；"
+                                   "文件可能截断、加壳或非标准格式"},
+                          indent=2, ensure_ascii=False)
+
     _actions = _triage_next_actions(matched_strings, bin_info, task_name)
     triage_result = {
+        "ok": True,
+        "status": "observed" if rabin2_ok else "partial",
         "file_name": t_path.name,
         "file_size": f"{file_size / (1024 * 1024):.2f} MB",
         "hashes": {
@@ -1312,6 +1049,15 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
             "sha256": sha256_val,
             "hash_scope": "full-file"  # 整文件流式计算，大文件不截断
         },
+        "confidence": {
+            "hashes": "observed",
+            "binary_profile": "observed" if rabin2_ok else "unknown",
+            "auth_strings": "observed" if matched_strings else "unknown",
+        },
+        "authority": "shipped-artifact",
+        "limitations": ["只做静态（读文件字节），不含运行期行为/内存态结论",
+                        "auth_related_strings_sampled 是关键词命中抽样，不等于授权逻辑位置"]
+        + ([] if rabin2_ok else ["rabin2 不可用：arch/bits/format/protection 均为 unknown"]),
         "binary_profile": {
             "arch": bin_info.get("arch", "unknown"),
             "bits": bin_info.get("bits", "unknown"),
@@ -1339,115 +1085,67 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
 
 
 @server.tool()
-def seep_ida_status() -> str:
-    """
-    检查本地 IDA Pro 逆向分析服务与 MCP 桥接器是否在线就绪。
-    探测端口 127.0.0.1:13337。
-    """
-    import urllib.request
-    url = "http://127.0.0.1:13337"
-    try:
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=2) as resp:
-            return json.dumps({
-                "status": "Online",
-                "code": resp.status,
-                "message": "IDA Pro MCP 服务正在稳定运行！可直接调用 mcp_ida_* 工具链展开反编译与交叉引用深度分析。"
-            }, indent=2, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({
-            "status": "Offline / Unreachable",
-            "detail": str(e),
-            "hint": "若需使用 IDA 深度分析，请在 IDA Pro GUI 中确认插件已加载，或按下 Ctrl+Alt+M 唤醒。"
-        }, indent=2, ensure_ascii=False)
-
-
-@server.tool()
 def seep_gen_security_report(
     task_name: str,
     target_name: str,
     vuln_type: str = "CWE-602: 客户端鉴权与状态判定缺陷",
-    branch_location: str = "0x0",
+    branch_location: str = "",
     description: str = "",
     poc_summary: str = "",
-    defense_recommendation: str = ""
+    defense_recommendation: str = "",
+    disasm_snippet: str = "",
+    case_dir: str = "",
 ) -> str:
     """
-    自动生成专业级白盒安全漏洞评估报告。
-    按照正规合规标准排版，包含漏洞成因、位点、复现 PoC 与企业级防护加固方案。
-    报告自动落入任务文件夹的 reports/ 目录。
+    生成白盒安全评估报告 —— **无证据则拒绝**（不再有"缺省成功"路径）。
+
+    缺任一条即 `ok:false`，且 reports/ 下一个文件都不写：
+      1. task_name / target_name / description / poc_summary 非空；
+      2. branch_location 不是占位值（0x0 / unknown / tbd / 空）；
+      3. 本案 facts.jsonl 至少有 1 条 claim：status=proven + confidence∈{observed,derived} + evidence 非空。
+    反汇编摘录不提供时报告写"未提供"，**绝不编造指令**。
     """
-    clean_task = re.sub(r'[^\w\-]', '_', task_name.strip())
+    clean_task = re.sub(r'[^\w\-]', '_', (task_name or "").strip())
+    miss = missing_report_fields(clean_task, target_name, description, poc_summary, branch_location)
+    if miss:  # 缺字段 = 缺证据：一个文件都不写
+        return json.dumps({"ok": False, "error": "missing_evidence_fields", "fields": miss,
+                           "blocked_at": "seep_gen_security_report", "wrote_files": 0,
+                           "hint": "这些字段必须来自实测（反编译位点 / 跑过的 PoC / 现象）；不接受缺省模板。"},
+                          indent=2, ensure_ascii=False)
+
+    ev_dir = _case_evidence_dir(task_name, case_dir, _task_dir, _case_lib_dir)
+    strong = _strong_claim_ids(ev_dir) if ev_dir else []
+    if not strong:  # 无 observed/derived 证据 = 拒报告（旧文案「通过动态 Hook 成功验证」已删）
+        return json.dumps({"ok": False, "error": "no_evidence", "wrote_files": 0,
+                           "blocked_at": "seep_gen_security_report",
+                           "case_dir": ev_dir or "(未找到含 facts.jsonl 的案例目录)",
+                           "hint": "先 `case_state.py claim --case <目录> --id F-001 --text ... --status "
+                                   "proven --evidence '<实测输出>' --confidence observed --authority "
+                                   "shipped-artifact`，再回来出报告。"},
+                          indent=2, ensure_ascii=False)
+
     report_dir = os.path.join(_task_dir(clean_task), "reports")
     os.makedirs(report_dir, exist_ok=True)
-    
-    report_file = os.path.join(report_dir, f"{target_name}_security_assessment_report.md")
-    
+    report_file = os.path.join(report_dir, "%s_security_assessment_report.md"
+                               % re.sub(r'[^\w\-]', '_', target_name))
     now_str = subprocess.getoutput('date /t') if sys.platform == 'win32' else subprocess.getoutput('date')
-    
-    default_remediation = (
-        "1. **服务端统一鉴权 (Server-side Enforcement)**：将核心特权逻辑迁移至云端，客户端仅作为渲染终端，所有受限资源由服务端颁发带有时间戳和数字签名的 Token 换取。\n"
-        "2. **非对称公钥防篡改**：若需支持离线场景，必须使用 RSA/ECC 非对称签名，客户端仅保留公钥验签，私钥由授权服务器持有。\n"
-        "3. **内存完整性保护**：启用 Windows `ProcessDynamicCodePolicy` 抑制动态内存写入，并在核心敏感模块增加代码段自校验哈希。"
-    )
-    
-    remediation_text = defense_recommendation or default_remediation
-    
-    content = f"""# 软件安全评估与鉴权脆弱性走查报告
-
-- **目标资产**: `{target_name}`
-- **评估类型**: 白盒代码走查 / 客户端决策逻辑安全性验证
-- **缺陷分类**: `{vuln_type}`
-- **评估时间**: {now_str}
-- **报告归属**: `{clean_task}/reports/`
-
----
-
-## 1. 风险概述与脆弱性成因 (Vulnerability Summary)
-{description or "在白盒审计过程中，发现该客户端采用本地离线决策逻辑，缺乏服务端强鉴权与非对称加密验签。客户端程序完全依据本地存储状态或单一标志位分支进行权限放行，构成 CWE-602 本地判定信任缺陷。"}
-
----
-
-## 2. 关键判定决策位点 (Decision Branch Location)
-- **判定函数 / 偏移位点**: `{branch_location}`
-- **汇编指令与分支模式**:
-```text
-; 典型本地鉴权判断分支
-TEST EAX, EAX
-JZ   loc_restricted_feature  ; 本地跳转决定受限功能
-```
-
----
-
-## 3. 验证 PoC 与复现过程 (Proof of Concept)
-{poc_summary or "通过动态 Hook / 内存标志位修正，成功验证在不经过服务端鉴权的前提下，本地逻辑可以直接放行相关受限功能。验证代码已归档至 patches/ 目录。"}
-
----
-
-## 4. 纵深防护与企业级加固修复建议 (Remediation)
-{remediation_text}
-"""
-
+    content = build_report_md(clean_task, target_name, vuln_type, branch_location, description,
+                              poc_summary, defense_recommendation, disasm_snippet,
+                              ev_dir, strong, now_str)
     with open(report_file, "w", encoding="utf-8") as f:
         f.write(content)
-        
     return json.dumps({
-        "status": "Success",
-        "report_path": report_file,
-        "message": f"安全评估报告已正式生成并归档至: {clean_task}/reports/{os.path.basename(report_file)}"
+        "ok": True, "status": "Reported", "report_path": report_file,
+        "evidence_claims": strong, "confidence": "derived", "authority": "shipped-artifact",
+        "limitations": ["只覆盖 evidence_claims 里的结论；其余未验证部分不进本报告",
+                        "反汇编摘录为空表示本次未取，不代表不存在"],
+        "message": f"报告已生成并归档至: {clean_task}/reports/{os.path.basename(report_file)}",
     }, indent=2, ensure_ascii=False)
 
 
-# ---------------------------------------------------------------------------
-# 扩展资产（relab2 / REA 适配版，2026-10 增补）
-# 这两个工具是"增量挂载"：不修改任何既有工具逻辑，只在末尾追加。
-#   seep_ensure_tool      —— 工具四级探测与缺工具自愈建议（源自 relab2 ensure_tool + Bootstrap 四级递进）
-#   seep_decompile_auto   —— 多引擎降级反编译 IDA→REA→R2（源自 REA 的 provider 降级链思想）
-# ---------------------------------------------------------------------------
+# 扩展资产（relab2 / REA 适配版）：seep_ensure_tool 四级探测自愈 / seep_decompile_auto 多引擎降级 IDA→REA→R2
 
-# 工具根目录：由 tool_autodiscover.candidate_roots() 动态计算
-# （环境变量 → 用户级 → 各盘符常见目录名 → POSIX；绝不写死 D:\Tools 之类）。
-# 插件不可用时退回一个最小用户级清单，保证功能不中断。
+# 工具根：tool_autodiscover.candidate_roots()（env → 用户级 → 盘符常见目录 → POSIX），插件不可用时用下面的兜底。
 _FALLBACK_ROOTS = [
     os.environ.get("SEEP_TOOL_ROOT", ""),
     os.environ.get("REVERSE_TOOL_ROOT", ""),
@@ -1826,92 +1524,6 @@ def _ghidra_decompile(binary_path: str, target: str, output_mode: str = "fold") 
     return code[:12000]
 
 
-@server.tool()
-@_path_alias
-def seep_decompile_auto(
-    binary_path: str,
-    target: str = "main",
-    engine: str = "auto",
-    output_mode: str = "fold",
-    limit_tokens: int = 8000,
-) -> str:
-    """反编译入口：自动探测本机引擎，优先给可直接执行的 Radare2 伪代码，并报告更高阶引擎可用性。
-
-    诚实说明（避免过度承诺）：
-    - 本工具**直接执行**的是 Radare2（内置、永远可用）——它能当场给出真伪代码。
-    - 对 IDA / Ghidra / REA：本工具只**探测它们是否可用并报告**，不在此函数内驱动它们的
-      MCP/CLI harness（那些需各自的 MCP 通道，由 ida-reverse 技能或对应 MCP 工具负责）。
-    - 若本机无 r2 但有高阶引擎，会提示你改用对应引擎的 MCP 工具，而不是伪造结果。
-
-    所以它的定位是：“r2 保底 + 高阶引擎告知”，而非“自动把 IDA/Ghidra 都跑一遍”。
-
-    Args:
-        binary_path: 目标二进制路径
-        target: 函数名或地址（如 'main'、'sym.verify'、'0x401000'）
-        engine: 'auto'（默认）| 'ida' | 'ghidra' | 'rea' | 'r2'
-        output_mode: 传给底层反编译的折叠模式 'full' | 'fold' | 'summary'
-        limit_tokens: 输出字符上限
-    """
-    if not os.path.isfile(binary_path):
-        return f"[ERROR]: Target file does not exist: {binary_path}"
-
-    if engine == "auto":
-        order = _engine_order_for(binary_path)
-    else:
-        order = [engine.lower()]
-
-    tried = []
-    for eng in order:
-        info = _detect_engine(eng)
-        tried.append({"engine": eng, "available": info["available"], "detail": info["detail"]})
-        if not info["available"]:
-            continue
-
-        # Ghidra：真驱动 headless 反编译（若可用）
-        if eng == "ghidra":
-            g = _ghidra_decompile(binary_path, target, output_mode)
-            if g is not None:
-                return (
-                    "[engine_used] ghidra (Ghidra headless)\n"
-                    "[note] 已用 Ghidra analyzeHeadless 真反编译（比 r2 pdc 更准）。\n%s\n%s"
-                    % ("-" * 60, g)
-                )
-            # Ghidra 探测到但跑失败：继续降级
-            tried[-1]["ghidra_run_failed"] = True
-            continue
-
-        # IDA / REA 的完整自动化需各自的 MCP/CLI harness；不伪造结果，降级 r2
-        if eng in ("ida", "rea"):
-            if os.path.isfile(R2_EXE):
-                continue
-            return json.dumps({
-                "engine_used": eng,
-                "note": "检测到 %s 可用（%s），但需通过其 MCP/CLI harness 驱动；"
-                        "本机无 r2 兜底，请改用 %s 的 MCP 工具反编译 %s。"
-                        % (eng, info["detail"], eng, target),
-                "probed": tried,
-            }, indent=2, ensure_ascii=False)
-
-        if eng == "r2":
-            pseudo = seep_r2_decompile(binary_path, target=target,
-                                       output_mode=output_mode, limit_tokens=limit_tokens)
-            higher = [t["engine"] for t in tried if t["available"] and t["engine"] != "r2"]
-            return (
-                "[engine_used] r2 (Radare2)\n"
-                "[higher_tier_available] %s\n"
-                "[note] 已按 IDA->Ghidra/REA->R2 降级链选到可直接执行的引擎；"
-                "若需更高精度可改用上表所列引擎的 MCP 工具。\n%s\n%s"
-                % (", ".join(higher) if higher else "none", "-" * 60, pseudo)
-            )
-
-    return json.dumps({
-        "engine_used": None,
-        "error": "无任何可用反编译引擎（ida/ghidra/rea/r2 均不可用）",
-        "probed": tried,
-        "hint": "先运行 seep_ensure_tool('r2') 或安装 radare2。",
-    }, indent=2, ensure_ascii=False)
-
-
 # ---------------------------------------------------------------------------
 # 扩展资产 第二批（补 Seep 的"动态/资源/协议"盲区，2026-10 增补）
 # 纯增量：不修改任何既有工具逻辑，只在末尾追加。
@@ -1955,126 +1567,8 @@ def _sniff_container(b: bytes) -> str:
 
 
 @server.tool()
-@_path_alias
-def seep_pe_resources(binary_path: str, min_size: int = 4096, extract_dir: str = "", top: int = 20) -> str:
-    """枚举 PE 资源节与高熵载荷，并对可疑资源做"魔数嗅探"，可选剥离到目录。
-
-    针对"换肤器/皮肤包/内嵌 DLL"这类样本：真正的功能载荷往往不在 .text，
-    而在资源节（如自定义 DATA 资源）里，且常是 zstd/zip 等压缩容器。
-    本工具读 PE 资源树 + 节熵，直接告诉你"哪块资源是高熵、是什么容器"。
-
-    Args:
-        binary_path: PE 文件路径
-        min_size: 只报告不小于该字节数的资源（默认 4096，过滤图标小资源）
-        extract_dir: 若给出，则把命中的资源数据落盘到该目录（默认空=只报告不落盘）
-        top: 最多报告前 N 个最大的资源（默认 20）
-    """
-    if not os.path.isfile(binary_path):
-        return f"[ERROR]: file not found: {binary_path}"
-    if not binary_path.lower().endswith((".exe", ".dll", ".sys", ".ocx", ".cpl", ".scr")):
-        # 仍尝试，但提示
-        pass
-    try:
-        import pefile  # noqa: F401
-    except Exception:
-        return ("[ERROR]: 需要 pefile 库（pip install pefile）。"
-                "或改用 seep_r2_info / seep_auto_triage 获取节信息。")
-    import pefile
-    try:
-        pe = pefile.PE(binary_path, fast_load=True)
-        pe.parse_data_directories(directories=[
-            pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]])
-    except Exception as exc:  # noqa: BLE001
-        return f"[ERROR]: pefile 解析失败: {type(exc).__name__}: {exc}"
-
-    # 1) 节熵概览
-    sections = []
-    for s in pe.sections:
-        try:
-            name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
-            data = s.get_data()
-            sections.append({
-                "name": name,
-                "vaddr": hex(s.VirtualAddress),
-                "raw_size": s.SizeOfRawData,
-                "entropy": round(_entropy_bytes(data), 2),
-            })
-        except Exception:
-            continue
-
-    # 2) 资源枚举
-    resources = []
-    def walk(resdir, path):
-        # 攻击性加固：深度超过 8 层强制熔断，防止畸形/恶意 PE 构造环形 Resource Directory 导致栈溢出
-        if len(path) > 8:
-            return
-        for entry in getattr(resdir, "entries", []):
-            name = entry.name if entry.name is not None else entry.id
-            eid = entry.id
-            newpath = path + [str(name)]
-            if hasattr(entry, "directory"):
-                walk(entry.directory, newpath)
-            elif hasattr(entry, "data"):
-                st = entry.data.struct
-                size = st.Size
-                if size >= min_size:
-                    rva = st.OffsetToData
-                    try:
-                        raw = pe.get_data(rva, size)
-                    except Exception:
-                        raw = b""
-                    resources.append({
-                        "type_id": path[0] if path else "",
-                        "name_id": str(eid) if eid is not None else "",
-                        "path": "/".join(newpath),
-                        "offset_rva": hex(rva),
-                        "size": size,
-                        "entropy": round(_entropy_bytes(raw), 2) if raw else 0,
-                        "container": _sniff_container(raw) if raw else "unknown",
-                        "head_hex": raw[:24].hex(" ") if raw else "",
-                    })
-    try:
-        if hasattr(pe, "DIRECTORY_ENTRY_RESOURCE"):
-            walk(pe.DIRECTORY_ENTRY_RESOURCE, [])
-    except Exception:
-        pass
-
-    resources.sort(key=lambda r: r["size"], reverse=True)
-    resources = resources[:top]
-
-    # 3) 可选落盘
-    written = []
-    if extract_dir:
-        os.makedirs(extract_dir, exist_ok=True)
-        for r in resources:
-            if r["container"] in ("zstd", "zip", "7z", "gzip", "pe", "png", "bmp", "ogg", "unknown"):
-                # 只落高熵或已知容器，跳过明显无关的小图
-                if r["entropy"] < 7.0 and r["container"] == "unknown":
-                    continue
-                try:
-                    raw = pe.get_data(int(r["offset_rva"], 16), r["size"])
-                    safe = re.sub(r"[^\w.\-]", "_", r["path"])
-                    fp = os.path.join(extract_dir, f"res_{r['type_id']}_{safe}.bin")
-                    with open(fp, "wb") as f:
-                        f.write(raw)
-                    written.append(fp)
-                except Exception:
-                    continue
-
-    out = {
-        "file": os.path.basename(binary_path),
-        "sections": sections,
-        "high_entropy_sections": [s["name"] for s in sections if s["entropy"] > 7.0 and s["raw_size"] > 512],
-        "resources": resources,
-        "note": "container=zstd/zip/pe 等高熵资源通常就是真正的功能载荷或皮肤包，优先剥离解析。",
-    }
-    if written:
-        out["extracted"] = written
-    return json.dumps(out, indent=2, ensure_ascii=False)
-
-
-@server.tool()
-def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: int = 50, encoding: str = "both") -> str:
+@_pid_alias
+def seep_mem_strings(pid: Optional[int] = None, pattern: str = "", min_len: int = 5, max_hits: int = 50, encoding: str = "both") -> str:
     """扫描指定进程的内存，提取可读字符串（治"字符串运行期才解密/只有内存里才有"的样本）。
 
     很多加壳/反调试样本，磁盘上看不到 URL/卡密提示/密钥，因为它们运行期才解密到内存。
@@ -2082,7 +1576,9 @@ def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: in
     连同所在虚拟地址一起给你，方便回填到反汇编里定位引用。
 
     Args:
-        pid: 目标进程 ID
+        pid: 目标进程 ID（也接受进程名如 'a.exe'，或可执行文件路径；
+             别名 pid_or_name / process_name / process / image_name /
+             binary_path / target_path / file_path / sample_path / artifact_path 均可）
         pattern: 可选，只返回包含该子串的字符串（不区分大小写）
         min_len: 最短字符串长度（默认 5）
         max_hits: 最多返回多少条（默认 50）
@@ -2551,78 +2047,6 @@ _SECURITY_HEADERS = ["strict-transport-security", "content-security-policy", "x-
                      "x-xss-protection", "access-control-allow-origin"]
 
 
-@server.tool()
-def seep_web_recon(url: str, timeout: int = 15) -> str:
-    """Web 目标轻量侦察（只读、不攻击）：响应头、技术栈指纹、安全头缺失、常见路径探测。
-
-    这是"渗透与逆向/协议相关"的那一小块：在逆向一个 Web/API 目标前，先摸清它是什么技术栈、
-    有没有 WAF、安全头缺什么、有哪些常见入口（robots/sitemap/.git 等）。
-    **只做被动/轻量探测，不做爆破、不做注入、不做利用** —— 重型渗透请用独立 MCP。
-
-    Args:
-        url: 目标 URL（如 https://example.com）
-        timeout: 超时秒数
-    """
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-
-    import urllib.request
-    import ssl
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE  # 侦察允许自签，不校验
-
-    def fetch(u):
-        req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (Seep-Recon)"})
-        try:
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
-                return r.status, dict(r.headers), r.read(200000).decode("utf-8", "replace")
-        except urllib.error.HTTPError as e:
-            return e.code, dict(e.headers) if e.headers else {}, ""
-        except Exception as e:
-            return None, {}, f"[fetch error: {type(e).__name__}: {e}]"
-
-    status, headers, body = fetch(url)
-    if status is None:
-        return json.dumps({"url": url, "error": body}, indent=2, ensure_ascii=False)
-
-    # 技术栈指纹
-    hay = (str(headers).lower() + " " + body[:20000].lower())
-    detected = {}
-    for cat, keys in _WEB_FINGERPRINTS.items():
-        hit = sorted({k for k in keys if k in hay})
-        if hit:
-            detected[cat] = hit
-
-    # 安全头缺失
-    hlow = {k.lower(): v for k, v in headers.items()}
-    missing_sec = [h for h in _SECURITY_HEADERS if h not in hlow]
-    present_sec = [h for h in _SECURITY_HEADERS if h in hlow]
-
-    # 常见入口探测（只读 HEAD/GET，温和）
-    probes = {}
-    base = url.rstrip("/")
-    for path in ["/robots.txt", "/sitemap.xml", "/.git/config", "/.env", "/api/", "/admin/"]:
-        try:
-            st, _, _ = fetch(base + path)
-            probes[path] = st
-        except Exception:
-            probes[path] = None
-
-    return json.dumps({
-        "url": url,
-        "status": status,
-        "server": hlow.get("server", ""),
-        "powered_by": hlow.get("x-powered-by", ""),
-        "detected": detected,
-        "security_headers_present": present_sec,
-        "security_headers_missing": missing_sec,
-        "path_probes": probes,
-        "note": "只读侦察。有 WAF/CDN 指纹 → 后续请求需注意指纹伪装(seep_http_replay impersonate)；"
-                ".git/.env 返回 200 → 高价值信息泄露点，值得深入（属授权范围）。",
-    }, indent=2, ensure_ascii=False)
-
-
 # ---------------------------------------------------------------------------
 # 工具自动发现 + 自动适配 MCP（轻量插件，2026-10 增补，纯增量）
 # 逻辑在 Tool/mcp/tool_autodiscover.py + Tool/config/tool-capabilities.json；
@@ -2671,123 +2095,6 @@ def seep_tool_discover(tool_id: str, target: str = "", record_state: bool = True
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 
-@server.tool()
-def seep_tool_control_plan(tool_id: str, target: str = "", apply_mcp: bool = False) -> str:
-    """给某工具生成完整『发现 -> 怎么控制』计划，走降级链绝不卡住。
-
-    降级链：已注册MCP -> 现注册MCP(提示重启) -> headless/CLI直调 -> GUI(不推荐) -> 自写Py脚本。
-    『怎么控制』来自声明式能力表（联网检索 GitHub/官方文档得到），绝不用 -h 试探二进制。
-    表外未知工具只报『路径已发现』，不假装能控。
-
-    Args:
-        tool_id: 工具标识。
-        target: 可选目标文件（架构匹配）。
-        apply_mcp: True 时对支持 MCP 的工具增量写入 mcp.json（默认 False 只给预览）。
-    """
-    tad = _autodiscover()
-    if tad is None:
-        return "[ERROR]: tool_autodiscover 插件不可用"
-    return json.dumps(tad.plan_control(tool_id, target=target or None, apply_mcp=apply_mcp),
-                      indent=2, ensure_ascii=False)
-
-
-@server.tool()
-def seep_tool_research(tool_id: str) -> str:
-    """查询某工具『怎么控制』（声明式能力：是否支持 MCP / headless / GUI / CLI）。
-
-    只读 Tool/config/tool-capabilities.json（内容来自联网检索官方文档），
-    表外未知工具返回 research_queries 供联网检索，绝不 -h 试探二进制。
-    """
-    tad = _autodiscover()
-    if tad is None:
-        return "[ERROR]: tool_autodiscover 插件不可用"
-    return json.dumps(tad.research_control(tool_id), indent=2, ensure_ascii=False)
-
-
-@server.tool()
-def seep_tool_register_mcp(tool_id: str, apply: bool = False, server_name: str = "") -> str:
-    """把某工具的 MCP 增量注册到当前 agent 的 mcp.json（绝不删用户既有条目）。
-
-    默认 apply=False 只返回『将要写入的片段 + 目标路径』（半自动，先给人看）。
-    落盘成功会返回 restart_required=True —— 协议层死规矩：MCP 配置需重启会话才生效。
-    """
-    tad = _autodiscover()
-    if tad is None:
-        return "[ERROR]: tool_autodiscover 插件不可用"
-    return json.dumps(tad.register_mcp(tool_id, apply=apply, server_name=server_name or None),
-                      indent=2, ensure_ascii=False)
-
-
-@server.tool()
-def seep_tool_install(tool_id: str, execute: bool = False) -> str:
-    """半自动安装缺失工具：探测 -> 给安装命令+来源 -> (确认后)装 -> 重探。
-
-    默认只出安装计划（命令 + 来源 + 是否可自动）。execute=True 且方法在白名单
-    (pip/winget/npm/go) 才真正执行并重探。绝不做无脑全自动下载。
-    """
-    tad = _autodiscover()
-    if tad is None:
-        return "[ERROR]: tool_autodiscover 插件不可用"
-    return json.dumps(tad.propose_install(tool_id, execute=execute), indent=2, ensure_ascii=False)
-
-
-@server.tool()
-def seep_tool_state() -> str:
-    """查看本机工具发现状态缓存（~/.seep/tools.local.json，绝不入库）。"""
-    tad = _autodiscover()
-    if tad is None:
-        return "[ERROR]: tool_autodiscover 插件不可用"
-    return json.dumps(tad.list_state(), indent=2, ensure_ascii=False)
-
-
-@server.tool()
-def seep_create_skill(skill_name: str, description: str = "", title: str = "") -> str:
-    """自动化创建标准 Seep 外挂技能（严格遵循 MANUAL/SKILL-CREATION-GUIDE.md 规范）。
-
-    自动在 Tool/skill/<name>/SKILL.md 生成标准格式，自动强制 UTF-8 无 BOM 写入，
-    自动在 softseep 调度器注册并同步至 Agent 环境，确保即建即用、格式合规。
-
-    Args:
-        skill_name: 技能英文标识（如 bluetooth-re, vmp-unpack）
-        description: 技能一句话功能描述
-        title: 技能中文全称标题
-    """
-    script_path = os.path.join(os.path.dirname(BASE_DIR), "scripts", "new-skill.py")
-    if not os.path.isfile(script_path):
-        return f"[ERROR]: 脚手架脚本未找到: {script_path}"
-    
-    cmd = [sys.executable, script_path, skill_name]
-    if description:
-        cmd.extend(["--desc", description])
-    if title:
-        cmd.extend(["--title", title])
-        
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
-        if p.returncode == 0:
-            return p.stdout.strip()
-        else:
-            return f"[ERROR]: 生成失败: {p.stderr.strip()}"
-    except Exception as exc:
-        return f"[ERROR]: 执行异常: {type(exc).__name__}: {exc}"
-
-
-# === SEEP-EXT: case-lib BEGIN ===
-# 案例库检索：Tool/cases/*/case.json（结构约定见 Tool/docs/CASE-LIB.md）。
-# 只读、无副作用；索引缺失或 source_hash 过期时自动退回实时扫描。
-_CASE_FIELD_WEIGHTS = (
-    ("id", 10),
-    ("tags", 6),
-    ("lessons", 4),
-    ("domain", 3),
-    ("protection", 3),
-    ("target_type", 2),
-    ("authority", 1),
-    ("outcome", 1),
-    ("refs", 1),
-)
-
-
 def _case_lib_dir() -> str:
     """案例库根目录（仓库根/Tool/cases，不使用 SEEP_WORKSPACE 覆盖）。"""
     repo_root = os.path.dirname(os.path.dirname(BASE_DIR))  # Tool/mcp -> Tool -> 仓库根
@@ -2808,21 +2115,6 @@ def _case_files() -> list:
         if os.path.isfile(case_path):
             found.append((name, case_path))
     return found
-
-
-def _case_source_hash(pairs) -> str:
-    """与 gen-case-index.py 一致：相对路径 + 原始字节，按目录名排序后 SHA-256。"""
-    import hashlib
-    digest = hashlib.sha256()
-    for dirname, path in pairs:
-        rel = "Tool/cases/%s/case.json" % dirname
-        with open(path, "rb") as fh:
-            raw = fh.read()
-        digest.update(rel.encode("utf-8"))
-        digest.update(b"\x00")
-        digest.update(raw)
-        digest.update(b"\x00")
-    return digest.hexdigest()
 
 
 def _case_normalize(raw, dirname):
@@ -2853,24 +2145,14 @@ def _case_normalize(raw, dirname):
 
 
 def _case_load(prefer_index: bool = True):
-    """载入案例：索引新鲜则用索引，否则实时扫描。返回 (cases, source)。"""
+    """载入案例：**始终实时扫描** case.json（S2 起已无索引文件可读）。
+
+    保留 prefer_index 形参只为不改调用点签名；它不再改变行为，
+    也就不存在「读过期缓存」这类失败模式。
+    """
     pairs = _case_files()
     if not pairs:
         return [], "empty"
-    current_hash = _case_source_hash(pairs)
-    root = _case_lib_dir()
-    index_path = os.path.join(root, "index.json")
-    if prefer_index and os.path.isfile(index_path):
-        try:
-            with open(index_path, "r", encoding="utf-8", errors="replace") as fh:
-                index = json.load(fh)
-            cases = index.get("cases") if isinstance(index, dict) else None
-            if isinstance(cases, list) and index.get("source_hash") == current_hash:
-                normalized = [c for c in cases if isinstance(c, dict) and c.get("dir")]
-                if normalized:
-                    return normalized, "index"
-        except Exception:
-            pass
     cases = []
     for dirname, path in pairs:
         try:
@@ -2894,96 +2176,8 @@ def _case_text(entry, field: str) -> str:
     return str(value or "")
 
 
-@server.tool()
-def seep_case_search(
-    query: str = "",
-    domain: str = "",
-    protection: str = "",
-    level: str = "",
-    outcome: str = "",
-    limit: int = 10,
-) -> str:
-    """在本地案例库（Tool/cases/*/case.json）中检索历史案例，返回 JSON 列表。
-
-    优先使用 Tool/cases/index.json；索引缺失或 source_hash 过期时自动实时扫描。
-    按 query 对 id/tags/lessons/domain/protection 等字段做加权子串打分，
-    domain/level/outcome 为精确过滤（大小写不敏感），protection 为子串过滤。
-
-    Args:
-        query: 检索关键词，空格分隔多 token（中英均可）；空串表示只按过滤器枚举
-        domain: 领域过滤，如 windows-license / dotnet-license / java-license / windows-shell
-        protection: 保护层子串过滤，如 themida / ed25519 / vm / antidebug
-        level: 目标等级过滤，L1 / L2 / L3 / L4
-        outcome: 结论过滤，success / partial / blocked
-        limit: 最大返回条数，默认 10（钳制在 1..100）
-    """
-    try:
-        cases, _source = _case_load(prefer_index=True)
-        try:
-            max_items = int(limit if limit is not None else 10)
-        except Exception:
-            max_items = 10
-        max_items = max(1, min(max_items, 100))
-
-        tokens = _case_tokens(query)
-        domain_l = (domain or "").strip().lower()
-        protection_l = (protection or "").strip().lower()
-        level_l = (level or "").strip().upper()
-        outcome_l = (outcome or "").strip().lower()
-
-        results = []
-        for entry in cases:
-            if domain_l and domain_l not in str(entry.get("domain", "")).lower():
-                continue
-            if level_l and level_l != str(entry.get("goal_level", "")).upper():
-                continue
-            if outcome_l and outcome_l != str(entry.get("outcome", "")).lower():
-                continue
-            if protection_l and protection_l not in _case_text(entry, "protection").lower():
-                continue
-
-            score = 0
-            if tokens:
-                for field, weight in _CASE_FIELD_WEIGHTS:
-                    hay = _case_text(entry, field).lower()
-                    if not hay:
-                        continue
-                    for token in tokens:
-                        if token in hay:
-                            score += weight
-                # 完整查询命中 id/tags 额外加权，避免多 token 被单字段稀释
-                whole = (query or "").strip().lower()
-                if whole and whole in str(entry.get("id", "")).lower():
-                    score += 10
-                elif whole and whole in _case_text(entry, "tags").lower():
-                    score += 5
-                if score <= 0:
-                    continue  # 有关键词但零命中：不把噪声塞进结果
-
-            lessons = entry.get("lessons") or []
-            lead = str(lessons[0]) if lessons else ""
-            summary = "%s · %s · %s · %s · %s" % (
-                entry.get("id", entry.get("dir", "")),
-                entry.get("domain", "") or "(domain未填)",
-                entry.get("goal_level", "") or "(level未填)",
-                entry.get("outcome", "") or "(outcome未填)",
-                entry.get("target_type", "") or "(target未填)",
-            )
-            if lead:
-                summary += " — " + lead[:160]
-            results.append({
-                "id": entry.get("id", entry.get("dir", "")),
-                "score": score,
-                "summary": summary,
-                "path": "Tool/cases/%s/case.json" % entry.get("dir", ""),
-            })
-
-        results.sort(key=lambda x: (-x["score"], x["id"]))
-        return json.dumps(results[:max_items], indent=2, ensure_ascii=False)
-    except Exception as exc:
-        return "[ERROR]: 案例检索失败: %s: %s" % (type(exc).__name__, exc)
-
-
+# === SEEP-EXT: case-lib BEGIN ===
+# 案例库只读检索：Tool/cases/*/case.json（结构约定见 Tool/docs/CASE-LIB.md）；无副作用。
 @server.tool()
 def seep_case_read(case_id: str) -> str:
     """读取单个案例的完整上下文：case.json 全文 + facts.jsonl 前 20 行 + README 前 80 行。
@@ -3009,7 +2203,7 @@ def seep_case_read(case_id: str) -> str:
                     break
         if target is None:
             available = "、".join(str(c.get("id", c.get("dir", ""))) for c in cases[:20])
-            return "[ERROR]: Case not found: %s（可用案例：%s；可先用 seep_case_search 检索）" % (key, available or "无")
+            return "[ERROR]: Case not found: %s（可用案例：%s；用 `case_state.py index` 看全量索引）" % (key, available or "无")
 
         case_dir = os.path.join(_case_lib_dir(), target.get("dir", ""))
         case_path = os.path.join(case_dir, "case.json")
@@ -3066,6 +2260,16 @@ def seep_case_read(case_id: str) -> str:
     except Exception as exc:
         return "[ERROR]: 案例读取失败: %s: %s" % (type(exc).__name__, exc)
 # === SEEP-EXT: case-lib END ===
+
+
+# D1 · import 期审计（BLUEPRINT §4）：登记表必须与注册的工具集一一对应。
+# 缺一条就拒绝启动 —— 宁可起不来，也不要静默多一个「没有效果标注」的能力。
+try:
+    EFFECT_ANNOTATIONS = _audit_tool_effects(
+        [t.name for t in server._tool_manager.list_tools()],
+        os.path.join(os.path.dirname(BASE_DIR), "config", "tool-effects.json"))
+except Exception as _e:   # 文件缺失 / 不一致 / 字段不合规，一律拒绝启动
+    raise SystemExit("[FATAL] %s: %s" % (type(_e).__name__, _e))
 
 
 # ---------------------------------------------------------------------------

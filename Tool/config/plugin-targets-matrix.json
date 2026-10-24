@@ -30,7 +30,7 @@
         "DevTools/CDP"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.crx",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path extension.crx",
         "unzip -q extension.crx -d ext/",
         "jq '{permissions,host_permissions,background,content_scripts}' ext/manifest.json"
       ],
@@ -73,7 +73,7 @@
         "Node DevTools"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.vsix",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path extension.vsix",
         "unzip -q extension.vsix -d vsix/",
         "jq '{main,activationEvents,contributes,capabilities}' vsix/extension/package.json"
       ],
@@ -117,7 +117,7 @@
         "CFR/Fernflower"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path plugin.jar",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path plugin.jar",
         "unzip -p plugin.jar META-INF/plugin.xml",
         "jadx -d out/ plugin.jar"
       ],
@@ -162,7 +162,7 @@
         "IDA/Ghidra"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path app.asar",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar",
         "npx asar list app.asar",
         "grep -RInE 'ipcMain|ipcRenderer|contextBridge|shell.openExternal' app/ --include='*.js'"
       ],
@@ -252,7 +252,7 @@
         "ripgrep"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path addon/",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path addon/",
         "luac -l -p addon/core.lua",
         "grep -RInE 'hooksecurefunc|CreateFrame|SendAddonMessage' addon/"
       ],
@@ -296,7 +296,7 @@
         "frida"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path module.apk",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path module.apk",
         "apktool d -f module.apk -o out/",
         "jadx -d src/ module.apk"
       ],
@@ -340,7 +340,7 @@
         "浏览器 DevTools"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path addin/manifest.xml",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path addin/manifest.xml",
         "xmllint --format manifest.xml | head -60",
         "grep -RInE 'Office\\.context|fetch\\(|XMLHttpRequest' addin/ --include='*.js'"
       ],
@@ -384,7 +384,7 @@
         "Process Monitor"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path obs-plugins/",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path obs-plugins/",
         "objdump -p plugin.dll | grep -E 'DLL Name|ImageBase'",
         "jq '{Name,Version,Category}' com.example.plugin.sdPlugin/manifest.json"
       ],
@@ -429,7 +429,7 @@
         "terraform providers schema -json"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path terraform-provider-x",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path terraform-provider-x",
         "terraform providers schema -json | jq '.provider_schemas | keys'",
         "go tool nm provider | grep -iE 'Create|Delete|Read'"
       ],
@@ -473,7 +473,7 @@
         "浏览器 DevTools"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path labextension/",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path labextension/",
         "jq '{name,version,jupyterlab,main}' labextension/package.json",
         "jupyter labextension list"
       ],
@@ -517,7 +517,7 @@
         "grep"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path script.user.js",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path script.user.js",
         "grep -nE '^// @(match|include|require|grant|connect)' script.user.js",
         "node --check script.user.js"
       ],
@@ -561,7 +561,7 @@
         "DevTools/CDP"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path legacy.crx --json",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path legacy.crx --json",
         "jq '{manifest_version,background,browser_action,permissions,host_permissions}' work/repro/unpack/manifest.json",
         "grep -RInE 'chrome\\.(runtime|tabs|storage|cookies|webRequest)|browser\\.' work/repro/unpack --include='*.js'"
       ],
@@ -611,7 +611,7 @@
         "sigcheck"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-repro.py --path ./driver-dir --out work/repro --json",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path ./driver-dir --out work/repro --json",
         "reg query \"HKLM\\SOFTWARE\\Microsoft\\CTF\\TIP\" /s",
         "sc query type= driver state= all",
         "objdump -p plugin.dll | grep -E 'DLL Name|Export'"
@@ -657,7 +657,7 @@
         "strings"
       ],
       "commands": [
-        "python Tool/skill/plugin-targets/scripts/plugin-triage.py --path extension.zip --json",
+        "python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path extension.zip --json",
         "grep -RInE 'connectNative|sendNativeMessage|nativeMessaging' work/repro/unpack --include='*.js'",
         "reg query \"HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\" /s",
         "cat \"$HOME/.config/google-chrome/NativeMessagingHosts/com.example.host.json\""

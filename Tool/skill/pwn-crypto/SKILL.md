@@ -1,6 +1,6 @@
 ---
 name: pwn-crypto
-description: "【二进制利用与密码学】授权 CTF/靶场/自有程序中的二进制漏洞利用与密码学攻击手册：checksec/DllCharacteristics 保护位决策、栈溢出与 ROP、格式化字符串任意读/写、堆（tcache/UAF/IO_FILE）、整数回绕与 off-by-one、seccomp ORW/SROP，以及 RSA、ECB/CBC、PRNG、HMAC、证书与签名攻击。含可机检判据、失败判据、真实案例与脚本。"
+description: "【二进制利用与密码学】checksec 保护位、栈溢出与 ROP、格式化字符串、堆（tcache/UAF/IO_FILE）、seccomp ORW/SROP，以及 RSA、ECB/CBC、PRNG、HMAC、证书签名攻击。"
 license: MIT
 compatibility: "Linux x86/x64/ARM64 优先；Windows 下可用 MinGW 复现 PE 语义。Python 3.10+；pwntools/ROPgadget/checksec/pycryptodome 可选，缺失按降级链执行。"
 metadata:
@@ -18,6 +18,15 @@ metadata:
 >
 > 机检入口：`python Tool/scripts/domain-gate.py --domain pwn-crypto`；
 > 真实案例：`Tool/cases/pwn-crypto01`–`05`；知识库：`Tool/mcp/Tool/reverselab/kb/pwn-crypto/`。
+
+## 阶段契约（与 softseep 一致，**先判再做**）
+
+① 先摸清能不能测（仪器/授权位置/是否服务端权威）→ ② 给**裁定**（可赢 / 部分可赢 / 不可赢）+ **交付上限 M1–M4** → ③ 按上限执行。
+- 用户说"要源码级/成品级"是**愿望**，不是判据：判不上去就**说清卡在哪一轴**，给能到的那一级。
+- 用户只要低级别、但发现能更高 → 主动告知，由用户定。**不许硬冲，也不许静默降级。**
+- 命中任一 **卡点**（要用户手里的凭据 / 需物理动作 / 只可能从真实进程取证据且目标反自动化 / 同形状失败 2 次）→
+  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
+- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
 
 ## 1. 范围与路由（边界）
 
@@ -61,7 +70,7 @@ ldd ./chall
 ### 2.2 保护位：静态预判（只读，不执行目标）
 
 ```bash
-python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > pwn_check.json
 # 可选交叉复核
 checksec --file=./chall          # ELF
 readelf -lW ./chall | grep GNU_STACK
@@ -84,7 +93,7 @@ cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 
 - 需要固定基址时用 `setarch "$(uname -m)" -R ./chall`，并在报告中注明“关闭 ASLR”；
 - 远程只信远程泄漏，不把本地偏移当远程地址；
-- 工具缺失先查能力表（`seep_tool_research` / `Tool/mcp/tool_autodiscover.py`），不要反复安装。
+- 工具缺失先查能力表（`python Tool/scripts/tool-acquire.py` / `Tool/mcp/tool_autodiscover.py`），不要反复安装。
 
 **完成判据**：知道哪些工具可用、哪些要走降级分支（`blocked_at: "tool-missing"`）。
 
@@ -212,8 +221,8 @@ grep -l 'uid=\|FLAG{' /tmp/run.* | wc -l
 
 ```bash
 # 1) 静态预判（PE/ELF，只读，不执行目标）
-python Tool/scripts/pwn-check.py --file ./chall --json > pwn_check.json
-python Tool/scripts/pwn-check.py --self-test
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > pwn_check.json
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --self-test
 
 # 2) 偏移复算：objdump 位移 + 运行时 probe + cyclic 崩溃日志，三源对齐
 python Tool/skill/pwn-crypto/scripts/pwn-repro.py \
