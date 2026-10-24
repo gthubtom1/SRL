@@ -52,7 +52,7 @@ python Tool/mcp/test_seep_mcp.py          # 基线 9/9
 python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
 python Tool/scripts/route.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端链路 12 项（真实样本）
+python `preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端链路 12 项（真实样本）
 powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ```
 
@@ -172,7 +172,7 @@ python Tool/scripts/budget.py
 端到端链路另跑一条（不占预算、约 13 秒）：
 
 ```bash
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）
+python `preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）
 ```
 
 它用真实样本把「triage → 判壳 → 画像 → 函数 → 反编译 → KB → 工作区 → 报告 → 工具发现」跑一遍，

@@ -223,7 +223,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 - 路由片段：`Tool/skill/protocol-plugin/pack.json`
   —— `keywords` 与 SSOT 逐字一致（保证可合入）；词边界收紧版在 `boundary_policy`
   （含 `forbid`: spider/bios/principal/zipalign/scaffold），由 `proto-accept.py --routing-check`
-  机检；合入 SSOT 由协调器跑 `merge-routing-fragment.py --write`（本域不直接改 routing.json）。
+  机检；合入 SSOT 由协调器跑 `route.py --write`（本域不直接改 pack.json）。
 - 案例：`Tool/cases/protocol01`（HTTP 夹具）、`protocol02`（SPRX 夹具）、
   `protocol03`（真实 ws pcap）、`protocol04`（现场回环抓包）。
 

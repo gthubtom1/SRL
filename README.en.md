@@ -43,7 +43,7 @@
 >
 > - **What**: an AI workbench for client-side license white-box auditing + binary/Web/mobile/firmware reverse engineering (31 skills / 11 domains / 24 playbooks / 40 MCP tools)
 > - **Origin**: a fork of `angusdevgo/Seep-Reverse-Lab`; this repo is `gthubtom1/Seep-Reverse-Lab`
-> - **Version**: `v1.26.1` (`VERSION`) | **Gates**: preflight 55/55, domain-gate 110/110, verify 65/0, smoke-e2e 12/12
+> - **Version**: `v1.26.1` (`VERSION`) | **Gates**: preflight 55/55, domain-gate 110/110, verify 65/0, preflight.py 12/12
 > - **Read first**: [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md) → [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)
 > - **External audit (read-only)**: [`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md) — report only, never modify the repo
 > - **Historical docs**: [`docs/history/`](docs/history/) (`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`) — not current state
@@ -66,9 +66,9 @@
 
 | Capability | What it adds |
 |---|---|
-| **43-check preflight** | `python Tool/scripts/preflight.py`: **55/55** full, **52/52** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
+| **43-check preflight** | `python Tool/scripts/preflight.py`: **55/55** full, **42/42** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
 | **MCP parameter contract** | `mcp-param-contract.py`: 8 path aliases interoperate (`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`) + a 40-tool baseline, so the first call cannot be rejected for guessing a parameter name |
-| **Skill-route probe** | `skill-route-probe.py`: 33 plain-language prompts → expected skill (`master-route.ps1` view); catches CJK word-boundary regressions |
+| **Skill-route probe** | `skill-route-probe.py`: 33 plain-language prompts → expected skill (`route.py` view); catches CJK word-boundary regressions |
 | **32 routes (+R36)** | New **R36 OSINT / asset & personnel mapping** (recipe `osint-recon`); routes 31 → 32, skills remain 30 |
 | **Firmware/IoT wireless near-field** | `firmware-iot` adds 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC chapters |
 | **Phase 02/03 hardening** | Criteria tables + failure criteria + minimal implementation; each phase is verifiable and fail-fast |
@@ -127,7 +127,7 @@ User Input (plain language — "bypass the premium check in FooBar.apk")
 │  Context Budget Control  (v1.1 noise reduction)                   │
 │  • seep_r2_decompile: full / fold (−60% tokens) / summary (−90%) │
 │  • seep_r2_disasm:   full / branch (control-flow only)           │
-│  • seep_r2_xrefs:    paginated, limit=10, total stats header      │
+│  • seep_r2_cmd(axt/axf):    paginated, limit=10, total stats header      │
 └────────────────────────────┬──────────────────────────────────────┘
                              │
                              ▼
@@ -159,7 +159,7 @@ The agent autonomously:
 1. **`seep_auto_triage`** → identifies DEX + ARM64 SO, no packer detected
 2. **`seep_apk_decompile`** with `output_mode=fold` → extracts control-flow skeleton only *(saves ~60% tokens)*
 3. **`seep_kb_search`** → finds matching CWE-602 pattern from field journal #142
-4. **`seep_apk_gen_hook`** → generates `hook_verify.js` Frida script
+4. **`Tool/mcp/Tool/safe/hook-mcp/`** → generates `hook_verify.js` Frida script
 5. Executes on connected device → captures stdout, **self-heals** `ClassNotFoundException`, re-runs
 6. Airplane-mode confirmation ✓ → **`seep_gen_security_report`** → 3-part audit report delivered
 
@@ -262,48 +262,48 @@ The bundled `seep` MCP server exposes **40 native tools** across eight functiona
 
 | Category | Tool | Functionality | Token Mode |
 |---|---|---|---|
-| **Health** | `seep_status` | Verifies Radare2, JADX, Apktool, KB readiness | — |
-| | `seep_ida_status` | Probes IDA Pro MCP service connectivity | — |
+| **Health** | `mcp-doctor.py` | Verifies Radare2, JADX, Apktool, KB readiness | — |
+| | `mcp-doctor.py` | Probes IDA Pro MCP service connectivity | — |
 | **Binary (R2)** | `seep_r2_info` | Architecture, bitness, DEP/ASLR/Canary/PIE | — |
 | | `seep_r2_strings` | Extracts strings with regex + section filtering | `limit=` |
-| | `seep_r2_functions` | Functions, imports, exports, entry points | `limit=` |
+| | `seep_r2_cmd(afl)` | Functions, imports, exports, entry points | `limit=` |
 | | `seep_r2_disasm` | Disassembly with cross-references | `full` / `branch` |
 | | `seep_r2_decompile` | C-like pseudocode via pdc engine | `full` / `fold` / `summary` |
-| | `seep_r2_xrefs` | Cross-reference graph, paginated | `limit=10` default |
-| | `seep_r2_diff` | Code / hex diff between two binaries | — |
-| | `seep_r2_asm` | Assemble ↔ disassemble machine code | — |
+| | `seep_r2_cmd(axt/axf)` | Cross-reference graph, paginated | `limit=10` default |
+| | `radiff2 CLI` | Code / hex diff between two binaries | — |
+| | `seep_r2_cmd(rasm2)` | Assemble ↔ disassemble machine code | — |
 | | `seep_r2_cmd` | Raw Radare2 pipeline commands | — |
 | **Android** | `seep_apk_info` | APK manifest, permissions, signatures (no Java) | — |
 | | `seep_apk_decompile` | JADX full Java source decompilation | — |
 | | `seep_apk_unpack` | Apktool resource + Smali disassembly | — |
 | | `seep_apk_smali_search` | Smali pattern search (crypto keys, auth gates) | `limit=` |
-| | `seep_apk_gen_hook` | Ready-to-run Frida hooks with stack traces | — |
+| | `Tool/mcp/Tool/safe/hook-mcp/` | Ready-to-run Frida hooks with stack traces | — |
 | **Knowledge Base** | `seep_kb_search` | Full-text search across 412 field journals | `limit=` |
 | | `seep_kb_read` | Full technical reference retrieval by topic | — |
-| | `seep_kb_checklist` | Emergency triage checklists & attack matrices | — |
-| | `seep_kb_payloads` | Security test seeds (JWT, SSRF, SSTI, SQLi) | — |
-| **Case Library** | `seep_case_search` | Search settled cases by domain/protection/level/outcome (index.json cache, live scan fallback) | `limit=` |
+| | `seep_kb_read` | Emergency triage checklists & attack matrices | — |
+| | `seep_kb_read` | Security test seeds (JWT, SSRF, SSTI, SQLi) | — |
+| **Case Library** | `case_state.py index` | Search settled cases by domain/protection/level/outcome (index.json cache, live scan fallback) | `limit=` |
 | | `seep_case_read` | Full case.json + first 20 facts.jsonl lines + first 80 README lines | — |
-| **Orchestration** | `seep_task_init` | Initializes isolated audit sandbox directory | — |
+| **Orchestration** | `mkdir -p <task>/{samples,exports,patches,reports}` | Initializes isolated audit sandbox directory | — |
 | | `seep_auto_triage` | Automated full-sample health check | — |
 | | `seep_gen_security_report` | Synthesizes 3-part compliance security report | — |
 | **Extensions**<br>(protocol/resource/memory/packer) | `seep_packer_detect` | Packer + anti-debug imports + anti-VM + manual routing | — |
-| | `seep_pe_resources` | PE resource tree / section entropy / container sniff, optional carve | — |
+| | `seep_r2_cmd(iR)` | PE resource tree / section entropy / container sniff, optional carve | — |
 | | `seep_mem_strings` | Read-only live-process memory string scan (ASCII/UTF-16) | `max_hits=` |
 | | `seep_pcap_extract` | pcap endpoints / HTTP / TCP payload extraction | `max_rows=` |
 | | `seep_http_replay` | Request build/replay, TLS fingerprint spoof + cookie session | `limit` |
-| | `seep_web_recon` | Read-only web recon (stack/security headers/entry discovery) | — |
-| | `seep_decompile_auto` | Decompile entry (r2 fallback + higher-tier engine notice) | `output_mode` |
+| | `web-check.py` | Read-only web recon (stack/security headers/entry discovery) | — |
+| | `seep_r2_decompile` | Decompile entry (r2 fallback + higher-tier engine notice) | `output_mode` |
 | | `seep_ensure_tool` | 4-level tool probing + missing-tool install plan | — |
 | **Tool Discovery**<br>(auto-adapt MCP) | `seep_tool_discover` | 6-layer progressive tool discovery (env/PATH/common dirs/**registry**/recursive scan/alias) + arch match | — |
-| | `seep_tool_control_plan` | Discovery → how-to-control plan (MCP → headless → GUI → self-written Py) | — |
-| | `seep_tool_research` | Declarative capability lookup (MCP/headless/GUI); unknown tools return search queries | — |
-| | `seep_tool_register_mcp` | Incrementally register a tool's MCP into mcp.json (never deletes user entries) | — |
-| | `seep_tool_install` | Semi-automatic install (probe → command+source → confirm → re-probe) | — |
-| | `seep_tool_state` | View local discovery cache (~/.seep/tools.local.json, never committed) | — |
-| | `seep_create_skill` | Automatically scaffold and register a Seep-compliant skill | — |
+| | `tool-acquire.py` | Discovery → how-to-control plan (MCP → headless → GUI → self-written Py) | — |
+| | `tool-acquire.py --list` | Declarative capability lookup (MCP/headless/GUI); unknown tools return search queries | — |
+| | `tool-acquire.py（ASK）` | Incrementally register a tool's MCP into mcp.json (never deletes user entries) | — |
+| | `tool-acquire.py --tool <id>` | Semi-automatic install (probe → command+source → confirm → re-probe) | — |
+| | `tool-acquire.py --json` | View local discovery cache (~/.seep/tools.local.json, never committed) | — |
+| | `手写 pack.json` | Automatically scaffold and register a Seep-compliant skill | — |
 
-> 💡 **Context Budget Control** (v1.1): `seep_r2_decompile` with `output_mode=fold` reduces token consumption by ~60%; `summary` mode by ~90%. Use `seep_r2_xrefs` instead of raw `axt` to avoid flooding the context window with hundreds of references.
+> 💡 **Context Budget Control** (v1.1): `seep_r2_decompile` with `output_mode=fold` reduces token consumption by ~60%; `summary` mode by ~90%. Use `seep_r2_cmd(axt/axf)` instead of raw `axt` to avoid flooding the context window with hundreds of references.
 
 ---
 
@@ -479,7 +479,7 @@ Deactivate: exit lab
 ### 4. CTF & Challenge Workflows
 - Attack-network routing: Signal → `seep_kb_search` → template assembly → MCP execution
 - Web: JWT, KID injection, SSRF chains, SSTI, deserialization gadget chains, Protobuf decoding
-- Seed libraries (`seep_kb_payloads`) + emergency checklists (`seep_kb_checklist`)
+- Seed libraries (`seep_kb_read`) + emergency checklists (`seep_kb_read`)
 
 </details>
 

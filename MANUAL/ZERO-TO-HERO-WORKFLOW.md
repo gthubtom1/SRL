@@ -98,7 +98,7 @@
    ```
 2. **AI 会自动按顺序执行**：
    - 🔍 `seep_packer_detect`：检测未发现第三方强壳，为 64 位 C++ 程序；
-   - 🧠 `seep_decompile_auto`：反编译主窗口初始化逻辑，命中虚函数 `CheckLicenseValid()`，发现它底层仅判断一个布尔标志位（0 为未激活，1 为已激活）；
+   - 🧠 `seep_r2_decompile`：反编译主窗口初始化逻辑，命中虚函数 `CheckLicenseValid()`，发现它底层仅判断一个布尔标志位（0 为未激活，1 为已激活）；
    - 🛡️ `seep_mem_strings`：在测试运行中捕获激活标志位偏移；
    - 🔧 自动生成一个极简代理 DLL `version.dll` 并编译完成；
    - ✈️ 飞行模式断网测试：确认离线启动无弹窗、特权全部解锁；

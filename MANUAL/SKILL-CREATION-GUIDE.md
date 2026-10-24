@@ -1,7 +1,7 @@
 # 面向 Seep 工作台的外挂技能编写规范与创作指南 (Skill Creation Guide)
 
 > **目的**：为 Seep 逆向安全工作台打造标准化的“外挂技能体系”。  
-> **核心原则**：主仓库保持轻量纯净（只保留核心 40 个 MCP 工具与 6 步 SOP），所有未来特定的垂直业务能力（如：特定协议逆向、游戏反作弊对抗、固件解包、跨版本增量追版）全部通过**标准化外挂 Skill** 扩展，即插即用，绝不臃肿主仓库！
+> **核心原则**：主仓库保持轻量纯净（只保留核心 20 个 MCP 工具与 6 步 SOP），所有未来特定的垂直业务能力（如：特定协议逆向、游戏反作弊对抗、固件解包、跨版本增量追版）全部通过**标准化外挂 Skill** 扩展，即插即用，绝不臃肿主仓库！
 
 ---
 
@@ -27,7 +27,7 @@
 |---|---|---|---|
 | 1 | `Tool/skill/<name>/SKILL.md` | 技能本体（frontmatter + SOP） | `python （S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`） <name> --desc "..."` 自动建 |
 | 2 | `Tool/skill/softseep/SKILL.md` 的"可调度资源"表 | 让总控**知道**这个技能存在 | 脚手架自动追加 |
-| 3 | `Tool/skill/<pack>/pack.json` 的 `routes` + `priority` | 让 `master-route.ps1` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
+| 3 | `Tool/skill/<pack>/pack.json` 的 `routes` + `priority` | 让 `route.py` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
 | 4 | `~/.pi/agent/skills/<name>/` | 让 pi 会话**加载**它 | 脚手架自动同步 |
 
 **提示词层禁写**：技能内容**不要**往 `Tool/prompts/SEEP.md` 里塞 —— 它是装配契约，硬上限 **2,500 字符**，
@@ -38,7 +38,7 @@
 python Tool/scripts/route.py   # 路由 ↔ 技能落位自洽
 python Tool/scripts/budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
 powershell -File setup/verify.ps1 -Detailed       # 65 项全绿
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端 12 环
+python `preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                  # 端到端 12 环
 ```
 
 
@@ -49,10 +49,10 @@ python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py
 ### 铁律 2：MCP 工具优先绑定（Tool Binding 规范）
 技能内部描述分析流程时，**严禁手写脆弱的外部命令行（如 `system("xxx")`）**，必须优先声明调用 Seep 已内置暴露的 **40 个原生 MCP 工具**：
 - 查壳与反调试：声明调用 `seep_packer_detect`；
-- 反编译：声明调用 `seep_decompile_auto`（多引擎降级链）；
+- 反编译：声明调用 `seep_r2_decompile`（多引擎降级链）；
 - 提取运行期字符串：声明调用 `seep_mem_strings`；
 - 协议分析与重放：声明调用 `seep_http_replay` 与 `seep_pcap_extract`；
-- 缺工具自愈：声明调用 `seep_tool_discover` 与 `seep_tool_install`。
+- 缺工具自愈：声明调用 `seep_tool_discover` 与 `tool-acquire.py --tool <id>`。
 
 ### 铁律 3：成品交付闭环（Artifact Delivery）
 - 技能必须明确定义“最终输出物”：
@@ -105,7 +105,7 @@ metadata:
 ## 二、 标准作业流程 (SOP)
 
 1. **Step 1：资产画像与工具自愈**
-   - 优先调用 `seep_tool_discover` 探测工具是否齐全，缺失时调用 `seep_tool_install` 自动安装；
+   - 优先调用 `seep_tool_discover` 探测工具是否齐全，缺失时调用 `tool-acquire.py --tool <id>` 自动安装；
 2. **Step 2：核心分析动作**
    - 详细写明调用 Seep 哪个 MCP 工具，执行什么分析逻辑；
 3. **Step 3：验证与打桩**
@@ -135,7 +135,7 @@ metadata:
 2. 解决痛点：[填入具体场景，如 专门针对私有长连接 WebSocket 数据帧的抓包提取与重放验证]
 3. 遵循原则：
    - 使用标准 YAML frontmatter，适配 Seep v1.8.4+ 体系；
-   - 优先绑定 Seep 现有的 40 个 MCP 工具（如 seep_tool_discover, seep_mem_strings 等）；
+   - 优先绑定 Seep 现有的 20 个 MCP 工具（如 seep_tool_discover, seep_mem_strings 等）；
    - 流程中包含资产画像、缺工具自动自愈、动态验证与最终成品交付闭环；
    - 保持声明式纯文本，不携带冗余大二进制，直接输出单文件 SKILL.md。
 ```

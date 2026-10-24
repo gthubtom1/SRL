@@ -86,7 +86,7 @@ python （S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `S
 | `03-license-hookup` | ③ | 接你自己的授权平台（卡密 / 到期 / 机器码） | 带授权页的产物 + 发卡工具 |
 
 - 触发靠 `Tool/skill/<pack>/pack.json` 的 R11/R12/R13（"旁路卡密出成品" / "改界面换品牌" / "接授权平台"）；
-- **技能数量不设上限**（`check-budget.py` 已放开），但单个 SKILL.md 建议 ≤ 12KB。
+- **技能数量不设上限**（`budget.py` 已放开），但单个 SKILL.md 建议 ≤ 12KB。
 
 ---
 
@@ -148,7 +148,7 @@ python Tool/scripts/preflight.py --fast     # 快速（约 2 秒，改文档/配
 **改动前想知道会牵动谁**：
 
 ```bash
-python Tool/scripts/impact.py Tool/config/tool-capabilities.json
+python Tool/scripts/gate.py Tool/config/tool-capabilities.json
 ```
 
 它输出：谁引用了它、属于哪条链、该跑哪几条检查。

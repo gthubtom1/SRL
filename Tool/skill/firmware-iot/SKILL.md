@@ -205,7 +205,7 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 | `references/firmware-unpack.md` | 解包主参考：获取/容器/解包/仿真/交付清单 |
 | `references/filesystem-and-credentials.md` | rootfs 审计：账号、shadow、私钥/证书、启动链、服务入口 |
 | `references/emulation-and-fuzz.md` | qemu-user/system、FirmAE、NVRAM/`/dev` 桩、fuzz 接线 |
-| `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据；**无线能力先跑 `probe_matrix.py --radio-only`**（见 §八） |
+| `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据；**无线能力先跑 `tool-acquire.py --radio-only`**（见 §八） |
 
 矩阵：`Tool/config/firmware-iot-matrix.json`（14 条，match/criteria/fail/tools/pitfalls）。
 路由片段：`Tool/skill/firmware-iot/pack.json`（词边界，避免抢 Web/APK 词）。
@@ -225,8 +225,8 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --json
 
 # 无线/近场能力枚举：WiFi monitor / 蓝牙 / SDR / 802.15.4 / NFC（只读，≤10s，不需要 --target）
 # 输出 probes[name=radio]：wifi/bluetooth/subghz/nfc + blocked_at（no-monitor-mode|no-radio|no-wifi|…）
-python `probe_matrix`（S4 已删：一次性） --radio-only --json > work/radio.json
-python `probe_matrix`（S4 已删：一次性） --self-test   # 离线自检：只测判定/解析函数，无硬件访问
+python `tool-acquire.py`（S4 已删：一次性） --radio-only --json > work/radio.json
+python `tool-acquire.py`（S4 已删：一次性） --self-test   # 离线自检：只测判定/解析函数，无硬件访问
 
 # 三个脚本都有离线自检（rc=0，最后一行含 "ok": true）
 python `fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/） --self-test

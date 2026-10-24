@@ -46,7 +46,7 @@
    - 架构与位宽：x86 (32位) vs x64 (64位)；
    - 进程拓扑：单进程（如传统工具） vs 多进程协同（如前台 UI + 后台 Service 守护服务）；
    - 数字签名（Authenticode）：若官方主程序带有合法签名，**铁律：严禁 Hex 修改落地 EXE**，必须采用免落盘代理 DLL 技术保持签名完好；
-   - **资源里可能有真载荷**：若主程序逻辑很薄但资源很大 → `seep_pe_resources <路径>` 枚举资源树+高熵段+容器嗅探（zstd/zip），往往功能藏在资源里（换肤包/内嵌 DLL）。
+   - **资源里可能有真载荷**：若主程序逻辑很薄但资源很大 → `seep_r2_cmd(iR) <路径>` 枚举资源树+高熵段+容器嗅探（zstd/zip），往往功能藏在资源里（换肤包/内嵌 DLL）。
 3. **独立沙盒建档**：
    - 严格执行独立目录隔离，不污染根目录：
      ```powershell
@@ -54,7 +54,7 @@
      ```
 4. **工具链自愈与自适应就绪（缺工具绝不中断）**：
    - 若分析过程中需要特定外部工具（如 DIE 判壳 `diec`、调试器 `x64dbg`/`cdb`、抓包分析 `tshark`），首先调用 `seep_tool_discover(tool_id, target)` 展开六层探测（带 PE 位宽架构自匹配）；
-   - 若返回 missing，直接调用 `seep_tool_install(tool_id, execute=True)` 执行多途径自适应安装（系统有 winget 走 winget，无 winget 的 Win10 自动降级绿色便携直下解压）；
+   - 若返回 missing，直接调用 `tool-acquire.py --tool <id>(tool_id, execute=True)` 执行多途径自适应安装（系统有 winget 走 winget，无 winget 的 Win10 自动降级绿色便携直下解压）；
    - 走不通时按降级链调用自写 Python 脚本现场分析，**严禁向用户报错卡死，全流程保持自愈推进**。
 
 ---
@@ -78,7 +78,7 @@
 
 1. **第一层：UI 视觉决策层（即时生效）**
    - **定位特征**：检索 `VIP`、`Member`、`License`、`Trial`、`IsExpired`、`Privilege` 相关的虚函数调用（如 `GetMemberType()`）；
-   - **反编译支持**：首选 `seep_decompile_auto(target_path, func_name)` 驱动多引擎降级链（真 Ghidra 驱动优先出 C 伪代码，缺失时优雅落 r2），获取高精度控制流；
+   - **反编译支持**：首选 `seep_r2_decompile(target_path, func_name)` 驱动多引擎降级链（真 Ghidra 驱动优先出 C 伪代码，缺失时优雅落 r2），获取高精度控制流；
    - **内存解密特征**：若字符串在磁盘为加密存储、仅在运行期内存解密，使用 `seep_mem_strings(pid)` 直接对目标进程展开只读内存扫描，提取 ASCII/UTF-16 明文及虚拟地址；
    - **打桩原则**：在函数入口执行极简零破坏返回，确保主界面渲染时直接读取有效状态。
 2. **第二层：网络通信反序列化层（阻断云端覆盖）**

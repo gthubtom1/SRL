@@ -2,7 +2,7 @@
 
 > 裁决层：本文件属于第 3 层（能力），与 `AGENTS.md` / 边界锚冲突时以它们为准。
 > 落地依据：`work/audit/P5-manager-proposal.md` §2/§3-C/§4（实测数据）。
-> 机检器：「manager-audit.py」(S1 已删)（判据）+ 「receipt-check.py」(S1 已删)（回执）。
+> 机检器：**S1/S4 已删（`manager-audit` / `receipt-check`）**。判据改由主对话人工抽检 + `Tool/scripts/preflight.py --fast` 兜底；回执形状仍按 §3 要求。
 
 ---
 
@@ -11,7 +11,7 @@
 | 动作 | 谁做 | 理由 |
 | :-- | :-- | :-- |
 | 读文件 / 查台账（read / grep / find / ls / kb_search） | **主对话** | 只读、单次便宜；验收与抽检本来就要用它 |
-| 跑验收脚本（`preflight` / `case_state gate` / `receipt-check` / `p2-replay`） | **主对话** | 判「行为没退化」必须有人拿全局基线，外包等于放弃签字权 |
+| 跑验收脚本（`preflight.py --fast` / `case_state.py gate` / `gate.py --all`） | **主对话** | 判「行为没退化」必须有人拿全局基线，外包等于放弃签字权 |
 | 抽检证据（按回执 pointer 抽 1–2 条核对） | **主对话** | 组长本职；抽检不改文件，代价接近 0 |
 | 问人 / ASK 卡 / A-B-C 决策 | **主对话** | 单点接口，`AGENTS.md` §五（三档 + 必须 ASK 三条） |
 | 判过不过 / 冲突裁决 / 汇总回执 | **主对话** | 要合并多份回执的上下文，跨 stint 视角 |
@@ -38,7 +38,9 @@
 | 不参与统计 | 动作数 `< 5` 的会话（空/短会话，旧版会把它们算成 ratio=1.0 的假达标） |
 
 ```bash
-python manager-audit.py(S1 已删) --all --json   # rc=0 全绿 / rc=1 有 OVER_BUDGET
+# write_edit_share 现在从账本算：seep-events 扩展把每次 tool_call 记成 facts.jsonl 的 kind:"event" 行
+python Tool/scripts/case_state.py events --case <case> --tail 200   # 看动作流水
+python Tool/scripts/case_state.py replay --case <case>              # 看 event 行总数
 ```
 
 - `bash` 与 `ratio` **只作参考，不进判据** —— 主对话跑验收是本职，用 ratio 会逼着人把验收也外包。
@@ -54,10 +56,11 @@ python manager-audit.py(S1 已删) --all --json   # rc=0 全绿 / rc=1 有 OVER_
 派给子代理时必须给回执格式，回来必须过机检；过不了就打回重跑，**组长不替它补**。
 
 ```bash
-python receipt-check.py(S1 已删) --file <回执.json>     # rc=0 合格 / rc=1 打回
+# 回执机检器已删（S1）。现在由组长按 §3 形状人工抽检 1–2 条 pointer；
+# 抽不动 = 回执无效，直接打回重跑。
 ```
 
-回执最小形状（`receipt-check.py` J1–J4）：
+回执最小形状（四段，缺一即打回）：
 
 ```json
 {"stint":"<编号>","did":["..."],
@@ -76,7 +79,7 @@ python receipt-check.py(S1 已删) --file <回执.json>     # rc=0 合格 / rc=1
 
 维护类一次性命令 —— **必须同时满足**：① 只跑一次、② 不改业务逻辑、③ 失败可整体重来。
 
-例：跑生成器（`gen-playbook-index.py` / `gen-task-index.py`）、重基线（`manager-audit.py` 落产物）、
+例：跑生成器（`gen-playbook-index.py` / `gen-task-index.py`）、重基线（`（manager-audit 已删）` 落产物）、
 改本文件这种契约文档、`preflight --fast` 的修复回归。
 
 做法：**动手前在当批 `decisions` 里记一行**：
@@ -92,8 +95,8 @@ decision: 主对话直做 <动作> —— 例外理由：<一次性 / 生成器 
 ## 5 三条自检（每批收尾问一遍）
 
 1. 本批 `write_edit_share` 是多少？超 3% 的话，超的部分是"必须我改"还是"我懒得派"？
-2. 每份回执都过了 `receipt-check` rc=0 吗？我照着 pointer 抽了几条？
-3. 验收（`preflight` / `gate` / `receipt-check`）是我自己跑的，还是外包了？（外包 = 签字权丢了）
+2. 每份回执都过了 `（receipt-check 已删：回执核对并入 case_state.py gate）` rc=0 吗？我照着 pointer 抽了几条？
+3. 验收（`preflight` / `gate` / `（receipt-check 已删：回执核对并入 case_state.py gate）`）是我自己跑的，还是外包了？（外包 = 签字权丢了）
 
 ---
 
@@ -122,7 +125,7 @@ decision: 主对话直做 <动作> —— 例外理由：<一次性 / 生成器 
 
    ⚠ **但 `codemode` 会回来**：它是扩展工具，不受预设约束；刚建会话时不在，跑过一轮后就被并回 active。
    所以 `codemode` 写盘盲区**并未关闭**，仍靠两条：①§2 纪律「用 codemode 写文件 = 主对话动手」；
-   ②`manager-audit` 单列 codemode 计数点名。
+   ②`（manager-audit 已删：管理审计并入 gate.py）` 单列 codemode 计数点名。
 2. 代价与选择（先写进当批 `decisions` 再动手）：
    - **A（严 · 推荐）**：保留 `bash`，靠 `write_edit_share ≤ 3%` 管纪律（`bash` 不进判据，组长跑验收是本职）。
    - **B（硬）**：连 `bash` 一起砍，验收交给 `seep-verify` 跑，组长只读它的原始输出片段。

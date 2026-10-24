@@ -14,8 +14,8 @@ Seep 在"授权/许可、APK、协议"上很强，但面对**加壳 / 反调试 
 |---|---|---|
 | 判型只看文件名/大白话 | 裸路径不带关键词 → 判型落空 | `preflight-classify.py`：判型前先读文件头 |
 | 缺工具就报错/瞎猜路径 | 终端里 `NOT FOUND` 空转 | `seep_ensure_tool()`：四级探测 + 安装建议 |
-| 反编译硬绑 R2 | 遇重型壳力道不够 | `seep_decompile_auto()`：IDA→Ghidra/REA→R2 降级 |
-| **没有资源层/内存层/协议层工具** | 换肤器 21MB 皮肤包、运行期解密字符串、云端卡密回包——全都看不见 | `seep_pe_resources` / `seep_mem_strings` / `seep_pcap_extract` |
+| 反编译硬绑 R2 | 遇重型壳力道不够 | `seep_r2_decompile()`：IDA→Ghidra/REA→R2 降级 |
+| **没有资源层/内存层/协议层工具** | 换肤器 21MB 皮肤包、运行期解密字符串、云端卡密回包——全都看不见 | `seep_r2_cmd(iR)` / `seep_mem_strings` / `seep_pcap_extract` |
 | 缺"何时该换法"的硬阈值 | 单点死磕几百轮 | `windows-sop.md` 插入"攻坚者五条 + 换法阈值" |
 
 ---
@@ -31,14 +31,14 @@ Seep 在"授权/许可、APK、协议"上很强，但面对**加壳 / 反调试 
 |---|---|---|
 | `preflight-classify.py` | 判型前预判脚本 | `Tool/skill/softseep/scripts/` + SKILL.md 加 6 行调用说明 |
 | `seep_ensure_tool()` | MCP 工具 | `seep_mcp_server.py` 末尾追加 |
-| `seep_decompile_auto()` + `engine-tiers.json` | MCP 工具 + 声明式配置 | `seep_mcp_server.py` + `Tool/config/` |
+| `seep_r2_decompile()` + `engine-tiers.json` | MCP 工具 + 声明式配置 | `seep_mcp_server.py` + `Tool/config/` |
 | 攻坚者五条 + 换法阈值 | 文档段 | `softseep/references/windows-sop.md` Step1 前插入 |
 
 ### 第二批（资源 / 内存 / 协议——治"Seep 看不到活体与载荷"）
 
 | 资产 | 治什么样本 | 核心能力 |
 |---|---|---|
-| `seep_pe_resources()` | 换肤器/皮肤包/内嵌 DLL | 枚举 PE 资源树 + 节熵 + 容器嗅探（zstd/zip/pe…），可选剥离落盘 |
+| `seep_r2_cmd(iR)()` | 换肤器/皮肤包/内嵌 DLL | 枚举 PE 资源树 + 节熵 + 容器嗅探（zstd/zip/pe…），可选剥离落盘 |
 | `seep_mem_strings()` | 运行期才解密的字符串 | 只读扫活体进程内存，提取 ASCII/UTF-16 字符串 + 虚拟地址 |
 | `seep_pcap_extract()` | 卡密/授权在云端 | tshark 提取端点 / HTTP 请求响应 / 指定端口 TCP 载荷 |
 
@@ -111,7 +111,7 @@ Seep 原本已有 `MANUAL/ANTI-DEBUG.md`(190行) 和 `MANUAL/UNPACKING.md`(188�
 
 | 资产 | 治什么 | 核心能力 |
 |---|---|---|
-| `seep_web_recon()` | Web/API 逆向前的轻量侦察 | 响应头/技术栈指纹/安全头缺失/常见入口探测（robots/.git/.env）；**只读不攻击**，重型渗透走独立 MCP |
+| `web-check.py()` | Web/API 逆向前的轻量侦察 | 响应头/技术栈指纹/安全头缺失/常见入口探测（robots/.git/.env）；**只读不攻击**，重型渗透走独立 MCP |
 | `Tool/config/tool-install.json` + `seep_ensure_tool(allow_install)` | 真需要某工具时才装 | 声明式安装清单（pip/winget/npm/go/manual），`allow_install=True` 且方法在白名单才自动执行，装完自动重探 |
 
 **P3 的定位（渗透只补一点点）**：只补"和逆向/协议相关"的那一小块——Web 指纹、接口发现、头分析。

@@ -44,7 +44,7 @@
 - **为什么**：内存 dump 记录的是装载后的真实地址，落盘时 PE 头没改回首选基址，于是"RVA + 原基址"算出来的每个 VA 都落在错误位置。
 - **必做**：① `rabin2 -I <dump>` 读 ImageBase 并**落到报告里**；② 同时列两套 VA：`runtime_va = ImageBase + RVA`、`static_va = 0x140000000 + RVA`；③ 每次反编译/交叉引用前先断言用的是哪一套；④ `report/dynamic.md` 的地址台账必须 RVA / VA / 基址 三列齐（`case_state.py gate --stage 2` 会因此红）。
 - **负例**：同一 RVA 先按原基址问 → `no function`；再按运行时基址问 → 返回真函数体与指令，说明差的是基址，不是"函数被剥了"。
-- **来源**：aimbot 案 7 次 `no function`（`docs/history/X-HANDOFF-2-DETAIL.md:118`、`Tool/cases/aimbot/case.json`）；回归断言 R4（`work/audit/behavior/replay-history.md` 总表）
+- **来源**：aimbot 案 7 次 `no function`（`docs/history/X-HANDOFF-2-DETAIL.md:118`、`Tool/cases/aimbot/case.json`）；回归断言 R4（`work/audit/behavior/（replay-history 已删）.md` 总表）
 
 ### T03 · 压缩件里的 AOB 假命中
 
@@ -84,15 +84,15 @@
 - **为什么**：MCP http 型工具只在**会话启动时**注册；服务后起 → 本轮根本没有工具可调 → 模型只能退回手搓一次性脚本（历史血案：手搓了 5 个）。
 - **必做**：L2"连上"只认一条判据 —— `mcp__<server>` 出现在当前会话 `ALL_TOOLS` 里。不在就**重启会话让服务先起**（或用 `Tool/scripts/tool-acquire.py` 走阶梯），不要"再调一次试试"；报告里的 L2 结论必须引这个判据而不是端口/进程。
 - **负例**：`tool-run.ps1` 报 READY、端口在听、`ALL_TOOLS` 无该命名空间 → L2 仍判**未连上**。这条负例的作用是把"进程在跑"从判据里剔出去。
-- **来源**：`Tool/prompts/contracts/TOOL-LADDER.md:23,29`；`docs/history/X-PLAN-FINAL.md:132,142`
+- **来源**：`Tool/prompts/contracts/TOOL-LADDER.md:23,29`；`docs/history/X-PLAN-FINAL.md:132,142`（历史归档，仅作出处）
 
 ### T08 · 子代理不加载扩展（除非显式开）
 
 - **信号**：profile 里写了 `loadExtensions: true`，但子代理里护栏完全不生效；或子代理拿到了全套工具，而不是你在 `tools:` 里收窄的那几个。
 - **为什么**：引擎只认 snake_case `load_extensions`（手写 camelCase 等于没写）；并且一个 profile 只能选一边 —— 要护栏（`true`，全工具）或要最小权限（`false`，工具可控），两者不会同时成立。
-- **必做**：写完 profile 立刻跑 `python liveness-check.py(S1 已删)` 断言 frontmatter（它专查 `loadExtensions` 这类 camelCase 误写与缺失 `load_extensions`）；以 UI 里保存生成的那份为准，手改后必须重跑一次再派活。
+- **必做**：写完 profile 立刻跑 `python Tool/scripts/gate.py --pack <id>` 断言 frontmatter（它专查 `loadExtensions` 这类 camelCase 误写与缺失 `load_extensions`）；以 UI 里保存生成的那份为准，手改后必须重跑一次再派活。
 - **负例**：`load_extensions: false` + `tools: read,bash,grep,find,ls` → 子代理只剩这五个、没有 write/edit。若你看到子代理能 write，说明该键没生效（拼写或缩进层级错），此时"护栏在"是错觉。
-- **来源**：`liveness-check.py(S1 已删):16,101–106`；`Tool/prompts/contracts/TOOL-LADDER.md:116,135,141,162`
+- **来源**：`Tool/scripts/gate.py`（witness 判据）；`Tool/prompts/contracts/TOOL-LADDER.md:116,135,141,162`
 
 ### T09 · `--extension` + 占位 token
 

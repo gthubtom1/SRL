@@ -214,7 +214,7 @@ metadata:
 > 用户说什么不重要，**softseep 听懂意图后自己归类**。下表是内部推断规则。
 
 > **本表是 `Tool/skill/<pack>/pack.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
-> `verify-routing-coherence.py` 守自洽；发现本表与 routing.json 不一致时，**以 routing.json 为准**。
+> `route.py --check` 守自洽；发现本表与 pack.json 不一致时，**以 pack.json 为准**。
 
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
@@ -319,15 +319,15 @@ metadata:
 
 | 已删 | 替代 |
 |---|---|
-| ~~`seep_status`~~ / ~~`seep_ida_status`~~ / ~~`seep_tool_state`~~ | `python Tool/scripts/mcp-doctor.py` |
-| ~~`seep_r2_functions`~~ / `_xrefs` / `_asm` / `_diff` | `seep_r2_cmd(afl / axt / axf / rasm2)`；diff 用 `radiff2` CLI |
-| ~~`seep_kb_checklist`~~ / ~~`seep_kb_payloads`~~ | `seep_kb_read`（清单与 payload 本来就是 KB 正文）|
-| ~~`seep_apk_gen_hook`~~ | Frida 模板在 `Tool/mcp/Tool/safe/hook-mcp/` |
-| ~~`seep_web_recon`~~ / ~~`seep_pe_resources`~~ / ~~`seep_decompile_auto`~~ | `seep_r2_cmd` / `seep_r2_decompile` |
-| ~~`seep_case_search`~~ | `python Tool/scripts/case_state.py index [--json]` |
-| ~~`seep_task_init`~~ | `mkdir -p <task>/{samples,exports,patches,reports}` |
-| ~~`seep_tool_install`~~ / `_register_mcp` / `_research` / `_control_plan` | `python Tool/scripts/tool-acquire.py --tool <id>`（装/注册一律 ASK）|
-| ~~`seep_create_skill`~~ | 手写 `pack.json` + `SKILL.md`（**加技能不再零成本**，这是刻意的）|
+| ~~`mcp-doctor.py`~~ / ~~`mcp-doctor.py`~~ / ~~`tool-acquire.py --json`~~ | `python Tool/scripts/mcp-doctor.py` |
+| ~~`seep_r2_cmd(afl)`~~ / `_xrefs` / `_asm` / `_diff` | `seep_r2_cmd(afl / axt / axf / rasm2)`；diff 用 `radiff2` CLI |
+| ~~`seep_kb_read`~~ / ~~`seep_kb_read`~~ | `seep_kb_read`（清单与 payload 本来就是 KB 正文）|
+| ~~`Tool/mcp/Tool/safe/hook-mcp/`~~ | Frida 模板在 `Tool/mcp/Tool/safe/hook-mcp/` |
+| ~~`web-check.py`~~ / ~~`seep_r2_cmd(iR)`~~ / ~~`seep_r2_decompile`~~ | `seep_r2_cmd` / `seep_r2_decompile` |
+| ~~`case_state.py index`~~ | `python Tool/scripts/case_state.py index [--json]` |
+| ~~`mkdir -p <task>/{samples,exports,patches,reports}`~~ | `mkdir -p <task>/{samples,exports,patches,reports}` |
+| ~~`tool-acquire.py --tool <id>`~~ / `_register_mcp` / `_research` / `_control_plan` | `python Tool/scripts/tool-acquire.py --tool <id>`（装/注册一律 ASK）|
+| ~~`手写 pack.json`~~ | 手写 `pack.json` + `SKILL.md`（**加技能不再零成本**，这是刻意的）|
 
 ### 工具发现与工具链（S4 后只剩 2 个工具，其余走 CLI）
 
@@ -532,7 +532,7 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 ---
 
-## 附：领域包一览（与 routing.json 对应，2026-10-21 起）
+## 附：领域包一览（与 pack.json 对应，2026-10-21 起）
 
 | 域 | 路由 | 技能 | 一句话判据 |
 |---|---|---|---|

@@ -19,7 +19,7 @@ $pkgs = @(
     @{ Name = 'mcp';         Spec = 'mcp>=1.20,<1.29'; Note = 'seep MCP 运行时（版本上限由 reverselab 约定）' },
     @{ Name = 'pytest';      Spec = 'pytest';          Note = 'apkseep 离线测试套件' },
     @{ Name = 'frida-tools'; Spec = 'frida-tools';     Note = '动态 Hook（可选）' },
-    @{ Name = 'pefile';      Spec = 'pefile';          Note = '扩展资产：PE 资源枚举/判壳 (seep_pe_resources/seep_packer_detect)' },
+    @{ Name = 'pefile';      Spec = 'pefile';          Note = '扩展资产：PE 资源枚举/判壳 (seep_r2_cmd(iR)/seep_packer_detect)' },
     @{ Name = 'curl-cffi';   Spec = 'curl-cffi';       Note = '扩展资产：协议重放 TLS 指纹伪装 (seep_http_replay)' },
     @{ Name = 'zstandard';   Spec = 'zstandard';       Note = '扩展资产：zstd 资源解压' },
     @{ Name = 'requests';    Spec = 'requests';        Note = '扩展资产：HTTP 请求降级后端' }

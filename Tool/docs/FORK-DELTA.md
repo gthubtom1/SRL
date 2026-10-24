@@ -45,16 +45,16 @@
 | 工具 | 类别 | 解决什么 | 实现位置 | 回滚方式 |
 |---|---|---|---|---|
 | `seep_ensure_tool` | 工具自愈 | 四级探测 + 安装计划 | `seep_mcp_server.py`（扩展区） | 删函数块 |
-| `seep_decompile_auto` | 引擎降级 | IDA→Ghidra→REA→r2 | 同上 | 删函数块 |
-| `seep_pe_resources` | 资源层 | 资源载荷枚举/剥离 | 同上 + `pefile` | 删函数块 |
+| `seep_r2_decompile` | 引擎降级 | IDA→Ghidra→REA→r2 | 同上 | 删函数块 |
+| `seep_r2_cmd(iR)` | 资源层 | 资源载荷枚举/剥离 | 同上 + `pefile` | 删函数块 |
 | `seep_mem_strings` | 内存层 | 活体只读字符串 | 同上 + ctypes | 删函数块 |
 | `seep_pcap_extract` | 协议层 | pcap 端点/HTTP/载荷 | 同上 + tshark | 删函数块 |
 | `seep_packer_detect` | 判壳 | 壳/反调试/反 VM + 手册路由 | 同上 | 删函数块 |
 | `seep_http_replay` | 协议层 | 构造/重放 + TLS 指纹 + Cookie 会话 | 同上 + curl_cffi/requests | 删函数块 |
-| `seep_web_recon` | 侦察 | Web 指纹/安全头/入口 | 同上 | 删函数块 |
+| `web-check.py` | 侦察 | Web 指纹/安全头/入口 | 同上 | 删函数块 |
 | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 工具发现 | 六层探测 + 能力表 + 降级链 + 半自动安装 | `tool_autodiscover.py` + `Tool/config/*.json` | 删薄封装 + 保留插件 |
-| `seep_create_skill` | 扩展性 | 新技能脚手架 | 同上 + `（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）` | 删函数块 |
-| `seep_case_search` | 案例库 | 按域/保护/深度检索案例（index 缓存 + 实时扫描） | 同上（`SEEP-EXT: case-lib`） | 删函数块 |
+| `手写 pack.json` | 扩展性 | 新技能脚手架 | 同上 + `（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）` | 删函数块 |
+| `case_state.py index` | 案例库 | 按域/保护/深度检索案例（index 缓存 + 实时扫描） | 同上（`SEEP-EXT: case-lib`） | 删函数块 |
 | `seep_case_read` | 案例库 | 读 case.json + facts.jsonl + README | 同上（`SEEP-EXT: case-lib`） | 删函数块 |
 
 > **合并上游注意**：上游若也新增工具，**名字冲突优先上游语义**，但要先比对签名——同名不同义会造成静默错误。
@@ -71,9 +71,9 @@
 
 | 文件 | 作用 | 谁在读 |
 |---|---|---|
-| `Tool/config/tool-capabilities.json` | 15 个工具的 mcp/headless/gui/cli 能力与控制命令 | `seep_tool_research` / `plan_control` |
-| `Tool/config/tool-install.json` | 22 项多途径安装（winget / 绿色直下 / pip / npm / go） | `seep_tool_install` |
-| `Tool/config/engine-tiers.json` | 反编译引擎降级链 | `seep_decompile_auto` |
+| `Tool/config/tool-capabilities.json` | 15 个工具的 mcp/headless/gui/cli 能力与控制命令 | `tool-acquire.py --list` / `plan_control` |
+| `Tool/config/tool-install.json` | 22 项多途径安装（winget / 绿色直下 / pip / npm / go） | `tool-acquire.py --tool <id>` |
+| `Tool/config/engine-tiers.json` | 反编译引擎降级链 | `seep_r2_decompile` |
 | `Tool/config/tool-runtimes.json` | 工具通道阶梯（MCP > CLI > GUI）+ 就绪判据 | `Tool/scripts/tool-run.ps1` |
 | `Tool/config/mcp-servers.json` | MCP 装配（含占位符替换与 headers 策略） | `setup/install-pi.ps1` |
 
@@ -84,8 +84,8 @@
 | Linux `mcp.json` 用 sed 生成 → 反斜杠路径 + 未替换占位符 + 覆写用户条目 | 新增跨平台增量合并器（只增不删/写前备份/备份轮转） | `setup/merge_agent_config.py` + `install.sh` |
 | 安装脚本 unzip 返回 1 时中断 | 显式兜住 | `setup/install.sh` |
 | 卸载无差别删 `extensions/*.ts` | 改为随包白名单 | `setup/uninstall.*` |
-| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/skill/<pack>/pack.json` + `verify-routing-coherence.py` |
-| `master-route.ps1` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/route.py` |
+| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/skill/<pack>/pack.json` + `route.py --check` |
+| `route.py` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/route.py` |
 | 体检只查"文件在不在" | 换功能性断言（路径可解析 / 含关键规约 / 实跑测试） | `setup/verify.*` |
 | 工具根写死 `D:\Tools` | **动态跨盘 + 用户级安装目标** | `tool_autodiscover.candidate_roots()` |
 | 无预算/无熔断/模型爱 `-h` 硬试 | 提示词硬约束 + 动态操作预算 | `Tool/prompts/{SYSTEM,AGENTS}.md` |
@@ -185,7 +185,7 @@ python Tool/scripts/route.py         # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q # 84/84
 powershell -File setup/verify.ps1 -Detailed             # 65 项（./setup/verify.sh 同为 65 项）
 python Tool/scripts/budget.py                     # 反臃肿预算
-python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                        # 端到端链路（真实样本 12 项，约 13s）
+python `preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）                        # 端到端链路（真实样本 12 项，约 13s）
 ```
 
 ---
@@ -195,7 +195,7 @@ python `smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py
 ### 六·说明（必读：这是**旧快照**）
 
 本节是自动生成段的**历史快照**（停在 v1.10.x 统计：新增 154 / 修改 49），**不含** 00–05 阶段技能与
-`case_state.py` / `migrate.py` / `mcp-doctor.py` / `mcp-guard.py`。
+`case_state.py` / `patch-verify.py` / `mcp-doctor.py` / `mcp-guard.py`。
 原因：本机是 **shallow clone 且没有 `upstream` remote**，`fork-delta.py` 依赖 `upstream/main` 才能出数
 （实跑会退 2）。要重生成：
 
@@ -221,7 +221,7 @@ python `upstream-delta`（S4 已删：一次性）        # 覆写 §六
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
 | 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/_pending/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
-| 脚本 | `Tool/scripts/budget.py`<br>``upstream-delta`（S4 已删：一次性）`<br>`（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）`<br>``smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`<br>`Tool/scripts/route.py` |
+| 脚本 | `Tool/scripts/budget.py`<br>``upstream-delta`（S4 已删：一次性）`<br>`（S4 已删：加技能不再走脚手架 —— 手写 `pack.json` + `SKILL.md`）`<br>``preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`<br>`Tool/scripts/route.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |
 | 根目录 | `README.en.md` |

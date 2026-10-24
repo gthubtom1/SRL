@@ -143,7 +143,7 @@ MCP 配置文件所在位置：
 |---|---|---|
 | `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
 | `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
-| ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (migrate.py)` |
+| ``migrate`（S4 已删：一次性；追版改用 binary-diff 参考 + 手写对齐）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (patch-verify.py)` |
 | `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
 | `Tool/skill/softseep/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
 
@@ -168,7 +168,7 @@ MCP 配置文件所在位置：
 #### 2. 🔌 MCP 服务引擎 (4项)
 | 服务名 | 配置文件载体 | 期望工具数 | 实际状态 | 状态判定 | 降级/处置说明 |
 |---|---|---|---|---|---|
-| seep (自研) | ~/.pi/agent/mcp.json | 40 工具 | Connected (40) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
+| seep (自研) | ~/.pi/agent/mcp.json | 20 工具 | Connected (40) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
 | ida (商业) | ~/.pi/agent/mcp.json | ~100+ 工具（随版本） | 未监听 (13337) | 🟡 DEGRADED | 已自动降级为内置 Radare2，主链路 100% 可用 |
 | js-reverse | ~/.pi/agent/mcp.json | 23 工具 | 可用 (npx) | 🟢 READY | JS 逆向引擎就绪 |
 | playwright | ~/.pi/agent/mcp.json | 以运行时为准 | 无需 Token（`--headless`） | 🟡 DEGRADED | 懒连接（lazy），首次调用前不建连；不影响二进制逆向 |

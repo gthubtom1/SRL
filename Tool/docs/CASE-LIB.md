@@ -12,19 +12,19 @@
 | 内容形态 | 通用战术、checklist、payload、CVE/CTF 套路 | 具体目标画像、保护层、补丁点、产物、被否决方案 |
 | 时效性 | 长期有效，可跨目标复用 | 绑定版本/构建号，厂商更新即可能失效 |
 | 失败记录 | 很少 | **重点保留**：`partial` / `blocked` 同样是资产 |
-| 检索入口 | `seep_kb_search` / `seep_kb_read` | `seep_case_search` / `seep_case_read` |
+| 检索入口 | `seep_kb_search` / `seep_kb_read` | `case_state.py index` / `seep_case_read` |
 | 事实来源 | 方法论与经验 | `case.json` + README/docs + `facts.jsonl` |
 
 使用顺序建议：
 
-1. 先 `seep_case_search` 找同目标 / 同保护 / 同领域的旧案例，避免重复踩坑；
+1. 先 `case_state.py index` 找同目标 / 同保护 / 同领域的旧案例，避免重复踩坑；
 2. 没有案例或案例已过期，再用 `seep_kb_search` 找通用战术；
 3. 本次结束后回填 `case.json` 与 docs，把"判据"和"否决方案"写进 `lessons`。
 
 ## 2. 数据模型
 
 每个案例目录必须有一个 `case.json`（字段定义见 `Tool/cases/README.md`）。
-**没有索引文件**（S2 起 `index.json` 与生成器 `gen-case-index.py` 均已删除）：
+**没有索引文件**（S2 起 `index.json` 与生成器 `case_state.py index` 均已删除）：
 `python Tool/scripts/case_state.py index [--check] [--stats] [--json]` 每次现扫现算，
 所以不存在「缓存过期」这个失效面。
 
@@ -79,14 +79,14 @@ python Tool/scripts/case_state.py index --json
 
 ## 4. 新鲜度与 MCP 行为
 
-`seep_case_search` / `seep_case_read` 在 `Tool/mcp/seep_mcp_server.py` 的
+`case_state.py index` / `seep_case_read` 在 `Tool/mcp/seep_mcp_server.py` 的
 `SEEP-EXT: case-lib` 块中实现，不依赖 KB 的 glob 逻辑。
 
 - 始终**实时扫 `case.json`**（S2 起没有任何索引文件可读，也就不存在「读过期缓存」的失效面）；
 - `seep_case_read` 始终现读文件，所以 README/docs 的更新无需重建索引；
 - 所有错误都以字符串返回（`[ERROR]: ...`），不向 MCP 客户端抛异常。
 
-`seep_case_search` 打分权重（简单子串，大小写不敏感）：
+`case_state.py index` 打分权重（简单子串，大小写不敏感）：
 
 | 字段 | 权重 |
 |---|---|

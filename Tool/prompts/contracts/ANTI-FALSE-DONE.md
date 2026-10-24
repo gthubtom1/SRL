@@ -68,8 +68,8 @@
 | 检查 | 审 Seep 自身（仓库级） | 用 Seep 做项目（项目级） |
 | :-- | :-- | :-- |
 | C1 三问 | 每个 preflight 项都要有负例 | 每个阶段闸前，对当前结论问三问 |
-| C2 负例 | `liveness-check` / `path-walk` 自带破坏用例 | 交付前故意做一个坏产物，验收必须拒 |
-| C3 真实路径 | `path-walk.py` 逐叶走"话术→产物"六环 | 每个 case 走一条完整路径并留轨迹 |
+| C2 负例 | `Tool/scripts/gate.py`（逐包真跑 witness） / `Tool/scripts/gate.py --all`（逐包判据） 自带破坏用例 | 交付前故意做一个坏产物，验收必须拒 |
+| C3 真实路径 | `Tool/scripts/gate.py --all`（逐包判据） 逐叶走"话术→产物"六环 | 每个 case 走一条完整路径并留轨迹 |
 | C4 unreached | 扫"声明了但没有路由/没有调用方"的能力 | 扫"技能里提到但流程里没有一步用到的工具/脚本" |
 | C5 独立性 | 外部盲审（cleanroom）+ 子代理分离 | 验证器 profile 独立于实施者 |
 
@@ -82,7 +82,7 @@
 规则的执行率我们已经实测过：79 条强制语句 → 关键动作执行 0 次。
 所以本协议**只允许两种落点**：
 
-- **能写进脚本的** → 进 `Tool/scripts/`（`liveness-check` / `path-walk` / `accept`），带负例；
+- **能写进脚本的** → 进 `Tool/scripts/`（`Tool/scripts/gate.py`（逐包真跑 witness） / `Tool/scripts/gate.py --all`（逐包判据） / `accept`），带负例；
 - **写不进脚本的** → 进**阶段契约**（`SKILL.md` 头部 4 行），由闸检查产物。
 
 **这里只认两种写法；写成"请注意要仔细验证"这类句子。** 那种句子是本协议要消灭的对象。

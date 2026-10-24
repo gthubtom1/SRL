@@ -95,7 +95,7 @@ apkseep/
 > 本节只讲“由哪些文件夹组成”。
 > 📦 **各工具下载来源** → 见 **`Tool/docs/DOWNLOADS.md`**
 
-### ① seep MCP（40 工具）— 自研
+### ① seep MCP（20 工具）— 自研
 
 | 组成 | 位置 | 说明 |
 | :--- | :--- | :--- |
@@ -107,7 +107,7 @@ apkseep/
 | **LLM 索引** | `Tool/mcp/Tool/reverselab/docs/llms.txt` | MCP 启动时读取 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/radare2/bin/`（脚本下载） | `seep_r2_*` 8 个工具 |
 | **外部工具依赖** | `Tool/mcp/Tool/safe/jadx/bin/` + `.../apktool/`（脚本下载） | `seep_apk_*` 5 个工具 |
-| **Hook 模板** | `Tool/mcp/Tool/safe/hook-mcp/templates/` | `seep_apk_gen_hook` |
+| **Hook 模板** | `Tool/mcp/Tool/safe/hook-mcp/templates/` | `Tool/mcp/Tool/safe/hook-mcp/` |
 
 > **关键（排障必读）**：`seep_mcp_server.py` 第 28–44 行硬编码：
 > ```python
@@ -121,15 +121,15 @@ apkseep/
 
 **工具分组**：
 ```
-状态环境(2)   seep_status · seep_ida_status
+状态环境(2)   mcp-doctor.py · mcp-doctor.py
 二进制 r2(9)  seep_r2_info · _cmd · _strings · _functions · _disasm · _decompile · _diff · _asm · _xrefs
 Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_hook
 知识库(4)     seep_kb_search · _read · _checklist · _payloads
-流程编排(3)   seep_task_init · seep_auto_triage · seep_gen_security_report
-扩展资产(14)  seep_ensure_tool · seep_decompile_auto · seep_pe_resources · seep_mem_strings ·
-             seep_pcap_extract · seep_packer_detect · seep_http_replay · seep_web_recon ·
-             seep_tool_discover · seep_tool_control_plan · seep_tool_research ·
-             seep_tool_register_mcp · seep_tool_install · seep_tool_state
+流程编排(3)   mkdir -p <task>/{samples,exports,patches,reports} · seep_auto_triage · seep_gen_security_report
+扩展资产(14)  seep_ensure_tool · seep_r2_decompile · seep_r2_cmd(iR) · seep_mem_strings ·
+             seep_pcap_extract · seep_packer_detect · seep_http_replay · web-check.py ·
+             seep_tool_discover · tool-acquire.py · tool-acquire.py --list ·
+             tool-acquire.py（ASK） · tool-acquire.py --tool <id> · tool-acquire.py --json
 ```
 
 ### ② ida MCP（约 100 工具，随版本变化）
@@ -203,7 +203,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | `case-init.ps1` | `Tool/scripts/` | 任务建档门禁（一任务一目录） |
 | `refresh-tool-index.ps1` | `Tool/scripts/` | 工具链健康自检 |
 | `trigger_ida_mcp.ps1` | `Tool/scripts/` | 静默唤醒 IDA + 挂 MCP |
-| `master-route.ps1` | `Tool/scripts/` | 主路由 |
+| `route.py` | `Tool/scripts/` | 主路由 |
 | `start_mcp.py` | `Tool/scripts/` | MCP 启动 |
 | `shot_ida.ps1` / `temp_ocr.ps1` | `Tool/scripts/` | 截图 / OCR 辅助 |
 | `apk/decode.ps1` | `Tool/scripts/apk/` | jadx + apktool 一键解包 |
@@ -236,7 +236,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 seep_kb_* 四个工具   →  Tool/mcp/Tool/reverselab/kb/（412 篇）
 seep_r2_* 八个工具   →  Tool/mcp/Tool/safe/radare2/bin/
 seep_apk_* 五个工具  →  Tool/mcp/Tool/safe/jadx/ + apktool/
-seep_apk_gen_hook   →  Tool/mcp/Tool/safe/hook-mcp/templates/
+Tool/mcp/Tool/safe/hook-mcp/   →  Tool/mcp/Tool/safe/hook-mcp/templates/
 ida MCP              →  自备 IDA Pro + Tool/mcp/Tool/safe/ida-pro-mcp/
 playwright MCP       →  npx + --headless（无需 token）
 softseep 路由         →  Tool/skill/softseep/（含 8 个 references）

@@ -47,7 +47,7 @@
 >
 > - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（31 技能 / 11 域 / 24 配方 / 20 个 MCP 工具）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
-> - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 55/55、domain-gate 110/110、verify 65/0、smoke-e2e 12/12
+> - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 55/55、domain-gate 110/110、verify 65/0、preflight.py 12/12
 > - **先读**：[`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)（差异/需求/契约/债务）→ [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)（最近交付台账）
 > - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（只出报告，不改仓库）
 > - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`）——**不作现状**
@@ -77,12 +77,12 @@
 |---|---|---|
 | 协议重放 | `seep_http_replay` | 原版只能被动看 pcap，不能主动构造/重放请求；此工具带 TLS 指纹伪装 + Cookie 会话保持 |
 | 协议取证 | `seep_pcap_extract` | 提取端点/HTTP/TCP 载荷 |
-| 资源剥离 | `seep_pe_resources` | 皮肤包/内嵌 DLL 藏在资源里的样本 |
+| 资源剥离 | `seep_r2_cmd(iR)` | 皮肤包/内嵌 DLL 藏在资源里的样本 |
 | 内存取证 | `seep_mem_strings` | 字符串运行期才解密、磁盘看不到 |
 | 加壳/反调试 | `seep_packer_detect` | 把已有 UNPACKING/ANTI-DEBUG 手册工具化（判壳+反调试+手册路由） |
-| Web 侦察 | `seep_web_recon` | 渗透轻量侦察（只读） |
+| Web 侦察 | `web-check.py` | 渗透轻量侦察（只读） |
 | 工具发现 | `seep_ensure_tool` | 四级探测 + 缺工具安装计划 |
-| 反编译入口 | `seep_decompile_auto` | r2 保底 + 高阶引擎告知 |
+| 反编译入口 | `seep_r2_decompile` | r2 保底 + 高阶引擎告知 |
 | 工具自动发现与自愈（6 个） | `seep_tool_discover` / `_control_plan` / `_research` / `_register_mcp` / `_install` / `_state` | 六层探测（含注册表与位宽匹配）+ 声明式能力表（拒绝-h试探）+ **多途径自适应安装（支持无winget的Win10自动绿色直下）** + 多Agent宿主双向同步注册 MCP |
 
 
@@ -93,14 +93,14 @@
 | **脱壳闭环** | `unpack-loop` 技能：判定门（壳类型×反调试×权威位置）→ 三路线（可脱/仅运行期/建议放弃）+ 每阶段完成判据 + 两次熔断 |
 | **工具可移植** | 工具根**动态跨盘探测**（env → 用户级 → 各盘符 → POSIX），安装落 `~/.seep/tools`，换机换盘不改代码 |
 | **工具自愈** | 22 项多途径安装（winget / 绿色直下 / pip / npm / go）+ 15 个工具的声明式能力表 + 降级链 |
-| **端到端验收** | ``smoke-e2e`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`：真实样本一次跑通「triage→判壳→画像→反编译→KB→报告」12 环，13 秒 |
-| **反臃肿预算** | 6 项硬上限 + 三不原则 + 加功能四问，`check-budget.py` 一条命令校验 |
+| **端到端验收** | ``preflight.py`（S4 已删：一次性；判据由 `preflight.py` + `gate.py` 覆盖）`：真实样本一次跑通「triage→判壳→画像→反编译→KB→报告」12 环，13 秒 |
+| **反臃肿预算** | 6 项硬上限 + 三不原则 + 加功能四问，`budget.py` 一条命令校验 |
 | **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
 | **接力棒（换会话先读）** | `ROADMAP.md`（现在能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore），不再随仓库分发 |
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
-| **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **55/55**、`--fast` **52/52**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
+| **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **55/55**、`--fast` **42/42**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
 | **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 20 工具数基线，防「模型第一次调用就传错参数」 |
-| **技能路由探针** | `skill-route-probe.py`：39 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
+| **技能路由探针** | `skill-route-probe.py`：39 条大白话 → 技能命中（`route.py` 视角），防 CJK 边界导致掉兜底 |
 | **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |
 | **固件/物联网无线近场** | `firmware-iot` 新增 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC 章节 |
 | **02/03 阶段硬化** | 判据表 + 失败判据 + 最小实现，阶段产出可验收、失败可止损 |
@@ -173,7 +173,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 │  上下文预算控制 Context Budget Control（v1.1 降噪）               │
 │  • seep_r2_decompile: full / fold（省 60% Token）/ summary（省 90%）│
 │  • seep_r2_disasm:   full / branch（仅控制流骨架）               │
-│  • seep_r2_xrefs:    分页返回，默认 limit=10，附总数统计摘要       │
+│  • seep_r2_cmd(axt/axf):    分页返回，默认 limit=10，附总数统计摘要       │
 └──────────────────────────┬───────────────────────────────────────┘
                            │
                            ▼
@@ -205,7 +205,7 @@ Agent 自主完成：
 1. **`seep_auto_triage`** → 识别 DEX + ARM64 SO，未检测到壳
 2. **`seep_apk_decompile`** with `output_mode=fold` → 仅提取控制流骨架 *(省约 60% Token)*
 3. **`seep_kb_search`** → 命中知识库战术笔记 #142，CWE-602 匹配模式
-4. **`seep_apk_gen_hook`** → 自动生成 `hook_verify.js` Frida 探针脚本
+4. **`Tool/mcp/Tool/safe/hook-mcp/`** → 自动生成 `hook_verify.js` Frida 探针脚本
 5. 注入测试机 → 捕获 stdout → **自愈** `ClassNotFoundException` → 自动修正类路径重跑
 6. 飞行模式断网确认 ✓ → **`seep_gen_security_report`** → 三段式审计报告交付
 
@@ -312,48 +312,48 @@ Seep\ (251 MB)
 
 | 分类 | 工具 | 核心功能 | 上下文控制 |
 |---|---|---|---|
-| **状态检测** | `seep_status` | Radare2 / JADX / Apktool / KB 就绪检测 | — |
-| | `seep_ida_status` | IDA Pro MCP 服务连通性探测 | — |
+| **状态检测** | `mcp-doctor.py` | Radare2 / JADX / Apktool / KB 就绪检测 | — |
+| | `mcp-doctor.py` | IDA Pro MCP 服务连通性探测 | — |
 | **二进制分析** | `seep_r2_info` | 架构 / 位宽 / DEP / ASLR / Canary / PIE | — |
 | | `seep_r2_strings` | 字符串提取 + 正则过滤 | `limit=` |
-| | `seep_r2_functions` | 函数枚举 / 导入导出 / 入口点 | `limit=` |
+| | `seep_r2_cmd(afl)` | 函数枚举 / 导入导出 / 入口点 | `limit=` |
 | | `seep_r2_disasm` | 反汇编 + 交叉引用标注 | `full` / `branch` |
 | | `seep_r2_decompile` | 类 C 伪代码（pdc 引擎） | `full` / `fold` / `summary` |
-| | `seep_r2_xrefs` | 交叉引用图，分页返回 | `limit=10` 默认 |
-| | `seep_r2_diff` | 两份二进制代码 / Hex 差分 | — |
-| | `seep_r2_asm` | 汇编 ↔ 机器码互转 | — |
+| | `seep_r2_cmd(axt/axf)` | 交叉引用图，分页返回 | `limit=10` 默认 |
+| | `radiff2 CLI` | 两份二进制代码 / Hex 差分 | — |
+| | `seep_r2_cmd(rasm2)` | 汇编 ↔ 机器码互转 | — |
 | | `seep_r2_cmd` | 底层 Radare2 管道命令 | — |
 | **Android 逆向** | `seep_apk_info` | APK 清单 / 权限 / 签名（免 Java）| — |
 | | `seep_apk_decompile` | JADX 全量 Java 源码反编译 | — |
 | | `seep_apk_unpack` | Apktool 资源 + Smali 解包 | — |
 | | `seep_apk_smali_search` | Smali 关键词/密钥/门禁位点检索 | `limit=` |
-| | `seep_apk_gen_hook` | 自动生成带堆栈打印的 Frida 探针 | — |
+| | `Tool/mcp/Tool/safe/hook-mcp/` | 自动生成带堆栈打印的 Frida 探针 | — |
 | **知识库** | `seep_kb_search` | 412 篇战术笔记全文检索 | `limit=` |
 | | `seep_kb_read` | 按主题精确读取完整技术手册 | — |
-| | `seep_kb_checklist` | 应急排查清单与攻击矩阵 | — |
-| | `seep_kb_payloads` | JWT / SSRF / SSTI / SQLi 载荷模板 | — |
-| **案例库** | `seep_case_search` | 按域/保护层/深度/结果检索已沉淀案例（index.json 缓存，缺失时实时扫） | `limit=` |
+| | `seep_kb_read` | 应急排查清单与攻击矩阵 | — |
+| | `seep_kb_read` | JWT / SSRF / SSTI / SQLi 载荷模板 | — |
+| **案例库** | `case_state.py index` | 按域/保护层/深度/结果检索已沉淀案例（index.json 缓存，缺失时实时扫） | `limit=` |
 | | `seep_case_read` | 读案例全文（case.json + facts.jsonl 前 20 行 + README 前 80 行） | — |
-| **流水线编排** | `seep_task_init` | 初始化隔离审计沙盒目录 | — |
+| **流水线编排** | `mkdir -p <task>/{samples,exports,patches,reports}` | 初始化隔离审计沙盒目录 | — |
 | | `seep_auto_triage` | 未知样本全量自动体检 | — |
 | | `seep_gen_security_report` | 三段式合规安全报告生成 | — |
 | **扩展工具**<br>（协议/资源/内存/加壳） | `seep_packer_detect` | 判壳 + 反调试导入 + 反虚拟机 + 手册路由 | — |
-| | `seep_pe_resources` | PE 资源树/节熵/容器嗅探（zstd/zip），可剥离 | — |
+| | `seep_r2_cmd(iR)` | PE 资源树/节熵/容器嗅探（zstd/zip），可剥离 | — |
 | | `seep_mem_strings` | 只读扫活体进程内存，提 ASCII/UTF-16 字符串 | `max_hits=` |
 | | `seep_pcap_extract` | pcap 端点/HTTP/TCP 载荷提取 | `max_rows=` |
 | | `seep_http_replay` | 请求构造/重放，TLS 指纹伪装 + Cookie 会话保持 | `limit` |
-| | `seep_web_recon` | Web 只读侦察（技术栈/安全头/入口发现） | — |
-| | `seep_decompile_auto` | 反编译入口（r2 保底 + 高阶引擎告知） | `output_mode` |
+| | `web-check.py` | Web 只读侦察（技术栈/安全头/入口发现） | — |
+| | `seep_r2_decompile` | 反编译入口（r2 保底 + 高阶引擎告知） | `output_mode` |
 | | `seep_ensure_tool` | 工具四级探测 + 缺工具安装计划 | — |
 | **工具自动发现**<br>（自动适配 MCP） | `seep_tool_discover` | 六层递进发现（env/PATH/常见目录/**注册表**/递归扫描/别名）+ 架构匹配 | — |
-| | `seep_tool_control_plan` | 发现 → 怎么控制计划（MCP → headless → GUI → 自写 Py） | — |
-| | `seep_tool_research` | 声明式能力查询（MCP/headless/GUI）；表外工具返回检索 query | — |
-| | `seep_tool_register_mcp` | 增量把工具 MCP 注册进 mcp.json（绝不删用户条目） | — |
-| | `seep_tool_install` | 半自动安装（探测 → 命令+来源 → 确认 → 重探） | — |
-| | `seep_tool_state` | 查看本机发现缓存（~/.seep/tools.local.json，绝不入库） | — |
-| | `seep_create_skill` | 自动化按规范生成外挂技能脚手架并自动注册 | — |
+| | `tool-acquire.py` | 发现 → 怎么控制计划（MCP → headless → GUI → 自写 Py） | — |
+| | `tool-acquire.py --list` | 声明式能力查询（MCP/headless/GUI）；表外工具返回检索 query | — |
+| | `tool-acquire.py（ASK）` | 增量把工具 MCP 注册进 mcp.json（绝不删用户条目） | — |
+| | `tool-acquire.py --tool <id>` | 半自动安装（探测 → 命令+来源 → 确认 → 重探） | — |
+| | `tool-acquire.py --json` | 查看本机发现缓存（~/.seep/tools.local.json，绝不入库） | — |
+| | `手写 pack.json` | 自动化按规范生成外挂技能脚手架并自动注册 | — |
 
-> 💡 **上下文预算控制（v1.1）**：`seep_r2_decompile` 使用 `output_mode=fold` 可减少约 60% Token 消耗；`summary` 模式减少约 90%。使用 `seep_r2_xrefs` 替代原始 `axt` 命令，避免数百条引用直接灌满上下文窗口。
+> 💡 **上下文预算控制（v1.1）**：`seep_r2_decompile` 使用 `output_mode=fold` 可减少约 60% Token 消耗；`summary` 模式减少约 90%。使用 `seep_r2_cmd(axt/axf)` 替代原始 `axt` 命令，避免数百条引用直接灌满上下文窗口。
 
 ---
 
@@ -392,7 +392,7 @@ Seep\ (251 MB)
 3. 执行 setup/install.ps1（Windows）或 setup/install.sh（Linux/macOS），不要手抄步骤。
 4. 装完必须跑 setup/verify.ps1 -Detailed，并按 MANUAL/DEPLOYMENT.md 附录 A 给我四栏看板。
 5. 最后提醒我：完全重启会话后再发 lab：。
-全程不要用 -h 试探任何二进制；缺工具先用 seep_tool_discover / seep_tool_install。
+全程不要用 -h 试探任何二进制；缺工具先用 seep_tool_discover / tool-acquire.py --tool <id>。
 ```
 
 > **为什么不能只给链接**：Agent 必须在**本机磁盘**上才能执行 `setup/install.ps1`。
@@ -561,7 +561,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 ### 4. CTF 竞赛与 Web 目标分析
 - 攻击网路由：信号 → `seep_kb_search` → 模板装配 → MCP 工具执行
 - JWT 弱签 / KID 注入 / SSRF / SSTI / Protobuf 逆向 / 反序列化 Gadget Chain
-- 漏洞载荷种子库（`seep_kb_payloads`）+ 应急清单（`seep_kb_checklist`）
+- 漏洞载荷种子库（`seep_kb_read`）+ 应急清单（`seep_kb_read`）
 
 </details>
 

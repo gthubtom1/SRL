@@ -179,7 +179,7 @@ Test-CheckItem "架构" "上游定点防外溢规则与同步引擎 (upstream-ru
     (Test-Path (Join-Path $Root 'update.bat'))
 } "上游规则或同步引擎缺失，请重新拉取仓库" "规则清单、引擎与批处理在位" "$Root\setup\upstream-rules.json"
 
-# 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
+# 任务路由自洽性：pack.json 里的每个 route.skill 必须真实存在，
 # 且 priority / fallbackId 与 routes 一一对应。路由指向空气时，运行期极难发现。
 Test-CheckItem "路由" "路由/配方/能力三层自洽 (routing ↔ 配方命令 ↔ 能力 DAG)" {
     $scriptsDir = Join-Path $ToolDir 'scripts'
@@ -206,7 +206,7 @@ Test-CheckItem "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" {
 # 2. 知识库与战术资产
 # -----------------------------------------------------------------------------
 Write-Host "`n[2/9] 📚 攻防实战知识库与战术模板 (KB)" -ForegroundColor White
-Test-CheckItem "知识库" "战术实战笔记 (292 篇完整检索库)" {
+Test-CheckItem "知识库" "战术实战笔记 (412 篇完整检索库)" {
     (Test-Path $KbDir) -and ((Get-ChildItem $KbDir -Recurse -Filter '*.md').Count -ge 280)
 } "Tool/mcp/Tool/reverselab/kb/ 文件缺失，请确认完整拉取" "≥289 篇笔记" "$KbDir"
 Test-CheckItem "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" {
@@ -225,7 +225,7 @@ Test-CheckItem "提示词" "Pi Agent 系统指令 (SEEP.md 已就绪 / 去个人
     ($raw.Length -le 2500) -and
     (-not (Select-String -Path $p -Pattern '小π|主人' -Quiet)) -and
     (-not ($raw -match '\d+\s*个工具')) -and
-    ($raw -match 'AGENTS\.md') -and ($raw -match 'routing\.json') -and ($raw -match 'seep_status')
+    ($raw -match 'AGENTS\.md') -and ($raw -match 'routing\.json') -and ($raw -match 'mcp-doctor.py')
 } "SEEP.md 缺失 / 未脱敏 / 超过 2500 字符 / 写死工具数量 / 缺事实源指针" "契约态 (<=2500 + 四指针)" "$ToolDir\prompts\SEEP.md"
 Test-CheckItem "提示词" "提示词槽位 / 边界锚 / 人格守卫三者就绪" {
     if (Test-Path (Join-Path $ToolDir 'prompts\SYSTEM.md')) { return $false }
@@ -340,13 +340,13 @@ Test-CheckItem "MCP" "扩展资产：8 个新工具 + 声明式引擎链 + 说�
     if ((Test-Path $sp) -and (Test-Path $et) -and (Test-Path $ed) -and (Test-Path $mp)) {
         $src = Get-Content -LiteralPath $sp -Raw -Encoding UTF8
         ($src -match 'def seep_ensure_tool') -and
-        ($src -match 'def seep_decompile_auto') -and
-        ($src -match 'def seep_pe_resources') -and
+        ($src -match 'def seep_r2_decompile') -and
+        ($src -match 'def seep_r2_cmd(iR)') -and
         ($src -match 'def seep_mem_strings') -and
         ($src -match 'def seep_pcap_extract') -and
         ($src -match 'def seep_packer_detect') -and
         ($src -match 'def seep_http_replay') -and
-        ($src -match 'def seep_web_recon')
+        ($src -match 'def web-check.py')
     } else { $false }
 } "扩展资产缺失（新增工具/engine-tiers.json/EXT-ASSETS.md/MERGE-PLAYBOOK.md 任一不见）" "8 工具 + 引擎链 + 文档" "$ToolDir"
 
@@ -559,12 +559,12 @@ Test-CheckItem "脚本" "案子闸可执行 (case_state.py init + gate)" {
     } catch { return $false } finally { Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue }
 } "case_state.py 缺失或 init/gate 行为不符" "init 成功 + 空案 gate=1" "$ToolDir\scripts\case_state.py"
 
-Test-CheckItem "脚本" "追版引擎可执行 (migrate.py)" {
-    $mg = Join-Path $ToolDir 'scripts\migrate.py'
+Test-CheckItem "脚本" "追版引擎可执行 (patch-verify.py)" {
+    $mg = Join-Path $ToolDir 'scripts\patch-verify.py'
     if (-not (Test-Path $mg)) { return $false }
     $out = & python $mg --help 2>&1
     return ($LASTEXITCODE -eq 0) -and (($out -join ' ') -match 'align')
-} "migrate.py 缺失或子命令不全" "align 等子命令在位" "$ToolDir\scripts\migrate.py"
+} "patch-verify.py 缺失或子命令不全" "align 等子命令在位" "$ToolDir\scripts\patch-verify.py"
 
 Test-CheckItem "脚本" "MCP 验连可执行 (mcp-doctor.py)" {
     $md = Join-Path $ToolDir 'scripts\mcp-doctor.py'

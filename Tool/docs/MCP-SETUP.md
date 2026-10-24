@@ -34,17 +34,17 @@ MCP（工具层）           →  给 agent「实际干活的手」
 > 等固定几个根，深度 ≤2），便携版/绿化版（如 `D:\Tools\disasm\IDA Pro 9.3`）也能命中。
 > 也可以显式指定：`powershell -File .\setup\install-ida.ps1 -IdaRoot "X:\你的\IDA"`。
 
-### seep MCP 的 40 个工具
+### seep MCP 的 20 个工具
 
 | 分组 | 工具 |
 | :--- | :--- |
-| 状态环境 (2) | `seep_status` · `seep_ida_status` |
+| 状态环境 (2) | `mcp-doctor.py` · `mcp-doctor.py` |
 | 二进制 r2 (9) | `seep_r2_info` · `_cmd` · `_strings` · `_functions` · `_disasm` · `_decompile` · `_diff` · `_asm` · `_xrefs` |
 | Android (5) | `seep_apk_info` · `_decompile` · `_unpack` · `_smali_search` · `_gen_hook` |
 | 知识库 (4) | `seep_kb_search` · `_read` · `_checklist` · `_payloads` |
-| 案例库 (2) | `seep_case_search` · `_read` |
-| 流程编排 (3) | `seep_task_init` · `seep_auto_triage` · `seep_gen_security_report` |
-| 扩展资产 (15) | `seep_ensure_tool` · `seep_decompile_auto` · `seep_pe_resources` · `seep_mem_strings` · `seep_pcap_extract` · `seep_packer_detect` · `seep_http_replay` · `seep_web_recon` · `seep_tool_discover` · `seep_tool_control_plan` · `seep_tool_research` · `seep_tool_register_mcp` · `seep_tool_install` · `seep_tool_state` · `seep_create_skill` |
+| 案例库 (2) | `case_state.py index` · `_read` |
+| 流程编排 (3) | `mkdir -p <task>/{samples,exports,patches,reports}` · `seep_auto_triage` · `seep_gen_security_report` |
+| 扩展资产 (15) | `seep_ensure_tool` · `seep_r2_decompile` · `seep_r2_cmd(iR)` · `seep_mem_strings` · `seep_pcap_extract` · `seep_packer_detect` · `seep_http_replay` · `web-check.py` · `seep_tool_discover` · `tool-acquire.py` · `tool-acquire.py --list` · `tool-acquire.py（ASK）` · `tool-acquire.py --tool <id>` · `tool-acquire.py --json` · `手写 pack.json` |
 
 ---
 
@@ -116,15 +116,15 @@ python Tool/scripts/check-extension-conflicts.py      # 有冲突 → 退出码 
 
 `install-pi.ps1` 在装完扩展包后会自动跑这一步。
 
-> **给本工作台加 MCP 服务器不会触发**：编辑 `mcp.json` 或用 `seep_tool_register_mcp`
+> **给本工作台加 MCP 服务器不会触发**：编辑 `mcp.json` 或用 `tool-acquire.py（ASK）`
 > 只是“加一条服务器配置”，不是“装一个替换内置的扩展”。
 
-#### `seep_tool_discover` → `seep_tool_register_mcp` 的边界
+#### `seep_tool_discover` → `tool-acquire.py（ASK）` 的边界
 
 | 环节 | 它到底做什么 | 会不会碰扩展层 |
 |---|---|---|
-| `seep_tool_discover` / `seep_tool_control_plan` / `seep_tool_install` | 探测并安装**外部工具本体**（exe / pip / npm 全局包 / 运行时） | ✗ 不改动 `settings.json` 的 `packages` |
-| `seep_tool_register_mcp` | 只往 `mcp.json` 的 **`mcpServers`** 加一条服务器配置 | ❌ 不装 pi 扩展、不改 packages |
+| `seep_tool_discover` / `tool-acquire.py` / `tool-acquire.py --tool <id>` | 探测并安装**外部工具本体**（exe / pip / npm 全局包 / 运行时） | ✗ 不改动 `settings.json` 的 `packages` |
+| `tool-acquire.py（ASK）` | 只往 `mcp.json` 的 **`mcpServers`** 加一条服务器配置 | ❌ 不装 pi 扩展、不改 packages |
 
 两层加固：
 
@@ -171,7 +171,7 @@ powershell -ExecutionPolicy Bypass -File .\verify.ps1
 ### 方法 2：在 pi 里问
 
 ```
-你：seep_status 能跑吗？
+你：mcp-doctor.py 能跑吗？
 pi：[返回 radare2 / jadx / apktool / 知识库 的就绪状态]
 ```
 
@@ -198,7 +198,7 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 | `seep_r2_*`（8 个） | `Tool/mcp/Tool/safe/radare2/bin/` | "radare2 not found" |
 | `seep_apk_decompile` | `Tool/mcp/Tool/safe/jadx/bin/` | "jadx not found" |
 | `seep_apk_unpack` | `Tool/mcp/Tool/safe/apktool/` | "apktool not found" |
-| `seep_apk_gen_hook` | `Tool/mcp/Tool/safe/hook-mcp/templates/` | 模板缺失 |
+| `Tool/mcp/Tool/safe/hook-mcp/` | `Tool/mcp/Tool/safe/hook-mcp/templates/` | 模板缺失 |
 | `mcp__ida__*`（约 100 个，随 ida-pro-mcp 版本变化） | 自备 IDA Pro + `Tool/mcp/Tool/safe/ida-pro-mcp/` | "IDA not available" |
 | playwright 工具 | npx（`--headless`，无需 token） | 浏览器不可用 / 报 `Playwright Extension not found`（说明配置里还是 `--extension`） |
 
@@ -213,10 +213,10 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 | 需求 | seep MCP 替代 |
 | :--- | :--- |
 | 架构 / 壳 / 熵 / 字符串 | `seep_r2_info` · `seep_r2_strings` |
-| 反汇编 + 交叉引用 | `seep_r2_disasm` · `seep_r2_functions` |
+| 反汇编 + 交叉引用 | `seep_r2_disasm` · `seep_r2_cmd(afl)` |
 | 类 C 伪代码 | `seep_r2_decompile` |
-| 二进制差分 | `seep_r2_diff` |
-| 汇编 ↔ 机器码 | `seep_r2_asm` |
+| 二进制差分 | `radiff2 CLI` |
+| 汇编 ↔ 机器码 | `seep_r2_cmd(rasm2)` |
 
 报告中应标注：**"未使用 IDA 反编译器，伪代码质量受限"**。
 
@@ -284,7 +284,7 @@ GET  http://127.0.0.1:9094/sse  → 也有，但只是兼容路径；无 token �
 
 ### 8.2 Ghidra
 
-`seep_decompile_auto` 会用 `analyzeHeadless`（本机 `D:\Tools\Ghidra\support\analyzeHeadless`）做**无头反编译**，
+`seep_r2_decompile` 会用 `analyzeHeadless`（本机 `D:\Tools\Ghidra\support\analyzeHeadless`）做**无头反编译**，
 不需要装 GhidraMCP。要交互式 Ghidra 会话再考虑装其 MCP 扩展。
 
 ---
@@ -320,10 +320,10 @@ python seep_mcp_server.py
 
 ### 11.1 L3 只认**结构化 toolCall**，不认提示词文本
 
-「liveness-check.py」(S1 已删) 的 L3 判定读的是会话 jsonl 里**真实发生的工具调用记录**
+「（liveness-check 已删：生效性并入 gate.py）」(S1 已删) 的 L3 判定读的是会话 jsonl 里**真实发生的工具调用记录**
 （`type=toolCall` 的结构化条目），**不读**助手回复里的自然语言。
 
-- 所以「我在回复里写了『已调用 seep_status』」**不算** reached —— 那正是曾经造成**假绿**的写法：
+- 所以「我在回复里写了『已调用 mcp-doctor.py』」**不算** reached —— 那正是曾经造成**假绿**的写法：
   文本可以随便写，结构化记录改不了。这是刻意的修复，不是缺陷。
 - 想让某个 MCP 记为 reached，唯一做法是**真的发起一次工具调用**。
 

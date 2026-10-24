@@ -28,7 +28,7 @@ jobs:
       - name: route-playbook parity
         run: python Tool/skill/softseep/scripts/route-playbook-parity.py --json
       - name: case index
-        run: python Tool/scripts/gen-case-index.py --check
+        run: python Tool/scripts/case_state.py index --check
   gates-linux:
     runs-on: ubuntu-latest
     steps:

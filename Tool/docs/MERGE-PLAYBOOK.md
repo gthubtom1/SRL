@@ -80,7 +80,7 @@ def seep_你的工具名(arg1: str, arg2: int = 0) -> str:
 
 | 规则 | 为什么 |
 |---|---|
-| `SEEP.md` **只放指针**：层间裁决 + 去哪查；**不写**工具数量、不列技能清单、不复制拒答词表 | 这些每换一次就过期一次；写进去后 `verify.ps1` 的「SEEP.md 契约态」会判红（≤2500 字符 / 无「N 个工具」/ 必须保留 AGENTS.md、routing.json、seep_status 三个指针） |
+| `SEEP.md` **只放指针**：层间裁决 + 去哪查；**不写**工具数量、不列技能清单、不复制拒答词表 | 这些每换一次就过期一次；写进去后 `verify.ps1` 的「SEEP.md 契约态」会判红（≤2500 字符 / 无「N 个工具」/ 必须保留 AGENTS.md、pack.json、mcp-doctor.py 三个指针） |
 | 战术细节写 `references/*.md` 或技能，**不写进提示词** | 提示词每轮都进上下文，写多了纯烧 token |
 | 边界（凭据红线 / 授权门 / 沙箱契约）只写在**扩展常量**里，不写到人格卡 | 人格卡是用户随时替换的资产，边界不能跟着一起换 |
 | 人格卡只写风格（语气/人称/开场/角色扮演）；**scope、授权、banned-token、路由表都属 L0/L1** | 人格卡一写这些就与边界锚正面冲突（锚会赢，但纯浪费上下文） |
@@ -187,7 +187,7 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 - **正确做法**：在 `softseep/SKILL.md` 判型表 + 资源表 + 扩展工具速查表里点名；必要时在对应 `references/*.md` 的 SOP 步骤里写“先调 X 再…”。
 
 ### 坑 2：包装上过度承诺（名不副实）
-- **现象**：`seep_decompile_auto` 描述写“IDA→Ghidra/REA→R2 自动降级”，实际代码遇到 ida/ghidra/rea 一律 `continue`，只跑 r2。
+- **现象**：`seep_r2_decompile` 描述写“IDA→Ghidra/REA→R2 自动降级”，实际代码遇到 ida/ghidra/rea 一律 `continue`，只跑 r2。
 - **后果**：智能体以为能自动驱动 IDA，结果拿到的永远是 r2 结果，产生误判。
 - **正确做法**：docstring 如实写清“直接执行的是 r2，高阶引擎只探测并告知”。**宁可说小，不可说大。**
 
@@ -197,7 +197,7 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 - **正确做法**：每批功能 → `docs/CHANGELOG.md` 加条目 + `VERSION` bump（如 1.6.0 → 1.7.0）。
 
 ### 坑 4：新工具的依赖没进 setup → 别人拉下来跑不了
-- **现象**：`seep_pe_resources` 依赖 `pefile`、`http_replay` 依赖 `curl_cffi`，但 `setup/install-python.ps1` 只装 mcp/pytest/frida。
+- **现象**：`seep_r2_cmd(iR)` 依赖 `pefile`、`http_replay` 依赖 `curl_cffi`，但 `setup/install-python.ps1` 只装 mcp/pytest/frida。
 - **后果**：新机器上这些工具直接报错或降级，违背“拉下来就能用”。
 - **正确做法**：新工具用到第三方库 → 加进 `setup/install-python.ps1` 和 `install.sh`（可选依赖，缺失时优雅降级，不阻断安装）。
 
@@ -248,14 +248,14 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 |---|---|---|---|---|
 | 批1 | `preflight-classify.py` | relab2 | `Tool/skill/softseep/scripts/` | 判型前预判，SKILL.md 已挂 |
 | 批1 | `seep_ensure_tool()` | relab2 | `seep_mcp_server.py` | 四级探测，ext 测试覆盖 |
-| 批1 | `seep_decompile_auto()` + `engine-tiers.json` | REA 思想 | `seep_mcp_server.py` + `Tool/config/` | 降级链，ext 测试覆盖 |
+| 批1 | `seep_r2_decompile()` + `engine-tiers.json` | REA 思想 | `seep_mcp_server.py` + `Tool/config/` | 降级链，ext 测试覆盖 |
 | 批1 | 攻坚者五条+换法阈值 | relab2 | `windows-sop.md` | 文档插入 |
-| 批2 | `seep_pe_resources()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
+| 批2 | `seep_r2_cmd(iR)()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批2 | `seep_mem_strings()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批2 | `seep_pcap_extract()` | relab2 实战 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批3 | `seep_http_replay()` | 协议重放需求 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批3 | `seep_packer_detect()` | relab2 + 本仓 UNPACKING/ANTI-DEBUG 手册 | `seep_mcp_server.py` | ext 测试覆盖 |
-| 批3 | `seep_web_recon()` | 渗透轻量侦察需求 | `seep_mcp_server.py` | ext 测试覆盖 |
+| 批3 | `web-check.py()` | 渗透轻量侦察需求 | `seep_mcp_server.py` | ext 测试覆盖 |
 | 批3 | `Tool/config/tool-install.json` | P4 按需下载 | `Tool/config/` + `seep_ensure_tool` | ext 测试覆盖 |
 
 > 新批次请在此表追加一行，让下一个 AI 一眼知道"哪些已经融过、从哪来、怎么验的"。
