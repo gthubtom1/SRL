@@ -1,7 +1,7 @@
 # NOW —— 现在做什么（唯一行动指令）
 
 > **规则：想知道"现在干嘛"只看这一页；想知道"为什么这样设计"看 `docs/BLUEPRINT.md`；历史一律在 `docs/history/X-*.md`（禁止作为执行依据）。**
-> 本页不超过一页；每完成一步就更新"当前这一步"。最后更新：2026-10-24 10:20
+> 本页不超过一页；每完成一步就更新"当前这一步"。最后更新：2026-10-24 11:35
 
 ---
 
@@ -14,8 +14,8 @@
 
 | 步 | 一句话 | 成本 | 状态 |
 | :-: | :-- | --: | :-: |
-| **S1** | 只删不加：删自证门禁 / 孤儿 / 兼容壳 / 重复状态副本；**其余 untracked 一律 commit** | 3h | ⬜ **当前** |
-| S2 | 杀 fail-open：报告生成器无证据则拒绝；超限拒绝不截断；`unknown` 不计 pass | 1d | ⬜ |
+| **S1** | 只删不加 ✅ **已完成**（preflight 52→43 全绿、脚本 106→59、脏项 108→0，两次提交在 `s1-subtract`） | 3h | ✅ |
+| **S2** | 杀 fail-open：报告生成器无证据则拒绝；超限拒绝不截断；`unknown` 不计 pass | 1d | ⬜ **当前** |
 | S3 | 立 8 个域包 + `gate.py`/`route.py`；索引 32→9 | 2d | ⬜ |
 | S4 | 全局收口：`Tool/scripts` → 7；状态 → 4；工具面 40→16 | 1d | ⬜ |
 | S5 | KPI 回放：3 靶 + 1 真实目标 | 1d | ⬜ |
@@ -29,6 +29,20 @@
 **顺序陷阱（必须先做）**：`preflight.py` 第 1105、1141、1175 行硬依赖 `path-walk.py`/`liveness-check.py`/`session-manifest.py` —— **先改 preflight 去掉这三处依赖，再删脚本**。
 
 **判据**：① `preflight --fast` rc=0 且项数 52→≤47；② `git status --porcelain Tool/scripts` 的 untracked = 0；③ `grep -r "gate-counts\|sync-gate-counts"` = 0；④ `python -m compileall Tool/scripts` 无 import 失败。
+
+## 三bis、S1 结论（重要，改写了原方案的一个前提）
+
+**「只删不加且 rc=0」这个前提本身是错的。** 删任何东西都会同时打破 4 处对账，删完必须配 4 处**只改数字/引用、不改逻辑**的收口：
+
+1. `MANUAL/BASELINE-FREEZE.md` 的 first-party 文件数（删/提交都会变：822→862）
+2. `preflight.py` 里引用被删脚本的检查组（本次删 5 组 + 任务卡组）
+3. `mcp-param-contract.py` 对 `gate-counts.json` 的依赖（改为缺文件时退化为实测基线）
+4. 各文档里指向已删脚本的反引号路径（降级为「X（S1 已删）」）
+
+**并行确实会冲突**：B1/B2/B3 同时删，中间让 preflight 掉到 34/44（互相删了对方引用的文件）。收口靠主对话统一做一次。
+
+**删掉的 47 个**：8 元层（path-walk/liveness-check/canary/receipt-check/manager-audit/replay-history/p2-replay/session-manifest）+ 8 生成器/孤儿 + 5 一次性 + 4 组配置 + gate-counts/sync-gate-counts + APK 双份。
+**保留的（有真实执行者，删了会断链）**：`gen-case-index.py`（被 `domain-gate.py:1056` 执行）、`new-skill.py`（被 `seep_mcp_server.py:2817` 执行）、`check-budget.py`（被 `impact.py` 引用）、以及 5 个兼容壳（`domain_spec.py`/`seep-start.py` 活引用）。
 
 ## 四、已定决策（不可推翻，别再问）
 
