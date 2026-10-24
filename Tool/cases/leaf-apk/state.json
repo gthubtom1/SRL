@@ -1,0 +1,20 @@
+{
+  "schema": "seep-case/1",
+  "target": "D:\\Seep-Reverse-Lab\\Tool\\cases\\leaf-apk\\target\\diva.apk",
+  "depth": {},
+  "verdict": null,
+  "max_level": null,
+  "stage": "0a",
+  "stage_history": [
+    {
+      "stage": "0a",
+      "at": "2026-10-24T06:41:54",
+      "from": "intake",
+      "gated": [
+        "intake"
+      ]
+    }
+  ],
+  "next_action": "跑 D0 结构 + D1 存活",
+  "updated": "2026-10-24T06:41:54"
+}

@@ -47,7 +47,7 @@
 >
 > - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（31 技能 / 11 域 / 24 配方 / 40 个 MCP 工具）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
-> - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 45/45、domain-gate 110/110、verify 65/0、smoke-e2e 12/12
+> - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 55/55、domain-gate 110/110、verify 65/0、smoke-e2e 12/12
 > - **先读**：[`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)（差异/需求/契约/债务）→ [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)（最近交付台账）
 > - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（只出报告，不改仓库）
 > - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`）——**不作现状**
@@ -98,7 +98,7 @@
 | **接力棒（换会话先读）** | `ROADMAP.md`（能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore） |
 | **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
-| **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **45/45**、`--fast` **42/42**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
+| **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **55/55**、`--fast` **52/52**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
 | **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 40 工具数基线，防「模型第一次调用就传错参数」 |
 | **技能路由探针** | `skill-route-probe.py`：39 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
 | **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |

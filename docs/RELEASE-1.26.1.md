@@ -2,7 +2,7 @@
 
 > 本文件是 **v1.26.1 的交付台账**：做了什么、每条改动的证据在哪、还剩什么没做。
 > 目的很直接——读者只看这一篇，就能复核本轮所有主张，不用翻对话记录。
-> 复核入口：`python Tool/scripts/preflight.py`（应为 45/45）。
+> 复核入口：`python Tool/scripts/preflight.py`（应为 53/53）。
 
 ## 0. 一句话
 
@@ -15,11 +15,11 @@
 
 | 门禁 | 命令 | 结果 |
 | :-- | :-- | :-- |
-| 全量体检 | `python Tool/scripts/preflight.py` | **45/45 通过** |
+| 全量体检 | `python Tool/scripts/preflight.py` | **53/53 通过** |
 | 域深度 | `python Tool/scripts/domain-gate.py --all` | **110/110 通过** |
 | 部署体检 | `powershell -File setup/verify.ps1 -Detailed` | **核心 65 项通过 / [READY]** |
 | 端到端 | `python Tool/scripts/smoke-e2e.py` | **12 passed, 0 failed** |
-| MCP 参数契约 | `python Tool/scripts/mcp-param-contract.py` | 40 工具 / 17 吃路径，全绿 |
+| MCP 参数契约 | `python Tool/scripts/mcp-param-contract.py` | 40 工具 / 18 吃路径，全绿 |
 | 技能路由探针 | `python Tool/scripts/skill-route-probe.py` | **39 条，失败 0** |
 | 知识库可用性 | `python Tool/scripts/kb_acceptance.py` | **9/9 通过** |
 
@@ -27,7 +27,7 @@
 
 ### 2.1 MCP 工具参数命名不一致（最高性价比）
 - 问题：`seep_auto_triage` 收 `target_path`，`seep_packer_detect` / `seep_r2_info` / `seep_decompile_auto` 收 `binary_path`。模型一次 rejected 之后会退回 bash 手搓 `strings`（历史血案 184 次调用）。
-- 改动：`Tool/mcp/seep_mcp_server.py` 加 `_path_alias` 装饰器——17 个吃路径的工具全部同时暴露 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再出现在 `required`。
+- 改动：`Tool/mcp/seep_mcp_server.py` 加 `_path_alias` 装饰器——18 个吃路径的工具全部同时暴露 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再出现在 `required`。
 - 门禁：`Tool/scripts/mcp-param-contract.py`（判据：别名齐、required 不挡、description 非空、工具数对基线）。
 - 证据：`mcp-param-contract.py --self-test` → `{"ok": true, "checks": 6}`；实跑 → `全绿：路径参数别名、required、description、工具数均一致`。
 
@@ -47,7 +47,7 @@
 ### 2.4 02/03 阶段技能是薄壳
 - 问题：`02-ui-rebrand` 86 行、`03-license-hookup` 87 行，只有清单没有判据。
 - 改动：02 补「判据表 8 行（品牌串残留=0 / 图标哈希 / 功能回归 / 流量差集 / 三档分辨率…）+ 失败判据表 + 模型失误 + 可跑命令」；03 补「判据表 8 行 + 失败判据表 + 离线 HMAC 发卡与校验最小实现 + 时间回拨防护 + 失败码表」。
-- 证据：`domain-gate` 不受影响（阶段技能非域），`preflight` 45/45 含链接与措辞检查。
+- 证据：`domain-gate` 不受影响（阶段技能非域），`preflight` 53/53 含链接与措辞检查。
 
 ### 2.5 文档↔事实漂移（本轮审计自己抓到的）
 - 问题：`check-budget.py` 用 `os.walk` 数 first-party 文件，把 `.pytest_cache/`、`.pi/` 等运行时目录算进去，同一份代码在不同机器得到 820↔834，`BASELINE-FREEZE` 无法对账。
@@ -115,4 +115,4 @@ powershell -File setup/verify.ps1 -Detailed      # 65 项 / READY
 | D21 无线近场未独立成域 | **明确不做**（理由见 `docs/DEFERRALS.md`「明确不做」）：本机无无线硬件，升域会得到没有 real 案例的空壳；改为补 `probe_matrix.py --radio-only` 探针（WiFi/BLE/SDR/802.15.4/NFC 能力枚举，只读，25 项自测） | `probe_matrix.py --radio-only --json` → `blocked_at=no-monitor-mode` + 适配器清单 |
 | D26 00-analysis 未纳入九件套 | **明确不做**：它是阶段技能，硬套九件套会与 00 阶段产物重复计量 | 见 DEFERRALS「明确不做」 |
 
-门禁随之更新：preflight **45/45**、`--fast` **42/42**（新增「HTTP/2 单包 e2e」一项）。
+门禁随之更新：preflight **53/53**、`--fast` **42/42**（新增「HTTP/2 单包 e2e」一项）。

@@ -69,6 +69,10 @@ interface GuardConfig {
 	guiBinaries: Record<string, string | null>;
 	/** 命令里含其中任一子串则整条跳过守卫（救急用，慎用） */
 	allow: string[];
+	/** ★ 硬性禁手：正则命中即拦（或按 severity 只提示）。内置表见 BUILTIN_DENY，这里只管追加 */
+	denyRules: DenyRule[];
+	/** 按 id 关掉某条内置禁手（例如本机就是专用靶机，允许改网卡） */
+	disableDeny: string[];
 	/** 额外的 GUI 名单来源文档（Markdown）。文档里 `` `a.exe`→`b` `` 会被派生 */
 	toolChainPaths: string[];
 	/** ★ 技能包根（含 TOOL-CHAIN.md 的那一层）。留空 = 自动探测 */
@@ -76,6 +80,114 @@ interface GuardConfig {
 }
 
 const HERE = __dirname;
+
+interface DenyRule {
+	/** 稳定标识，用于统计与 /guard 展示 */
+	id: string;
+	/** 正则源码（不区分大小写） */
+	re: string;
+	/** 给人看的一句话标签 */
+	label: string;
+	/** block = 直接拦；warn = 只提示不改行为 */
+	severity: "block" | "warn";
+	/** 为什么禁 + 该改用哪条路（会原样回给模型） */
+	hint: string;
+}
+
+/**
+ * ★ 内置禁手表（2026-10-23 血案后加）
+ *
+ * 事件：为了「接管授权服务端」，Agent 给正在上网的 DHCP 网卡挂了 /32 别名 IP，
+ * 又 `netsh winhttp set proxy` 指向本地假服务器 —— 假服务器一杀，整机断网。
+ * 分析机通常就是用户的日常机：改本机全局网络 = 把用户和 Agent 一起搞离线。
+ *
+ * 判定原则：
+ *   1. **改本机网络状态**的写操作 → block。分析永远不需要它；需要观察就用抓包（进程内 hook / 回环代理）。
+ *   2. **用 shell 拉起 GUI 目标** → warn。父进程链本身就是反自动化检测面（真实双击父进程 = explorer.exe）。
+ *   3. 只读查询（netsh winhttp show / Get-NetIPAddress / ipconfig /all）一律不拦。
+ */
+const BUILTIN_DENY: DenyRule[] = [
+	// ── 网络写操作（block，最高优先）──
+	{
+		id: "net-ip-alias",
+		re: "\\b(New|Remove|Set)-NetIPAddress\\b",
+		label: "改网卡 IP（挂/删别名）",
+		severity: "block",
+		hint:
+			"在用户正在上网的网卡上加/删 IP 会打乱源地址选择，直接导致整机断网（已发生过）。\n" +
+			"要观察客户端连了哪个服务端：走抓包，不改网络 —— \n" +
+			"  ① 进程内 hook（Frida hook WinHttpSendRequest/WinHttpReceiveResponse，最隐蔽，不装驱动）\n" +
+			"  ② 回环代理 + 只对该进程生效的重定向（mitmproxy 监听 127.0.0.1 + 目标进程内改 URL/代理参数）\n" +
+			"  ③ 只读查现状：`Get-NetIPAddress` / `netsh winhttp show proxy` / `net-rollback.py verify`\n" +
+			"确实要改：先 `python Tool/scripts/net-rollback.py snapshot`，再在命令里加 cmd-guard-skip 显式放行。",
+	},
+	{
+		id: "net-iface-write",
+		re: "\\b(Set|Enable|Disable|Restart)-Net(Adapter|IPInterface|TCPSetting)\\b|\\bDisable-NetAdapter\\b",
+		label: "改网卡/接口状态",
+		severity: "block",
+		hint: "禁用或重启网卡 = 用户立刻断网。要复现网络条件请在 VM / 容器里做，不要动宿主网卡。",
+	},
+	{
+		id: "net-winhttp-write",
+		re: "\\bnetsh\\s+winhttp\\s+(set|import|add)\\b",
+		label: "改 WinHTTP 代理",
+		severity: "block",
+		hint:
+			"`netsh winhttp set proxy` 是**整机生效**：假代理一死，所有走 WinHTTP 的程序（含浏览器/更新/客户端）全部失联。\n" +
+			"要抓该进程的报文就把代理收敛到进程内：Frida hook `WinHttpGetIEProxyConfigForCurrentUser` / `WinHttpOpen` 的代理参数，\n" +
+			"或 mitmproxy + 目标进程内改 URL。只读查询用 `netsh winhttp show proxy`（不拦）。\n" +
+			"还原：`netsh winhttp reset proxy` 或 `python Tool/scripts/net-rollback.py restore`。",
+	},
+	{
+		id: "net-dns-write",
+		re: "\\bnetsh\\s+(int|interface)\\s+(ip|ipv4)\\s+(set|add)\\s+(dns|address)\\b|\\bSet-DnsClientServerAddress\\b",
+		label: "改 DNS / 接口地址",
+		severity: "block",
+		hint: "改 DNS 会污染整机解析。要重定向某个域名：用抓包工具自己的 map 功能，或进程内 hook（GetAddrInfoW）。",
+	},
+	{
+		id: "net-route-write",
+		re: "\\broute\\s+(add|delete|change)\\b|\\b(New|Remove|Set)-NetRoute\\b",
+		label: "改路由表",
+		severity: "block",
+		hint: "改默认路由是断网的标准姿势，且往往残留。要观察流量去向用抓包；要隔离目标请在 VM 里改。",
+	},
+	{
+		id: "net-winsock-reset",
+		re: "\\bnetsh\\s+winsock\\s+reset\\b|\\bnetsh\\s+advfirewall\\s+set\\b",
+		label: "重置 winsock / 关防火墙",
+		severity: "block",
+		hint: "重置 winsock 需要重启且会打断用户所有网络会话；关防火墙会把用户暴露掉。两边都别做。",
+	},
+	// ── 启动纪律（warn：父进程链是反自动化检测面）──
+	{
+		id: "launch-start-process",
+		re: "\\bStart-Process\\b[^|;]*\\.exe",
+		label: "用 Start-Process 拉起 exe",
+		severity: "warn",
+		hint:
+			"父进程会是 powershell.exe —— 目标读一次父进程名就知道是被程序拉起（真实双击的父进程是 explorer.exe）。\n" +
+			"改用：`powershell -File Tool/scripts/launch-gui.ps1 -Target <exe> -Mode user`（推荐，让用户自己双击）\n" +
+			"或 `-Mode shell`（走 explorer.exe 拉起，父进程 = explorer.exe）。",
+	},
+	{
+		id: "launch-cmd-start",
+		re: "\\bcmd(\\.exe)?\\s+/c\\s+start\\b|\\bstart\\s+(\"\"\\s+)?[A-Za-z]:\\\\",
+		label: "用 cmd start 拉起 exe",
+		severity: "warn",
+		hint: "父进程会是 cmd.exe，且带独立窗口/不等退出。改用 launch-gui.ps1。",
+	},
+	{
+		id: "launch-subprocess",
+		re: "subprocess\\.(Popen|run)\\([^)]*\\.exe",
+		label: "用 python subprocess 拉起 exe",
+		severity: "warn",
+		hint:
+			"父进程会是 python.exe；若再带 DETACHED_PROCESS / CREATE_SUSPENDED / DEBUG_PROCESS 标志，\n" +
+			"就是反自动化检测的教科书特征。改用 launch-gui.ps1 -Mode shell（explorer 父进程、零参数、无标志）。",
+	},
+];
 
 const DEFAULTS: GuardConfig = {
 	defaultTimeout: 120,
@@ -91,6 +203,8 @@ const DEFAULTS: GuardConfig = {
 	hardenSsh: true,
 	guiBinaries: {},
 	allow: ["cmd-guard-skip"],
+	denyRules: [],
+	disableDeny: [],
 	toolChainPaths: [],
 	skillRoot: null,
 };
@@ -308,6 +422,33 @@ function loadConfig(force = false): void {
 	}
 	if (!Array.isArray(config.allow)) config.allow = [];
 	if (!Array.isArray(config.toolChainPaths)) config.toolChainPaths = [];
+	// denyRules：rules.json 里给了就「在内置表基础上追加」，而不是整体替换 ——
+	// 否则用户写一条自己的规则就把网络禁手全关了。（DEFAULTS.denyRules 必须是空数组，
+	// 否则这里会把内置表当「追加项」再拼一遍。）
+	{
+		const disabled = new Set((Array.isArray(config.disableDeny) ? config.disableDeny : []).map((x) => String(x)));
+		const extra = Array.isArray(config.denyRules) ? config.denyRules : [];
+		const clean: DenyRule[] = [];
+		for (const r of extra as unknown as DenyRule[]) {
+			if (!r || typeof r !== "object") continue;
+			const re = String((r as DenyRule).re || "");
+			if (!re) continue;
+			try {
+				new RegExp(re, "i");
+			} catch {
+				console.error(`[cmd-guard] denyRules 正则写错，已忽略：${re}`);
+				continue;
+			}
+			clean.push({
+				id: String((r as DenyRule).id || `custom-${clean.length}`),
+				re,
+				label: String((r as DenyRule).label || re),
+				severity: (r as DenyRule).severity === "warn" ? "warn" : "block",
+				hint: String((r as DenyRule).hint || ""),
+			});
+		}
+		config.denyRules = [...BUILTIN_DENY.filter((r) => !disabled.has(r.id)), ...clean];
+	}
 	// 手工项必须是「exe 名 → 提示语/null」的对象。旧版这里收的是数组，两种形状都见过，
 	// 先按形状判断：写错时退成空表并在 stderr 说明，而不是让 Object.entries 拿数组当表用。
 	if (!config.guiBinaries || typeof config.guiBinaries !== "object" || Array.isArray(config.guiBinaries)) {
@@ -600,6 +741,25 @@ export default function cmdGuard(pi: any): void {
 		remember(ctx);
 		if (!enabled) return;
 		const name = event.toolName;
+		// ★ 弹窗式问人一律拦下（2026-10-23 用户明确要求，已强调多次）。
+		//   理由：① 选项只能 2–4 个、每项 ≤60 字，四要素长卡塞不进去；
+		//         ② 它把「等人」变成一次工具往返，给上下文塞结构化噪声；
+		//         ③ 用户要的是“对话框里列 A/B/C/D，我回一个字母”。
+		if (name === "ask_user_question") {
+			const reason =
+				`[cmd-guard] 已拦下：弹窗式问人（ask_user_question）不用于本项目。\n` +
+				`改用对话内 A/B/C：先把卡落盘并列出选项，然后把下面这段**原样贴进对话**：\n\n` +
+				`  【需要你选】<一句话：卡在哪>\n` +
+				`    A  …\n` +
+				`    B  …\n` +
+				`    C  …\n` +
+				`  直接回 A / B / C\n\n` +
+				`落盘与回执：\n` +
+				`  python Tool/scripts/case_state.py ask --case <case> --stuck "..." --option "A ..." --option "B ..." --option "C ..."\n` +
+				`  python Tool/scripts/case_state.py ack --case <case> --ack A\n\n` +
+				`（ask 会打印可直接粘贴的卡片；等待态写在 state.awaiting_human）`;
+			return { block: true, reason };
+		}
 		if (name !== "bash" && name !== "powershell") return;
 		const shell: "bash" | "powershell" = name === "bash" ? "bash" : "powershell";
 		let cmd = String(event.input?.command ?? "");
@@ -610,6 +770,45 @@ export default function cmdGuard(pi: any): void {
 
 		const injected: string[] = [];
 		const notes: string[] = [];
+
+		/* 0.5 禁手表 —— 网络写操作（block）/ 启动纪律（warn）。
+		   比 GUI 拦截更优先：它造成的是「用户整机受影响」，比挂死严重。 */
+		if (Array.isArray(config.denyRules) && config.denyRules.length) {
+			for (const rule of config.denyRules) {
+				let re: RegExp;
+				try {
+					re = new RegExp(rule.re, "i");
+				} catch {
+					continue;
+				}
+				const hit = cmd.match(re);
+				if (!hit) continue;
+				// ★ 误伤修正（2026-10-23）：heredoc 体里写的命令是"数据"，不是被执行的东西。
+				//   实例：用 `python - <<'PY'` 往 markdown 里写一段"禁手清单"，
+				//   因为正文里出现了 `New-NetIPAddress` 就被整条拦下 —— 写文档被自己的护栏挡住。
+				//   判据：命中位置在第一个 heredoc 标记之后 → 只记笔记，不阻断。
+				const heredocAt = cmd.search(/<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?/);
+				if (heredocAt >= 0 && typeof hit.index === "number" && hit.index > heredocAt) {
+					notes.push(`（heredoc 数据区里出现了「${rule.label}」字样，按文本处理，未阻断）`);
+					continue;
+				}
+				const body =
+					`[cmd-guard] ${rule.severity === "block" ? "已拦下" : "注意"}：${rule.label}\n` +
+					`命中：\`${head(hit[0], 80)}\`\n` +
+					rule.hint;
+				if (rule.severity === "block") {
+					if (config.enforce) {
+						blocked.push({ at: new Date().toISOString().slice(11, 19), cmd: head(cmd, 100), reason: head(`${rule.label}：${rule.id}`, 100) });
+						stats.blocked++;
+						ctx?.ui?.notify?.(`cmd-guard 拦下：${rule.label}`, "warning");
+						return { block: true, reason: body };
+					}
+					notes.push(`【禁手但 enforce=false】${rule.label}`);
+				} else {
+					notes.push(body);
+				}
+			}
+		}
 
 		/* 1. GUI / 交互式二进制 —— 物理拦下，这是 die.exe 那次挂死的根因 */
 		if (config.blockGui) {

@@ -1,6 +1,6 @@
 ---
 name: pwn-crypto
-description: "【二进制利用与密码学】授权 CTF/靶场/自有程序中的二进制漏洞利用与密码学攻击手册：checksec/DllCharacteristics 保护位决策、栈溢出与 ROP、格式化字符串任意读/写、堆（tcache/UAF/IO_FILE）、整数回绕与 off-by-one、seccomp ORW/SROP，以及 RSA、ECB/CBC、PRNG、HMAC、证书与签名攻击。含可机检判据、失败判据、真实案例与脚本。"
+description: "【二进制利用与密码学】checksec 保护位、栈溢出与 ROP、格式化字符串、堆（tcache/UAF/IO_FILE）、seccomp ORW/SROP，以及 RSA、ECB/CBC、PRNG、HMAC、证书签名攻击。"
 license: MIT
 compatibility: "Linux x86/x64/ARM64 优先；Windows 下可用 MinGW 复现 PE 语义。Python 3.10+；pwntools/ROPgadget/checksec/pycryptodome 可选，缺失按降级链执行。"
 metadata:

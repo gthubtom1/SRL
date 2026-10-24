@@ -8,6 +8,9 @@ metadata:
 
 # 01 · 旁路卡密，出「原版可用」成品
 
+> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
+
+
 > **通用性声明**：本技能与任何具体样本解耦。文中出现的**节名**（如 `.ace0`）、**错误码**（如 `0xC000023E`）、
 > **功能名**（如"皮肤库"）都是**举例**，实际以目标为准；判据看"形状"，不要照搬数字。
 
@@ -28,7 +31,7 @@ metadata:
 
 ## 1. 开工四道门（四门齐备再动手）
 
-1. 读 `softseep/SKILL.md` + 本技能 + 需要的子技能（`unpack-loop` / `ida-reverse` / `client-license-validation-bypass`）
+1. 读 `softseep/SKILL.md` + 本技能；子技能**按画像卡的「改动面」只选 1 个**：文件→`unpack-loop`；内存→`client-license-validation-bypass`；反编译定位→`ida-reverse`。**不要一次读 4 个**（实测 ≈59k 字，会把阶段一第一个动作的预算挤掉）
 2. `seep_auto_triage(binary_path=目标)`
 3. `seep_packer_detect(binary_path=目标)`
 4. `seep_kb_search("<壳名 / 自毁 / VEH / 授权>")`

@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "generated_at": "1970-01-01T00:00:00Z",
-  "source_hash": "eba3c8d59e3adff3644d8af5dfff00d3413475137a07a101596963c78e566fd2",
-  "case_count": 51,
+  "source_hash": "8dd5887241f9aeeb6e62bcbe5a9c6003a1a3fd9f35a5dc5561a3f8e74e29e6e3",
+  "case_count": 55,
   "cases": [
     {
       "dir": "ad-cloud01",
@@ -232,6 +232,48 @@
         "Tool/config/ad-cloud-matrix.json"
       ],
       "updated": "2026-10-21"
+    },
+    {
+      "dir": "aimbot",
+      "id": "aimbot",
+      "domain": "reverse",
+      "target_type": "Windows PE64（Qt + ImGui + ONNX）AI 辅助，卡密授权 + 自定义壳",
+      "evidence_kind": "real",
+      "protection": [
+        "custom-packer(.ace0, 节 RawSize=0)",
+        "integrity-selfcheck(File corrupted)",
+        "antidebug(DllCharacteristics + GetAdaptersInfo 机器码)",
+        "window-title-randomization"
+      ],
+      "authority": "用户提供样本与卡密，沙箱白盒审计",
+      "goal_level": "M2",
+      "outcome": "partial",
+      "artifacts": [],
+      "repro": "",
+      "lessons": [
+        "2026-10-23 首轮（会话 01a1685a）：48 分钟 / 167 次工具调用 / cacheRead 1705 万，facts 0 条、自然语言汇报 1 条、交付物 0 个。",
+        "事故：为接管授权服务端，给 DHCP 网卡挂 /32 别名 IP + netsh winhttp set proxy，导致整机断网（用户自行恢复）。",
+        "关键发现：改磁盘字节即触发 File corrupted（壳 stub 层完整性自检）；该字符串在 dump 镜像里 ASCII/UTF-16 均 0 命中，说明校验在解密之前。",
+        "关键发现：dump 保留运行时 ImageBase 0x7ff65e140000，而全流程按 0x140000000 算 VA，导致 Ghidra 连续 7 次 no function。",
+        "协议面：149.88.73.239 /api/client /login /heartbeat，UA NetworkVerify/1.0，字段 card_code/device_id/app_key，响应 code/message/data/remaining_minutes/expire_time/heartbeat_interval/announcement。",
+        "复盘与新流程：work/audit/2026-10-23_aimbot会话流程审计与Seep短板.md、docs/EXECUTION-MODEL-v2.md"
+      ],
+      "tags": [
+        "license",
+        "cardkey",
+        "pe",
+        "qt",
+        "imgui",
+        "onnx",
+        "packed",
+        "integrity-check"
+      ],
+      "refs": [
+        "Tool/skill/01-gate-bypass/SKILL.md",
+        "Tool/skill/unpack-loop/SKILL.md",
+        "docs/EXECUTION-MODEL-v2.md"
+      ],
+      "updated": "2026-10-23"
     },
     {
       "dir": "firmware-iot01",
@@ -788,6 +830,133 @@
         "Tool/cases/forensics06/artifacts/timeline.json"
       ],
       "updated": "2026-10-21"
+    },
+    {
+      "dir": "golden-crackme",
+      "id": "golden-crackme",
+      "domain": "reverse",
+      "target_type": "Windows PE64（MinGW/GCC 15.2.0，CUI，53KB，无壳，纯本地卡密式校验）",
+      "evidence_kind": "fixture",
+      "protection": [],
+      "authority": "本地常量：sym.main 内两条立即数比较（0x6e617274 'tran' + 0x0065636e 'nce'），无签名/无网络/无硬件绑定；样本为仓库自带夹具，范围由仓库声明",
+      "goal_level": "M3",
+      "outcome": "partial",
+      "artifacts": [],
+      "repro": "",
+      "lessons": [
+        "2026-10-24 黄金路径前半段（P3-1，会话 stint）：radare2 6.2.0 走完 识别→分析→裁定→路线，阶段 0a/0b 全过。",
+        "校验函数 sym.main = VA 0x140002860 / RVA 0x2860 / paddr 0x1e60（79B），由 sym.__tmainCRTStartup 在 0x1400010c2 调用。",
+        "判定是两条立即数比较而非 strcmp：0x14000287a cmp [var_28h],'tran' 与 0x140002897 cmp [var_2bh],'nce'（var_2bh=buf+3，末字节要求 0）→ 期望输入 trance 且长度恰 6。",
+        "分叉字节：0x140002882 = 74 13（je 跳过 FAIL，paddr 0x1e82），0x14000289f = 75 e3（jne 回 FAIL）。两分支都汇到 xor eax,eax，退出码恒 0，只能以 stdout 的 PASS/FAIL 判定。",
+        "无磁盘自校验：导入表无 CreateFileW/GetModuleFileName/ReadFile；唯一的 VirtualProtect 属 MinGW CRT 伪重定位器 _pei386_runtime_relocator。",
+        ".rdata 0x140004003 的明文 trance 无任何代码交叉引用，是编译器折叠立即数后残留的死常量（不是 strcmp 操作数）。",
+        "工具口径坑：本机 radare2 6.2.0 包里 rabin2.exe 与 r2 同入口，-I 意为打开前跑脚本 → rabin2 -I <file> 报 Missing file to open；改用 r2 核心命令 iI/iS/ii/izz/p=e/p=d。iSS 是内存段不是带熵节表；/ 搜索报 Invalid ':' subcommand，用 izz~ 替代。",
+        "纪律坑：无租约时并发 claim 会静默丢条（本次两路并行写 facts 丢了 4 条，已按顺序补回）；同一 case 的写操作要串行。"
+      ],
+      "tags": [
+        "license",
+        "crackme",
+        "pe",
+        "mingw",
+        "no-pack",
+        "local-constant",
+        "fixture"
+      ],
+      "refs": [
+        "Tool/skill/00-triage/SKILL.md",
+        "Tool/skill/00-analysis/SKILL.md",
+        "Tool/skill/01-gate-bypass/SKILL.md"
+      ],
+      "updated": "2026-10-24"
+    },
+    {
+      "dir": "leaf-apk",
+      "id": "leaf-apk",
+      "domain": "reverse",
+      "target_type": "APK（单 classes dex，dex 035，零 native 库）：公开教学靶场 DIVA，包名 jakhar.aseem.diva，minSdk 15 / targetSdk 23",
+      "evidence_kind": "fixture",
+      "protection": [
+        "未加固：整包仅 1 个 classes dex（1931680B）、无 lib 与 so、16 个加固特征串（StubApp/libjiagu/DexHelper/comqihoo/SecShell/bangcle/secneo/AppWrapper/aliprotect/libnesec/libshella 等）计数全为 0、manifest 的 application 节点无 android:name（装不下 StubApp 类入口）"
+      ],
+      "authority": "本样本无授权/卡密面（教学靶场，功能入口是 manifest 里的 17 个 activity 与 1 个 provider）；本叶子验证的是『smali 可改 → 重打包 → 对齐 → 签名』链路，不是绕过某个校验",
+      "goal_level": "L1",
+      "outcome": "partial",
+      "artifacts": [],
+      "repro": "",
+      "lessons": [
+        "存在理由：路径树叶子 A-APK-PLAIN 原本没有样本，安卓这一支的所有失败都无法归因（是壳挡的，还是重打包没跑通）。本 case 给出最小可回放基线。",
+        "未加固四条独立依据：① 单 classes dex 且魔数版本正常；② 无 lib 目录项、无 so；③ 16 个加固特征串全 0；④ manifest application 无 android:name（加固包必须挂 StubApp/AppWrapper）。",
+        "链路已闭环：apktool d -r → 改 smali → apktool b → jarsigner → zipalign → 三道复核（zipalign -c、jarsigner -verify、aapt 解析）全过，且新 dex 里能 grep 到改后的字符串。",
+        "真坑（对齐顺序）：先 zipalign 再 jarsigner 会让对齐失效（zipalign -c 报 BAD -2 / BAD -1 → Verification FAILED）；v1 签名重写 zip 目录区，顺序必须是『先签名、再对齐』。",
+        "真坑（资源解码）：apktool 2.5.0 不带 -r 在本样本上卡死（反复 Load resource table，180s 超时，前期报 Invalid data detected -3416 字节 / Unknown data 17756 字节）；本次用 -r 绕过，代价是 res 不反编译、manifest 非文本。",
+        "未验证（诚实缺口）：无 adb 设备在线 → 真机安装与启动未验；样本无任何广告 SDK → 叶子见证物的『广告消失』不可验证；apksigner 缺失 → 只能产 v1 签名（targetSdk 23 恰好可用，API 24+ 需 v2/v3）。",
+        "边界：能证明『改得动、打得回、签得上』，不能证明『装上能跑、广告消失』；这两项必须由用户在真实带广告 APK + 在线设备上补验。"
+      ],
+      "tags": [
+        "fixture",
+        "apk",
+        "unhardened",
+        "triage",
+        "path-tree",
+        "A-APK-PLAIN",
+        "apktool",
+        "repackage"
+      ],
+      "refs": [
+        "Tool/cases/leaf-apk/report/triage.md",
+        "Tool/cases/leaf-apk/target/diva.apk",
+        "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk",
+        "Tool/samples/real/android-apks/README.md",
+        "Tool/skill/apkseep/SKILL.md"
+      ],
+      "updated": "2026-10-24"
+    },
+    {
+      "dir": "leaf-pe-packed",
+      "id": "leaf-pe-packed",
+      "domain": "reverse",
+      "target_type": "PE32+ x86-64 Windows CUI（MinGW 控制台）；本夹具 = Tool/samples/real/crackerjack/a.exe 经 UPX 3.91w 压缩后的副本（53782 → 41494 字节）",
+      "evidence_kind": "fixture",
+      "protection": [
+        "UPX 3.91w（win64/pe 标准压缩壳，非改壳）：节表只剩 UPX0/UPX1/UPX2，UPX0 RawSize=0，UPX! 魔数在文件偏移 0x205，入口由原 .text 0x1400013f0 搬到 0x140014fc0（UPX1 内），UPX1 载荷香农熵 7.638"
+      ],
+      "authority": "原件为纯本地判定（sym.main 内两条立即数比较，无网络无签名）；但压缩后磁盘面无业务代码，判定点静态不可达——权威面只能经脱壳（upx -d）或运行期内存观测触及",
+      "goal_level": "L1",
+      "outcome": "success",
+      "artifacts": [],
+      "repro": "",
+      "lessons": [
+        "存在理由：路径树叶子 R-PE-PACK-UPX 原本没有 witness 样本，等于『纸上能力』；本 case 用仓库自带 a.exe 自压出真壳样本，让 path-walk 能真走一遍。",
+        "核心结论（为什么这条叶子重要）：有壳时磁盘面被压缩，静态拿不到业务代码——节表只剩 UPX*/UPX0 RawSize=0、入口被换成解压桩、可分析函数从 76 塌到 4 且无 sym.main、载荷熵 5.834→7.638。这直接决定第一刀：先脱壳回到静态可读，还是放弃磁盘改走内存。",
+        "识别四条依据（任一可独立判壳，四条齐=高置信）：① 节名 UPX0/UPX1/UPX2；② UPX! 魔数 @0x205（原件 0 处）；③ 入口 0x140014fc0 落在 UPX1 而非 .text；④ 载荷熵 7.638 ≥ 7.5。",
+        "磁盘改不动：把 UPX1 内偏移 0x1200 一个字节取反，upx -t 立刻报 checksum error（0 ok / 1 error）——压缩件上的静态补丁必须先脱壳，否则连壳自校验都过不去。",
+        "壳可逆：upx -t 自检 OK、upx -l 报 win64/pe，属标准壳（直接 upx -d 还原），不需要 dump + IAT 重建；这条决定 unpack-loop 走『直接脱』分叉。",
+        "边界（0a 时写的，已被 0b–4 推进）：本 case 0a 只做快筛画像卡；triage 里的 4 条复跑命令全部为仓库相对路径，第三行 upx 的绝对路径是本机工具位置，换机按 tool-acquire.py --tool upx 重查。",
+        "脱壳实测（0b–2）：upx 5.2.1 能还原 3.91w 压出的件（53782B、入口回 0x1400013f0）；脱壳件与原件仅 80 字节不同且全在头部(7)+.idata(73)，.text 零差异，所以 paddr = RVA − 0xa00 可直接复用。",
+        "内存复核（2）：ReadProcessMemory 读运行中压缩件 base+0x2860 共 79 字节，与脱壳件磁盘 0x1e60 逐字节相同（MATCH True），base+0x2882=74 13——证明 UPX 自解压保持原 RVA 布局、upx -d 产物不是近似而是等同。",
+        "同一文件偏移在不同载体含义不同（3）：0x1e82 在脱壳件/原件 = 74 13（VA 0x140002882 分叉），在压缩件 = 73 00（VA 0x140014c82，UPX1 解压桩）。因此补丁必须打在脱壳件上，压缩件既不承载业务字节也过不了 checksum 自校验。",
+        "补丁与负例（3/4）：0x1e82 74 13→eb 1d（je→jmp 0x1400028a1 = lea rcx,str.PASS），patched+wrong=PASS、五输入全 PASS；负例 unpacked 未打补丁+wrong=FAIL，证明补丁是必要原因。交付 M3。"
+      ],
+      "tags": [
+        "fixture",
+        "upx",
+        "packed",
+        "triage",
+        "path-tree",
+        "R-PE-PACK-UPX",
+        "unpack-loop"
+      ],
+      "refs": [
+        "Tool/cases/leaf-pe-packed/report/triage.md",
+        "Tool/cases/leaf-pe-packed/report/static.md",
+        "Tool/cases/leaf-pe-packed/report/dynamic.md",
+        "Tool/cases/leaf-pe-packed/report/final.md",
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe",
+        "Tool/samples/real/crackerjack/a.exe",
+        "Tool/cases/golden-crackme/report/triage.md",
+        "Tool/skill/unpack-loop/SKILL.md"
+      ],
+      "updated": "2026-10-24"
     },
     {
       "dir": "malware-analysis01",

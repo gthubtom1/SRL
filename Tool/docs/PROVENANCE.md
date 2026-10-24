@@ -147,7 +147,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | 组成 | 位置 | 说明 |
 | :--- | :--- | :--- |
 | **MCP 服务** | npm `@playwright/mcp` | `npx` 按需拉取 |
-| **扩展 token** | `mcp.json` 中 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | **需你自填** |
+| **扩展 token** | —（已移除） | **无需 token** —— 以 `--headless` 启动（旧版 `--extension` 模式才需自填，已废弃） |
 
 ### 可选注册：reverselab 自带的 3 个 MCP
 
@@ -238,7 +238,7 @@ seep_r2_* 八个工具   →  Tool/mcp/Tool/safe/radare2/bin/
 seep_apk_* 五个工具  →  Tool/mcp/Tool/safe/jadx/ + apktool/
 seep_apk_gen_hook   →  Tool/mcp/Tool/safe/hook-mcp/templates/
 ida MCP              →  自备 IDA Pro + Tool/mcp/Tool/safe/ida-pro-mcp/
-playwright MCP       →  npx + PLAYWRIGHT_MCP_EXTENSION_TOKEN
+playwright MCP       →  npx + --headless（无需 token）
 softseep 路由         →  Tool/skill/softseep/（含 8 个 references）
 apkseep 全链路        →  Tool/skill/apkseep/（45 refs + 56 scripts）
 ```

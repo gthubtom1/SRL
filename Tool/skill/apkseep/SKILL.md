@@ -1,6 +1,6 @@
 ---
 name: apkseep
-description: "Android APK/AAB/DEX/SO 逆向工程、客户端鉴权脆弱性走查（CWE-602）、DEX/SO 底层二进制微创补丁、动态 Frida/RPC 探测插桩、脱壳/Java2C/VMP 差分分析及重打包签名的全链路一体化作战技能。覆盖 Recon 资产画像、四大硬性质量门禁（G1-G4）、Anti-Tamper/Anti-Hook 对抗、双击失败熔断纪律与端到端闭环安全审计交付。"
+description: "【Android 逆向】APK/AAB/DEX/SO 逆向、客户端鉴权走查（CWE-602）、DEX/SO 微创补丁、Frida/RPC 插桩、脱壳/Java2C/VMP 差分、重打包签名全链路。"
 license: MIT — see LICENSE at the repository root
 # ---------------------------------------------------------------------------
 # ATTRIBUTION: This skill is derived from and tracks the upstream project

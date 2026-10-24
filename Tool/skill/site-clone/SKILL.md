@@ -1,6 +1,6 @@
 ---
 name: site-clone
-description: "【网站 1:1 复刻】在已获书面授权、同源白名单和 ≤2 rps 约束下，用 Playwright 抓取真实站点的路由/资产/API 与 DOM 快照，落地为离线副本，按 6 条可机检判据给出 PASS/PARTIAL/BLOCKED，并逐页标注 recorded-snapshot / local-mock / backend-required。只做只读复刻与取证，执行范围按 scope 声明未授权抓取、登录态盗用、后端逻辑伪造或压力测试。"
+description: "【网站 1:1 复刻】授权+同源白名单+≤2 rps 下用 Playwright 抓路由/资产/API 与 DOM 快照做离线副本，按 6 条机检判据给 PASS/PARTIAL/BLOCKED。"
 ---
 
 # 网站 1:1 复刻（site-clone）

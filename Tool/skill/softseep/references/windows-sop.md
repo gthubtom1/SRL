@@ -280,7 +280,7 @@ EM_GETLINECOUNT = 3          ← “渲染了三行”变成确定事实
 3. **逆向测绘报告范例（鉴权全貌 + 补丁清单 + 防御整改）**：`Tool/cases/_archive/项目C/poc/RE_FINDINGS.md`
 4. **全流程复盘模板（时间线/攻克点/踩坑/证据链）**：`Tool/cases/_archive/项目C/poc/TASK_RETRO.md`
 5. **自动化任务沙盒建档**：`Tool/scripts/case-init.ps1`
-6. **工具链健康自检**：`Tool/scripts/refresh-tool-index.ps1`
+6. **工具链健康自检**：refresh-tool-index.ps1（S1 已删）
 7. **IDA Pro 自动化 MCP 链路**：`Tool/scripts/trigger_ida_mcp.ps1`
 8. **跨进程 UI 工装集（可判定验收）**：
    - `tools/ui/abdump.ps1` —— 全量控件布局 + 文本字节 + 样式 dump

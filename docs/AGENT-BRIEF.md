@@ -3,7 +3,7 @@
 > ⚠️ **仅适用于内部子代理**（由项目方授权、在分支上执行并提交的执行者）。
 > **外部审查员请按 AUDIT-REQUEST 走只读流程**：外部审查是只读的，读 `docs/AUDIT-REQUEST.md`，只出报告不改仓库。
 
-> 你只负责**一个域**。契约在 `docs/DOMAIN-SPEC-v2.md`，机检在 `Tool/scripts/domain-gate.py`。
+> 你只负责**一个域**。契约在 `docs/history/X-DOMAIN-SPEC-v2.md`，机检在 `Tool/scripts/domain-gate.py`。
 > 目标：让该域**能独立打一场**——判据可机检、脚本真跑、案例真跑、知识可复用。
 
 ## 0. 铁律
@@ -14,7 +14,7 @@
    - `Tool/mcp/Tool/reverselab/kb/<board>/**`
    - `Tool/config/<domain>-matrix.json`、`Tool/config/routing-fragments/<domain>.json`
    - `Tool/prompts/domains/<domain>.md`
-2. **不许改**：`Tool/scripts/preflight.py`、`Tool/scripts/domain-gate.py`、`Tool/scripts/lib/*`、`docs/DOMAIN-SPEC-v2.md`、`Tool/scripts/routing.json`、其它域的任何文件、`docs/AUDIT.md`。
+2. **不许改**：`Tool/scripts/preflight.py`、`Tool/scripts/domain-gate.py`、`Tool/scripts/lib/*`、`docs/history/X-DOMAIN-SPEC-v2.md`、`Tool/scripts/routing.json`、其它域的任何文件、`docs/AUDIT.md`。
 3. 不许 `git commit`、不许联网、不许写入仓库外的绝对路径；脚本与文档里只出现相对仓库根的路径或 `~` 相对路径。
 4. 不许编造：命令必须真跑过；哈希必须真算；失败就写失败判据，不要粉饰。
 5. Windows + Git Bash 环境，解释器是 `python`（3.12）。可用：`gcc`（mingw64）、`tshark`、`node`、`npm`、`dotnet`、`java`、`7z`（若存在）、`unzip`。

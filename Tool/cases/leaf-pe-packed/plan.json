@@ -1,0 +1,33 @@
+[
+  {
+    "level": "L2",
+    "route": "脱壳后字节补丁（upx -d → 改 0x1e82 74 13→eb 1d）",
+    "p": 0.95,
+    "hours": "0.5",
+    "needs": "upx 5.2.1、radare2（定位）、python（写字节）",
+    "fail_criteria": "脱壳件 .text 与原件不一致 / 补丁后 wrong 仍 FAIL / 程序崩溃",
+    "chosen": true,
+    "created": "2026-10-24T07:06:09",
+    "chosen_at": "2026-10-24T07:06:10"
+  },
+  {
+    "level": "L3",
+    "route": "不脱壳运行期内存补丁（base+0x2882 写 eb 1d）",
+    "p": 0.7,
+    "hours": "2",
+    "needs": "x64dbg 或 frida-attach（写内存）、每次现算 ASLR 基址",
+    "fail_criteria": "进程在 OEP 前被断点打断 / 写内存失败 / 基址算错导致崩溃",
+    "chosen": false,
+    "created": "2026-10-24T07:06:09"
+  },
+  {
+    "level": "L4",
+    "route": "重打包分发（补丁件再 upx --best 压回 + 换签名/授权壳）",
+    "p": 0.5,
+    "hours": "4",
+    "needs": "upx 重压、签名工具、自有授权平台",
+    "fail_criteria": "重压后 checksum/入口异常 / 目标环境校验和检查拦截",
+    "chosen": false,
+    "created": "2026-10-24T07:06:09"
+  }
+]

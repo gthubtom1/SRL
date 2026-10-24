@@ -1,6 +1,6 @@
 ---
 name: doc-hygiene
-description: "【通用文档治理：深清理 + 整理 + 遗留盘点】任何项目用久了都会长出三类垃圾文档：过期数字/旧结论（读了会被带偏）、重复入口（两份都改必然漂移）、写到一半的遗留（TODO/待补/占位/后续）。本技能把「先盘点→再分类→盘遗留→合并重复→归档历史→清场→冷启动验收」固化成七步，并配一个零依赖、只读、跨项目的审计脚本 doc-audit.py（死链/孤儿/重复/版本过期/归档缺横幅/索引缺失/遗留台账，输出 Markdown 报告）。触发场景（中英）：整理文档、清理文档、文档太乱/太多/太旧、文档过期、交接、换模型接手、新会话读项目、把没做完的捞出来、遗留盘点、tidy up docs、clean up documentation、docs are stale/messy、handoff、onboarding a new model、find leftover TODOs、documentation audit、doc hygiene。当一个项目文档超过 30 篇、或一轮工作新增 ≥3 篇文档时也主动用。"
+description: "【文档治理】整理/清理文档、文档太乱太旧、过期数字、重复入口、遗留盘点（TODO/待补）、交接、换模型接手；tidy up docs、clean up documentation、docs stale、handoff、doc hygiene。"
 metadata:
   stage: "meta"
   scope: "any-project"

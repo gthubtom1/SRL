@@ -16,7 +16,7 @@
 | 状态标识 | 语义 | 说明与影响 |
 |---|---|---|
 | 🟢 **`[READY]` 完备就绪** | 部署成功且可用 | 文件/依赖全部在位，可执行代码与语法解析 100% 正常。 |
-| 🟡 **`[DEGRADED]` 合规降级 / 可选未配** | 可选扩展未装，已降级承接 | 属于外部商业软件（如 IDA Pro）或可选按需工具（如 Playwright Token）。**核心逆向主链路不受影响**，系统已自动启用免费/内置替代方案（如 Radare2 套件）。 |
+| 🟡 **`[DEGRADED]` 合规降级 / 可选未配** | 可选扩展未装，已降级承接 | 属于外部商业软件（如 IDA Pro）或可选按需工具（如 Playwright 无头浏览器）。**核心逆向主链路不受影响**，系统已自动启用免费/内置替代方案（如 Radare2 套件）。 |
 | 🔴 **`[MISSING]` 阻断性缺失** | 核心组件缺失或异常 | 核心文件丢失或基础运行库（如 Python MCP 协议）未装，将导致部分核心流水线不可用。必须按修复指引处理。 |
 
 ---
@@ -56,7 +56,7 @@ MCP 配置文件所在位置：
 | **M1** | **`seep`** ⭐自研核心 | `python <SEEP_ROOT>/Tool/mcp/seep_mcp_server.py` | **40 项** | `python Tool/mcp/test_seep_mcp.py` 语法解析与测试通过 | 🔴 **阻断项**。若缺失无法调用 R2/JADX/Apktool/KB。修复：运行 `powershell setup\install.ps1` |
 | **M2** | **`ida`** 外部商业 | `<IDA_PYTHON> .../ida_pro_mcp/server.py` | ~100 项起（随 ida-pro-mcp 版本变化，以运行时 tools/list 为准） | 探测 `127.0.0.1:13337` 端口或 IDA 进程 | 🟡 **可选降级**。未装或无授权时自动降级为内置 Radare2 无头分析套件，主干链路 100% 可用。指引详见 `MANUAL/IDA-PRO.md` |
 | **M3** | **`js-reverse`** | `npx -y js-reverse-mcp` | 23 项（本包实测 v4.0.5，以运行时为准） | `npx -y js-reverse-mcp --version` | 🟡 **按需组件**。未安装 Node 时仅 Web 逆向受限，原生二进制不受影响。修复：安装 Node.js 18+ |
-| **M4** | **`playwright`** | `npx -y @playwright/mcp` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | 依赖 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` | 🟡 **按需组件**。未配 Token 时无头浏览器受限，原生逆向不受影响。 |
+| **M4** | **`playwright`** | `npx -y @playwright/mcp@latest --headless` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | `npx -y @playwright/mcp@latest --version` | 🟡 **按需组件**。**无需 token**（`--headless`）；首次运行需联网拉包，离线时无头浏览器受限，原生逆向不受影响。 |
 
 > **附加断言（不计入 65 项核心项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
 > （`replaceable`：`codemode` / `tool-search` / `mcp`）抢名。有冲突时退码 1，说明该扩展会顶掉内置并导致 `[Extension issues]`。
@@ -171,7 +171,7 @@ MCP 配置文件所在位置：
 | seep (自研) | ~/.pi/agent/mcp.json | 40 工具 | Connected (40) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
 | ida (商业) | ~/.pi/agent/mcp.json | ~100+ 工具（随版本） | 未监听 (13337) | 🟡 DEGRADED | 已自动降级为内置 Radare2，主链路 100% 可用 |
 | js-reverse | ~/.pi/agent/mcp.json | 23 工具 | 可用 (npx) | 🟢 READY | JS 逆向引擎就绪 |
-| playwright | ~/.pi/agent/mcp.json | 以运行时为准 | Token待配置 | 🟡 DEGRADED | 无头浏览器可选，不影响二进制逆向 |
+| playwright | ~/.pi/agent/mcp.json | 以运行时为准 | 无需 Token（`--headless`） | 🟡 DEGRADED | 懒连接（lazy），首次调用前不建连；不影响二进制逆向 |
 
 #### 3. 🔧 运行时与内置工具箱 (Native Tools)
 | 工具 | 预期版本/文件 | 实际状态 | 状态 | 说明 |

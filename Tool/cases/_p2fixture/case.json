@@ -1,0 +1,53 @@
+{
+  "id": "_p2fixture",
+  "domain": "reverse",
+  "target_type": "纯离线假目标（python 脚本，读 card_code 环境变量后打印 OK/DENY，无网络、无文件写入）",
+  "evidence_kind": "fixture",
+  "protection": [],
+  "authority": "自建回放夹具；卡密是与真实授权无关的虚构常量（TEST-CARD-0001）",
+  "goal_level": "L1",
+  "outcome": "confirmed",
+  "evidence_dir": ".",
+  "scope": {
+    "authorization": "自建夹具，用于阶段机与 WAIT_USER 回放；输入为虚构常量",
+    "hosts": [
+      "127.0.0.1"
+    ],
+    "rate_limit_rps": 1,
+    "forbidden": [
+      "network access",
+      "system modification",
+      "real credentials"
+    ]
+  },
+  "lessons": [
+    "用途：给阶段机 / WAIT_USER 回放提供可复现样本 —— 没有样本，阶段机无法验证自己会不会在『等用户给凭据』这一步停住、能不能接回合法/非法两条路。",
+    "合法卡：CARD_CODE=TEST-CARD-0001 python Tool/cases/_p2fixture/target/fake_auth.py → 打印 OK:authorized，rc=0。",
+    "非法卡：CARD_CODE=WRONG python Tool/cases/_p2fixture/target/fake_auth.py → 打印 DENY:invalid card，rc=1。",
+    "缺卡：不设环境变量直接跑 → 打印 DENY:invalid card，rc=1（缺卡与非法卡同一条拒绝路径，不给『空即放行』的错解）。",
+    "边界：目标脚本无网络调用、无文件写入、无子进程；变量名按 card_code 读，Windows 大小写不敏感所以 CARD_CODE 同效，脚本两种拼写都查。",
+    "结构：目录名以 _ 开头，案例索引生成器跳过它，因此本夹具不进 Tool/cases/index.json，也不算一个真实案例。"
+  ],
+  "tags": [
+    "fixture",
+    "offline",
+    "credential-gate",
+    "wait-user",
+    "stage-machine",
+    "replay"
+  ],
+  "refs": [
+    "Tool/cases/_p2fixture/README.md",
+    "Tool/cases/_p2fixture/target/fake_auth.py",
+    "Tool/prompts/templates/triage.md",
+    "Tool/prompts/templates/static.md",
+    "Tool/prompts/templates/dynamic.md",
+    "Tool/prompts/templates/final.md"
+  ],
+  "artifacts": [],
+  "repro": {
+    "status": "recorded",
+    "evidence": "三条命令的实测输出与退出码见 lessons 第 2~4 条；命令全部为仓库相对路径"
+  },
+  "updated": "2026-10-24"
+}

@@ -1,6 +1,6 @@
 ---
 name: softseep
-description: 【逆向工程总控入口 / Orchestrator】本 Skill 是整个工作体系的**唯一入口与总调度**。**用户只需输入大白话，softseep 自动完成两步判型**：① 平台（Windows/Android/Linux/Web/Flutter）② 逆向类型（授权许可 / 补丁本地化 / 脱壳解包 / 算法还原 / 协议分析 / 样本研判 / UI 伪造 / 加固对抗 / 测绘报告），随后自动分发到对应子能力。它自身不承载战术细节，所有深度内容在 `references/` 按需加载（Windows 6 步 SOP、汇编打桩字典、五层纵深防御、UI 验收工装、编译器陷阱、九型项目范式库、许可/激活/卡密校验手册、工具脚本索引）。内置 G-Auth 授权门、路由矩阵与调度纪律。当用户下达任何逆向、白盒审计、客户端逻辑验证、许可校验、补丁本地化、脱壳解包、算法还原、样本研判、UI 伪造、加固对抗或逆向测绘任务时，**首先加载此 Skill** —— 由它判型后分发到 apkseep / ida-reverse / seep MCP / ida MCP / playwright / Tool/scripts / reverselab 等子能力。
+description: 【逆向总控入口】任何逆向、白盒审计、客户端逻辑验证、许可校验、补丁本地化、脱壳解包、算法还原、协议分析、样本研判、UI 伪造、加固对抗、测绘任务先加载本技能，按平台+类型判型后分发子能力。
 license: MIT
 compatibility: Windows 10 / Windows 11 x64 为主。支持 Python 3.8+，搭配 C/C++ 编译器（Zig/MSVC）或 radare2/IDA Pro 逆向套件。跨平台等价路径见 `references/license-validation.md` §1 平台对照表。
 metadata:

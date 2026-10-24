@@ -59,7 +59,7 @@ MCP（工具层）           →  给 agent「实际干活的手」
      · <SEEP_ROOT>  → 本包实际路径
      · <IDA_ROOT>   → 自动探测（D:\Tool\IDA Pro / C:\Program Files\IDA Pro / C:\IDA Pro）
      · <IDA_PYTHON> → 探测到的 IDA Python
-     · playwright token → 需你自填（不用浏览器自动化可留空）
+     · playwright → `--headless` 模式，**无需 token**（详见下方说明；别改回 `--extension`）
 6. 写 settings.json（12 个 pi packages）
 7. 执行 pi update --extensions
 ```
@@ -84,13 +84,22 @@ MCP（工具层）           →  给 agent「实际干活的手」
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest", "--extension"],
-      "env": { "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "<你的token>" },
-      "transport": "stdio"
+      "args": ["-y", "@playwright/mcp@latest", "--headless"],
+      "transport": "stdio",
+      "lifecycle": "lazy"
     }
   }
 }
 ```
+
+> **为什么是 `--headless` 而不是 `--extension`**：扩展模式**同时**要求两件东西 ——
+> ① 一个真实的 `PLAYWRIGHT_MCP_EXTENSION_TOKEN`；② 本机已安装并启用对应的浏览器扩展。
+> 缺任一个，进程起来就报 `Playwright Extension not found`（工具列表能连上、一调真功能就死）。
+> `--headless` 不需要 token、不需要预装扩展，开箱可用。
+> 因此 `mcp-servers.json` 里 playwright 条目已经**没有 `env`、也不再带 `onlyIfMissing`** ——
+> 留着 `onlyIfMissing` 会让重装时保留旧的 `--extension` + 占位 token 条目，等于把同一个 bug 又装回来。
+> 同理，旧版的 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` 占位符已经没用了，装完可自查：
+> `grep -n 'YOUR_PLAYWRIGHT_TOKEN' Tool/config/mcp-servers.json ~/.pi/agent/mcp.json` 应为 **0 命中**。
 
 ---
 
@@ -191,7 +200,7 @@ python -c "import ast; ast.parse(open(r'C:\...\Seep\Tool\mcp\seep_mcp_server.py'
 | `seep_apk_unpack` | `Tool/mcp/Tool/safe/apktool/` | "apktool not found" |
 | `seep_apk_gen_hook` | `Tool/mcp/Tool/safe/hook-mcp/templates/` | 模板缺失 |
 | `mcp__ida__*`（约 100 个，随 ida-pro-mcp 版本变化） | 自备 IDA Pro + `Tool/mcp/Tool/safe/ida-pro-mcp/` | "IDA not available" |
-| playwright 工具 | npx + token | 浏览器不可用 |
+| playwright 工具 | npx（`--headless`，无需 token） | 浏览器不可用 / 报 `Playwright Extension not found`（说明配置里还是 `--extension`） |
 
 **排障口诀**：工具报错 → 看它读哪个目录 → 检查该目录是否存在且非空。
 
@@ -304,6 +313,29 @@ python seep_mcp_server.py
 ```
 
 若报 `ModuleNotFoundError: mcp` → 重跑 `setup\install-python.ps1`。
+
+---
+
+## 十一、已知限制（L3 活性判定口径，别为了凑绿去改）
+
+### 11.1 L3 只认**结构化 toolCall**，不认提示词文本
+
+「liveness-check.py」(S1 已删) 的 L3 判定读的是会话 jsonl 里**真实发生的工具调用记录**
+（`type=toolCall` 的结构化条目），**不读**助手回复里的自然语言。
+
+- 所以「我在回复里写了『已调用 seep_status』」**不算** reached —— 那正是曾经造成**假绿**的写法：
+  文本可以随便写，结构化记录改不了。这是刻意的修复，不是缺陷。
+- 想让某个 MCP 记为 reached，唯一做法是**真的发起一次工具调用**。
+
+### 11.2 已知盲区：经 `codemode` 转调的 MCP 会被记为 unreached
+
+MCP 工具如果是从 `codemode` 脚本里发起的（`tools.mcp__xxx__yyy(...)`），
+jsonl 里只会出现 **`name=codemode`** 这一条，看不到内层被调用的 MCP 名字。
+于是 L3 会把那个 MCP 判成 **unreached**，即使它实际上被成功调用过。
+
+> **这是刻意保守，不是 bug，不要为凑绿而放宽判定口径。**
+> 放宽的后果：任何「写一句声明」都能拿绿，L3 就失去全部鉴别力。
+> 确实需要用可计数证据证明某 MCP 可用时，走 §五 的方法 1（`verify.ps1`）或直接 `tools/list` 实测。
 
 ---
 

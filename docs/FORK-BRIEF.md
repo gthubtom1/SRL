@@ -4,7 +4,7 @@
 > 本文是**唯一交接事实源**：身份、差异、需求、契约、已知债务、以及「哪些文档不能当现状」。
 > 读完本文 + 跑一遍第 9 节的门禁，你就能在不误解的前提下给出可信报告。
 >
-> 版本基线：`v1.26.1`｜门禁实测：`preflight 45/45`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
+> 版本基线：`v1.26.1`｜门禁实测：`preflight 55/55`、`domain-gate --all 110/110`、`verify 65/0`、`smoke-e2e 12/12`
 > 权威交接台账：`docs/RELEASE-1.26.1.md`（做了什么 / 每条证据 / 剩余项）
 > 若你是被请来做**只读审查**的：直接看 `docs/AUDIT-REQUEST.md`（权限边界 + 只读命令白名单 + 报告必答项）与 `docs/AUDIT-REPORT-TEMPLATE.md`（报告骨架）。**不要修改仓库。**
 
@@ -24,7 +24,7 @@
 **阅读顺序（按这个顺序读，不要跳）**：
 1. 本文（FORK-BRIEF）
 2. `docs/RELEASE-1.26.1.md` —— 本轮交付台账（做了什么 / 证据 / 剩余）
-3. `docs/DOMAIN-SPEC-v2.md` —— 域契约（九件套）
+3. `docs/history/X-DOMAIN-SPEC-v2.md` —— 域契约（九件套）
 4. `docs/UPSTREAM.md` —— 与上游的差异口径与吸收纪律
 5. `docs/DEFERRALS.md` —— 延迟项 + **明确不做**（含理由）
 6. `ROADMAP.md` —— 现在能做什么 / 下一步
@@ -80,8 +80,8 @@
 | # | 契约 | 位置 | 破坏后果 |
 | :-- | :-- | :-- | :-- |
 | C1 | 路由**单一事实源**是 `Tool/scripts/routing.json`；片段改 `Tool/config/routing-fragments/*.json` 后必须 `python Tool/scripts/merge-routing-fragment.py --write` | `verify-routing-coherence.py` / `merge-routing-fragment.py --check` | 路由静默失效、`domain-gate` 串味测试红 |
-| C2 | 域契约（九件套）：SKILL ≤600 行；references 6–10 篇、每篇 60–400 行；脚本 2–4 个且 `--help`/`--self-test` rc=0；KB 6–10 篇；矩阵 ≥12 条；任务卡 20–30 张；链路无孤儿 | `docs/DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py` | `domain-gate` 直接红 |
-| C3 | 计数**单一事实源**：`Tool/config/gate-counts.json`（preflight 条数、MCP 工具数基线）；first-party 预算口径 = `git ls-files` | `check-budget.py` / `check_numbers()` in `preflight.py` | 文档数字对账红 |
+| C2 | 域契约（九件套）：SKILL ≤600 行；references 6–10 篇、每篇 60–400 行；脚本 2–4 个且 `--help`/`--self-test` rc=0；KB 6–10 篇；矩阵 ≥12 条；任务卡 20–30 张；链路无孤儿 | `docs/history/X-DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py` | `domain-gate` 直接红 |
+| C3 | 计数**单一事实源**：`（已删除：数字口径取消）`（preflight 条数、MCP 工具数基线）；first-party 预算口径 = `git ls-files` | `check-budget.py` / `check_numbers()` in `preflight.py` | 文档数字对账红 |
 | C4 | 技能必须与部署目录哈希一致（`~/.pi/agent/skills`） | `domain-gate` 部署项 | 换机后行为不一致 |
 | C5 | PowerShell 脚本必须 **UTF-8 with BOM**；文档换行 LF | `check_ps_encoding()` | PS 5.1 解析失败 |
 | C6 | 案例证据必须真实存在（`case_state.py prove` 校验路径）+ sha256 可复算 | `Tool/cases/` + `domain-gate` | 反造假机制失效 |
@@ -112,7 +112,7 @@
 | 文件 | 作用 |
 | :-- | :-- |
 | `docs/RELEASE-1.26.1.md` | 本轮交付台账（做了什么/证据/剩余），**审查入口** |
-| `docs/DOMAIN-SPEC-v2.md` | 域契约（九件套判据） |
+| `docs/history/X-DOMAIN-SPEC-v2.md` | 域契约（九件套判据） |
 | `docs/UPSTREAM.md` | 与上游差异、吸收纪律、许可分层 |
 | `docs/DEFERRALS.md` | 延迟项 + 明确不做 |
 | `ROADMAP.md` | 现在能做什么 / 下一步 |
@@ -171,7 +171,7 @@
 ### 8.1 先跑这四条（不跑就下结论 = 报告不可信）
 
 ```bash
-python Tool/scripts/preflight.py                # 期望 45/45
+python Tool/scripts/preflight.py                # 期望 55/55
 python Tool/scripts/domain-gate.py --all        # 期望 110/110
 python Tool/scripts/smoke-e2e.py                # 期望 12/12（真调 9 个 MCP 工具）
 powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
@@ -204,13 +204,13 @@ powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 
 1. 改文件 → 2. `python Tool/scripts/domain-gate.py --domain <域>`（10/10）→
 3. `python Tool/scripts/preflight.py --fast`（全绿；新增文件要同步 BASELINE 实测值）→
-4. `python Tool/scripts/preflight.py`（45/45）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
+4. `python Tool/scripts/preflight.py`（55/55）→ 5. `docs/CHANGELOG.md` 顶部补一条 → 6. 提交（写清"改了什么/为什么/证据"）。
 
 ### 8.5 常见误解（审查时逐条自查）
 
 | # | 错误理解 | 正确理解 |
 | :-- | :-- | :-- |
-| 1 | "`docs/AUDIT.md` 写门禁只有 41 项，所以现在也只跑 41 项" | 那是 v1.25 快照；现在 45 项，以 `gate-counts.json` 与实跑为准 |
+| 1 | "`docs/AUDIT.md` 写门禁只有 41 项，所以现在也只跑 41 项" | 那是 v1.25 快照；现在 45 项，以 （已删除） 与实跑为准 |
 | 2 | "README 说 11 域，但 wireless 没有独立 SKILL，所以是缺失" | 无线是**有意不做**独立域（§5），能力在 firmware-iot + R22 |
 | 3 | "`race-probe` 报 `ok:true` 说明没漏洞" | `ok` 只表示结论可信；漏洞看 `vulnerable` / `reproduced` |
 | 4 | "`seep_auto_triage` 说命中鉴权关键词，所以一定有" | 看 `auth_related_strings_sampled` 与 `next_actions[0]`，文案不再无条件断言 |
@@ -238,7 +238,7 @@ powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
 | R0–R36 | 路由编号；R0 是兜底（总控判型） |
 | D1–D26 | 延迟项编号（`docs/DEFERRALS.md`），其中 D21/D26 已定为"不做" |
 | 九件套 | 域契约的九个必备件（SKILL/refs/scripts/cases/KB/matrix/任务卡/链路/路由） |
-| SSOT | 单一事实源：`routing.json`、`gate-counts.json`、`DOMAIN-SPEC-v2.md` |
+| SSOT | 单一事实源：`routing.json`、（已删除）、`DOMAIN-SPEC-v2.md` |
 
 ---
 

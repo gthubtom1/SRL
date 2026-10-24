@@ -1,7 +1,7 @@
 # ROADMAP
 
 > 只写两件事：**现在能做什么**、**下一步做什么**。规划过程已移出仓库（`work/plans/`，gitignore）。
-> 深度契约见 `docs/DOMAIN-SPEC-v2.md`；门禁 `python Tool/scripts/preflight.py`。
+> 深度契约见 `docs/history/X-DOMAIN-SPEC-v2.md`；门禁 `python Tool/scripts/preflight.py`。
 
 ## 现在能做什么
 

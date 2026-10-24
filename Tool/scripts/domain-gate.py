@@ -3,7 +3,7 @@
 """domain-gate.py —— 领域深度门禁（九件套 2.0 的可执行版）。
 
 它回答一个问题：**这个域现在能不能独立打一场？**
-判据全部来自 `docs/DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py`：
+判据全部来自 `docs/history/X-DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py`：
 
     [1] 篇幅   SKILL ≤600 / ref 60–400 / KB 50–200
     [2] 必备篇 01-criteria / 02-failure-criteria / 03-model-pitfalls / 04-walkthrough-*
@@ -1074,7 +1074,7 @@ def check_spec():
     p = os.path.join(ROOT, "docs", "DOMAIN-SPEC-v2.md")
     bad = []
     if not os.path.isfile(p):
-        bad.append("缺 docs/DOMAIN-SPEC-v2.md")
+        bad.append("缺 docs/history/X-DOMAIN-SPEC-v2.md")
     else:
         t = "\n".join(lines(p))
         for k in ("600", "400", "6–10", "20–30"):

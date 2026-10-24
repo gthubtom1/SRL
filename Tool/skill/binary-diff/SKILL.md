@@ -1,6 +1,6 @@
 ---
 name: binary-diff
-description: 【二进制差分 / 补丁分析】跨版本符号迁移、函数匹配、补丁差分与 N-day 漏洞定位。覆盖 BinDiff/Diaphora/ghidriff/radiff2、PDB/符号恢复、AOB 签名迁移、patch Tuesday 与 1-day 复现。以“匹配关系可验证、补丁前后差异能落到函数/字段、PoC 能区分修复前后”为判据；目标攻击在 `scope` 清单内执行。
+description: 【二进制差分/补丁分析】跨版本符号迁移、函数匹配（BinDiff/Diaphora/ghidriff）、AOB 签名迁移、补丁差分与 N-day/1-day 复现，差异要落到函数/字段。
 license: MIT
 compatibility: Linux/WSL2/Windows；IDA Pro + BinDiff/Diaphora、Ghidra、radare2/radiff2、ghidriff、Python 3.10+。商业工具需授权。
 metadata:

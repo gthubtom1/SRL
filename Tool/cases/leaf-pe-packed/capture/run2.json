@@ -1,0 +1,110 @@
+{
+ "cmd": "printf 'wrong' | Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe",
+ "exit": 0,
+ "stdout_head": "PASS",
+ "expect": "补丁件 + 错误输入 wrong 必须 PASS（证明判定已旁路）；对照组 unpacked + wrong 必须 FAIL",
+ "target": "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe",
+ "captured_at": "2026-10-24",
+ "tool": "python 3 subprocess (shell=False, stdin 直喂, capture_output)",
+ "patch": {
+  "base": "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe",
+  "file_offset": "0x1e82",
+  "rva": "0x2882",
+  "va": "0x140002882",
+  "before": "74 13 (je 0x140002897)",
+  "after": "eb 1d (jmp 0x1400028a1 = lea rcx, str.PASS)",
+  "bytes_changed": 2,
+  "size_before": 53782,
+  "size_after": 53782,
+  "sha256_before": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+  "sha256_after": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+ },
+ "runs": [
+  {
+   "input": "trance",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\cases\\leaf-pe-packed\\artifacts\\a_upx.patched.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a",
+   "stderr_raw": ""
+  },
+  {
+   "input": "wrong",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\cases\\leaf-pe-packed\\artifacts\\a_upx.patched.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a",
+   "stderr_raw": ""
+  },
+  {
+   "input": "x",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\cases\\leaf-pe-packed\\artifacts\\a_upx.patched.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a",
+   "stderr_raw": ""
+  },
+  {
+   "input": "tranceXYZ",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\cases\\leaf-pe-packed\\artifacts\\a_upx.patched.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a",
+   "stderr_raw": ""
+  },
+  {
+   "input": "TRANCE",
+   "argv": [
+    "D:\\Seep-Reverse-Lab\\Tool\\cases\\leaf-pe-packed\\artifacts\\a_upx.patched.exe"
+   ],
+   "exit": 0,
+   "stdout_raw": "PASS\r\n",
+   "stdout_hex": "504153530d0a",
+   "stderr_raw": ""
+  }
+ ],
+ "negative_control": {
+  "cmd": "printf 'wrong' | Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe",
+  "exit": 0,
+  "stdout_head": "FAIL",
+  "expect": "stdout 出现 FAIL 即证明未打补丁的脱壳件确实做了校验（负例，防止「本来就通过」）",
+  "verified": true
+ },
+ "verdict_of_runs": {
+  "unpacked_trance": "PASS",
+  "unpacked_wrong": "FAIL",
+  "patched_trance": "PASS",
+  "patched_wrong": "PASS"
+ },
+ "all_runs_matrix": {
+  "packed": {
+   "trance": "PASS",
+   "wrong": "FAIL",
+   "x": "FAIL",
+   "tranceXYZ": "FAIL",
+   "TRANCE": "FAIL"
+  },
+  "unpacked": {
+   "trance": "PASS",
+   "wrong": "FAIL",
+   "x": "FAIL",
+   "tranceXYZ": "FAIL",
+   "TRANCE": "FAIL"
+  },
+  "patched": {
+   "trance": "PASS",
+   "wrong": "PASS",
+   "x": "PASS",
+   "tranceXYZ": "PASS",
+   "TRANCE": "PASS"
+  }
+ }
+}

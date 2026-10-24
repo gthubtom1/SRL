@@ -62,7 +62,7 @@ git commit -m "sync(upstream): <文件>（五问通过）"
 ## 5. 触发条件与负责人
 
 - **触发**：每季度一次；或上游发布新版本 / 新增工具 / 修了安全问题时立即。
-- **负责人**：主分支维护者（唯一可改 `routing.json` / `domain-gate.py` / `docs/DOMAIN-SPEC-v2.md` 的角色）。
+- **负责人**：主分支维护者（唯一可改 `routing.json` / `domain-gate.py` / `docs/history/X-DOMAIN-SPEC-v2.md` 的角色）。
 - **验收**：`preflight.py` 全绿 + `domain-gate --all` 全绿 + 双平台 verify 65/0；差异写进 `docs/AUDIT.md`。
 
 ---
@@ -80,7 +80,7 @@ git commit -m "sync(upstream): <文件>（五问通过）"
 | `license: MIT` 自声明 | ~136 | frontmatter 有 `license: MIT`（`revision_date` 是自造未来日期，落地时改实际摄入日） | 可改写吸收，保留 MIT 声明 |
 | `offensive-*`（来源 SnailSploit/offensive-checklist） | 79 | 文末 `Source: https://github.com/SnailSploit/offensive-checklist/...`，**无 license 行** | 按 UNKNOWN 处理：只读后**重写判据**，不原文复制、不进 MIT 树 |
 | 课程转录（windows-boundaries / -mitigations / crash-analysis / basic-exploitation / fuzzing-course / vuln-classes） | 6（56,306 行） | 正文署名 `@Pwn3rzs Telegram channel`，属付费课程转帖 | **不收**（版权 + 与 pwn-crypto / kb/pe-reverse 重叠 + 单文件超篇幅 2–15 倍） |
-| 7 个脚本 | 7 | 全无 `--help` / `--self-test` / 结构化失败 | 只作参考实现，吸收必须按 `docs/DOMAIN-SPEC-v2.md` §3 重写入口 |
+| 7 个脚本 | 7 | 全无 `--help` / `--self-test` / 结构化失败 | 只作参考实现，吸收必须按 `docs/history/X-DOMAIN-SPEC-v2.md` §3 重写入口 |
 
 ### 6.2 已吸收（重写为本仓契约，非复制）
 

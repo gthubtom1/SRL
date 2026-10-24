@@ -10,7 +10,7 @@
 
 | 脚本 / 工具 | 路径 | 核心用途 |
 | :--- | :--- | :--- |
-| **工具链自检** | `Tool/scripts/refresh-tool-index.ps1` | 秒级扫描系统已安装工具（IDA、Radare2、ADB、Python、Node 等）并生成状态表 |
+| **工具链自检** | 「refresh-tool-index.ps1」(S1 已删) | 秒级扫描系统已安装工具（IDA、Radare2、ADB、Python、Node 等）并生成状态表 |
 | **任务建档门禁** | `Tool/scripts/case-init.ps1` | 新任务一键在 `work/<case_name>` 独立建档，自动生成 `scope.md` 与证据链 |
 | **APK 反编译流水线** | `Tool/scripts/apk/decode.ps1` | 一键运行 `jadx` + `apktool` 解包反编译并生成组件摘要 |
 | **APK 重打包与签名** | `Tool/scripts/apk/rebuild-sign-install.ps1` | 修改 Smali 后全自动执行 `apktool b` -> 4字节对齐 -> 签名 -> ADB 推送安装 |

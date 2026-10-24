@@ -12,7 +12,7 @@
 
 ## [1.26.1] — 2026-10-22
 > 摩擦修复 + 门禁补强 + 四个域硬化（五路并行分支，全部合并回 main）。
-- **MCP 参数契约**：17 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
+- **MCP 参数契约**：18 个吃路径的工具统一支持 `binary_path / target_path / apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path` 八个别名，主参数不再进 `required`；新增门禁 `Tool/scripts/mcp-param-contract.py`（工具数基线取 `gate-counts.json` 的 `mcp_seep_tools=40`）。
 - **假话术修复**：`seep_auto_triage` 的 `recommended_action` 不再无条件声称「检测到高价值鉴权关键词」，改为按实测命中生成 `next_actions` 数组（命中 / 未命中 / CIL / rabin2 解析失败 各走一路）。
 - **路由修复（根因）**：`.NET` 的 `` 把 CJK 当 word 字符，导致「APK去广告」「Unity IL2CPP透视」等英文词紧跟中文的口吻全部掉兜底；`master-route.ps1` 改为匹配前在 ASCII↔CJK 交界补空格。补 R1（小程序）/R6（前端 JS·签名算法）/R23（本机提权）/R34（验证码·滑块）/R22（无线近场）关键词；新增 **R36 OSINT**（配方 `osint-recon`）。
 - **新门禁**：`skill-route-probe.py` + `config/skill-route-probes.json`（39 条大白话 → 期望技能/路由）；`check-budget.py` 的 first-party 口径改为 `git ls-files`（消除 820↔834 漂移，基线 815/900）。
@@ -77,7 +77,7 @@
 
 > 主题：**九件套 2.0 —— 每个域都能独立打一场**。R1–R4 四轮独立子代理审计，P0/P1 全部回修。
 
-### 深度契约（docs/DOMAIN-SPEC-v2.md）
+### 深度契约（docs/history/X-DOMAIN-SPEC-v2.md）
 - SKILL.md ≤600 行；单篇 reference ≤400 行；每域 references 6–10 篇，必备 `01-criteria` / `02-failure-criteria` / `03-model-pitfalls` / `04-walkthrough-*`。
 - 每域脚本 2–4 个：`--help` 与 `--self-test` 必须 rc=0，失败输出 `{"ok": false, "blocked_at", "reason"}` + rc=2。
 - 每域案例 3–5 个（reverse 16），≥1 个 `evidence_kind=real` 且 `repro.status=recorded`；新增 `repro` 字段与 `evidence_kind` 校验。
@@ -334,7 +334,7 @@
 | 级别 | 问题 | 修复（逐条自验） |
 |---|---|---|
 | P2 | `check_taskcards_gate()` 只查一个字面标记：若重生成保留 `gate` 却丢 `init/claim/prove/…` 仍放行 | 断言扩到 **7 条子命令 + 「必须返回 0」**，并新增 `VERSION_SEEN == VERSION` 校验 |
-| P2 | 源提示词 CRLF、任务卡 LF，手工重生成会产生整文件假 diff（诱发"顺手重排"式回退） | 新增 `Tool/scripts/gen-task-cards.py`：**脚本化生成 + 写死 LF**，并在源头缺闸块时**拒绝生成**；`--check` 校验同源（实跑 rc=0） |
+| P2 | 源提示词 CRLF、任务卡 LF，手工重生成会产生整文件假 diff（诱发"顺手重排"式回退） | 新增 「gen-task-cards.py」(S1 已删)：**脚本化生成 + 写死 LF**，并在源头缺闸块时**拒绝生成**；`--check` 校验同源（实跑 rc=0） |
 | P2 | `PROMPT-LAYERS` 用「已确认授权的沙盒范围」，字面可与"默认已授权"读岔 | 改为「受权范围内（默认成立，见 `AGENTS.md` §六）」 |
 | 留痕 | 终审 #4 未记录 | `AUDIT-2026-10-21.md` §四 追加「终审 #4」：会话 `01a15d6a-721b-7691-b3f6-14de4fd8cf61`、HEAD `305d3a4`、结论原文（**无 P0/P1 遗留；同意收口**） |
 

@@ -43,7 +43,7 @@
 >
 > - **What**: an AI workbench for client-side license white-box auditing + binary/Web/mobile/firmware reverse engineering (31 skills / 11 domains / 24 playbooks / 40 MCP tools)
 > - **Origin**: a fork of `angusdevgo/Seep-Reverse-Lab`; this repo is `gthubtom1/Seep-Reverse-Lab`
-> - **Version**: `v1.26.1` (`VERSION`) | **Gates**: preflight 45/45, domain-gate 110/110, verify 65/0, smoke-e2e 12/12
+> - **Version**: `v1.26.1` (`VERSION`) | **Gates**: preflight 55/55, domain-gate 110/110, verify 65/0, smoke-e2e 12/12
 > - **Read first**: [`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md) → [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)
 > - **External audit (read-only)**: [`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md) — report only, never modify the repo
 > - **Historical docs**: [`docs/history/`](docs/history/) (`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`) — not current state
@@ -66,7 +66,7 @@
 
 | Capability | What it adds |
 |---|---|
-| **43-check preflight** | `python Tool/scripts/preflight.py`: **45/45** full, **42/42** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
+| **43-check preflight** | `python Tool/scripts/preflight.py`: **55/55** full, **52/52** with `--fast`; doc numbers vs actual, MCP parameter contract, and skill-route probe are all machine-checked |
 | **MCP parameter contract** | `mcp-param-contract.py`: 8 path aliases interoperate (`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`) + a 40-tool baseline, so the first call cannot be rejected for guessing a parameter name |
 | **Skill-route probe** | `skill-route-probe.py`: 33 plain-language prompts → expected skill (`master-route.ps1` view); catches CJK word-boundary regressions |
 | **32 routes (+R36)** | New **R36 OSINT / asset & personnel mapping** (recipe `osint-recon`); routes 31 → 32, skills remain 30 |

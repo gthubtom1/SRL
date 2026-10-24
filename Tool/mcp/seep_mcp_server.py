@@ -83,58 +83,117 @@ _PATH_ALIAS_NAMES = (
     "binary_path", "target_path", "apk_path", "file_path",
     "sample_path", "artifact_path", "pcap_path", "dir_path",
 )
+_PID_ALIAS_NAMES = (
+    "pid_or_name", "process_name", "process", "image_name",
+    "binary_path", "target_path", "file_path", "sample_path", "artifact_path",
+)
 
 
-def _path_alias(fn):
-    """给工具函数加「路径参数别名」能力（schema 可见 + 运行期归一）。"""
+def _has_value(v) -> bool:
+    """参数是否「真的传了值」：空串 / 纯空白 / None 都算没传。"""
+    return v is not None and (bool(v.strip()) if isinstance(v, str) else True)
+
+
+def _alias_layer(fn, primary, names, coerce, hint):
+    """通用参数别名层：schema 里暴露全部别名，运行期归一到主参数。
+
+    **踩过的坑（P1-8，P0 真 bug）**：FastMCP 的 arg_model 会把 schema 里全部字段
+    按默认值一起 dump 下来，所以别名总会以 `""` / `None` 的形态出现在 kwargs 里。
+    旧实现只 pop「非空」别名 —— 空串别名原样漏进被包函数，被 Python 判成
+    TypeError: unexpected keyword argument 'target_path'，**连正确传主参数名都必挂**。
+    所以这里**无条件弹出全部别名**，只把第一个非空值归一成主参数。
+    """
     import functools as _ft
     import inspect as _inspect
 
     sig = _inspect.signature(fn)
-    primary = None
-    for name in sig.parameters:
-        if name.endswith("_path") or name == "directory" or name.startswith("file_"):
-            primary = name
-            break
-    if primary is None:
-        return fn
-
-    extras = [a for a in _PATH_ALIAS_NAMES if a not in sig.parameters]
-    # 全局转 keyword-only：主参数改成可选后，后面的必填位置参数（如 smali_search 的 pattern）
-    # 会触发 "non-default argument follows default argument"；而 keyword-only 组允许
-    # 「有默认值在前、无默认值在后」，且 MCP 客户端本来就按名字传参。
-    params = []
-    for name, p in sig.parameters.items():
-        default = p.default
-        if name == primary and default is _inspect.Parameter.empty:
-            default = ""
-        params.append(_inspect.Parameter(
-            name, _inspect.Parameter.KEYWORD_ONLY,
-            default=default, annotation=p.annotation,
-        ))
-    for a in extras:
-        params.append(_inspect.Parameter(a, _inspect.Parameter.KEYWORD_ONLY, default="", annotation=str))
+    extras = [a for a in names if a not in sig.parameters]
+    # 全局转 keyword-only：主参数改成可选后，后面的必填位置参数（如 smali_search 的
+    # pattern）会触发 "non-default argument follows default argument"；keyword-only
+    # 允许「有默认值在前、无默认值在后」，且 MCP 客户端本来就按名字传参。
+    params = [_inspect.Parameter(
+        n, _inspect.Parameter.KEYWORD_ONLY,
+        default=(None if n == primary and p.default is _inspect.Parameter.empty else p.default),
+        annotation=p.annotation) for n, p in sig.parameters.items()]
+    params += [_inspect.Parameter(a, _inspect.Parameter.KEYWORD_ONLY, default="", annotation=str)
+               for a in extras]
     new_sig = sig.replace(parameters=params)
 
     @_ft.wraps(fn)
     def wrapper(*args, **kwargs):
-        supplied = [(a, kwargs.pop(a)) for a in extras if kwargs.get(a)]
-        if supplied and not args and not kwargs.get(primary):
-            kwargs[primary] = supplied[0][1]
-        if not args and not kwargs.get(primary):
-            return (
-                f"[ERROR] {fn.__name__} 缺少路径参数："
-                f"{' / '.join([primary] + extras)} 任一即可（别名互通）"
-            )
+        if args:  # 位置传参的老用法，原样透传
+            return fn(*args, **kwargs)
+        picked = ""
+        for alias in extras:
+            val = kwargs.pop(alias, "")
+            if not picked and _has_value(val):
+                picked = val
+        if isinstance(kwargs.get(primary), str):
+            kwargs[primary] = kwargs[primary].strip()
+        if not _has_value(kwargs.get(primary)):
+            if not _has_value(picked):
+                return (f"[ERROR] {fn.__name__} 缺少{hint}参数："
+                        f"{' / '.join([primary] + extras)} 任一即可（别名互通）")
+            try:
+                kwargs[primary] = coerce(picked)
+            except ValueError as exc:  # coerce 失败：回错误正文，不抛异常
+                return f"[ERROR] {fn.__name__} {exc}"
         return fn(*args, **kwargs)
 
     wrapper.__signature__ = new_sig
     wrapper.__annotations__ = {**getattr(fn, "__annotations__", {}), **{a: str for a in extras}}
     wrapper.__doc__ = (
         (fn.__doc__ or "")
-        + f"\n\n路径参数：{' / '.join([primary] + extras)} 等价，任选其一。"
+        + f"\n\n{hint}参数：{' / '.join([primary] + extras)} 等价，任选其一。"
     )
+    # 供门禁自检：运行时真的挂了别名层（而不是只把别名写进 schema）
+    wrapper.__seep_alias_primary__ = primary
+    wrapper.__seep_alias_names__ = (primary,) + tuple(extras)
     return wrapper
+
+
+def _path_alias(fn):
+    """给「吃一个文件/目录路径」的工具加路径别名能力。"""
+    import inspect as _inspect
+
+    primary = next((n for n in _inspect.signature(fn).parameters
+                    if n.endswith("_path") or n == "directory" or n.startswith("file_")), None)
+    if primary is None:
+        return fn
+    return _alias_layer(fn, primary, _PATH_ALIAS_NAMES, lambda v: v, "路径")
+
+
+def _resolve_pid(value):
+    """pid / 进程名 / 镜像路径 → pid:int；失败抛 ValueError（错误正文）。只读扫进程表。"""
+    if isinstance(value, bool):
+        raise ValueError(f"非法目标 {value!r}")
+    s = str(value).strip().strip('"').strip("'")
+    if s.lstrip("-").isdigit():
+        if int(s) <= 0:
+            raise ValueError(f"非法 pid={s}")
+        return int(s)
+    name = re.split(r"[\\/]", s)[-1] or s
+    if sys.platform == "win32":
+        rows = re.findall(r'^"([^"]+)","(\d+)"',
+                          _run_cmd(["tasklist", "/fo", "csv", "/nh"], timeout=25), re.M)
+        procs = [(int(pid), img) for img, pid in rows]
+    else:
+        rows = re.findall(r"^\s*(\d+)\s+(\S+)",
+                          _run_cmd(["ps", "-eo", "pid=,comm="], timeout=25), re.M)
+        procs = [(int(pid), img) for pid, img in rows]
+    hits = ([(p, i) for p, i in procs if i.lower() == name.lower()]
+            or [(p, i) for p, i in procs if name.lower() in i.lower()])
+    if not hits:
+        raise ValueError(f"无法定位目标进程：没有正在运行的进程匹配 {name!r}")
+    if len(hits) > 1:
+        raise ValueError("无法定位目标进程：%r 命中 %d 个进程，请用 pid 指定：%s" % (
+            name, len(hits), ", ".join(f"{i}(pid={p})" for p, i in hits[:8])))
+    return hits[0][0]
+
+
+def _pid_alias(fn, primary: str = "pid"):
+    """给「以进程为目标」的工具加别名能力（进程 ID / 进程名 / 镜像路径都可）。"""
+    return _alias_layer(fn, primary, _PID_ALIAS_NAMES, _resolve_pid, "目标进程")
 
 # ---------------------------------------------------------------------------
 # MCP Server 实例
@@ -2074,7 +2133,8 @@ def seep_pe_resources(binary_path: str, min_size: int = 4096, extract_dir: str =
 
 
 @server.tool()
-def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: int = 50, encoding: str = "both") -> str:
+@_pid_alias
+def seep_mem_strings(pid: Optional[int] = None, pattern: str = "", min_len: int = 5, max_hits: int = 50, encoding: str = "both") -> str:
     """扫描指定进程的内存，提取可读字符串（治"字符串运行期才解密/只有内存里才有"的样本）。
 
     很多加壳/反调试样本，磁盘上看不到 URL/卡密提示/密钥，因为它们运行期才解密到内存。
@@ -2082,7 +2142,9 @@ def seep_mem_strings(pid: int, pattern: str = "", min_len: int = 5, max_hits: in
     连同所在虚拟地址一起给你，方便回填到反汇编里定位引用。
 
     Args:
-        pid: 目标进程 ID
+        pid: 目标进程 ID（也接受进程名如 'a.exe'，或可执行文件路径；
+             别名 pid_or_name / process_name / process / image_name /
+             binary_path / target_path / file_path / sample_path / artifact_path 均可）
         pattern: 可选，只返回包含该子串的字符串（不区分大小写）
         min_len: 最短字符串长度（默认 5）
         max_hits: 最多返回多少条（默认 50）
