@@ -27,7 +27,7 @@
 |---|---|---|---|
 | 1 | `Tool/skill/<name>/SKILL.md` | 技能本体（frontmatter + SOP） | `python Tool/scripts/new-skill.py <name> --desc "..."` 自动建 |
 | 2 | `Tool/skill/softseep/SKILL.md` 的"可调度资源"表 | 让总控**知道**这个技能存在 | 脚手架自动追加 |
-| 3 | `Tool/scripts/routing.json` 的 `routes` + `priority` | 让 `master-route.ps1` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
+| 3 | `Tool/skill/<pack>/pack.json` 的 `routes` + `priority` | 让 `master-route.ps1` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
 | 4 | `~/.pi/agent/skills/<name>/` | 让 pi 会话**加载**它 | 脚手架自动同步 |
 
 **提示词层禁写**：技能内容**不要**往 `Tool/prompts/SEEP.md` 里塞 —— 它是装配契约，硬上限 **2,500 字符**，
@@ -35,7 +35,7 @@
 
 **加完四件事必跑**（缺一不可）：
 ```bash
-python Tool/scripts/verify-routing-coherence.py   # 路由 ↔ 技能落位自洽
+python Tool/scripts/route.py   # 路由 ↔ 技能落位自洽
 python Tool/scripts/check-budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
 powershell -File setup/verify.ps1 -Detailed       # 65 项全绿
 python Tool/scripts/smoke-e2e.py                  # 端到端 12 环

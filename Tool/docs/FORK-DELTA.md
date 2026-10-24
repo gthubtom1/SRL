@@ -84,8 +84,8 @@
 | Linux `mcp.json` 用 sed 生成 → 反斜杠路径 + 未替换占位符 + 覆写用户条目 | 新增跨平台增量合并器（只增不删/写前备份/备份轮转） | `setup/merge_agent_config.py` + `install.sh` |
 | 安装脚本 unzip 返回 1 时中断 | 显式兜住 | `setup/install.sh` |
 | 卸载无差别删 `extensions/*.ts` | 改为随包白名单 | `setup/uninstall.*` |
-| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/scripts/routing.json` + `verify-routing-coherence.py` |
-| `master-route.ps1` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/master-route.ps1` |
+| 路由表 44 条全部指向不存在的技能 | 重写为本包真实 15 条 + 自洽断言 | `Tool/skill/<pack>/pack.json` + `verify-routing-coherence.py` |
+| `master-route.ps1` 配置路径错 → exit 2 | 修路径 + 三种技能落位解析 | `Tool/scripts/route.py` |
 | 体检只查"文件在不在" | 换功能性断言（路径可解析 / 含关键规约 / 实跑测试） | `setup/verify.*` |
 | 工具根写死 `D:\Tools` | **动态跨盘 + 用户级安装目标** | `tool_autodiscover.candidate_roots()` |
 | 无预算/无熔断/模型爱 `-h` 硬试 | 提示词硬约束 + 动态操作预算 | `Tool/prompts/{SYSTEM,AGENTS}.md` |
@@ -171,7 +171,7 @@ git diff upstream/main..HEAD -- <某个 M 文件>
 1. `Tool/mcp/seep_mcp_server.py` —— 我们对它是**末尾纯追加**；上游若改中间函数，`git` 会冲突，**保留上游改动 + 我们的追加块**。
 2. `Tool/prompts/extensions/*.ts` —— 上游改过 `load-system-prompt.ts`，我们是重写版；**以我们的为准**，只吸收上游新发现的边界条件。
 3. `setup/install.sh` / `install-pi.ps1` —— 上游的 sed 生成已废弃；**不要回滚成上游写法**。
-4. `Tool/scripts/routing.json` —— 上游是 44 条空头路由；**不要并回**。
+4. `Tool/skill/<pack>/pack.json` —— 上游是 44 条空头路由；**不要并回**。
 5. `Tool/skill/softseep/SKILL.md` —— 上游会改调度表；合并时保留我们的行（`unpack-loop` / `version-migration` / 修正后的路径）。
 
 ---
@@ -181,7 +181,7 @@ git diff upstream/main..HEAD -- <某个 M 文件>
 ```bash
 python Tool/mcp/test_seep_mcp.py                        # 9/9
 python Tool/mcp/test_ext_assets.py                      # 73 passed
-python Tool/scripts/verify-routing-coherence.py         # 路由自洽
+python Tool/scripts/route.py         # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q # 84/84
 powershell -File setup/verify.ps1 -Detailed             # 65 项（./setup/verify.sh 同为 65 项）
 python Tool/scripts/check-budget.py                     # 反臃肿预算
@@ -221,7 +221,7 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
 | 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/_pending/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
-| 脚本 | `Tool/scripts/check-budget.py`<br>`Tool/scripts/fork-delta.py`<br>`Tool/scripts/new-skill.py`<br>`Tool/scripts/smoke-e2e.py`<br>`Tool/scripts/verify-routing-coherence.py` |
+| 脚本 | `Tool/scripts/check-budget.py`<br>`Tool/scripts/fork-delta.py`<br>`Tool/scripts/new-skill.py`<br>`Tool/scripts/smoke-e2e.py`<br>`Tool/scripts/route.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |
 | 根目录 | `README.en.md` |
@@ -234,7 +234,7 @@ python Tool/scripts/fork-delta.py        # 覆写 §六
 | MCP 服务 | `Tool/mcp/seep_mcp_server.py` |
 | 技能 | `Tool/skill/apkseep/SKILL.md`<br>`Tool/skill/apkseep/scripts/devsh.py`<br>`Tool/skill/apkseep/scripts/doctor.py`<br>`Tool/skill/apkseep/scripts/tls_check.py`<br>`Tool/skill/apkseep/scripts/vmp_diff_harness.py`<br>`Tool/skill/_pending/ida-reverse/SKILL.md`<br>`Tool/skill/softseep/SKILL.md`<br>`Tool/skill/softseep/references/license-validation.md`<br>… 另 1 个 |
 | 提示词/扩展 | `Tool/prompts/AGENTS.md`<br>`Tool/prompts/SEEP.md`<br>`Tool/prompts/extensions/load-system-prompt.ts`<br>`Tool/prompts/extensions/security-audit-interceptor.ts` |
-| 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/master-route.ps1`<br>`Tool/scripts/routing.json` |
+| 脚本 | `Tool/scripts/case-init.ps1`<br>`Tool/scripts/compliance-relay/README.md`<br>`Tool/scripts/route.py`<br>`Tool/skill/<pack>/pack.json` |
 | 文档 | `MANUAL/CROSS-PLATFORM.md`<br>`MANUAL/DEPLOYMENT-CHECKLIST.md`<br>`MANUAL/DEPLOYMENT.md`<br>`Tool/docs/DOWNLOADS.md`<br>`Tool/docs/MCP-SETUP.md`<br>`Tool/docs/PROVENANCE.md`<br>`Tool/docs/TOOLKIT_GUIDE.md` |
 | 安装与校验 | `setup/clean-format.py`<br>`setup/generate-configs.ps1`<br>`setup/install-ida.ps1`<br>`setup/install-pi.ps1`<br>`setup/install-python.ps1`<br>`setup/install.sh`<br>`setup/uninstall.ps1`<br>`setup/uninstall.sh`<br>… 另 4 个 |
 | 根目录 | `.gitignore`<br>`.mcp.json`<br>`docs/CHANGELOG.md`<br>`Tool/prompts/contracts/CLAUDE.md`<br>`Tool/prompts/contracts/DSH-PROFILE.md`<br>`README.md`<br>`README.zh.md`<br>`VERSION`<br>… 另 4 个 |

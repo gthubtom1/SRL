@@ -7,8 +7,14 @@
       "label": "插件/扩展/Mod 逆向",
       "must": [
         "(?i)\\b(crx|xpi|vsix|asar|bytenode|jsc)\\b|v8\\s*字节码",
+        "(?i)(?=.*?(?:(浏览器|chrome|chromium|edge|firefox)\\s*(扩展|插件|extension|addon)))(?=.*?(?:(扩展|插件|extension|addon|crx|xpi|manifest\\.json)))",
+        "(?i)(?=.*?(?:\\b(vscode|vs code|jetbrains|intellij|cursor|ide)\\b))(?=.*?(?:(插件|扩展|extension|plugin\\.xml|vsix|activationevents|扩展点)))",
+        "(?i)(?=.*?(?:\\b(electron|asar|preload|ipcmain|ipcrenderer|contextbridge)\\b))(?=.*?(?:(插件|扩展|app\\.asar|主进程|preload|asar|ipc)))",
         "(?i)\\b(bepinex|melonloader|harmonyos)\\b",
-        "(?i)\\b(nativemessaging|connectnative|sendnativemessage)\\b|NativeMessagingHosts"
+        "(?i)(?=.*?(?:(unity|游戏|game)\\b))(?=.*?(?:(\\bmod\\b|插件|加载器|bepinex|melonloader)))",
+        "(?i)\\b(nativemessaging|connectnative|sendnativemessage)\\b|NativeMessagingHosts",
+        "(?i)(?=.*?(?:(输入法|\\bime\\b|obs-studio|streamdeck|注入法|原生插件)))(?=.*?(?:(插件|扩展|加载|driver|内核|采集)))",
+        "(?i)(?=.*?(?:(插件|扩展)))(?=.*?(?:(逆向|分析|权限|manifest|入口|service worker|content script|扩展点)))"
       ],
       "priority": 330
     },

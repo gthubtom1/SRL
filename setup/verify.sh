@@ -126,10 +126,10 @@ check_item "架构" "上游定点防外溢规则与同步引擎 (upstream-rules.
 # 任务路由自洽性：routing.json 里的每个 route.skill 必须真实存在，
 # 且 priority / fallbackId 与 routes 一一对应。
 test_routing_coherence() {
-    local chk="$TOOL_DIR/scripts/verify-routing-coherence.py"
+    local chk="$TOOL_DIR/scripts/route.py"
     [ -f "$chk" ] || return 1
     [ -n "$PY_BIN" ] || return 0
-    ( cd "$ROOT" && "$PY_BIN" "$chk" >/dev/null 2>&1 ) || return 1
+    ( cd "$ROOT" && "$PY_BIN" "$chk" --check >/dev/null 2>&1 ) || return 1
     for gate in playbook-check.py capability-gate.py route-playbook-parity.py; do
         [ -f "$TOOL_DIR/scripts/$gate" ] || return 1
         ( cd "$ROOT" && "$PY_BIN" "$TOOL_DIR/scripts/$gate" >/dev/null 2>&1 ) || return 1
@@ -159,7 +159,7 @@ check_seep_contract() {
     len=$("$PY_BIN" -c "import sys;print(len(open(sys.argv[1],encoding='utf-8').read()))" "$p" 2>/dev/null || wc -m < "$p")
     [ "${len:-99999}" -le 2500 ] || return 1
     grep -q "AGENTS.md" "$p" || return 1
-    grep -q "routing.json" "$p" || return 1
+    grep -q "route.py" "$p" || return 1
     grep -q "seep_status" "$p" || return 1
     if grep -qE "[0-9]+[[:space:]]*个工具" "$p"; then return 1; fi
     return 0

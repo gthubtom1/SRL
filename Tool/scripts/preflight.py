@@ -269,7 +269,7 @@ def check_functional(fast):
     py = sys.executable
     items = [
         ("budget", [py, os.path.join(TOOL, "scripts", "check-budget.py")]),
-        ("routing-coherence", [py, os.path.join(TOOL, "scripts", "verify-routing-coherence.py")]),
+        ("routing-coherence", [py, os.path.join(TOOL, "scripts", "route.py"), "--check"]),
         ("relay-rules-sync", [py, os.path.join(TOOL, "scripts", "compliance-relay", "extract-rules.py"), "--check"]),
         ("kb-acceptance", [py, os.path.join(TOOL, "scripts", "kb_acceptance.py")]),
     ]
@@ -321,13 +321,16 @@ def check_assets():
         add("5 资产", "tool-runtimes.json 可解析", False, str(e)[:80])
 
     try:
-        routing = load("Tool/scripts/routing.json")
-        routes = routing.get("routes", {})
-        pri = routing.get("priority", [])
-        bad = [k for k in routes if k not in pri] + [k for k in pri if k not in routes]
-        add("5 资产", "routing routes ↔ priority", not bad, f"routes={len(routes)} priority={len(pri)}")
+        r = subprocess.run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
+                            "--check", "--json"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=120)
+        j = json.loads((r.stdout or "{}").strip() or "{}")
+        bad = j.get("problems") or []
+        add("5 资产", "路由自洽（pack.json 唯一事实源，0 死路由）", not bad,
+            f"packs={j.get('packs')} routes={j.get('routes')} dead={j.get('dead')}"
+            if not bad else "；".join(bad)[:160])
     except Exception as e:
-        add("5 资产", "routing.json 可解析", False, str(e)[:80])
+        add("5 资产", "路由自洽（pack.json）", False, str(e)[:80])
 
 
 # ---------------------------------------------------------------- [6] 可移植

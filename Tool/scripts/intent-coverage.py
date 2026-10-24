@@ -214,43 +214,26 @@ class Catalog:
             self._load_routing_fallback()
 
     def _load_routing_fallback(self):
-        routing = self.root / "Tool" / "scripts" / "routing.json"
-        if not routing.is_file():
-            routing = self.root / "Tool" / "config" / "routing.json"
-        if not routing.is_file():
+        """没有 playbook 时用 pack.json 的路由做只读兜底（S3：routing.json 已删）。"""
+        skill_root = self.root / "Tool" / "skill"
+        if not skill_root.is_dir():
             return
-        data = _load_json(routing)
-        routes = data.get("routes", {}) or {}
-        priority = data.get("priority", []) or []
-        fallback = (data.get("meta") or {}).get("fallbackId")
-        for rid, route in routes.items():
-            if rid == fallback:
+        for pj in sorted(skill_root.glob("*/pack.json")):
+            try:
+                pack = _load_json(pj)
+            except Exception:
                 continue
-            skill = route.get("skill") or ""
-            pid = Path(skill).parent.name or Path(skill).stem
-            if not pid:
-                continue
-            skill_path = self.root / "Tool" / "skill" / skill
-            if not skill_path.is_file():
-                skill_path = self.root / "Tool" / "skill" / "safe-skills" / skill
-            if not skill_path.is_file():
-                continue
+            pid = str(pack.get("id") or pj.parent.name)
             entry = self.playbooks.setdefault(pid, {
-                "id": pid,
-                "title": route.get("label", pid),
-                "triggers": [],
-                "capability_ids": [],
-                "source": "routing:" + rid,
-                "priority": priority.index(rid) if rid in priority else 999,
+                "id": pid, "title": str(pack.get("l1") or pid)[:80],
+                "triggers": [], "capability_ids": [],
+                "source": "pack:" + pid, "priority": 999,
             })
-            for kw in route.get("keywords", []) or []:
-                for key in ("must", "mustAll"):
-                    value = kw.get(key)
-                    if isinstance(value, str):
-                        entry["triggers"].append("re:" + value)
-                    elif isinstance(value, list):
-                        entry["triggers"].extend("re:" + str(v) for v in value)
-        self.sources["playbooks_dir"] = "routing.json (fallback)"
+            for r in pack.get("routes") or []:
+                for m in (r.get("must") or []):
+                    entry["triggers"].append("re:" + str(m))
+                entry["priority"] = min(entry["priority"], 1000 - int(r.get("priority") or 0))
+        self.sources["playbooks_dir"] = "pack.json (fallback)"
 
     # ------------------------------------------------------------------
     # capabilities

@@ -45,12 +45,19 @@ def _load_module(path, name):
 
 
 def routing():
+    """路由来自 pack.json（S3：routing.json 已删）。返回 (domain-gate 模块, routes, prio, fallback)。"""
     dg = _load_module(os.path.join(HERE, "domain-gate.py"), "dg_parity")
-    with io.open(os.path.join(HERE, "routing.json"), encoding="utf-8") as fh:
-        data = json.load(fh)
-    prio = data.get("priority") or list(data["routes"])
-    fallback = (data.get("meta") or {}).get("fallback") or prio[-1]
-    return dg, data["routes"], prio, fallback
+    import route as route_mod
+    res = route_mod.check()
+    routes, prio = {}, []
+    for i, (_p, pid, label, must) in enumerate(res.get("rows") or []):
+        rid = "P%02d" % i
+        routes[rid] = {"label": label, "skill": pid,
+                       "keywords": [{"must": m} for m in must]}
+        prio.append(rid)
+    routes["R0"] = {"label": "未命中（兜底）", "skill": "softseep", "keywords": []}
+    prio.append("R0")
+    return dg, routes, prio, "R0"
 
 
 def triggers():

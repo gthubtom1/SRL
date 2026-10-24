@@ -204,7 +204,7 @@ metadata:
 
 > 用户说什么不重要，**softseep 听懂意图后自己归类**。下表是内部推断规则。
 
-> **本表是 `Tool/scripts/routing.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
+> **本表是 `Tool/skill/<pack>/pack.json` 的只读投影**：路由与优先级以该文件为唯一事实源，
 > `verify-routing-coherence.py` 守自洽；发现本表与 routing.json 不一致时，**以 routing.json 为准**。
 
 | 用户可能说的大白话 | 推断类型 | 分发到 |

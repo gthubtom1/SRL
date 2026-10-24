@@ -29,7 +29,7 @@ metadata:
 - 纯 Web/API 漏洞（SQLi/XSS/SSRF 打应用层）→ **R20 / web-pentest**。
 - 二进制逆向、脱壳 → `ida-reverse`、`unpack-loop`；固件/IoT → `firmware-iot`。
 - 模型/包/依赖投毒的全供应链面 → `supply-chain-security`。
-- 路由：R31（llm-security）；`Tool/scripts/routing.json` 为单一事实源。
+- 路由：R31（llm-security）；`Tool/skill/<pack>/pack.json` 为单一事实源。
 
 ### 前置（三件）
 

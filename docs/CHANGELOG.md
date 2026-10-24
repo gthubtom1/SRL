@@ -2148,13 +2148,13 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   `uninstall.ps1` / `uninstall.sh` 同步修正。
 - **`generate-configs.ps1` 与已提交的 `.mcp.json` 不一致**：生成内容缺 `ghidra`，跑一次 `install.ps1` 就产生 diff
   并丢掉条目。现已与仓库版本严格一致，并改为**内容相同则跳过写入**（幂等）。
-- **`Tool/scripts/master-route.ps1` 一跑就 exit 2**：`configPath` 指向 `Tool/config/routing.json`，实际文件在
-  `Tool/scripts/routing.json`。已修路径解析（含旧布局兜底）与技能落位解析（三种布局），输出不再硬编码 `skills/` 前缀。
+- **`Tool/scripts/route.py` 一跑就 exit 2**：`configPath` 指向 `Tool/config/routing.json`，实际文件在
+  `Tool/skill/<pack>/pack.json`。已修路径解析（含旧布局兜底）与技能落位解析（三种布局），输出不再硬编码 `skills/` 前缀。
 - **`routing.json` 44 条路由全部指向不存在的技能**（vendor 自上游 reverse-skill 大仓的残留：mobile-reverse /
   firmware-pentest / pwn-chain 等本包均未内置，连 fallback R0 也解析不到）。已按**本包真实内置的 9 个技能**重写
   为 9 条路由（apkseep / client-license-validation-bypass / version-migration / ida-reverse / radare2 /
   mcp-js-reverse-playbook / reverse-engineering / apk-reverse / softseep 兜底），并新增可执行的
-  `Tool/scripts/verify-routing-coherence.py`（routes ↔ priority ↔ fallback ↔ 技能落位 四重断言，已接入体检）。
+  `Tool/scripts/route.py`（routes ↔ priority ↔ fallback ↔ 技能落位 四重断言，已接入体检）。
 - **`case-init` 生成的 scope/workitems 引用不存在的 `skills/ops/*`**：已改为指向本包真实文件
   （`MANUAL/POC-VALIDATION.md` / `Tool/skill/softseep/SKILL.md` / `Tool/scripts/case-init.ps1`）。
 - **`seep_task_init` / `seep_gen_security_report` 把任务产物建进 `Tool/mcp/`**：已改为 `<仓库根>/work/`

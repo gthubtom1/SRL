@@ -47,7 +47,7 @@ python Tool/scripts/capability-gate.py --json
 python Tool/scripts/playbook-check.py
 python Tool/scripts/kb_acceptance.py
 python Tool/scripts/check-budget.py
-python Tool/scripts/verify-routing-coherence.py
+python Tool/scripts/route.py
 python Tool/scripts/smoke-e2e.py
 python Tool/scripts/mcp-doctor.py --quick
 python Tool/scripts/mcp-doctor.py --session

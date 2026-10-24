@@ -12,7 +12,7 @@
 | :--: | :-- | :-- | :-- |
 | **1** | 边界锚 | 扩展注入（`seep-boundary`） | 凭据红线 / 授权门 / 沙箱契约 |
 | 2 | 宿主纪律 | `AGENTS.md` | 执行分档 / 判型 / 启动 / 网络 / 节律 |
-| 3 | 能力 | `routing.json`、`tool-capabilities.json`、`Tool/skill/*/SKILL.md` | 判型路由 / 工具能力 / 战术 |
+| 3 | 能力 | `Tool/skill/*/pack.json`（路由）、`tool-capabilities.json`、`Tool/skill/*/SKILL.md` | 判型路由 / 工具能力 / 战术 |
 | 4 | 风格人格 | `personas/*.md` | 语气 / 称谓 / 输出格式 |
 
 **唯一铁律**：第 4 层只能决定"**怎么说**"，不能决定"**能不能做**"。与 1/2 冲突时，一律以 1/2 为准。
@@ -25,7 +25,7 @@
 | :-- | :-- |
 | 判型与分发（唯一入口） | `Tool/skill/softseep/SKILL.md` |
 | 执行口径（唯一方案） | `docs/history/X-PLAN-FINAL.md` |
-| 路由单一事实源 | `Tool/scripts/routing.json` |
+| 路由单一事实源 | `Tool/skill/*/pack.json`（现算入口 `Tool/scripts/route.py`） |
 | 工具能力 / 降级 / 安装 | `Tool/config/tool-capabilities.json` + `seep_status` |
 | 战术方法论 | `seep_kb_search` → `seep_kb_read` |
 | 知识库根（固定路径，勿 find/grep 去找） | `Tool/mcp/Tool/reverselab/kb` |
@@ -40,6 +40,6 @@
 | 场景 | 只改 | 本文件 |
 | :-- | :-- | :-- |
 | 换人格卡 | `~/.pi/agent/personas/*.md` | 不动 |
-| 加 / 换技能 | 技能目录 + `softseep/SKILL.md` 注册 + `routing.json` | 不动 |
+| 加 / 换技能 | 技能目录 + `pack.json` 路由 + `softseep/SKILL.md` 注册（`route.py --check` 验 0 死链）| 不动 |
 | 加 / 换 MCP 工具 | `tool-capabilities.json` + `mcp.json` | 不动 |
 | 改授权门 / 红线 | 扩展里的边界锚 + `AGENTS.md` §六 | 不动 |

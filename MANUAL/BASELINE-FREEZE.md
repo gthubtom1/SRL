@@ -50,7 +50,7 @@ python Tool/scripts/new-skill.py <skill-name> --desc "一句话描述" --title "
 ```bash
 python Tool/mcp/test_seep_mcp.py          # 基线 9/9
 python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
-python Tool/scripts/verify-routing-coherence.py   # 路由自洽
+python Tool/scripts/route.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
 python Tool/scripts/smoke-e2e.py                  # 端到端链路 12 项（真实样本）
 powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
@@ -117,7 +117,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 ## 六、 出问题时的第一反应
 
 1. **先跑体检**：`check.ps1` 或 `./setup/verify.sh` —— 65 项里红哪一项，就是坏在哪一层；
-2. **再看路由**：`python Tool/scripts/verify-routing-coherence.py` —— 路由指向不存在的技能会静默失效；
+2. **再看路由**：`python Tool/scripts/route.py` —— 路由指向不存在的技能会静默失效；
 3. **再跑三套测试**：MCP 基线 / 扩展资产 / 中继；
 4. **仍未定位**：`git diff` 最近一次变更，按"四、变更清单模板"逐项对照。
 
@@ -139,7 +139,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
 | 单文件行数 | 3194（MCP 主服务，S2 拆出 `seep_contract.py`） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 873 | **900** | 超了说明在"堆文件"而不是"做能力" |
+| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 863 | **900** | 超了说明在"堆文件"而不是"做能力" |
 
 ### 7.2 三不原则
 

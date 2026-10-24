@@ -31,7 +31,7 @@ metadata:
 | 强制加载 | `/skill:doc-hygiene`（模型没有自动加载时用它） |
 
 > 触发分两层：**pi 层**按 `SKILL.md` 的 description 做语义匹配（启动时注入技能名与描述）；
-> **仓库层**由 `Tool/scripts/routing.json` 的 R37 关键词做判型（`master-route.ps1` 用）。两层都已配置，并各有探针。
+> **仓库层**由 `Tool/skill/<pack>/pack.json` 的 R37 关键词做判型（`master-route.ps1` 用）。两层都已配置，并各有探针。
 
 ## 1. 三个动作，三种判据
 

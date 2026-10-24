@@ -66,10 +66,10 @@ python Tool/scripts/new-skill.py <name> --desc "一句话描述"
 |---|---|---|
 | 1 | `Tool/skill/<name>/SKILL.md` | 技能本体 |
 | 2 | `softseep/SKILL.md` 可调度表 | 总控知道它存在 |
-| 3 | `Tool/scripts/routing.json` 的 `routes` + `priority` | 判型能命中 |
+| 3 | `Tool/skill/<pack>/pack.json` 的 `routes` + `priority` | 判型能命中 |
 | 4 | `~/.pi/agent/skills/<name>/` | pi 会话能加载 |
 
-门禁：`python Tool/scripts/verify-routing-coherence.py && python Tool/scripts/preflight.py --fast`
+门禁：`python Tool/scripts/route.py && python Tool/scripts/preflight.py --fast`
 
 ---
 
@@ -85,7 +85,7 @@ python Tool/scripts/new-skill.py <name> --desc "一句话描述"
 | `02-ui-rebrand` | ② | 改 UI、换品牌、去作者信息 | 改造后的同形态产物 |
 | `03-license-hookup` | ③ | 接你自己的授权平台（卡密 / 到期 / 机器码） | 带授权页的产物 + 发卡工具 |
 
-- 触发靠 `Tool/scripts/routing.json` 的 R11/R12/R13（"旁路卡密出成品" / "改界面换品牌" / "接授权平台"）；
+- 触发靠 `Tool/skill/<pack>/pack.json` 的 R11/R12/R13（"旁路卡密出成品" / "改界面换品牌" / "接授权平台"）；
 - **技能数量不设上限**（`check-budget.py` 已放开），但单个 SKILL.md 建议 ≤ 12KB。
 
 ---

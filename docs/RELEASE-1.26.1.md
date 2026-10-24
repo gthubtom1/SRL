@@ -39,7 +39,7 @@
 ### 2.3 路由盲区（根因：`\b` 与 CJK 边界）
 - 问题：.NET 正则把 CJK 也当 word 字符，「APK去广告」「Unity IL2CPP透视」里的 `\bapk\b` / `il2cpp\b` **永远匹配不上**，直接掉兜底。同类还有滑块验证码、suid 提权、小程序、前端 JS 签名、OSINT。
 - 改动：
-  - `Tool/scripts/master-route.ps1`：匹配前在 ASCII ↔ CJK 交界补空格（只改匹配副本，不动原输入）。
+  - `Tool/scripts/route.py`：匹配前在 ASCII ↔ CJK 交界补空格（只改匹配副本，不动原输入）。
   - `routing.json` + `routing-fragments/`：补 R1（小程序）、R6（前端 JS/签名算法）、R23（本机提权）、R34（验证码/滑块）、R22（无线近场）；新增 **R36 OSINT**（配方 `osint-recon`）。
   - 新增门禁 `Tool/scripts/skill-route-probe.py` + `Tool/config/skill-route-probes.json`（33 条大白话 → 期望技能/路由）。
 - 证据：探针 33 条全中；`verify-routing-coherence` 32 路由自洽；`domain-gate` 路由串味测试 60 条全中。

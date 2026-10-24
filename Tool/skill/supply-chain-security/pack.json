@@ -8,6 +8,8 @@
       "must": [
         "(?i)(?:(?:\\bsbom\\b|\\bsca\\b|\\bslsa\\b|\\bcosign\\b|\\bsigstore\\b|\\bprovenance\\b|\\blockfile\\b|\\bpackage-lock\\b|\\byarn\\.lock\\b|\\bpnpm-lock\\b|\\bgo\\.sum\\b|\\bcargo\\.lock\\b|\\bcomposer\\.lock\\b|\\bnuget\\b|\\bpip\\.conf\\b|\\bcyclonedx\\b|\\bspdx\\b)|依赖混淆|依赖投毒|供应链|软件物料清单|锁文件|来源证明|镜像签名|基础镜像|流水线权限|制品签名|依赖.{0,4}(?:扫描|审计|漏洞|风险)|扫描依赖|扫.{0,2}依赖|docker\\s*image|容器镜像|镜像.{0,6}(后门|投毒|劫持)|npm\\s*(?:worm|投毒|恶意包)|ChainDrop|Shai-Hulud|SANDWORM|postinstall)",
         "(?i)(?:\\bgithub actions\\b|\\bgitlab ci\\b|\\bci/cd\\b|\\bpull_request_target\\b|\\bworkflow_run\\b|\\bwrite-all\\b)",
+        "(?i)(?=.*?(?:(?:\\bnpm\\b|\\bpip\\b|\\bnuget\\b|\\bmaven\\b|\\bgradle\\b)))(?=.*?(?:(?:\\bregistry\\b|\\bindex-url\\b|\\bpackageSourceMapping\\b|依赖混淆|抢注|投毒)))",
+        "(?i)(?=.*?(?:(?:\\bci\\b|\\bworkflow\\b|流水线)))(?=.*?(?:(?:\\bpermissions?\\b|\\bsecrets?\\b|\\btoken\\b|权限)))",
         "(?i)(?:\\btyposquat(?:ting)?\\b|仿冒包|恶意 ?npm ?包)"
       ],
       "priority": 170

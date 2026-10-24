@@ -52,7 +52,7 @@ python Tool/scripts/preflight.py --fast              # 全局快检（悬空引�
 | :-- | :-- |
 | 工具找不到 / `mcp__x64dbg__*` 不存在 | 先 `python Tool/scripts/mcp-doctor.py --session` 判定是否要 `/mcp reconnect <name>`；宿主没起再 `--fix`（后台拉起 + 复验），也可 `tool-run.ps1 -Tool <id>` |
 | 门禁说「案例 sha256 不符」 | 先 `git status` 看是否换行符漂移；案例证据按字节保存（`-text`），不要手改产物 |
-| 路由把任务分错域 | 看 `Tool/scripts/routing.json` 的 priority；改路由只走主分支 |
+| 路由把任务分错域 | 看 `Tool/skill/<pack>/pack.json` 的 priority；改路由只走主分支 |
 | 不知道用哪篇 reference | 该域 `references/01-criteria.md` 顶部的「场景 → 判据」表 |
 
 ## 6. case_state.py 的宽容别名（照旧写法也不会报错）

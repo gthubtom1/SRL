@@ -220,7 +220,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 - 知识库 board：`Tool/mcp/Tool/reverselab/kb/protocol/README.md`
   —— 逐篇索引 7 篇 technique，含 `failure-criteria.md`。
 - 矩阵（13 个协议族，含 match/criteria/fail/pitfalls）：`Tool/config/protocol-plugin-matrix.json`。
-- 路由片段：`Tool/config/routing-fragments/protocol-plugin.json`
+- 路由片段：`Tool/skill/protocol-plugin/pack.json`
   —— `keywords` 与 SSOT 逐字一致（保证可合入）；词边界收紧版在 `boundary_policy`
   （含 `forbid`: spider/bios/principal/zipalign/scaffold），由 `proto-accept.py --routing-check`
   机检；合入 SSOT 由协调器跑 `merge-routing-fragment.py --write`（本域不直接改 routing.json）。

@@ -79,7 +79,7 @@
 
 | # | 契约 | 位置 | 破坏后果 |
 | :-- | :-- | :-- | :-- |
-| C1 | 路由**单一事实源**是 `Tool/scripts/routing.json`；片段改 `Tool/config/routing-fragments/*.json` 后必须 `python Tool/scripts/merge-routing-fragment.py --write` | `verify-routing-coherence.py` / `merge-routing-fragment.py --check` | 路由静默失效、`domain-gate` 串味测试红 |
+| C1 | 路由**单一事实源**是 `Tool/skill/<pack>/pack.json`；片段改 `Tool/skill/<pack>/pack.json 的 routes 块（*.json` 后必须 `python Tool/scripts/route.py --write` | `verify-routing-coherence.py` / `merge-routing-fragment.py --check` | 路由静默失效、`domain-gate` 串味测试红 |
 | C2 | 域契约（九件套）：SKILL ≤600 行；references 6–10 篇、每篇 60–400 行；脚本 2–4 个且 `--help`/`--self-test` rc=0；KB 6–10 篇；矩阵 ≥12 条；任务卡 20–30 张；链路无孤儿 | `docs/history/X-DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py` | `domain-gate` 直接红 |
 | C3 | 计数**单一事实源**：`（已删除：数字口径取消）`（preflight 条数、MCP 工具数基线）；first-party 预算口径 = `git ls-files` | `check-budget.py` / `check_numbers()` in `preflight.py` | 文档数字对账红 |
 | C4 | 技能必须与部署目录哈希一致（`~/.pi/agent/skills`） | `domain-gate` 部署项 | 换机后行为不一致 |

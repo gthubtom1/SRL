@@ -82,6 +82,11 @@ def load_baseline() -> int:
         return 0
 
 
+def res_packs(res):
+    """route.check() 结果里出现过的包 id（去重、有序）。"""
+    return sorted({row[1] for row in (res.get('rows') or [])})
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
@@ -96,40 +101,20 @@ def main() -> int:
     warns: list[str] = []
     info: dict = {}
 
-    # ── 1. routing.json 自洽 + 技能存在 ──
-    rp = os.path.join(HERE, "routing.json")
-    if not os.path.isfile(rp):
-        print(f"[ERROR] 缺 {rp}", file=sys.stderr)
-        return 2
-    try:
-        routing = json.load(open(rp, encoding="utf-8"))
-    except Exception as e:
-        print(f"[ERROR] routing.json 解析失败：{e}", file=sys.stderr)
-        return 2
-    routes = routing.get("routes") or []
-    if isinstance(routes, dict):
-        routes = list(routes.values())
-    info["routes"] = len(routes)
-
+    # ── 1. 路由自洽（pack.json 唯一事实源）+ 索引预算 ──
+    import route as route_mod
+    res = route_mod.check()
+    info["routes"] = res["routes"]
+    for p in res["problems"]:
+        errs.append(p)
     skills_seen: dict[str, str] = {}
-    for i, r in enumerate(routes):
-        if not isinstance(r, dict):
-            errs.append(f"routes[{i}] 不是对象")
+    for pid in sorted(res_packs(res)):
+        sk = os.path.join(TOOL, "skill", pid, "SKILL.md")
+        desc = skill_desc(pid) or ""
+        if not os.path.isfile(sk):
+            errs.append(f"包 {pid} 缺 SKILL.md")
             continue
-        label = r.get("label") or f"routes[{i}]"
-        sk = r.get("skill")
-        if not sk:
-            errs.append(f"路由「{label}」缺 skill 字段")
-            continue
-        desc = skill_desc(sk)
-        if not desc:
-            errs.append(f"路由「{label}」指向的技能找不到或缺 description：{sk}")
-            continue
-        skills_seen[sk] = desc
-        kws = r.get("keywords")
-        n_kw = sum(1 for k in (kws or []) if isinstance(k, dict) and k.get("must"))
-        if n_kw < ROUTE_MIN_KEYWORD:
-            errs.append(f"路由「{label}」没有可用的 must 正则")
+        skills_seen[pid] = desc
 
     # ── 2. 常驻索引预算（技能描述总长）──
     total_chars = sum(len(d) for d in skills_seen.values())

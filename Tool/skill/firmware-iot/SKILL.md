@@ -208,7 +208,7 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 | `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据；**无线能力先跑 `probe_matrix.py --radio-only`**（见 §八） |
 
 矩阵：`Tool/config/firmware-iot-matrix.json`（14 条，match/criteria/fail/tools/pitfalls）。
-路由片段：`Tool/config/routing-fragments/firmware-iot.json`（词边界，避免抢 Web/APK 词）。
+路由片段：`Tool/skill/firmware-iot/pack.json`（词边界，避免抢 Web/APK 词）。
 
 ## 八、脚本用法
 

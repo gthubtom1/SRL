@@ -112,40 +112,49 @@ def register_to_softseep(name: str, desc: str) -> bool:
 
 
 
-ROUTING_JSON = os.path.join(ROOT, "Tool", "scripts", "routing.json")
+PACK_JSON = os.path.join(ROOT, "Tool", "skill", "{name}", "pack.json")
 
 
-def register_to_routing(name: str, desc: str) -> bool:
-    """把新技能注册进路由单一事实源 routing.json。
+MIN_PACK = {
+    "schema": "seep.pack/1",
+    "stages": ["0-analysis", "1-ask", "2-dyn", "3-patch", "4-verify"],
+    "tools": [],
+    "cases": [],
+    "witness": {"cmd": "", "expect": "", "budget_s": 60},
+    "evidence_contract": {"required_fields": ["claim", "confidence", "authority", "evidence"],
+                          "authority_allow": ["shipped-artifact", "controlled-replay",
+                                              "external-service"],
+                          "pass_forbids_confidence": ["inferred", "unknown"]},
+    "limitations": ["新建包：witness / cases / tools 尚未填 → gate.py 必然红（正常，别当成通过）"],
+    "invalidation": ["目标不属于本包范围 → 转对应域包"],
+}
 
-    为什么必须做：master-route.ps1 / case-init.ps1 只认 routing.json。
-    技能只写进 softseep 的可调度表，路由表里没有条目 → 判型时永远命中不到它。
+
+def register_to_pack(name: str, desc: str) -> bool:
+    """把新技能注册进自己的 pack.json（S3：routing.json 已删，路由只活在包里）。
+
+    为什么必须做：route.py 只认 pack.json 里的 routes。技能只写 SKILL.md 而不写路由，
+    判型时永远命中不到它。新包 witness/cases 为空 → gate 会红，这是**故意的**：
+    "加技能零成本"正是要消掉的东西。
     """
-    if not os.path.isfile(ROUTING_JSON):
+    import json
+    path = PACK_JSON.format(name=name)
+    if not os.path.isdir(os.path.dirname(path)):
         return False
     try:
-        import json
-        with open(ROUTING_JSON, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-        routes = cfg.setdefault("routes", {})
-        for r in routes.values():
-            if isinstance(r, dict) and r.get("skill", "").split("/")[0] == name:
-                return True
-        used = set(routes.keys())
-        n = 10
-        while f"R{n}" in used:
-            n += 1
-        rid = f"R{n}"
-        routes[rid] = {
-            "label": f"{name} 专项",
-            "skill": f"{name}/SKILL.md",
-            "keywords": [{"must": f"(?i){name}"}],
-        }
-        pri = cfg.setdefault("priority", [])
-        if rid not in pri:
-            pri.insert(max(0, len(pri) - 1), rid)   # 插在 fallback(R0) 之前
-        with open(ROUTING_JSON, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        pack = dict(MIN_PACK)
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                pack = json.load(f)
+        else:
+            pack.update({"id": name, "l1": (desc or name)[:140], "routes": []})
+        routes = pack.setdefault("routes", [])
+        if any(str(r.get("label", "")).startswith(name) for r in routes):
+            return True
+        top = max([int(r.get("priority") or 0) for r in routes] or [0])
+        routes.append({"label": f"{name} 专项", "must": [f"(?i){name}"], "priority": top + 1})
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(pack, f, ensure_ascii=False, indent=2)
             f.write("\n")
         return True
     except Exception:
@@ -184,7 +193,7 @@ def main():
         f.write(content)
 
     registered = register_to_softseep(clean_name, args.desc or f"{clean_name} 专项技能")
-    routed = register_to_routing(clean_name, args.desc or f"{clean_name} 专项")
+    routed = register_to_pack(clean_name, args.desc or f"{clean_name} 专项")
     synced = sync_to_agent(target_dir, clean_name)
 
     result = {

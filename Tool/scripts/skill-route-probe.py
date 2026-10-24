@@ -44,7 +44,7 @@ for _s in (sys.stdout, sys.stderr):
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 PROBES = os.path.join(ROOT, "Tool", "config", "skill-route-probes.json")
-ROUTER = os.path.join(ROOT, "Tool", "scripts", "master-route.ps1")
+ROUTER = os.path.join(ROOT, "Tool", "scripts", "route.py")
 TIMEOUT = 60
 
 
@@ -58,20 +58,24 @@ def find_ps() -> str | None:
 
 
 def run_router(ps: str, hint: str) -> dict:
-    """跑一条探针，从 route-scope.md 取事实（不解析控制台输出，避开编码问题）。"""
+    """跑一条探针：`route.py --resolve <口吻> --json`（S3：master-route.ps1 已删，单一实现）。
+
+    返回与旧 route-scope.md 同形状的 facts：primary_skill / primary_label。
+    """
     out_dir = tempfile.mkdtemp(prefix="route-probe-")
-    cmd = [ps, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ROUTER,
-           "-Hint", hint, "-OutDir", out_dir]
+    cmd = [sys.executable, ROUTER, "--resolve", hint, "--json"]
     proc = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           timeout=TIMEOUT)
-    md = os.path.join(out_dir, "route-scope.md")
-    facts: dict[str, str] = {}
-    if os.path.isfile(md):
-        with io.open(md, encoding="utf-8-sig", errors="replace") as f:
-            for line in f:
-                if line.startswith("- ") and ": " in line:
-                    k, v = line[2:].split(": ", 1)
-                    facts[k.strip()] = v.strip()
+    facts: dict[str, str] = {"primary_skill": "", "primary_label": "", "primary": ""}
+    try:
+        data = json.loads((proc.stdout or b"").decode("utf-8", "replace") or "{}")
+        hits = data.get("hits") or []
+        if hits:
+            facts["primary_skill"] = "%s/SKILL.md" % hits[0].get("pack", "")
+            facts["primary_label"] = str(hits[0].get("label") or "")
+            facts["primary"] = "P%04d" % int(hits[0].get("priority") or 0)
+    except Exception:
+        pass
     return {"rc": proc.returncode, "facts": facts, "out_dir": out_dir}
 
 
@@ -90,9 +94,7 @@ def judge(probe: dict, facts: dict) -> list[str]:
     want = _norm_skill(probe.get("expect_skill", ""))
     if want and skill != want:
         bad.append("技能 %s ≠ 期望 %s" % (skill or "(空)", want))
-    want_route = probe.get("expect_route")
-    if want_route and facts.get("primary") != want_route:
-        bad.append("路由 %s ≠ 期望 %s" % (facts.get("primary", "(空)"), want_route))
+    # S3：R 编号已随 routing.json 消失，只断言「落到哪个包」（expect_skill）与 label
     want_label = probe.get("expect_label")
     if want_label and want_label not in (facts.get("primary_label") or ""):
         bad.append("label %r 不含 %r" % (facts.get("primary_label", ""), want_label))

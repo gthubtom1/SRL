@@ -183,11 +183,11 @@ Test-CheckItem "架构" "上游定点防外溢规则与同步引擎 (upstream-ru
 # 且 priority / fallbackId 与 routes 一一对应。路由指向空气时，运行期极难发现。
 Test-CheckItem "路由" "路由/配方/能力三层自洽 (routing ↔ 配方命令 ↔ 能力 DAG)" {
     $scriptsDir = Join-Path $ToolDir 'scripts'
-    $chk = Join-Path $scriptsDir 'verify-routing-coherence.py'
+    $chk = Join-Path $scriptsDir 'route.py'
     if (-not (Test-Path -LiteralPath $chk)) { return $false }
     $py = Get-Command python -ErrorAction SilentlyContinue
     if (-not $py) { return $true }
-    & python $chk 2>&1 | Out-Null
+    & python $chk --check 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { return $false }
     foreach ($gate in @('playbook-check.py', 'capability-gate.py', 'route-playbook-parity.py')) {
         $gp = Join-Path $scriptsDir $gate
@@ -196,7 +196,7 @@ Test-CheckItem "路由" "路由/配方/能力三层自洽 (routing ↔ 配方命
         if ($LASTEXITCODE -ne 0) { return $false }
     }
     $true
-} "路由表与技能落位不一致（或 routing.json 缺失）；运行 python Tool/scripts/verify-routing-coherence.py 查看详情" "routes/priority/fallback/skill 全部自洽" "Tool/scripts/routing.json"
+} "路由表与技能落位不一致（或 pack.json 缺失）；运行 python Tool/scripts/route.py --check 查看详情" "pack.json 路由 0 死链" "Tool/skill/*/pack.json"
 
 Test-CheckItem "版本" "一键卸载脚本 (uninstall.ps1 + uninstall.sh)" {
     (Test-Path (Join-Path $Root 'setup\uninstall.ps1')) -and (Test-Path (Join-Path $Root 'setup\uninstall.sh'))

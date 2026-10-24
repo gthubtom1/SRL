@@ -904,15 +904,28 @@ def _match_route(routes, priority, text, fallback=None):
     return None, ""
 
 
+
+def _pack_routes():
+    """从 pack.json 现算路由（S3：routing.json 已删，唯一事实源是包）。"""
+    import route as route_mod          # 同目录
+    res = route_mod.check()
+    routes, prio = {}, []
+    for i, (_p, pid, label, must) in enumerate(res.get("rows") or []):
+        rid = "P%02d" % i
+        routes[rid] = {"label": label, "skill": pid,
+                       "keywords": [{"must": m} for m in must]}
+        prio.append(rid)
+    routes["R0"] = {"label": "未命中（兜底 softseep）", "skill": "softseep", "keywords": []}
+    prio.append("R0")
+    return routes, prio, "R0"
+
+
 def check_routing():
-    rp = os.path.join(TOOL, "scripts", "routing.json")
     try:
-        d = rj(rp)
+        routes, prio, fallback = _pack_routes()
     except Exception as e:  # noqa: BLE001
-        add("全局", "路由串味测试集", False, "routing.json 坏:" + str(e)[:40])
+        add("全局", "路由串味测试集", False, "pack.json 路由坏:" + str(e)[:40])
         return
-    routes, prio = d.get("routes") or {}, d.get("priority") or []
-    fallback = (d.get("meta") or {}).get("fallbackId")
     bad = []
     for t in ROUTING_TESTS:
         rid, skill = _match_route(routes, prio, t["text"], fallback)
@@ -1038,29 +1051,6 @@ def check_deploy(only=None):
 
 
 
-# ---------------------------------------------------------------- [12] 片段合入
-def check_fragments():
-    """路由片段必须已合入 SSOT（routing.json）——判定交给 merge-routing-fragment.py。
-
-    单一实现：片段↔SSOT 的比较（含 mustAll/note）只在合并器里写一次，
-    门禁只调用它，避免"门禁只看 must、看不到 mustAll"这类盲区。
-    """
-    mg = os.path.join(TOOL, "scripts", "merge-routing-fragment.py")
-    if not os.path.isfile(mg):
-        add("全局", "路由片段已合入 SSOT（routing.json）", False, "缺 merge-routing-fragment.py")
-        return
-    try:
-        r = subprocess.run([sys.executable, mg, "--check"], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=120, cwd=ROOT)
-    except Exception as e:  # noqa: BLE001
-        add("全局", "路由片段已合入 SSOT（routing.json）", False, str(e)[:80])
-        return
-    out = (r.stdout or "").strip().splitlines()
-    bad = [x.replace("[FAIL] ", "") for x in out if x.startswith("[FAIL]")]
-    add("全局", "路由片段已合入 SSOT（routing.json）", r.returncode == 0,
-        "；".join(bad[:5]) if bad else "%d 份片段与 SSOT 一致" % len(glob.glob(os.path.join(TOOL, "config", "routing-fragments", "*.json"))))
-
-
 # ---------------------------------------------------------------- [13] 案例索引
 def check_case_index():
     p = os.path.join(TOOL, "scripts", "case_state.py")
@@ -1144,7 +1134,6 @@ def main():
         check_repro_and_templates()
         check_global_reference_limits()
         check_mutation_test()
-        check_fragments()
         check_case_index()
     if a.all or a.routing:
         check_routing()

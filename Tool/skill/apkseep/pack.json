@@ -7,7 +7,8 @@
       "label": "APK / Android 逆向",
       "must": [
         "(?i)\\bapk\\b|\\baab\\b|\\bdex\\b|smali|jadx|apktool|android|安卓|重打包|pinning|root.?检测|so.?层|frida.{0,24}(?i:android|apk|安卓)|hook.?安卓",
-        "(?i)(小程序|miniprogram|\\bwxapkg\\b|微信.{0,6}(?:小程序|逆向|抓包)|快应用)"
+        "(?i)(小程序|miniprogram|\\bwxapkg\\b|微信.{0,6}(?:小程序|逆向|抓包)|快应用)",
+        "(?i)(?:^|[^A-Za-z])apk(?![A-Za-z])"
       ],
       "priority": 350
     },

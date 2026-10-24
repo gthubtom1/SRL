@@ -18,7 +18,7 @@ jobs:
       - name: domain gate
         run: python Tool/scripts/domain-gate.py --all
       - name: routing coherence
-        run: python Tool/scripts/verify-routing-coherence.py
+        run: python Tool/scripts/route.py
       - name: playbook commands
         run: python Tool/scripts/playbook-check.py
       - name: capability dag
