@@ -42,9 +42,10 @@
  "updated": "2026-10-24",
  "target_files": [
   {
-   "path": "target/release.apk",
+   "path": "D:/Project/头条手机/release.apk",
    "sha256": "4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b",
-   "source": "用户提供 D:/Project/头条手机/release.apk"
+   "vendored": false,
+   "source": "用户提供（100MB，不入库；按 sha256 校验同一份）"
   }
  ]
 }

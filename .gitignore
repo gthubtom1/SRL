@@ -111,3 +111,10 @@ docs/audit/ANALYSIS-*.md
 Hook.log
 IDAHook.log
 evidence/
+
+# 大体积 / 机器相关残留（2026-10-24）
+mgmt_full.part
+*.part
+# 100MB 级真实目标不入库（只在 case.json 记外部路径 + sha256）
+Tool/cases/*/target/*.apk
+!Tool/cases/leaf-apk/target/*.apk
