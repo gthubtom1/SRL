@@ -34,7 +34,8 @@
     "seep_apk_decompile"
   ],
   "cases": [
-    "leaf-apk"
+    "leaf-apk",
+    "apkseep08"
   ],
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/leaf-apk",

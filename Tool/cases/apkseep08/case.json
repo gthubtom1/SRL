@@ -1,0 +1,50 @@
+{
+ "id": "apkseep08",
+ "domain": "apkseep",
+ "target_type": "真实商业 APK（100MB，6 dex / 52 so，包名与类名随机化）",
+ "evidence_kind": "real",
+ "protection": [
+  "randomized-package-name",
+  "randomized-class-names",
+  "multi-dex(6)",
+  "52 native libs"
+ ],
+ "authority": "shipped-artifact（用户提供的原件，sha256 固定）",
+ "goal_level": "L1",
+ "outcome": "partial",
+ "artifacts": [
+  {
+   "path": "capture/reverify-2026-10-24.log",
+   "sha256": "060cbfe342d414f44b0e015595443afdcf3aeb94ab5d6fbf08662d63961516b4"
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "evidence": "cp 到 ASCII 路径 → aapt dump badging + zipfile 清点 + StubApp 上下文取证；rc=0"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "命令：cp 原件到 /d/tmp/tt-release.apk && aapt dump badging /d/tmp/tt-release.apk；rc=0",
+  "**aapt 在 GBK 环境打不开中文路径**（Illegal byte sequence）→ 先复制到 ASCII 路径再跑",
+  "`StubApp` 命中不等于 360 加固：本例里的上下文是 `com.google.android.launcher/.StubApp`（launcher 类名）——判据必须看上下文",
+  "包名 com.a6as5paod.cp6jgk9wc 与 activity com.wApVWbgl.kViTkD.wbaFs 都是随机化命名 → 反分析处理的强信号"
+ ],
+ "tags": [
+  "apk",
+  "real-target",
+  "obfuscated-names",
+  "multi-dex"
+ ],
+ "refs": [
+  "Tool/skill/apkseep/scripts/doctor.py",
+  "Tool/skill/apkseep/references/01-criteria.md"
+ ],
+ "updated": "2026-10-24",
+ "target_files": [
+  {
+   "path": "target/release.apk",
+   "sha256": "4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b",
+   "source": "用户提供 D:/Project/头条手机/release.apk"
+  }
+ ]
+}

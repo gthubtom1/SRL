@@ -26,6 +26,8 @@
 | 2026-10-24 | **D1+D2**：9 包补齐真实输入资产 + 9 条对抗陷阱静态对撞 | 全部 9 包 | **delivered** | target 12 个文件全部登记 sha256；G4b 机检；D2 静态 0 处教唆 / 0 条漏拦；顺带修 3 个真问题（可复制命令/缺禁手/只读误报） | 12,597 | ~60 | 0 | `python Tool/scripts/gate.py --all` + `preflight --fast` |
 | 2026-10-24 | **D2 持续回归**：抽测变成可打分（traps 判分要素 + `gate.py --trap` + 3 份夹具） | 9 条陷阱 / T01 三夹具 | **delivered** | T01-pass rc=0 / T01-partial rc=1 / T01-luna rc=1（判分能区分同层绕过与推演绕法） | 12,693 | ~25 | 0 | `python Tool/scripts/gate.py --trap T01-softseep-net --answer docs/verification/trap-T01-pass.txt` |
 | 2026-10-24 | **真实目标**：OWASP mas-crackmes UnCrackable-Level2（native 反调试 + root 检测 + 字符串隐藏） | apkseep | **delivered** | MANIFEST 1 文件 / facts 7 条 / 背书 7；16 个壳特征计数 0（非加固壳，如实标注） | 12,693 | ~35 | 0 | `python Tool/scripts/gate.py --pack apkseep` |
+| 2026-10-24 | **真实目标 A**：`D:/Project/ai自瞄/AGameCrash64.exe`（16.4MB）首轮静态判型 | softseep | **upper-bound（M1）** | facts 5 条（observed 2 / derived 3）；6 节 RawSize 全 0 → 静态拿不到代码 | 12,693 | ~10 | 0 | `python Tool/scripts/case_state.py verify --case Tool/cases/aimbot` |
+| 2026-10-24 | **真实目标 B**：`D:/Project/头条手机/release.apk`（100MB）首轮载体测绘 | apkseep | **upper-bound（M1）** | facts 6 条（observed 5 / derived 1）；包名/类名随机化；6 dex / 52 so | 12,693 | ~12 | 0 | `python Tool/scripts/case_state.py verify --case Tool/cases/apkseep08` |
 
 ## 回放抓出的错（这是回放唯一不可替代的价值）
 
