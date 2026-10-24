@@ -236,29 +236,10 @@ def check(tools, baseline=None, probes=None):
 
 
 def _resolve_baseline():
-    """工具数基线：单一事实源 Tool/config/gate-counts.json 的 mcp_seep_tools。"""
+    """工具数基线：优先读 Tool/config/gate-counts.json（若存在）；已删除时退化为「实测即基线」，不再硬失败。"""
     gc = os.path.join(TOOL, "config", "gate-counts.json")
-    try:
-        with open(gc, encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
+    if not os.path.isfile(gc):
         return None
-    val = data.get("mcp_seep_tools") if isinstance(data, dict) else None
-    if isinstance(val, int) and val > 0:
-        return val
-    # 回退：tool-capabilities.json 里的 mcp.seep.tool_count
-    try:
-        with open(CAPS, encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception:
-        return None
-    node = data
-    for key in ("mcp", "seep"):
-        node = node.get(key, {}) if isinstance(node, dict) else {}
-    val = node.get("tool_count") if isinstance(node, dict) else None
-    return val if isinstance(val, int) and val > 0 else None
-
-
 def _self_test():
     """造假工具/假探针结果验判据能抓出违规（离线，不需要 MCP 服务）。"""
     good = {"name": "seep_ok", "description": "d",
