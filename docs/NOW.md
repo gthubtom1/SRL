@@ -44,6 +44,14 @@
 **删掉的 47 个**：8 元层（path-walk/liveness-check/canary/receipt-check/manager-audit/replay-history/p2-replay/session-manifest）+ 8 生成器/孤儿 + 5 一次性 + 4 组配置 + gate-counts/sync-gate-counts + APK 双份。
 **保留的（有真实执行者，删了会断链）**：`gen-case-index.py`（被 `domain-gate.py:1056` 执行）、`new-skill.py`（被 `seep_mcp_server.py:2817` 执行）、`check-budget.py`（被 `impact.py` 引用）、以及 5 个兼容壳（`domain_spec.py`/`seep-start.py` 活引用）。
 
+
+**S1 第 3 步（状态副本合并）未做——移交 S2，理由是它需要改代码：**
+- `memory/facts.jsonl` 有 4 个实例，写者是扩展 `~/.pi/agent/extensions/seep-memory.ts`（删了会被重建）
+- `state.json` 4 个实例、`cases/index.json` 3 个，读者是 `case_state.py` / `domain-gate.py` / `gen-case-index.py` / `seep_mcp_server.py`
+- 也就是说：删这 3 类必须先让 `case_state.py` 改成"facts 重放"、扩展停写 memory/facts —— **属 S2/S3 的代码改动，不是 S1 的"只删不加"**
+
+→ **S2 第一件事就包含它**：`case_state.py` 改 facts-replay + 扩展停写 memory/facts + 删 `cases/index.json`（改由 `case_state.py index` 现算）。
+
 ## 四、已定决策（不可推翻，别再问）
 
 1. **人设卡维持原样**（28,667 B / 7,451 tok）—— 实测去重会让破甲探针 2/2→1/2。
