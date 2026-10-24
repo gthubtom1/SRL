@@ -1,6 +1,6 @@
 ---
 name: softseep
-description: 【逆向总控入口】任何逆向、白盒审计、客户端逻辑验证、许可校验、补丁本地化、脱壳解包、算法还原、协议分析、样本研判、UI 伪造、加固对抗、测绘任务先加载本技能，按平台+类型判型后分发子能力。
+description: "初步分析这个软件/看看这个程序/这是什么壳/有没有加固/能不能改/能不能打补丁/帮我逆向/做成源码级(.exe/.dll/.sys/.so/.bin/.dylib，PE/ELF/Mach-O)。任何逆向、白盒审计、客户端逻辑验证、许可与卡密校验、脱壳解包、算法还原、协议分析、样本研判、UI 伪造、加固对抗、测绘任务，先加载本技能。"
 license: MIT
 compatibility: Windows 10 / Windows 11 x64 为主。支持 Python 3.8+，搭配 C/C++ 编译器（Zig/MSVC）或 radare2/IDA Pro 逆向套件。跨平台等价路径见 `references/license-validation.md` §1 平台对照表。
 metadata:

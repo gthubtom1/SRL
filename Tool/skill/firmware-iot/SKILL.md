@@ -1,6 +1,6 @@
 ---
 name: firmware-iot
-description: 【固件/IoT/硬件】路由器、摄像头、NAS 固件获取与解包、文件系统审计、QEMU/FirmAE 仿真、UEFI/Secure Boot、UART/JTAG/SPI 接入（binwalk/ubireader）。
+description: "分析这个固件/路由器/摄像头/NAS 的固件，解包看文件系统，有没有后门/硬编码口令/命令注入/签名校验缺陷；能不能仿真跑起来 (.bin/.img/.trx/.squashfs/.ubi，UART/JTAG/SPI，QEMU/FirmAE)。"
 license: MIT
 compatibility: Linux 主机优先（binwalk/ubireader/unsquashfs/QEMU 原生）；Windows 可经 WSL2 或 Tool/scripts/tool-run.ps1 启动外部工具。硬件侧需 USB-TTL、逻辑分析仪、SPI 编程器/夹子，电压匹配 1.8V/3.3V。
 metadata:

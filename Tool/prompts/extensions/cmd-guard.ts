@@ -975,6 +975,28 @@ export default function cmdGuard(pi: any): void {
 
 		const secs = Math.round((Date.now() - r.startedAt) / 1000);
 		const verdict = event.isError ? "失败" : "完成";
+		// 工具在问用户（need_from_user）→ 必须转达，不许自己往下做。
+		// 为什么放这里：提示词里的规则模型会忽略，工具结果里追加的文字每次都会进上下文。
+		// 实测（2026-10-24 会话 01a16e82）：seep_packer_detect 已返回 3 条问句，模型没转达就继续分析。
+		let askNote: TextContent | null = null;
+		try {
+			const dump = JSON.stringify({ c: event.content, s: event.structuredContent, d: event.details });
+			if (dump.includes("need_from_user")) {
+				const NL = String.fromCharCode(10);
+				const qs = [...dump.matchAll(/"question"\s*:\s*"([^"]{8,160})"/g)].map((m) => m[1]);
+				const parts = [
+					"[必须转达 · 不是建议]",
+					"这个工具正在向你索要只有用户才能提供的东西。在做任何下一步分析之前，",
+					"必须先调用 ask_user_question 把它们原样问给用户，并把回答（有/没有）记进账本。",
+					...(qs.length ? qs.map((q: string, i: number) => `${i + 1}. ${q}`) : ["（问句见上面的 need_from_user）"]),
+					"用户答「没有」才走 if_no 路线；不许假设「没有」继续往下做。",
+				];
+				askNote = { type: "text", text: NL + parts.join(NL) };
+			}
+		} catch {
+			askNote = null;
+		}
+
 		history.unshift({
 			at: new Date().toISOString().slice(11, 19),
 			toolName: r.shell,
@@ -999,11 +1021,18 @@ export default function cmdGuard(pi: any): void {
 			};
 			if (Array.isArray(event.content)) {
 				return {
-					content: [...event.content, line],
+					content: askNote ? [...event.content, line, askNote] : [...event.content, line],
 					details: event.details,
 					structuredContent: event.structuredContent,
 				};
 			}
+		}
+		if (askNote && Array.isArray(event.content)) {
+			return {
+				content: [...event.content, askNote],
+				details: event.details,
+				structuredContent: event.structuredContent,
+			};
 		}
 		return;
 	});

@@ -1,6 +1,6 @@
 ---
 name: protocol-plugin
-description: "【协议复刻 / R24】私有协议与二进制协议逆向：抓包、分帧、字段推断、校验/加密段、状态机重建、重放与构造新请求。判据是同输入同输出、能构造服务端接受的新请求、状态可闭环。插件/扩展/Mod 目标一律转 plugin-targets（R25）。"
+description: "逆向这个协议/这个封包怎么构造/私有协议/私有加密/重放请求/写个插件或 Mod/模拟客户端登录。要求同输入同输出、能构造服务端接受的新请求、状态机可闭环。"
 license: MIT
 compatibility: Windows 10/11、Linux、macOS；依赖可选的 tshark / mitmproxy / scapy；缺失时用标准库 pcap 解析与原始 socket 重放降级。
 metadata:

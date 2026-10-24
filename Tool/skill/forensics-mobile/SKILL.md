@@ -1,6 +1,6 @@
 ---
 name: forensics-mobile
-description: 【取证 / iOS·macOS / 游戏客户端】内存镜像、pcap、磁盘与文件系统、EVTX/注册表、IPA/Mach-O/Keychain、Unity Mono/IL2CPP/AssetBundle 只读取证（Volatility3/tshark/sleuthkit）。
+description: "分析这个内存镜像/流量包/磁盘镜像/事件日志/注册表；或 iOS IPA/Mach-O/Keychain、Unity Mono/IL2CPP/AssetBundle 取证。要时间线 + IOC + 可复现结论。"
 license: MIT
 compatibility: Linux/WSL2 优先（volatility3、tshark、sleuthkit 原生）；macOS 提供 otool/codesign/security；iOS 动态侧需授权测试机与 frida-server；Windows 支持 EVTX/REGF 二进制解析与 reg save。
 metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与来源 / 只读副本+哈希 / 统一 UTC / 四要素可复述"}

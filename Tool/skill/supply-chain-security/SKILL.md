@@ -1,6 +1,6 @@
 ---
 name: supply-chain-security
-description: 【供应链 / 依赖 / CI-CD】对源码仓库、锁文件、容器镜像与构建流水线做可复现的供应链审计：SBOM、SCA、漏洞可达性、依赖混淆/投毒、锁文件完整性、GitHub Actions/GitLab CI 权限、制品签名与来源证明。以“对象可钉住、可达有证据、修复可执行”为判据，拒绝只贴扫描器告警。
+description: "审计这个仓库/依赖有没有问题/锁文件完整性/GitHub Actions 权限/供应链投毒/依赖混淆/SBOM 与制品签名。要求对象可钉住、可达有证据、修复可执行。"
 license: MIT
 compatibility: Linux/macOS/WSL2；syft、grype、osv-scanner、trivy、cosign、semgrep 可选；纯标准库脚本可做清单/锁文件/CI/可达性。Windows 经 tool-run.ps1 启动。
 metadata:

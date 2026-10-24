@@ -1,6 +1,6 @@
 ---
 name: apkseep
-description: "【Android 逆向】APK/AAB/DEX/SO 逆向、客户端鉴权走查（CWE-602）、DEX/SO 微创补丁、Frida/RPC 插桩、脱壳/Java2C/VMP 差分、重打包签名全链路。"
+description: "初步分析这个 APP/看看这个应用/能不能去广告/去弹窗/改会员/解锁功能/重打包/重新签名/脱壳/抓包(.apk/.aab/.xapk/.dex/.so)。Android 逆向、客户端鉴权走查(CWE-602)、DEX/SO 微创补丁、Frida/RPC 插桩、Java2C 与 VMP 差分、重打包签名全链路。"
 license: MIT — see LICENSE at the repository root
 # ---------------------------------------------------------------------------
 # ATTRIBUTION: This skill is derived from and tracks the upstream project
