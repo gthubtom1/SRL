@@ -1111,6 +1111,51 @@ def check_case_contract_files():
 
 
 def check_domain_commands():
+    """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
+
+    设计（2026-10-24，约定优于配置）：加技能 = 丢一个 `Tool/skill/<名>/SKILL.md`，
+    跑 install（会自动 gen-commands）→ 得到 `/名` 命令。**不再手写卡片、不再改配置**。
+    这条判据守两件事：① 有技能没卡（漏生成）② 手动改过生成的卡（漂移）。
+    """
+    gen = os.path.join(TOOL, "scripts", "gen-commands.py")
+    if not os.path.isfile(gen):
+        add("2 单一事实源", "命令卡由技能派生（无手写漂移）", False, "缺 Tool/scripts/gen-commands.py")
+        return
+    rc, out = run([sys.executable, gen, "--check"], timeout=120)
+    n_skill = len([d for d in os.listdir(os.path.join(TOOL, "skill"))
+                   if os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md"))])
+    add("2 单一事实源", "命令卡由技能派生（%d 个技能 → 自动生成，无手写漂移）" % n_skill, rc == 0,
+        (out or "").strip().splitlines()[-1][:120] if out else "gen-commands --check rc=%d" % rc)
+
+
+def check_case_contract_files():
+    """新案必须有范围契约（scope.md）：这是 case-guard 的等价物，防"scope 未就绪就动手"。
+
+    实现方式：功能测试（在临时目录 init 一个案子，验证 case.json/facts.jsonl/scope.md 都在），
+    **不追溯** 66 个旧案例（L15：不为已结束的目标补账）。
+    """
+    import shutil as _sh
+    import tempfile as _tf
+    bad = []
+    tmp = _tf.mkdtemp(prefix="seep-scope-")
+    try:
+        r = run([sys.executable, os.path.join(TOOL, "scripts", "case_state.py"),
+                 "init", "--case", tmp, "--target", "dummy.exe"], timeout=120)
+        for f in ("case.json", "facts.jsonl", "scope.md"):
+            if not os.path.isfile(os.path.join(tmp, f)):
+                bad.append("init 未生成 %s" % f)
+    except Exception as e:  # noqa: BLE001
+        bad.append("init 跑不起来 %s" % str(e)[:60])
+    finally:
+        _sh.rmtree(tmp, ignore_errors=True)
+    for doc in ("docs/PRODUCT.md", "docs/LESSONS.md"):
+        if not os.path.isfile(os.path.join(ROOT, doc)):
+            bad.append("缺 %s" % doc)
+    add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 产品与教训文档在位",
+        not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
+
+
+def check_domain_commands():
     """领域命令卡（/rev /apk /unpack …）：每个引用的 SKILL.md 必须存在，部署副本不得残留占位符。
 
     为什么需要（2026-10-24）：自动路由靠 description 命中，命中不了就整条链不加载（实测：那个会话 0 次读技能）。

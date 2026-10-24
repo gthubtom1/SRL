@@ -32,7 +32,7 @@
 | 8 | **mcp-js-reverse-playbook** | `Tool/skill/_pending/safe-skills/mcp-js-reverse-playbook/` | 同上 | 13 | 24 KB |
 | 9 | **ida-assistant**（safe 版，IDA MCP HTTP 辅助脚本） | `Tool/skill/_pending/safe-skills/ida-assistant/` | 同上 | 3 | 28 KB |
 | 10 | **version-migration** | `Tool/skill/_pending/version-migration/` | `~/.pi/agent/skills/version-migration/` | 1 | 6 KB |
-| 11 | **unpack-loop** | `Tool/skill/_pending/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
+| 11 | **unpack-loop** | `Tool/skill/unpack-loop/` | `~/.pi/agent/skills/unpack-loop/` | 1 | 8 KB |
 
 ### ⚠ 上游开源归属与完整镜像（合规声明）
 

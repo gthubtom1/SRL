@@ -258,7 +258,7 @@ python Tool/skill/_pending/llm-security/scripts/probe-agent.py --fixture work/<t
 | MCP/配置审计 | `seep_domain_audit(mode="agent")` | 手工 grep + JSON 解析 |
 | 动态观测 | 代理/日志/OTel | 应用日志 + 请求 ID |
 
-缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_tool_install`；安装需确认。
+缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_ensure_tool`（安装需 allow_install）；安装需确认。
 
 ## 11. 索引表（逐篇）
 

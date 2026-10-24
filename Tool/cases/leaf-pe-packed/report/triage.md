@@ -113,6 +113,6 @@ r2 -q -e scr.color=0 -c ie Tool/cases/leaf-pe-packed/target/a_upx.exe
 
 ## 交叉引用
 
-- 打法：`Tool/skill/_pending/00-triage/SKILL.md`、`Tool/skill/_pending/unpack-loop/SKILL.md`
+- 打法：`Tool/skill/_pending/00-triage/SKILL.md`、`Tool/skill/unpack-loop/SKILL.md`
 - 上游案例（未加壳同源）：`Tool/cases/golden-crackme/report/triage.md`
 - 下一份：`report/static.md`（阶段 0b）

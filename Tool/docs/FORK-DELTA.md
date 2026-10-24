@@ -220,7 +220,7 @@ python （`upstream-delta` 已不存在：按上面的替代路径走）        
 |---|---|
 | MCP 服务 | `Tool/mcp/ghidra_scripts/DecompileToFile.java`<br>`Tool/mcp/test_ext_assets.py`<br>`Tool/mcp/tool_autodiscover.py` |
 | 声明式配置 | `Tool/config/engine-tiers.json`<br>`Tool/config/tool-capabilities.json`<br>`Tool/config/tool-install.json`<br>`Tool/config/tool-runtimes.json`（通道阶梯）<br>`Tool/config/mcp-servers.json`（MCP 装配） |
-| 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/_pending/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
+| 技能 | `Tool/skill/softseep/scripts/preflight-classify.py`<br>`Tool/skill/unpack-loop/SKILL.md`<br>`Tool/skill/_pending/version-migration/SKILL.md` |
 | 脚本 | `Tool/scripts/budget.py`<br>`（`upstream-delta` 已不存在：按上面的替代路径走）`<br>`（已删除）`<br>``Tool/scripts/preflight.py``<br>`Tool/scripts/route.py` |
 | 文档 | `MANUAL/BASELINE-FREEZE.md`<br>`MANUAL/SKILL-CREATION-GUIDE.md`<br>`MANUAL/ZERO-TO-HERO-WORKFLOW.md`<br>`Tool/docs/EXT-ASSETS.md`<br>`Tool/docs/FORK-DELTA.md`<br>`docs/history/HANDOFF-2026-10-19.md`<br>`Tool/docs/MERGE-PLAYBOOK.md` |
 | 安装与校验 | `setup/merge_agent_config.py` |

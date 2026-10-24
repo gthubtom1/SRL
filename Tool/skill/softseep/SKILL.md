@@ -147,7 +147,7 @@ metadata:
 
 - Android APK/DEX/SO → `apkseep`；iOS 取证/签名 → `forensics-mobile`。
 - 纯 Web/API 漏洞 → `web-pentest`；二进制漏洞利用/密码学 → `pwn-crypto`。
-- 加壳脱壳闭环 → `Tool/skill/_pending/unpack-loop/SKILL.md`（脱壳闭环）（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
+- 加壳脱壳闭环 → `Tool/skill/unpack-loop/SKILL.md`（脱壳闭环）（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
 - 生产环境与真实用户数据按 `scope` 清单执行；凭据外泄一律停并上报。
 
 **边界**：本技能默认目标是**受权沙箱资产**；仅当用户明确声明「不属于我 / 没有授权」时停在门口确认一次。授权不覆盖「下载/安装/写文件/改环境」，后者单独确认。
@@ -276,7 +276,7 @@ metadata:
 | 用户可能说的大白话 | 推断类型 | 分发到 |
 | :--- | :--- | :--- |
 | "破解" / "怎么免费用" / "卡密" / "序列号" / "激活" / "试用期" / "订阅" | **授权旁路（要成品）** | `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路）（分析型参考卷：`Tool/skill/softseep/references/license-validation.md`（许可校验专项）） |
-| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `Tool/skill/_pending/unpack-loop/SKILL.md`（脱壳闭环）**（判据驱动，不硬走流程） |
+| "脱壳" / "加密了" / "有壳" / "解包" / "dump 出来" | **脱壳/解包** | 先 `seep_packer_detect` 判壳 → **加载 `Tool/skill/unpack-loop/SKILL.md`（脱壳闭环）**（判据驱动，不硬走流程） |
 | "hook 一下" / "改返回值" / "打个补丁" / "本地化" / "去广告" / "弹窗" | **补丁/功能本地化** | `windows-sop.md` |
 | "算法怎么还原" / "签名怎么算" / "加密怎么解" / "校验逻辑" | **算法还原** | `KB 11-project-paradigms/01-project-patterns-a-j.md` |
 | "抓包" / "接口" / "协议" / "请求怎么发的" / "重放" / "签到" | **协议分析** | `seep_pcap_extract` 看包 → `seep_http_replay` 构造/重放 |

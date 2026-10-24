@@ -44,7 +44,7 @@
  ],
  "refs": [
   "Tool/skill/_pending/01-gate-bypass/SKILL.md",
-  "Tool/skill/_pending/unpack-loop/SKILL.md",
+  "Tool/skill/unpack-loop/SKILL.md",
   "docs/EXECUTION-MODEL-v2.md"
  ],
  "updated": "2026-10-23"

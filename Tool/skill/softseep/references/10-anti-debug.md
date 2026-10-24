@@ -1,7 +1,7 @@
 # 反调试识别与决策（逆向域单列卷）
 
 > 范围：拿到 PE/ELF/Mach-O 客户端，需要判断「它怎么发现调试器/虚拟机」以及「我该用哪种观测手段」。
-> 路由：脱壳流程本身见 `Tool/skill/_pending/unpack-loop/references/anti-debug.md`（OEP/内存 dump/页守卫）；本卷讲**识别与决策**，那卷讲**脱壳流程**，两篇互补。
+> 路由：脱壳流程本身见 `Tool/skill/unpack-loop/references/anti-debug.md`（OEP/内存 dump/页守卫）；本卷讲**识别与决策**，那卷讲**脱壳流程**，两篇互补。
 > 铁律：**先识别，再选仪器；两次失败就停。** 不要在同一个反调试点上反复裸 attach，那只会把证据打没。
 
 ---

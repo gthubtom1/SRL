@@ -19,7 +19,6 @@
 | `plugin-targets` | 214 | 【插件/扩展/Mod】浏览器扩展（MV2/MV3）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity BepInEx/M |
 | `signin-automation` | 264 | 账号任务自动化的六个原语：会话池（多账号隔离）、定时通知（cron/幂等/重试上限）、验证码三分支、滑块缺口、旋转角度、TLS 指纹。附带 OPSEC 参数 |
 | `site-clone` | 223 | 【网站 1:1 复刻】授权+同源白名单+≤2 rps 下用 Playwright 抓路由/资产/API 与 DOM 快照做离线副本，按 6 条机检判据给 P |
-| `unpack-loop` | 271 | 这个软件加壳了怎么脱/脱壳/dump 内存/OEP 怎么找/反调试怎么过/IAT 怎么修 (.exe/.dll/.sys/.apk/.so，UPX/ASPa |
 | `version-migration` | 92 | 客户端跨版本增量追版与特征迁移专项技能。当目标软件更新（如 6.8 升级至 6.9）、曾经逆向过的旧版本已有分析报告/补丁/Hook 脚本，需要快速适配新版 |
 
 ## 已删除（内容重复，能力不损失）

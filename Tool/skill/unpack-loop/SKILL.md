@@ -215,7 +215,7 @@ metadata:
 | 判壳/反调试 | `seep_packer_detect` | 内置，永远可用 |
 | 段/熵/架构 | `seep_r2_info` / `dump-restore.py pe-info` | 内置/纯标准库 |
 | 仪器矩阵 | `probe_matrix.py --target <t> --json` | 纯标准库；缺工具会报 `blocked` + 原因 |
-| 内存 dump | `dump-restore.py dump --pid N --out F` 或 `pe-sieve /pid N /dmode 3 /out D` | 外部 RPM 优先；pe-sieve 可 `seep_tool_install("pe-sieve")` |
+| 内存 dump | `dump-restore.py dump --pid N --out F` 或 `pe-sieve /pid N /dmode 3 /out D` | 外部 RPM 优先；pe-sieve 可 `seep_ensure_tool("pe-sieve")` |
 | PE 重建 | `dump-restore.py rebuild --dump F --out G` | 纯标准库；清壳节为启发式 |
 | IAT 现状 | `dump-restore.py iat --dump F` | 纯标准库；修复仍需 Scylla 人工 |
 | 调试/断点 | x64dbg（**完整性壳用硬件断点**） | `seep_tool_discover("x64dbg")` → `plan_control`；探针矩阵先验证 |

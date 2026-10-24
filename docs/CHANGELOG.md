@@ -265,8 +265,8 @@
 
 ### C 脱壳 / 反调试
 
-- `Tool/skill/_pending/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
-- `Tool/skill/_pending/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
+- `Tool/skill/unpack-loop/references/anti-debug.md`：五类反调试、20 项技术、24 行六列矩阵；完成判据 = **ExitProcess/exit 断点未提前命中**。
+- `Tool/skill/unpack-loop/SKILL.md`：新增七步流水线（壳指纹→仪器验证→OEP→dump→PE 重建→IAT→干净机验证），强制"完整性校验壳禁用 int3，先试硬件断点"。
 - `（`probe_matrix` 已不存在：按上面的替代路径走）`：6 探针（baseline/x64dbg/frida-spawn/frida-attach/external/network）→ JSON 可直接喂 `case_state instrument`；DLL 场景会明确 blocked 原因，不静默跳过。
 - `Tool/skill/malware-analysis/scripts/dump-restore.py`：`pe-info` / `dump` / `rebuild` / `iat`；实测 `dump → rebuild → iat` 在真实进程上跑通（iat 已解析 164 / 未解析 0）。
 
