@@ -597,3 +597,4 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 | 站点 1:1 复刻 | R35 | `Tool/skill/_pending/site-clone/SKILL.md`（站点复刻） | 像素/DOM/请求集三项达标，后端缺口列 `backend_required` |
 
 > 每个域都是"九件套"：SKILL + ≥4 references + ≥1 可跑脚本 + 矩阵配置 + ≥2 案例 + KB board + 路由 + 本表登记 + 门禁断言。
+**子技能（按需读，不常驻）**：`_pending/00-triage/SKILL.md` 快筛画像 · `_pending/binary-diff/SKILL.md` 跨版本差分 · `_pending/version-migration/SKILL.md` 追版 · `_pending/ida-reverse/SKILL.md` IDA 深挖 · `_pending/doc-hygiene/SKILL.md` 文档治理 · `_pending/pm-plan/SKILL.md` 规划/拆任务/排优先级。

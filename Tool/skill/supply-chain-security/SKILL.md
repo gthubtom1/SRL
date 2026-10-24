@@ -219,3 +219,9 @@ cosign verify-attestation <image> --type slsaprovenance
 - [ ] 未推送恶意包、未改生产流水线、未外泄凭据、未越权扫描。
 
 > 边界：不投毒、不抢注、不 CVE 武器化、不代法务下结论；只做自有/授权对象的证据链。
+
+## 子技能（按需读，不常驻）
+
+本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+
+- `_pending/doc-hygiene/SKILL.md` —— 审计报告与文档治理

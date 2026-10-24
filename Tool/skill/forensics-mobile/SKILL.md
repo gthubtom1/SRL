@@ -206,3 +206,9 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 - **只读观测**：原件只读、副本分析、全程哈希；任何写操作都必须停并记录。
 - **失败即停**：缺时区/主体/对象、哈希不一致、原件被写、加密未解、版本不匹配 → 报“未闭环”，不把 dump/解包成功当结论。
 - **机检≠结论**：脚本 PASS 只证明格式/哈希自洽；结论真伪、归因强度、证据链强度仍需人工复核。
+
+## 子技能（按需读，不常驻）
+
+本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+
+- `_pending/00-triage/SKILL.md` —— 先出取证对象画像

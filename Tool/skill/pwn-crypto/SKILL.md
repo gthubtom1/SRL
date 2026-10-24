@@ -283,3 +283,9 @@ python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 
 > 边界再强调：本技能只用于授权实验室资产；不伪造“稳定 9/10”，不隐藏失败，
 > 不把本地关 ASLR 的结果当远程结论，不把 PE 当 ELF 套保护位术语。
+
+## 子技能（按需读，不常驻）
+
+本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+
+- `_pending/00-triage/SKILL.md` —— 先出二进制保护与靶场画像

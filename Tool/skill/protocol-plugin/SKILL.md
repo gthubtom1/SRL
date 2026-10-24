@@ -250,3 +250,9 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 ```
 
 **最后一条**：报告里每个"已确认"都要能指回证据；指不回去的，写"推断"，不要写成结论。
+
+## 子技能（按需读，不常驻）
+
+本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+
+- `_pending/plugin-targets/SKILL.md` —— 目标是浏览器扩展/IDE 插件/Mod

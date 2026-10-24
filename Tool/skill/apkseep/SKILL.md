@@ -466,3 +466,9 @@ the run record is not in front of you.
 
 `python check_routing.py` checks that this file and `references/routing.md` still agree, that every
 reference file is named there, and that every script is named there. CI runs it.
+
+## 子技能（按需读，不常驻）
+
+本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+
+- `_pending/00-triage/SKILL.md` —— 先出 APK 画像

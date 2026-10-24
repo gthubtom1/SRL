@@ -1110,6 +1110,34 @@ def check_case_contract_files():
         not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
 
 
+def check_subskill_wiring():
+    """子技能必须"够得着"：每个 _pending 子技能至少被一个域 SKILL.md 链接，否则等于不存在。
+
+    为什么（2026-10-24 实测）：16 个子技能里曾有 **6 个没有任何域链接**
+    （00-triage / binary-diff / doc-hygiene / llm-security / signin-automation / version-migration）
+    —— 文件在、索引也在，但真实任务里永远不会被读到。这就是"分了层却没衔接"。
+    判据：域 SKILL.md 里出现 `_pending/<名>/SKILL.md` 即算链接；指向不存在的文件也红。
+    """
+    import glob as _g
+    import re as _re
+    pend = {os.path.basename(d) for d in _g.glob(os.path.join(TOOL, "skill", "_pending", "*"))
+            if os.path.isfile(os.path.join(d, "SKILL.md"))}
+    linked, dangling = {}, []
+    for p in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
+        dom = os.path.basename(os.path.dirname(p))
+        t = open(p, encoding="utf-8", errors="replace").read()
+        for name in set(_re.findall(r"_pending/([A-Za-z0-9_.-]+)/SKILL\.md", t)):
+            linked.setdefault(name, set()).add(dom)
+            if name not in pend:
+                dangling.append("%s→%s(不存在)" % (dom, name))
+    orphan = sorted(pend - set(linked))
+    bad = orphan + dangling
+    add("2 单一事实源", "子技能衔接（%d 个子技能都有域链接，无死链）" % len(pend), not bad,
+        ("无人链接: " + "、".join(orphan[:5])) if orphan else
+        ("死链: " + "、".join(dangling[:3]) if dangling else
+         "%d 个子技能全部被至少一个域技能链接" % len(pend)))
+
+
 def check_skill_import():
     """导入外部技能的通道必须可用（用户只说一句"加这个技能"，剩下由工具+Agent 完成）。
 
@@ -1609,6 +1637,7 @@ def main():
     check_route_first_contract()
     check_dropin_skills()
     check_skill_import()
+    check_subskill_wiring()
     check_case_contract_files()
     check_tool_ladder()
     check_functional(args.fast)

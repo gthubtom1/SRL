@@ -269,3 +269,9 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 - **“解包即成功”是误判**：有 shell/服务/漏洞证据才算完成，否则只算侦察。
 - 硬件操作先备份、先量电压、先共地；写操作只在授权且可恢复的设备上做。
 - 所有结论标明 E0–E3 与 J1/J2/J3；未验证项写“未验证”，不臆造。
+
+## 子技能（按需读，不常驻）
+
+本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+
+- `_pending/00-triage/SKILL.md` —— 先出固件/设备画像
