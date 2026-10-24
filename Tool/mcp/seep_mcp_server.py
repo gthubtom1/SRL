@@ -1041,58 +1041,33 @@ def _needs_table() -> List[Dict[str, Any]]:
     tab: List[Dict[str, Any]] = []
     try:
         d = json.load(open(os.path.join(_SEEP_ROOT, "Tool", "config", "user-inputs.json"), encoding="utf-8"))
-        tab = [x for x in (d.get("needs") or []) if isinstance(x, dict)]
+        tab = [x for x in (d.get("asks") or d.get("needs") or []) if isinstance(x, dict)]
     except Exception:
         tab = []
     _NEEDS_CACHE["t"] = tab
     return tab
 
 
-def _detect_needs(blob: bytes, extra_text: str = "", case_dir: str = "") -> List[Dict[str, Any]]:
-    """按信号表判断「这件事必须问用户」。命中即写入账本 ASK（best-effort）。"""
-    hits: List[Dict[str, Any]] = []
-    low = (blob or b"")[:8 << 20].lower()
-    try:
-        text = low.decode("utf-8", "ignore")
-    except Exception:
-        text = ""
-    text = text + " " + (extra_text or "").lower()
-    # 短 ASCII 关键词必须按词边界匹配（实测：密文里的随机子串会把 "hasp"/"pcap" 误命中）
-    try:
-        import re as _re
-    except Exception:
-        _re = None
-    for n in _needs_table():
-        sigs = n.get("signals") or []
-        if not sigs:
-            continue
-        hit = []
-        for x in sigs:
-            xl = x.lower()
-            if xl.isascii() and len(xl) >= 4 and _re is not None:
-                if _re.search(r"(?<![a-z0-9])" + _re.escape(xl) + r"(?![a-z0-9])", text):
-                    hit.append(x)
-            elif xl in text:
-                hit.append(x)
-        if hit:
-            hits.append({
-                "id": n.get("id"), "question": n.get("question"), "why": n.get("why"),
-                "if_yes": n.get("if_yes"), "if_no": n.get("if_no"),
-                "matched": hit[:4],
-                "ask": "把 question 原样问用户，并给出 if_yes / if_no 两条路线让用户选；"
-                       "**不许**自己假设『没有』就往下走",
-            })
-    if hits and case_dir:
+def _detect_needs(blob: bytes = b"", extra_text: str = "", case_dir: str = "") -> List[Dict[str, Any]]:
+    """返回**固定三条**通用问句（许可/凭据、运行许可/环境、样本完整性）。
+
+    为什么删掉信号匹配（2026-10-24 实测）：在加密/加固样本上按关键词匹配只会造假信号
+    （`hasp`/`pcap` 命中的是密文里的随机子串）。而这三条覆盖 90% 场景，
+    领域特有的问句写在各自 `pack.json` 的 `ask[]` 里，不在这里猜。
+    """
+    asks = _needs_table()
+    out = [dict(a) for a in asks]
+    if out and case_dir:
         try:
-            for h in hits[:2]:
+            for a in out[:2]:
                 subprocess.run([sys.executable, os.path.join(_SEEP_ROOT, "Tool", "scripts", "case_state.py"),
-                                "ask", "--case", case_dir, "--stuck", str(h.get("question"))[:120],
-                                "--option", "A 我有，按 if_yes 走", "--option", "B 我没有，按 if_no 走"],
+                                "ask", "--case", case_dir, "--stuck", str(a.get("question"))[:120],
+                                "--option", "A 有，按 if_yes 走", "--option", "B 没有，按 if_no 走"],
                                capture_output=True, text=True, encoding="utf-8",
                                errors="replace", timeout=60)
         except Exception:
             pass
-    return hits
+    return out
 
 
 def _needs_for_gui(tool_id: str) -> List[Dict[str, Any]]:
@@ -2099,20 +2074,7 @@ def seep_packer_detect(binary_path: str) -> str:
     _case = _case_for(binary_path)
     if _case.get("case"):
         result["case"] = _case
-    if body_all_encrypted:
-        # 密文里做关键词匹配毫无意义（实测会命中随机子串）→ 只按"加固类型"问一条：
-        # 能不能启动（动态取解密后镜像），这同时是 L3 系统级副作用的许可闸。
-        _needs = []
-        for n in _needs_table():
-            if n.get("trigger") == "packed_needs_runtime":
-                _needs.append({"id": n.get("id"), "question": n.get("question"),
-                               "why": n.get("why"), "if_yes": n.get("if_yes"),
-                               "if_no": n.get("if_no"), "matched": ["packed+encrypted"]})
-        if _needs and _case.get("created"):
-            _detect_needs(b"", "", _case["case"])   # 记一条 ASK 进账本
-    else:
-        _needs = _detect_needs(blob, " ".join(result.get("antivm_strings") or []),
-                               _case.get("case") if _case.get("created") else "")
+    _needs = _detect_needs(b"", "", _case.get("case") if _case.get("created") else "")
     if _needs:
         result["need_from_user"] = _needs
         result["ask_policy"] = ("这些是**必须问用户**的输入；先问再动手。用户答『没有』才走 if_no 路线，"

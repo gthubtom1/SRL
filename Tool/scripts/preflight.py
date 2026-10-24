@@ -1052,36 +1052,35 @@ def check_tool_cache_contract():
 
 
 def check_need_ask_contract():
-    """「缺输入就问」的契约：需求表每条都有问句+为什么+两条路线；工具必须暴露 need_from_user。
+    """「缺输入就问」的单一判据：3 条通用问句结构完整 + 工具已接线。
 
-    背景（2026-10-24）：那个会话全程没问过一句（卡密/账号/是否允许启动），自己假设"没有"就往下走
-    —— 方向赌在猜测上。'有没有卡密'会整条换路线，属于必须先问的一类。
+    为什么合成一条：这条规则的本质只有一句「该问就要问」，
+    拆成两条检查（表结构 / 代码接线）只会增加维护面，不增加信号。
     """
     import json as _j
-    p = os.path.join(TOOL, "config", "user-inputs.json")
     bad = []
     n = 0
     try:
-        tab = _j.load(open(p, encoding="utf-8")).get("needs") or []
+        tab = _j.load(open(os.path.join(TOOL, "config", "user-inputs.json"),
+                           encoding="utf-8")).get("asks") or []
         for x in tab:
             n += 1
-            for k in ("id", "question", "why", "if_yes", "if_no"):
+            for k in ("id", "title", "question", "why", "if_yes", "if_no"):
                 if not str(x.get(k) or "").strip():
                     bad.append("%s 缺 %s" % (x.get("id", "?"), k))
-            if not (x.get("signals") or x.get("trigger")):
-                bad.append("%s 既无 signals 也无 trigger" % x.get("id", "?"))
+        if not (2 <= n <= 5):
+            bad.append("问句条数 %d 不在 2–5（多则噪声、少则漏）" % n)
     except Exception as e:  # noqa: BLE001
         bad.append("需求表读失败 %s" % e)
-    add("14 MCP 契约", "缺输入就问（需求表结构 + 工具暴露 need_from_user）", not bad,
-        "；".join(bad[:4]) if bad else "%d 条需求，全部含问句/理由/两条路线" % n)
     try:
         srv = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
-        need = ["_detect_needs(", "need_from_user", "_case_for(", "SEEP_AUTOCASE"]
-        miss = [x for x in need if x not in srv]
-        add("14 MCP 契约", "自动建案 + 缺输入就问已接线（禁止无账本干活）", not miss,
-            "缺: " + ", ".join(miss) if miss else "packer_detect / triage 均返回 case 与 need_from_user")
+        for x in ("_detect_needs(", "need_from_user", "_case_for(", "SEEP_AUTOCASE"):
+            if x not in srv:
+                bad.append("MCP 未接线 %s" % x)
     except Exception as e:  # noqa: BLE001
-        add("14 MCP 契约", "自动建案 + 缺输入就问已接线", False, str(e)[:80])
+        bad.append("MCP 读失败 %s" % e)
+    add("14 MCP 契约", "缺输入就问（%d 条通用问句 + 工具接线 + 自动建案）" % n, not bad,
+        "；".join(bad[:4]) if bad else "许可/运行环境/样本完整性 三问，packer_detect 与 triage 均返回 need_from_user")
 
 
 def check_cross_layer():
