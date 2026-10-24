@@ -1,17 +1,9 @@
 {
   "schema": "seep.tool-effects/1",
-  "note": "D1：每个 @server.tool() 必须在此登记，缺一条 server 在 import 期抛错（起不来）。\n含义 —— mutates_target: 改目标文件；writes_filesystem: 落盘；executes_foreign_code: 起子进程；\ntouches_network: 主动联网；may_discard_data: 可能删/覆盖数据。默认全 false，拿不准的按 true 记。",
   "tools": {
     "seep_apk_decompile": {
       "writes_filesystem": true,
       "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_apk_gen_hook": {
-      "writes_filesystem": true,
-      "executes_foreign_code": false,
       "touches_network": false,
       "mutates_target": false,
       "may_discard_data": false
@@ -51,27 +43,6 @@
       "mutates_target": false,
       "may_discard_data": false
     },
-    "seep_case_search": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_create_skill": {
-      "writes_filesystem": true,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_decompile_auto": {
-      "writes_filesystem": false,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
     "seep_ensure_tool": {
       "writes_filesystem": true,
       "executes_foreign_code": true,
@@ -90,27 +61,6 @@
       "writes_filesystem": true,
       "executes_foreign_code": false,
       "touches_network": true,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_ida_status": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": true,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_kb_checklist": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_kb_payloads": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": false,
       "mutates_target": false,
       "may_discard_data": false
     },
@@ -149,20 +99,6 @@
       "mutates_target": false,
       "may_discard_data": false
     },
-    "seep_pe_resources": {
-      "writes_filesystem": true,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_r2_asm": {
-      "writes_filesystem": false,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
     "seep_r2_cmd": {
       "writes_filesystem": false,
       "executes_foreign_code": true,
@@ -177,21 +113,7 @@
       "mutates_target": false,
       "may_discard_data": false
     },
-    "seep_r2_diff": {
-      "writes_filesystem": false,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
     "seep_r2_disasm": {
-      "writes_filesystem": false,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_r2_functions": {
       "writes_filesystem": false,
       "executes_foreign_code": true,
       "touches_network": false,
@@ -212,75 +134,13 @@
       "mutates_target": false,
       "may_discard_data": false
     },
-    "seep_r2_xrefs": {
-      "writes_filesystem": false,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_status": {
-      "writes_filesystem": false,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_task_init": {
-      "writes_filesystem": true,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_tool_control_plan": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
     "seep_tool_discover": {
       "writes_filesystem": false,
       "executes_foreign_code": false,
       "touches_network": false,
       "mutates_target": false,
       "may_discard_data": false
-    },
-    "seep_tool_install": {
-      "writes_filesystem": true,
-      "executes_foreign_code": true,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_tool_register_mcp": {
-      "writes_filesystem": true,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_tool_research": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_tool_state": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": false,
-      "mutates_target": false,
-      "may_discard_data": false
-    },
-    "seep_web_recon": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
-      "touches_network": true,
-      "mutates_target": false,
-      "may_discard_data": false
     }
-  }
+  },
+  "_note": "D1：每个 @server.tool() 必须在此登记，缺一条 server 在 import 期抛错（起不来）。\n含义 —— mutates_target: 改目标文件；writes_filesystem: 落盘；executes_foreign_code: 起子进程；\ntouches_network: 主动联网；may_discard_data: 可能删/覆盖数据。默认全 false，拿不准的按 true 记。"
 }

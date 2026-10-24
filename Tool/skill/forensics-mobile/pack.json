@@ -29,7 +29,7 @@
   "tools": [
     "seep_pcap_extract",
     "seep_mem_strings",
-    "seep_pe_resources"
+    "seep_r2_cmd"
   ],
   "cases": [
     "forensics01",

@@ -176,7 +176,6 @@
     "done"
   ],
   "tools": [
-    "seep_case_search",
     "seep_case_read",
     "seep_kb_search",
     "seep_gen_security_report"

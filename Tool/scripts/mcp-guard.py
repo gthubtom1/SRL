@@ -70,11 +70,16 @@ def check():
     if base is None:
         problems.append("基线缺失：先跑 `python Tool/scripts/mcp-guard.py --baseline`（当前基线为自生成，只能保证此后只增）")
     else:
+        # 缩容不再一律红：BLUEPRINT §3.3 要求工具面 40→≤16，缩容是**计划内**动作。
+        # 判据：消失的每个工具都必须在 reductions[].removed 里登记（带 date + reason），
+        # 否则仍是 RED —— 「可以缩，但不许静默缩」。
+        approved = {n for r in (base.get("reductions") or []) for n in (r.get("removed") or [])}
         lost = [n for n in base.get("tools", []) if n not in names]
-        if lost:
-            problems.append("基线里的工具消失了（违反『只许追加』）：" + "、".join(lost))
-        if len(names) < int(base.get("count", 0)):
-            problems.append("工具数量从 %s 降到 %s（只许增加）" % (base.get("count"), len(names)))
+        unapproved = [n for n in lost if n not in approved]
+        if unapproved:
+            problems.append("基线里的工具静默消失（违反『只许追加』）：" + "、".join(unapproved))
+        if len(names) < int(base.get("count", 0)) and unapproved:
+            problems.append("工具数量从 %s 降到 %s，且缩容未登记" % (base.get("count"), len(names)))
     if begins != ends:
         problems.append(f"SEEP-EXT 标记不成对：BEGIN {begins} / END {ends}")
 

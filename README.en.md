@@ -118,7 +118,7 @@ User Input (plain language — "bypass the premium check in FooBar.apk")
          │                  │                    │
          ▼                  ▼                    ▼
    seep MCP            IDA Pro MCP         KB Search
-   40 tools            (optional)          412 journals
+   20 tools            (optional)          412 journals
    (Radare2/JADX/                          (Zero-Waste Recon)
     Apktool/Frida)
          │

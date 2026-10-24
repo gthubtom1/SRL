@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/MCP%20工具-40%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/MCP%20工具-20%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
   <img src="https://img.shields.io/badge/健康体检-65%2F65%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-412%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
@@ -45,7 +45,7 @@
 
 > ## 现状卡（冷启动只看这几行）
 >
-> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（31 技能 / 11 域 / 24 配方 / 40 个 MCP 工具）
+> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（31 技能 / 11 域 / 24 配方 / 20 个 MCP 工具）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
 > - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 55/55、domain-gate 110/110、verify 65/0、smoke-e2e 12/12
 > - **先读**：[`docs/FORK-BRIEF.md`](docs/FORK-BRIEF.md)（差异/需求/契约/债务）→ [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)（最近交付台账）
@@ -71,7 +71,7 @@
 > **本仓库 = 原版 Seep v1.6.0 + 一批“纯增量”扩展（升级到 v1.26.1）。**
 > 原版的一切能力、体检、案例、知识库完整保留；我们只在其上补了原版没有的场景。
 
-**加了什么（23 → 40 个 MCP 工具，全部纯增量）**：
+**加了什么（23 → 20 个 MCP 工具，全部纯增量）**：
 
 | 新增能力 | 工具 | 治原版的什么空白 |
 |---|---|---|
@@ -99,7 +99,7 @@
 | **接力棒（换会话先读）** | `ROADMAP.md`（现在能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore），不再随仓库分发 |
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
 | **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **55/55**、`--fast` **52/52**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
-| **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 40 工具数基线，防「模型第一次调用就传错参数」 |
+| **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 20 工具数基线，防「模型第一次调用就传错参数」 |
 | **技能路由探针** | `skill-route-probe.py`：39 条大白话 → 技能命中（`master-route.ps1` 视角），防 CJK 边界导致掉兜底 |
 | **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |
 | **固件/物联网无线近场** | `firmware-iot` 新增 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC 章节 |
@@ -133,7 +133,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
 
 | 痛点 | 解决方案 |
 |---|---|
-| 🔧 **工具链高度碎片化** | 40 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
+| 🔧 **工具链高度碎片化** | 20 个 MCP 工具封装 Radare2/JADX/Apktool/Frida，统一调度，零手动切换 |
 | 🧠 **大模型缺乏决断逻辑** | `softseep` 总控：两级自动判型（平台 × 9 类业务）+ 七道门决策树 |
 | 🛡️ **云端模型频繁拒绝** | 三层保险：底座级 `BLOCK_NONE` 注入 + 动态口语合规转译 + 推理级思维重定向 |
 | 📚 **实战经验无法沉淀** | 412 篇战术实战笔记 + 14 大脱敏工业范式 + "先查知识库再动手"强制纪律 |
@@ -164,7 +164,7 @@ git fetch upstream && git checkout -b pure upstream/main   # 这就是无任何�
           │                │                  │
           ▼                ▼                  ▼
     seep MCP          IDA Pro MCP         知识库检索
-    40 个工具          (可选联动)          412 篇战术笔记
+    20 个工具          (可选联动)          412 篇战术笔记
     (R2/JADX/                             (Zero-Waste Recon)
      Apktool/Frida)
           │
@@ -258,7 +258,7 @@ Seep\ (251 MB)
 │   │   └── safe-skills\           ← 5 个独立战术工具包（含 ida-assistant）
 │   │
 │   ├── mcp\                       ← MCP 服务引擎
-│   │   ├── seep_mcp_server.py     ← 核心服务端，40 个底层分析工具
+│   │   ├── seep_mcp_server.py     ← 核心服务端，20 个底层分析工具
 │   │   └── Tool\                  ← ⚠️ 硬编码相对路径，必须原地保留（重命名/搬移会断链）
 │   │       ├── safe\              ← 物理内置工具箱
 │   │       │   ├── jadx\          ← 75 MB（v1.5.6）
@@ -308,7 +308,7 @@ Seep\ (251 MB)
 
 ## 🛠️ MCP 工具矩阵
 
-自研 `seep` MCP 服务暴露 **40 个原生工具**，分八大功能组：
+自研 `seep` MCP 服务暴露 **20 个原生工具**，分八大功能组：
 
 | 分类 | 工具 | 核心功能 | 上下文控制 |
 |---|---|---|---|

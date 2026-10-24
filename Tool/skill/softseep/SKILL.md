@@ -274,29 +274,51 @@ metadata:
 | | [`references/tools/tool-js-reverse.md`](references/tools/tool-js-reverse.md) | 前端签名链路时 | JS 逆向 + 补环境复现 |
 | | [`references/tools/tool-binary-diff.md`](references/tools/tool-binary-diff.md) | 跨版本/补丁差分时 | 符号迁移 / AOB 特征迁移 |
 | **归档区（不索引、不路由）** | `_pending/` | `Tool/skill/_pending/` | 8 个阶段文案（00-analysis…05-backend-rebuild）+ ad-cloud / llm-security / site-clone / unpack-loop / plugin-targets / version-migration / signin-automation / client-license-validation-bypass / doc-hygiene / safe-skills；**需要时按路径直接读，不参与路由** |
-| **MCP** | **seep**（40 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
+| **MCP** | **seep**（20 工具） | `seep_r2_*` / `seep_apk_*` / `seep_kb_*` + 扩展工具（见下） | 二进制 + APK + 知识库 + 协议/资源/内存/加壳/工具发现 |
 | | **ida**（~243 工具） | `mcp__ida__*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **运行时** | `Tool/mcp/Tool/` | `safe/`（radare2/jadx/apktool/hook 模板）+ `reverselab/`（KB/boards/MCP 源码） | **严禁搬动或改名**（MCP 内部 `TOOL_DIR` 硬编码） |
 | **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
 | | `Tool/scripts/apk/` | `decode.ps1` / `rebuild-sign-install.ps1` / `frida-run.ps1` | APK 三件套 |
 | **知识库** | reverselab | `Tool/mcp/Tool/reverselab/kb/`（409 篇 .md） | 攻防方法论 |
-| | seep KB | `seep_kb_search` / `_read` / `_checklist` / `_payloads` | 在线检索 |
+| | seep KB | `seep_kb_search` / `seep_kb_read` | 在线检索（清单与 payload 直接读正文）|
 
-### 扩展工具速查（8 个，按场景直接调）
+### 工具速查（20 个，按场景直接调）
 
-> 这些是 seep MCP 里的扩展工具，解决原版没有的“资源/内存/协议/加壳/工具发现”场景。**遇到对应场景直接调，不要手搓。**
+> S4 工具面 40→20：**每个工具都必须能对上判据**（产出的结论必须能被 facts 背书）。
+> 被删的 20 个不是能力消失，而是改走命令行：见下表「替代」。
 
 | 场景 | 调用 | 说明 |
 |---|---|---|
-| 不知道用哪个反编译引擎 / 缺商业工具 | `seep_decompile_auto(path, target, output_mode)` | 按 IDA→Ghidra/REA→R2 降级（无高阶引擎时落 r2 出真伪代码） |
-| 缺工具 / 不知装没装 | `seep_ensure_tool(tool_id, allow_install)` | 四级探测（env→PATH→map→scan）；缺工具给 install_plan |
-| 资源里藏载荷（皮肤包/内嵌 DLL） | `seep_pe_resources(path, extract_dir)` | 枚举 PE 资源树+节熵+容器嗅探，可剥离 |
-| 字符串运行期才解密 | `seep_mem_strings(pid, pattern)` | 只读扫活体进程内存，提 ASCII/UTF-16 + 虚拟地址 |
-| 卡密/授权在云端 | `seep_pcap_extract(pcap, mode)` | 提取端点/HTTP/指定端口 TCP 载荷 |
-| 判壳 / 反调试 / 反虚拟机 | `seep_packer_detect(path)` | 节名/节熵+反调试导入+反虚拟机 → 手册路由 |
-| 协议签到 / 接口重放 / 回包验证 | `seep_http_replay(url, method, headers, cookies, body, impersonate)` | curl_cffi TLS 指纹伪装 + Cookie 会话保持 |
-| Web 目标指纹/安全头/入口发现 | `seep_web_recon(url)` | 只读侦察（不攻击） |
+| 判载体 / 架构 / 安全缓解 | `seep_r2_info(path)` | r2 `iI`（arch/bits/canary/nx/pic/stripped）|
+| 任意 r2 命令（万能入口） | `seep_r2_cmd(path, command)` | `afl` / `axt` / `axf` / `iS` / `px` / `rasm2` / `iR` 全走这里 |
+| 反汇编一个函数 | `seep_r2_disasm(path, target, output_mode)` | full / branch / summary 三档 |
+| 反编译伪代码 | `seep_r2_decompile(path, target, output_mode)` | 多引擎不可用时落 r2 |
+| 字符串 | `seep_r2_strings(path, filter_text, all_sections)` | `-z` / `-zz` |
+| 判壳 / 反调试 / 反虚拟机 | `seep_packer_detect(path)` | 节名/节熵 + 反调试导入 |
+| 静态分诊（哈希+画像+特征串） | `seep_auto_triage(path)` | 无 rabin2 且零命中 → `ok:false`（S2）|
+| 出报告 | `seep_gen_security_report(...)` | 无 observed 证据 → `ok:false`（S2）|
+| APK 结构 / 解包 / 反编译 / smali 检索 | `seep_apk_info` `seep_apk_unpack` `seep_apk_decompile` `seep_apk_smali_search` | 四件套 |
+| 活体进程内存串 | `seep_mem_strings(pid, pattern)` | 只读扫 ASCII/UTF-16 |
+| 抓包提取端点/载荷 | `seep_pcap_extract(pcap, mode)` | 端点 / HTTP / 指定端口 TCP |
+| 接口重放 / 签名验证 | `seep_http_replay(url, ...)` | TLS 指纹伪装 + Cookie 会话 |
+| 案例检索 / 读取 | `seep_case_read(case_id)` | 全量索引用 `case_state.py index` |
+| 知识库 | `seep_kb_search` / `seep_kb_read` | 检索 → 读正文 |
+| 缺工具 / 工具路径探测 | `seep_tool_discover` / `seep_ensure_tool` | 八层探测；装软件仍走 `tool-acquire.py`（ASK）|
+
+**被删的 20 个 → 替代**（都在 `git log` 里，删的理由写在该 commit）：
+
+| 已删 | 替代 |
+|---|---|
+| `seep_status` / `seep_ida_status` / `seep_tool_state` | `python Tool/scripts/mcp-doctor.py` |
+| `seep_r2_functions` / `_xrefs` / `_asm` / `_diff` | `seep_r2_cmd(afl / axt / axf / rasm2)`；diff 用 `radiff2` CLI |
+| `seep_kb_checklist` / `seep_kb_payloads` | `seep_kb_read`（清单与 payload 本来就是 KB 正文）|
+| `seep_apk_gen_hook` | Frida 模板在 `Tool/mcp/Tool/safe/hook-mcp/` |
+| `seep_web_recon` / `seep_pe_resources` / `seep_decompile_auto` | `seep_r2_cmd` / `seep_r2_decompile` |
+| `seep_case_search` | `python Tool/scripts/case_state.py index [--json]` |
+| `seep_task_init` | `mkdir -p <task>/{samples,exports,patches,reports}` |
+| `seep_tool_install` / `_register_mcp` / `_research` / `_control_plan` | `python Tool/scripts/tool-acquire.py --tool <id>`（装/注册一律 ASK）|
+| `seep_create_skill` | 手写 `pack.json` + `SKILL.md`（**加技能不再零成本**，这是刻意的）|
 
 ### 工具自动发现与自动适配 MCP（新增 6 个，2026-10）
 

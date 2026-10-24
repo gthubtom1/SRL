@@ -178,11 +178,11 @@ Tool/config/{tool-effects.json, refusal-matrix.json, packs.baseline.json}
 | `#22` 案例真实性三分 | 只校验枚举值，标 `real` 即过 | **改**：`evidence_kind` 变**计算值**（facts 里 authority 统计）；无 facts → `unverified` |
 | `#41` 每叶有见证物 | witness 只是非空字符串 | **删**（`path-walk.py` 一并删）；由 G4 替代 |
 | `#42` 缺 fixture ≤ 基线 | 24 ≤ 24 等号通过 | **删**；G4 要求每包 witness 必有 fixture |
-| `#43` 只测生效 | `allowed_fail=[L3,L4,L8]`，L3="40 工具 0 调用"被永久豁免 | **改**：G9，递减预算 |
+| `#43` 只测生效 | `allowed_fail=[L3,L4,L8]`，L3="20 工具 0 调用"被永久豁免 | **改**：G9，递减预算 |
 | `#9` mcp-doctor | 只要 stdout 能 `json.loads` 就过 | **降级**：并入 `doctor.py` |
 | `#8`/`#3` 平台 parity | 环境缺失时 `add(..., True, "skipped")` | **改**：环境缺失 = `unsupported` = **红**（unknown 永不记 pass） |
 | `#7` 无机器绝对路径 | 只扫 4 个目录；宿主 `~/.pi/agent/mcp.json` 硬编码不在范围；7 条 `portable_allow` **整文件**豁免 | **改**：扫 `git ls-files` 全量；豁免粒度降为"行 + reason + sha" |
-| `#33` MCP 契约 | 纯静态 AST，40 工具可调用性从未验证 | **改**：G7（登记即启动）+ G8（每工具一次活调用） |
+| `#33` MCP 契约 | 纯静态 AST，20 工具可调用性从未验证 | **改**：G7（登记即启动）+ G8（每工具一次活调用） |
 | `#48` out-artifact | `rc in (0,3)`，目标连不上也算 PASS | **改**：只接受 rc=0 + ≥1 artifact + 入 MANIFEST |
 | `#2` 文档数字 vs 实测 | "实测"全由本仓自身推算，文档与代码自洽即绿 | **删**（文档取消一切计数；数字只在 `doctor.py` 输出） |
 
