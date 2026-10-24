@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "_说明": "触发面探针：固定一组【用户真实说法】，逐层验证模型能不能靠这些说法找到正确的东西。这是『一次性揪出所有触发问题』的清单——以后加任何触发面（技能/KB/样本/路由），都必须在这张表里全部命中。",
+  "_为什么": "2026-10-24 实测：skill description 写的是名词清单、route.py 表里没有口语、KB search 只认术语 —— 同一类病在三个地方各犯一次，因为之前没有一张跨层的探针表。",
+  "probes": [
+    {"phrase": "初步分析一下这个软件", "expect_skill": "softseep", "expect_kb": "脱壳 OEP dump"},
+    {"phrase": "看看这个exe是不是壳", "expect_skill": "softseep", "expect_kb": "PE 脱壳 内存 dump"},
+    {"phrase": "能不能打补丁改成我自己的", "expect_skill": "softseep", "expect_kb": "patch 补丁 等长"},
+    {"phrase": "这软件要卡密怎么破", "expect_skill": "softseep", "expect_kb": "license 卡密 绕过"},
+    {"phrase": "能不能去广告改会员", "expect_skill": "apkseep", "expect_kb": "APK 重打包 签名"},
+    {"phrase": "这个 apk 脱壳", "expect_skill": "apkseep", "expect_kb": "dex 脱壳"},
+    {"phrase": "帮我测这个站有没有注入", "expect_skill": "web-pentest", "expect_kb": "SQL 注入"},
+    {"phrase": "这个接口能越权吗", "expect_skill": "web-pentest", "expect_kb": "越权 IDOR"},
+    {"phrase": "这个样本是不是病毒", "expect_skill": "malware-analysis", "expect_kb": "yara 规则"},
+    {"phrase": "分析这个固件", "expect_skill": "firmware-iot", "expect_kb": "固件解包"},
+    {"phrase": "这个协议怎么构造请求", "expect_skill": "protocol-plugin", "expect_kb": "协议 逆向"},
+    {"phrase": "这道题能不能打通", "expect_skill": "pwn-crypto", "expect_kb": "ROP 栈溢出"},
+    {"phrase": "分析这个内存镜像", "expect_skill": "forensics-mobile", "expect_kb": "内存取证"},
+    {"phrase": "审计这个仓库依赖", "expect_skill": "supply-chain-security", "expect_kb": "SBOM 供应链"}
+  ]
+}

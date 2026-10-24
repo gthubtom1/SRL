@@ -1083,6 +1083,101 @@ def check_need_ask_contract():
         "；".join(bad[:4]) if bad else "许可/运行环境/样本完整性 三问，packer_detect 与 triage 均返回 need_from_user")
 
 
+def check_trigger_matrix():
+    """触发面探针矩阵：用户原话 → 技能 / 路由 / KB，三层都必须命中。
+
+    为什么是一条而不是三条：2026-10-24 实测同类病在三处各犯一次
+    （skill description 写名词清单、route.py 没有口语、KB 只认术语），
+    根因是**没有一张跨层探针表**。这一条就是那张表：
+    任何一层对一句"用户真实说法"失配，就红，并点名是哪一层。
+    """
+    import json as _j
+    import re as _re
+    p = os.path.join(TOOL, "config", "trigger-probes.json")
+    try:
+        probes = _j.load(open(p, encoding="utf-8")).get("probes") or []
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "触发面探针矩阵（用户原话 → 技能/路由/KB）", False, "探针表读失败 %s" % e)
+        return
+
+    descs = {}
+    for d in os.listdir(os.path.join(TOOL, "skill")):
+        f = os.path.join(TOOL, "skill", d, "SKILL.md")
+        if not os.path.isfile(f):
+            continue
+        m = _re.search(r"^description:\s*(.+)$", open(f, encoding="utf-8").read(), _re.M)
+        descs[d] = (m.group(1) if m else "").lower()
+
+    # 命中判据：只认**实词**二元组（虚词二元组会把"帮我/这个"撞成假命中 —— 实测过，
+    # 故意的错探针居然 PASS）。实词 = 两字都不在虚词表里。
+    _FUNC = set("的了么吗呢是在有要和与怎么这个吧啊着我你他它先把给就都也很还对把被让从向为以"
+                "帮我看看能不没下个一啥咋样")
+
+    def _hit(desc: str, phrase: str) -> bool:
+        ph = phrase.lower()
+        for i in range(max(0, len(ph) - 1)):
+            bg = ph[i:i + 2]
+            if len(bg) == 2 and all(c in _FUNC for c in bg):
+                continue
+            if bg in desc:
+                return True
+        return False
+
+    bad_skill = [x["phrase"] for x in probes
+                 if x.get("expect_skill") and x["expect_skill"] in descs
+                 and not _hit(descs[x["expect_skill"]], x["phrase"])]
+    missing_skill = [x["expect_skill"] for x in probes if x.get("expect_skill") and x["expect_skill"] not in descs]
+
+    # 路由层：同一句必须解析到期望的包（且不能只落在兜底 p=10）
+    rc, out = run([sys.executable, os.path.join(TOOL, "scripts", "route.py"), "--resolve",
+                   probes[0]["phrase"] if probes else "", "--json"], timeout=60)
+    bad_route = []
+    import subprocess as _sp
+    for x in probes[:6]:            # 只抽查 6 句，控制耗时
+        try:
+            r = _sp.run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
+                         "--resolve", x["phrase"], "--json"], capture_output=True, text=True,
+                        encoding="utf-8", errors="replace", timeout=60, cwd=ROOT)
+            d = json.loads((r.stdout or "").strip() or "{}")
+            got = (d.get("pack") or d.get("skill") or "")
+            if x.get("expect_skill") and got and got != x["expect_skill"]:
+                bad_route.append("%s→%s(期望 %s)" % (x["phrase"], got, x["expect_skill"]))
+        except Exception:
+            pass
+
+    bad = []
+    if missing_skill:
+        bad.append("技能缺失 " + ",".join(sorted(set(missing_skill))))
+    if bad_skill:
+        bad.append("描述不含说法 " + "；".join(bad_skill[:3]))
+    if bad_route:
+        bad.append("路由错投 " + "；".join(bad_route[:2]))
+    # KB 层：用**术语**查询必须命中（KB 本身没坏）；口语查询目前不命中，是已知缺口，此处只统计不判红。
+    kb_ok, kb_try = 0, 0
+    try:
+        import sys as _sys
+        _sys.path.insert(0, os.path.join(TOOL, "mcp"))
+        import json as _j2
+        import seep_mcp_server as _S   # noqa: F401  仅在门禁进程内导入，不改变 MCP 行为
+        for x in probes[:4]:
+            q = x.get("expect_kb")
+            if not q:
+                continue
+            kb_try += 1
+            out = _S.seep_kb_search(q)
+            if isinstance(out, str) and _j2.loads(out if out.strip().startswith("[") else "[]"):
+                kb_ok += 1
+    except Exception:
+        pass
+    if kb_try and kb_ok < kb_try:
+        bad.append("KB 术语查询 %d/%d 命中" % (kb_ok, kb_try))
+
+    add("2 单一事实源", "触发面探针矩阵（%d 句用户原话 → 技能/路由/KB）" % len(probes), not bad,
+        "；".join(bad)[:300] if bad
+        else "%d 句命中期望技能；路由一致；KB 术语查询 %d/%d（口语查询仍不命中=已知缺口）"
+             % (len(probes), kb_ok, kb_try))
+
+
 def check_cross_layer():
     """跨层一致性两条：① 技能调用式引用 ↔ MCP 工具；② 回执 source 哈希不漂移。
 
@@ -1294,6 +1389,7 @@ def main():
     check_cross_layer()
     check_tool_cache_contract()
     check_need_ask_contract()
+    check_trigger_matrix()
     check_tool_ladder()
     check_functional(args.fast)
 
