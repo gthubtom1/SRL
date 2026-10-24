@@ -24,6 +24,17 @@ metadata:
 Goal: reach a **verified, installable, still-working artifact** fast — and avoid the whole class of
 mistakes that destroy an APK while looking completely healthy.
 
+## 操作坑（架构层，不是某个样本的问题）
+
+1. **aapt 在 GBK 环境下打不开中文路径**：对含中文的路径直接 `aapt dump badging` 会报
+   `Illegal byte sequence` / `no AndroidManifest.xml found`。**先复制到 ASCII 路径**再跑，
+   否则会误判成「这个 APK 没有 manifest」。
+2. **关键词命中 ≠ 加固**：`StubApp` 在普通应用里也可能是系统 launcher 的类名
+   （实测上下文 `com.google.android.launcher/.StubApp`）。判加固要看**上下文 + 壳入口类 + so 名**，
+   不能只数关键词；`libexec` / `libcompress` 这类名字也要落到具体 ABI 与导出符号再定性。
+3. **判据要 dex 与 so 两边都搜**：root 检测/密钥线索可能只在 dex（`/system/xbin`），
+   也可能只在 so（`ptrace`/`fork`）。只搜一边会得出「没有检测」的错误结论。
+
 ## 阶段契约（与 softseep 一致，**先判再做**）
 
 ① 先摸清能不能测（仪器/授权位置/是否服务端权威）→ ② 给**裁定**（可赢 / 部分可赢 / 不可赢）+ **交付上限 M1–M4** → ③ 按上限执行。
