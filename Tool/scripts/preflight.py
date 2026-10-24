@@ -1110,6 +1110,21 @@ def check_case_contract_files():
         not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
 
 
+def check_skill_import():
+    """导入外部技能的通道必须可用（用户只说一句"加这个技能"，剩下由工具+Agent 完成）。
+
+    这条守的是"零基础用户不手改文件"的能力：判定域/子技能、落位、部署、收尾清单。
+    坏掉的表现是"用户不得不自己改格式"——那就退回手工作坊。
+    """
+    sp = os.path.join(TOOL, "scripts", "skill-import.py")
+    if not os.path.isfile(sp):
+        add("2 单一事实源", "外部技能导入通道（判定域/子技能 + 落位 + 部署）", False, "缺 skill-import.py")
+        return
+    rc, out = run([sys.executable, sp, "--selftest"], timeout=180)
+    add("2 单一事实源", "外部技能导入通道（判定域/子技能 + 落位 + 部署）", rc == 0,
+        (out or "").strip().splitlines()[-1][:110] if out else "rc=%d" % rc)
+
+
 def check_dropin_skills():
     """拖拽式加技能：任何丢进技能目录的东西，只要是合法 SKILL.md 就能用（不跑脚本、不改配置）。
 
@@ -1593,6 +1608,7 @@ def main():
     check_trigger_matrix()
     check_route_first_contract()
     check_dropin_skills()
+    check_skill_import()
     check_case_contract_files()
     check_tool_ladder()
     check_functional(args.fast)

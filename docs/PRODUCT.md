@@ -195,3 +195,28 @@ Tool/skill/<名>/SKILL.md  ──gen-commands.py──▶  Tool/prompts/tasks/<�
 | 深度超出能力（服务端权威、强壳无样本） | **明说上限**（M1/M2），并给天花板原因 | 不许谎报 |
 
 一句话：**能自己做的不问，做不了的不硬撑，越界的先问。**
+
+## 16. 加技能：用户只说一句话（2026-10-24 定）
+
+**原则：用户不该懂格式。** 他说「我要加这个技能 <路径/链接>」，剩下的判定/改造/安装/验证都是 Agent 的事。
+
+```bash
+python Tool/scripts/skill-import.py --from <目录或 SKILL.md> [--dry-run]
+```
+
+它做四件事（机械、可校验）：
+
+| 步 | 做什么 | 判据 |
+| :-: | :-- | :-- |
+| ① | 校验 frontmatter（`name` + `description` 必须齐） | 缺 description 直接拒（它是模型选中它的唯一依据） |
+| ② | **判定域 / 子技能** | 正文 ≥120 行、覆盖 ≥3 种后缀、≥4 类技法 ⇒ 域技能；否则子技能 |
+| ③ | 放到正确位置 | 域 → `Tool/skill/<名>/`；子 → `Tool/skill/_pending/<名>/` |
+| ④ | 域技能自动部署 | 拷到 `~/.pi/agent/skills/<名>/` → 下次会话自动加载 |
+
+然后打印**收尾清单**（给 Agent 看的，用户不用管）：
+1. 描述要不要改写成"用户原话 + 文件后缀"
+2. 子技能要在父域 SKILL.md 加一行"何时读它"
+3. 跑 `python Tool/scripts/check.py --fast`
+
+**自测**：`skill-import.py --selftest` 会造一个"长正文多后缀"和一个"短正文单技法"的假技能，
+断言前者判域、后者判子技能（2/2）。这条已进 preflight，坏掉就红。

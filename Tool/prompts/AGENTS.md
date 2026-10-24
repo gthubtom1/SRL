@@ -95,6 +95,19 @@ headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target
 
 ---
 
+### 加技能（用户只说一句）
+
+用户说「我要加这个技能 <路径/链接>」「网上找了个 skill 装进来」时，**不要让他手改任何文件**：
+
+```bash
+python Tool/scripts/skill-import.py --from <目录或 SKILL.md 路径> [--dry-run]
+```
+
+它会：校验 frontmatter → **判定域技能 / 子技能**（正文规模 + 覆盖后缀数 + 技法类别数）→
+放到正确位置 → 域技能自动部署 → 打印收尾清单。按清单做完（改描述 / 在父域加一行 / 跑 check）即可。
+
+判定口径：**域技能**=常驻（模型按描述自动选），**子技能**=不常驻（域 SKILL.md 指路，按需 read）。
+
 ## 五之二、Zero-Waste Recon
 
 信号（JWT/壳/混淆/native/加密）→ 查 KB → 读匹配技术文件（含可跑 Frida/C++ 代码）→ 看末尾「MCP 工具映射」→ 优先 MCP 工具 → 多路径并行探测。
