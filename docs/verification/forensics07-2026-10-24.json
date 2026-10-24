@@ -1,0 +1,29 @@
+{
+  "schema": "seep.verification/1",
+  "case": "forensics07",
+  "date": "2026-10-24",
+  "problem": "该案例为本轮为真实目标新建，此前无事实账（baseline = 空账）",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/forensics07",
+  "cohorts": {
+    "baseline": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 6,
+      "proven": 6,
+      "strong": 6,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "facts.jsonl": "34c6a42c79895cd38aebad518b12460152b8b16cabee3d7ee3216672a40d2953",
+    "artifacts/MANIFEST.sha256": "e74c23381105f9f0da0da223d5e89bd7fa4a5110c1d48ca94555b72fa0c64faa"
+  },
+  "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
+  "limitations": [
+    "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+  ]
+}

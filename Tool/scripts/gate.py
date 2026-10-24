@@ -213,6 +213,97 @@ def g5_evidence(pack):
     return bad, {"claims": total_claims, "strong": strong}
 
 
+
+def _receipt_paths(case):
+    """docs/verification/<case>-<date>.json 里最新的一份。"""
+    import glob as _glob
+    pat = os.path.join(ROOT, "docs", "verification", str(case) + "-*.json")
+    found = sorted(_glob.glob(pat))
+    return found[-1] if found else ""
+
+
+def _case_cohort(case_dir):
+    """现算 cohort：claims / proven / strong。与 case_state verify 同口径。"""
+    import re as _re
+    fp = os.path.join(case_dir, "facts.jsonl")
+    claims = proven = strong = 0
+    if os.path.isfile(fp):
+        with open(fp, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(o, dict):
+                    continue
+                if str(o.get("kind") or "claim").lower() not in ("", "claim"):
+                    continue
+                if not str(o.get("id") or "").strip() or not str(o.get("status") or "").strip():
+                    continue
+                claims += 1
+                if str(o.get("status")).lower() == "proven":
+                    proven += 1
+                    conf = str(o.get("confidence") or "").lower()
+                    auth = str(o.get("authority") or "none").lower()
+                    if conf in ("observed", "derived") and auth not in ("", "none"):
+                        strong += 1
+    return {"claims": claims, "proven": proven, "strong": strong}
+
+
+def g6_receipt(pack):
+    """G6：每个包的 witness 案例必须有一份可核对的 verification receipt。
+
+    判据（三条，任一不满足即红）：
+      1) docs/verification/<case>-<date>.json 存在；
+      2) cohorts.baseline / cohorts.final 都在，且 final 的 claims/proven/strong 与**现算值**一致
+         （不能手填一个好看的数）；
+      3) source_sha256 里每个文件的哈希与当前工作树一致（改了事实账就必须更新回执）。
+    """
+    bad = []
+    cmd = str((pack.get("witness") or {}).get("cmd") or "")
+    import re as _re
+    m = _re.search(r"--case\s+(\S+)", cmd)
+    if not m:
+        return ["witness 里没有 --case，无法定位回执对应案例"], {}
+    case = os.path.basename(os.path.normpath(m.group(1)))
+    case_dir = os.path.join(CASES_DIR, case)
+    rp = _receipt_paths(case)
+    if not rp:
+        return ["缺 verification receipt：docs/verification/%s-<date>.json" % case], {"case": case}
+    try:
+        d = json.load(open(rp, encoding="utf-8"))
+    except Exception as e:
+        return ["回执解析失败：%s" % str(e)[:60]], {"case": case}
+    co = d.get("cohorts") or {}
+    if not isinstance(co.get("baseline"), dict) or not isinstance(co.get("final"), dict):
+        bad.append("回执缺 cohorts.baseline 或 cohorts.final（前后配对是这份回执的全部意义）")
+    else:
+        now = _case_cohort(case_dir)
+        for k in ("claims", "proven", "strong"):
+            if int(co["final"].get(k, -1)) != now[k]:
+                bad.append("final.%s=%s 与现算 %d 不一致（回执过期或手填）"
+                           % (k, co["final"].get(k), now[k]))
+        if int(co["baseline"].get("strong", -1)) >= int(co["final"].get("strong", -1)) \
+                and int(co["final"].get("strong", 0)) > 0:
+            bad.append("baseline.strong 不小于 final.strong：这次改动没有产生可测的差异")
+    sha = d.get("source_sha256") or {}
+    if not sha:
+        bad.append("回执缺 source_sha256（无法证明回执对应的是当前这份事实账）")
+    for rel, want in sha.items():
+        fp = os.path.join(case_dir, rel)
+        if not os.path.isfile(fp):
+            bad.append("source_sha256 指向的文件不存在：%s" % rel)
+            continue
+        import hashlib as _h
+        got = _h.sha256(open(fp, "rb").read()).hexdigest()
+        if got != want:
+            bad.append("%s 的哈希与回执不一致（事实账改过，回执需重写）" % rel)
+    return bad, {"case": case, "receipt": os.path.relpath(rp, ROOT).replace(os.sep, "/")}
+
+
 def judge(pack, route_index, run_witness=True):
     gates = {}
 
@@ -226,6 +317,8 @@ def judge(pack, route_index, run_witness=True):
     add("G4 pack-witness", bad4, info4)
     bad5, info5 = g5_evidence(pack)
     add("G5 evidence-ledger", bad5, info5)
+    bad6, info6 = g6_receipt(pack)
+    add("G6 verification-receipt", bad6, info6)
     verdict = "pass" if all(g["status"] == "pass" for g in gates.values()) else "fail"
     return {"pack": pack.get("id"), "verdict": verdict, "gates": gates}
 

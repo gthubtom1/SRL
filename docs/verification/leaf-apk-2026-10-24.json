@@ -1,0 +1,29 @@
+{
+  "schema": "seep.verification/1",
+  "case": "leaf-apk",
+  "date": "2026-10-24",
+  "problem": "6 条 proven 同样缺 confidence；且 F-013 记录的 rabin2 版本（6.2.0）与实测 （5.9.8）不符",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/leaf-apk",
+  "cohorts": {
+    "baseline": {
+      "claims": 6,
+      "proven": 6,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 6,
+      "proven": 6,
+      "strong": 4,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "facts.jsonl": "0373ec46f74889fc6c8563f64d8268152dcb9993c9faec2059a82263e27e4b1c",
+    "artifacts/MANIFEST.sha256": "4fab77d8b11e463941a22d42f99263bdbc67b3707435d007e4acc5aff24febd0"
+  },
+  "interpretation": "unzip/aapt/zipalign/jarsigner/adb 全量重测后声明 observed，背书 0 → 4；重建与签名破坏两项如实降为 inferred",
+  "limitations": [
+    "apktool 重建未重跑；zipalign→jarsigner 破坏对齐未重做实验"
+  ]
+}

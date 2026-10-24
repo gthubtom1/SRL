@@ -183,4 +183,4 @@
 | # | 判据 | 现状 |
 | :-: | :-- | :-: |
 | **D9** | 危险写操作 100% 同屏退路 | ✅ 2 处危险写操作全部带退路（`preflight` 已机检；此前报的「7 处」是我方检测器漏认 `/delete` 导致的误报） |
-| **D10** | 每个真实案例有一份 verification receipt（md+json） | **0/62** |
+| **D10** | 每个包的 witness 案例有一份 verification receipt（md+json，含 baseline/final 与源 sha256） | ✅ **9/9**（`gate.py` G6 机检；删回执或改事实账都会红） |

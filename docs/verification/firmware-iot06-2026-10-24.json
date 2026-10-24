@@ -1,0 +1,29 @@
+{
+  "schema": "seep.verification/1",
+  "case": "firmware-iot06",
+  "date": "2026-10-24",
+  "problem": "该案例为本轮为真实目标新建，此前无事实账（baseline = 空账）",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/firmware-iot06",
+  "cohorts": {
+    "baseline": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 7,
+      "proven": 7,
+      "strong": 7,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "facts.jsonl": "47ec21651b2c72f0bc81fbf4fa9f96133217f49eadb1de88f3c7d8d23551236e",
+    "artifacts/MANIFEST.sha256": "f36b1b0c14f3bf7ffabcfcd3b20e00c86e98b57d6c3ee40b4e34f40b3e30e5cc"
+  },
+  "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
+  "limitations": [
+    "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+  ]
+}

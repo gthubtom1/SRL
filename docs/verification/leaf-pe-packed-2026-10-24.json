@@ -1,0 +1,29 @@
+{
+  "schema": "seep.verification/1",
+  "case": "leaf-pe-packed",
+  "date": "2026-10-24",
+  "problem": "19 条 proven 缺 confidence；F-106/F-110/F-111 三条与复测数字冲突",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/leaf-pe-packed",
+  "cohorts": {
+    "baseline": {
+      "claims": 19,
+      "proven": 19,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 21,
+      "proven": 18,
+      "strong": 15,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "facts.jsonl": "9faa57278f9028164b878f0e8a8d3f516ad00eb13a25e65fca6ff63a6950e1a2",
+    "artifacts/MANIFEST.sha256": "92297e7dd8b1e5112bda7c7f7acde9d4c08ffd79bc67a728874cf9ecbc467ed7"
+  },
+  "interpretation": "upx 3.91w 解壳 + r2 复测后声明 observed，背书 0 → 15；3 条需活体进程/运行的降为 inferred 并排除",
+  "limitations": [
+    "未做活体内存比对；未运行补丁后二进 制"
+  ]
+}
