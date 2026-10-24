@@ -170,7 +170,7 @@ DYNAMIC_WORDS = ["RVA", "VA", "基址"]
 
 def paths(case):
     d = os.path.abspath(case)
-    return d, os.path.join(d, "facts.jsonl"), os.path.join(d, "state.json")
+    return d, os.path.join(d, "facts.jsonl")
 
 
 def now():
@@ -382,12 +382,10 @@ def store_target(target):
     return os.path.abspath(t)
 
 
-def _manifest(case):
-    return os.path.join(os.path.abspath(case), "ai_manifest.json")
-
-
 LEDGER_STATE_KIND = "state"
 LEDGER_EVENT_KIND = "event"
+LEDGER_GAPS_KIND = "gaps"
+LEDGER_PLAN_KIND = "plan"
 
 def _state_default():
     return {"schema": "seep-case/1", "target": "", "depth": {}, "verdict": None,
@@ -398,9 +396,9 @@ def load_ledger(case):
     """唯一账本 facts.jsonl 的全部行（claim / kind:"state" / kind:"event" 混存，append-only）。
 
     S2 起不再有第二份状态文件：state 由 state 行重放，事件账（工具流水）以 event 行
-    追加进同一账本。旧案子的 state.json / ai_manifest.json#seep 只当**只读**迁移源。
+    追加进同一账本。S2 之前的两类历史副本已迁完，`replay --drop-legacy` 只负责清残留。
     """
-    _, fp, _ = paths(case)
+    _, fp = paths(case)
     if not os.path.isfile(fp):
         return []
     out = []
@@ -432,34 +430,15 @@ def load_facts(case):
     """只返回 claim 行（gate / verify 的判据面），state / event 行不外泄给旧消费者。"""
     return [e for e in load_ledger(case) if _is_claim(e)]
 
-def _legacy_state(case):
-    """只读兼容：S2 之前的历史副本（ai_manifest.json#seep 或 state.json）。
-
-    只读不写 —— 迁移动作用 `replay --migrate [--drop-legacy]` 显式执行。
-    """
-    mf = _manifest(case)
-    if os.path.isfile(mf):
-        try:
-            with open(mf, encoding="utf-8") as f:
-                man = json.load(f)
-            if isinstance(man.get("seep"), dict):
-                return man["seep"]
-        except Exception:
-            pass
-    _, _, sp = paths(case)
-    if os.path.isfile(sp):
-        try:
-            with open(sp, encoding="utf-8") as f:
-                obj = json.load(f)
-            if isinstance(obj, dict):
-                return obj
-        except Exception:
-            return None
-    return None
+def _legacy_files(case):
+    """S2 之前的两类历史副本（迁移已全部完成）。这里只报残留，供 `replay --drop-legacy` 清理。"""
+    d, _ = paths(case)
+    return [p for p in (os.path.join(d, "state.json"),
+                        os.path.join(d, "ai_manifest.json")) if os.path.isfile(p)]
 
 def load_state(case):
     """案子状态 = facts.jsonl 里最后一条 kind:"state" 行重放（不存快照）。"""
-    d, _, _ = paths(case)
+    d, _ = paths(case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
     last = None
@@ -469,20 +448,16 @@ def load_state(case):
     st = _state_default()
     if isinstance(last, dict):
         st.update(last)
-        return st
-    legacy = _legacy_state(case)
-    if isinstance(legacy, dict):
-        st.update(legacy)
     return st
 
 
 def save_state(case, st):
     """写回 = 往账本追加一条 state 行（append-only，最后一条生效）。
 
-    为什么重放而不是覆盖快照：两个会话同时写同一个 state.json 会静默丢条；
+    为什么重放而不是覆盖快照：两个会话同时写同一份快照会静默丢条；
     append-only 最坏情况是"多一行"，不是"少一条"。
     """
-    d, fp, _ = paths(case)
+    d, fp = paths(case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
     st = dict(st)
@@ -492,7 +467,7 @@ def save_state(case, st):
     return "facts.jsonl#state"
 
 def append_fact(case, fact):
-    d, fp, _ = paths(case)
+    d, fp = paths(case)
     if not os.path.isdir(d):
         die_json("case-not-found",
                  "案例目录不存在：%s（先跑 case_state.py init --case <目录>）" % d)
@@ -552,20 +527,41 @@ def _save_list(case, name, data):
     _atomic_write_json(_json_path(case, name), data)
 
 
+def _load_ledger_list(case, kind):
+    """账本里的列表型状态（gaps / plan）：最后一条 kind 行整体生效。
+
+    S4：gaps.json / plan.json 不再是独立文件 —— 状态文件只剩 4 类
+    （case.json / facts.jsonl / artifacts/MANIFEST.sha256 / packs.baseline.json）。
+    """
+    out = []
+    for e in load_ledger(case):
+        if _entry_kind(e) == kind and isinstance(e.get("items"), list):
+            out = e["items"]
+    return out
+
+
+def _append_ledger_list(case, kind, items):
+    d, fp = paths(case)
+    if not os.path.isdir(d):
+        die("case 目录不存在：%s" % d)
+    _atomic_append_line(fp, json.dumps({"kind": kind, "ts": now(), "items": items},
+                                       ensure_ascii=False))
+
+
 def load_gaps(case):
-    return _load_list(case, "gaps.json")
+    return _load_ledger_list(case, LEDGER_GAPS_KIND)
 
 
 def save_gaps(case, gaps):
-    _save_list(case, "gaps.json", gaps)
+    _append_ledger_list(case, LEDGER_GAPS_KIND, gaps)
 
 
 def load_plan(case):
-    return _load_list(case, "plan.json")
+    return _load_ledger_list(case, LEDGER_PLAN_KIND)
 
 
 def save_plan(case, plan):
-    _save_list(case, "plan.json", plan)
+    _append_ledger_list(case, LEDGER_PLAN_KIND, plan)
 
 
 def _blocking_gaps(gaps):
@@ -652,21 +648,12 @@ def print_gaps(gaps, title="缺件台账"):
 
 # ---------------------------------------------------------------- commands
 def cmd_init(a):
-    d, fp, sp = paths(a.case)
+    d, fp = paths(a.case)
     os.makedirs(d, exist_ok=True)
-    mf = _manifest(a.case)
-    # ★ 上游唯一恢复点：ai_manifest.json 里可能已有 seep 子键（甚至整份 CTF 进度）。
-    #   没有 --force 就绝不覆盖 —— 否则 init 会静默清空已登记的深度/裁定（实测过的数据丢失）。
-    if os.path.isfile(mf) and not a.force:
-        try:
-            with open(mf, encoding="utf-8") as f:
-                man = json.load(f)
-        except Exception:
-            man = {}
-        if isinstance(man.get("seep"), dict):
-            die("ai_manifest.json 里已有 seep 状态；要重建加 --force（当前不会覆盖）")
-    if os.path.isfile(sp) and not a.force:
-        die("已有历史状态副本 state.json：%s（先 `replay --migrate --drop-legacy` 迁移，或加 --force 重建）" % sp)
+    left = _legacy_files(a.case)
+    if left and not a.force:
+        die("发现历史状态副本 %s：先 `replay --drop-legacy` 清理，或加 --force 重建"
+            % ", ".join(os.path.basename(x) for x in left))
     has_state_row = any(_entry_kind(e) == LEDGER_STATE_KIND for e in load_ledger(a.case))
     if has_state_row and not a.force:
         die("facts.jsonl 里已有 state 重放行；要重建加 --force（当前不会覆盖）")
@@ -860,7 +847,7 @@ def cmd_claim(a):
 
 
 def _rewrite_facts(case, facts):
-    _, fp, _ = paths(case)
+    _, fp = paths(case)
     _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in facts))
 
 
@@ -2276,7 +2263,7 @@ def _self_test():
 # 所以：卡写文件（给人复核）+ 正文里列 A/B/C（给人在对话里回）+ state 落 awaiting_human。
 
 def _ask_dir(case):
-    d, _, _ = paths(case)
+    d, _ = paths(case)
     p = os.path.join(d, "ask")
     os.makedirs(p, exist_ok=True)
     return p
@@ -2366,33 +2353,28 @@ def cmd_ack(a):
 def cmd_replay(a):
     """状态重放 / 迁移 / 压缩：state 不存快照，只由账本 state 行重放。
 
-    --migrate      把历史 state.json（或 ai_manifest.json#seep）灌成一条 state 行
-    --drop-legacy  迁移后删除 state.json（默认不删，确认后再删）
+    --migrate      兼容旧调用（迁移已全部完成，现在只报告残留数量）
+    --drop-legacy  删除历史副本（state.json / ai_manifest.json，存在才删）
     --compact      只保留最后一条 state 行（账本瘦身，claim/event 不动）
 
-    为什么：state.json 与 ai_manifest#seep 是同一状态的两份副本，两端各自开局就会分叉；
+    为什么：快照与账本行是同一状态的两份副本，两端各自开局就会分叉；
     append-only 账本只多行、不少条，重放结果唯一。
     """
-    d, fp, sp = paths(a.case)
+    d, fp = paths(a.case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
     if a.migrate or a.drop_legacy or a.compact:
         lease_guard(a.case)
     if a.migrate:
-        legacy = _legacy_state(a.case)
-        if not isinstance(legacy, dict):
-            print("[SKIP] 没有可迁移的历史状态（state.json / ai_manifest.json#seep 都不存在）")
-        else:
-            _atomic_append_line(fp, json.dumps(
-                {"kind": LEDGER_STATE_KIND, "ts": now(), "source": "migrate",
-                 "state": legacy}, ensure_ascii=False))
-            print("[OK] 历史状态已灌入账本：%s（source=migrate）" % fp)
+        left = _legacy_files(a.case)
+        print("[SKIP] 无需迁移：状态已全在账本里（残留副本 %d 个，用 --drop-legacy 清理）" % len(left))
     if a.drop_legacy:
-        if os.path.isfile(sp):
-            os.remove(sp)
-            print("[OK] 已删除历史副本：%s" % sp)
-        else:
-            print("[SKIP] 没有 state.json 可删")
+        left = _legacy_files(a.case)
+        for p in left:
+            os.remove(p)
+            print("[OK] 已删除历史副本：%s" % p)
+        if not left:
+            print("[SKIP] 没有历史副本可删")
     if a.compact:
         ledger = load_ledger(a.case)
         idxs = [i for i, e in enumerate(ledger) if _entry_kind(e) == LEDGER_STATE_KIND]
@@ -2409,17 +2391,17 @@ def cmd_replay(a):
     claims = [e for e in ledger if _is_claim(e)]
     states = [e for e in ledger if _entry_kind(e) == LEDGER_STATE_KIND]
     events = [e for e in ledger if _entry_kind(e) == LEDGER_EVENT_KIND]
-    legacy = _legacy_state(a.case)
+    other = len(ledger) - len(claims) - len(states) - len(events)
     print("[REPLAY] %s" % fp)
-    print("  账本行：%d（claim %d / state %d / event %d）"
-          % (len(ledger), len(claims), len(states), len(events)))
+    print("  账本行：%d（claim %d / state %d / event %d / gaps+plan %d）"
+          % (len(ledger), len(claims), len(states), len(events), other))
     print("  重放状态：verdict=%s max_level=%s stage=%s depth=%d next=%s"
           % (st.get("verdict"), st.get("max_level"), st.get("stage"),
              len(st.get("depth") or {}), (st.get("next_action") or "")[:40]))
-    if isinstance(legacy, dict) and not states:
-        print("  [WARN] 仍在读历史副本（%s）：跑 --migrate --drop-legacy 收口"
-              % ("ai_manifest.json#seep" if _manifest(a.case) and os.path.isfile(_manifest(a.case))
-                 else "state.json"))
+    left = _legacy_files(a.case)
+    if left:
+        print("  [WARN] 残留历史副本 %d 个：跑 --drop-legacy 收口（%s）"
+              % (len(left), ", ".join(os.path.basename(x) for x in left)))
     if getattr(a, "json", False):
         print(json.dumps({"state": st, "ledger": {"total": len(ledger), "claims": len(claims),
                                                     "states": len(states), "events": len(events)}},
@@ -2786,8 +2768,8 @@ def main():
 
     p = sub.add_parser("replay", help="状态重放：state 不存快照，由账本 state 行重放（--migrate/--drop-legacy/--compact）")
     p.add_argument("--case", required=True)
-    p.add_argument("--migrate", action="store_true", help="把历史 state.json / ai_manifest#seep 灌成一条 state 行")
-    p.add_argument("--drop-legacy", dest="drop_legacy", action="store_true", help="迁移后删除历史 state.json")
+    p.add_argument("--migrate", action="store_true", help="兼容旧调用：迁移已完成，只报残留数量")
+    p.add_argument("--drop-legacy", dest="drop_legacy", action="store_true", help="删除历史副本（state.json / ai_manifest.json）")
     p.add_argument("--compact", action="store_true", help="只保留最后一条 state 行（claim/event 不动）")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_replay)

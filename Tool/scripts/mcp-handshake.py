@@ -60,7 +60,7 @@ from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-DEFAULT_OUT = os.path.join(REPO, "Tool", "config", "mcp-handshake.json")
+DEFAULT_OUT = os.path.join(REPO, "Tool", "config", "packs.baseline.json")
 
 STDIO_TIMEOUT = 30          # stdio 握手硬超时（秒）
 HTTP_TIMEOUT = 15           # 单次 HTTP 请求超时（秒）
@@ -610,14 +610,16 @@ def main(argv: list[str] | None = None) -> int:
             continue
         new[name] = probe_one(name, entry)
 
-    old = None
+    # S4：基线统一落在 Tool/config/packs.baseline.json 的 mcp_handshake 段（状态文件只允许 4 类）
+    old, doc = None, {}
     old_existed = os.path.isfile(out_path)
     if old_existed:
         try:
             with open(out_path, encoding="utf-8-sig") as f:
-                old = json.load(f) or {}
+                doc = json.load(f) or {}
+            old = doc.get("mcp_handshake") if isinstance(doc, dict) else None
         except Exception:
-            old = None
+            old, doc = None, {}
 
     drift, unreachable = compare(old, new)
 
@@ -644,9 +646,12 @@ def main(argv: list[str] | None = None) -> int:
     }
     if not args.no_write:
         os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        doc = dict(doc) if isinstance(doc, dict) else {}
+        doc.setdefault("schema", "seep.packs.baseline/1")
+        doc["mcp_handshake"] = payload
         tmp = out_path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
+            json.dump(doc, f, ensure_ascii=False, indent=2)
             f.write("\n")
         os.replace(tmp, out_path)
 

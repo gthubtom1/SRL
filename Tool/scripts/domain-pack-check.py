@@ -74,10 +74,11 @@ def skill_desc(skill_rel: str) -> str:
 
 
 def load_baseline() -> int:
-    """读历史债基线。只准降不准升（见 domain-pack-baseline.json 的 _note）。"""
-    p = os.path.join(HERE, "domain-pack-baseline.json")
+    """读历史债基线。只准降不准升（见 Tool/config/packs.baseline.json 的 _note）。"""
+    p = os.path.join(TOOL, "config", "packs.baseline.json")
     try:
-        return int(json.load(open(p, encoding="utf-8")).get("max_errors", 0))
+        return int((json.load(open(p, encoding="utf-8")).get("domain_pack") or {})
+                   .get("max_errors", 0))
     except Exception:
         return 0
 
@@ -92,7 +93,7 @@ def main() -> int:
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--index-chars", type=int, default=INDEX_CHARS_BUDGET)
     ap.add_argument("--max-errors", type=int, default=None,
-                    help="基线：允许的违规条数。不传就读 domain-pack-baseline.json（保证单独跑与 preflight 内跑结论一致）")
+                    help="基线：允许的违规条数。不传就读 Tool/config/packs.baseline.json（保证单独跑与 preflight 内跑结论一致）")
     a = ap.parse_args()
     if a.max_errors is None:
         a.max_errors = load_baseline()
