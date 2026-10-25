@@ -32,6 +32,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SKILL = os.path.join(ROOT, "Tool", "skill")
 CFG = os.path.join(ROOT, "Tool", "config")
 
+# W6：矩阵的域清单/计数与 domain_spec.DOMAINS 对齐（客户可见 9 域）。
+# 以前这里按磁盘扫 `Tool/skill/*/SKILL.md`，扫出 11 个——把判型层 seep-router 与
+# 横切层 unpack-loop 也算成“域”，与 domain-gate 的口径不一致。
+sys.path.insert(0, os.path.join(ROOT, "Tool", "scripts", "lib"))
+from domain_spec import DOMAINS  # noqa: E402
+
+DOMAIN_COUNT = 9   # 客户可见域数（清单唯一来源：domain_spec.DOMAINS）
+
 INVARIANTS = {
     "I1": "入口唯一：判型只在一处（seep-router），域不自称总控",
     "I2": "能力可达：pack.tools 里每个工具都有落点（脚本/能力表/内置命令）",
@@ -46,12 +54,16 @@ INVARIANTS = {
 
 
 def _domains():
-    out = []
-    for d in sorted(glob.glob(os.path.join(SKILL, "*", "SKILL.md"))):
-        name = os.path.basename(os.path.dirname(d))
-        if name == "_pending":
-            continue
-        out.append(name)
+    """客户可见域（唯一来源 domain_spec.DOMAINS，9 个）。
+
+    seep-router（判型层）与 unpack-loop（横切层）不是客户可见域，不进矩阵；
+    它们与各域的约束关系在 I1 / I9 里以“被引用”的方式检查。
+    缺 SKILL.md 的域**不剔除**，由 check() 直接判红（不允许静默消失）。
+    """
+    out = list(DOMAINS)
+    if len(out) != DOMAIN_COUNT:
+        sys.stderr.write("WARN: domain_spec.DOMAINS=%d != DOMAIN_COUNT=%d\n"
+                         % (len(out), DOMAIN_COUNT))
     return out
 
 
@@ -76,6 +88,9 @@ def _skill_text(name):
 def check(name):
     """对单个域返回 {invariant_id: (ok, note)}。"""
     res = {}
+    if not os.path.isfile(os.path.join(SKILL, name, "SKILL.md")):
+        # 域在 domain_spec 里但磁盘上没技能：全部判红，不静默跳过。
+        return {i: (False, "缺 Tool/skill/%s/SKILL.md" % name) for i in INVARIANTS}
     txt = _skill_text(name)
     pk = _pack(name)
     is_router = name == "seep-router"

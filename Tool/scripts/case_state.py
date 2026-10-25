@@ -715,7 +715,8 @@ def _ensure_case_meta(d, st, evidence_kind="real"):
     kind = evidence_kind if evidence_kind in ("fixture", "real", "self-built", "historical") else "real"
     meta = {
         "id": os.path.basename(d.rstrip("/\\")),
-        "domain": "reverse",
+        # 新案例默认域：`softseep`（旧名 `reverse` 已不是合法域，见 domain_spec.DOMAINS）
+        "domain": "softseep",
         "target_type": st.get("target") or "",
         "evidence_kind": kind,
         "protection": [],

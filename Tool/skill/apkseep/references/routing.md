@@ -73,14 +73,20 @@ reference file is not named here, or when a script is not named here.
 | A captured body decodes to nothing readable, or you cannot tell whether a length-delimited field is a string, a nested message or a packed array | `protocol-reverse.md`. Protobuf on the wire (measured) — run `scripts/protobuf_decode_raw.py`; the candidate list and its `tie:` lines are the answer |
 | Method bodies are present but decode as **private opcodes**, and you need the mapping rather than an explanation of why VMP is hard | `vmp-differential-analysis.md`, then `advanced-unpacking.md` for the shape diagnosis |
 | A store build arrives as `base.apk` + `split_config.*.apk`, or a rebuilt build is refused **as a set** although every file verifies on its own | `split-apk.md` — one keystore across every member for `pm install-multiple`, and check that a merge is legal before trusting a merged single APK |
+| 需要审计一次微创补丁是否合法（等长改字节 / 方法级重写 / header 校验） | `references/patch-audit.md` — 先跑 `scripts/dex_check_verifier.py` 再信 `dex_classdiff` |
+| 要改本地状态（DataStore / SharedPreferences / SQLite）做离线验证 | `references/runtime-data.md` — 容器结构 + `scripts/datastore_inject.py` 回写验证 |
 
-_54 row(s) below the header._
+_55 row(s) below the header._
 
 ## Reference index (no longer inline in `SKILL.md`)
 
 
 | File | Load when |
 |---|---|
+| `references/01-criteria.md` | 你要回答"这算不算打下来了"：证据坐标与三档强度标签、15 行判据表（场景→可机检判据→证据形态→误报风险）、8 级 Rung、四个可数指标、四形态交付 |
+| `references/02-failure-criteria.md` | 你要决定**停手还是改走**：16 行失败判据（现象→判据→不许得出的结论→改走）、能力缺口改走清单、边界句与六行边界记录模板 |
+| `references/03-model-pitfalls.md` | 你要知道**哪些"看起来对"的做法已经付过代价**：31 条模型常见失误（每条带原 `P**` 编号与来源文件），覆盖打包/环境/补丁/native/验证五类 |
+| `references/04-walkthrough-dump-to-deliverable.md` | 你要按顺序走一遍完整判定链：八步（数个数→判结构→判内容→判覆盖面→排除 Java2C→分岔→花窗口→落账），再到 Rung 1→2 的审计顺序与对照组，附三个真实回放过的站台 |
 | `references/recon.md` | Starting any new sample; identifying packer, SDKs, code location, ABI |
 | `references/server-config-and-updates.md` | **The launch screen, a popup or the tab set is server-sent**; no ad SDK was found; a removed promo came back; anything controlled by a `*Config`/`*Popup` DTO with an `enabled` flag |
 | `references/byte-level-patching.md` | You want to change behaviour by editing a few bytes rather than rebuilding a method — equal-length patches, locating an instruction's exact offset, dex header integrity fields, branch polarity, verifier legality |
@@ -138,7 +144,7 @@ _54 row(s) below the header._
 | `references/on-device-tooling.md` | Working **from the phone itself**: MT Manager edit/repack/sign and its built-in APK MCP, LSPosed Manager, Termux+frida, and on-device data inspection |
 | `references/split-apk.md` | The target is a **split APK / App Bundle set** (`base.apk` + `split_config.*.apk`), or `pm path <PKG>` returned several files: reading a set, merge versus unified re-signing, and the install refusal each mistake produces |
 
-_43 row(s) below the header._
+_60 row(s) below the header._
 
 ## Script index (no longer inline in `SKILL.md`)
 
@@ -200,7 +206,7 @@ _43 row(s) below the header._
 | `scripts/svc_scan.py` | Name the syscall behind an inline `svc` and the segment it sits in — which decides whether a libc-level hook can observe the call at all. `--context` shows neighbours, because a byte scan also matches data |
 | `scripts/anti_detect_probe.js` | Observer-only probe (patches nothing): path/loader/thread/kill hooks with **caller module + offset**, an environment self-report (`TracerPid`, frida-named mappings), and live streaming so a sub-second target still yields evidence |
 
-_53 row(s) below the header._
+_54 row(s) below the header._
 
 ## How to use these two tables (and what not to do with them)
 

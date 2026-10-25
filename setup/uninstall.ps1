@@ -8,7 +8,7 @@
     · ~/.pi/agent/skills/<工作台技能>      —— 仅工作台自带的 11 大技能
     · ~/.pi/agent/AGENTS.md / SEEP.md      —— 工作台写入的提示词（旧版为 SYSTEM.md，一并清理）
     · ~/.pi/agent/extensions/*.ts          —— 工作台扩展
-    · ~/.pi/agent/mcp.json 中的 seep / js-reverse / playwright 条目
+    · ~/.pi/agent/mcp.json 中的工作台 MCP 条目（清单取 Tool/config/mcp-servers.json：seep / js-reverse / playwright / ida / x64dbg）
     · ~/.pi/agent/settings.json 中工作台加入的 packages
     · ~/.pi/agent/lab-mode.flag            —— 实验环境标志
 
@@ -102,16 +102,61 @@ function Get-WorkbenchSkillNames {
 # 工作台「自有扩展」白名单（与 install-pi.ps1 严格对齐）
 # ★ 血案：旧实现无差别删除 ~/.pi/agent/extensions/*.ts，会把用户自己装的扩展
 # （例如 cmd-guard.ts）一起删掉，违背"绝不碰你的数据"的承诺。
-# 现在改为：只删 Tool/prompts/extensions/ 里真实随包分发的那几个 .ts。
+# 现在只删 Tool/prompts/extensions/ 里真实随包分发的资产，后缀范围与 install-pi.ps1
+# 的 Copy-Item 一致（*.ts / *.json / *.md）。
+$ExtAssetSuffixes = @('.ts', '.json', '.md')
+
 function Get-WorkbenchExtensionNames {
     $names = @()
     $src = Join-Path $Root 'Tool\prompts\extensions'
     if (Test-Path $src) {
-        foreach ($f in (Get-ChildItem $src -Include '*.ts','*.json','*.md' -ErrorAction SilentlyContinue)) {
-            $names += $f.Name
+        # ★ 血案：`-Include` 参数不带 `-Recurse` 时**恒返回空**（PS 5.1 语义），
+        #   于是白名单永远是空数组 → 扩展永远删不掉（卸载后残留，重装再叠加）。
+        #   install-pi.ps1 只拷顶层 *.ts/*.json/*.md，这里按同一口径列顶层文件。
+        foreach ($f in (Get-ChildItem $src -File -ErrorAction SilentlyContinue)) {
+            if ($ExtAssetSuffixes -contains $f.Extension.ToLower()) { $names += $f.Name }
         }
     }
     return $names
+}
+
+# 工作台「自有 MCP 条目」清单：直接读**安装器用的那份**清单文件。
+# ★ 血案：旧实现硬编码 seep / js-reverse / playwright 三个名字，但安装器实际会写 5 个
+#   （含 ida / x64dbg）→ 卸完之后这两个条目永久残留任用户 mcp.json 里。
+#   现在“安装器写什么，卸载就认什么”；新增 MCP 只改 json，两边自动对齐。
+function Get-WorkbenchMcpNames {
+    $names = @()
+    $cfg = Read-JsonFile (Join-Path $Root 'Tool\config\mcp-servers.json')
+    if ($cfg -and $cfg.servers) {
+        foreach ($p in $cfg.servers.PSObject.Properties) { $names += $p.Name }
+    }
+    return @($names | Select-Object -Unique)
+}
+$WorkbenchMcpNames = @(Get-WorkbenchMcpNames)
+
+# 条目认领的双重判据：① 名字在安装清单里 ② 命令/参数确实指向工作台。
+# 只看名字会把用户自己建的同名条目一起删掉（违背「绝不碰你的数据」）。
+$WorkbenchMcpMarkers = @('seep_mcp_server.py', 'js-reverse-mcp', '@playwright/mcp', 'mcp-launch.py')
+
+function Test-McpEntryIsOurs([string]$name, $entry) {
+    if ($WorkbenchMcpNames -notcontains $name) { return $false }
+    $parts = @()
+    if ($entry) {
+        if ($entry.command) { $parts += [string]$entry.command }
+        if ($entry.args) { $parts += @($entry.args | ForEach-Object { [string]$_ }) }
+        if ($entry.url) { $parts += [string]$entry.url }
+    }
+    $argStr = ($parts -join ' ')
+    if ([string]::IsNullOrWhiteSpace($argStr)) { return $false }
+    $rootWin = "$Root"
+    $rootPosix = $rootWin.Replace('\', '/')
+    # 用 OrdinalIgnoreCase 的 IndexOf 而不是 -like：仓库路径里的 [] 会被当成通配符
+    if ($argStr.IndexOf($rootWin, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    if ($argStr.IndexOf($rootPosix, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    foreach ($mk in $WorkbenchMcpMarkers) {
+        if ($argStr.IndexOf($mk, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+    return $false
 }
 
 $WorkbenchPackages = @(
@@ -122,16 +167,7 @@ $WorkbenchPackages = @(
 )
 
 # 只有参数中确实指向工作台组件时，才认定该 MCP 条目归工作台所有
-function Test-McpEntryIsOurs([string]$name, $entry) {
-    $argStr = ''
-    if ($entry -and $entry.args) { $argStr = (@($entry.args) -join ' ') }
-    switch ($name) {
-        'seep'       { return ($argStr -like '*seep_mcp_server.py*') }
-        'js-reverse' { return ($argStr -like '*js-reverse-mcp*') }
-        'playwright' { return ($argStr -like '*@playwright/mcp*') }
-        default      { return $false }
-    }
-}
+# （实现见上方 Test-McpEntryIsOurs：清单名 + 路径/组件标记双重判据）
 
 # ---------------------------------------------------------------------------
 # 备份：把即将被删除/修改的文件整体拷进备份目录
@@ -221,10 +257,10 @@ if (-not $KeepPrompts) {
     }
     if (Test-Path $ExtDir) {
         $workbenchExts = Get-WorkbenchExtensionNames
-        foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json','*.md' -ErrorAction SilentlyContinue)) {
-            if ($workbenchExts -contains $f.Name) {
-                $promptHits += "extensions/$($f.Name)"
-            }
+        # 同 Get-WorkbenchExtensionNames 的坑：-Include 不带 -Recurse 恒空。
+        # 这里索性按白名单名逐个 Test-Path：既不看用户自建文件，也不依赖通配符语义。
+        foreach ($n in $workbenchExts) {
+            if (Test-Path (Join-Path $ExtDir $n)) { $promptHits += "extensions/$n" }
         }
     }
 }
@@ -317,8 +353,12 @@ if (-not $KeepPrompts -and (Test-Path $srcTasks)) {
         if (Test-Path $p) { Backup-Item $p $backupRoot ("prompts/" + $f.Name) }
     }
 }
-foreach ($f in (Get-ChildItem $ExtDir -Include '*.ts','*.json' -ErrorAction SilentlyContinue)) {
-    if ($promptHits -contains "extensions/$($f.Name)") { Backup-Item $f.FullName $backupRoot "extensions/$($f.Name)" }
+if (Test-Path $ExtDir) {
+    foreach ($h in @($promptHits | Where-Object { $_ -like 'extensions/*' })) {
+        $extName = $h -replace '^extensions/', ''
+        $extPath = Join-Path $ExtDir $extName
+        if (Test-Path $extPath) { Backup-Item $extPath $backupRoot "extensions/$extName" }
+    }
 }
 if ($mcpHits.Count -gt 0 -or $pkgHits.Count -gt 0) {
     Backup-Item $McpJson $backupRoot 'mcp.json'

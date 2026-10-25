@@ -7,9 +7,9 @@
 
     [1] 篇幅   SKILL ≤600 / ref 60–400 / KB 50–200
     [2] 必备篇 01-criteria / 02-failure-criteria / 03-model-pitfalls / 04-walkthrough-*
-    [3] 脚本   2–4 个，`--help` 与 `--self-test` 都必须 rc=0
+    [3] 脚本   ≥2 个（上限已取消），`--help` 与 `--self-test` 都必须 rc=0
     [4] 案例   3–5 个，≥1 个 evidence_kind=real，sha256 复算，refs 不幻影
-    [5] KB     6–10 篇，含 *failure-criteria*，README 链接到每一篇
+    [5] KB     ≥6 篇（上限已取消），含 *failure-criteria*，README 链接到每一篇
     [6] 矩阵   rows/families ≥12
     [7] 任务卡 20–30 张，六段齐全，reference 存在
     [8] 链接图 每个 ref / KB 文件至少被别处引用一次
@@ -51,13 +51,28 @@ from domain_spec import (  # noqa: E402
 )
 
 TEXT_EXT = {".md", ".py", ".ps1", ".sh", ".json", ".yml", ".yaml", ".txt"}
+# 数量上限放宽的可见标记：凡取消上限的检查，detail 末尾必须带这句，避免「静默放宽」。
+LIMIT_RELAX_NOTE = "（上限已取消：内容多不是缺陷；下限仍判）"
 SKIP_TEXT = ("CHANGELOG", "Tool/upstream/", "Tool/mcp/Tool/safe/",
              "Tool/mcp/Tool/reverselab/kb/AI-USAGE.md")
 results = []
+# W6：缺件/无法自检的域。这些既不算 PASS，也不许静默跳过；末尾必须逐条打印
+# `[UNCOVERED] <域>：<具体缺什么>`，并让退出码非 0（不进“全绿”）。
+uncovered = []
 
 
 def add(section, name, ok, detail=""):
     results.append({"domain": section, "name": name, "ok": bool(ok), "detail": detail})
+
+
+def mark_uncovered(dom, reason):
+    """登记一条「未覆盖」：缺件或无法自检 → 不算 PASS，也不静默跳过。"""
+    reason = str(reason).strip()
+    if any(u["domain"] == dom and u["reason"] == reason for u in uncovered):
+        return
+    uncovered.append({"domain": dom, "reason": reason})
+    # 同时进 results（ok=False），让 preflight / --json 的消费者也看得到。
+    add(dom, "[UNCOVERED] 缺件/无法自检（不计 PASS）", False, reason)
 
 
 def rj(p):
@@ -106,24 +121,35 @@ def rel(p):
 def check_refs(dom, spec):
     d = os.path.join(TOOL, "skill", spec["skill"], "references")
     if not os.path.isdir(d):
+        mark_uncovered(dom, "缺 references 目录 %s" % rel(d))
         add(dom, "references 目录", False, "缺失 " + rel(d))
         return []
     refs = sorted(glob.glob(os.path.join(d, "*.md")))
     bad = []
-    if not (LIMITS["refs_min"] <= len(refs) <= LIMITS["refs_max"]):
-        bad.append("篇数 %d（要求 %d–%d）" % (len(refs), LIMITS["refs_min"], LIMITS["refs_max"]))
+    # 放宽（2026-10 收口）：references 篇数**只判下限**。上限（LIMITS["refs_max"]）
+    # 仍登记在 domain_spec 里供人读，但不再据此判红——「内容多」不是缺陷。
+    # 放宽必须在 detail 里可见（LIMIT_RELAX_NOTE），不许静默。
+    if len(refs) < LIMITS["refs_min"]:
+        bad.append("篇数 %d（要求 ≥%d）" % (len(refs), LIMITS["refs_min"]))
+        mark_uncovered(dom, "缺 references（%d 篇，要求 ≥%d）" % (
+            len(refs), LIMITS["refs_min"]))
     for p in refs:
         n = len(lines(p))
         if n > LIMITS["ref_max"] or n < LIMITS["ref_min"]:
             bad.append("%s %d 行（要求 %d–%d）" % (os.path.basename(p), n,
                                                 LIMITS["ref_min"], LIMITS["ref_max"]))
     names = [os.path.basename(p) for p in refs]
+    missing_required = []
     for key, pat in REQUIRED_REFS:
         if any(ch in pat for ch in "*?["):
             if not any(fnmatch(n, pat) for n in names):
                 bad.append("缺必备篇 " + pat)
+                missing_required.append(pat)
         elif pat not in names:
             bad.append("缺必备篇 " + pat)
+            missing_required.append(pat)
+    if missing_required:
+        mark_uncovered(dom, "缺必备篇 %s" % ",".join(missing_required))
     # 必备篇内容机检
     crit = os.path.join(d, "01-criteria.md")
     if os.path.isfile(crit):
@@ -148,7 +174,8 @@ def check_refs(dom, spec):
     if walk and "\n".join(lines(walk[0])).count("```") < 4:
         bad.append("04-walkthrough 代码块 <2")
     add(dom, "references 篇数/篇幅/必备篇", not bad,
-        "；".join(bad) if bad else "%d 篇，必备四篇齐全，篇幅合规" % len(refs))
+        ("；".join(bad) if bad else "%d 篇，必备四篇齐全，篇幅合规" % len(refs))
+        + LIMIT_RELAX_NOTE)
     return refs
 
 
@@ -161,6 +188,7 @@ def fnmatch(name, pat):
 def check_skill(dom, spec):
     p = os.path.join(TOOL, "skill", spec["skill"], "SKILL.md")
     if not os.path.isfile(p):
+        mark_uncovered(dom, "缺 %s/SKILL.md" % os.path.basename(str(spec["skill"])))
         add(dom, "SKILL.md", False, "缺失")
         return
     t = "\n".join(lines(p))
@@ -188,10 +216,14 @@ def check_scripts(dom, spec):
         p = os.path.join(ROOT, e)
         if os.path.isfile(p):
             found.append(p)
-    if not (LIMITS["scripts_min"] <= len(found) <= LIMITS["scripts_max"]):
-        add(dom, "脚本数量", False, "%d 个（要求 %d–%d）：%s" % (
-            len(found), LIMITS["scripts_min"], LIMITS["scripts_max"],
-            ",".join(os.path.basename(x) for x in found)))
+    # 放宽（2026-10 收口）：脚本数量**只判下限**，上限（LIMITS["scripts_max"]）不再判红。
+    # 少了仍然红（缺件不许被放宽掩盖）；多了只报数字，不判缺陷。
+    if len(found) < LIMITS["scripts_min"]:
+        mark_uncovered(dom, "缺脚本（%d 个，要求 ≥%d）" % (
+            len(found), LIMITS["scripts_min"]))
+        add(dom, "脚本数量", False, "%d 个（要求 ≥%d）：%s%s" % (
+            len(found), LIMITS["scripts_min"],
+            ",".join(os.path.basename(x) for x in found), LIMIT_RELAX_NOTE))
         return
     bad = []
     for p in found:
@@ -208,7 +240,12 @@ def check_scripts(dom, spec):
             elif flag == "--self-test" and '"ok"' not in (r.stdout or ""):
                 bad.append("%s --self-test 无 JSON 结论" % os.path.basename(p))
     add(dom, "脚本 --help / --self-test", not bad,
-        "；".join(bad) if bad else "%d 个脚本全部 rc=0" % len(found))
+        ("；".join(bad) if bad else "%d 个脚本全部 rc=0（数量下限 %d）" % (
+            len(found), LIMITS["scripts_min"])) + LIMIT_RELAX_NOTE)
+    if bad:
+        # --help / --self-test 不绿 = 这个域的脚本无法自检（不是“跑过了”）。
+        mark_uncovered(dom, "脚本无法自检：%s%s" % (
+            "；".join(bad[:3]), "…等 %d 项" % len(bad) if len(bad) > 3 else ""))
 
 
 # ---------------------------------------------------------------- [4] cases
@@ -222,6 +259,9 @@ def check_cases(dom, spec):
     bad = []
     if not (LIMITS["cases_min"] <= len(dirs) <= cmax):
         bad.append("案例 %d 个（要求 %d–%d）" % (len(dirs), LIMITS["cases_min"], cmax))
+        if len(dirs) < LIMITS["cases_min"]:
+            mark_uncovered(dom, "缺案例（Tool/cases/%s 命中 %d 个，要求 %d–%d）" % (
+                "|".join(spec["case_globs"]), len(dirs), LIMITS["cases_min"], cmax))
     real = 0
     recorded_real = 0
     for cd in dirs:
@@ -453,16 +493,18 @@ def check_cases(dom, spec):
 def check_kb(dom, spec):
     d = os.path.join(KBROOT, spec["board"])
     if not os.path.isdir(d):
+        mark_uncovered(dom, "缺 KB 板 %s" % rel(d))
         add(dom, "KB board", False, "缺失 " + rel(d))
         return
     mds = [p for p in glob.glob(os.path.join(d, "**", "*.md"), recursive=True)]
     tech = [p for p in mds if os.path.basename(p) != "README.md"]
     total = len(mds)
-    kmax = spec.get("kb_max_count", LIMITS["kb_max_count"])
+    # 放宽（2026-10 收口）：KB **篇数**只判下限。per-domain 的 kb_max_count 与全仓
+    # kb_max_count 不再参与判红（apkseep 27 篇曾判超）；单篇行数（kb_line_max）仍判。
     lmax = spec.get("kb_line_max", LIMITS["kb_max"])
     bad = []
-    if not (LIMITS["kb_min_count"] <= total <= kmax):
-        bad.append("KB %d 篇（要求 %d–%d）" % (total, LIMITS["kb_min_count"], kmax))
+    if total < LIMITS["kb_min_count"]:
+        bad.append("KB %d 篇（要求 ≥%d）" % (total, LIMITS["kb_min_count"]))
     for p in tech:
         n = len(lines(p))
         if n > lmax or n < LIMITS["kb_min"]:
@@ -486,13 +528,15 @@ def check_kb(dom, spec):
     else:
         bad.append("缺 README.md")
     add(dom, "KB 篇数/篇幅/失败判据/README 索引", not bad,
-        "；".join(bad) if bad else "%d 篇（含失败判据），README 全索引" % total)
+        ("；".join(bad) if bad else "%d 篇（含失败判据），README 全索引" % total)
+        + LIMIT_RELAX_NOTE)
 
 
 # ---------------------------------------------------------------- [6] matrix
 def check_matrix(dom, spec):
     p = os.path.join(TOOL, "config", spec["matrix"])
     if not os.path.isfile(p):
+        mark_uncovered(dom, "缺矩阵 Tool/config/%s" % spec["matrix"])
         add(dom, "矩阵", False, "缺 " + spec["matrix"])
         return
     try:
@@ -519,6 +563,7 @@ def check_matrix(dom, spec):
 def check_cards(dom, spec=None):
     p = os.path.join(TOOL, "prompts", "domains", dom + ".md")
     if not os.path.isfile(p):
+        mark_uncovered(dom, "缺任务卡 Tool/prompts/domains/%s.md" % dom)
         add(dom, "任务卡", False, "缺 Tool/prompts/domains/%s.md" % dom)
         return
     t = "\n".join(lines(p))
@@ -697,8 +742,18 @@ def check_repro_and_templates():
                 bad.append("%s(not-recorded 缺 reason)" % os.path.basename(os.path.dirname(cf)))
     tdir = os.path.join(ROOT, "Tool", "cases", "_templates")
     tpls = sorted(glob.glob(os.path.join(tdir, "*.json")))
-    if len(tpls) != len(DOMAINS):
-        bad.append("模板 %d 份（要求 %d）" % (len(tpls), len(DOMAINS)))
+    tpl_names = {os.path.basename(t)[:-5] for t in tpls}
+    # W6：模板集必须与 domain_spec.DOMAINS 同源。只比总数会丢信息（看不出是哪个域缺），
+    # 所以按域名逐个对；断言本身没放宽（仍然必须一一对应）。
+    missing_tpl = [d for d in DOMAINS if d not in tpl_names]
+    extra_tpl = sorted(tpl_names - set(DOMAINS))
+    for d in missing_tpl:
+        mark_uncovered(d, "缺案例模板 Tool/cases/_templates/%s.json" % d)
+    if len(tpls) != len(DOMAINS) or missing_tpl or extra_tpl:
+        bad.append("模板 %d 份 / 域 %d 个%s%s" % (
+            len(tpls), len(DOMAINS),
+            "；缺模板：" + ",".join(missing_tpl) if missing_tpl else "",
+            "；多余模板（域已迁出）：" + ",".join(extra_tpl) if extra_tpl else ""))
     for t in tpls:
         try:
             d = rj(t)
@@ -714,7 +769,7 @@ def check_repro_and_templates():
             if isinstance(r, str) and "://" not in r and not r.startswith("<"):
                 if not os.path.isfile(os.path.join(ROOT, r)):
                     bad.append("%s(refs 幻影 %s)" % (os.path.basename(t), r[:40]))
-    add("全局", "真实案例证据链 + 十一份模板同源", not bad,
+    add("全局", "真实案例证据链 + 模板份数与 DOMAINS 同源", not bad,
         "；".join(bad[:5]) if bad else "real 案例证据链可追溯，%d 份模板与 CASE_FIELDS 同源" % len(glob.glob(os.path.join(ROOT, "Tool", "cases", "_templates", "*.json"))))
 
 
@@ -1129,12 +1184,14 @@ def main():
         if unknown:
             print("[FAIL] 未知域：%s（可用：%s）" % (",".join(unknown), ",".join(DOMAINS)))
             return 2
-    if a.all or a.domain:
+    if a.all or a.domain or a.spec:
         check_spec()
+    if a.all or a.domain:
         for dom, spec in DOMAINS.items():
             if a.domain and dom not in a.domain:
                 continue
             if not spec.get("skill") or not os.path.isdir(os.path.join(TOOL, "skill", spec["skill"])):
+                mark_uncovered(dom, "缺技能目录 Tool/skill/%s" % spec.get("skill"))
                 add(dom, "技能目录", False, "缺失 Tool/skill/" + str(spec.get("skill")))
                 continue
             check_skill(dom, spec)
@@ -1160,8 +1217,12 @@ def main():
     if a.all or a.deploy:
         check_deploy(only)
     fails = [r for r in results if not r["ok"]]
+    # W6：全绿 = 无 FAIL **且**无 UNCOVERED。缺件/无法自检不允许被当成通过。
+    green = (not fails) and (not uncovered)
     if a.json:
-        print(json.dumps({"results": results, "fails": len(fails)}, ensure_ascii=False, indent=2))
+        print(json.dumps({"results": results, "fails": len(fails),
+                          "uncovered": uncovered, "green": green},
+                         ensure_ascii=False, indent=2))
     else:
         cur = ""
         for r in results:
@@ -1170,9 +1231,17 @@ def main():
                 print("\n[%s]" % cur)
             print("  [%s] %s%s" % ("PASS" if r["ok"] else "FAIL", r["name"],
                                    ("  — " + r["detail"]) if r["detail"] else ""))
-        print("\n结果: %d/%d 通过%s" % (len(results) - len(fails), len(results),
-                                       "" if not fails else "  ← 有 FAIL"))
-    return 0 if not fails else 1
+        if uncovered:
+            print("\n未覆盖（缺件/无法自检；不计 PASS，也不静默跳过）:")
+            for u in uncovered:
+                print("[UNCOVERED] %s：%s（不计 PASS，也不静默跳过）" % (u["domain"], u["reason"]))
+        print("\n结果: %d/%d 通过%s%s" % (
+            len(results) - len(fails), len(results),
+            "；UNCOVERED %d 域：%s（不计 PASS）" % (
+                len({u["domain"] for u in uncovered}),
+                ",".join(sorted({u["domain"] for u in uncovered}))) if uncovered else "",
+            "  ← 有 FAIL" if fails else ("  ← 不全绿" if uncovered else "")))
+    return 0 if green else 1
 
 
 if __name__ == "__main__":

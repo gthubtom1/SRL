@@ -70,3 +70,5 @@ python scripts/misc/kb_doc_audit.py
 ```text
 APK → jadx/apktool → Java/Native 静态分析 → Frida 验证 → dump/patch → 重打包验活
 ```
+
+- [失败判据（什么时候该停手）](failure-criteria.md)

@@ -187,20 +187,52 @@ if ($authStatusResolved -eq 'granted' -and $assets.Count -gt 0 -and ($netAllowsA
     }
 }
 
-# Optional: 判型落到哪个包（S3：master-route.ps1 已删，唯一实现是 route.py --resolve）
-$primary = 'softseep/SKILL.md'
-$primaryId = 'R0'
+# 判型落到哪个包（S3：master-route.ps1 已删，唯一实现是 route.py --resolve）
+# W5：不再静默兜底 —— 拿不到具体域就把 primary 留空并告警，由 seep-router 先问一句再定。
+$primary = ''
+$primaryId = ''
 $routeScript = Join-Path $scriptDir 'route.py'
-if ((Test-Path $routeScript) -and $Hint) {
-    $json = & $HostExe (Join-Path $scriptDir 'route.py') --resolve $Hint --json 2>$null
+$routeWarn = 'WARN: 路由失败，判型待定（先过 seep-router）'
+# route.py 是 Python 脚本：不能用 $HostExe（那是 PowerShell 宿主）去跑，否则永远拿不到 JSON。
+$pyExe = $null
+foreach ($cand in @('python', 'py')) {
+    $c = Get-Command $cand -ErrorAction SilentlyContinue
+    if ($c -and $c.Source) { $pyExe = $c.Source; break }
+}
+if (-not $Hint) {
+    Write-Host ("{0}：没有 -Hint，未判型" -f $routeWarn) -ForegroundColor Yellow
+} elseif (-not (Test-Path $routeScript)) {
+    Write-Host ("{0}：找不到 {1}" -f $routeWarn, $routeScript) -ForegroundColor Yellow
+} elseif (-not $pyExe) {
+    Write-Host ("{0}：PATH 里没有 python，跑不了 route.py" -f $routeWarn) -ForegroundColor Yellow
+} else {
+    $prevOutEnc = [Console]::OutputEncoding
     try {
-        $hits = ($json | Out-String | ConvertFrom-Json).hits
-        if ($hits -and $hits.Count -gt 0) {
+        # route.py 输出 UTF-8；不设 Console::OutputEncoding 的话 PS 5.1 会按 OEM 码页解码 → JSON 坏 → 静默掉兜底
+        [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+        $json = & $pyExe $routeScript --resolve $Hint --json --strict 2>$null
+        $routeRc = $LASTEXITCODE
+        $routed = $null
+        try { $routed = ($json | Out-String) | ConvertFrom-Json } catch { $routed = $null }
+        $hits = @()
+        if ($routed -and $routed.hits) {
+            $hits = @($routed.hits | Where-Object { $_ -and -not $_.fallback })
+        }
+        if ($routeRc -eq 0 -and $hits.Count -gt 0) {
             $primary = "$($hits[0].pack)/SKILL.md"
             $primaryId = "P$($hits[0].priority)"
+        } elseif ($routeRc -eq 2 -or ($routed -and $routed.unclassified)) {
+            Write-Host ("{0}：UNCLASSIFIED" -f $routeWarn) -ForegroundColor Yellow
+        } else {
+            Write-Host ("{0}：route.py rc={1}" -f $routeWarn, $routeRc) -ForegroundColor Yellow
         }
-    } catch { }
+    } catch {
+        Write-Host ("{0}：{1}" -f $routeWarn, $_.Exception.Message) -ForegroundColor Yellow
+    } finally {
+        [Console]::OutputEncoding = $prevOutEnc
+    }
 }
+$primaryLabel = if ($primary) { $primary } else { '(待定 — 先过 seep-router)' }
 
 $created = Get-Date -Format 'o'
 if ($assets.Count -gt 0) {
@@ -232,8 +264,8 @@ $scope = @"
 - created: $created
 - operator: local
 - project_root: $projectRoot
-- primary_skill: $primary
-- primary_id: $primaryId
+- primary_skill: $primaryLabel
+- primary_id: $(if ($primaryId) { $primaryId } else { '(待定)' })
 - lead_role: lead
 - specialist_roles: []
 - hint: $Hint
@@ -331,7 +363,7 @@ $utf8 = New-Object System.Text.UTF8Encoding $true
 $readmeNext = if ($ready) {
     @"
 1. Scope is ready_for_act=true (auth granted + in_scope set)
-2. Open primary skill: Tool/skill/$primary
+2. Open primary skill: Tool/skill/$primaryLabel
 3. Append ``timeline.md``; update ``workitems.md``
 4. Append Evidence: 把证据文件放入 ``evidence/`` 并登记到 ``workitems.md``
 5. Promote findings with Evidence chain (MANUAL/POC-VALIDATION.md)
@@ -343,7 +375,7 @@ $readmeNext = if ($ready) {
    - network target: re-run with ``-AuthGranted -TargetUrl <url>``
    - local sample: re-run with ``-Preset offline-sample -Sample <path>``
 2. Set ready_for_act when checklist complete
-3. Open primary skill: skills/$primary
+3. Open primary skill: skills/$primaryLabel
 4. Append ``timeline.md``; update ``workitems.md``
 5. Promote findings with Evidence chain (skills/ops/evidence-finding-path.md)
 6. Report via docs-generator; journal via field-journal
@@ -359,7 +391,7 @@ $readmeNext
 
 Write-Host ("CASE -> {0}" -f $caseRoot) -ForegroundColor Green
 Write-Host ("PROJECT -> {0}" -f $projectRoot)
-Write-Host ("PRIMARY skill: Tool/skill/{0} ({1})" -f $primary, $primaryId)
+Write-Host ("PRIMARY skill: Tool/skill/{0} ({1})" -f $primaryLabel, $(if ($primaryId) { $primaryId } else { '待定' }))
 Write-Host ("auth.status={0} network_profile={1} ready_for_act={2}" -f $authStatusResolved, $networkMode, $readyStr)
 if ($ready) {
     Write-Host 'NEXT: open PRIMARY SKILL.md and ACT within scope' -ForegroundColor Green

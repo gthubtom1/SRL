@@ -30,7 +30,7 @@ Tool/cases/
 ```json
 {
   "id": "项目A",
-  "domain": "reverse",
+  "domain": "softseep",
   "target_type": "PE32+ x64",
   "protection": ["self-vm", "veh-guard"],
   "authority": "server",
@@ -47,7 +47,7 @@ Tool/cases/
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `id` | string | 案例唯一标识，默认与目录名一致 |
-| `domain` | string | 领域。当前取值（与 `domain_spec.DOMAINS` 一致）：`web-pentest`、`pwn-crypto`、`firmware-iot`、`ad-cloud`、`protocol-plugin`、`plugin-targets`、`forensics-mobile`、`malware-analysis`、`supply-chain-security`、`site-clone`、`reverse`；新领域请先在本文档登记 |
+| `domain` | string | 领域。当前取值（与 `domain_spec.DOMAINS` 一致，9 个客户域）：`apkseep`、`firmware-iot`、`web-pentest`、`pwn-crypto`、`protocol-plugin`、`forensics-mobile`、`malware-analysis`、`supply-chain-security`、`softseep`；新领域请先在本文档登记。旧名 `ad-cloud` / `plugin-targets` / `site-clone` / `reverse` 已迁出，案例里仍存在属历史归档 |
 | `target_type` | string | 目标形态，如 `PE32+ x64`、`PE32 x86`、`.NET/WPF`、`Java JAR` |
 | `protection` | string[] | 观察到的保护层，用短横线小写：`packer`、`themida`、`self-vm`、`ed25519`、`antidebug`、`auto-updater` … |
 | `authority` | string | 授权裁决权威：`local` / `server` / `hybrid`；不确定留 `""` |
@@ -104,7 +104,7 @@ Tool/cases/
 典型用法：
 
 ```text
-seep_case_search(query="卡密 心跳", domain="reverse")
+seep_case_search(query="卡密 心跳", domain="softseep")
 seep_case_search(protection="themida", level="L3")
 seep_case_read(case_id="项目K")
 ```

@@ -71,12 +71,9 @@
     {
       "label": "逆向工程 / PE 二进制 / 补丁与脱壳",
       "must": [
-        "(?i)(?:\\bPE32(?:\\+)?\\b|\\bMZ\\b|\\bDLL\\b|\\bEXE\\b|\\bSYS\\b|e_lfanew|\\bIAT\\b|\\bTLS\\s*callback\\b|\\bRVA\\b|节表|导入表|导出表|\\bCLR\\b|\\bBSJB\\b)",
-        "(?i)(?:\\bx64dbg\\b|\\bIDA\\b|\\bGhidra\\b|\\bradare2\\b|\\brizin\\b|\\bFrida\\b|\\bWinDbg\\b|\\bPE-bear\\b|\\bILSpy\\b|\\bdnSpy\\b)",
-        "(?i)(?:脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|\\btrampoline\\b|\\bcode\\s*cave\\b|\\bhook\\s*(?:api|函数|dll|表|inline|detour|导入)|\\bwasm\\b|wasm2c|wabt|\\bEAC\\b|EasyAntiCheat|BattlEye|Vanguard|反作弊|授权锁|UltraLock|\\bHVCI\\b|\\bKDP\\b)",
-        "(?i)(?:\\bVMProtect\\b|\\bThemida\\b|\\bWinLicense\\b|\\bUPX\\b|\\bASPack\\b|\\bMPRESS\\b|\\bScylla\\b|\\bEnigma\\b)"
+        "(?is)^(?!.*(?:(?<![a-z0-9])(?:dump|oep|scylla)(?![a-z0-9])|pe-sieve|内存转储|转储)).*(?:(?<![a-z0-9])(?:pe32\\+?|mz|dll|exe|sys|clr|rva|iat|ida)(?![a-z0-9])|e_lfanew|tls\\s*callback|bsjb|节表|导入表|导出表|x64dbg|ghidra|radare2|rizin|frida|windbg|pe-bear|ilspy|dnspy|脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|trampoline|code\\s*cave|hook\\s*(?:api|函数|dll|表|inline|detour|导入)|wasm|wasm2c|wabt|eac|easyanticheat|battleye|vanguard|反作弊|授权锁|ultralock|hvci|kdp|vmprotect|themida|winlicense|upx|aspack|mpress|enigma)"
       ],
-      "priority": 130
+      "priority": 155
     },
     {
       "label": "阶段① 授权旁路与可用成品交付",
@@ -162,7 +159,8 @@
       "must": [
         "(?i).*"
       ],
-      "priority": 10
+      "priority": 10,
+      "fallback": true
     }
   ],
   "stages": [

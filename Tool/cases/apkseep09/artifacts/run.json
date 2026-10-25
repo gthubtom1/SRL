@@ -1,0 +1,144 @@
+{
+  "inputs": [
+    "Tool/samples/real/android-apks/ovaa.apk"
+  ],
+  "dex": [
+    {
+      "name": "classes.dex",
+      "size": 2636832,
+      "header_size_matches": true,
+      "header_note": "",
+      "classes": 2024,
+      "total_methods": 15912,
+      "native_methods": 1,
+      "native_ratio": 0.0001,
+      "abstract_methods": 976,
+      "body_methods": 14935,
+      "no_code_methods": 0,
+      "native_with_code": 0,
+      "trivial_bodies": 593,
+      "trivial_ratio": 0.0397,
+      "fully_native_classes": 0,
+      "native_dominated_classes": 0,
+      "bytes_per_class": 1302,
+      "parse_error": null
+    }
+  ],
+  "native": [
+    {
+      "name": "libovaa.so",
+      "size": 5824,
+      "is_elf": true,
+      "arch": "aarch64",
+      "elf_note": "",
+      "dynsym_entries": 11,
+      "java_symbols": 1,
+      "java_symbol_sample": [
+        "Java_oversecured_ovaa_objects_MemoryCorruptionSerializable_freePtr"
+      ],
+      "exports_JNI_OnLoad": false,
+      "imports_RegisterNatives": false,
+      "jni_call_refs": [],
+      "signature_hits": {}
+    },
+    {
+      "name": "libovaa.so",
+      "size": 13904,
+      "is_elf": true,
+      "arch": "arm",
+      "elf_note": "",
+      "dynsym_entries": 18,
+      "java_symbols": 1,
+      "java_symbol_sample": [
+        "Java_oversecured_ovaa_objects_MemoryCorruptionSerializable_freePtr"
+      ],
+      "exports_JNI_OnLoad": false,
+      "imports_RegisterNatives": false,
+      "jni_call_refs": [],
+      "signature_hits": {}
+    },
+    {
+      "name": "libovaa.so",
+      "size": 5516,
+      "is_elf": true,
+      "arch": "x86",
+      "elf_note": "",
+      "dynsym_entries": 8,
+      "java_symbols": 1,
+      "java_symbol_sample": [
+        "Java_oversecured_ovaa_objects_MemoryCorruptionSerializable_freePtr"
+      ],
+      "exports_JNI_OnLoad": false,
+      "imports_RegisterNatives": false,
+      "jni_call_refs": [],
+      "signature_hits": {}
+    },
+    {
+      "name": "libovaa.so",
+      "size": 6096,
+      "is_elf": true,
+      "arch": "x86_64",
+      "elf_note": "",
+      "dynsym_entries": 7,
+      "java_symbols": 1,
+      "java_symbol_sample": [
+        "Java_oversecured_ovaa_objects_MemoryCorruptionSerializable_freePtr"
+      ],
+      "exports_JNI_OnLoad": false,
+      "imports_RegisterNatives": false,
+      "jni_call_refs": [],
+      "signature_hits": {}
+    }
+  ],
+  "classification": {
+    "verdict": "jni-sinking",
+    "confidence": "medium",
+    "metrics": {
+      "dex_total_methods": 15912,
+      "dex_native_methods": 1,
+      "dex_native_ratio": 0.0001,
+      "dex_fully_native_classes": 0,
+      "dex_native_dominated_classes": 0,
+      "dex_no_code_methods": 0,
+      "dex_trivial_ratio": 0.0397,
+      "so_java_symbols": 4,
+      "so_dynamic_registration": false,
+      "so_bytes_total": 31340
+    },
+    "evidence": [
+      {
+        "claim": "dex layer: native declaration density 0.01% (1/15912)",
+        "strength": "strong",
+        "supports": "baseline",
+        "note": "High density with whole classes turned native is the Java2C shape. It is NOT sufficient on its own: a hand-written JNI class looks identical in dex, so the .so layer decides."
+      },
+      {
+        "claim": "dex layer: 0 classes are native-dominated (>=70% native of >=3 named methods), 0 fully native",
+        "strength": "medium",
+        "supports": "baseline",
+        "note": "A hand-written JNI boundary class normally keeps its Java half, so whole classes turned native are the Java2C shape. Constructors are excluded: they stay in Java even after a translation pass."
+      },
+      {
+        "claim": "dex layer: 4% of method bodies are return-a-constant stubs (593/14935)",
+        "strength": "medium",
+        "supports": "baseline",
+        "note": "Approximate metric (see --help). Empty bodies are the signature of an extraction shell or a VMP, not of Java2C."
+      },
+      {
+        "claim": "native layer: 4 exported Java_* symbols across 4 library(ies)",
+        "strength": "strong",
+        "supports": "java2c",
+        "note": "Static-linkage form. Compare the count against the dex native method count: a rough 1:1 map is the Java2C signature."
+      }
+    ],
+    "route": [
+      "The dex is still readable: locate the Java call site, then reverse the one or few native functions.",
+      "references/native-and-so.md, then the algorithm tooling."
+    ],
+    "weak_criteria_warning": [
+      "JNI_OnLoad / RegisterNatives / libc++_shared.so / FindClass appear in ordinary JNI libraries: a hit is not a hardening verdict.",
+      "A high native ratio is also produced by hand-written JNI code and by R8 stripping Java bodies; only the .so layer separates these.",
+      "The trivial-body ratio is approximate and flags extraction shells and VMPs, never Java2C."
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 {
-  "id": "<用例编号，如 reverse01>",
-  "domain": "reverse",
+  "id": "<用例编号，如 apkseep09>",
+  "domain": "apkseep",
   "target_type": "<本地靶场（教学夹具）| 真实目标描述>",
   "evidence_kind": "fixture",
   "protection": [],
@@ -24,16 +24,16 @@
     "forbidden": []
   },
   "lessons": [
-    "跑的是什么：…；命令：`…`；rc=0",
-    "结果：…（关键字段/计数/哈希）",
-    "判据：…（对应 references/01-criteria.md 的哪一行）",
-    "边界：…（没验证什么，为什么）",
+    "跑的是什么：…；命令：`python Tool/skill/apkseep/scripts/<script>.py …`；rc=0",
+    "结果：…（关键字段/计数/哈希；判 dump 时必须给 stub% 与 dedupe 唯一镜像数）",
+    "判据：…（对应 references/01-criteria.md §1 的哪一行，写成 Rung 几）",
+    "边界：…（没验证什么，为什么；壳/抽取壳/VMP 的边界句按 02-failure-criteria §3 的模板写）",
     "复现：…（一条可复制命令）"
   ],
   "tags": [],
   "refs": [
-    "Tool/skill/softseep/references/01-criteria.md",
-    "Tool/skill/softseep/references/02-failure-criteria.md"
+    "Tool/skill/apkseep/references/01-criteria.md",
+    "Tool/skill/apkseep/references/02-failure-criteria.md"
   ],
   "updated": "YYYY-MM-DD"
 }

@@ -6,12 +6,14 @@
     {
       "id": "rev-pe-01",
       "text": "帮我逆向这个exe的注册码，有UPX壳",
-      "expect_skill": "malware-analysis/SKILL.md"
+      "expect_skill": "softseep/SKILL.md",
+      "why_fixed": "原期望 malware-analysis 与 PM-SPEC §8 L2 冲突（\"说'脱壳'不该被路由到'恶意样本分析'\"）：本句是 Windows 软件域的判壳/逆向诉求，应落 softseep"
     },
     {
       "id": "rev-pe-02",
       "text": "分析这个PE文件，看它是不是加壳了",
-      "expect_skill": "malware-analysis/SKILL.md"
+      "expect_skill": "softseep/SKILL.md",
+      "why_fixed": "原期望 malware-analysis 与 PM-SPEC §8 L2 冲突（\"说'脱壳'不该被路由到'恶意样本分析'\"）：本句是 Windows 软件域的判壳/逆向诉求，应落 softseep"
     },
     {
       "id": "license-01",

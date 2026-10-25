@@ -444,7 +444,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 - 用户任何时候要求校验（`check` / `doctor` / `检查环境` / `帮我校验一下安装是否完整`），直接执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\python Tool/scripts/check.py --env
+python Tool/scripts/check.py --env
 ```
 
 - **汇报格式（四栏看板）**：读取输出后，按 `MANUAL/DEPLOYMENT-CHECKLIST.md` 基准清单输出：

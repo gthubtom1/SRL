@@ -249,10 +249,40 @@ def check(tools, baseline=None, probes=None):
 
 
 def _resolve_baseline():
-    """工具数基线：优先读 Tool/config/gate-counts.json（若存在）；已删除时退化为「实测即基线」，不再硬失败。"""
+    """工具数基线：唯一来源 Tool/config/packs.baseline.json 的
+    mcp_handshake.servers.seep.toolsCount（退化到 toolNames 条数）。
+
+    历史（外部评审 F10）：曾经读 Tool/config/gate-counts.json，该文件后来被删，函数就
+    return None，而 main() 的 "if baseline is not None" 把整段比对静默跳过 —— 于是 40→20 的
+    工具削减既没人发现、门禁还打印「工具数基线一致」。现在基线缺失时显式 WARN，
+    不再假装比对过。
+    """
+    pb = os.path.join(TOOL, "config", "packs.baseline.json")
+    if os.path.isfile(pb):
+        try:
+            d = json.load(open(pb, encoding="utf-8"))
+            srv = ((d.get("mcp_handshake") or {}).get("servers") or {}).get("seep") or {}
+            n = srv.get("toolsCount")
+            if isinstance(n, int) and n > 0:
+                return n
+            names = srv.get("toolNames")
+            if isinstance(names, list) and names:
+                return len(names)
+        except Exception as exc:  # noqa: BLE001
+            print("[WARN] packs.baseline.json 读不出工具数基线：%s" % exc)
     gc = os.path.join(TOOL, "config", "gate-counts.json")
-    if not os.path.isfile(gc):
-        return None
+    if os.path.isfile(gc):
+        try:
+            d = json.load(open(gc, encoding="utf-8"))
+            for k in ("mcp_seep_tools", "seep_tools", "tools"):
+                n = d.get(k)
+                if isinstance(n, int) and n > 0:
+                    return n
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
 def _self_test():
     """造假工具/假探针结果验判据能抓出违规（离线，不需要 MCP 服务）。"""
     good = {"name": "seep_ok", "description": "d",
@@ -320,6 +350,9 @@ def main() -> int:
                        "detail": "真调用探针异常：%s: %s" % (type(exc).__name__, exc)}]
 
     baseline = None if args.no_baseline else _resolve_baseline()
+    if baseline is None and not args.no_baseline:
+        print("[WARN] 工具数基线缺失（packs.baseline.json 里没有 mcp_handshake.servers.seep.toolsCount）"
+              "—— 本次没有比对工具数，不代表没被削减")
     result = check(tools, baseline, probes)
 
     if args.json:

@@ -19,7 +19,7 @@ echo "  Agent 目标根目录: $AGENT_DIR"
 # 1. 基础环境探测
 # 注意：Windows 上 `python3` 可能是 Microsoft Store 占位程序——存在但不运行、返回非零。
 # 因此不仅探测存在，还要验证能真正执行；否则依次回退到 python。
-echo -e "\n[1/6] 🔍 检查基础运行环境..."
+echo -e "\n[1/7] 🔍 检查基础运行环境..."
 PY=""
 if command -v python3 &>/dev/null && python3 -c "print(1)" &>/dev/null; then
     PY="python3"
@@ -34,7 +34,7 @@ PY_VER=$($PY -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.
 echo "  [√] Python 解释器: $PY (v$PY_VER)"
 
 # 2. 离线依赖解压
-echo -e "\n[2/6] 📦 解压内置离线依赖..."
+echo -e "\n[2/7] 📦 解压内置离线依赖..."
 for mod in "js-reverse-mcp" "playwright-mcp"; do
     TARGET_DIR="$SAFE_DIR/$mod/node_modules"
     ZIP_FILE="$SAFE_DIR/$mod/node_modules.zip"
@@ -57,7 +57,7 @@ for mod in "js-reverse-mcp" "playwright-mcp"; do
 done
 
 # 3. 赋予工具执行权限 + Radare2 运行时引擎探测
-echo -e "\n[3/6] 🔧 配置文件执行权限 / Radare2 引擎..."
+echo -e "\n[3/7] 🔧 配置文件执行权限 / Radare2 引擎..."
 if [ -d "$SAFE_DIR/radare2/bin" ]; then
     chmod +x "$SAFE_DIR/radare2/bin/"* 2>/dev/null || true
 fi
@@ -83,7 +83,7 @@ fi
 echo "  [√] 二进制可执行权限设置完成"
 
 # 4. 安装 Python mcp 协议库
-echo -e "\n[4/6] 🐍 安装 Python 协议支持..."
+echo -e "\n[4/7] 🐍 安装 Python 协议支持..."
 $PY -m pip install "mcp>=1.20,<1.29" --quiet || {
     echo "⚠️ 自动安装失败，建议手动执行: $PY -m pip install 'mcp>=1.20,<1.29'"
 }
@@ -94,7 +94,7 @@ $PY -m pip install pefile curl-cffi zstandard requests --quiet 2>/dev/null || {
 echo "  [√] Python MCP 协议支持就绪"
 
 # 5. Pi Agent 配置同步
-echo -e "\n[5/6] 🧠 部署 Pi Agent 技能与提示词..."
+echo -e "\n[5/7] 🧠 部署 Pi Agent 技能与提示词..."
 mkdir -p "$AGENT_DIR/skills" "$AGENT_DIR/extensions"
 
 # 复制 Skills
@@ -129,10 +129,22 @@ fi
 [ -f "$TOOL_DIR/prompts/SEEP.md" ] && cp "$TOOL_DIR/prompts/SEEP.md" "$AGENT_DIR/"
 [ -f "$TOOL_DIR/prompts/AGENTS.md" ] && cp "$TOOL_DIR/prompts/AGENTS.md" "$AGENT_DIR/"
 # 任务卡（prompt templates）：Tool/prompts/tasks/*.md → ~/.pi/agent/prompts/<name>.md
+#   pi 把每个文件当一条 /slash 命令，所以「说明文件」不能拷进去（部署成 /README 就是废命令）。
+#   ★ 对齐 Windows 侧 install-pi.ps1：跳过 README.md，并如实报“拷了几个”，不编造不存在的命令。
 if [ -d "$TOOL_DIR/prompts/tasks" ]; then
     mkdir -p "$AGENT_DIR/prompts"
-    cp "$TOOL_DIR/prompts/tasks/"*.md "$AGENT_DIR/prompts/" 2>/dev/null || true
-    echo "  [√] 任务卡已同步 (/reverse, /reverse-deliverable)"
+    task_count=0
+    for t in "$TOOL_DIR/prompts/tasks/"*.md; do
+        [ -f "$t" ] || continue
+        tbase="$(basename "$t")"
+        if [ "$tbase" = "README.md" ]; then
+            continue
+        fi
+        if cp "$t" "$AGENT_DIR/prompts/"; then
+            task_count=$((task_count + 1))
+        fi
+    done
+    echo "  [√] 任务卡已同步 $task_count 个 md -> $AGENT_DIR/prompts/"
 fi
 
 # 迁移：旧版把规则写成 ~/.pi/agent/SYSTEM.md，会被 pi 内核当"替换默认提示词"，必须退役
@@ -158,7 +170,7 @@ fi
 
 # 6. 增量合并 Agent 配置（mcp.json + settings.json）
 echo -e "
-[6/6] 🧩 增量合并 Agent 配置 (mcp.json + settings.json)..."
+[6/7] 🧩 增量合并 Agent 配置 (mcp.json + settings.json)..."
 #
 # ★ 血案：旧实现用一行 sed 从模板生成 mcp.json，导致
 #   · 路径是 Windows 反斜杠（Linux/macOS 下不存在，核心 MCP 起不来）
@@ -188,10 +200,31 @@ open(os.path.join(root, ".mcp.json"), "w", encoding="utf-8").write(json.dumps(cf
 PYEOF
     echo "  [√] 已生成项目级 .mcp.json（Claude Code 免配加载）"
 fi
+echo "================================================================================"
+echo "  [i] 配置合并完成：部署结论由第 7 步自检决定（不再无条件报「部署完毕」）"
+echo "================================================================================"
+
+# 7. 部署自检（与 Windows 侧 setup/install.ps1 最后一步完全一致）
+#    ★ 血案：旧版这里无条件打印「🎉 部署完毕」，装没装好根本不看，属于对客户说假话。
+#      现在结论只由 check.py --env 的退出码决定：非 0 就报「部署未完成」并以非 0 退出。
+echo -e "
+[7/7] 🩺 部署自检 (python Tool/scripts/check.py --env)..."
+ENV_RC=0
+# set -e 会让失败的 python 直接中断脚本，这里要拿到真实退出码再自行判定
+set +e
+"$PY" "$ROOT/Tool/scripts/check.py" --env
+ENV_RC=$?
+set -e
 
 echo "================================================================================"
-echo "  🎉 恭喜！Seep Reverse Lab 在当前系统部署完毕！"
-echo "  下一步提示:"
-echo "  1. 退出并重新打开终端启动 Agent (Pi / Claude Code / DSH)"
-echo "  2. 在对话框中发送: lab： 即可开启测试！"
+if [ "$ENV_RC" -eq 0 ]; then
+    echo "  🎉 恭喜！Seep Reverse Lab 在当前系统部署完毕！"
+    echo "  下一步提示:"
+    echo "  1. 退出并重新打开终端启动 Agent (Pi / Claude Code / DSH)"
+    echo "  2. 在对话框中发送: lab： 即可开启测试！"
+else
+    echo "  ⚠️ 部署未完成：体检未通过（明细见上方 check.py --env 输出，退出码 $ENV_RC）"
+    echo "     修好后重跑: bash setup/install.sh"
+fi
 echo "================================================================================"
+exit "$ENV_RC"

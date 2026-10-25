@@ -281,7 +281,7 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 ## 任务卡入口
 
-- 24 张任务卡：`Tool/prompts/domains/reverse.md`（源名取自 `Tool/config/taskcard-sources.json` 的 `reverse` 列表）
+- 24 张任务卡：`Tool/prompts/domains/softseep.md`（旧域名为 `reverse`；源名取自 `Tool/config/taskcard-sources.json` 的 `reverse` 列表，键名为历史遗留）
 - 每卡六段：触发词 / 前置 / 步骤 / 判据 / 失败判据 / reference；按卡名或触发词选卡。
 
 ---
