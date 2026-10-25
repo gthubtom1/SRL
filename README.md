@@ -45,7 +45,7 @@
 
 > ## 现状卡（冷启动只看这几行）
 >
-> - **这个项目要什么**：[`REQUIREMENTS.md`](REQUIREMENTS.md)（客户原话 + 产品解读，接手必读）
+> - **这个项目要什么**：[`REQUIREMENTS.md`](REQUIREMENTS.md)（客户白话需求）→ [`PM-SPEC.md`](PM-SPEC.md)（产品经理扩写，接手必读）
 > - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（10 个技能 / 9 个域包 / 24 条配方 / 20 个 MCP 工具 / 15 个全局脚本）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
 > - **门禁**：数字不写在这里（写了必漂）——跑 `python Tool/scripts/preflight.py --fast` 看
