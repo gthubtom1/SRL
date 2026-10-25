@@ -72,10 +72,12 @@ def m1():
 # ── 2. 让一条技能描述丢掉触发词 → 触发面探针必须红 ────────────────
 @implant("删掉技能描述里的触发词", ["Tool/scripts/preflight.py", "--fast"], "触发面")
 def m2():
+    """把描述换成中性技术描述（去掉全部用户原话）→ 触发面探针必须红。"""
+    import re as _re
     p = "Tool/skill/softseep/SKILL.md"
-    s = open(p, encoding="utf-8").read()
-    s = s.replace("初步分析这个软件", "分析一下", 1)
-    open(p, "w", encoding="utf-8", newline="\n").write(s)
+    src = open(p, encoding="utf-8").read()
+    out = _re.sub(r"^description:.*$", 'description: "通用二进制分析工具"', src, count=1, flags=_re.M)
+    open(p, "w", encoding="utf-8").write(out)
 
 
 # ── 3. 给非总控技能加"总控"字样 → 总控唯一判据必须红 ──────────────
