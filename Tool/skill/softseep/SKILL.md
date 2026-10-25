@@ -9,9 +9,9 @@ metadata:
   last_split_pass: "2026-09-23"
 ---
 
-# softseep — 逆向工程总控入口（Orchestrator）
+# softseep — 通用二进制域（PE / ELF / Mach-O / .NET / Go / Rust / Electron / wasm）
 
-> **本文件是总控，不是手册。** 只回答：① 哪个平台 ② 什么逆向类型 ③ 分发给谁。细节在 `references/`，按需加载。
+> **本文件是「通用二进制」这一个域的手艺**（不是总控）。判型/选域/上限在 `seep-router`；本文件只讲 PE/ELF/Mach-O（含 .NET/Go/Rust/Electron/wasm）具体怎么做。
 
 ---
 
@@ -35,7 +35,7 @@ metadata:
         · 平台：Windows / Android / Linux / Web / Flutter
         · 类型：授权许可 / 补丁本地化 / 脱壳 / 算法还原 /
                 协议分析 / 样本研判 / UI 伪造 / 加固对抗 / 测绘报告
-  → ③ 分发：加载对应 reference / skill / MCP
+  → ③ 找对应 reference / MCP 工具（本域内）
   → ④ 执行 → 三段式报告
 ```
 
@@ -56,8 +56,8 @@ metadata:
 细则：`AGENTS.md` §四点五 第 9 条；接管假服务端三档见 `references/license-validation.md` §5.3。
 
 **三条铁律**：
-1. **门控不可绕过** —— 先 G-Auth，再判型，再分发；子能力只经总控调用；
-2. **判型是 softseep 的职责，不是用户的负担** —— 用户说大白话，本主控自己归类；
+1. **门控不可绕过** —— 先 G-Auth，再按 router 的判型结论走；本域内的方法按需加载；
+2. **判型归 `seep-router`，本文件不重复** —— 用户说大白话，由 router 归类；
    **绝不把"请选择平台/类型"的选择题甩回给用户**；
 3. **判型不可跳过** —— 不先判平台与类型就开工 = 违规（错平台代价是整轮工作作废）。
 

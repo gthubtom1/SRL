@@ -1,0 +1,63 @@
+- generic [active] [ref=f1e1]:
+  - text: "\" >"
+  - generic [ref=f1e2]:
+    - list [ref=f1e4]:
+      - listitem [ref=f1e5]:
+        - link "Home" [ref=f1e6] [cursor=pointer]:
+          - /url: /process.php?file=Generics/index.nsp
+      - listitem [ref=f1e7]:
+        - link "Hello" [ref=f1e8] [cursor=pointer]:
+          - /url: /hello.php?name=Visitor
+      - listitem [ref=f1e9]:
+        - link "Products" [ref=f1e10] [cursor=pointer]:
+          - /url: /products.php?pro=url
+      - listitem [ref=f1e11]:
+        - link "About" [ref=f1e12] [cursor=pointer]:
+          - /url: /process.php?file=Generics/about.nsp
+      - listitem [ref=f1e13]:
+        - link "Contact" [ref=f1e14] [cursor=pointer]:
+          - /url: /process.php?file=Generics/contact.nsp
+      - listitem [ref=f1e15]:
+        - link "Login" [ref=f1e16] [cursor=pointer]:
+          - /url: /auth/
+    - generic [ref=f1e20]:
+      - generic [ref=f1e23]:
+        - heading [level=1] [ref=f1e24]:
+          - link "Products" [ref=f1e25] [cursor=pointer]:
+            - /url: "#"
+        - paragraph [ref=f1e26]:
+          - text: Currently, we don't have any products to sell. To see the product portfolio, please
+          - link "click here." [ref=f1e27] [cursor=pointer]:
+            - /url: "?pp=+DAST"
+      - list [ref=f1e30]:
+        - listitem [ref=f1e31]:
+          - generic [ref=f1e34]:
+            - textbox [ref=f1e35]
+            - button "GO" [ref=f1e36]
+        - listitem [ref=f1e38]:
+          - heading "Tags" [level=2] [ref=f1e39]
+          - paragraph [ref=f1e40]: invicti xss web-application-security false-positive-free automated-exploitation sql-injection local/remote-file-inclusion
+        - listitem [ref=f1e41]:
+          - heading "Inner Pages" [level=2] [ref=f1e42]
+          - list [ref=f1e43]:
+            - listitem [ref=f1e44]:
+              - link "Artist Search" [ref=f1e45] [cursor=pointer]:
+                - /url: /artist.php?id=test
+            - listitem [ref=f1e46]:
+              - link "Lookup Service" [ref=f1e47] [cursor=pointer]:
+                - /url: /nslookup.php
+        - listitem [ref=f1e48]:
+          - heading "Links" [level=2] [ref=f1e49]
+          - list [ref=f1e50]:
+            - listitem [ref=f1e51]:
+              - link "Aspnet Testinvicti" [ref=f1e52] [cursor=pointer]:
+                - /url: http://aspnet.testinvicti.com/
+            - listitem [ref=f1e53]:
+              - link "Aspnet Testinvicti Login" [ref=f1e54] [cursor=pointer]:
+                - /url: http://aspnet.testinvicti.com/administrator/
+  - generic [ref=f1e56] [cursor=pointer]: This website is automatically reset at every midnight (00:00 - UTC).
+  - paragraph [ref=f1e58]:
+    - text: Copyright (c) 2010 testinvicti.com. All rights reserved. Design by
+    - link "Free CSS Templates" [ref=f1e59] [cursor=pointer]:
+      - /url: http://www.freecsstemplates.org/
+    - text: .

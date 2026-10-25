@@ -1200,6 +1200,36 @@ def check_prompt_residue():
         else "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
+def check_single_orchestrator():
+    """总控只能有一个：`seep-router` 之外的技能不许自称总控/Orchestrator/带路由矩阵。
+
+    为什么（2026-10-25 用户抓到的）：`softseep` 把判型/路由搬走后，标题仍写
+    "逆向工程总控入口（Orchestrator）"、正文仍写"本文件是总控…分发给谁" ——
+    于是它既像总控又像二进制域，用户读描述时以为"只做电脑软件"。
+    这类缺陷三代审计都没抓到，因为审计只比对"设计条目有没有实现"，
+    没人问"一个文件是否在扮两个角色"。这条判据把它变成机检。
+
+    允许：`seep-router` 出现这些词；其他技能**只有在同一行出现 "seep-router" 指针时**才允许。
+    """
+    import glob as _g
+    import re as _re
+    words = ("总控", "Orchestrator", "路由矩阵", "载体 → 域")
+    bad = []
+    for p in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
+        name = os.path.basename(os.path.dirname(p))
+        if name == "seep-router":
+            continue
+        for i, line in enumerate(open(p, encoding="utf-8", errors="replace"), 1):
+            if "seep-router" in line:
+                continue          # 指针行允许
+            for w in words:
+                if w in line:
+                    bad.append("%s:%d 含「%s」" % (name, i, w))
+                    break
+    add("2 单一事实源", "总控唯一（只有 seep-router 可自称总控/带路由矩阵）", not bad,
+        "；".join(bad[:4]) if bad else "seep-router 唯一；其余技能均为单域")
+
+
 def check_five_contracts():
     """5 件套契约自测：首答三要素 / BLK 码 / 重放两次 / 降级通知 / 复查单 / 报告五段。
 
@@ -1754,6 +1784,7 @@ def main():
     check_subskill_wiring()
     check_fact_drift()
     check_five_contracts()
+    check_single_orchestrator()
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()
