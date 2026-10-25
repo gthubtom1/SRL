@@ -197,3 +197,119 @@ grep -RInE 'telnetd|dropbear|httpd|uhttpd|lighttpd|goahead|procd|start-stop-daem
 - 不把凭据明文写进报告；证据只留指纹、路径、用途、验证命令。
 - 账号破解、私钥滥用、OTA 伪造只在单独授权下进行；默认只做只读审计。
 - 详细硬件接入见 `hardware-interfaces.md`，仿真与 fuzz 见 `emulation-and-fuzz.md`。
+
+## 11. 硬编码凭据扫描判据：从 grep 到“可验证凭据”
+
+> 目标：把“字符串里有个 password”降到“某个文件第 N 行有一个可用于登录的凭据”。
+> 扫描只读副本；命中后先脱敏，再谈可用性。
+
+### 11.1 扫描面（六类，缺一类就会漏）
+
+| 面 | 命令/位置 | 典型命中 | 下一步 |
+| --- | --- | --- | --- |
+| 文本配置 | `grep -RInE` on `etc/` `www/` `usr/etc/` | `password=`、`admin:`、`token=` | 定位 `文件:行号` |
+| 二进制常量 | `strings -a -n 4` + 上下文 | 拼接的 URL/账号/密钥 | 用 `rabin2 -zz` 或反汇编找引用 |
+| 编码块 | base64/hex 长串 | `YWRtaW46…`、`0x…` | 解码后再判 |
+| NVRAM/默认值 | `nvram.conf`、`defaults/`、`etc/config` | `http_username=admin` | 看服务是否读它 |
+| 脚本拼接 | `system()`/`popen()` 附近 | `echo user:pass` | 追调用链 |
+| 私钥/证书 | `*.pem/*.key/*.p12` | BEGIN PRIVATE KEY | `openssl` 配对 |
+
+### 11.2 多编码解码（避免“grep 不到就写没有”）
+
+```bash
+ROOT=work/fw-audit/rootfs
+# 1) 明文与常见键名
+grep -RInE 'pass(word|wd)?|secret|token|api[_-]?key|private[_-]?key|admin' \
+  "$ROOT/etc" "$ROOT/www" "$ROOT/usr/etc" 2>/dev/null | head -80
+
+# 2) 长 base64/hex 串（只列候选，不自动解码全部）
+grep -RInE '[A-Za-z0-9+/]{24,}={0,2}' "$ROOT/etc" 2>/dev/null | head -40
+
+# 3) 二进制里的可打印串（先看长度与上下文）
+find "$ROOT" -type f -perm -111 -size -8M 2>/dev/null | while read -r f; do
+  strings -a -n 6 "$f" | grep -Ei 'password|passwd|secret|token|admin' >/dev/null && echo "$f"
+done | head -20
+
+# 4) 已知编码样本解码（把 <B64> 换成实际串；不要批量解码未知内容）
+printf '%s' '<B64>' | base64 -d 2>/dev/null | head -c 200; echo
+printf '%s' '<HEX>' | xxd -r -p 2>/dev/null | head -c 200; echo
+```
+
+### 11.3 判据阶梯：A/B/C/D 四级
+
+| 级别 | 判据 | 允许写法 | 禁止写法 |
+| --- | --- | --- | --- |
+| A 可用 | 明文/空口令/可配对私钥，且完成一次登录或设备接受 | “在 <环境> 可用该凭据登录” | “所有设备都可用” |
+| B 可验证 | shadow hash 可破解，或 token 能只读调用成功 | “hash 已破解/ token 可用（只读验证）” | “弱口令” |
+| C 候选 | 只有 `文件:行号` + 字符串/编码块 | “发现候选凭据，未验证” | “硬编码口令” |
+| D 误报 | 公钥、示例、占位符、帮助文本、已吊销 | “排除，原因 …” | 列入风险 |
+
+### 11.4 四类高频误报（先排除再升级）
+
+| 误报 | 识别方法 | 结论 |
+| --- | --- | --- |
+| `password=` 出现在 HTML 表单/帮助 | 看上下文标签/注释 | D：界面字段 |
+| `-----BEGIN PUBLIC KEY-----` | `openssl pkey -pubin` 能读 | D：公钥 |
+| `admin:admin` 在示例配置 | 文件名为 `.example`/`sample`，服务未引用 | D：示例 |
+| base64 是图片/证书 | 解码后 magic 为 PNG/DER | D：非凭据 |
+
+### 11.5 从命中到登录（J1）的最小链
+
+1. 命中 → 定位文件与行，脱敏原值（保留前 2 后 2 或哈希前 12 位）。
+2. 确认消费者：哪个服务/脚本读这个键（`grep -RIn` 键名）。
+3. 确认算法：`shadow` 前缀、hash 格式、是否加盐。
+4. 在副本/仿真里试一次登录；记录命令、响应、`id`。
+5. 失败就降回 C，并写清失败原因（账号锁定/服务未起/算法不支持）。
+
+## 12. NVRAM / overlay / `rootfs_data`：最容易漏的凭据层
+
+| 位置 | 为什么重要 | 只读检查 |
+| --- | --- | --- |
+| UBI `rootfs_data` | 保存用户改过的配置/口令 | `ubireader_extract_files` 后 `find` |
+| `/etc/config/*` | OpenWrt 实际运行配置 | `grep -RIn` 账号/密钥字段 |
+| NVRAM 默认值 | 服务启动时读取 | `strings` 搜 `nvram_get` 键名 |
+| `/etc/passwd-`/`shadow-` | 旧副本可能保留已删账号 | 与当前文件 diff |
+| 云 provisioning | 设备首次联网写入 | `etc/` 下 `token`/`cert`/`mqtt` |
+
+**判据**：主 rootfs 与覆盖层分别审计；两边账号/密钥集合的差集要能解释（出厂默认 vs 用户配置）。
+**失败**：只审主 rootfs 就写“无额外账号” → 降级，补覆盖层。
+
+## 13. 命令与“通过长什么样”（凭据审计复验）
+
+```bash
+ROOT=work/fw-audit/rootfs
+
+# 1) 账号面：UID0/空/锁定分开
+awk -F: '$3==0{print "uid0",$1}' "$ROOT/etc/passwd" 2>/dev/null
+awk -F: '$2==""{print "empty-shadow",$1} $2 ~ /^[!*]/{print "locked",$1}' "$ROOT/etc/shadow" 2>/dev/null
+
+# 2) 明文/编码候选（只列，不贴值）
+grep -RInE 'pass(word|wd)?|secret|token|api[_-]?key' "$ROOT/etc" "$ROOT/www" 2>/dev/null | head -40
+
+# 3) 私钥/证书与配对
+find "$ROOT" -type f \( -name '*.pem' -o -name '*.key' -o -name '*.p12' \) -print
+openssl x509 -in "$ROOT/etc/ssl/cert.pem" -noout -subject -fingerprint -sha256 2>/dev/null
+openssl pkey -in "$ROOT/etc/ssl/key.pem" -pubout 2>/dev/null | head -3
+
+# 4) 消费者：谁读这个键
+grep -RIn 'http_username\|http_password' "$ROOT/etc" "$ROOT/usr" 2>/dev/null | head -20
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 账号 | UID0 全有解释；空/锁定分开 | 把 `x` 当空口令 |
+| 凭据 | 每条有 `文件:行号` + 消费者 | 只有字符串列表 |
+| 密钥 | 私钥与证书能配对 | 把公钥当私钥 |
+| 覆盖层 | `rootfs_data` 已审，差集有解释 | 只审主 rootfs |
+| 结论 | A/B/C/D 分级明确 | 一律写“硬编码口令” |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的凭据命中都能指到 `文件:行号`，并且脱敏了原值
+- [ ] 我区分了明文/编码/二进制/NVRAM 四类来源，没有只 grep 一次就下结论
+- [ ] 我对每个候选都问了“谁在消费它”，没有把帮助文本当口令
+- [ ] 我审了覆盖层/`rootfs_data`，能解释主 rootfs 与覆盖层的差集
+- [ ] 私钥都做了配对与用途分类，没有把公钥/示例密钥当设备身份
+- [ ] 没有登录证据的项我一律写成候选，没有写成“弱口令/可入侵”

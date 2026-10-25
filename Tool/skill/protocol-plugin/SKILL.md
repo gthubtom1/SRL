@@ -182,8 +182,8 @@ python Tool/scripts/domain-gate.py --domain protocol-plugin
 | 文件 | 职责 | 什么时候读 |
 |---|---|---|
 | `references/01-criteria.md` | 判据表：场景/输入面/可机检判据/证据形态/误报风险 | 开工定判据、交付前自检 |
-| `references/02-failure-criteria.md` | 失败判据：现象/判定/改走哪条/代价 | 卡住时先看 |
-| `references/03-model-pitfalls.md` | 模型常见失误 12 条（错误动作→为什么错→正确动作） | 每次复盘 |
+| `references/02-failure-criteria.md` | 失败判据：现象/判定/改走哪条/代价；含时间盒、事故回流、交接包 | 卡住时先看 |
+| `references/03-model-pitfalls.md` | 模型常见失误 20 条（错误动作→为什么错→正确动作）+ 代理信号 | 每次复盘 |
 | `references/04-walkthrough-websocket-replay.md` | 真实 ws pcap 走查：分帧→字段→状态→构造 | 第一次做完整链路 |
 | `references/05-binary-framing.md` | 二进制分帧：magic/长度/TLV/半包粘包 | 写解析器 |
 | `references/06-app-state-machine.md` | 应用层协议与状态机：台账/迁移/认证材料/负例 | 会话型协议 |

@@ -143,3 +143,122 @@ copy wins otherwise), and re-check ownership after any reinstall (the uid increm
 - [ ] LSPosed modules verified merged (`/data/adb/modules/`, not `modules_update/`) before testing
 - [ ] frida-server architecture matches the target process; disguised if the target scans
 - [ ] Data edits done with the app stopped; ownership fixed after reinstalls
+
+## Command block: prove the device-side stack is actually up
+
+Every on-device route fails in the same boring way: a service that was never started, a module that never
+merged, a binary that is the wrong architecture. Four commands separate those cases before you plan
+anything.
+
+```bash
+# 1) MT's APK MCP: is it listening, and which tools does it expose? (start it by hand in MT's UI first)
+adb forward tcp:8787 tcp:8787
+python scripts/mt_mcp_probe.py            # exit 0 = handshake + tool inventory; exit 2 = service down
+
+# 2) LSPosed: merged or still pending? (the failure that looks like "module did not install")
+adb shell "su -c 'ls /data/adb/modules/ | head -20'"
+adb shell "su -c 'ls /data/adb/modules_update/'"     # non-empty = pending a reboot
+
+# 3) the installed artifact is the one you think it is
+adb shell "su -c 'pm path <pkg>'" && adb shell "su -c 'sha256sum <path-from-above>'"
+
+# 4) frida-server: right architecture, right version, actually running
+adb shell "su -c 'uname -m'"                          # aarch64 on a 64-bit device
+adb shell "su -c 'pidof <server-binary>'"             # empty = not running
+adb shell "su -c '<server-binary> --version'"         # must equal the client's version
+```
+
+**Expected shapes:**
+
+```
+# 1)  (service up)
+tools: 22   open/selection 2   read/search 5   dex 2   resources 2   native 6   modify 8   cleanup 1
+# 1)  (service down, exit 2)
+service not reachable at http://127.0.0.1:8787/mcp — start it in MT: side drawer -> Tools -> APK MCP -> Start
+# 2)
+<module-id>            <- merged
+# 2)  (pending)
+<module-id>            <- in modules_update/, not yet active
+# 4)
+aarch64
+12345
+16.5.9
+```
+
+## What passing looks like (通过长什么样)
+
+| Route | Passing | Not passing |
+|---|---|---|
+| MT APK MCP | `mt_mcp_probe.py` exit 0 **and** the tool inventory matches what your plan needs | the port forwards but nothing answers (service not started in the UI) |
+| MT repack output | the rebuilt APK installs and its on-device hash matches | "build succeeded" in the UI |
+| LSPosed module | the module id is in `/data/adb/modules/` **and** the target's own log shows the hook effect | the manager lists it as enabled |
+| Termux + frida | `pidof` non-empty, version equal on both sides, `uname -m` matches the server's build | `frida` command exists |
+| On-device data edit | the app reads your value after a cold start with the app stopped during the edit | the file content looks right on disk |
+| Any on-device result | reproduced with a device build hash recorded | "it worked on the phone" |
+
+## Device or PC? The cost table
+
+The honest split is by **repeatability**, not by convenience.
+
+| Task | On-device wins when | PC wins when |
+|---|---|---|
+| One string / one branch edit and reinstall | the edit is the whole task and the APK is already there | you will do it twice (scripts beat taps) |
+| Dex-wide "who references this" | rarely — MT's xref is per-class and interactive | a single indexed query replaces ten taps |
+| Byte-precise patch with header recompute | no — smali-level editing only | `dex_find_insn.py` + `dex_patch_bytes.py` |
+| Native inspection | quick xref/CFG on the phone | decompiler, PLT resolution, cross-ABI work |
+| Verifying the build on the device that runs it | always — this is the ground truth | only as a copy, never as the final check |
+| Module iteration (edit → repack → enable → test) | MT + LSPosed Manager is a fast loop | rebuild + push + reboot is slower |
+
+**Rule of thumb:** on-device for the *last mile* (verify, quick edit, module enable) and for sessions
+with no PC; PC for anything you will repeat or need to prove. A result produced on-device still needs a
+hash and a control run — the platform does not relax because the tool was convenient.
+
+## Failure modes specific to on-device work
+
+- **Assuming a service is running.** MT's MCP and `frida-server` both need to be started (one by hand in
+  the UI), and both fail as "connection refused" rather than as a helpful error.
+- **Reading `modules_update/` as installed.** A module that has not merged behaves exactly like a module
+  that does not work; `ls /data/adb/modules/` is the only truth.
+- **Editing an APK that is currently installed and running.** The running process keeps the old dex; your
+  edit looks ineffective until a reinstall and a cold start.
+- **Trusting MT's signature-check killer.** It patches what it can see; a native check can still kill the
+  process (`code-virtualization-and-custom-linkers.md` §a Java-layer decoy).
+- **Building on-device and skipping alignment.** `resources.arsc` rules are enforced by the platform, not
+  by the build machine (`repack-and-sign.md` §2a).
+- **Losing the artifact.** MT's working directory is easy to overwrite; pull the built APK to the PC and
+  hash it before the next iteration.
+
+## A device-only session, in order (no PC in the loop)
+
+This is the sequence that actually works when the phone is the only machine available. It is ordered so
+that every step has a check before the next one depends on it.
+
+1. **Open the target's info dialog in MT** and stay on it — that binding is what "the current APK" means
+   for the MCP session; leaving the dialog loses the binding.
+2. **Start the APK MCP service** (side drawer → Tools → APK MCP → Start). Nothing can start it for you.
+3. **Search before you read.** One string search across the dex/resource index is cheap; opening the smali
+   viewer to browse is expensive and easy to get lost in.
+4. **Confirm the class you found is the owner**, not a wrapper: read its outline and its xrefs before
+   editing. This is the same rule as on the PC — locate first, patch second.
+5. **Edit at smali granularity and keep the change tiny.** A single branch or a single constant; anything
+   larger needs the PC's byte-level tooling to stay auditable.
+6. **Build, then install from MT's output**, and immediately check that the installed hash changed —
+   "build succeeded" is not "the device runs the new build".
+7. **Cold start with the app force-stopped** and look at the screen (MT can screenshot). If the change is
+   invisible, do not iterate blind: re-read the class you patched.
+8. **If you enabled a module instead**, reboot if it is pending, then confirm the module id in
+   `/data/adb/modules/` before testing the target.
+9. **Pull the artifact to somewhere durable** (or copy it into a named MT folder) and record its hash and
+   the target build it was installed over, so the next session does not start from an unknown state.
+
+**Two stops in this sequence.** At step 4, if the xrefs point at a native stub or an empty method, stop —
+that is a layer this toolchain cannot edit (`handoff-boundaries.md`). At step 6, if the hash did not
+change, stop — everything after it would describe the previous build.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我是按"最后一公里 / 要重复"来选设备端还是 PC，而不是按方便
+- [ ] 我用 `mt_mcp_probe.py`（或 `pidof`）证过服务真的在跑，而不是假设它在
+- [ ] 我确认过 LSPosed 模块在 `/data/adb/modules/`，并用目标自己的日志证明钩子生效
+- [ ] 我的设备端产物被拉回 PC 并记了哈希，而且做了对照/冷启动验证
+- [ ] 我没有把 on-device 的"能跑"当成可交付，交付形态按 G1 的四种之一写清楚了

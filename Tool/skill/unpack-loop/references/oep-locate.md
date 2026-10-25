@@ -58,7 +58,191 @@ OEP（Original Entry Point）= **壳把控制权交还给原始程序**的那条
 4) 从该地址能连续反汇编 ≥20 条正常指令（不是垃圾字节）    → 反汇编窗口
 ```
 
-## 4. 这一篇算"用对了"吗
+## 4. 解密完成点：用节熵的时间序列代替“感觉到了”
+
+> 加密壳的代码段是从密文逐步变成代码的。只看一次内存快照无法判断“解完了没”，
+> 但**隔着时间采样同一直段的首字节熵**可以：熵从 7.9 跌到 6.x 并稳定下来 = 解密结束。
+
+```python
+#!/usr/bin/env python3
+# 外部采样：不注入、不改目标字节；只对已运行的目标读内存
+import ctypes, ctypes.wintypes as w, math, time, sys
+
+PROCESS_QUERY_INFORMATION = 0x0400
+PROCESS_VM_READ = 0x0010
+k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+def entropy(b):
+    if not b:
+        return 0.0
+    e = 0.0
+    for c in set(b):
+        f = b.count(c) / len(b)
+        e -= f * math.log2(f)
+    return round(e, 2)
+
+pid, base, size = int(sys.argv[1]), int(sys.argv[2], 16), int(sys.argv[3], 0)
+h = k32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
+if not h:
+    print("open_failed", ctypes.get_last_error()); sys.exit(2)
+buf = ctypes.create_string_buffer(size)
+read = ctypes.c_size_t(0)
+for i in range(40):                      # 约 20s 窗口，可调
+    ok = k32.ReadProcessMemory(h, ctypes.c_void_p(base), buf, size, ctypes.byref(read))
+    print(f"t={i*0.5:5.1f}s ok={int(bool(ok))} ent={entropy(buf.raw[:read.value])}")
+    time.sleep(0.5)
+k32.CloseHandle(h)
+```
+
+**通过长什么样 / 期望输出**（截断版）：
+
+```text
+t=  0.0s ok=1 ent=7.94
+t=  2.5s ok=1 ent=7.91
+t=  5.0s ok=1 ent=6.42
+t=  5.5s ok=1 ent=6.31
+t=  6.0s ok=1 ent=6.30
+```
+
+判读：熵在 5.0s 那一采样**突降并稳定**，这就是拍 dump 的时间窗。三条要求：
+
+1. 至少 3 个采样点落在"稳定低熵"区（不是一次抖动）；
+2. 同一时刻 `rabin2 -i`（事后对 dump 件）能列出非空导入；
+3. 采样全过程 `ok=1`（读失败 = 权限/guard 问题，不是"熵为零"）。
+
+**约束**：只对**副本进程**做；采样间隔不能太短（会拖慢目标并影响时序检测）；
+采样本身不做任何写入，因此不会触发 CRC 校验。
+
+## 5. TLS callback：壳最早的执行点，也是最早的 OEP 陷阱
+
+| 观察 | 含义 | 动作 |
+| :-- | :-- | :-- |
+| TLS 目录非空且 `AddressOfCallBacks` 指向壳节 | 解密/检测在 TLS 阶段开始 | 在 TLS 回调入口下硬件断点，看它跳去哪 |
+| TLS 回调里就把整段代码解完 | 真正的 OEP 可能就在 TLS 之后 | 别把 TLS 回调当 OEP；看它 `ret` 后去哪 |
+| TLS 回调里调用 `ExitProcess` | TLS 阶段的反调试 | 回 `anti-debug-matrix.md` 的 AD-1/AD-7 |
+
+**判据**：TLS 回调里的地址**不算 OEP**（哪怕它已在原始节内），因为它不是原始编译器生成的入口；
+只有当控制流交回原镜像的、带编译器序言的入口时才是。
+
+## 6. 解密在独立线程里：主线程跟不出来的壳
+
+| 现象 | 判断 | 做法 |
+| :-- | :-- | :-- |
+| 主线程在 `WaitForSingleObject`/`Sleep` 里打转，另一线程在改码 | 解密线程 | 对目标节下**写断点**，命中时看是哪个线程（线程 ID） |
+| `CreateThread` 后很快就 `ResumeThread` | 壳把自己的解密体放进新线程 | 在线程入口（`RtlUserThreadStart` 参数）下断，取 `StartAddress` |
+| 主线程直接跳到原始节，但节内容仍是密文 | 另一线程还没写完 | 不能此时 dump；用 §4 的熵时间序列等到稳定 |
+| 每次运行解密线程 ID 不同 | 正常 | 不依赖具体 ID，用"写目标节"做判据 |
+
+**约束**：在 TLS 前/线程创建前注入容易触发“模块枚举/线程扫描”类检测，
+优先用外部采样（§4）而不是注入线程。
+
+## 7. 假 OEP 的六个特征（命中任两条就不能定案）
+
+| # | 假 OEP 特征 | 为什么危险 |
+| :-: | :-- | :-- |
+| 1 | 地址落在壳节（`UPX1`/`.vmp0`/`.XXXX`） | 这只是壳的跳板 |
+| 2 | 前面是 `pushad`/`popad` 或 `push/ret` 对 | 典型壳序言，不是编译器产物 |
+| 3 | 刚跳过去就有一段 `rep movsb`/`lodsb` 大循环 | 还在搬运/解密 |
+| 4 | 从此处单步几步后又跳回壳节 | 未到交接点 |
+| 5 | 此时 `rabin2 -i` 对内存镜像仍是空导入 | IAT 还没填 |
+| 6 | 从此处向后 20 条指令里出现非指令字节（`0x00`/垃圾） | 数据区，未解密完 |
+
+**定案条件**：反例 0 条（六条均不命中）+ §2 的四条硬判据全过。
+
+## 8. OEP 候选打分表（多人/多次执行可对齐）
+
+| 维度 | 取值 | 分值 |
+| :-- | :-- | :-: |
+| 所属节 | 原始代码节 / 其他原始节 / 壳节 | +2 / +1 / 0 |
+| 序言 | 标准 `push rbp; mov rbp,rsp` 或 `sub rsp,X` | +2 |
+| 可连续反汇编 | ≥20 条正常 / 5–19 条 / <5 条 | +2 / +1 / 0 |
+| 导入可用 | `rabin2 -i` 非空 / 部分 / 空 | +2 / +1 / 0 |
+| 不回流壳节 | 后续 200 条指令内无回跳 / 有 | +2 / 0 |
+| 栈平衡 | 从该点 `ret` 能回到 `BaseThreadInitThunk` 路径 | +1 |
+
+判据：**总分 ≥9 才能写“OEP 已定位”**；6–8 只能写“候选”；<6 不要 dump。
+分数与每项依据要写进报告（例如“7/11：节 +2、序言 +2、反汇编 +1、导入 +1、回跳 +0、栈 +1”）。
+
+## 9. OEP 阶段的失败判据与熔断记录
+
+| 现象 | 判定 | 动作 | 代价 |
+| :-- | :-- | :-- | :-- |
+| 同一方法（例如 ESP 定律）两次不出结果 | 方法失效 | 换下一方法（硬件断点 / 外部熵采样） | 30–60 min |
+| 换了两种手法仍无候选 | 可能不是 B 类壳 | 回 `packers-quickref.md` 重判型 | 20 min |
+| 能找到候选但打分永远 <6 | 壳把 IAT 延迟到首次调用 | 写 `oep=partial`，改 dump 后修延迟导入（`iat-repair.md`） | 1–2 h |
+| 目标一挂断点就自毁 | 反调试优先级高于脱壳 | 先走 `anti-debug-matrix.md` 的汇聚点，不要硬脱 | 不可估 |
+| VMProtect/Themida 的 OEP 在 VM 里 | 没有"机器码 OEP" | 写 `route=C`，改函数级分析 | — |
+
+**熔断写法（可复制）**：
+
+```text
+路线：B 类加密壳，OEP 定位
+尝试1：内存写断点（目标节首）→ 命中 37 次，无跳转，判无效
+尝试2：ESP 定律 → 栈顶指向壳节，循环 3 次，判无效
+结论：两次熔断，改硬件断点 + 外部熵采样（第三类手法）
+未做：未 patch 任何字节（避免自校验）
+```
+
+## 9bis. 壳 dispatcher 的形状：从“它怎么跳”反推 OEP 在哪
+
+> 大多数壳的最后一跳都能归类到下面五种形状。先认出形状，再决定用什么断点，
+> 比“到处下断点”快一个数量级。
+
+| 形状 | 典型指令 | 说明 | 断在哪里 |
+| :-- | :-- | :-- | :-- |
+| 栈返回式 | `push oep; ret` / `pop reg; jmp reg` | 壳把 OEP 压栈后 `ret` | `ret` 前一刻的栈顶 / `jmp reg` 的寄存器 |
+| 跳转表式 | `jmp dword ptr [table + idx*4]` | 壳预生成多张出口表 | 表所在节（可 dump 后静态读） |
+| 异常回跳式 | 主动触发 `int3`/`ud2`，在 SEH/VEH 里改 `Eip` | 隐蔽，静态看不到直线跳转 | 异常处理器入口（见 AD-8） |
+| APC/回调式 | `QueueUserAPC`/`SetTimer`/`EnumWindows` 回调里切 | 主线程看不到交接点 | 回调函数地址（从 API 参数取） |
+| 线程式 | 解密线程 `ret` 到 OEP，主线程只等待 | §6 | 新线程入口 / 目标节写断点 |
+
+**判据**：能说出“它用哪种形状跳”+“那一跳的地址”，否则说明 OEP 是猜的。
+
+## 9ter. 常见壳的 OEP 相对位置（辅助手段，不是主判据）
+
+| 壳 | OEP 常见位置 | 辅助验证 |
+| :-- | :-- | :-- |
+| UPX | `UPX1` 尾部 `popad` 之后的第一条长跳 | `upx -d` 结果的入口应一致 |
+| ASPack | `.aspack` 尾，`popad; jmp` | 跳转目标在 `.text` |
+| MPRESS | `.MPRESS1` 尾 | 导入表那时仍为空 → 需 dump 后修 |
+| Themida | 常在新建可执行节或 `.themida` 尾 | 伴随时序检测，先过反调试 |
+| VMProtect | 首个从 VM 出口 `ret` 到本地代码处 | 入口附近的代码未虚拟化 |
+| 自研壳 | 无规律 | 只能靠 §4 熵序列 + §7 假 OEP 排除 |
+
+**约束**：这张表只能用来“产生候选”，定案仍必须过 §2 四条硬判据 + §8 打分 ≥9。
+把“UPX 的 OEP 一般在尾部”当成结论去 dump，依然可能是假 OEP。
+
+## 9quater. OEP 记录模板（贴进案例，可复验）
+
+```json
+{
+  "pid": 6428,
+  "module_base": "0x140000000",
+  "oep_rva": "0x12A40",
+  "oep_va": "0x140012A40",
+  "section": ".text",
+  "score": {"total": 10, "max": 11, "detail": "节+2 序言+2 反汇+2 导入+2 回跳+2 栈+0"},
+  "method": ["写断点(目标节首)", "外部熵采样(5.0s 降至 6.31)"],
+  "evidence": [
+    {"kind": "sections", "cmd": "rabin2 -S dump.bin", "value": "OEP 落在 .text，不在 UPX1"},
+    {"kind": "imports", "cmd": "rabin2 -i dump.bin", "value": "导入 187 条，非空"},
+    {"kind": "entropy", "cmd": "python ent-sample.py <pid> 0x140010000 0x200", "value": "5.0s 后稳定 6.31"}
+  ],
+  "falsified": ["假 OEP 六条特征均未命中"],
+  "blocked_at": null
+}
+```
+
+| 记录项 | 为什么必填 | 缺失后果 |
+| :-- | :-- | :-- |
+| `module_base` | ASLR 下每次运行不同，地址无意义 | 下次复验找不到同一位置 |
+| `oep_rva` | 唯一能跨运行对齐的坐标 | 只能写“大约在 .text” |
+| `score.detail` | 证明不是“看起来像” | 评审无法判断是否过 §8 阈值 |
+| `method[]` | 两种方法互证才到 E3 | 单一手段失败后无法区分方法错还是判据错 |
+| `evidence[].cmd` | 可重跑 | 证据降级为记忆 |
+| `falsified[]` | 记录了“排除过什么” | 无法区分“没检查”与“检查通过了” |
+
+## 10. 这一篇算"用对了"吗
 
 - [ ] 我能说出"为什么这个地址是 OEP"，并且**四条硬判据都过**
 - [ ] 我 dump 前确认过"IAT 可解析"

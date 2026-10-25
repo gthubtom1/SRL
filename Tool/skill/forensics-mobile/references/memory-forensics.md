@@ -212,3 +212,67 @@ python3 vol.py -f mem.raw windows.eventlog.EventLog      # 与 /sys/eventlog 交
 - 内存结论必须与磁盘/流量/日志至少一个独立源交叉；否则标 `unverified`。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`03-model-pitfalls.md`、`disk-and-filesystem.md`、`evidence-chain.md`。
+
+## 13. 内存镜像取证走查：十步到时间线
+
+| 步 | 动作 | 命令 | 门禁 |
+| :-: | --- | --- | --- |
+| 1 | 哈希/大小/采集记录 | `sha256sum mem.raw` | 哈希 + 时间 + 主机名 |
+| 2 | 定版本 | `banners.Banners` | build/架构可读 |
+| 3 | 进程 | `pslist` + `psscan` | 两者都能跑 |
+| 4 | 差集 | `comm`/`jq` 比 PID | 每个差集有解释 |
+| 5 | 命令行/用户 | `cmdline` + `getsids` | 主体可指认 |
+| 6 | 网络 | `netscan` + `netstat` | 五元组 + PID + 时间 |
+| 7 | 注入 | `malfind` + dump | 页可二次识别 |
+| 8 | 持久化 | `hivelist` + `printkey` | 键 + 值 + 时间 |
+| 9 | 交叉 | pcap/磁盘/EVTX | 至少两源 |
+| 10 | 时间线 | JSON 统一字段 | 四要素齐全 |
+
+**最容易漏的是第 4 步**：只跑 `pslist` 会漏掉已退出/隐藏进程；只跑 `psscan` 会把已退出进程当“正在运行”。
+
+### 13.1 差集解释模板
+
+```text
+PID 4242：pslist 无 / psscan 有 → 已退出或链表被摘；CreateTime=…，ExitTime=…
+PID 5150：两者都有，但 cmdline 为空 → 可能权限/结构问题；标 inferred
+PID 6262：pslist 有 / psscan 无 → 采集时刚创建，池扫描未覆盖；标 observed-partial
+```
+
+**判据**：每个差集 PID 都有“为什么不在另一张表”的解释；没有解释就写“未归因”。
+
+## 14. 命令与“通过长什么样”（内存最小复验）
+
+```bash
+MEM=evidence/mem.raw
+python3 vol.py -f "$MEM" banners.Banners
+python3 vol.py -f "$MEM" windows.pslist.PsList > out/pslist.txt
+python3 vol.py -f "$MEM" windows.psscan.PsScan > out/psscan.txt
+python3 vol.py -f "$MEM" windows.netscan.NetScan > out/netscan.txt
+
+# 差集（按 PID 第一列；实际列位以输出为准）
+comm -3 <(sort -n out/pslist.txt | awk 'NR>2{print $1}') \
+         <(sort -n out/psscan.txt | awk 'NR>2{print $1}') | head
+
+# 两工具交叉（若装了 MemProcFS）
+memprocfs -device "$MEM" -mount /mnt/mem 2>/dev/null && ls /mnt/mem/sys/proc | head
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 版本 | `banners` 出版本 | 报符号缺失 |
+| 进程 | 两张表都有输出 | 一张空 → 解释或降级 |
+| 差集 | 每个 PID 有解释 | 直接写“隐藏进程” |
+| 网络 | 五元组 + PID + 时间 | 只有 IP |
+| 注入 | dump 文件 `file` 可识别 | 只有 `malfind` 行 |
+| 交叉 | pcap/磁盘至少一源 | 单源 → `unverified` |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我先定版本再选符号，没有拿相近 profile 硬跑
+- [ ] 我跑了 `pslist` 与 `psscan`，并对差集逐 PID 解释
+- [ ] 我的外联结论能落到 PID + 时间 + 五元组，不是只写 IP
+- [ ] `malfind` 命中后我做了 dump + 二次识别，没有直接写“注入”
+- [ ] 内存结论至少与 pcap/磁盘/EVTX 之一交叉
+- [ ] 我没有把内存里的字符串当“用户看过/执行过”

@@ -202,8 +202,8 @@ grep -l 'uid=\|FLAG{' /tmp/run.* | wc -l
 | 文件 | 用途 | 什么时候读 |
 |---|---|---|
 | `references/01-criteria.md` | 判据总表（场景/输入面/可机检判据/证据形态/误报风险） | 开局定判据、交付前打勾 |
-| `references/02-failure-criteria.md` | 失败判据表（现象/判定/改走哪条/代价） | 卡住、想换路线、写“已排除” |
-| `references/03-model-pitfalls.md` | 14 条模型常见失误（错误动作→为什么错→正确动作） | 写 exploit 前自检、复盘 |
+| `references/02-failure-criteria.md` | 失败判据表（现象/判定/改走哪条/代价）；含降级链、事故回流、交接包 | 卡住、想换路线、写“已排除” |
+| `references/03-model-pitfalls.md` | 25 条模型常见失误（错误动作→为什么错→正确动作）+ 代理信号 | 写 exploit 前自检、复盘 |
 | `references/04-walkthrough-local-pe.md` | 真实案例走查：现场编译 PE 的栈溢出/整数/格式化串 + 密码学回代 | 想照着复跑、需要真实输出片段 |
 | `references/binary-exploitation.md` | pwntools/gdb 骨架：ret2libc、格式化串、栈迁移、稳定性；§7 TOCTOU/文件竞态判据（符号链接替换、临时文件命名、RENAME_EXCHANGE、Windows 重解析点） | 阶段 B/C 写脚本 |
 | `references/crypto-attacks.md` | RSA/分组/PRNG/证书的可运行求解骨架与回代 | 阶段 B/C 做密码学 |

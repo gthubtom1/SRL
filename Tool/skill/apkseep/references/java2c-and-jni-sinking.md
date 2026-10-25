@@ -147,3 +147,106 @@ symbol table" and go find where it happens.
   method follows from the mechanism, not from a measurement made here. If you get a live Java2C
   sample, that is the first thing to verify, and it is cheap: attach, force the class to load, and
   ask whether the method resolves to Java bytecode or to a registered native entry.
+
+## Command block: the three numbers that decide the row
+
+The table above is only usable if the numbers can be produced in a minute. They can, and they come from
+two files: the dex and the `.so`.
+
+```bash
+# 1) the whole discrimination in one report (density, per-class dominance, Java_* vs native count)
+python scripts/java2c_probe.py --apk target.apk --json > j2c.json
+python scripts/java2c_probe.py --apk target.apk          # human report, with weak hits in a warning block
+
+# 2) the raw symbol side, per ABI (do not mix ABIs: counts will not match across them)
+unzip -o -q target.apk 'lib/arm64-v8a/*.so' -d /tmp/abi64
+for so in /tmp/abi64/lib/arm64-v8a/*.so; do
+  printf '%-40s Java_*=%-4s JNI_OnLoad=%s\n' "$(basename "$so")" \
+    "$(nm -D --defined-only "$so" 2>/dev/null | grep -c ' Java_')" \
+    "$(nm -D --defined-only "$so" 2>/dev/null | grep -c ' JNI_OnLoad')"
+done
+
+# 3) is the *class* the one that lost its Java methods? (density per class, not per app)
+python scripts/dex_strings.py ./dexdump --classes 'Lcom/<vendor>/<app>/' --per-file
+```
+
+**Expected shapes** (numbers from the measured samples; yours will differ):
+
+```
+# 1)
+dex methods: 11182   native: 3   ratio: 0.03%      <- JNI sinking territory
+native-dominated classes (>=70% of >=3 named methods): 0
+Java_* symbols: 3 (arm64)  <- matches the dex count 1:1
+weak hits: JNI_OnLoad present, libc++_shared.so present  (do not use as evidence)
+
+# 2)
+libnative-lib.so        Java_*=3    JNI_OnLoad=1
+libc++_shared.so        Java_*=0    JNI_OnLoad=0
+```
+
+| # | What you read | Meaning |
+|---|---|---|
+| 1 ratio | 0.0x % | surgical sink or ordinary JNI: the dex is the code |
+| 1 ratio | tens of % | a translation pass; look for per-class dominance next |
+| 1 dominance | ≥ 1 class with ≥70 % of its named methods native | Java2C shape (constructors excluded from the test by design) |
+| 2 | `Java_*` ≈ dex native count, per ABI | static linkage: a symbol search is a valid locator |
+| 3 | the class you care about has zero Java bodies | that class's logic is in the `.so`, whatever the app-wide ratio says |
+
+## What passing looks like (通过长什么样)
+
+| Claim | Passing | Not passing |
+|---|---|---|
+| "This is Java2C" | per-class dominance **and** the app-wide density, both in the tens of percent, plus a `.so` with matching `Java_*` count | "lots of `native` methods" |
+| "This is JNI sinking" | density ~0.0x %, few native methods, the rest of the dex ordinary | one class with no Java bodies (that is a local sink, not an app-wide shape) |
+| "There is no DEX to dump" | density + dominance + no code_item for the methods (`methods_no_code` in the dump validator) | "my dump did not find it" |
+| "The symbol search is not evidence" | you can name the mechanism (dynamic registration / hidden visibility) and show `JNI_OnLoad` present with zero `Java_*` | an empty `grep` result |
+| "This library implements method X" | a `Java_*` symbol that matches the dex signature, or a registration table entry | a function with a similar name |
+
+## Writing the verdict (three sentences, one per row)
+
+```
+shape:      Java2C | JNI sinking | neither (ordinary JNI / shell / VMP)
+evidence:   density <x>% (dex <n> methods, <m> native) | dominance: <k> class(es) >= 70%
+            | .so: Java_*=<a> vs dex native=<m> on <abi> | code_item: none for those methods
+next:       read the .so (Java2C) | reverse <m> native functions (sink) | continue elsewhere
+not claimed: <e.g. "no live Java2C app was observed here, so the runtime claim stays inferred">
+```
+
+The third line matters: the mechanism argument for Java2C ("nothing is ever decrypted") is
+`inferred` unless you observed a live one, and the report should say which parts are `observed` in *your*
+run.
+
+## Failure modes of this discrimination
+
+- **Density from a tiny dex.** 29 methods make one `native` count as 3.4 %. Always report the raw counts
+  next to the ratio, and prefer per-class dominance on small dexes.
+- **A single dominant class read as an app-wide verdict.** One class moved to native is a sink or a
+  hand-written JNI module; the app-wide shape is what the table decides.
+- **Counting across ABIs.** A fat APK has several `lib/<abi>/` trees; mixing their symbol counts produces
+  a ratio that matches nothing.
+- **Treating `JNI_OnLoad` or `libc++_shared.so` as evidence.** Both are weak by construction, and the
+  probe prints them in a warning block precisely so they are not promoted.
+- **Assuming the dump "failed".** If the dex shows `native` for the methods you want, a dump can only
+  reproduce that — the failure is the plan, not the tool.
+- **Reading the `.so` as if a human wrote it.** Generated translation output is flat and linear: read it
+  as a register-machine linearisation, matching each call against its JNI signature.
+
+## The one-minute triage, when you have nothing but the APK
+
+1. `java2c_probe.py --apk target.apk` — read the ratio and the dominance line. Two numbers, thirty seconds.
+2. If the ratio is 0.0x % and dominance is 0, stop reading this file: the dex is the code, and the work is
+   `dex-patching.md`.
+3. If the ratio is tens of percent, read the `Java_*` count against the dex native count. Matching numbers
+   mean static linkage — you can map the `.so` back onto the dex one function at a time.
+4. If the class you care about has no Java bodies but the app-wide ratio is low, treat it as a **local**
+   sink: reverse those specific functions, do not re-plan the app as native.
+5. Write the three-sentence verdict before opening a decompiler. If you cannot write the `evidence:` line,
+   you have not made the discrimination yet.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我同时给出了 app 级的 native 密度与 per-class dominance，而不是只给其中一个
+- [ ] 我按 ABI 分了 `.so`，并把 `Java_*` 数与 dex 的 native 方法数做了对照
+- [ ] 我没有把 `JNI_OnLoad` / `libc++_shared.so` / `RegisterNatives` 字符串当作结论
+- [ ] 我说清了"没有 DEX 可 dump"是形状判断，不是 dump 工具的失败
+- [ ] 我的报告标了哪些是 `observed`、哪些只是机制推论（Java2C 的运行时断言通常是后者）

@@ -56,6 +56,167 @@ PY
 熵参考：英文/JSON ≈ 4.0–4.7；base64 ≈ 6.0；压缩后 ≈ 7.9；加密 ≈ 7.95–8.0。
 **压缩和加密的熵几乎一样**，所以必须靠"能否解压"区分，不能靠熵。
 
+## 2.1 私有加密识别的四张特征表（先对表，再写代码）
+
+| 家族 | 长度特征 | 结构特征 | 常量/指纹 | 判定所需证据 |
+|---|---|---|---|---|
+| 重复异或 | 与明文等长，无填充 | 每隔 k 字节出现规律；同位置字节差异稳定 | 无固定常量 | 已知明文 crib 能解出周期 k，且解密后可解析 |
+| RC4（含 drop-n） | 与明文等长，无填充 | 每帧独立或全局续流；无块对齐 | 无常量；有统计偏差 | 候选 key 下 `rc4(key,ct)` 的 crib 位置匹配 |
+| AES（ECB/CBC/CTR） | 16 的倍数（ECB/CBC），或与明文等长（CTR） | ECB 有重复块；CBC 首块随机；CTR 每帧带 nonce | S-box `637c777bf26b6fc5`、Rcon `01020408…` | 重复块或 `P[i]=D(C[i])^C[i-1]` 成立 |
+| TEA/XTEA/SM4 | 8/16 字节块 | 32 轮结构，输入被切成 2/4 个 word | TEA `0x9E3779B9`、SM4 S-box `d690e9fe…` | 常量命中 + 已知明文回代 |
+
+判据边界：**常量命中只是"疑似"**，必须再做一次"已知明文 → 密文"回代；没有明文对就写到"疑似"为止。
+
+扫描客户端里的算法常量（纯标准库，不依赖 grep -P）：
+
+```bash
+python - <<'PY'
+import pathlib
+blob = pathlib.Path("client.bin").read_bytes()
+sigs = {
+    "aes_sbox":      bytes.fromhex("637c777bf26b6fc5"),
+    "aes_rcon_tail": bytes.fromhex("01020408102040801b36"),
+    "tea_delta_be":  (0x9E3779B9).to_bytes(4, "big"),
+    "tea_delta_le":  (0x9E3779B9).to_bytes(4, "little"),
+    "sm4_sbox":      bytes.fromhex("d690e9fecce13db7"),
+    "chacha_sigma":  b"expand 32-byte k",
+}
+for name, sig in sigs.items():
+    off = blob.find(sig)
+    print(name, hex(off) if off >= 0 else "not found")
+PY
+```
+
+通过长什么样：
+
+```text
+aes_sbox 0x1a2b40
+aes_rcon_tail not found
+tea_delta_be not found
+tea_delta_le 0x2c110
+sm4_sbox not found
+chacha_sigma not found
+```
+
+读法：命中 `tea_delta_le` → 优先按小端 XTEA 试；`aes_sbox` 命中但找不到 Rcon 可能是静态表被拆开/混淆。
+**没命中不等于没有**（常量可能被编码或运行时生成），只说明"这条线索断了"。
+
+## 2.2 重复异或：定周期 → 取密钥 → 回代
+
+```bash
+python - <<'PY'
+import pathlib
+data = pathlib.Path("artifacts/payload.bin").read_bytes()
+def score(k):
+    blocks = [data[i:i+k] for i in range(0, min(len(data), k*10), k)]
+    if len(blocks) < 3:
+        return 1e9
+    ds = [sum(bin(a ^ b).count("1") for a, b in zip(blocks[i], blocks[i+1])) / k
+          for i in range(len(blocks) - 1)]
+    return sum(ds) / len(ds)          # 归一化汉明距离：越小越像同一密钥
+best = sorted(range(1, 41), key=score)[:3]
+print("best_keylens", best, "scores", [round(score(k), 2) for k in best])
+crib = b'{"type":"request"'           # 已知明文：从业务语义来的，不要瞎猜
+k = best[0]
+key = bytes(data[i] ^ crib[i] for i in range(min(k, len(crib))))
+plain = bytes(data[i] ^ key[i % k] for i in range(len(data)))
+print("key", key.hex(), "period_ok", all(key[i] == key[i % k] for i in range(len(key))))
+print("head", plain[:24])
+print("json_ok", plain[:1] == b"{")
+PY
+```
+
+通过长什么样：
+
+```text
+best_keylens [8, 16, 24] scores [3.02, 3.11, 3.2]
+key 5a3c91e7b2048fd1 period_ok True
+head b'{"type":"request","temp'
+json_ok True
+```
+
+注意：`[8, 16, 24]` 是 8 的倍数，说明真实周期 8；选最小且能回代的那个。
+`json_ok False` 说明 crib 猜错或数据前面还有 nonce/压缩层——回去分层，不要硬解。
+
+## 2.3 RC4：等长 + 无填充 + crib 回代
+
+```bash
+python - <<'PY'
+def rc4(key, data):
+    S = list(range(256)); j = 0
+    for i in range(256):
+        j = (j + S[i] + key[i % len(key)]) & 0xFF
+        S[i], S[j] = S[j], S[i]
+    out = bytearray(); i = j = 0
+    for b in data:
+        i = (i + 1) & 0xFF; j = (j + S[i]) & 0xFF
+        S[i], S[j] = S[j], S[i]
+        out.append(b ^ S[(S[i] + S[j]) & 0xFF])
+    return bytes(out)
+import pathlib
+ct = pathlib.Path("artifacts/payload.bin").read_bytes()
+for key in (b"secret", b"key12345", bytes.fromhex("0011223344556677")):
+    pt = rc4(key, ct)
+    print(key, "len_equal", len(pt) == len(ct), "head", pt[:16])
+PY
+```
+
+通过长什么样（命中时头部是可解析结构）：
+
+```text
+b'secret' len_equal True head b'\x9a\x13\xfe...'
+b'key12345' len_equal True head b'{"cmd":"ping"'
+00 11 22 33 44 55 66 77 len_equal True head b'\x04\x00\x00\x00...'
+```
+
+判据：`head` 是 JSON/长度前缀/魔数 → 这是"确认"；全是随机字节 → 不是这个 key。
+RC4 的统计偏差（第二字节偏 0x00、首 256 字节 0x00 偏多）只能当"疑似"线索，不能单独定族。
+
+## 2.4 AES/分组：块对齐、重复块、PKCS#7、模式
+
+```bash
+python - <<'PY'
+import pathlib
+ct = pathlib.Path("artifacts/payload.bin").read_bytes()
+blocks = [ct[i:i+16] for i in range(0, len(ct) - 15, 16)]
+print("len", len(ct), "mod16", len(ct) % 16, "blocks", len(blocks), "dup", len(blocks) - len(set(blocks)))
+last = ct[-1]
+print("pkcs7_tail_ok", 1 <= last <= 16 and ct[-last:] == bytes([last]) * last)
+print("first_block_hex", blocks[0].hex() if blocks else None)
+PY
+```
+
+通过长什么样：
+
+```text
+len 96 mod16 0 blocks 6 dup 2
+pkcs7_tail_ok True
+first_block_hex 3f9a1c07b8e2d451...
+```
+
+判读：
+
+- `dup>=1` 且用相同明文块（如全 `A`）能复现 → ECB（`01-criteria.md` #14）。
+- `dup==0` + `pkcs7_tail_ok` + 首块每帧不同 → CBC，首 16 B 很可能是 IV。
+- `dup==0` + `mod16!=0` + 长度与明文等长 → 流/CTR，找 8/12/16 B nonce。
+- `len % 16 == 0` 但末尾不像 padding → 可能是自定义填充或两轮加密，先别下结论。
+
+CTR nonce 重用的判定（两条密文异或等于两条明文异或）：
+
+```bash
+python - <<'PY'
+import pathlib
+a = pathlib.Path("artifacts/ct1.bin").read_bytes()
+b = pathlib.Path("artifacts/ct2.bin").read_bytes()
+x = bytes(p ^ q for p, q in zip(a, b))
+print("xor_head", x[:32])
+print("printable_ratio", sum(32 <= c < 127 for c in x) / max(1, len(x)))
+PY
+```
+
+`printable_ratio` 明显高于随机的 ~0.37 → 明文相关，nonce 可能重用。这是"疑似"，
+要拿到一条已知明文才能升级为"确认"。
+
 ## 3. 分组加密 vs 流加密
 
 | 观察 | 分组（CBC/ECB） | 流/CTR | 结论 |
@@ -79,6 +240,31 @@ for k in (0, 15, 16, 31):
 - CBC：第 k 块损坏 + 下一块对应位翻转。
 - CTR/流：只影响对应明文位，长度不变。
 - 带 MAC/AEAD：整帧被拒（无法观察扩散），此时只能靠"密文长度是否 16 倍数"和"是否每帧带 tag"判断。
+
+## 3.1 位翻转扩散实验（判 CBC/CTR 的硬证据）
+
+只在**本地副本**上做：改密文一位，用同一 key/iv 解密，看明文哪一段变化。
+
+```bash
+python - <<'PY'
+from Crypto.Cipher import AES          # 仅本地、已知 key 的场景
+key, iv, ct = b"0"*16, b"\x00"*16, bytes(range(48))
+pt = AES.new(key, AES.MODE_CBC, iv).decrypt(ct)
+bad = bytearray(ct); bad[16] ^= 0x01     # 改第 2 块（index 16）
+pt2 = AES.new(key, AES.MODE_CBC, iv).decrypt(bytes(bad))
+diff = [i for i, (a, b) in enumerate(zip(pt, pt2)) if a != b]
+print("changed_plain_offsets", diff)
+PY
+```
+
+通过长什么样（CBC 改 `C[1]` → `P[1]` 整块乱、`P[2]` 对应位翻转）：
+
+```text
+changed_plain_offsets [16, 17, 18, ..., 31, 32]
+```
+
+`diff` 只落在 `[16,32)` 且长度不变 → 更像 CTR/流；`diff` 跨两个块 → CBC。
+带 MAC/AEAD 时整帧被拒，观察不到扩散：改看"密文是否 16 倍数 + 每帧是否带 tag"，别硬做位翻转。
 
 ## 4. 校验和：先覆盖范围，再算法参数
 
@@ -114,6 +300,42 @@ def adler32(b):
 
 `proto-repro.py` 的 schema 里 `tail[].covers` + `algo` 就是这一步的可执行版本；
 `checks[].want/got` 直接把比对结果写进证据。
+
+## 4.1 CRC 参数穷举（先覆盖范围，再参数）
+
+```bash
+# 有 reveng 时：用 ≥3 组 (message, crc) 直接反推 width/poly/init/refin/refout/xorout
+reveng -w 16 -s 3a4b 5c6d 7e8f 90a1
+reveng -w 32 -s 01020304 05060708 090a0b0c
+# 没有 reveng：用 crcmod 枚举常见参数组合
+python -c "import crcmod; print(crcmod.predefined._crc_definitions[:3])" 2>/dev/null || echo "no crcmod"
+```
+
+没有工具时的最小穷举（反射/非反射 + init 0/全 F + xorout 0/全 F，共 8 组）：
+
+```bash
+python - <<'PY'
+import binascii
+msg, want = b"SPRX\x01\x01\x00\x24\x00\x00\x00\x01{}", 0x1234
+def crc16(data, poly=0xA001, init=0xFFFF, refin=True, xorout=0):
+    c = init
+    for x in data:
+        c ^= x
+        for _ in range(8):
+            c = (c >> 1) ^ poly if c & 1 else c >> 1
+    return (c ^ xorout) & 0xFFFF
+hits = []
+for init in (0x0000, 0xFFFF):
+    for xorout in (0x0000, 0xFFFF):
+        for poly in (0xA001, 0x8005, 0x1021, 0x3D65):
+            if crc16(msg, poly=poly, init=init, xorout=xorout) == want:
+                hits.append((hex(poly), hex(init), hex(xorout)))
+print("hits", hits, "unique", len(hits) == 1)
+PY
+```
+
+通过长什么样：`hits [('0xa001', '0xffff', '0x0')] unique True`。
+`unique False` 说明样本太少（或覆盖范围错），继续收帧——不要挑一个"看起来对"的写进报告。
 
 ## 5. 真实样本的校验复算（SPRX）
 
@@ -157,3 +379,11 @@ python -c "import json,sys;d=json.load(sys.stdin);[print(f['index'],f['checks'])
 - 本节只讲"识别与验证"：产物是熵/块长/魔数证据与明文回代；生产系统的解密动作按 `scope` 与授权单执行。
 - 压缩/序列化的分层解析与分帧见 `05-binary-framing.md`；重放验收见 `08-replay-and-new-request.md`。
 - 所有加密结论必须附：算法族、模式、IV/nonce 来源、覆盖范围、验证实验；缺一项即为"疑似"。
+
+## 这一篇算"用对了"吗
+
+- [ ] 先排压缩/编码再谈加密：给出魔数、解压结果或解码结果，没有跳过这一步。
+- [ ] 加密结论写到"家族 + 模式 + IV/nonce 来源 + 覆盖范围"，四项缺一就标疑似。
+- [ ] 重复异或/RC4/AES 的判定都有"已知明文 → 回代"或重复块/位翻转实验，不靠熵。
+- [ ] 校验结论先定覆盖范围再定参数，且样本 ≥5 帧 + 改 1 字节负例。
+- [ ] 拿不到明文对时如实写"未解"，没有把"爆破密钥"当计划。

@@ -122,3 +122,156 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 | `analyzing-ios-app-security-with-objection` | iOS 应用安全分析（Objection）（源：analyzing-ios-app-security-with-objection） | `Tool/skill/forensics-mobile/references/ios-macos-artifacts.md` | 检测点位置+设备状态+检测结果；不伪造“已绕过” |
 | `reverse-engineering-ios-app-with-frida` | Frida 逆向 iOS 应用（只读）（源：reverse-engineering-ios-app-with-frida） | `Tool/skill/forensics-mobile/references/ios-macos-artifacts.md` | 二进制函数→运行时值→文件/网络链路可复述 |
 | `analyzing-docker-container-forensics` | Docker/容器取证（源：analyzing-docker-container-forensics） | `Tool/skill/forensics-mobile/references/evidence-chain.md` | 容器 ID/镜像/挂载/日志时间可复述；文件哈希可校验 |
+
+## 6. 三类镜像的取证走查：内存 / 流量 / 磁盘
+
+> 这一节不重复各专题的工具手册，只回答：**先拿哪类、怎么算“这一类取证成立”、三类怎么交叉**。
+> 采集顺序固定：内存 → 流量 → 磁盘（易失性从高到低）；顺序反了，内存里的连接/进程就没了。
+
+### 6.1 内存镜像：回答“谁在什么时候做了什么”
+
+```bash
+MEM=evidence/mem.raw
+sha256sum "$MEM" | tee evidence/mem.sha256
+python3 vol.py -f "$MEM" banners.Banners
+python3 vol.py -f "$MEM" windows.pslist.PsList > out/pslist.txt
+python3 vol.py -f "$MEM" windows.psscan.PsScan > out/psscan.txt
+python3 vol.py -f "$MEM" windows.netscan.NetScan > out/netscan.txt
+```
+
+**成立判据**：
+
+| 维度 | 必须有的字段 | 缺了怎么降级 |
+| --- | --- | --- |
+| 主体 | PID + PPID + 用户/SID + 命令行 | 缺命令行 → `inferred` |
+| 时间 | 进程 CreateTime、连接 Created（UTC） | 缺时间 → 只能做“存在性” |
+| 对象 | 五元组 / 模块 / dump 文件哈希 | 缺对象 → 不是结论 |
+| 交叉 | 与 pcap 或磁盘至少一个独立源对齐 | 单源 → `unverified` |
+
+**不成立**：只有 `strings` 命中域名；只有 `pslist` 没有 `psscan` 差集；dump 的页无法二次识别。
+
+### 6.2 流量镜像：回答“和谁、传了什么、对方怎么回”
+
+```bash
+PCAP=evidence/capture.pcap
+capinfos "$PCAP"
+tshark -r "$PCAP" -q -z conv,tcp
+tshark -r "$PCAP" -Y 'tcp.stream eq 7' -z follow,tcp,ascii,7 | head -60
+mkdir -p out/http && tshark -r "$PCAP" --export-objects http,out/http
+sha256sum out/http/* | tee out/http/SHA256SUMS
+```
+
+**成立判据**：双向会话 + 请求/响应关键字段 + 导出对象哈希 + 时间（epoch 转 UTC）。
+**不成立**：只看单向包；同端口多连接合并；只有 SNI 没有响应；TLS 无 keylog 却写“上传成功”。
+
+### 6.3 磁盘镜像：回答“哪个对象在何时被怎样操作”
+
+```bash
+IMG=evidence/disk.img
+sha256sum "$IMG" | tee evidence/disk.sha256
+mmls "$IMG"
+fsstat -o 2048 "$IMG"
+fls -r -m / -o 2048 "$IMG" > out/bodyfile.txt
+mactime -b out/bodyfile.txt -d -z UTC > out/timeline.csv
+```
+
+**成立判据**：分区 Start 扇区正确 + 文件系统可解析 + 路径/inode/MACB + 已删文件有恢复来源。
+**不成立**：`-o` 用字节偏移；`fls` 有目录但 `icat` 乱码；时间线缺时区。
+
+### 6.4 三类如何交叉（最少两源）
+
+| 结论 | 内存证据 | 流量证据 | 磁盘证据 |
+| --- | --- | --- | --- |
+| 某进程外联 | `netscan` PID/五元组/时间 | `tcp.stream` 首末包/SNI | 进程镜像路径/哈希 |
+| 某文件被上传 | 进程命令行/句柄 | HTTP 对象哈希/长度 | 文件 inode/路径/哈希 |
+| 某账号被使用 | `getsids`/登录会话 | 认证请求（脱敏） | EVTX 4624/4648/键 last-write |
+| 某持久化被写入 | 内存 hive/Run 键 | 下载/回连 | REGF last-write + 文件 mtime |
+
+**规则**：两源时间差超过采集窗口/时钟偏差 → 写“无法判定顺序”；只有一源 → `inferred`，不进结论段。
+
+## 7. 时间线与 IOC 的构建判据
+
+### 7.1 时间线的最小字段（缺一不可）
+
+| 字段 | 说明 | 机检 |
+| --- | --- | --- |
+| `time_utc` | ISO8601，带 Z | 可解析 |
+| `ts_basis` | 来源与精度（FILETIME/epoch/µs/mtime） | 非空 |
+| `source` | 文件名/工具/记录号 | 非空 |
+| `actor` | PID/SID/UID/Bundle ID/IP:port | 非空 |
+| `action` | 执行/连接/写入/删除/登录 | 非空 |
+| `object` | 路径/inode/URL/五元组/键 | 非空 |
+| `confidence` | observed/inferred/unverified | 枚举 |
+| `evidence_refs` | 可回到原始证据 | 非空数组 |
+
+**判据**：时间线能按 `time_utc` 排序且同秒事件有稳定次序；每条能回到原始记录；冲突并列而不是“取合理的那个”。
+
+### 7.2 IOC 质量阶梯（别把字符串当 IOC）
+
+| 级别 | 形态 | 可写结论 | 误报来源 |
+| --- | --- | --- | --- |
+| I0 | 单个域名/IP/文件名 | “候选 IOC” | 缓存、CDN、常见库 |
+| I1 | IOC + 进程/用户 | “某主体接触过该 IOC” | 进程名可伪装 |
+| I2 | IOC + 时间 + 五元组 + 对象哈希 | “在 <时间> 发生了一次可复述的通信” | 时钟偏差 |
+| I3 | I2 + 两次独立复现/两源交叉 | “可重复的恶意外联/落地” | 环境差异 |
+
+**升级规则**：I0→I1 需要主体；I1→I2 需要时间与对象；I2→I3 需要第二源或第二次复现。
+**降级规则**：只有域名/IP → I0；只有 `strings` → I0；只有日志一行 → `observed-log`，不是 I2。
+
+### 7.3 时间线构建命令（多源）
+
+```bash
+python Tool/skill/forensics-mobile/scripts/fs-timeline.py \
+  --input evidence/AppReadiness.evtx \
+  --input evidence/Explorer.hiv \
+  --input evidence/History.sqlite \
+  --input evidence \
+  --out out/timeline.json
+
+python Tool/skill/forensics-mobile/scripts/forensics-check.py \
+  --file evidence/AppReadiness.evtx --json
+
+jq '{events: .summary.events, by_kind: .summary.by_kind,
+     start: .summary.start_utc, end: .summary.end_utc}' out/timeline.json
+```
+
+**通过长什么样**：`events > 0`；`by_kind` 覆盖你声称的每个源；首末时间与各源自报范围一致；每条事件有 `source` 与 `ts_basis`。
+
+## 8. 命令与“通过长什么样”（本域一页体检）
+
+```bash
+# 1) 文件可读 + 类型 + 哈希
+for f in evidence/*; do sha256sum "$f"; file "$f"; done
+
+# 2) 三类镜像各自的最小结构
+python3 vol.py -f evidence/mem.raw banners.Banners 2>&1 | head -5
+capinfos evidence/capture.pcap 2>&1 | grep -E 'Number of packets|First packet|Last packet'
+mmls evidence/disk.img 2>&1 | head -8
+
+# 3) 时间线非空且可排序
+jq -r '.events[0:3][] | [.time_utc,.source,.actor,.action] | @tsv' out/timeline.json 2>/dev/null
+
+# 4) 证据链四要素（案例）
+python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/forensics03 --json \
+  | jq '{ok, checks, failures, warnings}'
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 哈希 | 每个证据都有 64 hex | 缺哈希/只算一次 |
+| 内存 | `banners` 出版本，`pslist`+`psscan` 都能跑 | 只有 strings |
+| 流量 | 包数/首末时间可读，有双向会话 | 只有单向 |
+| 磁盘 | `mmls` 有分区，`fsstat` 成功 | `-o` 字节偏移 |
+| 时间线 | 事件非空且带 `ts_basis` | 只有时间没有来源 |
+| 证据链 | `failures=[]` | 缺主体/对象/哈希 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我按“内存 → 流量 → 磁盘”的顺序采集，并记录了采集窗口
+- [ ] 三类镜像里至少两类能交叉到同一主体/时间/对象
+- [ ] 我的时间线每条都有 `ts_basis`，没有把本地时间当 UTC
+- [ ] 我的 IOC 到了 I2 以上才写“外联/落地”，否则只写候选
+- [ ] 我知道 `evidence-accept.py` PASS 不等于结论为真
+- [ ] 未验证项都写了 `blocked_at` 或前置条件

@@ -176,3 +176,98 @@ git log --oneline -5 -- package.json package-lock.json    # 版本突变更像�
 - 先看 `rule_hits`，再核对锁文件 `resolved`/`integrity`，最后才人工打开高熵 JS；`bun_payload` 需要熵值与体积两个数一起报。
 - 发现真实凭据 → 只留指纹（sha256 前 12 位）并按轮换流程处理，报告里不写全量 token。
 - 边界：不运行安装脚本、不向 registry 上传任何内容；本域只做只读取证与最小修复建议（pin 版本、`npm ci --ignore-scripts`、私有 registry 代理）。
+
+## 9. 三方对账：manifest × registry × lock
+
+> “依赖混淆”不是看包名像不像内部包，而是看三者是否指向同一个受控源。
+
+| 面 | 要取的字段 | 命令/文件 | 不一致的含义 |
+| --- | --- | --- | --- |
+| manifest | 包名/scope/版本范围 | `package.json`/`requirements.txt`/`*.csproj` | 声明了但未锁 |
+| registry | scope→registry 映射 | `.npmrc`/`pip.conf`/`nuget.config` | 没有映射=默认公共源 |
+| lock | `resolved`/`integrity`/`source` | 锁文件条目 | 解析到了别处 |
+
+### 9.1 对账矩阵（写报告直接用）
+
+| manifest | registry | lock | 判定 |
+| --- | --- | --- | --- |
+| 私有 scope | 有私有映射 | resolved 私有 + integrity | 通过 |
+| 私有 scope | 无映射 | resolved 公共 | 高危（可解析到公共） |
+| 私有 scope | 有映射 | resolved 公共 | 高危（配置未生效/被覆盖） |
+| 私有 scope | 有映射 | 无 integrity | 中（内容可替换） |
+| 公开包 | 公共源 | 公共 + integrity | 正常 |
+| 公开包 | 私有镜像 | 私有镜像 + integrity | 正常（镜像代理） |
+
+### 9.2 顺序错误的隐蔽坑
+
+- `.npmrc` 多个 registry 时，scope 映射优先于全局 `registry=`；但 CI 的环境变量可能覆盖。
+- pip 的 `--extra-index-url` 会**合并候选**，私有源在前也可能选到公共源更高版本。
+- NuGet 的 `packageSourceMapping` 必须覆盖包前缀，否则公共源兜底。
+- Go 的 `GOPROXY` 链式回退（`proxy.golang.org,direct`）会让私有模块走公网。
+
+**判据**：不只读配置，还要读锁文件 `resolved`；两者冲突时以锁文件为“实际发生”。
+
+## 10. 投毒包识别的行为判据（不止名字）
+
+| 面 | 可疑信号 | 证据 |
+| --- | --- | --- |
+| 名字 | 与知名包编辑距离 ≤2、连字符/下划线互换 | 包名 + 官方名对照 |
+| 发布者 | 新账号/无仓库/仓库与包不匹配 | registry 元数据 |
+| 版本 | 突然大跳版/与上游不一致 | 版本历史 |
+| 安装脚本 | 下载执行/读凭据/写 CI 配置 | `package.json` 行号 |
+| 代码 | 高熵单行/混淆/bun 载荷 | 文件 + 熵值 + 体积 |
+| 网络 | 安装期外联/回连 | URL/host + 数据来源 |
+| 自复制 | 改 workflow/发版/token 使用 | 写入路径 + token 引用 |
+
+**升级规则**：名字相似只是 I0；必须叠加“来源异常/脚本行为/外联”至少一项才升 I1；两项以上才写“疑似投毒”。
+**降级规则**：只看名字/只看 `postinstall` 存在，不能写“恶意包”。
+
+### 10.1 只读排查顺序
+
+1. 锁文件：新增/突变的包 + `resolved` host。
+2. manifest：安装钩子与依赖值（`*`/URL/git）。
+3. 包内容：高熵文件、读取凭据的字符串。
+4. CI：workflow 是否被改、是否引用新 secret。
+5. 事件：`git log -- package.json package-lock.json` 看发版节奏。
+
+## 11. 命令与“通过长什么样”（依赖混淆复验）
+
+```bash
+# 1) registry 映射
+npm config get registry; npm config get @corp:registry 2>/dev/null
+cat .npmrc 2>/dev/null
+python -m pip config list 2>/dev/null
+
+# 2) 锁文件实际解析
+echo "== resolved hosts"
+jq -r '.packages | to_entries[] | select(.value.resolved) | .value.resolved' package-lock.json \
+  | sed -E 's#https?://([^/]+)/.*#\1#' | sort | uniq -c
+echo "== private scope"
+jq -r '.packages | to_entries[] | select(.key|test("@corp/")) | [.key,.value.resolved,(.value.integrity!=null)] | @tsv' \
+  package-lock.json | head
+
+# 3) 安装钩子与可疑引用
+grep -RInE 'curl|wget|base64|eval|\.npmrc|GITHUB_TOKEN|bun' package.json scripts 2>/dev/null | head -20
+
+# 4) 版本突变
+git log --oneline -5 -- package.json package-lock.json
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 映射 | 私有 scope 有显式 registry | 无映射 |
+| resolved | host 与映射一致 + integrity | 公共 host/无 integrity |
+| 钩子 | 每条能解释 | 下载执行/读凭据 |
+| 版本 | 变更可解释/走 PR | 突变无说明 |
+| 结论 | 三方对账矩阵能对上 | 只看包名 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我做了 manifest × registry × lock 三方对账，而不是只看包名
+- [ ] 我知道 `--extra-index-url`/`GOPROXY` 回退会让私有包走公网
+- [ ] 我把“名字相似”当 I0，叠加了来源/行为/外联才升级
+- [ ] 我没有把 `postinstall` 存在本身写成“恶意”
+- [ ] 我的修复锁定了 registry + integrity + 冻结安装
+- [ ] 我没有为了验证而发布/抢注任何包

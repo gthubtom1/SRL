@@ -123,3 +123,143 @@ $ python Tool/skill/firmware-iot/scripts/fw-repro.py --file fw.bin --json
 
 这个模板可以直接喂给 `fw-accept.py` 的 JSON 产物检查（`blocked_at` 存在即视为结构化降级），
 也方便下一个人接着跑。
+
+## 失败归因五问：把“又失败了”变成可交接的字段
+
+> 失败不是一句话，而是一组字段。五问里任何一问答不上来，就只能写“未归因”，不能写“固件坏了”。
+
+| # | 问题 | 字段 | 通过标准 |
+| :-: | --- | --- | --- |
+| 1 | 卡在哪一层？ | `stage` | `acquire/container/fs/audit/emulate/hardware` 之一 |
+| 2 | 是输入、工具还是环境？ | `blocked_at` | `input/tool-missing/container-unsupported/emulation/hardware/authorization` |
+| 3 | 已排除了什么？ | `tried[]` | 每条有 `cmd`、`rc`、`stderr` 关键行 |
+| 4 | 换哪条路、代价多大？ | `next.route` / `next.cost` | 具体工具/接口 + 时间/硬件/授权 |
+| 5 | 什么条件下可以重试？ | `retry_when` | 新版本/新样本/新授权/新硬件 |
+
+五问填完的产物（可直接被 `fw-accept.py` 消费）：
+
+```json
+{
+  "stage": "fs",
+  "blocked_at": "container-unsupported",
+  "tried": [
+    {"cmd": "unsquashfs -s part.bin", "rc": 1,
+     "stderr": "Unsupported compression: 0x8f"},
+    {"cmd": "sasquatch -d out part.bin", "rc": 1,
+     "stderr": "unknown squashfs version 4.0 vendor 0x8f"}
+  ],
+  "evidence": {"sha256": "<64 hex>", "offset": "0x120000", "magic": "hsqs"},
+  "next": {"route": "kernel decompressor or vendor sdk",
+           "cost": "2-4h + vendor kernel source"},
+  "retry_when": "拿到同型号更新的 OTA 或内核解压器"
+}
+```
+
+### 归因时的三条硬规则
+
+1. **一个主值**：`blocked_at` 只允许一个主值，其余放 `secondary[]`；多个主值等于没归因。
+2. **工具缺失不等于目标不存在**：缺 `unsquashfs` 时写 `tool-missing`，不能写“没有文件系统”。
+3. **环境失败不等于固件失败**：QEMU 起不来只说明“当前环境起不来”，除非换主机/换工具后同样失败。
+
+## 失败代价与时窗：什么时候必须停
+
+| 路线 | 单次成本 | 止损时窗 | 到点动作 |
+| --- | --- | --- | --- |
+| 换容器工具（`unsquashfs`→`sasquatch`→`ubireader`） | 10–30 min | 2 次 / 1 h | 记录偏移与错误，转静态/硬件 |
+| 换 QEMU 机器类型/内核参数 | 20–60 min | 3 次 / 2 h | 转 FirmAE 或真机只读 |
+| 补 NVRAM/`/dev` 桩 | 20–40 min/轮 | 2 轮 / 1.5 h | 只验证单服务，不再追整机 |
+| 字典/规则破解 | 不可控 | 授权时窗 | 到点停，保留 hash 与已试字典名 |
+| UART 接线/波特率 | 10–20 min | 4 档波特率 / 1 h | 量电压、换 RX/TX、逻辑分析仪 |
+| SPI 重复读取 | 5–15 min/次 | 2 次不一致 | 停写，先解决接触/供电 |
+| 漏洞 PoC 调参 | 不可控 | 同一手法 2 次 | 换入口或放弃该 CVE |
+
+> 时窗的意义不是“省时间”，而是防止**把环境问题写成固件结论**。每次重试前先问：这次多了什么新证据？没有新证据的重试就是原地打转。
+
+## 经验回流（lessons）：失败如何变成下一条判据
+
+> 这一节就是本域的 `lessons`。每条必须是“可复用的判断”，不是“我试了很久”。
+
+### L1：`unsquashfs` 的 rc=0 不能证明 rootfs 完整
+
+- 现场：镜像被截断，`unsquashfs` 仍建出 `squashfs-root/etc`，但 `bin/` 为空。
+- 旧判据：rc=0 → 解包成功。
+- 新判据：`/etc` + `/bin`（或 `/usr/bin`）+ `/lib` 三门同时存在，且 `bin/busybox` 能被 `file` 识别为 ELF。
+- 落点：`01-criteria.md` 判据表第 3 行；`03-model-pitfalls.md` 第 13 条。
+
+### L2：FirmAE 的 `success` 是“起机成功”，不是“服务可用”
+
+- 现场：FirmAE 打印 success，`curl` 只有 `It works!` 默认页。
+- 旧判据：仿真 success → J2。
+- 新判据：端口 + 进程 + 动态业务字段三件套，缺一不算 J2。
+- 落点：`02-failure-criteria.md` 片段 B；`emulation-and-fuzz.md` §5。
+
+### L3：NVRAM 缺失会让“服务启动即退出”看起来像固件损坏
+
+- 现场：`httpd` 读 `nvram_get("http_username")` 返回空后 `exit(1)`。
+- 旧判断：固件里的服务是坏的。
+- 新判断：先补 `nvram.conf` 最小键，读服务 stderr，再判定。
+- 落点：`emulation-and-fuzz.md` §4；`03-model-pitfalls.md` 第 9 条。
+
+### L4：UART 乱码九成是电气问题，不是“没有控制台”
+
+- 现场：115200 全是乱码，换 57600 后可读。
+- 旧动作：换板子。
+- 新动作：量 GND/VCC → 共地 → 交换 TX/RX → 四档波特率 → 逻辑分析仪测位宽。
+- 落点：`hardware-interfaces.md` §2；`03-model-pitfalls.md` 第 10 条。
+
+### L5：weak 魔术会把你带到完全错误的解包路线
+
+- 现场：Broadcom blob 里的 `bzip2` 命中，`bz2` 解压报 `Invalid data stream`。
+- 旧动作：继续换 bzip2 参数。
+- 新动作：先看 `fw-repro` 的 `primary` 与厂商标签，再决定是否切；weak 命中只记录为误报证据。
+- 落点：`06-container-carving-and-entropy.md` §4；`04-walkthrough-uefi-efi.md` §3。
+
+### L6：失败记录不写 `rc`，下一个人就无法判断“是工具没跑还是跑失败”
+
+- 现场：交接单只写“unsquashfs 不行”。
+- 新要求：每条 `tried[]` 必须有 `cmd`、`rc`、`stderr` 前 200 字符。
+- 落点：本文“失败记录模板”；`fw-accept.py` 的结构化检查。
+
+## 失败也得能机检：把日志压成字段
+
+```bash
+CASE=work/fw-audit
+# 1) 收集本次所有失败命令（假设你用了 script/tee 记录）
+grep -nE 'rc=[1-9]|error|Error|failed|cannot|unsupported' "$CASE/cmd.log" | head -40
+
+# 2) 生成最小失败记录（字段名与模板一致）
+python - <<'PY'
+import json, re, pathlib
+log = pathlib.Path("work/fw-audit/cmd.log").read_text(errors="replace").splitlines()
+tried = []
+for line in log:
+    m = re.search(r"\$ (.+)$", line)
+    if m:
+        tried.append({"cmd": m.group(1), "rc": None, "stderr": ""})
+print(json.dumps({"stage": "unpack", "blocked_at": "tool-missing",
+                  "tried": tried[-5:], "next": {"route": "sasquatch"}},
+                 ensure_ascii=False, indent=2))
+PY
+
+# 3) 确认报告里没有“裸失败”
+grep -nE '失败|failed|不能|无法' "$CASE/report.md" | grep -vE 'blocked_at|rc=|改走|代价' || true
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 归因 | 有且仅有一个 `blocked_at` 主值 | 多个主值/空值 |
+| 证据 | 每条 `tried[]` 有 `cmd` + `rc` + `stderr` | 只有“试过了” |
+| 下一步 | 有具体工具/接口 + 代价 | “再研究一下” |
+| 重试条件 | 写明新样本/新授权/新硬件 | 无条件重试 |
+| lessons | 至少一条能改变判据 | 只有情绪描述 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我能用五问把一个失败说成字段，而不是一句“解包失败”
+- [ ] 我的 `tried[]` 每条都有命令、rc 与 stderr 关键行
+- [ ] 我给每条路线设了止损时窗，到点就换面而不是原地加参数
+- [ ] 我至少沉淀了一条 lessons，并指回它改变了哪条判据
+- [ ] 我没有把 `tool-missing` 写成“目标不存在”，也没有把环境失败写成固件失败
+- [ ] 交接单里写明了重试条件与代价，下一个人不用重新猜

@@ -100,6 +100,137 @@
 - 为什么错：JWKS 的 `n`/`e` 是 **base64url 无 padding**，必须先解码成字节；服务端实际用的可能是 PEM/DER/原始 modulus 中的一种，字符串长度和字节内容都不同。
 - 正确动作：分别构造 PEM、DER、`base64.urlsafe_b64decode(n + '=' * (-len(n) % 4))` 三种 key，逐个重签并重放；只有服务端返回 `jwt_accepted=true` 的那一种才算命中。
 
+### 17. 把 Partial RELRO 当 Full（或反过来）
+
+- 错误动作：看到 `RELRO: Partial` 就放弃 GOT 覆写；或看到 `Full` 还去算 `.got.plt` 偏移。
+- 为什么错：Full RELRO 才在启动时 `mprotect` 只读；Partial 时 `.got.plt` 仍可写。
+- 正确动作：`pwn-check` 与 `readelf -dW | grep BIND_NOW` 交叉；再看 `readelf -lW` 的 `GNU_RELRO` 覆盖范围。
+  即使 Full，`.fini_array`、函数指针、`__exit_funcs` 仍可能是目标。
+
+### 18. 认为 ret2libc 必须先泄漏 `puts`
+
+- 错误动作：题目没有 `puts@plt` 就判"无泄漏点"。
+- 为什么错：`write`/`printf`/`send`/`read` 回显都能泄漏；甚至可以用 `ret2csu` 直接调 `write`。
+- 正确动作：列 PLT 里所有"能把内存写回 stdout"的函数，按可控参数排序；用 `ROP(elf).call` 试。
+
+### 19. 忽略 16 字节栈对齐
+
+- 错误动作：`ret2libc` 链在 `system` 里崩，`$rip` 落在 `movaps` 上。
+- 为什么错：glibc 的 `system`/部分 SSE 指令要求 `rsp % 16 == 8`（进入函数时），少一个 `ret` 就挂。
+- 正确动作：链首插一个 `ret` gadget；gdb 里 `p $rsp % 16` 核对；对齐问题在本地表现为"偶发/必崩"。
+
+### 20. 把 one_gadget 当稳定解
+
+- 错误动作：`one_gadget libc.so.6` 拿到三个偏移，任选一个塞进去。
+- 为什么错：每个 one_gadget 都有寄存器/内存约束（`[rsp+0x..]==NULL` 等），不满足时静默失败。
+- 正确动作：逐条核对约束（gdb 断在 gadget 看寄存器），或回到 `system("/bin/sh")` 两段链。
+
+### 21. 忽略 seccomp 的 arch / ABI 检查
+
+- 错误动作：seccomp 拦了 `execve`，就想用 `int 0x80` 或 x32 ABI 绕。
+- 为什么错：规范 BPF 常校验 `arch == AUDIT_ARCH_X86_64`，x32 系统调用号会直接被杀。
+- 正确动作：完整读 BPF（`seccomp-tools dump`），确认 arch 检查与参数过滤，再决定 ORW 还是放弃外带。
+
+### 22. 堆偏移抄 `main_arena` 的固定值
+
+- 错误动作：`libc.address + 0x1ecbe0` 这类常量每个题都用。
+- 为什么错：`main_arena` 相对偏移随 glibc 版本/发行版变化；抄错就"泄漏看着对、基址差一截"。
+- 正确动作：`libc.symbols['main_arena']`（带调试符号）或 gdb `p &main_arena` 现场取；再用页对齐验证。
+
+### 23. 把共模攻击当广播攻击
+
+- 错误动作：拿到多组 `(n_i, e_i, c_i)` 直接 CRT 开方。
+- 为什么错：共模是**同一个 n、不同 e、同一个 m**；广播是**多个互质 n、同一个 e、同一个 m**。
+  混用会得到"能开方但不精确"的结果。
+- 正确动作：先分类（n 是否相同、e 是否相同），再选 `common_modulus` 或 `crt + iroot`；两者都要回代。
+
+### 24. 把 HMAC 当可长度扩展
+
+- 错误动作：看到 `sha256(secret || msg)` 的 MAC 能长度扩展，就断言目标的 HMAC 也能。
+- 为什么错：`HMAC(K,m)=H((K^opad)||H((K^ipad)||m))`，外层哈希的输入固定，长度扩展不成立。
+- 正确动作：先确认 MAC 构造（`H(secret||msg)` vs HMAC vs `H(msg||secret)`）；只有前者能用
+  hashpump/length-extension，且必须拿服务端接受作为判据。
+
+### 25. 竞态里把"进程崩了"当"赢了"
+
+- 错误动作：循环替换符号链接，看到 victim 崩了就写"竞态成立"。
+- 为什么错：崩溃可能是"读到了坏文件/路径不存在"，没有 post-use 原语（读到 root 文件/写到 root 路径）。
+- 正确动作：定义 post-use 原语并复算（首行 + sha256 / 回读 / `id`），统计 win/rounds；只有崩溃写"疑似"。
+
+## 为什么这些错反复出现（三类根因）
+
+| 根因 | 典型表现 | 防护动作 |
+|---|---|---|
+| 保护位当结论 | 看到 Full RELRO 就停 | 走 `mitigation-matrix.md` 决策树，列 2–3 条候选 |
+| 抄常量 | 偏移/gadget/hook 偏移照搬 | 每个数字都要有"现场生成"的命令 |
+| 结果导向 | 崩了/一次成功就宣布 | 用 marker/回代/10 次统计做判据 |
+
+## 把"错"变成可机检的代理信号
+
+| 失误 | 代理信号 | 机检方式 |
+|---|---|---|
+| 偏移单源 | `repro.json` 里 `evidence` 只有 1 条 | 数组长度 <2 即降档 |
+| 无 marker 的控制 | 日志里没有目标函数输出 | 搜 marker 字符串 |
+| 一次成功当稳定 | `runs/` 少于 10 份 | 文件计数 |
+| 密码学没回代 | 输出里没有 `verified` | JSON 字段检查 |
+| 池溢出只算理论 | 没有 `_msize`/状态码 | 日志关键字 |
+
+```bash
+python - <<'PY'
+import json, pathlib
+warn = []
+off = pathlib.Path("evidence/L1_offset.json")
+if off.is_file():
+    d = json.loads(off.read_text(encoding="utf-8"))
+    if len(d.get("evidence") or []) < 2:
+        warn.append("W1 偏移只有单源")
+runs = list(pathlib.Path("runs").glob("run.*")) if pathlib.Path("runs").is_dir() else []
+if runs and len(runs) < 10:
+    warn.append("W2 运行次数<10")
+print("warn", warn)
+print("pitfall_proxy_ok", not warn)
+PY
+```
+
+通过长什么样：`warn []` + `pitfall_proxy_ok True`。出现 `W1` 就去补第二来源；`W2` 就去跑满 10 次。
+
+## 复盘模板（每次交付前填一次）
+
+```text
+目标/环境：  sha256 / libc build / 内核 / ASLR 状态
+走的段：    L0 ✅ L1 ✅ L2 ❌（无 marker）L3 – L4 –
+用过的命令： （≤3 条，别人能照抄的那几条）
+失败假设：  栈对齐？libc 版本？seccomp？
+下一步：    加 ret 对齐 / 换泄漏点 / 转 FSOP
+代价：      2 h；已排除 GOT 路线（Full RELRO）
+```
+
+模板的目的不是“好看”，是让对方 5 分钟能接上。三行字能替掉一次重跑。
+
+## 三条必答问题（回答不了就别写结论）
+
+1. 这个地址/偏移/明文，**如果错了，哪个实验会暴露它**？
+2. 这个结论是**观测**（marker/回代/读回）还是**推导**（“应该能…”）？
+3. 我用的数字是**目标环境生成**的，还是从别处拄来的？
+
+三条都答得上，结论才能进报告；有一条含糊，就标“疑似”并写下待验证项。
+
+## 自检清单（提交前逐条过）
+
+1. `sha256` + 编译选项 + libc build id 已记录。
+2. 保护位有 JSON 与 `readelf`/`objdump -p` 两份，不是只贴 checksec。
+3. 每个偏移有 objdump 行号 + 运行时 probe，`consistent=true`。
+4. 控制流有 marker 或 `$rip` 证据；没有就写“未控到 RIP”。
+5. 密码学每条都有回代等式或 `verified=true`。
+6. 成功率有 10 次统计；远程有泄漏校验。
+7. 失败路线与代价已写进报告。
+
+任何一条不过关，就在对应位置标“疑似”并写下待验证项；把“待验证”留着比编一个结论便宜。
+报告交出去之前，把这张清单和 §3.2 的代理脚本一起跑一遍，能拦住绝大多数“看起来对”。
+清单条目不是形式：每条都对应一个具体失败模式，删掉一条就少一道闸。
+把这张清单当“自检脚本的说明书”用：每条都能对应到一个可执行的命令或一段输出。
+清单不是一次性的：换了平台（PE↔ELF）或换了 libc，前四条要重新过一遍。
+
 ## 失败判据
 
 - 上述任一错误动作出现在报告/脚本里，且没有对应的复核命令 → 该结论降级为“疑似”。
@@ -110,3 +241,11 @@
 
 - 本文不替代具体题目的逆向；它只防止“看起来对”的结论混进交付。
 - 模型可以犯错，但必须在报告里留下可复查的命令与失败路线；隐藏失败比犯错更严重。
+
+## 这一篇算"用对了"吗
+
+- [ ] 报告里没有"checksec=结论"、"抄偏移"、"崩了=控到 RIP"这三类错。
+- [ ] 每个偏移/gadget/libc 符号都有现场生成命令，不是常量。
+- [ ] 平台语义核对过（PE 无 RELRO/hook、UCRT 不写 `%n`）。
+- [ ] 密码学结论都有回代等式；没有把 HMAC 当可长度扩展。
+- [ ] 用上面的代理脚本自查过，`pitfall_proxy_ok=True`。

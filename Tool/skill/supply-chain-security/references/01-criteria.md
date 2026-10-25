@@ -134,3 +134,124 @@ work/<case>/
 | `scanning-kubernetes-manifests-with-kubesec` | K8s 清单供应链基线（源：scanning-kubernetes-manifests-with-kubesec） | `Tool/skill/supply-chain-security/references/01-criteria.md` | 镜像固定 digest；高危字段有实际部署证据 |
 | `managing-third-party-vendor-risk` | 第三方供应商风险台账（源：managing-third-party-vendor-risk） | `Tool/skill/supply-chain-security/references/02-failure-criteria.md` | 每个供应商标明对象标识、证据来源、未验证项 |
 | `auditing-terraform-infrastructure-for-security` | Terraform 基础设施供应链审计（源：auditing-terraform-infrastructure-for-security） | `Tool/skill/supply-chain-security/references/01-criteria.md` | provider/module 固定版本或 commit；lock 文件存在；无明文凭据 |
+
+## 7. 判据落地：一条链从锁文件到 CI
+
+> 本域最常见的失败不是“没扫描”，而是“扫了四个面，结论对不上”。本节把四个面串成一条可复算的链。
+
+### 7.1 四个面与交接物
+
+| 面 | 输入 | 产出 | 交给下一面的字段 |
+| --- | --- | --- | --- |
+| 对象 | repo/commit/image digest | `target.json` | `commit`/`digest` |
+| 清单 | 锁文件/SBOM | `locks.sha256`/`sbom.json` | `components[]`/`purl` |
+| 可达 | 源码/入口 | `reach.json` | `reachable[]`/`unreachable[]` |
+| 构建 | workflow/Dockerfile | `ci.json` | `permissions`/`action_pins`/`triggers` |
+
+**判据**：每一面的产出都能被下一面引用；不能引用就说明对象没钉住。
+
+### 7.2 一条命令链（只读）
+
+```bash
+CASE=work/sc-case
+git rev-parse HEAD | tee "$CASE/commit.txt"
+git status --porcelain | tee "$CASE/worktree.txt"
+sha256sum package-lock.json requirements.txt 2>/dev/null | tee "$CASE/locks.sha256"
+
+python Tool/skill/supply-chain-security/scripts/sbom-reach.py \
+  --sbom "$CASE/sbom.json" --lock package-lock.json --source src \
+  --out "$CASE/reach.json"
+
+python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py \
+  --path .github/workflows --out "$CASE/ci.json"
+
+python Tool/skill/supply-chain-security/scripts/sc-check.py \
+  --path . --out "$CASE/sc.json"
+```
+
+### 7.3 四个面对账表
+
+| 对账 | 通过 | 不通过的含义 |
+| --- | --- | --- |
+| commit ↔ 工作区 | `worktree.txt` 为空 | 本地改动 → SBOM 不可复现 |
+| 锁文件 ↔ SBOM | `missing_from_sbom` 为空或逐条解释 | SBOM 过期/不同源 |
+| 组件 ↔ 源码 | 每个高危组件有 `reachable` 或“未观察到” | 可达未证 → 只能 suspected |
+| CI ↔ 对象 | workflow 在同一个 commit，action 有 pin | 审的是旧流水线 |
+
+## 8. 结论分级与反证义务
+
+### 8.1 三档结论的证据门槛
+
+| 档位 | 必须有 | 可以没有 | 典型错误 |
+| --- | --- | --- | --- |
+| confirmed | 对象 + 命令 rc + 原始输出 + 复算脚本 | 生产影响面 | 只有扫描器告警 |
+| suspected | 至少一条硬判据 + 缺口说明 | 可达/运行时 | 把缺口藏起来 |
+| unconfirmed | 已试命令 + 失败原因 | 任何结论 | 写成“无风险” |
+
+### 8.2 反证义务（每条 confirmed 至少一条）
+
+| 结论 | 反证问题 | 反证成立时怎么改 |
+| --- | --- | --- |
+| “依赖混淆可投毒” | 公共同名包是否存在？CI 是否真会解析到它？ | 改成“配置缺失/未锁定” |
+| “CI 可被提权” | 触发器是否不可信？checkout 是否 PR head？有 secrets 吗？ | 降为加固项 |
+| “镜像来源可信” | identity/issuer 是否匹配？digest 是否一致？ | 改成“有签名但身份未验证” |
+| “漏洞可利用” | 入口可控？sink 可达？运行时包含？ | 改成“版本命中/可达未证” |
+
+> 反证不是“自我否定”，而是把结论的边界写出来。反证失败的结论，降级后仍然有价值。
+
+### 8.3 三条禁止
+
+1. 禁止用“扫描器零命中”替代“本次未覆盖的面”。
+2. 禁止用“能构建/能拉取”替代“来源可信”。
+3. 禁止用“私有 scope 名”替代“registry 实际解析结果”。
+
+## 9. 命令与“通过长什么样”（一页体检）
+
+```bash
+CASE=work/sc-case
+
+# 1) 对象
+test -s "$CASE/commit.txt" && git cat-file -t "$(cat "$CASE/commit.txt")" 2>/dev/null
+test ! -s "$CASE/worktree.txt" && echo clean-worktree || echo dirty-worktree
+
+# 2) 锁文件与 SBOM
+jq '{components: .components_total, missing: (.missing_from_sbom|length)}' "$CASE/reach.json"
+
+# 3) CI 权限与 pin
+jq '{workflows: .target.workflows_total, findings: .summary.by_severity, high: .summary.high_or_critical}' "$CASE/ci.json"
+
+# 4) 静态风险面
+jq '{risks: .summary.risks, total: .summary.risks_total, degraded: .degraded}' "$CASE/sc.json"
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 对象 | commit 是 40 hex，能 `cat-file` | 只有分支名/tag |
+| 工作区 | `clean-worktree` | `dirty` → SBOM 不可复现 |
+| 清单 | `missing` 为 0 或有解释 | 大段缺失无说明 |
+| CI | 有显式 permissions，high 有行号 | `workflows_total=0` |
+| 扫描 | `degraded` 为空或已列缺口 | 零命中就当无风险 |
+
+### 8.4 一条 confirmed 的完整样例
+
+```text
+对象：repo@57a3bd1 / image@sha256:…
+判据：锁文件条目 → SBOM 组件 → 源码 import 命中 → CI 用 npm ci
+命令：sbom-reach.py … rc=0；sc-check.py … rc=0
+输出：reachable[3] / missing_from_sbom=[] / worktree clean
+反证：删除入口后 reachable 降为 0（判据确实依赖入口）
+未验证：运行时是否实际加载该组件
+```
+
+六行齐了才写 `confirmed`；缺“反证”就只能写 `suspected`。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的每条 conclusion 都能追到 commit/digest + 命令 rc + 原始输出
+- [ ] 我把四个面（对象/清单/可达/构建）串成了一条链，没有各说各话
+- [ ] 我对每条 confirmed 都做了一次反证，并写下了反证失败的降级路线
+- [ ] 我没有把“扫描器零命中”写成“无风险”
+- [ ] 我知道 `ok: true` 只表示“扫描完成”，不表示“没风险”
+- [ ] 未验证面都写进了报告，且给了补证所需的前置条件

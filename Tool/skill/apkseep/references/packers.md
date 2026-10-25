@@ -153,3 +153,105 @@ State the boundary you measured, the evidence for each entry, and what remains u
 rejects X" must always carry the run that proves it, including the exact failure string. An unverified
 claim about integrity behaviour is worse than no claim, because it silently removes routes from
 consideration.
+
+## Command block: identify the shell before you plan around it
+
+Recon on a packed target is four cheap reads, and they answer "which shape of shell" without touching a
+device. Note the order: manifest first (who is `Application`), then the dex itself (is it a stub), then
+the library, then the payload.
+
+```bash
+# 1) who owns the Application? (the single most informative field in the manifest)
+unzip -p target.apk AndroidManifest.xml > AndroidManifest.bin
+python - <<'PY'
+import re
+b = open('AndroidManifest.bin','rb').read()
+# axml keeps strings in a UTF-16 pool; this is a reading aid, not a parser
+for m in sorted(set(re.findall(rb'(?:[\x20-\x7e]\x00){6,}', b))):
+    s = m.decode('utf-16le')
+    if any(k in s.lower() for k in ('stub','shell','jiagu','legu','bangcle','ijiami','protect','application')):
+        print(s)
+PY
+
+# 2) is the app's own code actually in the plaintext dex?
+python scripts/dex_strings.py ./dexdump --classes 'Lcom/<vendor>/<app>/' --per-file
+
+# 3) the shell's native library and its own symbols
+unzip -l target.apk | grep -E 'lib/.*\.so$'
+unzip -o -q target.apk 'lib/arm64-v8a/*.so' -d /tmp/abi64
+nm -D --defined-only /tmp/abi64/lib/arm64-v8a/*.so 2>/dev/null | grep -E 'JNI_OnLoad|Java_' | head -20
+
+# 4) payload candidates inside the package (encrypted assets / bundled jars)
+unzip -l target.apk | awk '$4 ~ /assets/ {print $1, $4}' | sort -k1 -nr | head -15
+```
+
+**Expected shapes:**
+
+```
+# 1)
+com.stub.StubApp          <- third-party shell Application: you have a packer
+# 2)
+classes.dex     0 hits    <- the app's own classes are not in plaintext
+# 3)
+libjiagu.so   libjiagu_art.so
+               T JNI_OnLoad
+# 4)
+ 9934512 assets/<name>.dat      <- payload-sized, high entropy (see third-party-builds.md for the check)
+  482113 assets/<name>.jar
+```
+
+| Observation | Shell shape | Where to go next |
+|---|---|---|
+| `Application` = third-party stub, business classes absent from plaintext | commercial packer (dex behind a loader) | measure the dump (`advanced-unpacking.md`), or accept the boundary |
+| `Application` = app's own, classes present, one stub `lib*.so` | dex2c / Java2C or a native check | `java2c-and-jni-sinking.md` |
+| `Application` = app's own, classes present, no shell lib | **not packed** | `code-virtualization-and-custom-linkers.md` if a re-signed build still dies |
+| `Application` = app's own, classes present, integrity strings only | RASP / tamper checks without a packer | `native-tamper-and-suicide.md`, `detection-and-anti-analysis.md` |
+
+## What passing looks like (通过长什么样)
+
+| Claim | Passing | Not passing |
+|---|---|---|
+| "It is packed, by shell family X" | `Application` class + `lib*` name + a payload-sized asset, all named | "there is a `StubApp` string somewhere" |
+| "The app's code is (not) in plaintext" | per-dex defined-class counts for the app's own prefix | "the dex opens in jadx" |
+| "The shell refused" | the exact failure string, and the look-alike table above applied to it | any crash on a repacked build |
+| "This check is X" | one single-variable run whose result changes *only* when X changes | several changes at once, one outcome |
+| "The boundary is here" | the test that passed, the test that failed, and what differs between them | "the shell is strong" |
+| "Suppressing it worked" | the target reaches its normal UI and the protected feature works | the dialog is gone |
+
+## Three mistakes that cost the most on packed targets
+
+**① Treating the shell's `JNI_ERR` as a crash.** It is a decision. A crash has a fault address and a
+tombstone; this has a return value from `JNI_OnLoad`. The distinction decides whether you look for a
+check (a decision) or a bug (a fault).
+
+**② Enumerating checks instead of diffing two builds.** The cheap experiment — unmodified official build
+vs repackaged build, same probe, same device — produces the detection signal directly. Enumerating
+candidate checks one at a time costs hours and usually starts from the wrong candidate.
+
+**③ Repacking before establishing the control.** If the zero-change repack fails, nothing else you learn
+is about the shell. This one ordering rule removes most of the mis-attributed "the shell blocks
+everything" conclusions in this domain.
+
+## When to stop, and what to hand back
+
+A packed target is not automatically a dead end, but three situations are: name them instead of grinding.
+
+- **The zero-change control fails and stays failing after two pipeline fixes.** The block is your
+  pipeline, not the shell — fix that before any further attribution.
+- **The shell refuses on a single-variable change that is provably inert** (a byte in a section nothing
+  reads), and the same refusal appears on the *official* build under the same device state. That is a
+  boundary: the check is native and pre-`Application`, so userspace Java patches cannot reach it.
+- **The dump is a skeleton and the bodies are filled in only at invocation** (`advanced-unpacking.md`).
+  Recovering them is a different route with its own cost; say which one and stop.
+
+The hand-back is a short record: shell family (with the three pieces of evidence), the control result, the
+single-variable tests and their outcomes, and the boundary with the mechanism that causes it. That record
+lets the next person resume at the boundary rather than at the beginning.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我用 manifest 的 `Application` + 每 dex 的业务类计数 + `lib*` 名判定壳的形态（三条证据）
+- [ ] 我先跑了零改动的重打包作为控制，才把失败归因给壳
+- [ ] 我把 `JNI_ERR`（决策）与崩溃（故障）分开，并按 look-alike 表核对过
+- [ ] 我用"原版 vs 重打包"同探针 diff 找检测信号，而不是逐个枚举候选检查
+- [ ] 我的结论里写清了测到的边界、每个条目的证据，以及哪些仍未测

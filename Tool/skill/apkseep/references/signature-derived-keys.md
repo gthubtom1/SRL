@@ -147,3 +147,104 @@ Without this step the task stalls in the worst possible way: the artifact is cor
 patch is correct, the build is correct, and the app is unusable — which reads as "the client
 patch is impossible" and sends you back to static analysis for hours. Budget 15 minutes for
 this before the first repack of any signed-request app.
+
+## Command block: a 10-minute pre-repack audit that prevents the whole failure class
+
+Run this **before** the first repack of any target, not after the first signed request fails. It produces
+three artefacts: the read sites, the candidate values with lengths, and the authoritative value.
+
+```bash
+# 1) enumerate read sites over the dex strings (no decompiler needed: the API descriptors are strings)
+python scripts/dex_strings.py ./dexdump --find 'toCharsString|Landroid/content/pm/Signature;|GET_SIGNATURES' --per-file
+
+# 2) candidate certificate blobs and their lengths (offline cross-check)
+python scripts/sig_probe.py --apk original.apk
+
+# 3) the authoritative value, read from the installed original on the device
+python scripts/sig_probe.py --live <pkg>
+
+# 4) record it: the hex and its length, plus the build hash it came from
+python scripts/sig_probe.py --live <pkg> > sig-live.txt
+sha256sum original.apk >> sig-live.txt
+```
+
+**Expected shapes:**
+
+```
+# 1)
+classes3.dex  3       <- three dex strings reference signature APIs: there are read sites to patch
+# 2)
+candidate 0  777 bytes  (1554 hex chars)   META-INF/CERT.RSA  seq#2
+candidate 1  1199 bytes (2398 hex chars)   META-INF/CERT.RSA  container
+# 3)
+signatures[0].toCharsString() len=1554 chars
+# 4)  <- the record: value + length + the build it belongs to
+```
+
+**The number that matters is the length.** A patched constant of the wrong length is still valid smali,
+still builds, still installs, and still signs nothing — the failure surfaces only as `sign`-parameter
+values of `-1`. Match the length Route A reported, and if Route A is unavailable, build one variant per
+candidate (there are rarely more than two).
+
+## What passing looks like (通过长什么样)
+
+| Check | Passing | Not passing |
+|---|---|---|
+| Read sites found | a non-zero per-dex count, each site identified (class + method) | "I grepped and saw nothing" — that is a search problem, not an absence (P25) |
+| Value captured | `--live` output with a length, tied to a build hash | an offline candidate promoted without a live comparison |
+| Constant length | equal to the live length, verified after assembly | "the string looks right" |
+| All sites patched | the read-site count before == the patched-site count after | one site missed: the failure is silent and partial (`-1` only on some requests) |
+| Behaviour | a signed request succeeds from a **rebuilt** build, on device | the app launches and renders (it always does) |
+| Control | the unmodified original produces the same signed parameter for the same input | nothing to compare against |
+
+## Which read sites must be patched — the three families
+
+Signature reads hide in three places, and patching only the first is the common half-fix.
+
+| Family | Shape | Where it hides |
+|---|---|---|
+| direct app code | `getPackageInfo(pkg, 64).signatures[0]` in an app class | the app's own helper around network setup |
+| SDK helper | the same call inside an ad/attribution/OAID SDK | third-party package prefixes; often in a utility class |
+| native read | Java passes the `byte[]` into a `native` method that keys an HMAC | the caller looks innocuous; the *callee* is where the value is consumed |
+
+**Rule:** patch the value at the **read**, not at the consumer. Replacing the bytes handed to the native
+routine keeps every downstream path identical, which is what makes the patch verifiable — the native code
+is unchanged and still computes the same algorithm.
+
+## Failure modes
+
+- **Trusting an offline-derived value.** The `.RSA` file is not what the platform returns (measured: 1199
+  bytes on disk vs 777 bytes at runtime, a different certificate in the same chain).
+- **Patching the computed parameter instead of the key.** `sign` is a function of the body and a key; a
+  hardcoded `sign` breaks on the next request with different content.
+- **Missing an SDK helper.** Two read sites, one patched: the app's own requests work and the SDK's
+  attribution silently fails, which reads as "some features are broken after repack".
+- **Equal-length assumption without verification.** Length is the only cheap proof that the constant is the
+  right one; check it after assembly.
+- **Verifying with a launch.** The signature-derived failure is invisible at launch by construction; verify
+  by exercising a signed request and comparing against the original's parameter for the same input.
+- **Forgetting the update path.** A build whose signing is fixed but whose update check is live can be
+  replaced by the store version, restoring the failure (`updates-and-forced-upgrade.md`).
+
+## Inheriting a half-finished build? Start with the length
+
+If someone hands you a rebuilt APK whose "signing is already patched", the cheapest check is not a code
+review — it is the constant's length:
+
+1. Read the live value's length from an installed **original** (`--live`), or from the record that ships
+   with the build if it has one.
+2. Find the constant in the patched build (string search for its first 16 hex chars).
+3. Compare lengths. Equal length plus a byte-identical prefix is strong evidence the patch is right; equal
+   length with a different prefix means a different certificate; different length means the patch cannot
+   be correct, whatever it looks like.
+
+Then confirm with one signed request. Two minutes, and it replaces an afternoon of reading smali around a
+value that was never going to work.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我在第一次重打包**之前**就跑了这套审计，而不是在签名请求失败之后
+- [ ] 我的常量长度来自 `--live` 的读数，并写进了记录（含构建哈希）
+- [ ] 我数过 read site（含 SDK 内部与 native 调用点），并在补丁后数了一遍做对照
+- [ ] 我用一次真实的签名请求证明"通了"，而不是用"应用能启动"
+- [ ] 我的报告里写了离线候选与运行时值的差异，以及为什么以运行时为准

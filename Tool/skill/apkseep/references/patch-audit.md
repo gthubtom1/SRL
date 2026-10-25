@@ -152,3 +152,103 @@ goal.
 **And re-verify the artifact, not the intent.** If the tool says "applied" but the build on the
 device is unchanged, you have a stale build, a second copy, or the wrong file
 (`pitfalls-3-patching-and-artifacts.md`). A patch tool's success message describes the tool, not the artifact.
+
+## Command block: the audit as a sequence, in the order that fails fastest
+
+```bash
+# 1) does the build load at all? (verifier-level legality, independent of your patch's intent)
+python scripts/dex_check_verifier.py original.dex patched.dex
+
+# 2) is the change surgical? (class set + access flags; catches accidental rewrites)
+python scripts/dex_classdiff.py original.dex patched.dex
+
+# 3) did the intended instruction change, at the intended offset? (decode, do not eyeball)
+python scripts/dex_find_insn.py patched.dex --class 'Lcom/x/Y;' --method 'a' --kind invoke -C 3
+
+# 4) is the header consistent after the edit? (signature first, checksum last)
+python -c "import sys; sys.path.insert(0,'scripts'); import dexutil; b=open('patched.dex','rb').read(); print('checksum_ok=%s signature_ok=%s' % dexutil.verify_dex_header(b))"
+
+# 5) did anything outside the declared targets move? (entry-level, whole APK)
+python scripts/apk_diff.py original.apk out.apk --only 'classes[0-9]*\.dex' --summary
+```
+
+**Expected shapes:**
+
+```
+# 1)
+conditional branches targeting move-result*: 0        <- legal at the verifier level
+# 2)
+only_in_A=0  only_in_B=0  ACC_INTERFACE mismatch=0  access_flags diff=0
+# 3)
+0x01a4  move-result v3        context: invoke-virtual {v0}, Lcom/x/Y;->b()I
+# 4)
+checksum=ok  signature=ok
+# 5)
+changed: 1  added: 0  removed: 0  identical: 2143
+```
+
+| # | A pass proves | A pass does **not** prove |
+|---|---|---|
+| 1 | the class can load (no illegal branch/`move-result` adjacency) | that the code is correct, or that your edit is present |
+| 2 | you did not rewrite classes you did not intend to touch | that code items are undamaged (`dex_classdiff` cannot see them) |
+| 3 | the instruction at that site is what you meant | that every declared target was patched |
+| 4 | the file passes its own integrity fields | that the platform will accept the APK (`resources.arsc`, alignment) |
+| 5 | the change is confined to the dex entries you declared | that the behaviour changed (that is `verification.md` rung 4) |
+
+## What passing looks like (通过长什么样)
+
+The audit answers two questions independently, so it has two passing shapes — and a patch can be in
+exactly one of the four combinations.
+
+| Landed | Legal | Verdict |
+|---|---|---|
+| yes | yes | the only state from which verification is meaningful |
+| yes | no | assembles and dies at load: the class fails the verifier (fix legality, not the patch intent) |
+| no | yes | "the patch had no effect": the edit missed, was reverted, or you audited the wrong artifact |
+| no | no | you are auditing an artifact you did not build |
+
+**How each is proven, in one line:**
+
+- *Landed*: the declared target's opcode position set changed by exactly the expected entries (§1).
+- *Legal*: zero conditional branches targeting `move-result*`, and the class loads on device.
+- *Surgical*: `dex_classdiff` reports zero differences in the class set and access flags.
+- *Consistent*: header `signature` and `checksum` verify after the edit, in that order.
+
+## An audit record that survives a reviewer
+
+```
+artifact:        <path> sha256=<..>       (the one you audited, not the one you meant to audit)
+declared targets: <class>-><method><sig>   (one per patch; this is the Tier-2 index)
+tier1:           <n> methods with insns_size change   (candidates, near-zero false positives)
+tier2:           for each declared target: position set delta = <e.g. move-result 16 -> 15 at pc 66>
+verifier:        conditional->move-result = <n> (must be 0)
+classdiff:       only_in_A=0 only_in_B=0 flags=0
+header:          checksum=<ok> signature=<ok>
+outside:         apk_diff changed=<n> added=<n> removed=<n>
+not audited:     <equal-length edits with no declaration, if any>
+```
+
+The last line is the important one: an undeclared equal-length edit is invisible to both tiers, and
+saying so is what makes the rest of the record trustworthy.
+
+## Failure modes of the audit itself
+
+- **Auditing the wrong artifact.** The most common audit failure is not a bad check — it is checking a
+  file that is not the one installed (`pitfalls-3-...` P24). Hash it first.
+- **Length-only.** Equal-length replacements produce no candidate at all, so a length-only audit reports
+  "20 changed" on a build that touched 24.
+- **Trusting `dex_classdiff` alone.** It compares tables, not code items; a round-trip can pass it and
+  still fail at load.
+- **Reading a disassembly instead of decoding.** Line numbers shift after a reassembly; offsets do not.
+- **Auditing per patch instead of per patch set.** Two patches on the same method can each look right and
+  combine into an illegal branch target.
+- **Mistaking "the assembler accepted it" for "the platform accepts it".** Those are different layers
+  (§2 of this file).
+
+## 这一篇算"用对了"吗
+
+- [ ] 我审计的是设备上真正在跑的那个产物（哈希对过），不是"我以为的那个"
+- [ ] 每个补丁都声明了目标方法签名（因此 Tier 2 有索引），并写了未声明的部分
+- [ ] 我的"落地"证据是 opcode 位置集合的变化，而不是"文件 diff 有差异"
+- [ ] 我跑了 verifier 级检查（`move-result` 邻接）而不仅是表级检查
+- [ ] 我的记录里"落地"和"合法"是两个独立结论，且各自有一条命令支撑

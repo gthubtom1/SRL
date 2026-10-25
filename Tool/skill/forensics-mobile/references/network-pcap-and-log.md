@@ -154,3 +154,99 @@ docker inspect -f '{{.GraphDriver.Data.UpperDir}}' <container>
 - 流量结论必须与内存/磁盘/日志至少一个独立源交叉；否则标 `unverified`。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`memory-forensics.md`、`evidence-chain.md`；案例 `Tool/cases/forensics01/`。
+
+## 11. 流量镜像取证走查：从 pcap 到会话时间线
+
+| 步 | 动作 | 命令 | 门禁 |
+| :-: | --- | --- | --- |
+| 1 | 哈希/元数据 | `sha256sum` + `capinfos` | 包数/首末/链路类型 |
+| 2 | 会话盘点 | `-z conv,tcp` | 双向字节数可读 |
+| 3 | 选定流 | `-Y 'tcp.stream eq N'` | 五元组 + 首末包 |
+| 4 | 内容重组 | `-z follow,tcp,ascii,N` | 请求/响应完整 |
+| 5 | 对象导出 | `--export-objects http` | 文件 magic/哈希 |
+| 6 | 域名/TLS | DNS/SNI 字段 | qname/SNI + 时间 |
+| 7 | 主体归因 | 与 `netscan`/日志对齐 | PID/账号可指认 |
+| 8 | 时间线 | epoch → UTC | 四要素 |
+
+**最容易错的是第 3 步**：同端口不同连接不能合并；`tcp.stream` 才是会话键。
+
+### 11.1 单向/截断的判定
+
+| 现象 | 判定 | 处理 |
+| --- | --- | --- |
+| `conv,tcp` 只有 A→B 字节 | 单向抓包 | 改采集点/镜像端口；结论降级 |
+| 有 SYN 无 SYN-ACK | 目标未响应/被过滤 | 只写“尝试连接” |
+| 有请求无响应体 | 截断/分块/流未结束 | 看 `tcp.len`/重传；标“不完整” |
+| 大量重传 | 链路/镜像问题 | 先修采集，再分析 |
+
+## 12. 网络 IOC 的构建判据
+
+### 12.1 四类 IOC 的证据强度
+
+| 类型 | 需要的最小证据 | 强度 | 误报 |
+| --- | --- | --- | --- |
+| 域名 | DNS qname + 时间 + 客户端 | 中 | CDN/共享域名 |
+| IP:port | 五元组 + 首末包 + 方向 | 中 | NAT/代理 |
+| SNI/证书 | SNI + 证书 subject/issuer + 时间 | 中高 | 共享证书 |
+| 对象哈希 | 导出文件 + SHA256 + 会话 | 高 | 同名不同内容 |
+| JA3/JA4 | 指纹 + 客户端 + 时间 | 中 | 同库多应用 |
+
+### 12.2 从 IOC 到“恶意外联”的四问
+
+1. 这个 IOC 是否与某个**进程/账号**绑定？（`netscan`/代理日志）
+2. 是否有**双向**会话与响应？（不是只有 DNS 查询）
+3. 对象是否落地？（HTTP 对象哈希/磁盘文件）
+4. 是否有第二源/第二次复现？（pcap + 内存/EDR）
+
+四问缺一 → 只能写“候选 IOC/观察到通信”，不能写“恶意外联”。
+
+### 12.3 DNS/DoH 的盲区
+
+- 传统 DNS：能看到 qname，但可能被本地缓存/预取影响“谁发起”。
+- DoH/DoT：只能看到加密流量与 IP；qname 在 TLS 内，需 keylog/进程内明文。
+- 写结论时标 `dns_visibility=plain|encrypted|none`，不要把“没看到 qname”写成“没有解析”。
+
+## 13. 命令与“通过长什么样”（流量最小复验）
+
+```bash
+PCAP=evidence/capture.pcap
+
+# 1) 元数据
+capinfos "$PCAP" | grep -E 'Number of packets|First packet|Last packet|encapsulation'
+
+# 2) 双向会话
+ tshark -r "$PCAP" -q -z conv,tcp | head -15
+
+# 3) 单流内容（把 7 换成实际 stream）
+tshark -r "$PCAP" -Y 'tcp.stream eq 7' -T fields \
+  -e frame.time_epoch -e ip.src -e tcp.srcport -e ip.dst -e tcp.dstport -e tcp.len | head
+
+# 4) 对象与哈希
+mkdir -p out/http && tshark -r "$PCAP" --export-objects http,out/http
+sha256sum out/http/* 2>/dev/null | head
+
+# 5) DNS/SNI
+tshark -r "$PCAP" -Y dns -T fields -e frame.time_epoch -e dns.qry.name | head
+tshark -r "$PCAP" -Y 'tls.handshake.extensions_server_name' \
+  -T fields -e frame.time_epoch -e ip.dst -e tls.handshake.extensions_server_name | head
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 元数据 | 包数/首末/链路类型可读 | 文件截断/0 包 |
+| 会话 | 双向字节数都有 | 只有单向 |
+| 流内容 | 请求行 + 状态码/响应体 | 只有 GET |
+| 对象 | 导出文件 `file` 可识别 + 哈希 | 同名覆盖/空文件 |
+| 域名 | qname + 时间 + 客户端 | 只有 IP |
+| 结论 | IOC 至少到 I2 | 只有 I0 字符串 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我用 `tcp.stream` 而不是端口来区分会话
+- [ ] 我的“上传/外联”结论有双向会话 + 响应/对象，不是只看请求
+- [ ] 我标了 DNS 可见性（明文/加密/无），没有把盲区写成“没有发生”
+- [ ] 我的 IOC 带时间、客户端、进程/账号归属，至少到 I2
+- [ ] 导出对象按 stream 唯一命名并算了哈希，没有覆盖
+- [ ] 我知道“没抓到”不等于“没有发生”，采集点/过滤/加密都写进了边界

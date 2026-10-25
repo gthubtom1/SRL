@@ -198,3 +198,131 @@ nc -vz 127.0.0.1 <PORT>
 - `orig.sha256`、原始镜像、解包目录、工具版本。
 - 文件系统审计清单（文件:行号、脱敏值、用途）+ 仿真启动脚本与验证请求。
 - J1/J2/J3 证据：串口日志、shell 会话、HTTP 响应、PoC 与复现步骤；失败日志与降级说明。
+
+## 9. 端到端走查：从 `.bin` 到可审计 rootfs（时间盒版）
+
+> 这一节把前面各节串成一条可执行流水线。每阶段有**入口、命令、门禁、失败去向、时间盒**；
+> 任一阶段不过门禁就停下，需要先确认“先往下跑，回头再补”。
+
+### 阶段 0：采集与坐标（5 min）
+
+```bash
+FW=firmware.bin; OUT=work/fw-e2e
+mkdir -p "$OUT"; cp --reflink=auto "$FW" "$OUT/orig.bin"
+sha256sum "$OUT/orig.bin" | tee "$OUT/orig.sha256"
+file "$OUT/orig.bin"; stat -c '%s bytes' "$OUT/orig.bin"
+python Tool/skill/firmware-iot/scripts/fw-triage.py --file "$OUT/orig.bin" --json > "$OUT/triage.json"
+```
+
+**门禁**：哈希非空、大小 > 0、`file` 能给出类型（哪怕是 data）。
+**不过**：文件不可读/被截断 → 重采；不要从半截镜像开始。
+
+### 阶段 1：分层与切分（10–20 min）
+
+```bash
+python Tool/skill/firmware-iot/scripts/fw-repro.py --file "$OUT/orig.bin" \
+  --out-dir "$OUT/repro" --json > "$OUT/repro.json"
+jq '{primary, offset, carved_sha256, extraction: .extraction.status}' "$OUT/repro.json"
+find "$OUT/repro" -maxdepth 1 -type f -name 'carved-*' -exec file {} \;
+```
+
+**门禁**：`primary` 与 `file`/厂商标签一致；切出物有 magic。
+**不过**：只有 weak → 回到 `06-container-carving-and-entropy.md` 做二次确认；不要直接 `binwalk -e`。
+
+### 阶段 2：解包（15–60 min）
+
+| 容器 | 命令 | 门禁 |
+| --- | --- | --- |
+| SquashFS | `unsquashfs -d "$OUT/rootfs" -f part.bin` | `/etc`+`/bin`+`/lib` |
+| 魔改 SquashFS | `sasquatch -d "$OUT/rootfs" part.bin` | 同上 + `file busybox` |
+| UBI | `ubireader_extract_files -o "$OUT/ubi" ubi.bin` | 卷列表 + `rootfs_data` |
+| JFFS2 | `jefferson -d "$OUT/rootfs" part.bin` | 节点日志 + 目录树 |
+| CramFS | `cramfsck -x "$OUT/rootfs" part.bin` | init + `/bin` |
+| tar/cpio | `tar -xvf` / `cpio -idmv` | 条目名完整 |
+
+**门禁**：`find "$OUT/rootfs" -maxdepth 2 -type d` 能看到关键目录；`bin/busybox` 或 `bin/sh` 是 ELF。
+**不过**：只有 kernel/DTB → `02-failure-criteria.md` 第 1 行；`unsupported compression` → `sasquatch`/内核解压器。
+
+### 阶段 3：审计（20–40 min）
+
+```bash
+ROOT="$OUT/rootfs"
+# 账号
+awk -F: '$3==0{print "uid0",$1}' "$ROOT/etc/passwd" 2>/dev/null
+# 启动链
+grep -RInE 'telnetd|dropbear|httpd|uhttpd|nvram|system\(|popen\(' "$ROOT/etc" 2>/dev/null | head -60
+# 凭据/密钥
+find "$ROOT" -type f \( -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \) -print
+# Web 入口
+find "$ROOT/www" "$ROOT/usr/lib/lua" -maxdepth 3 -type f 2>/dev/null | head -20
+```
+
+**门禁**：能画出“开机脚本 → 服务 → 用户 → 端口 → 参数”，每跳有 `文件:行号`。
+**不过**：只有 hash 无入口 → 只能写候选；服务链断 → 在 `02-failure-criteria.md` 里归因。
+
+### 阶段 4：验证（30–90 min）
+
+```bash
+# 单程序基线
+sudo chroot "$ROOT" /usr/bin/qemu-mipsel-static /bin/sh -c 'id; uname -a'
+# 服务三件套（仿真或真机）
+ss -lntp; ps w | grep -E 'httpd|uhttpd|cgi' | grep -v grep
+curl -isS --max-time 5 http://127.0.0.1:80/ | sed -n '1,15p'
+```
+
+**门禁**：J1 有 `id`；J2 端口+进程+动态响应；J3 两次一致。
+**不过**：进程在但端口不通 → 补桩/看日志；端口通但静态页 → 不算 J2。
+
+### 阶段 5：交付（10 min）
+
+```bash
+python Tool/skill/firmware-iot/scripts/fw-accept.py
+python Tool/scripts/domain-gate.py --domain firmware-iot
+```
+
+**门禁**：字段/hash/refs/lessons 全 PASS；报告写清 J1/J2/J3 哪条成立、证据在哪、哪条未验证。
+**不过**：hash mismatch/phantom ref → 重跑产物，不改 JSON 里的哈希。
+
+### 总时间盒与止损
+
+| 阶段 | 正常 | 超时动作 |
+| --- | --- | --- |
+| 0 采集 | 5 min | 文件不可读 → 重采 |
+| 1 切分 | 20 min | 两工具不一致 → 人工看头 |
+| 2 解包 | 60 min | 两次失败 → 转静态/硬件 |
+| 3 审计 | 40 min | 画不出链 → 降级为侦察 |
+| 4 验证 | 90 min | 环境问题 → 记录并转真机 |
+| 5 交付 | 10 min | 门禁失败 → 修产物不修哈希 |
+
+## 10. 命令与“通过长什么样”（端到端复验）
+
+```bash
+OUT=work/fw-e2e
+# 一行体检：每项输出一个布尔/计数
+echo "hash:   $(test -s "$OUT/orig.sha256" && echo ok || echo fail)"
+echo "strong: $(jq '[.containers[]?|select(.confidence=="high")]|length' "$OUT/triage.json")"
+echo "rootfs: $(test -d "$OUT/rootfs/etc" && test -d "$OUT/rootfs/lib" && echo ok || echo fail)"
+echo "busybox:$(file -b "$OUT/rootfs/bin/busybox" 2>/dev/null | cut -c1-40)"
+echo "uid0:   $(awk -F: '$3==0' "$OUT/rootfs/etc/passwd" 2>/dev/null | wc -l)"
+echo "svc:    $(ss -lnt 2>/dev/null | grep -c ':80 ')"
+```
+
+**通过长什么样**：
+
+| 输出行 | 通过 | 不通过 |
+| --- | --- | --- |
+| `hash` | `ok` | `fail` → 重采 |
+| `strong` | ≥1 | 0 → 切分路线错 |
+| `rootfs` | `ok` | `fail` → 解包未完成 |
+| `busybox` | `ELF ... MIPS/ARM` | `data`/空 |
+| `uid0` | ≥1 且可解释 | 0 但脚本有 root → 账号面异常 |
+| `svc` | ≥1 且 `curl` 有动态字段 | 0 → 服务未起 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我按阶段跑，且每阶段过了门禁才进入下一阶段
+- [ ] 我的 rootfs 有 `/etc`+`/bin`+`/lib`，busybox 架构与 SoC 一致
+- [ ] 我能画出“开机 → 服务 → 用户 → 端口 → 参数”的链路
+- [ ] 我没有把 `unsquashfs` rc=0 或 qemu-user 能跑 sh 当闭环
+- [ ] 失败阶段写清了 `blocked_at`、已试命令 rc 与下一条路线
+- [ ] 交付时 `fw-accept.py` 与 domain-gate 都 PASS，且未改 JSON 哈希

@@ -103,3 +103,153 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py       # 案例字段/hash/re
 | `performing-wireless-network-penetration-test` | 无线网络渗透测试与固件面（源：performing-wireless-network-penetration-test） | `Tool/skill/firmware-iot/references/01-criteria.md` | 管理面访问或配置缺陷可重复，且有请求/响应 |
 | `implementing-usb-device-control-policy` | USB 设备控制策略与固件（源：implementing-usb-device-control-policy） | `Tool/skill/firmware-iot/references/hardware-interfaces.md` | 策略与实测一致，允许/拒绝都有日志 |
 | `implementing-ot-network-traffic-analysis-with-nozomi` | OT 流量分析与固件版本关联（源：implementing-ot-network-traffic-analysis-with-nozomi） | `Tool/skill/firmware-iot/references/01-criteria.md` | 资产-协议-固件版本可对应，差异有证据 |
+
+## 5. 判定会：把 J1/J2/J3 逐条过一遍
+
+> 判据表回答“查什么”，判定会回答“怎么收口”。固定三角色：**证据官**（只读产物）、**反方**（专找反例）、
+> **记录员**（写字段与缺口）。每轮 15 分钟，三个闭环各过一轮；没有结论也必须留下字段。
+
+### 5.1 会前材料（缺一件就不开）
+
+| 材料 | 最低要求 | 谁提供 |
+|---|---|---|
+| 对象坐标 | `sha256` + 大小 + 来源/URL | 证据官 |
+| 容器与解包 | strong/weak 分层、rootfs 路径、文件数 | 证据官 |
+| 运行面 | 启动命令、环境（真机/qemu/FirmAE）、网络参数 | 证据官 |
+| 反例清单 | 至少 3 条“如果不是这样，会看到什么” | 反方 |
+| 未验证项 | 每条都有 `blocked_at` 或前置条件 | 记录员 |
+
+### 5.2 J1（能进 shell）五问
+
+1. 这个 shell 来自**登录**、**串口**还是**漏洞利用**？三者证据不同，不能混写。
+2. 登录用的账号在 `passwd`/`shadow`/NVRAM 里能否指到 `文件:行号`？
+3. `id` 输出是 `uid=0` 还是普通用户？如果是 root，是设计如此还是配置错误？
+4. 会话是否可重复？重启/重连后同一条路径是否仍成立？
+5. 有没有第二个独立入口（UART、Telnet、SSH、Web CGI）能交叉验证？
+
+| 判定 | 允许写法 | 禁止写法 |
+|---|---|---|
+| 五问都有证据 | “在 <环境> 以 <账号> 获得 shell，`id` 输出 …” | — |
+| 只有 hash 或默认口令字符串 | “发现候选凭据（E0/E1）” | “设备弱口令” |
+| 只有仿真里的 root shell | “仿真环境内可进 shell（E2）” | “设备可被登录” |
+
+### 5.3 J2（关键服务可用）四问
+
+1. 端口、进程、业务响应是否在**同一时刻**取得？三条证据的时间戳差多少？
+2. 响应里有没有**动态字段**（设备型号、会话 token、CGI 计算结果、JSON 状态）？
+3. 这个服务监听在 `127.0.0.1`、`0.0.0.0` 还是指定网卡？外部入口是什么？
+4. 服务以哪个用户运行？配置文件在哪？启停脚本能否解释它的生命周期？
+
+> 反方必问：把 `curl` 的 Host 改成不存在域、把路径改成随机串、把方法换成 POST，响应是否仍是同一静态页？
+> 如果三种变化都返回同一页，基本可判“静态占位”，不是 J2。
+
+### 5.4 J3（漏洞可复现）四问
+
+1. 同一输入重复两次，响应/副作用是否一致？第二次是否只是缓存？
+2. 可控参数到危险函数的路径是否每一跳都有 `文件:行号` 或反汇编地址？
+3. 副作用是命令输出、文件变化、进程变化还是回连？有没有前后快照？
+4. 版本/配置是否记录？换一个固件版本是否仍成立（不要求，但要写）？
+
+### 5.5 反例优先：三个“如果结论是假的”
+
+| 结论 | 反例测试 | 反例成立时看到什么 |
+|---|---|---|
+| “rootfs 完整” | 删掉 `/bin/busybox` 后再跑一次目录判据 | 判据仍 PASS → 判据写得太松 |
+| “服务是设备业务” | 断网/换 Host/随机路径请求 | 仍返回同一页 → 静态占位 |
+| “命令注入可达” | 把参数换成不存在的命令 `id` → `id2` | 两者都报错但无差异 → 只是错误回显 |
+
+反例测试只改**副本**或请求参数，不改设备、不写闪存。
+
+## 6. 证据分级打分样例（把 E0–E3 用起来）
+
+### 样例 A：只有字符串
+
+```text
+观察：rootfs/www/cgi-bin/luci 中存在 `os.execute("nvram get "..x)`
+等级：E1（定位到文件:行号），不是 E2/E3
+能写：静态确认存在拼接执行逻辑
+不能写：设备可被命令注入
+下一步：找可控参数入口，构造两次一致请求
+```
+
+### 样例 B：仿真内登录成功
+
+```text
+观察：qemu-system 启动后 23/tcp 监听，用 root/root 登录成功，`id` 输出 uid=0
+等级：E2（一次只读验证）
+能写：在该仿真环境与配置下可登录
+不能写：生产设备同口令；需真机或第二个镜像交叉
+```
+
+### 样例 C：真机两次一致
+
+```text
+观察：同一 POST 两次返回 `uid=0(root)`，设备侧 /tmp/pwned 两次出现且时间戳不同
+等级：E3（可重复 J3）
+能写：在 <型号/版本/配置> 下可重复命令注入，影响为命令执行
+不能写：批量影响同型号所有版本；未测版本要标“未验证”
+```
+
+### 打分表（报告里直接抄）
+
+| 字段 | 取值 | 说明 |
+|---|---|---|
+| `evidence_level` | `E0/E1/E2/E3` | 取**最低**一项，不取最高 |
+| `closure` | `J1/J2/J3/none` | 允许多个，但每个单独给等级 |
+| `repro_count` | `0/1/2+` | J3 必须 ≥2 |
+| `environment` | `real/qemu-user/qemu-system/firmae` | 跨环境不合并结论 |
+| `unverified[]` | 字符串数组 | 每条对应一个 `blocked_at` 或前置条件 |
+
+## 7. 判据的机检入口（一次跑完）
+
+```bash
+CASE=work/fw-audit
+python Tool/skill/firmware-iot/scripts/fw-triage.py --file "$CASE/orig.bin" --json > "$CASE/triage.json"
+python Tool/skill/firmware-iot/scripts/fw-repro.py --file "$CASE/orig.bin" \
+  --out-dir "$CASE/repro" --json > "$CASE/repro.json"
+
+# 1) strong 容器至少一个；weak 只作线索
+jq -r '[.containers[]? | select(.confidence=="high")] | length' "$CASE/triage.json"
+# 2) rootfs 关键目录与 busybox 架构
+find "$CASE/rootfs" -maxdepth 2 -type d 2>/dev/null | sort | head -20
+file "$CASE/rootfs/bin/busybox" 2>/dev/null
+# 3) 账号面：UID0 / 空口令 / 锁定分开统计
+awk -F: '$3==0{print "uid0",$1}' "$CASE/rootfs/etc/passwd" 2>/dev/null
+awk -F: '$2==""{print "empty",$1} $2 ~ /^[!*]/{print "locked",$1}' "$CASE/rootfs/etc/shadow" 2>/dev/null
+# 4) 仿真服务三件套（在 guest 与宿主各跑一次）
+ss -lntp 2>/dev/null | head
+ps w 2>/dev/null | grep -E 'httpd|uhttpd|cgi' | grep -v grep
+curl -isS --max-time 5 http://127.0.0.1:80/ | head -20
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过（改走哪条） |
+|---|---|---|
+| strong 容器 | `>=1` 且 offset 可解释 | 0 → 走 `06-container-carving-and-entropy.md` |
+| rootfs | `/etc` + `/bin` 或 `/usr/bin` + `/lib` 同时存在 | 缺一 → `02-failure-criteria.md` 第 1/2 行 |
+| busybox | `file` 显示 ELF 且架构与 SoC 一致 | 架构不符 → 切错镜像/型号 |
+| 账号 | 每个 UID0 都有解释（root/系统账号/后门候选） | 只有 hash → 只能写候选 |
+| J2 | 端口 + 进程 + 动态响应三件套 | 静态页/502 → 补桩或转真机 |
+
+### 7.1 判定会记录模板（直接贴进报告）
+
+```text
+对象：<型号> / <固件版本> / sha256=<前 12 位>
+环境：<real|qemu-user|qemu-system|firmae> / <启动命令>
+闭环：J1=<E?>（账号/入口/证据） J2=<E?>（端口/进程/动态字段） J3=<E?>（次数/副作用）
+反例：已试 <删文件/换 Host/换参数>，结果 <…>
+未验证：<blocked_at + 前置条件>
+下一步：<路线 + 代价 + 重试条件>
+```
+
+> 模板只写一行结论会丢掉证据；至少保留“闭环、反例、未验证”三段。
+> 如果 J2 的动态字段是登录挑战，记下响应头/状态码，不要把 token 贴进报告。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我能用四元组（镜像/容器/解包/运行）描述这次分析，且每项都能复算
+- [ ] 我的每条结论都标了 E0–E3，并且取的是最低等级而不是最高
+- [ ] 我至少做过一次反例测试（删文件/换 Host/换参数），没有把静态页当 J2
+- [ ] 我把未验证项写成了 `blocked_at` 或前置条件，没有用“应该/可能”补齐
+- [ ] 我知道这份判据的下限：缺 `/etc`、缺登录入口、缺两次复现，任何一条都必须降级

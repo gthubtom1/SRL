@@ -140,3 +140,128 @@ Two legitimate outcomes:
 2. The audit shows it is re-protected, injected, or un-analysable → discard it and do the work on
    the original. That is usually faster than reverse-engineering someone else's protection *and*
    your target's at the same time.
+
+## Command block: the five diffs an audit actually needs
+
+Each step above is a set difference against the original build of the same version. These are the
+commands that produce them; the *outputs* are what the verdict cites.
+
+```bash
+# 1) entry-level diff: what was changed / added / removed (added = injection candidates)
+python scripts/apk_diff.py original.apk modded.apk --summary
+python scripts/apk_diff.py original.apk modded.apk --only 'lib/|classes[0-9]*\.dex|assets/' --hide-identical
+
+# 2) can you even edit it? business classes as *defined* classes, per dex
+python scripts/dex_strings.py ./modded_dex --classes 'Lcom/<vendor>/<app>/' --per-file
+python scripts/dex_strings.py ./original_dex --classes 'Lcom/<vendor>/<app>/' --per-file
+
+# 3) endpoints only in the modded build (the most important finding, if any)
+python scripts/dex_strings.py ./modded_dex --urls | sort -u > mod.urls
+python scripts/dex_strings.py ./original_dex --urls | sort -u > orig.urls
+comm -13 orig.urls mod.urls
+
+# 4) embedded key material (native libs and assets, not just dex)
+unzip -o -q modded.apk -d mod_x
+grep -rl 'PRIVATE KEY' mod_x | head
+python - <<'PY'
+import glob, math, collections
+for p in glob.glob('mod_x/assets/*')[:40]:
+    b = open(p, 'rb').read()
+    if not b: continue
+    c = collections.Counter(b); h = -sum(v/len(b)*math.log2(v/len(b)) for v in c.values())
+    if h > 7.5: print('high-entropy asset: %s (%.2f bits/byte, %d bytes)' % (p, h, len(b)))
+PY
+```
+
+**Expected shapes:**
+
+```
+# 1)
+changed: 3   added: 7   removed: 0   identical: 2140
+  + lib/arm64-v8a/lib<extra>.so
+  + assets/<vendor>_config.json
+# 2)  (modded)
+classes.dex     0 hits
+classes2.dex    0 hits        <- business code not in plaintext: stop here
+# 3)
+https://<new-host>/api/v1/device       <- present only in the modded build
+# 4)
+mod_x/lib/arm64-v8a/lib<name>.so       <- PRIVATE KEY marker inside a shipped library
+high-entropy asset: mod_x/assets/<x>.bin (7.98 bits/byte, 412633 bytes)
+```
+
+## What passing looks like (通过长什么样)
+
+| Question | Passing (an auditable answer) | Not passing |
+|---|---|---|
+| Is the business code editable? | per-dex defined-class counts for the app's own prefix, non-zero | "it opens in jadx" |
+| How many protection layers? | a named layer list, each with its static evidence (manifest class, `so` name, marker string) | "it looks packed" |
+| What was added? | `added:` list from the entry diff, each item classified known/unknown | comparing version strings by hand |
+| Any new endpoints? | a non-empty set difference, ranked as explainable / not explainable | "I saw a domain once" |
+| Any shipped secrets? | a named file and the marker found in it | "no obvious malware" |
+| The verdict | use / use with caution / do not use, with the evidence table and an `UNCONFIRMED` list | a binary handed back |
+
+## The four audit outcomes, and the artifact you produce for each
+
+| Outcome | Evidence shape | What you hand back |
+|---|---|---|
+| Honest de-ad of the same version | 0 new endpoints, 0 new components, business code plaintext | "learn from it, rebuild from the original" + the patch points you diffed |
+| Re-protected (stacked shell/dex2c) | 0 business classes in plaintext, extra `lib*` + markers | "do not use as a baseline"; the original is the workbench |
+| Injected capability | added components with unknown purpose, or new endpoints | "do not use"; list what was added, with the evidence per item |
+| Un-analysable | business code absent, native `so` with no readable symbols, high-entropy assets | "use with caution" + `UNCONFIRMED` list; still rebuild from the original |
+
+**One rule across all four:** you never *ship* the third-party build. Either you rebuild from the
+original, or you report that you did not — the audit's purpose is to protect the provenance of what you
+deliver, not to certify somebody else's file.
+
+## Failure modes of an audit
+
+- **Auditing against the wrong original.** A mod of a different version produces a huge, meaningless
+  set difference; confirm the declared version *and* the dex/`so` hashes before diffing.
+- **Reading "no new endpoints" as "safe".** An injected component can call an endpoint that is already
+  in the original's whitelist. The absence of new domains bounds the claim, it does not establish safety.
+- **Treating an import table as intent.** Capability present ≠ capability used; say which one you have.
+- **Letting the mod become the control build.** A diff against the mod tells you what the mod changed,
+  never what the original does — the control must be a stock build of the same version.
+- **Skipping the entropy check on assets.** Encrypted payloads and bundled payload jars hide there, and
+  they are invisible to a dex-level audit.
+- **Upgrading the verdict because it launches cleanly.** Clean launch is a property of the launcher, not
+  of the payload.
+
+## Quick triage: does this build even get a full audit?
+
+A full audit is 1–3 hours. Ten minutes of triage tells you whether to spend it, and the triage answers
+are exactly the ones the audit would start with.
+
+| # | Check | If it fails | Action |
+|---|---|---|---|
+| 1 | Do you have a stock build of the **same version**? | you cannot diff anything | obtain it, or stop: without an original the audit is guesswork |
+| 2 | Does the modded build's own prefix appear as defined classes in plaintext? | business code is out of reach | stop at "re-protected"; do the work on the original |
+| 3 | Do the dex/`so` entry hashes differ from the original's in *few* places? | hundreds of entries differ | you are comparing different versions, not a mod |
+| 4 | Is there an anti-debug layer (markers, RASP strings)? | dynamic work will fight a self-check | plan for static conclusions |
+| 5 | Are there new endpoints or shipped key material? | this is the risk-relevant finding | full audit, and do not ship anything from it |
+
+**Read the failures as answers, not as obstacles.** Checks 2–3 failing means "do not use it, and you
+have saved two hours"; check 5 failing means "this is the one build worth auditing properly".
+
+## Why the audit is usually cheaper than the alternative
+
+The tempting shortcut is "the mod already removed the ads, so let me see how". The realistic cost
+comparison:
+
+| Route | Work | Risk |
+|---|---|---|
+| Reverse the mod's own protection, then its patch | unknown cost; the mod may carry a second, stronger layer | you learn nothing transferable, and every conclusion is about the mod |
+| Audit the mod in 1–3 hours, then patch the original yourself | known cost, bounded by five diffs | you ship an artifact with known provenance |
+
+The second row is not just safer — it is usually faster, because the original's code is the code you
+would have to understand anyway. The audit's real product is **the diff**, which tells you where to patch
+in the original, without inheriting anything else the mod did.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我用同一版本的原版做 diff，并先确认了版本与关键产物哈希
+- [ ] 我给出了"业务类是否在明文 dex 里"的每 dex 计数，而不是一句"能打开"
+- [ ] 我的新增端点/组件/密钥三项都是**集合差**，并各自标了可解释/不可解释
+- [ ] 我的结论是 use / use with caution / do not use 之一，并带 `UNCONFIRMED` 清单
+- [ ] 我没有把这个构建当基线或控制组，也没有把它交回给用户当作成品

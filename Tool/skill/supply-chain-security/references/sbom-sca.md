@@ -136,3 +136,120 @@ SCA：<tool> <version> <path>；高危 N 条
 - 不编造 CVE 编号或 PoC；没有 OSV/GHSA 数据时只做版本与调用面。
 - SBOM 不覆盖 OS 包/内核/固件内嵌库；那些走 `firmware-iot`/`forensics-mobile`。
 - 外部工具缺失时输出 `degraded`，并在报告里保留“未验证”项。
+
+## 11. SBOM 与制品的对账口径（三个集合）
+
+| 集合 | 来源 | 用途 | 不能回答 |
+| --- | --- | --- | --- |
+| 声明集合 | manifest | 直接依赖/意图 | 传递依赖 |
+| 锁定集合 | 锁文件/freeze | 实际解析结果 | OS 包 |
+| 清单集合 | SBOM | 制品内组件 | 是否被调用 |
+| 可达集合 | 源码 import | 调用面 | 参数是否可控 |
+
+**对账规则**：
+
+1. 锁定 ⊆ 清单（否则 SBOM 漏项，重生成或标缺失）。
+2. 清单 − 锁定 = OS 包/工具链/未安装组件，逐类标注。
+3. 可达 ⊆ 锁定（否则动态导入/入口漏检，转人工）。
+4. 锁定 − 可达 = 未使用/仅测试/仅工具，写“未观察到”，不写“不可达”。
+
+## 12. 版本钉住与可达性证明的最小闭环
+
+| 步 | 动作 | 通过 | 失败时 |
+| :-: | --- | --- | --- |
+| 1 | 钉对象 | commit/digest + 工作区干净 | 只有分支名 |
+| 2 | 钉依赖 | 锁文件 + integrity + 冻结安装 | 无锁/无 hash |
+| 3 | 钉清单 | SBOM subject = 对象 | 清单漂移 |
+| 4 | 钉调用 | entry→chain→sink 行号 | 只有 import |
+| 5 | 钉运行时 | 产物/镜像内包含 + 加载证据 | 只有源码 |
+| 6 | 钉修复 | 修复版本 + 验证命令 | “升级最新” |
+
+**最小闭环**：1–3 是“知道有什么”，4–6 是“知道能不能用/怎么修”。只做 1–3 叫盘点，不叫漏洞结论。
+
+### 12.1 版本范围与 backport
+
+- advisory 的 `affected` 范围只是“可能”；发行版可能 backport 修复但版本号不变。
+- 判断 backport：看 distro 的 patch/`changelog`/`vendor` 目录，或直接比对函数。
+- 不能判断时写“版本命中，backport 未验证”，不要写“确定受影响”。
+
+## 13. 命令与“通过长什么样”（SBOM 复验）
+
+```bash
+# 1) 对象与清单
+jq '{components: (.components|length)}' evidence/sbom.cdx.json
+git rev-parse HEAD
+
+# 2) 锁定集合对账
+python Tool/skill/supply-chain-security/scripts/sbom-reach.py \
+  --sbom evidence/sbom.cdx.json --lock package-lock.json --source src --out reach.json
+jq '{components: .components_total, missing: (.missing_from_sbom|length),
+     reachable: (.reachable|length)}' reach.json
+
+# 3) 高危项是否有可达证据
+jq -r '.reachable[] | select(.hits|length>0) | [.name,.version,.hits[0].file,.hits[0].line] | @tsv' reach.json | head
+
+# 4) 修复版本
+grep -RInE 'fixed|patched|backport' evidence/*.json 2>/dev/null | head
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 对象 | commit/digest 可复算 | 只有 tag |
+| 清单 | 组件数 ≥ 锁文件条目 | 明显少 |
+| 缺失 | 0 或逐条解释 | 大段缺失 |
+| 可达 | 至少一个 `file:line` | 只有组件名 |
+| 修复 | 有版本 + 验证命令 | “升级最新” |
+
+### 12.2 修复优先级（从高到低）
+
+| 优先级 | 条件 | 动作 | 验证 |
+| :-: | --- | --- | --- |
+| P0 | 运行时可达 + 入口可控 + 有公开 PoC | 立即升级/隔离/关入口 | 复现用例不再触发 |
+| P1 | 运行时可达 + 有修复版本 | 升级并回归 | 依赖树/镜像 digest 更新 |
+| P2 | 可达但参数不可控 | 监控/加校验/计划升级 | 单测覆盖入口 |
+| P3 | 仅测试/构建依赖 | 记录，随版本升级 | CI 依赖树 |
+| P4 | 不可达/未打包 | 记录原因，定期复核 | SBOM 对账 |
+
+**判据**：每条修复有“优先级 + 验证命令 + 回滚”；只写“升级到最新”不算修复方案。
+
+## 14. 报告模板（SBOM/SCA 专用）
+
+```text
+对象：repo@commit / image@sha256:…
+清单：<tool> <version>；组件 N；锁定 M；缺失 K（逐条解释）
+SCA：<tool> <version>；high/critical N；去重后 M
+可达：<CVE> <pkg@ver> entry→chain→sink→runtime；结论 reachable/unknown
+修复：P0/P1 项 + 验证命令 + 回滚
+未验证：CVE 库未查/运行时未加载/backport 未确认
+```
+
+**判据**：模板里每一行都能指回一个文件/命令；空项写“未验证”，不删行。
+
+## 15. 最后一条检查
+
+把 SBOM 的 `subject`/`metadata.component` 与目标 commit/digest 并排；不一致就先重生成，
+不要在同一份报告里混用“旧清单 + 新制品”。
+
+## 16. 最小交接字段
+
+| 字段 | 值 |
+| --- | --- |
+| `target` | commit/digest |
+| `sbom_tool` | 名称+版本 |
+| `components` | 总数 / 锁定数 |
+| `hits` | 高危 + 修复版本 |
+| `reach` | 可达/不可达/unknown |
+| `unverified` | 未查库/未加载/backport |
+
+这张表直接贴进报告，比“扫描完成”有用。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我先钉对象再生成 SBOM，没有对着 tag 生成
+- [ ] 我做了“锁定 ⊆ 清单”的对账，并解释了缺失
+- [ ] 我的高危项至少有一个 `file:line` 或明确“未观察到调用”
+- [ ] 我考虑过 backport，没有只按版本号下结论
+- [ ] 外部工具缺失时我保留了 `degraded` 与未验证项
+- [ ] 我没有把“SBOM 有该组件”当成“该组件会被调用”

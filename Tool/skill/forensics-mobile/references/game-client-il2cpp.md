@@ -116,3 +116,137 @@ Memory.scan(Module.findBaseAddress('GameAssembly.dll').add(0x123456), 0x100, '41
 - 版本/哈希/偏移三件套必须一起写；缺一不可复现。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`03-model-pitfalls.md`、`ios-macos-artifacts.md`、`evidence-chain.md`。
+
+## 10. 版本—哈希—偏移三件套：IL2CPP 取证的可复现单元
+
+> 游戏客户端更新频繁。没有“三件套”的字段/偏移，第二天就作废。
+
+| 件 | 记什么 | 怎么取 | 缺了会怎样 |
+| --- | --- | --- | --- |
+| 版本 | 客户端版本 + Unity 版本 + IL2CPP 元数据版本 | 包信息/`global-metadata.dat` 头 | 无法选工具/对不上 dump |
+| 哈希 | `GameAssembly`/`global-metadata.dat`/bundle 的 SHA256 | `sha256sum` | 无法证明分析的是哪份 |
+| 偏移 | 模块基址 + RVA/offset + 字段宽 | `script.json` + 反汇编/两次读 | 偏移漂移后结论作废 |
+
+### 10.1 三件套的最小 JSON
+
+```json
+{
+  "client_version": "1.8.3",
+  "unity_version": "2022.3.21f1",
+  "metadata_version": 31,
+  "artifacts": {
+    "GameAssembly.dll": "<sha256>",
+    "global-metadata.dat": "<sha256>",
+    "data.unity3d": "<sha256>"
+  },
+  "field": {"name": "Player.gold", "module": "GameAssembly.dll",
+           "rva": "0x1A2B3C0", "width": 4, "read_count": 2,
+           "verified_at": "2026-10-21T15:00:00Z"}
+}
+```
+
+**判据**：`read_count>=2` 且两次值一致；`rva` 能落到 `dump.cs` 的方法/字段；`verified_at` 与版本对应。
+**失败**：只写“金币在 0x…”，没有模块哈希/版本；更新后未重测。
+
+### 10.2 偏移漂移的三种信号
+
+1. 同一字段两次读取值不同，且不是游戏内变化（看 UI/日志）。
+2. `dump.cs` 的方法地址与反汇编对不上（函数序言不匹配）。
+3. 客户端更新后 `global-metadata.dat` 版本号变了。
+
+出现任一信号 → 偏移作废，重新 dump/定位；不要“加个偏移修正”继续用。
+
+## 11. 资源/字段的证据分级（避免把“看到”当“能改”）
+
+| 等级 | 证据 | 可写结论 | 不可写 |
+| --- | --- | --- | --- |
+| G0 | 字符串/资源名 | “存在候选资源/字段” | “客户端使用它” |
+| G1 | `dump.cs` 类/字段 + 反汇编地址 | “该字段由该函数读写” | “运行时可改” |
+| G2 | 运行时两次读一致 + 模块哈希 | “在该版本/偏移下可观测” | “服务器接受修改” |
+| G3 | 服务器下发 → 客户端 → UI/上报全链 | “字段链路可复述” | “可作弊/可刷” |
+
+> 本域只到 G3 的“取证与关系说明”；修改/注入属于授权任务，且在线环境默认不做。
+
+## 12. 命令与“通过长什么样”（游戏客户端复验）
+
+```bash
+APP=work/game/App.app
+
+# 1) 引擎与元数据版本
+find "$APP" -name 'Assembly-CSharp.dll' -o -name 'GameAssembly*' -o -name 'global-metadata.dat'
+xxd -l 16 "$APP/Data/Managed/Metadata/global-metadata.dat" 2>/dev/null
+
+# 2) 哈希三件套
+find "$APP" -type f \( -name 'GameAssembly*' -o -name 'global-metadata.dat' -o -name '*.unity3d' \) \
+  -exec sha256sum {} \;
+
+# 3) IL2CPP dump（版本必须匹配）
+Il2CppDumper "$APP/GameAssembly.dylib" "$APP/Data/Managed/Metadata/global-metadata.dat" out/
+head -20 out/dump.cs
+jq '.[0:3]' out/script.json 2>/dev/null
+
+# 4) AssetBundle 头
+xxd -l 32 "$APP/Data/data.unity3d" 2>/dev/null
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 引擎 | 能找到 Mono 或 IL2CPP 标志文件 | 两者都无 → 包不完整 |
+| 元数据 | magic `af 1b b1 fa` + 版本 | magic 错 → 非标准/加密 |
+| 哈希 | 三件套齐全 | 缺哈希 → 不可复现 |
+| dump | `dump.cs` 有类/字段，`script.json` 有地址 | 空表 → 版本错配 |
+| 资源 | 头为 `UnityFS/UnityWeb/UnityRaw` | 其他 → 加密/非 Unity |
+
+## 13. Mono / AssetBundle 的交叉判据（别只看一条链）
+
+| 现象 | 先查 | 判据 | 误判 |
+| --- | --- | --- | --- |
+| 有 `Managed/` 但没有 `Assembly-CSharp.dll` | 是否 IL2CPP + DummyDll | 看 `GameAssembly`/元数据 | 直接写“Mono 被裁剪” |
+| `dump.cs` 有字段但运行时读不到 | 偏移/版本/模块基址 | 三件套 + 两次读 | 写“字段不存在” |
+| AssetBundle 能解但资源对不上 | `manifest`/Catalog/加载代码 | 资源名 ↔ 类/方法 ↔ 运行时对象 | 写“资源无关” |
+| 字段值在 UI 可见但抓包无 | 本地计算/缓存/默认值 | 服务器下发 → 客户端 → UI | 写“服务器不校验” |
+
+### 13.1 交叉验证的最小组合
+
+```text
+组合 A：dump.cs 字段 + 反汇编读写点 + 运行时两次值
+组合 B：bundle 资源名 + 代码 LoadAsset + 运行时对象名
+组合 C：pcap 下发字段 + 客户端解析方法 + UI 显示
+```
+
+任一组合三段齐全 = G3；缺一段 = G2/G1；只有静态 = G0/G1。
+
+### 13.2 不做的三件事
+
+1. 不把“资源解出来”当“客户端会加载它”（可能死资源/AB 测试）。
+2. 不把“内存值”当“服务器值”（可能本地预测/缓存）。
+3. 不把“离线副本可改”当“线上可改”（反作弊/校验/服务器权威）。
+
+## 14. 版本更新后的复核清单（防止旧结论污染新包）
+
+- [ ] 重新算三件套哈希，与旧值对比；任一变化 → 旧偏移/字段全部作废。
+- [ ] 重读元数据版本；与 `GameAssembly`/`UnityFramework` 对应。
+- [ ] 重跑 `Il2CppDumper`，确认 `dump.cs` 非空且地址落在代码段。
+- [ ] 重验一次字段偏移（两次读一致），记录新 `verified_at`。
+- [ ] 检查 AssetBundle 头/版本是否变化；旧导出清单标“过期”。
+- [ ] 把旧结论标 `superseded`，不要删除历史（审计需要）。
+
+## 15. 交付边界
+
+| 可交付 | 不可交付 |
+| --- | --- |
+| 字段/资源/协议的关系说明 | 可用的作弊/注入工具 |
+| 版本-哈希-偏移三件套 | 未脱壳二进制的逻辑断言 |
+| 离线/授权环境的只读观测 | 在线环境的 attach/写内存 |
+| 检测点与证据链 | 游戏资源/账号数据的传播 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的每个字段/偏移都带“客户端版本 + 模块哈希 + 偏移 + 验证时间”
+- [ ] 我区分了 G0–G3，没有把“内存里看到值”写成“可修改/可作弊”
+- [ ] 我的 IL2CPP 元数据版本与二进制匹配，错配时停而不是硬 dump
+- [ ] 资源解不开时我只写“未解/加密候选”，没有写“没有该资源”
+- [ ] 在线环境我只做外部观测，没有 attach/注入/读内存
+- [ ] 我的四段链路（服务器→客户端→偏移→UI）至少三段有 observed

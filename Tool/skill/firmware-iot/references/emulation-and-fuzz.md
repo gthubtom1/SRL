@@ -247,3 +247,93 @@ rehosting 失败
 - 仅在授权固件/设备/隔离网络内仿真与 fuzz；不接第三方设备、不打公网。
 - 不改原始镜像；所有桩、补丁、启动脚本只存在于工作副本。
 - 不把“仿真里可能”写成“设备可利用”；J3 必须有可重复证据。
+
+## 11. 仿真失败的三类原因：环境 / 依赖 / 时序
+
+> §9 按 `rehost_blocker` 归因（rootfs/init/nvram/…）；本节按**可观测现象**归因，用于快速分流。
+> 先判类，再进 §9 的具体支，避免一上来就改 QEMU 参数。
+
+### 11.1 环境类：宿主/虚拟化/网络
+
+| 现象 | 先查 | 命令 | 判定 |
+| --- | --- | --- | --- |
+| QEMU 进程起但无串口输出 | `console=`、`-nographic`、内核是否带该串口驱动 | `qemu-system-<arch> -M help`；串口日志 | 环境不通 → 换 ttyS0/ttyAMA0 |
+| tap/bridge 创建失败 | 权限、`/dev/net/tun`、残留接口 | `ls -l /dev/net/tun`；`ip link` | 环境 → 改 user 模式单端口 |
+| 宿主 CPU 不支持该加速 | KVM/TCG 选择 | `qemu-system-<arch> -accel help` | 环境 → 用 TCG 慢跑 |
+| 磁盘镜像被宿主占用 | loop 设备/挂载残留 | `losetup -a`；`mount \| grep rootfs` | 环境 → 释放后再起 |
+
+### 11.2 依赖类：库/设备/配置
+
+| 现象 | 先查 | 命令 | 判定 |
+| --- | --- | --- | --- |
+| `Exec format error` | 架构/端序 | `readelf -h bin/busybox` | 依赖/ABI → 换 qemu |
+| `No such file or directory` | loader/库缺失 | `readelf -l \| grep interpreter`；`ldd`（交叉时用 qemu `-L`） | 依赖 → 补库/静态 qemu |
+| 服务启动即退 | NVRAM/`/dev`/配置 | 看 stderr；`strace -f`（副本） | 依赖 → 补桩 |
+| `/dev/mtd*` 不存在 | 设备节点 | `ls -l /dev/mtd*` | 依赖 → 普通文件桩 |
+| `/proc` 空 | 未挂 proc | `mount -t proc proc /proc`（副本） | 依赖 → 补挂载 |
+
+### 11.3 时序类：启动顺序/看门狗/竞态
+
+| 现象 | 先查 | 命令 | 判定 |
+| --- | --- | --- | --- |
+| 30–90 s 后整机复位 | 看门狗 | 串口复位源；`dmesg \| grep -i wdt` | 时序 → 副本禁用/喂狗 |
+| 服务在 init 尚未就绪时启动 | init 顺序 | `grep -RIn` 启动脚本；日志时间戳 | 时序 → 调整顺序/加等待 |
+| 网络服务时有时无 | DHCP/路由竞态 | guest `ip addr`；宿主 `ip route` | 时序 → 固定 IP/延迟请求 |
+| 第一次请求 502，第二次正常 | 后端未就绪 | 两次 `curl` + 服务日志 | 时序 → 预热后再取证 |
+
+### 11.4 三类归因的决策树
+
+```text
+仿真失败
+├─ 完全没有串口/内核输出 ─────── 环境类
+├─ 有内核输出但挂根/init 失败 ─── 依赖类（rootfs/init）
+├─ 能起机但服务退出/端口不通 ─── 依赖类（nvram/dev）或时序类（watchdog）
+└─ 服务短暂可用后消失 ──────── 时序类
+```
+
+记录时只写一个主类 + 一个 `rehost_blocker`，两者可以不同（例：主类=时序，blocker=watchdog）。
+
+## 12. 命令与“通过长什么样”（仿真最小复验）
+
+```bash
+ROOT=work/fw-audit/rootfs
+OUT=work/fw-audit/emu
+
+# 1) 架构/loader 先对齐
+readelf -h "$ROOT/bin/busybox" | grep -E 'Machine|Data'
+readelf -l "$ROOT/bin/busybox" 2>/dev/null | grep -i interpreter
+
+# 2) 单程序基线（必须能跑出 id）
+sudo chroot "$ROOT" /usr/bin/qemu-mipsel-static /bin/sh -c 'id; uname -a'
+
+# 3) 整机启动（参数按镜像调整），日志留档
+qemu-system-mipsel -M malta -m 256M -kernel "$OUT/vmlinux" \
+  -drive file="$OUT/rootfs.img",format=raw \
+  -append "root=/dev/sda console=ttyS0" \
+  -netdev user,id=n0,hostfwd=tcp::8080-:80 -device e1000,netdev=n0 \
+  -nographic 2>&1 | tee "$OUT/qemu.log"
+
+# 4) 服务三件套（另开终端）
+ss -lntp | grep 8080
+curl -isS --max-time 5 http://127.0.0.1:8080/ | sed -n '1,15p'
+curl -isS --max-time 5 http://127.0.0.1:8080/cgi-bin/luci | sed -n '1,10p'
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过（归到哪类） |
+| --- | --- | --- |
+| 单程序 | `id` 输出 `uid=`，`uname` 架构正确 | `Exec format error` → 环境/ABI |
+| 内核 | 日志走到 `VFS: Mounted root` | panic → 依赖（root/驱动） |
+| init | 出现 getty/login 或目标服务启动行 | 停在 `Starting...` → 依赖/时序 |
+| 服务 | 端口 + 进程 + 动态响应 | 502/静态页 → 依赖（Web 根/CGI） |
+| 稳定 | 连续 3 分钟无复位 | 60 s 复位 → 时序（看门狗） |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我先按“环境/依赖/时序”分了三类，再决定改 QEMU 参数还是补桩
+- [ ] 我的单程序验证与整机验证分开写，没有用 qemu-user 冒充整机
+- [ ] J2 有端口、进程、动态响应三件套，且时间戳在同一窗口
+- [ ] 我知道 30–90 s 复位多半是看门狗，不会写“固件不稳定”
+- [ ] 所有桩/补丁只在副本，原镜像哈希未变
+- [ ] 失败时我写了主类 + `rehost_blocker`，并给出已试命令的 rc

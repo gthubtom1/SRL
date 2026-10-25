@@ -158,3 +158,96 @@ Signed-in state:  <still works, listing what still requires an account>
 Not achievable:   <per-account lists, entitlements — with the reason>
 Session note:     sign in once after install; upgrade over the same key keeps the session
 ```
+
+## Command block: find the gate, count its callers, and prove the verdict changed
+
+The sequence is: locate the predicate → count its callers → patch the verdict → verify from a signed-out
+state **and** a signed-in one.
+
+```bash
+# 1) locate candidate gates by name and by their characteristic strings
+python scripts/dex_strings.py ./dexdump --find '(?i)checkLogin|ensureLogin|requireLogin|needLogin|isLogin|checkBind|showLogin' --per-file
+
+# 2) how many callers does the predicate have? (blast radius before you touch it)
+python scripts/find_refs.py ./smali --method 'Lcom/x/AuthHelper;->isLogin()Z'
+
+# 3) which screen owns the prompt? (the class you will observe, not the one you patch)
+python scripts/dex_strings.py ./dexdump --find '(?i)login|sign in|登录|绑定' --per-file
+
+# 4) confirm the device is really signed out before measuring (no stale session)
+adb shell "su -c 'run-as <pkg> ls -la files/ shared_prefs/ databases/ 2>/dev/null'" | head -20
+```
+
+**Expected shapes:**
+
+```
+# 2)
+scanned: ./smali (1 tree, 4213 classes)
+callers of Lcom/x/AuthHelper;->isLogin()Z : 12
+  Lcom/x/ui/ProfileFragment;->onCreate()V
+  Lcom/x/ui/CommentDialog;->a()V
+  <... 10 more>
+# 4)
+shared_prefs/<pkg>_preferences.xml      <- check whether a token/uid key is present before you measure
+```
+
+| Output | Meaning for the plan |
+|---|---|
+| 1 caller | surgical: the gate is local to one screen; patch and verify that screen |
+| 3–8 callers, all UI-shaped | the predicate is a UI gate; patching the verdict releases all of them, which is what "no login required" means |
+| dozens, mixed UI and request paths | the predicate also feeds request construction: patch the *decision*, not the predicate, or scope the change to the screens asked for |
+| 0 callers found | your search input was unreadable or the class is obfuscated (`find_refs.py` prints what it scanned — read that line) |
+
+## What passing looks like (通过长什么样)
+
+| Claim | Passing | Not passing |
+|---|---|---|
+| "The gate is client-side" | the guarded action's data is already delivered (visible in a capture or a response) | the prompt is dismissible |
+| "The prompt is gone" | cold start + every screen that used to show it, no prompt | one screen checked |
+| "The feature works signed-out" | the guarded screen shows real content or performs the action, from a signed-out state | the screen renders its frame |
+| "Sign-in still works" | a real account signs in and its previously working features still work | the sign-in entry exists |
+| "No fake session left behind" | the credential store/prefs are byte-identical to a clean install, or you removed what you wrote | the app "stays" signed in |
+| "The account-scoped part is unchanged" | an account-scoped list is still empty signed-out, and you said so | claiming the feature is fully unlocked |
+
+## The three states, per feature (fill this in before patching)
+
+Every guarded feature is in exactly one of these states. The table is the deliverable's core, because it
+says what a patch can and cannot change for *that* feature.
+
+| Feature | State | Evidence | After the patch |
+|---|---|---|---|
+| reader / catalogue | public, gate-only | content visible signed-out once the gate is bypassed | usable |
+| favourites / history | identity-required | request carries a token; signed-out response is empty | gate released, list still empty |
+| comment / follow | identity-required (server) | POST requires identity; anonymous gets 401 | action fails: not patchable |
+| settings | public | local screens, no request | usable |
+| purchase / subscription | identity + entitlement | entitlement minted server-side | unchanged |
+
+**Rule:** state the state for every row, then patch only the rows whose state is `public` or
+`gate-only`. The rows you leave alone are half of the report — they are what stops "unlocked" from being
+read as "everything works".
+
+## Failure modes
+
+- **Patching the prompt instead of the verdict.** The caller takes its else-branch and the feature is
+  skipped, so the dialog disappears and nothing is released.
+- **Patching only one of two conditions (phone binding often has two).** The prompt returns through the
+  second branch, and the first patch looks ineffective.
+- **Releasing a gate that protects a server operation.** The UI lies; the operation fails.
+- **Fabricating a session.** Worse than being signed out: identity-scoped requests go out with garbage and
+  the app enters an unopenable state (see §Step 3 of this file).
+- **Verifying only the screen you patched.** The predicate has 12 callers; three of them are settings and
+  purchase flows you were not asked to touch.
+- **Forgetting the session-loss note.** A reinstall can invalidate credentials sealed by the platform
+  keystore; that is expected behaviour to document, not a defect to chase.
+
+> The whole file reduces to one sentence to write before patching: *"this screen is public/gate-only →
+> after the patch it is usable; this one is identity-scoped → after the patch it is still empty."*
+> Anyone who cannot fill both halves has not classified the gate yet.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我先给每个受限功能标了状态（public / gate-only / identity-required），再决定补什么
+- [ ] 我数过 gate predicate 的调用方，并按"是否触发请求"分过类
+- [ ] 我的补丁改的是**判定**，不是提示框；并且绑定类检查的多个分支都覆盖了
+- [ ] 我从登出状态验证了功能可用，也从登录状态验证了原有功能没坏
+- [ ] 我没有伪造会话，且报告里写明了哪些屏幕签出后仍然为空

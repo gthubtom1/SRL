@@ -223,3 +223,9 @@ the scan on the file you are about to publish, not on the file you started from.
   checklist is where a desensitization finding becomes an index line.
 - `references/third-party-builds.md` — the same do-not-anonymize reasoning applied to a sample
   you did not produce, where the identity is someone else's.
+
+```bash
+# 泄漏扫描（只读）：先把要交付的东西扫一遍
+python scripts/scan_leaks.py --path artifacts/ --json | head -40
+```
+**通过长什么样**：输出里 `findings` 为空，或每条命中都标注"已脱敏"及其处理方式。

@@ -115,6 +115,44 @@ python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
 出处：RFCLLM（arXiv 2609.13389，2026-09）、PSMBENCH（NeurIPS'25 / 2026）、
 USENIX Security 2026 对抗式 LLM 生成格式规范。LLM 只负责提假设，证伪永远靠帧。
 
+## 3.2 从 `frames.jsonl` 提候选边（脚本只提"候选"，不命名状态）
+
+手工读几十帧会漏边。先用字节级邻接把候选边提出来，再人工/LLM 命名并回填帧号：
+
+```bash
+python - <<'PY'
+import collections, json, pathlib
+rows = [json.loads(l) for l in pathlib.Path("artifacts/streams/frames.jsonl")
+        .read_text(encoding="utf-8").splitlines() if l.strip()]
+rows = sorted([r for r in rows if r["payload_len"] > 0], key=lambda r: r["ts"])
+edges, prev = collections.Counter(), None
+for r in rows:
+    node = "%s>%s/len%d" % (r["sport"], r["dport"], r["payload_len"])
+    if prev:
+        edges[(prev, node)] += 1
+    prev = node
+print("nodes", len({n for e in edges for n in e}), "edges", len(edges))
+for (a, b), c in edges.most_common(5):
+    print(c, a, "=>", b)
+PY
+```
+
+通过长什么样：
+
+```text
+nodes 4 edges 4
+4 44380>8080/len54 => 8080>44380/len51
+3 8080>44380/len51 => 44380>8080/len54
+1 44380>8080/len187 => 8080>44380/len129
+```
+
+读法：`len54=>len51` 往返 4 次，是**请求-响应配对**的强线索（`54` 含 2 B 帧头 + 4 B mask）；
+`len187=>len129` 只出现一次，对应 HTTP Upgrade 握手。这些节点是"帧长形态"，不是状态名；
+命名必须靠 §2 的消息台账，且每条边要补 `evidence_frame`。
+
+- 不要把这 4 条边直接写成 `INIT→READY→AUTHED`：那是先验，不是观测。
+- `nodes` 少而 `edges` 多，说明同一形态承载多种语义（多半是 protobuf/TLV），先回去分字段。
+
 ## 4. 认证与会话材料
 
 | 材料 | 观察点 | 重放陷阱 |
@@ -128,6 +166,39 @@ USENIX Security 2026 对抗式 LLM 生成格式规范。LLM 只负责提假设�
 
 做法：把"取材料 → 用材料"的两步写进脚本，而不是把材料写死。
 材料过期就重跑第一步；这一步能自动化，才叫"可复刻"。
+
+## 4.1 重放窗口与时间窗：用二分法测出来，不要猜
+
+| 实验 | 构造 | 可能的结论 | 记录 |
+|---|---|---|---|
+| seq 回退 1 | `seq-1` | 接受 = 不检查 / 拒绝 = 单调检查 | 响应码 + 是否断开 |
+| seq 回退 8 / 32 | `seq-8`、`seq-32` | 拒绝且仅小回退被拒 = 有窗口 | 窗口下界 |
+| seq 跳跃 +8 | `seq+8` | 接受 = 只查单调，不查连续 | 后续帧是否要求连续 |
+| 时间戳 -60s / -300s / -3600s | 改 ts 字段 | 拒绝 = 有 ±N 秒窗口 | 用二分找边界 |
+| 同 nonce 立即重放 | 原样再发 | 拒绝 = 一次性 | 第二次响应 |
+| 同 nonce 60s 后重放 | 延迟 | 接受 = 有 TTL 缓存 | TTL 上界 |
+
+```bash
+# 只改 seq，长度/CRC 由构造器重算（本地靶场，每次新建连接）
+for s in 1 2 3 7 11 35; do
+  python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/frames.bin \
+    --rebuild --frame-index 2 --set seq=$s --out artifacts/seq_$s.bin --json >/dev/null && echo "built $s"
+done
+```
+
+通过长什么样（这是"实验矩阵已就绪"，不是结论）：
+
+```text
+built 1
+built 2
+built 3
+built 7
+built 11
+built 35
+```
+
+判据：窗口/时间容差必须给出**具体数值与来源**（哪两个点被拒/被收）。只写"有防重放"不合格，
+因为"有防重放"不能指导复刻客户端；"窗口 8、时间容差 ±300s、nonce TTL 120s"才可以。
 
 ## 5. 状态机的负例实验（最容易被跳过）
 
@@ -153,6 +224,30 @@ USENIX Security 2026 对抗式 LLM 生成格式规范。LLM 只负责提假设�
 
 这些参数直接决定重放脚本要不要多线程、要不要保活。
 
+## 6.1 心跳与超时的测量（样本 ≥5 个周期）
+
+```bash
+python - <<'PY'
+import json, pathlib, statistics
+rows = [json.loads(l) for l in pathlib.Path("artifacts/streams/frames.jsonl")
+        .read_text(encoding="utf-8").splitlines() if l.strip()]
+ka = [r["ts"] for r in rows if 0 < r["payload_len"] <= 32]   # 心跳通常是短帧
+d = [round(b - a, 3) for a, b in zip(ka, ka[1:]) if b > a]
+print("samples", len(d), "median", statistics.median(d) if d else None)
+print("min", min(d) if d else None, "max", max(d) if d else None)
+PY
+```
+
+通过长什么样：
+
+```text
+samples 5 median 15.0
+min 14.8 max 15.6
+```
+
+读法：`median 15.0` + 抖动 <5% → 心跳 15 s，重放脚本按 15 s 发；`samples <5` 不足以结论，
+去抓一条 ≥2 分钟的长会话。超时阈值另有实验：空闲不发任何帧，记录被断开的秒数（重复 3 次）。
+
 ## 7. 状态机落地成代码
 
 ```python
@@ -170,6 +265,31 @@ LEGAL = {
 把这张表写成断言：收到某消息时，`state_after == LEGAL[state_before][event]`；
 不合法就记 `UNEXPECTED` 并停下（说明模型缺边）。这比"看图说话"可靠。
 
+## 7.1 迁移表 → 断言（表驱动，别手写 if 树）
+
+```json
+{"states": ["INIT", "READY", "AUTHED", "CLOSED"],
+ "legal": {"INIT": {"hello": "READY"}, "READY": {"auth": "AUTHED"},
+           "AUTHED": {"data": "AUTHED", "close": "CLOSED"}}}
+```
+
+```bash
+python - <<'PY'
+import json, pathlib
+tbl = json.loads(pathlib.Path("artifacts/legal.json").read_text(encoding="utf-8"))
+log = [("INIT", "hello", "READY"), ("READY", "auth", "AUTHED"),
+       ("AUTHED", "data", "AUTHED"), ("AUTHED", "close", "CLOSED")]
+bad = [(s, e, want, tbl["legal"].get(s, {}).get(e))
+       for s, e, want in log if tbl["legal"].get(s, {}).get(e) != want]
+print("steps", len(log), "unexpected", bad)
+print("model_ok", not bad)
+PY
+```
+
+通过长什么样：`steps 4 unexpected []` + `model_ok True`。
+`unexpected` 非空不是"程序错了"，而是**模型缺边**：回 `frames.jsonl` 找那条消息，补边或改表。
+这就是"状态机落地成代码"的可机检版本——比画图可靠，也比人眼读日志快。
+
 ## 8. 失败判据
 
 - 关键迁移（认证/订阅）没有样本，只能靠猜 → 停止写"状态机"，改抓一条完整会话。
@@ -182,3 +302,11 @@ LEGAL = {
 - 本节描述"怎么建模"，不描述"怎么打"；越权验证只在授权范围做。
 - 生产环境默认只读；状态推进类实验（重放/构造）只在本地或靶场。
 - 与 `05-binary-framing.md` 的分工：那里管字节边界，这里管消息语义与推进条件。
+
+## 这一篇算"用对了"吗
+
+- [ ] 消息台账每条都有 `state_before/event/state_after` 与帧号，`fields` 里没有猜出来的值。
+- [ ] 观测边与 `INFERRED` 边分列；`edge_coverage` 与 `llm_unverified` 都报了数。
+- [ ] 认证材料写清了来源、有效期、绑定维度、是否一次性，并做了过期/复用实验。
+- [ ] §5 的 7 类非法迁移至少做了 3 类，且记录的是"拒绝方式"而不是"失败了"。
+- [ ] 心跳周期、超时阈值、重连退避有实测数值（不是"大概是 30 秒"）。

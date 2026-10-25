@@ -124,3 +124,127 @@ a snapshot. Read those **before** concluding that dynamic analysis is blocked.
 - every hook hit with a stack (bounded — cap output)
 - DNS hosts in order, with timestamps
 - the exact build under test (hash) and the control build's results
+
+## Command block: the three checks that decide "never fires" vs "never ran"
+
+The order in the section above is only useful if each step produces a number. These are the three that
+do; run them before touching the hook.
+
+```bash
+# 1) is the class even in the loaded set? (counts, not names)
+frida -U -f <pkg> -l /dev/stdin <<'JS'
+Java.perform(function () {
+  var hits = 0, total = 0;
+  Java.enumerateLoadedClassesSync().forEach(function (n) {
+    if (n.indexOf('<pkg-prefix>') === 0) { total++; if (n.indexOf('<TargetClass>') >= 0) hits++; }
+  });
+  send({tag: 'CLASSES', pkg_prefix: total, target_matches: hits});
+});
+JS
+
+# 2) how many class loaders are there, and which one can find the class?
+frida -U -f <pkg> -l /dev/stdin <<'JS'
+Java.perform(function () {
+  var i = 0, found = [];
+  Java.enumerateClassLoadersSync().forEach(function (l) {
+    i++;
+    try { if (l.findClass('<TargetClass>')) found.push(i); } catch (e) {}
+  });
+  send({tag: 'LOADERS', count: i, can_find: found});
+});
+JS
+
+# 3) did the process die before the hook could run? (time-to-death, from the outside)
+adb shell "su -c 'pidof <pkg>'" ; sleep 1 ; adb shell "su -c 'pidof <pkg>'" ; sleep 1 ; adb shell "su -c 'pidof <pkg>'"
+adb logcat -d --pid=<pid> | tail -20
+```
+
+**Expected shapes, and what each combination means:**
+
+| 1 `target_matches` | 2 `can_find` | 3 alive after 2 s | Verdict | Next |
+|---|---|---|---|---|
+| 1 | `[n]` (one loader) | yes | hook target is valid and reachable: the *call site* is not reached | verify the UI action actually triggers the path |
+| 1 | `[]` (no loader finds it) | yes | the class exists but not for the default factory: switch the loader (the snippet in §2) | re-run with `Java.classFactory.loader = l` |
+| 0 | `[]` | yes | the class is not loaded **yet** — hook earlier, or hook the loader | spawn-gate, or hook `ClassLoader.loadClass` |
+| 0 | `[]` | no | the process dies before the class loads | this is not a hooking problem: `native-tamper-and-suicide.md` / `detection-and-anti-analysis.md` |
+| 1 | `[n]` | no, dead at ~300 ms | the check ran before your hook: spawn + late resume, or static instrumentation | §"when live attach cannot work at all" |
+
+That table is the whole point of this section: **four different findings that all present as "zero
+events"**, separated by two counts and one liveness probe.
+
+## What passing looks like (通过长什么样)
+
+| Claim | Passing | Not passing |
+|---|---|---|
+| "The hook is installed" | the script reports one `HOOK-OK` per target **and** the class/overload resolution counts match | the script loaded; the wrapper exists |
+| "The hook fires" | an event with a stack, from a real UI action you triggered | a hit at process start that never repeats (likely a loader-time call, not the feature) |
+| "The instance is live" | `!isFinishing() && !isDestroyed()`, and the view tree is non-empty | `Java.choose` found an instance — it also finds dead ones |
+| "The code is obfuscated, not missing" | the anchor string exists and a class references it; names are non-semantic | "the names are `a.b.c`, so I cannot proceed" |
+| "Something detected me" | a *control run* of the unmodified original dies the same way, or the check is named and timed | the process died while instrumented and nothing else was compared |
+
+## The anti-instrumentation ladder, with what each rung can prove
+
+Rungs are ordered by cost, and **each rung needs a different observation** — that is why "the app hates
+Frida" is not a finding.
+
+| Rung | Observable | What it proves | Cost |
+|---|---|---|---|
+| the ROM froze the app | `state: R -> F` in the activity manager, hooks stop with no Java stack, foreground/background changes it | nothing about the app | one HOME press, one logcat line |
+| a library was swept | the server binary disappears; `connection closed` **at spawn** | the environment hunts instrumentation | one `pidof` before each run |
+| the app checks the environment | a named API with a caller module + offset (`anti_detect_probe.js`), timed | the check exists and *where* it runs | one observer-only session |
+| the check runs before your hooks | death within ~300 ms of `resume`, no Java frames | the ordering, not the mechanism | same probe + a spawn run |
+| the check is in native code you cannot hook | no userspace hit at all, but the branch exists in the library | a layer boundary | static read + `svc_scan.py` |
+
+**Rule:** move down the ladder only when the rung above has been *excluded by an observation*. Most
+"anti-Frida" reports are the first two rungs, and neither of them is about the app.
+
+## Failure modes of this file's own advice
+
+- **Instrumenting to test whether instrumentation is the problem.** The control has to be a run *without*
+  hooks; adding a lighter hook still changes the variable.
+- **Believing a silent tag.** A module or script that "loaded" but printed nothing may have been writing
+  to a channel you are not reading (`logd` broken; see the precedent case) — read both channels before
+  concluding "it never ran".
+- **Treating a crash on attach as detection.** Attaching changes timing, memory layout and thread count;
+  a target with a latent race dies more readily. Reproduce without attach first.
+- **Letting the obfuscation argument end the work.** Non-semantic names change *how* you locate (shape,
+  anchors, stacks), not *whether* you can.
+- **Chasing the sweep.** Renaming `frida-server` protects you from cleanup, not from detection; a target
+  that lists `/proc/self/maps` will still see the mappings. Do not report a rename as a fix.
+
+## A zero-event session, reduced to three lines
+
+The useful output of this file is a short record that another person can act on. Three lines:
+
+```
+zero-event:   CLASSES target_matches=1  LOADERS count=3 can_find=[2]   alive_after_2s=yes
+               -> not detected; class reachable on loader 2; hook was on the default loader
+action:       set Java.classFactory.loader = loaders[1]; re-run; expect the same UI action to produce >=1 event
+control:      unmodified run (no hooks) -> app alive, feature works  => the death hypothesis is excluded
+```
+
+Two properties make this record worth keeping: the numbers (so a second run can disprove it) and the
+`control` line (so nobody re-opens the detection hypothesis without new evidence). A record without the
+control line is how a session gets re-litigated a week later.
+
+## Where this file stops
+
+- **Locating a check's implementation** after it has been named: `detection-and-anti-analysis.md` §Step 3.
+- **Neutralising** a check: not this file's subject — and often the wrong move (`coverage-and-limits.md`
+  §not covered).
+- **Replacing live attach** with a static build: the comparison table above; the packaging side is
+  `repack-and-sign.md`.
+- **Anything inside a runtime**: `framework-runtimes.md`, then `dart-aot.md`. A Java hook that hits
+  nothing on a Flutter screen is *expected*, not a bug in your script.
+- **Delivering the result**: a session is evidence, not an artifact. If the answer has to work on
+  someone else's phone, the form is an APK or a module (`SKILL.md` §G1), and the session's role is to
+  tell you which one. Keeping that distinction explicit is what stops a prototype being reported as a
+  deliverable.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我用两个计数（类命中、可找到该类的 loader 数）加一次存活探测，把"零事件"分成了四条分支之一
+- [ ] 我按顺序排除过 ROM 冻结与 server 被杀，再谈目标检测
+- [ ] 我知道 `Java.choose` 会命中死实例，并且过滤过 `isFinishing/isDestroyed`
+- [ ] 我的对照是**不加 hook** 的原版运行，而不是"更轻的 hook"
+- [ ] 我把"名字被混淆"当作定位方式问题，写了按形状/锚点定位的下一步

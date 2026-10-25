@@ -218,3 +218,10 @@ shipped** with the skill; `references/evidence-summary.md` is the condensation t
 `references/routing.md` is the inventory. Neither the per-topic records nor the public-target
 regression matrix ships inside an installed skill, so an installed copy carries the claim but not its
 evidence file — which is why the strength label is stated here rather than left to be looked up.
+
+```bash
+# 覆盖边界自检：本域能做到/做不到，用产物说话
+ls artifacts/ 2>/dev/null | head            # 有产物 = 有证据
+python ../../scripts/check.py --fast 2>/dev/null | tail -3   # 仓级判据（可选）
+```
+**通过长什么样**：报告里每条"能到"都指向一个具体产物；"不能到"都写明卡在哪一项能力。

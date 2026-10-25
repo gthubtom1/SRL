@@ -176,3 +176,87 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py \
 - [ ] 报告写明 observed/inferred/unverified 与边界。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`disk-and-filesystem.md`、`evidence-chain.md`；案例目录 `Tool/cases/forensics03/`。
+
+## 9. 同类案例的可迁移判据（EVTX + hive + History）
+
+| 判据 | 本案例 | 迁移到新主机时怎么验 | 不成立时 |
+| --- | --- | --- | --- |
+| 对象可钉住 | 3 个文件 + SHA256 | 重新复制 + `sha256sum` | 只写路径 → 不可复现 |
+| 类型可识别 | EVTX/REGF-keynames/SQLite | `forensics-check.py` | 类型不明 → 先做文件头 |
+| 时间可归一 | 3 类事件 UTC | `fs-timeline.py` 的 `by_kind` | 缺时区 → 只给候选顺序 |
+| 主体可指认 | 本机用户/浏览器 | 补 SID/用户/进程 | 只有 URL → 线索 |
+| 结论分级 | observed/inferred/unverified | 每条填置信 | 裸结论 → 删 |
+
+> 最容易被跳过的是“对象可钉住”：换一台主机，`%LOCALAPPDATA%` 路径不同、History 可能被 Edge 占用。
+> 先复制再哈希，不要在浏览器运行时直接读原库。
+
+## 10. 时间线复核：三条独立校验
+
+### 校验 1：源内单调性
+
+```bash
+jq -r '.events[] | [.time_utc,.source] | @tsv' artifacts/timeline.json \
+  | awk '{ if ($1 < prev) print "NON-MONOTONIC", $0; prev=$1 }' | head
+```
+
+通过：同一源内不出现时间倒流（允许同秒）。不通过：先查 `ts_basis` 是否混了本地时间。
+
+### 校验 2：首末时间 vs 源头自报
+
+```bash
+jq '{first: .meta.first_record_utc, last: .meta.last_record_utc}' <( \
+  python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/AppReadiness.evtx --json)
+jq '{start: .summary.start_utc, end: .summary.end_utc}' artifacts/timeline.json
+```
+
+通过：时间线的首末落在源头自报范围内（可有 mtime 例外）。不通过：检查是否漏源/重复计数。
+
+### 校验 3：跨源先后与因果分开
+
+| 关系 | 可以写 | 不能写 |
+| --- | --- | --- |
+| A 比 B 早 2 分钟 | “A 早于 B” | “A 导致 B” |
+| 同一秒 | “同一时间窗口” | “同时发生” |
+| 相差 12 天 | “无直接时间关联” | “无关” |
+
+## 11. 命令与“通过长什么样”（本走查复验）
+
+```bash
+cd Tool/cases/forensics03
+
+# 1) 哈希
+sha256sum -c artifacts/SHA256SUMS 2>/dev/null || sha256sum input/*
+
+# 2) 类型与时间范围
+python Tool/skill/forensics-mobile/scripts/forensics-check.py --file input/AppReadiness.evtx --json \
+  | jq '{ok, type, records: .meta.record_count, first: .meta.first_record_utc, last: .meta.last_record_utc}'
+
+# 3) 时间线
+python Tool/skill/forensics-mobile/scripts/fs-timeline.py \
+  --input input/AppReadiness.evtx --input input/History.sqlite --input input \
+  --out artifacts/timeline.json
+jq '{events: .summary.events, by_kind: .summary.by_kind, tz: .summary.timezone}' artifacts/timeline.json
+
+# 4) 证据链接收
+python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case . --json \
+  | jq '{ok, checks, failures, warnings}'
+```
+
+**通过长什么样**：
+
+| 步骤 | 通过 | 不通过 |
+| --- | --- | --- |
+| 哈希 | 3 个文件哈希可复算 | 缺 `SHA256SUMS` |
+| 类型 | `record_count=59` 且首末可读 | 0 条/时间跳变 |
+| 时间线 | `by_kind` 含 evtx/browser/filesystem | 只有一类 |
+| 证据链 | `failures=[]`，`checks>0` | 缺 artifact/refs |
+| 报告 | observed/inferred/unverified 齐全 | 只有“发现” |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我先复制再哈希，没有在浏览器/注册表运行时直接读原件
+- [ ] 我的时间线在三类源上都能解释 `by_kind`，且首末与源头自报一致
+- [ ] 我做了至少一条独立校验（单调性/首末/跨源），没有只看事件数
+- [ ] 我把“键名清单”与“键值/最后写入”的边界写清了
+- [ ] 我的结论分 observed/inferred/unverified，没有把 12 天间隔写成因果
+- [ ] 复跑命令与哈希都在案例目录里，别人能原地复现

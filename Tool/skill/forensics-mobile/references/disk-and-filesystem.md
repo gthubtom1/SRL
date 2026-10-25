@@ -260,3 +260,69 @@ fsutil fsinfo volumeinfo C:     # 卷序列号，用于和 Prefetch 里的卷信
 - 对外分享前脱敏路径中的用户名、SID、设备序列号、URL 查询参数。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`memory-forensics.md`、`ios-macos-artifacts.md`、`evidence-chain.md`。
+
+## 13. 从采集到时间线的 8 步（磁盘专用）
+
+| 步 | 动作 | 命令 | 门禁 |
+| :-: | --- | --- | --- |
+| 1 | 封存原件 | `sha256sum` + 只读 | 哈希入清单 |
+| 2 | 识别容器 | `file`/`ewfinfo` | E01/dd/raw 分清 |
+| 3 | 分区表 | `mmls` | Start 扇区可读 |
+| 4 | 文件系统 | `fsstat -o <start>` | 类型/块大小/inode 范围 |
+| 5 | 目录与 inode | `fls -r -p -o <start>` | 路径可遍历 |
+| 6 | 时间线 | `fls -m` + `mactime -z UTC` | MACB 可排序 |
+| 7 | 已删恢复 | `fls -d` + `icat` | 内容 magic/哈希 |
+| 8 | 交叉 | 与 EVTX/USN/内存对齐 | 至少两源 |
+
+**最容易错的两步**：第 4 步 `-o` 用字节；第 8 步把文件 mtime 当“用户操作时间”（复制/安装也会改 mtime）。
+
+### 13.1 文件系统差异（判据别混用）
+
+| 文件系统 | 时间精度 | 已删恢复 | 常见坑 |
+| --- | --- | --- | --- |
+| NTFS | 100 ns | `$MFT`/`$UsnJrnl` 成功率高 | `$SI` vs `$FN` 两套时间 |
+| FAT32 | 2 s | 目录项 + 簇链 | 时区/DST 偏移 |
+| ext4 | ns | journal/inode | ext4 延迟分配 |
+| APFS | ns | 快照/APFS 特性 | 加密卷需密钥 |
+| HFS+ | s | catalog/extents | 与 APFS 混用 |
+
+## 14. 命令与“通过长什么样”（磁盘最小复验）
+
+```bash
+IMG=evidence/disk.img; OFF=2048
+
+# 1) 镜像与分区
+sha256sum "$IMG"
+mmls "$IMG" | head -10
+
+# 2) 文件系统与目录
+fsstat -o "$OFF" "$IMG" | head -12
+fls -r -p -o "$OFF" "$IMG" | head -20
+
+# 3) 时间线
+fls -r -m / -o "$OFF" "$IMG" > out/bodyfile.txt
+mactime -b out/bodyfile.txt -d -z UTC | head -15
+
+# 4) 已删文件
+fls -r -d -o "$OFF" "$IMG" | head -10
+icat -o "$OFF" "$IMG" 12345 > out/recovered.bin && file out/recovered.bin
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 分区 | `mmls` 有 Start/长度 | 只有“DOS partition”而无偏移 |
+| 文件系统 | `fsstat` 出版本/块/inode | 报 bad magic → 核对 `-o` |
+| 目录 | `fls` 有路径 + inode | 只有根目录 |
+| 时间线 | `mactime` 有 UTC 时间列 | 本地时间未标 |
+| 恢复 | `file` 识别出类型 | 乱码 → 标不可恢复 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的 `-o` 用的是 `mmls` 的 Start 扇区，不是字节偏移
+- [ ] 我能区分 `$SI`/`$FN` 两套时间，没有取“看起来合理”的那个
+- [ ] 我的已删文件要么有内容哈希，要么明确标了“不可恢复”
+- [ ] 我知道 mtime 不等于用户操作时间，至少与日志/USN 交叉一次
+- [ ] 时间线统一 UTC 并保留原时区/精度
+- [ ] 我没有在原镜像上挂载可写或跑 `chkdsk`

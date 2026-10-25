@@ -12,54 +12,54 @@
   },
   "per_domain": {
     "apkseep": {
-      "lines": 11587,
+      "lines": 14408,
       "refs": 54,
-      "cmd_refs": 41
+      "cmd_refs": 54
     },
     "softseep": {
-      "lines": 2822,
+      "lines": 3091,
       "refs": 10,
-      "cmd_refs": 8
+      "cmd_refs": 10
     },
     "web-pentest": {
-      "lines": 2142,
+      "lines": 3014,
       "refs": 10,
-      "cmd_refs": 9
+      "cmd_refs": 10
     },
     "firmware-iot": {
-      "lines": 1838,
+      "lines": 2970,
       "refs": 10,
-      "cmd_refs": 9
+      "cmd_refs": 10
     },
     "forensics-mobile": {
-      "lines": 1517,
+      "lines": 2664,
       "refs": 10,
-      "cmd_refs": 9
+      "cmd_refs": 10
     },
     "supply-chain-security": {
-      "lines": 1446,
+      "lines": 2620,
       "refs": 10,
-      "cmd_refs": 8
+      "cmd_refs": 10
     },
     "pwn-crypto": {
-      "lines": 1372,
+      "lines": 2416,
       "refs": 8,
-      "cmd_refs": 7
+      "cmd_refs": 8
     },
     "protocol-plugin": {
-      "lines": 1174,
+      "lines": 2482,
       "refs": 8,
-      "cmd_refs": 7
+      "cmd_refs": 8
     },
     "unpack-loop": {
-      "lines": 761,
-      "refs": 7,
-      "cmd_refs": 5
+      "lines": 2929,
+      "refs": 11,
+      "cmd_refs": 11
     },
     "malware-analysis": {
-      "lines": 937,
-      "refs": 8,
-      "cmd_refs": 6
+      "lines": 2686,
+      "refs": 10,
+      "cmd_refs": 10
     }
   }
 }

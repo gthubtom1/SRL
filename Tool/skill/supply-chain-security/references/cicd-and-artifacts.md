@@ -237,3 +237,59 @@ OIDC 测试只在授权仓库内做；日志/registry 侧只读。跨域细节�
 - 不把 YAML 缩进扫描当完整解析；锚点/merge key/reusable workflow 必须人工补看。
 - 不验证 secrets 的实际值，只记录名称、作用域与引用行。
 - 制品来源结论必须绑定 digest；应用层漏洞 → `web-pentest`，容器逃逸 → `ad-cloud`。
+
+## 14. GitHub Actions 权限审计的 12 条判据
+
+| # | 判据 | 通过 | 失败时 |
+| :-: | --- | --- | --- |
+| 1 | 触发器可枚举 | 每个 `on:` 有来源 | 未知 `workflow_run` |
+| 2 | 顶层最小权限 | 默认 `contents: read` | 缺省/`write-all` |
+| 3 | job 级收窄 | 写权限只给发布 job | 全部继承 |
+| 4 | checkout 目标 | 不可信触发不取 PR head | `ref: head.sha` |
+| 5 | secrets 作用域 | 只绑必要 step | 全 job env |
+| 6 | action pin | 40 hex 或 `sha256:` | 可移动 tag |
+| 7 | 表达式 | 不可信字段经 `env:` | 直接进 `run:` |
+| 8 | 自托管 | 只跑受保护分支 | fork PR 可跑 |
+| 9 | 环境审批 | 生产 job 有 environment | 无审批发布 |
+| 10 | reusable workflow | 已展开源文件 | 只看调用行 |
+| 11 | 凭据类型 | `GITHUB_TOKEN`/OIDC | 长期 PAT |
+| 12 | 日志/缓存 | 不落 secret、key 不可猜 | 明文/可预测 key |
+
+**判据**：12 条逐项 `pass/fail/na`；`fail` 必须带行号 + “触发器×权限×输入面”组合解释。
+
+## 15. 命令与“通过长什么样”（CI 权限复验）
+
+```bash
+# 1) 结构扫描
+python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py \
+  --path .github/workflows --out /tmp/ci.json
+jq '.workflows[] | {name, triggers, permissions, action_pins, secrets_refs}' /tmp/ci.json
+
+# 2) 人工核对关键组合
+grep -nE 'on:|pull_request_target|workflow_run|permissions:|ref:|secrets\.|\$\{\{' \
+  .github/workflows/*.yml | head -60
+
+# 3) 交叉
+python Tool/skill/supply-chain-security/scripts/sc-check.py \
+  --path .github/workflows --out /tmp/sc.json
+jq '.summary.risks' /tmp/sc.json
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 触发器 | 全部枚举且可解释 | 漏 `workflow_run` |
+| 权限 | 顶层+job 级都可读 | 空/解析失败 |
+| pin | 第三方全 40 hex | 可移动 tag |
+| 组合 | 三要素矩阵能对上 | 关键字当结论 |
+| 修复 | 顶层只读+下移+pin | “加个审批”泛泛而谈 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我按“触发器→checkout→permissions→secrets→pin”的顺序看，而不是只 grep
+- [ ] 我能区分“设计如此/加固项/可利用链”三档
+- [ ] 我的权限结论同时覆盖顶层与 job 级
+- [ ] 我没有把 action tag 未 pin 直接写成“已被投毒”
+- [ ] 我知道 `permissions: {}` 不等于 job 级无写权限
+- [ ] 我的修复是最小改动，并给了验证命令

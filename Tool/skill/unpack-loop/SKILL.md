@@ -279,6 +279,22 @@ metadata:
 
 ---
 
+## 七bis、参考索引（逐篇）
+
+| 文件 | 用途 |
+| :-- | :-- |
+| `references/packers-quickref.md` | 判壳证据链、壳指纹扩展表、熵/导入数值阈值、A 类解包 |
+| `references/anti-debug.md` | 反调试判据手册（识别特征→探测点→绕过→失败判据）与三条铁律命令化 |
+| `references/anti-debug-matrix.md` | AD/AV 编号矩阵、复合指纹、现象→编号检索、Evidence 机检表 |
+| `references/oep-locate.md` | OEP 五法、熵时间序列、假 OEP 六特征、候选打分与记录模板 |
+| `references/dump-and-rebuild.md` | dump 形态选择、差分稳定性、分段读、对齐修复、自检不变量 |
+| `references/iat-repair.md` | IAT 范围推导、thunk 合法性校验、delay/bound/序号处理、复验三层 |
+| `references/hw-observation.md` | 硬件断点预算、ETW/WPR、Intel PT、观测记录字段、失败判据 |
+| `references/vm-bytecode.md` | VM 识别、跳转表提取、handler 工作表、解释器骨架、函数级还原 |
+| `references/ace-and-commercial-walkthrough.md` | D/C 类（ACE/反作弊/商业壳）走查：M1–M4 上限、AC-n 失败判据 |
+| `references/integrity-and-rollback.md` | 完整性对抗（CRC/自修复/服务端校验）与回滚设施/演练 |
+| `references/lessons.md` | 本域踩坑台账 UL-n（现象/根因/动作/约束）、假进展识别、复盘模板 |
+
 ## 八、与其他技能的关系
 
 - 判型入口仍是 `softseep`（本技能由它的「脱壳/解包」类型分发进来）；

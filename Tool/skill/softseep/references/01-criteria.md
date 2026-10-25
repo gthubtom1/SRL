@@ -75,6 +75,168 @@
 - 版本绑定：所有 RVA/偏移只在记录的 SHA256 上成立；换版本必须重跑判据。
 - 授权前提：仅用于已授权样本与沙箱；判据不是绕过授权的手段。
 
+---
+
+## 6. 判型走查：PE / ELF / Mach-O 各一条命令
+
+> 为什么单列：§2 全是「判据」，但判据要能立起来，先得知道手里这个文件**是哪种容器、几位、什么子系统**。
+> 判型错一次，后面所有偏移/RVA/调用约定的判据全部作废。本节每个格式只给一条命令 + 一个「通过长什么样」。
+> 三者的共同前提：先落 SHA256 与 `file` 输出，再开始解析头；**不要先开反编译器**。
+
+```bash
+S="<样本>"; OUT="work/<case>/triage"; mkdir -p "$OUT"
+sha256sum "$S" | tee "$OUT/sha256.txt"
+file "$S" | tee "$OUT/file.txt"
+head -c 4 "$S" | xxd | tee "$OUT/magic.txt"
+```
+
+### 6.1 PE：头部三件（Magic / Machine / Subsystem）
+
+```bash
+python - "$S" <<'PY'
+import struct, sys, json
+p = sys.argv[1]; d = open(p, 'rb').read()
+assert d[:2] == b'MZ', "not MZ"
+e = struct.unpack_from('<I', d, 0x3c)[0]
+assert d[e:e+4] == b'PE\0\0', "e_lfanew 未指向 PE\0\0"
+mach, nsec, _, _, _, optsz, chars = struct.unpack_from('<HHIIIHH', d, e+4)
+opt = e + 24
+magic = struct.unpack_from('<H', d, opt)[0]
+sub = struct.unpack_from('<H', d, opt+68)[0]
+img = struct.unpack_from('<I', d, opt+56)[0]
+secs = {}
+so = opt + optsz
+for i in range(nsec):
+    b = so + 40*i
+    name = d[b:b+8].rstrip(b'\0').decode('latin-1')
+    vsize, vaddr, rsize, raddr = struct.unpack_from('<IIII', d, b+8)
+    secs[name] = {"vaddr": hex(vaddr), "vsize": vsize, "raw": rsize}
+print(json.dumps({"format": "PE32+" if magic == 0x20b else "PE32",
+                  "machine": hex(mach), "subsystem": sub, "size_of_image": hex(img),
+                  "sections": len(secs), "names": list(secs)[:8]}, ensure_ascii=False))
+PY
+```
+
+**通过长什么样**（x64 控制台程序）：
+
+```json
+{"format":"PE32+","machine":"0x8664","subsystem":3,"size_of_image":"0x13000","sections":16,"names":[".text",".rdata",".data",".pdata",".rsrc"]}
+```
+
+判读：`machine=0x8664` → x64（`0x14c`=x86、`0xAA64`=ARM64，此时必须改读 `08-symbol-recovery.md` 的 ARM64 路径）；
+`subsystem=3` 是 GUI（`2`=CUI），它决定「窗口/控制台」这条动态证据怎么取；`format=PE32` 却按 Win64 读 `RCX` 参数
+→ 整段反汇编判断作废。
+
+**失败判据**：只信 `file` 的 `PE32+ executable (GUI) x86-64` 一行（不知 `SizeOfImage`/节数）；`e_lfanew` 越界或指向非 `PE\0\0`；
+有 `.vmp0/.themida/.enigma1` 节就当成「普通 PE」继续静态读。
+
+### 6.2 ELF：头 / 节 / 动态依赖
+
+```bash
+readelf -h "$S" | tee "$OUT/elf-head.txt"
+readelf -SW "$S" | head -20 | tee "$OUT/elf-sections.txt"
+readelf -d "$S" 2>/dev/null | head -12 | tee "$OUT/elf-dynamic.txt"
+readelf -sW "$S" | awk '$4=="FUNC"' | wc -l | tee "$OUT/elf-func-count.txt"
+```
+
+**通过长什么样**：
+
+```text
+Class:   ELF64
+Type:    DYN (Position-Independent Executable file)
+Machine: AArch64
+Entry point address: 0x1c400
+```
+
+```text
+  [28] .symtab  SYMTAB  0000... 000a1f30 0x9a1c0   ...
+```
+
+判读：`Type=DYN` + `Entry` 非 0 → PIE，运行期基址必变，静态算出的绝对地址一律不可用；
+`Machine` 决定调用约定（AArch64 读 `X0–X7`，x86-64 读 `RDI/RSI/...`）；`.symtab` 存在且 `FUNC` 计数 >0 才谈「符号可用」，
+只有 `.dynsym` 时按 `08-symbol-recovery.md` §8.1 走导出名 + `.eh_frame`。
+
+**失败判据**：把 `Type=DYN` 当「不能静态分析」；`readelf -d` 空（静态链接）却按 `DT_NEEDED` 去找 libc；
+只看到 `.dynsym` 就断言「无符号可用」（内部函数不可得，但导出名仍是真证据）。
+
+### 6.3 Mach-O：魔数 / slice / 加载命令
+
+```bash
+python - "$S" <<'PY'
+import struct, sys, json
+p = sys.argv[1]; d = open(p, 'rb').read()
+MAG = {b'\xcf\xfa\xed\xfe': ('MH_MAGIC_64', '<', 32), b'\xce\xfa\xed\xfe': ('MH_MAGIC', '<', 28),
+       b'\xfe\xed\xfa\xcf': ('MH_MAGIC_64', '>', 32), b'\xfe\xed\xfa\xce': ('MH_MAGIC', '>', 28)}
+FAT = {b'\xca\xfe\xba\xbe': 'FAT_MAGIC', b'\xbe\xba\xfe\xca': 'FAT_CIGAM'}
+h = d[:4]
+if h in FAT:
+    n = struct.unpack_from('>I', d, 4)[0]
+    archs = [hex(struct.unpack_from('>I', d, 8 + 20*i + 4)[0]) for i in range(min(n, 8))]
+    print(json.dumps({"format": FAT[h], "slices": n, "cputypes": archs})); sys.exit(0)
+name, en, hdr = MAG[h]
+ncmds = struct.unpack_from(en + 'I', d, 16)[0]
+NAMES = {0x19: 'LC_SEGMENT_64', 0x1: 'LC_SEGMENT', 0x2: 'LC_SYMTAB', 0x1b: 'LC_UUID',
+         0x1d: 'LC_CODE_SIGNATURE', 0x80000028: 'LC_MAIN', 0x80000022: 'LC_DYLD_INFO_ONLY'}
+found, off = [], hdr
+for _ in range(ncmds):
+    cmd, size = struct.unpack_from(en + 'II', d, off)
+    if cmd in NAMES: found.append(NAMES[cmd])
+    off += size
+print(json.dumps({"format": name, "ncmds": ncmds, "load_cmds": found}, ensure_ascii=False))
+PY
+```
+
+**通过长什么样**（arm64 单架构）：
+
+```json
+{"format":"MH_MAGIC_64","ncmds":19,"load_cmds":["LC_SEGMENT_64","LC_SYMTAB","LC_DYLD_INFO_ONLY","LC_CODE_SIGNATURE","LC_MAIN"]}
+```
+
+**通过长什么样**（通用包多架构）：
+
+```json
+{"format":"FAT_MAGIC","slices":2,"cputypes":["0x1000007","0x100000c"]}
+```
+
+判读：`FAT_MAGIC` → **必须逐 slice 判**（x86_64 与 arm64 的指令、调用约定、可用工具都不同），单看第一个 slice 会得出错误结论；
+有 `LC_MAIN` 才谈入口偏移（老二进制可能只有 `LC_UNIXTHREAD`）；有 `LC_CODE_SIGNATURE` 就说明签名数据在文件尾部，
+改动任何字节都会让签名失效——这直接决定「文件补丁」还是「内存补丁」（`09-patch-engineering.md` §7）。
+
+**失败判据**：把 fat 包当单架构；看到有签名就直接改文件并期望还能跑；用 `MH_MAGIC`（32 位）的头部长度去解析 64 位文件。
+
+### 6.4 三格式共同的三条失败判据
+
+1. 没落 `sha256` 就开始解析——之后所有偏移都无法绑定到具体版本。
+2. 判型结论只有 `file` 一行，没有头字段（Machine / Type / ncmds 三个头字段）。
+3. 判型正确但**没写下游影响**：几位决定寄存器、子系统决定取证方式、PIE/fat 决定补丁形态；缺这三句，判型等于没做。
+
+---
+
+## 7. 判据 → 最小命令 → 落盘（本表怎么用起来）
+
+§2 的判据要落地，每个场景至少配一条命令和一个文件。缺一行就不是工程证据，是笔记。
+
+| 判据类别（§2 对应行） | 最小命令 | 落盘 | 通过条件 |
+| :-- | :-- | :-- | :-- |
+| 授权权威（本地/服务端） | 断网跑一次 + 抓包一次 | `net_off.txt` / `net_on.pcap` | 断网功能差异可解释 |
+| 客户端是否真验签 | 改 1 字节签名复跑 | `sig_edit.log` | 改动后拒绝 或 功能仍受签名影响 |
+| 补丁生效（文件级） | `patch-verify.py --file --manifest` | `verify.json` | `ok:true` 且行为符合 |
+| 补丁生效（内存级） | 回读目标 RVA | `rva_read.txt` | 回读字节等于补丁字节 |
+| 壳是否脱掉 | 节熵 + 内存镜像对比 | `sections.csv` | 内存出明文节名/导入 |
+| 算法还原正确性 | 独立实现跑 N≥10 组向量 | `vectors.csv` | 全一致 + 客户端接受 |
+| 符号可用性 | `readelf -sW` / `nm --defined-only` | `syms.txt` | `FUNC` 计数与命名空间记录 |
+| 网络授权（会话绑定） | 两次登录 + 金样回放 | `sessions.jsonl` | 三判据命中或明确不命中 |
+
+口径提醒：本表只列「命令」，判据内容以 §2 为准，不要在这里抄第二份（两份会漂移）。
+
+## 这一篇算"用对了"吗
+
+- [ ] 动手前先落 `sha256` 与 `file`，判型结论带具体头字段而不是「看起来像 PE」。
+- [ ] PE 写了 `Machine`/`Subsystem`/`SizeOfImage`；ELF 写了 `Class`/`Type`/`Machine`/`Entry`；Mach-O 写了魔数与是否 fat。
+- [ ] 每条判型结论都写了**下游影响**（几位 → 寄存器；PIE → 地址不可硬编码；fat → 逐 slice）。
+- [ ] §7 的每一行都能指出一个已落盘文件，且文件里有关键字节/字段原文。
+- [ ] 判型失败时按 `02-failure-criteria.md` 换路，而不是硬着头皮继续反编译。
+
 ## 附：上游技能卡索引（24 张）
 
 > 上游 = `mukul975/Anthropic-Cybersecurity-Skills`（818 技能库）。本表只回答一件事：这条上游技能在本域**落到哪张卡、哪篇 reference、判据是什么**。

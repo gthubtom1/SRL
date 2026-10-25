@@ -12,7 +12,7 @@ Everything you consult *after* deciding to work lives here, and one load gets al
 | every script this skill ships, and what it does | **Script index** |
 | the symptom table as part of a whole-inventory read | **Symptom index** (mirror — the live copy is in `SKILL.md`; edit it there) |
 
-Coherence is enforced: `python check_routing.py` fails when this file and `SKILL.md` disagree, when a
+Coherence is enforced by the checks in §Keeping this file honest below: they fail when this file and `SKILL.md` disagree, when a
 reference file is not named here, or when a script is not named here.
 
 ## Symptom index
@@ -52,7 +52,7 @@ reference file is not named here, or when a script is not named here.
 | Everything works but **every signed request fails** after repack | `signature-derived-keys.md` |
 | A re-signed build **runs fine, renders its whole UI and logs no error — but one feature silently never loads**, and `dumpsys`/DNS/logcat show **no request for it at all** (not a rejected request: *no request*) | `code-virtualization-and-custom-linkers.md` §what the native check actually reads — refusing **before** the request is built. Not the row above: "sent and rejected" and "never sent" have different owners |
 | You cannot tell whether a missing feature is **your patch's fault or the target's own behaviour** | `long-task-discipline.md` §single-variable discipline. Run the **zero-change control through the same pipeline**, and the decisive variant: the unmodified original with the patch applied **in memory only**, same device, same network |
-| Under Frida `spawn`, the UI never appears — `mCurrentFocus` stays `null`, screenshots come back blank, the Activity stack never builds | `dynamic-frida-1-setup-and-probe.md the Activity stack down: write the patch into memory, **detach**, then start the Activity normally |
+| Under Frida `spawn`, the UI never appears — `mCurrentFocus` stays `null`, screenshots come back blank, the Activity stack never builds | `dynamic-frida-1-setup-and-probe.md` §spawn keeps the Activity stack down: write the patch into memory, **detach**, then start the Activity normally |
 | `frida-server` keeps disappearing mid-experiment, or the device reboots itself while you are working | `dynamic-frida-2-failures-and-anti-instrumentation.md your instrumentation |
 | Ads still appear after a patch that should have killed them | `server-config-and-updates.md` §6 (cached config / remote re-enable), then `ad-removal.md` §step 4 (count the SDK's own log lines; n -> 0, not "I did not see it") |
 | A forced-update or "must update" gate blocks the build | `updates-and-forced-upgrade.md` §step 6 |
@@ -201,3 +201,73 @@ _43 row(s) below the header._
 | `scripts/anti_detect_probe.js` | Observer-only probe (patches nothing): path/loader/thread/kill hooks with **caller module + offset**, an environment self-report (`TracerPid`, frida-named mappings), and live streaming so a sub-second target still yields evidence |
 
 _53 row(s) below the header._
+
+## How to use these two tables (and what not to do with them)
+
+The tables are a **lookup layer**, so the correct sequence is always the same three hops — and each hop
+has a cost, which is why `SKILL.md` keeps the symptom mirror and this file keeps the inventory.
+
+| Hop | You have | You look up | Cost of skipping it |
+|---|---|---|---|
+| 1 | a symptom | **Symptom index** (in `SKILL.md`; mirrored here) | you start from a file you happen to remember, and the failure that was already paid for gets paid again |
+| 2 | a file | **Reference index** — "load when" column, not the name | you open a file whose scope excludes your case, and read a confident answer for someone else's target |
+| 3 | a decision to act | **Script index** — the shipped script, before writing your own | a bespoke script where a shipped one exists is how offsets get guessed instead of computed |
+
+**Two things not to do.** Do not read the reference index end to end as background — it is 43 rows of
+"when", and none of it is useful until a symptom has chosen a row. And do not treat the presence of a
+row as coverage: the row tells you *what the file is for*, while `coverage-and-limits.md` and
+`evidence-summary.md` tell you *how strong the claim is*. A file can be listed here and still be a
+documented route nobody has run.
+
+## Keeping this file honest
+
+Three properties have to hold, and each is checkable with one loop. Run them after any edit to this
+file, to `SKILL.md`, or to the directory listing — a table that has drifted is worse than no table,
+because it is trusted.
+
+```bash
+# 1) no orphan reference: every file is named in SKILL.md
+for f in references/*.md; do b=$(basename "$f"); grep -q -- "$b" SKILL.md || echo "ORPHAN $b"; done
+
+# 2) no unlisted script: every shipped script appears in this file
+for f in scripts/*.py scripts/*.js; do b=$(basename "$f"); grep -q -- "$b" references/routing.md || echo "UNLISTED $b"; done
+
+# 3) no dead link: every markdown link target exists
+grep -o '(\(references/[A-Za-z0-9._/-]*\.md\))' references/routing.md | tr -d '()' | sort -u \
+  | while read -r p; do [ -f "$p" ] || echo "DEAD $p"; done
+```
+
+**What passing looks like:**
+
+| Check | Passing | What a failure means |
+|---|---|---|
+| 1 | no output | a reference nobody is pointed at: written but never loaded, so its cost was paid for nothing |
+| 2 | no output | a script that exists but cannot be discovered — it will be re-written by hand instead |
+| 3 | no output | a link that points at a renamed or split file; the reader lands on a 404 mid-task |
+| Table counts | the `_N row(s) below the header._` lines match the rows above them | someone edited rows without the count, so the file now mis-states its own size |
+| Mirror | the symptom table here and the one in `SKILL.md` carry the same rows | two copies have drifted; the live one is `SKILL.md`, and **edits go there first** |
+
+The mirror rule is the one that gets broken most often, because editing the copy in front of you is
+easier than editing the original and re-copying. When they disagree, the file that is loaded on every
+activation wins — that is `SKILL.md`.
+
+## Adding, renaming or retiring a reference (the checklist)
+
+1. **Add the file**, then add one row to the Reference index here with its "load when", and one row to
+   `SKILL.md` §Lossless split reference sets (or to the symptom index if it is a symptom-owned file).
+2. **If it is a split of an existing file**, list it in the directory page's own table as well — that
+   table is what makes the split un-losable.
+3. **If it carries a capability claim**, add or update its row in `evidence-summary.md`, with a strength
+   label. A new document with no strength label reads as `observed` to the next person.
+4. **Renaming**: change the row here, the row in `SKILL.md`, the directory page's table, and every
+   `§` cross-reference that names the old file. The broken-link loop above only catches links.
+5. **Retiring**: do not delete the row silently. Remove the file, move its distinguishing content to the
+   surviving file, and leave one line here saying where it went — external notes and logs cite paths.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我是从症状进来到文件的（症状索引 → Reference index），而不是从文件名猜起
+- [ ] 我在动手写任何脚本之前，先在这张 Script index 里找过已交付的那一件
+- [ ] 我把"这一行存在"和"这一行被验证过"分开看，强度去 `evidence-summary.md` 查
+- [ ] 我改过本文件或 `SKILL.md` 之后，跑了上面三个循环并看到零输出
+- [ ] 我知道这份镜像表的编辑规则：先改 `SKILL.md`，再同步这里

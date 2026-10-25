@@ -176,3 +176,115 @@ readelf -h rootfs/bin/busybox 2>/dev/null | head -12
 - 厂商头字段可能随版本变化；用两个以上样本交叉验证，不凭单样本猜格式。
 - 不在原始镜像上反复写/改；所有 carve、解包、补丁只在 `work/` 副本。
 - 不把“切出一个高熵段”写成“加密固件已解密”；解密需要密钥/算法/明文验证。
+
+## 8. 厂商头字段差分法：用两个样本代替猜
+
+> 单样本只能“描述头长什么样”，两个样本才能“证明哪个字段是长度/偏移”。
+
+### 8.1 取头与对齐
+
+```bash
+for f in fw-a.bin fw-b.bin; do
+  echo "== $f"; stat -c '%s' "$f"; xxd -l 256 "$f" | head -16
+done
+```
+
+把两个版本的头按 4 字节一组排成表，标出：
+
+| 列 | 含义 | 变化规律 |
+| :-: | --- | --- |
+| `magic` | 厂商/格式标识 | 应相同 |
+| `version` | 版本/格式版本 | 可能相同或递增 |
+| `length` | 负载长度 | 应与文件大小差为常数 |
+| `crc` | 头或负载校验 | 每次不同，改一字节后重算验证 |
+| `model` | 型号/FWID | 同型号相同 |
+| `offset[]` | 段偏移表 | 随段长度线性变化 |
+
+### 8.2 用长度字段验证切分
+
+```python
+from pathlib import Path
+import struct
+
+for name in ("fw-a.bin", "fw-b.bin"):
+    data = Path(name).read_bytes()
+    # 假设 +0x10 是 BE u32 负载长度，+0x14 是负载起始偏移
+    length = struct.unpack(">I", data[0x10:0x14])[0]
+    start = struct.unpack(">I", data[0x14:0x18])[0]
+    print(name, "size", len(data), "len", length, "start", hex(start),
+          "size-start", len(data) - start, "match", length == len(data) - start)
+```
+
+**判据**：`length == file_size - start` 在两个样本上同时成立；只在一个样本成立可能是巧合。
+**失败**：长度是“包含头”还是“不含头”分不清 → 用 CRC 字段验证两种解释，哪种能过就用哪种。
+
+### 8.3 差分时的三个陷阱
+
+1. **字段宽度**：BE/LE、u16/u32、有符号/无符号；用 `xxd -e` 与 `-g4` 对照看。
+2. **对齐填充**：厂商常按 0x100/0x1000 对齐，长度字段可能是“对齐前”或“对齐后”。
+3. **尾部元数据**：`FWID`/`Version`/`CRC` 可能在文件尾而不是头；先 `tail -c 512 | strings`。
+
+## 9. weak 签名的二次确认算法
+
+> `0x1985`/`1f8b`/`BZh` 这类短魔术不能单独定格式。二次确认分三步，任一步失败就降为“误报候选”。
+
+```text
+步骤 1（密度）：在候选偏移 ±0x1000 内统计同一魔术出现次数。
+  - JFFS2 节点通常成串出现（≥3 且间隔合理）；
+  - 随机数据里偶发 1–2 次，间隔无规律。
+
+步骤 2（结构）：按格式头读关键字段并做范围检查。
+  - JFFS2：magic + nodetype + totlen + hdr_crc；totlen 必须在 [min, 0x100000]，hdr_crc 必须匹配。
+  - gzip：magic + CM=8 + FLG 合法 + 解压后长度合理。
+  - bzip2：BZh + block size '1'..'9' + 解压不报错。
+
+步骤 3（邻接）：切出候选并看前后是否连续。
+  - 真文件系统：节点/块首尾相接，直到分区边界；
+  - 误报：切出一小段后立刻是别的高熵数据或 0xFF。
+```
+
+| 结果 | 判定 | 写法 |
+| --- | --- | --- |
+| 三步全过 | 可升级为 strong | “在 0x… 处确认为 JFFS2 节点区” |
+| 只有步骤 1 过 | weak 候选 | “存在 0x1985 命中，未确认” |
+| 步骤 2 失败 | 误报 | “误报，原因：totlen/crc 不符” |
+| 无法切出 | 未验证 | “无法验证，缺 OOB/截断” |
+
+## 10. 命令与“通过长什么样”（切分复验）
+
+```bash
+FW=work/fw-audit/orig.bin
+
+# 1) 分层：strong/weak 分开看
+python Tool/skill/firmware-iot/scripts/fw-triage.py --file "$FW" --json \
+  | jq '{entropy, strong: [.containers[]|select(.confidence=="high")], weak: [.containers[]|select(.confidence!="high")]|length}'
+
+# 2) 主格式与切出物
+python Tool/skill/firmware-iot/scripts/fw-repro.py --file "$FW" --out-dir work/carve --json \
+  | jq '{primary, offset, carved_sha256, extraction: .extraction.status}'
+
+# 3) 切出物二次识别
+find work/carve -maxdepth 1 -type f -name 'carved-*' -print -exec file {} \;
+
+# 4) 解包后的目录树（只有真 rootfs 才有）
+find work/carve/rootfs -maxdepth 2 -type d 2>/dev/null | sort | head -20
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 分层 | strong ≥1，weak 数量单独列出 | 用 weak 当 `primary` |
+| 切分 | `offset > 0` 时 `carved_sha256` 非空且可复算 | 切出 0 字节/哈希缺失 |
+| 二次识别 | `file` 与 `primary` 一致 | 不一致 → 回到头字段 |
+| 目录树 | 有 `/etc` + `/bin` + `/lib` | 只有 kernel/DTB |
+| 误报 | 误报偏移与原因入证据 | 只字不提误报 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我能区分“魔术命中”与“容器确认”，没有用 weak 签名定主格式
+- [ ] 我用两个样本验证过至少一个长度/偏移字段，而不是只看单样本
+- [ ] 我记录了误报偏移与失败原因，它们也是证据
+- [ ] 我的 `primary` 与 `file`/厂商标签一致，冲突时做了人工核对
+- [ ] 切出物做过目录树判据，没有把“切出一个段”当“拿到 rootfs”
+- [ ] 我没有把高熵或弱签名直接写成“加密/文件系统”

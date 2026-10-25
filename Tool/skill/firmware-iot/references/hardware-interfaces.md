@@ -319,3 +319,82 @@ hackrf_transfer -r work/<case>/press2.iq -f <FREQ_HZ> -s 1000000 -n 4000000
 - 无线侧拿到的是"空中接口信任模型"；固件侧（`references/filesystem-and-credentials.md`）拿到的是"设备内部信任锚"（预置 PSK、link key、云 token）。
 - 两边结论冲突时，以**可复现的那一侧**为准：能重放出动作的算 proven，只在固件里看到常量算 hypothesis（可能未被使用）。
 - 交付时把射频条件写清：网卡型号、信道、距离、是否注入、是否触发告警——否则别人复跑不出来。
+
+## 附：UART/JTAG 接入判据（电气 → 协议 → 权限）
+
+> 把“焊上线有输出”拆成三层。每层有独立判据；跨层不能互相替代。
+> 例：能读 UART 日志（协议层）不等于能输入命令（权限层）。
+
+### 9.1 电气层（不过就不要接）
+
+| 判据 | 通过 | 不通过时 |
+| --- | --- | --- |
+| GND 共地 | 万用表通断 < 1 Ω | 换 GND 测试点；不接 VCC |
+| IO 电平 | 1.8V/3.3V 与适配器一致 | 用电平转换；1.8V 芯片禁用 3.3V 适配器 |
+| 待定脚电压 | 不超过 VCC，TX 上电有波动 | 停止，查 datasheet/测试点 |
+| 存储芯片电压 | 与编程器档位一致 | 焊下/换适配器，不硬上 |
+
+### 9.2 协议层（有没有信号）
+
+| 目标 | 判据 | 命令/现象 |
+| --- | --- | --- |
+| UART 输出 | 可读启动日志（非乱码） | `picocom -b 115200 -8 -n -l /dev/ttyUSB0` |
+| UART 波特率 | 位宽 ≈ 1/baud | 逻辑分析仪测 TX 位宽 |
+| JTAG TAP | `scan_chain` 出现预期 IDCODE | `openocd ... -c scan_chain` |
+| SPI 读取 | 两次 SHA256 一致 | `flashrom -r a.bin` ×2 |
+| 芯片识别 | `--flash-name` 与丝印一致 | `flashrom --flash-name` |
+
+### 9.3 权限层（能不能做事）
+
+| 能力 | 通过 | 不通过时 |
+| --- | --- | --- |
+| UART 输入 | 出现 `#`/`$`/`=>` 且能执行 `id` | 只能读日志 → 转 SPI/JTAG |
+| U-Boot 中断 | 上电瞬间可停，`printenv` 有输出 | `bootdelay=0`/控制台关 → 只读日志 |
+| JTAG halt | 能停核、读寄存器/内存 | 扫到 IDCODE 但不能 halt → 查 target cfg |
+| SPI 写回 | 有完整备份 + 校验通过 | 无备份 → 禁止写 |
+
+### 9.4 接入决策树
+
+```text
+有 UART 焊盘？
+├─ 无 → 找 JTAG/SPI；仍无 → 只做固件静态
+├─ 有输出但不能输入 → 记录日志；转 SPI 读全片
+├─ 能输入且是 root shell → J1（记得 id/录屏）
+└─ 能中断 U-Boot → 改 bootargs 做只读/单用户，先备份环境变量
+```
+
+> 写操作门槛：SPI 写回必须同时满足“两次一致备份 + 电压正确 + 恢复路径验证”。
+> 缺一项就只读，不用“应该能恢复”冒险。
+
+## 附：命令与“通过长什么样”（硬件接入最小复验）
+
+```bash
+# 1) 串口设备与权限
+ls -l /dev/serial/by-id/ 2>/dev/null
+picocom -b 115200 -8 -n -l /dev/ttyUSB0   # 上电后看日志
+
+# 2) JTAG 链
+openocd -f interface/ftdi/ft2232.cfg \
+  -c 'adapter speed 500; transport select jtag; scan_chain' -c shutdown 2>&1 | tail -20
+
+# 3) SPI 两次读取
+flashrom -p ch341a_spi --flash-name
+flashrom -p ch341a_spi -r spi-1.bin; flashrom -p ch341a_spi -r spi-2.bin
+sha256sum spi-1.bin spi-2.bin
+
+# 4) 写回前校验（只读比较）
+cmp -s spi-1.bin spi-2.bin && echo backup-consistent || echo DO-NOT-WRITE
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 串口 | 日志可读，出现提示符/login | 乱码 → 电压/波特率/交叉 |
+| JTAG | `scan_chain` 有 IDCODE | 无 → VREF/速率/引脚 |
+| SPI | `--flash-name` 匹配；两次哈希一致 | 不一致 → 接触/供电，停写 |
+| 备份 | `cmp` 一致且已存异地 | 不一致 → 禁止任何写操作 |
+| 证据 | 接线照片 + 电压 + 命令输出 | 只有“接上了” |
+
+## 这一篇算"用对了"吗
+

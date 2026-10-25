@@ -131,3 +131,121 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 - 只读边界被突破（注入/写内存/改文件） → 停，记录动作与影响。
 
 > 相关：`01-criteria.md`、`02-failure-criteria.md`、`04-walkthrough-windows-evtx-registry.md`、`disk-and-filesystem.md`。
+
+## 8. 证据链保真：哈希 + 来源 + 交接
+
+> 哈希只回答“字节有没有变”；来源回答“从哪来”；交接回答“经过谁的手”。三者合起来才是保真。
+
+### 8.1 三层记录
+
+| 层 | 记录什么 | 放在哪 | 机检 |
+| --- | --- | --- | --- |
+| 采集 | 时间/人/工具/命令/源设备/时区/偏差 | `acquisition.json` | 字段非空 |
+| 完整性 | 每个文件的 SHA256 + 大小 + 计算命令 | `input/SHA256SUMS` | `sha256sum -c` |
+| 交接 | 谁在何时把哪些文件交给谁、存储位置/介质 | `custody.log` | 时间链单调、无缺口 |
+
+### 8.2 交接日志模板
+
+```text
+2026-10-21T14:20:00Z  collect  alice  host-07  ->  evidence/case-x/input/   3 files  sha256: 89b33c08…
+2026-10-21T14:26:00Z  transfer alice  evidence/case-x/input/ -> nas-01:/cases/x/  3 files  sha256: 89b33c08…
+2026-10-21T15:02:00Z  analyze  bob    nas-01:/cases/x/ -> work/case-x/input/  3 files  sha256: 89b33c08…
+```
+
+**判据**：每次交接都有前后哈希（至少目的端复算）；时间单调；经手人/位置可追。
+**失败**：只有“已拷贝”；哈希只在源端算；交接时间晚于分析时间。
+
+### 8.3 证据链断点清单
+
+| 断点 | 现象 | 补法 |
+| --- | --- | --- |
+| 采集前被改 | 哈希一致但来源不明 | 采集记录 + 设备日志交叉 |
+| 传输损坏 | 源/目的哈希不同 | 重传；保留失败记录 |
+| 分析污染 | 原件 mtime 变了 | 停；回到只读副本 |
+| 产物覆盖 | `input/` 出现新文件 | 从备份恢复；重算全链 |
+| 清单遗漏 | 有文件无哈希 | 补算；说明为何晚补 |
+| 时间无基准 | 只有本地时间 | 记录时区/偏差；不能补就降级 |
+
+## 9. 案例字段的最小可机检集
+
+`evidence-accept.py` 只认字段，不认故事。最小集如下（JSON 片段）：
+
+```json
+{
+  "id": "case-x",
+  "domain": "forensics-mobile",
+  "target_type": "real-host|memory|pcap|disk|ipa",
+  "evidence_kind": "real|fixture|synthetic",
+  "outcome": "confirmed|partial|failed",
+  "acquisition": {"method": "copy", "tool": "dcfldd 1.9",
+                  "collected_at": "2026-10-21T14:20:00Z",
+                  "timezone": "UTC", "clock_skew": "+2s",
+                  "source": "host-07", "readonly": true},
+  "timeframe": {"start": "2026-10-08T22:15:25Z", "end": "2026-10-20T03:22:23Z"},
+  "artifacts": [{"path": "artifacts/timeline.json", "sha256": "<64 hex>"}],
+  "findings": [{"time_utc": "2026-10-20T03:14:07Z", "actor": "PID 4242",
+                "action": "TLS connect", "object": "203.0.113.9:443",
+                "confidence": "observed", "evidence_refs": ["input/mem.sha256"]}],
+  "lessons": ["cmd=... rc=0"],
+  "refs": ["Tool/skill/forensics-mobile/references/01-criteria.md"],
+  "updated": "2026-10-21"
+}
+```
+
+| 字段 | 通过 | 常见失败 |
+| --- | --- | --- |
+| `acquisition.timezone` | 非空 | 写“本地” |
+| `artifacts[].sha256` | 64 hex 且复算一致 | 32 位/空 |
+| `findings[].actor` | PID/用户/账号 | “未知”/“攻击者” |
+| `findings[].object` | 路径/五元组/键 | “数据” |
+| `outcome` | 与证据等级一致 | `confirmed` 但只有 E0 |
+| `lessons[0]` | 含命令与 rc | “注意时间线” |
+
+> 机检 PASS 只说明字段自洽；结论真假、时间未篡改、主体归因仍需人复核。
+
+## 10. 命令与“通过长什么样”（保真复验）
+
+```bash
+CASE=work/case-x
+
+# 1) 全链哈希
+sha256sum -c "$CASE/input/SHA256SUMS" | tail -5
+sha256sum -c "$CASE/artifacts/SHA256SUMS" 2>/dev/null | tail -5
+
+# 2) 原件可写性
+find "$CASE/input" -maxdepth 1 -type f -writable -print
+
+# 3) 交接时间单调（假设日志两列 ISO 时间）
+awk '{print $1}' "$CASE/custody.log" | sort -c && echo custody-ordered
+
+# 4) 案例机检
+python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case "$CASE" --json \
+  | jq '{ok, checks, failures, warnings, artifacts, findings}'
+
+# 5) 时间线非空
+jq '{ok, events: .summary.events}' "$CASE/artifacts/timeline.json"
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 输入哈希 | 全 OK | FAILED → 停 |
+| 产物哈希 | 全 OK 且清单存在 | 缺清单 |
+| 原件 | 无 writable 输出 | 可写 → 重新封存 |
+| 交接 | `custody-ordered` | 时间倒流/缺行 |
+| 案例 | `failures=[]` | 缺四要素/refs |
+| 时间线 | `events>0` | 0 且无原因 |
+
+> 最后一条提醒：`sha256sum -c` 只校验清单里的文件；清单本身也要受控（入库/只读/带版本），否则“改清单 + 改文件”可以一起骗过校验。
+> 同理，`custody.log` 也要与案例一起封存；只存在个人笔记里的交接等于没有交接。
+> 命令复跑时固定 `TZ=UTC` 与工具版本；否则同一命令在不同机器会给出不同时间列。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的每条结论都有时间/主体/动作/对象/置信五段
+- [ ] 我同时保留了“哈希链”与“来源/交接”两类记录，不只算哈希
+- [ ] `input/` 里没有任何可写文件，产物全部在 `artifacts/`
+- [ ] 我的案例字段能被 `evidence-accept.py` 复算，且没有幻影 refs
+- [ ] 我知道机检 PASS 不等于结论为真，报告里保留了反证与未验证项
+- [ ] 对外分享前做了脱敏（URL 参数/用户名/SID/设备标识）

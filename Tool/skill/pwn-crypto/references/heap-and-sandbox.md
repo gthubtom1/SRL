@@ -3,7 +3,6 @@
 > 配套 `pwn-crypto/SKILL.md`。所有脚本仅用于授权靶场；先记录 checksec、glibc 版本、sha256。
 > 本文只给“可运行骨架 + 判据”，偏移一律用当前 libc/调试器复核，不抄死数字。
 
-
 **本域输入面**：本文件给 tcache/UAF、IO_FILE、seccomp ORW 的骨架与版本判据，偏移必须用目标 libc 复核。
 **路由**：没有目标 libc 的盲打按 `mitigation-matrix.md` 的先验处理；非 glibc 分配器（如 Windows 堆）走对应平台卷；目标范围由 `scope` 声明。
 ## 0. 堆题开局（先定版本与分配器）
@@ -27,6 +26,34 @@ PY
 | 2.35+ | 更多 IO vtable/一致性检查 | 先确认目标 libc 的 vtable 范围 |
 
 **判据**：libc build id 或泄漏低 12 位与本地 libc 吻合；能说出 tcache count、safe-linking 是否启用。
+
+### 0.1 版本三连：把“2.3x”变成可引用的字符串
+
+```bash
+ldd --version | head -1
+strings -a libc.so.6 | grep -m1 'GNU C Library'
+readelf -n libc.so.6 | grep -A1 'Build ID'
+python - <<'PY'
+from pwn import *
+libc = ELF("./libc.so.6", checksec=False)
+for s in ("__free_hook", "__malloc_hook", "_IO_list_all", "main_arena"):
+    print(s, hex(libc.symbols.get(s, 0)))
+PY
+```
+
+通过长什么样：
+
+```text
+GNU C Library (Ubuntu GLIBC 2.35-0ubuntu3.8) stable release version 2.35.
+    Build ID: 5b1a2f0c9d1e4b7a
+__free_hook 0x0
+__malloc_hook 0x0
+_IO_list_all 0x21a6a0
+main_arena 0x21ac80
+```
+
+读法：`0x0` = 该版本**没有**这个符号（2.34+ 删了 hook），不是“偏移算错”。
+有符号但偏移与网上教程不同 → 以 build id 为准；报告里必须带这两行，否则偏移不可复现。
 
 ## 1. tcache / UAF 骨架
 
@@ -90,6 +117,21 @@ add(size)                 # malloc 返回 target
 
 **判据**：`malloc` 返回 `target`；`vis_heap_chunks` 能看到重复/重叠；触发后不 abort。
 **失败先查**：tcache count 已满、`key` 未清、safe-linking 未编码、target 未 0x10 对齐。
+
+### 1.3 堆利用常见形态（先对形态，再写代码）
+
+| 形态 | 前置 | 判据 | 失败信号 |
+|---|---|---|---|
+| tcache dup | 能对同一 chunk 两次 free（2.29+ 先清 `key`，count<7） | 两次 `malloc` 返回同一地址 | count 已满、`key` 未清、double free 检查 |
+| UAF | free 后仍能 `show/edit` | `show` 读到已释放内容；`edit` 影响新分配 | chunk 被合并、指针被置空 |
+| off-by-one(null) | 写入比 size 多 1 字节 | 下一 chunk 的 `size` 低位被改，出现重叠 | 只改到 padding；prev_inuse 未变 |
+| unsorted bin 泄漏 | 填满对应 tcache（7 个）后释放大 chunk | `fd/bk` 是 `main_arena` 地址，页对齐 | 未填满 → 直接进 tcache，看不到 libc |
+| tcache stashing unlink | 小 bin 链 + 一次大请求 | 大 chunk 被返回受控地址 | 2.31+ 的链检查（`bck->fd` 校验） |
+| house of botcake | 7 个 tcache + 双 free 进 unsorted | 两个 chunk 重叠，可改 fd | 2.31–2.35 常见，2.36+ 现场复核 |
+| large bin attack | 能改 `bk_nextsize` 且触发 large bin 插入 | 目标地址被写入堆指针 | 2.30+ 增加了 `bk_nextsize` 检查 |
+
+判据统一为“`malloc` 返回 target / 重叠可见 / 触发不 abort”，外加**版本号**。
+没有版本号的堆结论一律“疑似”：同一份代码在 2.31 与 2.35 上是两条不同的链。
 
 ## 2. IO_FILE / FSOP（2.34+ 常用）
 
@@ -177,6 +219,31 @@ p.sendline(flat({OFFSET: rop.chain()}) + asm(shellcraft.cat('/flag')))
 输出包含 flag；shellcode 路线要看到 `mprotect(...,7)` 返回 0。
 **失败先查**：fd 猜错、路径不在可写内存、`openat` 第一参数不是 -100、x32 ABI 混用。
 
+### 3.4 BPF 判读：先读 arch，再读白名单
+
+```bash
+seccomp-tools dump ./chall | head -40
+strace -f -e trace=execve,execveat,open,openat,read,write ./chall 2>&1 | tail -30
+```
+
+通过长什么样（能直接读出“允许什么”）：
+
+```text
+ line  CODE  JT   JF      K
+=================================
+ 0000: 0x20 0x00 0x00 0x00000004  A = arch
+ 0001: 0x15 0x00 0x05 0xc000003e  if (A != AUDIT_ARCH_X86_64) goto 0007
+ 0002: 0x20 0x00 0x00 0x00000000  A = sys_number
+ 0003: 0x15 0x00 0x01 0x00000000  if (A == read) goto 0005
+ 0004: 0x15 0x00 0x01 0x00000001  if (A == write) goto 0005
+ 0005: 0x06 0x00 0x00 0x7fff0000  return ALLOW
+ 0007: 0x06 0x00 0x00 0x00000000  return KILL
+```
+
+读三条就够：`arch` 是否限定 x86_64（限定则 x32/int 0x80 绕过无效）；白名单里有没有
+`openat/read/write`；有没有参数过滤（如只允许 `read(0,..)`）。缺 `seccomp-tools` 时，
+`strace` 只能看到**实际发生**的 syscall，不能当完整白名单——报告里要写明这一点。
+
 ## 4. 失败判据与止损
 
 - 连续 3 轮同一路径无进展（泄漏不变、目标不可写、触发必 abort）→ 换路线。
@@ -194,6 +261,22 @@ seccomp 白名单原文
 exploit.py 运行 10 次成功计数
 flag/root 输出与会话时间
 ```
+
+### 5.1 证据包自检（交付前 30 秒）
+
+```bash
+python - <<'PY'
+import json, pathlib
+need = ["evidence/checksec.txt", "evidence/leak.txt", "exploit.py"]
+miss = [p for p in need if not pathlib.Path(p).is_file()]
+runs = list(pathlib.Path("runs").glob("run.*")) if pathlib.Path("runs").is_dir() else []
+print("miss", miss, "runs", len(runs))
+print("evidence_ok", not miss and len(runs) >= 10)
+PY
+```
+
+通过长什么样：`miss [] runs 10` + `evidence_ok True`。
+少于 10 份运行日志，就不能写“稳定”；只能在报告里写“当前最好结果 + 失败率”。
 
 ## 6. glibc 2.34+ 现实（`__free_hook`/`__malloc_hook` 移除后的四条路）
 
@@ -236,3 +319,11 @@ flag/root 输出与会话时间
 
 - 文中的命令与偏移是示例，必须用目标二进制、目标 libc/运行库重新生成。
 - 仅用于授权实验室资产；不覆盖真实生产系统、持久化、横向移动或拒绝服务。
+
+## 这一篇算"用对了"吗
+
+- [ ] 先有 libc 版本 + build id 三连，再选形态；没有版本号的堆结论已标疑似。
+- [ ] 堆原语有 `malloc` 返回 target / 重叠 chunk / 触发不 abort 的证据，不只泄漏堆地址。
+- [ ] 2.32+ 的 fd 用 `target ^ (chunk>>12)` 编码，2.34+ 没再找 `__free_hook`。
+- [ ] FSOP/exit/tls_dtor/setcontext 四条路各写了触发条件与失败判据，vtable 不越界。
+- [ ] seccomp 读完了 arch 与白名单；ORW 的 syscall 序列有 `strace`/BPF 对照。

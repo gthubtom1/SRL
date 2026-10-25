@@ -2,5 +2,7 @@
   "schemaVersion": 1,
   "domain": "protocol-plugin",
   "note": "未背书字段必须在 scripts 输出或列在此处；新增字段请同步。",
-  "fields": {}
+  "fields": {
+    "diff": "人工判读或常识性字段（脚本无法机检），按 inferred 白名单登记"
+  }
 }

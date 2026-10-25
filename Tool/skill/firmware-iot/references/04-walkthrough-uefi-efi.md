@@ -200,3 +200,65 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py
 预期：两条命令均 rc=0；`fw-accept` 对 `firmware-iot03/04` 报 PASS（`real`），
 `firmware-iot05` 报 PASS（`fixture`）。若 `fw-accept` 报 hash mismatch，
 说明案例产物被改动，必须重跑而不是改 JSON 里的哈希。
+
+## 8. 复盘：如果重来一次，最短路径是什么
+
+> 本走查花了大量时间在“确认它不是文件系统”。重来时先做格式分类，可以把无效解包压到 0 次。
+
+| 顺序 | 动作 | 时间盒 | 通过则进入 | 不通过则 |
+| :-: | --- | --- | --- | --- |
+| 1 | `sha256sum` + `file` + `binwalk \| head` | 2 min | 看首行魔术分类 | 文件不可读 → 停 |
+| 2 | 看 `file` 是否 PE/ELF/厂商文本 | 1 min | PE/ELF → 只做组件判据 | 非 PE/ELF → 继续 |
+| 3 | `fw-triage --json` 看 `containers[].confidence` | 3 min | strong ≥1 → 切 | 只有 weak → 看厂商标签 |
+| 4 | `fw-repro --json` 看 `primary`/`extraction.status` | 5 min | `primary` 与 `file` 一致 | 冲突 → 人工看头 256B |
+| 5 | 只有 `not-applicable` 时，停止解包 | 0 min | 写“无 rootfs”收束 | — |
+
+这条路径的关键是第 5 步：**允许自己不解包**。对 PE/BRCM 输入，“解包失败”不是失败，是判据选错了。
+
+## 9. 两个样本的对照：同一条命令为什么结论不同
+
+| 命令/字段 | `SecConfig.efi` | `43341b0rtecdc.bin` | 判读差异 |
+| --- | --- | --- | --- |
+| `file` | PE32+ x86-64, 9 sections | data / firmware blob | 决定是否套 PE 判据 |
+| `overall entropy` | 6.489 | 7.055 | 都不到“全盘加密”区间 |
+| `high_block_ratio` | 0.01 | 0.00 | 高熵只来自局部代码/压缩 |
+| `containers` strong | `pe` at 0 | 无 strong 文件系统 | BRCM 靠厂商标签而非魔术 |
+| `primary` | `pe` | `brcm` | 两种“非 rootfs”分支 |
+| `extraction.status` | `not-applicable` | `not-applicable` | 正确降级，不是失败 |
+| 可写的结论 | 组件身份/节熵 | 型号/版本/FWID | 都不能写 J1/J2/J3 |
+
+> 反方检查：如果我把 `primary` 强行改成 `jffs2`，哪条证据会先崩？答案是 `file` 与尾部 `FWID`——
+> 它们与 JFFS2 节点布局不相容。这就是“格式分类先于解包”的价值。
+
+## 10. 复验：两条命令的“通过长什么样”
+
+```bash
+S3=Tool/cases/firmware-iot03/input/43341b0rtecdc.bin
+S4=Tool/cases/firmware-iot04/input/SecConfig.efi
+
+for f in "$S3" "$S4"; do
+  echo "== $f"
+  sha256sum "$f"
+  file "$f"
+  python Tool/skill/firmware-iot/scripts/fw-triage.py --file "$f" --json \
+    | python -c 'import json,sys; d=json.load(sys.stdin); print("primary-candidates:", [(c["type"], c["confidence"]) for c in d.get("containers", [])][:4])'
+done
+```
+
+**通过长什么样**：
+
+| 样本 | 通过输出 | 不通过信号 |
+| --- | --- | --- |
+| `SecConfig.efi` | `file` 显示 PE32+、9 sections；triage 有 `pe/high` | `file` 报 data + triage 只有 `jffs2/medium` |
+| `43341b0rtecdc.bin` | 尾部可搜到 `FWID: 01-97a5222f`、`Version: 6.10.225.19` | 版本/FWID 搜不到且无 `BRCM` 标签 |
+| 两者 | `fw-repro` 的 `extraction.status=not-applicable` | 脚本尝试 7z 解 PE 并报错 |
+| 报告 | 写“无 rootfs，J1/J2/J3 未达成” | 写“固件已解包/存在弱口令” |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我先用 `file`/`FWID` 做了格式分类，再决定要不要解包
+- [ ] 我能说清 `not-applicable` 是正确降级，不是失败
+- [ ] 我没有把 `binwalk` 的 CRC32/AES 常量当成嵌套固件
+- [ ] 我的结论只覆盖样本本身，没有外推到“设备可被攻破”
+- [ ] 我记录了下一步需要的前置（SPI dump / UEFI 变量 / 真机 UART）
+- [ ] 如果重来，我会在第 5 步停手，而不是继续换 7z 参数

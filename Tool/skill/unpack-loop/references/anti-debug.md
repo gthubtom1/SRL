@@ -331,3 +331,63 @@
 | 干净机器 | 无调试器/无注入的独立环境能启动到主界面或发出预期请求；行为与基线一致 |
 
 > 只要有一条不满足，就不能写"脱壳完成"。失败两次 → 按 SKILL 的两次熔断换路线，不许第三次变种硬试。
+
+---
+
+## 八、把本页判据机械化：三条可复制命令
+
+> 本页的三条铁律（禁 int3 / 外部观测优先 / 静默失败判据）都能落成命令。
+> 下面三段是“每拿到一个新目标就先跑一遍”的固定动作，不代替判断，但能把判断建立在输出上。
+
+```bash
+# 1) 完整性壳预判：有没有 CRC/哈希/0xCC 扫描的痕迹（只读）
+rabin2 -i target.exe | grep -Ei 'CryptHashData|BCryptHash|RtlComputeCrc32|CryptCreateHash'
+strings -a target.exe | grep -Ei 'crc32|checksum|integrity|int3|breakpoint' | head -20
+rabin2 -S target.exe | head -12        # 入口节是否被大节吞并（单节 >90% 体积）
+```
+
+```bash
+# 2) 仪器可用性（不注入、不写字节的外部观测是否真的可用）
+python Tool/scripts/tool-acquire.py --tool ida --target target.exe --quick --json
+python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info target.exe
+```
+
+```bash
+# 3) 网络“静默失败”对照：基线一次、挂仪器一次，比较出站
+#    基线（不挂调试器）跑完启动阶段后：
+tshark -r baseline.pcap -q -z conv,tcp | head -20
+#    挂仪器后同样跑一遍：
+tshark -r instrumented.pcap -q -z conv,tcp | head -20
+```
+
+**通过长什么样 / 期望输出**：
+
+```text
+# 1) 无输出 = 没看到完整性校验的静态痕迹（不代表没有，需动态确认）
+# 2) 探针矩阵里至少一项 ok/partial：
+[{"probe":"external","status":"ok","note":"OpenProcess+RPM 成功"}]
+# 3) 两份 pcap 的会话行数差异：
+baseline      : 7 conversations
+instrumented  : 0 conversations   ← 静默失败：路径在更早的检测点被掐断
+```
+
+判读规则（写进账本，不靠记忆）：
+
+| 观察 | 判定 | 下一步 |
+| :-- | :-- | :-- |
+| 1) 命中 `CryptHashData`/`crc32` 串 | 很可能是完整性壳 | **禁用 int3**，全程硬件断点/外部读 |
+| 1) 无命中但下断即死 | 运行时才生成校验 | 按 §3.3/§3.4 找校验循环，而非相信字符串 |
+| 2) 全部 `blocked` | 仪器不可用 | 转外部/网络层（铁律 7），不得静默跳过 |
+| 3) 会话数从 N 变 0 | 静默失败 | 回 §7.2：延后注入或改外部抓包 |
+| 3) 两份都是 0 | 样本本就没联网 | 写“本次未观察到外连”，**不写“无 C2”** |
+
+**约束**：这三段只能证明“哪些手段当前可用”，不能证明“目标没做检测”；
+真正的判定仍靠 `ExitProcess` 出口断点（§7.1）与产物判据（§7.3）。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我说得出“为什么本目标必须用硬件断点/外部读”，而不是习惯性下 int3
+- [ ] 我跑过探针并记录了每一项 `ok/partial/blocked` 与原因
+- [ ] 我在 `ExitProcess`/`NtTerminateProcess` 下了断且能说清有没有提前命中
+- [ ] 网络“静默失败”我有基线与仪器两份对照，而不是只看一份
+- [ ] 没有把“未观察到”写成“没有该行为”

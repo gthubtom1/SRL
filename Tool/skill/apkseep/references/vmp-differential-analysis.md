@@ -235,3 +235,9 @@ boundary hook answers in an hour.
 | About to trust a derived table | Run the closed loop, the injectivity check and a held-out subset | §5 — a/b/c are scripted |
 | Table complete | Render the skeleton; expect operands, not registers | `scripts/vmp_diff_harness.py emit-smali` |
 | `resized` / `stripped` / stub verdict | Stop and say so | §7 |
+
+```bash
+# VMP 差分：同一函数在两个版本里的行为对照（只读）
+python scripts/dex_classdiff.py a.dex b.dex --json | head -30
+```
+**通过长什么样**：能列出"哪些方法体变了、哪些调用顺序变了"，并对目标函数给出前后差异。

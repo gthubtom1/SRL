@@ -1,4 +1,4 @@
-# 模型常见失误：逆向域 20 条
+# 模型常见失误：逆向域 26 条
 
 > 范围：使用本技能做 PE/.NET/ELF/Mach-O/ARM64 逆向、补丁、脱壳、授权分析时。
 > 写法：每条固定「错误动作 → 为什么错 → 正确动作」。
@@ -129,11 +129,118 @@
 
 ---
 
-## 附：三条通用自检
+### 21. 用 `file` 的一行输出当架构/位数结论
+
+**错误动作**：看到 `PE32+ executable (GUI) x86-64` 或 `ELF 64-bit LSB pie executable, ARM aarch64`，就直接按这个位数/架构读寄存器与栈帧。
+**为什么错**：`file` 是启发式识别，对自写头、加壳/改头、truncated 样本、fat 包都只会给一个“最像”的答案；它不告诉你 `Subsystem`、`SizeOfImage`、是否 PIE、是否有签名字节。
+**正确动作**：`file` 只当交叉校对；判型以头字段为准（PE 的 `Machine`/`Subsystem`/`Magic`，ELF 的 `Class`/`Type`/`Machine`），并按 `01-criteria.md` §6 落 `triage.json`。判型结论必须带“下游影响”（几位 → 哪个寄存器；PIE → 地址不可硬编码）。
+
+### 22. 把 fat Mach-O 当单架构
+
+**错误动作**：拿到 macOS 产物直接反汇编，把第一个 slice 的函数地址、指令集当成整个包的结论。
+**为什么错**：`FAT_MAGIC` 是**多个完整 Mach-O 的容器**；x86_64 与 arm64 的指令、调用约定、可用系统调用都不同，偏移也完全不对应。
+**正确动作**：先按 `01-criteria.md` §6.3 列 slice 数，再**逐 slice** 判；结论里写清“针对哪个 cputype”；需要对比时把两个 slice 都解出来，不要拿一个的偏移套另一个。
+
+### 23. 把静态链接 ELF 当动态链接
+
+**错误动作**：`readelf -d` 没输出（或只有 `There is no dynamic section`），仍按 libc 动态符号去下断点/找 `malloc`/`strcmp`。
+**为什么错**：静态链接时 `.dynsym`/`.dynamic`/`DT_NEEDED` 全不存在，符号要么被剥、要么在 `.symtab`；按动态库思路找符号会一条都找不到，进而误判为“被混淆”。
+**正确动作**：先看 `Type`（`EXEC`/`DYN`）与是否存在 `.interp`；静态链接改用字符串/常量与调用图指纹（`08-symbol-recovery.md` §4），并在结论里写“静态链接，无动态符号面”。
+
+### 24. 把 Go 二进制当 C/C++（或反之）
+
+**错误动作**：在 Go 程序里找 MSVC 的栈帧/安全 cookie，或在 C++ 程序里找 `gopclntab`；找不到就写“符号已剥离、无法恢复”。
+**为什么错**：Go 的调用约定、栈分裂、`gopclntab`/`moduledata` 与 C/C++ 完全不同；Rust 又有自己的 panic 路径与 `core::`/`alloc::` 符号。用错运行时模型时，函数边界和参数位置全部错位。
+**正确动作**：先用运行时特征判语言（Go：`gopclntab`/`runtime.main`/`moduledata`；Rust：`rust_eh_personality`/`core::panicking`；C++：异常表/`type_info`），再选对应的恢复路径（`08-symbol-recovery.md` §4）。
+
+### 25. 把 `UPX!`/特殊节名当成“壳已识别”
+
+**错误动作**：`grep -c 'UPX!'` 命中，或看到 `.vmp0`/`.themida`，就写“已识别 UPX/VMProtect，可以脱了”。
+**为什么错**：魔数可以伪造、UPX 改过魔数/节名就失效，`.vmp*` 也可能只是标记；真正决定是否能脱的是 **OEP 能否定位、IAT 能否解析、内存里是否出现明文节名**。
+**正确动作**：按 `01-criteria.md` §2 “壳是否脱掉”四判据取证（磁盘节熵 / 内存节名 / OEP 落在原 `.text` / IAT 可解析），至少两条成立才写“已脱”；只有魔数时写“壳指纹线索”。
+
+### 26. 把“反调试没触发”当“没有反调试”
+
+**错误动作**：裸 `attach` 一次没被杀，就写“样本无反调试”，接着按普通流程反复调试。
+**为什么错**：反调试可能只在特定宿主触发（VM 检测、特定调试器名、父进程、时间差、硬件断点、驱动），也可能在第二个心跳/延迟后一次性清场；一次未触发是零信息，不是负结果。
+**正确动作**：按 `10-anti-debug.md` §1 决策表做**逐项枚举**（PEB/NtGlobalFlag/DRx/时间差/TLS callback/父进程/窗口枚举），每项写“命中/未命中/未测”；未测不等于未命中，报告里必须分开写。
+
+---
+
+## 附 A：失误自查的可执行版（判型结论 `triage.json`）
+
+> 上面 21–26 全部是“结论比证据走得快”的变体。把它们变成机检：**不许出现没有下游影响的判型、不许出现未测当未命中**。
+
+```bash
+# 用法：按 01-criteria.md §6 先落 triage.json，再跑自检
+python - work/<case>/triage/triage.json <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1], encoding='utf-8'))
+need = ["file_sha256", "container", "bits", "machine", "downstream", "checked", "unchecked"]
+miss = [k for k in need if not d.get(k)]
+bad = []
+if d.get("container") not in ("PE", "ELF", "Mach-O"):
+    bad.append("container 不在 PE/ELF/Mach-O")
+if d.get("bits") not in (32, 64):
+    bad.append("bits 必须是 32/64 整数")
+if not isinstance(d.get("downstream"), dict) or len(d["downstream"]) < 3:
+    bad.append("downstream 至少 3 条（寄存器/地址/补丁形态）")
+if not d.get("unchecked"):
+    bad.append("unchecked 为空 → 把未测当成未命中")
+print(json.dumps({"ok": not miss and not bad, "miss": miss, "bad": bad}, ensure_ascii=False))
+sys.exit(0 if not miss and not bad else 2)
+PY
+```
+
+**通过长什么样**：
+
+```json
+{"ok": true, "miss": [], "bad": []}
+```
+
+一个合规的 `triage.json` 骨架（字段含义写死在 `01-criteria.md` §6，不在这里重复）：
+
+```json
+{"file_sha256":"9f2c...","container":"PE","bits":64,"machine":"0x8664",
+ "downstream":{"registers":"RCX/RDX/R8/R9","addresses":"RVA + module_base（ASLR）","patch_form":"file+memory 均可"},
+ "checked":["PEB.BeingDebugged","DRx","时间差"],
+ "unchecked":["TLS callback","父进程检查"]}
+```
+
+**失败判据**：`unchecked` 写成空数组（等于声称已全测）；`downstream` 只写“x64”这类没有动作含义的值；
+把 `checked` 写成“看起来没有”而不是具体检查项名。
+
+## 附 B：经验回流（本域踩过的坑）
+
+> 每条都是「现象 → 原因 → 正确动作 → 落点」。新踩的坑只许追加；历史条目不回改（否则时间线失效）。
+
+| 现象 | 原因 | 正确动作 | 落点 |
+| :-- | :-- | :-- | :-- |
+| 改了 UI 文案后重启又回退试用 | UI 只是消费者，开关在状态字/`license_type` | 先画「输入→解密→校验→状态落地→消费者」链路 | `03-model-pitfalls.md` #4、`license-validation.md` |
+| 补丁版能跑但静态看着仍是密文 | 壳在运行期解密，磁盘不变 | 用内存镜像 + OEP + IAT 四判据判“是否已脱” | `01-criteria.md` §2、`unpack-loop` |
+| `jmp rel32` 跳进隔壁指令中间 | 位移按下一条指令算，漏算 5 字节 | `disp = target - (addr + insn_len)`，写完反汇编复核 | `09-patch-engineering.md` §2.1 |
+| 内存补丁几分钟后失效 | 守护线程/自校验回写；或基址用错 | 先定位回写点，再决定改校验还是改消费者 | `09-patch-engineering.md` §5、`10-anti-debug.md` §15 |
+| PDB 明明有却符号对不上 | GUID/Age 与二进制不匹配（换构建/重链接） | 用 RSDS 里的 GUID+Age 精确匹配，不按文件名猜 | `08-symbol-recovery.md` §2 |
+| 驱动加载成功但 IOCTL 全失败 | 位数/设备路径/权限/签名状态不同 | 先 `signtool verify` + 设备对象可打开，再谈通信 | `01-criteria.md` §2、`10-anti-debug.md` §17 |
+
+---
+
+## 这一篇算"用对了"吗
+
+- [ ] 每条新失误都能对应到一次真实误判（或明确标注“尚未踩过，属预防项”）。
+- [ ] 至少一条失误来自本次任务的真实踩坑，且已进附 B 的回流表。
+- [ ] 附 A 的自检在本案例上跑过，`ok=true` 且 `unchecked` 非空（未测项写清）。
+- [ ] 报告里的判型结论都带“下游影响”三件（寄存器 / 地址 / 补丁形态）。
+- [ ] 没有把“未触发/未测得”写成“不存在”（反调试、符号、壳均适用）。
+- [ ] 退出时留下的悬空项都在 `unchecked` 或 `02-failure-criteria.md` 的换路记录里。
+
+## 附 C：三条通用自检（每次交付前）
 
 1. 我的结论能不能用一条命令复算？不能就降级为 `[inferred]`。
 2. 我的证据有没有反证？没有反证的经验判断，最多写「疑似」。
 3. 我的补丁有没有回滚？没有回滚的交付，不算工程交付。
+4. 我的判型结论有没有写下游影响？没有下游影响的判型，只是认出了格式。
+5. 我写下的「未测」项有没有单独列出来？把未测写成「没有」，是本域最常见的一次性污染。
 
 ---
 

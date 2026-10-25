@@ -225,7 +225,7 @@ metadata:
 
 > **按需加载，不预先全读。** 判型后只加载对应文件。
 
-- **开头必看**：`01-criteria.md`（选场景/可机检判据）、`03-model-pitfalls.md`（19 条错误动作）
+- **开头必看**：`01-criteria.md`（选场景/可机检判据，§6 PE/ELF/Mach-O 判型走查）、`03-model-pitfalls.md`（26 条错误动作 + 判型自检）
 - **卡住/崩**：`02-failure-criteria.md`（按现象换路，三条熔断）
 - **平台/补丁**：`windows-sop.md`（补丁/脱壳/代理 DLL/UI 验收）、`07-disassembly-deep-read.md`、`09-patch-engineering.md`
 - **授权/许可**：`license-validation.md`（16 节全量手册）

@@ -38,6 +38,128 @@
 | 21 | 退出链（`exit_funcs` / `tls_dtor_list`） | `__run_exit_handlers` 可写链表或 TLS 可写 + 正常 `exit()` | `exit_funcs_target` 指向受控函数且断点命中后真执行；或 `tls_dtor_hit=true`（`func`=受控地址、`obj` 可控） | `exit_chain.json`（flavor、mangled 前后指针、rc、marker） | 高：未解 `PTR_MANGLE` 就宣布成功；进程 `_exit()/abort()` 跳过 handler |
 | 22 | TOCTOU / 文件竞态 | 先 check 后 use 的 SUID/服务二进制、先 stat 再 open 的脚本；低权可写目录；竞态窗口放大器（FUSE sleep / RENAME_EXCHANGE / CPU 绑定） | `strace -f -e trace=file` 中同一用户可控路径出现 ≥2 次解析；竞态循环的胜出轮次/总轮次可统计（例 win=7/200）；post-use 原语可复算：读到 root-only 文件首行、写到 root 路径后回读、以更高权限输出 `id | whoami` | `toctou.json`（路径、解析次数、win/rounds、post-use 输出 sha256）+ 失败侧证据（单次解析、`O_NOFOLLOW`、mkstemp 持 fd、无写权限） | 高：只有静态候选/单次解析；进程崩了但无对象替换；目标实际用 fd 操作；文件系统不支持 RENAME_EXCHANGE（EINVAL）；Windows 路径已规范化 |
 
+## 1.1 采样量下限（判据的最小样本）
+
+> 这一节只回答“样本够不够”。具体手法见 `binary-exploitation.md` / `crypto-attacks.md`；
+> 低于下限的结论一律降为“疑似”，不因为“看起来对”而抬档。
+
+| 判据 | 最小样本 | 机检字段 | 不足时唯一可写的措辞 |
+|---|---|---|---|
+| 栈偏移 | 2 个独立来源（objdump + probe）且相等 | `consistent=true`、`offset` 相同 | 疑似：单一来源偏移 |
+| 栈对齐 | 1 次单步到 `ret` + 1 次实跑 | `$rsp` 指向下一 gadget / `ret` 命中 | 未验证：可能 `movaps` 崩 |
+| Canary | 目标函数反汇编里看到 `fs:0x28` 或 `__stack_chk_fail` | 反汇编行号 | 疑似：全局有 canary |
+| 堆原语 | 2 次 `malloc` 返回同一 target / 重叠 chunk 可见 | `vis_heap_chunks` 截图 | 疑似：只泄漏堆地址 |
+| 整数回绕 | 1 次真越界 + 状态码/写入长度 | `_msize`、`wrote`、NTSTATUS | 疑似：只算理论回绕 |
+| seccomp | 完整 BPF + 1 次 syscall 序列 | `seccomp-tools dump` 原文 | 疑似：只看到字符串 |
+| RSA 回代 | 1 次 `pow(m,e,n)==c` | `verified=true` | 假设未验证 |
+| 广播 | ≥e 组互质 n + 每组回代 | `per_modulus` 全 true | 疑似：组数不足 |
+| ECB | 重复块可复现 + 1 次重排被接受 | `duplicate_blocks>=1` | 疑似：密文随机 |
+| CBC/oracle | 目标字节改变 + padding 不报错 | `before^after==xor` | 疑似：只改没验 |
+| HMAC 长度扩展 | 伪造消息被服务端接受 + 回代 | `sig_ok=true` | 疑似：只在本地验算 |
+| MT19937 | 624 个连续 32-bit + N 个预测一致 | `verified=true` | 疑似：分布像随机 |
+| 稳定性 | 10 次全新进程/连接 | 成功计数 | 现象，不是打通 |
+
+```bash
+# 一行看当前证据够不够（读已生成的 JSON，不执行目标）
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > evidence/pwn_check.json
+python -c "import json;d=json.load(open('evidence/pwn_check.json'));print(d['protections'])"
+```
+
+通过长什么样：
+
+```text
+{'NX': 'Enabled', 'PIE': 'Enabled', 'Canary': 'Found', 'RELRO': 'Full'}
+```
+
+注意：这行输出是 **L0 保护位**，不是“能不能打”。四项全开时下面 §1.2 的 L2–L4 仍然可能走通。
+
+## 1.2 保护位 → 利用链：五段判据（每段都要证据）
+
+| 段 | 问题 | 可机检判据 | 不算通过 |
+|---|---|---|---|
+| L0 保护位 | 哪些路径被封 | `pwn-check` 四项 + `readelf`/`objdump -p` 交叉 | 只贴 `checksec` 一行 |
+| L1 泄漏 | 能不能拿到基址 | 泄漏值页对齐；低 12 位与目标 libc/模块吻合 | `%p` 打一堆就算 |
+| L2 控制 | `$rip` 是否受控 | marker 输出，或 gdb 里 `$rip` 等于 payload 值 | 进程崩了就算 |
+| L3 原语 | 任意写/读是否成立 | 写后读回等于期望；`malloc` 返回 target | 只改不验 |
+| L4 稳定 | 能否重复 | 全新进程 10 次 ≥9 | 一次成功、gdb 下成功 |
+
+```bash
+# L0→L1 的最小流水线（本地靶场）；每步落盘，失败就知道停在哪一段
+python Tool/skill/pwn-crypto/scripts/pwn-check.py --file ./chall --json > evidence/L0.json
+python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump evidence/chall.dis --func vuln \
+  --probe-log evidence/probe.txt --json > evidence/L1_offset.json
+python -c "import json;d=json.load(open('evidence/L1_offset.json'));print('L1',d['consistent'],d['offset'])"
+```
+
+通过长什么样：
+
+```text
+L1 True 88
+```
+
+`L1 True 88` 只说明“偏移两源一致”，**不说明 L2**。报告里这种分段报数能直接看出卡在哪一段，
+避免把“偏移算出来了”写成“已打通”。
+
+## 1.3 密码学补充判据（共模 / 重排 / 长度扩展 / oracle）
+
+| # | 场景 | 可机检判据 | 证据形态 | 误报风险 |
+|---|---|---|---|---|
+| 23 | RSA 共模 | `gcd(e1,e2)==1`，且 `pow(m,e1,n)==c1` 与 `pow(m,e2,n)==c2` 同时成立 | `common_modulus.json`（指数、两个回代） | 中：`e1/e2` 不互质时需先约简；消息不同则两回代不会同时成立 |
+| 24 | ECB 块重排 | 重排后的密文解密/padding 合法，且服务端接受重排后的身份字段 | 原块/重排块 hex + 服务端响应 | 高：只本地解密成功不算，必须目标接受 |
+| 25 | CBC padding oracle | 每字节 ≤256 次查询恢复；最后一块 padding 为 `0x01..0x10` 且解密不报错 | `oracle.json`（查询次数、恢复明文、padding 验证） | 中：MAC-then-encrypt 会先拦；噪声被当 oracle |
+| 26 | HMAC 长度扩展 | **仅适用于** `H(secret‖msg)` 型 MAC：伪造 `msg‖pad‖ext` 的签名被服务端接受；HMAC 构造应必然失败 | `length_ext.json`（原/伪造签名、服务端码） | 高：把 HMAC 当可扩展；只本地验算不重放 |
+| 27 | CTR/GCM nonce 重用 | `C1^C2 == P1^P2`（已知一对明文即可恢复另一条） | 异或 hex + 可打印率 + 明文样本 | 中：只看到“可打印”不算；GCM 需额外恢复认证密钥 |
+| 28 | 弱 PRNG 种子 | 在候选种子空间内枚举，`next(seed)` 与观测输出相等 | `seed.json`（种子、首个输出、回代） | 低：种子不在窗口内就失败（失败也是判据） |
+
+规则：23–28 每条都要落一个 `verified` 字段；只有“推导过程”没有“回代/重放”的，不进结论。
+
+## 1.4 一个合格判据卡的形状
+
+```json
+{"case": "pwn-crypto03", "sha256": "…", "libc_build": "…",
+ "claims": [
+  {"id": "L0", "kind": "protection", "level": "confirmed",
+   "cmd": "pwn-check.py --file ./chall --json", "rc": 0, "evidence": "L0.json"},
+  {"id": "L1", "kind": "offset", "level": "confirmed",
+   "cmd": "pwn-repro.py --objdump … --probe-log …", "rc": 0, "evidence": "L1_offset.json", "want": "consistent=true"},
+  {"id": "L2", "kind": "control", "level": "suspected",
+   "cmd": "exploit.py --offset 88 --win 0x…", "rc": 1, "evidence": "run.log", "why": "无 marker"}
+ ],
+ "blocked": ["L3: 2.34 无 __free_hook"]}
+```
+
+通过标准：`confirmed` 条目必须有 `cmd`+`rc=0`+`evidence`；任何一条 `rc!=0` 必须写 `why`
+并降为 `suspected`。这张卡能直接当报告附录，也是 `pwn-accept.py` 看的东西。
+
+## 1.5 数值阈值表（把“差不多”变成可判）
+
+| 项 | 阈值 | 为什么是这个数 | 越线的处理 |
+|---|---|---|---|
+| 偏移误差 | 0（两源完全相等） | 差 8 字节就会踩到 canary/对齐 | 回查帧指针/优化级别 |
+| 泄漏页对齐 | `addr & 0xfff == 0` | libc/模块基址必页对齐 | 泄漏位置或符号偏移错 |
+| libc 低 12 位 | 与目标符号完全一致 | 低 12 位不受 ASLR 影响 | libc 版本不对，重收集 |
+| 稳定性 | 10 次 ≥9 | 10 次能看出 10% 量级的失败率 | 写“现象 + 失败率”，不写“稳定” |
+| 广播组数 | ≥ e 且模数两两互质 | CRT 后才可能得到精确 e 次方根 | 补组或改相关消息攻击 |
+| padding oracle | 每字节 ≤256 次查询 | 256 是字节全空间上界 | 超了说明 oracle 噪声/索引错 |
+| MT19937 | 624 个连续 32-bit | 状态是 624×32 bit | 不连续/有拒绝采样必失败 |
+| ECB 重复块 | ≥1（构造相同明文块后） | 随机碰撞概率极低 | 没重复就不是 ECB |
+| 竞态 | win≥1 且 post-use 可复算 | 一次成功即可证明窗口存在 | 0 胜不能写“竞态成立” |
+
+三条常见"假阈值"：
+
+1. “成功率 8/10 也算稳定”——不算，剩下 20% 在远程就是打不中；要么修对齐，要么如实报 8/10。
+2. “看到页面变了”当服务端接受——前端乐观更新很常见，必须看响应码/后续读回。
+3. “`%p` 打出 0x7f…”当泄漏 libc——必须页对齐且符号低 12 位匹配，否则可能只是栈值。
+
+阈值在此情形下失效的情况（不要硬套）：
+
+| 情况 | 为什么在此情形下失效 | 改用什么 |
+|---|---|---|
+| 32-bit 目标 | 无 16 字节 `movaps` 对齐约束 | 只查 4 字节栈对齐 |
+| fork 服务 | 父进程基址不变，成功率天然高 | 仍按 10 次统计，但注明 fork 模型 |
+| 本地关 ASLR | 泄漏变得不必要，成功率虚高 | 报告里注明“已关 ASLR”，不推广到远程 |
+| 靶场限速 | 10 次可能要很久 | 改为 5 次 + 写明样本量，仍不写“稳定” |
+
 ## 2. 机检命令与判定阈值
 
 ```bash
@@ -119,3 +241,11 @@ grep -l 'uid=\|FLAG{' /tmp/run.* | wc -l
 | `analyzing-ethereum-smart-contract-vulnerabilities` | 智能合约整数/重入（EVM 视角）（源：analyzing-ethereum-smart-contract-vulnerabilities） | `Tool/skill/pwn-crypto/references/01-criteria.md` | 交易成功且状态被非预期改变；有交易哈希。 |
 | `auditing-foundry-smart-contract-security` | Foundry 测试与断言（源：auditing-foundry-smart-contract-security） | `Tool/skill/pwn-crypto/references/01-criteria.md` | 测试输出可复现；断言覆盖目标不变量。 |
 | `performing-ssrf-vulnerability-exploitation` | SSRF 到内网访问的验证（边界）（源：performing-ssrf-vulnerability-exploitation） | `Tool/skill/pwn-crypto/references/02-failure-criteria.md` | 服务端确实发起请求（日志/回显）；不触碰真实内网资产。 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 每条结论都落在 L0–L4 的某一段，没有把"偏移算出来"写成"已打通"。
+- [ ] 采样量先过 §1.1：偏移两源、稳定性 10 次、MT 624 输出、广播 ≥e 组。
+- [ ] 密码学条目都有 `verified=true` 或明确写"假设被推翻"，没有只给推导。
+- [ ] 判据卡里 `confirmed` 条目全部有 `cmd`+`rc=0`+`evidence`，其余标了 `why`。
+- [ ] 平台语义核对过（PE vs ELF、UCRT vs glibc），没有跨平台套术语。

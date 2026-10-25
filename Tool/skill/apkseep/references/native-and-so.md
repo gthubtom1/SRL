@@ -193,3 +193,11 @@ A native patch earns no credit until the behaviour changes **and** the app stays
 
 Never conclude "the hook works" from the absence of a crash. Absence of effect is the normal outcome of a
 hook that never installed.
+
+```bash
+# SO 层事实（只读）：架构 / 依赖 / 导出
+file libtarget.so && readelf -h libtarget.so | head -8
+readelf -d libtarget.so | head -20          # 依赖库
+nm -D --defined-only libtarget.so | head -20 # 导出符号
+```
+**通过长什么样**：能说清 ABI（arm64/armv7/x86_64）、依赖库清单、要改的导出函数在不在。

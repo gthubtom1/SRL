@@ -151,16 +151,16 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 
 | 篇 | 用途 |
 |---|---|
-| `references/01-criteria.md` | 判据总表（场景/输入面/判据/证据形态/误报风险） |
-| `references/02-failure-criteria.md` | 失败判据表（现象/判定/改走哪条/代价） |
-| `references/03-model-pitfalls.md` | 15 条模型常见失误与纠偏 |
-| `references/04-walkthrough-windows-evtx-registry.md` | 真实 Windows EVTX+hive+History 走查 |
-| `references/memory-forensics.md` | 内存镜像/Volatility3/进程/网络/注入/hive |
-| `references/network-pcap-and-log.md` | pcap 会话/对象导出/DNS/TLS/应用日志 |
-| `references/disk-and-filesystem.md` | 分区/inode/$MFT/EVTX/REGF/History 时间线 + 主机遥测与反取证痕迹判据（§10） |
-| `references/ios-macos-artifacts.md` | IPA/Mach-O/Keychain/plist/SQLite/越狱检测 |
-| `references/game-client-il2cpp.md` | Unity Mono/IL2CPP/AssetBundle/运行时只读 |
-| `references/evidence-chain.md` | 四要素/哈希链/案例字段/污染控制 |
+| `references/01-criteria.md` | 判据总表（场景/输入面/判据/证据形态/误报风险）；§6 三类镜像走查、§7 时间线与 IOC |
+| `references/02-failure-criteria.md` | 失败判据表（现象/判定/改走哪条/代价）；§6 `blocked_at` 归因、§8 lessons |
+| `references/03-model-pitfalls.md` | 25 条模型常见失误与纠偏；§25 条速查、§共同根因 |
+| `references/04-walkthrough-windows-evtx-registry.md` | 真实 Windows EVTX+hive+History 走查；§10 三条独立校验 |
+| `references/memory-forensics.md` | 内存镜像/Volatility3/进程/网络/注入/hive；§13 十步走查 |
+| `references/network-pcap-and-log.md` | pcap 会话/对象导出/DNS/TLS/应用日志；§11 流量走查、§12 网络 IOC |
+| `references/disk-and-filesystem.md` | 分区/inode/$MFT/EVTX/REGF/History 时间线 + 主机遥测与反取证痕迹判据（§10）；§13 八步 |
+| `references/ios-macos-artifacts.md` | IPA/Mach-O/Keychain/plist/SQLite/越狱检测；§11 五步、§12 保真读取 |
+| `references/game-client-il2cpp.md` | Unity Mono/IL2CPP/AssetBundle/运行时只读；§10 版本-哈希-偏移三件套 |
+| `references/evidence-chain.md` | 四要素/哈希链/案例字段/污染控制；§8 哈希+来源+交接保真 |
 
 ## 8. 脚本用法
 

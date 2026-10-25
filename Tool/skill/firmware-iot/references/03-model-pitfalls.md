@@ -96,3 +96,164 @@
 
 - 这些失误不是“人品问题”，而是流程缺环；用脚本与判据表把缺环变成可机检项。
 - 不把本文件当命令手册；具体命令见 `firmware-unpack.md`、`hardware-interfaces.md`、`emulation-and-fuzz.md`。
+
+### 14. 把“解包出目录”当“文件系统审计完成”
+
+- 错误动作：`unsquashfs` 出目录后直接写“已完成文件系统分析”，不列启动链、不看服务。
+- 为什么错：解包只是拿到输入面；没有“开机 → 服务 → 用户 → 端口 → 参数”的链路，仍然只是 E0/E1。
+- 正确动作：按 `filesystem-and-credentials.md` §7 画链路，每个节点给 `文件:行号`；画不出就写“未完成”。
+
+### 15. 只扫 `/etc`，不看 NVRAM、overlay 与 `rootfs_data`
+
+- 错误动作：只审 `rootfs/etc/passwd`，结论写“无额外账号”。
+- 为什么错：OpenWrt/UBI 设备常在 `rootfs_data` 覆盖层、NVRAM、`/etc/config` 里存实际口令与云 token；主 rootfs 可能是出厂默认。
+- 正确动作：解 UBI 的 `rootfs_data`、读 NVRAM 默认值、对比 `etc/config` 与 `etc/passwd`；把覆盖层路径写进证据。
+
+### 16. 把 qemu-user 能跑 `/bin/sh` 当“整机可仿真”
+
+- 错误动作：`qemu-mipsel -L rootfs /bin/sh` 成功，就写“固件可仿真，服务可跑”。
+- 为什么错：qemu-user 只证明单程序与库匹配；init、内核、网络、NVRAM、看门狗都没参与。
+- 正确动作：把 qemu-user 定位为“单程序验证”；整机必须 qemu-system/FirmAE 过“挂根 + init + 监听 + 业务回包”四关。
+
+### 17. 在 rootfs 里直接跑厂商二进制，不看 loader/ABI
+
+- 错误动作：`chroot rootfs /usr/sbin/httpd` 报 `No such file or directory`，就写“二进制损坏”。
+- 为什么错：多数是动态 loader 路径不存在（`/lib/ld-uClibc.so.0`）或 ABI 不匹配，不是文件坏。
+- 正确动作：`readelf -l | grep interpreter`、`readelf -A` 看 ABI；补 loader/库或用 static qemu；记录 `file` 与 `readelf -h`。
+
+### 18. 凭据扫描只 grep 明文，不看编码/分段/配置引用
+
+- 错误动作：`grep -ri password` 无结果就写“无硬编码凭据”。
+- 为什么错：凭据可能是 base64、十六进制、分段拼接、NVRAM 默认、编译进二进制的常量，或只在 `config` 里引用。
+- 正确动作：按 `filesystem-and-credentials.md` 的扫描判据做多编码解码 + 二进制 strings + 配置引用追踪；无命中写“未发现”，不写“不存在”。
+
+### 19. 把“服务监听 0.0.0.0”当“外网可达”
+
+- 错误动作：`ss` 看到 `0.0.0.0:80` 就写“管理面暴露在公网”。
+- 为什么错：设备可能在 NAT/防火墙后，或该端口只对 LAN 网桥开放；监听地址不等于路由可达。
+- 正确动作：写清监听地址、绑定网卡、防火墙规则、测试点位置；没有从外部测过就标 `inferred`。
+
+### 20. 把 UART 有输出当“能中断 bootloader”
+
+- 错误动作：串口能看到 U-Boot 日志，就写“可改 bootargs”。
+- 为什么错：很多厂商关闭 U-Boot 控制台/按键窗口，或设置了 `bootdelay=0`；只读日志不等于可输入。
+- 正确动作：上电瞬间连按中断键，确认出现提示符并可 `printenv`；不能中断就只写“可读日志”，转 SPI/JTAG。
+
+### 21. 把固件版本号当“补丁级别”
+
+- 错误动作：版本字符串 `1.2.3` 比 CVE 修复版本旧，就写“存在该漏洞”。
+- 为什么错：厂商常 backport 修复但不改版本号；也可能改了版本号却未修。
+- 正确动作：定位到具体函数/二进制差异，或拿到厂商 changelog；版本只作线索（E0），不单独定漏洞。
+
+## 21 条速查（打印版）
+
+| # | 一句话 | 对应正确动作 |
+| :-: | --- | --- |
+| 1 | 签名 ≠ rootfs | 看 `/etc`+`/bin`+`/lib` |
+| 2 | 高熵 ≠ 加密 | 看 `high_block_ratio` + 魔术 |
+| 3 | `0x1985` ≠ JFFS2 | 校验节点/CRC |
+| 4 | 裸 blob 不套 fs 判据 | 先分类 |
+| 5 | `grep password` ≠ 凭据 | 文件:行号 + 可用性 |
+| 6 | `x` ≠ 空口令 | 读 shadow |
+| 7 | 进程在 ≠ J2 | 端口+业务响应 |
+| 8 | 架构错，参数白调 | `readelf -h` |
+| 9 | 启动即退，先补桩 | NVRAM/`/dev`/看门狗 |
+| 10 | 乱码先量电压 | 共地/交叉/波特率 |
+| 11 | 示例密钥 ≠ 设备身份 | 配对 + 设备接受 |
+| 12 | 失败要写字段 | 现象/判定/改走/代价 |
+| 13 | rc=0 ≠ rootfs 完整 | 三门 + `id` |
+| 14 | 有目录 ≠ 审计完成 | 画服务链 |
+| 15 | 只看 `/etc` 会漏 | NVRAM/overlay |
+| 16 | qemu-user ≠ 整机 | 四关 |
+| 17 | 跑不起来先看 loader | `readelf -l/-A` |
+| 18 | 明文 grep 会漏 | 多编码 + 二进制 |
+| 19 | 监听 ≠ 可达 | 路由/防火墙 |
+| 20 | 有日志 ≠ 能输入 | 中断提示符 |
+| 21 | 版本旧 ≠ 有漏洞 | 函数/差异 |
+
+## 纠偏命令：把“我觉得”变成“我验证了”
+
+```bash
+ROOT=work/fw-audit/rootfs
+
+# 1) 三门判据（对应第 13 条）
+test -e "$ROOT/etc" && test -d "$ROOT/bin" -o -d "$ROOT/usr/bin" && test -d "$ROOT/lib" \
+  && echo "rootfs-gate: pass" || echo "rootfs-gate: fail"
+file "$ROOT/bin/busybox" 2>/dev/null
+readelf -l "$ROOT/bin/busybox" 2>/dev/null | grep -i interpreter
+
+# 2) 架构/ABI（第 8、17 条）
+readelf -h "$ROOT/bin/busybox" | grep -E 'Machine|Data'
+readelf -A "$ROOT/bin/busybox" 2>/dev/null | head
+
+# 3) 服务三件套（第 7、16 条）
+ss -lntp 2>/dev/null | head
+ps w 2>/dev/null | grep -E 'httpd|uhttpd|cgi' | grep -v grep
+curl -isS --max-time 5 http://127.0.0.1:80/ | sed -n '1,12p'
+
+# 4) 凭据扫描的多编码入口（第 18 条）
+grep -RInE 'password|passwd|secret|token|api[_-]?key' "$ROOT/etc" "$ROOT/www" 2>/dev/null | head -40
+strings -a "$ROOT/usr/sbin/httpd" 2>/dev/null | grep -Ei 'passwd|secret|token' | head
+```
+
+**通过长什么样**：
+
+| 反失误 | 通过 | 不通过 |
+| --- | --- | --- |
+| rootfs 三门 | 三行都是 pass，busybox 有 ELF 头 | 缺 `/lib` 或 `file` 报 data |
+| 架构 | `Machine/Data` 与 qemu 选择一致 | 不一致 → 换 qemu 而非换参数 |
+| J2 | `curl` 有设备字段/JSON/登录挑战 | 只有 `It works!` |
+| 凭据 | 命中能定位到 `文件:行号` | 只有字符串列表 |
+| 结论 | 每条能指回上面某条命令 | 只有“经验上应该” |
+
+## 失误 → 命令 → 通过标准（速查）
+
+| 失误 | 一条纠偏命令 | 通过标准 |
+| :-: | --- | --- |
+| 1 签名当 rootfs | `find rootfs -maxdepth 2 -type d` | 有 `/etc`+`/bin`+`/lib` |
+| 2 高熵当加密 | `jq .entropy triage.json` | 同时看 `high_block_ratio` |
+| 3 `0x1985` 当 JFFS2 | `jefferson -d out part.bin` | 节点可解、目录完整 |
+| 4 裸 blob 套 fs | `file fw.bin` | 先分类再选判据 |
+| 5 字符串当凭据 | `awk -F: '$3==0' etc/passwd` | `文件:行号` + 可用性 |
+| 6 `x` 当空口令 | `cat etc/shadow` | 空字段/`!` 分开 |
+| 7 进程在当 J2 | `ss -lntp; curl -i` | 端口+进程+动态响应 |
+| 8 架构错 | `readelf -h bin/busybox` | Machine/Data 与 qemu 一致 |
+| 9 启动即退当坏固件 | `strace -f ./svc` | 缺 NVRAM/`/dev` 可定位 |
+| 10 乱码换板 | `picocom -b 57600` | 可读日志 |
+| 11 示例密钥当身份 | `openssl pkey -pubout` | 配对 + 设备接受 |
+| 12 失败包装成功 | `fw-accept.py` | `outcome=partial/failed` |
+| 13 rc=0 当完整 | `file rootfs/bin/busybox` | ELF + loader 匹配 |
+
+```bash
+# 把这张表变成一次体检（缺工具时输出 blocked，不抛栈）
+ROOT=work/fw-audit/rootfs
+for c in "etc/passwd" "bin/busybox" "lib"; do
+  test -e "$ROOT/$c" && echo "ok  $c" || echo "MISS $c"
+done
+readelf -h "$ROOT/bin/busybox" 2>/dev/null | grep -E 'Machine|Data' || echo "MISS readelf"
+ss -lnt 2>/dev/null | grep -E ':(80|443|23|22) ' || echo "no-svc-port"
+```
+
+**通过长什么样**：三行 `ok`、`Machine/Data` 与目标架构一致、至少一个预期端口；任何 `MISS` 都回到对应条目，而不是继续往下写结论。
+
+## 最后一条：把“知道”变成“能复跑”
+
+知道一个坑，不等于不会踩。把本文对应条目写成一条命令，粘进自己的检查清单：
+
+```bash
+# 例：每次交付前跑一次 rootfs 三门，而不是靠记忆
+ROOT=work/fw-audit/rootfs
+test -d "$ROOT/etc" && test -d "$ROOT/lib" && file "$ROOT/bin/busybox" >/dev/null \
+  && echo PASS || echo FAIL
+```
+
+命令失败，就回到对应条目；命令不存在，说明你还没真正会用。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我能说出本次分析中“观察/推断/验证”各是哪一条，没有混写
+- [ ] 我至少避开了 21 条里的三条，并能指出当时差点踩的是哪条
+- [ ] 我的每个结论都能被另一个人用本文的命令复跑
+- [ ] 我没有把“解包成功/qemu 能跑/端口监听”当成闭环
+- [ ] 我把“未验证”写在了报告里，而不是用“应该可以”盖过去
+- [ ] 我删掉了所有没有命令或 `文件:行号` 支撑的形容词

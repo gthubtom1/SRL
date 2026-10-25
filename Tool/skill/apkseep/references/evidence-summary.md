@@ -100,3 +100,151 @@ copy never has to fail silently at a path it cannot open.
 - Treating silence in `evidence/known-limitations.md`'s never-exercised list as support for a route.
 - Presenting a route as verified when the artifact that was verified is not the artifact being handed
   over — the claim ladder in `references/verification.md` exists for exactly this gap.
+
+---
+
+## Command block: read the matrix as data, not as prose
+
+The table above is a rendering of `evidence/capability-matrix.json`. When you need a count, a filter or
+a check ("is anything I am about to rely on still `blocked`?"), read the JSON — the prose table cannot
+be aggregated and will eventually disagree with it.
+
+```bash
+# 1) shape of the record: how many rows, and how the strengths split
+python - <<'PY'
+import json, collections
+d = json.load(open('evidence/capability-matrix.json', encoding='utf-8'))
+c = d['capabilities']
+print('rows:', len(c))
+for k, v in collections.Counter(x['strength'] for x in c).most_common():
+    print('strength', k, v)
+print('blocked:', [x['capability'] for x in c if x['status'] == 'blocked'])
+print('route never measured:', [x['capability'] for x in c if not x.get('route_measured')])
+PY
+
+# 2) what does one row actually claim, including its limits?
+python - <<'PY'
+import json
+d = json.load(open('evidence/capability-matrix.json', encoding='utf-8'))
+row = [x for x in d['capabilities'] if 'equal-length' in x['capability']][0]
+print(row['status'], row['strength'], '| route_measured =', row['route_measured'])
+print('limits:', row['limits'][:400])
+print('evidence:', ', '.join(row['evidence']))
+PY
+
+# 3) which rows point at a file that exists in this install?
+python - <<'PY'
+import json, os
+d = json.load(open('evidence/capability-matrix.json', encoding='utf-8'))
+missing = [e for x in d['capabilities'] for e in x['evidence'] if not os.path.exists(e)]
+print('missing evidence files:', sorted(set(missing)) or 'none')
+PY
+```
+
+**Expected shapes and what they mean:**
+
+```
+rows: 36
+strength observed 21      <- the majority is measured, not asserted
+strength partial ...      <- partial = a decisive step (install, launch, second producer) was not run
+blocked: ['dart-aot-snapshot-dump', 'kernel-side-syscall-answer', ...]
+route never measured: [...]   <- tooling measured, route not: cite these as "tool exists", never as "route works"
+missing evidence files: none
+```
+
+| Reading | Passing | What a failure means |
+|---|---|---|
+| counts | every row has exactly one `status` and one `strength` | an unlabelled row will be read as `observed` by the next person |
+| `blocked` list | you can name the missing dependency for each entry | a `blocked` row with no dependency is an unfinished analysis |
+| `route never measured` | those rows appear in your plan as experiments, not as support | citing one as support is how "the tool ran" becomes "the route works" |
+| evidence paths | all exist in the install (or are explicitly listed as not shipped) | a path that silently fails to open is read as "no evidence file needed" |
+
+## Turning an `inferred` row into an `observed` one
+
+The rows are not fixed verdicts; several are `inferred` only because nobody ran one cheap experiment.
+The upgrade procedure is always the same, and it is three lines of discipline plus one command:
+
+1. **Name the exact claim** the row makes, in one sentence (not "tls works" but "the client validates
+   the chain on path X and the failure is expired-cert on host Y").
+2. **Name the observation that would falsify it** — before running anything.
+3. **Run the smallest thing that produces that observation**, keeping a control where one is meaningful.
+4. **Write the label with the command**, not the conclusion alone: `observed` requires a command *and*
+   its output in the record.
+
+| Row today | Cheapest experiment that would upgrade it | Cost |
+|---|---|---|
+| Third-party build audit (`unverified`) | `apk_diff.py` between a stock build and a circulating modded build; name added entries | minutes |
+| Signature-derived keys (`unverified`) | `sig_probe.py --apk` offline vs `--live` on an installed original; compare | minutes |
+| Native crash triage (`unverified`) | reproduce one death with `native_crash.py` and read the faulting instruction | ~1 hour |
+| Packer identification (`unverified`) | one public packed sample: manifest `application`, shell entry class, `so` name — then confirm a dump's `stub%` | ~2 hours |
+| Dart AOT end-to-end patch (`unverified`) | patch one pool string in a given dump, repack, install, observe the string change | ~half a day, needs a device |
+| Kernel-side answer forging (`blocked`) | not upgradeable here: needs a compiled module and a device that accepts it | out of scope |
+
+**One rule for the upgrade:** if the experiment needs the deliverable to work (install, launch), it also
+needs a control build (`verification.md` §the control build rule). Otherwise the upgrade produces a
+confident `observed` about a state you cannot attribute.
+
+## What a row does not tell you
+
+- **It does not describe your target.** Every `observed` row was observed somewhere else. Read it as
+  "this route has produced a result at least once", never as "it will produce one here".
+- **It does not measure cost.** A `partial` row may be five minutes from complete or five days; the
+  `limits` field usually says which, and if it does not, that is a defect in the row.
+- **It does not rank by importance.** The matrix order is by topic, not by value. Sort by your task.
+- **It does not survive a version bump.** The tool versions behind each row are in
+  `evidence/tested-tool-versions.json`; a different version is a different experiment
+  (`toolchain.md` §version drift).
+
+## When two rows seem to disagree
+
+This happens, and it is usually not a contradiction but a scope difference. Three shapes:
+
+| Shape | Example | Resolution |
+|---|---|---|
+| Same mechanism, different target shape | "Extraction-shell detection" is `observed`, "Packer identification" is `unverified` | different questions: measuring a ratio vs identifying a vendor shell |
+| Tool measured, route not | `stalker_trace.js` is measured; a usable trace of a real target is not | cite the tool as existing; do not cite the route |
+| One row's `limits` contains the other row's failure | "Neutralising a native terminate path: tooling works, patch does not" | read `limits` first; it is where the negative results live |
+
+**The general rule:** when the table seems to over-claim, read the `limits` field of that row. It is the
+part that was written by whoever got the negative result, and it is more informative than the verdict.
+
+## How to read a row's `evidence` list
+
+Each row names the files behind it, and the *kind* of file tells you what sort of support it is. This is
+the fastest way to spot a row whose evidence is thinner than its verdict.
+
+| Entry looks like | It is | It supports |
+|---|---|---|
+| `references/<topic>.md` | a written route with its own strength note | "the procedure is documented", not "the procedure was run" |
+| `scripts/<tool>.py` / `.js` | an implementation; `doctor.py --scripts` decides if it runs here | "the tool exists and can be invoked", not "the tool is right" |
+| `evidence/tested-tool-versions.json` | the probe behind each version claim | "this is the version the result was obtained with" — the only record that makes a re-run meaningful |
+| `evidence/known-limitations.md` | the installer-facing limit list | "this is what the skill admits it cannot do" — read it before quoting coverage |
+| `... (repository root, not shipped)` | a record that does **not** travel with the install | "the claim exists; its full record is elsewhere" — never cite it as an openable file |
+
+**A row with only reference files and no script** is a documented route. **A row with a script and no
+reference** is a tool looking for a procedure — and in practice that combination has been the source of
+the "the tool ran, so the route works" error this file opens with.
+
+## The three questions a reviewer will ask about your claim
+
+You do not need to write for a reviewer, but answering these three while you work keeps the record
+honest — and they are exactly the questions that turn `observed` into something usable by someone else.
+
+1. **"What command produced this, and what did it print?"** If the answer is a paraphrase of the output,
+   the label is `inferred`. Keep the command and the two or three lines that decide the claim.
+2. **"What would have made you write the opposite?"** If nothing would have, the claim was not an
+   observation. This is the falsifier line, and its absence is the single most common defect in
+   self-written records.
+3. **"Which target shape does this hold for?"** A result on one Flutter build says nothing about a
+   packed native app. Naming the shape is what lets the next person decide whether to reuse the route.
+
+The table above exists to be *cited*: when your claim's shape matches a row, cite the row and add your
+own target; when it does not, say "no row matches" and treat your own result as the first measurement.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我用的是 JSON 里的 `status` / `strength` / `route_measured`，而不是表格里的措辞印象
+- [ ] 任何我拿来支撑结论的行，我都读了它的 `limits`，并说出了它测的是哪个目标形状
+- [ ] 我把 `inferred` / `unverified` 的行当成待做的实验，而不是当成支持
+- [ ] 我自己升级的行，记录里有命令 + 输出（`observed` 的两个必要条件）
+- [ ] 我引用的证据文件在安装里真的存在，或我明确写了"记录在仓库根、未随包安装"

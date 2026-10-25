@@ -168,16 +168,16 @@ cosign verify-attestation <image> --type slsaprovenance
 
 | 文件 | 用途 |
 | :-- | :-- |
-| `references/01-criteria.md` | 18 行判据表：场景/输入面/可机检判据/证据形态/误报风险 |
-| `references/02-failure-criteria.md` | 24 行失败判据：现象/判定/改走哪条/代价 |
-| `references/03-model-pitfalls.md` | 15 条模型常见失误：错误动作→为什么错→正确动作 |
-| `references/04-walkthrough-workflow-permissions.md` | 真实 workflow 权限审计走查（命令+原始输出+边界） |
-| `references/05-lockfile-and-install-scripts.md` | 锁文件完整性、安装脚本执行面、registry 交叉点 |
-| `references/06-reachability-and-sbom-drift.md` | SBOM 漂移、Python 发行名别名、从可达走到可利用 |
-| `references/sbom-sca.md` | SBOM/SCA/可达性速查与证据模板 |
-| `references/cicd-and-artifacts.md` | GitHub Actions/GitLab/Jenkins、签名与发布、报告模板；§12 CI 凭据提取面（env dump / runner token / OIDC 联邦 / 日志 / 缓存投毒 / registry 六面判据） |
-| `references/dependency-confusion.md` | npm/pip/NuGet/Maven 依赖混淆与修复清单 |
-| `references/image-and-provenance.md` | 镜像 digest、cosign、SLSA、构建链一致性 |
+| `references/01-criteria.md` | 24 行判据表：场景/输入面/可机检判据/证据形态/误报风险；§7 四面对账 |
+| `references/02-failure-criteria.md` | 24 行失败判据：现象/判定/改走哪条/代价；§5 `blocked_at`、§7 lessons |
+| `references/03-model-pitfalls.md` | 25 条模型常见失误：错误动作→为什么错→正确动作；§纠偏命令 |
+| `references/04-walkthrough-workflow-permissions.md` | 真实 workflow 权限审计走查（命令+原始输出+边界）；§7 12 项、§8 三要素矩阵 |
+| `references/05-lockfile-and-install-scripts.md` | 锁文件完整性、安装脚本执行面、registry 交叉点；§8 六生态、§9 投毒判据 |
+| `references/06-reachability-and-sbom-drift.md` | SBOM 漂移、Python 发行名别名、从可达走到可利用；§8 四段式、§9 对账口径 |
+| `references/sbom-sca.md` | SBOM/SCA/可达性速查与证据模板；§11 三个集合、§12 闭环 |
+| `references/cicd-and-artifacts.md` | GitHub Actions/GitLab/Jenkins、签名与发布、报告模板；§12 CI 凭据提取面（env dump / runner token / OIDC 联邦 / 日志 / 缓存投毒 / registry 六面判据）；§14 12 条权限判据 |
+| `references/dependency-confusion.md` | npm/pip/NuGet/Maven 依赖混淆与修复清单；§9 三方对账、§10 行为判据 |
+| `references/image-and-provenance.md` | 镜像 digest、cosign、SLSA、构建链一致性；§9 验收矩阵 |
 
 ## 8. 脚本用法
 

@@ -70,3 +70,183 @@
 - 反作弊/授权边界内的停止记录本身就是证据，必须保留时间、环境、触发点。
 
 > 相关：`01-criteria.md`、`03-model-pitfalls.md`、`04-walkthrough-windows-evtx-registry.md`、`evidence-chain.md`。
+
+## 6. 失败归因：从现象到 `blocked_at` 的映射
+
+> 失败记录最少要有：阶段 + 主因 + 已试 + 已证实 + 未证实 + 代价。
+> 主因只许一个；其余放 `secondary[]`，否则交接时无法排优先级。
+
+| 现象 | 主因 `blocked_at` | 已证实（可以写） | 未证实（不能写） |
+| --- | --- | --- | --- |
+| `vol.py` 符号不匹配 | `symbols` | 文件是内存镜像、版本可读 | 进程/连接列表 |
+| `pslist`/`psscan` 都空 | `parse` | 镜像可读 | “没有进程” |
+| `malfind` 有页但 dump 失败 | `parse` | 存在可疑页 | “注入成功” |
+| pcap 重组无内容 | `capture` | 包级元数据 | 会话内容/上传 |
+| TLS 无 keylog | `encrypted` | SNI/证书/时序 | HTTP 内容 |
+| `fsstat -o` 失败 | `offset` | 有分区 | “文件系统损坏” |
+| `icat` 内容乱码 | `recover` | inode/时间 | 已删文件内容 |
+| hive 键遍历为空 | `permission` | hive 头时间 | 持久化项 |
+| EVTX 记录为 0 | `log-cleared` | 通道文件存在 | “没有发生” |
+| 时间线缺时区 | `time-basis` | 有时间值 | 因果顺序 |
+| iOS `cryptid=1` | `encrypted` | 包结构/签名 | 二进制逻辑 |
+| IL2CPP 版本错配 | `tool-missing` | 元数据 magic | 字段/地址 |
+| 反作弊在线 | `authorized-stop` | 组件存在 | 运行时行为 |
+| 哈希不一致 | `evidence-chain` | 当前哈希 | 任何基于原件的结论 |
+
+### 6.1 归因示例
+
+```json
+{
+  "stage": "memory",
+  "blocked_at": "symbols",
+  "tried": [
+    {"cmd": "vol.py -f mem.raw windows.pslist.PsList", "rc": 1,
+     "stderr": "Unsatisfied requirement: kernel.symbols"},
+    {"cmd": "vol.py -f mem.raw banners.Banners", "rc": 0,
+     "stdout": "NT build 26100"}
+  ],
+  "confirmed": ["image readable", "build 26100"],
+  "unconfirmed": ["process list", "network connections"],
+  "next": {"route": "download ISF for 26100", "cost": "10 min"}
+}
+```
+
+**判据**：`confirmed` 与 `unconfirmed` 都非空；`next.route` 可执行；`blocked_at` 只有一个主值。
+
+## 7. 止损时窗：什么时候必须换面
+
+| 路线 | 单次成本 | 止损 | 到点动作 |
+| --- | --- | --- | --- |
+| 换 ISF/profile | 10–20 min | 2 次 | 转 `strings`+`bulk_extractor`，只写线索 |
+| 换 pcap 重组工具 | 10–30 min | 2 次 | 降级为会话元数据 |
+| 换分区工具 | 15–30 min | 2 次 | 抽分区头 `xxd` 人工核对 |
+| 恢复已删文件 | 10–20 min/个 | 3 个失败 | 标“不可恢复”，停止 |
+| 解 hive 脏页 | 20–40 min | 2 次（含 LOG） | 只读头时间，键级标缺失 |
+| iOS 脱壳 | 不可控 | 授权窗口 | 只做包结构/签名 |
+| IL2CPP 工具替换 | 20–40 min | 2 个工具 | 只读元数据版本，停 dump |
+| 在线动态 | — | 出现反作弊即停 | 转外部抓包/日志 |
+
+> 时窗的判断标准不是“累不累”，而是“上一次重试有没有新增证据”。没有新证据的重试 = 换面信号。
+
+## 8. 经验回流（lessons）：取证失败的六条硬教训
+
+> 本域的 `lessons`：每条都能改变下一次的判据或命令。不要写“下次注意”。
+
+### L1：时间纪元是第一个要校验的字段
+
+- 现场：Chromium `visit_time` 按 FILETIME 换算，整条时间线跑到 1643 年。
+- 新判据：先抽 1 条与 UI/日志对照，再批量换算；产物必须带 `ts_basis`。
+- 落点：`01-criteria.md` §7.1；`03-model-pitfalls.md` 第 4 条。
+
+### L2：SQLite 原库一打开，证据就变了
+
+- 现场：`sqlite3 evidence/History` 建了 `-wal/-shm`，原件哈希变化。
+- 新判据：复制三件套 + `mode=ro&immutable=1`；原件目录 `chmod a-w`。
+- 落点：`disk-and-filesystem.md` §7；`evidence-chain.md` §5。
+
+### L3：`pslist` 为空不等于没有进程
+
+- 现场：镜像截断，`pslist` 空但 `psscan` 有 12 个池对象。
+- 新判据：两个插件都跑；差集逐 PID 解释；都空才写 `parse`。
+- 落点：`memory-forensics.md` §2–3；本文第 6 节。
+
+### L4：pcap 单向包不能证明“上传成功”
+
+- 现场：只抓到客户端 → 服务端，没有响应，报告写“已上传”。
+- 新判据：双向会话 + 状态码/响应体/对象哈希；只有单向 → `inferred`。
+- 落点：`network-pcap-and-log.md` §2；`03-model-pitfalls.md` 第 3 条。
+
+### L5：哈希链断在“产物覆盖原件”
+
+- 现场：导出对象写回 `input/http/`，第二天哈希全变。
+- 新判据：`input/` 只读、`artifacts/` 可写、导出按 `tcp.stream`/inode 唯一命名。
+- 落点：`evidence-chain.md` §2；`03-model-pitfalls.md` 第 13 条。
+
+### L6：反作弊环境里的“停”也是证据
+
+- 现场：在线 attach 触发保护，进程重启。
+- 新判据：识别组件后立即停；记录时间/环境/触发点；转离线副本。
+- 落点：`game-client-il2cpp.md` §6；`ios-macos-artifacts.md` §7。
+
+## 9. 命令与“通过长什么样”（失败记录复验）
+
+```bash
+CASE=work/case-x
+
+# 1) 每个证据文件都有哈希
+test -s "$CASE/input/SHA256SUMS" && sha256sum -c "$CASE/input/SHA256SUMS" | tail -5
+
+# 2) 失败记录字段齐全
+python - <<'PY'
+import json, pathlib
+p = pathlib.Path("work/case-x/failure.json")
+d = json.loads(p.read_text())
+need = ("stage", "blocked_at", "tried", "confirmed", "unconfirmed", "next")
+print({k: bool(d.get(k)) for k in need})
+PY
+
+# 3) 报告里没有“裸结论”
+grep -nE '已外联|已执行|已删除|存在漏洞' "$CASE/report.md" | \
+  grep -vE 'observed|inferred|unverified|blocked_at|未验证' || true
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 哈希 | `sha256sum -c` 全 OK | 有 FAILED |
+| 字段 | 六个 key 全 true | 缺 `tried`/`confirmed` |
+| 归因 | 一个主 `blocked_at` | 多个主值 |
+| 报告 | 每个强结论都有置信标签 | 裸写“已外联” |
+| 代价 | 有路线/时间/前置 | “继续研究” |
+
+## 10. 失败后的最小可交付包
+
+即使全线失败，也要能给下一个人一个可接手的目录：
+
+```text
+work/case-x/
+  scope.md          # 授权/窗口/对象
+  input/            # 原件副本 + SHA256SUMS（只读）
+  artifacts/        # 时间线/导出/失败记录（可写）
+  failure.json      # 本文第 6 节的六段字段
+  report.md         # observed/inferred/unverified + 代价
+```
+
+最小验收：
+
+| 文件 | 必须包含 | 机检 |
+| --- | --- | --- |
+| `input/SHA256SUMS` | 每个输入一行 | `sha256sum -c` 全 OK |
+| `failure.json` | `stage/blocked_at/tried/confirmed/unconfirmed/next` | 六 key 非空 |
+| `artifacts/timeline.json` | 至少一个事件或显式空原因 | `ok` 字段 |
+| `report.md` | 每个结论有置信标签 | 无裸“已…” |
+
+### 二次失败判定
+
+同一路线第二次失败后，只允许做三件事：
+
+1. **换源**：换一个独立证据源（内存→磁盘/流量），而不是换工具参数。
+2. **降级**：把结论从“已发生”降为“观察到/推测”。
+3. **收束**：写 `blocked_at` + 代价 + 重试条件，结束本轮。
+
+需要先确认：把同一命令改个超时/路径再跑第三次；把“没跑出来”写成“目标不存在”。
+
+## 11. 失败记录常见缺失（交接前对照）
+
+| 缺失 | 后果 | 补法 |
+| --- | --- | --- |
+| 没写 `stage` | 不知道卡在采集/解析/归因 | 用六阶段枚举 |
+| 没写 `rc` | 分不清“没跑”与“跑失败” | 每条 `tried` 补 |
+| 没写 `confirmed` | 下一个人重做已排除项 | 列已证实字段 |
+| 没写 `next.cost` | 低估修复代价 | 时间/硬件/授权三项 |
+| 没写 `retry_when` | 无限重试 | 新样本/新授权/新工具 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的失败记录有阶段、主因、已试命令 rc、已证实/未证实、代价六段
+- [ ] 我给每条路线设了止损时窗，到点换面而不是重复撞工具
+- [ ] 我沉淀了至少一条 lessons，并指回它改动了哪条判据
+- [ ] 我没有把 `symbols/capture/encrypted/permission` 写成“目标不存在”
+- [ ] 我的报告里每个强结论都有 observed/inferred/unverified 标签
+- [ ] 哈希不一致时我先停，而不是改记录去迁就产物

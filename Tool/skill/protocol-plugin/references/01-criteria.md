@@ -38,6 +38,144 @@
 | 负例按预期被拒 | 篡改帧（错 magic/长度/CRC/seq/token） | 每类篡改都有明确拒绝方式（断开/错误码/静默丢弃），且与模型预测一致 | 6 类篡改 × 响应记录 | 服务端"静默丢弃"容易被误读为"网络问题"；需抓包确认收到 |
 | 证据可复跑 | 文档 + 脚本 + 样本 | 第三方按 `schema.json + proto-repro.py` 能在自己机器上复现同一帧与同一 CRC | 案例目录 `artifacts/run.json`（含 cmd/rc/stdout） | 只给结论不给命令；命令依赖本机绝对路径或私有样本 |
 
+## 1.1 采样量下限（判据的最小样本）
+
+> 这一节只回答"样本够不够"。分帧/校验/状态机怎么做见 `05`–`07`；此处给的是**低于下限必须降档**。
+
+| 判据 | 最小样本 | 机检字段 | 样本不足时唯一可写的措辞 |
+|---|---|---|---|
+| 帧边界可确定 | ≥3 帧且 ≥2 种 payload 长度 | `stats.frames`、`consumed+trailing==bytes` | 疑似：单帧自洽 |
+| 长度字段语义 | ≥3 帧、≥2 种长度、1 个改长度负例 | 拟合唯一 + 负例行为 | 疑似：含头/含尾未区分 |
+| 校验算法 | ≥5 帧 + 1 个改字节负例 | 全部 `crc_ok=true` 且负例 `false` | 疑似：样本内自洽 |
+| 状态迁移 | 关键边各 ≥1 条 + 1 个非法迁移 | `evidence_frame` 非空 | 疑似：边靠先验 |
+| 状态机成立 | `edge_coverage≥0.60`、`llm_unverified==0` | `verdict=state_machine_established` | 部分建模（覆盖率 x%） |
+| 同输入同输出 | 同一请求 3 次 | 3 份响应 sha256 + 可变项清单 | 未确认：只跑过 1 次 |
+| 构造新请求 | 单变量改动 3 次 | 预测 vs 实际 3/3 | 部分复刻：可重放 |
+| 认证材料可复现 | 1 次过期 + 1 次复用实验 | 材料来源字段 + 有效期 | 疑似：一次性未验证 |
+| 证据可复跑 | 1 台干净机器（无本机绝对路径） | `run.json` 的 `cmd`/`rc` | 未交付 |
+
+机检采样量（纯标准库，不依赖 tshark）：
+
+```bash
+python - <<'PY'
+import json, collections, pathlib
+rows = [json.loads(l) for l in pathlib.Path("artifacts/frames.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+lens = collections.Counter(r.get("payload_len") for r in rows)
+print("frames", len(rows), "lengths", sorted(lens))
+print("framing_floor_ok", len(rows) >= 3 and len(lens) >= 2)
+PY
+```
+
+通过长什么样：
+
+```text
+frames 3 lengths [27, 30, 36]
+framing_floor_ok True
+```
+
+出现 `framing_floor_ok False` 时，不要改代码"凑样本"；去抓一条含**不同业务长度**的会话
+（长昵称、大文件、分页参数、订阅主题长度不同）。样本多样性比样本数量更能证伪长度假设。
+
+## 1.2 证据组合 → 允许写的结论（措辞闸门）
+
+| 已有证据 | 允许的结论 | 禁止的措辞 |
+|---|---|---|
+| 帧自洽 + 校验复算 | "分帧与校验在该样本上自洽" | "协议已还原" |
+| 上面 + 状态关键边观测 + 1 负例 | "会话流程可重建（覆盖率 x%）" | "状态机成立"（覆盖率 <60% 时） |
+| 上面 + T2 单变量 3/3 | "可构造服务端接受的新请求" | "任意业务都可构造" |
+| 上面 + T3 闭链 + 10 次 ≥9 | "客户端可复刻" | "生产可用" |
+| 只有 T1 原样重放 | "部分复刻：可重放" | "已复刻" |
+| 只有 pcap 与 tshark 字段 | "疑似：dissector 如此解析" | "字段语义已确认" |
+
+这张表是措辞闸门：报告里出现右列词，先回左列找证据；找不到就改词。
+
+## 1.3 客户端复刻的验收口径（V1–V4）
+
+复刻客户端不是"能连上"，而是四个口径逐级成立。缺一级只能写上一级的结论。
+
+| 口径 | 比什么 | 通过线 | 不通过说明 |
+|---|---|---|---|
+| V1 帧级 | 归一化后的帧字段、长度、校验 | diff 为空；`rebuild.verify.crc_ok=true` | 长度或校验算法判错 |
+| V2 语义级 | 业务字段（id/值/单位/枚举） | 逐项相等，可变项在清单内 | 字段语义靠猜 |
+| V3 状态级 | `state_before→event→state_after` 序列 | 与模型一致，负例按预期被拒 | 缺前置条件（心跳/订阅/二次认证） |
+| V4 运行级 | 10 次独立运行的响应与存活 | ≥9 次成功、心跳不断、无额外重连 | 不稳定，不能写"可复刻" |
+
+V1 的归一化比对（白名单只放时间戳/nonce/随机 id）：
+
+```bash
+python - <<'PY'
+import hashlib, json, pathlib
+VAR = {"ts", "nonce", "timestamp", "request_id", "sid"}
+def load(p):
+    return json.loads(pathlib.Path(p).read_text(encoding="utf-8"))
+base, repl = load("artifacts/base_frame.json"), load("artifacts/replica_frame.json")
+def norm(d):
+    return {k: ("<var>" if k in VAR else v) for k, v in d.items()}
+nb, nr = norm(base), norm(repl)
+diff = {k: (nb.get(k), nr.get(k)) for k in set(nb) | set(nr) if nb.get(k) != nr.get(k)}
+print("diff", diff)
+print("v1_pass", not diff)
+print("norm_sha", hashlib.sha256(json.dumps(nb, sort_keys=True).encode()).hexdigest()[:16])
+PY
+```
+
+通过长什么样：
+
+```text
+diff {}
+v1_pass True
+norm_sha 3c1f7a0e9b2d4c58
+```
+
+注意：V1 比的是**归一化后的字段**，不是原始字节；原始字节里时间戳每次不同是正常的。
+反过来，若 `diff` 里出现业务字段，说明不是"可变项"，而是语义判错。
+
+## 1.4 判据卡（第三人可复算的最小 JSON）
+
+交付时把每条结论压成一张卡：一条结论 = 一条命令 + 一个 rc + 一处证据。
+
+```json
+{
+  "case": "protocol02",
+  "sha256": "<capture 或 frames.bin 的哈希>",
+  "claims": [
+    {"id": "C1", "kind": "framing", "level": "confirmed",
+     "cmd": "proto-repro.py --input artifacts/sample.bin --json",
+     "rc": 0, "evidence": "frames.jsonl#0-2", "want": "consumed+trailing==bytes"},
+    {"id": "C2", "kind": "checksum", "level": "confirmed",
+     "cmd": "proto-repro.py --input artifacts/sample.bin --json",
+     "rc": 0, "evidence": "frames[].checks[0].covers=header+payload", "want": "crc_ok=true"}
+  ],
+  "var_fields": ["ts", "nonce"],
+  "blocked": []
+}
+```
+
+机检每张卡是否"可复算"：
+
+```bash
+python - <<'PY'
+import json, pathlib
+card = json.loads(pathlib.Path("artifacts/claims.json").read_text(encoding="utf-8"))
+bad = [c["id"] for c in card["claims"]
+       if not c.get("cmd") or c.get("rc") != 0 or not c.get("evidence")]
+print("claims", len(card["claims"]), "unverifiable", bad)
+print("card_ok", not bad and bool(card.get("sha256")))
+PY
+```
+
+通过长什么样：`claims 2 unverifiable []` + `card_ok True`。
+任何一条 `rc!=0` 或 `evidence` 为空，该条结论降为"疑似"，不要靠文字解释补。
+
+## 1.5 与相邻篇的分工（避免重复写）
+
+| 问题 | 去哪一篇 | 本篇只保留 |
+|---|---|---|
+| 帧怎么切、怎么重同步 | `05-binary-framing.md` | 采样量与档位 |
+| 状态边怎么推、覆盖率怎么算 | `06-app-state-machine.md` | 允许写的措辞 |
+| 加密段怎么识别、校验参数怎么穷举 | `07-crypto-and-checksum.md` | 判据边界（到哪步算确认） |
+| 新请求怎么构造、怎么归因差异 | `08-replay-and-new-request.md` | 验收口径 V1–V4 |
+
 ## 2. 判据到命令的映射（本域脚本）
 
 ```bash
@@ -119,3 +257,11 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --json
 | `analyzing-network-covert-channels-in-malware` | 隐蔽通道：载荷熵与分帧异常（源：analyzing-network-covert-channels-in-malware） | `Tool/skill/protocol-plugin/references/07-crypto-and-checksum.md` | 异常组合能在基线上复现差异（给出数值）；能指认承载协议（DNS TXT/ICMP data/TCP 保留字段） |
 | `performing-bluetooth-security-assessment` | BLE ATT 帧与抓包边界（源：performing-bluetooth-security-assessment） | `Tool/skill/protocol-plugin/references/05-binary-framing.md` | 同 handle 的 read/write 请求-响应能配对；丢包率可量化（缺失的连接事件数） |
 | `performing-s7comm-protocol-security-analysis` | S7comm 功能码与 PDU 分帧（源：performing-s7comm-protocol-security-analysis） | `Tool/skill/protocol-plugin/references/06-app-state-machine.md` | TPKT length = 后续字节数；COTP 后 S7 header 偏移固定；功能码与响应项一一对应 |
+
+## 这一篇算"用对了"吗
+
+- [ ] 每条结论都能指到一行 `evidence`（帧号/`frames.jsonl#id`/`run.json`），没有"我觉得"。
+- [ ] 采样量先过 `1.1` 的下限表：分帧 ≥3 帧 ≥2 种长度、校验 ≥5 帧 + 负例；不够就写"疑似"。
+- [ ] 用 `1.2` 的闸门检查措辞：没到 T2 不写"已复刻"，覆盖率 <60% 不写"状态机成立"。
+- [ ] 客户端复刻按 V1→V4 逐级验收，V1 的 diff 只看归一化字段，不拿时间戳当差异。
+- [ ] 交付里有 `claims.json` 且机检 `card_ok=True`；`rc!=0` 的条目已降档。

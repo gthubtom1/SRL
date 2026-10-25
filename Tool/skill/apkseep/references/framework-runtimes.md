@@ -118,3 +118,133 @@ workflow, and how to patch this layer safely.
   user sees. A patch that changes internal state without changing the UI is not a fix.
 - Keep the layer you are working in explicit in your notes. "Patched the paywall" is meaningless without
   saying which layer owned it.
+
+## Command block: identify the runtime from the artifact, then confirm it live
+
+Two independent signals are the minimum, because a single copied `libflutter.so` name proves nothing and
+a single asset directory can be a leftover. Static first (cheap), live second (confirms what runs).
+
+```bash
+# 1) static: what is actually in the package (names + sizes, not "I saw a lib")
+unzip -l target.apk | grep -E 'lib/(arm64-v8a|armeabi-v7a)/|assets/' | awk '{print $1, $4}' | sort -k2
+
+# 2) static: how small is the dex relative to the payload? (a strong hint the logic is elsewhere)
+unzip -l target.apk | awk '/classes[0-9]*\.dex/ {d+=$1} /^ *[0-9]+ / {t+=$1} END {printf "dex=%.1f%% of archive\n", 100*d/t}'
+
+# 3) static: runtime markers in one pass (Flutter / RN / Unity / Cordova / Xamarin)
+python scripts/dex_strings.py ./dexdump --find '(?i)flutter|hermes|jsc|il2cpp|unity|cordova|xamarin|monodroid' --per-file
+
+# 4) live: which libraries are actually mapped, from which path, for which ABI
+python scripts/lib_map.py --pkg <pkg>
+```
+
+**Expected shapes:**
+
+```
+# 1)
+  8421392 lib/arm64-v8a/libflutter.so
+ 18492344 lib/arm64-v8a/libapp.so
+  1902488 classes.dex
+# 2)
+dex=5.2% of archive          <- the dex is glue, not the application
+# 4)
+libapp.so        /data/app/.../lib/arm64-v8a/libapp.so   elf=e_machine 183   from-apk
+libflutter.so    /data/app/.../lib/arm64-v8a/libflutter.so elf=e_machine 183 from-apk
+libc.so          /apex/com.android.runtime/lib64/bionic/libc.so  system
+```
+
+| Observation | Runtime | Confidence |
+|---|---|---|
+| `libapp.so` + `libflutter.so` + `dex < 10%` | Flutter (AOT) | high — two independent signals |
+| `libhermes.so` or `index.android.bundle` | React Native / Hermes | high if the bundle exists as a file, medium from the lib alone |
+| `libil2cpp.so` + `global-metadata.dat` | Unity / IL2CPP | high |
+| `assets/www/` + `cordova.js` | Cordova / hybrid | high |
+| `libmonodroid.so` + `assemblies/` | Xamarin / .NET | high |
+| only the runtime lib, no snapshot/bundle | the runtime is linked but may not own the logic | medium — confirm with the layer experiment below |
+
+## The layer-ownership experiment, as numbers
+
+The question "who drew this UI" is answered by **counts per layer**, not by opinion. Install hooks on
+each candidate layer, reproduce one specific screen, and read the counts.
+
+| Layer | What to hook | A count > 0 means | A count of 0 means |
+|---|---|---|---|
+| Java/Kotlin | the Activity/Fragment/`Dialog.show` paths around the screen | Java owns the flow; a dex patch can change it | not Java — do not keep hunting in dex |
+| Platform channel (Flutter) | the channel name and its `MethodCall` handler | the runtime is asking the host to do something; the ask is observable | the channel is unused for this screen |
+| Native (host lib) | the exported symbol or the offset that decides the branch | native owns the decision | look at the runtime's own code |
+| Runtime bytecode | Dart AOT / Hermes (see `dart-aot.md`) | the logic is inside the snapshot | the screen is host-side after all |
+
+**Passing looks like:** exactly one layer has a non-zero count for the screen you reproduced, and
+re-running the same probe on a *different* screen gives a different (nonzero) layer. That second half is
+what distinguishes "I found the owner" from "my probe fires on everything".
+
+## What passing looks like (通过长什么样)
+
+| Claim | Passing | Not passing |
+|---|---|---|
+| "The runtime is X" | two independent signals (artifact + mapping) name X | one `libX.so` filename, or one string in the dex |
+| "The logic is not in the dex" | dex is small relative to the payload **and** Java-layer hooks on the screen fire zero times while the screen works | dex is small (that alone can be resource-heavy app) |
+| "The UI is runtime-drawn" | zero Java hits on a screen that is plainly visible, plus a positive control that the hook mechanism works on another screen | "I could not find it in dex" |
+| "This layer owns the decision" | a hook in that layer changes the visible outcome, or its count is the only non-zero one | the hook fires but nothing changes (a pass-through, not the owner) |
+| "My plan targets the right layer" | the plan names the layer explicitly and the tool that reads it | the plan says "patch the paywall" without naming a layer |
+
+## Cost table: the runtime decides where the hours go
+
+| Runtime | Where the logic is | Cheapest path to a first real result | Typical cost |
+|---|---|---|---|
+| Flutter (AOT) | `libapp.so` | locate a string in the pool, then the code site that references it (`dart-aot.md`) | hours; needs a snapshot dump front end |
+| React Native | `index.android.bundle` (JS, often minified) | string search in the bundle, then the module that owns it | minutes to an hour; bundle is text |
+| Unity / IL2CPP | `libil2cpp.so` + `global-metadata.dat` | runtime identification only — the recovery route is out of scope here | open-ended; do not improvise |
+| Cordova / hybrid | `assets/www/` | read the JS directly | minutes |
+| Xamarin | `assemblies/*.dll` | standard .NET tooling on the assemblies | depends on obfuscation |
+
+**Read the last two rows as boundaries, not as routes.** They tell you where to stop with a named
+reason, which is the honest deliverable when the layer is outside this skill's coverage
+(`coverage-and-limits.md`).
+
+## Failure modes
+
+- **Confirming the runtime from one signal.** A leftover `libflutter.so` in a native app, or a
+  `flutter_assets/` directory left from a migration, produces a confidently wrong plan.
+- **Reading the dex and concluding "the feature does not exist".** In a runtime-owned app the dex is
+  glue; absence there is expected, not a finding.
+- **Fighting the runtime with Java hooks.** Zero hits after two attempts means the layer is wrong
+  (two-strike rule), not that the hook needs a different overload.
+- **Treating a platform channel as app logic.** A channel hit tells you the runtime asked the host for
+  something; it does not tell you which business rule produced the ask.
+- **Skipping the control screen.** Without a second screen that does fire, you cannot tell "the owner"
+  from "a probe that fires everywhere".
+
+## A 20-minute triage sequence
+
+Run these in order; each one either ends the question or makes the next one cheaper.
+
+1. **Unzip and list** `lib/` and `assets/` (command block above, step 1). Ten seconds, and it eliminates
+   three of the five runtimes.
+2. **Compute the dex share** (step 2). Under ~10% means the dex is glue; note the number, because it is
+   the first evidence for "not the battlefield".
+3. **Grep the runtime markers** (step 3) to name the candidate, not to confirm it.
+4. **Map the live process** (step 4) — this is the independent second signal, and it also tells you which
+   ABI is executing (`native-and-so.md` §which architecture).
+5. **Reproduce one screen** and run the Java-layer probe on it. Non-zero hits: stop, this is a dex job.
+   Zero hits while the screen is visible: continue.
+6. **Name the layer and the tool** before touching anything else. If the layer is the runtime's own
+   bytecode, the next file is `dart-aot.md` (Dart) or the bundle itself (RN); if it is Unity/IL2CPP,
+   write the boundary and stop.
+
+Two rules for the sequence: do not skip step 5 because "it is obviously Flutter" (the obviously-wrong
+case is exactly the one that costs a day), and do not run step 6 without a written sentence — the layer
+name is the whole output of this file.
+
+If steps 4 and 5 disagree (mapped runtime, but Java hooks fire), that is not an ambiguity: it means the
+runtime is present and the *screen you picked* is still Java-owned. Pick another screen before
+re-classifying — a runtime can coexist with a mostly-Java app, and this file's job is to tell you which
+one owns the screen in front of you.
+
+## 这一篇算"用对了"吗
+
+- [ ] 我用两个独立信号确认了运行时（静态产物 + 运行时映射），不是靠一个库名
+- [ ] 我做过分层计数实验，并有一个"另一屏会命中不同层"的对照
+- [ ] 我的计划写明了层（dex / 运行时字节码 / native），并点名了读它的工具
+- [ ] 我把 Unity/RN/iOS 这类层当成**边界**写下来，而不是即兴发挥
+- [ ] 零命中时我按两击规则换了层，而不是继续调 hook 参数

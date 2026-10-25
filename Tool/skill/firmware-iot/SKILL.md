@@ -86,7 +86,7 @@ UART/JTAG/SPI 焊盘、启动链、固件加密/签名迹象。
 
 ## 五、模型常见失误（≥8 条）
 
-> 完整 12 条与“错误动作→为什么错→正确动作”见 `references/03-model-pitfalls.md`。
+> 完整 21 条与“错误动作→为什么错→正确动作”见 `references/03-model-pitfalls.md`。
 
 1. `binwalk` 识别出签名就宣布“解包成功”——没有目录树就不是 rootfs。
 2. 熵 >7.2 就判“加密”——SquashFS/UBI/压缩 kernel 本身高熵，先看 `high_block_ratio`。
@@ -201,15 +201,15 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 
 | 文件 | 用途 |
 |---|---|
-| `references/01-criteria.md` | 判据表：场景/输入面/可机检判据/证据形态/误报风险；E0–E3 分级 |
-| `references/02-failure-criteria.md` | 失败判据：现象/判定/改走哪条/代价（≥14 行） |
-| `references/03-model-pitfalls.md` | 12 条模型常见失误：错误动作→为什么错→正确动作 |
-| `references/04-walkthrough-uefi-efi.md` | 真实走查：SecConfig.efi + Broadcom rtecdc.bin，含原始输出与复跑命令 |
-| `references/05-uefi-and-secure-boot.md` | UEFI PE/TE、固件卷、PK/KEK/db/dbx、TPM 度量、更新包回滚 |
-| `references/06-container-carving-and-entropy.md` | strong/weak 魔术、熵解读、厂商头切分、Broadcom 误报案例 |
-| `references/firmware-unpack.md` | 解包主参考：获取/容器/解包/仿真/交付清单 |
-| `references/filesystem-and-credentials.md` | rootfs 审计：账号、shadow、私钥/证书、启动链、服务入口 |
-| `references/emulation-and-fuzz.md` | qemu-user/system、FirmAE、NVRAM/`/dev` 桩、fuzz 接线 |
+| `references/01-criteria.md` | 判据表：场景/输入面/可机检判据/证据形态/误报风险；E0–E3 分级；§5 判定会、§6 评分样例 |
+| `references/02-failure-criteria.md` | 失败判据：现象/判定/改走哪条/代价（≥14 行）；§失败归因五问、§时窗、§lessons |
+| `references/03-model-pitfalls.md` | 21 条模型常见失误：错误动作→为什么错→正确动作；§纠偏命令 |
+| `references/04-walkthrough-uefi-efi.md` | 真实走查：SecConfig.efi + Broadcom rtecdc.bin，含原始输出与复跑命令；§8 最短路径 |
+| `references/05-uefi-and-secure-boot.md` | UEFI PE/TE、固件卷、PK/KEK/db/dbx、TPM 度量、更新包回滚；§9 12 项判据、§10 event log 重放 |
+| `references/06-container-carving-and-entropy.md` | strong/weak 魔术、熵解读、厂商头切分、Broadcom 误报案例；§8 两样本差分、§9 weak 二次确认 |
+| `references/firmware-unpack.md` | 解包主参考：获取/容器/解包/仿真/交付清单；§9 端到端走查（时间盒） |
+| `references/filesystem-and-credentials.md` | rootfs 审计：账号、shadow、私钥/证书、启动链、服务入口；§11 硬编码凭据扫描判据、§12 NVRAM/overlay |
+| `references/emulation-and-fuzz.md` | qemu-user/system、FirmAE、NVRAM/`/dev` 桩、fuzz 接线；§11 环境/依赖/时序三类失败 |
 | `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据；**无线能力先跑 `tool-acquire.py --sweep` 逐项探活**（见 §八；无 --sweep 这个开关） |
 
 矩阵：`Tool/config/firmware-iot-matrix.json`（14 条，match/criteria/fail/tools/pitfalls）。

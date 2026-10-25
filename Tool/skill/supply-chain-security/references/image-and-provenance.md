@@ -169,3 +169,83 @@ syft <image>@sha256:<digest> -o table | grep -Ei 'curl|wget|gcc|make|npm|pip'
 - 不执行不可信镜像；动态分析只在隔离环境，且需单独授权。
 - 不给出合规认证结论（SLSA 等级、ISO/SOC2）；只列证据与差距。
 - 应用层漏洞 → `web-pentest`；容器逃逸/云原生 → `ad-cloud`；本文件只覆盖制品来源与构建链。
+
+## 9. 制品签名与证明的验收矩阵
+
+| 层 | 要验什么 | 通过 | 失败时 |
+| :-: | --- | --- | --- |
+| 对象 | digest 与部署一致 | `repo@sha256:` 相同 | tag 相同不算 |
+| 签名 | identity/issuer 匹配 | 预期 workflow/仓库 + OIDC issuer | rc=0 但身份不明 |
+| attestation | subject digest 一致 | 与目标 digest 逐字节相同 | 对的是旧 tag |
+| 构建 | builder/源码 commit 可追 | 托管构建器 + 受保护分支 commit | 本地机器 builder |
+| 材料 | materials 含源码+基础镜像 | 两个 digest 都在 | 缺源码/基础镜像 |
+| 透明日志 | Rekor 有记录 | 条目时间/身份可查 | 无条目 |
+
+**判据**：六层至少五层 pass 才能写“来源可信”；缺“身份”或“subject”直接降为“有签名”。
+
+### 9.1 证据串（五环）
+
+```text
+源码 commit → CI run id → 镜像 digest → SBOM digest → 签名/attestation subject
+```
+
+每一环都要能从前一环推出；断在哪环，结论就停在哪环。
+
+## 10. 来源证明的失败模式
+
+| 模式 | 现象 | 结论 |
+| --- | --- | --- |
+| 自签/个人证书 | issuer 不是预期 OIDC | “签名存在，非流水线” |
+| 多架构混淆 | digest 是 manifest list | 记录 `--platform` 后的 digest |
+| 签名后重推 | 签名对旧 digest | 以当前 digest 重验 |
+| attestation 手写 | builder=local/无 materials | “声明，不是证明” |
+| SBOM 晚于发布 | 生成时间晚于 push | 说明原因，否则不可信 |
+| 密钥进层 | history 有 `ARG`/`COPY .env` | 轮换 + 重建 |
+| 只扫 CVE | 无来源结论 | 不能叫供应链审计 |
+
+## 11. 命令与“通过长什么样”（来源复验）
+
+```bash
+IMAGE=registry.example/app; DIGEST=sha256:<64hex>
+
+# 1) 对象
+docker image inspect "$IMAGE@$DIGEST" --format '{{.Id}} {{.RepoDigests}}'
+crane digest "$IMAGE:latest" 2>/dev/null
+
+# 2) 签名 + 身份
+cosign verify "$IMAGE@$DIGEST" \
+  --certificate-identity-regexp '^https://github\.com/<org>/<repo>/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com 2>&1 | head -20
+
+# 3) attestation subject
+cosign verify-attestation "$IMAGE@$DIGEST" --type slsaprovenance 2>/dev/null \
+  | jq -r '.payload' | base64 -d | jq '.subject[].digest.sha256' | head
+
+# 4) SBOM 与层
+syft "$IMAGE@$DIGEST" -o cyclonedx-json=image.cdx.json >/dev/null 2>&1
+jq '{components: (.components|length)}' image.cdx.json
+docker history --no-trunc "$IMAGE@$DIGEST" | head -10
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| digest | 部署/签名/SBOM 三处一致 | 有一处是 tag |
+| 身份 | identity/issuer 与预期一致 | 只 rc=0 |
+| subject | attestation digest = 目标 | 对旧 digest |
+| builder | 托管构建器 + commit | local/未知 |
+| 层 | 无密钥/构建工具残留 | history 有 secret |
+
+> 补充：`cosign verify` 的输出里，`certificate-identity` 与 `issuer` 必须手抄进证据；只贴“Verified OK”等于没验证身份。
+> 另外，`verify-attestation` 与 `verify` 是两道检查，不能互相替代。
+> digest 统一写小写 `sha256:` 前缀；`RepoDigests` 里的多架构 digest 要与 `--platform` 对齐后再比较。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我的镜像标识是 `repo@sha256:`，不是 tag/latest
+- [ ] 我核对了签名 identity/issuer，而不只看 `cosign` 退出码
+- [ ] 我把 attestation 的 subject digest 与目标 digest 逐字节对过
+- [ ] 我能指出 builder 与源码 commit，且它们在受保护分支上
+- [ ] 我检查了层里的密钥/构建工具残留
+- [ ] 我没有把“能构建/能拉取/有签名”三者之一当成“来源可信”

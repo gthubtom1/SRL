@@ -118,3 +118,134 @@ work/<case>/
 - 不发布测试包、不抢注包名、不改他人 registry。
 - 锁文件解析不等于 CVE 扫描；可达性见 `06-reachability-and-sbom-drift.md`。
 - 许可证结论不在此文；只记录组件来源与声明。
+
+## 8. 六生态锁文件字段对照（字段级判据）
+
+| 生态 | 锁文件 | 完整性字段 | 来源字段 | 冻结安装 |
+| --- | --- | --- | --- | --- |
+| npm | `package-lock.json` | `integrity`（sha512） | `resolved` | `npm ci` |
+| yarn | `yarn.lock` | `integrity`/`checksum` | `resolved` | `--frozen-lockfile` |
+| pnpm | `pnpm-lock.yaml` | `integrity` | `resolution.tarball` | `--frozen-lockfile` |
+| pip | `requirements.txt`/`poetry.lock` | `--hash=sha256:` | `--index-url` | `--require-hashes` |
+| Go | `go.sum` | `h1:` | module path | `-mod=readonly` |
+| Cargo | `Cargo.lock` | `checksum` | `registry+https://` | `--locked` |
+| Ruby | `Gemfile.lock` | `CHECKSUMS` | `remote:` | `--deployment` |
+| NuGet | `packages.lock.json` | `contentHash` | `packageSourceMapping` | `--locked-mode` |
+
+**通用判据**：每个条目至少有一个不可变校验（hash/checksum/contentHash）；来源 host 与配置一致；CI 用冻结命令。
+缺一项就写“可复现性缺口”，不能写“依赖可复现”。
+
+### 8.1 monorepo 的额外坑
+
+- 根锁文件可能覆盖子包，但子包自己也有 manifest；先确认实际安装的是哪一份。
+- `workspace:`/`file:`/`link:` 是本地协议，不算远程来源漂移；但必须确认发布时被打包成什么。
+- 多个 lockfile 共存（npm + pnpm + yarn）→ 先确认 CI 用哪个，其余标“未使用/历史遗留”。
+
+## 9. 安装脚本投毒的识别判据
+
+> 安装脚本是“供应链攻击最短路径”：不需要业务代码 import，只要装包就执行。
+
+### 9.1 行为面（看它做什么，不只看关键字）
+
+| 行为 | 可疑信号 | 判据 |
+| --- | --- | --- |
+| 下载并执行 | `curl \| sh`、`wget -O- \| bash`、`iwr \| iex` | 原文 + URL + 行号 |
+| 编码执行 | `base64 -d \| sh`、`eval(Buffer.from(...))` | 解码后是否仍是命令 |
+| 读凭据 | `~/.npmrc`、`process.env.GITHUB_TOKEN`、`~/.aws` | 读取路径 + 后续网络 |
+| 外带 | `fetch`/`https.request`/`net.` 到外部 host | host + 数据来源 |
+| 持久化 | 写 `.github/workflows`、`.mcp.json`、shell rc | 写入路径 + 内容 |
+| 自复制 | 改自身包/发版 | token + registry 操作 |
+
+### 9.2 静态扫描命令
+
+```bash
+# 1) 列出所有安装钩子
+jq -r '.scripts // {} | to_entries[] | select(.key|test("pre|post|prepare")) | "\(.key): \(.value)"' package.json
+
+# 2) 钩子里的危险动作
+grep -RInE 'curl|wget|Invoke-WebRequest|base64|eval|child_process|execSync|https?\.request|fetch\(' \
+  package.json scripts 2>/dev/null | head -40
+
+# 3) 读凭据/写配置
+grep -RInE '\.npmrc|\.aws|GITHUB_TOKEN|ACTIONS_RUNTIME_TOKEN|\.mcp\.json|\.cursor' \
+  package.json scripts 2>/dev/null | head -20
+
+# 4) 包内高熵单行（bun 载荷常见）
+find node_modules -name '*.js' -size +20k 2>/dev/null | while read -r f; do
+  awk 'length($0)>20000{print FILENAME, length($0)}' "$f"
+done | head
+```
+
+### 9.3 分级与处置
+
+| 级别 | 判据 | 处置 |
+| --- | --- | --- |
+| 高 | 下载+执行，或读凭据+外带，有原文/行号 | 阻断安装；隔离包；轮换凭据 |
+| 中 | 下载二进制但无 hash，或读环境变量但无外带 | 要求固定版本+hash；沙箱构建 |
+| 低 | 原生编译/`prepare`，源可信 | 记录，`--ignore-scripts` 评估 |
+| 误报 | 帮助文本/示例/注释 | 排除并写原因 |
+
+## 10. 命令与“通过长什么样”（锁文件复验）
+
+```bash
+# 1) 锁文件与 manifest 同源
+jq -r '.packages[""].dependencies // {} | keys[]' package-lock.json 2>/dev/null | sort > /tmp/lock-deps
+jq -r '.dependencies // {} | keys[]' package.json 2>/dev/null | sort > /tmp/man-deps
+diff /tmp/lock-deps /tmp/man-deps | head
+
+# 2) integrity 缺失
+jq -r '.packages | to_entries[] | select(.value.integrity|not) | .key' package-lock.json | head
+
+# 3) 来源 host
+jq -r '.packages | to_entries[] | select(.value.resolved) | .value.resolved' package-lock.json \
+  | sed -E 's#https?://([^/]+)/.*#\1#' | sort | uniq -c
+
+# 4) 冻结安装是否被 CI 使用
+grep -RInE 'npm (ci|install)|--frozen-lockfile|--require-hashes|-mod=readonly|--locked' .github/workflows 2>/dev/null
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| 同源 | diff 为空 | 有缺失/多余 |
+| 完整性 | 缺失条目为 0 | 过半缺失 |
+| 来源 | host 只有受控 registry | 公网 tarball 混入 |
+| 冻结 | CI 用 `ci/frozen/locked` | 用 `install` |
+| 脚本 | 每条能解释必要性 | `curl\|sh` 未处理 |
+
+## 11. yarn/pnpm 的“构建白名单”
+
+| 包管理器 | 字段 | 含义 | 判据 |
+| --- | --- | --- | --- |
+| yarn 2+/4 | `dependenciesMeta.*.built` | 只允许列出的包跑构建脚本 | 未列出的包不应有 `postinstall` 行为 |
+| pnpm | `onlyBuiltDependencies`/`pnpm.onlyBuiltDependencies` | 同上 | 白名单外无构建 |
+| npm | 无等价白名单 | `--ignore-scripts` 全禁 | 需评估业务是否依赖 |
+
+**检查**：`grep -RInE 'onlyBuiltDependencies|built:|dependenciesMeta' package.json pnpm-workspace.yaml .yarnrc.yml`。
+**判据**：白名单外若有下载/执行行为，按“未受控执行面”处理；白名单内也要看 URL/hash。
+
+### 11.1 锁文件里的“生命周期脚本”证据
+
+- npm 锁文件不存脚本原文，只存包元数据；脚本要看 `node_modules/<pkg>/package.json` 或 tarball。
+- pnpm/yarn 可能在 lock 里存 `hasBin`/`requiresBuild`；`requiresBuild=true` 就是“安装期会跑”。
+- CI 日志里出现 `node-gyp`/`prebuild-install`/`bun` 是行为线索，不是结论；要回到包原文。
+
+## 12. 一条底线
+
+锁文件的价值不在“存在”，而在“下一次安装会装到同一字节”。
+只要 `integrity`、受控来源、冻结安装三者缺一，就只能写“依赖可解析”，不能写“可复现”。
+另外，`lockfileVersion` 1/2/3 的字段布局不同；跨版本比较前先确认字段名，避免把“没有该字段”误判成“缺 integrity”。
+
+## 13. 最后一条检查
+
+把锁文件、`.npmrc`、CI 安装命令三样并排放在一起；如果三者对不上，先修配置，再谈依赖安全。
+
+## 这一篇算"用对了"吗
+
+- [ ] 我核对了锁文件与 manifest 的直接依赖集合，不只看文件存在
+- [ ] 我确认了每个条目有 integrity/checksum，且来源 host 受控
+- [ ] 我确认 CI 使用冻结安装，而不是 `npm install`/无 hash 安装
+- [ ] 我逐个读了安装钩子，能区分“原生编译”与“下载执行”
+- [ ] 我没把 `--ignore-scripts` 当根治，评估了业务是否依赖脚本
+- [ ] monorepo/多锁文件场景我写清了实际生效的是哪一份

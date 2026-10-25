@@ -131,3 +131,146 @@
 **为什么错**：GitHub Actions 在交给 shell **之前**就展开 `${{ }}`；单引号只对展开后的字符串生效，攻击者可用 `'` 或 `$(...)` 逃逸。`if:`/`with:` 里不进入 shell 才相对安全。
 
 **正确动作**：把不可信字段先落到 `env:`（如 `TITLE: ${{ github.event.issue.title }}`），脚本里用 `"$TITLE"` 引用并加白名单/长度校验；报告写清“表达式是否进入 shell”，并给出 `expression-injection` 的原始行号。
+
+### 17. 把 `npm audit` 的 fix 建议当“安全升级”
+
+**错误动作**：`npm audit fix` 后构建过了，报告写“漏洞已修复”。
+
+**为什么错**：升级可能改变 API/行为、引入新的传递依赖，或只是把版本推到 advisory 范围外但未真正打补丁；构建过不等于业务不受影响。
+
+**正确动作**：看锁文件 diff + 依赖树变化 + 测试结果；能定位到具体 advisory/commit 才写“已修复”，否则写“已升级，行为未验证”。
+
+### 18. 把 `resolved` 有 URL 当“来源可信”
+
+**错误动作**：锁文件每个条目都有 `resolved`，就写“依赖来源可追”。
+
+**为什么错**：`resolved` 可能指向公网 tarball、`git+http`、未受控镜像；有 URL 只说明“能下载”，不说明“来源受控”。
+
+**正确动作**：对 `resolved` 的 host 与 `.npmrc`/`pip.conf` 的 registry 做集合比对；缺 `integrity` 的条目单独列出。
+
+### 19. 把 SBOM 的组件数当“覆盖完整”
+
+**错误动作**：`components_total=800` 就写“SBOM 已覆盖全部依赖”。
+
+**为什么错**：数量大可能包含 OS 包/重复组件，同时漏掉私有包/optional/peer；数量与覆盖是两件事。
+
+**正确动作**：做“锁定集合 ⊆ 清单集合”的对账；`missing_from_sbom` 为空或逐条解释；按 purl 去重。
+
+### 20. 把 `ghcr.io` 的 public 包当“官方”
+
+**错误动作**：镜像在 `ghcr.io/<org>/...` 且 public，就写“官方镜像，可信”。
+
+**为什么错**：任何账号都能建 org/仓库；public 只说明可拉取，不说明发布者身份。
+
+**正确动作**：看 digest + 签名 identity/issuer + 仓库 owner 的发布记录；三者对齐才能写“官方”。
+
+### 21. 把 `permissions: {}` 当“绝对安全”
+
+**错误动作**：顶层 `permissions: {}`，就写“token 无权限”。
+
+**为什么错**：job 级可以重新授予 `contents: write`；reusable workflow 也可能带入权限。
+
+**正确动作**：顶层 + job 级合并看；再对触发器/checkout/secrets 三面；`write` 能被不可信输入触达才是高危。
+
+### 22. 把依赖的 `postinstall` 当“普通构建步骤”
+
+**错误动作**：`postinstall: node-gyp rebuild` 一律当正常，不核对下载源。
+
+**为什么错**：原生包确实需要编译，但也可能在编译前下载预编译二进制/脚本并执行；`node-gyp` 本身也会拉取 headers。
+
+**正确动作**：看脚本原文 + 下载 URL/域名 + hash 校验 + 是否读环境变量；正常则写“可接受”，异常则列执行面。
+
+### 23. 把 `GOPRIVATE` 设置当“依赖混淆已解决”
+
+**错误动作**：`go env GOPRIVATE=corp.example.com/*` 就写“私有模块不会走公共 proxy”。
+
+**为什么错**：`GOPRIVATE` 只影响 proxy/sumdb 行为；如果模块路径本身可被公开解析，或 `GOFLAGS`/CI 环境覆盖，仍有风险。
+
+**正确动作**：核对 `GOPROXY`/`GONOSUMDB`/`GONOSUMCHECK` + CI 环境变量 + `go.sum` 来源；四者一致才算锁定。
+
+### 24. 把签名时间当“构建时间”
+
+**错误动作**：`cosign` 输出签名时间，就写“镜像今天构建”。
+
+**为什么错**：签名可以在构建后任意时间做；构建时间在 attestation 的 `metadata.buildStartedOn/FinishedOn` 或 CI run 记录里。
+
+**正确动作**：构建时间看 provenance/CI；签名时间只证明“何时签”；两者都写，不混用。
+
+### 25. 把 `latest` 的 digest 当“稳定基线”
+
+**错误动作**：记录了 `latest` 当前 digest，就写“基线已固定”。
+
+**为什么错**：digest 固定的是“这一刻的内容”；`latest` 明天会指向新 digest，基线的“可复现”只对旧 digest 成立。
+
+**正确动作**：写 `repo@sha256:...`，并把 tag→digest 的映射与时间入档；比较时只用 digest。
+
+## 25 条速查（提交前扫一眼）
+
+| # | 一句话 | 正确动作 |
+| :-: | --- | --- |
+| 1 | SCA 告警 ≠ 漏洞 | 可达/运行时 |
+| 2 | tag ≠ 对象 | digest |
+| 3 | 触发器命中 ≠ 利用 | checkout/permissions/secrets |
+| 4 | scope 名 ≠ 可抢注 | registry 解析 |
+| 5 | 有锁文件 ≠ 可复现 | integrity/registry/冻结安装 |
+| 6 | 能构建 ≠ 可信 | 签名 + provenance |
+| 7 | 签名 rc=0 ≠ 身份对 | identity/issuer |
+| 8 | `npm ls` ≠ 全量清单 | 锁文件为权威 |
+| 9 | 发行名 ≠ import 名 | 映射表 |
+| 10 | 只扫源码会漏 CI | workflow/Dockerfile |
+| 11 | `write-all` ≠ 可利用 | 输入面组合 |
+| 12 | 许可证 ≠ 法务结论 | 只列证据 |
+| 13 | 未联网 ≠ 不存在 | 标未验证 |
+| 14 | 绝对路径不可复现 | 相对/`--root` |
+| 15 | 零命中 ≠ 无风险 | 列覆盖/缺口 |
+| 16 | `${{ }}` 在 shell 前展开 | `env:` + 引用 |
+| 17 | `audit fix` ≠ 已修复 | diff + 测试 |
+| 18 | `resolved` ≠ 受控源 | host 对账 |
+| 19 | 组件数 ≠ 覆盖 | 集合对账 |
+| 20 | public ≠ 官方 | digest + 身份 |
+| 21 | 顶层空 ≠ 无权限 | 合并 job 级 |
+| 22 | `postinstall` 要读原文 | URL/哈希/环境变量 |
+| 23 | `GOPRIVATE` ≠ 全锁 | 四变量 + CI |
+| 24 | 签名时间 ≠ 构建时间 | provenance |
+| 25 | `latest` digest ≠ 稳定基线 | 记录映射 |
+
+## 纠偏命令：把“像结论”压成字段
+
+```bash
+# 1) 锁文件来源与完整性
+jq -r '.packages | to_entries[] | select(.value.resolved) | [.key,.value.resolved,(.value.integrity!=null)] | @tsv' \
+  package-lock.json 2>/dev/null | head -20
+
+# 2) SBOM 与锁定集合对账
+python Tool/skill/supply-chain-security/scripts/sbom-reach.py \
+  --sbom bom.cdx.json --lock package-lock.json --source src --out reach.json
+jq '{components: .components_total, missing: (.missing_from_sbom|length)}' reach.json
+
+# 3) CI 权限面（顶层+job）
+python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out ci.json
+jq '.workflows[] | {name, permissions, triggers, action_pins}' ci.json
+
+# 4) 签名身份
+cosign verify "$IMAGE"@"$DIGEST" \
+  --certificate-identity-regexp '^https://github\.com/<org>/<repo>/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com 2>&1 | head
+```
+
+**通过长什么样**：
+
+| 检查 | 通过 | 不通过 |
+| --- | --- | --- |
+| resolved | host 与受控 registry 一致 + integrity | 公网 tarball/无 integrity |
+| SBOM | `missing` 为 0 或逐条解释 | 大段缺失 |
+| CI | permissions 与 triggers 均可读 | `workflows_total=0` |
+| 签名 | identity/issuer 匹配 + digest 一致 | rc=0 但未对身份 |
+| 结论 | 每条能指回上面一条命令 | 只有“经验上” |
+
+## 这一篇算"用对了"吗
+
+- [ ] 我没有把扫描器告警/关键字命中直接写成可利用
+- [ ] 我的对象标识是 commit/digest/锁文件哈希，不是 tag/分支名
+- [ ] 我对“来源/签名/可达”都核对了身份或调用链，不只看 rc=0
+- [ ] 我把未联网/缺工具的面写成了未验证，没有写成“不存在”
+- [ ] 我的修复建议有 diff/测试/回滚，不是“升级到最新”
+- [ ] 我删掉了所有“应该/可能/大概”而没有证据的句子
