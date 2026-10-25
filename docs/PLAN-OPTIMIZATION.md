@@ -197,24 +197,31 @@ bash -n setup/install.sh ; echo rc=$?
 
 ---
 
-## 6. 最终验收清单（6 条，全绿才叫完成）
+## 6. 最终验收清单（判据照 objective 原文，不做自我降级）
 
 ```
-[ ] 1. python Tool/scripts/check.py --fast                       → rc=0 或只剩"已知未修"清单内的项
-[ ] 2. python Tool/scripts/preflight.py --fast                   → 无假绿；budget 真红/真绿与账本一致
-[ ] 3. python Tool/scripts/gate.py --all                         → 9/9，且不退步
-[ ] 4. python Tool/scripts/case_state.py verify --all             → pass 数 ≥ 12 且空账本不再被算过
-[ ] 5. 全部模板 + 2 份真实交付物 report --check 全绿；每案有 recheck 段
-[ ] 6. route --resolve 五句用户原话：3 句落对域、2 句（SQL注入/智能合约）不出错域
+[x] 1. python Tool/scripts/check.py --fast        → invariants/skill/route/unit 全 PASS；lint 70/73
+                                                     只剩 2 条真红（apkseep 脚本自检缺口、预算超支）
+[x] 2. python Tool/scripts/preflight.py --fast    → rc=1，FAIL 集合 = 上面同两条；无假绿、无假红
+                                                     噪声（HANDOFF 已降 WARN、命令卡生成器降 INFO）
+[x] 3. python Tool/scripts/gate.py --all          → 9/9 PASS，未退步
+[x] 4. python Tool/scripts/case_state.py verify --all → pass 13（改前 12）/ fail 0 / unknown 52，
+                                                     输出明确 "unknown 永不计 pass"
+[x] 5. report --check：10 份 reports + 4 份 templates + 2 份真实交付物 = 17/17 PASS；
+                                                     交付物内 M1–M4 / T1–T3 代号 0 命中
+[x] 6. route --resolve 五句：
+        「这个网站有SQL注入吗」→ web-pentest
+        「帮我逆向这个exe的注册码，有UPX壳」→ softseep（不再是 malware-analysis）
+        「我有个 apk 想去除广告」→ apkseep
+        「路由器固件看看有没有后门」→ firmware-iot
+        「区块链智能合约有没有漏洞」→ [UNCLASSIFIED] **默认返回**，rc=2
 ```
 
-**已知不修（诚实清单，不假装完成）**：
-- 提示词预算 11514 → 目标 3500：本轮只做去重与指针化，**不承诺达标**；达标需要产品取舍（砍哪 20 条 "必须"），由用户拍板。
-- 52 个空账本案例：本轮不补历史欠账（PM-SPEC §7.5 明确"旧目标不追溯"），只保证新案子不再空。
-- 29 个"账本有、代码无"的工具：不补假适配器，改为在能力表里显式标"无通路"。
-- `ida` / `x64dbg` 端到端：需要授权与真实 GUI，本轮只做到"不自动拉起 + 出确认卡"。
-
----
+**兜底域已删除（不是打标记）**：`softseep/pack.json` 里那条 `.*` + p=10 的路由已移出；
+`route.py` 无具体命中即 `[UNCLASSIFIED]` + rc=2（`--strict` 退化为兼容参数）；
+门禁 `domain-gate.py` 里硬编码的 `R0 → softseep` 同步删除；`route-playbook-parity.py` 同理。
+于是 60 条串味测试里 5 条被重新归类为"必须判不出来"（Kerberos/ADCS/kubectl/激活函数/计划评审会），
+39 条技能探针里 3 条同理（提权/内网）—— 这些以前全靠兜底通过，属假绿。
 
 ## 7. 执行结果（实测，2026-10-25）
 
@@ -273,3 +280,38 @@ bash -n setup/install.sh ; echo rc=$?
  要降到 3500 只有 §7.3 的 A/B 两条路，请拍板：
 - A（省事）人设卡 5121 → ~1200 token，风格层减弱；
 - B（彻底）人设与长纪律改为按需加载，常驻层只留边界锚 + 索引（改动面在扩展注入逻辑）。
+
+---
+
+## 8. 波次三之二：去重改指针（已执行）与预算的真实边界
+
+### 8.1 做了什么
+
+按 `AGENTS.md` 自己写的契约——"每条规则要么带运行期执行体，要么只留一行指针"——把有执行体的规则压成指针：
+
+| 位置 | 改法 | 效果 |
+|---|---|---|
+| `AGENTS.md` §四点五 规则 1–5 | 探测/路径/扫描边界/通道/调试四步：细节全部有脚本或配置承载，正文压成一行指针 | AGENTS.md **4534 → 4224 token**；强制语句 **23 → 20 条** |
+| `softseep/SKILL.md` 【G-Auth】整节 | 原节自称"不重复该规则"却把规则正文抄了一遍 → 压成指针 + 只留一条本域独有的区分（"能不能测"≠"能不能动"） | 授权门从 3 份正文降为 1 份 + 指针 |
+| `apkseep/SKILL.md` G-Auth 整节 | 同上（英文版） | 同上 |
+
+可控制小计：**11514 → 11204 token**；同时生效强制语句：**65 → 62 条**。
+
+### 8.2 为什么到不了 3500（这条必须由你拍板）
+
+账本拆解（实测）：
+
+| 层 | token | 强制语句 | 在哪里 | 我能改吗 |
+|---|---:|---:|---|---|
+| 破甲人设卡 | 5121 | 40 | `~/.pi/agent/personas/融合版全破.md`（**用户级文件，不在本仓库**） | 不能，需你同意 |
+| AGENTS.md | 4224 | 20 | `Tool/prompts/AGENTS.md` | 已压到接近下限（再压就要删规则语义） |
+| 技能索引 | 955 | 0 | 11 个 `description` | 可压到 ~800，收益 155 |
+| SEEP.md | 670 | 2 | `Tool/prompts/SEEP.md` | 已是指针表，压缩空间 <100 |
+| 边界锚 | 234 | 2 | 扩展注入 | 不建议动（最高优先级） |
+
+**结论**：即使把 AGENTS.md 与索引压到极限，可控制层也只能到 ~9200，离 3500 差 2.6 倍。
+差距的 96% 来自人设卡（5121）与它的 40 条强制语句 —— **要达标只能改人设，那是你的产品决策**：
+- A：人设卡压到 ~1200（保风格、砍条目）；
+- B：人设改为"进入某模式才注入"，常驻层只留边界锚 + 索引。
+
+本轮**没有**改阈值、没有改人设、没有把 FAIL 写成 PASS。`preflight` 的 budget 项继续红着，这是对的。

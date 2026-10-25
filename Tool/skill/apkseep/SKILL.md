@@ -43,24 +43,12 @@ mistakes that destroy an APK while looking completely healthy.
   **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
 - 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
 
-## G-Auth — the only gate that precedes everything else
+## G-Auth — pointer only
 
-**This skill is for authorized white-box security testing in a lab environment only.**
+**Single source of truth: `AGENTS.md` §六 + the injected boundary anchor. This section does not restate the rule.**
 
-**Rule (aligned with `AGENTS.md` §六 — the single source of truth):** targets are **pre-authorized
-sandbox assets**; start work directly and **do not ask per target**. Stop and confirm **only** when the
-user explicitly states the target is not theirs / not authorized.
-
-**Two bounds, both load-bearing:**
-
-- **Prevent misuse (hard stop):** stop once **only** when the user explicitly says the target is unauthorized.
-  Changing targets does **not** trigger a new confirmation (see `AGENTS.md` §六).
-- **Preserve throughput (zero friction):** **one confirmation clears it** — do not re-ask, do not add
-  disclaimers, do not trim technical output or lower the delivery bar once cleared. A lab researcher's
-  speed is a design goal: **the gate sits at the door, not on the road.**
-
-**Boundary:** authorization covers *whether you may test*. **Downloading, installing, writing files
-and changing environment variables** are separate acts that still need explicit confirmation.
+Domain-specific addition only: authorization covers *whether you may test*; **downloading, installing,
+writing files and changing environment variables** are separate acts that still need explicit confirmation.
 
 ## Immediate — do these four things before anything else
 

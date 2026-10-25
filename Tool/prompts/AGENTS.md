@@ -50,16 +50,16 @@
 
 ## 四点五、工具使用纪律（★ 防把靶机搞崩）
 
-**1. 探测走能力表**：`python Tool/scripts/tool-acquire.py --tool <id> --start`（探活→启动→连上→装→求助），不 `-h` / `--help` / 无参硬试 —— 商业软件一探就崩或触发反调试自毁。表外工具只报"路径已发现"；仍不确定就不跑，把"需要什么"告诉用户。→ `Tool/config/tool-capabilities.json`
+**1. 探测走能力表**：`tool-acquire.py --tool <id> --start`（探活/启动/连上/求助一条链）。表外工具只报"路径已发现"，不确定就不跑。能力表与降级链：`Tool/config/tool-capabilities.json`。
 
-**2. 路径动态探测**：`seep_tool_discover` / `seep_ensure_tool`（八层探测），不预设工具安装根（如 `Tools` 目录）；新增根设 `SEEP_TOOL_ROOT` / `SEEP_TOOL_INSTALL_DIR`。交付物里不得出现机器专属绝对路径 —— 已由 `python Tool/scripts/preflight.py --fast`（可移植性检查）+ `gate.py` 守；用 `expanduser` / `shutil.which` 这类可移植写法。
+**2. 路径不写死**：`seep_tool_discover` / `seep_ensure_tool`（八层探测）；可移植性由 `preflight --fast` 守。新增根用 `SEEP_TOOL_ROOT` / `SEEP_TOOL_INSTALL_DIR`。
 
-**3. 扫描边界**（★ `find /` 不带 timeout → 会话卡死）：盘根递归（`find /`、`dir /s C:\`、`Get-ChildItem C:\ -Recurse`）由 `cmd-guard` **直接拦**；缺省 timeout（探查 30 / 普通 120 / 构建 600 / 递归扫描 ≥180 秒）也由它注入。→ `Tool/prompts/extensions/cmd-guard.rules.json`
+**3. 扫描边界**：盘根递归与缺省 timeout 由 `cmd-guard` 拦/注入（探查 30 / 普通 120 / 构建 600 / 递归 ≥180s）→ `Tool/prompts/extensions/cmd-guard.rules.json`。
 
-**4. 通道优先级**（选"通道"，不是选"工具"）★：1) **MCP / 可编程接口**（stdio / http）直连、无窗口；2) **CLI / headless**（`idat -A -S`、`analyzeHeadless`）稳定、可并行、可留证据；3) **GUI（含 GUI 内插件的 MCP）** 只有没有等价 headless 通道时才用（x64dbg：调试必须宿主进程在跑），且必须由 Agent 自己启动；4) **人工** 只在首次许可协议、崩溃恢复弹窗时才回报用户。
-headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode <通道>] [-ListModes]`（不带 `-Mode` 自动降级；`-Use "<exe>"` 手工指定并缓存）→ 通道清单 `Tool/config/tool-runtimes.json`（新增工具只加一条，脚本不改）。
+**4. 通道优先级**（选"通道"不是选"工具"）★：MCP/可编程接口 → CLI/headless → GUI（仅无 headless 等价物时，由 Agent 自己启动）→ 人工（仅首次许可/崩溃恢复）。
+headless 能做就不开 GUI。入口 `tool-run.ps1 -Tool <id> [-Target <样本>] [-Mode <通道>]`；通道清单 `Tool/config/tool-runtimes.json`（新工具只加一条）。
 
-**5. 调试四步（x64dbg / x32dbg），不许省**：`tool-run.ps1 -Tool x64dbg -Target <样本>` 起 9094 → `pi mcp list | grep x64dbg` 看到 `connected`（`failed` 就 `/mcp reconnect`；MCP 工具只在会话启动时注册）→ `mcp__x64dbg__*`：`LoadBinary` → `WaitForPause` → `GetDebugState` → 断点/单步/读内存 → `StopDebug` 收尾。attach / 注入 / 下断点是任务内动作，自己执行；用户只提供目标与 scope。→ `Tool/scripts/tool-run.ps1`、`preflight.py`
+**5. 调试四步（x64dbg）**：`tool-run.ps1 -Tool x64dbg -Target <样本>` → `pi mcp list` 看 `connected` → `LoadBinary → WaitForPause → GetDebugState` → 断点/单步/读内存 → `StopDebug`。attach/注入/下断点自己执行；用户只给目标与 scope。→ `Tool/scripts/tool-run.ps1`
 
 **6. 模型纪律**：判型 / 可行性裁定 / 路线选择用强模型，flash 级只做搬运。判型错一次 = 整轮返工。
 

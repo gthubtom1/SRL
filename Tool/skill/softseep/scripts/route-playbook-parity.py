@@ -70,9 +70,9 @@ def routing():
         routes[rid] = {"label": label, "skill": pid,
                        "keywords": [{"must": m} for m in must]}
         prio.append(rid)
-    routes["R0"] = {"label": "未命中（兜底）", "skill": "softseep", "keywords": []}
-    prio.append("R0")
-    return dg, routes, prio, "R0"
+    # 与执行器/门禁对齐：不再假设"未命中就落 softseep"（那是第五份域名单，
+    # 也是"什么都绿"的根源）。未命中就是未命中。
+    return dg, routes, prio, None
 
 
 def triggers():
@@ -127,6 +127,10 @@ def run(only_tests=None):
 
     bad = []
     for t in tests:
+        if not (t.get("expect_any") or []):
+            # 空期望 = 这条说法本就该判不出来（内网/提权/非技术文本），
+            # 配方一致性对它没有意义，跳过而不是硬判成 softseep。
+            continue
         text = t["text"]
         rid, skill = dg._match_route(routes, prio, text, fallback)
         # S3：路由目标可能带归档前缀（_pending/ / safe-skills/），归一化成逻辑技能名

@@ -175,7 +175,7 @@ def main():
     ap.add_argument("--resolve", default="", help="按一段自然语言匹配路由")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true",
-                    help="唯一命中是兜底路由时输出 [UNCLASSIFIED] 并以 rc=2 退出")
+                    help="兼容旧参数：未识别默认就是 [UNCLASSIFIED] + rc=2，此开关已无副作用")
     ap.add_argument("--skill-dir", default="", help="覆盖 Tool/skill 根（测试用）")
     a = ap.parse_args()
     sd = a.skill_dir or None
@@ -183,16 +183,17 @@ def main():
     if a.resolve:
         hits = resolve(a.resolve, sd)
         concrete = [h for h in hits if not h.get("fallback")]
-        fell_back = bool(hits) and not concrete      # 命中全是兜底（或无命中）
-        unclassified = a.strict and fell_back
+        # ★ 未识别是**默认结果**，不再藏在 --strict 后面：
+        #   兜底路由已从 pack.json 删除，所以"只有兜底命中"等价于"没有具体域命中"。
+        fell_back = bool(hits) and not concrete
+        unclassified = not concrete                  # 无具体域 → 判不出来
         if a.json:
             print(json.dumps({"query": a.resolve, "hits": hits,
                               "fallback": fell_back, "unclassified": unclassified,
                               "message": UNCLASSIFIED if unclassified else ""},
                              ensure_ascii=False, indent=2))
         elif not hits:
-            print(UNCLASSIFIED if a.strict
-                  else "[NONE] 无路由命中（兜底路由缺失？）：%s" % a.resolve)
+            print(UNCLASSIFIED)
         else:
             for h in hits:
                 print("%-24s p=%-4d %s%s" % (h["pack"], h["priority"], h["label"],

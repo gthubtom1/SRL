@@ -155,12 +155,35 @@
       "priority": 20
     },
     {
-      "label": "通用二进制兜底（只覆盖可执行载体；判型入口是 seep-router）",
+      "label": "签名栈 / pdata / 异常目录解析",
       "must": [
-        "(?i).*"
+        "(?i)pdata",
+        "签名栈",
+        "(?i)lacuna",
+        "(?i)\\.pdata"
       ],
-      "priority": 10,
-      "fallback": true
+      "priority": 58
+    },
+    {
+      "label": "驱动 / 内核 / 反调试面",
+      "must": [
+        "驱动",
+        "(?i)anti-?debug",
+        "反调试",
+        "(?i)\\.sys\b",
+        "(?i)kernel"
+      ],
+      "priority": 57
+    },
+    {
+      "label": "打补丁 / 改成我自己的",
+      "must": [
+        "打补丁",
+        "改成我自己的",
+        "改我自己",
+        "二次修改这个程序"
+      ],
+      "priority": 55
     }
   ],
   "stages": [

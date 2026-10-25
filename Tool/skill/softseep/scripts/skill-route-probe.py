@@ -105,7 +105,13 @@ def judge(probe: dict, facts: dict) -> list[str]:
     bad = []
     skill = _norm_skill(facts.get("primary_skill", ""))
     want = _norm_skill(probe.get("expect_skill", ""))
-    if want and skill != want:
+    if not want:
+        # 空期望 = 这条说法本身不该路由到任何域（例如内网/提权/非技术文本）。
+        # 以前靠"什么都落到 softseep"才绿，那是假绿；现在要求真的判不出来。
+        if skill:
+            bad.append("技能 %s（期望：判不出领域）" % skill)
+        return bad
+    if skill != want:
         bad.append("技能 %s ≠ 期望 %s" % (skill or "(空)", want))
     # S3：R 编号已随 routing.json 消失，只断言「落到哪个包」（expect_skill）与 label
     want_label = probe.get("expect_label")
@@ -154,8 +160,13 @@ def main() -> int:
     for p in probes:
         r = run_router(ps, p["text"])
         bad = judge(p, r["facts"])
-        if r["rc"] != 0:
-            bad.append("master-route rc=%d" % r["rc"])
+        # rc=2 = 路由器判"未识别"（UNCLASSIFIED）。这是**合法结果**：
+        # 仅当这条探针本来就期望有域（expect_skill 非空）时才算失败。
+        # 以前这里无条件把非 0 记成失败，导致"提权/内网"这类域外说法无法表达。
+        if r["rc"] not in (0, 2):
+            bad.append("route.py rc=%d" % r["rc"])
+        elif r["rc"] == 2 and (p.get("expect_skill") or "").strip():
+            bad.append("route.py 判为未识别（期望 %s）" % p["expect_skill"])
         results.append({"id": p["id"], "text": p["text"],
                         "primary": r["facts"].get("primary", ""),
                         "skill": _norm_skill(r["facts"].get("primary_skill", "")),

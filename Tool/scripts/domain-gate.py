@@ -985,9 +985,10 @@ def _pack_routes():
         routes[rid] = {"label": label, "skill": pid,
                        "keywords": [{"must": m} for m in must]}
         prio.append(rid)
-    routes["R0"] = {"label": "未命中（兜底 softseep）", "skill": "softseep", "keywords": []}
-    prio.append("R0")
-    return routes, prio, "R0"
+    # ★ 曾经这里硬编码 "R0 → softseep" 兜底，于是执行器已经改成 UNCLASSIFIED 之后，
+    #   门禁仍按"什么都落到 softseep"判——第五份域名单，也是"未识别永远绿"的根源。
+    #   现在没有兜底：未命中就是未命中，由 check_routing 显式要求 UNCLASSIFIED。
+    return routes, prio, None
 
 
 def check_routing():
@@ -1005,9 +1006,14 @@ def check_routing():
             if norm.startswith(pre):
                 norm = norm[len(pre):]
         got = (norm.split("/")[0] if norm else (rid or "None"))
-        if got not in (t.get("expect_any") or []):
-            bad.append("『%s』→ %s（期望 %s）" % (t["text"][:24], got,
-                                             "/".join(t.get("expect_any") or [])))
+        expect = t.get("expect_any") or []
+        if not expect:
+            # 空期望 = 必须判不出来（UNCLASSIFIED）。不许再被任何兜底域假装命中。
+            if got not in ("None", "UNCLASSIFIED", ""):
+                bad.append("『%s』→ %s（期望：判不出领域 UNCLASSIFIED）" % (t["text"][:24], got))
+            continue
+        if got not in expect:
+            bad.append("『%s』→ %s（期望 %s）" % (t["text"][:24], got, "/".join(expect)))
         if got in (t.get("forbid") or []):
             bad.append("『%s』误命中 %s" % (t["text"][:20], got))
     add("全局", "路由串味测试集（%d 条）" % len(ROUTING_TESTS), not bad,
