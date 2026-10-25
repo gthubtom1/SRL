@@ -1160,7 +1160,7 @@ def check_deploy_bidirectional():
 
     rows = [
         ("技能", sk_bad),
-        _diff(os.path.join(TOOL, "prompts", "tasks", "*.md"), os.path.join(agent, "prompts"), "提示词", ".md"),
+        _diff(os.path.join(TOOL, "prompts", "tasks", "[!_R]*.md"), os.path.join(agent, "prompts"), "提示词", ".md"),
         _diff(os.path.join(TOOL, "prompts", "extensions", "*.ts"), os.path.join(agent, "extensions"), "扩展", ".ts"),
     ]
     bad_all = ["%s(%s)" % (k, "；".join(v)) for k, v in rows if v]
@@ -1188,7 +1188,8 @@ def check_prompt_residue():
     import glob as _g
     src = os.path.join(TOOL, "prompts", "tasks")
     dst = os.path.expanduser("~/.pi/agent/prompts")
-    src_names = {os.path.basename(p) for p in _g.glob(os.path.join(src, "*.md"))}
+    src_names = {os.path.basename(p) for p in _g.glob(os.path.join(src, "*.md"))
+                 if os.path.basename(p).upper() != "README.MD"}
     if not os.path.isdir(dst):
         add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", True, "未部署提示词目录")
         return
@@ -1221,7 +1222,13 @@ def check_fact_drift():
         cases = len(_g.glob(os.path.join(TOOL, "cases", "*", "case.json")))
         # 只查**口径唯一**的事实：工具数、案例数。域/技能在中文里既可能指"域包"也可能指"全部技能目录"，
         # 用它做判据只会产生假红（实测：README 的"9 个域包"被误判）。
-        actual = {"工具": tools, "案例": cases}
+        # 路由条数与域包数也纳入（此前 59 个文件写路由条数，是漂移重灾区）
+        import subprocess as _sp
+        _r = _sp.run([sys.executable, os.path.join(TOOL, "scripts", "route.py"), "--index"],
+                     cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+                     errors="replace", timeout=120)
+        routes = len([l for l in (_r.stdout or "").splitlines() if l.strip()])
+        actual = {"工具": tools, "案例": cases, "条 路由": routes, "个 域包": doms}
         targets = [os.path.join(ROOT, p) for p in
                    ("README.md", "README.zh.md", "docs/NOW.md", "docs/PRODUCT.md", "docs/ARCHITECTURE.md")]
         targets += _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"), recursive=True)
@@ -1237,10 +1244,10 @@ def check_fact_drift():
                     for m in _re.finditer(r"(\d{1,3})\s*个\s*%s" % name, line):
                         if int(m.group(1)) != n:
                             bad.append("%s:%d %s=%s≠%d" % (os.path.basename(f), ln, name, m.group(1), n))
-        add("2 单一事实源", "事实漂移（工具/域/案例数 文档 vs 实测）", not bad,
-            "；".join(bad[:4]) if bad else "工具 %d / 域 %d / 案例 %d 在活跃文档中一致" % (tools, doms, cases))
+        add("2 单一事实源", "事实漂移（工具/案例/路由条数/域包数 文档 vs 实测）", not bad,
+            "；".join(bad[:4]) if bad else "工具 %d / 案例 %d / 路由 %d / 域包 %d 在活跃文档中一致" % (tools, cases, routes, doms))
     except Exception as e:  # noqa: BLE001
-        add("2 单一事实源", "事实漂移（工具/域/案例数 文档 vs 实测）", False, str(e)[:80])
+        add("2 单一事实源", "事实漂移（工具/案例/路由条数/域包数 文档 vs 实测）", False, str(e)[:80])
 
 
 def check_subskill_wiring():

@@ -7,7 +7,7 @@
 
 ```bash
 cd <repo>
-python Tool/scripts/env-check.py --text     # 缺什么会直接说，并给安装命令
+python Tool/scripts/check.py --env     # 缺什么会直接说，并给安装命令
 ```
 
 ## 1. 一条命令开一个案子（30 秒）

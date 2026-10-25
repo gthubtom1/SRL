@@ -8,7 +8,7 @@
 ## 0. 判断：这台机器装没装
 
 ```bash
-python Tool/scripts/env-check.py --text
+python Tool/scripts/check.py --env
 ```
 
 - `结论: 已就绪` → 跳到 §4 汇报，直接开工。
@@ -54,7 +54,7 @@ python Tool/scripts/preflight.py --fast                                  # 期�
 | `未找到 Python` | 装 Python 3.11+ 并勾 Add to PATH —— **这是系统级前提，唯一需要用户动手的一类**，装完继续 §1 |
 | `未找到 Node.js` | 可选（js-reverse / playwright 需要）；装 Node 18+ 后重跑 §1 |
 | `java` 缺失 | jadx/apktool 需要 JRE 11+；装完重跑 §1 |
-| `mcp.json` 条目指向的文件不存在 | `python Tool/scripts/env-check.py` 看 `missing`，重跑 `setup/install-pi.ps1` 刷新路径 |
+| `mcp.json` 条目指向的文件不存在 | `python Tool/scripts/check.py --env` 看 `missing`，重跑 `setup/install-pi.ps1` 刷新路径 |
 | MCP 显示 `failed` | 先看 `~/.pi/agent/mcp.log`；stdio 服务手工启动一次看报错；`ida` 需要 `mcp<2`（安装器已处理） |
 | IDA 没装 / 路径特殊 | `setup/install-ida.ps1 -IdaRoot <路径>`；没 IDA 不影响主链路（r2 + Ghidra headless 兜底） |
 | PowerShell 执行策略拦截 | 用 `-ExecutionPolicy Bypass`（上面命令已带） |

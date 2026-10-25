@@ -363,7 +363,7 @@ Seep\ (251 MB)
 > **5 分钟快速路径**：[docs/QUICKSTART.md](docs/QUICKSTART.md) ｜ **上游同步与差分**：[docs/UPSTREAM.md](docs/UPSTREAM.md)
 
 
-> **换电脑时不需要你手动跑脚本**：让 Agent 说一句「这台还没配」，它会先 `python Tool/scripts/env-check.py` 自检，
+> **换电脑时不需要你手动跑脚本**：让 Agent 说一句「这台还没配」，它会先 `python Tool/scripts/check.py --env` 自检，
 > 未就绪则自己执行 `setup/install.ps1` 并校验（流程见 `Tool/docs/BOOTSTRAP.md`）。
 
 > **手工复制版**：`Tool/prompts/sources/逆向开工提示词.md`（完整）/ `Tool/prompts/sources/逆向开工提示词-短版.md`（一句话），直接整段复制给 Agent 即可。

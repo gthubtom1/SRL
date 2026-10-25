@@ -56,7 +56,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\sync-upstream.ps1 -Target all
 
 #### 0. 新机器 / 首次部署（由 Agent 完成，不要让用户手动跑脚本）
 ```bash
-python Tool/scripts/env-check.py --text   # 已就绪？
+python Tool/scripts/check.py --env   # 已就绪？
 powershell -ExecutionPolicy Bypass -File .\setup\install.ps1   # 未就绪则自己装
 powershell -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
 ```

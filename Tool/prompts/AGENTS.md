@@ -25,7 +25,7 @@
 
 > 细节与四栏汇报格式 → `MANUAL/DEPLOYMENT.md` 附录 A；核验基准 → `MANUAL/DEPLOYMENT-CHECKLIST.md`。
 
-- **首次部署**：`python Tool/scripts/env-check.py --text` → 未就绪**自己**跑 `setup/install.ps1` → `verify.ps1`（不要让用户手动跑脚本）。
+- **首次部署**：`python Tool/scripts/check.py --env` → 未就绪**自己**跑 `setup/install.ps1` → `verify.ps1`（不要让用户手动跑脚本）。
 - 没有 `setup/` 说明代码没落地：先 `git clone` 仓库，不要在空目录凭空执行安装命令。
 - 更新 `setup/update.ps1`（Linux `./setup/update.sh`）；卸载 `setup/uninstall.ps1`（先 `-DryRun`）；加工具/MCP/技能照 `Tool/docs/EXTEND.md` 走 4 步。更新幂等：stash → 备份 → 增量合并 `mcp.json`（绝不删用户条目）。
 - 部署或更新后跑 `verify.ps1 -Detailed` 出四栏看板；**未验证不得声称成功**。完成后提醒用户：完全重启会话，再发 `lab：`。

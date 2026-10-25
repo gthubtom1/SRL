@@ -1301,7 +1301,7 @@ Agent：env-check（缺什么）→ install.ps1（自己装）→ verify.ps1 61/
 
 ### 验证
 
-`env-check.py --text` 在本机 → `结论: 已就绪`，MCP 异常 0；`verify.ps1` 61/61；`preflight --fast` 11/11。
+`check.py --env` 在本机 → `结论: 已就绪`，MCP 异常 0；`verify.ps1` 61/61；`preflight --fast` 11/11。
 
 ---
 

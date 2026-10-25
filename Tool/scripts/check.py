@@ -79,7 +79,15 @@ def main():
     ap = argparse.ArgumentParser(description="跑全部检查（相当于 make test）")
     ap.add_argument("--fast", action="store_true", help="只跑快的子集（提交前用）")
     ap.add_argument("--list", action="store_true", help="列出套件后退出")
+    ap.add_argument("--env", action="store_true", help="只做环境体检（这台机器装没装好）")
     a = ap.parse_args()
+
+    if a.env:
+        # 环境体检 = env-check.py（装没装好）；与项目测试分开，但走同一个入口
+        rc = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "env-check.py"), "--text"],
+                            cwd=ROOT).returncode
+        print("环境体检：%s" % ("通过" if rc == 0 else "有问题（见上）"))
+        return rc
 
     suites = [s for s in SUITES if (not a.fast) or s[2]]
     if a.list:
