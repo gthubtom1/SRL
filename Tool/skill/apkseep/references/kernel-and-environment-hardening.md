@@ -297,3 +297,5 @@ defeated with a custom kernel module is not a deliverable anyone can install.
       configuration, not a kernel capability
 - [ ] Raw-syscall vs libc-call distinction verified by disassembly before building any spoof
 - [ ] No kernel development undertaken as part of an APK deliverable
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

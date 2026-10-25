@@ -101,6 +101,7 @@ Before hooking anything: is the process alive at all, in what state, and does it
 with nothing attached?
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb shell 'cat /proc/<pid>/status | head -4'   # state matters: D is uninterruptible sleep
 adb shell 'cat /proc/<pid>/stat  | cut -d" " -f3'
 ```
@@ -161,6 +162,7 @@ map to the checks. **If the device's linker does not expose the symbol:** switch
 (`scripts/svc_scan.py` on that library) rather than guessing an address.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # the symbol name is mangled; grep for the substring, not the bare name
 readelf -sW <linker64> | grep call_constructors
 ```
@@ -347,3 +349,5 @@ and which will mislead the next reader.
 - [ ] Separated "blocks my analysis" from "blocks the deliverable"
 - [ ] Nothing in the shipped artifact exists solely to fool a detector
 - [ ] Recorded the one-line environment fact if a route was closed
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

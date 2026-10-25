@@ -391,3 +391,5 @@ Static: asserted patch bytes, re-read from the built artifact, plus structural c
 layer that means an actual launch, because nothing about Dart AOT code proves itself statically.
 If the snapshot drives a decision that a server also enforces, see `membership-and-limits.md`:
 getting the client side right does not make the outcome reachable.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

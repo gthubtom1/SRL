@@ -82,6 +82,7 @@ python Tool/skill/pwn-crypto/scripts/pwn-repro.py --objdump evidence/chall.dis -
 | 同版本 libc | `ldd --version` | 远端泄漏低 12 位反查 libc-database | 只能给“疑似偏移” |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 for t in python3 gdb objdump readelf checksec ROPgadget one_gadget seccomp-tools strace; do
   printf '%-14s ' "$t"; command -v "$t" >/dev/null 2>&1 && echo ok || echo missing
 done
@@ -189,6 +190,7 @@ blocked.md               # 卡在哪段（L0–L4）+ 已排除路线 + 下一�
 ```
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 交接包自检：缺文件或运行次数不够就 rc=2
 python - <<'PY'
 import pathlib, sys

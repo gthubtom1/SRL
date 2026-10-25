@@ -60,6 +60,7 @@ sh 'curl --fail --output artifact.bin "$ARTIFACT_URL"'
 ## 4. 制品签名与来源
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 cosign verify <image> \
   --certificate-identity-regexp 'https://github.com/<org>/<repo>/.github/workflows/.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
@@ -88,6 +89,7 @@ gpg --verify dist/SHA256SUMS.sig dist/SHA256SUMS
 ## 6. 容器构建
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 docker history --no-trunc <image> | head -40
 trivy image --scanners vuln,secret <image>
 syft <image> -o table | head -40

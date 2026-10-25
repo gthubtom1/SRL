@@ -163,6 +163,7 @@ healthy, try root before suspecting the APK. [measured; the extension record has
 Verification has **two channels**, and on a device with a broken platform log only one of them works:
 
 ```sh
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1. the platform log — where the module's line normally appears
 adb logcat -s <TAG>              # then start the target app; do NOT clear the buffer first
 # 2. LSPosed's own module log — where it appears when logd is broken
@@ -351,3 +352,5 @@ native function over RPC: `references/emulation-and-rpc.md`.
 - `references/on-device-tooling.md` — MT Manager and the rest of the on-device kit
 - `references/verification.md` — what "done" means, including the control-build rule
 - `scripts/lsposed_scaffold.py` — generates the project skeleton described here
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

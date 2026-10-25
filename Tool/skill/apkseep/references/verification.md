@@ -27,6 +27,7 @@ Each rung is stronger evidence. Climb as high as the task requires, and **state 
 Before blaming a patch, build a control: **the same pipeline with zero patches**.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/repack.py --apk original.apk --dexdir <extracted> --out control.apk
 ```
 
@@ -40,6 +41,7 @@ Do this **whenever something unexpectedly fails**, and at least once per project
 After every dex edit:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_classdiff.py <original.dex> <patched.dex>
 ```
 Expect exactly:
@@ -60,6 +62,7 @@ Also confirm you changed what you intended and nothing more:
 ## Runtime verification
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> logcat -c
 adb -s <serial> shell "am start -n <pkg>/<activity>"
 sleep 5; adb -s <serial> shell "pidof <pkg>"      # empty == died
@@ -136,6 +139,7 @@ The ladder says what to prove; this block is how each rung is actually observed.
 placeholders, and keep the outputs — the outputs are the evidence, not the fact that you ran it.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # rung 2/3 — the artifact's identity, then proof the device runs *that* build
 sha256sum out.apk
 adb install -r out.apk
@@ -199,6 +203,7 @@ Rung 7 is the one people skip because it costs thirty seconds. It exists because
 re-signed by a pipeline, truncated by an upload, or replaced by a cached copy on a mirror.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # after publishing (substitute the transport you actually used)
 curl -sL <published-url> -o /tmp/redownload.apk
 sha256sum /tmp/redownload.apk out.apk        # both lines must match, byte for byte

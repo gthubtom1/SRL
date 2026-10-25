@@ -57,6 +57,7 @@
 机检采样量（纯标准库，不依赖 tshark）：
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import json, collections, pathlib
 rows = [json.loads(l) for l in pathlib.Path("artifacts/frames.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -103,6 +104,7 @@ framing_floor_ok True
 V1 的归一化比对（白名单只放时间戳/nonce/随机 id）：
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import hashlib, json, pathlib
 VAR = {"ts", "nonce", "timestamp", "request_id", "sid"}

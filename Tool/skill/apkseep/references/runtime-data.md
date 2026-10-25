@@ -30,6 +30,7 @@ Sometimes the cheapest fix is not code at all, but a value in app data. And some
 
 Read with root:
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb shell "su -c 'ls -la /data/data/<pkg>/files/datastore/'"
 adb shell "su -c 'xxd /data/data/<pkg>/files/datastore/<name>.preferences_pb | head -20'"
 ```
@@ -136,6 +137,7 @@ Cautions:
 ## SQLite
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb shell "su -c 'sqlite3 /data/data/<pkg>/databases/<db>.db \".tables\"'"
 adb shell "su -c 'sqlite3 ... \"select * from <table> limit 5;\"'"
 ```
@@ -146,6 +148,7 @@ Useful for: auth sessions (tokens), user profile caches (often a raw JSON blob),
 The app runs as its own uid. A file written by root with the wrong owner is unreadable, and directory permissions are `drwx------`.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 uid=$(adb shell "dumpsys package <pkg> | grep userId=" | tr -dc '0-9')
 adb shell "su -c 'chown -R $uid:$uid /data/user/0/<pkg>'"
 adb shell "su -c 'restorecon -R /data/user/0/<pkg>'"
@@ -190,6 +193,7 @@ Do the offline test first. It costs one launch and separates the two cases.
 
 1. **Immutable file attribute** — the reliable, reversible way to stop a rewrite:
    ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
    su -c "chattr +i <path/to/prefs.xml>"
    su -c "lsattr <path/to/prefs.xml>"      # expect the 'i' flag, e.g. -----i-------
    # to undo:
@@ -234,6 +238,7 @@ precisely so a naive decode fails.
 that yields a structured document, plus the exact parameters to re-encode your edited payload:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # pull the value straight out of a preferences XML and decode it
 python scripts/blob_decode.py --prefs-xml prefs.xml --name <key>      # (see --help for exact name)
 
@@ -253,3 +258,5 @@ it.
 - The server may overwrite your value on next sync — see *When the app rewrites your edit* above.
 - Do not edit a token you do not own and expect it to be accepted; tokens are validated server-side (`references/server-api.md`).
 - A restored data directory needs ownership fixed again after every reinstall, because the uid increments.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

@@ -31,6 +31,7 @@ Recognise the shape: numeric-only failure, no symbolic constant, installs fine v
 and a vendor package-installer/security process in logcat. Then bypass ADB's install path with root:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> push app.apk /data/local/tmp/app.apk
 adb -s <serial> shell "su -c 'pm install -r -g -d /data/local/tmp/app.apk'"
 ```
@@ -67,6 +68,7 @@ Consistency is not corroboration when every frame shares the same blind spot.
 
 - Check the foreground before trusting any capture, and again at the end of the sequence:
   ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
   adb -s <serial> shell "dumpsys activity activities | grep -m1 ResumedActivity"
   ```
   If the component is not your package, the frames are evidence about something else.
@@ -163,3 +165,5 @@ as P25/P26/P33, and it removes viable patch sites for free.
 - **Cross-check one known instruction** against a disassembler before trusting offsets you derived.
 - Build the width table from the format groups in `references/byte-level-patching.md` rather than
   from memory, and keep the width logic in one place so a fix applies everywhere.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

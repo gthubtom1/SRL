@@ -125,6 +125,7 @@ Two independent signals are the minimum, because a single copied `libflutter.so`
 a single asset directory can be a leftover. Static first (cheap), live second (confirms what runs).
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) static: what is actually in the package (names + sizes, not "I saw a lib")
 unzip -l target.apk | grep -E 'lib/(arm64-v8a|armeabi-v7a)/|assets/' | awk '{print $1, $4}' | sort -k2
 

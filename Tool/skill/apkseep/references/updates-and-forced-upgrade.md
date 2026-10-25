@@ -241,3 +241,5 @@ decision instead.
 - [ ] Startup siblings (splash dismissal, ads, consent, first-run) still complete
 - [ ] Hot-update / remote-config channel considered explicitly
 - [ ] Delivery note states what is now disabled
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

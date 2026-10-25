@@ -172,6 +172,7 @@
 > 上面 21–26 全部是“结论比证据走得快”的变体。把它们变成机检：**不许出现没有下游影响的判型、不许出现未测当未命中**。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 用法：按 01-criteria.md §6 先落 triage.json，再跑自检
 python - work/<case>/triage/triage.json <<'PY'
 import json, sys

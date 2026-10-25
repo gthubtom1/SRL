@@ -8,6 +8,7 @@
 ## 1. 锁定对象
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 git rev-parse HEAD | tee evidence/commit.txt
 git status --porcelain | tee evidence/worktree.txt
 sha256sum package-lock.json pnpm-lock.yaml yarn.lock requirements.txt poetry.lock \
@@ -21,6 +22,7 @@ docker image inspect <image> --format '{{.Id}} {{.RepoDigests}}' | tee evidence/
 ## 2. SBOM 生成
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 syft dir:. -o spdx-json=evidence/sbom.spdx.json
 syft dir:. -o cyclonedx-json=evidence/sbom.cdx.json
 syft <image> -o table | head -40

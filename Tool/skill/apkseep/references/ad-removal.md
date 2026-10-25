@@ -144,6 +144,7 @@ Logcat silence alone is weak evidence. A credible "ads are gone" claim needs all
    Make this a **count, not an impression**. Aggregators log a recognisable burst while they probe which networks are wired in (a "SDK id N not integrated" style line, once per network). Capture the same fixed window on the original and on your build and compare numbers: `8 -> 0` is a measurement; "I did not see it" is not. A tag that goes quiet without reaching zero usually means the SDK still starts and simply failed to load an ad this run — a different, weaker result than "the subsystem never started".
 3. **Filesystem, the strongest signal** — the app's private directory contains **no ad SDK working directory at all**:
    ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
    adb shell "su -c 'ls -la /data/data/<app.package>/files/'"
    ```
    For a dynamic-plugin SDK, an absent `<sdk>_p` tree proves the init gate never ran. It is not an artifact you can fake by hiding a view. If the tree exists, something still initializes the SDK: the init patch did not take effect, or a second init path exists.
@@ -178,3 +179,5 @@ Be honest about residual ads rather than breaking the app to chase them:
 
 If a residual ad cannot be removed without breaking something, say so, and say exactly
 which coupling caused it. That is a better deliverable than a broken APK.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

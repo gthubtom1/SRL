@@ -36,6 +36,7 @@ Ads and gates can be suppressed at several layers. Higher in this list = smaller
 ## Before you patch a method: blast-radius check
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/find_refs.py <smali_tree|dex|dir|apk> 'Lcom/pkg/Helper;->methodName(args)RetType'
 ```
 
@@ -132,6 +133,7 @@ This class has exactly one purpose, so patching it is safe.
 Only for **equal-length** replacements. Must preserve `string_ids` ordering.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_strpatch.py <in.dex> <out.dex> "<old>" "<new>"
 ```
 
@@ -152,6 +154,7 @@ Use when the change cannot be expressed as a single-method rewrite (adding a fie
 Tools: `scripts/smtool.py` (baksmali/smali with a bundled classpath) and `scripts/patch_smali.py` (method-body replacement by signature).
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/smtool.py d <in.dex> <out_tree>
 python scripts/patch_smali.py <tree> <patch.json> [--dry-run]
 python scripts/smtool.py a <tree> <out.dex>
@@ -160,6 +163,7 @@ python scripts/smtool.py a <tree> <out.dex>
 Then **must** verify (P3 will bite otherwise):
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_classdiff.py <original.dex> <rebuilt.dex>
 ```
 Expect: same class count, `only_in_A=0`, `only_in_B=0`, `ACC_INTERFACE mismatch=0`.
@@ -185,6 +189,7 @@ Patch spec format for `patch_smali.py`:
 Reverse-lookup from a smali tree or a set of disassembled dex:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/find_refs.py <tree> 'Lcom/pkg/AdHelper;->showSplash(...)V'
 ```
 
@@ -202,3 +207,5 @@ Search strategies that work:
 5. `dex_classdiff` every patched dex against the original → expect zero structural drift.
 6. Repack, sign, install, launch, exercise, read logcat.
 7. If anything is off, revert that dex to the original and re-verify the control build.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

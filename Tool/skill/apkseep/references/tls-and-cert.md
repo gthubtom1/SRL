@@ -45,6 +45,7 @@ Output you need: the exact URL, its host, and which label logged it.
 This step is independent of the app, the patch, and the device. It runs on a host whose clock you trust:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/tls_check.py <host>              # strict verification + certificate detail
 python scripts/tls_check.py <host> <host2>      # compare hosts in one run
 python scripts/tls_check.py <host> --json       # machine-readable; exit 2 if any host fails
@@ -80,6 +81,7 @@ with socket.create_connection(("<host>", 443), timeout=10) as raw:
 Dates, subject, and issuer in one line, if you prefer no script at all:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 openssl s_client -connect <host>:443 -servername <host> </dev/null 2>/dev/null \
   | openssl x509 -noout -subject -issuer -dates
 ```
@@ -179,3 +181,5 @@ Then the failure is about the app's own client configuration, not the platform d
 [ ] If OkHttp path: client-level config is the patch target instead
 [ ] Delivery notes state the client-side scope and the server-side root cause
 ```
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

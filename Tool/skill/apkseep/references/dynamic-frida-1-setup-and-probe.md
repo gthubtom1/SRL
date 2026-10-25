@@ -33,6 +33,7 @@ Use Frida when you need to answer:
 With a physical device *and* an emulator attached, `frida.get_usb_device()` can silently pick the emulator — you then attach to the wrong process and chase phantom failures for a long time. Address the device explicitly:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb devices -l                                  # get <serial>
 adb -s <serial> forward tcp:27042 tcp:27042
 frida -H 127.0.0.1:27042 -f <app.package> -l probe.js --no-pause
@@ -93,6 +94,7 @@ look identical from the host — test for both in one go:
 Run it as root, give it a non-obvious name out of obvious paths, and **detach it from the shell's session**. A process started with `nohup ... &` from an `adb shell` that then exits gets reaped mid-run — the hooks work for a minute and then stop.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb push frida-server-<ver>-android-<abi> /data/local/tmp/
 adb shell "su -c 'mkdir -p /data/local/tmp/.svc'"
 adb shell "su -c 'cp -f /data/local/tmp/frida-server-<ver>-android-<abi> /data/local/tmp/.svc/kwork'"
@@ -378,7 +380,9 @@ Java.perform(function () {
 Read the log after driving the UI. `RAW-URL` (with no `OKHTTP` events) is how you learn the request went over `HttpsURLConnection` — a different trust path entirely (`references/tls-and-cert.md` §If OkHttp is the failing path). `THROW` is how you learn an upper layer swallowed the real error.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # pull the record (app-private path needs root to read)
 adb -s <serial> shell "su -c 'cat /data/user/0/<app.package>/files/probe.log'" > probe.log
 ```
 
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

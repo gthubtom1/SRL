@@ -59,6 +59,7 @@ you find one to copy, and it is also how you tell, before anything else, that th
 to patch is not a single APK:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb shell 'pm path <PKG>'
 package:/system/priv-app/<DIR>/<APP>.apk
 package:/system/priv-app/<DIR>/<APP>-arm64_v8a.apk
@@ -75,6 +76,7 @@ adb shell 'for p in $(pm list packages | cut -d: -f2); do c=$(pm path $p | wc -l
 Copy the whole directory out; the members live side by side:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb shell 'su -c "ls -la /system/priv-app/<DIR>/"'
 adb pull /system/priv-app/<DIR> <dest>/
 ```
@@ -98,6 +100,7 @@ has nothing to do with your pipeline (). Either work on a set you own, or rename
 Run this first — it writes nothing and answers with a reason:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python skills/apkseep/scripts/repack.py --split-dir <set>/ --split-mode analyze
 ```
 
@@ -130,6 +133,7 @@ Failure modes, one per route:
 ## 4. Unified signing — the route that always works
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python skills/apkseep/scripts/repack.py \
     --split-dir <set>/ --split-mode resign \
     --split-out-dir <signed_set>/ \
@@ -148,6 +152,7 @@ certificate across the whole set**:
 Then install the whole set, base included:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb install-multiple -r <signed_set>/*.apk
 adb shell "su -c 'pm install-multiple -r /data/local/tmp/set/*.apk'"   # when an OEM installer refuses the multi-APK form
 ```
@@ -178,6 +183,7 @@ alignment Android R+ requires of `resources.arsc`.
 ## 5. Merging into a single APK
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python skills/apkseep/scripts/repack.py \
     --split-dir <set>/ --split-mode merge --out merged.apk \
     --abi arm64-v8a --ks key.jks --apksigner <path/to/apksigner>
@@ -323,3 +329,5 @@ can use. There is nothing to select on your side.
   feature-split *resources* do not.
 - The install-failure texts in §6 are the shape the platform produces; **the exact wording varies by
   Android version and by OEM installer**. Read the text after the constant, not the constant.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

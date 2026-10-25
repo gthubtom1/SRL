@@ -34,6 +34,7 @@ python Tool/skill/supply-chain-security/scripts/sc-check.py --path . --out sc.js
 - 依赖声明使用 `^`/`*`/`latest`，同名包可随时替换内容。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 看本仓库实际配置（只读）
 cat .npmrc 2>/dev/null
 npm config get registry

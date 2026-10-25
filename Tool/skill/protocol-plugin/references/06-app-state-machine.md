@@ -120,6 +120,7 @@ USENIX Security 2026 对抗式 LLM 生成格式规范。LLM 只负责提假设�
 手工读几十帧会漏边。先用字节级邻接把候选边提出来，再人工/LLM 命名并回填帧号：
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import collections, json, pathlib
 rows = [json.loads(l) for l in pathlib.Path("artifacts/streams/frames.jsonl")
@@ -227,6 +228,7 @@ built 35
 ## 6.1 心跳与超时的测量（样本 ≥5 个周期）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import json, pathlib, statistics
 rows = [json.loads(l) for l in pathlib.Path("artifacts/streams/frames.jsonl")

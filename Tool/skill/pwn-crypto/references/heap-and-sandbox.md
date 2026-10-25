@@ -265,6 +265,7 @@ flag/root 输出与会话时间
 ### 5.1 证据包自检（交付前 30 秒）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import json, pathlib
 need = ["evidence/checksec.txt", "evidence/leak.txt", "exploit.py"]

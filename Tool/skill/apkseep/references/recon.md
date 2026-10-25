@@ -115,6 +115,7 @@ Then confirm survivors actually parse (`baksmali`/dexlib2) or load on device. He
 **5. Which dump is the app's own business dex.** Count string-feature hits per dump instead of trusting file order:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_strings.py <dump_dir> --find 'Lcom/example/app/' --per-file
 python scripts/dex_strings.py <dump_dir> --find 'Lcom/example/adsdk/' --per-file
 ```
@@ -136,6 +137,7 @@ Heuristic: the business dex mixes the app's package prefix (hundreds of hits) wi
 For a **Kotlin/Java app**, note the module layout: app code often lives in a small subset of dex files while large SDKs occupy the rest. Finding which dex holds the app's package is a huge time-saver:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_strings.py <dex_dir> --find 'Lcom/example/app/' --per-file
 ```
 
@@ -146,6 +148,7 @@ Consequence for editing: you usually only need to replace **one or two dex files
 Extract strings across all dex and group by vendor markers. This reveals ads, analytics, crash reporting, attribution, and any anti-tamper SDK, in one pass.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_strings.py <dex_dir> --urls
 python scripts/dex_strings.py <dex_dir> --find 'anythink|openadsdk|com.qq.e|umeng|bugly|crashsdk'
 ```
@@ -175,6 +178,7 @@ Confirm by checking whether **app code** references it. If the only callers are 
 ## 6. API surface
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_strings.py <dex_dir> --urls
 ```
 
@@ -202,3 +206,5 @@ anti-tamper: present? where? app-side or library-internal?
 API base + notable endpoints
 device plan (rooted real device / emulator / static only)
 ```
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

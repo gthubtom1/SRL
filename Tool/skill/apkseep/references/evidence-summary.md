@@ -241,6 +241,9 @@ honest — and they are exactly the questions that turn `observed` into somethin
 The table above exists to be *cited*: when your claim's shape matches a row, cite the row and add your
 own target; when it does not, say "no row matches" and treat your own result as the first measurement.
 
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。
+
 ## 这一篇算"用对了"吗
 
 - [ ] 我用的是 JSON 里的 `status` / `strength` / `route_measured`，而不是表格里的措辞印象

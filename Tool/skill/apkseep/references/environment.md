@@ -18,6 +18,7 @@
 ## ADB basics worth pinning down
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb devices -l
 adb -s <serial> shell getprop ro.product.cpu.abi
 adb -s <serial> shell getprop ro.build.version.release
@@ -26,6 +27,7 @@ adb -s <serial> shell getprop ro.build.version.sdk
 
 Root:
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c id"
 ```
 `pm grant` and `pm install` frequently require root on OEM builds; the `shell` user gets `SecurityException`.
@@ -52,6 +54,7 @@ Same class of bug: `javac` reads sources using the platform default encoding. Pa
 Use when the device has no usable network (broken Wi-Fi, no SIM, restricted network) but your host does. **`adb reverse` runs on the device's loopback, so it needs no device-side network interface at all.**
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) host HTTP/HTTPS proxy (CONNECT-capable)
 python scripts/usb_net_proxy.py 8080 proxy.log
 
@@ -77,6 +80,7 @@ port forwards, a dead device server, the ABI the package manager actually chose,
 space left for installs.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/preflight.py --pkg <app.package> --expect-root
 python scripts/preflight.py --cleanup      # also clears a leftover proxy and stale forwards
 ```
@@ -127,6 +131,7 @@ Emulators are the right place to iterate and the wrong place to conclude.
   rather than assume:
 
   ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
   adb -s <serial> shell "su -c id"     # want: uid=0(root)
   ```
 
@@ -152,6 +157,7 @@ before you choose which library to patch, and `scripts/lib_map.py` to see the li
 ## Install / reinstall
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c 'pm uninstall <pkg>'"
 adb push out.apk /data/local/tmp/x.apk
 adb -s <serial> shell "su -c 'pm install -r -t -d /data/local/tmp/x.apk'"
@@ -162,6 +168,7 @@ adb -s <serial> shell "su -c 'pm install -r -t -d /data/local/tmp/x.apk'"
 
 **After reinstalling:** if you restored a data directory, fix ownership, or the app crashes in a DB-init path:
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 su -c "chown -R <uid>:<uid> /data/user/0/<pkg>"
 su -c "restorecon -R /data/user/0/<pkg>"
 ```
@@ -176,6 +183,7 @@ Automated UI interaction is where verification loops usually break, and most of 
 On some OEM ROMs `input tap <x> <y>` is silently ignored for certain controls while working fine for others at neighboring coordinates. **Do not conclude that your automation is wrong.** Before doubting the script:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c 'uiautomator dump /sdcard/ui.xml'"
 adb -s <serial> pull /sdcard/ui.xml
 # bounds="[x1,y1][x2,y2]" -> tap the center: ((x1+x2)/2, (y1+y2)/2)
@@ -225,6 +233,7 @@ The tree is more convenient *when it exists* — it gives you tap coordinates an
 **verify it has content before planning around it**:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c 'uiautomator dump /sdcard/ui.xml'"
 adb -s <serial> pull /sdcard/ui.xml
 grep -c '<node' ui.xml          # 0 nodes -> the tree is useless for this screen
@@ -240,6 +249,7 @@ not exist.
 `screencap` itself returns a 0-byte file on some ROMs. Write on-device and pull instead:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c 'screencap -p /sdcard/x.png'" && adb -s <serial> pull /sdcard/x.png
 ```
 
@@ -252,6 +262,7 @@ a paused animation is usually the cause.
 Filling a form and tapping submit is **not** a verified interaction. Read the actual field contents and lengths back first:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c 'input text <value>'"       # no literal spaces; %s encodes one
 adb -s <serial> shell "su -c 'uiautomator dump /sdcard/ui.xml'"
 adb -s <serial> pull /sdcard/ui.xml
@@ -265,6 +276,7 @@ A whole class of "the button does nothing" is really a local validation rejectin
 Aggressive ROMs freeze backgrounded apps; the logcat signature is a process state transition `state: R -> F` (running to frozen). Once frozen, hooks stop firing and network calls stop, which looks exactly like a broken probe.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "su -c 'dumpsys deviceidle whitelist +<app.package>'"
 adb -s <serial> shell "su -c 'cmd appops set <app.package> RUN_IN_BACKGROUND allow'"
 ```
@@ -274,6 +286,7 @@ While debugging, **do not press HOME** — backgrounding the app is what trigger
 ## Signal extraction (what to actually read)
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> logcat -c                                  # clear before the run
 adb -s <serial> shell "am start -n <pkg>/<activity>"
 adb -s <serial> logcat -d -v brief | grep -E '<pkg>|FATAL|VerifyError|IncompatibleClassChange|uncaughtException'
@@ -294,6 +307,7 @@ Failure signatures worth memorizing:
 1. **Frida**, hooking `Thread.setDefaultUncaughtExceptionHandler` or the handler class (most reliable).
 2. **Race the reporter's log file**: it writes a file under `<app data>/<sdk>/...` then uploads and deletes it. Poll it every ~0.2 s from the device shell and copy on sight:
    ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
    while [ $i -lt 400 ]; do
      for f in <dir>/*.log; do [ -f "$f" ] && cp -f "$f" /data/local/tmp/capture.log; done
      i=$((i+1)); sleep 0.2
@@ -304,3 +318,5 @@ Failure signatures worth memorizing:
 ## Determinism
 
 Before concluding anything from a failure: **reboot the device and retry**, and **run a control build with zero patches**. A surprising share of "my patch broke it" turns out to be device state (`pitfalls-2-environment-and-evidence.md`).
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

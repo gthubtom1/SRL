@@ -30,6 +30,7 @@ fit inside a single lifetime.
 ### Read the map before choosing the bytes
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb shell 'su -c "pidof <PKG>"'                       # may return nothing mid-restart
 adb shell 'su -c "ps -A -o PID,NAME | grep -w <PKG>"' # more robust: matches either way
 adb shell 'su -c "cat /proc/<pid>/maps"' > maps.txt
@@ -66,6 +67,7 @@ arithmetic only.
 ### Export, then prove it is a dex
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # inside one lifetime of the process: export a candidate range
 dd if=/proc/<pid>/mem iflag=skip_bytes,count_bytes skip=<DEC_START> count=<SIZE> \
    of=/data/local/tmp/seg_<n>.bin bs=256k
@@ -334,3 +336,5 @@ for the island itself.
 | Sample self-exits and restarts with no instrumenter present | The packer's own check, not your hook; shorten every step to one lifetime | §Dumping when frida is refused |
 | Methods are `native` stubs with a `Java_*` export | JNI sinking — read the function in the `.so` | `java2c-and-jni-sinking.md` |
 | Bodies present, decode as nonsense | Real VMP — **but confirm with `dexdump` first**, then differential oracle or walk away | §Establish "the bodies do not decode" with a decoder you did not write |
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

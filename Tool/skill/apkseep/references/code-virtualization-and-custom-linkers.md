@@ -218,3 +218,5 @@ A string-redirect fix is verified by the **absence of the loader**, not by the a
 
 Record the original and patched bytes, the offset, and the loader log counts before/after in the
 patch record — the same audit standard as any other byte-level edit.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

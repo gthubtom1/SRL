@@ -370,3 +370,4 @@ SetProcessMitigationPolicy(ProcessDynamicCodePolicy, &policy, sizeof(policy));
 - 代理 DLL 能加载但目标无行为 → 查位数/依赖/DllMain/反注入，不要继续加补丁。
 - 边界：本 SOP 以 Windows x64 为主；ARM64 调用约定见 `references/07-disassembly-deep-read.md`，ELF/Mach-O 只做等价映射。
 
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

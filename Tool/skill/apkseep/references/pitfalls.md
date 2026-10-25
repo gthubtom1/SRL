@@ -69,6 +69,7 @@ pitfalls-1-packaging-and-dex.md:15:## P1. Stripping the whole `META-INF/` ...
 `SKILL.md` §Coverage 记录了这个教训）。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 用"症状"和"机制"两个关键词各查一次；两个都空，才是新条目
 grep -rn -i '<症状关键词>' pitfalls-*.md
 grep -rn -i '<机制关键词>' pitfalls-*.md

@@ -95,6 +95,7 @@ The matrix earlier in this file is a hypothesis until four requests have been ma
 order — each one is cheaper than the next and one of them usually ends the question.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) metadata endpoint, unauthenticated: is the valuable field even present?
 python scripts/probe_api.py --base <base_url> --path /videos/<id> --json-out meta.json
 

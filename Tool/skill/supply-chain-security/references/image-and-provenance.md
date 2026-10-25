@@ -9,6 +9,7 @@
 ## 0. 钉住对象
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 本地镜像：拿到 RepoDigests / Id / 配置
 docker image inspect <image> --format '{{.Id}} {{.RepoDigests}} {{.Created}}'
 docker image inspect <image> --format '{{json .Config}}' | head -c 1000
@@ -27,6 +28,7 @@ docker pull <image>@sha256:<digest>
 ## 1. SBOM 与镜像内容
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 syft <image> -o cyclonedx-json=work/<case>/image.cdx.json
 syft <image>@sha256:<digest> -o spdx-json=work/<case>/image.spdx.json
 trivy image --scanners vuln,secret <image>@sha256:<digest> -f json -o work/<case>/image.trivy.json
@@ -47,6 +49,7 @@ tar -tf image.tar | head
 ### 2.1 keyless / OIDC
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 cosign verify <image>@sha256:<digest> \
   --certificate-identity-regexp '^https://github\.com/<org>/<repo>/\.github/workflows/<wf>@refs/heads/main$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
@@ -60,6 +63,7 @@ cosign verify-attestation <image>@sha256:<digest> \
 ### 2.2 key-based / 企业签名
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 cosign verify --key cosign.pub <image>@sha256:<digest>
 cosign verify-blob --signature artifact.sig --certificate artifact.pem artifact
 gpg --verify artifact.sig artifact
@@ -74,6 +78,7 @@ minisign -Vm artifact -p pubkey.pub
 ## 3. SLSA / 来源证明
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 cosign verify-attestation <image>@sha256:<digest> --type slsaprovenance \
   | jq -r '.payload' | base64 -d | jq '.predicate'
 cosign download attestation <image>@sha256:<digest> | jq .
@@ -130,6 +135,7 @@ cosign verify-blob --signature artifact.sig --certificate artifact.pem artifact.
 ## 5. 运行面与最小权限
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 docker image inspect <image>@sha256:<digest> --format '{{.Config.User}}'
 docker run --rm <image>@sha256:<digest> id
 syft <image>@sha256:<digest> -o table | grep -Ei 'curl|wget|gcc|make|npm|pip'
@@ -206,6 +212,7 @@ syft <image>@sha256:<digest> -o table | grep -Ei 'curl|wget|gcc|make|npm|pip'
 ## 11. 命令与“通过长什么样”（来源复验）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 IMAGE=registry.example/app; DIGEST=sha256:<64hex>
 
 # 1) 对象

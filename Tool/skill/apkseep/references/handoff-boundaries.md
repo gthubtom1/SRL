@@ -86,6 +86,7 @@ If the third column has no answer, stop: you are about to spend hours in a layer
 ## Command block: locate the boundary with numbers, not with an impression
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # JNI: which of the three forms is this library? ("exports JNI_OnLoad and zero Java_*" is the shape
 # that fires on real dynamically-registering / Java2C-built libraries)
 python scripts/java2c_probe.py --apk target.apk --json

@@ -389,3 +389,5 @@ ja  debugger_detected
 - 细节：[CET/LACUNA](../../../mcp/Tool/reverselab/kb/windows/techniques/2026-cet-lacuna-pdata.md)（影子栈 + `.pdata` 假栈）、
   [26H2](../../../mcp/Tool/reverselab/kb/windows/techniques/2026-win11-26h2-kernel.md)（HVCI/KCET/KDP）、
   [VMP UltraLock](../../../mcp/Tool/reverselab/kb/windows/techniques/2026-vmp-ultralock.md)（TitanHide/DRx 反检测）。
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

@@ -211,6 +211,7 @@ testsigning               Yes
 | 5 | 与静态对照（哪些地址在原始节） | 一张“地址 → 节”表 | 能看到从壳节跳入原始节的那一跳 |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # Linux 侧最小示例（Windows 下按本机可用工具等价处理）
 perf list | grep -m1 intel_pt
 grep -m1 -o 'intel_pt' /proc/cpuinfo || echo "no PT flag"

@@ -40,6 +40,7 @@ QEMU_LD_PREFIX="$ROOT" qemu-mipsel-static "$ROOT/bin/busybox" sh -c 'id'
 ## 2. qemu-system：完整系统与网络
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # MIPS Malta 示例；ARM 常用 -M virt，具体 machine 以 qemu-system-<arch> -M help 为准
 qemu-system-mipsel -M malta -m 256M \
   -kernel "$OUT/vmlinux" \
@@ -60,6 +61,7 @@ qemu-system-mipsel -M malta -m 256M \
 ## 3. FirmAE / Firmadyne：自动化与日志
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # FirmAE（参数以本地版本为准）
 ./run.sh -r mipsel /path/to/firmware.bin
 # 结果通常在 scratch/<id>/，看 qemu.*.log 与 run.sh
@@ -79,6 +81,7 @@ Firmadyne 手工链：`extractor.py` → `getArch.sh` → `makeImage.sh` → `in
 ## 4. 最小桩：NVRAM、mtd、设备节点
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 只读副本上做
 mkdir -p "$ROOT/var/nvram" "$ROOT/dev"
 # 依据固件里的默认值/字符串补键，不要凭空造生产配置

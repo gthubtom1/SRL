@@ -30,6 +30,7 @@
 ## 命令块 A：一次拿到"能/不能"的结论
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) 能力闭合：BLOCKED 的那一项，缺的是什么，下一步做什么
 python scripts/doctor.py --json > doctor.json
 python scripts/doctor.py --capabilities          # 人读版：每项缺哪些原子
@@ -146,6 +147,7 @@ not_used:    <tool> 因为 <reason>（写下来，防止下次重新评估）
 装一件工具的正确收尾不是"命令能跑"，而是：
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) 版本 + 来源（写进记录）
 <tool> --version
 

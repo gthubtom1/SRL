@@ -140,6 +140,7 @@ op 0x02 -> 0x401310  head=6a006800
 | `confidence` | high/medium/low | ✅ |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 工作表用 CSV 管，方便脚本与统计（不引入依赖）
 printf 'op,mne,operand,stack_in,stack_out,side_effect,handler_va,evidence,confidence\n' > code.csv
 python - <<'PY'

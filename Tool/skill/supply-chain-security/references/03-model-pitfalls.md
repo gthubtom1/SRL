@@ -237,6 +237,7 @@
 ## 纠偏命令：把“像结论”压成字段
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) 锁文件来源与完整性
 jq -r '.packages | to_entries[] | select(.value.resolved) | [.key,.value.resolved,(.value.integrity!=null)] | @tsv' \
   package-lock.json 2>/dev/null | head -20

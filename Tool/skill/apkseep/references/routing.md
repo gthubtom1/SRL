@@ -264,6 +264,9 @@ activation wins — that is `SKILL.md`.
 5. **Retiring**: do not delete the row silently. Remove the file, move its distinguishing content to the
    surviving file, and leave one line here saying where it went — external notes and logs cite paths.
 
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。
+
 ## 这一篇算"用对了"吗
 
 - [ ] 我是从症状进来到文件的（症状索引 → Reference index），而不是从文件名猜起

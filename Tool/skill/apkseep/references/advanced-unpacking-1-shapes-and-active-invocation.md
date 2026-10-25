@@ -82,6 +82,7 @@ and is excluded from the ratio. A method with a `code_item`, real `insns_size`, 
 lone `return-void` inside is what an extraction shell leaves behind.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_dump_validate.py <dump_dir> --find 'Lcom/example/app/'
 ```
 
@@ -263,3 +264,4 @@ an extraction shell it can only ever produce the **skeleton**, because the missi
 bodies exist nowhere in memory until invoked. No amount of re-dumping fixes that;
 only the invocation loop recovers them.
 
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

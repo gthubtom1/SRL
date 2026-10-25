@@ -178,3 +178,5 @@ give up** — do not silently substitute a weaker method and report its result a
 When you report, name the tools and versions that produced each finding. Two agents with different
 tool versions will reach different conclusions about the same binary, and without the version that
 difference is unresolvable later.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

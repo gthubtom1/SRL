@@ -397,3 +397,4 @@ LogToFile("[HOOK] -> REWRITE (%d chars) BYTES: %s\n", n, hexDump);
 - 本卷讲「怎么读」，不讲「怎么利用」；补丁与注入分别见 `09-patch-engineering.md` 与 `05-windows-sop.md`。
 - 编译器模式是概率判断，不是定律；不同版本/优化级别会变形，必须用目标实测复核。
 - 反汇编结论必须与动态行为/字符串/导入表交叉；单靠静态模式容易误判。
+

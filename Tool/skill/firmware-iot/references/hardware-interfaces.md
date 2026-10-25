@@ -89,6 +89,7 @@ U-Boot> tftpboot 0x81000000 dump.bin
 | GND/VREF | GND, VCC | 必须共地；VREF 用于电平检测 |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 先扫描 IDCODE，确认 TAP 链；interface 按编程器改（ftdi/ft2232/jlink/stlink）
 openocd -f interface/ftdi/ft2232.cfg \
   -c "adapter speed 1000; transport select jtag; scan_chain" \
@@ -131,6 +132,7 @@ flashrom -p ch341a_spi --flash-name
 ## 5. 逻辑分析仪辅助
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 例：sigrok/PulseView CLI，采样率至少 4× 波特率
 sigrok-cli -d <driver>:conn=/dev/ttyACM0 --config samplerate=1m \
   --channels D0,D1 --time 2s -o uart.sr
@@ -175,6 +177,7 @@ sigrok-cli -d <driver>:conn=/dev/ttyACM0 --config samplerate=1m \
 本章所有判据都依赖射频硬件。动手前先花 10 秒问一句：**这台机器现在有哪几样仪器？**
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python Tool/scripts/tool-acquire.py --radio-only --json                  # ≤10s，不需要 --target
 python Tool/scripts/tool-acquire.py --radio-only --out work/<case>/radio.json
 python Tool/scripts/tool-acquire.py --self-test                          # 离线自检：只测判定/解析函数，无硬件访问
@@ -233,6 +236,7 @@ python Tool/scripts/tool-acquire.py --self-test                          # 离�
 硬件：支持 monitor mode + 包注入的网卡（ath9k_htc / MT7612U 一类）；`iw dev` 能看到 `type monitor` 才算可用。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 ## 1) 进入监听（先确认接口名与信道）
 sudo airmon-ng start wlan0
 sudo airodump-ng wlan0mon --band abg -w work/<case>/scan
@@ -258,6 +262,7 @@ hashcat -m 22000 work/<case>/hs.hc22000 <WORDLIST> --status --status-timer 10
 硬件：CSR4.0 / nRF52 一类可注入的适配器；`bluetoothctl` + `gatttool`/`bettercap` 足够做枚举。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 ## 枚举 + 读 GATT
 sudo bettercap -iface hci0 -eval "ble.recon on"
 gatttool -b <MAC> --primary
@@ -286,6 +291,7 @@ Classic（SPP/HFP）走 `sdptool browse <MAC>` 看服务面；配对降级看是
 - LoRaWAN：ABP 会话固定，帧计数器（FCnt）不增即重放成立；OTAA 每次入网新密钥，只能打 `Join-Accept` 重放或设备端漏洞。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 ## sub-GHz 固定码对照
 hackrf_transfer -r work/<case>/press1.iq -f <FREQ_HZ> -s 1000000 -n 4000000
 hackrf_transfer -r work/<case>/press2.iq -f <FREQ_HZ> -s 1000000 -n 4000000
@@ -392,9 +398,3 @@ cmp -s spi-1.bin spi-2.bin && echo backup-consistent || echo DO-NOT-WRITE
 | --- | --- | --- |
 | 串口 | 日志可读，出现提示符/login | 乱码 → 电压/波特率/交叉 |
 | JTAG | `scan_chain` 有 IDCODE | 无 → VREF/速率/引脚 |
-| SPI | `--flash-name` 匹配；两次哈希一致 | 不一致 → 接触/供电，停写 |
-| 备份 | `cmp` 一致且已存异地 | 不一致 → 禁止任何写操作 |
-| 证据 | 接线照片 + 电压 + 命令输出 | 只有“接上了” |
-
-## 这一篇算"用对了"吗
-

@@ -109,6 +109,7 @@ arm code executes; its output comes back as a Java value.
 **This repository does not bundle unidbg** — it is a Java/maven project, not a script. To use it:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 git clone --depth 1 https://github.com/zhkl0228/unidbg.git
 cd unidbg
 # Windows + JDK 17 (measured): the shipped pom pins -source/-target 8, and on JDK 9+
@@ -285,6 +286,7 @@ Typical session (device server already running and forwarded, `references/dynami
 §Setup):
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> forward tcp:27043 tcp:27043
 python scripts/frida_rpc_serve.py --remote 127.0.0.1:27043 --package com.example.app \
     --script scripts/rpc_template.js --mode repl
@@ -338,3 +340,5 @@ The routes compose rather than compete:
   decisive for a hardened target — whether injection survived at all
 - inputs/outputs for at least one call verified against an independent source (device-side log,
   server response, or a known-answer test)
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

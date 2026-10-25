@@ -5,6 +5,7 @@ If the behavior you want to change is produced by a response, patch the client a
 ## Harvest the API surface from the client
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/dex_strings.py <dex_dir> --urls
 python scripts/dex_strings.py <dex_dir> --find 'https?://'
 ```
@@ -16,6 +17,7 @@ Two patterns to watch for:
 - **Static base URL** — straightforward.
 - **Dynamic gateway** — the real host is fetched at runtime (commonly a DNS TXT record over DoH, or a small config endpoint). The hardcoded host may be a fallback. Symptom: requests go to a host that differs from anything in the dex.
   ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
   # TXT lookup, the usual shape:
   #   https://<doh-provider>/resolve?name=<domain>&type=txt
   # returns something like  "https://<gateway-host>"
@@ -25,6 +27,7 @@ Two patterns to watch for:
 ## Reproduce requests faithfully
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/probe_api.py --base <base_url> --path /some/path --header 'X-App-Name: <value>'
 ```
 
@@ -99,6 +102,7 @@ The difference between a 403 and a 200 is almost always **one header** or **one 
 means: take the header set out of the dex, send exactly those, and keep your own egress out of the way.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 0) harvest the header names/values and the paths from the dex first
 python scripts/dex_strings.py ./dexdump --find '(?i)x-[a-z-]+|appkey|app-key|channel|device-id' --per-file
 python scripts/dex_strings.py ./dexdump --urls
@@ -132,6 +136,7 @@ egress changes the answer; the device on the same network is the control (`tls-a
 Four mechanisms look alike in a captured request and behave completely differently after a repack.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) is a certificate involved? (strict check, classified failure)
 python scripts/tls_check.py <host> --json
 
@@ -197,6 +202,7 @@ A gateway that is fetched at runtime makes every static host guess stale, and it
 fails" a bad reason to abandon a route. The check is small:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) look for a resolver shape in the dex: DoH paths, TXT mentions, a config endpoint name
 python scripts/dex_strings.py ./dexdump --find '(?i)dns|txt|resolve|gateway|config\?|bootstrap'
 

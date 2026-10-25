@@ -325,3 +325,4 @@ success. If a build that installed a minute ago now returns `[-124]`, suspect th
 
 ---
 
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

@@ -70,6 +70,7 @@ PY
 扫描客户端里的算法常量（纯标准库，不依赖 grep -P）：
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import pathlib
 blob = pathlib.Path("client.bin").read_bytes()
@@ -314,6 +315,7 @@ python -c "import crcmod; print(crcmod.predefined._crc_definitions[:3])" 2>/dev/
 没有工具时的最小穷举（反射/非反射 + init 0/全 F + xorout 0/全 F，共 8 组）：
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import binascii
 msg, want = b"SPRX\x01\x01\x00\x24\x00\x00\x00\x01{}", 0x1234

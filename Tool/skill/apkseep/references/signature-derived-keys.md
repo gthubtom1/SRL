@@ -15,6 +15,7 @@ server problem and is actually a signing problem.
 ## How to spot it (four greps, minutes)
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # the usual shape: signature bytes handed to a crypto helper
 grep -rn "toCharsString()" <decompiled_sources>
 grep -rn "getPackageInfo(.*, *64)" <decompiled_sources>      # 64 = GET_SIGNATURES
@@ -61,6 +62,7 @@ and every request signing parameter evaluating to `-1`.
 **Route A — from the device (authoritative):**
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/sig_probe.py --live <pkg>                  # needs Frida + a rooted device
 ```
 
@@ -74,6 +76,7 @@ device. This is the only value that is guaranteed to match what the app computes
 **Route B — offline, to cross-check:**
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python scripts/sig_probe.py --apk <original.apk>
 ```
 
@@ -154,6 +157,7 @@ Run this **before** the first repack of any target, not after the first signed r
 three artefacts: the read sites, the candidate values with lengths, and the authoritative value.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) enumerate read sites over the dex strings (no decompiler needed: the API descriptors are strings)
 python scripts/dex_strings.py ./dexdump --find 'toCharsString|Landroid/content/pm/Signature;|GET_SIGNATURES' --per-file
 

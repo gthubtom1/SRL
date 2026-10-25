@@ -368,3 +368,5 @@ Discipline can itself become a burden. Guard against that too:
 - **Do not let grades calcify.** A hypothesis that becomes testable should be tested, not archived.
 - **Do not let the record's structure dictate the work.** If a section is empty because it is not
   relevant to this task, leave it empty.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

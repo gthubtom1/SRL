@@ -78,6 +78,7 @@ $ sha256sum -c evid/manifest.sha256
 | 改一处需要同时改 N 处才生效 | 冗余校验（多份副本互相比对） | 搜同一段字节在镜像里出现的次数 |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 确认"是不是被写回"：两次 dump 差分（外部读，不注入）
 python Tool/skill/malware-analysis/scripts/dump-restore.py dump --pid <pid> --out d_before.bin
 # …在调试器里改一个字节…

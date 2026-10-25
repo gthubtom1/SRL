@@ -100,6 +100,7 @@ diec target.exe                     # 独立第二路（交叉验证→E3）
 | overlay | `filesize - max(PointerToRawData+SizeOfRawData)` | >4KB 且熵 >7.0 → 记 `overlay-payload` | 安装包/自解压也有 overlay |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 一次算完：节表 + 熵 + 可执行占比 + overlay + 导入数（只读，纯标准库）
 python - <<'PY'
 import math, struct, subprocess, sys
@@ -214,6 +215,7 @@ overlay: 0
 > 原则：先解包，解包失败立即转 B 类，不要在"继续调 upx 参数"上消耗第二次熔断机会。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) 先看能不能识别（只读，不解包）
 upx -l target.exe                     # 列出压缩块与版本；报 NotPackedException 说明不是标准 UPX
 upx -t target.exe                     # 完整性测试

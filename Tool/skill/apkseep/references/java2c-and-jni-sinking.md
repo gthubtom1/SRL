@@ -154,6 +154,7 @@ The table above is only usable if the numbers can be produced in a minute. They 
 two files: the dex and the `.so`.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) the whole discrimination in one report (density, per-class dominance, Java_* vs native count)
 python scripts/java2c_probe.py --apk target.apk --json > j2c.json
 python scripts/java2c_probe.py --apk target.apk          # human report, with weak hits in a warning block

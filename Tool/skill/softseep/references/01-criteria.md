@@ -84,6 +84,7 @@
 > 三者的共同前提：先落 SHA256 与 `file` 输出，再开始解析头；**不要先开反编译器**。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 S="<样本>"; OUT="work/<case>/triage"; mkdir -p "$OUT"
 sha256sum "$S" | tee "$OUT/sha256.txt"
 file "$S" | tee "$OUT/file.txt"
@@ -162,6 +163,7 @@ Entry point address: 0x1c400
 ### 6.3 Mach-O：魔数 / slice / 加载命令
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - "$S" <<'PY'
 import struct, sys, json
 p = sys.argv[1]; d = open(p, 'rb').read()

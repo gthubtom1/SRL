@@ -186,6 +186,7 @@ sha256 3dc1138c4795caeada1f66937516a7411c0b24f50c51336f208fad7963455a3f
 ## 7. 复跑命令汇总
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) 重算哈希
 sha256sum Tool/cases/firmware-iot03/input/*.bin Tool/cases/firmware-iot04/input/*.efi
 

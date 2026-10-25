@@ -173,6 +173,7 @@ T2-3 失败的可解释性建立；此时报告应写"上限 M2，未申请 M3"�
 ## 5bis. M4 前的可见性清单（只看，不动）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 只读：驱动/服务/回调的存在性（不加载、不卸载、不改启动项）
 sc query type= driver state= all | grep -iE 'ace|sguard|vgk|bedaisy|easyanti' -A2
 driverquery /v | awk 'NR<3 || /ace|sguard|vgk/i'

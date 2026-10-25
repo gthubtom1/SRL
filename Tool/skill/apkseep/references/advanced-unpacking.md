@@ -96,6 +96,7 @@ verdict: classes2.dex is the best-supported candidate for the original (3 copy(i
 ## 命令块 B：内存里找 dex，而不是"猜一段区间"
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 从一份 /proc/<pid>/mem 导出、或任何原始内存捕获里，按各自头部声明的尺寸切出 dex
 python scripts/dex_mem_scan.py ./captures --dump ./dumps --json
 

@@ -147,6 +147,7 @@ checksec
 ## 2.1 决策树的执行方式（用命令确认分支，而不是猜）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 分支 1：有没有栈输入面？
 objdump -d ./chall | grep -E 'call.*<(gets|read|fgets|scanf|strcpy|sprintf)>' | head
 # 分支 2：有没有能回显的泄漏点？

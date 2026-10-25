@@ -113,6 +113,7 @@ PY
 云上“谁做的”不靠 IP，靠三件套：`eventName`（动作）、`sourceIPAddress`（来源）、`userIdentity`（主体）。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 jq -c 'select(.eventName|test("ConsoleLogin|AssumeRole|CreateAccessKey|StopLogging|DeleteTrail")) |
   {t:.eventTime,n:.eventName,ip:.sourceIPAddress,id:.userIdentity.arn,
    type:.userIdentity.type,ua:.userAgent,err:.errorCode}' cloudtrail.json | head -20

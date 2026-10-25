@@ -31,6 +31,7 @@
 Frida 失败的原因里，**版本/权限/端口/时钟**这四类占了大头，而它们都能在写第一行 JS 之前测出来。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) 本域工具的总体能力（缺什么、装它要多久）——最先跑，最便宜
 python scripts/doctor.py --json | head -40
 
@@ -71,6 +72,7 @@ emulator-5554 tcp:27042 tcp:27042
 ## 命令块：把一次会话做成可复盘的记录
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 四层探测（网络层 + OkHttp + java.net + 被吞的异常消息），流式落盘，进程常驻
 python scripts/run_probe.py --pkg <pkg> --script scripts/frida_probe.js --out probe-$(date +%s).log
 
@@ -180,6 +182,7 @@ t+0.90s  process exit                 no java stack, no tombstone
 ## 命令块：零事件时先采这三样，再谈反调试
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # A) 脚本层面：注入有没有报错（很多"零事件"其实是脚本一半没加载）
 adb logcat -d -s Frida:F frida:F AndroidRuntime:E | tail -40
 

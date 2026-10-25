@@ -57,6 +57,7 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py \
 并且**重算 CRC**——否则你测到的是“CRC 错”，不是“长度错”。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import binascii, pathlib, struct
 blob = bytearray(pathlib.Path("Tool/cases/protocol02/input/sample.bin").read_bytes())

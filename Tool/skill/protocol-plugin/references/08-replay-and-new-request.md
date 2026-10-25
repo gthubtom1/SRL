@@ -262,6 +262,7 @@ def run(host, port):
 ## 6.1 差异归一化：把“不一样”拆成“可变项 + 真差异”
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import json, pathlib
 VAR = {"ts", "timestamp", "nonce", "sid", "request_id", "trace_id"}
@@ -297,6 +298,7 @@ artifacts/
 ## 7.1 证据包机检（交付前 30 秒）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
 import hashlib, json, pathlib
 need = ["artifacts/schema.json", "artifacts/new-frame.bin", "artifacts/run.json"]

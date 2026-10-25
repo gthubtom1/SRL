@@ -151,6 +151,7 @@ merged, a binary that is the wrong architecture. Four commands separate those ca
 anything.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) MT's APK MCP: is it listening, and which tools does it expose? (start it by hand in MT's UI first)
 adb forward tcp:8787 tcp:8787
 python scripts/mt_mcp_probe.py            # exit 0 = handshake + tool inventory; exit 2 = service down

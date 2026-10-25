@@ -163,6 +163,7 @@ Two viable routes.
 
 **Route A — `uber-apk-signer` (handy, wraps zipalign + apksigner):**
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 java -jar uber-apk-signer.jar --apks in.apk --ks ks.jks \
   --ksAlias <alias> --ksPass <pass> --ksKeyPass <pass> -o out_dir
 ```
@@ -170,6 +171,7 @@ Known quirk: `-o` and `--overwrite` are mutually exclusive; passing both errors 
 
 **Route B — `zipalign` + `apksigner` directly (most explicit):**
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 zipalign -p -f 4 unsigned.apk aligned.apk
 apksigner sign --ks ks.jks --ks-pass pass:<pass> --key-pass pass:<pass> \
   --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
@@ -182,6 +184,7 @@ Enable **v1 + v2 + v3**. v1 is needed for older Android; v2/v3 for modern verifi
 
 Generate a keystore once:
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 keytool -genkeypair -v -keystore ks.jks -alias <alias> \
   -keyalg RSA -keysize 2048 -validity 36500 \
   -storepass <pass> -keypass <pass> \
@@ -225,6 +228,7 @@ ColorPackageInstallInterceptManager: OPPO_ADB_INSTALL_CANCEL ... packageName=<pk
 **The root path bypasses the interception**, which is why the table above lists it:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> push app.apk /data/local/tmp/app.apk
 adb -s <serial> shell "su -c 'pm install -r -g -d /data/local/tmp/app.apk'"
 ```
@@ -249,6 +253,7 @@ Clear it (`am force-stop <installer pkg>`, or a HOME key event) and re-launch. B
 trusting any capture, check the foreground component:
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 adb -s <serial> shell "dumpsys activity activities | grep -m1 ResumedActivity"
 ```
 
@@ -277,3 +282,5 @@ Signature verification proves the file is well-formed. It does **not** prove the
 6. Unchanged dex files are byte-identical to the original (compare hashes); in a de-shelled build, compare against the de-shelled base instead.
 
 Build a **control** at least once: same pipeline, zero patches. If the control fails, your pipeline or environment is at fault, not your patch (`references/pitfalls-2-environment-and-evidence.md`).
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

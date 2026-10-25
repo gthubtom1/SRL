@@ -165,6 +165,7 @@ The sequence is: locate the predicate → count its callers → patch the verdic
 state **and** a signed-in one.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) locate candidate gates by name and by their characteristic strings
 python scripts/dex_strings.py ./dexdump --find '(?i)checkLogin|ensureLogin|requireLogin|needLogin|isLogin|checkBind|showLogin' --per-file
 

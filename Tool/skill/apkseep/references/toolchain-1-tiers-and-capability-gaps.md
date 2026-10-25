@@ -244,6 +244,7 @@ Ghidra is free, runs headless, and decompiles aarch64. Setup is unzip plus a JDK
 (§Closing a capability gap).
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # one-time: unzip the release; point Ghidra at a JDK (JAVA_HOME or the launch script)
 # headless: import, auto-analyse, run a post-script, discard the project
 analyzeHeadless <proj_dir> <proj_name> -import target.so \
@@ -390,3 +391,4 @@ Two consequences worth carrying into the plan:
 - If the server is not installed, that is a **missing dependency to report**, not a licence to present
   a weaker tool's output as equivalent (`packers.md`).
 
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

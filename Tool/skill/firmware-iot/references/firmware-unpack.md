@@ -79,6 +79,7 @@ binwalk -E "$OUT/orig.bin" | head -40                 # 熵分析
 偏移修正：按 binwalk 的十进制偏移切分后 `file` 复判。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 dd if="$OUT/orig.bin" of="$OUT/part.bin" bs=1 skip=<OFFSET> count=<LENGTH>
 ```
 
@@ -176,6 +177,7 @@ qemu-system-mipsel -M malta -m 256M -kernel "$OUT/vmlinux" \
 ### 7.3 FirmAE / Firmadyne
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 ./run.sh -r mipsel "$OUT/orig.bin"     # FirmAE，参数以本地版本为准
 # Firmadyne：extractor.py → getArch.sh → makeImage.sh → inferNetwork.sh → scratch/<id>/run.sh
 ```
@@ -185,6 +187,7 @@ qemu-system-mipsel -M malta -m 256M -kernel "$OUT/vmlinux" \
 ### 7.4 仿真判据（防“假成功”）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 curl -sv --max-time 5 http://127.0.0.1:<PORT>/ | head -30
 nc -vz 127.0.0.1 <PORT>
 ```

@@ -336,3 +336,5 @@ client tells you what the client expects to send and parse — it does not prove
 those fields, and it says nothing about authorization. `server-api.md` owns that question. The
 recurring expensive mistake is to assume that because a field exists and is settable client-side, the
 server will act on it.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

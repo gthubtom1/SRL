@@ -129,6 +129,7 @@ python3 vol.py -f mac.mem mac.malfind.Malfind
 Linux 上“谁在何时做了什么”靠三源对照：内核审计（auditd）、systemd 日志（journald）、`/proc` 活体快照。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 ausearch -i -m EXECVE -ts 2026-10-20 03:00:00 | head -80      # argv 全量
 aureport -x --summary                                        # 被执行程序排行
 journalctl --since "2026-10-20 03:00" -o json | head -3       # 结构化字段
@@ -243,6 +244,7 @@ PID 6262：pslist 有 / psscan 无 → 采集时刚创建，池扫描未覆盖�
 ## 14. 命令与“通过长什么样”（内存最小复验）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 MEM=evidence/mem.raw
 python3 vol.py -f "$MEM" banners.Banners
 python3 vol.py -f "$MEM" windows.pslist.PsList > out/pslist.txt

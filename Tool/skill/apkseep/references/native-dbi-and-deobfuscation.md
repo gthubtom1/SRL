@@ -316,3 +316,5 @@ because the cheap answer is usually to switch to static analysis with `elf_plt.p
 - Write the product's before/after into the evidence record condensed in `references/evidence-summary.md` §Where the full record lives, with the exact command, the
   module, the offsets, and the strength label. The next person's first question is "was the pipeline
   known to work when you got that zero", and the answer belongs in that record, not in a footnote.
+
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

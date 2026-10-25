@@ -32,6 +32,7 @@ seems obviously right (tighten permissions) fails without any error.
   the wrong layer entirely; patch the read path instead.
 - To make a data edit stick, use the **immutable attribute** and confirm it took effect:
   ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
   su -c "chattr +i <file>"; su -c "lsattr <file>"     # expect the 'i' flag
   ```
   It is enforced by the filesystem against the delete itself, which is why it holds where permissions
@@ -304,3 +305,4 @@ Two close variants of the same error:
 
 ---
 
+**通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

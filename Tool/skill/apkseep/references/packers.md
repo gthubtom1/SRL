@@ -161,6 +161,7 @@ device. Note the order: manifest first (who is `Application`), then the dex itse
 the library, then the payload.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) who owns the Application? (the single most informative field in the manifest)
 unzip -p target.apk AndroidManifest.xml > AndroidManifest.bin
 python - <<'PY'

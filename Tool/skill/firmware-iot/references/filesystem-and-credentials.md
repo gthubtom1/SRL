@@ -33,6 +33,7 @@ file "$OUT/orig.bin"; stat -c '%s bytes' "$OUT/orig.bin"
 | gzip/zstd/xz | `1f8b` / `28 b5 2f fd` / `fd 37 7a 58 5a 00` | 0/嵌入 | `gzip -dc` / `zstd -d` / `xz -dc` | 解压后出现下一层签名 |
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 识别并保留所有候选偏移
 binwalk "$OUT/orig.bin" | head -60
 # 只切分，不执行
@@ -217,6 +218,7 @@ grep -RInE 'telnetd|dropbear|httpd|uhttpd|lighttpd|goahead|procd|start-stop-daem
 ### 11.2 多编码解码（避免“grep 不到就写没有”）
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 ROOT=work/fw-audit/rootfs
 # 1) 明文与常见键名
 grep -RInE 'pass(word|wd)?|secret|token|api[_-]?key|private[_-]?key|admin' \

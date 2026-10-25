@@ -236,6 +236,7 @@ cert.public_key().verify(sig, msg, padding.PKCS1v15(), hashes.SHA256())  # None=
 > 前提：有授权的测试 token 或自有账号。只认服务端接受与否，前端能解码不算数。
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 拆三段，记录 header/payload 原文与签名长度
 python - <<'PY'
 import base64, json, sys

@@ -147,6 +147,7 @@ Each step above is a set difference against the original build of the same versi
 commands that produce them; the *outputs* are what the verdict cites.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) entry-level diff: what was changed / added / removed (added = injection candidates)
 python scripts/apk_diff.py original.apk modded.apk --summary
 python scripts/apk_diff.py original.apk modded.apk --only 'lib/|classes[0-9]*\.dex|assets/' --hide-identical

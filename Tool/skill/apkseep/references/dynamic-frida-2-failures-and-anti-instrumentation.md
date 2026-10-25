@@ -131,6 +131,7 @@ The order in the section above is only useful if each step produces a number. Th
 do; run them before touching the hook.
 
 ```bash
+# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 # 1) is the class even in the loaded set? (counts, not names)
 frida -U -f <pkg> -l /dev/stdin <<'JS'
 Java.perform(function () {
