@@ -174,7 +174,10 @@ def check(name):
         import hashlib
 
         def h(p):
-            return hashlib.sha256(open(p, "rb").read()).hexdigest()
+            b = open(p, "rb").read()
+            if b"\x00" not in b[:4096]:
+                b = b.replace(b"\r\n", b"\n")
+            return hashlib.sha256(b).hexdigest()
 
         diffs = []
         for rel in ("SKILL.md", "pack.json"):

@@ -1119,7 +1119,7 @@ def check_deploy_bidirectional():
         drift = []
         for k in sorted(set(src) & set(dst)):
             try:
-                if _h.sha256(open(src[k], "rb").read()).hexdigest() != _h.sha256(open(dst[k], "rb").read()).hexdigest():
+                if _file_sig(src[k]) != _file_sig(dst[k]):
                     drift.append(k)
             except Exception:
                 pass
@@ -1153,8 +1153,7 @@ def check_deploy_bidirectional():
     if _e:
         sk_bad.append("残留:" + ",".join(_e[:3]))
     _d = [k for k in set(src_sk) & set(dst_sk)
-          if _h.sha256(open(src_sk[k], "rb").read()).hexdigest()
-          != _h.sha256(open(dst_sk[k], "rb").read()).hexdigest()]
+          if _file_sig(src_sk[k]) != _file_sig(dst_sk[k])]
     if _d:
         sk_bad.append("不一致:" + ",".join(sorted(_d)[:3]))
 
@@ -1828,6 +1827,19 @@ def check_handoff_fresh():
     add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", lag <= 1,
         "落后 %d 个提交（≤1 才绿）；重新生成：case_state.py handoff --repo" % lag
         if lag > 3 else "落后 %d 个提交" % lag)
+
+
+def _file_sig(p):
+    """文本文件按 EOL 无关方式算签名（CRLF/LF 不算差异）。
+
+    为什么（2026-10-25）：部署目录里的 .ts 是 CRLF，仓库检出后是 LF，
+    直接比 sha256 会在换机器 / git checkout 后无故变红 —— 这不是真差异。
+    """
+    import hashlib as _hl
+    b = open(p, "rb").read()
+    if b"\x00" not in b[:4096]:
+        b = b.replace(b"\r\n", b"\n")
+    return _hl.sha256(b).hexdigest()
 
 
 def check_extension_deploy():
