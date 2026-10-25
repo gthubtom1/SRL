@@ -139,7 +139,7 @@ powershell -File check.ps1 -Detailed        # 体检 65 项全绿
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
 | 单文件行数 | 2306（MCP 主服务，S4 工具面 40→20 后） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 921 | **930** | 超了说明在"堆文件"而不是"做能力" |
+| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 922 | **930** | 超了说明在"堆文件"而不是"做能力" |
 
 ### 7.2 三不原则
 

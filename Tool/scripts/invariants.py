@@ -19,9 +19,26 @@ import os
 import re
 import sys
 
+# 中文 Windows 控制台默认 cp936/GBK，矩阵里的 ✓/✗ 会直接抛 UnicodeEncodeError，
+# 导致 --check 与 --json 两种模式都“从未真正求值”。这里无条件改成 UTF-8（管道/重定向亦生效），
+# errors="replace" 保证再怎么奇怪的字符也只是显示成 ?，不会让检查本身崩掉。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 —— 极老旧解释器/已被替换的流（如 None）时忽略
+        pass
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SKILL = os.path.join(ROOT, "Tool", "skill")
 CFG = os.path.join(ROOT, "Tool", "config")
+
+# W6：矩阵的域清单/计数与 domain_spec.DOMAINS 对齐（客户可见 9 域）。
+# 以前这里按磁盘扫 `Tool/skill/*/SKILL.md`，扫出 11 个——把判型层 seep-router 与
+# 横切层 unpack-loop 也算成“域”，与 domain-gate 的口径不一致。
+sys.path.insert(0, os.path.join(ROOT, "Tool", "scripts", "lib"))
+from domain_spec import DOMAINS  # noqa: E402
+
+DOMAIN_COUNT = 9   # 客户可见域数（清单唯一来源：domain_spec.DOMAINS）
 
 INVARIANTS = {
     "I1": "入口唯一：判型只在一处（seep-router），域不自称总控",
@@ -37,12 +54,16 @@ INVARIANTS = {
 
 
 def _domains():
-    out = []
-    for d in sorted(glob.glob(os.path.join(SKILL, "*", "SKILL.md"))):
-        name = os.path.basename(os.path.dirname(d))
-        if name == "_pending":
-            continue
-        out.append(name)
+    """客户可见域（唯一来源 domain_spec.DOMAINS，9 个）。
+
+    seep-router（判型层）与 unpack-loop（横切层）不是客户可见域，不进矩阵；
+    它们与各域的约束关系在 I1 / I9 里以“被引用”的方式检查。
+    缺 SKILL.md 的域**不剔除**，由 check() 直接判红（不允许静默消失）。
+    """
+    out = list(DOMAINS)
+    if len(out) != DOMAIN_COUNT:
+        sys.stderr.write("WARN: domain_spec.DOMAINS=%d != DOMAIN_COUNT=%d\n"
+                         % (len(out), DOMAIN_COUNT))
     return out
 
 
@@ -67,6 +88,9 @@ def _skill_text(name):
 def check(name):
     """对单个域返回 {invariant_id: (ok, note)}。"""
     res = {}
+    if not os.path.isfile(os.path.join(SKILL, name, "SKILL.md")):
+        # 域在 domain_spec 里但磁盘上没技能：全部判红，不静默跳过。
+        return {i: (False, "缺 Tool/skill/%s/SKILL.md" % name) for i in INVARIANTS}
     txt = _skill_text(name)
     pk = _pack(name)
     is_router = name == "seep-router"

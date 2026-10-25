@@ -151,7 +151,7 @@ MCP 配置文件所在位置：
 
 ## 三、 Agent 部署后的自检校对与格式化输出协议
 
-当 Agent（或用户运行 `powershell .\setup\python Tool/scripts/check.py --env`）完成部署后，**必须以此清单为蓝本，在对话框中输出四栏格式化校对表格**：
+当 Agent（或用户运行 `python Tool/scripts/check.py --env`）完成部署后，**必须以此清单为蓝本，在对话框中输出四栏格式化校对表格**：
 
 ```markdown
 ### 📊 Seep 工作台部署产物与官方基准校对报告

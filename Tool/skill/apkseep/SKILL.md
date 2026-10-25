@@ -471,3 +471,59 @@ reference file is named there, and that every script is named there. CI runs it.
 本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
 
 - `_pending/00-triage/SKILL.md` —— 先出 APK 画像
+
+## 失败判据 — 停手条件与"改走哪一条"的入口
+
+本节是**索引**，不复制判据表：完整表在 `references/02-failure-criteria.md`
+（现象 → 可机检判据 → 不许得出的结论 → 改走哪条），表里每一行都指回本文件或某篇 reference 已有的一句话。
+
+本文件里已经写死的三条总规则是它的入口，不要另立一套：
+
+1. **§Stop conditions 的六条**：同形失败两次 · 补丁无效却要试第三变体 · 新失败在当前模型里没有位置 ·
+   要写"blocked"却没有对照组 · 要拿"没有报错"当成功 · 测量与已定结论冲突。
+2. **§The workflow 的 Two-strike rule**：两次同形失败说明模型错了，不是参数需要调。
+3. **§Non-negotiable constraints 的最后两行**：向正确层归因、以单变量证据放弃路线。
+
+最常触发的判据（各自的行号级来源写在 `references/02-failure-criteria.md` §1）：
+`JNI_OnLoad` 返回 `JNI_ERR` 是**壳主动拒绝**，不是崩溃 · Java 层"签名杀手"通过而进程仍死 =
+检查在 native 侧 · 整类是裸 `native` 且无 `Java_*` ⇒ **此时没有 dex 可 dump** ·
+`stub%` 落在高那一峰 ⇒ 抽取壳，不是"再 dump 一次" · attach 即死且报错提到 ptrace/tracer ⇒
+这是**环境事实**，转全静态 · 每次签名请求都失败而 UI 正常 ⇒ 签名派生密钥。
+
+边界必须写成一句可复核的话（模板与六行边界记录见 `references/02-failure-criteria.md` §3）。
+
+## 模型常见失误 — 这一域最贵的"看起来对"
+
+本节是**索引**：二十余条在 `references/03-model-pitfalls.md`（`M**` 是本篇索引号，检索以原 `P**` 为准），
+完整的 42 条失败目录在 `references/pitfalls.md` 与 `pitfalls-1..5` 五个子篇。
+
+按代价排序的前四条（来源：`references/pitfalls.md` §按代价排序，都是"当天基本报废"级，而且**污染后续证据**）：
+一次改两个变量（P21）· 签名派生密钥（P27）· 改对了但执行的是旧产物（P24）· 整个 `META-INF/` 被删（P1）。
+
+四条越界型失误（来源：`references/handoff-boundaries.md` §The four ways a boundary gets crossed wrongly）：
+用对岸的工具回答这一岸的问题 · 把 JNI 接缝当成实现 · 悄悄换了交付形态（R1 点名的那次漂移）·
+把边界当判决（native 代码仍是客户端代码）。
+
+**"这条我读过"不等于"这次在此情形下失效"** —— 命中条目时要对着当前现象再确认一次条件；
+目录里没有命中时，正确动作是回 §Stop conditions，而不是继续试。
+
+## 范围边界 — 覆盖到哪、明确不覆盖什么
+
+本节是**索引**，判据与证据在 `references/coverage-and-limits.md`（§Covered · §Dependencies this skill
+does not ship · §Not covered），一句话口径在本文 §Coverage，逐条能力强度在
+`references/evidence-summary.md` §The capability matrix。
+
+- **覆盖**（`observed`）：dex 等长改字节与 header/verifier/对齐规则 · 重打包签名与安装拒绝 ·
+  抽壳识别（平凡体占比是**双峰**，不是阈值）· Java2C 与 JNI sinking 的密度判据 · `resources.arsc`
+  STORED+对齐 · Frida 运行时变量（attach 本身即变量）· 签名派生密钥的定位 · 客户端广告与服务器下发
+  UI 配置 · 分片 APK 的统一签名与合并。
+- **有依赖、不随本技能提供**：Dart AOT 需要你自己拿到 snapshot dump（`dart_pool_strings.py` 说**文件**偏移、
+  `pp.txt`/`dart_pprefs.py` 说 **pool** 偏移，两者不是常量差）。
+- **不覆盖**：Unity / IL2CPP 逻辑恢复 · React Native / Hermes 与 Cordova 内部 · iOS 与 `.ipa` ·
+  击穿服务端权威 · 开箱即用脱壳器与反检测军备竞赛 · 内核模块开发 · 每台设备都能跑的 Stalker trace。
+- **判据表本身**在 `references/01-criteria.md`；**一次完整的判定链走法**在
+  `references/04-walkthrough-dump-to-deliverable.md`。
+
+这三节与上面两篇合起来是本域的"停止/归因/边界"闭环：`01-criteria.md` 说"算不算打下来了"，
+`02-failure-criteria.md` 说"什么时候改走"，`03-model-pitfalls.md` 说"哪些做法看着对",
+`04-walkthrough-dump-to-deliverable.md` 说"按什么顺序走、每一站拿什么数字"。

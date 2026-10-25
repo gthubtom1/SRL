@@ -1,0 +1,323 @@
+{
+  "schemaVersion": "1.0",
+  "domain": "apkseep",
+  "description": "APK/Android 客户端判据矩阵：match -> criteria -> fail。每一行的 criteria/fail 都摘自本域已有文字（source 列给出文件与小节），不在此另立判据。口径：判据只认可复算/可观察的证据，不认“解析通过”“签名通过”“看起来像”。",
+  "updated": "2026-10-25",
+  "columns": {
+    "surface": "面",
+    "check": "检测点",
+    "criteria": "判据",
+    "tools": "工具/脚本",
+    "false_positive": "误报风险",
+    "source": "判据原文出处（SKILL.md 或 references/<file> 的小节）",
+    "fail": "改走哪条"
+  },
+  "rows": [
+    {
+      "id": "AS-01",
+      "surface": "加固识别（manifest 入口类）",
+      "check": "读 AndroidManifest.xml 的 application android:name",
+      "criteria": "第三方壳类（com.stub.StubApp / com.secneo.* / com.tencent.StubShell / s.h.e.l.l.* / com.nagain.*）而不是应用自己的类；names 与 app 包名无关的短类名 + appComponentFactory 指向另一个短类 = dex 级整包壳",
+      "tools": ["aapt dump badging", "unzip -l", "recon.md"],
+      "false_positive": "关键词命中不等于加固：实测上下文 com.google.android.launcher/.StubApp 是系统 launcher 类名；libexec / libcompress 这类名字要落到 ABI 与导出符号再定性",
+      "match": ["加固", "加壳", "StubApp", "壳", "packed", "Application"],
+      "commands": [
+        "aapt dump badging app.apk",
+        "unzip -l app.apk | sort -k1 -n | tail -20"
+      ],
+      "fail": "判出加固却直接改 dex = 白做：转 unpack-loop（scripts/unpack-triage.py 先判壳类型），本域只负责判型与解出后的重打包/签名",
+      "pitfalls": ["只数关键词就把普通应用判成加固", "把 aapt 在 GBK 路径下的 Illegal byte sequence 误判成“没有 manifest”"],
+      "source": "references/recon.md §2 Is it packed?；SKILL.md §操作坑 2 / 2.5"
+    },
+    {
+      "id": "AS-02",
+      "surface": "dex 组成与载荷",
+      "check": "classes*.dex 的尺寸与数量、assets/ 里是否有高熵 blob 或第二个 apk/jar",
+      "criteria": "classes.dex 只有几十 KB 且只装壳类 ⇒ 真实代码不在盘上；assets/ 里高熵大 blob（可能伪装成 JPEG：魔数合法但解不出图）⇒ 加密载荷；payload 长度与明文 dex **逐字节相等**是“哪份 dump 才是原件”最强的单一判别",
+      "tools": ["unzip -l", "recon.md", "scripts/dex_dump_validate.py"],
+      "false_positive": "以尺寸/结构判定，不以名字判定；“干净形态”也是结果，要显式记一行 no packer",
+      "match": ["dex", "assets", "payload", "多 dex", "multi-dex"],
+      "commands": ["unzip -l app.apk | sort -k1 -n | tail -20"],
+      "fail": "只看到压缩资源就断言“有加密载荷”：先按 recon.md §Unpacking 的长度相等性验证；不成立则按 AS-03 走 dump 体检",
+      "pitfalls": ["按文件名 classesN.dex 推断加载顺序"],
+      "source": "references/recon.md §2 Is it packed? / Unpacking a dex-level packer"
+    },
+    {
+      "id": "AS-03",
+      "surface": "dump 形态（抽取壳 vs 原件）",
+      "check": "dex_dump_validate.py 的 stub% / emptied% / dedupe / verdict",
+      "criteria": "候选原镜像 stub% 为个位数；抽取壳骨架 stub% 落在高那一峰（双峰，不是阈值）；唯一镜像数 ≤ 预期 dex 数；--find 命中数与字符串表里该前缀的类数同数量级",
+      "tools": ["scripts/dex_dump_validate.py", "scripts/dex_mem_scan.py"],
+      "false_positive": "“解析通过”不等于“内容在”：cksum=ok sig=ok class=4210 与 stub% 是两件事；同尺寸 dump 不是第二份证据（dedupe 段才是判据）",
+      "match": ["dump", "脱壳", "stub%", "抽取壳", "extraction shell"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/dex_dump_validate.py ./dumps",
+        "python Tool/skill/apkseep/scripts/dex_dump_validate.py ./dumps --json > dumps.json",
+        "python Tool/skill/apkseep/scripts/dex_dump_validate.py ./dumps --find 'Lcom/example/app/'"
+      ],
+      "fail": "stub% 落在高那一峰 ⇒ 抽取壳：去主动调用循环（advanced-unpacking-1），或按 02-failure-criteria §3 写边界；命中数偏少 ⇒ 主 dex 还缺，回区间选择",
+      "pitfalls": ["把“解析通过”当成“方法体在”", "重复 dump 当成多份证据", "把 r--s 的 base.apk 映射当成 dex"],
+      "source": "references/advanced-unpacking.md §三个可数指标 / §通过长什么样；references/advanced-unpacking-1-shapes-and-active-invocation.md §The four shapes a dump can be"
+    },
+    {
+      "id": "AS-04",
+      "surface": "Java2C / JNI sinking 判别",
+      "check": "native 声明密度与 Java_* 符号数/ABI",
+      "criteria": "真实 JNI 目标 native 密度 0.03–0.04%，Java2C 形态 82.76%（约 2000x）；dex 的 native 方法数与 .so 的 Java_* 符号数按 ABI 1:1；判据形态是“导出 JNI_OnLoad 且零 Java_*”",
+      "tools": ["scripts/java2c_probe.py", "scripts/elf_plt.py", "nm/readelf"],
+      "false_positive": "符号搜不到不等于没有 native 代码：动态注册与 -fvisibility=hidden 让搜索**静默失败**；只有一个数字时结论只能是 inferred",
+      "match": ["Java2C", "JNI", "native 声明", "JNI_OnLoad", "jni sinking"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/java2c_probe.py --apk ./target.apk --json > j2c.json",
+        "python Tool/skill/apkseep/scripts/elf_plt.py lib/arm64-v8a/libfoo.so --symbol JNI_OnLoad"
+      ],
+      "fail": "密度到几十 % ⇒ 停，转 references/java2c-and-jni-sinking.md；此时没有任何 dex 可 dump，再 dump 一天也一样",
+      "pitfalls": ["把“没有 dex”当成“dump 得不够深”", "跨 ABI 混着数符号，两组计数当然对不上"],
+      "source": "references/java2c-and-jni-sinking.md §The discriminating measurement is native density / §The JNI boundary；references/coverage-and-limits.md §Covered"
+    },
+    {
+      "id": "AS-05",
+      "surface": "真实 Dex VMP 边界",
+      "check": "方法体在但反汇编解出私有 opcode；用自写 decoder 与独立性复算",
+      "criteria": "静态判据只能**排除** VMP，不能判定；判定需要闭环重导出的 opcode 映射（实测 218/218，零编造）与独立读取器一致",
+      "tools": ["scripts/vmp_diff_harness.py", "references/vmp-differential-analysis.md"],
+      "false_positive": "手写 opcode 表曾在**普通 dalvik** 上产出“VMP”结论且零结构错误——这就是“只能排除、不能判定”的原因",
+      "match": ["VMP", "私有 opcode", "私码", "code virtualization"],
+      "commands": ["python Tool/skill/apkseep/scripts/vmp_diff_harness.py --help"],
+      "fail": "VMP 的终点常是“成本高于收益”：写成带边界的报告（01-criteria §4 第四形态），不要继续加变体",
+      "pitfalls": ["把“解不出来”当“加壳很深”", "用一个自己写的解码器给 VMP 定性"],
+      "source": "references/advanced-unpacking-2-root-dump-and-vmp-boundary.md §The honest boundary: real Dex VMP；references/evidence-summary.md §The capability matrix"
+    },
+    {
+      "id": "AS-06",
+      "surface": "等长字节补丁是否落地",
+      "check": "整文件 diff 与目标偏移解码",
+      "criteria": "全文件 diff 只包含目标那几字节 + 头部 8..32（实测 5,528 字节 dex 改 2 字节）；目标指令在目标偏移上解码结果确实变了",
+      "tools": ["scripts/dex_patch_bytes.py", "scripts/dex_find_insn.py", "scripts/apk_diff.py"],
+      "false_positive": "只比对“我改的那一段”会漏掉意外改动；反过来“解码器看着对”也不等于偏移算对了——偏移必须算出来而不是猜出来",
+      "match": ["patch", "补丁", "等长", "dex 改字节", "byte patch"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/dex_patch_bytes.py --entry classes.dex --spec spec.json -o out.dex",
+        "python Tool/skill/apkseep/scripts/apk_diff.py original.apk out.apk --summary"
+      ],
+      "fail": "改动需要新指令 ⇒ 换 dexlib2 方法级重写；不要用全树 smali 往返（R8 优化过的 dex 只在运行时坏）",
+      "pitfalls": ["P3 全树 smali 往返", "P4 同一个 dex 改写两次", "P2 字符串改长破坏 string_ids 顺序"],
+      "source": "references/patch-audit.md §1 Did it land? Compare *length*, not bytes；references/byte-level-patching.md"
+    },
+    {
+      "id": "AS-07",
+      "surface": "dex 头部完整性",
+      "check": "signature 与 checksum 的重算顺序",
+      "criteria": "先 signature 后 checksum；两道都在且顺序正确（dexutil.fix_dex_header）；顺序反了会得到 Bad checksum + 一个普通类 ClassNotFoundException",
+      "tools": ["scripts/dexutil.py", "scripts/dex_check_verifier.py"],
+      "false_positive": "补丁本身正确但头部没按序重算，症状像“补丁把类删了”",
+      "match": ["checksum", "签名", "header", "Bad checksum", "signature"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/dex_check_verifier.py out.apk"
+      ],
+      "fail": "头部怎么改都过不了 ⇒ 回 AS-06 检查改动是否越界（改长/改到 string_ids）",
+      "pitfalls": ["P37 改字节后 Bad checksum 且少一个普通类", "P42 解码脱同步之后每个偏移都错"],
+      "source": "references/byte-level-patching.md §The dex header has two integrity fields, and order matters；references/pitfalls-4-native-and-install.md P37"
+    },
+    {
+      "id": "AS-08",
+      "surface": "补丁合法性（verifier 层）",
+      "check": "分支是否落进 move-result 等 verifier 违规",
+      "criteria": "dex_check_verifier 无 branch-into-move-result 违规；这是静态检查看不见的一层，装的时候才炸",
+      "tools": ["scripts/dex_check_verifier.py"],
+      "false_positive": "dex_classdiff 通过是必要条件不是充分条件：它看不见 code-item 级损坏",
+      "match": ["verifier", "合法性", "move-result", "branch"],
+      "commands": ["python Tool/skill/apkseep/scripts/dex_check_verifier.py out.apk"],
+      "fail": "verifier 不过 ⇒ 回 AS-06 换写法（等长改分支方向，而不是把分支指到 move-result 中间）",
+      "pitfalls": ["P41 patched branch 做了相反的事却起得干净"],
+      "source": "references/patch-audit.md §2 Is it legal? The verifier is a layer static checks cannot see；references/verification.md §The claim ladder Rung 1"
+    },
+    {
+      "id": "AS-09",
+      "surface": "结构漂移",
+      "check": "类集合、ACC_INTERFACE、未触碰类的字节一致性",
+      "criteria": "类集合一致、access flags 零漂移、未触碰的类逐字节相同",
+      "tools": ["scripts/dex_classdiff.py"],
+      "false_positive": "“类都在”是最低门槛，不是结论；方法体可能是 return-void 或 nop 填充",
+      "match": ["classdiff", "结构", "类集合", "access flags"],
+      "commands": ["python Tool/skill/apkseep/scripts/dex_classdiff.py baseline.dex patched.dex"],
+      "fail": "漂移超出声明范围 ⇒ 回基线重做，不从半成品继续改（一次构建只允许一次写）",
+      "pitfalls": ["P6 补丁打在广泛共享的 helper 上"],
+      "source": "references/verification.md §The claim ladder Rung 1；references/pitfalls-1-packaging-and-dex.md P4"
+    },
+    {
+      "id": "AS-10",
+      "surface": "重打包与签名",
+      "check": "META-INF 的去留、签名后再对齐、resources.arsc 的存储方式",
+      "criteria": "不整目录删 META-INF/（会连带删掉 services/ 等运行时条目）；顺序是“先签名、再对齐”；resources.arsc 必须 STORED 且 4 字节对齐",
+      "tools": ["scripts/repack.py", "jarsigner/apksigner", "zipalign -c -v 4"],
+      "false_positive": "apksigner verify 通过只到 Rung 2；安装成功描述的是“请求”，不是磁盘上的 app",
+      "match": ["重打包", "签名", "zipalign", "apksigner", "META-INF", "resources.arsc"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/repack.py --apk original.apk --out out.apk",
+        "zipalign -c -v 4 out.apk",
+        "apksigner verify --print-certs out.apk"
+      ],
+      "fail": "装包报 [-124] ⇒ 不是内容问题，是 STORED/对齐；裸数字码（如 [-99]）⇒ 设备侧安装拦截，走 root pm install",
+      "pitfalls": ["P1 删掉整个 META-INF/", "P38 [-124] resources.arsc 未 STORED/未对齐", "P39 裸数字码无 INSTALL_FAILED_*"],
+      "source": "references/repack-and-sign.md §The rules / §2a / §vendor install interception；references/pitfalls-4-native-and-install.md P38"
+    },
+    {
+      "id": "AS-11",
+      "surface": "设备上是哪一版在跑",
+      "check": "设备产物 hash 与前台 Activity 的包名",
+      "criteria": "设备上包的 hash 等于本地构建的 hash；前台 Activity 的包名等于目标包",
+      "tools": ["scripts/install_test.py", "scripts/coldstart.py", "scripts/snap.py"],
+      "false_positive": "包管理器报成功、am start 无输出、截图里有界面，三者都可以属于“上一版”或“别的应用”",
+      "match": ["安装验证", "设备 hash", "前台 activity", "coldstart"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/install_test.py --apk out.apk",
+        "python Tool/skill/apkseep/scripts/coldstart.py --pkg <pkg> --out ./cap"
+      ],
+      "fail": "hash 不一致或前台不是你 ⇒ 先修投放链路（卸载/清数据/厂商安装器占屏），任何后续观察都无效",
+      "pitfalls": ["P18 包管理器说成功但没装上", "P24 改对了但执行的是旧产物", "P40 截到的屏不是你的 app"],
+      "source": "references/verification.md §The claim ladder Rung 3；references/pitfalls-2-environment-and-evidence.md P18"
+    },
+    {
+      "id": "AS-12",
+      "surface": "目标行为是否真的变了",
+      "check": "直接观察被改的那个功能（屏幕/端点/UI）",
+      "criteria": "Rung 4：功能本身可观察地变了；Rung 5：相邻功能（图片/播放/列表/登录/设置）逐项跑过",
+      "tools": ["scripts/snap.py", "scripts/probe_api.py", "logcat"],
+      "false_positive": "“日志干净”“没有报错”不是证据；一个 404 形状的抑制会把整屏带走，而它看起来像“成功去掉了元素”",
+      "match": ["验证", "行为变化", "复验", "去广告", "会员"],
+      "commands": ["python Tool/skill/apkseep/scripts/snap.py --out ./cap --count 20"],
+      "fail": "功能没变而补丁确实落地 ⇒ 层判错了，回 SKILL.md §Start here 十三问重分类，不要试第三变体",
+      "pitfalls": ["P5 为藏一个 UI 元素把接口打成 404", "P19 用内部信号代替用户可见结果", "P41 分支取反"],
+      "source": "references/verification.md §The claim ladder Rung 4/5；SKILL.md §What \\\"done\\\" means"
+    },
+    {
+      "id": "AS-13",
+      "surface": "签名派生密钥",
+      "check": "grep toCharsString() / signatures[0] / getPackageInfo(..., 64)",
+      "criteria": "签名值若喂进 native HMAC/DES，重签后每个签名请求都失败；判据是被读处是否硬编码了**原证书值**（sig_probe --live 读设备真值）",
+      "tools": ["scripts/sig_probe.py"],
+      "false_positive": "应用能启动、UI 正常、日志干净——完全不能排除这一条；okhttp3 里的 SignatureCheck/verifySignature 是 TLS 管道，不是 tamper 检查",
+      "match": ["签名校验", "signatures", "HMAC", "getPackageInfo", "checksignature"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/sig_probe.py --apk app.apk",
+        "python Tool/skill/apkseep/scripts/sig_probe.py --live <pkg>"
+      ],
+      "fail": "命中形态 ⇒ 先做 15 分钟 grep 审计再 repack；已经 repack 完 ⇒ 按 signature-derived-keys.md §Patch it 在被读处硬编码原值",
+      "pitfalls": ["P27 每次签名请求都失败但应用看起来正常"],
+      "source": "references/signature-derived-keys.md §How to spot it (four greps, minutes)；references/recon.md §5"
+    },
+    {
+      "id": "AS-14",
+      "surface": "native 终止路径抑制",
+      "check": "蓄意崩溃桩/自旋桩的识别与改写方式",
+      "criteria": "用**返回**良性值抑制（优先成功值 0），绝不改写 pthread_exit/exit/abort/snprintf/closedir；要枚举全部实例，不只第一个",
+      "tools": ["scripts/native_crash.py", "scripts/so_constpatch.py", "scripts/spawn_patch_detach.py"],
+      "false_positive": "加固库很少调 kill，更常制造一个 fault（加载小常量当指针），死亡看起来像普通空指针；用“不返回”改写会带锁卡死，症状是挂起/被杀/重启循环且无崩溃记录",
+      "match": ["反调试", "自杀", "native 崩溃", "SIGSEGV", "SIGILL"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/native_crash.py crash.log --lib libfoo.so=lib/arm64-v8a/libfoo.so",
+        "python Tool/skill/apkseep/scripts/so_constpatch.py lib/arm64-v8a/libfoo.so --find <str>"
+      ],
+      "fail": "先解决死亡再谈 dump（进程只活 1–2 秒时任何窗口都放不下）；机制不明时按 detection-and-anti-analysis §Step 3 分 Stage 定位",
+      "pitfalls": ["P31 用“不返回”封终止路径导致带锁卡死", "P34 把蓄意崩溃读成普通 bug", "P35 只封一条终止机制就当已经抑制"],
+      "source": "references/native-tamper-and-suicide.md §The rule；SKILL.md §Non-negotiable constraints"
+    },
+    {
+      "id": "AS-15",
+      "surface": "广告/会员/门的归属判定",
+      "check": "无 token 与伪造 token 两次请求的响应差异；资产 URL 是否按请求签发",
+      "criteria": "客户端可执行（可补丁）vs 服务器下发数据（改决策不改数据）vs 服务端权威（补丁只是装饰）——三者先定性再动手",
+      "tools": ["scripts/probe_api.py", "scripts/dex_strings.py"],
+      "false_positive": "伪造权益会得到“屏幕是空的”而比登出更糟；服务器下发 UI 配置会被下一次远端覆盖悄悄恢复；一个 app 可以带两条独立信任链，别的请求能通证明不了任何事",
+      "match": ["去广告", "会员", "VIP", "付费墙", "paywall", "弹窗"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/dex_strings.py ./dexdir --urls",
+        "python Tool/skill/apkseep/scripts/probe_api.py --base https://<host> --path /<path> --method GET"
+      ],
+      "fail": "服务端权威 ⇒ 写成带边界的报告（01-criteria §4 第四形态）；不下发补丁。远程 re-enable 通道存在 ⇒ 按 server-config-and-updates §6 做耐久化",
+      "pitfalls": ["P7 客户端伪造 VIP 反而把应用弄坏", "P29 补丁落地了但静态数据不是 UI 消费的那份"],
+      "source": "references/membership-and-limits.md §First question: who decides? / §The fake-VIP trap；references/server-api.md §Prove who owns the gate；references/ad-removal.md §Step 4"
+    },
+    {
+      "id": "AS-16",
+      "surface": "抓包与协议面",
+      "check": "TLS 是否可解、body 是否是 protobuf/gRPC/QUIC、pinning 在 Java 还是 native",
+      "criteria": "长度定界的字段要能给出“字符串 / 嵌套消息 / packed 数组”三选一的候选并解释 tie；功能域网络失败先排除该 code path 的 TLS/证书问题",
+      "tools": ["scripts/protobuf_decode_raw.py", "scripts/tls_check.py", "scripts/probe_api.py"],
+      "false_positive": "“别的请求能通”不等于“这个功能的请求能通”；proxy 看到 TLS 但 Flutter 应用请求仍失败 = native 侧 pinning",
+      "match": ["抓包", "protobuf", "gRPC", "pinning", "证书", "tls"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/protobuf_decode_raw.py --hex '0a03616263'",
+        "python Tool/skill/apkseep/scripts/tls_check.py <host> --port 443 --sni <sni>"
+      ],
+      "fail": "功能域失败且原版同样失败 ⇒ 不是补丁的问题（tls-and-cert.md）；pinning 在 native ⇒ protocol-reverse.md §5",
+      "pitfalls": ["P16 把自己的补丁当成服务端 TLS 失败的原因"],
+      "source": "references/protocol-reverse.md §1 Protobuf on the wire / §5 SSL pinning in a native library；references/tls-and-cert.md"
+    },
+    {
+      "id": "AS-17",
+      "surface": "分片 APK / App Bundle",
+      "check": "base + split_config.*.apk 的成员完整性、是否合法可合并、签名是否统一",
+      "criteria": "每个成员单独校验通过还不够：作为**集合**被拒时，pm install-multiple 要求一套 keystore 签全部成员；合并前先证明该 merge 是合法的",
+      "tools": ["scripts/repack.py --split-mode", "scripts/apk_diff.py"],
+      "false_positive": "“每个文件都验过了”≠“这一组装得上”；合并报错不等于签名错，可能是不该合并（成员自带 resources.arsc）",
+      "match": ["split apk", "aab", "xapk", "分片", "app bundle"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/repack.py --apk base.apk --split-mode analyze",
+        "python Tool/skill/apkseep/scripts/repack.py --apk base.apk --split-mode resign --out out.apk"
+      ],
+      "fail": "合并被拒 ⇒ 走统一 resign（split-mode resign）；不要为了“一个 apk”去硬合并",
+      "pitfalls": ["P38 只对齐了 base，split 成员仍 STORED 不对齐"],
+      "source": "references/split-apk.md §3 The decision: merge or resign / §4 Unified signing；references/evidence-summary.md §The capability matrix"
+    },
+    {
+      "id": "AS-18",
+      "surface": "交付前的泄漏面",
+      "check": "证据/transcript/README 里的真实标识与豁免项",
+      "criteria": "提交前跑 scan_leaks.py；命中列表是“要看的行”，--show-exempt 用来看**错误的抑制**；保留 do-not-anonymize 清单里的内容",
+      "tools": ["scripts/scan_leaks.py"],
+      "false_positive": "命中数是“要看的行”而不是“必须删的行”；反过来“没命中”也不等于干净（规则只覆盖被付过代价的那些形态）",
+      "match": ["脱敏", "泄漏扫描", "leak scan", "证据发布"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/scan_leaks.py --root .",
+        "python Tool/skill/apkseep/scripts/scan_leaks.py --root . --show-exempt"
+      ],
+      "fail": "命中且属实 → 改证据文件；命中但属豁免 → 把豁免理由写进文件（不要静默加豁免）",
+      "pitfalls": ["把脱敏做成“删掉一切”，连 do-not-anonymize 清单里的证据也删掉"],
+      "source": "references/desensitization-and-leak-scans.md §What must be kept / §The scanner, and where it belongs in the pipeline；SKILL.md §Symptom index"
+    },
+    {
+      "id": "AS-19",
+      "surface": "动态分析能不能用",
+      "check": "attach 是否成功、hook 是否触发、目标是“检测”还是“环境不具备条件”",
+      "criteria": "先在未改的原版上、同环境跑一次；零事件时先做环境自述（anti_detect_probe 只观察不改任何字节），再把“检测”与“工具/环境”分开",
+      "tools": ["scripts/anti_detect_probe.js", "scripts/run_probe.py", "scripts/doctor.py", "scripts/preflight.py"],
+      "false_positive": "attach 即死/attach 后零事件且报错提到 ptrace/tracer，往往是翻译层或环境问题；hook 本身可观察，会把目标变成另一个实验对象",
+      "match": ["frida", "hook", "attach", "反调试", "anti-debug"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/doctor.py --capabilities --json",
+        "python Tool/skill/apkseep/scripts/preflight.py"
+      ],
+      "fail": "确认是环境不具备条件 ⇒ 记一行环境事实（detection Step 6），转全静态；绕过模块越加越多 ⇒ 按 Step 2B 的三个数转静态",
+      "pitfalls": ["P15 Frida 版本错配看起来像目标坏了", "把“零事件”直接当成“有检测”"],
+      "source": "references/detection-and-anti-analysis.md §Step 1 / §Step 4 / §Step 6 / §Step 2B；references/coverage-and-limits.md §Not covered"
+    },
+    {
+      "id": "AS-20",
+      "surface": "对照组与单变量纪律",
+      "check": "同管线零补丁的对照构建是否存在、这次失败前面变了几个变量",
+      "criteria": "对照组失败 ⇒ 管线/环境/设备的问题；对照组通过而打了补丁的失败 ⇒ 补丁被牵连（逐个 dex 回滚定位）；放弃一条路线必须有单变量证据",
+      "tools": ["scripts/repack.py", "scripts/apk_diff.py"],
+      "false_positive": "两个变量一起改过的失败不是证据；把“复合失败”归到某一个原因上是本域最贵的一条（数小时）",
+      "match": ["对照", "control build", "复现", "归因", "单变量"],
+      "commands": [
+        "python Tool/skill/apkseep/scripts/repack.py --apk original.apk --dexdir <extracted> --out control.apk",
+        "python Tool/skill/apkseep/scripts/apk_diff.py original.apk control.apk --summary"
+      ],
+      "fail": "没有对照组就写“blocked” ⇒ 先建对照组（mis-attributed block 已经移除过可行路线）；两个变量同改 ⇒ 单变量重跑",
+      "pitfalls": ["P21 两个变量一起改，之后所有归因都作废", "P9 把自己环境的问题算在补丁头上"],
+      "source": "references/verification.md §The control build rule；SKILL.md §R2；references/long-task-discipline.md §Single-variable discipline"
+    }
+  ]
+}

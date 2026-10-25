@@ -641,6 +641,9 @@ def load_dex(source, entry=None):
 
 
 def main(argv):
+    if any(a in ("-h", "--help") for a in argv[1:]):
+        print((__doc__ or "").strip() or "usage: dexutil.py ...")
+        return 0
     if len(argv) != 5:
         print(__doc__)
         return 2

@@ -27,8 +27,17 @@
 
 好处：
 - 工具在会话启动时就注册好，不再依赖"谁先起"的顺序；
-- x64dbg 没起时本脚本会自己拉（复用 tool-run.ps1，1.3 秒），不需要人工干预；
-- 拉起失败时返回**明确的错误**，而不是让模型以为工具不存在。
+- x64dbg 没起时**不擅自动手**：返回一条"需要你确认"的结构化结果并打出 A/B/C 选项
+  （客户可能正在远程 / 终端 / 共享屏里干活，弹一个 GUI 就是事故）；
+- 用户明确授权后仍可自动拉起：环境变量 `SEEP_ALLOW_GUI_AUTOLAUNCH=1`
+  或启动参数 `--allow-gui-launch`（能力保留，不是删功能）；
+- 拉起失败时返回**明确的错误 + A/B/C 卡**，而不是让模型以为工具不存在。
+
+## A/B/C（`ensure_upstream()` 返回的 choices）
+
+    A  我（Agent）启动   → tool-run.ps1 -Tool x64dbg，会弹 x64dbg GUI
+    B  你（用户）双击    → 你开 x64dbg，然后 /mcp reconnect x64dbg
+    C  只做静态         → 不开 GUI，改用 radare2 / IDA 静态分析
 
 ## 用法
 
@@ -38,7 +47,7 @@ mcp.json 里把 x64dbg 改成 stdio：
 "x64dbg": {
   "command": "python",
   "args": ["<repo>/Tool/scripts/mcp-bridge-x64dbg.py"],
-  "description": "x64dbg 调试器（stdio 桥接 → 9094）。由本桥自动拉起，勿手工开 GUI。"
+  "description": "x64dbg 调试器（stdio 桥接 → 9094）。桥不会擅自拉起 GUI：需要时返回 A/B/C 确认卡。"
 }
 ```
 
@@ -140,7 +149,10 @@ def upstream_alive() -> bool:
 
 
 def launch_upstream() -> bool:
-    """用 tool-run.ps1 拉起 x64dbg（它是唯一合法启动入口，1.3 秒 READY）。"""
+    """用 tool-run.ps1 拉起 x64dbg（它是唯一合法启动入口，1.3 秒 READY）。
+
+    ⚠ 会弹 GUI 窗口 —— 只能由 ensure_upstream() 在**用户明确授权后**调用。
+    """
     if not os.path.isfile(TOOL_RUN):
         log(f"缺 {TOOL_RUN}，无法拉起 x64dbg")
         return False
@@ -166,8 +178,82 @@ def launch_upstream() -> bool:
     return False
 
 
-def ensure_upstream() -> bool:
-    return upstream_alive() or launch_upstream()
+# 自动拉起 GUI 的闸门：默认关。
+# 为什么：客户可能在远程桌面 / SSH / 共享屏 / 无人值守流水线里跑会话，
+# 桥静悄悄弹一个 x64dbg 窗口就是事故（而且 x64dbg 一开就接管调试端口）。
+# 保留能力：显式授权（环境变量或 --allow-gui-launch 参数）仍然可以自动拉起。
+ALLOW_ENV = "SEEP_ALLOW_GUI_AUTOLAUNCH"
+_TRUTHY = ("1", "true", "yes", "on", "y")
+
+
+# A/B/C 确认卡：桥只负责把选项**呈现**出来，由上层（Agent）出卡问用户。
+CONFIRM_CHOICES = [
+    {"id": "A", "label": "我启动",
+     "detail": "Agent 现在跑 tool-run.ps1 -Tool x64dbg 拉起调试器（会弹 GUI）"},
+    {"id": "B", "label": "你双击",
+     "detail": "你自己双击 x64dbg 并加载 MCP 插件，然后在会话里 /mcp reconnect x64dbg"},
+    {"id": "C", "label": "只做静态",
+     "detail": "不开 GUI，改用 radare2 / IDA 做纯静态分析"},
+]
+
+
+def autolaunch_allowed(explicit: bool | None = None) -> bool:
+    """显式参数优先；否则看 SEEP_ALLOW_GUI_AUTOLAUNCH（默认 0）。"""
+    if explicit is not None:
+        return bool(explicit)
+    return os.environ.get(ALLOW_ENV, "").strip().lower() in _TRUTHY
+
+
+def confirm_card_text() -> str:
+    """给人看的 A/B/C 卡（写 stderr 日志 / 作为 JSON-RPC error message 回给上层）。"""
+    lines = ["x64dbg 未运行（9094 无监听）。桥默认**不自动拉起 GUI**，请三选一："]
+    for c in CONFIRM_CHOICES:
+        lines.append("%s) %s —— %s" % (c["id"], c["label"], c["detail"]))
+    lines.append(
+        "（选 A：设 %s=1 后重启会话，或让 Agent 跑 tool-run.ps1 -Tool x64dbg；"
+        "选 B：起来后 /mcp reconnect x64dbg；选 C：告诉我只做静态）" % ALLOW_ENV
+    )
+    return "\n".join(lines)
+
+
+def log_confirm_card() -> None:
+    log("9094 未监听：默认不自动拉起 x64dbg GUI（远程/终端会话里弹窗是事故）")
+    for c in CONFIRM_CHOICES:
+        log("  %s) %s —— %s" % (c["id"], c["label"], c["detail"]))
+    log("  授权自动拉起：环境变量 %s=1（或传 --allow-gui-launch / ensure_upstream(launch=True)）" % ALLOW_ENV)
+
+
+def ensure_upstream(launch: bool | None = None) -> dict:
+    """确保上游可用 —— **默认不擅自拉起 GUI**。
+
+    返回结构化结果（上层据此出 A/B/C 卡，而不是自己去猜）：
+      {"status": "ready" | "need_user_confirm" | "launched" | "launch_failed",
+       "upstream": UPSTREAM,
+       "need_user_confirm": "x64dbg_not_running"   # 仅 need_user_confirm 时有
+       "choices": [{id,label,detail}, ...],        # 仅 need_user_confirm 时有
+       "message": "..."}
+
+    参数：
+      launch=False（默认取自环境变量，未设 = False）→ 只探活、不拉起
+      launch=True                                      → 已获用户确认，可拉起
+    """
+    if upstream_alive():
+        return {"status": "ready", "upstream": UPSTREAM, "message": "9094 已在监听"}
+
+    if autolaunch_allowed(launch):
+        log("9094 未监听，且已获自动拉起授权（%s / --allow-gui-launch），开始拉起 x64dbg …" % ALLOW_ENV)
+        ok = launch_upstream()
+        if ok:
+            return {"status": "launched", "upstream": UPSTREAM, "message": "已按授权拉起 x64dbg"}
+        return {"status": "launch_failed", "upstream": UPSTREAM,
+                "message": "已获授权但拉起失败，见 stderr 日志；可改用 B（用户双击）或 C（只做静态）"}
+
+    log_confirm_card()
+    return {"status": "need_user_confirm",
+            "need_user_confirm": "x64dbg_not_running",
+            "upstream": UPSTREAM,
+            "choices": [dict(c) for c in CONFIRM_CHOICES],
+            "message": "x64dbg 未运行；未获授权，不自动拉起 GUI"}
 
 
 # ───────────────────────── stdio ↔ http 转发 ─────────────────────────
@@ -227,12 +313,12 @@ FORWARD_METHODS = {
 }
 
 
-def serve() -> int:
-    if not ensure_upstream():
-        log("上游不可用，仍以空工具集启动（模型会看到明确错误，而不是以为工具不存在）")
-        upstream_ok = False
-    else:
-        upstream_ok = True
+def serve(allow_launch: bool | None = None) -> int:
+    st = ensure_upstream(allow_launch)
+    upstream_ok = st["status"] in ("ready", "launched")
+    if not upstream_ok:
+        log("上游不可用，仍以空工具集启动：任何 tools/call 都会回一条 A/B/C 确认卡（"
+            "模型会看到明确原因，而不是以为工具不存在）")
 
     for line in sys.stdin:
         line = line.strip()
@@ -264,30 +350,45 @@ def serve() -> int:
             continue
 
         if not upstream_ok:
-            ensure_upstream()      # 每次调用再试一次
-            upstream_ok = True
+            # 每次调用再探一次：用户可能刚双击开了 x64dbg（选项 B）
+            st = ensure_upstream(allow_launch)
+            upstream_ok = st["status"] in ("ready", "launched")
+            if not upstream_ok:
+                resp = {"jsonrpc": "2.0", "id": mid,
+                        "error": {"code": -32000, "message": confirm_card_text()}}
+                sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
+                sys.stdout.flush()
+                continue
 
         if method in FORWARD_METHODS:
             resp = forward(msg)
         else:
             resp = {"jsonrpc": "2.0", "id": mid,
                     "error": {"code": -32601, "message": f"bridge 不转发该方法：{method}"}}
-        sys.stdout.write(json.dumps(resp) + "\n")
+        sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
         sys.stdout.flush()
     return 0
 
 
 # ───────────────────────── 自检 ─────────────────────────
 
-def selftest() -> int:
+def selftest(allow_launch: bool | None = None) -> int:
     print(f"上游：{UPSTREAM}")
     aj = auth_json_path()
     print(f"鉴权文件：{aj or '（未定位到 x64dbg 目录，可用 SEEP_X64DBG_DIR 指定）'}（token {'有' if _auth_token() else '无'}）")
     alive = upstream_alive()
-    print(f"探活：{'在听' if alive else '未监听 → 尝试拉起'}")
+    print(f"探活：{'在听' if alive else '未监听'}")
     if not alive:
-        if not launch_upstream():
-            print("FAIL：拉不起来")
+        # 自检是用户**显式**发起的动作（python … --selftest），等同于选项 A 的确认；
+        # 仍然尊重显式 --allow-gui-launch / 环境变量，若都未给则默认按“已确认”处理。
+        granted = True if allow_launch is None else allow_launch
+        print(f"自检属显式操作 → 按已确认处理（allow_launch={granted}）")
+        st = ensure_upstream(granted)
+        if st["status"] not in ("ready", "launched"):
+            print("未确认/未就绪：" + st.get("message", ""))
+            for c in CONFIRM_CHOICES:
+                print(f"  {c['id']}) {c['label']} —— {c['detail']}")
+            print("FAIL：上游不可用（想自动拉起请加 --allow-gui-launch）")
             return 1
     init = forward({"jsonrpc": "2.0", "id": 1, "method": "initialize",
                     "params": {"protocolVersion": "2024-11-05", "capabilities": {},
@@ -306,12 +407,16 @@ def selftest() -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--selftest", action="store_true")
+    ap = argparse.ArgumentParser(
+        description="x64dbg HTTP MCP → stdio MCP 桥（默认不自动拉起 GUI，需显式授权）")
+    ap.add_argument("--selftest", action="store_true", help="自检：探活 + initialize + tools/list")
+    ap.add_argument("--allow-gui-launch", dest="allow_gui_launch", action="store_true",
+                    default=None,
+                    help="用户明确授权后才自动拉起 x64dbg GUI（等价于设 %s=1）" % ALLOW_ENV)
     a = ap.parse_args()
     if a.selftest:
-        return selftest()
-    return serve()
+        return selftest(a.allow_gui_launch)
+    return serve(a.allow_gui_launch)
 
 
 if __name__ == "__main__":

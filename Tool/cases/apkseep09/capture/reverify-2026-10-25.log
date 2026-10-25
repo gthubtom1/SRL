@@ -1,0 +1,37 @@
+### 目标
+样本 = Tool/samples/real/android-apks/ovaa.apk（仓库自带公开教学靶场，OWASP MASTG "Ovaa"）
+副本 = Tool/cases/apkseep09/target/ovaa.apk（同 sha256，仅用于让案例目录自带 .apk）
+size = 1723521
+
+### 这次只做什么 / 不做什么
+做：判据链的第 1 + 第 5 步（`01-criteria.md` §2 的 Rung 0 之上，`04-walkthrough-...md` 第 1 步与第 5 步）：
+    ① 定量 dex/native 组成；② 排除 Java2C（native 声明密度 + Java_* 符号数）。
+不做：脱壳（本样本无需脱壳）、重打包/签名、装机启动、目标功能验证。
+    也就是说：本案例停在 **Rung 0**（"字节存在/结构可解析"），没有到 Rung 3/4。
+
+### 命令与 rc
+命令：python Tool/skill/apkseep/scripts/java2c_probe.py --apk Tool/samples/real/android-apks/ovaa.apk --json
+落盘：artifacts/run.json
+rc=0
+
+### 输出要点（全部取自 artifacts/run.json，未改写）
+dex: classes.dex size=2636832 classes=2024 total_methods=15912 native_methods=1 native_ratio=0.0001
+     fully_native_classes=0 native_dominated_classes=0 trivial_ratio=0.0397 (593/14935)
+so : libovaa.so × 4 个 ABI（aarch64 5824B / arm 13904B / x86 5516B / x86_64 6096B）
+     so_java_symbols=4（每个 ABI 各 1 个）so_bytes_total=31340
+     exports_JNI_OnLoad=false（4 个 ABI 全部）imports_RegisterNatives=false
+classification.verdict = jni-sinking
+classification.confidence = medium
+
+### 判据对照（references/01-criteria.md §1「类是不是 Java2C / JNI sinking」那一行）
+- native 声明密度 0.0001（= 0.01%），落在"真实 JNI 目标 0.03–0.04%"同一量级 → Java2C **排除**成立。
+- 但 1 个 native 声明 vs 4 个 Java_* 导出**不构成 1:1**（4 个 ABI 各 1 个符号，dex 侧只有 1 个声明）。
+  因此 `confidence` 只能是 medium：按该行的要求，"两组数字都在"才行，这里第二组按 ABI 分开后与 dex 计数不等。
+- trivial_ratio=0.0397（4%），不是抽取壳/VMP 形态（脚本自己的 note 写明该指标只标识抽取壳与 VMP，从不标识 Java2C）。
+
+### 边界（没验证的，逐条）
+1. 无设备在线 → 未做安装/启动/前台校验（Rung 3 未达成），因此无法证明本机跑的就是这个产物。
+2. 未做重打包/签名/对齐 → `resources.arsc` STORED+对齐、签名方案选型均未触及。
+3. 未做 dump 体检：本样本 dex 直接在盘上可读，没有内存镜像可判（`stub%` 无从计算）。
+4. 未做任何补丁，因此没有 Rung 1（结构漂移）与 Rung 4（目标行为变化）的证据。
+5. `libovaa.so` 的 Java_* 符号内容未逐个人工核对，只依赖脚本计数。

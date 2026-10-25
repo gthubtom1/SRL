@@ -20,7 +20,7 @@
 输出 covered / dangling：covered 是自洽可直接编排的能力；dangling 是缺文件、
 缺 compose 目标、字段不全或既未被引用又未 reserved 的能力（逐项列出缺失物）。
 
-矩阵不手填：`--emit-matrix` 会按能力自带 domain + compose 闭包重算 11 域矩阵。
+矩阵不手填：`--emit-matrix` 会按能力自带 domain + compose 闭包重算 9 域矩阵。
 
 用法:
     python Tool/skill/softseep/scripts/capability-gate.py
@@ -54,27 +54,36 @@ MATRIX_VALUES = ("full", "partial", "via-compose")
 REQUIRED = ("id", "title", "inputs", "outputs", "scripts", "refs", "maturity", "compose")
 ABS_PATH_RE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\\\\\|/(?:home|Users|etc|var|tmp|opt|mnt|root|usr)/)")
 
-# 11 个域（与 Tool/scripts/lib/domain_spec.py 的 DOMAINS 一致）。
-DOMAIN_ORDER = ["web-pentest", "pwn-crypto", "firmware-iot", "ad-cloud",
-                "protocol-plugin", "plugin-targets", "forensics-mobile",
-                "malware-analysis", "supply-chain-security", "site-clone", "reverse"]
+# 9 个客户域（与 Tool/scripts/lib/domain_spec.py 的 DOMAINS 一致）。
+# 旧名 ad-cloud / plugin-targets / site-clone 已迁出（不再是客户域），
+# reverse 已并入 softseep（同一 skill / 同一路由包）。
+DOMAIN_ORDER = ["apkseep", "firmware-iot", "web-pentest", "pwn-crypto",
+                "protocol-plugin", "forensics-mobile", "malware-analysis",
+                "supply-chain-security", "softseep"]
 DEFAULT_FAMILIES = DOMAIN_ORDER
+
+# 旧域名兼容（**逐份报出，不静默**）：
+#   * DOMAIN_ALIASES：只是改名，归一后有客户域归宿（reverse → softseep）；
+#   * LEGACY_DOMAINS：已整体迁出，客户域里没有归宿，但 Tool/capabilities/*.json
+#     里仍有这些 domain 值（迁移不在本次改动范围内）。两者都接受，
+#     但 run_gate 会列在 legacy_domains 里，render_text 也会打一行。
+# 拼错/自造域名（既不在 9 域、也不在上面两张表）仍然判红。
+DOMAIN_ALIASES = {"reverse": "softseep"}
+LEGACY_DOMAINS = ("ad-cloud", "plugin-targets", "site-clone")
 
 # 域间相邻关系：能力对本域=full，对相邻域=partial，其余=via-compose。
 DOMAIN_ADJACENCY = {
-    "web-pentest": {"pwn-crypto", "protocol-plugin", "supply-chain-security", "ad-cloud", "site-clone"},
-    "pwn-crypto": {"web-pentest", "reverse", "protocol-plugin"},
-    "firmware-iot": {"reverse", "forensics-mobile", "protocol-plugin"},
-    "ad-cloud": {"web-pentest", "supply-chain-security", "reverse"},
-    "protocol-plugin": {"web-pentest", "firmware-iot", "reverse", "pwn-crypto"},
-    "plugin-targets": {"reverse", "web-pentest"},
-    "forensics-mobile": {"malware-analysis", "reverse", "firmware-iot"},
-    "malware-analysis": {"forensics-mobile", "reverse"},
-    "supply-chain-security": {"web-pentest", "ad-cloud", "reverse"},
-    "site-clone": {"web-pentest", "reverse"},
-    "reverse": {"plugin-targets", "forensics-mobile", "malware-analysis",
+    "apkseep": {"forensics-mobile", "softseep", "firmware-iot"},
+    "firmware-iot": {"softseep", "forensics-mobile", "protocol-plugin", "apkseep"},
+    "web-pentest": {"pwn-crypto", "protocol-plugin", "supply-chain-security", "softseep"},
+    "pwn-crypto": {"web-pentest", "softseep", "protocol-plugin", "apkseep"},
+    "protocol-plugin": {"web-pentest", "firmware-iot", "softseep", "pwn-crypto"},
+    "forensics-mobile": {"malware-analysis", "softseep", "firmware-iot", "apkseep"},
+    "malware-analysis": {"forensics-mobile", "softseep", "supply-chain-security"},
+    "supply-chain-security": {"web-pentest", "softseep", "malware-analysis", "firmware-iot"},
+    "softseep": {"protocol-plugin", "forensics-mobile", "malware-analysis",
                 "pwn-crypto", "firmware-iot", "web-pentest",
-                "supply-chain-security", "site-clone"},
+                "supply-chain-security", "apkseep"},
 }
 
 
@@ -238,7 +247,7 @@ def reachable_domains(cid, caps: dict, memo: dict) -> set:
 
 
 def emit_matrix(caps: dict, path: str) -> dict:
-    """从能力自带 domain + compose 闭包生成 11 域覆盖矩阵（不手填）。"""
+    """从能力自带 domain + compose 闭包生成 9 域覆盖矩阵（不手填）。"""
     memo = {}
     rows = {}
     tally = {v: 0 for v in MATRIX_VALUES}
@@ -310,8 +319,12 @@ def validate_capability(obj, stem: str, root: str, ids: set,
         if key in obj and not isinstance(obj.get(key), list):
             problems.append("%s 必须是数组" % key)
     if "domain" in obj and obj.get("domain") not in DOMAIN_ORDER:
-        problems.append("domain 必须 ∈ %s，实际 %r"
-                        % ("/".join(DOMAIN_ORDER), obj.get("domain")))
+        # 旧名：改名（DOMAIN_ALIASES）与迁出（LEGACY_DOMAINS）都接受，但必须被报出。
+        # 既不是 9 域也不是已知旧名 = 拼错/自造 → 仍然红。
+        dom = obj.get("domain")
+        if dom not in DOMAIN_ALIASES and dom not in LEGACY_DOMAINS:
+            problems.append("domain 必须 ∈ %s，实际 %r"
+                            % ("/".join(DOMAIN_ORDER), dom))
     if "version" in obj and not str(obj.get("version") or "").strip():
         problems.append("version 必须是非空字符串")
     if "reserved" in obj and not isinstance(obj.get("reserved"), bool):
@@ -342,6 +355,8 @@ def validate_capability(obj, stem: str, root: str, ids: set,
     return {
         "id": cid,
         "maturity": maturity,
+        "domain": obj.get("domain"),
+        "domain_norm": DOMAIN_ALIASES.get(obj.get("domain"), obj.get("domain")),
         "problems": problems,
         "missing_paths": missing_paths,
         "unknown_compose": unknown_compose,
@@ -404,10 +419,12 @@ def run_gate(caps_dir: str, matrix_path: str, root: str,
         "caps_dir": rel(caps_dir, root),
         "counts": {"capabilities": 0, "covered": 0, "dangling": 0,
                    "referenced": 0, "referenced_by_id": 0,
-                   "referenced_by_script": 0, "reserved": 0, "cycles": 0},
+                   "referenced_by_script": 0, "reserved": 0, "cycles": 0,
+                   "legacy_domain": 0},
         "covered": [],
         "dangling": [],
         "by_maturity": {m: 0 for m in MATURITIES},
+        "legacy_domains": {},
         "errors": [],
         "matrix": {},
     }
@@ -470,6 +487,10 @@ def run_gate(caps_dir: str, matrix_path: str, root: str,
         maturity = report.get("maturity")
         if maturity in result["by_maturity"]:
             result["by_maturity"][maturity] += 1
+        dom = report.get("domain")
+        if isinstance(dom, str) and dom not in DOMAIN_ORDER \
+                and (dom in DOMAIN_ALIASES or dom in LEGACY_DOMAINS):
+            result["legacy_domains"][report["id"]] = dom
         if report["problems"]:
             entry = {"id": report["id"], "file": rel(path, root),
                      "problems": report["problems"]}
@@ -483,6 +504,8 @@ def run_gate(caps_dir: str, matrix_path: str, root: str,
 
     result["counts"]["covered"] = len(result["covered"])
     result["counts"]["dangling"] = len(result["dangling"])
+    result["legacy_domains"] = {k: v for k, v in sorted(result["legacy_domains"].items())}
+    result["counts"]["legacy_domain"] = len(result["legacy_domains"])
     result["matrix"] = validate_matrix(matrix_path, ids, root)
     if result["matrix"].get("problems") or result["matrix"].get("missing_cells") \
             or result["matrix"].get("unknown_rows"):
@@ -508,6 +531,11 @@ def render_text(res: dict) -> str:
         res["counts"].get("cycles", 0)))
     maturity = ", ".join("%s=%d" % (k, v) for k, v in res["by_maturity"].items())
     lines.append("成熟度: " + maturity)
+    legacy = res.get("legacy_domains") or {}
+    if legacy:
+        # 不静默：旧域名虽然被接受，但每份都点名（待迁移回 9 域）。
+        lines.append("旧域名（已归一/已迁出，待迁移 %d 份）: %s" % (
+            len(legacy), ", ".join("%s=%s" % (k, v) for k, v in legacy.items())))
     for entry in res["dangling"]:
         lines.append("  DANGLING %s <- %s" % (entry["id"], "; ".join(entry["problems"])))
     for err in res["errors"]:
@@ -656,6 +684,49 @@ def self_test() -> int:
                            for e in unref_res["dangling"]),
                        "unreferenced capability reported"))
 
+        # 旧域名夹具：reverse（改名为 softseep）与 ad-cloud（已迁出）接受但**必须报出**；
+        # 自造域名仍然红（不得因为放宽旧名而把拼写错误一起放过）。
+        legacy = os.path.join(tmp, "legacy")
+        os.makedirs(legacy)
+        legacy_caps = {
+            "cap-l1.json": {"id": "cap-l1", "title": "L1", "inputs": [], "outputs": [],
+                            "scripts": [], "refs": [], "maturity": "usable",
+                            "compose": [], "domain": "reverse", "reserved": True},
+            "cap-l2.json": {"id": "cap-l2", "title": "L2", "inputs": [], "outputs": [],
+                            "scripts": [], "refs": [], "maturity": "usable",
+                            "compose": [], "domain": "ad-cloud", "reserved": True},
+        }
+        for name, obj in legacy_caps.items():
+            with open(os.path.join(legacy, name), "w", encoding="utf-8") as fh:
+                json.dump(obj, fh, ensure_ascii=False)
+        legacy_matrix = os.path.join(tmp, "legacy-matrix.json")
+        with open(legacy_matrix, "w", encoding="utf-8") as fh:
+            json.dump({"schema": MATRIX_SCHEMA, "families": list(DOMAIN_ORDER),
+                       "capabilities": {cid: {f: "full" for f in DOMAIN_ORDER}
+                                        for cid in ("cap-l1", "cap-l2")}},
+                      fh, ensure_ascii=False)
+        legacy_res = run_gate(legacy, legacy_matrix, tmp, pbdir)
+        checks.append((legacy_res["ok"] is True, "legacy domain names accepted"))
+        checks.append((legacy_res["legacy_domains"]
+                       == {"cap-l1": "reverse", "cap-l2": "ad-cloud"},
+                       "legacy domains reported"))
+        checks.append(("旧域名" in render_text(legacy_res), "legacy domains rendered"))
+
+        # 自造域名（既非 9 域、也非已知旧名）必须红
+        baddom = os.path.join(tmp, "baddom")
+        os.makedirs(baddom)
+        with open(os.path.join(baddom, "cap-z.json"), "w", encoding="utf-8") as fh:
+            json.dump({"id": "cap-z", "title": "Z", "inputs": [], "outputs": [],
+                       "scripts": [], "refs": [], "maturity": "usable",
+                       "compose": [], "domain": "not-a-domain", "reserved": True},
+                      fh, ensure_ascii=False)
+        baddom_matrix = os.path.join(tmp, "baddom-matrix.json")
+        with open(baddom_matrix, "w", encoding="utf-8") as fh:
+            json.dump({"schema": MATRIX_SCHEMA, "families": ["f1", "f2"],
+                       "capabilities": {"cap-z": dict(cells)}}, fh, ensure_ascii=False)
+        baddom_res = run_gate(baddom, baddom_matrix, tmp, pbdir)
+        checks.append((baddom_res["ok"] is False, "invented domain fails"))
+
         # 干净夹具必须通过
         clean = os.path.join(tmp, "clean")
         os.makedirs(clean)
@@ -681,7 +752,8 @@ def self_test() -> int:
         print(json.dumps({"ok": True, "checks": len(checks),
                           "tool": "capability-gate.py",
                           "fixtures": {"dirty": 6, "clean": 2, "cycle": 2,
-                                        "unref": 1, "alias": 1}},
+                                        "unref": 1, "alias": 1,
+                                        "legacy": 2, "baddom": 1}},
                          ensure_ascii=False))
         return 0
 

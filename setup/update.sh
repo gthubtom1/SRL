@@ -281,7 +281,7 @@ fi
 # ------------------------------------------------------------------ 5. 自检
 if [ "$SKIP_VERIFY" = 0 ]; then
     step "5/6  官方基准自检"
-    if bash "$SCRIPT_DIR/python Tool/scripts/check.py --env"; then
+    if bash -c "cd \"$SCRIPT_DIR\" && python Tool/scripts/check.py --env"; then
         ok "自检全部通过"
     else
         warn "自检存在未通过项，请查看上方红色标记"

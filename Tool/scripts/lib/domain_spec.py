@@ -11,8 +11,50 @@
 """
 from __future__ import annotations
 
-# 十一域（重点域）：refs 6-10 + 四个必备篇 + 2-4 脚本 + 3-5 案例 + 6-10 KB + 20-30 任务卡
+# ---------------------------------------------------------------------------
+# REMOVED_DOMAINS（W6 迁出；这些**不是**客户可见域，已移出深度检查）
+#
+# 判据：客户可见域 = 路由包里的键名 = `Tool/skill/*/pack.json` 的 id（9 个）。
+# 下面四项在本文件里不再占位，因为：
+#   * ad-cloud / plugin-targets / site-clone —— skill 指向 `Tool/skill/_pending/*`，
+#     索引 32→9 后已归档、仓库里没有对应路由包（R0 兜底也不会落到它们），
+#     客户不会点名要求；
+#   * reverse —— 只是 `softseep` 的旧名，同一条路由包/同一个 skill 目录，
+#     留着会让「reverse 域」和「softseep 域」重复占两行（域计数 11 的根因）。
+# 迁出的只是**深度检查的域清单**：探针/矩阵/案例/KB 文件仍在原地，被别处引用
+# （Tool/capabilities/*.json、Tool/config/{ad-cloud,plugin-targets,site-clone,
+# reverse}-matrix.json、Tool/cases/{ad-cloud*,plugin*,site-clone*,项目*,案例*}、
+# kb/{ad-cloud,plugin,site-clone,pe-reverse}），所以**不删文件**。
+# 若要重新纳入，先让它们有路由包（pack.json）再加回本字典。
+#
+# REMOVED_DOMAINS = {
+#     "ad-cloud":       {"skill": "_pending/ad-cloud",       "archived": True, "board": "ad-cloud"},
+#     "plugin-targets": {"skill": "_pending/plugin-targets", "archived": True, "board": "plugin"},
+#     "site-clone":     {"skill": "_pending/site-clone",     "archived": True, "board": "site-clone"},
+#     "reverse":        {"skill": "softseep",                "board": "pe-reverse"},  # → 已并入 softseep
+# }
+# ---------------------------------------------------------------------------
+
+# 九域（客户可见域，与路由包一一对应）：
+# refs 6-10 + 四个必备篇 + 2-16 脚本 + 3-7 案例 + 6-10 KB + 20-30 任务卡
 DOMAINS = {
+    "apkseep": {
+        "skill": "apkseep",
+        "board": "apk-reverse",
+        "matrix": "apkseep-matrix.json",
+        "case_globs": ["apkseep*"],
+        "ext_scripts": [],
+        # 与 softseep 同档：安卓逆向的 KB 文章与 references 是同一类产物，
+        # 单篇 400 行上限（默认 200 会把既有技术长文判成缺陷，属判据失真）。
+        "kb_line_max": 400,
+    },
+    "firmware-iot": {
+        "skill": "firmware-iot",
+        "board": "firmware-iot",
+        "matrix": "firmware-iot-matrix.json",
+        "case_globs": ["firmware-iot*"],
+        "ext_scripts": ["`fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/）"],
+    },
     "web-pentest": {
         "skill": "web-pentest",
         "board": "web-pentest",
@@ -27,35 +69,12 @@ DOMAINS = {
         "case_globs": ["pwn-crypto*"],
         "ext_scripts": ["Tool/skill/pwn-crypto/scripts/pwn-check.py"],
     },
-    "firmware-iot": {
-        "skill": "firmware-iot",
-        "board": "firmware-iot",
-        "matrix": "firmware-iot-matrix.json",
-        "case_globs": ["firmware-iot*"],
-        "ext_scripts": ["`fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/）"],
-    },
-    "ad-cloud": {
-        "skill": "_pending/ad-cloud",   # S3：索引 32→9 后归档，不部署
-        "archived": True,
-        "board": "ad-cloud",
-        "matrix": "ad-cloud-matrix.json",
-        "case_globs": ["ad-cloud*"],
-        "ext_scripts": [],
-    },
     "protocol-plugin": {
         "skill": "protocol-plugin",
         "board": "protocol",
         "matrix": "protocol-plugin-matrix.json",
         "case_globs": ["protocol*"],
         "ext_scripts": ["`pcap-summary`（S4 已删：壳，真身在 protocol-plugin/scripts/）"],
-    },
-    "plugin-targets": {
-        "skill": "_pending/plugin-targets",   # S3：索引 32→9 后归档，不部署
-        "archived": True,
-        "board": "plugin",
-        "matrix": "plugin-targets-matrix.json",
-        "case_globs": ["plugin*"],
-        "ext_scripts": ["`plugin-triage`（S4 已删：壳，真身在 _pending/plugin-targets/scripts/）"],
     },
     "forensics-mobile": {
         "skill": "forensics-mobile",
@@ -78,21 +97,15 @@ DOMAINS = {
         "case_globs": ["supply-chain*"],
         "ext_scripts": ["Tool/skill/supply-chain-security/scripts/sc-check.py"],
     },
-    "site-clone": {
-        "skill": "_pending/site-clone",   # S3：索引 32→9 后归档，不部署
-        "archived": True,
-        "board": "site-clone",
-        "matrix": "site-clone-matrix.json",
-        "case_globs": ["site-clone*"],
-        "ext_scripts": [],
-    },
-    "reverse": {
+    # softseep = 旧名 reverse（同一 skill 目录 / 同一 pe-reverse KB 板）；
+    # 矩阵文件仍叫 reverse-matrix.json（文件名是数据，不是域名）。
+    "softseep": {
         "skill": "softseep",
         "board": "pe-reverse",
         "matrix": "reverse-matrix.json",
         "case_globs": ["项目*", "案例*"],
         "ext_scripts": ["Tool/skill/malware-analysis/scripts/driver-triage.py"],
-        # 逆向域与其它域同一契约（3–5 案例 / 6–10 篇 KB）。
+        # 逆(软)向域与其它域同一契约（3–5 案例 / 6–10 篇 KB）。
         # 历史沉淀不删：超出部分归档在 Tool/cases/_archive/ 与 kb/_archive/pe-reverse/，
         # 归档不计入域数量，但链接完整性仍受门禁约束（见 check_links / check_md_links）。
         "kb_line_max": 400,   # 逆向域 KB 单篇与 reference 同档（§5 已写明）

@@ -140,23 +140,49 @@ if (-not $SkipTools) {
 }
 
 Write-Step '执行环境体检 (python Tool/scripts/check.py --env)'
-& python (Join-Path (Split-Path $ScriptDir -Parent) "Tool/scripts/check.py") --env
+# ★ 这一步的退出码就是「部署到底成没成」的唯一输入。
+#   血案：旧版把 check.py 的退出码直接丢掉，于是体检全红也照样打印
+#   「🎉 全套组件已部署完成」—— 对客户说假话，属于最伤信任的一类缺陷。
+$envOut = @()
+& python (Join-Path (Split-Path $ScriptDir -Parent) "Tool/scripts/check.py") --env | ForEach-Object {
+    $envOut += "$_"
+    Write-Host "    $_"
+}
+$envRc = $LASTEXITCODE
+
+# 体检失败项数：优先读 env-check.py 的「缺 N 项」，读不到就至少记 1（有失败就有失败项）
+$envFailCount = 0
+$m = [regex]::Match(($envOut -join "`n"), '缺\s*(\d+)\s*项')
+if ($m.Success) { $envFailCount = [int]$m.Groups[1].Value }
+elseif ($envRc -ne 0) { $envFailCount = 1 }
+
+$deployOk = ($envRc -eq 0 -and $script:Failed.Count -eq 0)
 
 # ---------------------------------------------------------------- 总结
 Write-Host "`n=================================================================" -ForegroundColor White
-if ($script:Failed.Count -eq 0) {
+if ($deployOk) {
     Write-Host '  🎉 恭喜！Seep 工作台全套组件已部署完成！' -ForegroundColor Green
 } else {
-    Write-Host "  [!!] 部分非关键步骤失败: $($script:Failed -join ', ')" -ForegroundColor Yellow
+    if ($script:Failed.Count -gt 0) {
+        Write-Host "  [!!] 部分步骤失败: $($script:Failed -join ', ')" -ForegroundColor Yellow
+    }
+    if ($envRc -ne 0) {
+        Write-Host "  ⚠ 部署未完成：体检有 $envFailCount 项未通过（见上）" -ForegroundColor Red
+        Write-Host '     修好后重跑: powershell -ExecutionPolicy Bypass -File setup\install.ps1' -ForegroundColor Yellow
+    }
 }
 Write-Host "=================================================================" -ForegroundColor White
 
-Write-Host @"
+if ($deployOk) {
+    Write-Host @"
 
 开工指南:
   1) 重新打开终端启动 Agent (Pi / Claude Code / DSH / OpenCode)
   2) 在对话框中输入:  lab： 即可开启白盒测试！
 
 "@ -ForegroundColor Cyan
+} else {
+    Write-Host "`n部署未完成，先修完上面的失败项再开工（体检明细见上方 python Tool/scripts/check.py --env 输出）。" -ForegroundColor Yellow
+}
 
-exit ($(if ($script:Failed.Count -eq 0) { 0 } else { 1 }))
+exit ($(if ($deployOk) { 0 } else { 1 }))

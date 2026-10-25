@@ -58,7 +58,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\sync-upstream.ps1 -Target all
 ```bash
 python Tool/scripts/check.py --env   # 已就绪？
 powershell -ExecutionPolicy Bypass -File .\setup\install.ps1   # 未就绪则自己装
-powershell -ExecutionPolicy Bypass -File .\setup\python Tool/scripts/check.py --env
+python Tool/scripts/check.py --env
 ```
 详见 `Tool/docs/BOOTSTRAP.md`。
 
@@ -85,7 +85,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 - **当用户在任何时候要求校验**（例如发送 `check`、`doctor`、`检查环境`、`帮我校验一下安装是否完整`）时，Agent 必须立即执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\python Tool/scripts/check.py --env
+python Tool/scripts/check.py --env
 ```
 *(在非 Windows 环境下直接运行 `python Tool/mcp/test_seep_mcp.py`)*
 

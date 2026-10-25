@@ -9,8 +9,14 @@
     python Tool/scripts/route.py --index            # 每行一条路由：priority<TAB>pack<TAB>label
     python Tool/scripts/route.py --index --json     # 机器可读
     python Tool/scripts/route.py --resolve "安卓 APK 去广告"
+    python Tool/scripts/route.py --resolve "区块链智能合约有没有漏洞" --strict   # 判不出 → rc=2
     python Tool/scripts/route.py --check            # 死路由/坏正则/坏优先级 → rc=1
-退出码：0 通过 / 1 有死路由或坏声明 / 2 参数错误
+
+兜底路由（`"fallback": true`）仍然存在（保住 softseep 的兜底条目），但**不再静默**：
+`--resolve` 命中它会打 `[FALLBACK]` 标记；`--strict` 下若**唯一命中是兜底**，
+输出 `[UNCLASSIFIED]` 且 rc=2 —— “我判不出来”是合法且可观测的出口（PLAN-OPTIMIZATION W5）。
+
+退出码：0 通过 / 1 有死路由或坏声明 / 2 参数错误或 --strict 判型未定（UNCLASSIFIED）
 """
 from __future__ import annotations
 
@@ -27,7 +33,11 @@ SKILL_DIR = os.path.join(ROOT, "Tool", "skill")
 PACK_KEYS = {"schema", "id", "l1", "routes", "stages", "tools", "cases", "witness",
              "witness_tool",   # 真跑该域自己的脚本（外部评审 C1：witness 只查账本 = 假绿）
              "evidence_contract", "limitations", "invalidation"}
-ROUTE_KEYS = {"label", "must", "priority"}
+ROUTE_KEYS = {"label", "must", "priority",
+              "fallback"}       # 兜底路由显式标记（W5）：命中它≠判型成功
+ROUTE_REQUIRED = {"label", "must", "priority"}   # fallback 可选：只有兜底那条要写
+
+UNCLASSIFIED = "[UNCLASSIFIED] 判不出领域，请先问用户一句话"
 
 
 def pack_files(skill_dir=None):
@@ -71,7 +81,7 @@ def load_packs(skill_dir=None):
                 problems.append("%s routes[%d]：不是对象" % (dirname, i))
                 continue
             extra = set(r) - ROUTE_KEYS
-            miss = ROUTE_KEYS - set(r)
+            miss = ROUTE_REQUIRED - set(r)
             if extra:
                 problems.append("%s routes[%d]：多出未声明字段 %s（.strict 语义）"
                                 % (dirname, i, ",".join(sorted(extra))))
@@ -89,6 +99,8 @@ def load_packs(skill_dir=None):
                                         % (dirname, i, j, str(e)[:40]))
             if not isinstance(r.get("priority"), int):
                 problems.append("%s routes[%d]：priority 必须是整数" % (dirname, i))
+            if "fallback" in r and not isinstance(r.get("fallback"), bool):
+                problems.append("%s routes[%d]：fallback 必须是 true/false" % (dirname, i))
             if not str(r.get("label") or "").strip():
                 problems.append("%s routes[%d]：label 不能为空" % (dirname, i))
         packs.append({"dir": dirname, "path": path, "id": pid or dirname,
@@ -128,14 +140,27 @@ def check(skill_dir=None):
             "problems": problems, "rows": rows}
 
 
+def fallback_keys(packs):
+    """{(pack_id, label)}：被显式标记为兜底的路由（`"fallback": true`）。"""
+    out = set()
+    for p in packs:
+        for r in p["routes"]:
+            if isinstance(r, dict) and r.get("fallback") is True:
+                out.add((p["id"], str(r.get("label") or "")))
+    return out
+
+
 def resolve(text, skill_dir=None, limit=5):
+    packs = load_packs(skill_dir)[0]
+    fb = fallback_keys(packs)
     text = str(text or "")
     hits = []
-    for prio, pid, label, must in flat_routes(load_packs(skill_dir)[0]):
+    for prio, pid, label, must in flat_routes(packs):
         for pat in must:
             try:
                 if re.search(pat, text):
-                    hits.append({"pack": pid, "label": label, "priority": prio, "must": pat})
+                    hits.append({"pack": pid, "label": label, "priority": prio,
+                                 "must": pat, "fallback": (pid, label) in fb})
                     break
             except re.error:
                 continue
@@ -149,26 +174,39 @@ def main():
     ap.add_argument("--check", action="store_true", help="死路由 / 坏正则 / 坏优先级 → rc=1")
     ap.add_argument("--resolve", default="", help="按一段自然语言匹配路由")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--strict", action="store_true",
+                    help="唯一命中是兜底路由时输出 [UNCLASSIFIED] 并以 rc=2 退出")
     ap.add_argument("--skill-dir", default="", help="覆盖 Tool/skill 根（测试用）")
     a = ap.parse_args()
     sd = a.skill_dir or None
 
     if a.resolve:
         hits = resolve(a.resolve, sd)
+        concrete = [h for h in hits if not h.get("fallback")]
+        fell_back = bool(hits) and not concrete      # 命中全是兜底（或无命中）
+        unclassified = a.strict and fell_back
         if a.json:
-            print(json.dumps({"query": a.resolve, "hits": hits}, ensure_ascii=False, indent=2))
+            print(json.dumps({"query": a.resolve, "hits": hits,
+                              "fallback": fell_back, "unclassified": unclassified,
+                              "message": UNCLASSIFIED if unclassified else ""},
+                             ensure_ascii=False, indent=2))
         elif not hits:
-            print("[NONE] 无路由命中：%s（检查是否该进 softseep 兜底 R0）" % a.resolve)
+            print(UNCLASSIFIED if a.strict
+                  else "[NONE] 无路由命中（兜底路由缺失？）：%s" % a.resolve)
         else:
             for h in hits:
-                print("%-24s p=%-4d %s" % (h["pack"], h["priority"], h["label"]))
-        return 0
+                print("%-24s p=%-4d %s%s" % (h["pack"], h["priority"], h["label"],
+                                             "  [FALLBACK]" if h.get("fallback") else ""))
+            if unclassified:
+                print(UNCLASSIFIED)
+        return 2 if unclassified else 0
 
     if a.check:
         res = check(sd)
         if a.json:
-            print(json.dumps({k: v for k, v in res.items() if k != "rows"},
-                             ensure_ascii=False, indent=2))
+            out = {k: v for k, v in res.items() if k != "rows"}
+            out["fallbacks"] = len(fallback_keys(load_packs(sd)[0]))
+            print(json.dumps(out, ensure_ascii=False, indent=2))
         else:
             print("[ROUTE] %d 个 pack / %d 条路由 / 死路由 %d" % (res["packs"], res["routes"], res["dead"]))
             for p in res["problems"]:
@@ -180,7 +218,9 @@ def main():
     if a.index:
         rows = flat_routes(load_packs(sd)[0])
         if a.json:
-            print(json.dumps([{"priority": p, "pack": pid, "label": lb, "must": m}
+            fb = fallback_keys(load_packs(sd)[0])
+            print(json.dumps([{"priority": p, "pack": pid, "label": lb, "must": m,
+                               "fallback": (pid, lb) in fb}
                               for p, pid, lb, m in rows], ensure_ascii=False, indent=2))
         else:
             for p, pid, lb, _m in rows:

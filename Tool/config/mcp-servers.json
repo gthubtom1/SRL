@@ -61,7 +61,7 @@
         "--server",
         "x64dbg"
       ],
-      "description": "x64dbg 调试器（stdio 桥接 → 127.0.0.1:9094）。桥会在需要时自动拉起 x64dbg，勿手工开 GUI；连通后调 mcp__x64dbg__*。工具路径缓存**双写**契约见 Tool/scripts/lib/tool_cache.py（曾因只写一种结构导致 401）。",
+      "description": "x64dbg 调试器（stdio 桥接 → 127.0.0.1:9094）。**默认不会自动拉起 GUI**（会话首次调用会回 A/B/C：A 由我启动 / B 你双击 / C 只做静态）；连通后调 mcp__x64dbg__*。工具路径缓存**双写**契约见 Tool/scripts/lib/tool_cache.py（曾因只写一种结构导致 401）。",
       "transport": "stdio"
     }
   },

@@ -28,7 +28,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
 ```
 
 - Linux / macOS：`./setup/install.sh`
-- **部署/更新后必须**跑 `powershell -File .\setup\python Tool/scripts/check.py --env`，并按 `MANUAL/DEPLOYMENT.md` 附录 A 输出四栏看板。
+- **部署/更新后必须**跑 `python Tool/scripts/check.py --env`，并按 `MANUAL/DEPLOYMENT.md` 附录 A 输出四栏看板。
 - 完成后提醒用户：**完全重启 Agent 会话**，再发 `lab：`。
 
 ## 3. 不要做的事

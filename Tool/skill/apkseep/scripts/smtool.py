@@ -74,6 +74,9 @@ def run(cp, main_class, args):
 
 
 def main():
+    if any(a in ("-h", "--help") for a in sys.argv[1:]):
+        print((__doc__ or "").strip() or "usage: smtool.py ...")
+        return 0
     if len(sys.argv) < 2:
         print(__doc__)
         return 2

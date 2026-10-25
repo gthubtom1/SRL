@@ -21,6 +21,19 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PY = sys.executable
 
+# 中文 Windows 控制台默认 cp936/GBK：本脚本自己会打中文与 ✓/✗，子脚本还会打 emoji，
+# 不重建 stdout/stderr 就会自崩（F1）。errors="replace" 保证只影响显示、不影响判定。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 —— 流被替换/已被关闭时忽略
+        pass
+
+# 所有子进程统一走这个 env：一次修好全部子脚本，而不是逐个改。
+# 没有它：任何子脚本 print 一个非 GBK 字符（✓/✗/emoji/中文标点）就会 UnicodeEncodeError，
+# 而套件失败原因只会显示“Traceback …”，误号得像真问题。
+CHILD_ENV = dict(os.environ, PYTHONIOENCODING="utf-8")
+
 # (名字, 命令参数, 是否属于 fast, 失败时给人看的一句话)
 SUITES = [
     ("lint",        ["Tool/scripts/preflight.py", "--fast"], True,
@@ -46,7 +59,8 @@ def run_one(name, argv, timeout=600):
     t0 = time.time()
     try:
         p = subprocess.run([PY] + argv, cwd=ROOT, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=timeout)
+                           encoding="utf-8", errors="replace", timeout=timeout,
+                           env=CHILD_ENV)
         out = (p.stdout or "") + (p.stderr or "")
         rc = p.returncode
     except subprocess.TimeoutExpired:
@@ -97,7 +111,8 @@ def main():
         try:
             out = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "case_state.py"),
                                   "handoff", "--repo"], cwd=ROOT, capture_output=True,
-                                 text=True, encoding="utf-8", errors="replace", timeout=120).stdout
+                                 text=True, encoding="utf-8", errors="replace", timeout=120,
+                                 env=CHILD_ENV).stdout
             hp = os.path.join(ROOT, "docs", "HANDOFF.md")
             if os.path.isfile(hp) and out.strip():
                 src = open(hp, encoding="utf-8").read()
@@ -115,7 +130,8 @@ def main():
             import re as _re
             p = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "preflight.py"), "--fast"],
                                cwd=ROOT, capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=300).stdout
+                               encoding="utf-8", errors="replace", timeout=300,
+                               env=CHILD_ENV).stdout
             m = _re.search(r"实测 (\d+)", p or "")
             if m:
                 actual = int(m.group(1))
@@ -131,7 +147,7 @@ def main():
     if a.env:
         # 环境体检 = env-check.py（装没装好）；与项目测试分开，但走同一个入口
         rc = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "env-check.py"), "--text"],
-                            cwd=ROOT).returncode
+                            cwd=ROOT, env=CHILD_ENV).returncode
         print("环境体检：%s" % ("通过" if rc == 0 else "有问题（见上）"))
         return rc
 
@@ -166,8 +182,10 @@ def main():
 
 
 if __name__ == "__main__":
+    # stdout/stderr 已在模块顶部重建为 UTF-8（此处保留原防御式重建，便于被 -c/-m 方式拉起时也无差）
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
         pass
     sys.exit(main())

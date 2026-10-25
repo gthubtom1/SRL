@@ -69,6 +69,9 @@ def patch_one(path, decl_wanted, registers, body):
 
 
 def main():
+    if any(a in ("-h", "--help") for a in sys.argv[1:]):
+        print((__doc__ or "").strip() or "usage: patch_smali.py ...")
+        return 0
     if len(sys.argv) < 3:
         print(__doc__)
         return 2

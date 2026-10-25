@@ -45,7 +45,7 @@ SKIP_REF_DIRS = ("work", "Tool/mcp/Tool/safe", "Tool/upstream", "Tool/mcp/Tool/r
                  "破甲卡生成", "Tool/cases", "docs/audit")
 TEXT_EXT = {".md", ".ps1", ".sh", ".py", ".json", ".jsonc", ".yml", ".ts", ".mjs"}
 
-results = []   # (section, name, ok, detail)
+results = []   # (section, name, ok, detail[, level])
 
 ALLOW_PATH = os.path.join(TOOL, "scripts", "preflight-allow.json")
 
@@ -65,8 +65,19 @@ def load_allow():
         return {}
 
 
-def add(section, name, ok, detail=""):
-    results.append({"section": section, "name": name, "ok": bool(ok), "detail": detail})
+def add(section, name, ok, detail="", level=None):
+    """登记一条检查结果。
+
+    level: None（普通 PASS/FAIL）/ "WARN" / "INFO"。
+    ★ 为什么需要它：有些项确实**不绿**但并不属于交付能力（例如仓库卫生、
+      文档承诺了但未实现的生成器）。以前只能硬写成 PASS 或写成 FAIL，
+      前者是假绿、后者让真 FAIL 淹在噪声里。WARN/INFO 一律 ok=True，
+      因此**不影响退出码**，只是打印时用 [WARN]/[INFO] 标出来。
+    """
+    rec = {"section": section, "name": name, "ok": bool(ok), "detail": detail}
+    if level:
+        rec["level"] = level
+    results.append(rec)
 
 
 def walk(first_only=True):
@@ -234,9 +245,19 @@ def check_numbers(fast):
 
 # ---------------------------------------------------------------- [3] 平台
 def run(cmd, timeout=600):
+    """跑子进程并取回文本。
+
+    ★ 为什么强制 PYTHONIOENCODING=utf-8：子进程的 stdout 是管道时，Python 会按
+      区域设置（中文 Windows = cp936）编码，而这里按 utf-8 解码 —— 结果全是乱码，
+      「按中文关键字抽行」（如 budget 的可控制小计/崩塌点）永远抽不到 = 静默失明。
+      与 check.py 的 W1 修法一致（一处修好所有子脚本）。
+    """
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
     try:
         r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=timeout, shell=False)
+                           encoding="utf-8", errors="replace", timeout=timeout,
+                           shell=False, env=env)
         return r.returncode, (r.stdout or "") + (r.stderr or "")
     except Exception as e:
         return 99, str(e)
@@ -244,8 +265,29 @@ def run(cmd, timeout=600):
 
 def check_functional(fast):
     py = sys.executable
+    # ★ 预算必须用真口径：无参版 budget.py 永远 rc=0，会把「可控制小计超 3.3 倍、
+    #   强制语句 65 > 崩塌线 45」报成「全部在预算内」（PLAN-OPTIMIZATION §0 F2）。
+    #   带 --prompt --ceiling 8000 才会按锚点判超支并非 0 退出。
+    _rc, _bout = run([py, os.path.join(TOOL, "scripts", "budget.py"),
+                      "--prompt", "--ceiling", "8000"])
+
+    def _pick(pred):
+        for _ln in (_bout or "").splitlines():
+            if pred(_ln):
+                return _ln
+        return None
+
+    # 只抽两行：① 可控制小计行（带「预算」）② 崩塌结论（而不是「崩塌临界点」表头）
+    _sub = _pick(lambda s: "可控制小计" in s and "预算" in s)
+    _col = _pick(lambda s: "崩塌" in s and "超过" in s)
+    _key = [x for x in (_sub, _col) if x]
+    if not _key:   # 预算脚本换口径时，退化为广匹配，宁可多打不可静默
+        _key = [ln for ln in (_bout or "").splitlines()
+                if "可控制小计" in ln or "崩塌" in ln]
+    add("4 功能", "budget（--prompt --ceiling 8000，超预算即 FAIL）", _rc == 0,
+        "rc=%d" % _rc + ("\n" + "\n".join(_key) if _key else "（输出里没有小计/崩塌行）"))
+
     items = [
-        ("budget", [py, os.path.join(TOOL, "scripts", "budget.py")]),
         ("routing-coherence", [py, os.path.join(TOOL, "scripts", "route.py"), "--check"]),
         ("relay-rules-sync", [py, os.path.join(TOOL, "scripts", "compliance-relay", "extract-rules.py"), "--check"]),
         ("kb-acceptance", [py, os.path.join(TOOL, "scripts", "kb_acceptance.py")]),
@@ -674,6 +716,37 @@ def check_playbook_gate():
             "rc=%d ok=%r" % (rc, data.get("ok")) if not ok else "rc=0 ok=true")
 
 
+def _tool_count_baseline():
+    """工具数基线：从 `Tool/config/packs.baseline.json` 取 seep 服务的登记工具数。
+
+    ★ 历史 bug（PLAN-OPTIMIZATION §0 F10）：基线原先只认 gate-counts.json（该文件**从未存在**），
+      该文件不存在 → mcp-param-contract 的基线比对整段跳过（baseline=None 即不比对），
+      而 preflight 依旧打印「工具数基线」PASS —— 削掉一半工具也看不出来。
+    现在：`mcp_handshake.servers.seep.toolsCount`（或该条目的 `toolNames` 条数）。
+    读不到返回 None；调用方必须判 FAIL（「无法证明」不等于「没问题」）。
+    """
+    p = os.path.join(TOOL, "config", "packs.baseline.json")
+    try:
+        with open(p, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return None
+    if not isinstance(d, dict):
+        return None
+    srv = ((((d.get("mcp_handshake") or {}).get("servers")) or {}).get("seep")) or {}
+    n = srv.get("toolsCount")
+    if isinstance(n, int) and n > 0:
+        return n
+    names = srv.get("toolNames")
+    if isinstance(names, list) and names:
+        return len(names)
+    for k in ("mcp_seep_tools", "seep_tool_count", "tool_count", "tools"):
+        n = d.get(k)
+        if isinstance(n, int) and n > 0:
+            return n
+    return None
+
+
 def check_mcp_contract():
     """MCP 参数契约：路径别名 / required / description / 工具数基线（2026-10-22 审计 P0）。"""
     sp = os.path.join(TOOL, "skill", "softseep", "scripts", "mcp-param-contract.py")
@@ -698,7 +771,27 @@ def check_mcp_contract():
     else:
         detail = "%d 个工具 / %d 个吃路径，全部支持 binary_path↔target_path 别名" % (
             data.get("tool_count", 0), data.get("path_tool_count", 0))
-    add("14 MCP 契约", "路径参数别名 + 工具数基线", ok, detail)
+
+    # 工具数基线**在 preflight 自己这边对**：mcp-param-contract 的 _resolve_baseline
+    # 读不到 gate-counts.json 就返回 None（不比对），下面这段把「没比对」变成 FAIL。
+    base_n = _tool_count_baseline()
+    measured = data.get("tool_count")
+    suffix = "" if ok else "；另有：" + detail
+    if base_n is None:
+        add("14 MCP 契约", "路径参数别名 + 工具数基线", False,
+            "基线缺失，无法证明工具数没被削减（应能读到 Tool/config/packs.baseline.json 的 "
+            "mcp_handshake.servers.seep.toolsCount）" + suffix)
+        return
+    if not isinstance(measured, int):
+        add("14 MCP 契约", "路径参数别名 + 工具数基线", False,
+            "拿不到实测工具数（--json 无 tool_count）；基线 %d" % base_n + suffix)
+        return
+    if measured != base_n:
+        add("14 MCP 契约", "路径参数别名 + 工具数基线", False,
+            "工具数 %d ≠ 基线 %d（疑似被削减）" % (measured, base_n) + suffix)
+        return
+    add("14 MCP 契约", "路径参数别名 + 工具数基线", ok,
+        detail + "；工具数 %d = 基线 %d" % (measured, base_n))
 
 
 def check_skill_route():
@@ -1570,10 +1663,20 @@ def check_domain_commands():
     设计（2026-10-24，约定优于配置）：加技能 = 丢一个 `Tool/skill/<名>/SKILL.md`，
     跑 install（会自动 gen-commands）→ 得到 `/名` 命令。**不再手写卡片、不再改配置**。
     这条判据守两件事：① 有技能没卡（漏生成）② 手动改过生成的卡（漂移）。
+
+    ★ 2026-10（W3）：本函数原来在 `check_route_first_contract` 前后**各定义一份**、
+      而且两份都**从未被 main() 调用**（死代码 = 永远不可能红也永远不可能绿）。
+      现在：只留一份（两份原文完全相同，取第一份位置，逻辑取实际跑得完的那套）、
+      由 main() 调一次。
+      并诚实化：`gen-commands.py` **本来就不存在**（文档承诺了但没实现，见
+      docs/PLAN-OPTIMIZATION.md「已知不修」），以前打 FAIL 只是在数一条永远不会修的债；
+      现报 INFO、不计 FAIL。它真出现后自动按原判据跑（存在才可能红）。
     """
     gen = os.path.join(TOOL, "scripts", "gen-commands.py")
     if not os.path.isfile(gen):
-        add("2 单一事实源", "命令卡由技能派生（无手写漂移）", False, "缺 Tool/scripts/gen-commands.py")
+        add("2 单一事实源", "命令卡由技能派生（无手写漂移）", True,
+            "文档承诺的命令卡生成器未实现（缺 Tool/scripts/gen-commands.py；"
+            "见 docs/PLAN-OPTIMIZATION.md 已知不修）", level="INFO")
         return
     rc, out = run([sys.executable, gen, "--check"], timeout=120)
     n_skill = len([d for d in os.listdir(os.path.join(TOOL, "skill"))
@@ -1601,24 +1704,6 @@ def check_route_first_contract():
     except Exception as e:  # noqa: BLE001
         ok, why = False, str(e)[:100]
     add("2 单一事实源", "入口契约（说话即入口；命令承诺必须真注册）", ok, why)
-
-
-def check_domain_commands():
-    """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
-
-    设计（2026-10-24，约定优于配置）：加技能 = 丢一个 `Tool/skill/<名>/SKILL.md`，
-    跑 install（会自动 gen-commands）→ 得到 `/名` 命令。**不再手写卡片、不再改配置**。
-    这条判据守两件事：① 有技能没卡（漏生成）② 手动改过生成的卡（漂移）。
-    """
-    gen = os.path.join(TOOL, "scripts", "gen-commands.py")
-    if not os.path.isfile(gen):
-        add("2 单一事实源", "命令卡由技能派生（无手写漂移）", False, "缺 Tool/scripts/gen-commands.py")
-        return
-    rc, out = run([sys.executable, gen, "--check"], timeout=120)
-    n_skill = len([d for d in os.listdir(os.path.join(TOOL, "skill"))
-                   if os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md"))])
-    add("2 单一事实源", "命令卡由技能派生（%d 个技能 → 自动生成，无手写漂移）" % n_skill, rc == 0,
-        (out or "").strip().splitlines()[-1][:120] if out else "gen-commands --check rc=%d" % rc)
 
 
 def check_trigger_matrix():
@@ -1793,24 +1878,28 @@ def check_cross_layer():
 
 
 def check_handoff_fresh():
-    """HANDOFF 状态块新鲜度：生成块里的 HEAD 与当前 HEAD 距离 ≤3 个提交。
+    """HANDOFF 状态块新鲜度：生成块里的 HEAD 与当前 HEAD 距离 ≤1 个提交。
 
     背景：`docs/HANDOFF.md` 曾是手写状态，同一天内就写错（声称「52/52 绿 / S1 还没开始」，
-    实际 S1–S5 已完成）。改成命令生成的块后，还要防「忘记重新生成」→ 落后 3 个提交即红。
+    实际 S1–S5 已完成）。改成命令生成的块后，还要防「忘记重新生成」。
+    ★ 2026-10（W3）：**降为 WARN** —— 仓库卫生，不属于交付能力，
+      让人忘记跑一次 `case_state.py handoff --repo` 不应该把整张门禁卡红。
     修法：`python Tool/scripts/case_state.py handoff --repo > 生成块`（或按文件内说明替换）。
     """
     import re as _re
     import subprocess as _sp
 
+    _name = "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）"
+    _note = "仓库卫生，不影响交付判定"
     f = os.path.join(ROOT, "docs", "HANDOFF.md")
     if not os.path.isfile(f):
-        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", False, "缺 docs/HANDOFF.md")
+        add("13 措辞", _name, True, "缺 docs/HANDOFF.md（%s）" % _note, level="WARN")
         return
     txt = open(f, encoding="utf-8", errors="replace").read()
     m = _re.search(r"handoff:HEAD=([0-9a-f]{7,40})", txt)
     if not m:
-        add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", False,
-            "没有生成块：跑 case_state.py handoff --repo 后替换 §1")
+        add("13 措辞", _name, True,
+            "没有生成块：跑 case_state.py handoff --repo 后替换 §1（%s）" % _note, level="WARN")
         return
     sha = m.group(1)
     try:
@@ -1819,7 +1908,7 @@ def check_handoff_fresh():
                        capture_output=True, text=True, encoding="utf-8",
                        errors="replace", timeout=20).returncode == 0
         if not have:
-            add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", True,
+            add("13 措辞", _name, True,
                 "浅克隆/提交不在本地对象库，跳过比对（重新生成一次即可）")
             return
         out = _sp.run(("git", "rev-list", "--count", "%s..HEAD" % sha),
@@ -1828,9 +1917,12 @@ def check_handoff_fresh():
         lag = int(out) if out.isdigit() else 999
     except Exception:
         lag = 999
-    add("13 措辞", "HANDOFF 状态块新鲜（HEAD 落后 ≤1 提交）", lag <= 1,
-        "落后 %d 个提交（≤1 才绿）；重新生成：case_state.py handoff --repo" % lag
-        if lag > 3 else "落后 %d 个提交" % lag)
+    if lag <= 1:
+        add("13 措辞", _name, True, "落后 %d 个提交" % lag)
+    else:
+        add("13 措辞", _name, True,
+            "落后 %d 个提交（≤1 才绿；%s）；重新生成：case_state.py handoff --repo"
+            % (lag, _note), level="WARN")
 
 
 def _file_sig(p):
@@ -2156,6 +2248,7 @@ def main():
     check_trigger_matrix()
     check_route_first_contract()
     check_dropin_skills()
+    check_domain_commands()          # W3：以前两份重复定义且零调用，现在只此一处调用
     check_skill_import()
     check_subskill_wiring()
     check_unpack_pointer()
@@ -2177,17 +2270,20 @@ def main():
     check_functional(args.fast)
 
     fails = [r for r in results if not r["ok"]]
+    notes = [r for r in results if r.get("level") in ("WARN", "INFO")]
     if args.json:
-        print(json.dumps({"results": results, "fails": len(fails)}, ensure_ascii=False, indent=2))
+        print(json.dumps({"results": results, "fails": len(fails), "notes": len(notes)},
+                         ensure_ascii=False, indent=2))
     else:
         cur = ""
         for r in results:
             if r["section"] != cur:
                 cur = r["section"]
                 print(f"\n[{cur}]")
-            mark = "PASS" if r["ok"] else "FAIL"
+            mark = r.get("level") or ("PASS" if r["ok"] else "FAIL")
             print(f"  [{mark}] {r['name']}" + (f"  — {r['detail']}" if r["detail"] else ""))
         print(f"\n结果: {len(results) - len(fails)}/{len(results)} 通过"
+              + (f"（含 {len(notes)} 条 WARN/INFO，不影响退出码）" if notes else "")
               + ("" if not fails else "  ← 有 FAIL，先修再推"))
     return 0 if not fails else 1
 

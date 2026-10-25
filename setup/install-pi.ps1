@@ -26,6 +26,11 @@ function Write-Ok($m)   { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Warn($m) { Write-Host "    [!!] $m" -ForegroundColor Yellow }
 function Write-Info($m) { Write-Host "    [..] $m" -ForegroundColor Gray }
 
+# 真实失败清单：本脚本以前末尾恒 `exit 0`，于是 install.ps1 那边永远
+# 看到 rc=0、把 'pi' 当成部署成功（说假话）。现在每个“确实没部署成”的分支
+# 都往这里记一笔，退出码由它唯一决定。
+$script:Failed = @()
+
 Write-Host "`n  === Pi Agent 环境配置 ===" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- 1. 目录与备份
@@ -77,7 +82,7 @@ if (Test-Path $srcSkills) {
             Write-Ok "skill: $($s.Name)"
         }
     }
-} else { Write-Warn "未找到 $srcSkills" }
+} else { Write-Warn "未找到 $srcSkills"; $script:Failed += 'skills' }
 
 # ---------------------------------------------------------------- 3. 提示词 + 扩展
 $srcPrompt = Join-Path $ToolDir 'prompts'
@@ -86,7 +91,7 @@ $srcPrompt = Join-Path $ToolDir 'prompts'
 foreach ($f in @('SEEP.md', 'AGENTS.md')) {
     $src = Join-Path $srcPrompt $f
     if (Test-Path $src) { Copy-Item $src (Join-Path $AgentDir $f) -Force; Write-Ok "prompt: $f" }
-    else { Write-Warn "未找到 $f" }
+    else { Write-Warn "未找到 $f"; $script:Failed += "prompt:$f" }
 }
 
 # 任务卡（prompt templates）：Tool/prompts/tasks/*.md → ~/.pi/agent/prompts/<name>.md
@@ -223,7 +228,7 @@ if (Test-Path $srcAgents) {
             Write-Info "已修复子代理设置文件的 BOM：agents/settings.json"
         }
     }
-} else { Write-Warn "未找到子代理定义目录 $srcAgents" }
+} else { Write-Warn "未找到子代理定义目录 $srcAgents"; $script:Failed += 'agents' }
 
 # ---------------------------------------------------------------- 4. 增量安全合并 mcp.json (UTF-8 No BOM, 无覆盖隐患)
 $dstMcp = Join-Path $AgentDir 'mcp.json'
@@ -266,6 +271,7 @@ if (Test-Path $mcpCfgPath) {
     }
 } else {
     Write-Warn "未找到 Tool/config/mcp-servers.json，跳过 MCP 注册"
+    $script:Failed += 'mcp-servers'
 }
 
 # 序列化为 UTF-8 No BOM 格式写入
@@ -338,8 +344,9 @@ if (-not $SkipPackages) {
         Write-Info 'pi update --extensions ...'
         & pi update --extensions 2>&1 | ForEach-Object { Write-Info $_ }
         if ($LASTEXITCODE -eq 0) { Write-Ok 'pi 扩展包已更新' }
-        else { Write-Warn 'pi update 失败，可稍后手动执行：pi update --extensions' }
+        else { Write-Warn 'pi update 失败，可稍后手动执行：pi update --extensions'; $script:Failed += 'pi-packages' }
     } else {
+        # 没装 pi 命令不算本脚本失败：settings.json 已写好 packages，pi 首次启动会自己装。
         Write-Warn '未找到 pi 命令，跳过扩展包更新'
     }
 }
@@ -356,10 +363,16 @@ if (Test-Path $conflictScript) {
         & python $conflictScript 2>&1 | ForEach-Object { Write-Info $_ }
         if ($LASTEXITCODE -ne 0) {
             Write-Warn '存在扩展与 pi 内置同名冲突：该扩展会顶掉内置，启动会出现 [Extension issues]。按上面提示处置。'
+            $script:Failed += 'extension-conflict'
         } else {
             Write-Ok '扩展命名无冲突（pi 内置 MCP 等保持生效）'
         }
     }
 }
 
+# 退出码 = 真实失败（以前恒 exit 0，上游 install.ps1 永远以为成功）
+if ($script:Failed.Count -gt 0) {
+    Write-Warn "Pi 环境配置未完成，失败项: $($script:Failed -join ', ')"
+    exit 1
+}
 exit 0
