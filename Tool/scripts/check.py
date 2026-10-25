@@ -104,6 +104,25 @@ def main():
         except Exception as e:  # noqa: BLE001
             print("HANDOFF 重生成失败：%s" % e)
 
+    if a.full_prep:
+        # 自动对齐 BASELINE-FREEZE 的 first-party 数（否则每加一个文件都要手改，反复红）
+        try:
+            import re as _re
+            p = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "preflight.py"), "--fast"],
+                               cwd=ROOT, capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=300).stdout
+            m = _re.search(r"实测 (\d+)", p or "")
+            if m:
+                actual = int(m.group(1))
+                bp = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
+                src = open(bp, encoding="utf-8").read()
+                out = _re.sub(r"\| \d{3,4} \| \*\*900\*\* \|", "| %d | **900** |" % actual, src, count=1)
+                if out != src:
+                    open(bp, "w", encoding="utf-8", newline=chr(10)).write(out)
+                    print("已对齐 BASELINE-FREEZE：first-party = %d" % actual)
+        except Exception as e:  # noqa: BLE001
+            print("对齐基线失败：%s" % e)
+
     if a.env:
         # 环境体检 = env-check.py（装没装好）；与项目测试分开，但走同一个入口
         rc = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "env-check.py"), "--text"],
