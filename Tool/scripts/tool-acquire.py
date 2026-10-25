@@ -447,6 +447,38 @@ def main() -> int:
         return 4
 
     r = acquire(a.tool, a.start)
+
+    # 身份自检：L0/L1 命中不等于"是那个工具"（实测 rabin2.exe 可能是 r2 改名）
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+        import tool_identity as _TI
+        _exe = ""
+        import re as _re2
+        for _s in r.get("steps") or []:
+            if not _s.get("ok"):
+                continue
+            for _k in ("path", "exe", "bin"):
+                if _s.get(_k):
+                    _exe = _s[_k]
+                    break
+            if not _exe:
+                _m = _re2.search(r"([A-Za-z]:[\/][^\s\]]+)", str(_s.get("detail") or ""))
+                if _m:
+                    _exe = _m.group(1)
+            if _exe:
+                break
+        if r.get("verdict") == "USABLE":
+            _pr = _TI.probe(a.tool, _exe or None)
+            r["identity"] = _pr
+            if not _pr["ok"]:
+                r["verdict"] = "USABLE_BUT_BROKEN"
+                r["steps"].append({"level": "ID", "ok": False,
+                                   "detail": "存在但不是可用工具：%s" % _pr["why"]})
+                r["next"] = "换一个真实安装（或修正 PATH 指向真正的 %s）" % a.tool
+    except Exception as _e:  # noqa: BLE001
+        r.setdefault("steps", []).append({"level": "ID", "ok": False,
+                                          "detail": "身份自检异常：%s" % _e})
+
     if a.json:
         print(json.dumps(r, ensure_ascii=False, indent=1))
     else:
@@ -467,7 +499,7 @@ def main() -> int:
                 print(f"  {k} {v}")
             print(ask.get("prompt", ""))
 
-    return {"USABLE": 0, "NEED_START": 1, "NEED_USER": 3,
+    return {"USABLE": 0, "NEED_START": 1, "NEED_USER": 3, "USABLE_BUT_BROKEN": 4,
             "STARTED_BUT_NOT_LINKED": 3}.get(r["verdict"], 2)
 
 

@@ -1945,6 +1945,67 @@ def check_unpack_pointer():
     return fails
 
 
+def check_tool_identity():
+    """工具身份自检：文档说"就位"的工具，必须通过行为探针（不只是文件存在）。
+
+    实测（2026-10-25 真样本验收）：`rabin2.exe` 是 `radare2.exe` 改名，
+    `rabin2 -I <pe>` 被当成"加载脚本" → 进交互模式等 stdin → 一次调用卡死 900 秒；
+    而工具层一路判 USABLE，`tool-index.md` 写"就位"。
+    """
+    import io as _io
+    import json as _j
+    import re as _re
+    import subprocess as _sp
+    import sys as _sys
+
+    fails = []
+    doc = os.path.join(TOOL, "docs", "tool-index.md")
+    claimed = set()
+    if os.path.isfile(doc):
+        for line in _io.open(doc, encoding="utf-8", errors="replace"):
+            m = _re.match(r"\|\s*`([A-Za-z0-9_.-]+)`\s*\|\s*([^|]+?)\s*\|", line)
+            if m and not m.group(2).startswith("否"):
+                claimed.add(m.group(1))
+    try:
+        _sys.path.insert(0, os.path.join(TOOL, "scripts", "lib"))
+        import tool_identity as _TI
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "工具身份自检", False, "lib 加载失败：%s" % e)
+        return ["lib 加载失败：%s" % e]
+
+    checked = 0
+    for tid in sorted(claimed & set(_TI.PROBES)):
+        exe = ""
+        try:
+            p = _sp.run([_sys.executable, os.path.join(TOOL, "scripts", "tool-acquire.py"),
+                         "--json", "--tool", tid],
+                        capture_output=True, text=True, timeout=180,
+                        encoding="utf-8", errors="replace")
+            d = _j.loads(p.stdout or "{}")
+            exe = (d.get("identity") or {}).get("exe") or ""
+            if not exe:
+                for st in (d.get("steps") or []):
+                    if st.get("ok"):
+                        exe = st.get("path") or ""
+                        if not exe:
+                            mm = _re.search(r"([A-Za-z]:[\\/][^\s\]]+)", str(st.get("detail") or ""))
+                            exe = mm.group(1) if mm else ""
+                        if exe:
+                            break
+        except Exception:  # noqa: BLE001
+            exe = ""
+        if not exe:
+            continue
+        checked += 1
+        r = _TI.probe(tid, exe)
+        if not r["ok"]:
+            fails.append("文档称 `%s` 就位，但行为探针失败（%s）：%s"
+                         % (tid, r["exe"], r["why"][:150]))
+    add("2 单一事实源",
+        "工具身份自检（%d 个文档声称就位的工具通过行为探针）" % checked,
+        not fails, "；".join(fails) + "（修法：装真工具，或把 tool-index 该行改成「否（BROKEN：原因）」）")
+    return fails
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -1980,6 +2041,7 @@ def main():
     check_skill_import()
     check_subskill_wiring()
     check_unpack_pointer()
+    check_tool_identity()
     check_fact_drift()
     check_five_contracts()
     check_single_orchestrator()

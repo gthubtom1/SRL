@@ -6,8 +6,8 @@
 | 工具 | 本机是否就位 | 命中层 |
 | :-- | :-: | :-- |
 | `radare2` | 是 | cache |
-| `r2` | 是 | cache |
-| `rabin2` | 是 | cache |
+| `r2` | 是（`-qc` 可用；但 `rabin2` 子命令不可用，见下） | cache |
+| `rabin2` | 否（BROKEN：本机 `rabin2.exe` 是 `radare2.exe` 改名，`-I <pe>` 会被当成加载脚本并进交互模式） | cache |
 | `jadx` | 是 | cache |
 | `apktool` | 是 | cache |
 | `frida` | 是 | cache |
