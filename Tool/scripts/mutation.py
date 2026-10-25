@@ -148,8 +148,6 @@ def main():
             clean_git(extra)
     finally:
         clean_git()
-        for _n, _c, _f, _fn in IMPLANTS:
-            pass
 
     print("%-30s %-6s %s" % ("植入", "被抓", "命中的检查"))
     print("-" * 96)
