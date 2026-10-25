@@ -1,6 +1,6 @@
 ---
 name: softseep
-description: "分析这个 exe/dll/sys/so/elf/dylib/软件/程序/这是什么壳/有没有加固/能不能改/能不能打补丁/做成源码级 (.exe/.dll/.sys/.so/.elf/.dylib/.bin，含 .NET/Go/Rust/Electron/wasm/Unity-PC)。通用二进制（PE/ELF/Mach-O）逆向与补丁手艺；判型与上限见 seep-router。"
+description: "分析这个 exe/dll/sys/so/elf/dylib/软件/程序/这是什么壳/有没有加固/能不能改/能不能打补丁/做成源码级 (.exe/.dll/.sys/.so/.elf/.dylib/.bin，含 .NET/Go/Rust/Electron/wasm/Unity-PC)。通用二进制（PE/ELF/Mach-O）逆向与补丁手艺；判型与上限见 seep-router。 这软件要卡密怎么绕过/授权校验在哪。"
 license: MIT
 compatibility: Windows 10 / Windows 11 x64 为主。支持 Python 3.8+，搭配 C/C++ 编译器（Zig/MSVC）或 radare2/IDA Pro 逆向套件。跨平台等价路径见 `references/license-validation.md` §1 平台对照表。
 metadata:

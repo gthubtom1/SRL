@@ -1503,14 +1503,21 @@ def check_trigger_matrix():
                 "帮我看看能不没下个一啥咋样")
 
     def _hit(desc: str, phrase: str) -> bool:
+        """命中判据：**至少 2 个不同实词二元组**出现在描述里。
+
+        为什么从 1 收紧到 2（2026-10-25 变异测试发现）：只要求 1 个时，
+        把 softseep 描述里的"初步分析这个软件"删掉，探针仍然绿（因为"分析/软件"还在别处）——
+        等于探针抓不住"触发词被删"。要求 2 个不同二元组后，删一个短语必红。
+        """
         ph = phrase.lower()
+        hits = set()
         for i in range(max(0, len(ph) - 1)):
             bg = ph[i:i + 2]
             if len(bg) == 2 and all(c in _FUNC for c in bg):
                 continue
             if bg in desc:
-                return True
-        return False
+                hits.add(bg)
+        return len(hits) >= 2
 
     bad_skill = [x["phrase"] for x in probes
                  if x.get("expect_skill") and x["expect_skill"] in descs

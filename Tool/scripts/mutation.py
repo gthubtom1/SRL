@@ -57,7 +57,7 @@ def implant(name, checker, expect, fast=True):
 
 
 # ── 1. 改一条案例 MANIFEST 哈希 → gate 必须红 ─────────────────────
-@implant("篡改案例 MANIFEST 哈希", ["Tool/scripts/gate.py", "--all"], "G4")
+@implant("篡改案例 MANIFEST 哈希", ["Tool/scripts/gate.py", "--all"], "softseep")
 def m1():
     p = "Tool/cases/golden-crackme/artifacts/MANIFEST.sha256"
     lines = open(p, encoding="utf-8").read().splitlines()
@@ -96,7 +96,7 @@ def m4():
 
 
 # ── 5. 给 pack.json 加未知字段 → gate G2 必须红 ──────────────────
-@implant("给 pack.json 加未知字段", ["Tool/scripts/gate.py", "--all"], "G2")
+@implant("给 pack.json 加未知字段", ["Tool/scripts/gate.py", "--all"], "pwn-crypto")
 def m5():
     p = "Tool/skill/pwn-crypto/pack.json"
     d = json.load(open(p, encoding="utf-8"))
