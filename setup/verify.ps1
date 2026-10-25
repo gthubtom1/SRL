@@ -265,7 +265,7 @@ Test-CheckItem "扩展"   "底层安全放行与 Lab 状态机扩展 (.ts)" {
 Write-Host "`n[4/9] 🛠️ 逆向工程专业技能库 (Skills - 全量，含 01/02/03 阶段技能)" -ForegroundColor White
 Test-CheckItem "Skill" "核心总控调度器 (softseep 包含 8 大专题库)" {
     $r = Join-Path $localSkills 'softseep\references'
-    $stage = @('00-analysis', '01-gate-bypass', '02-ui-rebrand', '03-license-hookup', '04-version-migrate', '05-backend-rebuild', 'unpack-loop')
+    $stage = @('_pending -analysis', '_pending-gate-bypass', '_pending-ui-rebrand', '_pending-license-hookup', '_pending-version-migrate', '_pending-backend-rebuild', 'unpack-loop')
     $stageOk = $true
     foreach ($k in $stage) {
         if (-not (Test-Path (Join-Path $localSkills ($k + '\SKILL.md')))) { $stageOk = $false }
@@ -286,8 +286,8 @@ Test-CheckItem "Skill" "IDA Pro 自动化联动 (ida-reverse 含 13337 唤醒规
 } "ida-reverse 技能缺失或被同名 safe-skills 版本覆盖（缺 13337 唤醒规约）" "SKILL.md + 13337 规约" "$localSkills\ida-reverse"
 
 Test-CheckItem "Skill" "通用许可/卡密校验突破规范 (license-bypass)" {
-    Test-Path (Join-Path $localSkills 'client-license-validation-bypass\SKILL.md')
-} "client-license-validation-bypass 技能缺失" "SKILL.md 在位" "$localSkills\client-license-validation-bypass"
+    Test-Path (Join-Path $localSkills 'softseepeferences\license-validation.md')
+} "授权/许可手册缺失" "license-validation.md 在位" "$localSkills\softseepeferences"
 
 Test-CheckItem "Skill" "增量追版与特征迁移技能 (version-migration)" {
     Test-Path (Join-Path $localSkills 'version-migration\SKILL.md')

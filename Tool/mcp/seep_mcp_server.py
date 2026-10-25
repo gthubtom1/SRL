@@ -462,10 +462,10 @@ def seep_r2_disasm(
     err = _is_err_payload(result)
     if err:
         return _empty_output("seep_r2_disasm",
-                             "r2 报错：%s（符号可能不存在，先用 seep_r2_functions 找目标）" % err)
+                             "r2 报错：%s（符号可能不存在，先用 seep_r2_cmd(afl) 找目标）" % err)
     if not result.strip():
         return _empty_output("seep_r2_disasm",
-                             "反汇编为空：符号不存在或地址无代码，先 seep_r2_functions 找目标")
+                             "反汇编为空：符号不存在或地址无代码，先 seep_r2_cmd(afl) 找目标")
     return _budget_gate(
         "seep_r2_disasm", result,
         "换 output_mode='fold' / 'summary'，或用 target 收窄到具体函数、lines 调小",
@@ -535,10 +535,10 @@ def seep_r2_decompile(
     err = _is_err_payload(result)
     if err:
         return _empty_output("seep_r2_decompile",
-                             "r2 报错：%s（符号可能不存在，先用 seep_r2_functions 找目标）" % err)
+                             "r2 报错：%s（符号可能不存在，先用 seep_r2_cmd(afl) 找目标）" % err)
     if not result.strip():
         return _empty_output("seep_r2_decompile",
-                             "伪代码为空：符号不存在或该函数无代码，先 seep_r2_functions")
+                             "伪代码为空：符号不存在或该函数无代码，先 seep_r2_cmd(afl)")
     return _budget_gate(
         "seep_r2_decompile", result,
         "用 output_mode='branch'/'summary' 降噪，或 target 换成更小的函数",

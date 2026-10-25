@@ -84,7 +84,7 @@ headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target
 
 ## 五、开工五步（动第一下手之前）
 
-0. **选域**：优先用斜杠命令（`/rev` `/apk` `/unpack` `/web` `/fw` `/proto` `/pwn` `/forensics` `/malware` `/supply`）——它们会把该域 SKILL.md 与子技能链一起加载；没打命令时靠技能 `description` 命中兜底。`route.py` 只是**测试工具**，不是开工步骤。
+0. **选域**：正常说话即可（模型按各域 `description` 自动选域）；选不准先问一句，不猜。直接说话即可，命令是可选项。
 0.5 **建案 + 过闸**：`case_state.py init --case <目录> --target <样本>` → 阶段零登记深度/仪器/裁定 → 进阶段一必须 `gate` 返回 0 → 交付用 `deliver --level M1..M4 --evidence "<截图/日志>"`。→ `Tool/scripts/case_state.py`
 1. **读技能**：先 `Tool/skill/softseep/SKILL.md`（总控）；再按平台读 `Tool/skill/<pack>/SKILL.md`。被归档的 18 个子技能（如脱壳闭环 `unpack-loop`）不在技能索引里，需要时按路径读，清单与何时用见 `Tool/skill/_pending/INDEX.md`。
 2. **体检** `seep_auto_triage(<目标>)`；3. **判壳** `seep_packer_detect(<目标>)`；4. **查 KB** `seep_kb_search("<壳名/自毁/VEH/授权>")`。

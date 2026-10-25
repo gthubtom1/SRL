@@ -367,7 +367,6 @@ Seep\ (251 MB)
 
 > **手工复制版**：`Tool/prompts/sources/逆向开工提示词.md`（完整）/ `Tool/prompts/sources/逆向开工提示词-短版.md`（一句话），直接整段复制给 Agent 即可。
 >
-> **斜杠命令版**：装好后直接输 `/reverse <目标路径>`（或 `/reverse-deliverable`）——
 > 这是任务卡，不进系统提示词，只在调用时展开；详见 `Tool/docs/EXTEND.md` §4bis。
 
 ### 1. 运行依赖

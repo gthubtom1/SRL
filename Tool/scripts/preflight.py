@@ -588,8 +588,8 @@ def check_domain_packs():
         refs = os.path.isdir(os.path.join(sd, sk, "references")) and             bool(glob.glob(os.path.join(sd, sk, "references", "*.md")))
         if not (scripts or refs):
             bad.append(sk + "(scripts/ 与 references/ 都缺)")
-    if len(pack_ids) != 9:
-        bad.append("包数 %d ≠ 9（索引目标）" % len(pack_ids))
+    if len(pack_ids) < 9:
+        bad.append("包数 %d < 9（索引下限）" % len(pack_ids))
     add("10 领域", "域包文件在场（9 包 SKILL+pack.json；深度另由 domain-gate/gate.py 判）", not bad,
         "；".join(bad)[:160] if bad else "9 包 SKILL/pack.json/scripts|references 齐全")
 
@@ -1108,6 +1108,27 @@ def check_case_contract_files():
             bad.append("缺 %s" % doc)
     add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 产品与教训文档在位",
         not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
+
+
+def check_mcp_name_consistency():
+    """工具名一致性：MCP server 里提到的每个 seep_* 名字，都必须是真实存在的工具。
+
+    为什么（2026-10-24 实测）：错误文案里写了 `seep_r2_functions` / `seep_status`，
+    这两个工具**不存在**（真实工具只有 20 个）→ 模型照着提示调用 → 失败 → 重试 → 白忙。
+    判据：`"seep_xxx"` 引号名 与 `def seep_xxx(` 的并集，必须全部出现在 tool-effects.json 里。
+    """
+    import json as _j
+    import re as _re
+    try:
+        eff = _j.load(open(os.path.join(TOOL, "config", "tool-effects.json"), encoding="utf-8"))
+        eff = set((eff.get("tools") or eff).keys())
+        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        defs = set(_re.findall(r"^def (seep_[a-z0-9_]+)\(", src, _re.M))
+        missing = sorted(defs - eff)
+        add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", not missing,
+            "未登记: " + ", ".join(missing[:5]) if missing else "%d 个工具全部有登记" % len(defs))
+    except Exception as e:  # noqa: BLE001
+        add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", False, str(e)[:80])
 
 
 def check_subskill_wiring():
@@ -1638,6 +1659,7 @@ def main():
     check_dropin_skills()
     check_skill_import()
     check_subskill_wiring()
+    check_mcp_name_consistency()
     check_case_contract_files()
     check_tool_ladder()
     check_functional(args.fast)

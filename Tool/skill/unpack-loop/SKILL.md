@@ -26,7 +26,7 @@ metadata:
 2. **两阶段熔断（两次失败即停）**：
    - 第一级：同一阶段、同类尝试失败 **2 次** → 停，汇报，换手法或换阶段；
    - 第二级：同一路线换过 2 种手法仍不满足判据 → 升级路线（A→B）或退出，**第三次直接换路线**。
-3. **探测走能力表**：`-h` / 无参运行会崩、会触发自毁；工具是否可用走 `probe_matrix.py` / `tool_autodiscover`。
+3. **探测走能力表**：`-h` / 无参运行会崩、会触发自毁；工具是否可用走 `Tool/scripts/tool-acquire.py --sweep`（工具探活） / `tool_autodiscover`。
 4. **先快照后动手**：VM 快照 + 目标目录备份；**单变量**（一次只改一处）。
 5. **联网优先隔离**：发现外连先用 `seep_pcap_extract` 看端点，避免"一启动就上报"。
 6. **完整性校验壳禁用 int3，先试硬件断点**：软件断点会把 `0xCC` 写进被校验的字节 → CRC/哈希失败 → 页守卫自毁。**首选 DR0–DR3 硬件断点**；若目标又检测 DR 寄存器，再转外部 `ReadProcessMemory` / Intel PT / 补丁校验函数。详见 `references/anti-debug.md`。
@@ -70,7 +70,7 @@ metadata:
 > 步骤间有**回退边**，受"两阶段熔断"约束。探针矩阵先行：
 >
 > ```bash
-> python （`probe_matrix` 已不存在：按上面的替代路径走） --target <target> --json --out work/<task>/probe.json
+> python Tool/scripts/tool-acquire.py --tool ida --target <target> --json --out work/<task>/probe.json
 > ```
 
 | # | 步骤 | 一句话 | 核心判据 |
@@ -94,9 +94,9 @@ metadata:
 
 - 动作：
   ```bash
-  python （`probe_matrix` 已不存在：按上面的替代路径走） --target <target> --json
+  python Tool/scripts/tool-acquire.py --tool ida --target <target> --json
   # 只做 baseline + external 的快速检查：
-  python （`probe_matrix` 已不存在：按上面的替代路径走） --target <target> --quick --json
+  python Tool/scripts/tool-acquire.py --tool ida --target <target> --quick --json
   ```
   记录每个探针：`ok | partial | blocked | killed` + evidence + note；把可用仪器写进 `case_state.py instrument`。
 - **完成判据**：至少 1 种非 baseline 仪器可用（`ok/partial`）；并且明确写出：
@@ -225,7 +225,7 @@ metadata:
 | 资源载荷 | `seep_pe_resources` | 内置 |
 | 活体字符串 | `seep_mem_strings` | 内置（Windows） |
 | 反编译 | `seep_decompile_auto` | 内置（r2 保底） |
-| 抓包/回放 | `seep_pcap_extract` / `seep_http_replay` | 内置；`probe_matrix.py` 的 `network` 先看工具是否可用 |
+| 抓包/回放 | `seep_pcap_extract` / `seep_http_replay` | 内置；`Tool/scripts/tool-acquire.py --sweep`（工具探活） 的 `network` 先看工具是否可用 |
 
 ---
 

@@ -488,11 +488,11 @@ const text = r?.structuredContent?.result ?? r?.content?.map(c => c.text).join("
 
 ### 门 → 决策树映射
 
-> 同样只在 `client-license-validation-bypass/SKILL.md` §0 定义（本文件不复制，避免两份漂移）。
+> 同样只在 `references/license-validation.md` §0 定义（本文件不复制，避免两份漂移）。
 
 ### 通用禁令
 
-> 同样只在 `client-license-validation-bypass/SKILL.md` §0 定义（「未过 G2 不得批量改内存」等五条）。
+> 同样只在 `references/license-validation.md` §0 定义（「未过 G2 不得批量改内存」等五条）。
 > 本文件不复制，避免两份漂移。
 
 ### 退出/升级判据（防死磕）
