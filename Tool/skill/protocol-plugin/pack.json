@@ -78,5 +78,9 @@
   ],
   "invalidation": [
     "协议为公开标准且已有库（直接复用，不必复刻）"
-  ]
+  ],
+  "witness_tool": {
+    "cmd": "Tool/skill/protocol-plugin/scripts/pcap-summary.py --help",
+    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+  }
 }

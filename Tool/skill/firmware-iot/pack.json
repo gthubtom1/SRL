@@ -69,5 +69,9 @@
   "invalidation": [
     "目标为通用 PC 软件（转 pwn-crypto / malware-analysis）",
     "无固件获取路径"
-  ]
+  ],
+  "witness_tool": {
+    "cmd": "Tool/skill/firmware-iot/scripts/fw-triage.py --help",
+    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+  }
 }

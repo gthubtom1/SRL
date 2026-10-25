@@ -17,7 +17,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/MCP%20工具-20%20已集成-purple?style=for-the-badge&logo=fastapi" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/健康体检-65%2F65%20全绿通过-brightgreen?style=for-the-badge&logo=checkmarx" alt="Verifier">
+  <img src="https://img.shields.io/badge/%E8%87%AA%E6%A3%80-%E8%B7%91%20check.py%20%E7%9C%8B%E7%BB%93%E6%9E%9C-blue" alt="Verifier">
   <img src="https://img.shields.io/badge/实战知识库-412%20篇战术笔记-teal?style=for-the-badge" alt="Knowledge Base">
   <img src="https://img.shields.io/badge/脱敏范式-14%20大案例%20(A~N)-blue?style=for-the-badge" alt="Paradigms">
   <img src="https://img.shields.io/badge/MANUAL%20SOP-14%20份专项手册-red?style=for-the-badge" alt="MANUAL SOPs">
@@ -99,7 +99,7 @@
 | **差分台账** | `Tool/docs/FORK-DELTA.md`：改了什么/为什么/在哪/怎么撤 + 上游同步五问 + 自动生成文件级差分 |
 | **接力棒（换会话先读）** | `ROADMAP.md`（现在能做什么 / 下一步 / 已知延迟项）；过程文档已移出仓库到 `work/plans/`（gitignore），不再随仓库分发 |
 | **防崩纪律** | 用能力表代替 `-h` 试探 · 动态操作同类 ≤2 次熔断 · 靶机快照与单变量 |
-| **门禁 45 项** | `python Tool/scripts/preflight.py`：全量 **55/55**、`--fast` **42/42**；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
+| **门禁** | `python Tool/scripts/preflight.py`：数字以命令输出为准（不在此写死）；文档数字 vs 实测、MCP 参数契约、技能路由探针全部机检 |
 | **MCP 参数契约** | `mcp-param-contract.py`：8 个路径参数别名互通（`binary_path` / `target_path` / `apk_path` / `pcap_path` / `file_path` / `sample_path` / `artifact_path` / `dir_path`）+ 20 工具数基线，防「模型第一次调用就传错参数」 |
 | **技能路由探针** | `skill-route-probe.py`：39 条大白话 → 技能命中（`route.py` 视角），防 CJK 边界导致掉兜底 |
 | **路由 32 条（+R36）** | 新增 **R36 OSINT / 资产与人员测绘**（配方 `osint-recon`），路由数 31 → 32；技能数 30 |

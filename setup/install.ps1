@@ -95,7 +95,7 @@ Write-Host @"
 "@ -ForegroundColor White
 
 if ($OnlyVerify) {
-    & (Join-Path $ScriptDir 'verify.ps1') -Detailed
+    & python (Join-Path (Split-Path $ScriptDir -Parent) "Tool/scripts/check.py") --env
     exit $LASTEXITCODE
 }
 
@@ -139,8 +139,8 @@ if (-not $SkipTools) {
     # IDA 缺失不算失败（有免费 Radare2 替代路线）
 }
 
-Write-Step '执行官方基准完备性自检 (verify.ps1 -Detailed)'
-& (Join-Path $ScriptDir 'verify.ps1') -Detailed
+Write-Step '执行环境体检 (python Tool/scripts/check.py --env)'
+& python (Join-Path (Split-Path $ScriptDir -Parent) "Tool/scripts/check.py") --env
 
 # ---------------------------------------------------------------- 总结
 Write-Host "`n=================================================================" -ForegroundColor White

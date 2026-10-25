@@ -87,7 +87,19 @@ def _norm_sha(p):
     return sha256(p)
 
 def rel(p):
-    return os.path.relpath(p, ROOT).replace(os.sep, "/")
+    """相对路径（**不许炸**）。
+
+    2026-10-25 外部评审 B3：仓库根出现一个 46 字节的 `nul` 设备文件时，
+    os.path.relpath 抛 ValueError('path is on mount ...') → 整个域深度检查崩掉，
+    报错还完全无法定位。任何 walk 到的路径都必须能安全转成相对路径。
+    """
+    try:
+        return os.path.relpath(p, ROOT).replace(os.sep, "/")
+    except Exception:
+        try:
+            return str(p).replace(os.sep, "/")[-120:]
+        except Exception:
+            return "<unprintable>"
 
 
 # ---------------------------------------------------------------- [1][2] refs

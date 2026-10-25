@@ -170,7 +170,7 @@ if [ "$DRY_RUN" = 1 ]; then
     echo -e "    2. 打印 CHANGELOG 版本变更说明"
     echo -e "    3. 调用 setup/install.sh 做幂等增量同步（自动备份 + 保护自定义 MCP）"
     echo -e "    4. 校验用户自有数据未被覆盖"
-    echo -e "    5. 跑 setup/verify.sh 官方基准自检"
+    echo -e "    5. 跑 Tool/scripts/check.py 官方基准自检"
     echo -e "\n  未修改任何文件。去掉 --dry-run 即执行真实更新。\n"
     exit 0
 fi

@@ -1437,32 +1437,42 @@ def check_domain_commands():
 
 
 def check_route_first_contract():
-    """入口契约：AGENTS（每轮注入）必须指明「选域」的显式入口，且路由测试工具仍可用。
+    """入口契约（2026-10-25 外部评审 A4 后重写）：不承诺未注册的命令，且必须有「选域」。
 
-    设计变更（2026-10-24，用户拍的 A+A）：
-    · 显式入口 = 斜杠命令 `/rev` `/apk` …（100% 加载该域技能链）
-    · 兜底 = 技能 `description` 命中
-    · `route.py` 降级为**测试工具**（不再写进开工步骤）——但仍然必须能跑，否则兜底/测试失效
-    所以这条判据改成：AGENTS 含 `/rev` 之类的命令入口 + 含"选域"字样；`route.py --resolve` 仍能命中。
+    旧判据靠 `"/rev" in AGENTS.md` 通过，而那个 /rev 其实来自知识库路径 —— 假绿。
+    重写后的实现放在 `Tool/scripts/lib/entry_contract.py`（避免正则经 shell 转义被写坏）。
     """
-    ag = os.path.join(TOOL, "prompts", "AGENTS.md")
-    bad = []
+    lib = os.path.join(TOOL, "scripts", "lib")
+    sys.path.insert(0, lib)
     try:
-        t = open(ag, encoding="utf-8").read()
-        if "选域" not in t:
-            bad.append("AGENTS 未写「选域」入口")
-        if "/rev" not in t and "/apk" not in t:
-            bad.append("AGENTS 未列斜杠命令入口（/rev、/apk …）")
-        if "description" not in t:
-            bad.append("AGENTS 未提 description 兜底")
+        import entry_contract as _ec
     except Exception as e:  # noqa: BLE001
-        bad.append("AGENTS 读失败 %s" % e)
-    rc, out = run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
-                   "--resolve", "初步分析一下这个软件"], timeout=60)
-    if rc != 0 or "softseep" not in (out or ""):
-        bad.append("route.py --resolve 已失效（测试工具坏了）（rc=%d）" % rc)
-    add("2 单一事实源", "入口契约（AGENTS 写斜杠命令 + description 兜底；route.py 作测试仍可用）", not bad,
-        "；".join(bad[:3]) if bad else "AGENTS 含命令入口与兜底说明；route.py 测试可用")
+        add("2 单一事实源", "入口契约（说话即入口；命令承诺必须真注册）", False, "缺 entry_contract.py: %s" % e)
+        return
+    try:
+        t = open(os.path.join(TOOL, "prompts", "AGENTS.md"), encoding="utf-8", errors="replace").read()
+        ok, why = _ec.check(t, os.path.join(TOOL, "prompts", "extensions"))
+    except Exception as e:  # noqa: BLE001
+        ok, why = False, str(e)[:100]
+    add("2 单一事实源", "入口契约（说话即入口；命令承诺必须真注册）", ok, why)
+
+
+def check_domain_commands():
+    """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
+
+    设计（2026-10-24，约定优于配置）：加技能 = 丢一个 `Tool/skill/<名>/SKILL.md`，
+    跑 install（会自动 gen-commands）→ 得到 `/名` 命令。**不再手写卡片、不再改配置**。
+    这条判据守两件事：① 有技能没卡（漏生成）② 手动改过生成的卡（漂移）。
+    """
+    gen = os.path.join(TOOL, "scripts", "gen-commands.py")
+    if not os.path.isfile(gen):
+        add("2 单一事实源", "命令卡由技能派生（无手写漂移）", False, "缺 Tool/scripts/gen-commands.py")
+        return
+    rc, out = run([sys.executable, gen, "--check"], timeout=120)
+    n_skill = len([d for d in os.listdir(os.path.join(TOOL, "skill"))
+                   if os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md"))])
+    add("2 单一事实源", "命令卡由技能派生（%d 个技能 → 自动生成，无手写漂移）" % n_skill, rc == 0,
+        (out or "").strip().splitlines()[-1][:120] if out else "gen-commands --check rc=%d" % rc)
 
 
 def check_trigger_matrix():

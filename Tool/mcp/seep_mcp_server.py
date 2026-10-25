@@ -869,6 +869,11 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
 
     return json.dumps(top, indent=2, ensure_ascii=False)
 
+def _byte_len(text: str) -> int:
+    """UTF-8 字节长度（kb_read 的 max_chars 分支用；此前缺失 → 41% 的长文章会崩）。"""
+    return len(str(text).encode("utf-8", "replace"))
+
+
 @server.tool()
 def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
     """读取 ReverseLab 知识库中某篇战术文档或技巧手册的全文内容。
@@ -1077,13 +1082,31 @@ def _needs_for_gui(tool_id: str) -> List[Dict[str, Any]]:
             return [{"id": n.get("id"), "question": str(n.get("question")).replace("{tool}", tool_id),
                      "why": n.get("why"), "if_yes": n.get("if_yes"), "if_no": n.get("if_no")}]
     return []
+def _attached_for(target_path: str, matched=None) -> Dict[str, Any]:
+    """给 triage 的任何返回路径挂上「自动建案 + 缺输入就问」。
 
-
+    2026-10-25 外部评审 A2：原先只写在成功路径末尾，而最常见的失败路径
+    （rabin2 解析不了 → no_evidence）是早返回，于是客户最常遇到的第一个动作里
+    既不开案也不问人，后面整套台账/证据/复查都失去落脚点。
+    """
+    out: Dict[str, Any] = {}
+    try:
+        c = _case_for(target_path)
+        if c.get("case"):
+            out["case"] = c
+        needs = _detect_needs(b"", " ".join(str(x) for x in (matched or [])[:200])[:20000],
+                              c.get("case") if c.get("created") else "")
+        if needs:
+            out["need_from_user"] = needs
+            out["ask_policy"] = ("先问再动手：在对话里列 A/B/C 让用户回；不许假设"
+                                 "「没有」继续往下走；答完用 case_state.py ack 记进账本。")
+    except Exception as e:  # noqa: BLE001
+        out["case_error"] = str(e)[:120]
+    return out
 
 
 @server.tool()
 @_path_alias
-
 def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     """
     静态靶向侦察 (Auto Triage) —— **无证据则拒绝，不返回"看起来完整"的空壳**：
@@ -1091,6 +1114,7 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     拒绝条件：rabin2 解析失败 **且** 字符串零命中 → {ok:false,error:"no_evidence"}，wrote_files=0
     （旧实现此时会返回一份全 "unknown" 的画像并当作完成，等于把"没测"签成"测过"）。
     """
+    _attached = _attached_for(target_path)
     if not os.path.exists(target_path):
         return json.dumps({
             "ok": False,
@@ -1139,13 +1163,13 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
 
     rabin2_ok = bool(bin_info)
     if not rabin2_ok and not matched_strings:  # 零证据 → 拒绝，不返回全 unknown 的空壳画像
-        return json.dumps({"ok": False, "error": "no_evidence", "blocked_at": "seep_auto_triage",
+        return json.dumps({**_attached, "ok": False, "error": "no_evidence", "blocked_at": "seep_auto_triage",
                            "wrote_files": 0,
                            "observed": {"file_name": t_path.name, "file_size_bytes": file_size,
                                         "md5": md5_val, "sha256": sha256_val, "hash_scope": "full-file"},
                            "reason": "rabin2 未能解析该文件，且鉴权关键词扫描零命中：拿不到任何二进制画像",
                            "hint": "确认 rabin2 可用（seep_ensure_tool / seep_status），或改用 "
-                                   "seep_r2_info(binary_path=…) / seep_packer_detect(binary_path=…)；"
+                                   "seep_r2_info(target_path=…) / seep_packer_detect(target_path=…)；"
                                    "文件可能截断、加壳或非标准格式"},
                           indent=2, ensure_ascii=False)
 
@@ -1191,26 +1215,6 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
             with open(out_file, "w", encoding="utf-8") as f:
                 json.dump(triage_result, f, indent=2, ensure_ascii=False)
             triage_result["saved_report"] = out_file
-    # M2/M4：自动建案 + 缺输入就问（triage 这一层也要挂，否则只走 triage 的会话仍然不问人）
-    try:
-        _case = _case_for(binary_path)
-        if _case.get("case"):
-            triage_result["case"] = _case
-        _blob = b""
-        try:
-            with open(binary_path, "rb") as _f:
-                _blob = _f.read(8 << 20)
-        except Exception:
-            pass
-        _needs = _detect_needs(_blob, " ".join(str(x) for x in (matched_strings or [])[:200])[:20000],
-                               _case.get("case") if _case.get("created") else "")
-        if _needs:
-            triage_result["need_from_user"] = _needs
-            triage_result["ask_policy"] = ("命中『需要用户输入』信号：先问，再动手。"
-                                           "用户答『没有』才走 if_no 路线，并把答案用 case_state.py ack 记进账本。")
-    except Exception as _e:  # noqa: BLE001
-        triage_result["case_error"] = str(_e)[:120]
-
     return json.dumps(triage_result, indent=2, ensure_ascii=False)
 
 

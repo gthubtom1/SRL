@@ -25,6 +25,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))          # 仓库根
 SKILL_DIR = os.path.join(ROOT, "Tool", "skill")
 
 PACK_KEYS = {"schema", "id", "l1", "routes", "stages", "tools", "cases", "witness",
+             "witness_tool",   # 真跑该域自己的脚本（外部评审 C1：witness 只查账本 = 假绿）
              "evidence_contract", "limitations", "invalidation"}
 ROUTE_KEYS = {"label", "must", "priority"}
 

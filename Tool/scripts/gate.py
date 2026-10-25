@@ -199,6 +199,28 @@ def g4_witness(pack, run=True):
     except Exception as e:  # noqa: BLE001
         return ["witness 无法执行：%s" % str(e)[:80]], {"ran": True, "rc": None}
     bad = []
+    # ── 外部评审 C1：witness.cmd 只重算账本，不碰该域工具 → 追加"真跑该域脚本" ──
+    wt = pack.get("witness_tool") or {}
+    wt_cmd = str(wt.get("cmd") or "")
+    if not wt_cmd:
+        bad.append("缺 witness_tool：见证没有碰该域任何工具（只查账本是假绿）")
+    else:
+        argv2 = shlex.split(wt_cmd, posix=False)
+        if argv2 and (argv2[0].lower() in ("python", "python3") or argv2[0].endswith(".py")):
+            argv2[0] = sys.executable if argv2[0].lower() in ("python", "python3") else sys.executable
+            if not argv2[0].endswith(".py") and len(argv2) >= 1 and wt_cmd.split()[0].endswith(".py"):
+                pass
+        # 形如 "Tool/x.py --help"：直接 .py 文件时也要用解释器启动
+        if wt_cmd.split() and wt_cmd.split()[0].endswith(".py"):
+            argv2 = [sys.executable] + shlex.split(wt_cmd, posix=False)
+        try:
+            r2 = subprocess.run(argv2, cwd=ROOT, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=120)
+            if r2.returncode != 0:
+                tail = ((r2.stdout or "") + (r2.stderr or ""))[-200:]
+                bad.append("witness_tool 失败(rc=%d)：%s … %s" % (r2.returncode, wt_cmd, tail[:120]))
+        except Exception as e:  # noqa: BLE001
+            bad.append("witness_tool 无法执行：%s" % str(e)[:80])
     for clause in str(w.get("expect") or "").split("+"):
         ok, why = _clause_ok(clause, rc, case_dir)
         if not ok:

@@ -65,5 +65,9 @@
   ],
   "invalidation": [
     "目标为单一二进制且无依赖声明（转 malware-analysis）"
-  ]
+  ],
+  "witness_tool": {
+    "cmd": "Tool/skill/supply-chain-security/scripts/sc-check.py --help",
+    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+  }
 }

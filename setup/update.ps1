@@ -365,7 +365,7 @@ if ($tampered.Count -gt 0) {
 # -----------------------------------------------------------------------------
 if (-not $SkipVerify) {
     Write-Step '5/6  官方基准自检'
-    & (Join-Path $ScriptDir 'verify.ps1') -Detailed
+    & python (Join-Path (Split-Path $ScriptDir -Parent) "Tool/scripts/check.py") --env
     $verifyExit = $LASTEXITCODE
     if ($verifyExit -eq 0) {
         Write-Ok '自检全部通过'
