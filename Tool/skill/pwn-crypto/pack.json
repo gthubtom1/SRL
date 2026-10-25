@@ -9,7 +9,8 @@
         "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc|FSOP|_IO_wfile_jumps|__free_hook|exit_funcs)\\b|glibc\\s*2\\.3",
         "(?i)(栈溢出|堆溢出|格式化字符串|沙箱逃逸|控制流劫持|任意地址写|越界读写|整数回绕)",
         "(?i)\\b(rsa|aes|ecb|cbc|gcm|hmac|mt19937|prng|coppersmith|lattice)\\b",
-        "(?i)\\b(pow\\s*\\(|modinv|iroot|hastad|wiener)\\b"
+        "(?i)\\b(pow\\s*\\(|modinv|iroot|hastad|wiener)\\b",
+        "(?i)(这道题|这题|题目).{0,10}(打通|能做|做出来|getshell|拿\\s*shell)"
       ],
       "priority": 210
     }

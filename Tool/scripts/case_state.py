@@ -2488,8 +2488,9 @@ SECTIONS = ["结论", "已确认", "仍未知", "下一步", "复查"]
 def cmd_report(a):
     """报告五段校验：缺段不算交付（对应 PM-SPEC §3.3/§7）。"""
     if a.selftest:
-        good = "# r\n## 1 结论\n能到「只能看懂结构」\n## 2 已确认\n- x（E-001）\n" \
-               "## 3 仍未知\n- y；缺 z\n## 4 下一步\n- 省事：A\n## 5 怎么复查\n- recheck.md\n"
+        N = chr(10)
+        good = (
+            "# r" + N + "## 1 结论" + N + "能到「只能看懂结构」" + N + "卡在壳上" + N            + "## 2 已确认" + N + "- x（E-001）" + N + "- y（C-002）" + N            + "## 3 仍未知" + N + "- z 缺实测" + N + "- w 需硬件" + N            + "## 4 下一步" + N + "- 省事：A" + N + "- 彻底：B" + N            + "## 5 怎么复查" + N + "- recheck.md" + N + "- 重放 E-001" + N)
         bad = "# r\n## 1 结论\nx\n"
         ok = (1 if not _check_report(good) else 0) + (1 if _check_report(bad) else 0)
         print("[report --selftest] %d/2 通过" % ok)
@@ -2506,9 +2507,42 @@ def cmd_report(a):
 
 
 def _check_report(text):
-    bad = [s for s in SECTIONS if s not in text]
-    return ["缺段：%s" % "、".join(bad)] if bad else []
+    """报告校验（2026-10-25 外部评审 3.3：原来只查标题存在，"空内容"能绕过）。
 
+    现在要求：
+      ① 五段标题都在；
+      ② 每段标题下至少 2 行非空内容；
+      ③ 结论段 ≤3 行；
+      ④ "已确认"段至少出现 1 个证据/结论 ID（E-/C-/F-）；
+      ⑤ 出现禁用措辞（应该可以/大概能/通常没问题）即不合格。
+    """
+    import re as _re
+    bad = []
+    lines = text.splitlines()
+    idx = {}
+    for i, l in enumerate(lines):
+        for sec in SECTIONS:
+            if l.strip().startswith("#") and sec in l and sec not in idx:
+                idx[sec] = i
+    for sec in SECTIONS:
+        if sec not in idx:
+            bad.append("缺段：" + sec)
+    if bad:
+        return bad
+    order = sorted(idx.items(), key=lambda kv: kv[1])
+    for n, (sec, i) in enumerate(order):
+        end_i = order[n + 1][1] if n + 1 < len(order) else len(lines)
+        body = [x for x in lines[i + 1:end_i] if x.strip() and not x.strip().startswith("#")]
+        if len(body) < 2:
+            bad.append(sec + " 段内容过少（" + str(len(body)) + " 行，至少 2 行）")
+        if sec == "结论" and len(body) > 3:
+            bad.append("结论段 " + str(len(body)) + " 行（要求 <=3 行）")
+        if sec == "已确认" and not _re.search(r"[ECF]-2[0-9]{3,}|[ECF]-[0-9]{2,}", chr(10).join(body)):
+            bad.append("已确认段没有证据/结论 ID（E-xx / C-xx / F-xx）")
+    for w in ("应该可以", "大概能", "通常没问题"):
+        if w in text:
+            bad.append("出现禁用措辞「" + w + "」")
+    return bad
 
 def _self_test():
     checks = 0

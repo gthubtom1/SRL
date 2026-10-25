@@ -21,7 +21,8 @@
     {
       "label": "协议/私有协议复刻",
       "must": [
-        "(?i)(私有协议|协议逆向|协议复刻|抓包|pcap|tshark|wireshark|mitmproxy|状态机|报文|重放|protobuf|flatbuffers)"
+        "(?i)(私有协议|协议逆向|协议复刻|抓包|pcap|tshark|wireshark|mitmproxy|状态机|报文|重放|protobuf|flatbuffers)",
+        "(?i)协议.{0,10}(构造|请求|报文|解析|还原)|(构造|伪造).{0,6}(请求|报文)"
       ],
       "priority": 190
     }

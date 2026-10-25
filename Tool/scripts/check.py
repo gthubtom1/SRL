@@ -139,7 +139,11 @@ def main():
             print("%-12s %-6s %s" % (n, "fast" if fast else "full", why))
         return 0
 
-    print("检查中（%s，%d 个套件）…\n" % ("fast" if a.fast else "full", len(suites)))
+    skipped = [n for n, _c, fast, _w in SUITES if fast is False] if a.fast else []
+    print("检查中（%s，%d 个套件）…" % ("fast" if a.fast else "full", len(suites)))
+    if a.fast and skipped:
+        print("[注意] --fast 跳过：%s —— 通过 ≠ 全部通过，交付判定请跑全量 check.py" % "、".join(skipped))
+    print()
     failed = []
     for name, argv, _fast, why in suites:
         n, ok, tail, secs = run_one(name, argv)

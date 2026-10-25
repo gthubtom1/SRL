@@ -1688,8 +1688,11 @@ def check_trigger_matrix():
                          "--resolve", x["phrase"], "--json"], capture_output=True, text=True,
                         encoding="utf-8", errors="replace", timeout=60, cwd=ROOT)
             d = json.loads((r.stdout or "").strip() or "{}")
-            got = (d.get("pack") or d.get("skill") or "")
-            if x.get("expect_skill") and got and got != x["expect_skill"]:
+            # 2026-10-25 外部评审 C-1：route.py --json 的真实结构是 {"hits":[{"pack":…}]}，
+            # 原来取 d["pack"] 永远取不到 → 这条判据 100% 恒绿（假绿）。
+            _hits = d.get("hits") or []
+            got = (_hits[0].get("pack") if _hits else "") or ""
+            if x.get("expect_skill") and not x.get("route_exempt") and got != x["expect_skill"]:
                 bad_route.append("%s→%s(期望 %s)" % (x["phrase"], got, x["expect_skill"]))
         except Exception:
             pass

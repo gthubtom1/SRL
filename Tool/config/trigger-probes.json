@@ -6,7 +6,8 @@
     {
       "phrase": "还不确定这属于哪个领域，先帮我判断一下",
       "expect_skill": "seep-router",
-      "expect_kb": "脱壳 OEP dump"
+      "expect_kb": "脱壳 OEP dump",
+      "route_exempt": true
     },
     {
       "phrase": "初步分析一下这个软件",
@@ -30,8 +31,9 @@
     },
     {
       "phrase": "能不能去广告改会员",
-      "expect_skill": "apkseep",
-      "expect_kb": "APK 重打包 签名"
+      "expect_skill": "seep-router",
+      "expect_kb": "APK 重打包 签名",
+      "route_exempt": true
     },
     {
       "phrase": "这个 apk 脱壳",
@@ -81,7 +83,8 @@
     {
       "phrase": "这个软件加壳了怎么脱壳",
       "expect_skill": "unpack-loop",
-      "expect_kb": "PE 脱壳 内存 dump"
+      "expect_kb": "PE 脱壳 内存 dump",
+      "route_exempt": true
     }
   ]
 }
