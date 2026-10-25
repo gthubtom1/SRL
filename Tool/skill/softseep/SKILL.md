@@ -87,7 +87,7 @@ metadata:
 | **部分可赢** | 有一轴 = 5 但可绕 | M2–M3，**必须在报告里列出受限项** |
 | **不可赢** | 钥匙在服务端 / 服务端已停 / 硬件绑定不可绕 | **只能 M1**，附天花板一句话 |
 
-**交付级 M1–M4（唯一口径，9 个域包都指这里，别自创）**
+**交付级 M1–M4（唯一口径，各域包都指这里，别自创）**
 
 | 级 | 能交付什么 | 允许报这一级的条件 |
 | :-: | :-- | :-- |
@@ -386,7 +386,7 @@ metadata:
 | ~~`tool-acquire.py --tool <id>`~~ / `_register_mcp` / `_research` / `_control_plan` | `python Tool/scripts/tool-acquire.py --tool <id>`（装/注册一律 ASK）|
 | ~~`手写 pack.json`~~ | 手写 `pack.json` + `SKILL.md`（**加技能不再零成本**，这是刻意的）|
 
-### 工具发现与工具链（S4 后只剩 2 个工具，其余走 CLI）
+### 工具发现与工具链（MCP 只剩 2 个发现类工具，其余走 CLI）
 
 > `seep_tool_discover` / `seep_ensure_tool` 保留（八层探测 + 缺工具自愈建议）；
 > 装软件、注册 MCP 一律**不由模型 apply** —— 走 `python Tool/scripts/tool-acquire.py --tool <id>`，

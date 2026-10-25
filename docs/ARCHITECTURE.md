@@ -48,7 +48,7 @@
 | `Tool/prompts/` | AGENTS/SEEP/扩展/任务卡 | 每轮注入 | pi 内核 | 12/4k | ✅ 核心 |
 | `Tool/mcp/` | seep MCP（20 工具）+ vendored 工具 | MCP stdio | Agent | 5/4.5k | ✅ 核心 |
 | `Tool/capabilities/` | 51 个能力矩阵 JSON | `domain_spec.py` | 域门禁 | 51/2k | ⚠️ 只被 1 个脚本读 |
-| `Tool/cases/` | 66 个案例 + 模板 | `case_state.py` | 见证/证据 | 64/5k | ✅ 核心 |
+| `Tool/cases/` | 64 个案例 + 模板 | `case_state.py` | 见证/证据 | 64/5k | ✅ 核心 |
 | `Tool/samples/` | 132 个样本夹具 | 各案例引用 | 复跑 | 132/250k | ✅ 夹具 |
 | `Tool/playbooks/` | 26 个配方 | `playbook-check.py` | 域方法论 | 26/0.5k | ⚠️ 与 references 重叠 |
 | `MANUAL/` | 14 本战术手册 | 域 SKILL.md 指路 | Agent 按需 | 14/2.8k | ✅ 核心 |

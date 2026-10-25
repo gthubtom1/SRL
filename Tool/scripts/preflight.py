@@ -1094,6 +1094,50 @@ def check_mcp_name_consistency():
         add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", False, str(e)[:80])
 
 
+def check_fact_drift():
+    """事实漂移：同样的数字（工具/域/案例数）在文档里被重复陈述，必须与实测一致。
+
+    为什么（2026-10-24 用户追问"为什么改一个坏一个"）：盘出来同一事实被
+    48（案例数）/59（路由数）/26（域数）/19（工具数）个文件重复写过。
+    改一份 → N-1 份变旧 → 下一个审计再发现 → 看起来"永远修不完"。
+    这条判据只查**活跃文档**（README×2 / NOW / PRODUCT / ARCHITECTURE + 技能正文），
+    出现 `N 个工具 / N 个域 / N 个案例` 且与实测不符即红。
+    """
+    import glob as _g
+    import re as _re
+    try:
+        tools = len(_re.findall(r"^def seep_[a-z0-9_]+\(",
+                                open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"),
+                                     encoding="utf-8").read(), _re.M))
+        # 口径：`域` = 有 pack.json 的域包（9）；`技能` = 所有 SKILL.md 目录（10，含总控）
+        doms = len(_g.glob(os.path.join(TOOL, "skill", "*", "pack.json")))
+        skills = len([d for d in _g.glob(os.path.join(TOOL, "skill", "*"))
+                      if os.path.isfile(os.path.join(d, "SKILL.md"))])
+        cases = len(_g.glob(os.path.join(TOOL, "cases", "*", "case.json")))
+        # 只查**口径唯一**的事实：工具数、案例数。域/技能在中文里既可能指"域包"也可能指"全部技能目录"，
+        # 用它做判据只会产生假红（实测：README 的"9 个域包"被误判）。
+        actual = {"工具": tools, "案例": cases}
+        targets = [os.path.join(ROOT, p) for p in
+                   ("README.md", "README.zh.md", "docs/NOW.md", "docs/PRODUCT.md", "docs/ARCHITECTURE.md")]
+        targets += _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"), recursive=True)
+        skip_words = ("假设", "例如", "比如", "如果", "若", "最多", "可达", "上限", "目标")
+        bad = []
+        for f in targets:
+            if not os.path.isfile(f):
+                continue
+            for ln, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+                if any(w in line for w in skip_words):
+                    continue
+                for name, n in actual.items():
+                    for m in _re.finditer(r"(\d{1,3})\s*个\s*%s" % name, line):
+                        if int(m.group(1)) != n:
+                            bad.append("%s:%d %s=%s≠%d" % (os.path.basename(f), ln, name, m.group(1), n))
+        add("2 单一事实源", "事实漂移（工具/域/案例数 文档 vs 实测）", not bad,
+            "；".join(bad[:4]) if bad else "工具 %d / 域 %d / 案例 %d 在活跃文档中一致" % (tools, doms, cases))
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "事实漂移（工具/域/案例数 文档 vs 实测）", False, str(e)[:80])
+
+
 def check_subskill_wiring():
     """子技能必须"够得着"：每个 _pending 子技能至少被一个域 SKILL.md 链接，否则等于不存在。
 
@@ -1537,6 +1581,7 @@ def main():
     check_dropin_skills()
     check_skill_import()
     check_subskill_wiring()
+    check_fact_drift()
     check_mcp_name_consistency()
     check_case_contract_files()
     check_tool_ladder()
