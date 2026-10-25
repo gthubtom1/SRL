@@ -1,6 +1,6 @@
 ---
 name: binary-diff
-description: 【二进制差分/补丁分析】跨版本符号迁移、函数匹配（BinDiff/Diaphora/ghidriff）、AOB 签名迁移、补丁差分与 N-day/1-day 复现，差异要落到函数/字段。
+description: "'两个版本差在哪/补丁差分/N-day 怎么打 (.exe/.dll) —— 二进制差分：符号迁移、函数匹配、AOB 签名迁移、补丁差分。"
 license: MIT
 compatibility: Linux/WSL2/Windows；IDA Pro + BinDiff/Diaphora、Ghidra、radare2/radiff2、ghidriff、Python 3.10+。商业工具需授权。
 metadata:

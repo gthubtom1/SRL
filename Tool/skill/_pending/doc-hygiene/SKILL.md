@@ -1,6 +1,6 @@
 ---
 name: doc-hygiene
-description: "【文档治理】整理/清理文档、文档太乱太旧、过期数字、重复入口、遗留盘点（TODO/待补）、交接、换模型接手；tidy up docs、clean up documentation、docs stale、handoff、doc hygiene。"
+description: "整理一下文档/文档太乱太旧/过期数字/重复入口/交接换人 (.md/.json 项目文档)"
 metadata:
   stage: "meta"
   scope: "any-project"

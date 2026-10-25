@@ -1,6 +1,6 @@
 ---
 name: version-migration
-description: 客户端跨版本增量追版与特征迁移专项技能。当目标软件更新（如 6.8 升级至 6.9）、曾经逆向过的旧版本已有分析报告/补丁/Hook 脚本，需要快速适配新版本时使用。通过读取旧版工程沉淀的位点与 AOB 特征码，在新版二进制中秒级滑窗对齐并重新生成可用成品，避免从零重复逆向。
+description: "'追版/新版适配旧报告 (.exe) —— 跨版本增量追版：旧报告/补丁/Hook 快速适配新版。"
 metadata:
   version: "1.0.0"
   target_runtimes: "Windows PE (x86/x64) | Android DEX/SO"

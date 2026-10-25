@@ -1,6 +1,6 @@
 ---
 name: 00-triage
-description: "【00a｜快筛·20 分钟内出目标画像卡】只静态：载体/保护/授权权威/改动面/检测器/交付壁垒，产出 report/triage.md + 六字段卡。不动态、不 dump、不写补丁。"
+description: "'先快速看看这是个什么/20分钟出个画像 (.exe/.apk/.bin) —— 快筛：载体/保护/授权权威/改动面/检测器/交付壁垒，产出 triage 卡。"
 metadata:
   stage: "0a/4"
   next: "00-analysis"

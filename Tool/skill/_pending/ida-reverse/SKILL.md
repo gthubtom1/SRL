@@ -1,6 +1,6 @@
 ---
 name: ida-reverse
-description: 当用户要求“使用IDA Pro进行逆向分析”、分析指定可执行文件/库、反编译函数或通过 IDA Pro 分析目标时触发此技能。能够全自动唤醒 IDA Pro、加载分析目标二进制、静默等待自动分析完成，并通过 MCP 协议无缝进行函数枚举、反编译及交叉引用分析。
+description: "'用 IDA 看这个/反编译这个函数 (.exe/.dll/.so) —— IDA 自动化：唤醒 IDA、反编译函数、导出伪代码。"
 license: GPL-3.0
 compatibility: Windows 10 / Windows 11 x64, macOS, Linux, IDA Pro 7.7~9.x
 ---

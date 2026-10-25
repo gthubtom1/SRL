@@ -1,6 +1,6 @@
 ---
 name: plugin-targets
-description: 【插件/扩展/Mod】浏览器扩展（MV2/MV3）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity BepInEx/MelonLoader（Mono/IL2CPP）、输入法/驱动级插件的逆向与取证。
+description: "'这个插件/扩展怎么逆/浏览器扩展或 IDE 插件 (.crx/.vsix/.asar) —— 插件/扩展/Mod：MV2/MV3、VSIX/JetBrains、Electron asar、BepInEx。"
 license: MIT
 compatibility: Windows/Linux/macOS；解包用 unzip/7z，asar 用 npx asar 或仓库脚本，.NET 用 ilspycmd/dnSpy，Unity 用 Il2CppDumper/Cpp2IL，Java 用 jadx/CFR；全部缺省时可用内置 `plugin-triage.py`/`plugin-repro.py` 做结构与证据初筛。
 metadata:

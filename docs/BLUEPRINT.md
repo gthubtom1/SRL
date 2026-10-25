@@ -119,7 +119,7 @@ Tool/config/{tool-effects.json, refusal-matrix.json, packs.baseline.json}
 | `lib/WorkRoot` / `RouteScope` / `HostRuntime` | ✅ | **消失**（python 化后无宿主 exe 选择问题） |
 | `lib/ToolDiscovery.ps1`（1,188 行） | ✅ | 由 `tool-effects.json` + `mcp-launch.py` 取代 |
 | `start_mcp.py` | ✅ | `mcp-launch.py` |
-| `lib/BootstrapSupplyChain.ps1` / `refresh-tool-index.ps1` / `trigger_ida_mcp.ps1`（写死 PID 11260）/ `shot_ida.ps1` / `temp_ocr.ps1` | ❌ | **删**（孤儿 / 换机即废 / 无调用者） |
+| `lib/BootstrapSupplyChain.ps1` / `refresh-tool-index.ps1` / `trigger_ida_mcp.ps1`（**已删**，写死 PID 11260）/ `shot_ida.ps1` / `temp_ocr.ps1` | ❌ | **删**（孤儿 / 换机即废 / 无调用者） |
 | `probe-refusal.py` / `check-gemini-safety.py` | ✅ | **移入 `破甲卡生成/`**，不计入全局脚本 |
 
 → **`Tool/scripts/` = 7 个** + 1 个 MCP server 文件。

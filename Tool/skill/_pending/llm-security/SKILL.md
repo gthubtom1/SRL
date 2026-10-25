@@ -1,6 +1,6 @@
 ---
 name: llm-security
-description: 【LLM / AI Agent 安全】对 LLM 应用、RAG、Agent、MCP 工具链与提示词/技能包做授权安全评估：直接/间接提示注入、工具滥用、记忆投毒、数据外泄、权限提升、模型与插件供应链。以“可复现的输入→行为差异→影响面”为判据，覆盖 OWASP LLM Top 10 与 Agentic ASI01–ASI10，并提供离线 12 条探针判定器。
+description: "'测这个 AI 应用/AI Agent 安全吗/提示注入 (.py/.json/API) —— LLM/Agent/MCP 安全：提示注入、工具滥用、记忆污染、越权。"
 license: MIT
 compatibility: Python 3.10+；garak/PyRIT/promptfoo 可选；MCP 配置与技能包用纯标准库审计。测试只在授权账号/隔离环境；第三方生产系统投放按授权单执行。
 metadata:

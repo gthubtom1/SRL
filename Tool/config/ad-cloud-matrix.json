@@ -35,7 +35,7 @@
         "CA 存在不等于与目标集群匹配"
       ],
       "commands": [
-        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
         "kubectl config view"
       ]
     },
@@ -62,7 +62,7 @@
         "离线 anonymous_risk 不是“可访问”"
       ],
       "commands": [
-        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
         "kubectl auth can-i --list",
         "curl API"
       ]
@@ -91,7 +91,7 @@
         "JWT 只解码不验签，sub/groups 可伪造"
       ],
       "commands": [
-        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
         "python base64/json",
         "kubectl auth whoami"
       ]
@@ -124,7 +124,7 @@
         "kubectl auth can-i --list",
         "kubectl get clusterrolebinding",
         "kubectl-who-can",
-        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help"
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py"
       ]
     },
     {
@@ -369,7 +369,7 @@
         "AK 前缀不能判断权限"
       ],
       "commands": [
-        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --help",
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
         "aws sts get-caller-identity",
         "grep"
       ]
@@ -746,7 +746,7 @@
       "commands": [
         "nxc smb <ip> -u '' -p ''",
         "nmap -Pn -p 445,389,636,88,5985 --open <cidr>",
-        "ldapsearch -x -H ldap://<ip> -s base -b '' '(objectClass=*)'",
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
         "kerbrute userenum --dc <dc> -d <domain> users.txt",
         "ad-repro.py --kind ntlm-type2 --input Tool/cases/ad-cloud01/input/ntlm-type2.json --json"
       ]
@@ -824,7 +824,7 @@
         "curl -s http://<etcd>:2379/version",
         "kubectl get validatingwebhookconfigurations,mutatingwebhookconfigurations -o json",
         "kubectl get ns --show-labels",
-        "python `adcloud-check`（S4 已删：壳，真身在同名包 scripts/ 下） --kubeconfig Tool/cases/ad-cloud01/input/kubeconfig.yaml --json"
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py"
       ]
     },
     {
@@ -904,7 +904,7 @@
         "nxc smb <DC_IP> -u '' -p '' --pass-pol",
         "nxc smb <target> -u <user> -p '<pass>' -d <domain> --shares --sessions --loggedon-users --log work/<case>/nxc.log",
         "nxc ldap <DC_IP> -u <user> -p '<pass>' -d <domain> --users --groups --pass-pol",
-        "nxc mssql <target> -u <user> -p '<pass>' -d <domain> -q 'SELECT @@version, IS_SRVROLEMEMBER(''sysadmin'');'",
+        "python Tool/skill/_pending/ad-cloud/scripts/adcloud-check.py",
         "impacket-wmiexec <domain>/<user>@<target> -hashes ':<NTLM>' 'whoami'"
       ]
     }

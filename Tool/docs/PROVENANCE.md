@@ -202,10 +202,10 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | :--- | :--- | :--- |
 | `case-init.ps1` | `Tool/scripts/` | 任务建档门禁（一任务一目录） |
 | `refresh-tool-index.ps1` | `Tool/scripts/` | 工具链健康自检 |
-| `trigger_ida_mcp.ps1` | `Tool/scripts/` | 静默唤醒 IDA + 挂 MCP |
+| ~~`trigger_ida_mcp.ps1`~~ | — | 已删除（硬编码 PID，改由 `tool-acquire.py --tool ida`） |
 | `route.py` | `Tool/scripts/` | 主路由 |
 | `start_mcp.py` | `Tool/scripts/` | MCP 启动 |
-| `shot_ida.ps1` / `temp_ocr.ps1` | `Tool/scripts/` | 截图 / OCR 辅助 |
+| `temp_ocr.ps1` | `Tool/scripts/` | OCR 辅助（`shot_ida.ps1` 已删） |
 | `apk/decode.ps1` | `Tool/scripts/apk/` | jadx + apktool 一键解包 |
 | `apk/rebuild-sign-install.ps1` | `Tool/scripts/apk/` | 重打包 → 对齐 → 签名 → 装机 |
 | `apk/frida-run.ps1` | `Tool/scripts/apk/` | 设备枚举 + Spawn/Attach 注入 |

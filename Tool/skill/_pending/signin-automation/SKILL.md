@@ -1,6 +1,6 @@
 ---
 name: signin-automation
-description: "账号任务自动化的六个原语：会话池（多账号隔离）、定时通知（cron/幂等/重试上限）、验证码三分支、滑块缺口、旋转角度、TLS 指纹。附带 OPSEC 参数与可机检判据（会话有效性 / 指纹一致 / 节奏不触发风控 / TLS 与 HTTP2 头序一致）。供 playbook（qinglong-signin / multi-account-runner / captcha-handling / app-daily-task）组合调用。"
+description: "'多账号自动签到/登录自动化/验证码和滑块 (.py/.js) —— 账号任务自动化六原语：会话池、定时通知、验证码分支、滑块、指纹、OPSEC。"
 ---
 
 # signin-automation（账号任务自动化的六个原语）

@@ -1,6 +1,6 @@
 ---
 name: 04-version-migrate
-description: "【04｜第四阶段·跨版本追版】原作者更新了版本时用。读旧版版本账（manifest.json）里的位点特征码，在新版二进制里滑窗对齐，同时迁移 UI 资产与授权挂载点，一条命令重建成品并跑验收。不重新逆向、不重画 UI、不重接授权。"
+description: "'作者更新了版本怎么追/新版适配旧补丁 (.exe) —— 阶段④：跨版本追版（位点特征码滑窗对齐、迁移 UI 资产）。"
 metadata:
   stage: "4/4"
   prev: "03-license-hookup"

@@ -15,7 +15,7 @@
 | **APK 反编译流水线** | `Tool/scripts/apk/decode.ps1` | 一键运行 `jadx` + `apktool` 解包反编译并生成组件摘要 |
 | **APK 重打包与签名** | `Tool/scripts/apk/rebuild-sign-install.ps1` | 修改 Smali 后全自动执行 `apktool b` -> 4字节对齐 -> 签名 -> ADB 推送安装 |
 | **Frida 动态注入** | `Tool/scripts/apk/frida-run.ps1` | 标准化设备枚举、进程列表与 Spawn/Attach 动态 Hook 运行 |
-| **IDA Pro MCP 唤醒** | `Tool/scripts/trigger_ida_mcp.ps1` | 静默启动 IDA Pro 64 并自动挂载 MCP 分析链路 |
+| **IDA Pro MCP 唤醒** | `Tool/scripts/tool-acquire.py --tool ida` | 静默启动 IDA Pro 64 并自动挂载 MCP 分析链路 |
 | **任务路由** | `Tool/scripts/route.py` + `pack.json` | 按口语判型 → 选技能（32 条路由，自洽由 `route.py --check` 断言） |
 | **路由自洽校验** | `Tool/scripts/route.py` | routes / priority / fallback / 技能落位 四重断言 |
 | **端到端冒烟** | ``Tool/scripts/preflight.py`` | 真实样本跑通整条链路（12 环 / 13 秒），不污染仓库 |

@@ -1,6 +1,6 @@
 ---
 name: ad-cloud
-description: 【内网/AD/云原生】域内枚举与 BloodHound、Kerberoasting/AS-REP、ADCS ESC1-17、NTLM relay、委派/RBCD、PtH/WMI/WinRM 横向、AK-SK 泄露、K8s RBAC 与容器逃逸、CI/CD 凭据。
+description: "'内网怎么打/域内提权/云上 IAM 有没有问题 (BloodHound/ADCS/kerberos) —— 内网/AD/云原生：枚举、Kerberoasting/AS-REP、ADCS ESC、NTLM relay、委派。"
 ---
 
 # 内网 / AD / 云原生作业规范

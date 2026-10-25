@@ -49,6 +49,9 @@ PROBE_URLS = ("http://www.baidu.com", "http://connect.rom.miui.com/generate_204"
 
 # ────────────────────────────── 基础设施 ──────────────────────────────
 
+_DRY = False
+
+
 def ps(script: str, timeout: int = 30) -> str:
     """跑一段 PowerShell，返回 stdout。
 
@@ -56,6 +59,9 @@ def ps(script: str, timeout: int = 30) -> str:
     直接 utf-8 解会变乱码 —— 那样 "直接访问（没有代理服务器）" 就识别不到了。
     这里按 utf-8 → gbk → latin-1 依次回退。
     """
+    if _DRY:
+        print("[dry-run] " + script)
+        return ""
     try:
         p = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
@@ -226,6 +232,11 @@ def do_diff(args) -> int:
 
 
 def do_restore(args) -> int:
+    # 默认只演练：改整机网络是最贵的副作用，必须显式 --yes 才真执行
+    global _DRY
+    if not getattr(args, "yes", False):
+        args.dry_run = True
+    _DRY = bool(getattr(args, "dry_run", False))
     path = args.from_file or latest_path()
     if not os.path.exists(path):
         print(f"[ERROR] 没有快照可还原：{path}", file=sys.stderr)
@@ -391,7 +402,8 @@ def main() -> int:
         p.add_argument("--json", action="store_true")
         if name in ("diff", "restore"):
             p.add_argument("--from", dest="from_file", default=None, help="指定快照文件")
-            p.add_argument("--dry-run", action="store_true", help="只报告不改动")
+            p.add_argument("--dry-run", action="store_true", help="只报告不改动（默认行为：未加 --yes 一律 dry-run）")
+            p.add_argument("--yes", action="store_true", help="确认执行（不加则只报告）")
         p.set_defaults(func=fn)
 
     args = ap.parse_args()

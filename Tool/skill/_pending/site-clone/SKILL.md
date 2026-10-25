@@ -1,6 +1,6 @@
 ---
 name: site-clone
-description: "【网站 1:1 复刻】授权+同源白名单+≤2 rps 下用 Playwright 抓路由/资产/API 与 DOM 快照做离线副本，按 6 条机检判据给 PASS/PARTIAL/BLOCKED。"
+description: "'把这个网站 1:1 复刻下来/离线副本 (.html/.js/URL) —— 站点复刻：授权+同源白名单+≤2rps 抓取，DOM 快照与 6 条机检判据。"
 ---
 
 # 网站 1:1 复刻（site-clone）
