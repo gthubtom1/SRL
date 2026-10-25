@@ -19,6 +19,15 @@ import os
 import re
 import sys
 
+# 中文 Windows 控制台默认 cp936/GBK，矩阵里的 ✓/✗ 会直接抛 UnicodeEncodeError，
+# 导致 --check 与 --json 两种模式都“从未真正求值”。这里无条件改成 UTF-8（管道/重定向亦生效），
+# errors="replace" 保证再怎么奇怪的字符也只是显示成 ?，不会让检查本身崩掉。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 —— 极老旧解释器/已被替换的流（如 None）时忽略
+        pass
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SKILL = os.path.join(ROOT, "Tool", "skill")
 CFG = os.path.join(ROOT, "Tool", "config")

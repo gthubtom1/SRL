@@ -880,9 +880,37 @@ def cmd_claim(a):
     print(f"[OK] {a.id} = {a.status}  {a.text}")
 
 
-def _rewrite_facts(case, facts):
+def _rewrite_claims(case, facts):
+    """只改 claim 行：按 id 替换账本里的对应行，其余行（state/event/repro/gaps/plan/downgrade）
+    **原样保留且相对顺序不变**（append-only 账本的前提）。
+
+    血案（F3）：旧 `_rewrite_facts` 拿 `load_facts()`（只剩 claim 行）整文件重写，于是按文档顺序
+    init → claim → prove 的第一次 prove 就把 state 行（target/stage/verdict）、plan、repro 全删掉。
+    现在先把全量 `load_ledger()` 读回来，逐行判断：是 claim 且 id 命中 → 换成新对象，否则原样抄回。
+    调用方新增的 claim（账本里还没有）追加到末尾，仍不丢任何旧行。
+    """
     _, fp = paths(case)
-    _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in facts))
+    new_by_id = {}
+    for f in facts:
+        if isinstance(f, dict) and str(f.get("id") or "").strip():
+            new_by_id[str(f.get("id"))] = f
+    out, seen = [], set()
+    for e in load_ledger(case):
+        fid = str(e.get("id") or "").strip() if isinstance(e, dict) else ""
+        if fid and fid in new_by_id and _is_claim(e):
+            out.append(new_by_id[fid])
+            seen.add(fid)
+        else:
+            out.append(e)
+    for fid, f in new_by_id.items():
+        if fid not in seen:
+            out.append(f)
+    _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out))
+
+
+def _rewrite_facts(case, facts):
+    """兼容旧名：语义已改成“只改 claim 行”，与 `_rewrite_claims` 完全等价（不再整文件丢行）。"""
+    _rewrite_claims(case, facts)
 
 
 def cmd_prove(a):
@@ -914,7 +942,7 @@ def cmd_prove(a):
     hit["status"] = "proven"
     hit["evidence"] = (hit.get("evidence") or []) + [ev]
     hit["updated"] = now()
-    _rewrite_facts(a.case, facts)
+    _rewrite_claims(a.case, facts)
     tail = "（原 stale 已复验复活）" if was_stale else ""
     hint = ""
     if hit.get("confidence") in ("unknown", "inferred") or hit.get("authority") in ("", "none"):
@@ -936,7 +964,7 @@ def cmd_refute(a):
     hit["status"] = "refuted"
     hit["refuted_by"] = by
     hit["updated"] = now()
-    _rewrite_facts(a.case, facts)
+    _rewrite_claims(a.case, facts)
     print(f"[OK] {a.id} 已标记被推翻，依据 = {a.by}（历史保留，不删）")
 
 
@@ -958,7 +986,7 @@ def cmd_stale(a):
         f["stale_reason"] = reason or "（未写原因）"
         f["staled_at"] = ts
         f["updated"] = ts
-    _rewrite_facts(a.case, facts)
+    _rewrite_claims(a.case, facts)
     print("[OK] %d 条 proven 已标为 stale，原因：%s" % (len(proven), reason or "（未写原因）"))
     print("     证据保留；复验用 prove --id <id> --evidence ...，否则 gate 拒绝")
 
@@ -2037,6 +2065,48 @@ def cmd_gate(a):
 RANK = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
 
 
+def _repro_records(case):
+    """账本里的 repro 记录（宽松读：坏行/非 repro 行直接跳过，不让交付闸变成解析器）。"""
+    out = []
+    fjs = os.path.join(os.path.abspath(case), "facts.jsonl")
+    if not os.path.isfile(fjs):
+        return out
+    with open(fjs, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(rec, dict) and _entry_kind(rec) == "repro":
+                out.append(rec)
+    return out
+
+
+def _is_complete_e3(rec):
+    """交叉验证证据的**结构**判据（只认结构化记录，不认任何地方手写的 "grade": "E3" 字样）。
+
+    kind=repro 且 grade=E3、cmd 非空、runs>=2、digests 条数 == runs（真跑了几次就有几个指纹）、
+    expect 非空（有可机检的期望片段）、also_cmd 非空且 != cmd（两路真独立）。
+    """
+    if not isinstance(rec, dict) or _entry_kind(rec) != "repro":
+        return False
+    if str(rec.get("grade") or "").strip().upper() != "E3":
+        return False
+    cmd = str(rec.get("cmd") or "").strip()
+    also = str(rec.get("also_cmd") or "").strip()
+    expect = str(rec.get("expect") or "").strip()
+    try:
+        runs = int(rec.get("runs") or 0)
+    except (TypeError, ValueError):
+        return False
+    digests = rec.get("digests")
+    return bool(cmd) and bool(expect) and bool(also) and also != cmd \
+        and runs >= 2 and isinstance(digests, list) and len(digests) == runs
+
+
 def cmd_deliver(a):
     """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。"""
     lease_guard(a.case)
@@ -2050,21 +2120,20 @@ def cmd_deliver(a):
         die(f"越级交付：裁定 {st['verdict']} 的上限是 {cap}，不接受 {a.level}")
     # 外部评审 A5：最高两级（M3/M4）必须有**交叉验证/端到端**证据，不能只靠自述
     if a.level in ("M3", "M4"):
-        try:
-            fjs = os.path.join(os.path.abspath(a.case), "facts.jsonl")
-            strong = []
-            if os.path.isfile(fjs):
-                for _l in open(fjs, encoding="utf-8"):
-                    if "\"kind\": \"repro\"" in _l and ('"grade": "E3"' in _l or '"grade": "E4"' in _l):
-                        strong.append(_l.strip()[:60])
-            if not strong:
-                die("交付 %s 需要至少一条 E3/E4 证据（两条独立命令一致 或 端到端成功）——"
-                    "先跑 case_state.py repro --also-cmd \"<第二路命令>\"；"
-                    "只有 E2 时请交付 M2 并写明天花板" % a.level)
-        except SystemExit:
-            raise
-        except Exception:
-            pass
+        recs = _repro_records(a.case)
+        strong = [r for r in recs if _is_complete_e3(r)]
+        if not strong:
+            die("交付 %s 需要至少一条**结构完整**的 E3 交叉验证记录"
+                "（kind=repro / grade=E3 / cmd 非空 / expect 非空 / runs>=2 / digests 条数==runs / "
+                "also_cmd 非空且 != cmd）。账本里现有 repro 记录 %d 条，其中 0 条达标"
+                "（只写 "
+                "\"grade\": \"E3\" 字样不算数）。\n"
+                "修法：python Tool/scripts/case_state.py repro --case %s --id E-001 "
+                "--cmd \"<第一路命令>\" --expect \"<必须出现的片段>\" "
+                "--also-cmd \"<另一条**真不同**的命令>\" --runs 2"
+                "（必须带 --case 与 --id 才会落账本；两路命令相同会被拒升 E3），"
+                "之后用 show 确认账本里出现 grade=E3 的 repro 行；"
+                "撑不到 E3 就交付 M2 并写明天花板" % (a.level, len(recs), os.path.abspath(a.case)))
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
@@ -2260,6 +2329,15 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 _TOOL = os.path.join(_ROOT, "Tool")
 
 
+def _stdin_utf8():
+    """读 stdin 时强制 UTF-8：Windows 下 sys.stdin 默认按 locale(cp936) 解码，
+    管道进来的中文 JSON 会变成乱码，导致 ceiling/missing 比对凭空失败（实测）。"""
+    buf = getattr(sys.stdin, "buffer", None)
+    if buf is not None:
+        return buf.read().decode("utf-8", "replace")
+    return sys.stdin.read()
+
+
 def _jd(rel):
     with open(os.path.join(_TOOL, "config", rel), encoding="utf-8") as f:
         return json.load(f)
@@ -2297,6 +2375,7 @@ def cmd_answer(a):
         print("【判断】这是什么 / 有没有保护 / 关键在哪：…")
         print("【到哪一步】" + " | ".join(c["ceiling_sentences"]))
         print("【缺什么】① … ② …")
+        print("【大约多少功夫】X 小时 – Y 天（依据：为什么是这个量级）")
         print("【已有证据】E-001 …（或：暂无，只有文件哈希）")
         print("【请你选】Q1｜…  A …→选了会怎样  B …→…  C 我不确定→…")
         print("【你要做的】回一个字母")
@@ -2304,6 +2383,7 @@ def cmd_answer(a):
     if a.selftest:
         good = {"judgment": "PE32+，未见壳", "ceiling": "只能看懂结构",
                 "missing": ["有没有卡密"],
+                "effort": "半小时 – 2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性",
                 "asks": [{"id": "Q1", "options": [
                     {"key": "A", "consequence": "走在线对比"},
                     {"key": "B", "consequence": "走离线判定"},
@@ -2315,7 +2395,7 @@ def cmd_answer(a):
         return 0 if ok == 2 else 1
     src = a.file or ""
     try:
-        obj = json.load(open(src, encoding="utf-8")) if src else json.load(sys.stdin)
+        obj = json.load(open(src, encoding="utf-8")) if src else json.loads(_stdin_utf8())
     except Exception as e:  # noqa: BLE001
         print("[ERR] 读不到 JSON：%s" % e)
         return 2
@@ -2380,9 +2460,14 @@ def cmd_repro(a):
     same = len(set(digests)) == 1
     expect_ok = bool(a.expect) and all(a.expect in o for o in outs)
     grade = "E2" if (same and expect_ok) else "E1"
-    # E3 = 两条**独立**命令各自一致且都命中期望（外部评审 A5：最高级上限必须有可机检依据）
-    alt = getattr(a, "also_cmd", "") or ""
-    if grade == "E2" and alt:
+    # E3 = 两条**独立**命令各自一致且都命中期望（外部评审 A5：最高等级上限必须有可机检依据）
+    # 独立性是硬要求：--also-cmd 就是 --cmd 本身（去空白后相等）不能算交叉验证，一分不给。
+    alt = (getattr(a, "also_cmd", "") or "").strip()
+    first_cmd = (a.cmd or "").strip()
+    alt_is_same = bool(alt) and " ".join(alt.split()) == " ".join(first_cmd.split())
+    if alt_is_same and grade == "E2":
+        print("[repro] 第二路与第一路是同一条命令，不算交叉验证 → 拒绝升级 E3，保持 %s" % grade)
+    if grade == "E2" and alt and not alt_is_same:
         alt_d, alt_ok_all, alt_hit = [], True, True
         for _i in range(runs):
             import subprocess as _sp2
@@ -2404,7 +2489,7 @@ def cmd_repro(a):
             print("[repro] 第二路不一致/未命中 → 保持 E2（不许自称交叉验证）")
     print("[repro] 运行 %d 次；指纹 %s；一致=%s；期望命中=%s"
           % (runs, ",".join(digests), same, expect_ok))
-    print("[repro] 该证据最高等级 = %s（E2 需：输出一致 + 期望命中）" % grade)
+    print("[repro] 该证据最高等级 = %s（E2 需：输出一致 + 期望命中；E3 另需第二路命令真的不同且一致）" % grade)
     if a.case and a.id:
         try:
             rec = {"kind": "repro", "id": a.id, "cmd": a.cmd, "also_cmd": alt, "expect": a.expect,
@@ -2415,7 +2500,8 @@ def cmd_repro(a):
             print("[repro] 已写入账本")
         except Exception as e:  # noqa: BLE001
             print("[WARN] 写账本失败：%s" % e)
-    return 0 if grade == "E2" else 1
+    # 退出码语义：E2/E3（可当证据）返回 0；E1（不可重复或达不到期望）返回 1。
+    return 0 if grade in ("E2", "E3") else 1
 
 
 def cmd_downgrade(a):
@@ -2484,6 +2570,18 @@ def cmd_recheck(a):
 
 SECTIONS = ["结论", "已确认", "仍未知", "下一步", "复查"]
 
+# PM-SPEC §11：交付物不得落明文凭据。四条规则的边界都以「两份真实报告 + 全部模板」不误报为准：
+#   - 私钥块头 / AWS AK 是强特征，不误报；
+#   - 关键字赋值必须紧跟 : 或 = 且值 >=6 个非空字符，所以“secrets 使用 OIDC”“SA token 短时化”不命中（无 : / =）；
+#   - Bearer 令牌要求 20+ 连续非空字符，“Bearer 认证”之类白描不会命中。
+CRED_RULES = (
+    ("PRIVATE KEY 私钥块", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("AWS Access Key ID", re.compile(r"AKIA[0-9A-Z]{16}")),
+    ("明文口令/密钥赋值",
+     re.compile(r"(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*\S{6,}", re.I)),
+    ("Bearer 令牌", re.compile(r"Bearer\s+\S{20,}", re.I)),
+)
+
 
 def cmd_report(a):
     """报告五段校验：缺段不算交付（对应 PM-SPEC §3.3/§7）。"""
@@ -2514,11 +2612,19 @@ def _check_report(text):
       ② 每段标题下至少 2 行非空内容；
       ③ 结论段 ≤3 行；
       ④ "已确认"段至少出现 1 个证据/结论 ID（E-/C-/F-）；
-      ⑤ 出现禁用措辞（应该可以/大概能/通常没问题）即不合格。
+      ⑤ 出现禁用措辞（应该可以/大概能/通常没问题）即不合格；
+      ⑥ 凭据扫描（PM-SPEC §11）：命中私钥块 / AK / 明文口令赋值 / Bearer 令牌即不合格。
     """
     import re as _re
     bad = []
     lines = text.splitlines()
+    # ⑥ 先扫凭据（写进报告就等于泄露，优先级高于分段格式）；不回显命中内容，避免二次泄露。
+    for _n, _l in enumerate(lines, 1):
+        for _rule, _rx in CRED_RULES:
+            if _rx.search(_l):
+                bad.append("第 %d 行命中凭据扫描「%s」：报告里不许出现明文凭据，"
+                           "改成 [REDACTED]（最多留前 6 位 + 指纹/哈希 前 8 位）" % (_n, _rule))
+                break
     idx = {}
     for i, l in enumerate(lines):
         for sec in SECTIONS:
