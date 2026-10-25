@@ -4,6 +4,11 @@
   "_为什么": "2026-10-24 实测：skill description 写的是名词清单、route.py 表里没有口语、KB search 只认术语 —— 同一类病在三个地方各犯一次，因为之前没有一张跨层的探针表。",
   "probes": [
     {
+      "phrase": "还不确定这属于哪个领域，先帮我判断一下",
+      "expect_skill": "seep-router",
+      "expect_kb": "脱壳 OEP dump"
+    },
+    {
       "phrase": "初步分析一下这个软件",
       "expect_skill": "softseep",
       "expect_kb": "脱壳 OEP dump"
