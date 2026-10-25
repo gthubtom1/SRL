@@ -1200,6 +1200,27 @@ def check_prompt_residue():
         else "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
+def check_doc_commands():
+    """文档里写的命令参数必须真的存在（来自 exe-reverse 的 check_commands 思路）。
+
+    两轮外部评审各抓到一次同类缺陷：`report --check`、`check.ps1 -Detailed`、`已退役的 setup 自检脚本`。
+    这类"文档承诺了不存在的参数/脚本"最伤信任，而且最便宜修，必须机检。
+    """
+    sys.path.insert(0, os.path.join(TOOL, "scripts", "lib"))
+    try:
+        import doc_commands as _dc
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "文档命令参数存在（argparse 校验）", False, "缺 doc_commands.py: %s" % e)
+        return
+    texts = []
+    for rel in ("Tool/prompts/AGENTS.md", "README.md", "REQUIREMENTS.md", "PM-SPEC.md"):
+        p = os.path.join(ROOT, rel)
+        if os.path.isfile(p):
+            texts.append(open(p, encoding="utf-8", errors="replace").read())
+    ok, why = _dc.check_doc_commands(chr(10).join(texts), ROOT)
+    add("2 单一事实源", "文档命令参数存在（argparse 校验）", ok, why)
+
+
 def check_single_orchestrator():
     """总控只能有一个：`seep-router` 之外的技能不许自称总控/Orchestrator/带路由矩阵。
 
@@ -1802,6 +1823,7 @@ def main():
     check_fact_drift()
     check_five_contracts()
     check_single_orchestrator()
+    check_doc_commands()
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()
