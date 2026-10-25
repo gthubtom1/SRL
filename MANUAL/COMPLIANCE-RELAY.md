@@ -361,6 +361,6 @@ python 破甲卡生成/check-gemini-safety.py --model gemini-2.5-flash
 1. 编辑 TS 文件中的 `SENSITIVE_WORD_MAP`；
 2. 运行 `python Tool/scripts/compliance-relay/extract-rules.py` 重新生成 JSON；
 3. 运行 `python -m unittest discover -s Tool/scripts/compliance-relay/tests` 确认全绿；
-4. `setup/verify.ps1` 自检会自动校验两侧是否同步（`extract-rules.py --check`）。
+4. `check.ps1` 自检会自动校验两侧是否同步（`extract-rules.py --check`）。
 
 > **`sensitive-rules.json` 是生成物**：改动走提取脚本，手工编辑会被下次提取覆盖。

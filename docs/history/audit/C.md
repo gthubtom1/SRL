@@ -13,7 +13,7 @@
   `c797973b…`）；我注入的 4 类反例（改 sha / ref 401 行 / 伪 real / 注入 `generated_at`）**全部判红**。
 - **但覆盖面被高估**：125 个脚本只有 43 个被断言；案例哈希只覆盖 `case.json` 自报的 `artifacts[]`
   （36 个案例里 80~700 个文件未登记）；`lessons` 里的命令只做文本匹配、**不执行**。
-- **双平台实跑红**：`bash setup/verify.sh` rc=1、`setup/verify.ps1` rc=1（64 PASS / 1 FAIL / 1 OPTN），
+- **双平台实跑红**：`bash Tool/scripts/check.py` rc=1、`check.ps1` rc=1（64 PASS / 1 FAIL / 1 OPTN），
   `preflight.py` 34/36 FAIL 两项，红点同源。
 - 判定：**可跑性 P0 未清**（双平台门禁实跑红 + 验收脚本空集判绿）；门禁"反例必红"成立，
   但存在 3 处可实证的「绿而实际坏」。
@@ -22,7 +22,7 @@
 
 | # | 问题 | 证据（可复现） | 修复动作 |
 | :-- | :-- | :-- | :-- |
-| P0-1 | 双平台体检在 HEAD 就红：两个受跟踪案例脚本硬编码本机路径 | `Tool/cases/site-clone-drill01/scripts/crawl.py:42`、`replay_diff.py:44` = `<HOME>/AppData/Local/ms-playwright/chromium-1243/…/chrome.exe`；`bash setup/verify.sh` rc=1「个人隐私零残留」；`verify.ps1` 同样 64/1 | 改为 `PLAYWRIGHT_BROWSERS_PATH` / `shutil.which` / `--chrome` 参数探测，缺失走 `blocked_at:"tool-missing"`；两处同时改，重跑两条 verify |
+| P0-1 | 双平台体检在 HEAD 就红：两个受跟踪案例脚本硬编码本机路径 | `Tool/cases/site-clone-drill01/scripts/crawl.py:42`、`replay_diff.py:44` = `<HOME>/AppData/Local/ms-playwright/chromium-1243/…/chrome.exe`；`bash Tool/scripts/check.py` rc=1「个人隐私零残留」；`verify.ps1` 同样 64/1 | 改为 `PLAYWRIGHT_BROWSERS_PATH` / `shutil.which` / `--chrome` 参数探测，缺失走 `blocked_at:"tool-missing"`；两处同时改，重跑两条 verify |
 | P0-2 | 验收脚本对「不存在的案例」返回成功（空集判绿） | `python Tool/skill/supply-chain-security/scripts/sc-accept.py --case /nonexistent/nope --json` → rc=0，`{"ok":true,"cases":0,"real":0,"failures":[]}`；换 `--case nope-not-a-case` 同样 rc=0 | `--case` 解析失败 → `{"ok":false,"blocked_at":"case","reason":…}` + rc=2；`cases==0` 一律 rc=2 |
 | P0-3 | 门禁只校验 `artifacts[]` 自报清单，未登记产物被篡改仍全绿 | 副本 `work/auditC/repo`：改 `Tool/cases/site-clone01/artifacts/accept.json`（该案例 217 个文件未登记）→ `domain-gate --all` 仍 **110/110，rc=0** | 增加断言「`artifacts/` 下每个文件必须登记 sha256（白名单仅 README/输入）」；36 个案例按实测补齐或写明豁免 |
 
@@ -80,7 +80,7 @@
 
 ## 修复动作（按顺序）
 
-1. P0-1：两处 `<HOME>…` 改环境探测 → 重跑 `setup/verify.sh` + `setup/verify.ps1` + `preflight.py` 必须全绿。
+1. P0-1：两处 `<HOME>…` 改环境探测 → 重跑 `Tool/scripts/check.py` + `check.ps1` + `preflight.py` 必须全绿。
 2. P0-2 / P1-3：所有 `*accept*.py` 统一「空集/不存在案例 = rc=2」，顶层补 `blocked_at/reason`。
 3. P0-3 / P1-7：加「`artifacts/` 全量登记」+ 扩大可移植扫描根，并清掉产物里的绝对路径。
 4. P1-4 / P1-5 / P1-6：mutation-test 复用真门禁逻辑、解析 `ok` 值、抽样真跑 lessons 命令。

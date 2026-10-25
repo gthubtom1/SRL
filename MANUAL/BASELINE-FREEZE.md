@@ -53,7 +53,7 @@ python Tool/mcp/test_ext_assets.py        # 扩展自测（当前 63 项）
 python Tool/scripts/route.py   # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q   # 中继 84 项
 python `Tool/scripts/preflight.py`                  # 端到端链路 12 项（真实样本）
-powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
+powershell -File check.ps1 -Detailed        # 体检 65 项全绿
 ```
 
 ### C 类：文档 / 检查项 / 知识库补充
@@ -116,7 +116,7 @@ powershell -File setup/verify.ps1 -Detailed        # 体检 65 项全绿
 
 ## 六、 出问题时的第一反应
 
-1. **先跑体检**：`check.ps1` 或 `./setup/verify.sh` —— 65 项里红哪一项，就是坏在哪一层；
+1. **先跑体检**：`check.ps1` 或 `./Tool/scripts/check.py` —— 65 项里红哪一项，就是坏在哪一层；
 2. **再看路由**：`python Tool/scripts/route.py` —— 路由指向不存在的技能会静默失效；
 3. **再跑三套测试**：MCP 基线 / 扩展资产 / 中继；
 4. **仍未定位**：`git diff` 最近一次变更，按"四、变更清单模板"逐项对照。

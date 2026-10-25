@@ -80,7 +80,7 @@
 | F2 一致性 | P0-7…P0-12 + P1-1…P1-9 | `README*.md`、`MANUAL/*`、`docs/*`、`Tool/docs/*`、`Tool/cases/README.md`、`ROADMAP.md` |
 | F3 配方可用性 | P1-10…P1-13 | `Tool/playbooks/*`、`Tool/skill/web-pentest/scripts/web-check.py`、6 个重依赖脚本 |
 
-合并后统一跑：`preflight`（全量）、`domain-gate --all`、`bash setup/verify.sh`、`powershell setup/verify.ps1`、`playbook-check`、`capability-gate`，再 commit。
+合并后统一跑：`preflight`（全量）、`domain-gate --all`、`bash Tool/scripts/check.py`、`powershell check.ps1`、`playbook-check`、`capability-gate`，再 commit。
 
 ---
 
@@ -91,7 +91,7 @@ python Tool/scripts/preflight.py                 # 44/44
 python Tool/scripts/domain-gate.py --all         # 110/110
 python Tool/scripts/playbook-check.py            # 坏命令 0
 python Tool/scripts/capability-gate.py           # 47 / dangling 0 / cycles 0
-bash setup/verify.sh                             # 65 / 0
+bash Tool/scripts/check.py                             # 65 / 0
 git status --porcelain                           # 空
 ```
 

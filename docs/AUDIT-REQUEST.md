@@ -57,8 +57,8 @@ python <任意脚本> --help
 python <任意脚本> --self-test
 
 # 双平台体检
-powershell -File setup/verify.ps1 -Detailed
-bash setup/verify.sh
+powershell -File check.ps1 -Detailed
+bash Tool/scripts/check.py
 
 # 只读 git 查询
 git log --oneline -20

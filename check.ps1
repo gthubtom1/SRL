@@ -1,13 +1,9 @@
-﻿#Requires -Version 5.1
-<#
-  Seep Reverse Lab — 根目录快捷健康体检入口（版本取自 VERSION 文件）
-  ================================================================
-  本文件为根目录便捷入口，真实校验流水线位于 setup\verify.ps1。
-  支持 60 项核心资产全维度自动化体检。
-
-  用法:
-    powershell -ExecutionPolicy Bypass -File .\check.ps1
-    powershell -ExecutionPolicy Bypass -File .\check.ps1 -Detailed
-#>
-& (Join-Path $PSScriptRoot 'setup\verify.ps1') @args
+# Seep Reverse Lab - 一键测试入口（唯一入口）
+#   powershell -File check.ps1            -> 全量（6 套件）
+#   powershell -File check.ps1 -Fast      -> 提交前快跑
+param([switch]$Fast)
+$root = $PSScriptRoot
+$args2 = @()
+if ($Fast) { $args2 += '--fast' }
+& python (Join-Path $root 'Tool\scripts\check.py') @args2
 exit $LASTEXITCODE

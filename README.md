@@ -389,7 +389,7 @@ Seep\ (251 MB)
 1. 选一个合适的目录（不要放桌面），git clone 下来；若本机没有 git，先告诉我。
 2. 进入仓库后先读 Tool/prompts/AGENTS.md（协议全文）与 MANUAL/DEPLOYMENT.md（部署手册）。
 3. 执行 setup/install.ps1（Windows）或 setup/install.sh（Linux/macOS），不要手抄步骤。
-4. 装完必须跑 setup/verify.ps1 -Detailed，并按 MANUAL/DEPLOYMENT.md 附录 A 给我四栏看板。
+4. 装完必须跑 check.ps1 -Detailed，并按 MANUAL/DEPLOYMENT.md 附录 A 给我四栏看板。
 5. 最后提醒我：完全重启会话后再发 lab：。
 全程不要用 -h 试探任何二进制；缺工具先用 seep_tool_discover / tool-acquire.py --tool <id>。
 ```

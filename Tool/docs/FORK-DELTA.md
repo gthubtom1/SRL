@@ -183,7 +183,7 @@ python Tool/mcp/test_seep_mcp.py                        # 9/9
 python Tool/mcp/test_ext_assets.py                      # 73 passed
 python Tool/scripts/route.py         # 路由自洽
 python -m pytest Tool/scripts/compliance-relay/tests -q # 84/84
-powershell -File setup/verify.ps1 -Detailed             # 65 项（./setup/verify.sh 同为 65 项）
+powershell -File check.ps1 -Detailed             # 65 项（./Tool/scripts/check.py 同为 65 项）
 python Tool/scripts/budget.py                     # 反臃肿预算
 python `Tool/scripts/preflight.py`                        # 端到端链路（真实样本 12 项，约 13s）
 ```

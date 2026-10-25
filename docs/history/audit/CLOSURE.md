@@ -37,7 +37,7 @@ ad-cloud 第 2 个真实案例（本机非域环境）；全量 264 张卡剧本
 python Tool/scripts/preflight.py            # 41/41（含四道门禁：配方命令/能力 DAG/意图覆盖/路由↔配方）
 python Tool/scripts/domain-gate.py --all    # 110/110
 python Tool/scripts/intent-coverage.py      # 93/93
-bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
+bash Tool/scripts/check.py && powershell -File check.ps1   # 65/0
 ```
 
 ## C / A 报告其余 P1 处置
@@ -81,8 +81,8 @@ bash setup/verify.sh && powershell -File setup/verify.ps1   # 65/0
 | 位置 | 断言 |
 | :-- | :-- |
 | `preflight.py`（section 13） | `playbook-check --json`、`capability-gate --json`、`intent-coverage --json` 三者 rc=0 且 JSON `ok=true` |
-| `setup/verify.sh` | 原「路由自洽」项内追加 playbook-check + capability-gate（项数保持 65） |
-| `setup/verify.ps1` | 同一位置追加两门禁（项数保持 65） |
+| `Tool/scripts/check.py` | 原「路由自洽」项内追加 playbook-check + capability-gate（项数保持 65） |
+| `check.ps1` | 同一位置追加两门禁（项数保持 65） |
 | `.github/workflows/gates.yml` | windows job 增 playbook/capability/intent 三步 |
 
 ## 第四轮驳回补充（README 正文 / K3 / QUICKSTART / 门禁盲点）

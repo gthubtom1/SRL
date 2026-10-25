@@ -18,7 +18,7 @@
 
 | 你要加的东西 | 放哪里 | 动作 | 要不要登记 |
 |---|---|---|---|
-| 一个新的**分析能力**（如脱壳、反调试检测、资源提取） | `seep_mcp_server.py` 末尾追加 `@server.tool()` 函数 | 追加 | 在 `setup/verify.ps1` 加一条存在性校验（见 §4） |
+| 一个新的**分析能力**（如脱壳、反调试检测、资源提取） | `seep_mcp_server.py` 末尾追加 `@server.tool()` 函数 | 追加 | 在 `check.ps1` 加一条存在性校验（见 §4） |
 | 一个新的**判型/辅助脚本**（不属于 MCP 工具） | `Tool/skill/softseep/scripts/` 新增 `.py` | 新增 | SKILL.md 里加一行调用说明 |
 | 一条新的**引擎降级链**或工具别名 | `Tool/config/engine-tiers.json` | 改配置 | 无（配置驱动） |
 | 一段新的**实战姿态/判据/阈值** | 对应 `references/*.md` **插入**一段 | 插入 | 无 |
@@ -91,7 +91,7 @@ def seep_你的工具名(arg1: str, arg2: int = 0) -> str:
 
 ## 4. 加工具后必须做的"体检登记"（否则换机测不到）
 
-在 `setup/verify.ps1` 的 `[5/9]` 段，**追加**一条 `Test-CheckItem`（不改既有条目）：
+在 `check.ps1` 的 `[5/9]` 段，**追加**一条 `Test-CheckItem`（不改既有条目）：
 
 ```powershell
 Test-CheckItem "MCP" "你的新能力（简述）" {
@@ -167,7 +167,7 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 - ❌ 往 `Tool/mcp/Tool/**`（内置工具/知识库）这类 **vendored 上游树**里加新内容 —— 将来重新 vendor 会被覆盖。
   本地新增的 KB 内容请放 `Tool/mcp/kb_local/`；确需改 vendored 文件（如模板）时，必须在 `FORK-DELTA.md` 记一条"重新 vendor 需重放"。
 - ❌ 删除/改写 `references/*.md` 既有正文（要补充 → 插入新段，标"新增"）
-- ❌ 改 `setup/verify.ps1` 既有判据（要加 → 追加新 `Test-CheckItem`）
+- ❌ 改 `check.ps1` 既有判据（要加 → 追加新 `Test-CheckItem`）
 - ❌ 把别人的 2000+ 篇文档整坨倒进仓库（要知识 → 只挑真需要的几篇进 `kb/`）
 - ❌ 生产代码里写死某台机器的绝对路径（带盘符的个人项目目录）
 - ❌ 加工具不加体检项、不加测试用例

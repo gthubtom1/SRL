@@ -733,7 +733,7 @@ def _ensure_case_meta(d, st, evidence_kind="real"):
 
 def cmd_lock(a):
     """拿写权租约。同一会话重复 lock = 续约；别人的锁未过期就拒绝（rc=1）。"""
-    d, _, _ = paths(a.case)
+    d, _ = paths(a.case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, a.case))
     me = _session_id()
@@ -779,7 +779,7 @@ def cmd_lock(a):
 
 def cmd_unlock(a):
     """释放租约。不是自己持有且无 --force 就拒绕（rc=1）。"""
-    d, _, _ = paths(a.case)
+    d, _ = paths(a.case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
     me = _session_id()
@@ -805,7 +805,7 @@ def cmd_unlock(a):
 
 def cmd_who(a):
     """打印当前持锁者。无锁/过期一律 NO_LEASE 且 rc=0（方便脚本判）。"""
-    d, _, _ = paths(a.case)
+    d, _ = paths(a.case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
     lease = _read_lease(a.case)
@@ -2406,7 +2406,7 @@ def _ask_dir(case):
 
 def cmd_ask(a):
     """发一张对话内 A/B/C 卡，并把案子置为 awaiting_human。"""
-    d, _, _ = paths(a.case)
+    d, _ = paths(a.case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
     opts = [x for x in (a.option or []) if x.strip()]

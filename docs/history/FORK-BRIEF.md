@@ -174,7 +174,7 @@
 python Tool/scripts/preflight.py                # 期望 55/55
 python Tool/scripts/domain-gate.py --all        # 期望 110/110
 python （`smoke-e2e` 已不存在：按上面的替代路径走）                # 期望 12/12（真调 9 个 MCP 工具）
-powershell -File setup/verify.ps1 -Detailed     # 期望 65 项 / READY
+powershell -File check.ps1 -Detailed     # 期望 65 项 / READY
 ```
 
 ### 8.2 你的权限：只读（**这份仓库不接受第三方直接改动**）

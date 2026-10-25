@@ -38,13 +38,13 @@ git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
 cd Seep-Reverse-Lab
 
 # 执行跨平台自动化安装
-chmod +x setup/install.sh setup/verify.sh
+chmod +x setup/install.sh Tool/scripts/check.py
 ./setup/install.sh
 ```
 
 ### 3. 原生全彩自检核对
 ```bash
-./setup/verify.sh
+./Tool/scripts/check.py
 ```
 看到 65 项全部显示绿色 `[√ PASS]`，即代表工作台已在 macOS 原生就绪！
 
@@ -63,13 +63,13 @@ sudo apt install -y python3 python3-pip python3-venv nodejs npm radare2 openjdk-
 git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
 cd Seep-Reverse-Lab
 
-chmod +x setup/install.sh setup/verify.sh
+chmod +x setup/install.sh Tool/scripts/check.py
 ./setup/install.sh
 ```
 
 ### 3. 原生全彩自检
 ```bash
-./setup/verify.sh
+./Tool/scripts/check.py
 ```
 
 ---

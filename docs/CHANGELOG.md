@@ -1347,7 +1347,7 @@ Agent：env-check（缺什么）→ install.ps1（自己装）→ verify.ps1 61/
 | 项 | 结果 |
 |---|---|
 | `preflight.py --fast` | **11/11** |
-| `setup/verify.ps1` | **61/61** |
+| `check.ps1` | **61/61** |
 | `Tool/scripts/tool-run.ps1 -ListModes` | 四个工具的通道阶梯正常输出 |
 | 安装链资产（脚本/三份离线依赖 zip/r2/jadx/apktool/提示词/扩展） | **25/25 在位** |
 | `merge_agent_config.py --dry-run` | MCP 条目按新根生成 `D:/…/Tool/mcp/seep_mcp_server.py`（POSIX，占位符替换正确） |
@@ -2291,19 +2291,19 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 
 - **`setup/install-ida.ps1`**：修复 `$ToolDir` 变量未定义（真实 bug，导致无 `mcp.json` 时回退模板路径拼错）；已补定义。
 - **`setup/update.ps1` / `setup/update.sh`**：修复**升级脚本把 origin 硬编码成原版 `angusdevgo/Seep-Reverse-Lab.git`** 的问题——fork 用户“更新工作台”会去拉原版仓库、把本地优化覆盖/回退。改为**以当前工作副本实际 origin 为准**（原版用户行为不变；无 origin 时回退 `SEEP_REPO_URL`，都没有则跳过而不指向错误仓库）。同时修 `update.ps1` 非 git 分支 `$proxyArgs` 未定义的老 bug。
-- **`setup/verify.ps1`**：Python 解释器检测由“仅存在”改为**真执行 + 校验 >= 3.11**，避开 Windows Store `python3` 占位程序造成的假绿。
+- **`check.ps1`**：Python 解释器检测由“仅存在”改为**真执行 + 校验 >= 3.11**，避开 Windows Store `python3` 占位程序造成的假绿。
 - **文档数字/版本全量对齐**（工具 23/31 → **37**；体检 52/51 → **55**；版本 v1.6/v1.7 → **v1.8.0**）：`README.md` / `README.zh.md`（badge、正文、MCP 矩阵补 6 个 `seep_tool_*`、英文版补“二开增强版”说明、Star History 指回 fork）/ `CLAUDE.md` / `MANUAL/DEPLOYMENT.md` / `MANUAL/DEPLOYMENT-CHECKLIST.md` / `MANUAL/CROSS-PLATFORM.md` / `Tool/docs/PROVENANCE.md` / `Tool/docs/EXT-ASSETS.md` / `Tool/docs/MCP-SETUP.md` / `Tool/docs/HANDOFF-交接文档.md`。
 
 ### 部署健壮性修复（任务B 从零部署审查发现并修好）
 
-- **`setup/verify.sh`**：Python 探测改为「存在且能真正执行」——避开 Windows 上 Microsoft Store 的 `python3` 占位程序（存在但不运行、返回非零，会把自检误判为失败）。
-- **`setup/verify.sh`**：修复 Radare2 检测项（原先直接 `command ... || test` 作为 `check_item` 的命令，`||` 会把 `test -f` 拆成参数导致永远判失败）；包成 `test_radare2()` 函数，现在内置 r2 能正确识别。
-- **`setup/verify.sh`**：新增「工具自动发现插件」体检项（与 verify.ps1 对齐，Linux/macOS 也校验）。
+- **`Tool/scripts/check.py`**：Python 探测改为「存在且能真正执行」——避开 Windows 上 Microsoft Store 的 `python3` 占位程序（存在但不运行、返回非零，会把自检误判为失败）。
+- **`Tool/scripts/check.py`**：修复 Radare2 检测项（原先直接 `command ... || test` 作为 `check_item` 的命令，`||` 会把 `test -f` 拆成参数导致永远判失败）；包成 `test_radare2()` 函数，现在内置 r2 能正确识别。
+- **`Tool/scripts/check.py`**：新增「工具自动发现插件」体检项（与 verify.ps1 对齐，Linux/macOS 也校验）。
 - **`setup/install.sh`**：同上修复 Python 探测（真正可执行才用，否则回退 `python`），后续 pip 安装统一用 `$PY`。
 
 ### 体检
 
-- `setup/verify.ps1` 追加 2 项：插件+能力表+状态不入库校验、自动发现功能自测。工具总数 31 → 37；核心检查 53 → 55 项。
+- `check.ps1` 追加 2 项：插件+能力表+状态不入库校验、自动发现功能自测。工具总数 31 → 37；核心检查 53 → 55 项。
 - `test_ext_assets.py` 追加自动发现用例（6 层探测 / 能力表 / 表外不假装 / 降级链 / MCP 增量注册 / 架构匹配 / wrapper 存在性），32 → 60 项全过。
 - `check.ps1` / `test_seep_mcp.py`(9/9) 基线保持不动。
 
@@ -2336,7 +2336,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 
 ### 体检
 
-- `setup/verify.ps1` 新增一项“扩展资产在位”校验；工具总数 23 → 31；核心检查 50 → 51 项。
+- `check.ps1` 新增一项“扩展资产在位”校验；工具总数 23 → 31；核心检查 50 → 51 项。
 
 ---
 
@@ -2485,7 +2485,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
   - 生成物追踪检查（含本机路径的配置文件不得入库）
   - 脱敏基准表 D1–D6 记录于 `MANUAL/DEPLOYMENT-CHECKLIST.md`
 - **🖥️ 跨平台支持**（macOS / Linux）
-  - 新增 `setup/install.sh`、`setup/verify.sh` 原生 Bash 脚本
+  - 新增 `setup/install.sh`、`Tool/scripts/check.py` 原生 Bash 脚本
   - `seep_mcp_server.py` 自动探测系统 `radare2` / `rabin2` 与各平台 JDK 路径
   - 手册：[MANUAL/CROSS-PLATFORM.md](MANUAL/CROSS-PLATFORM.md)
 - **📖 部署与校验体系**
@@ -2564,7 +2564,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 ### 新增
 
 - `check.bat` / `check.ps1` 根目录一键体检入口
-- `setup/verify.ps1 -Detailed` 结构化基准校对看板
+- `check.ps1 -Detailed` 结构化基准校对看板
 - 部署完备性校验体系（7 大维度）
 
 ---

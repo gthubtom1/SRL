@@ -37,7 +37,7 @@
 ```bash
 python Tool/scripts/route.py   # 路由 ↔ 技能落位自洽
 python Tool/scripts/budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
-powershell -File setup/verify.ps1 -Detailed       # 65 项全绿
+powershell -File check.ps1 -Detailed       # 65 项全绿
 python `Tool/scripts/preflight.py`                  # 端到端 12 环
 ```
 

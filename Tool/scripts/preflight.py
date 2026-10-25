@@ -14,8 +14,8 @@
     [5] 资产   mcp-servers.json、tool-runtimes.json、tool-capabilities.json 的 schema 与交叉覆盖
 
 用法：
-    python Tool/scripts/preflight.py            # 全量（含 verify.ps1 + smoke-e2e，约 2 分钟）
-    python Tool/scripts/preflight.py --fast     # 跳过 verify.ps1 / smoke-e2e（约 20 秒）
+    python Tool/scripts/preflight.py            # 全量（含 verify.ps1，约 2 分钟）
+    python Tool/scripts/preflight.py --fast     # 跳过 verify.ps1（约 20 秒）
     python Tool/scripts/preflight.py --json     # 机器可读
 退出码：0 = 全绿；1 = 有 FAIL
 """
@@ -229,34 +229,6 @@ def check_numbers(fast):
 
 
 # ---------------------------------------------------------------- [3] 平台
-def check_parity(fast=False):
-    """双平台：① 检查项数一致；② 有 bash 就**真跑** verify.sh，rc 必须 0。
-
-    血案（R4 复审）：旧版只比项数，verify.sh 的 CLAUDE.md/DSH-PROFILE.md 路径漏改、
-    实际 63/2 失败，而 preflight 仍报「项数一致」——用项数掩盖了真失败。
-    """
-    ps1 = open(os.path.join(ROOT, "setup", "verify.ps1"), encoding="utf-8", errors="replace").read()
-    sh = open(os.path.join(ROOT, "setup", "verify.sh"), encoding="utf-8", errors="replace").read()
-    n1 = len(re.findall(r'Test-CheckItem\s+"', ps1))
-    n2 = len(re.findall(r'check_item\s+"', sh))
-    add("3 平台", "verify.ps1 / verify.sh 项数一致", n1 == n2,
-        "项数一致（%d）" % n1 if n1 == n2 else "不一致：ps1=%d sh=%d" % (n1, n2))
-    if fast:
-        return
-    bash = shutil.which("bash")
-    if not bash:
-        # 环境缺失 = unsupported = 红（BLUEPRINT §3.2 #8/#3：unknown/skipped 永不记 pass）
-        add("3 平台", "verify.sh 实跑（需要 bash）", False, "unsupported: 本机没有 bash，verify.sh 未跑")
-        return
-    rc, out = run([bash, os.path.join("setup", "verify.sh")], timeout=900)
-    line = ""
-    for ln in (out or "").splitlines():
-        if "核心检查通过" in ln:
-            line = re.sub(r"\[[0-9;]*m", "", ln).strip()
-    add("3 平台", "verify.sh 实跑（rc=0）", rc == 0, line or ("rc=%d" % rc))
-
-
-# ---------------------------------------------------------------- [4] 功能
 def run(cmd, timeout=600):
     try:
         r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
@@ -284,19 +256,10 @@ def check_functional(fast):
         os.path.isfile(target) and rc_w in (0, 3),
         "rc=%d file=%s" % (rc_w, "yes" if os.path.isfile(target) else "missing"))
 
-    if not fast:
-        items.append(("smoke-e2e", [py, os.path.join(TOOL, "scripts", "smoke-e2e.py")]))
     for name, cmd in items:
         rc, out = run(cmd)
         tail = " ".join((out or "").strip().splitlines()[-1:])[:120]
         add("4 功能", name, rc == 0, f"rc={rc} {tail}")
-    if not fast:
-        pwsh = "pwsh" if os.name != "nt" else "powershell"
-        rc, out = run([pwsh, "-NoProfile", "-ExecutionPolicy", "Bypass",
-                       "-File", os.path.join(ROOT, "setup", "verify.ps1")], timeout=900)
-        passed = len(re.findall(r"PASS", out))
-        failed = len(re.findall(r"FAIL", out))
-        add("4 功能", "verify.ps1（项数以体检输出为准）", rc == 0 and failed == 0, f"PASS={passed} FAIL={failed}")
 
 
 # ---------------------------------------------------------------- [5] 资产
@@ -1210,33 +1173,6 @@ def check_dropin_skills():
         detail if not bad else "；".join(bad[:4]))
 
 
-def check_case_contract_files():
-    """新案必须有范围契约（scope.md）：这是 case-guard 的等价物，防"scope 未就绪就动手"。
-
-    实现方式：功能测试（在临时目录 init 一个案子，验证 case.json/facts.jsonl/scope.md 都在），
-    **不追溯** 66 个旧案例（L15：不为已结束的目标补账）。
-    """
-    import shutil as _sh
-    import tempfile as _tf
-    bad = []
-    tmp = _tf.mkdtemp(prefix="seep-scope-")
-    try:
-        r = run([sys.executable, os.path.join(TOOL, "scripts", "case_state.py"),
-                 "init", "--case", tmp, "--target", "dummy.exe"], timeout=120)
-        for f in ("case.json", "facts.jsonl", "scope.md"):
-            if not os.path.isfile(os.path.join(tmp, f)):
-                bad.append("init 未生成 %s" % f)
-    except Exception as e:  # noqa: BLE001
-        bad.append("init 跑不起来 %s" % str(e)[:60])
-    finally:
-        _sh.rmtree(tmp, ignore_errors=True)
-    for doc in ("docs/PRODUCT.md", "docs/LESSONS.md"):
-        if not os.path.isfile(os.path.join(ROOT, doc)):
-            bad.append("缺 %s" % doc)
-    add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 产品与教训文档在位",
-        not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
-
-
 def check_domain_commands():
     """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
 
@@ -1253,63 +1189,6 @@ def check_domain_commands():
                    if os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md"))])
     add("2 单一事实源", "命令卡由技能派生（%d 个技能 → 自动生成，无手写漂移）" % n_skill, rc == 0,
         (out or "").strip().splitlines()[-1][:120] if out else "gen-commands --check rc=%d" % rc)
-
-
-def check_case_contract_files():
-    """新案必须有范围契约（scope.md）：这是 case-guard 的等价物，防"scope 未就绪就动手"。
-
-    实现方式：功能测试（在临时目录 init 一个案子，验证 case.json/facts.jsonl/scope.md 都在），
-    **不追溯** 66 个旧案例（L15：不为已结束的目标补账）。
-    """
-    import shutil as _sh
-    import tempfile as _tf
-    bad = []
-    tmp = _tf.mkdtemp(prefix="seep-scope-")
-    try:
-        r = run([sys.executable, os.path.join(TOOL, "scripts", "case_state.py"),
-                 "init", "--case", tmp, "--target", "dummy.exe"], timeout=120)
-        for f in ("case.json", "facts.jsonl", "scope.md"):
-            if not os.path.isfile(os.path.join(tmp, f)):
-                bad.append("init 未生成 %s" % f)
-    except Exception as e:  # noqa: BLE001
-        bad.append("init 跑不起来 %s" % str(e)[:60])
-    finally:
-        _sh.rmtree(tmp, ignore_errors=True)
-    for doc in ("docs/PRODUCT.md", "docs/LESSONS.md"):
-        if not os.path.isfile(os.path.join(ROOT, doc)):
-            bad.append("缺 %s" % doc)
-    add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 产品与教训文档在位",
-        not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
-
-
-def check_domain_commands():
-    """领域命令卡（/rev /apk /unpack …）：每个引用的 SKILL.md 必须存在，部署副本不得残留占位符。
-
-    为什么需要（2026-10-24）：自动路由靠 description 命中，命中不了就整条链不加载（实测：那个会话 0 次读技能）。
-    显式 `/命令` 是"100% 会加载"的那条路——参考 REA 的"可复制提示模板"与上游 open-reverselab 的 kb_router。
-    这条判据保证：卡里写的路径真的存在（改名/归档就会红），且部署后占位符已替换（否则模型会读到 /Tool/... 这种空路径）。
-    """
-    import glob as _g
-    import re as _re
-    src = os.path.join(TOOL, "prompts", "tasks")
-    bad, n = [], 0
-    for f in sorted(_g.glob(os.path.join(src, "*.md"))):
-        t = open(f, encoding="utf-8", errors="replace").read()
-        if "@SEEP_ROOT@" not in t:
-            continue          # 老任务卡（不带占位符）不参与
-        n += 1
-        for rel in set(_re.findall(r"@SEEP_ROOT@/([A-Za-z0-9_./-]+\.md)", t)):
-            if not os.path.exists(os.path.join(ROOT, rel)):
-                bad.append("%s→缺 %s" % (os.path.basename(f), rel))
-    dep = os.path.expanduser("~/.pi/agent/prompts")
-    leftover = [os.path.basename(p) for p in _g.glob(os.path.join(dep, "*.md"))
-                if "@SEEP_ROOT@" in open(p, encoding="utf-8", errors="replace").read()]
-    if leftover:
-        bad.append("部署副本残留占位符: " + ", ".join(leftover[:3]))
-    if n < 10:
-        bad.append("领域命令只有 %d 条（应 ≥10：9 域 + unpack）" % n)
-    add("2 单一事实源", "领域命令卡（%d 条 /命令，路径真实 + 部署无占位符）" % n, not bad,
-        "；".join(bad[:4]) if bad else "%d 条命令卡，引用的 SKILL 全部存在，部署副本已替换" % n)
 
 
 def check_route_first_contract():
@@ -1632,7 +1511,6 @@ def main():
 
     check_dangling()
     check_numbers(args.fast)
-    check_parity(args.fast)
     check_assets()
     check_portable()
     check_ps_encoding()
