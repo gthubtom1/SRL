@@ -223,7 +223,7 @@ bash -n setup/install.sh ; echo rc=$?
 | # | 命令 | 改前 | 改后 |
 |---|---|---|---|
 | 1 | `check.py --fast` | rc=1，lint 70/71（HANDOFF 噪声）+ invariants **崩溃**（GBK） | rc=1，**只剩 lint 的 2 条真问题**；invariants/skill/route/unit 全 PASS |
-| 2 | `preflight.py --fast` | 70/71，budget 假绿，HANDOFF 假红 | **70/72**，红 = apkseep 脚本自检缺口 + 预算真超支（两条都是真的） |
+| 2 | `preflight.py --fast` | 70/71，budget 假绿，HANDOFF 假红 | **70/73**，红 = apkseep 脚本自检缺口 + 预算真超支（两条都是真的） |
 | 3 | `gate.py --all` | 9/9 | **9/9**（未退步） |
 | 4 | `verify --all` | 12 pass / 52 unknown | **13 pass / 52 unknown**（apkseep09 是真跑出来的第 13 个） |
 | 5 | 报告五段 | 模板 + 2 份真实件**全 FAIL**，0 份复查单 | **17/17 全 PASS**，交付物不再带内部代号 |
@@ -266,6 +266,10 @@ bash -n setup/install.sh ; echo rc=$?
 评审说的"授权门三处 / 必问三件三处 / 域名清单四处"，是**同一条规则的不同措辞**，
 不是可机械删除的重复块——改写它们等于重写协议语义，属于产品决策。
 
-**因此本轮不改提示词正文。** 要降到 3500 只有 §7.3 的 A/B 两条路，请拍板：
+**因此本轮不改提示词正文。** 改为加一条**不许静默漂移**的检查：
+`preflight` 新增「必问三件同源（配置 ↔ 技能 ↔ 纪律）」——`user-inputs.json` 里每个 ask 的
+身份词必须仍出现在 `seep-router/SKILL.md` 与 `AGENTS.md` 里，否则红。
+这样"三处措辞"可以保留（模型只读到其中一份也不会失真），但改一处漏两处会被机器抓住。
+ 要降到 3500 只有 §7.3 的 A/B 两条路，请拍板：
 - A（省事）人设卡 5121 → ~1200 token，风格层减弱；
 - B（彻底）人设与长纪律改为按需加载，常驻层只留边界锚 + 索引（改动面在扩展注入逻辑）。

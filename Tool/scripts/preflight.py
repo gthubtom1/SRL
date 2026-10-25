@@ -1657,6 +1657,53 @@ def check_dropin_skills():
         detail if not bad else "；".join(bad[:4]))
 
 
+
+def check_mandatory_asks_ssot():
+    """必问三件：`user-inputs.json` 是机器权威，技能正文与 AGENTS 只能是它的读者。
+
+    ★ 为什么要有这条（外部评审 P4.1）：同一组三问散在三处——`Tool/config/user-inputs.json`
+      （MCP 服务真读它）、`Tool/skill/seep-router/SKILL.md` 第 4 步的表格、
+      `Tool/prompts/AGENTS.md` §五之三 ④。三处各写一份措辞，改一处另两处不动就会
+      让模型"照着一个版本的问法问、按另一个版本的 if_no 走"。
+      逐字比对实测重复为 0（是三种措辞），所以删文本没有收益；正确做法是**让它不能静默漂移**：
+      每个 ask 的身份词必须仍出现在两处正文里。
+    """
+    cfg_p = os.path.join(TOOL, "config", "user-inputs.json")
+    sk_p = os.path.join(TOOL, "skill", "seep-router", "SKILL.md")
+    ag_p = os.path.join(TOOL, "prompts", "AGENTS.md")
+    try:
+        asks = (json.load(open(cfg_p, encoding="utf-8")).get("asks") or [])
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "必问三件同源（配置 ↔ 技能 ↔ 纪律）", False,
+            "user-inputs.json 读不出：%s" % str(e)[:60])
+        return
+    if not asks:
+        add("2 单一事实源", "必问三件同源（配置 ↔ 技能 ↔ 纪律）", False,
+            "user-inputs.json 里没有 asks（三问是首答缺什么的最小集，不能为空）")
+        return
+    try:
+        sk = open(sk_p, encoding="utf-8").read()
+        ag = open(ag_p, encoding="utf-8").read()
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "必问三件同源（配置 ↔ 技能 ↔ 纪律）", False,
+            "读不到技能/纪律正文：%s" % str(e)[:60])
+        return
+    bad = []
+    for a in asks:
+        aid = a.get("id") or "?"
+        title = str(a.get("title") or "")
+        toks = [t for t in re.split(r"[ /、·]+", title) if len(t) >= 2]
+        if not toks:
+            bad.append("%s: title 为空，无法同源" % aid)
+            continue
+        if not any(t in sk for t in toks):
+            bad.append("%s(%s)：seep-router/SKILL.md 里找不到三问之一" % (aid, title))
+        if not any(t in ag for t in toks):
+            bad.append("%s(%s)：AGENTS.md 里找不到三问之一" % (aid, title))
+    add("2 单一事实源", "必问三件同源（配置 ↔ 技能 ↔ 纪律）", not bad,
+        "；".join(bad) if bad else "%d 问在三处都在（身份词比对，不要求逐字相同）" % len(asks))
+
+
 def check_domain_commands():
     """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
 
@@ -2248,6 +2295,7 @@ def main():
     check_trigger_matrix()
     check_route_first_contract()
     check_dropin_skills()
+    check_mandatory_asks_ssot()
     check_domain_commands()          # W3：以前两份重复定义且零调用，现在只此一处调用
     check_skill_import()
     check_subskill_wiring()
