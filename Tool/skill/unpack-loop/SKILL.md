@@ -87,7 +87,7 @@ metadata:
 
 - 动作：`seep_packer_detect` + `seep_r2_info`（入口段、节名、熵）+ `python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info <target>`。
 - **完成判据**：能说出壳名/家族 + 入口所在节 + 是否 CLR + 是否有 TLS/异常目录/高熵节。
-- 失败升级：判不出 → `seep_pe_resources` 找内嵌载荷（有些"壳"其实是资源里的第二个 PE）；仍判不出 → 按"自定义壳"处理，直接进步骤 2 用行为判定。
+- 失败升级：判不出 → `seep_r2_cmd(cmd="iR")` 找内嵌载荷（有些"壳"其实是资源里的第二个 PE）；仍判不出 → 按"自定义壳"处理，直接进步骤 2 用行为判定。
 - 卡点：`pe-info` 只是静态提示，不能替代 `seep_packer_detect` 的判壳结论。
 
 ### 2.2 步骤 2：仪器验证（先于任何断点/注入）
@@ -158,7 +158,7 @@ metadata:
   ```bash
   python Tool/skill/malware-analysis/scripts/dump-restore.py iat --dump work/<task>/rebuilt.exe
   ```
-  未解析项用 Scylla（x86/x64）自动搜索 + 手工补；必要时按 `seep_r2_functions` 的 `sym.imp.*` 交叉核对。
+  未解析项用 Scylla（x86/x64）自动搜索 + 手工补；必要时按 `seep_r2_cmd(cmd="afl")` 的 `sym.imp.*` 交叉核对。
 - **完成判据**：
   - `iat` 输出未解析 = 0；
   - Scylla 里 unresolved = 0，导入表能保存；
@@ -188,7 +188,7 @@ metadata:
 | 内存补丁 | x64dbg 直接改内存 / `seep_mem_strings` 定位字符串 | 验证"改这一处能否放行" |
 | API Hook | Frida / 代理 DLL | 拦截鉴权函数返回值 |
 | 行为观察 | `seep_mem_strings` + `seep_pcap_extract` | 授权判定发生在哪一层 |
-| 资源/内嵌载荷 | `seep_pe_resources` | 真正的功能体可能不在主 PE |
+| 资源/内嵌载荷 | `seep_r2_cmd(cmd="iR")` | 真正的功能体可能不在主 PE |
 | 外部读 + 网络层 | `dump-restore.py dump` / 代理 / 回放 | 不注入也能拿到关键数据/协议 |
 
 **完成判据**：能给出"特权判定点 + 可复现的绕过方式（哪怕是运行期）"—— 这已经够交付。
@@ -222,9 +222,9 @@ metadata:
 | IAT 修复 | Scylla（外部） | 表外工具：只报路径 + 联网查文档，**不 `-h` 试探** |
 | 反反调试 | ScyllaHide / TitanHide | 同上 |
 | 解码字符串 | `floss` | 已进能力表（headless） |
-| 资源载荷 | `seep_pe_resources` | 内置 |
+| 资源载荷 | `seep_r2_cmd(cmd="iR")` | 内置 |
 | 活体字符串 | `seep_mem_strings` | 内置（Windows） |
-| 反编译 | `seep_decompile_auto` | 内置（r2 保底） |
+| 反编译 | `seep_r2_decompile` | 内置（r2 保底） |
 | 抓包/回放 | `seep_pcap_extract` / `seep_http_replay` | 内置；`Tool/scripts/tool-acquire.py --sweep`（工具探活） 的 `network` 先看工具是否可用 |
 
 ---
@@ -267,5 +267,5 @@ metadata:
 
 - 判型入口仍是 `softseep`（本技能由它的「脱壳/解包」类型分发进来）；
 - Android 侧壳/加固走 `apkseep`（DEX 脱壳、VMP 差分），本技能只管 **Windows PE**；
-- 脱壳完成后回到 `client-license-validation-bypass` 做鉴权审计；
+- 脱壳完成后读 `references/../softseep/references/license-validation.md` 做鉴权审计；
 - "值不值得做"回到 `00-analysis` 的 verdict/plan，本技能不越权下结论。

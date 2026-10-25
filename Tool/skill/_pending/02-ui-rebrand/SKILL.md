@@ -78,12 +78,12 @@ metadata:
 | 判据 | 怎么查（命令 / 文件） | PASS 长什么样 | 误报风险 |
 | :-- | :-- | :-- | :-- |
 | 品牌串残留 = 0 | `seep_r2_strings(binary_path=<产物>, filter_text="<品牌词>", all_sections=true)` 或 `strings -a <产物> \| rg -i "<作者>\|<旧域名>\|<群号>"` | 命中 0 行；残留只出现在不可改的许可证文本里（需在 `ui-changes.md` 里逐条列出并说明） | 压缩/加密资源里的串扫不到 → 扫不出不等于没残留，要补运行期截图 |
-| 图标/启动图已替换 | 资源节枚举 + 导出比对：`seep_pe_resources(binary_path=<产物>, extract_dir=work/<case>/res)` | 导出的图标 SHA256 ≠ 原版；尺寸集合与原版一致（不出现拉伸糊） | 多尺寸资源漏改一处 → 系统缩略图仍是旧图标 |
+| 图标/启动图已替换 | 资源节枚举 + 导出比对：`seep_r2_cmd(cmd="iR")(binary_path=<产物>, extract_dir=work/<case>/res)` | 导出的图标 SHA256 ≠ 原版；尺寸集合与原版一致（不出现拉伸糊） | 多尺寸资源漏改一处 → 系统缩略图仍是旧图标 |
 | 文案一致 | 逐页截图 + OCR 对照 `ui-inventory.md` | 文案表每一行都能在新截图里找到；无英文/中文混排错位 | 高 DPI 下截断的文案 OCR 会漏 → 用 125%/150% 两档缩放各截一次 |
 | 功能面无退化 | 01 阶段的 FEATURES 清单逐项复测 | 覆盖数 = 清单数（例：12/12），每项附操作截图 | 只测主路径 → 边界功能（导出/批量）最容易因改布局而失效 |
 | 授权面未破 | 01 的旁路复验 + 无卡密启动一次 | 与改 UI 前行为一致；无新增授权弹窗 | 改了关于页版本号导致校验分支走 else → 必须重跑 |
 | 布局无错位 | 三档分辨率（1024×768 / 1366×768 / 1920×1080）+ 125% 缩放 | 控件不重叠、不被裁切、列表滚动正常 | 只在开发机分辨率看 → 用户机器上按钮跑出屏幕 |
-| 无新增网络请求 | 改前后各抓一次启动流量：`python `Tool/skill/protocol-plugin/scripts/pcap-summary.py` --file <capture.pcapng> --json` | 域名集合差集为空（除非你自己加的更新检查） | 更新检查被移除但遥测还在 → 差集能查出来 |
+| 无新增网络请求 | 改前后各抓一次启动流量：`python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file <capture.pcapng> --json` | 域名集合差集为空（除非你自己加的更新检查） | 更新检查被移除但遥测还在 → 差集能查出来 |
 | 可回滚 | 01 产物副本 + `rollback.ps1` | 执行后产物 SHA256 回到 01 版本 | 只备份 exe 不备份资源 → 回滚后仍花屏 |
 
 ## 7. 失败判据（现象 → 判定 → 改走哪条 → 代价）
@@ -91,7 +91,7 @@ metadata:
 | 现象 | 判定 | 改走哪条 | 代价 |
 | :-- | :-- | :-- | :-- |
 | 改完启动即崩 / 白屏 | 资源索引与代码里的 ID 不匹配 | 回滚，改“只换同尺寸图形 + 文案”，不动资源 ID | 少一次重绘，但能稳住 |
-| 图标换了但任务栏/托盘仍是旧的 | 存在多份图标资源（exe 图标 + 内嵌 PNG + 缓存） | 用 `seep_pe_resources` 全量导出，逐个替换；清理 `%LOCALAPPDATA%\<app>\cache` 后复测 | 需多轮重启验证 |
+| 图标换了但任务栏/托盘仍是旧的 | 存在多份图标资源（exe 图标 + 内嵌 PNG + 缓存） | 用 `seep_r2_cmd(cmd="iR")` 全量导出，逐个替换；清理 `%LOCALAPPDATA%\<app>\cache` 后复测 | 需多轮重启验证 |
 | 文案改了但界面不刷新 | 命中语言包/外部 `.ini`/`.json` 而非内嵌串 | 找外部语言文件一起改；或改加载顺序 | 可能触发完整性校验 |
 | 去品牌后功能报“网络错误” | 更新地址/公告接口被移除导致启动检查失败 | 改成指向你自己的可用端点（或返回 200 的空 JSON），不要直接删 | 需要你维护一个端点 |
 | 重新签名后安装失败 / 被杀软报毒 | 签名与加固链变化（APK v2/v3 签名、驱动签名） | 按 `apkseep` 的签名节重签；驱动类改测签或关闭驱动签名强制的测试机 | 需测试机与证书 |
@@ -111,12 +111,12 @@ metadata:
 ## 9. 可跑命令（最小集）
 
 ```bash
-# 1) 资源清单 + 高熵载荷定位（改图标/内嵌图前先看清有几份）——MCP：seep_pe_resources
+# 1) 资源清单 + 高熵载荷定位（改图标/内嵌图前先看清有几份）——MCP：seep_r2_cmd(cmd="iR")
 #    导出资源后按 SHA256 与尺寸集合比对原版
 # 2) 字符串残留复查（改完必跑）
 strings -a <产物> | rg -i "<原作者>|<旧域名>|<群号>|<邮箱>"
 # 3) 改前后流量对照（抓包后）
-python `Tool/skill/protocol-plugin/scripts/pcap-summary.py` --file <capture.pcapng> --json
+python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file <capture.pcapng> --json
 # 4) 交付前回归登记
 python Tool/scripts/case_state.py claim --case work/<case> --id C9 --text "UI 改造后功能 12/12 通过"
 ```

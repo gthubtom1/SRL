@@ -1,6 +1,6 @@
 # 反调试识别与绕过参考（unpack-loop / references）
 
-> 配套：`Tool/skill/unpack-loop/SKILL.md`、`（`probe_matrix` 已不存在：按上面的替代路径走）`、`Tool/skill/malware-analysis/scripts/dump-restore.py`。
+> 配套：`Tool/skill/unpack-loop/SKILL.md`、`Tool/scripts/tool-acquire.py --sweep`、`Tool/skill/malware-analysis/scripts/dump-restore.py`。
 > 本文是**判据手册**，不是"一键绕过脚本合集"。每条技术都给出：识别特征 → 探测点 → 绕过 → 失败判据 → 工具 → 误判风险。
 >
 > **三条从实战复盘写死的结论（先看）**
@@ -22,7 +22,7 @@
 | **探测点** | 入口点、TLS callback、CRT 初始化之前；`IsDebuggerPresent` 的调用点；读 `fs/gs` 段寄存器的指令。 |
 | **绕过手法** | 附加后把 `PEB+2` 置 0（ScyllaHide / TitanHide 自动做）；或 hook `IsDebuggerPresent` 返回 0；也可在壳解压前静态 patch 该分支（注意自校验）。 |
 | **失败判据** | 进程在 OEP 前退出（退出码常见 `0/1/0xC0000005`）；`IsDebuggerPresent` 返回非 0；TLS/入口断点未命中就被杀。 |
-| **工具** | x64dbg + ScyllaHide/TitanHide；Frida `Interceptor`；`probe_matrix.py` 的 `x64dbg/frida-*` 对比。 |
+| **工具** | x64dbg + ScyllaHide/TitanHide；Frida `Interceptor`；`tool-acquire.py --sweep` 的 `x64dbg/frida-*` 对比。 |
 | **误判风险** | 崩溃报告器、DRM、部分 .NET/Java 运行时也读 `BeingDebugged`；正常程序退出不一定等于检测。以"基线能活、挂仪器就死"为判据。 |
 
 ### 1.2 PEB.NtGlobalFlag
@@ -72,7 +72,7 @@
 | **探测点** | `ntdll!NtQueryInformationProcess` 入口；调用前第二个参数（InformationClass）；返回后的 `ProcessDebugPort` 输出缓冲区。 |
 | **绕过手法** | Hook `NtQueryInformationProcess`：class 7 返回 `0`/`-1` 视语义、class `0x1E` 返回 `STATUS_PORT_NOT_SET`、class `0x1F` 返回非 0；ScyllaHide 勾选对应项；若目标直接 syscall，则需 patch syscall stub 或内核层。 |
 | **失败判据** | 断点命中后输出仍是"被调试"值；进程在第一次查询后退出；hook 后目标检测 ntdll 前 5 字节被改（见 4.2）。 |
-| **工具** | x64dbg + ScyllaHide；Frida；API Monitor；`probe_matrix.py` 的 `x64dbg/frida-attach`。 |
+| **工具** | x64dbg + ScyllaHide；Frida；API Monitor；`tool-acquire.py --sweep` 的 `x64dbg/frida-attach`。 |
 | **误判风险** | .NET/CLR、崩溃上报、性能工具也调用该 API；只看导入不能定罪，必须看 InformationClass 和返回值用法。 |
 
 ### 2.2 CheckRemoteDebuggerPresent / DebugActiveProcess
@@ -94,7 +94,7 @@
 | **探测点** | 线程创建后、关键解密函数前；`GetThreadContext(CONTEXT_DEBUG_REGISTERS)` 的调用点；异常处理里检查 `Dr6`。 |
 | **绕过手法** | 优先用**硬件断点**（对完整性壳），但若目标检查 DR，则改用外部 `ReadProcessMemory` / 内存快照 / Intel PT；或 patch 掉 DR 检查；ScyllaHide/TitanHide 可隐藏 DR。 |
 | **失败判据** | 设了 DR0–DR3 后目标立即退出/跳转异常；`GetThreadContext` 返回的 `Dr0..Dr3` 非 0 且随后走退出分支。 |
-| **工具** | x64dbg 硬件断点、ScyllaHide/TitanHide、WinDbg（内核）、`probe_matrix.py` 的 `external`。 |
+| **工具** | x64dbg 硬件断点、ScyllaHide/TitanHide、WinDbg（内核）、`tool-acquire.py --sweep` 的 `external`。 |
 | **误判风险** | 性能分析器/崩溃转储也读线程上下文；某些保护只在特定线程检查，别用主线程结果代替全部。 |
 
 ### 2.4 时序检测（RDTSC / QPC / GetTickCount）
@@ -105,7 +105,7 @@
 | **探测点** | 连续两次时间读取之间；单步/断点命中后的时间差；解密循环前后的计时。 |
 | **绕过手法** | Hook 时间 API 返回固定步进；patch 阈值比较；ScyllaHide "protect time"；避免在计时窗口内下断/单步；用硬件断点减少停顿。 |
 | **失败判据** | 单步一次后进程退出；时间差远大于正常阈值；hook 后仍走退出分支（可能用了 `rdtsc` 直读）。 |
-| **工具** | x64dbg + ScyllaHide、Frida、API Monitor、`probe_matrix.py`。 |
+| **工具** | x64dbg + ScyllaHide、Frida、API Monitor、`tool-acquire.py --sweep`。 |
 | **误判风险** | 虚拟机/低性能机器本身时间抖动大；正常性能统计也用 QPC。必须在同一台机器做基线对照。 |
 
 ### 2.5 异常与 SEH / VEH 探测
@@ -133,7 +133,7 @@
 | **探测点** | `VirtualProtect` 调用点及返回值；`STATUS_GUARD_PAGE_VIOLATION (0x80000001)` 异常；`VirtualQuery` 看到的保护属性。 |
 | **绕过手法** | **不要进程内读解密页**；用外部 `ReadProcessMemory` 在目标进程外取快照；用硬件断点而非 int3；必要时 patch `VirtualProtect` 去掉 `PAGE_GUARD`（会被 `VirtualQuery` 自检发现）；或让异常处理器正常跑完再读。 |
 | **失败判据** | 在目标进程内 `ReadProcessMemory/ memcpy` 后目标自毁；guard 异常反复触发/死循环；dump 到的页全是 0 或旧数据。 |
-| **工具** | `dump-restore.py dump --pid`（外部 RPM）、`probe_matrix.py` 的 `external`、x64dbg 硬件断点、Process Hacker。 |
+| **工具** | `dump-restore.py dump --pid`（外部 RPM）、`tool-acquire.py --sweep` 的 `external`、x64dbg 硬件断点、Process Hacker。 |
 | **误判风险** | JIT/浏览器/CRT 也用 guard page 做栈增长/按需提交；关键是"访问解密区就死"的对照，不是看到 `PAGE_GUARD` 就下结论。 |
 
 ### 3.2 MEM_MAPPED 重映射 / 双视图比对
@@ -155,7 +155,7 @@
 | **探测点** | 校验函数入口/返回值；被校验区间的起止；校验失败后的分支（常见 `ExitProcess`/`TerminateProcess`）。 |
 | **绕过手法** | patch 校验函数返回"成功"；改期望哈希；让校验读原始备份而不是被修改页；**最稳的是不改被校验字节**（硬件断点/外部读）。dump 后重建时重算校验或去掉校验调用。 |
 | **失败判据** | 改了任意字节后目标退出；校验函数返回值恒为失败；断点命中校验循环后进程自毁；dump 文件与内存镜像哈希不一致。 |
-| **工具** | IDA/Ghidra 找校验循环、x64dbg 条件断点、`dump-restore.py`（dump/rebuild 后比对）、`probe_matrix.py`。 |
+| **工具** | IDA/Ghidra 找校验循环、x64dbg 条件断点、`dump-restore.py`（dump/rebuild 后比对）、`tool-acquire.py --sweep`。 |
 | **误判风险** | 正常更新器/安装包也校验自身；高熵数据不一定是代码；校验可能只覆盖部分节，别假设全镜像。 |
 
 ### 3.4 int3 / 0xCC 字节校验（**软件断点禁忌**）
@@ -166,7 +166,7 @@
 | **探测点** | 下软件断点前后同一地址的字节；校验循环读取的地址范围；`ExitProcess` 调用栈。 |
 | **绕过手法** | **禁用 int3**，改用硬件断点 DR0–DR3；或外部读内存；或在非校验区下断；或 patch 掉 `0xCC` 扫描/CRC（会引入新字节，需同步改校验）。 |
 | **失败判据** | 下 `int3` 后目标在断点命中前/后自毁；同一地址在调试器里显示 `0xCC` 而磁盘文件是原指令；dump 的代码段出现非预期 `0xCC`。 |
-| **工具** | x64dbg 硬件断点、`dump-restore.py`（比对 dump 与磁盘字节）、`probe_matrix.py` 的 `x64dbg/external`。 |
+| **工具** | x64dbg 硬件断点、`dump-restore.py`（比对 dump 与磁盘字节）、`tool-acquire.py --sweep` 的 `x64dbg/external`。 |
 | **误判风险** | 编译器填充/对齐本来就有 `0xCC`；`int3` 也可能是正常陷阱指令。要看是否在运行期扫描并与已知哈希比较。 |
 
 ---
@@ -183,7 +183,7 @@
 | **探测点** | 模块快照 API 返回后；`PEB->Ldr` 链表遍历；模块名比较循环；注入后第一次模块枚举。 |
 | **绕过手法** | 用外部观测代替注入；改注入模块名/路径（frida-gadget 自定义名）；早期 hook 枚举 API 过滤；内核层隐藏（TitanHide）；避免在目标启动早期注入。 |
 | **失败判据** | 注入后目标立即退出/不联网；模块枚举断点命中后走退出分支；`frida` 输出 "Failed to spawn/attach"；基线正常、注入即死。 |
-| **工具** | `probe_matrix.py`（`frida-spawn`/`frida-attach`/`external` 对照）、Frida、Process Hacker、x64dbg。 |
+| **工具** | `tool-acquire.py --sweep`（`frida-spawn`/`frida-attach`/`external` 对照）、Frida、Process Hacker、x64dbg。 |
 | **误判风险** | 安全软件/输入法/浏览器插件也枚举模块；`dbghelp.dll` 可能被正常崩溃上报加载；必须做"注入 vs 不注入"对照。 |
 
 ### 4.2 Inline hook 扫描
@@ -205,7 +205,7 @@
 | **探测点** | 注入后新线程创建；`VirtualAlloc` 后保护属性；堆枚举前后；线程快照的 `dwSizeOfStack`/`tpBaseOfStack` 异常。 |
 | **绕过手法** | 不在目标内创建线程（用现有线程/外部读）；避免 RWX（先 RW 再 RX）；TitanHide 隐藏线程/内存；用内核驱动；或干脆不注入。 |
 | **失败判据** | 注入线程一创建目标就退出；`VirtualQuery` 发现 RWX 后走退出分支；线程快照中出现未知模块地址后被杀。 |
-| **工具** | Process Hacker、x64dbg、TitanHide、`probe_matrix.py`。 |
+| **工具** | Process Hacker、x64dbg、TitanHide、`tool-acquire.py --sweep`。 |
 | **误判风险** | JIT/浏览器/游戏引擎大量使用 RWX 和私有线程；单看 RWX 误判率很高，必须结合"注入前后差异"。 |
 
 ---
@@ -222,7 +222,7 @@
 | **探测点** | 启动最早期；`cpuid` 指令；注册表 `HKLM\HARDWARE\DESCRIPTION\System\BIOS`、`HKLM\SYSTEM\CurrentControlSet\Services`；驱动枚举；`GetAdaptersInfo`/`GetAdaptersAddresses`。 |
 | **绕过手法** | 换裸机；改 VM 配置隐藏 hypervisor（不一定可靠）；改注册表/SMBIOS/MAC；删除/改名 VM 驱动与服务；patch 检测函数。 |
 | **失败判据** | 同一 exe 在裸机正常、在 VM 静默退出/不发请求；`cpuid` 后走退出分支；检测到 VM 驱动名后行为改变。 |
-| **工具** | `probe_matrix.py` 的 `baseline/network` 对照、Pafish 类检测思路、Process Hacker、Autoruns。 |
+| **工具** | `tool-acquire.py --sweep` 的 `baseline/network` 对照、Pafish 类检测思路、Process Hacker、Autoruns。 |
 | **误判风险** | 云主机/企业 VDI 本身就是 VM；安全软件也会枚举驱动；必须用"同机基线"排除环境噪声。 |
 
 ### 5.2 用户名 / 机器名 / 域名黑名单
@@ -233,7 +233,7 @@
 | **探测点** | 启动时读取环境变量/用户名；注册表 `Environment`；`GetUserNameW` 返回缓冲区。 |
 | **绕过手法** | 改用户名/机器名/域名；hook API 返回白名单值；在独立测试账户下运行；注意改机器名需要重启。 |
 | **失败判据** | 换用户名后行为变化；字符串黑名单命中后退出；基线在默认用户下正常、在 `sandbox` 用户下静默。 |
-| **工具** | `probe_matrix.py`、Process Monitor、Frida。 |
+| **工具** | `tool-acquire.py --sweep`、Process Monitor、Frida。 |
 | **误判风险** | 企业机器名常含 `PC-`/`DESKTOP-`；`admin` 是合法管理员名；不能仅凭字符串存在就判定。 |
 
 ### 5.3 驱动与反作弊（Vanguard / ACE / EAC / BattlEye）
@@ -244,7 +244,7 @@
 | **探测点** | 驱动枚举/服务查询；`NtQuerySystemInformation(SystemModuleInformation)`；设备打开；进程创建回调（内核层）。 |
 | **绕过手法** | 不在装有反作弊的机器上做（最稳）；测试机卸载/禁用对应服务（注意许可与风险）；内核调试/驱动隐藏（TitanHide 等，超出常规范围）；改走外部网络层/协议层。 |
 | **失败判据** | 目标启动即被驱动拦截/蓝屏/强制退出；调试器附加被内核拒绝；`NtQuerySystemInformation` 返回被过滤。 |
-| **工具** | WinDbg（内核）、Process Hacker、Autoruns、`probe_matrix.py`（环境探针只报现象，内核对抗另立任务）。 |
+| **工具** | WinDbg（内核）、Process Hacker、Autoruns、`tool-acquire.py --sweep`（环境探针只报现象，内核对抗另立任务）。 |
 | **误判风险** | 普通安全软件也有驱动和回调；反作弊可能只在游戏启动时加载；不要把"有驱动"直接等同于"针对你"。 |
 
 ### 5.4 进程黑名单（调试器/抓包/监控工具）
@@ -255,7 +255,7 @@
 | **探测点** | 进程快照返回的 `PROCESSENTRY32.szExeFile`；窗口枚举 `EnumWindows` + 窗口标题；服务/驱动枚举。 |
 | **绕过手法** | 改调试器/工具可执行文件名；用不常见工具；在另一台机器远程调试；内核隐藏进程；外部网络层观测。 |
 | **失败判据** | 改名后不再退出；基线正常、打开某工具后目标退出；进程快照断点命中后走退出分支。 |
-| **工具** | `probe_matrix.py`（仪器矩阵）、Process Hacker、x64dbg。 |
+| **工具** | `tool-acquire.py --sweep`（仪器矩阵）、Process Hacker、x64dbg。 |
 | **误判风险** | 杀软/管理工具也枚举进程；黑名单可能只匹配窗口标题；改名可能影响工具自身功能。 |
 
 ---
@@ -266,26 +266,26 @@
 
 | 技术 | 识别特征 | 可靠性 | 处置 | 脚本/工具 | 误判风险 |
 |---|---|---|---|---|---|
-| PEB.BeingDebugged | `IsDebuggerPresent`；`fs:[0x30]+2` / `gs:[0x60]+2` | 高 | 清 `PEB+2`；hook 返回 0 | x64dbg+ScyllaHide、`probe_matrix.py` | 崩溃上报/DRM 也读；需基线对照 |
+| PEB.BeingDebugged | `IsDebuggerPresent`；`fs:[0x30]+2` / `gs:[0x60]+2` | 高 | 清 `PEB+2`；hook 返回 0 | x64dbg+ScyllaHide、`tool-acquire.py --sweep` | 崩溃上报/DRM 也读；需基线对照 |
 | PEB.NtGlobalFlag | 读 `PEB+0x68`/`+0xBC`，比较 `0x70` | 高 | 清 0；修调试堆标志 | ScyllaHide、x64dbg | 系统/兼容层可能设置；可能只查一位 |
 | Heap Flags/ForceFlags | `ProcessHeap+0x0C/0x14`、`+0x10/0x18` | 中高 | `Flags=2`、`ForceFlags=0` | ScyllaHide、Process Hacker | 程序自身改堆标志；版本布局差异 |
 | TLS callback 早检 | TLS 目录第 9 项非 0；`.tls`；`AddressOfCallBacks` | 高 | 在 TLS 阶段断下并修 PEB；清回调数组 | x64dbg TLS 断点、PE-bear | 正常 CRT/延迟加载也用 TLS |
 | NtQueryInformationProcess | `ProcessDebugPort(7)`、`DebugObjectHandle(0x1E)`、`DebugFlags(0x1F)` | 高 | hook 返回非调试值；ScyllaHide | ScyllaHide、Frida、API Monitor | .NET/性能/崩溃工具也用 |
 | CheckRemoteDebuggerPresent | 导入 + `GetCurrentProcess()` + `BOOL*` | 高 | hook 输出 `FALSE` | ScyllaHide、Frida | 合法崩溃保护也用；返回值可能反转 |
-| 硬件断点寄存器检测 | `GetThreadContext` + `CONTEXT.Dr0..Dr7` | 高 | 改外部读/Intel PT；隐藏 DR；patch 检查 | TitanHide、WinDbg、`probe_matrix.py` | 性能分析器也读上下文；只查特定线程 |
+| 硬件断点寄存器检测 | `GetThreadContext` + `CONTEXT.Dr0..Dr7` | 高 | 改外部读/Intel PT；隐藏 DR；patch 检查 | TitanHide、WinDbg、`tool-acquire.py --sweep` | 性能分析器也读上下文；只查特定线程 |
 | 时序 RDTSC/QPC | `rdtsc`、`QueryPerformanceCounter`、阈值比较 | 中 | 固定时间步进；patch 阈值；避免单步 | ScyllaHide、Frida | VM/慢机抖动；正常性能统计 |
 | 异常/SEH/VEH 探测 | `SetUnhandledExceptionFilter`、`int3`、`int 0x2D` | 中高 | 让异常按预期传递；hook 注册 API | x64dbg 异常设置、ScyllaHide | C++/SEH 正常控制流；ODS 无调试器本就失败 |
 | `PAGE_GUARD` 保护 | `VirtualProtect(...,0x40)`、`STATUS_GUARD_PAGE_VIOLATION` | 高 | 外部 `ReadProcessMemory`；硬件断点；让异常跑完 | `dump-restore.py dump`、`probe_matrix external` | JIT/CRT 也用 guard；访问解密区才死 |
 | MEM_MAPPED 双视图 | `NtMapViewOfSection`、同一 Section 两个 Base | 中高 | 找执行视图再 dump；patch 比对 | x64dbg、WinDbg `!vad`、Process Hacker | 正常资源映射也用；未必做逐字节比较 |
 | CRC/哈希自校验 | `CRC32/MD5/SHA*`、按节循环、CryptHashData | 高 | patch 校验返回值/期望值；不改被校验字节 | IDA/Ghidra、x64dbg、`dump-restore.py` | 更新器/安装包也校验；覆盖范围可能部分 |
 | int3 字节校验 | 扫描 `0xCC`、CRC 覆盖 `.text`、下断即死 | 高 | **禁用 int3**，用 DR0–DR3/外部读 | x64dbg 硬件断点、`dump-restore.py` | 编译器对齐填充也有 `0xCC` |
-| 模块枚举找 Frida | `frida-agent`、`gum-js-loop`、`Module32First`、PEB Ldr | 高 | 外部观测；改模块名；hook 枚举；内核隐藏 | `probe_matrix.py`、Frida、TitanHide | 安全软件/插件也枚举模块 |
+| 模块枚举找 Frida | `frida-agent`、`gum-js-loop`、`Module32First`、PEB Ldr | 高 | 外部观测；改模块名；hook 枚举；内核隐藏 | `tool-acquire.py --sweep`、Frida、TitanHide | 安全软件/插件也枚举模块 |
 | Inline hook 扫描 | 比较 API 前 5–16 字节；`E9`、`FF25`、`0xCC` | 高 | 硬件断点/ETW/PT；恢复 prologue；直接 syscall | x64dbg、ScyllaHide、IDA | 热补丁/杀软也改 API 前几字节 |
 | 线程/堆/RWX 扫描 | `Thread32First`、`VirtualQueryEx`、`PAGE_EXECUTE_READWRITE` | 中 | 不注入；避免 RWX；TitanHide；外部读 | Process Hacker、TitanHide | JIT/浏览器大量 RWX/私有线程 |
-| VM 特征（CPUID/驱动/MAC） | hypervisor 位、`VMware/VBox/QEMU`、VM 驱动、MAC 前缀 | 中高 | 换裸机；改 VM 配置/注册表/MAC；patch | `probe_matrix.py`、Autoruns | 云主机/VDI 本身是 VM；安全软件也枚举驱动 |
-| 用户名/机器名黑名单 | `GetUserNameW`、`COMPUTERNAME`、`sandbox/test/admin` | 中 | 改用户名/机器名；hook API；独立账户 | `probe_matrix.py`、Frida | 企业命名常含 `PC-/DESKTOP-`；admin 合法 |
+| VM 特征（CPUID/驱动/MAC） | hypervisor 位、`VMware/VBox/QEMU`、VM 驱动、MAC 前缀 | 中高 | 换裸机；改 VM 配置/注册表/MAC；patch | `tool-acquire.py --sweep`、Autoruns | 云主机/VDI 本身是 VM；安全软件也枚举驱动 |
+| 用户名/机器名黑名单 | `GetUserNameW`、`COMPUTERNAME`、`sandbox/test/admin` | 中 | 改用户名/机器名；hook API；独立账户 | `tool-acquire.py --sweep`、Frida | 企业命名常含 `PC-/DESKTOP-`；admin 合法 |
 | 驱动/反作弊 Vanguard/ACE | `vgk.sys`、`ACE-BASE.sys`、`BEDaisy.sys`、内核回调 | 高 | 换无作弊环境；外部/协议层；内核对抗 | WinDbg、Autoruns、Process Hacker | 普通安全软件也有驱动；未必针对你 |
-| 进程黑名单 | `Process32Next` + `x64dbg/ida/wireshark/frida` | 高 | 改工具名；换工具；远程调试；内核隐藏 | `probe_matrix.py`、Process Hacker | 杀软/管理工具也枚举；可能只匹配窗口标题 |
+| 进程黑名单 | `Process32Next` + `x64dbg/ida/wireshark/frida` | 高 | 改工具名；换工具；远程调试；内核隐藏 | `tool-acquire.py --sweep`、Process Hacker | 杀软/管理工具也枚举；可能只匹配窗口标题 |
 | 父进程检测 | 检查父 PID/父进程名不是 explorer；`NtQueryInformationProcess(ProcessBasicInformation)` | 中高 | 用 explorer 启动；`PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` 指定父进程 | `probe_matrix.py baseline`、Process Hacker | 服务/计划任务启动也非 explorer；需基线 |
 | 自调试反附加 | `CreateProcess(DEBUG_ONLY_THIS_PROCESS)`、`DebugActiveProcess` | 高 | 阻断调试关系；ScyllaHide/TitanHide | x64dbg、ScyllaHide | 崩溃保护也可能自调试 |
 | 窗口/标题枚举 | `EnumWindows`、`FindWindow`、`GetWindowText` + 调试器标题 | 中 | 改窗口标题；隐藏窗口；内核隐藏 | x64dbg、Process Hacker | 正常程序也枚举窗口 |

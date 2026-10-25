@@ -464,7 +464,7 @@ inside an installed copy: capability → one-line conclusion → `observed`/`inf
 evidence that ships with the skill. Load it when a claim's strength decides whether you trust it and
 the run record is not in front of you.
 
-`python check_routing.py` checks that this file and `references/routing.md` still agree, that every
+`python ../../scripts/check.py --fast`（或本技能自带 references/routing.md 的人工核对）checks that this file and `references/routing.md` still agree, that every
 reference file is named there, and that every script is named there. CI runs it.
 
 ## 子技能（按需读，不常驻）

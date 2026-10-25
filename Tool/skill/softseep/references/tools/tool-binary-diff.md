@@ -129,9 +129,9 @@ patched：同一 PoC → 被拒绝/不崩溃
 | 补丁差分 | ghidriff | 手工反编译 + diff |
 | 符号迁移 | IDA/BinDiff | Python + r2 脚本 |
 | 结构体 | IDA/Ghidra | 偏移/大小手工比对 |
-| 证据 | `seep_r2_diff` | `diff` 反汇编文本 |
+| 证据 | `seep_r2_disasm` | `diff` 反汇编文本 |
 
-缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_tool_install`；不 `-h` 盲试探。
+缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_ensure_tool`；不 `-h` 盲试探。
 
 ## 7. 坑
 

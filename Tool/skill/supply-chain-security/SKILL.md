@@ -1,6 +1,6 @@
 ---
 name: supply-chain-security
-description: "审计这个仓库/依赖有没有问题/锁文件完整性/GitHub Actions 权限/供应链投毒/依赖混淆/SBOM 与制品签名。要求对象可钉住、可达有证据、修复可执行。"
+description: "审计这个仓库/依赖有没有问题/锁文件完整性/GitHub Actions 权限/供应链投毒/依赖混淆/SBOM 与制品签名。要求对象可钉住、可达有证据、修复可执行。 (package-lock.json/requirements.txt/Gemfile.lock/.github/workflows)"
 license: MIT
 compatibility: Linux/macOS/WSL2；syft、grype、osv-scanner、trivy、cosign、semgrep 可选；纯标准库脚本可做清单/锁文件/CI/可达性。Windows 经 tool-run.ps1 启动。
 metadata:

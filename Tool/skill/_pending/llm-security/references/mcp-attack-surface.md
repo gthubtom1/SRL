@@ -159,7 +159,7 @@ PY
 ```bash
 # 只读静态审计：未 pin 版本 / curl|sh / 可写目录命令 / 明文密钥
 python Tool/scripts/preflight.py --fast            # 仓库侧结构与资产
-seep_domain_audit(mode="agent", target="<repo-or-config>")   # 有 MCP 时
+seep_gen_security_report(mode="agent", target="<repo-or-config>")   # 有 MCP 时
 # 手工：把 mcpServers 的 command/args/env 打成 JSON（值脱敏）后逐条看
 ```
 

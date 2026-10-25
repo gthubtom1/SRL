@@ -213,7 +213,7 @@ metadata:
 ```bash
 # 审计本机 MCP 配置与技能包（只读）
 python Tool/scripts/preflight.py --fast
-seep_domain_audit(mode="agent", target="<repo-or-config>")
+seep_gen_security_report(mode="agent", target="<repo-or-config>")
 ```
 
 - 检查：`command` 是否来自可信路径、是否 `npx -y` 拉最新、是否 `curl | sh`、明文密钥、过宽文件/网络权限。
@@ -255,7 +255,7 @@ python Tool/skill/_pending/llm-security/scripts/probe-agent.py --fixture work/<t
 |---|---|---|
 | 注入测试 | garak/PyRIT | 手工用例 + curl（自有端点） |
 | 判定复算 | `probe-agent.py --fixture` | 手工对表（判据表） |
-| MCP/配置审计 | `seep_domain_audit(mode="agent")` | 手工 grep + JSON 解析 |
+| MCP/配置审计 | `seep_gen_security_report(mode="agent")` | 手工 grep + JSON 解析 |
 | 动态观测 | 代理/日志/OTel | 应用日志 + 请求 ID |
 
 缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_ensure_tool`（安装需 allow_install）；安装需确认。

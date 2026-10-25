@@ -69,7 +69,7 @@ PY
 
 ```bash
 # 仓库内技能/提示词只读扫描
-seep_domain_audit(mode="agent", target="Tool")
+seep_gen_security_report(mode="agent", target="Tool")
 ```
 
 检查：

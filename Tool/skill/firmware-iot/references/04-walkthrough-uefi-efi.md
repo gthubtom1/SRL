@@ -46,7 +46,7 @@ SecConfig.efi: PE32+ executable for MS Windows 1.00 (boot application), x86-64, 
 ## 2. 用本域脚本做结构化分诊
 
 ```bash
-python `Tool/skill/firmware-iot/scripts/fw-triage.py` \
+python Tool/skill/firmware-iot/scripts/fw-triage.py \
   --file Tool/cases/firmware-iot04/input/SecConfig.efi --json \
   > Tool/cases/firmware-iot04/artifacts/triage.json
 
@@ -100,7 +100,7 @@ sha256 820a15d9746c2877484f203f1d4678001d9a60173b3bfd6bf05884d41bba623e
 
 ```bash
 sha256sum Tool/cases/firmware-iot03/input/43341b0rtecdc.bin
-python `Tool/skill/firmware-iot/scripts/fw-triage.py` \
+python Tool/skill/firmware-iot/scripts/fw-triage.py \
   --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json \
   > Tool/cases/firmware-iot03/artifacts/triage.json
 python Tool/skill/firmware-iot/scripts/fw-repro.py \
@@ -190,7 +190,7 @@ sha256 3dc1138c4795caeada1f66937516a7411c0b24f50c51336f208fad7963455a3f
 sha256sum Tool/cases/firmware-iot03/input/*.bin Tool/cases/firmware-iot04/input/*.efi
 
 # 2) 结构化分诊 + 复现
-python `Tool/skill/firmware-iot/scripts/fw-triage.py` --file <sample> --json > /tmp/triage.json
+python Tool/skill/firmware-iot/scripts/fw-triage.py --file <sample> --json > /tmp/triage.json
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file <sample> --out-dir work/fw-repro --json > /tmp/repro.json
 
 # 3) 案例验收（字段/hash/refs/lessons）

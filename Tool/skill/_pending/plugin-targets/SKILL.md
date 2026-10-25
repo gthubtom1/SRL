@@ -186,7 +186,7 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --self-test
 python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --self-test
 
 # 兼容入口（转发到 skill 脚本）
-python `Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py` --path target.crx
+python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx
 ```
 
 退出码：0 成功；2 结构化失败（`{"ok": false, "blocked_at": "...", "reason": "..."}`）。脚本不执行包内代码、不联网。

@@ -1,6 +1,6 @@
 ---
 name: forensics-mobile
-description: "分析这个内存镜像/流量包/磁盘镜像/事件日志/注册表；或 iOS IPA/Mach-O/Keychain、Unity Mono/IL2CPP/AssetBundle 取证。要时间线 + IOC + 可复现结论。"
+description: "分析这个内存镜像/流量包/磁盘镜像/事件日志/注册表；或 iOS IPA/Mach-O/Keychain、Unity Mono/IL2CPP/AssetBundle 取证。要时间线 + IOC + 可复现结论。 (.vmem/.raw/.pcap/.dd/镜像文件)"
 license: MIT
 compatibility: Linux/WSL2 优先（volatility3、tshark、sleuthkit 原生）；macOS 提供 otool/codesign/security；iOS 动态侧需授权测试机与 frida-server；Windows 支持 EVTX/REGF 二进制解析与 reg save。
 metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与来源 / 只读副本+哈希 / 统一 UTC / 四要素可复述"}
@@ -183,7 +183,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --case Tool/cases/
 python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 ```
 
-- 兼容入口：`python `Tool/skill/forensics-mobile/scripts/forensics-check.py` --file ...` 转发到技能内脚本。
+- 兼容入口：`python Tool/skill/forensics-mobile/scripts/forensics-check.py --file ...` 转发到技能内脚本。
 - 所有脚本：`--help` rc=0；`--self-test` 离线 rc=0 且打印 `{"ok": true, ...}`；失败输出 `{"ok": false, "blocked_at": "...", "reason": "..."}` rc=2。
 - 路径由 `__file__`/`--root` 推导，不硬编码本机绝对路径；只读，不联网写操作。
 

@@ -124,7 +124,7 @@ patched：同一 PoC → 被拒绝/不崩溃
 | 补丁差分 | ghidriff | 手工反编译 + diff |
 | 符号迁移 | IDA/BinDiff | Python + r2 脚本 |
 | 结构体 | IDA/Ghidra | 偏移/大小手工比对 |
-| 证据 | `seep_r2_diff` | `diff` 反汇编文本 |
+| 证据 | `seep_r2_disasm` | `diff` 反汇编文本 |
 
 缺工具走 `seep_tool_discover` / `tool-run.ps1` / `seep_ensure_tool`（安装需 allow_install）；不 `-h` 盲试探。
 
@@ -148,4 +148,4 @@ patched：同一 PoC → 被拒绝/不崩溃
 - [ ] 结论标注 observed/inferred/unverified；未验证的利用链不写成结论。
 - [ ] PoC 只投放在 `scope` 清单内的目标。
 
-> 细节：`references/symbol-migration.md`、`references/patch-diff.md`。
+> 细节：见 `Tool/skill/softseep/references/08-symbol-recovery.md`（符号迁移）与 `09-patch-engineering.md`（补丁工程）。

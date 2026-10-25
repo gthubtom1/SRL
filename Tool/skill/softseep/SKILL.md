@@ -344,7 +344,7 @@ metadata:
 | | **ida**（~243 工具） | `mcp__ida__*` | 深度反编译 / 交叉引用 |
 | | **playwright** | 浏览器工具 | Web / JS 审计 |
 | **运行时** | `Tool/mcp/Tool/` | `safe/`（radare2/jadx/apktool/hook 模板）+ `reverselab/`（KB/boards/MCP 源码） | **严禁搬动或改名**（MCP 内部 `TOOL_DIR` 硬编码） |
-| **脚本** | `Tool/scripts/` | `case-init.ps1` / `trigger_ida_mcp.ps1` / `refresh-tool-index.ps1` | 建档 / IDA 唤醒 / 自检 |
+| **脚本** | `Tool/scripts/` | `check.py` / `case_state.py` / `tool-acquire.py` | 建档 / IDA 唤醒 / 自检 |
 | | `Tool/scripts/apk/` | `decode.ps1` / `rebuild-sign-install.ps1` / `frida-run.ps1` | APK 三件套 |
 | **知识库** | reverselab | `Tool/mcp/Tool/reverselab/kb/`（409 篇 .md） | 攻防方法论 |
 | | seep KB | `seep_kb_search` / `seep_kb_read` | 在线检索（清单与 payload 直接读正文）|

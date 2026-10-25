@@ -40,7 +40,7 @@ metadata:
           ▼
 第 2 步：新版资产画像与壳侦察 (Pre-flight Triage)
         调用 seep_packer_detect 检查新版是否更换了壳层
-        调用 seep_pe_resources 检查新版是否将核心载荷转移至资源节
+        调用 seep_r2_cmd(cmd="iR") 检查新版是否将核心载荷转移至资源节
           │
           ▼
 第 3 步：特征拓扑差值对齐与滑窗搜索 (Signature Migration)
@@ -75,7 +75,7 @@ metadata:
 
 ### 3. 多引擎差分辅助（当特征码微调时）
 若新版本编译器优化导致特征码不完全一致：
-1. 调用 `seep_decompile_auto` 提取新版对应函数的 C 伪代码；
+1. 调用 `seep_r2_decompile` 提取新版对应函数的 C 伪代码；
 2. 比对函数内部的常量字符串（如 `VIP`、`Expire`、`Status`）；
 3. 通过字符串的交叉引用（Xrefs）在几秒内回溯定位新函数入口。
 

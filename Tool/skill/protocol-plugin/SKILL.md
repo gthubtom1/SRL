@@ -1,6 +1,6 @@
 ---
 name: protocol-plugin
-description: "逆向这个协议/这个封包怎么构造/私有协议/私有加密/重放请求/写个插件或 Mod/模拟客户端登录。要求同输入同输出、能构造服务端接受的新请求、状态机可闭环。"
+description: "逆向这个协议/这个封包怎么构造/私有协议/私有加密/重放请求/写个插件或 Mod/模拟客户端登录。要求同输入同输出、能构造服务端接受的新请求、状态机可闭环。 (.pcap/.pcapng/.proto/封包/二进制报文)"
 license: MIT
 compatibility: Windows 10/11、Linux、macOS；依赖可选的 tshark / mitmproxy / scapy；缺失时用标准库 pcap 解析与原始 socket 重放降级。
 metadata:

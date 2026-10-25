@@ -1,6 +1,6 @@
 ---
 name: pwn-crypto
-description: "这道题能不能打通/有没有溢出/走 ROP/格式化字符串/堆利用/绕过 seccomp/拿到 shell；或者 RSA/ECB/CBC/PRNG/HMAC/证书签名有没有问题。含 checksec 保护位与利用链构建。"
+description: "这道题能不能打通/有没有溢出/走 ROP/格式化字符串/堆利用/绕过 seccomp/拿到 shell；或者 RSA/ECB/CBC/PRNG/HMAC/证书签名有没有问题。含 checksec 保护位与利用链构建。 (.elf/.so/.py/二进制程序)"
 license: MIT
 compatibility: "Linux x86/x64/ARM64 优先；Windows 下可用 MinGW 复现 PE 语义。Python 3.10+；pwntools/ROPgadget/checksec/pycryptodome 可选，缺失按降级链执行。"
 metadata:
