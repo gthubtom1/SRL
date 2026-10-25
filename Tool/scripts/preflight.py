@@ -1094,6 +1094,27 @@ def check_mcp_name_consistency():
         add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", False, str(e)[:80])
 
 
+def check_prompt_residue():
+    """提示词残留：`~/.pi/agent/prompts/` 里不许有仓库 `Tool/prompts/tasks/` 已删除的卡。
+
+    为什么（2026-10-25 实测）：仓库里 10 张域命令卡早已删除，但部署副本还在，
+    pi 仍然把 `/rev` `/apk` … 列在"提示词"面板里 → 用户以为命令还在、以为我们说话不算数。
+    根因：安装脚本只复制、不清理。已加清理逻辑，这条判据守住它。
+    """
+    import glob as _g
+    src = os.path.join(TOOL, "prompts", "tasks")
+    dst = os.path.expanduser("~/.pi/agent/prompts")
+    src_names = {os.path.basename(p) for p in _g.glob(os.path.join(src, "*.md"))}
+    if not os.path.isdir(dst):
+        add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", True, "未部署提示词目录")
+        return
+    leftover = sorted(os.path.basename(p) for p in _g.glob(os.path.join(dst, "*.md"))
+                      if os.path.basename(p) not in src_names)
+    add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", not leftover,
+        ("残留: " + "、".join(x[:-3] for x in leftover[:6])) if leftover
+        else "部署目录与仓库一致（%d 张）" % len(src_names))
+
+
 def check_fact_drift():
     """事实漂移：同样的数字（工具/域/案例数）在文档里被重复陈述，必须与实测一致。
 
@@ -1582,6 +1603,7 @@ def main():
     check_skill_import()
     check_subskill_wiring()
     check_fact_drift()
+    check_prompt_residue()
     check_mcp_name_consistency()
     check_case_contract_files()
     check_tool_ladder()

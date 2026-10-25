@@ -116,6 +116,23 @@ if (Test-Path $srcTasks) {
     }
 }
 
+# 清理残留：部署目录里存在、但仓库 tasks/ 已删除的提示词 → 移到 backup-retired-prompts（不静默删）
+$dstTasks2 = Join-Path $AgentDir 'prompts'
+if (Test-Path $dstTasks2) {
+    $backupPrompts = Join-Path $AgentDir 'backup-retired-prompts'
+    $srcNames = @()
+    if (Test-Path $srcTasks) {
+        $srcNames = (Get-ChildItem $srcTasks -Filter '*.md' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    }
+    foreach ($f in (Get-ChildItem $dstTasks2 -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        if ($srcNames -notcontains $f.Name) {
+            if (-not (Test-Path $backupPrompts)) { New-Item -ItemType Directory -Path $backupPrompts -Force | Out-Null }
+            Move-Item -Path $f.FullName -Destination (Join-Path $backupPrompts $f.Name) -Force
+            Write-Info "已退役残留提示词：/$([System.IO.Path]::GetFileNameWithoutExtension($f.Name))"
+        }
+    }
+}
+
 # 迁移：旧版把规则写成 ~/.pi/agent/SYSTEM.md，会被 pi 内核当“替换默认提示词”，必须退役
 $legacySystem = Join-Path $AgentDir 'SYSTEM.md'
 if (Test-Path $legacySystem) {
