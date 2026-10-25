@@ -1094,6 +1094,90 @@ def check_mcp_name_consistency():
         add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", False, str(e)[:80])
 
 
+def check_deploy_bidirectional():
+    """源 ↔ 部署 **双向** 一致：仓库有的要部署，部署有的必须在仓库里（防"漏删残留"）。
+
+    为什么（2026-10-25 用户第三次抓到残留）：我只改仓库侧，`~/.pi/agent/` 的副本留着；
+    用户重开面板就看见"已经说过不要了"的东西。单向哈希检查只能发现"仓库改了没部署"，
+    发现不了"仓库删了、部署还在"。这条按 5 类产物双向比对。
+
+    判据：每类都要求 `缺(未部署)` 与 `多(残留)` 都为空；哈希不一致也算。
+    """
+    import hashlib as _h
+    import glob as _g
+
+    def _diff(src_glob, dst_dir, label, ext=""):
+        src = {}
+        for p in _g.glob(src_glob):
+            src[os.path.basename(p)] = p
+        dst = {}
+        if os.path.isdir(dst_dir):
+            for p in _g.glob(os.path.join(dst_dir, "*" + ext)):
+                dst[os.path.basename(p)] = p
+        missing = sorted(set(src) - set(dst))
+        extra = sorted(set(dst) - set(src))
+        drift = []
+        for k in sorted(set(src) & set(dst)):
+            try:
+                if _h.sha256(open(src[k], "rb").read()).hexdigest() != _h.sha256(open(dst[k], "rb").read()).hexdigest():
+                    drift.append(k)
+            except Exception:
+                pass
+        bad = []
+        if missing:
+            bad.append("未部署:" + ",".join(missing[:3]))
+        if extra:
+            bad.append("残留:" + ",".join(extra[:3]))
+        if drift:
+            bad.append("不一致:" + ",".join(drift[:3]))
+        return label, bad
+
+    home = os.path.expanduser("~")
+    agent = os.path.join(home, ".pi", "agent")
+    # 技能按**目录名**比对（文件都是 SKILL.md，按 basename 比会错）
+    src_sk = {os.path.basename(d): os.path.join(d, "SKILL.md")
+              for d in _g.glob(os.path.join(TOOL, "skill", "*"))
+              if os.path.isfile(os.path.join(d, "SKILL.md"))}
+    dst_sk = {}
+    sk_dir = os.path.join(agent, "skills")
+    if os.path.isdir(sk_dir):
+        for d in os.listdir(sk_dir):
+            fp = os.path.join(sk_dir, d, "SKILL.md")
+            if os.path.isfile(fp):
+                dst_sk[d] = fp
+    sk_bad = []
+    _m = sorted(set(src_sk) - set(dst_sk))
+    _e = sorted(set(dst_sk) - set(src_sk))
+    if _m:
+        sk_bad.append("未部署:" + ",".join(_m[:3]))
+    if _e:
+        sk_bad.append("残留:" + ",".join(_e[:3]))
+    _d = [k for k in set(src_sk) & set(dst_sk)
+          if _h.sha256(open(src_sk[k], "rb").read()).hexdigest()
+          != _h.sha256(open(dst_sk[k], "rb").read()).hexdigest()]
+    if _d:
+        sk_bad.append("不一致:" + ",".join(sorted(_d)[:3]))
+
+    rows = [
+        ("技能", sk_bad),
+        _diff(os.path.join(TOOL, "prompts", "tasks", "*.md"), os.path.join(agent, "prompts"), "提示词", ".md"),
+        _diff(os.path.join(TOOL, "prompts", "extensions", "*.ts"), os.path.join(agent, "extensions"), "扩展", ".ts"),
+    ]
+    bad_all = ["%s(%s)" % (k, "；".join(v)) for k, v in rows if v]
+    # 技能是目录级：上面的 glob 只比 SKILL.md，额外比"部署侧多出来的目录"
+    extra_dirs = []
+    sdir = os.path.join(agent, "skills")
+    if os.path.isdir(sdir):
+        for d in os.listdir(sdir):
+            if not os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md")):
+                extra_dirs.append(d)
+    if extra_dirs:
+        bad_all.append("技能残留目录:" + ",".join(extra_dirs[:4]))
+
+    add("2 单一事实源", "部署面双向一致（源↔部署：技能/提示词/扩展）", not bad_all,
+        "；".join(bad_all)[:260] if bad_all else "3 类产物：无未部署、无残留、哈希一致")
+
+
 def check_prompt_residue():
     """提示词残留：`~/.pi/agent/prompts/` 里不许有仓库 `Tool/prompts/tasks/` 已删除的卡。
 
@@ -1604,6 +1688,7 @@ def main():
     check_subskill_wiring()
     check_fact_drift()
     check_prompt_residue()
+    check_deploy_bidirectional()
     check_mcp_name_consistency()
     check_case_contract_files()
     check_tool_ladder()
