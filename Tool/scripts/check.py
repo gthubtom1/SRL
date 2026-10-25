@@ -35,6 +35,8 @@ SUITES = [
      "端到端：域契约、证据链、清理、部署哈希"),
     ("kb-tests",    ["Tool/scripts/kb_acceptance.py"], False,
      "知识库检索验收语料"),
+    ("mutation",    ["Tool/scripts/mutation.py"], False,
+     "植入失败：故意弄坏 6 处，证明判据真的会红（约 3 分钟）"),
 ]
 
 
@@ -80,7 +82,27 @@ def main():
     ap.add_argument("--fast", action="store_true", help="只跑快的子集（提交前用）")
     ap.add_argument("--list", action="store_true", help="列出套件后退出")
     ap.add_argument("--env", action="store_true", help="只做环境体检（这台机器装没装好）")
+    ap.add_argument("--prep", dest="full_prep", action="store_true",
+                    help="检查前先重生成 HANDOFF 状态块（提交前用）")
+    ap.add_argument("--fix-handoff", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args()
+
+    if a.fix_handoff or a.full_prep:
+        # 提交/检查前先把 HANDOFF 状态块重生成（否则「落后 ≤1 提交」必然红）
+        try:
+            out = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "case_state.py"),
+                                  "handoff", "--repo"], cwd=ROOT, capture_output=True,
+                                 text=True, encoding="utf-8", errors="replace", timeout=120).stdout
+            hp = os.path.join(ROOT, "docs", "HANDOFF.md")
+            if os.path.isfile(hp) and out.strip():
+                src = open(hp, encoding="utf-8").read()
+                head = src[:src.index("## §1 状态块（生成，勿手改）")]
+                NL = chr(10)
+                body = "## §1 状态块（生成，勿手改）" + NL + NL + out.strip() + NL
+                open(hp, "w", encoding="utf-8", newline=NL).write(head + body)
+                print("已重生成 HANDOFF 状态块")
+        except Exception as e:  # noqa: BLE001
+            print("HANDOFF 重生成失败：%s" % e)
 
     if a.env:
         # 环境体检 = env-check.py（装没装好）；与项目测试分开，但走同一个入口

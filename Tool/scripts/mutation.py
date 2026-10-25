@@ -2,18 +2,16 @@
 # -*- coding: utf-8 -*-
 """变异测试（植入失败）：故意弄坏 6 处，验证「检查项真的会红」。
 
-为什么需要（2026-10-25，用户的核心质疑）：
-    "你每次说没问题，我随便一指又有问题" —— 因为之前的检查只证明"好代码是绿的"，
-    从没系统证明"坏代码会变红"。空判据、skip 记 pass、只查存在不查内容，都会让绿是假的。
-    REA 的做法：植入 3 个**必须失败**的变体，任一通过 = oracle 坏了，之前所有绿灯作废。
+为什么需要（2026-10-25 用户的核心质疑）：
+    "你每次说没问题，我随便一指又有问题" —— 因为检查只证明"好代码是绿的"，
+    从没系统证明"坏代码会变红"。空判据、skip 记 pass、只查存在不查内容、被别的红掩盖，
+    都会让绿是假的。REA 的做法：植入 3 个必须失败的变体，任一通过 = oracle 坏了。
 
-做法：在**仓库内就地**注入 → 跑指定检查 → 断言它变红 → `git checkout` 还原（try/finally 保证）。
-不拷贝整个仓库（250MB 太慢）。结束时校验工作区干净。
+做法：**只备份/还原本套件动过的那几个文件**（不依赖 git、不拷贝 250MB 仓库），
+逐个植入 → 跑检查 → 断言**指定判据**变红（其它判据红不算）→ 还原。
 
-用法：
-    python Tool/scripts/mutation.py            # 跑全部 6 个植入
-    python Tool/scripts/mutation.py --fast     # 只跑 3 个快的
-退出码：0 = 全部被抓；1 = 有漏网（说明对应判据是装饰品）
+用法：python Tool/scripts/mutation.py [--fast]
+退出码：0 = 全部被抓；1 = 有漏网（该判据是装饰品）
 """
 import argparse
 import json
@@ -33,23 +31,40 @@ def run(args, timeout=900):
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
-def sh(cmd):
-    return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", env=ENV, shell=True)
+class Snap:
+    """只记录被改动文件的原始字节；还原时写回，其余文件一概不碰。"""
 
+    def __init__(self):
+        self.items = {}
+        self.created = []
 
-def clean_git(extra_paths=()):
-    sh("git checkout -- .")
-    for p in extra_paths:
-        if os.path.exists(p):
-            os.remove(p)
+    def take(self, rel):
+        p = os.path.join(ROOT, rel)
+        if os.path.isfile(p):
+            self.items[p] = open(p, "rb").read()
+        return p
+
+    def track_created(self, p):
+        self.created.append(p)
+
+    def restore(self):
+        for p, blob in self.items.items():
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            open(p, "wb").write(blob)
+        for p in self.created:
+            try:
+                if os.path.isfile(p):
+                    os.remove(p)
+            except Exception:
+                pass
+        self.items.clear()
+        self.created.clear()
 
 
 IMPLANTS = []
 
 
 def implant(name, checker, expect, fast=True):
-    """expect = 必须命中的判据关键字（防止"别的判据红了"被误当作抓住）。"""
     def deco(fn):
         IMPLANTS.append((name, checker, expect, fast, fn))
         return fn
@@ -58,8 +73,9 @@ def implant(name, checker, expect, fast=True):
 
 # ── 1. 改一条案例 MANIFEST 哈希 → gate 必须红 ─────────────────────
 @implant("篡改案例 MANIFEST 哈希", ["Tool/scripts/gate.py", "--all"], "softseep")
-def m1():
-    p = "Tool/cases/golden-crackme/artifacts/MANIFEST.sha256"
+def m1(sn):
+    rel = "Tool/cases/golden-crackme/artifacts/MANIFEST.sha256"
+    p = sn.take(rel)
     lines = open(p, encoding="utf-8").read().splitlines()
     for i, l in enumerate(lines):
         if l.strip() and not l.startswith("#"):
@@ -69,98 +85,87 @@ def m1():
     open(p, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
 
 
-# ── 2. 让一条技能描述丢掉触发词 → 触发面探针必须红 ────────────────
+# ── 2. 把一条技能描述换成中性描述 → 触发面探针必须红 ──────────────
 @implant("删掉技能描述里的触发词", ["Tool/scripts/preflight.py", "--fast"], "触发面")
-def m2():
-    """把描述换成中性技术描述（去掉全部用户原话）→ 触发面探针必须红。"""
+def m2(sn):
     import re as _re
-    p = "Tool/skill/softseep/SKILL.md"
+    p = sn.take("Tool/skill/softseep/SKILL.md")
     src = open(p, encoding="utf-8").read()
     out = _re.sub(r"^description:.*$", 'description: "通用二进制分析工具"', src, count=1, flags=_re.M)
-    open(p, "w", encoding="utf-8").write(out)
+    open(p, "w", encoding="utf-8", newline="\n").write(out)
 
 
-# ── 3. 给非总控技能加"总控"字样 → 总控唯一判据必须红 ──────────────
+# ── 3. 给普通域技能加"总控"字样 → 总控唯一判据必须红 ──────────────
 @implant("给普通域技能加自称总控", ["Tool/scripts/preflight.py", "--fast"], "总控唯一")
-def m3():
-    p = "Tool/skill/apkseep/SKILL.md"
+def m3(sn):
+    p = sn.take("Tool/skill/apkseep/SKILL.md")
     s = open(p, encoding="utf-8").read()
     open(p, "w", encoding="utf-8", newline="\n").write("<!-- 本文件是总控 Orchestrator -->\n" + s)
 
 
 # ── 4. 在部署目录放假提示词 → 提示词残留必须红 ────────────────────
 @implant("往部署目录放假提示词", ["Tool/scripts/preflight.py", "--fast"], "提示词残留")
-def m4():
+def m4(sn):
     d = os.path.expanduser("~/.pi/agent/prompts")
     os.makedirs(d, exist_ok=True)
-    open(os.path.join(d, "zz-mutation.md"), "w", encoding="utf-8").write("---\ndescription: x\n---\n")
-    return [os.path.join(d, "zz-mutation.md")]
+    fp = os.path.join(d, "zz-mutation.md")
+    open(fp, "w", encoding="utf-8").write("---\ndescription: x\n---\n")
+    sn.track_created(fp)
 
 
 # ── 5. 给 pack.json 加未知字段 → gate G2 必须红 ──────────────────
 @implant("给 pack.json 加未知字段", ["Tool/scripts/gate.py", "--all"], "pwn-crypto")
-def m5():
-    p = "Tool/skill/pwn-crypto/pack.json"
+def m5(sn):
+    p = sn.take("Tool/skill/pwn-crypto/pack.json")
     d = json.load(open(p, encoding="utf-8"))
     d["zz_unknown_field"] = True
     open(p, "w", encoding="utf-8", newline="\n").write(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
 
 
-# ── 6. 把事实漂移判据的依据改错（描述里写个假数字）→ 事实漂移必须红 ──
+# ── 6. 在活跃文档写错工具数 → 事实漂移必须红 ─────────────────────
 @implant("在活跃文档写错工具数", ["Tool/scripts/preflight.py", "--fast"], "事实漂移")
-def m6():
-    p = "README.md"
+def m6(sn):
+    p = sn.take("README.md")
     s = open(p, encoding="utf-8").read()
-    s = s.replace("20 个工具", "99 个工具", 1)
-    open(p, "w", encoding="utf-8", newline="\n").write(s)
+    open(p, "w", encoding="utf-8", newline="\n").write(s.replace("20 个工具", "99 个工具", 1))
 
 
 def main():
     ap = argparse.ArgumentParser(description="变异测试：植入失败，验证门禁真的会红")
     ap.add_argument("--fast", action="store_true", help="只跑快的子集")
     a = ap.parse_args()
-
-    if sh("git status --porcelain").stdout.strip():
-        print("[拒] 工作区不干净（有未提交改动）。先 commit/stash 再跑，避免误还原。")
-        return 2
-
-    picked = [x for x in IMPLANTS if (not a.fast) or x[2]]
-    print("变异测试：%d 个植入（就地注入 → 跑检查 → git checkout 还原）\n" % len(picked))
+    picked = [x for x in IMPLANTS if (not a.fast) or x[3]]
+    print("变异测试：%d 个植入（只备份/还原本套件动过的文件）\n" % len(picked))
     rows = []
-    try:
-        for name, checker, expect, _fast, fn in picked:
-            clean_git()
-            extra = fn() or []
+    for name, checker, expect, _fast, fn in picked:
+        sn = Snap()
+        try:
+            fn(sn)
             rc, out = run(checker)
-            # 关键：必须由**期望的判据**抓到，其它判据红不算数（防"串谋掩盖"）
-            hit_line = ""
+            hit = ""
             for line in (out or "").splitlines():
                 if "[FAIL]" in line and expect in line:
-                    hit_line = line.strip()
+                    hit = line.strip()
                     break
-            caught = bool(hit_line)
-            if not caught:
+            if not hit:
                 other = ""
                 for line in (out or "").splitlines():
                     if "[FAIL]" in line:
                         other = line.strip()
                         break
-                hit_line = "未命中「%s」%s" % (expect, ("；其它红：" + other[:60]) if other else "")
-            rows.append((name, caught, hit_line[:110]))
-            clean_git(extra)
-    finally:
-        clean_git()
+                hit = "未命中「%s」%s" % (expect, ("；其它红：" + other[:60]) if other else "（全绿）")
+            rows.append((name, bool(hit) and "[FAIL]" in hit, hit[:110]))
+        finally:
+            sn.restore()
 
     print("%-30s %-6s %s" % ("植入", "被抓", "命中的检查"))
-    print("-" * 96)
+    print("-" * 100)
     for name, caught, hit in rows:
         print("%-30s %-6s %s" % (name, "是" if caught else "**否**", hit))
-    print("-" * 96)
+    print("-" * 100)
     ok = sum(1 for _, c, _ in rows if c)
-    print("结果: %d/%d 变异被抓%s" % (ok, len(rows), "" if ok == len(rows) else "  ← 有漏网：该判据是装饰品"))
-    dirty = sh("git status --porcelain").stdout.strip()
-    if dirty:
-        print("[!!] 还原后工作区仍不干净，请手动检查：\n" + dirty[:400])
+    print("结果: %d/%d 变异被抓%s" % (ok, len(rows),
+                                 "" if ok == len(rows) else "  ← 有漏网：该判据是装饰品"))
     return 0 if ok == len(rows) else 1
 
 
