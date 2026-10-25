@@ -385,7 +385,115 @@ def run_http_mode(bridge, opts):
     return 0
 
 
+def self_test():
+    """Offline self-test: a fake bridge, built-in bytes only, no device, no frida."""
+    import contextlib
+    import io
+    import types
+
+    checks = 0
+
+    def capture(fn, *a, **kw):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = fn(*a, **kw)
+        return rc, out.getvalue()
+
+    class Bridge:
+        """Stand-in for RpcBridge: no device, no session, no frida."""
+
+        def __init__(self, result=None, error=None):
+            self.result = result
+            self.error = error
+            self.calls = []
+
+        def call(self, name, args):
+            self.calls.append((name, args))
+            if self.error:
+                raise self.error
+            return self.result
+
+    def opts(**kw):
+        base = dict(args=None, export='add')
+        base.update(kw)
+        return types.SimpleNamespace(**base)
+
+    try:
+        # 1) one-shot call: the JSON result and the parsed argument list
+        bridge = Bridge(result=3)
+        rc, text = capture(run_call_mode, bridge, opts(args='[1, 2]'))
+        assert rc == 0, rc
+        assert json.loads(text.strip()) == {'ok': True, 'export': 'add', 'result': 3}, text
+        assert bridge.calls == [('add', [1, 2])], bridge.calls
+        checks += 1
+
+        # 2) bad --args is reported as JSON with rc 1, not a traceback
+        rc, text = capture(run_call_mode, Bridge(), opts(args='[1,'))
+        assert rc == 1, rc
+        payload = json.loads(text.strip())
+        assert payload['ok'] is False and 'not valid JSON' in payload['error'], payload
+        rc, text = capture(run_call_mode, Bridge(), opts(args='"nope"'))
+        assert rc == 1 and 'JSON array' in json.loads(text.strip())['error'], text
+        checks += 1
+
+        # 3) a BridgeError becomes one JSON object plus rc 1
+        rc, text = capture(run_call_mode, Bridge(error=BridgeError('no such rpc export: x')),
+                           opts(args='[]'))
+        assert rc == 1, rc
+        payload = json.loads(text.strip())
+        assert payload['ok'] is False and payload['export'] == 'add'
+        assert payload['error'] == 'no such rpc export: x', payload
+        checks += 1
+
+        # 4) list_exports falls back through the frida 16 sync/async rename
+        b = RpcBridge(types.SimpleNamespace())
+        b.alive = True
+        b.exports = types.SimpleNamespace(add=lambda a, b: a + b, foo=1)
+
+        def _boom():
+            raise RuntimeError('deprecated')
+
+        b.script = types.SimpleNamespace(list_exports_sync=_boom,
+                                         list_exports=lambda: ['x'])
+        assert b.list_exports() == ['x'], b.list_exports()
+        b.script = types.SimpleNamespace()
+        assert b.list_exports() == ['add', 'foo'], b.list_exports()
+        checks += 1
+
+        # 5) the dependency-missing contract stays machine-checkable
+        rc, text = capture(tool_missing, 'frida is required')
+        assert rc == 2, rc
+        payload = json.loads(text.strip())
+        assert payload == {'ok': False, 'blocked_at': 'tool-missing',
+                           'reason': 'frida is required'}, payload
+        checks += 1
+
+        # 6) argparse contract: --script is required, and --mode is constrained
+        quiet = io.StringIO()
+        for argv in (['--mode', 'call'],
+                     ['--script', 'x.js', '--mode', 'nonsense']):
+            try:
+                with contextlib.redirect_stderr(quiet):
+                    main(argv)
+                raise AssertionError('main() accepted %r' % (argv,))
+            except SystemExit as exc:
+                assert exc.code == 2, (argv, exc.code)
+        assert 'the following arguments are required: --script' in quiet.getvalue(), \
+            quiet.getvalue()[:200]
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'frida_rpc_serve.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'frida_rpc_serve.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+
+
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if '--self-test' in argv:
+        return self_test()
     parser = argparse.ArgumentParser(
         description="Bridge a Frida script's rpc.exports to Python/REPL/HTTP with auto-reconnect.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

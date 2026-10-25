@@ -22,8 +22,12 @@ Usage: python dex_strpatch.py <in.dex> <out.dex> <old_str> <new_str>
 Requires len(new) == len(old) in UTF-8 bytes, and exactly one occurrence of old in the dex.
 """
 import hashlib
+import json
+import os
+import shutil
 import struct
 import sys
+import tempfile
 import zlib
 
 
@@ -80,7 +84,123 @@ def _order_ok(data, off, ob, nb):
     return True
 
 
+def _mini_dex(strings):
+    """dex-shaped bytes with a real, correctly ordered string_ids table.
+
+    Only the tables this tool reads are populated (magic, 0x38/0x3C, string_ids,
+    string_data_items) -- exactly what the in-place patcher touches -- so the
+    fixture pins the contract without shipping a sample dex.
+    """
+    ids_off = 0x70
+    data_off = ids_off + 4 * len(strings)
+    ids = []
+    blob = b''
+    for s in strings:
+        raw = s.encode('utf-8')
+        n = len(raw)
+        prefix = bytearray()
+        while True:
+            b = n & 0x7F
+            n >>= 7
+            prefix.append(b | (0x80 if n else 0))
+            if not n:
+                break
+        ids.append(data_off + len(blob))
+        blob += bytes(prefix) + raw + b'\x00'
+    hdr = bytearray(ids_off)
+    hdr[0:8] = b'dex\n035\x00'
+    hdr[0x38:0x3C] = struct.pack('<I', len(strings))
+    hdr[0x3C:0x40] = struct.pack('<I', ids_off)
+    body = bytes(hdr) + b''.join(struct.pack('<I', o) for o in ids) + blob
+    # file_size, so the fixture is a self-consistent dex image
+    return body[:0x20] + struct.pack('<I', len(body)) + body[0x24:]
+
+
+def self_test():
+    """Offline self-test: built-in bytes only, no network, no external tools."""
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='dex_strpatch-selftest-')
+
+    def run(argv):
+        """Call main() with a patched argv; the tool's own prints are captured, not shown."""
+        import contextlib
+        import io
+        old = sys.argv
+        sys.argv = argv
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                return main()
+        finally:
+            sys.argv = old
+
+    try:
+        src = os.path.join(tmp, 'in.dex')
+        with open(src, 'wb') as fh:
+            fh.write(_mini_dex(['aaa', 'com.old.host', 'zzz']))
+
+        # 1) ULEB128 length prefix: the 2-byte form must decode to 128
+        assert _uleb128(b'\x80\x01', 0) == (128, 2), _uleb128(b'\x80\x01', 0)
+        checks += 1
+
+        # 2) string_ids read back in table order, with their data offsets
+        entries = _read_strings(bytearray(open(src, 'rb').read()))
+        assert [raw for _off, raw in entries] == [b'aaa', b'com.old.host', b'zzz'], entries
+        checks += 1
+
+        # 3) an equal-length patch lands on the exact byte offset and re-signs
+        dst = os.path.join(tmp, 'out.dex')
+        before = open(src, 'rb').read()
+        off = before.find(b'com.old.host')
+        rc = run(['dex_strpatch.py', src, dst, 'com.old.host', 'com.new.host'])
+        assert rc == 0, rc
+        after = open(dst, 'rb').read()
+        assert len(after) == len(before), (len(before), len(after))
+        assert after[off:off + 12] == b'com.new.host', after[off:off + 12]
+        # nothing but the string, the signature and the checksum moved
+        assert after[:8] == before[:8], 'magic/checksum area rewritten unexpectedly'
+        assert after[32:off] == before[32:off] and after[off + 12:] == before[off + 12:]
+        assert hashlib.sha1(after[32:]).digest() == after[12:32], 'signature not refreshed'
+        assert zlib.adler32(after[12:]) & 0xFFFFFFFF == struct.unpack('<I', after[8:12])[0], \
+            'checksum not refreshed'
+        checks += 1
+
+        # 4) a length change is refused (it would move every offset)
+        bad = os.path.join(tmp, 'bad.dex')
+        rc = run(['dex_strpatch.py', src, bad, 'com.old.host', 'com.new'])
+        assert rc == 1, rc
+        assert not os.path.exists(bad), 'a refused patch still wrote an output file'
+        checks += 1
+
+        # 5) a non-unique target is refused rather than patched twice
+        dup = os.path.join(tmp, 'dup.dex')
+        with open(dup, 'wb') as fh:
+            fh.write(_mini_dex(['aaa', 'dup', 'dup', 'zzz']))
+        rc = run(['dex_strpatch.py', dup, os.path.join(tmp, 'dup_out.dex'), 'dup', 'day'])
+        assert rc == 1, rc
+        checks += 1
+
+        # 6) a replacement that would break string_ids ordering is refused
+        import contextlib
+        import io
+        with contextlib.redirect_stdout(io.StringIO()):
+            ordered = _order_ok(bytearray(_mini_dex(['aaa', 'mmm', 'zzz'])), 0,
+                                b'mmm', b'zzz1')
+        assert ordered is False, 'an out-of-order replacement was accepted'
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'dex_strpatch.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'dex_strpatch.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help'):
         print(__doc__)
         return 0

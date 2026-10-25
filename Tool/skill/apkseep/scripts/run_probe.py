@@ -151,7 +151,135 @@ def format_message(message):
     return '-', '%s %r' % (kind, message)
 
 
+def self_test():
+    """Offline self-test: hand-built frida messages and a stubbed adb call.
+
+    No device, no frida import, no network: format_message/get_pid/Logger are the
+    parts that decide what evidence a probe run produces, so they are asserted.
+    """
+    import contextlib
+    import io
+    import json
+    import re as _re
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    # 1) frida message -> one log line, for every shape a probe can send
+    dev, text = format_message({'type': 'send',
+                                'payload': {'t': 'mytag', 'tag': 'READY', 'msg': 'hello'}})
+    chk('send-device-timestamp', dev == 'mytag', dev)
+    chk('send-tag-and-message', text == 'READY hello', text)
+    dev, text = format_message({'type': 'send', 'payload': {'msg': 'no tag'}})
+    chk('send-default-tag', text == 'SEND no tag', text)
+    dev, text = format_message({'type': 'send', 'payload': {'a': 1}})
+    chk('send-dict-without-msg', text.startswith('SEND ') and "'a': 1" in text, text)
+    dev, text = format_message({'type': 'send', 'payload': 42})
+    chk('send-scalar-payload', dev == '-' and text == 'SEND 42', text)
+    dev, text = format_message({'type': 'error', 'description': 'boom',
+                                'fileName': 'probe.js', 'lineNumber': 12,
+                                'stack': 'at a\nat b'})
+    chk('error-has-description', text.startswith('FRIDA-ERROR boom'), text)
+    chk('error-has-location', '(probe.js:12)' in text, text)
+    chk('error-stack-indented', '\n    at a' in text, text)
+    dev, text = format_message({'type': 'log', 'payload': 'x'})
+    chk('unknown-type-named', text.startswith('log '), text)
+
+    # 2) host timestamps are the other half of the clock-skew evidence
+    chk('host-ts-format',
+        _re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$', host_ts()) is not None,
+        host_ts())
+
+    # 3) the logger writes to BOTH stdout and the file (output is not lost on scroll)
+    tmp = tempfile.mkdtemp(prefix='run-probe-selftest-')
+    try:
+        path = os.path.join(tmp, 'probe.log')
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            lg = Logger(path)
+            lg.line('# probe log test')
+            lg.line('second line')
+            lg.close()
+        with open(path, encoding='utf-8') as fh:
+            written = fh.read()
+        chk('logger-file-content', written == '# probe log test\nsecond line\n', repr(written))
+        chk('logger-stdout-mirror', 'second line' in buf.getvalue(), buf.getvalue())
+        # append mode: a second run must not truncate the previous evidence
+        size_before = os.path.getsize(path)
+        lg = Logger(path)
+        lg.close()
+        chk('logger-appends', os.path.getsize(path) == size_before, os.path.getsize(path))
+
+        # 4) get_pid: a stubbed `adb shell pidof`, both success and not-running
+        class _R(object):
+            def __init__(self, rc, out):
+                self.returncode, self.stdout, self.stderr = rc, out, ''
+
+        global adb_run
+        real_adb_run = adb_run
+        try:
+            adb_run = lambda adb, serial, args, timeout=30: _R(0, '4242\n')
+            pid, raw = get_pid('adb', None, 'com.example.app')
+            chk('get-pid-parses', pid == 4242 and raw == '4242', (pid, raw))
+            adb_run = lambda adb, serial, args, timeout=30: _R(1, 'not found')
+            pid, raw = get_pid('adb', None, 'com.example.app')
+            chk('get-pid-missing-is-none', pid is None and raw == 'not found', (pid, raw))
+            adb_run = lambda adb, serial, args, timeout=30: _R(0, 'garbage output')
+            pid, raw = get_pid('adb', None, 'com.example.app')
+            chk('get-pid-non-numeric-is-none', pid is None and raw == 'garbage output',
+                (pid, raw))
+        finally:
+            adb_run = real_adb_run
+
+        # 5) find_adb respects an explicit path instead of guessing
+        chk('find-adb-explicit', find_adb('/opt/platform-tools/adb') == '/opt/platform-tools/adb')
+
+        # 6) main()'s pre-frida guards, driven through sys.argv
+        probe = os.path.join(tmp, 'probe.js')
+        with open(probe, 'w', encoding='utf-8') as fh:
+            fh.write('send("READY");\n')
+        real_argv = sys.argv
+        try:
+            sys.argv = ['run_probe.py', os.path.join(tmp, 'missing.js'), '1']
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_missing = main()
+            chk('main-missing-script-rc2', rc_missing == 2, rc_missing)
+            chk('main-missing-script-message', 'not found' in buf.getvalue(), buf.getvalue())
+            sys.argv = ['run_probe.py', probe, '1', '--spawn']
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_spawn = main()
+            chk('main-spawn-without-pkg-rc2', rc_spawn == 2, rc_spawn)
+            chk('main-spawn-needs-pkg-message', '--spawn needs --pkg' in buf.getvalue(),
+                buf.getvalue())
+            sys.argv = ['run_probe.py', probe, '1', '--via', 'nonsense']
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    main()
+                bad_via = None
+            except SystemExit as exc:
+                bad_via = exc.code
+            chk('main-bad-via-exits-2', bad_via == 2, bad_via)
+        finally:
+            sys.argv = real_argv
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'run_probe.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(
         description='Inject a Frida probe into a running Android app, log everything '
                     'to stdout and a file, and stay attached for N minutes.')
@@ -178,6 +306,8 @@ def main():
                     help='seconds to wait for the script to load')
     ap.add_argument('--keep-forward', action='store_true',
                     help='leave the adb forward in place after exit')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test (no device, no frida import)')
     args = ap.parse_args()
 
     if not os.path.isfile(args.script):

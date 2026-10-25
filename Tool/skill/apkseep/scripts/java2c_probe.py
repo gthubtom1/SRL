@@ -853,6 +853,194 @@ def collect(args):
     return dex_blobs, elf_blobs, sources
 
 
+def _fixture_dex():
+    """A minimal but structurally valid dex: one native method, one trivial body.
+
+        Lcom/example/Native;->doIt()V   ACC_NATIVE, no code_item
+        Lcom/example/Native;->stub()V   const/4 v0,#0 ; return-void
+
+    Written out here instead of shipped as a sample so the probe's own metrics can
+    be checked against numbers written down in advance (1 native, 1 body, 1 class).
+    """
+    def uleb(n):
+        out = bytearray()
+        while True:
+            b = n & 0x7F
+            n >>= 7
+            out.append(b | (0x80 if n else 0))
+            if not n:
+                return bytes(out)
+
+    def p16(v):
+        return struct.pack('<H', v)
+
+    def p32(v):
+        return struct.pack('<I', v)
+
+    strings = ['Lcom/example/Native;', 'Ljava/lang/Object;', 'V', 'doIt', 'stub']
+    types = [0, 1, 2]                      # type idx -> string idx
+    methods = [(0, 0, 3), (0, 0, 4)]       # (class type idx, proto idx, name str idx)
+
+    string_ids_off = 0x70
+    type_ids_off = string_ids_off + 4 * len(strings)
+    proto_ids_off = type_ids_off + 4 * len(types)
+    method_ids_off = proto_ids_off
+    class_defs_off = method_ids_off + 8 * len(methods)
+    data_off = class_defs_off + 32
+
+    data = bytearray()
+    str_offs = []
+    for s in strings:
+        raw = s.encode('utf-8')
+        str_offs.append(data_off + len(data))
+        data += uleb(len(raw)) + raw + b'\x00'
+    while len(data) % 4:
+        data.append(0)
+    code_off = data_off + len(data)
+    data += p16(1) + p16(0) + p16(0) + p16(0) + p32(0) + p32(2) + p16(0x0012) + p16(0x000E)
+    while len(data) % 4:
+        data.append(0)
+    cd_off = data_off + len(data)
+    data += uleb(0) + uleb(0) + uleb(2) + uleb(0)          # static, instance, direct, virtual
+    data += uleb(0) + uleb(0x0101) + uleb(0)               # doIt: ACC_NATIVE, no code
+    data += uleb(1) + uleb(0x0009) + uleb(code_off)        # stub: public static, with code
+
+    h = bytearray(0x70)
+    h[0:8] = b'dex\n035\x00'
+    h[0x20:0x24] = p32(data_off + len(data))
+    h[0x24:0x28] = p32(0x70)
+    h[0x28:0x2C] = p32(0x12345678)
+    h[0x38:0x3C] = p32(len(strings))
+    h[0x3C:0x40] = p32(string_ids_off)
+    h[0x40:0x44] = p32(len(types))
+    h[0x44:0x48] = p32(type_ids_off)
+    h[0x48:0x4C] = p32(0)
+    h[0x4C:0x50] = p32(proto_ids_off)
+    h[0x50:0x54] = p32(0)
+    h[0x54:0x58] = p32(method_ids_off)
+    h[0x58:0x5C] = p32(len(methods))
+    h[0x5C:0x60] = p32(method_ids_off)
+    h[0x60:0x64] = p32(1)
+    h[0x64:0x68] = p32(class_defs_off)
+    h[0x68:0x6C] = p32(len(data))
+    h[0x6C:0x70] = p32(data_off)
+
+    class_def = (p32(0) + p32(0x0001) + p32(1) + p32(0) + p32(0xFFFFFFFF)
+                 + p32(0) + p32(cd_off) + p32(0))
+    return (bytes(h)
+            + b''.join(p32(o) for o in str_offs)
+            + b''.join(p32(i) for i in types)
+            + b''.join(p16(c) + p16(p) + p32(n) for c, p, n in methods)
+            + class_def + bytes(data))
+
+
+def self_test():
+    """Offline self-test: a built-in fixture dex, built-in metric objects."""
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+    import types
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='java2c-selftest-')
+    try:
+        blob = _fixture_dex()
+        dex_path = os.path.join(tmp, 'fixture.dex')
+        with open(dex_path, 'wb') as fh:
+            fh.write(blob)
+
+        # 1) dex-layer metrics against numbers fixed in the fixture
+        d = Dex(blob, 'fixture.dex')
+        assert d.parse_error is None, d.parse_error
+        s = d.summary()
+        assert s['classes'] == 1, s
+        assert s['total_methods'] == 2 and s['native_methods'] == 1, s
+        assert s['body_methods'] == 1 and s['trivial_bodies'] == 1, s
+        assert s['no_code_methods'] == 0 and s['native_with_code'] == 0, s
+        assert s['native_ratio'] == 0.5, s['native_ratio']
+        assert s['header_size_matches'] is True, s['header_note']
+        checks += 1
+
+        # 2) one native method in two is NOT the Java2C shape, and must say so
+        result = classify([d], [], 0)
+        assert result['verdict'] == 'no-hardening-signal', result['verdict']
+        assert result['confidence'] == 'medium', result['confidence']
+        assert result['metrics']['dex_native_ratio'] == 0.5, result['metrics']
+        assert result['evidence'], 'no evidence emitted'
+        checks += 1
+
+        # 3) the discriminating rules, on metrics written by hand
+        def fake_dex(**kw):
+            base = dict(parse_error=None, total_methods=100, native_methods=60,
+                        fully_native_classes=2, native_dominated_classes=3,
+                        no_code_methods=0, trivial_bodies=0, body_methods=40)
+            base.update(kw)
+            return types.SimpleNamespace(**base)
+
+        r = classify([fake_dex()], [], 0)
+        assert r['verdict'] == 'java2c-suspect-needs-so', r['verdict']
+        r = classify([fake_dex(native_methods=10, native_dominated_classes=0,
+                               fully_native_classes=0, no_code_methods=4)], [], 0)
+        assert r['verdict'] == 'extraction-shell-or-vmp', r['verdict']
+        elf = types.SimpleNamespace(name='libx.so', java_symbols=['Java_a_b'] * 60,
+                                    imports_register_natives=False,
+                                    has_jni_onload=False, sig_hits={})
+        r = classify([fake_dex()], [elf], 4096)
+        assert (r['verdict'], r['confidence']) == ('java2c', 'high'), r['verdict']
+        checks += 1
+
+        # 4) malformed input is reported, not counted as a measurement
+        bad = Dex(b'dex\n035\x00' + b'\x00' * 32, 'short.dex')
+        assert bad.parse_error and not bad.header_ok, (bad.parse_error, bad.header_ok)
+        try:
+            _uleb128(b'\x80\x80', 0)
+            raise AssertionError('_uleb128 accepted a truncated LEB128')
+        except ValueError:
+            pass
+        assert _looks_like_dex(b'dex\n035\x00') and not _looks_like_dex(b'\x7fELF')
+        assert _looks_like_elf(b'\x7fELF') and not _looks_like_elf(b'dex\n')
+        checks += 1
+
+        # 5) ELF reader on a bare header: arch is named, junk is refused
+        hdr = bytearray(64)
+        hdr[0:4] = b'\x7fELF'
+        hdr[4] = 2
+        hdr[5] = 1
+        hdr[18:20] = struct.pack('<H', 0)
+        e = Elf(bytes(hdr), 'hdr.so')
+        assert e.is_elf is True and e.arch == 'machine-0', (e.is_elf, e.arch)
+        assert Elf(b'not an elf', 'x.so').is_elf is False
+        checks += 1
+
+        # 6) CLI: no input is a usage error; a real run answers in JSON
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(err):
+                main([])
+            raise AssertionError('main() accepted a run with no input')
+        except SystemExit as exc:
+            assert exc.code == 2, exc.code
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = main(['--dex', dex_path, '--json'])
+        assert rc == 0, rc
+        report = json.loads(out.getvalue())
+        assert report['classification']['verdict'] == 'no-hardening-signal', \
+            report['classification']['verdict']
+        assert report['dex'][0]['native_methods'] == 1, report['dex'][0]
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'java2c_probe.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'java2c_probe.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Collect the evidence that separates Java2C from an extraction "
@@ -868,7 +1056,12 @@ def main(argv=None):
     parser.add_argument("--dir", action="append",
                         help="directory scanned recursively for *.apk/*.dex/*.so")
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    parser.add_argument("--self-test", action="store_true",
+                        help="run the offline built-in checks and exit")
     args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
 
     if not any([args.apk, args.dex, args.so, args.dir]):
         parser.error("at least one of --apk/--dex/--so/--dir is required")

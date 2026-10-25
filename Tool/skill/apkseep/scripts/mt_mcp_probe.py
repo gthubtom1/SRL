@@ -106,6 +106,160 @@ def print_waiting_help(url):
     print(" --url http://<phone-ip>:8787/mcp)")
 
 
+def self_test():
+    """Offline self-test: a loopback stub MCP server, no device, no internet.
+
+    Exercises the parts that decide the verdict: JSON/SSE body framing, the
+    Mcp-Session-Id round trip, and the full initialize -> tools/list -> grouping
+    path against a server that speaks the same wire format.
+    """
+    import contextlib
+    import io
+    import os
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    checks = 0
+    seen = []
+    tools = [
+        {'name': 'mt_apk_open', 'description': 'Open an APK\nsecond line ignored'},
+        {'name': 'mt_apk_build_sign', 'description': 'Repack and sign'},
+        {'name': 'mt_apk_misc_thing', 'description': 'unclassified helper'},
+        {'name': 'not_mt', 'description': 'foreign tool'},
+    ]
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def _reply(self, code, body, ctype='application/json', sid=None):
+            raw = body.encode('utf-8')
+            self.send_response(code)
+            self.send_header('Content-Type', ctype)
+            self.send_header('Content-Length', str(len(raw)))
+            if sid:
+                self.send_header('Mcp-Session-Id', sid)
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def do_POST(self):
+            # Drain the body BEFORE answering an error: a reply that leaves unread
+            # request bytes makes Windows abort the connection (WinError 10053)
+            # instead of delivering the 404 to the client.
+            n = int(self.headers.get('Content-Length') or 0)
+            raw = self.rfile.read(n)
+            if self.path not in ('/mcp', '/sse'):
+                self.send_error(404)
+                return
+            req = json.loads(raw.decode('utf-8'))
+            seen.append((req.get('method'), self.headers.get('Mcp-Session-Id')))
+            if self.path == '/sse':
+                self._reply(200, 'event: message\ndata: %s\n\n'
+                            % json.dumps({'jsonrpc': '2.0', 'id': req.get('id'),
+                                          'result': {'protocolVersion': '2024-11-05',
+                                                     'serverInfo': {'name': 'mt',
+                                                                    'version': '2.26.9'}}}),
+                            ctype='text/event-stream', sid='sid-sse')
+                return
+            if req.get('method') == 'initialize':
+                self._reply(200, json.dumps({
+                    'jsonrpc': '2.0', 'id': req.get('id'),
+                    'result': {'protocolVersion': '2024-11-05',
+                               'serverInfo': {'name': 'mt', 'version': '2.26.9'},
+                               'capabilities': {}}}), sid='sid-1')
+                return
+            if req.get('method') == 'tools/list':
+                self._reply(200, json.dumps({'jsonrpc': '2.0', 'id': req.get('id'),
+                                             'result': {'tools': tools}}))
+                return
+            self._reply(202, '')
+
+    server = HTTPServer(('127.0.0.1', 0), Handler)
+    url = 'http://127.0.0.1:%d/mcp' % server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    old_no_proxy = os.environ.get('no_proxy')
+    os.environ['no_proxy'] = '127.0.0.1'
+    try:
+        # 1) body framing: plain JSON, SSE-framed JSON, junk
+        assert parse_body('{"a": 1}', 'application/json') == {'a': 1}
+        assert parse_body('event: message\ndata: {"b": 2}\n', 'text/event-stream') == {'b': 2}
+        assert parse_body('   ', 'application/json') is None
+        assert parse_body('{not json', 'application/json') is None
+        assert parse_body('data: nope\n', 'text/event-stream') is None
+        checks += 1
+
+        # 2) one JSON-RPC POST: status, session id, and the parsed result
+        status, sid, body = http_post(url, {'jsonrpc': '2.0', 'id': 1,
+                                            'method': 'initialize'}, timeout=5.0)
+        assert status == 200, status
+        assert sid == 'sid-1', sid
+        assert body['result']['serverInfo'] == {'name': 'mt', 'version': '2.26.9'}, body
+        checks += 1
+
+        # 3) SSE responses and the outgoing session header
+        status, sid, body = http_post('http://127.0.0.1:%d/sse' % server.server_address[1],
+                                      {'jsonrpc': '2.0', 'id': 2,
+                                       'method': 'initialize'}, timeout=5.0)
+        assert (status, sid) == (200, 'sid-sse'), (status, sid)
+        assert body['result']['protocolVersion'] == '2024-11-05', body
+        status, _sid, body = http_post(url, {'jsonrpc': '2.0', 'id': 3,
+                                             'method': 'tools/list'},
+                                       session_id='sid-1', timeout=5.0)
+        assert status == 200 and body['result']['tools'] == tools
+        assert seen[-1] == ('tools/list', 'sid-1'), seen[-1]
+        checks += 1
+
+        # 4) an HTTP error is returned as a status, not raised as a traceback
+        status, sid, body = http_post('http://127.0.0.1:%d/nope' % server.server_address[1],
+                                      {'jsonrpc': '2.0', 'id': 4, 'method': 'x'},
+                                      timeout=5.0)
+        assert status == 404 and sid is None and body is None, (status, sid, body)
+        checks += 1
+
+        # 5) the full CLI handshake and the capability grouping it prints
+        out = io.StringIO()
+        old_argv = sys.argv
+        sys.argv = ['mt_mcp_probe.py', '--url', url]
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv = old_argv
+        text = out.getvalue()
+        assert rc == 0, rc
+        assert '== MCP tool inventory: 4 tool(s) ==' in text, text[:400]
+        assert '[APK open/selection] 1' in text, text
+        assert '[Repack + sign] 1' in text, text
+        assert '[non-mt_apk tools] 1' in text, text
+        assert 'second line ignored' not in text, 'the description was not cut to line 1'
+        assert seen[-2][0] == 'notifications/initialized', seen[-2:]
+        assert seen[-1] == ('tools/list', 'sid-1'), seen[-1]
+        checks += 1
+
+        # 6) defaults the documented workflow depends on
+        assert DEFAULT_URL == 'http://127.0.0.1:8787/mcp', DEFAULT_URL
+        help_out = io.StringIO()
+        with contextlib.redirect_stdout(help_out):
+            print_waiting_help(DEFAULT_URL)
+        assert 'adb forward tcp:8787 tcp:8787' in help_out.getvalue()
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'mt_mcp_probe.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'mt_mcp_probe.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        if old_no_proxy is None:
+            os.environ.pop('no_proxy', None)
+        else:
+            os.environ['no_proxy'] = old_no_proxy
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="Probe the MT Manager APK MCP (Streamable HTTP) and list its tools.")
@@ -115,7 +269,12 @@ def main():
                     help="per-request timeout in seconds (default: %(default)s)")
     ap.add_argument("--json", action="store_true",
                     help="print raw JSON-RPC responses instead of the report")
+    ap.add_argument("--self-test", action="store_true",
+                    help="run the offline built-in checks and exit (loopback stub server)")
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     # 1) initialize
     init = {

@@ -888,12 +888,129 @@ def cmd_verify(args):
     return 0
 
 
+def self_test():
+    """Offline self-test: template rendering + a generate/verify round trip on disk.
+
+    The one static check this tool performs (an `extern` kfunc_def declaration, which
+    the KPM loader rejects) is asserted in both directions, including the comment
+    case that once produced a false positive.
+    """
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='kernelsu-selftest-')
+    mod = os.path.join(tmp, 'module')
+
+    def run(argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            rc = main(argv)
+        return rc, out.getvalue()
+
+    try:
+        # 1) template rendering: {name} is substituted, {{ }} unescapes, C braces stay
+        assert _render('id={id} {{x}} {unknown}', id='m1') == 'id=m1 {x} {unknown}'
+        checks += 1
+
+        # 2) rule -> C table: errno sign, action mapping, and the unknown-action default
+        rules = [
+            {'path': '/proc/self/maps', 'action': 'deny', 'errno': 'EACCES'},
+            {'prefix': '/proc/self/task', 'action': 'fake_size', 'size': 4096},
+            {'path': '/proc/version', 'action': 'nonsense'},
+        ]
+        table = _rule_table_c(rules).splitlines()
+        assert table[0] == '    { "/proc/self/maps", 0, MASK_DENY, -13, 0 },', table[0]
+        assert table[1] == '    { 0, "/proc/self/task", MASK_FAKE_SIZE, -2, 4096 },', table[1]
+        assert table[2] == '    { "/proc/version", 0, MASK_DENY, -2, 0 },', table[2]
+        assert _rule_table_c([]) == '    /* no rules configured */'
+        checks += 1
+
+        # 3) comments are stripped: prose must not be read as code, code must survive
+        code = _strip_c_comments('/* extern int kfunc_def; */\nint keep = 1; // note\n')
+        assert 'extern' not in code and 'note' not in code, code
+        assert 'int keep = 1;' in code, code
+        checks += 1
+
+        # 4) generate: every promised artifact is written, with the given id
+        rc, _text = run(['generate', '--out', mod, '--id', 'selftest-mask'])
+        assert rc == 0, rc
+        for rel in ('module.prop', 'customize.sh', 'post-fs-data.sh', 'service.sh',
+                    'uninstall.sh', 'config/syscall_mask.json', 'README.md',
+                    'kpm/selftest-mask.c', 'kpm/Makefile',
+                    'lkm/selftest-mask.c', 'ebpf/syscall_mask.bpf.c'):
+            assert os.path.isfile(os.path.join(mod, rel)), 'missing artifact: %s' % rel
+        prop = open(os.path.join(mod, 'module.prop'), encoding='utf-8').read()
+        assert 'id=selftest-mask' in prop, prop
+        conf = json.load(open(os.path.join(mod, 'config', 'syscall_mask.json'),
+                              encoding='utf-8'))
+        assert conf['rules'] and all('syscall' in r and 'action' in r
+                                     for r in conf['rules']), conf
+        kpm = open(os.path.join(mod, 'kpm', 'selftest-mask.c'), encoding='utf-8').read()
+        assert 'KPM_NAME' in kpm and 'KPM_INIT' in kpm and 'KPM_EXIT' in kpm
+        assert conf['rules'][0]['path'] in kpm, 'the rule table was not rendered into the C'
+        checks += 1
+
+        # 5) verify accepts what generate produced
+        rc, text = run(['verify', '--dir', mod])
+        assert rc == 0, (rc, text[-300:])
+        assert '0 problem(s)' in text, text[-300:]
+        checks += 1
+
+        # 6) and rejects the documented trap: an extern kfunc_def in real code
+        kpm_path = os.path.join(mod, 'kpm', 'selftest-mask.c')
+        original = open(kpm_path, encoding='utf-8').read()
+        with open(kpm_path, 'w', encoding='utf-8', newline='\n') as fh:
+            fh.write(original + '\nextern struct kfunc_def *kfunc_def_lookup;\n')
+        rc, text = run(['verify', '--dir', mod])
+        assert rc == 1, rc
+        assert 'declares kfunc_def with' in text and 'extern' in text, text[-400:]
+        assert 'selftest-mask.c' in text, text[-400:]
+        checks += 1
+
+        # 7) a rule with an unknown action is a verify failure, not a silent pass
+        with open(kpm_path, 'w', encoding='utf-8', newline='\n') as fh:
+            fh.write(original)
+        conf_path = os.path.join(mod, 'config', 'syscall_mask.json')
+        bad = json.load(open(conf_path, encoding='utf-8'))
+        bad['rules'] = [{'syscall': 'openat', 'action': 'pretend-ok'}]
+        with open(conf_path, 'w', encoding='utf-8') as fh:
+            json.dump(bad, fh)
+        rc, text = run(['verify', '--dir', mod])
+        assert rc == 1, rc
+        assert 'unknown action' in text, text[-400:]
+        checks += 1
+
+        # 8) CLI contract: no subcommand is a usage error, a subcommand keeps its own
+        assert run([])[0] == 2
+        try:
+            run(['verify'])
+            raise AssertionError('verify accepted a run without --dir')
+        except SystemExit as exc:
+            assert exc.code == 2, exc.code
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'kernelsu_syscall_mask.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks,
+                          'tool': 'kernelsu_syscall_mask.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="kernelsu_syscall_mask.py",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd")
+    parser.add_argument('--self-test', action='store_true',
+                        help='run the offline built-in checks and exit (no device, no tools)')
 
     p = sub.add_parser("gates", help="print the kernel-route gate table and probe this host",
                        description="The gate table, plus whatever part of it can be "
@@ -927,6 +1044,8 @@ def main(argv=None):
     p.set_defaults(func=cmd_verify)
 
     args = parser.parse_args(argv)
+    if getattr(args, 'self_test', False):
+        return self_test()
     if not getattr(args, "cmd", None):
         parser.print_help()
         return 2

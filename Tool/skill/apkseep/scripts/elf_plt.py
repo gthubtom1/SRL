@@ -37,6 +37,7 @@ Usage
 
 import argparse
 import hashlib
+import json
 import os
 import struct
 import sys
@@ -421,7 +422,86 @@ def cmd_diff(elf_a, args):
         print("   (identical)")
 
 
+def self_test():
+    """Offline self-test: built-in instruction words only, no .so, no disassembler.
+
+    The stub decoders are fed hand-encoded aarch64/x86_64 stubs, so a wrong bit
+    position in an encoder/decoder pair fails here instead of silently mapping a
+    PLT stub to the wrong imported symbol.
+    """
+    checks = 0
+    try:
+        # --- aarch64: adrp x16 / ldr x17,[x16,#off] / add x16,x16,#off / br x17
+        def adrp(rd, pc, page):
+            imm = (((page & ~0xFFF) - (pc & ~0xFFF)) >> 12) & 0x1FFFFF
+            return ((1 << 31) | (0x10 << 24) | ((imm & 3) << 29)
+                    | (((imm >> 2) & 0x7FFFF) << 5) | rd)
+
+        def ldr(rt, rn, byte_off):
+            return ((0b11 << 30) | (0b111 << 27) | (0b01 << 24)
+                    | ((byte_off // 8) << 10) | (rn << 5) | rt)
+
+        def add(rd, rn, imm):
+            return (1 << 31) | (0b100010 << 23) | (imm << 10) | (rn << 5) | rd
+
+        base, got = 0x1000, 0x1100
+        words = [adrp(16, base, base), ldr(17, 16, 0x100), add(16, 16, 0x100),
+                 0xD61F0000 | (17 << 5)]
+        data = b''.join(struct.pack('<I', w) for w in words) + b'\x00' * 4
+        stubs = _stubs_arm64(data, base, 0, len(data), {got: 'kill'})
+        assert stubs == {base: ('kill', got)}, stubs
+        checks += 1
+
+        # a stub whose GOT slot is not in the relocation map must not be invented
+        assert _stubs_arm64(data, base, 0, len(data), {}) == {}
+        checks += 1
+
+        # the decoder primitives reject the neighbouring encodings they must not accept
+        assert _decode_adrp(0xD503201F, 0x1000) is None          # nop, not adrp
+        assert _decode_br(0xD503201F) is None                    # not `br`
+        assert _decode_add_imm((1 << 31) | (0b100010 << 23) | (1 << 22)) is None  # shifted form
+        assert _sign_extend(0xFFF, 12) == -1
+        checks += 1
+
+        # --- x86_64: ff 25 <disp32> == jmp qword ptr [rip+disp32]
+        va, target = 0x2000, 0x2200
+        disp = target - va - 6
+        x86 = b'\xff\x25' + struct.pack('<i', disp) + b'\x00\x00'
+        stubs = _stubs_x86(x86, va, 0, len(x86), {target: 'open'})
+        assert stubs == {va: ('open', target)}, stubs
+        checks += 1
+
+        # --- ELF header handling
+        try:
+            Elf(b'not an elf at all')
+            raise AssertionError('Elf() accepted a non-ELF buffer')
+        except ValueError:
+            pass
+        hdr = bytearray(64)
+        hdr[0:4] = b'\x7fELF'
+        hdr[4] = 2                                    # 64-bit
+        hdr[18:20] = struct.pack('<H', EM_AARCH64)
+        hdr[54:56] = struct.pack('<H', 56)            # phentsize
+        elf = Elf(bytes(hdr))
+        assert elf.arch == 'aarch64', elf.arch
+        try:
+            elf.exec_segment()
+            raise AssertionError('an ELF with no PT_LOAD was accepted as executable')
+        except ValueError:
+            pass
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'elf_plt.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'elf_plt.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(
         description="PLT stub -> symbol mapping and .so diffing for hardened libraries.",
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -454,4 +534,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

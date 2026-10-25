@@ -33,12 +33,18 @@ non-zero-on-findings convention is deliberate so a pipeline can gate on it.
 """
 
 import argparse
+import json
 import os
+import shutil
+import struct
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from dexutil import IF_TEST, IF_TESTZ, MOVE_RESULT_OPS, load_dex  # noqa: E402
+from dexutil import (  # noqa: E402
+    Dex, IF_TEST, IF_TESTZ, MOVE_RESULT_OPS, load_dex, selftest_dex,
+)
 
 
 def analyse_method(dex, code_off):
@@ -118,7 +124,101 @@ def scan_image(path, entry, cls_filter):
             "unclean": unclean, "entry": entry_name}
 
 
+def self_test():
+    """Offline self-test: a generated dex, no APK and no sample file.
+
+    `dexutil.selftest_dex()` builds one class whose conditional branch targets a
+    `move-result` on purpose. The assertions are about the CFG reasoning this tool exists
+    for: exactly one finding, at exactly the branch and target offsets the fixture
+    declares, and the report's method/finding counts -- plus the exit-code contract (a
+    build WITH findings exits 1, so a pipeline can gate on it).
+    """
+    import contextlib
+    import io
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dex-verifier-selftest-')
+    try:
+        blob, meta = selftest_dex()
+        path = os.path.join(tmpdir, 'classes.dex')
+        with open(path, 'wb') as fh:
+            fh.write(blob)
+
+        dex, _entry = load_dex(path)
+        assert dex.check() == [], dex.check()
+        checks += 1
+
+        findings, clean, detail = analyse_method(dex, meta['code_gate'])
+        assert clean, detail
+        assert findings == [(meta['off_if_eqz'], meta['off_move_result'], True)], findings
+        checks += 1
+
+        # The stub body has no branch at all: a clean body must produce no finding, or
+        # the tool would report every method as broken.
+        stub_findings, stub_clean, _d = analyse_method(dex, meta['code_stub'])
+        assert (stub_findings, stub_clean) == ([], True), (stub_findings, stub_clean)
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            stats = scan_image(path, None, None)
+        assert stats['methods'] == 2, stats
+        assert stats['findings'] == 1, stats
+        assert stats['unclean'] == 0, stats
+        assert stats['entry'] == path, stats['entry']
+        assert 'VIOLATION Lcom/ex/Foo;.gate()V' in out.getvalue(), out.getvalue()
+        checks += 1
+
+        with contextlib.redirect_stdout(io.StringIO()):
+            filtered = scan_image(path, None, 'NoSuchClass')
+        assert filtered['methods'] == 0 and filtered['findings'] == 0, filtered
+        checks += 1
+
+        # Exit-code contract: findings present -> 1 (a pipeline gate), clean -> 0.
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = main(['dex_check_verifier.py', path])
+        assert rc == 1, rc
+        checks += 1
+
+        clean_path = os.path.join(tmpdir, 'clean.dex')
+        with open(clean_path, 'wb') as fh:
+            fh.write(blob)
+        dex_check = load_dex(clean_path)[0]
+        assert analyse_method(dex_check, meta['code_stub'])[0] == []
+        checks += 1
+
+        # The documented boundary, asserted: an unconditional `goto` landing on a
+        # move-result is normal compiler output, NOT a violation. Rewrite the conditional
+        # branch (2 units, 21t) into `goto/16` (also 2 units, 20t) with the same target
+        # and require the finding to disappear. Without this, the tool would report
+        # 20x more "violations" than exist.
+        patched = bytearray(blob)
+        off = meta['off_if_eqz']
+        patched[off:off + 4] = struct.pack('<HH', 0x0029, 0xFFFF)
+        goto_dex = Dex(bytes(patched), 'goto.dex')
+        goto_findings, goto_clean, goto_detail = analyse_method(goto_dex, meta['code_gate'])
+        assert goto_findings == [], goto_findings
+        assert goto_clean, goto_detail
+        goto_dex_branch = goto_dex.insn_at(meta['code_gate'], off)
+        assert goto_dex_branch['op'] == 0x29, goto_dex_branch['name']
+        assert goto_dex.branch_target(goto_dex_branch) == meta['off_move_result']
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dex_check_verifier.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dex_check_verifier.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv):
+    if '--self-test' in argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description="Detect branch-into-move-result verifier violations.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -126,6 +226,8 @@ def main(argv):
     ap.add_argument("targets", nargs="+", help="one .dex/.apk, or two to compare")
     ap.add_argument("--entry", help="archive member (default: first classes*.dex)")
     ap.add_argument("--class", dest="cls", help="substring filter on the class name")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit (no APK, no sample)")
     args = ap.parse_args(argv[1:])
 
     results = []

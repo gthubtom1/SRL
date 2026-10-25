@@ -278,6 +278,151 @@ def report(res, out=sys.stdout):
     w('\n')
 
 
+def self_test():
+    """Offline self-test: hand-written dates/report rows, no socket is opened.
+
+    check_host is exercised with strict_connect/fetch_peer_cert stubbed, which is
+    exactly the boundary that turns an OpenSSL verify_code into a classification.
+    """
+    import contextlib
+    import io
+    import json
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    # 1) ASN.1 time parsing and the days-remaining arithmetic
+    dt = parse_asn1_time('Nov 29 23:59:59 2026 GMT')
+    chk('asn1-gmt', dt == datetime(2026, 11, 29, 23, 59, 59, tzinfo=timezone.utc), dt)
+    chk('asn1-utc', parse_asn1_time('Jan  1 00:00:00 2030 UTC') ==
+        datetime(2030, 1, 1, tzinfo=timezone.utc))
+    chk('asn1-garbage-none', parse_asn1_time('not a date') is None)
+    chk('asn1-empty-none', parse_asn1_time(None) is None and parse_asn1_time('') is None)
+    chk('days-left-future-positive', (days_left('Nov 29 23:59:59 2999 GMT') or 0) > 300000,
+        days_left('Nov 29 23:59:59 2999 GMT'))
+    chk('days-left-expired-negative', (days_left('Jan  1 00:00:00 2020 GMT') or 0) < 0,
+        days_left('Jan  1 00:00:00 2020 GMT'))
+    chk('days-left-unknown-none', days_left(None) is None and days_left('x') is None)
+
+    # 2) distinguished names are flattened, not printed as tuples
+    chk('fmt-name-flat', fmt_name(((('commonName', 'api.example.com'),),
+                                   (('organizationName', 'Example'),))) ==
+        'commonName=api.example.com, organizationName=Example', fmt_name(
+            ((('commonName', 'api.example.com'),), (('organizationName', 'Example'),))))
+    chk('fmt-name-empty', fmt_name(None) is None and fmt_name(()) is None)
+
+    # 3) the OpenSSL code -> classification table, and that every class says what to do
+    chk('verify-code-expired', VERIFY_CODE_CLASS[10][0] == 'EXPIRED', VERIFY_CODE_CLASS[10])
+    chk('verify-code-hostname', VERIFY_CODE_CLASS[62][0] == 'HOSTNAME-MISMATCH')
+    chk('verify-code-self-signed-is-untrusted', VERIFY_CODE_CLASS[18][0] == 'UNTRUSTED-CA')
+    classes = {cls for cls, _msg in VERIFY_CODE_CLASS.values()}
+    chk('action-for-every-class', classes <= set(CLASS_ACTION), sorted(classes))
+    chk('action-expired-mentions-server', 'server-side' in CLASS_ACTION['EXPIRED'],
+        CLASS_ACTION['EXPIRED'])
+
+    # 4) check_host over a stubbed handshake: expired, verified, and unreachable
+    global strict_connect, fetch_peer_cert
+    real_strict, real_peer = strict_connect, fetch_peer_cert
+    try:
+        class FakeVerify(ssl.SSLCertVerificationError):
+            pass
+
+        def make_verify_error(code):
+            exc = FakeVerify('certificate verify failed')
+            exc.verify_code = code
+            exc.verify_message = 'expired certificate'
+            return exc
+
+        def raise_strict(code):
+            def _f(host, port, sni, timeout):
+                raise make_verify_error(code)
+            return _f
+
+        strict_connect = raise_strict(10)
+        fetch_peer_cert = lambda host, port, sni, timeout: {
+            'subject': ((('commonName', 'api.example.com'),),),
+            'issuer': ((('commonName', 'Example CA'),),),
+            'notBefore': 'Jan  1 00:00:00 2020 GMT',
+            'notAfter': 'Jan  1 00:00:00 2021 GMT',
+            'sha256': 'deadbeef' * 8,
+            'der_bytes': 10,
+        }
+        res = check_host('api.example.com', 443, 'api.example.com', 1)
+        chk('expired-classification', res['classification'] == 'EXPIRED',
+            res['classification'])
+        chk('expired-not-ok', res['ok'] is False)
+        chk('expired-verify-code', res['verify_code'] == 10, res['verify_code'])
+        chk('expired-action-set', bool(res['action']) and
+            res['action'] == CLASS_ACTION['EXPIRED'])
+        chk('expired-still-shows-cert', res['subject'] == 'commonName=api.example.com',
+            res['subject'])
+        chk('expired-days-negative', (res['days_remaining'] or 0) < 0, res['days_remaining'])
+        chk('expired-fingerprint', res['fingerprint_sha256'] == 'deadbeef' * 8)
+
+        strict_connect = lambda host, port, sni, timeout: {
+            'cert': {'subject': ((('commonName', 'api.example.com'),),),
+                     'issuer': ((('commonName', 'Example CA'),),),
+                     'notBefore': 'Jan  1 00:00:00 2020 GMT',
+                     'notAfter': 'Jan  1 00:00:00 2999 GMT'},
+            'protocol': 'TLSv1.3',
+            'cipher': 'TLS_AES_128_GCM_SHA256',
+        }
+        ok_res = check_host('api.example.com', 8443, 'api.example.com', 1)
+        chk('verified-ok', ok_res['ok'] is True and ok_res['classification'] is None,
+            ok_res['classification'])
+        chk('verified-protocol', ok_res['protocol'] == 'TLSv1.3', ok_res['protocol'])
+        chk('verified-cipher', ok_res['cipher'] == 'TLS_AES_128_GCM_SHA256')
+        chk('verified-days-positive', (ok_res['days_remaining'] or 0) > 0)
+
+        def raise_oserror(host, port, sni, timeout):
+            raise OSError('connection refused')
+        strict_connect = raise_oserror
+        err_res = check_host('127.0.0.1', 1, '127.0.0.1', 1)
+        chk('unreachable-is-other', err_res['classification'] == 'OTHER' and
+            err_res['ok'] is False, err_res['classification'])
+        chk('unreachable-keeps-error', 'OSError' in (err_res['error'] or ''),
+            err_res['error'])
+
+        # 5) report(): the human row must state the verdict, not only the raw error
+        buf = io.StringIO()
+        report(res, out=buf)
+        text = buf.getvalue()
+        chk('report-fail-header', 'status         : FAIL - EXPIRED' in text, text[:120])
+        chk('report-shows-notafter', 'notAfter' in text and
+            'Jan  1 00:00:00 2021 GMT' in text, text[:200])
+        chk('report-shows-fingerprint', 'sha256         : ' + 'deadbeef' * 8 in text)
+        chk('report-shows-action', 'action         : ' in text)
+        buf = io.StringIO()
+        report(ok_res, out=buf)
+        chk('report-ok-header', 'status         : OK (strict verification passed)' in
+            buf.getvalue(), buf.getvalue()[:80])
+    finally:
+        strict_connect, fetch_peer_cert = real_strict, real_peer
+
+    # 6) argparse contract: at least one HOST is required, --port/--sni exist
+    import subprocess
+    me = os.path.abspath(__file__)
+    helped = subprocess.run([sys.executable, me, '--help'], capture_output=True,
+                            text=True, errors='replace')
+    chk('help-rc0', helped.returncode == 0, helped.returncode)
+    for flag in ('--port', '--sni', '--timeout', '--json', '--self-test'):
+        chk('help-mentions-%s' % flag, flag in helped.stdout)
+    no_host = subprocess.run([sys.executable, me], capture_output=True, text=True,
+                             errors='replace')
+    chk('no-host-exits-2', no_host.returncode == 2, no_host.returncode)
+    chk('default-port', DEFAULT_PORT == 443, DEFAULT_PORT)
+    chk('default-timeout', DEFAULT_TIMEOUT == 10, DEFAULT_TIMEOUT)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'tls_check.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
     ap = argparse.ArgumentParser(
         description='Verify TLS certificates for one or more hosts, strictly, '
@@ -292,6 +437,10 @@ def main():
     ap.add_argument('--timeout', type=float, default=DEFAULT_TIMEOUT,
                     help='connect timeout in seconds (default %d)' % DEFAULT_TIMEOUT)
     ap.add_argument('--json', action='store_true', help='emit JSON instead of a report')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test (stubbed handshake, no network)')
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     args = ap.parse_args()
 
     results = []

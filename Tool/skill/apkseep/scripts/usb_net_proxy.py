@@ -22,23 +22,30 @@ Forwards only: it does not MITM, does not decrypt TLS and does not modify traffi
 certificate validation is unaffected. See references/environment.md.
 
 Usage: python usb_net_proxy.py [listen_port] [logfile]
+       python usb_net_proxy.py --self-test        # offline contract self-test
 """
 import socket
 import sys
 import threading
 import time
 
-if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help'):
-    print(__doc__)
-    sys.exit(0)
+SELF_TEST = '--self-test' in sys.argv[1:]
+if SELF_TEST:
+    # The self-test never opens a listening socket or a log file; PORT/LOGF only
+    # have to exist because they are module-level names main() uses.
+    PORT, LOGF = 8080, None
+else:
+    if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help'):
+        print(__doc__)
+        sys.exit(0)
 
-try:
-    PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
-except ValueError:
-    print('error: listen_port must be a number, got %r\n' % sys.argv[1])
-    print(__doc__)
-    sys.exit(2)
-LOGF = sys.argv[2] if len(sys.argv) > 2 else None
+    try:
+        PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
+    except ValueError:
+        print('error: listen_port must be a number, got %r\n' % sys.argv[1])
+        print(__doc__)
+        sys.exit(2)
+    LOGF = sys.argv[2] if len(sys.argv) > 2 else None
 _lock = threading.Lock()
 _logf = open(LOGF, 'a', encoding='utf-8') if LOGF else None
 
@@ -158,6 +165,147 @@ def handle(client, addr):
             pass
 
 
+def self_test():
+    """Offline self-test: hand-built request bytes, no listening socket, no network.
+
+    handle() is the whole proxy decision, so it is driven here with a stub client
+    and a stub remote: CONNECT must answer 200 before pumping, and a plain HTTP
+    request must be rewritten to origin-form with Proxy-Connection removed.
+    """
+    import contextlib
+    import io
+    import json
+    import os
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    class FakeSock(object):
+        def __init__(self, chunks=(), name='sock'):
+            self.chunks = list(chunks)
+            self.sent = b''
+            self.closed = False
+            self.timeouts = []
+            self.name = name
+
+        def recv(self, n):
+            return self.chunks.pop(0) if self.chunks else b''
+
+        def sendall(self, data):
+            self.sent += data
+
+        def settimeout(self, value):
+            self.timeouts.append(value)
+
+        def shutdown(self, how):
+            pass
+
+        def close(self):
+            self.closed = True
+
+    # 1) read_head: terminator detection, limit, and a closed peer
+    got = read_head(FakeSock([b'GET / HTTP/1.1\r\nHost: x\r\n\r\nBODY']))
+    chk('read-head-keeps-terminator', got.startswith(b'GET / HTTP/1.1') and
+        b'\r\n\r\n' in got, got)
+    chk('read-head-keeps-body', got.endswith(b'BODY'), got)
+    limited = read_head(FakeSock([b'A' * 20]), limit=10)
+    chk('read-head-limit', len(limited) == 20, len(limited))
+    chk('read-head-empty', read_head(FakeSock([])) == b'')
+
+    # 2) handle(): CONNECT tunnel
+    global pump
+    real_create = socket.create_connection
+    real_pump = pump
+    remotes = []
+
+    class FakeRemote(FakeSock):
+        pass
+
+    def fake_create(address, timeout=None):
+        r = FakeRemote(name='remote')
+        r.address = address
+        r.timeout_arg = timeout
+        remotes.append(r)
+        return r
+
+    pumped = []
+    quiet = io.StringIO()
+    real_stdout = sys.stdout
+    sys.stdout = quiet
+    try:
+        socket.create_connection = fake_create
+        pump = lambda a, b: pumped.append((a.name, b.name))
+
+        client = FakeSock([b'CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n\r\n'],
+                          name='client')
+        handle(client, ('127.0.0.1', 5000))
+        chk('connect-one-remote', len(remotes) == 1, len(remotes))
+        chk('connect-target', remotes and remotes[0].address == ('example.com', 443),
+            remotes and remotes[0].address)
+        chk('connect-timeout-20', remotes and remotes[0].timeout_arg == 20,
+            remotes and remotes[0].timeout_arg)
+        chk('connect-200-first', client.sent.startswith(
+            b'HTTP/1.1 200 Connection Established\r\n\r\n'), client.sent[:60])
+        chk('connect-pumped-both-ways', len(pumped) == 2, pumped)
+
+        # 3) handle(): plain HTTP absolute URI -> origin form, Proxy-Connection removed
+        remotes.clear()
+        pumped.clear()
+        body = (b'GET http://example.org:8080/path?q=1 HTTP/1.1\r\n'
+                b'Host: example.org\r\n'
+                b'Proxy-Connection: keep-alive\r\n'
+                b'\r\n'
+                b'hello')
+        client = FakeSock([body], name='client')
+        handle(client, ('127.0.0.1', 5001))
+        req = remotes[0].sent
+        chk('http-target', remotes[0].address == ('example.org', 8080), remotes[0].address)
+        chk('http-origin-form', req.startswith(b'GET /path?q=1 HTTP/1.1\r\n'), req[:60])
+        chk('http-keeps-host-header', b'Host: example.org\r\n' in req, req[:120])
+        chk('http-drops-proxy-connection', b'Proxy-Connection' not in req, req[:160])
+        chk('http-keeps-body', req.endswith(b'hello'), req[-20:])
+        chk('http-pumped', len(pumped) == 2, pumped)
+
+        # 4) malformed / hostless requests close the client instead of dialling out
+        remotes.clear()
+        bad = FakeSock([b'GET\r\n\r\n'], name='bad')
+        handle(bad, ('127.0.0.1', 5002))
+        chk('malformed-closes-client', bad.closed is True and remotes == [],
+            (bad.closed, len(remotes)))
+        hostless = FakeSock([b'GET /relative HTTP/1.1\r\n\r\n'], name='hostless')
+        handle(hostless, ('127.0.0.1', 5003))
+        chk('hostless-closes-client', hostless.closed is True and remotes == [],
+            (hostless.closed, len(remotes)))
+    finally:
+        sys.stdout = real_stdout
+        socket.create_connection = real_create
+        pump = real_pump
+
+    # 5) CLI contract: the port is validated before anything is bound; -h documents
+    #    the adb reverse recipe.
+    import subprocess
+    me = os.path.abspath(__file__)
+    bad_port = subprocess.run([sys.executable, me, 'not-a-port'], capture_output=True,
+                              text=True, errors='replace')
+    chk('bad-port-exits-2', bad_port.returncode == 2, bad_port.returncode)
+    chk('bad-port-message', 'listen_port must be a number' in bad_port.stdout,
+        (bad_port.stdout or '')[:80])
+    helped = subprocess.run([sys.executable, me, '--help'], capture_output=True,
+                            text=True, errors='replace')
+    chk('help-exits-0', helped.returncode == 0, helped.returncode)
+    for needle in ('CONNECT tunnelling', 'adb reverse', '--self-test'):
+        chk('help-mentions-%s' % needle.replace(' ', '-'), needle in helped.stdout)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'usb_net_proxy.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -170,4 +318,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if SELF_TEST:
+        sys.exit(self_test())
     main()

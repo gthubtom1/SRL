@@ -29,6 +29,7 @@ Useful flags
 Exit code is 0 only when the app launched AND both pid samples agree.
 """
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -59,7 +60,96 @@ def su(cmd, serial=None):
     return adb(['shell', 'su -c "%s"' % cmd.replace('"', '\\"')], serial)
 
 
+def self_test():
+    """Offline self-test: adb is replaced by a stub, so no device and no APK.
+
+    The pass/fail rule is the point of this script, so it is asserted in both
+    directions: stable pid + clean logcat -> 0, a dead or crash-looping app -> 1.
+    """
+    import contextlib
+    import io
+    import types
+
+    checks = 0
+    try:
+        def run_with_stub(argv, pids=('4242', '4242'), logcat=''):
+            calls = []
+            seq = list(pids)
+            real = (subprocess.run, time.sleep)
+
+            def fake_run(cmd, **kw):
+                calls.append(list(cmd))
+                joined = ' '.join(cmd)
+                if 'pidof' in joined:
+                    return types.SimpleNamespace(
+                        stdout=(seq.pop(0) if seq else '') + '\n', stderr='')
+                if 'logcat' in cmd and '-d' in cmd:
+                    return types.SimpleNamespace(stdout=logcat, stderr='')
+                return types.SimpleNamespace(stdout='', stderr='')
+
+            old_argv = sys.argv
+            sys.argv = argv
+            out = io.StringIO()
+            try:
+                subprocess.run = fake_run
+                time.sleep = lambda _s: None
+                with contextlib.redirect_stdout(out):
+                    rc = main()
+            finally:
+                subprocess.run, time.sleep = real
+                sys.argv = old_argv
+            return rc, out.getvalue(), calls
+
+        base = ['install_test.py', '--apk', 'out/app.apk', '--pkg', 'com.example.app',
+                '--activity', '.MainActivity', '--wait', '1']
+
+        rc, text, calls = run_with_stub(base)
+        assert rc == 0, rc
+        assert '[result] OK' in text, text
+        assert '[6] pid @+6s : 4242' in text and '[7] pid @+7s : 4242' in text, text
+        checks += 1
+
+        # the install path is asserted exactly: wrong flags here break --keep-data
+        assert ['adb', 'push', 'out/app.apk', '/data/local/tmp/_skill_stage.apk'] in calls, calls
+        assert ['adb', 'shell', 'su -c "pm install -r -t -d /data/local/tmp/_skill_stage.apk"'] \
+            in calls, calls
+        assert ['adb', 'shell', 'am start -n com.example.app/.MainActivity'] in calls, calls
+        checks += 1
+
+        # --grant normalises a bare permission name and grants it as root
+        rc, _text, calls = run_with_stub(base + ['--grant', 'READ_PHONE_STATE'])
+        assert rc == 0, rc
+        assert ['adb', 'shell',
+                'su -c "pm grant com.example.app android.permission.READ_PHONE_STATE"'] \
+            in calls, calls
+        checks += 1
+
+        # a crash loop shows a live pid once: the second sample must catch it
+        rc, text, _calls = run_with_stub(base, pids=('4242', ''))
+        assert rc == 1, rc
+        assert '[result] CHECK' in text, text
+        checks += 1
+
+        # fatal signatures are matched, and reported
+        fatal = '01-01 00:00:00.000 E/AndroidRuntime: FATAL EXCEPTION: main'
+        assert FATAL.search(fatal) is not None
+        assert FATAL.search('I/ActivityManager: Start proc com.example.app') is None
+        rc, text, _calls = run_with_stub(base, logcat=fatal + '\n')
+        assert rc == 1, rc
+        assert 'FATAL EXCEPTION: main' in text, text
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'install_test.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'install_test.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument('--apk', required=True)
     ap.add_argument('--pkg', required=True)

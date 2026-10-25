@@ -473,6 +473,92 @@ class _Parser(argparse.ArgumentParser):
         raise SystemExit(EXIT_USE)
 
 
+def self_test():
+    """Offline self-test: built-in bytes only, no device, no external tools.
+
+    The three things this script's verdicts rest on are checked against fixtures:
+    the static import scan (an unparsed file must be `unknown`, never `no deps`),
+    the JS require scan, and the RESULT= token on the argparse error path.
+    """
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='doctor-selftest-')
+    try:
+        # 1) static import scan: third-party module and host tool, from source only
+        py = os.path.join(tmp, 'probe.py')
+        with open(py, 'w', encoding='utf-8') as fh:
+            fh.write('import os, json\n'
+                     'import some_third_party_pkg\n'
+                     'ADB = "adb"\n'
+                     'def go():\n'
+                     '    subprocess.run([ADB, "devices"])\n')
+        mods, tools, err = static_python_deps(py)
+        assert err is None, err
+        assert mods == ['some_third_party_pkg'], mods
+        assert tools == ['adb'], tools
+        checks += 1
+
+        # 2) a file that cannot be parsed reports an error instead of "no deps"
+        broken = os.path.join(tmp, 'broken.py')
+        with open(broken, 'w', encoding='utf-8') as fh:
+            fh.write('def oops(:\n')
+        mods, tools, err = static_python_deps(broken)
+        assert err and 'SyntaxError' in err, (mods, tools, err)
+        checks += 1
+
+        # 3) `shutil.which(...)` is a probe, not a dependency (it must not appear)
+        probe = os.path.join(tmp, 'probe2.py')
+        with open(probe, 'w', encoding='utf-8') as fh:
+            fh.write('import shutil\nshutil.which("frida")\n')
+        _mods, tools, err = static_python_deps(probe)
+        assert err is None and tools == [], tools
+        checks += 1
+
+        # 4) JS require scan, with a line comment that must not be counted
+        js = os.path.join(tmp, 'hook.js')
+        with open(js, 'w', encoding='utf-8') as fh:
+            fh.write('const a = require("frida-java-bridge");\n'
+                     '// require("commented-out")\n'
+                     'const b = require("frida");\n')
+        reqs, err = static_js_deps(js)
+        assert err is None, err
+        assert reqs == ['frida', 'frida-java-bridge'], reqs
+        checks += 1
+
+        # 5) constant-string extraction used by the tool scan
+        consts = _const_strings(ast.parse('CMD = "adb"\nsubprocess.run([CMD])\n'))
+        assert consts == {'CMD': 'adb'}, consts
+        checks += 1
+
+        # 6) the directory scan sees this very file -- the list is the directory
+        assert 'doctor.py' in discover_scripts()
+        checks += 1
+
+        # 7) usage error keeps the RESULT= contract and exits 2
+        out, errbuf = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(errbuf):
+                _Parser(prog='doctor.py').error('bad flag')
+            raise AssertionError('usage error did not exit')
+        except SystemExit as exc:
+            assert exc.code == EXIT_USE, exc.code
+        assert 'RESULT=%s' % TOKENS['use'] in out.getvalue(), out.getvalue()
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'doctor.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'doctor.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     ap = _Parser(
         description='Check what this environment can actually do. Exit 0 = nothing '
@@ -483,7 +569,12 @@ def main():
                     help='every capability with its missing atoms and next actions '
                          '(the default prints the same list compactly)')
     ap.add_argument('--json', action='store_true', dest='as_json', help='emit JSON')
+    ap.add_argument('--self-test', action='store_true',
+                    help='run the offline built-in checks and exit (no device, no tools)')
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     try:
         py = {'version': '%d.%d.%d' % sys.version_info[:3],

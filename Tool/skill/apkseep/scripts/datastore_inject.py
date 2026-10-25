@@ -53,8 +53,13 @@ needed, then start the app. Verify by reading the key back with --list.
 Pure standard library, Python 3.9+.
 """
 import argparse
+import io
+import json
+import os
+import shutil
 import struct
 import sys
+import tempfile
 
 DEFAULT_FILE = 'example.preferences_pb'
 DEFAULT_KEY = 'example_expiry_epoch_ms'
@@ -248,7 +253,148 @@ def parse_extra(items):
     return out
 
 
+def self_test():
+    """Offline self-test: hand-checked varints and a known-good encoded entry.
+
+    The byte encoding is this script's whole value, so the assertions are on BYTES and on
+    the round-trip: `encode_entry` must produce the two-level 0x0A map form (the classic
+    mistake is writing only the inner one, which deserializes into an empty map), every
+    value type must decode back to its own text, and the CLI's own re-parse check must
+    accept what it wrote.
+    """
+    import contextlib
+
+    contextlib_redirect = contextlib.redirect_stdout
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='datastore-inject-selftest-')
+    try:
+        assert varint(0) == b'\x00'
+        assert varint(127) == b'\x7f'
+        assert varint(128) == b'\x80\x01'
+        assert varint(300) == b'\xac\x02'
+        assert varint(-1) == b'\xff' * 9 + b'\x01', 'negatives are 64-bit two\'s complement'
+        checks += 1
+
+        for value in (0, 1, 300, 4102444800000):
+            raw = varint(value)
+            assert read_varint(raw, 0) == (value, len(raw)), (value, raw)
+        assert read_varint(b'\xac\x02tail', 0) == (300, 2), 'must stop at the end marker'
+        try:
+            read_varint(b'\x80', 0)
+        except ValueError as exc:
+            assert 'truncated varint' in str(exc), str(exc)
+        else:
+            raise AssertionError('a truncated varint was accepted')
+        checks += 1
+
+        # The exact two-level map encoding, byte for byte:
+        #   outer 0x0A <len> | inner (0x0A <len> key | 0x12 <len> value)
+        #   long value payload: 0x20 (= field 4, varint) then the value
+        entry = encode_entry('k', encode_value('long', '5'))
+        assert entry.hex() == '0a070a016b12022005', entry.hex()
+        assert entry[0] == 0x0A and entry[2] == 0x0A and entry[4] == ord('k'), entry.hex()
+        assert entry[5] == 0x12, entry.hex()
+        key, payload = decode_entry(entry)
+        assert (key, payload) == ('k', b'\x20\x05'), (key, payload)
+        checks += 1
+
+        cases = [('bool', 'true', 'bool=True'),
+                 ('bool', '0', 'bool=False'),
+                 ('int', '7', 'integer=7'),
+                 ('long', '4102444800000', 'long=4102444800000'),
+                 ('float', '1.5', 'float=1.5'),
+                 ('double', '2.25', 'double=2.25'),
+                 ('string', 'hello', "string='hello'"),
+                 ('bytes', '00ff10', 'bytes=00ff10')]
+        for kind, raw, expect in cases:
+            built = encode_entry('key_' + kind, encode_value(kind, raw))
+            k, p = decode_entry(built)
+            assert k == 'key_' + kind, (kind, k)
+            assert describe_value(p) == expect, (kind, describe_value(p), expect)
+        checks += 1
+
+        two = encode_entry('a', encode_value('bool', 'true')) + \
+            encode_entry('b', encode_value('string', 'x'))
+        slices = split_entries(two)
+        assert len(slices) == 2, slices
+        assert slices[0][1] == encode_entry('a', encode_value('bool', 'true')), slices[0]
+        assert [decode_entry(raw)[0] for _tag, raw in slices] == ['a', 'b']
+        assert split_entries(b'') == [], 'an empty map has no entries'
+        checks += 1
+
+        assert parse_extra(['k=v:bool']) == [('k', 'bool', 'v')]
+        assert parse_extra(['k=plain']) == [('k', 'string', 'plain')]
+        assert parse_extra(['k=a:b:bool']) == [('k', 'bool', 'a:b')], parse_extra(['k=a:b:bool'])
+        for bad in (['no-equals'], ['k=v:nosuchtype']):
+            try:
+                parse_extra(bad)
+            except SystemExit:
+                pass
+            else:
+                raise AssertionError('parse_extra accepted %r' % (bad,))
+        checks += 1
+
+        # The CLI re-parses what it built before writing; assert it stays honest --
+        # a dry run must not create the file, and --list must read the same values back.
+        target = os.path.join(tmpdir, 'example.preferences_pb')
+        out = io.StringIO()
+        saved = sys.argv
+        try:
+            sys.argv = ['datastore_inject.py', '--file', target, '--key', 'flag',
+                        '--type', 'bool', '--value', 'true',
+                        '--extra', 'name=hello:string', '--dry-run']
+            with contextlib_redirect(out):
+                rc = main()
+        finally:
+            sys.argv = saved
+        assert rc == 0, rc
+        assert not os.path.exists(target), '--dry-run wrote the file'
+        assert '[check] re-parsed 2 entry(ies); flag = bool=True' in out.getvalue(), \
+            out.getvalue()
+        checks += 1
+
+        try:
+            sys.argv = ['datastore_inject.py', '--file', target, '--key', 'flag',
+                        '--type', 'bool', '--value', 'true',
+                        '--extra', 'name=hello:string']
+            with contextlib_redirect(io.StringIO()):
+                assert main() == 0
+        finally:
+            sys.argv = saved
+        assert os.path.exists(target), 'the real run wrote nothing'
+        data = open(target, 'rb').read()
+        assert len(split_entries(data)) == 2, split_entries(data)
+        checks += 1
+
+        out = io.StringIO()
+        try:
+            sys.argv = ['datastore_inject.py', '--in', target, '--list']
+            with contextlib_redirect(out):
+                rc = main()
+        finally:
+            sys.argv = saved
+        text = out.getvalue()
+        assert rc == 0, rc
+        assert 'flag' in text and 'bool=True' in text, text
+        assert "name" in text and "string='hello'" in text, text
+        assert '[ok] 2 entry(ies)' in text, text
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "datastore_inject.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "datastore_inject.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description='Encode or inject AndroidX DataStore (Preferences) protobuf '
                     'entries, with the correct two-level map encoding.')
@@ -268,6 +414,8 @@ def main():
                     help='list the entries of --in and exit (no writing)')
     ap.add_argument('--dry-run', action='store_true',
                     help='print what would be written, write nothing')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run offline self-test and exit (writes only to a temp dir)')
     args = ap.parse_args()
 
     if args.list:

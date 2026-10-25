@@ -39,6 +39,7 @@ import argparse
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 from collections import defaultdict
@@ -88,7 +89,119 @@ def read_elf_arch(sh_fn, path: str) -> str:
     return "0x%02x/%db" % (mach, cls or 0)
 
 
+def self_test():
+    """Offline self-test: a stub `run()` supplies /proc/PID/maps and getprop output.
+
+    Asserts the classification of paths, the ELF-header machine decode from an
+    od-style dump, and the JSON the --json mode promises (pid, pkg, abi,
+    per-library base/kind/arch) -- all without adb or a device.
+    """
+    import contextlib
+    import io
+
+    checks = 0
+    el_hdr = (b'\x7fELF' + bytes([2, 1, 1, 0, 0]) + b'\x00' * 7
+              + struct.pack('<HH', 3, 183) + b'\x00' * 4).hex()
+    maps = '\n'.join([
+        '12c00000-12c01000 r-xp 00000000 fd:00 1234 /data/app/com.example-1/lib/arm64/libfoo.so',
+        '12d00000-12d01000 rw-p 00000000 fd:00 1234 /data/app/com.example-1/lib/arm64/libfoo.so',
+        '12e00000-12e01000 r-xp 00000000 fd:00 5678 /data/data/com.example.app/files/libbar.so',
+        '13000000-13001000 r-xp 00000000 fd:00 999 /system/lib64/libc.so',
+        '13100000-13101000 r-xp 00000000 fd:00 999 [anon:dalvik]',
+    ]) + '\n'
+
+    def fake_run(cmd, timeout=60):
+        joined = ' '.join(cmd[-2:])
+        if 'cat /proc/' in joined and 'maps' in joined:
+            return maps
+        if 'cmdline' in joined:
+            return 'com.example.app\x00extra\x00'
+        if 'ro.product.cpu.abi' in joined:
+            return 'x86_64\n' if 'abilist' not in joined else 'x86_64,arm64-v8a\n'
+        if 'od -An -tx1' in joined:
+            return ' '.join(el_hdr[i:i + 2] for i in range(0, len(el_hdr), 2))
+        if 'pidof' in joined:
+            return '4321\n'
+        return ''
+
+    def run_cli(argv):
+        out = io.StringIO()
+        old_argv, old_run = sys.argv, globals()['run']
+        sys.argv = argv
+        globals()['run'] = fake_run
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv, globals()['run'] = old_argv, old_run
+        return rc, out.getvalue()
+
+    try:
+        # 1) path classification, including the runtime-materialized case
+        assert classify('/system/lib64/libc.so', 'x') == 'system'
+        assert classify('/data/app/com.x-1/lib/arm64/libfoo.so', 'x') == 'apk-lib'
+        assert classify('/data/data/com.x/files/libfoo.so', 'com.x') == 'materialized'
+        assert classify('/data/local/tmp/libfoo.so', 'com.x') == 'data-other'
+        assert classify('/sdcard/libfoo.so', 'com.x') == 'other'
+        checks += 1
+
+        # 2) ELF header decode from an od-style hex dump
+        assert read_elf_arch(lambda _c: ' '.join(el_hdr[i:i + 2]
+                                                for i in range(0, len(el_hdr), 2)),
+                             '/x.so') == 'aarch64'
+        assert read_elf_arch(lambda _c: '7f 45 4c 46', '/x.so') == '?'
+        assert read_elf_arch(lambda _c: '50 4b 03 04 ' + '00 ' * 24, '/x.so') == 'not-elf'
+        assert E_MACHINE[0x3E] == 'x86_64'
+        checks += 1
+
+        # 3) --json: only the interesting libraries, with base/kind/arch resolved
+        rc, text = run_cli(['lib_map.py', '--pkg', 'com.example.app', '--json'])
+        assert rc == 0, rc
+        doc = json.loads(text)
+        assert doc['pid'] == 4321 and doc['pkg'] == 'com.example.app', doc.get('pid')
+        assert doc['device_abi'] == 'x86_64'
+        libs = {os.path.basename(r['path']): r for r in doc['libs']}
+        assert set(libs) == {'libfoo.so', 'libbar.so'}, sorted(libs)
+        assert libs['libfoo.so']['kind'] == 'apk-lib'
+        assert libs['libfoo.so']['base'] == '12c00000'
+        assert libs['libfoo.so']['arch'] == 'aarch64', libs['libfoo.so']
+        assert libs['libbar.so']['kind'] == 'materialized'
+        checks += 1
+
+        # 4) an ARM app library on an x86_64 device is flagged as translated
+        assert doc['translation_suspected'] is True, doc['translation_suspected']
+        checks += 1
+
+        # 5) --pid identifies the package from /proc/PID/cmdline
+        rc, text = run_cli(['lib_map.py', '--pid', '4321', '--json', '--no-arch'])
+        assert rc == 0, rc
+        doc = json.loads(text)
+        assert doc['pkg'] == 'com.example.app', doc['pkg']
+        assert all(r['arch'] == '?' for r in doc['libs'])
+        checks += 1
+
+        # 6) argparse contract: --pkg/--pid are required and mutually exclusive
+        err = io.StringIO()
+        for argv in (['lib_map.py'], ['lib_map.py', '--pkg', 'a.b', '--pid', '1']):
+            try:
+                with contextlib.redirect_stderr(err):
+                    run_cli(argv)
+                raise AssertionError('lib_map.py accepted %r' % (argv,))
+            except SystemExit as exc:
+                assert exc.code == 2, (argv, exc.code)
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'lib_map.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'lib_map.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+
+
 def main() -> int:
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     tgt = ap.add_mutually_exclusive_group(required=True)
     tgt.add_argument("--pkg", help="target package name")

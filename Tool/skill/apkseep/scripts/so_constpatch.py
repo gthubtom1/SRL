@@ -1057,7 +1057,179 @@ def _status_for(token):
     return 'internal_error'
 
 
+def self_test():
+    """Offline self-test: a hand-built ELF64 with a .rodata constant, no APK needed.
+
+    The patch decision is the product here: an equal-length rewrite of an isolated
+    constant, with the refusals (length change, non-isolated substring, ambiguity)
+    asserted as refusals rather than trusted to the docstring.
+    """
+    import contextlib
+    import io
+    import json
+    import shutil
+    import subprocess
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    # ---- a minimal ELF64: .rodata holds one isolated "apkhuan" constant ----------
+    def make_elf(constant=b'apkhuan'):
+        data = bytearray(b'\x00' * 0x200)
+        data[0:4] = b'\x7fELF'
+        data[4] = 2                      # ELFCLASS64
+        data[5] = 1                      # little-endian
+        struct.pack_into('<Q', data, 0x28, 0x100)     # e_shoff
+        struct.pack_into('<H', data, 0x3a, 64)       # e_shentsize
+        struct.pack_into('<H', data, 0x3c, 3)        # e_shnum
+        struct.pack_into('<H', data, 0x3e, 2)        # e_shstrndx
+        strtab = b'\x00.rodata\x00.shstrtab\x00'
+        data[0x1c0:0x1c0 + len(strtab)] = strtab
+        section = b'\x00' + constant + b'\x00'
+        data[0x80:0x80 + len(section)] = section
+        for i, (name, stype, addr, off, size) in enumerate([
+                (0, 0, 0, 0, 0),
+                (1, 1, 0x1000, 0x80, 0x10),      # .rodata, PROGBITS
+                (9, 3, 0, 0x1c0, len(strtab))]):  # .shstrtab, STRTAB
+            struct.pack_into('<IIQQQQ', data, 0x100 + i * 64, name, stype, 0,
+                             addr, off, size)
+        return bytes(data)
+
+    elf = make_elf()
+    sections = elf_sections(elf)
+    names = [s[0] for s in sections]
+    chk('elf-sections-count', len(sections) == 3, len(sections))
+    chk('elf-sections-named', '.rodata' in names and '.shstrtab' in names, names)
+    chk('elf-section-of-offset', section_of(sections, 0x84) == '.rodata',
+        section_of(sections, 0x84))
+    chk('elf-rejects-non-elf', elf_sections(b'not an elf at all') == [],
+        elf_sections(b'not an elf at all'))
+
+    # ---- occurrence scan: isolation and section attribution -------------------
+    hits = list(occurrences(elf, b'apkhuan'))
+    chk('occurrences-count', len(hits) == 1, len(hits))
+    off, isolated, sec, _ctx = hits[0]
+    chk('occurrences-offset', off == 0x81, hex(off))
+    chk('occurrences-isolated', isolated is True, isolated)
+    chk('occurrences-section', sec == '.rodata', sec)
+    loose = b'\x00xxapkhuanxx\x00'
+    chk('occurrences-substring-not-isolated',
+        [iso for _o, iso, _s, _c in occurrences(loose, b'apkhuan')] == [False],
+        [iso for _o, iso, _s, _c in occurrences(loose, b'apkhuan')])
+    chk('describe-escapes-nul', describe(b'\x00ab\x7f') == '\\0ab.',
+        describe(b'\x00ab\x7f'))
+
+    # ---- the rewrite itself --------------------------------------------------
+    rep = Reporter(as_json=True)
+    patched, applied = do_replace(rep, elf, b'apkhuan', b'android', False, False, False)
+    chk('replace-length-unchanged', len(patched) == len(elf), (len(patched), len(elf)))
+    chk('replace-bytes-at-offset', patched[0x81:0x81 + 7] == b'android',
+        patched[0x81:0x81 + 7])
+    chk('replace-applied-offset', [a[0] for a in applied] == [0x81], applied)
+    chk('replace-rest-untouched', patched[:0x81] == elf[:0x81] and
+        patched[0x88:] == elf[0x88:])
+    chk('replace-log-lines', any('byte(s) actually changed' in ln for ln in rep.lines),
+        rep.lines[-3:])
+
+    def refuse(fn, *args):
+        try:
+            fn(*args)
+            return None
+        except Refused as exc:
+            return exc
+
+    diff_len = refuse(do_replace, Reporter(as_json=True), elf, b'apkhuan', b'androidx',
+                      False, False, False)
+    chk('refuse-different-length', diff_len is not None and diff_len.exit_code == 2,
+        diff_len and (diff_len.exit_code, diff_len.token))
+    chk('refuse-different-length-says-why', diff_len is not None and
+        'Equal length is mandatory' in str(diff_len), str(diff_len)[:80])
+    not_found = refuse(do_replace, Reporter(as_json=True), elf, b'nope-nope', b'xxxx-xxxx',
+                       False, False, False)
+    chk('refuse-not-found-rc1', not_found is not None and not_found.exit_code == 1 and
+        not_found.token == 'not_found', not_found and (not_found.exit_code, not_found.token))
+    noniso = refuse(do_replace, Reporter(as_json=True), loose, b'apkhuan', b'android',
+                    False, False, False)
+    chk('refuse-nonisolated', noniso is not None and noniso.exit_code == 2,
+        noniso and noniso.exit_code)
+    two = elf[:0x90] + b'\x00apkhuan\x00' + elf[0x99:]
+    ambiguous = refuse(do_replace, Reporter(as_json=True), two, b'apkhuan', b'android',
+                       False, False, False)
+    chk('refuse-two-hits-without-force', ambiguous is not None and
+        'more than one' in str(ambiguous), ambiguous and str(ambiguous)[:80])
+
+    # ---- finish(): the machine answer (JSON + RESULT token + exit code) ------
+    args = argparse.Namespace(json=True, target='libfoo.so', entry=None, out=None)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = finish(Reporter(as_json=True), args, 'found', EXIT_CODES['found'], {}, None)
+    out = buf.getvalue()
+    chk('finish-rc0-for-found', rc == 0, rc)
+    chk('finish-result-token', out.strip().endswith('RESULT=found'), out[-40:])
+    try:
+        doc = json.loads(out.split('RESULT=')[0])
+    except ValueError:
+        doc = None
+    chk('finish-json-status', doc is not None and doc.get('status') == _status_for('found'),
+        doc and doc.get('status'))
+    chk('finish-json-tool', doc is not None and doc.get('tool') == TOOL, doc and doc.get('tool'))
+
+    # ---- the real CLI over a temp file --------------------------------------
+    tmp = tempfile.mkdtemp(prefix='so-constpatch-selftest-')
+    try:
+        src = os.path.join(tmp, 'libfoo.so')
+        with open(src, 'wb') as fh:
+            fh.write(elf)
+        me = os.path.abspath(__file__)
+
+        def cli(*argv):
+            return subprocess.run([sys.executable, me] + list(argv),
+                                  capture_output=True, text=True, errors='replace')
+
+        found = cli(src, '--find', 'apkhuan', '--json')
+        chk('cli-find-rc0', found.returncode == 0, found.returncode)
+        chk('cli-find-token', 'RESULT=found' in found.stdout, found.stdout[-60:])
+        notfound = cli(src, '--find', 'absent-constant', '--json')
+        chk('cli-find-absent-rc1', notfound.returncode == 1, notfound.returncode)
+        chk('cli-find-absent-token', 'RESULT=not_found' in notfound.stdout,
+            notfound.stdout[-60:])
+
+        dst = os.path.join(tmp, 'libfoo.patched.so')
+        patched_run = cli(src, '--replace', 'apkhuan=android', '-o', dst, '--json')
+        chk('cli-patch-rc0', patched_run.returncode == 0, patched_run.returncode)
+        chk('cli-patch-token', 'RESULT=patched' in patched_run.stdout,
+            patched_run.stdout[-60:])
+        with open(dst, 'rb') as fh:
+            written = fh.read()
+        chk('cli-patch-output-bytes', written[0x81:0x81 + 7] == b'android',
+            written[0x81:0x81 + 7])
+        chk('cli-patch-output-length', len(written) == len(elf), len(written))
+
+        bad = cli(src, '--replace', 'apkhuan=toolongname', '-o', os.path.join(tmp, 'x.so'))
+        chk('cli-different-length-rc2', bad.returncode == 2, bad.returncode)
+        no_target = cli()
+        chk('cli-missing-target-rc2', no_target.returncode == 2, no_target.returncode)
+        helped = cli('--help')
+        chk('cli-help-rc0', helped.returncode == 0, helped.returncode)
+        for flag in ('--find', '--replace', '--section-aware', '--force', '--self-test'):
+            chk('help-mentions-%s' % flag, flag in helped.stdout)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'so_constpatch.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(
         description='In-place same-length rewrite of a string constant (library-load '
                     'redirection), including APK rebuilds that preserve zip metadata.',
@@ -1093,6 +1265,8 @@ def main():
                     help='print one JSON object plus the final RESULT line')
     ap.add_argument('--verbose', action='store_true',
                     help='print a per-entry self-check line instead of a summary')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test (hand-built ELF, no device)')
     args = ap.parse_args()
 
     rep = Reporter(args.json, args.verbose)

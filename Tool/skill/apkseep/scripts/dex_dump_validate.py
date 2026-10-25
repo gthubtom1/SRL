@@ -32,12 +32,16 @@ Examples:
 
 import argparse
 import hashlib
+import io
 import json
 import os
+import shutil
+import struct
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dexutil import OFFSETS, read_uleb, u16, u32, verify_dex_header  # noqa: E402
+from dexutil import OFFSETS, read_uleb, selftest_dex, u16, u32, verify_dex_header  # noqa: E402
 
 MAGIC = b"dex\n"
 KNOWN_VERSIONS = {b"035", b"036", b"037", b"038", b"039"}
@@ -300,7 +304,149 @@ def rank_key(prof):
             prof["name"])
 
 
+def self_test():
+    """Offline self-test: a generated dex plus hand-built code_items, no sample dumps.
+
+    The load-bearing claim of this tool is the BODY CENSUS: `stub%` cannot see a body
+    emptied to nops or truncated to `const/4; return`, and mis-scoring either of those
+    inverted the ranking once. So every shape `classify_body()` names is asserted, then
+    the whole profile is asserted on a file (counts, ratios, header verdicts), then
+    `rank_key()` is asserted to put a skeleton AFTER a clean image -- the inversion this
+    script exists to prevent.
+    """
+    import contextlib
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dex-dump-validate-selftest-')
+    try:
+        def code_item(units, registers=1):
+            """A bare code_item: 16-byte header, then the 16-bit instruction units."""
+            head = struct.pack('<HHHHII', registers, 0, 0, 0, 0, len(units))
+            return bytearray(head + b''.join(struct.pack('<H', u) for u in units))
+
+        assert classify_body(code_item([]), 0) == 'empty'
+        assert classify_body(code_item([0x0000] * 3), 0) == 'erased'
+        assert classify_body(code_item([0x0000, 0x000E]), 0) == 'stub'
+        assert classify_body(code_item([0x000E]), 0) == 'stub'
+        assert classify_body(code_item([0x0012, 0x000F]), 0) == 'minimal'
+        assert classify_body(code_item([0x0038]), 0) == 'real'
+        assert classify_body(code_item([0x0012, 0x000F, 0x000E]), 0) == 'real', \
+            'three meaningful units can never be a stub or a minimal body'
+        checks += 1
+
+        blob, meta = selftest_dex()
+        assert classify_body(blob, meta['code_gate']) == 'real'
+        assert classify_body(blob, meta['code_stub']) == 'stub'
+        checks += 1
+
+        path = os.path.join(tmpdir, 'classes.dex')
+        with open(path, 'wb') as fh:
+            fh.write(blob)
+        prof = profile_dex(path, [])
+        assert 'error' not in prof, prof.get('error')
+        assert prof['version'] == '035', prof['version']
+        assert prof['size'] == len(blob), prof['size']
+        assert prof['sha256'] == hashlib.sha256(blob).hexdigest()
+        assert (prof['checksum_ok'], prof['signature_ok']) == (True, True), prof
+        assert prof['classes'] == 1, prof['classes']
+        assert prof['methods_with_code'] == 2, prof['methods_with_code']
+        assert prof['methods_no_code'] == 0, prof['methods_no_code']
+        assert prof['bodies_real'] == 1 and prof['bodies_stub'] == 1, prof
+        assert prof['bodies_erased'] == 0 and prof['bodies_minimal'] == 0, prof
+        assert prof['trivial_ratio'] == 0.5, prof['trivial_ratio']
+        assert prof['emptied_ratio'] == 0.5, prof['emptied_ratio']
+        checks += 1
+
+        hits = profile_dex(path, ['Lcom/ex/Foo;', 'enabled', 'no-such-string'])['find_hits']
+        assert hits == {'Lcom/ex/Foo;': 1, 'enabled': 1, 'no-such-string': 0}, hits
+        checks += 1
+
+        # rank_key: the skeleton must sort AFTER the clean image, whatever the counts.
+        clean = {'name': 'clean.dex', 'emptied_ratio': 0.02, 'bodies_minimal': 0,
+                 'bodies_erased': 0, 'checksum_ok': True, 'signature_ok': True,
+                 'trivial_ratio': 0.02}
+        skeleton = {'name': 'skeleton.dex', 'emptied_ratio': 1.0, 'bodies_minimal': 0,
+                    'bodies_erased': 40, 'checksum_ok': True, 'signature_ok': True,
+                    'trivial_ratio': 0.0}
+        assert rank_key(clean) < rank_key(skeleton), (rank_key(clean), rank_key(skeleton))
+        # Level 1 of the key: a body written as a bare `return-void` everywhere has
+        # minimal = erased = 0, so ONLY the emptied_ratio level can evict it.
+        bare_return_void = dict(skeleton, bodies_minimal=0, bodies_erased=0,
+                                emptied_ratio=1.0, trivial_ratio=1.0)
+        assert rank_key(bare_return_void)[0] == 1, rank_key(bare_return_void)
+        assert rank_key(bare_return_void) > rank_key(clean)
+        # Level 2: inside the bimodal band, the minimal+nop-erased count orders the
+        # images low-first (measured 82 -> 1299 -> 2524 -> 3736 -> 4946).
+        control = dict(clean, emptied_ratio=0.02, bodies_minimal=82, bodies_erased=0)
+        quarter = dict(clean, name='quarter.dex', emptied_ratio=0.03,
+                       bodies_minimal=1299, bodies_erased=0)
+        assert rank_key(control) < rank_key(quarter), (rank_key(control),
+                                                       rank_key(quarter))
+        checks += 1
+
+        short = os.path.join(tmpdir, 'short.bin')
+        with open(short, 'wb') as fh:
+            fh.write(b'dex\n035\x00' + b'\x00' * 8)
+        assert profile_dex(short, [])['error'].startswith('too small'), profile_dex(short, [])
+
+        bad_magic = os.path.join(tmpdir, 'badmagic.bin')
+        with open(bad_magic, 'wb') as fh:
+            fh.write(b'PK\x03\x04' + blob[4:])
+        assert profile_dex(bad_magic, [])['error'].startswith('magic='), \
+            profile_dex(bad_magic, [])
+
+        bad_ver = os.path.join(tmpdir, 'badversion.dex')
+        with open(bad_ver, 'wb') as fh:
+            fh.write(blob[:4] + b'099' + blob[7:])
+        assert profile_dex(bad_ver, [])['error'].startswith('unknown version'), \
+            profile_dex(bad_ver, [])
+        checks += 1
+
+        # A page-aligned dump overruns its own file_size: rejected by default, accepted
+        # (and trimmed) with --trim. That distinction decides whether a real dump ranks.
+        overrun = os.path.join(tmpdir, 'overrun.dex')
+        with open(overrun, 'wb') as fh:
+            fh.write(blob + b'\x00' * 64)
+        assert 'error' in profile_dex(overrun, []), profile_dex(overrun, [])
+        trimmed = profile_dex(overrun, [], trim=True)
+        assert 'error' not in trimmed, trimmed.get('error')
+        assert trimmed['trimmed_from'] == len(blob) + 64, trimmed
+        assert trimmed['trimmed_to'] == len(blob), trimmed
+        assert trimmed['size'] == len(blob), trimmed['size']
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = main(['--json', path])
+        assert rc == 0, rc
+        payload = json.loads(out.getvalue())
+        assert payload['ranking'] == ['classes.dex'], payload['ranking']
+        assert payload['profiles'][0]['classes'] == 1, payload
+        checks += 1
+
+        empty_dir = os.path.join(tmpdir, 'empty')
+        os.makedirs(empty_dir)
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            rc = main([empty_dir])
+        assert rc == 1, 'a directory with no dex must exit 1, not 0'
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dex_dump_validate.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dex_dump_validate.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv=None):
+    if '--self-test' in (sys.argv[1:] if argv is None else argv):
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description="Dedupe and structurally validate a directory of dumped dex "
                     "files; rank which image is the most likely original.")
@@ -316,6 +462,8 @@ def main(argv=None):
                     help="accept page-aligned dumps: cut a tail longer than the header's "
                          "file_size (/proc/<pid>/mem exports always overrun; a file shorter "
                          "than its own file_size is still rejected)")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit (no dump directory needed)")
     args = ap.parse_args(argv)
 
     files = collect_files(args.path)

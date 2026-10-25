@@ -33,6 +33,7 @@ Notes
 * Requires root (the app's data dir is private).
 """
 import argparse
+import json
 import subprocess
 import sys
 import time
@@ -53,7 +54,99 @@ def su(cmd, serial=None):
     return adb(['shell', 'su -c "%s"' % cmd.replace('"', '\\"')], serial)
 
 
+def self_test():
+    """Offline self-test: adb is replaced by a stub, so no device and no root.
+
+    What is asserted is the thing that breaks silently on a real device: the exact
+    command lines (serial, force-stop, the on-device watcher's scan dir) and the
+    distinction between "captured a file" and "captured nothing".
+    """
+    import contextlib
+    import io
+    import types
+
+    checks = 0
+    try:
+        def run_with_stub(argv, captured='java.lang.RuntimeException: boom\n'):
+            calls, popens = [], []
+            real = (subprocess.run, subprocess.Popen, time.sleep)
+
+            def fake_run(cmd, **kw):
+                calls.append(list(cmd))
+                joined = ' '.join(cmd)
+                if 'pidof' in joined:
+                    return types.SimpleNamespace(stdout='4242\n', stderr='')
+                if 'head -c' in joined:
+                    return types.SimpleNamespace(stdout=captured, stderr='')
+                return types.SimpleNamespace(stdout='', stderr='')
+
+            class FakePopen:
+                def __init__(self, cmd, **kw):
+                    popens.append(list(cmd))
+
+            old_argv = sys.argv
+            sys.argv = argv
+            out = io.StringIO()
+            try:
+                subprocess.run, subprocess.Popen = fake_run, FakePopen
+                time.sleep = lambda _s: None
+                with contextlib.redirect_stdout(out):
+                    rc = main()
+            finally:
+                subprocess.run, subprocess.Popen, time.sleep = real
+                sys.argv = old_argv
+            return rc, out.getvalue(), calls, popens
+
+        rc, text, calls, popens = run_with_stub(
+            ['grab_crash.py', '--pkg', 'com.example.app', '--activity', '.Main',
+             '--serial', 'SER1', '--wait', '1'])
+        assert rc == 0, rc
+        checks += 1
+
+        # 1) the serial is carried into every adb call, and the app is force-stopped first
+        assert calls[0] == ['adb', '-s', 'SER1', 'shell',
+                            'su -c "am force-stop com.example.app"'], calls[0]
+        assert all(c[0] == 'adb' and c[1:3] == ['-s', 'SER1'] for c in calls), calls
+        assert any('rm -f /data/local/tmp/_skill_crash_capture.log' in c[-1] for c in calls)
+        assert any('am start -n com.example.app/.Main' in c[-1] for c in calls), calls
+        checks += 1
+
+        # 2) the on-device watcher covers the default scan dir and the capture path
+        assert len(popens) == 1, popens
+        watch = ' '.join(popens[0])
+        assert '/data/data/com.example.app' in watch, watch
+        assert 'find' in watch and 'cp -f' in watch and '-newermt' in watch, watch
+        assert '/data/local/tmp/_skill_crash_capture.log' in watch, watch
+        checks += 1
+
+        # 3) the report carries the pid and the captured text
+        assert '[grab] pid: 4242' in text, text
+        assert 'java.lang.RuntimeException: boom' in text, text
+        checks += 1
+
+        # 4) --scan-dir overrides the default, and an empty capture says so
+        rc, text, calls, popens = run_with_stub(
+            ['grab_crash.py', '--pkg', 'com.example.app', '--activity', '.Main',
+             '--serial', 'SER2', '--scan-dir', '/sdcard/logs', '--wait', '1'],
+            captured='')
+        assert rc == 0, rc
+        watch = ' '.join(popens[0])
+        assert '/sdcard/logs' in watch and '/data/data/com.example.app' not in watch, watch
+        assert '(nothing captured)' in text, text
+        assert 'Frida approach' in text, text
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'grab_crash.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'grab_crash.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument('--pkg', required=True)
     ap.add_argument('--activity', required=True)

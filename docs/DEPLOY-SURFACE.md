@@ -51,7 +51,7 @@ git clone <repo>            # 1. 拉仓库
 cd <repo>
 python Tool/scripts/check.py --env     # 2. 体检环境（会自己调 install.ps1）
 python Tool/scripts/preflight.py       # 3. 结构与部署判据（应 70/70）
-python Tool/scripts/invariants.py      # 4. 架构不变量（11 域 × 9 条）
+python Tool/scripts/invariants.py      # 4. 架构不变量（9 域 × 9 条）
 python Tool/scripts/check.py           # 5. 全量 8 套件
 ```
 

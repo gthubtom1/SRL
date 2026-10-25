@@ -126,7 +126,108 @@ def capture_image(dev: Dev, workdir: str, name: str) -> tuple[int, str]:
     return 0, ""
 
 
+def self_test() -> int:
+    """Offline self-test: a stubbed device, real XML/PNG parsing, no adb."""
+    import contextlib
+    import io
+    import json
+    import shutil
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=""):
+        checks.append((name, bool(cond), detail))
+
+    class FakeDev(object):
+        """Only the three calls tree_stats/capture_image make."""
+
+        def __init__(self, xml=None, png=b"", pull_ok=True, adb="no-such-adb-xyz"):
+            self.adb = adb
+            self.base = [adb]
+            self.serial = None
+            self.xml = xml
+            self.png = png
+            self.pull_ok = pull_ok
+            self.calls = []
+
+        def sh(self, cmd, timeout=60):
+            self.calls.append(("sh", cmd))
+            return ""
+
+        def su(self, cmd, timeout=90):
+            self.calls.append(("su", cmd))
+            return "UI hierchary dumped to: /data/local/tmp/_snap_ui.xml"
+
+        def pull(self, remote, local, timeout=120):
+            self.calls.append(("pull", remote, local))
+            if not self.pull_ok:
+                return False
+            data = self.xml if remote.endswith(".xml") else self.png
+            with open(local, "wb") as fh:
+                fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+            return True
+
+    chk("dev-base-without-serial", Dev("adb", None).base == ["adb"])
+    chk("dev-base-with-serial", Dev("adb", "S1").base == ["adb", "-s", "S1"])
+
+    tmp = tempfile.mkdtemp(prefix="snap-selftest-")
+    try:
+        # 1) a control tree with real text is OK, and nodes/texts are counted
+        xml = ('<?xml version="1.0" encoding="UTF-8"?><hierarchy rotation="0">'
+               '<node text="Login" bounds="[0,0][10,10]" />'
+               '<node text="" bounds="[0,10][10,20]" />'
+               '<node text="Password" bounds="[0,20][10,30]" /></hierarchy>')
+        status, nodes, texts = tree_stats(FakeDev(xml=xml), tmp)
+        chk("tree-ok-status", status == "OK", status)
+        chk("tree-node-count", nodes == 3, nodes)
+        chk("tree-text-count", texts == 2, texts)
+
+        # 2) nodes with no text -> SPARSE (canvas/webview shell); no nodes -> EMPTY
+        status, nodes, texts = tree_stats(FakeDev(xml='<hierarchy><node text="" /></hierarchy>'), tmp)
+        chk("tree-sparse-status", status == "SPARSE", status)
+        chk("tree-sparse-counts", (nodes, texts) == (1, 0), (nodes, texts))
+        status, nodes, texts = tree_stats(FakeDev(xml="<hierarchy></hierarchy>"), tmp)
+        chk("tree-empty-status", status == "EMPTY", status)
+        chk("tree-empty-counts", (nodes, texts) == (0, 0), (nodes, texts))
+
+        # 3) a refused pull is FAILED, not a silently empty tree
+        status, nodes, texts = tree_stats(FakeDev(pull_ok=False), tmp)
+        chk("tree-failed-status", status == "FAILED", status)
+        chk("tree-failed-counts", (nodes, texts) == (0, 0), (nodes, texts))
+
+        # 4) image capture: size + sha256 prefix, and 0/'' when the device refuses
+        payload = b"\x89PNG\r\n\x1a\n" + b"pixels"
+        size, digest = capture_image(FakeDev(png=payload), tmp, "shot")
+        chk("image-bytes", size == len(payload), size)
+        chk("image-sha256-prefix", digest == hashlib.sha256(payload).hexdigest()[:12], digest)
+        size, digest = capture_image(FakeDev(pull_ok=False), tmp, "shot2")
+        chk("image-refused-is-zero", (size, digest) == (0, ""), (size, digest))
+
+        # 5) CLI contract (no device touched: --help only)
+        import subprocess
+        me = os.path.abspath(__file__)
+        helped = subprocess.run([sys.executable, me, "--help"], capture_output=True,
+                                text=True, errors="replace")
+        chk("help-rc0", helped.returncode == 0, helped.returncode)
+        for flag in ("--serial", "--out", "--tag", "--count", "--tree-only",
+                     "--image-only", "--self-test"):
+            chk("help-mentions-%s" % flag, flag in helped.stdout)
+        chk("max-samples-cap", MAX_SAMPLES == 20, MAX_SAMPLES)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({"ok": not fails, "checks": len(checks), "tool": "snap.py",
+                      "failures": [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print("FAIL %s: %s" % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main() -> int:
+    if "--self-test" in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--adb", default=os.environ.get("ADB", "adb"))
     ap.add_argument("--serial", default=None, help="device serial; required when several are attached")
@@ -136,6 +237,8 @@ def main() -> int:
     ap.add_argument("--interval", type=float, default=2.0, help="seconds between samples")
     ap.add_argument("--tree-only", action="store_true", help="skip images; only read the control tree")
     ap.add_argument("--image-only", action="store_true", help="skip the control tree")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run the offline self-test (stubbed device, no adb)")
     a = ap.parse_args()
 
     if a.count > MAX_SAMPLES:

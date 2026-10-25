@@ -21,6 +21,8 @@ Exit code is 0 when no BLOCKER was found, 1 otherwise. WARN never fails the run.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import re
@@ -57,6 +59,81 @@ def run(cmd: list[str], timeout: int = 60) -> tuple[int, str]:
         return 1, "error: %s" % e
 
 
+def self_test() -> int:
+    """Offline self-test: built-in rows/commands only, no device, no network."""
+    checks = []
+
+    def chk(name, cond, detail=""):
+        checks.append((name, bool(cond), detail))
+
+    # 1) the severity ladder itself: an empty report is OK, one row decides `worst`
+    r = Report()
+    chk("empty-report-worst-ok", r.worst() == OK, r.worst())
+    r.add(WARN, "host:java", "missing")
+    chk("warn-report-worst-warn", r.worst() == WARN, r.worst())
+    r.add(OK, "host:python", "/usr/bin/python")
+    chk("worst-ignores-ok-row", r.worst() == WARN, r.worst())
+    r.add(BLOCKER, "device", "no device attached", "connect one")
+    chk("blocker-report-worst-blocker", r.worst() == BLOCKER, r.worst())
+    r.add(INFO, "state:proxy", "not set")
+    chk("info-does-not-raise-worst", r.worst() == BLOCKER, r.worst())
+
+    # 2) row order is preserved and the fix text survives (the report is the product)
+    chk("rows-ordered", [x[1] for x in r.rows] ==
+        ["host:java", "host:python", "device", "state:proxy"])
+    chk("fix-text-kept", r.rows[2][3] == "connect one", r.rows[2][3])
+
+    # 3) finish(): BLOCKER -> rc 1 + JSON worst; WARN only -> rc 0
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc_blocker = finish(r, True)
+    payload = json.loads(buf.getvalue())
+    chk("finish-blocker-rc1", rc_blocker == 1, rc_blocker)
+    chk("finish-json-worst-blocker", payload.get("worst") == BLOCKER, payload.get("worst"))
+    chk("finish-json-row-count", len(payload.get("rows") or []) == 4,
+        len(payload.get("rows") or []))
+
+    warn_only = Report()
+    warn_only.add(WARN, "clock", "drift 900s")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc_warn = finish(warn_only, True)
+    chk("finish-warn-rc0", rc_warn == 0, rc_warn)
+    chk("finish-warn-token", json.loads(buf.getvalue()).get("worst") == WARN)
+
+    # 4) run(): a missing executable is reported, never raised (the no-adb path)
+    rc, out = run(["preflight-definitely-not-a-real-tool-xyz"])
+    chk("run-missing-tool-rc127", rc == 127, rc)
+    chk("run-missing-tool-message", out.startswith("not found:"), out[:60])
+    rc, out = run([sys.executable, "-c", "import sys; sys.exit(3)"])
+    chk("run-propagates-exit-code", rc == 3, rc)
+
+    # 5) argparse contract: the flags this script promises, and the no-adb BLOCKER path
+    me = os.path.abspath(__file__)
+    help_out = subprocess.run([sys.executable, me, "--help"], capture_output=True,
+                              text=True, errors="replace")
+    chk("help-rc0", help_out.returncode == 0, help_out.returncode)
+    for flag in ("--adb", "--serial", "--pkg", "--expect-root", "--cleanup", "--json"):
+        chk("help-mentions-%s" % flag, flag in help_out.stdout)
+    blocked = subprocess.run([sys.executable, me, "--adb",
+                              os.path.join(os.path.dirname(me), "no-such-adb-xyz"),
+                              "--json"], capture_output=True, text=True, errors="replace")
+    chk("missing-adb-rc1", blocked.returncode == 1, blocked.returncode)
+    try:
+        blocked_doc = json.loads(blocked.stdout)
+    except ValueError:
+        blocked_doc = None
+    chk("missing-adb-json-blocker", blocked_doc is not None and
+        blocked_doc.get("worst") == BLOCKER, (blocked.stdout or "")[:80])
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({"ok": not fails, "checks": len(checks), "tool": "preflight.py",
+                      "failures": [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print("FAIL %s: %s" % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--adb", default=os.environ.get("ADB", "adb"), help="adb executable (default: $ADB or 'adb')")
@@ -65,7 +142,12 @@ def main() -> int:
     ap.add_argument("--expect-root", action="store_true", help="treat missing root as a BLOCKER")
     ap.add_argument("--cleanup", action="store_true", help="remove leftover proxy setting and frida forwards")
     ap.add_argument("--json", action="store_true", dest="as_json")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run the offline self-test (no adb, no device, no network)")
     a = ap.parse_args()
+
+    if a.self_test:
+        return self_test()
 
     r = Report()
     ADB = a.adb

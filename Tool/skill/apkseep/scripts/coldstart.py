@@ -40,11 +40,14 @@ otherwise it degrades to plain `pm`/`dumpsys`.
 """
 
 import argparse
+import io
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -154,7 +157,130 @@ SIGNAL_PATTERNS = {
 }
 
 
+def self_test():
+    """Offline self-test: no adb, no device, no subprocess is ever started.
+
+    Asserts the two things that decide whether a run can be trusted at all: the logcat
+    signal counter (and the `Displayed ... +Nms` timing regex), and the parsing of the
+    `dumpsys package` lines that become the installed-build facts. Device access is
+    replaced by a stub object with the same `shell()` shape, so the code under test is
+    the tool's own parser rather than a copy of it.
+    """
+    import contextlib
+
+    class _Result(object):
+        def __init__(self, stdout, rc=0):
+            self.stdout = stdout
+            self.stderr = ''
+            self.returncode = rc
+
+    class _FakeDevice(object):
+        """Same surface as Device.shell(), answers from a canned table."""
+
+        def __init__(self, answers):
+            self.answers = answers
+            self.seen = []
+
+        def shell(self, cmd, timeout=None):
+            self.seen.append(cmd)
+            for needle, out in self.answers:
+                if needle in cmd:
+                    return _Result(out)
+            return _Result('')
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='coldstart-selftest-')
+    try:
+        log_path = os.path.join(tmpdir, 'logcat.txt')
+        with io.open(log_path, 'w', encoding='utf-8') as fh:
+            fh.write('01-01 00:00:00.000  1000  1000 E AndroidRuntime: FATAL EXCEPTION\n'
+                     '01-01 00:00:00.100  1000  1000 E dalvikvm: VerifyError: bad\n'
+                     '01-01 00:00:00.200  1000  1000 E AndroidRuntime: FATAL EXCEPTION\n'
+                     '01-01 00:00:01.000   500   500 I ActivityTaskManager: '
+                     'Displayed com.example.app/.MainActivity: +1234ms\n'
+                     '01-01 00:00:02.000   500   500 E ActivityManager: '
+                     'ANR in com.example.app\n')
+        counts = signal_counts(log_path, SIGNAL_PATTERNS)
+        assert counts['FATAL EXCEPTION'] == 2, counts
+        assert counts['VerifyError'] == 1, counts
+        assert counts['Displayed'] == 1, counts
+        assert counts['ANR'] == 1, counts
+        assert counts['ClassNotFoundException'] == 0, counts
+        assert counts['am_crash'] == 0, counts
+        checks += 1
+
+        assert len(SIGNAL_PATTERNS) == 9, sorted(SIGNAL_PATTERNS)
+        for required in ('VerifyError', 'Bad checksum', 'ClassNotFoundException',
+                         'IncompatibleClassChangeError'):
+            assert required in SIGNAL_PATTERNS, required
+        checks += 1
+
+        # the timing table the report prints comes from this regex, not from 'Displayed'
+        m = re.findall(r'Displayed ([^:]+): \+([0-9]+)ms',
+                       io.open(log_path, encoding='utf-8').read())
+        assert m == [('com.example.app/.MainActivity', '1234')], m
+        checks += 1
+
+        assert signal_counts(os.path.join(tmpdir, 'absent.txt'), SIGNAL_PATTERNS) == {}, \
+            'a missing log must degrade to an empty count, not raise'
+        checks += 1
+
+        dev = _FakeDevice([
+            ('ResumedActivity', '  mResumedActivity: ActivityRecord{1 u0 '
+                                'com.example.app/.MainActivity t42}\n'),
+            ('versionCode', '    versionCode=42 minSdk=21 targetSdk=33\n'
+                            '    versionName=1.2.3\n'
+                            '    firstInstallTime=2024-01-01 00:00:00\n'),
+            ('sha256sum', 'deadbeef' * 8 + '  /data/app/x/base.apk\n'),
+            ('base.apk', '/data/app/~~x/com.example.app-y/base.apk\n'),
+            ('userId=', '    userId=10123\n'),
+        ])
+        assert foreground_activity(dev) == 'com.example.app/.MainActivity', \
+            foreground_activity(dev)
+        checks += 1
+
+        facts = installed_facts(dev, 'com.example.app')
+        # `dumpsys package` prints the flags on the versionCode line itself; the
+        # parser keeps the whole value, minSdk included, and that is what the report
+        # shows. Assert the real shape rather than a tidied-up one.
+        assert facts['versionCode'] == '42 minSdk=21 targetSdk=33', facts
+        assert facts['versionName'] == '1.2.3', facts
+        assert facts['apk_path'] == '/data/app/~~x/com.example.app-y/base.apk', facts
+        assert facts['apk_sha256'] == 'deadbeef' * 8, facts
+        assert facts['uid'] == '10123', facts
+        assert 'firstInstallTime' in facts, facts
+        checks += 1
+
+        # A device that answers nothing must report no facts, not invent them.
+        assert installed_facts(_FakeDevice([]), 'com.example.app') == {}
+        assert foreground_activity(_FakeDevice([])) is None
+        checks += 1
+
+        # --pkg stays mandatory: without it argparse must exit 2, never launch the app.
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                main(['coldstart.py'])
+        except SystemExit as exc:
+            assert exc.code == 2, exc.code
+        else:
+            raise AssertionError('--pkg is no longer enforced by the parser')
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "coldstart.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "coldstart.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv):
+    if '--self-test' in argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description='Cold-launch an app and capture a screenshot time line plus '
                     'logcat signals, for before/after comparison.',
@@ -170,6 +296,8 @@ def main(argv):
     ap.add_argument('--expect-activity', help='warn if the foreground activity is not '
                                             'this (and not the package at all)')
     ap.add_argument('--no-su', action='store_true', help='never use device root')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run offline self-test and exit (no device, no adb)')
     ap.add_argument('--keep-old', action='store_true',
                     help='do not clear existing screenshots in the output dir')
     args = ap.parse_args(argv[1:])

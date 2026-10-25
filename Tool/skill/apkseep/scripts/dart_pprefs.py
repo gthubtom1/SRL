@@ -48,6 +48,7 @@ NOTES
 """
 import argparse
 import json
+import os
 import struct
 import sys
 
@@ -159,7 +160,153 @@ def lookup(path, offsets):
             print('   0x%x' % s)
 
 
+def self_test():
+    """Offline self-test: a generated ELF64 image and hand-encoded AArch64 words.
+
+    The claims worth asserting are the ones that were silently wrong once: the ADD->LDR
+    pair resolves to the pool offset, BOTH register files are covered (the SIMD&FP `ldr
+    dN, [x27, #imm]` form is why double constants used to vanish from the index), and the
+    ADD->LDR window is bounded. Each is asserted on `scan()`'s returned offsets.
+    """
+    import contextlib
+    import io
+    import json as _json
+    import tempfile
+
+    def mini_elf64(text, addr=0x1000):
+        shstr = b"\x00.text\x00.shstrtab\x00"
+        text_off = 64
+        shstr_off = text_off + len(text)
+        shstr_off += (-shstr_off) % 8
+        e_shoff = shstr_off + len(shstr)
+        e_shoff += (-e_shoff) % 8
+        head = bytearray(64)
+        head[0:4] = b"\x7fELF"
+        head[4] = 2          # ELFCLASS64
+        head[5] = 1          # ELFDATA2LSB
+        head[6] = 1
+        struct.pack_into('<H', head, 0x10, 2)          # e_type = ET_EXEC
+        struct.pack_into('<H', head, 0x12, 183)       # e_machine = AArch64
+        struct.pack_into('<Q', head, 0x28, e_shoff)
+        struct.pack_into('<H', head, 0x34, 64)
+        struct.pack_into('<H', head, 0x3A, 64)
+        struct.pack_into('<H', head, 0x3C, 3)
+        struct.pack_into('<H', head, 0x3E, 2)
+        blob = head + text
+        blob += b"\x00" * (shstr_off - len(blob))
+        blob += shstr
+        blob += b"\x00" * (e_shoff - len(blob))
+        blob += b"\x00" * 64
+        blob += struct.pack('<IIQQQQ', 1, 1, 6, addr, text_off, len(text))
+        blob += b"\x00" * 24
+        blob += struct.pack('<IIQQQQ', 7, 3, 0, 0, shstr_off, len(shstr))
+        blob += b"\x00" * 24
+        return bytes(blob)
+
+    def add_xd_x27(rd, imm12, shift12=True):
+        return 0x91000000 | (0x400000 if shift12 else 0) | (imm12 << 10) | (POOL_REG << 5) | rd
+
+    def ldr_gp(rt, rn, disp):
+        return 0xF9400000 | ((disp >> 3) << 10) | (rn << 5) | rt
+
+    def ldr_fp(rt, rn, disp):
+        return 0xFD400000 | ((disp >> 3) << 10) | (rn << 5) | rt
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dart-pprefs-selftest-')
+    try:
+        assert POOL_REG == 27 and DEFAULT_WINDOW == 3
+        checks += 1
+
+        assert sx(0x1FF, 9) == -1, sx(0x1FF, 9)
+        assert sx(0x1F, 5) == -1, sx(0x1F, 5)
+        assert sx(0x10, 9) == 16, sx(0x10, 9)
+        checks += 1
+
+        addr_base = 0x1000
+        words = [
+            add_xd_x27(1, 0x9D),                  # add x1, x27, #0x9d, lsl #12
+            ldr_gp(2, 1, 0x10),                   # ldr x2, [x1, #0x10] -> 0x9d010
+            ldr_gp(3, POOL_REG, 0x20),            # ldr x3, [x27, #0x20] -> 0x20
+            ldr_fp(5, POOL_REG, 0x30),            # ldr d5, [x27, #0x30] -> 0x30
+            # ADD-derived base that a LDR only picks up inside the window
+            add_xd_x27(4, 0x1),                   # add x4, x27, #0x1, lsl #12
+            0xD503201F, 0xD503201F, 0xD503201F, 0xD503201F,   # 4 nops: distance 5
+            ldr_gp(6, 4, 0x8),                    # ldr x6, [x4, #0x8]
+        ]
+        blob = b''.join(struct.pack('<I', w) for w in words)
+
+        refs = scan(addr_base, blob, 3)
+        assert set(refs) == {0x9D010, 0x20, 0x30}, sorted(hex(k) for k in refs)
+        assert refs[0x9D010] == [addr_base + 4], refs[0x9D010]
+        assert refs[0x20] == [addr_base + 8], refs[0x20]
+        assert refs[0x30] == [addr_base + 12], refs[0x30]
+        checks += 1
+
+        # The GP-only mask (0xF94/0xB94) is exactly the defect the module documents: it
+        # drops `ldr dN, [x27, #imm]`, so the SIMD&FP hit above must not be optional.
+        assert 0x30 in refs, 'the SIMD&FP register file was not scanned'
+        assert scan(addr_base, blob, 5).get(0x1008), \
+            'a window of 5 must reach the ADD-derived load'
+        assert 0x1008 not in scan(addr_base, blob, 3), \
+            'the ADD->LDR window is not bounded'
+        checks += 1
+
+        ldur = 0xF8400000 | (27 << 5) | 7        # ldur x7, [x27, #0]  (unscaled form)
+        assert 0 in scan(addr_base, struct.pack('<I', ldur), 3), \
+            'the LDUR form is not recognised'
+        checks += 1
+
+        so = os.path.join(tmpdir, 'libapp.so')
+        with open(so, 'wb') as fh:
+            fh.write(mini_elf64(blob))
+        text_addr, text_blob = text_section(so)
+        assert (text_addr, text_blob) == (addr_base, blob), (hex(text_addr), len(text_blob))
+        checks += 1
+
+        out_json = os.path.join(tmpdir, 'pp_refs.json')
+        with contextlib.redirect_stdout(io.StringIO()):
+            build(so, out_json, DEFAULT_WINDOW)
+        written = _json.load(open(out_json, encoding='utf-8'))
+        assert written.get(hex(0x9D010)) == [addr_base + 4], written
+        assert written.get(hex(0x30)) == [addr_base + 12], written
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            lookup(out_json, ['0x9d010', '0xdead'])
+        lines = [ln for ln in out.getvalue().splitlines() if ln.strip()]
+        assert lines[0] == 'pp+0x9d010: 1 ref site(s)', lines
+        assert lines[1] == '   0x1004', lines
+        assert lines[2] == 'pp+0xdead: 0 ref site(s)', lines
+        checks += 1
+
+        with open(os.path.join(tmpdir, 'bad.bin'), 'wb') as fh:
+            fh.write(b'\x7fELX' + b'\x00' * 64)
+        try:
+            text_section(os.path.join(tmpdir, 'bad.bin'))
+        except SystemExit as exc:
+            assert 'not an ELF file' in str(exc), exc
+        else:
+            raise AssertionError('a non-ELF input was accepted')
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dart_pprefs.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        import shutil
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dart_pprefs.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('sample', nargs='?', help='libapp.so (build mode)')
     ap.add_argument('out', nargs='?', help='output json (build mode)')
@@ -167,6 +314,8 @@ def main():
     ap.add_argument('--window', type=int, default=DEFAULT_WINDOW,
                     help='instructions an ADD-derived address may survive (default %d)'
                          % DEFAULT_WINDOW)
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run offline self-test and exit (no sample needed)')
     a = ap.parse_args()
 
     if a.lookup:

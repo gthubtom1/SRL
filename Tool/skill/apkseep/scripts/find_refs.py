@@ -45,8 +45,10 @@ Also inspect the signature. If it mentions Modifier / ContentScale / Shape / Vie
 ColorScheme or a content-generic model type, it is shared UI, not your target.
 """
 import argparse
+import json
 import os
 import re
+import struct
 import sys
 import zipfile
 
@@ -196,7 +198,250 @@ def dex_sources(path):
     return out
 
 
+def _fixture_dex():
+    """A structurally valid dex whose reference counts are known in advance.
+
+        Lcom/example/Caller;->go()V    invoke-static  Lcom/example/Target;->run()V   x2
+        Lcom/example/Target;->run()V   invoke-virtual Ljava/lang/String;->length()I  x3
+
+    so the correct answers are 3, 2 and 2. Built here rather than shipped as a
+    sample so the self-test has no dependency on -- and no resemblance to --
+    target data.
+    """
+    CALLER, TARGET = 'Lcom/example/Caller;', 'Lcom/example/Target;'
+    OBJECT, STRING = 'Ljava/lang/Object;', 'Ljava/lang/String;'
+
+    def uleb(n):
+        out = bytearray()
+        while True:
+            b = n & 0x7F
+            n >>= 7
+            out.append(b | (0x80 if n else 0))
+            if not n:
+                return bytes(out)
+
+    def p16(v):
+        return struct.pack('<H', v)
+
+    def p32(v):
+        return struct.pack('<I', v)
+
+    def string_data(s):
+        raw = s.encode('utf-8')
+        return uleb(len(raw)) + raw + b'\x00'
+
+    def code_item(registers, outs, insns):
+        body = b''.join(p16(u) for u in insns)
+        return (p16(registers) + p16(0) + p16(outs) + p16(0)
+                + p32(0) + p32(len(insns)) + body)
+
+    def class_data(entries):
+        out = uleb(0) + uleb(0) + uleb(len(entries)) + uleb(0)
+        prev = 0
+        for mi, acc, co in entries:
+            out += uleb(mi - prev) + uleb(acc) + uleb(co)
+            prev = mi
+        return out
+
+    strings = sorted({CALLER, TARGET, OBJECT, STRING, 'I', 'V',
+                      'go', 'run', 'length'})
+    sidx = {s: i for i, s in enumerate(strings)}
+    types = sorted({CALLER, TARGET, OBJECT, STRING, 'I', 'V'}, key=lambda t: sidx[t])
+    tidx = {t: i for i, t in enumerate(types)}
+    protos = [('I', 'I'), ('V', 'V')]
+    protos.sort(key=lambda p: tidx[p[1]])
+    pidx = {s: i for i, (s, _r) in enumerate(protos)}
+    methods = [(CALLER, 'go', 'V'), (TARGET, 'run', 'V'), (STRING, 'length', 'I')]
+    methods.sort(key=lambda m: (tidx[m[0]], sidx[m[1]], pidx[m[2]]))
+    midx = {(c, n): i for i, (c, n, _r) in enumerate(methods)}
+
+    insns_go = [0x71, midx[(TARGET, 'run')], 0] * 2 + [0x000E]
+    insns_run = [0x106E, midx[(STRING, 'length')], 0] * 3 + [0x000E]
+
+    off = 0x70
+    string_ids_off = off
+    off += 4 * len(strings)
+    type_ids_off = off
+    off += 4 * len(types)
+    proto_ids_off = off
+    off += 12 * len(protos)
+    method_ids_off = off
+    off += 8 * len(methods)
+    class_defs_off = off
+    off += 32 * 2
+    data_off = off
+
+    data = bytearray()
+
+    def align(n):
+        while len(data) % n:
+            data.append(0)
+
+    str_offs = []
+    for s in strings:
+        str_offs.append(data_off + len(data))
+        data += string_data(s)
+
+    align(4)
+    code_go_off = data_off + len(data)
+    data += code_item(0, 0, insns_go)
+    align(4)
+    code_run_off = data_off + len(data)
+    data += code_item(1, 1, insns_run)
+    align(4)
+
+    cd_go_off = data_off + len(data)
+    data += class_data([(midx[(CALLER, 'go')], 0x0009, code_go_off)])
+    cd_run_off = data_off + len(data)
+    data += class_data([(midx[(TARGET, 'run')], 0x0009, code_run_off)])
+
+    string_ids = b''.join(p32(str_offs[i]) for i in range(len(strings)))
+    type_ids = b''.join(p32(sidx[t]) for t in types)
+    proto_ids = b''.join(p32(sidx[sh]) + p32(tidx[ret]) + p32(0)
+                         for sh, ret in protos)
+    method_ids = b''.join(p16(tidx[c]) + p16(pidx[r]) + p32(sidx[n])
+                          for c, n, r in methods)
+
+    def class_def(class_idx, super_idx, cd_off):
+        return (p32(class_idx) + p32(0x0001) + p32(super_idx) + p32(0)
+                + p32(0xFFFFFFFF) + p32(0) + p32(cd_off) + p32(0))
+
+    classes = sorted([(CALLER, cd_go_off), (TARGET, cd_run_off)],
+                     key=lambda c: tidx[c[0]])
+    class_defs = b''.join(class_def(tidx[c], tidx[OBJECT], cdo) for c, cdo in classes)
+
+    h = bytearray(0x70)
+    h[0:8] = b'dex\n035\x00'
+    h[32:36] = p32(data_off + len(data))
+    h[36:40] = p32(0x70)
+    h[40:44] = p32(0x12345678)
+    h[56:60] = p32(len(strings))
+    h[60:64] = p32(string_ids_off)
+    h[64:68] = p32(len(types))
+    h[68:72] = p32(type_ids_off)
+    h[72:76] = p32(len(protos))
+    h[76:80] = p32(proto_ids_off)
+    h[80:84] = p32(0)
+    h[84:88] = p32(method_ids_off)
+    h[88:92] = p32(len(methods))
+    h[92:96] = p32(method_ids_off)
+    h[96:100] = p32(2)
+    h[100:104] = p32(class_defs_off)
+    h[104:108] = p32(len(data))
+    h[108:112] = p32(data_off)
+    return bytes(h) + string_ids + type_ids + proto_ids + method_ids \
+        + class_defs + bytes(data)
+
+
+SELF_TEST_SMALI = """.class public Lcom/example/Target;
+.super Ljava/lang/Object;
+
+.method public static run()V
+    .registers 1
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    invoke-virtual {v0}, Ljava/lang/String;->length()I
+    invoke-static {}, Lcom/example/Target;->run()V
+    return-void
+.end method
+"""
+
+
+def self_test():
+    """Offline self-test: a built-in fixture dex plus a built-in smali file."""
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='find_refs-selftest-')
+
+    def run(argv):
+        old = sys.argv
+        sys.argv = argv
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv = old
+        return rc, out.getvalue()
+
+    def pat(needle):
+        esc = re.escape(needle)
+        return re.compile(REF_RE_TMPL % (esc, esc, esc, esc, esc))
+
+    try:
+        dex_path = os.path.join(tmp, 'fixture.dex')
+        with open(dex_path, 'wb') as fh:
+            fh.write(_fixture_dex())
+        smali_path = os.path.join(tmp, 'Target.smali')
+        with open(smali_path, 'w', encoding='utf-8', newline='\n') as fh:
+            fh.write(SELF_TEST_SMALI)
+
+        # 1) the fixture really is a structurally valid dex
+        dex, _entry = load_dex(dex_path)
+        assert dex.check() == [], dex.check()
+        assert list(dex.class_names()) == ['Lcom/example/Caller;',
+                                           'Lcom/example/Target;'], list(dex.class_names())
+        checks += 1
+
+        # 2) dex-side counts: the answers written down in the fixture, not "some hits"
+        hits = scan_dex(dex, 'Ljava/lang/String;->length')
+        assert len(hits) == 3, len(hits)
+        assert all(rendered == 'Ljava/lang/String;->length()I' for _o, _w, rendered in hits)
+        assert all(owner == 'Lcom/example/Target;->run()V' for _o, owner, _r in hits)
+        assert len(scan_dex(dex, 'Lcom/example/Target;->run')) == 2
+        assert len(scan_dex(dex, 'Lcom/example/Target;')) == 2
+        checks += 1
+
+        # 3) smali-side counts answer the same question identically
+        smali_hits = scan_smali(smali_path, pat('Ljava/lang/String;->length'))
+        assert len(smali_hits) == 2, len(smali_hits)
+        assert smali_hits[0][1] == '.method public static run()V', smali_hits[0][1]
+        assert len(scan_smali(smali_path, pat('Lcom/example/Target;->run'))) == 1
+        checks += 1
+
+        # 4) unreadable input is refused instead of reported as zero references
+        empty = os.path.join(tmp, 'empty')
+        os.makedirs(empty)
+        with open(os.path.join(empty, 'notes.txt'), 'w') as fh:
+            fh.write('nothing here\n')
+        try:
+            gather(empty)
+            raise AssertionError('gather() accepted a directory with nothing to scan')
+        except ValueError:
+            pass
+        try:
+            gather(os.path.join(tmp, 'nope.bin'))
+            raise AssertionError('gather() accepted an unsupported extension')
+        except ValueError:
+            pass
+        assert gather(smali_path) == ([smali_path], [], [])
+        checks += 1
+
+        # 5) CLI: found -> 0 with the right total, not-found -> 1
+        rc, text = run(['find_refs.py', dex_path, 'Lcom/example/Target;->run'])
+        assert rc == EXIT_FOUND, rc
+        assert '[total refs] 2 across 1 files' in text, text
+        rc, text = run(['find_refs.py', dex_path, 'Lcom/example/Nothing;->here'])
+        assert rc == EXIT_NO_MATCH, rc
+        assert 'found no reference' in text, text
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'find_refs.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'find_refs.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(
         description='Count and list references to a method/field/class, in a smali '
                     'tree, a .dex, a directory of either, or an .apk.')

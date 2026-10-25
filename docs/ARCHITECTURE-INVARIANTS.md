@@ -36,7 +36,7 @@
 跑法：
 
 ```bash
-python Tool/scripts/invariants.py            # 11 域 × 9 条 的矩阵
+python Tool/scripts/invariants.py            # 9 域 × 9 条 的矩阵（客户可见域，含 apkseep）
 python Tool/scripts/invariants.py --check    # 违反 → 退出码 1（已进 check.py 套件）
 ```
 

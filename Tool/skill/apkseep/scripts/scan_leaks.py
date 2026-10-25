@@ -564,6 +564,125 @@ def rel_of(path: str, root: str) -> str:
         return path.replace("\\", "/")
 
 
+def self_test():
+    """Offline self-test: hand-written sample lines + a temp tree, no network.
+
+    The scanner's product is a *finding*, so every assertion here is about a
+    finding (or an exemption) on a line whose bytes are written in this file.
+    """
+    import contextlib
+    import io
+    import json
+    import shutil
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=""):
+        checks.append((name, bool(cond), detail))
+
+    def run(argv):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+            rc = main(argv)
+        lines = [ln for ln in buf.getvalue().splitlines() if ln.strip()]
+        return rc, (lines[-1] if lines else ""), buf.getvalue()
+
+    rules = build_rules()
+    rule_ids = {r["id"] for r in rules}
+    for rid in ("bundle_pkg_attr", "device_serial", "token_github_pat",
+                "user_path_posix", "plain_addr"):
+        chk("rule-defined-%s" % rid, rid in rule_ids, sorted(rule_ids))
+
+    # 1) a leaky line produces a finding with the right rule/strength/context
+    text = ('package="com.acme.target"\n'
+            'adb -s R58M12ABCDEF1234 device\n'
+            'token ghp_' + 'a' * 30 + '\n'
+            '/home/alice/secret/x\n'
+            'connect 203.0.113.10:8443\n')
+    findings = scan_text("sample.txt", "sample.txt", text, rules, only=set())
+    fired = {f["rule"] for f in findings if not f["exempted"]}
+    chk("bundle-rule-fires", "bundle_pkg_attr" in fired, sorted(fired))
+    chk("serial-rule-fires", "device_serial" in fired, sorted(fired))
+    chk("github-token-certain", any(f["rule"] == "token_github_classic" and
+                                   f["strength"] == "certain" for f in findings))
+    chk("user-path-fires", "user_path_posix" in fired, sorted(fired))
+    addr = [f for f in findings if f["rule"] == "plain_addr" and not f["exempted"]]
+    chk("weak-ip-marked-weak", bool(addr) and addr[0]["strength"] == "weak", addr)
+    chk("finding-line-number", any(f["line"] == 1 and f["match"] == "com.acme.target"
+                                   for f in findings), findings[:1])
+    chk("context-includes-match", all(f["match"] in f["context"] for f in findings))
+
+    # 2) the "do not anonymize" list: placeholders and platform packages are exempt
+    exempt = scan_text("sample.txt", "sample.txt", 'package="com.example.demo"\n',
+                       rules, only=set())
+    chk("benign-package-exempted", len(exempt) == 1 and exempt[0]["exempted"] is True,
+        exempt)
+    chk("exemption-reason-recorded", bool(exempt) and exempt[0]["exempt_reason"], exempt)
+    loop = scan_text("sample.txt", "sample.txt", "proxy 127.0.0.1:8080\n",
+                     rules, only=set())
+    chk("loopback-not-reported", [f for f in loop if not f["exempted"]] == [], loop)
+
+    # 3) category filter
+    only_pat = scan_text("sample.txt", "sample.txt", text, rules, only={"package"})
+    chk("only-package-filter", only_pat and all(f["category"] == "package" for f in only_pat),
+        sorted({f["category"] for f in only_pat}))
+
+    # 4) end-to-end exit codes / RESULT token on a temp tree
+    tmp = tempfile.mkdtemp(prefix="scan-leaks-selftest-")
+    try:
+        with open(os.path.join(tmp, "leaky.md"), "w", encoding="utf-8") as fh:
+            fh.write(text)
+        rc, token, _out = run(["--root", tmp, "--quiet"])
+        chk("strong-finding-rc1", rc == 1, rc)
+        chk("strong-finding-token", token == "RESULT=leaks_found", token)
+
+        rc, token, _out = run(["--root", tmp, "--quiet", "--only", "appkey"])
+        chk("only-filter-can-clean-rc0", rc == 0, rc)
+        chk("only-filter-token", token == "RESULT=clean", token)
+
+        weak_dir = tempfile.mkdtemp(prefix="scan-leaks-weak-", dir=tmp)
+        with open(os.path.join(weak_dir, "doc.md"), "w", encoding="utf-8") as fh:
+            fh.write("example endpoint 203.0.113.10:8443\n")
+        rc, token, _out = run(["--root", weak_dir, "--quiet"])
+        chk("weak-only-default-rc0", rc == 0, rc)
+        chk("weak-only-token", token == "RESULT=leaks_found_strong_only", token)
+        rc, token, _out = run(["--root", weak_dir, "--quiet", "--fail-on", "any"])
+        chk("weak-only-fail-on-any-rc1", rc == 1, rc)
+        chk("weak-only-fail-on-any-token", token == "RESULT=leaks_found", token)
+
+        clean_dir = tempfile.mkdtemp(prefix="scan-leaks-clean-", dir=tmp)
+        with open(os.path.join(clean_dir, "doc.md"), "w", encoding="utf-8") as fh:
+            fh.write("no identifiers here\n")
+        rc, token, _out = run(["--root", clean_dir, "--quiet"])
+        chk("clean-tree-rc0", rc == 0, rc)
+        chk("clean-tree-token", token == "RESULT=clean", token)
+
+        # --files-from restricts the scan to the listed surface
+        files_from = os.path.join(tmp, "tracked.txt")
+        with open(files_from, "w", encoding="utf-8") as fh:
+            fh.write("doc.md\n")
+        rc, token, _out = run(["--root", clean_dir, "--quiet", "--files-from", files_from])
+        chk("files-from-rc0", rc == 0 and token == "RESULT=clean", (rc, token))
+        rc, token, _out = run(["--root", os.path.join(tmp, "nope"), "--quiet"])
+        chk("missing-root-rc2", rc == 2, rc)
+        chk("missing-root-token", token == "RESULT=error", token)
+        rc, token, _out = run(["--root", tmp, "--quiet", "--only", "notacategory"])
+        chk("unknown-category-rc2", rc == 2 and token == "RESULT=error", (rc, token))
+        rc, token, out = run(["--root", tmp, "--list-rules"])
+        chk("list-rules-rc0", rc == 0 and "bundle_pkg_attr" in out, rc)
+        chk("list-rules-token", token == "RESULT=clean", token)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({"ok": not fails, "checks": len(checks), "tool": "scan_leaks.py",
+                      "failures": [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print("FAIL %s: %s" % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="scan_leaks.py",
@@ -597,12 +716,17 @@ def main(argv=None):
                              "fails only on strong/certain findings, `any` also fails on `weak` "
                              "ones such as an address from the RFC 5737 documentation range")
     parser.add_argument("--no-color", action="store_true", help="accepted for compatibility")
+    parser.add_argument("--self-test", action="store_true", dest="self_test",
+                        help="run the offline self-test (built-in sample lines, no network)")
     parser.add_argument("--files-from", default="",
                         help="scan exactly the paths listed in this file (one per line, relative "
                              "to --root or absolute) instead of walking the tree -- the "
                              "maintenance gate passes the tracked-file list here, so a git-ignored "
                              "work area cannot produce findings")
     args = parser.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
 
     rules = build_rules()
 

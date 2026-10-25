@@ -32,6 +32,7 @@ Usage
 """
 
 import argparse
+import json
 import os
 import re
 import struct
@@ -190,7 +191,138 @@ def maybe_disasm(data, offset, count):
     return out
 
 
+TOMBSTONE = """*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+Build fingerprint: 'test/fixture/fixture:13/TQ1A/1:user/release-keys'
+pid: 1234, tid: 1240, name: RenderThread  >>> com.example.app <<<
+signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x10
+Cause: null pointer dereference
+    x0  0000000000000000  x1  0000000000000010  x2  0000000000000000
+    x8  0000000000000010  sp  00000000ffffff00  lr  0000000000000001
+backtrace:
+      #00 pc 00000000000128cc  /data/app/com.example-1/lib/arm64/libfoo.so (Java_a_b+40)
+      #01 pc 00000000000cccd0  /apex/com.android.runtime/lib64/bionic/libc.so (__pthread_start+256)
+"""
+
+KILLED = """pid: 55, tid: 55, name: main  >>> com.example.app <<<
+signal 9 (SIGKILL), code 0 (SI_USER), fault addr 0x0
+"""
+
+
+def self_test():
+    """Offline self-test: built-in tombstone text only, no device, no decoder.
+
+    The parse is pinned field by field (signal, fault address, pid/cmdline, frames,
+    registers) and the verdict hint is asserted on the arranged-fault shape this
+    script exists to flag.
+    """
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='native_crash-selftest-')
+    try:
+        # 1) parse: every field the report prints
+        crashes = parse(TOMBSTONE)
+        assert len(crashes) == 1, len(crashes)
+        c = crashes[0]
+        assert (c['signal'], c['signame'], c['si_code']) == (11, 'SIGSEGV', 'SEGV_MAPERR'), c
+        assert c['fault'] == '0x10', c['fault']
+        assert (c['pid'], c['tid']) == ('1234', '1240'), (c['pid'], c['tid'])
+        assert c['proc'] == 'com.example.app', c['proc']
+        assert c['cause'] == 'null pointer dereference', c.get('cause')
+        checks += 1
+
+        # 2) register block: x1/x8 hold the fault address, sp is read too
+        assert c['regs']['x8'] == 0x10 and c['regs']['x1'] == 0x10, c['regs']
+        assert c['regs']['sp'] == 0xffffff00, c['regs']
+        checks += 1
+
+        # 3) frames: path, symbol, and the app/system split
+        assert len(c['frames']) == 2, c['frames']
+        assert c['frames'][0]['path'].endswith('libfoo.so'), c['frames'][0]
+        assert c['frames'][0]['symbol'] == 'Java_a_b+40', c['frames'][0]
+        assert c['frames'][0]['pc'] == 0x128cc, c['frames'][0]
+        assert is_system_lib(c['frames'][1]['path']) is True
+        assert is_system_lib(c['frames'][0]['path']) is False
+        assert is_system_lib('libc.so') is True           # no path = not ours
+        checks += 1
+
+        # 4) the arranged-fault hint: small fault address held in a register
+        hints = verdict_hint(c)
+        assert any('small integer' in h for h in hints), hints
+        assert any('ARRANGED fault' in h and 'x8' in h for h in hints), hints
+        checks += 1
+
+        # 5) SIGKILL is named as a deliberate termination, not a bug
+        killed = parse(KILLED)[0]
+        assert killed['signame'] == 'SIGKILL' and killed['fault'] == '0x0'
+        hints = verdict_hint(killed)
+        assert any('deliberate termination' in h for h in hints), hints
+        checks += 1
+
+        # 6) --lib resolves frames against a local copy; a bad spec is refused
+        lib = os.path.join(tmp, 'libfoo.so')
+        with open(lib, 'wb') as fh:
+            fh.write(b'\x7fELF' + b'\x00' * 8 + bytes(range(32)))
+        libs = load_libs(['libfoo.so=%s' % lib])
+        assert list(libs) == ['libfoo.so'] and libs['libfoo.so'][:4] == b'\x7fELF'
+        try:
+            load_libs(['no-equals-sign'])
+            raise AssertionError('load_libs accepted a NAME=PATH spec without "="')
+        except SystemExit:
+            pass
+        checks += 1
+
+        # 7) CLI: the report names the crash, splits the backtrace, keeps the footer
+        log = os.path.join(tmp, 'capture.txt')
+        with open(log, 'w', encoding='utf-8') as fh:
+            fh.write(TOMBSTONE)
+        out = io.StringIO()
+        old_argv = sys.argv
+        sys.argv = ['native_crash.py', log, '--lib', 'libfoo.so=%s' % lib]
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv = old_argv
+        text = out.getvalue()
+        assert rc is None, rc
+        assert 'CRASH 1' in text and 'signal    : SIGSEGV (11)' in text, text[:300]
+        assert 'fault addr: 0x10' in text, text[:300]
+        assert '#00 [APP]' in text and '#01 [system]' in text, text
+        assert 'local libfoo.so @ 0x%x' % 0x128cc in text, text
+        assert 'RECORD THIS' in text, text[-200:]
+        checks += 1
+
+        # 8) a capture with no crash block says so instead of printing nothing
+        empty = os.path.join(tmp, 'empty.txt')
+        with open(empty, 'w', encoding='utf-8') as fh:
+            fh.write('I/ActivityManager: nothing crashed here\n')
+        sys.argv = ['native_crash.py', empty]
+        out = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out):
+                main()
+        finally:
+            sys.argv = old_argv
+        assert 'no native crash block found' in out.getvalue(), out.getvalue()
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'native_crash.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'native_crash.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(description="Locate native crashes from a log or tombstone.")
     ap.add_argument("logfile", help="logcat capture or tombstone file")
     ap.add_argument("--lib", action="append", metavar="NAME=PATH",
@@ -276,4 +408,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -34,6 +34,7 @@ Notes
 """
 import argparse
 import glob
+import json
 import os
 import re
 import struct
@@ -74,6 +75,121 @@ def iter_dex(target):
     return [target]
 
 
+def _mini_dex(strings):
+    """dex-shaped bytes whose only populated table is string_ids.
+
+    Self-test fixture on purpose: the reader under test touches magic, the two
+    header fields at 0x38/0x3C, and the string_data_items -- nothing else -- so a
+    fixture that provides exactly those is enough to pin the parser's contract
+    without shipping a sample file.
+    """
+    ids_off = 0x70
+    data_off = ids_off + 4 * len(strings)
+    ids = []
+    blob = b''
+    for s in strings:
+        raw = s if isinstance(s, bytes) else s.encode('utf-8')
+        n = len(raw)
+        prefix = bytearray()
+        while True:
+            b = n & 0x7F
+            n >>= 7
+            prefix.append(b | (0x80 if n else 0))
+            if not n:
+                break
+        ids.append(data_off + len(blob))
+        blob += bytes(prefix) + raw + b'\x00'
+    hdr = bytearray(ids_off)
+    hdr[0:8] = b'dex\n035\x00'
+    hdr[0x38:0x3C] = struct.pack('<I', len(strings))
+    hdr[0x3C:0x40] = struct.pack('<I', ids_off)
+    return bytes(hdr) + b''.join(struct.pack('<I', o) for o in ids) + blob
+
+
+def self_test():
+    """Offline self-test: built-in bytes only, no network, no external tools."""
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='dex_strings-selftest-')
+
+    def run(argv):
+        """Call main() with a patched argv, capturing stdout/stderr."""
+        old = sys.argv
+        out, err = io.StringIO(), io.StringIO()
+        sys.argv = argv
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                rc = main()
+        finally:
+            sys.argv = old
+        return rc, out.getvalue(), err.getvalue()
+
+    try:
+        strings = [b'https://ads.example.com/v1', b'Lcom/example/AdHelper;',
+                   b'openadsdk']
+        a = os.path.join(tmp, 'a.dex')
+        with open(a, 'wb') as fh:
+            fh.write(_mini_dex(strings))
+
+        # 1) string table in table order, byte for byte
+        got = list(dex_strings(a))
+        assert got == strings, got
+        checks += 1
+
+        # 2) the URL scan finds the endpoint and nothing else
+        with open(a, 'rb') as fh:
+            urls = URL_RE.findall(fh.read())
+        assert urls == [b'https://ads.example.com/v1'], urls
+        checks += 1
+
+        # 3) a non-dex input yields no strings instead of junk
+        junk = os.path.join(tmp, 'junk.dex')
+        with open(junk, 'wb') as fh:
+            fh.write(b'not a dex at all')
+        assert list(dex_strings(junk)) == []
+        checks += 1
+
+        # 4) iter_dex: a directory contributes only *.dex, sorted
+        tree = os.path.join(tmp, 'tree')
+        os.makedirs(tree)
+        for name in ('b.dex', 'a.dex', 'notes.txt'):
+            with open(os.path.join(tree, name), 'wb') as fh:
+                fh.write(_mini_dex([b'com.example.X']))
+        assert [os.path.basename(p) for p in iter_dex(tree)] == ['a.dex', 'b.dex']
+        checks += 1
+
+        # 5) --diff reports the real set difference, in both directions
+        b = os.path.join(tmp, 'b.dex')
+        with open(b, 'wb') as fh:
+            fh.write(_mini_dex([b'https://ads.example.com/v1', b'only-in-b']))
+        rc, text, _err = run(['dex_strings.py', '--diff', a, b, '--min', '4'])
+        assert rc == 0, rc
+        assert 'only in A: 2' in text and 'only in B: 1' in text, text
+        assert '+ only-in-b' in text, text
+        checks += 1
+
+        # 6) argparse contract: a target is required unless --diff is used
+        try:
+            run(['dex_strings.py'])
+            raise AssertionError('dex_strings.py accepted a run with no target')
+        except SystemExit as exc:
+            assert exc.code == 2, exc.code
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'dex_strings.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'dex_strings.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     ap = argparse.ArgumentParser(
         description='Extract strings / URLs / class descriptors / vendor markers from dex files '
@@ -94,7 +210,12 @@ def main():
     ap.add_argument('--max', type=int, default=200, help='maximum string length (default 200)')
     ap.add_argument('--max-print', type=int, default=5000,
                     help='stop printing after this many lines (default 5000; use 0 for unlimited)')
+    ap.add_argument('--self-test', action='store_true',
+                    help='run the offline built-in checks and exit')
     a = ap.parse_args()
+
+    if a.self_test:
+        return self_test()
 
     # --diff mode needs no target
     if a.diff:

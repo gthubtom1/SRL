@@ -35,6 +35,7 @@ Pure standard library. Import it, or run it for a per-method dump:
 """
 
 import hashlib
+import json
 import struct
 import sys
 import zipfile
@@ -605,8 +606,138 @@ def fix_dex_header(data):
     }
 
 
+# ---------------------------------------------------------------------------
+# self-test fixture (no sample file involved)
+# ---------------------------------------------------------------------------
+
+def selftest_dex():
+    """Build a tiny but structurally valid dex image for the scripts' own --self-test.
+
+    The fixture is GENERATED, not read from a sample: a self-test has to run on a host
+    with no APK, no device and no Android toolchain, so `Tool/samples/**` must never be
+    a prerequisite for it.
+
+    Contents: one class `Lcom/ex/Foo;` with one instance field (`enabled:Z`) and two
+    direct methods.
+
+      * `gate()V` -- `const/4 v0, #1` / `invoke-static {v0}, Cfg.goHome()` /
+        `move-result v0` / `if-eqz v1, <the move-result>` / `return-void`; 7 code
+        units. The conditional branch targets the move-result ON PURPOSE: that is the
+        Tier-3 verifier violation `dex_check_verifier.py` exists to find, and it is
+        also the site `dex_patch_bytes.py` can be told to replace with nops.
+      * `stub()V` -- a lone `return-void`: the extraction-shell body shape
+        `dex_dump_validate.py` classifies as 'stub'.
+
+    Returns `(dex_bytes, meta)` where meta carries the code_item offsets and the
+    expected instruction offsets, so a caller asserts on real values instead of
+    re-deriving them.
+    """
+    def uleb(value):
+        out = bytearray()
+        while True:
+            b = value & 0x7F
+            value >>= 7
+            if value:
+                out.append(b | 0x80)
+            else:
+                out.append(b)
+                return bytes(out)
+
+    strings = ["Lcom/ex/Foo;", "V", "gate", "stub", "Lcom/ex/Cfg;", "goHome",
+               "enabled", "Z"]
+    type_strings = [0, 1, 4, 7]        # type_ids -> string idx: Foo;, V, Cfg;, Z
+    proto = (1, 1, 0)                  # shorty "V", return type 1 (V), no params
+    field = (0, 3, 6)                  # class 0, type Z, name "enabled"
+    methods = [(0, 0, 2), (0, 0, 3), (2, 0, 5)]   # gate, stub, Cfg.goHome
+
+    HDR = 112
+    str_ids_off = HDR
+    type_ids_off = str_ids_off + 4 * len(strings)
+    proto_ids_off = type_ids_off + 4 * len(type_strings)
+    field_ids_off = proto_ids_off + 12
+    method_ids_off = field_ids_off + 8
+    class_defs_off = method_ids_off + 8 * len(methods)
+    data_off = class_defs_off + 32
+
+    data = bytearray()
+    str_offs = []
+    for s in strings:
+        raw = s.encode("utf-8")
+        str_offs.append(data_off + len(data))
+        data += uleb(len(raw)) + raw + b"\x00"
+
+    def add_code(units, registers):
+        while (data_off + len(data)) % 4:
+            data.append(0)
+        off = data_off + len(data)
+        data.extend(struct.pack("<HHHHII", registers, 0, 1, 0, 0, len(units)))
+        for u in units:
+            data.extend(struct.pack("<H", u))
+        return off
+
+    # const/4 v0,#1 | invoke-static {v0}, method#2 | move-result v0 |
+    # if-eqz v1, -1 (-> the move-result) | return-void
+    gate_units = [0x0112, 0x1071, 0x0002, 0x0000, 0x000A, 0x0138, 0xFFFF, 0x000E]
+    gate_off = add_code(gate_units, registers=2)
+    stub_off = add_code([0x000E], registers=1)
+
+    class_data_off = data_off + len(data)
+    data += uleb(0) + uleb(1) + uleb(2) + uleb(0)          # sf, inf, dm, vm
+    data += uleb(0) + uleb(0x2)                            # instance field: enabled
+    data += uleb(0) + uleb(0x1) + uleb(gate_off)           # direct: gate()V
+    data += uleb(1) + uleb(0x1) + uleb(stub_off)           # direct: stub()V
+
+    total = data_off + len(data)
+    head = bytearray(HDR)
+    head[0:8] = b"dex\n035\x00"
+    struct.pack_into("<I", head, 0x20, total)             # file_size
+    struct.pack_into("<I", head, 0x24, HDR)               # header_size
+    struct.pack_into("<I", head, 0x28, 0x12345678)        # endian_tag
+    struct.pack_into("<I", head, 0x34, 0)                 # map_off (unused here)
+    struct.pack_into("<II", head, 0x38, len(strings), str_ids_off)
+    struct.pack_into("<II", head, 0x40, len(type_strings), type_ids_off)
+    struct.pack_into("<II", head, 0x48, 1, proto_ids_off)
+    struct.pack_into("<II", head, 0x50, 1, field_ids_off)
+    struct.pack_into("<II", head, 0x58, len(methods), method_ids_off)
+    struct.pack_into("<II", head, 0x60, 1, class_defs_off)
+    struct.pack_into("<II", head, 0x68, total - data_off, data_off)
+
+    body = bytearray()
+    for off in str_offs:
+        body += struct.pack("<I", off)
+    for string_idx in type_strings:
+        body += struct.pack("<I", string_idx)
+    body += struct.pack("<III", proto[0], proto[1], proto[2])
+    body += struct.pack("<HHI", field[0], field[1], field[2])
+    for cls, proto_idx, name_idx in methods:
+        body += struct.pack("<HHI", cls, proto_idx, name_idx)
+    # class_def_item (32 bytes): class_idx, access_flags, superclass_idx, interfaces_off
+    body += struct.pack("<IIII", 0, 0x1, 0xFFFFFFFF, 0)
+    # source_file_idx, annotations_off, class_data_off, static_values_off
+    body += struct.pack("<IIII", 0xFFFFFFFF, 0, class_data_off, 0)
+    body += data
+
+    blob = bytearray(head) + body
+    fix_dex_header(blob)
+    meta = {
+        "size": len(blob),
+        "code_gate": gate_off,
+        "code_stub": stub_off,
+        "insns_off": gate_off + 16,
+        "gate_units": len(gate_units),
+        "off_const4": gate_off + 16,
+        "off_invoke": gate_off + 18,
+        "off_move_result": gate_off + 24,
+        "off_if_eqz": gate_off + 26,
+        "off_return_void": gate_off + 30,
+        "n_methods": 2,
+    }
+    return bytes(blob), meta
+
+
 def verify_dex_header(data):
     """Return (checksum_ok, signature_ok) for a bytearray/bytes dex."""
+
     import zlib
     stored_c = int.from_bytes(data[8:12], "little")
     calc_c = zlib.adler32(bytes(data[12:])) & 0xFFFFFFFF
@@ -640,7 +771,124 @@ def load_dex(source, entry=None):
         return Dex(fh.read(), path), path
 
 
+def _code_item(registers, insns):
+    """A code_item with a known instruction stream (header is 16 bytes)."""
+    body = b"".join(struct.pack("<H", w) for w in insns)
+    return (struct.pack("<HHHH", registers, 0, 0, 0)
+            + struct.pack("<I", 0) + struct.pack("<I", len(insns)) + body)
+
+
+def self_test():
+    """Offline self-test: built-in bytes only, no network, no external tools."""
+    import contextlib
+    import io
+
+    checks = 0
+    try:
+        # 1) ULEB128: the documented 5-byte example, and a 1-byte value
+        assert read_uleb(b"\xe5\x8e\x26", 0) == (624485, 3), read_uleb(b"\xe5\x8e\x26", 0)
+        assert read_uleb(b"\x7f", 0) == (127, 1)
+        checks += 1
+
+        # 2) instruction widths are keyed on the OPCODE, not on a family guess.
+        #    The 0x16-0x2C run is the classic place where a wrong width shifts
+        #    every later instruction and still looks plausible.
+        widths = {0x18: 5, 0x17: 3, 0x16: 2, 0x1C: 2, 0x1E: 1, 0x20: 2,
+                  0x21: 1, 0x1A: 2, 0x1B: 3, 0x28: 1, 0x29: 2, 0x2A: 3,
+                  0x32: 2, 0x38: 2}
+        for op, want in widths.items():
+            got = insn_units(op, b"\x00" * 16, 0, 16)
+            assert got == want, "opcode 0x%02x: %d units, expected %d" % (op, got, want)
+        checks += 1
+
+        # 3) pseudo-instruction payloads: each kind has its own layout, and a
+        #    plain 00 00 must stay an ordinary 1-unit nop.
+        assert insn_units(0x00, b"\x00\x00", 0, 2) == 1
+        packed = b"\x00\x01" + struct.pack("<H", 3) + b"\x00" * 12
+        assert insn_units(0x00, packed, 0, len(packed)) == 4 + 3 * 2
+        sparse = b"\x00\x02" + struct.pack("<H", 3) + b"\x00" * 24
+        assert insn_units(0x00, sparse, 0, len(sparse)) == 2 + 3 * 4
+        fill = b"\x00\x03" + struct.pack("<H", 4) + struct.pack("<I", 30)
+        assert insn_units(0x00, fill, 0, len(fill)) == 4 + (30 * 4 + 1) // 2
+        checks += 1
+
+        # 4) decode walks a body and lands exactly on its declared end
+        blob = bytes(0x70) + _code_item(2, [0x0013, 0x0000, 0x000E])
+        dex = Dex(blob)
+        insns, clean, expected = dex.decode_all(0x70)
+        assert clean is True, "decode did not land on 0x%x" % expected
+        assert [i["units"] for i in insns] == [2, 1], insns
+        assert expected == 0x70 + 16 + 3 * 2
+        checks += 1
+
+        # 5) branch_target resolves a 21t branch relative to the instruction
+        blob = bytes(0x70) + _code_item(2, [0x0138, 0x0002, 0x000E])
+        dex = Dex(blob)
+        insns, _clean, _exp = dex.decode_all(0x70)
+        assert dex.branch_target(insns[0]) == 0x80 + 2 * 2, dex.branch_target(insns[0])
+        assert dex.all_targets(0x70) == {0x84}, dex.all_targets(0x70)
+        assert dex.branch_regs(insns[0]) == ([1], "if-testz"), dex.branch_regs(insns[0])
+        checks += 1
+
+        # 6) the shared fixture (selftest_dex) parses: it is what five other
+        #    scripts' self-tests lean on, so a break here must surface here.
+        blob, meta = selftest_dex()
+        dex = Dex(blob)
+        assert dex.check() == [], dex.check()
+        assert dex.header["string_ids_size"] == 8, dex.header["string_ids_size"]
+        assert dex.string(0) == "Lcom/ex/Foo;", dex.string(0)
+        found = dex.find_method("Lcom/ex/Foo;", "gate", "()V")
+        assert found is not None and found[2] == meta["code_gate"], found
+        liar = bytearray(blob)
+        liar[0x20:0x24] = struct.pack("<I", len(liar) + 8)
+        problems = Dex(bytes(liar)).check()
+        assert any("file_size" in p for p in problems), problems
+        checks += 1
+
+        # 7) the fixture's method body decodes to the offsets it advertises, and
+        #    its 21t branch really points at the move-result (not at a neighbour)
+        insns, clean, expected = dex.decode_all(meta["code_gate"])
+        assert clean is True, "fixture decode did not land on 0x%x" % expected
+        assert [i["off"] for i in insns] == [meta["off_const4"], meta["off_invoke"],
+                                            meta["off_move_result"],
+                                            meta["off_if_eqz"],
+                                            meta["off_return_void"]], \
+            [hex(i["off"]) for i in insns]
+        assert dex.insn_at(meta["code_gate"], meta["off_if_eqz"])["op"] == 0x38
+        assert dex.all_targets(meta["code_gate"]) == {meta["off_move_result"]}, \
+            dex.all_targets(meta["code_gate"])
+        checks += 1
+
+        # 8) header repair happens in the one valid order: signature, then checksum
+        assert verify_dex_header(blob) == (True, True), verify_dex_header(blob)
+        broken = bytearray(blob)
+        broken[8:32] = b"\x00" * 24
+        assert verify_dex_header(bytes(broken)) == (False, False)
+        info = fix_dex_header(broken)
+        assert verify_dex_header(bytes(broken)) == (True, True), \
+            verify_dex_header(bytes(broken))
+        assert info["after_checksum"] != info["before_checksum"]
+        checks += 1
+
+        # 9) CLI contract: --help exits 0 and a wrong argument count is a usage error
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            assert main(["dexutil.py", "--help"]) == 0
+            assert main(["dexutil.py"]) == 2
+        assert "dexutil.py <dex-or-apk>" in out.getvalue(), out.getvalue()[:80]
+        checks += 1
+
+        print(json.dumps({"ok": True, "checks": checks, "tool": "dexutil.py"}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dexutil.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)}))
+        return 1
+
+
 def main(argv):
+    if "--self-test" in argv[1:]:
+        return self_test()
     if any(a in ("-h", "--help") for a in argv[1:]):
         print((__doc__ or "").strip() or "usage: dexutil.py ...")
         return 0

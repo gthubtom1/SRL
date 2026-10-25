@@ -1625,6 +1625,159 @@ def cmd_emit_smali(args):
 # cli
 # ---------------------------------------------------------------------------
 
+def self_test():
+    """Offline self-test: pure helpers only, no javac/d8/aapt2, no dex needed.
+
+    The permutation is what makes compare() falsifiable, and the table loader is
+    what turns a compare report back into a disassembly, so both are asserted on
+    hand-built inputs here.
+    """
+    import contextlib
+    import io
+    import json
+    import tempfile
+
+    global dexutil
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    # 1) the private-opcode permutation is a deterministic bijection over 0..255
+    table = _private_permutation(1)
+    chk('permutation-256-entries', len(table) == 256, len(table))
+    chk('permutation-keys-cover-byte', set(table) == set(range(256)), len(set(table)))
+    chk('permutation-values-cover-byte', set(table.values()) == set(range(256)))
+    chk('permutation-zero-fixed', table[0] == 0, table[0])
+    chk('permutation-nonzero-stays-nonzero',
+        all(table[b] != 0 for b in range(1, 256)))
+    chk('permutation-deterministic', _private_permutation(1) == table)
+    other = _private_permutation(2)
+    chk('permutation-seed-changes-table', other != table,
+        sum(1 for b in range(256) if other[b] != table[b]))
+    stayed = sum(1 for b in range(1, 256) if table[b] == b)
+    chk('permutation-actually-moves-opcodes', stayed < 10, stayed)
+
+    # 2) _load_table: both producer shapes, and the verdict gate
+    tmp = tempfile.mkdtemp(prefix='vmp-selftest-')
+    try:
+        simulate_doc = os.path.join(tmp, 'simulate.json')
+        with open(simulate_doc, 'w', encoding='utf-8') as fh:
+            json.dump({'seed': 1, 'map': {'0x90': '0xe1', '0x0e': '0xa0'}}, fh)
+        priv2std, skipped, doc = _load_table(simulate_doc)
+        chk('load-table-map-shape', priv2std == {0xE1: 0x90, 0xA0: 0x0E}, priv2std)
+        chk('load-table-map-no-skips', skipped == [], skipped)
+        chk('load-table-returns-doc', doc.get('seed') == 1, doc)
+
+        compare_doc = os.path.join(tmp, 'compare.json')
+        with open(compare_doc, 'w', encoding='utf-8') as fh:
+            json.dump({'map': [
+                {'orig': 18, 'candidates': ['0x91'], 'verdict': 'high'},
+                {'orig': 19, 'candidates': ['0x92'], 'verdict': 'low'},
+                {'orig': 20, 'candidates': ['0x93', '0x94'], 'verdict': 'high'},
+                {'orig': 21, 'candidates': [], 'verdict': 'high'},
+            ]}, fh)
+        priv2std2, skipped2, _doc2 = _load_table(compare_doc)
+        chk('load-table-high-row-only', priv2std2 == {0x91: 0x12}, priv2std2)
+        chk('load-table-skips-low-and-ambiguous', len(skipped2) == 2, skipped2)
+        chk('load-table-skip-verdict-recorded', skipped2[0][1] == 'low', skipped2)
+
+        # 3) class filter accepts the three spellings a reader/producer uses
+        chk('class-match-dex-form', _class_matches('Lcom/foo/Bar;', 'Lcom/foo/Bar;'))
+        chk('class-match-bare', _class_matches('Lcom/foo/Bar;', 'com.foo.Bar'))
+        chk('class-match-slash', _class_matches('Lcom/foo/Bar;', 'com/foo/Bar'))
+        chk('class-match-no-filter', _class_matches('Lcom/foo/Bar;', None))
+        chk('class-mismatch', _class_matches('Lcom/foo/Bar;', 'com.other.Baz') is False)
+
+        # 4) access flags and table formatting
+        chk('class-flags', _flags(0x1 | 0x10 | 0x1000, CLASS_FLAGS) ==
+            'public final synthetic', _flags(0x1 | 0x10 | 0x1000, CLASS_FLAGS))
+        chk('method-flags', _flags(0x10000, METHOD_FLAGS) == 'constructor',
+            _flags(0x10000, METHOD_FLAGS))
+        chk('method-flags-combined', _flags(0x1 | 0x8, METHOD_FLAGS) == 'public static',
+            _flags(0x1 | 0x8, METHOD_FLAGS))
+        rendered = _fmt_table([['0xe1', '0x90'], ['0x0e', '0xa0']],
+                             ['private', 'orig'])
+        chk('fmt-table-three-lines', len(rendered.splitlines()) == 4,
+            rendered.splitlines())
+        chk('fmt-table-header', rendered.splitlines()[0].split() == ['private', 'orig'],
+            rendered.splitlines()[0])
+        chk('fmt-table-separator', set(rendered.splitlines()[1].replace(' ', '')) == {'-'},
+            rendered.splitlines()[1])
+
+        # 5) the fixture generator is deterministic and reaches the thresholds it
+        #    documents (register > 255 / long branch) by construction.
+        src = gen_big_probe(n_int=3, n_long=2, n_obj=2, goto16_units=2)
+        chk('gen-big-deterministic', gen_big_probe(n_int=3, n_long=2, n_obj=2,
+                                                   goto16_units=2) == src)
+        chk('gen-big-class', 'public class OpCoverBig {' in src, src[:80])
+        chk('gen-big-int-locals', src.count('int v') == 3, src.count('int v'))
+        chk('gen-big-last-int-local', 'int v2 = seed + 2;' in src)
+        chk('gen-big-long-locals', 'long w1 = seed + 1L;' in src)
+        chk('gen-big-object-locals', 'Object a1 = o;' in src)
+        big = gen_big_probe()
+        chk('gen-big-default-counts', big.count('int v') == 300 and
+            big.count('long w') == 140 and big.count('Object a') == 160,
+            (big.count('int v'), big.count('long w'), big.count('Object a')))
+        chk('minimal-manifest-package',
+            'package="probe.synthetic.vmpdiff"' in MINIMAL_MANIFEST, MINIMAL_MANIFEST[:120])
+
+        # 6) the unreachable-opcode notes must name real opcodes in the shared table
+        if dexutil is not None:
+            chk('unreachable-keys-are-real-opcodes',
+                all(op in dexutil.OP_NAMES for op in UNREACHABLE),
+                sorted(UNREACHABLE))
+            chk('unreachable-notes-have-reasons',
+                all(isinstance(v, str) and len(v) > 20 for v in UNREACHABLE.values()))
+
+        # 7) missing dexutil is a clear refusal, not an AttributeError
+        real_dexutil = dexutil
+        try:
+            dexutil = None
+            try:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    _require_dexutil()
+                refused = None
+            except SystemExit as exc:
+                refused = exc.code
+            chk('missing-dexutil-exits-2', refused == 2, refused)
+        finally:
+            dexutil = real_dexutil
+
+        # 8) CLI contract: no subcommand prints help and exits 2; required args enforced
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc_none = main([])
+        chk('no-subcommand-rc2', rc_none == 2, rc_none)
+        chk('no-subcommand-prints-help', 'audit' in buf.getvalue() and
+            'compare' in buf.getvalue(), buf.getvalue()[:100])
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                main(['simulate', 'classes.dex'])
+            missing_out = None
+        except SystemExit as exc:
+            missing_out = exc.code
+        chk('simulate-requires-out', missing_out == 2, missing_out)
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                main(['compare', 'a.dex'])
+            missing_hardened = None
+        except SystemExit as exc:
+            missing_hardened = exc.code
+        chk('compare-requires-two-dex', missing_hardened == 2, missing_hardened)
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks),
+                      'tool': 'vmp_diff_harness.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="vmp_diff_harness.py",
@@ -1714,7 +1867,11 @@ def main(argv=None):
                    help="do not recompute the restored dex header")
     p.set_defaults(func=cmd_emit_smali)
 
+    parser.add_argument("--self-test", action="store_true", dest="self_test",
+                        help="run the offline self-test (pure helpers, no dex/toolchain)")
     args = parser.parse_args(argv)
+    if getattr(args, "self_test", False):
+        return self_test()
     if not getattr(args, "cmd", None):
         parser.print_help()
         return 2

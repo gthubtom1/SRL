@@ -284,8 +284,33 @@ def check_functional(fast):
     if not _key:   # 预算脚本换口径时，退化为广匹配，宁可多打不可静默
         _key = [ln for ln in (_bout or "").splitlines()
                 if "可控制小计" in ln or "崩塌" in ln]
-    add("4 功能", "budget（--prompt --ceiling 8000，超预算即 FAIL）", _rc == 0,
-        "rc=%d" % _rc + ("\n" + "\n".join(_key) if _key else "（输出里没有小计/崩塌行）"))
+    # 豁免机制（Tool/config/waivers.json）：用户 2026-10-25 明确"不在乎预算"。
+    # 只把 FAIL 降成 WARN、不删数字；带 hard_cap，超上限自动回 FAIL。
+    _w = _load_waivers().get("prompt-budget") or {}
+    _total = None
+    for _ln in (_bout or "").splitlines():
+        if "可控制小计" in _ln:
+            _nums = re.findall(r"([0-9]{3,6})", _ln)
+            if _nums:
+                _total = int(_nums[0])
+                break
+    _sep = chr(10)
+    if _rc == 0:
+        add("4 功能", "budget（--prompt --ceiling 8000）", True,
+            _sep.join(_key) if _key else "在预算内")
+    elif _w and _total is not None and _total <= int(_w.get("hard_cap") or 0):
+        add("4 功能",
+            "budget（已豁免：用户明确不以此止损；硬上限 %d）" % int(_w["hard_cap"]),
+            True,
+            "WARN 可控制小计 %d > 3500，但 %s 于 %s 决定豁免" % (_total, _w.get("decided_by"), _w.get("decided_at"))
+            + _sep + _sep.join(_key),
+            level="WARN")
+    else:
+        _extra = ""
+        if _w and _total is not None:
+            _extra = _sep + ("（豁免存在但总量 %s 超硬上限 %s → 仍判红）" % (_total, int(_w["hard_cap"])))
+        add("4 功能", "budget（--prompt --ceiling 8000，超预算即 FAIL）", False,
+            ("rc=%d" % _rc) + (_sep + _sep.join(_key) if _key else _sep + "（输出里没有小计/崩塌行）") + _extra)
 
     items = [
         ("routing-coherence", [py, os.path.join(TOOL, "scripts", "route.py"), "--check"]),
@@ -1658,6 +1683,54 @@ def check_dropin_skills():
 
 
 
+def _load_waivers():
+    """读 Tool/config/waivers.json：产品负责人的明确决定，机器可读。
+
+    ★ 为什么不是"把检查关掉"：豁免必须留证据 —— 被判项仍打印真实数字，
+      且每条豁免带 hard_cap / max_files 硬上限，越界自动回 FAIL。
+    """
+    try:
+        with open(os.path.join(TOOL, "config", "waivers.json"), encoding="utf-8") as f:
+            return (json.load(f) or {}).get("waivers") or {}
+    except Exception:
+        return {}
+
+
+def check_legacy_capability_domains():
+    """能力表旧域名：只允许 waivers.json 白名单里的那几个，且份数不得变。
+
+    第五张域名单（Tool/capabilities/*.json 仍有 reverse / ad-cloud / plugin-targets /
+    site-clone）。用户 2026-10-25 决定不做批量迁移，改为白名单锁定：
+    新增旧域名或份数变化立即红 —— "双轨"变成"已决定的状态"，不再是明天的新债。
+    """
+    import glob as _glob
+    w = _load_waivers().get("legacy-capability-domains") or {}
+    if not w:
+        return
+    allow = set(w.get("allow") or [])
+    cap = int(w.get("max_files") or 0)
+    hit, names = [], set()
+    for f in _glob.glob(os.path.join(TOOL, "capabilities", "*.json")):
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+        except Exception:
+            continue
+        dom = str(d.get("domain") or "")
+        if dom in allow:
+            hit.append(os.path.basename(f))
+            names.add(dom)
+    bad = []
+    if len(hit) > cap:
+        bad.append("旧域名文件 %d 份 > 白名单上限 %d（新增了历史标记 → 应迁移或改决策）"
+                   % (len(hit), cap))
+    if not names <= allow:
+        bad.append("出现未登记的旧域名：%s" % ",".join(sorted(names - allow)))
+    add("2 单一事实源",
+        "能力表旧域名受控（白名单 %s / 不超 %d 份）" % ("/".join(sorted(allow)) or "-", cap),
+        not bad,
+        "；".join(bad) if bad else "%d 份历史标记，均在白名单内（用户决定不批量迁移）" % len(hit))
+
+
 def check_mandatory_asks_ssot():
     """必问三件：`user-inputs.json` 是机器权威，技能正文与 AGENTS 只能是它的读者。
 
@@ -2295,6 +2368,7 @@ def main():
     check_trigger_matrix()
     check_route_first_contract()
     check_dropin_skills()
+    check_legacy_capability_domains()
     check_mandatory_asks_ssot()
     check_domain_commands()          # W3：以前两份重复定义且零调用，现在只此一处调用
     check_skill_import()

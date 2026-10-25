@@ -1077,6 +1077,126 @@ def human_report(results, verbose=False):
     return lines
 
 
+def self_test():
+    """Offline self-test: registry consistency + declaration parsing + CLI contract.
+
+    Nothing here probes this host, installs anything or opens a socket: the assertions
+    are about the invariants the module claims -- every atom a capability needs exists,
+    a prerequisite is inherited as a prerequisite, the exit-code/token table is
+    self-consistent, and a `capability:` declaration is read from the docstring header
+    and NOT from the prose -- plus the `--list` / unknown-id CLI contract.
+    """
+    import contextlib
+    import io
+    import tempfile
+
+    checks = 0
+    try:
+        unknown = sorted({(cid, atom) for cid in CAPABILITIES
+                          for atom in closure(cid)[0] + closure(cid)[1]
+                          if atom not in ALL_ATOMS})
+        assert not unknown, "capabilities name atoms that ALL_ATOMS does not define: %s" \
+                            % (unknown,)
+        checks += 1
+
+        bad_deps = sorted({(cid, dep) for cid, spec in CAPABILITIES.items()
+                           for dep in spec.get('depends_on', [])
+                           if dep not in CAPABILITIES})
+        assert not bad_deps, "depends_on names an unknown capability: %s" % (bad_deps,)
+        checks += 1
+
+        req, opt = closure('device_root')
+        assert 'device_root' in req and 'device' in req and 'tool:adb' in req, req
+        assert 'python39' in req, req
+        assert 'device_root' not in opt, opt
+        checks += 1
+
+        # frida_rpc depends on frida_dynamic: the prerequisite's OPTIONAL atoms must
+        # stay optional, so a degraded prerequisite degrades instead of blocking.
+        req, opt = closure('frida_rpc')
+        assert 'module:frida' in req and 'device' in req, req
+        assert 'device_root' in opt and 'device_frida_server' in opt, opt
+        assert 'device_root' not in req, req
+        checks += 1
+
+        assert TOKENS['ok'] == 'capabilities_ok'
+        assert TOKENS['partial'] == 'capabilities_partial'
+        assert TOKENS['blocked'] == 'capabilities_blocked'
+        assert (EXIT_OK, EXIT_USE, EXIT_ENV, EXIT_INTERNAL) == (0, 2, 3, 4)
+        checks += 1
+
+        assert verdict({'x': {'status': 'blocked'}}) == ('blocked', EXIT_ENV,
+                                                         TOKENS['blocked'])
+        assert verdict({'x': {'status': 'partial'}}) == ('partial', EXIT_OK,
+                                                         TOKENS['partial'])
+        assert verdict({'x': {'status': 'ok'}, 'y': {'status': 'ok'}}) == \
+            ('ok', EXIT_OK, TOKENS['ok'])
+        assert verdict({'x': {'status': 'partial'}, 'y': {'status': 'blocked'}})[0] == \
+            'blocked', "a blocked capability must outrank a partial one"
+        checks += 1
+
+        assert len(SMALI_JARS) == 8, SMALI_JARS
+        assert all(j.endswith('.jar') for j in SMALI_JARS), SMALI_JARS
+        assert 'jars:smali' in ALL_ATOMS
+        assert ALL_ATOMS['jars:smali']['jars'] == SMALI_JARS
+        checks += 1
+
+        tmp = tempfile.mkdtemp(prefix='capabilities-selftest-')
+        declared = os.path.join(tmp, 'declared.py')
+        prose = os.path.join(tmp, 'prose.py')
+        try:
+            with io.open(declared, 'w', encoding='utf-8') as fh:
+                fh.write('#!/usr/bin/env python3\n"""Summary line.\n'
+                         'capability: static_dex, protocol_decode\n\nprose."""\n')
+            with io.open(prose, 'w', encoding='utf-8') as fh:
+                fh.write('#!/usr/bin/env python3\n"""Summary line.\n\nprose line.\n'
+                         'prose line.\ncapability: static_dex\n"""\n')
+            assert declared_capability(declared) == (['static_dex', 'protocol_decode'],
+                                                     'declared'), \
+                declared_capability(declared)
+            # an example buried in the prose is documentation, not a declaration
+            assert declared_capability(prose) == (None, 'mapped'), \
+                declared_capability(prose)
+            checks += 1
+        finally:
+            for name in os.listdir(tmp):
+                os.unlink(os.path.join(tmp, name))
+            os.rmdir(tmp)
+
+        assert capabilities_for_script('dexutil.py') == (['static_dex'], 'mapped'), \
+            capabilities_for_script('dexutil.py')
+        assert capabilities_for_script('doctor.py') == ([], 'self'), \
+            capabilities_for_script('doctor.py')
+        missing, source = capabilities_for_script('no-such-script.py')
+        assert missing is None and source.startswith('unparsed'), (missing, source)
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = main(['--list'])
+        text = out.getvalue()
+        assert rc == EXIT_OK, rc
+        assert 'static_dex' in text and 'device_root' in text, text
+        assert text.strip().splitlines()[-1] == 'RESULT=capabilities_ok', text
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            rc = main(['definitely_not_a_capability'])
+        assert rc == EXIT_USE, rc
+        assert out.getvalue().strip().splitlines()[-1] == 'RESULT=usage_error', \
+            out.getvalue()
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "capabilities.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    print(json.dumps({"ok": True, "checks": checks, "tool": "capabilities.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 class _Parser(argparse.ArgumentParser):
     """argparse exits 2 on a usage error. Keep the RESULT= contract on that path too:
     a caller that branches on the last line must not have to special-case bad usage."""
@@ -1089,6 +1209,9 @@ class _Parser(argparse.ArgumentParser):
 
 
 def main(argv=None):
+    if '--self-test' in (sys.argv[1:] if argv is None else argv):
+        return self_test()
+
     ap = _Parser(
         prog='capabilities.py',
         description='Resolve what this host can actually do, from probed atoms. '
@@ -1096,6 +1219,8 @@ def main(argv=None):
     ap.add_argument('capability', nargs='?', default=None,
                     help='resolve one capability id (see --list)')
     ap.add_argument('--list', action='store_true', help='ids and names only')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run offline self-test and exit')
     ap.add_argument('--verbose', '-v', action='store_true',
                     help='print every atom, including the ones that are present')
     ap.add_argument('--json', action='store_true', dest='as_json',

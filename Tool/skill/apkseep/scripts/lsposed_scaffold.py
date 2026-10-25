@@ -37,6 +37,7 @@ Usage
 Requirements: python3 only. No third-party imports, no network.
 """
 import argparse
+import json
 import os
 import re
 import sys
@@ -370,7 +371,127 @@ def params_java(spec):
     return ', '.join('%s.class' % x for x in parts)
 
 
+def self_test():
+    """Offline self-test: writes a real scaffold into a temp dir and reads it back.
+
+    The failure this catches is a template placeholder that survives into the
+    output (a module that then never loads), a wrong xposed_init path, and a
+    validation rule that stopped rejecting bad package/method combinations.
+    """
+    import contextlib
+    import io
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='lsposed-selftest-')
+    out = os.path.join(tmp, 'module')
+
+    def run(argv):
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(err):
+            rc = main(argv)
+        return rc, err.getvalue()
+
+    try:
+        # 1) parameter-list rendering
+        assert params_java('java.lang.String, android.content.Context') == \
+            'java.lang.String.class, android.content.Context.class'
+        assert params_java('') == '' and params_java(' , ') == ''
+        checks += 1
+
+        # 2) a full scaffold is written, with no placeholder left behind
+        rc, err = run(['--package', 'com.example.probe', '--name', 'Probe',
+                       '--hook-target', 'com.example.target',
+                       '--hook-class', 'com.example.target.Helper',
+                       '--hook-method', 'check',
+                       '--hook-params', 'java.lang.String',
+                       '--out', out])
+        assert rc == 0, (rc, err)
+        paths = {
+            'manifest': os.path.join(out, 'AndroidManifest.xml'),
+            'init': os.path.join(out, 'assets', 'xposed_init'),
+            'java': os.path.join(out, 'src', 'com', 'example', 'probe', 'MainHook.java'),
+            'readme': os.path.join(out, 'README.md'),
+        }
+        for label, path in paths.items():
+            assert os.path.isfile(path), 'missing %s: %s' % (label, path)
+        blob = '\n'.join(open(p, encoding='utf-8').read() for p in paths.values())
+        for placeholder in ('__PACKAGE__', '__CLASS__', '__TAG__', '__TARGETS__',
+                            '__HOOK_BLOCK__', '__HOOKCLASS__', '__HOOKMETHOD__',
+                            '__PARAMTYPES__', '__NAME__', '__DESC__',
+                            '__MINSDK__', '__TARGETSDK__', '__PATH__',
+                            '__TARGETLIST__'):
+            assert placeholder not in blob, 'unsubstituted placeholder %s' % placeholder
+        checks += 1
+
+        # 3) the three manager-critical manifest keys, and the class/package wiring
+        manifest = open(paths['manifest'], encoding='utf-8').read()
+        assert 'package="com.example.probe"' in manifest, manifest
+        for key in ('xposedmodule', 'xposeddescription', 'xposedminversion'):
+            assert 'android:name="%s"' % key in manifest, \
+                'manifest is missing the %s meta-data key' % key
+        assert 'android:name="xposedminversion" android:value="82"' in manifest, \
+            'xposedminversion is not set to the XposedBridge API level 82'
+        assert 'android:minSdkVersion="24"' in manifest, manifest
+        init = open(paths['init'], encoding='utf-8').read()
+        assert init == 'com.example.probe.MainHook\n', repr(init)
+        java = open(paths['java'], encoding='utf-8').read()
+        assert 'package com.example.probe;' in java
+        assert 'public class MainHook implements IXposedHookLoadPackage' in java
+        assert 'TARGETS = new String[] { "com.example.target" }' in java, java[:400]
+        assert 'private static final String TAG = "MAINHOOK";' in java
+        assert 'findAndHookMethod("com.example.target.Helper", lpp.classLoader,' in java
+        assert 'java.lang.String.class' in java, 'hook params were not rendered'
+        checks += 1
+
+        # 4) existing files are left alone unless --force says otherwise
+        with open(paths['manifest'], 'w', encoding='utf-8') as fh:
+            fh.write('sentinel\n')
+        rc, _err = run(['--package', 'com.example.probe', '--name', 'Probe',
+                        '--out', out])
+        assert rc == 0, rc
+        assert open(paths['manifest'], encoding='utf-8').read() == 'sentinel\n'
+        rc, _err = run(['--package', 'com.example.probe', '--name', 'Probe',
+                        '--out', out, '--force'])
+        assert rc == 0, rc
+        assert 'sentinel' not in open(paths['manifest'], encoding='utf-8').read()
+        checks += 1
+
+        # 5) validation still rejects bad input (exit 2, and nothing written)
+        bad = os.path.join(tmp, 'bad')
+        rc, err = run(['--package', 'not-a-package', '--name', 'X', '--out', bad])
+        assert rc == 2, rc
+        assert 'not a valid Java package name' in err, err
+        assert not os.path.exists(bad), 'a refused run still created output'
+        rc, err = run(['--package', 'com.example.probe', '--name', 'X',
+                       '--hook-method', 'check', '--out', bad])
+        assert rc == 2 and 'requires --hook-class' in err, (rc, err)
+        checks += 1
+
+        # 6) argparse contract: --package/--name/--out are required
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                build_parser().parse_args(['--name', 'X'])
+            raise AssertionError('the parser accepted a run without --package/--out')
+        except SystemExit as exc:
+            assert exc.code == 2, exc.code
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'lsposed_scaffold.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'lsposed_scaffold.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main(argv=None):
+    if '--self-test' in ((sys.argv[1:] if argv is None else argv)):
+        return self_test()
     args = build_parser().parse_args(argv)
 
     if not PKG_RE.match(args.package):

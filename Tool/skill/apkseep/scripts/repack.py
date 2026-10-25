@@ -1330,6 +1330,167 @@ def _split_merge(args, tools, base, others):
     return 0 if ok else 2
 
 
+def self_test():
+    """Offline self-test: a hand-built APK in a temp dir, no java/tools/device.
+
+    Exercises the parts of the pipeline that do not need a toolchain: signature
+    entry selection, the zip writer, the STORED+aligned install gate, APK
+    inspection, and the split-set route decision.
+    """
+    import contextlib
+    import io
+    import json
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    def put(zf, name, data, stored=False):
+        info = zipfile.ZipInfo(name, date_time=(2024, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_STORED if stored else zipfile.ZIP_DEFLATED
+        zf.writestr(info, data)
+
+    tmp = tempfile.mkdtemp(prefix='repack-selftest-')
+    try:
+        # 1) signature-entry selection: only JAR/APK signature artifacts, never a
+        #    META-INF subdirectory (those are runtime ServiceLoader resources).
+        chk('sig-cert-is-signature', is_signature_entry('META-INF/CERT.RSA') is True)
+        chk('sig-manifest-is-signature', is_signature_entry('META-INF/MANIFEST.MF') is True)
+        chk('sig-sf-is-signature', is_signature_entry('META-INF/CERT.SF') is True)
+        chk('sig-services-survives', is_signature_entry('META-INF/services/foo.Bar') is False)
+        chk('sig-androidx-survives', is_signature_entry('META-INF/androidx/core/x') is False)
+        chk('sig-non-meta-inf-survives', is_signature_entry('res/CERT.RSA') is False)
+
+        # 2) entries Android gates on, and the DOS date words
+        chk('align-arsc', _needs_alignment('resources.arsc') is True)
+        chk('align-abi-so', _needs_alignment('lib/arm64-v8a/libfoo.so') is True)
+        chk('align-flat-so', _needs_alignment('lib/libfoo.so') is True)
+        chk('align-png-no', _needs_alignment('res/drawable/a.png') is False)
+        chk('dos-word-2024', _dos_word((2024, 1, 1, 0, 0, 0)) == (0, 22561),
+            _dos_word((2024, 1, 1, 0, 0, 0)))
+        chk('dos-word-clamps-1970', _dos_word((1970, 1, 1, 0, 0, 0))[1] == 33,
+            _dos_word((1970, 1, 1, 0, 0, 0)))
+
+        # 3) a hand-built source APK: plain manifest bytes, a fake arsc, one dex,
+        #    both a signature artifact and a META-INF/services registry, one .so.
+        src = os.path.join(tmp, 'src.apk')
+        with zipfile.ZipFile(src, 'w') as zf:
+            put(zf, 'AndroidManifest.xml', b'\x03\x00\x08\x00manifest', stored=True)
+            put(zf, 'resources.arsc', b'\x02\x00\x0c\x00' + b'\x00' * 40, stored=True)
+            put(zf, 'classes.dex', b'dex\n035\x00original-dex', stored=False)
+            put(zf, 'res/drawable/a.png', b'\x89PNG-not-really', stored=False)
+            put(zf, 'assets/b.txt', b'asset', stored=False)
+            put(zf, 'META-INF/CERT.RSA', b'signature-blob', stored=False)
+            put(zf, 'META-INF/MANIFEST.MF', b'Manifest-Version: 1.0\n', stored=False)
+            put(zf, 'META-INF/services/io.ktor.Engine', b'com.example.Engine', stored=False)
+
+        info = inspect_apk(src)
+        chk('inspect-dex', info['dex'] == ['classes.dex'], info['dex'])
+        chk('inspect-arsc-stored', info['arsc_stored'] is True, info['arsc_stored'])
+        chk('inspect-no-split-is-base', split_role(info) == 'base', split_role(info))
+        with_abi = os.path.join(tmp, 'with_abi.apk')
+        with zipfile.ZipFile(with_abi, 'w') as zf:
+            put(zf, 'classes.dex', b'dex\n035\x00', stored=False)
+            put(zf, 'lib/arm64-v8a/libfoo.so', b'\x7fELFpayload', stored=True)
+        chk('inspect-abis', inspect_apk(with_abi)['abis'] == ['arm64-v8a'],
+            inspect_apk(with_abi)['abis'])
+        chk('abi-of-split-name', abi_of_split({'abis': [], 'split': 'config.arm64_v8a'})
+            == 'arm64-v8a', abi_of_split({'abis': [], 'split': 'config.arm64_v8a'}))
+
+        # 4) the repack itself: signatures dropped, services kept, dex replaced,
+        #    install gate (arsc STORED + 4-byte aligned) satisfied.
+        patch = os.path.join(tmp, 'classes.dex')
+        with open(patch, 'wb') as fh:
+            fh.write(b'dex\n035\x00patched-dex!')
+        out = os.path.join(tmp, 'out.apk')
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            names = build_unsigned(src, {'classes.dex': patch}, out)
+        chk('repack-drops-cert', 'META-INF/CERT.RSA' not in names, sorted(names))
+        chk('repack-drops-manifest-mf', 'META-INF/MANIFEST.MF' not in names)
+        chk('repack-keeps-services', 'META-INF/services/io.ktor.Engine' in names)
+        chk('repack-keeps-resources', 'resources.arsc' in names)
+        with zipfile.ZipFile(out) as zf:
+            chk('repack-dex-replaced', zf.read('classes.dex') == b'dex\n035\x00patched-dex!',
+                zf.read('classes.dex'))
+            chk('repack-arsc-stored', zf.getinfo('resources.arsc').compress_type == 0)
+            chk('repack-manifest-stored',
+                zf.getinfo('AndroidManifest.xml').compress_type == 0)
+        chk('repack-alignment-gate', check_alignment(out) == [], check_alignment(out))
+        report = zip_report(out)
+        chk('zip-report-mentions-arsc', any('resources.arsc' in r and 'STORED' in r
+                                          for r in report), report)
+
+        # 5) the gate must FAIL on a compressed resources.arsc (the R+ install error)
+        bad = os.path.join(tmp, 'bad.apk')
+        with zipfile.ZipFile(bad, 'w') as zf:
+            put(zf, 'resources.arsc', b'\x00' * 64, stored=False)
+        problems = check_alignment(bad)
+        chk('alignment-gate-catches-compressed', bool(problems) and
+            'compressed' in problems[0], problems)
+        bad_so = os.path.join(tmp, 'bad_so.apk')
+        with zipfile.ZipFile(bad_so, 'w') as zf:
+            put(zf, 'lib/arm64-v8a/libfoo.so', b'\x7fELFpayload', stored=False)
+        so_problems = check_alignment(bad_so)
+        chk('alignment-gate-catches-compressed-so',
+            any('libfoo.so' in p and 'compressed' in p for p in so_problems), so_problems)
+
+        # 6) split-set route decision, on hand-built info dicts (no APKs needed)
+        def member(name, split=None, dex=(), abis=(), res=0, arsc=None, size=100):
+            return {'name': name, 'split': split, 'package': 'probe.synthetic',
+                    'dex': list(dex), 'abis': list(abis), 'res': res, 'arsc': arsc,
+                    'size': size, 'path': name}
+
+        chk('empty-arsc-not-real-resources',
+            split_has_real_resources(member('s.apk', arsc=40)) is False)
+        chk('res-entries-are-real-resources',
+            split_has_real_resources(member('s.apk', res=3)) is True)
+        base = member('base.apk', dex=['classes.dex'], arsc=40, size=900)
+        abi = member('split_config.arm64_v8a.apk', 'config.arm64_v8a',
+                     abis=['arm64-v8a'], arsc=40)
+        picked, extras = pick_base([base, abi])
+        chk('pick-base', picked is base and extras == [], (picked, extras))
+        _b, _o, blockers, notes = plan_split_set([base, abi])
+        chk('merge-legal-for-code-abis', blockers == [], blockers)
+        chk('merge-notes-name-abi', any('arm64-v8a' in n for n in notes), notes)
+        density = member('split_config.xxhdpi.apk', 'config.xxhdpi', res=12, arsc=40)
+        _b, _o, blockers2, _n = plan_split_set([base, density])
+        chk('merge-blocked-by-resources', len(blockers2) == 1 and
+            'resources.arsc' in blockers2[0], blockers2)
+
+        # 7) --dex parsing and its error path
+        chk('collect-dex-pair', collect_replacement_dex(None, ['classes2.dex=%s' % patch])
+            == {'classes2.dex': patch})
+        try:
+            collect_replacement_dex(None, ['no-equals-sign'])
+            pair_err = None
+        except SystemExit as exc:
+            pair_err = exc.code
+        chk('collect-dex-bad-pair-exits', pair_err is not None, pair_err)
+
+        # 8) CLI contract: --self-test exists, --split-mode choices are enforced
+        me = os.path.abspath(__file__)
+        helped = subprocess.run([sys.executable, me, '--help'], capture_output=True,
+                                text=True, errors='replace')
+        chk('help-rc0', helped.returncode == 0, helped.returncode)
+        for flag in ('--apk', '--out', '--dex', '--split-mode', '--no-sign', '--self-test'):
+            chk('help-mentions-%s' % flag, flag in helped.stdout)
+        bad_mode = subprocess.run([sys.executable, me, '--split-mode', 'nope'],
+                                  capture_output=True, text=True, errors='replace')
+        chk('bad-split-mode-exits-2', bad_mode.returncode == 2, bad_mode.returncode)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'repack.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
     ap = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1412,6 +1573,8 @@ def main():
                     help='jar used for zipalign+sign (default: $APK_SIGNER_JAR or '
                          'uber-apk-signer.jar)')
     ap.add_argument('--no-sign', action='store_true', help='stop after writing the apk')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test (built-in APK, no java, no device)')
     ap.add_argument('--java', default=None, help='path to java (default: from PATH)')
     ap.add_argument('--keytool', default=None, help='path to keytool (default: from PATH)')
     ap.add_argument('--jarsigner', default=None, help='path to jarsigner (default: from PATH)')
@@ -1420,6 +1583,9 @@ def main():
                     help='path to apksigner (default: from PATH). Accepts '
                          'apksigner.bat, an apksigner wrapper, or lib/apksigner.jar')
     args = ap.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     tools = resolve_tools(args)
     signer_jar = args.signer_jar or os.environ.get('APK_SIGNER_JAR', 'uber-apk-signer.jar')

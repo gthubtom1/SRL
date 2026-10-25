@@ -27,8 +27,12 @@ Usage
 
 import argparse
 import hashlib
+import io
+import json
+import os
 import re
 import sys
+import tempfile
 import zipfile
 
 # Directories worth naming explicitly -- this is where injected code lives.
@@ -62,8 +66,114 @@ def classify(name):
     return "other"
 
 
+def self_test():
+    """Offline self-test: built-in bytes only, no network, no sample APKs.
+
+    Builds two small APKs (zip archives) in a temporary directory and asserts on the
+    exact entries `snapshot()`/`classify()` report and on `main()`'s count lines, so a
+    regression in content comparison (not just in size comparison) fails the test.
+    """
+    try:
+        import contextlib
+
+        checks = 0
+        tmp = tempfile.mkdtemp(prefix="apk-diff-selftest-")
+
+        def build(name, entries):
+            path = os.path.join(tmp, name)
+            with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as z:
+                for entry, data in entries:
+                    z.writestr(entry, data)
+            return path
+
+        try:
+            a = build("a.apk", [("classes.dex", b"AAAA"),
+                               ("res/x.png", b"same"),
+                               ("assets/old.bin", b"removed-in-B")])
+            # classes.dex keeps the SAME SIZE and changes bytes: the case a size-only
+            # comparison misses entirely, which is the whole point of hashing.
+            b = build("b.apk", [("classes.dex", b"AAAB"),
+                               ("res/x.png", b"same"),
+                               ("lib/arm64-v8a/libinject.so", b"\x7fELF payload")])
+
+            snap_a = snapshot(a)
+            assert sorted(snap_a) == ["assets/old.bin", "classes.dex", "res/x.png"], \
+                sorted(snap_a)
+            checks += 1
+            size, sha, ctype, _crc = snap_a["classes.dex"]
+            assert (size, ctype) == (4, zipfile.ZIP_STORED), (size, ctype)
+            assert sha == hashlib.sha256(b"AAAA").hexdigest(), sha
+            checks += 1
+
+            assert classify("classes.dex") == "dex"
+            assert classify("classes3.dex") == "dex"
+            assert classify("lib/x86/liby.so") == "code/assets"
+            assert classify("assets/payload.json") == "code/assets"
+            assert classify("META-INF/CERT.RSA") == "signature"
+            assert classify("res/layout/a.xml") == "other"
+            checks += 1
+
+            snap_b = snapshot(b)
+            only_a = sorted(set(snap_a) - set(snap_b))
+            only_b = sorted(set(snap_b) - set(snap_a))
+            changed = [n for n in sorted(set(snap_a) & set(snap_b))
+                       if snap_a[n][1] != snap_b[n][1]]
+            assert only_a == ["assets/old.bin"], only_a
+            assert only_b == ["lib/arm64-v8a/libinject.so"], only_b
+            assert changed == ["classes.dex"], changed
+            assert snap_a["classes.dex"][0] == snap_b["classes.dex"][0], "sizes must match"
+            checks += 1
+
+            out = io.StringIO()
+            saved = sys.argv
+            sys.argv = ["apk_diff.py", a, b, "--summary"]
+            try:
+                with contextlib.redirect_stdout(out):
+                    main()
+            finally:
+                sys.argv = saved
+            text = out.getvalue()
+            assert "only in A (removed)  : 1" in text, text
+            assert "only in B (added)    : 1" in text, text
+            assert "content changed      : 1" in text, text
+            assert "identical            : 1" in text, text
+            assert "=== ADDED" not in text, "--summary must not list entries"
+            checks += 1
+
+            out = io.StringIO()
+            sys.argv = ["apk_diff.py", a, b]
+            try:
+                with contextlib.redirect_stdout(out):
+                    main()
+            finally:
+                sys.argv = saved
+            text = out.getvalue()
+            assert "(SAME SIZE)" in text, text
+            assert "+ lib/arm64-v8a/libinject.so" in text, text
+            assert "[code/assets]" in text, text
+            checks += 1
+        finally:
+            for name in os.listdir(tmp):
+                os.unlink(os.path.join(tmp, name))
+            os.rmdir(tmp)
+
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "apk_diff.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    print(json.dumps({"ok": True, "checks": checks, "tool": "apk_diff.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main():
+    if "--self-test" in sys.argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(description="Entry-level APK diff.")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit")
     ap.add_argument("original")
     ap.add_argument("modified")
     ap.add_argument("--only", help="regex: restrict output to matching entry names")
@@ -161,4 +271,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

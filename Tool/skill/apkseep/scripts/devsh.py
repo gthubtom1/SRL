@@ -23,10 +23,13 @@ Usage
   python devsh.py pull /data/local/tmp/x.apk ./x.apk
   python devsh.py push ./x.apk /data/local/tmp/x.apk
   python devsh.py dev                                       # list devices
+  python devsh.py --self-test                               # offline self-check (JSON, rc 0/1)
 
 `su` wraps the command in `su -c "..."`; internal double quotes are escaped.
 """
 import argparse
+import io
+import json
 import os
 import subprocess
 import sys
@@ -69,17 +72,8 @@ def run(adb, serial, args, timeout=300):
     return r.returncode, out
 
 
-def main():
-    if any(a in ("-h", "--help") for a in sys.argv[1:]):
-        print((__doc__ or "").strip() or "usage: devsh.py ...")
-        return 0
-    if len(sys.argv) < 2:
-        print(__doc__)
-        return 2
-
-    adb, serial = resolve()
-    argv = [a for a in sys.argv[1:] if not a.startswith('--adb=') and not a.startswith('--serial=')]
-    # strip flag/value pairs
+def strip_adb_flags(argv):
+    """Drop `--adb[=X]` / `--serial[=X]` from the mode argv, keeping everything else."""
     cleaned = []
     skip = False
     for a in argv:
@@ -89,8 +83,112 @@ def main():
         if a in ('--adb', '--serial'):
             skip = True
             continue
+        if a.startswith('--adb=') or a.startswith('--serial='):
+            continue
         cleaned.append(a)
-    argv = cleaned
+    return cleaned
+
+
+def self_test():
+    """Offline self-test: no adb is executed and no device is needed.
+
+    devsh exists because a value that reaches the DEVICE SHELL unquoted is a bug, so the
+    assertions are on the exact strings the device would receive (`su -c '<cmd>'`), on
+    the argv cleaning that decides what is a mode and what is a flag, and on the CLI's
+    exit codes (2 = usage, never a traceback and never a silent adb call).
+    """
+    import contextlib
+
+    def run_main(*argv):
+        buf = io.StringIO()
+        saved = sys.argv
+        sys.argv = ['devsh.py'] + list(argv)
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                return main(), buf.getvalue()
+        finally:
+            sys.argv = saved
+
+    checks = 0
+    try:
+        assert _shell.su_wrap(['id']) == "su -c 'id'", _shell.su_wrap(['id'])
+        assert _shell.su_wrap(['head', '-c', '6000', '/data/local/tmp/x']) == \
+            "su -c 'head -c 6000 /data/local/tmp/x'", \
+            _shell.su_wrap(['head', '-c', '6000', '/data/local/tmp/x'])
+        assert _shell.validate_device_path('/data/local/tmp/x') == '/data/local/tmp/x'
+        try:
+            _shell.validate_device_path('/sdcard/a b')
+        except _shell.Refused:
+            pass
+        else:
+            raise AssertionError('a path with a space was accepted for the device shell')
+        checks += 1
+
+        assert strip_adb_flags(['--adb', '/opt/adb', '--serial', 'SER', 'sh', 'id']) == \
+            ['sh', 'id'], strip_adb_flags(['--adb', '/opt/adb', '--serial', 'SER',
+                                           'sh', 'id'])
+        assert strip_adb_flags(['--adb=/x/adb', 'sh', 'id']) == ['sh', 'id']
+        assert strip_adb_flags(['sh', 'id', '--serial=SER']) == ['sh', 'id']
+        assert strip_adb_flags(['suf', '/data/x', '7000']) == ['suf', '/data/x', '7000']
+        checks += 1
+
+        saved_argv, saved_env = sys.argv, dict(os.environ)
+        try:
+            sys.argv = ['devsh.py', '--adb', '/opt/adb', '--serial', 'SER', 'sh', 'id']
+            os.environ.pop('ADB_PATH', None)
+            os.environ.pop('ADB_SERIAL', None)
+            assert resolve() == ('/opt/adb', 'SER'), resolve()
+
+            sys.argv = ['devsh.py', 'sh', 'id']
+            os.environ['ADB_PATH'] = '/env/adb'
+            os.environ['ADB_SERIAL'] = 'ENVSER'
+            assert resolve() == ('/env/adb', 'ENVSER'), resolve()
+
+            # flags beat the environment
+            sys.argv = ['devsh.py', '--adb', '/cli/adb', 'sh', 'id']
+            assert resolve() == ('/cli/adb', 'ENVSER'), resolve()
+
+            sys.argv = ['devsh.py', '--adb=/cli/adb', '--serial=CLISER', 'sh', 'id']
+            assert resolve() == ('/cli/adb', 'CLISER'), resolve()
+        finally:
+            sys.argv = saved_argv
+            os.environ.clear()
+            os.environ.update(saved_env)
+        checks += 1
+
+        rc, text = run_main()
+        assert rc == 2, 'no mode must be a usage error (2), got %r' % (rc,)
+        assert 'python devsh.py' in text, text
+        rc, _t = run_main('--help')
+        assert rc == 0, rc
+        rc, _t = run_main('sh')          # fewer than two arguments: usage
+        assert rc == 2, rc
+        rc, _t = run_main('bogus-mode', 'x')
+        assert rc == 2, rc
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "devsh.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    print(json.dumps({"ok": True, "checks": checks, "tool": "devsh.py"},
+                     ensure_ascii=False))
+    return 0
+
+
+def main():
+    if any(a == '--self-test' for a in sys.argv[1:]):
+        return self_test()
+
+    if any(a in ("-h", "--help") for a in sys.argv[1:]):
+        print((__doc__ or "").strip() or "usage: devsh.py ...")
+        return 0
+    if len(sys.argv) < 2:
+        print(__doc__)
+        return 2
+
+    adb, serial = resolve()
+    argv = strip_adb_flags(sys.argv[1:])
     if len(argv) < 2 and argv and argv[0] not in ('dev',):
         print(__doc__)
         return 2

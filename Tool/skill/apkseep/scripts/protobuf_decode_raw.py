@@ -1036,6 +1036,130 @@ def do_reencode(args):
 
 # ----------------------------------------------------------------- selftest
 
+def self_test():
+    """Offline self-test: hand-built protobuf bytes only, no schema, no network.
+
+    Every byte string below is written by hand in this function, then fed through
+    this script's own primitives so a broken varint/walk/re-encode fails here.
+    """
+    import struct as _struct
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    def tag(field, wire):
+        return encode_varint((field << 3) | wire)
+
+    def ld(field, payload):
+        return tag(field, 2) + encode_varint(len(payload)) + payload
+
+    def fields_of(payload):
+        ctx = Ctx(max_depth=6)
+        return walk(payload, 0, len(payload), 0, ctx, 'f', analyse=True)[0]
+
+    # 1) varint encoding/decoding, hand-checked against the wire format
+    chk('encode-varint-150', encode_varint(150) == b'\x96\x01', encode_varint(150).hex())
+    chk('encode-varint-zero', encode_varint(0) == b'\x00')
+    chk('varint-len-300', varint_len(300) == 2, varint_len(300))
+    chk('varint-len-max64', varint_len(MASK64) == 10, varint_len(MASK64))
+    chk('zigzag--1', zigzag_decode(1) == -1, zigzag_decode(1))
+
+    # 2) a hand-built message: field 1 varint 150, field 2 string 'testing'
+    payload = tag(1, 0) + encode_varint(150) + ld(2, b'testing')
+    fields = fields_of(payload)
+    chk('walk-field-count', len(fields) == 2, len(fields))
+    chk('walk-field1-value', fields[0]['field'] == 1 and fields[0]['value'] == 150,
+        (fields[0]['field'], fields[0].get('value')))
+    chk('walk-field2-string', fields[1].get('view') == 'utf8_string',
+        fields[1].get('view'))
+    chk('walk-field2-bytes', fields[1].get('payload_hex') == b'testing'.hex(),
+        fields[1].get('payload_hex'))
+
+    # 3) nested message two levels deep: outer field 1 = 1, field 2 = {field 2: 7}
+    inner = tag(2, 0) + encode_varint(7)
+    outer = tag(1, 0) + encode_varint(1) + ld(2, inner)
+    fields = fields_of(ld(3, outer))
+    children = fields[0].get('children') or []
+    chk('nested-child-count', len(children) == 2, len(children))
+    chk('nested-inner-value', bool(children[1].get('children')) and
+        children[1]['children'][0].get('value') == 7,
+        [c.get('value') for c in (children[1].get('children') or [])])
+
+    # 4) packed repeated varints and the fixed-width wire types
+    packed = b''.join(encode_varint(v) for v in (3, 270, 86942))
+    fields = fields_of(ld(4, packed))
+    chk('packed-element-count', len(fields[0].get('packed_values') or []) == 3,
+        fields[0].get('packed_values'))
+    fields = fields_of(tag(6, 1) + _struct.pack('<Q', 0x0102030405060708))
+    chk('fixed64-hex', fields[0].get('fixed64_hex') == '0807060504030201',
+        fields[0].get('fixed64_hex'))
+    fields = fields_of(tag(7, 5) + _struct.pack('<I', 0xDEADBEEF))
+    chk('fixed32-hex', fields[0].get('fixed32_hex') == 'efbeadde',
+        fields[0].get('fixed32_hex'))
+
+    # 5) the two traps the tool exists for: explicit zero vs absent, overflow
+    zero_fields = fields_of(tag(5, 0) + encode_varint(0))
+    absent_fields = fields_of(b'')
+    chk('explicit-zero-is-a-field', len(zero_fields) == 1 and zero_fields[0]['value'] == 0,
+        zero_fields)
+    chk('absent-field-is-empty', absent_fields == [], absent_fields)
+    fields = fields_of(tag(1, 0) + bytes([0xFF] * 9) + bytes([0x7F]))
+    chk('varint-overflow-flagged', fields[0]['varint']['overflow'] is True,
+        fields[0]['varint'])
+    fields = fields_of(tag(1, 0) + b'\x96\x81\x00')
+    chk('non-canonical-flagged', fields[0]['varint']['non_canonical'] is True and
+        fields[0]['value'] == 150, fields[0]['varint'])
+
+    # 6) re-encode is byte-identical for a canonical payload
+    tree = {'frames': [{'fields': fields_of(payload)}]}
+    report = {'fields': 0, 'identical': 0, 'mismatched': []}
+    rebuilt = reencode_tree(tree, report)
+    chk('reencode-roundtrip', rebuilt == payload, (rebuilt.hex(), payload.hex()))
+    chk('reencode-no-mismatch', report['mismatched'] == [], report['mismatched'])
+
+    # 7) framing: two independent frames, one from '|', one from a varint length
+    frames = parse_hex_frames('089601|120774657374696e67')
+    chk('hex-pipe-two-frames', len(frames) == 2, len(frames))
+    framed = encode_varint(len(payload)) + payload
+    split_frames = split_varint_length(framed)
+    chk('split-varint-length-one-frame', len(split_frames) == 1, split_frames)
+    body = framed[split_frames[0][0]:split_frames[0][1]]
+    chk('split-varint-length-body', body == payload, body.hex())
+
+    # 8) CLI contract: --self-test is a flag, --split rejects an unknown mode,
+    #    and a real --hex decode via main() exits 0 with the value in the JSON.
+    parser = build_parser()
+    chk('cli-self-test-flag', parser.parse_args(['--self-test']).self_test is True)
+    import contextlib, io
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            parser.parse_args(['--split', 'nonsense'])
+        bad_split = None
+    except SystemExit as exc:
+        bad_split = exc.code
+    chk('cli-bad-split-exits-2', bad_split == 2, bad_split)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = main(['--hex', '089601120774657374696e67', '--json'])
+    chk('cli-hex-decode-rc0', rc == 0, rc)
+    try:
+        doc = json.loads(buf.getvalue())
+    except ValueError:
+        doc = None
+    chk('cli-hex-decode-value', doc is not None and
+        doc['frames'][0]['fields'][0].get('value') == 150,
+        (buf.getvalue() or '')[:80])
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks),
+                      'tool': 'protobuf_decode_raw.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def _fixtures():
     """Known-answer fixtures. Every byte here is produced by hand in this file."""
     def tag(field, wire):
@@ -1275,11 +1399,16 @@ def build_parser():
     ap.add_argument('--selftest', action='store_true',
                     help='run the built-in known-answer fixtures and their '
                          'round-trip checks')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the compact offline contract self-test '
+                         '(hand-built bytes, no network)')
     return ap
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if args.self_test:
+        return self_test()
     if args.selftest:
         return selftest(args)
     if args.reencode:

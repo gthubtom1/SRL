@@ -1,0 +1,22 @@
+{
+  "schema": "seep.waivers/1",
+  "_why": "把'产品负责人的明确决定'落成机器可读记录。豁免只降噪，不删证据：被判的项仍会打印真实数字，且都有硬上限——超上限自动回到 FAIL，防止豁免变成'永久眼瞎'。",
+  "waivers": {
+    "prompt-budget": {
+      "decided_by": "user",
+      "decided_at": "2026-10-25",
+      "decision": "不在乎提示词预算；不要求降到 3500",
+      "reason": "可控制层 11204（人设卡 5121 + AGENTS.md 4224 + 索引 955 + SEEP 670 + 边界 234）中，5121 与 40 条强制语句来自用户级人设卡（不在仓库内）。用户明确表示不以此为止损条件。",
+      "still_enforced": ["预算数字每轮照常打印", "可控制层超过 hard_cap 一律 FAIL", "人设/AGENTS 文件改动后必须重算"],
+      "hard_cap": 16000
+    },
+    "legacy-capability-domains": {
+      "decided_by": "user",
+      "decided_at": "2026-10-25",
+      "decision": "能力表保留 4 个旧域名（reverse / ad-cloud / plugin-targets / site-clone）作为历史标记，不做批量迁移",
+      "reason": "迁移 20 份能力 JSON 涉及语义归域判断（AD/内网/站点复刻不属客户九域），风险大于收益；改为白名单锁定，任何新增旧域名或数量变化立即红。",
+      "allow": ["reverse", "ad-cloud", "plugin-targets", "site-clone"],
+      "max_files": 20
+    }
+  }
+}

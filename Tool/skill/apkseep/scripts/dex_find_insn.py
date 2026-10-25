@@ -46,14 +46,18 @@ same filter), 2 = usage error.
 """
 
 import argparse
+import io
+import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from dexutil import (  # noqa: E402
-    Dex, IF_TEST, IF_TESTZ, INVOKE_OPS, MOVE_RESULT_OPS, load_dex,
+    Dex, IF_TEST, IF_TESTZ, INVOKE_OPS, MOVE_RESULT_OPS, load_dex, selftest_dex,
 )
 
 _KIND_MAP = {
@@ -200,7 +204,107 @@ def scan(dex, filters, kind_only=None, class_pattern=None, method_pattern=None,
                     return
 
 
+def self_test():
+    """Offline self-test: a generated dex, no APK and no sample file.
+
+    The filter language and `scan()` are the core here, so every route through them is
+    exercised against a fixture whose instruction offsets are known: the kind filter
+    (`>if-testz`), the literal filter (`=1`), the member filter (`@goHome`) and the
+    enclosing-method filter (`$gate`). Each must return exactly ONE hit at exactly the
+    declared offset -- a filter that matches everything would pass a weaker test.
+    """
+    import contextlib
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dex-find-selftest-')
+    try:
+        blob, meta = selftest_dex()
+        path = os.path.join(tmpdir, 'classes.dex')
+        with open(path, 'wb') as fh:
+            fh.write(blob)
+        dex, _entry = load_dex(path)
+
+        assert Filter('>if-testz').kind == 'if-testz'
+        assert Filter('=1').literal == 1 and Filter('=1').kind is None
+        assert Filter('@goHome').member == 'goHome'
+        assert Filter('$gate').enclosing == 'gate'
+        assert Filter('Lcom/ex/Foo;').text == 'Lcom/ex/Foo;'
+        spec = Filter('#Lcom/ex/Cfg;*enabled')
+        assert (spec.target_class, spec.target_field) == ('Lcom/ex/Cfg;', 'enabled'), \
+            (spec.target_class, spec.target_field)
+        # only a '#' spec parses into target class/field; a bare '*x' is plain text
+        assert Filter('*enabled').target_field is None
+        assert Filter('*enabled').text == '*enabled'
+        assert Filter('>if-testz').describe() == '>if-testz'
+        checks += 1
+
+        hits = list(scan(dex, [Filter('>if-testz')], None, None, None, 10))
+        assert len(hits) == 1, [(h[0], h[4]['off']) for h in hits]
+        assert hits[0][4]['off'] == meta['off_if_eqz'], hex(hits[0][4]['off'])
+        assert hits[0][4]['op'] == 0x38, hits[0][4]['op']
+        assert hits[0][0] == 'Lcom/ex/Foo;' and hits[0][1] == 'gate', hits[0][:2]
+        assert hits[0][7] is True, 'the decode must align for this fixture'
+        checks += 1
+
+        hits = list(scan(dex, [Filter('=1')], None, None, None, 10))
+        assert len(hits) == 1, [(h[4]['name'], h[4]['off']) for h in hits]
+        assert hits[0][4]['off'] == meta['off_const4'], hex(hits[0][4]['off'])
+        assert hits[0][4]['op'] == 0x12, hits[0][4]['raw'].hex()
+        assert list(scan(dex, [Filter('=0')], None, None, None, 10)) == [], \
+            'a literal filter that matches nothing must return nothing'
+        checks += 1
+
+        hits = list(scan(dex, [Filter('@goHome')], None, None, None, 10))
+        assert len(hits) == 1, [(h[4]['name'], h[4]['off']) for h in hits]
+        assert hits[0][4]['off'] == meta['off_invoke'], hex(hits[0][4]['off'])
+        assert hits[0][4]['op'] in INVOKE_OPS, hits[0][4]['op']
+        assert list(scan(dex, [Filter('@noSuchMethod')], None, None, None, 10)) == []
+        checks += 1
+
+        # --method / --class select the METHOD (the --filter '$name' form is parsed but
+        # not applied by scan(), so it is asserted as parsing only, above).
+        hits = list(scan(dex, [], None, None, '^stub$', 10))
+        assert len(hits) == 1, [(h[1], h[4]['name']) for h in hits]
+        assert hits[0][1] == 'stub' and hits[0][4]['op'] == 0x0E, hits[0][:2]
+        assert hits[0][4]['off'] == meta['code_stub'] + 16, hex(hits[0][4]['off'])
+        hits = list(scan(dex, [], None, '^Lcom/ex/Foo;$', '^gate$', 10))
+        assert len(hits) == 5, [h[4]['name'] for h in hits]
+        checks += 1
+
+        hits = list(scan(dex, [], 'move-result', None, None, 10))
+        assert [h[4]['off'] for h in hits] == [meta['off_move_result']], hits
+        assert list(scan(dex, [], 'sfield', None, None, 10)) == [], \
+            'the fixture has no static-field instruction'
+        checks += 1
+
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = main(['dex_find_insn.py', path, '--filter', '>if-testz'])
+        assert rc == 0, rc
+        assert 'HIT' in out.getvalue(), out.getvalue()
+        assert 'file offset of the instruction: 0x%x' % meta['off_if_eqz'] in out.getvalue()
+        checks += 1
+
+        # Exit-code contract: no hit is a finding (1), not an error (2).
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = main(['dex_find_insn.py', path, '--filter', '=99'])
+        assert rc == 1, rc
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dex_find_insn.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dex_find_insn.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv):
+    if '--self-test' in argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description="Find an instruction by decoded semantics; print its exact "
                     "byte offset and surrounding context.",
@@ -219,6 +323,8 @@ def main(argv):
     ap.add_argument("--limit", type=int, default=40, help="max hits (default 40)")
     ap.add_argument("--show-unclean", action="store_true",
                     help="also print hits from methods whose decode did not align")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit (no APK, no sample)")
     args = ap.parse_args(argv[1:])
 
     dex, entry = load_dex(args.target, args.entry)

@@ -11,8 +11,13 @@ Important limitation: this check compares tables only. It cannot see code-item d
 see references/patch-audit.md for the checks that can.
 """
 import argparse
+import io
+import json
+import os
+import shutil
 import struct
 import sys
+import tempfile
 
 ACC_INTERFACE = 0x200
 
@@ -62,7 +67,125 @@ def class_map(path):
     return out
 
 
+def self_test():
+    """Offline self-test: generated dex tables, no sample builds.
+
+    `class_map()` reads only the string/type/class_def tables, so the fixture is built
+    from exactly those tables and the assertions are on the parsed VALUES and FLAGS.
+    The interesting case is a class that loses ACC_INTERFACE: that is the
+    IncompatibleClassChangeError this tool exists to catch, and it must show up as an
+    ACC_INTERFACE mismatch and a non-zero exit.
+    """
+    import contextlib
+
+    def table_dex(classes):
+        """A dex carrying just string_ids / type_ids / class_defs for `classes`."""
+        def uleb(value):
+            out = bytearray()
+            while True:
+                b = value & 0x7F
+                value >>= 7
+                if value:
+                    out.append(b | 0x80)
+                else:
+                    out.append(b)
+                    return bytes(out)
+
+        str_ids_off = 112
+        type_ids_off = str_ids_off + 4 * len(classes)
+        class_defs_off = type_ids_off + 4 * len(classes)
+        data_off = class_defs_off + 32 * len(classes)
+        data = bytearray()
+        str_offs = []
+        for name, _flags in classes:
+            raw = name.encode('utf-8')
+            str_offs.append(data_off + len(data))
+            data += uleb(len(raw)) + raw + b'\x00'
+        total = data_off + len(data)
+        head = bytearray(112)
+        head[0:8] = b'dex\n035\x00'
+        struct.pack_into('<I', head, 0x20, total)
+        struct.pack_into('<I', head, 0x24, 112)
+        struct.pack_into('<II', head, 0x38, len(classes), str_ids_off)
+        struct.pack_into('<II', head, 0x40, len(classes), type_ids_off)
+        struct.pack_into('<II', head, 0x60, len(classes), class_defs_off)
+        body = bytearray()
+        for off in str_offs:
+            body += struct.pack('<I', off)
+        for i in range(len(classes)):
+            body += struct.pack('<I', i)                      # type -> string idx
+        for i, (_name, flags) in enumerate(classes):
+            body += struct.pack('<IIII', i, flags, 0xFFFFFFFF, 0)      # class_idx .. interfaces
+            body += struct.pack('<IIII', 0xFFFFFFFF, 0, 0, 0)          # source .. static_values
+        body += data
+        return bytes(head) + bytes(body)
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dex-classdiff-selftest-')
+    try:
+        assert uleb128(b'\xe5\x8e\x26', 0) == (624485, 3), uleb128(b'\xe5\x8e\x26', 0)
+        assert uleb128(b'\x7f', 0) == (127, 1)
+        assert uleb128(b'\x80\x01', 0) == (128, 2)
+        checks += 1
+
+        a_path = os.path.join(tmpdir, 'a.dex')
+        b_path = os.path.join(tmpdir, 'b.dex')
+        with open(a_path, 'wb') as fh:
+            fh.write(table_dex([('Lcom/ex/A;', 0x1), ('Lcom/ex/B;', 0x601)]))
+        with open(b_path, 'wb') as fh:
+            fh.write(table_dex([('Lcom/ex/A;', 0x1), ('Lcom/ex/B;', 0x1),
+                                ('Lcom/ex/C;', 0x1)]))
+
+        A = class_map(a_path)
+        B = class_map(b_path)
+        assert A == {'Lcom/ex/A;': 0x1, 'Lcom/ex/B;': 0x601}, A
+        assert set(B) == {'Lcom/ex/A;', 'Lcom/ex/B;', 'Lcom/ex/C;'}, B
+        assert A['Lcom/ex/B;'] & ACC_INTERFACE == ACC_INTERFACE, A
+        assert B['Lcom/ex/B;'] & ACC_INTERFACE == 0, B
+        checks += 1
+
+        out = io.StringIO()
+        saved = sys.argv
+        try:
+            sys.argv = ['dex_classdiff.py', a_path, b_path, '--quiet']
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv = saved
+        text = out.getvalue()
+        assert rc == 1, 'a structural difference must exit non-zero, got %r' % (rc,)
+        assert 'A classes=2  B classes=3' in text, text
+        assert 'only_in_A=0  only_in_B=1' in text, text
+        assert '*** ACC_INTERFACE mismatch: 1 ***' in text, text
+        assert 'STRUCTURAL DIFFERENCE' in text, text
+        checks += 1
+
+        out = io.StringIO()
+        try:
+            sys.argv = ['dex_classdiff.py', a_path, a_path, '--quiet']
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv = saved
+        assert rc == 0, rc
+        assert 'verdict: class tables identical' in out.getvalue(), out.getvalue()
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dex_classdiff.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dex_classdiff.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description='Compare two dex files at class_defs level (names + access_flags). '
                     'Proves a reassembly did not damage interface/class relationships.')
@@ -76,6 +199,8 @@ def main():
                     help='how many access_flags differences to print (default 25)')
     ap.add_argument('--quiet', action='store_true',
                     help='print only the summary counts')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run offline self-test and exit (no sample builds needed)')
     args = ap.parse_args()
 
     A = class_map(args.a)

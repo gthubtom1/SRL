@@ -80,8 +80,13 @@ NOTES
 """
 import argparse
 import collections
+import io
+import json
+import os
 import re
+import shutil
 import sys
+import tempfile
 
 TAG_STR = 0x80
 BAD = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
@@ -200,7 +205,134 @@ def search(blob, needles):
     return 0
 
 
+def self_test():
+    """Offline self-test: hand-framed entries, no sample and no decompiler listing.
+
+    Builds the framing the module documents (`tag = 0x80 | len<<1 | <two-byte flag>`,
+    payload immediately after) and asserts what `extract()`/`run_lengths()` recover:
+    the entries, their end offsets, their form, and the back-to-back run length. The
+    UTF-16 case is asserted in BOTH directions, because "one-byte only by default" is
+    the documented boundary, not an accident.
+    """
+    import contextlib
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dart-strings-selftest-')
+    try:
+        def framed(text, two=0):
+            # The length in the tag counts PAYLOAD UNITS -- UTF-16 code units for the
+            # two-byte form, bytes for the one-byte form -- and the extractor multiplies
+            # by 2 for the two-byte case. Getting this wrong is why the two-byte hit
+            # below silently vanished the first time this test was written.
+            raw = text.encode('utf-16-le') if two else text.encode('utf-8')
+            units = len(text) if two else len(raw)
+            assert units <= 63, 'the framing tops out at 63 units'
+            return bytes([0x80 | (units << 1) | two]) + raw
+
+        assert framed('vipflag')[0] == 0x8E, hex(framed('vipflag')[0])
+        assert framed('\u4e2d\u6587', two=1)[0] == 0x85, hex(framed('\u4e2d\u6587', two=1)[0])
+        checks += 1
+
+        assert decode_payload(b'vipflag', False) == 'vipflag'
+        assert decode_payload('\u4e2d\u6587'.encode('utf-16-le'), True) == '\u4e2d\u6587'
+        assert decode_payload(b'vip', True) is None, 'an odd two-byte payload cannot decode'
+        assert decode_payload(b'\xff\xfe\xfd', False) is None, 'invalid UTF-8 must be rejected'
+        assert decode_payload(b'a\x01bc', False) is None, 'control characters are rejected'
+        checks += 1
+
+        blob = (b'\x00\x00' + framed('first-entry') + framed('second-entry')
+                + framed('third-entry') + b'\x00\x00' + framed('\u4e2d\u6587\u6d4b\u8bd5', two=1))
+        cands = extract(blob, 4, 63, False)
+        texts = sorted(v[1] for v in cands.values())
+        assert texts == ['first-entry', 'second-entry', 'third-entry'], texts
+        assert all(v[2] == 'one-byte' for v in cands.values()), cands
+        assert '\u4e2d\u6587\u6d4b\u8bd5' not in texts, 'utf16 needs --two-byte'
+        checks += 1
+
+        both = extract(blob, 4, 63, True)
+        assert '\u4e2d\u6587\u6d4b\u8bd5' in [v[1] for v in both.values()], both
+        assert len(both) == len(cands) + 1, (len(both), len(cands))
+        checks += 1
+
+        lengths = run_lengths(cands)
+        first = [s for s, v in cands.items() if v[1] == 'first-entry'][0]
+        second = [s for s, v in cands.items() if v[1] == 'second-entry'][0]
+        third = [s for s, v in cands.items() if v[1] == 'third-entry'][0]
+        assert lengths[first] == 3 and lengths[second] == 2 and lengths[third] == 1, lengths
+        checks += 1
+
+        short = extract(blob, 12, 63, False)
+        assert [v[1] for v in short.values()] == ['second-entry'], short
+        assert extract(blob, 4, 10, False) == {}, '--max filters long payloads'
+        checks += 1
+
+        pp_path = os.path.join(tmpdir, 'pp.txt')
+        with io.open(pp_path, 'w', encoding='utf-8') as fh:
+            fh.write('[pp+0x9d0] String: "vipflag"\n'
+                     '[pp+0x1a] String: plain_unquoted\n'
+                     '[pp+0x2b] Object: NotAString\n')
+        pool = load_pp(pp_path)
+        assert pool == {'vipflag', 'plain_unquoted'}, pool
+        assert load_pp(None) == set(), 'no --pp means no annotations'
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = search(blob, ['second-entry'])
+        text = out.getvalue()
+        assert rc == 0, rc
+        assert 'utf-8' in text and 'utf-16le' not in text, text
+        assert text.count('file offset') == 1, text   # one-byte only in this fixture
+        assert hex(blob.find(b'second-entry')) in text, text
+        checks += 1
+
+        # A non-Latin literal is stored as UTF-16LE, so only that encoding hits.
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            search(blob, ['中文测试'])
+        text = out.getvalue()
+        assert 'utf-16le' in text and 'utf-8 ' not in text, text
+        assert hex(blob.find('中文测试'.encode('utf-16-le'))) in text, text
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            assert search(blob, ['definitely-absent']) == 0
+        assert 'no hits in either encoding' in out.getvalue(), out.getvalue()
+        checks += 1
+
+        tsv = os.path.join(tmpdir, 'strings.tsv')
+        sample = os.path.join(tmpdir, 'libapp.so')
+        with open(sample, 'wb') as fh:
+            fh.write(blob)
+        argv = sys.argv
+        try:
+            sys.argv = ['dart_pool_strings.py', sample, tsv, '--min-chain', '2']
+            with contextlib.redirect_stdout(io.StringIO()):
+                assert main() == 0
+        finally:
+            sys.argv = argv
+        rows = [ln for ln in io.open(tsv, encoding='utf-8').read().splitlines()
+                if not ln.startswith('#')]
+        assert [r.split('\t')[1] for r in rows] == ['first-entry', 'second-entry'], rows
+        assert rows[0].split('\t')[2:] == ['3', 'one-byte'], rows[0]
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dart_pool_strings.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dart_pool_strings.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('sample', help='libapp.so or any artifact holding the snapshot')
     ap.add_argument('out', nargs='?', help='output tsv')
@@ -216,6 +348,8 @@ def main():
                     help='decompiler pool listing, to mark which strings it also contains')
     ap.add_argument('--stats', action='store_true',
                     help='print the run-length histogram and exit')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run offline self-test and exit (no sample needed)')
     ap.add_argument('--keep-isolated', action='store_true',
                     help='also write entries below --min-chain (noisy; triage only)')
     ap.add_argument('--find', action='append', default=[], metavar='TEXT',

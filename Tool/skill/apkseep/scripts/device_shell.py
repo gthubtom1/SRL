@@ -39,6 +39,8 @@ Exit codes: 0 success / 1 the value was refused / 2 usage error / 4 internal err
 from __future__ import annotations
 
 import argparse
+import io
+import json
 import re
 import sys
 
@@ -213,6 +215,82 @@ def selftest():
     return cases
 
 
+def self_test():
+    """Offline self-test: the module's own selftest() cases, plus exact-value assertions.
+
+    `selftest()` states the properties ("quoting is inert", "garbage is refused"); this
+    wrapper fails if ANY of them regresses and adds the three exact strings other scripts
+    depend on -- `sh_quote`'s output, `su_wrap`'s output, and the argv form -- because
+    those are a contract, not a preference. No device, no adb, no subprocess.
+    """
+    import contextlib
+
+    def quiet(*argv):
+        """Run the CLI with its stdout/stderr captured; nothing but the JSON may print."""
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            return main(list(argv))
+
+    checks = 0
+    try:
+        cases = selftest()
+        assert cases, 'selftest() returned no cases'
+        failed = [(name, detail) for name, ok, detail in cases if not ok]
+        assert not failed, 'the module\'s own selftest cases failed: %s' % (failed,)
+        checks += 1
+
+        assert sh_quote("a b;c") == "'a b;c'", sh_quote("a b;c")
+        assert sh_quote("a'b") == "'a'\\''b'", sh_quote("a'b")
+        assert sh_quote('') == "''", sh_quote('')
+        assert sh_quote('a$(id)b') == "'a$(id)b'", sh_quote('a$(id)b')
+        checks += 1
+
+        assert su_wrap(['cat', '/data/local/tmp/x']) == \
+            "su -c 'cat /data/local/tmp/x'", su_wrap(['cat', '/data/local/tmp/x'])
+        assert su_wrap(["sh", "-c", "echo 'x'"]) == "su -c 'sh -c echo '\\''x'\\'''", \
+            su_wrap(["sh", "-c", "echo 'x'"])
+        assert adb_shell('SER', ['id'], root=True)[-1].startswith('su -c ')
+        assert adb_shell('SER', ['id'], quote=False) == ['adb', '-s', 'SER', 'shell', 'id']
+        assert adb_shell(None, ['id'], quote=False) == ['adb', 'shell', 'id']
+        checks += 1
+
+        assert validate_package('com.example.app') == 'com.example.app'
+        assert validate_pid(4242) == '4242' and validate_pid('1') == '1'
+        assert validate_component('.M', default_package='com.example.app') == \
+            'com.example.app/.M', validate_component('.M', default_package='com.example.app')
+        for bad_call in (lambda: validate_package('com..app'),
+                         lambda: validate_package('1com.example'),
+                         lambda: validate_package('com.example.app;id'),
+                         lambda: validate_device_path('/sdcard/a b'),
+                         lambda: validate_device_path('/data/../etc/passwd'),
+                         lambda: validate_device_path('relative'),
+                         lambda: validate_component('com.example.app'),
+                         lambda: validate_pid('0'),
+                         lambda: validate_pid('12a')):
+            try:
+                bad_call()
+            except Refused:
+                continue
+            raise AssertionError('a malformed value was accepted: %r' % (bad_call,))
+        checks += 1
+
+        # The CLI contract: --check accepts, and a refusal is exit 1 (not a traceback).
+        assert quiet('--check', 'com.example.app') == 0
+        assert quiet('--check', 'com..app') == 1
+        assert quiet('--check-path', '/sdcard/a b') == 1
+        assert quiet('--quote', 'a b;c') == 0
+        assert quiet() == 2
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "device_shell.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    print(json.dumps({"ok": True, "checks": checks, "tool": "device_shell.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def exit_code_for(main_fn):
     """Run a script's `main()` and turn a refusal into exit 2 with one line, never a traceback.
 
@@ -247,8 +325,13 @@ def main(argv=None):
     ap.add_argument('--quote', metavar='VALUE', help='print the POSIX-quoted form')
     ap.add_argument('--su', metavar='ARGV', help='print a su -c wrapper for a space-separated argv')
     ap.add_argument('--selftest', action='store_true', help='assert this module\'s own claims')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test and exit (JSON, rc 0/1)')
     ap.add_argument('--json', action='store_true')
     args = ap.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
 
     if args.selftest:
         cases = selftest()

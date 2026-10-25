@@ -44,6 +44,7 @@ import binascii
 import json
 import re
 import sys
+import tempfile
 import time
 import zlib
 
@@ -164,8 +165,93 @@ def search(blob: bytes, max_skip: int, log) -> list[dict]:
     return hits
 
 
+def self_test():
+    """Offline self-test: built-in bytes only, no network, no sample blob files.
+
+    The interesting claim of this tool is "a rotation search finds the deflate stream
+    even when the compressed body does not start at byte 0", so the test builds exactly
+    that blob (raw-deflate a known JSON document, rotate it, base64 it) and asserts the
+    recovered `cut`, `inner` and payload bytes -- not just that a search returned.
+    """
+    try:
+        checks = 0
+        payload = b'{"vip":true,"expiry":4102444800000}'
+
+        body = inflate_raw(payload)
+        assert body[:1] not in (b"\x78", b"\x1f"), body[:2]
+        assert try_inflate(body) == ("raw", payload), try_inflate(body)
+        assert try_inflate(b"\x00" * 32) is None, "garbage must not inflate"
+        checks += 1
+
+        cut = 5
+        rotated = body[-cut:] + body[:-cut]
+        for outer in ("base64", "base64url", "hex"):
+            text = outer_encode(rotated, outer)
+            assert outer_decode(text, outer) == rotated, outer
+            assert sniff_outer(text)[0] in (outer, "hex", "base64"), sniff_outer(text)
+        checks += 1
+
+        logs = []
+        hits = search(rotated, 0, logs.append)
+        assert hits, "rotation search found nothing in a known-rotated deflate stream"
+        assert any(line.startswith("  search finished") for line in logs), logs
+        winner = [h for h in hits if h["cut"] == cut and h["data"] == payload]
+        assert winner, [(h["cut"], h["inner"], h["size"]) for h in hits]
+        assert winner[0]["inner"] == "raw", winner[0]["inner"]
+        assert winner[0]["skip"] == 0, winner[0]["skip"]
+        checks += 1
+
+        zlib_hits = search(zlib.compress(payload, 9), 0, logs.append)
+        assert any(h["data"] == payload and h["inner"] == "zlib" for h in zlib_hits), \
+            [(h["cut"], h["inner"]) for h in zlib_hits]
+        checks += 1
+
+        assert score(payload) > score(b"\x00" * len(payload))
+        assert score(b"") == -1.0, score(b"")
+        assert score(b'{"a":1}') > score(b"qqqqqqqq"), "structure must score higher"
+        checks += 1
+
+        # --prefs-xml extraction: the regex main() uses to pull one cached value out.
+        with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False,
+                                         encoding="utf-8") as fh:
+            fh.write('<?xml version="1.0"?><map>'
+                     '<string name="flutter.remoteConfig">%s</string>'
+                     '</map>\n' % outer_encode(rotated, "base64"))
+            xml_path = fh.name
+        try:
+            xml = open(xml_path, encoding="utf-8").read()
+            m = re.search(r'name="%s"[^>]*>([^<]*)<' % re.escape("flutter.remoteConfig"), xml)
+            assert m, "the --prefs-xml value regex did not match the fixture"
+            text = m.group(1)
+            assert outer_decode(text, "base64") == rotated
+            assert not re.search(r'name="%s"[^>]*>([^<]*)<' % re.escape("absent.key"), xml)
+            checks += 1
+        finally:
+            import os
+            os.unlink(xml_path)
+
+        assert [name for name, _wb in INNERS] == ["raw", "zlib", "gzip"], INNERS
+        assert dict(INNERS)["raw"] == -15 and dict(INNERS)["gzip"] == 31
+        assert outer_encode(payload, "hex") == binascii.hexlify(payload).decode("ascii")
+        checks += 1
+
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "blob_decode.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    print(json.dumps({"ok": True, "checks": checks, "tool": "blob_decode.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main() -> int:
+    if "--self-test" in sys.argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit")
     src = ap.add_mutually_exclusive_group()
     src.add_argument("--file", help="file containing the encoded value")
     src.add_argument("--prefs-xml", help="a preferences XML file to pull the value out of")

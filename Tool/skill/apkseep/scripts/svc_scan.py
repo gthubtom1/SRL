@@ -305,7 +305,157 @@ def group_of(site, arch):
     return "other"
 
 
+def self_test():
+    """Offline self-test: hand-built ELF header/instructions, no device, no tools.
+
+    The capstone-dependent half is skipped on a host without capstone (the CLI
+    already answers tool-missing there); everything else is unconditional, so a
+    broken ELF walk or a wrong group assignment still fails on a blank machine.
+    """
+    import contextlib
+    import io
+    import json
+    import struct as _struct
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    def elf64(machine=0xB7, flags=5, big_endian=False):
+        data = bytearray(0x140)
+        data[0:4] = bytes([0x7F]) + b'ELF'
+        data[4] = 2                                  # ELFCLASS64
+        data[5] = 2 if big_endian else 1              # data encoding
+        _struct.pack_into('<H', data, 18, machine)   # e_machine
+        _struct.pack_into('<Q', data, 0x20, 64)      # e_phoff
+        _struct.pack_into('<H', data, 0x36, 56)      # e_phentsize
+        _struct.pack_into('<H', data, 0x38, 1)       # e_phnum
+        _struct.pack_into('<IIQQQQ', data, 64, 1, flags, 0x100, 0x1000, 0, 0x40)
+        return bytes(data)
+
+    # 1) the ELF64 program-header walk, and the two shapes that must be rejected
+    segs = parse_elf_segments(elf64())
+    chk('elf64-one-segment', segs == [(0x100, 0x1000, 0x40, 5)], segs)
+    chk('non-elf-rejected', parse_elf_segments(b'MZ' + bytes([0x90, 0x00]) + bytes(100)) is None)
+    chk('big-endian-rejected', parse_elf_segments(elf64(big_endian=True)) is None)
+
+    # 2) architecture detection from e_machine
+    chk('arch-arm64', guess_arch(elf64(0xB7)) == 'arm64', guess_arch(elf64(0xB7)))
+    chk('arch-arm', guess_arch(elf64(0x28)) == 'arm', guess_arch(elf64(0x28)))
+    chk('arch-unknown', guess_arch(elf64(0x3E)) is None, guess_arch(elf64(0x3E)))
+    chk('arch-non-elf', guess_arch(b'not an elf') is None)
+
+    # 3) the syscall tables and the three groups that decide the strategy
+    chk('table-exit-group', ARM64_SYSCALLS[94] == 'exit_group', ARM64_SYSCALLS.get(94))
+    chk('table-mprotect', ARM64_SYSCALLS[226] == 'mprotect', ARM64_SYSCALLS.get(226))
+    chk('termination-subset', TERMINATION <= set(ARM64_SYSCALLS), TERMINATION)
+    chk('evasion-subset', EVASION <= set(ARM64_SYSCALLS), EVASION)
+    chk('discovery-subset', DISCOVERY <= set(ARM64_SYSCALLS), DISCOVERY)
+    chk('arm-table-exit', ARM_SYSCALLS[1] == 'exit', ARM_SYSCALLS.get(1))
+    chk('lookback-bounded', LOOKBACK == 8, LOOKBACK)
+
+    def site(nr):
+        return {'nr': nr}
+
+    chk('group-exit-termination', group_of(site(93), 'arm64') == 'termination')
+    chk('group-tgkill-termination', group_of(site(131), 'arm64') == 'termination')
+    chk('group-mprotect-evasion', group_of(site(226), 'arm64') == 'evasion')
+    chk('group-openat-discovery', group_of(site(56), 'arm64') == 'discovery')
+    chk('group-futex-other', group_of(site(98), 'arm64') == 'other')
+    chk('group-unresolved', group_of(site(None), 'arm64') == 'unresolved')
+    chk('group-arm-exit', group_of(site(1), 'arm') == 'termination')
+    chk('group-arm-tkill', group_of(site(238), 'arm') == 'termination')
+    chk('group-arm-mprotect-evasion', group_of(site(125), 'arm') == 'evasion')
+
+    tmp = tempfile.mkdtemp(prefix='svc-scan-selftest-')
+    try:
+        # 4) capstone-dependent: two hand-encoded `svc` sites must be named
+        if CAPSTONE_OK:
+            def movz_x8(imm):
+                return _struct.pack('<I', 0xD2800000 | ((imm & 0xFFFF) << 5) | 8)
+
+            svc = _struct.pack('<I', 0xD4000001)
+            nop = _struct.pack('<I', 0xD503201F)
+            # keep the two svc sites further apart than LOOKBACK so each site's
+            # own number load is the nearest one (real compiler output shape)
+            code = movz_x8(93) + svc + nop * 10 + movz_x8(226) + svc
+            sites, per_segment = scan_blob(code, 'arm64', 0x1000)
+            chk('scan-site-count', len(sites) == 2, len(sites))
+            chk('scan-nr-order', [s['nr'] for s in sites] == [93, 226],
+                [s['nr'] for s in sites])
+            chk('scan-names', [s['name'] for s in sites] == ['exit', 'mprotect'],
+                [s['name'] for s in sites])
+            chk('scan-vaddr-uses-base', sites[0]['vaddr'] == 0x1000 + 4 and
+                sites[1]['vaddr'] == 0x1000 + 52, [s['vaddr'] for s in sites])
+            chk('scan-svc-writer-offsets', [s['writer_off'] for s in sites] == [0, 48],
+                [s['writer_off'] for s in sites])
+            chk('scan-groups', [group_of(s, 'arm64') for s in sites] ==
+                ['termination', 'evasion'], [group_of(s, 'arm64') for s in sites])
+            chk('scan-per-segment-count', per_segment.get(0, (None,))[0] == 2, per_segment)
+            no_svc = movz_x8(93) + _struct.pack('<I', 0xD503201F)   # movz + nop
+            chk('scan-no-svc-is-empty', scan_blob(no_svc, 'arm64', 0)[0] == [])
+            futex = movz_x8(98) + svc
+            chk('scan-futex-named', scan_blob(futex, 'arm64', 0)[0][0]['name'] == 'futex',
+                scan_blob(futex, 'arm64', 0)[0][0]['name'])
+
+            # the real CLI on a hand-built file: raw mode needs --arch
+            so = os.path.join(tmp, 'raw.bin')
+            with open(so, 'wb') as fh:
+                fh.write(code)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(io.StringIO()):
+                rc = main([so, '--raw', '--arch', 'arm64', '--json'])
+            chk('cli-raw-rc0', rc == 0, rc)
+            try:
+                doc = json.loads(buf.getvalue())
+            except ValueError:
+                doc = None
+            chk('cli-raw-json-by-group', doc is not None and
+                doc['by_group'] == {'termination': 1, 'evasion': 1},
+                doc and doc.get('by_group'))
+            with contextlib.redirect_stdout(io.StringIO()),                     contextlib.redirect_stderr(io.StringIO()):
+                rc_raw_noarch = main([so, '--raw'])
+            chk('cli-raw-without-arch-rc1', rc_raw_noarch == 1, rc_raw_noarch)
+            with contextlib.redirect_stdout(io.StringIO()),                     contextlib.redirect_stderr(io.StringIO()):
+                rc_missing = main([os.path.join(tmp, 'absent.so')])
+            chk('cli-missing-file-rc1', rc_missing == 1, rc_missing)
+        else:
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc_gate = main([__file__])
+            chk('capstone-missing-rc2', rc_gate == 2, rc_gate)
+
+        # 5) CLI contract
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(['--help'])
+            help_rc = None
+        except SystemExit as exc:
+            help_rc = exc.code
+        chk('cli-help-exits-0', help_rc == 0, help_rc)
+        try:
+            with contextlib.redirect_stderr(io.StringIO()),                     contextlib.redirect_stdout(io.StringIO()):
+                main(['--arch', 'mips'])
+            bad_arch = None
+        except SystemExit as exc:
+            bad_arch = exc.code
+        chk('cli-bad-arch-exits-2', bad_arch == 2, bad_arch)
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'svc_scan.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main(argv=None):
+    if '--self-test' in (argv if argv is not None else sys.argv[1:]):
+        return self_test()
     ap = argparse.ArgumentParser(
         description="Scan an ELF (or raw capture) for inline `svc` sites and name the "
                     "syscall each one issues. Use it to decide whether a libc-level hook "
@@ -333,6 +483,8 @@ def main(argv=None):
     ap.add_argument("--max-sites", type=int, default=0, metavar="N",
                     help="stop after N sites (0 = no limit); for a hostile blob where the "
                          "point is the histogram, not every offset")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run the offline self-test (hand-built ELF/instructions)")
     args = ap.parse_args(argv)
 
     if not CAPSTONE_OK:

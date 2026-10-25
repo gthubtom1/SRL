@@ -37,10 +37,13 @@ before `dex_dump_validate.py` will accept the output.
 """
 import argparse
 import hashlib
+import io
 import json
 import os
+import shutil
 import struct
 import sys
+import tempfile
 
 MAGIC = b"dex\n0"
 HEADER_SIZE = 112
@@ -169,7 +172,136 @@ def collect_targets(paths):
     return targets
 
 
+def self_test():
+    """Offline self-test: generated capture files, no process memory needed.
+
+    A scan tool is only as good as its OFFSETS, so every record asserted here carries the
+    offset it was planted at. The chunk-boundary case is included because the overlap
+    loop is the one piece that silently drops hits: a magic straddling two chunk reads
+    must still be found whole, with the same absolute offset.
+    """
+    import contextlib
+
+    def fake_dex(size=4096, version=b'035', class_defs=7, link=0):
+        buf = bytearray(size)
+        buf[0:8] = b'dex\n' + version + b'\x00'
+        struct.pack_into('<I', buf, 32, size)          # file_size
+        struct.pack_into('<I', buf, 96, class_defs)    # class_defs_size
+        struct.pack_into('<I', buf, 104, link)         # link_size
+        return bytes(buf)
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dex-mem-scan-selftest-')
+    try:
+        assert valid_version(b'dex\n035\x00') == '035'
+        assert valid_version(b'dex\n039\x00') == '039'
+        assert valid_version(b'dex\n0x5\x00') is None, 'version digits must be decimal'
+        assert valid_version(b'dex\n03') is None, 'a short version is not a version'
+        assert MAGIC == b'dex\n0' and HEADER_SIZE == 112
+        checks += 1
+
+        dex = fake_dex()
+        capture = b'\xaa' * 0x40 + dex
+        cap_path = os.path.join(tmpdir, 'region.bin')
+        with open(cap_path, 'wb') as fh:
+            fh.write(capture)
+
+        records, extracted, skipped = scan_file(cap_path, 1 << 20, 4096, False,
+                                                tmpdir, False)
+        assert (extracted, skipped) == (0, 0), (extracted, skipped)
+        assert len(records) == 1, records
+        rec = records[0]
+        assert rec['offset'] == 0x40, hex(rec['offset'])
+        assert rec['version'] == '035', rec['version']
+        assert rec['file_size'] == 4096 and rec['fits'] is True, rec
+        assert rec['class_defs_size'] == 7, rec['class_defs_size']
+        assert rec['capture'] == 'region.bin', rec['capture']
+        assert rec['sha256'] == hashlib.sha256(dex).hexdigest(), rec['sha256']
+        assert 'skipped' not in rec and 'partial' not in rec, rec
+        checks += 1
+
+        # A magic that straddles a chunk boundary must still be found, at its real
+        # offset: this is what the OVERLAP carry is for.
+        straddle = b'\x00' * 195 + dex
+        straddle_path = os.path.join(tmpdir, 'straddle.bin')
+        with open(straddle_path, 'wb') as fh:
+            fh.write(straddle)
+        recs, _e, _s = scan_file(straddle_path, 200, 4096, False, tmpdir, False)
+        assert [r['offset'] for r in recs] == [195], [r['offset'] for r in recs]
+        checks += 1
+
+        # Declared size that runs past the end of the capture: reported and skipped,
+        # and only written when --keep-partial says the truncation is acceptable.
+        clipped = b'\x00' * 0x20 + dex[:1000]
+        clip_path = os.path.join(tmpdir, 'clipped.bin')
+        with open(clip_path, 'wb') as fh:
+            fh.write(clipped)
+        recs, extracted, skipped = scan_file(clip_path, 1 << 20, 4096, False,
+                                             tmpdir, False)
+        assert skipped == 1 and extracted == 0, (extracted, skipped)
+        assert recs[0]['fits'] is False, recs[0]
+        assert recs[0]['skipped'] == 'declared 4096 B, 1000 B available', recs[0]
+        recs, _e, _s = scan_file(clip_path, 1 << 20, 4096, False, tmpdir, True)
+        assert recs[0]['partial'] == 1000, recs[0]
+        checks += 1
+
+        # --min-size evicts stray magics whose declared size is too small.
+        recs, _e, skipped = scan_file(cap_path, 1 << 20, 1 << 20, False, tmpdir, False)
+        assert skipped == 1 and recs[0]['fits'] is True, recs[0]
+        checks += 1
+
+        # --dump writes each hit at its declared size, named after the capture + offset.
+        dump_dir = os.path.join(tmpdir, 'dump')
+        os.makedirs(dump_dir)
+        recs, extracted, _s = scan_file(cap_path, 1 << 20, 4096, True, dump_dir, False)
+        assert extracted == 1, extracted
+        written = recs[0]['written']
+        assert os.path.basename(written) == 'region+0x00000040.dex', written
+        with open(written, 'rb') as fh:
+            assert fh.read() == dex, 'the dump must be exactly the declared image'
+        checks += 1
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = main([cap_path, '--json'])
+        assert rc == 0, rc
+        payload = json.loads(out.getvalue())
+        assert payload['records'][0]['offset'] == 0x40, payload['records']
+        assert payload['extracted'] == 0 and payload['skipped'] == 0, payload
+        checks += 1
+
+        # No hit at all is exit 1, not a silent success: a zero-hit scan is weak
+        # evidence and the exit code has to say so.
+        empty_path = os.path.join(tmpdir, 'nothing.bin')
+        with open(empty_path, 'wb') as fh:
+            fh.write(b'\x00' * 512)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = main([empty_path])
+        assert rc == 1, rc
+        checks += 1
+
+        # collect_targets skips notes in a region directory and keeps the blobs.
+        targets = collect_targets([tmpdir])
+        names = sorted(os.path.basename(t) for t in targets)
+        assert 'region.bin' in names and 'clipped.bin' in names, names
+        assert not any(n.endswith(('.txt', '.json', '.md')) for n in names), names
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dex_mem_scan.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dex_mem_scan.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv=None):
+    if '--self-test' in (sys.argv[1:] if argv is None else argv):
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description="Scan memory captures (or any blob) for embedded dex images "
                     "'dex\\n03x', report each hit, and optionally extract them at "
@@ -190,6 +322,8 @@ def main(argv=None):
     ap.add_argument("--keep-partial", action="store_true",
                     help="also write hits whose declared size runs past the end of "
                          "the capture (truncated region); the result is NOT a dex")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit (no capture needed)")
     args = ap.parse_args(argv)
 
     targets = collect_targets(args.path)

@@ -100,6 +100,8 @@ def build_parser():
     p.add_argument("--work-dir", default="/data/local/tmp",
                    help="device-side scratch directory (default %(default)s)")
     p.add_argument("--no-screencap", action="store_true", help="skip screenshots")
+    p.add_argument("--self-test", action="store_true", dest="self_test",
+                   help="run the offline self-test (stub adb, no device, no frida)")
     return p
 
 
@@ -131,7 +133,134 @@ def resolve_launcher(adb, serial, arg_activity, package, playground=None):
     return None
 
 
+def self_test():
+    """Offline self-test: argparse contract + launcher resolution with a stub adb.
+
+    Nothing here spawns, attaches or touches a device; the ordering rules are
+    asserted through the functions that only format the device conversation.
+    """
+    import contextlib
+    import io
+    import json
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    # 1) argparse contract: both inputs are required, and the defaults are the
+    #    ones the docstring promises.
+    parser = build_parser()
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            parser.parse_args([])
+        missing = None
+    except SystemExit as exc:
+        missing = exc.code
+    chk('package-and-js-required', missing == 2, missing)
+    args = parser.parse_args(['--package', 'com.example.app', '--js', 'probe.js'])
+    chk('default-frida-host', args.frida_host == '127.0.0.1:27099', args.frida_host)
+    chk('default-wait-patched', args.wait_patched == 15.0, args.wait_patched)
+    chk('default-serial-none', args.serial is None)
+    chk('default-captures', args.captures == 3, args.captures)
+    chk('default-work-dir', args.work_dir == '/data/local/tmp', args.work_dir)
+
+    # 2) adb command shape: serial placement and the su quoting is done in python,
+    #    never through a host shell.
+    seen = []
+
+    class _Done(object):
+        returncode = 0
+        stdout = ''
+        stderr = ''
+
+    global adb_run
+    real_adb_run = adb_run
+    real_subprocess_run = subprocess.run
+    try:
+        subprocess.run = lambda cmd, **kw: (seen.append(cmd), _Done())[1]
+        adb_run(['shell', 'echo __ok__'], 'adb', 'SERIAL')
+        chk('adb-serial-placement', seen[-1] ==
+            ['adb', '-s', 'SERIAL', 'shell', 'echo __ok__'],
+            seen[-1])
+        adb_run(['shell', 'echo __ok__'], 'adb', None)
+        chk('adb-no-serial', seen[-1] == ['adb', 'shell', 'echo __ok__'], seen[-1])
+        root_shell('am force-stop com.example.app', 'adb', 'SERIAL')
+        chk('root-shell-quotes-su', seen[-1] ==
+            ['adb', '-s', 'SERIAL', 'shell', "su -c 'am force-stop com.example.app'"],
+            seen[-1])
+
+        # 3) resolve_launcher: explicit wins without asking the device
+        seen.clear()
+        chk('explicit-activity-passthrough',
+            resolve_launcher('adb', None, 'pkg/.Act', 'pkg') == 'pkg/.Act')
+        chk('explicit-activity-no-adb-call', seen == [], seen)
+
+        # 4) resolve_launcher parses `cmd package resolve-activity --brief`:
+        #    headers/priority lines and `No activity` must not be mistaken for one.
+        class _R(object):
+            def __init__(self, out):
+                self.stdout = out
+                self.stderr = ''
+                self.returncode = 0
+
+        calls = []
+
+        def fake_adb_run(argv, adb, serial, timeout=200):
+            calls.append((list(argv), adb, serial))
+            return _R('priority=0 preferredOrder=0\n'
+                      'No activity found\n'
+                      'Starting: Intent { act=android.intent.action.MAIN }\n'
+                      'com.example.app/.MainActivity\n')
+
+        adb_run = fake_adb_run
+        component = resolve_launcher('adb', 'SERIAL', None, 'com.example.app')
+        chk('launcher-resolved', component == 'com.example.app/.MainActivity', component)
+        chk('launcher-asks-package-manager', calls and calls[0][0][:3] ==
+            ['shell', 'cmd', 'package'] and calls[0][2] == 'SERIAL', calls)
+        adb_run = lambda argv, adb, serial, timeout=200: _R('No activity found\n')
+        chk('launcher-none-when-empty',
+            resolve_launcher('adb', None, None, 'com.example.app') is None)
+        calls2 = []
+        adb_run = lambda argv, adb, serial, timeout=200: (
+            calls2.append(list(argv)), _R('playground.pkg/.Host\n'))[1]
+        got = resolve_launcher('adb', None, None, 'com.example.app', 'playground.pkg')
+        chk('launcher-playground-package', got == 'playground.pkg/.Host', got)
+        chk('launcher-playground-arg', calls2 and 'playground.pkg' in calls2[0], calls2)
+
+        # 5) the no-frida path is a structured answer, not a traceback
+        global frida
+        real_frida = frida
+        try:
+            frida = None
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = main(['--package', 'com.example.app', '--js', 'probe.js'])
+            chk('missing-frida-rc2', rc == 2, rc)
+            try:
+                doc = json.loads(buf.getvalue().strip())
+            except ValueError:
+                doc = None
+            chk('missing-frida-json', doc is not None and doc.get('ok') is False and
+                doc.get('blocked_at') == 'tool-missing', buf.getvalue()[:80])
+        finally:
+            frida = real_frida
+    finally:
+        adb_run = real_adb_run
+        subprocess.run = real_subprocess_run
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks),
+                      'tool': 'spawn_patch_detach.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main(argv=None):
+    if '--self-test' in (argv if argv is not None else sys.argv[1:]):
+        return self_test()
     args = build_parser().parse_args(argv)
 
     if frida is None:

@@ -49,17 +49,20 @@ Exit codes: 0 ok, 1 failure (structure, match, verifier, or self-verify), 2 usag
 """
 
 import argparse
+import io
 import json
 import os
+import shutil
 import struct
 import sys
+import tempfile
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from dexutil import (  # noqa: E402
     Dex, IF_TEST, IF_TESTZ, INVOKE_OPS, MOVE_RESULT_OPS, RETURN_OPS,
-    fix_dex_header, load_dex, verify_dex_header,
+    fix_dex_header, load_dex, selftest_dex, verify_dex_header,
 )
 
 
@@ -337,7 +340,130 @@ def process_one(dex, data, spec, index, dry_run):
     return report, data
 
 
+def self_test():
+    """Offline self-test: a generated dex, no APK and no sample file.
+
+    Each of the four failure modes the tool exists to make impossible is asserted here,
+    on the fixture's real instruction offsets:
+
+      1. the match selects exactly one site and the replacement is the same LENGTH;
+      2. a wrong `expect_next` is REFUSED (the polarity check actually fires);
+      3. the patched method still decodes to exactly insns_size units, and no branch is
+         left pointing at a move-result;
+      4. the header self-verifies after `fix_dex_header`, and a tampered byte is caught.
+    """
+    import contextlib
+
+    checks = 0
+    tmpdir = tempfile.mkdtemp(prefix='dex-patch-selftest-')
+    try:
+        blob, meta = selftest_dex()
+        dex, entry = load_dex(blob)
+        assert entry == '<bytes>' and dex.check() == [], dex.check()
+
+        spec = {
+            'name': 'disable-gate',
+            'class': 'Lcom/ex/Foo;',
+            'method': 'gate',
+            'match': {'kind': 'if-testz'},
+            'expect_next': {'kind': 'return-void'},
+            'replace': {'kind': 'nops'},
+        }
+        report, untouched = process_one(dex, bytearray(blob), spec, 0, True)
+        assert report['ok'] is True, report
+        assert report['site_off'] == meta['off_if_eqz'], hex(report['site_off'])
+        assert report['old_bytes'] == '3801ffff', report['old_bytes']
+        assert report['new_bytes'] == '00000000', report['new_bytes']
+        assert report['size_delta'] == 0, report['size_delta']
+        assert report['expect_next_ok'] is True
+        assert report['section'] == 'direct' and report['method_idx'] == 0, report
+        assert untouched == bytearray(blob), 'a dry run must not mutate the buffer'
+        checks += 1
+
+        # The polarity check must REFUSE a wrong expect_next rather than patch anyway.
+        bad = dict(spec, expect_next={'kind': 'invoke'})
+        try:
+            process_one(dex, bytearray(blob), bad, 0, True)
+        except RuntimeError as exc:
+            assert 'expect_next not satisfied' in str(exc), str(exc)
+        else:
+            raise AssertionError('a wrong expect_next was accepted: polarity is unchecked')
+        checks += 1
+
+        # A replacement of the wrong length must be refused, not written over the next
+        # instruction.
+        long_repl = dict(spec, replace={'kind': 'bytes', 'bytes': '0a00'})
+        try:
+            process_one(dex, bytearray(blob), long_repl, 0, True)
+        except RuntimeError as exc:
+            assert 'Equal length is required' in str(exc), str(exc)
+        else:
+            raise AssertionError('an unequal-length replacement was accepted')
+        checks += 1
+
+        data = bytearray(blob)
+        report, data = process_one(dex, data, spec, 0, False)
+        off = meta['off_if_eqz']
+        assert report['post_decode_clean'] is True, report
+        assert report['verifier_edges'] == 0, report
+        assert report['post_instruction_count'] == 6, report['post_instruction_count']
+        assert bytes(data[off:off + 4]) == b'\x00\x00\x00\x00', data[off:off + 4].hex()
+        assert bytes(data[off + 4:off + 6]) == b'\x0e\x00', \
+            'the return-void after the patch must be untouched'
+        checks += 1
+
+        # Header repair order: signature first, checksum last. Both must verify, and a
+        # single flipped byte past the header must break the checksum.
+        fixed = bytearray(blob)
+        header = fix_dex_header(fixed)
+        assert verify_dex_header(fixed) == (True, True), verify_dex_header(fixed)
+        assert header['after_checksum'] == int.from_bytes(fixed[8:12], 'little')
+        tampered = bytearray(fixed)
+        tampered[0x40] ^= 0xFF
+        assert verify_dex_header(tampered)[0] is False, \
+            'a tampered byte left the checksum intact'
+        checks += 1
+
+        assert _kind_of({'op': 0x0E, 'name': 'return-void'}) == 'return-void'
+        assert _kind_of({'op': 0x38, 'name': 'if-eqz'}) == 'if-testz'
+        assert _kind_of({'op': 0x6E, 'name': 'invoke-virtual'}) == 'invoke'
+        checks += 1
+
+        # End-to-end: the CLI writes a dex whose header verifies and whose branch is gone.
+        dex_path = os.path.join(tmpdir, 'classes.dex')
+        with open(dex_path, 'wb') as fh:
+            fh.write(blob)
+        spec_path = os.path.join(tmpdir, 'spec.json')
+        with open(spec_path, 'w', encoding='utf-8') as fh:
+            json.dump({'patches': [spec]}, fh)
+        out_path = os.path.join(tmpdir, 'classes.patched.dex')
+        with contextlib.redirect_stdout(io.StringIO()) as cli_out:
+            rc = main(['dex_patch_bytes.py', dex_path, '--spec', spec_path, '-o', out_path])
+        assert 'polarity: expect_next satisfied' in cli_out.getvalue(), cli_out.getvalue()
+        assert rc == 0, rc
+        written = open(out_path, 'rb').read()
+        assert len(written) == len(blob), (len(written), len(blob))
+        assert verify_dex_header(written) == (True, True), verify_dex_header(written)
+        assert written[off:off + 4] == b'\x00\x00\x00\x00', written[off:off + 4].hex()
+        assert Dex(written).decode_all(meta['code_gate'])[1] is True, \
+            'the patched method must still decode cleanly'
+        checks += 1
+    except Exception as exc:          # a failed assertion IS the signal: report, rc=1
+        print(json.dumps({"ok": False, "checks": checks, "tool": "dex_patch_bytes.py",
+                          "reason": "%s: %s" % (type(exc).__name__, exc)},
+                         ensure_ascii=False))
+        return 1
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    print(json.dumps({"ok": True, "checks": checks, "tool": "dex_patch_bytes.py"},
+                     ensure_ascii=False))
+    return 0
+
+
 def main(argv):
+    if '--self-test' in argv[1:]:
+        return self_test()
+
     ap = argparse.ArgumentParser(
         description="Apply equal-length byte patches to a dex, with structural, "
                     "polarity and verifier checks.",
@@ -350,6 +476,8 @@ def main(argv):
     ap.add_argument("--dry-run", action="store_true",
                     help="report matches and diffs without writing")
     ap.add_argument("--report", help="write a machine-readable JSON report here")
+    ap.add_argument("--self-test", action="store_true", dest="self_test",
+                    help="run offline self-test and exit (no APK, no sample)")
     args = ap.parse_args(argv[1:])
 
     dex, entry = load_dex(args.dex, args.entry) if os.path.exists(args.dex) else (None, None)

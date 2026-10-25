@@ -237,6 +237,108 @@ def run_live(pkg, serial, host, timeout):
     return 0
 
 
+def self_test():
+    """Offline self-test: hand-built DER + a crafted APK in a temp dir.
+
+    No frida, no device, no network: the DER walk and the candidate enumeration
+    are what decide the hex a reverse engineer pastes into a smali patch.
+    """
+    import json
+    import os
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=""):
+        checks.append((name, bool(cond), detail))
+
+    def der(tag, content):
+        assert len(content) < 0x80
+        return bytes([tag, len(content)]) + content
+
+    # 1) TLV walking, including the long-form length and the truncation guard
+    chk("tlv-short-form", _tlv(b"\x30\x03abc", 0) == (0x30, 2, 3), _tlv(b"\x30\x03abc", 0))
+    chk("tlv-long-form", _tlv(b"\x30\x81\x80" + b"x" * 128, 0) == (0x30, 3, 128))
+    try:
+        _tlv(b"\x30", 0)
+        truncated_raised = False
+    except ValueError:
+        truncated_raised = True
+    chk("tlv-truncation-raises", truncated_raised)
+    blob = der(0x30, b"\x02\x01\x05\x04\x02ab")
+    kids = list(_children(blob, 2, len(blob)))
+    chk("children-walk-two", len(kids) == 2 and kids[0][0] == 0x02 and kids[1][0] == 0x04,
+        kids)
+
+    # 2) a hand-built PKCS#7 SignedData with exactly one certificate
+    cert = der(0x30, der(0x02, b"\x09") + b"CERTIFICATE-BYTES")
+    signed_data = der(0x30, der(0x02, b"\x01") + der(0x31, b"") + der(0x30, b"") +
+                      der(0xA0, cert))
+    content_info = der(0x30, der(0x06, b"\x2a\x86\x48\x86\xf7\x0d\x01\x07\x02") +
+                       der(0xA0, signed_data))
+    certs = pkcs7_certificates(content_info)
+    chk("pkcs7-one-cert", certs == [cert], [c.hex() for c in certs])
+    chk("pkcs7-cert-bytes", certs and certs[0] == cert)
+    chk("pkcs7-not-a-sequence", pkcs7_certificates(b"\x02\x01\x01") == [])
+    chk("pkcs7-empty-contentinfo", pkcs7_certificates(der(0x30, b"")) == [])
+
+    # 3) candidate enumeration from a real zip: whole blob + each certificate
+    tmp = tempfile.mkdtemp(prefix="sig-probe-selftest-")
+    try:
+        apk = os.path.join(tmp, "signed.apk")
+        with zipfile.ZipFile(apk, "w") as zf:
+            zf.writestr("AndroidManifest.xml", b"\x03\x00\x08\x00")
+            zf.writestr("META-INF/CERT.RSA", content_info)
+            zf.writestr("META-INF/CERT.SF", b"Signature-Version: 1.0\n")
+        cands = candidates_from_apk(apk)
+        labels = [label for label, _blob in cands]
+        chk("candidates-whole-blob", labels and labels[0] == "whole META-INF/CERT.RSA", labels)
+        chk("candidates-includes-cert", "META-INF/CERT.RSA cert[0]" in labels, labels)
+        by_label = dict(cands)
+        chk("candidates-whole-bytes", by_label.get("whole META-INF/CERT.RSA") == content_info)
+        chk("candidates-cert-bytes", by_label.get("META-INF/CERT.RSA cert[0]") == cert)
+
+        unsigned = os.path.join(tmp, "unsigned.apk")
+        with zipfile.ZipFile(unsigned, "w") as zf:
+            zf.writestr("AndroidManifest.xml", b"\x03\x00\x08\x00")
+        chk("candidates-none-when-unsigned", candidates_from_apk(unsigned) == [],
+            candidates_from_apk(unsigned))
+
+        # 4) CLI contract: --apk/--live are mutually exclusive and required;
+        #    an offline --apk run prints the candidate hex and exits 0.
+        import subprocess
+        me = os.path.abspath(__file__)
+        helped = subprocess.run([sys.executable, me, "--help"], capture_output=True,
+                                text=True, errors="replace")
+        chk("help-rc0", helped.returncode == 0, helped.returncode)
+        for flag in ("--apk", "--live", "--serial", "--host"):
+            chk("help-mentions-%s" % flag, flag in helped.stdout)
+        neither = subprocess.run([sys.executable, me], capture_output=True, text=True,
+                                 errors="replace")
+        chk("no-mode-exits-2", neither.returncode == 2, neither.returncode)
+        both = subprocess.run([sys.executable, me, "--apk", apk, "--live", "pkg"],
+                              capture_output=True, text=True, errors="replace")
+        chk("both-modes-exits-2", both.returncode == 2, both.returncode)
+        offline = subprocess.run([sys.executable, me, "--apk", apk], capture_output=True,
+                                 text=True, errors="replace")
+        chk("offline-apk-rc0", offline.returncode == 0, offline.returncode)
+        chk("offline-apk-prints-cert-hex", cert.hex() in offline.stdout,
+            (offline.stdout or "")[:120])
+        chk("offline-unsigned-rc1",
+            subprocess.run([sys.executable, me, "--apk", unsigned],
+                           capture_output=True, text=True, errors="replace").returncode == 1)
+    finally:
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({"ok": not fails, "checks": len(checks), "tool": "sig_probe.py",
+                      "failures": [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print("FAIL %s: %s" % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 # --------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(
@@ -252,6 +354,10 @@ def main():
                     help='frida-server endpoint for --live (default %(default)s)')
     ap.add_argument('--timeout', type=float, default=20.0,
                     help='seconds to wait for the live probe (default %(default)s)')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test (hand-built DER, no frida/device)')
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     args = ap.parse_args()
 
     if args.live:

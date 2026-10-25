@@ -73,7 +73,116 @@ def run(cp, main_class, args):
     return r.returncode, out
 
 
+def self_test():
+    """Offline self-test: classpath precedence + CLI contract, no java invoked."""
+    import contextlib
+    import io
+    import json
+    import shutil
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=""):
+        checks.append((name, bool(cond), detail))
+
+    global CP_FILE, HERE
+    real_cp_file, real_here = CP_FILE, HERE
+    env_key = 'APK_REVERSE_SMALI_CP'
+    saved_env = os.environ.pop(env_key, None)
+    tmp = tempfile.mkdtemp(prefix='smtool-selftest-')
+    try:
+        # 1) precedence: explicit --cp beats the env var beats smali_cp.txt
+        chk('explicit-cp-wins', resolve_cp('a.jar;b.jar') == 'a.jar;b.jar',
+            resolve_cp('a.jar;b.jar'))
+        os.environ[env_key] = 'env1.jar;env2.jar'
+        chk('env-cp-used', resolve_cp(None) == 'env1.jar;env2.jar', resolve_cp(None))
+        chk('env-loses-to-explicit', resolve_cp('x.jar') == 'x.jar')
+        del os.environ[env_key]
+
+        # 2) smali_cp.txt: '#' comments and blank lines are skipped, entries joined
+        here = os.path.join(tmp, 'scripts')
+        os.makedirs(here)
+        CP_FILE = os.path.join(here, 'smali_cp.txt')
+        HERE = here
+        with open(CP_FILE, 'w', encoding='utf-8') as fh:
+            fh.write('# comment line\n\n/opt/smali.jar\n/opt/baksmali.jar\n')
+        want = os.pathsep.join(['/opt/smali.jar', '/opt/baksmali.jar'])
+        chk('cp-file-parsed', resolve_cp(None) == want, resolve_cp(None))
+
+        # 3) nothing configured -> None, and main() says so instead of calling java
+        CP_FILE = os.path.join(here, 'no-such-cp.txt')
+        chk('no-cp-is-none', resolve_cp(None) is None, resolve_cp(None))
+        real_argv = sys.argv
+        try:
+            sys.argv = ['smtool.py', 'check']
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_no_cp = main()
+            chk('no-cp-rc1', rc_no_cp == 1, rc_no_cp)
+            chk('no-cp-message', 'no classpath' in buf.getvalue(), buf.getvalue())
+
+            # 4) `check` reports each jar as OK/MISSING, and the file list is not guessed
+            present = os.path.join(tmp, 'present.jar')
+            open(present, 'wb').close()
+            missing = os.path.join(tmp, 'missing.jar')
+            cp = os.pathsep.join([present, missing])
+            sys.argv = ['smtool.py', 'check', '--cp', cp]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_check = main()
+            out = buf.getvalue()
+            chk('check-rc0', rc_check == 0, rc_check)
+            chk('check-marks-present', ('OK ' in out and present in out), out)
+            chk('check-marks-missing', ('MISSING' in out and missing in out), out)
+            chk('check-echoes-classpath', ('classpath: %s' % cp) in out, out)
+
+            # 5) usage errors, so a typo does not become a java invocation
+            sys.argv = ['smtool.py']
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc_empty = main()
+            chk('no-args-rc2', rc_empty == 2, rc_empty)
+            sys.argv = ['smtool.py', 'd', '--cp', cp]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_short_d = main()
+            chk('disassemble-needs-two-paths-rc2', rc_short_d == 2, rc_short_d)
+            chk('disassemble-usage-printed', 'smtool.py d' in buf.getvalue(), buf.getvalue())
+            sys.argv = ['smtool.py', 'a', 'tree', '--cp', cp]
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc_short_a = main()
+            chk('assemble-needs-two-paths-rc2', rc_short_a == 2, rc_short_a)
+            sys.argv = ['smtool.py', 'nonsense', '--cp', cp]
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc_bad = main()
+            chk('unknown-command-rc2', rc_bad == 2, rc_bad)
+            sys.argv = ['smtool.py', '--help']
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_help = main()
+            chk('help-rc0', rc_help == 0, rc_help)
+            chk('help-mentions-classpath', 'classpath' in buf.getvalue(), buf.getvalue()[:80])
+        finally:
+            sys.argv = real_argv
+    finally:
+        CP_FILE, HERE = real_cp_file, real_here
+        if saved_env is not None:
+            os.environ[env_key] = saved_env
+        else:
+            os.environ.pop(env_key, None)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks), 'tool': 'smtool.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     if any(a in ("-h", "--help") for a in sys.argv[1:]):
         print((__doc__ or "").strip() or "usage: smtool.py ...")
         return 0

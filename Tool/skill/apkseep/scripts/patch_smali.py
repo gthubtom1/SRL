@@ -68,7 +68,144 @@ def patch_one(path, decl_wanted, registers, body):
     return True, 'ok'
 
 
+SMALI_FIXTURE = """.class public Lcom/example/Helper;
+.super Ljava/lang/Object;
+
+.method public final show(Landroid/app/Activity;)V
+    .registers 1
+    return-void
+.end method
+
+.method public final hide()V
+    .registers 1
+    return-void
+.end method
+"""
+
+
+def self_test():
+    """Offline self-test: a built-in smali file and manifest, written to a temp dir.
+
+    The patcher's whole promise is that only the instruction body of the named
+    method changes, so that is what is asserted -- plus the two refusals (missing
+    method, ambiguous anchor) that stop a patch from landing somewhere unintended.
+    """
+    import contextlib
+    import io
+    import json
+    import shutil
+    import tempfile
+
+    checks = 0
+    tmp = tempfile.mkdtemp(prefix='patch_smali-selftest-')
+    tree = os.path.join(tmp, 'smali')
+    src = os.path.join(tree, 'com', 'example', 'Helper.smali')
+    decl = '.method public final show(Landroid/app/Activity;)V'
+
+    def run(argv):
+        out = io.StringIO()
+        old = sys.argv
+        sys.argv = argv
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = main()
+        finally:
+            sys.argv = old
+        return rc, out.getvalue()
+
+    def write(path, text):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8', newline='\n') as fh:
+            fh.write(text)
+
+    try:
+        write(src, SMALI_FIXTURE)
+
+        # 1) method splitting finds both methods with their exact declarations
+        lines, methods = split_methods(SMALI_FIXTURE)
+        assert len(methods) == 2, methods
+        assert methods[0][0] == decl, methods[0][0]
+        assert lines[methods[0][1]] == decl and lines[methods[0][2]] == '.end method'
+        assert methods[1][0] == '.method public final hide()V'
+        checks += 1
+
+        # 2) patch_one rewrites only the target body, leaving the other method alone
+        ok, msg = patch_one(src, decl, 3,
+                            ['invoke-static {}, Lcom/example/Probe;->x()V',
+                             'return-void'])
+        assert ok is True, msg
+        text = open(src, encoding='utf-8').read()
+        start = text.index(decl)
+        block = text[start:text.index('.end method', start)]
+        assert '    .registers 3' in block, block
+        assert '    invoke-static {}, Lcom/example/Probe;->x()V' in block, block
+        assert '.registers 1' not in block, block
+        assert text.count('.registers 1') == 1, 'the other method was rewritten'
+        assert text.count('.end method') == 2 and text.count('.method ') == 2, text
+        assert text.startswith('.class public Lcom/example/Helper;')
+        assert '.method public final hide()V' in text
+        checks += 1
+
+        # 3) a missing method and an ambiguous anchor are both refused
+        ok, msg = patch_one(src, '.method public final nope()V', 1, ['return-void'])
+        assert ok is False and msg == 'method not found: .method public final nope()V', msg
+        dup = os.path.join(tree, 'com', 'example', 'Dup.smali')
+        write(dup, SMALI_FIXTURE.replace('public final hide()V',
+                                         'public final show(Landroid/app/Activity;)V'))
+        ok, msg = patch_one(dup, decl, 1, ['return-void'])
+        assert ok is False and 'ambiguous (2 matches)' in msg, msg
+        checks += 1
+
+        # 4) dry-run reports without writing; a missing anchor is a failure
+        manifest = os.path.join(tmp, 'patch.json')
+        with open(manifest, 'w', encoding='utf-8') as fh:
+            json.dump([{'file': 'com/example/Helper.smali', 'method': decl,
+                        'registers': 5,
+                        'body': ['invoke-static {}, Lcom/example/Probe;->y()V',
+                                 'return-void']}], fh)
+        before = open(src, encoding='utf-8').read()
+        rc, out = run(['patch_smali.py', tree, manifest, '--dry-run'])
+        assert rc == 0, rc
+        assert '[DRY-OK]' in out, out
+        assert open(src, encoding='utf-8').read() == before, '--dry-run wrote to disk'
+        checks += 1
+
+        # 5) the real patch applies, and a manifest that misses is rc 1
+        rc, out = run(['patch_smali.py', tree, manifest])
+        assert rc == 0, rc
+        assert 'patched=1 failed=0' in out, out
+        assert '.registers 5' in open(src, encoding='utf-8').read()
+        with open(manifest, 'w', encoding='utf-8') as fh:
+            json.dump([{'file': 'com/example/Helper.smali',
+                        'method': '.method public final gone()V',
+                        'registers': 1, 'body': ['return-void']},
+                       {'file': 'com/example/Absent.smali', 'method': decl,
+                        'registers': 1, 'body': ['return-void']}], fh)
+        rc, out = run(['patch_smali.py', tree, manifest, '--dry-run'])
+        assert rc == 1, rc
+        assert '[DRY-MISS]' in out and '[MISS-FILE]' in out, out
+        assert 'failed=2' in out, out
+        checks += 1
+
+        # 6) usage contract: too few arguments is rc 2, not a traceback
+        rc, out = run(['patch_smali.py'])
+        assert rc == 2, rc
+        assert 'patch_smali.py' in out
+        checks += 1
+
+        print(json.dumps({'ok': True, 'checks': checks, 'tool': 'patch_smali.py'}))
+        return 0
+    except Exception as exc:
+        print(json.dumps({'ok': False, 'checks': checks, 'tool': 'patch_smali.py',
+                          'reason': '%s: %s' % (type(exc).__name__, exc)}))
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     if any(a in ("-h", "--help") for a in sys.argv[1:]):
         print((__doc__ or "").strip() or "usage: patch_smali.py ...")
         return 0

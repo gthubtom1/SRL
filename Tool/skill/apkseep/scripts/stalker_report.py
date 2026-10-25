@@ -113,7 +113,141 @@ def collapse_consecutive(items):
     return out
 
 
+def self_test():
+    """Offline self-test: a hand-written trace log in a temp dir, no device."""
+    import contextlib
+    import io
+    import json
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+
+    checks = []
+
+    def chk(name, cond, detail=''):
+        checks.append((name, bool(cond), detail))
+
+    log_text = (
+        '[host 2024-01-01 00:00:00.000] [dev 1.50] MOD libfoo.so base=0x764c0aa000 '
+        'size=40960 path=/data/local/tmp/libfoo.so\n'
+        '[host] [dev] BB 1 libfoo.so+0x1000\n'
+        'BB 2 libfoo.so+0x1004\n'
+        'BLK 3 libfoo.so+0x1000 size=16\n'
+        'BLK 4 libfoo.so+0x1000 size=16\n'
+        'BLK 5 libfoo.so+0x1004\n'
+        'CALL 0 libfoo.so+0x1000 -> libfoo.so+0x1004\n'
+        'CALL 1 libfoo.so+0x1000 -> libfoo.so+0x1004\n'
+        'DONE reason=maxblocks blocks=5 blk=9 calls=2 truncated=1\n'
+        'FATAL follow window closed\n')
+
+    tmp = tempfile.mkdtemp(prefix='stalker-report-selftest-')
+    try:
+        log = os.path.join(tmp, 'trace.log')
+        with open(log, 'w', encoding='utf-8') as fh:
+            fh.write(log_text)
+
+        # 1) the parser: wrapper prefixes are transparent, sizes are optional
+        st = parse_log(log)
+        chk('parse-module-name', list(st['mods']) == ['libfoo.so'], list(st['mods']))
+        chk('parse-module-base', st['mods']['libfoo.so']['base'] == '0x764c0aa000',
+            st['mods']['libfoo.so'])
+        chk('parse-module-size', st['mods']['libfoo.so']['size'] == 40960)
+        chk('parse-module-path', st['mods']['libfoo.so']['path'] == '/data/local/tmp/libfoo.so')
+        chk('parse-bb-order', [b[2] for b in st['bb']] == [0x1000, 0x1004], st['bb'])
+        chk('parse-blk-count', len(st['blk']) == 3, len(st['blk']))
+        chk('parse-blk-size', st['blk'][0][3] == 16 and st['blk'][2][3] is None, st['blk'])
+        chk('parse-calls', len(st['calls']) == 2 and
+            st['calls'][0] == ('0', 'libfoo.so+0x1000', 'libfoo.so+0x1004'), st['calls'])
+        chk('parse-done', st['done'] == ('maxblocks', '5', '9', '2', '1'), st['done'])
+        chk('parse-fatals', len(st['fatals']) == 1 and 'follow window' in st['fatals'][0],
+            st['fatals'])
+
+        # 2) the reductions: block keys and consecutive-run collapsing
+        chk('blockkey', blockkey('libfoo.so', 0x1000) == 'libfoo.so+0x1000',
+            blockkey('libfoo.so', 0x1000))
+        runs = collapse_consecutive([('m', 1), ('m', 1), ('m', 2), ('m', 1)])
+        chk('collapse-consecutive', runs == [('m+0x1', 2), ('m+0x2', 1), ('m+0x1', 1)], runs)
+
+        # 3) main(): summary + histogram + json payload, driven through sys.argv
+        real_argv = sys.argv
+        try:
+            sys.argv = ['stalker_report.py', log]
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = main()
+            out = buf.getvalue()
+            chk('main-rc0', rc == 0, rc)
+            chk('main-counts-unique', 'unique blocks first-seen (BB) : 2' in out, out[:200])
+            chk('main-counts-exec', 'block executions (BLK)        : 3' in out)
+            chk('main-counts-calls', 'call edges (CALL)             : 2' in out)
+            chk('main-done-line', 'DONE reason=maxblocks truncated=1' in out, out[:200])
+            chk('main-histogram-top', 'libfoo.so+0x1000' in out)
+
+            json_path = os.path.join(tmp, 'report.json')
+            sys.argv = ['stalker_report.py', log, '--json', json_path, '--top', '1']
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_q = main()
+            chk('main-json-rc0', rc_q == 0, rc_q)
+            sys.argv = ['stalker_report.py', log, '--quiet']
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc_quiet = main()
+            chk('main-quiet-rc0', rc_quiet == 0, rc_quiet)
+            chk('main-quiet-hides-histogram', '== execution histogram' not in buf.getvalue(),
+                buf.getvalue()[:120])
+            with open(json_path, encoding='utf-8') as fh:
+                payload = json.load(fh)
+            chk('json-summary', payload['summary']['bb'] == 2 and
+                payload['summary']['blk'] == 3, payload['summary'])
+            chk('json-histogram', payload['histogram'].get('libfoo.so+0x1000') == 2,
+                payload['histogram'])
+            chk('json-call-edges', payload['call_edges'].get(
+                'libfoo.so+0x1000 -> libfoo.so+0x1004') == 2, payload['call_edges'])
+            chk('json-collapsed', payload['collapsed'][0] == ['libfoo.so+0x1000', 2],
+                payload['collapsed'])
+
+            # 4) a trace that never ran is a negative result (rc 1 without DONE)
+            empty_log = os.path.join(tmp, 'empty.log')
+            with open(empty_log, 'w', encoding='utf-8') as fh:
+                fh.write('MOD libfoo.so base=0x1000 size=4096\n')
+            sys.argv = ['stalker_report.py', empty_log, '--quiet']
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc_empty = main()
+            chk('no-blocks-no-done-rc1', rc_empty == 1, rc_empty)
+            with open(empty_log, 'a', encoding='utf-8') as fh:
+                fh.write('DONE reason=detach blocks=0 blk=0 calls=0 truncated=0\n')
+            sys.argv = ['stalker_report.py', empty_log, '--quiet']
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc_empty_done = main()
+            chk('no-blocks-with-done-rc0', rc_empty_done == 0, rc_empty_done)
+        finally:
+            sys.argv = real_argv
+
+        # 5) CLI contract
+        me = os.path.abspath(__file__)
+        helped = subprocess.run([sys.executable, me, '--help'], capture_output=True,
+                                text=True, errors='replace')
+        chk('help-rc0', helped.returncode == 0, helped.returncode)
+        for flag in ('--top', '--skeleton', '--edges', '--seq', '--json', '--quiet',
+                     '--self-test'):
+            chk('help-mentions-%s' % flag, flag in helped.stdout)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    fails = [(n, d) for n, ok, d in checks if not ok]
+    print(json.dumps({'ok': not fails, 'checks': len(checks),
+                      'tool': 'stalker_report.py',
+                      'failures': [n for n, _ in fails]}, ensure_ascii=False))
+    for n, d in fails:
+        print('FAIL %s: %s' % (n, d), file=sys.stderr)
+    return 0 if not fails else 1
+
+
 def main():
+    if '--self-test' in sys.argv[1:]:
+        return self_test()
     ap = argparse.ArgumentParser(
         description='Summarize a stalker_trace.js log into a block histogram, '
                     'a first-visit CFG skeleton, and call-edge tables.')
@@ -132,6 +266,8 @@ def main():
                     help='also write the full reduced data as JSON')
     ap.add_argument('--quiet', action='store_true',
                     help='print the summary block only')
+    ap.add_argument('--self-test', action='store_true', dest='self_test',
+                    help='run the offline self-test (hand-written log, no device)')
     args = ap.parse_args()
 
     st = parse_log(args.log)
