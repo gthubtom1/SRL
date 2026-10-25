@@ -39,6 +39,30 @@
       ],
       "transport": "stdio",
       "lifecycle": "lazy"
+    },
+    "ida": {
+      "command": "python",
+      "args": [
+        "{ROOT_POSIX}/Tool/scripts/mcp-launch.py",
+        "--server",
+        "ida"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "description": "IDA Pro 分析链。启动器动态解析「IDA 自带 python + ida_pro_mcp/server.py」，可用 SEEP_IDA_PYTHON / SEEP_IDA_DIR 覆盖。没有 IDA 时该服务器连不上，不影响其它工具（lifecycle=eager 但失败可忽略）。",
+      "transport": "stdio",
+      "requestTimeoutMs": 180000
+    },
+    "x64dbg": {
+      "command": "python",
+      "args": [
+        "{ROOT_POSIX}/Tool/scripts/mcp-launch.py",
+        "--server",
+        "x64dbg"
+      ],
+      "description": "x64dbg 调试器（stdio 桥接 → 127.0.0.1:9094）。桥会在需要时自动拉起 x64dbg，勿手工开 GUI；连通后调 mcp__x64dbg__*。工具路径缓存**双写**契约见 Tool/scripts/lib/tool_cache.py（曾因只写一种结构导致 401）。",
+      "transport": "stdio"
     }
   },
   "_可选条目示例": {

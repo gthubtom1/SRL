@@ -95,6 +95,10 @@ def check_dangling():
             continue
         if p.replace(os.sep, "/").startswith("docs/history/"):
             continue
+        # 归档留档（_archived / 已退役角色）本来就是历史，允许含死路径
+        _pn = p.replace(os.sep, "/")
+        if "/_archived/" in _pn or _pn.startswith("Tool/prompts/agents/_archived/"):
+            continue
         try:
             text = open(os.path.join(ROOT, p), encoding="utf-8", errors="replace").read()
         except Exception:
@@ -2018,6 +2022,55 @@ def check_tool_identity():
         not fails, "；".join(fails) + "（修法：装真工具，或把 tool-index 该行改成「否（BROKEN：原因）」）")
     return fails
 
+def check_agents_deploy():
+    """子代理定义：仓库 Tool/prompts/agents/*.md 与 ~/.pi/agent/agents/*.md 必须一致。
+
+    为什么（2026-10-25 收尾普查）：这 5 个角色原先只存在于某台机器的 ~/.pi/agent/agents/，
+    仓库里一份没有 → 换机器后"并行分工"能力直接消失，而所有门禁仍是绿的。
+    同时检查"同义重复角色"：两个角色若工具集与提示词首段完全相同，等于让派活有随机性。
+    """
+    import glob as _g
+    import io as _io
+    import re as _re
+    src_dir = os.path.join(TOOL, "prompts", "agents")
+    dst_dir = os.path.join(os.path.expanduser("~"), ".pi", "agent", "agents")
+    fails = []
+    if not os.path.isdir(src_dir):
+        add("2 单一事实源", "子代理定义（仓库 ↔ 部署）", False, "仓库缺 Tool/prompts/agents/")
+        return ["仓库缺 Tool/prompts/agents/"]
+    src = {os.path.basename(p) for p in _g.glob(os.path.join(src_dir, "*.md"))
+           if os.path.basename(p) != "README.md"}
+    if not src:
+        fails.append("仓库没有任何子代理定义")
+    dst = {os.path.basename(p) for p in _g.glob(os.path.join(dst_dir, "*.md"))} if os.path.isdir(dst_dir) else set()
+    miss = sorted(src - dst)
+    extra = sorted(dst - src)
+    if miss:
+        fails.append("未部署：" + "、".join(x[:-3] for x in miss))
+    if extra:
+        fails.append("残留（仓库已无）：" + "、".join(x[:-3] for x in extra) + "（跑 install 会移到 backup-retired-agents）")
+    drift = []
+    for f in sorted(src & dst):
+        if _file_sig(os.path.join(src_dir, f)) != _file_sig(os.path.join(dst_dir, f)):
+            drift.append(f[:-3])
+    if drift:
+        fails.append("哈希不一致：" + "、".join(drift))
+    # 同义重复：工具集 + 首段提示词指纹相同
+    sigs = {}
+    for f in sorted(src):
+        t = _io.open(os.path.join(src_dir, f), encoding="utf-8", errors="replace").read()
+        tools = (_re.search(r"(?m)^tools:\s*(.+)$", t) or [None, ""])[1]
+        tools = ",".join(sorted(x.strip() for x in tools.split(",") if x.strip()))
+        body = _re.sub(r"\s+", "", t.split("---")[-1])[:400]
+        sigs.setdefault((tools, body), []).append(f[:-3])
+    for (tools, _b), names in sigs.items():
+        if len(names) > 1:
+            fails.append("同义重复角色：" + "、".join(names) + "（工具集与提示词几乎相同）")
+    add("2 单一事实源",
+        "子代理定义（%d 个角色：仓库=部署，无同义重复）" % len(src), not fails, "；".join(fails))
+    return fails
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -2053,6 +2106,7 @@ def main():
     check_skill_import()
     check_subskill_wiring()
     check_unpack_pointer()
+    check_agents_deploy()
     check_tool_identity()
     check_fact_drift()
     check_five_contracts()

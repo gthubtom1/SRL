@@ -103,6 +103,8 @@ if (Test-Path $srcTasks) {
         Write-Warn "@SEEP_ROOT@ 替换失败（仓库根为空）——命令卡保留占位符，请检查"
     }
     foreach ($f in (Get-ChildItem $srcTasks -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        # README.md 是说明，不是任务卡（部署成 /README 就是废命令）
+        if ($f.Name -eq 'README.md') { continue }
         $raw = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
         if ($raw -match '@SEEP_ROOT@') {
             if ([string]::IsNullOrWhiteSpace($rootFwd)) {
@@ -172,6 +174,41 @@ if (Test-Path $srcExt) {
         Write-Ok "已安全归档旧版独立扩展 prompt-compat.ts -> backup-retired-extensions/ (消除双重注册冲突)"
     }
 }
+
+# ---------------------------------------------------------------- 3.5 子代理定义（agents/*.md）
+# pi 从 <agent-dir>/agents/*.md 读子代理角色；仓库是唯一事实源（Tool/prompts/agents/）。
+# 为什么要有这一段：这些角色原先只存在于某台机器的 ~/.pi/agent/agents/ 里、仓库里没有，
+# 换机器就等于“并行分工能力消失”，而门禁全绿看不出来。
+$srcAgents = Join-Path $srcPrompt 'agents'
+$dstAgents = Join-Path $AgentDir 'agents'
+if (Test-Path $srcAgents) {
+    if (-not (Test-Path $dstAgents)) { New-Item -ItemType Directory -Path $dstAgents -Force | Out-Null }
+    foreach ($f in (Get-ChildItem $srcAgents -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        if ($f.Name -eq 'README.md') { continue }
+        Copy-Item $f.FullName (Join-Path $dstAgents $f.Name) -Force
+        Write-Ok "agent: $([System.IO.Path]::GetFileNameWithoutExtension($f.Name))"
+    }
+    # 退役：部署目录里存在、但仓库已不再提供的角色 -> 移到 backup-retired-agents（不删，可回滚）
+    $srcNames = @(Get-ChildItem $srcAgents -Filter '*.md' | ForEach-Object { $_.Name })
+    $dstRetired = Join-Path $AgentDir 'backup-retired-agents'
+    foreach ($f in (Get-ChildItem $dstAgents -Filter '*.md' -ErrorAction SilentlyContinue)) {
+        if ($srcNames -notcontains $f.Name) {
+            if (-not (Test-Path $dstRetired)) { New-Item -ItemType Directory -Path $dstRetired -Force | Out-Null }
+            Move-Item -Path $f.FullName -Destination (Join-Path $dstRetired $f.Name) -Force
+            Write-Info "已退役角色：$([System.IO.Path]::GetFileNameWithoutExtension($f.Name))"
+        }
+    }
+    if (-not (Test-Path (Join-Path $dstAgents 'settings.json'))) {
+        $agentSettings = @'
+{
+  "version": 1,
+  "builtInEnabled": true,
+  "maxConcurrent": 5
+}
+'@
+        $agentSettings | Set-Content -Path (Join-Path $dstAgents 'settings.json') -Encoding UTF8
+    }
+} else { Write-Warn "未找到子代理定义目录 $srcAgents" }
 
 # ---------------------------------------------------------------- 4. 增量安全合并 mcp.json (UTF-8 No BOM, 无覆盖隐患)
 $dstMcp = Join-Path $AgentDir 'mcp.json'
