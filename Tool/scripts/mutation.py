@@ -48,15 +48,16 @@ def clean_git(extra_paths=()):
 IMPLANTS = []
 
 
-def implant(name, checker, fast=True):
+def implant(name, checker, expect, fast=True):
+    """expect = 必须命中的判据关键字（防止"别的判据红了"被误当作抓住）。"""
     def deco(fn):
-        IMPLANTS.append((name, checker, fast, fn))
+        IMPLANTS.append((name, checker, expect, fast, fn))
         return fn
     return deco
 
 
 # ── 1. 改一条案例 MANIFEST 哈希 → gate 必须红 ─────────────────────
-@implant("篡改案例 MANIFEST 哈希", ["Tool/scripts/gate.py", "--all"])
+@implant("篡改案例 MANIFEST 哈希", ["Tool/scripts/gate.py", "--all"], "G4")
 def m1():
     p = "Tool/cases/golden-crackme/artifacts/MANIFEST.sha256"
     lines = open(p, encoding="utf-8").read().splitlines()
@@ -69,7 +70,7 @@ def m1():
 
 
 # ── 2. 让一条技能描述丢掉触发词 → 触发面探针必须红 ────────────────
-@implant("删掉技能描述里的触发词", ["Tool/scripts/preflight.py", "--fast"])
+@implant("删掉技能描述里的触发词", ["Tool/scripts/preflight.py", "--fast"], "触发面")
 def m2():
     p = "Tool/skill/softseep/SKILL.md"
     s = open(p, encoding="utf-8").read()
@@ -78,7 +79,7 @@ def m2():
 
 
 # ── 3. 给非总控技能加"总控"字样 → 总控唯一判据必须红 ──────────────
-@implant("给普通域技能加自称总控", ["Tool/scripts/preflight.py", "--fast"])
+@implant("给普通域技能加自称总控", ["Tool/scripts/preflight.py", "--fast"], "总控唯一")
 def m3():
     p = "Tool/skill/apkseep/SKILL.md"
     s = open(p, encoding="utf-8").read()
@@ -86,7 +87,7 @@ def m3():
 
 
 # ── 4. 在部署目录放假提示词 → 提示词残留必须红 ────────────────────
-@implant("往部署目录放假提示词", ["Tool/scripts/preflight.py", "--fast"])
+@implant("往部署目录放假提示词", ["Tool/scripts/preflight.py", "--fast"], "提示词残留")
 def m4():
     d = os.path.expanduser("~/.pi/agent/prompts")
     os.makedirs(d, exist_ok=True)
@@ -95,7 +96,7 @@ def m4():
 
 
 # ── 5. 给 pack.json 加未知字段 → gate G2 必须红 ──────────────────
-@implant("给 pack.json 加未知字段", ["Tool/scripts/gate.py", "--all"])
+@implant("给 pack.json 加未知字段", ["Tool/scripts/gate.py", "--all"], "G2")
 def m5():
     p = "Tool/skill/pwn-crypto/pack.json"
     d = json.load(open(p, encoding="utf-8"))
@@ -104,7 +105,7 @@ def m5():
 
 
 # ── 6. 把事实漂移判据的依据改错（描述里写个假数字）→ 事实漂移必须红 ──
-@implant("在活跃文档写错工具数", ["Tool/scripts/preflight.py", "--fast"])
+@implant("在活跃文档写错工具数", ["Tool/scripts/preflight.py", "--fast"], "事实漂移")
 def m6():
     p = "README.md"
     s = open(p, encoding="utf-8").read()
@@ -125,17 +126,25 @@ def main():
     print("变异测试：%d 个植入（就地注入 → 跑检查 → git checkout 还原）\n" % len(picked))
     rows = []
     try:
-        for name, checker, _fast, fn in picked:
+        for name, checker, expect, _fast, fn in picked:
             clean_git()
             extra = fn() or []
             rc, out = run(checker)
-            caught = rc != 0
-            first = ""
+            # 关键：必须由**期望的判据**抓到，其它判据红不算数（防"串谋掩盖"）
+            hit_line = ""
             for line in (out or "").splitlines():
-                if "[FAIL]" in line:
-                    first = line.strip()
+                if "[FAIL]" in line and expect in line:
+                    hit_line = line.strip()
                     break
-            rows.append((name, caught, first[:100] or "(没有 FAIL 行)"))
+            caught = bool(hit_line)
+            if not caught:
+                other = ""
+                for line in (out or "").splitlines():
+                    if "[FAIL]" in line:
+                        other = line.strip()
+                        break
+                hit_line = "未命中「%s」%s" % (expect, ("；其它红：" + other[:60]) if other else "")
+            rows.append((name, caught, hit_line[:110]))
             clean_git(extra)
     finally:
         clean_git()
