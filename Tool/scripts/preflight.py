@@ -1200,6 +1200,31 @@ def check_prompt_residue():
         else "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
+def check_reference_index():
+    """每个技能的 references/ 不许有"孤儿"：文件在，但 SKILL.md 从不指向它。
+
+    为什么（2026-10-25 补 unpack-loop 深度时想到）：模型只会读 SKILL.md 里提到的文件。
+    一个没人指向的 reference = 写了也没人看（和"孤儿脚本"同一个病）。
+    判据：references/*.md 的每个文件名（不含目录）必须出现在 SKILL.md 里。
+    """
+    import glob as _g
+    bad = []
+    total = 0
+    for sk in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
+        name = os.path.basename(os.path.dirname(sk))
+        try:
+            t = open(sk, encoding="utf-8", errors="replace").read()
+        except Exception:
+            continue
+        for ref in _g.glob(os.path.join(os.path.dirname(sk), "references", "*.md")):
+            total += 1
+            base = os.path.basename(ref)
+            if base not in t:
+                bad.append("%s/%s" % (name, base))
+    add("2 单一事实源", "references 索引完整（%d 篇，无孤儿）" % total, not bad,
+        "；".join(bad[:5]) if bad else "%d 篇全部被 SKILL.md 指向" % total)
+
+
 def check_doc_commands():
     """文档里写的命令参数必须真的存在（来自 exe-reverse 的 check_commands 思路）。
 
@@ -1824,6 +1849,7 @@ def main():
     check_five_contracts()
     check_single_orchestrator()
     check_doc_commands()
+    check_reference_index()
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()
