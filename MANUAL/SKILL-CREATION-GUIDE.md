@@ -31,7 +31,7 @@
 | 4 | `~/.pi/agent/skills/<name>/` | 让 pi 会话**加载**它 | 脚手架自动同步 |
 
 **提示词层禁写**：技能内容**不要**往 `Tool/prompts/SEEP.md` 里塞 —— 它是装配契约，硬上限 **2,500 字符**，
-写死技能清单/工具数量会让 `verify.ps1` 直接判红（体检项「SEEP.md 契约态」）。分层规则见 `MANUAL/PROMPT-LAYERS.md`。
+写死技能清单/工具数量会让 `python Tool/scripts/check.py --env` 直接判红（体检项「SEEP.md 契约态」）。分层规则见 `MANUAL/PROMPT-LAYERS.md`。
 
 **加完四件事必跑**（缺一不可）：
 ```bash

@@ -109,10 +109,10 @@ const SHORTCUT_COMMANDS: Record<string, (arg: string) => string> = {
 	"评审": (arg) => geminiSafeReviewPrompt(arg, "会员权限 / 授权"),
 	"review": (arg) => geminiSafeReviewPrompt(arg, "会员权限 / 授权"),
 	"audit": (arg) => geminiSafeReviewPrompt(arg, "会员权限 / 授权"),
-	"check": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
-	"doctor": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
-	"体检": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
-	"检查": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\verify.ps1" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"check": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"doctor": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"体检": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"检查": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
 	"help": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
 1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
 2. 常用极简指令表：poc, triage, full, find-auth, report, check；

@@ -286,8 +286,10 @@ Test-CheckItem "Skill" "IDA Pro 自动化联动 (ida-reverse 含 13337 唤醒规
 } "ida-reverse 技能缺失或被同名 safe-skills 版本覆盖（缺 13337 唤醒规约）" "SKILL.md + 13337 规约" "$localSkills\ida-reverse"
 
 Test-CheckItem "Skill" "通用许可/卡密校验突破规范 (license-bypass)" {
-    Test-Path (Join-Path $localSkills 'softseepeferences\license-validation.md')
-} "授权/许可手册缺失" "license-validation.md 在位" "$localSkills\softseepeferences"
+    Test-Path (Join-Path $localSkills 'softseep
+eferences\license-validation.md')
+} "授权/许可手册缺失" "license-validation.md 在位" "$localSkills\softseep
+eferences"
 
 Test-CheckItem "Skill" "增量追版与特征迁移技能 (version-migration)" {
     Test-Path (Join-Path $localSkills 'version-migration\SKILL.md')
@@ -615,7 +617,7 @@ $PrivacyPattern = 'C:[\\/]{1,2}Users[\\/]{1,2}Angus|AngusDevLab|angusdevlab|angu
 
 # 排除：第三方依赖、上游镜像、构建产物，以及扫描器自身（其模式定义会自匹配）
 $PrivacyExcludeRegex = '\\node_modules\\|\\__pycache__\\|\\Tool\\upstream\\|\\Tool\\mcp\\Tool\\|\\\.git\\|\\dist\\'
-$PrivacyExcludeNames = @('verify.ps1', 'verify.sh')
+$PrivacyExcludeNames = @('python Tool/scripts/check.py --env', 'python Tool/scripts/check.py --env')
 $BinaryExt = @('.exe','.dll','.so','.dylib','.jar','.zip','.7z','.png','.jpg','.jpeg','.gif','.ico','.pdf','.bin','.dmp','.pyc','.idb','.i64','.ttf','.woff','.woff2')
 
 Test-CheckItem "脱敏" "个人隐私零残留 (已跟踪文件全深度扫描)" {

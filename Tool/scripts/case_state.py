@@ -3192,6 +3192,7 @@ def main():
     p.add_argument("--reason", default=None); p.set_defaults(func=cmd_downgrade)
     p = sub.add_parser("report")
     p.add_argument("--file", default=""); p.add_argument("--selftest", action="store_true")
+    p.add_argument("--check", action="store_true", help="同默认行为（兼容文档写法）")
     p.set_defaults(func=cmd_report)
     p = sub.add_parser("recheck")
     p.add_argument("--case", required=True); p.set_defaults(func=cmd_recheck)

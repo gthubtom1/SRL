@@ -61,7 +61,7 @@ if ($engineExit -ne 0 -and -not $CheckOnly) {
 if (-not $DryRun -and -not $CheckOnly -and -not $SkipVerify) {
     Write-Host "`n>>> 正在运行工作台格式规范化与基准自检..." -ForegroundColor Cyan
     & $pythonCmd (Join-Path $ScriptDir 'clean-format.py')
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ScriptDir 'verify.ps1')
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ScriptDir 'python Tool/scripts/check.py --env')
 }
 
 exit $engineExit

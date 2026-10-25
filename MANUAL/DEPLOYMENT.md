@@ -36,7 +36,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 > 2. **协议依赖**：通过 pip 安装 Python 标准 `mcp` 协议库（`mcp>=1.20,<1.29`）；
 > 3. **工具链校验**：检测内置 Radare2、JADX、Apktool 执行文件完整性；
 > 4. **配置自愈**：读取本地实际物理路径，自动将绝对路径写入配置文件；
-> 5. **自检门禁**：自动调用 `verify.ps1` 进行 65 项完备性体检。
+> 5. **自检门禁**：自动调用 `python Tool/scripts/check.py --env` 进行 65 项完备性体检。
 
 ### 2. Linux / macOS 用户
 打开终端，进入项目根目录：
@@ -444,7 +444,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
 - 用户任何时候要求校验（`check` / `doctor` / `检查环境` / `帮我校验一下安装是否完整`），直接执行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed
+powershell -NoProfile -ExecutionPolicy Bypass -File .\setup\python Tool/scripts/check.py --env
 ```
 
 - **汇报格式（四栏看板）**：读取输出后，按 `MANUAL/DEPLOYMENT-CHECKLIST.md` 基准清单输出：

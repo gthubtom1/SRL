@@ -156,9 +156,9 @@
         {
           "id": "cli-headless",
           "kind": "cli",
-          "why": "analyzeHeadless 全功能无头反编译（seep_decompile_auto 已接），根本不需要 GUI",
+          "why": "analyzeHeadless 全功能无头反编译（seep_r2_decompile 已接），根本不需要 GUI",
           "command": "\"{exeDir}/analyzeHeadless.bat\" \"{workDir}/ghidra_proj\" seep_proj -import \"{target}\" -postScript DumpDecomp.java -deleteProject",
-          "note": "具体脚本按需替换；日常直接用 seep_decompile_auto 即可",
+          "note": "具体脚本按需替换；日常直接用 seep_r2_decompile 即可",
           "toolId": "ghidra"
         },
         {

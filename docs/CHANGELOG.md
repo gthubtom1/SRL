@@ -1840,7 +1840,7 @@ find ~/.pi/agent -maxdepth 6 -type d -name kb; find / -maxdepth 8 -type d -name 
 
 | 项 | 结果 |
 |---|---|
-| `verify.ps1 -Detailed` | 61/61 PASS |
+| `python Tool/scripts/check.py --env` | 61/61 PASS |
 | `check-budget.py` | 6 项全在预算内 |
 | `smoke-e2e.py` | 12/12 PASS |
 | 请求层 dump | system 文本末尾 = `[BOUNDARY-ANCHOR …]`，SEEP 段仅 1 份，pi 默认提示词在位 |
@@ -2491,7 +2491,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\update.ps1
 - **📖 部署与校验体系**
   - `MANUAL/DEPLOYMENT.md` 全景部署手册（含 4 大 Agent 接入 SOP 与排障 FAQ）
   - `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验清单（单一真值源）
-  - `verify.ps1 -Detailed` 输出结构化基准校对看板
+  - `python Tool/scripts/check.py --env` 输出结构化基准校对看板
 - **📦 案例库扩充至 14 个**（项目 A ~ 项目 N）
   - 新增 项目M（Java + install4j 双层鉴权）、项目N（.NET x64 + VM 混淆加固）
 

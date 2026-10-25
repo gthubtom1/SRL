@@ -28,7 +28,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
 
 它会自动完成：解压离线依赖（js-reverse / playwright / ida-pro-mcp）→ 装 Python 依赖（mcp 等）→
 同步技能/提示词/扩展（含 `*.json` 规则与 `TOOL-CHAIN.md`）→ 增量合并 `mcp.json`（读 `Tool/config/mcp-servers.json`）
-→ 写 settings（packages + retry 默认档）→ 生成 Claude/OpenCode/DSH 配置 → 探测并接入 IDA → 跑 `verify.ps1`。
+→ 写 settings（packages + retry 默认档）→ 生成 Claude/OpenCode/DSH 配置 → 探测并接入 IDA → 跑 `python Tool/scripts/check.py --env`。
 
 **Linux/macOS**：`chmod +x setup/install.sh && ./setup/install.sh`
 
@@ -39,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
 ## 2. 校验（Agent 执行）
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\setup\verify.ps1 -Detailed   # 期望 65/65
+powershell -ExecutionPolicy Bypass -File .\setup\python Tool/scripts/check.py --env   # 期望 65/65
 python Tool/scripts/preflight.py --fast                                  # 期望 19/19
 ```
 
@@ -67,7 +67,7 @@ python Tool/scripts/preflight.py --fast                                  # 期�
 | 栏 | 内容 |
 |---|---|
 | 部署 | 仓库路径 / 版本 / Agent 目录 / 装了哪些扩展与技能 |
-| 校验 | `verify.ps1` N/61、`preflight.py` N/M、失败项与原因 |
+| 校验 | `python Tool/scripts/check.py --env` N/61、`preflight.py` N/M、失败项与原因 |
 | 工具 | 探测到的关键工具（r2 / jadx / apktool / frida / ghidra / IDA / x64dbg / tshark …） |
 | MCP | 每个 server 的状态与工具数（seep / ida / js-reverse / playwright / x64dbg） |
 

@@ -121,7 +121,7 @@ MCP 配置文件所在位置：
 
 ### 7. 🔒 脱敏与个人隐私基准表 (Desensitization Baseline)
 
-> **硬红线**：个人隐私与运行凭据必须零残留。发布前由 `verify.ps1 -Detailed` 第 9 节强制门禁校验。
+> **硬红线**：个人隐私与运行凭据必须零残留。发布前由 `python Tool/scripts/check.py --env` 第 9 节强制门禁校验。
 
 | # | 检查项 | 官方期望 | 判定方式 | 状态判定 |
 |---|---|---|---|---|
@@ -139,7 +139,7 @@ MCP 配置文件所在位置：
 
 ### 7bis. ⚙️ 运维脚本基准表 (Ops Scripts · 两平台各 1 条 verify 项)
 
-| 脚本 | 作用 | 门禁项（verify.ps1 / verify.sh 同名） |
+| 脚本 | 作用 | 门禁项（python Tool/scripts/check.py --env / python Tool/scripts/check.py --env 同名） |
 |---|---|---|
 | `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
 | `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
@@ -151,7 +151,7 @@ MCP 配置文件所在位置：
 
 ## 三、 Agent 部署后的自检校对与格式化输出协议
 
-当 Agent（或用户运行 `powershell .\setup\verify.ps1 -Detailed`）完成部署后，**必须以此清单为蓝本，在对话框中输出四栏格式化校对表格**：
+当 Agent（或用户运行 `powershell .\setup\python Tool/scripts/check.py --env`）完成部署后，**必须以此清单为蓝本，在对话框中输出四栏格式化校对表格**：
 
 ```markdown
 ### 📊 Seep 工作台部署产物与官方基准校对报告

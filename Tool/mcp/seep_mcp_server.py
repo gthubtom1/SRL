@@ -969,7 +969,7 @@ def _triage_next_actions(matched: List[Dict[str, Any]], bin_info: Dict[str, Any]
     if not bin_info:
         actions.append("rabin2 未能解析：文件可能截断/加壳/非标准格式，先确认完整性再继续")
     actions.append(
-        "读决策逻辑：seep_decompile_auto(binary_path=…) 取伪代码；"
+        "读决策逻辑：seep_r2_decompile(binary_path=…) 取伪代码；"
         "要交付补丁：按 01-gate-bypass 四路线（补丁/代理 DLL/重打包/注入器）验证"
     )
     if task_name:
@@ -1277,7 +1277,7 @@ def seep_gen_security_report(
     }, indent=2, ensure_ascii=False)
 
 
-# 扩展资产（relab2 / REA 适配版）：seep_ensure_tool 四级探测自愈 / seep_decompile_auto 多引擎降级 IDA→REA→R2
+# 扩展资产（relab2 / REA 适配版）：seep_ensure_tool 四级探测自愈 / seep_r2_decompile 多引擎降级 IDA→REA→R2
 
 # 工具根：tool_autodiscover.candidate_roots()（env → 用户级 → 盘符常见目录 → POSIX），插件不可用时用下面的兜底。
 _FALLBACK_ROOTS = [
@@ -2030,7 +2030,7 @@ def seep_packer_detect(binary_path: str) -> str:
     if result["antivm_strings"]:
         result["route"].append("有反虚拟机特征 → 优先真机/裸金属，或按 ANTI-DEBUG §四 处理环境检测")
     if not result["packed"] and not result["antidebug_imports"] and not result["injection_imports"]:
-        result["route"].append("未检出明显壳/反调试/注入特征 → 可直接 seep_decompile_auto 反编译")
+        result["route"].append("未检出明显壳/反调试/注入特征 → 可直接 seep_r2_decompile 反编译")
 
     result["manual"] = ["MANUAL/UNPACKING.md", "MANUAL/ANTI-DEBUG.md"]
     result["sections"] = sections

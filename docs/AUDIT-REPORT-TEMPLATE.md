@@ -36,8 +36,8 @@
 | preflight | 45/45 | `<x/y>` | `<是/否>` | `<…>` |
 | preflight --fast | 42/42 | `<x/y>` | `<是/否>` | `<…>` |
 | domain-gate --all | 110/110 | `<x/y>` | `<是/否>` | `<…>` |
-| verify.ps1 | 65/0 | `<x/y>` | `<是/否>` | `<…>` |
-| verify.sh | READY | `<…>` | `<是/否>` | `<…>` |
+| python Tool/scripts/check.py --env | 65/0 | `<x/y>` | `<是/否>` | `<…>` |
+| python Tool/scripts/check.py --env | READY | `<…>` | `<是/否>` | `<…>` |
 | smoke-e2e | 12/12 | `<x/y>` | `<是/否>` | `<…>` |
 | mcp-param-contract | 全绿 | `<…>` | `<是/否>` | `<…>` |
 | skill-route-probe | 33/33 | `<x/y>` | `<是/否>` | `<…>` |

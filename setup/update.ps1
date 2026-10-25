@@ -198,7 +198,7 @@ if ($DryRun) {
     Write-Host "    2. 打印 CHANGELOG 版本变更说明" -ForegroundColor Gray
     Write-Host "    3. 调用 setup\install.ps1 做幂等增量同步（自动备份 + 保护自定义 MCP）" -ForegroundColor Gray
     Write-Host "    4. 校验用户自有数据未被覆盖" -ForegroundColor Gray
-    Write-Host "    5. 跑 setup\verify.ps1 -Detailed 官方基准自检" -ForegroundColor Gray
+    Write-Host "    5. 跑 setup\python Tool/scripts/check.py --env 官方基准自检" -ForegroundColor Gray
     Write-Host "`n  未修改任何文件。去掉 -DryRun 即执行真实更新。`n" -ForegroundColor Yellow
     exit 0
 }

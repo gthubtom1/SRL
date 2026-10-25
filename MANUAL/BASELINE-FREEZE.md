@@ -15,7 +15,7 @@
 | F2 | **MCP 工具名** | 已发布的 40 个 `seep_*` 工具名与参数签名 | Skill / SOP / 报告模板 / 用户习惯全部按名引用；改名 = 静默失效 |
 | F3 | **Agent 配置格式** | `~/.pi/agent/mcp.json`、`.mcp.json`、`opencode.jsonc`、`cordis.generated.yml` 的字段结构 | 四个 Agent 宿主共同消费；字段改名 = 宿主起不来 |
 | F4 | **状态文件契约** | `~/.pi/agent/lab-mode.flag`、`~/.seep/tools.local.json`、`setup/.upstream-shas.json` | 跨会话/跨模型的状态延续全靠它；路径变了 = 状态丢失 |
-| F5 | **体检基准项** | `verify.ps1` / `verify.sh` 的 **65 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
+| F5 | **体检基准项** | `python Tool/scripts/check.py --env` / `python Tool/scripts/check.py --env` 的 **65 项**（只许增加，不许减少） | 它是"是否还能用"的唯一判据；减少即等于降低门禁 |
 | F6 | **上游隔离边界** | `Tool/upstream/<项目>/` 的零外溢规则（`setup/upstream-rules.json`） | 防外溢是许可合规与工程安全的底线 |
 | F7 | **从零入口** | `Tool/prompts/contracts/AGENTS.md`（bootstrap 指路牌，部署/软链到项目根）+ `README` 的「先拿到代码」三选一 | 宿主从项目根读 `AGENTS.md`；仓库内以 `Tool/prompts/contracts/` 为源 |
 
@@ -36,7 +36,7 @@ lab：new-skill <skill-name>
 脚手架会：创建 `Tool/skill/<name>/SKILL.md`（UTF-8 无 BOM）→ 注册进 `softseep/SKILL.md` 调度表 → 同步到 `~/.pi/agent/skills/`。
 规范见 [`MANUAL/SKILL-CREATION-GUIDE.md`](SKILL-CREATION-GUIDE.md)。
 
-**验收**：`verify.ps1` 仍 65 项全绿（新增技能不会增加体检项，除非你同时加检查）。
+**验收**：`python Tool/scripts/check.py --env` 仍 65 项全绿（新增技能不会增加体检项，除非你同时加检查）。
 
 ### B 类：新增 MCP 工具（必须遵守"末尾追加"）
 
@@ -59,7 +59,7 @@ powershell -File check.ps1 -Detailed        # 体检 65 项全绿
 ### C 类：文档 / 检查项 / 知识库补充
 
 - 文档：随便改，但**数字必须与代码一致**（工具数、体检项、测试数、KB 篇数）；
-- 检查项：**只增不减**；每加一项，`verify.ps1` 与 `verify.sh` **必须同步加**（保持跨平台同数）；
+- 检查项：**只增不减**；每加一项，`python Tool/scripts/check.py --env` 与 `python Tool/scripts/check.py --env` **必须同步加**（保持跨平台同数）；
 - 知识库：往 `Tool/mcp/Tool/reverselab/kb/` 加 md 即可，`seep_kb_search` 自动索引。
 
 ---

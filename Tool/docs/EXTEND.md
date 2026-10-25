@@ -192,4 +192,4 @@ Everything → 递归扫描 → 别名映射），实测本机 36 项能力里 *
 - ❌ 写死某台机器的绝对路径（用 `seep_tool_discover` / `{exeDir}` / `{ROOT_POSIX}`）；
 - ❌ 给 GUI 工具写自动启动却忘了"没有 headless 等价物"这个前提；
 - ❌ 往 `Tool/mcp/Tool/**`（vendored 上游树）加内容 —— 重新 vendor 会被覆盖，本地内容放 `Tool/mcp/kb_local/`；
-- ❌ 新增检查项时只改 `verify.ps1` 不改 `verify.sh`（门禁查项数一致性）。
+- ❌ 新增检查项时只改 `python Tool/scripts/check.py --env` 不改 `python Tool/scripts/check.py --env`（门禁查项数一致性）。

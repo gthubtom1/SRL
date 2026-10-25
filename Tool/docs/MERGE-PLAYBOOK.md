@@ -80,11 +80,11 @@ def seep_你的工具名(arg1: str, arg2: int = 0) -> str:
 
 | 规则 | 为什么 |
 |---|---|
-| `SEEP.md` **只放指针**：层间裁决 + 去哪查；**不写**工具数量、不列技能清单、不复制拒答词表 | 这些每换一次就过期一次；写进去后 `verify.ps1` 的「SEEP.md 契约态」会判红（≤2500 字符 / 无「N 个工具」/ 必须保留 AGENTS.md、pack.json、mcp-doctor.py 三个指针） |
+| `SEEP.md` **只放指针**：层间裁决 + 去哪查；**不写**工具数量、不列技能清单、不复制拒答词表 | 这些每换一次就过期一次；写进去后 `python Tool/scripts/check.py --env` 的「SEEP.md 契约态」会判红（≤2500 字符 / 无「N 个工具」/ 必须保留 AGENTS.md、pack.json、mcp-doctor.py 三个指针） |
 | 战术细节写 `references/*.md` 或技能，**不写进提示词** | 提示词每轮都进上下文，写多了纯烧 token |
 | 边界（凭据红线 / 授权门 / 沙箱契约）只写在**扩展常量**里，不写到人格卡 | 人格卡是用户随时替换的资产，边界不能跟着一起换 |
 | 人格卡只写风格（语气/人称/开场/角色扮演）；**scope、授权、banned-token、路由表都属 L0/L1** | 人格卡一写这些就与边界锚正面冲突（锚会赢，但纯浪费上下文） |
-| 改完必须验证两次：`verify.ps1 -Detailed` + 起一个会话看装配 dump | 位置类问题（锚在不在末尾、段有没有重复）只有实测能证明 |
+| 改完必须验证两次：`python Tool/scripts/check.py --env` + 起一个会话看装配 dump | 位置类问题（锚在不在末尾、段有没有重复）只有实测能证明 |
 | 层规则与人格卡兼容矩阵的唯一说明：`MANUAL/PROMPT-LAYERS.md` | 避免"改提示词"的知识散落在聊天记录里 |
 
 ---
@@ -228,7 +228,7 @@ Seep 已有现成机制，**照抄它的声明式做法**，不要手工 copy：
 [ ] 1. 只读审计对方，确认它解决的是 Seep 真实痛点（不是为加而加）
 [ ] 2. 确定属于哪一类（MCP工具 / 脚本 / 配置 / 文档 / 上游仓库）
 [ ] 3. 按 §3 规范新增（跨平台、优雅降级、只读优先、结构化返回）
-[ ] 4. 按 §4 在 verify.ps1 追加体检项
+[ ] 4. 按 §4 在 python Tool/scripts/check.py --env 追加体检项
 [ ] 5. 按 §5 在 test_ext_assets.py 加自包含测试（不用外网）
 [ ] 6. ★ 把新工具接进 SKILL/SOP（softseep/SKILL.md 判型表 + 资源表；必要时 references 的 SOP 步骤）——grep 必须命中
 [ ] 7. ★ 依赖进 setup（install-python.ps1 / install.sh）

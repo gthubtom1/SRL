@@ -268,7 +268,7 @@ if "%JAVA_HOME%"=="" (set JAVA=java) else (set JAVA="%JAVA_HOME%\bin\java.exe")
 
 ```powershell
 cd Desktop\Seep\setup
-powershell -ExecutionPolicy Bypass -File .\verify.ps1
+powershell -ExecutionPolicy Bypass -File .\python Tool/scripts/check.py --env
 ```
 
 **期望存在**：

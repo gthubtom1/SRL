@@ -165,7 +165,7 @@ KB_DIR   = os.path.join(TOOL_DIR, "reverselab", "kb")   # = Tool/mcp/Tool/revers
 
 ```powershell
 cd Desktop\Seep\setup
-powershell -ExecutionPolicy Bypass -File .\verify.ps1
+powershell -ExecutionPolicy Bypass -File .\python Tool/scripts/check.py --env
 ```
 
 ### 方法 2：在 pi 里问
@@ -335,7 +335,7 @@ jsonl 里只会出现 **`name=codemode`** 这一条，看不到内层被调用�
 
 > **这是刻意保守，不是 bug，不要为凑绿而放宽判定口径。**
 > 放宽的后果：任何「写一句声明」都能拿绿，L3 就失去全部鉴别力。
-> 确实需要用可计数证据证明某 MCP 可用时，走 §五 的方法 1（`verify.ps1`）或直接 `tools/list` 实测。
+> 确实需要用可计数证据证明某 MCP 可用时，走 §五 的方法 1（`python Tool/scripts/check.py --env`）或直接 `tools/list` 实测。
 
 ---
 

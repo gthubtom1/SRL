@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # Seep Reverse Lab — Linux / macOS 原生全彩自检与部署核验脚本 (Verifier)
-# 对应 Windows check.ps1 / verify.ps1，输出结构化 ANSI 彩色报告
+# 对应 Windows check.ps1 / python Tool/scripts/check.py --env，输出结构化 ANSI 彩色报告
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -151,7 +151,7 @@ check_item "知识库" "战术实战笔记 (412 篇完整检索库 ≥280 篇)" 
 check_item "知识库" "内置 MCP 源码组件 (ReverseLab/Ghidra/JSHook)" test -d "$TOOL_DIR/mcp/Tool/reverselab/tools/skills/mcp"
 
 
-# 提示词契约态断言（与 verify.ps1 的「SEEP.md 契约态 / 三件套就绪」等价）
+# 提示词契约态断言（与 python Tool/scripts/check.py --env 的「SEEP.md 契约态 / 三件套就绪」等价）
 check_seep_contract() {
     local p="$TOOL_DIR/prompts/SEEP.md"
     [ -f "$p" ] || return 1
@@ -200,7 +200,7 @@ test_softseep_refs() {
     local n
     n=$(find "$TOOL_DIR/skill/softseep/references" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
     [ "$n" -ge 8 ] || return 1
-    # ★ 与 verify.ps1 同步：五阶段技能（00–04）必须齐全（缺一个，换机器就少一环）
+    # ★ 与 python Tool/scripts/check.py --env 同步：五阶段技能（00–04）必须齐全（缺一个，换机器就少一环）
     local k
     for k in 00-analysis 01-gate-bypass 02-ui-rebrand 03-license-hookup 04-version-migrate 05-backend-rebuild; do
         [ -f "$TOOL_DIR/skill/$k/SKILL.md" ] || return 1
@@ -278,7 +278,7 @@ echo -e "\n${WHITE}[6/9] ⚙️ 外部运行时与商业授权协同 (Runtime & 
 check_item "运行时" "Python 解释器 (python3/python 且可执行)" test_python_avail
 check_optn "协议" "Python mcp 协议库支持 (mcp>=1.20,<1.29)" "运行 pip install 'mcp>=1.20,<1.29'" test_python_mcp
 test_ida_avail() {
-    # 与 verify.ps1 同口径：IDA_DIR → PATH(idat/ida64/ida) → tool-run 的八层发现
+    # 与 python Tool/scripts/check.py --env 同口径：IDA_DIR → PATH(idat/ida64/ida) → tool-run 的八层发现
     local n
     if [ -n "$IDA_DIR" ] && [ -d "$IDA_DIR" ]; then
         for n in idat.exe idat ida64.exe ida64 ida.exe ida; do
@@ -401,7 +401,7 @@ test_privacy_clean() {
         hits=$(grep -rInE "$PRIVACY_RX" "$ROOT" \
             --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=__pycache__ \
             --exclude-dir=upstream --exclude-dir=dist \
-            --exclude=verify.sh --exclude=verify.ps1 2>/dev/null \
+            --exclude=python Tool/scripts/check.py --env --exclude=python Tool/scripts/check.py --env 2>/dev/null \
             | grep -v "/Tool/mcp/Tool/" | head -3)
     fi
     [ -z "$hits" ]

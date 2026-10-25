@@ -398,7 +398,7 @@ INTAKE → TRIAGE → ANALYSIS_CHECKPOINT → WAIT_USER（可选）
 
 ## §5 门禁分裂：packaging gate / behavior gate
 
-现状：`preflight`（43 项）与 `verify.ps1`（65 项）全绿，而真实任务全败。因为它们测的是"发布包完整、静态引用自洽、脚本能自测"。
+现状：`preflight`（43 项）与 `python Tool/scripts/check.py --env`（65 项）全绿，而真实任务全败。因为它们测的是"发布包完整、静态引用自洽、脚本能自测"。
 
 | 门禁 | 测什么 | 现在 |
 | :-- | :-- | :-- |

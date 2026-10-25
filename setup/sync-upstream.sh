@@ -61,8 +61,8 @@ fi
 if [[ -z "$DRY_RUN" && -z "$CHECK_ONLY" && $SKIP_VERIFY -eq 0 ]]; then
   echo -e "\n>>> 正在运行工作台格式规范化与基准自检..."
   "$PYTHON_CMD" "${SCRIPT_DIR}/clean-format.py" || true
-  if [[ -f "${SCRIPT_DIR}/verify.sh" ]]; then
-    bash "${SCRIPT_DIR}/verify.sh" || true
+  if [[ -f "${SCRIPT_DIR}/python Tool/scripts/check.py --env" ]]; then
+    bash "${SCRIPT_DIR}/python Tool/scripts/check.py --env" || true
   fi
 fi
 

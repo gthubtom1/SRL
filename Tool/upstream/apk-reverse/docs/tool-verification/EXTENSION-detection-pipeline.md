@@ -296,7 +296,7 @@ python skills/apk-reverse/scripts/svc_scan.py tools/_work/detect/libc.so --conte
 python skills/apk-reverse/scripts/svc_scan.py tools/_work/detect/linker64.bin --json
 
 adb shell 'su -c "sh /data/local/tmp/apkmaps.sh owasp.mstg.uncrackable3"'      # named_dex / apk_views shape
-adb shell 'su -c "sh /data/local/tmp/apkviews_verify.sh owasp.mstg.uncrackable3"'
+adb shell 'su -c "sh /data/local/tmp/apkviews_python Tool/scripts/check.py --env owasp.mstg.uncrackable3"'
 adb shell 'su -c "sh /data/local/tmp/detlaunch.sh <pkg> /data/local/tmp/dd1"'
 
 python tools/_work/detect/run_anti_detect_probe.py --pid <pid> --watch-ms 8000 --out arm.json
@@ -304,7 +304,7 @@ python tools/_work/detect/run_anti_detect_probe.py --pkg owasp.mstg.uncrackable3
     --script skills/apk-reverse/scripts/anti_detect_probe.js --out arm_probe.json
 ```
 
-The on-device helper scripts (`apkmaps.sh`, `apkviews_verify.sh`, `detlaunch.sh`) and the
+The on-device helper scripts (`apkmaps.sh`, `apkviews_python Tool/scripts/check.py --env`, `detlaunch.sh`) and the
 driver live under `tools/_work/detect/` and are **work files, not shipped deliverables** —
 they exist so the commands above are reproducible, and their content is summarised in the
 sections that cite them. The two shipped scripts are `scripts/svc_scan.py` and

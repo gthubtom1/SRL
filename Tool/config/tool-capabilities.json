@@ -144,7 +144,7 @@
         "headless_cmd": "analyzeHeadless <proj_dir> <proj_name> -import <target> -postScript <DecompileScript.java> -deleteProject"
       },
       "install_hint": "下载 Ghidra 后把 analyzeHeadless 加入 PATH；或设 SEEP_GHIDRA_PATH。",
-      "notes": "Seep 的 seep_decompile_auto 已能真驱动 Ghidra headless。"
+      "notes": "Seep 的 seep_r2_decompile 已能真驱动 Ghidra headless。"
     },
     "r2": {
       "display": "Radare2",

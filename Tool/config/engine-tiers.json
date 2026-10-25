@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "description": "反编译引擎降级链（声明式）。seep_decompile_auto 优先读本文件；缺失则用内置默认。未来加/换引擎只改这里，不改代码。",
+  "description": "反编译引擎降级链（声明式）。seep_r2_decompile 优先读本文件；缺失则用内置默认。未来加/换引擎只改这里，不改代码。",
   "chains": {
     "native": ["ida", "ghidra", "rea", "r2"],
     "dotnet": ["ida", "ghidra", "r2"],
