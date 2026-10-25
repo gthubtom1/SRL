@@ -2071,6 +2071,59 @@ def check_agents_deploy():
     return fails
 
 
+def check_subagent_config():
+    """子代理配置可读性：agents/settings.json 无 BOM，agent md 的 frontmatter 不被多行引号噎住。
+
+    为什么（2026-10-25 血案）：pi-web 读 `~/.pi/agent/agents/settings.json` 用的是
+    `JSON.parse(readFileSync(p,'utf8'))`，**不剥 BOM**。老安装器用 `Set-Content -Encoding UTF8`
+    （PowerShell 5.1 = 带 BOM）写这份文件 → JSON.parse 抛错 → getBuiltInEnabled() 兜底返回 false
+    → 设置页「启用 Pi Web 内置子代理」显示关闭（文件里明明写着 true）、并发数回落默认 10、
+    **Agent 工具根本不注册**。全部门禁绿着，人却只能 bash 套娃跑 `pi -p` 当子代理用。
+    第二道：agent md 的 `systemPrompt: "…多行…"` 会让 pi-web 的 frontmatter 解析整段失败，
+    profile 静默回落成默认值 —— seep-verify（自述“不改任何文件”）被塞回了 edit/write。
+    """
+    import glob as _g
+    import io as _io
+    import re as _re
+    dst_dir = os.path.join(os.path.expanduser("~"), ".pi", "agent", "agents")
+    fails = []
+    cfg = os.path.join(dst_dir, "settings.json")
+    if not os.path.isfile(cfg):
+        fails.append("缺 agents/settings.json（内置子代理无配置）")
+    else:
+        raw = _io.open(cfg, "rb").read()
+        if raw.startswith(b"\xef\xbb\xbf"):
+            fails.append("agents/settings.json 带 UTF-8 BOM（pi-web 的 JSON.parse 必失败，开关会静默变 OFF）")
+        else:
+            try:
+                d = json.loads(raw.decode("utf-8"))
+                if not isinstance(d, dict):
+                    fails.append("agents/settings.json 不是 JSON 对象")
+                elif d.get("builtInEnabled") is not True:
+                    fails.append("agents/settings.json 的 builtInEnabled 不是 true：Agent 工具不会注册")
+            except Exception as e:  # noqa: BLE001 - 报错原文就是证据
+                fails.append("agents/settings.json 解析失败：%s" % e)
+    for p in sorted(_g.glob(os.path.join(dst_dir, "*.md"))):
+        try:
+            txt = _io.open(p, encoding="utf-8-sig").read()
+        except OSError as e:
+            fails.append("%s 读不了：%s" % (os.path.basename(p), e))
+            continue
+        m = _re.match(r"---\n(.*?)\n---", txt, _re.S)
+        if not m:
+            fails.append("%s 缺 frontmatter" % os.path.basename(p))
+            continue
+        for line in m.group(1).split("\n"):
+            mm = _re.match(r'^(\w+):\s*"(.*)$', line)
+            if mm and mm.group(2).count('"') % 2 == 0 and not mm.group(2).endswith('"'):
+                fails.append("%s 的 %s 用多行双引号（pi-web 解析失败 → 整个 profile 回落默认值）"
+                             % (os.path.basename(p), mm.group(1)))
+                break
+    add("2 单一事实源", "子代理配置可读（无 BOM / 开关为 true / frontmatter 单行值）",
+        not fails, "；".join(fails))
+    return fails
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -2107,6 +2160,7 @@ def main():
     check_subskill_wiring()
     check_unpack_pointer()
     check_agents_deploy()
+    check_subagent_config()
     check_tool_identity()
     check_fact_drift()
     check_five_contracts()

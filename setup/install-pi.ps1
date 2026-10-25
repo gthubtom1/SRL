@@ -198,7 +198,15 @@ if (Test-Path $srcAgents) {
             Write-Info "已退役角色：$([System.IO.Path]::GetFileNameWithoutExtension($f.Name))"
         }
     }
-    if (-not (Test-Path (Join-Path $dstAgents 'settings.json'))) {
+    # 这份文件由 pi-web 用 readFileSync(path,'utf8') + JSON.parse 直接读，不剥 BOM。
+    # 血案：PowerShell 5.1 的 `Set-Content -Encoding UTF8` 会写 BOM → JSON.parse 抛
+    #   "Unexpected token '\uFEFF'" → pi-web 的 getBuiltInEnabled() catch 兜底成 false
+    #   → 设置页「启用 Pi Web 内置子代理」显示关闭（文件里明明写着 true）、并发数回落默认 10、
+    #   Agent 工具根本不注册 → 只能 bash 里套娃跑 `pi -p` 当子代理用。
+    # 所以必须走 .NET 的无 BOM 写法（与下面 mcp.json / settings.json 一致）。
+    $agentSettingsPath = Join-Path $dstAgents 'settings.json'
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    if (-not (Test-Path $agentSettingsPath)) {
         $agentSettings = @'
 {
   "version": 1,
@@ -206,7 +214,14 @@ if (Test-Path $srcAgents) {
   "maxConcurrent": 5
 }
 '@
-        $agentSettings | Set-Content -Path (Join-Path $dstAgents 'settings.json') -Encoding UTF8
+        [System.IO.File]::WriteAllText($agentSettingsPath, $agentSettings, $utf8NoBom)
+    } else {
+        # 幂等修复：历史安装留下的 BOM 剥掉（内容不动，无 BOM 时一个字节都不写）
+        $rawAgentSettings = [System.IO.File]::ReadAllText($agentSettingsPath, [System.Text.Encoding]::UTF8)
+        if ($rawAgentSettings.Length -gt 0 -and [int]$rawAgentSettings[0] -eq 0xFEFF) {
+            [System.IO.File]::WriteAllText($agentSettingsPath, $rawAgentSettings.Substring(1), $utf8NoBom)
+            Write-Info "已修复子代理设置文件的 BOM：agents/settings.json"
+        }
     }
 } else { Write-Warn "未找到子代理定义目录 $srcAgents" }
 
