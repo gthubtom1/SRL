@@ -17,6 +17,8 @@ metadata:
 
 > **判型 / 选域 / 上限（M1–M4）/ 必问三件** → 见 `Tool/skill/seep-router/SKILL.md`（唯一口径）。本文件只讲**通用二进制（PE/ELF/Mach-O/.NET/Go/Rust/Electron/wasm）**的具体手艺。
 
+> **本域不含**：文档治理（`_pending/doc-hygiene`）与 LLM/Agent 安全（`_pending/llm-security`）。遇到这类需求先回 `seep-router`，由它指路。
+
 ## 先看这一条（S3 索引改革之后）
 
 索引里**只有 9 个包**：`softseep` + `apkseep` / `web-pentest` / `malware-analysis` /

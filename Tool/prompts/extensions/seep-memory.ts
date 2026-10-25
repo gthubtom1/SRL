@@ -102,12 +102,28 @@ const CONTENT_INPUT_KEYS = [
 /* ────────────────────────────── 路径 ────────────────────────────── */
 
 function caseDir(): string {
-	const raw = process.env.SEEP_CASE_DIR || ".seep-case";
-	try {
-		return path.resolve(raw);
-	} catch {
-		return path.resolve(".seep-case");
+	// 解析顺序（外部评审 A7：只认 ./.seep-case 与开工流程不一致，记忆会静默丢失）：
+	//   ① SEEP_CASE_DIR（显式）
+	//   ② ~/.seep/current-case 指针（`case_state.py init` 会写，跨目录会话也能找到）
+	//   ③ ./.seep-case（旧默认）
+	if (process.env.SEEP_CASE_DIR) {
+		try {
+			return path.resolve(process.env.SEEP_CASE_DIR);
+		} catch {
+			/* fallthrough */
+		}
 	}
+	try {
+		const home = process.env.USERPROFILE || process.env.HOME || "";
+		const ptr = path.join(home, ".seep", "current-case");
+		if (home && fs.existsSync(ptr)) {
+			const t = fs.readFileSync(ptr, "utf-8").trim();
+			if (t) return path.resolve(t);
+		}
+	} catch {
+		/* fallthrough */
+	}
+	return path.resolve(".seep-case");
 }
 
 function memoryDir(): string {

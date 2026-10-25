@@ -82,12 +82,15 @@ def main():
     ap.add_argument("--fast", action="store_true", help="只跑快的子集（提交前用）")
     ap.add_argument("--list", action="store_true", help="列出套件后退出")
     ap.add_argument("--env", action="store_true", help="只做环境体检（这台机器装没装好）")
-    ap.add_argument("--prep", dest="full_prep", action="store_true",
-                    help="检查前先重生成 HANDOFF 状态块（提交前用）")
+    ap.add_argument("--fix", dest="full_prep", action="store_true",
+                    help="【会改仓库】检查前重生成 HANDOFF 状态块 + 对齐 BASELINE-FREEZE（提交前用）")
+    ap.add_argument("--prep", dest="full_prep", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--fix-handoff", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args()
 
-    if a.fix_handoff or a.full_prep:
+    if a.full_prep:
+        print("[注意] --fix 会改写 docs/HANDOFF.md 与 MANUAL/BASELINE-FREEZE.md；"
+              "单纯检查请不带参数。")
         # 提交/检查前先把 HANDOFF 状态块重生成（否则「落后 ≤1 提交」必然红）
         try:
             out = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "case_state.py"),

@@ -668,6 +668,14 @@ def cmd_init(a):
     #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
     #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
     wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"))
+    # 记一个机器级指针，供扩展（seep-memory/seep-events）在任意 cwd 下找到当前案（外部评审 A7）
+    try:
+        pdir = os.path.join(os.path.expanduser("~"), ".seep")
+        os.makedirs(pdir, exist_ok=True)
+        with open(os.path.join(pdir, "current-case"), "w", encoding="utf-8") as _pf:
+            _pf.write(d)
+    except Exception:
+        pass
     # scope.md = 授权与边界契约（学 reverse-workbench-skill 的 case-guard）：
     # 开工前先写"做什么 / 不做什么 / 环境"；scope 未就绪不许 ACT。
     try:
@@ -2040,6 +2048,23 @@ def cmd_deliver(a):
         die("level 只能是 M1 / M2 / M3 / M4")
     if RANK[a.level] > RANK.get(cap, 1):
         die(f"越级交付：裁定 {st['verdict']} 的上限是 {cap}，不接受 {a.level}")
+    # 外部评审 A5：最高两级（M3/M4）必须有**交叉验证/端到端**证据，不能只靠自述
+    if a.level in ("M3", "M4"):
+        try:
+            fjs = os.path.join(os.path.abspath(a.case), "facts.jsonl")
+            strong = []
+            if os.path.isfile(fjs):
+                for _l in open(fjs, encoding="utf-8"):
+                    if "\"kind\": \"repro\"" in _l and ('"grade": "E3"' in _l or '"grade": "E4"' in _l):
+                        strong.append(_l.strip()[:60])
+            if not strong:
+                die("交付 %s 需要至少一条 E3/E4 证据（两条独立命令一致 或 端到端成功）——"
+                    "先跑 case_state.py repro --also-cmd \"<第二路命令>\"；"
+                    "只有 E2 时请交付 M2 并写明天花板" % a.level)
+        except SystemExit:
+            raise
+        except Exception:
+            pass
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
@@ -2355,12 +2380,34 @@ def cmd_repro(a):
     same = len(set(digests)) == 1
     expect_ok = bool(a.expect) and all(a.expect in o for o in outs)
     grade = "E2" if (same and expect_ok) else "E1"
+    # E3 = 两条**独立**命令各自一致且都命中期望（外部评审 A5：最高级上限必须有可机检依据）
+    alt = getattr(a, "also_cmd", "") or ""
+    if grade == "E2" and alt:
+        alt_d, alt_ok_all, alt_hit = [], True, True
+        for _i in range(runs):
+            import subprocess as _sp2
+            try:
+                p2 = _sp2.run(alt, shell=True, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=int(a.timeout or 300))
+            except Exception as e:  # noqa: BLE001
+                print("[repro] 第二路执行失败：%s" % e)
+                alt_ok_all = False
+                break
+            blob2 = (p2.stdout or "") + (p2.stderr or "")
+            alt_d.append(hashlib.sha256(blob2.encode("utf-8", "replace")).hexdigest()[:16])
+            if a.expect and a.expect not in blob2:
+                alt_hit = False
+        if alt_ok_all and len(set(alt_d)) == 1 and alt_hit:
+            grade = "E3"
+            print("[repro] 第二路一致（%s）→ 交叉验证成立，证据等级升到 E3" % ",".join(alt_d))
+        else:
+            print("[repro] 第二路不一致/未命中 → 保持 E2（不许自称交叉验证）")
     print("[repro] 运行 %d 次；指纹 %s；一致=%s；期望命中=%s"
           % (runs, ",".join(digests), same, expect_ok))
     print("[repro] 该证据最高等级 = %s（E2 需：输出一致 + 期望命中）" % grade)
     if a.case and a.id:
         try:
-            rec = {"kind": "repro", "id": a.id, "cmd": a.cmd, "expect": a.expect,
+            rec = {"kind": "repro", "id": a.id, "cmd": a.cmd, "also_cmd": alt, "expect": a.expect,
                    "runs": runs, "digests": digests, "consistent": same,
                    "grade": grade, "ts": now()}
             with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a", encoding="utf-8") as f:
@@ -3138,6 +3185,7 @@ def main():
     p.add_argument("--case", default=""); p.add_argument("--id", default="")
     p.add_argument("--cmd", default=""); p.add_argument("--expect", default="")
     p.add_argument("--runs", type=int, default=2); p.add_argument("--timeout", type=int, default=300)
+    p.add_argument("--also-cmd", dest="also_cmd", default="", help="第二路独立命令（一致则 E3 交叉验证）")
     p.set_defaults(func=cmd_repro)
     p = sub.add_parser("downgrade")
     p.add_argument("--case", required=True); p.add_argument("--to", required=True)
