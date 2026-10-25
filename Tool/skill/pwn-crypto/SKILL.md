@@ -36,7 +36,7 @@ metadata:
 
 - 目标清单由 `scope` 声明；真实生产凭据/证书只留指纹；持久化/横向移动/DoS 按单独授权单执行；
 - 纯静态算法还原、协议测绘（交 `reverse-engineering`/`ida-reverse`）；
-- APK/DEX/SO、Frida/脱壳/重打包（交 `apkseep`）；
+- APK/DEX/SO、Frida/脱壳/重打包（交 `apkseep`；解壳闭环在 `unpack-loop`）；
 - Web/API/JWT 业务逻辑（交 `web-pentest` 或对应 Web 技能）；
 - 智能合约（EVM）由外部审计流程承担：本域提供字节码静态分析与数学回代，链上运行时与交易证据在该流程侧；DApp API 面交 `web-pentest`；
 - 只要扫描报告的场合走扫描器/`web-pentest`——本技能的判据全部要求可复跑。

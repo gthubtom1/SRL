@@ -29,6 +29,9 @@ mistakes that destroy an APK while looking completely healthy.
 1. **aapt 在 GBK 环境下打不开中文路径**：对含中文的路径直接 `aapt dump badging` 会报
    `Illegal byte sequence` / `no AndroidManifest.xml found`。**先复制到 ASCII 路径**再跑，
    否则会误判成「这个 APK 没有 manifest」。
+2.5 **判出加固后必须转脱壳闭环**：加固样本（DexVMP/jiagu/梆梆/爱加密/360 壳）的解壳、dump、
+   dex 重建、so 解密，走 `Tool/skill/unpack-loop/SKILL.md`（含 `scripts/unpack-triage.py` 先判壳类型）。
+   本域只负责：判是不是加固、是哪种、解出来之后的重打包/签名/改包。**判出加固却直接改 dex = 白做**。
 2. **关键词命中 ≠ 加固**：`StubApp` 在普通应用里也可能是系统 launcher 的类名
    （实测上下文 `com.google.android.launcher/.StubApp`）。判加固要看**上下文 + 壳入口类 + so 名**，
    不能只数关键词；`libexec` / `libcompress` 这类名字也要落到具体 ABI 与导出符号再定性。

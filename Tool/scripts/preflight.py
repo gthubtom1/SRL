@@ -1911,6 +1911,40 @@ def check_tool_ladder():
         or "3 个阶段技能均已接")
 
 
+def check_unpack_pointer():
+    """声明"脱壳/加固/加壳"能力的域，正文必须指向 `unpack-loop`（否则等于没有脱壳能力）。
+
+    为什么（2026-10-25 用户提问实测）：apkseep 的 description 写着"脱壳"，
+    正文却一次没提 unpack-loop → 真实任务里遇到加固 APK，读完 apkseep 就直接改 dex（= 白做）。
+    """
+    import glob as _g
+    import re as _re
+    io = __import__("io")
+    fails = []
+    need = 0
+    for d in sorted(_g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"))):
+        dom = os.path.basename(os.path.dirname(d))
+        if dom in ("_pending", "unpack-loop"):
+            continue
+        t = io.open(d, encoding="utf-8", errors="replace").read()
+        if not _re.search(r"脱壳|加壳|加固", t):
+            continue
+        need += 1
+        if "unpack-loop" not in t:
+            fails.append("域 %s 声明脱壳/加固能力却没指向 unpack-loop（遇加固样本会直接改产物=白做）" % dom)
+    if not need:
+        fails.append("没有任何域声明脱壳能力（扫描失效）")
+    for dom in ("softseep", "apkseep", "malware-analysis"):
+        f = os.path.join(TOOL, "skill", dom, "SKILL.md")
+        if os.path.isfile(f):
+            t = io.open(f, encoding="utf-8", errors="replace").read()
+            if "unpack-loop" not in t:
+                fails.append("载体域 %s 没指向 unpack-loop" % dom)
+    add("2 单一事实源", "脱壳指针（%d 个声明脱壳能力的域都指向 unpack-loop）" % need, not fails,
+        "；".join(fails))
+    return fails
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fast", action="store_true", help="跳过 verify.ps1 与 smoke-e2e")
@@ -1945,6 +1979,7 @@ def main():
     check_dropin_skills()
     check_skill_import()
     check_subskill_wiring()
+    check_unpack_pointer()
     check_fact_drift()
     check_five_contracts()
     check_single_orchestrator()

@@ -30,7 +30,8 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 
 **相邻域与路由**
 
-- Android APK/DEX/SO、脱壳、重打包 → `apkseep`；PE 通用逆向 → `softseep`。
+- Android APK/DEX/SO、脱壳、重打包 → `apkseep`（加固样本的解壳/dump/重建走 `unpack-loop`）；
+  iOS `cryptid=1` 先解成明文再谈内容（思路同 `unpack-loop` 的 dump 闭环）；PE 通用逆向 → `softseep`。
 - 恶意样本行为定性/家族归类 → `malware-analysis`；授权旁路/计费/功能解锁 → `01`–`05`。
 - 设备/账号/云资源清单由 `scope` 声明；在线反作弊对抗、注入/挂钩/改内存、反取证按对应授权任务执行。
 
