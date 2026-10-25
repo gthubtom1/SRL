@@ -301,3 +301,11 @@ metadata:
 - Android 侧壳/加固走 `apkseep`（DEX 脱壳、VMP 差分），本技能只管 **Windows PE**；
 - 脱壳完成后读 `references/../softseep/references/license-validation.md` 做鉴权审计；
 - "值不值得做"回到 `00-analysis` 的 verdict/plan，本技能不越权下结论。
+
+## 什么时候停（判废条件）
+
+- 壳判定证据不足 2 条（只有熵高 / 只有畸形节名）→ 不算判出壳，回 `seep-router` 重判
+- 反调试两击不清（同类检测连续两次命中且无法绕过）→ 停，报告"卡在 AD-x"，不上硬件层
+- 需要内核驱动 / 反作弊 / 硬件断点（L3 副作用）而用户没明确同意 → 停，先问
+- dump 出来的镜像 IAT 无法解析（导入表全 0 且无 Scylla 可用）→ 上限只到 M1（结构说明）
+- 同一 dump 路线两次失败 → 换路线（OEP 法 ↔ 内存扫描），第三次仍失败即判废

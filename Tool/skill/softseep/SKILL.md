@@ -4,14 +4,14 @@ description: "分析这个 exe/dll/sys/so/elf/dylib/软件/程序/这是什么�
 license: MIT
 compatibility: Windows 10 / Windows 11 x64 为主。支持 Python 3.8+，搭配 C/C++ 编译器（Zig/MSVC）或 radare2/IDA Pro 逆向套件。跨平台等价路径见 `references/license-validation.md` §1 平台对照表。
 metadata:
-  role: orchestrator
+  role: domain
   references_dir: skills/softseep/references/
   last_split_pass: "2026-09-23"
 ---
 
 # softseep — 通用二进制域（PE / ELF / Mach-O / .NET / Go / Rust / Electron / wasm）
 
-> **本文件是「通用二进制」这一个域的手艺**（不是总控）。判型/选域/上限在 `seep-router`；本文件只讲 PE/ELF/Mach-O（含 .NET/Go/Rust/Electron/wasm）具体怎么做。
+> **本文件是「通用二进制」这一个域的手艺**（不是域入口）。判型/选域/上限在 `seep-router`；本文件只讲 PE/ELF/Mach-O（含 .NET/Go/Rust/Electron/wasm）具体怎么做。
 
 ---
 

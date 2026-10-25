@@ -708,18 +708,20 @@ function stopTicker(): void {
 function renderStatus(): void {
 	const ui = hostCtx?.ui;
 	if (!ui?.setStatus) return;
+	// One short line, never the command text: a status bar is not a log, and the
+	// long form pushed the composer around on a phone. The key carries a command
+	// so pi-web renders the cell as a button — one click opens /stall, which has
+	// the full report (what is running, for how long, what was blocked).
 	if (!running.size) {
-		ui.setStatus("cmd-guard", stats.guarded || stats.blocked ? `⛨ guard · 守卫${stats.guarded} · 拦${stats.blocked}` : undefined);
+		const parts: string[] = [];
+		if (stats.guarded) parts.push(`守${stats.guarded}`);
+		if (stats.blocked) parts.push(`拦${stats.blocked}`);
+		ui.setStatus("command:/stall", parts.length ? `⛨ ${parts.join(" ")}` : undefined);
 		return;
 	}
-	const parts: string[] = [];
-	for (const r of running.values()) {
-		const total = Date.now() - r.startedAt;
-		const silent = Date.now() - r.lastOutputAt;
-		const mark = total >= config.stallSeconds ? "✖" : silent >= config.noOutputStallSeconds ? "◐" : "●";
-		parts.push(`${mark} ${r.shell} ${fmtSec(total)} · 静默 ${fmtSec(silent)} · ${head(r.command, 40)}`);
-	}
-	ui.setStatus("cmd-guard", "⛨ " + parts.join("  |  "));
+	let longest = 0;
+	for (const r of running.values()) longest = Math.max(longest, Date.now() - r.startedAt);
+	ui.setStatus("command:/stall", `⛨ 运行中 ${running.size} · ${fmtSec(longest)}`);
 }
 
 function ensureTicker(): void {

@@ -29,6 +29,8 @@ SUITES = [
      "意图探针：用户说法能否命中对应技能"),
     ("route-tests", ["Tool/skill/softseep/scripts/skill-route-probe.py", "--json"], True,
      "路由探针：技能路由在中文边界上的行为"),
+    ("invariants",  ["Tool/scripts/invariants.py", "--check"], True,
+     "架构不变量：11 域 × 9 条（入口唯一/能力可达/交接闭包/证据同构/等级唯一/失败可表达/见证可跑/部署等价/能力有路线）"),
     ("unit",        ["Tool/scripts/gate.py", "--all"], True,
      "按域判定：9 个能力包各自的门槛与证据强度"),
     ("e2e",         ["Tool/scripts/domain-gate.py", "--all"], False,

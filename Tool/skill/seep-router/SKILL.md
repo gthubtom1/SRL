@@ -107,3 +107,15 @@ license: MIT
 - `_pending/signin-automation/SKILL.md`
 - `_pending/site-clone/SKILL.md`
 - `_pending/version-migration/SKILL.md`
+
+## 什么时候停（判废条件）
+
+命中任一条，就地停手并按 `case_state block --code BLK-n` 渲染失败五段，不许往下猜：
+
+- 目标拿不到（路径不存在 / 只有截图 / 只有文件名）→ `BLK-1`
+- 判型两轮仍矛盾（两个域都像，各自证据都成立）→ `BLK-4`，把两条候选写进 plan 让人选
+- 需要的仪器在本机不可用且无法替代（如必须真机、必须特定版本调试器）→ `BLK-5`
+- 用户明确限制「不运行 / 不联网 / 不装工具」而路线依赖它 → `BLK-6`
+- 同一"错误形状"连续两次失败 → 熔断（`seep-circuit`），停下来报告已试过什么
+
+判废 ≠ 失败结论：写清「我做到哪一级（M1–M4）+ 缺什么」比硬凑一个结论有用。

@@ -129,7 +129,7 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 
 			if (lower === "status" || lower === "info") {
 				ctx.ui.notify(`当前档位：${statusText(current)}`, "info");
-				ctx.ui.setStatus("retry", statusText(current));
+				ctx.ui.setStatus("command:/retry", statusText(current));
 				return;
 			}
 
@@ -155,7 +155,7 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 			}
 
 			const { ok, message } = apply(target);
-			ctx.ui.setStatus("retry", statusText(target));
+			ctx.ui.setStatus("command:/retry", statusText(target));
 			ctx.ui.notify(message, ok ? "info" : "error");
 			await ctx.reload();
 		},
@@ -173,7 +173,7 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 		if (current.maxRetries < 100) return; // 只在"无限"档时插手，普通档位不管
 
 		const { ok, message } = apply(LEVELS[1]);
-		ctx.ui.setStatus("retry", statusText(LEVELS[1]));
+		ctx.ui.setStatus("command:/retry", statusText(LEVELS[1]));
 		ctx.ui.notify(
 			`${ok ? "这类错误重试没意义" : "检测到无望的错误，但没能写入设置"}：重试已降回 3 次。${message}\n详情：${text.slice(0, 160)}`,
 			"warning",
@@ -183,6 +183,6 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => {
 		const level = currentLevel(readSettings());
-		ctx.ui.setStatus("retry", statusText(level));
+		ctx.ui.setStatus("command:/retry", statusText(level));
 	});
 }
