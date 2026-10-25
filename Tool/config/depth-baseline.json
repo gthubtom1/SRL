@@ -3,5 +3,63 @@
   "_说明": "深度棘轮：当前'无命令的技法页'数量与'反调试矩阵条目数'。只许变好（数量下降/条目上升），变坏即红。",
   "refs_without_cmd": 11,
   "matrix_items": 39,
-  "target_refs_without_cmd": 0
+  "target_refs_without_cmd": 0,
+  "aplus": {
+    "min_lines": 2000,
+    "min_avg": 250,
+    "require_cmd_all": true,
+    "_说明": "A+ 三条门槛；per_domain 记录当前值，只许变好（棘轮）"
+  },
+  "per_domain": {
+    "apkseep": {
+      "lines": 11587,
+      "refs": 54,
+      "cmd_refs": 41
+    },
+    "softseep": {
+      "lines": 2822,
+      "refs": 10,
+      "cmd_refs": 8
+    },
+    "web-pentest": {
+      "lines": 2142,
+      "refs": 10,
+      "cmd_refs": 9
+    },
+    "firmware-iot": {
+      "lines": 1838,
+      "refs": 10,
+      "cmd_refs": 9
+    },
+    "forensics-mobile": {
+      "lines": 1517,
+      "refs": 10,
+      "cmd_refs": 9
+    },
+    "supply-chain-security": {
+      "lines": 1446,
+      "refs": 10,
+      "cmd_refs": 8
+    },
+    "pwn-crypto": {
+      "lines": 1372,
+      "refs": 8,
+      "cmd_refs": 7
+    },
+    "protocol-plugin": {
+      "lines": 1174,
+      "refs": 8,
+      "cmd_refs": 7
+    },
+    "unpack-loop": {
+      "lines": 761,
+      "refs": 7,
+      "cmd_refs": 5
+    },
+    "malware-analysis": {
+      "lines": 937,
+      "refs": 8,
+      "cmd_refs": 6
+    }
+  }
 }

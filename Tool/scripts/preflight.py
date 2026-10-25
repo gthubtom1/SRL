@@ -1200,6 +1200,53 @@ def check_prompt_residue():
         else "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
+def check_depth_aplus():
+    """A+ 深度三条门槛（棘轮）：每域行数 ≥2000、篇均 ≥250、每篇有命令。
+
+    基准来自三个同类仓库实测（yaklang 单主题 2,518 行；zhaoxuya 的 reverse-engineering 25 篇/11,327 行）。
+    现状 0/10 达标 → 用**棘轮**：不许任何域比基线更差；同时报告达标数与最薄的域，方便按序推进。
+    """
+    import glob as _g
+    import json as _j
+    try:
+        base = _j.load(open(os.path.join(TOOL, "config", "depth-baseline.json"), encoding="utf-8"))
+    except Exception:
+        base = {}
+    cfg = base.get("aplus") or {}
+    min_lines = int(cfg.get("min_lines", 2000))
+    min_avg = int(cfg.get("min_avg", 250))
+    prev = base.get("per_domain") or {}
+    regress, aplus, thin = [], 0, []
+    for d in sorted(_g.glob(os.path.join(TOOL, "skill", "*"))):
+        name = os.path.basename(d)
+        if name == "_pending":
+            continue
+        refs = _g.glob(os.path.join(d, "references", "*.md"))
+        if not refs:
+            continue
+        lines = 0
+        cmd_refs = 0
+        for r in refs:
+            t = open(r, encoding="utf-8", errors="replace").read()
+            lines += t.count(chr(10))
+            if "```" in t:
+                cmd_refs += 1
+        avg = lines / len(refs)
+        thin.append((lines, name))
+        p = prev.get(name) or {}
+        if p:
+            if lines < int(p.get("lines", 0)) or cmd_refs < int(p.get("cmd_refs", 0)):
+                regress.append("%s(%d→%d 行 / 命令 %d→%d)"
+                               % (name, p.get("lines"), lines, p.get("cmd_refs"), cmd_refs))
+        if lines >= min_lines and avg >= min_avg and cmd_refs == len(refs):
+            aplus += 1
+    thin.sort()
+    add("2 单一事实源", "A+ 深度棘轮（每域 ≥%d 行 / 篇均 ≥%d / 每篇有命令；当前达标 %d）"
+        % (min_lines, min_avg, aplus), not regress,
+        ("退步：" + "；".join(regress[:3])) if regress
+        else "无退步；达标 %d/10；最薄：%s" % (aplus, "、".join("%s(%d 行)" % (n, l) for l, n in thin[:3])))
+
+
 def check_reference_depth():
     """reference 的"深度"可机检：① 每篇至少 1 个代码块 ② 反调试矩阵 ≥30 条 × 五字段。
 
@@ -1901,6 +1948,7 @@ def main():
     check_doc_commands()
     check_reference_index()
     check_reference_depth()
+    check_depth_aplus()
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()
