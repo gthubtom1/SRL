@@ -2450,7 +2450,7 @@ def cmd_ask(a):
 
     # 给模型的下一个动作：把这段原样贴进对话（不要调弹窗工具）
     print("[ASK] 已生成卡片：%s" % fp)
-    print("[ASK] 下面这段**原样贴进对话**（不要用弹窗工具）：\n")
+    print("[ASK] 下面这段**原样贴进对话**（本项目只用对话内选项，不用弹窗工具）：\n")
     print(f"【需要你选】{a.stuck}")
     for k, v in parsed:
         print(f"  {k}  {v}")

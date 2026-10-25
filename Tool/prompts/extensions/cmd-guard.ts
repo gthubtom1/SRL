@@ -985,11 +985,11 @@ export default function cmdGuard(pi: any): void {
 				const NL = String.fromCharCode(10);
 				const qs = [...dump.matchAll(/"question"\s*:\s*"([^"]{8,160})"/g)].map((m) => m[1]);
 				const parts = [
-					"[必须转达 · 不是建议]",
-					"这个工具正在向你索要只有用户才能提供的东西。在做任何下一步分析之前，",
-					"必须先调用 ask_user_question 把它们原样问给用户，并把回答（有/没有）记进账本。",
+					"[必须在对话里问 · 不许弹窗]",
+					"这个工具在索要只有用户才能提供的东西。在做任何下一步之前，**直接在对话里列选项**",
+					"（形如：A 有 / B 没有 / C 我不确定），让用户在对话框里回；**禁止**调用弹窗类工具。",
 					...(qs.length ? qs.map((q: string, i: number) => `${i + 1}. ${q}`) : ["（问句见上面的 need_from_user）"]),
-					"用户答「没有」才走 if_no 路线；不许假设「没有」继续往下做。",
+					"用户回「没有」才走 if_no 路线；不许假设「没有」继续往下做。",
 				];
 				askNote = { type: "text", text: NL + parts.join(NL) };
 			}
