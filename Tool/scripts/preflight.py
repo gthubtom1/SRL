@@ -1200,6 +1200,65 @@ def check_prompt_residue():
         else "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
+def check_five_contracts():
+    """5 件套契约自测：首答三要素 / BLK 码 / 重放两次 / 降级通知 / 复查单 / 报告五段。
+
+    为什么放在门禁里（2026-10-25）：这五项是 Agent-3 从设计里挑出的"最能提升客户体验且成本可控"的 5 件事，
+    但其中 4 项原先只存在于文档/提示词。没有自测 = 明天就可能被改坏而无人知。
+    """
+    import shutil as _sh
+    import tempfile as _tf
+    cs = os.path.join(TOOL, "scripts", "case_state.py")
+    if not os.path.isfile(cs):
+        add("2 单一事实源", "5 件套契约自测", False, "缺 case_state.py")
+        return
+    bad = []
+
+    def _run(args, timeout=180):
+        rc, out = run([sys.executable, cs] + args, timeout=timeout)
+        return rc, (out or "")
+
+    # 1) 首答三要素
+    rc, out = _run(["answer", "--selftest"])
+    if rc != 0 or "2/2" not in out:
+        bad.append("首答三要素自测失败")
+    # 2) BLK 码表
+    rc, out = _run(["block", "--list"])
+    if rc != 0 or out.count("BLK-") < 11:
+        bad.append("BLK 码表不足 11 条")
+    # 3) repro 两次一致 → E2
+    rc, out = _run(["repro", "--cmd", "echo five-contract", "--expect", "five-contract"])
+    if "E2" not in out:
+        bad.append("repro 未给出 E2（两次重放比对失效）")
+    # 4) 降级通知 + 5) 复查单（在临时案例里跑，不碰真实案例）
+    tmp = _tf.mkdtemp(prefix="seep-five-")
+    try:
+        _run(["init", "--case", tmp, "--target", "dummy"], timeout=120)
+        _run(["verdict", "--case", tmp, "--value", "可赢", "--tier", "M3"], timeout=120)
+        rc, out = _run(["downgrade", "--case", tmp, "--to", "M1", "--reason", "selftest"])
+        if "降级通知" not in out:
+            bad.append("降级未产出通知")
+        rc, out = _run(["recheck", "--case", tmp])
+        if not os.path.isfile(os.path.join(tmp, "recheck.md")):
+            bad.append("复查单未生成")
+    finally:
+        _sh.rmtree(tmp, ignore_errors=True)
+    # 6) 报告五段
+    rc, out = _run(["report", "--selftest"])
+    if rc != 0 or "2/2" not in out:
+        bad.append("报告五段自测失败")
+    # 7) 模板都带客户五段
+    import glob as _g
+    tpl = _g.glob(os.path.join(TOOL, "prompts", "reports", "*.md"))
+    miss = [os.path.basename(t) for t in tpl
+            if os.path.basename(t) != "README.md" and "客户视角五段" not in open(t, encoding="utf-8", errors="replace").read()]
+    if miss:
+        bad.append("模板缺客户五段:" + ",".join(miss[:3]))
+
+    add("2 单一事实源", "5 件套契约（首答三要素/BLK 码/重放两次/降级通知/复查单/报告五段）",
+        not bad, "；".join(bad[:4]) if bad else "6 项全部自测通过；10 份模板含客户五段")
+
+
 def check_fact_drift():
     """事实漂移：同样的数字（工具/域/案例数）在文档里被重复陈述，必须与实测一致。
 
@@ -1694,6 +1753,7 @@ def main():
     check_skill_import()
     check_subskill_wiring()
     check_fact_drift()
+    check_five_contracts()
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()

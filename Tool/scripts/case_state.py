@@ -2230,6 +2230,239 @@ def cmd_repo_handoff(a):
     print("\n".join(out))
 
 
+# ───────────────────── 5 件事（2026-10-25）：首答/降级/重放/BLK/复查 ─────────────────────
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_TOOL = os.path.join(_ROOT, "Tool")
+
+
+def _jd(rel):
+    with open(os.path.join(_TOOL, "config", rel), encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _check_answer(obj, c):
+    bad = []
+    for f in c["required"]:
+        v = obj.get(f["key"])
+        if not v or (isinstance(v, (list, dict)) and not v):
+            bad.append("缺 %s（%s）" % (f["label"], f["hint"]))
+    ceil_v = str(obj.get("ceiling") or "")
+    if ceil_v and ceil_v not in c["ceiling_sentences"]:
+        bad.append("「到哪一步」只能用这四句之一：" + " / ".join(c["ceiling_sentences"]))
+    r = c["ask_rules"]
+    for q in obj.get("asks") or []:
+        opts = q.get("options") or []
+        if not (r["min_options"] <= len(opts) <= r["max_options"] + 1):
+            bad.append("%s 选项数 %d 不在 %d–%d" % (q.get("id"), len(opts),
+                                                   r["min_options"], r["max_options"]))
+        for o in opts:
+            if r["require_consequence"] and not str(o.get("consequence") or "").strip():
+                bad.append("%s/%s 没写「选了会怎样」" % (q.get("id"), o.get("key")))
+    text = json.dumps(obj, ensure_ascii=False)
+    for p in c["forbidden_phrases"]:
+        if p in text:
+            bad.append("出现禁用措辞「%s」（无证据的肯定）" % p)
+    return bad
+
+
+def cmd_answer(a):
+    """首答三要素：缺一即不合格；选项必须写「选了会怎样」。"""
+    c = _jd("answer-contract.json")
+    if a.template:
+        print("【判断】这是什么 / 有没有保护 / 关键在哪：…")
+        print("【到哪一步】" + " | ".join(c["ceiling_sentences"]))
+        print("【缺什么】① … ② …")
+        print("【已有证据】E-001 …（或：暂无，只有文件哈希）")
+        print("【请你选】Q1｜…  A …→选了会怎样  B …→…  C 我不确定→…")
+        print("【你要做的】回一个字母")
+        return 0
+    if a.selftest:
+        good = {"judgment": "PE32+，未见壳", "ceiling": "只能看懂结构",
+                "missing": ["有没有卡密"],
+                "asks": [{"id": "Q1", "options": [
+                    {"key": "A", "consequence": "走在线对比"},
+                    {"key": "B", "consequence": "走离线判定"},
+                    {"key": "C", "consequence": "先找校验痕迹"}]}]}
+        bad = {"judgment": "x", "missing": [],
+               "asks": [{"id": "Q1", "options": [{"key": "A"}]}]}
+        ok = (1 if not _check_answer(good, c) else 0) + (1 if _check_answer(bad, c) else 0)
+        print("[answer --selftest] %d/2 通过" % ok)
+        return 0 if ok == 2 else 1
+    src = a.file or ""
+    try:
+        obj = json.load(open(src, encoding="utf-8")) if src else json.load(sys.stdin)
+    except Exception as e:  # noqa: BLE001
+        print("[ERR] 读不到 JSON：%s" % e)
+        return 2
+    bad = _check_answer(obj, c)
+    for b in bad:
+        print("[缺] " + b)
+    print("[PASS] 首答合格" if not bad else "[FAIL] 首答不合格（%d 项）" % len(bad))
+    return 0 if not bad else 1
+
+
+def cmd_block(a):
+    """按 BLK 码渲染失败五段（卡层/现象/为什么/已拿到/两条出路）。"""
+    c = _jd("blockers.json")
+    if a.list or not a.code:
+        for x in c["codes"]:
+            print("%-7s %-14s %s" % (x["code"], x["name"], x["customer"]))
+        return 0 if a.list else 2
+    hit = [x for x in c["codes"] if x["code"].lower() == a.code.lower()]
+    if not hit:
+        print("[ERR] 未知 BLK 码：%s（用 block --list 看全部）" % a.code)
+        return 2
+    x = hit[0]
+    print("【卡在哪】%s %s" % (x["code"], x["customer"]))
+    print("【我看到什么】%s" % (a.detail or "（填现象，带证据 ID）"))
+    print("【为什么】%s" % (a.why or "（一句白话原因）"))
+    print("【已经拿到什么】%s" % (a.got or "（当前到哪一级 + 哪几条结论成立）"))
+    print("【两条出路】")
+    for i, e in enumerate(x["exits"], 1):
+        print("  %d. %s" % (i, e))
+    if a.case:
+        try:
+            st = load_state(a.case)
+            st["next_action"] = "%s：%s" % (x["code"], x["customer"])
+            st["blocker"] = x["code"]
+            save_state(a.case, st)
+        except Exception:  # noqa: BLE001
+            pass
+    return 0
+
+
+def cmd_repro(a):
+    """证据结构化重放：跑 N 次比对输出指纹；一致 + 期望命中才给 E2。"""
+    import hashlib
+    import subprocess as _sp
+    if not a.cmd:
+        print("[ERR] 需要 --cmd")
+        return 2
+    runs = max(1, int(a.runs or 2))
+    digests, outs = [], []
+    for i in range(runs):
+        try:
+            p = _sp.run(a.cmd, shell=True, capture_output=True, text=True,
+                        encoding="utf-8", errors="replace", timeout=int(a.timeout or 300))
+        except Exception as e:  # noqa: BLE001
+            print("[ERR] 第 %d 次执行失败：%s" % (i + 1, e))
+            return 2
+        blob = (p.stdout or "") + (p.stderr or "")
+        outs.append(blob)
+        digests.append(hashlib.sha256(blob.encode("utf-8", "replace")).hexdigest()[:16])
+        if a.expect and a.expect not in blob:
+            print("[WARN] 第 %d 次输出里没找到期望片段：%r" % (i + 1, a.expect))
+    same = len(set(digests)) == 1
+    expect_ok = bool(a.expect) and all(a.expect in o for o in outs)
+    grade = "E2" if (same and expect_ok) else "E1"
+    print("[repro] 运行 %d 次；指纹 %s；一致=%s；期望命中=%s"
+          % (runs, ",".join(digests), same, expect_ok))
+    print("[repro] 该证据最高等级 = %s（E2 需：输出一致 + 期望命中）" % grade)
+    if a.case and a.id:
+        try:
+            rec = {"kind": "repro", "id": a.id, "cmd": a.cmd, "expect": a.expect,
+                   "runs": runs, "digests": digests, "consistent": same,
+                   "grade": grade, "ts": now()}
+            with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            print("[repro] 已写入账本")
+        except Exception as e:  # noqa: BLE001
+            print("[WARN] 写账本失败：%s" % e)
+    return 0 if grade == "E2" else 1
+
+
+def cmd_downgrade(a):
+    """上限降级必须留通知：承诺过 M2 就不能静默降到 M1。"""
+    st = load_state(a.case)
+    old = st.get("max_level") or "-"
+    new = a.to
+    if not new:
+        print("[ERR] 需要 --to（如 M1）")
+        return 2
+    if old == new:
+        print("[SKIP] 上限没变（%s）" % old)
+        return 0
+    if a.reason is None:
+        print("[ERR] 降级必须写 --reason（为什么降）")
+        return 2
+    notif = "【降级通知】原来判断能到 %s，现在只能到 %s。原因：%s" % (old, new, a.reason)
+    st["max_level"] = new
+    st["next_action"] = notif
+    save_state(a.case, st)
+    with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps({"kind": "downgrade", "from": old, "to": new,
+                            "reason": a.reason, "notice": notif, "ts": now()},
+                           ensure_ascii=False) + "\n")
+    print(notif)
+    print("[OK] 已记入账本（kind=downgrade）")
+    return 0
+
+
+def cmd_recheck(a):
+    """复查单：两周后照着能复现（目标哈希/环境/证据/重放命令/期望）。"""
+    d = os.path.abspath(a.case)
+    cj = json.load(open(os.path.join(d, "case.json"), encoding="utf-8"))
+    files = cj.get("target_files") or []
+    repro = []
+    fj = os.path.join(d, "facts.jsonl")
+    if os.path.isfile(fj):
+        for line in open(fj, encoding="utf-8"):
+            if line.strip() and '"kind": "repro"' in line:
+                repro.append(json.loads(line))
+    L = ["# 复查单（%s）" % os.path.basename(d), "", "## 目标身份", ""]
+    for f in files:
+        L.append("- `%s` sha256=%s" % (f.get("path"), f.get("sha256")))
+    if not files:
+        L.append("- （未登记 target_files：请在 case.json 补哈希）")
+    L += ["", "## 环境", "",
+          "- 生成时间：%s" % now(),
+          "- 工具版本：见各证据 `tool_version`",
+          "- 已知会变：在线服务、证书、IP（复现失败先查这些）", "",
+          "## 证据与重放", ""]
+    if repro:
+        for r in repro:
+            L.append("- `%s` → `%s`（期望包含 `%s`；跑过 %d 次，指纹 %s）"
+                     % (r.get("id"), r.get("cmd"), r.get("expect"), r.get("runs"),
+                        ",".join(r.get("digests") or [])))
+    else:
+        L.append("- （暂无结构化重放：跑 `case_state.py repro --case %s --id E-001 "
+                 "--cmd \"<命令>\" --expect \"<片段>\"`）" % d)
+    L += ["", "## 复现失败怎么判", "",
+          "- 先查「已知会变」；仍不一致 → 该结论降为 `未验证`，不要否定整份报告", ""]
+    out = os.path.join(d, "recheck.md")
+    open(out, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
+    print("[OK] 复查单已生成：%s（%d 条重放记录）" % (out, len(repro)))
+    return 0
+
+
+SECTIONS = ["结论", "已确认", "仍未知", "下一步", "复查"]
+
+
+def cmd_report(a):
+    """报告五段校验：缺段不算交付（对应 PM-SPEC §3.3/§7）。"""
+    if a.selftest:
+        good = "# r\n## 1 结论\n能到「只能看懂结构」\n## 2 已确认\n- x（E-001）\n" \
+               "## 3 仍未知\n- y；缺 z\n## 4 下一步\n- 省事：A\n## 5 怎么复查\n- recheck.md\n"
+        bad = "# r\n## 1 结论\nx\n"
+        ok = (1 if not _check_report(good) else 0) + (1 if _check_report(bad) else 0)
+        print("[report --selftest] %d/2 通过" % ok)
+        return 0 if ok == 2 else 1
+    src = a.file or ""
+    if not src or not os.path.isfile(src):
+        print("[ERR] 需要 --file <报告.md>")
+        return 2
+    bad = _check_report(open(src, encoding="utf-8", errors="replace").read())
+    for b in bad:
+        print("[缺] " + b)
+    print("[PASS] 报告五段齐全" if not bad else "[FAIL] 报告不合格（%d 项）" % len(bad))
+    return 0 if not bad else 1
+
+
+def _check_report(text):
+    bad = [s for s in SECTIONS if s not in text]
+    return ["缺段：%s" % "、".join(bad)] if bad else []
+
+
 def _self_test():
     checks = 0
     try:
@@ -2893,6 +3126,27 @@ def main():
     p.add_argument("--reason", default="", help="配合 --force：为什么跳过产物闸")
     p.set_defaults(func=cmd_stage)
 
+    p = sub.add_parser("answer")
+    p.add_argument("--template", action="store_true"); p.add_argument("--check", action="store_true")
+    p.add_argument("--file", default=""); p.add_argument("--selftest", action="store_true")
+    p.set_defaults(func=cmd_answer)
+    p = sub.add_parser("block")
+    p.add_argument("--code", default=""); p.add_argument("--case", default="")
+    p.add_argument("--detail", default=""); p.add_argument("--why", default=""); p.add_argument("--got", default="")
+    p.add_argument("--list", action="store_true"); p.set_defaults(func=cmd_block)
+    p = sub.add_parser("repro")
+    p.add_argument("--case", default=""); p.add_argument("--id", default="")
+    p.add_argument("--cmd", default=""); p.add_argument("--expect", default="")
+    p.add_argument("--runs", type=int, default=2); p.add_argument("--timeout", type=int, default=300)
+    p.set_defaults(func=cmd_repro)
+    p = sub.add_parser("downgrade")
+    p.add_argument("--case", required=True); p.add_argument("--to", required=True)
+    p.add_argument("--reason", default=None); p.set_defaults(func=cmd_downgrade)
+    p = sub.add_parser("report")
+    p.add_argument("--file", default=""); p.add_argument("--selftest", action="store_true")
+    p.set_defaults(func=cmd_report)
+    p = sub.add_parser("recheck")
+    p.add_argument("--case", required=True); p.set_defaults(func=cmd_recheck)
     p = sub.add_parser("deliver"); p.add_argument("--case", required=True)
     p.add_argument("--level", required=True); p.add_argument("--evidence", "--ev", dest="evidence", required=True)
     p.add_argument("--note", default="")

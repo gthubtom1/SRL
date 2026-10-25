@@ -95,6 +95,16 @@ headless / CLI 能做就不启动 GUI。入口 `tool-run.ps1 -Tool <id> [-Target
 
 ---
 
+### 五件套（客户体验的硬要求，都有命令）
+
+| 什么时候 | 命令 | 作用 |
+| :-- | :-- | :-- |
+| 给首个回复前 | `case_state.py answer --template` / `--check --file a.json` | 首答必须含 **判断 / 到哪一步（四句之一）/ 缺什么**；选项必须写"选了会怎样" |
+| 卡住时 | `case_state.py block --code BLK-5 --detail "…"` | 按码渲染失败五段（卡层/现象/原因/已拿到/两条出路），码表共 11 种 |
+| 记证据时 | `case_state.py repro --case C --id E-001 --cmd "…" --expect "…"` | 跑两次比对指纹；一致+命中才给 E2（可复现） |
+| 上限要降时 | `case_state.py downgrade --case C --to M1 --reason "…"` | 必须发降级通知，不许静默降级 |
+| 交付前 | `case_state.py report --check --file r.md` + `recheck --case C` | 报告五段齐全 + 生成复查单（目标哈希/重放命令/期望） |
+
 ### 加技能（用户只说一句）
 
 用户说「我要加这个技能 <路径/链接>」「网上找了个 skill 装进来」时，**不要让他手改任何文件**：

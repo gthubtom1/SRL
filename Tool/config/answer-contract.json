@@ -1,0 +1,54 @@
+{
+  "schema": "seep.answer/1",
+  "_说明": "首答契约。required 缺一即不合格；asks 每条必须给 A/B/C（Q-SEC 例外 A/B）且每项带 consequence。",
+  "required": [
+    {
+      "key": "judgment",
+      "label": "判断",
+      "hint": "这是什么 / 有没有保护 / 关键在哪"
+    },
+    {
+      "key": "ceiling",
+      "label": "到哪一步",
+      "hint": "只能看懂结构 | 能改到能用 | 能完全自己接管 | 现在做不了"
+    },
+    {
+      "key": "missing",
+      "label": "缺什么",
+      "hint": "需要你确认的东西（编号列出）"
+    }
+  ],
+  "recommended": [
+    {
+      "key": "evidence",
+      "label": "已有证据",
+      "hint": "证据 ID 或「暂无」"
+    },
+    {
+      "key": "next",
+      "label": "你要做的",
+      "hint": "一句话，只回一个字母"
+    }
+  ],
+  "ask_rules": {
+    "min_options": 2,
+    "max_options": 3,
+    "require_consequence": true,
+    "c_means_unsure": true,
+    "exception_two_option": [
+      "Q-SEC-01"
+    ]
+  },
+  "ceiling_sentences": [
+    "只能看懂结构",
+    "能改到能用",
+    "能完全自己接管",
+    "现在做不了"
+  ],
+  "forbidden_phrases": [
+    "应该可以",
+    "大概能",
+    "通常没问题",
+    "已完成"
+  ]
+}
