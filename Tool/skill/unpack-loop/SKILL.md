@@ -46,7 +46,7 @@ metadata:
 | 单步就崩 / 找不到 OEP / 跳过去全是垃圾指令 | `references/oep-locate.md` | dump 点错了，IAT 一定坏，后面全白做 |
 | dump 后 PE 头坏 / 区段 RawSize=0 / EP 不在代码节 | `references/dump-and-rebuild.md` | 取错内存区，重建也救不回来 |
 | `rabin2 -i` 导入为空或条数明显不对 | `references/iat-repair.md` | 不修 IAT，dump 件一启动就退 |
-| 断点不命中 / dr 被清 / 壳检测到调试器 | `references/hw-observation.md` + `references/anti-debug.md` | 软件层已失效，继续试只会被熔断 |
+| 断点不命中 / dr 被清 / 壳检测到调试器 | `references/hw-observation.md` + **`references/anti-debug-matrix.md`**（按编号定位） | 软件层已失效，继续试只会被熔断 |
 | 壳要联网/服务端校验通过才解密 | 回 `seep-router`（判型：服务端权威） | 这是"钥匙在别人手里"，不是脱壳问题 |
 
 

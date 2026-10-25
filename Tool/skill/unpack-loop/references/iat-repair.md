@@ -37,6 +37,12 @@ IAT 里可能只有"已经被调用过"的那部分，其余的仍是 0 或壳�
 | **延迟导入（delay load）** | 只有少数 DLL | 单独处理 `IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT`；可先留空，程序首次调用时由系统解析 |
 | **壳自己的 thunk** | 搜出来的地址落在壳节里 | 说明 IAT 还没填完 → 回 `oep-locate.md`，dump 点太早 |
 
+```bash
+# IAT 修复后的复验（只读）
+rabin2 -i fixed.exe | head -30   # 能列出与原始程序量级相当的导入
+rabin2 -I fixed.exe             # 静态加载无告警
+```
+
 ## 4. 复验（缺一不可）
 
 | # | 检查 | 通过 |

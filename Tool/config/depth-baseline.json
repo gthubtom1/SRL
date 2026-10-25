@@ -1,0 +1,7 @@
+{
+  "schema": "seep.depth-baseline/1",
+  "_说明": "深度棘轮：当前'无命令的技法页'数量与'反调试矩阵条目数'。只许变好（数量下降/条目上升），变坏即红。",
+  "refs_without_cmd": 11,
+  "matrix_items": 39,
+  "target_refs_without_cmd": 0
+}

@@ -1200,6 +1200,56 @@ def check_prompt_residue():
         else "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
+def check_reference_depth():
+    """reference 的"深度"可机检：① 每篇至少 1 个代码块 ② 反调试矩阵 ≥30 条 × 五字段。
+
+    为什么（2026-10-25 与外部技能对比后）：我们 620 行新 reference **一个命令块都没有** ——
+    模型拿不到能抄的命令，等于只有"知识"没有"动作"；反调试也只有一篇散文表格，
+    没有可枚举编号 → 无法引用、无法核对覆盖。外部同类是 AD1–AD45 + 五字段（Trigger/Observation/
+    Inference/Action/Constraint）。这条判据把"深度"变成可数东西。
+    """
+    import glob as _g
+    import re as _re
+    # 只要求"技法页"有可执行命令；索引页（<60 行）与边界/策略页（coverage/limits/routing/
+    # evidence-summary 这类）本来就不该塞命令 —— 否则一律红就变成噪声（这正是外部评审说的
+    # "假红会让人忽略真红"）。
+    SKIP = ("coverage", "limits", "routing", "evidence-summary", "README", "pitfalls.md")
+    thin = []
+    n_ref = 0
+    for ref in _g.glob(os.path.join(TOOL, "skill", "*", "references", "*.md")):
+        base = os.path.basename(ref)
+        t = open(ref, encoding="utf-8", errors="replace").read()
+        lines = t.count(chr(10))
+        if lines < 60 or any(k in base for k in SKIP):
+            continue
+        n_ref += 1
+        if "```" not in t:
+            thin.append(base)
+    # 棘轮：只许变好。历史页面暂不强制（否则要一次改 118 篇），但**不许变得更差**。
+    try:
+        base = json.load(open(os.path.join(TOOL, "config", "depth-baseline.json"), encoding="utf-8"))
+    except Exception:
+        base = {}
+    limit = int(base.get("refs_without_cmd", 10 ** 9))
+    add("2 单一事实源", "深度棘轮：无命令的技法页 ≤ %d（只许变好）" % limit, len(thin) <= limit,
+        ("%d 篇无命令（基线 %d）—— 新增页面必须带命令；例：%s"
+         % (len(thin), limit, "、".join(thin[:3]))) if len(thin) > limit
+        else "%d 篇无命令（基线 %d，目标 %s）" % (len(thin), limit, base.get("target_refs_without_cmd", "-")))
+
+    m = os.path.join(TOOL, "skill", "unpack-loop", "references", "anti-debug-matrix.md")
+    if not os.path.isfile(m):
+        add("2 单一事实源", "反调试矩阵（≥30 条 × 五字段）", False, "缺 anti-debug-matrix.md")
+        return
+    t = open(m, encoding="utf-8", errors="replace").read()
+    items = len(_re.findall(r"^\|\s*(AD|AV)-\d+", t, _re.M))
+    need = ("Trigger", "Observation", "Inference", "Action", "Constraint")
+    miss = [w for w in need if w not in t]
+    ok = items >= int(base.get("matrix_items", 30)) and not miss
+    add("2 单一事实源", "反调试矩阵（≥30 条 × 五字段）", ok,
+        ("条目 %d <30；缺字段 %s" % (items, ",".join(miss))) if not ok
+        else "%d 条，五字段齐（Trigger/Observation/Inference/Action/Constraint）" % items)
+
+
 def check_reference_index():
     """每个技能的 references/ 不许有"孤儿"：文件在，但 SKILL.md 从不指向它。
 
@@ -1850,6 +1900,7 @@ def main():
     check_single_orchestrator()
     check_doc_commands()
     check_reference_index()
+    check_reference_depth()
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()

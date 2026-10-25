@@ -43,6 +43,14 @@
 | 内存镜像 | `pe-sieve /pid <pid> /dmode 3 /out <dir>` | 需要目标正在运行（先问用户） |
 | dump + IAT | x64dbg + Scylla | GUI 通道；按 `AGENTS §四点五.4` 走 |
 
+```bash
+# 判壳三件套（只读）
+rabin2 -S target.exe | head -30     # 节表：RawSize=0 / 畸形节名
+rabin2 -i target.exe | head -20     # 导入：条数极少 = 疑似壳
+rabin2 -e target.exe                # EP 落在哪个节
+diec target.exe                     # 独立第二路（交叉验证→E3）
+```
+
 ## 4. 判据：这一篇算"用对了"吗
 
 - [ ] 我能说出**三条证据**里的至少两条，且每条都指得出命令与输出
