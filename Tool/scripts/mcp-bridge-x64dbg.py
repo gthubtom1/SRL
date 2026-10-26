@@ -29,7 +29,7 @@
 - 工具在会话启动时就注册好，不再依赖"谁先起"的顺序；
 - x64dbg 没起时**不擅自动手**：返回一条"需要你确认"的结构化结果并打出 A/B/C 选项
   （客户可能正在远程 / 终端 / 共享屏里干活，弹一个 GUI 就是事故）；
-- 用户明确授权后仍可自动拉起：环境变量 `SEEP_ALLOW_GUI_AUTOLAUNCH=1`
+- 默认**自动拉起**（这是"我们自己的工具"）；想禁止才设 `SEEP_GUI_NO_AUTOLAUNCH=1`
   或启动参数 `--allow-gui-launch`（能力保留，不是删功能）；
 - 拉起失败时返回**明确的错误 + A/B/C 卡**，而不是让模型以为工具不存在。
 
@@ -197,16 +197,31 @@ CONFIRM_CHOICES = [
 ]
 
 
+DISABLE_ENV = "SEEP_GUI_NO_AUTOLAUNCH"
+_FALSY = ("0", "false", "no", "off", "n")
+
+
 def autolaunch_allowed(explicit: bool | None = None) -> bool:
-    """显式参数优先；否则看 SEEP_ALLOW_GUI_AUTOLAUNCH（默认 0）。"""
+    """默认**自动拉起**（x64dbg 是"我们自己的工具"，由 Agent 自己起、自己连、自己用）。
+
+    ★ 2026-10-26 用户口径修正（推翻第 3 轮那次"要用户三选一"的改动）：
+      只有"跑客户交给我们的目标样本"才需要用户回执；启动调试器不属于这一类。
+      9094 没在听 → 直接拉起 → 连上 → 用。整个过程不问用户（无感）。
+
+    关闭方式（仅当你确实不想要 GUI 时）：
+      - 环境变量 SEEP_GUI_NO_AUTOLAUNCH=1
+      - 或显式传 ensure_upstream(launch=False)
+    """
     if explicit is not None:
         return bool(explicit)
-    return os.environ.get(ALLOW_ENV, "").strip().lower() in _TRUTHY
+    if os.environ.get(DISABLE_ENV, "").strip().lower() in _TRUTHY:
+        return False
+    return True
 
 
 def confirm_card_text() -> str:
     """给人看的 A/B/C 卡（写 stderr 日志 / 作为 JSON-RPC error message 回给上层）。"""
-    lines = ["x64dbg 未运行（9094 无监听）。桥默认**不自动拉起 GUI**，请三选一："]
+    lines = ["x64dbg 未运行（9094 无监听），且本次被显式要求不自动拉起（%s=1），请三选一：" % DISABLE_ENV]
     for c in CONFIRM_CHOICES:
         lines.append("%s) %s —— %s" % (c["id"], c["label"], c["detail"]))
     lines.append(
@@ -217,14 +232,14 @@ def confirm_card_text() -> str:
 
 
 def log_confirm_card() -> None:
-    log("9094 未监听：默认不自动拉起 x64dbg GUI（远程/终端会话里弹窗是事故）")
+    log("9094 未监听：按配置不自动拉起（%s=1）；如需自动拉起，去掉该环境变量即可" % DISABLE_ENV)
     for c in CONFIRM_CHOICES:
         log("  %s) %s —— %s" % (c["id"], c["label"], c["detail"]))
     log("  授权自动拉起：环境变量 %s=1（或传 --allow-gui-launch / ensure_upstream(launch=True)）" % ALLOW_ENV)
 
 
 def ensure_upstream(launch: bool | None = None) -> dict:
-    """确保上游可用 —— **默认不擅自拉起 GUI**。
+    """确保上游可用 —— **默认自动拉起**（9094 没在听就拉 x64dbg，再连上；不问用户）。
 
     返回结构化结果（上层据此出 A/B/C 卡，而不是自己去猜）：
       {"status": "ready" | "need_user_confirm" | "launched" | "launch_failed",
@@ -234,26 +249,27 @@ def ensure_upstream(launch: bool | None = None) -> dict:
        "message": "..."}
 
     参数：
-      launch=False（默认取自环境变量，未设 = False）→ 只探活、不拉起
-      launch=True                                      → 已获用户确认，可拉起
+      launch 未传（None） → 按默认：自动拉起（除非 SEEP_GUI_NO_AUTOLAUNCH=1）
+      launch=False        → 只探活、不拉起
+      launch=True         → 强制拉起
     """
     if upstream_alive():
         return {"status": "ready", "upstream": UPSTREAM, "message": "9094 已在监听"}
 
     if autolaunch_allowed(launch):
-        log("9094 未监听，且已获自动拉起授权（%s / --allow-gui-launch），开始拉起 x64dbg …" % ALLOW_ENV)
+        log("9094 未监听 → 自动拉起 x64dbg（自己的工具，不问用户；要禁止请设 %s=1）" % DISABLE_ENV)
         ok = launch_upstream()
         if ok:
             return {"status": "launched", "upstream": UPSTREAM, "message": "已按授权拉起 x64dbg"}
         return {"status": "launch_failed", "upstream": UPSTREAM,
-                "message": "已获授权但拉起失败，见 stderr 日志；可改用 B（用户双击）或 C（只做静态）"}
+                "message": "自动拉起失败，见 stderr 日志；可让用户双击 x64dbg，或改走只做静态"}
 
     log_confirm_card()
     return {"status": "need_user_confirm",
             "need_user_confirm": "x64dbg_not_running",
             "upstream": UPSTREAM,
             "choices": [dict(c) for c in CONFIRM_CHOICES],
-            "message": "x64dbg 未运行；未获授权，不自动拉起 GUI"}
+            "message": "x64dbg 未运行，且被显式要求不自动拉起（%s=1）" % DISABLE_ENV}
 
 
 # ───────────────────────── stdio ↔ http 转发 ─────────────────────────
