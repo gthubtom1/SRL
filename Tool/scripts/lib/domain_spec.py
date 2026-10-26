@@ -14,6 +14,25 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 # REMOVED_DOMAINS（W6 迁出；这些**不是**客户可见域，已移出深度检查）
 #
+# 归档数据登记（2026-10-26）—— `ARCHIVED_CONFIG`：
+#   Tool/config/ad-cloud-matrix.json        已迁出域 ad-cloud 的矩阵
+#   Tool/config/plugin-targets-matrix.json  已迁出域 plugin-targets 的矩阵
+# **不参与任何判据，保留作证据，不许删。**
+#
+# 核对方法（可重跑，别信口）：全仓搜这两份文件名，排除 `Tool/cases/**` 与 `docs/` 后，
+# 唯一命中的是**本注释**（domain_spec.py 自己）和 `protocol-plugin-matrix.json` 的一句
+# 散文描述 —— 没有任何 py/ts/ps1/bat 代码或技能读取它们，domain_spec.DOMAINS[].matrix
+# 也不含它们，所以 domain-gate 的 [6] matrix 判据从不看这两份。
+# 为什么仍留在 Tool/config/（选②而不是搬去 _archive/）：
+#   * 它们被 `Tool/cases/{ad-cloud01..05,plugin02..06,_archive/plugin01}/case.json` 的
+#     `refs[]` 当历史证据指针引用；搬走会让这些 refs 变幻影（domain-gate [4] 的幻影判据会红），
+#     而删案例是不允许的。原地保留 = 证据链不断 + 判据不参与。
+#   * 目录里另有 `site-clone-matrix.json`（被 Tool/capabilities/site-crawl.json 与
+#     `_pending/site-clone/SKILL.md` 引用）与 `reverse-matrix.json`（是 softseep 的现行矩阵，
+#     见 DOMAINS["softseep"]["matrix"]）—— 同目录里「在用」与「归档」混存时，
+#     搬一半反而更容易让人误以为整目录都失效。
+# 若要重新纳入：先给它们一路由包（pack.json）再写回 DOMAINS。
+#
 # 判据：客户可见域 = 路由包里的键名 = `Tool/skill/*/pack.json` 的 id（9 个）。
 # 下面四项在本文件里不再占位，因为：
 #   * ad-cloud / plugin-targets / site-clone —— skill 指向 `Tool/skill/_pending/*`，
@@ -147,7 +166,45 @@ LIMITS = {
 CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
                "authority", "goal_level", "outcome", "artifacts", "lessons",
                "refs", "updated")
+# 案例真实性四分（+ 归档）—— evidence_kind 的**唯一语义来源**，改这里就要改
+# Tool/cases/README.md §2 的同名表：
+#   real       = 客户真实目标（来源与授权可追：授权单/合同/客户交来的样本）
+#   public     = 公开可分发的**真实产物**（教学靶场 / CTF / 公开 crackme / MIT 示例）；
+#                有真实来源与哈希，可随仓库分发。gate 的「有真实产物见证」认它，
+#                因为它就是真实可复现的产物，不是合成夹具。
+#   self-built = 自己编译的（源码可公开但产物是本机 gcc/msvc 出的）：流程证据，**不算该域可用**
+#   fixture    = 合成/教学夹具（不是真实产物：手写 PE、造的 pcap、造的日志）
+#   historical = 历史归档（旧案，不参与当前判定）
+# 纪律：promotion 只能按**事实**走（样本本来就是公开靶场才写 public），
+#      不许把 fixture / self-built 改叫 real 或 public 来凑「可用」。
+EVIDENCE_KINDS = ("real", "public", "self-built", "fixture", "historical")
+# 「有真实产物见证」的两档：real（客户目标）+ public（公开真实产物）
+EVIDENCE_KINDS_REAL_ARTIFACT = ("real", "public")
+
 FIXTURE_WORDS = ("夹具", "教学", "fixture", "示例")
+# public 案例的 target_type 允许**公开来源描述**（它就是公开教学靶场/CTF/公开 crackme）。
+# 判「是不是夹具字样」时先剥掉这些来源词，剩下的才算残留：
+#   「公开教学靶场 DIVA」→ 剥完只剩 DIVA，不算夹具字样（public 合法）
+#   「教学夹具」→ 剥完仍残留「教学/夹具」，照旧红
+PUBLIC_MARKERS = ("公开教学靶场", "公开", "靶场", "CTF", "crackme", "MIT", "github",
+                  "public")
+
+
+def fixture_words_in(target_type, kind="fixture"):
+    """按档位判 target_type 里的「夹具/教学」字样。
+
+    fixture              必须**含**夹具字样（否则分不清是夹具还是真产物）；
+    real/public/self-built 不许有**残留**夹具字样；
+    public 例外：先剥掉 PUBLIC_MARKERS（公开教学靶场 / CTF / 公开 crackme（MIT））。
+
+    返回命中的字样列表（空列表 = 无残留）。为何不“一律禁词”：公开靶场本来就该写
+    “公开教学靶场”，一律禁词会把真实公开样本逼成 fixture —— 那是另一个方向的假话。
+    """
+    t = str(target_type or "")
+    if str(kind or "").strip().lower() == "public":
+        for w in PUBLIC_MARKERS:
+            t = t.replace(w, "")
+    return [w for w in FIXTURE_WORDS if w in t]
 
 # 路由串味测试集（固定，不许删条目；新增只许追加）
 # expect_any = 该条测试可接受的技能落点（同域多技能允许并列）；forbid = 跨域误命中，命中即 FAIL。

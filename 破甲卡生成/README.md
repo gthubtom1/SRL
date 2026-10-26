@@ -73,6 +73,7 @@ cd .. && git add "破甲卡生成" && git commit -m "cards: ..." && git push
 | `knowledge/` | 四家厂商模型知识 | 🟡 参考 |
 | `patches/` · `rounds/` | 历轮补丁与实测数据 | 🟡 史料 |
 | `*.py`（30 个） | 旧流水线工具（client / sweep / stability / converse…） | 🟡 需 `HUBCORE_BASE`+`TOKEN`，多数要在 relab2 完整仓库跑 |
+| `适配提示词.md` | 把现役卡适配到新端点 / 新模型时改哪几句（“适配提示词”速查） | 🟡 素材（卡本体在 `人设卡/`） |
 
 **已删除的 5 份历史文档**（内容已并入 `卡片开发手册.md`，`git` 历史仍可追回）：
 

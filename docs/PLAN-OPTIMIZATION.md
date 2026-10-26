@@ -761,3 +761,31 @@ objective 要求把每条判为"真问题/误报/需人工决定/P2"。本目标
 **配套的口径回退（同一轮，按用户 2026-10-26 纠正）**：x64dbg 等"我们自己的工具"恢复无感启动（运行闸只拦"跑客户样本"）；缺工具默认自动装；删掉"零外网"承诺；删掉"授权来源"硬要求。详见提交 `be81afa`。
 
 **验收**：`check.py --fast` → **10 个套件，PASS 9 / WARN 1**（WARN=unit 可用性未证明）；`preflight` → **78/78**；`gate` rc=3（仅 fixture 4 域）；`verify` 13 pass/52 unknown。
+
+---
+
+## 15. 第四档 `public`：把"真实公开样本"从 fixture 里拆出来（2026-10-26）
+
+**问题**：`gate.py --all` 长期打印 `real 5 / fixture 4` + `可用性 NOT PROVEN`。逐个查样本后确认，
+那 4 个 `fixture` **不是编的**，是**真实公开样本**（DIVA 靶场 APK、MIT crackme 的 UPX 压缩件、
+MinGW 编的同源 crackme、MIT 的 Damn Vulnerable C Program）。问题在**标签语义**：`fixture` 原意是
+"合成/教学夹具"，把公开真实产物也塞进去 → 对外只能说什么都没证明。同时反向也危险：直接把
+`fixture` 改叫 `real` 就是造假绿。
+
+**做法（只改标签语义，不动结构判据 G2–G6/G4b）**：
+
+| # | 改动 | 落点 |
+|---|---|---|
+| 1 | 新增第四档 `public`（公开可分发真实产物：教学靶场/CTF/公开 crackme/MIT 示例）；五档语义唯一登记 | `Tool/scripts/lib/domain_spec.py` 的 `EVIDENCE_KINDS` / `EVIDENCE_KINDS_REAL_ARTIFACT` / `fixture_words_in()`；`Tool/cases/README.md` §2.1；`docs/AGENT-BRIEF.md` §案例 |
+| 2 | 4 个案例按事实迁移 `fixture/self-built → public`，并新增必填字段 `evidence_source{kind,source,basis}`（来源 + 依据 + sha256） | `Tool/cases/{leaf-apk,leaf-pe-packed,golden-crackme,pwn-crypto06}/case.json` |
+| 3 | gate 可用性改三档口径：`real`/`public` 计"有真实产物见证"，`self-built`/`fixture`/`unknown` 不计；摘要行改成 `见证证据：real N / public M / self-built K / fixture L`，仍点名无见证包 | `Tool/scripts/gate.py`（`witness_cohort` / `REAL_ARTIFACT_KINDS` / 摘要 / `--json` 的 `witness`、`usability`）；`Tool/scripts/check.py` 的 WARN 文案解析 |
+| 4 | 各域 accept 脚本与 domain-gate/preflight 的分档校验同步接受 `public`；`public` 允许写"公开教学靶场 XXX"（先剥公开来源词再判夹具字样，`fixture` 仍必须带夹具字样） | `Tool/skill/*/scripts/*-accept*.py`、`Tool/scripts/{domain-gate,preflight,case_state}.py` |
+| 5 | 两份没人读的矩阵（`ad-cloud-matrix.json`、`plugin-targets-matrix.json`）登记为"已迁出域的归档数据，不参与判据"（**不删、不搬**：它们被 5+6 个 case.json 的 `refs[]` 当历史证据指针引用，搬走即幻影） | `Tool/scripts/lib/domain_spec.py` 的 `REMOVED_DOMAINS` 注释块 |
+
+**验收（本轮实测）**：`gate.py --all` → `real 5 / public 4 / self-built 0 / fixture 0`，
+`可用性：PROVEN`，rc=0；`domain-gate.py --all` → 91/91；`check.py --fast` → unit PASS；
+`case_state.py verify --all` → pass 13 / fail 0 / unknown 52。
+**没有放宽的判据**：G2–G6/G4b 一字未改；`real`/`public` 仍必须能指到可复跑记录（命令/rc 或 `repro.status=recorded`），
+域级仍要求每域 ≥1 个 `real|public`，`fixture` 案例仍必须写"夹具/教学"字样。
+**回归证据**：把任一见证案例的 kind 临时改成 `fixture`/`self-built`/`unknown`（monkeypatch 实测），
+gate 的 `witnessed` 立刻归 0 → 仍走 `NOT PROVEN` + rc=3 分支。

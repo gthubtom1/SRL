@@ -65,7 +65,7 @@ Write-Host ''
 Write-Host ('--- 四栏看板 ' + ('-' * 44)) -ForegroundColor White
 if ($rc -eq 0 -and $warned.Count -gt 0) {
     Write-Host ('结论  : 结构通过，但**可用性/部分项未证明**（WARN ' + $warned.Count + ' 个：' + ($warned -join ', ') + '）') -ForegroundColor Yellow
-    Write-Host '须知  : 这不是“全部通过”。多为 fixture 见证/零重放/预算指标，交付前请看上面 WARN 行原文。' -ForegroundColor Yellow
+    Write-Host '须知  : 这不是“全部通过”。多为无真实产物见证（self-built/fixture）/零重放/预算指标，交付前请看上面 WARN 行原文。' -ForegroundColor Yellow
 } elseif ($rc -eq 0) {
     Write-Host '结论  : PASS 全部通过' -ForegroundColor Green
 } else {

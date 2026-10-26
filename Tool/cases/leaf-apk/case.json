@@ -1,8 +1,8 @@
 {
  "id": "leaf-apk",
  "domain": "reverse",
- "target_type": "APK（单 classes dex，dex 035，零 native 库）：公开教学靶场 DIVA，包名 jakhar.aseem.diva，minSdk 15 / targetSdk 23",
- "evidence_kind": "fixture",
+ "target_type": "APK（单 classes dex，dex 035，零 native 库）：公开教学靶场 DIVA（Damn Insecure and Vulnerable App），包名 jakhar.aseem.diva，minSdk 15 / targetSdk 23",
+ "evidence_kind": "public",
  "protection": [
   "未加固：整包仅 1 个 classes dex（1931680B）、无 lib 与 so、16 个加固特征串（StubApp/libjiagu/DexHelper/comqihoo/SecShell/bangcle/secneo/AppWrapper/aliprotect/libnesec/libshella 等）计数全为 0、manifest 的 application 节点无 android:name（装不下 StubApp 类入口）"
  ],
@@ -24,10 +24,11 @@
   "真坑（对齐顺序）：先 zipalign 再 jarsigner 会让对齐失效（zipalign -c 报 BAD -2 / BAD -1 → Verification FAILED）；v1 签名重写 zip 目录区，顺序必须是『先签名、再对齐』。",
   "真坑（资源解码）：apktool 2.5.0 不带 -r 在本样本上卡死（反复 Load resource table，180s 超时，前期报 Invalid data detected -3416 字节 / Unknown data 17756 字节）；本次用 -r 绕过，代价是 res 不反编译、manifest 非文本。",
   "未验证（诚实缺口）：无 adb 设备在线 → 真机安装与启动未验；样本无任何广告 SDK → 叶子见证物的『广告消失』不可验证；apksigner 缺失 → 只能产 v1 签名（targetSdk 23 恰好可用，API 24+ 需 v2/v3）。",
+  "第 7 条（证据来源，2026-10-26 迁移时补）：本样本是**公开教学靶场** DIVA，来源与依据见 evidence_source 字段 —— 副本来自 Tool/samples/real/android-apks/diva.apk（上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开靶场集合），sha256 2228c2f4…25c5；复跑命令 `apktool d -r` → 改 smali → `apktool b` → `jarsigner` → `zipalign`（F-104 记 rc=0），证据见 facts 的 F-101..F-106 与 report/triage.md。因此 evidence_kind 从 fixture 改为 public：它是公开可分发的真实产物，不是合成夹具。",
   "边界：能证明『改得动、打得回、签得上』，不能证明『装上能跑、广告消失』；这两项必须由用户在真实带广告 APK + 在线设备上补验。"
  ],
  "tags": [
-  "fixture",
+  "public",
   "apk",
   "unhardened",
   "triage",
@@ -43,12 +44,17 @@
   "Tool/samples/real/android-apks/README.md",
   "Tool/skill/apkseep/SKILL.md"
  ],
- "updated": "2026-10-24",
+ "updated": "2026-10-26",
  "target_files": [
   {
    "path": "target/diva.apk",
    "sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
-   "source": "仓库内既有夹具（见 case.json 的 lessons/refs）"
+   "source": "公开靶场 DIVA（Damn Insecure and Vulnerable App，Aseem Jakhar 的安卓漏洞教学 App）；本仓库副本来自 Tool/samples/real/android-apks/diva.apk（Tool/samples/real/README.md 登记的上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开教学靶场集合）。sha256 2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5"
   }
- ]
+ ],
+ "evidence_source": {
+  "kind": "public",
+  "source": "公开靶场 DIVA（Damn Insecure and Vulnerable App，Aseem Jakhar 的安卓漏洞教学 App）；本仓库副本来自 Tool/samples/real/android-apks/diva.apk（Tool/samples/real/README.md 登记的上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开教学靶场集合）。sha256 2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+  "basis": "依据：① 包名 jakhar.aseem.diva、versionCode 1 / 1.0、17 个 activity 与 APICreds/InsecureDataStorage/SQLInjection 等 DIVA 课程名一致的组件；② 与 Tool/samples/real/android-apks/diva.apk 逐字节同哈希（sha256 2228c2f4…25c5）；③ 上游 ev-flow/apk-samples 的 README 声明为公开安全教学靶场。→ 是公开可分发真实产物，不是合成夹具，故 evidence_kind=public（不是 real：没有客户目标与授权单）"
+ }
 }

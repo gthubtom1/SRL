@@ -28,7 +28,8 @@
 | 路由单一事实源 | `Tool/skill/*/pack.json`（现算入口 `Tool/scripts/route.py`） |
 | 工具能力 / 降级 / 安装 | `Tool/config/tool-capabilities.json` + `python Tool/scripts/mcp-doctor.py` |
 | 战术方法论 | `seep_kb_search` → `seep_kb_read` |
-| 知识库根（固定路径，勿 find/grep 去找） | `Tool/mcp/Tool/reverselab/kb` |
+| 知识库根（固定路径，勿 find/grep 去找） | `Tool/mcp/Tool/reverselab/kb`（按「客户怎么问」找答案：`Tool/mcp/Tool/reverselab/kb/INDEX-BY-QUESTION.md`） |
+| 手册索引（14 份手册 + 工具目录：compliance-relay / 破甲卡生成 / playbooks） | `MANUAL/README.md` |
 | 提示词分层 / 人格卡兼容 / 迁移存档 / G-Auth 裁决 | `MANUAL/PROMPT-LAYERS.md` |
 | 加技能 / 加 MCP / 加工具 的 4 步 | `Tool/docs/EXTEND.md` |
 | Lab 状态机（`lab-mode.flag`） | `AGENTS.md` §一 |

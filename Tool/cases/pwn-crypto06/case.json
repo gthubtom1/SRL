@@ -1,8 +1,8 @@
 {
  "id": "pwn-crypto06",
  "domain": "pwn-crypto",
- "target_type": "公开靶场（Damn Vulnerable C Program，MIT）本地 mingw 编译的 PE32+（真实可复现构建）",
- "evidence_kind": "self-built",
+ "target_type": "公开靶场（Damn Vulnerable C Program，MIT）源码在本机 mingw 编译出的 PE32+（真实可复现构建）：dvcp.exe",
+ "evidence_kind": "public",
  "protection": [
   "no-canary",
   "nx-on",
@@ -35,23 +35,23 @@
   "源码里的 5 类缺陷（整数溢出/堆溢出/double free/UAF/除零）编译后仍在，但**可达性未验证**"
  ],
  "tags": [
+  "public",
   "pwn",
   "pe",
   "heap",
   "integer-overflow",
-  "real-target",
-  "self-built"
+  "real-target"
  ],
  "refs": [
   "Tool/skill/pwn-crypto/scripts/pwn-check.py",
   "Tool/skill/pwn-crypto/references/01-criteria.md"
  ],
- "updated": "2026-10-24",
+ "updated": "2026-10-26",
  "target_files": [
   {
    "path": "target/dvcp.exe",
    "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
-   "source": "github.com/hardik05/Damn_Vulnerable_C_Program dvcp.c 本地 mingw 编译（MIT）"
+   "source": "公开 MIT 靶场 github.com/hardik05/Damn_Vulnerable_C_Program（commit 8dcbd202887f587783952a320a2301de701be529 的 dvcp.c），本机 gcc(mingw64) 编译；产物 sha256 5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e（55022 字节）。构建机与命令见 capture/reverify-2026-10-24.log"
   }
  ],
  "target": {
@@ -60,5 +60,10 @@
   "size": 55022,
   "at": "2026-10-26T15:34:58",
   "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ },
+ "evidence_source": {
+  "kind": "public",
+  "source": "公开 MIT 靶场 github.com/hardik05/Damn_Vulnerable_C_Program（commit 8dcbd202887f587783952a320a2301de701be529 的 dvcp.c），本机 gcc(mingw64) 编译；产物 sha256 5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e（55022 字节）。构建机与命令见 capture/reverify-2026-10-24.log",
+  "basis": "依据：① 源码是公开 MIT 靶场、commit 号与上游 URL 均登记在 capture/reverify-2026-10-24.log；② dvcp.c 的 5 类缺陷（整数溢出/堆溢出/double free/UAF/除零）是上游源码自带，不是我们编造的靶子；③ 编译产物 sha256 与 r2/pwn-check 双算一致。→ 公开靶场的真实可复现构建 = 公开可分发的真实产物，故 evidence_kind=public（从 self-built 升档：self-built 只说“我编的”，public 说清“公开靶场 + 可追 commit”；不是 real：没有客户目标与授权单）"
  }
 }

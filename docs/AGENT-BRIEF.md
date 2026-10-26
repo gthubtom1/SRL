@@ -49,8 +49,15 @@
 - 沿用现有目录（已存在 2 个），**新增 1–3 个**；每个目录自带 `input/` 与 `artifacts/`。
 - `case.json` 字段：
   `id domain target_type evidence_kind protection authority goal_level outcome artifacts lessons refs updated`
-- `evidence_kind`：`fixture`（手写教学输入）或 `real`（真工具链跑真实存在的文件/进程/抓包/编译产物）。
-  - **每域至少 1 个 `real`**；`real` 的 `target_type` 不得出现「夹具/教学/fixture」字样；`fixture` 必须出现。
+- `evidence_kind` 五档（语义唯一来源 `Tool/scripts/lib/domain_spec.py` 的 `EVIDENCE_KINDS`，
+  人读版见 `Tool/cases/README.md` §2.1）：
+  `real`（客户真实目标，来源与授权可追）/ `public`（公开可分发的**真实产物**：教学靶场 · CTF ·
+  公开 crackme · MIT 示例）/ `self-built`（自己编译）/ `fixture`（合成/教学夹具，不是真实产物）/
+  `historical`（历史归档）。
+  - **每域至少 1 个 `real` 或 `public`**（两者都算「真实产物见证」；`self-built`/`fixture` 不算该域可用）。
+  - `real` / `public` / `self-built` 的 `target_type` 不得残留「夹具/教学/fixture/示例」字样（`public`
+    允许写「公开教学靶场 XXX」这类来源描述，判定时会先剥掉公开来源词）；`fixture` 必须出现。
+  - `real` / `public` 必须带 `evidence_source: {kind, source, basis}`（来源 + 依据 + sha256）。
 - `artifacts[]`：`{"path": "...", "sha256": "..."}`，sha256 用
   `python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" <file>` 真算。
 - `lessons[0]` 必须写：跑的是什么、命令、rc；`lessons` 后续写结论/边界/下一步。

@@ -179,6 +179,7 @@ if ($deployOk) {
 开工指南:
   1) 双击根目录 start.bat 打开会话（或自己启动 Agent：Pi / Claude Code / DSH / OpenCode）
   2) 在对话框中输入:  lab： 即可开启白盒测试！
+  3) 上传 GitHub / 交付客户前: python Tool/scripts/pre-upload-check.py
 
 "@ -ForegroundColor Cyan
 } else {

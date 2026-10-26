@@ -1041,8 +1041,9 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
         "query": query, "expanded_terms": _alias_terms, "fired_groups": _fired,
         "hits": [], "near_miss": _out,
         "hint": ("没有直接命中。上面 %d 篇是与本次查询重合度最高的文章（按术语/双字片段 IDF "
-                 "加权），先 seep_kb_read 读一篇再决定；若都不对，换成更具体的术语或英文关键词"
-                 "重查（本库 %d 篇）。") % (len(_out), len(_kb_low)),
+                 "加权），先 seep_kb_read 读一篇再决定；若都不对，先把问题对到索引里的分组"
+                 "（'INDEX-BY-QUESTION.md'：按「客户怎么问」分的入口表，seep_kb_read 可直接读），"
+                 "再换成更具体的术语或英文关键词重查（本库 %d 篇）。") % (len(_out), len(_kb_low)),
     }, indent=2, ensure_ascii=False)
 
 

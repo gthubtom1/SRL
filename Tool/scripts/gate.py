@@ -12,8 +12,12 @@
 
 摘要的读法（第 4 轮评审 P1-2，别把两件事读成一件）：
   `[GATE] N 个包：结构 pass/fail`  = 每个包的**判据**都跑通了（这条不放宽）。
-  `[GATE] 见证证据：real x / fixture y` = 这些包的 witness 案例里，多少是真实世界产物；
-  fixture / self-built 案例只证明**流程可跑**，**不得**读成「该域可用」。
+  `[GATE] 见证证据：real x / public y / self-built z / fixture w` =
+      这些包的 witness 案例里，多少是**真实产物**（real=客户真实目标，public=公开可分发的
+      真实产物：教学靶场/CTF/公开 crackme/MIT 示例）；self-built 与 fixture 只证明
+      **流程可跑**，**不得**读成「该域可用」。
+  可用性三档口径：real 或 public → 计入「有真实产物见证」；self-built / fixture /
+      unknown → 不计入。某包既无 real 也无 public 仍判 NOT PROVEN 并点名。
 
 用法：
     python Tool/scripts/gate.py --all [--json] [--no-witness] [--require-usable]
@@ -503,6 +507,13 @@ def _evidence_kind(case):
 
     读不到了（没 case.json / 没字段 / 解析失败）= "unknown" → **按 fixture 计**。
     宁可把真样本误报成 fixture，也不要把夹具冒充成「该域真实可用」。
+
+    分档（语义唯一来源 Tool/scripts/lib/domain_spec.EVIDENCE_KINDS）：
+      real       = 客户真实目标（来源与授权可追）
+      public     = 公开可分发的**真实产物**（教学靶场 / CTF / 公开 crackme / MIT 示例）
+      self-built = 自己编译的（流程证据，不算该域可用）
+      fixture    = 合成/教学夹具（不是真实产物）
+      historical = 历史归档
     """
     if not case:
         return "unknown"
@@ -516,19 +527,34 @@ def _evidence_kind(case):
         return "unknown"
 
 
+# 「有真实产物见证」的两档：real（客户目标）+ public（公开真实产物）。
+# self-built / fixture / historical / unknown **不算** —— 它们只证明流程跑得通。
+REAL_ARTIFACT_KINDS = ("real", "public")
+
+
 def witness_cohort(packs):
-    """见证证据分类：real = 真实世界产物；其余（fixture / self-built / unknown）一律按 fixture 计。
+    """见证证据分四档计数（real / public / self-built / fixture），不是两档。
 
     为什么要这一行：`gate --all` 9/9 只说明「每个包的判据都跑通了」，**不说明 9 个域
-    都有真实生例**。fixture / self-built 案例证明的是流程可跑，**不得**读成「该域可用」。
+    都有真实产物生例**。real 与 public 都是真实可复现的产物（客户目标 / 公开靶场·CTF·
+    公开 crackme），可以背书「该域可用」；self-built / fixture 只证明流程可跑，不得背书。
+
+    返回 (cohorts, witnessed, not_witnessed)：
+      cohorts      = {"real": [...], "public": [...], "self-built": [...], "fixture": [...]}
+                     （historical / unknown 并入 fixture 桶，因为它们同属「不能背书可用」）
+      witnessed    = 有真实产物见证的包记录（real|public）
+      not_witnessed= 没有真实产物见证的包记录（self-built|fixture|unknown）
     """
-    real, fixtures = [], []
+    cohorts = {"real": [], "public": [], "self-built": [], "fixture": []}
+    witnessed, not_witnessed = [], []
     for p in packs:
         case = _witness_case(p.get("raw") or p)
         kind = _evidence_kind(case)
         rec = {"pack": p.get("id"), "case": case, "evidence_kind": kind}
-        (real if kind == "real" else fixtures).append(rec)
-    return real, fixtures
+        bucket = kind if kind in ("real", "public", "self-built") else "fixture"
+        cohorts[bucket].append(rec)
+        (witnessed if kind in REAL_ARTIFACT_KINDS else not_witnessed).append(rec)
+    return cohorts, witnessed, not_witnessed
 
 
 def main():
@@ -582,18 +608,28 @@ def main():
     npass = sum(1 for r in results if r["verdict"] == "pass")
     summary = {"packs": len(results), "pass": npass, "fail": len(results) - npass,
                "unknown_as_pass": 0}  # 结构上不可能：verdict 只有 pass/fail
-    real, fixtures = witness_cohort(selected)
-    summary["witness"] = {"real": len(real), "fixture": len(fixtures),
-                          "fixture_packs": [x["pack"] for x in fixtures]}
-    # 可用性 ≠ 结构：fixture 见证或“声称高档但账本 0 条 repro”都不足以说该域能用。
+    cohorts, witnessed, not_witnessed = witness_cohort(selected)
+    summary["witness"] = {
+        "real": len(cohorts["real"]), "public": len(cohorts["public"]),
+        "self_built": len(cohorts["self-built"]), "fixture": len(cohorts["fixture"]),
+        # 兼容旧消费方：witnessed = real+public（有真实产物见证）；其余归入 not_witnessed
+        "witnessed": len(witnessed),
+        "not_witnessed_packs": [x["pack"] for x in not_witnessed],
+        "fixture_packs": [x["pack"] for x in not_witnessed],
+    }
+    # 可用性 ≠ 结构：“无真实产物见证”或“声称高档但账本 0 条 repro”都不足以说该域能用。
+    # 三档口径：real 或 public → 计入有见证；self-built / fixture / unknown → 不计入。
     owed = [x for x in (_owed_vs_ledger(p["raw"]) for p in selected) if x]
-    usable = (not fixtures) and (not owed)
-    summary["usability"] = {"proven": usable, "fixture": len(fixtures),
+    usable = (not not_witnessed) and (not owed)
+    summary["usability"] = {"proven": usable,
+                            "witnessed": len(witnessed),
+                            "not_witnessed": len(not_witnessed),
+                            "not_witnessed_packs": [x["pack"] for x in not_witnessed],
                             "zero_repro": len(owed),
                             "zero_repro_cases": [c for c, _lv in owed]}
     if a.json:
         print(json.dumps({"schema": "seep.gate/1", "summary": summary, "results": results,
-                          "witness_cohort": {"real": real, "fixture": fixtures}},
+                          "witness_cohort": cohorts},
                          ensure_ascii=False, indent=2))
     else:
         for r in results:
@@ -611,30 +647,35 @@ def main():
                     print("        - " + why)
         # ── 诚实摘要（第 4 轮评审 P1-2）──
         # 第一行：结构判定（判据未放宽，9/9 就是 9/9）。
-        # 第二行：见证证据的真实性（real / fixture）—— 这是「能不能说该域可用」的边界。
-        # 第三行：哪些包只是夹具，点名到位，省得把 9/9 读成「九个域都能用」。
+        # 第二行：见证证据的四档计数（real / public / self-built / fixture）——
+        #         这是「能不能说该域可用」的边界：只有 real 与 public 算真实产物见证。
+        # 第三行：哪些包没有真实产物见证，点名到位，省得把 9/9 读成「九个域都能用」。
         print("[GATE] %d 个包：结构 pass %d / fail %d（unknown 记为 fail，不计 pass）"
               % (summary["packs"], summary["pass"], summary["fail"]))
-        print("[GATE] 见证证据：real %d / fixture %d（fixture 不计“该域可用”）"
-              % (len(real), len(fixtures)))
+        print("[GATE] 见证证据：real %d / public %d / self-built %d / fixture %d"
+              "（real+public 计“该域可用”；self-built 与 fixture 不计该域可用）"
+              % (len(cohorts["real"]), len(cohorts["public"]),
+                 len(cohorts["self-built"]), len(cohorts["fixture"])))
         if owed:
             print("[GATE] 交付承诺 vs 账本：%d 个案例声称的档位没有一条可重放记录（不能当“该域可用”的证据）"
                   % len(owed))
             print("[GATE]   点名：" + "、".join("%s(声称 %s / 账本 0 条 repro)" % (c, lv) for c, lv in owed))
         else:
             print("[GATE] 交付承诺 vs 账本：一致（没有“声称高档但零重放”的案例）")
-        if fixtures:
-            print("[GATE] fixture %d 个：%s" % (len(fixtures), "、".join(
+        if not_witnessed:
+            print("[GATE] 无真实产物见证 %d 个：%s" % (len(not_witnessed), "、".join(
                 "%s(%s:%s)" % (x["pack"], x["case"] or "?", x["evidence_kind"])
-                for x in fixtures)))
+                for x in not_witnessed)))
         else:
-            print("[GATE] fixture 0 个：%d 个包的见证案例都是 evidence_kind=real" % len(real))
+            print("[GATE] 无真实产物见证 0 个：%d 个包的见证案例都是 evidence_kind=real|public"
+                  % len(witnessed))
         # ── 可用性结论（与结构判定分开；结构 9/9 不等于九个域都能用）──
         if usable:
-            print("[GATE] 可用性：PROVEN（fixture 0 域 / 零重放 0 案例）")
+            print("[GATE] 可用性：PROVEN（%d 个包有真实产物见证：real %d / public %d；零重放 0 案例）"
+                  % (len(witnessed), len(cohorts["real"]), len(cohorts["public"])))
         else:
-            print("[GATE] 可用性：NOT PROVEN（fixture %d 域 / 零重放 %d 案例）"
-                  "—— 不得对外称\"该域可用\"" % (len(fixtures), len(owed)))
+            print("[GATE] 可用性：NOT PROVEN（无真实产物见证 %d 域 / 零重放 %d 案例）"
+                  "—— 不得对外称\"该域可用\"" % (len(not_witnessed), len(owed)))
     # 结构 fail 优先于可用性；结构全绿时 NOT PROVEN = 3（--require-usable 则升级为 1）。
     if summary["fail"]:
         return 1

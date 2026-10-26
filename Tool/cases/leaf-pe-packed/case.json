@@ -1,8 +1,8 @@
 {
  "id": "leaf-pe-packed",
  "domain": "reverse",
- "target_type": "PE32+ x86-64 Windows CUI（MinGW 控制台）；本夹具 = Tool/samples/real/crackerjack/a.exe 经 UPX 3.91w 压缩后的副本（53782 → 41494 字节）",
- "evidence_kind": "fixture",
+ "target_type": "PE32+ x86-64 Windows CUI（MinGW 控制台）；本样本 = 公开 MIT crackme Tool/samples/real/crackerjack/a.exe 经 UPX 3.91w 压缩后的副本（53782 → 41494 字节）",
+ "evidence_kind": "public",
  "protection": [
   "UPX 3.91w（win64/pe 标准压缩壳，非改壳）：节表只剩 UPX0/UPX1/UPX2，UPX0 RawSize=0，UPX! 魔数在文件偏移 0x205，入口由原 .text 0x1400013f0 搬到 0x140014fc0（UPX1 内），UPX1 载荷香农熵 7.638"
  ],
@@ -37,7 +37,7 @@
   "补丁与负例（3/4）：0x1e82 74 13→eb 1d（je→jmp 0x1400028a1 = lea rcx,str.PASS），patched+wrong=PASS、五输入全 PASS；负例 unpacked 未打补丁+wrong=FAIL，证明补丁是必要原因。交付 M3。"
  ],
  "tags": [
-  "fixture",
+  "public",
   "upx",
   "packed",
   "triage",
@@ -55,12 +55,17 @@
   "Tool/cases/golden-crackme/report/triage.md",
   "Tool/skill/unpack-loop/SKILL.md"
  ],
- "updated": "2026-10-24",
+ "updated": "2026-10-26",
  "target_files": [
   {
    "path": "target/a_upx.exe",
    "sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
-   "source": "仓库内既有夹具（见 case.json 的 lessons/refs）"
+   "source": "公开 MIT crackme：jmcph4/crackerjack 的 a.exe（Tool/samples/real/crackerjack/a.exe，sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30，许可证 MIT，含源码 a.c）；压缩件 target/a_upx.exe = 该文件经 UPX 3.91w --best 压缩，sha256 856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71"
   }
- ]
+ ],
+ "evidence_source": {
+  "kind": "public",
+  "source": "公开 MIT crackme：jmcph4/crackerjack 的 a.exe（Tool/samples/real/crackerjack/a.exe，sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30，许可证 MIT，含源码 a.c）；压缩件 target/a_upx.exe = 该文件经 UPX 3.91w --best 压缩，sha256 856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+  "basis": "依据：① 原件是公开 MIT crackme（Tool/samples/real/README.md 收录清单 + crackerjack/LICENSE）；② 压缩件由 **公开工具** UPX 3.91w 对公开原件做确定性变换得到，upx -d 可还原（脱壳件与原件 .text 零差异）；③ 两个 sha256 都登记在 target_files。→ 产物公开可分发且可复现，故 evidence_kind=public（原件是第三方 crackme，不是自编译，所以不是 self-built；没有客户授权单，所以不是 real）"
+ }
 }

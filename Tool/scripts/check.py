@@ -60,6 +60,8 @@ SUITES = [
      "改写同域：客户原话被安全词表改写后仍落原域（词表从 .ts 现读，不做 Python 抄本）"),
     ("read-guard",  ["Tool/scripts/test_read_guard.py"], True,
      "读守卫：个人隐私区路径拦、正常目标/案件路径放行"),
+    ("pre-upload",  ["Tool/scripts/pre-upload-check.py"], True,
+     "上传前体检：会进 git 的敏感文件 / 本机不该外带的目录 / 内容级凭据命中（只报文件:行+类型）"),
     ("tool-readiness", ["Tool/scripts/tool-readiness.py"], True,
      "六工具就绪表：探测/安装计划/自检机制可用（不要求本机 6 个都 READY）"),
     ("invariants",  ["Tool/scripts/invariants.py", "--check"], True,
@@ -139,8 +141,8 @@ def run_one(name, argv, timeout=600, allow_rc=(0,)):
         except Exception:
             pass
     # 取最后一行有信息量的输出（各脚本末行通常是「结果: x/y」或 [GATE] …）
-    # gate.py 现在会在 pass/fail 之后追加「见证证据 real/fixture」几行；摘要必须仍取
-    # 带 pass/fail 的判定行，不能取到 fixture 清单（否则 check.py 的 tail 会说假话）。
+    # gate.py 现在会在 pass/fail 之后追加「见证证据 real/public/self-built/fixture」几行；
+    # 摘要必须仍取带 pass/fail 的判定行，不能取到分档清单（否则 check.py 的 tail 会说假话）。
     lines = [l.strip() for l in out.splitlines() if l.strip()]
     tail = ""
     for l in reversed(lines):
@@ -229,18 +231,19 @@ def main():
         n, ok, tail, secs, rc, out = run_one(name, argv, allow_rc=allow)
         mark = "PASS" if ok else "FAIL"
         if ok and rc == 3:
-            fx = zr = "?"
+            nw = zr = "?"
             for ln in out.splitlines():
-                m = re.search(r"见证证据：real \d+ / fixture (\d+)", ln)
+                # 四档摘要：real / public / self-built / fixture。没见证的包 = self-built+fixture。
+                m = re.search(r"见证证据：real \d+ / public \d+ / self-built (\d+) / fixture (\d+)", ln)
                 if m:
-                    fx = m.group(1)
+                    nw = str(int(m.group(1)) + int(m.group(2)))
                 m = re.search(r"交付承诺 vs 账本：(\d+) 个案例", ln)
                 if m:
                     zr = m.group(1)
                 if "交付承诺 vs 账本：一致" in ln:
                     zr = "0"
             mark = "WARN"
-            tail = "结构通过、可用性未证明（fixture %s / 零重放 %s）" % (fx, zr)
+            tail = "结构通过、可用性未证明（无真实产物见证 %s 域 / 零重放 %s）" % (nw, zr)
             warned.append((name, tail))
         print("%s %-14s %5.1fs  %s" % (mark, name, secs, tail[:110]))
         if not ok:

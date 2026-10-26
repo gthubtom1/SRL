@@ -894,9 +894,9 @@ def check_v123_deliverables():
             continue
         k = c.get("evidence_kind")
         kinds[k] = kinds.get(k, 0) + 1
-        if k not in ("fixture", "real", "self-built", "historical"):
+        if k not in ("real", "public", "self-built", "fixture", "historical"):
             bad.append(os.path.basename(os.path.dirname(cf)) + "(kind=%r)" % k)
-    add("12 v1.23", "案例真实性三分", not bad,
+    add("12 v1.23", "案例真实性分档（real/public/self-built/fixture/historical）", not bad,
         "; ".join(bad[:4]) if bad else str(dict(sorted(kinds.items()))))
 
     try:
@@ -1542,6 +1542,27 @@ def check_deploy_bidirectional():
           顶层 AGENTS.md 改了没部署，这条检查仍绿（而模型读的是部署那份）。
         """
         bad = []
+        def _strip_host_blocks(t):
+            """去掉宿主自己追加的托管块（magpie / pi 自动生成）。
+
+            ★ 为什么：`~/.pi/agent/AGENTS.md` 尾部会被宿主写一段
+              `<!-- magpie:begin ... -->...<!-- magpie:end -->`（166 行托管内容）。
+              那是**宿主行为**，不是"我们没部署"；用整文件哈希比会永远红。
+              这里只比"去掉托管块之后我们自己写的那部分"。
+            """
+            out = []
+            skip = False
+            for ln in t.splitlines(True):
+                if "magpie:begin" in ln:
+                    skip = True
+                    continue
+                if "magpie:end" in ln:
+                    skip = False
+                    continue
+                if not skip:
+                    out.append(ln)
+            return "".join(out)
+
         for name in ("AGENTS.md", "SEEP.md"):
             src = os.path.join(TOOL, "prompts", name)
             dst = os.path.join(agent, name)
@@ -1551,7 +1572,9 @@ def check_deploy_bidirectional():
                 bad.append("未部署:" + name)
                 continue
             try:
-                if _file_sig(src) != _file_sig(dst):
+                a = _strip_host_blocks(io.open(src, encoding="utf-8", errors="replace").read())
+                b = _strip_host_blocks(io.open(dst, encoding="utf-8", errors="replace").read())
+                if a.strip() != b.strip():
                     bad.append("不一致:" + name)
             except Exception:
                 pass
@@ -2752,6 +2775,85 @@ def check_unpack_pointer():
     return fails
 
 
+def check_entry_reachable():
+    """入口可达：文件在不算数，**必须有人指得到**（否则写了也没人读）。
+
+    为什么（能力浪费实测）：`MANUAL/` 14 份里只有 3 份被 `AGENTS.md` 点到，其余 11 份是孤儿；
+    `Tool/playbooks/`、`Tool/skill/_pending/`、`Tool/scripts/compliance-relay/`、`破甲卡生成/`
+    在仓库根目录但任何顶层提示词里都找不到 —— 模型不知道它们存在，等于没有这份能力。
+
+    判据两条（都可红）：
+      1) `MANUAL/*.md` 每一份都在 `MANUAL/README.md` 里出现（手册索引不得漏登记）；
+      2) `Tool/playbooks/*.md`、`Tool/skill/_pending/*/`、`破甲卡生成/`、
+         `Tool/scripts/compliance-relay/` 至少被一个入口文件
+         （`AGENTS.md` / `SEEP.md` / `MANUAL/README.md` / `Tool/docs/**.md`）提到。
+    只登记“目录存在”算不合格：判据认的是**名字出现在入口文件的正文里**。
+    """
+    import io as _io
+
+    # --- 入口语料：模型真会读的那几份（别把整个仓库当语料，否则永远绿）---
+    entry_files = [os.path.join(TOOL, "prompts", "AGENTS.md"),
+                   os.path.join(TOOL, "prompts", "SEEP.md"),
+                   os.path.join(ROOT, "MANUAL", "README.md")]
+    entry_files += sorted(glob.glob(os.path.join(TOOL, "docs", "**", "*.md"), recursive=True))
+    present = [p for p in entry_files if os.path.isfile(p)]
+    corpus = ""
+    for p in present:
+        try:
+            corpus += "\n" + _io.open(p, encoding="utf-8", errors="replace").read()
+        except Exception:  # noqa: BLE001
+            continue
+
+    # --- 1) MANUAL 每一份都要在手册索引里 ---
+    manual_dir = os.path.join(ROOT, "MANUAL")
+    mr = os.path.join(manual_dir, "README.md")
+    manuals = sorted(f for f in os.listdir(manual_dir) if f.endswith(".md")) \
+        if os.path.isdir(manual_dir) else []
+    idx_txt = ""
+    if os.path.isfile(mr):
+        try:
+            idx_txt = _io.open(mr, encoding="utf-8", errors="replace").read()
+        except Exception:  # noqa: BLE001
+            idx_txt = ""
+    orphan_manual = [m for m in manuals if m != "README.md" and m not in idx_txt]
+    manual_ok = bool(manuals) and os.path.isfile(mr) and not orphan_manual
+    manual_detail = (
+        "缺 MANUAL/README.md（手册索引）" if not os.path.isfile(mr)
+        else ("%d 份手册未登记：%s" % (len(orphan_manual), "、".join(orphan_manual[:6]))
+              if orphan_manual else
+              "%d 份手册全部在 MANUAL/README.md 中登记" % len(manuals)))
+    add("19 入口可达", "MANUAL 手册索引无孤儿（%d 份）" % len(manuals), manual_ok, manual_detail)
+
+    # --- 2) 代码资产目录必须被至少一个入口文件提到（不看目录存在，看名字出现）---
+    targets = []
+    pb_dir = os.path.join(TOOL, "playbooks")
+    if os.path.isdir(pb_dir):
+        for p in sorted(glob.glob(os.path.join(pb_dir, "*.md"))):
+            base = os.path.basename(p)
+            if base in ("INDEX.md", "README.md"):
+                continue
+            targets.append(("Tool/playbooks/%s" % base, os.path.splitext(base)[0]))
+    pend_dir = os.path.join(TOOL, "skill", "_pending")
+    if os.path.isdir(pend_dir):
+        for d in sorted(os.listdir(pend_dir)):
+            if os.path.isdir(os.path.join(pend_dir, d)) and not d.startswith((".", "_")):
+                targets.append(("Tool/skill/_pending/%s/" % d, d))
+    for rel_root, needle in (("破甲卡生成", "破甲卡生成"),
+                             ("Tool/scripts/compliance-relay", "compliance-relay")):
+        if os.path.isdir(os.path.join(ROOT, rel_root.replace("/", os.sep))):
+            targets.append((rel_root + "/", needle))
+
+    missing = [label for label, needle in targets if needle not in corpus]
+    corpus_names = ", ".join(os.path.basename(p) for p in present[:3])
+    add("19 入口可达", "代码资产目录被入口文件点到（playbooks/_pending/compliance-relay/破甲卡生成）",
+        not missing,
+        ("%d 处无人指：%s" % (len(missing), "、".join(missing[:8])) if missing else
+         "%d 处资产均被 %s 等 %d 份入口文件点到" % (len(targets), corpus_names, len(present))))
+    if not targets:
+        add("19 入口可达", "代码资产目录清单非空", False, "没扫到任何待检资产（检查本身失效）")
+    return manual_ok and not missing
+
+
 def check_tool_identity():
     """工具身份自检：文档说"就位"的工具，必须通过行为探针（不只是文件存在）。
 
@@ -2991,6 +3093,7 @@ def main():
     check_agents_deploy()
     check_subagent_config()
     check_tool_identity()
+    check_entry_reachable()
     check_fact_drift()
     check_five_contracts()
     check_level_authority()

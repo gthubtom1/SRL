@@ -32,6 +32,12 @@ Tool/cases/
   "id": "项目A",
   "domain": "softseep",
   "target_type": "PE32+ x64",
+  "evidence_kind": "public",
+  "evidence_source": {
+    "kind": "public",
+    "source": "公开教学靶场 XXX（上游仓库 URL / 靶场名）+ 实测 sha256",
+    "basis": "为什么落这一档（哪几条事实）"
+  },
   "protection": ["self-vm", "veh-guard"],
   "authority": "server",
   "goal_level": "L2",
@@ -49,6 +55,8 @@ Tool/cases/
 | `id` | string | 案例唯一标识，默认与目录名一致 |
 | `domain` | string | 领域。当前取值（与 `domain_spec.DOMAINS` 一致，9 个客户域）：`apkseep`、`firmware-iot`、`web-pentest`、`pwn-crypto`、`protocol-plugin`、`forensics-mobile`、`malware-analysis`、`supply-chain-security`、`softseep`；新领域请先在本文档登记。旧名 `ad-cloud` / `plugin-targets` / `site-clone` / `reverse` 已迁出，案例里仍存在属历史归档 |
 | `target_type` | string | 目标形态，如 `PE32+ x64`、`PE32 x86`、`.NET/WPF`、`Java JAR` |
+| `evidence_kind` | string | **案例真实性分档**，见下方 §2.1；枚举值在 `domain_spec.EVIDENCE_KINDS` 里唯一登记 |
+| `evidence_source` | object | **public / real 必填**：`{kind, source, basis}` —— 来源（仓库/靶场/授权单）+ 判定依据（哪几条事实让它落这一档，附 sha256） |
 | `protection` | string[] | 观察到的保护层，用短横线小写：`packer`、`themida`、`self-vm`、`ed25519`、`antidebug`、`auto-updater` … |
 | `authority` | string | 授权裁决权威：`local` / `server` / `hybrid`；不确定留 `""` |
 | `goal_level` | string | 达成深度：`L1` 侦察/思路、`L2` 补丁级、`L3` 模块级（代理 DLL / keygen / 注入器）、`L4` 源码级 |
@@ -58,6 +66,26 @@ Tool/cases/
 | `tags` | string[] | 检索关键词（中英混排均可） |
 | `refs` | string[] | 相对案例目录的文档路径，按重要性排序 |
 | `updated` | string | 最后更新日期 `YYYY-MM-DD` |
+
+### 2.1 `evidence_kind` 五档语义（改档就是改事实，不许为凑“可用”改）
+
+| 档位 | 含义 | 能不能背书“该域可用” |
+|---|---|---|
+| `real` | **客户真实目标**：来源与授权可追（授权单/合同/客户交来的样本），副本按约定不入库 | ✅ 算（真实产物见证） |
+| `public` | **公开可分发的真实产物**：教学靶场（DIVA / DVCP…）、CTF、公开 crackme、MIT 示例。有真实来源 + 实测 sha256，可随仓库分发 | ✅ 算（它本身就是真实可复现的产物） |
+| `self-built` | **自己编译的**（源码可能公开，但产物是本机 gcc/msvc 出的） | ❌ 不算（只证明流程跑通） |
+| `fixture` | **合成/教学夹具**：手写 PE、造的 pcap、造的日志 —— 不是真实产物 | ❌ 不算 |
+| `historical` | 历史归档（旧案，不参与当前判定） | ❌ 不算 |
+
+`gate.py --all` 的摘要行就是按这五档数的：
+`见证证据：real N / public M / self-built K / fixture L` —— **self-built 与 fixture 不计该域可用**。
+某包既无 `real` 也无 `public` → 可用性仍判 `NOT PROVEN` 并点名。
+
+归属判据（两条都满足才能写 `public`）：① 样本本身是**公开可分发**的真实产物（靶场/CTF/公开 crackme/MIT 示例）；
+② 能在 `evidence_source` 写清**来源**（上游仓库或靶场名）与**实测 sha256**。
+**禁止**：把 `fixture` / `self-built` 改叫 `real` 或 `public` 来凑“可用”；反过来也不许把真实公开样本
+一律叫 `fixture`（那会让报告只能说什么都没证明）。
+
 
 约定：
 
@@ -69,7 +97,8 @@ Tool/cases/
 ## 3. 新增案例
 
 1. 建目录：`Tool/cases/<案例名>/`。
-2. 写 `case.json`，至少填 `id/domain/target_type/authority/goal_level/outcome/updated`。
+2. 写 `case.json`，至少填 `id/domain/target_type/evidence_kind/authority/goal_level/outcome/updated`；
+   非 fixture 案例必须带 `evidence_source`（来源 + 依据 + sha256）。
 3. 补 `README.md`（总览）与 `docs/`（方法论/算法/复盘），把路径写进 `refs`。
 4. 有产物则放 `src/`、`tools/`、`dist/`，并在 `artifacts` 登记；能算哈希就填 `sha256`。
 5. 现算索引（不落缓存文件，S2 起 `index.json` 已删）：

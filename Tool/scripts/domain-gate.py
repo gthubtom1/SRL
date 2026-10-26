@@ -8,7 +8,7 @@
     [1] 篇幅   SKILL ≤600 / ref 60–400 / KB 50–200
     [2] 必备篇 01-criteria / 02-failure-criteria / 03-model-pitfalls / 04-walkthrough-*
     [3] 脚本   ≥2 个（上限已取消），`--help` 与 `--self-test` 都必须 rc=0
-    [4] 案例   3–5 个，≥1 个 evidence_kind=real，sha256 复算，refs 不幻影
+    [4] 案例   3–5 个，≥1 个 evidence_kind=real|public，sha256 复算，refs 不幻影
     [5] KB     ≥6 篇（上限已取消），含 *failure-criteria*，README 链接到每一篇
     [6] 矩阵   rows/families ≥12
     [7] 任务卡 20–30 张，六段齐全，reference 存在
@@ -48,6 +48,7 @@ sys.path.insert(0, os.path.join(HERE, "lib"))
 
 from domain_spec import (  # noqa: E402
     CASE_FIELDS, DOMAINS, FIXTURE_WORDS, LIMITS, REQUIRED_REFS, ROUTING_TESTS,
+    fixture_words_in,
 )
 
 TEXT_EXT = {".md", ".py", ".ps1", ".sh", ".json", ".yml", ".yaml", ".txt"}
@@ -277,23 +278,27 @@ def check_cases(dom, spec):
         miss = [k for k in CASE_FIELDS if k not in c]
         if miss:
             bad.append("%s(缺 %s)" % (os.path.basename(cd), ",".join(miss)))
+        # 分档：real（客户真实目标）/ public（公开可分发的真实产物：靶场·CTF·公开 crackme·
+        #        MIT 示例）/ self-built（自己编译）/ fixture（合成夹具）/ historical（归档）。
+        # 语义唯一来源：lib/domain_spec.EVIDENCE_KINDS；promotion 只能按事实走。
         kind = c.get("evidence_kind")
-        if kind not in ("fixture", "real", "self-built", "historical"):
+        if kind not in ("fixture", "real", "public", "self-built", "historical"):
             bad.append("%s(evidence_kind=%r)" % (os.path.basename(cd), kind))
             kind = None
         tt = str(c.get("target_type") or "")
-        is_fix = any(w in tt for w in FIXTURE_WORDS)
+        # public = 公开可分发的真实产物：先剥掉「公开教学靶场/CTF/公开 crackme」来源词再判夹具字样
+        is_fix = bool(fixture_words_in(tt, kind))
         if kind == "fixture" and not is_fix:
             bad.append("%s(fixture 但 target_type 未标夹具)" % os.path.basename(cd))
-        if kind == "real" and is_fix:
-            bad.append("%s(real 却标成夹具)" % os.path.basename(cd))
-        if kind in ("real", "self-built"):
+        if kind in ("real", "public") and is_fix:
+            bad.append("%s(%s 却标成夹具)" % (os.path.basename(cd), kind))
+        if kind in ("real", "public", "self-built"):
             real += 1
             rp = c.get("repro") or {}
             if rp.get("status") == "recorded" or ("rc=" in "\n".join(c.get("lessons") or [])):
                 recorded_real += 1
-        # 单域模式也要能抓到「伪 real」：real 但既没有命令/rc、也没标 not-recorded。
-        if c.get("evidence_kind") == "real":
+        # 单域模式也要能抓到「伪 real」：real/public 但既没命令/rc、也没标 not-recorded。
+        if c.get("evidence_kind") in ("real", "public"):
             _txt = "\n".join(c.get("lessons") or [])
             _rp = c.get("repro") or {}
             _has_cmd = bool(re.search(r"rc\s*=\s*\d", _txt)) or bool(
@@ -440,7 +445,7 @@ def check_cases(dom, spec):
                 if not os.path.isfile(os.path.join(ROOT, r)):
                     bad.append("%s(refs 幻影 %s)" % (os.path.basename(cd), r[:40]))
     if real < 1:
-        bad.append("没有任何 evidence_kind=real 的案例（每域至少 1 个真跑）")
+        bad.append("没有任何 evidence_kind=real/public 的案例（每域至少 1 个真实产物见证）")
     # 验收脚本接入（域级一次跑完，不做逐案例调用）：
     # 各域 accept 的接口不统一（有的 --case 收目录名、有的收路径，且内部还有
     # 「本域至少 3-5 个案例」的聚合断言），逐案例调用会把接口差异误报成验收失败。
@@ -734,10 +739,13 @@ def check_repro_and_templates():
         kind = c.get("evidence_kind")
         txt = "\n".join(c.get("lessons") or [])
         repro = c.get("repro") or {}
-        if kind == "real":
+        # public 与 real 同一条判据（未放宽）：lessons 里必须能指到命令/rc，
+        # 否则必须是 not-recorded + reason。public 不是"免检档"。
+        if kind in ("real", "public"):
             recorded = ("rc=" in txt) or ("python " in txt) or ("命令" in txt)
             if not recorded and repro.get("status") != "not-recorded":
-                bad.append("%s(real 但无命令/rc 且未标 not-recorded)" % os.path.basename(os.path.dirname(cf)))
+                bad.append("%s(%s 但无命令/rc 且未标 not-recorded)"
+                           % (os.path.basename(os.path.dirname(cf)), kind))
             if repro.get("status") == "not-recorded" and not repro.get("reason"):
                 bad.append("%s(not-recorded 缺 reason)" % os.path.basename(os.path.dirname(cf)))
     tdir = os.path.join(ROOT, "Tool", "cases", "_templates")
@@ -873,7 +881,8 @@ def _case_errors(cd):
             else:
                 continue
             break
-    if c.get("evidence_kind") == "real":
+    # public = 公开可分发的**真实产物**，与 real 同待遇：没有命令/rc 就不许自称真产物。
+    if c.get("evidence_kind") in ("real", "public"):
         txt = "\n".join(c.get("lessons") or [])
         rp = c.get("repro") or {}
         _has_cmd = bool(re.search(r"rc\s*=\s*\d", txt)) or bool(

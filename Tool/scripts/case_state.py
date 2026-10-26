@@ -1174,7 +1174,8 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
             except (OSError, ValueError):
                 pass
         return False
-    kind = evidence_kind if evidence_kind in ("fixture", "real", "self-built", "historical") else "real"
+    kind = evidence_kind if evidence_kind in ("fixture", "real", "public",
+                                             "self-built", "historical") else "real"
     dom = str(domain or "").strip()
     meta = {
         "id": os.path.basename(d.rstrip("/\\")),
@@ -5046,7 +5047,10 @@ CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection", "au
                "goal_level", "outcome", "artifacts", "repro", "lessons", "tags", "refs",
                "updated")
 CASE_LIST_FIELDS = ("protection", "lessons", "tags", "refs")
-EVIDENCE_KIND_OK = ("fixture", "real", "self-built", "historical")
+# ├ 案例真实性四档 + 归档：real=客户真实目标 / public=公开可分发的真实产物（靶场·CTF·
+#   公开 crackme·MIT 示例）/ self-built=自己编译 / fixture=合成夹具 / historical=历史归档。
+#   语义唯一来源见 Tool/scripts/lib/domain_spec.py 的 EVIDENCE_KINDS 与 Tool/cases/README.md §2。
+EVIDENCE_KIND_OK = ("real", "public", "self-built", "fixture", "historical")
 OUTCOME_OK = ("success", "partial", "blocked", "confirmed")  # confirmed = 历史同义词（success）
 
 
@@ -5266,8 +5270,9 @@ def main():
                    help="判型结果（如 softseep / web-pentest / pwn-crypto）。缺省空串 = 未判型，"
                         "不是「默认 softseep」；判型：python Tool/scripts/route.py --resolve \"<目标名 + 任务名>\"")
     p.add_argument("--evidence-kind", dest="evidence_kind", default="real",
-                   choices=["fixture", "real", "self-built", "historical"],
-                   help="案例真实性（写进 case.json，preflight 按此分档）")
+                   choices=["real", "public", "self-built", "fixture", "historical"],
+                   help="案例真实性（real=客户目标 / public=公开真实产物 / self-built=自己编译"
+                        " / fixture=合成夹具 / historical=历史归档；preflight 按此分档）")
     p.set_defaults(func=cmd_init)
 
     p = sub.add_parser("lock", help="拿写权租约（同一会话重复 lock = 续约）")

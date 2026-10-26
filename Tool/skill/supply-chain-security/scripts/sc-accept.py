@@ -54,6 +54,18 @@ FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
           "authority", "goal_level", "outcome", "artifacts", "lessons",
           "refs", "updated")
 FIXTURE_WORDS = ("夹具", "教学", "fixture", "示例")
+# public = 公开可分发的真实产物（教学靶场 / CTF / 公开 crackme / MIT 示例）：
+# 它的 target_type **本来就该**写「公开教学靶场 XXX」。判夹具字样前先剥掉公开来源词，
+# 否则真实公开样本会被逼回 fixture（另一个方向的假话）。语义见 domain_spec.EVIDENCE_KINDS。
+PUBLIC_MARKERS = ("公开教学靶场", "公开", "靶场", "CTF", "crackme", "MIT", "github", "public")
+
+
+def _fixture_words(target_type, kind=""):
+    t = str(target_type or "")
+    if str(kind or "").strip().lower() == "public":
+        for w in PUBLIC_MARKERS:
+            t = t.replace(w, "")
+    return [w for w in FIXTURE_WORDS if w in t]
 CASE_MIN, CASE_MAX = 3, 5
 
 
@@ -127,12 +139,12 @@ def validate_case(case_dir, root):
 
     kind = case.get("evidence_kind")
     target = str(case.get("target_type") or "")
-    fixture_words = [w for w in FIXTURE_WORDS if w in target]
-    if kind not in ("fixture", "real", "self-built", "historical"):
-        errors.append("evidence_kind=%r (want fixture|real)" % kind)
+    fixture_words = _fixture_words(target, kind)
+    if kind not in ("fixture", "real", "public", "self-built", "historical"):
+        errors.append("evidence_kind=%r (want real|public|self-built|fixture|historical)" % kind)
     elif kind == "fixture" and not fixture_words:
         errors.append("fixture case target_type lacks a fixture marker")
-    elif kind in ("real", "self-built") and fixture_words:
+    elif kind in ("real", "public", "self-built") and fixture_words:
         errors.append("real case target_type contains fixture word(s): %s"
                       % ",".join(fixture_words))
 

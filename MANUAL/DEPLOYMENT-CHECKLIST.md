@@ -97,7 +97,7 @@ MCP 配置文件所在位置：
 | **K2** | **攻击网图谱 (Boards)** | `Tool/mcp/Tool/reverselab/boards/` | 多平台拓扑文件 | 信号到战术文档的拓扑路由关系 |
 | **K3** | **脱敏实战案例库** | `Tool/cases/` | **14 个项目工程**（项目 A ~ N，含 `_archive/` 归档）+ 2 个复刻演练（site-clone01–03 / drill01） | 覆盖单进程、多进程、VM、.NET算号、RSA、Java/install4j 双层鉴权、.NET VM 混淆加固等架构 |
 | **K4** | **上游开源完整镜像** | `Tool/upstream/` | **3 大开源项目** | `apk-reverse`、`open-tgtylab`、`open-reverselab` 完整单测与镜像 |
-| **K5** | **MANUAL 专项手册** | `MANUAL/` | **14 份核心手册** | `DEPLOYMENT` (部署)、`DEPLOYMENT-CHECKLIST` (基准清单)、`CROSS-PLATFORM` (跨平台)、`COMPLIANCE-RELAY` (合规中继与防拒)、`ANTI-DEBUG` (反调试)、`UNPACKING` (脱壳)、`POC-VALIDATION` (PoC自愈)、`IDA-PRO` (IDA接入) |
+| **K5** | **MANUAL 专项手册** | `MANUAL/` | **15 份**（14 份手册 + 1 份索引） | 全量清单与「什么时候读」见 [`MANUAL/README.md`](README.md)；核心仍是 `DEPLOYMENT` (部署)、`DEPLOYMENT-CHECKLIST` (基准清单)、`CROSS-PLATFORM` (跨平台)、`COMPLIANCE-RELAY` (合规中继与防拒)、`ANTI-DEBUG` (反调试)、`UNPACKING` (脱壳)、`POC-VALIDATION` (PoC自愈)、`IDA-PRO` (IDA接入) |
 
 ---
 

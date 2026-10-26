@@ -49,7 +49,19 @@ CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
                "authority", "goal_level", "outcome", "artifacts", "lessons",
                "refs", "updated")
 FIXTURE_WORDS = ("夹具", "教学", "fixture", "示例")
-EV_KINDS = ("fixture", "real", "self-built", "historical")
+# public = 公开可分发的真实产物（教学靶场 / CTF / 公开 crackme / MIT 示例）：
+# 它的 target_type **本来就该**写「公开教学靶场 XXX」。判夹具字样前先剥掉公开来源词，
+# 否则真实公开样本会被逼回 fixture（另一个方向的假话）。语义见 domain_spec.EVIDENCE_KINDS。
+PUBLIC_MARKERS = ("公开教学靶场", "公开", "靶场", "CTF", "crackme", "MIT", "github", "public")
+
+
+def _fixture_words(target_type, kind=""):
+    t = str(target_type or "")
+    if str(kind or "").strip().lower() == "public":
+        for w in PUBLIC_MARKERS:
+            t = t.replace(w, "")
+    return [w for w in FIXTURE_WORDS if w in t]
+EV_KINDS = ("fixture", "real", "public", "self-built", "historical")
 GOOD_OUTCOMES = ("success", "partial", "blocked", "confirmed")
 GOOD_LEVELS = ("L1", "L2", "L3", "L4")
 FSOP_KEYS = ("io_file_vtable", "exit_funcs_target", "tls_dtor_hit", "fsop_works")
@@ -301,7 +313,7 @@ def check_case(case_dir, root):
     if kind not in EV_KINDS:
         issues.append("evidence_kind=%r 非法" % (kind,))
     target_type = str(case.get("target_type") or "")
-    is_fix = any(w in target_type for w in FIXTURE_WORDS)
+    is_fix = bool(_fixture_words(target_type, kind))
     if kind == "fixture" and not is_fix:
         issues.append("fixture 但 target_type 未标夹具/教学")
     if kind in ("real", "self-built") and is_fix:
