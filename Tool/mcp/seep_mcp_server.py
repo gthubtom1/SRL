@@ -2086,6 +2086,222 @@ def seep_packer_detect(binary_path: str) -> str:
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
+# ---------------------------------------------------------------------------
+# 凭据脱敏基础设施（REQUIREMENTS.md 三 · PM-SPEC.md §6：凭据不落盘、不进输出、不进日志）
+#
+# ★ 脱敏策略（可机检，明确写死，不是"看着像就放过"）：
+#   P1 键名黑名单（`_CRED_KEY_RE`，大小写不敏感正则）+ 显式元数据白名单（`_CRED_META_KEYS`）。
+#      凡进入"输出/落盘"的字典，键名命中黑名单 → 其值整段替换为 `[REDACTED]`；
+#      白名单只放"凭据元数据/人读说明"（如 cookies_redacted、cookie_counts、header_keys），
+#      它们的值只能是布尔/计数/键名列表/固定文案，永远不含凭据值。
+#   P2 值断言（`_assert_redacted`）：把本次已知的真实凭据值（cookie 值、敏感头值，
+#      含 URL 编码变体）当子串扫描序列化后的载荷，以及递归校验 P1：
+#      "键名命中黑名单" ⇒ "每个叶子值必须恰好是 [REDACTED]"。任一不满足 → 抛
+#      `RedactionFailure`（**绝不 try/except 吞掉**，整个调用失败）。
+#   P3 落盘白名单（`_http_session_snapshot`）：session_file 只接受显式字段
+#      （schema/时间/方法/URL/状态码/头部"键名"/条数），入参里根本没有 header 值、cookie 值。
+# 三层互为兜底：P3 让凭据进不了落盘载荷，P1 兜住新增字段，P2 兜住 P1/P3 的漏项与编码变体。
+REDACTED = "[REDACTED]"
+
+# 命中即视为凭据的键名（Cookie / Set-Cookie / Authorization / X-Api-Key / Token / 会话…）
+_CRED_KEY_RE = re.compile(
+    r"cookie|authorization|auth|api[-_]?key|apikey|access[-_]?key|private[-_]?key|key|token|"
+    r"secret|passw|passwd|pwd|session|jwt|bearer|credential|signature|ticket|nonce|csrf|xsrf|sid",
+    re.IGNORECASE)
+
+# 白名单：凭据"元数据"与人读说明字段（不含凭据值，仍要过 P2 的值扫描）
+_CRED_META_KEYS = {
+    "cookies_redacted", "cookie_counts", "cookie_count", "set_cookie_names",
+    "header_keys", "request_header_keys", "response_header_keys", "session",
+}
+
+_HTTP_SESSION_SCHEMA = "seep.http-session/2"   # v1 = 旧版裸 cookie 字典，已废弃（凭据不落盘）
+
+
+class RedactionFailure(RuntimeError):
+    """脱敏失败：宁可让调用失败，也不把凭据泄漏到输出/磁盘。"""
+
+
+def _http_iso_now() -> str:
+    import time
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _redact_map(mapping, secrets=()) -> dict:
+    """P1：键名命中黑名单 → 值换 [REDACTED]；非敏感键保留原值，但会把已知凭据值清掉。"""
+    if not isinstance(mapping, dict):
+        raise RedactionFailure("期望 dict 才能脱敏，实际 %s" % type(mapping).__name__)
+    out = {}
+    for key, val in mapping.items():
+        name = str(key)
+        if _CRED_KEY_RE.search(name):
+            out[name] = REDACTED
+        elif isinstance(val, (str, int, float, bool)) or val is None:
+            out[name] = _scrub_text(val, secrets) if isinstance(val, str) else val
+        else:
+            out[name] = _scrub_text(str(val), secrets)
+    return out
+
+
+def _redact_cookie_map(cookie_map) -> dict:
+    """cookie 名→值：**值无条件**替换为 [REDACTED]。
+
+    为什么不看键名：cookie 名可以任意命名（sid/uid/token/foo 都可能），
+    按黑名单判断会漏 → 这里用"全量替换"的硬白名单（只保留键名）。
+    """
+    if not isinstance(cookie_map, dict):
+        raise RedactionFailure("期望 dict 才能脱敏，实际 %s" % type(cookie_map).__name__)
+    return {str(k): REDACTED for k in cookie_map}
+
+
+def _redact_url(url: str, secrets=()) -> str:
+    """URL 里的凭据也要脱：userinfo（user:pass@）与敏感 query 参数值，再清洗已知凭据值。"""
+    from urllib.parse import urlsplit, urlunsplit, parse_qsl, quote
+    try:
+        sp = urlsplit(str(url))
+    except Exception as exc:  # 解析不了 → 无法保证脱敏 → 让调用失败（不静默放行）
+        raise RedactionFailure("URL 无法解析，无法保证不泄漏: %s" % type(exc).__name__)
+    netloc = sp.netloc
+    if "@" in netloc:
+        netloc = REDACTED + "@" + netloc.rsplit("@", 1)[1]
+    pairs = []
+    for k, v in parse_qsl(sp.query, keep_blank_values=True):
+        if _CRED_KEY_RE.search(k):
+            pairs.append(quote(str(k), safe="") + "=" + REDACTED)   # 敏感参数：值整段替换
+        else:
+            pairs.append(quote(str(k), safe="") + "=" + quote(_scrub_text(v, secrets), safe=""))
+    return urlunsplit((sp.scheme, netloc, sp.path, "&".join(pairs), sp.fragment))
+
+
+def _secret_variants(value: str) -> list:
+    """真实凭据值的编码变体（原文 / URL 编码 / 反转义），用于 P2 子串扫描与正文预清洗。"""
+    from urllib.parse import quote, unquote
+    raw = str(value)
+    out = {raw, quote(raw, safe=""), unquote(raw)}
+    return [s for s in out if len(s) >= 4]
+
+
+def _known_secrets(cookie_maps=(), header_maps=(), url: str = "") -> list:
+    """收集本次已知的真实凭据值。
+
+    cookie_maps：cookie 名→值（cookie 名可能不含敏感词，所以**所有值**都算凭据）；
+    header_maps：头名→值（只收命中 `_CRED_KEY_RE` 的头值，如 Set-Cookie/Authorization）；
+    url：URL 里的 userinfo 密码与敏感 query 参数值（?token=/&session= 也是凭据）。
+    """
+    found = []
+    for ck_map in cookie_maps:
+        if not isinstance(ck_map, dict):
+            continue
+        for val in ck_map.values():
+            if isinstance(val, (str, int, float)):
+                found.extend(_secret_variants(val) if isinstance(val, str) else [])
+    for hdr_map in header_maps:
+        if not isinstance(hdr_map, dict):
+            continue
+        for key, val in hdr_map.items():
+            if not _CRED_KEY_RE.search(str(key)):
+                continue
+            if isinstance(val, (str, int, float)):
+                found.extend(_secret_variants(val) if isinstance(val, str) else [])
+    for val in _url_secrets(url):
+        found.extend(_secret_variants(val))
+    return sorted(set(found), key=len, reverse=True)
+
+
+def _url_secrets(url: str) -> list:
+    """从 URL 里取出凭据类片段（userinfo 密码 / 敏感 query 值），用于清洗与断言。"""
+    from urllib.parse import urlsplit, parse_qsl
+    try:
+        sp = urlsplit(str(url))
+    except Exception:
+        return []           # 解析不了一律靠 _redact_url 报错，不在错误路径二次抛异常
+    out = []
+    if "@" in sp.netloc:
+        userinfo = sp.netloc.rsplit("@", 1)[0]
+        if ":" in userinfo:
+            out.append(userinfo.split(":", 1)[1])
+    for k, v in parse_qsl(sp.query, keep_blank_values=True):
+        if v and _CRED_KEY_RE.search(str(k)):
+            out.append(v)
+    return [s for s in out if s]
+
+
+def _scrub_text(text: str, secrets) -> str:
+    """把已知凭据值从自由文本（如 body_preview）里替换掉。"""
+    if not isinstance(text, str):
+        raise RedactionFailure("期望 str 才能清洗，实际 %s" % type(text).__name__)
+    for s in secrets:
+        if s in text:
+            text = text.replace(s, REDACTED)
+    return text
+
+
+def _assert_redacted(payload, secrets, where: str) -> None:
+    """P2 断言：P1 递归校验 + 已知凭据值子串扫描；不通过 → RedactionFailure。"""
+    def walk(node, path):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                name = str(k)
+                sub = f"{path}.{name}"
+                if name.lower() in _CRED_META_KEYS:
+                    # 元数据（计数/键名列表/固定文案）：跳过 P1 键名检查；若被塞进嵌套 dict，仍递归查 P1。
+                    # 它们的字符串叶子里的凭据值由下面的全局值扫描兜住。
+                    if isinstance(v, dict):
+                        walk(v, sub)
+                    continue
+                if _CRED_KEY_RE.search(name):
+                    leaves = []
+                    def collect(n):
+                        if isinstance(n, dict):
+                            for vv in n.values():
+                                collect(vv)
+                        elif isinstance(n, (list, tuple)):
+                            for vv in n:
+                                collect(vv)
+                        else:
+                            leaves.append(n)
+                    collect(v)
+                    if not leaves:
+                        continue
+                    if any(leaf != REDACTED for leaf in leaves):
+                        raise RedactionFailure(f"{where}: 敏感键 {sub} 的值未脱敏")
+                    continue
+                walk(v, sub)
+        elif isinstance(node, (list, tuple)):
+            for i, v in enumerate(node):
+                walk(v, f"{path}[{i}]")
+
+    walk(payload, "$")
+    text = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
+    hits = [s for s in secrets if s in text]
+    if hits:
+        raise RedactionFailure(f"{where}: 载荷里仍出现 {len(hits)} 个已知凭据值（值本身不打印）")
+
+
+def _http_session_snapshot(method, url, status, req_headers, resp_headers, set_cookie_names,
+                           body_len, secrets=()) -> dict:
+    """P3 落盘白名单：只产出非凭据字段；函数签名里没有 cookie 值/头值的位置。"""
+    return {
+        "schema": _HTTP_SESSION_SCHEMA,
+        "at": _http_iso_now(),
+        "cookies_redacted": True,
+        "last_request": {
+            "method": method,
+            "url": _redact_url(url, secrets),
+            "status": status,
+            "header_keys": sorted(str(k) for k in (req_headers or {})),
+            "body_len": body_len,
+        },
+        "last_response": {
+            "header_keys": sorted(str(k) for k in (resp_headers or {})),
+            "set_cookie_names": sorted(str(n) for n in (set_cookie_names or [])),
+        },
+        "note": ("本文件只存非凭据会话快照（时间/方法/URL/头名/状态码）；"
+                 "Cookie、Authorization、X-Api-Key 等值一律不落盘。"
+                 "会话保持请在同一次调用里传 cookies（内存），不要指望从磁盘读回凭据。"),
+    }
+
+
 @server.tool()
 def seep_http_replay(
     url: str,
@@ -2100,8 +2316,10 @@ def seep_http_replay(
     """协议请求构造与重放（最强的协议层能力）：TLS 指纹伪装 + Cookie 会话管理 + 任意方法/头/体。
 
     为什么用它：普通 requests 的 TLS 指纹会被反爬/风控识别。本工具优先用 curl_cffi
-    伪装 Chrome/Safari/Edge 的 TLS 指纹（绕过基础反爬），并支持把 Cookie 存到 session_file
-    实现"登录态保持 / token 复用"——这正是协议签到、接口重放、回包验证的核心。
+    伪装 Chrome/Safari/Edge 的 TLS 指纹（绕过基础反爬），并支持 `session_file` 会话快照。
+    ★ 凭据不落盘 / 不进输出（REQUIREMENTS.md 三 · PM-SPEC.md §6）：`session_file` 只写
+      时间/方法/URL/头名/状态码这类非凭据信息；回包里的 cookie 值一律 `[REDACTED]`
+      （保留键名与条数 + `cookies_redacted: true`）。会话保持靠本次调用的内存 cookie 参数。
 
     若本机无 curl_cffi，自动降级到 requests（仍可用，只是 TLS 指纹不伪装）。
 
@@ -2112,7 +2330,9 @@ def seep_http_replay(
         cookies: JSON 字符串，如 '{"session":"abc"}'
         body: 请求体（POST/PUT 时用；JSON 直接传字符串，或表单串）
         impersonate: TLS 指纹伪装目标 chrome/safari/edge/ff（仅 curl_cffi 生效）
-        session_file: 若给出，则把本次响应的 Cookie 合并保存到该文件，下次自动带上（会话保持）
+        session_file: 若给出，则写入**非凭据**会话快照（时间/方法/URL/头名/状态码）；
+            Cookie、Authorization 等凭据**永不落盘**（REQUIREMENTS.md 三 · PM-SPEC.md §6）。
+            会话保持请在同一次调用里传 cookies（内存），不要从磁盘读回凭据。
         timeout: 超时秒数
     """
     method = method.upper()
@@ -2125,17 +2345,24 @@ def seep_http_replay(
     except Exception as exc:
         return f"[ERROR]: cookies 不是合法 JSON: {exc}"
 
-    # 会话 Cookie 合并
+    # 会话快照：v2 只含非凭据信息；v1（旧版裸 cookie 字典）只在内存里兼容读入，**绝不回写**
+    session_read_note = ""
     if session_file and os.path.isfile(session_file):
         try:
             with open(session_file, "r", encoding="utf-8") as f:
                 saved = json.load(f)
-            if isinstance(saved, dict):
-                merged = dict(saved)
+        except (OSError, ValueError) as exc:
+            saved = None
+            session_read_note = f"会话快照读取失败(已忽略，不影响本次请求): {type(exc).__name__}"
+        if isinstance(saved, dict) and saved.get("schema") != _HTTP_SESSION_SCHEMA:
+            # 旧版文件：只在内存里用，凭据不回写（不落盘、不回显）
+            legacy_ck = {str(k): v for k, v in saved.items() if isinstance(v, str)}
+            if legacy_ck:
+                merged = dict(legacy_ck)
                 merged.update(ck)
                 ck = merged
-        except Exception:
-            pass
+                session_read_note = (f"旧版会话文件中的 {len(legacy_ck)} 个 cookie 仅本次内存使用；"
+                                     "新版快照不再落盘凭据")
 
     backend = ""
     resp_status = None
@@ -2177,34 +2404,54 @@ def seep_http_replay(
             except Exception:
                 set_cookies = {}
         except Exception as exc_req:
-            return (f"[ERROR]: 请求失败。curl_cffi: {type(exc_cffi).__name__}: {exc_cffi} | "
-                    f"requests: {type(exc_req).__name__}: {exc_req}")
+            msg = (f"[ERROR]: 请求失败。curl_cffi: {type(exc_cffi).__name__}: {exc_cffi} | "
+                   f"requests: {type(exc_req).__name__}: {exc_req}")
+            # 异常文案常带 URL/头值（库里会把请求信息拼进异常），同样脱敏后才回给模型
+            return _scrub_text(msg, _known_secrets([ck], [hdr], url))
 
-    # 保存会话 Cookie
+    # 本次已知的真实凭据值：只在内存里流转，用来「清洗 + 断言」，绝不进载荷
+    secrets = _known_secrets([ck, set_cookies], [hdr, resp_headers], url)
+
+    # 写会话快照：只写非凭据字段（P3 白名单）
     saved_note = ""
     if session_file:
         try:
-            all_ck = dict(ck)
-            all_ck.update(set_cookies)
+            snapshot = _http_session_snapshot(method, url, resp_status, hdr, resp_headers,
+                                              list(set_cookies), len(body), secrets)
+            blob = json.dumps(snapshot, ensure_ascii=False, indent=2)
+            # P2：先断言再落盘（顺序不能反）；不通过就抛，绝不写盘
+            _assert_redacted(snapshot, secrets, "session_file")
             with open(session_file, "w", encoding="utf-8") as f:
-                json.dump(all_ck, f, ensure_ascii=False, indent=2)
-            saved_note = f"cookie 已保存到 {session_file}（{len(all_ck)} 个）"
-        except Exception as exc:
-            saved_note = f"cookie 保存失败: {exc}"
+                f.write(blob)
+                f.write("\n")
+            saved_note = (f"非凭据会话快照已写入 {session_file}"
+                          f"（cookie {len(ck)} 个 / set-cookie 名 {len(set_cookies)} 个已脱敏，值不落盘）")
+        except RedactionFailure:
+            raise                      # 脱敏失败必须让调用失败（不得降级成提示）
+        except OSError as exc:
+            saved_note = f"会话快照写入失败(非凭据，不影响本次响应): {type(exc).__name__}: {exc}"
 
+    # 输出：所有凭据值 → [REDACTED]（保留键名与条数，便于判断有没有登录态）
+    body_preview = _scrub_text(resp_text[:2000], secrets)
     out = {
         "backend": backend,
-        "request": {"method": method, "url": url,
-                    "headers": hdr, "cookies": ck,
+        "request": {"method": method, "url": _redact_url(url, secrets),
+                    "headers": _redact_map(hdr, secrets),
+                    "cookies": _redact_cookie_map(ck),
                     "body_len": len(body)},
         "status": resp_status,
-        "response_headers": resp_headers,
-        "set_cookies": set_cookies,
-        "body_preview": resp_text[:2000],
+        "response_headers": _redact_map(resp_headers, secrets),
+        "set_cookies": _redact_cookie_map(set_cookies),
+        "cookies_redacted": True,
+        "cookie_counts": {"request": len(ck), "response_set": len(set_cookies)},
+        "body_preview": body_preview,
         "body_len": len(resp_text),
     }
-    if saved_note:
-        out["session"] = saved_note
+    notes = [n for n in (session_read_note, saved_note) if n]
+    if notes:
+        out["session"] = "；".join(notes)
+    # P2：出厂前再断言一次（这一行是“凭据不进输出”的机检闸门）
+    _assert_redacted(out, secrets, "http_replay_output")
     return json.dumps(out, indent=2, ensure_ascii=False)
 
 

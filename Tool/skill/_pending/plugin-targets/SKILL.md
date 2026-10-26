@@ -193,7 +193,7 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target
 
 ## 10. 任务卡入口
 
-- `Tool/prompts/domains/plugin-targets.md`（24 张，源技能名取自 `Tool/config/taskcard-sources.json`，均为最近邻，卡名标「借」）。
+- `Tool/prompts/domains/_archived/plugin-targets.md`（24 张，源技能名取自 `Tool/config/taskcard-sources.json`，均为最近邻，卡名标「借」）。
 - 推荐顺序：01/02/03（浏览器）→ 04/22（Electron）→ 15/14（Unity）→ 17/10（IDE/签名）→ 09/23（native/持久化）→ 20（综合）。
 
 ## 11. KB board 入口

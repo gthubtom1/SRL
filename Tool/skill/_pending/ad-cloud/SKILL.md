@@ -198,7 +198,7 @@ python Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py --self-test
 
 ## 9. 任务卡入口
 
-`Tool/prompts/domains/ad-cloud.md`：28 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
+`Tool/prompts/domains/_archived/ad-cloud.md`：28 张卡，覆盖 BloodHound、ACL、ESC1/ESC8、强制认证、
 DCSync 检测、持久化边界、AWS/GCP/Azure/Okta、K8s RBAC/逃逸/etcd/kube-bench、
 横向移动路径选择、公网 445/389/88 只读外部视角、容器逃逸与集群控制面、边缘接入面与身份云。
 每张卡含触发词/前置/步骤/判据/失败判据/reference；其中 13 张是“命令 → 期望 rc=0 → 期望字段”的剧本卡。

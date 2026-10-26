@@ -77,6 +77,8 @@
       ① intake → 0a：还没产物可查；
       ② 回退（T 不晚于 S）：回退不是进阶，不产生新的「未挣到的阶段」；
       ③ 复位/复核（T 在 stage_history 里到达过）：当时已过闸，重走只算复核。
+    另（P0-3b）：进阶段 1 及以后必须先有 scope.md 且「授权来源」命中本人自有 / 书面授权 /
+    公开靶场 / 开源 之一；该条**不受**豁免③影响（复位也不能绕过授权事实的机检）。
     --force 允许跳过，但必须配 --reason "..."（缺 reason → rc=2）；
     state.stage_history 里记 forced:true + reason + skipped（跳掉的阶段）。
 
@@ -1657,6 +1659,46 @@ def _stage_problems(case, stage, st):
     return probs
 
 
+SCOPE_AUTH_VALUES = ("本人自有", "书面授权", "公开靶场", "开源")
+
+
+def _scope_problems(case):
+    """scope.md 的「授权来源」必须被**记录**成四选一（P0-3b）。
+
+    这条只机检「授权事实有没有落纸」，不裁决授权本身（「默认受权直接开工」是产品决定，
+    不在这里改动）。返回 [] = 已记录；否则返回一条带可复制修法的未过项。
+    """
+    d = os.path.abspath(case)
+    p = os.path.join(d, "scope.md")
+    fix = ("先填 scope.md 的授权来源（四个之一：本人自有 / 书面授权 / 公开靶场 / 开源）"
+           " + 目标：%s" % p)
+    if not os.path.isfile(p):
+        return ["范围契约 scope.md 不存在（进阶段 1 及以后前必须先写）\n     " + fix]
+    try:
+        raw = open(p, encoding="utf-8", errors="replace").read()
+    except OSError as e:
+        return ["scope.md 读不出来：%s\n     %s" % (e, fix)]
+    line = ""
+    for ln in raw.splitlines():
+        if "授权来源" in ln:
+            line = ln.strip()
+            break
+    if not line:
+        return ["scope.md 里找不到「授权来源」一行\n     " + fix]
+    m = re.search(r"授权来源\s*[:：]\s*(.*)$", line)
+    val = m.group(1).strip() if m else ""
+    if not val:
+        return ["scope.md 的「授权来源」为空（模板没填）\n     " + fix]
+    hits = [v for v in SCOPE_AUTH_VALUES if v in val]
+    if "选一" in val or len(hits) > 1:
+        return ["scope.md 的「授权来源」还是模板原样（%s），没改成四选一之一\n     %s"
+                % (val[:60], fix)]
+    if len(hits) != 1:
+        return ["scope.md 的「授权来源」=「%s」不在四个之一"
+                "（本人自有 / 书面授权 / 公开靶场 / 开源）\n     %s" % (val[:60], fix)]
+    return []
+
+
 # ---------------------------------------------------------------- 进阶闸（P2-4 缝1）
 # 血案：p2-replay 自己照实写过「唯一的缝」—— `stage --set` 不校验产物，
 # 直接 `stage --set 4` 就能在磁盘上留下一个没有任何产物支撑的假阶段号，
@@ -1694,19 +1736,25 @@ def _advance_problems(case, cur, target, st):
       ③ 复位/复核（target 在 stage_history 里到达过）：当时已过闸，重走只算复核
          —— p2-replay 负例后的 `--set 4` 复位就走这条。
     除豁免外，判据与 `gate --stage` 完全同一套（_stage_problems），不另开一套宽松口径。
+
+    ★ P0-3b：scope.md 的授权来源是进入阶段 1 及以后的**前置条件**，不受豁免③影响 ——
+    豁免只免「产物闸重查」，不免「授权事实有没有被记录」；否则复位就成了绕过 scope 的缝。
     """
     ci, ti = _stage_index(cur), _stage_index(target)
     if ci < 0 or ti < 0 or ti <= ci:
         return []
     if (cur, target) in STAGE_EXEMPT:
         return []
-    if ti <= _max_stage_reached(st):
-        return []
     out = []
-    for stage in STAGES[ci:ti]:
-        probs = _stage_problems(case, stage, st)
-        if probs:
-            out.append((stage, probs))
+    if ti >= _stage_index("1"):
+        scope = _scope_problems(case)
+        if scope:
+            out.append(("1", scope))
+    if ti > _max_stage_reached(st):
+        for stage in STAGES[ci:ti]:
+            probs = _stage_problems(case, stage, st)
+            if probs:
+                out.append((stage, probs))
     return out
 
 
@@ -1829,12 +1877,16 @@ def _stage_gate(a):
         cur = "intake"
     probs = []
 
-    # ① 阶段不一致：不许跳阶（跳阶=没登记就往下走）
+    # ① 授权范围契约（P0-3b）：进阶段 1 及以后，scope.md 必须记了授权来源（四选一）
+    if _stage_index(stage) >= _stage_index("1"):
+        probs.extend(_scope_problems(a.case))
+
+    # ② 阶段不一致：不许跳阶（跳阶=没登记就往下走）
     if cur != stage:
         probs.append("阶段不一致：state.stage=%s ≠ --stage %s\n"
                      "     先登记：%s" % (cur, stage, _cs_cmd(a.case, "stage", "--set " + stage)))
 
-    # ② 等人回执未 ack：动手阶段（1–4）一律红
+    # ③ 等人回执未 ack：动手阶段（1–4）一律红
     aw = st.get("awaiting_human") or {}
     if aw and not str(aw.get("ack") or "").strip() and stage in STAGE_ACK_REQUIRED:
         opts = list((aw.get("options") or {}).keys())
@@ -1843,7 +1895,7 @@ def _stage_gate(a):
                      % (aw.get("card") or "?",
                         _cs_cmd(a.case, "ack", "--ack " + (opts[0] if opts else "<字母>"))))
 
-    # ③ 产物内容判据（阶段 1 是二选一：凭据类 login.json / 运行类 run.json）
+    # ④ 产物内容判据（阶段 1 是二选一：凭据类 login.json / 运行类 run.json）
     arts = STAGE_ARTIFACTS.get(stage, [])
     mode = mode_rel = None
     mode_notes = []
@@ -2032,6 +2084,17 @@ def cmd_gate(a):
     if a.strict and pend:
         bad.append("仍有 hypothesis 未处理：" + "、".join(pend))
 
+    # ★ P0-3b：范围契约不是「生成完就算」。阶段 1 及以后必须已记录授权来源；
+    #   阶段 0/0a 只提示（否则建案就红），但把「进阶段 1 前必填」摆在输出里。
+    cur_stage = str(st.get("stage") or "intake")
+    if _stage_index(cur_stage) >= _stage_index("1"):
+        bad.extend(_scope_problems(a.case))
+    else:
+        _sp = _scope_problems(a.case)
+        if _sp:
+            warn.append("scope.md 授权来源未就绪（阶段 0 不阻断，进阶段 1 前必须填）："
+                        + _sp[0].splitlines()[0])
+
     if warn:
         print("[WARN] 不阻断的提醒：")
         for w in warn:
@@ -2064,6 +2127,15 @@ def cmd_gate(a):
 
 
 RANK = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
+# 客户语言：对外只说这三句（PM-SPEC §7），内部 M/L/T 代号只在账本/调试输出里出现。
+LEVEL_CUSTOMER = {
+    "M1": "只能看懂结构", "M2": "能改到能用",
+    "M3": "能完全自己接管", "M4": "能完全自己接管",
+    # 历史词表（旧案账本里可能残留）也只是查表展示，不把代号写给客户
+    "L1": "只能看懂结构", "L2": "能改到能用", "L3": "能完全自己接管",
+    "T1": "只能看懂结构", "T2": "能改到能用",
+    "T3": "能完全自己接管", "T4": "能完全自己接管",
+}
 
 
 def _repro_records(case):
@@ -2108,6 +2180,26 @@ def _is_complete_e3(rec):
         and runs >= 2 and isinstance(digests, list) and len(digests) == runs
 
 
+def _is_complete_repro(rec):
+    """「能改到能用」（M2）的结构判据（P0-4b）：至少一条真跑过两次且一致的复现记录。
+
+    只认结构化账本行，不认报告/对话里的自述：kind=repro、cmd 非空、expect 非空、
+    runs>=2、digests 条数 == runs、consistent==true。
+    """
+    if not isinstance(rec, dict) or _entry_kind(rec) != "repro":
+        return False
+    cmd = str(rec.get("cmd") or "").strip()
+    expect = str(rec.get("expect") or "").strip()
+    try:
+        runs = int(rec.get("runs") or 0)
+    except (TypeError, ValueError):
+        return False
+    digests = rec.get("digests")
+    return bool(cmd) and bool(expect) and runs >= 2 \
+        and isinstance(digests, list) and len(digests) == runs \
+        and rec.get("consistent") is True
+
+
 def cmd_deliver(a):
     """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。"""
     lease_guard(a.case)
@@ -2135,6 +2227,24 @@ def cmd_deliver(a):
                 "（必须带 --case 与 --id 才会落账本；两路命令相同会被拒升 E3），"
                 "之后用 show 确认账本里出现 grade=E3 的 repro 行；"
                 "撑不到 E3 就交付 M2 并写明天花板" % (a.level, len(recs), os.path.abspath(a.case)))
+    # P0-4b：「能改到能用」（M2）不是「文件改动了」就算 —— 至少一条结构化 repro（真跑两次且一致）
+    if a.level == "M2":
+        recs = _repro_records(a.case)
+        good = [r for r in recs if _is_complete_repro(r)]
+        if not good:
+            cdir = os.path.abspath(a.case)
+            die("交付 M2（客户话：能改到能用）必须至少有 1 条**结构完整**的复现记录；"
+                "账本里现有 repro 记录 %d 条，其中 0 条达标。\n"
+                "判据（缺一不可）：kind=repro / cmd 非空 / expect 非空 / runs>=2 / "
+                "digests 条数==runs / consistent==true（报告或对话里写「跑过了」不算）。\n"
+                "出路①（补证据，推荐）：\n"
+                "  python Tool/scripts/case_state.py repro --case %s --id E-001 "
+                "--cmd \"<能复现的命令>\" --expect \"<必须出现的片段>\" --runs 2\n"
+                "  输出里应出现「一致=True」且写入账本；然后重跑本命令。\n"
+                "出路②（不补证据就降档，只交结构理解）：\n"
+                "  python Tool/scripts/case_state.py deliver --case %s --level M1 "
+                "--evidence \"<截图/日志>\"（客户话：只能看懂结构）"
+                % (len(recs), cdir, cdir))
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
@@ -2419,7 +2529,12 @@ def cmd_block(a):
         print("[ERR] 未知 BLK 码：%s（用 block --list 看全部）" % a.code)
         return 2
     x = hit[0]
-    print("【卡在哪】%s %s" % (x["code"], x["customer"]))
+    # P0-4：五段是**给客户看的正文**，不带内部代号；码写 stderr + 账本（st.blocker）。
+    try:
+        sys.stderr.write("[block] 内部码 %s（只记账，不进客户正文）\n" % x["code"])
+    except Exception:  # noqa: BLE001
+        pass
+    print("【卡在哪一层】%s（%s）" % (x["name"], x["customer"]))
     print("【我看到什么】%s" % (a.detail or "（填现象，带证据 ID）"))
     print("【为什么】%s" % (a.why or "（一句白话原因）"))
     print("【已经拿到什么】%s" % (a.got or "（当前到哪一级 + 哪几条结论成立）"))
@@ -2429,7 +2544,8 @@ def cmd_block(a):
     if a.case:
         try:
             st = load_state(a.case)
-            st["next_action"] = "%s：%s" % (x["code"], x["customer"])
+            # next_action 会被 resume/handoff 原样展示给客户，所以只放客户话；码进 blocker 字段。
+            st["next_action"] = "%s：%s" % (x["customer"], x["name"])
             st["blocker"] = x["code"]
             save_state(a.case, st)
         except Exception:  # noqa: BLE001
@@ -2505,6 +2621,18 @@ def cmd_repro(a):
     return 0 if grade in ("E2", "E3") else 1
 
 
+def _downgrade_notice(old, new, reason):
+    """降级通知的**客户语言**：不出现 M1/M2 之类内部代号（P0-4），代号只进账本。"""
+    old_w = LEVEL_CUSTOMER.get(str(old or "").strip().upper())
+    new_w = LEVEL_CUSTOMER.get(str(new or "").strip().upper())
+    if old_w and new_w:
+        return "【降级通知】原来判断能到「%s」，现在只能到「%s」。原因：%s" % (
+            old_w, new_w, reason)
+    if new_w:
+        return "【降级通知】交付上限被下调：现在只能到「%s」。原因：%s" % (new_w, reason)
+    return "【降级通知】交付上限被下调（具体档位见账本）。原因：%s" % reason
+
+
 def cmd_downgrade(a):
     """上限降级必须留通知：承诺过 M2 就不能静默降到 M1。"""
     st = load_state(a.case)
@@ -2519,13 +2647,16 @@ def cmd_downgrade(a):
     if a.reason is None:
         print("[ERR] 降级必须写 --reason（为什么降）")
         return 2
-    notif = "【降级通知】原来判断能到 %s，现在只能到 %s。原因：%s" % (old, new, a.reason)
+    notif = _downgrade_notice(old, new, a.reason)
+    # 账本里同时留代号（可审计）+ 客户话（可直接展示）
+    ledger_notice = "【降级通知】%s → %s。原因：%s" % (old, new, a.reason)
     st["max_level"] = new
     st["next_action"] = notif
     save_state(a.case, st)
     with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a", encoding="utf-8") as f:
         f.write(json.dumps({"kind": "downgrade", "from": old, "to": new,
-                            "reason": a.reason, "notice": notif, "ts": now()},
+                            "reason": a.reason, "notice": notif,
+                            "notice_internal": ledger_notice, "ts": now()},
                            ensure_ascii=False) + "\n")
     print(notif)
     print("[OK] 已记入账本（kind=downgrade）")
@@ -2584,8 +2715,104 @@ CRED_RULES = (
 )
 
 
+# ---------------------------------------------------------------- 报告 ID 对账（P0-4a）
+# 血案：`report --check` 以前只认 "E-/C-/F- 的形状"，写 `E-999` 也算“有证据 ID”。
+# 现在：**案件报告**（在 Tool/cases/<case>/ 下，或显式给了 --case）必须把每个 ID 对到该案
+# facts.jsonl；模板/孤立报告（不是案件报告）只查格式，绝不误伤 Tool/prompts/reports/* 与 templates/*。
+REPORT_ID_RE = re.compile(r"\b([ECF])-(\d{2,})\b")
+
+
+def _cases_root():
+    return os.path.join(_TOOL, "cases")
+
+
+def _case_for_report(path, case_arg=""):
+    """报告 → 案件目录。返回 (case_dir|None, note)。
+
+    None = 模板/孤立报告：不做 ID 对账（只查五段格式）。
+    """
+    if case_arg:
+        d = os.path.abspath(case_arg)
+        return (d, "explicit") if os.path.isdir(d) else (None, "missing")
+    if not path:
+        return None, ""
+    root = os.path.abspath(_cases_root())
+    try:
+        rel = os.path.relpath(os.path.abspath(path), root)
+    except ValueError:          # 跨盘符（Windows）→ 不可能是案件目录
+        return None, ""
+    parts = rel.replace("\\", "/").split("/")
+    if len(parts) < 2 or parts[0] in ("", ".", "..") or parts[0].startswith("_"):
+        return None, ""
+    d = os.path.join(root, parts[0])
+    return (d, "path") if os.path.isdir(d) else (None, "")
+
+
+def _ledger_ids(case_dir):
+    """该案 facts.jsonl 里出现过的全部 ID（claim / repro / 其它带 id 的行）。"""
+    ids = set()
+    fp = os.path.join(case_dir, "facts.jsonl")
+    if not os.path.isfile(fp):
+        return ids
+    with open(fp, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(rec, dict) and str(rec.get("id") or "").strip():
+                ids.add(str(rec["id"]).strip().upper())
+    return ids
+
+
+def _report_id_refs(text):
+    """报告里出现过的 E-/C-/F- ID（去重、按出现顺序）。"""
+    out, seen = [], set()
+    for m in REPORT_ID_RE.finditer(text):
+        ident = "%s-%s" % (m.group(1), m.group(2))
+        if ident not in seen:
+            seen.add(ident)
+            out.append(ident)
+    return out
+
+
+def _reconcile_report_ids(text, case_dir):
+    refs = _report_id_refs(text)
+    ids = _ledger_ids(case_dir)
+    return refs, [r for r in refs if r.upper() not in ids]
+
+
+def _recheck_section_problem(body_lines, case_dir):
+    """case.json 有 target_files 时，复查段必须提到目标哈希前缀或 resume 命令。"""
+    cj = os.path.join(case_dir, "case.json")
+    tfiles = []
+    if os.path.isfile(cj):
+        try:
+            with open(cj, encoding="utf-8") as f:
+                tfiles = json.load(f).get("target_files") or []
+        except (OSError, ValueError):
+            tfiles = []
+    hashes = [str(x.get("sha256") or "").strip().lower()
+              for x in tfiles if isinstance(x, dict)]
+    hashes = [h for h in hashes if len(h) >= 8]
+    if not hashes:
+        return None
+    body = "\n".join(body_lines).lower()
+    if "resume" in body:
+        return None
+    if any(h in body or h[:8] in body or h[:12] in body for h in hashes):
+        return None
+    return ("复查段既没写目标哈希前缀，也没写 resume 命令（case.json 登记了 target_files）\n"
+            "     修法：在复查段加一行 `python Tool/scripts/case_state.py resume --case %s`，"
+            "或写进目标哈希前缀 `%s…`（完整哈希：`recheck --case %s` 现算）"
+            % (os.path.abspath(case_dir), hashes[0][:12], os.path.abspath(case_dir)))
+
+
 def cmd_report(a):
-    """报告五段校验：缺段不算交付（对应 PM-SPEC §3.3/§7）。"""
+    """报告五段校验：缺段不算交付（对应 PM-SPEC §3.3/§7）；案件报告额外做 ID 对账。"""
     if a.selftest:
         N = chr(10)
         good = (
@@ -2593,19 +2820,70 @@ def cmd_report(a):
         bad = "# r\n## 1 结论\nx\n"
         ok = (1 if not _check_report(good) else 0) + (1 if _check_report(bad) else 0)
         print("[report --selftest] %d/2 通过" % ok)
-        return 0 if ok == 2 else 1
+
+        def _mk(ids, tail):
+            return N.join([
+                "# r", "## 1 结论", "能到「只能看懂结构」", "卡在壳上",
+                "## 2 已确认", "- x（%s）" % ids, "- y（F-001）",
+                "## 3 仍未知", "- z 缺实测", "- w 需硬件",
+                "## 4 下一步", "- 省事：A", "- 彻底：B",
+                "## 5 怎么复查", "- recheck.md", "- %s" % tail, ""])
+
+        ok2 = 0
+        tmp = tempfile.mkdtemp(prefix="cs-report-")
+        try:
+            with open(os.path.join(tmp, "facts.jsonl"), "w", encoding="utf-8") as f:
+                f.write(json.dumps({"id": "F-001", "claim": "x", "status": "proven",
+                                    "evidence": ["a.log"], "how": "h"},
+                                   ensure_ascii=False) + N)
+            with open(os.path.join(tmp, "case.json"), "w", encoding="utf-8") as f:
+                json.dump({"id": "t", "target_files": [
+                    {"path": "target/a.exe", "sha256": "a" * 64}]}, f)
+            # ① 真实 ID + resume 命令 → 过
+            ok2 += 1 if not _check_report(_mk("F-001", "resume --case " + tmp),
+                                          case_dir=tmp) else 0
+            # ② 假 ID → 必红且点名
+            miss = _check_report(_mk("E-999", "resume --case " + tmp), case_dir=tmp)
+            ok2 += 1 if miss and "E-999" in N.join(miss) else 0
+            # ③ 有 target_files 但复查段既无哈希前缀又无 resume → 必红
+            nohash = _check_report(_mk("F-001", "recheck.md"), case_dir=tmp)
+            ok2 += 1 if nohash and "复查段" in N.join(nohash) else 0
+            # ④ 模板/孤立报告（不传 case_dir）不做 ID 对账 → 假 ID 也能过格式
+            ok2 += 1 if not _check_report(_mk("E-999", "重放 E-999")) else 0
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        print("[report --selftest] 新增语义 %d/4 通过"
+              "（ID 对账 / 假 ID 必红 / 复查段哈希 / 模板不误伤）" % ok2)
+        return 0 if (ok == 2 and ok2 == 4) else 1
     src = a.file or ""
     if not src or not os.path.isfile(src):
         print("[ERR] 需要 --file <报告.md>")
         return 2
-    bad = _check_report(open(src, encoding="utf-8", errors="replace").read())
+    case_arg = getattr(a, "case", "") or ""
+    case_dir, cnote = _case_for_report(src, case_arg)
+    if case_arg and cnote == "missing":
+        print("[ERR] case 目录不存在：%s" % os.path.abspath(case_arg))
+        return 2
+    text = open(src, encoding="utf-8", errors="replace").read()
+    bad = _check_report(text, case_dir=case_dir)
     for b in bad:
         print("[缺] " + b)
+    if case_dir:
+        refs, missing = _reconcile_report_ids(text, case_dir)
+        if missing:
+            print("[FAIL] ID 对账：%d 个引用里有 %d 个在 %s/facts.jsonl 找不到：%s"
+                  % (len(refs), len(missing), case_dir, "、".join(missing)))
+        else:
+            print("[report] ID 对账通过：%d 个 E-/C-/F- ID 全部存在于 %s/facts.jsonl"
+                  % (len(refs), case_dir))
+    else:
+        print("[report] 未做 ID 对账（不是案件报告）：%s 不在 Tool/cases/<case>/ 下，"
+              "且未给 --case；本次只做五段格式检查" % src)
     print("[PASS] 报告五段齐全" if not bad else "[FAIL] 报告不合格（%d 项）" % len(bad))
     return 0 if not bad else 1
 
 
-def _check_report(text):
+def _check_report(text, case_dir=None):
     """报告校验（2026-10-25 外部评审 3.3：原来只查标题存在，"空内容"能绕过）。
 
     现在要求：
@@ -2615,6 +2893,9 @@ def _check_report(text):
       ④ "已确认"段至少出现 1 个证据/结论 ID（E-/C-/F-）；
       ⑤ 出现禁用措辞（应该可以/大概能/通常没问题）即不合格；
       ⑥ 凭据扫描（PM-SPEC §11）：命中私钥块 / AK / 明文口令赋值 / Bearer 令牌即不合格。
+    ⑦ P0-4a：给了案件目录（case_dir）时，每个 E-/C-/F- ID 必须存在于该案 facts.jsonl；
+       有 target_files 时，复查段还要提到目标哈希前缀或 resume 命令。
+    不传 case_dir（模板/孤立报告）= 只做 ①–⑥，不做 ⑦（不误伤模板）。
     """
     import re as _re
     bad = []
@@ -2634,6 +2915,13 @@ def _check_report(text):
     for sec in SECTIONS:
         if sec not in idx:
             bad.append("缺段：" + sec)
+    # ⑦ ID 对账：只有案件报告才做（模板/孤立报告不误伤）
+    if case_dir:
+        refs, missing = _reconcile_report_ids(text, case_dir)
+        if missing:
+            bad.append("ID 对账失败：报告引用了 facts.jsonl 里不存在的 ID：%s（已核对 %d 个）—— "
+                       "要么在账本里补这条结论，要么把报告改成真实存在的 ID"
+                       % ("、".join(missing), len(refs)))
     if bad:
         return bad
     order = sorted(idx.items(), key=lambda kv: kv[1])
@@ -2646,6 +2934,10 @@ def _check_report(text):
             bad.append("结论段 " + str(len(body)) + " 行（要求 <=3 行）")
         if sec == "已确认" and not _re.search(r"[ECF]-2[0-9]{3,}|[ECF]-[0-9]{2,}", chr(10).join(body)):
             bad.append("已确认段没有证据/结论 ID（E-xx / C-xx / F-xx）")
+        if sec == "复查" and case_dir:
+            prob = _recheck_section_problem(body, case_dir)
+            if prob:
+                bad.append(prob)
     for w in ("应该可以", "大概能", "通常没问题"):
         if w in text:
             bad.append("出现禁用措辞「" + w + "」")
@@ -2779,16 +3071,28 @@ def _self_test():
             # ③ 新阶段 + 空盘：必须拦，且点名 0a / 0b
             probs = _advance_problems(tmp2, "intake", "2", {"stage": "intake"})
             assert probs and {s for s, _ in probs} >= {"0a", "0b"}; checks += 1
+            # ★ P0-3b：进阶段 1 及以后必须有 scope.md 且授权来源已记录（四选一）
+            assert _scope_problems(tmp2); checks += 1
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）\n")
+            assert _scope_problems(tmp2); checks += 1          # 模板未改 → 红
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n")
+            assert _scope_problems(tmp2) == []; checks += 1    # 四选一 → 绿
             # ④ 补齐 triage.md（按 report/ 布局）后：0a → 0b 放行
             os.makedirs(os.path.join(tmp2, "report"), exist_ok=True)
             tp = os.path.join(tmp2, "report", "triage.md")
             with open(tp, "w", encoding="utf-8") as f:
                 f.write("x" * 400 + "\n" + " ".join(TRIAGE_FIELDS) + "\n")
             assert _advance_problems(tmp2, "0a", "0b", {"stage": "0a"}) == []; checks += 1
-            # ⑤ 复位/复核：target 在 stage_history 里到达过 → 不重查（重放负例复位走这条）
+            # ⑤ 复位/复核：target 在 stage_history 里到达过 → 产物闸不重查（重放负例复位走这条）
+            #   但 scope 不受豁免（P0-3b）：刚才已写合法 scope，这里才放行。
             st_hist = {"stage": "0a", "stage_history": [{"stage": "4", "from": "3"}]}
             assert _advance_problems(tmp2, "0a", "4", st_hist) == []; checks += 1
             assert _max_stage_reached(st_hist) == _stage_index("4"); checks += 1
+            # 复位也绕不过 scope：移除 scope.md 后同样的复位必须被拦住（P0-3b）
+            os.remove(os.path.join(tmp2, "scope.md"))
+            assert _advance_problems(tmp2, "0a", "4", st_hist); checks += 1
         finally:
             shutil.rmtree(tmp2, ignore_errors=True)
         # --force 必须带 --reason
@@ -2801,6 +3105,17 @@ def _self_test():
         assert tier_view("M2") == "≈ T2" and tier_view("T3") == "≈ M3|M4"; checks += 1
         assert tier_view("X9") == ""; checks += 1
         assert TIER_LEVEL["T2"] == "M3" and TIER_LEVEL["T1"] is None; checks += 1
+        # P0-4b：M2 的 repro 结构判据（任一项不满足都必须拒）
+        base = {"kind": "repro", "cmd": "echo hi", "expect": "hi", "runs": 2,
+                "digests": ["a", "a"], "consistent": True}
+        assert _is_complete_repro(base); checks += 1
+        for k, v in (("cmd", ""), ("expect", ""), ("runs", 1),
+                     ("digests", ["a"]), ("consistent", False), ("kind", "claim")):
+            r = dict(base); r[k] = v
+            assert not _is_complete_repro(r); checks += 1
+        # P0-4：降级通知是客户话，不出现 M-/L- 内部代号
+        _dn = _downgrade_notice("M2", "M1", "缺关键证据")
+        assert "能改到能用" in _dn and "只能看懂结构" in _dn and "M2" not in _dn; checks += 1
         print(json.dumps({"ok": True, "checks": checks}, ensure_ascii=True))
         return 0
     except Exception as exc:  # noqa: BLE001
@@ -3334,6 +3649,9 @@ def main():
     p = sub.add_parser("report")
     p.add_argument("--file", default=""); p.add_argument("--selftest", action="store_true")
     p.add_argument("--check", action="store_true", help="同默认行为（兼容文档写法）")
+    p.add_argument("--case", default="",
+                   help="显式指定案件目录：把报告里的 E-/C-/F- ID 对到该案 facts.jsonl"
+                        "（不传则按路径是否在 Tool/cases/<case>/ 下自动判定）")
     p.set_defaults(func=cmd_report)
     p = sub.add_parser("recheck")
     p.add_argument("--case", required=True); p.set_defaults(func=cmd_recheck)

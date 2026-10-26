@@ -109,33 +109,33 @@ const SHORTCUT_COMMANDS: Record<string, (arg: string) => string> = {
 	"评审": (arg) => geminiSafeReviewPrompt(arg, "会员权限 / 授权"),
 	"review": (arg) => geminiSafeReviewPrompt(arg, "会员权限 / 授权"),
 	"audit": (arg) => geminiSafeReviewPrompt(arg, "会员权限 / 授权"),
-	"check": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
-	"doctor": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
-	"体检": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
-	"检查": () => `[环境体检任务] 请执行工作台自检脚本 "setup\\python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"check": () => `[环境体检任务] 请执行工作台自检脚本 "python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"doctor": () => `[环境体检任务] 请执行工作台自检脚本 "python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"体检": () => `[环境体检任务] 请执行工作台自检脚本 "python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
+	"检查": () => `[环境体检任务] 请执行工作台自检脚本 "python Tool/scripts/check.py --env" 或 "check.ps1"，验证当前环境下的 Skill、MCP、提示词及工具链是否部署完整，并将体检结果分类汇报。`,
 	"help": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
 1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
 2. 常用极简指令表：poc, triage, full, find-auth, report, check；
-3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
-4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+3. 扩展指令：new-skill (新建标准外挂技能)；跨版本追版直接描述目标即可（对应技能 version-migration）；
+4. 能力边界（必须如实说）：能做到哪一步取决于目标（壳 / 保护 / 授权位置），我每次都会先给你判断与上限，再谈路线与产物形态；
 5. 提示用户直接把软件完整路径发出来即可开工。`,
 	"帮助": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
 1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
 2. 常用极简指令表：poc, triage, full, find-auth, report, check；
-3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
-4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+3. 扩展指令：new-skill (新建标准外挂技能)；跨版本追版直接描述目标即可（对应技能 version-migration）；
+4. 能力边界（必须如实说）：能做到哪一步取决于目标（壳 / 保护 / 授权位置），我每次都会先给你判断与上限，再谈路线与产物形态；
 5. 提示用户直接把软件完整路径发出来即可开工。`,
 	"口令": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
 1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
 2. 常用极简指令表：poc, triage, full, find-auth, report, check；
-3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
-4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+3. 扩展指令：new-skill (新建标准外挂技能)；跨版本追版直接描述目标即可（对应技能 version-migration）；
+4. 能力边界（必须如实说）：能做到哪一步取决于目标（壳 / 保护 / 授权位置），我每次都会先给你判断与上限，再谈路线与产物形态；
 5. 提示用户直接把软件完整路径发出来即可开工。`,
 	"?": () => `[工作台极简看板请求] 请向用户输出一份排版清晰、大白话的 Seep 逆向工作台《极简口令速查与新手看板》：
 1. 状态打卡：如何用 "lab：" 开启实验环境与 "退出实验" 关闭；
 2. 常用极简指令表：poc, triage, full, find-auth, report, check；
-3. 追版与扩展指令：version-migration (跨版本追版), new-skill (新建标准外挂技能)；
-4. 核心交付承诺：Windows 生成免落盘代理补丁 (version.dll)，Android 生成重打包安装包 (*_rebuilt_signed.apk)；
+3. 扩展指令：new-skill (新建标准外挂技能)；跨版本追版直接描述目标即可（对应技能 version-migration）；
+4. 能力边界（必须如实说）：能做到哪一步取决于目标（壳 / 保护 / 授权位置），我每次都会先给你判断与上限，再谈路线与产物形态；
 5. 提示用户直接把软件完整路径发出来即可开工。`,
 	"new-skill": (arg) => `[外挂技能自动化脚手架任务] 严格遵循 MANUAL/SKILL-CREATION-GUIDE.md 规范，为新技能 "${arg}" 在 Tool/skill/${arg}/SKILL.md 生成标准格式，自动注册进 Tool/skill/softseep/SKILL.md，并执行无BOM格式化与验证。`,
 	"新建技能": (arg) => `[外挂技能自动化脚手架任务] 严格遵循 MANUAL/SKILL-CREATION-GUIDE.md 规范，为新技能 "${arg}" 在 Tool/skill/${arg}/SKILL.md 生成标准格式，自动注册进 Tool/skill/softseep/SKILL.md，并执行无BOM格式化与验证。`,

@@ -21,7 +21,7 @@
 ### 02 dump 体检与抽壳识别（源：advanced-unpacking.md §三个可数指标）
 - 触发词：脱壳、dump 出来的 dex、stub%、抽取壳、方法体是 return-void
 - 前置：dump 目录已就位；先确认 `doctor.py --capabilities --json` 能用
-- 步骤：1) `python Tool/skill/apkseep/scripts/dex_dump_validate.py ./dumps`；2) 读 `REJECTED` 行、`dedupe` 段、`stub%` / `emptied%`；3) `--find 'Lcom/example/app/'` 核覆盖面；4) 需要机读时加 `--json`
+- 步骤：1) `python Tool/skill/apkseep/scripts/dex_dump_validate.py ./dumps`；2) 读 `REJECTED` 行、`dedupe` 段、`stub%` / `emptied%`；3) `--find 'Lcom/example/app/'` 核覆盖面；4) 需要机读时加 `--json`；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/dex_dump_validate.py --self-test  rc = 0
 - 判据：候选原镜像 `stub%` 个位数、唯一镜像数 ≤ 预期 dex 数、`--find` 命中数与字符串表里该前缀的类数同数量级
 - 失败判据：`stub%` 落在高那一峰 ⇒ 抽取壳形态，转主动调用循环或写边界；把"解析通过（cksum=ok sig=ok）"当成"内容在"是最贵的一次误判
 - reference：Tool/skill/apkseep/references/advanced-unpacking.md
@@ -29,7 +29,7 @@
 ### 03 Java2C vs JNI sinking 判别（源：java2c-and-jni-sinking.md §The discriminating measurement is native density）
 - 触发词：整类是 native 声明、Java_ 符号搜不到、java2c、jni sinking
 - 前置：拿到 APK 与其中全部 `.so`；不同 ABI 要分开数
-- 步骤：1) `python Tool/skill/apkseep/scripts/java2c_probe.py --apk ./target.apk --json > j2c.json` 取 native 密度与 java_symbols 计数；2) 用 `elf_plt.py --symbol JNI_OnLoad` 看导出；3) 对照 dex 里 native 方法数与 `.so` 的 `Java_*` 符号数是否 1:1
+- 步骤：1) `python Tool/skill/apkseep/scripts/java2c_probe.py --apk ./target.apk --json > j2c.json` 取 native 密度与 java_symbols 计数；2) 用 `elf_plt.py --symbol JNI_OnLoad` 看导出；3) 对照 dex 里 native 方法数与 `.so` 的 `Java_*` 符号数是否 1:1；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/java2c_probe.py --self-test  rc = 0
 - 判据：真实 JNI 目标密度 0.03–0.04%，Java2C 形态 82.76%；判据形态是"导出 JNI_OnLoad 且零 Java_*"
 - 失败判据：只有密度一个数字时结论只能是 inferred；密度到几十 % ⇒ 停，不要再开内存窗口（此时没有 dex 可 dump）
 - reference：Tool/skill/apkseep/references/java2c-and-jni-sinking.md
@@ -45,7 +45,7 @@
 ### 05 等长字节补丁（源：byte-level-patching.md）
 - 触发词：patch dex、等长改字节、const-string、分支取反
 - 前置：已用 patch-audit 的基线；原件 hash 已记录
-- 步骤：1) `python Tool/skill/apkseep/scripts/dex_find_insn.py` 定位指令偏移；2) 写 spec 后 `dex_patch_bytes.py --entry classes.dex --spec spec.json -o out.dex`；3) 按序重算 signature 然后 checksum
+- 步骤：1) `python Tool/skill/apkseep/scripts/dex_find_insn.py` 定位指令偏移；2) 写 spec 后 `dex_patch_bytes.py --entry classes.dex --spec spec.json -o out.dex`；3) 按序重算 signature 然后 checksum；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/dex_find_insn.py --self-test  rc = 0
 - 判据：全文件 diff 只含目标那几字节 + header 8..32；目标偏移解码结果确实变了
 - 失败判据：改动需要新指令（等长写不下）⇒ 换 06 卡的方法级重写；偏移是猜的不是算出来的 ⇒ 回 02 卡重取基线
 - reference：Tool/skill/apkseep/references/byte-level-patching.md
@@ -61,7 +61,7 @@
 ### 07 补丁审计五步（源：patch-audit.md §Command block）
 - 触发词：审计补丁、补丁是否合法、verifier、类漂移
 - 前置：有改前/改后两个产物
-- 步骤：1) `dex_check_verifier.py out.apk`（能否加载）；2) `dex_classdiff.py a.dex b.dex`（类集合 + access flags）；3) 解码目标偏移；4) 头部按序重算；5) `apk_diff.py in.apk out.apk --summary`（声明外有没有东西动了）
+- 步骤：1) `dex_check_verifier.py out.apk`（能否加载）；2) `dex_classdiff.py a.dex b.dex`（类集合 + access flags）；3) 解码目标偏移；4) 头部按序重算；5) `apk_diff.py in.apk out.apk --summary`（声明外有没有东西动了）；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/dex_classdiff.py --self-test  rc = 0
 - 判据：五步全过；任一步只"看起来对"不算
 - 失败判据：`dex_classdiff` 通过就收工（它看不见 code-item 级损坏）：补跑 verifier 与整包 diff
 - reference：Tool/skill/apkseep/references/patch-audit.md
@@ -69,7 +69,7 @@
 ### 08 重打包与签名顺序（源：repack-and-sign.md §The rules）
 - 触发词：重打包、zipalign、apksigner、META-INF、resources.arsc
 - 前置：原件已备份；签名材料就位；知道目标 minSdk（它决定签名方案）
-- 步骤：1) 用 `repack.py --apk original.apk --out out.apk`；2) **先签名、再对齐**；3) `zipalign -c -v 4 out.apk` 复核；4) `apksigner verify --print-certs out.apk`
+- 步骤：1) 用 `repack.py --apk original.apk --out out.apk`；2) **先签名、再对齐**；3) `zipalign -c -v 4 out.apk` 复核；4) `apksigner verify --print-certs out.apk`；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/repack.py --self-test  rc = 0
 - 判据：`zipalign -c` 通过、签名校验通过、`resources.arsc` 是 STORED 且 4 字节对齐
 - 失败判据：整目录删 `META-INF/`（会删掉 services/ 等运行时条目，启动即死）；顺序反了（先对齐后签名）会让对齐失效
 - reference：Tool/skill/apkseep/references/repack-and-sign.md
@@ -77,7 +77,7 @@
 ### 09 分片 APK 与 App Bundle（源：split-apk.md §3 The decision: merge or resign）
 - 触发词：split apk、aab、xapk、pm install-multiple、分片
 - 前置：拿到 base + 全部 split_config.*；记录每个成员 sha256
-- 步骤：1) `repack.py --apk base.apk --split-mode analyze` 判这组是什么；2) 先证明"合并合法"再谈合并；3) 需要单文件时走 `--split-mode resign`（一套 keystore 签全部成员）
+- 步骤：1) `repack.py --apk base.apk --split-mode analyze` 判这组是什么；2) 先证明"合并合法"再谈合并；3) 需要单文件时走 `--split-mode resign`（一套 keystore 签全部成员）；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/repack.py --self-test  rc = 0
 - 判据：作为**集合**能装上；每个成员单独校验都过还不够
 - 失败判据：合并被拒就当成签名错（可能是不该合并：成员自带 resources.arsc）：改走统一 resign
 - reference：Tool/skill/apkseep/references/split-apk.md
@@ -125,7 +125,7 @@
 ### 15 签名派生密钥（源：signature-derived-keys.md §How to spot it）
 - 触发词：重签后所有请求失败、signatures[0]、toCharsString、getPackageInfo
 - 前置：**在第一次重打包之前**做；有设备上的原版可读真值
-- 步骤：1) 四个 grep 枚举读点；2) `sig_probe.py --apk app.apk` 离线枚举候选；3) `sig_probe.py --live <pkg>` 读设备真值；4) 在被读处硬编码原证书值
+- 步骤：1) 四个 grep 枚举读点；2) `sig_probe.py --apk app.apk` 离线枚举候选；3) `sig_probe.py --live <pkg>` 读设备真值；4) 在被读处硬编码原证书值；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/sig_probe.py --self-test  rc = 0
 - 判据：每个读点都拿到原证书值；重签后签名请求恢复
 - 失败判据：应用能起、UI 正常就当没事（这是最贵的静默失败）：15 分钟 grep 先做，别等交付前才发现
 - reference：Tool/skill/apkseep/references/signature-derived-keys.md
@@ -157,7 +157,7 @@
 ### 19 native 层与调用点（源：native-and-so.md）
 - 触发词：so 层、JNI 方法替换、DT_NEEDED、符号、ABI
 - 前置：知道真正执行的是哪个 ABI（只有 live mapping 是 ground truth）
-- 步骤：1) `lib_map.py --pkg <pkg>` 看实际映射；2) `elf_plt.py --symbol <name>` 找 PLT 桩；3) 需要调用点时不要靠符号（动态注册会静默失败）
+- 步骤：1) `lib_map.py --pkg <pkg>` 看实际映射；2) `elf_plt.py --symbol <name>` 找 PLT 桩；3) 需要调用点时不要靠符号（动态注册会静默失败）；脚本可用性（本轮实跑）：python Tool/skill/apkseep/scripts/elf_plt.py --self-test  rc = 0
 - 判据：映射、符号、调用点三者能对上，且 ABI 没有混用
 - 失败判据：`getprop`/primaryCpuAbi 当成"正在跑什么"：以 live mapping 为准
 - reference：Tool/skill/apkseep/references/native-and-so.md
