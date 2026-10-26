@@ -135,6 +135,56 @@ INSTRUMENT_NAME = {
     "external": "外部观测（Procmon / ETW / 文件与注册表快照 diff）",
     "network": "网络层（代理 / 抓包 / 冒充服务器）",
 }
+
+# ── 等级唯一权威：`Tool/config/levels.json`（用户 2026-10-26 决定）──
+# 对外只说四句话（只能看懂结构 / 能改到能用 / 能完全自己接管 / 现在做不了）；
+# 内部代号（M1–M4 / L1–L3 / T1–T4 / J1–J3）只进账本、stderr 与 facts.jsonl。
+# 为什么在运行时读文件、不在代码里再抄一份：四句话有三个读者（deliver/show 的客户话、
+# report --check 的禁代号扫描、preflight 的一致性判据），抄三份就会漂三份。
+LEVELS_JSON = os.path.join(CONFIG_DIR, "levels.json")
+_LEVELS_FALLBACK = {
+    "customer": ["只能看懂结构", "能改到能用", "能完全自己接管", "现在做不了"],
+    "internal": [("M1", "只能看懂结构", "E1"), ("M2", "能改到能用", "E2"),
+                 ("M3", "能完全自己接管", "E3"), ("M4", "能完全自己接管", "E4"),
+                 ("L1", "只能看懂结构", "E1"), ("L2", "能改到能用", "E2"),
+                 ("L3", "能完全自己接管", "E3"),
+                 ("T1", "只能看懂结构", "E1"), ("T2", "能改到能用", "E2"),
+                 ("T3", "能完全自己接管", "E3"), ("T4", "能完全自己接管", "E4"),
+                 ("J1", "只能看懂结构", "E1"), ("J2", "能改到能用", "E2"),
+                 ("J3", "能完全自己接管", "E3")],
+}
+
+
+def load_level_authority():
+    """→ (四句 list, [(代号, 客户话, 证据门槛)], {代号: 客户话}, {M 代号: 门槛}, 来源)。
+
+    来源 = "levels.json"（读得到）或 "builtin"（回退内置副本）。回退不会让闸失明，
+    但 preflight 的「等级唯一权威」会把 builtin 判红 —— 权威只在那个 JSON 里。
+    """
+    cust, internal, src = [], [], "builtin"
+    try:
+        with open(LEVELS_JSON, encoding="utf-8") as f:
+            d = json.load(f) or {}
+        cust = [str(x.get("sentence") or "") for x in (d.get("customer") or [])
+                if str(x.get("sentence") or "")]
+        internal = [(str(x.get("code") or "").upper(), str(x.get("customer") or ""),
+                     str(x.get("evidence_min") or "").upper())
+                    for x in (d.get("internal") or []) if str(x.get("code") or "")]
+        if cust and internal:
+            src = "levels.json"
+        else:
+            cust, internal = [], []
+    except Exception:  # noqa: BLE001 —— 配置坏了不能连累闸；preflight 会点名
+        cust, internal, src = [], [], "builtin"
+    if src != "levels.json":
+        cust = list(_LEVELS_FALLBACK["customer"])
+        internal = list(_LEVELS_FALLBACK["internal"])
+    cust_map = {code: sentence for code, sentence, _ev in internal}
+    bar = {code: ev for code, _s, ev in internal if code.startswith("M")}
+    return cust, internal, cust_map, bar, src
+
+
+LEVEL_SENTENCES, LEVEL_INTERNAL, _LEVEL_CUSTOMER, _LEVEL_BAR, LEVEL_SOURCE = load_level_authority()
 ISTATUS = ["ok", "partial", "blocked", "killed"]
 MAX_LEVEL_BY_VERDICT = {"可赢": "M3", "部分可赢": "M2", "不可赢": "M1"}
 # 后端档位（05-backend-rebuild 三问定档）：不可赢恒 M1；否则 T1→基准、T2→M3、T3/T4→M4
@@ -1026,8 +1076,8 @@ def cmd_init(a):
                 "> 开工前填完这三节。没填完不许对目标动手（学 case-guard：scope 未就绪不 ACT）。", "",
                 "## 1. 目标与授权", "",
                 "- 目标：%s" % tgt,
-                "- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）",
-                "  （首答里也要写一行「授权来源：…」，这两处对得上才算授权落纸）", "",
+                "- 授权来源：本人自有（默认值，产品口径：用户未声明其他情况即视为本人自有） / 书面授权 / 公开靶场 / 开源",
+                "  （什么都不用改就算填完；若用户明确说“不是我的/没授权”，改成对应值）", "",
                 "## 2. 边界（不做的事）", "",
                 "- 不改系统级配置（网卡/路由/DNS/驱动/服务/系统 hosts）",
                 "- 不动与目标无关的进程与文件",
@@ -1035,7 +1085,8 @@ def cmd_init(a):
                 "## 3. 环境与交付预期", "",
                 "- 隔离方式：实体机 / 虚拟机 / 容器（写清楚；有快照更好）",
                 "- 网络：可断网 / 仅目标可达 / 其他",
-                "- 期望层级：M1 结构 / M2 功能面通 / M3 能跑+授权自家 / M4 全栈自洽（判型后确认）",
+                "- 期望做到哪一步（只用这四句）：只能看懂结构 / 能改到能用 / 能完全自己接管 / 现在做不了",
+                "- （内部档位只写进账本，不进这份文件、不进报告、不进对话）",
             ]
             with open(scope_p, "w", encoding="utf-8", newline=chr(10)) as _sf:
                 _sf.write(chr(10).join(L) + chr(10))
@@ -1770,8 +1821,7 @@ def cmd_verdict(a):
     st["verdict_note"] = a.note or ""
     st["next_action"] = "进 01-gate-bypass" if a.value != "不可赢" else "只交 M1 + 天花板声明，不许承诺成品"
     save_state(a.case, st)
-    print(f"[OK] 裁定 = {a.value}，交付上限 = {level}"
-          + (f"（--tier {word} 原样存；换算 {tier_view(word)}）" if word else ""))
+    print(f"[OK] 裁定 = {a.value}，能做到哪一步 = {_customer_level(level)}（内部档位见账本）")
 
 
 def cmd_instrument(a):
@@ -2625,24 +2675,13 @@ def cmd_gate(a):
 
 
 RANK = {"M1": 1, "M2": 2, "M3": 3, "M4": 4}
-# 客户语言：对外只说这三句（PM-SPEC §7），内部 M/L/T 代号只在账本/调试输出里出现。
-LEVEL_CUSTOMER = {
-    "M1": "只能看懂结构", "M2": "能改到能用",
-    "M3": "能完全自己接管", "M4": "能完全自己接管",
-    # 历史词表（旧案账本里可能残留）也只是查表展示，不把代号写给客户
-    "L1": "只能看懂结构", "L2": "能改到能用", "L3": "能完全自己接管",
-    "T1": "只能看懂结构", "T2": "能改到能用",
-    "T3": "能完全自己接管", "T4": "能完全自己接管",
-}
-# R6 P1：M3/M4 以前都只映到「能完全自己接管」，客户话相同就看不出区别（SKILL.md 也只写到 M3）。
-# 客户话仍只有那三句（PM-SPEC §7 不许加新词），所以**区分靠证据门槛**：M4 必须是端到端 E4。
-# 这张表就是对客户的三句 → 内部四档的完整映射（M4 单独一行，不再缺行）。
-LEVEL_BAR = {
-    "M1": "E1",   # 观察：只能看懂结构
-    "M2": "E2",   # 命令+期望+跑两次一致：能改到能用
-    "M3": "E3",   # 交叉验证：能完全自己接管
-    "M4": "E4",   # 端到端 E4 + 复查单可照做：能完全自己接管（内部再高一档）
-}
+# 客户语言：对外只说四句（用户 2026-10-26 决定，以最终效果为准）。
+# 唯一权威是 `Tool/config/levels.json`；这两张表只是它在进程内的视图（同一份过滤结果），
+# preflight 的「等级唯一权威」逐代号比对 JSON 与本模块，漂一个字符就红。
+LEVEL_CUSTOMER = _LEVEL_CUSTOMER
+# R6 P1：M3/M4 客户话相同（都是「能完全自己接管」），区别**靠证据门槛**：M4 必须是端到端 E4。
+# 证据门槛同样来自 levels.json 的 internal[].evidence_min（M 四档 → LEVEL_BAR）。
+LEVEL_BAR = _LEVEL_BAR
 
 
 def _customer_level(word):
@@ -4312,25 +4351,21 @@ def _is_template_path(path):
 # `facts.jsonl` / `max_level` / `L1` 仍被判 PASS —— 客户拿到报告看不懂那些内部词。
 # 规则：内部代号/内部字段名只许出现在 `Tool/prompts/**` 模板（模板要用占位符）；
 # **案件报告一律禁**，命中即 FAIL 并给替换建议。
-_REPORT_CODE_RE = re.compile(r"(?<![A-Za-z0-9_])(M[1-4]|L[1-3]|T[1-4]|J[1-3]|BLK-\d+)(?![0-9])")
+# 代号词表同样取自 levels.json（internal[].code）—— 新刻度只改那个文件，扫描自动跟上；
+# 配置读不到时退回内置副本（见 load_level_authority），免得禁代号扫描静默失明。
+_REPORT_CODE_ALT = "|".join(sorted((re.escape(c) for c in _LEVEL_CUSTOMER), key=len, reverse=True))
+_REPORT_CODE_RE = re.compile(r"(?<![A-Za-z0-9_])((?:%s)|BLK-\d+)(?![0-9])" % _REPORT_CODE_ALT)
 # 反误伤：硬件/缓存里的同名串（Apple M1 芯片、L1 缓存）不是内部档位代号。
 # 只排除这两种明确形态；其余一律当代号（宁可报出来改措辞，也不放过真泄露）。
 _REPORT_CODE_EXEMPT_RE = re.compile(r"^(?:M[1-4]\s*(?:芯片|SoC|Max|Pro|Ultra)|L[1-3]\s*(?:缓存|cache))",
                                    re.I)
 _REPORT_INTERNAL_WORDS = (("max_level", "内部字段，改用“见账本”"),
                           ("facts.jsonl", "内部字段，改用“见账本”"))
-_REPORT_CODE_HINT = {
-    "M1": "只能看懂结构", "M2": "能改到能用",
-    "M3": "能完全自己接管", "M4": "能完全自己接管",
-    "L1": "只能看懂结构", "L2": "能改到能用", "L3": "能完全自己接管",
-    "T1": "只能看懂结构", "T2": "能改到能用",
-    "T3": "能完全自己接管", "T4": "能完全自己接管",
-    "J1": "能进后台且验证了弱口令", "J2": "能进后台", "J3": "能进后台",
-}
+_REPORT_CODE_HINT = dict(_LEVEL_CUSTOMER)
 _REPORT_CODE_ADVICE = (
-    "M1/L1/T1→只能看懂结构，M2/L2/T2→能改到能用，M3/M4/L3/T3/T4→能完全自己接管，"
-    "J1→能进后台且验证了弱口令，max_level / facts.jsonl→内部字段，改用“见账本”，"
-    "BLK-n→「卡在哪 + 两条出路」")
+    "内部档位代号 → 四句客户话之一（%s；逐档映射见 levels.json 的 internal[]）；"
+    "max_level / facts.jsonl→内部字段，改用“见账本”；BLK-n→「卡在哪 + 两条出路」"
+    % " / ".join(LEVEL_SENTENCES))
 
 
 def _report_codename_hits(lines):
@@ -4367,7 +4402,8 @@ def _check_report(text, case_dir=None, is_template=False):
        P0-3（第 4 轮评审）：没账本就禁编号 —— case_dir 为空、或其中没有 facts.jsonl
        而报告里出现 E-/C-/F- 编号 → 不合格（`E-999` 白写也能过就是这里漏的）。
        修法：给它 `--case <案件目录>`，或把报告放到 `Tool/cases/<case>/`。
-    ⑧ R8 P1-2：客户可见文本禁代号 —— M1–M4 / L1–L3 / T1–T4 / J1–J3 / BLK-n /
+    ⑧ R8 P1-2：客户可见文本禁代号 —— `Tool/config/levels.json` 的 internal[] 全部代号
+       （现为 M1–M4 / L1–L3 / T1–T4 / J1–J3，词表从配置现算，新刻度自动跟上）/ BLK-n /
        max_level / facts.jsonl 命中即不合格（唯一例外：`Tool/prompts/**` 模板要用占位符）。
     ⑨ 审计 P0：「已确认」段只许放**已证结论** —— 段里每个 ID 对应的账本行必须是
        status=proven、confidence∈{observed,derived}、authority 非空且不为 none；

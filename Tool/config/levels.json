@@ -1,0 +1,52 @@
+{
+  "schema": "seep.levels/1",
+  "_why": "把握程度/交付上限的唯一权威。用户 2026-10-26 的决定：对外只说四句话（以最终效果为准），内部代号只进账本，不出现在客户可见文本里。",
+  "_decision": {
+    "decided_by": "user",
+    "decided_at": "2026-10-26",
+    "quote": "我不太懂，就以最终效果为基准呀，真的能做到什么就是多大把握"
+  },
+  "customer": [
+    {
+      "key": "structure",
+      "sentence": "只能看懂结构",
+      "means": "我能指出是哪一层/哪个文件/哪一段，但没在真实环境里验证过"
+    },
+    {
+      "key": "usable",
+      "sentence": "能改到能用",
+      "means": "改完能跑、原功能还在、原件没动；有对照实验"
+    },
+    {
+      "key": "takeover",
+      "sentence": "能完全自己接管",
+      "means": "关键链路能自己接手；有两条独立验证"
+    },
+    {
+      "key": "cannot",
+      "sentence": "现在做不了",
+      "means": "卡在具体一层（工具/权限/硬件/服务端/凭据/证据不足），并给两条出路"
+    }
+  ],
+  "internal": [
+    { "code": "M1", "customer": "只能看懂结构", "evidence_min": "E1" },
+    { "code": "M2", "customer": "能改到能用", "evidence_min": "E2" },
+    { "code": "M3", "customer": "能完全自己接管", "evidence_min": "E3" },
+    { "code": "M4", "customer": "能完全自己接管", "evidence_min": "E4" },
+    { "code": "L1", "customer": "只能看懂结构", "evidence_min": "E1" },
+    { "code": "L2", "customer": "能改到能用", "evidence_min": "E2" },
+    { "code": "L3", "customer": "能完全自己接管", "evidence_min": "E3" },
+    { "code": "T1", "customer": "只能看懂结构", "evidence_min": "E1" },
+    { "code": "T2", "customer": "能改到能用", "evidence_min": "E2" },
+    { "code": "T3", "customer": "能完全自己接管", "evidence_min": "E3" },
+    { "code": "T4", "customer": "能完全自己接管", "evidence_min": "E4" },
+    { "code": "J1", "customer": "只能看懂结构", "evidence_min": "E1" },
+    { "code": "J2", "customer": "能改到能用", "evidence_min": "E2" },
+    { "code": "J3", "customer": "能完全自己接管", "evidence_min": "E3" }
+  ],
+  "_rules": [
+    "客户可见文本（对话、报告、命令行 stdout）只允许出现 customer[].sentence 四句之一，或直接不提档位。",
+    "internal[].code 只允许写进 facts.jsonl / case.json / stderr；不得出现在报告与 stdout。",
+    "任何新增刻度必须先加进本文件 internal[]，并在 report --check 的禁代号扫描里登记。"
+  ]
+}

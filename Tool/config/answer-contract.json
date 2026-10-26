@@ -44,6 +44,7 @@
       "Q-SEC-01"
     ]
   },
+  "_levels_authority": "把握程度那四句 + 内部代号→客户话的唯一权威是 `Tool/config/levels.json`（用户 2026-10-26 决定：对外只说四句，以最终效果为准）；本文件的 ceiling_sentences 必须与它的 customer[].sentence 逐字一致 —— preflight 的「等级唯一权威」守这条，漂一个字符即红。内部代号只进账本 / stderr / facts.jsonl，不进报告与 stdout。",
   "ceiling_sentences": [
     "只能看懂结构",
     "能改到能用",

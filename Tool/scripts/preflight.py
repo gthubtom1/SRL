@@ -1849,6 +1849,137 @@ def check_five_contracts():
         not bad, "；".join(bad[:4]) if bad else "6 项全部自测通过；10 份模板含客户五段")
 
 
+def check_level_authority():
+    """等级唯一权威（用户 2026-10-26 决定）：对客户只说四句话，内部代号只进账本。
+
+    为什么要有这条：把握程度的“能说到哪一步”以前散在三个地方——`levels.json`（四句 + 代号→客户话）、
+    `answer-contract.json` 的 `ceiling_sentences`、9 个域 `SKILL.md` 的「上限怎么说（对客户）」段。
+    三处各抄一份，改一处另两处不动，就会出现“跟客户说 J1/能进后台，报告里却在写能改到能用”。
+    判据（三项都要绿）：
+      ① `levels.json` 的 customer[].sentence 与 `answer-contract.json` 的 ceiling_sentences **逐字相等**（含「现在做不了」）；
+      ② 每个域 SKILL.md 的「上限怎么说（对客户）」段只许说那四句—— 出现 M1–M4 / L1–L3 / T1–T4 / J1–J3
+         即红（唯一例外：句子里点名“内部档位见账本”，但仍要把行号登出来）；
+      ③ `case_state.py` 的运行时映射（LEVEL_CUSTOMER / LEVEL_BAR / 禁代号扫描）与 `internal[]` 一致，
+         且**每一个** internal 代号都在 report --check 的禁代号扫描里（新刻度只改 JSON 也不会漏扫）。
+    """
+    import importlib.util as _ilu
+
+    NAME = "等级唯一权威（levels.json ↔ answer-contract ↔ SKILL「上限怎么说」↔ 账本映射）"
+    lp = os.path.join(TOOL, "config", "levels.json")
+    ap = os.path.join(TOOL, "config", "answer-contract.json")
+    cs = os.path.join(TOOL, "scripts", "case_state.py")
+    bad, allowed = [], []
+    try:
+        lv = json.load(open(lp, encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", NAME, False, "levels.json 读不出：%s" % str(e)[:60])
+        return
+    cust = [str(x.get("sentence") or "") for x in (lv.get("customer") or [])]
+    internal = [(str(x.get("code") or "").upper(), str(x.get("customer") or ""),
+                 str(x.get("evidence_min") or "").upper())
+                for x in (lv.get("internal") or []) if str(x.get("code") or "")]
+    if not cust:
+        bad.append("levels.json 的 customer[] 为空（四句是唯一对外口径）")
+    if not internal:
+        bad.append("levels.json 的 internal[] 为空（代号→客户话的映射只在它里面）")
+
+    # ① 首答契约的四句必须与 levels.json 逐字一致
+    try:
+        ce = [str(x) for x in (json.load(open(ap, encoding="utf-8"))
+                               .get("ceiling_sentences") or [])]
+    except Exception as e:  # noqa: BLE001
+        ce = []
+        bad.append("answer-contract.json 读不出：%s" % str(e)[:50])
+    if ce != cust:
+        _miss = [s for s in cust if s not in ce]
+        _extra = [s for s in ce if s not in cust]
+        bad.append("ceiling_sentences ≠ levels.json customer[]（缺 %s / 多 %s）"
+                   % ("、".join(_miss) or "无", "、".join(_extra) or "无"))
+
+    # ② 域技能里的「上限怎么说（对客户）」段：只许四句，代号即红
+    codes = [c for c, _s, _e in internal]
+    dre = (re.compile(r"(?<![A-Za-z0-9_])(%s)(?![0-9])"
+                      % "|".join(sorted((re.escape(c) for c in codes), key=len, reverse=True)))
+           if codes else None)
+    scanned, no_sec, hits = 0, [], []
+    for p in sorted(glob.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"))):
+        rel = os.path.relpath(p, ROOT).replace(os.sep, "/")
+        try:
+            body = open(p, encoding="utf-8", errors="replace").read().splitlines()
+        except OSError:
+            no_sec.append(rel)
+            continue
+        found, in_sec, sec_lv = False, False, 0
+        for i, l in enumerate(body, 1):
+            m = re.match(r"^(#{1,6})\s*上限怎么说", l)
+            if m:
+                found, in_sec, sec_lv = True, True, len(m.group(1))
+                continue
+            if not in_sec:
+                continue
+            m2 = re.match(r"^(#{1,6})\s", l)
+            if m2 and len(m2.group(1)) <= sec_lv:
+                in_sec = False
+                continue
+            if not dre:
+                continue
+            for mm in dre.finditer(l):
+                if "内部档位见账本" in l:      # 允许的说明句，但行号照样点名
+                    allowed.append("%s:%d「%s」" % (rel, i, mm.group(1)))
+                else:
+                    hits.append("%s:%d「%s」" % (rel, i, mm.group(1)))
+        scanned += 1 if found else 0
+        if not found:
+            no_sec.append(rel)
+    if no_sec:
+        bad.append("缺「上限怎么说（对客户）」段：%s" % "、".join(no_sec[:4]))
+    if hits:
+        bad.append("「上限怎么说（对客户）」段里出现内部代号（改成四句之一 + “（内部档位见账本）”）：%s"
+                   % "；".join(hits[:6]))
+
+    # ③ 账本侧（case_state.py 运行时真值）必须与 internal[] 一致，且禁代号扫描全覆盖
+    mod = None
+    try:
+        spec = _ilu.spec_from_file_location("_case_state_levels", cs)
+        mod = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except Exception as e:  # noqa: BLE001
+        bad.append("case_state.py 加载失败：%s" % str(e)[:60])
+    if mod is not None:
+        if getattr(mod, "LEVEL_SOURCE", "") != "levels.json":
+            bad.append("case_state.py 没读到 levels.json（LEVEL_SOURCE=%s，已退回内置副本）"
+                       % getattr(mod, "LEVEL_SOURCE", "?"))
+        lc = getattr(mod, "LEVEL_CUSTOMER", {}) or {}
+        drift = ["%s→%r（应为 %r）" % (c, lc.get(c), s)
+                 for c, s, _e in internal if lc.get(c) != s]
+        if drift:
+            bad.append("LEVEL_CUSTOMER 与 internal[] 漂移：" + "；".join(drift[:4]))
+        lb = getattr(mod, "LEVEL_BAR", {}) or {}
+        mrows = [(c, e) for c, _s, e in internal if c.startswith("M")]
+        bar_bad = ["%s→%s（应为 %s）" % (c, lb.get(c), e) for c, e in mrows if lb.get(c) != e]
+        if len(lb) != len(mrows):
+            bar_bad.append("LEVEL_BAR 有 %d 档，internal[] 的 M 档 %d 条" % (len(lb), len(mrows)))
+        if bar_bad:
+            bad.append("LEVEL_BAR 与 internal[].evidence_min 不一致：" + "；".join(bar_bad[:4]))
+        rx = getattr(mod, "_REPORT_CODE_RE", None)
+        uncovered = [c for c, _s, _e in internal if not (rx and rx.search(c + " "))]
+        if uncovered:
+            bad.append("report --check 的禁代号扫描没覆盖：%s" % "、".join(uncovered[:6]))
+        hint = getattr(mod, "_REPORT_CODE_HINT", {}) or {}
+        wrong = ["%s→%r" % (c, hint.get(c)) for c, _s, _e in internal if hint.get(c) not in cust]
+        if wrong:
+            bad.append("禁代号扫描给的替换话不是四句之一：%s" % "、".join(wrong[:4]))
+
+    ok = not bad
+    detail = ("；".join(bad)[:300] if bad else
+              "四句一致（%s）；%d 个 SKILL.md 的「上限怎么说」段零代号；"
+              "LEVEL_BAR/LEVEL_CUSTOMER/禁代号扫描与 %d 个 internal 代号逐条对上"
+              % (" / ".join(cust), scanned, len(internal)))
+    if allowed:
+        detail += "；允许的说明句（点名行号）：" + "、".join(allowed[:4])
+    add("2 单一事实源", NAME, ok, detail[:400])
+
+
 def _blk_chunks(s):
     r"""把一行文字拆成可比对的片段：汉字 3 字滑窗 + 长度≥3 的英文词（小写）。"""
     out = set()
@@ -2754,6 +2885,7 @@ def main():
     check_tool_identity()
     check_fact_drift()
     check_five_contracts()
+    check_level_authority()
     check_blk_codes()
     check_single_orchestrator()
     check_doc_commands()
