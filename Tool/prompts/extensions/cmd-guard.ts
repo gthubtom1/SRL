@@ -15,6 +15,10 @@
  *   3. 有界化易挂命令   ssh/scp 补 ConnectTimeout；超大递归扫描抬 timeout
  *   4. 把坑回灌给模型   长链命令、`start` 不带 /b、vmrun 快照锁等，在结果里回一句
  *   5. 卡死可见         底栏实时状态（已跑多久 / 静默多久）+ `/stall` 报告
+ *   6. 口令需用户回执   临时放行口令（rules.json 的 `allow`）只是「申请」；
+ *                       有没有回执（`~/.seep/run-ack.json`，60 分钟内有效）才决定放不放行。
+ *                       第 5 轮评审 P0：原来的「口令命中即整条放行」等于把系统级禁手的
+ *                       钥匙交给 Agent 自己，且拦截文案还在教它这么干。
  *
  * ── 它不做什么 ───────────────────────────────────────────────
  *   · 不解决「上游把 tool_use 结构化块当纯文本返回」那类 API 格式问题。
@@ -38,6 +42,7 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
 /* ────────────────────────────── 配置 ────────────────────────────── */
@@ -123,8 +128,12 @@ function isReadOnlySegment(cmd: string, at: number): boolean {
 	// 找到命中位置所在那一段的起点（最近的分隔符）
 	const seps = [before.lastIndexOf("|"), before.lastIndexOf(";"), before.lastIndexOf("&&"),
 		before.lastIndexOf("||"), before.lastIndexOf("\n")];
-	const start = Math.max(0, ...seps) + 1;
-	let seg = cmd.slice(start, at).trim();
+	// 找不到分隔符时 start 必须是 0 —— 旧实现写 `Math.max(0, ...seps) + 1`，
+	// 于是**命令开头那一段**总是被剪掉第一个字符（`grep …` 被看成 `rep …`），
+	// 只读豁免在第一条命令上完全失效：第 5 轮真值表「读类命令→放行」就是被这个 off-by-one 卡住的。
+	const raw = Math.max(-1, ...seps);
+	const start = raw + 1;
+	let seg = cmd.slice(start, at).trim().replace(/^[&]+/, "").trim();
 	// 去掉引号/括号/前缀命令（sudo、env、xargs 等不影响"是否是查看器"的判断：
 	// 只要段内出现了引号包裹，说明命中串是**参数**而不是程序名）
 	if (/^["'`]/.test(seg)) return true;
@@ -154,7 +163,7 @@ const BUILTIN_DENY: DenyRule[] = [
 			"  ① 进程内 hook（Frida hook WinHttpSendRequest/WinHttpReceiveResponse，最隐蔽，不装驱动）\n" +
 			"  ② 回环代理 + 只对该进程生效的重定向（mitmproxy 监听 127.0.0.1 + 目标进程内改 URL/代理参数）\n" +
 			"  ③ 只读查现状：`Get-NetIPAddress` / `netsh winhttp show proxy` / `net-rollback.py verify`\n" +
-			"确实要改：先 `python Tool/scripts/net-rollback.py snapshot`，再在命令里加 cmd-guard-skip 显式放行。",
+			"确实要改：先 `python Tool/scripts/net-rollback.py snapshot`，再走临时放行口令的用户回执三步（ask → 用户回 A/C → ack → 重发，见 /guard 或 rules.json 的 _allow说明）。",
 	},
 	{
 		id: "net-iface-write",
@@ -661,6 +670,279 @@ function hardenSsh(cmd: string, shell: "bash" | "powershell"): { cmd: string; in
 	return { cmd: out, injected };
 }
 
+/* ────────────── 用户回执（run-ack）—— 口令不再自助放行 ────────────── */
+
+/**
+ * 第 5 轮评审 P0：`allow` 里的口令一旦命中就整条跳过守卫，而命中方式是
+ * **Agent 自己往命令里加一个字符串** —— 没有任何用户确认。等于把系统级禁手
+ * （网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/HKLM/分区）的钥匙挂在 Agent 身上。
+ *
+ * 现在：口令只是「申请」。放不放行看 `~/.seep/run-ack.json`（用户回执，由
+ * `case_state.py ack` 写入，60 分钟内有效，letter 只能是 A 或 C）。
+ * 读不到 / JSON 坏 / 过期 / 字母不对 / 时钟在未来 —— 一律按无效处理（fail-closed）：
+ * 宁可拦错一条命令，不可放错一条。
+ *
+ * 为什么是文件而不是配置项：文件是「用户真的在对话里回了 A/C」的产物；
+ * 配置项（rules.json）Agent 自己能改，等于没有。
+ */
+
+export const RUN_ACK_SCHEMA = "seep.run-ack/1";
+/** 回执照有效期（分钟）。过期就当作没有 —— 一次性放行不该留成长期后门。 */
+export const RUN_ACK_TTL_MIN = 60;
+/** 只认这两个字母：A = 允许就按这条命令做，C = 不允许，换安全做法。 */
+const RUN_ACK_LETTERS = ["A", "C"];
+/** at 最多允许超前这么多毫秒（本机时钟抖动）；再往前就是时钟不可信。 */
+const RUN_ACK_CLOCK_SKEW_MS = 120_000;
+
+export interface RunAck {
+	schema: string;
+	case: string;
+	target_sha256: string;
+	letter: string;
+	at: string;
+}
+
+/** 回执来源：raw = 解析出的 JSON（读不到就是 null）；error = 读/解析失败原因。 */
+export interface AckSource {
+	raw: unknown;
+	error: string;
+	path: string;
+}
+
+/** 回执判定结果。不分联合类型：`valid` 为 false 时 `why` 写原因 —— 代码里到处要拼文案，
+    联合类型在模板字符串里的收窄很容易写错（实测：TS 会在三元里丢掉 discriminant）。 */
+export interface AckVerdict {
+	valid: boolean;
+	/** 无效时的原因（有效时为空串） */
+	why: string;
+	letter: string;
+	at: string;
+	case: string;
+	ageMinutes: number;
+}
+
+/** 回执文件位置。home 只为测试可注入，正常走 os.homedir()。 */
+export function runAckPath(home?: string): string {
+	return path.join(home || os.homedir(), ".seep", "run-ack.json");
+}
+
+/**
+ * 三步拿到回执。**整段不含口令原文** —— 拦下来的文案不能教人复制口令自助放行
+ * （第 5 轮评审：旧文案正是这么教的）。口令留在 rules.json 的 allow 段。
+ */
+const ACK_STEPS =
+	"三步拿到回执（缺一不可）：\n" +
+	'  ① 发卡：python Tool/scripts/case_state.py ask --case <case> --stuck "这条命令要临时放行系统级拦截，允许吗" --option "A 允许，就按这条命令做" --option "C 不允许，换安全做法"\n' +
+	"  ② 把 ask 打印的卡片**原样贴进对话**；用户回 A 或 C 之后：python Tool/scripts/case_state.py ack --case <case> --ack <A|C>\n" +
+	"     （ack 会写 ~/.seep/run-ack.json，60 分钟内有效；只有 A / C 算数）\n" +
+	"  ③ 重发同一条命令：回执在有效期内会被放行，结果里会标注 letter。";
+
+const ACK_NO_FORGERY =
+	"（**不要**自己写 ~/.seep/run-ack.json —— 那是伪造用户回执。守卫是 fail-closed 的：\n" +
+	"读不到 / JSON 坏了 / 过期 / letter 不是 A·C，一律不放行。）";
+
+/** 纯函数：判定一份回执是否有效。nowMs 显式传入，方便测「61 分钟前」。 */
+export function validateAck(raw: unknown, nowMs: number): AckVerdict {
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+		return { valid: false, why: "没有回执文件内容（缺失或空）", letter: "", at: "", case: "", ageMinutes: -1 };
+	}
+	const r = raw as Record<string, unknown>;
+	const no = (why: string): AckVerdict => ({ valid: false, why, letter: "", at: "", case: "", ageMinutes: -1 });
+	const schema = String(r.schema ?? "").trim();
+	if (schema !== RUN_ACK_SCHEMA) {
+		return no(`schema 不是 ${RUN_ACK_SCHEMA}（实际 ${JSON.stringify(schema)}）`);
+	}
+	const letter = String(r.letter ?? "").trim().toUpperCase();
+	if (!RUN_ACK_LETTERS.includes(letter)) {
+		return no(`letter=${JSON.stringify(r.letter ?? null)} 不是 A/C（用户没有同意临时放行）`);
+	}
+	const casePath = String(r.case ?? "").trim();
+	if (!casePath) {
+		return no("case 为空：回执没有绑定到具体案子");
+	}
+	if (typeof r.target_sha256 !== "string") {
+		return no("target_sha256 字段缺失或不是字符串（回执不完整）");
+	}
+	const atRaw = String(r.at ?? "").trim();
+	const atMs = atRaw ? Date.parse(atRaw) : Number.NaN;
+	if (!atRaw || Number.isNaN(atMs)) {
+		return no(`at 不是合法 ISO8601（${JSON.stringify(r.at ?? null)}）`);
+	}
+	const ageMs = nowMs - atMs;
+	if (ageMs < -RUN_ACK_CLOCK_SKEW_MS) {
+		return no(`at 在未来（${atRaw}），本机时钟不可信`);
+	}
+	if (ageMs > RUN_ACK_TTL_MIN * 60_000) {
+		return no(`回执已过期：${Math.floor(ageMs / 60_000)} 分钟前（上限 ${RUN_ACK_TTL_MIN} 分钟）`);
+	}
+	return {
+		valid: true,
+		why: "",
+		letter,
+		at: atRaw,
+		case: casePath,
+		ageMinutes: Math.max(0, Math.floor(ageMs / 60_000)),
+	};
+}
+
+/** 读回执文件。读不到 / 空 / JSON 坏 → raw=null 且 error 说明原因（fail-closed）。 */
+export function readAckSource(home?: string): AckSource {
+	const p = runAckPath(home);
+	let txt = "";
+	try {
+		if (!fs.existsSync(p)) return { raw: null, error: `没有回执文件（${p} 不存在）`, path: p };
+		txt = fs.readFileSync(p, "utf-8");
+	} catch (e) {
+		return { raw: null, error: `回执文件读不了（${p}：${(e as Error).message}）`, path: p };
+	}
+	if (!txt.trim()) return { raw: null, error: `回执文件是空的（${p}）`, path: p };
+	try {
+		return { raw: JSON.parse(txt), error: "", path: p };
+	} catch (e) {
+		return { raw: null, error: `回执文件 JSON 坏了（${p}：${(e as Error).message}）`, path: p };
+	}
+}
+
+/** 命令里申请「临时放行口令」的位置（只读段里的字样不算申请）。 */
+function skipTokenHit(cmd: string, cfg: GuardConfig): string | null {
+	const toks = (Array.isArray(cfg.allow) ? cfg.allow : [])
+		.filter((t) => t && String(t).trim())
+		.map((t) => String(t));
+	if (!toks.length) return null;
+	const lower = cmd.toLowerCase();
+	for (const t of toks) {
+		const needle = t.toLowerCase();
+		let at = lower.indexOf(needle);
+		while (at >= 0) {
+			// `grep -n <口令> cmd-guard.ts` 属于「读到那个词」，不是「申请放行」
+			if (!isReadOnlySegment(cmd, at)) return t;
+			at = lower.indexOf(needle, at + needle.length);
+		}
+	}
+	return null;
+}
+
+export interface SkipState {
+	/** 命令里是否申请了临时放行口令 */
+	requested: boolean;
+	/** 是否真的放行（只有回执有效才为 true） */
+	granted: boolean;
+	ack: AckVerdict | null;
+}
+
+export interface CommandDecision {
+	skip: SkipState;
+	/** block = 拦下；allow = 继续走后面的守卫（GUI / 盘根扫描 / timeout 注入） */
+	verdict: "allow" | "block";
+	/** 拦下时给模型的整段文案（**不含**口令原文） */
+	reason: string;
+	/** 放行时写进 tool_result 的标注 */
+	note: string;
+	/** 放行但要回给模型的提示（warn 级禁手、heredoc/只读豁免、回执标注） */
+	notes: string[];
+}
+
+/**
+ * ★ 判定纯函数（无 IO、无全局状态）：喂 (命令, 配置, 回执来源) 得到唯一结论。
+ *
+ * 口令命中时只有两种结局：
+ *   · 回执有效     → allow，note 里写「本次放行基于用户回执（letter=X）」
+ *   · 回执无效/缺失 → block，文案给三步（发卡 → 用户回 A/C → ack → 重发）
+ * 口令没命中时跑禁手表（heredoc / 只读查看器豁免与旧行为一致）。
+ */
+export function decideCommand(
+	cmd: string,
+	cfg: GuardConfig,
+	src: AckSource | null,
+	nowMs: number = Date.now(),
+): CommandDecision {
+	const token = skipTokenHit(cmd, cfg);
+	if (token) {
+		const ack: AckVerdict = src
+			? validateAck(src.raw, nowMs)
+			: { valid: false, why: "没有回执（未读到 ~/.seep/run-ack.json）", letter: "", at: "", case: "", ageMinutes: -1 };
+		if (!ack.valid) {
+			const why = src && src.error ? src.error : ack.why;
+			return {
+				skip: { requested: true, granted: false, ack },
+				verdict: "block",
+				reason:
+					"[cmd-guard] 已拦下：这条命令申请了「临时放行口令」（原文见规则文件 cmd-guard.rules.json 的 allow 段，这里不复述）。\n" +
+					"这个口令会整条跳过系统级禁手（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/注册表/分区）。\n" +
+					"它只能由**用户**决定，不能由 Agent 自助放行 —— 而现在没有有效回执。\n" +
+					`回执判定：${why}\n\n` +
+					ACK_STEPS +
+					"\n\n要么换等价的安全做法（按拦你的那条 hint），要么走完上面三步再重发。\n" +
+					ACK_NO_FORGERY +
+					"\n（如果这条命令其实没命中任何禁手，直接去掉口令按普通命令重发就行。）",
+				note: "",
+				notes: [],
+			};
+		}
+		return {
+			skip: { requested: true, granted: true, ack },
+			verdict: "allow",
+			reason: "",
+			note:
+				`本次放行基于用户回执（letter=${ack.letter}；回执时间 ${ack.at}，约 ${ack.ageMinutes} 分钟前；case=${ack.case}）。` +
+				"一次性放行，别把口令当默认做法。",
+			notes: [],
+		};
+	}
+
+	const notes: string[] = [];
+	const rules = Array.isArray(cfg.denyRules) ? cfg.denyRules : [];
+	for (const rule of rules) {
+		let re: RegExp;
+		try {
+			re = new RegExp(rule.re, "i");
+		} catch {
+			continue;
+		}
+		const hit = cmd.match(re);
+		if (!hit) continue;
+		// ★ 误伤修正（2026-10-23）：heredoc 体里写的命令是"数据"，不是被执行的东西。
+		//   实例：用 `python - <<'PY'` 往 markdown 里写一段"禁手清单"，
+		//   因为正文里出现了 `New-NetIPAddress` 就被整条拦下 —— 写文档被自己的护栏挡住。
+		//   判据：命中位置在第一个 heredoc 标记之后 → 只记笔记，不阻断。
+		const heredocAt = cmd.search(/<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?/);
+		if (heredocAt >= 0 && typeof hit.index === "number" && hit.index > heredocAt) {
+			notes.push(`（heredoc 数据区里出现了「${rule.label}」字样，按文本处理，未阻断）`);
+			continue;
+		}
+		// ★ 只读查看器例外（2026-10-24）：grep/sed/cat/Get-Content 看文档时命中禁手词，属于"读到"不是"要做"。
+		if (typeof hit.index === "number" && isReadOnlySegment(cmd, hit.index)) {
+			notes.push(`（只读查看：出现「${rule.label}」字样，按文本处理，未阻断）`);
+			continue;
+		}
+		const body =
+			`[cmd-guard] ${rule.severity === "block" ? "已拦下" : "注意"}：${rule.label}\n` +
+			`命中：\`${head(hit[0], 80)}\`\n` +
+			rule.hint;
+		if (rule.severity === "block") {
+			if (cfg.enforce) {
+				return {
+					skip: { requested: false, granted: false, ack: null },
+					verdict: "block",
+					reason: body + "\n\n确实非要这么做 → 只能要用户回执：\n" + ACK_STEPS,
+					note: "",
+					notes,
+				};
+			}
+			notes.push(`【禁手但 enforce=false】${rule.label}`);
+			continue;
+		}
+		notes.push(body);
+	}
+	return { skip: { requested: false, granted: false, ack: null }, verdict: "allow", reason: "", note: "", notes };
+}
+
+/** 供测试/巡检用：返回当前生效的配置（含内置禁手表 + rules.json 追加项）。 */
+export function effectiveConfig(): GuardConfig {
+	loadConfig(true);
+	return config;
+}
+
 /* ─────────────────────────── 记账 ─────────────────────────── */
 
 interface CallRecord {
@@ -803,57 +1085,36 @@ export default function cmdGuard(pi: any): void {
 		if (!cmd.trim()) return;
 
 		loadConfig();
-		if (config.allow.some((a) => a && cmd.toLowerCase().includes(a.toLowerCase()))) return;
+
+		/* 0. ★ 临时放行口令 —— 必须有用户回执（第 5 轮评审 P0）。
+		   旧行为：`allow` 命中就 `return` —— Agent 往命令里加个字符串就绕过全部系统级禁手，
+		   而且拦截文案还在教它这么加。现在口令只是「申请」，放不放行看 ~/.seep/run-ack.json。 */
+		const skipRequested = skipTokenHit(cmd, config) !== null;
+		const decision = decideCommand(cmd, config, skipRequested ? readAckSource() : null);
+		const skipGranted = decision.skip.granted;
+		if (decision.verdict === "block") {
+			blocked.push({
+				at: new Date().toISOString().slice(11, 19),
+				cmd: head(cmd, 100),
+				reason: head(decision.skip.requested ? "口令无有效用户回执" : decision.reason, 100),
+			});
+			stats.blocked++;
+			ctx?.ui?.notify?.(
+				decision.skip.requested
+					? "cmd-guard 拦下：临时放行口令缺用户回执（走 ask → 用户回 A/C → ack → 重发）"
+					: "cmd-guard 拦下：系统级禁手",
+				"warning",
+			);
+			return { block: true, reason: decision.reason };
+		}
 
 		const injected: string[] = [];
 		const notes: string[] = [];
-
-		/* 0.5 禁手表 —— 网络写操作（block）/ 启动纪律（warn）。
-		   比 GUI 拦截更优先：它造成的是「用户整机受影响」，比挂死严重。 */
-		if (Array.isArray(config.denyRules) && config.denyRules.length) {
-			for (const rule of config.denyRules) {
-				let re: RegExp;
-				try {
-					re = new RegExp(rule.re, "i");
-				} catch {
-					continue;
-				}
-				const hit = cmd.match(re);
-				if (!hit) continue;
-				// ★ 误伤修正（2026-10-23）：heredoc 体里写的命令是"数据"，不是被执行的东西。
-				//   实例：用 `python - <<'PY'` 往 markdown 里写一段"禁手清单"，
-				//   因为正文里出现了 `New-NetIPAddress` 就被整条拦下 —— 写文档被自己的护栏挡住。
-				//   判据：命中位置在第一个 heredoc 标记之后 → 只记笔记，不阻断。
-				const heredocAt = cmd.search(/<<-?\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?/);
-				if (heredocAt >= 0 && typeof hit.index === "number" && hit.index > heredocAt) {
-					notes.push(`（heredoc 数据区里出现了「${rule.label}」字样，按文本处理，未阻断）`);
-					continue;
-				}
-				// ★ 只读查看器例外（2026-10-24）：grep/sed/cat/Get-Content 看文档时命中禁手词，属于"读到"不是"要做"。
-				if (typeof hit.index === "number" && isReadOnlySegment(cmd, hit.index)) {
-					notes.push(`（只读查看：出现「${rule.label}」字样，按文本处理，未阻断）`);
-					continue;
-				}
-				const body =
-					`[cmd-guard] ${rule.severity === "block" ? "已拦下" : "注意"}：${rule.label}\n` +
-					`命中：\`${head(hit[0], 80)}\`\n` +
-					rule.hint;
-				if (rule.severity === "block") {
-					if (config.enforce) {
-						blocked.push({ at: new Date().toISOString().slice(11, 19), cmd: head(cmd, 100), reason: head(`${rule.label}：${rule.id}`, 100) });
-						stats.blocked++;
-						ctx?.ui?.notify?.(`cmd-guard 拦下：${rule.label}`, "warning");
-						return { block: true, reason: body };
-					}
-					notes.push(`【禁手但 enforce=false】${rule.label}`);
-				} else {
-					notes.push(body);
-				}
-			}
-		}
+		if (decision.note) notes.push(decision.note);
+		notes.push(...decision.notes);
 
 		/* 1. GUI / 交互式二进制 —— 物理拦下，这是 die.exe 那次挂死的根因 */
-		if (config.blockGui) {
+		if (!skipGranted && config.blockGui) {
 			const hit = findGui(cmd);
 			if (hit) {
 				const reason =
@@ -863,7 +1124,8 @@ export default function cmdGuard(pi: any): void {
 					`工具真实路径怎么查：先跑 \`(Get-Command <工具id> -ErrorAction SilentlyContinue).Source\`，` +
 					`无值再按 TOOL-CHAIN.md 的四级递进（env → PATH → _map.json 别名 → 递归兜底）。\n` +
 					`确实只能用 GUI 时：宿主有界面控制能力（computer-use 等）就开界面会话，别在 bash 里同步等；` +
-					`否则加 \`cmd-guard-skip\` 到命令里临时放行并立刻中断。`;
+					`这条被拦下了：要么换等价的安全做法（上面的 CLI 替代），` +
+					`要么走「临时放行口令」的用户回执三步（ask → 用户回 A/C → ack → 重发）后再来一次。`;
 				blocked.push({ at: new Date().toISOString().slice(11, 19), cmd: head(cmd, 100), reason: head(reason, 100) });
 				stats.blocked++;
 				if (config.enforce) {
@@ -875,14 +1137,15 @@ export default function cmdGuard(pi: any): void {
 		}
 
 		/* 1.5 盘根递归扫描 —— 拦下而不是只抬 timeout：抬到 180s 仍是 3 分钟空转 */
-		if (config.blockRootScan) {
+		if (!skipGranted && config.blockRootScan) {
 			const rootHit = detectRootScan(cmd);
 			if (rootHit) {
 				const reason =
 					`[cmd-guard] 已拦下盘根递归扫描：\`${head(rootHit, 80)}\`。\n` +
 					`这类命令会扫满整盘、几十秒到几分钟不返回；命令阻塞期间模型不在运行，物理上无法自愈。\n` +
 					`改用：已知路径常量（项目内 TOOL_DIR / 配置里的绝对路径）→ \`where.exe <id>\` / \`Get-Command <id>\` → 工具发现器。\n` +
-					`确实要扫：把范围缩到具体目录（\`find <dir> -maxdepth N\`），或加 \`cmd-guard-skip\` 临时放行并显式传 timeout。`;
+					`确实要扫：把范围缩到具体目录（\`find <dir> -maxdepth N\`）。` +
+					`非要扫盘根：要么换等价的安全做法，要么走「临时放行口令」的用户回执三步（ask → 用户回 A/C → ack → 重发）后再来一次（记得显式传 timeout）。`;
 				blocked.push({ at: new Date().toISOString().slice(11, 19), cmd: head(cmd, 100), reason: head(reason, 100) });
 				stats.blocked++;
 				if (config.enforce) {
@@ -1097,7 +1360,7 @@ export default function cmdGuard(pi: any): void {
 
 	/* ── /guard on|off|reload|rules ── */
 	pi.registerCommand("guard", {
-		description: "命令守卫开关：/guard off 关掉注入与拦截，/guard on 恢复，/guard reload 重读文档，/guard rules 看派生出的 GUI 名单",
+		description: "命令守卫开关：/guard off 关掉注入与拦截，/guard on 恢复，/guard reload 重读文档，/guard rules 看派生出的 GUI 名单，/guard ack 看临时放行口令的回执状态",
 		handler: async (arg: string, ctx: any) => {
 			remember(ctx);
 			const a = (arg || "").trim().toLowerCase();
@@ -1106,6 +1369,20 @@ export default function cmdGuard(pi: any): void {
 			else if (a === "reload") {
 				loadConfig(true);
 				loadedStamp = "0";
+			} else if (a === "ack") {
+				// 只报告回执现状，不代用户写回执（那是伪造）
+				const src = readAckSource();
+				const v = validateAck(src.raw, Date.now());
+				ctx?.ui?.notify?.(
+					`临时放行口令回执（${src.path}）\n` +
+						(v.valid
+							? `有效：letter=${v.letter}；${v.at}（约 ${v.ageMinutes} 分钟前）；case=${v.case}\n` +
+								`有效期 ${RUN_ACK_TTL_MIN} 分钟，过期后口令重新变回「只拦不放」。`
+							: `无效：${src.error || v.why}\n` +
+								`拿回执：case_state.py ask → 用户回 A/C → case_state.py ack → 重发命令。`),
+					v.valid ? "info" : "warning",
+				);
+				return;
 			} else if (a === "rules") {
 				const rows = [...guiTable.entries()].sort();
 				const L = rows.map(([k, v]) => (v === null ? `  ${k}  —— 明确不拦` : `  ${k}  →  ${v}`));
@@ -1113,10 +1390,13 @@ export default function cmdGuard(pi: any): void {
 				ctx?.ui?.notify?.(L.join("\n"), "info");
 				return;
 			}
+			const src = readAckSource();
+			const ackV = validateAck(src.raw, Date.now());
 			const msg =
 				`cmd-guard ${enabled ? "启用" : "停用"}｜GUI 规则 ${[...guiTable.values()].filter((v) => v !== null).length} 条` +
 				`（规则源=${rulesSource}）｜timeout ${config.probeTimeout}/${config.analysisTimeout || config.defaultTimeout}/${config.heavyTimeout}s` +
 				`｜卡死阈值 ${config.stallSeconds}s｜enforce=${config.enforce} blockGui=${config.blockGui} blockRootScan=${config.blockRootScan}` +
+				`｜口令回执=${ackV.valid ? `有效(letter=${ackV.letter}，${ackV.ageMinutes} 分钟前)` : "无（口令只拦不放）"}` +
 				`｜规则文件 ${fileExists(rulesPath()) ? rulesPath() : "（未建，用内置默认）"}`;
 			ctx?.ui?.notify?.(msg, enabled ? "info" : "warning");
 		},

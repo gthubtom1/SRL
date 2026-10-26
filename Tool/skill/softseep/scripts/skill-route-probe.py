@@ -21,7 +21,7 @@
     python Tool/skill/softseep/scripts/skill-route-probe.py --json
     python Tool/skill/softseep/scripts/skill-route-probe.py --only web-js apk game
     python Tool/skill/softseep/scripts/skill-route-probe.py --self-test
-退出码：0 全绿（或本机无 PowerShell 时显式 skipped）/ 1 有探针失败 / 2 输入缺失。
+退出码：0 全绿 / 1 有探针失败 **或本机无 PowerShell（NOT TESTED，跳过≠通过）** / 2 输入缺失。
 """
 
 from __future__ import annotations
@@ -150,11 +150,24 @@ def main() -> int:
 
     ps = find_ps()
     if not ps:
-        result = {"ok": True, "skipped": True,
-                  "reason": "本机没有 powershell/pwsh，技能路由探针跳过（不算失败）",
-                  "probes": len(probes)}
-        print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else result["reason"])
-        return 0
+        # ★ 第 5 轮评审 P1：这里原来返回 ok=True / rc 0，check.py 就显示 PASS ——
+        #   但一条探针都没跑。"跳过"不是"通过"：路由在中文边界上的回归正是这种假绿养出来的。
+        reason = (
+            "NOT TESTED（跳过≠通过）：本机没有 powershell/pwsh，%d 条技能路由探针一条都没跑。\n"
+            "所以这里返回 ok=False / rc=1，check.py 的 route-tests 会因此变红 —— 这是想要的行为：\n"
+            "没测过就不能算绿。\n"
+            "出路（二选一）：\n"
+            "  ① 装 PowerShell：winget install --id Microsoft.PowerShell -e"
+            "（或用系统自带的 Windows PowerShell 5.1：确认 powershell.exe 在 PATH 里）；\n"
+            "  ② 不装也能验路由的 python 版（route.py 是唯一实现，本来就是 python）：\n"
+            "     python Tool/scripts/route.py --resolve \"<用户口吻>\" --json\n"
+            "     或直接把本探针的跑法改成不用 find_ps() 的那条（改判据需人评审，不自行放宽）。"
+            % len(probes)
+        )
+        result = {"ok": False, "skipped": True, "not_tested": True,
+                  "blocked_at": "no-powershell", "reason": reason, "probes": len(probes)}
+        print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else reason)
+        return 1
 
     results, fails = [], []
     for p in probes:

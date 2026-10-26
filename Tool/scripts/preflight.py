@@ -140,8 +140,10 @@ def check_dangling():
 
 # ---------------------------------------------------------------- [2] 数字
 def actual_numbers():
-    tools = len(re.findall(r"@server\.tool\(\)",
-                           open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()))
+    tools = len(re.findall(
+        r"^@server\.tool\(\)",
+        open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read(),
+        re.M))
     kb = sum(1 for dp, dn, fn in os.walk(os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb"))
              for f in fn if f.endswith(".md"))
     manual = len([f for f in os.listdir(os.path.join(ROOT, "MANUAL")) if f.endswith(".md")])

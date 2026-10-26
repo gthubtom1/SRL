@@ -533,14 +533,24 @@ def require_evidence(value, case=None):
     # ③ 路径：形似路径就必须真实存在（原行为保留）
     #   先判路径存在：文件名里带 E-001 这类号时，存在文件优先于「账本编号」分支。
     path_like = bool(EVIDENCE_PATH_RE.search(ev))
-    path_ok = False
     if path_like:
         cands = [ev]
         if case:
             cands.append(os.path.join(os.path.abspath(case), ev))
-        path_ok = any(os.path.exists(c) for c in cands)
-        if path_ok:
-            return ev
+        existing = [c for c in cands if os.path.exists(c)]
+        if existing:
+            # 第 5 轮评审 P1：**零字节文件不算证据**。以前只判 os.path.exists，
+            # `: > empty.log` 就能让 prove 过关 —— 别人拿到空文件什么也核不出来。
+            # 路径型证据：存在 **且** 大小 > 0；哈希型证据（上面 ②）照旧。
+            for c in existing:
+                try:
+                    if os.path.getsize(c) > 0:
+                        return ev
+                except OSError:
+                    continue
+            die_json("evidence-empty",
+                     "零字节文件不算证据：里面要能看到东西（%s）\n     %s"
+                     % (ev, EVIDENCE_REPLAY_HINT))
     # ④ 账本编号：E-/F-/C- 且该编号在本案账本里存在（case 为空时不猜，走下面拒绝）
     ids = ["%s-%s" % (a_, b_) for a_, b_ in EVIDENCE_ID_RE.findall(ev)]
     if ids:
@@ -800,6 +810,22 @@ def cmd_init(a):
 DOMAIN_UNCLASSIFIED_NOTE = "未判型，先过 seep-router"
 
 
+def _target_files_entry(target_fp):
+    """把 `_fingerprint_target` 的指纹块转成 `case.json.target_files[]` 元素。
+
+    第 5 轮评审 P1：新建案只写了 `target`（指纹块），`recheck` 却只读 `target_files`，
+    于是新案的复查单永远显示「未登记 target_files」。这里只收**有哈希的真文件**：
+    目标未就位（URL/不存在/读不了）时不写空壳条目，保持「没登记 = 没资产」可机检。
+    """
+    if not isinstance(target_fp, dict):
+        return []
+    path = str(target_fp.get("path") or "").strip()
+    sha = str(target_fp.get("sha256") or "").strip().lower()
+    if not path or not sha:
+        return []
+    return [{"path": path, "sha256": sha, "size": target_fp.get("size")}]
+
+
 def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
     """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。
 
@@ -810,6 +836,24 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
     """
     cj = os.path.join(d, "case.json")
     if os.path.isfile(cj):
+        # 第 5 轮评审 P1：老案（case.json 早于 target_files）在重跑 init / init --force 时补登记。
+        # 只在「现有 target_files 没有任何 sha256」时补，绝不覆盖人工登记过的相对路径。
+        if target_fp is not None:
+            try:
+                with open(cj, encoding="utf-8") as f:
+                    meta = json.load(f)
+                if isinstance(meta, dict):
+                    fresh = _target_files_entry(target_fp)
+                    cur = meta.get("target_files")
+                    has_sha = isinstance(cur, list) and any(
+                        str((it or {}).get("sha256") or "").strip() for it in cur
+                        if isinstance(it, dict))
+                    if fresh and not has_sha:
+                        meta["target_files"] = fresh
+                        with open(cj, "w", encoding="utf-8") as f:
+                            json.dump(meta, f, ensure_ascii=False, indent=1)
+            except (OSError, ValueError):
+                pass
         return False
     kind = evidence_kind if evidence_kind in ("fixture", "real", "self-built", "historical") else "real"
     dom = str(domain or "").strip()
@@ -821,6 +865,9 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
         # ★ 原件指纹块（第 2 轮评审）：建案时就能重放比对「原件动没动」。
         #   只新增字段，不动原有 target_type 等语义；`index` 不读此块，故不影响索引。
         "target": target_fp or {},
+        # ★ 目标资产清单（第 5 轮评审 P1）：`recheck` / report 的复查段只认 target_files，
+        #   老 init 只写 target 指纹块 → 新案复查单永远「未登记」。这里同时写，target 保持不动（兼容）。
+        "target_files": _target_files_entry(target_fp),
         "evidence_kind": kind,
         "protection": [],
         "authority": "",
@@ -3351,6 +3398,12 @@ def cmd_recheck(a):
           "- 先查「已知会变」；仍不一致 → 该结论降为 `未验证`，不要否定整份报告", ""]
     out = os.path.join(d, "recheck.md")
     open(out, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
+    # 先把「目标身份」回显到 stdout：复查时第一眼要能看到目标哈希，
+    # 不用再去翻文件（机检：`recheck | grep sha256` 能拿到）。
+    for f in files:
+        print("[OK] 目标身份：%s sha256=%s" % (f.get("path"), f.get("sha256")))
+    if not files:
+        print("[WARN] case.json 未登记 target_files（复查单没有目标哈希）")
     print("[OK] 复查单已生成：%s（%d 条重放记录）" % (out, len(repro)))
     return 0
 
@@ -3860,6 +3913,11 @@ def _self_test():
                 f.write("x")
             assert require_evidence("run.log", tmp3); checks += 1
             assert _rej(lambda: require_evidence("ghost.json", tmp3)); checks += 1
+            # 第 5 轮评审 P1：存在但零字节 → 仍必须拒（`: > empty.log` 不能当证据）
+            empty = os.path.join(tmp3, "empty.log")
+            open(empty, "w", encoding="utf-8").close()
+            assert _rej(lambda: require_evidence("empty.log", tmp3)); checks += 1
+            assert _rej(lambda: require_evidence(empty, tmp3)); checks += 1
             # 文件名里带 ID 但文件真实存在 → 按路径收（存在优先于「账本编号」分支）
             os.makedirs(os.path.join(tmp3, "artifacts"), exist_ok=True)
             with open(os.path.join(tmp3, "artifacts", "E-999-notes.md"), "w", encoding="utf-8") as f:
@@ -3870,6 +3928,15 @@ def _self_test():
             assert len(fp.get("sha256") or "") == 64 and fp.get("size") == 1; checks += 1
             fp2 = _fingerprint_target(os.path.join(tmp3, "nope.bin"))
             assert fp2.get("sha256") is None and "目标未就位" in (fp2.get("note") or ""); checks += 1
+            # 第 5 轮评审 P1：init 的 case.json 必须同时登记 target_files[]（recheck 读它）
+            mdir = os.path.join(tmp3, "mcase")
+            os.makedirs(mdir, exist_ok=True)
+            assert _ensure_case_meta(mdir, {"target": fp.get("path")}, "real", fp,
+                                     domain="softseep"); checks += 1
+            mj = json.load(open(os.path.join(mdir, "case.json"), encoding="utf-8"))
+            assert mj.get("target", {}).get("sha256") == fp["sha256"]; checks += 1
+            assert (mj.get("target_files") or [{}])[0].get("sha256") == fp["sha256"]; checks += 1
+            assert _target_files_entry(fp2) == []; checks += 1
         finally:
             shutil.rmtree(tmp3, ignore_errors=True)
         # 进阶闸（P2-4 缝1）：`stage --set` 不许静默跳阶

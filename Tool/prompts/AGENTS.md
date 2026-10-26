@@ -175,7 +175,7 @@ launch-gui.ps1 -Target <exe> -Mode shell   # 必须自己拉：走 explorer（�
 **改本机全局网络 = 把用户和 Agent 一起搞离线。**
 `cmd-guard` 内置 9 条禁手（网卡 IP / 网卡状态 / WinHTTP 代理 / DNS / 路由 / winsock = block；shell 拉起 exe = warn），已生效，不在文本里抄第二遍：→ `Tool/prompts/extensions/cmd-guard.rules.json`
 
-抓包优先级：**Frida 进程内 hook** > 代理只注入目标进程 > `pktmon`/ETW > Wireshark/Npcap。真要改：**先** `net-rollback.py snapshot`，**再**加 `cmd-guard-skip` 放行；`restore` 后自动五路探活。
+抓包优先级：**Frida 进程内 hook** > 代理只注入目标进程 > `pktmon`/ETW > Wireshark/Npcap。真要改：**先** `net-rollback.py snapshot`，再走"临时放行回执"三步（`case_state.py ask` → 用户回 A/C → `ack`）；`restore` 后自动五路探活。**口令不再自助生效**：没有回执就被拦。
 
 ---
 

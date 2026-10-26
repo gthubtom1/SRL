@@ -12,6 +12,11 @@ Tool/scripts/compliance-relay/relay-config.json
 .mcp.json.bak
 mcp.json
 
+# 会话凭据：capture/login.json 可能含 Cookie / Token / 账号 —— 只允许脱敏版入库，
+# 或改存到 ~/.seep/cases/（本机私有，不入版本库）。
+capture/login.json
+**/capture/login.json
+
 # ---------------------------------------------------------------------------
 # 维护工具（宿主私有）
 # ---------------------------------------------------------------------------

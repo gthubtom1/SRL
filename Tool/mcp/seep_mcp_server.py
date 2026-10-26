@@ -1973,9 +1973,32 @@ _ANTIVM_STRINGS = [b"VMware", b"VirtualBox", b"VBox", b"QEMU", b"Xen", b"Hyper-V
                    b"vbox", b"SbieDll", b"dbghelp", b"OllyDbg", b"x64dbg", b"WinDbg",
                    b"Wireshark", b"Process Hacker", b"procmon"]
 
+# ── 强弱分层（第 5 轮评审 P1）────────────────────────────────────────────────
+# 弱信号：**CRT / 标准运行时也常见**，单独出现绝不能当「反调试/注入」结论。
+#   实测反例：MinGW 的伪重定位器就带 SetUnhandledExceptionFilter + VirtualProtect
+#   （golden-crackme/target/a.exe 曾被误报 antidebug=[SetUnhandledExceptionFilter]
+#    injection=[VirtualProtect]），而该案已证明那只是运行时启动代码。
+_WEAK_RUNTIME_IMPORTS = {
+    "SetUnhandledExceptionFilter", "VirtualProtect", "VirtualAlloc",
+    "GetProcAddress", "LoadLibraryA", "LoadLibraryW",
+    "IsDebuggerPresent", "OutputDebugStringA", "OutputDebugStringW",
+    "GetTickCount", "GetTickCount64", "QueryPerformanceCounter",
+    "CreateToolhelp32Snapshot", "Process32FirstW", "Process32NextW",
+    "FindWindowA", "FindWindowW", "GetForegroundWindow",
+    "OpenProcess", "ReadProcessMemory",
+}
+# 强信号：标准 CRT 不会凭空带上的反调试/注入组合（仍需同文件 ≥2 个才判「有保护」）。
+# 注意：上面两个既有集合（_ANTIDEBUG_IMPORTS / _INJECTION_IMPORTS）**全部保留**，
+#   这里只决定「进 antidebug/injection 结论」还是「进 weak_signals」。
 
-def _read_pe_imports(path: str) -> list:
-    """用 pefile 读导入函数名（失败返回空）。"""
+
+def _read_pe_imports(path: str):
+    """用 pefile 读导入函数名。
+
+    返回 list = 读取成功（可能为空表）；返回 None = **读取失败/工具不可用**。
+    第 5 轮评审 P1：以前失败也返回 []，外面就把「解析失败」当成「没有反调试导入」，
+    再顺着给出「可直接反编译」—— 失败必须能和「真的是空导入表」区分开。
+    """
     try:
         import pefile
         pe = pefile.PE(path, fast_load=True)
@@ -1988,7 +2011,7 @@ def _read_pe_imports(path: str) -> list:
                     names.append(imp.name.decode("latin1", "replace"))
         return names
     except Exception:
-        return []
+        return None
 
 
 @server.tool()
@@ -2010,39 +2033,73 @@ def seep_packer_detect(binary_path: str) -> str:
 
     result = {
         "file": os.path.basename(binary_path),
-        "packed": False,
+        "status": "unknown",
+        "packed": None,
         "packer_hints": [],
+        "strong_signals": [],
+        "weak_signals": [],
         "high_entropy_sections": [],
         "antidebug_imports": [],
+        "injection_imports": [],
         "antivm_strings": [],
+        "why": "",
         "route": [],
         "manual": [],
     }
+    sections = []
+    iat_dir_size = 0
+    parse_error = ""
+    read_error = ""
+    blob = b""
+    has_clr = False
+
+    def _unknown(why, fix):
+        """第 5 轮评审 P1：**判不了 ≠ 没壳**。失败一律 packed=null + status=unknown，
+        且不给「可直接反编译」这类下一步。"""
+        result["status"] = "unknown"
+        result["packed"] = None
+        result["why"] = why
+        result["route"] = ["没能判定：先解决 %s，别当成没壳" % fix]
+        result["manual"] = ["MANUAL/UNPACKING.md", "MANUAL/ANTI-DEBUG.md"]
+        result["sections"] = sections
+        result["next_actions"] = [{"why": result["route"][0], "action": fix}]
+        return json.dumps(result, indent=2, ensure_ascii=False)
 
     # 1) 节名/节熵（pefile）
-    sections = []
     try:
         import pefile
-        pe = pefile.PE(binary_path, fast_load=True)
-        # CLR/.NET 检测（数据目录第 14 项）
+    except Exception as exc:  # noqa: BLE001
+        pefile = None
+        parse_error = "pefile 不可用（%s: %s）" % (type(exc).__name__, exc)
+    if pefile is not None:
         try:
-            dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
-            clr = dd[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]]
-            result["has_clr"] = bool(clr.VirtualAddress and clr.Size)
-        except Exception:
-            result["has_clr"] = False
-        for s in pe.sections:
-            name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
-            data = s.get_data()
-            ent = _entropy_bytes(data) if data else 0.0
-            sections.append({"name": name, "raw_size": s.SizeOfRawData,
-                             "entropy": round(ent, 2)})
-            if name in _PACKER_SECTIONS:
-                result["packer_hints"].append(f"section:{name}")
-            if ent > 7.0 and s.SizeOfRawData > 512:
-                result["high_entropy_sections"].append(f"{name}({round(ent,2)})")
-    except Exception:
-        pass
+            pe = pefile.PE(binary_path, fast_load=True)
+            # CLR/.NET 检测（数据目录第 14 项）
+            try:
+                dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY
+                clr = dd[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]]
+                has_clr = bool(clr.VirtualAddress and clr.Size)
+            except Exception:
+                has_clr = False
+            try:
+                iat_dd = pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                    pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"]]
+                iat_dir_size = int(getattr(iat_dd, "Size", 0) or 0)
+            except Exception:
+                iat_dir_size = 0
+            for s in pe.sections:
+                name = s.Name.rstrip(b"\x00").decode("latin1", "replace")
+                data = s.get_data()
+                ent = _entropy_bytes(data) if data else 0.0
+                sections.append({"name": name, "raw_size": s.SizeOfRawData,
+                                 "entropy": round(ent, 2)})
+                if name in _PACKER_SECTIONS:
+                    result["packer_hints"].append(f"section:{name}")
+                if ent > 7.0 and s.SizeOfRawData > 512:
+                    result["high_entropy_sections"].append(f"{name}({round(ent,2)})")
+        except Exception as exc:  # noqa: BLE001
+            parse_error = "PE 解析失败（%s: %s）" % (type(exc).__name__, exc)
+    result["has_clr"] = has_clr
 
     # 2) 壳字符串特征（原始字节）
     try:
@@ -2051,34 +2108,83 @@ def seep_packer_detect(binary_path: str) -> str:
         for sig in _PACKER_STRINGS:
             if sig in blob:
                 result["packer_hints"].append(f"string:{sig.decode('latin1')}")
-    except Exception:
-        blob = b""
+    except OSError as exc:
+        read_error = "目标文件读不出（%s: %s）" % (type(exc).__name__, exc)
 
-    # 3) 反调试导入
+    if parse_error or read_error:
+        why = "；".join(x for x in (parse_error, read_error) if x)
+        if "pefile" in parse_error:
+            fix = "pefile（解析工具不可用：装/修 pefile 后重跑）"
+        elif read_error:
+            fix = "文件权限/占用（确认这个文件现在能读）"
+        else:
+            fix = "解析工具/文件完整性（换 rebar/r2 交叉验证，或先解密）"
+        return _unknown(why, fix)
+
+    # 3) 导入表（失败 = None，必须与「真的是空导入表」区分）
     imports = _read_pe_imports(binary_path)
-    ad = sorted({n for n in imports if n in _ANTIDEBUG_IMPORTS})
-    result["antidebug_imports"] = ad
-    inj = sorted({n for n in imports if n in _INJECTION_IMPORTS})
-    result["injection_imports"] = inj
+    if imports is None:
+        return _unknown("导入表读不出（pefile 解析 IMAGE_DIRECTORY_ENTRY_IMPORT 异常）",
+                        "导入表解析（换 rebar/r2 交叉验证，或先确认文件没被加密）")
 
-    # 4) 反虚拟机字符串
+    # 4) 强/弱分层：CRT/运行时常见符号只进 weak_signals，不参与 antidebug/injection 结论
+    imported = sorted(set(imports))
+    weak_imports = sorted(n for n in imported if n in _WEAK_RUNTIME_IMPORTS)
+    strong_imports = sorted(
+        n for n in imported
+        if n not in _WEAK_RUNTIME_IMPORTS
+        and (n in _ANTIDEBUG_IMPORTS or n in _INJECTION_IMPORTS))
+    result["antidebug_imports"] = [n for n in strong_imports if n in _ANTIDEBUG_IMPORTS]
+    result["injection_imports"] = [n for n in strong_imports if n in _INJECTION_IMPORTS]
+    result["weak_signals"] = ["import:%s" % n for n in weak_imports]
+
+    # 5) 反虚拟机字符串（不单独构成判壳结论）
     av = sorted({s.decode() for s in _ANTIVM_STRINGS if s in blob})
     result["antivm_strings"] = av
 
-    # 5) 判定与路由
-    result["packed"] = bool(result["packer_hints"]) or bool(result["high_entropy_sections"])
+    # 6) 判定：只有同文件 ≥2 个**强特征**才判「有保护」。
+    #    高熵节/弱导入只进 weak_signals（有壳通常也有高熵，但高熵本身不是壳的证明）。
+    strong = list(result["packer_hints"])
+    strong += ["import:%s" % n for n in strong_imports]
+    if iat_dir_size > 0 and not imported:
+        strong.append("iat:empty-with-directory")
+    result["strong_signals"] = list(dict.fromkeys(strong))
+    result["weak_signals"] += ["entropy:%s" % x for x in result["high_entropy_sections"]]
+    result["status"] = "ok"
+    result["packed"] = len(result["strong_signals"]) >= 2
+    if result["packed"]:
+        result["why"] = ("解析成功；命中 %d 个强特征（≥2 才判有保护）：%s"
+                         % (len(result["strong_signals"]),
+                            "、".join(result["strong_signals"][:6])))
+    elif result["strong_signals"]:
+        result["why"] = ("解析成功；只有 %d 个强特征（不够 ≥2 的判壳门槛）：%s"
+                         % (len(result["strong_signals"]),
+                            "、".join(result["strong_signals"][:6])))
+    else:
+        result["why"] = "解析成功；没有强特征"
+        if result["weak_signals"]:
+            result["why"] += "；weak_signals=%d 个（不构成反调试/注入结论）" % len(result["weak_signals"])
+
+    # 7) 路由
     if result.get("has_clr"):
         result["route"].append(".NET/CLR 程序 → 用 dnSpy/ILSpy 反编译看 IL；混淆用 de4dot，加密看 UNPACKING §五")
     if result["packed"]:
         result["route"].append("有壳 → 先脱壳：读 MANUAL/UNPACKING.md §一(壳速查) + §二(OEP/Dump)")
+    elif result["strong_signals"]:
+        result["route"].append("只有 1 个强特征（不够判壳）→ 先交叉验证，别当成没壳，也别直接脱壳")
     if result["antidebug_imports"]:
-        result["route"].append("有反调试导入 → 读 MANUAL/ANTI-DEBUG.md §二(PEB系列) + §七(两击熔断)")
+        result["route"].append("有强反调试导入 → 读 MANUAL/ANTI-DEBUG.md §二(PEB系列) + §七(两击熔断)")
     if result["injection_imports"]:
-        result["route"].append("有注入/自修改/内存篡改类导入（CreateRemoteThread/WriteProcessMemory/VirtualProtect 等）→ 典型保护/注入型样本，重点看自修改代码与方法 Hook，按 UNPACKING §二 内存 Dump + ANTI-DEBUG §六 代理 DLL")
+        result["route"].append("有强注入/自修改/内存篡改类导入（CreateRemoteThread/WriteProcessMemory 等）→ 重点看自修改代码与方法 Hook，按 UNPACKING §二 内存 Dump + ANTI-DEBUG §六 代理 DLL")
     if result["antivm_strings"]:
         result["route"].append("有反虚拟机特征 → 优先真机/裸金属，或按 ANTI-DEBUG §四 处理环境检测")
-    if not result["packed"] and not result["antidebug_imports"] and not result["injection_imports"]:
-        result["route"].append("未检出明显壳/反调试/注入特征 → 可直接 seep_r2_decompile 反编译")
+    if not result["packed"] and not result["strong_signals"]:
+        if result["weak_signals"]:
+            result["route"].append(
+                "未检出壳的强特征；weak_signals=%d 个（CRT/标准运行时也常见，不构成反调试/注入结论）"
+                "→ 按普通 PE 分析，先用 seep_auto_triage 交叉验证" % len(result["weak_signals"]))
+        else:
+            result["route"].append("未检出壳/反调试/注入的强特征 → 可 seep_r2_decompile 反编译（再用 auto_triage 交叉验证）")
 
     result["manual"] = ["MANUAL/UNPACKING.md", "MANUAL/ANTI-DEBUG.md"]
     result["sections"] = sections
@@ -2117,8 +2223,16 @@ def seep_packer_detect(binary_path: str) -> str:
             )
             result["forbidden_next"] = ["对文件字节做 capstone/反汇编", "对文件字节做 strings/关键字扫描",
                                         "在文件里手工找 OEP 字节"]
+    elif result["strong_signals"]:
+        acts.append({"why": "只有单个强特征，不够判壳：先交叉验证，别当成没壳",
+                     "tool": "mcp__seep__seep_auto_triage", "args": {"target_path": binp}})
+    elif result["weak_signals"]:
+        acts.append({"why": "只有弱信号（CRT/运行时常见），不构成壳/反调试结论：先交叉验证",
+                     "tool": "mcp__seep__seep_auto_triage", "args": {"target_path": binp}})
+        acts.append({"why": "没有壳的强特征 → 可反编译（结论仍以 auto_triage 为准）",
+                     "tool": "mcp__seep__seep_r2_decompile", "args": {"binary_path": binp}})
     else:
-        acts.append({"why": "未检出壳 → 可直接反编译",
+        acts.append({"why": "未检出壳的强特征 → 可反编译（再用 auto_triage 交叉验证）",
                      "tool": "mcp__seep__seep_r2_decompile", "args": {"binary_path": binp}})
     result["next_actions"] = acts
 
@@ -2132,6 +2246,12 @@ def seep_packer_detect(binary_path: str) -> str:
         result["ask_policy"] = ("这些是**必须问用户**的输入；先问再动手。用户答『没有』才走 if_no 路线，"
                                "并把答案记进账本（case_state.py ask/ack）。")
     return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+# 兼容不同 MCP/FastMCP 版本：有的版本 `@server.tool()` 返回 FunctionTool（原函数在 `.fn`），
+# 有的返回裸函数。自检/评审脚本统一用 `seep_packer_detect.fn(...)` 直调，这里补稳定入口。
+if not hasattr(seep_packer_detect, "fn"):
+    seep_packer_detect.fn = seep_packer_detect
 
 
 # ---------------------------------------------------------------------------
