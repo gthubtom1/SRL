@@ -19,10 +19,7 @@
 
 | 文件 | 作用 |
 | :-- | :-- |
-| [GLOSSARY.md](GLOSSARY.md) | 术语表 |
 | [STYLE.md](STYLE.md) | 写作风格（判据优先、可机检） |
-| [PROMOTION.md](PROMOTION.md) | 技能/能力的晋升流程 |
-| [AGENT-BRIEF.md](AGENT-BRIEF.md) | **内部子代理**作业简报（外部审查另走只读流程） |
 
 ## 3. 审查（只读）
 

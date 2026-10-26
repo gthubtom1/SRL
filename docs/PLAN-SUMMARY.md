@@ -300,7 +300,6 @@ preflight 第 19 组                  每叶必须有"怎么算做成"+ 缺样�
 | :-- | :-- |
 | **唯一架构口径** | `docs/BLUEPRINT.md` |
 | 反"假完成"协议（双用途） | `Tool/prompts/contracts/_archived/ANTI-FALSE-DONE.md` |
-| 审查方法论（为什么过去必然失效 + 五道审计） | `docs/AUDIT-METHOD.md` |
 | 路径树 / 走查 / 基线 | 「path-tree.json」(S1 已删)、「path-walk.py」(S1 已删)、「path-tree-baseline.json」(S1 已删) |
 | 决策环 + Manager Mode | `Tool/prompts/contracts/_archived/DECISION-LOOP.md` |
 | 工具四阶梯 | `Tool/prompts/contracts/_archived/TOOL-LADDER.md` |

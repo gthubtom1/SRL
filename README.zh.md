@@ -45,7 +45,7 @@
 
 > ## 现状卡（冷启动只看这几行）
 >
-> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（10 个技能 / 9 个域包 / 24 条配方 / 20 个 MCP 工具 / 15 个全局脚本）
+> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（11 个技能 / 9 个域包 / 24 条配方 / 20 个 MCP 工具 / 15 个全局脚本）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
 > - **版本**：`v1.26.1`（`VERSION`）｜**门禁**：preflight 55/55、domain-gate 110/110、verify 65/0、preflight.py 12/12
 > - **先读**：[`docs/history/FORK-BRIEF.md`](docs/history/FORK-BRIEF.md)（差异/需求/契约/债务）→ [`docs/RELEASE-1.26.1.md`](docs/RELEASE-1.26.1.md)（最近交付台账）
@@ -108,7 +108,7 @@
 **怎么保证“不伤原版”**：
 - 相对原版 `upstream/main`，`seep_mcp_server.py` **净删除 0 行**（纯追加）；
 - 原 MCP 基线 `test_seep_mcp.py` **9/9 不变**；
-- 体检从 50 项 → **65 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
+- 体检从 50 项 → **80 项**（只增不减），新增项就是“扩展资产在位 + 功能自测 + 工具自动发现”。
 
 **怎么回退到纯净原版**：
 ```bash
@@ -291,7 +291,7 @@ Seep\ (251 MB)
     ├── UNPACKING.md               ← UPX/MPRESS/Themida/VMP 脱壳 SOP
     ├── POC-VALIDATION.md          ← Frida 自愈循环与 PoC 沙箱验证
     ├── DEPLOYMENT.md              ← 全景部署与多 Agent 集成指南
-    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（65 项）
+    ├── DEPLOYMENT-CHECKLIST.md    ← 官方部署资产核验基准清单（80 项）
     ├── CROSS-PLATFORM.md          ← 跨平台（Windows/Linux/macOS）运行与战术等价指南
     ├── COMPLIANCE-RELAY.md        ← 链路层合规转译中继与防拒自动重试指南
     ├── MODEL-REFUSAL-MATRIX.md    ← 实测大模型拒答矩阵与提示词重塑研究
@@ -442,7 +442,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 所有受影响文件会先整体备份到 `~/.pi/agent/backup-uninstall-<时间戳>/`，用 `-Restore <目录>` 可一键还原。详见 [MANUAL/DEPLOYMENT.md](MANUAL/DEPLOYMENT.md)。
 
-### 6. 部署完备性校验（9 大维度 65 项全绿）
+### 6. 部署完备性校验（9 大维度 80 项全绿）
 
 严格对照 `MANUAL/DEPLOYMENT-CHECKLIST.md` 官方基准核验：
 
@@ -453,7 +453,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 
 <p align="center">
-  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 65 项全部通过)" width="880">
+  <img src="docs/images/verifier-check.png" alt="Seep 部署完备性体检全绿看板 (9 大维度 80 项全部通过)" width="880">
 </p>
 
 ---

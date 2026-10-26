@@ -776,7 +776,7 @@ MinGW 编的同源 crackme、MIT 的 Damn Vulnerable C Program）。问题在**�
 
 | # | 改动 | 落点 |
 |---|---|---|
-| 1 | 新增第四档 `public`（公开可分发真实产物：教学靶场/CTF/公开 crackme/MIT 示例）；五档语义唯一登记 | `Tool/scripts/lib/domain_spec.py` 的 `EVIDENCE_KINDS` / `EVIDENCE_KINDS_REAL_ARTIFACT` / `fixture_words_in()`；`Tool/cases/README.md` §2.1；`docs/AGENT-BRIEF.md` §案例 |
+| 1 | 新增第四档 `public`（公开可分发真实产物：教学靶场/CTF/公开 crackme/MIT 示例）；五档语义唯一登记 | `Tool/scripts/lib/domain_spec.py` 的 `EVIDENCE_KINDS` / `EVIDENCE_KINDS_REAL_ARTIFACT` / `fixture_words_in()`；`Tool/cases/README.md` §2.1 |
 | 2 | 4 个案例按事实迁移 `fixture/self-built → public`，并新增必填字段 `evidence_source{kind,source,basis}`（来源 + 依据 + sha256） | `Tool/cases/{leaf-apk,leaf-pe-packed,golden-crackme,pwn-crypto06}/case.json` |
 | 3 | gate 可用性改三档口径：`real`/`public` 计"有真实产物见证"，`self-built`/`fixture`/`unknown` 不计；摘要行改成 `见证证据：real N / public M / self-built K / fixture L`，仍点名无见证包 | `Tool/scripts/gate.py`（`witness_cohort` / `REAL_ARTIFACT_KINDS` / 摘要 / `--json` 的 `witness`、`usability`）；`Tool/scripts/check.py` 的 WARN 文案解析 |
 | 4 | 各域 accept 脚本与 domain-gate/preflight 的分档校验同步接受 `public`；`public` 允许写"公开教学靶场 XXX"（先剥公开来源词再判夹具字样，`fixture` 仍必须带夹具字样） | `Tool/skill/*/scripts/*-accept*.py`、`Tool/scripts/{domain-gate,preflight,case_state}.py` |
