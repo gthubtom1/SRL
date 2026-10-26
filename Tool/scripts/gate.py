@@ -355,6 +355,47 @@ def g6_receipt(pack):
 
 
 
+
+def _owed_vs_ledger(pack):
+    """案例声称的交付档 vs 账本里真实的重放记录（第 5 轮评审 P1：修过仍不成立）。
+
+    ★ 为什么单独列一行：`golden-crackme` 在报告里写 M3，但 facts.jsonl 里 0 条 repro，
+      `deliver` 会拒绝——也就是说"该域可用"的承诺没有账本支撑。
+      这里不改结构判定（9/9 仍是 9/9），但把"承诺 > 证据"的案例点名，避免 9/9 被读成"都能用"。
+    """
+    import json as _j
+    import re as _re
+    cmd = str((pack.get("witness") or {}).get("cmd") or "")
+    m = _re.search(r"--case\s+(\S+)", cmd)
+    if not m:
+        return None
+    cd = os.path.join(CASES_DIR, os.path.basename(os.path.normpath(m.group(1))))
+    try:
+        cj = _j.load(open(os.path.join(cd, "case.json"), encoding="utf-8"))
+    except Exception:
+        return None
+    claimed = str(cj.get("goal_level") or cj.get("max_level") or "").upper()
+    if not _re.match(r"^(M[2-4]|L[2-9])$", claimed):
+        return None
+    repro = 0
+    try:
+        for ln in open(os.path.join(cd, "facts.jsonl"), encoding="utf-8"):
+            ln = ln.strip()
+            if not ln:
+                continue
+            try:
+                d = _j.loads(ln)
+            except Exception:
+                continue
+            if d.get("kind") == "repro" and d.get("consistent") is True and int(d.get("runs") or 0) >= 2:
+                repro += 1
+    except Exception:
+        pass
+    if repro == 0:
+        return (os.path.basename(os.path.normpath(m.group(1))), claimed)
+    return None
+
+
 def g4b_target(pack):
     """G4b：witness 案例必须有**真实输入资产**（D1 的机检版）。
 
@@ -567,6 +608,13 @@ def main():
               % (summary["packs"], summary["pass"], summary["fail"]))
         print("[GATE] 见证证据：real %d / fixture %d（fixture 不计“该域可用”）"
               % (len(real), len(fixtures)))
+        owed = [x for x in (_owed_vs_ledger(p["raw"]) for p in selected) if x]
+        if owed:
+            print("[GATE] 交付承诺 vs 账本：%d 个案例声称的档位没有一条可重放记录（不能当“该域可用”的证据）"
+                  % len(owed))
+            print("[GATE]   点名：" + "、".join("%s(声称 %s / 账本 0 条 repro)" % (c, lv) for c, lv in owed))
+        else:
+            print("[GATE] 交付承诺 vs 账本：一致（没有“声称高档但零重放”的案例）")
         if fixtures:
             print("[GATE] fixture %d 个：%s" % (len(fixtures), "、".join(
                 "%s(%s:%s)" % (x["pack"], x["case"] or "?", x["evidence_kind"])

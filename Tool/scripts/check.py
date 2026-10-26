@@ -53,6 +53,8 @@ SUITES = [
      "路由探针：技能路由在中文边界上的行为"),
     ("invariants",  ["Tool/scripts/invariants.py", "--check"], True,
      "架构不变量：11 域 × 9 条（入口唯一/能力可达/交接闭包/证据同构/等级唯一/失败可表达/见证可跑/部署等价/能力有路线）"),
+    ("gate-tests",  ["Tool/scripts/test_gates.py"], True,
+     "闸的行为测试：首答闸 9 + 运行回执闸 4 + 写守卫 4 + cmd-guard 8（node 真跑 TS 纯函数；缺 node 直接 FAIL）"),
     ("unit",        ["Tool/scripts/gate.py", "--all"], True,
      "按域判定：9 个能力包各自的门槛与证据强度"),
     ("e2e",         ["Tool/scripts/domain-gate.py", "--all"], False,

@@ -106,6 +106,11 @@ def check_dangling():
             continue
         if p.replace(os.sep, "/").startswith("docs/history/"):
             continue
+        # 宿主/Agent 的元数据（.pi/goals、session 记录）不是项目文档：
+        # 它由 harness 生成，里面会出现 report.py 这类"工具调用名"，
+        # 扫它只会制造与产品无关的红（2026-10-26 审计返工时实测）。
+        if p.replace(os.sep, "/").startswith(".pi/"):
+            continue
         # 归档留档（_archived / 已退役角色）本来就是历史，允许含死路径
         _pn = p.replace(os.sep, "/")
         if "/_archived/" in _pn or _pn.startswith("Tool/prompts/agents/_archived/"):

@@ -52,6 +52,9 @@
  *      （`markerState` → `valid:false / reason:"adhoc-not-a-pass"`），必须绑案子重跑 `answer --check --case`。
  *   ⑧ **运行闸不看字母**：`ack --choice B`（「先别运行」）也会开闸。`runAckState` 只认 letter ∈ {A, C}，
  *      B 与其它字母一律 block。
+ *   ⑩ **首答标记不看目标内容哈希**（第 5 轮评审 P1，审计点名）：`target_sha256` 原来只写不比较，
+ *      同路径换文件仍算同一目标。现在 `targetMismatch` 会算当前文件哈希并与标记比对，
+ *      不同即 block（"换了目标要重新给首答"）。
  *   ⑨ **只认 `seep_*`**：`mcp__x64dbg__*` / `mcp__ida__*` 等其它 MCP 工具可无首答直接开工。
  *      → 工具名以 `mcp__` 开头（任意服务）都算分析动作，**只有** `gate.whitelist` 里的 5 个
  *        （裸名或 `mcp__seep__seep_kb_search` 这种全名都认）放行；`gate.exec_tools`
@@ -722,6 +725,29 @@ function under(child: string, parent: string): boolean {
  * `target_files`/`target` 下（或就在案件目录里），否则视为「换了目标」。
  * 返回 "" 表示不冲突（或无从判定：没有路径 / 没有 case / 没有 case.json）。
  */
+const _shaCache = new Map<string, { key: string; sha: string }>();
+
+/** 目标文件的内容哈希（带 size+mtime 缓存；读不了返回空串）。
+ *  ★ 为什么需要它：第 4 轮评审 P1——标记里的 `target_sha256` 只被写、从不比较，
+ *    于是"同一路径换掉文件内容"仍算同一个目标，旧首答继续有效。
+ */
+export function fileSha256(p: string): string {
+	try {
+		const st = fs.statSync(p);
+		if (!st.isFile()) return "";
+		// 缓存键必须含 inode 与 ctime：只看 size+mtime 时，"同长度替换内容 + 保留 mtime"
+		// 会命中旧缓存，于是换目标检查被绕过（测试 A8 的第一版 fixture 就是这么绕过去的）。
+		const key = [String(st.size), String(st.mtimeMs), String(st.ctimeMs), String(st.ino ?? 0)].join(":");
+		const hit = _shaCache.get(p);
+		if (hit && hit.key === key) return hit.sha;
+		const sha = createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+		_shaCache.set(p, { key, sha });
+		return sha;
+	} catch {
+		return "";
+	}
+}
+
 export function targetMismatch(
 	toolName: string,
 	args: unknown,
@@ -747,6 +773,33 @@ export function targetMismatch(
 		const b = path.basename(cmpKey(abs));
 		return b.length > 0 && baseNames.has(b);
 	});
+	// 内容哈希比对：路径对得上不等于"还是那个文件"。
+	const mt = asText(asRecord(marker).target_sha256).trim().toLowerCase();
+	if (mt.length >= 12) {
+		const files = paths.filter((p) => {
+			try {
+				return fs.statSync(p).isFile();
+			} catch {
+				return false;
+			}
+		});
+		if (files.length > 0) {
+			const anyMatch = files.some((p) => {
+				const h = fileSha256(p);
+				if (!h) return false;
+				if (h === mt) return true;
+				const n = Math.min(mt.length, h.length);
+				return mt.slice(0, n) === h.slice(0, n) && n >= 12;
+			});
+			if (!anyMatch) {
+				return (
+					"目标内容已变（与首答时登记的哈希不同：标记 " +
+					mt.slice(0, 12) +
+					"…）：同一个路径换了文件也要重新给首答"
+				);
+			}
+		}
+	}
 	if (hit) return "";
 	return "本次参数里的路径（" + paths.slice(0, 2).join(" / ") + "）不在该案 case.json 的 target_files/target 下";
 }
