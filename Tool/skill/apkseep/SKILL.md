@@ -43,6 +43,18 @@ mistakes that destroy an APK while looking completely healthy.
   **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
 - 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 去广告/去弹窗，开屏与插屏一起清 → `Tool/playbooks/apk-ad-removal.md`
+- 加固 APK 脱壳（DexVMP / 内存 dump / 反调试）→ `Tool/playbooks/apk-unpack.md`
+- APP 每日任务与签到做成可重放的定时脚本 → `Tool/playbooks/app-daily-task.md`
+- 验证码/滑块/点选/人机验证接自动化 → `Tool/playbooks/captcha-handling.md`
+- Unity 游戏 il2cpp / global-metadata / AssetBundle → `Tool/playbooks/game-client-il2cpp.md`
+- 私有协议、蓝牙/BLE 报文重放与构造新帧 → `Tool/playbooks/protocol-replay.md`
+- APK 内 UI 改版、换品牌与图标 → `Tool/playbooks/ui-rebrand.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`壳/加固是哪一类、关键校验落在哪个类哪个方法（dex 定位 + so 导出符号）都已给出，但动态面被壳挡住，没在设备上跑过`

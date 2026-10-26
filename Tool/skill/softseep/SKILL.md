@@ -85,6 +85,19 @@ metadata:
 
 ---
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 卡密/授权旁路并交付可用成品 → `Tool/playbooks/license-bypass-deliver.md`
+- 接自有授权平台（本地 HMAC / 在线票据）→ `Tool/playbooks/license-hookup.md`
+- UI 改版去品牌（EXE / APK）→ `Tool/playbooks/ui-rebrand.md`
+- 软件更新后的跨版本追版（AOB 滑窗）→ `Tool/playbooks/version-migrate.md`
+- 开工前的逆向测绘 / 壳与权威判定 → `Tool/playbooks/reverse-survey.md`
+- 反作弊驱动的兼容性分析（驱动侧）→ `Tool/playbooks/anti-cheat-forensics.md`
+- 固件仿真里的环境副作用记账 → `Tool/playbooks/firmware-emulate.md`
+- .NET / Electron 插件与 asar 拆解 → `Tool/playbooks/plugin-analysis.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`只告诉你它是哪个壳/哪种保护（或本地校验还是服务端校验）、关键判定大概在哪个函数，原件一个字节没动`

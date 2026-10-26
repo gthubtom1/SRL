@@ -36,6 +36,14 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 - 恶意样本行为定性/家族归类 → `malware-analysis`；授权旁路/计费/功能解锁 → `01`–`05`。
 - 设备/账号/云资源清单由 `scope` 声明；在线反作弊对抗、注入/挂钩/改内存、反取证按对应授权任务执行。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 内存/磁盘/EVTX/注册表拉时间线 + 四要素 → `Tool/playbooks/forensics-timeline.md`
+- 反作弊客户端（EAC/BattlEye/Vanguard）只读取证与驱动兼容矩阵 → `Tool/playbooks/anti-cheat-forensics.md`
+- Unity IL2CPP / global-metadata / AssetBundle 取证 → `Tool/playbooks/game-client-il2cpp.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`给了镜像的结构清单：分区/文件系统能认出、进程能列出、对象能导出，但「谁在什么时候做了什么」还没证据`

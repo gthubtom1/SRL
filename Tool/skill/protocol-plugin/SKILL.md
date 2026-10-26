@@ -42,6 +42,18 @@ metadata:
 > **插件类目标转 plugin-targets（R25）**：本域只接收插件里的**协议字节**，不重复其包型/入口/
 > 权限面方法。需要同时碰两者时，先由 plugin-targets 定位插件入口与载荷，再把协议部分交回本域。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 私有/二进制协议分帧、字段、状态机、构造新请求 → `Tool/playbooks/protocol-replay.md`
+- 浏览器扩展 / Electron asar / VSIX 插件四件事 → `Tool/playbooks/plugin-analysis.md`
+- 后端复刻的 API 面与协议对齐 → `Tool/playbooks/backend-rebuild.md`
+- 抓包对齐取证时间线 → `Tool/playbooks/forensics-timeline.md`
+- APP 每日任务/签到的抓包与重放 → `Tool/playbooks/app-daily-task.md`
+- 青龙面板签到与登录态续期 → `Tool/playbooks/qinglong-signin.md`
+- Web sign 参数的抓包侧还原与重放 → `Tool/playbooks/web-api-sign-reverse.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`给你一张报文结构图：分帧/长度/校验/状态机里能定下几条就写几条，靠推断的那几条会标出来`

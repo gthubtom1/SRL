@@ -37,6 +37,13 @@ metadata:
   容器逃逸/云原生 → `ad-cloud`；恶意样本动态分析 → `malware-analysis`。
 - 许可证/法务合规结论；本技能只列组件、声明与证据。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 仓库依赖 / SBOM / CI 权限 / 制品签名审计 → `Tool/playbooks/supply-chain-audit.md`
+- OSINT 资产测绘里的代码与凭据泄露面 → `Tool/playbooks/osint-recon.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`只给了组件清单与版本命中（SBOM/扫描告警），哪个真能被调用过、我没验`

@@ -44,6 +44,14 @@ license: MIT
 **跨域很常见**：先读主域，再按需读辅域（例：安卓 Unity 包 = apkseep 主 + unpack-loop 辅）。
 **判不出载体**：只问一个区分性问题（"这东西能直接运行，还是一堆文件？"），不猜。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 多账号批量执行器（池 / 限速 / 幂等 / 通知）→ `Tool/playbooks/multi-account-runner.md`
+- 青龙面板多账号签到与定时任务 → `Tool/playbooks/qinglong-signin.md`
+- 开工前的逆向测绘与可行性裁定 → `Tool/playbooks/reverse-survey.md`
+
 ## 第 3 步 · 给上限（唯一口径，四句话）
 
 | 级 | 客户语言 | 依据门槛 |

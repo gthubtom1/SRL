@@ -20,6 +20,15 @@ metadata:
 
 ---
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- APK 加固脱壳闭环（壳识别 → dump → 重建）→ `Tool/playbooks/apk-unpack.md`
+- 壳/自毁阻断时改走授权旁路交付 → `Tool/playbooks/license-bypass-deliver.md`
+- 样本加壳高熵时的脱壳分支 → `Tool/playbooks/malware-triage.md`
+- 追版遇到新增壳先过壳 → `Tool/playbooks/version-migrate.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`判出了壳的类型与反调试面（哪一类壳、哪些检测点），但 dump 点没找对、导入表还是坏的`

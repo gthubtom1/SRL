@@ -41,7 +41,45 @@
             "authJson": "{exeDir}/mcp_config.json"
           }
         }
-      ]
+      ],
+      "probe": {
+        "names": ["x64dbg", "x64dbg.exe"],
+        "envVars": ["SEEP_X64DBG_PATH"],
+        "globs": [
+          "{home}/.seep/tools/**/x64dbg.exe",
+          "{localappdata}/Programs/x64dbg/release/x64/x64dbg.exe",
+          "{localappdata}/Microsoft/WinGet/Packages/**/x64dbg.exe",
+          "{programfiles}/x64dbg/release/x64/x64dbg.exe",
+          "{programfilesx86}/x64dbg/release/x64/x64dbg.exe",
+          "{drive}/*/x64dbg/release/x64/x64dbg.exe",
+          "{drive}/*/*/x64dbg/release/x64/x64dbg.exe",
+          "{drive}/*/*/*/x64dbg.exe"
+        ]
+      },
+      "verify": {
+        "kind": "pe",
+        "expectMachine": ["AMD64"],
+        "informSiblings": ["Qt5Core.dll", "x64dbg.dll"],
+        "timeoutSec": 20,
+        "why": "x64dbg.exe 是 GUI 二进制，没有 --version；自检=解析 PE 头（MZ/PE/machine=AMD64）+ 报告依赖 DLL 是否在位，绝不把『文件存在』当就绪"
+      },
+      "install": {
+        "requiresNetwork": true,
+        "requiresAdmin": false,
+        "primary": {
+          "via": "winget",
+          "cmd": "winget install --id x64dbg.x64dbg -e --accept-source-agreements --accept-package-agreements",
+          "note": "winget 装完是新 shell 才进 PATH；也可用下面的绿色快照包"
+        },
+        "alternatives": [
+          {
+            "via": "portable_zip",
+            "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$d=Join-Path $env:USERPROFILE '.seep\\tools\\x64dbg';New-Item -ItemType Directory -Force $d|Out-Null;$z=Join-Path $env:TEMP 'x64dbg.zip';Invoke-WebRequest 'https://github.com/x64dbg/x64dbg/releases/download/snapshot/snapshot_2024-10-18_03-45.zip' -OutFile $z;Expand-Archive -Force $z $d;Write-Output $d\"",
+            "note": "官方绿色快照包（解压即用）；若快照链接过期，打开 https://github.com/x64dbg/x64dbg/releases 取最新 snapshot_*.zip 换掉 URL"
+          }
+        ],
+        "pathHint": "探测已覆盖 {home}/.seep/tools/** 与各盘 */x64dbg/release/x64 —— 解压到这些位置后无需改 PATH"
+      }
     },
     "x32dbg": {
       "prefer": [
@@ -145,7 +183,49 @@
             "transport": "http"
           }
         }
-      ]
+      ],
+      "probe": {
+        "names": ["idat64", "idat64.exe", "idat", "idat.exe"],
+        "envVars": ["SEEP_IDA_PATH"],
+        "globs": [
+          "{home}/.seep/tools/**/idat64.exe",
+          "{home}/.seep/tools/**/idat.exe",
+          "{programfiles}/IDA*/idat64.exe",
+          "{programfiles}/IDA*/idat.exe",
+          "{programfilesx86}/IDA*/idat64.exe",
+          "{programfilesx86}/IDA*/idat.exe",
+          "{drive}/*/IDA*/idat64.exe",
+          "{drive}/*/IDA*/idat.exe",
+          "{drive}/*/*/IDA*/idat64.exe",
+          "{drive}/*/*/IDA*/idat.exe"
+        ],
+        "note": "只认 headless 的 idat64/idat —— GUI 的 ida.exe 不能批处理，找到也不算这条通道就绪"
+      },
+      "verify": {
+        "kind": "pe",
+        "expectMachine": ["AMD64", "I386"],
+        "informSiblings": ["ida.dll", "idalib.dll"],
+        "timeoutSec": 20,
+        "why": "idat 没有 --version（跑起来会要 license、还会拉起分析）；自检=解析 PE 头 + 报告 ida.dll/idalib.dll 是否同在目录，绝不把『文件存在』当就绪"
+      },
+      "install": {
+        "requiresNetwork": false,
+        "requiresAdmin": false,
+        "requiresInput": true,
+        "primary": {
+          "via": "path_env",
+          "cmd": "setx SEEP_IDA_PATH \"%ProgramFiles%\\IDA Pro 9.3\\idat64.exe\"",
+          "note": "把路径换成你的 IDA 安装目录（idat64.exe/idat.exe 所在处）即可；探测器认 SEEP_IDA_PATH。IDA Pro 是商业软件，需先在 https://hex-rays.com/ida-pro 取得授权并安装（IDA Free 不含 idat 批处理，只有 GUI）"
+        },
+        "alternatives": [
+          {
+            "via": "path_env",
+            "cmd": "setx SEEP_IDA_PATH \"<你的 IDA 安装目录>\\idat64.exe\"",
+            "note": "装在不同盘/不同版本时用这条；跑完后 python Tool/scripts/tool-readiness.py 重新探测"
+          }
+        ],
+        "pathHint": "探测已覆盖各盘 */IDA*/idat*.exe 与 %ProgramFiles%\\IDA*，装在常规位置就不用登记"
+      }
     },
     "ghidra": {
       "prefer": [
@@ -196,6 +276,255 @@
           ]
         }
       ]
+    },
+    "r2": {
+      "prefer": [
+        "cli"
+      ],
+      "modes": [
+        {
+          "id": "cli",
+          "kind": "cli",
+          "toolId": "r2",
+          "command": "\"{exeDir}/{exeName}\" -q -c \"{script}\" \"{target}\"",
+          "fallbackExe": [
+            "r2.bat",
+            "r2.exe",
+            "radare2.exe"
+          ],
+          "why": "r2 -q -c '<cmd>' 单条命令即返回，全程 headless；只取信息（头/段/字符串/符号）就用同目录 rabin2，不必交互",
+          "note": "{script} 换成 r2 命令串（如 'pdg @ main'）；整条路径由 probe 决定"
+        }
+      ],
+      "probe": {
+        "names": ["rabin2", "rabin2.exe", "r2.exe", "r2"],
+        "envVars": ["SEEP_R2_PATH", "SEEP_RABIN2_PATH"],
+        "repoPaths": [
+          "Tool/mcp/Tool/safe/radare2/bin/rabin2.exe",
+          "Tool/mcp/Tool/safe/radare2/bin/radare2.exe"
+        ],
+        "globs": [
+          "{home}/.seep/tools/**/rabin2.exe",
+          "{home}/radare2/bin/rabin2.exe",
+          "{programfiles}/radare2/bin/rabin2.exe",
+          "{drive}/*/radare2*/bin/rabin2.exe",
+          "{drive}/*/*/radare2*/bin/rabin2.exe"
+        ],
+        "note": "仓库自带副本（Tool/mcp/Tool/safe/radare2）优先命中，所以本机不应是 MISSING"
+      },
+      "verify": {
+        "kind": "exec",
+        "exe": "rabin2.exe",
+        "args": ["-v"],
+        "expect": "(?i)\\brabin2\\s+\\d+\\.\\d+",
+        "allowRc": [0],
+        "timeoutSec": 20,
+        "identityProbe": "rabin2",
+        "why": "不只看有没有输出：expect 必须打出 'rabin2 <版本>'（改名的 radare2.exe 冒充 rabin2 会在此处露馅）；再加 tool_identity 的 -I 行为探针"
+      },
+      "install": {
+        "requiresNetwork": true,
+        "requiresAdmin": false,
+        "primary": {
+          "via": "portable_zip",
+          "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$d=Join-Path $env:USERPROFILE '.seep\\tools\\radare2';New-Item -ItemType Directory -Force $d|Out-Null;$z=Join-Path $env:TEMP 'radare2.zip';Invoke-WebRequest 'https://github.com/radareorg/radare2/releases/download/5.9.8/radare2-5.9.8-w64.zip' -OutFile $z;Expand-Archive -Force $z $d;Write-Output $d\"",
+          "note": "radare2 不在 winget 白名单里，只能绿色包；若 404 打开 https://github.com/radareorg/radare2/releases 取最新 *-w64.zip 换版本号"
+        },
+        "alternatives": [
+          {
+            "via": "repo_restore",
+            "cmd": "git checkout -- Tool/mcp/Tool/safe/radare2",
+            "note": "只要仓库里有这一份（已入库）就用这条：不联网、不用管理员，比下载快"
+          }
+        ],
+        "pathHint": "解压到 %USERPROFILE%\\.seep\\tools 下后探测器自动命中；设 SEEP_R2_PATH 指向 rabin2.exe 也可"
+      }
+    },
+    "jadx": {
+      "prefer": [
+        "cli"
+      ],
+      "modes": [
+        {
+          "id": "cli",
+          "kind": "cli",
+          "toolId": "jadx",
+          "command": "\"{exeDir}/{exeName}\" -d \"{workDir}/jadx-out\" \"{target}\"",
+          "fallbackExe": [
+            "jadx.bat",
+            "jadx"
+          ],
+          "why": "jadx CLI 全量反编译（含资源/清单），无窗口、可重复；要 GUI 才用 jadx-gui",
+          "note": "输出落 {workDir}/jadx-out，失败时加 --show-bad-code 看原因"
+        }
+      ],
+      "probe": {
+        "names": ["jadx", "jadx.bat", "jadx.cmd"],
+        "envVars": ["SEEP_JADX_PATH"],
+        "repoPaths": [
+          "Tool/mcp/Tool/safe/jadx/bin/jadx.bat",
+          "Tool/mcp/Tool/safe/jadx/bin/jadx"
+        ],
+        "globs": [
+          "{home}/.seep/tools/**/bin/jadx.bat",
+          "{localappdata}/Microsoft/WinGet/Packages/**/bin/jadx.bat",
+          "{programfiles}/jadx/bin/jadx.bat",
+          "{drive}/*/jadx*/bin/jadx.bat",
+          "{drive}/*/*/jadx*/bin/jadx.bat"
+        ]
+      },
+      "verify": {
+        "kind": "exec",
+        "exe": "jadx.bat",
+        "args": ["--version"],
+        "expect": "^\\d+\\.\\d+",
+        "allowRc": [0],
+        "timeoutSec": 20,
+        "identityProbe": "jadx",
+        "why": "--version 必须打出纯版本号（如 1.5.6）；.bat 走 cmd /c，否则 CreateProcess 会静默失败"
+      },
+      "install": {
+        "requiresNetwork": true,
+        "requiresAdmin": false,
+        "primary": {
+          "via": "winget",
+          "cmd": "winget install --id Skylot.jadx -e --accept-source-agreements --accept-package-agreements",
+          "note": "winget 装的是用户级，不需管理员；装完开新 shell 让 PATH 生效"
+        },
+        "alternatives": [
+          {
+            "via": "portable_zip",
+            "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$d=Join-Path $env:USERPROFILE '.seep\\tools\\jadx';New-Item -ItemType Directory -Force $d|Out-Null;$z=Join-Path $env:TEMP 'jadx.zip';Invoke-WebRequest 'https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip' -OutFile $z;Expand-Archive -Force $z $d;Write-Output $d\"",
+            "note": "无 winget 时用绿色包（需联网）；解压后 bin/jadx.bat 在 {home}/.seep/tools 下即可被探测到"
+          },
+          {
+            "via": "repo_restore",
+            "cmd": "git checkout -- Tool/mcp/Tool/safe/jadx",
+            "note": "仓库自带 jadx 1.5.6，副本丢失时优先用这条（不联网）"
+          }
+        ],
+        "pathHint": "探测器已覆盖 {home}/.seep/tools/**/bin/jadx.bat 与各盘 */jadx*/bin/jadx.bat"
+      }
+    },
+    "apktool": {
+      "prefer": [
+        "cli"
+      ],
+      "modes": [
+        {
+          "id": "cli",
+          "kind": "cli",
+          "toolId": "apktool",
+          "command": "\"{exeDir}/{exeName}\" d -f \"{target}\" -o \"{workDir}/apktool-out\"",
+          "fallbackExe": [
+            "apktool.bat",
+            "apktool"
+          ],
+          "why": "apktool d/b 完全 headless：解包拿 smali/资源/清单，回包用 b",
+          "note": "需要 Java（java -jar）；回包：apktool b <目录> -o out.apk"
+        }
+      ],
+      "probe": {
+        "names": ["apktool", "apktool.bat", "apktool.cmd"],
+        "envVars": ["SEEP_APKTOOL_PATH"],
+        "repoPaths": [
+          "Tool/mcp/Tool/safe/apktool/apktool.bat"
+        ],
+        "globs": [
+          "{home}/.seep/tools/**/apktool.bat",
+          "{localappdata}/apktool/apktool.bat",
+          "{drive}/*/apktool*/apktool.bat",
+          "{drive}/*/apktool/apktool.bat",
+          "{drive}/*/*/apktool/apktool.bat"
+        ]
+      },
+      "verify": {
+        "kind": "exec",
+        "exe": "apktool.bat",
+        "args": ["--version"],
+        "expect": "^\\d+\\.\\d+",
+        "allowRc": [0],
+        "timeoutSec": 20,
+        "identityProbe": "apktool",
+        "why": "--version 必须打出纯版本号（如 2.11.0）；机器缺 Java 时这里会失败 —— 那正是要看见的 FOUND_NO_VERIFY"
+      },
+      "install": {
+        "requiresNetwork": true,
+        "requiresAdmin": false,
+        "requires": ["java"],
+        "primary": {
+          "via": "portable_jar",
+          "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$d=Join-Path $env:USERPROFILE '.seep\\tools\\apktool';New-Item -ItemType Directory -Force $d|Out-Null;Invoke-WebRequest 'https://github.com/iBotPeaches/Apktool/releases/download/v2.11.0/apktool_2.11.0.jar' -OutFile (Join-Path $d 'apktool.jar');Set-Content -Path (Join-Path $d 'apktool.bat') -Value ('@java -jar ' + [char]34 + '%~dp0apktool.jar' + [char]34 + ' %*') -Encoding ASCII;Write-Output $d\"",
+          "note": "apktool 不在 winget 白名单里：下 jar + 写一个 apktool.bat 包装（这条把两件事都做了）；前提是本机有 Java 11+"
+        },
+        "alternatives": [
+          {
+            "via": "repo_restore",
+            "cmd": "git checkout -- Tool/mcp/Tool/safe/apktool",
+            "note": "仓库自带 apktool.bat + apktool.jar，副本丢失时优先用这条（不联网）"
+          }
+        ],
+        "pathHint": "落 %USERPROFILE%\\.seep\\tools\\apktool 后自动命中；设 SEEP_APKTOOL_PATH 指向 apktool.bat 也可"
+      }
+    },
+    "tshark": {
+      "prefer": [
+        "cli"
+      ],
+      "modes": [
+        {
+          "id": "cli",
+          "kind": "cli",
+          "toolId": "tshark",
+          "command": "\"{exeDir}/{exeName}\" -r \"{target}\" -Y \"http\" -T fields -e frame.number -e ip.src -e ip.dst",
+          "fallbackExe": [
+            "tshark.exe",
+            "tshark"
+          ],
+          "why": "tshark -r/-Y/-T json 完全 headless：读 pcap 做协议分析，不用 Wireshark GUI",
+          "note": "抓包需要 Npcap（安装 Wireshark 时勾）；只读 pcap 不需要"
+        }
+      ],
+      "probe": {
+        "names": ["tshark", "tshark.exe"],
+        "envVars": ["SEEP_TSHARK_PATH"],
+        "repoPaths": [],
+        "globs": [
+          "{programfiles}/Wireshark/tshark.exe",
+          "{localappdata}/Microsoft/WinGet/Packages/**/tshark.exe",
+          "{programfilesx86}/Wireshark/tshark.exe",
+          "{drive}/Wireshark/tshark.exe",
+          "{drive}/*/Wireshark/tshark.exe",
+          "{drive}/*/Wireshark*/tshark.exe",
+          "{drive}/*/*/Wireshark/tshark.exe"
+        ]
+      },
+      "verify": {
+        "kind": "exec",
+        "exe": "tshark.exe",
+        "args": ["-v"],
+        "expect": "(?i)tshark\\s*\\(wireshark\\)\\s*\\d",
+        "allowRc": [0],
+        "timeoutSec": 20,
+        "why": "-v 首行必须是 'TShark (Wireshark) <版本>'：只有 Wireshark 装好且 DLL 齐全时才会打出这行"
+      },
+      "install": {
+        "requiresNetwork": true,
+        "requiresAdmin": true,
+        "primary": {
+          "via": "winget",
+          "cmd": "winget install --id WiresharkFoundation.Wireshark -e --accept-source-agreements --accept-package-agreements",
+          "note": "机器级安装 → 需要管理员（UAC 会跳）；安装向导里勾 Npcap，否则只能读 pcap 不能抓包"
+        },
+        "alternatives": [
+          {
+            "via": "manual",
+            "cmd": "winget search Wireshark",
+            "note": "winget 源里没这个 id 时，先搜出可用 id 再 install；或去 https://www.wireshark.org/download.html 下安装包（需管理员）"
+          }
+        ],
+        "pathHint": "默认装到 %ProgramFiles%\\Wireshark（探测器已覆盖），无需改 PATH"
+      }
     }
   },
   "_判定原则（新增工具时照这个顺序定 kind）": {

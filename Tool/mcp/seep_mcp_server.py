@@ -715,196 +715,438 @@ def seep_apk_smali_search(directory: str, pattern: str, case_sensitive: bool = F
 # ---------------------------------------------------------------------------
 # 4. ReverseLab 攻防战术知识库与 CTF Payload 库
 # ---------------------------------------------------------------------------
+# === SEEP-EXT: kb-colloquial BEGIN ===
+# 口语检索层（2026-11）：用户说「加壳了怎么脱」，库里写的是 unpack / packer / OEP。
+# 三层通用机制（不写死任何查询串）：
+#   1) 别名展开：Tool/config/kb-synonyms.json 把口语片段映射成 KB 正文里真实出现的术语；
+#   2) CJK 2-gram：中文没空格，整词/整串都打不中时用双字切片兜底（权重低于整词）；
+#   3) boost_paths（别名组声明的优先目录/文件加权）；空结果给 3 条最近邻 + 为什么近。
+_KB_SYN_PATH = os.path.join(os.path.dirname(BASE_DIR), "config", "kb-synonyms.json")
+_KB_SYN_CACHE = {"mtime": None, "groups": [], "stopwords": []}
+_KB_CJK_RUN_RE = re.compile("[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+")
+_KB_ASCII_TOKEN_RE = re.compile(r"^[a-z0-9_\-]+$")
+
+
+def _kb_load_synonyms():
+    """载入别名表（按 mtime 缓存）。表缺失/损坏 → 退化成纯 2-gram，不抛异常。"""
+    try:
+        mtime = os.path.getmtime(_KB_SYN_PATH)
+    except OSError:
+        return [], []
+    if _KB_SYN_CACHE["mtime"] == mtime:
+        return _KB_SYN_CACHE["groups"], _KB_SYN_CACHE["stopwords"]
+    groups, stopwords = [], []
+    try:
+        cfg = json.load(open(_KB_SYN_PATH, encoding="utf-8"))
+        groups = [g for g in cfg.get("groups", []) if isinstance(g, dict) and g.get("terms")]
+        stopwords = [w for w in cfg.get("stopwords", []) if isinstance(w, str) and w]
+    except Exception:  # noqa: BLE001 —— 别名表坏了不能让检索整体不可用
+        groups, stopwords = [], []
+    _KB_SYN_CACHE.update({"mtime": mtime, "groups": groups, "stopwords": stopwords})
+    return groups, stopwords
+
+
+def _kb_normalize_query(query: str, stopwords) -> str:
+    """去疑问词/语气词 + 统一分隔符。只清疑问词，实词一个不动。"""
+    s = (query or "").lower()
+    for w in stopwords:
+        if w:
+            s = s.replace(str(w).lower(), " ")
+    return re.sub(r"[\s,;/|、，。；：!?()（）\[\]【】“”\"'`~@#$%^&*+=<>{}]+", " ", s).strip()
+
+
+def _kb_cjk_bigrams(norm: str):
+    """CJK 双字切片（2-gram）。ASCII 词不切：它们自带词边界。"""
+    grams, seen = [], set()
+    for run in _KB_CJK_RUN_RE.findall(norm or ""):
+        for i in range(len(run) - 1):
+            g = run[i:i + 2]
+            if g not in seen:
+                seen.add(g)
+                grams.append(g)
+    return grams
+
+
+def _kb_alias_expand(norm: str, groups):
+    """口语 → 术语：(terms, boost_paths, fired_groups)。多组同时触发时术语**轮流**取
+    （不是第一组吃满配额）——一句话说几件事（"免杀+后门+卡密"）时每组都有词上榜。"""
+    per_group, boosts, fired = [], [], []
+    for g in groups:
+        says = [str(s).strip().lower() for s in g.get("say", []) if str(s).strip()]
+        hit_says = [s for s in says if s in norm]
+        if not hit_says:
+            continue
+        fired.append({"id": str(g.get("id", "")), "say": hit_says[:3]})
+        gterms = [str(t).strip().lower() for t in g.get("terms", []) if str(t).strip()]
+        if gterms:
+            per_group.append(list(dict.fromkeys(gterms)))
+        for p in g.get("boost_paths", []) or []:
+            p = str(p).strip().lower().replace("\\", "/")
+            if p and p not in boosts:
+                boosts.append(p)
+    terms = []
+    for _round in range(max((len(x) for x in per_group), default=0)):
+        for _g in per_group:
+            if _round < len(_g) and _g[_round] not in terms:
+                terms.append(_g[_round])
+    return terms, boosts, fired
+
+
+def _kb_hit_count(low: str, tok: str) -> int:
+    """术语命中次数：ASCII 用词边界（EAC 不该命中 each/reach），CJK 用子串。
+
+    先做子串预筛：绝大多数 token 在大多数文章里根本不出现，省掉几千次正则。
+    """
+    if not tok or tok not in low:
+        return 0
+    if _KB_ASCII_TOKEN_RE.match(tok):
+        return len(re.findall(r"(?<![a-z0-9_])" + re.escape(tok) + r"(?![a-z0-9_])", low))
+    return low.count(tok)
+# === SEEP-EXT: kb-colloquial END ===
+
 @server.tool()
 def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) -> str:
-    """在 ReverseLab 183+ 逆向与 Web/PE/CVE 攻防知识库中进行全文搜索，快速定位战术指南。
+    """在 ReverseLab 逆向与 Web/PE/CVE 攻防知识库中检索战术指南，术语和口语都能查。
+
+    支持大白话（"加壳了怎么脱" → unpack/OEP/dump；"这软件要卡密怎么绕过" → license/keygen），
+    每条命中回显 matched_terms / matched_bigrams（靠哪些词命中，便于判断可信度）；空结果给
+    3 条最近邻文章 + 为什么接近，而不是只回一句"未命中"。
 
     Args:
-        query: 检索关键词（例如 'JWT', 'SSRF', 'vmp', 'proto pollution', 'heap', 'yara'）
+        query: 检索词，术语或口语均可（例如 'JWT', 'SSRF', 'vmp', '加壳了怎么脱', '这软件要卡密怎么绕过'）
         category: 可选限定目录分类（例如 'ctf-website', 'pe-reverse', 'apk-reverse', 'general'）
         limit: 最大返回文章数，默认 10
     """
     search_root = os.path.join(KB_DIR, category) if category else KB_DIR
     if not os.path.isdir(search_root):
         search_root = KB_DIR
-
     md_files = glob.glob(os.path.join(search_root, "**", "*.md"), recursive=True)
     # === SEEP-EXT: kb_local BEGIN === 本地覆盖层（Tool/mcp/kb_local/，不属于 vendored 上游）
     _KB_LOCAL = os.path.join(BASE_DIR, "kb_local")
     if os.path.isdir(_KB_LOCAL):
         md_files += glob.glob(os.path.join(_KB_LOCAL, "**", "*.md"), recursive=True)
     # === SEEP-EXT: kb_local END ===
-    pat = query.lower()
-    # === SEEP-EXT: kb-multitoken BEGIN === 多词/中文检索增强（2026-10，纯插入，不改既有逻辑）
-    # 为什么需要：原实现是整串子串匹配（pat in content），"完整性校验 反作弊" 这类
-    # 空格分隔的多 token 查询必然归零 —— 即使库里有 545 行反作弊内容也捞不出来。
-    # 权重集中于此，后续调参不必再动函数体。
-    _KB_SINGLE_WEIGHT = 0.2   # 单字 token 权重（避免"壳"淹没结果）
-    _KB_TITLE_BOOST = 6       # token 出现在标题行
-    _KB_PATH_BOOST = 4        # token 出现在路径
-    _KB_MAX_TOKENS = 8
-    _KB_MIN_COVERAGE = 0.6    # 2 token 时要求全命中；3+ token 时按比例
+
+    # ---- 权重与阈值（集中在此；调参不必动算法）----
+    _KB_SINGLE_WEIGHT, _KB_TITLE_BOOST, _KB_PATH_BOOST = 0.2, 6, 4   # 单字 / 标题行 / 路径
+    _KB_MAX_TOKENS, _KB_MAX_ALIAS = 8, 12            # 切词上限 / 别名术语上限
+    _KB_MIN_COVERAGE = 0.6          # 原查询 2 token 要求全命中；3+ 按比例
+    _KB_ALIAS_WEIGHT, _KB_GRAM_WEIGHT = 0.85, 0.45   # 别名术语 / CJK 2-gram 的权重
+    _KB_GRAM_MIN_COVERAGE, _KB_GRAM_ABS_FLOOR = 0.45, 1.2   # 2-gram 覆盖率 / 最低分
+    _KB_PATH_MULT, _KB_MAX_MATCHED = 1.55, 8                # 路径加权 / 回显上限
+
+    # 1) 归一化 + 别名展开 + 2-gram 切片
+    _groups, _stopwords = _kb_load_synonyms()
+    pat = _kb_normalize_query(query, _stopwords)
+    _alias_terms, _boost_paths, _fired = _kb_alias_expand(pat, _groups)
+    _alias_terms = _alias_terms[:_KB_MAX_ALIAS]
+    _bigrams = _kb_cjk_bigrams(pat)
 
     def _kb_split_tokens(q: str):
-        parts = re.split(r"[\s,;/|、，。；：!?()（）\[\]【】]+", q.strip())
+        parts = re.split(r"[\s,;/|、，。；：!?()（）\[\]【】]+", (q or "").strip())
         return [x for x in (t.strip() for t in parts) if x][:_KB_MAX_TOKENS]
 
-    _kb_tokens = _kb_split_tokens(pat)
-    _kb_multi = len(_kb_tokens) > 1
-    _kb_contents = {}
-    # === SEEP-EXT: kb-multitoken END ===
-    
-    hits = []
+    _kb_query_tokens = _kb_split_tokens(pat)
+    _kb_multi = len(_kb_query_tokens) > 1
+    _kb_tokens = list(_kb_query_tokens)
+    for _t in _alias_terms:
+        if _t not in _kb_tokens:
+            _kb_tokens.append(_t)
+
+    # 2) 一次读完：小写正文 / 原文 / 标题 / 整串命中（原实现每个 token 都重算一遍 lower()）
+    _kb_low, _kb_contents, _kb_title, _kb_matched, hits = {}, {}, {}, {}, []
     for fpath in md_files:
         try:
-            with open(fpath, "r", encoding="utf-8", errors="ignore") as fh:
-                content = fh.read()
-                # === SEEP-EXT: kb-multitoken === 缓存正文，供多词打分与 snippet 定位
-                _kb_rel = os.path.relpath(fpath, KB_DIR).replace("\\", "/")
-                # 本地覆盖层：统一成 kb_local/<相对路径>，避免同一文件被两次打分产出两条 hit
-                if fpath.startswith(_KB_LOCAL + os.sep):
-                    _kb_rel = "kb_local/" + os.path.relpath(fpath, _KB_LOCAL).replace(os.sep, "/")
-                _kb_contents[_kb_rel] = content
-                title = ""
-                for line in content.splitlines()[:5]:
-                    if line.startswith("# "):
-                        title = line.lstrip("# ").strip()
-                        break
-                
-                score = 0
-                if pat in Path(fpath).name.lower():
-                    score += 10
-                if pat in title.lower():
-                    score += 8
-                if pat in content.lower():
-                    score += content.lower().count(pat)
-
-                if score > 0:
-                    rel = os.path.relpath(fpath, KB_DIR)
-                    # 本地覆盖层文件：输出 kb_local/<相对路径>，供 seep_kb_read 正确路由
-                    if fpath.startswith(_KB_LOCAL + os.sep):
-                        rel = os.path.join("kb_local", os.path.relpath(fpath, _KB_LOCAL))
-                    hits.append({
-                        "path": rel.replace("\\", "/"),
-                        "title": title or Path(fpath).stem,
-                        "score": score,
-                        "snippet": content[:300].strip().replace("\n", " ")
-                    })
-        except Exception:
+            content = open(fpath, "r", encoding="utf-8", errors="ignore").read()
+            _rel = os.path.relpath(fpath, KB_DIR).replace("\\", "/")
+            # 本地覆盖层：统一成 kb_local/<相对路径>，避免同一文件被两次打分产出两条 hit
+            if fpath.startswith(_KB_LOCAL + os.sep):
+                _rel = "kb_local/" + os.path.relpath(fpath, _KB_LOCAL).replace(os.sep, "/")
+            if _rel in _kb_low:
+                continue
+            _low = content.lower()
+            _kb_low[_rel], _kb_contents[_rel] = _low, content
+            title = ""
+            for line in content.splitlines()[:5]:
+                if line.startswith("# "):
+                    title = line.lstrip("# ").strip()
+                    break
+            _kb_title[_rel] = title or Path(_rel).stem
+            score, _lit = 0, []
+            if pat and pat in Path(fpath).name.lower():
+                score += 10
+                _lit.append(pat)
+            if pat and pat in _kb_title[_rel].lower():
+                score += 8
+                if pat not in _lit:
+                    _lit.append(pat)
+            if pat and _low.count(pat):
+                score += _low.count(pat)
+                if pat not in _lit:
+                    _lit.append(pat)
+            if score > 0:
+                _kb_matched[_rel] = _lit
+                hits.append({"path": _rel, "title": _kb_title[_rel], "score": score,
+                             "snippet": content[:300].strip().replace("\n", " ")})
+        except Exception:  # noqa: BLE001 —— 单篇读失败不该拖垮整次检索
             pass
 
-    # === SEEP-EXT: kb-multitoken BEGIN === 相关性二次打分
-    # 规则：ASCII token 用词边界（避免 EAC 命中 each / reach）；CJK token 用子串；
-    #       IDF 降权高频词；覆盖率平方惩罚（2 token 必须全命中）；标题/路径加成。
+    # 3) 相关性打分：原查询词（带覆盖率闸门）+ 别名术语 + CJK 2-gram 兜底
     import math as _kb_math
 
-    _KB_ASCII_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+    _kb_n = max(len(_kb_low), 1)
+    _kb_df = {}
+    for _t in _kb_tokens + _bigrams:
+        if _t not in _kb_df:
+            _kb_df[_t] = sum(1 for _txt in _kb_low.values() if _t in _txt)
 
-    def _kb_hit_count(_low: str, _tok: str) -> int:
-        if _KB_ASCII_RE.match(_tok):
-            _pat = r"(?<![A-Za-z0-9_])" + re.escape(_tok) + r"(?![A-Za-z0-9_])"
-            return len(re.findall(_pat, _low))
-        return _low.count(_tok)
+    def _kb_idf(t: str) -> float:
+        return _kb_math.log((_kb_n + 1) / (_kb_df.get(t, 1) + 1)) + 1.0
 
-    if _kb_contents and _kb_tokens and (_kb_multi or len(_kb_tokens[0]) >= 2):
-        _kb_n = len(_kb_contents)
-        _kb_df = {}
-        for _t in _kb_tokens:
-            _kb_df[_t] = sum(1 for _txt in _kb_contents.values() if _kb_hit_count(_txt.lower(), _t) > 0)
-        _kb_scores = {}
-        for _rel, _text in _kb_contents.items():
-            _low = _text.lower()
-            _hit_pairs = []
-            for _t in _kb_tokens:
-                _c = _kb_hit_count(_low, _t)
-                if _c:
-                    _hit_pairs.append((_t, _c))
-            if not _hit_pairs:
-                continue
-            _cov = len(_hit_pairs) / len(_kb_tokens)
-            if _kb_multi and _cov < _KB_MIN_COVERAGE:
-                continue
-            _head = " ".join(_text.splitlines()[:5]).lower()
-            _rel_low = _rel.lower()
-            _score = 0.0
-            for _t, _c in _hit_pairs:
-                _idf = _kb_math.log((_kb_n + 1) / (_kb_df.get(_t, 1) + 1)) + 1.0
-                _w = 1.0 if len(_t) > 1 else _KB_SINGLE_WEIGHT
-                _boost = 1.0
-                if _t in _head:
-                    _boost += _KB_TITLE_BOOST / 10.0
-                if _t in _rel_low:
-                    _boost += _KB_PATH_BOOST / 10.0
-                _score += _idf * _w * _boost * min(_c, 8)
-            _kb_scores[_rel] = _score * (_cov ** 2)
-        if _kb_scores:
-            _kb_best = max(_kb_scores.values())
-            _kb_index = {h["path"]: h for h in hits}
-            for _rel, _sc in _kb_scores.items():
-                if _rel in _kb_index:
-                    _kb_index[_rel]["score"] += _sc
-                elif _sc >= _kb_best * 0.5:
-                    hits.append({"path": _rel, "title": Path(_rel).stem, "score": _sc, "snippet": ""})
-    # === SEEP-EXT: kb-multitoken END ===
+    def _kb_weight(t: str) -> float:
+        return 1.0 if len(t) > 1 else _KB_SINGLE_WEIGHT
+
+    def _kb_pos_mult(rel: str, t: str) -> float:
+        m = 1.0
+        if t in _kb_title.get(rel, "").lower():
+            m += _KB_TITLE_BOOST / 10.0
+        if t in rel.lower():
+            m += _KB_PATH_BOOST / 10.0
+        return m
+
+    _totals, _why = {}, {}   # rel -> score / (命中的整串+术语, 命中的 CJK 双字片段)
+    for _rel, _low in _kb_low.items():
+        _s, _m, _gm = 0.0, [], []
+        # (a) 原查询词：保留原覆盖率闸门（2 token 必须全中，避免"命中一个就上榜"）
+        _q_hits = [(_t, _kb_hit_count(_low, _t)) for _t in _kb_query_tokens]
+        _q_hits = [(_t, _c) for _t, _c in _q_hits if _c]
+        if _q_hits:
+            _cov = len(_q_hits) / max(len(_kb_query_tokens), 1)
+            if not (_kb_multi and _cov < _KB_MIN_COVERAGE):
+                _s_q = sum(_kb_idf(_t) * _kb_weight(_t) * _kb_pos_mult(_rel, _t) * min(_c, 8)
+                           for _t, _c in _q_hits)
+                if _s_q * (_cov ** 2) > 0:
+                    _s += _s_q * (_cov ** 2)
+                    _m.extend(t for t, _c in _q_hits)
+        # (b) 别名术语：口语→术语展开的部分不设覆盖率闸门（要的就是召回）
+        _s_a = 0.0
+        for _t in _alias_terms:
+            _c = _kb_hit_count(_low, _t)
+            if _c:
+                _s_a += _kb_idf(_t) * _kb_weight(_t) * _kb_pos_mult(_rel, _t) * min(_c, 8)
+                _m.append(_t)
+        if _s_a > 0:
+            _s += _s_a * _KB_ALIAS_WEIGHT
+        # (c) CJK 2-gram 兜底：中文没空格，双字切片是最后一道召回网
+        if _bigrams:
+            _g_hits = [(_g, _low.count(_g)) for _g in _bigrams]
+            _g_hits = [(_g, _c) for _g, _c in _g_hits if _c]
+            _g_cov = len(_g_hits) / len(_bigrams)
+            if _g_hits and _g_cov >= _KB_GRAM_MIN_COVERAGE:
+                _s_g = sum(_kb_idf(_g) * _KB_GRAM_WEIGHT * min(_c, 4) for _g, _c in _g_hits)
+                if _s_g * _g_cov >= _KB_GRAM_ABS_FLOOR:
+                    _s += _s_g * _g_cov
+                    _gm.extend(g for g, _c in _g_hits)
+        if _s > 0:
+            _totals[_rel], _why[_rel] = _s, (_m, _gm)
+
+    # 4) boost_paths 加权 + 合并入 hits
+    _kb_index = {h["path"]: h for h in hits}
+    for _rel, _s in _totals.items():
+        _nb = sum(1 for _p in _boost_paths if _p in _rel.lower())
+        _final = _s * (_KB_PATH_MULT ** min(_nb, 2)) if _nb else _s
+        if _rel in _kb_index:
+            _kb_index[_rel]["score"] += _final
+        else:
+            hits.append({"path": _rel, "title": _kb_title.get(_rel, Path(_rel).stem),
+                         "score": _final, "snippet": ""})
+
+    # 5) matched_terms：这次是靠哪些词命中的（术语 与 CJK 双字片段分开列）——
+    #    只有 matched_bigrams 没有 matched_terms = 弱召回，别当结论。
+    for _h in hits:
+        _terms_hit, _grams_hit = _why.get(_h["path"], ([], []))
+        _mt = []
+        for _t in list(_kb_matched.get(_h["path"], [])) + list(_terms_hit):
+            if _t and _t not in _mt:
+                _mt.append(_t)
+        _h["matched_terms"] = _mt[:_KB_MAX_MATCHED]
+        if _grams_hit:
+            _h["matched_bigrams"] = list(dict.fromkeys(_grams_hit))[:6]
+        _nb = sum(1 for _p in _boost_paths if _p in _h["path"].lower())
+        if _nb:
+            _h["boost"] = "boost_paths×%d" % _nb
+        _h["score"] = round(_h["score"], 2)
+
     hits.sort(key=lambda x: x["score"], reverse=True)
     top = hits[:limit]
-    # === SEEP-EXT: kb-multitoken === snippet 改为命中位置居中（原实现固定取正文开头 300 字）
+
+    # 6) snippet 改为命中位置居中（优先原查询词，其次别名术语，最后双字片段）
     for _h in top:
         _txt = _kb_contents.get(_h.get("path", ""))
         if not _txt:
             continue
         _low = _txt.lower()
         _pos = -1
-        for _t in (_kb_tokens or [pat]):
-            _i = _low.find(_t)
+        for _t in (_kb_query_tokens + _alias_terms + _bigrams + [pat]):
+            _i = _low.find(_t) if _t else -1
             if _i != -1 and (_pos == -1 or _i < _pos):
                 _pos = _i
-        if _pos < 0:
-            continue
-        _start = max(0, _pos - 160)
-        _end = min(len(_txt), _pos + 160)
-        _h["snippet"] = _txt[_start:_end].strip().replace("\n", " ")
-    if not top:
-        return f"No articles found matching '{query}' in ReverseLab knowledge base."
+        if _pos >= 0:
+            _h["snippet"] = _txt[max(0, _pos - 160):_pos + 160].strip().replace("\n", " ")
 
-    return json.dumps(top, indent=2, ensure_ascii=False)
+    if top:
+        return json.dumps(top, indent=2, ensure_ascii=False)
+
+    # 7) 空结果绝不回"未命中"：给 3 条最近邻 + 为什么接近，让模型能顺着读下去
+    _near = []
+    for _rel, _low in _kb_low.items():
+        _sc, _ht = 0.0, []
+        for _t in _kb_tokens:
+            _c = _kb_hit_count(_low, _t)
+            if _c:
+                _ht.append(_t)
+                _sc += _kb_idf(_t) * min(_c, 8)
+        _hg = [g for g in _bigrams if g in _low]
+        if _hg:
+            _sc += 0.35 * sum(_kb_idf(g) for g in _hg)
+        if _sc > 0:
+            _near.append((_sc, _rel, _ht, _hg))
+    _near.sort(key=lambda x: x[0], reverse=True)
+    _out = []
+    for _sc, _rel, _ht, _hg in _near[:3]:
+        if _ht:
+            _why_text = "正文含相关术语 %s" % "、".join(_ht[:5])
+        else:
+            _why_text = "正文含相关双字片段 %s（词形不同但同域）" % "、".join(_hg[:5])
+        _out.append({"path": _rel, "title": _kb_title.get(_rel, Path(_rel).stem),
+                     "score": round(_sc, 2), "matched_terms": _ht[:_KB_MAX_MATCHED],
+                     "matched_bigrams": list(dict.fromkeys(_hg))[:6], "why": _why_text,
+                     "read": 'seep_kb_read("%s")' % _rel})
+    if not _out:
+        # 与查询零字面重合时"最近邻"不存在 —— 给库的入口/起步清单，而不是空手回"未命中"
+        for _rel, _why in (
+                ("general/techniques/methodology/01-reverse-checklist-first-30-min.md",
+                 "库里的逆向 30 分钟起步清单：先按它把目标分类，再回到检索"),
+                ("general/techniques/methodology/02-toolchain-decision-tree.md",
+                 "工具链决策树：按目标类型/平台选工具，适合先定位该用哪套打法"),
+                ("field_journal__index.md",
+                 "现场日志索引：按真实案例找同类问题（这些案例都有可复现链路）")):
+            if _rel in _kb_low:
+                _out.append({"path": _rel, "title": _kb_title.get(_rel, Path(_rel).stem),
+                             "score": 0.0, "matched_terms": [], "why": "与查询无字面重合，但" + _why,
+                             "read": 'seep_kb_read("%s")' % _rel})
+            if len(_out) >= 3:
+                break
+    return json.dumps({
+        "query": query, "expanded_terms": _alias_terms, "fired_groups": _fired,
+        "hits": [], "near_miss": _out,
+        "hint": ("没有直接命中。上面 %d 篇是与本次查询重合度最高的文章（按术语/双字片段 IDF "
+                 "加权），先 seep_kb_read 读一篇再决定；若都不对，换成更具体的术语或英文关键词"
+                 "重查（本库 %d 篇）。") % (len(_out), len(_kb_low)),
+    }, indent=2, ensure_ascii=False)
+
+
+# 兼容早期 FastMCP 暴露的 `.fn` 调用形态：验收/脚本里 `seep_kb_search.fn(...)` 能直接跑
+setattr(seep_kb_search, "fn", seep_kb_search)
+
 
 def _byte_len(text: str) -> int:
     """UTF-8 字节长度（kb_read 的 max_chars 分支用；此前缺失 → 41% 的长文章会崩）。"""
     return len(str(text).encode("utf-8", "replace"))
 
 
+def _kb_article_paths():
+    """KB 内全部文章的相对路径（含 kb_local/<相对路径>），供 kb_read 模糊解析用。"""
+    out = []
+    for root, prefix in ((KB_DIR, ""), (os.path.join(BASE_DIR, "kb_local"), "kb_local/")):
+        if os.path.isdir(root):
+            out += [prefix + os.path.relpath(p, root).replace(os.sep, "/")
+                    for p in glob.glob(os.path.join(root, "**", "*.md"), recursive=True)]
+    return out
+
+
+def _kb_path_from_rel(rel: str) -> str:
+    """相对路径 → 绝对路径（kb_local/ 前缀路由到本地覆盖层）。"""
+    rel = (rel or "").replace("\\", "/")
+    if rel.startswith("kb_local/"):
+        return os.path.join(BASE_DIR, "kb_local", rel[len("kb_local/"):].replace("/", os.sep))
+    return os.path.join(KB_DIR, rel)
+
+
+def _kb_search_paths(query: str, n: int = 3):
+    """用 seep_kb_search 的检索结果反查文章路径（口语 → 文章）。
+
+    只认真正的命中（hits + 命中了术语/原查询词）：near_miss 和"只靠 CJK 双字片段"
+    都是弱召回，替人拍板会读出一篇无关文章，比报错更糟。
+    """
+    try:
+        fn = getattr(seep_kb_search, "fn", seep_kb_search)
+        data = json.loads(fn(query, limit=n))
+    except Exception:
+        return []
+    return [h.get("path", "") for h in (data if isinstance(data, list) else [])
+            if isinstance(h, dict) and h.get("path") and h.get("matched_terms")]
+
+
 @server.tool()
 def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
     """读取 ReverseLab 知识库中某篇战术文档或技巧手册的全文内容。
+
+    article_path 可以是完整相对路径、路径片段、文件名，也可以是大白话关键词
+    （没精确命中时按别名表 + 双字片段自动定位，并在正文前注明实际读的是哪篇）。
 
     Args:
         article_path: 相对 KB 根目录的路径（可通过 seep_kb_search 获得，例如 'ctf-website/checklists/web-ctf-first-30-min.md'）
         max_chars: 最大返回字符数，默认 6000
     """
     # 本地覆盖层：kb_local/ 前缀走 Tool/mcp/kb_local/
-    if article_path.replace(chr(92), "/").startswith("kb_local/"):
-        _rel = article_path.replace(chr(92), "/")[len("kb_local/"):]
-        target = os.path.join(BASE_DIR, "kb_local", _rel.replace("/", os.sep))
-    else:
-        target = os.path.join(KB_DIR, article_path)
+    _given = (article_path or "").replace("\\", "/").strip()
+    target = os.path.join(BASE_DIR, "kb_local", _given[len("kb_local/"):].replace("/", os.sep)) \
+        if _given.startswith("kb_local/") else os.path.join(KB_DIR, article_path)
+    note = ""
     if not os.path.isfile(target):
-        # 尝试模糊匹配
-        matches = glob.glob(os.path.join(KB_DIR, "**", f"*{article_path}*"), recursive=True)
-        if matches and os.path.isfile(matches[0]):
-            target = matches[0]
-        else:
-            return f"[ERROR]: Article not found: {article_path}"
-
+        # 模糊解析：① 目录/目录片段 → 列清单；② 路径片段/后缀（容忍少写目录、少写 .md）；
+        # ③ 大白话 → 走检索（别名展开 + 2-gram）定位到 top1，并在正文前注明实际读的是哪篇。
+        _want = _given.strip("/")
+        _want_md = _want if _want.endswith(".md") else _want + ".md"
+        _all = _kb_article_paths()
+        if _want and not _want.lower().endswith(".md"):
+            _inside = [r for r in _all if ("/" + _want + "/") in ("/" + r)]
+            if _inside and not [r for r in _all
+                                if Path(r).stem.lower() == Path(_want_md).stem.lower()]:
+                return ("[INFO] '%s' 是目录，不是文章。目录下 %d 篇：\n%s\n"
+                        "下一步：seep_kb_read(\"<上面任一路径>\")；或 seep_kb_search(\"<你的问题>\")"
+                        % (_want, len(_inside), "\n".join(" - " + r for r in _inside[:20])))
+        _cands = [r for r in _all if _want_md and (r.endswith(_want_md) or _want_md in r)]
+        if not _cands and _want:
+            _cands = [r for r in _all if Path(r).stem.lower() == Path(_want_md).stem.lower()]
+        _others = []
+        if not _cands:
+            _guessed = _kb_search_paths(_given, 3)
+            if _guessed:
+                _cands, _others = _guessed[:1], _guessed[1:]
+        elif len(_cands) > 1:
+            # 同名多份（常见于 _archive/ 归档副本）：优先非归档里路径最短的那篇
+            _cands.sort(key=lambda r: (r.startswith("_archive/"), len(r)))
+            _others = _cands[1:]
+            _cands = _cands[:1]
+        if not _cands:
+            return ("[ERROR]: Article not found: %s。KB 里既没有字面相近的文章，检索也没有足够交集——"
+                    "先 seep_kb_search(\"<你的问题原话>\") 拿路径，再读。" % article_path)
+        target = _kb_path_from_rel(_cands[0])
+        note = "[提示] 无精确同名文件，已按路径片段/检索自动定位到：%s\n\n" % _cands[0]
+        if _others:
+            note += "[其他候选] %s\n\n" % "；".join(_others[:3])
     with open(target, "r", encoding="utf-8", errors="replace") as fh:
         text = fh.read()
         if len(text) > max_chars:
+            # 超预算仍返回结构化 JSON（note 塞进 artifact_hint，不破坏 json.loads）
+            _hint = "全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
+                len(text), _byte_len(text))
             return _resource_constraint(
-                "seep_kb_read", text,
-                "把 max_chars 调到 ≥ %d 再读全文" % len(text),
-                artifact_hint="全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
-                    len(text), _byte_len(text)))
-        return text
+                "seep_kb_read", text, "把 max_chars 调到 ≥ %d 再读全文" % len(text),
+                artifact_hint=(note.strip() + "；" + _hint) if note else _hint)
+        return note + text
 
 # ---------------------------------------------------------------------------
 # 5. 战术助手与安全评估增强工具 (Task Isolation, Triage, Report & IDA Bridge)

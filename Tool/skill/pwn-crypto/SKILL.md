@@ -47,6 +47,12 @@ metadata:
   ELF RELRO/GOT/`__free_hook`；UCRT 的 `printf` **不执行 `%n`**（案例 05 实测）。
 - ELF/libc/seccomp 路线需要在 WSL2/远端 Linux 执行；没有同版本 libc 时最多给“疑似偏移”。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 逆向测绘里的保护位/危险导入/利用路线（pwn-check 那一段）→ `Tool/playbooks/reverse-survey.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`定位到了崩溃点/保护位/数学关系，但控制流没拿到手上（偏移两源不一致，或回代等式不成立），只能说「疑似」`

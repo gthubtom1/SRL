@@ -40,6 +40,13 @@ metadata:
 - 第三方设备/网段/闪存写入清单由 `scope` 声明，清单内按任务执行。
 - 把“解包成功”“FirmAE success”“binwalk 识别出 12 个签名”当作交付。
 
+## 配方（照这个跑）
+
+输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
+
+- 固件解包、rootfs 判据、分区表与 OTA 包 → `Tool/playbooks/firmware-extract.md`
+- 固件仿真/rehosting 起不来、init 链或服务不监听 → `Tool/playbooks/firmware-emulate.md`
+
 ## 上限怎么说（对客户）
 
 - **只能看懂结构**：`解开了文件系统，能指出硬编码凭据/后门脚本在哪个文件哪一行，但没在设备上跑过`

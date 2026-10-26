@@ -1,0 +1,1357 @@
+{
+  "schemaVersion": "1.0",
+  "description": "知识库口语检索别名表：把用户的大白话（加壳了怎么脱 / 这软件要卡密怎么绕过）映射到 KB 正文里真实出现的术语，并给出优先命中的目录/文件名。被 Tool/mcp/seep_mcp_server.py 的 seep_kb_search 读取；只做检索扩展，不写死任何具体查询。",
+  "syntax": {
+    "say": "触发词（用户口语片段）。查询串里出现任意一个 → 本组生效。",
+    "terms": "扩展检索词（英文/术语/中文书面词）。必须能在 KB 正文里真实命中，否则是死词。",
+    "boost_paths": "命中路径包含该片段时加权（相对 KB 根的路径或目录名/文件名片段）。"
+  },
+  "stopwords": [
+    "怎么办",
+    "怎么",
+    "怎样",
+    "咋办",
+    "咋整",
+    "如何",
+    "为什么",
+    "为啥",
+    "是什么",
+    "什么",
+    "请问",
+    "帮我",
+    "麻烦",
+    "看一下",
+    "看看",
+    "我想",
+    "我要",
+    "我想知道",
+    "能不能",
+    "可不可以",
+    "可以",
+    "一下",
+    "有没有",
+    "是不是",
+    "应该",
+    "这个",
+    "那个",
+    "这种",
+    "那种",
+    "现在",
+    "已经",
+    "还是",
+    "或者",
+    "然后",
+    "并且",
+    "而且",
+    "的话"
+  ],
+  "groups": [
+    {
+      "id": "pack-unpack",
+      "say": [
+        "加壳",
+        "脱壳",
+        "带壳",
+        "壳",
+        "加固",
+        "反加固",
+        "脱壳机",
+        "查壳",
+        "解壳"
+      ],
+      "terms": [
+        "unpack",
+        "packer",
+        "upx",
+        "oep",
+        "iat",
+        "dump",
+        "scylla",
+        "脱壳",
+        "加固",
+        "壳"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/07-packer",
+        "malware-analysis/techniques/02-unpacking",
+        "pe-reverse/techniques/05-crypto-unpack",
+        "re_pattern_anti-analysis"
+      ]
+    },
+    {
+      "id": "av-evasion",
+      "say": [
+        "免杀",
+        "过杀软",
+        "过av",
+        "杀软",
+        "杀毒",
+        "反杀软",
+        "过免杀",
+        "不被查杀"
+      ],
+      "terms": [
+        "av evasion",
+        "shellcode",
+        "amsi",
+        "edr",
+        "loader",
+        "规避",
+        "免杀",
+        "杀软"
+      ],
+      "boost_paths": [
+        "_archive/pe-reverse/techniques/09-av-evasion",
+        "edr_bypass_SKILL",
+        "malware-analysis/techniques/05-sandbox-evasion"
+      ]
+    },
+    {
+      "id": "ad-removal",
+      "say": [
+        "去广告",
+        "广告",
+        "开屏广告",
+        "横幅广告",
+        "广告弹窗",
+        "插屏广告",
+        "去推送"
+      ],
+      "terms": [
+        "banner",
+        "广告",
+        "ads"
+      ],
+      "boost_paths": [
+        "field_journal_2026-08-20_apk-flutter-banner-ad-removal",
+        "apk-reverse/techniques/08-patch-repack"
+      ]
+    },
+    {
+      "id": "popup-removal",
+      "say": [
+        "去弹窗",
+        "弹窗",
+        "弹框",
+        "提示框",
+        "更新提示",
+        "强制更新",
+        "关闭弹窗",
+        "更新框",
+        "弹更新",
+        "老提示",
+        "每次都弹"
+      ],
+      "terms": [
+        "dialog",
+        "弹窗",
+        "弹出"
+      ],
+      "boost_paths": [
+        "field_journal_2026-08-20_apk-flutter-banner-ad-removal",
+        "apk-reverse/techniques/05-network/02-license-verification-bypass",
+        "ctf-website/techniques/23-paywall-bypass"
+      ]
+    },
+    {
+      "id": "vip-unlock",
+      "say": [
+        "改会员",
+        "会员",
+        "开会员",
+        "解锁会员",
+        "vip",
+        "高级版",
+        "付费功能",
+        "付费解锁",
+        "尊享"
+      ],
+      "terms": [
+        "vip",
+        "membership",
+        "premium",
+        "subscription",
+        "会员",
+        "isvip"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/12-payment",
+        "_archive/pe-reverse/techniques/10-license-keygen"
+      ]
+    },
+    {
+      "id": "license-crack",
+      "say": [
+        "卡密",
+        "授权",
+        "激活",
+        "注册码",
+        "注册机",
+        "序列号",
+        "许可证",
+        "正版验证",
+        "激活码",
+        "许可证验证",
+        "授权码",
+        "软件的注册",
+        "注册验证",
+        "掉授权",
+        "授权失效"
+      ],
+      "terms": [
+        "license",
+        "activation",
+        "serial",
+        "keygen",
+        "卡密",
+        "授权",
+        "激活",
+        "注册码"
+      ],
+      "boost_paths": [
+        "pe-reverse/techniques/10-license-keygen",
+        "_archive/pe-reverse/techniques/10-license-keygen",
+        "apk-reverse/techniques/05-network/02-license-verification-bypass",
+        "managed/techniques"
+      ]
+    },
+    {
+      "id": "crack-patch",
+      "say": [
+        "破解",
+        "破解版",
+        "去限制",
+        "过了限制",
+        "打补丁",
+        "改代码",
+        "nop掉"
+      ],
+      "terms": [
+        "crack",
+        "patch",
+        "bypass",
+        "破解",
+        "nop"
+      ],
+      "boost_paths": [
+        "pe-reverse/techniques/08-patch",
+        "apk-reverse/techniques/08-patch-repack"
+      ]
+    },
+    {
+      "id": "anti-debug",
+      "say": [
+        "反调试",
+        "调试检测",
+        "附加调试",
+        "不许调试",
+        "调试器检测",
+        "动态调试",
+        "调试器"
+      ],
+      "terms": [
+        "anti-debug",
+        "ptrace",
+        "tracerpid",
+        "isdebuggerpresent",
+        "反调试"
+      ],
+      "boost_paths": [
+        "pe-reverse/techniques/04-dynamic-analysis/05-anti-debug-bypass",
+        "apk-reverse/techniques/07-packer/05-vmp-anti-debug-bypass",
+        "re_pattern_anti-analysis"
+      ]
+    },
+    {
+      "id": "anti-injection",
+      "say": [
+        "反注入",
+        "注入检测",
+        "防注入",
+        "防hook",
+        "反hook",
+        "检测注入",
+        "注入检测绕过"
+      ],
+      "terms": [
+        "injection",
+        "反注入",
+        "注入",
+        "inline hook",
+        "hook"
+      ],
+      "boost_paths": [
+        "_archive/pe-reverse/techniques/04-dynamic-analysis",
+        "apk-reverse/techniques/08-patch-repack/01-so-injection-repack"
+      ]
+    },
+    {
+      "id": "traffic-capture",
+      "say": [
+        "抓包",
+        "抓请求",
+        "抓流量",
+        "拦截请求",
+        "中间人",
+        "改包",
+        "抓接口",
+        "收包"
+      ],
+      "terms": [
+        "pcap",
+        "tcpdump",
+        "mitmproxy",
+        "wireshark",
+        "capture",
+        "抓包",
+        "hook"
+      ],
+      "boost_paths": [
+        "protocol/techniques/live-capture-hygiene",
+        "protocol/techniques/capture-to-replay",
+        "field_journal_seed-011_pcap-protocol-reverse",
+        "protocol/techniques/real-pcap-drills"
+      ]
+    },
+    {
+      "id": "cert-pinning",
+      "say": [
+        "证书校验",
+        "证书绑定",
+        "ssl pinning",
+        "双向认证",
+        "证书锁定",
+        "中间人证书",
+        "证书错误",
+        "证书固定",
+        "固定证书",
+        "https 抓不到",
+        "绕过证书"
+      ],
+      "terms": [
+        "pinning",
+        "unpinning",
+        "trustmanager",
+        "x509",
+        "证书校验",
+        "certificate"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/05-network/03-tls-pinning-unpinning",
+        "field_journal_seed-008_apk-okhttp-ssl-pin-bypass"
+      ]
+    },
+    {
+      "id": "signature-check",
+      "say": [
+        "签名校验",
+        "签名验证",
+        "校验签名",
+        "完整性校验",
+        "校验绕过",
+        "防篡改",
+        "重签名校验"
+      ],
+      "terms": [
+        "signature",
+        "integrity",
+        "apksigner",
+        "签名校验",
+        "校验"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/08-patch-repack/02-signature-integrity-bypass",
+        "firmware-iot/techniques/03-ota-and-signature"
+      ]
+    },
+    {
+      "id": "repack",
+      "say": [
+        "重打包",
+        "重新签名",
+        "二次打包",
+        "改包名",
+        "回编译",
+        "打包回去",
+        "重签名"
+      ],
+      "terms": [
+        "repack",
+        "apktool",
+        "smali",
+        "zipalign",
+        "apksigner",
+        "重打包"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/08-patch-repack",
+        "apk-reverse/techniques/01-dex-java"
+      ]
+    },
+    {
+      "id": "hot-update",
+      "say": [
+        "热更新",
+        "热修复",
+        "动态加载",
+        "插件化",
+        "下发dex",
+        "热补丁",
+        "补丁下发"
+      ],
+      "terms": [
+        "dexclassloader",
+        "热更新",
+        "热补丁",
+        "dex",
+        "dynamic"
+      ],
+      "boost_paths": [
+        "mumu_crash_guard_and_hotpatch_spec",
+        "apk-reverse/techniques/07-packer/02-self-extracting-payload"
+      ]
+    },
+    {
+      "id": "resource-obfuscation",
+      "say": [
+        "资源混淆",
+        "资源加密",
+        "arsc加密",
+        "资源表",
+        "资源被改"
+      ],
+      "terms": [
+        "resources.arsc",
+        "arsc",
+        "资源",
+        "obfuscation"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/07-packer/01-obfuscation-detection"
+      ]
+    },
+    {
+      "id": "string-encrypt",
+      "say": [
+        "字符串加密",
+        "字符串混淆",
+        "字符加密",
+        "字符串被加密",
+        "常量加密"
+      ],
+      "terms": [
+        "string encryption",
+        "字符串",
+        "encryption",
+        "obfuscation"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/07-packer/01-obfuscation-detection",
+        "general/techniques/crypto/02-custom-obfuscation-reverse"
+      ]
+    },
+    {
+      "id": "control-flow-flatten",
+      "say": [
+        "控制流平坦化",
+        "流程平坦化",
+        "控制流混淆",
+        "ollvm",
+        "混淆得厉害"
+      ],
+      "terms": [
+        "control flow flattening",
+        "ollvm",
+        "obfuscator",
+        "控制流",
+        "混淆"
+      ],
+      "boost_paths": [
+        "general/techniques/crypto/02-custom-obfuscation-reverse",
+        "re_pattern_anti-analysis"
+      ]
+    },
+    {
+      "id": "junk-code",
+      "say": [
+        "花指令",
+        "垃圾指令",
+        "混淆指令",
+        "废指令",
+        "无效指令"
+      ],
+      "terms": [
+        "opaque predicate",
+        "dead code",
+        "花指令",
+        "nop"
+      ],
+      "boost_paths": [
+        "re_pattern_anti-analysis",
+        "_archive/pe-reverse/techniques/09-av-evasion"
+      ]
+    },
+    {
+      "id": "vmp",
+      "say": [
+        "虚拟机保护",
+        "vmp",
+        "虚拟化保护",
+        "vmprotect",
+        "dex2c",
+        "反编译不出来",
+        "看不到逻辑"
+      ],
+      "terms": [
+        "vmprotect",
+        "vmp",
+        "devirtualization",
+        "dex2c",
+        "virtualization"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/07-packer/03-vmp-dex2c-detection",
+        "windows/techniques/2026-vmp-ultralock",
+        "_archive/pe-reverse/techniques/05-crypto-unpack/02-vmp-virtualization-analysis"
+      ]
+    },
+    {
+      "id": "memory-dump",
+      "say": [
+        "内存dump",
+        "内存转储",
+        "导内存",
+        "dump内存",
+        "内存镜像",
+        "进程dump"
+      ],
+      "terms": [
+        "memory dump",
+        "minidump",
+        "dump",
+        "memprocfs",
+        "内存"
+      ],
+      "boost_paths": [
+        "forensics/techniques/memory-volatility-triage",
+        "forensics/techniques/2026-memprocfs-519",
+        "pe-reverse/techniques/05-crypto-unpack/01-pe-unpack-dump"
+      ]
+    },
+    {
+      "id": "firmware-unpack",
+      "say": [
+        "固件解包",
+        "固件",
+        "解包固件",
+        "固件提取",
+        "刷机包",
+        "binwalk"
+      ],
+      "terms": [
+        "firmware",
+        "binwalk",
+        "squashfs",
+        "ubifs",
+        "固件"
+      ],
+      "boost_paths": [
+        "firmware-iot/techniques/01-unpack-and-filesystem",
+        "firmware-iot/techniques/07-container-triage"
+      ]
+    },
+    {
+      "id": "backdoor",
+      "say": [
+        "后门",
+        "木马",
+        "webshell",
+        "留后门",
+        "持久化",
+        "驻留",
+        "查杀",
+        "后门查杀"
+      ],
+      "terms": [
+        "backdoor",
+        "webshell",
+        "persistence",
+        "后门",
+        "持久化"
+      ],
+      "boost_paths": [
+        "malware-analysis/techniques/01-triage-and-ioc",
+        "malware-analysis/techniques/03-behavior-timeline",
+        "forensics/techniques/windows-evtx-registry"
+      ]
+    },
+    {
+      "id": "weak-password",
+      "say": [
+        "弱口令",
+        "弱密码",
+        "默认密码",
+        "密码爆破",
+        "撞库",
+        "口令爆破",
+        "爆破密码"
+      ],
+      "terms": [
+        "weak password",
+        "brute",
+        "credential",
+        "弱口令",
+        "密码"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/16-rate-limit/02-brute-force-tactics",
+        "firmware-iot/techniques/08-credentials-and-boot-chain",
+        "_archive/pentest-checklist"
+      ]
+    },
+    {
+      "id": "uart",
+      "say": [
+        "串口",
+        "串口调试",
+        "ttl",
+        "console口",
+        "调试口"
+      ],
+      "terms": [
+        "uart",
+        "串口",
+        "openocd",
+        "console"
+      ],
+      "boost_paths": [
+        "firmware-iot/techniques/02-uart-and-emulation",
+        "field_journal_seed-015_iot-firmware-uart"
+      ]
+    },
+    {
+      "id": "jtag",
+      "say": [
+        "jtag",
+        "swd",
+        "芯片调试",
+        "硬件调试",
+        "飞线"
+      ],
+      "terms": [
+        "jtag",
+        "swd",
+        "openocd",
+        "debug port"
+      ],
+      "boost_paths": [
+        "firmware-iot/techniques/02-uart-and-emulation",
+        "re_pattern_platforms-hardware"
+      ]
+    },
+    {
+      "id": "supply-chain",
+      "say": [
+        "供应链投毒",
+        "供应链",
+        "恶意包",
+        "投毒",
+        "包投毒",
+        "第三方依赖"
+      ],
+      "terms": [
+        "supply chain",
+        "typosquat",
+        "malicious",
+        "供应链"
+      ],
+      "boost_paths": [
+        "supply-chain/techniques/07-typosquat-and-malicious-packages",
+        "supply-chain/techniques/2026-chaindrop-sandworm"
+      ]
+    },
+    {
+      "id": "dependency-confusion",
+      "say": [
+        "依赖混淆",
+        "依赖劫持",
+        "内网包名",
+        "私服包",
+        "包名抢占"
+      ],
+      "terms": [
+        "dependency confusion",
+        "typosquat",
+        "npm",
+        "pypi"
+      ],
+      "boost_paths": [
+        "supply-chain/techniques/01-dependency-confusion",
+        "ctf-website/techniques/11-supply-chain/dependency-confusion"
+      ]
+    },
+    {
+      "id": "poc",
+      "say": [
+        "poc",
+        "漏洞验证",
+        "复现漏洞",
+        "验证脚本",
+        "验证漏洞"
+      ],
+      "terms": [
+        "poc",
+        "cve",
+        "exploit"
+      ],
+      "boost_paths": [
+        "web-pentest/techniques/02-cve-repro",
+        "ctf-website/techniques/09-cve"
+      ]
+    },
+    {
+      "id": "exploit",
+      "say": [
+        "exp",
+        "利用",
+        "exp脚本",
+        "打点",
+        "拿shell",
+        "漏洞利用"
+      ],
+      "terms": [
+        "exploit",
+        "rce",
+        "cve",
+        "payload"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/09-cve",
+        "pwn-crypto/techniques",
+        "ctf-website/payloads"
+      ]
+    },
+    {
+      "id": "privesc",
+      "say": [
+        "提权",
+        "本地提权",
+        "拿root",
+        "root权限",
+        "管理员权限",
+        "权限提升"
+      ],
+      "terms": [
+        "privesc",
+        "privilege escalation",
+        "suid",
+        "sudo",
+        "提权"
+      ],
+      "boost_paths": [
+        "general/techniques/01-kernel/04-cifswitch-nss-privesc",
+        "ctf-website/techniques/10-cloud/aws-iam-privesc",
+        "ad-cloud/techniques"
+      ]
+    },
+    {
+      "id": "lateral-movement",
+      "say": [
+        "横向",
+        "横向移动",
+        "内网横向",
+        "横向渗透",
+        "拿下内网"
+      ],
+      "terms": [
+        "lateral",
+        "ntlm",
+        "relay",
+        "psexec",
+        "wmiexec",
+        "winrm",
+        "横向"
+      ],
+      "boost_paths": [
+        "field_journal_seed-007_ntlm-relay-coercer",
+        "ad-cloud/techniques/04-kerberos-paths"
+      ]
+    },
+    {
+      "id": "domain-control",
+      "say": [
+        "域控",
+        "域内",
+        "域渗透",
+        "打域",
+        "kerberos",
+        "域管理员"
+      ],
+      "terms": [
+        "kerberos",
+        "dcsync",
+        "adcs",
+        "active directory",
+        "域控"
+      ],
+      "boost_paths": [
+        "ad-cloud/techniques",
+        "field_journal_seed-005_ad-certipy-esc1",
+        "field_journal_seed-013_kerberoasting-spn"
+      ]
+    },
+    {
+      "id": "anti-cheat",
+      "say": [
+        "反作弊",
+        "外挂检测",
+        "游戏反作弊",
+        "封号",
+        "反外挂",
+        "eac",
+        "be反作弊"
+      ],
+      "terms": [
+        "anti-cheat",
+        "eac",
+        "battleye",
+        "vanguard",
+        "反作弊"
+      ],
+      "boost_paths": [
+        "general/techniques/cheating/04-anti-cheat-bypass",
+        "anticheat"
+      ]
+    },
+    {
+      "id": "jailbreak-root",
+      "say": [
+        "越狱检测",
+        "越狱",
+        "root检测",
+        "环境检测",
+        "模拟器检测",
+        "frida检测"
+      ],
+      "terms": [
+        "jailbreak",
+        "root detection",
+        "frida detection",
+        "越狱",
+        "detection"
+      ],
+      "boost_paths": [
+        "ios/techniques/2026-jb-detection-surface",
+        "field_journal_seed-009_ios-jailbreak-detect-bypass"
+      ]
+    },
+    {
+      "id": "game-hack",
+      "say": [
+        "游戏透视",
+        "透视",
+        "自瞄",
+        "外挂",
+        "内存挂",
+        "绘制",
+        "方框"
+      ],
+      "terms": [
+        "esp",
+        "aimbot",
+        "wallhack",
+        "il2cpp",
+        "offset",
+        "透视"
+      ],
+      "boost_paths": [
+        "general/techniques/cheating/03-esp-wallhack-rendering",
+        "apk-reverse/techniques/02-native"
+      ]
+    },
+    {
+      "id": "keygen",
+      "say": [
+        "算号器",
+        "注册码生成",
+        "生成注册码",
+        "序列号生成"
+      ],
+      "terms": [
+        "keygen",
+        "serial",
+        "license",
+        "算法"
+      ],
+      "boost_paths": [
+        "pe-reverse/techniques/10-license-keygen",
+        "_archive/pe-reverse/techniques/10-license-keygen/03-key-algorithm-recovery"
+      ]
+    },
+    {
+      "id": "protocol-reverse",
+      "say": [
+        "协议逆向",
+        "协议分析",
+        "私有协议",
+        "报文",
+        "报文格式",
+        "封包",
+        "包结构"
+      ],
+      "terms": [
+        "protocol",
+        "packet",
+        "pcap",
+        "framing",
+        "协议"
+      ],
+      "boost_paths": [
+        "protocol/techniques",
+        "general/techniques/protocol"
+      ]
+    },
+    {
+      "id": "crypto",
+      "say": [
+        "加解密",
+        "加密算法",
+        "解密",
+        "密文",
+        "加密数据",
+        "还原加密"
+      ],
+      "terms": [
+        "crypto",
+        "aes",
+        "rsa",
+        "rc4",
+        "xor",
+        "加密"
+      ],
+      "boost_paths": [
+        "general/techniques/crypto",
+        "re_pattern_crypto-decode-tools",
+        "apk-reverse/techniques/04-crypto"
+      ]
+    },
+    {
+      "id": "algorithm-recovery",
+      "say": [
+        "算法还原",
+        "还原算法",
+        "算法逆向",
+        "签名算法",
+        "算法分析"
+      ],
+      "terms": [
+        "algorithm",
+        "keygen",
+        "signature",
+        "算法"
+      ],
+      "boost_paths": [
+        "general/techniques/crypto/01-algorithm-identification",
+        "_archive/pe-reverse/techniques/10-license-keygen/03-key-algorithm-recovery"
+      ]
+    },
+    {
+      "id": "sandbox-evasion",
+      "say": [
+        "反沙箱",
+        "沙箱",
+        "反虚拟化",
+        "虚拟机检测",
+        "反调试逃逸",
+        "沙箱检测",
+        "反虚拟机",
+        "虚拟机环境"
+      ],
+      "terms": [
+        "sandbox",
+        "anti-vm",
+        "emulator",
+        "evasion",
+        "沙箱"
+      ],
+      "boost_paths": [
+        "malware-analysis/techniques/05-sandbox-evasion"
+      ]
+    },
+    {
+      "id": "ransomware-miner",
+      "say": [
+        "勒索软件",
+        "勒索",
+        "挖矿",
+        "挖矿木马",
+        "僵尸网络",
+        "远控"
+      ],
+      "terms": [
+        "ransomware",
+        "勒索",
+        "c2",
+        "beacon",
+        "ioc"
+      ],
+      "boost_paths": [
+        "malware-analysis/techniques/01-triage-and-ioc",
+        "malware-analysis/techniques/03-behavior-timeline"
+      ]
+    },
+    {
+      "id": "forensics",
+      "say": [
+        "取证",
+        "日志取证",
+        "内存取证",
+        "时间线",
+        "事件响应",
+        "痕迹清理"
+      ],
+      "terms": [
+        "forensics",
+        "evtx",
+        "volatility",
+        "timeline",
+        "取证"
+      ],
+      "boost_paths": [
+        "forensics/techniques"
+      ]
+    },
+    {
+      "id": "captcha",
+      "say": [
+        "验证码",
+        "滑块",
+        "短信验证码",
+        "极验",
+        "点选验证码",
+        "打码"
+      ],
+      "terms": [
+        "captcha",
+        "otp",
+        "验证码",
+        "slider"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/01-recon/captcha-bypass",
+        "field_journal_2026-07-05_dsl-vm-captcha-reverse"
+      ]
+    },
+    {
+      "id": "idor",
+      "say": [
+        "越权",
+        "越权访问",
+        "横向越权",
+        "idor",
+        "未授权访问"
+      ],
+      "terms": [
+        "idor",
+        "bac",
+        "access control",
+        "越权"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/14-idor",
+        "web-pentest/techniques/04-object-authz-proof"
+      ]
+    },
+    {
+      "id": "race-condition",
+      "say": [
+        "竞态",
+        "并发漏洞",
+        "并发问题",
+        "条件竞争",
+        "多线程漏洞"
+      ],
+      "terms": [
+        "race condition",
+        "race",
+        "并发",
+        "竞态"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/12-payment/payment-race-lost-update"
+      ]
+    },
+    {
+      "id": "payment",
+      "say": [
+        "支付漏洞",
+        "改价",
+        "零元购",
+        "订单篡改",
+        "支付绕过",
+        "优惠券"
+      ],
+      "terms": [
+        "payment",
+        "business logic",
+        "支付",
+        "订单"
+      ],
+      "boost_paths": [
+        "ctf-website/techniques/12-payment"
+      ]
+    },
+    {
+      "id": "kernel-driver",
+      "say": [
+        "内核",
+        "驱动",
+        "内核模块",
+        "rootkit",
+        "驱动逆向",
+        "蓝屏"
+      ],
+      "terms": [
+        "kernel",
+        "driver",
+        "ioctl",
+        "rootkit",
+        "内核"
+      ],
+      "boost_paths": [
+        "general/techniques/01-kernel",
+        "re_pattern_kernel-driver-reverse",
+        "windows/techniques/2026-win11-26h2-kernel"
+      ]
+    },
+    {
+      "id": "android-reverse",
+      "say": [
+        "安卓逆向",
+        "apk逆向",
+        "安卓",
+        "反编译apk",
+        "手机app",
+        "安卓加固"
+      ],
+      "terms": [
+        "android",
+        "apk",
+        "smali",
+        "dex",
+        "jadx"
+      ],
+      "boost_paths": [
+        "apk-reverse"
+      ]
+    },
+    {
+      "id": "ios-reverse",
+      "say": [
+        "ios逆向",
+        "ipa",
+        "砸壳",
+        "苹果应用",
+        "macho"
+      ],
+      "terms": [
+        "ios",
+        "ipa",
+        "macho",
+        "objective-c"
+      ],
+      "boost_paths": [
+        "ios"
+      ]
+    },
+    {
+      "id": "js-reverse",
+      "say": [
+        "js逆向",
+        "前端加密",
+        "webpack",
+        "混淆js",
+        "前端签名",
+        "网页加密"
+      ],
+      "terms": [
+        "webpack",
+        "javascript",
+        "混淆",
+        "sign"
+      ],
+      "boost_paths": [
+        "js_reverse_SKILL",
+        "field_journal_seed-004_js-sign-webpack"
+      ]
+    },
+    {
+      "id": "pe-reverse",
+      "say": [
+        "exe逆向",
+        "pe逆向",
+        "pe文件",
+        "查壳工具",
+        "dll逆向",
+        "windows程序"
+      ],
+      "terms": [
+        "pe",
+        "upx",
+        "packer",
+        "iat"
+      ],
+      "boost_paths": [
+        "pe-reverse"
+      ]
+    },
+    {
+      "id": "malware-analysis",
+      "say": [
+        "样本分析",
+        "病毒分析",
+        "恶意样本",
+        "威胁情报",
+        "ioc提取"
+      ],
+      "terms": [
+        "malware",
+        "ioc",
+        "yara",
+        "sample"
+      ],
+      "boost_paths": [
+        "malware-analysis",
+        "field_journal_seed-002_go-malware-stripped"
+      ]
+    },
+    {
+      "id": "site-clone",
+      "say": [
+        "网站克隆",
+        "仿站",
+        "镜像站",
+        "扒站",
+        "复制网站"
+      ],
+      "terms": [
+        "site clone",
+        "mirror",
+        "har",
+        "克隆"
+      ],
+      "boost_paths": [
+        "site-clone"
+      ]
+    },
+    {
+      "id": "waf-bypass",
+      "say": [
+        "过waf",
+        "waf绕过",
+        "拦截绕过",
+        "绕防护",
+        "保护绕过"
+      ],
+      "terms": [
+        "waf",
+        "bypass",
+        "拦截"
+      ],
+      "boost_paths": [
+        "web-pentest/techniques/01-waf-and-bypass",
+        "ctf-website/techniques/01-recon/cloudflare-bypass"
+      ]
+    },
+    {
+      "id": "managed-license",
+      "say": [
+        "c#破解",
+        ".net",
+        "dotnet",
+        "de4dot",
+        "java授权",
+        "python打包",
+        "字节码"
+      ],
+      "terms": [
+        "dotnet",
+        "de4dot",
+        "dnspy",
+        "bytecode"
+      ],
+      "boost_paths": [
+        "managed/techniques"
+      ]
+    },
+    {
+      "id": "plugin-reverse",
+      "say": [
+        "浏览器插件",
+        "chrome插件",
+        "vsix",
+        "插件逆向",
+        "扩展逆向",
+        "asar"
+      ],
+      "terms": [
+        "plugin",
+        "asar",
+        "mv3",
+        "extension"
+      ],
+      "boost_paths": [
+        "plugin/techniques"
+      ]
+    },
+    {
+      "id": "android-native",
+      "say": [
+        "so 文件",
+        "so文件",
+        "native 库",
+        "native库",
+        "jni",
+        "so 层",
+        "动态库"
+      ],
+      "terms": [
+        "native",
+        "jni",
+        "so",
+        "il2cpp",
+        "symbols"
+      ],
+      "boost_paths": [
+        "apk-reverse/techniques/02-native",
+        "plugin/techniques/unity-il2cpp-bepinex",
+        "field_journal_seed-014_unity-il2cpp-reverse"
+      ]
+    },
+    {
+      "id": "instrumentation",
+      "say": [
+        "frida",
+        "xposed",
+        "hook",
+        "插桩",
+        "注入脚本",
+        "hook 脚本",
+        "脱机调试"
+      ],
+      "terms": [
+        "frida",
+        "xposed",
+        "hook",
+        "inline hook",
+        "magisk",
+        "zygisk"
+      ],
+      "boost_paths": [
+        "re_pattern_tools-dynamic",
+        "ios/techniques/2026-frida-on-ios",
+        "apk-reverse/techniques/06-dynamic"
+      ]
+    }
+  ]
+}

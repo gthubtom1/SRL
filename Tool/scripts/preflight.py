@@ -958,6 +958,45 @@ def check_playbook_gate():
             "rc=%d ok=%r" % (rc, data.get("ok")) if not ok else "rc=0 ok=true")
 
 
+def check_playbook_wiring():
+    """配方接通率：每份 playbook 至少被一个域的 SKILL.md 指名，且指到的路径真实存在。
+
+    为什么（能力浪费实测）：`Tool/playbooks/` 有 24 份端到端配方，但 11 个领域技能的
+    SKILL.md 之前 0 处引用 → 智能体每遇到任务都要现编流程，而不是照成熟配方走。
+
+    判据：`Tool/playbooks/*.md`（排除 INDEX/README）每一份都出现在某个
+    `Tool/skill/*/SKILL.md` 的 `Tool/playbooks/<名>.md` 引用里；被指到的文件必须存在。
+    """
+    import io as _io
+    import re as _re
+
+    pb_dir = os.path.join(TOOL, "playbooks")
+    recipes = sorted(
+        os.path.splitext(os.path.basename(p))[0]
+        for p in glob.glob(os.path.join(pb_dir, "*.md"))
+        if os.path.basename(p) not in ("INDEX.md", "README.md"))
+    ref_re = _re.compile(r"Tool/playbooks/([A-Za-z0-9_.-]+)\.md")
+    pointed = {}
+    dead = []
+    for sk in sorted(glob.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"))):
+        dom = os.path.basename(os.path.dirname(sk))
+        text = _io.open(sk, encoding="utf-8", errors="replace").read()
+        for name in sorted(set(ref_re.findall(text))):
+            pointed.setdefault(name, []).append(dom)
+            if not os.path.isfile(os.path.join(pb_dir, name + ".md")):
+                dead.append("%s→%s" % (dom, name))
+    missing = [r for r in recipes if r not in pointed]
+    fails = []
+    if missing:
+        fails.append("未接通 %d 份：%s" % (len(missing), ", ".join(missing)))
+    if dead:
+        fails.append("死链：%s" % ", ".join(sorted(set(dead))))
+    covered = len(recipes) - len(missing)
+    add("13 三层", "配方接通率（%d/%d 份配方被 SKILL.md 指到）" % (covered, len(recipes)),
+        not fails, "；".join(fails) or "全部接通")
+    return fails
+
+
 def _tool_count_baseline():
     """工具数基线：从 `Tool/config/packs.baseline.json` 取 seep 服务的登记工具数。
 
@@ -2874,6 +2913,7 @@ def main():
     check_domain_depth()
     check_v123_deliverables()
     check_playbook_gate()
+    check_playbook_wiring()
     check_mcp_contract()
     check_skill_route()
     check_race_e2e()

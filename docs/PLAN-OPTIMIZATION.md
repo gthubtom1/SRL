@@ -747,3 +747,17 @@ objective 要求把每条判为"真问题/误报/需人工决定/P2"。本目标
 | 授权门 / 资源路径 / 元规则 | §六~§八 | `SEEP.md §0/§1`、边界锚（扩展注入） |
 
 保留为短句（不压）：先判断 / 别乱动机器 / 证据留痕 / 不退缩 / 承诺不回收 / 问法唯一（§〇-1~6）。
+
+---
+
+## 14. 能力三件事（按用户口径：让智能体更聪明，而不是加限制）
+
+| # | 以前 | 现在 | 怎么验 |
+|---|---|---|---|
+| 1 | `Tool/playbooks/` 有 24 份端到端配方，**11 个技能里 0 个引用** | 24/24 全部接进对应域 SKILL.md 的「配方（照这个跑）」；只加指路不抄正文；`preflight` 新增「配方接通率」判据（未接通或死链即红） | `preflight` 的 `[PASS] 配方接通率（24/24…）` |
+| 2 | 413 篇 KB + 294 篇 references，**大白话查不到**（"加壳了怎么脱"→0 命中） | `Tool/config/kb-synonyms.json`（58 组 / 378 个口语说法）；`seep_kb_search` 加别名展开 + CJK 2-gram 兜底 + boost_paths 加权；空结果给 3 条最近邻 + 为什么接近；命中回显 `matched_terms` | `test_kb_colloquial.py` → **命中 12/12**（门槛 ≥10）；40 条同口径查询里 14 条从 0 变有结果 |
+| 3 | 账本声明 36 个工具、**只有 6 个有真通路**，缺了只给一句报错 | `tool-readiness.py`：6 个真工具逐行 `READY/FOUND_NO_VERIFY/MISSING` + 在哪 + 自检输出 + 缺了怎么装；`tool-runtimes.json` 补 `probe/verify/install`（只生成计划、不执行）；`check.py` 新增 `tool-readiness` 套件（判"探测机制可用"，不要求换机器也全 READY） | 本机实测 **6/6 READY**（r2 5.9.8 / jadx 1.5.6 / apktool 2.11.0 / tshark 4.6.8 / IDA 9.3 / x64dbg）；把某工具 probe 改坏 → 变 MISSING + 给安装命令（破坏性验证已做） |
+
+**配套的口径回退（同一轮，按用户 2026-10-26 纠正）**：x64dbg 等"我们自己的工具"恢复无感启动（运行闸只拦"跑客户样本"）；缺工具默认自动装；删掉"零外网"承诺；删掉"授权来源"硬要求。详见提交 `be81afa`。
+
+**验收**：`check.py --fast` → **10 个套件，PASS 9 / WARN 1**（WARN=unit 可用性未证明）；`preflight` → **78/78**；`gate` rc=3（仅 fixture 4 域）；`verify` 13 pass/52 unknown。
