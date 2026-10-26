@@ -211,6 +211,31 @@ export function runAckPath(): string {
 }
 
 /** 读类工具名（自带只读语义）：永不拦。`todo` 也在这里 —— 建清单是首答之前的正当动作。 */
+/* ══════════════════════════════════════════════════════════════════════
+ * ★★★ 定死锁（DO-NOT-RE-ADD）—— 任何后续评审/优化都不得推翻下列口径 ★★★
+ *
+ * 用户 2026-10-26 明确裁定（原话意）：
+ *   "工具这东西它自动启动，不要问我，它该用就用。"
+ *   "只有合理的时候才问我要授权，不是所有东西都要问我。"
+ *   "它用 MCP、用技能、用工具，这些都是没有任何风险的。"
+ *
+ * 因此下列情形**永远不需要用户授权 / 回执 / A-B-C**：
+ *   ① 启动或调用我们自己的工具：x64dbg / IDA / Ghidra / radare2(r2/rabin2) / jadx /
+ *      apktool / frida / tshark / objdump / readelf / strings / binwalk / 7z / unzip / xxd / nmap
+ *   ② 所有 MCP 工具（seep_* 与 mcp__*），含 seep_r2_cmd 这类"对目标跑分析命令"的
+ *   ③ 工具链入口：tool-run.ps1、mcp-launch.py、launch-gui.ps1、tool-acquire.py、tool-readiness.py
+ *   ④ 所有技能脚本（Tool/skill 下各域的 scripts 目录）
+ *   ⑤ 装工具 / 联网 / 读案件目录 / 解包 / 反汇编 / dump / 调试
+ *
+ * 仍然需要一次用户回执的，**只有这一类**：
+ *   ★ 执行「客户交给我们的、本案登记的目标样本本身」（路径落在本案 target/ 或 target_files）。
+ *     因为那是不可逆的外部行为，不属于"用工具"。
+ *
+ * 若有人（包括未来的我或任何评审员）提议在这里重新加"用工具前要授权"，
+ * 一律视为**违反本锁**：先让用户改这条注释，再改代码。
+ * 机器检查：`python Tool/scripts/test_tool_autonomy.py`（18 条行为用例，接进 check.py）。
+ * ══════════════════════════════════════════════════════════════════════ */
+
 const READONLY_TOOLS = new Set([
 	"read",
 	"grep",
@@ -296,40 +321,11 @@ function normalizeCmd(raw: string): string {
 type CmdPattern = { re: RegExp; why: string };
 
 const CMD_ANALYSIS: CmdPattern[] = [
-	{ re: /Tool\/skill\//i, why: "跑技能包目录（Tool\/skill\/）里的脚本" },
-	// 注意：`init` 不在这里（它在 CMD_ALLOW）。只建案不做分析，冷启动第一步必须能过。
-	{ re: /case_state\.py\s+(claim|prove|repro|deliver)\b/i, why: "案子写账（case_state.py 子命令）" },
-	{ re: /tool-run\.ps1/i, why: "工具链入口 tool-run.ps1" },
-	{
-		// 前后都要求「不是字母数字」的边界：`r2` 不能命中 `armv7r2x`，`ghidra` 不能命中 `ghidra_notes.md` 之外的词。
-		re: /(^|[^A-Za-z0-9_.-])(radare2|r2|jadx|apktool|frida|x64dbg|ghidra)(?=$|[^A-Za-z0-9_.-])/i,
-		why: "逆向工具链（radare2 / r2 / jadx / apktool / frida / x64dbg / ghidra）",
-	},
-	{
-		// 第 2 轮补洞：这些直接读/取目标的结构或把目标跑起来，同样属于「动分析工具」。
-		re: /(^|[^A-Za-z0-9_.-])(rabin2|objdump|readelf|strings)(?=$|[^A-Za-z0-9_.-])/i,
-		why: "二进制结构工具（rabin2 / objdump / readelf / strings）",
-	},
-	{
-		// R7 P0-4（前半）：拆包/提固件/解压/脱壳/抓包/十六进制/端口扫描 —— 都在「对着目标取值」。
-		// 边界前后都排除 `[A-Za-z0-9_.-]`，所以 `a.7z` / `notes-xxd.md` 这类文件名不当命令；
-		// 只读程序（grep/ls/cat…）与 `<工具> --help` 仍在 classifySegment 里先放行。
-		re: /(^|[^A-Za-z0-9_.-])(binwalk|7z|7za|7zr|unzip|upx|tshark|xxd|nmap)(?=$|[^A-Za-z0-9_.-])/i,
-		why: "拆包/解压/脱壳/抓包/十六进制/端口扫描工具（binwalk / 7z / unzip / upx / tshark / xxd / nmap）",
-	},
-	{
-		// `file x.exe` 命中；`--file a.json` 因为前面是 `-` 不算（边界排除了 `-`）
-		re: /(^|[^A-Za-z0-9_.-])file\s+[^\s-]/i,
-		why: "文件类型识别 file（对着目标取值）",
-	},
-	{
-		re: /(^|[^A-Za-z0-9_.-])(curl|wget|ncat)(?=$|[^A-Za-z0-9_.-])/i,
-		why: "联网取物（curl / wget / ncat）",
-	},
-	{
-		re: /(^|[^A-Za-z0-9_.-])nc\s+/i,
-		why: "netcat 连接（nc）",
-	},
+	// ★★★ DO-NOT-RE-ADD 锁：这里只留"改动案子账本"这一类（那会写入结论）。
+	//     所有工具调用（x64dbg/IDA/Ghidra/r2/rabin2/jadx/apktool/frida/tshark/objdump/readelf/
+	//     strings/binwalk/7z/unzip/upx/xxd/nmap/file/curl/wget/nc、tool-run.ps1、launch-gui.ps1、
+	//     mcp-launch.py、技能脚本、全部 MCP 工具）都不算分析动作，不需要首答。
+	{ re: /case_state[.]py\s+(?:claim|prove|repro|deliver)(?![A-Za-z0-9_-])/i, why: "案子写账（会写入账本）" },
 ];
 
 /** 解释器内联执行：`python -c` / `python - <<'PY'` / `powershell -c` / `node -e` … */
@@ -361,17 +357,9 @@ const LAUNCHER_PROGS = new Set([
 
 /** 运行目标的直接特征：「这句命令要把客户的东西拉起来」。 */
 const RUN_TRIGGERS: CmdPattern[] = [
-	{ re: /launch-gui\.ps1/i, why: "调用 launch-gui.ps1（它内部会拉起目标进程）" },
-	{
-		re: /(^|[^A-Za-z0-9_.-])start-process(?=$|[^A-Za-z0-9_-])/i,
-		why: "Start-Process 拉起进程",
-	},
-	{ re: /(^|[^A-Za-z0-9_.-])wine(64)?\s+/i, why: "用 wine 跑 Windows 程序" },
-	{
-		// PowerShell 调用运算符：`& "<盘>:/tools/a.exe"`
-		re: /&\s*["']?[A-Za-z]:[\\/]/,
-		why: "PowerShell 调用运算符 & 直接执行盘符路径",
-	},
+	// ★★★ DO-NOT-RE-ADD：这里不再列 launch-gui.ps1 / Start-Process / wine / & "D:/..." 等
+	//     "用工具"的动作 —— 启动我们自己的工具一律静默。
+	//     真正要回执的判定在 shouldBlockRun：唯一依据 touchesCaseTarget()（是否在跑本案目标样本）。
 ];
 
 /** `.exe` 作为 token 出现（前后是空白/引号/`-`/括号/`;|&` 这类边界）。 */
@@ -442,8 +430,11 @@ export function neverWritableList(gate: GateConfig = DEFAULT_GATE): string[] {
  * 只认 `seep_*` 时，`mcp__x64dbg__load_binary` / `mcp__ida__decompile` 可以绕开首答直接开工。
  */
 function isAnalysisToolName(name: string): boolean {
-	const n = name.toLowerCase();
-	return n.startsWith("seep_") || n.startsWith("mcp__");
+	// ★★★ DO-NOT-RE-ADD 锁（用户 2026-10-26 裁定）：所有 MCP 工具都是"我们自己的工具"，
+	//     用它们不需要首答 / 回执 / A-B-C。永远返回 false。
+	//     要改成"算分析动作"，必须先让用户改文件头那条锁。
+	void name;
+	return false;
 }
 
 /** `mcp__seep__seep_auto_triage` → `seep_auto_triage`（白名单按裸名比对）。 */
@@ -1291,7 +1282,8 @@ export function shouldBlockRun(
 	caseHint = "",
 ): { block: boolean; reason: string; run: boolean } {
 	const cls = classifyRunTarget(toolName, args, gate);
-	if (!cls.run) return { block: false, reason: "", run: false };
+	// ★★★ 唯一要回执的情形：**执行本案登记的目标样本**（按路径判定，不按工具名黑名单——那会误伤工具）。
+	if (!cls.run && !touchesCaseTarget(args, caseTargets)) return { block: false, reason: "", run: false };
 	// ★ 用户 2026-10-26 口径修正：**启动我们自己的工具不算"跑客户的目标"**。
 	//   x64dbg / IDA / launch-gui.ps1 / tool-run.ps1 / r2 / jadx 这些是"我们手里的家伙"，
 	//   它们由 Agent 自己拉起、自己连、自己用 —— 不该每一步都弹 A/B/C（那会把日常开发打断）。

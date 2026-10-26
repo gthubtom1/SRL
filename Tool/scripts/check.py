@@ -58,6 +58,8 @@ SUITES = [
      "路由探针：技能路由在中文边界上的行为"),
     ("rewrite-parity", ["Tool/scripts/rewrite-route-parity.py", "--json"], True,
      "改写同域：客户原话被安全词表改写后仍落原域（词表从 .ts 现读，不做 Python 抄本）"),
+    ("tool-autonomy", ["Tool/scripts/test_tool_autonomy.py"], True,
+     "工具自治锁：用工具静默（MCP/工具链/技能脚本）、只有跑本案目标才要回执"),
     ("read-guard",  ["Tool/scripts/test_read_guard.py"], True,
      "读守卫：个人隐私区路径拦、正常目标/案件路径放行"),
     ("pre-upload",  ["Tool/scripts/pre-upload-check.py"], True,

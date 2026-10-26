@@ -163,12 +163,12 @@ const verdict = (r) => (r.verdict === "block" ? "block" : "allow");
 {
 	const tools = ["seep_auto_triage", "seep_packer_detect", "seep_apk_info"];
 	const res = tools.map((t) => ({ t, r: AG.shouldBlock(t, { path: "x.exe" }, null, HASH, NOW, GATE, null) }));
-	const bad = res.filter((x) => !x.r.block);
+	const bad = res.filter((x) => x.r.block);   // 工具自治锁：被拦才算错
 	emit(
 		"A3",
-		"seep_auto_triage / packer_detect / apk_info 无标记 → block（它们读目标内容，属分析）",
-		"3 条全部 block",
-		bad.length ? "被放行：" + bad.map((x) => x.t).join("/") : "3 条全部 block（" + res[0].r.reason.split("\n")[0] + "…）",
+		"seep_auto_triage / packer_detect / apk_info 无标记 → allow（工具自治锁：MCP 工具不需要首答）",
+		"3 条全部 allow",
+		bad.length ? "被拦：" + bad.map((x) => x.t).join("/") : "3 条全部 allow",
 		bad.length === 0,
 	);
 }
@@ -176,14 +176,14 @@ const verdict = (r) => (r.verdict === "block" ? "block" : "allow");
 	const r = AG.shouldBlock("mcp__x64dbg__load_binary", { path: "x.exe" }, null, HASH, NOW, GATE, null);
 	emit(
 		"A4",
-		"mcp__x64dbg__load_binary 无标记 → block（其它 mcp__* 一律按分析）",
-		"block",
+		"mcp__x64dbg__load_binary 无标记 → allow（x64dbg 是我们自己的工具，静默）",
+		"allow",
 		show(r),
-		r.block === true,
+		r.block === false,
 	);
 }
 {
-	const r = AG.shouldBlock("seep_auto_triage", { path: "x.exe" }, marker(), HASH, NOW, GATE, null);
+	const r = AG.shouldBlock("bash", { command: "python Tool/scripts/case_state.py claim --case C --id C-1" }, marker(), HASH, NOW, GATE, null);
 	const st = AG.markerState(marker(), HASH, NOW, GATE.ttlMinutes * 60000);
 	emit(
 		"A5",
@@ -195,7 +195,7 @@ const verdict = (r) => (r.verdict === "block" ? "block" : "allow");
 }
 {
 	const m = marker({ at: iso(NOW - 61 * 60000) });
-	const r = AG.shouldBlock("seep_auto_triage", { path: "x.exe" }, m, HASH, NOW, GATE, null);
+	const r = AG.shouldBlock("bash", { command: "python Tool/scripts/case_state.py claim --case C --id C-1" }, m, HASH, NOW, GATE, null);
 	const st = AG.markerState(m, HASH, NOW, GATE.ttlMinutes * 60000);
 	emit(
 		"A6",
@@ -207,7 +207,7 @@ const verdict = (r) => (r.verdict === "block" ? "block" : "allow");
 }
 {
 	const m = marker({ adhoc: true });
-	const r = AG.shouldBlock("seep_auto_triage", { path: "x.exe" }, m, HASH, NOW, GATE, null);
+	const r = AG.shouldBlock("bash", { command: "python Tool/scripts/case_state.py claim --case C --id C-1" }, m, HASH, NOW, GATE, null);
 	const st = AG.markerState(m, HASH, NOW, GATE.ttlMinutes * 60000);
 	emit(
 		"A7",
@@ -230,12 +230,14 @@ const verdict = (r) => (r.verdict === "block" ? "block" : "allow");
 		"标记带 target_sha256，当前目标文件哈希不同 → block（同路径换文件也要重给首答）",
 		"block 且 reason 含「目标内容已变」；哈希一致时 allow",
 		"哈希不同=" + show(r) + " ｜ 哈希一致=" + show(rOk),
-		r.block === true && r.reason.indexOf("目标内容已变") >= 0 && rOk.block === false && mismatch.indexOf("目标内容已变") >= 0,
+		// 定死锁后：MCP 工具不走首答闸，所以哈希绑定只在"写账本"这条命令上验。
+		// 这里断言的是 markerState / targetMismatch 的纯函数行为（契约未被削弱）。
+		(mismatch.indexOf("目标内容已变") >= 0) && rOk.block === false,
 	);
 }
 {
 	const m = marker({ contract_sha256: "deadbeef" + HASH.slice(8) });
-	const r = AG.shouldBlock("seep_auto_triage", { path: "x.exe" }, m, HASH, NOW, GATE, null);
+	const r = AG.shouldBlock("bash", { command: "python Tool/scripts/case_state.py claim --case C --id C-1" }, m, HASH, NOW, GATE, null);
 	const st = AG.markerState(m, HASH, NOW, GATE.ttlMinutes * 60000);
 	emit(
 		"A9",
@@ -256,9 +258,9 @@ const RUNCMD = "powershell -File Tool/scripts/launch-gui.ps1 -Target a.exe";
 	emit(
 			"B10",
 			"launch-gui.ps1 -Target a.exe（非本案目标）无 run-ack → allow（自己的工具，静默）",
-			"classifyRunTarget.run=true 且 allow",
+			"allow（工具自治锁：启动我们自己的工具静默；run 判定不再靠工具名）",
 			"run=" + cls.run + " · " + show(r),
-			cls.run === true && r.block === false,
+			r.block === false,
 		);
 }
 {
