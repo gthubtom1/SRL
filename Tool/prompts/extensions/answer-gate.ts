@@ -147,11 +147,15 @@ export const RUN_OK_LETTERS = new Set(["A", "C"]);
  * 优先级**高于**任何允许根（`Tool/`、`~/.seep/`、`~/.pi/agent/` 整体放行也压不住它）。
  * `gate.never_writable` 只能往里加，减不掉这里的硬编码兜底 —— 否则改一行配置就能把闸拆了。
  */
-export const NEVER_WRITABLE: string[] = [
+export const NEVER_WRITABLE = [
 	"~/.seep/answer-pass.json",
 	"~/.seep/run-ack.json",
 	"~/.seep/current-case",
-	"~/.pi/agent",
+	"~/.pi/agent/AGENTS.md",
+	"~/.pi/agent/SEEP.md",
+	"~/.pi/agent/extensions/**",
+	"~/.pi/agent/skills/**",
+	"~/.pi/agent/agents/**",
 	"**/cmd-guard.rules.json",
 	"**/answer-contract.json",
 	"**/AGENTS.md",
@@ -1463,7 +1467,10 @@ export function writeAllowRoots(cwd: string = process.cwd()): string[] {
 	const roots: string[] = tempRoots();
 	const repo = findRepoRoot(cwd);
 	const base = repo || path.resolve(cwd);
-	roots.push(path.join(base, "Tool"), path.join(base, "work"));
+	// ★ 2026-10-26 用户口径：**整个仓库就是工作区**。原来只放行 Tool/ 与 work/，
+	//   结果 Agent 连 setup/、README、check.ps1 都改不了（修自己的启动器都会被自己拦）。
+	//   现在放行整个 repo；仍然禁写的是"闸自己读的规则/凭证"（见 NEVER_WRITABLE）。
+	roots.push(base, path.join(base, "Tool"), path.join(base, "work"));
 	const home = os.homedir();
 	roots.push(path.join(home, ".seep"), path.join(home, ".pi", "agent"));
 	for (const c of currentCaseDirs()) roots.push(c);
@@ -1474,9 +1481,9 @@ export function buildWriteBlockReason(raw: string): string {
 	return [
 		"[write-guard] 已拦下：写 " + raw,
 		"",
-		"**只许写案件目录或 work/；要改仓库请明确说明。**",
-		"放行的位置：案件目录（Tool/cases/<case>/ 或 ~/.seep/current-case 指的目录）、work/、Tool/、",
-		"           ~/.seep/、~/.pi/agent/、系统临时目录。",
+		"**放行的位置**：整个仓库（含 setup/、README、脚本）、案件目录、work/、~/.seep/、~/.pi/agent/、系统临时目录。",
+		"**仍然禁写**：闸自己读的规则与凭证（AGENTS.md / SEEP.md / cmd-guard.rules.json / answer-contract.json /",
+		"           ~/.seep 下的 answer-pass.json / run-ack.json / current-case，以及扩展与已部署技能目录）。",
 		"（凭证（answer-pass.json / run-ack.json / current-case）、cmd-guard.rules.json、answer-contract.json、",
 		" AGENTS.md、SEEP.md 在这些目录里也**永久禁写** —— 它们不是代码，是闸本身。）",
 		"",
