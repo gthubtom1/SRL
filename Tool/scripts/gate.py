@@ -16,10 +16,11 @@
   fixture / self-built 案例只证明**流程可跑**，**不得**读成「该域可用」。
 
 用法：
-    python Tool/scripts/gate.py --all [--json] [--no-witness]
+    python Tool/scripts/gate.py --all [--json] [--no-witness] [--require-usable]
     python Tool/scripts/gate.py --pack apkseep [--json]
     python Tool/scripts/gate.py --list
-退出码：0 全绿 / 1 有红 / 2 用法错误
+退出码：0 结构全绿且可用性 proven / 1 有红（结构 fail 优先）或 --require-usable 下未证明
+        / 3 结构全绿但可用性 NOT PROVEN / 2 用法错误
 """
 from __future__ import annotations
 
@@ -537,6 +538,8 @@ def main():
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--no-witness", action="store_true", help="跳过 G4 实跑（只做静态判据）")
+    ap.add_argument("--require-usable", action="store_true",
+                    help="可用性 NOT PROVEN 时返回 1（把“可用”当门槛；默认返回 3）")
     ap.add_argument("--skill-dir", default="")
     ap.add_argument("--trap", default="", help="对一个真实回答打分（陷阱 id）")
     ap.add_argument("--answer", default="", help="回答文本文件（配合 --trap）")
@@ -582,6 +585,12 @@ def main():
     real, fixtures = witness_cohort(selected)
     summary["witness"] = {"real": len(real), "fixture": len(fixtures),
                           "fixture_packs": [x["pack"] for x in fixtures]}
+    # 可用性 ≠ 结构：fixture 见证或“声称高档但账本 0 条 repro”都不足以说该域能用。
+    owed = [x for x in (_owed_vs_ledger(p["raw"]) for p in selected) if x]
+    usable = (not fixtures) and (not owed)
+    summary["usability"] = {"proven": usable, "fixture": len(fixtures),
+                            "zero_repro": len(owed),
+                            "zero_repro_cases": [c for c, _lv in owed]}
     if a.json:
         print(json.dumps({"schema": "seep.gate/1", "summary": summary, "results": results,
                           "witness_cohort": {"real": real, "fixture": fixtures}},
@@ -608,7 +617,6 @@ def main():
               % (summary["packs"], summary["pass"], summary["fail"]))
         print("[GATE] 见证证据：real %d / fixture %d（fixture 不计“该域可用”）"
               % (len(real), len(fixtures)))
-        owed = [x for x in (_owed_vs_ledger(p["raw"]) for p in selected) if x]
         if owed:
             print("[GATE] 交付承诺 vs 账本：%d 个案例声称的档位没有一条可重放记录（不能当“该域可用”的证据）"
                   % len(owed))
@@ -621,7 +629,18 @@ def main():
                 for x in fixtures)))
         else:
             print("[GATE] fixture 0 个：%d 个包的见证案例都是 evidence_kind=real" % len(real))
-    return 0 if summary["fail"] == 0 else 1
+        # ── 可用性结论（与结构判定分开；结构 9/9 不等于九个域都能用）──
+        if usable:
+            print("[GATE] 可用性：PROVEN（fixture 0 域 / 零重放 0 案例）")
+        else:
+            print("[GATE] 可用性：NOT PROVEN（fixture %d 域 / 零重放 %d 案例）"
+                  "—— 不得对外称\"该域可用\"" % (len(fixtures), len(owed)))
+    # 结构 fail 优先于可用性；结构全绿时 NOT PROVEN = 3（--require-usable 则升级为 1）。
+    if summary["fail"]:
+        return 1
+    if usable:
+        return 0
+    return 1 if a.require_usable else 3
 
 
 if __name__ == "__main__":

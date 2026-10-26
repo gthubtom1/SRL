@@ -19,10 +19,13 @@
       检测到漂移时只打印漂移 + 修法，让人自己决定改数字还是改代码。
       理由：期望值一旦被脚本跟着实测跑，「基数在涨」就永远绿 —— 判据变成自证。
 
-退出码：0 = 全过；1 = 有失败。任何失败都会打印套件名 + 首行原因。
+退出码：0 = 无失败（可能仍有 WARN/跳过）；1 = 有失败。任何失败都会打印套件名 + 首行原因。
+--fast 跳过 e2e/kb-tests/mutation 时，结尾不会写“全部通过”，而是“全部套件完成：PASS a / WARN b”。
+unit（gate.py --all）接受 rc ∈ {0,3}；rc=3 表示结构通过但可用性未证明，记为 WARN。
 """
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -109,7 +112,7 @@ def report_baseline_drift():
     print("[BASELINE] 未写入任何文件（--fix 只重生成生成物，不改期望）")
 
 
-def run_one(name, argv, timeout=600):
+def run_one(name, argv, timeout=600, allow_rc=(0,)):
     t0 = time.time()
     try:
         p = subprocess.run([PY] + argv, cwd=ROOT, capture_output=True, text=True,
@@ -118,13 +121,13 @@ def run_one(name, argv, timeout=600):
         out = (p.stdout or "") + (p.stderr or "")
         rc = p.returncode
     except subprocess.TimeoutExpired:
-        return name, False, "超时（>%ds）" % timeout, time.time() - t0
+        return name, False, "超时（>%ds）" % timeout, time.time() - t0, -1, ""
     if "--json" in argv and "{" in out:
         import json as _j
         try:
             d = _j.loads(out[out.index("{"):])
             if isinstance(d, dict) and "ok" in d:
-                return name, rc == 0 and d.get("ok") is True, "ok=%r" % d.get("ok"), time.time() - t0
+                return name, rc in allow_rc and d.get("ok") is True, "ok=%r" % d.get("ok"), time.time() - t0, rc, out
         except Exception:
             pass
     # 取最后一行有信息量的输出（各脚本末行通常是「结果: x/y」或 [GATE] …）
@@ -147,7 +150,7 @@ def run_one(name, argv, timeout=600):
             except Exception:
                 tail = ""
     tail = tail or (lines[-1] if lines else "")
-    return name, rc == 0, tail, time.time() - t0
+    return name, rc in allow_rc, tail, time.time() - t0, rc, out
 
 
 def main():
@@ -211,16 +214,40 @@ def main():
     if a.fast and skipped:
         print("[注意] --fast 跳过：%s —— 通过 ≠ 全部通过，交付判定请跑全量 check.py" % "、".join(skipped))
     print()
-    failed = []
+    failed, warned = [], []
     for name, argv, _fast, why in suites:
-        n, ok, tail, secs = run_one(name, argv)
-        print("%s %-12s %5.1fs  %s" % ("PASS" if ok else "FAIL", name, secs, tail[:110]))
+        # unit（gate.py --all）：rc=3 = 结构通过、可用性未证明。不是失败，但必须打成 WARN。
+        allow = (0, 3) if name == "unit" else (0,)
+        n, ok, tail, secs, rc, out = run_one(name, argv, allow_rc=allow)
+        mark = "PASS" if ok else "FAIL"
+        if ok and rc == 3:
+            fx = zr = "?"
+            for ln in out.splitlines():
+                m = re.search(r"见证证据：real \d+ / fixture (\d+)", ln)
+                if m:
+                    fx = m.group(1)
+                m = re.search(r"交付承诺 vs 账本：(\d+) 个案例", ln)
+                if m:
+                    zr = m.group(1)
+                if "交付承诺 vs 账本：一致" in ln:
+                    zr = "0"
+            mark = "WARN"
+            tail = "结构通过、可用性未证明（fixture %s / 零重放 %s）" % (fx, zr)
+            warned.append((name, tail))
+        print("%s %-12s %5.1fs  %s" % (mark, name, secs, tail[:110]))
         if not ok:
             failed.append((name, why, tail))
 
     print("-" * 72)
-    if not failed:
+    for name, tail in warned:
+        print("WARN %s —— %s" % (name, tail))
+    if not failed and not warned and not skipped:
         print("全部通过（%d 个套件）" % len(suites))
+        return 0
+    if not failed:
+        print("全部套件完成：PASS %d / WARN %d（跳过 %d 个：%s）"
+              % (len(suites) - len(warned), len(warned), len(skipped),
+                 ",".join(skipped) if skipped else "无"))
         return 0
     print("失败 %d 个套件：" % len(failed))
     for name, why, tail in failed:

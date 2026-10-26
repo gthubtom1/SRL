@@ -80,10 +80,11 @@
  *   拦：① 非白名单的 `seep_*` / **任意** `mcp__<server>__*`（codemode 下 seep 工具是 `mcp__seep__seep_*`；
  *          `mcp__x64dbg__*` / `mcp__ida__*` 等其它 MCP 服务同样算分析动作，第 4 轮 P0-3）
  *       ② bash/powershell 命令里出现：`Tool/skill/`（跑技能脚本；`--self-test` 除外）、
- *          `case_state.py (init|claim|prove|repro|deliver)`、`tool-run.ps1`、
+ *          `case_state.py (claim|prove|repro|deliver)`、`tool-run.ps1`、
  *          `radare2|r2|jadx|apktool|frida|x64dbg|ghidra`、`rabin2|objdump|readelf|strings|file`、
  *          `curl|wget|ncat|nc`、解释器内联执行（python -c / python - << / powershell -c …）
- *   不拦：read / grep / find / ls / todo；`case_state.py answer|--help`、
+ *   不拦：read / grep / find / ls / todo；`case_state.py answer|init|--help`（init 只建案不分析，
+ *         冷启动顺序必须能走通：`init`（不拦）→ `answer --check --case` → 再分析）、
  *         `Tool/scripts/{preflight,check,gate,route}.py`、白名单 seep_* 分诊；
  *         以及命中处所在的**只读程序段**（`grep -rn "frida" docs/` 是在读文档，不是在跑工具）。
  *
@@ -259,6 +260,10 @@ const READONLY_PROGS = new Set([
 /** 命令级放行（闸的出路必须随时可达；写宽了会假绿，所以只认这几条确切的子命令）。 */
 const CMD_ALLOW: RegExp[] = [
 	/case_state\.py\s+answer\b/i,
+	// `init` 只建案件目录 / 写 pointer，不读目标内容、不跑任何分析工具 → 必须放行，
+	// 否则「先 init 建案 → 再 answer --check」这条官方顺序在第一步就被自己的闸拦住（R6 P1-1）。
+	// `claim|prove|repro|deliver` 仍在下面的 CMD_ANALYSIS 里，不许跟着放行。
+	/case_state\.py\s+init\b/i,
 	/case_state\.py\s+--help\b/i,
 	/case_state\.py\s+-h\b/i,
 	/Tool\/scripts\/(preflight|check|gate|route)\.py\b/i,
@@ -276,7 +281,8 @@ type CmdPattern = { re: RegExp; why: string };
 
 const CMD_ANALYSIS: CmdPattern[] = [
 	{ re: /Tool\/skill\//i, why: "跑技能包目录（Tool\/skill\/）里的脚本" },
-	{ re: /case_state\.py\s+(init|claim|prove|repro|deliver)\b/i, why: "案子写账（case_state.py 子命令）" },
+	// 注意：`init` 不在这里（它在 CMD_ALLOW）。只建案不做分析，冷启动第一步必须能过。
+	{ re: /case_state\.py\s+(claim|prove|repro|deliver)\b/i, why: "案子写账（case_state.py 子命令）" },
 	{ re: /tool-run\.ps1/i, why: "工具链入口 tool-run.ps1" },
 	{
 		// 前后都要求「不是字母数字」的边界：`r2` 不能命中 `armv7r2x`，`ghidra` 不能命中 `ghidra_notes.md` 之外的词。
@@ -818,14 +824,18 @@ export function buildBlockReason(
 		"**这是一道闸，不是报错。** 它只要求一件事：在动分析工具之前，先把首答四要素说出来。",
 		"拦下原因：" + markerWhy,
 		"",
+		"冷启动顺序（三步走，第一步不会被拦）：`init`（不拦）→ `answer --check --case` → 再分析。",
+		"  还没有案件目录：python Tool/scripts/case_state.py init --case <案件目录> --target <目标文件>（不拦，随便跑）",
+		"",
 		"照着抄三步（第 1 步只是打印骨架，可以直接复制）：",
 		"",
 		"  1) python Tool/scripts/case_state.py answer --template",
 		"",
-		"  2) 按骨架填成一份 JSON（四要素：judgment 判断 / ceiling 到哪一步 / missing 缺什么 / effort 大约多少功夫），",
+		"  2) 按骨架填成一份 JSON（四要素：judgment 判断 / ceiling 到哪一步 / missing 缺什么 / effort 大约多少功夫；missing 里必须含「授权来源：本人自有|书面授权|公开靶场|开源」之一），",
 		"     存成 a.json，例如：",
 		'        {"judgment":"PE32+，未见壳，关键在校验函数","ceiling":"只能看懂结构",',
-		'         "missing":["有没有卡密"],"effort":"1-2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性"}',
+		'         "missing":["授权来源：本人自有","有没有卡密"],',
+		'         "effort":"1-2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性"}',
 		"",
 		"  3) python Tool/scripts/case_state.py answer --check --file a.json --case <本案目录>",
 		"",

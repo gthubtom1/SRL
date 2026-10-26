@@ -1100,6 +1100,33 @@ def _needs_table() -> List[Dict[str, Any]]:
     return tab
 
 
+# 内部话术（第 4 轮评审 P0-2 / R6 P1-3）：选项是给客户看的，不能出现 if_yes / if_no / 按…走。
+# 与 case_state.py 的 _ANSWER_JARGON 同一套规则（那边校验首答里的选项，这边生成时就不写）。
+_ASK_JARGON = re.compile(r"if[_-]?(?:yes|no)(?:[^a-z]|$)|if\s+(?:yes|no)(?:[^a-z]|$)|"
+                         r"按\s*[^\s，,。；;]{0,8}\s*走", re.I)
+
+
+def _ask_options(need: Dict[str, Any]) -> List[str]:
+    """把 user-inputs.json 的 `if_yes` / `if_no` **中文原文**变成客户能选的 A/B/C。
+
+    R6 P1-3：原来这里给的是 `--option "A 有，按 if_yes 走"` —— 把内部字段名直接写给客户，
+    而契约自己（case_state.py 的 _ANSWER_JARGON）就把 if_yes / if_no / 按…走 列为禁用话术。
+    现在三条都写成「选了会怎样」的白话，并补 C（不确定）：C 是保守路——不动目标、不联网、
+    不假设「没有」，只给不依赖运行的结构说明。
+    """
+    yes = str(need.get("if_yes") or "").strip()
+    no = str(need.get("if_no") or "").strip()
+    opts: List[str] = []
+    if yes:
+        opts.append("A 有（可以） —— " + yes)
+    if no:
+        opts.append("B 没有（不行） —— " + no)
+    opts.append("C 我不确定 —— 我先只做最保守的那一步（只给结构说明、只校验已到手的样本），"
+                "不运行目标、不联网、也不假设「没有」；你把情况说清楚之后我再往下推进")
+    # 生成即自检：万一将来 config 里的中文原文含有禁用语，就把它换成不带后果的中性说法
+    return [o if not _ASK_JARGON.search(o) else re.sub(_ASK_JARGON, "（这一步）", o) for o in opts]
+
+
 def _detect_needs(blob: bytes = b"", extra_text: str = "", case_dir: str = "") -> List[Dict[str, Any]]:
     """返回**固定三条**通用问句（许可/凭据、运行许可/环境、样本完整性）。
 
@@ -1108,13 +1135,24 @@ def _detect_needs(blob: bytes = b"", extra_text: str = "", case_dir: str = "") -
     领域特有的问句写在各自 `pack.json` 的 `ask[]` 里，不在这里猜。
     """
     asks = _needs_table()
-    out = [dict(a) for a in asks]
+    out: List[Dict[str, Any]] = []
+    for a in asks:
+        # R6 P1-3：只把**客户要看的东西**发出去（问句 + 为什么问 + A/B/C 的中文选项），
+        # 不把 if_yes / if_no 这些内部字段名当成话术写给客户。
+        out.append({
+            "id": a.get("id"),
+            "title": a.get("title"),
+            "question": a.get("question"),
+            "why": a.get("why"),
+            "options": _ask_options(a),
+        })
     if out and case_dir:
         try:
-            for a in out[:2]:
+            for a, n in zip(asks[:2], out[:2]):
+                opts = list(n.get("options") or [])
                 subprocess.run([sys.executable, os.path.join(_SEEP_ROOT, "Tool", "scripts", "case_state.py"),
-                                "ask", "--case", case_dir, "--stuck", str(a.get("question"))[:120],
-                                "--option", "A 有，按 if_yes 走", "--option", "B 没有，按 if_no 走"],
+                                "ask", "--case", case_dir, "--stuck", str(a.get("question"))[:120]]
+                               + [x for o in opts for x in ("--option", o)],
                                capture_output=True, text=True, encoding="utf-8",
                                errors="replace", timeout=60)
         except Exception:
@@ -1126,8 +1164,10 @@ def _needs_for_gui(tool_id: str) -> List[Dict[str, Any]]:
     """GUI 工具没有 headless 时，改成请用户帮我开（而不是自己瞎试或放弃）。"""
     for n in _needs_table():
         if n.get("trigger") == "gui_required":
-            return [{"id": n.get("id"), "question": str(n.get("question")).replace("{tool}", tool_id),
-                     "why": n.get("why"), "if_yes": n.get("if_yes"), "if_no": n.get("if_no")}]
+            return [{"id": n.get("id"),
+                     "question": str(n.get("question")).replace("{tool}", tool_id),
+                     "why": n.get("why"),
+                     "options": _ask_options(n)}]
     return []
 def _attached_for(target_path: str, matched=None, task_name: str = "") -> Dict[str, Any]:
     """给 triage 的任何返回路径挂上「自动建案 + 缺输入就问」。
@@ -2243,7 +2283,7 @@ def seep_packer_detect(binary_path: str) -> str:
     _needs = _detect_needs(b"", "", _case.get("case") if _case.get("created") else "")
     if _needs:
         result["need_from_user"] = _needs
-        result["ask_policy"] = ("这些是**必须问用户**的输入；先问再动手。用户答『没有』才走 if_no 路线，"
+        result["ask_policy"] = ("这些是**必须问用户**的输入；先问再动手。用户答『没有』才选 B（保守那一条），"
                                "并把答案记进账本（case_state.py ask/ack）。")
     return json.dumps(result, indent=2, ensure_ascii=False)
 

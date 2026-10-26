@@ -301,16 +301,28 @@ def check_functional(fast):
             if _nums:
                 _total = int(_nums[0])
                 break
+    _mand = None
+    for _ln in (_bout or "").splitlines():
+        if "合计同时生效" in _ln:
+            _mnum = re.findall(r"([0-9]+)\s*条", _ln)
+            if _mnum:
+                _mand = int(_mnum[0])
+                break
     _sep = chr(10)
     if _rc == 0:
         add("4 功能", "budget（--prompt --ceiling 8000）", True,
             _sep.join(_key) if _key else "在预算内")
     elif _w and _total is not None and _total <= int(_w.get("hard_cap") or 0):
+        # 不得因“已豁免”就只说“没事”：数字仍必须点名，并标出它仍在恶化。
+        _worse = ""
+        if _mand is not None:
+            _worse = _sep + ("[已豁免但仍在恶化：可控制层 %d > 3500、强制语句 %d > 43]"
+                             % (_total, _mand))
         add("4 功能",
             "budget（已豁免：用户明确不以此止损；硬上限 %d）" % int(_w["hard_cap"]),
             True,
             "WARN 可控制小计 %d > 3500，但 %s 于 %s 决定豁免" % (_total, _w.get("decided_by"), _w.get("decided_at"))
-            + _sep + _sep.join(_key),
+            + _worse + _sep + _sep.join(_key),
             level="WARN")
     else:
         _extra = ""
@@ -2545,10 +2557,14 @@ def main():
 
     fails = [r for r in results if not r["ok"]]
     notes = [r for r in results if r.get("level") in ("WARN", "INFO")]
+    # “已豁免”项单独点名：它计入通过，但确实没达标（且可能仍在恶化），不能混进普通 PASS。
+    waived = [r for r in results
+              if r.get("level") == "WARN" and "已豁免" in str(r.get("name") or "")]
     # “跳过（未验证）”单独计数：ok=True 但并没真跑 —— 不得和真正的 PASS 混成一个数。
     skipped = [r for r in results if str(r.get("detail") or "").startswith("跳过（未验证）")]
     if args.json:
         print(json.dumps({"results": results, "fails": len(fails), "notes": len(notes),
+                          "waived": len(waived),
                           "unverified": len(skipped),
                           "unverified_items": ["%s/%s" % (r["section"], r["name"]) for r in skipped]},
                          ensure_ascii=False, indent=2))
@@ -2561,7 +2577,9 @@ def main():
             mark = r.get("level") or ("PASS" if r["ok"] else "FAIL")
             print(f"  [{mark}] {r['name']}" + (f"  — {r['detail']}" if r["detail"] else ""))
         print(f"\n结果: {len(results) - len(fails)}/{len(results)} 通过"
-              + (f"（含 {len(notes)} 条 WARN/INFO，不影响退出码）" if notes else "")
+              + (f"（含 {len(notes)} 条 WARN/INFO"
+                 + (f"，含 {len(waived)} 条已豁免项" if waived else "")
+                 + "，不影响退出码）" if notes else "")
               + ("" if not fails else "  ← 有 FAIL，先修再推"))
         if skipped:
             print("  其中 %d 条为「跳过（未验证）」：%s"

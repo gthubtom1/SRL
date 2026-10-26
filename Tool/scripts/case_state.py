@@ -202,6 +202,22 @@ def _drop_tmp(tmp):
             pass
 
 
+def _replace_retry(tmp, path, tries=4):
+    """os.replace 在 Windows 上会被瞬间的占用（AV/索引/另一个读句柄）打成 WinError 5。
+
+    重试只是一层耐噪（不是放宽判据）：重试完仍失败就抛出，调用方负责把它变成 rc≠0。
+    """
+    last = None
+    for i in range(tries):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError as e:  # noqa: PERF203
+            last = e
+            time.sleep(0.05 * (i + 1))
+    raise last  # type: ignore[misc]
+
+
 def _atomic_write_text(path, text):
     """原子写文本：tempfile → write → flush+fsync → os.replace。失败清理 tmp。"""
     fd, tmp = _tmp_sibling(path)
@@ -210,7 +226,7 @@ def _atomic_write_text(path, text):
             f.write(text.encode("utf-8"))
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, path)
+        _replace_retry(tmp, path)
         tmp = None
     finally:
         _drop_tmp(tmp)
@@ -234,7 +250,7 @@ def _atomic_append_line(path, line):
             out.write((line if line.endswith("\n") else line + "\n").encode("utf-8"))
             out.flush()
             os.fsync(out.fileno())
-        os.replace(tmp, path)
+        _replace_retry(tmp, path)
         tmp = None
     finally:
         _drop_tmp(tmp)
@@ -781,7 +797,7 @@ def cmd_init(a):
                 "## 1. 目标与授权", "",
                 "- 目标：%s" % tgt,
                 "- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）",
-                "- 客户原话：<粘贴客户关于授权的那句话>", "",
+                "  （首答里也要写一行「授权来源：…」，这两处对得上才算授权落纸）", "",
                 "## 2. 边界（不做的事）", "",
                 "- 不改系统级配置（网卡/路由/DNS/驱动/服务/系统 hosts）",
                 "- 不动与目标无关的进程与文件",
@@ -1087,9 +1103,12 @@ def cmd_claim(a):
             "confidence": _norm_confidence(getattr(a, "confidence", "")),
             "authority": (str(getattr(a, "authority", "") or "").strip().lower() or "none"),
             "refuted_by": (by or None)}
-    append_fact(a.case, fact)
+    try:
+        append_fact(a.case, fact)
+    except Exception as e:  # noqa: BLE001 —— R6 P1-4：账本写不进去就不许 rc=0
+        print("[ERR] 写账本失败（%s 没落账）：%s" % (a.id, e))
+        return 2
     print(f"[OK] {a.id} = {a.status}  {a.text}")
-
 
 def _rewrite_claims(case, facts):
     """只改 claim 行：按 id 替换账本里的对应行，其余行（state/event/repro/gaps/plan/downgrade）
@@ -1153,7 +1172,11 @@ def cmd_prove(a):
     hit["status"] = "proven"
     hit["evidence"] = (hit.get("evidence") or []) + [ev]
     hit["updated"] = now()
-    _rewrite_claims(a.case, facts)
+    try:
+        _rewrite_claims(a.case, facts)
+    except Exception as e:  # noqa: BLE001 —— R6 P1-4：写账本失败必须非零（否则等于“已证实”没落账）
+        print("[ERR] 写账本失败（%s 没落账）：%s" % (a.id, e))
+        return 2
     tail = "（原 stale 已复验复活）" if was_stale else ""
     hint = ""
     if hit.get("confidence") in ("unknown", "inferred") or hit.get("authority") in ("", "none"):
@@ -1175,7 +1198,11 @@ def cmd_refute(a):
     hit["status"] = "refuted"
     hit["refuted_by"] = by
     hit["updated"] = now()
-    _rewrite_claims(a.case, facts)
+    try:
+        _rewrite_claims(a.case, facts)
+    except Exception as e:  # noqa: BLE001 —— R6 P1-4：账本写不进去就不许 rc=0
+        print("[ERR] 写账本失败（%s 没落账）：%s" % (a.id, e))
+        return 2
     print(f"[OK] {a.id} 已标记被推翻，依据 = {a.by}（历史保留，不删）")
 
 
@@ -1197,7 +1224,11 @@ def cmd_stale(a):
         f["stale_reason"] = reason or "（未写原因）"
         f["staled_at"] = ts
         f["updated"] = ts
-    _rewrite_claims(a.case, facts)
+    try:
+        _rewrite_claims(a.case, facts)
+    except Exception as e:  # noqa: BLE001 —— R6 P1-4：账本写不进去就不许 rc=0
+        print("[ERR] 写账本失败（stale 没落账）：%s" % e)
+        return 2
     print("[OK] %d 条 proven 已标为 stale，原因：%s" % (len(proven), reason or "（未写原因）"))
     print("     证据保留；复验用 prove --id <id> --evidence ...，否则 gate 拒绝")
 
@@ -1871,20 +1902,18 @@ SCOPE_AUTH_VALUES = ("本人自有", "书面授权", "公开靶场", "开源")
 
 
 def _scope_problems(case):
-    """scope.md 的「授权来源」必须被**记录**成四选一（P0-3b）。
+    """scope.md 的「授权来源」必须被**记录**成四选一。
 
-    第 2 轮评审：「四选一」可由模型代填 —— 客户可能从没说过授权。
-    所以再加一道：「客户原话」行必须非空、不是模板占位、长度 ≥ 6。
-    这条只机检「授权事实有没有落纸」，不裁决授权本身。返回 [] = 已记录；
-    否则返回一条带可复制修法的未过项。
+    R6 P0-3（授权单轨）：旧版还要「客户原话」≥6 字，但 AGENTS.md 写的是「默认已受权、不问」——
+    目标市场无处拿原话，模型只能替客户编一句（=伪造授权记录）。所以强制「客户原话」已删：
+    这里只机检「授权来源四选一有没有落纸」（事实），不逼模型编客户措辞。
+    「授权有没有被说出来」改由首答机检：`_check_answer` 要求首答里写明「授权来源：<四选一>」。
+    返回 [] = 已记录；否则返回一条带可复制修法的未过项。
     """
     d = os.path.abspath(case)
     p = os.path.join(d, "scope.md")
     fix = ("先填 scope.md 的授权来源（四个之一：本人自有 / 书面授权 / 公开靶场 / 开源）"
            " + 目标：%s" % p)
-    fix_q = ("在 %s 第 1 节加一行（把尖括号换成客户关于授权的那句原话，至少 6 字）：\n"
-             "       客户原话：<粘贴客户关于授权的那句话>\n"
-             "     （客户没说过授权就不要开工，不许模型代填）" % p)
     if not os.path.isfile(p):
         return ["范围契约 scope.md 不存在（进阶段 1 及以后前必须先写）\n     " + fix]
     try:
@@ -1904,26 +1933,12 @@ def _scope_problems(case):
         return ["scope.md 的「授权来源」为空（模板没填）\n     " + fix]
     hits = [v for v in SCOPE_AUTH_VALUES if v in val]
     if "选一" in val or len(hits) > 1:
-        return ["scope.md 的「授权来源」还是模板原样（%s），没改成四选一之一\n     %s"
+        return ["scope.md 的「授权来源」还是模板原样或同时写了多个（%s）：只留四选一中的一个\n     %s"
                 % (val[:60], fix)]
     if len(hits) != 1:
         return ["scope.md 的「授权来源」=「%s」不在四个之一"
                 "（本人自有 / 书面授权 / 公开靶场 / 开源）\n     %s" % (val[:60], fix)]
-    # ★ 第 2 轮评审：授权来源必须是客户说过的，不是模型替客户选的。
-    qline = ""
-    for ln in raw.splitlines():
-        if "客户原话" in ln:
-            qline = ln.strip()
-            break
-    if not qline:
-        return ["scope.md 缺「客户原话」一行（授权来源无法证明是客户说的）\n     " + fix_q]
-    mq = re.search(r"客户原话\s*[:：]\s*(.*)$", qline)
-    qval = mq.group(1).strip() if mq else ""
-    bare = qval.strip(" \t\"'“”‘’「」")
-    if (not bare or "粘贴客户" in bare or bare.startswith("<") or bare.endswith(">")
-            or len(bare) < 6):
-        return ["scope.md 的「客户原话」还是空/模板占位/太短（%r）：写客户关于授权的原话，至少 6 字\n"
-                "     %s" % (qval[:60], fix_q)]
+    # R6 P0-3：不再要求「客户原话」—— 不得通过强制原话来逼模型伪造授权记录。
     return []
 
 
@@ -2364,6 +2379,35 @@ LEVEL_CUSTOMER = {
     "T1": "只能看懂结构", "T2": "能改到能用",
     "T3": "能完全自己接管", "T4": "能完全自己接管",
 }
+# R6 P1：M3/M4 以前都只映到「能完全自己接管」，客户话相同就看不出区别（SKILL.md 也只写到 M3）。
+# 客户话仍只有那三句（PM-SPEC §7 不许加新词），所以**区分靠证据门槛**：M4 必须是端到端 E4。
+# 这张表就是对客户的三句 → 内部四档的完整映射（M4 单独一行，不再缺行）。
+LEVEL_BAR = {
+    "M1": "E1",   # 观察：只能看懂结构
+    "M2": "E2",   # 命令+期望+跑两次一致：能改到能用
+    "M3": "E3",   # 交叉验证：能完全自己接管
+    "M4": "E4",   # 端到端 E4 + 复查单可照做：能完全自己接管（内部再高一档）
+}
+
+
+def _customer_level(word):
+    """内部档位 → 客户话；不认识的返回空串（调用方自己决定怎么说）。"""
+    return LEVEL_CUSTOMER.get(str(word or "").strip().upper(), "")
+
+
+def _code_hint(tag, msg):
+    """R6 P0-4：内部代号只走 stderr（客户可见的 stdout 不出现 M1..M4 / L1..L3 / J1..J3）。"""
+    try:
+        sys.stderr.write("[%s] %s\n" % (tag, msg))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def die_split(customer_msg, internal_msg, code=2):
+    """客户话走 stdout，带代号的诊断/修法命令走 stderr，rc=code。"""
+    _code_hint("internal", internal_msg)
+    print("[ERR] " + customer_msg)
+    sys.exit(code)
 
 
 def _repro_records(case):
@@ -2615,30 +2659,43 @@ def _is_complete_repro(rec, target=None):
 
 
 def cmd_deliver(a):
-    """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。"""
+    """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。
+
+    R6 P0-4：本命令的 stdout 是**客户正文**，不出现 M1..M4 / L1..L3 / J1..J3；
+    代号只走 stderr（`_code_hint` / `die_split`）与账本字段。
+    """
     lease_guard(a.case)
     st = load_state(a.case)
     if not st.get("verdict"):
         die("还没给可行性裁定（verdict），不许交付")
     cap = st.get("max_level") or "M1"
     if a.level not in RANK:
-        die("level 只能是 M1 / M2 / M3 / M4")
+        die_split("交付等级只能用四档之一：只能看懂结构 / 能改到能用 / 能完全自己接管"
+                  "（内部代号见 stderr 与账本）",
+                  "level=%r 不在 M1..M4" % (a.level,))
     if RANK[a.level] > RANK.get(cap, 1):
-        die(f"越级交付：裁定 {st['verdict']} 的上限是 {cap}，不接受 {a.level}")
+        die_split("越级交付：裁定「%s」只支持到「%s」，不接受「%s」的交付（内部档位见账本）"
+                  % (st["verdict"], _customer_level(cap) or "见账本",
+                     _customer_level(a.level) or "见账本"),
+                  "越级交付：裁定 %s 的上限是 %s，不接受 %s" % (st["verdict"], cap, a.level))
     # 外部评审 A5：最高两级（M3/M4）必须有**交叉验证/端到端**证据，不能只靠自述
     tinfo = _case_target_info(a.case)
     if a.level in ("M3", "M4"):
         recs = _repro_records(a.case)
         strong = [r for r in recs if _is_complete_e3(r, tinfo)]
         if not strong:
-            die("交付 %s 需要至少一条**结构完整**的 E3 交叉验证记录"
+            die_split(
+                "交付「能完全自己接管」需要至少一条结构完整的交叉验证记录"
+                "（两路命令都真跑过本案目标、跑两次结果一致）。账本里现有 repro 记录 %d 条，"
+                "0 条达标（只写等级字样不算数）。补证据的命令与内部档位见 stderr。" % len(recs),
+                "交付 %s 需要至少一条**结构完整**的 E3 交叉验证记录"
                 "（kind=repro / grade=E3 / cmd 非空 / expect 非空 / runs>=2 / digests 条数==runs / "
                 "also_cmd 非空且 != cmd；两路命令还必须都真碰过本案目标）。"
                 "账本里现有 repro 记录 %d 条，其中 0 条达标"
-                "（只写 "
-                "\"grade\": \"E3\" 字样不算数）。\n"
+                "（只写 \"grade\": \"E3\" 字样不算数）。\n"
                 "修法：python Tool/scripts/case_state.py repro --case %s --id E-001 "
-                "--cmd \"<第一路命令，必须含目标完整路径 %s 或 sha256:<前12位>>\" --expect \"<必须出现的片段>\" "
+                "--cmd \"<第一路命令，必须含目标完整路径 %s 或 sha256:<前12位>>\" "
+                "--expect \"<必须出现的片段>\" "
                 "--also-cmd \"<另一条**真不同**且也真跑目标的命令>\" --runs 2"
                 "（必须带 --case 与 --id 才会落账本；两路命令相同会被拒升 E3），"
                 "之后用 show 确认账本里出现 grade=E3 的 repro 行；"
@@ -2651,13 +2708,19 @@ def cmd_deliver(a):
         good = [r for r in recs if _is_complete_repro(r, tinfo)]
         if not good:
             cdir = os.path.abspath(a.case)
-            die("交付 M2（客户话：能改到能用）必须至少有 1 条**结构完整**的复现记录；"
+            die_split(
+                "交付「能改到能用」必须至少有 1 条结构完整、真跑过本案目标且两次一致的复现记录；"
+                "账本里现有 repro 记录 %d 条，0 条达标（报告或对话里写「跑过了」不算）。"
+                "两条出路（补证据 / 降档只交结构理解）的命令与代号见 stderr。" % len(recs),
+                "交付 M2（客户话：能改到能用）必须至少有 1 条**结构完整**的复现记录；"
                 "账本里现有 repro 记录 %d 条，其中 0 条达标。\n"
-                "判据（缺一不可）：kind=repro / cmd 非空且**含目标完整路径或 sha256:前12位**（只写 basename、用 echo/cat 只回显都不算）/ expect 非空 / "
+                "判据（缺一不可）：kind=repro / cmd 非空且**含目标完整路径或 sha256:前12位**"
+                "（只写 basename、用 echo/cat 只回显都不算）/ expect 非空 / "
                 "runs>=2 / digests 条数==runs / consistent==true（报告或对话里写「跑过了」不算）。\n"
                 "出路①（补证据，推荐）：\n"
                 "  python Tool/scripts/case_state.py repro --case %s --id E-001 "
-                "--cmd \"<能复现的命令：里面要写 %s 的完整路径>\" --expect \"<必须出现的片段>\" --runs 2\n"
+                "--cmd \"<能复现的命令：里面要写 %s 的完整路径>\" "
+                "--expect \"<必须出现的片段>\" --runs 2\n"
                 "  输出里应出现「一致=True」且写入账本；然后重跑本命令。\n"
                 "出路②（不补证据就降档，只交结构理解）：\n"
                 "  python Tool/scripts/case_state.py deliver --case %s --level M1 "
@@ -2668,10 +2731,20 @@ def cmd_deliver(a):
         die("交付必须有可核对的证明（--evidence：证据文件路径 / 命令+产物 / 哈希 / 账本编号；纯文本不算）")
     st.setdefault("deliveries", []).append(
         {"level": a.level, "evidence": a.evidence, "note": a.note or "", "ts": now()})
-    st["next_action"] = {"M1": "补功能面，冲 M2", "M2": "冲 M3（UI/授权）",
+    # next_action 会被 show/resume 原样展示给客户 → 只能写客户话，不带代号
+    st["next_action"] = {"M1": "补功能面，冲「能改到能用」",
+                         "M2": "冲「能完全自己接管」（UI / 授权）",
                          "M3": "追版与维护", "M4": "维护"}.get(a.level, "")
-    save_state(a.case, st)
-    print(f"[OK] 已登记交付 {a.level}（上限 {cap}）：{a.evidence}")
+    try:
+        save_state(a.case, st)
+    except Exception as e:  # noqa: BLE001 —— 账本写不进去就不许报成功（R6 P1-4）
+        print("[ERR] 写账本失败（交付没落账）：%s" % e)
+        return 2
+    _code_hint("deliver", "交付等级 %s（上限 %s，依据门槛 %s）已落账"
+               % (a.level, cap, LEVEL_BAR.get(a.level, "?")))
+    print("[OK] 已登记交付：%s（上限：%s；内部档位见账本）：%s"
+          % (_customer_level(a.level) or "见账本", _customer_level(cap) or "见账本",
+             a.evidence))
 
 
 def cmd_show(a):
@@ -2681,14 +2754,16 @@ def cmd_show(a):
     plan = load_plan(a.case)
     print(f"案子：{a.case}")
     print(f"  目标：{st.get('target') or '-'}")
-    # 缝2（P2-4）：T 词表与 M 词表各存各的，这里两栅都打（并附展示用换算）
+    # 缝2（P2-4）：T 词表与 M 词表各存各的 —— 但 show 是客户可见输出（R6 P0-4），
+    # 只见客户话，代号一律「内部档位见账本」（代号本身走 stderr）。
     tier_v, lvl_v = st.get("tier"), st.get("max_level")
-    print(f"  裁定：{st.get('verdict') or '（未给）'}"
-          + (f"（原始 --tier 输入 {st['tier_input']}）" if st.get("tier_input") else ""))
-    print(f"  后端档位（T 词表）：{tier_v or '（未给）'}"
-          + (("  " + tier_view(tier_v)) if tier_v else ""))
-    print(f"  交付上限（M 词表）：{lvl_v or '-'}"
-          + (("  " + tier_view(lvl_v)) if lvl_v else "")
+    if tier_v or lvl_v or st.get("tier_input"):
+        _code_hint("show", "内部档位 tier=%s max_level=%s tier_input=%s"
+                   % (tier_v or "-", lvl_v or "-", st.get("tier_input") or "-"))
+    print(f"  裁定：{st.get('verdict') or '（未给）'}")
+    if tier_v:
+        print(f"  后端档位：{_customer_level(tier_v) or '（未给）'}（内部档位见账本）")
+    print(f"  上限：{_customer_level(lvl_v) or '（未给）'}（内部档位见账本）"
           + (f"   选定等级：{st['goal_level']}"
              + (f"（{st['goal_route']}）" if st.get("goal_route") else "")
              if st.get("goal_level") else ""))
@@ -2726,10 +2801,13 @@ def cmd_resume(a):
     proven = [f for f in facts if f["status"] == "proven"]
     pend = [f for f in facts if f["status"] == "hypothesis"]
     stale = [f for f in facts if f["status"] == "stale"]
-    print(f"[接续] {a.case}  裁定={st.get('verdict') or '未给'}  上限={st.get('max_level') or '-'}"
+    print(f"[接续] {a.case}  裁定={st.get('verdict') or '未给'}  "
+          f"上限={_customer_level(st.get('max_level')) or '-'}"
           + (f"  选定等级={st['goal_level']}"
              + (f"（{st['goal_route']}）" if st.get("goal_route") else "")
              if st.get("goal_level") else ""))
+    if st.get("max_level"):
+        _code_hint("resume", "内部档位 max_level=%s" % st.get("max_level"))
     print(f"  已证 {len(proven)} / 待验 {len(pend)} / "
           f"已推翻 {sum(1 for f in facts if f['status']=='refuted')} / stale {len(stale)}")
     if pend:
@@ -2740,7 +2818,9 @@ def cmd_resume(a):
     print_plan(plan)
     dl = st.get("deliveries") or []
     if dl:
-        print("  已登记交付：" + "、".join(f"{d['level']}({d['ts'][:16]})" for d in dl))
+        print("  已登记交付：" + "、".join("%s(%s)" % (_customer_level(d["level"]) or "见账本",
+                                                  d["ts"][:16]) for d in dl))
+        _code_hint("resume", "已登记交付 %s" % "、".join(str(d["level"]) for d in dl))
     print(f"  下一步：{st.get('next_action') or '（未写）'}")
 
 
@@ -2957,6 +3037,53 @@ _ANSWER_JARGON = re.compile(r"if[_-]?(?:yes|no)(?:[^a-z]|$)|if\s+(?:yes|no)(?:[^
 _MISSING_PLACEHOLDERS = {"无", "none", "-", "—", "n/a", "na", "null", "没有",
                          "暂无", "0", "…", "..."}
 
+# ── R6 P0-2：首答「最小内容判据」──
+# 血案（`Tool/scripts/case_state.py:2976-3043` 实测）：
+#   {"judgment":"一个程序文件","ceiling":"能改到能用","missing":["证据齐不齐"],
+#    "effort":"2 小时；依据：这类文件一般这样"}  → 只验形状，返回 []（合格）。
+# 现在：判断必须落在**可核对的技术事实**上（或明说未检测 + 点名下一步动作），
+# 功夫必须给**区间**（或明说无法估 + 下一步/代价），且两句都不许是空话。
+_ANSWER_TECH_RE = re.compile(
+    r"PE|ELF|Mach-O|APK|DEX|ZIP|壳|加壳|无壳|加固|x86|x64|ARM|AArch64|Java|Native|签名|混淆|明文|加密",
+    re.I)
+_ANSWER_UNDET_RE = re.compile(r"未检测|未判定")
+_ANSWER_ACT_RE = re.compile(r"hash|哈希|跑|读|看|triage|r2|rabin2", re.I)
+_ANSWER_EMPTY_TALK = re.compile(r"一般这样|看情况|通常|大概|应该")
+_ANSWER_SPAN_RE = re.compile(r"\d+\s*[-–~到]\s*\d+")          # 2-4 / 30~60
+_ANSWER_UNIT_RE = re.compile(r"分钟|小时|天|min|hours?|hrs?|\bh\b|\bd\b", re.I)
+_ANSWER_NEXT_RE = re.compile(r"下一步|接下来|然后|先|再|跑|读|看|triage|r2|rabin2|hash|哈希", re.I)
+_ANSWER_COST_RE = re.compile(r"代价|成本|工时|功夫|分钟|小时|天|min|hour|hr|元", re.I)
+_ANSWER_AUTH_LINE_RE = re.compile(r"授权来源\s*[:：]\s*([^\n；;，,]*)")
+
+
+def _answer_strings(obj):
+    """首答里所有字符串叶子（含 missing 各条 / asks / next），用于找「授权来源」。"""
+    out = []
+    if isinstance(obj, dict):
+        for v in obj.values():
+            out.extend(_answer_strings(v))
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            out.extend(_answer_strings(v))
+    elif isinstance(obj, str):
+        out.append(obj)
+    return out
+
+
+def _answer_auth_source(obj):
+    """首答里是否写明「授权来源：<四选一>」。命中返回该值，没有返回 ""。
+
+    R6 P0-3（授权单轨）：scope.md 不再逼模型替客户编「客户原话」（那是伪造授权记录），
+    但「授权这件事有没有被说出来」仍然机检 —— 首答里必须亮出四选一的值。
+    """
+    for s in _answer_strings(obj):
+        for m in _ANSWER_AUTH_LINE_RE.finditer(s):
+            val = m.group(1).strip()
+            hits = [v for v in SCOPE_AUTH_VALUES if v in val]
+            if len(hits) == 1 and "选一" not in val:
+                return hits[0]
+    return ""
+
 
 def _missing_items(obj):
     """(原始条目, 真条目)：占位（无/none/-）与 1 字垃圾不算真条目（第 4 轮评审 P0-2）。"""
@@ -2996,11 +3123,46 @@ def _check_answer(obj, c):
     if effort:
         has_num = re.search(r"\d", effort) is not None
         has_why = re.search(r"依据|因为|based on", effort, re.I) is not None
-        if not (has_num and has_why):
-            bad.append("「大约多少功夫」必须同时含**数字**与**依据关键词**（依据 / 因为 / based on）："
-                       "形如「2–4 小时；依据：判定点已定位」")
+        # 「无法估」是本轮允许的第二种形态（不许瞎编数字）—— 但依据仍必须写，且下文另查「下一步+代价」
+        if not (has_why and (has_num or "无法估" in effort)):
+            bad.append("「大约多少功夫」必须同时含**数字**（或明写「无法估」）与**依据关键词**"
+                       "（依据 / 因为 / based on）：形如「2–4 小时；依据：判定点已定位」")
     # ── 第 4 轮评审 P0-2：内容闸（原来只验字段，"不知道是什么 + 无 + 感觉"也能合格）──
     miss_txt, real_missing = _missing_items(obj)
+    miss_all = " ".join(miss_txt)
+    # ── R6 P0-2：**最小内容判据**（原来「一个程序文件」+「这类文件一般这样」也能过）──
+    if judge:
+        if _ANSWER_EMPTY_TALK.search(judge):
+            bad.append("「判断」里出现空话（一般这样 / 看情况 / 通常 / 大概 / 应该）："
+                       "换成可核对的事实，例如「PE32+ x86-64，未见壳（区段熵 6.1），本地常量比较」")
+        elif not (_ANSWER_TECH_RE.search(judge)
+                  or (_ANSWER_UNDET_RE.search(judge) and _ANSWER_ACT_RE.search(miss_all))):
+            bad.append("「判断」没有技术事实：至少含一个可核对的技术词（PE / ELF / Mach-O / APK / DEX / "
+                       "ZIP / 壳 / 加壳 / 无壳 / 加固 / x86 / x64 / ARM / AArch64 / Java / Native / 签名 / "
+                       "混淆 / 明文 / 加密），或者写「未检测 / 未判定」并在「缺什么」里点名下一步动作"
+                       "（hash / 哈希 / 跑 / 读 / 看 / triage / r2 / rabin2）。"
+                       "反例：「一个程序文件」—— 没说是什么、有没有保护")
+    if effort:
+        if _ANSWER_EMPTY_TALK.search(effort):
+            bad.append("「大约多少功夫」里出现空话（一般这样 / 看情况 / 通常 / 大概 / 应该）："
+                       "换成「2-4 小时；依据：判定点已定位，只剩回归与重打包」这种带依据的区间。"
+                       "反例：「2 小时；依据：这类文件一般这样」")
+        elif ("无法估" not in effort
+              and not (_ANSWER_SPAN_RE.search(effort) and _ANSWER_UNIT_RE.search(effort))):
+            bad.append("「大约多少功夫」必须给**区间**（形如 2-4 小时 / 30 分钟~2 小时 / 1-3 天；"
+                       "单个数字不合格），确实估不出就写「无法估」并在「缺什么」里给出「下一步 + 代价」。"
+                       "反例：「2 小时；依据：这类文件一般这样」")
+        elif "无法估" in effort:
+            nxt = " ".join([miss_all, effort, str(obj.get("next") or ""),
+                            str(obj.get("plan") or "")])
+            if not (_ANSWER_NEXT_RE.search(nxt) and _ANSWER_COST_RE.search(nxt)):
+                bad.append("写了「无法估」就必须同时给「下一步 + 代价」"
+                           "（例如「缺什么」里写「下一步：先跑 triage 读导入表（代价约 2 小时）」）")
+    if not _answer_auth_source(obj):
+        bad.append("首答必须写明「授权来源：<本人自有 / 书面授权 / 公开靶场 / 开源>」（四选一，"
+                   "写在「缺什么」里一行即可）：授权这件事必须被说出来并留档 —— "
+                   "不再要求客户原话，但也不许默认跳过")
+
     if ceil_v != "现在做不了":                     # 真做不了才允许「什么都不缺」
         if not real_missing:
             bad.append("「缺什么」不能空着或写占位（%s）：逐条写清还缺哪几样"
@@ -3048,7 +3210,7 @@ def cmd_answer(a):
     if a.template:
         print("【判断】这是什么 / 有没有保护 / 关键在哪：…")
         print("【到哪一步】" + " | ".join(c["ceiling_sentences"]))
-        print("【缺什么】① … ② …")
+        print("【缺什么】① 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（四选一，必写）② …")
         print("【大约多少功夫】X 小时 – Y 天（依据：为什么是这个量级）")
         print("【已有证据】E-001 …（或：暂无，只有文件哈希）")
         print("【请你选】Q1｜…  A …→选了会怎样  B …→…  C 我不确定→…")
@@ -3056,8 +3218,8 @@ def cmd_answer(a):
         return 0
     if a.selftest:
         good = {"judgment": "PE32+，未见壳", "ceiling": "只能看懂结构",
-                "missing": ["有没有卡密"],
-                "effort": "半小时 – 2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性",
+                "missing": ["有没有卡密", "授权来源：本人自有"],
+                "effort": "1–2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性",
                 "asks": [{"id": "Q1", "options": [
                     {"key": "A", "consequence": "走在线对比"},
                     {"key": "B", "consequence": "走离线判定"},
@@ -3078,7 +3240,7 @@ def cmd_answer(a):
         fake = {"judgment": "不知道是什么", "ceiling": "能改到能用",
                 "missing": ["无"], "effort": "1天；依据：感觉", "asks": []}
         promise = {"judgment": "PE32+，无壳，本地常量比较", "ceiling": "能改到能用",
-                   "missing": ["卡密有没有", "要不要复现证据"],
+                   "missing": ["卡密有没有", "要不要复现证据", "授权来源：本人自有"],
                    "effort": "2-4 小时；依据：判定点已定位",
                    "asks": [{"id": "Q1", "options": [
                        {"key": "A", "consequence": "走在线对比，能到更高一档"},
@@ -3091,11 +3253,46 @@ def cmd_answer(a):
                       + (1 if not _check_answer(promise, c) else 0)
                       + (1 if _check_answer(noask, c) else 0)
                       + (1 if _check_answer(jargon, c) else 0))
+        # ── R6 P0-2 / P0-3：**最小内容判据**（只验形状的旧口径被实测打穿）──
+        # ① 评审原始 payload（"一个程序文件" + "这类文件一般这样"）必须红；
+        # ② 授权来源机检：没写 / 写了没值 → 红；
+        # ③ 工时：单点估计 → 红；「无法估」不给下一步+代价 → 红；给了 → 绿；
+        # ④ 「未检测」+ missing 里点名动作 → 绿（给真没看过的首答留出路，不许拿它当豁免）。
+        hollow = {"judgment": "一个程序文件", "ceiling": "能改到能用",
+                  "missing": ["证据齐不齐", "授权来源：本人自有"],
+                  "effort": "2 小时；依据：这类文件一般这样",
+                  "asks": [{"id": "Q1", "options": [
+                      {"key": "A", "consequence": "继续"},
+                      {"key": "B", "consequence": "停止"}]}]}
+        noauth = dict(promise, missing=["卡密有没有", "要不要复现证据"])
+        blankauth = dict(promise, missing=["授权来源：", "卡密有没有", "要不要复现证据"])
+        pointest = dict(promise, effort="2 小时；依据：判定点已定位")
+        unknow_bad = dict(promise, effort="无法估；依据：壳还没看清",
+                          missing=["授权来源：本人自有", "卡密有没有", "要不要复现证据"])
+        unknow_ok = dict(promise, effort="无法估；依据：壳还没看清",
+                         missing=["授权来源：本人自有",
+                                  "下一步：先跑 triage 读导入表（代价约 2 小时）",
+                                  "要不要复现证据"])
+        undet = dict(promise, judgment="未检测，还没看保护",
+                     missing=["授权来源：本人自有",
+                              "下一步：跑一遍 triage 看壳（代价约 1 小时）",
+                              "要不要复现证据"])
+        r6_ok = ((1 if _check_answer(hollow, c) else 0)
+                 + (1 if _check_answer(noauth, c) else 0)
+                 + (1 if _check_answer(blankauth, c) else 0)
+                 + (1 if _check_answer(pointest, c) else 0)
+                 + (1 if _check_answer(unknow_bad, c) else 0)
+                 + (1 if not _check_answer(unknow_ok, c) else 0)
+                 + (1 if not _check_answer(undet, c) else 0))
         print("[answer --selftest] %d/2 通过" % base_ok)      # 兼容旧断言（preflight 认 2/2）
         print("[answer --selftest] 新增语义 %d/4 通过（拒凑字段 / 过内容 / 缺项必问 / 拒内部话术）"
               % content_ok)
-        print("[answer --selftest] 合计 %d/8" % (base_ok + extra_ok + content_ok))
-        return 0 if (base_ok == 2 and extra_ok == 2 and content_ok == 4) else 1
+        print("[answer --selftest] R6 最小内容 %d/7 通过（拒空洞首答 / 拒无授权 / 拒空授权 / "
+              "拒单点工时 / 无法估无代价 / 无法估带代价 / 未检测带动作）" % r6_ok)
+        print("[answer --selftest] 合计 %d/15"
+              % (base_ok + extra_ok + content_ok + r6_ok))
+        return 0 if (base_ok == 2 and extra_ok == 2 and content_ok == 4
+                     and r6_ok == 7) else 1
     src = a.file or ""
     try:
         obj = json.load(open(src, encoding="utf-8")) if src else json.loads(_stdin_utf8())
@@ -3318,7 +3515,9 @@ def cmd_repro(a):
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             print("[repro] 已写入账本（%d 个产物已入库）" % len(artifacts))
         except Exception as e:  # noqa: BLE001
-            print("[WARN] 写账本失败：%s" % e)
+            # R6 P1-4：账本没写进去 = 证据不存在，不许 rc=0 让调用方以为落了账。
+            print("[ERR] 写账本失败（这条证据没有落账，不能当证据用）：%s" % e)
+            return 2
     # 退出码语义：E2/E3（可当证据）返回 0；E1（不可重复或达不到期望）返回 1。
     return 0 if grade in ("E2", "E3") else 1
 
@@ -3336,32 +3535,42 @@ def _downgrade_notice(old, new, reason):
 
 
 def cmd_downgrade(a):
-    """上限降级必须留通知：承诺过 M2 就不能静默降到 M1。"""
+    """上限降级必须留通知：承诺过「能改到能用」就不能静默降到「只能看懂结构」。
+
+    R6 P0-4：stdout 只给客户话（不出现 M/L/J 代号）；代号只进 stderr / 账本 `*_internal`。
+    R6 P1-4：写账本失败 → rc=2（降级不落账等于静默降级）。
+    """
     st = load_state(a.case)
     old = st.get("max_level") or "-"
     new = a.to
     if not new:
-        print("[ERR] 需要 --to（如 M1）")
+        print("[ERR] 需要 --to（四档之一；内部代号见账本）")
         return 2
     if old == new:
-        print("[SKIP] 上限没变（%s）" % old)
+        print("[SKIP] 上限没变（%s；内部档位见账本）" % (_customer_level(old) or "见账本"))
         return 0
     if a.reason is None:
         print("[ERR] 降级必须写 --reason（为什么降）")
         return 2
     notif = _downgrade_notice(old, new, a.reason)
-    # 账本里同时留代号（可审计）+ 客户话（可直接展示）
+    # 账本里同时留代号（可审计）+ 客户话（可直接展示）：代号只在 *_internal 字段里
     ledger_notice = "【降级通知】%s → %s。原因：%s" % (old, new, a.reason)
     st["max_level"] = new
     st["next_action"] = notif
-    save_state(a.case, st)
-    with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a", encoding="utf-8") as f:
-        f.write(json.dumps({"kind": "downgrade", "from": old, "to": new,
-                            "reason": a.reason, "notice": notif,
-                            "notice_internal": ledger_notice, "ts": now()},
-                           ensure_ascii=False) + "\n")
+    try:
+        save_state(a.case, st)
+        with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a",
+                  encoding="utf-8") as f:
+            f.write(json.dumps({"kind": "downgrade", "from": old, "to": new,
+                                "reason": a.reason, "notice": notif,
+                                "notice_internal": ledger_notice, "ts": now()},
+                               ensure_ascii=False) + "\n")
+    except Exception as e:  # noqa: BLE001 —— R6 P1-4：降级不落账 = 静默降级，不许 rc=0
+        print("[ERR] 写账本失败（降级没有落账）：%s" % e)
+        return 2
+    _code_hint("downgrade", "上限 %s → %s" % (old, new))
     print(notif)
-    print("[OK] 已记入账本（kind=downgrade）")
+    print("[OK] 已记入账本（内部档位与原因已留档）")
     return 0
 
 
@@ -3956,20 +4165,22 @@ def _self_test():
             assert _scope_problems(tmp2); checks += 1          # 模板未改 → 红
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
                 f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n")
-            # 第 2 轮评审：光四选一不够 —— 必须有客户原话
-            assert _scope_problems(tmp2); checks += 1          # 缺「客户原话」→ 红
+            # R6 P0-3（授权单轨）：四选一即绿 —— 不再要求「客户原话」
+            # （旧断言把「缺客户原话」当红，正是逼模型伪造授权记录的那条；删它不是放宽：
+            #   同一条事实改由首答机检 `_check_answer`（下一条 r6 断言）负责。）
+            assert _scope_problems(tmp2) == []; checks += 1    # 四选一 → 绿（不写客户原话也行）
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n"
-                        "- 客户原话：<粘贴客户关于授权的那句话>\n")
-            assert _scope_problems(tmp2); checks += 1          # 模板占位 → 红
+                f.write("- 目标：x\n- 授权来源：\n")
+            assert _scope_problems(tmp2); checks += 1          # 空值 → 红
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n"
-                        "- 客户原话：同意\n")
-            assert _scope_problems(tmp2); checks += 1          # 太短（<6）→ 红
+                f.write("- 目标：x\n- 授权来源：本人自有 / 公开靶场\n")
+            assert _scope_problems(tmp2); checks += 1          # 同时写多个 → 红（四选一不许含糊）
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n"
-                        "- 客户原话：这个靶场是我自己的账号，随便打。\n")
-            assert _scope_problems(tmp2) == []; checks += 1    # 四选一 + 客户原话 → 绿
+                f.write("- 目标：x\n- 授权来源：朋友给的\n")
+            assert _scope_problems(tmp2); checks += 1          # 不在四个之一 → 红
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n")
+            assert _scope_problems(tmp2) == []; checks += 1    # 回到合法值 → 绿
             # ④ 补齐 triage.md（按 report/ 布局）后：0a → 0b 放行
             os.makedirs(os.path.join(tmp2, "report"), exist_ok=True)
             tp = os.path.join(tmp2, "report", "triage.md")
@@ -4034,6 +4245,55 @@ def _self_test():
         # P0-4：降级通知是客户话，不出现 M-/L- 内部代号
         _dn = _downgrade_notice("M2", "M1", "缺关键证据")
         assert "能改到能用" in _dn and "只能看懂结构" in _dn and "M2" not in _dn; checks += 1
+        # R6 P1-5：档位映射表必须有 M4 这一行（客户话同 M3，内部靠证据门槛 E4 区分）
+        assert LEVEL_CUSTOMER.get("M4") == "能完全自己接管"; checks += 1
+        assert LEVEL_BAR.get("M4") == "E4" and LEVEL_BAR.get("M3") == "E3"; checks += 1
+        assert RANK["M4"] > RANK["M3"] and len(LEVEL_BAR) == 4; checks += 1
+        assert "M4" in RANK and _customer_level("m4") == "能完全自己接管"; checks += 1
+        # R6 P0-4：deliver 的客户可见 stdout 不得出现 M1..M4 / L1..L3 / J1..J3（代号只进 stderr）
+        import contextlib as _ctx
+        import io as _io
+        tmp4 = tempfile.mkdtemp(prefix="cs-r6-")
+        try:
+            save_state(tmp4, {"schema": "seep-case/1", "target": "x.bin", "depth": {},
+                             "verdict": "可赢", "max_level": "M3", "stage": "0a",
+                             "stage_history": [], "next_action": "x"})
+            _evf = os.path.join(tmp4, "ev.log")
+            with open(_evf, "w", encoding="utf-8") as _f:
+                _f.write("rc=0\n")
+            _ns = argparse.Namespace(case=tmp4, level="M1", evidence=_evf, note="")
+            _buf, _err = _io.StringIO(), _io.StringIO()
+            with _ctx.redirect_stdout(_buf), _ctx.redirect_stderr(_err):
+                rc = cmd_deliver(_ns)
+            _out = _buf.getvalue()
+            assert rc in (0, None) and "[OK]" in _out; checks += 1
+            assert not re.search(r"\b(?:M[1-4]|L[1-3]|J[1-3])\b", _out); checks += 1
+            assert "M1" in _err.getvalue()          # 代号确实进了 stderr（没丢信息）
+            checks += 1
+            _buf2 = _io.StringIO()
+            with _ctx.redirect_stdout(_buf2), _ctx.redirect_stderr(_io.StringIO()):
+                cmd_show(argparse.Namespace(case=tmp4))
+            _out2 = _buf2.getvalue()
+            assert "上限：能完全自己接管" in _out2; checks += 1
+            assert not re.search(r"\b(?:M[1-4]|L[1-3]|J[1-3])\b", _out2); checks += 1
+            # R6 P1-4：写账本失败必须非零（用抛错的 `_tmp_sibling` 模拟只读目录）
+            _real_tmp = globals()["_tmp_sibling"]
+
+            def _boom(_path):
+                raise OSError("readonly (simulated)")
+
+            globals()["_tmp_sibling"] = _boom
+            try:
+                _b3 = _io.StringIO()
+                with _ctx.redirect_stdout(_b3):
+                    rc2 = cmd_claim(argparse.Namespace(
+                        case=tmp4, id="C-900", text="模拟写账失败", status="hypothesis",
+                        evidence="", how="", ttl="", by="", confidence="", authority=""))
+                assert rc2 == 2 and "[ERR]" in _b3.getvalue(); checks += 1
+            finally:
+                globals()["_tmp_sibling"] = _real_tmp
+        finally:
+            shutil.rmtree(tmp4, ignore_errors=True)
         print(json.dumps({"ok": True, "checks": checks}, ensure_ascii=True))
         return 0
     except Exception as exc:  # noqa: BLE001

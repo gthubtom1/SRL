@@ -20,6 +20,7 @@
 """
 import argparse
 import io
+import json
 import os
 import re
 import shutil
@@ -135,6 +136,42 @@ def _copy_plan(src_dir):
     return n
 
 
+def _effect_status(kind, name, dest, dry, deploy=True):
+    """R6 P1-7：判成子技能 / 只落 `_pending/` / dry-run 时，“不生效”必须说出来。
+
+    血案（`Tool/scripts/skill-import.py` 原实现）：判为 subskill 时只打印一份收尾清单，
+    用户（和 Agent）以为“已导入”，实际它没进 `~/.pi/agent/skills/`，模型永远选不中它。
+    返回 (effective, why, 3 条要生效的具体动作)。
+    """
+    if kind == "subskill":
+        why = ("判为子技能（不常驻）：它只在 %s/，不会部署到 ~/.pi/agent/skills/，"
+               "模型按需读、不会自动选中它" % ("Tool/skill/_pending/" + name))
+        acts = [
+            "把它改写成域技能（frontmatter 的 description 写用户会说的原话 + 文件后缀，正文补齐覆盖面/技法面），"
+            "再重跑本脚本落到 Tool/skill/%s/" % name,
+            "或者把它并进所属域的 SKILL.md：在那些域里加一行「需要时读 _pending/%s/SKILL.md」" % name,
+            "改完跑 python Tool/scripts/check.py --fast 验证（确认它真的进了加载名单）",
+        ]
+        return False, why, acts
+    if dry:
+        why = "dry-run：什么都没写盘，%s/ 与 ~/.pi/agent/skills/%s/ 都不存在，模型选不中它" % (name, name)
+        acts = [
+            "去掉 --dry-run 重跑同一条命令（真正落到 Tool/skill/%s/）" % name,
+            "确认 description 里含用户会说的原话 + 文件后缀（模型只看这一句）",
+            "跑 python Tool/scripts/check.py --fast 验证（部署目录与仓库一致）",
+        ]
+        return False, why, acts
+    if not deploy:
+        why = "本次传了 deploy=False：只落在仓库 Tool/skill/%s/，没同步到 ~/.pi/agent/skills/" % name
+        acts = [
+            "用默认参数（不带 deploy=False）重跑本脚本",
+            "或者手动拷 Tool/skill/%s/ 到 ~/.pi/agent/skills/%s/" % (name, name),
+            "跑 python Tool/scripts/check.py --fast 验证",
+        ]
+        return False, why, acts
+    return True, "已部署到 ~/.pi/agent/skills/%s/（域技能，下次会话自动加载）" % name, []
+
+
 def import_skill(src, name=None, dry=False, deploy=True):
     p, text = read_skill(src)
     meta = parse(text)
@@ -196,12 +233,32 @@ def import_skill(src, name=None, dry=False, deploy=True):
     else:
         print("2. 若想让它进 gate 的 6 道判据（当见证域），再补 `pack.json`；不补也能用")
     print("3. 跑 `python Tool/scripts/check.py --fast` 验证")
-    return kind, dest
+
+    # R6 P1-7：“不生效”必须说出来（不是只报一句判定就完事）：
+    # 用户在导入技能时问的就是“加好了吗”；子技能落在 _pending/ 却没被选中，不说就是骗人。
+    effective, eff_why, eff_acts = _effect_status(kind, name, dest, dry, deploy)
+    if effective:
+        print("\n[已生效] 模型能自动选中它：%s" % eff_why)
+    else:
+        print("\n[未生效] 该技能不会被自动选中：%s；要生效请 ①%s ②%s ③%s"
+              % (eff_why, eff_acts[0], eff_acts[1], eff_acts[2]))
+    report = {
+        "kind": kind,
+        "name": name,
+        "dest": dest,
+        "effective": effective,
+        "why": eff_why,
+        "to_take_effect": eff_acts,
+        "dry_run": bool(dry),
+        "hits": m["hits"],
+    }
+    print("[报告] " + json.dumps(report, ensure_ascii=False))
+    return report
 
 
 def selftest():
     """自测：域/子技能判定（三选二）+ 复制范围锁定 + 下载项目拒绝。"""
-    ok, total = 0, 5
+    ok, total = 0, 6
     tmp = tempfile.mkdtemp(prefix="seep-skill-")
 
     def _mk(d, body):
@@ -244,7 +301,15 @@ def selftest():
         assert ".git" in _download_markers(repo), _download_markers(repo)
         assert not _download_markers(os.path.join(repo, "skill"))
         ok += 1
-        print("自测通过：判定/复制范围/项目拒绝（%d/%d）—— A/B/C 三选二，行数不参与" % (ok, total))
+        # ⑥ 判为子技能 / dry-run 时，“未生效”必须能说出来（R6 P1-7）
+        eff, eff_why, eff_acts = _effect_status("subskill", "zz-small", "Tool/skill/_pending/zz-small", False)
+        assert eff is False and "不会" in eff_why and len(eff_acts) == 3, (eff, eff_why, eff_acts)
+        eff2, _, acts2 = _effect_status("domain", "zz-big", "Tool/skill/zz-big", True)
+        assert eff2 is False and len(acts2) == 3, (eff2, acts2)
+        eff3, _, _ = _effect_status("domain", "zz-big", "Tool/skill/zz-big", False, True)
+        assert eff3 is True
+        ok += 1
+        print("自测通过：判定/复制范围/项目拒绝/未生效提示（%d/%d）—— A/B/C 三选二，行数不参与" % (ok, total))
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

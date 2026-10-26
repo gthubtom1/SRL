@@ -28,16 +28,25 @@ if not exist "%USERPROFILE%\.pi\agent\SEEP.md" (
     exit /b 1
 )
 
-echo 进入会话后先输入:  lab：
+rem ---- 2) 实验模式：自动开启（写 lab-mode.flag，于是「lab：」可以省略）
+rem     语义不变：标志文件在 = 实验模式开；会话里说「退出实验」仍然会把它删掉。
+rem     写不进去不算致命：提示一句，继续开会话（用户仍可手动输入 lab：）。
+set "LABFLAG=%USERPROFILE%\.pi\agent\lab-mode.flag"
+if not exist "%USERPROFILE%\.pi\agent" mkdir "%USERPROFILE%\.pi\agent" 2>nul
+>"%LABFLAG%" echo %DATE% %TIME% 2>nul
+echo [实验模式] 已自动开启（无需输入 lab：）
+if not exist "%LABFLAG%" echo [!] 自动开启实验模式失败：写不进 %LABFLAG%；会话照常启动，进去后手动输入一次 lab： 也能开启。
+echo.
+echo 进入会话后直接说话即可（实验模式已开），不需要先输入  lab：
 echo 退出实验环境:      退出实验
 echo 关闭本窗口 = 结束会话。
 echo.
 
-rem ---- 2) 主路径：用已安装的 pi 在当前目录（仓库根）开交互式会话
+rem ---- 3) 主路径：用已安装的 pi 在当前目录（仓库根）开交互式会话
 where pi >nul 2>nul
 if not errorlevel 1 goto run_pi
 
-rem ---- 3) 退化路径：没装 pi，打印一条可复制的话（不硬装、不猜路径）
+rem ---- 4) 退化路径：没装 pi，打印一条可复制的话（不硬装、不猜路径）
 echo [!] 没有在 PATH 里找到 pi 命令，无法自动开会话。请任选一种方式：
 echo.
 echo  A. 打开"命令提示符"，复制粘贴这一行并回车:
