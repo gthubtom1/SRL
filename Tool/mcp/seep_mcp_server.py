@@ -981,12 +981,49 @@ _SEEP_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__f
 _AUTOCASE = os.environ.get("SEEP_AUTOCASE", "1") not in ("0", "false", "False")
 
 
-def _case_for(binary_path: str) -> Dict[str, Any]:
+def _route_module():
+    """把 `Tool/scripts/route.py` 当模块加载（判型唯一入口，不复制路由表）。"""
+    if "m" in _ROUTE_MOD:
+        return _ROUTE_MOD["m"]
+    import importlib.util as _iu
+    p = os.path.join(_SEEP_ROOT, "Tool", "scripts", "route.py")
+    spec = _iu.spec_from_file_location("seep_route", p)
+    m = _iu.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    _ROUTE_MOD["m"] = m
+    return m
+
+
+def _domain_for(binary_path: str, task_name: str = ""):
+    """给自动建案判一次型：(domain, domain_note)。
+
+    第 4 轮评审 P1：以前自动建案一律 `domain=softseep` —— 等于「没判过型」冒充「判过型」，
+    后面的域深度/路由门禁全部失真。现在用 `route.route.resolve()`（唯一路由入口）对
+    「目标文件名 + 任务名」判一次：命中就用该域；判不出（含只命中兜底、命中总控包）
+    就返回空串 + 提示过 seep-router，**不写 domain**。
+    """
+    note = "未判型，先过 seep-router"
+    try:
+        text = "%s %s" % (os.path.basename(str(binary_path or "")), str(task_name or ""))
+        hits = _route_module().resolve(text) or []
+        concrete = [h for h in hits
+                    if isinstance(h, dict) and not h.get("fallback")
+                    and h.get("pack") and h.get("pack") != "seep-router"]
+        if not concrete:
+            return "", note
+        return str(concrete[0].get("pack") or ""), ""
+    except Exception as e:  # noqa: BLE001
+        return "", "%s（判型失败：%s）" % (note, str(e)[:60])
+
+
+def _case_for(binary_path: str, task_name: str = "") -> Dict[str, Any]:
     """分析类工具第一次碰到某个样本时自动建案（无账本 = 后面所有闸门失效）。
 
     落地位置：`SEEP_CASE_DIR`（多项目隔离）或 `~/.seep/cases/auto/`。
     **不放仓库**：放在 `Tool/cases/` 会被索引/门禁当成正式案例（实测踩到），而且会污染 git。
     实现：直接复用 `case_state.py` 的 `paths/save_state/_ensure_case_meta`（不起子进程，毫秒级）。
+    域由 `route.route.resolve()` 判（第 4 轮评审 P1）：判不出就不写 domain，回包带
+    `"domain": null, "domain_note": "未判型，先过 seep-router"`。
     """
     out: Dict[str, Any] = {"enabled": _AUTOCASE}
     if not _AUTOCASE:
@@ -1004,6 +1041,11 @@ def _case_for(binary_path: str) -> Dict[str, Any]:
         if os.path.isfile(os.path.join(cdir, "case.json")):
             out["created"] = False
             return out
+        # 只有真要建案时才判型（route.resolve 会读全部 pack.json，别放在热路径上）
+        domain, domain_note = _domain_for(p, task_name)
+        out["domain"] = domain or None
+        if domain_note:
+            out["domain_note"] = domain_note
         mod = _case_state_module()
         os.makedirs(cdir, exist_ok=True)
         st = {"schema": "seep-case/1", "target": mod.store_target(p),
@@ -1011,7 +1053,11 @@ def _case_for(binary_path: str) -> Dict[str, Any]:
               "stage": "intake", "stage_history": [],
               "next_action": "D0 结构 + D1 存活（自动建案，未给裁定）", "updated": mod.now()}
         mod.save_state(cdir, st)
-        mod._ensure_case_meta(cdir, st, "real")
+        try:                       # 原件指纹块：让账本里的证据能绑到「完整路径 / 哈希」
+            _fp = mod._fingerprint_target(p)
+        except Exception:          # noqa: BLE001
+            _fp = None
+        mod._ensure_case_meta(cdir, st, "real", _fp, domain=domain)
         out["created"] = True
         out["next"] = ('python "%s/Tool/scripts/case_state.py" prove --case "%s" '
                        '--id F-001 --claim "<结论>" --evidence "<证据路径>"'
@@ -1022,6 +1068,7 @@ def _case_for(binary_path: str) -> Dict[str, Any]:
 
 
 _CS_MOD: Dict[str, Any] = {}
+_ROUTE_MOD: Dict[str, Any] = {}
 
 
 def _case_state_module():
@@ -1082,16 +1129,17 @@ def _needs_for_gui(tool_id: str) -> List[Dict[str, Any]]:
             return [{"id": n.get("id"), "question": str(n.get("question")).replace("{tool}", tool_id),
                      "why": n.get("why"), "if_yes": n.get("if_yes"), "if_no": n.get("if_no")}]
     return []
-def _attached_for(target_path: str, matched=None) -> Dict[str, Any]:
+def _attached_for(target_path: str, matched=None, task_name: str = "") -> Dict[str, Any]:
     """给 triage 的任何返回路径挂上「自动建案 + 缺输入就问」。
 
     2026-10-25 外部评审 A2：原先只写在成功路径末尾，而最常见的失败路径
     （rabin2 解析不了 → no_evidence）是早返回，于是客户最常遇到的第一个动作里
     既不开案也不问人，后面整套台账/证据/复查都失去落脚点。
+    2026-10-26 第 4 轮评审 P1：建案时把**任务名**一起交给判型（目标文件名 + 任务名）。
     """
     out: Dict[str, Any] = {}
     try:
-        c = _case_for(target_path)
+        c = _case_for(target_path, task_name or "")
         if c.get("case"):
             out["case"] = c
         needs = _detect_needs(b"", " ".join(str(x) for x in (matched or [])[:200])[:20000],
@@ -1114,7 +1162,7 @@ def seep_auto_triage(target_path: str, task_name: Optional[str] = None) -> str:
     拒绝条件：rabin2 解析失败 **且** 字符串零命中 → {ok:false,error:"no_evidence"}，wrote_files=0
     （旧实现此时会返回一份全 "unknown" 的画像并当作完成，等于把"没测"签成"测过"）。
     """
-    _attached = _attached_for(target_path)
+    _attached = _attached_for(target_path, task_name=task_name or "")
     if not os.path.exists(target_path):
         return json.dumps({
             "ok": False,
@@ -2075,7 +2123,7 @@ def seep_packer_detect(binary_path: str) -> str:
     result["next_actions"] = acts
 
     # M2/M4：自动建案 + 需要用户提供什么（命中就问，不许自己假设"没有"）
-    _case = _case_for(binary_path)
+    _case = _case_for(binary_path, "判壳 脱壳 反调试 加壳识别")
     if _case.get("case"):
         result["case"] = _case
     _needs = _detect_needs(b"", "", _case.get("case") if _case.get("created") else "")

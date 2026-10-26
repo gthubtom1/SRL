@@ -8,6 +8,12 @@
   G4 pack-witness     真跑 witness.cmd（预算 budget_s）；exit≠0、expect 子句不满足 → 红
   G5 evidence-ledger  claim 必须带 confidence ∈ 四态 + authority；proven 必须有非空 evidence；
                       整包 0 条 observed/derived 证据 → 红（unknown 永不计 pass）
+  G6 verification-receipt / G4b target-asset（回执可核、真输入资产）
+
+摘要的读法（第 4 轮评审 P1-2，别把两件事读成一件）：
+  `[GATE] N 个包：结构 pass/fail`  = 每个包的**判据**都跑通了（这条不放宽）。
+  `[GATE] 见证证据：real x / fixture y` = 这些包的 witness 案例里，多少是真实世界产物；
+  fixture / self-built 案例只证明**流程可跑**，**不得**读成「该域可用」。
 
 用法：
     python Tool/scripts/gate.py --all [--json] [--no-witness]
@@ -444,6 +450,45 @@ def judge_answer(trap_id, answer):
             "chars": len(answer or "")}
 
 
+def _witness_case(pack):
+    """witness.cmd 里的 --case 案例名（没写就返回空）。"""
+    m = re.search(r"--case\s+(\S+)", str((pack.get("witness") or {}).get("cmd") or ""))
+    return os.path.basename(os.path.normpath(m.group(1))) if m else ""
+
+
+def _evidence_kind(case):
+    """案例的真实性类型：case.json 的 evidence_kind。
+
+    读不到了（没 case.json / 没字段 / 解析失败）= "unknown" → **按 fixture 计**。
+    宁可把真样本误报成 fixture，也不要把夹具冒充成「该域真实可用」。
+    """
+    if not case:
+        return "unknown"
+    try:
+        with open(os.path.join(CASES_DIR, case, "case.json"), encoding="utf-8",
+                  errors="replace") as fh:
+            d = json.load(fh)
+        k = str((d or {}).get("evidence_kind") or "").strip().lower()
+        return k or "unknown"
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
+def witness_cohort(packs):
+    """见证证据分类：real = 真实世界产物；其余（fixture / self-built / unknown）一律按 fixture 计。
+
+    为什么要这一行：`gate --all` 9/9 只说明「每个包的判据都跑通了」，**不说明 9 个域
+    都有真实生例**。fixture / self-built 案例证明的是流程可跑，**不得**读成「该域可用」。
+    """
+    real, fixtures = [], []
+    for p in packs:
+        case = _witness_case(p.get("raw") or p)
+        kind = _evidence_kind(case)
+        rec = {"pack": p.get("id"), "case": case, "evidence_kind": kind}
+        (real if kind == "real" else fixtures).append(rec)
+    return real, fixtures
+
+
 def main():
     ap = argparse.ArgumentParser(description="按包判定（G2/G3/G4/G5）：红=失败，unknown 不计 pass")
     ap.add_argument("--all", action="store_true")
@@ -493,8 +538,12 @@ def main():
     npass = sum(1 for r in results if r["verdict"] == "pass")
     summary = {"packs": len(results), "pass": npass, "fail": len(results) - npass,
                "unknown_as_pass": 0}  # 结构上不可能：verdict 只有 pass/fail
+    real, fixtures = witness_cohort(selected)
+    summary["witness"] = {"real": len(real), "fixture": len(fixtures),
+                          "fixture_packs": [x["pack"] for x in fixtures]}
     if a.json:
-        print(json.dumps({"schema": "seep.gate/1", "summary": summary, "results": results},
+        print(json.dumps({"schema": "seep.gate/1", "summary": summary, "results": results,
+                          "witness_cohort": {"real": real, "fixture": fixtures}},
                          ensure_ascii=False, indent=2))
     else:
         for r in results:
@@ -510,8 +559,20 @@ def main():
                 print("   %s %s%s" % (mark, name, extra))
                 for why in g["reasons"]:
                     print("        - " + why)
-        print("[GATE] %d 个包：pass %d / fail %d（unknown 记为 fail，不计 pass）"
+        # ── 诚实摘要（第 4 轮评审 P1-2）──
+        # 第一行：结构判定（判据未放宽，9/9 就是 9/9）。
+        # 第二行：见证证据的真实性（real / fixture）—— 这是「能不能说该域可用」的边界。
+        # 第三行：哪些包只是夹具，点名到位，省得把 9/9 读成「九个域都能用」。
+        print("[GATE] %d 个包：结构 pass %d / fail %d（unknown 记为 fail，不计 pass）"
               % (summary["packs"], summary["pass"], summary["fail"]))
+        print("[GATE] 见证证据：real %d / fixture %d（fixture 不计“该域可用”）"
+              % (len(real), len(fixtures)))
+        if fixtures:
+            print("[GATE] fixture %d 个：%s" % (len(fixtures), "、".join(
+                "%s(%s:%s)" % (x["pack"], x["case"] or "?", x["evidence_kind"])
+                for x in fixtures)))
+        else:
+            print("[GATE] fixture 0 个：%d 个包的见证案例都是 evidence_kind=real" % len(real))
     return 0 if summary["fail"] == 0 else 1
 
 

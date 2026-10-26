@@ -444,7 +444,12 @@ def check_ps_encoding():
 
     ps = shutil.which("powershell") or shutil.which("pwsh")
     if not ps:
-        add("6 可移植", "ps1 编码可被 PS5.1 解析", True, "无 PowerShell，跳过")
+        # ★ P1-3（第 4 轮评审）：“没跑”不得写成 PASS。以前这里 ok=True / “无 PowerShell，跳过”，
+        #   于是本机没有 PowerShell 的机器上，“ps1 编码能被 PS5.1 解析”永远是绿的 —— 那是假绿。
+        #   现在降为 WARN（不影响退出码，继续跑）且 detail 以“跳过（未验证）”开头，汇总里单独计数。
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", True,
+            "跳过（未验证）：本机无 powershell/pwsh，PS5.1 解析未实测（不等于通过）",
+            level="WARN")
         return
     # 只查我们真正会执行的目录：Tool/scripts + setup。
     # Tool/cases（案例夹具，含故意写坏的样本）、Tool/upstream（上游镜像）、
@@ -466,7 +471,9 @@ def check_ps_encoding():
         msg = (out.stdout or "").strip()
         add("6 可移植", "ps1 编码可被 PS5.1 解析", not msg, msg[:160] or "全部 .ps1 解析通过")
     except Exception as e:
-        add("6 可移植", "ps1 编码可被 PS5.1 解析", True, "解析检查跳过：" + str(e)[:60])
+        # ★ P1-3：解析器起不来/超时也不等于通过。只降为 WARN 并标注“跳过（未验证）”。
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", True,
+            "跳过（未验证）：解析检查异常：" + str(e)[:60], level="WARN")
 
 
 def _mcp_stdio_handshake(path, timeout=120):
@@ -2531,8 +2538,12 @@ def main():
 
     fails = [r for r in results if not r["ok"]]
     notes = [r for r in results if r.get("level") in ("WARN", "INFO")]
+    # “跳过（未验证）”单独计数：ok=True 但并没真跑 —— 不得和真正的 PASS 混成一个数。
+    skipped = [r for r in results if str(r.get("detail") or "").startswith("跳过（未验证）")]
     if args.json:
-        print(json.dumps({"results": results, "fails": len(fails), "notes": len(notes)},
+        print(json.dumps({"results": results, "fails": len(fails), "notes": len(notes),
+                          "unverified": len(skipped),
+                          "unverified_items": ["%s/%s" % (r["section"], r["name"]) for r in skipped]},
                          ensure_ascii=False, indent=2))
     else:
         cur = ""
@@ -2545,6 +2556,10 @@ def main():
         print(f"\n结果: {len(results) - len(fails)}/{len(results)} 通过"
               + (f"（含 {len(notes)} 条 WARN/INFO，不影响退出码）" if notes else "")
               + ("" if not fails else "  ← 有 FAIL，先修再推"))
+        if skipped:
+            print("  其中 %d 条为「跳过（未验证）」：%s"
+                  % (len(skipped), "、".join("%s/%s" % (r["section"], r["name"]) for r in skipped)))
+            print("  ↑ 这些项本机没真跑（缺工具/解析失败）：计入“通过”但**不是证据**，别当成已验证。")
     return 0 if not fails else 1
 
 

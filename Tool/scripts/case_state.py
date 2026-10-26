@@ -797,16 +797,26 @@ def cmd_init(a):
               % (target_fp.get("path") or a.target or "（未指定）"))
 
 
-def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None):
-    """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。"""
+DOMAIN_UNCLASSIFIED_NOTE = "未判型，先过 seep-router"
+
+
+def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
+    """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。
+
+    第 4 轮评审 P1：`domain` **不再一律写 softseep**。判不出就不写（留空）+ 提示走 seep-router —
+    一律写 softseep 等于把「没判过型」伪装成「判过型」，后面的域深度/路由门禁全部失真。
+    判型入口：`python Tool/scripts/route.py --resolve "<目标名 + 任务名>"`（判不出会打
+    `[UNCLASSIFIED]`）。
+    """
     cj = os.path.join(d, "case.json")
     if os.path.isfile(cj):
         return False
     kind = evidence_kind if evidence_kind in ("fixture", "real", "self-built", "historical") else "real"
+    dom = str(domain or "").strip()
     meta = {
         "id": os.path.basename(d.rstrip("/\\")),
-        # 新案例默认域：`softseep`（旧名 `reverse` 已不是合法域，见 domain_spec.DOMAINS）
-        "domain": "softseep",
+        # 域留空 = 未判型（不是「默认 softseep」）：先 route.py --resolve，判出再补
+        "domain": dom,
         "target_type": st.get("target") or "",
         # ★ 原件指纹块（第 2 轮评审）：建案时就能重放比对「原件动没动」。
         #   只新增字段，不动原有 target_type 等语义；`index` 不读此块，故不影响索引。
@@ -829,6 +839,10 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None):
             json.dump(meta, f, ensure_ascii=False, indent=1)
     except OSError:
         return False
+    if not dom:
+        print("[WARN] %s：case.json 的 domain 留空 —— %s，判出域后再补"
+              "（python Tool/scripts/route.py --resolve \"<目标名 + 任务名>\"）"
+              % (os.path.basename(cj), DOMAIN_UNCLASSIFIED_NOTE))
     return True
 
 
@@ -2367,39 +2381,115 @@ def _case_target_info(case):
     return info
 
 
-def _target_bind_tokens(info):
-    """可用于绑定目标的字面量：basename（>=3 字，太短会误命中）、绝对路径、sha256 前缀。"""
+# 反例程序（第 4 轮评审 P0-1）：这些只回显参数 / 列目录，永远打不开目标文件。
+# 血案：`echo mytarget.exe` 里出现了目标 basename，旧判据直接放行 —— 但它没读过目标。
+_NEVER_TOUCH_PROGS = {"echo", "printf", "true", "false", "cat", "type", "dir", "ls", "tee"}
+# 解释器：程序之后的**命令体**里必须再出现目标路径/哈希（`python -c "print(1)"` 不算）。
+_INTERP_PROGS = {"python", "python2", "python3", "py", "node", "nodejs",
+                 "powershell", "pwsh"}
+# shell 包装：`cmd /c echo x` / `bash -c "cat x"` 要先剥壳再看真程序（防借壳洗白）。
+_SHELL_PROGS = {"cmd", "bash", "sh", "zsh", "wsl", "busybox"}
+_TOKEN_RE = re.compile(r'"([^"]*)"|\'([^\']*)\'|(\S+)')
+
+
+def _target_strong_tokens(info):
+    """**能唯一定位这份原件**的字面量：完整路径（两种分隔符）/ `sha256:<前12位>`。
+
+    只出现 basename 不算（第 4 轮评审 P0-1）：`echo mytarget.exe` 恰好就会打印这个名字。
+    """
     info = info if isinstance(info, dict) else {}
-    toks = []
-    name = str(info.get("name") or "").strip()
-    path = str(info.get("path") or "").strip()
-    if len(name) >= 3:
-        toks.append(name)
-    if path:
-        toks.append(path)
-        toks.append(path.replace("\\", "/"))
-    sha = str(info.get("sha256") or "").strip().lower()
-    for k in (12, 16, 32, 64):
-        if len(sha) >= k:
-            toks.append(sha[:k])
     out, seen = [], set()
-    for t in toks:
-        key = str(t).replace("\\", "/").lower()
-        if key and key not in seen:
+    path = str(info.get("path") or "").strip()
+    for p in (path, path.replace("\\", "/"), path.replace("/", "\\")):
+        key = p.replace("\\", "/").lower()
+        if p and key not in seen:
             seen.add(key)
-            out.append(str(t))
+            out.append(p)
+    sha = str(info.get("sha256") or "").strip().lower()
+    if len(sha) >= 12:
+        out.append("sha256:" + sha[:12])
     return out
 
 
+def _prog_base(tok):
+    """命令首个 token → 程序 basename（去引号/目录/常见后缀，小写）。"""
+    s = str(tok or "").strip().strip('"\'')
+    s = s.replace("\\", "/").rsplit("/", 1)[-1]
+    for suf in (".exe", ".cmd", ".bat", ".ps1", ".com"):
+        if s.lower().endswith(suf):
+            s = s[:-len(suf)]
+    return s.lower()
+
+
+def _cmd_head(text):
+    """(首个程序 basename, 该程序之后的命令体)。剥掉 cmd/bash 这类 shell 包装。"""
+    s = str(text or "")
+    toks = [(next((g for g in m.groups() if g is not None), ""), m.start(), m.end())
+            for m in _TOKEN_RE.finditer(s)]
+    if not toks:
+        return "", ""
+    i = 0
+    for _ in range(5):
+        name = _prog_base(toks[i][0].split()[0]) if toks[i][0].split() else ""
+        if name not in _SHELL_PROGS:
+            tail = s[toks[i][2]:]
+            if " " in toks[i][0]:       # 引号内整段命令：内容也算命令体
+                tail = toks[i][0] + tail
+            return name, tail
+        j = i + 1
+        while j < len(toks) and toks[j][0].startswith(("/", "-")) \
+                and len(toks[j][0]) <= 4:
+            j += 1                      # 跳过 /c、-c 这类开关
+        if j >= len(toks):
+            return name, ""
+        i = j
+    return _prog_base(toks[i][0].split()[0]), ""
+
+
+def _cmd_evidence_problem(text, info):
+    """命令是否**真跑过目标**。返回 '' = 通过，否则一句话拒绝理由（带反例）。
+
+    第 4 轮评审 P0-1 判据（三条缺一不可）：
+      ① 命令里必须出现目标的**完整路径**或 `sha256:` + 哈希前 12 位（只写 basename 不够）；
+      ② 首个程序不得是 echo/printf/true/false/cat/type/dir/ls/tee（不可能碰到目标）；
+      ③ 解释器（python/node/powershell）的**命令体**里必须再出现目标路径/哈希。
+    """
+    info = info if isinstance(info, dict) else {}
+    s = str(text or "").strip()
+    if not s:
+        return "命令为空"
+    path = str(info.get("path") or "").strip()
+    name = str(info.get("name") or "").strip() \
+        or os.path.basename(path.replace("\\", "/")) or "<目标>"
+    strong = _target_strong_tokens(info)
+    if not strong:
+        return ("本案没登记可用目标（完整路径 / sha256）：先"
+                "`init --case <目录> --target <原件>`")
+    low = s.replace("\\", "/").lower()
+    hit = [t for t in strong if t.replace("\\", "/").lower() in low]
+    if not hit:
+        return ("命令里没有出现目标的**完整路径**或 `sha256:<前12位>`：只写 basename（%s）不算。\n"
+                "      反例：`echo %s` 不算 —— 它只是把参数原样打印，没读过目标。\n"
+                "      应写成：`python -c \"print(open(r'%s','rb').read(16))\"`"
+                % (name, name, path or "<目标完整路径>"))
+    prog, body = _cmd_head(s)
+    if prog in _NEVER_TOUCH_PROGS:
+        return ("首个程序是 `%s`：它只回显/列目录，不会打开目标，不能当证据。\n"
+                "      反例：`echo %s` / `cat %s` 都不算（没读目标）。\n"
+                "      改用真读目标的命令：`python -c \"print(open(r'%s','rb').read(16))\"`"
+                % (prog, name, name, path or "<目标完整路径>"))
+    if prog in _INTERP_PROGS:
+        blow = body.replace("\\", "/").lower()
+        if not any(t.replace("\\", "/").lower() in blow for t in hit):
+            return ("解释器（%s）的命令体里没有目标路径/哈希：`%s -c \"print(1)\"` 类的命令没碰目标。\n"
+                    "      把目标写进它执行的代码：`python -c \"print(open(r'%s','rb').read(16))\"`"
+                    % (prog, prog, path or "<目标完整路径>"))
+    return ""
+
+
 def _cmd_binds_target(text, info):
-    """命令里是否出现目标名 / 路径 / 哈希前缀（≥12 位）。"""
-    s = str(text or "").replace("\\", "/").lower()
-    if not s.strip():
-        return False
-    for t in _target_bind_tokens(info):
-        if t.replace("\\", "/").lower() in s:
-            return True
-    return False
+    """命令是否真碰过目标（= `_cmd_evidence_problem` 无问题）。"""
+    return _cmd_evidence_problem(text, info) == ""
 
 
 def _rec_binds_target(rec, target=None):
@@ -2437,7 +2527,7 @@ def _is_complete_e3(rec, target=None):
 
     kind=repro 且 grade=E3、cmd 非空、runs>=2、digests 条数 == runs（真跑了几次就有几个指纹）、
     expect 非空（有可机检的期望片段）、also_cmd 非空且 != cmd（两路真独立）。
-    P0-2（第 3 轮评审）：两路命令都必须真碰过本案目标（`echo hi` / `echo bye` 不算）。
+    P0-2 / P0-1（第 3、4 轮评审）：两路命令都必须真跑过本案目标（`echo hi` / `echo target.bin` 不算）。
     """
     if not isinstance(rec, dict) or _entry_kind(rec) != "repro":
         return False
@@ -2460,7 +2550,8 @@ def _is_complete_repro(rec, target=None):
 
     只认结构化账本行，不认报告/对话里的自述：kind=repro、cmd 非空、expect 非空、
     runs>=2、digests 条数 == runs、consistent==true。
-    P0-2（第 3 轮评审）：cmd 还必须真碰过本案目标 —— `echo hi` + `expect=hi` 不再算证据。
+    P0-2（第 3 轮评审）+ P0-1（第 4 轮）：cmd 还必须**真跑过**本案目标（完整路径 / sha256:前12位，
+    且首个程序不是 echo/cat/type/ls/tee 这类只回显的程序）—— `echo hi`、`echo target.bin` 都不算证据。
     """
     if not isinstance(rec, dict) or _entry_kind(rec) != "repro":
         return False
@@ -2500,8 +2591,8 @@ def cmd_deliver(a):
                 "（只写 "
                 "\"grade\": \"E3\" 字样不算数）。\n"
                 "修法：python Tool/scripts/case_state.py repro --case %s --id E-001 "
-                "--cmd \"<第一路命令，含目标名 %s>\" --expect \"<必须出现的片段>\" "
-                "--also-cmd \"<另一条**真不同**且也含目标名的命令>\" --runs 2"
+                "--cmd \"<第一路命令，必须含目标完整路径 %s 或 sha256:<前12位>>\" --expect \"<必须出现的片段>\" "
+                "--also-cmd \"<另一条**真不同**且也真跑目标的命令>\" --runs 2"
                 "（必须带 --case 与 --id 才会落账本；两路命令相同会被拒升 E3），"
                 "之后用 show 确认账本里出现 grade=E3 的 repro 行；"
                 "撑不到 E3 就交付 M2 并写明天花板"
@@ -2515,11 +2606,11 @@ def cmd_deliver(a):
             cdir = os.path.abspath(a.case)
             die("交付 M2（客户话：能改到能用）必须至少有 1 条**结构完整**的复现记录；"
                 "账本里现有 repro 记录 %d 条，其中 0 条达标。\n"
-                "判据（缺一不可）：kind=repro / cmd 非空且**含目标名或哈希前缀** / expect 非空 / "
+                "判据（缺一不可）：kind=repro / cmd 非空且**含目标完整路径或 sha256:前12位**（只写 basename、用 echo/cat 只回显都不算）/ expect 非空 / "
                 "runs>=2 / digests 条数==runs / consistent==true（报告或对话里写「跑过了」不算）。\n"
                 "出路①（补证据，推荐）：\n"
                 "  python Tool/scripts/case_state.py repro --case %s --id E-001 "
-                "--cmd \"<能复现的命令，必须碰过 %s>\" --expect \"<必须出现的片段>\" --runs 2\n"
+                "--cmd \"<能复现的命令：里面要写 %s 的完整路径>\" --expect \"<必须出现的片段>\" --runs 2\n"
                 "  输出里应出现「一致=True」且写入账本；然后重跑本命令。\n"
                 "出路②（不补证据就降档，只交结构理解）：\n"
                 "  python Tool/scripts/case_state.py deliver --case %s --level M1 "
@@ -2812,15 +2903,42 @@ def _write_answer_pass(case="", adhoc=False):
         pass
 
 
+# 内部话术（第 4 轮评审 P0-2）：选项是给客户看的，不能出现 if_yes/if_no/按…走 这类词。
+_ANSWER_JARGON = re.compile(r"if[_-]?(?:yes|no)(?:[^a-z]|$)|if\s+(?:yes|no)(?:[^a-z]|$)|"
+                            r"按\s*[^\s，,。；;]{0,8}\s*走", re.I)
+# 「缺什么」里的占位写法（写这些等于没写）
+_MISSING_PLACEHOLDERS = {"无", "none", "-", "—", "n/a", "na", "null", "没有",
+                         "暂无", "0", "…", "..."}
+
+
+def _missing_items(obj):
+    """(原始条目, 真条目)：占位（无/none/-）与 1 字垃圾不算真条目（第 4 轮评审 P0-2）。"""
+    raw = obj.get("missing") if isinstance(obj, dict) else None
+    if isinstance(raw, str):
+        items = re.split("[；;、,，" + chr(10) + "]", raw)
+    elif isinstance(raw, list):
+        items = raw
+    else:
+        items = []
+    shown = [str(x).strip() for x in items if str(x).strip()]
+    real = [x for x in shown
+            if x.lower() not in _MISSING_PLACEHOLDERS and len(x) >= 2]
+    return shown, real
+
+
 def _check_answer(obj, c):
     bad = []
+    ceil_v = str(obj.get("ceiling") or "").strip()
     for f in c["required"]:
         v = obj.get(f["key"])
         if isinstance(v, str):
             v = v.strip()          # 空白串不算“已填”（P0-4 机检：空格 `judgment` 不能过）
-        if not v or (isinstance(v, (list, dict)) and not v):
+        # 第 4 轮评审 P0-2：只有「到哪一步 = 现在做不了」时才允许「缺什么」为空
+        allow_empty = f["key"] == "missing" and ceil_v == "现在做不了"
+        if f["key"] not in obj:
             bad.append("缺 %s（%s）" % (f["label"], f["hint"]))
-    ceil_v = str(obj.get("ceiling") or "")
+        elif not allow_empty and (not v or (isinstance(v, (list, dict)) and not v)):
+            bad.append("缺 %s（%s）" % (f["label"], f["hint"]))
     if ceil_v and ceil_v not in c["ceiling_sentences"]:
         bad.append("「到哪一步」只能用这四句之一：" + " / ".join(c["ceiling_sentences"]))
     # P0-4 机检（第 3 轮评审）：首答字段不能拿空格/占位符凑
@@ -2834,15 +2952,42 @@ def _check_answer(obj, c):
         if not (has_num and has_why):
             bad.append("「大约多少功夫」必须同时含**数字**与**依据关键词**（依据 / 因为 / based on）："
                        "形如「2–4 小时；依据：判定点已定位」")
+    # ── 第 4 轮评审 P0-2：内容闸（原来只验字段，"不知道是什么 + 无 + 感觉"也能合格）──
+    miss_txt, real_missing = _missing_items(obj)
+    if ceil_v != "现在做不了":                     # 真做不了才允许「什么都不缺」
+        if not real_missing:
+            bad.append("「缺什么」不能空着或写占位（%s）：逐条写清还缺哪几样"
+                       "（例如「卡密有没有」「要不要复现证据」）；确实一样不缺，"
+                       "就先把「到哪一步」写成「现在做不了」再说明卡点"
+                       % (" / ".join(miss_txt) or "空"))
+    asks = [q for q in (obj.get("asks") or []) if isinstance(q, dict)]
+    if real_missing and not asks:
+        bad.append("「缺什么」列了 %d 项，却没有一条「请你选」（asks）："
+                   "缺的每一项都要用一道 2–4 选项的题问出来（每项写「选了会怎样」）"
+                   % len(real_missing))
+    if ceil_v in ("能改到能用", "能完全自己接管"):
+        blob = " ".join(real_missing) or " ".join(miss_txt)
+        if not re.search(r"证据|复现|验收", blob):
+            bad.append("承诺「%s」却没说清证据从哪来：承诺「缺什么」里必须至少提到"
+                       "「证据 / 复现 / 验收」之一（否则是空口承诺）" % ceil_v)
     r = c["ask_rules"]
-    for q in obj.get("asks") or []:
+    for q in asks:
         opts = q.get("options") or []
         if not (r["min_options"] <= len(opts) <= r["max_options"] + 1):
             bad.append("%s 选项数 %d 不在 %d–%d" % (q.get("id"), len(opts),
                                                    r["min_options"], r["max_options"]))
         for o in opts:
+            if not isinstance(o, dict):
+                bad.append("%s 里有非对象选项" % q.get("id"))
+                continue
             if r["require_consequence"] and not str(o.get("consequence") or "").strip():
                 bad.append("%s/%s 没写「选了会怎样」" % (q.get("id"), o.get("key")))
+            otext = " ".join(str(o.get(k) or "") for k in
+                             ("key", "text", "label", "consequence"))
+            if _ANSWER_JARGON.search(otext):
+                bad.append("%s/%s 的选项里出现内部话术（if_yes / if_no / 按…走）："
+                           "客户看不懂，改成「选了会怎样」的白话"
+                           % (q.get("id"), o.get("key")))
     text = json.dumps(obj, ensure_ascii=False)
     for p in c["forbidden_phrases"]:
         if p in text:
@@ -2881,9 +3026,29 @@ def cmd_answer(a):
                    + (1 if _check_answer(bad, c) else 0))
         extra_ok = ((1 if _check_answer(blank, c) else 0)
                     + (1 if _check_answer(noeff, c) else 0))
-        print("[answer --selftest] 基础 %d/2 通过；新增 %d/2 通过（共 %d/4）"
-              % (base_ok, extra_ok, base_ok + extra_ok))
-        return 0 if base_ok + extra_ok == 4 else 1
+        # 第 4 轮评审 P0-2 **内容闸**：只凑字段（说不清 + missing=无 + 不问）必须红；
+        # 内容讲清楚（判定/缺项/依据/选项后果）必须过。旧断言只验字段，正是被打穿的形态。
+        fake = {"judgment": "不知道是什么", "ceiling": "能改到能用",
+                "missing": ["无"], "effort": "1天；依据：感觉", "asks": []}
+        promise = {"judgment": "PE32+，无壳，本地常量比较", "ceiling": "能改到能用",
+                   "missing": ["卡密有没有", "要不要复现证据"],
+                   "effort": "2-4 小时；依据：判定点已定位",
+                   "asks": [{"id": "Q1", "options": [
+                       {"key": "A", "consequence": "走在线对比，能到更高一档"},
+                       {"key": "B", "consequence": "只离线判定，最多只能看懂结构"}]}]}
+        noask = dict(promise, asks=[])          # 缺两项却一条不问 → 红
+        jargon = dict(promise, asks=[{"id": "Q1", "options": [
+            {"key": "A", "consequence": "按 if_yes 走"},
+            {"key": "B", "consequence": "按 if_no 走"}]}])
+        content_ok = ((1 if _check_answer(fake, c) else 0)
+                      + (1 if not _check_answer(promise, c) else 0)
+                      + (1 if _check_answer(noask, c) else 0)
+                      + (1 if _check_answer(jargon, c) else 0))
+        print("[answer --selftest] %d/2 通过" % base_ok)      # 兼容旧断言（preflight 认 2/2）
+        print("[answer --selftest] 新增语义 %d/4 通过（拒凑字段 / 过内容 / 缺项必问 / 拒内部话术）"
+              % content_ok)
+        print("[answer --selftest] 合计 %d/8" % (base_ok + extra_ok + content_ok))
+        return 0 if (base_ok == 2 and extra_ok == 2 and content_ok == 4) else 1
     src = a.file or ""
     try:
         obj = json.load(open(src, encoding="utf-8")) if src else json.loads(_stdin_utf8())
@@ -2961,8 +3126,10 @@ def _safe_token(s):
 def cmd_repro(a):
     """证据结构化重放：跑 N 次比对输出指纹；一致 + 期望命中才给 E2。
 
-    P0-2（第 3 轮评审）：证据必须**真碰过目标** —— `--cmd` 里要出现本案目标的
-    basename / 绝对路径 / sha256 前 12 位以上；否则 `echo hi --expect hi` 就能冒充 E2/E3。
+    P0-2（第 3 轮评审）+ P0-1（第 4 轮）：证据必须**真跑过目标** —— `--cmd` 里要出现
+    本案目标的**完整路径**或 `sha256:<前12位>`；首个程序不得是 echo/printf/cat/type/dir/ls/tee
+    这类只回显的程序；解释器（python/node/powershell）的命令体里也要有目标。
+    否则 `echo mytarget.exe --expect mytarget` 就能冒充 E2/E3（旧判据只看有没有 basename）。
     没有 `--case` 时进 adhoc 模式（不绑目标，可给 `--adhoc <原因>` 记一笔），
     输出标 `[ADHOC] 未绑目标，不得用于交付`。
     `--out <dir>`（可选，必须在案件目录内）：每次运行的 stdout/stderr 落盘，sha256 进 artifacts。
@@ -3002,9 +3169,13 @@ def cmd_repro(a):
             return 2
     if case and not _cmd_binds_target(a.cmd, tinfo):
         sha = str(tinfo.get("sha256") or "").strip().lower()
-        print("[ERR] 证据必须碰过目标：命令里要出现 %s 或 %s"
-              % (tinfo.get("name") or "<目标名>",
-                 (sha[:12]) if len(sha) >= 12 else "<哈希前缀，本案未登记哈希>"))
+        print("[ERR] 证据必须是「真跑目标」的命令：%s"
+              % _cmd_evidence_problem(a.cmd, tinfo))
+        print("      本案可用的绑定字面量：%s / %s"
+              % (tinfo.get("path") or "<目标完整路径>",
+                 ("sha256:" + sha[:12]) if len(sha) >= 12 else "<哈希前缀，本案未登记哈希>"))
+        print("      反例：`echo %s` 不算（它没读目标）；`cat` / `type` / `ls` / `tee` 同样不算。"
+              % (tinfo.get("name") or "<目标名>"))
         return 2
     if case:
         _sha = str(tinfo.get("sha256") or "")
@@ -3046,7 +3217,7 @@ def cmd_repro(a):
             print("[WARN] 第 %d 次输出里没找到期望片段：%r" % (i + 1, a.expect))
     same = len(set(digests)) == 1
     expect_ok = bool(a.expect) and all(a.expect in o for o in outs)
-    _binds = bool(a.case) and _cmd_binds_target(a.cmd, a.case)
+    _binds = bool(a.case) and _cmd_binds_target(a.cmd, tinfo)
     grade = "E2" if (same and expect_ok and _binds) else "E1"
     if not _binds and same and expect_ok:
         print("[repro] 命令没有碰过本案目标（或未绑案）→ 最高只能 E1："
@@ -3059,8 +3230,8 @@ def cmd_repro(a):
     if alt_is_same and grade == "E2":
         print("[repro] 第二路与第一路是同一条命令，不算交叉验证 → 拒绝升级 E3，保持 %s" % grade)
     if alt and case and not _cmd_binds_target(alt, tinfo):
-        print("[repro] 第二路命令没碰目标（不含目标名/哈希前缀）→ 不算交叉验证，拒绝升级 E3，保持 %s"
-              % grade)
+        print("[repro] 第二路命令没真跑目标：%s → 不算交叉验证，拒绝升级 E3，保持 %s"
+              % (_cmd_evidence_problem(alt, tinfo), grade))
         alt_is_same = True  # 只用于关掉下面那段 E3 升级
     if grade == "E2" and alt and not alt_is_same:
         alt_d, alt_ok_all, alt_hit = [], True, True
@@ -3202,7 +3373,9 @@ CRED_RULES = (
 # ---------------------------------------------------------------- 报告 ID 对账（P0-4a）
 # 血案：`report --check` 以前只认 "E-/C-/F- 的形状"，写 `E-999` 也算“有证据 ID”。
 # 现在：**案件报告**（在 Tool/cases/<case>/ 下，或显式给了 --case）必须把每个 ID 对到该案
-# facts.jsonl；模板/孤立报告（不是案件报告）只查格式，绝不误伤 Tool/prompts/reports/* 与 templates/*。
+# facts.jsonl；**找不到账本时报告里不许出现 E-/C-/F- 编号**（第 4 轮评审 P0-3：
+# `E-999` 在白纸报告里白写也能过）。要给编号就得 `--case <案件目录>` 或把报告放进
+# `Tool/cases/<case>/`；模板里的占位编号同理（带 --case 才验得了）。
 REPORT_ID_RE = re.compile(r"\b([ECF])-(\d{2,})\b")
 
 
@@ -3213,7 +3386,7 @@ def _cases_root():
 def _case_for_report(path, case_arg=""):
     """报告 → 案件目录。返回 (case_dir|None, note)。
 
-    None = 模板/孤立报告：不做 ID 对账（只查五段格式）。
+    None = 找不到账本：**不许出现 E-/C-/F- 编号**（第 4 轮评审 P0-3），格式照查。
     P1（第 3 轮评审）：报告模板让交付物写 `work/<case>/report.md`，以前这种路径一律当
     "模板" → 假 ID 也能过。现在 `work/<name>/...` 会去 `Tool/cases/<name>/facts.jsonl` 对账；
     找不到再退回 `work/<name>/facts.jsonl`；两边都没有才打 `work-noledger:<name>`。
@@ -3330,10 +3503,10 @@ def cmd_report(a):
     if a.selftest:
         N = chr(10)
         good = (
-            "# r" + N + "## 1 结论" + N + "能到「只能看懂结构」" + N + "卡在壳上" + N            + "## 2 已确认" + N + "- x（E-001）" + N + "- y（C-002）" + N            + "## 3 仍未知" + N + "- z 缺实测" + N + "- w 需硬件" + N            + "## 4 下一步" + N + "- 省事：A" + N + "- 彻底：B" + N            + "## 5 怎么复查" + N + "- recheck.md" + N + "- 重放 E-001" + N)
+            "# r" + N + "## 1 结论" + N + "能到「只能看懂结构」" + N + "卡在壳上" + N            + "## 2 已确认" + N + "- x（E-001）" + N + "- y（C-002）" + N            + "## 3 仍未知" + N + "- z 缺实测" + N + "- w 需硬件" + N            + "## 4 下一步" + N + "- 省事：A" + N + "- 彻底：B" + N            + "## 5 怎么复查" + N + "- recheck.md" + N + "- resume --case <案件目录>；重放 E-001" + N)
         bad = "# r\n## 1 结论\nx\n"
-        ok = (1 if not _check_report(good) else 0) + (1 if _check_report(bad) else 0)
-        print("[report --selftest] %d/2 通过" % ok)
+        ok = 0          # 格式判据在下面建好临时账本后再算（good 带编号，必须有账本才合法）
+
 
         def _mk(ids, tail):
             return N.join([
@@ -3347,12 +3520,16 @@ def cmd_report(a):
         tmp = tempfile.mkdtemp(prefix="cs-report-")
         try:
             with open(os.path.join(tmp, "facts.jsonl"), "w", encoding="utf-8") as f:
-                f.write(json.dumps({"id": "F-001", "claim": "x", "status": "proven",
-                                    "evidence": ["a.log"], "how": "h"},
-                                   ensure_ascii=False) + N)
+                for _fid in ("F-001", "E-001", "C-002"):
+                    f.write(json.dumps({"id": _fid, "claim": "x", "status": "proven",
+                                        "evidence": ["a.log"], "how": "h"},
+                                       ensure_ascii=False) + N)
             with open(os.path.join(tmp, "case.json"), "w", encoding="utf-8") as f:
                 json.dump({"id": "t", "target_files": [
                     {"path": "target/a.exe", "sha256": "a" * 64}]}, f)
+            # 格式 2/2：good（有账本、编号真实）过；bad（缺段）必红
+            ok = ((1 if not _check_report(good, case_dir=tmp) else 0)
+                  + (1 if _check_report(bad) else 0))
             # ① 真实 ID + resume 命令 → 过
             ok2 += 1 if not _check_report(_mk("F-001", "resume --case " + tmp),
                                           case_dir=tmp) else 0
@@ -3362,8 +3539,15 @@ def cmd_report(a):
             # ③ 有 target_files 但复查段既无哈希前缀又无 resume → 必红
             nohash = _check_report(_mk("F-001", "recheck.md"), case_dir=tmp)
             ok2 += 1 if nohash and "复查段" in N.join(nohash) else 0
-            # ④ 模板/孤立报告（不传 case_dir）不做 ID 对账 → 假 ID 也能过格式
-            ok2 += 1 if not _check_report(_mk("E-999", "重放 E-999")) else 0
+            # ④ 第 4 轮 P0-3（旧断言是「不传 case_dir 时假 ID 也能过」，正是被打穿的口子）：
+            #    找不到账本 + 报告里有编号 → 必红，并提示 --case / 放进 Tool/cases/<case>/
+            noled = _check_report(_mk("E-999", "重放 E-999"))
+            ok2 += 1 if noled and "找不到账本" in N.join(noled) else 0
+            # ⑨ case 目录存在但**没有账本**（facts.jsonl 缺失）+ 报告有编号 → 同样必红
+            empty = os.path.join(tmp, "emptydir")
+            os.makedirs(empty, exist_ok=True)
+            lock = _check_report(_mk("F-001", "resume --case " + empty), case_dir=empty)
+            ok2 += 1 if lock and "找不到账本" in N.join(lock) else 0
             # ⑤ P1（第 3 轮评审）：work/<name>/report.md 必须对到 Tool/cases/<name> 的账本
             wroot = os.path.join(tmp, "Tool", "cases")
             os.makedirs(os.path.join(wroot, "wcase"), exist_ok=True)
@@ -3389,9 +3573,10 @@ def cmd_report(a):
                 globals()["_cases_root"] = _root0
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
-        print("[report --selftest] 新增语义 %d/8 通过"
-              "（ID 对账 / 假 ID 必红 / 复查段哈希 / 模板不误伤 / work 路径对账）" % ok2)
-        return 0 if (ok == 2 and ok2 == 8) else 1
+        print("[report --selftest] %d/2 通过" % ok)
+        print("[report --selftest] 新增语义 %d/9 通过"
+              "（ID 对账 / 假 ID 必红 / 复查段哈希 / 无账本禁编号 / work 路径对账）" % ok2)
+        return 0 if (ok == 2 and ok2 == 9) else 1
     src = a.file or ""
     if not src or not os.path.isfile(src):
         print("[ERR] 需要 --file <报告.md>")
@@ -3402,7 +3587,7 @@ def cmd_report(a):
         print("[ERR] case 目录不存在：%s" % os.path.abspath(case_arg))
         return 2
     text = open(src, encoding="utf-8", errors="replace").read()
-    bad = _check_report(text, case_dir=case_dir)
+    bad = _check_report(text, case_dir=case_dir, is_template=_is_template_path(src))
     for b in bad:
         print("[缺] " + b)
     if case_dir:
@@ -3414,19 +3599,37 @@ def cmd_report(a):
             print("[report] ID 对账通过：%d 个 E-/C-/F- ID 全部存在于 %s/facts.jsonl"
                   % (len(refs), case_dir))
     else:
+        if _is_template_path(src):
+            print("[report] 模板文件：未做 ID 对账（模板里的 E-001 是占位符，不是交付物）"
+                  " —— 交付物请放进 Tool/cases/<case>/ 或给 --case")
+            if not bad:
+                print("[PASS] 报告五段齐全")
+            return 0 if not bad else 1
         if cnote.startswith("work-noledger:"):
             _wn = cnote.split(":", 1)[1]
-            print("[report] 未做 ID 对账（work/%s 无对应账本）：既没有 Tool/cases/%s/facts.jsonl，"
-                  "也没有 work/%s/facts.jsonl；先建账本或把报告放进案件目录"
+            print("[report] 找不到账本（work/%s 无对应账本）：既没有 Tool/cases/%s/facts.jsonl，"
+                  "也没有 work/%s/facts.jsonl —— 报告里若出现 E-/C-/F- 编号即 FAIL（没法核对）"
                   % (_wn, _wn, _wn))
         else:
-            print("[report] 未做 ID 对账（不是案件报告）：%s 不在 Tool/cases/<case>/ 下，"
-                  "也不在 work/<case>/ 下，且未给 --case；本次只做五段格式检查" % src)
+            print("[report] 找不到账本（不是案件报告）：%s 不在 Tool/cases/<case>/ 下，"
+                  "也不在 work/<case>/ 下，且未给 --case —— 报告里若出现 E-/C-/F- 编号即 FAIL；"
+                  "给它 --case <案件目录>，或把报告放进 Tool/cases/<case>/" % src)
     print("[PASS] 报告五段齐全" if not bad else "[FAIL] 报告不合格（%d 项）" % len(bad))
     return 0 if not bad else 1
 
 
-def _check_report(text, case_dir=None):
+def _is_template_path(path):
+    """模板文件判定：Tool/prompts/ 下的是模板（E-001 是占位符），不是可交付报告。
+
+    为什么需要：第 4 轮评审要求"无账本 + 报告里有证据编号 → 必红"，
+    但模板天然没有账本。若不给模板开后门，10 份模板会全部被判红——
+    那不是诚实，是把"模板"和"交付物"混为一谈。
+    """
+    p = str(path or "").replace(chr(92), "/")
+    return "/Tool/prompts/" in p or p.startswith("Tool/prompts/")
+
+
+def _check_report(text, case_dir=None, is_template=False):
     """报告校验（2026-10-25 外部评审 3.3：原来只查标题存在，"空内容"能绕过）。
 
     现在要求：
@@ -3438,7 +3641,9 @@ def _check_report(text, case_dir=None):
       ⑥ 凭据扫描（PM-SPEC §11）：命中私钥块 / AK / 明文口令赋值 / Bearer 令牌即不合格。
     ⑦ P0-4a：给了案件目录（case_dir）时，每个 E-/C-/F- ID 必须存在于该案 facts.jsonl；
        有 target_files 时，复查段还要提到目标哈希前缀或 resume 命令。
-    不传 case_dir（模板/孤立报告）= 只做 ①–⑥，不做 ⑦（不误伤模板）。
+       P0-3（第 4 轮评审）：没账本就禁编号 —— case_dir 为空、或其中没有 facts.jsonl
+       而报告里出现 E-/C-/F- 编号 → 不合格（`E-999` 白写也能过就是这里漏的）。
+       修法：给它 `--case <案件目录>`，或把报告放到 `Tool/cases/<case>/`。
     """
     import re as _re
     bad = []
@@ -3458,13 +3663,26 @@ def _check_report(text, case_dir=None):
     for sec in SECTIONS:
         if sec not in idx:
             bad.append("缺段：" + sec)
-    # ⑦ ID 对账：只有案件报告才做（模板/孤立报告不误伤）
+    # ⑦ ID 对账（第 4 轮评审 P0-3）：没有账本就**不许出现编号** —— 否则 `E-999` 白写也能过。
     if case_dir:
-        refs, missing = _reconcile_report_ids(text, case_dir)
-        if missing:
-            bad.append("ID 对账失败：报告引用了 facts.jsonl 里不存在的 ID：%s（已核对 %d 个）—— "
-                       "要么在账本里补这条结论，要么把报告改成真实存在的 ID"
-                       % ("、".join(missing), len(refs)))
+        ledger = os.path.join(case_dir, "facts.jsonl")
+        refs = _report_id_refs(text)
+        if not os.path.isfile(ledger) and refs:
+            bad.append("找不到账本（%s 不存在），无法核对证据编号：%s —— 先建案并把证据写进账本"
+                       "（prove/repro），或把报告放到 `Tool/cases/<case>/` 下"
+                       % (ledger, "、".join(refs[:6])))
+        else:
+            refs, missing = _reconcile_report_ids(text, case_dir)
+            if missing:
+                bad.append("ID 对账失败：报告引用了 facts.jsonl 里不存在的 ID：%s（已核对 %d 个）—— "
+                           "要么在账本里补这条结论，要么把报告改成真实存在的 ID"
+                           % ("、".join(missing), len(refs)))
+    else:
+        refs = _report_id_refs(text)
+        if refs and not is_template:
+            bad.append("找不到账本，无法核对证据编号：报告里写了 %s。给它 `--case <案件目录>`，"
+                       "或把报告放到 `Tool/cases/<case>/`（账本 = 该目录的 facts.jsonl）"
+                       % "、".join(refs[:6]))
     if bad:
         return bad
     order = sorted(idx.items(), key=lambda kv: kv[1])
@@ -3722,8 +3940,17 @@ def _self_test():
         echo_rec = dict(base, cmd="echo hi", also_cmd="echo bye", grade="E3")
         assert not _is_complete_repro(echo_rec); checks += 1
         assert not _is_complete_e3(echo_rec); checks += 1
-        # 哈希前缀（>=12 位）也算绑定
-        assert _is_complete_repro(dict(base, cmd="python t.py abababababab")); checks += 1
+        # 哈希绑定要写成 `sha256:<前12位>`（只写裸哈希 = 看不出那是什么，不再算）
+        assert _is_complete_repro(dict(base, cmd="python t.py sha256:abababababab")); checks += 1
+        assert not _is_complete_repro(dict(base, cmd="python t.py abababababab")); checks += 1
+        # 第 4 轮评审 P0-1：**出现目标全路径也不行**，首个程序是 echo/cat 就一律不算
+        # （`echo D:/samples/target.bin` 只是把路径打出来，没读过目标）
+        assert not _is_complete_repro(dict(base, cmd="echo D:/samples/target.bin")); checks += 1
+        assert not _is_complete_repro(dict(base, cmd="cat D:/samples/target.bin")); checks += 1
+        # 只写 basename 不够（旧判据被 `echo target.bin` 打穿）
+        assert not _is_complete_repro(dict(base, cmd="python t.py target.bin")); checks += 1
+        # 解释器命令里根本没提目标（`python -c "print(1)"`）→ 规则①就不过
+        assert not _is_complete_repro(dict(base, cmd="python -c \"print(1)\"")); checks += 1
         # 交付闸传本案目标时，账本命令对不上目标 → 不算（防手写一条别的目标的 repro）
         other = {"path": "D:/samples/other.bin", "name": "other.bin", "sha256": "cd" * 32}
         assert not _is_complete_repro(base, other); checks += 1

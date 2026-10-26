@@ -29,7 +29,7 @@
   "allow": [
     "cmd-guard-skip"
   ],
-  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再在命令里加 `cmd-guard-skip`。",
+  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再在命令里加 `cmd-guard-skip`。\n\n**第 4 轮（解释器内联 + 系统动作变体）新增 17 条 block**：`interp-*` 6 条只匹配**解释器命令体**（`python -c` / `python - <<` / `powershell -c` 之后 `[^\\n;&|]{0,60}` 内出现 `-c`/`<<` 才算，`python Tool/scripts/*.py` 这类脚本路径永不命中）；`sys-*` 10 条 + `fs-bash-read-userprofile` 1 条按命令行文本匹配，与解释器无关。解释器内联的 argv 形态（`subprocess.run(['netsh','winhttp',...])`）没有命令字样子串，必须靠 `interp-subprocess-sysop` 这类「看代码」的规则兜。**已知误伤形态**：① 文档/JSON 里正常写出禁手字面量（非 heredoc、非 grep 段）会被拦，加 `cmd-guard-skip`；② `python -c` 之后 60 字符内另有一个 `-c`（如 `... ; grep -c`）理论上可能误判，实际还要同时出现危险 token 才会命中；③ `icacls <路径>` 只读列出不拦，带任何开关（`/grant` `/reset` …）都拦；④ `python - <<PY` 形式：命中位置在 `<<` 之前（规则从解释器 token 起匹配），所以不受 heredoc「数据区豁免」影响 —— 这是刻意为之，因为 heredoc 体确实会被执行。",
   "denyRules": [
     {
       "id": "sys-driver-install",
@@ -183,8 +183,144 @@
       "re": "\\bgit\\s+reset\\s+--hard\\b",
       "label": "git reset --hard（丢提交 + 丢工作区）",
       "hint": "改用什么：先 `git branch backup-<时间戳>` 打留底指针，或改 `git reset --soft <commit>`（保留改动到暂存区）；确实要硬回退前先 `git stash -u`。"
+    },
+    {
+      "id": "interp-os-delete",
+      "severity": "block",
+      "why": "`python -c` 里的 `os.remove`/`os.unlink` 等价于 `rm`：直接删用户文件、不进回收站、无 diff 无日志（第 4 轮评审实测：这条在 rules.json 零命中）。写成 `python -c` 只是把删除动作藏进引号里，副作用层级和 `rm -f` 完全一样（L4 不可逆）。",
+      "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?os\\.(?:remove|unlink|rmdir|removedirs)\\s*\\(",
+      "label": "解释器内联删文件（python -c … os.remove / os.unlink / os.rmdir）",
+      "hint": "改用什么：① 先留底 `cp -r <目标> work/_trash/<时间戳>/`，再删**副本**；② 需要批量清理就用 `python Tool/scripts/<自己的脚本>.py`（脚本进版本库、路径参数显式），不要用 `-c` 内联；③ 目标在仓库外/用户目录 → 先让用户确认，再 `cmd-guard-skip`。"
+    },
+    {
+      "id": "interp-shutil-wipe",
+      "severity": "block",
+      "why": "`shutil.rmtree('C:/Users/me/Documents')` 一次删掉整棵用户目录树，且 `shutil.move` 还会**覆盖**目标同名文件。内联形态绕过所有 shell 层删除规则（第 4 轮评审实测零命中）。",
+      "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?(?:shutil\\.(?:rmtree|move|rmdir)\\s*\\(|os\\.(?:rename|replace)\\s*\\(|\\.unlink\\s*\\()",
+      "label": "解释器内联递归删目录/移动覆盖（python -c … shutil.rmtree / shutil.move）",
+      "hint": "改用什么：① `shutil.copytree(<目标>, 'work/_trash/<时间戳>')` 先复制留底，再删副本；② 真要清理就写成仓库内脚本（可 review、可回滚）；③ 目标含用户文件 → 先列清单给用户确认 + `cmd-guard-skip`。"
+    },
+    {
+      "id": "interp-winreg-write",
+      "severity": "block",
+      "why": "`winreg` 直接落盘写注册表，绕过 `reg add` 的全部 shell 规则；写 HKCU 会改用户配置，写 HKLM（HKEY_LOCAL_MACHINE）等于改整机行为且难还原（第 4 轮评审实测零命中）。",
+      "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?winreg\\.(?:SetValue|SetValueEx|CreateKey|CreateKeyEx|DeleteKey|DeleteKeyEx|DeleteValue|SetKeyValue|SaveKey)",
+      "label": "解释器内联写注册表（python -c … winreg.CreateKey/SetValueEx）",
+      "hint": "改用什么：① 只读取证用 `winreg.OpenKey(..., KEY_READ)` + `EnumValue`（不拦）；② 需要改 HKCU 就显式跑 `reg export <key> work/reg-backup.reg` 备份后再说；③ HKLM / 系统项 → 不做，交给用户在 VM 里做。"
+    },
+    {
+      "id": "interp-subprocess-sysop",
+      "severity": "block",
+      "why": "评审实测：`python -c \"import subprocess; subprocess.run(['netsh','winhttp','set','proxy','x'])\"` 在旧规则里零命中 —— 因为规则匹配的是**命令行**，而这串是**引号里的 argv**。argv 形式（`['netsh','winhttp',...]`）连 `netsh winhttp set proxy` 的字样子串都没有，只有拆开的元素。破坏力等同直接敲那条命令：整机代理/网卡/引导/服务/计划任务/卷影（L3/L4）。",
+      "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py|pwsh|powershell(?:\\.exe)?)\\b[^\\n;&|]{0,80}?(?:-c\\b|-command\\b|<<)[\\s\\S]{0,200}?(?:subprocess|os\\.system|os\\.popen|os\\.exec\\w*)[\\s\\S]{0,200}?(?:netsh|bcdedit|schtasks|wmic|wevtutil|vssadmin|diskpart|takeown|icacls|certutil|\\breg(?:\\.exe)?\\W{1,4}(?:add|delete|import)|\\bsc(?:\\.exe)?\\W{1,4}(?:create|config|start|delete)|\\broute\\W{1,4}(?:add|delete|change))",
+      "label": "解释器内联拉起系统工具（python -c … subprocess.run(['netsh'…])）",
+      "hint": "改用什么：① 只读查现状：`netsh winhttp show proxy`、`sc query <名>`、`bcdedit /enum`（都不拦）；② 要观察网络就进程内 hook 或回环代理，不要 argv 调 netsh；③ 确实必要 → 先 `python Tool/scripts/net-rollback.py snapshot`，再 `cmd-guard-skip`。"
+    },
+    {
+      "id": "interp-ctypes-memwrite",
+      "severity": "block",
+      "why": "`ctypes.windll.kernel32.WriteProcessMemory(...)` 是**直接改另一个进程的内存**（L1），也是注入器的最小骨架：OpenProcess → VirtualAllocEx → WriteProcessMemory → CreateRemoteThread。它在解释器里跑，任何 shell 层规则都看不见。",
+      "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?ctypes\\.(?:windll|WinDLL|cdll|CDLL)[\\s\\S]{0,120}?kernel32[\\s\\S]{0,200}?(?:WriteProcessMemory|NtWriteVirtualMemory|VirtualAllocEx|VirtualProtectEx|CreateRemoteThread|OpenProcess|VirtualAlloc)",
+      "label": "解释器内联调 Win32 写别的进程内存（ctypes.windll.kernel32 + WriteProcessMemory/CreateRemoteThread）",
+      "hint": "改用什么：① 要读/改目标进程内存，走调试器通道（x64dbg MCP / Frida）：`Tool/scripts/mcp-bridge-x64dbg.py`、Frida `Process.enumerateModules()`/`Memory.read`；② 这些通道有 undo 语义（可 remove breakpoint、可 detach），ctypes 裸写没有；③ 目的若是 patch 校验，先落盘补丁脚本进 `work/`。"
+    },
+    {
+      "id": "interp-net-replay",
+      "severity": "block",
+      "why": "内联重放 = 用用户的真实 IP 对第三方服务器发请求（可能是重放攻击、可能是打目标服务端）。属**需确认**动作：① 出网痕迹留在用户机器上；② 请求可能带真实凭据/设备指纹；③ 一旦打的是生产服务，后果不可撤回（L3）。回环地址（127.0.0.1 / localhost）不拦 —— 本地抓包/自建服务是正当手段。",
+      "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)(?=[\\s\\S]{0,400}?https?://(?!127\\.0\\.0\\.1|localhost|0\\.0\\.0\\.0|\\[::1\\]))[\\s\\S]{0,300}?(?:requests\\.(?:get|post|put|patch|delete|request)|urllib\\.request|urlopen|http\\.client|aiohttp)",
+      "label": "解释器内联发网络请求（python -c … requests/urllib 打非回环地址）",
+      "hint": "改用什么：① 抓包重放用 mitmproxy 的 replay（`mitmproxy -p 8080` 后 `replay.client`），报文留在 `work/`；② 只想看请求内容：目标进程内 hook `WinHttpSendRequest`/`SSL_write`，不发真实请求；③ 确实要出网 → 先把 URL、方法、body 摘要贴给用户确认，再 `cmd-guard-skip`。"
+    },
+    {
+      "id": "sys-netsh-winhttp-write",
+      "severity": "block",
+      "why": "`netsh winhttp set proxy` 是**整机生效**的：假代理一死，所有走 WinHTTP 的程序（浏览器/更新/客户端）全部失联。评审要求这条即使在解释器外也必须拦（含 `netsh.exe` 与 `/f` 变体）。",
+      "re": "\\bnetsh(?:\\.exe)?\\s+winhttp\\s+(?:set|import|add)\\b",
+      "label": "改 WinHTTP 全局代理（netsh winhttp set proxy）",
+      "hint": "改用什么：① 只读查：`netsh winhttp show proxy`（不拦）；② 要抓某个进程就把代理收敛到进程内（Frida hook `WinHttpOpen` 的代理参数）；③ 还原：`netsh winhttp reset proxy` 或 `python Tool/scripts/net-rollback.py restore`。"
+    },
+    {
+      "id": "sys-netsh-interface-write",
+      "severity": "block",
+      "why": "`netsh interface set interface \"Ethernet\" disable` 会直接掐断用户正在上网的网卡；`ipv4 add address` 会打乱源地址选择（本仓库历史上真的断过网）。只读查询（`show`）不拦。",
+      "re": "\\bnetsh(?:\\.exe)?\\s+(?:int|interface)\\b[^\\n;&|]{0,60}?\\b(?:set|add|delete|reset|enable|disable)\\b",
+      "label": "改网卡/接口状态（netsh interface set|add|disable …）",
+      "hint": "改用什么：① 只读现状：`netsh interface show interface`、`ipconfig /all`；② 要复现断网/慢网就在 VM 快照里做；③ 必须改 → 先 `python Tool/scripts/net-rollback.py snapshot` 再 `cmd-guard-skip`。"
+    },
+    {
+      "id": "sys-route-write",
+      "severity": "block",
+      "why": "`route add 0.0.0.0 mask 0.0.0.0 <网关>` 是断网的标准姿势，而且 `-p` 持久化后会**重启仍在**。网络层写操作一律不做（L3）。",
+      "re": "(?:^|[\\s;&|(])route(?:\\.exe)?\\s+(?:-p\\s+)?(?:add|delete|change)\\b",
+      "label": "改路由表（route add/delete/change）",
+      "hint": "改用什么：① 只读查表：`route print`（不拦）；② 要看流量去向用 Wireshark/`pktmon` 抓包；③ 要隔离目标网络就在 VM 里改虚拟网卡，不动宿主路由表。"
+    },
+    {
+      "id": "sys-reg-add-force",
+      "severity": "block",
+      "why": "`/f` = **不询问直接覆盖**：既不给用户看到要写什么，也不留确认点；和 `reg add` 一起就是无提示改系统/用户配置（L2/L3）。",
+      "re": "\\breg(?:\\.exe)?\\s+(?:add|delete|import)\\b[\\s\\S]{0,200}?/f\\b",
+      "label": "静默写/删注册表（reg add … /f）",
+      "hint": "改用什么：① 先 `reg export <key> work/reg-backup.reg` 备份，再去掉 `/f` 让系统自己提示；② 只读查：`reg query <key>`（不拦）；③ 目标程序要的配置尽量只写 HKCU，并在 facts 里记一笔还原方法。"
+    },
+    {
+      "id": "sys-sc-create-config",
+      "severity": "block",
+      "why": "注册服务 = 往用户机器写常驻项 + 开机自启；`sc create evilsvc binPath= C:\\x.exe` 就是最经典的持久化。逆向不需要它。",
+      "re": "(?:^|[\\s;&|(])sc(?:\\.exe)?\\s+(?:create|config|failure|sdset|start|stop|delete)\\b",
+      "label": "增删改系统服务（sc.exe create|config|start|delete）",
+      "hint": "改用什么：① 只读查：`sc query <名>`（不拦）；② 要跑目标程序就直接跑（`launch-gui.ps1 -Mode user`），不要注册成服务；③ 要在前台挂起调试就用调试器 attach，别用服务宿主。"
+    },
+    {
+      "id": "sys-bcdedit-write",
+      "severity": "block",
+      "why": "`bcdedit /set testsigning on` 关掉驱动签名强制（降低整机安全姿态），`/set nx AlwaysOff` 关 DEP（第 4 轮评审的陷阱之一），写错还会让机器起不来。只读的 `bcdedit /enum` 不拦。",
+      "re": "\\bbcdedit(?:\\.exe)?\\b[\\s\\S]{0,80}?/(?:set|setglobal|delete|deletevalue|create|import|copy|timeout|bootsequence|displayorder|toolsdisplayorder)\\b",
+      "label": "改引导配置（bcdedit /set testsigning on 等）",
+      "hint": "改用什么：① 只读：`bcdedit /enum`（不拦）；② 要跑未签名驱动就在 VM 里做快照后再改；③ 需要 readme 级信息就用 `bcdedit /enum {current}` 导出文本。"
+    },
+    {
+      "id": "sys-vssadmin-shadow-delete",
+      "severity": "block",
+      "why": "卷影副本是用户唯一的回滚路径，删了 = 前面所有破坏都不可恢复（L4）。勒索软件第一件事就是这条。",
+      "re": "\\bvssadmin(?:\\.exe)?\\s+delete\\s+(?:shadows|shadowstorage)\\b",
+      "label": "删卷影/系统还原点（vssadmin delete shadows）",
+      "hint": "改用什么：① 只读列：`vssadmin list shadows`（不拦）；② 要省空间请用户自己决定，不要代做；③ 需要历史版本做对比 → 先 `vssadmin list shadows` 找到副本再 `mklink /d` 只读挂一份副本出来。"
+    },
+    {
+      "id": "sys-wevtutil-clear",
+      "severity": "block",
+      "why": "清日志同时销毁两样东西：用户机器的审计痕迹（不可逆，L4）和**你自己的取证基线**（排查崩溃/蓝屏时全靠它）。",
+      "re": "\\bwevtutil(?:\\.exe)?\\s+(?:cl|clear-log)\\b",
+      "label": "清空系统事件日志（wevtutil cl）",
+      "hint": "改用什么：① 导出再分析：`wevtutil epl Security work/security.evtx`（不拦）；② 过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=...}`；③ 自己的实验机确实要清 → 先 epl 备份 + `cmd-guard-skip`。"
+    },
+    {
+      "id": "sys-disk-format-wipe",
+      "severity": "block",
+      "why": "这三条都直接落在**磁盘**上：`format` 抹卷、`diskpart clean` 抹分区表、`cipher /w` 反复覆写空闲区（删掉的东西永远找不回来）。L4，一律不做。",
+      "re": "(?:^|[\\s;&|(])(?:diskpart(?:\\.exe)?\\b|format(?:\\.com)?\\s+(?:[a-zA-Z]:|/fs:|/q\\b|/y\\b)|cipher(?:\\.exe)?\\b[\\s\\S]{0,40}?/w\\b)",
+      "label": "分区/格式化/擦盘（diskpart、format X:、cipher /w）",
+      "hint": "改用什么：① 只读看布局：`Get-Disk`、`Get-Volume`、`Get-Partition`（不拦）；② 要干净的测试盘 → 让用户插一块专用盘/用 VM 虚拟盘；③ 只能你自己动手时先让用户确认盘符并 `cmd-guard-skip`。"
+    },
+    {
+      "id": "sys-owner-takeover",
+      "severity": "block",
+      "why": "`takeown /f` + `icacls /grant` 是「先夺权再改写系统文件」的固定套路；`icacls /reset` 会把权限打回继承态，可能让用户自己都打不开文件（L3，且事后难还原）。",
+      "re": "(?:^|[\\s;&|(])takeown(?:\\.exe)?\\s+(?:/[a-z]+\\s+)*/f\\b|icacls(?:\\.exe)?\\b[\\s\\S]{0,100}?/(?:grant|deny|reset|setowner|remove)\\b",
+      "label": "夺取文件所有权/改 ACL（takeown /f、icacls /grant|/reset）",
+      "hint": "改用什么：① 只读看权限：`icacls <路径>`（不带开关，不拦）、`Get-Acl <路径>`；② 目标文件被占用/只读 → 复制到 `work/` 再改副本；③ 确实要动系统文件权限 → VM 快照 + 让用户确认。"
+    },
+    {
+      "id": "fs-bash-read-userprofile",
+      "severity": "block",
+      "why": "评审第 3 条：读工具的边界问题本层改不了，但**用 bash 去读**这一步能挡 —— 用户目录里的 `passwords.txt`、`.ssh/id_rsa`、浏览器 Cookies 一旦被读出来就进了会话上下文（不可撤回的泄漏）。`%TEMP%` / `work/` / 仓库内路径不放行拦截（`AppData\\Local\\Temp` 已排除）。",
+      "re": "(?:^|[\\s;&|(])(?:cat|type|more|less|head|tail|strings|grep|egrep|rg|findstr|awk|sed|Get-Content|gc|Select-String|cp|copy|xcopy|robocopy|tar|zip|ls|dir)(?:\\.exe)?\\s+[^\\n;&|]{0,160}?(?:[A-Za-z]:[\\\\/])?(?:Users|home)[\\\\/][^\\\\/\\s']+[\\\\/](?:Documents|Desktop|Downloads|Pictures|Videos|Music|OneDrive|\\.ssh|\\.aws|\\.gnupg|AppData[\\\\/](?:Roaming|Local)[\\\\/](?!Temp))",
+      "label": "用 bash 读/拷用户私有目录（Documents / Desktop / Downloads / .ssh / AppData）",
+      "hint": "改用什么：① 只处理仓库内样本：`work/samples/…`、`Tool/…`；② 用户自己的文件 → 请用户把文件复制到 `work/inputs/` 并说明用途，再读那一份；③ 确实必须就地读 → 先说明读哪个文件、为什么，让用户确认后加 `cmd-guard-skip`。"
     }
-  ],
+    ],
   "_disableDeny说明": "按 id 关掉某条内置禁手。内置 id: net-ip-alias / net-iface-write / net-winhttp-write / net-dns-write / net-route-write / net-winsock-reset / launch-start-process / launch-cmd-start / launch-subprocess。只有「本机就是一次性靶机、且已 snapshot」时才关。",
   "disableDeny": []
 }

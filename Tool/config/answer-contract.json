@@ -70,6 +70,20 @@
     "run_ack": {
       "ttl_minutes": 60,
       "require_case_target": true
-    }
+    },
+    "exec_tools": [
+      "seep_r2_cmd"
+    ],
+    "never_writable": [
+      "~/.seep/answer-pass.json",
+      "~/.seep/run-ack.json",
+      "~/.seep/current-case",
+      "~/.pi/agent/**",
+      "**/cmd-guard.rules.json",
+      "**/answer-contract.json",
+      "**/AGENTS.md",
+      "**/SEEP.md"
+    ],
+    "_why": "第 4 轮评审四个 P0 的执行层答案：（1）never_writable = 闸的凭证/规则/契约/提示词永久禁写，判定优先于任何允许根（Tool/ 可写也压不住），契约只能往名单里加、减不掉 answer-gate.ts 里硬编码的 NEVER_WRITABLE 兜底——否则被约束方可以自己写 answer-pass.json 把闸拆了；（2）exec_tools 里的工具（seep_r2_cmd）会在本机对目标跑命令，算「可执行目标」，除首答外还要运行回执；（3）运行回执只认字母 A/C——B 是「先别运行」，拿它开闸等于把否决当批准；（4）whitelist 只收纯读取工具，裸名（seep_kb_search）与全名（mcp__seep__seep_kb_search）都认，其它 mcp__* 服务（x64dbg / ida …）一律按分析动作处理，没有首答就发不出去。"
   }
 }

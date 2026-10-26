@@ -22,10 +22,14 @@
  * 为什么不再写 events.jsonl：事件账以前单独一份，gate / verify 根本不读它，
  * 于是「跑过什么」无法参与判定。现在 tool 动作以 kind:"event" 进唯一账本。
  *
- * case 目录解析顺序：
+ * case 目录解析顺序（依次探，取第一个**真实存在**的目录）：
  *   1. 环境变量 SEEP_CASE_DIR
  *   2. <cwd>/.seep-case
- *   目录不存在 → **静默跳过**：不创建目录、不报错、不打扰（没开案子的普通会话不该被记账）。
+ *   3. ~/.seep/current-case —— 该文件**内容是一行绝对路径**（case_state.py init 写的机器级指针），
+ *      不是目录。血案：以前只认 1/2 两个候选，而 `case_state.py` 把当前案写在 3 上，
+ *      于是“开了案子、账却是空的”—— 自动事件账全程空转（第 4 轮评审 P1-4）。
+ * 三个候选都不存在（或指针文件读不到/内容不是目录） → **静默跳过**：不创建目录、不报错、
+ * 不打扰（没开案子的普通会话不该被记账）。
  *
  * ── risk 的语义（重要，别读错）────────────────────────────────
  *   risk 是「这条动作按本地规则表的等级」，**不等于它真的被拦了**。
@@ -48,6 +52,7 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -187,14 +192,75 @@ function redact(s: string): string {
 	return out;
 }
 
-/** case 目录：SEEP_CASE_DIR → <cwd>/.seep-case。 */
+/** 机器级“当前案”指针文件：`~/.seep/current-case`，内容是一行绝对路径。 */
+function currentCasePointer(): string {
+	try {
+		const home =
+			(process.env.HOME || process.env.USERPROFILE || "").trim() ||
+			(() => {
+				try {
+					return os.homedir();
+				} catch {
+					return "";
+				}
+			})();
+		return home ? path.join(home, ".seep", "current-case") : "";
+	} catch {
+		return "";
+	}
+}
+
+/** 指针文件内容 → 绝对路径（只取第一行；读不到/空内容返回 ""）。 */
+function caseDirFromPointer(): string {
+	try {
+		const f = currentCasePointer();
+		if (!f) return "";
+		const line = fs
+			.readFileSync(f, "utf-8")
+			.split(/\r?\n/)
+			.map((s) => s.trim())
+			.find((s) => s.length > 0);
+		if (!line) return "";
+		// 文件内容是绝对路径；相对路径 = 坏指针，不当真（否则会跟着 cwd 漂）
+		if (!path.isAbsolute(line)) return "";
+		return path.resolve(line);
+	} catch {
+		return "";
+	}
+}
+
+function isDir(d: string): boolean {
+	try {
+		return !!d && fs.existsSync(d) && fs.statSync(d).isDirectory();
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * 候选顺序：SEEP_CASE_DIR → <cwd>/.seep-case → ~/.seep/current-case。
+ * 返回第一个**真实存在**的目录；都不存在时返回主候选（不存在的路径），让 caseExists() 判 false。
+ */
 function caseDirOf(cwd: string): string {
+	const cands: string[] = [];
 	try {
 		const raw = process.env.SEEP_CASE_DIR;
-		if (raw && raw.trim()) return path.resolve(raw.trim());
-		return path.resolve(cwd || process.cwd(), ".seep-case");
+		if (raw && raw.trim()) cands.push(path.resolve(raw.trim()));
+	} catch {}
+	try {
+		cands.push(path.resolve(cwd || process.cwd(), ".seep-case"));
+	} catch {}
+	try {
+		const pointed = caseDirFromPointer();
+		if (pointed) cands.push(pointed);
+	} catch {}
+	for (const c of cands) {
+		if (isDir(c)) return c;
+	}
+	try {
+		return cands[0] || path.resolve(".seep-case");
 	} catch {
-		return path.resolve(".seep-case");
+		return ".seep-case";
 	}
 }
 
@@ -208,12 +274,16 @@ function cwdOf(ctx: any, fallback: string): string {
 
 /** 案例目录不存在 → 整个扩展空转（不创建、不报错）。 */
 function caseExists(cwd: string): boolean {
-	try {
-		const d = caseDirOf(cwd);
-		return fs.existsSync(d) && fs.statSync(d).isDirectory();
-	} catch {
-		return false;
-	}
+	return isDir(caseDirOf(cwd));
+}
+
+/**
+ * 自检钩子：把「当前案目录解析」暴露出来，便于在不开会话的情况下验证解析顺序
+ * （`node --experimental-strip-types` 直接 import 本文件）。
+ * 不参与扩展注册，也不改变任何行为：它只是 caseDirOf 的别名。
+ */
+export function resolveCaseDirForTest(cwd: string): string {
+	return caseDirOf(cwd);
 }
 
 /* ───────────────────── 串行写盘 + 事件号 ───────────────────── */

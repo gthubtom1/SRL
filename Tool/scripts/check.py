@@ -9,6 +9,15 @@
     python Tool/scripts/check.py            # 全量（约 3-4 分钟）
     python Tool/scripts/check.py --fast     # 只跑快的（约 1 分钟；提交前用）
     python Tool/scripts/check.py --list     # 列出会跑哪些套件
+    python Tool/scripts/check.py --fix      # 只重生成**生成物**（docs/HANDOFF.md 状态块）；不改期望值
+
+`--fix` / `--prep` 的边界（第 4 轮评审 P1-1；PM-SPEC §8）：
+    **只许重生成生成物，不许把期望值改成当前实测。**
+    - 会改：docs/HANDOFF.md 的 §1 状态块（它就是 `case_state.py handoff --repo` 的输出，
+      标着「生成，勿手改」；不改它就必然红「落后 ≤1 提交」）。
+    - 不会改：MANUAL/BASELINE-FREEZE.md 里的 first-party 文件数等**期望值**。
+      检测到漂移时只打印漂移 + 修法，让人自己决定改数字还是改代码。
+      理由：期望值一旦被脚本跟着实测跑，「基数在涨」就永远绿 —— 判据变成自证。
 
 退出码：0 = 全过；1 = 有失败。任何失败都会打印套件名 + 首行原因。
 """
@@ -55,6 +64,49 @@ SUITES = [
 ]
 
 
+def report_baseline_drift():
+    """检测 BASELINE-FREEZE 的期望值与实测是否漂移 —— 只报修法，绝不写文件。"""
+    import re as _re
+    bp = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
+    try:
+        p = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "preflight.py"), "--fast"],
+                           cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=300,
+                           env=CHILD_ENV).stdout
+    except Exception as e:  # noqa: BLE001
+        print("[BASELINE] 漂移检测未完成（%s）：未写入任何文件" % str(e)[:60])
+        return
+    drift = [l.strip() for l in (p or "").splitlines() if "BASELINE-FREEZE:" in l]
+    if not drift:
+        print("[BASELINE] 无漂移（期望值与实测一致，或本轮没跑到该项）")
+        return
+    print("[BASELINE] 检测到漂移（只报，不改）：")
+    for d in drift:
+        print("  - " + d)
+    m = _re.search(r"first-party\s*写\s*(\d+)[^0-9]*(\d+)", " ".join(drift))
+    expect, actual = (m.group(1), m.group(2)) if m else ("<写死值>", "<实测值>")
+    line_no = "?"
+    try:
+        # 取**度量行**（形如 `| first-party 文件（口径…） | 940 | **950** |`）：
+        # 只写“first-party 文件数”的叙述行不能当成那个格子。
+        for i, ln in enumerate(open(bp, encoding="utf-8", errors="replace").read().splitlines(), 1):
+            if "first-party" in ln and _re.search(r"\|\s*\d{1,5}\s*\|", ln):
+                line_no = str(i)
+                break
+    except Exception:  # noqa: BLE001
+        pass
+    print("[BASELINE] 拒绝改期望：期望值 %s / 实测 %s —— 脚本不替人改基线（PM-SPEC §8）"
+          % (expect, actual))
+    print("[BASELINE] 修法（二选一，都由人决定并留下理由）：")
+    print("  1) 这次增长/收缩是**有意**的 → 手工改 %s:%s 把 %s 改成 %s，"
+          "并在 docs/CHANGELOG.md 记一条为什么放宽/收紧；"
+          % (os.path.join("MANUAL", "BASELINE-FREEZE.md"), line_no, expect, actual))
+    print("  2) 是**意外**新增文件 → 不要动基线：把多出来的文件删掉或加进 .gitignore，"
+          "让实测回到 %s；" % expect)
+    print("  复核：python Tool/scripts/preflight.py --fast 2>&1 | grep BASELINE")
+    print("[BASELINE] 未写入任何文件（--fix 只重生成生成物，不改期望）")
+
+
 def run_one(name, argv, timeout=600):
     t0 = time.time()
     try:
@@ -74,10 +126,13 @@ def run_one(name, argv, timeout=600):
         except Exception:
             pass
     # 取最后一行有信息量的输出（各脚本末行通常是「结果: x/y」或 [GATE] …）
+    # gate.py 现在会在 pass/fail 之后追加「见证证据 real/fixture」几行；摘要必须仍取
+    # 带 pass/fail 的判定行，不能取到 fixture 清单（否则 check.py 的 tail 会说假话）。
     lines = [l.strip() for l in out.splitlines() if l.strip()]
     tail = ""
     for l in reversed(lines):
-        if ("结果:" in l) or ("[GATE]" in l) or ("[VERIFY]" in l) or ("ok" in l.lower()):
+        if ("结果:" in l) or ("[GATE]" in l and "pass" in l and "fail" in l) \
+                or ("[VERIFY]" in l) or ("ok" in l.lower()):
             tail = l
             break
     if not tail:
@@ -94,19 +149,24 @@ def run_one(name, argv, timeout=600):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="跑全部检查（相当于 make test）")
+    ap = argparse.ArgumentParser(
+        description="跑全部检查（相当于 make test）",
+        epilog="--fix / --prep 的边界：只重生成生成物（docs/HANDOFF.md 状态块）；"
+               "**不会**把 MANUAL/BASELINE-FREEZE.md 等期望值改成当前实测（PM-SPEC §8）。"
+               "检测到漂移时只打印漂移与修法，由人决定改数字还是改代码。")
     ap.add_argument("--fast", action="store_true", help="只跑快的子集（提交前用）")
     ap.add_argument("--list", action="store_true", help="列出套件后退出")
     ap.add_argument("--env", action="store_true", help="只做环境体检（这台机器装没装好）")
     ap.add_argument("--fix", dest="full_prep", action="store_true",
-                    help="【会改仓库】检查前重生成 HANDOFF 状态块 + 对齐 BASELINE-FREEZE（提交前用）")
+                    help="【只改生成物】检查前重生成 docs/HANDOFF.md 状态块；"
+                         "**不改** MANUAL/BASELINE-FREEZE.md 的期望值（漂移只报修法，见 --help 顶部）")
     ap.add_argument("--prep", dest="full_prep", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--fix-handoff", action="store_true", help=argparse.SUPPRESS)
     a = ap.parse_args()
 
     if a.full_prep:
-        print("[注意] --fix 会改写 docs/HANDOFF.md 与 MANUAL/BASELINE-FREEZE.md；"
-              "单纯检查请不带参数。")
+        print("[注意] --fix 只重生成**生成物**（docs/HANDOFF.md 状态块）；"
+              "MANUAL/BASELINE-FREEZE.md 的期望值不会被改写。单纯检查请不带参数。")
         # 提交/检查前先把 HANDOFF 状态块重生成（否则「落后 ≤1 提交」必然红）
         try:
             out = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "case_state.py"),
@@ -125,24 +185,11 @@ def main():
             print("HANDOFF 重生成失败：%s" % e)
 
     if a.full_prep:
-        # 自动对齐 BASELINE-FREEZE 的 first-party 数（否则每加一个文件都要手改，反复红）
-        try:
-            import re as _re
-            p = subprocess.run([PY, os.path.join(ROOT, "Tool", "scripts", "preflight.py"), "--fast"],
-                               cwd=ROOT, capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=300,
-                               env=CHILD_ENV).stdout
-            m = _re.search(r"实测 (\d+)", p or "")
-            if m:
-                actual = int(m.group(1))
-                bp = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
-                src = open(bp, encoding="utf-8").read()
-                out = _re.sub(r"\| \d{3,4} \| \*\*900\*\* \|", "| %d | **900** |" % actual, src, count=1)
-                if out != src:
-                    open(bp, "w", encoding="utf-8", newline=chr(10)).write(out)
-                    print("已对齐 BASELINE-FREEZE：first-party = %d" % actual)
-        except Exception as e:  # noqa: BLE001
-            print("对齐基线失败：%s" % e)
+        # ★ P1-1（第 4 轮评审）：这里原来会把 MANUAL/BASELINE-FREEZE.md 的 first-party 数
+        #   改写成 preflight 的实测值 —— 那正是 PM-SPEC §8 禁止的「把期望改成当前实际」
+        #   （文件每加一个就涨，判据永远绿 = 判据自证）。现在只**检测漂移并打印修法**，
+        #   一个字节都不写：改期望是人的决定，不是脚本的副作用。
+        report_baseline_drift()
 
     if a.env:
         # 环境体检 = env-check.py（装没装好）；与项目测试分开，但走同一个入口

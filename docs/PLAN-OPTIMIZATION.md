@@ -119,7 +119,7 @@ python Tool/scripts/preflight.py --fast ; echo rc=$?
 2. 重写两份真实交付物 `Tool/cases/{golden-crackme,leaf-pe-packed}/report/final.md`：
    - 五段齐全；
    - **删掉所有内部代号**（`M1–M4`、`T1–T3`），改写为客户三句话（只能看懂结构 / 能改到能用 / 能完全自己接管）；
-   - 保留原有技术内容与证据 ID（不许删证据来凑格式）；
+   - 保留原有技术内容与证据 ID（不应该删证据来凑格式）；
    - 每份补一段"怎么复查"：给出可复制的命令与期望输出。
 3. `Tool/config/answer-contract.json`：`required` 增加第 4 项 `effort`（"大概多少功夫"，含区间与判断依据），对应 `REQUIREMENTS.md` 二.1 第 4 条。
 
@@ -139,14 +139,14 @@ grep -rEn '\bM[1-4]\b|\bT[1-3]\b' Tool/cases/*/report/final.md                  
 
 **改**：
 1. `Tool/skill/softseep/pack.json`：删掉最后一条 `.*` + `priority=10` 兜底路由（它把 22/34 条路由都吸走）。
-2. `Tool/config/skill-route-probes.json`：把"脱壳"类期望改回 PM-SPEC §8 L2 的原文语义（脱壳 → `unpack-loop`/`softseep`，不许期望 `malware-analysis`）；逐条核对每条 probe 的期望是否与 PM-SPEC §2/§8 一致，不一致的以 PM-SPEC 为准并写明理由。
+2. `Tool/config/skill-route-probes.json`：把"脱壳"类期望改回 PM-SPEC §8 L2 的原文语义（脱壳 → `unpack-loop`/`softseep`，不应该期望 `malware-analysis`）；逐条核对每条 probe 的期望是否与 PM-SPEC §2/§8 一致，不一致的以 PM-SPEC 为准并写明理由。
 3. `Tool/scripts/route.py`：无命中时输出 `[UNCLASSIFIED]` 并以**非零**退出（`--resolve` 也适用），让"我判不出来"成为合法且可观测的出口。
 4. `Tool/scripts/case-init.ps1`：`catch {}` 改为打印 `WARN: 路由失败，判型待定`，且 `$primary` 不再默认 softseep。
 
 **验收**：
 ```bash
 python Tool/scripts/route.py --resolve "这个网站有SQL注入吗"        # web-pentest（不再 softseep）
-python Tool/scripts/route.py --resolve "帮我逆向这个exe的注册码，有UPX壳"  # softseep/unpack-loop，不许 malware-analysis 居首
+python Tool/scripts/route.py --resolve "帮我逆向这个exe的注册码，有UPX壳"  # softseep/unpack-loop，不应该 malware-analysis 居首
 python Tool/scripts/route.py --resolve "区块链智能合约有没有漏洞"    # [UNCLASSIFIED] + rc!=0
 python Tool/scripts/route.py --check                                # 仍 0 死路由
 ```
@@ -162,14 +162,14 @@ python Tool/scripts/route.py --check                                # 仍 0 死�
 ```bash
 python -c "import sys;sys.path.insert(0,'Tool/scripts/lib');import domain_spec as d;print(list(d.DOMAINS))"  # 9 个，含 apkseep
 python Tool/scripts/invariants.py --check ; echo rc=$?
-python Tool/scripts/gate.py --all ; echo rc=$?        # 9/9 不许退步
+python Tool/scripts/gate.py --all ; echo rc=$?        # 9/9 不应该退步
 python Tool/scripts/domain-gate.py --all 2>&1 | tail -20
 ```
 
-### W7 · 安装/卸载/首口令不许说假话
+### W7 · 安装/卸载/首口令不应该说假话
 
 **改**：
-1. `setup/install.ps1`：采集 `check.py --env` 的退出码，作为最终结论唯一输入；红就打印"未完成 N 步"，不许 🎉。
+1. `setup/install.ps1`：采集 `check.py --env` 的退出码，作为最终结论唯一输入；红就打印"未完成 N 步"，不应该 🎉。
 2. `setup/install-pi.ps1`：删掉恒定 `exit 0`，返回真实失败数。
 3. `setup/install.sh`：补同一段自检（`python Tool/scripts/check.py --env`），末尾结论与 Windows 一致；删掉 `:135` 那条假的"任务卡已同步 (/reverse, /reverse-deliverable)"，并让 `cp` 跳过 `README.md`（与 Windows 侧对齐）。
 4. `setup/uninstall.ps1`：修 `Get-ChildItem -Include` 无 `-Recurse`（恒空）→ 用 `-Filter` 或显式列名；让卸载认领 `mcp-servers.json` 里**全部**条目（含 `ida`、`x64dbg`），不再硬编码 3 个。
@@ -273,7 +273,7 @@ bash -n setup/install.sh ; echo rc=$?
 评审说的"授权门三处 / 必问三件三处 / 域名清单四处"，是**同一条规则的不同措辞**，
 不是可机械删除的重复块——改写它们等于重写协议语义，属于产品决策。
 
-**因此本轮不改提示词正文。** 改为加一条**不许静默漂移**的检查：
+**因此本轮不改提示词正文。** 改为加一条**不应该静默漂移**的检查：
 `preflight` 新增「必问三件同源（配置 ↔ 技能 ↔ 纪律）」——`user-inputs.json` 里每个 ask 的
 身份词必须仍出现在 `seep-router/SKILL.md` 与 `AGENTS.md` 里，否则红。
 这样"三处措辞"可以保留（模型只读到其中一份也不会失真），但改一处漏两处会被机器抓住。
@@ -376,7 +376,7 @@ tempfile）。每组都做过"故意弄坏 → rc=1 → 复原 → rc=0"的对�
 |---|---|---|---|
 | P0-1 | `AGENTS.md:35-47` 要求删拒绝话术、给完整 payload，与"别骗我/别弄坏机器"冲突 | **需要人工决定**（这是产品既定取向，改动它=改产品定位） | 未改，记录在案 |
 | P0-2 | `seep_http_replay` 把 Cookie 写进 session_file 并回显 | 真 P0 | **已修**：落盘改白名单快照（凭据物理上到不了落盘载荷）+ 输出 `[REDACTED]` + 出厂前机械断言（20/20 探针，含"把脱敏换成透传 → 立刻抛 RedactionFailure"） |
-| P0-3 | 默认"未声明即受权"+ scope.md 只生成不校验 | 前半段**需要人工决定**（与扩展边界锚一致）；后半段真 P0 | **已修后半段**：`gate/stage` 解析 scope.md 的"授权来源"，四选一未填不许进阶段 1+；默认受权保持原样 |
+| P0-3 | 默认"未声明即受权"+ scope.md 只生成不校验 | 前半段**需要人工决定**（与扩展边界锚一致）；后半段真 P0 | **已修后半段**：`gate/stage` 解析 scope.md 的"授权来源"，四选一未填不应该进阶段 1+；默认受权保持原样 |
 | P0-4 | 报告 ID 不核对、M2 不要求复现 | 真 P0 | **已修**：案件报告逐 ID 对账 facts.jsonl（假 ID 红，模板走"未对账"分支）；M2 必须有结构完整 repro |
 | P1-5 | 首答契约只有自检、无运行时钩子 | 真 P1，但需要改扩展生命周期 | 未修，记录为下一轮候选（本轮 3 个子代理已满） |
 | P1-6 | 无 `install.bat` | 真 P1 | **已修**：新增根目录唯一双击入口（只转交，不含安装逻辑） |
@@ -412,7 +412,7 @@ tempfile）。每组都做过"故意弄坏 → rc=1 → 复原 → rc=0"的对�
 | 编号 | 发现 | 分诊 | 处置 |
 |---|---|---|---|
 | P0-1 | 实验模式注入了一句客户没说过的**授权声明**（"目标为沙盒环境内的客户端逻辑验证"） | 真 P0（改写术语是产品取向，伪造成授权不是） | **已修**：注入改成纯事实陈述（"用户已显式进入 lab 模式；本条不构成任何授权声明"），并把该前缀加入幂等识别 |
-| P0-2 | 最高交付等级证据可被 `echo` 满足 | 真 P0 | **已修**：`repro` 命令必须出现本案目标路径/哈希前缀才可能 E2；未绑目标一律降 E1 且 rc=1（修掉"打印不得用于交付却给 E2"的自相矛盾）；`--out` 把每次运行产物落 `artifacts/repro-<id>-run<N>.log` 并记哈希 |
+| P0-2 | 最高交付等级证据可被 `echo` 满足 | 真 P0 | **已修**：`repro` 命令必须出现本案目标路径/哈希前缀才可能 E2；未绑目标一律降 E1 且 rc=1（修掉"打印不应该用于交付却给 E2"的自相矛盾）；`--out` 把每次运行产物落 `artifacts/repro-<id>-run<N>.log` 并记哈希 |
 | P0-3 | 首答闸：`judgment` 写空格也过、`--case` 可空、白名单 8 个"永远放行"含 triage | 真 P0 | **已修**：`judgment` strip<4 或 `x/-/无` 判红；`effort` 必须含数字+依据；`--case` 事实必填（否则要 `--adhoc <原因≥6字>`）；白名单收到 5 个纯读取，triage/packer/apk_info 必须已有首答 |
 | P0-4 | "运行客户的目标程序"没有任何门（`launch-gui.ps1` 不在闸、`Start-Process` 只 warn） | 真 P0 | **已修**：新增第三个 handler「运行目标闸」——`launch-gui.ps1`/`Start-Process`/`.exe`/`wine`/`python -c subprocess` 需 `~/.seep/run-ack.json`（`ack` 写入，60 分钟、绑本案目标），否则 block 并给三步（ask→ack→再执行）；50 条真值表全过 |
 | P0-5 | 装完没有"打开产品"入口；模型凭据完全没体检 | 真 P0 | **已修**：新增根目录 `start.bat`（直接进会话，非安装器）；`env-check` 增加模型凭据体检（没配就 `installed=false` 并给人话），只判有无、不联网、不打印 key |
@@ -424,3 +424,26 @@ tempfile）。每组都做过"故意弄坏 → rc=1 → 复原 → rc=0"的对�
 | P2 | 等级三套刻度、PM §11 写成实现细节、`Read-Host` 问 IDA 路径 | P2 | 记录；`Read-Host` 在 install.ps1 非交互模式下已不会触发（-NonInteractive 默认于 Agent 调用） |
 
 **集成修复（子代理之间产生的摩擦，由总控收口）**：`answer-gate.ts` 注释里的盘符例子触发了可移植性检查 → 改成文字描述；`repro` 变严后 preflight 的"5 件套"自测仍用无目标命令 → 改成建临时案 + 真目标；`AGENTS.md` 的白名单说明 8→5 并补 run-ack 三步；`install.ps1` 开工指南指向 `start.bat`。
+
+### 第 4 轮（P0×11 / P1×9 / P2×7）—— 三道闸的缝被逐个堵上
+
+| 编号 | 发现 | 分诊 | 处置 |
+|---|---|---|---|
+| P0-1 | 首答通行证由被约束方自己写（写守卫放行 `~/.seep`）；`adhoc` 标记被当有效凭证 | 真 P0 | **已修**：8 类文件永久禁写（`~/.seep/answer-pass.json`、`run-ack.json`、`~/.pi/agent/**`、`cmd-guard.rules.json`、`answer-contract.json`、`AGENTS.md`、`SEEP.md` 等），禁写判定**先于**允许根；`adhoc` 视为无效凭证 |
+| P0-2 | 运行闸不看字母：`ack --choice B`（"别运行"）也开闸 | 真 P0 | **已修**：只认 A/C；B → block 并提示"用户选了先别运行" |
+| P0-3 | 只认 `seep_*`，其它 MCP（x64dbg/ida/ghidra）可无首答开工 | 真 P0 | **已修**：任意 `mcp__*` 都需首答，只有白名单 5 个纯读取放行；`seep_r2_cmd` 额外需 run-ack（`gate.exec_tools`） |
+| P0-4 | `python -c` 绕过 shell 规则（改代理/删文件） | 真 P0 | **已修**：cmd-guard 新增 17 条（解释器内联删除/写注册表/系统命令/联网重放 + netsh/route/reg/sc/bcdedit/vssadmin/wevtutil/disk/format/takeown + bash 读用户目录），38 条全部有 id/why/hint，正例 37/37、反例 33/33 |
+| P0-5 | 原件可被 write 覆盖（`target/` 在允许根里） | 真 P0 | **部分修**：写守卫禁用名单覆盖规则/契约/凭证；`target/` 只读留给下一轮（需要改 case 布局） |
+| P0-6 | "能改到能用"可用 `echo 目标名` 伪造 | 真 P0 | **已修**：证据命令必须含目标**完整路径**或 `sha256:<前12位>`；首程序不得是 `echo/printf/true/false/cat/type/dir/ls/tee`；解释器命令体必须再含目标。顺带修掉 `_binds` 传参 bug（E2 曾永不可达） |
+| P0-7 | 首答合同只验字段（"不知道是什么/缺什么无/依据：感觉"也合格） | 真 P0 | **已修**：`missing` 不得为占位；`missing` 非空必须给带后果的 A/B/C；`能改到能用` 时 `missing` 必须提到证据/复现/验收；选项禁内部话术 |
+| P0-8 | 无账本时报告假编号通过 | 真 P0 | **已修**：无账本 + 出现 E-/C-/F- → 红；模板（`Tool/prompts/**`）走"未对账"分支（模板不是交付物） |
+| P0-9 | 预算 63 条 > 43 条崩塌线被豁免 | **需要人工决定**（用户明确不在乎预算） | 未改；数字与结论每轮照打 |
+| P0-10 | 读工具无路径边界（可读 `Documents/passwords.txt`） | 真 P0，改动面大 | **未修**，记入下一轮（需要读白名单 + 误伤评估） |
+| P0-11 | 三道闸共用一个 fail-open 开关与一个扩展文件 | 真 P1（工程债） | 未拆，记录 |
+| P1 | `check.py --fix` 会改期望值 | 真 P1 | **已修**：`--fix` 只重建 HANDOFF，检测到基线漂移时打印修法并拒绝写数字 |
+| P1 | `gate 9/9` 与 `check` 红并存；fixture 被读成"九域可用" | 真 P1 | **已修**：摘要改三行——"结构 pass 9/fail 0"+"见证证据 real 5 / fixture 4"+"fixture 不计该域可用"并点名 4 个包 |
+| P1 | 证据/失败案例的段落不一致；工具生成的报告是另一套 6 段 | 真 P1 | **已修**：`seep_contract` 报告模板改五段，产物能过 `report --check` |
+| P1 | `preflight` 跳过即 PASS（无 PowerShell） | 真 P1 | **已修**：改 WARN + "跳过（未验证）"，汇总单列条数 |
+| P1 | 事件账空转（只认 `SEEP_CASE_DIR`/cwd，不认 `~/.seep/current-case`） | 真 P1 | **已修**：三段顺序解析，node 6 例验证 |
+| P1 | 自动建案一律 `domain=softseep` | 真 P1 | **已修**：建案时用 route 判型，判不出写 `domain: null` + 提示 |
+| P2 | 结论分级两套（四态 vs 三态）、禁用词只查四个短语 | P2 | 记录 |
