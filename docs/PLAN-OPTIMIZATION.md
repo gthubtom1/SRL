@@ -720,3 +720,30 @@ objective 要求把每条判为"真问题/误报/需人工决定/P2"。本目标
 - 结论：objective 第 5 条"每轮结束都要更新 goal 进度记录"**在前 6 轮没有执行**；本节与 §12 的逐轮表是事后补的。
 - 改进（从补做轮 R7 起执行）：每轮评审一结束就 `append` 一条 progress 事件并立即读回，时间戳即为凭据。
 - 可检验的两处落点：`.pi/goals/goal_events.jsonl`（progress 事件）、本文档 §12/§12.1（与提交一一对应）。
+
+---
+
+## 13. 用户的 5 条产品决定与落地（2026-10-26，之后按此执行）
+
+| # | 你的决定（原话） | 落地 | 验证 |
+|---|---|---|---|
+| 1 | 「默认算他有授权」 | `scope.md` 模板把「授权来源」预填为「本人自有（默认值：用户未声明其他情况即视为本人自有）」；不再逼模型替客户编原话，也不给客户增加填写负担；首答仍要求一行「授权来源」以便落纸 | `case_state.py init` 后 `gate` 的 scope 检查直接通过（不再因"没填"报红）；授权仍可被用户一句「不是我的」覆盖 |
+| 2 | 「保留（不写风险提示、直接给方案）」 | 人设卡一条不动（`budget.py` 仍显示 persona 5121） | `budget.py --prompt` 输出人设卡 5121 未变 |
+| 3 | 「我不懂…是不是我的人设？砍了会更听话吗？」 | **人设不动**；只压 `AGENTS.md`：192 行/4591 token → **95 行/3176 token**；强制语句 **20 → 2** 条；全层同时生效 **62 → 44** 条；可控制小计 **11571 → 10156**。被压掉的规则全部改成指针（原规则 → 承载文件对照见 §13.1） | `budget.py --prompt` 显示 AGENTS 3176；`preflight` 77/77 |
+| 4 | 「可以存到硬盘，怎么方便怎么来」 | `.gitignore` 注明「允许原样存盘（用户不在乎隐私），但不要提交进 git」；不再要求"只允许脱敏版" | `grep -n "允许原样存盘" .gitignore` |
+| 5 | 「以最终效果为基准，真的能做到什么就多大把握」 | 新增 `Tool/config/levels.json` 作为**唯一权威**：对外四句（只能看懂结构/能改到能用/能完全自己接管/现在做不了）+ 14 个内部代号映射；`answer-contract` 四句与它逐字一致；`scope.md` 模板、`verdict` 输出、9 个域 SKILL 的上限段**只出现四句**；内部代号只进账本。`preflight` 新增「等级唯一权威」三项判据 | `preflight` 的 `[PASS] 等级唯一权威…`；破坏性验证：删掉"现在做不了"→ 红；往 SKILL 塞 M2 → 红（点名行号） |
+
+### 13.1 AGENTS.md 压缩：规则 → 指针落点（摘要）
+
+| 原规则 | 压成 | 落点 |
+|---|---|---|
+| Lab 开关 / 查盘 | §一 一句 | `security-audit-interceptor.ts` |
+| 部署 / 更新 / 卸载 / 加工具 4 步 / 幂等 / 四栏看板 | §二 一句 | `MANUAL/DEPLOYMENT.md` 附录 A、`MANUAL/DEPLOYMENT-CHECKLIST.md`、`Tool/docs/EXTEND.md` |
+| 探测能力表 / 路径八层 / 扫描边界与超时 | §四点五-1~3 | `tool-capabilities.json`+`tool-acquire.py`、`seep_mcp_server.py`、`cmd-guard.rules.json` |
+| 通道优先级 / x64dbg 调试四步 / 连不上 5 秒明说 | §四点五-4~5、8 | `tool-runtimes.json`+`tool-run.ps1`、`mcp-doctor.py` |
+| 建案过闸 / 五件套（首答·失败五段·重放·降级·复查） | §五 表 | `case_state.py`、`answer-contract.json`、`answer-gate.ts`、`blockers.json` |
+| 三档 AUTO/ASK/DENY / 必问三件 | §五之三、§〇-6 | `docs/history/X-EXECUTION-MODEL-v2.md §1`、`user-inputs.json` |
+| 启动纪律 / 网络零改动 9 禁手 | §五之四~五 | `launch-gui.ps1`、`cmd-guard.rules.json`、`net-rollback.py` |
+| 授权门 / 资源路径 / 元规则 | §六~§八 | `SEEP.md §0/§1`、边界锚（扩展注入） |
+
+保留为短句（不压）：先判断 / 别乱动机器 / 证据留痕 / 不退缩 / 承诺不回收 / 问法唯一（§〇-1~6）。
