@@ -531,6 +531,62 @@ def _evidence_kind(case):
 # self-built / fixture / historical / unknown **不算** —— 它们只证明流程跑得通。
 REAL_ARTIFACT_KINDS = ("real", "public")
 
+# ★ 2026-10-26 审计（第 2 条否决）：`public` 曾是**纯标签**——evidence_source 有 0 处代码读它，
+#   于是"public 必须带来源与 sha256""不许把 self-built 改叫 public 凑可用"两条都只是文档。
+#   这里补机检，让标签骗不过去。判据（全部满足才算 public，否则**降回 self-built**）：
+#     ① case.json 有 evidence_source 字典，含非空 source 与 basis
+#     ② source 里能捞到 sha256（64 hex）或明确 sha256 字段
+#     ③ basis/source 不得自述"本机 gcc/msvc/clang 编译"——那是 self-built 的定义
+_SHA256_RE = re.compile(r"[0-9a-fA-F]{64}")
+# "本机编译"只有在**肯定句**里描述被见证的产物时才降档；
+# 否定句（"不是本机编译的"）与加壳/压缩语境不算。
+_LOCAL_BUILD_RE = re.compile(r"(?<![不非没未])(本机|本地|自己)\s*(gcc|msvc|clang|编译)")
+_NEGATED_RE = re.compile(r"(不是|并非|非|不属于|不算)\s*(本机|本地|自己)?\s*(编译|gcc|msvc|clang)")
+_PACKER_RE = re.compile(r"(upx|压缩|加壳|packed|重打包|脱壳)", re.I)
+
+
+def _public_claim_defects(case):
+    """校验 evidence_kind=public 的案例是否**当得起** public。返回缺陷列表（空=合格）。
+
+    ★ 2026-10-26 审计（第 2 条否决）：`public` 曾是**纯标签**——没有代码读 evidence_source，
+      于是"public 必须带来源与 sha256""不许把 self-built 叫 public 凑可用"两条都只是文档。
+      这里补机检：public 必须在 case.json 写清来源 + 实测 sha256，且不得自述"本机编译"。
+      不合格 → 调用方应降回 self-built（gate 会如实报 NOT PROVEN，不许涂绿）。
+    """
+    if not case:
+        return ["无案例目录"]
+    cj = os.path.join(CASES_DIR, case, "case.json")
+    if not os.path.isfile(cj):
+        return ["无 case.json"]
+    try:
+        with open(cj, encoding="utf-8", errors="replace") as fh:
+            d = json.load(fh)
+    except Exception as e:  # noqa: BLE001
+        return ["case.json 解析失败(%s)" % type(e).__name__]
+    es = d.get("evidence_source")
+    if not isinstance(es, dict):
+        return ["缺 evidence_source（public 必须写来源与 sha256）"]
+    src = str(es.get("source") or "")
+    basis = str(es.get("basis") or "")
+    bad = []
+    if not src.strip():
+        bad.append("evidence_source.source 为空")
+    if not basis.strip():
+        bad.append("evidence_source.basis 为空")
+    blob = src + " " + basis + " " + str(es.get("sha256") or "")
+    if not _SHA256_RE.search(blob.replace("\\", "")):
+        bad.append("来源/依据里找不到 64 位 sha256")
+    for seg in re.split(r"[。；;\n]", blob):
+        if _PACKER_RE.search(seg):
+            continue
+        if _NEGATED_RE.search(seg):
+            continue
+        m = _LOCAL_BUILD_RE.search(seg)
+        if m:
+            bad.append("自述「%s」→ 按定义应记 self-built" % m.group(0))
+            break
+    return bad
+
 
 def witness_cohort(packs):
     """见证证据分四档计数（real / public / self-built / fixture），不是两档。
@@ -550,7 +606,17 @@ def witness_cohort(packs):
     for p in packs:
         case = _witness_case(p.get("raw") or p)
         kind = _evidence_kind(case)
+        # ★ public 不是标签就能拿：不合格（缺来源/sha256、自述本机编译）自动降回 self-built。
+        #   理由写进 rec["downgrade_reason"]，输出里点名，避免"改标签凑可用"。
+        dg = ""
+        if kind == "public":
+            defects = _public_claim_defects(case)
+            if defects:
+                dg = "；".join(defects)
+                kind = "self-built"
         rec = {"pack": p.get("id"), "case": case, "evidence_kind": kind}
+        if dg:
+            rec["downgrade_reason"] = dg
         bucket = kind if kind in ("real", "public", "self-built") else "fixture"
         cohorts[bucket].append(rec)
         (witnessed if kind in REAL_ARTIFACT_KINDS else not_witnessed).append(rec)

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import io
 import json
 import os
 import re
@@ -1576,8 +1577,10 @@ def check_deploy_bidirectional():
                 b = _strip_host_blocks(io.open(dst, encoding="utf-8", errors="replace").read())
                 if a.strip() != b.strip():
                     bad.append("不一致:" + name)
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001
+                # ★ 不许吞：吞掉异常 = 这条检查恒绿 = 假绿（2026-10-26 审计实测踩过：
+                #   本模块曾缺 `import io`，NameError 被 pass 掉，于是永远报"哈希一致"）。
+                bad.append("读失败:%s(%s)" % (name, type(e).__name__))
         return "顶层提示词", bad
 
     rows = [

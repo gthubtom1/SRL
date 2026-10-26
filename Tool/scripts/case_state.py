@@ -1056,7 +1056,9 @@ def cmd_init(a):
     #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
     # R7 P1-4：文档教的是 `init --domain <域>`，命令却不认这个参数 → 新案 domain 恒为空。
     # 这里把 --domain 透传下去（缺省空串 = 未判型，不是「默认 softseep」）。
-    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"), target_fp,
+    # ★ 2026-10-26 审计（R8-P1-4 遗留）：默认值曾是 "real" —— 新案不填就被当成
+    #   「客户真实目标」，直接给该域记一个"真实产物见证"。改成 unknown：**必须显式声明**。
+    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "unknown"), target_fp,
                                    domain=getattr(a, "domain", "") or "")
     # 记一个机器级指针，供扩展（seep-memory/seep-events）在任意 cwd 下找到当前案（外部评审 A7）
     try:
@@ -1094,7 +1096,8 @@ def cmd_init(a):
         print("[WARN] scope.md 生成失败：%s" % _e)
 
     print("[OK] case.json 骨架已写：evidence_kind=%s goal_level/domain/lessons 请按实际补"
-              % getattr(a, "evidence_kind", "real"))
+              "（unknown = 未声明，不计该域可用；定了再改 case.json）"
+              % getattr(a, "evidence_kind", "unknown"))
     if target_fp.get("sha256"):
         print("[OK] 原件指纹已登记：sha256=%s size=%s at=%s"
               % (target_fp["sha256"], target_fp.get("size"), target_fp.get("at")))
@@ -1175,7 +1178,7 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
                 pass
         return False
     kind = evidence_kind if evidence_kind in ("fixture", "real", "public",
-                                             "self-built", "historical") else "real"
+                                             "self-built", "historical") else "unknown"
     dom = str(domain or "").strip()
     meta = {
         "id": os.path.basename(d.rstrip("/\\")),
@@ -5269,10 +5272,12 @@ def main():
     p.add_argument("--domain", default="",
                    help="判型结果（如 softseep / web-pentest / pwn-crypto）。缺省空串 = 未判型，"
                         "不是「默认 softseep」；判型：python Tool/scripts/route.py --resolve \"<目标名 + 任务名>\"")
-    p.add_argument("--evidence-kind", dest="evidence_kind", default="real",
+    # ★ 2026-10-26 审计（R8-P1-4）：默认曾是 "real"，新案不填就被当成"客户真实目标"，
+    #   等于白送该域一个"真实产物见证"。改成无默认值：不填 = 未声明（不计可用）。
+    p.add_argument("--evidence-kind", dest="evidence_kind", default="",
                    choices=["real", "public", "self-built", "fixture", "historical"],
                    help="案例真实性（real=客户目标 / public=公开真实产物 / self-built=自己编译"
-                        " / fixture=合成夹具 / historical=历史归档；preflight 按此分档）")
+                        " / fixture=合成夹具 / historical=历史归档）。不填=未声明，不计该域可用")
     p.set_defaults(func=cmd_init)
 
     p = sub.add_parser("lock", help="拿写权租约（同一会话重复 lock = 续约）")
