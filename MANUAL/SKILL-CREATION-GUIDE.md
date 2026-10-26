@@ -56,8 +56,8 @@ python `Tool/scripts/preflight.py`                  # 端到端 12 环
 
 ### 铁律 3：成品交付闭环（Artifact Delivery）
 - 技能必须明确定义“最终输出物”：
-  - Windows 端：输出免落盘代理补丁（`version.dll`）或关键内存补丁代码；
-  - Android 端：输出自动重打包签名安装包（`*_rebuilt_signed.apk`）；
+  - Windows 端：视目标输出代理补丁（`version.dll`）或关键内存补丁代码——**能不能做成取决于目标有没有自校验/服务端校验**，不确定就按"只能看懂结构"交付；
+  - Android 端：视目标输出重打包签名安装包（`*_rebuilt_signed.apk`）——本地广告/界面可以改，服务端下发的改不了；
   - 算法类：输出可运行注册机（`keygen.py`）；
   - 报告：输出三段式合规审计报告。
 

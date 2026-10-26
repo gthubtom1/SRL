@@ -245,6 +245,7 @@ Seep\ (251 MB)
 ├── Tool/prompts/contracts/CLAUDE.md                      ← Claude Code 项目级原生指令
 ├── .mcp.json                      ← 项目级 MCP 注册文件（Claude Code / OpenCode）
 ├── Tool/prompts/contracts/DSH-PROFILE.md                 ← DeepSeek Harness Cordis 插件配置模板
+├── install.bat                    ← ⭐ 双击一键安装（Windows，唯一需要双击的文件）
 ├── check.bat                      ← ⭐ 双击一键体检入口（Windows）
 ├── check.ps1                      ← PowerShell 体检入口
 ├── VERSION                        ← 当前版本标识
@@ -486,7 +487,7 @@ powershell -ExecutionPolicy Bypass -File ./setup/uninstall.ps1          # 再执
 
 | 方式 | 操作 |
 |---|---|
-| ⭐ 双击一键（最简单）| 双击项目根目录下的 `check.bat` |
+| ⭐ 双击一键（最简单）| 首次装：双击根目录 `install.bat`；装完自检：双击 `check.bat` |
 | PowerShell | `powershell -ExecutionPolicy Bypass -File .\check.ps1` |
 | Agent 对话框 | 发送 `check`（或 `检查` / `doctor`）— Agent 自动运行并内联输出报告 |
 

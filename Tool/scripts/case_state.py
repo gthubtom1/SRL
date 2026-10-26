@@ -2454,6 +2454,40 @@ def _jd(rel):
         return json.load(f)
 
 
+def _write_answer_pass(case=""):
+    """首答过的凭证：写 ~/.seep/answer-pass.json（扩展 answer-gate.ts 认这一个文件）。
+
+    为什么要有这个文件：提示词里写「必须先给四要素」管不住模型 —— 它只要直接调第一个
+    分析工具，首答就被跳过了；而 `answer --check` 只能校验「被调用时传进来的那份 JSON」，
+    管不住「根本没被调用」。所以把「通过」变成一个磁盘事实，让扩展在 tool_call 里查它：
+    没有这个标记，分析类工具连发都发不出去。
+
+    只在**通过时**调用（失败不写）；写盘失败也不改判定结果（rc 仍是 0），只是闸继续拦。
+    契约哈希写进去是为了「契约改了 → 旧标记自动作废」：四要素一改，上一份首答不算数。
+    """
+    import datetime
+    import hashlib
+    try:
+        with open(os.path.join(_TOOL, "config", "answer-contract.json"), "rb") as f:
+            ch = hashlib.sha256(f.read()).hexdigest()
+        case_abs = os.path.abspath(os.path.expanduser(case)) if case else ""
+        payload = {
+            "schema": "seep.answer-pass/1",
+            "case": case_abs,
+            # ISO8601 带 UTC 偏移：扩展侧 Date.parse 直接认，不做本地时区猜测
+            "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+            "contract_sha256": ch,
+        }
+        p = os.path.join(os.path.expanduser("~"), ".seep", "answer-pass.json")
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        tmp = p + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+        os.replace(tmp, p)  # 原子落盘：扩展永远读不到半截 JSON
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _check_answer(obj, c):
     bad = []
     for f in c["required"]:
@@ -2514,6 +2548,9 @@ def cmd_answer(a):
     for b in bad:
         print("[缺] " + b)
     print("[PASS] 首答合格" if not bad else "[FAIL] 首答不合格（%d 项）" % len(bad))
+    if not bad:
+        # 通过才写标记（就是 --check 的放行凭证）；失败不写，扩展 answer-gate.ts 继续拦
+        _write_answer_pass(getattr(a, "case", "") or "")
     return 0 if not bad else 1
 
 

@@ -99,7 +99,7 @@ headless 能做就不开 GUI。入口 `tool-run.ps1 -Tool <id> [-Target <样本>
 
 | 什么时候 | 命令 | 作用 |
 | :-- | :-- | :-- |
-| 给首个回复前 | `case_state.py answer --template` / `--check --file a.json` | 首答必须含 **判断 / 到哪一步（四句之一）/ 缺什么**；选项必须写"选了会怎样" |
+| 给首个回复前 | `case_state.py answer --template` / `--check --file a.json` | 首答必须含 **判断 / 到哪一步（四句之一）/ 缺什么**；选项必须写"选了会怎样"。这道闸已落到执行层（扩展 `answer-gate.ts`）：首答 `--check` 通过写下 `~/.seep/answer-pass.json`（4 小时内有效、契约哈希一致）之前，`seep_*` 与含 `Tool/skill/`／`case_state.py (init|claim|prove|repro|deliver)`／`tool-run.ps1`／`frida` 等的 bash 直接发不出去，read/grep/find/ls/todo 与 `answer`／`preflight|check|gate|route` 始终放行 |
 | 卡住时 | `case_state.py block --code BLK-5 --detail "…"` | 按码渲染失败五段（卡层/现象/原因/已拿到/两条出路），码表共 11 种 |
 | 记证据时 | `case_state.py repro --case C --id E-001 --cmd "…" --expect "…"` | 跑两次比对指纹；一致+命中才给 E2（可复现） |
 | 上限要降时 | `case_state.py downgrade --case C --to M1 --reason "…"` | 必须发降级通知，不许静默降级 |
