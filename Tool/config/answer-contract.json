@@ -57,18 +57,19 @@
     "已完成"
   ],
   "gate": {
-    "_说明": "首答闸（Tool/prompts/extensions/answer-gate.ts）的唯一阈值来源：改这个块会改变 contract_sha256，旧标记自动作废、必须重新过首答。ttl_minutes=标记有效期；whitelist=永远放行的只读分诊工具（首答要靠它们取证）；bind_target=标记带 case 时，本次工具参数里的路径必须落在该案 case.json 的 target_files/target 下，否则按「换了目标要重新给首答」拦下。",
+    "_说明": "首答闸 + 运行目标闸（Tool/prompts/extensions/answer-gate.ts）的唯一阈值来源：改这个块会改变 contract_sha256，旧标记自动作废、必须重新过首答。ttl_minutes=首答标记有效期；whitelist=永远放行的**纯读取**工具（首答要靠它们取证：kb 检索、案件资料、工具清单、架构/位数；auto_triage/packer_detect/apk_info 会读目标里的内容，属于分析，不在白名单）；bind_target=标记带 case 时，本次工具参数里的路径必须落在该案 case.json 的 target_files/target 下，否则按「换了目标要重新给首答」拦下。run_ack=运行目标闸：ttl_minutes=运行回执（~/.seep/run-ack.json，由 case_state.py ack 原子写）有效期；require_case_target=回执带 case 时，本次命令里的目标路径必须落在该案 case.json 的目标下。",
     "ttl_minutes": 60,
     "whitelist": [
-      "seep_auto_triage",
-      "seep_packer_detect",
-      "seep_r2_info",
-      "seep_apk_info",
       "seep_kb_search",
       "seep_kb_read",
+      "seep_case_read",
       "seep_tool_discover",
-      "seep_case_read"
+      "seep_r2_info"
     ],
-    "bind_target": true
+    "bind_target": true,
+    "run_ack": {
+      "ttl_minutes": 60,
+      "require_case_target": true
+    }
   }
 }

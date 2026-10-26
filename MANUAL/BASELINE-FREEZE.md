@@ -139,9 +139,11 @@ powershell -File check.ps1 -Detailed        # 体检 65 项全绿
 | `setup/` 脚本 | 20 | **22** | 安装/更新/卸载/校验 × 双平台 + 专用脚本；同一功能只保留一套 |
 | `MANUAL/` 手册 | 14 | **16** | 手册之间内容单点维护 |
 | 单文件行数 | 2306（MCP 主服务，S4 工具面 40→20 后） | **3200** | 超了要拆模块，而不是继续追加 |
-| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 931 | **940** |
+| first-party 文件（口径：仅 `git ls-files` 已跟踪文件，排除 upstream / `Tool/mcp/Tool` / cases / work / 点目录） | 940 | **950** |
 
 > 上限 930 → 940（2026-10-26，随基线 929 → 931）：新增的是补 P0/P1 的实质文件（`answer-gate.ts` 首答执行层闸、`waivers.json` 决定记录），不是堆能力声明。**这是抬上限，不是改判据**——超 940 仍红。 超了说明在"堆文件"而不是"做能力" |
+>
+> 上限 940 → 950（2026-10-26，原因：本轮补 P0/P1 新增文件 9 个：九域各一份 `scripts/witness.py`（`Tool/skill/{apkseep,firmware-iot,forensics-mobile,malware-analysis,protocol-plugin,pwn-crypto,softseep,supply-chain-security,web-pentest}/scripts/witness.py`，P0-3「逐域自证真跑」）；即 931 → 实测 940）。**抬上限不等于改判据**——超 950 仍红，仍回 §7.3 四问。
 
 ### 7.2 三不原则
 

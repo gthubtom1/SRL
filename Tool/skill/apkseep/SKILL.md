@@ -43,6 +43,15 @@ mistakes that destroy an APK while looking completely healthy.
   **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
 - 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
 
+## 上限怎么说（对客户）
+
+- **只能看懂结构**：`壳/加固是哪一类、关键校验落在哪个类哪个方法（dex 定位 + so 导出符号）都已给出，但动态面被壳挡住，没在设备上跑过`
+- **能改到能用**：`重打包后能装、能起、目标功能真的变了（Rung 3–4），附反例对照与「原件未改」的哈希证明`
+- **能完全自己接管**：`相邻功能逐项验过、机制被证明、发出去的产物就是验过的那个（hash 一致，Rung 5–7）`
+- **卡点通常是**：`广告/会员由服务端下发，或碰上抽取壳与真 VMP——改客户端改不了权威，只能出带边界的报告`
+
+> 依据：`Tool/skill/apkseep/references/01-criteria.md` §2 claim ladder（Rung 0–7）/ §4 四种结论形态 + 本文件 §Symptom index
+
 ## G-Auth — pointer only
 
 **Single source of truth: `AGENTS.md` §六 + the injected boundary anchor. This section does not restate the rule.**

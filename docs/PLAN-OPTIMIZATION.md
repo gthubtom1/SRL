@@ -406,3 +406,21 @@ tempfile）。每组都做过"故意弄坏 → rc=1 → 复原 → rc=0"的对�
 | P2 | scope.md 写 M1–M4；firmware 报 J1/J2/J3；README 数字漂移 | P2（客户可见文本） | **已修**：firmware 加"对客户只说三句话"对照；README 技能/配方/套件数字对齐 |
 
 **顺带修掉**：`Tool/docs/STAGE0.md` 的示例证据 `--evidence "procmon: …"` 在新规则下会被拒 → 改成合规形态并注明"纯文字会被拒"。
+
+### 第 3 轮（P0×5 / P1×6 / P2×3）
+
+| 编号 | 发现 | 分诊 | 处置 |
+|---|---|---|---|
+| P0-1 | 实验模式注入了一句客户没说过的**授权声明**（"目标为沙盒环境内的客户端逻辑验证"） | 真 P0（改写术语是产品取向，伪造成授权不是） | **已修**：注入改成纯事实陈述（"用户已显式进入 lab 模式；本条不构成任何授权声明"），并把该前缀加入幂等识别 |
+| P0-2 | 最高交付等级证据可被 `echo` 满足 | 真 P0 | **已修**：`repro` 命令必须出现本案目标路径/哈希前缀才可能 E2；未绑目标一律降 E1 且 rc=1（修掉"打印不得用于交付却给 E2"的自相矛盾）；`--out` 把每次运行产物落 `artifacts/repro-<id>-run<N>.log` 并记哈希 |
+| P0-3 | 首答闸：`judgment` 写空格也过、`--case` 可空、白名单 8 个"永远放行"含 triage | 真 P0 | **已修**：`judgment` strip<4 或 `x/-/无` 判红；`effort` 必须含数字+依据；`--case` 事实必填（否则要 `--adhoc <原因≥6字>`）；白名单收到 5 个纯读取，triage/packer/apk_info 必须已有首答 |
+| P0-4 | "运行客户的目标程序"没有任何门（`launch-gui.ps1` 不在闸、`Start-Process` 只 warn） | 真 P0 | **已修**：新增第三个 handler「运行目标闸」——`launch-gui.ps1`/`Start-Process`/`.exe`/`wine`/`python -c subprocess` 需 `~/.seep/run-ack.json`（`ack` 写入，60 分钟、绑本案目标），否则 block 并给三步（ask→ack→再执行）；50 条真值表全过 |
+| P0-5 | 装完没有"打开产品"入口；模型凭据完全没体检 | 真 P0 | **已修**：新增根目录 `start.bat`（直接进会话，非安装器）；`env-check` 增加模型凭据体检（没配就 `installed=false` 并给人话），只判有无、不联网、不打印 key |
+| P1-6 | 报告 ID 对账默认不生效（模板写 `work/<case>/report.md`，对账只认 `Tool/cases/*`） | 真 P1 | **已修**：`_case_for_report` 认 `work/<name>/...`，并对 `Tool/cases/<name>` 或 `work/<name>/facts.jsonl` 对账 |
+| P1-7 | 复查单承诺"工具版本见 tool_version"，但没有代码写该字段 | 真 P1 | **已修**：`repro` 记录 `env{python,os,cwd}`；复查单文字改为"环境见证据 env 字段" |
+| P1-8 | 九域没有各自的上限话术（9 个 SKILL.md 命中 0） | 真 P1 | **已修**：11 个 SKILL.md 各加 `## 上限怎么说（对客户）`（三档 + 该域卡点 + 依据行），逐域不同 |
+| P1-9 | `check.bat` 第一次跑就红（first-party 数字漂移） | 真 P1 | **已修**：BASELINE-FREEZE 931→940、上限 940→950，留痕写明"抬上限不是改判据"；`budget.py` 的 930 同步 950 |
+| P1-10 | 常驻规则超崩塌线、客户原话被改写 | **需要人工决定** | 未改（用户明确不在乎预算；改写是产品取向） |
+| P2 | 等级三套刻度、PM §11 写成实现细节、`Read-Host` 问 IDA 路径 | P2 | 记录；`Read-Host` 在 install.ps1 非交互模式下已不会触发（-NonInteractive 默认于 Agent 调用） |
+
+**集成修复（子代理之间产生的摩擦，由总控收口）**：`answer-gate.ts` 注释里的盘符例子触发了可移植性检查 → 改成文字描述；`repro` 变严后 preflight 的"5 件套"自测仍用无目标命令 → 改成建临时案 + 真目标；`AGENTS.md` 的白名单说明 8→5 并补 run-ack 三步；`install.ps1` 开工指南指向 `start.bat`。

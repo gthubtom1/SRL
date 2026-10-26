@@ -18,10 +18,9 @@
  *      永远放行** —— 闸的出路必须始终可达，不能把人关在自己装的闸外面。
  *
  * ── 第 2 轮评审的三条批评（都已修）─────────────────────────────
- *   ① 「把只读分诊也拦了 → 首答反而只能靠猜」：`seep_auto_triage` / `seep_packer_detect` /
- *      `seep_r2_info` / `seep_apk_info` / `seep_kb_search` / `seep_kb_read` /
- *      `seep_tool_discover` / `seep_case_read` **永远放行**（首答要靠它们取证）。
- *      名单写在 answer-contract.json 的 `gate.whitelist`（唯一来源）。
+ *   ① 「把只读分诊也拦了 → 首答反而只能靠猜」：**纯读取**的五个体检工具
+ *      `seep_kb_search` / `seep_kb_read` / `seep_case_read` / `seep_tool_discover` / `seep_r2_info`
+ *      **永远放行**（首答要靠它们取证）。名单写在 answer-contract.json 的 `gate.whitelist`（唯一来源）。
  *   ② 「不拦 rabin2 / python -c / curl → 闸有洞」：新增 `rabin2|objdump|readelf|strings|file`
  *      与 `curl|wget|ncat|nc`，以及解释器内联执行（`python -c` / `python - <<` / `powershell -c`，
  *      命令体里出现上述工具名或 socket/requests/http 才算）。`python Tool/scripts/*.py`、
@@ -29,6 +28,19 @@
  *   ③ 「一份标记 4 小时对所有目标生效」：标记加 `case` + `target_sha256`，有效期收到
  *      `gate.ttl_minutes`（默认 60 分钟）；标记带 `case` 时，本次参数里的路径必须落在该案
  *      `case.json` 的 `target_files`/`target` 下，否则 block（「换了目标要重新给首答」）。
+ *
+ * ── 第 3 轮评审的两条（P0-4 / P0-3 部分，都已修）───────────────────
+ *   ④ **P0-4「运行客户的目标程序」原来一个门都没有**：`answer-gate` 里没有 `launch-gui`，
+ *      `cmd-guard.ts` 对 `Start-Process *.exe` 只是 warn，ack 也只在 `gate --stage` 时被检查。
+ *      → 本轮加**第三道 handler「运行目标闸」**（见下面 `classifyRunTarget` / `shouldBlockRun`）：
+ *        bash/powershell 命令里出现 `launch-gui.ps1` / `Start-Process` / 把 `.exe` 当程序执行 /
+ *        `wine ` / `& "<盘符>…"` → 必须持有 `~/.seep/run-ack.json`（由 `case_state.py ack` 原子写，
+ *        60 分钟内有效、绑本案目标），否则 block。拦在**命令文本层**：`launch-gui.ps1` 内部
+ *        再拉子进程不用再拦一次。
+ *   ⑤ **P0-3 部分「首答白名单 8 个永远放行 = 先分析再补首答」**：`seep_auto_triage` /
+ *      `seep_packer_detect` / `seep_apk_info` 会**读目标里的内容**，属于「分析」→ 移出白名单；
+ *      只留 5 个纯读取（`seep_r2_info` 只看架构/位数）。为了不让「首答只能靠猜」复活，
+ *      block 文案里明写两条合法出路：先写首答再用 triage / 直接问用户要判断。
  *
  * ── 它认什么凭证 ──────────────────────────────────────────────
  *   `~/.seep/answer-pass.json`（由 `case_state.py answer --check` **通过时**写入，失败不写）：
@@ -38,6 +50,12 @@
  *   契约改了（四要素多一项 / ceiling 四句改了 / gate 块改了）→ 旧标记自动作废，必须重新过一遍首答。
  *
  * ── 只拦「分析类」，不拦别的 ───────────────────────────────────
+ *   运行目标闸（第三道 handler，独立于首答闸）——
+ *   拦：`launch-gui.ps1`、`Start-Process`、`wine `、`& "<盘>:/…"`、把 `.exe` 当程序跑；
+ *   放行：`ls *.exe` / `find -name *.exe` / `grep \.exe README` 这类**只看文件名**的只读命令，
+ *         以及 `case_state.py`/`preflight`/`check`/`gate`/`route` 这些不执行目标的工作台命令。
+ *
+ *   首答闸 ——
  *   拦：① 非白名单的 `seep_*`（MCP；codemode 下是 `mcp__seep__seep_*`，同样拦）
  *       ② bash/powershell 命令里出现：`Tool/skill/`（跑技能脚本；`--self-test` 除外）、
  *          `case_state.py (init|claim|prove|repro|deliver)`、`tool-run.ps1`、
@@ -75,8 +93,22 @@ import * as path from "node:path";
 /** 标记 schema：格式一变，旧标记一律当无效（宁可重做一次首答，也不认半截数据）。 */
 export const MARKER_SCHEMA = "seep.answer-pass/1";
 
+/** 运行回执 schema（`case_state.py ack` 成功时写 `~/.seep/run-ack.json`，P0-4）。 */
+export const RUN_ACK_SCHEMA = "seep.run-ack/1";
+
 /** 默认有效期 60 分钟（真正生效的值取自 answer-contract.json 的 `gate.ttl_minutes`）。 */
 export const TTL_MS = 60 * 60 * 1000;
+
+/** 运行回执的默认有效期 60 分钟（真正生效的值取自 `gate.run_ack.ttl_minutes`）。 */
+export const RUN_ACK_TTL_MINUTES = 60;
+
+/** 运行目标闸的配置（`gate.run_ack`）。 */
+export type RunAckConfig = {
+	/** 回执有效期（分钟）。 */
+	ttlMinutes: number;
+	/** 回执带 case 时，是否要求本次命令里的目标路径落在该案 case.json 的目标下。 */
+	requireCaseTarget: boolean;
+};
 
 /** 闸的配置形状（answer-contract.json 的 `gate` 块是唯一来源）。 */
 export type GateConfig = {
@@ -86,27 +118,27 @@ export type GateConfig = {
 	whitelist: string[];
 	/** 标记带 case 时是否绑定目标（参数里的路径必须落在该案登记的 target_files/target 下）。 */
 	bindTarget: boolean;
+	/** 运行目标闸（P0-4）。 */
+	runAck: RunAckConfig;
 };
 
 /** 读不到 / 读坏 `gate` 块时的兜底（与 answer-contract.json 保持同值，改一处要改两处）。 */
 export const DEFAULT_GATE: GateConfig = {
 	ttlMinutes: 60,
-	whitelist: [
-		"seep_auto_triage",
-		"seep_packer_detect",
-		"seep_r2_info",
-		"seep_apk_info",
-		"seep_kb_search",
-		"seep_kb_read",
-		"seep_tool_discover",
-		"seep_case_read",
-	],
+	// 只留**纯读取**语义：跑分诊会用目标里的内容做判断，那已经是「分析」，要先给首答（第 3 轮 P0-3）
+	whitelist: ["seep_kb_search", "seep_kb_read", "seep_case_read", "seep_tool_discover", "seep_r2_info"],
 	bindTarget: true,
+	runAck: { ttlMinutes: RUN_ACK_TTL_MINUTES, requireCaseTarget: true },
 };
 
 /** 标记文件位置（`~/.seep/answer-pass.json`，与 case_state.py 的写入侧一致）。 */
 export function markerPath(): string {
 	return path.join(os.homedir(), ".seep", "answer-pass.json");
+}
+
+/** 运行回执位置（`~/.seep/run-ack.json`，由 `case_state.py ack` 原子写）。 */
+export function runAckPath(): string {
+	return path.join(os.homedir(), ".seep", "run-ack.json");
 }
 
 /** 读类工具名（自带只读语义）：永不拦。`todo` 也在这里 —— 建清单是首答之前的正当动作。 */
@@ -227,6 +259,42 @@ const INLINE_EXEC =
 const INLINE_SUSPECT =
 	/(^|[^A-Za-z0-9_.-])(rabin2|objdump|readelf|strings|file|curl|wget|ncat|nc|socket|requests|urllib|httpx?)(?=$|[^A-Za-z0-9_.-])/i;
 
+/* ─────────────────── 运行目标闸的判据（第 3 轮 P0-4）─────────────────── */
+
+/** 启动器程序：这些程序后面跟的 `.exe` 是**被执行**的目标，不是文档里的字。 */
+const LAUNCHER_PROGS = new Set([
+	"start-process",
+	"saps",
+	"start",
+	"call",
+	"explorer",
+	"invoke-item",
+	"ii",
+	"cmd",
+	"rundll32",
+	"shelexecute",
+	"wine",
+	"wine64",
+]);
+
+/** 运行目标的直接特征：「这句命令要把客户的东西拉起来」。 */
+const RUN_TRIGGERS: CmdPattern[] = [
+	{ re: /launch-gui\.ps1/i, why: "调用 launch-gui.ps1（它内部会拉起目标进程）" },
+	{
+		re: /(^|[^A-Za-z0-9_.-])start-process(?=$|[^A-Za-z0-9_-])/i,
+		why: "Start-Process 拉起进程",
+	},
+	{ re: /(^|[^A-Za-z0-9_.-])wine(64)?\s+/i, why: "用 wine 跑 Windows 程序" },
+	{
+		// PowerShell 调用运算符：`& "<盘>:/tools/a.exe"`
+		re: /&\s*["']?[A-Za-z]:[\\/]/,
+		why: "PowerShell 调用运算符 & 直接执行盘符路径",
+	},
+];
+
+/** `.exe` 作为 token 出现（前后是空白/引号/`-`/括号/`;|&` 这类边界）。 */
+const EXE_TOKEN = /(^|[\s"'`(\[=&;|])[^\s"'`|&;]*\.exe(?=$|[\s"'`)\]),;|&])/i;
+
 /* ───────────────────────────── 纯函数层 ───────────────────────────── */
 
 /** 把未知宿主对象窄化成可索引的记录（不用 any 糊过去）。 */
@@ -245,10 +313,17 @@ export function parseGate(raw: unknown): GateConfig {
 	const wl = Array.isArray(g.whitelist)
 		? g.whitelist.filter((x): x is string => typeof x === "string").map((s) => s.trim().toLowerCase()).filter(Boolean)
 		: [];
+	const ra = asRecord(g.run_ack);
+	const raTtl = Number(ra.ttl_minutes);
 	return {
 		ttlMinutes: Number.isFinite(ttl) && ttl > 0 ? ttl : DEFAULT_GATE.ttlMinutes,
 		whitelist: wl.length > 0 ? wl : DEFAULT_GATE.whitelist.slice(),
 		bindTarget: typeof g.bind_target === "boolean" ? g.bind_target : DEFAULT_GATE.bindTarget,
+		runAck: {
+			ttlMinutes: Number.isFinite(raTtl) && raTtl > 0 ? raTtl : DEFAULT_GATE.runAck.ttlMinutes,
+			requireCaseTarget:
+				typeof ra.require_case_target === "boolean" ? ra.require_case_target : DEFAULT_GATE.runAck.requireCaseTarget,
+		},
 	};
 }
 
@@ -264,15 +339,20 @@ function bareToolName(name: string): string {
 	return n.startsWith("mcp__seep__") ? n.slice("mcp__seep__".length) : n;
 }
 
-/** 取一段命令里的「程序名」：跳过 `VAR=value` 前缀与引号，取 basename 并去掉 .exe 后缀。 */
-function programOf(segment: string): string {
+/** 取一段命令里的「第一个 token」（跳过 `VAR=value` 前缀、去掉引号）；用于判「这一句到底在跑什么」。 */
+function firstToken(segment: string): string {
 	let s = segment.trim().replace(/^[("'`]+/, "");
 	for (let i = 0; i < 3; i++) {
 		const m = s.match(/^[A-Za-z_][A-Za-z0-9_]*=[^\s]*\s+/);
 		if (!m) break;
 		s = s.slice(m[0].length);
 	}
-	const first = (s.split(/\s+/)[0] || "").replace(/^["'`]+|["'`]+$/g, "");
+	return (s.split(/\s+/)[0] || "").replace(/^["'`]+|["'`]+$/g, "");
+}
+
+/** 取一段命令里的「程序名」：取 basename 并去掉 .exe 后缀（小写）。 */
+function programOf(segment: string): string {
+	const first = firstToken(segment);
 	const base = first.split(/[\\/]/).pop() || first;
 	return base.replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
 }
@@ -417,6 +497,9 @@ function looksLikePath(tok: string): boolean {
 	const t = cleanToken(tok);
 	if (!t || t.length < 2) return false;
 	if (/^https?:\/\//i.test(t)) return false; // URL 不当目标文件路径处理（避免 curl 一律误判换目标）
+	// 带 shell 元字符的碎片（`subprocess.run(['a.exe` 这种）不是路径：
+	// 否则 `python -c "import subprocess;subprocess.run(['a.exe'])"` 会被当成「换了个目标」误拦
+	if (/[;'"`$<>|{}]/.test(t)) return false;
 	if (/^[A-Za-z]:[\\/]/.test(t)) return true;
 	if (t.indexOf("/") >= 0 || t.indexOf("\\") >= 0) return true;
 	return PATHLIKE_EXT.test(t);
@@ -554,6 +637,17 @@ export function buildBlockReason(
 		"看到 [缺] … → 按提示补，补完再跑第 3 步；不合格不会写标记。",
 		"",
 		"（ceiling 只认四句之一：只能看懂结构 / 能改到能用 / 能完全自己接管 / 现在做不了 —— 取自 answer-contract.json）",
+		"",
+		"**怕「首答只能靠猜」？两条路都合法（第 3 轮 P0-3）：**",
+		"",
+		"  · 要提前看结构，先跑 case_state.py answer --template 写首答，再用 triage：",
+		"    首答里的「判断」允许是一句带保留的话（例如「PE32+，看起来未加壳，关键在校验函数；待 triage 确认」），",
+		"    只要四要素齐、effort 带区间和依据。过了闸就能直接调 seep_auto_triage / seep_packer_detect / seep_apk_info。",
+		"  · 或者让用户直接给你判断：「这文件你从哪拿的？有卡密吗？双击过吗？报什么错？」",
+		"    把他说的话写进 judgment / missing，同样能过闸。",
+		"",
+		"永远放行的只有**纯读取**五个：" + gate.whitelist.join(" / ") + "（seep_r2_info 只看架构/位数）。",
+		"seep_auto_triage / seep_packer_detect / seep_apk_info 会读目标里的内容 —— 那是「分析」，请先给首答。",
 	].join("\n");
 }
 
@@ -576,7 +670,8 @@ export function buildTargetBlockReason(toolName: string, why: string, mismatch: 
 		"  2) python Tool/scripts/case_state.py answer --check --file a.json --case <新目标所在的案件目录>",
 		"",
 		"看到 [PASS] 后把刚才那条命令原样重发。",
-		"（如果只是想读旧目标的资料，用只读分诊：seep_auto_triage / seep_r2_info / seep_kb_search / seep_case_read —— 这些永远放行）",
+		"（如果只是想读旧目标的资料：seep_kb_search / seep_kb_read / seep_case_read / seep_tool_discover / seep_r2_info 永远放行；",
+		" seep_auto_triage / seep_packer_detect 会读目标内容，必须先给首答）",
 	].join("\n");
 }
 
@@ -621,6 +716,209 @@ export function shouldBlock(
 	return { block: false, reason: "", analysis: true };
 }
 
+/* ─────────────────── 运行目标闸（纯函数层，第 3 轮 P0-4）─────────────────── */
+
+/**
+ * 单段命令 → 是不是「要把目标拉起来跑」。
+ * 关键区分：**看文件**（ls *.exe / find -name *.exe / grep .exe README）不拦，
+ *           **执行文件**（./a.exe / Start-Process a.exe / cmd /c a.exe / wine a.exe）拦。
+ */
+export function classifyRunSegment(segment: string): { run: boolean; why: string } {
+	const seg = normalizeCmd(segment);
+	if (!seg.trim()) return { run: false, why: "" };
+	// 工作台自检命令（answer / preflight / check / gate / route / 技能脚本自检）不执行目标
+	if (CMD_ALLOW.some((re) => re.test(seg))) return { run: false, why: "" };
+	const prog = programOf(segment);
+	// 只读程序（ls / find / grep / cat / Get-Content…）：列个 *.exe 不算运行，不拦（禁止项）
+	if (READONLY_PROGS.has(prog)) return { run: false, why: "" };
+	for (const p of RUN_TRIGGERS) {
+		const m = seg.match(p.re);
+		if (m) return { run: true, why: p.why + "（命中「" + m[0].trim() + "」）" };
+	}
+	// 启动器程序（cmd /c、start、explorer、invoke-item…）+ 命令里任意 `.exe` token：
+	// 先于「程序位」判：`explorer.exe a.exe` 要报「启动器 explorer 拉起 .exe」，不是「执行 explorer.exe」
+	if (LAUNCHER_PROGS.has(prog) && EXE_TOKEN.test(seg)) {
+		return { run: true, why: "启动器 " + prog + " 拉起 .exe" };
+	}
+	// `.exe` 在程序位（第一个 token）：`./a.exe` / `"<盘>:/tools/a.exe" -k` / `a.exe`
+	const head = firstToken(segment);
+	if (/\.exe$/i.test(head)) return { run: true, why: "直接把 .exe 当程序执行（" + head + "）" };
+	// 内联执行里再拉进程：`python -c "subprocess.run(['a.exe'])"`、`powershell -c "& .\\a.exe"`
+	const inline = seg.match(INLINE_EXEC);
+	if (inline && /\.exe(?=$|[\s"'`)\]])|subprocess|popen|os\.system|startfile|child_process|spawn/i.test(seg)) {
+		return { run: true, why: "解释器内联执行里拉起进程（" + inline[2].toLowerCase() + " …）" };
+	}
+	// `bash -c "./a.exe"` / `sh -c 'a.exe -k'`：把 -c 后面那段当子命令再判一次
+	const sub = segment.match(/(^|[\s;&|])(?:ba|z|da)?sh\s+-c\s+["']?(.+?)["']?\s*$/i);
+	if (sub && sub[2]) {
+		const inner = classifyRunSegment(sub[2]);
+		if (inner.run) return { run: true, why: "shell -c 子命令 → " + inner.why };
+	}
+	return { run: false, why: "" };
+}
+
+/** 判定一次工具调用是不是「要运行目标程序」（不看回执，只看命令文本）。 */
+export function classifyRunTarget(toolName: string, args: unknown): { run: boolean; why: string } {
+	const lname = toolName.trim().toLowerCase();
+	if (lname !== "bash" && lname !== "powershell") return { run: false, why: "" };
+	const a = asRecord(args);
+	const cmd = asText(a.command ?? a.cmd ?? "");
+	if (!cmd.trim()) return { run: false, why: "" };
+	const visible = stripQuotedHeredoc(normalizeCmd(cmd));
+	for (const seg of splitSegments(visible)) {
+		const v = classifyRunSegment(seg);
+		if (v.run) return v;
+	}
+	return { run: false, why: "" };
+}
+
+/**
+ * 回执带 case 时，本次命令里的目标路径必须落在该案 case.json 的 `target_files`/`target` 下
+ * （basename 匹配允许「cwd 下的相对路径」对上「案件目录里的登记路径」）。
+ * 返回 "" = 不冲突。
+ */
+export function runTargetMismatch(
+	toolName: string,
+	args: unknown,
+	caseDir: string,
+	caseTargets: CaseTargets | null,
+): string {
+	if (!caseDir) return "";
+	const paths = extractPaths(toolName, args);
+	if (paths.length === 0) return "";
+	const dir = path.resolve(caseDir);
+	const targets = (caseTargets?.paths ?? []).map((p) => path.resolve(dir, p));
+	const baseNames = new Set<string>();
+	for (const t of targets) {
+		const b = path.basename(cmpKey(t));
+		if (b) baseNames.add(b);
+	}
+	const hit = paths.some((p) => {
+		const abs = path.resolve(p);
+		if (under(abs, dir)) return true;
+		if (targets.some((t) => under(abs, t))) return true;
+		const b = path.basename(cmpKey(abs));
+		return b.length > 0 && baseNames.has(b);
+	});
+	if (hit) return "";
+	const tail =
+		targets.length === 0
+			? "（该案 case.json 没登记 target_files/target，闸只能按「路径在案件目录内」判定）"
+			: "";
+	return (
+		"本次命令里的目标（" + paths.slice(0, 2).join(" / ") + "）不在该案 case.json 登记的目标下" + tail
+	);
+}
+
+/**
+ * 运行回执有效性：文件存在 + schema 对 + at 在 `gate.run_ack.ttl_minutes` 内
+ * （+ `require_case_target` 打开且回执带 case 时，目标要落在该案 case.json 下）。
+ */
+export function runAckState(
+	runAck: unknown,
+	now: number,
+	cfg: RunAckConfig = DEFAULT_GATE.runAck,
+	toolName = "",
+	args: unknown = {},
+	caseTargets: CaseTargets | null = null,
+): { ok: boolean; why: string; mismatch: boolean } {
+	const a = asRecord(runAck);
+	if (runAck === null || runAck === undefined || Object.keys(a).length === 0) {
+		return { ok: false, why: "没有运行回执（" + runAckPath() + " 不存在或读不出）", mismatch: false };
+	}
+	if (asText(a.schema) !== RUN_ACK_SCHEMA) {
+		return { ok: false, why: "回执格式不是 " + RUN_ACK_SCHEMA + "（可能被手改坏了）", mismatch: false };
+	}
+	const atRaw = asText(a.at).trim();
+	const at = Date.parse(atRaw);
+	if (!Number.isFinite(at)) {
+		return { ok: false, why: "回执里的 at 不是合法时间（" + (atRaw || "空") + "）", mismatch: false };
+	}
+	const mins = Number.isFinite(cfg.ttlMinutes) && cfg.ttlMinutes > 0 ? cfg.ttlMinutes : RUN_ACK_TTL_MINUTES;
+	const age = now - at;
+	if (age > mins * 60000) {
+		return {
+			ok: false,
+			why: "运行回执已过期（" + Math.round(age / 60000) + " 分钟前记的，闸只认 " + Math.round(mins) + " 分钟内）",
+			mismatch: false,
+		};
+	}
+	if (age < -5 * 60000) {
+		return { ok: false, why: "回执时间在过去之后（时钟不对，或文件被改），不认", mismatch: false };
+	}
+	const letter = asText(a.letter).trim().toUpperCase();
+	if (!letter) {
+		return { ok: false, why: "回执里没有 letter（用户选了哪个字母）", mismatch: false };
+	}
+	const caseDir = asText(a.case).trim();
+	if (!cfg.requireCaseTarget || !caseDir) return { ok: true, why: "", mismatch: false };
+	const bad = runTargetMismatch(toolName, args, caseDir, caseTargets);
+	if (bad) return { ok: false, why: bad, mismatch: true };
+	return { ok: true, why: "", mismatch: false };
+}
+
+/** 运行目标闸的 block 文案：三步必须能照抄（发卡 → ack → 重发）。 */
+export function buildRunBlockReason(
+	toolName: string,
+	why: string,
+	stateWhy: string,
+	cfg: RunAckConfig = DEFAULT_GATE.runAck,
+	caseHint = "",
+	runAck: unknown = null,
+): string {
+	const C = caseHint || "<C>";
+	const a = asRecord(runAck);
+	const mins = Math.round(Number.isFinite(cfg.ttlMinutes) && cfg.ttlMinutes > 0 ? cfg.ttlMinutes : RUN_ACK_TTL_MINUTES);
+	const prevCase = asText(a.case).trim();
+	return [
+		"[run-gate] 已拦下：" + toolName + "（这条命令会在本机把目标程序拉起来）",
+		"",
+		"拦下原因：" + why,
+		"回执状态：" + stateWhy,
+		...(prevCase ? ["上一张回执绑的是：case=" + prevCase] : []),
+		"",
+		"**这是一道闸，不是报错。** 在这台机器上运行客户的目标程序，必须先拿到用户明确的一句“可以”。",
+		"闸只认 " + runAckPath() + "（由 case_state.py ack 写入，" + mins + " 分钟内有效、且绑本案目标）。",
+		"",
+		"照着抄三步（" + C + " = 本案目录）：",
+		"",
+		"  1) 发一张卡问用户「允许在本机运行它吗」：",
+		"     python Tool/scripts/case_state.py ask --case " + C + " \\",
+		'       --stuck "允许我在本机运行目标程序吗（要拉起它）" \\',
+		'       --option "A 允许在本机运行（只跑目标，不改系统设置、不联网）" \\',
+		'       --option "B 先别运行，只做静态分析" \\',
+		'       --option "C 我自己双击运行，你只观察"',
+		"     把输出里那段【需要你选】**原样贴进对话**，然后停下等字母。",
+		"",
+		"  2) 用户回了字母之后，记录回执（成功会原子写 " + runAckPath() + "）：",
+		"     python Tool/scripts/case_state.py ack --case " + C + " --id <卡id> --choice <字母>",
+		"     （当前 CLI 的等价写法：python Tool/scripts/case_state.py ack --case " + C + " --ack <字母>）",
+		"",
+		"  3) 看到 [ACK] … 之后，把刚才那条命令**原样重新发一遍** —— 闸会自动放行。",
+		"",
+		"不想走这条路时的合法做法：",
+		"  · 只看文件清单/结构：ls / dir / find / grep（不执行）永远放行；",
+		"  · 让用户自己双击运行，你只拿他说看到什么（把结论写进首答的 missing / 下一步）。",
+	].join("\n");
+}
+
+/** 运行目标闸的纯函数判定（不碰磁盘；回执与 caseTargets 由调用方读）。 */
+export function shouldBlockRun(
+	toolName: string,
+	args: unknown,
+	runAck: unknown,
+	now: number,
+	gate: GateConfig = DEFAULT_GATE,
+	caseTargets: CaseTargets | null = null,
+	caseHint = "",
+): { block: boolean; reason: string; run: boolean } {
+	const cls = classifyRunTarget(toolName, args);
+	if (!cls.run) return { block: false, reason: "", run: false };
+	const st = runAckState(runAck, now, gate.runAck, toolName, args, caseTargets);
+	if (st.ok) return { block: false, reason: "", run: true };
+	return { block: true, reason: buildRunBlockReason(toolName, cls.why, st.why, gate.runAck, caseHint, runAck), run: true };
+}
+
 /* ─────────────────────────── 写入守卫（纯函数层） ─────────────────────────── */
 
 /** 写类工具名。读类工具一律不在这里 —— 守卫只管「往哪写」。 */
@@ -653,7 +951,7 @@ function tempRoots(): string[] {
 	return roots.filter((r) => r.length > 0);
 }
 
-/** 系统临时目录（含任何路径里的 /tmp/ 或 /temp/ 段：Windows 上 D:/tmp 也算临时区）。 */
+/** 系统临时目录（含任何路径里的 /tmp/ 或 /temp/ 段：任意盘符下的 tmp 目录也算临时区）。 */
 export function isTempPath(p: string): boolean {
 	const n = cmpKey(p);
 	if (tempRoots().some((r) => under(p, r))) return true;
@@ -740,6 +1038,20 @@ export function readMarker(p = markerPath()): unknown {
 		return typeof obj === "object" && obj !== null ? obj : null;
 	} catch {
 		return null;
+	}
+}
+
+/** 读运行回执（`~/.seep/run-ack.json`）：与 readMarker 同一套容错（读不到 = null → block）。 */
+export function readRunAck(p = runAckPath()): unknown {
+	return readMarker(p);
+}
+
+/** 当前案件目录提示（`~/.seep/current-case`）：只用于把 block 文案里的 `<C>` 填成真实路径。 */
+export function currentCaseHint(): string {
+	try {
+		return fs.readFileSync(path.join(os.homedir(), ".seep", "current-case"), "utf-8").trim();
+	} catch {
+		return "";
 	}
 }
 
@@ -933,12 +1245,50 @@ export default function answerGate(pi: ExtensionAPI) {
 		}
 	});
 
+	/**
+	 * 运行目标闸（第 3 轮评审 P0-4）：第三个 tool_call handler。
+	 *
+	 * 为什么单开一道：首答闸管的是「先说话再分析」，这道管的是「用户允许了才在本机运行」。
+	 * 两件事没有包含关系 —— 首答写得再全，也不等于用户同意在这台机器上双击客户的东西。
+	 *
+	 * 拦点选在**命令文本层**：`launch-gui.ps1` 自己内部会再拉子进程，所以不必去拦子进程。
+	 */
+	pi.on("tool_call", (event: unknown) => {
+		try {
+			const e = asRecord(event);
+			const tool = asText(e.toolName ?? e.name);
+			const args = e.input ?? e.args;
+			// 先分类：不是「要运行目标」的命令，连回执文件都不读
+			if (!classifyRunTarget(tool, args).run) return undefined;
+			const gate = gateConfig();
+			const ack = readRunAck();
+			const ackCase = asText(asRecord(ack).case).trim();
+			const caseTargets = ackCase ? readCaseTargets(ackCase) : null;
+			const hint = currentCaseHint() || ackCase;
+			const v = shouldBlockRun(tool, args, ack, Date.now(), gate, caseTargets, hint);
+			if (!v.block) {
+				if (gate.runAck.requireCaseTarget && ackCase && !caseTargets) {
+					console.warn("[run-gate][WARN] 读不到 " + ackCase + "/case.json → 本次不做目标绑定检查");
+				}
+				return undefined;
+			}
+			if (disabledByEnv()) {
+				console.warn("[run-gate] SEEP_ANSWER_GATE=0 → 闸被人工关闭，本次放行：" + tool);
+				return undefined;
+			}
+			return { block: true, reason: v.reason };
+		} catch {
+			// 闸自己出错 → 放行（绝不因为闸的 bug 误拦正常调用）
+			return undefined;
+		}
+	});
+
 	/** `/answer-gate`：让人能看见闸的状态，而不是凭猜。 */
 	try {
 		pi.registerCommand?.("answer-gate", {
-			description: "看首答闸状态：/answer-gate（有效 / 过期 / 契约变了 / 换了目标 / 没有记录）",
+			description: "看三道闸的状态：/answer-gate（首答标记 / 运行回执 / 写入白名单）",
 			handler: async (_args: string, ctx: unknown) => {
-				const lines: string[] = ["[answer-gate] 标记=" + markerPath()];
+				const lines: string[] = ["[answer-gate] 首答标记=" + markerPath()];
 				try {
 					const cfg = loadContract();
 					const file = findContract();
@@ -973,7 +1323,36 @@ export default function answerGate(pi: ExtensionAPI) {
 					}
 					if (disabledByEnv()) lines.push("  ★ SEEP_ANSWER_GATE=0：闸已被人工关闭（默认开）");
 					lines.push(
-						"  过闸：python Tool/scripts/case_state.py answer --template → 填四要素 → answer --check --file a.json --case <本案目录>",
+						"  过首答闸：python Tool/scripts/case_state.py answer --template → 填四要素 → answer --check --file a.json --case <本案目录>",
+					);
+					// ── 运行目标闸（P0-4）的状态 ──
+					lines.push("[run-gate] 运行回执=" + runAckPath());
+					const ack = readRunAck();
+					const ra = asRecord(ack);
+					const ackCase = asText(ra.case).trim();
+					const raSt = runAckState(
+						ack,
+						Date.now(),
+						cfg.gate.runAck,
+						"",
+						{},
+						ackCase ? readCaseTargets(ackCase) : null,
+					);
+					lines.push(
+						"  策略=TTL " + cfg.gate.runAck.ttlMinutes + " 分钟 · 绑目标=" +
+							(cfg.gate.runAck.requireCaseTarget ? "开" : "关"),
+					);
+					lines.push(
+						"  状态=" + (raSt.ok ? "有效（带本案目标的命令可以运行）" : "无效 → 运行目标的命令会被拦：" + raSt.why),
+					);
+					if (Object.keys(ra).length > 0) {
+						lines.push(
+							"  回执=" + asText(ra.letter) + " · at=" + asText(ra.at) + " · case=" + (ackCase || "（未指定）") +
+								" · target_sha256=" + (asText(ra.target_sha256).slice(0, 12) || "（未写入）"),
+						);
+					}
+					lines.push(
+						"  过运行闸：case_state.py ask --case <C>（问「允许在本机运行它吗」）→ 用户回字母 → case_state.py ack --case <C> --ack <字母>",
 					);
 				} catch {
 					lines.push("  状态=读取出错（不影响会话）");

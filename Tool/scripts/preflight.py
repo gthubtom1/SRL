@@ -1628,10 +1628,21 @@ def check_five_contracts():
     rc, out = _run(["block", "--list"])
     if rc != 0 or out.count("BLK-") < 11:
         bad.append("BLK 码表不足 11 条")
-    # 3) repro 两次一致 → E2
-    rc, out = _run(["repro", "--cmd", "echo five-contract", "--expect", "five-contract"])
-    if "E2" not in out:
-        bad.append("repro 未给出 E2（两次重放比对失效）")
+    # 3) repro 两次一致 → E2（★ 现在必须绑目标：命令里要出现本案目标，否则只能 E1）
+    _t3 = _tf.mkdtemp(prefix="seep-repro-")
+    _tgt = os.path.join(_t3, "target.bin")
+    try:
+        with open(_tgt, "wb") as _f:
+            _f.write(b"five-contract")
+        _run(["init", "--case", _t3, "--target", _tgt], timeout=120)
+        _p = _tgt.replace(chr(92), "/")
+        _cmd3 = 'python -c "import sys;sys.stdout.write(open(%r).read())"' % _p
+        rc, out = _run(["repro", "--case", _t3, "--id", "E-001",
+                        "--cmd", _cmd3, "--expect", "five-contract"], timeout=180)
+        if "E2" not in out:
+            bad.append("repro 未给出 E2（两次重放比对失效，或命令未绑到本案目标）")
+    except Exception as _e:  # noqa: BLE001
+        bad.append("repro 自测无法执行：%s" % str(_e)[:80])
     # 4) 降级通知 + 5) 复查单（在临时案例里跑，不碰真实案例）
     tmp = _tf.mkdtemp(prefix="seep-five-")
     try:

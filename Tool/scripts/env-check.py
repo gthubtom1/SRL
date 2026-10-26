@@ -149,6 +149,95 @@ def _mcp_service_probe(path=None, timeout=120):
     return out
 
 
+# 模型凭据交给用户/Agent 去补的动作（可直接复制，不需要联网）。
+MODEL_CRED_ACTION = (
+    "补模型凭据：开一个 Agent 会话执行 /login 选 provider 登录（或把 provider 的 apiKey 写进 "
+    "~/.pi/agent/models.json 的 providers 里），然后重跑 python Tool/scripts/env-check.py --text")
+
+
+def _mask_path(p: str) -> str:
+    """展示用脱敏：把家目录换成 ~（绝不用来展示任何 key 内容）。"""
+    home = os.path.expanduser("~")
+    if home and home in p:
+        p = p.replace(home, "~")
+    return p
+
+
+def _cred_usable(v) -> bool:
+    """凭据条目是否"看起来有东西"——只看有没有，不校验内容、不联网、不打印。"""
+    if isinstance(v, str):
+        return bool(v.strip())
+    if isinstance(v, dict):
+        for k in ("key", "apiKey", "access", "refresh", "accessToken", "token", "env", "api_key"):
+            val = v.get(k)
+            if isinstance(val, str) and val.strip():
+                return True
+            if isinstance(val, dict) and val:
+                return True
+    return False
+
+
+def _model_credential_probe(ad=None):
+    """模型/凭据体检：只判「有没有配」，不联网验证 key 是否有效。
+
+    为什么（第 3 轮评审 P0-5）：MCP 侧修好了，但模型层没凭据时整台机器依然开不了
+    会话——以前这里完全不看 auth.json / models.json，装完就报 installed: true。
+
+    判定顺序（与 Pi 的凭据解析顺序大体一致，越靠前越可信）：
+      ① <agent-dir>/auth.json 里有非空条目（/login 存下来的 key 或 OAuth 令牌）；
+      ② models.json 的 providers 里至少一个带非空 apiKey（自定义 provider）；
+      ③ 都没有 → 未配置。
+    输出只含 provider 名或脱敏后的文件路径，不含任何 key/token 内容。
+    """
+    ad = ad or agent_dir()
+    auth_p = os.path.join(ad, "auth.json")
+    models_p = os.path.join(ad, "models.json")
+    out = {"configured": False, "source": "", "providers": [], "stage": "未测",
+           "files": [_mask_path(auth_p), _mask_path(models_p)], "detail": ""}
+    notes = []
+
+    # ① auth.json
+    if not os.path.isfile(auth_p):
+        notes.append("auth.json 不存在")
+    else:
+        try:
+            raw = open(auth_p, encoding="utf-8", errors="replace").read()
+            data = json.loads(raw) if raw.strip() else {}
+            names = sorted(k for k, v in (data.items() if isinstance(data, dict) else [])
+                           if _cred_usable(v))
+            if names:
+                shown = ", ".join(names[:3]) + (" 等" if len(names) > 3 else "")
+                out.update(configured=True, stage="auth.json", providers=names,
+                           source="auth.json: " + shown,
+                           detail="auth.json 有 %d 个可用凭据条目" % len(names))
+                return out
+            notes.append("auth.json 存在但没有可用条目（空文件或空对象）")
+        except Exception as exc:  # noqa: BLE001
+            notes.append("auth.json 解析失败：%s" % str(exc)[:80])
+
+    # ② models.json（自定义 provider 的 apiKey 写在文件里）
+    if not os.path.isfile(models_p):
+        notes.append("models.json 不存在")
+    else:
+        try:
+            cfg = json.load(open(models_p, encoding="utf-8"))
+            provs = cfg.get("providers") or {}
+            names = sorted(str(k) for k, v in (provs.items() if isinstance(provs, dict) else [])
+                           if isinstance(v, dict) and _cred_usable(v))
+            if names:
+                shown = ", ".join(names[:3]) + (" 等" if len(names) > 3 else "")
+                out.update(configured=True, stage="models.json", providers=names,
+                           source="models.json: " + shown,
+                           detail="models.json 有 %d 个带 apiKey 的 provider" % len(names))
+                return out
+            notes.append("models.json 存在但没有带 apiKey 的 provider")
+        except Exception as exc:  # noqa: BLE001
+            notes.append("models.json 解析失败：%s" % str(exc)[:80])
+
+    out["detail"] = "；".join(notes) or "没有找到任何凭据来源"
+    return out
+
+
 def check():
     ad = agent_dir()
     repo_ver = ""
@@ -225,6 +314,14 @@ def check():
         res["missing"].append(
             "MCP 服务不可用（seep 握手失败阶段 %s）：%s" % (svc["stage"], svc["detail"] or "无详情"))
 
+    # 4c) 模型/凭据（第 3 轮评审 P0-5）：没有可用 provider 就开不了会话，
+    #     以前这一项完全没查 → 装完报 installed: true，用户一开口就报鉴权错。
+    cred = _model_credential_probe(ad)
+    res["checks"]["model_credential"] = cred
+    if not cred["configured"]:
+        res["missing"].append(
+            "模型凭据未配置（auth.json / models.json 都没有可用 provider）：%s" % (cred["detail"] or ""))
+
     # 5) settings.json：packages 与 retry 档位
     st_path = os.path.join(ad, "settings.json")
     pk, retry = 0, None
@@ -249,6 +346,8 @@ def check():
         if not svc["available"]:
             # 服务连不上不是"没安装"，install.ps1 修不了 —— 先指向自愈器
             res["next_actions"].insert(0, "python Tool/scripts/mcp-doctor.py --fix")
+        if not cred["configured"]:
+            res["next_actions"].append(MODEL_CRED_ACTION)
     return res
 
 
@@ -271,6 +370,12 @@ def main():
               % ("可用" if sv.get("available") else "不可用@%s" % sv.get("stage"),
                  "OK" if sv.get("parses") else "失败", sv.get("tool_count"), MCP_MIN_TOOLS,
                  ("OK %d 工具" % sv.get("handshake_tools")) if sv.get("handshake_ok") else "失败"))
+        cr = c.get("model_credential") or {}
+        if cr.get("configured"):
+            print("模型凭据：已配置（%s）" % (cr.get("source") or cr.get("stage")))
+        else:
+            print("模型凭据：未配置（需要登录/API key）")
+            print("  查过: %s（%s）" % ("、".join(cr.get("files") or []), cr.get("detail") or "无详情"))
         print(f"  settings: packages={c['settings']['packages']} retry.maxRetries={c['settings']['retry_max']}")
         print("结论:", ("已就绪（配置就绪且服务可用）" if r["installed"]
                         else f"需要安装/修复（缺 {len(r['missing'])} 项；配置就绪≠服务可用，看上面两行）"))

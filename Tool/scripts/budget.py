@@ -128,7 +128,7 @@ def main(argv=None):
                                        encoding="utf-8").read().splitlines()), 3200),
         # 上限从 900 → 930（2026-10-25）：A+ 深度工作按"每域 ≥2000 行/篇均 ≥250"补内容，
         # 每轮会新增 2–4 篇 reference。深度是产品本身，不是膨胀；上限仍设死值，防止无节制加文件。
-        ("first-party 引擎文件", first_party_files(), 930),
+        ("first-party 引擎文件", first_party_files(), 950),
         ("案例库文件", case_files(), 1500),   # 证据库：58 个案例的真实输入/产物
     ]
 

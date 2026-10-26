@@ -177,7 +177,7 @@ if ($deployOk) {
     Write-Host @"
 
 开工指南:
-  1) 重新打开终端启动 Agent (Pi / Claude Code / DSH / OpenCode)
+  1) 双击根目录 start.bat 打开会话（或自己启动 Agent：Pi / Claude Code / DSH / OpenCode）
   2) 在对话框中输入:  lab： 即可开启白盒测试！
 
 "@ -ForegroundColor Cyan
