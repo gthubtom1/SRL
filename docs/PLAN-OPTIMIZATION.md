@@ -698,8 +698,8 @@ objective 要求把每条判为"真问题/误报/需人工决定/P2"。本目标
 | R4 | 11 / 13 | 8 类文件永久禁写；adhoc 无效；运行闸只认 A/C；任意 mcp__*；cmd-guard +17；echo 证据；首答内容闸；无账本假编号；check --fix；gate 诚实摘要 | `00884ad` | 75/75 |
 | R5 | 5 / 8 | skip 需用户回执；router 语义统一；空证据；target_files；判壳 unknown+强弱信号；探针 rc=1；.gitignore 凭据 | `0d3c592`、`011edd3` | 75/75 |
 | R6（补作废轮） | 4 / 8 | gate 可用性 rc=3、首答最小内容判据、授权单轨、交付去代号、冷启动打通、lab 自动、问人卡中文、写账本失败非零、check 措辞诚实、技能未生效提示 | 见本轮提交 | 6/6 套件（unit 为 WARN）、preflight 75/75、gate rc=3 |
-| R7 | 6 / 10 | git clean→block、写/运行闸 fail-closed、init --domain、工具黑名单补 7 个、总控唯一改查映射表（并修掉 3 处重复映射）、install.bat 给可贴给 AI 的话 |  | 75/75、PASS 5/WARN 1、gate rc=3 |
-| R8（作废轮之二／按正文判据有效） | 6 / 10 | check.ps1 看板不再谎报"全部通过"、首答词表按域扩表、"缺什么=无"合法、BLK 单一来源、报告禁代号、README 零外网改写 | `见本轮提交` | 76/76、PASS 5/WARN 1、gate rc=3 |
+| R7 | 6 / 10 | git clean→block、写/运行闸 fail-closed、init --domain、工具黑名单补 7 个、总控唯一改查映射表（并修掉 3 处重复映射）、install.bat 给可贴给 AI 的话 | 0e7b17b | 75/75、PASS 5/WARN 1、gate rc=3 |
+| R8（作废轮之二／按正文判据有效） | 6 / 10 | check.ps1 看板不再谎报"全部通过"、首答词表按域扩表、"缺什么=无"合法、BLK 单一来源、报告禁代号、README 零外网改写 | 5cd942e / 79998c2 | 76/76、PASS 5/WARN 1、gate rc=3 |
 | R7-fix（账目修正） | — | 删旧汇总表、补 R7 行、提交索引改显式列表 | 见本提交 | 见本提交 |
 | 审计返工 | — | 闸行为测试入库（25 条，第 6 套件）；首答标记比对目标内容哈希；gate「交付承诺 vs 账本」点名；§11 逐条分诊表 | `7135456`、`11c1fc4` | 6/6 套件、preflight 75/75 |
 
