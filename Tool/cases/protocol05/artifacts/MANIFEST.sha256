@@ -1,2 +1,4 @@
 f4ce6bb7fd58fc95d88c5d7db900a6bd175de6fb154b53cdc2825f883badb9a3  artifacts/crafted-radius.pcap
 a3fff8cda0c049644439af3341962bbe9800693c4678a01f8cde4105ac7532f0  capture/reverify-2026-10-24.log
+7bb63803d0686478d4bd8fa2a68cd862f795017102a6cf53ddd910c2810743e6  artifacts/repro-E-904-run1.log
+cc7ebe262c4b9c86ae0c33572492fd8143f271ed8c5c3993bc60e142952840ef  artifacts/repro-E-904-run2.log

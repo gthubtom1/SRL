@@ -1,0 +1,10 @@
+# run 2
+# cmd: python -c "import hashlib,struct;d=open(r'D:/Seep-Reverse-Lab/Tool/cases/pwn-crypto06/target/dvcp.exe','rb').read();print('pe',d[:2].decode(),'machine',hex(struct.unpack_from('<H',d,4)[0]));print('sha256',hashlib.sha256(d).hexdigest())"
+# expect: 5fd2ea51e2524dd6
+# exit: 0
+----- stdout -----
+pe MZ machine 0x3
+sha256 5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e
+
+----- stderr -----
+

@@ -1,0 +1,10 @@
+# run 1
+# cmd: python -c "import json,hashlib;d=open(r'D:/Seep-Reverse-Lab/Tool/cases/supply-chain05/target/package.json','rb').read();j=json.loads(d);print('name',j.get('name'),'deps',len(j.get('dependencies') or {}));print('sha256',hashlib.sha256(d).hexdigest())"
+# expect: 81771ac97016ceb8
+# exit: 0
+----- stdout -----
+name juice-shop deps 64
+sha256 81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c
+
+----- stderr -----
+

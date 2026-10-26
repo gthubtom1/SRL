@@ -940,6 +940,39 @@ export function buildTargetBlockReason(toolName: string, why: string, mismatch: 
  *   caseTargets  标记 case 的登记目标（bindTarget 打开时由调用方读盘传入，纯函数只做比较）
  * 返回 block=true 时 reason 即给模型看的完整文案。
  */
+
+/** 个人隐私区：读类工具（read/grep/find/ls）只在这些路径上直接拦下。
+ *  ★ 为什么需要（R8 P1-5）："别乱翻我东西"原来只有提示词，读类工具不限目录。
+ *  用"窄黑名单"而不是白名单：白名单会误伤客户放在任意目录的目标文件。
+ */
+const SENSITIVE_PATH_RE =
+	/(^|[\\/])(\.ssh|\.aws|\.gnupg|\.netrc|\.git-credentials|\.config[\\/]gh|Cookies|Login Data|keychain|credentials|passwords?|id_rsa|id_ed25519|Web Data|Local State)([\\/.]|$)/i;
+
+function _allStrings(v: unknown, out: string[] = [], depth = 0): string[] {
+	if (depth > 6 || out.length > 400) return out;
+	if (typeof v === "string") {
+		out.push(v);
+		return out;
+	}
+	if (Array.isArray(v)) {
+		for (const x of v) _allStrings(x, out, depth + 1);
+		return out;
+	}
+	if (v && typeof v === "object") {
+		for (const k of Object.keys(v as Record<string, unknown>)) {
+			_allStrings((v as Record<string, unknown>)[k], out, depth + 1);
+		}
+	}
+	return out;
+}
+
+export function sensitivePathHit(args: unknown): string {
+	for (const s of _allStrings(args)) {
+		if (SENSITIVE_PATH_RE.test(s)) return s.length > 120 ? s.slice(0, 120) + "..." : s;
+	}
+	return "";
+}
+
 export function shouldBlock(
 	toolName: string,
 	args: unknown,
@@ -1644,7 +1677,29 @@ export default function answerGate(pi: ExtensionAPI) {
 	 * 写入守卫（第 2 轮评审第 4 条）：第二个 tool_call handler。
 	 * 只对 write/edit 这类写工具生效 —— 读类工具完全不经过判定。
 	 */
+	
+	// ── 读守卫（R8 P1-5）：只拦"个人隐私区"，正常读目标/仓库/案件目录一律放行
 	pi.on("tool_call", (event: unknown) => {
+		try {
+			const e = asRecord(event);
+			const tool = asText(e.toolName ?? e.name);
+			const base = tool.replace(/^mcp__[^_]+__/, "");
+			if (!READONLY_TOOLS.has(base) && !READONLY_TOOLS.has(tool)) return undefined;
+			const hit = sensitivePathHit(e.input ?? e.args);
+			if (!hit) return undefined;
+			console.warn("[read-guard] 已拦下个人隐私区路径：" + hit);
+			return {
+				block: true,
+				reason:
+					"[read-guard] 已拦下：这条路径属于个人隐私区（" + hit + "）。\n" +
+					"分析只需要三类路径：目标文件、案件目录（work/ 或 Tool/cases/<案>/）、工具安装目录。\n" +
+					"如果确实需要看它，请让用户把文件复制到案件目录后再继续。",
+			};
+		} catch {
+			return undefined;
+		}
+	});
+pi.on("tool_call", (event: unknown) => {
 		try {
 			const e = asRecord(event);
 			const tool = asText(e.toolName ?? e.name);

@@ -52,5 +52,12 @@
    "sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
    "source": "github.com/ReFirmLabs/binwalk tests/inputs/cramfs.bin（BSD-2）"
   }
- ]
+ ],
+ "target": {
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\firmware-iot06\\target\\cramfs.bin",
+  "sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
+  "size": 4096,
+  "at": "2026-10-26T15:34:58",
+  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ }
 }

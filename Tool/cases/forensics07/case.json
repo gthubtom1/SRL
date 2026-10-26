@@ -86,5 +86,12 @@
    "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
    "source": "github.com/the-tcpdump-group/tcpdump tests/bgp-4byte-asn.pcap（BSD）"
   }
- ]
+ ],
+ "target": {
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics07\\target\\bgp-4byte-asn.pcap",
+  "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
+  "size": 8717,
+  "at": "2026-10-26T15:34:58",
+  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ }
 }

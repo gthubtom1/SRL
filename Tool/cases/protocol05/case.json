@@ -47,5 +47,12 @@
    "sha256": "9cd173ba614345281e4b66927f3b17b357519540bbc0feedbc15dbc7ba8ad921",
    "source": "github.com/the-tcpdump-group/tcpdump tests/RADIUS.pcap（BSD）"
   }
- ]
+ ],
+ "target": {
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\protocol05\\target\\RADIUS.pcap",
+  "sha256": "9cd173ba614345281e4b66927f3b17b357519540bbc0feedbc15dbc7ba8ad921",
+  "size": 775,
+  "at": "2026-10-26T15:34:58",
+  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ }
 }

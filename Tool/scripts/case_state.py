@@ -513,18 +513,27 @@ EVIDENCE_PATH_RE = re.compile(
 
 
 # 证据必须是「别人能重放的材料」（外部评审第 2 轮：纯文本证据 = 没法核对）：
-#   ① 路径且文件真实存在；② 命令 + 可核对产物（.json/.log/.md/sha256/rc=/exit=）；
-#   ③ 哈希（32–64 位 hex 或 sha256:<hex>）；④ E-/F-/C- 编号且该编号在本案账本里存在。
+#   ① 路径且文件真实存在；② 命令 + **真实存在的产物文件**（从命令串解析出路径/文件名，
+#      能在案件目录或 work/ 下找到且 size>0；只写 rc=/sha256 不再算）；
+#   ③ 哈希（32–64 位 hex 或 sha256:<hex>）且**能对上本案**（case.json 的 target.sha256，
+#      或在案件目录任一文件里被记录过；乱写的哈希不再算）；
+#   ④ E-/F-/C- 编号且该编号在本案账本里存在。
 # 反例「看过了」「已确认」「分析完成」一律拒绝。
 EVIDENCE_CMD_PREFIXES = ("python ", "python3 ", "pwsh ", "powershell ", "bash ", "cmd ")
 EVIDENCE_CMD_PRODUCT_RE = re.compile(r"\.json|\.log|\.md|sha256|rc=|exit=", re.I)
 EVIDENCE_SHA_RE = re.compile(r"^(?:sha256:)?[0-9a-f]{32,64}$", re.I)
 EVIDENCE_ID_RE = re.compile(r"\b([ECF])-(\d{2,})\b")
+# 命令串里“像产物”的 token：扩展名必须是落盘产物（脚本 .py/.sh 不算，避免拿输入脚本充产物）
+EVIDENCE_ARTIFACT_RE = re.compile(
+    r"[^\s\"'<>|;)(=]+\.(?:json|jsonl|log|md|txt|csv|xml|html?|png|jpe?g|gif|dmp|pcapng?|"
+    r"zip|tar|gz|exe|dll|bin|so|apk)(?![A-Za-z0-9])", re.I)
+EVIDENCE_HASH_NOTES = ("case.json 的 target.sha256",
+                       "案件目录里任一记录过该哈希的文件（facts.jsonl / 日志 / 报告等）")
 EVIDENCE_REPLAY_HINT = (
     "证据必须能被别人重放：给路径 / 命令+产物 / 哈希 / 账本编号其一\n"
     "     反例（一律拒绝）：「看过了」「已确认」「分析完成」——纯文本没法复现\n"
-    "     正例：capture/run.json ｜ python Tool/scripts/preflight.py --fast -> x.json rc=0 ｜ "
-    "<sha256> ｜ C-001（账本里已有的编号）")
+    "     正例：capture/run.json ｜ python Tool/scripts/preflight.py --fast -> x.json rc=0"
+    "（x.json 必须真实落盘）｜ <sha256>（须等于目标哈希或在案卷里记录过）｜ C-001（账本里已有的编号）")
 
 
 def _evidence_is_command(ev):
@@ -535,17 +544,191 @@ def _evidence_is_command(ev):
     return bool(EVIDENCE_CMD_PRODUCT_RE.search(ev))
 
 
+def _clean_ev_token(tok):
+    """命令串 token → 裸路径：去掉引号/首尾标点/重定向箭头（保留 Windows 盘符冒号）。"""
+    t = (tok or "").strip().strip("'\"`")
+    t = t.rstrip(".,;:)]}>")
+    for p in ("->", "=>", ">>", ">"):
+        if t.startswith(p):
+            t = t[len(p):]
+    t = t.lstrip("<>= ").strip("'\"`")
+    return t
+
+
+def _cmd_artifact_tokens(ev):
+    """从命令串解析出“像产物”的路径/文件名（保持出现顺序、去重）。"""
+    out = []
+    for m in EVIDENCE_ARTIFACT_RE.finditer(ev or ""):
+        t = _clean_ev_token(m.group(0))
+        if t and t not in out:
+            out.append(t)
+    return out
+
+
+def _norm_path(p):
+    try:
+        return os.path.normcase(os.path.realpath(os.path.abspath(str(p))))
+    except Exception:  # noqa: BLE001 —— 路径怪串不该让证据闸崩
+        return os.path.normcase(os.path.abspath(str(p)))
+
+
+def _paths_overlap(path, root):
+    """path 是否落在 root 下（用 realpath/normcase，Windows 大小写与软链都不误判）。"""
+    if not path or not root:
+        return False
+    p, r = _norm_path(path), _norm_path(root)
+    try:
+        return os.path.commonpath([p, r]) == r
+    except ValueError:      # 跨盘符
+        return False
+
+
+def _under_work(path):
+    """路径里任一层目录名是 work（“案件目录或 work/ 下”的第二种落点）。"""
+    parts = [x for x in re.split(r"[\\/]+", os.path.abspath(path)) if x]
+    return any(x.lower() == "work" for x in parts)
+
+
+def _case_target_paths(case):
+    """本案登记的目标文件（target / target_files）→ 归一化路径集合。"""
+    out = set()
+    if not case:
+        return out
+    cj = os.path.join(os.path.abspath(case), "case.json")
+    try:
+        with open(cj, encoding="utf-8") as f:
+            meta = json.load(f)
+    except (OSError, ValueError):
+        return out
+    if not isinstance(meta, dict):
+        return out
+    t = meta.get("target")
+    if isinstance(t, dict) and str(t.get("path") or "").strip():
+        out.add(_norm_path(t["path"]))
+    for it in meta.get("target_files") or []:
+        if isinstance(it, dict) and str(it.get("path") or "").strip():
+            out.add(_norm_path(it["path"]))
+    return out
+
+
+def _cmd_artifact_hit(ev, case):
+    """命令型证据的产物核对：解析出的产物必须在案件目录/ work 下真实存在且 size>0。
+
+    排除「拿本案目标原件当产物」：`radare2 -c iI a.exe` 里的 a.exe 是输入，不是产物。
+    返回命中的真实路径；找不到返回 None（调用方负责拒绝）。
+    """
+    if not case or not os.path.isdir(case):
+        return None
+    d = os.path.abspath(case)
+    roots = [d, os.path.join(d, "work"), os.path.join(_ROOT, "work")]
+    targets = _case_target_paths(case)
+    for tok in _cmd_artifact_tokens(ev):
+        cands = [tok] if os.path.isabs(tok) else [os.path.join(r, tok) for r in roots]
+        if not os.path.isabs(tok):
+            cands.append(os.path.abspath(tok))
+        for c in cands:
+            try:
+                if not os.path.isfile(c) or os.path.getsize(c) <= 0:
+                    continue
+            except OSError:
+                continue
+            if _norm_path(c) in targets:
+                continue
+            if _paths_overlap(c, d) or _under_work(c):
+                return c
+    return None
+
+
+def _hash_recorded_in_case(case, needle):
+    """案件目录任一文件里是否记录过该哈希（大小写不敏感，流式分块，避免大文件吃内存）。"""
+    if not case or not os.path.isdir(case):
+        return False
+    nb = str(needle or "").strip().lower().encode("ascii", "ignore")
+    if not nb:
+        return False
+    for dirpath, _dirnames, filenames in os.walk(os.path.abspath(case)):
+        for fn in filenames:
+            p = os.path.join(dirpath, fn)
+            try:
+                if not os.path.isfile(p):
+                    continue
+                with open(p, "rb") as f:
+                    carry = b""
+                    while True:
+                        chunk = f.read(1 << 20)
+                        if not chunk:
+                            break
+                        blob = (carry + chunk).lower()
+                        if nb in blob:
+                            return True
+                        carry = blob[-(len(nb) - 1):] if len(nb) > 1 else b""
+            except OSError:
+                continue
+    return False
+
+
+def _hash_is_known(case, h):
+    """哈希型证据必须与本案对得上：登记的目标哈希 / 案件目录里记录过的哈希。
+
+    补一条只读兜底：`init` 早于原件就位时 case.json 的 target.sha256 是 None，
+    此时用**登记的原件路径现算一次**（仍只认目标文件本身的哈希，不是“随便一个哈希”）。
+    """
+    if not case:
+        return False
+    h = str(h or "").strip().lower()
+    known = []
+    cj = os.path.join(os.path.abspath(case), "case.json")
+    tgt_path = ""
+    try:
+        with open(cj, encoding="utf-8") as f:
+            meta = json.load(f)
+        if isinstance(meta, dict):
+            t = meta.get("target")
+            if isinstance(t, dict):
+                tgt_path = str(t.get("path") or "").strip()
+                if str(t.get("sha256") or "").strip():
+                    known.append(str(t["sha256"]).strip().lower())
+            for it in meta.get("target_files") or []:
+                if isinstance(it, dict) and str(it.get("sha256") or "").strip():
+                    known.append(str(it["sha256"]).strip().lower())
+    except (OSError, ValueError):
+        pass
+    if h in known:
+        return True
+    if not known and tgt_path and os.path.isfile(tgt_path):
+        try:
+            if _sha256_file(tgt_path).lower() == h:
+                return True
+        except OSError:
+            pass
+    return _hash_recorded_in_case(case, h)
+
+
 def require_evidence(value, case=None):
-    """证据必须可重放：路径存在 / 命令+产物 / 哈希 / 账本编号；纯文本一律拒绝。"""
+    """证据必须可重放：路径存在 / 命令+真实产物 / 本案可对上的哈希 / 账本编号；纯文本一律拒绝。"""
     ev = (value or "").strip()
     if not ev:
         return ev
     # ① 命令 + 产物（先判：命令串里常含 `/`，会被 EVIDENCE_PATH_RE 误当路径）
+    #    2026-.. P0：只写 `rc=0` 或 `--out nope.json` 不再算 —— 必须能找到一个真实产物。
     if _evidence_is_command(ev):
-        return ev
-    # ② 哈希
+        hit = _cmd_artifact_hit(ev, case)
+        if hit:
+            return ev
+        toks = _cmd_artifact_tokens(ev)
+        die_json("evidence-no-artifact",
+                 "命令型证据必须同时给出一个真实存在的产物文件（在案件目录或 work/ 下、size>0）：%s\n"
+                 "     从命令串解析到的产物名：%s\n     %s"
+                 % (ev[:120], "、".join(toks) or "（没解析出 .json/.log/.md/.exe 等产物名）",
+                    EVIDENCE_REPLAY_HINT))
+    # ② 哈希：必须对得上本案（目标哈希 / 案件目录里记录过），乱写的 64 hex 不再算。
     if EVIDENCE_SHA_RE.match(ev):
-        return ev
+        h = re.sub(r"^sha256:", "", ev, flags=re.I).strip().lower()
+        if _hash_is_known(case, h):
+            return ev
+        die_json("evidence-hash-unrecorded",
+                 "哈希型证据对不上本案：%s\n     只收：%s\n     %s"
+                 % (h, " 或 ".join(EVIDENCE_HASH_NOTES), EVIDENCE_REPLAY_HINT))
     # ③ 路径：形似路径就必须真实存在（原行为保留）
     #   先判路径存在：文件名里带 E-001 这类号时，存在文件优先于「账本编号」分支。
     path_like = bool(EVIDENCE_PATH_RE.search(ev))
@@ -754,6 +937,50 @@ def _fingerprint_target(target):
                 "size": os.path.getsize(p), "at": at}
     except OSError:
         return missing
+
+
+def _refresh_target_fp(case):
+    """原件晚于 init 就位时补登指纹（只补空值，绝不改已登记的哈希）。
+
+    为什么需要：`init --target X` 时 X 还不存在 → case.json 的 target.sha256 为 None，
+    之后拿目标哈希做证据就会得到字面量 "None"。写命令发现“登记过路径、哈希还空、
+    现在文件已就位”时补算一次（与 init 本来会写的值相同），哈希证据才核对得起来。
+    """
+    if not case:
+        return False
+    cj = os.path.join(os.path.abspath(case), "case.json")
+    if not os.path.isfile(cj):
+        return False
+    try:
+        with open(cj, encoding="utf-8") as f:
+            meta = json.load(f)
+    except (OSError, ValueError):
+        return False
+    if not isinstance(meta, dict):
+        return False
+    t = meta.get("target")
+    if not isinstance(t, dict) or str(t.get("sha256") or "").strip():
+        return False
+    p = str(t.get("path") or "").strip()
+    if not p or URL_RE.match(p) or not os.path.isfile(p):
+        return False
+    try:
+        sha, size = _sha256_file(p), os.path.getsize(p)
+    except OSError:
+        return False
+    t["sha256"], t["size"] = sha, size
+    t.pop("note", None)
+    meta["target"] = t
+    cur = meta.get("target_files")
+    has_sha = isinstance(cur, list) and any(
+        str((it or {}).get("sha256") or "").strip() for it in cur if isinstance(it, dict))
+    if not has_sha:
+        meta["target_files"] = [{"path": p, "sha256": sha, "size": size}]
+    try:
+        _atomic_write_json(cj, meta)
+    except OSError:
+        return False
+    return True
 
 
 def cmd_init(a):
@@ -1110,6 +1337,7 @@ def _norm_confidence(v, default="unknown"):
 
 def cmd_claim(a):
     lease_guard(a.case)
+    _refresh_target_fp(a.case)
     facts = load_facts(a.case)
     if any(f["id"] == a.id for f in facts):
         die(f"claim {a.id} 已存在（要改用它自己的 prove/refute 子命令）")
@@ -1171,6 +1399,7 @@ def _rewrite_facts(case, facts):
 
 def cmd_prove(a):
     lease_guard(a.case)
+    _refresh_target_fp(a.case)
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("prove 必须带非空 --evidence（空串/空格不算证据）")
@@ -3830,6 +4059,65 @@ def _report_id_refs(text):
     return out
 
 
+def _ledger_records_by_id(case_dir):
+    """id → 账本行（同 id 后写的生效）。claim / repro / 其它带 id 的行都收。
+
+    为什么不用 `load_facts`：报告 ID 对账需要看 **status/confidence/authority**，
+    而这三样只在账本原文里，聚合层（facts）拿不到 repro / 非 claim 行。
+    """
+    out = {}
+    fp = os.path.join(case_dir, "facts.jsonl")
+    if not os.path.isfile(fp):
+        return out
+    with open(fp, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(rec, dict) and str(rec.get("id") or "").strip():
+                out[str(rec["id"]).strip().upper()] = rec
+    return out
+
+
+# 「已确认」段只许放已证结论：status=proven + confidence∈{observed,derived} + authority 非空/none
+CONFIRMED_CONFIDENCE = ("observed", "derived")
+
+
+def _confirmed_section_weak(case_dir, body_lines):
+    """「已确认」段里的未证结论 → ["C-001（status=hypothesis，confidence=unknown，authority=none）"]。
+
+    血案（审计 P0）：旧闸只查 ID 在 facts.jsonl 里**存在**，于是 `claim --status hypothesis`
+    写进「已确认」也能 PASS。现在逐个 ID 查 status / confidence / authority：
+    没证过的结论不许进「已确认」，只能进「仍未知」。
+    """
+    refs = _report_id_refs("\n".join(body_lines))
+    if not refs:
+        return []
+    recs = _ledger_records_by_id(case_dir)
+    weak = []
+    for rid in refs:
+        rec = recs.get(rid.upper())
+        if rec is None:
+            continue        # 不存在的 ID 由 ID 对账（P0-4a）负责报红
+        st = str(rec.get("status") or "").strip().lower()
+        conf = _norm_confidence(rec.get("confidence"), default="")
+        auth = str(rec.get("authority") or "").strip().lower()
+        why = []
+        if st != "proven":
+            why.append("status=%s" % (st or "(无：不是结论行)"))
+        if conf not in CONFIRMED_CONFIDENCE:
+            why.append("confidence=%s" % (conf or "unknown"))
+        if auth in ("", "none"):
+            why.append("authority=%s" % (auth or "(空)"))
+        if why:
+            weak.append("%s（%s）" % (rid, "，".join(why)))
+    return weak
+
+
 def _reconcile_report_ids(text, case_dir):
     refs = _report_id_refs(text)
     ids = _ledger_ids(case_dir)
@@ -3884,10 +4172,17 @@ def cmd_report(a):
         tmp = tempfile.mkdtemp(prefix="cs-report-")
         try:
             with open(os.path.join(tmp, "facts.jsonl"), "w", encoding="utf-8") as f:
-                for _fid in ("F-001", "E-001", "C-002"):
-                    f.write(json.dumps({"id": _fid, "claim": "x", "status": "proven",
-                                        "evidence": ["a.log"], "how": "h"},
-                                       ensure_ascii=False) + N)
+                # 默认全部是“可进已确认”的强结论（proven + observed + shipped-artifact）；
+                # 下面 C-003/C-004/C-005 是本轮新增语义的反例。
+                for _fid, _extra in (("F-001", {}), ("E-001", {}), ("C-002", {}),
+                                     ("C-003", {"status": "hypothesis"}),
+                                     ("C-004", {"confidence": "inferred"}),
+                                     ("C-005", {"authority": "none"})):
+                    _rec = {"id": _fid, "claim": "x", "status": "proven",
+                            "evidence": ["a.log"], "how": "h",
+                            "confidence": "observed", "authority": "shipped-artifact"}
+                    _rec.update(_extra)
+                    f.write(json.dumps(_rec, ensure_ascii=False) + N)
             with open(os.path.join(tmp, "case.json"), "w", encoding="utf-8") as f:
                 json.dump({"id": "t", "target_files": [
                     {"path": "target/a.exe", "sha256": "a" * 64}]}, f)
@@ -3900,6 +4195,13 @@ def cmd_report(a):
             # ② 假 ID → 必红且点名
             miss = _check_report(_mk("E-999", "resume --case " + tmp), case_dir=tmp)
             ok2 += 1 if miss and "E-999" in N.join(miss) else 0
+            # ②b 审计 P0：「已确认」段只许放已证结论（hypothesis / inferred / authority=none 必红）
+            hyp = _check_report(_mk("C-003", "resume --case " + tmp), case_dir=tmp)
+            ok2 += 1 if hyp and "未证结论" in N.join(hyp) and "仍未知" in N.join(hyp) else 0
+            inf = _check_report(_mk("C-004", "resume --case " + tmp), case_dir=tmp)
+            ok2 += 1 if inf and "C-004" in N.join(inf) and "confidence=inferred" in N.join(inf) else 0
+            noauth = _check_report(_mk("C-005", "resume --case " + tmp), case_dir=tmp)
+            ok2 += 1 if noauth and "C-005" in N.join(noauth) and "authority=none" in N.join(noauth) else 0
             # ③ 有 target_files 但复查段既无哈希前缀又无 resume → 必红
             nohash = _check_report(_mk("F-001", "recheck.md"), case_dir=tmp)
             ok2 += 1 if nohash and "复查段" in N.join(nohash) else 0
@@ -3949,9 +4251,10 @@ def cmd_report(a):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         print("[report --selftest] %d/2 通过" % ok)
-        print("[report --selftest] 新增语义 %d/11 通过"
-              "（ID 对账 / 假 ID 必红 / 复查段哈希 / 无账本禁编号 / work 路径对账 / 禁内部代号 / 模板除外）" % ok2)
-        return 0 if (ok == 2 and ok2 == 11) else 1
+        print("[report --selftest] 新增语义 %d/14 通过"
+              "（ID 对账 / 假 ID 必红 / 已确认只许已证结论(hypothesis/inferred/无authority) / "
+              "复查段哈希 / 无账本禁编号 / work 路径对账 / 禁内部代号 / 模板除外）" % ok2)
+        return 0 if (ok == 2 and ok2 == 14) else 1
     src = a.file or ""
     if not src or not os.path.isfile(src):
         print("[ERR] 需要 --file <报告.md>")
@@ -4066,6 +4369,10 @@ def _check_report(text, case_dir=None, is_template=False):
        修法：给它 `--case <案件目录>`，或把报告放到 `Tool/cases/<case>/`。
     ⑧ R8 P1-2：客户可见文本禁代号 —— M1–M4 / L1–L3 / T1–T4 / J1–J3 / BLK-n /
        max_level / facts.jsonl 命中即不合格（唯一例外：`Tool/prompts/**` 模板要用占位符）。
+    ⑨ 审计 P0：「已确认」段只许放**已证结论** —— 段里每个 ID 对应的账本行必须是
+       status=proven、confidence∈{observed,derived}、authority 非空且不为 none；
+       否则必红，并建议移到「仍未知」+ 在「下一步」给补齐动作（旧闸只查 ID 存在，
+       `claim --status hypothesis` 写进本段也能 PASS）。
     """
     import re as _re
     bad = []
@@ -4111,6 +4418,21 @@ def _check_report(text, case_dir=None, is_template=False):
             bad.append("找不到账本，无法核对证据编号：报告里写了 %s。给它 `--case <案件目录>`，"
                        "或把报告放到 `Tool/cases/<case>/`（账本 = 该目录的 facts.jsonl）"
                        % "、".join(refs[:6]))
+    # ⑦b 审计 P0：「已确认」段只许放已证结论。
+    #    旧闸只查 ID 在账本里**存在** → `claim --status hypothesis` 写进本段也能 PASS。
+    #    现在逐 ID 查 status=proven + confidence∈{observed,derived} + authority≠空/none。
+    #    放在 `if bad` 之前：否则格式问题会提前返回，把这条最关键的假结论漏掉。
+    if case_dir and "已确认" in idx:
+        _s = idx["已确认"] + 1
+        _later = [i for i in idx.values() if i > idx["已确认"]]
+        _e = min(_later) if _later else len(lines)
+        _body = [x for x in lines[_s:_e] if x.strip() and not x.strip().startswith("#")]
+        _weak = _confirmed_section_weak(case_dir, _body)
+        if _weak:
+            bad.append("「已确认」段里有未证结论：%s —— 本段每个 ID 必须是 status=proven、"
+                       "confidence∈{observed,derived}、authority 非空且不为 none。"
+                       "建议：把这几条移到「仍未知」段，并在「下一步」给出补齐动作"
+                       "（补实测证据 / 补 authority 来源），证成后再移回本段" % "；".join(_weak))
     if bad:
         return bad
     order = sorted(idx.items(), key=lambda kv: kv[1])
@@ -4269,17 +4591,29 @@ def _self_test():
             with open(os.path.join(tmp3, "facts.jsonl"), "w", encoding="utf-8") as f:
                 f.write(json.dumps({"id": "C-001", "claim": "x", "status": "hypothesis"},
                                    ensure_ascii=False) + "\n")
+            # 案子目标哈希（a*64），以及一份“记录过 b*64”的日志（grep 分支用）
+            with open(os.path.join(tmp3, "case.json"), "w", encoding="utf-8") as f:
+                json.dump({"id": "t", "target": {"path": "", "sha256": "a" * 64}}, f)
+            with open(os.path.join(tmp3, "hash-record.log"), "w", encoding="utf-8") as f:
+                f.write("launch sha256=%s\n" % ("b" * 64))
             # 纯文本 → 拒
             assert _rej(lambda: require_evidence("看过了", tmp3)); checks += 1
             assert _rej(lambda: require_evidence("已确认", tmp3)); checks += 1
             assert _rej(lambda: require_evidence("分析完成", tmp3)); checks += 1
-            # 命令 + 产物 → 收；命令但没产物描述 → 拒
+            # 命令 + **真实产物** → 收；命令但没产物描述 → 拒
             cmd = "python Tool/scripts/preflight.py --fast -> x.json rc=0"
+            with open(os.path.join(tmp3, "x.json"), "w", encoding="utf-8") as f:
+                f.write("{}")
             assert require_evidence(cmd, tmp3) == cmd; checks += 1
             assert _rej(lambda: require_evidence("bash run.sh", tmp3)); checks += 1
-            # 哈希（64 hex / sha256:<hex>）→ 收
+            # 审计 P0：命令型必须能解析出一个真实产物（只写 rc= / --out nope.json 不再算）
+            assert _rej(lambda: require_evidence("python foo.py --out nope.json rc=0", tmp3)); checks += 1
+            assert _rej(lambda: require_evidence("python foo.py --check rc=0 sha256", tmp3)); checks += 1
+            # 审计 P0：哈希必须对得上本案（目标哈希 / 案件目录里记录过）；乱写的 64 hex 拒
             assert require_evidence("a" * 64, tmp3); checks += 1
             assert require_evidence("sha256:" + "b" * 64, tmp3); checks += 1
+            assert _rej(lambda: require_evidence("c" * 64, tmp3)); checks += 1
+            assert _rej(lambda: require_evidence("sha256:" + "d" * 64, tmp3)); checks += 1
             # 账本编号：存在收 / 不存在拒（要读账本，不能崩）
             assert require_evidence("见 C-001 的实测", tmp3); checks += 1
             assert _rej(lambda: require_evidence("见 C-999", tmp3)); checks += 1

@@ -1,0 +1,352 @@
+# run 1
+# cmd: python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file D:/Seep-Reverse-Lab/Tool/cases/forensics07/target/bgp-4byte-asn.pcap --json
+# expect: 7213b5ff5940d624
+# exit: 0
+----- stdout -----
+{
+  "ok": true,
+  "file": "D:/Seep-Reverse-Lab/Tool/cases/forensics07/target/bgp-4byte-asn.pcap",
+  "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
+  "size": 8717,
+  "format": "pcap",
+  "linktype": 1,
+  "linktype_name": "EN10MB/Ethernet",
+  "packet_count": 91,
+  "first_ts": 1555002999.743518,
+  "last_ts": 1555003020.444552,
+  "duration_s": 20.7010338306427,
+  "session_count": 12,
+  "sessions": [
+    {
+      "proto": "TCP",
+      "src": "1.0.4.1",
+      "sport": 34883,
+      "dst": "1.0.4.2",
+      "dport": 179,
+      "packets": 9,
+      "payload_bytes": 327,
+      "first_ts": 1555003004.004905,
+      "last_ts": 1555003010.059211,
+      "flags": [
+        2,
+        16,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 8,
+      "frame_payload_lens": [
+        0,
+        0,
+        55,
+        0,
+        0,
+        19,
+        124,
+        48,
+        81
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.3.1",
+      "sport": 35169,
+      "dst": "1.0.3.2",
+      "dport": 179,
+      "packets": 11,
+      "payload_bytes": 301,
+      "first_ts": 1555003001.765508,
+      "last_ts": 1555003010.059057,
+      "flags": [
+        2,
+        16,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 6,
+      "frame_payload_lens": [
+        0,
+        0,
+        55,
+        0,
+        0,
+        19,
+        0,
+        88,
+        19,
+        48,
+        72
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.2.1",
+      "sport": 179,
+      "dst": "1.0.2.2",
+      "dport": 42741,
+      "packets": 8,
+      "payload_bytes": 224,
+      "first_ts": 1555002999.74372,
+      "last_ts": 1555003010.101992,
+      "flags": [
+        16,
+        18,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 1,
+      "frame_payload_lens": [
+        0,
+        0,
+        43,
+        19,
+        95,
+        19,
+        48,
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.2.2",
+      "sport": 42741,
+      "dst": "1.0.2.1",
+      "dport": 179,
+      "packets": 10,
+      "payload_bytes": 174,
+      "first_ts": 1555002999.743662,
+      "last_ts": 1555003010.059271,
+      "flags": [
+        2,
+        16,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 0,
+      "frame_payload_lens": [
+        0,
+        0,
+        55,
+        0,
+        0,
+        19,
+        19,
+        0,
+        0,
+        81
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.0.1",
+      "sport": 33993,
+      "dst": "1.0.0.2",
+      "dport": 179,
+      "packets": 10,
+      "payload_bytes": 155,
+      "first_ts": 1555003010.013999,
+      "last_ts": 1555003020.40801,
+      "flags": [
+        2,
+        16,
+        17,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 10,
+      "frame_payload_lens": [
+        0,
+        0,
+        49,
+        0,
+        19,
+        0,
+        87,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.0.2",
+      "sport": 179,
+      "dst": "1.0.0.1",
+      "dport": 33993,
+      "packets": 10,
+      "payload_bytes": 114,
+      "first_ts": 1555003010.014051,
+      "last_ts": 1555003020.408059,
+      "flags": [
+        16,
+        17,
+        18,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 11,
+      "frame_payload_lens": [
+        0,
+        0,
+        55,
+        19,
+        0,
+        19,
+        0,
+        21,
+        0,
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.3.2",
+      "sport": 179,
+      "dst": "1.0.3.1",
+      "dport": 35169,
+      "packets": 9,
+      "payload_bytes": 87,
+      "first_ts": 1555003001.765624,
+      "last_ts": 1555003010.059158,
+      "flags": [
+        16,
+        18,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 7,
+      "frame_payload_lens": [
+        0,
+        0,
+        49,
+        19,
+        19,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.4.2",
+      "sport": 179,
+      "dst": "1.0.4.1",
+      "dport": 34883,
+      "packets": 8,
+      "payload_bytes": 81,
+      "first_ts": 1555003004.005,
+      "last_ts": 1555003010.059258,
+      "flags": [
+        16,
+        18,
+        24
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 9,
+      "frame_payload_lens": [
+        0,
+        0,
+        43,
+        19,
+        19,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.3.2",
+      "sport": 43415,
+      "dst": "1.0.3.1",
+      "dport": 179,
+      "packets": 1,
+      "payload_bytes": 0,
+      "first_ts": 1555002999.973684,
+      "last_ts": 1555002999.973684,
+      "flags": [
+        2
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 2,
+      "frame_payload_lens": [
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.3.1",
+      "sport": 179,
+      "dst": "1.0.3.2",
+      "dport": 43415,
+      "packets": 1,
+      "payload_bytes": 0,
+      "first_ts": 1555002999.973736,
+      "last_ts": 1555002999.973736,
+      "flags": [
+        20
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 3,
+      "frame_payload_lens": [
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.4.2",
+      "sport": 34995,
+      "dst": "1.0.4.1",
+      "dport": 179,
+      "packets": 1,
+      "payload_bytes": 0,
+      "first_ts": 1555003000.228315,
+      "last_ts": 1555003000.228315,
+      "flags": [
+        2
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 4,
+      "frame_payload_lens": [
+        0
+      ]
+    },
+    {
+      "proto": "TCP",
+      "src": "1.0.4.1",
+      "sport": 179,
+      "dst": "1.0.4.2",
+      "dport": 34995,
+      "packets": 1,
+      "payload_bytes": 0,
+      "first_ts": 1555003000.228362,
+      "last_ts": 1555003000.228362,
+      "flags": [
+        20
+      ],
+      "snippets": [],
+      "snippet_total": 0,
+      "stream_idx": 5,
+      "frame_payload_lens": [
+        0
+      ]
+    }
+  ],
+  "sessions_total": 12,
+  "suspicious_session_count": 0,
+  "suspicious_snippet_count": 0
+}
+
+----- stderr -----
+

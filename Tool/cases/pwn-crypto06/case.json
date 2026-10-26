@@ -53,5 +53,12 @@
    "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
    "source": "github.com/hardik05/Damn_Vulnerable_C_Program dvcp.c 本地 mingw 编译（MIT）"
   }
- ]
+ ],
+ "target": {
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\pwn-crypto06\\target\\dvcp.exe",
+  "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
+  "size": 55022,
+  "at": "2026-10-26T15:34:58",
+  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ }
 }

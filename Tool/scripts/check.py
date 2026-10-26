@@ -54,6 +54,8 @@ SUITES = [
      "意图探针：用户说法能否命中对应技能"),
     ("route-tests", ["Tool/skill/softseep/scripts/skill-route-probe.py", "--json"], True,
      "路由探针：技能路由在中文边界上的行为"),
+    ("read-guard",  ["Tool/scripts/test_read_guard.py"], True,
+     "读守卫：个人隐私区路径拦、正常目标/案件路径放行"),
     ("invariants",  ["Tool/scripts/invariants.py", "--check"], True,
      "架构不变量：11 域 × 9 条（入口唯一/能力可达/交接闭包/证据同构/等级唯一/失败可表达/见证可跑/部署等价/能力有路线）"),
     ("gate-tests",  ["Tool/scripts/test_gates.py"], True,

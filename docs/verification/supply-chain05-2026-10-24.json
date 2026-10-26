@@ -19,8 +19,8 @@
     }
   },
   "source_sha256": {
-    "facts.jsonl": "6f7684f4fbddc80fe2d7fb4681616ca3c9ddb7b1ae69884c4d1c30caec505913",
-    "artifacts/MANIFEST.sha256": "67ac56aabb22721bf36d34a77f1ff943d1788f43da2ab9d6cec18f5b0c3b39a5"
+    "facts.jsonl": "0d7b6cf8944fc397d821226325582e944395726690655592945be1f6948df3e3",
+    "artifacts/MANIFEST.sha256": "c618b20d99c59ffcf962ce30798c840f9230fe0f7e4e076e94e624ae5c275a33"
   },
   "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
   "limitations": [

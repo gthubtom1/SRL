@@ -1,0 +1,10 @@
+# run 1
+# cmd: python -c "import hashlib,struct;d=open(r'D:/Seep-Reverse-Lab/Tool/cases/golden-crackme/target/a.exe','rb').read();print('pe',d[:2].decode(),'machine',hex(struct.unpack_from('<H',d,4)[0]));print('sha256',hashlib.sha256(d).hexdigest())"
+# expect: 8308abb81b7692e0
+# exit: 0
+----- stdout -----
+pe MZ machine 0x3
+sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30
+
+----- stderr -----
+

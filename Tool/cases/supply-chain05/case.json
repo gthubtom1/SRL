@@ -49,5 +49,12 @@
    "sha256": "81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c",
    "source": "github.com/juice-shop/juice-shop package.json @717f5ef（MIT）—— 只存清单快照，不存整仓"
   }
- ]
+ ],
+ "target": {
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\supply-chain05\\target\\package.json",
+  "sha256": "81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c",
+  "size": 7299,
+  "at": "2026-10-26T15:34:58",
+  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ }
 }

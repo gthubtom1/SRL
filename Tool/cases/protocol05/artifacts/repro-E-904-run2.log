@@ -1,0 +1,72 @@
+# run 2
+# cmd: python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file D:/Seep-Reverse-Lab/Tool/cases/protocol05/target/RADIUS.pcap --json
+# expect: 9cd173ba61434528
+# exit: 0
+----- stdout -----
+{
+  "ok": true,
+  "file": "D:/Seep-Reverse-Lab/Tool/cases/protocol05/target/RADIUS.pcap",
+  "sha256": "9cd173ba614345281e4b66927f3b17b357519540bbc0feedbc15dbc7ba8ad921",
+  "size": 775,
+  "format": "pcap",
+  "linktype": 1,
+  "linktype_name": "EN10MB/Ethernet",
+  "packet_count": 4,
+  "first_ts": 1217631137.872968,
+  "last_ts": 1217631137.91685,
+  "duration_s": 0.043882131576538086,
+  "session_count": 2,
+  "sessions": [
+    {
+      "proto": "UDP",
+      "src": "10.0.0.1",
+      "sport": 1645,
+      "dst": "10.0.0.100",
+      "dport": 1812,
+      "packets": 2,
+      "payload_bytes": 313,
+      "first_ts": 1217631137.872968,
+      "last_ts": 1217631137.916736,
+      "flags": [],
+      "snippets": [
+        "John.McGuirk",
+        "John.McGuirkP"
+      ],
+      "snippet_total": 4,
+      "stream_idx": 0,
+      "frame_payload_lens": [
+        139,
+        174
+      ]
+    },
+    {
+      "proto": "UDP",
+      "src": "10.0.0.100",
+      "sport": 1812,
+      "dst": "10.0.0.1",
+      "dport": 1645,
+      "packets": 2,
+      "payload_bytes": 206,
+      "first_ts": 1217631137.875771,
+      "last_ts": 1217631137.91685,
+      "flags": [],
+      "snippets": [
+        "Hello, %uO",
+        "Hello, John.McGuirkO",
+        "John.McGuirk"
+      ],
+      "snippet_total": 3,
+      "stream_idx": 1,
+      "frame_payload_lens": [
+        109,
+        97
+      ]
+    }
+  ],
+  "sessions_total": 2,
+  "suspicious_session_count": 2,
+  "suspicious_snippet_count": 7
+}
+
+----- stderr -----
+

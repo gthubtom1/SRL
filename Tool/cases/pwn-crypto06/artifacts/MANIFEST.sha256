@@ -1,2 +1,4 @@
 58a6e65467f4956dcded07ad944202ca345577a7f315a833502d211212cc1d9a  artifacts/pwn-check.json
 7c10c43a51df3d79953c2cfb7051c091549dde2f81c4dce0f1e3a34195045ef2  capture/reverify-2026-10-24.log
+4fd328ec1fcb48650c8e970c8a1c6d290e563b9df71fd0f95270894be5e1a6bd  artifacts/repro-E-906-run1.log
+3d90b0a871733d35b95c02e98f5d9e7aa304e36e7fa909d5cbafdad9bab53629  artifacts/repro-E-906-run2.log

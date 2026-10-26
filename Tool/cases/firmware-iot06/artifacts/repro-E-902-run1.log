@@ -1,0 +1,66 @@
+# run 1
+# cmd: python Tool/skill/firmware-iot/scripts/fw-triage.py --file D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin --json
+# expect: "type": "cramfs"
+# exit: 0
+----- stdout -----
+{
+  "tool": "fw-triage",
+  "version": "1.1.0",
+  "generated_at": null,
+  "file": "D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin",
+  "ok": true,
+  "size": 4096,
+  "size_human": "4.0 KiB",
+  "sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
+  "containers": [
+    {
+      "offset": 0,
+      "type": "cramfs",
+      "description": "CramFS little-endian",
+      "confidence": "high"
+    }
+  ],
+  "containers_truncated": 0,
+  "entropy": {
+    "overall": 0.457,
+    "max_block": 0.457,
+    "high_block_ratio": 0.0,
+    "sampled_bytes": 4096,
+    "sample_truncated": false,
+    "interpretation": "low entropy: mostly plaintext/metadata; look for headers and scripts"
+  },
+  "credential_clues": [],
+  "clues_truncated": false,
+  "service_hints": {},
+  "tools": {
+    "binwalk": true,
+    "7z": true,
+    "unsquashfs": false,
+    "sasquatch": false,
+    "ubireader_extract_images": false,
+    "jefferson": false,
+    "cramfsck": false,
+    "zstd": false,
+    "strings": true
+  },
+  "suggested_commands": [
+    "file D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin && sha256sum D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin",
+    "strings -a -n 6 D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin | grep -Ei 'passwd|shadow|password|secret|token|BEGIN .*PRIVATE|AKIA|ssh-rsa|telnetd|dropbear|httpd|nvram' | head -80",
+    "binwalk -E D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin | head -40",
+    "binwalk -e --run-as=root -C work/fw-triage D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin",
+    "binwalk --dd='.*' -C work/fw-triage/raw D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin",
+    "cramfsck -x work/fw-triage/cramfs D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin",
+    "7z x D:/Seep-Reverse-Lab/Tool/cases/firmware-iot06/target/cramfs.bin -owork/fw-triage/cramfs-7z  # CramFS fallback",
+    "grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd' work/fw-triage/rootfs/etc 2>/dev/null | head -60",
+    "find work/fw-triage/rootfs -type f \\( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \\) -print"
+  ],
+  "verdict": "container magic found (cramfs); extract and verify /etc, /bin/busybox and a real service response. Credential strings are leads only until located in the extracted rootfs.",
+  "limits": [
+    "Triage only: it does not unpack, emulate, or prove J1/J2/J3.",
+    "Credential clues are candidates; confirm file:line in the extracted rootfs and redact values.",
+    "Offsets are absolute in the supplied file; carve before running unsquashfs/ubireader on an embedded image."
+  ]
+}
+
+----- stderr -----
+

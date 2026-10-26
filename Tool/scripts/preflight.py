@@ -1496,8 +1496,31 @@ def check_deploy_bidirectional():
     if _d:
         sk_bad.append("不一致:" + ",".join(sorted(_d)[:3]))
 
+    def _top_prompts():
+        """AGENTS.md / SEEP.md：模型实际读的两份顶层提示词。
+
+        ★ 2026-10-26 审计发现的洞：原来只比「技能 / tasks 提示词 / 扩展」三类，
+          顶层 AGENTS.md 改了没部署，这条检查仍绿（而模型读的是部署那份）。
+        """
+        bad = []
+        for name in ("AGENTS.md", "SEEP.md"):
+            src = os.path.join(TOOL, "prompts", name)
+            dst = os.path.join(agent, name)
+            if not os.path.isfile(src):
+                continue
+            if not os.path.isfile(dst):
+                bad.append("未部署:" + name)
+                continue
+            try:
+                if _file_sig(src) != _file_sig(dst):
+                    bad.append("不一致:" + name)
+            except Exception:
+                pass
+        return "顶层提示词", bad
+
     rows = [
         ("技能", sk_bad),
+        ("顶层提示词", _top_prompts()[1]),
         _diff(os.path.join(TOOL, "prompts", "tasks", "[!_R]*.md"), os.path.join(agent, "prompts"), "提示词", ".md"),
         _diff(os.path.join(TOOL, "prompts", "extensions", "*.ts"), os.path.join(agent, "extensions"), "扩展", ".ts"),
     ]
@@ -1512,8 +1535,8 @@ def check_deploy_bidirectional():
     if extra_dirs:
         bad_all.append("技能残留目录:" + ",".join(extra_dirs[:4]))
 
-    add("2 单一事实源", "部署面双向一致（源↔部署：技能/提示词/扩展）", not bad_all,
-        "；".join(bad_all)[:260] if bad_all else "3 类产物：无未部署、无残留、哈希一致")
+    add("2 单一事实源", "部署面双向一致（源↔部署：技能/顶层提示词/任务卡/扩展）", not bad_all,
+        "；".join(bad_all)[:260] if bad_all else "4 类产物：无未部署、无残留、哈希一致")
 
 
 def check_prompt_residue():

@@ -1,3 +1,5 @@
 c2115769182515a94dd9fc93470e6c06d43dfa5289bc2e27a6b121c1bb7ee103  capture/reverify-2026-10-24.log
 110ca87d485aa8ed8de78a01f533cc1d446165b47fae916cdd00c6d2b2ec66a5  artifacts/tree-cramfs.txt
 5b1e3c4e8254abf31d505a0df218d069a9744669dc6d4b9625155974ed931173  artifacts/tree-squashfs-v2.txt
+5f5953ee97bdfe11cfcf08567bdb35e0c1fb4c48c65487eb791bcf47ce0cd9b8  artifacts/repro-E-902-run1.log
+75acbd4a9c4df005c29ff1a33b883adac001eed5f12da6be04746c905d968c42  artifacts/repro-E-902-run2.log

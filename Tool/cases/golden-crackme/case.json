@@ -44,5 +44,12 @@
    "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
    "source": "crackerjack crackme（MIT），仓库内已有样本"
   }
- ]
+ ],
+ "target": {
+  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\golden-crackme\\target\\a.exe",
+  "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+  "size": 53782,
+  "at": "2026-10-26T15:34:58",
+  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
+ }
 }
