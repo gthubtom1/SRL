@@ -55,5 +55,20 @@
     "大概能",
     "通常没问题",
     "已完成"
-  ]
+  ],
+  "gate": {
+    "_说明": "首答闸（Tool/prompts/extensions/answer-gate.ts）的唯一阈值来源：改这个块会改变 contract_sha256，旧标记自动作废、必须重新过首答。ttl_minutes=标记有效期；whitelist=永远放行的只读分诊工具（首答要靠它们取证）；bind_target=标记带 case 时，本次工具参数里的路径必须落在该案 case.json 的 target_files/target 下，否则按「换了目标要重新给首答」拦下。",
+    "ttl_minutes": 60,
+    "whitelist": [
+      "seep_auto_triage",
+      "seep_packer_detect",
+      "seep_r2_info",
+      "seep_apk_info",
+      "seep_kb_search",
+      "seep_kb_read",
+      "seep_tool_discover",
+      "seep_case_read"
+    ],
+    "bind_target": true
+  }
 }

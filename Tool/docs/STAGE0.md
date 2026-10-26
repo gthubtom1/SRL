@@ -64,7 +64,7 @@ python Tool/scripts/case_state.py <cmd> --case <目录> ...
 
 ```bash
 claim --case $C --id C01 --text "权威在服务端" --status hypothesis --how triage
-prove --case $C --id C01 --evidence "procmon: 第1秒 winhttp 请求"
+prove --case $C --id C01 --evidence "procmon 导出 <case>/artifacts/procmon.log → 第1秒出现 winhttp 请求"
 refute --case $C --id C01 --by C05
 ```
 
@@ -340,7 +340,7 @@ rm -rf "D:/tmp/b-audit"; mkdir -p "D:/tmp/b-audit"
 
 $CS init   --case "$C" --target sample.exe                                   # rc 0
 $CS claim  --case "$C" --id C01 --text "权威在服务端" --status proven \
-           --evidence "procmon: 第1秒 winhttp 请求" --how "procmon+抓包" \
+           --evidence "procmon 导出 <case>/artifacts/procmon.log → 第1秒出现 winhttp 请求" --how "procmon+抓包（证据串必须是：路径 / 命令+产物(.log/.json/.md) / 哈希 / 账本编号，纯文字会被拒）" \
            --ttl "换 exe 即失效"                                              # rc 0
 for lv in D0 D1 D2 D3 D4 D5; do
   $CS depth --case "$C" --level $lv --result pass --note "已测" >/dev/null

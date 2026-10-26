@@ -135,6 +135,54 @@
       "re": "(wevtutil(\\.exe)?\\s+(cl|clear-log)\\b|Clear-EventLog|Remove-EventLog)",
       "label": "清空/删除系统事件日志",
       "hint": "清空事件日志 = 销毁取证基线，同时抹掉用户机器的审计痕迹。\n要「看得清」应该是过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security'}`，或先 `wevtutil epl Security out.evtx` 导出再分析。\n确实要清（例如自己的实验机）先导出备份，再在命令里加 cmd-guard-skip。"
+    },
+    {
+      "id": "fs-rm-rf-outside",
+      "severity": "block",
+      "why": "`rm -rf` 删到 `work/`、`/tmp`、`%TEMP%` 之外的路径时，删的是**用户的文件**，且不经回收站、没有回滚；递归删错一次就不可逆（第 2 轮评审：原来 rules.json 一条递归删除规则都没有）。",
+      "re": "\\brm\\s+(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|-r[a-zA-Z]*\\s+-f[a-zA-Z]*|-f[a-zA-Z]*\\s+-r[a-zA-Z]*)(?:\\s+-{1,2}[a-zA-Z][a-zA-Z-]*)*\\s+(?!(?:\\./)?work/|/tmp/|/var/tmp/|%TEMP%|\\$TMPDIR|\\$env:TEMP|\\$\\{?TMP\\}?)\\S*[\\\\/~]\\S*",
+      "label": "递归删除仓库外路径（rm -rf <含 / 或 ~ 或盘符>）",
+      "hint": "改用什么：① 先把目标复制进 `work/_trash/<时间戳>/`（`cp -r <目标> work/_trash/`），确认无用再删**副本**；② 临时产物一律先落在 `work/` 或 `%TEMP%`，那里允许 `rm -rf`；③ 确实要删仓库外的东西 → 先把清单贴给用户确认，再在命令里加 `cmd-guard-skip`。"
+    },
+    {
+      "id": "fs-windows-del-recursive",
+      "severity": "block",
+      "why": "cmd 的 `del /s` / `del /q` / `rd /s` / `rmdir /s` 静默递归、不经回收站，且目标可由通配符展开 —— 一个 `*` 就打掉整个目录（第 2 轮评审：原来完全没有 cmd 形态的删除规则）。",
+      "re": "\\b(?:del|erase|rd|rmdir)\\s+(?:/[a-zA-Z]\\s+)*/[sq]\\b",
+      "label": "cmd 递归/静默删除（del /s、del /q、rd /s、rmdir /s）",
+      "hint": "改用什么：① 备份：`robocopy <目标> work\\_trash\\<时间戳> /E`（或 `xcopy /E /I`）；② 只删单个文件用 `del <完整文件路径>`（不带 `/s`、`/q`）；③ 目录在 `work/` 下时用 PowerShell `Remove-Item <work 下路径> -Recurse`；④ 确实要清 → 先让用户确认再 `cmd-guard-skip`。"
+    },
+    {
+      "id": "fs-ps-remove-recurse",
+      "severity": "block",
+      "why": "PowerShell `Remove-Item -Recurse` 指到 `work/`、`$env:TEMP` 之外 = 删用户数据，不经回收站，中途失败会留半删状态（第 2 轮评审）。",
+      "re": "\\bRemove-Item\\b(?:(?!work/|\\./work/|\\$env:TEMP|\\$env:TMP|%TEMP%|-WhatIf)[^\\n;&|])*-Recurse\\b(?:(?!work/|\\./work/|\\$env:TEMP|\\$env:TMP|%TEMP%|-WhatIf)[^\\n;&|])*(?=$|[\\n;&|])",
+      "label": "PowerShell 递归删除非临时区（Remove-Item -Recurse）",
+      "hint": "改用什么：① `Copy-Item -Recurse <目标> work/_trash/<名>` 先留底；② `Remove-Item <目标> -Recurse -WhatIf` 先看会删什么；③ 只删 `work/`、`$env:TEMP` 下的临时产物时可以正常递归；④ 仓库外目标 → 让用户确认 + `cmd-guard-skip`。"
+    },
+    {
+      "id": "git-clean-xdf",
+      "severity": "warn",
+      "why": "`git clean -xdf` 会删掉所有**未跟踪**文件（含用户刚写还没提交的脚本/样本）和 ignored 产物，无任何备份（第 2 轮评审：可能吞掉用户工作）。",
+      "re": "\\bgit\\s+clean\\s+-[a-zA-Z]*x[a-zA-Z]*d|\\bgit\\s+clean\\s+-[a-zA-Z]*d[a-zA-Z]*x",
+      "label": "git clean -xdf（吞未跟踪文件）",
+      "hint": "改用什么：先 `git clean -nd` 只列清单给自己看；要保住工作区就先 `git stash -u`；只清构建产物用 `git clean -nd -e <要留的路径>` 或删除具体产物目录。"
+    },
+    {
+      "id": "git-checkout-dot",
+      "severity": "warn",
+      "why": "`git checkout -- .` 丢弃全部未提交修改，Git 里没有副本可恢复（第 2 轮评审）。",
+      "re": "\\bgit\\s+checkout\\s+--\\s+\\.(?:\\s|$)",
+      "label": "git checkout -- .（丢弃全部未提交修改）",
+      "hint": "改用什么：先 `git diff > work/patch-$(date +%Y%m%d-%H%M).diff` 或 `git stash push -u -m wip`；只想还原单个文件就点名 `git checkout -- <文件>`。"
+    },
+    {
+      "id": "git-reset-hard",
+      "severity": "warn",
+      "why": "`git reset --hard` 同时丢提交指针与工作区修改，reflog 之外无处找回（第 2 轮评审）。",
+      "re": "\\bgit\\s+reset\\s+--hard\\b",
+      "label": "git reset --hard（丢提交 + 丢工作区）",
+      "hint": "改用什么：先 `git branch backup-<时间戳>` 打留底指针，或改 `git reset --soft <commit>`（保留改动到暂存区）；确实要硬回退前先 `git stash -u`。"
     }
   ],
   "_disableDeny说明": "按 id 关掉某条内置禁手。内置 id: net-ip-alias / net-iface-write / net-winhttp-write / net-dns-write / net-route-write / net-winsock-reset / launch-start-process / launch-cmd-start / launch-subprocess。只有「本机就是一次性靶机、且已 snapshot」时才关。",

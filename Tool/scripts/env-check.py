@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +89,66 @@ def looks_like_path(s: str) -> bool:
     return s.lower().endswith((".py", ".exe", ".js", ".mjs", ".ts"))
 
 
+MCP_SERVER = os.path.join(TOOL, "mcp", "seep_mcp_server.py")
+MCP_MIN_TOOLS = 15     # 工具数下限（不是基线值：基线对账在 preflight 里）
+
+
+def _mcp_service_probe(path=None, timeout=120):
+    """MCP「服务可用」实测：能解析 + 工具没被削减 + 真能握手。
+
+    为什么（2026-10-26 第 2 轮评审 P0）：原来只查 mcp.json 里 mcpServers 有没有条目、
+    args 里的路径存不存在 —— 服务 import 崩了 / 缺依赖 / `@server.tool` 一个没注册，
+    也报"就绪"。用户拿到的结果是假绿，等真调 `mcp__seep__*` 才发现根本没有工具。
+
+    三层，全过才算「服务可用」：
+      ① `ast.parse`：文件能被解释器读成 Python（语法/编码没坏）；
+      ② `@server.tool` 装饰器数量 ≥ MCP_MIN_TOOLS：工具没被削减；
+      ③ stdio 握手 initialize + tools/list：真能起进程、真返回工具表。
+    """
+    path = path or MCP_SERVER
+    out = {"file": path, "parses": False, "tool_count": 0, "handshake_ok": False,
+           "handshake_tools": 0, "stage": "未测", "detail": "", "available": False}
+    if not os.path.isfile(path):
+        out["stage"] = "missing"
+        out["detail"] = "文件不存在：%s（MCP 服务体不在仓库里）" % path
+        return out
+    try:
+        text = open(path, encoding="utf-8", errors="replace").read()
+        import ast
+        ast.parse(text, filename=path)
+        out["parses"] = True
+    except SyntaxError as e:
+        out["stage"] = "ast"
+        out["detail"] = "ast 解析失败：第 %s 行：%s" % (getattr(e, "lineno", "?"), e.msg)
+        return out
+    except Exception as e:  # noqa: BLE001
+        out["stage"] = "ast"
+        out["detail"] = "ast 解析失败：%s" % str(e)[:160]
+        return out
+    out["tool_count"] = len(re.findall(r"^\s*@server\.tool\b", text, re.M))
+    if out["tool_count"] < MCP_MIN_TOOLS:
+        out["stage"] = "tool_count"
+        out["detail"] = ("@server.tool 只有 %d 个（门槛 %d）：工具被削减或注册失效"
+                         % (out["tool_count"], MCP_MIN_TOOLS))
+        return out
+    try:
+        if HERE not in sys.path:
+            sys.path.insert(0, HERE)
+        # 复用 preflight 里同一份握手实现，避免两处逻辑漂移（只导入纯函数，无副作用）
+        from preflight import _mcp_stdio_handshake
+    except Exception as e:  # noqa: BLE001
+        out["stage"] = "handshake-import"
+        out["detail"] = "拿不到握手实现（preflight 导入失败）：%s" % str(e)[:120]
+        return out
+    ok, n, stage, detail = _mcp_stdio_handshake(path, timeout=timeout)
+    out["handshake_ok"] = bool(ok)
+    out["handshake_tools"] = n
+    out["stage"] = stage
+    out["detail"] = detail
+    out["available"] = bool(ok and out["tool_count"] >= MCP_MIN_TOOLS)
+    return out
+
+
 def check():
     ad = agent_dir()
     repo_ver = ""
@@ -152,9 +213,17 @@ def check():
             broken.append(f"mcp.json 解析失败: {exc}")
     else:
         broken.append("~/.pi/agent/mcp.json 不存在")
-    res["checks"]["mcp"] = {"servers": servers, "broken": broken}
+    res["checks"]["mcp"] = {"servers": servers, "broken": broken, "config_ready": bool(servers) and not broken}
     if broken:
         res["missing"] += broken
+
+    # 4b) MCP 服务可用（第 2 轮评审 P0）：配置就绪 ≠ 服务可用。
+    #     以前这里只判「mcpServers 有条目 + 文件路径在」→ 服务起不来也报"就绪"。
+    svc = _mcp_service_probe()
+    res["checks"]["mcp"]["service"] = svc
+    if not svc["available"]:
+        res["missing"].append(
+            "MCP 服务不可用（seep 握手失败阶段 %s）：%s" % (svc["stage"], svc["detail"] or "无详情"))
 
     # 5) settings.json：packages 与 retry 档位
     st_path = os.path.join(ad, "settings.json")
@@ -177,6 +246,9 @@ def check():
             "powershell -ExecutionPolicy Bypass -File setup\\verify.ps1 -Detailed",
             "python Tool/scripts/preflight.py --fast",
         ]
+        if not svc["available"]:
+            # 服务连不上不是"没安装"，install.ps1 修不了 —— 先指向自愈器
+            res["next_actions"].insert(0, "python Tool/scripts/mcp-doctor.py --fix")
     return res
 
 
@@ -193,9 +265,15 @@ def main():
         print(f"  提示词: SEEP.md={c.get('SEEP.md')} AGENTS.md={c.get('AGENTS.md')}")
         print(f"  扩展: 期望 {c['extensions']['expected']}，缺 {len(c['extensions']['missing'])}")
         print(f"  技能: 期望 {c['skills']['expected']}，缺 {len(c['skills']['missing'])}")
-        print(f"  MCP: {', '.join(c['mcp']['servers']) or '无'}；异常 {len(c['mcp']['broken'])}")
+        print(f"  MCP 配置就绪: {', '.join(c['mcp']['servers']) or '无'}；异常 {len(c['mcp']['broken'])}（仅代表 mcp.json 条目 + 路径存在）")
+        sv = (c.get("mcp") or {}).get("service") or {}
+        print("  MCP 服务可用: %s（ast 解析=%s / @server.tool=%s ≥ %d / 握手=%s）"
+              % ("可用" if sv.get("available") else "不可用@%s" % sv.get("stage"),
+                 "OK" if sv.get("parses") else "失败", sv.get("tool_count"), MCP_MIN_TOOLS,
+                 ("OK %d 工具" % sv.get("handshake_tools")) if sv.get("handshake_ok") else "失败"))
         print(f"  settings: packages={c['settings']['packages']} retry.maxRetries={c['settings']['retry_max']}")
-        print("结论:", "已就绪" if r["installed"] else f"需要安装/修复（缺 {len(r['missing'])} 项）")
+        print("结论:", ("已就绪（配置就绪且服务可用）" if r["installed"]
+                        else f"需要安装/修复（缺 {len(r['missing'])} 项；配置就绪≠服务可用，看上面两行）"))
         for m in r["missing"][:10]:
             print("  -", m)
         if r["next_actions"]:

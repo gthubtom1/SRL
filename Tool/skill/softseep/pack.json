@@ -240,7 +240,7 @@
     "目标已明确落到某个域包 → 以域包判据为准，本包只做阶段闸"
   ],
   "witness_tool": {
-    "cmd": "Tool/skill/softseep/scripts/capability-gate.py --json",
-    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+    "cmd": "Tool/skill/softseep/scripts/witness.py",
+    "why": "真跑 capability-gate.py --json（断言 covered=capabilities、dangling/cycles=0）+ preflight-classify.py 分析 Tool/cases/golden-crackme/target/a.exe（断言 magic_kind/format=pe、bitness=64、sections），证明能力层与判型都真的产出结果"
   }
 }

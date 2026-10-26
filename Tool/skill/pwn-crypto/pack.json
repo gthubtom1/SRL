@@ -66,7 +66,7 @@
     "目标为加壳样本（先 malware-analysis 脱壳）"
   ],
   "witness_tool": {
-    "cmd": "Tool/skill/pwn-crypto/scripts/pwn-check.py --help",
-    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+    "cmd": "Tool/skill/pwn-crypto/scripts/witness.py",
+    "why": "真跑 pwn-check.py 分析 Tool/cases/pwn-crypto06/target/dvcp.exe：断言 kind=PE、protections(NX/PIE/Canary/RELRO)、sections、dangerous_imports、next_routes，证明保护位与利用路线真的产出结果"
   }
 }

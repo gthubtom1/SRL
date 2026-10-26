@@ -71,7 +71,7 @@
     "无固件获取路径"
   ],
   "witness_tool": {
-    "cmd": "Tool/skill/firmware-iot/scripts/fw-triage.py --help",
-    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+    "cmd": "Tool/skill/firmware-iot/scripts/witness.py",
+    "why": "真跑 fw-triage.py 分析 Tool/cases/firmware-iot06/target/cramfs.bin：断言 containers 含 cramfs、entropy.overall、suggested_commands/verdict 非空，证明固件容器识别真的产出结果"
   }
 }

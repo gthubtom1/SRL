@@ -48,13 +48,13 @@
 ## 现状卡（冷启动只看这几行）
 >
 > - **这个项目要什么**：[`REQUIREMENTS.md`](REQUIREMENTS.md)（客户白话需求）→ [`PM-SPEC.md`](PM-SPEC.md)（产品经理扩写，接手必读）
-> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（10 个技能 / 9 个域包 / 24 条配方 / 20 个 MCP 工具 / 15 个全局脚本）
+> - **是什么**：面向客户端授权白盒审计 + 二进制/Web/移动/固件逆向的 AI 作战系统（11 个技能 / 9 个域包 / 26 条配方 / 20 个 MCP 工具 / 15 个全局脚本）
 > - **从哪来**：`angusdevgo/Seep-Reverse-Lab` 的二开（fork），本仓 `gthubtom1/Seep-Reverse-Lab`
 > - **门禁**：数字不写在这里（写了必漂）——跑 `python Tool/scripts/preflight.py --fast` 看
 > - **先读**：[`docs/HANDOFF.md`](docs/HANDOFF.md)（状态块由命令生成）→ [`docs/NOW.md`](docs/NOW.md)（现在该做什么）→ [`docs/PLAN-v8.md`](docs/PLAN-v8.md)（需求/DoD/审查协议/终止条件）
 > - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（只出报告，不改仓库）
 > - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`）——**不作现状**
-> - **测试**：`python Tool/scripts/check.py`（一条命令跑完 6 个套件；`--fast` 只跑快的）
+> - **测试**：`python Tool/scripts/check.py`（一条命令跑完 8 个套件；`--fast` 只跑 5 个快的）
 
 ---
 

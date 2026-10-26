@@ -17,7 +17,9 @@
     python Tool/scripts/case_state.py init    --case <目录> --target <样本>
     python Tool/scripts/case_state.py claim   --case <目录> --id C01 --text "权威在服务端" \\
                                               --status hypothesis --how "triage" 
-    python Tool/scripts/case_state.py prove   --case <目录> --id C01 --evidence "procmon: 第1秒 winhttp 请求"
+    python Tool/scripts/case_state.py prove   --case <目录> --id C01 \
+                                              --evidence "capture/run.json"   # 路径/命令+产物/哈希/账本编号，纯文本一律拒
+    python Tool/scripts/case_state.py verify-origin --case <目录>            # 重算原件 sha256，变了/移了 rc=2
     python Tool/scripts/case_state.py refute  --case <目录> --id C01 --by "C05"
     python Tool/scripts/case_state.py depth   --case <目录> --level D2 --result pass --note "LoadLibrary 命中 winhttp"
     python Tool/scripts/case_state.py stale   --case <目录> --reason "换 exe:sha256 变了"
@@ -494,18 +496,73 @@ EVIDENCE_PATH_RE = re.compile(
     re.I)
 
 
+# 证据必须是「别人能重放的材料」（外部评审第 2 轮：纯文本证据 = 没法核对）：
+#   ① 路径且文件真实存在；② 命令 + 可核对产物（.json/.log/.md/sha256/rc=/exit=）；
+#   ③ 哈希（32–64 位 hex 或 sha256:<hex>）；④ E-/F-/C- 编号且该编号在本案账本里存在。
+# 反例「看过了」「已确认」「分析完成」一律拒绝。
+EVIDENCE_CMD_PREFIXES = ("python ", "python3 ", "pwsh ", "powershell ", "bash ", "cmd ")
+EVIDENCE_CMD_PRODUCT_RE = re.compile(r"\.json|\.log|\.md|sha256|rc=|exit=", re.I)
+EVIDENCE_SHA_RE = re.compile(r"^(?:sha256:)?[0-9a-f]{32,64}$", re.I)
+EVIDENCE_ID_RE = re.compile(r"\b([ECF])-(\d{2,})\b")
+EVIDENCE_REPLAY_HINT = (
+    "证据必须能被别人重放：给路径 / 命令+产物 / 哈希 / 账本编号其一\n"
+    "     反例（一律拒绝）：「看过了」「已确认」「分析完成」——纯文本没法复现\n"
+    "     正例：capture/run.json ｜ python Tool/scripts/preflight.py --fast -> x.json rc=0 ｜ "
+    "<sha256> ｜ C-001（账本里已有的编号）")
+
+
+def _evidence_is_command(ev):
+    """命令形：以已知解释器开头或带 ` --` 参数，且同一串里带可核对的产出描述。"""
+    low = ev.lower()
+    if not (low.startswith(EVIDENCE_CMD_PREFIXES) or " --" in ev):
+        return False
+    return bool(EVIDENCE_CMD_PRODUCT_RE.search(ev))
+
+
 def require_evidence(value, case=None):
-    """形似路径的证据必须真实存在；纯文本证据（"来源: 说明"）照旧允许。"""
+    """证据必须可重放：路径存在 / 命令+产物 / 哈希 / 账本编号；纯文本一律拒绝。"""
     ev = (value or "").strip()
-    if not ev or not EVIDENCE_PATH_RE.search(ev):
+    if not ev:
         return ev
-    cands = [ev]
-    if case:
-        cands.append(os.path.join(os.path.abspath(case), ev))
-    if any(os.path.exists(c) for c in cands):
+    # ① 命令 + 产物（先判：命令串里常含 `/`，会被 EVIDENCE_PATH_RE 误当路径）
+    if _evidence_is_command(ev):
         return ev
-    die_json("evidence-missing",
-             '证据路径不存在：%s（文本证据写成 "来源: 说明"，不要写不存在的文件路径）' % ev)
+    # ② 哈希
+    if EVIDENCE_SHA_RE.match(ev):
+        return ev
+    # ③ 路径：形似路径就必须真实存在（原行为保留）
+    #   先判路径存在：文件名里带 E-001 这类号时，存在文件优先于「账本编号」分支。
+    path_like = bool(EVIDENCE_PATH_RE.search(ev))
+    path_ok = False
+    if path_like:
+        cands = [ev]
+        if case:
+            cands.append(os.path.join(os.path.abspath(case), ev))
+        path_ok = any(os.path.exists(c) for c in cands)
+        if path_ok:
+            return ev
+    # ④ 账本编号：E-/F-/C- 且该编号在本案账本里存在（case 为空时不猜，走下面拒绝）
+    ids = ["%s-%s" % (a_, b_) for a_, b_ in EVIDENCE_ID_RE.findall(ev)]
+    if ids:
+        have = set()
+        if case:
+            try:
+                have = _ledger_ids(os.path.abspath(case))
+            except Exception:  # noqa: BLE001 —— init 早期账本还没写，别在这里崩
+                have = set()
+        if any(i.upper() in have for i in ids):
+            return ev
+        if not path_like:
+            die_json("evidence-unknown-id",
+                     "证据编号不在本账本里：%s（先 claim/prove 出这条 ID，或换成路径 / 命令+产物 / 哈希）\n     %s"
+                     % ("、".join(ids), EVIDENCE_REPLAY_HINT))
+    if path_like:
+        die_json("evidence-missing",
+                 '证据路径不存在：%s（不要写不存在的文件路径；日志/截图请落到磁盘再引用）\n     %s'
+                 % (ev, EVIDENCE_REPLAY_HINT))
+    # ⑤ 剩下的都是纯文本
+    die_json("evidence-not-replayable",
+             "证据不是可重放材料：%s\n     %s" % (ev[:80], EVIDENCE_REPLAY_HINT))
 
 
 def _json_path(case, name):
@@ -650,6 +707,29 @@ def print_gaps(gaps, title="缺件台账"):
 
 
 # ---------------------------------------------------------------- commands
+def _fingerprint_target(target):
+    """建案时给目标原件拍指纹（外部评审第 2 轮：只存路径 → 原件被改坏后无法验证）。
+
+    - 目标在盘上：写 path + sha256 + size + at；
+    - 目标未就位（不存在/URL/读不了）：不报错，但 sha256=None + note 说明。
+    """
+    t = (target or "").strip()
+    at = now()
+    if not t:
+        return {"path": "", "sha256": None, "size": None, "at": at,
+                "note": "目标未就位（建案时不存在）"}
+    p = store_target(t)
+    missing = {"path": p, "sha256": None, "size": None, "at": at,
+               "note": "目标未就位（建案时不存在）"}
+    if URL_RE.match(p) or not os.path.isfile(p):
+        return missing
+    try:
+        return {"path": p, "sha256": _sha256_file(p),
+                "size": os.path.getsize(p), "at": at}
+    except OSError:
+        return missing
+
+
 def cmd_init(a):
     d, fp = paths(a.case)
     os.makedirs(d, exist_ok=True)
@@ -664,12 +744,13 @@ def cmd_init(a):
           "depth": {}, "verdict": None, "max_level": None,
           "stage": "intake", "stage_history": [],
           "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
+    target_fp = _fingerprint_target(a.target)
     backend = save_state(a.case, st)
     open(fp, "a", encoding="utf-8").close()
     # ★ 案例索引同源：preflight / domain-gate 跑 `case_state.py index --check`。
     #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
     #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
-    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"))
+    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"), target_fp)
     # 记一个机器级指针，供扩展（seep-memory/seep-events）在任意 cwd 下找到当前案（外部评审 A7）
     try:
         pdir = os.path.join(os.path.expanduser("~"), ".seep")
@@ -689,7 +770,8 @@ def cmd_init(a):
                 "> 开工前填完这三节。没填完不许对目标动手（学 case-guard：scope 未就绪不 ACT）。", "",
                 "## 1. 目标与授权", "",
                 "- 目标：%s" % tgt,
-                "- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）", "",
+                "- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）",
+                "- 客户原话：<粘贴客户关于授权的那句话>", "",
                 "## 2. 边界（不做的事）", "",
                 "- 不改系统级配置（网卡/路由/DNS/驱动/服务/系统 hosts）",
                 "- 不动与目标无关的进程与文件",
@@ -707,9 +789,15 @@ def cmd_init(a):
 
     print("[OK] case.json 骨架已写：evidence_kind=%s goal_level/domain/lessons 请按实际补"
               % getattr(a, "evidence_kind", "real"))
+    if target_fp.get("sha256"):
+        print("[OK] 原件指纹已登记：sha256=%s size=%s at=%s"
+              % (target_fp["sha256"], target_fp.get("size"), target_fp.get("at")))
+    else:
+        print("[WARN] 目标未就位（建案时不存在）：%s —— 原件就位后重跑 init --force 登记指纹"
+              % (target_fp.get("path") or a.target or "（未指定）"))
 
 
-def _ensure_case_meta(d, st, evidence_kind="real"):
+def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None):
     """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。"""
     cj = os.path.join(d, "case.json")
     if os.path.isfile(cj):
@@ -720,6 +808,9 @@ def _ensure_case_meta(d, st, evidence_kind="real"):
         # 新案例默认域：`softseep`（旧名 `reverse` 已不是合法域，见 domain_spec.DOMAINS）
         "domain": "softseep",
         "target_type": st.get("target") or "",
+        # ★ 原件指纹块（第 2 轮评审）：建案时就能重放比对「原件动没动」。
+        #   只新增字段，不动原有 target_type 等语义；`index` 不读此块，故不影响索引。
+        "target": target_fp or {},
         "evidence_kind": kind,
         "protection": [],
         "authority": "",
@@ -740,6 +831,62 @@ def _ensure_case_meta(d, st, evidence_kind="real"):
         return False
     return True
 
+
+
+def cmd_verify_origin(a):
+    """重算目标原件哈希，与建案时登记的指纹对账（第 2 轮评审：「原件不动」必须可验证）。
+
+    rc=0 且打印指纹 = 原件与建案时一致；rc=2 = 原件已变/已被移动/无法比对。
+    """
+    d = os.path.abspath(a.case)
+    cj = os.path.join(d, "case.json")
+    if not os.path.isfile(cj):
+        die_json("case-not-found",
+                 "case.json 不存在：%s（先跑 init --case <目录> --target <原件>）" % d)
+    try:
+        with open(cj, encoding="utf-8") as f:
+            meta = json.load(f)
+    except (OSError, ValueError) as e:
+        die_json("case-json-unreadable", "case.json 读不出来：%s: %s" % (type(e).__name__, e))
+    tgt = meta.get("target") if isinstance(meta, dict) else None
+    tgt = tgt if isinstance(tgt, dict) else {}
+    path = str(tgt.get("path") or "").strip()
+    want = str(tgt.get("sha256") or "").strip().lower()
+    want_size = tgt.get("size")
+    if not path:
+        print("[ERR] 本案件没登记原件路径（case.json 的 target.path 为空）：无法验证原件未变")
+        print("     修法：python Tool/scripts/case_state.py init --case %s --target <原件> --force" % d)
+        return 2
+    print("[INFO] 登记指纹：path=%s sha256=%s size=%s at=%s"
+          % (path, want or "(未登记)",
+             want_size if want_size is not None else "(未登记)", tgt.get("at") or "(未登记)"))
+    if URL_RE.match(path):
+        print("[ERR] 原件已变/已被移动：目标登记为 URL（%s），本地无原件可重算哈希" % path)
+        return 2
+    if not os.path.isfile(path):
+        print("[ERR] 原件已变/已被移动：%s 当前不存在（被删 / 改名 / 移走）" % path)
+        if tgt.get("note"):
+            print("     登记备注：%s" % tgt["note"])
+        return 2
+    try:
+        got, got_size = _sha256_file(path), os.path.getsize(path)
+    except OSError as e:
+        print("[ERR] 原件已变/已被移动：%s 读不出来：%s" % (path, e))
+        return 2
+    if not want:
+        print("[ERR] 原件已变/已被移动：建案时目标未就位（sha256 未登记），现在才出现"
+              "（sha256=%s size=%s）" % (got, got_size))
+        print("     修法：python Tool/scripts/case_state.py init --case %s --target %s --force" % (d, path))
+        return 2
+    if got != want or (want_size is not None and got_size != want_size):
+        print("[ERR] 原件已变/已被移动：%s" % path)
+        print("     登记：sha256=%s size=%s" % (want, want_size))
+        print("     现在：sha256=%s size=%s" % (got, got_size))
+        print("     注意：原件变了，以前的证据不再自动成立（stale 后再 prove）")
+        return 2
+    print("[OK] 原件未变：path=%s sha256=%s size=%s 建案时间=%s"
+          % (path, got, got_size, tgt.get("at") or "(未登记)"))
+    return 0
 
 
 def cmd_lock(a):
@@ -1665,13 +1812,18 @@ SCOPE_AUTH_VALUES = ("本人自有", "书面授权", "公开靶场", "开源")
 def _scope_problems(case):
     """scope.md 的「授权来源」必须被**记录**成四选一（P0-3b）。
 
-    这条只机检「授权事实有没有落纸」，不裁决授权本身（「默认受权直接开工」是产品决定，
-    不在这里改动）。返回 [] = 已记录；否则返回一条带可复制修法的未过项。
+    第 2 轮评审：「四选一」可由模型代填 —— 客户可能从没说过授权。
+    所以再加一道：「客户原话」行必须非空、不是模板占位、长度 ≥ 6。
+    这条只机检「授权事实有没有落纸」，不裁决授权本身。返回 [] = 已记录；
+    否则返回一条带可复制修法的未过项。
     """
     d = os.path.abspath(case)
     p = os.path.join(d, "scope.md")
     fix = ("先填 scope.md 的授权来源（四个之一：本人自有 / 书面授权 / 公开靶场 / 开源）"
            " + 目标：%s" % p)
+    fix_q = ("在 %s 第 1 节加一行（把尖括号换成客户关于授权的那句原话，至少 6 字）：\n"
+             "       客户原话：<粘贴客户关于授权的那句话>\n"
+             "     （客户没说过授权就不要开工，不许模型代填）" % p)
     if not os.path.isfile(p):
         return ["范围契约 scope.md 不存在（进阶段 1 及以后前必须先写）\n     " + fix]
     try:
@@ -1696,6 +1848,21 @@ def _scope_problems(case):
     if len(hits) != 1:
         return ["scope.md 的「授权来源」=「%s」不在四个之一"
                 "（本人自有 / 书面授权 / 公开靶场 / 开源）\n     %s" % (val[:60], fix)]
+    # ★ 第 2 轮评审：授权来源必须是客户说过的，不是模型替客户选的。
+    qline = ""
+    for ln in raw.splitlines():
+        if "客户原话" in ln:
+            qline = ln.strip()
+            break
+    if not qline:
+        return ["scope.md 缺「客户原话」一行（授权来源无法证明是客户说的）\n     " + fix_q]
+    mq = re.search(r"客户原话\s*[:：]\s*(.*)$", qline)
+    qval = mq.group(1).strip() if mq else ""
+    bare = qval.strip(" \t\"'“”‘’「」")
+    if (not bare or "粘贴客户" in bare or bare.startswith("<") or bare.endswith(">")
+            or len(bare) < 6):
+        return ["scope.md 的「客户原话」还是空/模板占位/太短（%r）：写客户关于授权的原话，至少 6 字\n"
+                "     %s" % (qval[:60], fix_q)]
     return []
 
 
@@ -2247,7 +2414,7 @@ def cmd_deliver(a):
                 % (len(recs), cdir, cdir))
     ev = require_evidence(a.evidence, a.case)
     if not ev:
-        die("交付必须有可核对的证明（--evidence：截图路径 / 窗口标题 / 日志片段）")
+        die("交付必须有可核对的证明（--evidence：证据文件路径 / 命令+产物 / 哈希 / 账本编号；纯文本不算）")
     st.setdefault("deliveries", []).append(
         {"level": a.level, "evidence": a.evidence, "note": a.note or "", "ts": now()})
     st["next_action"] = {"M1": "补功能面，冲 M2", "M2": "冲 M3（UI/授权）",
@@ -2464,6 +2631,9 @@ def _write_answer_pass(case=""):
 
     只在**通过时**调用（失败不写）；写盘失败也不改判定结果（rc 仍是 0），只是闸继续拦。
     契约哈希写进去是为了「契约改了 → 旧标记自动作废」：四要素一改，上一份首答不算数。
+    第 2 轮评审：标记还要**绑目标** —— `case` 记案件目录，`target_sha256` 记该案
+    case.json 里登记的目标哈希（target_files[].sha256 优先；没登记就按 target 路径现算），
+    有效期由 answer-contract.json 的 gate.ttl_minutes 决定（当前 60 分钟）。
     """
     import datetime
     import hashlib
@@ -2471,9 +2641,47 @@ def _write_answer_pass(case=""):
         with open(os.path.join(_TOOL, "config", "answer-contract.json"), "rb") as f:
             ch = hashlib.sha256(f.read()).hexdigest()
         case_abs = os.path.abspath(os.path.expanduser(case)) if case else ""
+        # 目标哈希：只从该案 case.json 的登记里取（没给 case / 没登记 / 文件不在 → 空串）
+        target_sha = ""
+        try:
+            cj = {}
+            cjp = os.path.join(case_abs, "case.json") if case_abs else ""
+            if cjp and os.path.isfile(cjp):
+                with open(cjp, encoding="utf-8") as f:
+                    cj = json.load(f)
+            for it in (cj.get("target_files") or []):
+                sh = str((it or {}).get("sha256") or "").strip().lower()
+                if sh:
+                    target_sha = sh
+                    break
+            if not target_sha:
+                for k in ("target", "target_path", "target_type"):
+                    v = cj.get(k)
+                    if isinstance(v, dict):
+                        # 新 case.json 的 target 是原件指纹块：直接用它登记的 sha256（别 str(dict) 当路径）
+                        sh = str(v.get("sha256") or "").strip().lower()
+                        if sh:
+                            target_sha = sh
+                            break
+                        v = v.get("path") or ""
+                    v = str(v or "").strip()
+                    if not v:
+                        continue
+                    ap = v if os.path.isabs(v) else os.path.join(case_abs, v)
+                    if os.path.isfile(ap):
+                        hh = hashlib.sha256()
+                        with open(ap, "rb") as f:
+                            for chunk in iter(lambda: f.read(1 << 20), b""):
+                                hh.update(chunk)
+                        target_sha = hh.hexdigest()
+                        break
+        except Exception:  # noqa: BLE001
+            target_sha = ""
         payload = {
             "schema": "seep.answer-pass/1",
             "case": case_abs,
+            # 目标身份：换目标必须重新给首答（扩展按 case.json 的 target_files/target 比对路径）
+            "target_sha256": target_sha,
             # ISO8601 带 UTC 偏移：扩展侧 Date.parse 直接认，不做本地时区猜测
             "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "contract_sha256": ch,
@@ -2551,6 +2759,9 @@ def cmd_answer(a):
     if not bad:
         # 通过才写标记（就是 --check 的放行凭证）；失败不写，扩展 answer-gate.ts 继续拦
         _write_answer_pass(getattr(a, "case", "") or "")
+        _cp = str(getattr(a, "case", "") or "").strip()
+        print("[标记] 已写 ~/.seep/answer-pass.json（TTL 取自 gate.ttl_minutes；case=%s）"
+              % (_cp or "（未指定，不绑目标）"))
     return 0 if not bad else 1
 
 
@@ -3098,6 +3309,56 @@ def _self_test():
             assert _chk_final(tmp, p6, {"verdict": ""}); checks += 1
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+        # 第 2 轮评审：证据必须可重放（纯文本一律拒）
+        import io as _io
+        import contextlib as _ctx
+
+        def _rej(fn):
+            """断言 fn() 以 rc=2 + evidence-* 结构拒绝（真写 SystemExit）。"""
+            buf = _io.StringIO()
+            try:
+                with _ctx.redirect_stdout(buf):
+                    fn()
+            except SystemExit as e:
+                return e.code == 2 and "evidence-" in buf.getvalue()
+            return False
+
+        tmp3 = tempfile.mkdtemp(prefix="cs-ev-")
+        try:
+            with open(os.path.join(tmp3, "facts.jsonl"), "w", encoding="utf-8") as f:
+                f.write(json.dumps({"id": "C-001", "claim": "x", "status": "hypothesis"},
+                                   ensure_ascii=False) + "\n")
+            # 纯文本 → 拒
+            assert _rej(lambda: require_evidence("看过了", tmp3)); checks += 1
+            assert _rej(lambda: require_evidence("已确认", tmp3)); checks += 1
+            assert _rej(lambda: require_evidence("分析完成", tmp3)); checks += 1
+            # 命令 + 产物 → 收；命令但没产物描述 → 拒
+            cmd = "python Tool/scripts/preflight.py --fast -> x.json rc=0"
+            assert require_evidence(cmd, tmp3) == cmd; checks += 1
+            assert _rej(lambda: require_evidence("bash run.sh", tmp3)); checks += 1
+            # 哈希（64 hex / sha256:<hex>）→ 收
+            assert require_evidence("a" * 64, tmp3); checks += 1
+            assert require_evidence("sha256:" + "b" * 64, tmp3); checks += 1
+            # 账本编号：存在收 / 不存在拒（要读账本，不能崩）
+            assert require_evidence("见 C-001 的实测", tmp3); checks += 1
+            assert _rej(lambda: require_evidence("见 C-999", tmp3)); checks += 1
+            # 路径：存在收 / 不存在拒（原行为保留）
+            with open(os.path.join(tmp3, "run.log"), "w", encoding="utf-8") as f:
+                f.write("x")
+            assert require_evidence("run.log", tmp3); checks += 1
+            assert _rej(lambda: require_evidence("ghost.json", tmp3)); checks += 1
+            # 文件名里带 ID 但文件真实存在 → 按路径收（存在优先于「账本编号」分支）
+            os.makedirs(os.path.join(tmp3, "artifacts"), exist_ok=True)
+            with open(os.path.join(tmp3, "artifacts", "E-999-notes.md"), "w", encoding="utf-8") as f:
+                f.write("x")
+            assert require_evidence(os.path.join(tmp3, "artifacts", "E-999-notes.md"), tmp3); checks += 1
+            # 建案指纹：存在 → sha256+size；未就位 → sha256=None + note（不报错）
+            fp = _fingerprint_target(os.path.join(tmp3, "run.log"))
+            assert len(fp.get("sha256") or "") == 64 and fp.get("size") == 1; checks += 1
+            fp2 = _fingerprint_target(os.path.join(tmp3, "nope.bin"))
+            assert fp2.get("sha256") is None and "目标未就位" in (fp2.get("note") or ""); checks += 1
+        finally:
+            shutil.rmtree(tmp3, ignore_errors=True)
         # 进阶闸（P2-4 缝1）：`stage --set` 不许静默跳阶
         tmp2 = tempfile.mkdtemp(prefix="cs-adv-")
         try:
@@ -3115,7 +3376,20 @@ def _self_test():
             assert _scope_problems(tmp2); checks += 1          # 模板未改 → 红
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
                 f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n")
-            assert _scope_problems(tmp2) == []; checks += 1    # 四选一 → 绿
+            # 第 2 轮评审：光四选一不够 —— 必须有客户原话
+            assert _scope_problems(tmp2); checks += 1          # 缺「客户原话」→ 红
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n"
+                        "- 客户原话：<粘贴客户关于授权的那句话>\n")
+            assert _scope_problems(tmp2); checks += 1          # 模板占位 → 红
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n"
+                        "- 客户原话：同意\n")
+            assert _scope_problems(tmp2); checks += 1          # 太短（<6）→ 红
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n"
+                        "- 客户原话：这个靶场是我自己的账号，随便打。\n")
+            assert _scope_problems(tmp2) == []; checks += 1    # 四选一 + 客户原话 → 绿
             # ④ 补齐 triage.md（按 report/ 布局）后：0a → 0b 放行
             os.makedirs(os.path.join(tmp2, "report"), exist_ok=True)
             tp = os.path.join(tmp2, "report", "triage.md")
@@ -3669,6 +3943,9 @@ def main():
     p = sub.add_parser("answer")
     p.add_argument("--template", action="store_true"); p.add_argument("--check", action="store_true")
     p.add_argument("--file", default=""); p.add_argument("--selftest", action="store_true")
+    # --case 只影响标记（~/.seep/answer-pass.json）：给了就把首答绑到该案登记的目标
+    p.add_argument("--case", default="",
+                   help="把首答标记绑到这个案件目录（写入其 case.json 登记的目标哈希）")
     p.set_defaults(func=cmd_answer)
     p = sub.add_parser("block")
     p.add_argument("--code", default=""); p.add_argument("--case", default="")
@@ -3731,6 +4008,11 @@ def main():
     p.add_argument("--all", action="store_true", help="对 Tool/cases/* 全量跑")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_verify)
+
+    p = sub.add_parser("verify-origin",
+                       help="重算目标原件 sha256 并与建案时登记的指纹对账（变了/移了就 rc=2）")
+    p.add_argument("--case", required=True)
+    p.set_defaults(func=cmd_verify_origin)
 
     p = sub.add_parser("show"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_show)
     p = sub.add_parser("resume"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_resume)

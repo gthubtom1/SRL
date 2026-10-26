@@ -469,11 +469,69 @@ def check_ps_encoding():
         add("6 可移植", "ps1 编码可被 PS5.1 解析", True, "解析检查跳过：" + str(e)[:60])
 
 
+def _mcp_stdio_handshake(path, timeout=120):
+    """对 MCP stdio 服务做一次**真实握手**：spawn → initialize → tools/list。
+
+    为什么必须有这一步（2026-10-26 第 2 轮评审 P0）：`mcp-doctor` 对 stdio 服务只验
+    「mcp.json 里 command 的可执行文件在不在」，服务 import 崩了 / 缺依赖 /
+    `@server.tool` 注册失败，doctor 全是 "offline（只验了可执行文件）"，
+    而 preflight 只看「输出是不是 JSON」→ 全红也照样 PASS。一次真实握手才能回答
+    「这个服务现在能不能把工具交给模型」。
+
+    返回 (ok, tools, stage, detail)；stage 用于失败时定位到底卡在哪一步。
+    """
+    reqs = [
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+         "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                    "clientInfo": {"name": "preflight", "version": "0"}}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+    ]
+    payload = ("\n".join(json.dumps(r) for r in reqs) + "\n").encode("utf-8")
+    env = dict(os.environ)
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        p = subprocess.Popen([sys.executable, path], stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+    except Exception as e:  # noqa: BLE001
+        return False, 0, "spawn", "起进程失败：%s" % str(e)[:150]
+    try:
+        out, err = p.communicate(payload, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        try:
+            p.communicate(timeout=10)
+        except Exception:  # noqa: BLE001
+            pass
+        return False, 0, "timeout", "握手超时 %ds（服务未应答 initialize）" % timeout
+    got_init = False
+    for line in (out or b"").decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if d.get("id") == 1 and "result" in d:
+            got_init = True
+        res = d.get("result")
+        if d.get("id") == 2 and isinstance(res, dict) and isinstance(res.get("tools"), list):
+            return True, len(res["tools"]), "tools", ""
+    stage = "tools/list" if got_init else "initialize"
+    tail = (((err or b"").decode("utf-8", "replace").strip().splitlines() or [""])[-1])[:200]
+    return False, 0, stage, ("stderr 末行：%s" % tail) if tail else "服务无任何响应行"
+
+
 def check_newtools():
     """新增的两个运维脚本必须「clone 下来就能跑」：语法能过 + 输出可机读。
 
     为什么放进 preflight：这两个脚本正是"静默失败"的解药，
-    它们自己坏了就等于又回到"agent 不知道工具没连上"的老路。
+    它自己坏了就等于又回到"agent 不知道工具没连上"的老路。
+
+    ★ 2026-10-26 第 2 轮评审：这里原来把"脚本能跑（rc 0/1 均可）"当成"MCP 正常"。
+    现在拆成两条：①「脚本可运行」只看 doctor 自己不崩；②「mcp 握手」要求真的
+    initialize + tools/list 成功——至少一个服务连得上，仓库自带的 seep 必须连得上。
     """
     py = sys.executable
     # ① mcp-doctor：--quick 只测端口，快且不受宿主是否运行影响（rc 0/1 都算正常）
@@ -492,7 +550,57 @@ def check_newtools():
                 note = f"输出不是 JSON：{(r.stderr or body)[:120]}"
         except Exception as e:
             note = str(e)[:120]
-    add("7 新脚本", "mcp-doctor 可运行（**只判脚本不崩，不判服务可用**）", ok, note)
+    add("7 新脚本", "脚本可运行：mcp-doctor 不崩（**只判脚本，服务可用看下面「mcp 握手」**）",
+        ok, note)
+
+    # ② mcp 握手（第 2 轮评审 P0）：脚本能跑 ≠ 服务能连。
+    #    判据：① 至少一个服务真的握手成功（列出工具）；② 仓库自带 seep 服务必须握手成功
+    #    （它是本仓库的交付物，它连不上就等于「随仓库发的 MCP 全废」）。
+    hs_ok, hs_note, stage_fail = [], [], []
+    if os.path.isfile(doc):
+        try:
+            r = subprocess.run([py, doc, "--json"], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=180)
+            body = (r.stdout or "")
+            if "{" in body:
+                data, _e = json.JSONDecoder().raw_decode(body[body.index("{"):])
+                for s in (data.get("servers") or []):
+                    name = str(s.get("server") or "?")
+                    st = str(s.get("stage") or "?")
+                    n = s.get("tools")
+                    # offline = doctor 只验了可执行文件存在，不算握手
+                    if s.get("ok") is True and isinstance(n, int) and n > 0:
+                        hs_ok.append("%s(%d 工具)" % (name, n))
+                    else:
+                        stage_fail.append("%s@%s" % (name, st))
+            else:
+                stage_fail.append("mcp-doctor 输出不是 JSON：rc=%d" % r.returncode)
+        except Exception as e:  # noqa: BLE001
+            stage_fail.append("mcp-doctor 跑不动：%s" % str(e)[:60])
+    else:
+        stage_fail.append("mcp-doctor.py 缺失")
+
+    srv = os.path.join(TOOL, "mcp", "seep_mcp_server.py")
+    if not os.path.isfile(srv):
+        seep_ok, seep_stage, seep_detail = False, "missing", "Tool/mcp/seep_mcp_server.py 不存在"
+    else:
+        seep_ok, seep_n, seep_stage, seep_detail = _mcp_stdio_handshake(srv)
+        if seep_ok:
+            hs_ok.append("seep-stdio(%d 工具)" % seep_n)
+        else:
+            stage_fail.append("seep-stdio@%s" % seep_stage)
+            seep_detail = "失败阶段 %s：%s" % (seep_stage, seep_detail)
+    passed = bool(hs_ok) and seep_ok
+    detail = "握手成功：%s" % ("、".join(hs_ok) or "无")
+    if stage_fail:
+        detail += "；失败阶段：%s" % "、".join(stage_fail[:8])
+    if not seep_ok:
+        detail += "；仓库自带 seep 服务不可用（%s）" % seep_detail
+    if not passed:
+        detail += "（修法：python Tool/scripts/mcp-doctor.py --fix / 看上面失败阶段：spawn=命令或路径错，"
+        detail += "initialize=缺依赖，tools/list=@server.tool 注册失败）"
+    add("7 新脚本", "mcp 握手（至少一个服务 initialize+tools/list 成功，且仓库自带 seep 可用）",
+        passed, detail)
 
 
     # ③ case_state.py：阶段零出口闸（空跑一次 gate，必须在缺失时返回 1 而不是崩）
@@ -2229,9 +2337,28 @@ def check_tool_identity():
         if not r["ok"]:
             fails.append("文档称 `%s` 就位，但行为探针失败（%s）：%s"
                          % (tid, r["exe"], r["why"][:150]))
+
+    # ★ 2026-10-26 第 2 轮评审 P0：`checked == 0` 以前是**静默绿**。
+    #   循环里每个 tid 都 `continue`（没探到 exe），于是 checked=0、fails 为空 → PASS。
+    #   换机器 / 什么都没装时，这条检查反而最绿，而它正是"这台机器有没有工具"的唯一证据。
+    #   现在：一个都没探到 = FAIL（不是"跳过"）。detail 必须说清是哪种 zero。
+    if checked == 0:
+        if claimed:
+            detail = ("文档声称就位的工具一个都没探到（换机器/未安装？）：tool-index.md 标了 %d 个"
+                      "「是」（%s），tool-acquire 一个 exe 路径都没解析出来。"
+                      % (len(claimed), "、".join(sorted(claimed)[:6])))
+        else:
+            detail = ("tool-index.md 一个声称就位的工具都没有（claimed=0），无法证明任何工具就位"
+                      "（换机器/文档被改成「否」？）")
+        add("2 单一事实源",
+            "工具身份自检（0 个工具通过行为探针）", False,
+            detail + "（修法：装真工具，或把 tool-index 该行改成「否（BROKEN：原因）」并写明原因）")
+        fails.append("checked=0：" + detail)
+        return fails
+
     add("2 单一事实源",
         "工具身份自检（%d 个文档声称就位的工具通过行为探针）" % checked,
-        not fails, "；".join(fails) + "（修法：装真工具，或把 tool-index 该行改成「否（BROKEN：原因）」）")
+        not fails, "；".join(fails) + ("" if not fails else "（修法：装真工具，或把 tool-index 该行改成「否（BROKEN：原因）」）"))
     return fails
 
 def check_agents_deploy():

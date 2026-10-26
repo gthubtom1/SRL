@@ -70,7 +70,7 @@
     "目标数据已不可复现（无镜像/无 pcap）"
   ],
   "witness_tool": {
-    "cmd": "Tool/skill/forensics-mobile/scripts/forensics-check.py --help",
-    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+    "cmd": "Tool/skill/forensics-mobile/scripts/witness.py",
+    "why": "真跑 forensics-check.py 分析 Tool/cases/forensics07/target/bgp-4byte-asn.pcap：断言 type/format=pcap、meta.packet_count>0、UTC timeline 与 integrity.sha256，证明 pcap 取证初检真的产出结果"
   }
 }

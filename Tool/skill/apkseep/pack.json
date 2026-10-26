@@ -70,7 +70,7 @@
     "需要脱壳且脱壳失败两次 → 转 malware-analysis"
   ],
   "witness_tool": {
-    "cmd": "Tool/skill/apkseep/scripts/doctor.py --help",
-    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+    "cmd": "Tool/skill/apkseep/scripts/witness.py",
+    "why": "真跑 java2c_probe.py 分析 Tool/cases/leaf-apk/target/diva.apk：断言 dex[].classes/total_methods/native_ratio 与 classification.verdict/metrics/evidence 存在，证明 APK 解析与 Java2C 判型真的产出结果（不是 --help）"
   }
 }

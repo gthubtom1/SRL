@@ -81,7 +81,7 @@
     "协议为公开标准且已有库（直接复用，不必复刻）"
   ],
   "witness_tool": {
-    "cmd": "Tool/skill/protocol-plugin/scripts/pcap-summary.py --help",
-    "why": "证明该域工具链可加载（witness.cmd 只重算账本，不碰工具 —— 外部评审 C1）"
+    "cmd": "Tool/skill/protocol-plugin/scripts/witness.py",
+    "why": "真跑 pcap-summary.py 分析 Tool/cases/protocol05/target/RADIUS.pcap：断言 packet_count/session_count>0、sessions 含 UDP/1812、sha256，证明 pcap 会话聚合真的产出结果"
   }
 }
