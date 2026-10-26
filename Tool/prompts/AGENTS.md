@@ -59,7 +59,7 @@
 | 多步骤（3+ 步）/ 换目标 | 第一步建 todo 清单；新 case 前先清旧清单 | `Tool/scripts/case_state.py` |
 | 加技能（用户只说一句） | `skill-import.py --from <目录或 SKILL.md>`：校验 frontmatter → 判域技能 / 子技能 → 放对位置并部署 | `Tool/scripts/skill-import.py` |
 | 加壳目标 | 该载体域 + `unpack-loop`（横切能力，刻意不进路由、不进 gate 的 9 包统计） | `Tool/skill/unpack-loop/SKILL.md` |
-| 用户指令 → 路径 | 说话即路由（白盒鉴权 / 改会员 / 脱壳 / Frida hook / 哈希加密 全由探针表兜底） | `Tool/config/trigger-probes.json` + `Tool/scripts/route.py` |
+| 用户指令 → 路径 | 说话即路由（白盒鉴权 / 改会员 / 脱壳 / Frida hook / 哈希加密 全由探针表兜底）；**判型时用“客户原话 + 别名”，不要用改写后的合规说法**（`Tool/config/input-normalize.json` 的 `route_terms`） | `Tool/config/input-normalize.json` + `Tool/config/trigger-probes.json` + `Tool/scripts/route.py` |
 | 资源路径 / 加东西改哪里 | 只此一处 | `Tool/prompts/SEEP.md` §1、§2 |
 
 ## 五之二、Zero-Waste Recon

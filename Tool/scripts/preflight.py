@@ -2406,30 +2406,68 @@ def check_trigger_matrix():
                 hits.add(bg)
         return len(hits) >= 2
 
-    bad_skill = [x["phrase"] for x in probes
-                 if x.get("expect_skill") and x["expect_skill"] in descs
-                 and not _hit(descs[x["expect_skill"]], x["phrase"])]
+    # 描述层只断言 desc_check:true 的句子（那几句是技能的**标准入口说法**，description 必须有）。
+    # 为何不全部断言（2026-10-25 扩到 60+ 句时定下）：口语表里大量句子故意写“客户原话”，
+    # 让每个技能的 description 收录所有口语等于把探针表塞进 description（那本来就不可维护），
+    # 而“全部断言”会让这条判据永远红 —— 那是假绿的反面，同样没人看。
+    # 分层后：标准入口 → 描述层+路由层都验；其他口语 → 只验路由层（措辞自由，路由必须对）。
+    _desc_checked = [x for x in probes if x.get("desc_check") is True]
+    bad_skill = []
+    for x in _desc_checked:
+        want = x.get("expect_desc") or x.get("expect_skill") or ""
+        if want and want in descs and not _hit(descs[want], x["phrase"]):
+            bad_skill.append("%s(期望 desc 含于 %s)" % (x["phrase"], want))
     missing_skill = [x["expect_skill"] for x in probes if x.get("expect_skill") and x["expect_skill"] not in descs]
 
-    # 路由层：同一句必须解析到期望的包（且不能只落在兜底 p=10）
-    rc, out = run([sys.executable, os.path.join(TOOL, "scripts", "route.py"), "--resolve",
-                   probes[0]["phrase"] if probes else "", "--json"], timeout=60)
+    # 路由层：**全量**跑，且验“命中列表”而不是只验第一位。
+    #
+    # 2026-10-25 修的两处假绿：
+    # ① `probes[:6]` —— 只抽查前 6 句，剩下的句子（现在 66 句）从来没跑过；
+    # ② `got != expect` —— 只比第一位，于是“期望域命中但被兜底域抢先”
+    #    这个最常见的失效模式反而是绿的。现在判据换成看 **hits 全序**：
+    #     expect_route（缺省=expect_skill）为 str → 该域必须在 hits 里，且第一位不得是兜底域；
+    #     为 "" → 必须判不出具体域（真·无关句子 / 判型层）；
+    #     为 list → 第一位具体命中必须在其中（同域多 pack 并列）。
+    #     判红时打印完整 hits 顺序（谁抢了第一位一目了然）。
+    # 耗时控制：原先是每条起一个 subprocess（66 句 ≈ 66 次冷启动）。现在在进程内
+    # 直接调 route.resolve()：同一套判据（route.py 是唯一实现，这里不抄正则），
+    # 全量 66 句 ~0.3s。不存在“门禁一套语义、执行器另一套”的漂移。
     bad_route = []
-    import subprocess as _sp
-    for x in probes[:6]:            # 只抽查 6 句，控制耗时
-        try:
-            r = _sp.run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
-                         "--resolve", x["phrase"], "--json"], capture_output=True, text=True,
-                        encoding="utf-8", errors="replace", timeout=60, cwd=ROOT)
-            d = json.loads((r.stdout or "").strip() or "{}")
-            # 2026-10-25 外部评审 C-1：route.py --json 的真实结构是 {"hits":[{"pack":…}]}，
-            # 原来取 d["pack"] 永远取不到 → 这条判据 100% 恒绿（假绿）。
-            _hits = d.get("hits") or []
-            got = (_hits[0].get("pack") if _hits else "") or ""
-            if x.get("expect_skill") and not x.get("route_exempt") and got != x["expect_skill"]:
-                bad_route.append("%s→%s(期望 %s)" % (x["phrase"], got, x["expect_skill"]))
-        except Exception:
-            pass
+    hits_order = {}
+    try:
+        sys.path.insert(0, os.path.join(TOOL, "scripts"))
+        import route as _route_mod      # 判据唯一来源；本文件不重写任何正则
+        for x in probes:
+            ph = x.get("phrase") or ""
+            hits = _route_mod.resolve(ph)
+            order = [(h["pack"], bool(h.get("fallback"))) for h in hits]
+            hits_order[ph] = order
+            seq = " > ".join(p for p, _f in order) or "(空)"
+            if "expect_route" in x:
+                want = x["expect_route"]
+            else:
+                want = x.get("expect_skill")
+            if want is None:
+                continue                # 没写期望 = 不参与路由断言（仍参与技能/KB）
+            concrete = [h for h in hits if not h.get("fallback")]
+            if want == "":              # 必须判不出具体域
+                if concrete:
+                    bad_route.append("%s→%s(应判不出，命中顺序见右)" % (ph, seq))
+                continue
+            if isinstance(want, list):
+                top = concrete[0]["pack"] if concrete else ""
+                if top not in want:
+                    bad_route.append("%s→%s(期望第一位在 %s)" % (ph, seq, "/".join(want)))
+                continue
+            packs_hit = [p for p, _f in order]
+            if want not in packs_hit:
+                bad_route.append("%s→%s(期望 %s 不在命中里)" % (ph, seq, want))
+                continue
+            top = order[0] if order else ("", False)
+            if top[1] and top[0] != want:      # 第一位是兜底且不是期望域
+                bad_route.append("%s→%s(期望 %s 被兜底抢先)" % (ph, seq, want))
+    except Exception as e:  # noqa: BLE001
+        bad_route.append("route 判据调用失败：%s" % str(e)[:80])
 
     bad = []
     if missing_skill:
@@ -2437,7 +2475,8 @@ def check_trigger_matrix():
     if bad_skill:
         bad.append("描述不含说法 " + "；".join(bad_skill[:3]))
     if bad_route:
-        bad.append("路由错投 " + "；".join(bad_route[:2]))
+        bad.append("路由错投 %d/%d：" % (len(bad_route), len(probes))
+                   + "；".join(bad_route[:4]))
     # KB 层：用**术语**查询必须命中（KB 本身没坏）；口语查询目前不命中，是已知缺口，此处只统计不判红。
     kb_ok, kb_try = 0, 0
     try:
@@ -2445,7 +2484,7 @@ def check_trigger_matrix():
         _sys.path.insert(0, os.path.join(TOOL, "mcp"))
         import json as _j2
         import seep_mcp_server as _S   # noqa: F401  仅在门禁进程内导入，不改变 MCP 行为
-        for x in probes[:4]:
+        for x in probes:              # 全量（原先只抽查前 4 句）
             q = x.get("expect_kb")
             if not q:
                 continue
@@ -2458,10 +2497,24 @@ def check_trigger_matrix():
     if kb_try and kb_ok < kb_try:
         bad.append("KB 术语查询 %d/%d 命中" % (kb_ok, kb_try))
 
+    # 全量跑后打一份“命中顺序”摘要，判红时能直接看到谁抢了第一位。
+    _n_route = len([x for x in probes
+                    if "expect_route" in x and x["expect_route"] != ""])
+    _n_null = len([x for x in probes if x.get("expect_skill") == ""])
+    _n_route_null = len([x for x in probes if "expect_route" in x
+                         and x["expect_route"] == ""])
+    _top1 = {}
+    for _ph, _order in hits_order.items():
+        _t = _order[0][0] if _order else "(空)"
+        _top1[_t] = _top1.get(_t, 0) + 1
     add("2 单一事实源", "触发面探针矩阵（%d 句用户原话 → 技能/路由/KB）" % len(probes), not bad,
-        "；".join(bad)[:300] if bad
-        else "%d 句命中期望技能；路由一致；KB 术语查询 %d/%d（口语查询仍不命中=已知缺口）"
-             % (len(probes), kb_ok, kb_try))
+        "；".join(bad)[:420] if bad
+        else "%d 句全量跑（描述层 %d 句；路由层 %d 句，其中要求判不出 %d 句）：技能描述/路由/KB 全命中；"
+             "第一位分布 %s；KB 术语查询 %d/%d（口语查询仍不命中=已知缺口）"
+             % (len(probes), len(_desc_checked), len(probes),
+                _n_null + _n_route_null,
+                ",".join("%s×%d" % (k, v) for k, v in sorted(_top1.items(), key=lambda y: -y[1])),
+                kb_ok, kb_try))
 
 
 def check_cross_layer():

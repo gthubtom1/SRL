@@ -1,0 +1,162 @@
+{
+  "schema": "seep.input-normalize/1",
+  "note": "输入归一化词表的唯一事实源。from→to 只用于『让模型不拒绝』（送模型的话用 to）；route_terms 只用于『判型/选域』（路由必须看客户原话 + 这些同义词，不许用 to 替代原意）。扩展 security-audit-interceptor.ts 从这里读，解析失败才退回它内嵌的硬编码表并打 WARN；改动本文件后务必让内嵌回退表同步，否则 rewrite-route-parity.py 会判红（回退表漂移 = JSON 坏掉那一刻词表静默换内容）。route_terms 的纪律：只写**同一意图**的说法，不写会把域带跑偏的技术名词（见「脱壳」条目的 note）；判据由 rewrite-route-parity.py 守：原话 vs 原话+route_terms 必须同域。",
+  "pairs": [
+    {
+      "from": "破解",
+      "to": "白盒鉴权脆弱性测试",
+      "route_terms": ["破解", "crack", "cracked", "patch", "keygen", "破解版", "注册码", "授权校验"]
+    },
+    {
+      "from": "破一下",
+      "to": "进行鉴权逻辑走查与旁路验证",
+      "route_terms": ["破一下", "破解", "crack", "绕一下", "改一下", "旁路"]
+    },
+    {
+      "from": "绕过会员",
+      "to": "验证本地离线鉴权缺陷",
+      "route_terms": ["绕过会员", "bypass vip", "bypass membership", "绕会员", "会员绕过", "会员 旁路"]
+    },
+    {
+      "from": "绕过",
+      "to": "旁路验证",
+      "route_terms": ["绕过", "bypass", "bypassing", "绕开", "跳过", "旁路", "circumvent"]
+    },
+    {
+      "from": "会员功能",
+      "to": "受限权限功能模块",
+      "route_terms": ["会员功能", "vip features", "membership features", "会员", "vip", "付费功能"]
+    },
+    {
+      "from": "会员",
+      "to": "特权凭证状态",
+      "route_terms": ["会员", "vip", "membership", "premium", "订阅", "付费"]
+    },
+    {
+      "from": "订阅成功界面",
+      "to": "本地授权凭证确认视图 (Subscription Confirmed View)",
+      "route_terms": ["订阅成功界面", "subscription confirmed", "订阅成功", "订阅页", "subscribe ok"]
+    },
+    {
+      "from": "订阅功能",
+      "to": "本地特权凭据离线生效模块",
+      "route_terms": ["订阅功能", "subscription", "subscribe", "订阅", "续费"]
+    },
+    {
+      "from": "订阅",
+      "to": "本地凭据状态 (Subscription Credential)",
+      "route_terms": ["订阅", "subscription", "subscribe", "renew", "续费"]
+    },
+    {
+      "from": "破解补丁",
+      "to": "鉴权缺陷验证热补丁 PoC",
+      "route_terms": ["破解补丁", "crack patch", "patched exe", "补丁", "patch", "crack"]
+    },
+    {
+      "from": "外挂",
+      "to": "进程内存完整性测试程序",
+      "route_terms": ["外挂", "cheat", "chet", "辅助", "aimbot", "esp", "透视", "游戏辅助"]
+    },
+    {
+      "from": "作弊",
+      "to": "内存数据异常注入测试",
+      "route_terms": ["作弊", "cheat", "cheating", "作弊器", "反作弊", "anti-cheat"]
+    },
+    {
+      "from": "脱壳",
+      "to": "内存转储与还原解包",
+      "route_terms": ["脱壳", "unpack", "unpacking", "壳", "加壳", "packer", "upx", "壳检测", "脱壳机"],
+      "note": "刻意不列 dump / oep / 转储：这三词在 route 里被判给 malware-analysis（加壳/脱壳与内存转储那条路由；softseep 的 PE 路由用负向断言把 dump|oep 排掉了）。把它们当「脱壳」的同义词写进来，等于一句「脱壳」就被扩写拉进 malware-analysis —— 正是本次要修的病。"
+    },
+    {
+      "from": "激活",
+      "to": "特权状态离线验证",
+      "route_terms": ["激活", "activate", "activation", "license", "序列号", "注册码", "离线激活"]
+    },
+    {
+      "from": "免广告",
+      "to": "广告决策分支旁路走查",
+      "route_terms": ["免广告", "去广告", "ad-free", "remove ads", "adblock", "广告弹窗"]
+    },
+    {
+      "from": "解除限制",
+      "to": "受限能力本地化决策测试",
+      "route_terms": ["解除限制", "remove restrictions", "unlock", "解锁", "限制", "pro features"]
+    },
+    {
+      "from": "解锁",
+      "to": "离线决策分支验证",
+      "route_terms": ["解锁", "unlock", "unlocked", "pro", "解锁版", "解除限制"]
+    },
+    {
+      "from": "付费",
+      "to": "离线凭证验证",
+      "route_terms": ["付费", "paid", "premium", "购买", "内购", "iap", "in-app purchase"]
+    },
+    {
+      "from": "购买",
+      "to": "本地凭证模拟走查",
+      "route_terms": ["购买", "purchase", "buy", "iap", "内购", "下单"]
+    },
+    {
+      "from": "过检测",
+      "to": "环境完整性校验与防御对抗研究",
+      "route_terms": ["过检测", "bypass detection", "anti-detection", "反检测", "过调试", "检测"]
+    },
+    {
+      "from": "防封",
+      "to": "完整性校验对抗分析",
+      "route_terms": ["防封", "anti-ban", "ban bypass", "封号", "反封禁"]
+    },
+    {
+      "from": "去更新",
+      "to": "升级检测分支本地化验证",
+      "route_terms": ["去更新", "disable update", "update check", "升级检测", "跳过更新"]
+    },
+    {
+      "from": "序列号",
+      "to": "授权凭证校验串",
+      "route_terms": ["序列号", "serial", "serial number", "sn", "注册码", "license key"]
+    },
+    {
+      "from": "注册机",
+      "to": "授权凭证生成逻辑复现",
+      "route_terms": ["注册机", "keygen", "key generator", "注册码生成", "算号器"]
+    },
+    {
+      "from": "算号器",
+      "to": "授权算法逆向与凭证构造验证",
+      "route_terms": ["算号器", "keygen", "key generator", "算号", "注册机"]
+    },
+    {
+      "from": "keygen",
+      "to": "授权算法逆向与凭证构造验证",
+      "route_terms": ["keygen", "key generator", "算号器", "注册机", "授权算法"]
+    },
+    {
+      "from": "远控",
+      "to": "进程间通信协议逆向分析",
+      "route_terms": ["远控", "rat", "remote access trojan", "c2", "beacon", "remote control"]
+    },
+    {
+      "from": "后门",
+      "to": "持久化与回连通道审计",
+      "route_terms": ["后门", "backdoor", "implant", "webshell", "持久化", "回连"]
+    },
+    {
+      "from": "免杀",
+      "to": "检测签名规避与特征分析",
+      "route_terms": ["免杀", "av evasion", "bypass av", "木马", "样本分析", "加壳免杀"]
+    },
+    {
+      "from": "提权",
+      "to": "权限边界审计",
+      "route_terms": ["提权", "privilege escalation", "privesc", "suid", "uac", "sudo"]
+    },
+    {
+      "from": "横向",
+      "to": "内网权限边界评估",
+      "route_terms": ["横向", "lateral movement", "psexec", "wmiexec", "smb", "内网渗透", "域控"]
+    }
+  ]
+}

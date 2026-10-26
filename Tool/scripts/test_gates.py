@@ -20,7 +20,7 @@
     · node 起不来 / import 失败 / 用例条数不对 → 同样 rc=1，并打印 stderr 尾巴。
 
 用法：
-    python Tool/scripts/test_gates.py          # 一条命令，27 条
+    python Tool/scripts/test_gates.py          # 一条命令，29 条
     python Tool/scripts/test_gates.py --verbose # 额外打印每条的实际 reason 全文
 """
 import argparse
@@ -40,9 +40,10 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:  # noqa: BLE001 —— 流被替换/已关闭时忽略
         pass
 
-# 期望条数：A 首答闸 9 + B 运行目标闸 6 + C 写守卫 4 + D cmd-guard 8 = 27
+# 期望条数：A 首答闸 9 + B 运行目标闸 6 + C 写守卫 4 + D cmd-guard 8 + E 熔断合法出口 2 = 29
 # （B 从 4 → 6 是用户 2026-10-26 口径：运行闸只拦「跑本案目标」；补 2 条本案 target/ 用例）
-EXPECTED_CASES = 27
+# （E 27 → 29：seep-circuit 不再把 rc=2 + [UNCLASSIFIED] 这种合法业务出口当工具失败）
+EXPECTED_CASES = 29
 
 # ────────────────────────────── JS 测试驱动 ──────────────────────────────
 # 注意：这份 JS 只做「调函数 + 比期望」，**没有任何判定逻辑的副本**。
@@ -63,6 +64,7 @@ globalThis.__dirname = EXT;
 
 const AG = await import(url(path.join(EXT, "answer-gate.ts")));
 const CG = await import(url(path.join(EXT, "cmd-guard.ts")));
+const SC = await import(url(path.join(EXT, "seep-circuit.ts")));
 
 const NOW = Date.now();
 const GATE = AG.gateConfig(); // 真·answer-contract.json 的 gate 块（阈值唯一来源）
@@ -472,6 +474,30 @@ fs.mkdirSync(path.join(FAKE_HOME, ".seep"), { recursive: true });
 	);
 }
 
+// E) seep-circuit.isLegitBusinessExit ─────────────────────────────
+// 用户口径：限制只挡真坑。route.py --resolve 判不出领域 = rc=2 + 首行 [UNCLASSIFIED]，
+// 这是设计好的合法出口，不许当工具失败计数（否则连撞 2 次就把整个 bash 禁掉）。
+{
+	const r = SC.isLegitBusinessExit(2, "[UNCLASSIFIED] 判不出领域，请先问用户一句话");
+	emit(
+		"E26",
+		"isLegitBusinessExit(2, '[UNCLASSIFIED]…') → true（合法业务出口，不计数）",
+		"true",
+		String(r),
+		r === true,
+	);
+}
+{
+	const r = SC.isLegitBusinessExit(1, "Traceback (most recent call last):\n  File \"x.py\", line 1");
+	emit(
+		"E27",
+		"isLegitBusinessExit(1, 'Traceback…') → false（真报错照常计数）",
+		"false",
+		String(r),
+		r === false,
+	);
+}
+
 // 清理临时案子（失败也清，用一个统一出口）
 try {
 	fs.rmSync(TMP, { recursive: true, force: true });
@@ -567,7 +593,7 @@ def main():
                 for line in tail:
                     print("       " + line)
         return 1
-    print("[OK] 三道闸的行为与期望一致（首答 9 + 运行回执 6 + 写守卫 4 + cmd-guard 8）")
+    print("[OK] 三道闸的行为与期望一致（首答 9 + 运行回执 6 + 写守卫 4 + cmd-guard 8 + 熔断合法出口 2）")
     return 0
 
 

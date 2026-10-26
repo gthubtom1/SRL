@@ -1,90 +1,477 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "_说明": "触发面探针：固定一组【用户真实说法】，逐层验证模型能不能靠这些说法找到正确的东西。这是『一次性揪出所有触发问题』的清单——以后加任何触发面（技能/KB/样本/路由），都必须在这张表里全部命中。",
   "_为什么": "2026-10-24 实测：skill description 写的是名词清单、route.py 表里没有口语、KB search 只认术语 —— 同一类病在三个地方各犯一次，因为之前没有一张跨层的探针表。",
+  "_判据（2026-10-25 扩表时收紧）": "三层各有一个显式期望值，互不顶替，全部句子都跑（不再只抽查前 6 句）：①描述层 desc_check=true 的句子（19 句：原表 16 句全部在列 + 用户实测 3 句）——短语的实词二元组至少 2 个出现在 expect_desc（缺省=expect_skill）的 description 里。其余 47 句刻意不设 desc_check：客户原话不可能全部写进 description，硬要求等于把探针表塞进 description；它们的措辞自由，但路由层一句不放过。②路由层**全部 66 句**——expect_route（缺省=expect_skill）必须是 str（该域在命中列表里，且第一位不是兜底域）/ \"\"（必须判不出具体域）/ list（第一位具体命中在其中）。③KB 层——expect_kb 术语查询必须命中。",
+  "_route_exempt 已废除": "旧表 3 条 route_exempt:true 已全部删除：它们本来就可路由，豁免只是掩盖缺口。没有 pack.json 的层（seep-router 判型层 / unpack-loop 横切层）改为在 expect_route 里写清『路由层应该发生什么』，而不是把整句豁免掉。真·无关句子用 expect_skill:\"\"。",
   "probes": [
     {
+      "id": "router-01",
       "phrase": "还不确定这属于哪个领域，先帮我判断一下",
       "expect_skill": "seep-router",
       "expect_kb": "脱壳 OEP dump",
-      "route_exempt": true
+      "desc_check": true,
+      "expect_route": ""
     },
     {
+      "id": "soft-01",
       "phrase": "初步分析一下这个软件",
       "expect_skill": "softseep",
-      "expect_kb": "脱壳 OEP dump"
+      "expect_kb": "脱壳 OEP dump",
+      "desc_check": true
     },
     {
+      "id": "soft-02",
       "phrase": "看看这个exe是不是壳",
       "expect_skill": "softseep",
-      "expect_kb": "PE 脱壳 内存 dump"
+      "expect_kb": "PE 脱壳 内存 dump",
+      "desc_check": true
     },
     {
+      "id": "soft-03",
       "phrase": "能不能打补丁改成我自己的",
       "expect_skill": "softseep",
-      "expect_kb": "patch 补丁 等长"
+      "expect_kb": "patch 补丁 等长",
+      "desc_check": true
     },
     {
+      "id": "soft-04",
       "phrase": "这软件要卡密怎么破",
       "expect_skill": "softseep",
-      "expect_kb": "license 卡密 绕过"
+      "expect_kb": "license 卡密 绕过",
+      "desc_check": true
     },
     {
+      "id": "soft-05",
       "phrase": "能不能去广告改会员",
-      "expect_skill": "seep-router",
+      "expect_skill": "softseep",
       "expect_kb": "APK 重打包 签名",
-      "route_exempt": true
+      "desc_check": true,
+      "expect_desc": "seep-router"
     },
     {
+      "id": "soft-06",
+      "phrase": "这软件要钱我想白嫖",
+      "expect_skill": "softseep",
+      "expect_kb": "license 卡密 绕过",
+      "desc_check": false
+    },
+    {
+      "id": "soft-07",
+      "phrase": "解锁功能",
+      "expect_skill": "softseep",
+      "expect_kb": "license 卡密 绕过",
+      "desc_check": false
+    },
+    {
+      "id": "soft-08",
+      "phrase": "帮我看看这个东西能不能改",
+      "expect_skill": "softseep",
+      "expect_kb": "patch 补丁 等长",
+      "desc_check": false
+    },
+    {
+      "id": "soft-09",
+      "phrase": "试用期过了还能用吗",
+      "expect_skill": "softseep",
+      "expect_kb": "license 卡密 绕过",
+      "desc_check": false
+    },
+    {
+      "id": "soft-10",
+      "phrase": "我要改界面logo",
+      "expect_skill": "softseep",
+      "expect_kb": "UI 改版 品牌",
+      "desc_check": false
+    },
+    {
+      "id": "soft-11",
+      "phrase": "把软件改成我自己的名字",
+      "expect_skill": "softseep",
+      "expect_kb": "UI 改版 品牌",
+      "desc_check": false
+    },
+    {
+      "id": "api-01",
       "phrase": "这个 apk 脱壳",
       "expect_skill": "apkseep",
-      "expect_kb": "dex 脱壳"
+      "expect_kb": "dex 脱壳",
+      "desc_check": true
     },
     {
+      "id": "api-02",
+      "phrase": "这个app在干嘛",
+      "expect_skill": "apkseep",
+      "expect_kb": "dex 脱壳",
+      "desc_check": false
+    },
+    {
+      "id": "api-03",
+      "phrase": "这个so有没有加固",
+      "expect_skill": "apkseep",
+      "expect_kb": "dex 脱壳",
+      "desc_check": false
+    },
+    {
+      "id": "api-04",
+      "phrase": "手机app广告太多",
+      "expect_skill": "apkseep",
+      "expect_kb": "APK 重打包 签名",
+      "desc_check": false
+    },
+    {
+      "id": "api-05",
+      "phrase": "微信小程序怎么扒下来",
+      "expect_skill": "apkseep",
+      "expect_kb": "小程序 wxapkg",
+      "desc_check": false
+    },
+    {
+      "id": "web-01",
       "phrase": "帮我测这个站有没有注入",
       "expect_skill": "web-pentest",
-      "expect_kb": "SQL 注入"
+      "expect_kb": "SQL 注入",
+      "desc_check": true
     },
     {
+      "id": "web-02",
       "phrase": "这个接口能越权吗",
       "expect_skill": "web-pentest",
-      "expect_kb": "越权 IDOR"
+      "expect_kb": "越权 IDOR",
+      "desc_check": true
     },
     {
+      "id": "web-03",
+      "phrase": "这个网站有没有漏洞",
+      "expect_skill": "web-pentest",
+      "expect_kb": "SQL 注入",
+      "desc_check": true
+    },
+    {
+      "id": "web-04",
+      "phrase": "他们后台能不能进去",
+      "expect_skill": "web-pentest",
+      "expect_kb": "越权 IDOR",
+      "desc_check": false
+    },
+    {
+      "id": "web-05",
+      "phrase": "这个登录框能不能绕过",
+      "expect_skill": "web-pentest",
+      "expect_kb": "SQL 注入",
+      "desc_check": false
+    },
+    {
+      "id": "mal-01",
       "phrase": "这个样本是不是病毒",
       "expect_skill": "malware-analysis",
-      "expect_kb": "yara 规则"
+      "expect_kb": "yara 规则",
+      "desc_check": true
     },
     {
+      "id": "mal-02",
+      "phrase": "这文件是不是病毒",
+      "expect_skill": "malware-analysis",
+      "expect_kb": "yara 规则",
+      "desc_check": true
+    },
+    {
+      "id": "mal-03",
+      "phrase": "电脑中招了想看看是什么",
+      "expect_skill": "malware-analysis",
+      "expect_kb": "yara 规则",
+      "desc_check": false
+    },
+    {
+      "id": "mal-04",
+      "phrase": "这个exe会不会偷我密码",
+      "expect_skill": "malware-analysis",
+      "expect_kb": "yara 规则",
+      "desc_check": false
+    },
+    {
+      "id": "fw-01",
       "phrase": "分析这个固件",
       "expect_skill": "firmware-iot",
-      "expect_kb": "固件解包"
+      "expect_kb": "固件解包",
+      "desc_check": true
     },
     {
+      "id": "fw-02",
+      "phrase": "这路由器有没有后门",
+      "expect_skill": "firmware-iot",
+      "expect_kb": "固件解包",
+      "desc_check": false
+    },
+    {
+      "id": "fw-03",
+      "phrase": "摄像头被人看了",
+      "expect_skill": "firmware-iot",
+      "expect_kb": "固件解包",
+      "desc_check": false
+    },
+    {
+      "id": "fw-04",
+      "phrase": "家里的wifi密码被蹭了",
+      "expect_skill": "firmware-iot",
+      "expect_kb": "固件解包",
+      "desc_check": false
+    },
+    {
+      "id": "proto-01",
       "phrase": "这个协议怎么构造请求",
       "expect_skill": "protocol-plugin",
-      "expect_kb": "协议 逆向"
+      "expect_kb": "协议 逆向",
+      "desc_check": true
     },
     {
+      "id": "proto-02",
+      "phrase": "抓了个包不知道什么协议",
+      "expect_skill": "protocol-plugin",
+      "expect_kb": "协议 逆向",
+      "desc_check": false
+    },
+    {
+      "id": "proto-03",
+      "phrase": "这个请求的加密参数怎么算的",
+      "expect_skill": "protocol-plugin",
+      "expect_kb": "签名算法 还原",
+      "desc_check": false,
+      "expect_route": "softseep"
+    },
+    {
+      "id": "proto-04",
+      "phrase": "浏览器插件怎么改",
+      "expect_skill": "protocol-plugin",
+      "expect_kb": "扩展 manifest",
+      "desc_check": false
+    },
+    {
+      "id": "pwn-01",
       "phrase": "这道题能不能打通",
       "expect_skill": "pwn-crypto",
-      "expect_kb": "ROP 栈溢出"
+      "expect_kb": "ROP 栈溢出",
+      "desc_check": true
     },
     {
+      "id": "pwn-02",
+      "phrase": "这个程序能溢出吗",
+      "expect_skill": "pwn-crypto",
+      "expect_kb": "ROP 栈溢出",
+      "desc_check": false
+    },
+    {
+      "id": "pwn-03",
+      "phrase": "这段密文能不能解开",
+      "expect_skill": "pwn-crypto",
+      "expect_kb": "RSA 密码学",
+      "desc_check": false
+    },
+    {
+      "id": "frs-01",
       "phrase": "分析这个内存镜像",
       "expect_skill": "forensics-mobile",
-      "expect_kb": "内存取证"
+      "expect_kb": "内存取证",
+      "desc_check": true
     },
     {
+      "id": "frs-02",
+      "phrase": "这个镜像里发生过什么",
+      "expect_skill": "forensics-mobile",
+      "expect_kb": "内存取证",
+      "desc_check": false
+    },
+    {
+      "id": "frs-03",
+      "phrase": "这台电脑被人动过吗",
+      "expect_skill": "forensics-mobile",
+      "expect_kb": "内存取证",
+      "desc_check": false
+    },
+    {
+      "id": "frs-04",
+      "phrase": "查一下这个流量包",
+      "expect_skill": "forensics-mobile",
+      "expect_kb": "内存取证",
+      "desc_check": false
+    },
+    {
+      "id": "sc-01",
       "phrase": "审计这个仓库依赖",
       "expect_skill": "supply-chain-security",
-      "expect_kb": "SBOM 供应链"
+      "expect_kb": "SBOM 供应链",
+      "desc_check": true
     },
     {
+      "id": "sc-02",
+      "phrase": "这仓库依赖有没有毒",
+      "expect_skill": "supply-chain-security",
+      "expect_kb": "SBOM 供应链",
+      "desc_check": true
+    },
+    {
+      "id": "sc-03",
+      "phrase": "这个项目用的包安全吗",
+      "expect_skill": "supply-chain-security",
+      "expect_kb": "SBOM 供应链",
+      "desc_check": false
+    },
+    {
+      "id": "sc-04",
+      "phrase": "CI流水线会不会泄露密钥",
+      "expect_skill": "supply-chain-security",
+      "expect_kb": "SBOM 供应链",
+      "desc_check": false
+    },
+    {
+      "id": "unpack-01",
       "phrase": "这个软件加壳了怎么脱壳",
       "expect_skill": "unpack-loop",
       "expect_kb": "PE 脱壳 内存 dump",
-      "route_exempt": true
+      "desc_check": true,
+      "expect_route": "softseep"
+    },
+    {
+      "id": "nul-01",
+      "phrase": "问个无关问题",
+      "expect_skill": "",
+      "expect_kb": "",
+      "_why": "真·无关句子：不属于客户可见的任何域，正确出口就是 UNCLASSIFIED",
+      "desc_check": false
+    },
+    {
+      "id": "nul-02",
+      "phrase": "今天天气怎么样",
+      "expect_skill": "",
+      "expect_kb": "",
+      "_why": "真·无关句子：同上",
+      "desc_check": false
+    },
+    {
+      "id": "soft-12",
+      "phrase": "这个程序是拿什么写的",
+      "expect_skill": "softseep",
+      "expect_kb": "脱壳 OEP dump",
+      "desc_check": false
+    },
+    {
+      "id": "soft-13",
+      "phrase": "这软件功能是灰的只能看不能用",
+      "expect_skill": "softseep",
+      "expect_kb": "license 卡密 绕过",
+      "desc_check": false
+    },
+    {
+      "id": "api-06",
+      "phrase": "安卓装不上想改改",
+      "expect_skill": "apkseep",
+      "expect_kb": "APK 重打包 签名",
+      "desc_check": false
+    },
+    {
+      "id": "api-07",
+      "phrase": "把app里的会员打开",
+      "expect_skill": "apkseep",
+      "expect_kb": "APK 重打包 签名",
+      "desc_check": false
+    },
+    {
+      "id": "web-06",
+      "phrase": "帮我看看这个站点安不安全",
+      "expect_skill": "web-pentest",
+      "expect_kb": "SQL 注入",
+      "desc_check": false
+    },
+    {
+      "id": "web-07",
+      "phrase": "这个站能黑进去吗",
+      "expect_skill": "web-pentest",
+      "expect_kb": "SQL 注入",
+      "desc_check": false
+    },
+    {
+      "id": "mal-05",
+      "phrase": "这程序老自己联网是不是木马",
+      "expect_skill": "malware-analysis",
+      "expect_kb": "yara 规则",
+      "desc_check": false
+    },
+    {
+      "id": "mal-06",
+      "phrase": "帮我看下这个样本干了什么坏事",
+      "expect_skill": "malware-analysis",
+      "expect_kb": "yara 规则",
+      "desc_check": false
+    },
+    {
+      "id": "fw-05",
+      "phrase": "这个盒子固件能提取吗",
+      "expect_skill": "firmware-iot",
+      "expect_kb": "固件解包",
+      "desc_check": false
+    },
+    {
+      "id": "fw-06",
+      "phrase": "把路由器的系统刷一下",
+      "expect_skill": "firmware-iot",
+      "expect_kb": "固件解包",
+      "desc_check": false
+    },
+    {
+      "id": "frs-05",
+      "phrase": "手机被人翻过怎么看",
+      "expect_skill": "forensics-mobile",
+      "expect_kb": "内存取证",
+      "desc_check": false
+    },
+    {
+      "id": "frs-06",
+      "phrase": "这个日志能还原当时做了什么吗",
+      "expect_skill": "forensics-mobile",
+      "expect_kb": "内存取证",
+      "desc_check": false
+    },
+    {
+      "id": "proto-05",
+      "phrase": "这个软件和服务器说的什么话",
+      "expect_skill": "protocol-plugin",
+      "expect_kb": "协议 逆向",
+      "desc_check": false
+    },
+    {
+      "id": "proto-06",
+      "phrase": "想自己写个能连上去的客户端",
+      "expect_skill": "protocol-plugin",
+      "expect_kb": "协议 逆向",
+      "desc_check": false
+    },
+    {
+      "id": "pwn-04",
+      "phrase": "这个密码算法是不是写错了",
+      "expect_skill": "pwn-crypto",
+      "expect_kb": "RSA 密码学",
+      "desc_check": false
+    },
+    {
+      "id": "pwn-05",
+      "phrase": "服务器上有flag能拿吗",
+      "expect_skill": "pwn-crypto",
+      "expect_kb": "ROP 栈溢出",
+      "desc_check": false
+    },
+    {
+      "id": "sc-05",
+      "phrase": "npm装的东西会不会被人塞东西",
+      "expect_skill": "supply-chain-security",
+      "expect_kb": "SBOM 供应链",
+      "desc_check": false
+    },
+    {
+      "id": "sc-06",
+      "phrase": "这个镜像是不是官方的",
+      "expect_skill": "supply-chain-security",
+      "expect_kb": "SBOM 供应链",
+      "desc_check": false
     }
   ]
 }

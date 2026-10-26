@@ -7,7 +7,10 @@
       "label": "二进制利用/密码学攻击",
       "must": [
         "(?i)\\b(pwn|rop|ret2libc|ret2csu|srop|shellcode|checksec|canary|seccomp|tcache|uaf|fmtstr|one_gadget|libc|FSOP|_IO_wfile_jumps|__free_hook|exit_funcs)\\b|glibc\\s*2\\.3",
-        "(?i)(栈溢出|堆溢出|格式化字符串|沙箱逃逸|控制流劫持|任意地址写|越界读写|整数回绕)",
+        "(?i)(栈溢出|堆溢出|格式化字符串|沙箱逃逸|控制流劫持|任意地址写|越界读写|整数回绕|溢出|越界|可控崩溃|能打吗)",
+        "(?i)(?:能|能不能|可不可以|会不会).{0,6}(?:溢出|越界|打通|做出|拿下|getshell|拿\\s*shell|拿\\s*flag|拿到\\s*flag)|(?:这|那个)?(?:程序|二进制|变量|缓冲).{0,8}(?:能|会).{0,4}(?:溢出|越界)",
+        "(?i)(?:这段?密文|这个密文|密文|密钥|密钥对|签名值).{0,10}(?:解开|解出|破|还原|对不上|不匹配)|(?:解密|解开|破译).{0,8}(?:这段|这个|密文|报文|签名)|(?:密码|算法|实现).{0,8}(?:写错|算错|实现错|有漏洞|不严谨)",
+        "(?i)(?:服务器上|机器上|靶机上).{0,8}(?:flag|靶标|题目)|(?:拿|读|抢|抓)\\s*(?:到)?\\s*flag|(?:getshell|拿\\s*shell|拿\\s*权限)",
         "(?i)\\b(rsa|aes|ecb|cbc|gcm|hmac|mt19937|prng|coppersmith|lattice)\\b",
         "(?i)\\b(pow\\s*\\(|modinv|iroot|hastad|wiener)\\b",
         "(?i)(这道题|这题|题目).{0,10}(打通|能做|做出来|getshell|拿\\s*shell)"

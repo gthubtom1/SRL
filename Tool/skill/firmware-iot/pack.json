@@ -15,7 +15,8 @@
         "(?i)\\b(bios|uefi)\\b",
         "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)",
         "(?i)\\biot\\b",
-        "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包)"
+        "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包|蹭网)",
+        "(?i)(?:路由器|光猫|摄像头|监控头|电视盒子|机顶盒|智能门锁|智能音箱|物联网设备|nas|网关|热点).{0,16}(?:后门|弱口令|口令|密码|漏洞|被人看|被黑|入侵|固件|刷机|刷一?下|提取|解包|仿真|能不能打)|(?:蹭网|被蹭|盗用wifi|改wifi密码|桥接)"
       ],
       "priority": 230
     }
