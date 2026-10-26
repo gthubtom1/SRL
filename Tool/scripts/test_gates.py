@@ -20,7 +20,7 @@
     · node 起不来 / import 失败 / 用例条数不对 → 同样 rc=1，并打印 stderr 尾巴。
 
 用法：
-    python Tool/scripts/test_gates.py          # 一条命令，25 条
+    python Tool/scripts/test_gates.py          # 一条命令，27 条
     python Tool/scripts/test_gates.py --verbose # 额外打印每条的实际 reason 全文
 """
 import argparse
@@ -40,8 +40,9 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:  # noqa: BLE001 —— 流被替换/已关闭时忽略
         pass
 
-# 期望条数：A 首答闸 9 + B 运行目标闸 4 + C 写守卫 4 + D cmd-guard 8 = 25
-EXPECTED_CASES = 25
+# 期望条数：A 首答闸 9 + B 运行目标闸 6 + C 写守卫 4 + D cmd-guard 8 = 27
+# （B 从 4 → 6 是用户 2026-10-26 口径：运行闸只拦「跑本案目标」；补 2 条本案 target/ 用例）
+EXPECTED_CASES = 27
 
 # ────────────────────────────── JS 测试驱动 ──────────────────────────────
 # 注意：这份 JS 只做「调函数 + 比期望」，**没有任何判定逻辑的副本**。
@@ -246,14 +247,16 @@ const verdict = (r) => (r.verdict === "block" ? "block" : "allow");
 // B) 运行目标闸 ────────────────────────────────────────────────────────
 const RUNCMD = "powershell -File Tool/scripts/launch-gui.ps1 -Target a.exe";
 {
+	// ★ 用户 2026-10-26 口径：launch-gui.ps1 是**我们自己的工具**（Agent 自己拉起、自己连），
+	//   命令里没有本案目标 → 运行闸静默放行，不再每步弹 A/B/C。
 	const r = AG.shouldBlockRun("bash", { command: RUNCMD }, null, NOW, GATE, null);
 	const cls = AG.classifyRunTarget("bash", { command: RUNCMD }, GATE);
 	emit(
 			"B10",
-			"launch-gui.ps1 -Target a.exe 无 run-ack → block",
-			"classifyRunTarget.run=true 且 block",
+			"launch-gui.ps1 -Target a.exe（非本案目标）无 run-ack → allow（自己的工具，静默）",
+			"classifyRunTarget.run=true 且 allow",
 			"run=" + cls.run + " · " + show(r),
-			cls.run === true && r.block === true,
+			cls.run === true && r.block === false,
 		);
 }
 {
@@ -285,17 +288,45 @@ const RUNCMD = "powershell -File Tool/scripts/launch-gui.ps1 -Target a.exe";
 	);
 }
 {
-	// 首答过了（marker 有效 → 首答闸放行），但运行回执缺失 → 运行闸仍然 block。
+	// seep_r2_cmd 是「我们自己的工具」：只跑分析命令（不碰本案目标）→ 静默；
+	// 但命令里带上本案登记的目标 = 在跑客户样本 → 首答有效也必须先有 run-ack。
 	const m = marker({ case: CASE_DIR });
 	const firstAnswer = AG.shouldBlock("seep_r2_cmd", { command: "px" }, m, HASH, NOW, GATE, null);
-	const r = AG.shouldBlockRun("seep_r2_cmd", { command: "px" }, null, NOW, GATE, null);
-	const st = AG.runAckState(null, NOW, GATE.runAck, "seep_r2_cmd", { command: "px" }, null);
+	const silent = AG.shouldBlockRun("seep_r2_cmd", { command: "px" }, null, NOW, GATE, CASET);
+	const onTarget = { command: "px " + fwd(TARGET) };
+	const r = AG.shouldBlockRun("seep_r2_cmd", onTarget, null, NOW, GATE, CASET);
+	const st = AG.runAckState(null, NOW, GATE.runAck, "seep_r2_cmd", onTarget, CASET);
 	emit(
 		"B13",
-		"seep_r2_cmd：首答有效但无 run-ack → 运行闸 block",
-		"首答闸 allow 且 运行闸 block 且 runAckState.reason=no-ack",
-		"首答闸=" + show(firstAnswer) + " ｜ 运行闸=" + show(r) + "（" + st.reason + "）",
-		firstAnswer.block === false && r.block === true && st.reason === "no-ack",
+		"seep_r2_cmd：不碰本案目标 → 静默 allow；命令带本案目标且无 run-ack → 运行闸 block",
+		"首答闸 allow 且 静默 allow 且 带目标 block 且 runAckState.reason=no-ack",
+		"首答闸=" + show(firstAnswer) + " ｜ 静默=" + show(silent) + " ｜ 带目标=" + show(r) +
+			"（" + st.reason + "）",
+		firstAnswer.block === false && silent.block === false && r.block === true && st.reason === "no-ack",
+	);
+}
+{
+	// ★ 用户 2026-10-26 口径的正例：命令里就是本案 target/ 下的样本、没有回执 → block。
+	const TARGET_DIR = path.join(CASE_DIR, "target");
+	fs.mkdirSync(TARGET_DIR, { recursive: true });
+	const TARGET_IN_DIR = path.join(TARGET_DIR, "a.exe");
+	fs.writeFileSync(TARGET_IN_DIR, "TARGET-IN-DIR");
+	const cmd = "powershell -File Tool/scripts/launch-gui.ps1 -Target " + fwd(TARGET_IN_DIR);
+	const r = AG.shouldBlockRun("bash", { command: cmd }, null, NOW, GATE, CASET);
+	emit(
+		"B14",
+		"命令里是本案 target/a.exe 且无 run-ack → block（跑客户样本才要回执）",
+		"block",
+		show(r),
+		r.block === true,
+	);
+	const rA = AG.shouldBlockRun("bash", { command: cmd }, ack({ letter: "A", case: CASE_DIR }), NOW, GATE, CASET);
+	emit(
+		"B15",
+		"同一本案 target/a.exe + 有效 A 回执 → allow",
+		"allow",
+		show(rA),
+		rA.block === false,
 	);
 }
 
@@ -536,7 +567,7 @@ def main():
                 for line in tail:
                     print("       " + line)
         return 1
-    print("[OK] 三道闸的行为与期望一致（首答 9 + 运行回执 4 + 写守卫 4 + cmd-guard 8）")
+    print("[OK] 三道闸的行为与期望一致（首答 9 + 运行回执 6 + 写守卫 4 + cmd-guard 8）")
     return 0
 
 

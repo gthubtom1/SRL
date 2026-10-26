@@ -219,7 +219,7 @@ Agent 自主完成：
 - 🌐 **链路层合规转译中继与自动重试**：纯标准库实现的本地中继，支持流式拒答自动重试级联（`S1 评审清单` → `S2 架构走查` → `S3 英文重塑`），100% 保留目标参数不漂移，84 项单元测试全绿
 - ⚡ **DeepSeek Harness (DSH) 秒级自愈套件**：解决官方与插件在 Windows 上的扫描超时与端口冲突，4 秒极速冷启动，自动提取 Token URL 与 MCP 在线核验 (`start-dsh.ps1` / `stop-dsh.ps1`)
 - 🛡️ **实测抗拒答综合防线**：Gemini-Safe 提示词语义重塑（`gemini-safe.flag`，377 token 拒答 → 3300 字深度分析）、L1 拦截器动态可观测日志（`l1-log.flag`）、底座级 `BLOCK_NONE` 注入
-- 🔌 **离线预置（有例外，写清楚）**：核心工具链物理打包（251 MB）；但**三个 MCP 仍走外网**——`js-reverse` 与 `playwright` 用 `npx -y …@latest`、`ghidra` 用 `uvx --from git+…`，断网/内网环境下这三个服务起不来，且 `@latest` 版本不可复现。要么只用离线工具链（其余域不受影响），要么事先联网装一次缓存。
+- 🔌 **联网一次，之后离线可用（不承诺完全离线运行）**：首次安装/更新需要联网（pip / npm / uvx / winget；缺工具时 `seep_ensure_tool` 默认直接装）；装完即可离线使用内置工具链（251 MB：radare2 / jadx / apktool / IDA 桥等）。**部分 MCP 仍需网络**——`js-reverse` 与 `playwright` 用 `npx -y …@latest`、`ghidra` 用 `uvx --from git+…`，断网/内网环境下这三个服务起不来（见 `Tool/mcp/mcp.json.template`）。
 - 🛰️ **OSINT / 资产与人员测绘（R36）**：域名、证书、组织与人员画像 → 资产面收敛，配方 `osint-recon`
 - 📡 **固件/物联网无线近场**：`firmware-iot` 覆盖 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC 的采集与判据
 - 🧱 **02/03 阶段硬化**：判据表 + 失败判据 + 最小实现，先能验收再谈扩展

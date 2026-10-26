@@ -34,9 +34,11 @@
  *      `cmd-guard.ts` 对 `Start-Process *.exe` 只是 warn，ack 也只在 `gate --stage` 时被检查。
  *      → 本轮加**第三道 handler「运行目标闸」**（见下面 `classifyRunTarget` / `shouldBlockRun`）：
  *        bash/powershell 命令里出现 `launch-gui.ps1` / `Start-Process` / 把 `.exe` 当程序执行 /
- *        `wine ` / `& "<盘符>…"` → 必须持有 `~/.seep/run-ack.json`（由 `case_state.py ack` 原子写，
- *        60 分钟内有效、绑本案目标），否则 block。拦在**命令文本层**：`launch-gui.ps1` 内部
- *        再拉子进程不用再拦一次。
+ *        `wine ` / `& "<盘符>…"` → **先看它是不是在跑本案目标**（用户 2026-10-26 口径）：
+ *        只有路径落在本案 `target/` 或登记的目标文件上（`touchesCaseTarget`）才要
+ *        `~/.seep/run-ack.json`（由 `case_state.py ack` 原子写，60 分钟内有效、绑本案目标）；
+ *        启动我们自己的工具（x64dbg / IDA / r2 / `launch-gui.ps1` / `tool-run.ps1`）**静默放行**，
+ *        不每步弹 A/B/C。拦在**命令文本层**：`launch-gui.ps1` 内部再拉子进程不用再拦一次。
  *   ⑤ **P0-3 部分「首答白名单 8 个永远放行 = 先分析再补首答」**：`seep_auto_triage` /
  *      `seep_packer_detect` / `seep_apk_info` 会**读目标里的内容**，属于「分析」→ 移出白名单；
  *      只留 5 个纯读取（`seep_r2_info` 只看架构/位数）。为了不让「首答只能靠猜」复活，
@@ -58,7 +60,7 @@
  *   ⑨ **只认 `seep_*`**：`mcp__x64dbg__*` / `mcp__ida__*` 等其它 MCP 工具可无首答直接开工。
  *      → 工具名以 `mcp__` 开头（任意服务）都算分析动作，**只有** `gate.whitelist` 里的 5 个
  *        （裸名或 `mcp__seep__seep_kb_search` 这种全名都认）放行；`gate.exec_tools`
- *        （当前 `seep_r2_cmd`）除首答外还要运行回执。
+ *        （当前 `seep_r2_cmd`）除首答外还要运行回执（**仅当它跑的是本案目标**，见 ④）。
  *
  * ── 它认什么凭证 ──────────────────────────────────────────────
  *   `~/.seep/answer-pass.json`（由 `case_state.py answer --check` **通过时**写入，失败不写）：
@@ -72,7 +74,9 @@
  *
  * ── 只拦「分析类」，不拦别的 ───────────────────────────────────
  *   运行目标闸（第三道 handler，独立于首答闸）——
- *   拦：`launch-gui.ps1`、`Start-Process`、`wine `、`& "<盘>:/…"`、把 `.exe` 当程序跑；
+ *   分类（`classifyRunTarget`）：`launch-gui.ps1`、`Start-Process`、`wine `、`& "<盘>:/…"`、把 `.exe` 当程序跑（含 `gate.exec_tools`，当前 `seep_r2_cmd`）；
+ *   再只看**跑的是不是客户样本**（`touchesCaseTarget`）：路径落在本案 `target/` 或登记的
+ *         目标文件上才要一次回执；启动 x64dbg / IDA / r2 / 我们自己的脚本 → 静默放行；
  *   放行：`ls *.exe` / `find -name *.exe` / `grep \.exe README` 这类**只看文件名**的只读命令，
  *         以及 `case_state.py`/`preflight`/`check`/`gate`/`route` 这些不执行目标的工作台命令。
  *
@@ -880,10 +884,10 @@ export function buildBlockReason(
 		"",
 		"  1) python Tool/scripts/case_state.py answer --template",
 		"",
-		"  2) 按骨架填成一份 JSON（四要素：judgment 判断 / ceiling 到哪一步 / missing 缺什么 / effort 大约多少功夫；missing 里必须含「授权来源：本人自有|书面授权|公开靶场|开源」之一），",
+		"  2) 按骨架填成一份 JSON（四要素：judgment 判断 / ceiling 到哪一步 / missing 缺什么 / effort 大约多少功夫；不需要任何授权字段），",
 		"     存成 a.json，例如：",
 		'        {"judgment":"PE32+，未见壳，关键在校验函数","ceiling":"只能看懂结构",',
-		'         "missing":["授权来源：本人自有","有没有卡密"],',
+		'         "missing":["有没有卡密"],',
 		'         "effort":"1-2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性"}',
 		"",
 		"  3) python Tool/scripts/case_state.py answer --check --file a.json --case <本案目录>",
@@ -1241,6 +1245,38 @@ export function buildRunBlockReason(
 }
 
 /** 运行目标闸的纯函数判定（不碰磁盘；回执与 caseTargets 由调用方读）。 */
+
+/** 这条动作是不是在"跑客户交给我们的那份样本"？
+ *  判据：命令/参数里出现的路径中，至少有一个落在本案 target 目录或登记的目标文件上。
+ *  否则（例如启动 x64dbg、跑 r2、调我们自己的脚本）→ 不算，运行闸不介入。
+ */
+export function touchesCaseTarget(args: unknown, caseTargets: CaseTargets | null): boolean {
+	if (!caseTargets) return false;
+	const dir = path.resolve(caseTargets.dir || ".");
+	const targets = (caseTargets.paths || []).map((p) => path.resolve(dir, p));
+	const tdir = path.resolve(dir, "target");
+	for (const s of _allStrings(args)) {
+		for (const raw of [s]) {
+			const m = raw.match(/[A-Za-z]:[\\/][^\s"'|;&]+|(?:^|[\s"'(])((?:\.{0,2}[\\/])?[\w.\-]+[\\/][^\s"'|;&]+)/g) || [];
+			for (const piece of m) {
+				const cand = piece.replace(/^[\s"'(]+/, "").trim();
+				if (!cand) continue;
+				let abs: string;
+				try {
+					abs = path.resolve(cand);
+				} catch {
+					continue;
+				}
+				if (abs === path.resolve(dir) || abs.startsWith(dir + path.sep)) {
+					if (abs.startsWith(tdir + path.sep)) return true;
+					if (targets.some((t) => abs === t || abs.startsWith(t + path.sep))) return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 export function shouldBlockRun(
 	toolName: string,
 	args: unknown,
@@ -1252,6 +1288,13 @@ export function shouldBlockRun(
 ): { block: boolean; reason: string; run: boolean } {
 	const cls = classifyRunTarget(toolName, args, gate);
 	if (!cls.run) return { block: false, reason: "", run: false };
+	// ★ 用户 2026-10-26 口径修正：**启动我们自己的工具不算"跑客户的目标"**。
+	//   x64dbg / IDA / launch-gui.ps1 / tool-run.ps1 / r2 / jadx 这些是"我们手里的家伙"，
+	//   它们由 Agent 自己拉起、自己连、自己用 —— 不该每一步都弹 A/B/C（那会把日常开发打断）。
+	//   只有"执行客户交给我们的那份样本（本案 target）"才要一次回执，因为那是不可逆的外部行为。
+	if (!touchesCaseTarget(args, caseTargets)) {
+		return { block: false, reason: "", run: true };
+	}
 	const st = runAckState(runAck, now, gate.runAck, toolName, args, caseTargets);
 	if (st.ok) return { block: false, reason: "", run: true };
 	return { block: true, reason: buildRunBlockReason(toolName, cls.why, st.why, gate.runAck, caseHint, runAck), run: true };

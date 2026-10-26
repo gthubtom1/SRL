@@ -79,8 +79,9 @@
       ① intake → 0a：还没产物可查；
       ② 回退（T 不晚于 S）：回退不是进阶，不产生新的「未挣到的阶段」；
       ③ 复位/复核（T 在 stage_history 里到达过）：当时已过闸，重走只算复核。
-    另（P0-3b）：进阶段 1 及以后必须先有 scope.md 且「授权来源」命中本人自有 / 书面授权 /
-    公开靶场 / 开源 之一；该条**不受**豁免③影响（复位也不能绕过授权事实的机检）。
+    另（P0-3b 改口径）：进阶段 1 及以后必须先有 scope.md（**边界 / 环境记录**）；
+    用户 2026-10-26 口径：**不再要求任何授权字段**（授权来源四选一 / 客户原话一律删掉），
+    也不许因为没填授权而拦阶段。该条**不受**豁免③影响（复位也不能绕过边界记录的机检）。
     --force 允许跳过，但必须配 --reason "..."（缺 reason → rc=2）；
     state.stage_history 里记 forced:true + reason + skipped（跳掉的阶段）。
 
@@ -1074,10 +1075,8 @@ def cmd_init(a):
             L = [
                 "# 范围契约（scope）", "",
                 "> 开工前填完这三节。没填完不许对目标动手（学 case-guard：scope 未就绪不 ACT）。", "",
-                "## 1. 目标与授权", "",
-                "- 目标：%s" % tgt,
-                "- 授权来源：本人自有（默认值，产品口径：用户未声明其他情况即视为本人自有） / 书面授权 / 公开靶场 / 开源",
-                "  （什么都不用改就算填完；若用户明确说“不是我的/没授权”，改成对应值）", "",
+                "## 1. 目标", "",
+                "- 目标：%s" % tgt, "",
                 "## 2. 边界（不做的事）", "",
                 "- 不改系统级配置（网卡/路由/DNS/驱动/服务/系统 hosts）",
                 "- 不动与目标无关的进程与文件",
@@ -1090,7 +1089,7 @@ def cmd_init(a):
             ]
             with open(scope_p, "w", encoding="utf-8", newline=chr(10)) as _sf:
                 _sf.write(chr(10).join(L) + chr(10))
-            print("[OK] scope.md 已生成（开工前先填授权与边界）：%s" % scope_p)
+            print("[OK] scope.md 已生成（开工前先填边界与环境）：%s" % scope_p)
     except Exception as _e:  # noqa: BLE001
         print("[WARN] scope.md 生成失败：%s" % _e)
 
@@ -2203,47 +2202,28 @@ def _stage_problems(case, stage, st):
     return probs
 
 
-SCOPE_AUTH_VALUES = ("本人自有", "书面授权", "公开靶场", "开源")
+AUTH_DECL_VALUES = ("本人自有", "书面授权", "公开靶场", "开源")
 
 
 def _scope_problems(case):
-    """scope.md 的「授权来源」必须被**记录**成四选一。
+    """scope.md 是「边界 / 环境」记录（目标 / 隔离方式 / 边界 / 期望档位）。
 
-    R6 P0-3（授权单轨）：旧版还要「客户原话」≥6 字，但 AGENTS.md 写的是「默认已受权、不问」——
-    目标市场无处拿原话，模型只能替客户编一句（=伪造授权记录）。所以强制「客户原话」已删：
-    这里只机检「授权来源四选一有没有落纸」（事实），不逼模型编客户措辞。
-    「授权有没有被说出来」改由首答机检：`_check_answer` 要求首答里写明「授权来源：<四选一>」。
+    用户 2026-10-26 口径：**不再要求任何授权字段** —— 「授权来源」四选一、客户原话
+    一律不再机检，也不许因为没填它们而拦阶段（不许拿评审意见压用户口径）。
+    这里只机检一条事实：这份边界记录在不在、读不读得出。
     返回 [] = 已记录；否则返回一条带可复制修法的未过项。
     """
     d = os.path.abspath(case)
     p = os.path.join(d, "scope.md")
-    fix = ("先填 scope.md 的授权来源（四个之一：本人自有 / 书面授权 / 公开靶场 / 开源）"
-           " + 目标：%s" % p)
+    fix = "先写一份范围契约（目标 / 隔离方式 / 边界 / 期望档位）：%s" % p
     if not os.path.isfile(p):
         return ["范围契约 scope.md 不存在（进阶段 1 及以后前必须先写）\n     " + fix]
     try:
         raw = open(p, encoding="utf-8", errors="replace").read()
     except OSError as e:
         return ["scope.md 读不出来：%s\n     %s" % (e, fix)]
-    line = ""
-    for ln in raw.splitlines():
-        if "授权来源" in ln:
-            line = ln.strip()
-            break
-    if not line:
-        return ["scope.md 里找不到「授权来源」一行\n     " + fix]
-    m = re.search(r"授权来源\s*[:：]\s*(.*)$", line)
-    val = m.group(1).strip() if m else ""
-    if not val:
-        return ["scope.md 的「授权来源」为空（模板没填）\n     " + fix]
-    hits = [v for v in SCOPE_AUTH_VALUES if v in val]
-    if "选一" in val or len(hits) > 1:
-        return ["scope.md 的「授权来源」还是模板原样或同时写了多个（%s）：只留四选一中的一个\n     %s"
-                % (val[:60], fix)]
-    if len(hits) != 1:
-        return ["scope.md 的「授权来源」=「%s」不在四个之一"
-                "（本人自有 / 书面授权 / 公开靶场 / 开源）\n     %s" % (val[:60], fix)]
-    # R6 P0-3：不再要求「客户原话」—— 不得通过强制原话来逼模型伪造授权记录。
+    if not raw.strip():
+        return ["scope.md 是空的（边界 / 环境没记录）\n     " + fix]
     return []
 
 
@@ -2285,8 +2265,8 @@ def _advance_problems(case, cur, target, st):
          —— p2-replay 负例后的 `--set 4` 复位就走这条。
     除豁免外，判据与 `gate --stage` 完全同一套（_stage_problems），不另开一套宽松口径。
 
-    ★ P0-3b：scope.md 的授权来源是进入阶段 1 及以后的**前置条件**，不受豁免③影响 ——
-    豁免只免「产物闸重查」，不免「授权事实有没有被记录」；否则复位就成了绕过 scope 的缝。
+    ★ P0-3b（用户 2026-10-26 改口径）：scope.md 是「边界 / 环境」记录，进阶段 1 及以后必须有；
+    不再要求任何授权字段，该条不受豁免③影响 —— 豁免只免「产物闸重查」，不免「边界记录有没有落纸」。
     """
     ci, ti = _stage_index(cur), _stage_index(target)
     if ci < 0 or ti < 0 or ti <= ci:
@@ -2425,7 +2405,7 @@ def _stage_gate(a):
         cur = "intake"
     probs = []
 
-    # ① 授权范围契约（P0-3b）：进阶段 1 及以后，scope.md 必须记了授权来源（四选一）
+    # ① 范围契约（边界 / 环境记录）：进阶段 1 及以后必须有 scope.md（不再要求任何授权字段）
     if _stage_index(stage) >= _stage_index("1"):
         probs.extend(_scope_problems(a.case))
 
@@ -2632,15 +2612,15 @@ def cmd_gate(a):
     if a.strict and pend:
         bad.append("仍有 hypothesis 未处理：" + "、".join(pend))
 
-    # ★ P0-3b：范围契约不是「生成完就算」。阶段 1 及以后必须已记录授权来源；
-    #   阶段 0/0a 只提示（否则建案就红），但把「进阶段 1 前必填」摆在输出里。
+    # ★ P0-3b（用户 2026-10-26 改口径）：范围契约不是「生成完就算」——阶段 1 及以后必须有
+    #   scope.md（边界 / 环境记录）；**不要求授权字段**，也不因其缺失拦截。
     cur_stage = str(st.get("stage") or "intake")
     if _stage_index(cur_stage) >= _stage_index("1"):
         bad.extend(_scope_problems(a.case))
     else:
         _sp = _scope_problems(a.case)
         if _sp:
-            warn.append("scope.md 授权来源未就绪（阶段 0 不阻断，进阶段 1 前必须填）："
+            warn.append("scope.md 未就绪（阶段 0 不阻断，进阶段 1 前必须写）："
                         + _sp[0].splitlines()[0])
 
     if warn:
@@ -3336,8 +3316,8 @@ _MISSING_PLACEHOLDERS = {"无", "none", "-", "—", "n/a", "na", "null", "没有
 # 代价：必须同时给出「到哪一步」（四句之一）与「大约多少功夫」的依据（下面另行机检）。
 _MISSING_NONE = {"无", "没有", "不缺", "无缺", "一样不缺", "什么都不缺", "没什么缺的",
                  "不需要", "无需", "none", "nothing", "n/a", "na", "null", "0"}
-# 「授权来源：…」是**声明**不是缺口（R6 P0-3 要求把它写在「缺什么」里）：
-# 它只用于机检授权是否被说出来，不再要求为它单独出一道 A/B/C（那等于问客户「你是不是自己的」）。
+# 「授权来源：…」只是一条**声明**，用户 2026-10-26 口径下**不再要求它出现**；
+# 这里保留识别只为一件事：真写了它时，别把它算成「还缺什么」的缺口（否则会逼着为它出 A/B/C）。
 _MISSING_DECL_MARK = "授权来源"
 
 # ── R6 P0-2：首答「最小内容判据」──
@@ -3397,15 +3377,16 @@ def _answer_strings(obj):
 
 
 def _answer_auth_source(obj):
-    """首答里是否写明「授权来源：<四选一>」。命中返回该值，没有返回 ""。
+    """首答里是否写了「授权来源：<四选一>」。命中返回该值，没有返回 ""。
 
-    R6 P0-3（授权单轨）：scope.md 不再逼模型替客户编「客户原话」（那是伪造授权记录），
-    但「授权这件事有没有被说出来」仍然机检 —— 首答里必须亮出四选一的值。
+    用户 2026-10-26 口径：**不再要求**这张声明（不写也合格、不拦阶段）。
+    保留识别只为一件事：写了它时，「缺什么」里就只有声明、没有真缺口，
+    也按「真一件不缺」看待（否则写声明反而被判「缺什么不能空着」）。
     """
     for s in _answer_strings(obj):
         for m in _ANSWER_AUTH_LINE_RE.finditer(s):
             val = m.group(1).strip()
-            hits = [v for v in SCOPE_AUTH_VALUES if v in val]
+            hits = [v for v in AUTH_DECL_VALUES if v in val]
             if len(hits) == 1 and "选一" not in val:
                 return hits[0]
     return ""
@@ -3414,8 +3395,9 @@ def _answer_auth_source(obj):
 def _missing_items(obj):
     """(原始条目, 真条目)：占位（无/none/-）与 1 字垃圾不算真条目（第 4 轮评审 P0-2）。
 
-    R8 P0-5：`授权来源：…` 是**授权声明**（R6 规定的落纸位置），不是「还缺什么」的缺口 ——
-    所以它不进真条目（否则每个首答都被迫为它单出一道 A/B/C）。声明本身仍单独机检。
+    R8 P0-5：`授权来源：…` **不再是必须项**（用户 2026-10-26 口径：不逼客户/模型填授权）。
+    但若真的写了它，它是一条**声明**而不是「还缺什么」的缺口 —— 所以不进真条目
+    （否则每个首答都被迫为它单出一道 A/B/C）。
     """
     raw = obj.get("missing") if isinstance(obj, dict) else None
     if isinstance(raw, str):
@@ -3497,10 +3479,8 @@ def _check_answer(obj, c):
             if not (_ANSWER_NEXT_RE.search(nxt) and _ANSWER_COST_RE.search(nxt)):
                 bad.append("写了「无法估」就必须同时给「下一步 + 代价」"
                            "（例如「缺什么」里写「下一步：先跑 triage 读导入表（代价约 2 小时）」）")
-    if not _answer_auth_source(obj):
-        bad.append("首答必须写明「授权来源：<本人自有 / 书面授权 / 公开靶场 / 开源>」（四选一，"
-                   "写在「缺什么」里一行即可）：授权这件事必须被说出来并留档 —— "
-                   "不再要求客户原话，但也不许默认跳过")
+    # 用户 2026-10-26 口径：**不再要求「授权来源」**（这行原先是硬要求，已删）。
+    # 「授权这件事」以用户自己的要求为准，不许再逼客户/模型填来源、也不许因它拦首答。
 
     if ceil_v != "现在做不了":                     # 真做不了才允许「什么都不缺」
         if not (real_missing or no_gap):
@@ -3563,7 +3543,7 @@ def cmd_answer(a):
     if a.template:
         print("【判断】这是什么 / 有没有保护 / 关键在哪：…")
         print("【到哪一步】" + " | ".join(c["ceiling_sentences"]))
-        print("【缺什么】① 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（四选一，必写）② …")
+        print("【缺什么】① … / ② …（还缺哪几样：卡密 / 账号 / 样本完整性 / 复现证据）")
         print("【大约多少功夫】X 小时 – Y 天（依据：为什么是这个量级）")
         print("【已有证据】E-001 …（或：暂无，只有文件哈希）")
         print("【请你选】Q1｜…  A …→选了会怎样  B …→…  C 我不确定→…")
@@ -3608,7 +3588,8 @@ def cmd_answer(a):
                       + (1 if _check_answer(jargon, c) else 0))
         # ── R6 P0-2 / P0-3：**最小内容判据**（只验形状的旧口径被实测打穿）──
         # ① 评审原始 payload（"一个程序文件" + "这类文件一般这样"）必须红；
-        # ② 授权来源机检：没写 / 写了没值 → 红；
+        # ② 用户 2026-10-26 口径：**不再要求「授权来源」** —— 不写 / 写空都不得因此打红
+        #    （这两条原先是「拒无授权 / 拒空授权」，现按新口径反过来验：不填授权也能过）；
         # ③ 工时：单点估计 → 红；「无法估」不给下一步+代价 → 红；给了 → 绿；
         # ④ 「未检测」+ missing 里点名动作 → 绿（给真没看过的首答留出路，不许拿它当豁免）。
         hollow = {"judgment": "一个程序文件", "ceiling": "能改到能用",
@@ -3631,8 +3612,8 @@ def cmd_answer(a):
                               "下一步：跑一遍 triage 看壳（代价约 1 小时）",
                               "要不要复现证据"])
         r6_ok = ((1 if _check_answer(hollow, c) else 0)
-                 + (1 if _check_answer(noauth, c) else 0)
-                 + (1 if _check_answer(blankauth, c) else 0)
+                 + (1 if not _check_answer(noauth, c) else 0)      # 不写授权来源 → 合格
+                 + (1 if not _check_answer(blankauth, c) else 0)   # 写了但空 → 同样合格
                  + (1 if _check_answer(pointest, c) else 0)
                  + (1 if _check_answer(unknow_bad, c) else 0)
                  + (1 if not _check_answer(unknow_ok, c) else 0)
@@ -3657,7 +3638,7 @@ def cmd_answer(a):
         print("[answer --selftest] R8 域词表 / 缺什么=无 / 已完成语境 %d/5 通过" % r8_ok)
         print("[answer --selftest] 新增语义 %d/4 通过（拒凑字段 / 过内容 / 缺项必问 / 拒内部话术）"
               % content_ok)
-        print("[answer --selftest] R6 最小内容 %d/7 通过（拒空洞首答 / 拒无授权 / 拒空授权 / "
+        print("[answer --selftest] R6 最小内容 %d/7 通过（拒空洞首答 / 不写授权也过 / 授权写空也过 / "
               "拒单点工时 / 无法估无代价 / 无法估带代价 / 未检测带动作）" % r6_ok)
         print("[answer --selftest] 合计 %d/20"
               % (base_ok + extra_ok + content_ok + r6_ok + r8_ok))
@@ -4723,29 +4704,30 @@ def _self_test():
             # ③ 新阶段 + 空盘：必须拦，且点名 0a / 0b
             probs = _advance_problems(tmp2, "intake", "2", {"stage": "intake"})
             assert probs and {s for s, _ in probs} >= {"0a", "0b"}; checks += 1
-            # ★ P0-3b：进阶段 1 及以后必须有 scope.md 且授权来源已记录（四选一）
-            assert _scope_problems(tmp2); checks += 1
+            # ★ P0-3b（用户 2026-10-26 改口径）：进阶段 1 及以后必须有 scope.md（边界/环境记录），
+            #   **不再要求任何授权字段**。
+            assert _scope_problems(tmp2); checks += 1          # 没有 scope.md → 红
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：本人自有 / 书面授权 / 公开靶场 / 开源（选一，写清楚）\n")
-            assert _scope_problems(tmp2); checks += 1          # 模板未改 → 红
+                f.write("- 目标：x\n- 隔离方式：虚拟机（有快照）\n- 边界：不改系统级配置\n"
+                        "- 期望做到哪一步：只能看懂结构\n")
+            # 新口径正例：只写目标/隔离/边界/期望档位，**一个授权字段都不写** → 绿
+            assert _scope_problems(tmp2) == []; checks += 1
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n")
-            # R6 P0-3（授权单轨）：四选一即绿 —— 不再要求「客户原话」
-            # （旧断言把「缺客户原话」当红，正是逼模型伪造授权记录的那条；删它不是放宽：
-            #   同一条事实改由首答机检 `_check_answer`（下一条 r6 断言）负责。）
-            assert _scope_problems(tmp2) == []; checks += 1    # 四选一 → 绿（不写客户原话也行）
+                f.write("   \n")
+            assert _scope_problems(tmp2); checks += 1          # 空文件（没记录边界）→ 红
+            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
+                f.write("- 目标：x\n")
+            assert _scope_problems(tmp2) == []; checks += 1    # 只有目标也算记录了边界
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
                 f.write("- 目标：x\n- 授权来源：\n")
-            assert _scope_problems(tmp2); checks += 1          # 空值 → 红
-            with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：本人自有 / 公开靶场\n")
-            assert _scope_problems(tmp2); checks += 1          # 同时写多个 → 红（四选一不许含糊）
+            assert _scope_problems(tmp2) == []; checks += 1    # 授权写空也不再拦
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
                 f.write("- 目标：x\n- 授权来源：朋友给的\n")
-            assert _scope_problems(tmp2); checks += 1          # 不在四个之一 → 红
+            assert _scope_problems(tmp2) == []; checks += 1    # 不认识的授权来源也不拦
             with open(os.path.join(tmp2, "scope.md"), "w", encoding="utf-8") as f:
-                f.write("- 目标：x\n- 授权来源：公开靶场（HTB 自有账号）\n")
-            assert _scope_problems(tmp2) == []; checks += 1    # 回到合法值 → 绿
+                f.write("- 目标：x\n- 隔离方式：实体机\n- 边界：不碰凭据\n"
+                        "- 期望做到哪一步：能改到能用\n")
+            assert _scope_problems(tmp2) == []; checks += 1    # 正常边界记录 → 绿
             # ④ 补齐 triage.md（按 report/ 布局）后：0a → 0b 放行
             os.makedirs(os.path.join(tmp2, "report"), exist_ok=True)
             tp = os.path.join(tmp2, "report", "triage.md")

@@ -177,7 +177,7 @@ The agent autonomously:
 - 🌐 **Transport-Layer Compliance Relay & Auto-Retry**: Pure stdlib localhost relay with streaming refusal auto-retry cascade (`S1-review-checklist` → `S2-review-framed` → `S3-review-en`), preserving target paths without semantic drift. Unit tests 84/84 passing.
 - ⚡ **DeepSeek Harness (DSH) Self-Healing Launcher**: 4s fast cold-start with automated zombie cleanup, web token URL extraction, and MCP verification suite (`start-dsh.ps1` / `stop-dsh.ps1`).
 - 🛡️ **Measured Anti-Refusal Defense**: Gemini-safe prompt reshaping (`gemini-safe.flag`), L1 observable decision logging (`l1-log.flag`), and native `BLOCK_NONE` payload gating.
-- 🔌 **Offline-Ready**: All toolchains pre-bundled (251 MB), zero network dependencies after setup
+- 🔌 **Online once, offline after (no zero-network promise)**: the first install/update needs network (pip / npm / uvx / winget; `seep_ensure_tool` auto-installs missing tools by default). After that the bundled toolchain (251 MB: radare2 / jadx / apktool / IDA bridge …) works offline. **Some MCPs still need network** — `js-reverse` / `playwright` use `npx -y …@latest` and `ghidra` uses `uvx --from git+…`, so those three will not start air-gapped (see `Tool/mcp/mcp.json.template`).
 - 🛰️ **OSINT / Asset & Personnel Mapping (R36)**: domains, certificates, organizations and people → converge the asset surface; recipe `osint-recon`
 - 📡 **Firmware/IoT Wireless Near-Field**: `firmware-iot` covers 802.11 / BLE / 802.15.4 / Z-Wave / sub-GHz / NFC collection and criteria
 - 🧱 **Phase 02/03 Hardening**: criteria tables + failure criteria + minimal implementation — verifiable before extensible

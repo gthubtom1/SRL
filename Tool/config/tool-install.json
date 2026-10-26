@@ -1,6 +1,7 @@
 {
   "schemaVersion": "2.0",
   "description": "多途径自适应工具安装清单。支持 winget / portable_zip（免包管理器直下绿色包）/ pip（带清华镜像自动回退）/ npm / go。机器无 winget 时自动降级为绿色直下，绝不卡住。",
+  "install_policy": "缺就装（用户 2026-10-26 口径）：seep_ensure_tool 默认 allow_install=True，工具探测不到就直接按下面的白名单途径装，装完自动重探；只要探测不装时显式传 allow_install=False（会把计划打出来但不执行）。这是正常开发项目，首次安装本来就要联网（pip/npm/uvx/winget）；装完即可离线使用内置工具链。下载物仍校验来源：只走本文件登记的途径与 URL，不接受任意 URL / 任意 method。",
   "installable": {
     "diec": {
       "methods": [

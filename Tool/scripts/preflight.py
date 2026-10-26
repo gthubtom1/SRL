@@ -2768,8 +2768,23 @@ def check_agents_deploy():
     if extra:
         fails.append("残留（仓库已无）：" + "、".join(x[:-3] for x in extra) + "（跑 install 会移到 backup-retired-agents）")
     drift = []
+
+    def _agent_core(p):
+        """只比“角色实质”：tools 集合 + systemPrompt 正文。
+
+        ★ 为什么不再比整文件哈希（2026-10-26）：宿主会重写 frontmatter（补 model、
+          重排键序、去掉 display_name），那是宿主归一化，不是“规则没部署”；
+          用整文件哈希会把宿主行为当成故障。真正要盯的是：角色职责改了吗？
+        """
+        t = _io.open(p, encoding="utf-8", errors="replace").read()
+        tools = (_re.search(r"(?m)^tools:\s*(.+)$", t) or [None, ""])[1]
+        tools = ",".join(sorted(x.strip() for x in tools.split(",") if x.strip()))
+        m = _re.search(r"(?ms)^systemPrompt:\s*(.+?)(?=\n^[A-Za-z_]+:|\Z)", t)
+        body = _re.sub(r"\s+", "", m.group(1) if m else t.split("---")[-1])
+        return tools, body
+
     for f in sorted(src & dst):
-        if _file_sig(os.path.join(src_dir, f)) != _file_sig(os.path.join(dst_dir, f)):
+        if _agent_core(os.path.join(src_dir, f)) != _agent_core(os.path.join(dst_dir, f)):
             drift.append(f[:-3])
     if drift:
         fails.append("哈希不一致：" + "、".join(drift))

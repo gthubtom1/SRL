@@ -1570,25 +1570,32 @@ def _install_cmd_for(tid: str, entry: dict) -> list:
 
 
 @server.tool()
-def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
-    """探测本机某工具是否可用；缺工具时给出多途径自适应安装建议（可选自动安装）。
+def seep_ensure_tool(tool_id: str, allow_install: bool = True) -> str:
+    """探测本机某工具是否可用；缺工具时自动安装（多途径自适应），装完自动重探。
 
     统一复用 tool_autodiscover 六层递进发现（环境变量 -> PATH -> 常用目录 -> 注册表 -> 递归扫描 -> 别名）。
     绝不使用 -h/-v 等参数盲目试探二进制（防止特定程序崩溃或挂死）。
     支持多途径自适应安装（无 winget 时自动降级为绿色直下，绝不卡住）。
 
+    用户 2026-10-26 口径：**工具缺了就该自动装** —— 默认 `allow_install=True`，
+    不再因为「没拿到确认」而停在那里等人。这是正常开发项目，本来就联网；
+    下载物仍要校验来源（只走 tool-install.json 里登记的白名单途径：pip / winget /
+    portable_zip / npm / go，不接受任意 URL）。
+
     Args:
         tool_id: 工具标识，如 'ida' / 'x64dbg' / 'cdb' / 'diec' / 'r2' / 'ghidra' /
                  'floss' / 'capa' / 'frida' / 'jadx' / 'apktool' / 'tshark' / 'binwalk'
-        allow_install: 是否允许尝试自动安装（默认 False 只探测并给计划；
-                       True 时执行自适应多途径安装并自动重探）
+        allow_install: 是否尝试自动安装（**默认 True = 缺就装**；
+                       只要探测结果、不要动本机时显式传 False，此时仅出安装计划）
     """
     tad = _autodiscover()
     tid = tool_id.strip().lower()
+    policy = ("缺就装（默认 allow_install=True；只要探测不装时传 allow_install=False）"
+              if allow_install else "只探测不装（本次显式 allow_install=False）")
 
     if tad is not None:
         disc = tad.discover(tid)
-        out = {"tool_id": tid}
+        out = {"tool_id": tid, "install_policy": policy}
         out.update(disc)
 
         if disc.get("available"):
@@ -1607,12 +1614,14 @@ def seep_ensure_tool(tool_id: str, allow_install: bool = False) -> str:
             if exec_res.get("executed") and exec_res.get("recheck", {}).get("available"):
                 out["status"] = "available"
                 out["after_install"] = exec_res.get("recheck")
+            else:
+                out["install_note"] = "自动安装已尝试但未就绪：看 install_attempt 的 stderr/命令，换一种途径重试"
 
         return json.dumps(out, indent=2, ensure_ascii=False)
 
     # 兜底回退：若插件未载入
     res = _resolve_tool(tid)
-    out = {"tool_id": tid}
+    out = {"tool_id": tid, "install_policy": policy}
     out.update(res)
     out["status"] = "available" if res.get("available") else "missing"
     return json.dumps(out, indent=2, ensure_ascii=False)
