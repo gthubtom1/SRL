@@ -3064,6 +3064,13 @@ _ANSWER_JARGON = re.compile(r"if[_-]?(?:yes|no)(?:[^a-z]|$)|if\s+(?:yes|no)(?:[^
 # 「缺什么」里的占位写法（写这些等于没写）
 _MISSING_PLACEHOLDERS = {"无", "none", "-", "—", "n/a", "na", "null", "没有",
                          "暂无", "0", "…", "..."}
+# R8 P0-5：「无 / 不需要」是**合法答案**（真的一件不缺时不许被逼着写「现在做不了」）。
+# 代价：必须同时给出「到哪一步」（四句之一）与「大约多少功夫」的依据（下面另行机检）。
+_MISSING_NONE = {"无", "没有", "不缺", "无缺", "一样不缺", "什么都不缺", "没什么缺的",
+                 "不需要", "无需", "none", "nothing", "n/a", "na", "null", "0"}
+# 「授权来源：…」是**声明**不是缺口（R6 P0-3 要求把它写在「缺什么」里）：
+# 它只用于机检授权是否被说出来，不再要求为它单独出一道 A/B/C（那等于问客户「你是不是自己的」）。
+_MISSING_DECL_MARK = "授权来源"
 
 # ── R6 P0-2：首答「最小内容判据」──
 # 血案（`Tool/scripts/case_state.py:2976-3043` 实测）：
@@ -3071,9 +3078,32 @@ _MISSING_PLACEHOLDERS = {"无", "none", "-", "—", "n/a", "na", "null", "没有
 #    "effort":"2 小时；依据：这类文件一般这样"}  → 只验形状，返回 []（合格）。
 # 现在：判断必须落在**可核对的技术事实**上（或明说未检测 + 点名下一步动作），
 # 功夫必须给**区间**（或明说无法估 + 下一步/代价），且两句都不许是空话。
+# R8 P0-5：词表原来只认二进制（PE/ELF/壳/x86…），于是**正确的网站/固件首答被判不合格**
+# （实测「接口没鉴权，可能越权」FAIL、「squashfs 固件」FAIL）。
+# 现在按域扩展：二进制 / Web 接口 / 固件 / 流量 / 供应链 / 保护与反调试都算「可核对的技术事实」。
+# 拉丁词一律加 \b（旧的裸 PE|ELF 会命中 self/rapid 这类无关字符串，等于放宽），中文词照旧子串。
 _ANSWER_TECH_RE = re.compile(
-    r"PE|ELF|Mach-O|APK|DEX|ZIP|壳|加壳|无壳|加固|x86|x64|ARM|AArch64|Java|Native|签名|混淆|明文|加密",
+    # 二进制 / 包格式 / 运行栈
+    r"\b(?:PE(?:32|64)?\+?|ELF|Mach-O|APK|DEX|ZIP|Java|Native|IL2CPP|Dart|Hermes)\b"
+    r"|\b(?:x86|x64|ARM|AArch64)\b"
+    # 保护面：壳 / 加固 / 混淆 / 签名 / 反调试 / 虚拟机 / 符号
+    r"|壳|加壳|无壳|加固|脱壳|混淆|明文|加密|签名|反调试|虚拟机|\bdump\b|\bsection\b|符号"
+    # Web / 接口
+    r"|\b(?:HTTP|HTTPS|API|XSS|SSRF|IDOR|JWT|Cookie)s?\b"
+    r"|接口|越权|未授权|注入|报文|握手|\bnonce\b"
+    # 固件 / IoT
+    r"|\b(?:squashfs|cramfs|UBIFS|JFFS2|rootfs|UART|JTAG)\b"
+    r"|固件|串口"
+    # 流量 / 供应链
+    r"|\bpcap(?:ng)?\b|\bSBOM\b|锁文件|依赖|许可证",
     re.I)
+# R8 P0-5：禁用词「已完成」只禁「声称全部做完」的语境（无证据的肯定），
+# 单纯陈述某一步做完（「squashfs 解包已完成」）不算 —— 旧口径把正确首答直接打红。
+_DONE_WORD = "已完成"
+_DONE_CLAIM_RE = re.compile(
+    r"(?:全部|所有|一切|整体|任务|工作|这单|本单)\s*(?:都|也)?\s*(?:已经|已)\s*完成"
+    r"|(?:已经|已)\s*(?:全部|所有|一切|整体|任务|工作)\s*完成"
+    r"|完成\s*(?:了)?\s*(?:全部|所有|一切|整体|任务|工作)")
 _ANSWER_UNDET_RE = re.compile(r"未检测|未判定")
 _ANSWER_ACT_RE = re.compile(r"hash|哈希|跑|读|看|triage|r2|rabin2", re.I)
 _ANSWER_EMPTY_TALK = re.compile(r"一般这样|看情况|通常|大概|应该")
@@ -3114,7 +3144,11 @@ def _answer_auth_source(obj):
 
 
 def _missing_items(obj):
-    """(原始条目, 真条目)：占位（无/none/-）与 1 字垃圾不算真条目（第 4 轮评审 P0-2）。"""
+    """(原始条目, 真条目)：占位（无/none/-）与 1 字垃圾不算真条目（第 4 轮评审 P0-2）。
+
+    R8 P0-5：`授权来源：…` 是**授权声明**（R6 规定的落纸位置），不是「还缺什么」的缺口 ——
+    所以它不进真条目（否则每个首答都被迫为它单出一道 A/B/C）。声明本身仍单独机检。
+    """
     raw = obj.get("missing") if isinstance(obj, dict) else None
     if isinstance(raw, str):
         items = re.split("[；;、,，" + chr(10) + "]", raw)
@@ -3124,7 +3158,8 @@ def _missing_items(obj):
         items = []
     shown = [str(x).strip() for x in items if str(x).strip()]
     real = [x for x in shown
-            if x.lower() not in _MISSING_PLACEHOLDERS and len(x) >= 2]
+            if x.lower() not in _MISSING_PLACEHOLDERS and len(x) >= 2
+            and _MISSING_DECL_MARK not in x]
     return shown, real
 
 
@@ -3158,6 +3193,10 @@ def _check_answer(obj, c):
     # ── 第 4 轮评审 P0-2：内容闸（原来只验字段，"不知道是什么 + 无 + 感觉"也能合格）──
     miss_txt, real_missing = _missing_items(obj)
     miss_all = " ".join(miss_txt)
+    has_decl = bool(_answer_auth_source(obj))
+    says_none = any(x.strip().lower() in _MISSING_NONE for x in miss_txt)
+    # 「除了授权声明之外没有别的缺口」：真一件不缺是合法答案（R8 P0-5）
+    no_gap = (not real_missing) and (says_none or has_decl)
     # ── R6 P0-2：**最小内容判据**（原来「一个程序文件」+「这类文件一般这样」也能过）──
     if judge:
         if _ANSWER_EMPTY_TALK.search(judge):
@@ -3165,9 +3204,13 @@ def _check_answer(obj, c):
                        "换成可核对的事实，例如「PE32+ x86-64，未见壳（区段熵 6.1），本地常量比较」")
         elif not (_ANSWER_TECH_RE.search(judge)
                   or (_ANSWER_UNDET_RE.search(judge) and _ANSWER_ACT_RE.search(miss_all))):
-            bad.append("「判断」没有技术事实：至少含一个可核对的技术词（PE / ELF / Mach-O / APK / DEX / "
-                       "ZIP / 壳 / 加壳 / 无壳 / 加固 / x86 / x64 / ARM / AArch64 / Java / Native / 签名 / "
-                       "混淆 / 明文 / 加密），或者写「未检测 / 未判定」并在「缺什么」里点名下一步动作"
+            bad.append("「判断」没有技术事实：至少含一个**可核对的技术词**，按域任选一个——"
+                       "二进制：PE / PE32+ / ELF / Mach-O / APK / DEX / ZIP / 壳 / 加壳 / 无壳 / 加固 / "
+                       "脱壳 / x86 / x64 / ARM / AArch64 / Java / Native / IL2CPP / 签名 / 混淆 / 反调试 / "
+                       "虚拟机 / dump / section / 符号；网站接口：HTTP / 接口 / API / 越权 / 未授权 / 注入 / "
+                       "XSS / SSRF / IDOR / JWT / Cookie / 报文 / 握手 / nonce；固件：固件 / squashfs / cramfs / "
+                       "UBIFS / JFFS2 / rootfs / 串口 / UART / JTAG；流量与供应链：pcap / SBOM / 锁文件 / 依赖 / "
+                       "许可证。或者写「未检测 / 未判定」并在「缺什么」里点名下一步动作"
                        "（hash / 哈希 / 跑 / 读 / 看 / triage / r2 / rabin2）。"
                        "反例：「一个程序文件」—— 没说是什么、有没有保护")
     if effort:
@@ -3192,17 +3235,26 @@ def _check_answer(obj, c):
                    "不再要求客户原话，但也不许默认跳过")
 
     if ceil_v != "现在做不了":                     # 真做不了才允许「什么都不缺」
-        if not real_missing:
+        if not (real_missing or no_gap):
             bad.append("「缺什么」不能空着或写占位（%s）：逐条写清还缺哪几样"
                        "（例如「卡密有没有」「要不要复现证据」）；确实一样不缺，"
-                       "就先把「到哪一步」写成「现在做不了」再说明卡点"
+                       "就直接写「无」或「不需要」，但必须同时给出「到哪一步」与"
+                       "「大约多少功夫」的**依据**（形如「2-4 小时；依据：判定点已定位」）"
                        % (" / ".join(miss_txt) or "空"))
+    # R8 P0-5：写「无 / 不需要」不是冤路 —— 但得配上「到哪一步」与功夫依据（不许拿它当偷懒开关）
+    if says_none or no_gap:
+        has_why = re.search(r"依据|因为|based on", effort, re.I) is not None
+        has_span = _ANSWER_SPAN_RE.search(effort) or "无法估" in effort
+        if not (ceil_v in c["ceiling_sentences"] and has_why and has_span):
+            bad.append("写「缺什么 = 无 / 不需要」时，必须同时给「到哪一步」（四句之一）与"
+                       "「大约多少功夫」的区间加依据（形如「2-4 小时；依据：判定点已定位」）——"
+                       "「无」是一个结论，不是省掉判断的理由")
     asks = [q for q in (obj.get("asks") or []) if isinstance(q, dict)]
     if real_missing and not asks:
         bad.append("「缺什么」列了 %d 项，却没有一条「请你选」（asks）："
                    "缺的每一项都要用一道 2–4 选项的题问出来（每项写「选了会怎样」）"
                    % len(real_missing))
-    if ceil_v in ("能改到能用", "能完全自己接管"):
+    if ceil_v in ("能改到能用", "能完全自己接管") and real_missing:
         blob = " ".join(real_missing) or " ".join(miss_txt)
         if not re.search(r"证据|复现|验收", blob):
             bad.append("承诺「%s」却没说清证据从哪来：承诺「缺什么」里必须至少提到"
@@ -3227,8 +3279,13 @@ def _check_answer(obj, c):
                            % (q.get("id"), o.get("key")))
     text = json.dumps(obj, ensure_ascii=False)
     for p in c["forbidden_phrases"]:
-        if p in text:
-            bad.append("出现禁用措辞「%s」（无证据的肯定）" % p)
+        if p not in text:
+            continue
+        # R8 P0-5：只有「声称全部做完了」才算无证据的肯定；
+        # 「解包已完成」只是在说某一步的现状，不判红（否则正确的固件首答被打掉）。
+        if p == _DONE_WORD and not _DONE_CLAIM_RE.search(text):
+            continue
+        bad.append("出现禁用措辞「%s」（无证据的肯定）" % p)
     return bad
 
 
@@ -3313,14 +3370,31 @@ def cmd_answer(a):
                  + (1 if not _check_answer(unknow_ok, c) else 0)
                  + (1 if not _check_answer(undet, c) else 0))
         print("[answer --selftest] %d/2 通过" % base_ok)      # 兼容旧断言（preflight 认 2/2）
+        # ── R8 P0-5：域词表（网站/固件首答不许再被二进制词表打红）/「缺什么 = 无」合法 /
+        #    「已完成」按语境判（声称全做完才红，描述某一步做完不红）──
+        web = {"judgment": "接口没有鉴权，可能越权访问", "ceiling": "只能看懂结构",
+               "missing": ["授权来源：本人自有"], "effort": "1-2 小时；依据：只看接口"}
+        fw = {"judgment": "squashfs 固件，解包已完成，启动脚本里有硬编码口令",
+              "ceiling": "只能看懂结构", "missing": ["授权来源：本人自有"],
+              "effort": "1-2 小时；依据：文件系统已解开"}
+        none = dict(web, judgment="PE32+ x86-64，未见壳", ceiling="能改到能用",
+                    missing=["无", "授权来源：本人自有"], effort="2-4 小时；依据：判定点已定位")
+        none_lazy = dict(none, effort="2 小时；依据：感觉")   # 「无」+ 没依据/单点工时 → 必红
+        claimed = dict(web, judgment="已完成全部功能，接口没鉴权")  # 声称全做完 → 必红
+        r8_ok = ((1 if not _check_answer(web, c) else 0)
+                 + (1 if not _check_answer(fw, c) else 0)
+                 + (1 if not _check_answer(none, c) else 0)
+                 + (1 if _check_answer(none_lazy, c) else 0)
+                 + (1 if _check_answer(claimed, c) else 0))
+        print("[answer --selftest] R8 域词表 / 缺什么=无 / 已完成语境 %d/5 通过" % r8_ok)
         print("[answer --selftest] 新增语义 %d/4 通过（拒凑字段 / 过内容 / 缺项必问 / 拒内部话术）"
               % content_ok)
         print("[answer --selftest] R6 最小内容 %d/7 通过（拒空洞首答 / 拒无授权 / 拒空授权 / "
               "拒单点工时 / 无法估无代价 / 无法估带代价 / 未检测带动作）" % r6_ok)
-        print("[answer --selftest] 合计 %d/15"
-              % (base_ok + extra_ok + content_ok + r6_ok))
+        print("[answer --selftest] 合计 %d/20"
+              % (base_ok + extra_ok + content_ok + r6_ok + r8_ok))
         return 0 if (base_ok == 2 and extra_ok == 2 and content_ok == 4
-                     and r6_ok == 7) else 1
+                     and r6_ok == 7 and r8_ok == 5) else 1
     src = a.file or ""
     try:
         obj = json.load(open(src, encoding="utf-8")) if src else json.loads(_stdin_utf8())
@@ -3861,12 +3935,23 @@ def cmd_report(a):
                 ok2 += 1 if _cd3 and _note3 == "work:wcase" else 0
             finally:
                 globals()["_cases_root"] = _root0
+            # ⑩ R8 P1-2：内部代号（M/L/J / max_level / facts.jsonl）出现在客户可见报告里 → 必红
+            _cn = _check_report(
+                _mk("F-001", "resume --case " + tmp).replace(
+                    "卡在壳上", "卡在壳上（上限 L1，见 facts.jsonl 的 max_level）"),
+                case_dir=tmp)
+            ok2 += 1 if _cn and "内部代号" in N.join(_cn) else 0
+            # ⑪ 同一段文字在 `Tool/prompts/**` 模板里是占位符 → 不算代号问题
+            _tpl = _check_report(
+                _mk("F-001", "resume --case " + tmp).replace("卡在壳上", "卡在壳上（上限 M2）"),
+                case_dir=tmp, is_template=True)
+            ok2 += 1 if _tpl == [] else 0
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         print("[report --selftest] %d/2 通过" % ok)
-        print("[report --selftest] 新增语义 %d/9 通过"
-              "（ID 对账 / 假 ID 必红 / 复查段哈希 / 无账本禁编号 / work 路径对账）" % ok2)
-        return 0 if (ok == 2 and ok2 == 9) else 1
+        print("[report --selftest] 新增语义 %d/11 通过"
+              "（ID 对账 / 假 ID 必红 / 复查段哈希 / 无账本禁编号 / work 路径对账 / 禁内部代号 / 模板除外）" % ok2)
+        return 0 if (ok == 2 and ok2 == 11) else 1
     src = a.file or ""
     if not src or not os.path.isfile(src):
         print("[ERR] 需要 --file <报告.md>")
@@ -3919,6 +4004,51 @@ def _is_template_path(path):
     return "/Tool/prompts/" in p or p.startswith("Tool/prompts/")
 
 
+# ── R8 P1-2：客户可见文本禁代号 ──
+# 血案：两份真实报告（golden-crackme / leaf-pe-packed 的 report/final.md）里带着
+# `facts.jsonl` / `max_level` / `L1` 仍被判 PASS —— 客户拿到报告看不懂那些内部词。
+# 规则：内部代号/内部字段名只许出现在 `Tool/prompts/**` 模板（模板要用占位符）；
+# **案件报告一律禁**，命中即 FAIL 并给替换建议。
+_REPORT_CODE_RE = re.compile(r"(?<![A-Za-z0-9_])(M[1-4]|L[1-3]|T[1-4]|J[1-3]|BLK-\d+)(?![0-9])")
+# 反误伤：硬件/缓存里的同名串（Apple M1 芯片、L1 缓存）不是内部档位代号。
+# 只排除这两种明确形态；其余一律当代号（宁可报出来改措辞，也不放过真泄露）。
+_REPORT_CODE_EXEMPT_RE = re.compile(r"^(?:M[1-4]\s*(?:芯片|SoC|Max|Pro|Ultra)|L[1-3]\s*(?:缓存|cache))",
+                                   re.I)
+_REPORT_INTERNAL_WORDS = (("max_level", "内部字段，改用“见账本”"),
+                          ("facts.jsonl", "内部字段，改用“见账本”"))
+_REPORT_CODE_HINT = {
+    "M1": "只能看懂结构", "M2": "能改到能用",
+    "M3": "能完全自己接管", "M4": "能完全自己接管",
+    "L1": "只能看懂结构", "L2": "能改到能用", "L3": "能完全自己接管",
+    "T1": "只能看懂结构", "T2": "能改到能用",
+    "T3": "能完全自己接管", "T4": "能完全自己接管",
+    "J1": "能进后台且验证了弱口令", "J2": "能进后台", "J3": "能进后台",
+}
+_REPORT_CODE_ADVICE = (
+    "M1/L1/T1→只能看懂结构，M2/L2/T2→能改到能用，M3/M4/L3/T3/T4→能完全自己接管，"
+    "J1→能进后台且验证了弱口令，max_level / facts.jsonl→内部字段，改用“见账本”，"
+    "BLK-n→「卡在哪 + 两条出路」")
+
+
+def _report_codename_hits(lines):
+    """客户可见文本里的内部代号命中 → ["第 n 行「M2」→ 能改到能用", ...]。"""
+    hits = []
+    for n, line in enumerate(lines, 1):
+        for m in _REPORT_CODE_RE.finditer(line):
+            tok = m.group(1)
+            if _REPORT_CODE_EXEMPT_RE.match(line[m.start():]):
+                continue
+            if tok.upper().startswith("BLK-"):
+                hint = "「卡在哪 + 两条出路」（客户话取自 blockers.json 的标题）"
+            else:
+                hint = _REPORT_CODE_HINT.get(tok.upper(), "改用客户话")
+            hits.append("第 %d 行「%s」→ %s" % (n, tok, hint))
+        for w, hint in _REPORT_INTERNAL_WORDS:
+            if w in line:
+                hits.append("第 %d 行「%s」→ %s" % (n, w, hint))
+    return hits
+
+
 def _check_report(text, case_dir=None, is_template=False):
     """报告校验（2026-10-25 外部评审 3.3：原来只查标题存在，"空内容"能绕过）。
 
@@ -3934,6 +4064,8 @@ def _check_report(text, case_dir=None, is_template=False):
        P0-3（第 4 轮评审）：没账本就禁编号 —— case_dir 为空、或其中没有 facts.jsonl
        而报告里出现 E-/C-/F- 编号 → 不合格（`E-999` 白写也能过就是这里漏的）。
        修法：给它 `--case <案件目录>`，或把报告放到 `Tool/cases/<case>/`。
+    ⑧ R8 P1-2：客户可见文本禁代号 —— M1–M4 / L1–L3 / T1–T4 / J1–J3 / BLK-n /
+       max_level / facts.jsonl 命中即不合格（唯一例外：`Tool/prompts/**` 模板要用占位符）。
     """
     import re as _re
     bad = []
@@ -3946,6 +4078,12 @@ def _check_report(text, case_dir=None, is_template=False):
                            "改成 [REDACTED]（最多留前 6 位 + 指纹/哈希 前 8 位）" % (_n, _rule))
                 break
     idx = {}
+    # ⑧ R8 P1-2：客户可见文本禁代号（模板除外：Tool/prompts/** 要用占位符）
+    if not is_template:
+        _ch = _report_codename_hits(lines)
+        if _ch:
+            bad.append("报告里出现内部代号/内部字段名（客户看不懂，只许留在 Tool/prompts/** 模板里）：%s"
+                       " —— 换成客户话：%s" % ("；".join(_ch[:6]), _REPORT_CODE_ADVICE))
     for i, l in enumerate(lines):
         for sec in SECTIONS:
             if l.strip().startswith("#") and sec in l and sec not in idx:

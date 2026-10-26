@@ -2,7 +2,7 @@
 
 目标：`Tool/samples/real/crackerjack/a.exe`（MinGW/GCC PE32+ x86-64，53782 字节，无壳，纯本地常量卡密）
 类型：CWE-602 客户端鉴权脆弱性（本地立即数比较，无签名 / 无联网 / 无硬件绑定 / 无自校验）
-账本口径：`facts.jsonl` 第 1 行 state 记 **裁定 = 部分可赢**；交付上限按客户话讲就是 **能改到能用**（账本原值见该行 `max_level` 字段）
+账本口径：账本第 1 行状态记录 **裁定 = 部分可赢**；交付上限按客户话讲就是 **能改到能用**（账本原值见账本，客户话只用这一句）
 本阶段采用 **方案 A**（用户回执 ack=A）。
 
 ## 1 结论
@@ -148,9 +148,9 @@ certutil -hashfile Tool\cases\golden-crackme\artifacts\a.patched.exe SHA256
 
 ## 10 证据索引
 
-- 静态结论：`report/static.md`（13 条台账记录，静态阶段闸已过）与 `facts.jsonl`（`F-001`…`F-014`）
+- 静态结论：`report/static.md`（13 条台账记录，静态阶段闸已过）与账本（`F-001`…`F-014`）
 - 动态对照与地址台账：`report/dynamic.md` §1–§3
 - 反例分析：`report/dynamic.md` §4.2
 - 原始运行记录：`capture/run.json`、`capture/run2.json`
 - 哈希清单：`artifacts/MANIFEST.sha256`
-- 账本 state 行（裁定 / 上限的最终依据）：`facts.jsonl` 第 1 行
+- 账本状态记录（裁定 / 上限的最终依据）：见账本第 1 行

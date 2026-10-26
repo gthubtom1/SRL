@@ -53,20 +53,25 @@ try {
 
 $failed = @()
 $passed = 0
+$warned = @()
 foreach ($line in $lines) {
     if ($line -match '^(PASS|FAIL)\s+(\S+)') {
         if ($matches[1] -eq 'FAIL') { $failed += $matches[2] } else { $passed++ }
     }
+    elseif ($line -match '^WARN\s+(\S+)') { $warned += $matches[1] }
 }
 
 Write-Host ''
 Write-Host ('--- 四栏看板 ' + ('-' * 44)) -ForegroundColor White
-if ($rc -eq 0) {
+if ($rc -eq 0 -and $warned.Count -gt 0) {
+    Write-Host ('结论  : 结构通过，但**可用性/部分项未证明**（WARN ' + $warned.Count + ' 个：' + ($warned -join ', ') + '）') -ForegroundColor Yellow
+    Write-Host '须知  : 这不是“全部通过”。多为 fixture 见证/零重放/预算指标，交付前请看上面 WARN 行原文。' -ForegroundColor Yellow
+} elseif ($rc -eq 0) {
     Write-Host '结论  : PASS 全部通过' -ForegroundColor Green
 } else {
     Write-Host ('结论  : FAIL（失败 ' + $failed.Count + ' 个套件：' + ($failed -join ', ') + '）') -ForegroundColor Red
 }
-Write-Host ('证据  : 通过 ' + $passed + ' 个；完整输出 -> ' + $logPath)
+Write-Host ('证据  : 通过 ' + $passed + ' 个；WARN ' + $warned.Count + ' 个；完整输出 -> ' + $logPath)
 if ($failed.Count -gt 0) {
     Write-Host ('失败  : ' + ($failed -join ', '))
     Write-Host ('下一步: 单个复跑 python Tool/scripts/check.py --list 里对应的脚本；不许只看 PASS 就交付')

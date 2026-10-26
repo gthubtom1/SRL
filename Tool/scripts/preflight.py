@@ -391,16 +391,71 @@ def check_assets():
 DRIVE_RE = re.compile(r"(?<![A-Za-z0-9_])[A-Za-z]:[\\/]")
 PORTABLE_DIRS = ("Tool/config", "setup", "Tool/prompts", "Tool/scripts")
 PORTABLE_EXT = {".json", ".jsonc", ".ps1", ".sh", ".py", ".ts", ".md"}
+# R8 C6：扫描面以前漏了**仓库根目录**的配置/脚本（`opencode.jsonc:8` 的 D:/… 就是这么漏报的）。
+# 根目录只收这四类；生成物（.gitignore 已忽略的）与 `.pi/**` 排除 —— 它们本来就不入库。
+PORTABLE_ROOT_EXT = {".json", ".jsonc", ".ps1", ".bat", ".cmd"}
+GITIGNORE_RULES = None
 
 
-def check_portable():
-    r"""仓库里不允许出现"某台机器专用"的绝对路径（如「某盘 Tools 目录下的绝对路径」这种）。
+def _gitignore_rules():
+    r"""读仓库根 `.gitignore` → [(pattern, negated)]（只用于可移植性扫描的排除）。
 
-    为什么：换电脑/换盘符时这类路径会静默失效（工具找不到、MCP 起不来）。
-    允许清单：preflight-allow.json 的 portable_allow（键为路径前缀，值为理由）。
+    为什么不用 `git check-ignore`：门禁要能在没装 git / 不在工作树里的机器上跑（换机自检正是重点），
+    所以这里做个够用的近似：跳过注释/空行，`!` 开头视为否定（否定规则不用于排除），
+    其余按 basename（无路径分隔）或相对路径（有路径分隔）做 fnmatch。
     """
-    allow = (load_allow().get("portable_allow") or {})
-    bad = []
+    global GITIGNORE_RULES
+    if GITIGNORE_RULES is not None:
+        return GITIGNORE_RULES
+    rules = []
+    p = os.path.join(ROOT, ".gitignore")
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            for raw in f:
+                s = raw.strip()
+                if not s or s.startswith("#"):
+                    continue
+                neg = s.startswith("!")
+                if neg:
+                    s = s[1:].strip()
+                s = s.strip("/")
+                if s:
+                    rules.append((s, neg))
+    except OSError:
+        rules = []
+    GITIGNORE_RULES = rules
+    return rules
+
+
+def _is_gitignored(rel):
+    r"""rel（仓库根相对、`/` 分隔）是否被 .gitignore 忽略（否定规则不进排除）。"""
+    import fnmatch
+    rel = str(rel or "").replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel[2:]
+    rel = rel.lstrip("/")
+    if not rel:
+        return False
+    if rel == ".pi" or rel.startswith(".pi/"):
+        return True
+    base = rel.rsplit("/", 1)[-1]
+    ignored = False
+    for pat, neg in _gitignore_rules():
+        if neg:
+            continue                      # 否定规则不算“忽略”（宁可多扫，不漏扫）
+        pat_l = pat.lstrip("/")
+        if "/" in pat_l:
+            hit = fnmatch.fnmatch(rel, pat_l)
+        else:
+            hit = fnmatch.fnmatch(base, pat_l)
+        if hit:
+            ignored = True
+    return ignored
+
+
+def _portable_files():
+    r"""可移植性扫描面：(相对路径, 绝对路径)。目录面 + 仓库根目录的配置/脚本。"""
+    out = []
     for base in PORTABLE_DIRS:
         root = os.path.join(ROOT, base.replace("/", os.sep))
         if not os.path.isdir(root):
@@ -411,28 +466,56 @@ def check_portable():
                 if os.path.splitext(f)[1].lower() not in PORTABLE_EXT:
                     continue
                 fp = os.path.join(dp, f)
-                rel = os.path.relpath(fp, ROOT).replace(os.sep, "/")
-                if any(rel.startswith(k) for k in allow):
-                    continue
-                try:
-                    text = open(fp, encoding="utf-8", errors="replace").read()
-                except Exception:
-                    continue
-                for m in DRIVE_RE.finditer(text):
-                    # 只报会被真正打开的可执行/脚本/数据文件路径；
-                    # 注释里写个 D:\\Tools 这种说明性示例不影响换机执行。
-                    tail = text[m.start():m.start() + 120].splitlines()[0]
-                    has_ext = re.search(
-                        r"\.(exe|dll|py|pyw|ps1|sh|bat|cmd|jar|so|dylib|json|db|idb|png|jpg|jpeg|txt|log|ini)\b",
-                        tail, re.I)
-                    personal = re.search(r"(?i)[A-Za-z]:[\\/]{1,2}Users[\\/]", tail)
-                    program = re.search(r"(?i)[A-Za-z]:[\\/]{1,2}(Program Files|Tool|Tools)[\\/]", tail)
-                    if not (has_ext or personal or program):
-                        continue
-                    line = text[:m.start()].count("\n") + 1
-                    bad.append(f"{rel}:{line} {tail[:60]}")
+                out.append((os.path.relpath(fp, ROOT).replace(os.sep, "/"), fp))
+    try:
+        root_files = sorted(os.listdir(ROOT))
+    except OSError:
+        root_files = []
+    for f in root_files:
+        fp = os.path.join(ROOT, f)
+        if not os.path.isfile(fp):
+            continue
+        if os.path.splitext(f)[1].lower() not in PORTABLE_ROOT_EXT:
+            continue
+        out.append((f, fp))
+    return out
+
+
+def check_portable():
+    r"""仓库里不允许出现"某台机器专用"的绝对路径（如「某盘 Tools 目录下的绝对路径」这种）。
+
+    为什么：换电脑/换盘符时这类路径会静默失效（工具找不到、MCP 起不来）。
+    允许清单：preflight-allow.json 的 portable_allow（键为路径前缀，值为理由）。
+    R8 C6：扫描面含**仓库根目录**的 `*.json/*.jsonc/*.ps1/*.bat/*.cmd`（以前漏报
+    `opencode.jsonc` 里的 `D:/…`）；`.gitignore` 已忽略的文件与 `.pi/**` 不入扫描 ——
+    它们是本机生成物，不该被当作「仓库里的硬编码路径」。
+    """
+    allow = (load_allow().get("portable_allow") or {})
+    bad = []
+    for rel, fp in _portable_files():
+        if any(rel.startswith(k) for k in allow):
+            continue
+        if _is_gitignored(rel):
+            continue
+        try:
+            text = open(fp, encoding="utf-8", errors="replace").read()
+        except Exception:
+            continue
+        for m in DRIVE_RE.finditer(text):
+            # 只报会被真正打开的可执行/脚本/数据文件路径；
+            # 注释里写个 D:\\Tools 这种说明性示例不影响换机执行。
+            tail = text[m.start():m.start() + 120].splitlines()[0]
+            has_ext = re.search(
+                r"\.(exe|dll|py|pyw|ps1|sh|bat|cmd|jar|so|dylib|json|db|idb|png|jpg|jpeg|txt|log|ini)\b",
+                tail, re.I)
+            personal = re.search(r"(?i)[A-Za-z]:[\\/]{1,2}Users[\\/]", tail)
+            program = re.search(r"(?i)[A-Za-z]:[\\/]{1,2}(Program Files|Tool|Tools)[\\/]", tail)
+            if not (has_ext or personal or program):
+                continue
+            line = text[:m.start()].count("\n") + 1
+            bad.append(f"{rel}:{line} {tail[:60]}")
     add("6 可移植", "无机器专用绝对路径", not bad,
-        f"{len(bad)} 处" + ("：" + "；".join(bad[:4]) if bad else ""))
+        f"{len(bad)} 处" + ("：" + "；".join(bad[:4]) if bad else "（含仓库根目录的 json/jsonc/ps1/bat/cmd）"))
 
 
 def check_ps_encoding():
@@ -1743,6 +1826,66 @@ def check_five_contracts():
         not bad, "；".join(bad[:4]) if bad else "6 项全部自测通过；10 份模板含客户五段")
 
 
+def _blk_chunks(s):
+    r"""把一行文字拆成可比对的片段：汉字 3 字滑窗 + 长度≥3 的英文词（小写）。"""
+    out = set()
+    for run in re.findall(r"[\u4e00-\u9fff]{2,}", s):
+        for i in range(len(run) - 2):
+            out.add(run[i:i + 3])
+    for w in re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", s):
+        out.add(w.lower())
+    return out
+
+
+def check_blk_codes():
+    r"""失败原因编号只有一处：`Tool/config/blockers.json`（R8 P1-1）。
+
+    血案：`Tool/skill/seep-router/SKILL.md` 自己写了一套含义
+    （BLK-1=目标拿不到 / BLK-4=判型矛盾 / BLK-5=仪器不可用 / BLK-6=用户限制），
+    而 `Tool/config/blockers.json` 是另一套（BLK-1=没工具 / BLK-4=需凭据/许可 /
+    BLK-5=关键在服务端 / BLK-6=需要破坏性动作）—— 同一编号两种解释，
+    模型按技能走就会给客户渲染出错误的失败五段。
+
+    判据（**宽松**，只抓「完全不沾边」）：SKILL.md 里每次出现 `BLK-n`，该行的其余文字
+    必须至少有一个 3 字片段 / 英文词出现在 blockers.json 这个码的 `name` 或 `customer` 里；
+    码本身不在表里 → 直接红。不要求逐字复制（否则改一处措辞就两头红），
+    但「编号 → 一句客户话引用标题」这个写法能稳定通过。
+    """
+    sk = os.path.join(TOOL, "skill", "seep-router", "SKILL.md")
+    if not os.path.isfile(os.path.join(TOOL, "config", "blockers.json")):
+        add("2 单一事实源", "失败原因编号只用 blockers.json", False, "缺 Tool/config/blockers.json")
+        return
+    if not os.path.isfile(sk):
+        add("2 单一事实源", "失败原因编号只用 blockers.json", False,
+            "缺 Tool/skill/seep-router/SKILL.md")
+        return
+    try:
+        codes = {str(c.get("code") or "").upper(): c
+                 for c in (load("Tool/config/blockers.json").get("codes") or [])
+                 if isinstance(c, dict)}
+        with open(sk, encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except Exception as e:  # noqa: BLE001
+        add("2 单一事实源", "失败原因编号只用 blockers.json", False, str(e)[:120])
+        return
+    bad = []
+    for ln, line in enumerate(lines, 1):
+        for m in re.finditer(r"BLK-\d+", line, re.I):
+            code = m.group(0).upper()
+            c = codes.get(code)
+            if not c:
+                bad.append("SKILL.md:%d 用了 blockers.json 里没有的 %s" % (ln, code))
+                continue
+            body = (str(c.get("name") or "") + " " + str(c.get("customer") or "")).lower()
+            rest = line[:m.start()] + " " + line[m.end():]
+            if not any(ch in body for ch in _blk_chunks(rest)):
+                bad.append("SKILL.md:%d 的 %s 与 blockers.json「%s」不沾边（客户话没引用标题）"
+                           % (ln, code, c.get("name") or code))
+    add("2 单一事实源", "失败原因编号只用 blockers.json（技能不自写含义）", not bad,
+        "；".join(bad[:4]) if bad else
+        "%d 个码单一来源；SKILL.md 每处 BLK-n 都引用得到该码标题" % len(codes))
+
+
 def check_fact_drift():
     """事实漂移：同样的数字（工具/域/案例数）在文档里被重复陈述，必须与实测一致。
 
@@ -2588,6 +2731,7 @@ def main():
     check_tool_identity()
     check_fact_drift()
     check_five_contracts()
+    check_blk_codes()
     check_single_orchestrator()
     check_doc_commands()
     check_reference_index()
