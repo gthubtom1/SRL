@@ -54,6 +54,8 @@ SUITES = [
      "意图探针：用户说法能否命中对应技能"),
     ("route-tests", ["Tool/skill/softseep/scripts/skill-route-probe.py", "--json"], True,
      "路由探针：技能路由在中文边界上的行为"),
+    ("rewrite-parity", ["Tool/scripts/rewrite-route-parity.py", "--json"], True,
+     "改写同域：客户原话被安全词表改写后仍落原域（词表从 .ts 现读，不做 Python 抄本）"),
     ("read-guard",  ["Tool/scripts/test_read_guard.py"], True,
      "读守卫：个人隐私区路径拦、正常目标/案件路径放行"),
     ("invariants",  ["Tool/scripts/invariants.py", "--check"], True,
@@ -236,7 +238,7 @@ def main():
             mark = "WARN"
             tail = "结构通过、可用性未证明（fixture %s / 零重放 %s）" % (fx, zr)
             warned.append((name, tail))
-        print("%s %-12s %5.1fs  %s" % (mark, name, secs, tail[:110]))
+        print("%s %-14s %5.1fs  %s" % (mark, name, secs, tail[:110]))
         if not ok:
             failed.append((name, why, tail))
 
