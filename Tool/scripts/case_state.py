@@ -776,7 +776,10 @@ def cmd_init(a):
     # ★ 案例索引同源：preflight / domain-gate 跑 `case_state.py index --check`。
     #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
     #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
-    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"), target_fp)
+    # R7 P1-4：文档教的是 `init --domain <域>`，命令却不认这个参数 → 新案 domain 恒为空。
+    # 这里把 --domain 透传下去（缺省空串 = 未判型，不是「默认 softseep」）。
+    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "real"), target_fp,
+                                   domain=getattr(a, "domain", "") or "")
     # 记一个机器级指针，供扩展（seep-memory/seep-events）在任意 cwd 下找到当前案（外部评审 A7）
     try:
         pdir = os.path.join(os.path.expanduser("~"), ".seep")
@@ -826,6 +829,22 @@ def cmd_init(a):
 DOMAIN_UNCLASSIFIED_NOTE = "未判型，先过 seep-router"
 
 
+def _case_domain(case):
+    """读 case.json 里的 `domain`（判型结果）。读不到/没写就返回空串。
+
+    R7 P1-4：`init --domain <域>` 现在真的会落进 case.json，`show` 必须能看见它 ——
+    否则客户无从判断「这个案子到底按哪个域在做」。`show` 是客户可见输出，缺文件不报错。
+    """
+    try:
+        with open(os.path.join(os.path.abspath(case), "case.json"), encoding="utf-8") as f:
+            meta = json.load(f)
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(meta, dict):
+        return ""
+    return str(meta.get("domain") or "").strip()
+
+
 def _target_files_entry(target_fp):
     """把 `_fingerprint_target` 的指纹块转成 `case.json.target_files[]` 元素。
 
@@ -854,18 +873,25 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
     if os.path.isfile(cj):
         # 第 5 轮评审 P1：老案（case.json 早于 target_files）在重跑 init / init --force 时补登记。
         # 只在「现有 target_files 没有任何 sha256」时补，绝不覆盖人工登记过的相对路径。
-        if target_fp is not None:
+        if target_fp is not None or str(domain or "").strip():
             try:
                 with open(cj, encoding="utf-8") as f:
                     meta = json.load(f)
+                changed = False
                 if isinstance(meta, dict):
-                    fresh = _target_files_entry(target_fp)
+                    fresh = _target_files_entry(target_fp) if target_fp is not None else []
                     cur = meta.get("target_files")
                     has_sha = isinstance(cur, list) and any(
                         str((it or {}).get("sha256") or "").strip() for it in cur
                         if isinstance(it, dict))
                     if fresh and not has_sha:
                         meta["target_files"] = fresh
+                        changed = True
+                    # R7 P1-4：老案 domain 为空时，`init --domain <域>` 把它补上（已有值不覆盖）
+                    if str(domain or "").strip() and not str(meta.get("domain") or "").strip():
+                        meta["domain"] = str(domain).strip()
+                        changed = True
+                    if changed:
                         with open(cj, "w", encoding="utf-8") as f:
                             json.dump(meta, f, ensure_ascii=False, indent=1)
             except (OSError, ValueError):
@@ -2754,6 +2780,8 @@ def cmd_show(a):
     plan = load_plan(a.case)
     print(f"案子：{a.case}")
     print(f"  目标：{st.get('target') or '-'}")
+    _dom = _case_domain(a.case)
+    print(f"  域：{_dom or '（未判型；判型见 python Tool/scripts/route.py --resolve）'}")
     # 缝2（P2-4）：T 词表与 M 词表各存各的 —— 但 show 是客户可见输出（R6 P0-4），
     # 只见客户话，代号一律「内部档位见账本」（代号本身走 stderr）。
     tier_v, lvl_v = st.get("tier"), st.get("max_level")
@@ -4146,6 +4174,35 @@ def _self_test():
             assert mj.get("target", {}).get("sha256") == fp["sha256"]; checks += 1
             assert (mj.get("target_files") or [{}])[0].get("sha256") == fp["sha256"]; checks += 1
             assert _target_files_entry(fp2) == []; checks += 1
+            # R7 P1-4：`init --domain <域>` 必须真的落进 case.json（缺省空串 = 未判型，不是默认 softseep）
+            _ptr = os.path.join(os.path.expanduser("~"), ".seep", "current-case")
+            _ptr_prev = None
+            if os.path.isfile(_ptr):
+                with open(_ptr, encoding="utf-8") as _pf:
+                    _ptr_prev = _pf.read()
+            try:
+                _dd = os.path.join(tmp3, "domcase")
+                with _ctx.redirect_stdout(_io.StringIO()), _ctx.redirect_stderr(_io.StringIO()):
+                    cmd_init(argparse.Namespace(case=_dd, target=os.path.join(tmp3, "run.log"),
+                                                force=False, evidence_kind="fixture",
+                                                domain="web-pentest"))
+                assert _case_domain(_dd) == "web-pentest"; checks += 1
+                _dd2 = os.path.join(tmp3, "domcase2")
+                with _ctx.redirect_stdout(_io.StringIO()), _ctx.redirect_stderr(_io.StringIO()):
+                    cmd_init(argparse.Namespace(case=_dd2, target="", force=False,
+                                                evidence_kind="fixture", domain=""))
+                assert _case_domain(_dd2) == ""; checks += 1
+            finally:
+                # 不把自测的临时案写进用户的当前案指针
+                try:
+                    if _ptr_prev is None:
+                        if os.path.isfile(_ptr):
+                            os.remove(_ptr)
+                    else:
+                        with open(_ptr, "w", encoding="utf-8") as _pf:
+                            _pf.write(_ptr_prev)
+                except OSError:
+                    pass
         finally:
             shutil.rmtree(tmp3, ignore_errors=True)
         # 进阶闸（P2-4 缝1）：`stage --set` 不许静默跳阶
@@ -4715,6 +4772,9 @@ def main():
 
     p = sub.add_parser("init"); p.add_argument("--case", required=True)
     p.add_argument("--target", default=""); p.add_argument("--force", action="store_true")
+    p.add_argument("--domain", default="",
+                   help="判型结果（如 softseep / web-pentest / pwn-crypto）。缺省空串 = 未判型，"
+                        "不是「默认 softseep」；判型：python Tool/scripts/route.py --resolve \"<目标名 + 任务名>\"")
     p.add_argument("--evidence-kind", dest="evidence_kind", default="real",
                    choices=["fixture", "real", "self-built", "historical"],
                    help="案例真实性（写进 case.json，preflight 按此分档）")

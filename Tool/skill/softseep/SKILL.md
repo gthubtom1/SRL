@@ -77,8 +77,7 @@ metadata:
 
 **相邻域与路由**：
 
-- Android APK/DEX/SO → `apkseep`；iOS 取证/签名 → `forensics-mobile`。
-- 纯 Web/API 漏洞 → `web-pentest`；二进制漏洞利用/密码学 → `pwn-crypto`。
+> 载体→域 的映射**只看一处**：`Tool/skill/seep-router/SKILL.md`（本文件不再复写）。
 - 加壳脱壳闭环 → `Tool/skill/unpack-loop/SKILL.md`（脱壳闭环）（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
 - 生产环境与真实用户数据按 `scope` 清单执行；凭据外泄一律停并上报。
 

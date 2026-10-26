@@ -82,7 +82,10 @@
  *       ② bash/powershell 命令里出现：`Tool/skill/`（跑技能脚本；`--self-test` 除外）、
  *          `case_state.py (claim|prove|repro|deliver)`、`tool-run.ps1`、
  *          `radare2|r2|jadx|apktool|frida|x64dbg|ghidra`、`rabin2|objdump|readelf|strings|file`、
+ *          `binwalk|7z|unzip|upx|tshark|xxd|nmap`（R7 P0-4：拆包/脱壳/抓包/十六进制/扫描）、
  *          `curl|wget|ncat|nc`、解释器内联执行（python -c / python - << / powershell -c …）
+ *            注：命令按 `&& || ; | 换行` 切段，**引号内的分隔符不是分隔符**
+ *            （`grep -rn "nmap|7z|xxd" Tool/` 是在搜这几个词，不是在跑它们）。
  *   不拦：read / grep / find / ls / todo；`case_state.py answer|init|--help`（init 只建案不分析，
  *         冷启动顺序必须能走通：`init`（不拦）→ `answer --check --case` → 再分析）、
  *         `Tool/scripts/{preflight,check,gate,route}.py`、白名单 seep_* 分诊；
@@ -101,8 +104,13 @@
  *   · 读不到 `Tool/config/answer-contract.json` → **只告警不 block**：
  *     一次工作台搬迁/半截落盘不该把整个会话锁死（闸降级成提示）。
  *   · 标记带 case 但读不到该案 case.json → **只告警不 block**（目标绑定降级为提示）。
- *   · 本文件自身抛异常 → 放行（绝不因为闸的 bug 误拦正常调用）。
- *   · 人工逃生：`/answer-gate` 看状态；`SEEP_ANSWER_GATE=0` 关闭（默认开，见文件尾说明）。
+ *   · **闸自己抛异常（R7 P1-6，已改）**：
+ *       — 写守卫、运行目标闸 → **fail-closed（block）**：原来三处 `catch → return undefined`
+ *         等于「守卫一崩就放行」，写凭证 / 拉起客户程序全部畅通。现在拦下并把原因告诉模型。
+ *       — 首答闸 → 保持 fail-open（只 `console.warn` 一行）：它拦的是「还没说话」这件
+ *         可补救的事，闸自己崩了再把人锁死等于不可用。这一条是**有意的不对称**，不是漏改。
+ *   · 人工逃生：`/answer-gate` 看状态；`SEEP_ANSWER_GATE=0` 关闭（默认开，见文件尾说明；
+ *     **只能由用户自己设**，Agent 不许自己设）。
  *
  * 中文注释、零新依赖、纯函数 `shouldBlock(...)` / `writeDecision(...)` 可单测（不碰磁盘）。
  */
@@ -295,6 +303,13 @@ const CMD_ANALYSIS: CmdPattern[] = [
 		why: "二进制结构工具（rabin2 / objdump / readelf / strings）",
 	},
 	{
+		// R7 P0-4（前半）：拆包/提固件/解压/脱壳/抓包/十六进制/端口扫描 —— 都在「对着目标取值」。
+		// 边界前后都排除 `[A-Za-z0-9_.-]`，所以 `a.7z` / `notes-xxd.md` 这类文件名不当命令；
+		// 只读程序（grep/ls/cat…）与 `<工具> --help` 仍在 classifySegment 里先放行。
+		re: /(^|[^A-Za-z0-9_.-])(binwalk|7z|7za|7zr|unzip|upx|tshark|xxd|nmap)(?=$|[^A-Za-z0-9_.-])/i,
+		why: "拆包/解压/脱壳/抓包/十六进制/端口扫描工具（binwalk / 7z / unzip / upx / tshark / xxd / nmap）",
+	},
+	{
 		// `file x.exe` 命中；`--file a.json` 因为前面是 `-` 不算（边界排除了 `-`）
 		re: /(^|[^A-Za-z0-9_.-])file\s+[^\s-]/i,
 		why: "文件类型识别 file（对着目标取值）",
@@ -313,9 +328,10 @@ const CMD_ANALYSIS: CmdPattern[] = [
 const INLINE_EXEC =
 	/(^|[^A-Za-z0-9_.-])(python[0-9.]*|py|pwsh|powershell|node|perl|ruby|php)(?=$|[^A-Za-z0-9_.-])[^\n;&|]*?\s(?:-c\b|-e\b|--command\b|-\s*<<)/i;
 
-/** 内联体里出现这些 → 才算「在动分析工具 / 在联网」，否则 `python -c "print(1)"` 不拦。 */
+/** 内联体里出现这些 → 才算「在动分析工具 / 在联网」，否则 `python -c "print(1)"` 不拦。
+ *  R7 P0-4：把新加的分析工具也纳进来（只加严）：`python -c "import binwalk"` 同样是分析动作。 */
 const INLINE_SUSPECT =
-	/(^|[^A-Za-z0-9_.-])(rabin2|objdump|readelf|strings|file|curl|wget|ncat|nc|socket|requests|urllib|httpx?)(?=$|[^A-Za-z0-9_.-])/i;
+	/(^|[^A-Za-z0-9_.-])(rabin2|objdump|readelf|strings|binwalk|7z|7za|unzip|upx|tshark|xxd|nmap|file|curl|wget|ncat|nc|socket|requests|urllib|httpx?)(?=$|[^A-Za-z0-9_.-])/i;
 
 /* ─────────────────── 运行目标闸的判据（第 3 轮 P0-4）─────────────────── */
 
@@ -457,12 +473,45 @@ function programOf(segment: string): string {
 	return base.replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
 }
 
-/** 按 `&& || ; | 换行` 切段：一段只放行自己，别让 `preflight && frida ...` 沾光。 */
+/**
+ * 按 `&& || ; | 换行` 切段：一段只放行自己，别让 `preflight && frida ...` 沾光。
+ *
+ * 引号内的分隔符不是分隔符（`grep -rn "nmap|7z|xxd" Tool/` 是在搜这几个词，不是在跑 7z）。
+ * 这个切分只可能把片段**变长**（合并），不可能变短 —— 所以不会因为这条路放过任何真命令：
+ * 真正的管子（`grep x | nmap`）依旧切得开，`bash -c "nmap x"` 仍整段带着 nmap 字面量。
+ */
 function splitSegments(cmd: string): string[] {
-	return cmd
-		.split(/&&|\|\||[;\n|]/)
-		.map((s) => s.trim())
-		.filter((s) => s.length > 0);
+	const out: string[] = [];
+	let cur = "";
+	let quote: string | null = null;
+	for (let i = 0; i < cmd.length; i++) {
+		const ch = cmd[i];
+		if (quote) {
+			cur += ch;
+			if (ch === quote) quote = null;
+			continue;
+		}
+		if (ch === '"' || ch === "'" || ch === "`") {
+			quote = ch;
+			cur += ch;
+			continue;
+		}
+		const two = ch + (cmd[i + 1] ?? "");
+		if (two === "&&" || two === "||") {
+			out.push(cur);
+			cur = "";
+			i++;
+			continue;
+		}
+		if (ch === "&" || ch === "|" || ch === ";" || ch === "\n") {
+			out.push(cur);
+			cur = "";
+			continue;
+		}
+		cur += ch;
+	}
+	out.push(cur);
+	return out.map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
 /**
@@ -1265,6 +1314,43 @@ export function buildNeverWriteReason(raw: string, pattern: string): string {
 	].join("\n");
 }
 
+/** 异常 → 一行可读文本（拿不到就写一句占位，绝不因为 err 本身再抛）。 */
+export function errText(err: unknown): string {
+	if (err instanceof Error) return (err.name || "Error") + ": " + (err.message || "");
+		try {
+		const s = String(err);
+		return s || "（空异常）";
+	} catch {
+		return "（无法转成文本的异常）";
+	}
+}
+
+/**
+ * 闸内部异常的**拦下文案**（R7 P1-6，fail-closed）。
+ *
+ * 为什么不能只「拦下不说话」：模型会把“被拦”当成自己的错误去反复重试。这里必须说清三件事：
+ *   ① 是闸自己出错了（不是你的写法/目标有问题）；
+ *   ② 为什么仍然拦（放行等于“只要把闸弄崩就能绕过”）；
+ *   ③ 三条合法出路（看状态 / 校验扩展版本 / 换更简单的等价写法）。
+ */
+export function buildGateErrorReason(gateName: string, toolName: string, err: unknown): string {
+	return [
+		"[" + gateName + "][INTERNAL] 已拦下：" + (toolName || "（未如工具名）"),
+		"闸自己出错了（fail-closed）：" + errText(err),
+		"",
+		"**这不是你的错误，也不代表目标或文件有问题 —— 是闸内部抛了异常，而闸出错时不放行。**",
+		"放行等于让「把闸弄崩」成为绕过闸的办法（凭证/规则可写、客户程序可直接拉起），所以这里按拦下处理。",
+		"",
+		"服着抄三步：",
+		"  1) 看闸状态：/answer-gate（打印契约哈希 / 首答标记 / 运行回执 / 禁写名单）",
+		"  2) 核对扩展版本：~/.pi/agent/extensions/answer-gate.ts 应与 Tool/prompts/extensions/answer-gate.ts 一致（不同步就重新拷一份）",
+		"  3) 换一条**等价的更简单写法**重试：写类 → 只写 work/ 或案件目录；运行类 → 先 ask 发卡 → 用户回字母 → ack",
+		"",
+		"三步都不通就停下：把上面这行异常原文整段贴给用户，由用户决定是不是临时关闸（SEEP_ANSWER_GATE=0）。",
+		"**Agent 不许自己设这个环境变量，也不许自己去改扩展文件来“修”它。**",
+	].join("\n");
+}
+
 /** 系统临时目录（含任何路径里的 /tmp/ 或 /temp/ 段：任意盘符下的 tmp 目录也算临时区）。 */
 export function isTempPath(p: string): boolean {
 	const n = cmpKey(p);
@@ -1545,8 +1631,11 @@ export default function answerGate(pi: ExtensionAPI) {
 				return undefined;
 			}
 			return { block: true, reason: v.reason };
-		} catch {
-			// 闸自己出错 → 放行（绝不因为闸的 bug 误拦正常调用）
+		} catch (err) {
+			// R7 P1-6：首答闸**保持 fail-open**（只告警 + 留一行日志）——
+			// 它拦的是「还没说话」这件可补的事；闸自己崩了再把人锁死，整个工作台就不可用了。
+			// 写守卫与运行目标闸不享受这个豁免（它们的错可能直接导致凭证被写 / 客户程序被拉起）。
+			console.warn("[answer-gate][WARN] 首答闸内部异常 → 本次放行（fail-open，R7 P1-6）：" + errText(err));
 			return undefined;
 		}
 	});
@@ -1568,9 +1657,11 @@ export default function answerGate(pi: ExtensionAPI) {
 				return undefined;
 			}
 			return { block: true, reason: v.reason };
-		} catch {
-			// 守卫自己出错 → 放行（不能因为守卫的 bug 把写盘全锁死）
-			return undefined;
+		} catch (err) {
+			// R7 P1-6（fail-closed）：写守卫自己出错**不再放行** ——
+			// 放行等于“把写守卫弄崩”就是一条写凭证/改规则的捷径。拦下并把原因告诉模型。
+			console.warn("[write-guard][WARN] 内部异常 → fail-closed（R7 P1-6）：" + errText(err));
+			return { block: true, reason: buildGateErrorReason("write-guard", "write/edit", err) };
 		}
 	});
 
@@ -1607,9 +1698,11 @@ export default function answerGate(pi: ExtensionAPI) {
 				return undefined;
 			}
 			return { block: true, reason: v.reason };
-		} catch {
-			// 闸自己出错 → 放行（绝不因为闸的 bug 误拦正常调用）
-			return undefined;
+		} catch (err) {
+			// R7 P1-6（fail-closed）：运行目标闸自己出错**不再放行** ——
+			// 放行等于「闸一崩就能在本机把客户的东西拉起来」，且没有任何回执记录。
+			console.warn("[run-gate][WARN] 内部异常 → fail-closed（R7 P1-6）：" + errText(err));
+			return { block: true, reason: buildGateErrorReason("run-gate", "run-target", err) };
 		}
 	});
 

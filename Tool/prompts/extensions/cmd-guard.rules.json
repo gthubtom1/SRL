@@ -164,11 +164,11 @@
     },
     {
       "id": "git-clean-xdf",
-      "severity": "warn",
-      "why": "`git clean -xdf` 会删掉所有**未跟踪**文件（含用户刚写还没提交的脚本/样本）和 ignored 产物，无任何备份（第 2 轮评审：可能吞掉用户工作）。",
+      "severity": "block",
+      "why": "`git clean -xdf` 会删掉 work/ 下**未跟踪的成果**（报告 / 证据 / 抓包 / 补丁）以及 ignored 产物：不经回收站、Git 里没有副本可恢复，两天的工作可能一条命令就没了（R7 评审 P1-2：原来只是 warn，等于放行）。",
       "re": "\\bgit\\s+clean\\s+-[a-zA-Z]*x[a-zA-Z]*d|\\bgit\\s+clean\\s+-[a-zA-Z]*d[a-zA-Z]*x",
-      "label": "git clean -xdf（吞未跟踪文件）",
-      "hint": "改用什么：先 `git clean -nd` 只列清单给自己看；要保住工作区就先 `git stash -u`；只清构建产物用 `git clean -nd -e <要留的路径>` 或删除具体产物目录。"
+      "label": "git clean -xdf（会删掉 work/ 下未跟踪的成果（报告/证据））",
+      "hint": "改用什么：① 先 `git clean -nd` 只看清单；② 要保住工作区就先 `git stash -u`，或把成果复制到 `work/_trash/<时间戳>/`（`cp -r work/<成果> work/_trash/$(date +%Y%m%d-%H%M)/`）；③ 只清构建产物用 `git clean -nd -e <要留的路径>`，或删除具体产物目录。确实要清 → 先列清单给用户确认，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
     },
     {
       "id": "git-checkout-dot",

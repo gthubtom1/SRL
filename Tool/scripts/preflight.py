@@ -1599,7 +1599,7 @@ def check_doc_commands():
 
 
 def check_single_orchestrator():
-    """总控只能有一个：`seep-router` 之外的技能不许自称总控/Orchestrator/带路由矩阵。
+    """总控只能有一个：`seep-router` 之外的技能不许自称总控/带路由矩阵/**也不许自己带载体→域映射表**。
 
     为什么（2026-10-25 用户抓到的）：`softseep` 把判型/路由搬走后，标题仍写
     "逆向工程总控入口（Orchestrator）"、正文仍写"本文件是总控…分发给谁" ——
@@ -1608,15 +1608,46 @@ def check_single_orchestrator():
     没人问"一个文件是否在扮两个角色"。这条判据把它变成机检。
 
     允许：`seep-router` 出现这些词；其他技能**只有在同一行出现 "seep-router" 指针时**才允许。
+
+    R7 评审 P1-5b（为什么加第二半）：只查四个词时，`softseep/SKILL.md` 里的
+    "调度总流程 + 平台/类型判型"表照样 PASS —— 它不写"总控"两个字，却把核心判型
+    又摆了一遍，于是同一个用户问题在两个文件里能得到两种答案。
+    现在另加一条：除 `seep-router` 外，任何 SKILL.md 里**≥2 行**形如
+    "载体/平台 → 域/技能" 的映射行 → 判红，并在 detail 里点名行号（只多不少，执行层更严）。
     """
     import glob as _g
     import re as _re
     words = ("总控", "Orchestrator", "路由矩阵", "载体 → 域")
+    # 「域/技能」名单：现盘上的技能目录名（新增技能自动被认）
+    skill_names = set()
+    for d in _g.glob(os.path.join(TOOL, "skill", "*")):
+        if os.path.isdir(d):
+            skill_names.add(os.path.basename(d).strip().lower())
+    skill_names |= {"seep-router", "softseep", "apkseep", "web-pentest", "pwn-crypto",
+                    "forensics-mobile", "unpack-loop", "firmware-iot", "malware-analysis",
+                    "protocol-plugin", "supply-chain-security"}
+    skill_names = {s for s in skill_names if s and s != "_pending"}
+    if skill_names:
+        skill_re = _re.compile(
+            r"(?:^|[^a-z0-9-])(?:%s)(?:$|[^a-z0-9-])" % "|".join(
+                _re.escape(s) for s in sorted(skill_names, key=len, reverse=True)),
+            _re.I)
+    else:
+        skill_re = None
+    # 「载体/平台」迹象：扩展名形态 + 常见平台/媒介词（左半边命中才算映射行，避免把自己.
+    # 写“→ 见 references”这类普通指向也算进去）。
+    carrier_re = _re.compile(
+        r"\.(?:exe|dll|sys|so|apk|aab|dex|jar|ipa|elf|bin|wasm|js|msi|dmg|img)\b"
+        r"|(?<![a-z0-9])(?:windows|android|ios|linux|macos|web|api|flutter|dotnet|golang|rust)(?![a-z0-9])"
+        r"|固件|硬件|设备|芯片|路由器|摄像头|车机|移动端|桌面|前端|客户端|浏览器|镜像|容器|内网|云主机|协议|小程序",
+        _re.I)
+    arrow_re = _re.compile(r"→|->|=>")
     bad = []
-    for p in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
+    for p in sorted(_g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"))):
         name = os.path.basename(os.path.dirname(p))
         if name == "seep-router":
             continue
+        map_lines = []
         for i, line in enumerate(open(p, encoding="utf-8", errors="replace"), 1):
             if "seep-router" in line:
                 continue          # 指针行允许
@@ -1624,8 +1655,22 @@ def check_single_orchestrator():
                 if w in line:
                     bad.append("%s:%d 含「%s」" % (name, i, w))
                     break
+            if skill_re is None:
+                continue
+            m = arrow_re.search(line)
+            if not m:
+                continue
+            if not carrier_re.search(line[:m.start()]):
+                continue          # 箭头左边没有载体/平台 → 不算映射行
+            if not skill_re.search(line[m.end():]):
+                continue          # 箭头右边没有域/技能名 → 不算映射行
+            map_lines.append(i)
+        if len(map_lines) >= 2:
+            bad.append("%s:%s 是「载体/平台 → 域/技能」映射表行（%d 行；路由矩阵只能留在 seep-router）"
+                       % (name, ",".join(str(x) for x in map_lines[:6]), len(map_lines)))
     add("2 单一事实源", "总控唯一（只有 seep-router 可自称总控/带路由矩阵）", not bad,
-        "；".join(bad[:4]) if bad else "seep-router 唯一；其余技能均为单域")
+        "；".join(bad[:4]) if bad else
+        "seep-router 唯一；其余技能均为单域（无自称总控、无 ≥2 行「载体/平台 → 域/技能」映射表）")
 
 
 def check_five_contracts():

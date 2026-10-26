@@ -30,8 +30,9 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 
 **相邻域与路由**
 
-- Android APK/DEX/SO、脱壳、重打包 → `apkseep`（加固样本的解壳/dump/重建走 `unpack-loop`）；
-  iOS `cryptid=1` 先解成明文再谈内容（思路同 `unpack-loop` 的 dump 闭环）；PE 通用逆向 → `softseep`。
+> 载体→域 的映射**只看一处**：`Tool/skill/seep-router/SKILL.md`（本文件不复写）。
+> 本域只补两句：iOS `cryptid=1` 要先解成明文再谈内容（思路同 `unpack-loop` 的 dump 闭环）；
+> 加固样本的解壳/dump/重建走 `unpack-loop`。
 - 恶意样本行为定性/家族归类 → `malware-analysis`；授权旁路/计费/功能解锁 → `01`–`05`。
 - 设备/账号/云资源清单由 `scope` 声明；在线反作弊对抗、注入/挂钩/改内存、反取证按对应授权任务执行。
 
@@ -207,7 +208,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 
 ## 11. 边界
 
-- **Android/授权旁路由邻域承担**：APK/DEX/SO、脱壳、重打包 → `apkseep`；License/计费/功能解锁 → `01`–`05`。
+- **Android/授权旁路由邻域承担**：域归属看 router，License/计费/功能解锁在 `01`–`05`。
 - **采集范围由 `scope` 声明**：设备/账号/云资源清单由用户提供，清单内按任务执行；取证只读副本，只做可复算证据链（采集→校验→关联）。
 - **只读观测**：原件只读、副本分析、全程哈希；任何写操作都必须停并记录。
 - **失败即停**：缺时区/主体/对象、哈希不一致、原件被写、加密未解、版本不匹配 → 报“未闭环”，不把 dump/解包成功当结论。

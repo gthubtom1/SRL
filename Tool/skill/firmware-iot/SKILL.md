@@ -35,9 +35,8 @@ metadata:
 
 **相邻域与路由**
 
-- APK/AAB、DEX/SO、重打包 → `apkseep`。
-- 桌面 PE/ELF 算法题、纯逆向 → `softseep` / `ida-reverse` / `binary-diff`。
-- 纯云 API/前端 → `web-pentest`；内网身份 → `ad-cloud`。
+> 载体→域 的映射**只看一处**：`Tool/skill/seep-router/SKILL.md`（本文件不再复写，避免两份表漂移）。
+> 本域只补一句：固件样本若同时是 APK 容器/纯 PE，按 router 判型后再回来。
 - 第三方设备/网段/闪存写入清单由 `scope` 声明，清单内按任务执行。
 - 把“解包成功”“FirmAE success”“binwalk 识别出 12 个签名”当作交付。
 

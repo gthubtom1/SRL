@@ -54,6 +54,7 @@
 > - **先读**：[`docs/HANDOFF.md`](docs/HANDOFF.md)（状态块由命令生成）→ [`docs/NOW.md`](docs/NOW.md)（现在该做什么）→ [`docs/PLAN-v8.md`](docs/PLAN-v8.md)（需求/DoD/审查协议/终止条件）
 > - **外部审查（只读）**：[`docs/AUDIT-REQUEST.md`](docs/AUDIT-REQUEST.md)（只出报告，不改仓库）
 > - **历史文档**：[`docs/history/`](docs/history/)（`AUDIT-*` / `HANDOFF-*` / `OPTIMIZATION-*`）——**不作现状**
+> - **边界（必须如实说）**：9 个域的知识与流程都在位，但**见证强度不同**——5 个域有真实产物见证，4 个域（apkseep / malware-analysis / softseep / pwn-crypto）目前只有夹具/自造样本见证；这 4 个域**不得对外称「可用」**；`gate.py --all` 会以 rc=3 + 点名的方式给出这个边界。
 > - **测试**：`python Tool/scripts/check.py`（一条命令跑完 8 个套件；`--fast` 只跑 5 个快的）
 
 ---
