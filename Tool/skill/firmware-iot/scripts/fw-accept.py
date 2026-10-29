@@ -26,11 +26,25 @@ Exit codes:
 
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+try:
+    from seep_runtime import repo_root as _seep_repo_root
+except Exception as _runtime_error:  # noqa: BLE001 - convert missing runtime to JSON
+    _seep_repo_root = None
+    _RUNTIME_IMPORT_ERROR = type(_runtime_error).__name__
+else:
+    _RUNTIME_IMPORT_ERROR = ""
+
+
 import argparse
 import glob
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -45,6 +59,22 @@ FIXTURE_WORDS = ("夹具", "教学", "fixture", "示例")
 # 它的 target_type **本来就该**写「公开教学靶场 XXX」。判夹具字样前先剥掉公开来源词，
 # 否则真实公开样本会被逼回 fixture（另一个方向的假话）。语义见 domain_spec.EVIDENCE_KINDS。
 PUBLIC_MARKERS = ("公开教学靶场", "公开", "靶场", "CTF", "crackme", "MIT", "github", "public")
+
+
+def _within(base, target):
+    try:
+        base_real = os.path.realpath(os.path.abspath(base))
+        target_real = os.path.realpath(os.path.abspath(target))
+        return os.path.commonpath((base_real, target_real)) == base_real
+    except (OSError, TypeError, ValueError):
+        return False
+
+
+def _confined_path(base, value):
+    if not isinstance(value, str) or not value.strip() or os.path.isabs(value):
+        return None
+    candidate = os.path.abspath(os.path.join(os.path.abspath(base), value))
+    return candidate if _within(base, candidate) else None
 
 
 def _fixture_words(target_type, kind=""):
@@ -74,7 +104,14 @@ def validate_case(case_dir, root):
     case_dir = os.path.abspath(case_dir)
     errors = []
     warnings = []
+    cases_root = os.path.join(os.path.abspath(root), "Tool", "cases")
+    if not _within(cases_root, case_dir):
+        return {"case": rel(case_dir, root), "id": None, "ok": False,
+                "errors": ["case directory escapes root Tool/cases"], "warnings": []}
     case_file = os.path.join(case_dir, "case.json")
+    if not _within(case_dir, case_file):
+        return {"case": rel(case_dir, root), "id": None, "ok": False,
+                "errors": ["case.json escapes its case directory"], "warnings": []}
     if not os.path.isfile(case_file):
         return {"case": rel(case_dir, root), "id": None, "ok": False,
                 "errors": ["missing case.json"], "warnings": []}
@@ -84,6 +121,9 @@ def validate_case(case_dir, root):
     except Exception as exc:  # noqa: BLE001
         return {"case": rel(case_dir, root), "id": None, "ok": False,
                 "errors": ["bad case.json: %s" % str(exc)[:120]], "warnings": []}
+    if not isinstance(case, dict):
+        return {"case": rel(case_dir, root), "id": None, "ok": False,
+                "errors": ["case.json root must be a JSON object"], "warnings": []}
 
     cid = case.get("id")
     for key in FIELDS:
@@ -119,18 +159,25 @@ def validate_case(case_dir, root):
         if not isinstance(art, dict):
             errors.append("artifact entry is not an object")
             continue
-        apath = art.get("path") or ""
+        apath = art.get("path")
         want = str(art.get("sha256") or "").lower()
-        full = os.path.join(case_dir, apath)
-        if not apath or not os.path.isfile(full):
+        full = _confined_path(case_dir, apath)
+        if full is None:
+            errors.append("artifact path escapes case directory: %s" % (apath or "<empty>"))
+            continue
+        if not os.path.isfile(full):
             errors.append("missing artifact: %s" % (apath or "<empty>"))
             continue
-        if len(want) != 64:
+        if re.fullmatch(r"[0-9a-f]{64}", want) is None:
             errors.append("artifact %s has no 64-hex sha256" % apath)
         else:
-            got = sha256_file(full)
-            if got != want:
-                errors.append("artifact %s sha256 mismatch (recomputed %s)" % (apath, got[:12]))
+            try:
+                got = sha256_file(full)
+            except OSError as exc:
+                errors.append("artifact %s is unreadable: %s" % (apath, type(exc).__name__))
+            else:
+                if got != want:
+                    errors.append("artifact %s sha256 mismatch (recomputed %s)" % (apath, got[:12]))
         if apath.lower().endswith(".json"):
             try:
                 with open(full, encoding="utf-8-sig") as fh:
@@ -144,9 +191,16 @@ def validate_case(case_dir, root):
                 errors.append("artifact %s has neither ok:true nor blocked_at" % apath)
 
     for ref in case.get("refs") or []:
-        if isinstance(ref, str) and "://" not in ref:
-            if not os.path.isfile(os.path.join(root, ref)):
-                errors.append("phantom ref: %s" % ref)
+        if not isinstance(ref, str):
+            errors.append("ref entry is not a string")
+            continue
+        if "://" in ref:
+            continue
+        full_ref = _confined_path(root, ref)
+        if full_ref is None:
+            errors.append("ref escapes repository root: %s" % ref)
+        elif not os.path.isfile(full_ref):
+            errors.append("phantom ref: %s" % ref)
 
     return {"case": rel(case_dir, root), "id": cid, "evidence_kind": kind,
             "ok": not errors, "errors": errors, "warnings": warnings}
@@ -246,6 +300,28 @@ def self_test():
         summary = accept(tmp)
         assert summary["ok"] is False and summary["real"] == 0
         checks += 1
+        # 7) malformed roots fail closed instead of raising AttributeError
+        malformed_dir = os.path.join(tmp, "Tool", "cases", "firmware-iot98")
+        os.makedirs(malformed_dir, exist_ok=True)
+        with open(os.path.join(malformed_dir, "case.json"), "w", encoding="utf-8") as fh:
+            fh.write("[]")
+        malformed = validate_case(malformed_dir, tmp)
+        assert malformed["ok"] is False and "JSON object" in malformed["errors"][0]
+        checks += 1
+        # 8) artifact/ref paths cannot escape their trusted roots
+        outside = os.path.join(tmp, "outside.json")
+        with open(outside, "w", encoding="utf-8") as fh:
+            fh.write('{"ok": true}')
+        escaped = dict(case)
+        escaped["lessons"] = ["ran tool, rc=0"]
+        escaped["refs"] = ["../../outside.json"]
+        escaped["artifacts"] = [{"path": "../../../outside.json", "sha256": sha256_file(outside)}]
+        with open(os.path.join(case_dir, "case.json"), "w", encoding="utf-8") as fh:
+            json.dump(escaped, fh, ensure_ascii=False)
+        confinement = validate_case(case_dir, tmp)
+        assert any("artifact path escapes" in e for e in confinement["errors"])
+        assert any("ref escapes" in e for e in confinement["errors"])
+        checks += 1
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     print(json.dumps({"ok": True, "tool": "fw-accept", "version": VERSION,
@@ -268,7 +344,22 @@ def main(argv=None):
 
     if args.self_test:
         return self_test()
-    root = os.path.abspath(args.root) if args.root else str(Path(__file__).resolve().parents[4])
+    if args.root:
+        root = os.path.abspath(args.root)
+    elif _seep_repo_root is not None:
+        root = _seep_repo_root(__file__)
+    else:
+        root = ""
+        for parent in Path(__file__).resolve().parents:
+            if (parent / "Tool" / "cases").is_dir():
+                root = str(parent)
+                break
+        if not root:
+            print(json.dumps({"ok": False, "blocked_at": "runtime_missing",
+                              "reason": "softseep runtime is not importable (%s); "
+                                        "use --root or reinstall it" % _RUNTIME_IMPORT_ERROR},
+                             ensure_ascii=False))
+            return 2
     if not os.path.isdir(os.path.join(root, "Tool", "cases")):
         print(json.dumps({"ok": False, "blocked_at": "input",
                           "reason": "no Tool/cases under root: %s" % root},

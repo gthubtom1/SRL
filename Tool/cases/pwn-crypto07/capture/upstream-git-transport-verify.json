@@ -1,0 +1,57 @@
+{
+  "repo_url": "https://github.com/justinsteven/dostackbufferoverflowgood.git",
+  "transport": "git over https (smart protocol v2)",
+  "checkout": false,
+  "hooks_run": false,
+  "target_executed": false,
+  "compile": false,
+  "user_git_config_used": false,
+  "credential_helper": "disabled (-c credential.helper=)",
+  "trace_log": "git-transport/git-transport.log",
+  "blobs": {
+    "dostackbufferoverflowgood.exe": {
+      "name": "dostackbufferoverflowgood.exe",
+      "expected_git_blob_sha1": "043b2d38b1ce46efd1bfc26b282ae627f3c59459",
+      "expected_size": 13312,
+      "api_path_sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+      "cat_file_rc": 0,
+      "byte_len_via_git_object": 13312,
+      "recomputed_git_blob_sha1": "043b2d38b1ce46efd1bfc26b282ae627f3c59459",
+      "sha1_matches_pin": true,
+      "size_matches_pin": true,
+      "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+      "sha256_matches_api_path": true,
+      "object_type": "blob",
+      "byte_identical_to_api_download": true
+    },
+    "README.md": {
+      "name": "README.md",
+      "expected_git_blob_sha1": "2b14a9bfd6cbc62e2cb687ff22f0279bc6deaa2d",
+      "expected_size": 4180,
+      "api_path_sha256": "8082f94941e198bb194efc67c8874f74b883773ff198c24a6441cdd10153e4b4",
+      "cat_file_rc": 0,
+      "byte_len_via_git_object": 4180,
+      "recomputed_git_blob_sha1": "2b14a9bfd6cbc62e2cb687ff22f0279bc6deaa2d",
+      "sha1_matches_pin": true,
+      "size_matches_pin": true,
+      "sha256": "8082f94941e198bb194efc67c8874f74b883773ff198c24a6441cdd10153e4b4",
+      "sha256_matches_api_path": true,
+      "object_type": "blob",
+      "byte_identical_to_api_download": true
+    }
+  },
+  "ls_remote_rc": 0,
+  "ls_remote_heads": [
+    "f67b555a5d9da766516094bbd0c8a680e7afc248\trefs/heads/master",
+    "dbbb211867aac6f67759115071ba2c75a21239ea\trefs/heads/python3"
+  ],
+  "clone_rc": 0,
+  "clone_stderr_tail": [
+    "15:59:12.378081 run-command.c:946       trace: start_command: git rev-list --objects --stdin --not --all --quiet --alternate-refs",
+    "15:59:12.385247 exec-cmd.c:266          trace: resolved executable dir: C:/Program Files/Git/mingw64/libexec/git-core",
+    "15:59:12.388507 git.c:502               trace: built-in: git rev-list --objects --stdin --not --all --quiet --alternate-refs"
+  ],
+  "head_commit": "f67b555a5d9da766516094bbd0c8a680e7afc248",
+  "head_commit_rc": 0,
+  "all_verified": true
+}

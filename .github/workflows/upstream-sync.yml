@@ -67,12 +67,16 @@ jobs:
             set -e
 
             if [ $CHECK_EXIT -eq 0 ]; then
-              echo "[$TARGET] 已是最新版本，无需同步。"
+              echo "[$TARGET] 上游版本记录无变化。"
               continue
+            fi
+            if [ $CHECK_EXIT -ne 2 ]; then
+              echo "::error::[$TARGET] 无法确认上游版本，停止同步。"
+              exit "$CHECK_EXIT"
             fi
 
             echo "[$TARGET] 检测到上游新提交，开始隔离拉取..."
-            BRANCH_NAME="sync/upstream-${TARGET}-$(date +%Y%m%d)"
+            BRANCH_NAME="sync/upstream-${TARGET}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
             # 切出独立隔离分支
             git checkout -b "$BRANCH_NAME"
@@ -82,22 +86,19 @@ jobs:
 
             # 2. 严格校验文件改动范围（防外溢断言）
             echo "正在对 git 状态执行防外溢断言..."
-            CHANGED_FILES=$(git status --porcelain | awk '{print $2}')
-            BOUNDARY="Tool/upstream/${TARGET}/"
-
-            for FILE in $CHANGED_FILES; do
-              if [[ "$FILE" != "$BOUNDARY"* && "$FILE" != "setup/.upstream-shas.json" ]]; then
-                echo "::error::[FATAL] 检测到文件改动外溢出目标目录: $FILE (期望前缀: $BOUNDARY)"
-                exit 1
-              fi
-            done
-            echo "防外溢断言通过: 所有改动均严格局限在 $BOUNDARY 内！"
-
-            # 3. 运行格式规范化
-            python setup/clean-format.py
+            python - "$TARGET" <<'PY'
+          import subprocess
+          import sys
+          prefix = f"Tool/upstream/{sys.argv[1]}/".encode()
+          tracked = subprocess.check_output(["git", "diff", "--name-only", "-z", "HEAD"])
+          untracked = subprocess.check_output(["git", "ls-files", "--others", "--exclude-standard", "-z"])
+          for path in (tracked + untracked).split(b"\0"):
+              if path and not (path.startswith(prefix) or path == b"setup/.upstream-shas.json"):
+                  raise SystemExit(f"同步文件越界: {path!r}")
+          PY
 
             # 4. 提交并推送
-            git add .
+            git add -- "Tool/upstream/${TARGET}" setup/.upstream-shas.json
             if git diff --staged --quiet; then
               echo "无实际文件内容变动，跳过提交。"
               git checkout main
@@ -107,7 +108,7 @@ jobs:
 
             COMMIT_MSG="chore(upstream): sync ${TARGET} to latest upstream (sandboxed)"
             git commit -m "$COMMIT_MSG"
-            git push origin "$BRANCH_NAME" --force
+            git push origin "$BRANCH_NAME"
 
             # 5. 生成 PR 说明正文并创建独立 PR
             python setup/sync-upstream.py --make-pr-body /tmp/pr_body.md --target "$TARGET"

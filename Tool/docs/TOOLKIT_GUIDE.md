@@ -1,79 +1,19 @@
-# 逆向与客户端安全实战工具箱使用指南 (Toolkit Guide)
+# 工具与技能使用入口
 
-本工作空间已将业界顶尖的逆向工程规范（`reverse-skill`）与我们本地实战经验（`softseep`、`MuMu/XYplorer/Hills` 注入体系、`seep` MCP 服务）深度融合，为日常的客户端鉴权分析、功能本地化、安卓逆向与攻防测试提供一站式支持。
+智能体先理解目标，再按 `Tool/skill/*/SKILL.md` 和领域 `pack.json` 选择能力；需要时组合多个领域。用户不必记工具名或命令。
 
----
+| 需要做什么 | 当前入口 |
+|---|---|
+| 新机器安装或修复 | [BOOTSTRAP](BOOTSTRAP.md)、[部署手册](../../MANUAL/DEPLOYMENT.md) |
+| 理解并选择领域 | `Tool/skill/seep-router/SKILL.md`、`python Tool/scripts/route.py --resolve "<任务描述>"` |
+| 检查路由 | `python Tool/scripts/route.py --check` |
+| 检索知识 | Seep MCP 的 `seep_kb_search`、`seep_kb_read` 等；调用参数按实际工具 schema |
+| 发现或安装所需工具 | `seep_tool_discover`、`seep_ensure_tool`，或 `Tool/scripts/tool-acquire.py` |
+| 项目启动、动作、证据和关闭 | `Tool/scripts/project_workflow.py`；接口见 [运行规范](../prompts/contracts/AGENT-OPERATING-SPEC.md) |
+| 报告与归档 | `Tool/scripts/project_report.py`、`Tool/scripts/project_archive.py` |
+| 当前回归 | `python Tool/scripts/check.py --runtime --json` |
+| 扩展技能、工具或领域 | [EXTEND](EXTEND.md) |
 
-## 一、核心工具与脚本目录一览
+`Tool/scripts/` 提供公共 CLI；领域脚本在 `Tool/skill/<领域>/scripts/`。`Tool/playbooks/` 是按需配方，`Tool/skill/_pending/` 是按源码路径读取的参考。不要将参考目录的旧名字当成已安装技能，也不要将某个客户案例的注入方式设为全局流程。
 
-所有脚本统一存放在 `Tool/scripts/` 下，严禁散落根目录：
-
-| 脚本 / 工具 | 路径 | 核心用途 |
-| :--- | :--- | :--- |
-| **工具链自检** | 「refresh-tool-index.ps1」(S1 已删) | 秒级扫描系统已安装工具（IDA、Radare2、ADB、Python、Node 等）并生成状态表 |
-| **任务建档门禁** | `Tool/scripts/case-init.ps1` | 新任务一键在 `work/<case_name>` 独立建档，自动生成 `scope.md` 与证据链 |
-| **APK 反编译流水线** | `Tool/scripts/apk/decode.ps1` | 一键运行 `jadx` + `apktool` 解包反编译并生成组件摘要 |
-| **APK 重打包与签名** | `Tool/scripts/apk/rebuild-sign-install.ps1` | 修改 Smali 后全自动执行 `apktool b` -> 4字节对齐 -> 签名 -> ADB 推送安装 |
-| **Frida 动态注入** | `Tool/scripts/apk/frida-run.ps1` | 标准化设备枚举、进程列表与 Spawn/Attach 动态 Hook 运行 |
-| **IDA Pro MCP 唤醒** | `Tool/scripts/tool-acquire.py --tool ida` | 静默启动 IDA Pro 64 并自动挂载 MCP 分析链路 |
-| **任务路由** | `Tool/scripts/route.py` + `pack.json` | 按口语判型 → 选技能（32 条路由，自洽由 `route.py --check` 断言） |
-| **路由自洽校验** | `Tool/scripts/route.py` | routes / priority / fallback / 技能落位 四重断言 |
-| **端到端冒烟** | ``Tool/scripts/preflight.py`` | 真实样本跑通整条链路（12 环 / 13 秒），不污染仓库 |
-| **反臃肿预算** | `Tool/scripts/budget.py` | 工具/技能/脚本/手册/行数/文件数 5 项硬上限 + 1 项仅统计（技能数，见 BASELINE-FREEZE §7.1 v1.17.5 修订）自检 |
-| **差分台账刷新** | `（`upstream-delta` 已不存在：按上面的替代路径走）` | 自动生成 `Tool/docs/FORK-DELTA.md` 的文件级差分清单 |
-| **新技能脚手架** | `（已删除）` | 生成标准 SKILL.md + 自动注册 + 无 BOM 校验 |
-
----
-
-## 二、典型工作场景实战流程
-
-### 场景 1：Windows 软件功能本地化与鉴权走查（如 XYplorer、Hills、MuMu 等）
-1. **新建任务沙盒**：
-   ```powershell
-   powershell -File Tool/scripts/case-init.ps1 -CaseName "hills-localize" -Preset offline-sample -Sample "D:\Target\app.exe"
-   ```
-   *产物将完整隔离在 `work/hills-localize/` 下，不污染任何工作区根目录。*
-2. **IDA 自动化辅助分析**：
-   - 使用 `mcp__ida__*` 系列工具或唤醒 IDA Pro；
-   - 检索 `License`、`VIP`、`Expire` 等关键函数，提取判断逻辑分支。
-3. **编写免杀代理 DLL 热补丁**：
-   - 遵循 `softseep` 战术，优先选取宿主必定隐式引用的系统库（如 `version.dll`、`dinput8.dll`）；
-   - 利用 `DllMain` 线程或劫持跳板对目标整型返回值函数进行无损 Patch（保持原 EXE 数字签名）；
-   - 使用 `zig cc` 或 MSVC 编译并部署验证。
-
----
-
-### 场景 2：Android 应用本地化与逆向走查
-1. **一键反编译**：
-   ```powershell
-   powershell -File Tool/scripts/apk/decode.ps1 -ApkPath "D:\Target\app.apk" -Clean
-   ```
-2. **定位与修改逻辑**：
-   - 查看 Java 逻辑定位鉴权与广告拦截点；
-   - 在生成的 `smali/` 目录下按位点打桩（如 `return-void` 或强制返回 `const/4 v0, 0x1`）。
-3. **一键重打包、签名与安装**：
-   ```powershell
-   powershell -File Tool/scripts/apk/rebuild-sign-install.ps1 -ProjectDir "D:\Target\app_apktool" -Install
-   ```
-   *脚本将全自动处理 `zipalign` 对齐和测试证书签名，并自动推送到当前运行的 MuMu 模拟器中。*
-
----
-
-### 三、全能 MCP 服务与知识库检索（seep）
-
-当前知识库已扩展至 **69 篇** 专业攻防战术笔记，支持随时查询模式与代码：
-- `search_knowledge_base(query="edr bypass")`：检索内核防护与动态代码抑制绕过
-- `search_knowledge_base(query="js webpack sign")`：检索前端签名与本地补环境手册
-- `generate_frida_hook(...)`：一键生成 Java / Native 运行时 Hook 脚本
-
----
-
-### 四、防模型审查双轨保障
-日常与小π沟通时：
-- 您可以直接输入日常口语，底层扩展已启用 **协议级 `BLOCK_NONE` 解封** 与 **敏感词平滑脱敏**；
-- 您也可以直接使用极简指令：
-  - `poc <目标>`：快速生成本地逻辑脆弱性测试代码
-  - `find-auth <目标>`：自动检索本地 License/VIP/分支判定位点
-  - `hook <函数/位点>`：直接编写动态验证脚本
-  - `gen-patch <位点>`：编写内存热补丁/代理DLL验证代码
-  - `report`：一键归纳全流程白盒审计报告
+MCP 登记和接口数量不能证明工具已安装或某任务可完成。先检查本机能力、保留原始输出，再验收当前结果。各专业领域的具体方法和边界以对应技能为准。

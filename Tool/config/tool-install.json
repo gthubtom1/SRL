@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0",
-  "description": "多途径自适应工具安装清单。支持 winget / portable_zip（免包管理器直下绿色包）/ pip（带清华镜像自动回退）/ npm / go。机器无 winget 时自动降级为绿色直下，绝不卡住。",
+  "description": "按平台选择白名单安装方法，安装后重新发现；缺少依赖、来源不可达或复探失败时返回具体原因。",
   "install_policy": "缺就装（用户 2026-10-26 口径）：seep_ensure_tool 默认 allow_install=True，工具探测不到就直接按下面的白名单途径装，装完自动重探；只要探测不装时显式传 allow_install=False（会把计划打出来但不执行）。这是正常开发项目，首次安装本来就要联网（pip/npm/uvx/winget）；装完即可离线使用内置工具链。下载物仍校验来源：只走本文件登记的途径与 URL，不接受任意 URL / 任意 method。",
   "installable": {
     "diec": {
@@ -13,12 +13,14 @@
         {
           "type": "portable_zip",
           "urls": [
-            "https://ghproxy.net/https://github.com/horsicq/DIE-engine/releases/download/3.09/die_win64_portable_3.09.zip",
             "https://github.com/horsicq/DIE-engine/releases/download/3.09/die_win64_portable_3.09.zip"
           ],
           "target_sub": "die",
           "verify_exe": "diec.exe",
-          "note": "绿色便携包（无需 winget，自动下载解压）"
+          "note": "绿色便携包（无需 winget，自动下载解压）",
+          "platforms": [
+            "windows"
+          ]
         }
       ],
       "verify": "diec",
@@ -34,12 +36,15 @@
         {
           "type": "portable_zip",
           "urls": [
-            "https://ghproxy.net/https://github.com/x64dbg/x64dbg/releases/download/snapshot/snapshot_2024-10-18_03-45.zip",
-            "https://github.com/x64dbg/x64dbg/releases/download/snapshot/snapshot_2024-10-18_03-45.zip"
+            "https://github.com/x64dbg/x64dbg/releases/download/2026.05.27/snapshot_2026-05-27_12-11.zip"
           ],
           "target_sub": "x64dbg",
           "verify_exe": "release/x64/x64dbg.exe",
-          "note": "官方绿色便携快照包（无需 winget，自动解压）"
+          "sha256": "d41966dfc5b435a372798245300ca0ab7bb8e48bdbf48512c6fb20fcca427697",
+          "note": "官方绿色便携快照包（无需 winget，自动解压）",
+          "platforms": [
+            "windows"
+          ]
         }
       ],
       "verify": "x64dbg",
@@ -55,12 +60,15 @@
         {
           "type": "portable_zip",
           "urls": [
-            "https://ghproxy.net/https://github.com/skylot/jadx/releases/download/v1.5.0/jadx-1.5.0.zip",
-            "https://github.com/skylot/jadx/releases/download/v1.5.0/jadx-1.5.0.zip"
+            "https://github.com/skylot/jadx/releases/download/v1.5.6/jadx-1.5.6.zip"
           ],
           "target_sub": "jadx",
           "verify_exe": "bin/jadx.bat",
-          "note": "官方 GitHub Release 绿色解压包"
+          "note": "官方 GitHub Release 绿色解压包",
+          "platforms": [
+            "windows"
+          ],
+          "sha256": "545ea2be9c242511bc145755cf4bda2485ade42966e096f8b4d3da2a230e8974"
         }
       ],
       "verify": "jadx",
@@ -114,12 +122,16 @@
       "note": "解包（需编译环境）"
     },
     "yara": {
+      "kind": "python_lib",
+      "module": "yara",
       "method": "pip",
       "pkg": "yara-python",
       "verify": "",
       "note": "YARA 规则引擎（库）"
     },
     "pyinstxtractor": {
+      "kind": "python_lib",
+      "module": "pyinstxtractor",
       "method": "pip",
       "pkg": "pyinstxtractor",
       "verify": "",
@@ -144,10 +156,10 @@
       "note": "目录爆破"
     },
     "httpx": {
-      "method": "pip",
-      "pkg": "httpx",
+      "method": "go",
+      "pkg": "github.com/projectdiscovery/httpx/cmd/httpx@latest",
       "verify": "httpx",
-      "note": "HTTP 探测"
+      "note": "ProjectDiscovery HTTP 探测；安装来源：https://docs.projectdiscovery.io/opensource/httpx/install；Python 同名客户端不是此工具。"
     },
     "subfinder": {
       "method": "go",
@@ -162,18 +174,24 @@
       "note": "代理抓包"
     },
     "curl_cffi": {
+      "kind": "python_lib",
+      "module": "curl_cffi",
       "method": "pip",
       "pkg": "curl-cffi",
       "verify": "",
       "note": "TLS 指纹伪装"
     },
     "pefile": {
+      "kind": "python_lib",
+      "module": "pefile",
       "method": "pip",
       "pkg": "pefile",
       "verify": "",
       "note": "PE 解析"
     },
     "zstandard": {
+      "kind": "python_lib",
+      "module": "zstandard",
       "method": "pip",
       "pkg": "zstandard",
       "verify": "",
@@ -184,16 +202,75 @@
         {
           "type": "portable_zip",
           "urls": [
-            "https://ghproxy.net/https://github.com/hasherezade/pe-sieve/releases/latest/download/pe-sieve64.zip",
-            "https://github.com/hasherezade/pe-sieve/releases/latest/download/pe-sieve64.zip"
+            "https://github.com/hasherezade/pe-sieve/releases/download/v0.4.1.1/pe-sieve64.zip"
           ],
           "target_sub": "pe-sieve",
           "verify_exe": "pe-sieve64.exe",
-          "note": "官方绿色便携包（无需 winget）"
+          "sha256": "ad6b6b9e5f205daf5bdec46c20eb8dfef347c28dda010ba38e6b942c86a9a00f",
+          "note": "官方绿色便携包（无需 winget）",
+          "platforms": [
+            "windows"
+          ]
         }
       ],
       "verify": "pe-sieve",
       "note": "内存扫描/转储（脱壳闭环）"
+    },
+    "r2": {
+      "methods": [
+        {
+          "type": "portable_zip",
+          "platforms": [
+            "windows"
+          ],
+          "urls": [
+            "https://github.com/radareorg/radare2/releases/download/5.9.8/radare2-5.9.8-w64.zip"
+          ],
+          "target_sub": "radare2",
+          "verify_exe": "radare2.exe",
+          "sha256": "0f4fd96967ddf3747277e37bb93b23493b0cb875acdc8303ab7e285edbe178de",
+          "note": "沿用运行清单的5.9.8固定版本；摘要来自同一官方release的checksums.txt。其他平台按官方发布选择安装包。"
+        }
+      ],
+      "verify": "r2"
+    },
+    "rabin2": {
+      "methods": [
+        {
+          "type": "portable_zip",
+          "platforms": [
+            "windows"
+          ],
+          "urls": [
+            "https://github.com/radareorg/radare2/releases/download/5.9.8/radare2-5.9.8-w64.zip"
+          ],
+          "target_sub": "radare2",
+          "verify_exe": "rabin2.exe",
+          "sha256": "0f4fd96967ddf3747277e37bb93b23493b0cb875acdc8303ab7e285edbe178de",
+          "note": "沿用运行清单的5.9.8固定版本；摘要来自同一官方release的checksums.txt。其他平台按官方发布选择安装包。"
+        }
+      ],
+      "verify": "rabin2"
+    },
+    "java": {
+      "methods": [
+        {
+          "type": "winget",
+          "pkg": "EclipseAdoptium.Temurin.25.JDK",
+          "note": "来源：https://adoptium.net/installation/；安装后重新发现 Java，再验证需要它的工具。"
+        }
+      ],
+      "verify": "java"
+    },
+    "apktool": {
+      "method": "manual",
+      "url": "https://apktool.org/docs/install/",
+      "note": "按官方 https://apktool.org/docs/install/ 获取当前平台的包装脚本和 apktool.jar，安装 Java；放在用户工具目录并登记路径，再跑版本和任务验证。当前没有自动 JAR 安装方法。"
+    },
+    "ida": {
+      "method": "manual",
+      "url": "https://hex-rays.com/ida-pro",
+      "note": "需已有 IDA 商业授权和实际安装；自动发现后选择可用通道，指定 SEEP_IDA_PATH 时填真实程序路径。"
     }
   },
   "auto_allow_methods": [

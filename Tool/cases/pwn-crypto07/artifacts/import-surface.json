@@ -1,0 +1,163 @@
+{
+  "target": "target/dostackbufferoverflowgood.exe",
+  "size": 13312,
+  "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "import_total": 65,
+  "dll_count": 8,
+  "per_dll": {
+    "KERNEL32.dll": {
+      "total": 13,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "GetCurrentProcess",
+        "GetCurrentProcessId",
+        "GetCurrentThreadId",
+        "GetModuleHandleW",
+        "GetStartupInfoW",
+        "GetSystemTimeAsFileTime",
+        "InitializeSListHead",
+        "IsDebuggerPresent",
+        "IsProcessorFeaturePresent",
+        "QueryPerformanceCounter",
+        "SetUnhandledExceptionFilter",
+        "TerminateProcess",
+        "UnhandledExceptionFilter"
+      ]
+    },
+    "VCRUNTIME140.dll": {
+      "total": 7,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "__std_type_info_destroy_list",
+        "__telemetry_main_invoke_trigger",
+        "__telemetry_main_return_trigger",
+        "_except_handler4_common",
+        "memchr",
+        "memmove",
+        "memset"
+      ]
+    },
+    "WS2_32.dll": {
+      "total": 12,
+      "by_ordinal": 10,
+      "ordinals": [
+        "#ord_116",
+        "#ord_1",
+        "#ord_3",
+        "#ord_13",
+        "#ord_115",
+        "#ord_19",
+        "#ord_23",
+        "#ord_16",
+        "#ord_2",
+        "#ord_111"
+      ],
+      "named": [
+        "freeaddrinfo",
+        "getaddrinfo"
+      ]
+    },
+    "api-ms-win-crt-heap-l1-1-0.dll": {
+      "total": 1,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "_set_new_mode"
+      ]
+    },
+    "api-ms-win-crt-locale-l1-1-0.dll": {
+      "total": 1,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "_configthreadlocale"
+      ]
+    },
+    "api-ms-win-crt-math-l1-1-0.dll": {
+      "total": 1,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "__setusermatherr"
+      ]
+    },
+    "api-ms-win-crt-runtime-l1-1-0.dll": {
+      "total": 25,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "__p___argc",
+        "__p___argv",
+        "_beginthread",
+        "_c_exit",
+        "_cexit",
+        "_configure_narrow_argv",
+        "_controlfp_s",
+        "_crt_at_quick_exit",
+        "_crt_atexit",
+        "_errno",
+        "_execute_onexit_table",
+        "_exit",
+        "_get_initial_narrow_environment",
+        "_initialize_narrow_environment",
+        "_initialize_onexit_table",
+        "_initterm",
+        "_initterm_e",
+        "_invalid_parameter_noinfo",
+        "_register_onexit_function",
+        "_register_thread_local_exe_atexit_callback",
+        "_seh_filter_dll",
+        "_seh_filter_exe",
+        "_set_app_type",
+        "exit",
+        "terminate"
+      ]
+    },
+    "api-ms-win-crt-stdio-l1-1-0.dll": {
+      "total": 5,
+      "by_ordinal": 0,
+      "ordinals": [],
+      "named": [
+        "__acrt_iob_func",
+        "__p__commode",
+        "__stdio_common_vfprintf",
+        "__stdio_common_vsprintf",
+        "_set_fmode"
+      ]
+    }
+  },
+  "ordinal_only_dlls": [
+    "WS2_32.dll"
+  ],
+  "ordinal_mapped_names_possible": false,
+  "ordinal_mapping_note": "按序号导入的符号在 PE 里没有名字；不查外部 .def/序号表就无法还原成 recv/send/closesocket，因此名字白名单必然漏掉它们。",
+  "api_set_dlls": [
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-locale-l1-1-0.dll",
+    "api-ms-win-crt-math-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll"
+  ],
+  "stdio_common_symbols": [
+    "__stdio_common_vfprintf",
+    "__stdio_common_vsprintf"
+  ],
+  "classic_whitelist_names_present": [],
+  "security_relevant_not_whitelisted": [
+    "GetModuleHandleW",
+    "IsDebuggerPresent",
+    "SetUnhandledExceptionFilter",
+    "TerminateProcess",
+    "UnhandledExceptionFilter",
+    "_beginthread"
+  ],
+  "parser_problems": [],
+  "limits": [
+    "这是导入面普查，不是漏洞证据：导入了什么不等于哪条路径可达。",
+    "序号导入无法还原名字（未使用外部序号表），所以 recv/send/closesocket 的存在只能按 DLL 推断，不能按名字断言。",
+    "零动态验证。"
+  ],
+  "case": "pwn-crypto07"
+}

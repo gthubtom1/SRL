@@ -275,7 +275,7 @@
 | 硬件断点寄存器检测 | `GetThreadContext` + `CONTEXT.Dr0..Dr7` | 高 | 改外部读/Intel PT；隐藏 DR；patch 检查 | TitanHide、WinDbg、`tool-acquire.py --sweep` | 性能分析器也读上下文；只查特定线程 |
 | 时序 RDTSC/QPC | `rdtsc`、`QueryPerformanceCounter`、阈值比较 | 中 | 固定时间步进；patch 阈值；避免单步 | ScyllaHide、Frida | VM/慢机抖动；正常性能统计 |
 | 异常/SEH/VEH 探测 | `SetUnhandledExceptionFilter`、`int3`、`int 0x2D` | 中高 | 让异常按预期传递；hook 注册 API | x64dbg 异常设置、ScyllaHide | C++/SEH 正常控制流；ODS 无调试器本就失败 |
-| `PAGE_GUARD` 保护 | `VirtualProtect(...,0x40)`、`STATUS_GUARD_PAGE_VIOLATION` | 高 | 外部 `ReadProcessMemory`；硬件断点；让异常跑完 | `dump-restore.py dump`、`probe_matrix external` | JIT/CRT 也用 guard；访问解密区才死 |
+| `PAGE_GUARD` 保护 | `VirtualProtect(..., base_protection | 0x100)`（PAGE_GUARD 修饰位；0x40 是 PAGE_EXECUTE_READWRITE）、`STATUS_GUARD_PAGE_VIOLATION` | 高 | 外部 `ReadProcessMemory`；硬件断点；让异常跑完 | `dump-restore.py dump`、当前目标外部观测对照 | JIT/CRT 也用 guard；访问解密区才死 |
 | MEM_MAPPED 双视图 | `NtMapViewOfSection`、同一 Section 两个 Base | 中高 | 找执行视图再 dump；patch 比对 | x64dbg、WinDbg `!vad`、Process Hacker | 正常资源映射也用；未必做逐字节比较 |
 | CRC/哈希自校验 | `CRC32/MD5/SHA*`、按节循环、CryptHashData | 高 | patch 校验返回值/期望值；不改被校验字节 | IDA/Ghidra、x64dbg、`dump-restore.py` | 更新器/安装包也校验；覆盖范围可能部分 |
 | int3 字节校验 | 扫描 `0xCC`、CRC 覆盖 `.text`、下断即死 | 高 | **禁用 int3**，用 DR0–DR3/外部读 | x64dbg 硬件断点、`dump-restore.py` | 编译器对齐填充也有 `0xCC` |
@@ -286,20 +286,22 @@
 | 用户名/机器名黑名单 | `GetUserNameW`、`COMPUTERNAME`、`sandbox/test/admin` | 中 | 改用户名/机器名；hook API；独立账户 | `tool-acquire.py --sweep`、Frida | 企业命名常含 `PC-/DESKTOP-`；admin 合法 |
 | 驱动/反作弊 Vanguard/ACE | `vgk.sys`、`ACE-BASE.sys`、`BEDaisy.sys`、内核回调 | 高 | 换无作弊环境；外部/协议层；内核对抗 | WinDbg、Autoruns、Process Hacker | 普通安全软件也有驱动；未必针对你 |
 | 进程黑名单 | `Process32Next` + `x64dbg/ida/wireshark/frida` | 高 | 改工具名；换工具；远程调试；内核隐藏 | `tool-acquire.py --sweep`、Process Hacker | 杀软/管理工具也枚举；可能只匹配窗口标题 |
-| 父进程检测 | 检查父 PID/父进程名不是 explorer；`NtQueryInformationProcess(ProcessBasicInformation)` | 中高 | 用 explorer 启动；`PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` 指定父进程 | `probe_matrix.py baseline`、Process Hacker | 服务/计划任务启动也非 explorer；需基线 |
+| 父进程检测 | 检查父 PID/父进程名不是 explorer；`NtQueryInformationProcess(ProcessBasicInformation)` | 中高 | 用 explorer 启动；`PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` 指定父进程 | 当前目标无仪器基线、Process Hacker | 服务/计划任务启动也非 explorer；需基线 |
 | 自调试反附加 | `CreateProcess(DEBUG_ONLY_THIS_PROCESS)`、`DebugActiveProcess` | 高 | 阻断调试关系；ScyllaHide/TitanHide | x64dbg、ScyllaHide | 崩溃保护也可能自调试 |
 | 窗口/标题枚举 | `EnumWindows`、`FindWindow`、`GetWindowText` + 调试器标题 | 中 | 改窗口标题；隐藏窗口；内核隐藏 | x64dbg、Process Hacker | 正常程序也枚举窗口 |
-| 网络静默失败 | 进程活着但 `connect/send` 未命中；基线有请求、仪器无请求 | 高 | 先定位被掐断的 API；延后注入；外部抓包 | `probe_matrix.py network`、`dump-restore.py` | 服务器/网络本身故障；需基线对照 |
+| 网络静默失败 | 进程活着但 `connect/send` 未命中；基线有请求、仪器无请求 | 高 | 先定位被掐断的 API；延后注入；外部抓包 | 当前目标网络对照、`dump-restore.py` | 服务器/网络本身故障；需基线对照 |
 
 **至少 15 行已满足；本表 24 行，覆盖五大类。**
 
 ---
 
+内核隐藏/驱动/整机配置变化不是默认路线；按现行系统副作用规则处理，先用进程内/外部观测替代。证据不足或必要观测不可得可明确 blocked，不无限重试。
+
 ## 七、脱壳/绕过的完成判据（不要自欺）
 
-### 7.1 金标准：ExitProcess / exit 断点
+### 7.1 退出路径观测：ExitProcess / exit 断点
 
-> **在 `ExitProcess` / `exit` 下断，未提前命中 = 没有漏检。**
+> **未命中退出断点不能证明没有漏检；须与无仪器基线、功能及网络对照。**
 
 操作顺序：
 
@@ -311,7 +313,7 @@
 2. 让目标**完整跑完启动路径**：TLS → 入口 → 解压/解密 → 首个窗口/首个网络请求/授权检查。
 3. 观察断点命中时机与调用栈：
    - **在预期的主逻辑/主窗口/首个请求之前命中** → 还有反调试/自校验没绕过；调用栈往下找检测函数，回到对应小节处置。
-   - **跑完全程都没有提前命中**，只在正常关闭时命中（或一直不命中）→ 才能说"这一轮没有漏检"。
+   - **跑完全程都没有提前命中**，只在正常关闭时命中（或一直不命中）→ 只能说本轮已观测出口未提前触发，不能排除未覆盖检测。
 4. 如果进程**直接消失且所有出口断点都没命中**：说明还有更底层的退出路径没覆盖（直接 syscall `NtTerminateProcess`、`int 0x2E`、栈破坏、内核杀进程）。补 `ntdll!NtTerminateProcess` / 内核回调 / WER 观测，不能算通过。
 
 ### 7.2 网络静默失败的判据
@@ -347,8 +349,8 @@ rabin2 -S target.exe | head -12        # 入口节是否被大节吞并（单节
 ```
 
 ```bash
-# 2) 仪器可用性（不注入、不写字节的外部观测是否真的可用）
-python Tool/scripts/tool-acquire.py --tool ida --target target.exe --quick --json
+# 2) 工具就绪/静态 PE 初检；不会执行当前目标的外部观测对照
+python Tool/scripts/tool-acquire.py --tool ida --json
 python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info target.exe
 ```
 
@@ -364,8 +366,7 @@ tshark -r instrumented.pcap -q -z conv,tcp | head -20
 
 ```text
 # 1) 无输出 = 没看到完整性校验的静态痕迹（不代表没有，需动态确认）
-# 2) 探针矩阵里至少一项 ok/partial：
-[{"probe":"external","status":"ok","note":"OpenProcess+RPM 成功"}]
+# 2) 工具探测仅返回工具状态；OpenProcess/RPM 与网络观测必须另对当前目标实测
 # 3) 两份 pcap 的会话行数差异：
 baseline      : 7 conversations
 instrumented  : 0 conversations   ← 静默失败：路径在更早的检测点被掐断

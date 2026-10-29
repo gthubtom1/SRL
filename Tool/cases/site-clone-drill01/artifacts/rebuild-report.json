@@ -7,99 +7,11 @@
    "file": "index.html",
    "absolute_urls_rewritten": 3,
    "third_party_tags_removed": 2
-  },
-  {
-   "route": "/404",
-   "file": "404\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/contact",
-   "file": "contact\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/find",
-   "file": "find\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/player/completed",
-   "file": "player\\completed\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/player/name",
-   "file": "player\\name\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/player/playing",
-   "file": "player\\playing\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/user/creating",
-   "file": "user\\creating\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/user/name",
-   "file": "user\\name\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/user/scoreboard",
-   "file": "user\\scoreboard\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/user/share",
-   "file": "user\\share\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
-  },
-  {
-   "route": "/user/scoreboard/answers",
-   "file": "user\\scoreboard\\answers\\index.html",
-   "absolute_urls_rewritten": 3,
-   "third_party_tags_removed": 2
   }
  ],
- "assets_copied": 166,
- "replay_mocks": 3,
+ "assets_copied": 165,
+ "replay_mocks": 1,
  "third_party_tags_removed": [
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
-  "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
-  "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX",
   "<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{\"token\": \"b9c060b0d359485688fe551c8bab1aa1\"}'></script>",
   "<script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcX"
  ],

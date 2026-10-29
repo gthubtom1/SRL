@@ -2,29 +2,17 @@
 
 > 范围：想照着跑一遍"分帧 → 字段 → 状态 → 构造"的完整链路。
 > 路由：TLS/mTLS 下的同类分析按 `07-crypto-and-checksum.md` 处理（本样本是回环明文）；
-> 插件装载链由 `plugin-targets`（R25）承担。
+> 插件装载链按 `Tool/playbooks/plugin-analysis.md` 分析；原生载荷按需组合 `softseep`。
 >
 > 目标：拿仓库自带的一份**真实回环抓包**（抓包元数据：dumpcap 4.1.0 / Linux 5.15 / Go-http-client）走一遍完整链路，
-> 证明判据可机检、脚本可复跑。
+> 展示离线分析；新请求的服务端接受尚未验证。
 > 样本：`Tool/samples/real/protocol-pcaps/websocket.pcapng`
 > （sha256 `ea9fcd3de02bf1824cdcff4bb61f842a6135fbc5d6b154cad00927ed3aa776d2`，18 帧 / 1940 字节）
 > 边界：回环流量、明文、无 TLS、无鉴权；结论只对该样本成立。
 
-## 0. 开跑前的三件（5 分钟）
+## 0. 样本与工具准备
 
-```bash
-# 1) 工具链自检：三个脚本都能离线跑（rc=0，输出含 ok）
-for s in pcap-summary proto-repro proto-accept; do
-  python Tool/skill/protocol-plugin/scripts/$s.py --self-test >/dev/null && echo "$s ok"; done
-# 2) 样本哈希与格式（跟本文的 sha256 对上才叫同一份样本）
-sha256sum Tool/samples/real/protocol-pcaps/websocket.pcapng
-file Tool/samples/real/protocol-pcaps/websocket.pcapng
-# 3) 确认抓包点确实能看到回环（回环不能用默认网卡）
-tshark -D | head -5
-```
-
-通过长什么样：三行 `ok` + sha256 等于 `ea9fcd3d…3aa776d2` + `pcapng`。
-对不上就说明样本被改过或拿错了文件，后面的数字全部不可比。
+先核对样本 SHA-256；离线分析不需要抓包接口或运行会产生文件的自测。需要 tshark 时先运行 `python Tool/scripts/tool-acquire.py --tool tshark --json`，按返回入口获取后确认当前环境 PATH 可调用。以下 bash 示例需在 PowerShell 中转换。
 
 ## 1. 目标与先验
 
@@ -40,7 +28,7 @@ tshark -D | head -5
 ```bash
 python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
   --file Tool/samples/real/protocol-pcaps/websocket.pcapng --json \
-  --extract artifacts/streams --tshark-check
+  --extract artifacts/streams
 ```
 
 关键输出（截取）：
@@ -56,10 +44,11 @@ python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
      "snippets": ["GET /ws HTTP/1.1", "Host: localhost:8080",
                   "Sec-WebSocket-Key: gMZehv+rgbF79AzLgIG9Hw==", "Upgrade: websocket"]}
   ],
-  "extract": {"files": ["s00_127.0.0.1_44380-127.0.0.1_8080.bin",
-                        "s01_127.0.0.1_8080-127.0.0.1_44380.bin", "frames.jsonl"]}
+  "extract": {"files": [{"path": "<方向载荷文件>", "bytes": 403}]}
 }
 ```
+
+`--extract` 是按方向性五元组和抓包顺序拼包载荷，并非 TCP 重组；分帧前须按连接、方向、TCP sequence 处理乱序、重传、重叠、缺口并核对，不能验证时保留限制。`frames.jsonl` 是包级记录。
 
 结论：**2 个方向性会话**（不是 1 个"连接"）；C2S 403 B / S2C 333 B；
 `linktype=1`（Ethernet）+ 时间戳 1694247103（2023-09-09）说明 pcapng 的 `if_tsresol`
@@ -159,7 +148,7 @@ OPEN --close(0x8)--> CLOSED
 
 配对规则：服务端 `response.data` 与客户端 `request.data` **完全相等**（4/4 对），
 说明这是回显型业务，`data` 是唯一业务字段，`type` 是方向标记。
-没观测到的边（如 error 帧、ping/pong、分片消息）在本样本中**不存在**，标 `INFERRED` 而不是画成实线。
+没观测到的边（如 error 帧、ping/pong、分片消息）只能说本样本未观察到，推测边标 `INFERRED`；上述 close 边也需另核实。
 
 ## 6. 第五步：构造一条**新**请求
 
@@ -176,6 +165,8 @@ mask = bytes.fromhex("11223344")
 masked = bytes(payload[i] ^ mask[i % 4] for i in range(len(payload)))
 frame = bytes([0x81, 0x80 | len(payload)]) + mask + masked
 print("frame_len", len(frame), "frame_hex", frame.hex())
+from pathlib import Path
+Path("artifacts/new-frame.hex").write_text(frame.hex(), encoding="ascii")
 PY
 ```
 
@@ -183,117 +174,29 @@ PY
 payload_len 48
 payload_hex 7b2274797065223a2272657175657374222c2264617461223a2234323432343234323432343234323432343234227d0a
 frame_len 54
-frame_hex 8180112233445d6a...
+frame_hex 81b011223344...
 ```
 
 预测：服务端应回 `{"type":"response","data":"4242424242424242424"}\n`（49 B，帧长 51）。
-验证方式：把上一步的 `frame_hex` 写入本地自建 ws 回显服务（`python -m websockets` 或
-`aiohttp` 的 20 行 handler），只连 `127.0.0.1`，比对响应字节。
-**没有本地服务就不写"已确认"**——预测本身不是证据。
+验证方式：在授权条件下向实际服务发帧，解析完整响应后比较预测；预测本身不是证据，自建回显服务只能证明模拟器的行为。
 
-## 6.1 本地回显服务：把“预测”变成“实测”
+## 6.1 离线帧检查与真实响应
 
-依赖标准库，不装 websockets；只监听 `127.0.0.1`，跑完即退（不接受外部连接）。
+§6 仅生成 `artifacts/new-frame.hex`；目录须事先存在。以下离线校验本例单帧、短载荷的客户端掩码，并不连接或模拟服务端：
 
 ```python
-# artifacts/ws_echo.py
-import base64, hashlib, json, socket, struct, threading
-GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-
-def handshake(c):
-    req = b""
-    while b"\r\n\r\n" not in req:
-        chunk = c.recv(1024)
-        if not chunk:
-            return False
-        req += chunk
-    key = [l.split(b":", 1)[1].strip() for l in req.split(b"\r\n")
-           if l.lower().startswith(b"sec-websocket-key")]
-    if not key:
-        return False
-    acc = base64.b64encode(hashlib.sha1(key[0] + GUID).digest())
-    c.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
-              b"Connection: Upgrade\r\nSec-WebSocket-Accept: " + acc + b"\r\n\r\n")
-    return True
-
-def read_frame(c):
-    h = c.recv(2)
-    if len(h) < 2:
-        return None
-    op, ln, masked = h[0] & 0x0F, h[1] & 0x7F, bool(h[1] & 0x80)
-    if ln == 126:
-        ln = struct.unpack(">H", c.recv(2))[0]
-    mask = c.recv(4) if masked else b""
-    body = b""
-    while len(body) < ln:
-        body += c.recv(ln - len(body))
-    if masked:
-        body = bytes(b ^ mask[i % 4] for i, b in enumerate(body))
-    return op, body
-
-def send_text(c, payload):
-    c.sendall(bytes([0x81, len(payload)]) + payload)
-
-def serve(port=44380):
-    srv = socket.socket(); srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(("127.0.0.1", port)); srv.listen(1)
-    c, _ = srv.accept()
-    if handshake(c):
-        while True:
-            got = read_frame(c)
-            if got is None:
-                break
-            op, body = got
-            if op == 0x8:
-                break
-            msg = json.loads(body)
-            if msg.get("type") == "request":
-                out = json.dumps({"type": "response", "data": msg["data"]},
-                                 separators=(",", ":")).encode() + b"\n"
-                send_text(c, out)
-                print("served", len(out))
-    c.close(); srv.close()
-
-if __name__ == "__main__":
-    serve()
+from pathlib import Path
+import json
+frame = bytes.fromhex(Path("artifacts/new-frame.hex").read_text(encoding="ascii"))
+assert frame[0] == 0x81 and frame[1] & 0x80
+n = frame[1] & 0x7f
+assert n < 126 and len(frame) == 6 + n
+mask, body = frame[2:6], frame[6:]
+payload = bytes(b ^ mask[i % 4] for i, b in enumerate(body))
+print("payload", json.loads(payload))
 ```
 
-客户端侧：把 §6 构造的 `frame_hex` 发过去，并逐字节比对响应：
-
-```bash
-python artifacts/ws_echo.py &          # 监听 127.0.0.1:44380
-python - <<'PY'
-import json, socket
-expected = json.dumps({"type": "response", "data": "4242424242424242424"},
-                      separators=(",", ":")).encode() + b"\n"
-frame = bytes.fromhex(open("artifacts/new-frame.hex").read().strip())
-s = socket.create_connection(("127.0.0.1", 44380), timeout=3)
-s.sendall(b"GET /ws HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\n"
-          b"Connection: Upgrade\r\nSec-WebSocket-Key: gMZehv+rgbF79AzLgIG9Hw==\r\n"
-          b"Sec-WebSocket-Version: 13\r\n\r\n")
-hs = s.recv(1024)
-s.sendall(frame)
-got = b""
-while len(got) < len(expected):
-    got += s.recv(4096)
-print("accept_ok", b"101" in hs.split(b"\r\n")[0])
-print("predicted", expected)
-print("actual   ", got)
-print("match", got[:len(expected)] == expected)
-PY
-```
-
-通过长什么样：
-
-```text
-accept_ok True
-predicted b'{"type":"response","data":"4242424242424242424"}\n'
-actual    b'{"type":"response","data":"4242424242424242424"}\n'
-match True
-```
-
-这一步把 §7 表格里的“疑似（未连服务）”抬成“确认（本地实测）”。注意边界：
-它只证明**帧构造 + 回显语义**被接受，不证明真实服务端会接受同一个 `data`。
+需要验证服务端时，使用授权目标及完整握手/帧实现，读取完整响应帧、解析帧头后再将载荷与预测比较；记录实际响应、时间和命令。本案例未记录此类验证，不能将离线构造、自建模拟器或猜测当成原服务端接受。
 
 ## 6.2 分片与控制帧：换三种发送方式看服务端怎么反应
 
@@ -327,11 +230,11 @@ PY
 
 | 结论 | 档位 | 证据 |
 |---|---|---|
-| WebSocket 帧头 2 B，客户端必须掩码，服务端不掩码 | 确认 | 8 帧 `tcp.payload` + RFC 6455 |
-| 消息 = 单帧 text，`len < 126`，无扩展/压缩 | 确认 | 8 帧第二字节均 < 0x7e，无 `Sec-WebSocket-Extensions` |
+| 这些样本帧使用短长度头，客户端掩码、服务端未掩码 | 样本观察 | 8 帧抓包；是否拒绝违规帧未实验 |
+| 观察到的消息为单帧 text，`len < 126`，无扩展/压缩 | 样本观察 | 8 帧第二字节的低 7 位均 < 126，无 `Sec-WebSocket-Extensions` |
 | 业务字段 `type`（request/response）+ `data`（回显字符串） | 确认 | 4 组请求-响应 `data` 完全相等 |
-| 新 `data` 会被接受 | 确认（本地）／疑似（真实服务端） | §6.1 本地回显服务 `match True`；真实目标未验 |
-| 心跳/ping/pong/分片/close 行为 | 未定（本地仅 §6.2 少量实验） | 样本中没有；§6.2 只证明构造方式 |
+| 新 `data` 会被接受 | 未验证 | 只有离线构造和预测，未记录服务端响应 |
+| 心跳/ping/pong/分片/close 行为 | 未定 | §6.2 给出实验设计，未记录服务端实验 |
 
 边界：本样本是回环明文，不含鉴权、TLS、压缩；真实目标若有 `permessage-deflate`
 必须先 inflate 再 parse，若有 mTLS 则抓包只能看到密文。
@@ -343,8 +246,8 @@ PY
 
 ## 这一篇算"用对了"吗
 
-- [ ] 先跑 §0 三件（自检 + sha256 + 抓包点），样本对不上就没有继续。
+- [ ] 核对样本哈希；按需发现工具并确认运行环境可调用。
 - [ ] 分帧在**方向性字节流**上做，8 帧 `frame_len = 2 + (mask?4:0) + len` 全部成立。
 - [ ] 请求-响应按 `data` 配对 4/4，且把"没观测到"的边标成 `INFERRED`。
-- [ ] 新请求用 §6.1 的本地服务实测过，`match True`，不是"预测完就宣布成功"。
+- [ ] 区分离线构造、实际服务响应与尚未验证的预测。
 - [ ] 报告写清了边界：回环/明文/无鉴权，结论不推广到生产目标。

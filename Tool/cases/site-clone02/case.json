@@ -7,7 +7,7 @@
   "protection": [],
   "authority": "public read-only",
   "goal_level": "L2",
-  "outcome": "success",
+  "outcome": "partial",
   "artifacts": [
     {
       "path": "input/scope.txt",
@@ -71,10 +71,10 @@
     "Tool/config/site-clone-matrix.json",
     "Tool/skill/_pending/site-clone/references/05-static-mirror-limits.md"
   ],
-  "updated": "2026-10-22",
+  "updated": "2026-10-29",
   "repro": {
-    "status": "recorded",
-    "evidence": "见 lessons 首三条的命令与 rc"
+    "status": "not-recorded",
+    "reason": "案例保留历史站点产物，但没有可重放的原始 command/argv、退出码与 stdout/stderr 记录；不据 lessons 摘要认证执行，也不重建站点。"
   },
   "backend_required": []
 }

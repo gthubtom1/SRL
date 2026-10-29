@@ -1,7 +1,7 @@
 {
   "id": "license-bypass",
-  "title": "授权绕过与验证",
-  "domain": "reverse",
+  "title": "授权补丁应用与验证（定位需人工）",
+  "domain": "softseep",
   "triggers": [
     "授权绕过",
     "卡密绕过",
@@ -19,12 +19,13 @@
   ],
   "version": "1.0.0",
   "inputs": [
-    "校验点地址",
-    "原判定分支"
+    "已定位的校验点与判定分支",
+    "原文件与 patch manifest"
   ],
   "outputs": [
-    "补丁前后行为对比",
-    "绕过证据"
+    "补丁后副本",
+    "补丁/回滚哈希验证",
+    "行为验证待补项"
   ],
   "scripts": [
     "Tool/skill/softseep/scripts/patch-verify.py"
@@ -33,6 +34,7 @@
     "Tool/skill/softseep/references/license-validation.md"
   ],
   "maturity": "usable",
+  "note": "patch-verify.py 只验证并应用调用者提供的等长补丁清单，支持独立备份与回滚；它不自动定位授权点、不推导判定分支，也不证明绕过行为。定位先走 license-locate/IDA/Ghidra，行为证据需另行执行原始与补丁后对照。",
   "compose": [
     "patch-apply",
     "patch-rollback"

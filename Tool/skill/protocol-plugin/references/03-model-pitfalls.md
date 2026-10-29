@@ -1,7 +1,7 @@
 # 03 模型常见失误 — 协议复刻里最贵的 20 个错
 
 > 范围：任何"看抓包 → 写字段表 → 重放/构造"的任务。
-> 路由：插件装载链、扩展权限面由 `plugin-targets`（R25）承担；纯算法还原由 `ida-reverse` 承担。
+> 路由：插件装载链、扩展权限面按 `Tool/playbooks/plugin-analysis.md` 分析；纯算法还原组合 `softseep` / `unpack-loop`。
 > 每条格式固定：**错误动作 → 为什么错 → 正确动作**。判据见 `01-criteria.md`，停手条件见
 > `02-failure-criteria.md`。§1–§5 是主表 12 条（按主题分组），§6 是 13–20 条补充。
 
@@ -12,8 +12,7 @@
 - 错误动作：看到 `frame 8` 有 54 字节就把这 54 字节当一条完整消息解码。
 - 为什么错：TCP 是字节流，消息边界由应用层决定；一个消息可能跨 3 个包，一个包也可能含 2 条消息。
   按包切会把 JSON 截成两半，然后得出"协议用自定义二进制"的错误结论。
-- 正确动作：先按方向聚合字节流（`pcap-summary.py --extract` 或 tshark follow），再在流上分帧；
-  用 `stats.consumed == len(stream) - trailing` 验证没有漏字节。
+- 正确动作：先按 TCP 连接、方向和序号重组，处理乱序、重传、重叠和缺口，再分帧；`--extract` 只是按包序拼载荷。无法验证重组时记录限制。对照原字节检查 `skipped_bytes`、尾部和帧对应关系，字节数守恒本身不能证明分帧正确。
 
 ### 1.2 用五元组合并会话
 
@@ -36,8 +35,7 @@
 
 - 错误动作：`data.startswith(b"SPRX")` 就直接切片。
 - 为什么错：payload 是 JSON 时可能包含 `"SPRX"` 字样；一旦错位，后续所有帧全错，但前几帧看着正常。
-- 正确动作：解析器必须实现滑动重同步并统计 `skipped_bytes`；自检里注入垃圾字节 + 假 magic，
-  验证仍能回到正确帧序列（`proto-repro.py --self-test` 的"垃圾字节后能重同步"）。
+- 正确动作：解析器需统计 `skipped_bytes` 并用垃圾字节、假 magic 和截断分别验证恢复。`proto-repro.py --self-test` 只覆盖垃圾字节，不能证明假 magic 恢复正确。
 
 ### 2.3 把 protobuf 字段号当业务 id
 
@@ -173,8 +171,7 @@
 
 - 错误动作：直接复制 follow 窗口里的文本当输入喂解析器。
 - 为什么错：follow 输出会按可打印性做转义、把两个方向拼在一起、丢掉时间与帧边界。
-- 正确动作：用 `pcap-summary.py --extract` 导出 `s*.bin`（单方向、无转义），
-  或用 `tshark -T fields -e tcp.payload` 拼 hex；比字节长度对得上才算。
+- 正确动作：`--extract` 或 `tcp.payload` 可提供包级载荷，但均不能直接拼作可靠流；按连接、方向、序号重组并记录重叠和缺口，再核对原始证据，长度一致不足以证明重组正确。
 
 ### 6.8 用字符串搜索定字段语义
 
@@ -187,17 +184,19 @@
 
 | 失误 | 代理信号 | 机检方式 |
 |---|---|---|
-| 样本不足就下结论 | `frames.jsonl` 少于 3 行但 claims 里有 `confirmed` | 行数 + 档位联查 |
+| 样本不足就下结论 | 应用帧不足 3 条但 claims 里有 `confirmed` | 核实后的应用帧表 + 档位联查；包级 `frames.jsonl` 行数不能替代 |
 | 确认无证据 | `level=confirmed` 且 `evidence` 为空 | claims.json 遍历 |
 | 把可变项当固定项 | `var_fields` 为空，但响应 sha256 每次都不同 | 3 次响应哈希 |
 | 按包切消息 | `frames.jsonl` 里有 `payload_len` 等于 `tcp.len` 的整段 | 与 `pcap-summary` 对照 |
 | 字段语义靠猜 | 字段表里 `source` 全部是 `guess` | schema 里 `source` 计数 |
 
+下例的 `application-frames.jsonl` 须由已核实的应用帧解析另行生成；本域 `frames.jsonl` 是包级记录。
+
 ```bash
 python - <<'PY'
 import json, pathlib
 card = json.loads(pathlib.Path("artifacts/claims.json").read_text(encoding="utf-8"))
-rows = [json.loads(l) for l in pathlib.Path("artifacts/frames.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+rows = [json.loads(l) for l in pathlib.Path("artifacts/application-frames.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
 warn = []
 if len(rows) < 3:
     warn.append("P1 样本<3帧但有结论")

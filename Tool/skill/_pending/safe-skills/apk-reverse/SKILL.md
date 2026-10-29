@@ -17,7 +17,7 @@ description: 在 CLI 环境下做 Android APK 逆向时使用。适用于 APK �
 - 用 Frida 做 Java/native 动态 Hook
 - APK 内含 `.so` 时切到 native 分析
 
-## 当前机器已验证可用的 CLI 工具
+## 工具候选（版本为旧环境记录，当前逐项探测）
 
 - `jadx` `1.5.5`
 - `apktool` `3.0.2`
@@ -27,7 +27,7 @@ description: 在 CLI 环境下做 Android APK 逆向时使用。适用于 APK �
 
 ## 优先使用脚本的场景
 
-以下流程高频且参数容易出错，优先用 skill 自带脚本：
+本技能是 apkseep 的 CLI 补充，不覆盖主域判据；项目只做当前目标需要的阶段。优先 `Tool/scripts/apk/` 当前适配脚本，下面自带脚本需先核参数与输出路径：
 
 - 一次性完成 `jadx + apktool` 落盘并产出摘要：`scripts/decode.ps1`
 - Frida 设备检查、进程列举、spawn/attach 注入：`scripts/frida-run.ps1`
@@ -49,15 +49,15 @@ description: 在 CLI 环境下做 Android APK 逆向时使用。适用于 APK �
 用途：
 
 - 统一跑 `jadx` 和 `apktool`
-- 默认在原 APK 同目录创建任务输出目录
+- 这些旧脚本默认可能写原 APK 同目录；先复制到本项目工作目录再调用，不使用 Clean 清理用户目录
 - 输出 `package`、`java_files`、`smali_dirs`、`so_files` 等摘要
 - 兼容 `jadx` 部分反编译错误但仍然有可用产物的情况
 
 示例：
 
 ```powershell
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\decode.ps1" -ApkPath "D:\DOWNLOAD\app.apk" -Clean
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\decode.ps1" -ApkPath "D:\DOWNLOAD\app.apk" -Name demo -SkipJadx
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\decode.ps1" -ApkPath "D:\DOWNLOAD\app.apk"
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\decode.ps1" -ApkPath "D:\DOWNLOAD\app.apk" -Name demo -SkipJadx
 ```
 
 ### `scripts/frida-run.ps1`
@@ -70,9 +70,9 @@ pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\decode.ps1" -ApkPath "
 示例：
 
 ```powershell
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\frida-run.ps1" -ListDevices
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\frida-run.ps1" -Usb -ListProcesses
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\frida-run.ps1" -Usb -Spawn -Package com.example.app -ScriptPath "D:\hooks\test.js"
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\frida-run.ps1" -ListDevices
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\frida-run.ps1" -Usb -ListProcesses
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\frida-run.ps1" -Usb -Spawn -Package com.example.app -ScriptPath "D:\hooks\test.js"
 ```
 
 ### `scripts/rebuild-sign-install.ps1`
@@ -87,8 +87,8 @@ pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\frida-run.ps1" -Usb -S
 示例：
 
 ```powershell
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\rebuild-sign-install.ps1" -ProjectDir "C:\work\apktool_out" -Clean
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\rebuild-sign-install.ps1" -ProjectDir "C:\work\apktool_out" -Install -Reinstall -DeviceSerial "127.0.0.1:7555"
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\rebuild-sign-install.ps1" -ProjectDir "C:\work\apktool_out"
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\rebuild-sign-install.ps1" -ProjectDir "C:\work\apktool_out" -Install -Reinstall -DeviceSerial "127.0.0.1:7555"
 ```
 
 说明：
@@ -108,7 +108,7 @@ pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\rebuild-sign-install.p
 示例：
 
 ```powershell
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\manifest-summary.ps1" -ManifestPath "C:\work\apktool_out\AndroidManifest.xml"
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\manifest-summary.ps1" -ManifestPath "C:\work\apktool_out\AndroidManifest.xml"
 ```
 
 如果要分析 `.so`、`lib/arm64-v8a/*.so`、`lib/armeabi-v7a/*.so`，再结合：
@@ -234,7 +234,7 @@ adb pull /data/local/tmp/file .
 - 看 `res/values/strings.xml`
 - 看 `AndroidManifest.xml`
 
-优先 patch：
+仅目标明确要求且已证明对应层后，评估最小修改；下列是分析点，不是默认 patch 清单：
 
 - `android:exported`
 - 调试标记
@@ -253,12 +253,12 @@ apktool b apktool_out -o rebuilt.apk
 或者直接用脚本闭环：
 
 ```powershell
-pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\rebuild-sign-install.ps1" -ProjectDir "apktool_out" -Install -Reinstall -DeviceSerial "127.0.0.1:7555"
+pwsh -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/apk-reverse\scripts\rebuild-sign-install.ps1" -ProjectDir "apktool_out" -Install -Reinstall -DeviceSerial "127.0.0.1:7555"
 ```
 
 说明：
 
-- 本 skill 只保证 `apktool` 重建链路
+- 本 skill 描述 `apktool` 重建方法，不保证任何 APK 均能重建/运行
 - 若后续需要正式安装到设备，通常还需要签名流程
 - 如果任务进入签名/对齐，补充 `apksigner` / `zipalign`
 
@@ -275,7 +275,7 @@ pwsh -File "<WORKSPACE>\\Tool\\skills\apk-reverse\scripts\rebuild-sign-install.p
 原则：
 
 - 先 Hook Java 层，再看是否需要 native Hook
-- 先打印参数与返回值，再决定是否主动修改返回值
+- 仅对合成测试输入/安全字段观测参数与返回值；不输出真实口令、Token、密钥或会话；主动修改需本次目标依据
 
 建议：
 

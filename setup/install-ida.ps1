@@ -11,27 +11,50 @@
 param(
     [string]$IdaRoot = '',
     [switch]$SkipPip,
-    [switch]$Interactive
+    [switch]$Interactive,
+    [string]$AgentRoot = ''
 )
 
 $ErrorActionPreference = 'Continue'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
 $ToolDir   = Join-Path $Root 'Tool'
-$AgentDir  = Join-Path $env:USERPROFILE '.pi\agent'
-$McpJson   = Join-Path $AgentDir 'mcp.json'
 
 function Write-Ok($m)   { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Warn($m) { Write-Host "    [!!] $m" -ForegroundColor Yellow }
 function Write-Info($m) { Write-Host "    [..] $m" -ForegroundColor Gray }
+
+$resolveArgs = @((Join-Path $ToolDir 'scripts\runtime-root.py'), 'resolve')
+if ($AgentRoot -ne '') { $resolveArgs += @('--agent-root', $AgentRoot) }
+$resolveOutput = @(& python @resolveArgs 2>&1)
+if ($LASTEXITCODE -ne 0) { Write-Warn 'AgentRoot 无效或运行根目录解析器不可用'; exit 1 }
+try {
+    $resolved = (($resolveOutput -join "`n") | ConvertFrom-Json -ErrorAction Stop)
+    if (-not $resolved.ok -or [string]::IsNullOrWhiteSpace([string]$resolved.agent_root)) { throw 'missing AgentRoot' }
+    $AgentDir = [IO.Path]::GetFullPath([string]$resolved.agent_root)
+} catch { Write-Warn 'AgentRoot 解析失败，未修改配置'; exit 1 }
+$McpJson = Join-Path $AgentDir 'mcp.json'
+$jsonObj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
+if (Test-Path -LiteralPath $McpJson) {
+    try {
+        $jsonObj = [IO.File]::ReadAllText($McpJson, [Text.Encoding]::UTF8) | ConvertFrom-Json -ErrorAction Stop
+        if ($jsonObj -isnot [PSCustomObject]) { throw 'expected object' }
+        $serversProperty = $jsonObj.PSObject.Properties['mcpServers']
+        if ($serversProperty -and $serversProperty.Value -isnot [PSCustomObject]) { throw 'mcpServers must be an object' }
+    } catch { Write-Warn '现有 mcp.json 无效，原件保留，请修正后重试'; exit 1 }
+}
 
 Write-Host "`n  === IDA Pro 智能探测与配置 ===" -ForegroundColor Cyan
 
 # ---------------------------------------------------------------- 1. 探测
 $found = $null
 
-if ($IdaRoot -ne '' -and (Test-Path (Join-Path $IdaRoot 'ida.exe'))) {
-    $found = (Resolve-Path $IdaRoot).Path
+if ($IdaRoot -ne '') {
+    if (-not (Test-Path -LiteralPath (Join-Path $IdaRoot 'ida.exe') -PathType Leaf)) {
+        Write-Warn '指定的 IdaRoot 缺少 ida.exe，未修改配置'
+        exit 1
+    }
+    $found = (Resolve-Path -LiteralPath $IdaRoot).Path
 }
 
 if (-not $found) {
@@ -69,16 +92,16 @@ if (-not $found) {
     #   外加用户目录下的 Tools —— 换电脑、换盘符都能命中，且不存在的路径直接跳过。
     $scanRoots = @()
     foreach ($d in (Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue)) {
-        $root = $d.Root
-        if (-not $root) { continue }
+        $driveRoot = $d.Root
+        if (-not $driveRoot) { continue }
         foreach ($sub in @('Tools', 'Tools\disasm', 'Program Files')) {
-            $scanRoots += (Join-Path $root $sub)
+            $scanRoots += (Join-Path $driveRoot $sub)
         }
     }
     $scanRoots += (Join-Path $env:USERPROFILE 'Tools')
-    foreach ($root in $scanRoots) {
-        if (-not (Test-Path $root)) { continue }
-        $hits = Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue |
+    foreach ($scanRoot in $scanRoots) {
+        if (-not (Test-Path -LiteralPath $scanRoot)) { continue }
+        $hits = Get-ChildItem -LiteralPath $scanRoot -Directory -ErrorAction SilentlyContinue |
                 Where-Object { $_.Name -match 'IDA' }
         foreach ($h in $hits) {
             if (Test-Path (Join-Path $h.FullName 'ida.exe')) { $found = $h.FullName; break }
@@ -115,15 +138,15 @@ if (-not $found) {
 }
 
 # 若仍未找到且允许交互，则提示用户输入
-if (-not $found -and ($Interactive -or [Environment]::UserInteractive)) {
+if (-not $found -and $Interactive) {
     Write-Host "`n    [?] 未在默认路径检测到 IDA Pro。" -ForegroundColor Yellow
     $userInput = Read-Host "    请输入您的 IDA Pro 完整安装目录 (直接回车跳过)"
     if ($userInput -and $userInput.Trim() -ne '') {
         $uPath = $userInput.Trim().Trim('"').Trim("'")
         if (Test-Path (Join-Path $uPath 'ida.exe')) {
             $found = (Resolve-Path $uPath).Path
-        } elseif (Test-Path $uPath) {
-            $found = (Resolve-Path $uPath).Path
+        } else {
+            Write-Warn '该目录缺少 ida.exe，已跳过 IDA 绑定'
         }
     }
 }
@@ -133,7 +156,7 @@ if (-not $found) {
     Write-Host @'
 
     说明：IDA Pro 为商业软件，本工作台不随包分发。
-    · 若无需 IDA Pro，工作台已默认启用内置 Radare2 无头分析套件承接，核心链路 100% 可用。
+    · 若无需 IDA Pro，可在需要时检查 Radare2 等替代工具；具体任务能力需实际验证。
     · 若已安装但路径特殊，可随时运行以下命令绑定：
         powershell -ExecutionPolicy Bypass -File .\setup\install-ida.ps1 -IdaRoot "F:\你的\IDA路径"
 '@ -ForegroundColor Gray
@@ -177,6 +200,7 @@ if (-not $SkipPip -and $idaPy) {
         Write-Ok 'ida-pro-mcp 已就绪'
     } else {
         Write-Warn 'ida-pro-mcp 自动 pip 安装失败（可手动执行: & $idaPy -m pip install ida-pro-mcp）'
+        exit 1
     }
 }
 
@@ -213,29 +237,7 @@ if ($serverScript) {
 }
 
 # ---------------------------------------------------------------- 5. 安全增量写入 mcp.json (UTF-8 No BOM + 保护已有配置)
-if (-not (Test-Path $McpJson)) {
-    # 如果不存在，从模板创建
-    $tpl = Join-Path $ToolDir 'mcp\mcp.json.template'
-    if (Test-Path $tpl) {
-        $content = Get-Content $tpl -Raw -Encoding UTF8
-        $content = $content.Replace('<SEEP_ROOT>', $Root.Replace('\', '/'))
-        [System.IO.File]::WriteAllText($McpJson, $content, (New-Object System.Text.UTF8Encoding $false))
-    }
-}
-
-if (Test-Path $McpJson) {
-    try {
-        $rawText = [System.IO.File]::ReadAllText($McpJson, [System.Text.Encoding]::UTF8)
-        # 去除可能存在的 BOM
-        # 必须用序数/字符比较：.NET 默认 StartsWith 的文化敏感比较会把 U+FEFF（BOM）
-        # 当作可忽略字符，导致无 BOM 文件也被误判为“以 BOM 开头”。
-        if ($rawText.Length -gt 0 -and [int]$rawText[0] -eq 0xFEFF) { $rawText = $rawText.Substring(1) }
-        $jsonObj = $rawText | ConvertFrom-Json
-    } catch {
-        Write-Warn "解析现有 mcp.json 出错，正在重新初始化..."
-        $jsonObj = [PSCustomObject]@{ mcpServers = [PSCustomObject]@{} }
-    }
-
+try {
     if (-not $jsonObj.mcpServers) {
         $jsonObj | Add-Member -NotePropertyName 'mcpServers' -NotePropertyValue ([PSCustomObject]@{}) -Force
     }
@@ -256,12 +258,23 @@ if (Test-Path $McpJson) {
 
     $jsonObj.mcpServers | Add-Member -NotePropertyName 'ida' -NotePropertyValue $idaEntry -Force
 
-    $jsonFinal = $jsonObj | ConvertTo-Json -Depth 10
+    $jsonFinal = $jsonObj | ConvertTo-Json -Depth 100
     # 强制以 UTF-8 No BOM 写入，杜绝 Node.js JSON.parse 崩溃
-    [System.IO.File]::WriteAllText($McpJson, $jsonFinal, (New-Object System.Text.UTF8Encoding $false))
+    New-Item -ItemType Directory -Path $AgentDir -Force -ErrorAction Stop | Out-Null
+    if (Test-Path -LiteralPath $McpJson) {
+        Copy-Item -LiteralPath $McpJson -Destination ($McpJson + '.bak-' + [guid]::NewGuid().ToString('N')) -ErrorAction Stop
+    }
+    $temporary = $McpJson + '.tmp-' + [guid]::NewGuid().ToString('N')
+    try {
+        [IO.File]::WriteAllText($temporary, $jsonFinal, (New-Object System.Text.UTF8Encoding $false))
+        Move-Item -LiteralPath $temporary -Destination $McpJson -Force -ErrorAction Stop
+    } finally {
+        if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+    }
     Write-Ok "mcp.json 已增量更新（UTF-8 No BOM，保护已有配置）"
     Write-Info "  IDA 安装根目录 = $found"
     Write-Info "  IDA Python 路径 = $idaPyNorm"
-}
+} catch { Write-Warn 'IDA 配置写入失败，未报告绑定成功，请检查备份与文件权限'; exit 1 }
 
-Write-Host "`n    提示：重启 Pi Agent / Claude Code 使 IDA MCP 立即生效！" -ForegroundColor Cyan
+Write-Host "`n    配置已生成；请在对应宿主重新连接 IDA MCP，确认实际连通性。" -ForegroundColor Cyan
+exit 0

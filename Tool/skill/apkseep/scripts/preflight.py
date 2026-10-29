@@ -6,14 +6,14 @@ fails in a way you did not expect. A large share of "my patch broke the app"
 turns out to be device state, a dead device server, a leftover proxy setting, or
 a clock skew -- all of which look exactly like a broken artifact.
 
-It is deliberately read-only: it changes nothing except optional cleanup of a
-device-wide proxy setting and port forwards it created itself.
+It is deliberately read-only by default. `--cleanup` explicitly clears the
+selected device's global HTTP proxy and every adb forward entry for that device.
 
 Usage:
   python preflight.py
   python preflight.py --serial <serial> --pkg com.example.app
   python preflight.py --pkg com.example.app --expect-root
-  python preflight.py --cleanup          # remove proxy + frida port forwards it finds
+  python preflight.py --cleanup          # remove proxy + every adb forward
   python preflight.py --json             # machine-readable summary
 
 Exit code is 0 when no BLOCKER was found, 1 otherwise. WARN never fails the run.
@@ -140,7 +140,8 @@ def main() -> int:
     ap.add_argument("--serial", default=None, help="device serial; required when more than one is attached")
     ap.add_argument("--pkg", default=None, help="target package to check (optional)")
     ap.add_argument("--expect-root", action="store_true", help="treat missing root as a BLOCKER")
-    ap.add_argument("--cleanup", action="store_true", help="remove leftover proxy setting and frida forwards")
+    ap.add_argument("--cleanup", action="store_true",
+                    help="remove the device-wide proxy setting and every adb forward for the selected device")
     ap.add_argument("--json", action="store_true", dest="as_json")
     ap.add_argument("--self-test", action="store_true", dest="self_test",
                     help="run the offline self-test (no adb, no device, no network)")
@@ -190,12 +191,22 @@ def main() -> int:
     if len(online) > 1 and not a.serial:
         r.add(BLOCKER, "device", "%d devices online but no --serial given" % len(online),
               "pass --serial explicitly, or adb will pick one at random and you will debug the wrong target")
+        return finish(r, a.as_json)
     if not online:
         bad = ", ".join("%s(%s)" % (d[0], d[1]) for d in devices)
         r.add(BLOCKER, "device", "attached but not usable: %s" % bad,
               "unauthorized -> accept the USB debugging prompt; offline -> reconnect/reboot the emulator")
         return finish(r, a.as_json)
 
+    if a.serial:
+        selected = [d for d in online if d[0] == a.serial]
+        if not selected:
+            states = ", ".join("%s(%s)" % (serial, state)
+                               for serial, state, _line in devices)
+            r.add(BLOCKER, "device", "requested serial is not online: %s (attached: %s)"
+                  % (a.serial, states or "none"),
+                  "pass the exact serial from `adb devices -l` and make it authorized/online")
+            return finish(r, a.as_json)
     serial = a.serial or online[0][0]
     r.add(OK, "device", "using %s (of %d online)" % (serial, len(online)), "")
 
@@ -251,8 +262,14 @@ def main() -> int:
         r.add(WARN, "state:proxy", "device-wide http_proxy=%s" % proxy,
               "a leftover proxy makes every request fail; clear with: settings put global http_proxy :0")
         if a.cleanup:
-            sh("settings put global http_proxy :0")
-            r.add(INFO, "state:proxy", "cleared (--cleanup)", "")
+            rc_c, cout = run([ADB, "-s", serial, "shell",
+                              "settings put global http_proxy :0"])
+            if rc_c == 0:
+                r.add(INFO, "state:proxy", "proxy cleanup command succeeded (--cleanup)", "")
+            else:
+                r.add(WARN, "state:proxy",
+                      "proxy cleanup FAILED (rc=%d): %s" % (rc_c, cout.strip()[:160]),
+                      "fix device/adb permissions, then rerun --cleanup; the old proxy may remain")
     else:
         r.add(OK, "state:proxy", "not set", "")
 
@@ -261,8 +278,13 @@ def main() -> int:
         r.add(INFO, "state:forwards", fwd.strip().replace("\n", " | ")[:200],
               "stale forwards point frida at the wrong place; 'adb forward --remove-all' resets them")
         if a.cleanup:
-            run([ADB, "-s", serial, "forward", "--remove-all"])
-            r.add(INFO, "state:forwards", "removed (--cleanup)", "")
+            rc_r, rout = run([ADB, "-s", serial, "forward", "--remove-all"])
+            if rc_r == 0:
+                r.add(INFO, "state:forwards", "forward cleanup command succeeded (--cleanup)", "")
+            else:
+                r.add(WARN, "state:forwards",
+                      "forward cleanup FAILED (rc=%d): %s" % (rc_r, rout.strip()[:160]),
+                      "fix adb/device state, then rerun --cleanup; stale forwards may remain")
 
     # ---- frida server reachability ---------------------------------------
     srv = su("pgrep -f frida-server || pgrep -f kwork")

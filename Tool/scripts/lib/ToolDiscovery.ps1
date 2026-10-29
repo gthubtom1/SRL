@@ -1,5 +1,6 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:ReverseDiscoveryLibDir = $PSScriptRoot
 
 function Get-ReverseUserProfilePath {
     [CmdletBinding()]
@@ -768,21 +769,20 @@ function Test-ReverseTcpPort {
         [string]$TargetHost = '127.0.0.1'
     )
 
+    $client = New-Object System.Net.Sockets.TcpClient
     try {
-        $client = New-Object System.Net.Sockets.TcpClient
         $async = $client.BeginConnect($TargetHost, $Port, $null, $null)
         $connected = $async.AsyncWaitHandle.WaitOne(1000, $false)
         if (-not $connected) {
-            $client.Close()
             return $false
         }
         $client.EndConnect($async)
-        $client.Close()
         return $true
     }
     catch {
         return $false
     }
+    finally { $client.Close() }
 }
 
 function Test-ReverseMcpHttp {
@@ -796,27 +796,23 @@ function Test-ReverseMcpHttp {
         [int]$TimeoutMs = 3000
     )
 
+    $requestFile = $null
     try {
-        $body = '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
-        $uri = "http://${TargetHost}:$Port/mcp"
-        $req = [System.Net.HttpWebRequest]::Create($uri)
-        $req.Method = 'POST'
-        $req.ContentType = 'application/json'
-        $req.Timeout = $TimeoutMs
-        $req.ReadWriteTimeout = $TimeoutMs
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
-        $req.ContentLength = $bytes.Length
-        $reqStream = $req.GetRequestStream()
-        $reqStream.Write($bytes, 0, $bytes.Length)
-        $reqStream.Close()
-        $resp = $req.GetResponse()
-        $statusCode = [int]$resp.StatusCode
-        $resp.Close()
-        return $statusCode -eq 200
+        $python = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $python) { return $false }
+        $requestFile = [IO.Path]::GetTempFileName()
+        $request = @{ url = "http://${TargetHost}:$Port/mcp"; transport = 'http'; timeout = [math]::Max(.1, [math]::Min(60, $TimeoutMs / 1000)) }
+        [IO.File]::WriteAllText($requestFile, ($request | ConvertTo-Json -Compress), (New-Object Text.UTF8Encoding($false)))
+        $ErrorActionPreference = 'Continue'
+        $raw = & $python.Source -X utf8 (Join-Path $script:ReverseDiscoveryLibDir 'mcp_http.py') --request-file $requestFile 2>$null | Out-String
+        $ErrorActionPreference = 'Stop'
+        $result = $raw | ConvertFrom-Json
+        return [bool]($result.ok -and $result.tools -gt 0)
     }
     catch {
         return $false
     }
+    finally { if ($requestFile -and (Test-Path -LiteralPath $requestFile)) { Remove-Item -LiteralPath $requestFile -Force } }
 }
 
 function Add-ReverseProcessPath {
@@ -851,7 +847,7 @@ function Resolve-ReverseCommandCandidate {
         [string]$Name
     )
 
-    $commands = @(Get-Command -Name $Name -All -ErrorAction SilentlyContinue)
+    $commands = @(Get-Command -Name $Name -CommandType Application -All -ErrorAction SilentlyContinue)
     if ($commands.Count -eq 0) {
         return $null
     }
@@ -924,29 +920,9 @@ function Get-ReverseCapabilityState {
         }
     }
 
-    $verificationMode = if ($definition.PSObject.Properties['verificationMode']) { [string]$definition.verificationMode } else { '' }
-    $ready = $toolReady
-    if ($definition.PSObject.Properties['mcpNames']) {
-        switch ($verificationMode) {
-            'registration-only' {
-                $ready = $registered
-            }
-            'service-and-registration' {
-                $ready = $registered -and $serviceOnline
-            }
-            'service-or-registration' {
-                $ready = $registered -or $serviceOnline
-            }
-            default {
-                if ($definition.bootstrapKind -eq 'npm-mcp') {
-                    $ready = $registered -and $runtimeReady
-                }
-                else {
-                    $ready = $registered -or $toolReady
-                }
-            }
-        }
-    }
+    # Path discovery, configuration and TCP are reported separately. This helper
+    # can verify an HTTP endpoint, but cannot inspect the active host's tool table.
+    $ready = $mcpHttpVerified
 
     return [pscustomobject]@{
         Name = $definition.name
@@ -958,6 +934,7 @@ function Get-ReverseCapabilityState {
         RuntimeAvailable = $runtimeReady
         ServiceOnline = $serviceOnline
         McpHttpVerified = $mcpHttpVerified
+        SessionVerified = $false
     }
 }
 
@@ -1021,7 +998,7 @@ function Resolve-ReverseToolSpec {
                 }
             }
             'path' {
-                if (Test-Path -LiteralPath $candidate.Value) {
+                if (Test-Path -LiteralPath $candidate.Value -PathType Leaf) {
                     Add-ReverseProcessPath -Path (Split-Path -Path $candidate.Value -Parent)
                     return [pscustomobject]@{
                         Name = $definition.Name
@@ -1058,7 +1035,7 @@ function Resolve-ReverseToolSpec {
                 }
             }
             'java-jar' {
-                if (Test-Path -LiteralPath $candidate.Value) {
+                if (Test-Path -LiteralPath $candidate.Value -PathType Leaf) {
                     $java = Resolve-ReverseToolSpec -Name 'java'
                     if (-not $java.Available -or [string]::IsNullOrWhiteSpace([string]$java.Command)) {
                         continue
@@ -1111,13 +1088,20 @@ function Get-ReverseToolVersion {
     if ([string]::IsNullOrWhiteSpace([string]$Spec.Command) -or @($Spec.VersionArgs).Count -eq 0) {
         return ''
     }
-    if ($Spec.PSObject.Properties['FixedVersion'] -and -not [string]::IsNullOrWhiteSpace([string]$Spec.FixedVersion)) {
-        return [string]$Spec.FixedVersion
-    }
-
+    $requestFile = $null
     try {
-        $rawLines = & $Spec.Command @($Spec.VersionArgs) 2>&1 | Select-Object -First 10
-        foreach ($line in $rawLines) {
+        $python = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $python) { return '' }
+        $toolDir = Split-Path (Split-Path $script:ReverseDiscoveryLibDir -Parent) -Parent
+        $request = @{ argv = @($Spec.Command) + @($Spec.VersionArgs); timeout = 30 }
+        $requestFile = [IO.Path]::GetTempFileName()
+        [IO.File]::WriteAllText($requestFile, ($request | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+        $ErrorActionPreference = 'Continue'
+        $raw = & $python.Source -X utf8 (Join-Path $toolDir 'mcp\tool_autodiscover.py') execute --request-file $requestFile 2>$null | Out-String
+        $ErrorActionPreference = 'Stop'
+        $result = $raw | ConvertFrom-Json
+        if ($result.status -ne 'RAN') { return '' }
+        foreach ($line in (($result.output -split '\r?\n') | Select-Object -First 10)) {
             $text = ([string]$line).Trim()
             if ($text -and $text -notmatch '^Module manifest file error' -and $text -notmatch '^\s*->\s*Invalid line') {
                 return $text
@@ -1128,6 +1112,7 @@ function Get-ReverseToolVersion {
     catch {
         return ''
     }
+    finally { if ($requestFile -and (Test-Path -LiteralPath $requestFile)) { Remove-Item -LiteralPath $requestFile -Force } }
 }
 
 function Invoke-ReverseTool {
@@ -1179,7 +1164,7 @@ function Get-ReverseToolReport {
             BootstrapKind = if ($capabilityState) { $capabilityState.BootstrapKind } else { '' }
             CanAutoInstall = if ($capabilityState) { $capabilityState.CanAutoInstall } else { $false }
             DocsUrl = if ($capabilityState) { $capabilityState.DocsUrl } else { '' }
-            Ready = if ($capabilityState) { $capabilityState.Ready } else { $spec.Available }
+            Ready = if ($capabilityState) { $capabilityState.Ready } else { $false }
             McpRegistered = if ($capabilityState) { $capabilityState.Registered } else { $false }
             ServiceOnline = if ($capabilityState) { $capabilityState.ServiceOnline } else { $false }
             McpHttpVerified = if ($capabilityState) { $capabilityState.McpHttpVerified } else { $false }

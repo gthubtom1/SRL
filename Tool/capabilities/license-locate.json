@@ -1,7 +1,7 @@
 {
   "id": "license-locate",
   "title": "授权点定位",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "授权点定位",
     "校验函数",
@@ -27,7 +27,6 @@
   ],
   "scripts": [],
   "refs": [
-    "Tool/skill/softseep/references/license-validation.md",
     "Tool/skill/softseep/references/license-validation.md"
   ],
   "maturity": "probe",

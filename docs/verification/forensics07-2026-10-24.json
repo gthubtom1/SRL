@@ -13,17 +13,47 @@
     },
     "final": {
       "claims": 6,
-      "proven": 6,
-      "strong": 6,
+      "proven": 5,
+      "strong": 5,
       "verdict": "pass"
     }
   },
   "source_sha256": {
-    "facts.jsonl": "3d4b8fa301281923717693e1c98aa957dffabce99c71f2b17634f8525979817b",
-    "artifacts/MANIFEST.sha256": "e400eaf044bac3f014ef68c6bb7feb84380bb79a6cf00d810939f20ebd353fa2"
+    "artifacts/MANIFEST.sha256": "0701b5f9f5a65ca9ed55c5b00ab139383698bbdf2a005422f450c31a49960f15",
+    "facts.jsonl": "f48ff902cd862c21ec47ae273adf2f74138a26bbfb23ee51b8722135f74acef8"
   },
   "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
   "limitations": [
     "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+  ],
+  "audit_corrections": [
+    {
+      "at": "2026-10-29T09:09:56.982733+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "Semantic audit refuted FM07-05 using the original field-error log; corrected unsupported case dates/endpoints from actual PCAP fields. Recompute local evidence cohort after new bounded extraction; preserve previous receipt in audit_corrections, no full BGP semantic closure.",
+      "previous_final": {
+        "claims": 6,
+        "proven": 6,
+        "strong": 6,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "3d4b8fa301281923717693e1c98aa957dffabce99c71f2b17634f8525979817b",
+        "artifacts/MANIFEST.sha256": "e400eaf044bac3f014ef68c6bb7feb84380bb79a6cf00d810939f20ebd353fa2"
+      },
+      "new_final": {
+        "claims": 6,
+        "proven": 5,
+        "strong": 5,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "0701b5f9f5a65ca9ed55c5b00ab139383698bbdf2a005422f450c31a49960f15",
+        "facts.jsonl": "f48ff902cd862c21ec47ae273adf2f74138a26bbfb23ee51b8722135f74acef8"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
   ]
 }

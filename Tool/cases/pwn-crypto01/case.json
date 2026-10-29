@@ -14,19 +14,27 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "e9ca19ecc9ae077f699c2f6ba26a81050e2728ab28273cad27b8d64d80b7df6f"
+      "sha256": "e9ca19ecc9ae077f699c2f6ba26a81050e2728ab28273cad27b8d64d80b7df6f",
+      "size": 5232
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "7d5b3737e340b972b74fbee5fc99279878c1eb9d89ef39235deb5df07775d843"
+      "sha256": "32ae377b3aeb8f518c55ecdc38e2b1c2f9ce917b3b9784550660dfb3ca166290",
+      "size": 194,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "9ff74a560b89ce9a081cdde4bc0874cdbf3b17b145abd885146b5e4c1ad421a4",
+      "size": 5378,
+      "kind": "stdout"
     }
   ],
   "lessons": [
-    "本次跑到：pwn-check.py --file Tool/cases/项目A/v2/dist/version.dll --json > artifacts/run.json，rc=0；这是 PE 样本，不是 ELF/CTF 题；已跑保护位与危险导入分析。",
-    "结果：PE32+ x86_64 DLL，entry=0x1330，NX Enabled、PIE/ASLR Enabled、Canary Not found、RELRO N/A（PE），85 个导入、6 条 format string 风险；未执行二进制。",
-    "卡点：案例原先写着 ELF 堆题，但仓库内没有对应 chall/libc/ld；本产物只覆盖 PE 保护位与导入/format 串预判，没有 heap/tcache/UAF 证据。",
-    "下一步：若要继续 pwn，补入目标 ELF 与匹配 libc/ld，跑 checksec、glibc build id、seccomp-tools dump，再按泄漏→覆写→ORW 的顺序本地复现。",
-    "边界：静态工具不能证明可利用性；format string 路由需动态验证偏移、写权限与目标地址。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/项目A/v2/dist/version.dll --json`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "实跑识别 SHA-256=cc428f85e55ef12d53302696c6f76d74aa364e0d3214da3a0b36bdb128cb8391，PE32+ x86_64 DLL，entry=0x1330，NX 与 PIE/ASLR 启用，Canary 未发现，RELRO 对 PE 不适用。",
+    "证据范围限于 PE 保护位与导入/format-string 静态线索；堆、tcache、UAF 与利用链需要对应 ELF、libc/ld 和动态实验。",
+    "outcome=partial：静态工具输出不证明可利用性。"
   ],
   "tags": [
     "PE32+",
@@ -43,10 +51,56 @@
     "Tool/skill/pwn-crypto/references/mitigation-matrix.md",
     "Tool/mcp/Tool/reverselab/kb/pwn-crypto/techniques/01-stack-rop.md"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "evidence_kind": "real",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+      "--file",
+      "Tool/cases/项目A/v2/dist/version.dll",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "9ff74a560b89ce9a081cdde4bc0874cdbf3b17b145abd885146b5e4c1ad421a4"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+          "--file",
+          "Tool/cases/项目A/v2/dist/version.dll",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "9ff74a560b89ce9a081cdde4bc0874cdbf3b17b145abd885146b5e4c1ad421a4"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

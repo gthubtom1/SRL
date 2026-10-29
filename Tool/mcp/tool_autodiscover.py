@@ -14,12 +14,13 @@
   5. 注册 MCP 要写当前 agent 的 mcp.json（增量合并、绝不删用户条目），并提示「重启生效」。
   6. 降级链：已注册MCP -> 现注册MCP(提示重启) -> headless/CLI直调 -> GUI(不推荐) -> 自写Py脚本。
      走不通如实报，不硬等。
-  7. 自动安装只做半自动：探测 -> 给安装命令+来源 -> 用户确认 -> 装 -> 重探。不做无脑全自动。
+  7. 按已有授权执行白名单安装：先发现，缺失时安装，装后重探；仅缺必要凭据或人工步骤时交给用户。
 
 本模块既被 seep_mcp_server.py 以 `import tool_autodiscover` 调用（零副作用），
 也可独立命令行运行（见文件末尾 __main__）。
 """
 import io
+import contextlib
 import time
 import os
 import sys
@@ -28,6 +29,12 @@ import shutil
 import struct
 import subprocess
 import datetime
+import tempfile
+import hashlib
+import stat
+import uuid
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
 
 # ---------------------------------------------------------------------------
 # 路径与常量
@@ -37,6 +44,10 @@ _TOOL_DIR = os.path.dirname(_HERE)                       # Tool/
 _CONFIG_DIR = os.path.join(_TOOL_DIR, "config")
 _CAP_FILE = os.path.join(_CONFIG_DIR, "tool-capabilities.json")
 _INSTALL_FILE = os.path.join(_CONFIG_DIR, "tool-install.json")
+sys.path.insert(0, os.path.join(_TOOL_DIR, "scripts"))
+from lib import process_tree
+from lib.project_lock import project_lock
+from lib.runtime_root import resolve_agent_root
 
 # 本机状态（绝不入库）
 LOCAL_STATE_DIR = os.path.expanduser(os.path.join("~", ".seep"))
@@ -44,29 +55,35 @@ LOCAL_STATE_DIR = os.path.expanduser(os.path.join("~", ".seep"))
 _PATH_CACHE_FILE = os.path.join(LOCAL_STATE_DIR, "tool-paths.json")
 
 
-def _cache_read():
+def _cache_read(strict=False):
     """读机器级路径缓存（与 tool-run.ps1 共用同一文件与 schema）。"""
     try:
         # utf-8-sig：tool-run.ps1 用 PowerShell 写的文件带 BOM，用 utf-8 读会解析失败，
         # 失败后整份覆盖会**丢掉已有条目**（实测踩到：r2/jadx 被新条目顶掉）。
         with io.open(_PATH_CACHE_FILE, encoding="utf-8-sig") as f:
             d = json.load(f)
-        return d if isinstance(d, dict) else {}
-    except Exception:
+        if not isinstance(d, dict) or not isinstance(d.get("tools", {}), dict):
+            raise ValueError("工具缓存及 tools 必须是对象")
+        return d
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError, TypeError):
+        if strict:
+            raise
         return {}
 
 
 def _cache_get(tid, exe_names):
     """缓存命中且路径仍可用才算命中（工具可能被卸载/挪走）。"""
     raw = _cache_read()
-    e = (raw.get("tools") or {}).get(tid)
+    e = raw.get("tools", {}).get(tid)
     if not isinstance(e, dict) or not e.get("available"):
         legacy = raw.get(tid)          # 旧结构：顶层 <id> = {"exe": ...}
         e = {"available": True, "command": (legacy or {}).get("exe")} if isinstance(legacy, dict) else None
     if not isinstance(e, dict) or not e.get("available"):
         return None
     cmd = e.get("command") or ""
-    if not cmd:
+    if not isinstance(cmd, str) or not cmd or _denied(cmd):
         return None
     if os.path.isfile(cmd):
         # 迁移：老缓存可能只有 tools{} 没有顶层 <id>.exe（bridge/launch 读的是后者）→ 补写一次
@@ -83,22 +100,29 @@ def _cache_get(tid, exe_names):
 def _cache_put(tid, command, via, arch=None):
     """命中即记住（只写用户目录，绝不写进仓库）。"""
     try:
-        d = _cache_read()
-        tools = d.setdefault("tools", {})
-        tools[tid] = {
-            "available": True, "command": command, "via": via, "arch": arch,
-            "checked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        # 双写：mcp-bridge-x64dbg.py / mcp-launch.py 读的是**顶层** <id>.exe 旧结构。
-        # 只写 tools{} 会把它们的条目覆盖掉（实测踩到：x64dbg MCP 变 401、tools/list 0 个）。
-        d[tid] = {"exe": command, "via": via,
-                  "verified": time.strftime("%Y-%m-%d %H:%M:%S")}
-        d["schemaVersion"] = d.get("schemaVersion") or "1.0"
-        os.makedirs(LOCAL_STATE_DIR, exist_ok=True)
-        tmp = _PATH_CACHE_FILE + ".tmp"
-        with io.open(tmp, "w", encoding="utf-8") as f:
-            json.dump(d, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, _PATH_CACHE_FILE)   # 原子替换，避免与 tool-run.ps1 并发写坏
+        with project_lock(Path(_PATH_CACHE_FILE).parent):
+            d = _cache_read(strict=True)
+            tools = d.setdefault("tools", {})
+            tools[tid] = {
+                "available": True, "command": command, "via": via, "arch": arch,
+                "checked_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            # 保留 bridge/launch 使用的旧结构，以及其他工具和用户字段。
+            d[tid] = {"exe": command, "via": via,
+                      "verified": time.strftime("%Y-%m-%d %H:%M:%S")}
+            d["schemaVersion"] = d.get("schemaVersion") or "1.0"
+            pending = None
+            try:
+                with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8",
+                        dir=Path(_PATH_CACHE_FILE).parent, prefix=".seep-cache-", delete=False) as f:
+                    pending = f.name
+                    json.dump(d, f, ensure_ascii=False, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(pending, _PATH_CACHE_FILE)
+            finally:
+                if pending and os.path.exists(pending):
+                    os.unlink(pending)
         return True
     except Exception:
         return False
@@ -132,7 +156,7 @@ def candidate_roots(include_missing=False):
     roots = []
 
     # ① 环境变量
-    for key in ("SEEP_TOOL_ROOT", "REVERSE_TOOL_ROOT", "SEEP_TOOLS_DIR"):
+    for key in ("SEEP_TOOL_INSTALL_DIR", "SEEP_TOOL_ROOT", "REVERSE_TOOL_ROOT", "SEEP_TOOLS_DIR"):
         v = (os.environ.get(key) or "").strip()
         if v:
             roots.append(os.path.expanduser(v))
@@ -141,6 +165,11 @@ def candidate_roots(include_missing=False):
 
     # ② 用户级
     roots.append(os.path.join(home, ".seep", "tools"))      # 本工作台安装目标
+    roots.append(os.path.join(home, "go", "bin"))
+    if os.environ.get('GOBIN'):
+        roots.append(os.path.expanduser(os.environ['GOBIN']))
+    roots.extend(os.path.join(os.path.expanduser(p), 'bin')
+                 for p in os.environ.get('GOPATH', '').split(os.pathsep) if p)
     roots += [os.path.join(home, "Tools"), os.path.join(home, "tools"),
               os.path.join(home, "Reverse"), os.path.join(home, "soft")]
 
@@ -254,7 +283,28 @@ def _capabilities_table():
 
 
 def _install_table():
-    return _load_json(_INSTALL_FILE, {"installable": {}, "auto_allow_methods": ["pip"]})
+    """Load the install catalog without letting malformed shapes reach callers.
+
+    A missing catalog is a normal empty catalog.  An existing but unreadable or
+    malformed catalog carries an explicit ``_config_error`` marker so every
+    discovery/install entry can fail closed with a structured result.
+    """
+    default = {"installable": {}, "auto_allow_methods": ["pip"]}
+    try:
+        with open(_INSTALL_FILE, "r", encoding="utf-8") as stream:
+            value = json.load(stream)
+    except FileNotFoundError:
+        return default
+    except Exception as exc:
+        return {**default, "_config_error": "安装清单无法解析: %s" % type(exc).__name__}
+    if not isinstance(value, dict):
+        return {**default, "_config_error": "安装清单根对象必须是对象"}
+    if not isinstance(value.get("installable"), dict):
+        return {**default, "_config_error": "安装清单 installable 必须是对象"}
+    allowed = value.get("auto_allow_methods", [])
+    if not isinstance(allowed, list) or any(not isinstance(item, str) for item in allowed):
+        return {**default, "_config_error": "安装清单 auto_allow_methods 必须是字符串数组"}
+    return value
 
 
 def normalize_tool_id(tool_id):
@@ -275,7 +325,9 @@ def _exe_candidates(tool_id, arch=None):
 
 def _denied(path):
     low = path.lower()
-    return any(m in low for m in _DENY_MARKERS)
+    return (any(m in low for m in _DENY_MARKERS)
+            or any(part.startswith(('.seep-install-', '.seep-previous-'))
+                   for part in low.replace('\\', '/').split('/')))
 
 
 # ---------------------------------------------------------------------------
@@ -303,25 +355,26 @@ def read_pe_machine(path):
 # ---------------------------------------------------------------------------
 # 六层递进发现
 # ---------------------------------------------------------------------------
-def _layer_env(tool_id, exe_names):
+def _layer_env(tool_id, exe_names, caps=None):
     """第 1 层：环境变量显式指定（最高优先）。"""
     env_key = "SEEP_" + "".join(ch if ch.isalnum() else "_" for ch in tool_id.upper()) + "_PATH"
     val = os.environ.get(env_key, "")
-    if val and os.path.isfile(val) and not _denied(val):
+    if val and os.path.isfile(val) and not _denied(val) and not _path_excluded(val, caps or {}):
         return {"available": True, "command": val, "via": "env", "env_key": env_key}
     return None
 
 
-def _layer_path(exe_names):
+def _layer_path(exe_names, caps=None):
     """第 2 层：PATH 查找（系统安装优先于便携副本）。"""
     for e in exe_names:
-        w = shutil.which(e)
-        if w and not _denied(w):
-            return {"available": True, "command": w, "via": "PATH"}
+        for directory in os.get_exec_path():
+            w = shutil.which(e, path=directory)
+            if w and not _denied(w) and not _path_excluded(w, caps or {}):
+                return {"available": True, "command": w, "via": "PATH"}
     return None
 
 
-def _layer_common_dirs(exe_names):
+def _layer_common_dirs(exe_names, caps=None):
     """第 3 层：常见安装根的直接子目录 / bin / cli。"""
     for root in _COMMON_ROOTS:
         if not root or not os.path.isdir(root):
@@ -330,7 +383,7 @@ def _layer_common_dirs(exe_names):
             for sub in ("", "bin", "cli"):
                 base = os.path.join(root, sub, e) if sub else os.path.join(root, e)
                 for cand in (base, base + ".exe"):
-                    if os.path.isfile(cand) and not _denied(cand):
+                    if os.path.isfile(cand) and not _denied(cand) and not _path_excluded(cand, caps or {}):
                         return {"available": True, "command": cand, "via": "common_dir"}
     return None
 
@@ -388,13 +441,13 @@ def _layer_registry(tool_id, exe_names, caps):
         for e in exe_names:
             for cand in (os.path.join(d, e), os.path.join(d, e + ".exe"),
                          os.path.join(d, "bin", e), os.path.join(d, "bin", e + ".exe")):
-                if os.path.isfile(cand) and not _denied(cand):
+                if os.path.isfile(cand) and not _denied(cand) and not _path_excluded(cand, caps):
                     return {"available": True, "command": cand, "via": "registry",
                             "install_dir": d}
     return None
 
 
-def _layer_scan(tool_id, exe_names, max_depth=4):
+def _layer_scan(tool_id, exe_names, max_depth=4, caps=None):
     """第 5 层：在常见根下递归扫描（带 deny 规则，限深度）。
 
     ★ 必须「按候选名优先级逐个全树扫描」，不能把它们并成一个集合一次 walk：
@@ -417,7 +470,8 @@ def _layer_scan(tool_id, exe_names, max_depth=4):
                 continue
             try:
                 for dirpath, dirnames, filenames in os.walk(root):
-                    dirnames[:] = [d for d in dirnames if d.lower() not in _SKIP_DIR_NAMES]
+                    dirnames[:] = [d for d in dirnames if d.lower() not in _SKIP_DIR_NAMES
+                                   and not _denied(os.path.join(dirpath, d))]
                     visited += 1
                     if visited > budget_dirs or _time.time() > deadline:
                         return None
@@ -428,7 +482,8 @@ def _layer_scan(tool_id, exe_names, max_depth=4):
                     for fn in filenames:
                         if fn.lower() in wanted:
                             full = os.path.join(dirpath, fn)
-                            if not _denied(full) and os.path.isfile(full):
+                            if (not _denied(full) and os.path.isfile(full)
+                                    and not _path_excluded(full, caps or {})):
                                 return {"available": True, "command": full, "via": "scan"}
             except Exception:
                 continue
@@ -455,6 +510,14 @@ def _path_excluded(path, caps):
     hints = caps.get("path_hints") or []
     if hints and not any(h.lower() in low for h in hints):
         return True
+    if caps.get('identityProbe'):
+        from lib import tool_identity
+        results = caps.setdefault('_identity_results', {})
+        key = os.path.normcase(os.path.abspath(path))
+        if key not in results:
+            results[key] = tool_identity.probe(caps['identityProbe'], path)
+        if results[key].get('ok') is not True:
+            return True
     return False
 
 
@@ -495,8 +558,8 @@ def _lnk_targets():
                 " if($t){ $t } } catch {} }"
             )
             try:
-                r = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", cmd],
-                                   capture_output=True, text=True, timeout=25)
+                r = process_tree.run([ps, "-NoProfile", "-NonInteractive", "-Command", cmd],
+                                     capture_output=True, text=True, timeout=25)
                 out = [l.strip() for l in (r.stdout or "").splitlines()
                        if l.strip().lower().endswith(".exe")]
             except Exception:
@@ -509,9 +572,10 @@ def _layer_startmenu(exe_names, caps):
     """第 4.5 层：从快捷方式目标里按 exe 名匹配。"""
     if sys.platform != "win32":
         return None
-    want = {e.lower() for e in exe_names}
+    want = {name.lower() for e in exe_names for name in (e, e + '.exe')}
     for t in _lnk_targets():
-        if os.path.basename(t).lower() in want and os.path.isfile(t) and not _denied(t):
+        if (os.path.basename(t).lower() in want and os.path.isfile(t)
+                and not _denied(t) and not _path_excluded(t, caps)):
             return {"available": True, "command": t, "via": "startmenu"}
     return None
 
@@ -551,7 +615,7 @@ def _layer_everything(exe_names, caps):
         return None
     for e in exe_names:
         try:
-            r = subprocess.run([es, "-n", "40", e], capture_output=True, text=True, timeout=10)
+            r = process_tree.run([es, "-n", "40", e], capture_output=True, text=True, timeout=10)
         except Exception:
             return None
         for line in (r.stdout or "").splitlines():
@@ -568,7 +632,39 @@ def _layer_everything(exe_names, caps):
     return None
 
 
-def discover(tool_id, target=None, use_registry=True):
+def _discover_python_library(raw, tid, entry):
+    """Import in the same interpreter used by MCP and pip; never cache a library as an exe."""
+    module = entry.get("module", "")
+    out = {"tool_id": tid, "input": raw, "kind": "python_lib", "module": module,
+           "interpreter": sys.executable, "available": False, "command": "",
+           "via": "python-import", "known_in_table": True, "arch": None,
+           "exe_candidates": [], "layers_tried": ["python-import"]}
+    if not module or not all(part.isidentifier() for part in module.split(".")):
+        out["note"] = "Python 库缺少有效的 module 声明"
+        return out
+    code = (
+        "import importlib,json,sys; "
+        "m=importlib.import_module(sys.argv[1]); "
+        "print(json.dumps({'module_file':getattr(m,'__file__',''),"
+        "'version':str(getattr(m,'__version__',''))}))"
+    )
+    try:
+        p = process_tree.run([sys.executable, "-c", code, module], cwd=_HERE,
+                             capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=30)
+        if p.returncode == 0:
+            metadata = json.loads(p.stdout.strip().splitlines()[-1])
+            out.update(available=True, command=sys.executable,
+                       module_file=metadata.get("module_file", ""),
+                       version=metadata.get("version", ""))
+        else:
+            out["note"] = "当前解释器无法导入 " + module
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        out["note"] = "Python 库导入检查未完成：" + module
+    return out
+
+
+def discover(tool_id, target=None, use_registry=True, use_cache=True, exe_candidates=None):
     """六层递进发现：命中即停。返回结构化结果。
 
     Args:
@@ -578,24 +674,66 @@ def discover(tool_id, target=None, use_registry=True):
     """
     raw = (tool_id or "").strip()
     tid = normalize_tool_id(raw)
-    caps = _capabilities_table().get("tools", {}).get(tid, {})
+    install_table = _install_table()
+    config_error = (install_table.get("_config_error")
+                    if isinstance(install_table, dict) else "安装清单根对象必须是对象")
+    if not config_error:
+        try:
+            entry, _, _ = _install_methods(install_table, tid)
+        except (OSError, ValueError, TypeError) as exc:
+            config_error = "安装配置无效: " + str(exc)
+            entry = {}
+    else:
+        entry = {}
+    if config_error:
+        return {
+            "tool_id": tid, "input": raw, "available": False, "command": "",
+            "via": "none", "known_in_table": False, "arch": None,
+            "exe_candidates": _exe_candidates(tid), "layers_tried": [],
+            "config_error": config_error,
+            "note": "安装清单无效；已停止发现与安装，避免按坏配置执行。",
+        }
+    journal = Path(_install_base()) / _PORTABLE_JOURNAL
+    if journal.exists() or journal.is_symlink():
+        return {'tool_id': tid, 'input': raw, 'available': False, 'command': '',
+                'via': 'none', 'recovery_required': True,
+                'note': '便携安装存在未完成事务；重新执行安装入口以恢复'}
+    if entry.get("kind") == "python_lib":
+        return _discover_python_library(raw, tid, entry)
+    caps = dict(_capabilities_table().get("tools", {}).get(tid, {}))
+    caps.pop('_identity_results', None)
 
     arch = read_pe_machine(target) if (target and os.path.isfile(target)) else None
     exe_names = _exe_candidates(tid, arch)
+    if exe_candidates is not None:
+        if (not isinstance(exe_candidates, list) or not exe_candidates
+                or any(not isinstance(n, str) or not n or '/' in n or '\\' in n for n in exe_candidates)):
+            raise ValueError('exe_candidates 必须是非空文件名数组')
+        exe_names = exe_candidates
 
     layers = []
-    # 第 0 层：机器级缓存（上次发现的结果；每次都校验路径仍在）
-    hit = _cache_get(tid, exe_names)
+    # 显式路径始终优先；架构敏感工具不能沿用其他位宽的缓存。
+    hit = _layer_env(tid, exe_names, caps=caps); layers.append(("env", hit))
+    restricted = exe_candidates is not None or (caps.get('arch_aware') and arch)
+    names = {name.lower() for e in exe_names for name in (e, e + '.exe')}
+    if hit and restricted and os.path.basename(hit['command']).lower() not in names:
+        directory = os.path.dirname(hit['command'])
+        sibling = next((os.path.join(directory, name) for name in exe_names
+                        if os.path.isfile(os.path.join(directory, name))), None)
+        hit = dict(hit, command=sibling) if sibling and not _path_excluded(sibling, caps) and not _denied(sibling) else None
+    if hit:
+        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
+    hit = _cache_get(tid, exe_names) if use_cache else None
+    if hit and restricted:
+        if os.path.basename(hit['command']).lower() not in names:
+            hit = None
     if hit and not _path_excluded(hit, caps):
         layers.append(("cache", hit))
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_env(tid, exe_names);  layers.append(("env", hit)); hit = None if _path_excluded(hit, caps) else hit
+    hit = _layer_path(exe_names, caps=caps); layers.append(("PATH", hit))
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_path(exe_names);       layers.append(("PATH", hit)); hit = None if _path_excluded(hit, caps) else hit
-    if hit:
-        return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_common_dirs(exe_names); layers.append(("common_dir", hit)); hit = None if _path_excluded(hit, caps) else hit
+    hit = _layer_common_dirs(exe_names, caps=caps); layers.append(("common_dir", hit))
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
     if use_registry:
@@ -608,7 +746,7 @@ def discover(tool_id, target=None, use_registry=True):
     hit = _layer_everything(exe_names, caps); layers.append(("everything", hit)); hit = None if _path_excluded(hit, caps) else hit
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
-    hit = _layer_scan(tid, exe_names);  layers.append(("scan", hit)); hit = None if _path_excluded(hit, caps) else hit
+    hit = _layer_scan(tid, exe_names, caps=caps); layers.append(("scan", hit))
     if hit:
         return _discover_result(raw, tid, caps, arch, exe_names, hit, layers)
 
@@ -622,7 +760,17 @@ def discover(tool_id, target=None, use_registry=True):
 
 
 def _discover_result(raw, tid, caps, arch, exe_names, hit, layers):
-    if hit.get("via") != "cache":
+    # Windows distributions often ship both an extensionless Unix launcher and
+    # a native sibling. Normalize even an old cache hit before returning it to
+    # every consumer; selecting a script for bash requires bash to exist.
+    command = hit["command"]
+    if os.name == "nt" and not os.path.splitext(command)[1]:
+        for suffix in (".exe", ".bat", ".cmd"):
+            native = command + suffix
+            if os.path.isfile(native) and not _denied(native) and not _path_excluded(native, caps):
+                hit = dict(hit, command=native)
+                break
+    if hit.get("via") != "cache" or hit["command"] != command:
         _cache_put(tid, hit.get("command", ""), hit.get("via", "?"), arch)
     out = {
         "tool_id": tid, "input": raw, "available": True,
@@ -630,6 +778,9 @@ def _discover_result(raw, tid, caps, arch, exe_names, hit, layers):
         "known_in_table": bool(caps), "arch": arch, "exe_candidates": exe_names,
         "layers_tried": [l[0] for l in layers if l[1] is None] + [hit["via"]],
     }
+    if caps.get('identityProbe'):
+        out['identity_verified'] = True
+        out['identity_probe'] = caps['identityProbe']
     if hit.get("install_dir"):
         out["install_dir"] = hit["install_dir"]
     if hit.get("env_key"):
@@ -675,32 +826,24 @@ def research_control(tool_id):
 # MCP 注册（写当前 agent 的 mcp.json，增量合并，提示重启）
 # ---------------------------------------------------------------------------
 def _agent_mcp_json_path():
-    """定位当前 agent 的 mcp.json。优先环境变量，其次 pi 默认，再退回仓库 .mcp.json。"""
-    env = os.environ.get("SEEP_AGENT_MCP", "")
-    if env:
-        return env
-    pi = os.path.expanduser(os.path.join("~", ".pi", "agent", "mcp.json"))
-    if os.path.isfile(pi) or os.path.isdir(os.path.dirname(pi)):
-        return pi
-    # 退路：仓库根 .mcp.json（若存在）
-    root_mcp = os.path.join(os.path.dirname(_TOOL_DIR), ".mcp.json")
-    return root_mcp
+    """Return the selected agent's MCP config, using the shared root resolver."""
+    explicit_file = (os.environ.get("SEEP_AGENT_MCP") or "").strip()
+    if explicit_file:
+        return explicit_file
+    return str(resolve_agent_root() / "mcp.json")
 
 
 def _mcp_entry_for(tool_id):
     """从能力表/生态模板构造 MCP 注册片段；无则 None。"""
     tid = normalize_tool_id(tool_id)
     eco = _capabilities_table().get("mcp_ecosystem", {})
-    if tid in eco:
-        e = dict(eco[tid])
-        entry = {"command": e.get("command"), "args": e.get("args", [])}
-        if e.get("transport"):
-            entry["transport"] = e["transport"]
-        return entry
+    fields = ("command", "args", "env", "cwd", "url", "headers", "transport", "enabled", "timeout")
+    if tid in eco and isinstance(eco[tid], dict):
+        return {key: value for key, value in eco[tid].items() if key in fields}
     caps = _capabilities_table().get("tools", {}).get(tid, {})
     reg = caps.get("control", {}).get("mcp_register")
-    if reg and reg.get("command"):
-        return {"command": reg["command"], "args": reg.get("args", []), "transport": "stdio"}
+    if isinstance(reg, dict) and (reg.get("command") or reg.get("url")):
+        return {key: value for key, value in reg.items() if key in fields}
     return None
 
 
@@ -732,18 +875,41 @@ def _mcp_entry_preflight(entry):
       · 参数里指向本地脚本的文件不存在 → error。
     """
     errors, warnings = [], []
-    entry = entry or {}
-    cmd = str(entry.get("command") or "").strip()
-    args = [str(a) for a in (entry.get("args") or [])]
-    if not cmd:
+    if not isinstance(entry, dict):
+        return {"ok": False, "errors": ["MCP 条目必须是对象"], "warnings": []}
+    for field in ("env", "headers"):
+        value = entry.get(field, {})
+        if not isinstance(value, dict) or any(not isinstance(k, str) or not isinstance(v, str)
+                                               for k, v in value.items()):
+            errors.append(field + " 必须是字符串键值对象")
+    cwd = entry.get("cwd", os.curdir)
+    if not isinstance(cwd, str) or not os.path.isdir(cwd):
+        errors.append("cwd 必须指向现有目录")
+        cwd = os.curdir
+    args = entry.get("args", [])
+    if not isinstance(args, list) or any(not isinstance(a, str) for a in args):
+        errors.append("args 必须是字符串数组")
+        args = []
+    cmd = entry.get("command", "")
+    if entry.get("url"):
+        try:
+            parsed = urlparse(entry["url"])
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                raise ValueError("invalid URL")
+            if parsed.port is not None and not 1 <= parsed.port <= 65535:
+                raise ValueError("invalid port")
+        except (AttributeError, TypeError, ValueError):
+            errors.append("url 必须是有效 HTTP(S) 地址")
+    elif not isinstance(cmd, str) or not cmd.strip():
         errors.append("缺少 command")
-    elif _looks_like_path(cmd):
-        if not (os.path.isfile(cmd) or os.path.isdir(cmd)):
-            errors.append("command 指向的路径不存在: %s" % cmd)
+    elif _looks_like_path(cmd) or os.path.isabs(cmd) or os.path.exists(os.path.join(cwd, cmd)):
+        if not os.path.isfile(os.path.join(cwd, cmd)):
+            errors.append("command 必须指向现有文件: %s" % cmd)
     elif not shutil.which(cmd):
         warnings.append("运行时不在此机 PATH: %s（装好后重启会话即可）" % cmd)
     for a in args:
-        if _looks_like_path(a) and a.lower().endswith(_LOCAL_FILE_SUFFIXES) and not os.path.exists(a):
+        if (_looks_like_path(a) and a.lower().endswith(_LOCAL_FILE_SUFFIXES)
+                and not os.path.isfile(os.path.join(cwd, a))):
             errors.append("参数指向的文件不存在: %s" % a)
     return {"ok": not errors, "errors": errors, "warnings": warnings}
 
@@ -755,11 +921,13 @@ def _root_mcp_sync_enabled():
     （如 ghidra）写进受跟踪文件，并在仓库根堆出几十个 .mcp.json.bak-<时间戳> 垃圾。
 
     现在的规则：
-      · 设了 SEEP_AGENT_MCP（测试 / 多实例隔离）→ 只写该目标，绝不碰仓库根；
+      · 设了 SEEP_AGENT_MCP、PI_CODING_AGENT_DIR 或 PI_AGENT_DIR
+        （测试 / 多实例隔离）→ 只写选定 AgentRoot，绝不碰仓库根；
       · 环境变量 SEEP_SYNC_ROOT_MCP=0/false/off → 关闭根同步；
       · 其余情况（默认）→ 保持老行为，同步根 .mcp.json（多宿主共用项目级配置）。
     """
-    if os.environ.get("SEEP_AGENT_MCP", "").strip():
+    if any((os.environ.get(key) or "").strip() for key in
+           ("SEEP_AGENT_MCP", "PI_CODING_AGENT_DIR", "PI_AGENT_DIR")):
         return False
     v = os.environ.get("SEEP_SYNC_ROOT_MCP", "1").strip().lower()
     return v not in ("0", "false", "no", "off", "none")
@@ -807,7 +975,7 @@ def register_mcp(tool_id, apply=False, server_name=None):
             and os.path.normpath(root_mcp) != os.path.normpath(primary_path)):
         targets.append(root_mcp)
 
-    if not entry:
+    if not isinstance(entry, dict) or not entry:
         return {"tool_id": tid, "registered": False,
                 "reason": "能力表中没有该工具的 MCP 注册方式（表外未知工具不假装能注册）",
                 "target": primary_path}
@@ -826,47 +994,79 @@ def register_mcp(tool_id, apply=False, server_name=None):
                 "preflight": pre, "target": primary_path,
                 "hint": "按 seep_tool_control_plan 的安装路线把运行时/脚本装好，或修正能力表后再注册。"}
 
-    # 增量合并所有有效目标
-    written_targets = []
-    unverified_targets = []
-    for p in targets:
-        cfg = _load_json(p, {"mcpServers": {}})
-        if not isinstance(cfg, dict):
-            cfg = {"mcpServers": {}}
-        servers = cfg.get("mcpServers")
-        if not isinstance(servers, dict):
-            servers = {}
-            cfg["mcpServers"] = servers
-        existed = name in servers
-        servers[name] = entry
-        try:
-            os.makedirs(os.path.dirname(p), exist_ok=True)
-            if os.path.isfile(p):
-                shutil.copy2(p, p + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-                _prune_backups(p, keep=3)
-            with open(p, "w", encoding="utf-8") as f:  # UTF-8 无 BOM
-                json.dump(cfg, f, indent=2, ensure_ascii=False)
-            written_targets.append(p)
-            # 写后回读校验：确认落盘的就是这条（防编码/并发覆盖/手改成脏）
-            try:
-                back = (_load_json(p, {}) or {}).get("mcpServers", {}).get(name)
-                if back != entry:
-                    unverified_targets.append(p)
-            except Exception:
-                unverified_targets.append(p)
-        except Exception:
+    # Validate every target before touching any of them. A malformed/BOM document
+    # must never be silently replaced with empty defaults, nor a namesake service
+    # overwritten merely because a template uses the same name.
+    prepared = []
+    try:
+        for p in targets:
+            original = None
+            if os.path.exists(p):
+                with open(p, "rb") as handle:
+                    original = handle.read()
+                cfg = json.loads(original.decode("utf-8-sig"))
+            else:
+                cfg = {"mcpServers": {}}
+            if not isinstance(cfg, dict):
+                raise ValueError("MCP 配置必须是对象")
+            servers = cfg.setdefault("mcpServers", {})
+            if not isinstance(servers, dict) or any(not isinstance(v, dict) for v in servers.values()):
+                raise ValueError("mcpServers 及每个服务条目必须是对象")
+            if name in servers and servers[name] != entry:
+                raise ValueError("已有同名服务 %s，保留原配置；请使用不同 server_name 或明确调整原条目" % name)
+            unchanged = servers.get(name) == entry
+            servers[name] = entry
+            prepared.append((p, original, cfg, unchanged))
+    except (OSError, ValueError, TypeError) as exc:
+        return {"tool_id": tid, "registered": False, "error": str(exc),
+                "targets": targets, "written_targets": []}
+
+    written_targets, unchanged_targets, errors = [], [], {}
+    for p, original, cfg, unchanged in prepared:
+        if unchanged:
+            unchanged_targets.append(p)
             continue
-
-    if not written_targets:
-        return {"tool_id": tid, "registered": False, "error": "写入所有目标 mcp.json 均失败",
-                "targets": targets}
-
-    return {"tool_id": tid, "registered": True, "server_name": name, "entry": entry,
-            "written_targets": written_targets, "overwrote_existing": existed,
-            "verified": not bool(unverified_targets), "unverified_targets": unverified_targets,
-            "preflight": pre,
-            "restart_required": True,
-            "note": "已增量写入 mcp.json（未删除任何用户既有条目，多Agent宿主已协同同步）。★ 需重启 Agent 会话后生效。"}
+        pending = None
+        try:
+            directory = os.path.dirname(os.path.abspath(p))
+            os.makedirs(directory, exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                             prefix=".seep-mcp-", delete=False) as handle:
+                pending = handle.name
+                json.dump(cfg, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+            current = None
+            if os.path.exists(p):
+                with open(p, "rb") as handle:
+                    current = handle.read()
+            if current != original:
+                raise ValueError("配置在检查后发生变化，未覆盖")
+            if original is not None:
+                shutil.copy2(p, p + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
+                _prune_backups(p)
+            os.replace(pending, p)
+            written_targets.append(p)
+            with open(p, encoding="utf-8-sig") as handle:
+                if json.load(handle) != cfg:
+                    raise ValueError("写后回读与预期配置不一致")
+        except (OSError, ValueError, TypeError) as exc:
+            errors[p] = str(exc)
+            break
+        finally:
+            if pending and os.path.isfile(pending):
+                try:
+                    os.unlink(pending)
+                except OSError as exc:
+                    errors[p] = (errors.get(p, "") + "; 临时文件清理失败: " + str(exc)).lstrip("; ")
+    complete = not errors
+    return {"tool_id": tid, "registered": complete, "server_name": name, "entry": entry,
+            "targets": targets, "written_targets": written_targets, "unchanged_targets": unchanged_targets,
+            "overwrote_existing": False, "verified": complete, "connection_verified": False,
+            "unverified_targets": list(errors), "errors": errors,
+            "partial": bool(errors and written_targets), "preflight": pre,
+            "restart_required": bool(written_targets),
+            "note": ("配置已核验；新写入的服务需在宿主重新加载 MCP 或重启会话后使用。" if complete
+                     else "未完成全部目标；查看 errors 和 written_targets，已写目标有备份。")}
 
 
 # ---------------------------------------------------------------------------
@@ -875,94 +1075,383 @@ def register_mcp(tool_id, apply=False, server_name=None):
 # ---------------------------------------------------------------------------
 # 多途径自适应安装与便携下载引擎
 # ---------------------------------------------------------------------------
+def _run_tool_process(argv, **kwargs):
+    """Run native argv directly; pass batch arguments through one expansion layer."""
+    if (not isinstance(argv, list) or not argv
+            or any(not isinstance(a, str) or '\x00' in a for a in argv)):
+        raise ValueError('argv 必须是非空字符串数组，且不含 NUL')
+    executable = shutil.which(argv[0]) or argv[0]
+    if os.name == 'nt' and executable.lower().endswith(('.bat', '.cmd')):
+        if any(any(c in a for c in ('"', '\r', '\n')) for a in [executable] + argv[1:]):
+            raise ValueError('批处理参数含双引号或换行；请使用原生可执行文件或脚本文件参数')
+        environment = dict(kwargs.pop('env', None) or os.environ)
+        values = [executable] + argv[1:]
+        for i, value in enumerate(values):
+            environment['SEEP_BATCH_ARG_%d' % i] = value
+        command = '"' + ' '.join('"%SEEP_BATCH_ARG_{}%"'.format(i) for i in range(len(values))) + '"'
+        # Pass cmd's quoted /c expression verbatim: list2cmdline would add C
+        # backslash escapes, which cmd does not interpret as quoting.
+        argv = subprocess.list2cmdline([os.environ.get('ComSpec') or 'cmd.exe',
+                                       '/d', '/v:off', '/s', '/c']) + ' ' + command
+        kwargs['env'] = environment
+    return process_tree.run(argv, **kwargs)
+
+
 def _detect_local_proxy_port():
     """快速探测常见的本地 HTTP/SOCKS 代理端口（如 Clash/V2Ray/Surge）。"""
     import socket
     for p in (7897, 10808, 7890):
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.15)
-            s.connect(("127.0.0.1", p))
-            s.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.15)
+                s.connect(("127.0.0.1", p))
             return p
         except Exception:
             pass
     return None
 
 
-def _download_and_extract_portable(urls, target_sub, verify_exe=""):
-    """免包管理器绿色便携下载与解压引擎（针对无 winget 的精简版/LTSC Win10 系统）。
-    自动轮询直链与国内加速镜像，使用 Python 原生 zipfile 解压到便携目录。
-    """
+def _portable_relative(value):
+    if not isinstance(value, str) or not value or ':' in value or '\x00' in value:
+        raise ValueError("便携路径必须是非空相对路径")
+    path = PurePosixPath(value.replace('\\', '/'))
+    if path.is_absolute() or '..' in path.parts or not path.parts:
+        raise ValueError("便携路径不得越出安装目录")
+    return path
+
+
+_PORTABLE_JOURNAL = '.seep-portable-transaction.json'
+
+
+def _portable_sync_dir(path):
+    try:
+        fd = os.open(str(path), os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        pass  # Directory fsync is unavailable on some platforms, including Windows.
+
+
+def _portable_write_journal(base, data):
+    """Publish and flush a complete recovery record before changing its phase."""
+    journal = base / _PORTABLE_JOURNAL
+    if journal.is_symlink():
+        raise ValueError('便携安装恢复记录不能是链接')
+    pending = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=base,
+                                         prefix='.seep-portable-journal-', delete=False) as stream:
+            pending = stream.name
+            json.dump(data, stream, ensure_ascii=False, separators=(',', ':'))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(pending, journal)
+        _portable_sync_dir(base)
+    finally:
+        if pending and os.path.exists(pending):
+            os.unlink(pending)
+
+
+def _portable_recover_locked(base):
+    """Recover the recorded installation while holding the installation-root lock."""
+    base = Path(base).resolve()
+    journal = base / _PORTABLE_JOURNAL
+    if not journal.exists() and not journal.is_symlink():
+        return None
+    if journal.is_symlink() or not journal.is_file() or journal.stat().st_size > 65536:
+        raise ValueError('便携安装恢复记录无效')
+    with journal.open(encoding='utf-8') as stream:
+        data = json.load(stream)
+    if not isinstance(data, dict) or data.get('schema') != 'seep-portable/1':
+        raise ValueError('便携安装恢复记录格式无效')
+    target_ref = _portable_relative(data.get('target'))
+    if (str(target_ref) != data['target'] or any(p.startswith('.seep-') for p in target_ref.parts)
+            or data.get('phase') not in ('prepared', 'committed') or type(data.get('had_old')) is not bool):
+        raise ValueError('便携安装恢复目标或阶段无效')
+    stage_name, backup_name = data.get('stage'), data.get('backup')
+    def valid_name(value, prefix):
+        return (isinstance(value, str) and value.startswith(prefix)
+                and value == Path(value).name and value not in ('.', '..'))
+    if not valid_name(stage_name, '.seep-install-') or not valid_name(backup_name, '.seep-previous-'):
+        raise ValueError('便携安装恢复目录无效')
+    final = base.joinpath(*target_ref.parts)
+    stage, backup = base / stage_name, base / backup_name
+    for path in (final, stage, backup):
+        if not path.resolve().is_relative_to(base):
+            raise ValueError('便携安装恢复路径越界')
+        for parent in (path, *path.parents):
+            if parent == base:
+                break
+            if parent.is_symlink():
+                raise ValueError('便携安装恢复路径包含链接')
+        if path.exists() and not path.is_dir():
+            raise ValueError('便携安装恢复路径不是目录')
+    tid = data.get('tool_id')
+    if tid is not None and (not isinstance(tid, str) or not tid or
+            data.get('cache_path') != os.path.abspath(_PATH_CACHE_FILE) or
+            data.get('state_path') != os.path.abspath(LOCAL_STATE_PATH)):
+        raise ValueError('便携安装恢复状态路径或工具无效')
+    exe_ref = _portable_relative(data.get('exe'))
+    if str(exe_ref) != data['exe']:
+        raise ValueError('便携安装恢复程序路径无效')
+
+    if data['phase'] == 'prepared':
+        if not data['had_old'] and backup.exists():
+            raise ValueError('首次安装出现意外备份，保留现场')
+        if data['had_old'] and not backup.exists():
+            if not final.exists():
+                raise ValueError('旧安装与备份均不存在，无法自动恢复')
+        else:
+            if final.exists():
+                discarded = stage / 'unpacked'
+                if not stage.is_dir() or discarded.exists() or discarded.is_symlink():
+                    raise ValueError('恢复暂存目录不可用，保留现有安装与备份')
+                os.replace(final, discarded)
+                _portable_sync_dir(final.parent)
+            if data['had_old']:
+                os.replace(backup, final)
+                _portable_sync_dir(final.parent)
+        journal.unlink()
+        _portable_sync_dir(base)
+        return {'recovered': 'rolled_back', 'target': str(final)}
+
+    executable = final.joinpath(*exe_ref.parts)
+    if not executable.is_file() or not executable.resolve().is_relative_to(final.resolve()):
+        raise ValueError('已提交的便携安装目标不存在或越界')
+    recheck = {'tool_id': tid, 'available': True, 'command': str(executable), 'via': 'portable_zip',
+               'identity_verified': data.get('identity_verified') is True, 'identity': data.get('identity')}
+    if tid is not None:
+        cache_saved = _cache_put(tid, str(executable), 'portable_zip')
+        state_saved = record(tid, recheck).get('state_saved')
+        if not cache_saved or not state_saved:
+            raise RuntimeError('已提交安装的缓存或状态保存失败，恢复记录已保留')
+    journal.unlink()
+    _portable_sync_dir(base)
+    if str(final) not in _COMMON_ROOTS:
+        _COMMON_ROOTS.insert(0, str(final))
+    return {'recovered': 'committed', 'target': str(final), 'recheck': recheck}
+
+
+@contextlib.contextmanager
+def _portable_stage(base):
+    stage = Path(tempfile.mkdtemp(prefix='.seep-install-', dir=base))
+    try:
+        yield stage
+    finally:
+        journal = base / _PORTABLE_JOURNAL
+        if not journal.exists() and not journal.is_symlink():
+            try:
+                shutil.rmtree(stage)
+            except OSError:
+                pass
+
+
+def _download_and_extract_portable(urls, target_sub, verify_exe="", expected_sha256="", tool_id=None):
+    """Serialize installations sharing a root, including promotion and rollback."""
+    try:
+        _portable_relative(target_sub)
+        _portable_relative(verify_exe)
+        with project_lock(Path(_install_base()), timeout=20):
+            try:
+                _portable_recover_locked(_install_base())
+            except (OSError, ValueError, TypeError, RuntimeError) as exc:
+                return {'success': False, 'recovery_required': True, 'error': '便携安装恢复失败: ' + str(exc)}
+            return _download_and_extract_portable_locked(urls, target_sub, verify_exe, expected_sha256, tool_id)
+    except (OSError, TypeError, ValueError) as exc:
+        return {"success": False, "error": str(exc)}
+
+
+def _download_and_extract_portable_locked(urls, target_sub, verify_exe="", expected_sha256="", tool_id=None):
+    """Stage and validate a ZIP before replacing a tool; retain the old installation as a backup."""
     import urllib.request
     import zipfile
-    import tempfile
+
+    try:
+        relative, expected = _portable_relative(target_sub), _portable_relative(verify_exe)
+        if not isinstance(urls, list) or not urls or any(not isinstance(u, str) for u in urls):
+            raise ValueError("urls 必须是非空地址数组")
+        if expected_sha256 and (not isinstance(expected_sha256, str) or len(expected_sha256) != 64
+                                or any(c not in '0123456789abcdefABCDEF' for c in expected_sha256)):
+            raise ValueError("sha256 必须是 64 位十六进制摘要")
+        base = Path(_install_base()).resolve()
+        final = base.joinpath(*relative.parts)
+        if (any(p.startswith('.seep-') for p in relative.parts) or final.is_symlink()
+                or not final.resolve().is_relative_to(base) or final.resolve() == base):
+            raise ValueError("安装目标越界或为链接")
+        if final.exists() and not final.is_dir():
+            raise ValueError("安装目标已存在且不是目录")
+    except (OSError, TypeError, ValueError) as exc:
+        return {"success": False, "error": str(exc)}
 
     proxy_port = _detect_local_proxy_port()
-    opener = None
+    handlers = []
     if proxy_port:
         proxy_url = f"http://127.0.0.1:{proxy_port}"
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
-    else:
-        opener = urllib.request.build_opener()
-
-    # 安装目标基目录：固定用户级（~/.seep/tools），绝不写死盘符。
-    # 需要换位置就设 SEEP_TOOL_INSTALL_DIR 环境变量。
-    base_target = _install_base()
-    final_dir = os.path.join(base_target, target_sub)
-    os.makedirs(final_dir, exist_ok=True)
-
-    downloaded = False
-    last_err = ""
-    for u in urls:
-        if not u:
-            continue
+        handlers.append(urllib.request.ProxyHandler({"http": proxy_url, "https": proxy_url}))
+    opener = urllib.request.build_opener(*handlers)
+    failures = []
+    for url in urls:
+        backup = None
         try:
-            req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SeepAutoDiscover/1.8"})
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
-                tmp_zip = tf.name
-            with opener.open(req, timeout=40) as resp, open(tmp_zip, "wb") as out_fp:
-                shutil.copyfileobj(resp, out_fp)
-            if os.path.isfile(tmp_zip) and os.path.getsize(tmp_zip) > 1024:
-                with zipfile.ZipFile(tmp_zip, "r") as zf:
-                    # 攻击性加固：严格防御 Zip Slip 路径穿越漏洞，保证解压出的文件绝对不会越界覆盖系统文件
-                    base_resolved = os.path.realpath(final_dir)
-                    for member in zf.infolist():
-                        target_path = os.path.realpath(os.path.join(final_dir, member.filename))
-                        if not target_path.startswith(base_resolved + os.sep) and target_path != base_resolved:
-                            continue  # 忽略恶意路径穿越条目
-                        zf.extract(member, final_dir)
+            parsed = urlparse(url)
+            if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+                raise ValueError("下载地址必须是 HTTP(S)")
+            base.mkdir(parents=True, exist_ok=True)
+            with _portable_stage(base) as stage:
+                zipped, unpacked = stage / 'download.zip', stage / 'unpacked'
+                req = urllib.request.Request(url, headers={"User-Agent": "SeepAutoDiscover"})
+                digest, size, deadline = hashlib.sha256(), 0, time.monotonic() + 120
+                with opener.open(req, timeout=40) as response, zipped.open('wb') as stream:
+                    while True:
+                        if time.monotonic() >= deadline:
+                            raise TimeoutError("便携下载超时")
+                        block = response.read(1 << 20)
+                        if not block:
+                            break
+                        size += len(block)
+                        if size > 1024 * 1024 * 1024:
+                            raise ValueError("便携下载超过 1GiB 上限")
+                        digest.update(block)
+                        stream.write(block)
+                actual_sha256 = digest.hexdigest()
+                if expected_sha256 and actual_sha256 != expected_sha256.lower():
+                    raise ValueError("下载内容与声明 sha256 不一致")
+                with zipfile.ZipFile(zipped) as archive:
+                    members = archive.infolist()
+                    if len(members) > 100000 or sum(m.file_size for m in members) > 2 * 1024**3:
+                        raise ValueError("ZIP 成员数量或解压体积超过上限")
+                    seen = set()
+                    for member in members:
+                        ref = _portable_relative(member.filename)
+                        key = str(ref).casefold() if os.name == 'nt' else str(ref)
+                        kind = stat.S_IFMT(member.external_attr >> 16)
+                        if key in seen or kind not in (0, stat.S_IFREG, stat.S_IFDIR):
+                            raise ValueError("ZIP 存在重名或特殊文件")
+                        seen.add(key)
+                    for member in members:
+                        archive.extract(member, unpacked)
+                executable = unpacked.joinpath(*expected.parts)
+                if not executable.is_file():
+                    matches = [p for p in unpacked.rglob('*') if p.is_file()
+                               and p.name.lower() == expected.name.lower()]
+                    if len(matches) != 1:
+                        raise ValueError("ZIP 未包含唯一的预期程序: " + str(expected))
+                    executable = matches[0]
+                exe_relative = executable.relative_to(unpacked)
+                final.parent.mkdir(parents=True, exist_ok=True)
+                had_old = final.exists()
+                backup = base / ('.seep-previous-' + uuid.uuid4().hex)
+                journal_data = {'schema': 'seep-portable/1', 'phase': 'prepared',
+                                'target': str(relative), 'stage': stage.name, 'backup': backup.name,
+                                'had_old': had_old, 'exe': exe_relative.as_posix(), 'tool_id': tool_id,
+                                'cache_path': os.path.abspath(_PATH_CACHE_FILE),
+                                'state_path': os.path.abspath(LOCAL_STATE_PATH)}
                 try:
-                    os.remove(tmp_zip)
-                except Exception:
-                    pass
-                downloaded = True
-                break
-        except Exception as e:
-            last_err = f"{u} -> {e}"
-            continue
+                    _portable_write_journal(base, journal_data)
+                    if had_old:
+                        os.replace(final, backup)
+                        _portable_sync_dir(final.parent)
+                    os.replace(unpacked, final)
+                    _portable_sync_dir(final.parent)
+                    installed_exe = str(final / exe_relative)
+                    identity = None
+                    if tool_id is not None:
+                        from lib import tool_identity
+                        caps = _capabilities_table().get('tools', {}).get(tool_id, {})
+                        probe_id = caps.get('identityProbe') or tool_id
+                        identity = tool_identity.probe(probe_id, installed_exe)
+                        if identity.get('ok') is False or (caps.get('identityProbe') and identity.get('ok') is not True):
+                            raise RuntimeError('新安装程序身份复验失败: ' + str(identity.get('why', 'unknown')))
+                    journal_data.update(phase='committed', identity=identity,
+                                        identity_verified=bool(identity and identity.get('ok') is True))
+                    # The durable phase change is the commit point. Afterwards,
+                    # recovery finishes publishing state rather than reverting files.
+                    _portable_write_journal(base, journal_data)
+                    recovered = _portable_recover_locked(base)
+                except Exception as exc:
+                    try:
+                        recovered = _portable_recover_locked(base)
+                    except (OSError, ValueError, TypeError, RuntimeError) as recovery_error:
+                        return {'success': False, 'error': str(exc), 'recovery_required': True,
+                                'recovery_error': str(recovery_error), 'dir': str(final),
+                                'backup_dir': str(backup) if backup.exists() else '',
+                                'journal': str(base / _PORTABLE_JOURNAL)}
+                    if recovered and recovered.get('recovered') == 'committed':
+                        return {'success': True, 'dir': str(final), 'exe': installed_exe,
+                                'source': url, 'sha256': actual_sha256,
+                                'checksum_verified': bool(expected_sha256),
+                                'backup_dir': str(backup) if backup.exists() else '',
+                                'cache_saved': True, 'state_saved': True, 'recheck': recovered['recheck']}
+                    backup = None
+                    raise RuntimeError(str(exc)) from exc
+                out = {"success": True, "dir": str(final), "exe": installed_exe,
+                        "source": url, "sha256": actual_sha256,
+                        "checksum_verified": bool(expected_sha256), "backup_dir": str(backup) if backup.exists() else ""}
+                if tool_id is not None:
+                    out.update(cache_saved=True, state_saved=True, recheck=recovered['recheck'])
+                return out
+        except (OSError, ValueError, zipfile.BadZipFile, RuntimeError) as exc:
+            failures.append(str(exc))
+            if backup is not None:
+                return {"success": False, "error": str(exc), "backup_dir": str(backup),
+                        "recovery_required": True}
+    return {"success": False, "error": "所有便携下载途径失败: " + "; ".join(failures)}
 
-    if not downloaded:
-        return {"success": False, "error": f"所有便携下载镜像均失败: {last_err}"}
 
-    # 递归查找 verify_exe
-    found_exe = ""
-    if verify_exe:
-        v_low = os.path.basename(verify_exe).lower()
-        for root, _, files in os.walk(final_dir):
-            for fn in files:
-                if fn.lower() == v_low:
-                    found_exe = os.path.join(root, fn)
-                    break
-            if found_exe:
-                break
-    else:
-        found_exe = final_dir
-
-    if final_dir not in _COMMON_ROOTS:
-        _COMMON_ROOTS.insert(0, final_dir)
-
-    return {"success": True, "dir": final_dir, "exe": found_exe}
+def _install_methods(cfg, tid):
+    """Validate before selecting or executing any method, including fallbacks."""
+    if not isinstance(cfg, dict) or not isinstance(cfg.get('installable'), dict):
+        raise ValueError('安装清单及 installable 必须是对象')
+    allowed = cfg.get('auto_allow_methods', [])
+    if not isinstance(allowed, list) or any(not isinstance(m, str) for m in allowed):
+        raise ValueError('auto_allow_methods 必须是字符串数组')
+    entry = cfg['installable'].get(tid)
+    if entry is None:
+        return {}, [], allowed
+    if not isinstance(entry, dict) or not entry:
+        raise ValueError('工具安装声明必须是非空对象')
+    methods = entry.get('methods', [{**entry, 'type': entry.get('method')}])
+    if not isinstance(methods, list) or not methods:
+        raise ValueError('安装方法必须是非空对象数组')
+    supported = ('pip', 'winget', 'portable_zip', 'npm', 'go', 'manual')
+    platform = 'windows' if sys.platform == 'win32' else 'macos' if sys.platform == 'darwin' else sys.platform
+    eligible = []
+    for method in methods:
+        if not isinstance(method, dict) or method.get('type') not in supported:
+            raise ValueError('安装方法声明未知或格式无效')
+        kind = method['type']
+        platforms = method.get('platforms', ['windows'] if kind == 'winget' else [])
+        if not isinstance(platforms, list) or any(p not in ('windows', 'linux', 'macos') for p in platforms):
+            raise ValueError('platforms 必须是支持的平台名称数组')
+        if kind in ('pip', 'winget', 'npm', 'go'):
+            package = method.get('pkg')
+            if not isinstance(package, str) or not package.strip() or package.startswith('-') or '\x00' in package:
+                raise ValueError('安装包标识无效')
+        elif kind == 'portable_zip':
+            urls = method.get('urls')
+            if not isinstance(urls, list) or not urls or any(not isinstance(u, str) or not u for u in urls):
+                raise ValueError('urls 必须是非空地址数组')
+            for url in urls:
+                parsed = urlparse(url)
+                if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+                    raise ValueError('下载地址必须是 HTTP(S)')
+            _portable_relative(method.get('target_sub', tid))
+            _portable_relative(method.get('verify_exe'))
+            checksum = method.get('sha256', '')
+            if not isinstance(checksum, str) or (checksum and (len(checksum) != 64 or any(
+                    c not in '0123456789abcdefABCDEF' for c in checksum))):
+                raise ValueError('sha256 必须是64位十六进制摘要')
+        elif not isinstance(method.get('url'), str) or not method['url']:
+            raise ValueError('人工安装需提供来源 url')
+        elif kind == 'manual':
+            parsed = urlparse(method['url'])
+            if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+                raise ValueError('人工安装来源必须是 HTTP(S) 地址')
+        if not platforms or platform in platforms:
+            eligible.append(dict(method))
+    return entry, eligible, allowed
 
 
 def install_plan(tool_id):
@@ -970,39 +1459,33 @@ def install_plan(tool_id):
     支持多途径自适应：系统无 winget 时自动无缝降级为 portable_zip（绿色直下免安装）。
     """
     tid = normalize_tool_id(tool_id)
-    cfg = _install_table()
-    entry = cfg.get("installable", {}).get(tid)
+    try:
+        table = _install_table()
+        if not isinstance(table, dict):
+            raise ValueError("安装清单根对象必须是对象")
+        if table.get("_config_error"):
+            raise ValueError(table["_config_error"])
+        entry, methods, allowed = _install_methods(table, tid)
+    except (OSError, ValueError, TypeError) as exc:
+        reason = '安装配置无效: ' + str(exc)
+        return {'tool_id': tid, 'has_plan': False, 'reason': reason,
+                'config_error': reason}
     if not entry:
         return {"tool_id": tid, "has_plan": False,
                 "reason": "tool-install.json 未收录该工具；请手动安装后加入 PATH。"}
-
-    # 支持多途径列表 methods
-    methods = entry.get("methods")
+    if not methods:
+        return {'tool_id': tid, 'has_plan': False, 'reason': '当前平台没有声明的安装方法'}
     has_winget = bool(shutil.which("winget"))
-
-    chosen_method = None
-    fallback_methods = []
-
-    if methods and isinstance(methods, list):
-        for m in methods:
-            m_type = m.get("type", "")
-            if m_type == "winget" and not has_winget:
-                # 机器无 winget，跳过作为首选，留作备用
-                fallback_methods.append(m)
-                continue
-            if chosen_method is None:
-                chosen_method = m
-            else:
-                fallback_methods.append(m)
-        if chosen_method is None and methods:
-            chosen_method = methods[0]
-    else:
-        chosen_method = {"type": entry.get("method", ""), "pkg": entry.get("pkg", ""), "url": entry.get("url", "")}
+    methods.sort(key=lambda m: (m['type'] not in allowed or m['type'] == 'manual',
+                                m['type'] == 'winget' and not has_winget))
+    chosen_method, *fallback_methods = methods
 
     m_type = chosen_method.get("type", "")
     pkg = chosen_method.get("pkg", "")
     url = chosen_method.get("url", "")
     urls = chosen_method.get("urls", [])
+    if m_type not in ("pip", "winget", "portable_zip", "npm", "go", "manual"):
+        return {"tool_id": tid, "has_plan": False, "reason": "安装方法声明未知"}
 
     if m_type == "pip":
         cmd = "%s -m pip install %s" % (sys.executable, pkg)
@@ -1019,7 +1502,7 @@ def install_plan(tool_id):
     else:
         cmd = ""
 
-    auto_ok = m_type in (cfg.get("auto_allow_methods") or ["pip", "winget", "portable_zip", "npm", "go"]) and m_type != "manual"
+    auto_ok = m_type in allowed and m_type != "manual"
     return {
         "tool_id": tid,
         "has_plan": True,
@@ -1032,105 +1515,116 @@ def install_plan(tool_id):
         "fallback_methods": fallback_methods,
         "has_winget_on_host": has_winget,
         "note": chosen_method.get("note", entry.get("note", "")),
-        "hint": "自适应多途径：根据当前系统环境自动匹配最佳途径（无 winget 时自动降级为绿色直下，绝不卡住）。"
+        "hint": "只执行当前平台声明且在白名单内的方法；安装后重新发现，失败原因保留在 attempts。"
     }
 
 
 def propose_install(tool_id, execute=False):
-    """半自动安装：默认只出计划；execute=True 且方法在白名单才真正执行并重探。
-    具备错误自动降级能力：若首选包管理器失败，自动尝试绿色便携直下等备用途径。
-    """
+    """Execute allowed installation methods, then report the actual discovery result."""
     tid = normalize_tool_id(tool_id)
+    # An interrupted portable transaction must be handled even when the next
+    # selected method is non-portable or the current install catalog changed.
+    if execute:
+        base = Path(_install_base())
+        journal = base / _PORTABLE_JOURNAL
+        if journal.exists() or journal.is_symlink():
+            try:
+                with project_lock(base, timeout=20):
+                    _portable_recover_locked(base)
+            except (OSError, ValueError, TypeError, RuntimeError) as exc:
+                return {'tool_id': tid, 'executed': False, 'success': False,
+                        'recovery_required': True, 'error': '便携安装恢复失败: ' + str(exc),
+                        'journal': str(journal)}
     plan = install_plan(tid)
-    if not plan.get("has_plan"):
-        return plan
-    if not execute:
-        plan["executed"] = False
+    plan.update(executed=False, success=False)
+    if not plan.get("has_plan") or not execute:
         return plan
     if not plan.get("auto_allowed"):
-        plan["executed"] = False
-        plan["reason"] = "method=%s 不在自动白名单，需人工/确认安装。" % plan.get("method")
+        plan["reason"] = "安装方法不在自动白名单"
         return plan
-
-    method = plan["method"]
-    active_cfg = plan.get("active_method", {})
-
-    # 1. 途径：portable_zip（绿色解压，适合无包管理器的 Win10）
-    if method == "portable_zip":
-        urls = active_cfg.get("urls", [])
-        sub = active_cfg.get("target_sub", tid)
-        vexe = active_cfg.get("verify_exe", "")
-        res = _download_and_extract_portable(urls, sub, vexe)
+    try:
+        _, _, allowed = _install_methods(_install_table(), tid)
+    except (OSError, ValueError, TypeError) as exc:
+        plan.update(has_plan=False, auto_allowed=False, reason='安装配置无效: ' + str(exc))
+        return plan
+    candidates = [plan.get("active_method") or {"type": plan["method"], "pkg": plan.get("package")}]
+    candidates += plan.get("fallback_methods", [])
+    attempts = []
+    plan["attempts"] = attempts
+    for method_config in candidates:
+        method = method_config.get("type")
+        if method not in allowed or method not in ("pip", "winget", "portable_zip", "npm", "go"):
+            attempts.append({"method": method, "executed": False, "error": "方法不在自动白名单"})
+            continue
+        attempt = {"method": method, "executed": True, "success": False}
+        attempts.append(attempt)
         plan["executed"] = True
-        plan["download_result"] = res
-        if res.get("success"):
-            if res.get("exe"):
-                record(tid, {"available": True, "command": res["exe"], "via": "portable_zip"})
-            plan["recheck"] = discover(tid)
-        else:
-            plan["error"] = res.get("error")
-        return plan
-
-    # 2. 途径：pip
-    if method == "pip":
-        pkg = plan["package"]
-        argv = [sys.executable, "-m", "pip", "install", pkg]
-        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
-        if p.returncode != 0:
-            # 自动降级：使用国内清华源重试
-            argv_mirror = [sys.executable, "-m", "pip", "install", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", pkg]
-            p = subprocess.run(argv_mirror, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
-
-        plan["executed"] = True
-        plan["returncode"] = p.returncode
-        plan["tail"] = (p.stdout or p.stderr or "")[-400:]
-        plan["recheck"] = discover(tid)
-        return plan
-
-    # 3. 途径：winget（若失败且有 portable_zip 则自动降级）
-    if method == "winget":
-        pkg = plan["package"]
-        argv = ["winget", "install", "--id", pkg, "-e", "--accept-source-agreements", "--accept-package-agreements"]
-        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
-        
-        # 关键降级：如果 winget 失败且存在 fallback_methods 中的 portable_zip
-        if p.returncode != 0:
-            for fb in plan.get("fallback_methods", []):
-                if fb.get("type") == "portable_zip":
-                    urls = fb.get("urls", [])
-                    sub = fb.get("target_sub", tid)
-                    vexe = fb.get("verify_exe", "")
-                    res = _download_and_extract_portable(urls, sub, vexe)
-                    plan["executed"] = True
-                    plan["winget_failed_fallback_portable"] = res
-                    if res.get("success"):
-                        if res.get("exe"):
-                            record(tid, {"available": True, "command": res["exe"], "via": "portable_zip"})
-                        plan["recheck"] = discover(tid)
+        try:
+            if method == "portable_zip":
+                result = _download_and_extract_portable(method_config.get("urls", []),
+                    method_config.get("target_sub", tid), method_config.get("verify_exe", ""),
+                    method_config.get("sha256", ""), tool_id=tid)
+                attempt["download_result"] = result
+                plan["download_result"] = result
+                if not result.get("success"):
+                    if result.get('recovery_required'):
+                        attempt['error'] = result.get('error') or '便携安装恢复失败'
+                        plan.update(error=attempt['error'], recovery_required=True)
                         return plan
-
-        plan["executed"] = True
-        plan["returncode"] = p.returncode
-        plan["tail"] = (p.stdout or p.stderr or "")[-400:]
-        plan["recheck"] = discover(tid)
-        return plan
-
-    # 4. 其他类型 (npm / go)
-    argv = []
-    if method == "npm":
-        argv = ["npm", "install", "-g", plan["package"]]
-    elif method == "go":
-        argv = ["go", "install", plan["package"]]
-
-    if argv:
-        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
-        plan["executed"] = True
-        plan["returncode"] = p.returncode
-        plan["tail"] = (p.stdout or p.stderr or "")[-400:]
-        plan["recheck"] = discover(tid)
-    else:
-        plan["executed"] = False
-
+                    raise RuntimeError(result.get("error") or "便携安装失败")
+                plan['recheck'] = result['recheck']
+                attempt['success'] = True
+                plan['success'] = True
+                return plan
+            else:
+                package = method_config.get("pkg") or plan.get("package")
+                if not isinstance(package, str) or not package or package.startswith('-'):
+                    raise ValueError("安装包标识无效")
+                commands = {
+                    "pip": [sys.executable, "-m", "pip", "install", package],
+                    "winget": ["winget", "install", "--id", package, "-e", "--accept-source-agreements", "--accept-package-agreements"],
+                    "npm": ["npm", "install", "-g", package],
+                    "go": ["go", "install", package],
+                }
+                argv = commands[method]
+                process = _run_tool_process(argv, capture_output=True, text=True, encoding="utf-8",
+                                         errors="replace", timeout=600)
+                if method == "pip" and process.returncode != 0:
+                    argv = [sys.executable, "-m", "pip", "install", "-i", "https://pypi.tuna.tsinghua.edu.cn/simple", package]
+                    process = _run_tool_process(argv, capture_output=True, text=True, encoding="utf-8",
+                                             errors="replace", timeout=600)
+                attempt.update(argv=argv, returncode=process.returncode,
+                               tail=((process.stdout or "") + "\n" + (process.stderr or ""))[-800:])
+                plan.update(returncode=process.returncode, tail=attempt["tail"])
+                if process.returncode != 0:
+                    raise RuntimeError("安装器退出失败: " + str(process.returncode))
+                if method == 'go':
+                    # go env also respects settings persisted with `go env -w`,
+                    # which need not appear in this process's environment/PATH.
+                    location = _run_tool_process(['go', 'env', '-json', 'GOBIN', 'GOPATH'],
+                        capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=20)
+                    if location.returncode == 0:
+                        settings = json.loads(location.stdout)
+                        directories = ([settings['GOBIN']] if settings.get('GOBIN') else
+                            [os.path.join(p, 'bin') for p in settings.get('GOPATH', '').split(os.pathsep) if p])
+                        caps = _capabilities_table().get('tools', {}).get(tid, {})
+                        found = next((os.path.join(directory, name + suffix)
+                            for directory in directories for name in _exe_candidates(tid)
+                            for suffix in (('.exe', '') if os.name == 'nt' else ('',))
+                            if os.path.isfile(os.path.join(directory, name + suffix))
+                            and not _path_excluded(os.path.join(directory, name + suffix), caps)), None)
+                        if found:
+                            _cache_put(tid, found, 'go-install')
+            recheck = discover(tid)
+            plan["recheck"] = recheck
+            attempt["success"] = bool(recheck.get("available"))
+            if attempt["success"]:
+                plan["success"] = True
+                return plan
+            raise RuntimeError("安装步骤完成，但重探未发现可用工具")
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+            attempt["error"] = type(exc).__name__ + ": " + str(exc)
+    plan["error"] = "; ".join(a.get("error", "") for a in attempts if a.get("error")) or "没有可执行安装方法"
     return plan
 
 
@@ -1166,14 +1660,21 @@ def plan_control(tool_id, target=None, apply_mcp=False):
         plan["next_action"] = "工具缺失：确认安装计划，或改用自写 Py 脚本兜底。"
         return plan
 
+    if disc.get("kind") == "python_lib":
+        plan["how_to_control"] = {"mode": "python_lib", "module": disc["module"],
+                                  "interpreter": disc["interpreter"],
+                                  "detail": "在该 Python 解释器中导入模块使用"}
+        plan["next_action"] = "使用 Python 库 API。"
+        return plan
+
     caps = cap.get("capabilities", {}) if cap.get("known") else {}
     ctrl = cap.get("control", {}) if cap.get("known") else {}
 
     # 1) 已注册 MCP
     if _mcp_already_registered(tid):
-        plan["how_to_control"] = {"mode": "mcp_registered",
-                                  "detail": "该工具的 MCP 已在 mcp.json 注册，直接调用对应 MCP 工具即可。"}
-        plan["next_action"] = "直接用已注册 MCP。"
+        plan["how_to_control"] = {"mode": "mcp_registered", "connection_verified": False,
+                                  "detail": "已发现 MCP 配置；需核对当前宿主工具表并握手，配置存在不代表服务已连接。"}
+        plan["next_action"] = "先运行 MCP 握手/体检并核对宿主工具表；连接后调用，缺失时重新加载 MCP。"
         return plan
 
     # 2) 可现注册 MCP
@@ -1218,17 +1719,49 @@ def plan_control(tool_id, target=None, apply_mcp=False):
 # ---------------------------------------------------------------------------
 # 本机状态（~/.seep/tools.local.json，绝不入库）
 # ---------------------------------------------------------------------------
+def _read_local_state(strict=False):
+    try:
+        with open(LOCAL_STATE_PATH, encoding='utf-8-sig') as stream:
+            state = json.load(stream)
+        if not isinstance(state, dict) or not isinstance(state.get('tools'), dict):
+            raise ValueError('本机发现状态及 tools 必须是对象')
+        return state
+    except FileNotFoundError:
+        return {'schemaVersion': '1.0', 'tools': {}, 'updated_at': None}
+    except (OSError, ValueError):
+        if strict:
+            raise
+        return {'schemaVersion': '1.0', 'tools': {}, 'updated_at': None,
+                'load_error': '无法读取本机发现状态；原文件已保留'}
+
+
 def load_state():
-    return _load_json(LOCAL_STATE_PATH, {"schemaVersion": "1.0", "tools": {},
-                                         "updated_at": None})
+    return _read_local_state()
+
+
+def _write_local_state(state):
+    if not isinstance(state, dict) or not isinstance(state.get('tools'), dict):
+        raise ValueError('本机发现状态及 tools 必须是对象')
+    pending = None
+    try:
+        state = dict(state, updated_at=_now())
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                dir=Path(LOCAL_STATE_PATH).parent, prefix='.seep-state-', delete=False) as stream:
+            pending = stream.name
+            json.dump(state, stream, indent=2, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(pending, LOCAL_STATE_PATH)
+    finally:
+        if pending and os.path.exists(pending):
+            os.unlink(pending)
 
 
 def save_state(state):
     try:
-        os.makedirs(LOCAL_STATE_DIR, exist_ok=True)
-        state["updated_at"] = _now()
-        with open(LOCAL_STATE_PATH, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2, ensure_ascii=False)
+        with project_lock(Path(LOCAL_STATE_PATH).parent):
+            _read_local_state(strict=True)  # do not overwrite an unreadable existing state
+            _write_local_state(state)
         return True
     except Exception:
         return False
@@ -1237,17 +1770,22 @@ def save_state(state):
 def record(tool_id, result=None):
     """把一次发现结果落本机状态（不写仓库）。"""
     tid = normalize_tool_id(tool_id)
-    state = load_state()
     r = result if result is not None else discover(tid)
-    state.setdefault("tools", {})[tid] = {
+    entry = {
         "available": r.get("available"),
         "command": r.get("command", ""),
         "via": r.get("via", ""),
         "arch": r.get("arch"),
         "checked_at": _now(),
     }
-    save_state(state)
-    return state["tools"][tid]
+    try:
+        with project_lock(Path(LOCAL_STATE_PATH).parent):
+            state = _read_local_state(strict=True)
+            state['tools'][tid] = entry
+            _write_local_state(state)
+        return dict(entry, state_saved=True)
+    except (OSError, ValueError, TimeoutError) as exc:
+        return dict(entry, state_saved=False, state_error=type(exc).__name__)
 
 
 def list_state():
@@ -1263,6 +1801,12 @@ def _cli(argv):
     sub = ap.add_subparsers(dest="cmd", required=True)
     d = sub.add_parser("discover", help="六层递进发现某工具")
     d.add_argument("tool"); d.add_argument("--target", default=None)
+    d.add_argument("--no-cache", action="store_true")
+    d.add_argument("--exe-candidate", action="append")
+    c = sub.add_parser("cache-put", help="在共享锁内更新机器级路径缓存")
+    c.add_argument("tool"); c.add_argument("command"); c.add_argument("via")
+    e = sub.add_parser("execute", help="按 argv 执行工具并返回结构化结果")
+    e.add_argument("--request-file", required=True)
     p = sub.add_parser("plan", help="发现 + 控制计划（降级链）")
     p.add_argument("tool"); p.add_argument("--target", default=None)
     p.add_argument("--apply-mcp", action="store_true")
@@ -1274,7 +1818,38 @@ def _cli(argv):
     args = ap.parse_args(argv)
 
     if args.cmd == "discover":
-        out = discover(args.tool, target=args.target); record(args.tool, out)
+        out = discover(args.tool, target=args.target, use_cache=not args.no_cache,
+                       exe_candidates=args.exe_candidate)
+    elif args.cmd == "cache-put":
+        saved = _cache_put(normalize_tool_id(args.tool), args.command, args.via)
+        print(json.dumps({"saved": saved}))
+        return 0 if saved else 1
+    elif args.cmd == "execute":
+        context = {}
+        try:
+            with open(args.request_file, encoding='utf-8-sig') as stream:
+                request = json.load(stream)
+            if not isinstance(request, dict):
+                raise ValueError('执行请求必须是对象')
+            raw_context = request.get('context', {})
+            if not isinstance(raw_context, dict):
+                raise ValueError('context 必须是对象')
+            context = {key: value for key, value in raw_context.items()
+                       if key in ('tool', 'mode', 'exe', 'workDir', 'target') and isinstance(value, str)}
+            if request.get('cwd') is not None and not isinstance(request['cwd'], str):
+                raise ValueError('cwd 必须是目录字符串')
+            timeout = request.get('timeout', 600)
+            if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 43200:
+                raise ValueError('timeout 必须在 0 到 43200 秒之间')
+            process = _run_tool_process(request.get('argv'), cwd=request.get('cwd'), timeout=timeout,
+                capture_output=True, text=True, encoding='utf-8', errors='replace', stdin=subprocess.DEVNULL)
+            print(json.dumps({**context, 'status': 'RAN' if process.returncode == 0 else 'FAILED',
+                'stage': 'execution', 'exit': process.returncode,
+                'output': ((process.stdout or '') + '\n' + (process.stderr or ''))[-8000:]}, ensure_ascii=False))
+            return process.returncode if 0 <= process.returncode <= 255 else 1
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            print(json.dumps({**context, 'status': 'FAILED', 'stage': 'execution', 'reason': str(exc)}, ensure_ascii=False))
+            return 3
     elif args.cmd == "plan":
         out = plan_control(args.tool, target=args.target, apply_mcp=args.apply_mcp)
     elif args.cmd == "register":

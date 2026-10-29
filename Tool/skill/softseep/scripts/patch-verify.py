@@ -115,6 +115,15 @@ def write_atomic(path: str, data: bytes):
                 pass
 
 
+def aliases(a: str, b: str) -> bool:
+    if os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b)):
+        return True
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
 def run(file_path: str, manifest_path: str, out: str | None,
         rollback: bool, backup: str | None) -> int:
     if not os.path.isfile(file_path):
@@ -125,6 +134,12 @@ def run(file_path: str, manifest_path: str, out: str | None,
         manifest = load_manifest(manifest_path)
     except Exception as exc:  # noqa: BLE001
         return emit_fail("manifest", "%s: %s" % (type(exc).__name__, exc))
+    backup_path = backup or (manifest.get("rollback") or {}).get("backup") or (os.path.abspath(manifest_path) + ".rollback.backup")
+    if not os.path.isabs(backup_path):
+        backup_path = os.path.join(os.path.dirname(os.path.abspath(manifest_path)), backup_path)
+    output_path = out or ((file_path + ".rollback") if rollback else None)
+    if output_path and any(aliases(output_path, p) for p in (file_path, manifest_path, backup_path)):
+        return emit_fail("output-alias", "输出必须是独立副本，不能覆盖输入、补丁清单或回滚备份")
     with open(file_path, "rb") as f:
         original = f.read()
     before = sha256(original)
@@ -150,9 +165,9 @@ def run(file_path: str, manifest_path: str, out: str | None,
             return emit_fail("rollback-source", "回滚源不存在：%s" % src)
         with open(src, "rb") as f:
             rb = f.read()
-        want = (manifest.get("rollback") or {}).get("backup_sha256") or before
-        if sha256(rb) != str(want).lower():
-            return emit_fail("rollback-hash", "回滚源哈希与 backup_sha256 不一致")
+        want = (manifest.get("rollback") or {}).get("backup_sha256") or target_hash
+        if sha256(rb) != target_hash or sha256(rb) != str(want).lower():
+            return emit_fail("rollback-hash", "回滚源必须匹配 target_sha256 和声明的 backup_sha256")
         target = out or (file_path + ".rollback")
         try:
             write_atomic(target, rb)
@@ -221,6 +236,18 @@ def self_test() -> int:
             json.dump(m, f)
         with open(os.path.join(tmp, "app.bin.bak"), "wb") as f:
             f.write(orig)
+        for collision in (p, mp, os.path.join(tmp, "app.bin.bak")):
+            saved = open(collision, "rb").read()
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = run(p, mp, collision, False, None)
+            assert rc == 2 and open(collision, "rb").read() == saved
+            checks += 1
+        hardlink = os.path.join(tmp, "alias.bin")
+        os.link(p, hardlink)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = run(p, mp, hardlink, False, None)
+        assert rc == 2 and open(p, "rb").read() == orig
+        checks += 1
         out = os.path.join(tmp, "app.patched.bin")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -231,10 +258,21 @@ def self_test() -> int:
         rb = os.path.join(tmp, "app.rolled.bin")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            rc = run(p, mp, rb, True, None)
+            rc = run(out, mp, rb, True, None)
         assert rc == 0, buf.getvalue()
         assert open(rb, "rb").read() == orig
         checks += 1
+        bad_backup = os.path.join(tmp, "bad.bak")
+        with open(bad_backup, "wb") as f:
+            f.write(b"wrong")
+        m["rollback"]["backup_sha256"] = sha256(b"wrong")
+        with open(mp, "w", encoding="utf-8") as f:
+            json.dump(m, f)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = run(out, mp, rb, True, bad_backup)
+        assert rc == 2 and open(rb, "rb").read() == orig
+        checks += 1
+        del m["rollback"]["backup_sha256"]
         m["patches"][0]["new"] = "5A5A5A"
         with open(mp, "w", encoding="utf-8") as f:
             json.dump(m, f)

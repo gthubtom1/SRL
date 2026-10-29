@@ -38,7 +38,8 @@
     python Tool/scripts/pre-upload-check.py --json     # 机器读（Agent 用）
     python Tool/scripts/pre-upload-check.py --quiet    # 只打印三栏标题行与结论
 
-退出码：1 = [1] 或 [3] 有未放行项（阻止上传）；0 = 没有（仍可能有 [2] 提醒）。
+退出码：1 = [1]/[3] 有未放行项，或 Git 清单不可用导致无法判定（阻止上传）；
+        0 = [1]/[3] 已完成检查且没有阻断项（仍可能有 [2] 提醒）。
 """
 from __future__ import annotations
 
@@ -115,6 +116,10 @@ ALLOW = {
         "漏洞演示靶场的夹具 .env：值形如 fixture-db-password-not-real（占位词自证，无真凭据）",
     "Tool/cases/web-pentest02/input/.env":
         "同 web-pentest01：夹具 .env，用于演示「/.env 可访问」这条 finding",
+    "Tool/scripts/test_r10_firmware_contracts.py":
+        "固件分析脱敏单测：构造测试用假 Bearer 令牌与假 AWS Key 占位值，验证脱敏逻辑。",
+    "Tool/scripts/test_r10a_contracts.py":
+        "竞态与复现单测：构造测试用占位 secret 字符串，验证日志脱敏与脱敏红线。",
 }
 
 # 放行理由前缀：只有这类理由可以"自动判定"（值本身就是占位词）；
@@ -569,7 +574,9 @@ def main(argv=None):
                  reverse=True)
     big = [(s, p) for s, p in big if s >= BIG_FILE_WARN][:5]
 
-    rc = 1 if (t_block or c_block) else 0
+    # Git 清单不可用时第 1/3 栏根本没有被检查。上传安全门必须 fail closed：
+    # 不能把“无法判定”输出成 ok=true / rc=0，让聚合门禁误以为敏感文件与内容扫描已通过。
+    rc = 1 if (not git_ok or t_block or c_block) else 0
 
     if a.json:
         print(json.dumps({
@@ -667,7 +674,10 @@ def main(argv=None):
             print("    · %8s  %s" % (_human(s), p))
 
     print()
-    if rc:
+    if not git_ok:
+        print("结果: 无法判定，阻止上传 —— Git 清单不可用，敏感文件与内容级凭据均未检查")
+        print("修完后复跑：python Tool/scripts/pre-upload-check.py")
+    elif rc:
         print("结果: 阻止上传 —— 会进 git 的敏感文件 %d 条 / 内容级命中 %d 条（本机仅提醒 %d 组）"
               % (len(t_block), len(c_block), len(local_rows)))
         print("修完复跑：python Tool/scripts/pre-upload-check.py")

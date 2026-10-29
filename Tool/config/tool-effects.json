@@ -23,7 +23,7 @@
       "may_discard_data": false
     },
     "seep_apk_unpack": {
-      "writes_filesystem": false,
+      "writes_filesystem": true,
       "executes_foreign_code": true,
       "touches_network": false,
       "mutates_target": false,
@@ -46,7 +46,7 @@
     "seep_ensure_tool": {
       "writes_filesystem": true,
       "executes_foreign_code": true,
-      "touches_network": false,
+      "touches_network": true,
       "mutates_target": false,
       "may_discard_data": true
     },
@@ -95,7 +95,7 @@
     "seep_pcap_extract": {
       "writes_filesystem": false,
       "executes_foreign_code": true,
-      "touches_network": true,
+      "touches_network": false,
       "mutates_target": false,
       "may_discard_data": false
     },
@@ -103,7 +103,7 @@
       "writes_filesystem": false,
       "executes_foreign_code": true,
       "touches_network": false,
-      "mutates_target": false,
+      "mutates_target": true,
       "may_discard_data": false
     },
     "seep_r2_decompile": {
@@ -135,12 +135,12 @@
       "may_discard_data": false
     },
     "seep_tool_discover": {
-      "writes_filesystem": false,
-      "executes_foreign_code": false,
+      "writes_filesystem": true,
+      "executes_foreign_code": true,
       "touches_network": false,
       "mutates_target": false,
       "may_discard_data": false
     }
   },
-  "_note": "D1：每个 @server.tool() 必须在此登记，缺一条 server 在 import 期抛错（起不来）。\n含义 —— mutates_target: 改目标文件；writes_filesystem: 落盘；executes_foreign_code: 起子进程；\ntouches_network: 主动联网；may_discard_data: 可能删/覆盖数据。默认全 false，拿不准的按 true 记。"
+  "_note": "D1：每个 @server.tool() 必须在此登记，缺一条 server 在 import 期抛错（起不来）。\n含义 —— mutates_target: 改目标文件；writes_filesystem: 落盘；executes_foreign_code: 起子进程；\ntouches_network: 主动联网；may_discard_data: 可能删/覆盖数据。默认全 false，拿不准的按 true 记。\n**本表只收 @server.tool() 工具**：seep_contract.audit_tool_effects 要求集合严格相等，多一条（add）也会拒启动。\n运行时工具（rabin2 / java / r2 / jadx / apktool / tshark …）不是 MCP 工具，它们的边界写在 tool-runtimes.json。\n\n2026-10-27 按实现复核后的改动（取动作上界，不改 effects 闸规则）：\n· seep_ensure_tool.touches_network: false → true。实现 seep_mcp_server.py:1889 在 allow_install 且白名单途径时调\n  propose_install(execute=True)：portable_zip 分支走 urllib 下载、pip/winget/npm/go 分支联网取包/安装器，\n  且默认参数 allow_install=True，所以「主动联网」是默认路径上的真实行为，不能记 false。\n· seep_pcap_extract.touches_network: true → false。实现 :2210 只调本地 tshark -r 读已存在的 pcap，不发起网络连接；\n  旧值把「读抓包」误标成 openWorld，会让无害只读动作被当联网动作拦住。\n· seep_tool_discover.writes_filesystem: false → true、executes_foreign_code: false → true：record() 落\n  ~/.seep/tools.local.json，discover() 会真起 shell 侧探测（注册表/快捷方式/Everything）。\n· seep_r2_cmd.mutates_target 保留 true：命令串由调用方提供，实现只按 `w*`/`o+`/`oo+` 前缀拦（:322 _r2_write_tokens），\n  协议层仍可能写目标，按上界保留。"
 }

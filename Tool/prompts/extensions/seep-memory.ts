@@ -17,12 +17,15 @@
  * 同一语义两份账，扩展写的那份 gate 根本不看。现在只写一份账本（append-only）。
  * 标记写入的事件行带 confidence:"unknown" / authority:"none"：**永不计 pass**（S2-4）。
  *
+ * 工具动作账由 seep-events.ts 单独维护；本扩展只记用户输入、轮次、note 与
+ * @@FACT/@@TRAP/@@GATE/@@DEAD 标记，避免同一次工具调用在 facts.jsonl 落两行。
+ *
  * case 目录：
- *   process.env.SEEP_CASE_DIR，缺省 ./.seep-case
+ *   process.env.SEEP_CASE_DIR → <cwd>/.seep-case → ~/.seep/current-case
  *   **目录不存在就静默跳过**（没开案子的普通会话不该被这个扩展打扰）。
  *
  * 隐私红线（硬约束，不是建议）：
- *   · 不写文件内容：read/grep 只记路径，write/edit 只记字符数；
+ *   · 不写文件正文、命令参数或工具输入；
  *   · 不写凭据：命中 Authorization/token/password/secret 等词，整条摘要丢弃，
  *     只落一条 {"summary":"redacted","redacted":true}；
  *   · 所有 IO 都包 try/catch，扩展异常不允许影响会话。
@@ -37,6 +40,7 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type {
 	ExtensionAPI,
@@ -67,76 +71,63 @@ const MARKERS: { prefix: string; file: string; kind: string }[] = [
 	{ prefix: "@@DEAD", file: "dead.md", kind: "dead" },
 ];
 
-/** tool_call 里允许摘录的字段：路径 / 命令 / 查询词，都不含文件正文。 */
-const SAFE_INPUT_KEYS = [
-	"command",
-	"file_path",
-	"filePath",
-	"path",
-	"target",
-	"pattern",
-	"query",
-	"url",
-	"glob",
-	"description",
-	"action",
-	"name",
-	"host",
-	"port",
-];
-
-/** 只记长度、绝不记正文的字段。 */
-const CONTENT_INPUT_KEYS = [
-	"content",
-	"text",
-	"oldText",
-	"newText",
-	"old_string",
-	"new_string",
-	"old_str",
-	"new_str",
-	"patch",
-	"diff",
-];
-
 /* ────────────────────────────── 路径 ────────────────────────────── */
 
-function caseDir(): string {
-	// 解析顺序（外部评审 A7：只认 ./.seep-case 与开工流程不一致，记忆会静默丢失）：
+function caseDir(cwd: string): string {
+	// 解析顺序：
 	//   ① SEEP_CASE_DIR（显式）
-	//   ② ~/.seep/current-case 指针（`case_state.py init` 会写，跨目录会话也能找到）
-	//   ③ ./.seep-case（旧默认）
+	//   ② <当前会话 cwd>/.seep-case
+	//   ③ ~/.seep/current-case 指针（跨目录兼容）
+	// cwd 本地案必须优先于全局指针，否则并行会话会串账。
 	if (process.env.SEEP_CASE_DIR) {
 		try {
-			return path.resolve(process.env.SEEP_CASE_DIR);
+			const explicit = path.resolve(process.env.SEEP_CASE_DIR.trim());
+			if (caseExists(explicit)) return explicit;
 		} catch {
 			/* fallthrough */
 		}
 	}
 	try {
-		const home = process.env.USERPROFILE || process.env.HOME || "";
-		const ptr = path.join(home, ".seep", "current-case");
-		if (home && fs.existsSync(ptr)) {
-			const t = fs.readFileSync(ptr, "utf-8").trim();
-			if (t) return path.resolve(t);
+		const local = path.resolve(cwd || process.cwd(), ".seep-case");
+		if (caseExists(local)) return local;
+	} catch {
+		/* fallthrough */
+	}
+	try {
+		const home = os.homedir();
+		const ptr = home ? path.join(home, ".seep", "current-case") : "";
+		if (ptr && fs.existsSync(ptr)) {
+			const target = fs.readFileSync(ptr, "utf-8")
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.find(Boolean);
+			// 指针必须是绝对目录；相对值会跟随当前 cwd 漂移，不能静默接受。
+			if (target && path.isAbsolute(target)) {
+				const absolute = path.resolve(target);
+				if (caseExists(absolute)) return absolute;
+			}
 		}
 	} catch {
 		/* fallthrough */
 	}
-	return path.resolve(".seep-case");
+	try {
+		return path.resolve(cwd || process.cwd(), ".seep-case");
+	} catch {
+		return path.resolve(".seep-case");
+	}
 }
 
-function memoryDir(): string {
-	return path.join(caseDir(), "memory");
+function memoryDir(dir: string): string {
+	return path.join(dir, "memory");
 }
 
-function memFile(name: string): string {
-	return path.join(memoryDir(), name);
+function memFile(dir: string, name: string): string {
+	return path.join(memoryDir(dir), name);
 }
 
 /** 唯一账本：<case>/facts.jsonl（与 case_state.py 同一份，不再有 memory/ 副本）。 */
-function ledgerFile(): string {
-	return path.join(caseDir(), "facts.jsonl");
+function ledgerFile(dir: string): string {
+	return path.join(dir, "facts.jsonl");
 }
 
 /* ────────────────────────────── 小工具 ────────────────────────────── */
@@ -170,13 +161,33 @@ function cwdOf(ctx: any): string {
 	return process.cwd();
 }
 
-/** 案例目录不存在 → 整个扩展空转（不创建、不报错）。 */
-function caseExists(): boolean {
+function sessionIdOf(ctx: any, cwd: string): string {
 	try {
-		return fs.existsSync(caseDir()) && fs.statSync(caseDir()).isDirectory();
+		const sid = ctx?.sessionManager?.getSessionId?.();
+		if (typeof sid === "string" && sid.trim()) return sid.trim();
+	} catch {}
+	for (const value of [ctx?.sessionId, ctx?.session_id, ctx?.sessionID]) {
+		if (typeof value === "string" && value.trim()) return value.trim();
+	}
+	try {
+		return `cwd:${path.resolve(cwd || process.cwd())}`;
+	} catch {
+		return "cwd:unknown";
+	}
+}
+
+/** 案例目录不存在 → 整个扩展空转（不创建、不报错）。 */
+function caseExists(dir: string): boolean {
+	try {
+		return fs.existsSync(dir) && fs.statSync(dir).isDirectory();
 	} catch {
 		return false;
 	}
+}
+
+/** 自检钩子：不启动 Pi 也能验证 case 目录选择顺序与指针校验。 */
+export function resolveCaseDirForTest(cwd: string): string {
+	return caseDir(cwd);
 }
 
 async function readText(file: string): Promise<string> {
@@ -192,7 +203,7 @@ async function readText(file: string): Promise<string> {
 let writeChain: Promise<void> = Promise.resolve();
 
 /**
- * 同一个进程里的事件写盘必须排队：tool_call 可能并行触发，
+ * 同一个进程里的事件写盘必须排队：输入、轮次和标记可能并行触发，
  * 并发 appendFile 虽不会丢数据，但行序会乱，时间线就不可信了。
  */
 function enqueue(task: () => Promise<void>): void {
@@ -201,18 +212,18 @@ function enqueue(task: () => Promise<void>): void {
 	});
 }
 
-async function ensureMemoryDir(): Promise<boolean> {
-	if (!caseExists()) return false;
+async function ensureMemoryDir(dir: string): Promise<boolean> {
+	if (!caseExists(dir)) return false;
 	try {
-		await fs.promises.mkdir(memoryDir(), { recursive: true });
+		await fs.promises.mkdir(memoryDir(dir), { recursive: true });
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-async function appendLine(file: string, line: string): Promise<void> {
-	if (!(await ensureMemoryDir())) return;
+async function appendLine(caseDirectory: string, file: string, line: string): Promise<void> {
+	if (!(await ensureMemoryDir(caseDirectory))) return;
 	try {
 		await fs.promises.appendFile(file, line.endsWith("\n") ? line : line + "\n", "utf-8");
 	} catch {
@@ -221,10 +232,10 @@ async function appendLine(file: string, line: string): Promise<void> {
 }
 
 /** 追加一行到唯一账本（append-only；任何异常静默，扩展不能阻塞会话）。 */
-async function appendLedger(obj: Record<string, unknown>): Promise<void> {
-	if (!caseExists()) return;
+async function appendLedger(caseDirectory: string, obj: Record<string, unknown>): Promise<void> {
+	if (!caseExists(caseDirectory)) return;
 	try {
-		await fs.promises.appendFile(ledgerFile(), JSON.stringify(obj) + "\n", "utf-8");
+		await fs.promises.appendFile(ledgerFile(caseDirectory), JSON.stringify(obj) + "\n", "utf-8");
 	} catch {
 		/* 静默 */
 	}
@@ -232,23 +243,23 @@ async function appendLedger(obj: Record<string, unknown>): Promise<void> {
 
 interface EventEntry {
 	ts: string;
-	kind: "user" | "tool" | "turn" | "note";
-	tool?: string;
+	kind: "user" | "turn" | "note";
 	summary: string;
 	cwd: string;
+	session_id: string;
 	redacted?: boolean;
 }
 
-function recordEvent(entry: Omit<EventEntry, "ts">): void {
+function recordEvent(caseDirectory: string, entry: Omit<EventEntry, "ts">): void {
 	enqueue(async () => {
 		try {
 			// 事件行走同一个账本（kind:"event"）：S2 前写在 memory/events.jsonl，gate 读不到
-			await appendLedger({ ts: nowISO(), ...entry, kind: "event", event: entry.kind });
+			await appendLedger(caseDirectory, { ts: nowISO(), ...entry, kind: "event", event: entry.kind });
 		} catch {}
 	});
 }
 
-/* ────────────────────── 从消息 / 工具输入取摘要 ────────────────────── */
+/* ─────────────────────────── 从消息取摘要 ─────────────────────────── */
 
 function extractText(message: any): string {
 	try {
@@ -265,24 +276,6 @@ function extractText(message: any): string {
 	return "";
 }
 
-function summarizeToolInput(name: string, input: any): { text: string; redacted: boolean } {
-	const parts: string[] = [];
-	try {
-		if (input && typeof input === "object") {
-			for (const k of SAFE_INPUT_KEYS) {
-				const v = (input as Record<string, unknown>)[k];
-				if (typeof v === "string" && v.trim()) parts.push(`${k}=${clip(v, 120)}`);
-			}
-			for (const k of CONTENT_INPUT_KEYS) {
-				const v = (input as Record<string, unknown>)[k];
-				if (typeof v === "string") parts.push(`${k}:${v.length}c(未记录正文)`);
-			}
-		}
-	} catch {}
-	if (!parts.length) parts.push(`(${name} 调用，无可摘要字段)`);
-	return scrub(parts.join(" "));
-}
-
 /* ─────────────────────────── 标记通道 ─────────────────────────── */
 
 function stripMarkerPrefix(line: string, prefix: string): string {
@@ -290,6 +283,9 @@ function stripMarkerPrefix(line: string, prefix: string): string {
 	// 允许行首是列表符号：`- @@FACT ...` / `* @@TRAP ...`
 	s = s.replace(/^[-*+]\s+/, "");
 	if (!s.startsWith(prefix)) return "";
+	const next = s.charAt(prefix.length);
+	// 标记名必须是完整词：@@FACTORY / @@GATEWAY 不能被误记成 FACT / GATE。
+	if (next && !/[\s:：\-—]/.test(next)) return "";
 	s = s.slice(prefix.length);
 	s = s.replace(/^\s*[:：\-—]\s*/, "").trim();
 	return s;
@@ -314,7 +310,12 @@ function parseMarkers(text: string): { file: string; kind: string; body: string 
 	return out;
 }
 
-function persistMarkers(items: { file: string; kind: string; body: string }[], cwd: string): void {
+function persistMarkers(
+	items: { file: string; kind: string; body: string }[],
+	caseDirectory: string,
+	cwd: string,
+	sessionId: string,
+): void {
 	if (!items.length) return;
 	enqueue(async () => {
 		try {
@@ -322,22 +323,22 @@ function persistMarkers(items: { file: string; kind: string; body: string }[], c
 				const { text, redacted } = scrub(it.body);
 				if (redacted) {
 					// 标记里带凭据：不写目标文件，只在事件流里留一条 redacted
-					await appendLedger({
+					await appendLedger(caseDirectory, {
 						ts: nowISO(), kind: "event", event: "note",
-						summary: "redacted", redacted: true, cwd,
+						summary: "redacted", redacted: true, cwd, session_id: sessionId,
 					});
 					continue;
 				}
 				if (it.kind === "fact") {
 					// 结论速记 → 唯一账本。confidence 默认为 unknown：没标 observed/derived 就不计 pass。
-					await appendLedger({
+					await appendLedger(caseDirectory, {
 						ts: nowISO(), kind: "fact", claim: text,
 						confidence: "unknown", authority: "none",
-						source: "marker", cwd,
+						source: "marker", cwd, session_id: sessionId,
 					});
 				} else {
-					if (!(await ensureMemoryDir())) continue;
-					await appendLine(memFile(it.file), `- [${nowISO()}] ${text}`);
+					if (!(await ensureMemoryDir(caseDirectory))) continue;
+					await appendLine(caseDirectory, memFile(caseDirectory, it.file), `- [${nowISO()}] ${text}`);
 				}
 			}
 		} catch {}
@@ -362,9 +363,9 @@ function emit(ctx: any, msg: string, level: "info" | "warning" = "info"): void {
 	}
 }
 
-function missingCaseMessage(): string {
+function missingCaseMessage(caseDirectory: string): string {
 	return (
-		`未找到案例目录：${caseDir()}\n` +
+		`未找到案例目录：${caseDirectory}\n` +
 		`把 SEEP_CASE_DIR 指向 <case>（例如 $env:SEEP_CASE_DIR="D:/work/项目J"），` +
 		`或在当前目录建 .seep-case/。没有案例目录时本插件不记录任何东西。`
 	);
@@ -407,65 +408,66 @@ function capForPrompt(text: string, maxBytes: number, maxLines: number): string 
 /* ─────────────────────────── 扩展入口 ─────────────────────────── */
 
 export default function seepMemory(pi: ExtensionAPI) {
+	function contextOf(ctx: any): { cwd: string; sessionId: string; caseDirectory: string } {
+		const cwd = cwdOf(ctx);
+		const sessionId = sessionIdOf(ctx, cwd);
+		return { cwd, sessionId, caseDirectory: caseDir(cwd) };
+	}
+
 	/* 1. 会话开始：记一条 note，并把 case 目录状态告诉用户（只提示一次，不吵） */
 	pi.on("session_start", async (_event: any, ctx: any) => {
 		try {
-			if (!caseExists()) return;
-			recordEvent({ kind: "note", summary: "session_start", cwd: cwdOf(ctx) });
+			const { cwd, sessionId, caseDirectory } = contextOf(ctx);
+			if (!caseExists(caseDirectory)) return;
+			recordEvent(caseDirectory, { kind: "note", summary: "session_start", cwd, session_id: sessionId });
 		} catch {}
 	});
 
 	/* 2. 用户输入：kind=user（凭据命中即 redacted） */
 	pi.on("input", async (event: any, ctx: any) => {
 		try {
-			if (!caseExists()) return;
+			const { cwd, sessionId, caseDirectory } = contextOf(ctx);
+			if (!caseExists(caseDirectory)) return;
 			const raw = typeof event?.text === "string" ? event.text : "";
 			if (!raw.trim()) return;
 			const { text, redacted } = scrub(raw);
-			recordEvent({ kind: "user", summary: text, cwd: cwdOf(ctx), redacted });
+			recordEvent(caseDirectory, { kind: "user", summary: text, cwd, session_id: sessionId, redacted });
 		} catch {}
 	});
 
-	/* 3. 工具调用：kind=tool。不记结果、不记文件正文。 */
-	pi.on("tool_call", async (event: any, ctx: any) => {
-		try {
-			if (!caseExists()) return;
-			const name = String(event?.toolName ?? "unknown");
-			const { text, redacted } = summarizeToolInput(name, event?.input);
-			recordEvent({ kind: "tool", tool: name, summary: text, cwd: cwdOf(ctx), redacted });
-		} catch {}
-	});
-
-	/* 4. 每轮结束：kind=turn + 解析 @@ 标记 */
+	/* 3. 每轮结束：kind=turn + 解析 @@ 标记 */
 	pi.on("turn_end", async (event: any, ctx: any) => {
 		try {
-			if (!caseExists()) return;
-			const cwd = cwdOf(ctx);
+			const { cwd, sessionId, caseDirectory } = contextOf(ctx);
+			if (!caseExists(caseDirectory)) return;
 			const message = event?.message;
 			const body = extractText(message);
 			const idx = typeof event?.turnIndex === "number" ? event.turnIndex : "?";
 			const firstLine = body.split(/\r?\n/).find((l) => l.trim()) || "(本轮无文本)";
 			const { text, redacted } = scrub(`turn #${idx}: ${firstLine}`);
-			recordEvent({ kind: "turn", summary: text, cwd, redacted });
+			recordEvent(caseDirectory, {
+				kind: "turn", summary: text, cwd, session_id: sessionId, redacted,
+			});
 
 			// 标记只加权，不是唯一通道：没写标记也不会丢事件流。
 			// 标记单独脱敏（persistMarkers 内做），不能被 turn 摘要的命中连坐。
 			if (!message?.role || message.role === "assistant") {
-				persistMarkers(parseMarkers(body), cwd);
+				persistMarkers(parseMarkers(body), caseDirectory, cwd, sessionId);
 			}
 		} catch {}
 	});
 
 	/**
-	 * 5. 触发式注入：每次 run 开始只挂 map.md，不挂 events / facts / traps。
+	 * 4. 触发式注入：每次 run 开始只挂 map.md，不挂 events / facts / traps。
 	 *    - 硬上限 1.5KB + 40 行；
 	 *    - map.md 不存在/为空 → 不注入，连 section 都不建；
 	 *    - 任何异常都吞掉，绝不阻断 run。
 	 */
-	pi.on("before_agent_start", async (event: any, _ctx: any) => {
+	pi.on("before_agent_start", async (event: any, ctx: any) => {
 		try {
-			if (!caseExists()) return {};
-			const raw = await readText(memFile("map.md"));
+			const { caseDirectory } = contextOf(ctx);
+			if (!caseExists(caseDirectory)) return {};
+			const raw = await readText(memFile(caseDirectory, "map.md"));
 			if (!raw.trim()) return {};
 			// 硬上限 1.5KB：header + body + footer 全部算在内。
 			const header = `[Seep 记忆地图 · 插件自动注入 · 只读]\n`;
@@ -493,13 +495,14 @@ export default function seepMemory(pi: ExtensionAPI) {
 		description: "打印案子记忆地图 memory/map.md（最多 40 行）",
 		handler: async (_args: string, ctx: ExtensionCommandContext) => {
 			try {
-				if (!caseExists()) {
-					emit(ctx, missingCaseMessage(), "warning");
+				const { caseDirectory } = contextOf(ctx);
+				if (!caseExists(caseDirectory)) {
+					emit(ctx, missingCaseMessage(caseDirectory), "warning");
 					return;
 				}
-				const raw = await readText(memFile("map.md"));
+				const raw = await readText(memFile(caseDirectory, "map.md"));
 				if (!raw.trim()) {
-					emit(ctx, `map.md 为空或不存在：${memFile("map.md")}`, "warning");
+					emit(ctx, `map.md 为空或不存在：${memFile(caseDirectory, "map.md")}`, "warning");
 					return;
 				}
 				const lines = raw.replace(/\r\n/g, "\n").split("\n").slice(0, MAP_MAX_LINES);
@@ -515,18 +518,19 @@ export default function seepMemory(pi: ExtensionAPI) {
 		description: `打印 <case>/facts.jsonl 最近 ${FACTS_LAST_N} 条（claim / state / event）`,
 		handler: async (_args: string, ctx: ExtensionCommandContext) => {
 			try {
-				if (!caseExists()) {
-					emit(ctx, missingCaseMessage(), "warning");
+				const { caseDirectory } = contextOf(ctx);
+				if (!caseExists(caseDirectory)) {
+					emit(ctx, missingCaseMessage(caseDirectory), "warning");
 					return;
 				}
-				const raw = await readText(ledgerFile());
+				const raw = await readText(ledgerFile(caseDirectory));
 				const lines = raw
 					.replace(/\r\n/g, "\n")
 					.split("\n")
 					.map((l) => l.trim())
 					.filter(Boolean);
 				if (!lines.length) {
-					emit(ctx, `facts.jsonl 为空或不存在：${ledgerFile()}`, "warning");
+					emit(ctx, `facts.jsonl 为空或不存在：${ledgerFile(caseDirectory)}`, "warning");
 					return;
 				}
 				const tail = lines.slice(-FACTS_LAST_N);
@@ -554,13 +558,14 @@ export default function seepMemory(pi: ExtensionAPI) {
 		description: "打印案子踩坑清单 memory/traps.md",
 		handler: async (_args: string, ctx: ExtensionCommandContext) => {
 			try {
-				if (!caseExists()) {
-					emit(ctx, missingCaseMessage(), "warning");
+				const { caseDirectory } = contextOf(ctx);
+				if (!caseExists(caseDirectory)) {
+					emit(ctx, missingCaseMessage(caseDirectory), "warning");
 					return;
 				}
-				const raw = await readText(memFile("traps.md"));
+				const raw = await readText(memFile(caseDirectory, "traps.md"));
 				if (!raw.trim()) {
-					emit(ctx, `traps.md 为空或不存在：${memFile("traps.md")}`, "warning");
+					emit(ctx, `traps.md 为空或不存在：${memFile(caseDirectory, "traps.md")}`, "warning");
 					return;
 				}
 				const all = raw.replace(/\r\n/g, "\n").split("\n");
@@ -577,8 +582,9 @@ export default function seepMemory(pi: ExtensionAPI) {
 		description: "追加一条 note 事件到 facts.jsonl（kind:event）：/memory-note <文本>",
 		handler: async (args: string, ctx: ExtensionCommandContext) => {
 			try {
-				if (!caseExists()) {
-					emit(ctx, missingCaseMessage(), "warning");
+				const { cwd, sessionId, caseDirectory } = contextOf(ctx);
+				if (!caseExists(caseDirectory)) {
+					emit(ctx, missingCaseMessage(caseDirectory), "warning");
 					return;
 				}
 				const raw = String(args ?? "").trim();
@@ -587,7 +593,9 @@ export default function seepMemory(pi: ExtensionAPI) {
 					return;
 				}
 				const { text, redacted } = scrub(raw);
-				recordEvent({ kind: "note", summary: text, cwd: cwdOf(ctx), redacted });
+				recordEvent(caseDirectory, {
+					kind: "note", summary: text, cwd, session_id: sessionId, redacted,
+				});
 				emit(
 					ctx,
 					redacted

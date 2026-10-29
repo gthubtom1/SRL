@@ -201,7 +201,7 @@ Android(5)    seep_apk_info · _decompile · _unpack · _smali_search · _gen_ho
 | 脚本 | 本包位置 | 作用 |
 | :--- | :--- | :--- |
 | `case-init.ps1` | `Tool/scripts/` | 任务建档门禁（一任务一目录） |
-| `refresh-tool-index.ps1` | `Tool/scripts/` | 工具链健康自检 |
+| 历史工具索引刷新脚本（已退役） | — | 当前工具检查改用 `Tool/scripts/tool-acquire.py --sweep`；引入历史不代表脚本仍存在 |
 | ~~`trigger_ida_mcp.ps1`~~ | — | 已删除（硬编码 PID，改由 `tool-acquire.py --tool ida`） |
 | `route.py` | `Tool/scripts/` | 主路由 |
 | `start_mcp.py` | `Tool/scripts/` | MCP 启动 |

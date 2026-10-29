@@ -1,7 +1,7 @@
 {
   "id": "patch-apply",
   "title": "补丁应用",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "打补丁",
     "补丁应用",

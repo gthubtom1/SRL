@@ -1,0 +1,78 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "PWN07-STATIC",
+  "decision": "accepted_scoped",
+  "signer_role": "main-agent",
+  "independent_verifier_session": "01a17cc4-3c46-74f6-8526-d93627693d4a",
+  "independent_reports": {
+    "work/goal-recovery/pwn07-independent.md": "934849cde639364ea830d30714aa61b84f9296369d361d972d3214650d026f95",
+    "work/goal-recovery/pwn07-attribution-independent.md": "c045df4d63db9b9a265b5f40921b723d0c94046e71186111090e57afea470deb",
+    "work/goal-recovery/pwn07-source-pin-independent.md": "01dc62131225fcf07b04d87479713888a404ef78ad5878df89e4ad5d270fe183"
+  },
+  "objects": {
+    "Tool/cases/pwn-crypto07/LICENSE-APACHE-2.0.txt": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+    "Tool/cases/pwn-crypto07/README.md": "25da3796b6a65bc236fa3c5f9e16d25f2432532d89c2f5d94475c34d0fbc6923",
+    "Tool/cases/pwn-crypto07/artifacts/MANIFEST.sha256": "6d55451a6fbe96ee6e7279656d6acbfb770659a1593b3d1919c7200544600cfd",
+    "Tool/cases/pwn-crypto07/case.json": "5bea99b34ec9150ba75904d46f77185a3d3b5b3c28444b382ca06815493235c9",
+    "Tool/cases/pwn-crypto07/facts.jsonl": "425be431e5c1d4409bd1e277c459224239f96900b242b1d1e11cfb790479f2b9",
+    "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+    "Tool/cases/pwn-crypto07/upstream-README.md": "8082f94941e198bb194efc67c8874f74b883773ff198c24a6441cdd10153e4b4",
+    "Tool/scripts/case_state.py": "a780d50dd44c242dbe35b3d75748f62ff4da4140e85e01001da70981f9d99bbd",
+    "Tool/scripts/gate.py": "0bdd324b8641634a340daa2c47ea005932306093776d4909df0c7f5ec273e93c",
+    "Tool/scripts/route.py": "7e4a4e4d15509daa027afc9daf038ad2ed35c469a7b71a3e34509aac6ab949e4",
+    "Tool/skill/pwn-crypto/pack.json": "25eda0b22d8794b9a236e9656081095989fecaa6cdf092f234e1d27269d29096",
+    "Tool/skill/pwn-crypto/scripts/pwn-accept.py": "b114c8f1a05a315c388676fd9cbe57a8dcfd7232e89b8199dcda365964425fbb",
+    "Tool/skill/pwn-crypto/scripts/pwn-check.py": "ff4b1b4c1e2d2958d2b2bfa4c62ddc5a6baf24576fd82592e9fda168f6c83ee3",
+    "Tool/skill/pwn-crypto/scripts/witness.py": "e015282525ff9fad341dcc6350f788f930cda5a1223131167adb61dd93b76cce",
+    "docs/verification/pwn-crypto07-2026-10-27.json": "eb8ce931d7fe9f23e26cd032ac3f78f52a1be935051737444ea275c23e27e342",
+    "work/goal-recovery/main-corrections/pwn-source-pins-before/MANIFEST.sha256": "c007130b803ecd10432880195f13322c31c9276846cd7ce5343c24ec9b7daec8",
+    "work/goal-recovery/main-corrections/pwn-source-pins-before/pwn-crypto07-2026-10-27.json": "8a7f89d9f8732be76346bfda36c81640f9680bb5818e209a8d821d69a76d90ec",
+    "work/goal-recovery/pwn-case-staging/apply-manifest.json": "4da718ba5caca7d46cdfe46188913c3338d4783a11e8a17cc753b34a19a5d96d",
+    "work/goal-recovery/pwn-merge-backup/27c3757fef2a4bc2866e0a4fc6fecc36/Tool/skill/pwn-crypto/scripts/pwn-check.py": "edf0cb8a8b3eea828f025ee7453134b389382f98b6d6b6f2379b231d3243e35a",
+    "work/goal-recovery/pwn-merge-receipt.json": "e295ac1764777a97bd0a1f18de6673cee6f5c6b256aa50c60c650ea3c9a748d2",
+    "work/goal-recovery/pwn07-attribution-independent.md": "c045df4d63db9b9a265b5f40921b723d0c94046e71186111090e57afea470deb",
+    "work/goal-recovery/pwn07-independent.md": "934849cde639364ea830d30714aa61b84f9296369d361d972d3214650d026f95",
+    "Tool/cases/pwn-crypto07/artifacts/header-probe.json": "b11e6f1044dddc9cec7b929f125bfe16739bc4a28f22867485c055c2c4d15e8a",
+    "Tool/cases/pwn-crypto07/artifacts/import-surface.json": "be3ddc88d000362c826f687028733f59d1fb15f3290ad5d6b26809874d4b5a78",
+    "Tool/cases/pwn-crypto07/artifacts/negative-controls.json": "2018922851eb3a2a03ee31eea99524f61da232e367200f9913f906099056b155",
+    "Tool/cases/pwn-crypto07/artifacts/parser-boundary-tests.json": "b602dfdceaf339f38d3ebaf981c2304392f2a9a5dcb7a17da73e61089cfb3dc1",
+    "Tool/cases/pwn-crypto07/artifacts/static-witness.json": "155fe55094ab26f7e3298ecd476d5492ea9d2aa9481cb9b3b4256b2931b2d35d",
+    "Tool/cases/pwn-crypto07/artifacts/witness-negative-controls.json": "40d82f1c6921481804d9aba5aba6f11c1449ee4dc922c2b1331185aaa54d69b1",
+    "Tool/cases/pwn-crypto07/capture/http-meta-exe.json": "54ada2b940b6b0a876fbd3fd93dcdc66da34ca7ed0c0989fb634b1565b84c433",
+    "Tool/cases/pwn-crypto07/capture/http-meta-readme.json": "ccca234bdcf9775dd7b88e2b9a5a18b7f7899bdd800947e6b8f99050e7543b3e",
+    "Tool/cases/pwn-crypto07/capture/negative-controls-2026-10-27.log": "4e8fc40436a50e23e7f4253c066142da00f40bfa61b17e7dec569b3639a392a6",
+    "Tool/cases/pwn-crypto07/capture/static-witness-2026-10-27.log": "3bd5480a3b681cbc69966a2fd834137bec06502269c7b3c3342b8eff37678152",
+    "Tool/cases/pwn-crypto07/capture/upstream-download-manifest.json": "1c51aec74ab68a8e0b7e3ddd3ecb6dba6594259d5fd7e1c2f61362f2d44937f9",
+    "Tool/cases/pwn-crypto07/capture/upstream-git-transport-verify.json": "c61a9854823d66fde14a8e7cb39f0e8e6a12f249c2b771d228985071f4f482bb",
+    "Tool/cases/pwn-crypto07/capture/upstream-verify-summary.json": "fe4202f1edca93dd4c6b8afa4668663703e342854d0ba7a03ebfb88d42de4d54",
+    "Tool/cases/pwn-crypto07/tools/header-probe.py": "2155a014f7b7efbaf74790052c3f4af372689073c34f2538c8555404f0bc05c0",
+    "Tool/cases/pwn-crypto07/tools/import-surface.py": "c938c618a051b4e58228811dfc3ffd647097f6a0039b8bf21c5ed3f684bd6b3d",
+    "Tool/cases/pwn-crypto07/tools/parser-boundary-tests.py": "270c3d72edfac1046e1c7f630c2aacab5f124db1c32b042e731eb43ed1229605",
+    "Tool/cases/pwn-crypto07/tools/witness-negative-check.py": "8ec683b6c368a123ac68cc41615d02ec46f6bc22b9da8bc8183118421f1bbd61"
+  },
+  "scope": [
+    "Published immutable PE bytes and source/licence provenance; original self-built case06 remains unchanged.",
+    "PE32/PE64 SecurityCookie field width and boundary correction, with the twelve independently exercised synthetic boundary cases.",
+    "Target-hash-bound default static witness and rejection controls.",
+    "Narrowed account attribution with retained original claim and audit explanation.",
+    "Fifteen-entry artifact/source manifest, exact two new upstream-text pins and tamper/restore controls through the canonical case-stage-3 validator."
+  ],
+  "target": {
+    "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+    "size": 13312,
+    "cohort": "public",
+    "executed": false
+  },
+  "limits": [
+    "Static recorded witness only; no dynamic GS, reachability, offsets, EIP control or exploit/shell proof.",
+    "SecurityCookie declaration does not establish per-function /GS protection.",
+    "The --check-tool test override is not a sandbox.",
+    "case_state verify aggregates facts; file integrity requires the manifest/stage-3 validator.",
+    "verify-origin currently requires repository-root working context.",
+    "Global documentation drift, release checks, runtime deployment equivalence and all-domain acceptance remain separate open work."
+  ],
+  "nonfunctional_missing_reference_in_lock": [
+    "work/goal-recovery/pwn-attribution-repair.md"
+  ],
+  "overall_goal_complete": false
+}

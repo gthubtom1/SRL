@@ -1,0 +1,724 @@
+{
+  "schema": "seep.closure-verification/1",
+  "date": "2026-10-28",
+  "version": "1.26.1",
+  "scope": "Windows local working tree; current runtime, maintained guides and isolated deployment",
+  "runtime_check": {
+    "schema": "seep.check/1",
+    "mode": "runtime",
+    "scope": "current-runtime-and-regressions",
+    "strict": false,
+    "ok": true,
+    "exit_code": 0,
+    "summary": {
+      "pass": 50,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "suites": [
+      {
+        "name": "route",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.056,
+        "command": [
+          "Tool/scripts/route.py",
+          "--check"
+        ],
+        "summary": "[PASS] 路由自洽：0 条死路由"
+      },
+      {
+        "name": "skill-handoff-links",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.035,
+        "command": [
+          "Tool/scripts/skill-handoff-check.py"
+        ],
+        "summary": "\"ok\": true,"
+      },
+      {
+        "name": "doc-install-entries",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.55,
+        "command": [
+          "Tool/scripts/lib/doc_commands.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "tool-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.222,
+        "command": [
+          "Tool/scripts/tool-contract-check.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "domain-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.055,
+        "command": [
+          "Tool/scripts/domain-contract-check.py",
+          "--strict",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "domain-adapter",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.053,
+        "command": [
+          "Tool/scripts/domain-adapter-check.py",
+          "--strict"
+        ],
+        "summary": "verdict: PASS (default report-only; --strict returns 2 for gaps)"
+      },
+      {
+        "name": "skill-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.352,
+        "command": [
+          "Tool/skill/softseep/scripts/intent-coverage.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "route-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.982,
+        "command": [
+          "Tool/skill/softseep/scripts/skill-route-probe.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "capability-compose",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.138,
+        "command": [
+          "Tool/skill/softseep/scripts/capability-gate.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "acceptance-integrity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 20.397,
+        "command": [
+          "Tool/scripts/test_acceptance_integrity.py"
+        ],
+        "summary": "OK",
+        "test_count": 18
+      },
+      {
+        "name": "acceptance-presence",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 7.107,
+        "command": [
+          "Tool/scripts/test_acceptance_presence.py"
+        ],
+        "summary": "OK",
+        "test_count": 11
+      },
+      {
+        "name": "closure-consistency",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 29.33,
+        "command": [
+          "Tool/scripts/test_closure_consistency.py"
+        ],
+        "summary": "OK",
+        "test_count": 28
+      },
+      {
+        "name": "domain-registry",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.479,
+        "command": [
+          "Tool/scripts/test_domain_registry.py"
+        ],
+        "summary": "OK",
+        "test_count": 23
+      },
+      {
+        "name": "env-readiness",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.836,
+        "command": [
+          "Tool/scripts/test_env_readiness.py"
+        ],
+        "summary": "OK",
+        "test_count": 5
+      },
+      {
+        "name": "evidence-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.195,
+        "command": [
+          "Tool/scripts/test_evidence_contract.py"
+        ],
+        "summary": "OK",
+        "test_count": 15
+      },
+      {
+        "name": "gates",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.279,
+        "command": [
+          "Tool/scripts/test_gates.py"
+        ],
+        "summary": "[OK] 三道闸的行为与期望一致（首答 16 + 运行回执 6 + 写守卫 4 + cmd-guard 8 + 熔断合法出口 2）"
+      },
+      {
+        "name": "import-metadata",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 7.272,
+        "command": [
+          "Tool/scripts/test_import_metadata.py"
+        ],
+        "summary": "OK",
+        "test_count": 17
+      },
+      {
+        "name": "import-transactions",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 62.722,
+        "command": [
+          "Tool/scripts/test_import_transactions.py"
+        ],
+        "summary": "OK",
+        "test_count": 24
+      },
+      {
+        "name": "kb-colloquial",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.075,
+        "command": [
+          "Tool/scripts/test_kb_colloquial.py"
+        ],
+        "summary": "结果: 命中 12/12（门槛 >=10/12）；扩展 6/6；空结果近邻 PASS"
+      },
+      {
+        "name": "manager-integration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.915,
+        "command": [
+          "Tool/scripts/test_manager_integration.py"
+        ],
+        "summary": "OK",
+        "test_count": 15
+      },
+      {
+        "name": "mutation-isolation",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.613,
+        "command": [
+          "Tool/scripts/test_mutation_isolation.py"
+        ],
+        "summary": "OK",
+        "test_count": 17
+      },
+      {
+        "name": "pending-chain-health",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 5.499,
+        "command": [
+          "Tool/scripts/test_pending_chain_health.py"
+        ],
+        "summary": "OK",
+        "test_count": 6
+      },
+      {
+        "name": "project-acceptance",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 20.948,
+        "command": [
+          "Tool/scripts/test_project_acceptance.py"
+        ],
+        "summary": "OK",
+        "test_count": 19
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 15.618,
+        "command": [
+          "Tool/scripts/test_project_archive.py"
+        ],
+        "summary": "OK",
+        "test_count": 9
+      },
+      {
+        "name": "project-integration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 14.26,
+        "command": [
+          "Tool/scripts/test_project_integration.py"
+        ],
+        "summary": "OK",
+        "test_count": 20
+      },
+      {
+        "name": "project-report",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 21.659,
+        "command": [
+          "Tool/scripts/test_project_report.py"
+        ],
+        "summary": "OK",
+        "test_count": 11
+      },
+      {
+        "name": "project-typed-inputs",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.528,
+        "command": [
+          "Tool/scripts/test_project_typed_inputs.py"
+        ],
+        "summary": "OK",
+        "test_count": 5
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 45.288,
+        "command": [
+          "Tool/scripts/test_project_workflow.py"
+        ],
+        "summary": "OK",
+        "test_count": 45
+      },
+      {
+        "name": "read-guard",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.49,
+        "command": [
+          "Tool/scripts/test_read_guard.py"
+        ],
+        "summary": "[OK] 读守卫：7/7 通过（隐私区拦、正常路径放行）"
+      },
+      {
+        "name": "report-claim-ledger",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.324,
+        "command": [
+          "Tool/scripts/test_report_claim_ledger.py"
+        ],
+        "summary": "OK",
+        "test_count": 5
+      },
+      {
+        "name": "run-acceptance-history",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 20.254,
+        "command": [
+          "Tool/scripts/test_run_acceptance_history.py"
+        ],
+        "summary": "OK",
+        "test_count": 14
+      },
+      {
+        "name": "run-failure-state",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 16.105,
+        "command": [
+          "Tool/scripts/test_run_failure_state.py"
+        ],
+        "summary": "OK",
+        "test_count": 9
+      },
+      {
+        "name": "runtime-install-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 11.996,
+        "command": [
+          "Tool/scripts/test_runtime_install_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 14
+      },
+      {
+        "name": "runtime-registration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.266,
+        "command": [
+          "Tool/scripts/test_runtime_registration.py"
+        ],
+        "summary": "OK",
+        "test_count": 28
+      },
+      {
+        "name": "runtime-root",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.327,
+        "command": [
+          "Tool/scripts/test_runtime_root.py"
+        ],
+        "summary": "OK",
+        "test_count": 14
+      },
+      {
+        "name": "runtime-shell-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 8.439,
+        "command": [
+          "Tool/scripts/test_runtime_shell_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 3
+      },
+      {
+        "name": "skill-deployment",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.593,
+        "command": [
+          "Tool/scripts/test_skill_deployment.py"
+        ],
+        "summary": "OK",
+        "test_count": 4
+      },
+      {
+        "name": "skill-handoffs",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.063,
+        "command": [
+          "Tool/scripts/test_skill_handoffs.py"
+        ],
+        "summary": "OK",
+        "test_count": 1
+      },
+      {
+        "name": "skill-import",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 23.017,
+        "command": [
+          "Tool/scripts/test_skill_import.py"
+        ],
+        "summary": "OK",
+        "test_count": 34
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 10.815,
+        "command": [
+          "Tool/scripts/test_source_inventory.py"
+        ],
+        "summary": "OK",
+        "test_count": 35
+      },
+      {
+        "name": "terminal-history",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 17.056,
+        "command": [
+          "Tool/scripts/test_terminal_history.py"
+        ],
+        "summary": "OK",
+        "test_count": 15
+      },
+      {
+        "name": "tool-autonomy",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.5,
+        "command": [
+          "Tool/scripts/test_tool_autonomy.py"
+        ],
+        "summary": "[OK] 工具自治：18 条全过 —— 用工具静默、只有跑本案目标才要回执"
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.382,
+        "command": [
+          "Tool/scripts/test_tool_dependencies.py"
+        ],
+        "summary": "OK",
+        "test_count": 53
+      },
+      {
+        "name": "tool-discovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.927,
+        "command": [
+          "Tool/scripts/test_tool_discovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 5
+      },
+      {
+        "name": "typed-assets",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.352,
+        "command": [
+          "Tool/scripts/test_typed_assets.py"
+        ],
+        "summary": "OK",
+        "test_count": 27
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.119,
+        "command": [
+          "Tool/scripts/test_version_migrate_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 2
+      },
+      {
+        "name": "seep-mcp",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.625,
+        "command": [
+          "Tool/mcp/test_seep_mcp.py"
+        ],
+        "summary": "ALL CURRENT MCP SMOKE TESTS PASSED"
+      },
+      {
+        "name": "pcap-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.622,
+        "command": [
+          "Tool/mcp/test_pcap_contract.py"
+        ],
+        "summary": "OK",
+        "test_count": 31
+      },
+      {
+        "name": "readonly-parameters",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.792,
+        "command": [
+          "Tool/mcp/test_readonly_parameters.py"
+        ],
+        "summary": "OK",
+        "test_count": 18
+      },
+      {
+        "name": "sync-upstream",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.053,
+        "command": [
+          "setup/test_sync_upstream.py"
+        ],
+        "summary": "OK",
+        "test_count": 6
+      }
+    ]
+  },
+  "unittest_cases": 606,
+  "documentation": {
+    "check": {
+      "ok": true,
+      "files": 67,
+      "command_examples": 47,
+      "errors": []
+    },
+    "negative_probes": {
+      "missing_link": true,
+      "missing_script": true,
+      "invalid_powershell_flag": true,
+      "invalid_shell_flag": true,
+      "invalid_python_flag": true
+    }
+  },
+  "isolated_main_install": {
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File setup/install.ps1 -NonInteractive -SkipPackages -SkipPython -SkipTools -AgentRoot <isolated-root>",
+    "source_copy_isolated": true,
+    "source_and_agent_paths_contain_spaces": true,
+    "large_tool_payload_reused_readonly": true,
+    "package_installation": false,
+    "default_agent_modified": false,
+    "registration_points_to_isolated_source": true,
+    "generated_configs": {
+      ".mcp.json": true,
+      "opencode.jsonc": true,
+      "setup/cordis.generated.yml": true
+    },
+    "install_returncode": 1,
+    "environment_returncode": 1,
+    "installed": false,
+    "only_missing": "host model authentication",
+    "seep_handshake_tools": 20,
+    "skills_expected": 11,
+    "skills_missing": [],
+    "extensions_expected": 10,
+    "extensions_missing": [],
+    "stderr_empty": true,
+    "no_generic_reinstall_advice": true,
+    "same_agent_root_guidance": true,
+    "auth_only_has_no_reinstall_advice": true,
+    "overall_ready_claimed": false
+  },
+  "earlier_runtime_phase_observations": {
+    "deployed_cli_help_entries": 21,
+    "synthetic_cross_domain": "APK + ELF parsing, evidence, acceptance, closure, report and fresh-process resume passed",
+    "scope": "Synthetic structure, not complex real-world reverse engineering acceptance"
+  },
+  "limits": [
+    "No native Linux/macOS installation claimed; shell regression is Git Bash where available.",
+    "No new-system online package installation, host model conversation or all external MCP services claimed.",
+    "Professional results require acceptance for each actual project.",
+    "Legacy default/strict engineering checks were not run in this phase; their thresholds remain unchanged.",
+    "Remote CI was not triggered or claimed passed; no commit or push.",
+    "Historical evidence and third-party material remain; they are not current installation instructions."
+  ]
+}

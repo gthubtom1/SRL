@@ -1,39 +1,35 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""skill-route-probe.py -- 技能路由探针（master-route.ps1 视角）。
+"""skill-route-probe.py -- 对真实 Python 路由器运行自然语言回归探针。
 
-回答一个问题：**用户按大白话说话时，`master-route.ps1` 会不会把它指到对的技能？**
-
-为什么需要（2026-10-22 审计 P0）：
-    .NET 正则的 \\b 把 CJK 也当 word 字符，于是「APK去广告」里的 \\bapk\\b、
-    「Unity IL2CPP透视」里的 il2cpp\\b 全部匹配不上，直接掉进兜底 R0。
-    当时只有「配方路由」有探针（intent-probes.json，Python 匹配），
-    「技能路由」（PowerShell 匹配）一条断言都没有 —— 所以这个 bug 活了很久。
-
-本脚本做的事：
-    1. 读 Tool/config/skill-route-probes.json（每条：口吻 + 期望技能 + 期望路由 id）；
-    2. 逐条调 `master-route.ps1 -Hint <口吻> -OutDir <临时目录>`；
-    3. 解析它写出的 route-scope.md（避开控制台编码，直接读文件）；
-    4. 断言 primary_skill / primary / primary_label 三项。
+读取 Tool/config/skill-route-probes.json，逐条执行 route.py --resolve --json，
+检查主技能、辅助技能、歧义、禁止域与主标签。无领域命中是合法结果；启动失败、
+超时或坏响应均不能算通过。
+只需当前 Python，不依赖 PowerShell，也不生成临时路由文件。
 
 用法:
     python Tool/skill/softseep/scripts/skill-route-probe.py
     python Tool/skill/softseep/scripts/skill-route-probe.py --json
     python Tool/skill/softseep/scripts/skill-route-probe.py --only web-js apk game
     python Tool/skill/softseep/scripts/skill-route-probe.py --self-test
-退出码：0 全绿 / 1 有探针失败 **或本机无 PowerShell（NOT TESTED，跳过≠通过）** / 2 输入缺失。
+退出码：0 全绿 / 1 有探针失败 / 2 输入缺失、无效或筛选后没有探针。
 """
 
 from __future__ import annotations
+
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
 
 import argparse
 import io
 import json
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
 
 for _s in (sys.stdout, sys.stderr):
     try:
@@ -43,16 +39,7 @@ for _s in (sys.stdout, sys.stderr):
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 def _repo_root(start):
-    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
-    d = os.path.abspath(start)
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "Tool", "cases")):
-            return d
-        nd = os.path.dirname(d)
-        if nd == d:
-            break
-        d = nd
-    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+    return _seep_repo_root(__file__)
 
 
 ROOT = _repo_root(HERE)
@@ -61,35 +48,48 @@ ROUTER = os.path.join(ROOT, "Tool", "scripts", "route.py")
 TIMEOUT = 60
 
 
-def find_ps() -> str | None:
-    """Windows 用 powershell（5.1 也要能跑），其它平台找 pwsh。"""
-    for name in (("powershell", "pwsh") if os.name == "nt" else ("pwsh",)):
-        p = shutil.which(name)
-        if p:
-            return p
-    return None
-
-
-def run_router(ps: str, hint: str) -> dict:
-    """跑一条探针：`route.py --resolve <口吻> --json`（S3：master-route.ps1 已删，单一实现）。
-
-    返回与旧 route-scope.md 同形状的 facts：primary_skill / primary_label。
-    """
-    out_dir = tempfile.mkdtemp(prefix="route-probe-")
+def run_router(hint: str) -> dict:
+    """执行唯一的路由入口，保留失败原因供探针报告。"""
     cmd = [sys.executable, ROUTER, "--resolve", hint, "--json"]
-    proc = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                          timeout=TIMEOUT)
-    facts: dict[str, str] = {"primary_skill": "", "primary_label": "", "primary": ""}
+    facts: dict[str, object] = {
+        "primary_skill": "", "primary_label": "", "primary": "",
+        "domains": [], "labels": {},
+    }
     try:
-        data = json.loads((proc.stdout or b"").decode("utf-8", "replace") or "{}")
-        hits = data.get("hits") or []
-        if hits:
-            facts["primary_skill"] = "%s/SKILL.md" % hits[0].get("pack", "")
-            facts["primary_label"] = str(hits[0].get("label") or "")
-            facts["primary"] = "P%04d" % int(hits[0].get("priority") or 0)
-    except Exception:
-        pass
-    return {"rc": proc.returncode, "facts": facts, "out_dir": out_dir}
+        proc = subprocess.run(cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return {"rc": 1, "facts": facts, "error": "route.py 超时（%d 秒）" % TIMEOUT}
+    except OSError as exc:
+        return {"rc": 1, "facts": facts, "error": "route.py 启动失败: %s" % exc}
+    try:
+        data = json.loads(proc.stdout.decode("utf-8-sig"))
+        if not isinstance(data, dict) or not isinstance(data.get("hits"), list):
+            raise ValueError("缺 hits 数组")
+        if proc.returncode in (0, 2) and not isinstance(data.get("unclassified"), bool):
+            raise ValueError("缺 unclassified 布尔值")
+        domains, labels = [], {}
+        for hit in data["hits"]:
+            if not isinstance(hit, dict) or not isinstance(hit.get("pack"), str) or not hit["pack"]:
+                raise ValueError("命中项缺 pack 字符串")
+            if hit.get("fallback") or hit["pack"] == "seep-router":
+                continue
+            pack = hit["pack"]
+            if pack not in domains:
+                domains.append(pack)
+                labels[pack] = str(hit.get("label") or "")
+        facts["domains"] = domains
+        facts["labels"] = labels
+        if domains:
+            first = domains[0]
+            first_hit = next(hit for hit in data["hits"] if hit.get("pack") == first)
+            facts["primary_skill"] = "%s/SKILL.md" % first
+            facts["primary_label"] = labels[first]
+            facts["primary"] = "P%04d" % int(first_hit.get("priority") or 0)
+    except (ValueError, TypeError, UnicodeError) as exc:
+        return {"rc": 1, "facts": facts, "error": "route.py 响应无效: %s" % exc}
+    return {"rc": proc.returncode, "facts": facts,
+            "error": "; ".join(str(p) for p in data.get("problems", []))}
 
 
 def _norm_skill(s: str) -> str:
@@ -100,19 +100,48 @@ def _norm_skill(s: str) -> str:
     return s
 
 
+def _norm_domain(s: str) -> str:
+    value = _norm_skill(s)
+    if value.endswith("/SKILL.md"):
+        value = value[:-len("/SKILL.md")]
+    return value
+
+
 def judge(probe: dict, facts: dict) -> list[str]:
     """返回失败原因列表（空 = 通过）。"""
     bad = []
     skill = _norm_skill(facts.get("primary_skill", ""))
+    domains = list(facts.get("domains") or [])
     want = _norm_skill(probe.get("expect_skill", ""))
     if not want:
         # 空期望 = 这条说法本身不该路由到任何域（例如内网/提权/非技术文本）。
         # 以前靠"什么都落到 softseep"才绿，那是假绿；现在要求真的判不出来。
-        if skill:
-            bad.append("技能 %s（期望：判不出领域）" % skill)
-        return bad
-    if skill != want:
+        if skill or domains:
+            bad.append("技能 %s（期望：判不出领域）" % ("/".join(domains) or skill))
+    elif skill != want:
         bad.append("技能 %s ≠ 期望 %s" % (skill or "(空)", want))
+
+    if "expect_aux" in probe:
+        want_aux = [_norm_domain(item) for item in (probe.get("expect_aux") or [])]
+        got_aux = [_norm_domain(item) for item in domains[1:]]
+        if got_aux != want_aux:
+            bad.append("辅助技能 %s ≠ 期望 %s"
+                       % ("/".join(got_aux) or "(空)", "/".join(want_aux) or "(空)"))
+    elif len(domains) > 1:
+        bad.append("命中多个领域但探针未登记 expect_aux：%s" % "/".join(domains))
+
+    if "expect_ambiguity" in probe:
+        got_ambiguity = len(domains) > 1
+        if got_ambiguity != bool(probe.get("expect_ambiguity")):
+            bad.append("歧义=%s ≠ 期望 %s"
+                       % (got_ambiguity, bool(probe.get("expect_ambiguity"))))
+
+    forbidden = set(_norm_domain(item) for item in (probe.get("forbid") or []))
+    hit_forbidden = [domain for domain in domains if _norm_domain(domain) in forbidden]
+    if hit_forbidden:
+        bad.append("误命中禁止域 %s（完整命中 %s）"
+                   % ("/".join(hit_forbidden), "/".join(domains)))
+
     # S3：R 编号已随 routing.json 消失，只断言「落到哪个包」（expect_skill）与 label
     want_label = probe.get("expect_label")
     if want_label and want_label not in (facts.get("primary_label") or ""):
@@ -121,7 +150,7 @@ def judge(probe: dict, facts: dict) -> list[str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="技能路由探针（master-route.ps1）")
+    ap = argparse.ArgumentParser(description="技能路由探针（route.py）")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--only", nargs="*", default=[], help="只跑 id 前缀匹配的探针")
     ap.add_argument("--probes", default=PROBES)
@@ -133,9 +162,26 @@ def main() -> int:
         ok2 = judge({"expect_skill": "apkseep/SKILL.md"}, {"primary_skill": "skills/softseep/SKILL.md"}) != []
         ok3 = judge({"expect_skill": "softseep/SKILL.md"}, {"primary_skill": ""}) != []
         ok4 = judge({"expect_label": "OSINT"}, {"primary_label": "OSINT / 资产测绘"}) == []
+        ok5 = judge(
+            {"expect_skill": "apkseep/SKILL.md", "expect_aux": ["softseep"],
+             "expect_ambiguity": True},
+            {"primary_skill": "apkseep/SKILL.md", "domains": ["apkseep", "softseep"]},
+        ) == []
+        ok6 = judge(
+            {"expect_skill": "apkseep/SKILL.md", "expect_aux": ["softseep"],
+             "expect_ambiguity": True},
+            {"primary_skill": "apkseep/SKILL.md", "domains": ["apkseep"]},
+        ) != []
+        ok7 = judge(
+            {"expect_skill": "firmware-iot/SKILL.md", "forbid": ["web-pentest"]},
+            {"primary_skill": "firmware-iot/SKILL.md",
+             "domains": ["firmware-iot", "web-pentest"]},
+        ) != []
         failed = [n for n, ok in (("norm-skill", ok1), ("mismatch", ok2),
-                                  ("missing-skill", ok3), ("label", ok4)) if not ok]
-        print(json.dumps({"ok": not failed, "checks": 4, "failed": failed,
+                                  ("missing-skill", ok3), ("label", ok4),
+                                  ("aux-positive", ok5), ("aux-missing", ok6),
+                                  ("forbidden-aux", ok7)) if not ok]
+        print(json.dumps({"ok": not failed, "checks": 7, "failed": failed,
                           "tool": "skill-route-probe.py"}, ensure_ascii=False))
         return 0 if not failed else 1
 
@@ -143,36 +189,40 @@ def main() -> int:
         print(json.dumps({"ok": False, "error": "探针文件不存在: %s" % args.probes,
                           "blocked_at": "probes-missing"}, ensure_ascii=False))
         return 2
-    data = json.load(io.open(args.probes, encoding="utf-8-sig"))
-    probes = data.get("probes") or []
+    try:
+        with io.open(args.probes, encoding="utf-8-sig") as handle:
+            data = json.load(handle)
+        probes = data.get("probes") if isinstance(data, dict) else None
+        if not isinstance(probes, list) or any(
+                not isinstance(p, dict) or any(not isinstance(p.get(k), str)
+                                               for k in ("id", "text", "expect_skill"))
+                or not p["id"].strip() or not p["text"].strip()
+                or ("expect_label" in p and not isinstance(p["expect_label"], str))
+                or ("expect_aux" in p and (
+                    not isinstance(p["expect_aux"], list)
+                    or any(not isinstance(x, str) or not x.strip() for x in p["expect_aux"])))
+                or ("forbid" in p and (
+                    not isinstance(p["forbid"], list)
+                    or any(not isinstance(x, str) or not x.strip() for x in p["forbid"])))
+                or ("expect_ambiguity" in p and not isinstance(p["expect_ambiguity"], bool))
+                for p in probes):
+            raise ValueError("probes 必须是带 id/text/expect_skill 字符串的数组")
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"ok": False, "error": str(exc), "blocked_at": "probes-invalid"}, ensure_ascii=False))
+        return 2
     if args.only:
         probes = [p for p in probes if any(p["id"].startswith(x) for x in args.only)]
 
-    ps = find_ps()
-    if not ps:
-        # ★ 第 5 轮评审 P1：这里原来返回 ok=True / rc 0，check.py 就显示 PASS ——
-        #   但一条探针都没跑。"跳过"不是"通过"：路由在中文边界上的回归正是这种假绿养出来的。
-        reason = (
-            "NOT TESTED（跳过≠通过）：本机没有 powershell/pwsh，%d 条技能路由探针一条都没跑。\n"
-            "所以这里返回 ok=False / rc=1，check.py 的 route-tests 会因此变红 —— 这是想要的行为：\n"
-            "没测过就不能算绿。\n"
-            "出路（二选一）：\n"
-            "  ① 装 PowerShell：winget install --id Microsoft.PowerShell -e"
-            "（或用系统自带的 Windows PowerShell 5.1：确认 powershell.exe 在 PATH 里）；\n"
-            "  ② 不装也能验路由的 python 版（route.py 是唯一实现，本来就是 python）：\n"
-            "     python Tool/scripts/route.py --resolve \"<用户口吻>\" --json\n"
-            "     或直接把本探针的跑法改成不用 find_ps() 的那条（改判据需人评审，不自行放宽）。"
-            % len(probes)
-        )
-        result = {"ok": False, "skipped": True, "not_tested": True,
-                  "blocked_at": "no-powershell", "reason": reason, "probes": len(probes)}
-        print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else reason)
-        return 1
+    if not probes:
+        print(json.dumps({"ok": False, "error": "没有选中任何探针", "blocked_at": "probes-empty"}, ensure_ascii=False))
+        return 2
 
     results, fails = [], []
     for p in probes:
-        r = run_router(ps, p["text"])
+        r = run_router(p["text"])
         bad = judge(p, r["facts"])
+        if r.get("error"):
+            bad.append(r["error"])
         # rc=2 = 路由器判"未识别"（UNCLASSIFIED）。这是**合法结果**：
         # 仅当这条探针本来就期望有域（expect_skill 非空）时才算失败。
         # 以前这里无条件把非 0 记成失败，导致"提权/内网"这类域外说法无法表达。
@@ -184,10 +234,10 @@ def main() -> int:
                         "primary": r["facts"].get("primary", ""),
                         "skill": _norm_skill(r["facts"].get("primary_skill", "")),
                         "label": r["facts"].get("primary_label", ""),
+                        "domains": r["facts"].get("domains", []),
                         "bad": bad})
         if bad:
             fails.append(results[-1])
-        shutil.rmtree(r["out_dir"], ignore_errors=True)
 
     out = {"ok": not fails, "probes": len(results), "failed": len(fails),
            "results": results, "fails": fails}

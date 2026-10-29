@@ -1,0 +1,191 @@
+{
+  "schema": "seep.r13-case-repro/1",
+  "ok": true,
+  "case": "pwn-crypto07",
+  "results": [
+    {
+      "case": "pwn-crypto07",
+      "label": "pwn-check",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+        "--file",
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-pwn-check.stdout.txt",
+        "sha256": "ba5e5e15c787d82a93cb02b94c6e6ecf81fb71934da583f4d18334e1fbb38e0d",
+        "size": 4663
+      },
+      "stderr": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-pwn-check.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    },
+    {
+      "case": "pwn-crypto07",
+      "label": "header-probe",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/cases/pwn-crypto07/tools/header-probe.py",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-header-probe.stdout.txt",
+        "sha256": "17387d463883b3bc46084e96cf21ce7073f0c5dc5688b005dd60b2e51f401422",
+        "size": 3343
+      },
+      "stderr": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-header-probe.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    },
+    {
+      "case": "pwn-crypto07",
+      "label": "import-surface",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/cases/pwn-crypto07/tools/import-surface.py",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-import-surface.stdout.txt",
+        "sha256": "68ba020f5499e0ab3e62d22f501d6044e9595813d3b3e67afa7a9b0d93d3c739",
+        "size": 4360
+      },
+      "stderr": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-import-surface.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    },
+    {
+      "case": "pwn-crypto07",
+      "label": "parser-boundary-tests",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/cases/pwn-crypto07/tools/parser-boundary-tests.py",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-parser-boundary-tests.stdout.txt",
+        "sha256": "2e14bad3f2eb0584b56d2146d84706196739ef84d5ece7c9dd4447f3dae9847c",
+        "size": 8536
+      },
+      "stderr": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-parser-boundary-tests.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    },
+    {
+      "case": "pwn-crypto07",
+      "label": "witness-negative-controls",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/cases/pwn-crypto07/tools/witness-negative-check.py",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-witness-negative-controls.stdout.txt",
+        "sha256": "16475cc04edb162edb3247672585ea797bf64dce15b6de379c5b1c46f2513c67",
+        "size": 3615
+      },
+      "stderr": {
+        "path": "Tool/cases/pwn-crypto07/capture/r13-witness-negative-controls.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    }
+  ],
+  "all_rc_zero": true,
+  "all_watched_unmodified": true
+}

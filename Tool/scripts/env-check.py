@@ -15,12 +15,18 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+from lib.runtime_root import RuntimeRootError, resolve_agent_root
+
 def _repo_root(start):
     """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
     d = os.path.abspath(start)
@@ -45,10 +51,7 @@ if sys.platform == "win32":
 
 
 def agent_dir() -> str:
-    env = os.environ.get("PI_CODING_AGENT_DIR", "").strip()
-    if env:
-        return os.path.abspath(os.path.expanduser(env))
-    return os.path.join(os.path.expanduser("~"), ".pi", "agent")
+    return str(resolve_agent_root())
 
 
 def expected_extensions():
@@ -65,6 +68,8 @@ def expected_skills():
     if not os.path.isdir(d):
         return out
     for n in os.listdir(d):
+        if n.startswith("_"):
+            continue
         p = os.path.join(d, n)
         if n == "safe-skills":
             out += [x for x in os.listdir(p) if os.path.isdir(os.path.join(p, x))]
@@ -93,7 +98,7 @@ MCP_SERVER = os.path.join(TOOL, "mcp", "seep_mcp_server.py")
 MCP_MIN_TOOLS = 15     # 工具数下限（不是基线值：基线对账在 preflight 里）
 
 
-def _mcp_service_probe(path=None, timeout=120):
+def _mcp_service_probe(path=None, timeout=120, config=None):
     """MCP「服务可用」实测：能解析 + 工具没被削减 + 真能握手。
 
     为什么（2026-10-26 第 2 轮评审 P0）：原来只查 mcp.json 里 mcpServers 有没有条目、
@@ -107,15 +112,16 @@ def _mcp_service_probe(path=None, timeout=120):
     """
     path = path or MCP_SERVER
     out = {"file": path, "parses": False, "tool_count": 0, "handshake_ok": False,
+           "probe_target": "configured" if config is not None else "source",
            "handshake_tools": 0, "stage": "未测", "detail": "", "available": False}
     if not os.path.isfile(path):
         out["stage"] = "missing"
         out["detail"] = "文件不存在：%s（MCP 服务体不在仓库里）" % path
         return out
     try:
-        text = open(path, encoding="utf-8", errors="replace").read()
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
         import ast
-        ast.parse(text, filename=path)
+        tree = ast.parse(text, filename=path)
         out["parses"] = True
     except SyntaxError as e:
         out["stage"] = "ast"
@@ -140,7 +146,24 @@ def _mcp_service_probe(path=None, timeout=120):
         out["stage"] = "handshake-import"
         out["detail"] = "拿不到握手实现（preflight 导入失败）：%s" % str(e)[:120]
         return out
-    ok, n, stage, detail = _mcp_stdio_handshake(path, timeout=timeout)
+    expected_tools = [node.name for node in ast.walk(tree)
+                      if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                      and any(isinstance(d, ast.Call) and ast.unparse(d.func) == "server.tool"
+                              for d in node.decorator_list)]
+    if config is None:
+        ok, n, stage, detail = _mcp_stdio_handshake(
+            path, timeout=timeout, required_tools=expected_tools)
+    else:
+        problems = _mcp_config_problems(config)
+        if isinstance(config, dict) and (not config.get("command")
+                                        or config.get("transport", "stdio") != "stdio"):
+            problems.append("Seep 检测需要 stdio 启动配置")
+        if problems:
+            out.update(stage="config", detail="; ".join(problems))
+            return out
+        ok, n, stage, detail = _mcp_stdio_handshake(
+            timeout=timeout, command=config["command"], args=config.get("args", []),
+            env=config.get("env"), cwd=config.get("cwd"), required_tools=expected_tools)
     out["handshake_ok"] = bool(ok)
     out["handshake_tools"] = n
     out["stage"] = stage
@@ -149,10 +172,88 @@ def _mcp_service_probe(path=None, timeout=120):
     return out
 
 
+def _mcp_config_problems(entry):
+    """Validate final launch settings without starting optional GUI/remote servers."""
+    import shutil
+    if not isinstance(entry, dict):
+        return ["服务配置必须是对象"]
+    # Remote optional servers are owned and connected by the host.
+    if entry.get("url") and not entry.get("command"):
+        return []
+    command, args, env = entry.get("command"), entry.get("args", []), entry.get("env", {})
+    if not isinstance(command, str) or not command.strip():
+        return ["command 缺失"]
+    if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+        return ["args 必须是字符串数组"]
+    if not isinstance(env, dict) or not all(isinstance(k, str) and isinstance(v, str)
+                                          for k, v in env.items()):
+        return ["env 必须是字符串映射"]
+    cwd = entry.get("cwd")
+    if cwd is not None and (not isinstance(cwd, str) or not os.path.isdir(cwd)):
+        return ["cwd 不存在或不是目录"]
+    child_env = dict(os.environ, **env)
+    binary = command
+    if not os.path.isabs(binary) and ("/" in binary or "\\" in binary):
+        binary = os.path.join(cwd or os.getcwd(), binary)
+    problems = []
+    if not shutil.which(binary, path=child_env.get("PATH")):
+        problems.append("command 不可执行：" + command)
+    for arg in args:
+        if looks_like_path(arg):
+            target = os.path.expanduser(arg)
+            if not os.path.isabs(target):
+                target = os.path.join(cwd or os.getcwd(), target)
+            if not os.path.exists(target):
+                problems.append("参数路径不存在：" + arg)
+    return problems
+
+
+def _deployment_differences(source, destination):
+    """Compare managed payloads, so an empty/stale directory cannot prove readiness."""
+    source, destination = Path(source), Path(destination)
+    problems = []
+    for original in sorted(source.rglob("*")):
+        if not original.is_file() or "__pycache__" in original.parts or original.suffix == ".pyc":
+            continue
+        relative = original.relative_to(source)
+        deployed = destination / relative
+        try:
+            if hashlib.sha256(original.read_bytes()).digest() == hashlib.sha256(deployed.read_bytes()).digest():
+                continue
+            problems.append(str(relative) + "（内容不同）")
+        except OSError:
+            problems.append(str(relative) + "（缺失或不可读）")
+    return problems
+
+
+def _prompt_matches(source, destination):
+    """Compare the managed source block while retaining host and user additions."""
+    def owned(text):
+        begin, end = "<!-- seep:managed:begin -->", "<!-- seep:managed:end -->"
+        if begin in text or end in text:
+            if text.count(begin) != 1 or text.count(end) != 1 or text.index(begin) > text.index(end):
+                raise ValueError("invalid managed prompt boundary")
+            text = text[text.index(begin) + len(begin):text.index(end)]
+        lines, skip = [], False
+        for line in text.splitlines():
+            if "magpie:begin" in line:
+                skip = True
+            elif "magpie:end" in line:
+                skip = False
+            elif not skip:
+                lines.append(line)
+        return "\n".join(lines).strip()
+    try:
+        expected = owned(Path(source).read_text(encoding="utf-8-sig"))
+        actual = owned(Path(destination).read_text(encoding="utf-8-sig"))
+        return bool(expected) and expected == actual
+    except (OSError, ValueError):
+        return False
+
+
 # 模型凭据交给用户/Agent 去补的动作（可直接复制，不需要联网）。
 MODEL_CRED_ACTION = (
-    "补模型凭据：开一个 Agent 会话执行 /login 选 provider 登录（或把 provider 的 apiKey 写进 "
-    "~/.pi/agent/models.json 的 providers 里），然后重跑 python Tool/scripts/env-check.py --text")
+    "在 Pi 会话中选择模型并通过 /login 登录；凭据由用户在宿主操作，然后重跑环境检查")
 
 
 def _mask_path(p: str) -> str:
@@ -163,78 +264,41 @@ def _mask_path(p: str) -> str:
     return p
 
 
-def _cred_usable(v) -> bool:
-    """凭据条目是否"看起来有东西"——只看有没有，不校验内容、不联网、不打印。"""
-    if isinstance(v, str):
-        return bool(v.strip())
-    if isinstance(v, dict):
-        for k in ("key", "apiKey", "access", "refresh", "accessToken", "token", "env", "api_key"):
-            val = v.get(k)
-            if isinstance(val, str) and val.strip():
-                return True
-            if isinstance(val, dict) and val:
-                return True
-    return False
-
-
 def _model_credential_probe(ad=None):
-    """模型/凭据体检：只判「有没有配」，不联网验证 key 是否有效。
-
-    为什么（第 3 轮评审 P0-5）：MCP 侧修好了，但模型层没凭据时整台机器依然开不了
-    会话——以前这里完全不看 auth.json / models.json，装完就报 installed: true。
-
-    判定顺序（与 Pi 的凭据解析顺序大体一致，越靠前越可信）：
-      ① <agent-dir>/auth.json 里有非空条目（/login 存下来的 key 或 OAuth 令牌）；
-      ② models.json 的 providers 里至少一个带非空 apiKey（自定义 provider）；
-      ③ 都没有 → 未配置。
-    输出只含 provider 名或脱敏后的文件路径，不含任何 key/token 内容。
-    """
-    ad = ad or agent_dir()
-    auth_p = os.path.join(ad, "auth.json")
-    models_p = os.path.join(ad, "models.json")
-    out = {"configured": False, "source": "", "providers": [], "stage": "未测",
-           "files": [_mask_path(auth_p), _mask_path(models_p)], "detail": ""}
-    notes = []
-
-    # ① auth.json
-    if not os.path.isfile(auth_p):
-        notes.append("auth.json 不存在")
-    else:
-        try:
-            raw = open(auth_p, encoding="utf-8", errors="replace").read()
-            data = json.loads(raw) if raw.strip() else {}
-            names = sorted(k for k, v in (data.items() if isinstance(data, dict) else [])
-                           if _cred_usable(v))
-            if names:
-                shown = ", ".join(names[:3]) + (" 等" if len(names) > 3 else "")
-                out.update(configured=True, stage="auth.json", providers=names,
-                           source="auth.json: " + shown,
-                           detail="auth.json 有 %d 个可用凭据条目" % len(names))
-                return out
-            notes.append("auth.json 存在但没有可用条目（空文件或空对象）")
-        except Exception as exc:  # noqa: BLE001
-            notes.append("auth.json 解析失败：%s" % str(exc)[:80])
-
-    # ② models.json（自定义 provider 的 apiKey 写在文件里）
-    if not os.path.isfile(models_p):
-        notes.append("models.json 不存在")
-    else:
-        try:
-            cfg = json.load(open(models_p, encoding="utf-8"))
-            provs = cfg.get("providers") or {}
-            names = sorted(str(k) for k, v in (provs.items() if isinstance(provs, dict) else [])
-                           if isinstance(v, dict) and _cred_usable(v))
-            if names:
-                shown = ", ".join(names[:3]) + (" 等" if len(names) > 3 else "")
-                out.update(configured=True, stage="models.json", providers=names,
-                           source="models.json: " + shown,
-                           detail="models.json 有 %d 个带 apiKey 的 provider" % len(names))
-                return out
-            notes.append("models.json 存在但没有带 apiKey 的 provider")
-        except Exception as exc:  # noqa: BLE001
-            notes.append("models.json 解析失败：%s" % str(exc)[:80])
-
-    out["detail"] = "；".join(notes) or "没有找到任何凭据来源"
+    """Ask the host for readiness metadata; never open credential stores."""
+    import shutil
+    import subprocess
+    out = {"configured": False, "stage": "host-auth-check", "providers": [],
+           "source": "pi auth check (no credentials, no refresh)", "detail": ""}
+    try:
+        settings_path = os.path.join(ad or agent_dir(), "settings.json")
+        with open(settings_path, encoding="utf-8-sig") as handle:
+            settings = json.load(handle)
+        if not isinstance(settings, dict):
+            raise ValueError("settings must be an object")
+        provider, model = settings.get("defaultProvider"), settings.get("defaultModel")
+        if not all(isinstance(x, str) and re.fullmatch(r"[\w./:+@-]+", x)
+                   for x in (provider, model)):
+            out["detail"] = "请先在宿主中选择模型并登录；未读取凭据文件"
+            return out
+        command = shutil.which("pi.cmd") if os.name == "nt" else shutil.which("pi")
+        if not command:
+            out["detail"] = "Pi 命令不可用"
+            return out
+        env = dict(os.environ, PI_CODING_AGENT_DIR=ad or agent_dir())
+        proc = subprocess.run([command, "auth", "check", "--provider", provider,
+                               "--model", model, "--json", "--no-refresh"],
+                              capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=20, env=env)
+        # Deliberately retain only documented metadata, never raw host output.
+        result = json.loads(proc.stdout)
+        if not isinstance(result, dict):
+            raise ValueError("host auth result must be an object")
+        out["configured"] = proc.returncode == 0 and result.get("status") == "ready"
+        out["providers"] = [provider] if out["configured"] else []
+        out["detail"] = "宿主认证就绪；未发送模型请求" if out["configured"] else "宿主认证未就绪，请在宿主登录"
+    except (OSError, ValueError, subprocess.SubprocessError):
+        out["detail"] = "宿主认证检查未完成，请在宿主确认登录和所选模型"
     return out
 
 
@@ -242,7 +306,8 @@ def check():
     ad = agent_dir()
     repo_ver = ""
     try:
-        repo_ver = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+        with open(os.path.join(ROOT, "VERSION"), encoding="utf-8") as handle:
+            repo_ver = handle.read().strip()
     except Exception:
         pass
 
@@ -256,21 +321,45 @@ def check():
         "installed": False,
     }
 
+    # Configuration files alone do not provide an executable conversation host.
+    import shutil
+    import subprocess
+    for command in ("pi", "node"):
+        binary = shutil.which("pi.cmd") if command == "pi" and os.name == "nt" else shutil.which(command)
+        available = False
+        if binary:
+            try:
+                probe = subprocess.run([binary, "--version"], capture_output=True,
+                                       text=True, encoding="utf-8", errors="replace", timeout=15)
+                available = probe.returncode == 0
+                if command == "node":
+                    version = re.search(r"v?(\d+)\.(\d+)\.(\d+)", probe.stdout)
+                    available = available and bool(version) and tuple(map(int, version.groups())) >= (22, 19, 0)
+            except (OSError, subprocess.SubprocessError):
+                pass
+        res["checks"][command] = available
+        if not available:
+            res["missing"].append("宿主命令不可用或版本过旧：" + command)
+
     # 1) agent 目录与两份提示词
     res["checks"]["agent_dir_exists"] = os.path.isdir(ad)
     for f in ("SEEP.md", "AGENTS.md"):
-        ok = os.path.isfile(os.path.join(ad, f))
+        ok = _prompt_matches(Path(TOOL, "prompts", f), Path(ad, f))
         res["checks"][f] = ok
         if not ok:
-            res["missing"].append(f"~/.pi/agent/{f}")
+            res["missing"].append(str(Path(ad, f)) + "（缺失、内容过期或托管边界无效）")
 
     # 2) 扩展（.ts / .json / .md 三类都要在）
     exp_ext = expected_extensions()
-    have_ext = []
     ext_dir = os.path.join(ad, "extensions")
-    if os.path.isdir(ext_dir):
-        have_ext = os.listdir(ext_dir)
-    miss_ext = [f for f in exp_ext if f not in have_ext]
+    miss_ext = []
+    for f in exp_ext:
+        try:
+            source = Path(TOOL, "prompts", "extensions", f).read_bytes()
+            if source != Path(ext_dir, f).read_bytes():
+                miss_ext.append(f)
+        except OSError:
+            miss_ext.append(f)
     res["checks"]["extensions"] = {"expected": len(exp_ext), "missing": miss_ext}
     if miss_ext:
         res["missing"] += [f"~/.pi/agent/extensions/{f}" for f in miss_ext]
@@ -278,37 +367,45 @@ def check():
     # 3) 技能
     exp_sk = expected_skills()
     sk_dir = os.path.join(ad, "skills")
-    have_sk = os.listdir(sk_dir) if os.path.isdir(sk_dir) else []
-    miss_sk = [s for s in exp_sk if s not in have_sk]
-    res["checks"]["skills"] = {"expected": len(exp_sk), "missing": miss_sk}
+    invalid_sk = {}
+    for s in exp_sk:
+        source = Path(TOOL, "skill", s)
+        if not source.is_dir():
+            source = Path(TOOL, "skill", "safe-skills", s)
+        differences = _deployment_differences(source, Path(sk_dir, s))
+        if differences:
+            invalid_sk[s] = differences
+    miss_sk = sorted(invalid_sk)
+    res["checks"]["skills"] = {"expected": len(exp_sk), "missing": miss_sk,
+                               "invalid_files": invalid_sk}
     if miss_sk:
         res["missing"] += [f"~/.pi/agent/skills/{s}" for s in miss_sk]
 
     # 4) MCP 配置：条目存在 + 可执行文件路径存在
     mcp_path = os.path.join(ad, "mcp.json")
-    servers, broken = [], []
+    servers, broken, entries = [], [], {}
     if os.path.isfile(mcp_path):
         try:
-            cfg = json.load(open(mcp_path, encoding="utf-8"))
-            for name, e in (cfg.get("mcpServers") or {}).items():
+            with open(mcp_path, encoding="utf-8-sig") as handle:
+                cfg = json.load(handle)
+            entries = cfg.get("mcpServers") or {}
+            for name, e in entries.items():
                 servers.append(name)
-                args = e.get("args") or []
-                for a in args:
-                    if isinstance(a, str) and looks_like_path(a) and not a.startswith(("{", "!", "-")):
-                        p = a.replace("{ROOT_POSIX}", ROOT.replace(os.sep, "/"))
-                        if not os.path.exists(p.replace("/", os.sep)):
-                            broken.append(f"{name}: {a}")
+                broken.extend(f"{name}: {p}" for p in _mcp_config_problems(e))
         except Exception as exc:
             broken.append(f"mcp.json 解析失败: {exc}")
+            entries = {}
     else:
         broken.append("~/.pi/agent/mcp.json 不存在")
+    if "seep" not in entries:
+        broken.append("缺少 seep MCP 配置")
     res["checks"]["mcp"] = {"servers": servers, "broken": broken, "config_ready": bool(servers) and not broken}
     if broken:
         res["missing"] += broken
 
     # 4b) MCP 服务可用（第 2 轮评审 P0）：配置就绪 ≠ 服务可用。
     #     以前这里只判「mcpServers 有条目 + 文件路径在」→ 服务起不来也报"就绪"。
-    svc = _mcp_service_probe()
+    svc = _mcp_service_probe(config=entries.get("seep", {}))
     res["checks"]["mcp"]["service"] = svc
     if not svc["available"]:
         res["missing"].append(
@@ -320,14 +417,15 @@ def check():
     res["checks"]["model_credential"] = cred
     if not cred["configured"]:
         res["missing"].append(
-            "模型凭据未配置（auth.json / models.json 都没有可用 provider）：%s" % (cred["detail"] or ""))
+            "宿主认证未就绪：%s" % (cred["detail"] or ""))
 
     # 5) settings.json：packages 与 retry 档位
     st_path = os.path.join(ad, "settings.json")
     pk, retry = 0, None
     if os.path.isfile(st_path):
         try:
-            st = json.load(open(st_path, encoding="utf-8"))
+            with open(st_path, encoding="utf-8") as handle:
+                st = json.load(handle)
             pk = len(st.get("packages") or [])
             retry = (st.get("retry") or {}).get("maxRetries")
         except Exception:
@@ -338,16 +436,28 @@ def check():
     if not res["missing"]:
         res["installed"] = True
     else:
-        res["next_actions"] = [
-            "powershell -ExecutionPolicy Bypass -File setup\\install.ps1",
-            "powershell -ExecutionPolicy Bypass -File setup\\verify.ps1 -Detailed",
-            "python Tool/scripts/preflight.py --fast",
-        ]
-        if not svc["available"]:
-            # 服务连不上不是"没安装"，install.ps1 修不了 —— 先指向自愈器
-            res["next_actions"].insert(0, "python Tool/scripts/mcp-doctor.py --fix")
+        # Keep recovery on the same AgentRoot; authentication cannot be repaired
+        # by reinstalling already verified files or starting unrelated services.
+        if os.name == "nt":
+            quote = lambda value: "'" + value.replace("'", "''") + "'"
+            context = "$env:PI_CODING_AGENT_DIR = " + quote(ad)
+            install = ("powershell -NoProfile -ExecutionPolicy Bypass -File setup/install.ps1 "
+                       "-NonInteractive -AgentRoot " + quote(ad))
+        else:
+            import shlex
+            quote = shlex.quote
+            context = "export PI_CODING_AGENT_DIR=" + quote(ad)
+            install = "bash setup/install.sh --agent-root " + quote(ad)
+        auth_only = not cred["configured"] and len(res["missing"]) == 1
+        res["next_actions"] = [context]
+        if not auth_only:
+            if not svc["available"]:
+                res["next_actions"].append(
+                    "python Tool/scripts/mcp-doctor.py --file " + quote(mcp_path) + " --fix")
+            res["next_actions"].append(install)
         if not cred["configured"]:
             res["next_actions"].append(MODEL_CRED_ACTION)
+        res["next_actions"].append("python Tool/scripts/env-check.py")
     return res
 
 
@@ -355,7 +465,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--text", action="store_true")
     args = ap.parse_args()
-    r = check()
+    try:
+        r = check()
+    except RuntimeRootError as exc:
+        print(str(exc) if args.text else json.dumps(exc.as_dict(), ensure_ascii=False))
+        return 1
 
     if args.text:
         print(f"仓库: {r['repo_root']}  v{r['repo_version']}")
@@ -364,7 +478,7 @@ def main():
         print(f"  提示词: SEEP.md={c.get('SEEP.md')} AGENTS.md={c.get('AGENTS.md')}")
         print(f"  扩展: 期望 {c['extensions']['expected']}，缺 {len(c['extensions']['missing'])}")
         print(f"  技能: 期望 {c['skills']['expected']}，缺 {len(c['skills']['missing'])}")
-        print(f"  MCP 配置就绪: {', '.join(c['mcp']['servers']) or '无'}；异常 {len(c['mcp']['broken'])}（仅代表 mcp.json 条目 + 路径存在）")
+        print(f"  MCP 配置就绪: {', '.join(c['mcp']['servers']) or '无'}；异常 {len(c['mcp']['broken'])}（已检查启动命令与参数路径）")
         sv = (c.get("mcp") or {}).get("service") or {}
         print("  MCP 服务可用: %s（ast 解析=%s / @server.tool=%s ≥ %d / 握手=%s）"
               % ("可用" if sv.get("available") else "不可用@%s" % sv.get("stage"),

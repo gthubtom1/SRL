@@ -1,7 +1,7 @@
 {
   "id": "sign-locate",
   "title": "签名/校验点定位",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "签名定位",
     "校验点定位",

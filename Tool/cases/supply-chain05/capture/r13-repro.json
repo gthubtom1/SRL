@@ -1,0 +1,48 @@
+{
+  "schema": "seep.r13-case-repro/1",
+  "ok": true,
+  "case": "supply-chain05",
+  "results": [
+    {
+      "case": "supply-chain05",
+      "label": "sc-check",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/skill/supply-chain-security/scripts/sc-check.py",
+        "--path",
+        "Tool/cases/supply-chain05/target",
+        "--out",
+        "Tool/cases/supply-chain05/capture/r13-sc-current.json"
+      ],
+      "cwd": ".",
+      "rc": 1,
+      "stdout": {
+        "path": "Tool/cases/supply-chain05/capture/r13-sc-check.stdout.txt",
+        "sha256": "7d034c02a850ff6b7a63dabf31ede4ad2027e30be39dba5b2e02d1fedfb2d828",
+        "size": 3547
+      },
+      "stderr": {
+        "path": "Tool/cases/supply-chain05/capture/r13-sc-check.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/supply-chain05/target/package.json": "81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/supply-chain05/target/package.json": "81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    }
+  ],
+  "all_rc_zero": false,
+  "all_watched_unmodified": true
+}

@@ -19,6 +19,13 @@
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import glob
 import hashlib
@@ -29,7 +36,7 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+ROOT = _seep_repo_root(__file__)
 CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
                "authority", "goal_level", "outcome", "artifacts", "lessons",
                "refs", "updated")

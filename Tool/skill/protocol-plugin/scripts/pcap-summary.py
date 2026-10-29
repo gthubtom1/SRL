@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""pcap-summary.py -- 纯标准库 pcap/pcapng 会话聚合、字节流导出与明文片段提取。
+"""pcap-summary.py -- 纯标准库 pcap/pcapng 会话聚合、包载荷导出与明文片段提取。
 
 用途
 ----
 协议复刻的第一步是「谁和谁、说了什么、每个方向有多少字节」。本脚本不依赖 tshark：
 自行解析 pcap 全局头/包记录与 pcapng 的 SHB/IDB/EPB/SPB，按**方向性五元组**聚合，
-导出每个会话的字节流（供分帧脚本续接），并提取可疑明文片段。
+按抓包顺序导出方向性包载荷，并提取可疑明文片段；输出不保证 TCP 连接或字节顺序完整。
 
 用法
 ----
@@ -20,14 +20,13 @@
 
 输入：本地 pcap / pcapng（EN10MB / RAW-IP / LINUX_SLL / LINUX_SLL2 / NULL）。
 输出：人类可读摘要或 JSON；`--out` 写 pcap-summary.json + snippets.txt；
-      `--extract` 写 `<session>.bin` 双向字节流 + frames.jsonl（逐包 hex）。
+      `--extract` 写按方向性五元组拼接的包载荷及 frames.jsonl（逐包 hex，最多 4096 字节）。
 `--state-model <json>`：输入 `{"edges":[{"from","to","evidence_frame"}]}`，
       输出 `observed_edges/inferred_edges/edge_coverage/unobserved[]/llm_unverified[]`
-      与 `verdict`（边覆盖率 < threshold 时明确不成立）。见 references/06 §3.1。
+      与 `verdict`；帧号和负例是未经核验的输入声明，不能据此确认状态机。见 references/06 §3.1。
 退出码：0 成功（含 tshark 缺失的降级）；2 输入/解析失败（结构化 JSON `ok:false`）。
 
-边界：只做包级解析与方向性聚合，不做 TCP 重传去重/乱序重排；需要严格重组时用
-tshark `-z follow,tcp,raw`。仅用于自有或明确授权的流量，导出物按敏感数据处置。
+边界：只做包级解析与方向性聚合，不做 TCP 连接区分、重传去重或乱序重排；不能直接当完整流分帧。可用 proto-repro 的明确流/方向重组，或独立核实后输入。仅用于授权流量。
 """
 
 from __future__ import annotations
@@ -141,9 +140,16 @@ def _iter_pcapng(fh):
                 endian = ">"
             else:
                 raise PcapError("pcapng SHB BOM 非法")
+            # Interface IDs are scoped to one section. A new SHB starts a new
+            # namespace even when the file continues in the same byte order.
+            interfaces = []
         blen = _u32(raw, pos + 4, endian)
         if blen < 12 or pos + blen > len(raw):
             raise PcapError("pcapng 块长度非法（offset=%d, len=%d）" % (pos, blen))
+        trailer = _u32(raw, pos + blen - 4, endian)
+        if trailer != blen:
+            raise PcapError("pcapng 块首尾长度不一致（offset=%d, head=%d, tail=%d）"
+                            % (pos, blen, trailer))
         body = raw[pos + 8:pos + blen - 4]
         if btype == 1:  # IDB
             if len(body) < 8:
@@ -169,16 +175,26 @@ def _iter_pcapng(fh):
                 raise PcapError("pcapng EPB 过短")
             iface, ts_hi, ts_lo, cap, _orig = struct.unpack_from(
                 endian + "IIIII", body, 0)
-            linktype, exp = interfaces[iface] if iface < len(interfaces) else (1, 6)
+            if iface >= len(interfaces):
+                raise PcapError("pcapng EPB 引用不存在的接口 %d" % iface)
+            linktype, exp = interfaces[iface]
             raw_ts = (ts_hi << 32) | ts_lo
             ts = raw_ts if exp is None else raw_ts / float(10 ** exp)
+            if 20 + cap > len(body):
+                raise PcapError("pcapng EPB 捕获长度超过块内数据")
             yield ts, linktype, body[20:20 + cap]
         elif btype == 3:  # SPB (no timestamp)
             if len(body) < 4:
                 raise PcapError("pcapng SPB 过短")
-            lt0 = interfaces[0][0] if interfaces else 1
+            if not interfaces:
+                raise PcapError("pcapng SPB 前没有接口描述块")
+            lt0 = interfaces[0][0]
             yield 0.0, lt0, body[4:]
         pos += blen
+    if pos != len(raw):
+        raise PcapError(
+            "pcapng 尾部有未消费字节（offset=%d, remaining=%d）"
+            % (pos, len(raw) - pos))
 
 
 def _ipv4(buf):
@@ -292,6 +308,24 @@ def parse_packet(data, linktype):
             "dst": dst, "dport": 0, "payload": payload, "flags": 0, "seq": 0, "ack": 0}
 
 
+def _redact_snippet(text):
+    """Keep protocol context while withholding common credential values."""
+    patterns = (
+        (r"(?i)(authorization\s*:\s*)(?:bearer|basic|digest)?\s*[^\r\n]+",
+         r"\1<redacted>"),
+        (r"(?i)(proxy-authorization\s*:\s*)[^\r\n]+", r"\1<redacted>"),
+        (r"(?i)((?:set-)?cookie\s*:\s*)[^\r\n]+", r"\1<redacted>"),
+        (r"(?i)([?&](?:access_token|api[_-]?key|token|secret|password)=)[^&\s]+",
+         r"\1<redacted>"),
+        (r'(?i)("(?:access_token|api[_-]?key|token|secret|password)"\s*:\s*")[^"]*(")',
+         r"\1<redacted>\2"),
+    )
+    out = text
+    for pattern, replacement in patterns:
+        out = re.sub(pattern, replacement, out)
+    return out
+
+
 def _snippets(payload, limit=8):
     out = []
     for m in TEXT_RE.finditer(payload):
@@ -301,7 +335,7 @@ def _snippets(payload, limit=8):
         text = chunk.decode("latin-1").strip()
         if len(text) < 4:
             continue
-        out.append(text[:180])
+        out.append(_redact_snippet(text[:180]))
         if len(out) >= limit:
             break
     return out
@@ -409,7 +443,10 @@ def _write_extract(outdir, rows, blobs, frame_rows):
         for row in frame_rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     written.append({"path": "frames.jsonl", "lines": len(frame_rows)})
-    return {"dir": outdir, "files": written}
+    return {"dir": outdir, "files": written, "tcp_reassembly": "not_performed",
+            "note": "payloads are concatenated in capture order by directional five-tuple",
+            "sensitivity": "raw payloads and frames.jsonl may contain credentials; "
+                           "store only in a controlled evidence directory"}
 
 
 def tshark_probe(path):
@@ -488,7 +525,7 @@ LLM_SOURCES = ("llm", "llm_candidate", "llm_generated", "auto", "inferred_llm")
 
 
 def _edge_is_observed(frame):
-    """evidence_frame 必须是真帧号（正整数）。0 / null / "" / "unknown" 一律不算观测。"""
+    """仅检查是否填写正帧号，不验证其存在或语义。"""
     if isinstance(frame, bool) or frame is None:
         return False
     if isinstance(frame, int):
@@ -562,12 +599,12 @@ def state_model(path, threshold=DEFAULT_EDGE_THRESHOLD):
     elif not proof_ok:
         verdict = "coverage_ok_but_no_illegal_transition_proof"
     else:
-        verdict = "state_machine_established"
+        verdict = "coverage_and_proof_reported_unverified"
     return {
         "ok": True,
         "state_model": path,
         "edges_total": total,
-        "inferred_edges": total,
+        "inferred_edges": total - n_obs,
         "observed_edges": n_obs,
         "edge_coverage": coverage,
         "edge_coverage_threshold": threshold,
@@ -576,8 +613,9 @@ def state_model(path, threshold=DEFAULT_EDGE_THRESHOLD):
         "llm_unverified_count": len(llm_unverified),
         "observed": observed,
         "illegal_transition_proof": proof_ok,
+        "evidence_validation": "not_performed: frame numbers and proof are user-supplied references",
         "verdict": verdict,
-        "claims_allowed": verdict == "state_machine_established",
+        "claims_allowed": False,
     }
 
 
@@ -631,7 +669,8 @@ def _mk_pcapng(packets):
 
 def self_test():
     checks = []
-    tmp = tempfile.mkdtemp(prefix="pcap-self-test-")
+    tmp_ctx = tempfile.TemporaryDirectory(prefix="pcap-self-test-")
+    tmp = tmp_ctx.name
     req = b"GET /selftest HTTP/1.1\r\nHost: selftest.invalid\r\n\r\n"
     rsp = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
     packets = [(1700000000.100000, _mk_eth_ip_tcp("10.0.0.1", "10.0.0.2", 40001, 80, req)),
@@ -645,18 +684,36 @@ def self_test():
     checks.append(("方向性会话=2", s["sessions_total"] == 2))
     got = " ".join(x for sess in s["sessions"] for x in sess["snippets"])
     checks.append(("明文片段含 GET /selftest", "GET /selftest" in got))
+    secret_payload = (b"GET /x?token=QUERY-SECRET HTTP/1.1\r\n"
+                      b"Authorization: Bearer AUTH-SECRET\r\n"
+                      b"Cookie: sid=COOKIE-SECRET\r\n\r\n")
+    redacted = " ".join(_snippets(secret_payload))
+    checks.append(("敏感凭据片段被脱敏",
+                   "QUERY-SECRET" not in redacted and "AUTH-SECRET" not in redacted
+                   and "COOKIE-SECRET" not in redacted))
 
     png_path = os.path.join(tmp, "min.pcapng")
     with open(png_path, "wb") as fh:
         fh.write(_mk_pcapng(packets))
     s2 = summarize(png_path)
     checks.append(("pcapng 解析包数=2", s2["packet_count"] == 2 and s2["format"] == "pcapng"))
+    base_png = _mk_pcapng(packets)
+    for remaining in (4, 8, 11):
+        tail_path = os.path.join(tmp, "tail-%d.pcapng" % remaining)
+        with open(tail_path, "wb") as fh:
+            fh.write(base_png + bytes(range(remaining)))
+        try:
+            summarize(tail_path)
+            checks.append(("pcapng 尾部 %d 字节被拒" % remaining, False))
+        except PcapError as exc:
+            checks.append(("pcapng 尾部 %d 字节被拒" % remaining,
+                           "未消费" in str(exc)))
 
     exdir = os.path.join(tmp, "ex")
     s3 = summarize(pcap_path, extract=exdir)
     files = [f["path"] for f in (s3.get("extract") or {}).get("files", [])]
     ok_ext = any(f.endswith(".bin") for f in files) and "frames.jsonl" in files
-    checks.append(("--extract 导出字节流+frames.jsonl", ok_ext))
+    checks.append(("--extract 导出包载荷+frames.jsonl", ok_ext))
 
     bad = os.path.join(tmp, "bad.bin")
     with open(bad, "wb") as fh:
@@ -683,7 +740,7 @@ def self_test():
                    ]}, fh, ensure_ascii=False)
     m = state_model(sm_path)
     checks.append(("state-model 观测/推断边拆分",
-                   m["observed_edges"] == 3 and m["inferred_edges"] == 4))
+                   m["observed_edges"] == 3 and m["inferred_edges"] == 1))
     checks.append(("state-model 边覆盖率=0.75", m["edge_coverage"] == 0.75))
     checks.append(("state-model 未观测边入 unobserved",
                    [u["to"] for u in m["unobserved"]] == ["ERROR"]))
@@ -721,8 +778,8 @@ def self_test():
                         "inferred_edges": m["inferred_edges"],
                         "edge_coverage": m["edge_coverage"],
                         "llm_unverified": m["llm_unverified_count"]},
-        "tmp": tmp,
     }, ensure_ascii=False))
+    tmp_ctx.cleanup()
     return 0 if not bad_checks else 1
 
 
@@ -755,7 +812,7 @@ def _fail(code, error, detail="", blocked_at="input", **extra):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="纯标准库 pcap/pcapng 会话聚合、字节流导出与明文片段提取（无需 tshark）",
+        description="纯标准库 pcap/pcapng 包级聚合、载荷导出与明文片段提取（无需 tshark）",
         epilog="退出码：0 成功/降级；2 输入或解析失败（JSON ok:false）。")
     ap.add_argument("--file", "-f", help="pcap/pcapng 文件（--self-test 时可省略）")
     ap.add_argument("--top", type=int, default=20, help="输出会话数（默认 20）")
@@ -763,7 +820,7 @@ def main(argv=None):
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--out", help="写出 pcap-summary.json 与 snippets.txt 的目录")
     ap.add_argument("--extract", metavar="DIR",
-                    help="导出每个方向性会话的 .bin 字节流与 frames.jsonl")
+                    help="导出按五元组和抓包顺序拼接的载荷及包级 frames.jsonl；不做 TCP 重组")
     ap.add_argument("--tshark-check", action="store_true",
                     help="用 tshark 交叉验证协议分层；缺失则结构化降级")
     ap.add_argument("--state-model", metavar="JSON",
@@ -831,6 +888,7 @@ def main(argv=None):
         _print_human(summary)
         if args.extract:
             print("\n-- extract --")
+            print("  TCP reassembly: not performed; payloads are in capture order")
             for f in summary["extract"]["files"]:
                 print("  %s" % f)
         if args.tshark_check:

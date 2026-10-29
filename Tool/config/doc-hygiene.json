@@ -14,6 +14,7 @@
     "Tool/upstream",
     "Tool/cases",
     "Tool/samples",
+    "tmp",
     "work",
     ".pi",
     "evidence",

@@ -46,6 +46,7 @@ foreach ($perm in $permissions) {
 
 $componentQueries = @(
     @{ Label = 'activity'; Path = 'application/activity' },
+    @{ Label = 'activity_alias'; Path = 'application/activity-alias' },
     @{ Label = 'service'; Path = 'application/service' },
     @{ Label = 'receiver'; Path = 'application/receiver' },
     @{ Label = 'provider'; Path = 'application/provider' }
@@ -63,7 +64,7 @@ foreach ($query in $componentQueries) {
 }
 
 $mainActivities = @()
-$activities = @($manifest.SelectNodes('application/activity'))
+$activities = @($manifest.SelectNodes('application/activity | application/activity-alias'))
 foreach ($activity in $activities) {
     $filters = @($activity.SelectNodes('intent-filter'))
     foreach ($filter in $filters) {

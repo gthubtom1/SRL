@@ -1,17 +1,19 @@
 # 意图 → 配方 / 能力 索引
 
-> 本文件由 「gen-playbook-index.py」(S1 已删) 从 `intent-coverage.py --json` 生成；探针在 `Tool/config/intent-probes.json`，共 93。
+> 本文件与 `intent-coverage.py --json` 的结果同步；探针在 `Tool/config/intent-probes.json`，共 94。
+> 活动配方来自 `Tool/playbooks/*.md`，共 24；没有意图探针的配方仍会列出。
 > 覆盖口径：触发词命中期望配方即算 covered；未命中按缺口列出，并给 2–3 个 capability 组合。
 
-- 总数：**93**
-- 已覆盖：**93**
+- 活动配方：**24**
+- 总数：**94**
+- 已覆盖：**94**
 - 缺口：**0**
 - 覆盖率：**100.00%**
 - 跨域误命中：**0**
 
-## 已覆盖：按配方分组
+## 覆盖结果：按活动配方分组
 
-### `anti-cheat-forensics`（5 条）
+### `anti-cheat-forensics`（4 条）
 
 配方能力面：`tool:pe-sieve` `tool:capa` `tool:ghidra` `tool:ida` `tool:tshark` `repo:case_state` `repo:driver-triage` `repo:forensics-check` `repo:fs-timeline` `repo:pcap-summary` `repo:evidence-accept`
 
@@ -20,7 +22,6 @@
 | 游戏有 EAC 反作弊，怎么过检测 | `anti-cheat-forensics` | covered |
 | BattlEye 服务项和驱动在哪取证 | `anti-cheat-forensics` | covered |
 | Vanguard 内核驱动一直拦调试器，看兼容性 | `anti-cheat-forensics` | covered |
-| 驱动兼容层怎么写，让老驱动在新系统跑 | `anti-cheat-forensics` | covered |
 | EAC 反作弊驱动在新系统加载失败，兼容性怎么查 | `anti-cheat-forensics` | covered |
 
 ### `apk-ad-removal`（2 条）
@@ -42,7 +43,7 @@
 | HarmonyOS 元服务逆向，.abc 字节码怎么读 | `apk-unpack` | covered |
 | APK 加固脱壳，DexVMP 内存 dump | `apk-unpack` | covered |
 
-### `app-daily-task`（5 条）
+### `app-daily-task`（4 条）
 
 配方能力面：`apk:static_dex` `apk:frida_dynamic` `apk:frida_rpc` `apk:repack_signed` `apk:device_static` `repo:case_state` `repo:pcap-summary` `repo:run_probe` `repo:probe_api` `repo:install_test` `tool:jadx` `tool:apktool` `tool:frida` `tool:tshark`
 
@@ -51,12 +52,11 @@
 | 把 APP 每日任务做成定时脚本，早上八点自己跑 | `app-daily-task` | covered |
 | 抓一下签到接口，看看积分和连续天数怎么算 | `app-daily-task` | covered |
 | 把 App 签到请求的签名参数复现出来，别硬编码 | `app-daily-task` | covered |
-| 小程序每天自动签到，抓包看签到接口 | `app-daily-task` | covered |
 | 微信小程序 wxapkg 解包，找签到和加密参数 | `app-daily-task` | covered |
 
 ### `backend-rebuild`（3 条）
 
-配方能力面：`tool:tshark` `tool:katana` `tool:ffuf` `tool:nuclei` `repo:case_state` `repo:web-check` `repo:pcap-summary` `repo:proto-repro` `repo:web-accept` `repo:probe_api`
+配方能力面：`tool:tshark` `tool:katana` `tool:ffuf` `tool:nuclei` `repo:case_state` `repo:web-check` `repo:pcap-summary` `repo:proto-repro` `repo:web-accept` `repo:probe_api` `probe:sign-recompute`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -66,7 +66,7 @@
 
 ### `captcha-handling`（3 条）
 
-配方能力面：`repo:case_state` `repo:web-check` `repo:temp_ocr` `repo:captcha-gap` `repo:captcha-angle` `repo:run_probe` `repo:frida_rpc_serve` `repo:probe_api` `tool:frida` `tool:fiddler` `mcp:playwright`
+配方能力面：`repo:case_state` `repo:web-check` `repo:temp_ocr` `captcha-gap` `captcha-angle` `repo:run_probe` `repo:frida_rpc_serve` `repo:probe_api` `tool:frida` `tool:fiddler` `mcp:playwright`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -76,7 +76,7 @@
 
 ### `firmware-emulate`（3 条）
 
-配方能力面：`tool:binwalk` `repo:case_state` `repo:fw-triage` `repo:fw-repro` `repo:fw-accept` `repo:probe_api` `repo:env-ledger` `repo:kb-query` `repo:seep-start`
+配方能力面：`tool:binwalk` `repo:case_state` `repo:fw-triage` `repo:fw-repro` `repo:fw-accept` `repo:probe_api` `repo:env-ledger` `repo:kb-query`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -84,9 +84,9 @@
 | 路由器固件仿真跑不起来，卡在 init 链 | `firmware-emulate` | covered |
 | IoT 固件 rehosting 缺 NVRAM 设备节点 | `firmware-emulate` | covered |
 
-### `firmware-extract`（11 条）
+### `firmware-extract`（9 条）
 
-配方能力面：`tool:binwalk` `repo:case_state` `repo:fw-triage` `repo:fw-repro` `repo:fw-accept` `repo:kb-query` `repo:seep-start`
+配方能力面：`tool:binwalk` `repo:case_state` `repo:fw-triage` `repo:fw-repro` `repo:fw-accept` `repo:kb-query`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -97,14 +97,12 @@
 | SPI flash 用 ch341a 读出来，再做固件提取 | `firmware-extract` | covered |
 | IoT OTA 升级包怎么解，签名校验在哪 | `firmware-extract` | covered |
 | 电视盒子 OTA 固件提取，分区和签名一起看 | `firmware-extract` | covered |
-| Docker 镜像抠服务，把二进制和配置提出来 | `firmware-extract` | covered |
-| 从容器镜像里把服务抠出来单独跑 | `firmware-extract` | covered |
 | 电视盒子固件提取，rootfs 和分区表 | `firmware-extract` | covered |
 | 车机系统逆向，CAN 报文和固件怎么入手 | `firmware-extract` | covered |
 
 ### `forensics-timeline`（4 条）
 
-配方能力面：`tool:tshark` `tool:dumpcap` `repo:case_state` `repo:seep-start` `repo:forensics-check` `repo:fs-timeline` `repo:evidence-accept` `repo:pcap-summary`
+配方能力面：`tool:tshark` `tool:dumpcap` `repo:case_state` `repo:forensics-check` `repo:fs-timeline` `repo:evidence-accept` `repo:pcap-summary`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -115,7 +113,7 @@
 
 ### `game-client-il2cpp`（4 条）
 
-配方能力面：`repo:case_state` `repo:kb-query` `forensics:evidence_accept` `forensics:check` `tool:ida` `tool:ghidra`
+配方能力面：`repo:case_state` `repo:kb-query` `repo:evidence-accept` `repo:forensics-check` `tool:ida` `tool:ghidra`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -126,7 +124,7 @@
 
 ### `license-bypass-deliver`（3 条）
 
-配方能力面：`tool:ida` `tool:x64dbg` `tool:frida` `tool:diec` `tool:pe-sieve` `repo:case_state` `repo:preflight-classify` `repo:probe_matrix` `repo:dump-restore` `repo:patch-verify` `repo:reverse-accept`
+配方能力面：`tool:ida` `tool:x64dbg` `tool:frida` `tool:diec` `tool:pe-sieve` `repo:case_state` `repo:preflight-classify` `repo:tool-acquire` `repo:dump-restore` `repo:patch-verify` `repo:reverse-accept`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -145,7 +143,7 @@
 
 ### `malware-triage`（2 条）
 
-配方能力面：`tool:yara` `tool:capa` `tool:floss` `tool:pe-sieve` `repo:case_state` `repo:seep-start` `repo:mal-triage` `repo:mal-unpack` `repo:ioc-extract` `repo:mal-accept` `repo:kb-query`
+配方能力面：`tool:yara` `tool:capa` `tool:floss` `tool:pe-sieve` `repo:case_state` `repo:mal-triage` `repo:mal-unpack` `repo:ioc-extract` `repo:mal-accept` `repo:kb-query`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -154,7 +152,7 @@
 
 ### `multi-account-runner`（4 条）
 
-配方能力面：`repo:case_state` `repo:check-budget` `repo:env-ledger` `repo:preflight` `repo:pcap-summary` `repo:probe_api` `tool:fiddler` `tool:tshark`
+配方能力面：`repo:case_state` `repo:budget` `repo:env-ledger` `repo:preflight` `repo:pcap-summary` `repo:probe_api` `tool:fiddler` `tool:tshark`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -163,9 +161,17 @@
 | 账号池多账号签到，限速并换代理 IP，不然风控 | `multi-account-runner` | covered |
 | 多账号并发跑，限速和重试都要有 | `multi-account-runner` | covered |
 
+### `osint-recon`（1 条）
+
+配方能力面：`repo:case_state` `repo:kb-query` `repo:web-check` `mcp:seep` `tool:subfinder` `tool:httpx` `tool:nuclei` `mcp:playwright` `repo:osint-secret-scan` `repo:osint-h1-ref`
+
+| 意图 | playbook | 状态 |
+| :-- | :-- | :-- |
+| 给我做目标域名的 OSINT 资产测绘，梳理子域枚举、证书透明日志和 GitHub 泄露 | `osint-recon` | covered |
+
 ### `plugin-analysis`（3 条）
 
-配方能力面：`tool:dnspy` `tool:de4dot` `tool:jadx` `repo:case_state` `repo:seep-start` `repo:plugin-triage` `repo:plugin-repro` `repo:plugin-accept` `repo:check-extension-conflicts`
+配方能力面：`tool:dnspy` `tool:de4dot` `tool:jadx` `repo:case_state` `plugin-unpack` `repo:check-extension-conflicts`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -175,7 +181,7 @@
 
 ### `protocol-replay`（9 条）
 
-配方能力面：`tool:tshark` `tool:dumpcap` `repo:case_state` `repo:pcap-summary` `repo:proto-repro` `repo:proto-accept` `repo:protobuf_decode_raw` `repo:seep-start`
+配方能力面：`tool:tshark` `tool:dumpcap` `repo:case_state` `repo:pcap-summary` `repo:proto-repro` `repo:proto-accept` `repo:protobuf_decode_raw`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -189,19 +195,20 @@
 | Modbus 工控协议怎么构造新请求 | `protocol-replay` | covered |
 | PLC 工控协议复刻，寄存器读写报文 | `protocol-replay` | covered |
 
-### `qinglong-signin`（3 条）
+### `qinglong-signin`（4 条）
 
-配方能力面：`repo:case_state` `repo:pcap-summary` `repo:probe_api` `repo:tls_check` `repo:check-budget` `repo:env-ledger` `repo:preflight` `tool:fiddler` `tool:tshark` `tool:dumpcap`
+配方能力面：`repo:case_state` `repo:pcap-summary` `repo:probe_api` `repo:tls_check` `repo:budget` `repo:env-ledger` `repo:preflight` `tool:fiddler` `tool:tshark` `tool:dumpcap`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
 | 青龙面板里挂六个号，每天自动签到，掉登录就重登 | `qinglong-signin` | covered |
 | 青龙里的登录态过期了自动续，别每次扫码 | `qinglong-signin` | covered |
 | 在青龙里用浏览器把网页签到流程跑一遍，顺手抓请求 | `qinglong-signin` | covered |
+| 小程序每天自动签到，抓包看签到接口 | `qinglong-signin` | covered |
 
-### `reverse-survey`（9 条）
+### `reverse-survey`（10 条）
 
-配方能力面：`tool:diec` `tool:capa` `tool:floss` `tool:ida` `tool:r2` `repo:case_state` `repo:seep-start` `repo:preflight-classify` `repo:pwn-check` `repo:driver-triage` `repo:kb-query` `repo:reverse-accept`
+配方能力面：`tool:diec` `tool:capa` `tool:floss` `tool:ida` `tool:r2` `repo:case_state` `repo:preflight-classify` `repo:pwn-check` `repo:driver-triage` `repo:kb-query` `repo:reverse-accept`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -214,10 +221,11 @@
 | PyInstaller 打包的 exe 怎么解出 pyc | `reverse-survey` | covered |
 | Go 静态编译程序怎么恢复符号和函数名 | `reverse-survey` | covered |
 | Rust 写的程序逆向，怎么找授权点 | `reverse-survey` | covered |
+| 驱动兼容层怎么写，让老驱动在新系统跑 | `reverse-survey` | covered |
 
 ### `site-clone-1to1`（8 条）
 
-配方能力面：`repo:site-crawl` `repo:site-rebuild` `repo:site-diff` `repo:site-accept` `repo:preflight`
+配方能力面：`probe:site-crawl` `probe:site-rebuild` `probe:visual-diff` `probe:site-accept` `repo:preflight`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -230,9 +238,9 @@
 | 整站克隆前先侦察原站接口和静态资源路径 | `site-clone-1to1` | covered |
 | SaaS 控制台 1:1 复刻，断网也能用 | `site-clone-1to1` | covered |
 
-### `supply-chain-audit`（4 条）
+### `supply-chain-audit`（6 条）
 
-配方能力面：`tool:nuclei` `repo:case_state` `repo:seep-start` `repo:sc-check` `repo:sbom-reach` `repo:ci-perm-audit` `repo:sc-accept` `repo:kb-query`
+配方能力面：`tool:nuclei` `repo:case_state` `repo:sc-check` `probe:sbom-build` `repo:sbom-reach` `repo:ci-perm-audit` `repo:sc-accept` `repo:kb-query`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
@@ -240,6 +248,8 @@
 | CI 权限太大，workflow 里 secrets 会不会泄露 | `supply-chain-audit` | covered |
 | docker 镜像有没有后门，做个 SBOM 和可达性 | `supply-chain-audit` | covered |
 | GitHub Actions 的 pull_request_target，先审 CI 权限和 action pin | `supply-chain-audit` | covered |
+| Docker 镜像抠服务，把二进制和配置提出来 | `supply-chain-audit` | covered |
+| 从容器镜像里把服务抠出来单独跑 | `supply-chain-audit` | covered |
 
 ### `ui-rebrand`（1 条）
 
@@ -251,7 +261,7 @@
 
 ### `version-migrate`（1 条）
 
-配方能力面：`tool:ida` `tool:x64dbg` `tool:r2` `repo:case_state` `repo:migrate` `repo:patch-verify` `repo:reverse-accept`
+配方能力面：`tool:ida` `tool:x64dbg` `tool:r2` `repo:case_state` `repo:patch-verify` `repo:reverse-accept`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |

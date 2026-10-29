@@ -61,7 +61,7 @@
         "--server",
         "x64dbg"
       ],
-      "description": "x64dbg 调试器（stdio 桥接 → 127.0.0.1:9094）。**9094 没在听时桥会自动拉起 x64dbg 并连上**（这是我们自己的工具，由 Agent 自己起、自己用，不问用户）；只有跑客户给的目标样本才需要回执。连通后调 mcp__x64dbg__*。工具路径缓存**双写**契约见 Tool/scripts/lib/tool_cache.py（曾因只写一种结构导致 401）。若你确实不想要 GUI 自动弹：设 SEEP_GUI_NO_AUTOLAUNCH=1。",
+      "description": "x64dbg 调试器（stdio 桥接 → 127.0.0.1:9094）。9094 没在听时按配置自动启动调试器；启动工具不等于执行目标样本。桥保留协商后的会话和协议版本，鉴权或初始化失败会返回错误。工具路径缓存的读写见 Tool/mcp/tool_autodiscover.py 的 _cache_get/_cache_put。禁止自动启动可设 SEEP_GUI_NO_AUTOLAUNCH=1。",
       "transport": "stdio"
     }
   },

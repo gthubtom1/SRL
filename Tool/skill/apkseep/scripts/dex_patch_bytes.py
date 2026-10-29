@@ -509,7 +509,16 @@ def main(argv):
     data = bytearray(dex.d)
     reports = []
     for i, spec in enumerate(specs):
-        rep, data = process_one(dex, data, spec, i, args.dry_run)
+        # Each spec must be resolved against the bytes produced by the previous
+        # spec. Reusing the source Dex made two specs that hit the same byte span
+        # both report success while the second silently replaced the first.
+        current = Dex(bytes(data), dex.name)
+        try:
+            rep, data = process_one(current, data, spec, i, False)
+        except (KeyError, TypeError, ValueError, RuntimeError) as exc:
+            print("\nFATAL [%d]: %s" % (i, exc))
+            print("No output was written.")
+            return 1
         reports.append(rep)
         print("\n-- [%s] %s.%s%s" % (rep["name"], rep["class"], rep["method"], rep["desc"]))
         print("   site 0x%x  %s" % (rep["site_off"], rep["old_text"]))

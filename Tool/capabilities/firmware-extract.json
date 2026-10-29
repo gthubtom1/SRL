@@ -32,7 +32,6 @@
     "rootfs"
   ],
   "scripts": [
-    "Tool/skill/firmware-iot/scripts/fw-triage.py",
     "Tool/skill/firmware-iot/scripts/fw-triage.py"
   ],
   "refs": [

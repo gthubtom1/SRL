@@ -1,0 +1,26 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "IMPORT-03",
+  "decision": "superseded",
+  "current_acceptance": false,
+  "review_date": "2026-10-29",
+  "reason": "Historical acceptance is not valid for the current working tree: locked objects changed or referenced evidence is unavailable. Original claims, hashes and reported results are preserved in the archive; this review does not renew independent acceptance.",
+  "historical_receipt": "docs/history/verification/2026-10-29/import03-acceptance.json",
+  "historical_receipt_sha256": "3f4449b1db1e0a4521983ec458eccd0b0e4f265743fc0bf3c327013e4ccc1df2",
+  "invalidation": {
+    "missing_references": [
+      "work/goal-recovery/import03-independent.md"
+    ],
+    "changed_locked_objects": [
+      "Tool/docs/EXTEND.md",
+      "Tool/scripts/domain-gate.py",
+      "Tool/scripts/gate.py",
+      "Tool/scripts/route.py",
+      "Tool/scripts/skill-import.py",
+      "Tool/scripts/test_import_metadata.py",
+      "Tool/scripts/test_import_transactions.py",
+      "Tool/scripts/test_skill_import.py"
+    ]
+  },
+  "overall_goal_complete": false
+}

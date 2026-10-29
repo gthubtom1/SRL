@@ -1,4 +1,6 @@
-# KPI —— 每次真实任务后手填一行（`docs/BLUEPRINT.md` §6）
+# KPI —— 历史任务观察记录
+
+本表保留过去记录，不代表本轮重新复现、当前机器就绪或所有任务都可交付。最新检查见 [当前状态](docs/CURRENT-STATE.md)，安装只走 [BOOTSTRAP](Tool/docs/BOOTSTRAP.md)。
 
 > 规则：**填不出改善 → 不加任何东西**。`结果` 只能是 delivered / upper-bound / fail；
 > `unknown` 一律记 fail。证据列写 MANIFEST 文件数 / facts 条数 / unknown 数。
@@ -11,11 +13,6 @@
 | 2026-10-24 | **真实目标**：OWASP Juice Shop（GitHub 公开仓库，固定 commit 717f5ef）供应链审计 | supply-chain-security | **delivered** | MANIFEST 2 文件 / facts 8 条 / 背书 8（observed）/ 排除 0；high 10 / medium 29 | 12,689 | ~12 | 0 | `python Tool/scripts/gate.py --pack supply-chain-security` |
 | 2026-10-24 | **真实靶场**：Damn Vulnerable C Program（GitHub 公开，固定 commit 8dcbd20）本地编译 PE 静态定级 | pwn-crypto | **delivered** | MANIFEST 2 文件 / facts 9 条 / 背书 9（observed 8 + derived 1）/ 排除 0 | 12,689 | ~15 | 0 | `python Tool/scripts/gate.py --pack pwn-crypto` |
 
-## 现状（数字以 `gate.py --all` 输出为准，本表只记做过什么）
-
-
-| pack | 状态 | 卡在哪（可执行判据） |
-| :-- | :-- | :-- |
 | 2026-10-24 | **真实抓包**：tcpdump 官方测试集 RADIUS.pcap（BSD） | protocol-plugin | **delivered** | MANIFEST 2 文件 / facts 7 条 / 背书 7 | 12,689 | ~10 | 0 | `python Tool/scripts/gate.py --pack protocol-plugin` |
 | 2026-10-24 | **真实抓包**：tcpdump 官方测试集 bgp-4byte-asn.pcap（BSD，91 帧） | forensics-mobile | **delivered** | MANIFEST 1 文件 / facts 6 条 / 背书 6 | 12,689 | ~8 | 0 | `python Tool/scripts/gate.py --pack forensics-mobile` |
 | 2026-10-24 | **真实固件**：binwalk 测试语料 ×3（arcadyan / squashfs v2 / cramfs） | firmware-iot | **upper-bound** | facts 7 条 / 背书 7；提取未产出可用 rootfs（7z dangerous-link） | 12,689 | ~20 | 0 | `python Tool/scripts/gate.py --pack firmware-iot` |

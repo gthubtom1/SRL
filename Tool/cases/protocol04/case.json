@@ -142,7 +142,7 @@
     "missing: 无 TLS、无 keep-alive 复用、无失败分支（4xx/5xx）；未做重放（本案例只取证与分帧）"
   ],
   "lessons": [
-    "跑的是 cd Tool/cases/protocol04 && bash input/capture_live.sh（自动从 tshark -D 挑 loopback，BPF 仅 tcp port 18321，抓 5 s），rc=0；随后 pcap-summary.py --file artifacts/live.pcapng --extract artifacts/streams --tshark-check（rc=0）与 tshark -Y 'http.request or http.response'（rc=0）（录制件：live.pcapng 是 2026-10-21 的一次真实抓包；重跑 capture_live.sh 会得到不同字节的 pcap，属预期，需同步重算 artifacts 的 sha256）",
+    "跑的是 cd Tool/cases/protocol04 && bash input/capture_live.sh（自动从 tshark -D 挑 loopback，BPF 仅 tcp port 18321，抓 5 s），rc=0；随后 pcap-summary.py --file artifacts/live.pcapng --extract artifacts/streams --tshark-check（rc=0）与 tshark -Y 'http.request or http.response'（rc=0）。录制件 live.pcapng 是 2026-10-21 的一次真实抓包；每次复跑都会产生新字节并同步重算 artifacts 的 sha256。",
     "结论：3 个独立 TCP 会话（curl 未复用连接），每个会话 1 请求 1 响应；响应以 Content-Length 定界，Set-Cookie/X-Session-Id 逐请求递增，Bearer 头是本案例自造的假值。",
     "抓包卫生：必须用 BPF（-f 'tcp port 18321'）把范围收敛到本案例端口，否则回环会混入同机其它进程的真实流量；本案例第一次未过滤时抓到了无关会话，已废弃重抓。",
     "分帧证据：pcap-summary.py --extract 导出的 s00/s01 .bin 可直接喂给 proto-repro.py 或自写解析器；frames.jsonl 记录逐包 payload_hex，可复算 Content-Length 与 body 长度。",
@@ -171,6 +171,9 @@
   "updated": "2026-10-21",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "evidence": "见 lessons 首条的『命令与 rc』",
+    "command": "bash input/capture_live.sh",
+    "cwd": "Tool/cases/protocol04",
+    "rc": 0
   }
 }

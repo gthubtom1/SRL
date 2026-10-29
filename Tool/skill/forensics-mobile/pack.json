@@ -7,7 +7,7 @@
       "label": "取证/iOS·macOS/游戏客户端",
       "must": [
         "(?i)(?:\\bvolatility3?\\b|\\brekall\\b|\\bmem\\.raw\\b|\\bmemory\\s*dump\\b|内存镜像|内存取证|崩溃转储)",
-        "(?i)(?:\\bpcapng?\\b|\\btshark\\b|\\bwireshark\\b|流量分析|网络取证|会话重组|dns\\s*隧道)",
+        "(?i)(?:\\bpcap(?:ng)?\\b|\\btshark\\b|\\bwireshark\\b|流量分析|网络取证|会话重组|dns\\s*隧道)",
         "(?i)(?:\\bsleuthkit\\b|\\bmmls\\b|\\bfls\\b|\\bicat\\b|\\bmactime\\b|磁盘镜像|分区镜像|文件系统取证|\\$mft\\b)",
         "(?i)(?:\\bevtx\\b|\\bwinevt\\b|事件日志|注册表\\s*(?:hive|取证|导出)|\\breg\\s+save\\b|\\bamcache\\b|\\bprefetch\\b|\\bshellbag|\\bjumplist|\\busbstor\\b)",
         "(?i)(?:\\b(?:ios|ipados|iphone|ipad|ipa|macos|mach-o|keychain|codesign|entitlements)\\b|embedded\\.mobileprovision)",
@@ -42,6 +42,25 @@
     "forensics06",
     "forensics07"
   ],
+  "case_roles": {
+    "witness": [
+      "forensics01",
+      "forensics02",
+      "forensics03",
+      "forensics04",
+      "forensics06",
+      "forensics07"
+    ],
+    "depth_gate": [
+      "forensics01",
+      "forensics02",
+      "forensics03",
+      "forensics04",
+      "forensics06",
+      "forensics07"
+    ]
+  },
+  "depth_contract": {    "skill": "forensics-mobile",    "board": "forensics",    "matrix": "forensics-mobile-matrix.json",    "case_globs": [      "forensics*"    ],    "ext_scripts": [      "`forensics-check`（S4 已删：壳，真身在 forensics-mobile/scripts/）"    ]  },
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/forensics07",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
@@ -72,6 +91,47 @@
     "需要写操作或改机器状态",
     "目标数据已不可复现（无镜像/无 pcap）"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": ["memory image", "pcap/pcapng", "disk image", "EVTX", "registry hive", "IPA/Mach-O", "Keychain or Unity resource"],
+    "sample_completeness": {
+      "required": ["original evidence image or capture", "acquisition metadata and hash", "timezone/context for timeline claims"],
+      "missing_means": "缺镜像、pcap、备份、密钥或原始元数据只是输入要求，不代表取证结论或解密能力已完成。"
+    },
+    "environment": {
+      "required": ["read-only evidence workspace", "known timezone and acquisition context", "authorized credentials or keys only when the evidence requires them"],
+      "missing_means": "缺样本、账号、设备、密钥或网络上下文时只能标记缺证据，不能补推行为。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/forensics-mobile/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/forensics-mobile/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/forensics-mobile/SKILL.md",
+    "incremental": "Tool/skill/forensics-mobile/SKILL.md"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/forensics-mobile/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/forensics-mobile/scripts/witness.py",
     "why": "真跑 forensics-check.py 分析 Tool/cases/forensics07/target/bgp-4byte-asn.pcap：断言 type/format=pcap、meta.packet_count>0、UTC timeline 与 integrity.sha256，证明 pcap 取证初检真的产出结果"

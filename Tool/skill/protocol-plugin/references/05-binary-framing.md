@@ -2,8 +2,8 @@
 
 > 范围：私有二进制协议、定长头 + 变长体、TLV、带校验的自定义帧。
 > 路由：纯文本行协议（HTTP/SMTP）的分帧见 `04-walkthrough-websocket-replay.md` 与
-> `07-crypto-and-checksum.md`；插件装载链由 `plugin-targets`（R25）承担。
-> 字段表工具：`scripts/proto-repro.py`；字节流来源：`scripts/pcap-summary.py --extract`。
+> `07-crypto-and-checksum.md`；插件装载链按 `Tool/playbooks/plugin-analysis.md` 分析。
+> 字段表工具：`scripts/proto-repro.py`；包级载荷来源：`scripts/pcap-summary.py --extract`。它不是 TCP 重组；先按连接、方向及 sequence 处理乱序、重传、重叠和缺口，无法核实时标明限制。
 
 ## 1. 分帧的四种基本形态
 
@@ -35,7 +35,7 @@ a=1,b=hlen+t+pad → 含对齐填充
 
 只有一条假设能让**全部**帧成立时才算定；否则继续收样本。
 
-真实验证（仓库 `Tool/cases/protocol02/input/sample.bin`，3 帧 SPRX）：
+夹具验证（仓库 `Tool/cases/protocol02/input/sample.bin`，3 帧 SPRX）：
 
 ```bash
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \
@@ -49,7 +49,7 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py \
 ```
 
 三帧都满足 `frame_len = 12 + length + 4`（`52=12+36+4`、`46=12+30+4`、`43=12+27+4`），
-`length` 只覆盖 payload，CRC 覆盖 `header+payload`。**这是确认档**（3 帧 + 两个不同长度 + CRC 负例）。
+`length` 只覆盖 payload，CRC 覆盖 `header+payload`。这只说明该夹具与字段表自洽，不证明真实协议或服务端行为。
 
 ## 2.1 「改长度」负例：构造器不让你手改 `length`
 
@@ -69,16 +69,10 @@ blob[off+flen-4:off+flen] = struct.pack(">I", binascii.crc32(body) & 0xffffffff)
 pathlib.Path("artifacts/len_big.bin").write_bytes(bytes(blob))
 print("frame_len", flen, "declared", 999, "crc_recomputed", True)
 PY
-python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/len_big.bin --json \
-  | python -c "import json,sys;d=json.load(sys.stdin);print(d['frame_count'], d['stats'])"
+python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/len_big.bin --json
 ```
 
-通过长什么样（“改大”应该停在第一帧并报 truncated）：
-
-```text
-0 {'bytes': 141, 'consumed': 0, 'skipped_bytes': 0, 'trailing_bytes': 141,
-   'errors': [{'offset': 0, 'reason': 'truncated', 'need': 1015, 'have': 141}]}
-```
+“改大”会在第一帧返回非零退出码和 `ok=false`、`blocked_at=parse`，原因包含 truncated；不要把错误 JSON 当作含 `frame_count` 的成功输出。
 
 “改小”（如 `struct.pack(">H", 10)`）则不同：同一份样本会解出 3 帧、第一帧 `crc_ok=false`，
 且 `skipped_bytes=26`（从错位处重同步回下一个 `SPRX`）。两种结果都不应该让解析器崩。
@@ -103,7 +97,7 @@ if magic and blob[pos:pos+len(magic)] != magic:
     continue
 ```
 
-判据：注入 9 字节垃圾后仍解出 3 帧，且 `skipped_bytes >= 9`（`proto-repro.py --self-test` 覆盖）。
+判据：注入 9 字节垃圾后仍解出 3 帧，且 `skipped_bytes >= 9`；该自检不证明假 magic 或任意损坏均可恢复。
 
 ## 3.1 重同步的三个统计量与切片不变量
 
@@ -120,22 +114,10 @@ B=Tool/cases/protocol02/input/sample.bin
 head -c 30 $B > artifacts/p1.bin; tail -c +31 $B > artifacts/p2.bin
 cat artifacts/p1.bin artifacts/p2.bin > artifacts/joined.bin
 cmp artifacts/joined.bin $B && echo "join ok"
-for f in artifacts/p1.bin artifacts/p2.bin; do
-  python Tool/skill/protocol-plugin/scripts/proto-repro.py --input $f --json \
-    | python -c "import json,sys;d=json.load(sys.stdin);print('$f', d['frame_count'], [e['reason'] for e in d['stats']['errors']])"
-done
+python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/joined.bin --json
 ```
 
-通过长什么样：
-
-```text
-join ok
-artifacts/p1.bin 1 ['truncated']
-artifacts/p2.bin 0 ['truncated']
-```
-
-要点：半包必须**报错而不是崩**（`truncated`），并且不能把半包当完整帧交给上层。
-`p1` 能解出 1 帧是因为第 1 帧完整；`p2` 从帧中间开始，没有 magic → 应该全部 skipped。
+第一帧长 52 字节，前 30 字节不足一帧，单独解析应返回截断错误；第二片从帧中间开始，可能跳过开头并找到后续 magic。此解析器非增量缓冲器；先按原序拼回后与整段比较，不能把独立切片结果当消息序列。
 
 ## 4. 头部字段清单（按出现频率）
 
@@ -197,10 +179,10 @@ tag(1) len(1) value(len) [tag(1) len(2) value(len)] ...
 | 一次 recv 只拿到半帧 | TCP 分段 | 缓冲到 `header_len` 再读 length，再缓冲到整帧 |
 | 一次 recv 含 2 帧 | Nagle/合并发送 | 循环解析直到剩余不足一帧 |
 | 帧顺序错乱 | 多线程发送 / 抓包乱序 | 用 seq 排序；抓包侧用 tshark 重组后的流 |
-| 同帧重复出现 | TCP 重传 | 按 seq+len 去重；不要按"内容相同"去重（业务可能真重复） |
+| 同帧重复出现 | TCP 重传 | 按连接、方向和 TCP 字节序号核实重叠，处理部分重传、冲突与缺口；seq+len 去重不足以覆盖部分重叠 |
 | 解析器偶发崩 | 长度字段被攻击/损坏 | 强制上限（如 1 MiB），超限即断开并记录 |
 
-判据：把同一段字节流按 1/3/7/任意长度切片喂给解析器，输出帧序列必须完全一致。
+增量解析器的判据：把同一段字节流按 1/3/7/任意长度切片输入并缓冲，最终帧序列应一致。`proto-repro.py` 不是增量解析器，须先拼回完整单向流再解析。
 
 ## 7. 用字段表驱动（把格式外置）
 
@@ -224,10 +206,10 @@ tag(1) len(1) value(len) [tag(1) len(2) value(len)] ...
 ```
 
 ```bash
-# 从真实样本反推的表：先导出，再改
+# 导出固定 SPRX 模板，再按经验证的样本修改
 python Tool/skill/protocol-plugin/scripts/proto-repro.py --emit-schema artifacts/sprx.schema.json
 
-# 用表解析任意字节流
+# 用适合该协议的表解析已核实的单向重组流
 python Tool/skill/protocol-plugin/scripts/proto-repro.py --schema artifacts/sprx.schema.json \
   --input artifacts/streams/s00_10.0.0.1_49152-10.0.0.2_9527.bin --json
 ```
@@ -240,7 +222,7 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py --schema artifacts/sprx
 |---|---|---|
 | `header[].role` | `length` / 缺省 | 不标 `length` → `build` 报 “header 中没有 role=length” |
 | `header[].covers` | `payload` / `frame` | 写 `frame` 但服务端实际只算 payload → 每帧差 `hlen+tlen` |
-| `tail[].role` | `checksum` / 缺省 | 不标 → 只占位不校验，`crc_ok` 永远 true（假通过） |
+| `tail[].role` | `checksum` / 缺省 | 不标 → 只占位不校验，`crc_ok` 为 null（未验证） |
 | `tail[].covers` | `header+payload` / `payload` / `header` | 覆盖错 → 样本内可能巧合，负例必暴露 |
 | `payload.encoding` | `json` / `utf8` / `raw` | 写错 → 重建帧被重新序列化，长度变 |
 
@@ -254,13 +236,13 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py --schema artifacts/sprx
 ```
 
 通过长什么样：改成 `payload` 后应得到 `[False, False, False]`。
-如果还是全 `true`，说明校验字段根本没被读到（`role` 漏了），不是“两种覆盖都成立”。
+若 `role` 漏了则 `crc_ok` 为 null；true 也仅说明按所选算法和覆盖范围自洽，需结合独立样本与负例判断。
 
 ## 7.2 从 hex 到字段表的最小流程
 
 1. `xxd -g1 artifacts/frames.bin | head` 找固定头与变化位；
-2. 写 3 个候选表（定界符/长度/定长），只跑解析不写构造；
-3. 用 `stats.errors==[]` + `consumed+trailing==bytes` 筛掉错表；
+2. 依证据拟定候选；工具只支持其有限 schema，不直接实现任意定界符或 TLV；
+3. 检查错误、skipped、尾部和每帧原字节对应；字节数守恒不足以排除错表；
 4. 对留下的那一张做 2.1 的两个负例；
 5. 最后才 `--rebuild` 生成新帧。
 

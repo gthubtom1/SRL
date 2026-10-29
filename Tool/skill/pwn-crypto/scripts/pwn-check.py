@@ -13,6 +13,13 @@ NX/PIE/Canary 用 DllCharacteristics、导入表与 load-config 线索近似。
 
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import hashlib
 import json
@@ -133,6 +140,7 @@ class Binary:
         self.entry = 0
         self.dllchars = 0
         self.has_load_config_cookie = False
+        self.load_config = {}
         self.fmt_funcs = set()
         self.heap_funcs = set()
         self.danger = []
@@ -228,16 +236,62 @@ def parse_pe(data, b):
         rva, size = struct.unpack_from("<II", data, dirs + 8)
         if rva:
             parse_imports(data, rva, size, b)
+    # ★ 2026-10-27 修：原实现用 `lc_size >= 0x48` 一刀切，且 SecurityCookie 一律按 u32 读。
+    #   实际布局（PE/COFF 规范 + winnt.h）：
+    #     PE32: Size(0x00) .. SecurityCookie @ 0x3C, 指针宽 4 → 需要 ≥ 0x40 字节
+    #     PE64: Size(0x00) .. SecurityCookie @ 0x58, 指针宽 8 → 需要 ≥ 0x60 字节
+    #   旧代码 lc_size=0x40 的 PE32 会被 0x48 门槛直接跳过（真制品就是这个尺寸）；
+    #   PE64 用 u32 读只能拿到**小端低 32 位**（u64 值低位全零、高位非零时会被误判成 0）。
+    #   本次只修位宽/最小结构边界，不动其它解析逻辑：
+    #     ① 按位宽选 offset/宽度/最小声明大小；
+    #     ② 交叉校验目录声明的 lc_size **和** load-config 自身的 Size 字段；
+    #     ③ 任何越界（文件尾/节尾）都不读，保持 has_load_config_cookie=False。
     if n_dirs > 10 and dirs + 10 * 8 + 8 <= len(data):
         lc_rva, lc_size = struct.unpack_from("<II", data, dirs + 10 * 8)
-        if lc_rva and lc_size >= 0x48:
+        cookie_off = 0x3C if b.bits == 32 else 0x58
+        cookie_width = 4 if b.bits == 32 else 8
+        lc_min = cookie_off + cookie_width          # 0x40 (PE32) / 0x60 (PE64)
+        b.load_config = {"rva": "0x%x" % lc_rva, "dir_size": lc_size,
+                         "cookie_offset": "0x%x" % cookie_off,
+                         "cookie_width": cookie_width,
+                         "dir_size_sufficient": lc_size >= lc_min}
+        if lc_rva and lc_size >= lc_min:
             lo = b.map_rva(lc_rva)
-            if lo is not None and lo + 0x48 <= len(data):
-                cookie_off = lo + (0x58 if b.bits == 64 else 0x3C)
-                if cookie_off + 4 <= len(data):
-                    b.has_load_config_cookie = u32(data, cookie_off) != 0
-                if b.has_load_config_cookie:
-                    b.notes.append("load config 声明了 SecurityCookie")
+            # 节内边界：映射后的 field 必须仍落在该节原始数据内（防跨节越界读）
+            sec_end = None
+            for s in b.sections:
+                if s.va <= lc_rva < s.va + max(s.vsize, s.rawsize):
+                    sec_end = s.rawptr + s.rawsize
+                    break
+            field_end = (lo + cookie_off + cookie_width) if lo is not None else None
+            in_file = field_end is not None and field_end <= len(data)
+            in_section = sec_end is not None and field_end is not None and field_end <= sec_end
+            declared = None
+            if lo is not None and lo + 4 <= len(data):
+                declared = u32(data, lo)            # load-config 自己的 Size 字段
+            b.load_config.update({"file_offset": None if lo is None else "0x%x" % lo,
+                                  "declared_size": declared,
+                                  "field_within_file": in_file,
+                                  "field_within_section": in_section,
+                                  "declared_size_sufficient":
+                                      declared is not None and declared >= lc_min})
+            if in_file and in_section and declared is not None and declared >= lc_min:
+                if cookie_width == 8:
+                    cookie = u64(data, lo + cookie_off)
+                else:
+                    cookie = u32(data, lo + cookie_off)
+                b.load_config["security_cookie"] = "0x%x" % cookie
+                b.has_load_config_cookie = cookie != 0
+                if cookie == 0:
+                    b.notes.append("load config 的 SecurityCookie 字段为 0（声明存在但未填值）")
+            elif not in_file or not in_section:
+                b.notes.append("load config 的 SecurityCookie 字段越界，未读取（保持 Not found）")
+            elif declared is not None and declared < lc_min:
+                b.notes.append("load config 自身 Size=%d < %d，不读 SecurityCookie"
+                               % (declared, lc_min))
+            if b.has_load_config_cookie:
+                b.notes.append("load config 声明了 SecurityCookie（仅表示声明存在，"
+                               "不等于该函数编译时启用了 /GS）")
     # 保护位：DllCharacteristics 近似
     nx = bool(b.dllchars & 0x0100)
     aslr = bool(b.dllchars & 0x0040)
@@ -500,16 +554,7 @@ def decide(b, strings):
 
 
 def _repo_root(start):
-    """仓库根：向上找含 Tool/cases 的目录（S4 后脚本位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
-    d = os.path.abspath(start)
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "Tool", "cases")):
-            return d
-        nd = os.path.dirname(d)
-        if nd == d:
-            break
-        d = nd
-    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+    return _seep_repo_root(__file__)
 
 
 ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
@@ -563,6 +608,9 @@ def analyze_bytes(data, label, max_strings=12000):
         "format_string_risks": b.fmt_risks,
         "next_routes": routes,
         "notes": b.notes,
+        # 只新增（不改旧字段）：把 load config / SecurityCookie 的判定依据暴露出来，
+        # 让 Canary 一项可以从输出本身复核，而不是只看一个 Found/Not found 字符串。
+        **({"load_config": b.load_config} if getattr(b, "load_config", None) else {}),
     }
 
 

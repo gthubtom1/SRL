@@ -36,10 +36,32 @@
     "pwn-crypto03",
     "pwn-crypto04",
     "pwn-crypto05",
-    "pwn-crypto06"
+    "pwn-crypto06",
+    "pwn-crypto07"
   ],
+  "case_roles": {
+    "witness": [
+      "pwn-crypto01",
+      "pwn-crypto02",
+      "pwn-crypto03",
+      "pwn-crypto04",
+      "pwn-crypto05",
+      "pwn-crypto06",
+      "pwn-crypto07"
+    ],
+    "depth_gate": [
+      "pwn-crypto01",
+      "pwn-crypto02",
+      "pwn-crypto03",
+      "pwn-crypto04",
+      "pwn-crypto05",
+      "pwn-crypto06",
+      "pwn-crypto07"
+    ]
+  },
+  "depth_contract": {    "skill": "pwn-crypto",    "board": "pwn-crypto",    "matrix": "pwn-crypto-matrix.json",    "case_globs": [      "pwn-crypto*"    ],    "ext_scripts": [      "Tool/skill/pwn-crypto/scripts/pwn-check.py"    ]  },
   "witness": {
-    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto06",
+    "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto07",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
     "budget_s": 180
   },
@@ -62,14 +84,71 @@
   },
   "limitations": [
     "无远程 pwn 靶机：仅本地二进制与自建 harness",
-    "密码学部分只覆盖实现层误用，不含协议级攻击面"
+    "密码学部分只覆盖实现层误用，不含协议级攻击面",
+    "pwn-crypto07 为公开制品的静态见证：无动态可达性/偏移/EIP 控制/shell 证据，不得读作可利用",
+    "Canary=Found 只表示 load config 声明了 SecurityCookie，不证明具体函数启用 /GS 或运行期校验"
   ],
   "invalidation": [
     "目标为纯 Web 应用（转 web-pentest）",
     "目标为加壳样本（先 malware-analysis 脱壳）"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": [
+      "ELF/PE binary",
+      "local libc and loader",
+      "crash or debugger trace",
+      "remote challenge transcript",
+      "ciphertext/key material"
+    ],
+    "sample_completeness": {
+      "required": [
+        "authorized target binary or challenge",
+        "matching libraries and architecture",
+        "reproducible crash or oracle evidence for exploit claims"
+      ],
+      "missing_means": "缺二进制、库、崩溃样本、远程靶机或密码材料只是输入要求，不代表利用或密码学能力已完成。"
+    },
+    "environment": {
+      "required": [
+        "isolated local harness",
+        "matching architecture/runtime",
+        "authorized remote target and credentials only when the task explicitly requires them"
+      ],
+      "missing_means": "缺样本、账号、设备、网络或运行确认时只能报告静态保护位和未验证路线。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/pwn-crypto/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/pwn-crypto/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/pwn-crypto/SKILL.md",
+    "incremental": "Tool/skill/pwn-crypto/SKILL.md"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/pwn-crypto/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/pwn-crypto/scripts/witness.py",
-    "why": "真跑 pwn-check.py 分析 Tool/cases/pwn-crypto06/target/dvcp.exe：断言 kind=PE、protections(NX/PIE/Canary/RELRO)、sections、dangerous_imports、next_routes，证明保护位与利用路线真的产出结果"
+    "why": "真跑 pwn-check.py 只读分析 Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe（公开靶场原始制品，sha256 d298c229…a3fe3a）：断言 kind=PE、protections(NX/PIE/Canary/RELRO)、sections、dangerous_imports、next_routes，并额外核对报告 sha256 == case.json target_files 登记值（换包即拒），artifact_kind 从 case.json 读取而非硬编码 real-target；目标从不启动。pwn-check.py 本轮带一处最小修复：load-config SecurityCookie 的位宽与最小结构边界（PE32 0x3C/宽4/最小0x40，PE64 0x58/宽8/最小0x60），边界用例见 Tool/cases/pwn-crypto07/tools/parser-boundary-tests.py"
   }
 }

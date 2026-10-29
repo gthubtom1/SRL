@@ -10,6 +10,19 @@ so the assertions -- not just the exit code -- are what turns the witness red.
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+try:
+    from seep_runtime import repo_root as _seep_repo_root
+except Exception as _runtime_error:  # noqa: BLE001 - convert missing runtime to JSON
+    _seep_repo_root = None
+    _RUNTIME_IMPORT_ERROR = type(_runtime_error).__name__
+else:
+    _RUNTIME_IMPORT_ERROR = ""
+
+
 import json
 import os
 import subprocess
@@ -23,7 +36,14 @@ if sys.platform == "win32":
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+ROOT = None
+if _seep_repo_root is not None:
+    ROOT = _seep_repo_root(__file__)
+else:
+    for _parent in _RuntimePath(__file__).resolve().parents:
+        if (_parent / "Tool" / "cases").is_dir():
+            ROOT = str(_parent)
+            break
 TARGET = "Tool/cases/firmware-iot06/target/cramfs.bin"
 TOOL = os.path.join(HERE, "fw-triage.py")
 
@@ -34,12 +54,20 @@ def fail(msg):
 
 
 def main():
+    if not ROOT:
+        return fail("runtime_missing (%s); install the softseep runtime or set "
+                    "SEEP_RUNTIME_ROOT" % _RUNTIME_IMPORT_ERROR)
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
-    r = subprocess.run(
-        [sys.executable, TOOL, "--file", TARGET, "--json"],
-        cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
-        errors="replace", timeout=110, env=env,
-    )
+    try:
+        r = subprocess.run(
+            [sys.executable, TOOL, "--file", TARGET, "--json"],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=110, env=env,
+        )
+    except subprocess.TimeoutExpired:
+        return fail("fw-triage timed out after 110s")
+    except OSError as exc:
+        return fail("could not launch fw-triage: %s" % type(exc).__name__)
     if r.returncode != 0:
         return fail("fw-triage rc=%d: %s" % (r.returncode, (r.stdout + r.stderr)[-400:]))
     try:

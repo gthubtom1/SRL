@@ -1,36 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""tool-acquire.py —— 工具获取阶梯（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）
+"""工具获取：发现、验证、按需启动和白名单安装。
 
-## 为什么有这个脚本（2026-10-23 实测）
+仅探测：--tool <id> --json；允许启动时加 --start；已有安装授权时加 --install。
+CLI 必须通过已声明的身份探针才报 USABLE；未知工具路径报 FOUND_NO_VERIFY。
+MCP 必须完成独立协议握手，session_verified=false 提醒宿主另查本会话工具表。
+启动、安装或协议失败时返回实际原因和下一步，供模型继续修复或选择替代能力。
 
-`tool-run.ps1` 1.3 秒把 x64dbg 起成 READY、9094 在听，但会话里 ALL_TOOLS **没有 mcp__x64dbg**
-→ 模型没有工具可调 → 手搓了 5 个一次性调试器脚本，全程静默。
-
-根因不是"工具没装"，是**没有统一的"取用"流程**：
-  · 拿"端口在听"当成了"连上了"（L0 冒充 L2）
-  · 连不上就当作"工具不存在"，直接绕过，不求助
-
-本脚本把四阶梯变成**可执行、可留痕**的判定，输出结构化结论给模型消费。
-
-## 判据（关键：L2 只认"工具在 ALL_TOOLS 里"，不认"端口在听"）
-
-  L0 alive   : MCP 型 → 端口在听 且 tools/list ≥1；CLI 型 → where 命中且能跑无害命令
-  L1 started : tool-run.ps1 返回 status=READY
-  L2 linked  : 用 `pi` 的能力面无法从外部查 → 改为"本进程直连 tools/list 成功"，
-               并要求模型在会话内自证（见 --emit-session-probe）
-  L3 install : 缺工具 → 给安装计划（不自动装，等用户确认）
-  L4 ask     : 全不通 → 输出 ASK 卡
-
-## 用法
-
-    python Tool/scripts/tool-acquire.py --tool x64dbg
-    python Tool/scripts/tool-acquire.py --tool ghidra --json
-    python Tool/scripts/tool-acquire.py --tool x64dbg --start        # 允许 L1 自动启动
-    python Tool/scripts/tool-acquire.py --list                       # 列出已知工具与能力
-    python Tool/scripts/tool-acquire.py --selftest
-
-退出码：0 可用（L0 或 L2 通过） / 1 需启动 / 2 需安装 / 3 需求助 / 4 输入错误
+退出码：0=已验证身份或独立连接，1=需启动，2=仍需处理/未验证，4=输入或身份错误。
 """
 
 from __future__ import annotations
@@ -38,10 +15,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from lib import mcp_http
 import subprocess
 import sys
-import urllib.error
-import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOL = os.path.dirname(HERE)
@@ -49,179 +25,107 @@ REPO = os.path.dirname(TOOL)
 TOOL_RUN = os.path.join(HERE, "tool-run.ps1")
 RUNTIMES = os.path.join(TOOL, "config", "tool-runtimes.json")
 CAPS = os.path.join(TOOL, "config", "tool-capabilities.json")
-PATHS_CACHE = os.path.join(os.path.expanduser("~"), ".seep", "tool-paths.json")
 
 
-def load_json(p: str) -> dict:
+def load_json(p: str, strict: bool = False) -> dict:
     try:
         with open(p, encoding="utf-8-sig") as f:
-            return json.load(f) or {}
+            result = json.load(f)
+        if not isinstance(result, dict):
+            raise ValueError('JSON 顶层必须是对象')
+        return result
     except Exception:
+        if strict:
+            raise
         return {}
-
-
-def cached_exe(tool_id: str) -> str:
-    entry = (load_json(PATHS_CACHE) or {}).get(tool_id)
-    exe = entry.get("exe") if isinstance(entry, dict) else entry
-    return exe if isinstance(exe, str) and os.path.isfile(exe) else ""
-
-
-def where(exe_name: str) -> str:
-    try:
-        out = subprocess.run(["where", exe_name], capture_output=True, timeout=8)
-        lines = (out.stdout or b"").decode("utf-8", "replace").splitlines()
-        for ln in lines:
-            if os.path.isfile(ln.strip()):
-                return ln.strip()
-    except Exception:
-        pass
-    return ""
 
 
 # ───────────────────────── L0 探活 ─────────────────────────
 
-def mcp_probe(url: str, auth_header: str = "", auth_token: str = "") -> dict:
-    """直连上游 tools/list；返回 {ok, tools, detail}。"""
-    payload = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(url, data=body, method="POST",
-                                 headers={"Content-Type": "application/json",
-                                          "Accept": "application/json, text/event-stream"})
-    if auth_header and auth_token:
-        req.add_header(auth_header, f"Bearer {auth_token}")
-    try:
-        with urllib.request.urlopen(req, timeout=8) as r:
-            raw = r.read()
-            ctype = r.headers.get("Content-Type", "")
-    except urllib.error.HTTPError as e:
-        return {"ok": False, "tools": 0, "detail": f"HTTP {e.code}（端口在听但拒绝/未初始化）"}
-    except Exception as e:
-        return {"ok": False, "tools": 0, "detail": f"连不上：{type(e).__name__}"}
+def mcp_probe(url: str, auth_header: str = "", auth_token: str = "", transport: str = "http") -> dict:
+    """Perform an independent handshake; host-session registration remains unverified."""
+    headers = {auth_header: f"Bearer {auth_token}"} if auth_header and auth_token else {}
 
-    data = None
-    if "text/event-stream" in (ctype or ""):
-        for line in raw.decode("utf-8", "replace").splitlines():
-            if line.startswith("data:"):
-                frag = line[5:].strip()
-                if frag:
-                    try:
-                        data = json.loads(frag)
-                    except Exception:
-                        pass
-    else:
-        try:
-            data = json.loads(raw.decode("utf-8", "replace"))
-        except Exception:
-            data = None
-    tools = ((data or {}).get("result") or {}).get("tools") or []
-    if tools:
-        return {"ok": True, "tools": len(tools), "detail": f"{len(tools)} 个工具"}
-    return {"ok": False, "tools": 0, "detail": "tools/list 返回 0 个工具或需先 initialize"}
+    result = mcp_http.probe_endpoint({'url': url, 'transport': transport, 'headers': headers})
+    count = result.get('tools', 0)
+    return {**result, 'ok': result['ok'] and count > 0, 'tools': count,
+            'detail': (f'独立握手发现 {count} 个工具；当前宿主工具表仍需核验' if result['ok'] else
+                       'MCP 握手失败: ' + result.get('error', 'unknown'))}
 
 
 MCP_DIR = os.path.join(TOOL, "mcp")
 
 
-def autodiscover(tool_id: str) -> str:
-    """复用 tool_autodiscover 的八层发现（env / PATH / 常见目录 / 注册表 / 开始菜单 / Everything / 扫描 / 别名）。
+def _discovery_module():
+    if MCP_DIR not in sys.path:
+        sys.path.insert(0, MCP_DIR)
+    import tool_autodiscover
+    return tool_autodiscover
 
-    2026-10-23 教训：upx / dnspy / de4dot / pe-sieve 全在 D:\Tools 下，
-    但旧版只查 PATH → 假阴性 → 模型会去"装一个已经有的工具"。
-    这个八层发现本来就在仓库里（tool-run.ps1 用的就是它），不要另造一套。
-    """
+
+def autodiscover(tool_id: str) -> dict:
+    """Preserve executable versus Python-library discovery and verification data."""
     if not os.path.isdir(MCP_DIR):
-        return ""
-    code = (
-        "import sys,json;"
-        f"sys.path.insert(0,r'{MCP_DIR}');"
-        "import tool_autodiscover as A;"
-        f"r=A.discover(r'{tool_id}', use_registry=True);"
-        "print(r.get('command') or '')"
-    )
+        return {}
+    code = ("import sys,json; sys.path.insert(0,sys.argv[1]); import tool_autodiscover as A; "
+            "print(json.dumps(A.discover(sys.argv[2],use_registry=True)))")
     try:
-        p = subprocess.run([sys.executable, "-c", code], capture_output=True, timeout=90)
+        p = subprocess.run([sys.executable, "-c", code, MCP_DIR, tool_id], capture_output=True, timeout=90)
+        if p.returncode != 0:
+            return {}
         cmd = (p.stdout or b"").decode("utf-8", "replace").strip().splitlines()
         for ln in reversed(cmd):
             ln = ln.strip()
-            if ln and os.path.isfile(ln):
-                return ln
+            try:
+                result = json.loads(ln)
+            except ValueError:
+                continue
+            if isinstance(result, dict):
+                return result
     except Exception:
         pass
-    return ""
+    return {}
 
 
-def local_candidates(tool_id: str, cap: dict) -> list[str]:
-    """CLI 型工具的真实可能位置（**不止 PATH**）。
-
-    2026-10-23 教训：jadx / apktool 都在仓库里（`Tool/mcp/Tool/safe/<id>/...`，
-    形式是 .bat / .jar），但旧版只查 `where` → 报了假的"不可用"。
-    这种假阴性会直接把模型推向"去装一个已经有的工具"—— 与需求完全相反。
-    """
-    out: list[str] = []
-    exe = cached_exe(tool_id)
-    if exe:
-        out.append(exe)
-    ctrl = (cap.get("control") or {})
-    for key in ("headless_cmd", "gui_cmd", "mcp_register"):
-        v = ctrl.get(key)
-        if isinstance(v, str) and v:
-            first = v.split()[0].strip('"')
-            if os.path.isabs(first) and os.path.isfile(first):
-                out.append(first)
-    # 仓库自带的 safe 目录（jadx/apktool/r2/frida …）
-    safe = os.path.join(TOOL, "mcp", "Tool", "safe")
-    if os.path.isdir(safe):
-        for pat in (f"{tool_id}/bin/{tool_id}.bat", f"{tool_id}/bin/{tool_id}.cmd",
-                    f"{tool_id}/bin/{tool_id}.exe", f"{tool_id}/{tool_id}.jar",
-                    f"{tool_id}/bin/{tool_id}"):
-            p = os.path.join(safe, pat.replace("/", os.sep))
-            if os.path.isfile(p):
-                out.append(p)
-        # 名字不完全一致的（r2/radare2、ida/idat…）交给 exe_candidates 扫
-        base = os.path.join(safe, tool_id)
-        if os.path.isdir(base):
-            for dp, _dn, fn in os.walk(base):
-                for f in fn:
-                    if os.path.splitext(f)[1].lower() in (".exe", ".bat", ".cmd", ".jar") \
-                            and tool_id.split("2")[0].lower()[:4] in f.lower():
-                        out.append(os.path.join(dp, f))
-                    if len(out) > 6:
-                        break
-    return out
 
 
 def l0(tool_id: str, rt: dict, cap: dict) -> dict:
     modes = rt.get("modes") or []
-    mcp_mode = next((m for m in modes if m.get("kind") in ("mcp-http", "mcp-stdio")), None)
-    if mcp_mode:
+    failed_mcp = None
+    discovery = None
+    for mcp_mode in (m for m in modes if (m.get('endpoint') or {}).get('url')):
         ep = mcp_mode.get("endpoint") or {}
         url = ep.get("url") or ""
         auth = (mcp_mode.get("auth") or {})
         token = ""
         if auth.get("authJson"):
-            aj = auth["authJson"].replace("{exeDir}", os.path.dirname(cached_exe(tool_id) or "") or ".")
+            if discovery is None:
+                discovery = autodiscover(tool_id)
+            aj = auth["authJson"].replace("{exeDir}", os.path.dirname(discovery.get('command') or '') or '.')
             token = str(load_json(aj).get("AuthToken") or "") if os.path.isfile(aj) else ""
-        r = mcp_probe(url, auth.get("header", ""), token) if url else {"ok": False, "tools": 0, "detail": "无 endpoint"}
-        return {"level": "L0", "kind": "mcp", "url": url, **r}
+        r = mcp_probe(url, auth.get("header", ""), token, ep.get('transport', 'http'))
+        failed_mcp = {"level": "L0", "kind": "mcp", "url": url, **r}
+        if r['ok']:
+            return failed_mcp
+    declared = cap.get('capabilities') or {}
+    if failed_mcp and not (declared.get('cli') or declared.get('headless')):
+        return failed_mcp
 
-    # CLI / GUI 型：八层发现（与 tool-run 同一实现）→ 缓存 → 能力表 → PATH
-    ad = autodiscover(tool_id)
-    if ad:
-        return {"level": "L0", "kind": "cli", "exe": ad, "ok": True,
-                "tools": 0, "detail": ad + "  [autodiscover]"}
-    hits = local_candidates(tool_id, cap)
-    if hits:
-        return {"level": "L0", "kind": "cli", "exe": hits[0],
-                "ok": True, "tools": 0, "detail": hits[0]}
-    exe = ""
-    cands = (cap.get("exe_candidates") or []) + [tool_id]
-    for c in cands:
-        exe = where(c) or where(c + ".exe")
-        if exe:
-            break
-    return {"level": "L0", "kind": "cli", "exe": exe,
-            "ok": bool(exe), "tools": 0,
-            "detail": exe if exe else "八层发现均未找到（可能在非标位置；用 --use <路径> 手工指定，不要直接判定为'没装'）"}
+    # Reuse the common discoverer without discarding its result kind.
+    ad = discovery if discovery is not None else autodiscover(tool_id)
+    if ad.get('available'):
+        if ad.get('kind') == 'python_lib':
+            return {'level': 'L0', 'kind': 'python_lib', 'ok': True, 'tools': 0,
+                    'module': ad['module'], 'interpreter': ad['interpreter'],
+                    'detail': '已在指定解释器中成功导入 ' + ad['module']}
+        exe = ad.get('command') or ''
+        if os.path.isfile(exe):
+            return {"level": "L0", "kind": "cli", "exe": exe, "ok": True,
+                    "tools": 0, "detail": exe + "  [autodiscover]"}
+    # Do not bypass the shared discoverer's identity/path filters with a second
+    # cache or PATH implementation.
+    return {"level": "L0", "kind": "cli", "exe": '', 'ok': False, 'tools': 0,
+            'detail': '统一发现器未找到匹配工具；可用 --add <id> --exe <路径> 登记现有安装后复探'}
 
 
 # ───────────────────────── L1 启动 ─────────────────────────
@@ -249,14 +153,14 @@ def l1_start(tool_id: str) -> dict:
             continue
         status = str(d.get("status") or "")
         err = str(d.get("error") or d.get("note") or "")
-    ready = status.upper() == "READY"
+    ready = p.returncode == 0 and status.upper() in ("READY", "ALREADY_READY", "CLI_READY")
     if ready:
         detail = f"READY（{err or 'ok'}）"
     elif status:
         detail = f"status={status} {err}".strip()
     else:
         detail = (out.strip().splitlines()[-1][:160] if out.strip() else "无输出")
-    return {"level": "L1", "ok": ready, "detail": detail, "status": status}
+    return {"level": "L1", "ok": ready, "detail": detail, "status": status, "returncode": p.returncode}
 
 
 # ───────────────────────── L3 安装计划 ─────────────────────────
@@ -264,81 +168,179 @@ def l1_start(tool_id: str) -> dict:
 def l3_install(tool_id: str, cap: dict) -> dict:
     hint = (cap.get("install_hint") or "").strip()
     how = hint or "未知：请查官方文档 / GitHub README"
-    return {"level": "L3", "ok": False, "auto": False,
-            "plan": {"tool": tool_id, "what": cap.get("display") or tool_id,
-                     "how": how, "needs_user": True},
+    try:
+        plan = _discovery_module().install_plan(tool_id)
+    except Exception as exc:
+        return {'level': 'L3', 'ok': False, 'auto': False, 'plan': {},
+                'detail': '安装计划无法读取: ' + type(exc).__name__}
+    plan['how'] = how
+    return {"level": "L3", "ok": False, "auto": bool(plan.get('has_plan') and plan.get('auto_allowed')),
+            "plan": plan,
             "detail": f"安装计划：{how[:90]}"}
 
 
-# ───────────────────────── L4 求助 ─────────────────────────
 
-def l4_ask(tool_id: str, stuck: str, why: str) -> dict:
-    return {
-        "level": "L4", "ok": False,
-        "ask": {
-            "title": f"我想用 {tool_id} 做这件事，但卡在 {stuck}",
-            "detail": why,
-            "options": {
-                "A": f"我帮你把 {tool_id} 弄起来（我给你命令/我装）",
-                "B": "换替代工具或替代路线",
-                "C": "你继续用脚本兜底（我接受风险）",
-            },
-            "prompt": "直接回 A / B / C",
-        },
-        "detail": "需要用户决定",
-    }
 
 
 # ───────────────────────── 主流程 ─────────────────────────
 
-def acquire(tool_id: str, allow_start: bool) -> dict:
-    runtimes = (load_json(RUNTIMES).get("tools") or {})
-    caps = (load_json(CAPS).get("tools") or {})
-    rt = runtimes.get(tool_id) or {}
-    cap = caps.get(tool_id) or {}
+def _assess_available(tool_id, steps, at):
+    result = {'tool': tool_id, 'verdict': 'USABLE', 'at': at, 'steps': steps,
+              'session_verified': False, 'runtime_verified': False}
+    latest = steps[-1]
+    if latest.get('kind') == 'python_lib':
+        result.update(import_verified=True, module=latest['module'], interpreter=latest['interpreter'],
+                      note='解释器导入成功；任务所需 API 和产物另行验证')
+        return result
+    if latest.get('kind') == 'mcp':
+        result['connection_verified'] = True
+        result['note'] = '独立 MCP 握手成功；当前宿主仍需核对本会话工具表'
+        return result
+    from lib import tool_identity
+    try:
+        identity = tool_identity.probe(tool_id, latest.get('exe'))
+    except Exception as exc:
+        identity = {'ok': None, 'verified': False, 'why': type(exc).__name__}
+    result['identity'] = identity
+    if identity.get('ok') is False:
+        result['verdict'] = 'USABLE_BUT_BROKEN'
+        result['next'] = '检查工具身份和依赖，修复后重新探测'
+    elif identity.get('ok') is not True:
+        result['verdict'] = 'FOUND_NO_VERIFY'
+        result['next'] = '路径已找到；按官方接口完成任务所需的能力验证后再使用'
+    return result
+
+
+def acquire(tool_id: str, allow_start: bool, allow_install: bool = False) -> dict:
+    try:
+        runtimes = load_json(RUNTIMES, strict=True).get('tools')
+        caps = load_json(CAPS, strict=True).get('tools')
+        if not isinstance(runtimes, dict) or not isinstance(caps, dict):
+            raise ValueError('tools 必须是对象')
+        rt, cap = runtimes.get(tool_id, {}), caps.get(tool_id, {})
+        if not isinstance(rt, dict) or not isinstance(cap, dict):
+            raise ValueError('工具声明必须是对象')
+        modes = rt.get('modes', [])
+        if not isinstance(modes, list) or any(not isinstance(m, dict) for m in modes):
+            raise ValueError('modes 必须是对象数组')
+        if not isinstance(cap.get('capabilities', {}), dict) or any(
+                not isinstance(m.get(field, {}), dict) for m in modes for field in ('endpoint', 'auth')):
+            raise ValueError('capabilities/endpoint/auth 必须是对象')
+        for mode in modes:
+            for field, keys in (('endpoint', ('url', 'transport')), ('auth', ('header', 'authJson'))):
+                if any(not isinstance(mode.get(field, {}).get(key, ''), str) for key in keys):
+                    raise ValueError('endpoint/auth 字段必须是字符串')
+        if not isinstance(cap.get('install_hint', ''), str):
+            raise ValueError('install_hint 必须是字符串')
+    except Exception as exc:
+        return {'tool': tool_id, 'verdict': 'CONFIG_ERROR', 'at': 'config', 'steps': [],
+                'reason': str(exc), 'session_verified': False, 'runtime_verified': False}
     steps = []
 
     s0 = l0(tool_id, rt, cap)
     steps.append(s0)
     if s0["ok"]:
-        return {"tool": tool_id, "verdict": "USABLE", "at": "L0", "steps": steps,
-                "note": "已可用，直接用；不需要启动"}
+        return _assess_available(tool_id, steps, 'L0')
 
-    if not allow_start:
+    if not allow_start and not allow_install:
         return {"tool": tool_id, "verdict": "NEED_START", "at": "L0", "steps": steps,
                 "next": f"python Tool/scripts/tool-acquire.py --tool {tool_id} --start"}
 
-    s1 = l1_start(tool_id)
-    steps.append(s1)
-    if s1["ok"]:
+    s1 = l1_start(tool_id) if allow_start else {'level': 'L1', 'ok': False, 'detail': '本次未请求启动'}
+    if allow_start:
+        steps.append(s1)
+    if s1['ok']:
         s0b = l0(tool_id, rt, cap)
         steps.append(s0b)
         if s0b["ok"]:
-            return {"tool": tool_id, "verdict": "USABLE", "at": "L1", "steps": steps,
-                    "note": "启动后已可用。⚠️ 若它是 MCP 型：必须确认本会话 ALL_TOOLS 里有该命名空间，"
-                            "否则要重启宿主（工具只在会话启动时注册）"}
+            return _assess_available(tool_id, steps, 'L1')
         return {"tool": tool_id, "verdict": "STARTED_BUT_NOT_LINKED", "at": "L1", "steps": steps,
-                "next": "MCP 型工具启动后需重启宿主才会注册；或改用 stdio 桥"}
+                "next": "检查独立握手失败原因，并由宿主重新加载配置、核对本会话工具表"}
 
     s3 = l3_install(tool_id, cap)
     steps.append(s3)
-    s4 = l4_ask(tool_id, "L1 启动失败", s1["detail"])
-    steps.append(s4)
-    return {"tool": tool_id, "verdict": "NEED_USER", "at": "L4", "steps": steps,
-            "note": "⚠️ 到此必须发 ASK 卡，不许静默改用手搓脚本"}
+    install_plan_error = (s3.get("plan") or {}).get("config_error")
+    if install_plan_error:
+        return {
+            "tool": tool_id, "verdict": "CONFIG_ERROR", "at": "L3",
+            "steps": steps, "config_error": install_plan_error,
+            "reason": install_plan_error, "session_verified": False,
+            "runtime_verified": False,
+            "next": "修复 Tool/config/tool-install.json 后重新发现，禁止按坏清单执行安装",
+        }
+    if allow_install and s3.get('auto'):
+        installed = _discovery_module().propose_install(tool_id, execute=True)
+        steps.append({'level': 'L3', 'ok': bool(installed.get('success')), 'install_attempt': installed,
+                      'detail': '已尝试白名单安装并复探'})
+        if installed.get('success'):
+            after = l0(tool_id, rt, cap)
+            if not after['ok'] and allow_start:
+                steps.append(l1_start(tool_id))
+                after = l0(tool_id, rt, cap)
+            steps.append(after)
+            if after['ok']:
+                return _assess_available(tool_id, steps, 'L3')
+    return {'tool': tool_id, 'verdict': 'NEED_ACTION', 'at': 'L3', 'steps': steps,
+            'session_verified': False, 'runtime_verified': False,
+            'next': '结合失败原因继续安装、修复或选择替代工具；已有授权范围内由智能体继续处理，缺少必要凭据或人工步骤时再询问用户'}
 
 
-def list_tools() -> int:
-    runtimes = (load_json(RUNTIMES).get("tools") or {})
-    caps = (load_json(CAPS).get("tools") or {})
-    print(f"{'tool':12s} {'kind':10s} {'mcp':4s} {'headless':9s} {'display'}")
+def tool_catalog() -> dict:
+    """Return the machine-readable catalog, failing closed on malformed config."""
+    runtimes_doc = load_json(RUNTIMES, strict=True)
+    caps_doc = load_json(CAPS, strict=True)
+    runtimes = runtimes_doc.get("tools")
+    caps = caps_doc.get("tools")
+    if not isinstance(runtimes, dict):
+        raise ValueError("tool-runtimes.json#tools 必须是对象")
+    if not isinstance(caps, dict):
+        raise ValueError("tool-capabilities.json#tools 必须是对象")
+    rows = []
     for tid in sorted(set(runtimes) | set(caps)):
         rt = runtimes.get(tid) or {}
         cap = caps.get(tid) or {}
-        kinds = ",".join(sorted({m.get("kind", "?") for m in (rt.get("modes") or [])})) or "-"
-        c = cap.get("capabilities") or {}
-        print(f"{tid:12s} {kinds:10s} {str(c.get('mcp', '?')):4s} {str(c.get('headless', '?')):9s} "
-              f"{cap.get('display', '')}")
+        if not isinstance(rt, dict) or not isinstance(cap, dict):
+            raise ValueError("工具条目必须是对象: %s" % tid)
+        modes = rt.get("modes") or []
+        if not isinstance(modes, list) or any(not isinstance(mode, dict) for mode in modes):
+            raise ValueError("工具 modes 必须是对象数组: %s" % tid)
+        capabilities = cap.get("capabilities") or {}
+        if not isinstance(capabilities, dict):
+            raise ValueError("工具 capabilities 必须是对象: %s" % tid)
+        rows.append({
+            "tool": tid,
+            "display": cap.get("display", ""),
+            "kinds": sorted({str(mode.get("kind", "?")) for mode in modes}),
+            "capabilities": {
+                "mcp": capabilities.get("mcp"),
+                "headless": capabilities.get("headless"),
+                "cli": capabilities.get("cli"),
+                "gui": capabilities.get("gui"),
+            },
+        })
+    return {"ok": True, "schema": "seep.tool-catalog/1",
+            "tool_count": len(rows), "tools": rows}
+
+
+def list_tools(json_output: bool = False) -> int:
+    try:
+        catalog = tool_catalog()
+    except Exception as exc:
+        if json_output:
+            print(json.dumps({"ok": False, "schema": "seep.tool-catalog/1",
+                              "error": str(exc), "tool_count": 0, "tools": []},
+                             ensure_ascii=False, indent=1))
+        print("[tool-acquire] 工具目录读取失败: %s" % exc, file=sys.stderr)
+        return 2
+    if json_output:
+        print(json.dumps(catalog, ensure_ascii=False, indent=1))
+        return 0
+    print(f"{'tool':12s} {'kind':10s} {'mcp':4s} {'headless':9s} {'display'}")
+    for row in catalog["tools"]:
+        kinds = ",".join(row["kinds"]) or "-"
+        capabilities = row["capabilities"]
+        print(f"{row['tool']:12s} {kinds:10s} {str(capabilities.get('mcp', '?')):4s} "
+              f"{str(capabilities.get('headless', '?')):9s} {row['display']}")
     return 0
 
 
@@ -353,7 +355,7 @@ def selftest() -> int:
     #      门禁从此依赖活体状态（实测踩到：x64dbg 端口在听但 401 ⇒ 48/48 掉到 47/48）
     #   v3（现行）判**鉴别力**：① 一定要真探过（有 detail）；② 端口在听但拒绝(401/403)时
     #      **绝不许**判 USABLE（这才是那个 fail-open 的实质）；③ verdict 必须是诚实取值之一。
-    honest = {"USABLE", "NEED_START", "STARTED_BUT_NOT_LINKED", "NEED_USER"}
+    honest = {"USABLE", "NEED_START", "STARTED_BUT_NOT_LINKED", "NEED_ACTION", "FOUND_NO_VERIFY", "USABLE_BUT_BROKEN"}
     fail_open = (r["verdict"] == "USABLE") and ("401" in d0 or "403" in d0 or "refus" in d0.lower())
     probed = bool(d0.strip())
     _ok = (not fail_open) and probed and (r["verdict"] in honest)
@@ -383,12 +385,12 @@ def sweep() -> int:
         if not ok:
             miss.append(tid)
     print("本机工具体检（能力表 %d 项；缓存优先，缺失项见 `--tool <id>` 拿安装建议）" % len(caps))
-    print("%-16s %-5s %-10s %s" % ("tool_id", "可用", "via", "路径"))
+    print("%-16s %-5s %-10s %s" % ("tool_id", "发现", "via", "路径"))
     print("-" * 92)
     for tid, ok, cmd, via in rows:
         print("%-16s %-5s %-10s %s" % (tid, "是" if ok else "否", via, cmd))
     print("-" * 92)
-    print("可用 %d / 缺失 %d" % (len(rows) - len(miss), len(miss)))
+    print("已发现 %d / 未发现 %d；路径发现不等于任务运行验证" % (len(rows) - len(miss), len(miss)))
     if miss:
         print("缺失：" + "、".join(miss))
         print("→ 装好后用 `tool-acquire.py --add <tool_id> --exe <真实exe路径>` 登记（只写本机，不进仓库）")
@@ -410,7 +412,9 @@ def add_tool(tool_id: str, exe: str) -> int:
         print("[拒] 路径不存在：%r\n  不猜名字 —— 请给真实 exe 路径（可用 --sweep 看缺哪些，"
               "或 --tool <id> 让发现链自己找）" % exe)
         return 4
-    _T._cache_put(_T.normalize_tool_id(tool_id), p, "manual")
+    if not _T._cache_put(_T.normalize_tool_id(tool_id), p, "manual"):
+        print("[FAIL] 路径缓存写入失败，未完成登记")
+        return 1
     print("[OK] 已登记 %s → %s（只写 %s，不进仓库）"
           % (tool_id, p, _T._PATH_CACHE_FILE))
     print("\n如需让**所有机器**都知道这个工具（而不是只本机），把下面条目补进 "
@@ -426,6 +430,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="工具获取阶梯：探活→启动→连上→装→求助")
     ap.add_argument("--tool", default="")
     ap.add_argument("--start", action="store_true", help="允许 L1 自动启动")
+    ap.add_argument('--install', action='store_true', help='按已有授权尝试白名单安装并复探')
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--selftest", action="store_true")
@@ -435,7 +440,7 @@ def main() -> int:
     a = ap.parse_args()
 
     if a.list:
-        return list_tools()
+        return list_tools(json_output=a.json)
     if a.sweep:
         return sweep()
     if a.add:
@@ -446,38 +451,7 @@ def main() -> int:
         ap.print_help()
         return 4
 
-    r = acquire(a.tool, a.start)
-
-    # 身份自检：L0/L1 命中不等于"是那个工具"（实测 rabin2.exe 可能是 r2 改名）
-    try:
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
-        import tool_identity as _TI
-        _exe = ""
-        import re as _re2
-        for _s in r.get("steps") or []:
-            if not _s.get("ok"):
-                continue
-            for _k in ("path", "exe", "bin"):
-                if _s.get(_k):
-                    _exe = _s[_k]
-                    break
-            if not _exe:
-                _m = _re2.search(r"([A-Za-z]:[\/][^\s\]]+)", str(_s.get("detail") or ""))
-                if _m:
-                    _exe = _m.group(1)
-            if _exe:
-                break
-        if r.get("verdict") == "USABLE":
-            _pr = _TI.probe(a.tool, _exe or None)
-            r["identity"] = _pr
-            if not _pr["ok"]:
-                r["verdict"] = "USABLE_BUT_BROKEN"
-                r["steps"].append({"level": "ID", "ok": False,
-                                   "detail": "存在但不是可用工具：%s" % _pr["why"]})
-                r["next"] = "换一个真实安装（或修正 PATH 指向真正的 %s）" % a.tool
-    except Exception as _e:  # noqa: BLE001
-        r.setdefault("steps", []).append({"level": "ID", "ok": False,
-                                          "detail": "身份自检异常：%s" % _e})
+    r = acquire(a.tool, a.start, a.install)
 
     if a.json:
         print(json.dumps(r, ensure_ascii=False, indent=1))
@@ -489,17 +463,8 @@ def main() -> int:
         for k in ("next", "note"):
             if r.get(k):
                 print(f"  → {r[k]}")
-        if r["verdict"] == "NEED_USER":
-            plan = (r["steps"][-2].get("plan") or {}) if len(r["steps"]) >= 2 else {}
-            if plan:
-                print(f"\n  安装/修复计划：{plan.get('how', '')}")
-            ask = r["steps"][-1].get("ask") or {}
-            print("\n【需要你选】" + str(ask.get("title", "")))
-            for k, v in (ask.get("options") or {}).items():
-                print(f"  {k} {v}")
-            print(ask.get("prompt", ""))
 
-    return {"USABLE": 0, "NEED_START": 1, "NEED_USER": 3, "USABLE_BUT_BROKEN": 4,
+    return {"USABLE": 0, "NEED_START": 1, "NEED_ACTION": 2, "FOUND_NO_VERIFY": 2, 'CONFIG_ERROR': 4, "USABLE_BUT_BROKEN": 4,
             "STARTED_BUT_NOT_LINKED": 3}.get(r["verdict"], 2)
 
 

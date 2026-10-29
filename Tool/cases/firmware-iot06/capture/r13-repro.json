@@ -1,0 +1,87 @@
+{
+  "schema": "seep.r13-case-repro/1",
+  "ok": true,
+  "case": "firmware-iot06",
+  "results": [
+    {
+      "case": "firmware-iot06",
+      "label": "fw-triage",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/skill/firmware-iot/scripts/fw-triage.py",
+        "--file",
+        "Tool/cases/firmware-iot06/target/cramfs.bin",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/firmware-iot06/capture/r13-fw-triage.stdout.txt",
+        "sha256": "b422bb4736f65b368d8fb225f1c25c73124e604bca7e2035e5c10fa521760911",
+        "size": 2579
+      },
+      "stderr": {
+        "path": "Tool/cases/firmware-iot06/capture/r13-fw-triage.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/firmware-iot06/target/cramfs.bin": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/firmware-iot06/target/cramfs.bin": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    },
+    {
+      "case": "firmware-iot06",
+      "label": "fw-repro",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/skill/firmware-iot/scripts/fw-repro.py",
+        "--file",
+        "Tool/cases/firmware-iot06/target/cramfs.bin",
+        "--out-dir",
+        "tmp/r13-five/firmware-output",
+        "--json"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/firmware-iot06/capture/r13-fw-repro.stdout.txt",
+        "sha256": "c60e38d575fa0d26ba4a4e156988b29f701a13bbc85d94eaad25aabd8b00657c",
+        "size": 1033
+      },
+      "stderr": {
+        "path": "Tool/cases/firmware-iot06/capture/r13-fw-repro.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/firmware-iot06/target/cramfs.bin": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/firmware-iot06/target/cramfs.bin": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    }
+  ],
+  "all_rc_zero": true,
+  "all_watched_unmodified": true
+}

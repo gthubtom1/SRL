@@ -1,5 +1,5 @@
 {
- "nodes": 192,
+ "nodes": 185,
  "tags": [
   "html",
   "head",
@@ -53,13 +53,6 @@
   "script",
   "style",
   "link",
-  "script",
-  "script",
-  "script",
-  "script",
-  "link",
-  "link",
-  "script",
   "style",
   "body",
   "link",
@@ -196,8 +189,8 @@
  ],
  "text": "Find your Fake Friends create your quiz & block your fake friends create quiz how to play? find your fake friends & decide who to block🚫 ✍️ CREATE YOUR QUIZ Answer 10 quick questions about yourself that reveal how well others know you. 📤 SHARE WITH FRIENDS Challenge friends to prove they're not faking it! Send via WhatsApp, Instagram, or Snapchat. 🏆 FIND FAKE FRIENDS Check their scores, and block all friends who have low scores.",
  "title": "Find Friends you can't trust - Don't Block Me",
- "url": "http://127.0.0.1:50455/",
- "html_len": 31195,
+ "url": "http://127.0.0.1:54539/",
+ "html_len": 30742,
  "route": "/",
- "final_url": "http://127.0.0.1:50455/"
+ "final_url": "http://127.0.0.1:54539/"
 }

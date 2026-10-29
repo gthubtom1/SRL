@@ -16,7 +16,7 @@
 用法：
     python Tool/scripts/case_state.py init    --case <目录> --target <样本>
     python Tool/scripts/case_state.py claim   --case <目录> --id C01 --text "权威在服务端" \\
-                                              --status hypothesis --how "triage" 
+                                              --status hypothesis --how "triage"
     python Tool/scripts/case_state.py prove   --case <目录> --id C01 \
                                               --evidence "capture/run.json"   # 路径/命令+产物/哈希/账本编号，纯文本一律拒
     python Tool/scripts/case_state.py verify-origin --case <目录>            # 重算原件 sha256，变了/移了 rc=2
@@ -102,10 +102,20 @@ import os
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
+from lib.case_repro import case_locked
+from lib import case_ledger as _case_ledger
+from lib.case_lifecycle import recovering as case_recovering
+
+
+def _case_api():
+    # gate loads this file through importlib without adding it to sys.modules.
+    return SimpleNamespace(**globals())
 
 LEVELS = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"]
 CORE_LEVELS = ["D0", "D1", "D2", "D3", "D4", "D5"]
@@ -126,6 +136,12 @@ GAP_REPAIRABLE = ["yes", "no", "partial"]
 # 缺件规则：repairable=no 且 delta <= 此值 → 阻断（note 必须提、菜单不得依赖）
 GAP_DELTA_BLOCK = -0.3
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config")
+# Repository root is anchored to this source file, never to process cwd.  Several
+# case records use repository-relative paths such as
+# ``Tool/cases/<case>/target/<file>``; resolving those with ``Path.is_file()``
+# directly made verification succeed only when the caller happened to run from
+# the repository root.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 VERDICTS = ["可赢", "部分可赢", "不可赢"]
 INSTRUMENTS = ["baseline", "x64dbg", "frida-spawn", "frida-attach", "external", "network"]
 INSTRUMENT_NAME = {
@@ -298,6 +314,10 @@ def _atomic_append_line(path, line):
             if os.path.isfile(path):
                 with open(path, "rb") as src:
                     shutil.copyfileobj(src, out, 1 << 20)
+                    if src.tell():
+                        src.seek(-1, os.SEEK_END)
+                        if src.read(1) != b"\n":
+                            out.write(b"\n")
             out.write((line if line.endswith("\n") else line + "\n").encode("utf-8"))
             out.flush()
             os.fsync(out.fileno())
@@ -464,26 +484,16 @@ def _state_default():
             "max_level": None, "stage": "intake", "stage_history": [],
             "next_action": "", "updated": now()}
 
-def load_ledger(case):
+def load_ledger(case, *, lock=True):
     """唯一账本 facts.jsonl 的全部行（claim / kind:"state" / kind:"event" 混存，append-only）。
 
-    S2 起不再有第二份状态文件：state 由 state 行重放，事件账（工具流水）以 event 行
-    追加进同一账本。S2 之前的两类历史副本已迁完，`replay --drop-legacy` 只负责清残留。
+    state 由 state 行重放，事件账（工具流水）以 event 行追加进同一账本。
+    旧 state.json / ai_manifest.json 由 replay 保全原字节并登记后再按需移除。
     """
-    _, fp = paths(case)
-    if not os.path.isfile(fp):
-        return []
-    out = []
-    with open(fp, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                out.append(json.loads(line))
-            except json.JSONDecodeError as e:
-                die("facts.jsonl 第 %d 行不是合法 JSON：%s（先修或备份后重写）" % (len(out) + 1, e))
-    return out
+    try:
+        return _case_ledger.read(case, lock=lock)
+    except (OSError, ValueError, TypeError, TimeoutError) as exc:
+        die("case ledger refused: %s" % exc)
 
 def _entry_kind(entry):
     if not isinstance(entry, dict):
@@ -498,23 +508,23 @@ def _is_claim(entry):
         return False
     return _entry_kind(entry) in ("", "claim")
 
-def load_facts(case):
+def load_facts(case, *, lock=True):
     """只返回 claim 行（gate / verify 的判据面），state / event 行不外泄给旧消费者。"""
-    return [e for e in load_ledger(case) if _is_claim(e)]
+    return [e for e in load_ledger(case, lock=lock) if _is_claim(e)]
 
 def _legacy_files(case):
-    """S2 之前的两类历史副本（迁移已全部完成）。这里只报残留，供 `replay --drop-legacy` 清理。"""
+    """发现待保全的历史副本；replay --drop-legacy 先归档核对再移除。"""
     d, _ = paths(case)
     return [p for p in (os.path.join(d, "state.json"),
                         os.path.join(d, "ai_manifest.json")) if os.path.isfile(p)]
 
-def load_state(case):
+def load_state(case, *, lock=True):
     """案子状态 = facts.jsonl 里最后一条 kind:"state" 行重放（不存快照）。"""
     d, _ = paths(case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s\n先跑：case_state.py init --case %s --target <样本>" % (d, case))
     last = None
-    for e in load_ledger(case):
+    for e in load_ledger(case, lock=lock):
         if _entry_kind(e) == LEDGER_STATE_KIND and isinstance(e.get("state"), dict):
             last = e["state"]
     st = _state_default()
@@ -523,27 +533,42 @@ def load_state(case):
     return st
 
 
+@_case_ledger.locked
 def save_state(case, st):
     """写回 = 往账本追加一条 state 行（append-only，最后一条生效）。
 
-    为什么重放而不是覆盖快照：两个会话同时写同一份快照会静默丢条；
-    append-only 最坏情况是"多一行"，不是"少一条"。
+    整个读改写必须持共享 OS 锁；仅使用 append-only 并不能避免并发丢失。
     """
     d, fp = paths(case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
+    _case_ledger.validate_state(st)
     st = dict(st)
     st["updated"] = now()
-    _atomic_append_line(fp, json.dumps({"kind": LEDGER_STATE_KIND, "ts": st["updated"],
-                                        "state": st}, ensure_ascii=False))
+    append_fact(case, {"kind": LEDGER_STATE_KIND, "ts": st["updated"], "state": st})
     return "facts.jsonl#state"
 
+@_case_ledger.locked
 def append_fact(case, fact):
     d, fp = paths(case)
     if not os.path.isdir(d):
         die_json("case-not-found",
                  "案例目录不存在：%s（先跑 case_state.py init --case <目录>）" % d)
-    _atomic_append_line(fp, json.dumps(fact, ensure_ascii=False))
+    _case_ledger.validate_rows(load_ledger(case) + [fact])
+    _atomic_append_line(fp, json.dumps(fact, ensure_ascii=False, allow_nan=False))
+
+
+@_case_ledger.locked
+def _append_group(case, rows):
+    """Publish related ledger rows with one atomic replacement, preserving old bytes."""
+    _case_ledger.validate_rows(load_ledger(case) + rows)
+    _, fp = paths(case)
+    _atomic_append_line(fp, "\n".join(json.dumps(row, ensure_ascii=False, allow_nan=False) for row in rows))
+
+
+def _state_row(state):
+    state = dict(state, updated=now())
+    return {"kind": LEDGER_STATE_KIND, "ts": state["updated"], "state": state}
 
 
 def die(msg, code=2):
@@ -563,30 +588,16 @@ EVIDENCE_PATH_RE = re.compile(
     re.I)
 
 
-# 证据必须是「别人能重放的材料」（外部评审第 2 轮：纯文本证据 = 没法核对）：
-#   ① 路径且文件真实存在；② 命令 + **真实存在的产物文件**（从命令串解析出路径/文件名，
-#      能在案件目录或 work/ 下找到且 size>0；只写 rc=/sha256 不再算）；
-#   ③ 哈希（32–64 位 hex 或 sha256:<hex>）且**能对上本案**（case.json 的 target.sha256，
-#      或在案件目录任一文件里被记录过；乱写的哈希不再算）；
-#   ④ E-/F-/C- 编号且该编号在本案账本里存在。
-# 反例「看过了」「已确认」「分析完成」一律拒绝。
+# 可核对的材料：非空普通文件、命令引用的本地产物、当前文件的完整 SHA256，
+# 或最终落到这些材料的账本引用；文本里的哈希、循环编号不能自证。
+# 命令字符串不证明执行，执行记录使用 lib.case_repro 的捕获协议。
 EVIDENCE_CMD_PREFIXES = ("python ", "python3 ", "pwsh ", "powershell ", "bash ", "cmd ")
 EVIDENCE_CMD_PRODUCT_RE = re.compile(r"\.json|\.log|\.md|sha256|rc=|exit=", re.I)
-EVIDENCE_SHA_RE = re.compile(r"^(?:sha256:)?[0-9a-f]{32,64}$", re.I)
 EVIDENCE_ID_RE = re.compile(r"\b([ECF])-(\d{2,})\b")
 # 命令串里“像产物”的 token：扩展名必须是落盘产物（脚本 .py/.sh 不算，避免拿输入脚本充产物）
 EVIDENCE_ARTIFACT_RE = re.compile(
     r"[^\s\"'<>|;)(=]+\.(?:json|jsonl|log|md|txt|csv|xml|html?|png|jpe?g|gif|dmp|pcapng?|"
     r"zip|tar|gz|exe|dll|bin|so|apk)(?![A-Za-z0-9])", re.I)
-EVIDENCE_HASH_NOTES = ("case.json 的 target.sha256",
-                       "案件目录里任一记录过该哈希的文件（facts.jsonl / 日志 / 报告等）")
-EVIDENCE_REPLAY_HINT = (
-    "证据必须能被别人重放：给路径 / 命令+产物 / 哈希 / 账本编号其一\n"
-    "     反例（一律拒绝）：「看过了」「已确认」「分析完成」——纯文本没法复现\n"
-    "     正例：capture/run.json ｜ python Tool/scripts/preflight.py --fast -> x.json rc=0"
-    "（x.json 必须真实落盘）｜ <sha256>（须等于目标哈希或在案卷里记录过）｜ C-001（账本里已有的编号）")
-
-
 def _evidence_is_command(ev):
     """命令形：以已知解释器开头或带 ` --` 参数，且同一串里带可核对的产出描述。"""
     low = ev.lower()
@@ -623,6 +634,57 @@ def _norm_path(p):
         return os.path.normcase(os.path.abspath(str(p)))
 
 
+def _resolve_registered_path(case_root, registered):
+    """Resolve a case target independently of the process working directory.
+
+    Supported forms are:
+
+    * absolute paths (for genuinely external, user-owned targets);
+    * paths relative to the case directory;
+    * repository-relative paths such as ``Tool/cases/<case>/target/x.apk``.
+
+    Case-relative interpretation wins when a relative path exists there.  If
+    both case-relative and repository-relative interpretations exist and point
+    to different files, the record is ambiguous and is rejected instead of
+    guessing.  Relative paths may not escape either allowed root.
+    """
+    from pathlib import Path
+
+    raw = str(registered or "").strip()
+    if not raw or URL_RE.match(raw):
+        raise ValueError("target path is empty or is a URL")
+    candidate = Path(os.path.expanduser(raw))
+    if candidate.is_absolute():
+        resolved = candidate.resolve(strict=False)
+        return str(resolved), "absolute"
+
+    case_dir = Path(case_root).resolve()
+    repo_dir = Path(REPO_ROOT).resolve()
+    roots = [("case", case_dir), ("repository", repo_dir)]
+    candidates = []
+    for label, root in roots:
+        resolved = (root / candidate).resolve(strict=False)
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        if resolved.is_file():
+            candidates.append((label, resolved))
+
+    unique = {}
+    for label, resolved in candidates:
+        unique.setdefault(_norm_path(resolved), (label, resolved))
+    if not unique:
+        tried = [str((root / candidate).resolve(strict=False)) for _label, root in roots]
+        raise ValueError("target path does not resolve from case or repository root: %s"
+                         % " ; ".join(tried))
+    if len(unique) > 1:
+        raise ValueError("target path is ambiguous between case and repository roots: %s"
+                         % " ; ".join(str(item[1]) for item in unique.values()))
+    label, resolved = next(iter(unique.values()))
+    return str(resolved), label
+
+
 def _paths_overlap(path, root):
     """path 是否落在 root 下（用 realpath/normcase，Windows 大小写与软链都不误判）。"""
     if not path or not root:
@@ -632,12 +694,6 @@ def _paths_overlap(path, root):
         return os.path.commonpath([p, r]) == r
     except ValueError:      # 跨盘符
         return False
-
-
-def _under_work(path):
-    """路径里任一层目录名是 work（“案件目录或 work/ 下”的第二种落点）。"""
-    parts = [x for x in re.split(r"[\\/]+", os.path.abspath(path)) if x]
-    return any(x.lower() == "work" for x in parts)
 
 
 def _case_target_paths(case):
@@ -662,167 +718,21 @@ def _case_target_paths(case):
     return out
 
 
-def _cmd_artifact_hit(ev, case):
-    """命令型证据的产物核对：解析出的产物必须在案件目录/ work 下真实存在且 size>0。
-
-    排除「拿本案目标原件当产物」：`radare2 -c iI a.exe` 里的 a.exe 是输入，不是产物。
-    返回命中的真实路径；找不到返回 None（调用方负责拒绝）。
-    """
-    if not case or not os.path.isdir(case):
-        return None
-    d = os.path.abspath(case)
-    roots = [d, os.path.join(d, "work"), os.path.join(_ROOT, "work")]
-    targets = _case_target_paths(case)
-    for tok in _cmd_artifact_tokens(ev):
-        cands = [tok] if os.path.isabs(tok) else [os.path.join(r, tok) for r in roots]
-        if not os.path.isabs(tok):
-            cands.append(os.path.abspath(tok))
-        for c in cands:
-            try:
-                if not os.path.isfile(c) or os.path.getsize(c) <= 0:
-                    continue
-            except OSError:
-                continue
-            if _norm_path(c) in targets:
-                continue
-            if _paths_overlap(c, d) or _under_work(c):
-                return c
-    return None
-
-
-def _hash_recorded_in_case(case, needle):
-    """案件目录任一文件里是否记录过该哈希（大小写不敏感，流式分块，避免大文件吃内存）。"""
-    if not case or not os.path.isdir(case):
-        return False
-    nb = str(needle or "").strip().lower().encode("ascii", "ignore")
-    if not nb:
-        return False
-    for dirpath, _dirnames, filenames in os.walk(os.path.abspath(case)):
-        for fn in filenames:
-            p = os.path.join(dirpath, fn)
-            try:
-                if not os.path.isfile(p):
-                    continue
-                with open(p, "rb") as f:
-                    carry = b""
-                    while True:
-                        chunk = f.read(1 << 20)
-                        if not chunk:
-                            break
-                        blob = (carry + chunk).lower()
-                        if nb in blob:
-                            return True
-                        carry = blob[-(len(nb) - 1):] if len(nb) > 1 else b""
-            except OSError:
-                continue
-    return False
-
-
-def _hash_is_known(case, h):
-    """哈希型证据必须与本案对得上：登记的目标哈希 / 案件目录里记录过的哈希。
-
-    补一条只读兜底：`init` 早于原件就位时 case.json 的 target.sha256 是 None，
-    此时用**登记的原件路径现算一次**（仍只认目标文件本身的哈希，不是“随便一个哈希”）。
-    """
-    if not case:
-        return False
-    h = str(h or "").strip().lower()
-    known = []
-    cj = os.path.join(os.path.abspath(case), "case.json")
-    tgt_path = ""
-    try:
-        with open(cj, encoding="utf-8") as f:
-            meta = json.load(f)
-        if isinstance(meta, dict):
-            t = meta.get("target")
-            if isinstance(t, dict):
-                tgt_path = str(t.get("path") or "").strip()
-                if str(t.get("sha256") or "").strip():
-                    known.append(str(t["sha256"]).strip().lower())
-            for it in meta.get("target_files") or []:
-                if isinstance(it, dict) and str(it.get("sha256") or "").strip():
-                    known.append(str(it["sha256"]).strip().lower())
-    except (OSError, ValueError):
-        pass
-    if h in known:
-        return True
-    if not known and tgt_path and os.path.isfile(tgt_path):
-        try:
-            if _sha256_file(tgt_path).lower() == h:
-                return True
-        except OSError:
-            pass
-    return _hash_recorded_in_case(case, h)
-
-
 def require_evidence(value, case=None):
-    """证据必须可重放：路径存在 / 命令+真实产物 / 本案可对上的哈希 / 账本编号；纯文本一律拒绝。"""
-    ev = (value or "").strip()
+    """Resolve current local material; command text alone is not execution proof."""
+    if not isinstance(value, str):
+        die_json("evidence-invalid", "evidence must be a string")
+    ev = value.strip()
     if not ev:
         return ev
-    # ① 命令 + 产物（先判：命令串里常含 `/`，会被 EVIDENCE_PATH_RE 误当路径）
-    #    2026-.. P0：只写 `rc=0` 或 `--out nope.json` 不再算 —— 必须能找到一个真实产物。
-    if _evidence_is_command(ev):
-        hit = _cmd_artifact_hit(ev, case)
-        if hit:
-            return ev
-        toks = _cmd_artifact_tokens(ev)
-        die_json("evidence-no-artifact",
-                 "命令型证据必须同时给出一个真实存在的产物文件（在案件目录或 work/ 下、size>0）：%s\n"
-                 "     从命令串解析到的产物名：%s\n     %s"
-                 % (ev[:120], "、".join(toks) or "（没解析出 .json/.log/.md/.exe 等产物名）",
-                    EVIDENCE_REPLAY_HINT))
-    # ② 哈希：必须对得上本案（目标哈希 / 案件目录里记录过），乱写的 64 hex 不再算。
-    if EVIDENCE_SHA_RE.match(ev):
-        h = re.sub(r"^sha256:", "", ev, flags=re.I).strip().lower()
-        if _hash_is_known(case, h):
-            return ev
-        die_json("evidence-hash-unrecorded",
-                 "哈希型证据对不上本案：%s\n     只收：%s\n     %s"
-                 % (h, " 或 ".join(EVIDENCE_HASH_NOTES), EVIDENCE_REPLAY_HINT))
-    # ③ 路径：形似路径就必须真实存在（原行为保留）
-    #   先判路径存在：文件名里带 E-001 这类号时，存在文件优先于「账本编号」分支。
-    path_like = bool(EVIDENCE_PATH_RE.search(ev))
-    if path_like:
-        cands = [ev]
-        if case:
-            cands.append(os.path.join(os.path.abspath(case), ev))
-        existing = [c for c in cands if os.path.exists(c)]
-        if existing:
-            # 第 5 轮评审 P1：**零字节文件不算证据**。以前只判 os.path.exists，
-            # `: > empty.log` 就能让 prove 过关 —— 别人拿到空文件什么也核不出来。
-            # 路径型证据：存在 **且** 大小 > 0；哈希型证据（上面 ②）照旧。
-            for c in existing:
-                try:
-                    if os.path.getsize(c) > 0:
-                        return ev
-                except OSError:
-                    continue
-            die_json("evidence-empty",
-                     "零字节文件不算证据：里面要能看到东西（%s）\n     %s"
-                     % (ev, EVIDENCE_REPLAY_HINT))
-    # ④ 账本编号：E-/F-/C- 且该编号在本案账本里存在（case 为空时不猜，走下面拒绝）
-    ids = ["%s-%s" % (a_, b_) for a_, b_ in EVIDENCE_ID_RE.findall(ev)]
-    if ids:
-        have = set()
-        if case:
-            try:
-                have = _ledger_ids(os.path.abspath(case))
-            except Exception:  # noqa: BLE001 —— init 早期账本还没写，别在这里崩
-                have = set()
-        if any(i.upper() in have for i in ids):
-            return ev
-        if not path_like:
-            die_json("evidence-unknown-id",
-                     "证据编号不在本账本里：%s（先 claim/prove 出这条 ID，或换成路径 / 命令+产物 / 哈希）\n     %s"
-                     % ("、".join(ids), EVIDENCE_REPLAY_HINT))
-    if path_like:
-        die_json("evidence-missing",
-                 '证据路径不存在：%s（不要写不存在的文件路径；日志/截图请落到磁盘再引用）\n     %s'
-                 % (ev, EVIDENCE_REPLAY_HINT))
-    # ⑤ 剩下的都是纯文本
-    die_json("evidence-not-replayable",
-             "证据不是可重放材料：%s\n     %s" % (ev[:80], EVIDENCE_REPLAY_HINT))
+    from lib.case_evidence import resolve
+    try:
+        from lib.project_lock import project_lock
+        with project_lock(_case_ledger.root_path(case)):
+            resolve(_case_api(), case, ev)
+    except (OSError, ValueError, TypeError, KeyError, TimeoutError) as exc:
+        die_json("evidence-not-replayable", str(exc))
+    return ev
 
 
 def _json_path(case, name):
@@ -847,14 +757,14 @@ def _save_list(case, name, data):
     _atomic_write_json(_json_path(case, name), data)
 
 
-def _load_ledger_list(case, kind):
+def _load_ledger_list(case, kind, *, lock=True):
     """账本里的列表型状态（gaps / plan）：最后一条 kind 行整体生效。
 
     S4：gaps.json / plan.json 不再是独立文件 —— 状态文件只剩 4 类
     （case.json / facts.jsonl / artifacts/MANIFEST.sha256 / packs.baseline.json）。
     """
     out = []
-    for e in load_ledger(case):
+    for e in load_ledger(case, lock=lock):
         if _entry_kind(e) == kind and isinstance(e.get("items"), list):
             out = e["items"]
     return out
@@ -864,20 +774,19 @@ def _append_ledger_list(case, kind, items):
     d, fp = paths(case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
-    _atomic_append_line(fp, json.dumps({"kind": kind, "ts": now(), "items": items},
-                                       ensure_ascii=False))
+    append_fact(case, {"kind": kind, "ts": now(), "items": items})
 
 
-def load_gaps(case):
-    return _load_ledger_list(case, LEDGER_GAPS_KIND)
+def load_gaps(case, *, lock=True):
+    return _load_ledger_list(case, LEDGER_GAPS_KIND, lock=lock)
 
 
 def save_gaps(case, gaps):
     _append_ledger_list(case, LEDGER_GAPS_KIND, gaps)
 
 
-def load_plan(case):
-    return _load_ledger_list(case, LEDGER_PLAN_KIND)
+def load_plan(case, *, lock=True):
+    return _load_ledger_list(case, LEDGER_PLAN_KIND, lock=lock)
 
 
 def save_plan(case, plan):
@@ -999,114 +908,106 @@ def _refresh_target_fp(case):
     """
     if not case:
         return False
-    cj = os.path.join(os.path.abspath(case), "case.json")
-    if not os.path.isfile(cj):
+    from pathlib import Path
+    from lib.case_repro import _local, _plain
+    from lib.project_lock import project_lock
+
+    root = _plain(Path(os.path.abspath(case)))
+    cj = _local(root, "case.json")
+    if not cj.is_file():
         return False
-    try:
-        with open(cj, encoding="utf-8") as f:
-            meta = json.load(f)
-    except (OSError, ValueError):
-        return False
-    if not isinstance(meta, dict):
-        return False
-    t = meta.get("target")
-    if not isinstance(t, dict) or str(t.get("sha256") or "").strip():
-        return False
-    p = str(t.get("path") or "").strip()
-    if not p or URL_RE.match(p) or not os.path.isfile(p):
-        return False
-    try:
-        sha, size = _sha256_file(p), os.path.getsize(p)
-    except OSError:
-        return False
-    t["sha256"], t["size"] = sha, size
-    t.pop("note", None)
-    meta["target"] = t
-    cur = meta.get("target_files")
-    has_sha = isinstance(cur, list) and any(
-        str((it or {}).get("sha256") or "").strip() for it in cur if isinstance(it, dict))
-    if not has_sha:
-        meta["target_files"] = [{"path": p, "sha256": sha, "size": size}]
-    try:
-        _atomic_write_json(cj, meta)
-    except OSError:
-        return False
+    with project_lock(root):
+        with cj.open(encoding="utf-8") as f:
+            meta = json.load(f, object_pairs_hook=_case_ledger._unique)
+        if not isinstance(meta, dict):
+            raise ValueError("case.json must be an object")
+        target = meta.get("target")
+        if not isinstance(target, dict):
+            raise ValueError("case.json target must be an object")
+        raw_path = target.get("path")
+        if raw_path is None:
+            raw_path = ""
+        if not isinstance(raw_path, str):
+            raise ValueError("case.json target.path must be a string")
+        path = raw_path.strip()
+        registered_sha = target.get("sha256")
+        if registered_sha not in (None, ""):
+            if not isinstance(registered_sha, str) or not re.fullmatch(
+                    r"[0-9a-fA-F]{64}", registered_sha.strip()):
+                raise ValueError("case.json target.sha256 is invalid")
+            return False
+        state_target = str(load_state(str(root)).get("target") or "").strip()
+
+        def target_key(value):
+            value = str(value or "").strip()
+            if not value or URL_RE.match(value):
+                return value
+            candidate = Path(value)
+            if not candidate.is_absolute():
+                candidate = root / candidate
+            return os.path.normcase(os.path.abspath(candidate))
+
+        if state_target and path and target_key(state_target) != target_key(path):
+            raise ValueError("case metadata target disagrees with recorded state target")
+        if not path or URL_RE.match(path) or not os.path.isfile(
+                path if os.path.isabs(path) else str(root / path)):
+            return False
+        source = _plain(Path(path if os.path.isabs(path) else str(root / path)))
+        before = os.lstat(source)
+        if not stat.S_ISREG(before.st_mode) or stat.S_ISLNK(before.st_mode):
+            raise ValueError("case target must be a regular non-link file")
+        sha = _sha256_file(str(source))
+        after = os.lstat(source)
+        if before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns:
+            raise ValueError("case target changed while binding")
+        size = after.st_size
+
+        entries = meta.get("target_files")
+        if entries is None:
+            entries = []
+        if not isinstance(entries, list) or any(not isinstance(item, dict) for item in entries):
+            raise ValueError("case.json target_files must be an array of objects")
+        if entries:
+            # A pre-existing item without a digest is a placeholder.  It must
+            # point to the same target; never repurpose it for another file.
+            for item in entries:
+                item_path = item.get("path")
+                if item_path not in (None, "") and target_key(item_path) != target_key(path):
+                    raise ValueError("case.json target_files points to another target")
+        target["sha256"], target["size"] = sha, size
+        target.pop("note", None)
+        meta["target"] = target
+        meta["target_files"] = [{"path": path, "sha256": sha, "size": size}]
+        _atomic_write_json(str(cj), meta)
     return True
 
 
 def cmd_init(a):
-    d, fp = paths(a.case)
-    os.makedirs(d, exist_ok=True)
-    left = _legacy_files(a.case)
-    if left and not a.force:
-        die("发现历史状态副本 %s：先 `replay --drop-legacy` 清理，或加 --force 重建"
-            % ", ".join(os.path.basename(x) for x in left))
-    has_state_row = any(_entry_kind(e) == LEDGER_STATE_KIND for e in load_ledger(a.case))
-    if has_state_row and not a.force:
-        die("facts.jsonl 里已有 state 重放行；要重建加 --force（当前不会覆盖）")
-    st = {"schema": "seep-case/1", "target": store_target(a.target),
-          "depth": {}, "verdict": None, "max_level": None,
-          "stage": "intake", "stage_history": [],
-          "next_action": "跑 D0 结构 + D1 存活", "updated": now()}
-    target_fp = _fingerprint_target(a.target)
-    backend = save_state(a.case, st)
-    open(fp, "a", encoding="utf-8").close()
-    # ★ 案例索引同源：preflight / domain-gate 跑 `case_state.py index --check`。
-    #   init 必须同时写 case.json 骨架，否则「新建一个 case」会让索引检查变红
-    #   （2026-10-23 实测：aimbot 目录缺 case.json → 「案例索引与磁盘一致」失败）。
-    # R7 P1-4：文档教的是 `init --domain <域>`，命令却不认这个参数 → 新案 domain 恒为空。
-    # 这里把 --domain 透传下去（缺省空串 = 未判型，不是「默认 softseep」）。
-    # ★ 2026-10-26 审计（R8-P1-4 遗留）：默认值曾是 "real" —— 新案不填就被当成
-    #   「客户真实目标」，直接给该域记一个"真实产物见证"。改成 unknown：**必须显式声明**。
-    wrote_meta = _ensure_case_meta(d, st, getattr(a, "evidence_kind", "unknown"), target_fp,
-                                   domain=getattr(a, "domain", "") or "")
-    # 记一个机器级指针，供扩展（seep-memory/seep-events）在任意 cwd 下找到当前案（外部评审 A7）
+    from lib.case_lifecycle import initialize
     try:
-        pdir = os.path.join(os.path.expanduser("~"), ".seep")
-        os.makedirs(pdir, exist_ok=True)
-        with open(os.path.join(pdir, "current-case"), "w", encoding="utf-8") as _pf:
-            _pf.write(d)
-    except Exception:
-        pass
-    # scope.md = 授权与边界契约（学 reverse-workbench-skill 的 case-guard）：
-    # 开工前先写"做什么 / 不做什么 / 环境"；scope 未就绪不许 ACT。
-    try:
-        scope_p = os.path.join(d, "scope.md")
-        if not os.path.isfile(scope_p):
-            tgt = (a.target or "").strip() or "（未指定）"
-            L = [
-                "# 范围契约（scope）", "",
-                "> 开工前填完这三节。没填完不许对目标动手（学 case-guard：scope 未就绪不 ACT）。", "",
-                "## 1. 目标", "",
-                "- 目标：%s" % tgt, "",
-                "## 2. 边界（不做的事）", "",
-                "- 不改系统级配置（网卡/路由/DNS/驱动/服务/系统 hosts）",
-                "- 不动与目标无关的进程与文件",
-                "- 不碰凭据：卡密/账号/密钥由用户自己输入，不写入任何输出", "",
-                "## 3. 环境与交付预期", "",
-                "- 隔离方式：实体机 / 虚拟机 / 容器（写清楚；有快照更好）",
-                "- 网络：可断网 / 仅目标可达 / 其他",
-                "- 期望做到哪一步（只用这四句）：只能看懂结构 / 能改到能用 / 能完全自己接管 / 现在做不了",
-                "- （内部档位只写进账本，不进这份文件、不进报告、不进对话）",
-            ]
-            with open(scope_p, "w", encoding="utf-8", newline=chr(10)) as _sf:
-                _sf.write(chr(10).join(L) + chr(10))
-            print("[OK] scope.md 已生成（开工前先填边界与环境）：%s" % scope_p)
-    except Exception as _e:  # noqa: BLE001
-        print("[WARN] scope.md 生成失败：%s" % _e)
-
-    print("[OK] case.json 骨架已写：evidence_kind=%s goal_level/domain/lessons 请按实际补"
-              "（unknown = 未声明，不计该域可用；定了再改 case.json）"
-              % getattr(a, "evidence_kind", "unknown"))
-    if target_fp.get("sha256"):
-        print("[OK] 原件指纹已登记：sha256=%s size=%s at=%s"
-              % (target_fp["sha256"], target_fp.get("size"), target_fp.get("at")))
-    else:
-        print("[WARN] 目标未就位（建案时不存在）：%s —— 原件就位后重跑 init --force 登记指纹"
-              % (target_fp.get("path") or a.target or "（未指定）"))
+        return initialize(a, _case_api())
+    except (OSError, ValueError, TypeError, TimeoutError) as exc:
+        die_json("case-init", str(exc))
 
 
 DOMAIN_UNCLASSIFIED_NOTE = "未判型，先过 seep-router"
+
+
+def _case_metadata(case, *, missing_ok=False):
+    """Read case.json through the case root with duplicate-key/link checks."""
+    from pathlib import Path
+    from lib.case_repro import _local, _plain
+    root = _plain(Path(os.path.abspath(case)))
+    path = _local(root, "case.json")
+    if not path.is_file():
+        if missing_ok:
+            return None
+        raise ValueError("case.json is missing")
+    with path.open(encoding="utf-8") as stream:
+        value = json.load(stream, object_pairs_hook=_case_ledger._unique)
+    if not isinstance(value, dict):
+        raise ValueError("case.json must be an object")
+    return value
 
 
 def _case_domain(case):
@@ -1116,11 +1017,10 @@ def _case_domain(case):
     否则客户无从判断「这个案子到底按哪个域在做」。`show` 是客户可见输出，缺文件不报错。
     """
     try:
-        with open(os.path.join(os.path.abspath(case), "case.json"), encoding="utf-8") as f:
-            meta = json.load(f)
+        meta = _case_metadata(case, missing_ok=True)
     except (OSError, ValueError):
         return ""
-    if not isinstance(meta, dict):
+    if meta is None:
         return ""
     return str(meta.get("domain") or "").strip()
 
@@ -1141,7 +1041,7 @@ def _target_files_entry(target_fp):
     return [{"path": path, "sha256": sha, "size": target_fp.get("size")}]
 
 
-def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
+def _ensure_case_meta(d, st, evidence_kind="unknown", target_fp=None, domain=""):
     """写 case.json 骨架（已存在就不动）。字段由 `case_state.py index` 现算时归一。
 
     第 4 轮评审 P1：`domain` **不再一律写 softseep**。判不出就不写（留空）+ 提示走 seep-router —
@@ -1149,33 +1049,26 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
     判型入口：`python Tool/scripts/route.py --resolve "<目标名 + 任务名>"`（判不出会打
     `[UNCLASSIFIED]`）。
     """
-    cj = os.path.join(d, "case.json")
-    if os.path.isfile(cj):
+    from pathlib import Path
+    from lib.case_repro import _local
+    cj = _local(Path(d), "case.json")
+    if cj.is_file():
         # 第 5 轮评审 P1：老案（case.json 早于 target_files）在重跑 init / init --force 时补登记。
         # 只在「现有 target_files 没有任何 sha256」时补，绝不覆盖人工登记过的相对路径。
         if target_fp is not None or str(domain or "").strip():
-            try:
-                with open(cj, encoding="utf-8") as f:
-                    meta = json.load(f)
-                changed = False
-                if isinstance(meta, dict):
-                    fresh = _target_files_entry(target_fp) if target_fp is not None else []
-                    cur = meta.get("target_files")
-                    has_sha = isinstance(cur, list) and any(
-                        str((it or {}).get("sha256") or "").strip() for it in cur
-                        if isinstance(it, dict))
-                    if fresh and not has_sha:
-                        meta["target_files"] = fresh
-                        changed = True
-                    # R7 P1-4：老案 domain 为空时，`init --domain <域>` 把它补上（已有值不覆盖）
-                    if str(domain or "").strip() and not str(meta.get("domain") or "").strip():
-                        meta["domain"] = str(domain).strip()
-                        changed = True
-                    if changed:
-                        with open(cj, "w", encoding="utf-8") as f:
-                            json.dump(meta, f, ensure_ascii=False, indent=1)
-            except (OSError, ValueError):
-                pass
+            meta = _case_metadata(d)
+            fresh = _target_files_entry(target_fp) if target_fp is not None else []
+            cur = meta.get("target_files", [])
+            if not isinstance(cur, list) or any(not isinstance(item, dict) for item in cur):
+                raise ValueError("target_files must be an array of objects")
+            if fresh and not any(str(item.get("sha256") or "").strip() for item in cur):
+                meta["target_files"] = fresh
+            if target_fp is not None:
+                meta["target"] = target_fp
+                meta["target_type"] = st.get("target") or ""
+            if str(domain or "").strip() and not str(meta.get("domain") or "").strip():
+                meta["domain"] = str(domain).strip()
+            _atomic_write_json(cj, meta)
         return False
     kind = evidence_kind if evidence_kind in ("fixture", "real", "public",
                                              "self-built", "historical") else "unknown"
@@ -1204,11 +1097,7 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
         "refs": [],
         "updated": now()[:10],
     }
-    try:
-        with open(cj, "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=1)
-    except OSError:
-        return False
+    _atomic_write_json(str(cj), meta)
     if not dom:
         print("[WARN] %s：case.json 的 domain 留空 —— %s，判出域后再补"
               "（python Tool/scripts/route.py --resolve \"<目标名 + 任务名>\"）"
@@ -1217,62 +1106,112 @@ def _ensure_case_meta(d, st, evidence_kind="real", target_fp=None, domain=""):
 
 
 
+@case_locked
 def cmd_verify_origin(a):
     """重算目标原件哈希，与建案时登记的指纹对账（第 2 轮评审：「原件不动」必须可验证）。
 
     rc=0 且打印指纹 = 原件与建案时一致；rc=2 = 原件已变/已被移动/无法比对。
     """
     d = os.path.abspath(a.case)
-    cj = os.path.join(d, "case.json")
-    if not os.path.isfile(cj):
-        die_json("case-not-found",
-                 "case.json 不存在：%s（先跑 init --case <目录> --target <原件>）" % d)
     try:
-        with open(cj, encoding="utf-8") as f:
-            meta = json.load(f)
+        meta = _case_metadata(d)
     except (OSError, ValueError) as e:
         die_json("case-json-unreadable", "case.json 读不出来：%s: %s" % (type(e).__name__, e))
     tgt = meta.get("target") if isinstance(meta, dict) else None
     tgt = tgt if isinstance(tgt, dict) else {}
-    path = str(tgt.get("path") or "").strip()
-    want = str(tgt.get("sha256") or "").strip().lower()
-    want_size = tgt.get("size")
-    if not path:
+    records = {}
+
+    def add_record(raw, *, source, at=""):
+        if not isinstance(raw, dict):
+            raise ValueError("%s must be an object" % source)
+        path = str(raw.get("path") or "").strip()
+        sha = str(raw.get("sha256") or "").strip().lower()
+        size = raw.get("size")
+        if not path and not sha and size is None:
+            return
+        if not path:
+            raise ValueError("%s.path is empty" % source)
+        resolved, resolution = _resolve_registered_path(d, path)
+        key = _norm_path(resolved)
+        record = records.setdefault(key, {
+            "registered": path, "resolved": resolved, "resolution": resolution,
+            "sha256": "", "size": None, "sources": [], "at": at,
+        })
+        record["sources"].append(source)
+        if sha:
+            if not re.fullmatch(r"[0-9a-f]{64}", sha):
+                raise ValueError("%s.sha256 is malformed" % source)
+            if record["sha256"] and record["sha256"] != sha:
+                raise ValueError("%s conflicts with another target fingerprint" % source)
+            record["sha256"] = sha
+        if size is not None:
+            if isinstance(size, bool):
+                raise ValueError("%s.size must be an integer" % source)
+            try:
+                size = int(size)
+            except (TypeError, ValueError):
+                raise ValueError("%s.size must be an integer" % source)
+            if size < 0:
+                raise ValueError("%s.size must be non-negative" % source)
+            if record["size"] is not None and record["size"] != size:
+                raise ValueError("%s conflicts with another target size" % source)
+            record["size"] = size
+
+    try:
+        add_record(tgt, source="target", at=str(tgt.get("at") or ""))
+        entries = meta.get("target_files") or []
+        if not isinstance(entries, list):
+            raise ValueError("target_files must be an array")
+        for index, entry in enumerate(entries):
+            add_record(entry, source="target_files[%d]" % index)
+    except (OSError, ValueError) as exc:
+        print("[ERR] 原件无法确定性解析：%s" % exc)
+        return 2
+    if not records:
         print("[ERR] 本案件没登记原件路径（case.json 的 target.path 为空）：无法验证原件未变")
         print("     修法：python Tool/scripts/case_state.py init --case %s --target <原件> --force" % d)
         return 2
-    print("[INFO] 登记指纹：path=%s sha256=%s size=%s at=%s"
-          % (path, want or "(未登记)",
-             want_size if want_size is not None else "(未登记)", tgt.get("at") or "(未登记)"))
-    if URL_RE.match(path):
-        print("[ERR] 原件已变/已被移动：目标登记为 URL（%s），本地无原件可重算哈希" % path)
+    failed = False
+    for record in sorted(records.values(), key=lambda item: item["resolved"].lower()):
+        path = record["resolved"]
+        want = record["sha256"]
+        want_size = record["size"]
+        print("[INFO] 登记指纹：registered=%s resolved=%s via=%s sha256=%s size=%s at=%s"
+              % (record["registered"], path, record["resolution"], want or "(未登记)",
+                 want_size if want_size is not None else "(未登记)",
+                 record["at"] or "(未登记)"))
+        if not os.path.isfile(path):
+            print("[ERR] 原件已变/已被移动：%s 当前不存在（被删 / 改名 / 移走）" % path)
+            failed = True
+            continue
+        try:
+            got, got_size = _sha256_file(path), os.path.getsize(path)
+        except OSError as e:
+            print("[ERR] 原件已变/已被移动：%s 读不出来：%s" % (path, e))
+            failed = True
+            continue
+        if not want:
+            print("[ERR] 原件已变/已被移动：%s 的 sha256 未登记（现在=%s size=%s）"
+                  % (path, got, got_size))
+            print("     修法：python Tool/scripts/case_state.py init --case %s --target %s --force"
+                  % (d, record["registered"]))
+            failed = True
+            continue
+        if got != want or (want_size is not None and got_size != want_size):
+            print("[ERR] 原件已变/已被移动：%s" % path)
+            print("     登记：sha256=%s size=%s" % (want, want_size))
+            print("     现在：sha256=%s size=%s" % (got, got_size))
+            print("     注意：原件变了，以前的证据不再自动成立（stale 后再 prove）")
+            failed = True
+            continue
+        print("[OK] 原件未变：resolved=%s sha256=%s size=%s"
+              % (path, got, got_size))
+    if failed:
         return 2
-    if not os.path.isfile(path):
-        print("[ERR] 原件已变/已被移动：%s 当前不存在（被删 / 改名 / 移走）" % path)
-        if tgt.get("note"):
-            print("     登记备注：%s" % tgt["note"])
-        return 2
-    try:
-        got, got_size = _sha256_file(path), os.path.getsize(path)
-    except OSError as e:
-        print("[ERR] 原件已变/已被移动：%s 读不出来：%s" % (path, e))
-        return 2
-    if not want:
-        print("[ERR] 原件已变/已被移动：建案时目标未就位（sha256 未登记），现在才出现"
-              "（sha256=%s size=%s）" % (got, got_size))
-        print("     修法：python Tool/scripts/case_state.py init --case %s --target %s --force" % (d, path))
-        return 2
-    if got != want or (want_size is not None and got_size != want_size):
-        print("[ERR] 原件已变/已被移动：%s" % path)
-        print("     登记：sha256=%s size=%s" % (want, want_size))
-        print("     现在：sha256=%s size=%s" % (got, got_size))
-        print("     注意：原件变了，以前的证据不再自动成立（stale 后再 prove）")
-        return 2
-    print("[OK] 原件未变：path=%s sha256=%s size=%s 建案时间=%s"
-          % (path, got, got_size, tgt.get("at") or "(未登记)"))
     return 0
 
 
+@case_locked
 def cmd_lock(a):
     """拿写权租约。同一会话重复 lock = 续约；别人的锁未过期就拒绝（rc=1）。"""
     d, _ = paths(a.case)
@@ -1319,6 +1258,7 @@ def cmd_lock(a):
     return 0
 
 
+@case_locked
 def cmd_unlock(a):
     """释放租约。不是自己持有且无 --force 就拒绕（rc=1）。"""
     d, _ = paths(a.case)
@@ -1345,6 +1285,7 @@ def cmd_unlock(a):
     return 0
 
 
+@case_locked
 def cmd_who(a):
     """打印当前持锁者。无锁/过期一律 NO_LEASE 且 rc=0（方便脚本判）。"""
     d, _ = paths(a.case)
@@ -1389,6 +1330,7 @@ def _norm_confidence(v, default="unknown"):
     return s if s in CONFIDENCE_STATES else default
 
 
+@case_locked
 def cmd_claim(a):
     lease_guard(a.case)
     _refresh_target_fp(a.case)
@@ -1411,6 +1353,9 @@ def cmd_claim(a):
             "confidence": _norm_confidence(getattr(a, "confidence", "")),
             "authority": (str(getattr(a, "authority", "") or "").strip().lower() or "none"),
             "refuted_by": (by or None)}
+    if ev:
+        from lib.case_evidence import bind
+        bind(_case_api(), a.case, fact, ev)
     try:
         append_fact(a.case, fact)
     except Exception as e:  # noqa: BLE001 —— R6 P1-4：账本写不进去就不许 rc=0
@@ -1418,6 +1363,7 @@ def cmd_claim(a):
         return 2
     print(f"[OK] {a.id} = {a.status}  {a.text}")
 
+@_case_ledger.locked
 def _rewrite_claims(case, facts):
     """只改 claim 行：按 id 替换账本里的对应行，其余行（state/event/repro/gaps/plan/downgrade）
     **原样保留且相对顺序不变**（append-only 账本的前提）。
@@ -1430,8 +1376,10 @@ def _rewrite_claims(case, facts):
     _, fp = paths(case)
     new_by_id = {}
     for f in facts:
-        if isinstance(f, dict) and str(f.get("id") or "").strip():
-            new_by_id[str(f.get("id"))] = f
+        _case_ledger.validate_row(f)
+        if not _is_claim(f) or f["id"] in new_by_id:
+            raise ValueError("claim rewrite requires unique claim objects")
+        new_by_id[f["id"]] = f
     out, seen = [], set()
     for e in load_ledger(case):
         fid = str(e.get("id") or "").strip() if isinstance(e, dict) else ""
@@ -1443,7 +1391,8 @@ def _rewrite_claims(case, facts):
     for fid, f in new_by_id.items():
         if fid not in seen:
             out.append(f)
-    _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out))
+    _case_ledger.validate_rows(out)
+    _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False, allow_nan=False) + "\n" for x in out))
 
 
 def _rewrite_facts(case, facts):
@@ -1451,6 +1400,7 @@ def _rewrite_facts(case, facts):
     _rewrite_claims(case, facts)
 
 
+@case_locked
 def cmd_prove(a):
     lease_guard(a.case)
     _refresh_target_fp(a.case)
@@ -1480,6 +1430,8 @@ def cmd_prove(a):
         hit["revalidated_at"] = now()
     hit["status"] = "proven"
     hit["evidence"] = (hit.get("evidence") or []) + [ev]
+    from lib.case_evidence import bind
+    bind(_case_api(), a.case, hit, ev)
     hit["updated"] = now()
     try:
         _rewrite_claims(a.case, facts)
@@ -1495,6 +1447,7 @@ def cmd_prove(a):
     print(f"[OK] {a.id} 已证实{tail}（证据 {len(hit['evidence'])} 条）{hint}")
 
 
+@case_locked
 def cmd_refute(a):
     lease_guard(a.case)
     by = (a.by or "").strip()
@@ -1515,6 +1468,7 @@ def cmd_refute(a):
     print(f"[OK] {a.id} 已标记被推翻，依据 = {a.by}（历史保留，不删）")
 
 
+@case_locked
 def cmd_stale(a):
     """TTL 失效：把当前所有 proven 降为 stale（保留证据，只改状态 + 失效原因）。
 
@@ -1542,6 +1496,7 @@ def cmd_stale(a):
     print("     证据保留；复验用 prove --id <id> --evidence ...，否则 gate 拒绝")
 
 
+@case_locked
 def cmd_gaps(a):
     if not os.path.isdir(os.path.abspath(a.case)):
         die("case 目录不存在：%s" % os.path.abspath(a.case))
@@ -1576,6 +1531,7 @@ def cmd_gaps(a):
     print("[OK] 缺件 %s 已登记：%s  可补性=%s Δ%s %s" % (gid, missing, rep, delta, tag))
 
 
+@case_locked
 def cmd_plan(a):
     if not os.path.isdir(os.path.abspath(a.case)):
         die("case 目录不存在：%s" % os.path.abspath(a.case))
@@ -1614,6 +1570,7 @@ def cmd_plan(a):
     print("     菜单共 %d 条；选定用 choose --level %s --route \"%s\"" % (len(plan), level, route))
 
 
+@case_locked
 def cmd_choose(a):
     lease_guard(a.case)
     level = (a.level or "").strip().upper()
@@ -1629,12 +1586,11 @@ def cmd_choose(a):
     for x in plan:
         x["chosen"] = (x is hit)
     hit["chosen_at"] = now()
-    save_plan(a.case, plan)
     st = load_state(a.case)
     st["goal_level"] = level
     st["goal_route"] = route
     st["next_action"] = "按 %s（%s）进 01-gate-bypass" % (level, route)
-    save_state(a.case, st)
+    _append_group(a.case, [{"kind": LEDGER_PLAN_KIND, "ts": now(), "items": plan}, _state_row(st)])
     print("[OK] 已选定 %s %s（p=%.2f，工时 %s）；state.goal_level = %s"
           % (level, route, float(hit.get("p") or 0), hit.get("hours") or "?", level))
 
@@ -1733,6 +1689,7 @@ def _print_advise(res):
     print("  说明：advise 只输出建议、不写盘；确认后 plan --from-advise [--form <id>] 一次性导入")
 
 
+@case_locked
 def cmd_advise(a):
     res = _advise(a)
     _print_advise(res)
@@ -1768,6 +1725,7 @@ def _plan_from_advise(a):
     print_plan(plan)
 
 
+@case_locked
 def cmd_depth(a):
     lease_guard(a.case)
     if a.level not in LEVELS:
@@ -1786,6 +1744,7 @@ def cmd_depth(a):
     print(f"[OK] {a.level} = {a.result}  {a.note or ''}")
 
 
+@case_locked
 def cmd_verdict(a):
     lease_guard(a.case)
     if a.value not in VERDICTS:
@@ -1827,6 +1786,7 @@ def cmd_verdict(a):
     print(f"[OK] 裁定 = {a.value}，能做到哪一步 = {_customer_level(level)}（内部档位见账本）")
 
 
+@case_locked
 def cmd_instrument(a):
     lease_guard(a.case)
     if a.name not in INSTRUMENTS:
@@ -1865,6 +1825,7 @@ def _events_nonempty(case):
         return False
 
 
+@case_locked
 def cmd_events(a):
     """事件账：动作级流水（谁跑了什么工具、成没成、多久）。只读，不改任何状态。
 
@@ -2048,14 +2009,38 @@ def _chk_dynamic(case, p, st=None):
 
 
 def _manifest_candidates(case, manifest_path, rel):
-    """path 的解析顺序：原样 → 相对 case 根 → 相对 manifest 所在目录。"""
-    if os.path.isabs(rel):
-        cands = [rel]
+    """Resolve manifest paths only inside the case tree.
+
+    Keep both layouts used by existing cases (relative to the case root or to
+    the manifest directory), but never let a correct hash turn a path outside
+    the case into valid stage evidence.  Reuse the typed-asset path contract so
+    absolute/drive/``..`` references and symlink/reparse traversal fail closed.
+    """
+    from pathlib import Path
+    from lib.typed_assets import TypedAssetError, _project_path
+
+    case_root = Path(os.path.abspath(case))
+    refs = [str(rel)]
+    try:
+        manifest_dir = Path(os.path.abspath(manifest_path)).parent
+        manifest_rel = manifest_dir.relative_to(case_root).as_posix()
+    except (OSError, ValueError):
+        pass
     else:
-        cands = [rel,
-                 os.path.join(os.path.abspath(case), rel),
-                 os.path.join(os.path.dirname(os.path.abspath(manifest_path)), rel)]
-    return [c for c in cands if os.path.isfile(c)]
+        refs.append(manifest_rel.rstrip("/") + "/" + str(rel))
+
+    found = []
+    seen = set()
+    for ref in refs:
+        try:
+            path = _project_path(case_root, ref)
+        except (OSError, ValueError, TypedAssetError):
+            continue
+        key = os.path.normcase(os.path.abspath(path))
+        if key not in seen and path.is_file():
+            seen.add(key)
+            found.append(str(path))
+    return found
 
 
 def _chk_manifest(case, p, st=None):
@@ -2307,6 +2292,7 @@ def tier_view(word):
     return ""
 
 
+@case_locked
 def cmd_stage(a):
     """阶段机：--set 写阶段（先过进阶产物闸）+ 记 history；--show 看当前/下一阶段/还缺什么。"""
     d = os.path.abspath(a.case)
@@ -2473,6 +2459,7 @@ def _stage_gate(a):
     sys.exit(0)
 
 
+@case_locked
 def cmd_gate(a):
     if getattr(a, "stage", ""):
         return _stage_gate(a)   # P2-1：带 --stage 走阶段产物闸（按内容判）
@@ -2483,6 +2470,8 @@ def cmd_gate(a):
     depth = st.get("depth", {})
     bad = []
     warn = []
+    for identifier, reason in _claim_evidence_problems(a.case, facts).items():
+        bad.append("%s evidence: %s" % (identifier, reason))
 
     # ---- 深度门：D0–D5 必填；D6/D7 只告警（旧案不因扩展级全红）
     missing = [lv for lv in CORE_LEVELS if lv not in depth]
@@ -2535,7 +2524,7 @@ def cmd_gate(a):
                  and _norm_confidence(f.get("confidence")) in WEAK_CONFIDENCE]
     no_auth = [f["id"] for f in facts
                if f["status"] == "proven"
-               and str(f.get("authority") or "none").strip().lower() in ("", "none")]
+               and str(f.get("authority") or "none").strip().lower() in ("", "none", "reported")]
     msg_conf = ("proven 但置信度不足（unknown/inferred）：" + "、".join(weak_conf)
                 + " —— verify 会整案判 unknown（不计 pass）；补 --confidence observed")
     msg_auth = ("proven 但 authority 未声明：" + "、".join(no_auth)
@@ -2689,70 +2678,42 @@ def die_split(customer_msg, internal_msg, code=2):
 
 
 def _repro_records(case):
-    """账本里的 repro 记录（宽松读：坏行/非 repro 行直接跳过，不让交付闸变成解析器）。"""
-    out = []
-    fjs = os.path.join(os.path.abspath(case), "facts.jsonl")
-    if not os.path.isfile(fjs):
-        return out
-    with open(fjs, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(rec, dict) and _entry_kind(rec) == "repro":
-                out.append(rec)
+    """读取复现历史；坏账本和重复记录不能被交付闸静默忽略。"""
+    from pathlib import Path
+    from lib.case_repro import _local
+    from lib.project_transaction import pending
+    try:
+        root = Path(os.path.abspath(case))
+        _local(root, "facts.jsonl")
+        if pending(root):
+            die("有中断事务，先重试原写入命令恢复，不能用未提交记录验收")
+    except ValueError as exc:
+        die(str(exc))
+    out, identifiers = [], set()
+    for rec in load_ledger(case):
+        if not isinstance(rec, dict) or "kind" in rec and not isinstance(rec["kind"], str):
+            die("facts.jsonl 包含非法记录结构")
+        if _entry_kind(rec) == "repro":
+            identifier = rec.get("id")
+            if not isinstance(identifier, str) or not identifier.strip() or identifier in identifiers:
+                die("facts.jsonl 包含缺失或重复的 repro id")
+            identifiers.add(identifier)
+            out.append(rec)
     return out
 
 
 def _case_target_info(case):
-    """本案目标绑定信息：{path, name, sha256}（P0-2 第 3 轮评审）。
-
-    优先读 case.json 的 target 指纹块（init 时登记的原件）；缺 case.json / 缺 target 时
-    退回 state 行的 target 路径。都拿不到就返回空 dict —— repro 会拒绝落账（否则
-    `echo hi` 这种不碰目标的命令也能冒充证据）。
-    """
-    info = {"path": "", "name": "", "sha256": ""}
-    d = os.path.abspath(case or "")
-    if not case or not os.path.isdir(d):
-        return info
-    tgt = None
-    cjp = os.path.join(d, "case.json")
-    if os.path.isfile(cjp):
-        try:
-            with open(cjp, encoding="utf-8", errors="replace") as f:
-                meta = json.load(f)
-            if isinstance(meta, dict):
-                tgt = meta.get("target")
-        except (OSError, ValueError):
-            tgt = None
-    if isinstance(tgt, dict):
-        info["path"] = str(tgt.get("path") or "").strip()
-        info["sha256"] = str(tgt.get("sha256") or "").strip().lower()
-    elif isinstance(tgt, str):
-        info["path"] = tgt.strip()
-    if not info["path"]:
-        try:
-            info["path"] = str(load_state(d).get("target") or "").strip()
-        except Exception:  # noqa: BLE001
-            pass
-    if info["path"]:
-        info["name"] = os.path.basename(info["path"].replace("\\", "/").rstrip("/"))
-        if not info["sha256"] and not URL_RE.match(info["path"]) \
-                and os.path.isfile(info["path"]):
-            try:
-                info["sha256"] = _sha256_file(info["path"]).lower()
-            except OSError:
-                pass
-    return info
+    """复验当前目标；URL 仅绑定地址文本，不声称已认证远端内容。"""
+    from lib.case_repro import target_identity
+    try:
+        return target_identity(case, load_state(case).get("target", ""))
+    except (OSError, ValueError, TypeError) as exc:
+        die("目标身份复验失败：%s" % exc)
 
 
 # 反例程序（第 4 轮评审 P0-1）：这些只回显参数 / 列目录，永远打不开目标文件。
 # 血案：`echo mytarget.exe` 里出现了目标 basename，旧判据直接放行 —— 但它没读过目标。
-_NEVER_TOUCH_PROGS = {"echo", "printf", "true", "false", "cat", "type", "dir", "ls", "tee"}
+_NEVER_TOUCH_PROGS = {"echo", "printf", "true", "false", "dir", "ls"}
 # 解释器：程序之后的**命令体**里必须再出现目标路径/哈希（`python -c "print(1)"` 不算）。
 _INTERP_PROGS = {"python", "python2", "python3", "py", "node", "nodejs",
                  "powershell", "pwsh"}
@@ -2816,11 +2777,11 @@ def _cmd_head(text):
 
 
 def _cmd_evidence_problem(text, info):
-    """命令是否**真跑过目标**。返回 '' = 通过，否则一句话拒绝理由（带反例）。
+    """命令是否含明确目标引用（仅启发式，不能认证进程读取行为）。返回 '' = 通过，否则一句话拒绝理由（带反例）。
 
     第 4 轮评审 P0-1 判据（三条缺一不可）：
       ① 命令里必须出现目标的**完整路径**或 `sha256:` + 哈希前 12 位（只写 basename 不够）；
-      ② 首个程序不得是 echo/printf/true/false/cat/type/dir/ls/tee（不可能碰到目标）；
+      ② 排除显然只回显或列目录的命令头；cat/type/tee 可以读取输入，不作此断言；
       ③ 解释器（python/node/powershell）的**命令体**里必须再出现目标路径/哈希。
     """
     info = info if isinstance(info, dict) else {}
@@ -2843,8 +2804,8 @@ def _cmd_evidence_problem(text, info):
                 % (name, name, path or "<目标完整路径>"))
     prog, body = _cmd_head(s)
     if prog in _NEVER_TOUCH_PROGS:
-        return ("首个程序是 `%s`：它只回显/列目录，不会打开目标，不能当证据。\n"
-                "      反例：`echo %s` / `cat %s` 都不算（没读目标）。\n"
+        return ("首个程序是 `%s`：仅此命令头不足以说明对目标的观测。\n"
+                "      反例：`echo %s` / `ls %s` 不证明目标行为。\n"
                 "      改用真读目标的命令：`python -c \"print(open(r'%s','rb').read(16))\"`"
                 % (prog, name, name, path or "<目标完整路径>"))
     if prog in _INTERP_PROGS:
@@ -2857,12 +2818,12 @@ def _cmd_evidence_problem(text, info):
 
 
 def _cmd_binds_target(text, info):
-    """命令是否真碰过目标（= `_cmd_evidence_problem` 无问题）。"""
+    """命令文本是否通过目标引用启发式检查；不认证真实读取。"""
     return _cmd_evidence_problem(text, info) == ""
 
 
 def _rec_binds_target(rec, target=None):
-    """记录的命令是否**真碰过本案目标**：E2 看 --cmd，E3 两路命令都要绑定。
+    """记录命令的目标引用检查：E2 看 --cmd，E3 两路命令都要绑定。
 
     target 为 None 时退回记录自带 target 块（账本可手写，所以结构判据里两条都要对得上）。
     """
@@ -2883,59 +2844,115 @@ def _rec_binds_target(rec, target=None):
     return True
 
 
-def _digests_ok(rec, runs):
-    """指纹必须是 runs 个、且每个都像真指纹（>=8 字）：`["a","a"]` 这种占位不算。"""
-    digests = rec.get("digests") if isinstance(rec, dict) else None
-    if not isinstance(digests, list) or len(digests) != runs:
-        return False
-    return all(isinstance(x, str) and len(x.strip()) >= 8 for x in digests)
+def _is_complete_e3(rec, target=None, case=None):
+    """两路成功、一致且命中预期；交付还须复验目标与两路日志。"""
+    from lib.case_repro import complete_record
+    return complete_record(rec, binder=_cmd_binds_target, target=target, case=case, cross=True)
 
 
-def _is_complete_e3(rec, target=None):
-    """交叉验证证据的**结构**判据（只认结构化记录，不认任何地方手写的 "grade": "E3" 字样）。
+def _is_complete_repro(rec, target=None, case=None):
+    """至少两次成功且一致；传 case 时还核对磁盘捕获及当前目标。"""
+    from lib.case_repro import complete_record
+    return complete_record(rec, binder=_cmd_binds_target, target=target, case=case)
 
-    kind=repro 且 grade=E3、cmd 非空、runs>=2、digests 条数 == runs（真跑了几次就有几个指纹）、
-    expect 非空（有可机检的期望片段）、also_cmd 非空且 != cmd（两路真独立）。
-    P0-2 / P0-1（第 3、4 轮评审）：两路命令都必须真跑过本案目标（`echo hi` / `echo target.bin` 不算）。
+
+def _project_acceptance_binding(project, version_id, case_target):
+    """Bind M4 to the project state's existing, re-checkable E4 chain.
+
+    The project CLI remains the only producer of E4.  This helper reads that
+    chain under the project's OS lock, forces a fresh handoff computation, and
+    requires the named project version to describe the same case target.  It
+    writes no project evidence and cannot upgrade an incomplete acceptance.
     """
-    if not isinstance(rec, dict) or _entry_kind(rec) != "repro":
-        return False
-    if str(rec.get("grade") or "").strip().upper() != "E3":
-        return False
-    cmd = str(rec.get("cmd") or "").strip()
-    also = str(rec.get("also_cmd") or "").strip()
-    expect = str(rec.get("expect") or "").strip()
-    try:
-        runs = int(rec.get("runs") or 0)
-    except (TypeError, ValueError):
-        return False
-    return bool(cmd) and bool(expect) and bool(also) and also != cmd \
-        and runs >= 2 and _digests_ok(rec, runs) \
-        and _rec_binds_target(rec, target)
+    from pathlib import Path
+    from lib.project_lock import project_lock
+    from lib import typed_assets
+    import project_state
+
+    text = str(project or "").strip()
+    version_id = str(version_id or "").strip()
+    if not text:
+        raise ValueError("M4 必须提供已验证项目目录（--acceptance-project）")
+    root = Path(os.path.abspath(os.path.expanduser(text)))
+    if not root.is_dir():
+        raise ValueError("验收项目目录不存在：%s" % root)
+    project_state.require_id(version_id, "acceptance-version")
+    if not isinstance(case_target, dict) or not case_target.get("sha256"):
+        raise ValueError("当前案例目标身份不完整")
+    with project_lock(root, recover=True):
+        handoff = project_state.write_handoff(root, persist=True)
+        if handoff.get("current_version_id") != version_id:
+            raise ValueError("验收项目当前版本是 %r，不是请求的 %r"
+                             % (handoff.get("current_version_id"), version_id))
+        errors = []
+        for key in ("state_errors", "acceptance_errors", "evidence_errors", "closure_errors"):
+            value = handoff.get(key)
+            if value:
+                errors.extend(value if isinstance(value, list) else [value])
+        if errors:
+            raise ValueError("验收项目完整性未通过：%s" % json.dumps(errors, ensure_ascii=False))
+        if handoff.get("state_health") != "ok" or handoff.get("status") != "active":
+            raise ValueError("验收项目状态不是健康的 active")
+        if not handoff.get("acceptance_complete") or not handoff.get("acceptance_eligible"):
+            raise ValueError("验收项目尚未形成完整、可复核的端到端验收")
+        run_id = handoff.get("last_run_id")
+        if handoff.get("last_run_status") != "completed" or not run_id \
+                or run_id not in (handoff.get("completed_runs") or []):
+            raise ValueError("验收项目最近 run 尚未 completed，不能作为 M4 的端到端见证")
+        current = handoff.get("current_version") or {}
+        version_path = project_state.project_file(
+            root, "versions/%s/version.json" % version_id)
+        version_record = project_state.load_json(version_path)
+        kind = version_record.get("kind", "file")
+        if case_target.get("identity_scope") == "file-bytes":
+            if kind != "file":
+                raise ValueError("案例目标是文件字节，但验收项目版本是 %s" % kind)
+            if (version_record.get("sha256") != case_target.get("sha256")
+                    or version_record.get("size") != case_target.get("size")):
+                raise ValueError("验收项目版本与案例目标 SHA256/大小不一致")
+            verified = project_state.verify_target(root, version_record)
+            identity_match = "file-sha256+size"
+        elif case_target.get("identity_scope") == "url-reference-only":
+            if kind != "url_descriptor":
+                raise ValueError("案例目标是 URL 描述，但验收项目版本是 %s" % kind)
+            verified = project_state.verify_target(root, version_record)
+            normalized_case = typed_assets.url_descriptor(case_target.get("path", ""))
+            if normalized_case.get("url") != version_record.get("url"):
+                raise ValueError("验收项目 URL 描述与案例目标不一致")
+            identity_match = "normalized-url-descriptor"
+        else:
+            raise ValueError("M4 不支持当前案例目标身份类型：%s"
+                             % case_target.get("identity_scope"))
+        handoff_path = root / "handoff.json"
+        facts_path = root / "facts.jsonl"
+        handoff_sha = hashlib.sha256(handoff_path.read_bytes()).hexdigest()
+        facts_sha = hashlib.sha256(facts_path.read_bytes()).hexdigest()
+        return {
+            "schema": "seep-case-e4-project/1",
+            "project": str(root),
+            "project_id": handoff.get("project_id"),
+            "version_id": version_id,
+            "target_kind": kind,
+            "target_sha256": verified.get("sha256"),
+            "target_size": verified.get("size"),
+            "target_identity_scope": verified.get("identity_scope"),
+            "case_target_sha256": case_target.get("sha256"),
+            "case_target_size": case_target.get("size"),
+            "case_target_identity_scope": case_target.get("identity_scope"),
+            "identity_match": identity_match,
+            "last_run_id": run_id,
+            "last_run_status": handoff.get("last_run_status"),
+            "completed_runs": list(handoff.get("completed_runs") or []),
+            "acceptance_complete": True,
+            "acceptance_counts": handoff.get("acceptance_counts"),
+            "handoff_sha256": handoff_sha,
+            "facts_sha256": facts_sha,
+            "proof_level": handoff.get("proof_level"),
+            "proof_limits": list(handoff.get("proof_limits") or []),
+        }
 
 
-def _is_complete_repro(rec, target=None):
-    """「能改到能用」（M2）的结构判据（P0-4b）：至少一条真跑过两次且一致的复现记录。
-
-    只认结构化账本行，不认报告/对话里的自述：kind=repro、cmd 非空、expect 非空、
-    runs>=2、digests 条数 == runs、consistent==true。
-    P0-2（第 3 轮评审）+ P0-1（第 4 轮）：cmd 还必须**真跑过**本案目标（完整路径 / sha256:前12位，
-    且首个程序不是 echo/cat/type/ls/tee 这类只回显的程序）—— `echo hi`、`echo target.bin` 都不算证据。
-    """
-    if not isinstance(rec, dict) or _entry_kind(rec) != "repro":
-        return False
-    cmd = str(rec.get("cmd") or "").strip()
-    expect = str(rec.get("expect") or "").strip()
-    try:
-        runs = int(rec.get("runs") or 0)
-    except (TypeError, ValueError):
-        return False
-    return bool(cmd) and bool(expect) and runs >= 2 \
-        and _digests_ok(rec, runs) \
-        and rec.get("consistent") is True \
-        and _rec_binds_target(rec, target)
-
-
+@case_locked
 def cmd_deliver(a):
     """交付分级闸：产物等级不许超过阶段零裁定的上限（血案：文件生成了就宣布可用）。
 
@@ -2957,10 +2974,14 @@ def cmd_deliver(a):
                      _customer_level(a.level) or "见账本"),
                   "越级交付：裁定 %s 的上限是 %s，不接受 %s" % (st["verdict"], cap, a.level))
     # 外部评审 A5：最高两级（M3/M4）必须有**交叉验证/端到端**证据，不能只靠自述
-    tinfo = _case_target_info(a.case)
+    acceptance_project = str(getattr(a, "acceptance_project", "") or "").strip()
+    acceptance_version = str(getattr(a, "acceptance_version", "") or "").strip()
+    if a.level != "M4" and (acceptance_project or acceptance_version):
+        die("--acceptance-project/--acceptance-version 只用于端到端交付等级")
+    tinfo = _case_target_info(a.case) if a.level in ("M2", "M3", "M4") else {}
     if a.level in ("M3", "M4"):
         recs = _repro_records(a.case)
-        strong = [r for r in recs if _is_complete_e3(r, tinfo)]
+        strong = [r for r in recs if _is_complete_e3(r, tinfo, a.case)]
         if not strong:
             die_split(
                 "交付「能完全自己接管」需要至少一条结构完整的交叉验证记录"
@@ -2983,7 +3004,7 @@ def cmd_deliver(a):
     # P0-4b：「能改到能用」（M2）不是「文件改动了」就算 —— 至少一条结构化 repro（真跑两次且一致）
     if a.level == "M2":
         recs = _repro_records(a.case)
-        good = [r for r in recs if _is_complete_repro(r, tinfo)]
+        good = [r for r in recs if _is_complete_repro(r, tinfo, a.case)]
         if not good:
             cdir = os.path.abspath(a.case)
             die_split(
@@ -2993,7 +3014,7 @@ def cmd_deliver(a):
                 "交付 M2（客户话：能改到能用）必须至少有 1 条**结构完整**的复现记录；"
                 "账本里现有 repro 记录 %d 条，其中 0 条达标。\n"
                 "判据（缺一不可）：kind=repro / cmd 非空且**含目标完整路径或 sha256:前12位**"
-                "（只写 basename、用 echo/cat 只回显都不算）/ expect 非空 / "
+                "（只写 basename 或 echo 回显不算）/ expect 非空 / "
                 "runs>=2 / digests 条数==runs / consistent==true（报告或对话里写「跑过了」不算）。\n"
                 "出路①（补证据，推荐）：\n"
                 "  python Tool/scripts/case_state.py repro --case %s --id E-001 "
@@ -3007,8 +3028,21 @@ def cmd_deliver(a):
     ev = require_evidence(a.evidence, a.case)
     if not ev:
         die("交付必须有可核对的证明（--evidence：证据文件路径 / 命令+产物 / 哈希 / 账本编号；纯文本不算）")
-    st.setdefault("deliveries", []).append(
-        {"level": a.level, "evidence": a.evidence, "note": a.note or "", "ts": now()})
+    delivery = {"level": a.level, "evidence": a.evidence,
+                "note": a.note or "", "ts": now()}
+    if a.level == "M4":
+        if not acceptance_project or not acceptance_version:
+            die_split(
+                "端到端交付还必须绑定一个已完成验收的真实项目版本。",
+                "M4 requires --acceptance-project <目录> --acceptance-version <版本>; "
+                "E3 repro alone is not E4.")
+        try:
+            delivery["end_to_end_acceptance"] = _project_acceptance_binding(
+                acceptance_project, acceptance_version, tinfo)
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            die_split("端到端验收复核未通过，交付未登记。",
+                      "M4 project acceptance binding rejected: %s" % exc)
+    st.setdefault("deliveries", []).append(delivery)
     # next_action 会被 show/resume 原样展示给客户 → 只能写客户话，不带代号
     st["next_action"] = {"M1": "补功能面，冲「能改到能用」",
                          "M2": "冲「能完全自己接管」（UI / 授权）",
@@ -3026,10 +3060,17 @@ def cmd_deliver(a):
 
 
 def cmd_show(a):
-    st = load_state(a.case)
-    facts = load_facts(a.case)
-    gaps = load_gaps(a.case)
-    plan = load_plan(a.case)
+    # show is a read-only compatibility view.  Taking project_lock here creates
+    # ``.project.lock`` inside legacy case directories, violating the promise
+    # that inspecting an old case leaves every byte and entry untouched.
+    root = _case_ledger.root_path(a.case)
+    from lib.project_transaction import pending
+    if pending(root):
+        die("pending case transaction requires retry/recovery before reading", 2)
+    st = load_state(a.case, lock=False)
+    facts = load_facts(a.case, lock=False)
+    gaps = load_gaps(a.case, lock=False)
+    plan = load_plan(a.case, lock=False)
     print(f"案子：{a.case}")
     print(f"  目标：{st.get('target') or '-'}")
     _dom = _case_domain(a.case)
@@ -3073,6 +3114,7 @@ def cmd_show(a):
         print(f"    [{tag}] {f['id']:<6} {f['claim'][:52]}{extra}")
 
 
+@case_locked
 def cmd_resume(a):
     st = load_state(a.case)
     facts = load_facts(a.case)
@@ -3104,6 +3146,7 @@ def cmd_resume(a):
     print(f"  下一步：{st.get('next_action') or '（未写）'}")
 
 
+@case_locked
 def cmd_handoff(a):
     """案例级续接快照：≤40 行，全部由账本现算（不读任何手写文档）。
 
@@ -3156,6 +3199,9 @@ def cmd_handoff(a):
         out.append("【已交付】" + "、".join("%s(%s)" % (d["level"], d["ts"][:16]) for d in dl[-3:]))
     # ③ 能否继续
     asks = [e for e in (st.get("asks") or []) if not e.get("acked")]
+    awaiting = st.get("awaiting_human") or {}
+    if awaiting and not awaiting.get("ack"):
+        asks.append({"text": awaiting.get("stuck") or awaiting.get("card") or "待用户回答"})
     if asks:
         out.append("【卡住·等用户】" + "；".join(_cut(x.get("q") or x.get("text"), 60) for x in asks[:3]))
     else:
@@ -3248,66 +3294,55 @@ def _write_answer_pass(case="", adhoc=False):
     """
     import datetime
     import hashlib
-    try:
-        with open(os.path.join(_TOOL, "config", "answer-contract.json"), "rb") as f:
-            ch = hashlib.sha256(f.read()).hexdigest()
-        case_abs = os.path.abspath(os.path.expanduser(case)) if case else ""
-        # 目标哈希：只从该案 case.json 的登记里取（没给 case / 没登记 / 文件不在 → 空串）
-        target_sha = ""
-        try:
-            cj = {}
-            cjp = os.path.join(case_abs, "case.json") if case_abs else ""
-            if cjp and os.path.isfile(cjp):
-                with open(cjp, encoding="utf-8") as f:
-                    cj = json.load(f)
-            for it in (cj.get("target_files") or []):
-                sh = str((it or {}).get("sha256") or "").strip().lower()
-                if sh:
-                    target_sha = sh
-                    break
-            if not target_sha:
-                for k in ("target", "target_path", "target_type"):
-                    v = cj.get(k)
-                    if isinstance(v, dict):
-                        # 新 case.json 的 target 是原件指纹块：直接用它登记的 sha256（别 str(dict) 当路径）
-                        sh = str(v.get("sha256") or "").strip().lower()
-                        if sh:
-                            target_sha = sh
-                            break
-                        v = v.get("path") or ""
-                    v = str(v or "").strip()
-                    if not v:
-                        continue
-                    ap = v if os.path.isabs(v) else os.path.join(case_abs, v)
-                    if os.path.isfile(ap):
-                        hh = hashlib.sha256()
-                        with open(ap, "rb") as f:
-                            for chunk in iter(lambda: f.read(1 << 20), b""):
-                                hh.update(chunk)
-                        target_sha = hh.hexdigest()
-                        break
-        except Exception:  # noqa: BLE001
-            target_sha = ""
-        payload = {
-            "schema": "seep.answer-pass/1",
-            "case": case_abs,
-            # 目标身份：换目标必须重新给首答（扩展按 case.json 的 target_files/target 比对路径）
-            "target_sha256": target_sha,
-            # ISO8601 带 UTC 偏移：扩展侧 Date.parse 直接认，不做本地时区猜测
-            "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-            "contract_sha256": ch,
-        }
-        if adhoc:
-            # P0-4 机检（第 3 轮评审）：没绑案的标记必须显式标 adhoc，扩展不得当交付凭证
-            payload["adhoc"] = True
-        p = os.path.join(os.path.expanduser("~"), ".seep", "answer-pass.json")
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        tmp = p + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False)
-        os.replace(tmp, p)  # 原子落盘：扩展永远读不到半截 JSON
-    except Exception:  # noqa: BLE001
-        pass
+    with open(os.path.join(_TOOL, "config", "answer-contract.json"), "rb") as f:
+        ch = hashlib.sha256(f.read()).hexdigest()
+    case_abs = os.path.abspath(os.path.expanduser(case)) if case else ""
+    target_sha = ""
+    if case_abs:
+        cj = _case_metadata(case_abs)
+        files = cj.get("target_files") or []
+        if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
+            raise ValueError("case.json target_files must be an array of objects")
+        for item in files:
+            sh = str(item.get("sha256") or "").strip().lower()
+            if sh:
+                if re.fullmatch(r"[0-9a-f]{64}", sh) is None:
+                    raise ValueError("case.json target_files sha256 is malformed")
+                target_sha = sh
+                break
+        if not target_sha:
+            target = cj.get("target")
+            if isinstance(target, dict):
+                target_sha = str(target.get("sha256") or "").strip().lower()
+                if target_sha and re.fullmatch(r"[0-9a-f]{64}", target_sha) is None:
+                    raise ValueError("case.json target sha256 is malformed")
+                target = target.get("path") or ""
+            target = str(target or "").strip()
+            if not target_sha and target and not URL_RE.match(target):
+                from pathlib import Path
+                from lib.case_repro import _plain
+                candidate = Path(target)
+                if not candidate.is_absolute():
+                    candidate = Path(case_abs) / candidate
+                candidate = _plain(candidate)
+                if candidate.is_file():
+                    target_sha = _sha256_file(str(candidate))
+    payload = {
+        "schema": "seep.answer-pass/1",
+        "case": case_abs,
+        # 目标身份：换目标必须重新给首答（扩展按 case.json 的 target_files/target 比对路径）
+        "target_sha256": target_sha,
+        # ISO8601 带 UTC 偏移：扩展侧 Date.parse 直接认，不做本地时区猜测
+        "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "contract_sha256": ch,
+    }
+    if adhoc:
+        # P0-4 机检（第 3 轮评审）：没绑案的标记必须显式标 adhoc，扩展不得当交付凭证
+        payload["adhoc"] = True
+    p = os.path.join(os.path.expanduser("~"), ".seep", "answer-pass.json")
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    _atomic_write_json(p, payload)
+    return p
 
 
 # 内部话术（第 4 轮评审 P0-2）：选项是给客户看的，不能出现 if_yes/if_no/按…走 这类词。
@@ -3674,9 +3709,13 @@ def cmd_answer(a):
     print("[PASS] 首答合格" if not bad else "[FAIL] 首答不合格（%d 项）" % len(bad))
     if not bad:
         # 通过才写标记（就是 --check 的放行凭证）；失败不写，扩展 answer-gate.ts 继续拦
-        _write_answer_pass(case_arg, adhoc=(not case_arg))
-        print("[标记] 已写 ~/.seep/answer-pass.json（TTL 取自 gate.ttl_minutes；case=%s；adhoc=%s）"
-              % (case_arg or "（未指定，不绑目标）", "true" if not case_arg else "false"))
+        try:
+            marker = _write_answer_pass(case_arg, adhoc=(not case_arg))
+        except (OSError, ValueError, TypeError) as exc:
+            print("[ERR] 首答内容合格，但放行标记没有写成：%s" % exc)
+            return 2
+        print("[标记] 已写 %s（TTL 取自 gate.ttl_minutes；case=%s；adhoc=%s）"
+              % (marker, case_arg or "（未指定，不绑目标）", "true" if not case_arg else "false"))
     return 0 if not bad else 1
 
 
@@ -3705,14 +3744,16 @@ def cmd_block(a):
     for i, e in enumerate(x["exits"], 1):
         print("  %d. %s" % (i, e))
     if a.case:
-        try:
-            st = load_state(a.case)
+        @case_locked
+        def record_block(args):
+            lease_guard(args.case)
+            st = load_state(args.case)
             # next_action 会被 resume/handoff 原样展示给客户，所以只放客户话；码进 blocker 字段。
             st["next_action"] = "%s：%s" % (x["customer"], x["name"])
             st["blocker"] = x["code"]
-            save_state(a.case, st)
-        except Exception:  # noqa: BLE001
-            pass
+            save_state(args.case, st)
+            return 0
+        return record_block(a)
     return 0
 
 
@@ -3723,158 +3764,9 @@ def _safe_token(s):
 
 
 def cmd_repro(a):
-    """证据结构化重放：跑 N 次比对输出指纹；一致 + 期望命中才给 E2。
-
-    P0-2（第 3 轮评审）+ P0-1（第 4 轮）：证据必须**真跑过目标** —— `--cmd` 里要出现
-    本案目标的**完整路径**或 `sha256:<前12位>`；首个程序不得是 echo/printf/cat/type/dir/ls/tee
-    这类只回显的程序；解释器（python/node/powershell）的命令体里也要有目标。
-    否则 `echo mytarget.exe --expect mytarget` 就能冒充 E2/E3（旧判据只看有没有 basename）。
-    没有 `--case` 时进 adhoc 模式（不绑目标，可给 `--adhoc <原因>` 记一笔），
-    输出标 `[ADHOC] 未绑目标，不得用于交付`。
-    `--out <dir>`（可选，必须在案件目录内）：每次运行的 stdout/stderr 落盘，sha256 进 artifacts。
-    """
-    import hashlib
-    import platform
-    import subprocess as _sp
-
-    if not a.cmd:
-        print("[ERR] 需要 --cmd")
-        return 2
-    case = str(getattr(a, "case", "") or "").strip()
-    adhoc = str(getattr(a, "adhoc", "") or "").strip()
-    out_dir = str(getattr(a, "out", "") or "").strip()
-    if not case:
-        # 向后兼容：临时不建案 = adhoc 模式（不绑目标），只标注、不落账、不得用于交付。
-        # 注意：带 --case 时目标绑定是**硬拒绝**（下面），`echo hi` 进不了账本。
-        print("[ADHOC] 未绑目标，不得用于交付（原因：%s）"
-              % (adhoc or "未给 --adhoc 原因"))
-    tinfo = _case_target_info(case) if case else {}
-    if case and not (tinfo.get("path") or tinfo.get("sha256")):
-        print("[ERR] 本案没登记目标（case.json 的 target.path 为空）：repro 无法证明证据碰过目标")
-        print("     修法：python Tool/scripts/case_state.py init --case %s --target <原件> --force"
-              % os.path.abspath(case))
-        return 2
-    if out_dir:
-        if not case:
-            print("[ERR] --out 只能配合 --case（产物必须落在案件目录内）")
-            return 2
-        cabs, oabs = os.path.abspath(case), os.path.abspath(out_dir)
-        try:
-            inside = os.path.commonpath([cabs, oabs]) == cabs
-        except ValueError:
-            inside = False
-        if not inside:
-            print("[ERR] --out 必须在案件目录内：%s 不在 %s 下" % (oabs, cabs))
-            return 2
-    if case and not _cmd_binds_target(a.cmd, tinfo):
-        sha = str(tinfo.get("sha256") or "").strip().lower()
-        print("[ERR] 证据必须是「真跑目标」的命令：%s"
-              % _cmd_evidence_problem(a.cmd, tinfo))
-        print("      本案可用的绑定字面量：%s / %s"
-              % (tinfo.get("path") or "<目标完整路径>",
-                 ("sha256:" + sha[:12]) if len(sha) >= 12 else "<哈希前缀，本案未登记哈希>"))
-        print("      反例：`echo %s` 不算（它没读目标）；`cat` / `type` / `ls` / `tee` 同样不算。"
-              % (tinfo.get("name") or "<目标名>"))
-        return 2
-    if case:
-        _sha = str(tinfo.get("sha256") or "")
-        print("[repro] 目标绑定：%s（sha256=%s）"
-              % (tinfo.get("name") or tinfo.get("path"),
-                 (_sha[:12] + "…") if _sha else "未登记"))
-    runs = max(1, int(a.runs or 2))
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    digests, outs, artifacts = [], [], []
-    for i in range(runs):
-        try:
-            p = _sp.run(a.cmd, shell=True, capture_output=True, text=True,
-                        encoding="utf-8", errors="replace", timeout=int(a.timeout or 300))
-        except Exception as e:  # noqa: BLE001
-            print("[ERR] 第 %d 次执行失败：%s" % (i + 1, e))
-            return 2
-        so, se = p.stdout or "", p.stderr or ""
-        blob = so + se
-        outs.append(blob)
-        digests.append(hashlib.sha256(blob.encode("utf-8", "replace")).hexdigest()[:16])
-        if out_dir:
-            logp = os.path.join(os.path.abspath(out_dir),
-                                "repro-%s-run%d.log" % (_safe_token(a.id), i + 1))
-            body = ("# run %d\n# cmd: %s\n# expect: %s\n# exit: %s\n"
-                    "----- stdout -----\n%s\n----- stderr -----\n%s\n"
-                    % (i + 1, a.cmd, a.expect, p.returncode, so, se))
-            try:
-                _atomic_write_text(logp, body)
-                artifacts.append({
-                    "run": i + 1, "path": logp,
-                    "sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
-                    "stdout_sha256": hashlib.sha256(so.encode("utf-8", "replace")).hexdigest(),
-                    "stderr_sha256": hashlib.sha256(se.encode("utf-8", "replace")).hexdigest()})
-            except OSError as e:
-                print("[ERR] 产物入库失败：%s（%s）" % (logp, e))
-                return 2
-        if a.expect and a.expect not in blob:
-            print("[WARN] 第 %d 次输出里没找到期望片段：%r" % (i + 1, a.expect))
-    same = len(set(digests)) == 1
-    expect_ok = bool(a.expect) and all(a.expect in o for o in outs)
-    _binds = bool(a.case) and _cmd_binds_target(a.cmd, tinfo)
-    grade = "E2" if (same and expect_ok and _binds) else "E1"
-    if not _binds and same and expect_ok:
-        print("[repro] 命令没有碰过本案目标（或未绑案）→ 最高只能 E1："
-              "交付要求证据必须证明\"这份目标\"被跑过")
-    # E3 = 两条**独立**命令各自一致且都命中期望（外部评审 A5：最高等级上限必须有可机检依据）
-    # 独立性是硬要求：--also-cmd 就是 --cmd 本身（去空白后相等）不能算交叉验证，一分不给。
-    alt = (getattr(a, "also_cmd", "") or "").strip()
-    first_cmd = (a.cmd or "").strip()
-    alt_is_same = bool(alt) and " ".join(alt.split()) == " ".join(first_cmd.split())
-    if alt_is_same and grade == "E2":
-        print("[repro] 第二路与第一路是同一条命令，不算交叉验证 → 拒绝升级 E3，保持 %s" % grade)
-    if alt and case and not _cmd_binds_target(alt, tinfo):
-        print("[repro] 第二路命令没真跑目标：%s → 不算交叉验证，拒绝升级 E3，保持 %s"
-              % (_cmd_evidence_problem(alt, tinfo), grade))
-        alt_is_same = True  # 只用于关掉下面那段 E3 升级
-    if grade == "E2" and alt and not alt_is_same:
-        alt_d, alt_ok_all, alt_hit = [], True, True
-        for _i in range(runs):
-            import subprocess as _sp2
-            try:
-                p2 = _sp2.run(alt, shell=True, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=int(a.timeout or 300))
-            except Exception as e:  # noqa: BLE001
-                print("[repro] 第二路执行失败：%s" % e)
-                alt_ok_all = False
-                break
-            blob2 = (p2.stdout or "") + (p2.stderr or "")
-            alt_d.append(hashlib.sha256(blob2.encode("utf-8", "replace")).hexdigest()[:16])
-            if a.expect and a.expect not in blob2:
-                alt_hit = False
-        if alt_ok_all and len(set(alt_d)) == 1 and alt_hit:
-            grade = "E3"
-            print("[repro] 第二路一致（%s）→ 交叉验证成立，证据等级升到 E3" % ",".join(alt_d))
-        else:
-            print("[repro] 第二路不一致/未命中 → 保持 E2（不许自称交叉验证）")
-    print("[repro] 运行 %d 次；指纹 %s；一致=%s；期望命中=%s"
-          % (runs, ",".join(digests), same, expect_ok))
-    print("[repro] 该证据最高等级 = %s（E2 需：输出一致 + 期望命中 + 命令碰过目标；"
-          "E3 另需第二路命令真的不同且一致且也碰过目标）" % grade)
-    if a.case and a.id:
-        try:
-            rec = {"kind": "repro", "id": a.id, "cmd": a.cmd, "also_cmd": alt, "expect": a.expect,
-                   "runs": runs, "digests": digests, "consistent": same,
-                   "grade": grade, "ts": now(),
-                   "target": {k: tinfo.get(k) or "" for k in ("path", "name", "sha256")},
-                   "env": {"python": platform.python_version(),
-                           "os": platform.platform(), "cwd": os.getcwd()},
-                   "artifacts": artifacts,
-                   "adhoc": bool(not case)}
-            with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a", encoding="utf-8") as f:
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            print("[repro] 已写入账本（%d 个产物已入库）" % len(artifacts))
-        except Exception as e:  # noqa: BLE001
-            # R6 P1-4：账本没写进去 = 证据不存在，不许 rc=0 让调用方以为落了账。
-            print("[ERR] 写账本失败（这条证据没有落账，不能当证据用）：%s" % e)
-            return 2
-    # 退出码语义：E2/E3（可当证据）返回 0；E1（不可重复或达不到期望）返回 1。
-    return 0 if grade in ("E2", "E3") else 1
+    """执行并捕获重放；命令引用检查只是启发式，不认证语义正确或仪器独立。"""
+    from lib.case_repro import run_repro
+    return run_repro(a, _case_api())
 
 
 def _downgrade_notice(old, new, reason):
@@ -3889,22 +3781,24 @@ def _downgrade_notice(old, new, reason):
     return "【降级通知】交付上限被下调（具体档位见账本）。原因：%s" % reason
 
 
+@case_locked
 def cmd_downgrade(a):
     """上限降级必须留通知：承诺过「能改到能用」就不能静默降到「只能看懂结构」。
 
     R6 P0-4：stdout 只给客户话（不出现 M/L/J 代号）；代号只进 stderr / 账本 `*_internal`。
     R6 P1-4：写账本失败 → rc=2（降级不落账等于静默降级）。
     """
+    lease_guard(a.case)
     st = load_state(a.case)
     old = st.get("max_level") or "-"
     new = a.to
-    if not new:
-        print("[ERR] 需要 --to（四档之一；内部代号见账本）")
+    if new not in RANK or old not in RANK or RANK[new] > RANK[old]:
+        print("[ERR] 降级只能从已登记的交付上限调低；提高上限应重新裁定。")
         return 2
     if old == new:
         print("[SKIP] 上限没变（%s；内部档位见账本）" % (_customer_level(old) or "见账本"))
         return 0
-    if a.reason is None:
+    if not str(a.reason or "").strip():
         print("[ERR] 降级必须写 --reason（为什么降）")
         return 2
     notif = _downgrade_notice(old, new, a.reason)
@@ -3913,13 +3807,10 @@ def cmd_downgrade(a):
     st["max_level"] = new
     st["next_action"] = notif
     try:
-        save_state(a.case, st)
-        with open(os.path.join(os.path.abspath(a.case), "facts.jsonl"), "a",
-                  encoding="utf-8") as f:
-            f.write(json.dumps({"kind": "downgrade", "from": old, "to": new,
-                                "reason": a.reason, "notice": notif,
-                                "notice_internal": ledger_notice, "ts": now()},
-                               ensure_ascii=False) + "\n")
+        _append_group(a.case, [_state_row(st),
+                              {"kind": "downgrade", "from": old, "to": new,
+                               "reason": a.reason, "notice": notif,
+                               "notice_internal": ledger_notice, "ts": now()}])
     except Exception as e:  # noqa: BLE001 —— R6 P1-4：降级不落账 = 静默降级，不许 rc=0
         print("[ERR] 写账本失败（降级没有落账）：%s" % e)
         return 2
@@ -3929,17 +3820,21 @@ def cmd_downgrade(a):
     return 0
 
 
+@case_locked
 def cmd_recheck(a):
     """复查单：两周后照着能复现（目标哈希/环境/证据/重放命令/期望）。"""
     d = os.path.abspath(a.case)
-    cj = json.load(open(os.path.join(d, "case.json"), encoding="utf-8"))
-    files = cj.get("target_files") or []
-    repro = []
-    fj = os.path.join(d, "facts.jsonl")
-    if os.path.isfile(fj):
-        for line in open(fj, encoding="utf-8"):
-            if line.strip() and '"kind": "repro"' in line:
-                repro.append(json.loads(line))
+    from pathlib import Path
+    from lib.case_repro import _local
+    lease_guard(a.case)
+    with _local(Path(d), "case.json").open(encoding="utf-8") as stream:
+        cj = json.load(stream, object_pairs_hook=_case_ledger._unique)
+    if not isinstance(cj, dict):
+        die("case.json must be an object")
+    files = cj.get("target_files", [])
+    if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
+        die("target_files must be an array of objects")
+    repro = _repro_records(a.case)
     L = ["# 复查单（%s）" % os.path.basename(d), "", "## 目标身份", ""]
     for f in files:
         L.append("- `%s` sha256=%s" % (f.get("path"), f.get("sha256")))
@@ -3952,20 +3847,24 @@ def cmd_recheck(a):
           "## 证据与重放", ""]
     if repro:
         for r in repro:
-            L.append("- `%s` → `%s`（期望包含 `%s`；跑过 %d 次，指纹 %s）"
+            valid = _is_complete_repro(r, case=a.case)
+            check = "当前捕获复验通过（不认证结论语义）" if valid else "未通过当前捕获复验；仅保留历史声明"
+            digests = r.get("digests")
+            digests = digests if isinstance(digests, list) and all(isinstance(x, str) for x in digests) else []
+            L.append("- `%s` → `%s`（期望包含 `%s`；登记次数 %s，指纹 %s；%s）"
                      % (r.get("id"), r.get("cmd"), r.get("expect"), r.get("runs"),
-                        ",".join(r.get("digests") or [])))
+                         ",".join(digests), check))
     else:
         L.append("- （暂无结构化重放：跑 `case_state.py repro --case %s --id E-001 "
                  "--cmd \"<命令>\" --expect \"<片段>\"`）" % d)
     L += ["", "## 复现失败怎么判", "",
           "- 先查「已知会变」；仍不一致 → 该结论降为 `未验证`，不要否定整份报告", ""]
-    out = os.path.join(d, "recheck.md")
-    open(out, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
+    out = str(_local(Path(d), "recheck.md"))
+    _atomic_write_text(out, "\n".join(L) + "\n")
     # 先把「目标身份」回显到 stdout：复查时第一眼要能看到目标哈希，
     # 不用再去翻文件（机检：`recheck | grep sha256` 能拿到）。
     for f in files:
-        print("[OK] 目标身份：%s sha256=%s" % (f.get("path"), f.get("sha256")))
+        print("[INFO] 登记目标身份：%s sha256=%s" % (f.get("path"), f.get("sha256")))
     if not files:
         print("[WARN] case.json 未登记 target_files（复查单没有目标哈希）")
     print("[OK] 复查单已生成：%s（%d 条重放记录）" % (out, len(repro)))
@@ -3974,7 +3873,7 @@ def cmd_recheck(a):
 
 SECTIONS = ["结论", "已确认", "仍未知", "下一步", "复查"]
 
-# PM-SPEC §11：交付物不得落明文凭据。四条规则的边界都以「两份真实报告 + 全部模板」不误报为准：
+# REQUIREMENTS.md 的凭据规则：交付物不得落明文凭据。四条规则的边界都以「两份真实报告 + 全部模板」不误报为准：
 #   - 私钥块头 / AWS AK 是强特征，不误报；
 #   - 关键字赋值必须紧跟 : 或 = 且值 >=6 个非空字符，所以“secrets 使用 OIDC”“SA token 短时化”不命中（无 : / =）；
 #   - Bearer 令牌要求 20+ 连续非空字符，“Bearer 认证”之类白描不会命中。
@@ -4053,23 +3952,8 @@ def _case_for_report(path, case_arg=""):
 
 
 def _ledger_ids(case_dir):
-    """该案 facts.jsonl 里出现过的全部 ID（claim / repro / 其它带 id 的行）。"""
-    ids = set()
-    fp = os.path.join(case_dir, "facts.jsonl")
-    if not os.path.isfile(fp):
-        return ids
-    with open(fp, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(rec, dict) and str(rec.get("id") or "").strip():
-                ids.add(str(rec["id"]).strip().upper())
-    return ids
+    """Validated claim/replay identifiers, shared with evidence resolution."""
+    return set(_ledger_records_by_id(case_dir))
 
 
 def _report_id_refs(text):
@@ -4084,27 +3968,13 @@ def _report_id_refs(text):
 
 
 def _ledger_records_by_id(case_dir):
-    """id → 账本行（同 id 后写的生效）。claim / repro / 其它带 id 的行都收。
+    """id → 已校验的 claim/repro 行；重复编号或坏账本直接拒绝。
 
     为什么不用 `load_facts`：报告 ID 对账需要看 **status/confidence/authority**，
     而这三样只在账本原文里，聚合层（facts）拿不到 repro / 非 claim 行。
     """
-    out = {}
-    fp = os.path.join(case_dir, "facts.jsonl")
-    if not os.path.isfile(fp):
-        return out
-    with open(fp, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(rec, dict) and str(rec.get("id") or "").strip():
-                out[str(rec["id"]).strip().upper()] = rec
-    return out
+    return {rec["id"].strip().upper(): rec for rec in load_ledger(case_dir)
+            if _is_claim(rec) or _entry_kind(rec) == "repro"}
 
 
 # 「已确认」段只许放已证结论：status=proven + confidence∈{observed,derived} + authority 非空/none
@@ -4135,8 +4005,14 @@ def _confirmed_section_weak(case_dir, body_lines):
             why.append("status=%s" % (st or "(无：不是结论行)"))
         if conf not in CONFIRMED_CONFIDENCE:
             why.append("confidence=%s" % (conf or "unknown"))
-        if auth in ("", "none"):
+        if auth not in ("shipped-artifact", "controlled-replay", "external-service"):
             why.append("authority=%s" % (auth or "(空)"))
+        if not why:
+            from lib.case_evidence import claim_files
+            try:
+                claim_files(_case_api(), case_dir, rec, rows=load_ledger(case_dir))
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                why.append("evidence=%s" % exc)
         if why:
             weak.append("%s（%s）" % (rid, "，".join(why)))
     return weak
@@ -4150,16 +4026,37 @@ def _reconcile_report_ids(text, case_dir):
 
 def _recheck_section_problem(body_lines, case_dir):
     """case.json 有 target_files 时，复查段必须提到目标哈希前缀或 resume 命令。"""
-    cj = os.path.join(case_dir, "case.json")
-    tfiles = []
-    if os.path.isfile(cj):
-        try:
-            with open(cj, encoding="utf-8") as f:
-                tfiles = json.load(f).get("target_files") or []
-        except (OSError, ValueError):
+    from pathlib import Path
+    from lib.case_repro import _local, _plain
+    from lib.project_lock import project_lock
+
+    try:
+        root = _plain(Path(case_dir))
+        cj = _local(root, "case.json")
+        if not cj.exists():
+            return None
+        with project_lock(root):
+            with cj.open(encoding="utf-8") as f:
+                metadata = json.load(f, object_pairs_hook=_case_ledger._unique)
+        if not isinstance(metadata, dict):
+            raise ValueError("top level must be an object")
+        tfiles = metadata.get("target_files")
+        if tfiles is None:
             tfiles = []
-    hashes = [str(x.get("sha256") or "").strip().lower()
-              for x in tfiles if isinstance(x, dict)]
+        if not isinstance(tfiles, list):
+            raise ValueError("target_files must be a list")
+        hashes = []
+        for item in tfiles:
+            if not isinstance(item, dict):
+                raise ValueError("target_files entries must be objects")
+            value = item.get("sha256")
+            if value in (None, ""):
+                continue
+            if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", value):
+                raise ValueError("target_files sha256 must be a complete hex digest")
+            hashes.append(value.lower())
+    except (OSError, ValueError, TypeError) as exc:
+        return "复查段未核验：case.json 不可安全读取（%s）" % str(exc)[:160]
     hashes = [h for h in hashes if len(h) >= 8]
     if not hashes:
         return None
@@ -4175,7 +4072,7 @@ def _recheck_section_problem(body_lines, case_dir):
 
 
 def cmd_report(a):
-    """报告五段校验：缺段不算交付（对应 PM-SPEC §3.3/§7）；案件报告额外做 ID 对账。"""
+    """报告五段校验：缺段不算交付（对应 REQUIREMENTS.md 的交付规则）；案件报告额外做 ID 对账。"""
     if a.selftest:
         N = chr(10)
         good = (
@@ -4195,6 +4092,8 @@ def cmd_report(a):
         ok2 = 0
         tmp = tempfile.mkdtemp(prefix="cs-report-")
         try:
+            with open(os.path.join(tmp, "a.log"), "w", encoding="utf-8") as f:
+                f.write("report self-test fixture evidence\n")
             with open(os.path.join(tmp, "facts.jsonl"), "w", encoding="utf-8") as f:
                 # 默认全部是“可进已确认”的强结论（proven + observed + shipped-artifact）；
                 # 下面 C-003/C-004/C-005 是本轮新增语义的反例。
@@ -4327,8 +4226,12 @@ def _is_template_path(path):
     但模板天然没有账本。若不给模板开后门，10 份模板会全部被判红——
     那不是诚实，是把"模板"和"交付物"混为一谈。
     """
-    p = str(path or "").replace(chr(92), "/")
-    return "/Tool/prompts/" in p or p.startswith("Tool/prompts/")
+    try:
+        root = os.path.normcase(os.path.realpath(os.path.join(_TOOL, "prompts")))
+        candidate = os.path.normcase(os.path.realpath(os.path.abspath(os.fspath(path))))
+        return os.path.commonpath((root, candidate)) == root
+    except (OSError, TypeError, ValueError):
+        return False
 
 
 # ── R8 P1-2：客户可见文本禁代号 ──
@@ -4381,7 +4284,7 @@ def _check_report(text, case_dir=None, is_template=False):
       ③ 结论段 ≤3 行；
       ④ "已确认"段至少出现 1 个证据/结论 ID（E-/C-/F-）；
       ⑤ 出现禁用措辞（应该可以/大概能/通常没问题）即不合格；
-      ⑥ 凭据扫描（PM-SPEC §11）：命中私钥块 / AK / 明文口令赋值 / Bearer 令牌即不合格。
+      ⑥ 凭据扫描（REQUIREMENTS.md 的凭据规则）：命中私钥块 / AK / 明文口令赋值 / Bearer 令牌即不合格。
     ⑦ P0-4a：给了案件目录（case_dir）时，每个 E-/C-/F- ID 必须存在于该案 facts.jsonl；
        有 target_files 时，复查段还要提到目标哈希前缀或 resume 命令。
        P0-3（第 4 轮评审）：没账本就禁编号 —— case_dir 为空、或其中没有 facts.jsonl
@@ -4612,9 +4515,12 @@ def _self_test():
             with open(os.path.join(tmp3, "facts.jsonl"), "w", encoding="utf-8") as f:
                 f.write(json.dumps({"id": "C-001", "claim": "x", "status": "hypothesis"},
                                    ensure_ascii=False) + "\n")
-            # 案子目标哈希（a*64），以及一份“记录过 b*64”的日志（grep 分支用）
+            target_path = os.path.join(tmp3, "target.bin")
+            with open(target_path, "wb") as f:
+                f.write(b"local target fixture")
+            target_sha = _sha256_file(target_path)
             with open(os.path.join(tmp3, "case.json"), "w", encoding="utf-8") as f:
-                json.dump({"id": "t", "target": {"path": "", "sha256": "a" * 64}}, f)
+                json.dump({"id": "t", "target": {"path": target_path, "sha256": target_sha}}, f)
             with open(os.path.join(tmp3, "hash-record.log"), "w", encoding="utf-8") as f:
                 f.write("launch sha256=%s\n" % ("b" * 64))
             # 纯文本 → 拒
@@ -4631,12 +4537,12 @@ def _self_test():
             assert _rej(lambda: require_evidence("python foo.py --out nope.json rc=0", tmp3)); checks += 1
             assert _rej(lambda: require_evidence("python foo.py --check rc=0 sha256", tmp3)); checks += 1
             # 审计 P0：哈希必须对得上本案（目标哈希 / 案件目录里记录过）；乱写的 64 hex 拒
-            assert require_evidence("a" * 64, tmp3); checks += 1
-            assert require_evidence("sha256:" + "b" * 64, tmp3); checks += 1
+            assert require_evidence(target_sha, tmp3); checks += 1
+            assert _rej(lambda: require_evidence("sha256:" + "b" * 64, tmp3)); checks += 1
             assert _rej(lambda: require_evidence("c" * 64, tmp3)); checks += 1
             assert _rej(lambda: require_evidence("sha256:" + "d" * 64, tmp3)); checks += 1
             # 账本编号：存在收 / 不存在拒（要读账本，不能崩）
-            assert require_evidence("见 C-001 的实测", tmp3); checks += 1
+            assert _rej(lambda: require_evidence("见 C-001 的实测", tmp3)); checks += 1
             assert _rej(lambda: require_evidence("见 C-999", tmp3)); checks += 1
             # 路径：存在收 / 不存在拒（原行为保留）
             with open(os.path.join(tmp3, "run.log"), "w", encoding="utf-8") as f:
@@ -4761,10 +4667,11 @@ def _self_test():
         # P0-2（第 3 轮评审）：repro 结构判据 = 结构完整 + 指纹像真 + 命令**真碰过目标**
         # （旧断言拿 `echo hi` 当正例 → 正是被评审打穿的口子，现按新语义改成反例）
         binfo = {"path": "D:/samples/target.bin", "name": "target.bin",
-                 "sha256": "ab" * 32}
-        base = {"kind": "repro", "cmd": "python t.py D:/samples/target.bin", "expect": "ok",
-                "runs": 2, "digests": ["0123456789abcdef", "0123456789abcdef"],
-                "consistent": True, "grade": "E2", "target": dict(binfo)}
+                 "sha256": "ab" * 32, "size": 0, "identity_scope": "file-bytes"}
+        base = {"schema": "seep-case-repro/2", "kind": "repro",
+                "cmd": "python t.py D:/samples/target.bin", "expect": "ok",
+                "runs": 2, "digests": ["ab" * 32, "ab" * 32], "returncodes": [0, 0],
+                "expect_ok": True, "consistent": True, "grade": "E2", "target": dict(binfo)}
         assert _is_complete_repro(base); checks += 1
         echo_rec = dict(base, cmd="echo hi", also_cmd="echo bye", grade="E3")
         assert not _is_complete_repro(echo_rec); checks += 1
@@ -4772,10 +4679,9 @@ def _self_test():
         # 哈希绑定要写成 `sha256:<前12位>`（只写裸哈希 = 看不出那是什么，不再算）
         assert _is_complete_repro(dict(base, cmd="python t.py sha256:abababababab")); checks += 1
         assert not _is_complete_repro(dict(base, cmd="python t.py abababababab")); checks += 1
-        # 第 4 轮评审 P0-1：**出现目标全路径也不行**，首个程序是 echo/cat 就一律不算
-        # （`echo D:/samples/target.bin` 只是把路径打出来，没读过目标）
+        # echo 回显不计；cat 可以读取文件。文本检查仍不认证真实读取。
         assert not _is_complete_repro(dict(base, cmd="echo D:/samples/target.bin")); checks += 1
-        assert not _is_complete_repro(dict(base, cmd="cat D:/samples/target.bin")); checks += 1
+        assert _is_complete_repro(dict(base, cmd="cat D:/samples/target.bin")); checks += 1
         # 只写 basename 不够（旧判据被 `echo target.bin` 打穿）
         assert not _is_complete_repro(dict(base, cmd="python t.py target.bin")); checks += 1
         # 解释器命令里根本没提目标（`python -c "print(1)"`）→ 规则①就不过
@@ -4784,7 +4690,9 @@ def _self_test():
         other = {"path": "D:/samples/other.bin", "name": "other.bin", "sha256": "cd" * 32}
         assert not _is_complete_repro(base, other); checks += 1
         # E3：两路都碰目标才算；第二路不碰 → 拒
-        e3 = dict(base, grade="E3", also_cmd="python t2.py D:/samples/target.bin")
+        e3 = dict(base, grade="E3", also_cmd="python t2.py D:/samples/target.bin",
+                  also_digests=["cd" * 32, "cd" * 32], also_returncodes=[0, 0],
+                  also_consistent=True, also_expect_ok=True)
         assert _is_complete_e3(e3); checks += 1
         assert not _is_complete_e3(dict(e3, also_cmd="echo bye")); checks += 1
         for k, v in (("cmd", ""), ("expect", ""), ("runs", 1),
@@ -4854,13 +4762,14 @@ def _self_test():
 
 
 
-# ─────────────────── 对话内 A/B/C 问人（唯一允许的问人方式） ───────────────────
+# ─────────────────── 对话内 A/B/C 决策卡（可选工具，不强制） ───────────────────
 #
-# 为什么不弹窗：弹窗（ask_user_question 那类）有三个问题 ——
+# 这类长决策卡的适用边界：弹窗/GUI（ask_user_question 那类）有三个问题 ——
 #   ① 选项只能 2–4 个、每项 ≤60 字，四要素长卡塞不进去；
 #   ② 它是一等工具调用，会把「等人」变成「一次工具往返」，上下文里留一堆结构化噪声；
-#   ③ 用户明确要求：就用对话框里列 A/B/C，他回一个字母。
-# 所以：卡写文件（给人复核）+ 正文里列 A/B/C（给人在对话里回）+ state 落 awaiting_human。
+#   ③ 有些宿主只支持纯对话，不能稳定渲染原生提问。
+# 因此提供可选方案：卡写文件 + 正文列 A/B/C + state 落 awaiting_human。
+# 只有在确实需要用户事实/选择时使用；能由模型在既有授权内自主完成的动作不要求发卡。
 
 def _ask_dir(case):
     d, _ = paths(case)
@@ -4869,8 +4778,9 @@ def _ask_dir(case):
     return p
 
 
+@case_recovering
 def cmd_ask(a):
-    """发一张对话内 A/B/C 卡，并把案子置为 awaiting_human。"""
+    """按需发一张对话内 A/B/C 决策卡，并把案子置为 awaiting_human。"""
     d, _ = paths(a.case)
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
@@ -4887,8 +4797,9 @@ def cmd_ask(a):
             parsed.append((m.group(1).upper(), m.group(2).strip()))
         else:
             parsed.append((chr(65 + len(parsed)), o.strip()))
+    if len({key for key, _ in parsed}) != len(parsed):
+        die("选项字母不能重复；每个选项需要唯一字母。")
 
-    ts = now().replace(":", "").replace("-", "")[:15]
     lines = ["# 需要你选（对话内回一个字母即可）", "",
              f"- 时间：{now()}",
              f"- 案子：{os.path.basename(d)}",
@@ -4904,18 +4815,20 @@ def cmd_ask(a):
         lines += ["", "## 我拿到什么", "", a.expect]
     lines += ["", "---", "", f"直接回 `{parsed[0][0]}` / `{parsed[1][0]}` …… 即可。"]
 
-    fp = os.path.join(_ask_dir(a.case), f"{ts}.md")
-    with open(fp, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
-
     st = load_state(a.case)
-    st["awaiting_human"] = {"since": now(), "card": fp, "stuck": a.stuck,
-                            "options": {k: v for k, v in parsed}, "ack": None}
-    save_state(a.case, st)
+    from lib.case_lifecycle import publish_question
+    try:
+        _invalidate_run_ack()
+    except OSError as exc:
+        print("[ERR] 新 ASK 未提交：无法使旧宿主回执失效（%s）。" % exc)
+        return 2
+    fp = publish_question(a.case, st, lines,
+                          {"since": now(), "stuck": a.stuck,
+                           "options": {k: v for k, v in parsed}, "ack": None}, _case_api())
 
-    # 给模型的下一个动作：把这段原样贴进对话（不要调弹窗工具）
+    # 给模型的下一个动作：把这段贴进对话；宿主已有等价结构化提问时可改用宿主能力。
     print("[ASK] 已生成卡片：%s" % fp)
-    print("[ASK] 下面这段**原样贴进对话**（本项目只用对话内选项，不用弹窗工具）：\n")
+    print("[ASK] 下面这段可直接贴进对话（不是强制提示词流程）：\n")
     print(f"【需要你选】{a.stuck}")
     for k, v in parsed:
         print(f"  {k}  {v}")
@@ -4929,7 +4842,7 @@ def cmd_ask(a):
     print("\n（回执后执行：python Tool/scripts/case_state.py ack --case %s --ack <字母>）" % a.case)
 
 
-def _write_run_ack(case, letter):
+def _write_run_ack(case, letter, challenge=""):
     """给扩展用的回执标记（P0-4 机检配套）：原子写 ~/.seep/run-ack.json。
 
     schema=seep.run-ack/1；case = 该案绝对路径；target_sha256 = case.json 的 target.sha256
@@ -4937,19 +4850,29 @@ def _write_run_ack(case, letter):
     """
     import datetime
     d = os.path.abspath(case) if case else ""
+    challenge = str(challenge or "").strip().lower()
+    if challenge and re.fullmatch(r"[0-9a-f]{64}", challenge) is None:
+        return ""
     sha = ""
     try:
-        cjp = os.path.join(d, "case.json") if d else ""
-        if cjp and os.path.isfile(cjp):
+        from pathlib import Path
+        from lib.case_repro import _local
+        cjp = _local(Path(d), "case.json") if d else None
+        if cjp is not None and cjp.is_file():
             with open(cjp, encoding="utf-8", errors="replace") as f:
-                meta = json.load(f)
-            tgt = meta.get("target") if isinstance(meta, dict) else None
+                meta = json.load(f, object_pairs_hook=_case_ledger._unique)
+            if not isinstance(meta, dict):
+                raise ValueError("case.json must be an object")
+            tgt = meta.get("target")
             if isinstance(tgt, dict):
                 sha = str(tgt.get("sha256") or "").strip().lower()
+                if sha and re.fullmatch(r"[0-9a-f]{64}", sha) is None:
+                    raise ValueError("case.json target sha256 is malformed")
     except (OSError, ValueError):
-        sha = ""
+        return ""
     payload = {"schema": "seep.run-ack/1", "case": d, "target_sha256": sha,
                "letter": letter,
+               "challenge": challenge,
                "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")}
     p = os.path.join(os.path.expanduser("~"), ".seep", "run-ack.json")
     try:
@@ -4960,6 +4883,17 @@ def _write_run_ack(case, letter):
         return ""
 
 
+def _invalidate_run_ack():
+    """Make the previous host marker unusable before publishing a new ASK."""
+    p = os.path.join(os.path.expanduser("~"), ".seep", "run-ack.json")
+    try:
+        os.remove(p)
+    except FileNotFoundError:
+        pass
+    return p
+
+
+@case_locked
 def cmd_ack(a):
     """记录用户回执，解除 awaiting_human；同时写扩展读的 run-ack 标记。"""
     lease_guard(a.case)
@@ -4967,16 +4901,28 @@ def cmd_ack(a):
     aw = st.get("awaiting_human")
     if not aw:
         die("当前没有等待中的卡（awaiting_human 为空）。先 ask。")
-    letter = a.ack.strip().upper()[:1]
+    letter = a.ack.strip().upper()
+    if not re.fullmatch("[A-Z]", letter):
+        die("回执必须是一个完整的选项字母。")
     opts = aw.get("options") or {}
     if opts and letter not in opts:
         die("回执 %r 不在选项里：%s" % (letter, " / ".join(opts.keys())))
-    aw["ack"] = letter
-    aw["acked_at"] = now()
-    st["awaiting_human"] = aw
-    st["next_action"] = "用户选了 %s：%s" % (letter, (opts.get(letter) or "")[:80])
-    backend = save_state(a.case, st)
-    rp = _write_run_ack(a.case, letter)
+    if aw.get("ack") and aw["ack"] != letter:
+        die("该卡已有不同回执；需要改变决定时先发新卡，保留原回执。")
+    backend = "facts.jsonl#state"
+    if not aw.get("ack"):
+        aw["ack"] = letter
+        aw["acked_at"] = now()
+        st["awaiting_human"] = aw
+        st["next_action"] = "用户选了 %s：%s" % (letter, (opts.get(letter) or "")[:80])
+        backend = save_state(a.case, st)
+    challenge = str(getattr(a, "challenge", "") or "").strip().lower()
+    if challenge and re.fullmatch(r"[0-9a-f]{64}", challenge) is None:
+        die("--challenge 必须是 64 位小写 SHA-256（十六进制）。")
+    rp = _write_run_ack(a.case, letter, challenge)
+    if not rp:
+        print("[ERR] 回执已落入案例账本，宿主标记写入失败；重试相同 ack 以恢复标记。")
+        return 2
     print("[ACK] 已记录：%s -> %s（%s）" % (letter, opts.get(letter, ""), backend))
     print("[ACK] run-ack：%s" % (rp or "（写失败，不影响回执）"))
     print("[ACK] 现在可以从断点继续，不需要重头再来。")
@@ -4986,8 +4932,8 @@ def cmd_ack(a):
 def cmd_replay(a):
     """状态重放 / 迁移 / 压缩：state 不存快照，只由账本 state 行重放。
 
-    --migrate      兼容旧调用（迁移已全部完成，现在只报告残留数量）
-    --drop-legacy  删除历史副本（state.json / ai_manifest.json，存在才删）
+    --migrate      保存旧文件原字节、登记摘要；无现行状态时导入 state.json
+    --drop-legacy  完成可恢复归档并核对后移除旧文件（历史内容仍保留）
     --compact      只保留最后一条 state 行（账本瘦身，claim/event 不动）
 
     为什么：快照与账本行是同一状态的两份副本，两端各自开局就会分叉；
@@ -4997,29 +4943,30 @@ def cmd_replay(a):
     if not os.path.isdir(d):
         die("case 目录不存在：%s" % d)
     if a.migrate or a.drop_legacy or a.compact:
-        lease_guard(a.case)
-    if a.migrate:
-        left = _legacy_files(a.case)
-        print("[SKIP] 无需迁移：状态已全在账本里（残留副本 %d 个，用 --drop-legacy 清理）" % len(left))
-    if a.drop_legacy:
-        left = _legacy_files(a.case)
-        for p in left:
-            os.remove(p)
-            print("[OK] 已删除历史副本：%s" % p)
-        if not left:
-            print("[SKIP] 没有历史副本可删")
-    if a.compact:
-        ledger = load_ledger(a.case)
-        idxs = [i for i, e in enumerate(ledger) if _entry_kind(e) == LEDGER_STATE_KIND]
-        if len(idxs) <= 1:
-            print("[SKIP] state 行 %d 条，无需压缩" % len(idxs))
-        else:
-            keep = idxs[-1]
-            out = [e for i, e in enumerate(ledger) if i not in set(idxs) or i == keep]
-            _atomic_write_text(fp, "".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out))
-            print("[OK] 账本压缩：state 行 %d → 1，总行 %d → %d" % (len(idxs), len(ledger), len(out)))
+        from lib.case_legacy import update
+        try:
+            archived = update(a.case, migrate=a.migrate, drop=a.drop_legacy, compact=a.compact,
+                              load_ledger=load_ledger, lease_guard=lease_guard)
+        except (OSError, ValueError, TimeoutError) as exc:
+            die_json("legacy-migration", str(exc))
+        for record in archived:
+            print("[OK] 历史原字节已归档：%s → %s（状态策略=%s；旧文件移除=%s）"
+                  % (record["source"], record["archive"], record["state_policy"], record["dropped"]))
+        if a.compact:
+            print("[OK] state 历史已压缩；保留行的原字节不变")
+        if (a.migrate or a.drop_legacy) and not archived:
+            print("[SKIP] 没有待迁移的历史文件")
 
-    ledger = load_ledger(a.case)
+    from pathlib import Path
+    from lib.case_legacy import validate_archives
+    from lib.project_transaction import pending
+    try:
+        if pending(Path(d)):
+            raise ValueError("迁移中断尚未恢复；重试 replay --migrate 或 --drop-legacy 后再读取")
+        ledger = load_ledger(a.case)
+        validate_archives(a.case, ledger)
+    except (OSError, ValueError) as exc:
+        die_json("legacy-migration", str(exc))
     st = load_state(a.case)
     claims = [e for e in ledger if _is_claim(e)]
     states = [e for e in ledger if _entry_kind(e) == LEDGER_STATE_KIND]
@@ -5081,8 +5028,15 @@ def _norm_case(raw, dirname):
 
 def scan_cases(root=None):
     """现算案例索引。返回 (entries, problems)；problems 非空 = 索引本身不可信。"""
+    from pathlib import Path
+    from lib.case_repro import _local, _plain
+    from lib.project_lock import project_lock
     root = root or cases_root()
     entries, problems = [], []
+    try:
+        _plain(Path(root))
+    except (OSError, ValueError) as exc:
+        return [], [str(exc)]
     if not os.path.isdir(root):
         return entries, ["案例目录不存在：%s" % root]
     seen = {}
@@ -5097,8 +5051,10 @@ def scan_cases(root=None):
                 problems.append("%s：缺 case.json" % name)
             continue
         try:
-            with open(cj, encoding="utf-8") as f:
-                raw = json.load(f)
+            case_root = _plain(Path(d))
+            with project_lock(case_root):
+                with _local(case_root, "case.json").open(encoding="utf-8") as f:
+                    raw = json.load(f, object_pairs_hook=_case_ledger._unique)
         except Exception as e:
             problems.append("%s：case.json 解析失败（%s）" % (name, str(e)[:60]))
             continue
@@ -5162,12 +5118,299 @@ def cmd_index(a):
 BAD_STATUSES = ("fail", "unknown", "unsupported", "truncated", "skipped")
 WEAK_CONFIDENCE = ("inferred", "unknown")
 STRONG_CONFIDENCE = ("observed", "derived")
+SEMANTIC_RC_RE = re.compile(
+    r"(?im)^.*\b(?:rc|exit(?:_code| code)?|returncode|return code)\s*[=:]\s*(-?\d+)\b.*$")
+SEMANTIC_ERROR_RE = re.compile(r"(?im)^\s*(?:\[ERROR\]|\[ERR\]|ERROR:)(?:\s|$)")
+SEMANTIC_TRACEBACK_RE = re.compile(r"(?m)^\s*Traceback \(most recent call last\):\s*$")
 
 
+def _contract_evidence_text(api, case, row, rows):
+    """Return strict-contract evidence as text plus the exact files inspected."""
+    from lib.case_evidence import resolve
+
+    identities, errors = [], []
+    for evidence in row.get("evidence") or []:
+        try:
+            identities.extend(resolve(api, case, evidence, rows=rows, strong=True))
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            errors.append("%s: %s" % (evidence, exc))
+    if not identities:
+        raise ValueError("strict evidence contract has no evidence file: %s"
+                         % "; ".join(errors[:3]))
+
+    texts, files = [], []
+    seen = set()
+    for identity in identities:
+        scope = identity.get("scope")
+        rel = str(identity.get("path") or "")
+        if scope == "case":
+            path = os.path.join(case, rel)
+        elif scope == "work":
+            path = os.path.join(REPO_ROOT, "work", rel)
+        elif scope == "target":
+            path = rel
+        else:
+            raise ValueError("invalid evidence scope in strict contract")
+        key = _norm_path(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        if not os.path.isfile(path):
+            raise ValueError("strict evidence file disappeared: %s" % rel)
+        size = os.path.getsize(path)
+        if size > 8 << 20:
+            raise ValueError("strict evidence file is too large to inspect as text: %s" % rel)
+        with open(path, "rb") as stream:
+            raw = stream.read()
+        if b"\x00" in raw:
+            raise ValueError("strict evidence must be textual, got binary file: %s" % rel)
+        try:
+            text = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = raw.decode("utf-8", errors="replace")
+        files.append(path)
+        texts.append("### FILE: %s\n%s" % (rel, text))
+    return "\n".join(texts), files
+
+
+def _allow_line(line, patterns):
+    return any(re.search(pattern, line) for pattern in patterns)
+
+
+def _semantic_contract_problems(api, case, row, rows):
+    """Mechanically check an opt-in strict evidence contract.
+
+    Schema (all fields optional except ``version``)::
+
+        "evidence_contract": {
+          "version": 1,
+          "require_text": ["literal output required by the claim"],
+          "require_regex": ["regex output required by the claim"],
+          "nonempty_sections": ["section heading"],
+          "allow_traceback": false,
+          "allow_nonzero_rc": false,
+          "allow_error_lines": false,
+          "reject_json_ok_false": true,
+          "allow_traceback_patterns": ["EXPECTED_TRACEBACK"],
+          "allow_nonzero_rc_patterns": ["negative control rc=2"],
+          "allow_error_line_patterns": ["EXPECTED ERROR"]
+        }
+
+    The contract is deliberately opt-in.  It is used where a log mixes safe and
+    failed subcommands: an excerpt from such a file must name the exact output it
+    relies on, and any unhandled failure needs an explicit human-readable
+    exception pattern.
+    """
+    contract = row.get("evidence_contract")
+    if contract is None:
+        return []
+    if not isinstance(contract, dict) or contract.get("version") != 1:
+        return ["evidence_contract must be a version-1 object"]
+    problems = []
+    list_fields = (
+        "require_text", "require_regex", "nonempty_sections",
+        "allow_traceback_patterns", "allow_nonzero_rc_patterns",
+        "allow_error_line_patterns",
+    )
+    for field in list_fields:
+        values = contract.get(field, [])
+        if not isinstance(values, list) or any(
+                not isinstance(value, str) or not value for value in values):
+            problems.append("%s must be an array of nonempty strings" % field)
+    for field in ("allow_traceback", "allow_nonzero_rc", "allow_error_lines",
+                  "reject_json_ok_false"):
+        if field in contract and not isinstance(contract[field], bool):
+            problems.append("%s must be boolean" % field)
+    if problems:
+        return problems
+    try:
+        text, files = _contract_evidence_text(api, case, row, rows)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        return [str(exc)]
+    if not files:
+        return ["strict contract resolved no files"]
+
+    for value in contract.get("require_text") or []:
+        if value not in text:
+            problems.append("required output is missing: %r" % value)
+    for value in contract.get("require_regex") or []:
+        try:
+            matched = re.search(value, text, re.MULTILINE)
+        except re.error as exc:
+            problems.append("invalid require_regex %r: %s" % (value, exc))
+            continue
+        if not matched:
+            problems.append("required regex output is missing: %r" % value)
+    for marker in contract.get("nonempty_sections") or []:
+        start = text.find(marker)
+        if start < 0:
+            problems.append("required output section is missing: %r" % marker)
+            continue
+        tail = text[start + len(marker):]
+        boundary = re.search(r"(?m)^#{2,3}\s+", tail)
+        body = (tail[:boundary.start()] if boundary else tail).strip()
+        if not body or body.lower() in ("(empty)", "empty", "<empty>"):
+            problems.append("required output section is empty: %r" % marker)
+
+    allow_tb = [str(x) for x in (contract.get("allow_traceback_patterns") or [])]
+    if not contract.get("allow_traceback", False):
+        for match in SEMANTIC_TRACEBACK_RE.finditer(text):
+            tail = text[match.end():]
+            next_heading = re.search(r"(?m)^#{2,3}\s+", tail)
+            block_tail = tail[:next_heading.start()] if next_heading else tail
+            block = match.group(0) + block_tail[:4000]
+            if not _allow_line(block, allow_tb):
+                problems.append("unhandled Traceback present in evidence")
+                break
+
+    allow_rc = [str(x) for x in (contract.get("allow_nonzero_rc_patterns") or [])]
+    if not contract.get("allow_nonzero_rc", False):
+        for match in SEMANTIC_RC_RE.finditer(text):
+            try:
+                rc = int(match.group(1))
+            except (TypeError, ValueError):
+                continue
+            if rc != 0 and not _allow_line(match.group(0), allow_rc):
+                problems.append("explicit non-zero return code in evidence: %s"
+                                % match.group(1))
+                break
+
+    allow_error = [str(x) for x in (contract.get("allow_error_line_patterns") or [])]
+    if not contract.get("allow_error_lines", False):
+        for match in SEMANTIC_ERROR_RE.finditer(text):
+            line_end = text.find("\n", match.start())
+            line = text[match.start():line_end if line_end >= 0 else len(text)]
+            if not _allow_line(line, allow_error):
+                problems.append("ERROR output present in evidence")
+                break
+
+    if contract.get("reject_json_ok_false", False) and re.search(
+            r'"ok"\s*:\s*false\b', text, re.IGNORECASE):
+        problems.append("structured evidence reports ok=false")
+    return problems
+
+
+def _semantic_evidence_problems(case, facts, rows):
+    api = _case_api()
+    return {
+        fact["id"]: problems
+        for fact in facts
+        if fact.get("status") == "proven"
+        for problems in [_semantic_contract_problems(api, case, fact, rows)]
+        if problems
+    }
+
+
+def _claim_evidence_problems(case, facts, rows=None):
+    from lib.case_evidence import claim_files
+    rows = load_ledger(case) if rows is None else rows
+    problems = {}
+    for fact in facts:
+        if fact.get("status") != "proven":
+            continue
+        try:
+            claim_files(_case_api(), case, fact, rows=rows, strong=False)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            problems[fact["id"]] = str(exc)
+    return problems
+
+
+def _acceptance_profile_problems(case, facts=None):
+    """Case-level shape checks that make named APK acceptance non-optional."""
+    try:
+        meta = _case_metadata(case, missing_ok=True)
+    except (OSError, ValueError) as exc:
+        return ["case.json unreadable: %s" % exc]
+    if meta is None:
+        return []
+    profile = str(meta.get("acceptance_profile") or "").strip()
+    if not profile:
+        return []
+    if profile != "apk-target/1":
+        return ["unknown acceptance_profile: %s" % profile]
+
+    problems, registered_paths = [], []
+    case_root = os.path.realpath(os.path.abspath(case))
+    target_root = os.path.realpath(os.path.join(case_root, "target"))
+    target = meta.get("target")
+    if not isinstance(target, dict):
+        problems.append("APK acceptance requires case.json target object")
+    else:
+        for key in ("path", "sha256", "size"):
+            if target.get(key) in (None, ""):
+                problems.append("APK acceptance requires target.%s" % key)
+        sha = str(target.get("sha256") or "").strip().lower()
+        if sha and not re.fullmatch(r"[0-9a-f]{64}", sha):
+            problems.append("target.sha256 is malformed")
+        size = target.get("size")
+        if size not in (None, "") and (
+                isinstance(size, bool) or not isinstance(size, int) or size < 0):
+            problems.append("target.size must be a non-negative integer")
+        registered_paths.append(("target", target))
+
+    files = meta.get("target_files")
+    if not isinstance(files, list) or not files:
+        problems.append("APK acceptance requires non-empty target_files[]")
+    else:
+        for index, item in enumerate(files):
+            if not isinstance(item, dict):
+                problems.append("target_files[%d] must be an object" % index)
+                continue
+            for key in ("path", "sha256", "size"):
+                if item.get(key) in (None, ""):
+                    problems.append("target_files[%d].%s is required" % (index, key))
+            registered_paths.append(("target_files[%d]" % index, item))
+            sha = str(item.get("sha256") or "").strip().lower()
+            if sha and not re.fullmatch(r"[0-9a-f]{64}", sha):
+                problems.append("target_files[%d].sha256 is malformed" % index)
+            size = item.get("size")
+            if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+                problems.append("target_files[%d].size must be a non-negative integer"
+                                % index)
+    for source, item in registered_paths:
+        raw = str(item.get("path") or "").strip()
+        if not raw:
+            continue
+        if os.path.isabs(raw) or URL_RE.match(raw):
+            problems.append("APK acceptance %s.path must be case-relative" % source)
+            continue
+        resolved = os.path.realpath(os.path.join(case_root, raw))
+        try:
+            inside = os.path.commonpath([resolved, target_root]) == target_root
+        except ValueError:
+            inside = False
+        if not inside:
+            problems.append("APK acceptance %s.path must stay under case target/" % source)
+    if profile and facts is not None:
+        for fact in facts:
+            if str(fact.get("status") or "").strip().lower() != "proven":
+                continue
+            contract = fact.get("evidence_contract")
+            if not isinstance(contract, dict) or contract.get("version") != 1:
+                problems.append(
+                    "APK proven claim %s requires evidence_contract version 1"
+                    % fact.get("id"))
+                continue
+            checks = (
+                contract.get("require_text"),
+                contract.get("require_regex"),
+                contract.get("nonempty_sections"),
+            )
+            if not any(isinstance(value, list) and value for value in checks):
+                problems.append(
+                    "APK proven claim %s requires a machine-checkable output assertion"
+                    % fact.get("id"))
+    return problems
+
+
+@_case_ledger.locked
 def verify_case(case):
     """单案聚合：返回 {verdict: pass|fail|unknown, reasons, counts}。"""
     facts = load_facts(case)
     st = load_state(case)
+    rows = load_ledger(case)
+    evidence_errors = _claim_evidence_problems(case, facts, rows)
+    semantic_errors = _semantic_evidence_problems(case, facts, rows)
     counts = {k: 0 for k in CONFIDENCE_STATES}
     bad, stale, weak, noauth = {}, [], [], []
     for f in facts:
@@ -5181,18 +5424,31 @@ def verify_case(case):
         if status == "proven":
             if conf in WEAK_CONFIDENCE:
                 weak.append("%s(%s)" % (f.get("id"), conf))
-            if str(f.get("authority") or "none").strip().lower() in ("", "none"):
+            if str(f.get("authority") or "none").strip().lower() in ("", "none", "reported"):
                 noauth.append(str(f.get("id")))
     proven = sum(1 for f in facts if str(f.get("status") or "").lower() == "proven")
-    strong = sum(1 for f in facts
-                 if str(f.get("status") or "").lower() == "proven"
-                 and _norm_confidence(f.get("confidence")) in STRONG_CONFIDENCE
-                 and str(f.get("authority") or "none").strip().lower() not in ("", "none"))
+    from lib.case_evidence import claim_files
+    strong = 0
+    for fact in facts:
+        if fact["status"] != "proven" or _norm_confidence(fact.get("confidence")) not in STRONG_CONFIDENCE \
+                or fact.get("authority") not in ("shipped-artifact", "controlled-replay", "external-service"):
+            continue
+        try:
+            claim_files(_case_api(), case, fact, rows=rows)
+            strong += 1
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            evidence_errors[fact["id"]] = str(exc)
     fail_reasons, unknown_reasons = [], []
+    profile_errors = _acceptance_profile_problems(case, facts)
+    fail_reasons.extend("acceptance profile: %s" % problem
+                        for problem in profile_errors)
     for k in sorted(bad):
         fail_reasons.append("%s=%d（任一非零即不得 pass）" % (k, bad[k]))
     if stale:
         fail_reasons.append("stale 未复验：" + "、".join(stale))
+    fail_reasons.extend("%s evidence: %s" % item for item in evidence_errors.items())
+    fail_reasons.extend("%s semantic evidence: %s" % item
+                        for item in semantic_errors.items())
     if not facts:
         unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
     elif not proven:
@@ -5201,14 +5457,16 @@ def verify_case(case):
     # 判据（与 pack.json 的 evidence_contract.pass_forbids_confidence 一致）：
     #   pass = 无 fail 类状态 + ≥1 条 observed/derived 背书；inferred/unknown 的 proven 只进 excluded。
     excluded = weak + noauth
-    if not facts:
-        unknown_reasons.append("账本无 claim（facts 为空）→ unknown，不得计 pass")
-    elif strong == 0:
+    if facts and strong == 0:
         unknown_reasons.append("没有 observed/derived 背书（%d 条 claim 全是 inferred/unknown）" % len(facts))
     verdict = "fail" if fail_reasons else ("unknown" if unknown_reasons else "pass")
     return {"case": os.path.basename(os.path.abspath(case)), "verdict": verdict,
             "claims": len(facts), "proven": proven, "strong": strong,
             "confidence": counts, "bad": bad, "stale": stale, "excluded": excluded,
+             "evidence_errors": evidence_errors,
+             "semantic_errors": semantic_errors,
+             "acceptance_profile_errors": profile_errors,
+             "evidence_scope": "recorded bytes where bound; otherwise current local material only",
             "reasons": fail_reasons + unknown_reasons,
             "state_verdict": st.get("verdict"), "stage": st.get("stage")}
 
@@ -5222,26 +5480,22 @@ def cmd_verify(a):
       * 无 claim / 无 proven / proven 的 confidence ∈ {inferred,unknown} 或 authority=none → unknown
       * 全部 proven 且 confidence ∈ {observed,derived} 且 authority 非 none → pass
     """
+    problems = []
     if getattr(a, "all", False):
         root = cases_root()
-        targets = []
-        if os.path.isdir(root):
-            for name in sorted(os.listdir(root)):
-                d = os.path.join(root, name)
-                if not os.path.isdir(d) or name.startswith("."):
-                    continue
-                if not os.path.isfile(os.path.join(d, "case.json")):
-                    continue
-                targets.append(d)
+        entries, problems = scan_cases(root)
+        targets = [os.path.join(root, entry["dir"]) for entry in entries]
     else:
         if not (getattr(a, "case", "") or "").strip():
             die("verify 需要 --case <目录> 或 --all")
         targets = [a.case]
     results = [verify_case(t) for t in targets]
     if getattr(a, "json", False):
-        print(json.dumps({"schema": "seep.verify/1", "results": results},
+        print(json.dumps({"schema": "seep.verify/1", "results": results, "problems": problems},
                          ensure_ascii=False, indent=2))
     else:
+        for problem in problems:
+            print("[FAIL] 案例索引：%s" % problem)
         for r in results:
             mark = {"pass": "PASS", "fail": "FAIL", "unknown": "UNKNOWN"}[r["verdict"]]
             print("[%s] %-22s claim %d（proven %d / 背书 %d）conf=%s state=%s stage=%s" % (
@@ -5258,7 +5512,161 @@ def cmd_verify(a):
         n_unk = sum(1 for r in results if r["verdict"] == "unknown")
         print("[VERIFY] %d 个案子：pass %d / fail %d / unknown %d（unknown 永不计 pass）"
               % (len(results), n_pass, n_fail, n_unk))
-    return 0 if all(r["verdict"] == "pass" for r in results) else 1
+    return 0 if results and not problems and all(r["verdict"] == "pass" for r in results) else 1
+
+
+def _receipt_for_case(case_name, receipt_path=""):
+    """Resolve one existing verification receipt without inventing a new delivery."""
+    if receipt_path:
+        path = receipt_path if os.path.isabs(receipt_path) else os.path.join(REPO_ROOT, receipt_path)
+        return os.path.abspath(path)
+    directory = os.path.join(REPO_ROOT, "docs", "verification")
+    if not os.path.isdir(directory):
+        return ""
+    prefix = case_name + "-"
+    found = sorted(
+        os.path.join(directory, name)
+        for name in os.listdir(directory)
+        if name.startswith(prefix) and name.endswith(".json")
+    )
+    return found[-1] if found else ""
+
+
+def _receipt_hash_sources(case_dir, registered):
+    """Rehash only sources already bound by the receipt, before any receipt write."""
+    if not isinstance(registered, dict) or not registered:
+        die("回执的 source_sha256 必须是非空对象；不能凭空创建交付证据")
+    case_root = os.path.realpath(os.path.abspath(case_dir))
+    hashes = {}
+    for relative, declared in sorted(registered.items()):
+        if not isinstance(relative, str) or not relative.strip() or "\0" in relative:
+            die("source_sha256 含无效路径")
+        if os.path.isabs(relative) or URL_RE.match(relative):
+            die("source_sha256 只接受案例内相对路径：%s" % relative)
+        if not isinstance(declared, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", declared):
+            die("source_sha256.%s 不是 64 位 SHA-256" % relative)
+        path = os.path.realpath(os.path.join(case_root, relative.replace("/", os.sep)))
+        try:
+            inside = os.path.commonpath([case_root, path]) == case_root
+        except ValueError:
+            inside = False
+        if not inside or path == case_root:
+            die("source_sha256.%s 越出案例目录" % relative)
+        if os.path.islink(os.path.join(case_dir, relative.replace("/", os.sep))):
+            die("source_sha256.%s 不得经过链接" % relative)
+        if not os.path.isfile(path):
+            die("source_sha256.%s 不存在或不是普通文件" % relative)
+        digest = hashlib.sha256()
+        try:
+            with open(path, "rb") as stream:
+                for chunk in iter(lambda: stream.read(1 << 20), b""):
+                    digest.update(chunk)
+        except OSError as exc:
+            die("source_sha256.%s 无法读取：%s" % (relative, exc))
+        hashes[relative] = digest.hexdigest()
+    if "facts.jsonl" not in hashes:
+        die("回执必须绑定本案 facts.jsonl")
+    return hashes
+
+
+def cmd_receipt_refresh(a):
+    """Refresh an existing receipt from current bytes, preserving its audit history.
+
+    This command does not run a target or create evidence.  It only recomputes the
+    claim cohort and the hashes already registered by the receipt, then records the
+    previous final/hash pair and the operator's reason in audit_corrections.
+    """
+    case_dir = os.path.abspath(a.case)
+    if not os.path.isdir(case_dir):
+        die("case 目录不存在：%s" % case_dir)
+    reason = str(getattr(a, "reason", "") or "").strip()
+    if not reason:
+        die("receipt-refresh 必须用 --reason 说明为什么刷新")
+    case_name = os.path.basename(case_dir)
+    receipt_path = _receipt_for_case(case_name, getattr(a, "receipt", "") or "")
+    if not receipt_path or not os.path.isfile(receipt_path):
+        die("找不到 %s 的既有 verification receipt（不会自动创建）" % case_name)
+    if os.path.islink(receipt_path):
+        die("verification receipt 不得经过链接")
+    try:
+        with open(receipt_path, encoding="utf-8") as stream:
+            receipt = json.load(stream, object_pairs_hook=_case_ledger._unique)
+    except (OSError, ValueError) as exc:
+        die("verification receipt 无法读取：%s" % exc)
+    if not isinstance(receipt, dict):
+        die("verification receipt 顶层必须是对象")
+    if receipt.get("schema") != "seep.verification/1" or receipt.get("case") != case_name:
+        die("verification receipt 的 schema/case 与当前案例不一致")
+    cohorts = receipt.get("cohorts")
+    if not isinstance(cohorts, dict) or not isinstance(cohorts.get("baseline"), dict) \
+            or not isinstance(cohorts.get("final"), dict):
+        die("verification receipt 缺 cohorts.baseline/final")
+    for key in ("problem", "interpretation"):
+        if not isinstance(receipt.get(key), str) or not receipt[key].strip():
+            die("verification receipt 的 %s 必须是非空字符串" % key)
+
+    result = verify_case(case_dir)
+    new_final = {
+        "claims": result["claims"],
+        "proven": result["proven"],
+        "strong": result["strong"],
+        "verdict": result["verdict"],
+    }
+    old_final = dict(cohorts["final"])
+    old_hashes = receipt.get("source_sha256")
+    new_hashes = _receipt_hash_sources(case_dir, old_hashes)
+    counts_equal = all(old_final.get(key) == value for key, value in new_final.items())
+    hashes_equal = old_hashes == new_hashes
+    refreshed = not (counts_equal and hashes_equal)
+    if refreshed:
+        corrections = receipt.get("audit_corrections")
+        if corrections is None:
+            corrections = []
+        if not isinstance(corrections, list):
+            die("verification receipt 的 audit_corrections 必须是数组")
+        corrections = list(corrections)
+        corrections.append({
+            "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "kind": "receipt-byte-refresh",
+            "reason": reason,
+            "previous_final": old_final,
+            "previous_source_sha256": old_hashes,
+            "new_final": new_final,
+            "new_source_sha256": new_hashes,
+            "validation": (
+                "case_state.verify_case recomputed the claim cohort; SHA-256 was "
+                "recomputed from current case bytes"
+            ),
+            "new_target_measurements": False,
+            "target_executed": False,
+        })
+        receipt["cohorts"]["final"] = new_final
+        receipt["source_sha256"] = new_hashes
+        receipt["audit_corrections"] = corrections
+        _atomic_write_text(
+            receipt_path,
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
+        )
+
+    payload = {
+        "ok": True,
+        "case": case_name,
+        "receipt": os.path.abspath(receipt_path),
+        "refreshed": refreshed,
+        "previous_final": old_final,
+        "final": new_final,
+        "source_sha256": new_hashes,
+        "target_executed": False,
+        "new_target_measurements": False,
+    }
+    if getattr(a, "json", False):
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print("[%s] %s" % ("REFRESHED" if refreshed else "CURRENT", receipt_path))
+        print("  final: claims=%d proven=%d strong=%d verdict=%s" % (
+            new_final["claims"], new_final["proven"], new_final["strong"],
+            new_final["verdict"]))
+    return 0
 
 
 def main():
@@ -5417,9 +5825,9 @@ def main():
     p.add_argument("--case", default=""); p.add_argument("--id", default="")
     p.add_argument("--cmd", default=""); p.add_argument("--expect", default="")
     p.add_argument("--runs", type=int, default=2); p.add_argument("--timeout", type=int, default=300)
-    p.add_argument("--also-cmd", dest="also_cmd", default="", help="第二路独立命令（一致则 E3 交叉验证）")
+    p.add_argument("--also-cmd", dest="also_cmd", default="", help="第二路不同命令（两路各至少两次成功、一致、命中预期才可 E3；不认证实现独立）")
     p.add_argument("--out", default="",
-                   help="产物目录（必须在案件目录内）：每跑一次把 stdout/stderr 落盘，sha256 入账")
+                   help="捕获目录（须在案件目录内，无链接）；默认 capture/repro，两路 stdout/stderr 和退出码均入库")
     p.add_argument("--adhoc", default="",
                    help="不带 --case 时的 adhoc 原因（不绑目标、标 [ADHOC]、不得用于交付）")
     p.set_defaults(func=cmd_repro)
@@ -5438,9 +5846,13 @@ def main():
     p = sub.add_parser("deliver"); p.add_argument("--case", required=True)
     p.add_argument("--level", required=True); p.add_argument("--evidence", "--ev", dest="evidence", required=True)
     p.add_argument("--note", default="")
+    p.add_argument("--acceptance-project", dest="acceptance_project", default="",
+                   help="端到端交付项目目录（其 E4 验收链是唯一来源）")
+    p.add_argument("--acceptance-version", dest="acceptance_version", default="",
+                   help="端到端交付绑定的项目版本")
     p.set_defaults(func=cmd_deliver)
 
-    p = sub.add_parser("ask", help="发一张对话内 A/B/C 卡（唯一允许的问人方式，不用弹窗）")
+    p = sub.add_parser("ask", help="按需发一张对话内 A/B/C 决策卡（可选，不强制）")
     p.add_argument("--case", required=True)
     p.add_argument("--stuck", required=True, help="一句话：卡在哪")
     p.add_argument("--option", action="append", help='形如 "A 你自己双击启动目标"；至少两个')
@@ -5449,15 +5861,16 @@ def main():
     p.add_argument("--expect", default="", help="我拿到什么")
     p.set_defaults(func=cmd_ask)
 
-    p = sub.add_parser("ack", help="记录用户回执（回一个字母），解除 awaiting_human")
+    p = sub.add_parser("ack", help="记录决策卡回执（回一个字母），解除 awaiting_human")
     p.add_argument("--case", required=True)
     p.add_argument("--ack", required=True)
+    p.add_argument("--challenge", default="", help="系统级临时放行所批准命令的 SHA-256")
     p.set_defaults(func=cmd_ack)
 
     p = sub.add_parser("replay", help="状态重放：state 不存快照，由账本 state 行重放（--migrate/--drop-legacy/--compact）")
     p.add_argument("--case", required=True)
-    p.add_argument("--migrate", action="store_true", help="兼容旧调用：迁移已完成，只报残留数量")
-    p.add_argument("--drop-legacy", dest="drop_legacy", action="store_true", help="删除历史副本（state.json / ai_manifest.json）")
+    p.add_argument("--migrate", action="store_true", help="归档旧文件原字节并登记；仅无当前状态时导入 state.json")
+    p.add_argument("--drop-legacy", dest="drop_legacy", action="store_true", help="核对可恢复归档后移除旧副本（state.json / ai_manifest.json）")
     p.add_argument("--compact", action="store_true", help="只保留最后一条 state 行（claim/event 不动）")
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_replay)
@@ -5479,6 +5892,17 @@ def main():
                        help="重算目标原件 sha256 并与建案时登记的指纹对账（变了/移了就 rc=2）")
     p.add_argument("--case", required=True)
     p.set_defaults(func=cmd_verify_origin)
+
+    p = sub.add_parser(
+        "receipt-refresh",
+        help="按当前事实账和既有回执绑定文件重算回执；不运行目标、不新建交付证据",
+    )
+    p.add_argument("--case", required=True)
+    p.add_argument("--receipt", default="",
+                   help="指定既有回执（默认 docs/verification/<case>-*.json 最新一份）")
+    p.add_argument("--reason", required=True, help="为什么当前字节变化后需要刷新")
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_receipt_refresh)
 
     p = sub.add_parser("show"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_show)
     p = sub.add_parser("resume"); p.add_argument("--case", required=True); p.set_defaults(func=cmd_resume)

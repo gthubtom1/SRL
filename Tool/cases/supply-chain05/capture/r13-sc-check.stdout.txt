@@ -1,0 +1,118 @@
+{
+  "schema": "seep.sc-check/1",
+  "tool": {
+    "name": "sc-check.py",
+    "version": "1.1.0",
+    "mode": "offline-static",
+    "safe": true,
+    "guarantees": [
+      "read-only",
+      "no network",
+      "no build",
+      "excludes node_modules/vendor/.git"
+    ]
+  },
+  "target": {
+    "path": "Tool/cases/supply-chain05/target",
+    "files_scanned": 1,
+    "truncated": false
+  },
+  "ok": true,
+  "summary": {
+    "risks": {
+      "critical": 0,
+      "high": 1,
+      "medium": 2,
+      "low": 0,
+      "info": 0
+    },
+    "risks_total": 3,
+    "high_or_critical": 1,
+    "rule_hits_total": 0,
+    "ecosystems": [
+      "npm"
+    ]
+  },
+  "inventory": {
+    "manifests": [
+      {
+        "path": "package.json",
+        "ecosystem": "npm"
+      }
+    ],
+    "locks": [],
+    "dockerfiles": [],
+    "compose": [],
+    "workflows": [],
+    "gitlab": [],
+    "jenkins": [],
+    "npmrc": [],
+    "pipconf": [],
+    "nuget": [],
+    "dockerignore": []
+  },
+  "risks": [
+    {
+      "id": "SC-001",
+      "level": "high",
+      "category": "lockfile",
+      "file": "package.json",
+      "line": null,
+      "evidence": "114 个依赖，但同目录/祖先目录没有 package-lock.json / yarn.lock / pnpm-lock.yaml",
+      "why": "无锁文件时安装结果随 registry 漂移，无法复现 SBOM，也无法校验完整性。",
+      "fix": "提交锁文件并在 CI 中用 npm ci / yarn --frozen-lockfile / pnpm --frozen-lockfile。",
+      "confidence": "high"
+    },
+    {
+      "id": "SC-002",
+      "level": "medium",
+      "category": "dependency-confusion",
+      "file": "package.json",
+      "line": null,
+      "evidence": "scopes=@ai-sdk, @cyclonedx, @eslint, @fontsource, @istanbuljs, @types；.npmrc 未为这些 scope 指定 registry（default=npmjs）",
+      "why": "私有 scope 未锁定 registry 时，同名公共包可能被优先解析（依赖混淆）。",
+      "fix": "在 .npmrc 写 @scope:registry=<private>，并对公共包做 scope 隔离。",
+      "confidence": "medium"
+    },
+    {
+      "id": "SC-003",
+      "level": "medium",
+      "category": "version-range",
+      "file": "package.json",
+      "line": null,
+      "evidence": "110 条宽范围，例如 @ai-sdk/openai-compatible@^2.0.35; @cyclonedx/cyclonedx-npm@^2.0.0||^3.0.0||^4.00; @eslint/js@^9.33.0; @fontsource/roboto@^5.2.9; @istanbuljs/nyc-config-typescript@^1.0.2; @types/clarinet@^0.12.3; @types/compression@^1.8.1; @types/config@^3.3.5",
+      "why": "宽范围会随时间拉入新的传递依赖，构建不可复现。",
+      "fix": "锁文件 + 定期受控升级；关键依赖用精确版本。",
+      "confidence": "medium"
+    }
+  ],
+  "rule_hits": [],
+  "degraded": [
+    {
+      "tool": "syft",
+      "fallback": "未安装：本次只做清单/锁文件盘点；SBOM 需人工用 syft/cdxgen 生成。"
+    },
+    {
+      "tool": "SCA",
+      "fallback": "osv-scanner/grype/trivy 均缺失：CVE 命中需人工到 OSV/GHSA 按版本比对，不能据此判洞。"
+    },
+    {
+      "tool": "cosign",
+      "fallback": "未安装：镜像签名/来源证明需人工用 cosign verify 或发布页校验。"
+    }
+  ],
+  "missing_tools": [
+    "syft",
+    "osv-scanner",
+    "grype",
+    "trivy",
+    "cosign",
+    "semgrep",
+    "docker"
+  ],
+  "limits": {
+    "max_files": 20000,
+    "max_depth": 8,
+    "note": "静态线索；可达 CVE、实际签名与镜像层需人工/外部工具复核。"
+  }
+}

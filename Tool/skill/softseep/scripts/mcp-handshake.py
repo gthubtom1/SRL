@@ -43,6 +43,13 @@
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import asyncio
 import hashlib
@@ -60,19 +67,13 @@ from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 def _repo_root(start):
-    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
-    d = os.path.abspath(start)
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "Tool", "cases")):
-            return d
-        nd = os.path.dirname(d)
-        if nd == d:
-            break
-        d = nd
-    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+    return _seep_repo_root(__file__)
 
 
 REPO = _repo_root(HERE)
+sys.path.insert(0, os.path.join(REPO, "Tool", "scripts"))
+from lib import mcp_http
+from lib.runtime_root import resolve_agent_root
 DEFAULT_OUT = os.path.join(REPO, "Tool", "config", "packs.baseline.json")
 
 STDIO_TIMEOUT = 30          # stdio 握手硬超时（秒）
@@ -109,8 +110,16 @@ def sha256_file(path: str) -> str | None:
 
 
 def agent_mcp_json() -> str:
-    """~/.pi/agent/mcp.json —— 盘符不写死，从 HOME 推。"""
-    return os.path.join(os.path.expanduser("~"), ".pi", "agent", "mcp.json")
+    """Selected AgentRoot's mcp.json, resolved through the shared locator."""
+    return str(resolve_agent_root() / "mcp.json")
+
+
+def local_state_dir() -> str:
+    """Tool discovery state directory, with an explicit isolation override."""
+    override = (os.environ.get("SEEP_LOCAL_STATE_DIR") or "").strip()
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
+    return os.path.join(os.path.expanduser("~"), ".seep")
 
 
 def portable_path(path: str) -> str:
@@ -150,7 +159,7 @@ def server_dirs(name: str) -> list[str]:
     dirs += _env_dirs(name)
 
     # tool-run.ps1 的路径缓存（注意两个坑：UTF-8 BOM、值是对象不是字符串）
-    cache = os.path.join(os.path.expanduser("~"), ".seep", "tool-paths.json")
+    cache = os.path.join(local_state_dir(), "tool-paths.json")
     try:
         with open(cache, encoding="utf-8-sig") as f:
             entry = (json.load(f) or {}).get(name)
@@ -162,18 +171,11 @@ def server_dirs(name: str) -> list[str]:
     except Exception:
         pass
 
-    # PATH 上的同名可执行文件反推目录（where 在 Windows，which 兜底其他平台）
-    for probe in (["where", f"{name}.exe"], [f"{name}.exe"]):
-        try:
-            r = subprocess.run(probe, capture_output=True, timeout=8)
-            first = (r.stdout or b"").decode("utf-8", "replace").splitlines()
-            if first and os.path.isfile(first[0].strip()):
-                d = os.path.dirname(first[0].strip())
-                if d:
-                    dirs.append(d)
-                break
-        except Exception:
-            continue
+    # Resolve PATH without executing the target merely to learn its location.
+    for candidate in (name, f"{name}.exe"):
+        exe = shutil.which(candidate)
+        if exe:
+            dirs.append(os.path.dirname(os.path.abspath(exe)))
 
     # 去重且保序
     seen: set[str] = set()
@@ -224,7 +226,7 @@ def _stdio_target(entry: dict) -> str | None:
     """
     args = [a for a in (entry.get("args") or []) if isinstance(a, str)]
     for a in args:
-        p = a if os.path.isabs(a) else os.path.abspath(a)
+        p = a if os.path.isabs(a) else os.path.abspath(os.path.join(entry.get("cwd") or os.curdir, a))
         if os.path.isfile(p) and os.path.splitext(p)[1].lower() in (
             ".py", ".js", ".mjs", ".cjs", ".ts", ".jar", ".ps1", ".cmd", ".bat", ".exe",
         ):
@@ -323,19 +325,22 @@ def _parse_body(raw: bytes, ctype: str) -> dict | None:
         return None
 
 
-def _post(url: str, body: bytes, token: str, session: str | None = None) -> tuple[int, str, dict, bytes]:
+def _post(url: str, body: bytes, token: str, session: str | None = None,
+          extra_headers: dict | None = None) -> tuple[int, str, dict, bytes]:
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json, text/event-stream",
     }
     if token:
         headers["Authorization"] = f"Bearer {token}"
+    headers.update(extra_headers or {})
     if session:
         headers["Mcp-Session-Id"] = session
     req = urllib.request.Request(url, data=body, method="POST", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as r:
-            return r.status, r.headers.get("Content-Type", ""), dict(r.headers), r.read()
+            raw = mcp_http.read_response(r, json.loads(body).get("id"), HTTP_TIMEOUT)
+            return r.status, r.headers.get("Content-Type", ""), dict(r.headers), raw
     except urllib.error.HTTPError as e:
         return e.code, e.headers.get("Content-Type", ""), dict(e.headers), e.read()
     except Exception as e:
@@ -345,54 +350,21 @@ def _post(url: str, body: bytes, token: str, session: str | None = None) -> tupl
 
 def handshake_http(name: str, entry: dict) -> dict:
     url = entry["url"]
-    token = auth_token(name)
-    # 1) initialize（协议版本从新到旧试）
-    init_res, session, last_err = None, None, ""
-    for pv in PROTO_VERSIONS:
-        params = {"protocolVersion": pv, "capabilities": {}, "clientInfo": CLIENT_INFO}
-        status, ctype, hdrs, raw = _post(url, _rpc_body("initialize", params, 1), token)
-        body = _parse_body(raw, ctype)
-        if status == 200 and isinstance(body, dict) and "result" in body:
-            init_res = body["result"]
-            for k, v in hdrs.items():
-                if k.lower() == "mcp-session-id":
-                    session = v
-            break
-        last_err = f"initialize HTTP {status}: {raw[:160].decode('utf-8', 'replace')}"
-        if status in (401, 403):
-            last_err += "（鉴权失败：AuthToken 缺失或过期）"
-            break
-    if init_res is None:
-        raise RuntimeError(last_err or "initialize 无响应")
+    headers = mcp_http.config_headers(entry)
+    token = "" if mcp_http.header_value(headers, "authorization") else auth_token(name)
 
-    # 2) notifications/initialized（服务器可能回 202/204，属正常）
-    try:
-        _post(url, _rpc_body("notifications/initialized", None, None), token, session)
-    except ConnectionError:
-        pass
+    def post(payload, headers, session):
+        status, ctype, received, raw = _post(url, json.dumps(payload).encode("utf-8"),
+                                            token, session, headers)
+        return status, received, raw
 
-    # 3) tools/list（带分页）
-    tools: list[dict] = []
-    cursor = None
-    rid = 2
-    while True:
-        params = {"cursor": cursor} if cursor else {}
-        status, ctype, _, raw = _post(url, _rpc_body("tools/list", params, rid), token, session)
-        body = _parse_body(raw, ctype)
-        if status != 200 or not isinstance(body, dict) or "result" not in body:
-            raise RuntimeError(f"tools/list HTTP {status}: {raw[:160].decode('utf-8', 'replace')}")
-        tools.extend((body["result"] or {}).get("tools") or [])
-        cursor = (body["result"] or {}).get("nextCursor")
-        rid += 1
-        if not cursor:
-            break
-
-    si = init_res.get("serverInfo") or {}
+    result = mcp_http.handshake(post, headers, CLIENT_INFO, PROTO_VERSIONS)
+    tools, si = result["tools"], result["serverInfo"]
     return {
         "state": "ok",
         "transport": "http",
         "serverInfo": {"name": si.get("name"), "version": si.get("version")},
-        "protocolVersion": init_res.get("protocolVersion"),
+        "protocolVersion": result["protocolVersion"],
         "toolsCount": len(tools),
         "toolNames": [t.get("name") for t in tools][:200],
     }
@@ -441,7 +413,7 @@ async def _stdio_probe(entry: dict) -> dict:
     cmd = entry.get("command")
     cmd = _resolve_command(cmd) if isinstance(cmd, str) else cmd
     cmd, args = _win_batch_wrap(cmd, [str(a) for a in (entry.get("args") or [])])
-    params = StdioServerParameters(command=cmd, args=args, env=env)
+    params = StdioServerParameters(command=cmd, args=args, env=env, cwd=entry.get("cwd"))
 
     async def run() -> dict:
         # 子进程 stderr 不往控制台刷（否则 pydantic 警告 + server INFO 日志会把报告冲乱），
@@ -451,8 +423,18 @@ async def _stdio_probe(entry: dict) -> dict:
             async with stdio_client(params, errlog=errlog) as (read, write):
                 async with ClientSession(read, write) as session:
                     init = await session.initialize()
-                    listed = await session.list_tools()
-                    tools = list(getattr(listed, "tools", []) or [])
+                    tools, cursor, seen = [], None, set()
+                    for _ in range(mcp_http.MAX_PAGES):
+                        listed = await session.list_tools(cursor=cursor)
+                        tools.extend(listed.tools)
+                        cursor = listed.nextCursor
+                        if cursor is None:
+                            break
+                        if not cursor or cursor in seen:
+                            raise RuntimeError("tools/list 返回空或重复 cursor")
+                        seen.add(cursor)
+                    else:
+                        raise RuntimeError("tools/list 超过分页上限")
                     si = getattr(init, "serverInfo", None)
                     return {
                         "state": "ok",
@@ -499,9 +481,11 @@ def transport_of(entry: dict) -> str:
     t = str(entry.get("transport") or "").lower()
     if t in ("http", "streamable-http", "sse"):
         return "http"
-    if t in ("stdio", ""):
+    if t == "stdio":
+        return "stdio"
+    if not t:
         return "http" if entry.get("url") else "stdio"
-    return "http" if entry.get("url") else "stdio"
+    return "invalid"
 
 
 def probe_one(name: str, entry: dict) -> dict:
@@ -518,6 +502,8 @@ def probe_one(name: str, entry: dict) -> dict:
         "checked_at": now_iso(),
     }
     try:
+        if transport == "invalid":
+            raise RuntimeError("未知 MCP transport；拒绝猜测为 stdio/http")
         if transport == "http":
             if not entry.get("url"):
                 raise RuntimeError("transport=http 但缺 url 字段")
@@ -544,14 +530,29 @@ def probe_one(name: str, entry: dict) -> dict:
 
 # ───────────────────────────── 比对 ─────────────────────────────
 
+def validate_baseline_record(record):
+    if not isinstance(record, dict):
+        raise ValueError("基线中的服务记录必须是对象")
+    if record.get("serverInfo") is not None and not isinstance(record["serverInfo"], dict):
+        raise ValueError("基线 serverInfo 必须是对象或 null")
+    if record.get("codeHash") is not None and not isinstance(record["codeHash"], str):
+        raise ValueError("基线 codeHash 必须是字符串或 null")
+    if "lastKnownGood" in record:
+        good = record["lastKnownGood"]
+        if not isinstance(good, dict) or good.get("state") != "ok" or "lastKnownGood" in good:
+            raise ValueError("基线 lastKnownGood 必须是成功记录")
+        validate_baseline_record(good)
+
+
 def compare(old: dict | None, new: dict) -> tuple[list[str], list[str]]:
     """返回 (drift 明细, unreachable 名单)。
 
     纪律：`checked_at` 每次都会变，**不参与比对**；只有 serverInfo.version /
     toolsCount / codeHash 的变化，以及 server 增删，才算漂移。
     """
+    unreachable = [k for k, v in new.items() if v.get("state") not in ("ok", "disabled")]
     if not old:
-        return [], []
+        return [], unreachable
     old_servers = old.get("servers") or {}
     drift: list[str] = []
     for name in sorted(set(old_servers) | set(new)):
@@ -565,7 +566,9 @@ def compare(old: dict | None, new: dict) -> tuple[list[str], list[str]]:
         if n.get("state") != "ok":
             continue                      # 本次没连上 → 交给 PARTIAL 分支
         if o.get("state") != "ok":
-            continue                      # 上次没连上 → 只算「基线补齐」，不算漂移
+            o = o.get("lastKnownGood")
+            if not o:
+                continue                  # 尚无成功身份，只算基线补齐
 
         ov = (o.get("serverInfo") or {}).get("version")
         nv = (n.get("serverInfo") or {}).get("version")
@@ -579,7 +582,6 @@ def compare(old: dict | None, new: dict) -> tuple[list[str], list[str]]:
                 f"{name}: 代码哈希变化 {(oh or 'null')[:12]} → {(nh or 'null')[:12]}"
                 f"（源 {n.get('codeSource')}）"
             )
-    unreachable = [k for k, v in new.items() if v.get("state") != "ok"]
     return drift, unreachable
 
 
@@ -640,7 +642,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL 读不动 {src}：{e}", file=sys.stderr)
         return 1
 
-    servers: dict[str, dict] = cfg.get("mcpServers") or {}
+    if not isinstance(cfg, dict) or not isinstance(cfg.get("mcpServers"), dict):
+        print(json.dumps({"ok": False, "error": "mcpServers 必须是对象"}, ensure_ascii=False))
+        return 1
+    servers: dict[str, dict] = cfg["mcpServers"]
     if args.only:
         keep = {s.strip() for s in args.only.split(",") if s.strip()}
         servers = {k: v for k, v in servers.items() if k in keep}
@@ -648,31 +653,54 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL {src} 里没有 mcpServers 条目", file=sys.stderr)
         return 1
 
+    # Load persisted state before probing or writing. A corrupt shared document
+    # must not be replaced with an empty one that loses other baseline sections.
+    old, doc = None, {}
+    if os.path.exists(out_path):
+        try:
+            with open(out_path, encoding="utf-8-sig") as handle:
+                doc = json.load(handle)
+            if not isinstance(doc, dict):
+                raise ValueError("基线必须是对象")
+            old = doc.get("mcp_handshake")
+            if old is not None and (not isinstance(old, dict)
+                                    or not isinstance(old.get("servers"), dict)):
+                raise ValueError("mcp_handshake.servers 必须是对象")
+            if old is not None:
+                for record in old["servers"].values():
+                    validate_baseline_record(record)
+        except (OSError, ValueError) as exc:
+            print(json.dumps({"ok": False, "error": "基线无效，原件保留: " + str(exc)}, ensure_ascii=False))
+            return 1
+
     new: dict[str, dict] = {}
     for name, entry in servers.items():
         if not isinstance(entry, dict):
+            new[name] = {"state": "unreachable", "transport": "unknown",
+                         "reason": "服务条目必须是对象"}
             continue
-        new[name] = probe_one(name, entry)
+        if entry.get("enabled") is False:
+            new[name] = {"state": "disabled", "transport": transport_of(entry)}
+        else:
+            new[name] = probe_one(name, entry)
+        if new[name].get("state") != "ok" and old:
+            previous = old["servers"].get(name, {})
+            good = previous if previous.get("state") == "ok" else previous.get("lastKnownGood")
+            if good:
+                new[name]["lastKnownGood"] = good
 
-    # S4：基线统一落在 Tool/config/packs.baseline.json 的 mcp_handshake 段（状态文件只允许 4 类）
-    old, doc = None, {}
-    old_existed = os.path.isfile(out_path)
-    if old_existed:
-        try:
-            with open(out_path, encoding="utf-8-sig") as f:
-                doc = json.load(f) or {}
-            old = doc.get("mcp_handshake") if isinstance(doc, dict) else None
-        except Exception:
-            old, doc = None, {}
+    comparison = {"servers": {name: value for name, value in old["servers"].items()
+                               if name in servers}} if old and args.only else old
+    drift, unreachable = compare(comparison, new)
 
-    drift, unreachable = compare(old, new)
-
-    if not old_existed:
-        verdict, rc = "BASELINE_WRITTEN", 0
-    elif drift:
+    if drift:
         verdict, rc = "DRIFT", 1
     elif unreachable:
         verdict, rc = "PARTIAL", 2
+    elif all(rec.get("state") == "disabled" for rec in new.values()):
+        verdict, rc = "SKIPPED", 0
+    elif not old:
+        verdict, rc = ("BASELINE_PREVIEW" if args.no_write else "BASELINE_WRITTEN"), 0
     else:
         verdict, rc = "OK", 0
 
@@ -689,15 +717,28 @@ def main(argv: list[str] | None = None) -> int:
         "servers": new,
     }
     if not args.no_write:
-        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
         doc = dict(doc) if isinstance(doc, dict) else {}
         doc.setdefault("schema", "seep.packs.baseline/1")
-        doc["mcp_handshake"] = payload
-        tmp = out_path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(doc, f, ensure_ascii=False, indent=2)
-            f.write("\n")
-        os.replace(tmp, out_path)
+        persisted = dict(payload)
+        if args.only and old:
+            persisted["servers"] = {**old["servers"], **new}
+        doc["mcp_handshake"] = persisted
+        pending = None
+        try:
+            os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", delete=False,
+                                             dir=os.path.dirname(os.path.abspath(out_path)),
+                                             prefix=".seep-mcp-baseline-") as handle:
+                pending = handle.name
+                json.dump(doc, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            os.replace(pending, out_path)
+        except OSError as exc:
+            print(json.dumps({"ok": False, "error": "基线写入失败: " + str(exc)}, ensure_ascii=False))
+            return 1
+        finally:
+            if pending and os.path.isfile(pending):
+                os.unlink(pending)
 
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -719,15 +760,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if verdict == "BASELINE_WRITTEN":
         print(f"BASELINE_WRITTEN（首次运行，已写 {out_path}）")
+    elif verdict == "BASELINE_PREVIEW":
+        print("BASELINE_PREVIEW（首次预览，未写入基线）")
     elif verdict == "OK":
         print("OK（全部 server 身份与基线一致）")
+    elif verdict == "SKIPPED":
+        print("SKIPPED（所选服务均已禁用，未执行握手）")
     elif verdict == "DRIFT":
         print(f"DRIFT {len(drift)} 项：")
         for d in drift:
             print(f"  - {d}")
         if unreachable:
             print("  同时有 unreachable：" + ", ".join(unreachable))
-        print(f"（基线已按本次实测更新：{out_path}）")
+        print("（未写入基线）" if args.no_write else f"（基线已按本次实测更新：{out_path}）")
     else:
         print(f"PARTIAL（{len(unreachable)} 个 unreachable，其余与基线一致）")
         for k in unreachable:

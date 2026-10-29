@@ -1,0 +1,327 @@
+{
+ "id": "pwn-crypto07",
+ "domain": "pwn-crypto",
+ "target_type": "公开靶场发布的原始 PE32 x86 Windows CUI 制品（GitHub 账号 justinsteven 在 github.com/justinsteven/dostackbufferoverflowgood 发布的有意脆弱 dostackbufferoverflowgood.exe，CrikeyCon 2016，Apache-2.0）",
+ "evidence_kind": "public",
+ "protection": [
+  "NX off（静态近似：DllCharacteristics 无 NX_COMPAT；pwn-check 输出 NX=Disabled）",
+  "PIE off（静态近似：DllCharacteristics 无 DYNAMIC_BASE；pwn-check 输出 PIE=Disabled）",
+  "Canary 声明存在（修复解析器后 pwn-check 输出 Canary=Found (SecurityCookie)；load config 目录 RVA 0x31e0 声明 SecurityCookie 且值 0x8044018 落在 image 内。仅说明声明存在，不证明具体函数启用 GS）",
+  "RELRO N/A（PE 无 ELF RELRO 概念）"
+ ],
+ "authority": "shipped-artifact（上游作者发布的原件，sha256 固定，双传输路径交叉验证；纯静态只读）",
+ "goal_level": "L1",
+ "outcome": "partial",
+ "artifacts": [
+  {
+   "path": "artifacts/header-probe.json",
+   "sha256": "b11e6f1044dddc9cec7b929f125bfe16739bc4a28f22867485c055c2c4d15e8a",
+   "size": 3245
+  },
+  {
+   "path": "artifacts/import-surface.json",
+   "sha256": "be3ddc88d000362c826f687028733f59d1fb15f3290ad5d6b26809874d4b5a78",
+   "size": 4224
+  },
+  {
+   "path": "artifacts/parser-boundary-tests.json",
+   "sha256": "2e14bad3f2eb0584b56d2146d84706196739ef84d5ece7c9dd4447f3dae9847c",
+   "size": 8536
+  },
+  {
+   "path": "artifacts/static-witness.json",
+   "sha256": "139a790706b4526fc03c85f8306f67362a23d75643b6dc2d3aababc1e737e36a",
+   "size": 5396
+  },
+  {
+   "path": "artifacts/witness-negative-controls.json",
+   "sha256": "16475cc04edb162edb3247672585ea797bf64dce15b6de379c5b1c46f2513c67",
+   "size": 3615
+  },
+  {
+   "path": "capture/http-meta-exe.json",
+   "sha256": "54ada2b940b6b0a876fbd3fd93dcdc66da34ca7ed0c0989fb634b1565b84c433",
+   "size": 1786
+  },
+  {
+   "path": "capture/http-meta-readme.json",
+   "sha256": "ccca234bdcf9775dd7b88e2b9a5a18b7f7899bdd800947e6b8f99050e7543b3e",
+   "size": 1779
+  },
+  {
+   "path": "capture/static-witness-2026-10-29.log",
+   "sha256": "6b5389d275e155de5a5482ba6ba9b72f7f12c74bc385df3b5e04a9ef8d4e197c",
+   "size": 5158
+  },
+  {
+   "path": "capture/upstream-download-manifest.json",
+   "sha256": "1c51aec74ab68a8e0b7e3ddd3ecb6dba6594259d5fd7e1c2f61362f2d44937f9",
+   "size": 2757
+  },
+  {
+   "path": "capture/upstream-git-transport-verify.json",
+   "sha256": "c61a9854823d66fde14a8e7cb39f0e8e6a12f249c2b771d228985071f4f482bb",
+   "size": 2519
+  },
+  {
+   "path": "capture/upstream-verify-summary.json",
+   "sha256": "49670bacac5e75bc7de1d8227c1c92ad5e1d8dfca26dfe503f9c6a637013cf6a",
+   "size": 4420
+  },
+  {
+   "path": "capture/witness-negative-controls-2026-10-29.log",
+   "sha256": "ef1800427da2eebcd518f8822afdca11615fa02d69d28e9e4a030f916d4ca219",
+   "size": 474
+  },
+  {
+   "path": "capture/r13-repro.json",
+   "sha256": "804326f60b0ea47465c192c0e83872a7bcf3858c6b808ffa7c72a6e6158b84e0",
+   "size": 6973
+  },
+  {
+   "path": "capture/r13-pwn-check.stdout.txt",
+   "sha256": "ba5e5e15c787d82a93cb02b94c6e6ecf81fb71934da583f4d18334e1fbb38e0d",
+   "size": 4663
+  },
+  {
+   "path": "capture/r13-pwn-check.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  {
+   "path": "capture/r13-header-probe.stdout.txt",
+   "sha256": "17387d463883b3bc46084e96cf21ce7073f0c5dc5688b005dd60b2e51f401422",
+   "size": 3343
+  },
+  {
+   "path": "capture/r13-import-surface.stdout.txt",
+   "sha256": "68ba020f5499e0ab3e62d22f501d6044e9595813d3b3e67afa7a9b0d93d3c739",
+   "size": 4360
+  },
+  {
+   "path": "capture/r13-parser-boundary-tests.stdout.txt",
+   "sha256": "2e14bad3f2eb0584b56d2146d84706196739ef84d5ece7c9dd4447f3dae9847c",
+   "size": 8536
+  },
+  {
+   "path": "capture/r13-witness-negative-controls.stdout.txt",
+   "sha256": "16475cc04edb162edb3247672585ea797bf64dce15b6de379c5b1c46f2513c67",
+   "size": 3615
+  }
+ ],
+ "repro": {
+  "status": "recorded",
+  "command": "python -B -X utf8 Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe --json",
+  "argv": [
+   "D:\\EXE\\python\\python.exe",
+   "-B",
+   "-X",
+   "utf8",
+   "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+   "--file",
+   "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe",
+   "--json"
+  ],
+  "cwd": ".",
+  "rc": 0,
+  "stdout": {
+   "path": "Tool/cases/pwn-crypto07/capture/r13-pwn-check.stdout.txt",
+   "sha256": "ba5e5e15c787d82a93cb02b94c6e6ecf81fb71934da583f4d18334e1fbb38e0d",
+   "size": 4663
+  },
+  "stderr": {
+   "path": "Tool/cases/pwn-crypto07/capture/r13-pwn-check.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  "commands": [
+   {
+    "label": "pwn-check",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+     "--file",
+     "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-pwn-check.stdout.txt",
+     "sha256": "ba5e5e15c787d82a93cb02b94c6e6ecf81fb71934da583f4d18334e1fbb38e0d",
+     "size": 4663
+    },
+    "stderr": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-pwn-check.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   },
+   {
+    "label": "header-probe",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/cases/pwn-crypto07/tools/header-probe.py",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-header-probe.stdout.txt",
+     "sha256": "17387d463883b3bc46084e96cf21ce7073f0c5dc5688b005dd60b2e51f401422",
+     "size": 3343
+    },
+    "stderr": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-header-probe.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   },
+   {
+    "label": "import-surface",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/cases/pwn-crypto07/tools/import-surface.py",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-import-surface.stdout.txt",
+     "sha256": "68ba020f5499e0ab3e62d22f501d6044e9595813d3b3e67afa7a9b0d93d3c739",
+     "size": 4360
+    },
+    "stderr": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-import-surface.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   },
+   {
+    "label": "parser-boundary-tests",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/cases/pwn-crypto07/tools/parser-boundary-tests.py",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-parser-boundary-tests.stdout.txt",
+     "sha256": "2e14bad3f2eb0584b56d2146d84706196739ef84d5ece7c9dd4447f3dae9847c",
+     "size": 8536
+    },
+    "stderr": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-parser-boundary-tests.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   },
+   {
+    "label": "witness-negative-controls",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/cases/pwn-crypto07/tools/witness-negative-check.py",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-witness-negative-controls.stdout.txt",
+     "sha256": "16475cc04edb162edb3247672585ea797bf64dce15b6de379c5b1c46f2513c67",
+     "size": 3615
+    },
+    "stderr": {
+     "path": "Tool/cases/pwn-crypto07/capture/r13-witness-negative-controls.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   }
+  ],
+  "target_sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "evidence": "R13 实际重跑 pwn-check、header-probe、import-surface、12 例 parser 边界测试和 5 例 witness 正负控制；全部包装命令 rc=0，目标执行前后哈希一致。"
+ },
+ "evidence_dir": ".",
+ "lessons": [
+  "跑的是什么：上游发布的 dostackbufferoverflowgood.exe（13312B，sha256 d298c229…a3fe3a）；复跑命令 python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe --json，实测 rc=0；当前输出见 capture/static-witness-2026-10-29.log；目标只做字节读取。",
+  "当前工具：Tool/skill/pwn-crypto/scripts/pwn-check.py，sha256 daea2bb4a8b1d7d3cdd0da592975f3ea3609e62a6401e38a7a932b05d469dc88。",
+  "结果：kind=PE / arch=x86 / bits=32；5 节；导入 65 项 / 8 个 DLL；危险导入 1 项；next_routes=栈溢出 + shellcode，并带 Canary caveat。",
+  "Canary=Found 只说明 load config 声明 SecurityCookie，不证明具体函数启用 /GS 或运行期校验。",
+  "合成 parser 边界测试当前 12/12 通过，见 artifacts/parser-boundary-tests.json；不把旧版 9/12 的历史叙述当作当前工具输出。",
+  "负例：换包、改一字节、空文件、篡改登记哈希均按预期非零退出；正例 rc=0；summary 5/5。",
+  "复跑：python Tool/cases/pwn-crypto07/tools/witness-negative-check.py --json；python Tool/cases/pwn-crypto07/tools/parser-boundary-tests.py --json。"
+ ],
+ "tags": [
+  "public",
+  "pwn",
+  "pe",
+  "static",
+  "mitigations",
+  "dangerous-imports",
+  "crikeycon",
+  "parser-fix"
+ ],
+ "refs": [
+  "Tool/cases/pwn-crypto07/LICENSE-APACHE-2.0.txt",
+  "Tool/cases/pwn-crypto07/README.md",
+  "Tool/cases/pwn-crypto07/capture/static-witness-2026-10-29.log",
+  "Tool/cases/pwn-crypto07/capture/witness-negative-controls-2026-10-29.log",
+  "Tool/cases/pwn-crypto07/tools/header-probe.py",
+  "Tool/cases/pwn-crypto07/tools/import-surface.py",
+  "Tool/cases/pwn-crypto07/tools/parser-boundary-tests.py",
+  "Tool/cases/pwn-crypto07/tools/witness-negative-check.py",
+  "Tool/cases/pwn-crypto07/upstream-README.md",
+  "Tool/skill/pwn-crypto/references/01-criteria.md",
+  "Tool/skill/pwn-crypto/scripts/pwn-check.py"
+ ],
+ "updated": "2026-10-29",
+ "target_files": [
+  {
+   "path": "target/dostackbufferoverflowgood.exe",
+   "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+   "source": "github.com/justinsteven/dostackbufferoverflowgood（HEAD f67b555a5d9da766516094bbd0c8a680e7afc248）不可变 Git blob 043b2d38b1ce46efd1bfc26b282ae627f3c59459，size 13312；GitHub REST blob API 与 Git HTTPS 对象传输两条独立路径字节一致（证据见 capture/upstream-verify-summary.json 与两份 manifest）；代码 Apache-2.0（LICENSE 全文随案例保存），教程/幻灯片 CC BY 4.0，署名依据为 GitHub 账号 justinsteven（案例字节不含作者全名）",
+   "size": 13312
+  }
+ ],
+ "target": {
+  "path": "target/dostackbufferoverflowgood.exe",
+  "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "size": 13312,
+  "at": "2026-10-27T09:18:30",
+  "note": "由 target_files[0] 绑定的活动原件；路径相对案例根，不再依赖 cwd。"
+ },
+ "evidence_source": {
+  "kind": "public",
+  "source": "公开靶场原始制品：GitHub 账号 justinsteven 的 dostackbufferoverflowgood 仓库发布的 dostackbufferoverflowgood.exe（Git blob 043b2d38b1ce46efd1bfc26b282ae627f3c59459，size 13312），实测 sha256 d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a；发布时间线 CrikeyCon 3（2016-02-20，README 第 14 行）；代码 Apache-2.0（LICENSE 全文随案例保存），教程与幻灯片 CC BY 4.0。**署名依据只到账号 justinsteven**：案例字节内不含作者全名",
+  "basis": "依据：① 制品由上游作者作为靶场公开发布，本流程未编译、未修改、未重打包（sha256 与上游不可变 blob 逐字节一致，GitHub REST API 与 Git over HTTPS 两条独立传输路径交叉验证，见 capture/upstream-verify-summary.json）；② 案例内固定登记 target_files[].sha256 = d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a，witness.py 每次运行都把它当机检条件；③ 许可与署名来自上游 README 原文并随案例保存 Apache-2.0 全文；④ 无客户授权单，故不是 real。→ 属于公开可分发的真实产物，记 public",
+  "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "attribution": "justinsteven（GitHub 账号）· dostackbufferoverflowgood · CrikeyCon 3 (2016-02-20) · https://github.com/justinsteven/dostackbufferoverflowgood —— 案例内字节只支持该账号，不支持作者全名；按 REVIEW-04 第 1 条收窄，不主张全名错误",
+  "license": "代码 Apache License 2.0（README 明文 + 案例内 LICENSE-APACHE-2.0.txt 全文，11357B）；教程/幻灯片 CC BY 4.0 International；README 要求再分发改编时署名原作者（自称账号 justinsteven）",
+  "note": "README 正文另存 upstream-README.md（4180B，Git blob 2b14a9bfd6cbc62e2cb687ff22f0279bc6deaa2d）；CC BY 4.0 覆盖教程/幻灯片，不覆盖 exe；R1 修订：署名/来源措辞由全名收窄为账号，原因是随案字节不含全名，详见 facts.jsonl PW07-02 的 evidence_audit"
+ },
+ "limitations": [
+  "本案证据止于静态结构与解析器控制测试；可达性、偏移、EIP 控制、SEH 链和 shellcode 执行都未验证。",
+  "Canary=Found 只表示 load config 声明了 SecurityCookie，具体函数的运行期 /GS 校验未验证。",
+  "WS2_32 的序号导入未映射为外部序号表名称，危险导入白名单命中数只作为下界。"
+ ]
+}

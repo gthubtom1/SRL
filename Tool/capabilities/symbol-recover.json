@@ -1,7 +1,7 @@
 {
   "id": "symbol-recover",
   "title": "符号恢复",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "符号恢复",
     "恢复符号",

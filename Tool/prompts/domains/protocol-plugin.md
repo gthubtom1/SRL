@@ -3,7 +3,8 @@
 > 入口：`Tool/skill/protocol-plugin/SKILL.md`。每张卡固定六段，`reference` 指向本域 reference。
 > 统一前置：只分析自有/授权流量；抓包用 BPF 收敛；重放只在本地或靶场；不猜密钥、不猜字段。
 > 统一失败口径：见 `Tool/skill/protocol-plugin/references/02-failure-criteria.md`，不把疑似写成确认。
-> 边界：插件 / 扩展 / Electron asar / 游戏 Mod → `plugin-targets`（R25），本文件不重复其方法。
+> 边界：插件 / 扩展 / Electron asar / 游戏 Mod 的静态解包先由 `softseep` 与共享脱壳链
+> `unpack-loop` 处理；网络协议、重放和状态机仍由本域负责。本文件不重复另一侧的方法。
 
 ### 01 tshark 首轮分诊（源：performing-network-traffic-analysis-with-tshark）
 - 触发词：`tshark`、抓包分析、conv,tcp、io,phs、首轮分诊

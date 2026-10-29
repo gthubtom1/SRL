@@ -24,6 +24,13 @@
 
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import ast
 import glob
@@ -53,16 +60,7 @@ TIMEOUT = 30
 
 
 def repo_root() -> str:
-    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/）。"""
-    d = os.path.abspath(os.path.dirname(__file__))
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "Tool", "cases")):
-            return d
-        nd = os.path.dirname(d)
-        if nd == d:
-            break
-        d = nd
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+    return _seep_repo_root(__file__)
 
 
 def rel(path: str, root: str) -> str:
@@ -162,7 +160,8 @@ def run_check(playbooks_dir: str, root: str) -> dict:
     readme = os.path.join(playbooks_dir, "README.md")
     disk = {os.path.basename(p)[:-3] for p in files}
     if os.path.isfile(readme):
-        txt = open(readme, encoding="utf-8", errors="replace").read()
+        with open(readme, encoding="utf-8", errors="replace") as fh:
+            txt = fh.read()
         listed = {m.group(1) for m in re.finditer(r"\[([a-z0-9][a-z0-9-]+)\]\(([a-z0-9-]+)\.md\)", txt)
                   if m.group(1) == m.group(2)}
         missing, extra = sorted(disk - listed), sorted(listed - disk)

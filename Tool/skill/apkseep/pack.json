@@ -40,6 +40,18 @@
     "leaf-apk",
     "apkseep08"
   ],
+  "case_roles": {
+    "witness": [
+      "leaf-apk",
+      "apkseep08"
+    ],
+    "depth_gate": [
+      "apkseep07",
+      "apkseep08",
+      "apkseep09"
+    ]
+  },
+  "depth_contract": {    "skill": "apkseep",    "board": "apk-reverse",    "matrix": "apkseep-matrix.json",    "case_globs": [      "apkseep*"    ],    "ext_scripts": [],    "kb_line_max": 400  },
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/leaf-apk",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
@@ -72,6 +84,48 @@
     "目标不是 Android 载体",
     "需要脱壳且脱壳失败两次 → 转 malware-analysis"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": ["APK", "AAB", "DEX", "SO", "wxapkg", "pcap", "runtime logs"],
+    "sample_completeness": {
+      "required": ["target package or native library", "manifest and symbols when available", "reproducible runtime evidence for dynamic claims"],
+      "missing_means": "缺样本、签名材料、设备、账号或 pinning 运行条件只是输入要求，不代表行为能力已完成。"
+    },
+    "environment": {
+      "required": ["authorized Android or package-analysis environment", "isolated emulator/device only when runtime evidence is needed"],
+      "missing_means": "缺设备、账号、网络或运行确认时只能保留静态结论和未验证项。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/apkseep/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/apkseep/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/apkseep/SKILL.md",
+    "incremental": "Tool/skill/apkseep/SKILL.md",
+    "reverse_migration": "Tool/skill/softseep/scripts/version-migrate.py"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/apkseep/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/apkseep/scripts/witness.py",
     "why": "真跑 java2c_probe.py 分析 Tool/cases/leaf-apk/target/diva.apk：断言 dex[].classes/total_methods/native_ratio 与 classification.verdict/metrics/evidence 存在，证明 APK 解析与 Java2C 判型真的产出结果（不是 --help）"

@@ -3,8 +3,8 @@
   "script": "plugin-repro.py",
   "container": "zip",
   "sha256": "874f1b86b184b3304031df3f3b93c4cd850af2ff4c9f03451601d15d6e9ffc9b",
-  "source": "input/real-extension.zip",
-  "unpacked": "artifacts/repro/unpack",
+  "source": "Tool/cases/plugin03/input/real-extension.zip",
+  "unpacked": "Tool/cases/plugin03/artifacts/repro/unpack",
   "file_count": 6,
   "extracted_count": 6,
   "skipped": [],
@@ -401,7 +401,7 @@
   "next_probe": [
     "浏览器加载已解压目录，DevTools 观察 service worker 唤醒、消息与存储写入",
     "检查 native host manifest 的 allowed_origins 与宿主二进制",
-    "对远端 URL 做离线域名/证书/更新链核对；协议复刻转 protocol-plugin",
+    "对远端 URL 做离线域名/证书/更新链核对；二进制协议复算交同域 proto-repro.py",
     "最小可改单元改动前先备份，一次只改一个变量并留基线"
   ]
 }

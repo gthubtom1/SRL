@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""工具自治行为测试（DO-NOT-RE-ADD 锁）。用工具静默；只有跑本案目标才要回执。"""
+"""工具自治行为测试（DO-NOT-RE-ADD 锁）。
+
+工具调用沿用当前会话/项目已有的授权；历史首答、运行回执以及是否命中当前案
+都不是独立授权闸。这里同时锁定个人隐私读取保护仍然生效。
+"""
 import json, os, shutil, subprocess, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TS = os.path.join(ROOT, "Tool", "prompts", "extensions", "answer-gate.ts")
@@ -24,18 +28,30 @@ CASES = [
 ]
 
 GATE = {"whitelist": ["seep_kb_search"], "execTools": [], "bindTarget": False,
-        "ttlMinutes": 60, "runAck": {"ttlMinutes": 60, "requireCaseTarget": True}}
+        "ttlMinutes": 60}
 
-TPL = """import { classifyTool, shouldBlockRun } from @JS@;
+TPL = """import answerGate, { classifyTool, shouldBlockRun } from @JS@;
 const cases = @CASES@;
 const gate = @GATE@;
 const caseT = { dir: @DIR@, paths: [@TGT@], targetSha256: "" };
+const now = Date.now();
 const out = [];
 for (const [d, t, a, w] of cases) out.push(["classify", d, w, classifyTool(t, a, gate).analysis]);
-const r1 = shouldBlockRun("bash", { command: caseT.paths[0] }, null, Date.now(), gate, caseT, caseT.dir);
-out.push(["runtarget", "无回执跑本案目标 → 必须拦", true, r1.block]);
-const r2 = shouldBlockRun("bash", { command: "powershell -File Tool/scripts/tool-run.ps1 -Tool x64dbg" }, null, Date.now(), gate, caseT, caseT.dir);
-out.push(["runtarget", "启动我们自己的工具 → 必须放行", false, r2.block]);
+const targetCmd = { command: caseT.paths[0] };
+const r1 = shouldBlockRun("bash", targetCmd, null, now, gate, caseT, caseT.dir);
+out.push(["autonomy", "无回执跑本案目标 → 放行", false, r1.block]);
+const sameB = { schema: "seep.run-ack/1", case: caseT.dir, letter: "B", target_sha256: "", at: new Date(now).toISOString() };
+const r2 = shouldBlockRun("bash", targetCmd, sameB, now, gate, caseT, caseT.dir);
+out.push(["autonomy", "同案旧 B 回执残留 → 不阻断", false, r2.block]);
+const crossB = { ...sameB, case: caseT.dir + "-other" };
+const r3 = shouldBlockRun("bash", targetCmd, crossB, now, gate, caseT, caseT.dir);
+out.push(["autonomy", "跨案旧 B 回执残留 → 不阻断", false, r3.block]);
+const r4 = shouldBlockRun("bash", { command: "powershell -File Tool/scripts/tool-run.ps1 -Tool x64dbg" }, null, now, gate, caseT, caseT.dir);
+out.push(["autonomy", "启动我们自己的工具 → 放行", false, r4.block]);
+const handlers = [];
+answerGate({ on: (name, fn) => { if (name === "tool_call") handlers.push(fn); }, registerCommand: () => {} });
+const sensitive = handlers.map((fn) => fn({ toolName: "read", input: { path: "/home/test/.ssh/id_rsa" } }, { ui: { notify: () => {} } })).find((r) => r?.block);
+out.push(["boundary", "个人隐私凭据读取 → 仍拦截", true, Boolean(sensitive)]);
 console.log(JSON.stringify(out));
 """
 
@@ -70,7 +86,12 @@ def main():
         probe = os.path.join(tmp, "probe.mjs")
         with open(probe, "w", encoding="utf-8") as f:
             f.write(tpl)
-        rp = subprocess.run(["node", probe], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+        env = dict(os.environ)
+        env["HOME"] = tmp
+        env["USERPROFILE"] = tmp
+        env["NODE_NO_WARNINGS"] = "1"
+        rp = subprocess.run(["node", probe], capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=120, env=env)
         if rp.returncode != 0:
             print("[FAIL] node 跑不动探针：" + (rp.stderr or "")[:300])
             return 1
@@ -81,10 +102,10 @@ def main():
             print("  [%s] %-38s 期望=%s 实际=%s" % ("PASS" if ok else "FAIL", desc, want, got))
             if not ok:
                 fails.append(desc)
-        if fails or len(rows) != len(CASES) + 2:
+        if fails or len(rows) != len(CASES) + 5:
             print("[FAIL] 工具自治：%d 条不符（%s）" % (len(fails), "；".join(fails[:6])))
             return 1
-        print("[OK] 工具自治：%d 条全过 —— 用工具静默、只有跑本案目标才要回执" % len(rows))
+        print("[OK] 工具自治：%d 条全过 —— 工具静默、旧回执不裁决、隐私读取仍拦截" % len(rows))
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

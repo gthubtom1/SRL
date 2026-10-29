@@ -23,9 +23,7 @@ attribution: "Adapted from first-fluke/oh-my-agent `oma-pm` (SKILL.md), trimmed 
 
 1. **PREPARE**：把用户原话、目标、约束、目标用户、验收期望列清楚；缺的先问（问不是退缩）。
 2. **REASON**：拆任务。每个任务必须有：`id`、一句话标题、**验收标准（可执行判据）**、依赖、优先级（P0/P1/P2）、风险。
-3. **ACT**：产出两样东西：
-   - `docs/PLANS/<日期>-<主题>.md`（人读的任务板）
-   - 若关系到案子：把任务作为 `kind:"plan"` 行写进该案 `facts.jsonl`（`case_state.py plan --add`）
+3. **ACT**：沿用当前项目的目标、路线与验收记录；维护本工作台只更新 `docs/CURRENT-STATE.md`，不另造总方案/任务账，不使用不存在的 `case_state.py plan --add`。
 4. **VERIFY**：逐条自检——
    - 验收标准是不是**能跑的命令**或**能看到的现象**？（"做得更好"不合格）
    - 有没有任务其实是"两个任务捆一起"？（拆开）
@@ -47,11 +45,11 @@ attribution: "Adapted from first-fluke/oh-my-agent `oma-pm` (SKILL.md), trimmed 
 - **太虚**：「优化一下」→ 改成「把 X 的 Y 指标从 A 改到 B，判据是命令 Z 输出 W」
 - **捆一起**：把"改设计 + 改实现 + 补测试"合成一条 → 拆成三条
 - **质量靠后**：测试不是最后一步，每条任务自带验证方式
-- **忘风险表**：规划必须更新 `docs/PRODUCT.md §7` 风险登记表（新增/划掉/降级）
+- **遗漏当前风险**：规划只更新 `docs/CURRENT-STATE.md` 中对应的未知或剩余问题，不另造产品风险表，不从旧方案推导新需求。
 
 ## 本项目的固定验证方式
 
 ```bash
-python Tool/scripts/check.py --fast    # 提交前
-python Tool/scripts/check.py           # 全量（6 套件）
+python Tool/scripts/check.py --strict  # 工作台完整验收，保留实际退出码/WARN
+# 客户任务使用自身结果判据；本仓自检不能证明任意客户项目成功
 ```

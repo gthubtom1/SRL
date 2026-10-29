@@ -11,16 +11,16 @@ metadata:
 
 # firmware-iot — 固件 / IoT / 硬件接入
 
-> 只回答一件事：**这份固件或这台设备，能不能拿到可分析的文件系统、跑起关键服务、并复现一个可验证的问题。**
+> 按用户目标处理结构审查、关键服务、协议/升级或硬件问题；只在需要时推进到仿真/真机，不强制每份固件发现漏洞或连硬件。
 > 不把“解包成功”当成功，也不把“仿真起内核”当成功；判据见第三节，失败分流见第四节。
 > 仅对自有或明确授权的设备/固件操作。上电、短接、写闪存都可能变砖，先备份再动手。
 
 ---
 
 ## 阶段契约（与 softseep 一致，**先判再做**）
-> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→必问三件）。本文件不复制。
-  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
-- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
+- 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
+- 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
 ## 一、范围与路由（边界）
 
@@ -38,7 +38,7 @@ metadata:
 > 载体→域 的映射**只看一处**：`Tool/skill/seep-router/SKILL.md`（本文件不再复写，避免两份表漂移）。
 > 本域只补一句：固件样本若同时是 APK 容器/纯 PE，按 router 判型后再回来。
 - 第三方设备/网段/闪存写入清单由 `scope` 声明，清单内按任务执行。
-- 把“解包成功”“FirmAE success”“binwalk 识别出 12 个签名”当作交付。
+- 不把“解包成功”“FirmAE success”“binwalk 识别出 12 个签名”当作交付。
 
 ## 配方（照这个跑）
 
@@ -72,12 +72,12 @@ UART/JTAG/SPI 焊盘、启动链、固件加密/签名迹象。
 |---|---|---|---|
 | 固件身份 | SHA256 稳定；strong 容器/厂商标签 + 版本/FWID 自洽 | 只有文件名/型号字符串 | 哈希、偏移、版本串、`fw-repro` JSON |
 | 解包完整 | 目录树含 `/etc`+`/bin`(或 `/usr/bin`)+`/lib`；busybox/init 架构自洽 | 只切出 kernel/DTB/单个 PE；目录“看起来有东西” | `unsquashfs -ll`/`ubireader` 日志、目录树、`file` 输出 |
-| 账号可用（内部档位 J1，对外说「能进后台，验证了弱口令」） | 空/弱口令或已破解 hash，且完成一次登录，会话输出 `id` | 只有 hash/字符串，没有登录入口 | 登录会话/串口录屏 + `awk` 输出 |
+| 账号可用（内部档位 J1，对外说「能进后台，验证了弱口令」） | 用户提供的测试口令或合成 canary 完成一次登录，会话输出 `id` | 只有账号名/hash/字符串，没有登录入口 | 登录会话/串口录屏 + 测试账号来源 |
 | 服务可用（内部档位 J2，对外说「服务确实在跑，能拿到真实业务响应」） | 端口监听 + 进程 + **真实业务响应** 同一时刻 | 进程在但端口不通/502/只有静态页 | `ss -lntp` + `ps` + `curl -i` 原文 |
 | 漏洞复现（内部档位 J3，对外说「漏洞能稳定复现（同一输入两次一致）」） | 同一输入重复 ≥2 次一致；有请求/响应/日志/崩溃现场 | 字符串/版本猜测；“仿真里可能” | PoC + 两次运行日志 + 版本/配置 |
 
 > **对客户只说三句话，不要报 J1/J2/J3**：J1 →「能进后台，验证了弱口令」；J2 →「服务确实在跑，能拿到真实业务响应」；J3 →「漏洞能稳定复现（同一输入两次一致）」。
-| 凭据/密钥 | 私钥与证书配对，且设备/云/OTA 实际接受 | 只有 `.pem/.key` 文件或示例占位符 | `openssl` 指纹 + 用途 + 验证命令 |
+| 凭据/密钥 | 证书公钥元数据/信任配置与验证路径对应；签名验证仅用合成测试密钥，不读取真实私钥 | 只有 `.pem/.key` 文件或示例占位符 | `openssl` 指纹 + 用途 + 验证命令 |
 | UEFI/Secure Boot | FV 可解析 + 变量可读 + 签名链/度量链能验证 | 只有单个 `.efi` 或节熵 | `fw-repro` PE 段、变量二进制、event log |
 | 硬件接口 | UART 落到 shell/改 bootargs；JTAG 读回与 SPI dump 哈希一致 | 有焊盘但无输出/IDCODE | 串口日志、IDCODE、两次读取 SHA256 |
 
@@ -94,8 +94,8 @@ UART/JTAG/SPI 焊盘、启动链、固件加密/签名迹象。
 |---|---|---|
 | 只有容器魔术，没有完整 `/etc`+`/bin`+`/lib` | 解包未完成 | 算厂商头真实偏移；换 `sasquatch`/`ubireader`/`jefferson`/`7z` |
 | 全盘高熵、无 strong 魔术 | 可能加密/厂商容器 | 找解密点/U-Boot 解密；转 UART/JTAG 在线读 |
-| 只有 shadow hash、无登录入口 | 凭据未破解 | 记录素材；转接口绕过/串口 shell；不写“弱口令” |
-| `passwd` 第二字段 `x` / shadow `!` | 不是空口令/被锁定 | 同时读 passwd+shadow；找 NVRAM/云账号/authorized_keys |
+| 只有 shadow hash、无登录入口 | 凭据未验证 | 只记录账户存在/x/锁定等元数据；不读取 hash，转接口或串口路线，不写“弱口令” |
+| `passwd` 第二字段 `x` / shadow `!` | 不是空口令/被锁定 | 只核安全账户元数据/锁定状态与认证路径；不读取 shadow/NVRAM/云凭据或私钥内容 |
 | 仿真进程在但端口无业务回包 | 不是 J2 | 补 NVRAM/`/dev`/Web 根桩；或转真机只读 |
 | 漏洞只在字符串/版本号 | 不是 J3 | 黑盒测绘/动态跟踪/最小 PoC；两次一致才算 |
 | 裸 blob（BRCM/TRX/单 PE） | 无 rootfs | 走 `06-container-carving-and-entropy.md`，不套文件系统判据 |
@@ -151,21 +151,22 @@ ubireader_extract_files -o "$OUT/ubi-root" "$OUT/ubi.ubi"  # UBI
 ### 阶段 3：文件系统审计
 
 ```bash
-grep -RInE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd|nvram' "$ROOT/etc" | head -80
+# 只列候选文件路径，不输出匹配行或真实秘密
+grep -RIlE 'root:|admin:|password|passwd|shadow|telnetd|dropbear|httpd|nvram' "$ROOT/etc" | head -80
 find "$ROOT" -type f \( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' -o -name 'authorized_keys' \) -print
 cat "$ROOT/etc/inittab" "$ROOT/etc/init.d/rcS" 2>/dev/null
 grep -RInE 'system\(|popen\(|execve\(' "$ROOT/www" "$ROOT/usr/lib/lua" 2>/dev/null | head -40
 ```
 
 完成判据：能画出“开机 → 服务 → 运行用户 → 监听地址 → 可控参数”，每跳有 `文件:行号`；
-凭据/密钥有路径、指纹、用途（脱敏）。
-失败判据：只有 hash 无入口；私钥无法配对；启动脚本指向的服务不监听且无日志解释。
+敏感项只记位置、类别与配置/调用数据流，不读取后散列脱敏；可用性仅合成 canary 证明。
+失败判据：只有敏感候选而无入口/引用链；合成测试凭据无法登录；启动脚本指向的服务不监听且无日志解释。
 
 ### 阶段 4：仿真或真机验证
 
 ```bash
 # qemu-user（单程序）
-sudo chroot "$ROOT" /usr/bin/qemu-mipsel-static /bin/sh -c 'id; cat /etc/passwd'
+sudo chroot "$ROOT" /usr/bin/qemu-mipsel-static /bin/sh -c 'id'
 # qemu-system（整机，示意；参数按镜像调整）
 qemu-system-mipsel -M malta -kernel vmlinux -hda rootfs.img \
   -append "root=/dev/sda console=ttyS0" -nographic
@@ -225,9 +226,9 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 | `references/05-uefi-and-secure-boot.md` | UEFI PE/TE、固件卷、PK/KEK/db/dbx、TPM 度量、更新包回滚；§9 12 项判据、§10 event log 重放 |
 | `references/06-container-carving-and-entropy.md` | strong/weak 魔术、熵解读、厂商头切分、Broadcom 误报案例；§8 两样本差分、§9 weak 二次确认 |
 | `references/firmware-unpack.md` | 解包主参考：获取/容器/解包/仿真/交付清单；§9 端到端走查（时间盒） |
-| `references/filesystem-and-credentials.md` | rootfs 审计：账号、shadow、私钥/证书、启动链、服务入口；§11 硬编码凭据扫描判据、§12 NVRAM/overlay |
+| `references/filesystem-and-credentials.md` | rootfs 审计：账号、shadow、私钥/证书、启动链、服务入口；认证数据流与合成证据、NVRAM/overlay |
 | `references/emulation-and-fuzz.md` | qemu-user/system、FirmAE、NVRAM/`/dev` 桩、fuzz 接线；§11 环境/依赖/时序三类失败 |
-| `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据；**无线能力先跑 `tool-acquire.py --sweep` 逐项探活**（见 §八；无 --sweep 这个开关） |
+| `references/hardware-interfaces.md` | UART/JTAG/SPI 接线、电压、波特率、IDCODE、恢复路线；无线/近场（802.11 握手·PMKID·WPA3·企业级·WPS、BLE、802.15.4、Z-Wave、sub-GHz/LoRaWAN、NFC）判据表与失败判据；**无线能力按 §八的 `tool-acquire.py --tool <tool_id> --json` 逐项探活** |
 
 矩阵：`Tool/config/firmware-iot-matrix.json`（14 条，match/criteria/fail/tools/pitfalls）。
 路由片段：`Tool/skill/firmware-iot/pack.json`（词边界，避免抢 Web/APK 词）。
@@ -235,7 +236,7 @@ python Tool/scripts/domain-gate.py --domain firmware-iot
 ## 八、脚本用法
 
 ```bash
-# 分诊：魔术/熵/凭据线索/建议命令（只读，不执行样本）
+# 分诊：魔术/熵/脱敏凭据线索/建议命令（只读，不执行样本）
 python Tool/skill/firmware-iot/scripts/fw-triage.py --file fw.bin --json > work/triage.json
 
 # 切分+解包+rootfs 证据：stdlib 优先，外部工具次之；缺工具 blocked_at=tool-missing
@@ -248,7 +249,7 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --json
 # 无线/近场能力枚举：WiFi monitor / 蓝牙 / SDR / 802.15.4 / NFC（只读，≤10s，不需要 --target）
 # 输出 probes[name=radio]：wifi/bluetooth/subghz/nfc + blocked_at（no-monitor-mode|no-radio|no-wifi|…）
 python Tool/scripts/tool-acquire.py --tool <tool_id> --json   # 逐工具探活（无批量开关）
-python Tool/scripts/tool-acquire.py --self-test   # 离线自检：只测判定/解析函数，无硬件访问
+python Tool/scripts/tool-acquire.py --selftest   # 离线自检：只测判定/解析函数，无硬件访问
 
 # 三个脚本都有离线自检（rc=0，最后一行含 "ok": true）
 python Tool/skill/firmware-iot/scripts/fw-triage.py --self-test
@@ -257,7 +258,8 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 ```
 
 失败行为：`{"ok": false, "blocked_at": "<input|tool-missing|extract>", "reason": "..."}`，rc=1/2；
-不抛裸栈。路径由 `--root`/`__file__` 推导，不含本机绝对路径。
+不抛裸栈。路径由 `--root`/`__file__` 推导，不依赖宿主 HOME；诊断中的路径只反映实际传入的
+`--file`/`--root` 或推导出的运行根。
 
 ## 九、任务卡入口
 
@@ -276,7 +278,7 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 ## 十一、边界
 
 - **不是 APK**：Android 应用/DEX/SO 走 `apkseep`；本技能只处理设备固件与嵌入式 rootfs。
-- **不是 PE 算法题**：桌面 PE/.NET/普通 ELF 走 `softseep`/`ida-reverse`；UEFI 组件只做固件判据。
+- **不是 PE 算法题**：桌面 PE/.NET/普通 ELF 走 `softseep`；UEFI 组件只做固件判据。
 - **不是纯 Web**：只测云端 API/前端时走 Web 技能；本技能的网络验证仅围绕设备自身服务。
 - **硬件接入范围由 `scope` 声明**：设备清单由用户提供，清单内按任务执行；闪存写入按授权单。
 - **“解包即成功”是误判**：有 shell/服务/漏洞证据才算完成，否则只算侦察。
@@ -287,4 +289,4 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 
 本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
 
-- `_pending/00-triage/SKILL.md` —— 先出固件/设备画像
+- `Tool/skill/_pending/00-triage/SKILL.md` —— 先出固件/设备画像

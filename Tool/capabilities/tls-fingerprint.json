@@ -31,8 +31,9 @@
   "refs": [
     "Tool/skill/apkseep/references/tls-and-cert.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
   "reserved": true,
+  "note": "当前实现仅位于 Tool/skill/_pending/signin-automation；安装器不部署、不索引该目录，因此安装态不能自动调用。现阶段只能由源码工作区人工生成并对照请求计划，迁移到正式 pwn-crypto 路由并完成目标侧 JA3/JA4 与头序负例前不得按完整能力编排。",
   "compose": [
     "traffic-capture",
     "tls-decrypt"

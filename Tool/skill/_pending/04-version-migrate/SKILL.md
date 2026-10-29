@@ -4,13 +4,14 @@ description: "'作者更新了版本怎么追/新版适配旧补丁 (.exe) —�
 metadata:
   stage: "4/4"
   prev: "03-license-hookup"
-  engine: "（`migrate` 已不存在：按上面的替代路径走）"
+  engine: "Tool/skill/softseep/scripts/version-migrate.py"
 ---
 
-# 04 · 跨版本追版（新版一出来，半小时出成品）
+> **适用范围**：本技能是主域按需调用的方法，不是每项任务的必经阶段。沿用 router 的当前项目/版本/run；只做用户目标需要的部分。阶段编号/prev/next 是相关方法索引，不授权扩大任务。静态分析不强制改包、旁路、换品牌、接授权或重建后端。专门成品路径的硬闸仍按原判据验收，不以删步骤冒称成品完成。
 
-> **本阶段唯一的成功标准**：新版 + 旧版三张资产清单（位点 / UI / 授权）→
-> **双击进主界面、功能全通、UI 是你的、授权走你的平台**，且**没有重新读一遍反汇编**。
+# 04 · 跨版本追版（对齐候选并重新验证）
+
+> **成功标准**：迁移本次目标范围内的旧成果并在新版重验。位点/UI/授权只选原任务涉及的项；唯一 AOB 命中只是候选，须核对新上下文、原字节、语义与功能，必要时重新反汇编。不能承诺固定耗时或无需重新分析。
 
 > **通用性声明**：文中出现的 RVA、AOB、节名都是示例；判据看"形状"，实际以目标为准。
 
@@ -31,8 +32,8 @@ metadata:
 
 ## 1. 开局四问（先答，再动手）
 
-1. **新版壳变了吗**？`migrate.py fingerprint <新版exe>` → `packer_hint`
-   变了（节表新增/熵 > 7.5/可疑节名）→ **停**，先按 `01` 的 A–D 过壳，再回来追版。
+1. **新版壳变了吗**？`python Tool/skill/softseep/scripts/version-migrate.py fingerprint <新版exe>` → `packer_hint`
+   节表/熵/节名变化只是线索；先核是否影响目标代码可读性，确需脱壳才回主域相应路线。
 2. **旧账在哪**？`versions/<旧版本>/manifest.json` 的 `sites[]` 有几条、`self_check` 是否 unique。
 3. **这次要迁什么**？卡密位点 / UI 素材 / 授权挂载点 —— 三张清单各自的状态。
 4. **验收怎么算过**？`acceptance[]` 是否够具体（窗口标题、功能项、授权页）。不够就先补。
@@ -44,7 +45,7 @@ metadata:
 ### ① 指纹比对
 
 ```bash
-python （`migrate` 已不存在：按上面的替代路径走） fingerprint "<新版exe>"
+python Tool/skill/softseep/scripts/version-migrate.py fingerprint "<新版exe>"
 ```
 
 判据：`format/machine` 与旧版一致；`packer_hint` 无新增告警。
@@ -53,10 +54,10 @@ python （`migrate` 已不存在：按上面的替代路径走） fingerprint "<
 ### ② 位点对齐
 
 ```bash
-python （`migrate` 已不存在：按上面的替代路径走） align --case <case目录> --old 6.8 --new "<新版exe>" --new-version 6.9
+python Tool/skill/softseep/scripts/version-migrate.py align --case <case目录> --old 6.8 --new "<新版exe>" --new-version 6.9
 ```
 
-判据：输出 `N/N 唯一命中`。
+判据：输出区分 unique/missing/multi/needs_manual；unique 仍须核原字节与语义，再做本次目标功能验收。
 - `multi`（多处命中）：AOB 太短 → 加长 `--window`（24→32），或加相邻唯一字节重记；
 - `miss`：走第 4 节「兜底三重」。
 
@@ -66,7 +67,7 @@ python （`migrate` 已不存在：按上面的替代路径走） align --case <
 
 | 情况 | 动作 |
 |---|---|
-| 容器格式与槽位编号未变 | 直接贴（素材可 100% 复用） |
+| 容器格式与槽位编号未变 | 验证格式/尺寸/布局兼容后复用，不能只凭槽位编号相同 |
 | 槽位编号变了 | 按容器内条目顺序/哈希匹配，记 `old→new` 对照 |
 | 容器格式变了（zstd→别的） | 标人工，附旧/新结构 diff，**不许硬塞** |
 
@@ -81,7 +82,7 @@ python （`migrate` 已不存在：按上面的替代路径走） align --case <
 powershell -File versions/6.9/build.ps1     # 或 01/02/03 阶段留下的构建脚本
 ```
 
-判据：产物能从原件一条命令复现；原件哈希未被改动，或改动可被补丁清单完全解释。
+判据：产物能从原件一条命令复现；原件哈希未变，修改在独立副本且清单可解释。
 
 ### ⑥ 回归验收
 
@@ -92,12 +93,12 @@ powershell -File versions/6.9/build.ps1     # 或 01/02/03 阶段留下的构建
 3. 功能面逐项实测（按目标实际枚举）
 4. UI 是自家品牌、原作者信息不在
 5. 授权走自己的平台（断网/联网都验）
-6. 重启 · 换目录 · 改系统时间 —— 不回退
+6. 按本次适用条件复测重启/换目录；时间边界用合成卡或隔离测试时钟，不默认改整机时间
 
 ### ⑦ 差异报告 + 刷新版本账
 
 ```bash
-python （`migrate` 已不存在：按上面的替代路径走） report --case <case目录> --old 6.8 --new-version 6.9
+python Tool/skill/softseep/scripts/version-migrate.py report --case <case目录> --old 6.8 --new-version 6.9
 ```
 
 报告必须含：旧 RVA → 新 RVA 对照、命中率 N/M、需人工 K 处。

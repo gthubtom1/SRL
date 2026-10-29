@@ -6,47 +6,70 @@
   "protection": [],
   "authority": "local",
   "goal_level": "L2",
-  "outcome": "success",
+  "outcome": "partial",
   "artifacts": [
     {
       "path": "input/a.exe",
-      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+      "size": 53782
     },
     {
       "path": "artifacts/patch-manifest.json",
-      "sha256": "8c55c9811ec386f4d95bfbdd2fde777ad0eecc1707f31c28db20c9676ccf6d89"
+      "sha256": "8c55c9811ec386f4d95bfbdd2fde777ad0eecc1707f31c28db20c9676ccf6d89",
+      "size": 983
     },
     {
       "path": "artifacts/a.patched.exe",
-      "sha256": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00"
+      "sha256": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00",
+      "size": 53782
     },
     {
       "path": "artifacts/patch-manifest.json.rollback.backup",
-      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+      "size": 53782
     },
     {
       "path": "artifacts/a.rollback.exe",
-      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+      "sha256": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30",
+      "size": 53782
     },
     {
       "path": "artifacts/run-anything.txt",
-      "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+      "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431",
+      "size": 5
     },
     {
       "path": "artifacts/run-original-trance.txt",
-      "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+      "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431",
+      "size": 5
     },
     {
       "path": "artifacts/run-original-wrong.txt",
-      "sha256": "4f8e9e45f8a9e1843b81eaf3bdf52a6b778d415d23bf985774a9d34a43f69bd5"
+      "sha256": "4f8e9e45f8a9e1843b81eaf3bdf52a6b778d415d23bf985774a9d34a43f69bd5",
+      "size": 5
     },
     {
       "path": "artifacts/run-wrong.txt",
-      "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431"
+      "sha256": "c26de83abdc9496cd1301470918ec39ecca1cf389ef0ae1c6504da1800d1c431",
+      "size": 5
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "16e925d23bd7e51f3956ffc3c08d7f77d2fe8049cab71a91a222839d409e56a6"
+      "sha256": "a8a995b97afde3e061cf806a6c960753ee582622f09fa9ecc927fa7b3898eeb5",
+      "size": 974,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "5569d8fb4932909b78ccc69ed71574dd9b90f7f018a51b8a0e14dc7db11204f3",
+      "size": 240,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/r13-a.patched.exe",
+      "sha256": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00",
+      "size": 53782,
+      "kind": "patched-binary"
     }
   ],
   "evidence_dir": "artifacts",
@@ -59,14 +82,10 @@
     ]
   },
   "lessons": [
-    "跑的是什么：真实第三方 crackme `Tool/samples/real/crackerjack/a.exe`（sha256 8308abb8…6f30），复制到本案例 input/ 后未改原文件。",
-    "命令与 rc：`objdump -d a.exe` 定位 main 的两段比较（0x140002882 je、0x14000289f jne）；用 patch-verify.py --file input/a.exe --manifest artifacts/patch-manifest.json --out artifacts/a.patched.exe，rc=0，输出 ok=true、patches=2、before/after 哈希与清单一致。",
-    "结果：原版 `wrong`→FAIL、`trance`→PASS；补丁版 `wrong` 与 `anything` 均→PASS（run-wrong.txt / run-anything.txt，各 1 行 PASS）。两处补丁均 2 字节，等长，无需重定位与代码洞。",
-    "判据：等长约束满足（2→2）、原字节匹配、补丁后哈希与清单 result_sha256 一致、行为差可复现（同一输入原版 FAIL/补丁版 PASS），四条同时成立才算补丁生效。",
-    "边界：这是源码级简单比较（编译期把 \"trance\" 拆成两个 imm32），不代表真实商业软件；无壳、无反调试、无签名校验、无完整性自检。真实目标需先按 09-patch-engineering.md 评估重定位/校验和/签名链。",
-    "回滚：清单 + patch-verify.py --rollback 可复原；input/a.exe 始终保留原始哈希。",
-    "回滚实测（R2 修复后）：patch-verify 在打补丁前落独立备份 `patch-manifest.json.rollback.backup` 并把 backup/backup_sha256 写回 manifest；`--rollback --out artifacts/a.rollback.exe` rc=0，输出 sha256=8308abb8…6f30（= 原文件），说明回滚不是「拿当前文件冒充备份」。",
-    "回滚补强（R6）：patch-verify 现支持对**已打补丁文件**回滚——`--file artifacts/a.patched.exe --rollback` 输出 from_patched=true、restored_sha256=8308abb8…（原件哈希）；非回滚路径对已补丁文件直接 rc=2，避免重复打补丁。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/softseep/scripts/patch-verify.py --file Tool/cases/案例-真实补丁a/input/a.exe --manifest Tool/cases/案例-真实补丁a/artifacts/patch-manifest.json --out tmp/r13-replay/work/a.patched.exe`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "实跑输出 ok=true、patches=2、before=8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30、after=bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00。",
+    "本次命令证明补丁清单、原字节、等长补丁与输出文件哈希一致，生成的 a.patched.exe 另存为 artifacts/r13-a.patched.exe。",
+    "outcome=partial：本次重放覆盖补丁构造与哈希；历史 PASS/FAIL 行为输出保留为既有证据，本轮结构化执行绑定只认证补丁构造链。"
   ],
   "tags": [
     "patch",
@@ -83,9 +102,61 @@
     "Tool/skill/softseep/scripts/patch-verify.py",
     "Tool/samples/real/crackerjack/a.c"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/softseep/scripts/patch-verify.py",
+      "--file",
+      "Tool/cases/案例-真实补丁a/input/a.exe",
+      "--manifest",
+      "Tool/cases/案例-真实补丁a/artifacts/patch-manifest.json",
+      "--out",
+      "tmp/r13-replay/work/a.patched.exe"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "5569d8fb4932909b78ccc69ed71574dd9b90f7f018a51b8a0e14dc7db11204f3"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/softseep/scripts/patch-verify.py",
+          "--file",
+          "Tool/cases/案例-真实补丁a/input/a.exe",
+          "--manifest",
+          "Tool/cases/案例-真实补丁a/artifacts/patch-manifest.json",
+          "--out",
+          "tmp/r13-replay/work/a.patched.exe"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "5569d8fb4932909b78ccc69ed71574dd9b90f7f018a51b8a0e14dc7db11204f3"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

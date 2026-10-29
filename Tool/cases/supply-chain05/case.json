@@ -1,12 +1,12 @@
 {
  "id": "supply-chain05",
  "domain": "supply-chain-security",
- "target_type": "公开开源仓库（OWASP Juice Shop，MIT）固定 commit 717f5efa886b",
+ "target_type": "公开开源仓库 OWASP Juice Shop（MIT）commit 717f5efa886b 的固定 package.json 快照；当前案例不包含整仓副本",
  "evidence_kind": "real",
  "protection": [],
  "authority": "shipped-artifact（真实仓库内容，非自建样本）",
  "goal_level": "L2",
- "outcome": "success",
+ "outcome": "partial",
  "artifacts": [
   {
    "path": "artifacts/sc.json",
@@ -15,19 +15,91 @@
   {
    "path": "capture/reverify-2026-10-24.log",
    "sha256": "09c2db4a5db51d75a7373b7d01647e7acf59a76ffe452777d4caad520075c9cc"
+  },
+  {
+   "path": "capture/r13-repro.json",
+   "sha256": "33a9f4dbb6ee2ca9c87b3fb286cfcade811bab5ae99f7633b8ace7f63575b679",
+   "size": 1595
+  },
+  {
+   "path": "capture/r13-sc-current.json",
+   "sha256": "7d034c02a850ff6b7a63dabf31ede4ad2027e30be39dba5b2e02d1fedfb2d828",
+   "size": 3547
+  },
+  {
+   "path": "capture/r13-sc-check.stdout.txt",
+   "sha256": "7d034c02a850ff6b7a63dabf31ede4ad2027e30be39dba5b2e02d1fedfb2d828",
+   "size": 3547
+  },
+  {
+   "path": "capture/r13-sc-check.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
   }
  ],
  "repro": {
   "status": "recorded",
-  "evidence": "python Tool/skill/supply-chain-security/scripts/sc-check.py --path <clone> --out artifacts/sc.json；rc=0；summary.high_or_critical=10"
+  "command": "python -B -X utf8 Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/cases/supply-chain05/target --out Tool/cases/supply-chain05/capture/r13-sc-current.json",
+  "argv": [
+   "D:\\EXE\\python\\python.exe",
+   "-B",
+   "-X",
+   "utf8",
+   "Tool/skill/supply-chain-security/scripts/sc-check.py",
+   "--path",
+   "Tool/cases/supply-chain05/target",
+   "--out",
+   "Tool/cases/supply-chain05/capture/r13-sc-current.json"
+  ],
+  "cwd": ".",
+  "rc": 1,
+  "stdout": {
+   "path": "Tool/cases/supply-chain05/capture/r13-sc-check.stdout.txt",
+   "sha256": "7d034c02a850ff6b7a63dabf31ede4ad2027e30be39dba5b2e02d1fedfb2d828"
+  },
+  "stderr": {
+   "path": "Tool/cases/supply-chain05/capture/r13-sc-check.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "commands": [
+   {
+    "label": "sc-check",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/skill/supply-chain-security/scripts/sc-check.py",
+     "--path",
+     "Tool/cases/supply-chain05/target",
+     "--out",
+     "Tool/cases/supply-chain05/capture/r13-sc-current.json"
+    ],
+    "cwd": ".",
+    "rc": 1,
+    "stdout": {
+     "path": "Tool/cases/supply-chain05/capture/r13-sc-check.stdout.txt",
+     "sha256": "7d034c02a850ff6b7a63dabf31ede4ad2027e30be39dba5b2e02d1fedfb2d828",
+     "size": 3547
+    },
+    "stderr": {
+     "path": "Tool/cases/supply-chain05/capture/r13-sc-check.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   }
+  ],
+  "target_sha256": "81771ac97016ceb8f24fb79ffd24751a90a189c1cbfa6625680142880aedf99c",
+  "evidence": "R13 对案例内 package.json 实际执行离线静态扫描，命令返回 rc=1，结果记录 1 个 high、2 个 medium；目标运行前后哈希一致。",
+  "returncode_semantics": "sc-check 以非零 rc 表示命中 high/medium 线索；rc=1 是实际结果，不作为执行失败伪写为 0。"
  },
  "evidence_dir": ".",
  "lessons": [
-  "真实仓库的 CI 注入面比依赖面更常见：2 个 workflow 在 shell 里直接插值 ${{ github.event... }}",
-  "pull_request_target 与 secrets 同时出现 = 最高危组合（fork PR 可触达 secrets）",
-  "npm 工程没有 lockfile（locks=[]）→ 依赖不可复现，SC-009/010 计为 high",
-  "镜像 :latest 标签 4 处 high：构建不可复现 + 供应链替换面",
-  "命令：python sc-check.py --path D:/tmp/target-supply --out artifacts/sc.json；rc=0"
+  "当前可重放的 package.json 快照有 114 个依赖，但 target 目录没有锁文件，R13 扫描将其列为 high 线索。",
+  "当前快照保留 6 个 npm scope，R13 扫描按默认 npm registry 将依赖混淆风险列为 medium 线索。",
+  "当前快照包含 110 条宽版本范围，R13 扫描将其列为 medium 线索。",
+  "历史 capture 中的完整 Juice Shop 静态扫描曾记录 10 个 high 风险；该结果仍由 artifacts/sc.json 的原始结构化输出承载。"
  ],
  "tags": [
   "supply-chain",
@@ -42,7 +114,7 @@
   "Tool/skill/supply-chain-security/references/cicd-and-artifacts.md",
   "Tool/skill/supply-chain-security/references/image-and-provenance.md"
  ],
- "updated": "2026-10-24",
+ "updated": "2026-10-29",
  "target_files": [
   {
    "path": "target/package.json",
@@ -56,5 +128,10 @@
   "size": 7299,
   "at": "2026-10-26T15:34:58",
   "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
- }
+ },
+ "limitations": [
+  "案例内只保留 package.json 快照，未保留完整 Juice Shop、workflow、Dockerfile、compose 与 frontend/package.json，因而无法在本轮重放 SC05-01..SC05-06 的全仓扫描。",
+  "R13 的 rc=1 只表示离线扫描命中风险线索；它不证明 CVE 可达、漏洞可利用或 ci-injection 已被触发。",
+  "当前扫描只覆盖 1 个 npm manifest，历史 artifacts/sc.json 的 1468 文件全仓结果不能被当前快照自动替代。"
+ ]
 }

@@ -13,16 +13,38 @@
     },
     "final": {
       "claims": 21,
-      "proven": 18,
+      "proven": 15,
       "strong": 15,
       "verdict": "pass"
     }
   },
   "source_sha256": {
-    "facts.jsonl": "489d0d1945515b8021e4b8979c1cc7fac9d66b9bdab353e1d45e7c573a678517",
-    "artifacts/MANIFEST.sha256": "e58eef16d8cc5fe6913230b2a06a65f6b2eba6fdf4a7e14377e9be2ce09993b4"
+    "facts.jsonl": "19c552a588920f7e7ef11ecca2a15f3672918e7eb9d9be5fd3951390796e4b6d",
+    "artifacts/MANIFEST.sha256": "e58eef16d8cc5fe6913230b2a06a65f6b2eba6fdf4a7e14377e9be2ce09993b4",
+    "capture/reverify-2026-10-24.log": "a0d94e46973b4a42cbb9c028caf7538c64d080fd8cd8670054a1a959e15c9262",
+    "report/dynamic.md": "c008e7828bc48e98104804b70a47ff2b04f7c76455450cec9c27fe7412362661",
+    "capture/run2.json": "8248be21fea601a609ae1c4a69be9f9941452209983ec8938ab4fb45941cc503",
+    "unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+    "artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
   },
-  "interpretation": "upx 3.91w 解壳 + r2 复测后声明 observed，背书 0 → 15；3 条需活体进程/运行的降为 inferred 并排除",
+  "interpretation": "本轮仅审计更正：F-003/F-112/F-114 撤销无据 derived 升档，整条降为 hypothesis/inferred/reported。F-003 原 4/76 被历史 log 第 59/62 行的 2/75 推翻；F-112 缺活体采集；F-114 只支持五组有限历史回执，不支持任意输入。由当前 facts 只读重算 claims/proven/strong=21/15/15；pass 仅是既有账本聚合结果。本轮没有运行目标、脱壳或内存采集，也没有新增目标实测，不证明领域可用。旧 baseline 与限制保留。",
+  "audit_corrections": [
+    {
+      "at": "2026-10-27T01:58:51+00:00",
+      "kind": "evidence-integrity-correction",
+      "claims": ["F-003", "F-112", "F-114"],
+      "previous_final": {"claims": 21, "proven": 18, "strong": 18, "verdict": "pass"},
+      "previous_source_sha256": {
+        "facts.jsonl": "15147f4e25db8720ca3dcf12c02fd2c275702ca0564a5b186d95a1616a85bf58",
+        "artifacts/MANIFEST.sha256": "e58eef16d8cc5fe6913230b2a06a65f6b2eba6fdf4a7e14377e9be2ce09993b4"
+      },
+      "previous_interpretation": "upx 3.91w 解壳 + r2 复测后声明 observed，背书 0 → 15；3 条需活体进程/运行的事实仍按缺少独立运行验证处理",
+      "reason": "完整复合 claim 不受现有材料支持；保留原 claim、证据和旧状态于 facts 的 evidence_audit；旧 strong=18 被本次更正推翻。F-114 的 run2.json 第 22–73 行只有五组历史输入，第 74–80 行为历史负例；第 19–20 行补丁前后 hash 与当前磁盘只读重算吻合，不代表本轮执行或任意输入验证。不拆新 claim。",
+      "validation": "case_state.verify_case 只读现算计数；SHA256 从当前文件字节重算；G5/G6 与回归只验证证据账本契约，不是新的执行验证。verifier 字段为原有账本验证器引用。",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
+  ],
   "limitations": [
     "未做活体内存比对；未运行补丁后二进 制"
   ]

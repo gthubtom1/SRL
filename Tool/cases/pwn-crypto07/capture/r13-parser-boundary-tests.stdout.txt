@@ -1,0 +1,313 @@
+{
+  "schema": "seep.pwn-parser-boundary-tests/1",
+  "pwn_check_under_test": "D:\\Seep-Reverse-Lab\\Tool\\skill\\pwn-crypto\\scripts\\pwn-check.py",
+  "pwn_check_sha256": "daea2bb4a8b1d7d3cdd0da592975f3ea3609e62a6401e38a7a932b05d469dc88",
+  "synthetic_hosts": "built in memory; no file on disk, no process started",
+  "summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": []
+  },
+  "cases": [
+    {
+      "name": "pe32 dir_size=0x40 (exact minimum) cookie=nonzero",
+      "bits": 32,
+      "expect_found": true,
+      "ok": true,
+      "verdict": "Found (SecurityCookie)",
+      "has_cookie": true,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 64,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 64,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": true,
+        "security_cookie": "0x1234"
+      },
+      "kwargs": {
+        "lc_size": 64,
+        "cookie": 4660,
+        "declared_size": 64
+      }
+    },
+    {
+      "name": "pe32 dir_size=0x3C (one dword short) -> must not read",
+      "bits": 32,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 60,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": false
+      },
+      "kwargs": {
+        "lc_size": 60,
+        "cookie": 4660,
+        "declared_size": 60
+      }
+    },
+    {
+      "name": "pe32 dir_size=0x40 but declared Size=0x3C -> untrusted",
+      "bits": 32,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 64,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 60,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": false
+      },
+      "kwargs": {
+        "lc_size": 64,
+        "cookie": 4660,
+        "declared_size": 60
+      }
+    },
+    {
+      "name": "pe32 cookie field == 0 -> not found",
+      "bits": 32,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 64,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 64,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": true,
+        "security_cookie": "0x0"
+      },
+      "kwargs": {
+        "lc_size": 64,
+        "cookie": 0,
+        "declared_size": 64
+      }
+    },
+    {
+      "name": "pe64 dir_size=0x60 (exact minimum) high!=0 low==0 -> Found",
+      "bits": 64,
+      "expect_found": true,
+      "ok": true,
+      "verdict": "Found (SecurityCookie)",
+      "has_cookie": true,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 96,
+        "cookie_offset": "0x58",
+        "cookie_width": 8,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 96,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": true,
+        "security_cookie": "0x100000000"
+      },
+      "kwargs": {
+        "lc_size": 96,
+        "cookie": 4294967296,
+        "declared_size": 96
+      }
+    },
+    {
+      "name": "pe64 dir_size=0x58 (one field short) -> must not read",
+      "bits": 64,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 88,
+        "cookie_offset": "0x58",
+        "cookie_width": 8,
+        "dir_size_sufficient": false
+      },
+      "kwargs": {
+        "lc_size": 88,
+        "cookie": 4294967296,
+        "declared_size": 88
+      }
+    },
+    {
+      "name": "pe64 dir_size=0x60 declared Size=0x48 -> untrusted",
+      "bits": 64,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 96,
+        "cookie_offset": "0x58",
+        "cookie_width": 8,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 72,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": false
+      },
+      "kwargs": {
+        "lc_size": 96,
+        "cookie": 4294967296,
+        "declared_size": 72
+      }
+    },
+    {
+      "name": "pe64 cookie=1 -> Found",
+      "bits": 64,
+      "expect_found": true,
+      "ok": true,
+      "verdict": "Found (SecurityCookie)",
+      "has_cookie": true,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 96,
+        "cookie_offset": "0x58",
+        "cookie_width": 8,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 96,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": true,
+        "security_cookie": "0x1"
+      },
+      "kwargs": {
+        "lc_size": 96,
+        "cookie": 1,
+        "declared_size": 96
+      }
+    },
+    {
+      "name": "pe32 load-config outside section raw data -> must not read",
+      "bits": 32,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 64,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 0,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": false
+      },
+      "kwargs": {
+        "lc_inside_section": false
+      }
+    },
+    {
+      "name": "pe32 truncated right after the field -> still readable",
+      "bits": 32,
+      "expect_found": true,
+      "ok": true,
+      "verdict": "Found (SecurityCookie)",
+      "has_cookie": true,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 64,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 64,
+        "field_within_file": true,
+        "field_within_section": true,
+        "declared_size_sufficient": true,
+        "security_cookie": "0x1234"
+      },
+      "kwargs": {
+        "lc_size": 64,
+        "cookie": 4660,
+        "declared_size": 64,
+        "truncate_after": 576
+      }
+    },
+    {
+      "name": "pe32 truncated before the cookie field -> must not read",
+      "bits": 32,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x1000",
+        "dir_size": 64,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": true,
+        "file_offset": "0x200",
+        "declared_size": 64,
+        "field_within_file": false,
+        "field_within_section": true,
+        "declared_size_sufficient": true
+      },
+      "kwargs": {
+        "lc_size": 64,
+        "cookie": 4660,
+        "declared_size": 64,
+        "truncate_after": 572
+      }
+    },
+    {
+      "name": "no load-config data directory -> not found",
+      "bits": 32,
+      "expect_found": false,
+      "ok": true,
+      "verdict": "Not found",
+      "has_cookie": false,
+      "raised": null,
+      "load_config": {
+        "rva": "0x0",
+        "dir_size": 0,
+        "cookie_offset": "0x3c",
+        "cookie_width": 4,
+        "dir_size_sufficient": false
+      },
+      "kwargs": {
+        "with_dir": false
+      }
+    }
+  ]
+}

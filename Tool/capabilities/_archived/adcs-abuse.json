@@ -1,0 +1,41 @@
+{
+  "id": "adcs-abuse",
+  "title": "ADCS 模板滥用",
+  "domain": "ad-cloud",
+  "archived": true,
+  "archive_reason": "ad-cloud 已从正式九域迁出；仅保留历史能力定义与证据引用。",
+  "triggers": [
+    "ADCS",
+    "证书模板",
+    "ESC1",
+    "ESC8",
+    "ESC17",
+    "certipy",
+    "模板滥用",
+    "证书服务"
+  ],
+  "aliases": [
+    "adcs",
+    "cert-template",
+    "证书攻击"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "CA 地址",
+    "证书模板清单"
+  ],
+  "outputs": [
+    "可利用模板",
+    "证书申请证据"
+  ],
+  "scripts": [],
+  "refs": [
+    "Tool/skill/_pending/ad-cloud/references/kerberos-and-adcs.md"
+  ],
+  "maturity": "probe",
+  "note": "待补证书模板枚举脚本，当前用 certipy find 手工完成",
+  "reserved": true,
+  "compose": [
+    "cloud-iam"
+  ]
+}

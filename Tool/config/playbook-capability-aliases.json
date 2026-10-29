@@ -1,0 +1,7 @@
+{
+  "schema": "seep.playbook-capability-aliases/1",
+  "note": "仅登记无法由文件名 stem 自动解析的配方能力别名；目标必须是仓库内真实存在的脚本。",
+  "repo": {
+    "apk-decode": "Tool/scripts/apk/decode.ps1"
+  }
+}

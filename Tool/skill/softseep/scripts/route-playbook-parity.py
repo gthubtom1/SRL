@@ -18,7 +18,15 @@
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
+import contextlib
 import importlib.util
 import io
 import json
@@ -35,16 +43,7 @@ for _s in (sys.stdout, sys.stderr):
 SCHEMA = "seep.route-playbook-parity/1"
 HERE = os.path.dirname(os.path.abspath(__file__))
 def _repo_root(start):
-    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
-    d = os.path.abspath(start)
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "Tool", "cases")):
-            return d
-        nd = os.path.dirname(d)
-        if nd == d:
-            break
-        d = nd
-    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+    return _seep_repo_root(__file__)
 
 
 ROOT = _repo_root(HERE)
@@ -57,13 +56,35 @@ def _load_module(path, name):
     return mod
 
 
+@contextlib.contextmanager
+def _temporary_import_paths(root):
+    """Expose repository and lib roots only while loading domain-gate and route."""
+    added = []
+    for path in (os.path.join(root, "Tool", "scripts", "lib"),
+                 os.path.join(root, "Tool", "scripts"),
+                 root):
+        path = os.path.abspath(path)
+        if path not in sys.path:
+            sys.path.insert(0, path)
+            added.append(path)
+    try:
+        yield
+    finally:
+        for path in added:
+            try:
+                sys.path.remove(path)
+            except ValueError:
+                pass
+
+
 def routing():
     """路由来自 pack.json（S3：routing.json 已删）。返回 (domain-gate 模块, routes, prio, fallback)。"""
-    dg = _load_module(os.path.join(_repo_root(HERE), "Tool", "scripts", "domain-gate.py"), "dg_parity")
-    import sys as _sys
-    _sys.path.insert(0, os.path.join(_repo_root(HERE), "Tool", "scripts"))
-    import route as route_mod
-    res = route_mod.check()
+    root = _repo_root(HERE)
+    with _temporary_import_paths(root):
+        dg = _load_module(os.path.join(root, "Tool", "scripts", "domain-gate.py"),
+                          "dg_parity")
+        import route as route_mod
+        res = route_mod.check()
     routes, prio = {}, []
     for i, (_p, pid, label, must) in enumerate(res.get("rows") or []):
         rid = "P%02d" % i
@@ -82,7 +103,8 @@ def triggers():
     for fn in sorted(os.listdir(pdir)):
         if not fn.endswith(".md") or fn.startswith(("INDEX", "README")):
             continue
-        text = io.open(os.path.join(pdir, fn), encoding="utf-8", errors="replace").read()
+        with io.open(os.path.join(pdir, fn), encoding="utf-8", errors="replace") as stream:
+            text = stream.read()
         m = re.search(r"(?m)^-\s*触发词[:：]\s*(.+)$", text)
         if not m:
             continue
@@ -114,8 +136,9 @@ def _verdict(skill_dir, hit, expect_any, dom_map):
 def run(only_tests=None):
     dg, routes, prio, fallback = routing()
     books = triggers()
-    dom_map = json.load(io.open(os.path.join(ROOT, "Tool", "config", "playbook-domains.json"),
-                                encoding="utf-8"))["map"]
+    with io.open(os.path.join(ROOT, "Tool", "config", "playbook-domains.json"),
+                 encoding="utf-8") as stream:
+        dom_map = json.load(stream)["map"]
     freq = {}
     for words in books.values():
         for w in set(x.lower() for x in words):

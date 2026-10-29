@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""domain_spec.py —— 领域深度契约的**机器可读副本**（唯一数据源）。
+"""domain_spec.py —— 领域深度契约的**公共部分**（唯一数据源 A：阈值/必备篇/证据语义/路由回归）。
+
+两份数据源，别混：
+  A. 本文件：`LIMITS`（公共下限/上限）、`REQUIRED_REFS`、`CASE_FIELDS`、`EVIDENCE_KINDS`、
+     `ROUTING_TESTS` —— 全仓库只有这一份，改这里就是改门槛（只许按事实收紧，不许为变绿放宽）。
+  B. 逐域静态深度要求（skill/board/matrix/case_globs/ext_scripts/kb_line_max/archive_*）：
+     在**该域自己的** `Tool/skill/<id>/pack.json#depth_contract`，由 `lib/domain_registry.py`
+     严格校验后用 `DOMAINS` 兼容视图暴露。
+
+正式域身份**只来自** `pack.json.id`（== 目录名）。`DOMAINS` **不是**身份表，也不声称是唯一 ID
+来源：它是从 pack 现算的**兼容视图**（加域不再改本文件）。要动态全集请用
+`domain_registry.load_registry().ids()` / 本文件的 `formal_domains()`。
 
 改动顺序（缺一处即漂移，domain-gate 的 --spec 会报）：
-    1. docs/DOMAIN-SPEC-v2.md（人读）
-    2. 本文件（机读）
+    1. docs/DOMAIN-CONTRACT.md（人读）
+    2. 本文件 / 各域 pack.json#depth_contract（机读）
     3. Tool/scripts/domain-gate.py 的断言实现
 
 不要在这里写任何本机绝对路径；所有路径相对仓库根。
@@ -31,9 +42,11 @@ from __future__ import annotations
 #     `_pending/site-clone/SKILL.md` 引用）与 `reverse-matrix.json`（是 softseep 的现行矩阵，
 #     见 DOMAINS["softseep"]["matrix"]）—— 同目录里「在用」与「归档」混存时，
 #     搬一半反而更容易让人误以为整目录都失效。
-# 若要重新纳入：先给它们一路由包（pack.json）再写回 DOMAINS。
+# 若要重新纳入：先给它们一路由包（pack.json，含 depth_contract）—— 那时会自动出现在
+# 注册表与 DOMAINS 兼容视图里，**不需要再改本文件**。
 #
-# 判据：客户可见域 = 路由包里的键名 = `Tool/skill/*/pack.json` 的 id（9 个）。
+# 判据：客户可见正式域 = `Tool/skill/<dir>/pack.json` 且 `id == dir`（**数量不固定**）；
+# 动态全集见 lib/domain_registry.py，本文件不再保存域清单。
 # 下面四项在本文件里不再占位，因为：
 #   * ad-cloud / plugin-targets / site-clone —— skill 指向 `Tool/skill/_pending/*`，
 #     索引 32→9 后已归档、仓库里没有对应路由包（R0 兜底也不会落到它们），
@@ -44,96 +57,50 @@ from __future__ import annotations
 # （Tool/capabilities/*.json、Tool/config/{ad-cloud,plugin-targets,site-clone,
 # reverse}-matrix.json、Tool/cases/{ad-cloud*,plugin*,site-clone*,项目*,案例*}、
 # kb/{ad-cloud,plugin,site-clone,pe-reverse}），所以**不删文件**。
-# 若要重新纳入，先让它们有路由包（pack.json）再加回本字典。
+# 若要重新纳入：给它们真实路由包（pack.json，含 depth_contract）—— 那时自动出现在注册表与
+# DOMAINS 兼容视图里，**不需要再改本文件**。
 #
-# REMOVED_DOMAINS = {
-#     "ad-cloud":       {"skill": "_pending/ad-cloud",       "archived": True, "board": "ad-cloud"},
-#     "plugin-targets": {"skill": "_pending/plugin-targets", "archived": True, "board": "plugin"},
-#     "site-clone":     {"skill": "_pending/site-clone",     "archived": True, "board": "site-clone"},
-#     "reverse":        {"skill": "softseep",                "board": "pe-reverse"},  # → 已并入 softseep
-# }
 # ---------------------------------------------------------------------------
+# 正式域视图（2026-10-27 主对话裁定：身份唯一来源 = pack.json#id）
+#
+# 以前这里是**硬编码的九域表**（skill/board/matrix/case_globs/ext_scripts/...）。
+# 那份表与 pack.json 是两份事实源，加第 10 个域必须改代码（P1-8 遗留），而
+# “改代码才能加域”与“用户不需要手改配置”直接冲突。
+#
+# 现在的分工：
+#   * 逐域静态深度要求 → 该域自己的 `Tool/skill/<id>/pack.json#depth_contract`
+#     （由 lib/domain_registry.py 校验：字段集合严格、kb_line_max ∈ [200,400]、
+#      cases_max ∈ [3,7]，没有“改小下限/抬上限”的口子）。
+#   * 公共下限/上限、必备篇清单、证据语义、路由回归集 → 仍**只有本文件一份**
+#     （LIMITS / REQUIRED_REFS / EVIDENCE_KINDS / ROUTING_TESTS，不降阈值、不删条目）。
+#   * `DOMAINS` 只是**兼容视图**：内容取 pack，形状与旧表一致，原消费者不用改。
+#     不完整的域**保留在集合里**并带 `_incomplete`（显式报红），绝不静默过滤。
+#   * 正式全集本身请用 `lib/domain_registry.load_registry().ids()`（动态，不按“恰 9 目录”）。
+#
+# 载入失败（pack 坏、目录缺）时 `DOMAINS` 为空 dict 且 `DOMAIN_LOAD_ERRORS` 非空，
+# 本模块**不抛异常**：否则 import 这里的所有 CLI 会一起崩掉。
+try:
+    from . import domain_registry as _registry  # 单向依赖：registry 不 import 本模块
+except ImportError:  # 兼容“把 lib/ 直接塞进 sys.path 后 `import domain_spec`”的旧用法
+    import domain_registry as _registry  # type: ignore
 
-# 九域（客户可见域，与路由包一一对应）：
-# refs 6-10 + 四个必备篇 + 2-16 脚本 + 3-7 案例 + 6-10 KB + 20-30 任务卡
-DOMAINS = {
-    "apkseep": {
-        "skill": "apkseep",
-        "board": "apk-reverse",
-        "matrix": "apkseep-matrix.json",
-        "case_globs": ["apkseep*"],
-        "ext_scripts": [],
-        # 与 softseep 同档：安卓逆向的 KB 文章与 references 是同一类产物，
-        # 单篇 400 行上限（默认 200 会把既有技术长文判成缺陷，属判据失真）。
-        "kb_line_max": 400,
-    },
-    "firmware-iot": {
-        "skill": "firmware-iot",
-        "board": "firmware-iot",
-        "matrix": "firmware-iot-matrix.json",
-        "case_globs": ["firmware-iot*"],
-        "ext_scripts": ["`fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/）"],
-    },
-    "web-pentest": {
-        "skill": "web-pentest",
-        "board": "web-pentest",
-        "matrix": "web-pentest-matrix.json",
-        "case_globs": ["web-pentest*"],
-        "ext_scripts": [],
-    },
-    "pwn-crypto": {
-        "skill": "pwn-crypto",
-        "board": "pwn-crypto",
-        "matrix": "pwn-crypto-matrix.json",
-        "case_globs": ["pwn-crypto*"],
-        "ext_scripts": ["Tool/skill/pwn-crypto/scripts/pwn-check.py"],
-    },
-    "protocol-plugin": {
-        "skill": "protocol-plugin",
-        "board": "protocol",
-        "matrix": "protocol-plugin-matrix.json",
-        "case_globs": ["protocol*"],
-        "ext_scripts": ["`pcap-summary`（S4 已删：壳，真身在 protocol-plugin/scripts/）"],
-    },
-    "forensics-mobile": {
-        "skill": "forensics-mobile",
-        "board": "forensics",
-        "matrix": "forensics-mobile-matrix.json",
-        "case_globs": ["forensics*"],
-        "ext_scripts": ["`forensics-check`（S4 已删：壳，真身在 forensics-mobile/scripts/）"],
-    },
-    "malware-analysis": {
-        "skill": "malware-analysis",
-        "board": "malware-analysis",
-        "matrix": "malware-analysis-matrix.json",
-        "case_globs": ["malware-analysis*"],
-        "ext_scripts": ["Tool/skill/malware-analysis/scripts/mal-triage.py"],
-    },
-    "supply-chain-security": {
-        "skill": "supply-chain-security",
-        "board": "supply-chain",
-        "matrix": "supply-chain-security-matrix.json",
-        "case_globs": ["supply-chain*"],
-        "ext_scripts": ["Tool/skill/supply-chain-security/scripts/sc-check.py"],
-    },
-    # softseep = 旧名 reverse（同一 skill 目录 / 同一 pe-reverse KB 板）；
-    # 矩阵文件仍叫 reverse-matrix.json（文件名是数据，不是域名）。
-    "softseep": {
-        "skill": "softseep",
-        "board": "pe-reverse",
-        "matrix": "reverse-matrix.json",
-        "case_globs": ["项目*", "案例*"],
-        "ext_scripts": ["Tool/skill/malware-analysis/scripts/driver-triage.py"],
-        # 逆(软)向域与其它域同一契约（3–5 案例 / 6–10 篇 KB）。
-        # 历史沉淀不删：超出部分归档在 Tool/cases/_archive/ 与 kb/_archive/pe-reverse/，
-        # 归档不计入域数量，但链接完整性仍受门禁约束（见 check_links / check_md_links）。
-        "kb_line_max": 400,   # 逆向域 KB 单篇与 reference 同档（§5 已写明）
-        "archive_cases": "Tool/cases/_archive",
-        "archive_kb": "Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse",
-    },
-}
+def _load_domains():
+    """从 pack 现算兼容视图 + 载入错误（不抛异常）。"""
+    try:
+        registry = _registry.load_registry()
+    except Exception as exc:  # noqa: BLE001 - 载入器本身坏了也必须能让 CLI 起来并报红
+        return {}, ["domain_registry.load_registry() failed: %s" % str(exc)[:160]]
+    return registry.as_domains(), list(registry.errors)
 
-# 必备篇（文件名模式，按顺序匹配到即算齐）
+
+DOMAINS, DOMAIN_LOAD_ERRORS = _load_domains()
+
+
+def formal_domains(root=None, skill_dir=None):
+    """正式域 id 全集（动态）。消费者优先用这个，不要数 DOMAINS 长度。"""
+    return _registry.load_registry(root, skill_dir).ids()
+
+
 REQUIRED_REFS = [
     ("criteria", "01-criteria.md"),
     ("failure", "02-failure-criteria.md"),
@@ -161,6 +128,23 @@ LIMITS = {
     "cards_max": 30,
     "roadmap_max": 80,
 }
+
+
+def _depth_limit_drift():
+    """pack#depth_contract 的区间边界必须与 LIMITS 公共值同源（自检，不是第二份阈值）。"""
+    bad = []
+    for key, (low_key, high_key) in _registry.DEPTH_LIMIT_SOURCE.items():
+        want = (LIMITS[low_key], LIMITS[high_key])
+        got = _registry.DEPTH_LIMITS.get(key)
+        if got != want:
+            bad.append("DEPTH_LIMITS[%s]=%r != LIMITS[%s]/[%s]=%r"
+                       % (key, got, low_key, high_key, want))
+    return bad
+
+
+DEPTH_LIMIT_DRIFT = _depth_limit_drift()
+if DEPTH_LIMIT_DRIFT:
+    DOMAIN_LOAD_ERRORS = list(DOMAIN_LOAD_ERRORS) + DEPTH_LIMIT_DRIFT
 
 # 案例字段
 CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
@@ -219,6 +203,7 @@ ROUTING_TESTS = [{'text': '用 zipalign 对齐后 apksigner 重签',
   'forbid': ['web-pentest', 'pwn-crypto']},
  {'text': 'bios 固件 SPI flash dump 与 UART 接入',
   'expect_any': ['firmware-iot'],
+  'expect_aux': ['malware-analysis'], 'expect_ambiguity': True,
   'forbid': ['web-pentest', 'supply-chain-security']},
  {'text': 'npm scaffold 生成项目后检查 lockfile 完整性',
   'expect_any': ['supply-chain-security'],
@@ -236,24 +221,28 @@ ROUTING_TESTS = [{'text': '用 zipalign 对齐后 apksigner 重签',
  {'text': '这个样本的 C2 配置怎么解',
   'expect_any': ['malware-analysis'],
   'forbid': ['softseep', 'web-pentest']},
- {'text': '这个固件的 web 界面命令注入', 'expect_any': ['firmware-iot'], 'forbid': ['web-pentest']},
+ {'text': '这个固件的 web 界面命令注入', 'expect_any': ['firmware-iot'],
+  'expect_aux': ['web-pentest'], 'expect_ambiguity': True},
  {'text': '这个 docker 镜像有没有后门',
   'expect_any': ['supply-chain-security'],
-  'forbid': ['malware-analysis', 'web-pentest']},
+  'expect_aux': ['malware-analysis'], 'expect_ambiguity': True, 'forbid': ['web-pentest']},
  {'text': '这个 WASM 怎么反编译', 'expect_any': ['softseep'], 'forbid': ['web-pentest']},
  {'text': '这个游戏有 EAC 反作弊', 'expect_any': ['softseep'], 'forbid': ['unpack-loop', 'plugin-targets']},
  {'text': '分析这个 VMP 授权锁',
   'expect_any': ['softseep', 'malware-analysis'],
+  'expect_aux': ['malware-analysis'], 'expect_ambiguity': True,
   'forbid': ['web-pentest']},
  {'text': 'Themida VM 函数怎么绕过',
   'expect_any': ['softseep', 'malware-analysis'],
+  'expect_aux': ['malware-analysis'], 'expect_ambiguity': True,
   'forbid': ['web-pentest']},
  {'text': 'LACUNA 调用栈 pdata 空洞',
   'expect_any': ['softseep'],
   'forbid': ['web-pentest', 'forensics-mobile']},
  {'text': 'Win11 26H2 HVCI 下驱动怎么加载', 'expect_any': ['softseep'], 'forbid': ['web-pentest']},
  {'text': 'ADCS ESC17 WSUS 中继', 'expect_any': [], 'why_unclassified': '不属于客户可见的 9 个域（AD/内网/集群/非技术文本）→ 必须走 UNCLASSIFIED，不许被兜底域假装命中', 'forbid': ['web-pentest']},
- {'text': 'Next.js 缓存投毒怎么验证', 'expect_any': ['web-pentest'], 'forbid': ['softseep']},
+ {'text': 'Next.js 缓存投毒怎么验证', 'expect_any': ['web-pentest'],
+  'expect_aux': ['supply-chain-security'], 'expect_ambiguity': True, 'forbid': ['softseep']},
  {'text': 'ETag oracle 推断长度',
   'expect_any': ['web-pentest'],
   'forbid': ['softseep', 'protocol-plugin']},
@@ -262,10 +251,13 @@ ROUTING_TESTS = [{'text': '用 zipalign 对齐后 apksigner 重签',
   'forbid': ['malware-analysis']},
  {'text': 'MemProcFS 5.19 内存取证', 'expect_any': ['forensics-mobile'], 'forbid': ['web-pentest']},
  {'text': 'ASAR integrity 绕过', 'expect_any': ['protocol-plugin'], 'forbid': ['web-pentest']},
- {'text': 'bytenode V8 字节码反编译', 'expect_any': ['protocol-plugin'], 'forbid': ['web-pentest']},
+ {'text': 'bytenode V8 字节码反编译', 'expect_any': ['protocol-plugin'],
+  'expect_aux': ['softseep'], 'expect_ambiguity': True, 'forbid': ['web-pentest']},
  {'text': '协议状态机 边覆盖率 怎么算', 'expect_any': ['protocol-plugin'], 'forbid': ['pwn-crypto']},
- {'text': 'MCP 工具投毒怎么测', 'expect_any': ['softseep'], 'forbid': ['web-pentest']},
- {'text': 'A2A agent 协议越权', 'expect_any': ['softseep'], 'forbid': ['web-pentest']},
+ {'text': 'MCP 工具投毒怎么测', 'expect_any': ['softseep'],
+  'expect_aux': ['supply-chain-security'], 'expect_ambiguity': True, 'forbid': ['web-pentest']},
+ {'text': 'A2A agent 协议越权', 'expect_any': ['softseep'],
+  'expect_aux': ['web-pentest'], 'expect_ambiguity': True},
  {'text': '固件 rehosting 起不来 服务', 'expect_any': ['firmware-iot'], 'forbid': ['web-pentest']},
  {'text': 'glibc 2.34 之后 FSOP 怎么打', 'expect_any': ['pwn-crypto'], 'forbid': ['web-pentest']},
  {'text': 'iOS 越狱检测怎么过', 'expect_any': ['forensics-mobile', 'apkseep'], 'forbid': ['web-pentest']},
@@ -277,18 +269,20 @@ ROUTING_TESTS = [{'text': '用 zipalign 对齐后 apksigner 重签',
   'forbid': ['softseep', 'web-pentest']},
  {'text': 'Frida 在 android 上 hook 加密函数',
   'expect_any': ['apkseep'],
-  'forbid': ['softseep', 'web-pentest']},
+  'expect_aux': ['softseep'], 'expect_ambiguity': True, 'forbid': ['web-pentest']},
  {'text': 'UPX 脱壳后 dump 出 OEP 修 IAT',
   'expect_any': ['malware-analysis'],
-  'forbid': ['softseep', 'web-pentest']},
+  'expect_aux': ['softseep'], 'expect_ambiguity': True, 'forbid': ['web-pentest']},
  {'text': '把授权校验 patch 掉',
   'expect_any': ['softseep'],
   'forbid': ['web-pentest', 'supply-chain-security']},
  {'text': '破解一个 RSA 挑战题',
   'expect_any': ['pwn-crypto'],
+  'expect_aux': ['softseep'], 'expect_ambiguity': True,
   'forbid': ['01-gate-bypass', 'web-pentest']},
  {'text': '分析一下这个勒索样本',
   'expect_any': ['malware-analysis'],
+  'expect_aux': ['softseep'], 'expect_ambiguity': True,
   'forbid': ['00-analysis', 'web-pentest']},
  {'text': 'hook 一下浏览器的请求',
   'expect_any': ['softseep'],
@@ -318,6 +312,7 @@ ROUTING_TESTS = [{'text': '用 zipalign 对齐后 apksigner 重签',
  {'text': 'eBPF XDP 程序逆向', 'expect_any': ['softseep'], 'forbid': ['web-pentest', 'unpack-loop']},
  {'text': 'TrustZone TEE 固件分析',
   'expect_any': ['softseep', 'firmware-iot'],
+  'expect_aux': ['firmware-iot'], 'expect_ambiguity': True,
   'forbid': ['web-pentest', 'apkseep']},
  {'text': 'dnSpy 打开 Assembly-CSharp 找授权',
   'expect_any': ['softseep'],
@@ -331,10 +326,13 @@ ROUTING_TESTS = [{'text': '用 zipalign 对齐后 apksigner 重签',
  {'text': 'BattlEye 服务项在哪取证',
   'expect_any': ['softseep', 'forensics-mobile'],
   'forbid': ['web-pentest', 'apkseep']},
- {'text': 'APK 里 so 被 VMP 了怎么脱', 'expect_any': ['apkseep'], 'forbid': ['softseep', 'web-pentest']},
+ {'text': 'APK 里 so 被 VMP 了怎么脱', 'expect_any': ['apkseep'],
+  'expect_aux': ['malware-analysis', 'softseep'], 'expect_ambiguity': True,
+  'forbid': ['web-pentest']},
  {'text': 'iOS 应用越狱检测怎么定位',
   'expect_any': ['forensics-mobile', 'apkseep'],
   'forbid': ['web-pentest', 'softseep']},
  {'text': 'VMP 授权锁 ProductCode 在哪',
   'expect_any': ['malware-analysis', 'softseep'],
+  'expect_aux': ['malware-analysis'], 'expect_ambiguity': True,
   'forbid': ['web-pentest', 'apkseep']}]

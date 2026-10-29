@@ -35,6 +35,7 @@ import sqlite3
 import struct
 import sys
 import tempfile
+from urllib.parse import quote
 
 if sys.platform == "win32":
     try:
@@ -294,7 +295,8 @@ def parse_regf(path, max_events, warnings, label=None):
 
 # ---------------------------------------------------------------- SQLite History
 def parse_sqlite_history(path, max_events, warnings):
-    uri = "file:%s?mode=ro&immutable=1" % path.replace("\\", "/")
+    uri_path = quote(os.path.abspath(path).replace("\\", "/"), safe="/:")
+    uri = "file:%s?mode=ro&immutable=1" % uri_path
     try:
         con = sqlite3.connect(uri, uri=True)
     except sqlite3.Error as exc:
@@ -463,13 +465,30 @@ def summarize(events):
     }
 
 
-def write_json(path, payload):
-    target = path
+def output_target(path):
     if os.path.isdir(path) or not os.path.splitext(path)[1]:
-        os.makedirs(path, exist_ok=True)
-        target = os.path.join(path, "timeline.json")
-    else:
-        os.makedirs(os.path.dirname(os.path.abspath(target)) or ".", exist_ok=True)
+        return os.path.join(path, "timeline.json")
+    return path
+
+
+def ensure_output_separate(inputs, target):
+    """Never overwrite an input or place output inside an evidence directory."""
+    target = os.path.realpath(os.path.abspath(target))
+    for path in inputs:
+        full = os.path.realpath(os.path.abspath(path))
+        if os.path.isfile(path) and target == full:
+            raise TimelineError("out", "输出不能覆盖输入证据：%s" % path)
+        if os.path.isdir(path):
+            try:
+                if os.path.commonpath([full, target]) == full:
+                    raise TimelineError("out", "输出不能写入证据目录：%s" % path)
+            except ValueError:
+                pass
+
+
+def write_json(path, payload):
+    target = output_target(path)
+    os.makedirs(os.path.dirname(os.path.abspath(target)) or ".", exist_ok=True)
     with open(target, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
@@ -542,7 +561,7 @@ def self_test():
         assert any(x["time_utc"].startswith("2026-10-20T03:14:05") for x in reg)
         checks += 1
 
-        hist = os.path.join(tmp, "History.sqlite")
+        hist = os.path.join(tmp, "History#selftest.sqlite")
         con = sqlite3.connect(hist)
         con.execute("CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, last_visit_time INTEGER)")
         con.execute("CREATE TABLE visits (id INTEGER PRIMARY KEY, url INTEGER, visit_time INTEGER)")
@@ -563,6 +582,14 @@ def self_test():
         os.utime(sample, (ts.timestamp(), ts.timestamp()))
         fsev = parse_filesystem(fsdir, 100, warnings, False)
         assert fsev and fsev[0]["kind"] == "filesystem-mtime"
+        checks += 1
+
+        for unsafe in (sample, os.path.join(fsdir, "timeline.json")):
+            try:
+                ensure_output_separate([sample] if unsafe == sample else [fsdir], unsafe)
+                raise AssertionError("输出边界必须拒绝输入文件或证据目录内路径")
+            except TimelineError as exc:
+                assert exc.blocked_at == "out"
         checks += 1
 
         all_events, infos = collect([evtx, hive, hist, fsdir], "auto", 100, [], False)
@@ -624,6 +651,8 @@ def main(argv=None):
         return 2
     warnings = []
     try:
+        if args.out:
+            ensure_output_separate(args.input, output_target(args.out))
         # --label 仅对单 hive 生效
         if args.label and len(args.input) == 1:
             kind = args.kind if args.kind != "auto" else detect_kind(args.input[0])

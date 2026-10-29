@@ -1,0 +1,59 @@
+{
+  "schema": "seep.domain-aliases/1",
+  "note": "命名空间分类表：aliases 只保留历史标签或待迁移标签；cross_cutting 是横切技能；pending_patterns/pending_skills 只发现未进入正式路由的子技能。**正式域全集不来自本文件**：唯一身份是 Tool/skill/<dir>/pack.json 的 id（==目录名，动态）。formal_domains 只是派生的兼容快照，由 domain_registry/domain-contract-check 与真实 pack 对账，不再是“唯一分类表”，也不能用来定义正式域。",
+  "formal_domains": [
+    "apkseep",
+    "firmware-iot",
+    "forensics-mobile",
+    "malware-analysis",
+    "protocol-plugin",
+    "pwn-crypto",
+    "softseep",
+    "supply-chain-security",
+    "web-pentest"
+  ],
+  "aliases": {
+    "reverse": {
+      "alias_to": "softseep",
+      "status": "legacy"
+    },
+    "ad-cloud": {
+      "alias_to": null,
+      "status": "archived"
+    },
+    "plugin-targets": {
+      "alias_to": null,
+      "status": "archived"
+    },
+    "site-clone": {
+      "alias_to": "web-pentest",
+      "status": "legacy-no-pack"
+    },
+    "version-migration": {
+      "alias_to": null,
+      "status": "pending-subskill"
+    },
+    "version-migrate": {
+      "alias_to": "version-migration",
+      "status": "pending-alias"
+    },
+    "client-license-validation-bypass": {
+      "alias_to": null,
+      "status": "pending-alias"
+    }
+  },
+  "cross_cutting": [
+    {
+      "name": "seep-router",
+      "status": "cross-cutting"
+    },
+    {
+      "name": "unpack-loop",
+      "status": "cross-cutting"
+    }
+  ],
+  "pending_patterns": [
+    "_pending/**/*"
+  ],
+  "formal_domains_note": "派生兼容快照（不参与判定正式域身份）；drift 由 domain-contract-check 报告。加域只需合法 pack.json#id + depth_contract，本字段可以随后同步或留作历史对照。"
+}

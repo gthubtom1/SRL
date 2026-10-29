@@ -91,36 +91,65 @@
   "artifacts": [
     {
       "path": "input/Kernel-Boot-Operational.evtx",
-      "sha256": "4f45adc7ef74e727007852665e5eef42e526394d8fae80cf61cf6e304f44bfb9"
+      "sha256": "48cad31084f92bf027f88f5e50cb3721972c15f0e12379003bed8d3cad94d6f3",
+      "size": 69632
     },
     {
       "path": "artifacts/check.json",
-      "sha256": "103dab1b6ef106e1f1c143207d73fb2996b2ec60bbf7f0bfa069d905be8dc0e5"
+      "sha256": "103dab1b6ef106e1f1c143207d73fb2996b2ec60bbf7f0bfa069d905be8dc0e5",
+      "size": 3457
     },
     {
       "path": "artifacts/timeline.json",
-      "sha256": "c368880d8a3399171bf9a0f60f7766e302ceabc308c112daaccf8473bb595964"
+      "sha256": "c368880d8a3399171bf9a0f60f7766e302ceabc308c112daaccf8473bb595964",
+      "size": 6679
     },
     {
       "path": "artifacts/events.json",
-      "sha256": "0a7d5aa8c92bdef2a3707edc2a238dd36675732f031e5d33e9e6435ae60c9b58"
+      "sha256": "0a7d5aa8c92bdef2a3707edc2a238dd36675732f031e5d33e9e6435ae60c9b58",
+      "size": 2461
     },
     {
       "path": "artifacts/accept.json",
-      "sha256": "490944f34ed099140a097ca7fa6b76aea59fabfddd407c38ac9bf644e8fd504f"
+      "sha256": "490944f34ed099140a097ca7fa6b76aea59fabfddd407c38ac9bf644e8fd504f",
+      "size": 172
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "c4b0177caed8ea99c78edb42b0041fea81e4a284c41de0149f2e0a6224649d44"
+      "sha256": "87f6360c57b9e9c0dc3297889d9442edba375b0dd15f64a2462004e28ab6c0fb",
+      "size": 785,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "c964d1010ca93fb07c1d7ec68ba9aa59e2b49116472966191722e6e01169d476",
+      "size": 3406,
+      "kind": "stdout"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command2.stdout.txt",
+      "sha256": "9f8ee1f8e6c7b02de8b3a357ce60d4fde76421937ccf165d583c4bf7c449203a",
+      "size": 6755,
+      "kind": "stdout"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command3.stdout.txt",
+      "sha256": "55afdd9b97c1f97a04eb5a29b0b46d251140852632edd8c53faa247ddf8b57ab",
+      "size": 2316,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/r13-timeline-2026-10-29.json",
+      "sha256": "1a05fe3d7d155a47a039b0d6ba685cdcc41f76a0c82f58a59dc3890171daad4b",
+      "size": 6702,
+      "kind": "timeline"
     }
   ],
   "lessons": [
-    "跑的是真实 Microsoft-Windows-Kernel-Boot/Operational EVTX 只读副本（14 条记录）。命令：`cd Tool/cases/forensics06 && python ../../skill/forensics-mobile/scripts/forensics-check.py --file input/Kernel-Boot-Operational.evtx --json > artifacts/check.json`，rc=0；再跑 `python ../../skill/forensics-mobile/scripts/fs-timeline.py --input input/Kernel-Boot-Operational.evtx --out artifacts/timeline.json`，rc=0。结果：14 个 evtx-record 事件，2026-10-08T22:12:34.767210Z → 2026-10-21T02:48:14.122314Z。",
-    "事件 ID 分布用 PowerShell 只读查询得到：`powershell -NoProfile -Command \"Get-WinEvent -Path 'input\\Kernel-Boot-Operational.evtx' | Sort-Object RecordId | Select-Object RecordId,Id,ProviderName\"`，rc=0；14 条 = 12×292（固件 SBAT 读取失败）+ 1×51（VSM 密钥预计算）+ 1×45（VSM 密钥缓存状态）。",
-    "边界：只有启动/固件测量通道，没有 Security.evtx 的 4624/4688、没有进程树、没有 pcap，因此不能把事件归因到具体用户/进程，也不能判断 292 是安全启动失败还是固件/主板兼容性问题；时间线只能说明“何时记录了什么测量状态”。",
-    "隐私：EVTX 内嵌两个 NetBIOS 主机名（DESKTOP-*），不含用户名/SID/路径；timeline/events 产物不输出主机名。对外分享前应按 input/README.md 做等长占位替换并重算哈希。",
-    "还差什么：补 Security.evtx（4624/4688）、System.evtx、Prefetch 与 NTP 偏差，才能把启动事件与登录/进程执行对齐；如果要解释 292 的根因，需要固件版本、Secure Boot 状态与 TPM PCR 日志。",
-    "复现边界：单主机、单通道、14 条事件，`repro.status=recorded`；任何结论都不超出该 EVTX 的记录范围。"
+    "2026-10-29 在仓库根目录依次执行 `python -B Tool/skill/forensics-mobile/scripts/forensics-check.py --file Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx --json`（rc=0）、`python -B Tool/skill/forensics-mobile/scripts/fs-timeline.py --input Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx --out tmp/r13-replay/work/forensics06-timeline.json --json`（rc=0）和 PowerShell Get-WinEvent 只读查询（rc=0）；完整 argv、cwd、整数 rc、stdout/stderr 路径与哈希均写入 repro.commands，原始输出位于 capture/r13-2026-10-29-command1..3.*。",
+    "复跑输出 14 条 Microsoft-Windows-Kernel-Boot/Operational 记录，时间范围 2026-10-08T22:12:34.767210Z 至 2026-10-21T02:48:14.122314Z；PowerShell 输出给出 14 条 RecordId/EventID/ProviderName 明细。",
+    "当前 EVTX 的 SHA-256 为 48cad31084f92bf027f88f5e50cb3721972c15f0e12379003bed8d3cad94d6f3；复跑时间线另存为 artifacts/r13-timeline-2026-10-29.json。",
+    "outcome=partial：证据覆盖单主机、单通道 14 条启动/固件测量事件；用户/进程归因与事件 292 根因判定所需 Security、System、Prefetch、TPM PCR 属于扩展证据。"
   ],
   "tags": [
     "R26",
@@ -141,9 +170,95 @@
     "Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx",
     "Tool/cases/forensics06/artifacts/timeline.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』；check.json/timeline.json/events.json 均已登记 sha256"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+      "--file",
+      "Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "c964d1010ca93fb07c1d7ec68ba9aa59e2b49116472966191722e6e01169d476"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/forensics-mobile/scripts/forensics-check.py",
+          "--file",
+          "Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "c964d1010ca93fb07c1d7ec68ba9aa59e2b49116472966191722e6e01169d476"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/forensics-mobile/scripts/fs-timeline.py",
+          "--input",
+          "Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx",
+          "--out",
+          "tmp/r13-replay/work/forensics06-timeline.json",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command2.stdout.txt",
+          "sha256": "9f8ee1f8e6c7b02de8b3a357ce60d4fde76421937ccf165d583c4bf7c449203a"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command2.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "argv": [
+          "powershell",
+          "-NoProfile",
+          "-Command",
+          "$events = Get-WinEvent -Path 'Tool/cases/forensics06/input/Kernel-Boot-Operational.evtx'; $events | Sort-Object RecordId | Select-Object RecordId,Id,ProviderName,TimeCreated | ConvertTo-Json -Depth 3"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command3.stdout.txt",
+          "sha256": "55afdd9b97c1f97a04eb5a29b0b46d251140852632edd8c53faa247ddf8b57ab"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command3.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

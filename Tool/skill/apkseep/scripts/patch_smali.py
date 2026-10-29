@@ -4,9 +4,9 @@
 Method-level smali patcher.
 
 Design notes (each one earned the hard way):
-- Only the instruction body is replaced: from the line after the `.method` declaration up to
-  (but not including) `.end method`. The `.method` / `.end method` / `.annotation` sections are
-  left untouched, so modifiers and annotations survive.
+- Only the instruction body is replaced. The `.method` / `.end method` lines and method or
+  parameter annotation blocks are preserved; debug/local entries attached to the old body
+  are intentionally discarded with that body.
 - The patch manifest must state a self-consistent `.registers` value: the assembler rejects
   out-of-range registers, so `registers` must be >= the number of parameter registers and
   >= the highest register index used by any instruction + 1. Parameter registers:
@@ -48,18 +48,71 @@ def split_methods(text):
     return lines, out
 
 
-def patch_one(path, decl_wanted, registers, body):
+def _resolve_patch_file(tree, relpath):
+    """Resolve a manifest path while refusing absolute and escaping paths."""
+    if not isinstance(relpath, str) or not relpath.strip():
+        raise ValueError('manifest file must be a non-empty relative path')
+    root = os.path.realpath(os.path.abspath(tree))
+    candidate = os.path.realpath(os.path.abspath(os.path.join(
+        root, relpath.replace('/', os.sep))))
+    try:
+        inside = os.path.commonpath((root, candidate)) == root
+    except ValueError:                         # different Windows drives
+        inside = False
+    if not inside:
+        raise ValueError('path escapes the smali tree: %s' % relpath)
+    return candidate
+
+
+def _find_one(path, decl_wanted):
+    """Return (unique_match_or_none, error_message_or_none)."""
     with open(path, 'r', encoding='utf-8') as f:
-        text = f.read()
-    lines, methods = split_methods(text)
+        lines, methods = split_methods(f.read())
     hits = [m for m in methods if m[0] == decl_wanted.strip()]
     if not hits:
-        return False, 'method not found: %s' % decl_wanted
+        return None, 'method not found: %s' % decl_wanted
     if len(hits) > 1:
-        return False, 'ambiguous (%d matches): %s' % (len(hits), decl_wanted)
-    _, start, end = hits[0]
+        return None, 'ambiguous (%d matches): %s' % (len(hits), decl_wanted)
+    return (lines, hits[0]), None
+
+
+def _preserved_metadata(lines, start, end):
+    """Return annotation and parameter blocks found inside one method."""
+    preserved = []
+    i = start + 1
+    while i < end:
+        stripped = lines[i].strip()
+        if stripped == '.annotation' or stripped.startswith('.annotation '):
+            closing = '.end annotation'
+        elif stripped == '.param' or stripped.startswith('.param '):
+            closing = '.end param'
+        else:
+            i += 1
+            continue
+        j = i + 1
+        while j < end and lines[j].strip() != closing:
+            j += 1
+        if j < end:
+            preserved.extend(lines[i:j + 1])
+            i = j + 1
+        else:
+            preserved.append(lines[i])
+            i += 1
+    return preserved
+
+
+def patch_one(path, decl_wanted, registers, body):
+    found, error = _find_one(path, decl_wanted)
+    if error:
+        return False, error
+    lines, (_, start, end) = found
     # Keep the .method line; rewrite the interior: .registers + body
     new_inner = ['    .registers %d' % registers, '']
+    metadata = _preserved_metadata(lines, start, end)
+    if metadata:
+        new_inner.extend(metadata)
+        if new_inner[-1].strip():
+            new_inner.append('')
     for b in body:
         new_inner.append('    ' + b)
     new_lines = lines[:start + 1] + new_inner + [''] + lines[end:]
@@ -183,7 +236,7 @@ def self_test():
                         'registers': 1, 'body': ['return-void']}], fh)
         rc, out = run(['patch_smali.py', tree, manifest, '--dry-run'])
         assert rc == 1, rc
-        assert '[DRY-MISS]' in out and '[MISS-FILE]' in out, out
+        assert '[DRY-FAIL]' in out and '[MISS-FILE]' in out, out
         assert 'failed=2' in out, out
         checks += 1
 
@@ -219,16 +272,21 @@ def main():
         patches = json.load(f)
     ok = fail = 0
     for p in patches:
-        full = os.path.join(tree, p['file'].replace('/', os.sep))
+        try:
+            full = _resolve_patch_file(tree, p.get('file'))
+        except ValueError as exc:
+            print('[UNSAFE-FILE] %s' % exc)
+            fail += 1
+            continue
         if not os.path.isfile(full):
             print('[MISS-FILE] %s' % p['file'])
             fail += 1
             continue
         if dry:
-            with open(full, 'r', encoding='utf-8') as f:
-                _, methods = split_methods(f.read())
-            found = any(m[0] == p['method'].strip() for m in methods)
-            print('[%s] %s :: %s' % ('DRY-OK' if found else 'DRY-MISS', p['file'], p['method']))
+            found, error = _find_one(full, p['method'])
+            detail = 'ready' if found else error
+            print('[%s] %s :: %s  (%s)'
+                  % ('DRY-OK' if found else 'DRY-FAIL', p['file'], p['method'], detail))
             ok += 1 if found else 0
             fail += 0 if found else 1
             continue

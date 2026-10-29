@@ -1,7 +1,7 @@
 {
   "id": "site-rebuild",
   "title": "站点复刻与本地重建",
-  "domain": "site-clone",
+  "domain": "web-pentest",
   "triggers": [
     "站点复刻",
     "整站重建",
@@ -36,7 +36,9 @@
     "Tool/skill/_pending/site-clone/references/05-static-mirror-limits.md",
     "Tool/skill/_pending/site-clone/references/06-spa-har-and-mock.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
+  "reserved": true,
+  "note": "源码实现位于 Tool/skill/_pending/site-clone；安装器有意不部署或索引 _pending 子技能。正式 web-pentest 路由目前只能人工引用源码夹具，完成迁移与已安装路径验证前不得作为自动重建工具。",
   "compose": [
     "visual-diff"
   ]

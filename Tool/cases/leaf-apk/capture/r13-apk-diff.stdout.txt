@@ -1,0 +1,9 @@
+A (original) Tool/cases/leaf-apk/target/diva.apk  entries=379
+B (modified) Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk  entries=374
+
+only in A (removed)  : 8
+only in B (added)    : 3
+content changed      : 8
+identical            : 363
+
+(note: 3 signature entries account for most of the add/remove noise)

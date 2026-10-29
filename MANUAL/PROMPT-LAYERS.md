@@ -103,7 +103,7 @@ tools / rules / docs pi 内置
 
 **混淆 / 高阶对抗**：JNI 加载、SO 动态加解密、OLLVM → IDA 反编译 + Unidbg 黑盒调用，先拿结果再谈还原。
 
-**交付三段式**：① 原理与危害（定位函数/偏移 + CWE 编号 + 严重级）② 复现（环境 + 完整 PoC 或补丁步骤，100% 可跑）③ 纵深防御（客户端加固：VMP / 关键函数下沉 Native / Anti-Debug + Anti-Hook；传输层：Sign + Nonce + Timestamp / SSL Pinning；服务端权威：以 S2S 通知 + 二次验签为唯一凭据，不盲信客户端参数）。
+**交付三段式**：① 原理与危害（定位函数/偏移 + CWE 编号 + 严重级）② 复现（环境 + 完整 PoC 或补丁步骤，记录实际执行条件与结果）③ 纵深防御（客户端加固：VMP / 关键函数下沉 Native / Anti-Debug + Anti-Hook；传输层：Sign + Nonce + Timestamp / SSL Pinning；服务端权威：以 S2S 通知 + 二次验签为唯一凭据，不盲信客户端参数）。
 
 ### 3.3 MCP 工具链速查（原 §6，744 字符）
 
@@ -111,7 +111,7 @@ tools / rules / docs pi 内置
 
 | MCP | 工具数 | 用途 |
 | :-- | :--: | :-- |
-| **seep** | 40 | Radare2 逆向 + APK（JADX/Apktool）+ Frida Hook 生成 + KB 检索 + 多引擎降级 + 工具自愈 |
+| **seep** | 以当前 tools/list 为准 | 当前接口见 `Tool/docs/MCP-SETUP.md`；按实际工具与依赖验证，不继承历史多引擎或 Hook 生成承诺 |
 | **ida** | ~100+（随 `ida-pro-mcp` 版本） | IDA 全链路（反编译 / 交叉引用 / 结构体恢复），**需自备授权** |
 | **playwright** | — | 浏览器自动化（Web 审计 / JS 逆向） |
 

@@ -1,5 +1,7 @@
 # Updates and forced upgrade
 
+> 适用条件：仅当前用户目标需要处理更新/远程配置时采用下述技术。不能默认关闭更新通道；先核影响范围、原件/工作副本与回滚，按主域本次目标验收。
+
 Load this whenever the deliverable is a patched build that must **keep working over time** — which is
 almost always. A build that is correct on the day you ship it and dead a week later has failed, and the
 cause is nearly always an update path you did not neutralise.

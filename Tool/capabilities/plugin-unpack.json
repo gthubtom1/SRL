@@ -1,7 +1,7 @@
 {
   "id": "plugin-unpack",
   "title": "插件/扩展解包",
-  "domain": "plugin-targets",
+  "domain": "protocol-plugin",
   "triggers": [
     "插件解包",
     "扩展解包",
@@ -26,12 +26,15 @@
     "权限声明"
   ],
   "scripts": [
-    "Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py"
+    "Tool/skill/protocol-plugin/scripts/plugin-triage.py",
+    "Tool/skill/protocol-plugin/scripts/plugin-repro.py"
   ],
   "refs": [
-    "Tool/skill/_pending/plugin-targets/references/electron-and-asar.md",
-    "Tool/skill/_pending/plugin-targets/references/browser-extension.md"
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/playbooks/plugin-analysis.md"
   ],
   "maturity": "usable",
+  "reserved": false,
+  "note": "插件包初筛与只读解包实现已迁入正式 protocol-plugin 技能目录。静态入口、权限与数据流证据可复算；宿主加载、动态消息时序与真实远端行为仍需在隔离环境独立验证。",
   "compose": []
 }

@@ -1,71 +1,280 @@
 {
- "id": "leaf-pe-packed",
- "domain": "reverse",
- "target_type": "PE32+ x86-64 Windows CUI（MinGW 控制台）；本样本 = 公开 MIT crackme Tool/samples/real/crackerjack/a.exe 经 UPX 3.91w 压缩后的副本（53782 → 41494 字节）",
- "evidence_kind": "public",
- "protection": [
-  "UPX 3.91w（win64/pe 标准压缩壳，非改壳）：节表只剩 UPX0/UPX1/UPX2，UPX0 RawSize=0，UPX! 魔数在文件偏移 0x205，入口由原 .text 0x1400013f0 搬到 0x140014fc0（UPX1 内），UPX1 载荷香农熵 7.638"
- ],
- "authority": "原件为纯本地判定（sym.main 内两条立即数比较，无网络无签名）；但压缩后磁盘面无业务代码，判定点静态不可达——权威面只能经脱壳（upx -d）或运行期内存观测触及",
- "goal_level": "L1",
- "outcome": "success",
- "artifacts": [
-  "artifacts/a_upx.patched.exe",
-  "artifacts/MANIFEST.sha256",
-  "unpacked/a_unpacked.exe",
-  "capture/run.json",
-  "capture/run2.json",
-  "report/static.md",
-  "report/dynamic.md",
-  "report/final.md"
- ],
- "repro": {
-  "status": "recorded",
-  "evidence": "0a 复跑见 report/triage.md 末节（cp a.exe → upx --best → r2 → upx -t）；0b–4 复跑链：upx -d target/a_upx.exe -o unpacked/a_unpacked.exe → r2 -c 'aa; pdf @ sym.main' 定位 → python 改 0x1e82 74 13→eb 1d → printf 'wrong' | artifacts/a_upx.patched.exe（期望 PASS）→ sha256sum -c artifacts/MANIFEST.sha256。壳识别 F-001..F-005，脱壳/补丁 F-101..F-114（facts.jsonl 共 19 条）"
- },
- "evidence_dir": ".",
- "lessons": [
-  "存在理由：路径树叶子 R-PE-PACK-UPX 原本没有 witness 样本，等于『纸上能力』；本 case 用仓库自带 a.exe 自压出真壳样本，让 path-walk 能真走一遍。",
-  "核心结论（为什么这条叶子重要）：有壳时磁盘面被压缩，静态拿不到业务代码——节表只剩 UPX*/UPX0 RawSize=0、入口被换成解压桩、可分析函数从 76 塌到 4 且无 sym.main、载荷熵 5.834→7.638。这直接决定第一刀：先脱壳回到静态可读，还是放弃磁盘改走内存。",
-  "识别四条依据（任一可独立判壳，四条齐=高置信）：① 节名 UPX0/UPX1/UPX2；② UPX! 魔数 @0x205（原件 0 处）；③ 入口 0x140014fc0 落在 UPX1 而非 .text；④ 载荷熵 7.638 ≥ 7.5。",
-  "磁盘改不动：把 UPX1 内偏移 0x1200 一个字节取反，upx -t 立刻报 checksum error（0 ok / 1 error）——压缩件上的静态补丁必须先脱壳，否则连壳自校验都过不去。",
-  "壳可逆：upx -t 自检 OK、upx -l 报 win64/pe，属标准壳（直接 upx -d 还原），不需要 dump + IAT 重建；这条决定 unpack-loop 走『直接脱』分叉。",
-  "边界（0a 时写的，已被 0b–4 推进）：本 case 0a 只做快筛画像卡；triage 里的 4 条复跑命令全部为仓库相对路径，第三行 upx 的绝对路径是本机工具位置，换机按 tool-acquire.py --tool upx 重查。",
-  "脱壳实测（0b–2）：upx 5.2.1 能还原 3.91w 压出的件（53782B、入口回 0x1400013f0）；脱壳件与原件仅 80 字节不同且全在头部(7)+.idata(73)，.text 零差异，所以 paddr = RVA − 0xa00 可直接复用。",
-  "内存复核（2）：ReadProcessMemory 读运行中压缩件 base+0x2860 共 79 字节，与脱壳件磁盘 0x1e60 逐字节相同（MATCH True），base+0x2882=74 13——证明 UPX 自解压保持原 RVA 布局、upx -d 产物不是近似而是等同。",
-  "同一文件偏移在不同载体含义不同（3）：0x1e82 在脱壳件/原件 = 74 13（VA 0x140002882 分叉），在压缩件 = 73 00（VA 0x140014c82，UPX1 解压桩）。因此补丁必须打在脱壳件上，压缩件既不承载业务字节也过不了 checksum 自校验。",
-  "补丁与负例（3/4）：0x1e82 74 13→eb 1d（je→jmp 0x1400028a1 = lea rcx,str.PASS），patched+wrong=PASS、五输入全 PASS；负例 unpacked 未打补丁+wrong=FAIL，证明补丁是必要原因。交付 M3。"
- ],
- "tags": [
-  "public",
-  "upx",
-  "packed",
-  "triage",
-  "path-tree",
-  "R-PE-PACK-UPX",
-  "unpack-loop"
- ],
- "refs": [
-  "Tool/cases/leaf-pe-packed/report/triage.md",
-  "Tool/cases/leaf-pe-packed/report/static.md",
-  "Tool/cases/leaf-pe-packed/report/dynamic.md",
-  "Tool/cases/leaf-pe-packed/report/final.md",
-  "Tool/cases/leaf-pe-packed/target/a_upx.exe",
-  "Tool/samples/real/crackerjack/a.exe",
-  "Tool/cases/golden-crackme/report/triage.md",
-  "Tool/skill/unpack-loop/SKILL.md"
- ],
- "updated": "2026-10-26",
- "target_files": [
-  {
-   "path": "target/a_upx.exe",
-   "sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
-   "source": "公开 MIT crackme：jmcph4/crackerjack 的 a.exe（Tool/samples/real/crackerjack/a.exe，sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30，许可证 MIT，含源码 a.c）；压缩件 target/a_upx.exe = 该文件经 UPX 3.91w --best 压缩，sha256 856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71"
-  }
- ],
- "evidence_source": {
-  "kind": "public",
-  "source": "公开 MIT crackme：jmcph4/crackerjack 的 a.exe（Tool/samples/real/crackerjack/a.exe，sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30，许可证 MIT，含源码 a.c）；压缩件 target/a_upx.exe = 该文件经 UPX 3.91w --best 压缩，sha256 856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
-  "basis": "依据：① 原件是公开 MIT crackme（Tool/samples/real/README.md 收录清单 + crackerjack/LICENSE）；② 压缩件由 **公开工具** UPX 3.91w 对公开原件做确定性变换得到，upx -d 可还原（脱壳件与原件 .text 零差异）；③ 两个 sha256 都登记在 target_files。→ 产物公开可分发且可复现，故 evidence_kind=public（原件是第三方 crackme，不是自编译，所以不是 self-built；没有客户授权单，所以不是 real）"
- }
+  "id": "leaf-pe-packed",
+  "domain": "reverse",
+  "target_type": "PE32+ x86-64 Windows CUI（MinGW 控制台）；本样本 = 公开 MIT crackme Tool/samples/real/crackerjack/a.exe 经 UPX 3.91w 压缩后的副本（53782 → 41494 字节）",
+  "evidence_kind": "public",
+  "protection": [
+    "UPX 3.91w（win64/pe 标准压缩壳，非改壳）：节表只剩 UPX0/UPX1/UPX2，UPX0 RawSize=0，UPX! 魔数在文件偏移 0x205，入口由原 .text 0x1400013f0 搬到 0x140014fc0（UPX1 内），UPX1 载荷香农熵 7.638"
+  ],
+  "authority": "原件为纯本地判定（sym.main 内两条立即数比较，无网络无签名）；但压缩后磁盘面无业务代码，判定点静态不可达——权威面只能经脱壳（upx -d）或运行期内存观测触及",
+  "goal_level": "L1",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/a_upx.patched.exe",
+      "sha256": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06",
+      "size": 53782
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "e58eef16d8cc5fe6913230b2a06a65f6b2eba6fdf4a7e14377e9be2ce09993b4",
+      "size": 449
+    },
+    {
+      "path": "unpacked/a_unpacked.exe",
+      "sha256": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+      "size": 53782
+    },
+    {
+      "path": "capture/run.json",
+      "sha256": "c3e2d9086fcb0a18989f390b450dac00c485f18021832d59ea6b3943aec96e16",
+      "size": 2079
+    },
+    {
+      "path": "capture/run2.json",
+      "sha256": "8248be21fea601a609ae1c4a69be9f9941452209983ec8938ab4fb45941cc503",
+      "size": 2891
+    },
+    {
+      "path": "report/static.md",
+      "sha256": "a84831b53dabd79e983a514822546ff961f72a2161de1ea979b2ca96dbc7a009",
+      "size": 8610
+    },
+    {
+      "path": "report/dynamic.md",
+      "sha256": "c008e7828bc48e98104804b70a47ff2b04f7c76455450cec9c27fe7412362661",
+      "size": 10514
+    },
+    {
+      "path": "report/final.md",
+      "sha256": "4ee00518eeee8692cc515f2e70bd8077806e17171dae57c90ab36beb87433887",
+      "size": 17877
+    },
+    {
+      "path": "capture/r13-repro.json",
+      "sha256": "a8c405c5e6bd8ccaefa63b454f28893f2c76f4a9bc507931b900929e57f90f0b",
+      "size": 7496
+    },
+    {
+      "path": "capture/r13-leaf-pe-structure.stdout.txt",
+      "sha256": "dee6a750f66e0c0045163f6bb56f053f05bb87f6a56f7bba8380905c07326637",
+      "size": 8332
+    },
+    {
+      "path": "capture/r13-leaf-pe-structure.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/r13-leaf-packed-trance.stdout.txt",
+      "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c",
+      "size": 6
+    },
+    {
+      "path": "capture/r13-leaf-packed-trance.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/r13-leaf-packed-wrong.stdout.txt",
+      "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938",
+      "size": 6
+    },
+    {
+      "path": "capture/r13-leaf-packed-wrong.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/r13-leaf-unpacked-wrong.stdout.txt",
+      "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938",
+      "size": 6
+    },
+    {
+      "path": "capture/r13-leaf-unpacked-wrong.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/r13-leaf-patched-wrong.stdout.txt",
+      "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c",
+      "size": 6
+    },
+    {
+      "path": "capture/r13-leaf-patched-wrong.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/_r13_leaf_replay.py",
+      "sha256": "75bd64946de9892c3c34d7fbb0f643ee84ccd10eca4ad81d6205c61d2a816619",
+      "size": 6684
+    }
+  ],
+  "repro": {
+    "status": "recorded",
+    "command": "R13 PE structure inspection followed by packed/unpacked/patched stdin behavior replay",
+    "argv": [
+      "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe"
+    ],
+    "cwd": ".",
+    "stdin": "wrong\n",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-leaf-patched-wrong.stdout.txt",
+      "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c"
+    },
+    "stderr": {
+      "path": "capture/r13-leaf-patched-wrong.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "label": "leaf-pe-structure",
+        "argv": [
+          "D:\\EXE\\python\\python.exe",
+          "-B",
+          "-X",
+          "utf8",
+          "Tool/cases/leaf-pe-packed/capture/_r13_leaf_replay.py",
+          "--inspect-only"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-leaf-pe-structure.stdout.txt",
+          "sha256": "dee6a750f66e0c0045163f6bb56f053f05bb87f6a56f7bba8380905c07326637"
+        },
+        "stderr": {
+          "path": "capture/r13-leaf-pe-structure.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": true
+      },
+      {
+        "label": "leaf-packed-trance",
+        "argv": [
+          "Tool/cases/leaf-pe-packed/target/a_upx.exe"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-leaf-packed-trance.stdout.txt",
+          "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c"
+        },
+        "stderr": {
+          "path": "capture/r13-leaf-packed-trance.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": true,
+        "stdin": "trance\n"
+      },
+      {
+        "label": "leaf-packed-wrong",
+        "argv": [
+          "Tool/cases/leaf-pe-packed/target/a_upx.exe"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-leaf-packed-wrong.stdout.txt",
+          "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938"
+        },
+        "stderr": {
+          "path": "capture/r13-leaf-packed-wrong.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": true,
+        "stdin": "wrong\n"
+      },
+      {
+        "label": "leaf-unpacked-wrong",
+        "argv": [
+          "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-leaf-unpacked-wrong.stdout.txt",
+          "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938"
+        },
+        "stderr": {
+          "path": "capture/r13-leaf-unpacked-wrong.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": true,
+        "stdin": "wrong\n"
+      },
+      {
+        "label": "leaf-patched-wrong",
+        "argv": [
+          "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-leaf-patched-wrong.stdout.txt",
+          "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c"
+        },
+        "stderr": {
+          "path": "capture/r13-leaf-patched-wrong.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": true,
+        "stdin": "wrong\n"
+      }
+    ],
+    "target_sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+    "artifact_sha256": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06",
+    "evidence": "R13 直接从字节重算三份 PE 的节表、入口、UPX! 位置、字符串与熵，并实际执行四个输入分支；packed+trance=PASS、packed+wrong=FAIL、unpacked+wrong=FAIL、patched+wrong=PASS，全部 rc=0，三份载体执行前后哈希一致。"
+  },
+  "evidence_dir": ".",
+  "lessons": [
+    "存在理由：路径树叶子 R-PE-PACK-UPX 原本没有 witness 样本，等于『纸上能力』；本 case 用仓库自带 a.exe 自压出真壳样本，让 path-walk 能真走一遍。",
+    "核心结论（为什么这条叶子重要）：有壳时磁盘面被压缩，静态拿不到业务代码——节表只剩 UPX*/UPX0 RawSize=0、入口被换成解压桩、可分析函数从 76 塌到 4 且无 sym.main、载荷熵 5.834→7.638。这直接决定第一刀：先脱壳回到静态可读，还是放弃磁盘改走内存。",
+    "识别四条依据（任一可独立判壳，四条齐=高置信）：① 节名 UPX0/UPX1/UPX2；② UPX! 魔数 @0x205（原件 0 处）；③ 入口 0x140014fc0 落在 UPX1 而非 .text；④ 载荷熵 7.638 ≥ 7.5。",
+    "磁盘改不动：把 UPX1 内偏移 0x1200 一个字节取反，upx -t 立刻报 checksum error（0 ok / 1 error）——压缩件上的静态补丁必须先脱壳，否则连壳自校验都过不去。",
+    "壳可逆：upx -t 自检 OK、upx -l 报 win64/pe，属标准壳（直接 upx -d 还原），不需要 dump + IAT 重建；这条决定 unpack-loop 走『直接脱』分叉。",
+    "边界（0a 时写的，已被 0b–4 推进）：本 case 0a 只做快筛画像卡；triage 里的 4 条复跑命令全部为仓库相对路径，第三行 upx 的绝对路径是本机工具位置，换机按 tool-acquire.py --tool upx 重查。",
+    "脱壳实测（0b–2）：upx 5.2.1 能还原 3.91w 压出的件（53782B、入口回 0x1400013f0）；脱壳件与原件仅 80 字节不同且全在头部(7)+.idata(73)，.text 零差异，所以 paddr = RVA − 0xa00 可直接复用。",
+    "内存复核（2）：ReadProcessMemory 读运行中压缩件 base+0x2860 共 79 字节，与脱壳件磁盘 0x1e60 逐字节相同（MATCH True），base+0x2882=74 13——证明 UPX 自解压保持原 RVA 布局、upx -d 产物不是近似而是等同。",
+    "同一文件偏移在不同载体含义不同（3）：0x1e82 在脱壳件/原件 = 74 13（VA 0x140002882 分叉），在压缩件 = 73 00（VA 0x140014c82，UPX1 解压桩）。因此补丁必须打在脱壳件上，压缩件既不承载业务字节也过不了 checksum 自校验。",
+    "补丁与负例（3/4）：0x1e82 74 13→eb 1d（je→jmp 0x1400028a1 = lea rcx,str.PASS），patched+wrong=PASS、五输入全 PASS；负例 unpacked 未打补丁+wrong=FAIL，证明补丁是必要原因。交付 M3。"
+  ],
+  "tags": [
+    "public",
+    "upx",
+    "packed",
+    "triage",
+    "path-tree",
+    "R-PE-PACK-UPX",
+    "unpack-loop"
+  ],
+  "refs": [
+    "Tool/cases/leaf-pe-packed/report/triage.md",
+    "Tool/cases/leaf-pe-packed/report/static.md",
+    "Tool/cases/leaf-pe-packed/report/dynamic.md",
+    "Tool/cases/leaf-pe-packed/report/final.md",
+    "Tool/cases/leaf-pe-packed/target/a_upx.exe",
+    "Tool/samples/real/crackerjack/a.exe",
+    "Tool/cases/golden-crackme/report/triage.md",
+    "Tool/skill/unpack-loop/SKILL.md"
+  ],
+  "updated": "2026-10-29",
+  "target_files": [
+    {
+      "path": "target/a_upx.exe",
+      "sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+      "source": "公开 MIT crackme：jmcph4/crackerjack 的 a.exe（Tool/samples/real/crackerjack/a.exe，sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30，许可证 MIT，含源码 a.c）；压缩件 target/a_upx.exe = 该文件经 UPX 3.91w --best 压缩，sha256 856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71"
+    }
+  ],
+  "evidence_source": {
+    "kind": "public",
+    "source": "公开 MIT crackme：jmcph4/crackerjack 的 a.exe（Tool/samples/real/crackerjack/a.exe，sha256 8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30，许可证 MIT，含源码 a.c）；压缩件 target/a_upx.exe = 该文件经 UPX 3.91w --best 压缩，sha256 856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+    "basis": "依据：① 原件是公开 MIT crackme（Tool/samples/real/README.md 收录清单 + crackerjack/LICENSE）；② 压缩件由 **公开工具** UPX 3.91w 对公开原件做确定性变换得到，upx -d 可还原（脱壳件与原件 .text 零差异）；③ 两个 sha256 都登记在 target_files。→ 产物公开可分发且可复现，故 evidence_kind=public（原件是第三方 crackme，不是自编译，所以不是 self-built；没有客户授权单，所以不是 real）"
+  },
+  "limitations": [
+    "R13 未重新执行 upx -d、radare2 函数分析或 ReadProcessMemory；现有 unpacked/patched 文件只经过字节结构、哈希与本地运行复验。",
+    "当前证据支持该样本的结构识别和本地判定分叉，不支持跨版本补丁、任意输入旁路或运行期内存布局的独立证明。"
+  ]
 }

@@ -19,7 +19,9 @@
  ],
  "repro": {
   "status": "recorded",
-  "evidence": "pcap-summary.py --file RADIUS.pcap --extract …；自研解析器 + tshark 双源对齐；重构帧封回 pcap 由 tshark 判读；rc=0"
+  "evidence": "pcap-summary.py --file RADIUS.pcap --extract …；自研解析器 + tshark 双源对齐；重构帧封回 pcap 由 tshark 判读；rc=0",
+  "command": "python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file D:/Seep-Reverse-Lab/Tool/cases/protocol05/target/RADIUS.pcap --json",
+  "rc": 0
  },
  "evidence_dir": ".",
  "lessons": [
@@ -40,7 +42,7 @@
   "Tool/skill/protocol-plugin/scripts/proto-repro.py",
   "Tool/skill/protocol-plugin/references/01-criteria.md"
  ],
- "updated": "2026-10-24",
+  "updated": "2026-10-29",
  "target_files": [
   {
    "path": "target/RADIUS.pcap",

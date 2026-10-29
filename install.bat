@@ -20,8 +20,8 @@ rem ── ① 环境体检（只读：只查版本，不改任何东西）─�
 set "MISS_PY="
 set "MISS_NODE="
 set "MISS_GIT="
-python -c "import sys" >nul 2>nul
-if errorlevel 1 py -3 -c "import sys" >nul 2>nul
+rem 所有后续脚本与 MCP 配置都调用 python；仅有 py 启动器不能证明这些入口可用。
+python -c "import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)" >nul 2>nul
 if errorlevel 1 set "MISS_PY=1"
 node --version >nul 2>nul
 if errorlevel 1 set "MISS_NODE=1"
@@ -38,7 +38,7 @@ echo.
 echo ============================================================
 echo  [!!] 这台机器还缺东西，先别急着装 —— 让 AI 助手帮你装
 echo ============================================================
-if defined MISS_PY echo   缺：Python 3.11 或更高（必装）
+if defined MISS_PY echo   缺：可通过 python 命令运行的 Python 3.11 或更高（必装）
 if defined MISS_NODE echo   缺：Node.js LTS（可选，但要 JS 逆向 / 自动化就需要）
 if defined MISS_GIT echo   缺：Git for Windows（可选，但要装更新 / 回滚 / 交付就需要）
 echo.

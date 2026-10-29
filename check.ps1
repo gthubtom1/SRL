@@ -30,7 +30,7 @@ if (-not $Detailed) {
 # 它的详细能力只有 --list（套件清单），所以这里先跑 --list，
 # 再把 check.py 的完整 stdout 落盘 + 逐套件重排，让"哪一条红了、去哪看"一眼可见。
 Write-Host '=== 套件清单（python Tool/scripts/check.py --list）===' -ForegroundColor Cyan
-& python $checkPy --list
+& python $checkPy @args2 --list
 Write-Host ''
 Write-Host '=== 逐套件结果 ===' -ForegroundColor Cyan
 

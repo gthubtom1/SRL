@@ -33,6 +33,8 @@ param(
     [string]$Target = '',
     [string]$Mode = '',
     [string]$Use = '',
+    [string]$Script = '',
+    [string]$WorkDir = '',
     [switch]$ListModes,
     [switch]$Run,
     [switch]$Refresh,
@@ -44,50 +46,36 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $ConfigPath = Join-Path $Root 'Tool\config\tool-runtimes.json'
 $PyDir = Join-Path $Root 'Tool\mcp'
-$CachePath = Join-Path $env:USERPROFILE '.seep\tool-paths.json'
+$DiscoveryScript = Join-Path $PyDir 'tool_autodiscover.py'
+$PythonCommand = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 
 function Out-Json($obj) { $obj | ConvertTo-Json -Depth 8 -Compress }
 
 function Write-NextStep([string]$toolName) {
-    # x64dbg 等 http 宿主是在会话启动之后才起来的：pi 本轮不会注册 mcp__<name>__* 工具。
-    # 这行是给人和 Agent 看的下一步，JSON 仍保持最后一行（机读契约不变）。
-    Write-Output ("下一步：在本会话 TUI 里执行 /mcp reconnect " + $toolName + "（仅当宿主是在本会话启动之后起的）")
+    Write-Output ("下一步：由当前智能体宿主重新加载 " + $toolName + " 的 MCP 配置，并核对本会话工具表。")
 }
 
 if (-not (Test-Path $ConfigPath)) {
     Out-Json @{ status = 'FAILED'; stage = 'config'; reason = "缺少 $ConfigPath"; next = '重新 clone 仓库或修复 tool-runtimes.json' }
     exit 2
 }
-$cfg = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-
-# ---------------------------------------------------------------- 路径缓存
-function Read-Cache {
-    # ★ 不存在时返回 $null，绝不能返回 @{}：空 Hashtable 在 PowerShell 里是"真值"，
-    #   后面用 .PSObject.Properties 遍历它拿到的是 .NET 属性名（IsFixedSize/Count/Keys…），
-    #   会把这些名字当成工具名写进缓存 —— 实测会写出一个完全错误的 JSON。
-    if (-not (Test-Path $CachePath)) { return $null }
-    try { return (Get-Content -LiteralPath $CachePath -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { return $null }
+try {
+    $cfg = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (-not $cfg.tools -or $cfg.tools -is [array] -or $cfg.tools -is [string]) { throw 'tools 必须是对象' }
+} catch {
+    Out-Json @{ status = 'FAILED'; stage = 'config'; reason = $_.Exception.Message }
+    exit 2
 }
 
+# ---------------------------------------------------------------- 路径缓存
 function Write-Cache([string]$toolId, [string]$exe, [string]$via) {
-    $via = $via -replace '^cache:', ''   # 别把 'cache:' 前缀写进缓存（否则下一轮变成 cache:cache:scan）
+    $via = $via -replace '^cache:', ''
     try {
-        $dir = Split-Path -Parent $CachePath
-        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-        $obj = @{}
-        $old = Read-Cache
-        if ($old -is [System.Collections.IDictionary]) {
-            foreach ($k in $old.Keys) { $obj[$k] = $old[$k] }
-        } elseif ($old) {
-            foreach ($p in $old.PSObject.Properties) { $obj[$p.Name] = $p.Value }
+        if ($PythonCommand) {
+            & $PythonCommand.Source -X utf8 $DiscoveryScript cache-put $toolId $exe $via 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Warning '工具路径缓存未保存，原缓存已保留。' }
         }
-        $obj[$toolId] = [pscustomobject]@{
-            exe      = $exe
-            via      = $via
-            verified = (Get-Date -Format 'yyyy-MM-dd')
-        }
-        ($obj | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $CachePath -Encoding UTF8
-    } catch { }
+    } catch { Write-Warning ('工具路径缓存未保存：' + $_.Exception.Message) }
 }
 
 # ---------------------------------------------------------------- ListModes
@@ -107,8 +95,19 @@ if ($ListModes) {
 }
 
 if (-not $Tool) { Out-Json @{ status = 'FAILED'; stage = 'config'; reason = '需要 -Tool <id> 或 -ListModes' }; exit 2 }
+if ($Use -and -not (Test-Path -LiteralPath $Use -PathType Leaf)) {
+    Out-Json @{ status = 'FAILED'; stage = 'discover'; reason = '-Use 必须指向现有文件'; path = $Use }
+    exit 2
+}
 $toolCfg = $cfg.tools.$Tool
 if (-not $toolCfg) { Out-Json @{ status = 'FAILED'; stage = 'config'; reason = "tool-runtimes.json 里没有 '$Tool'" }; exit 2 }
+if ($TimeoutSec -lt 0 -or $TimeoutSec -gt 43200) {
+    Out-Json @{ status = 'FAILED'; stage = 'parameters'; reason = '-TimeoutSec 必须在 0 到 43200 秒之间' }; exit 2
+}
+try {
+    if ($Target) { $Target = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Target) }
+    if ($WorkDir) { $WorkDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($WorkDir) }
+} catch { Out-Json @{ status = 'FAILED'; stage = 'parameters'; reason = $_.Exception.Message }; exit 2 }
 
 # ---------------------------------------------------------------- 工具函数
 function Resolve-ToolExe([string]$toolId, $exeCandidates) {
@@ -120,33 +119,25 @@ function Resolve-ToolExe([string]$toolId, $exeCandidates) {
     $result = @{ exe = ''; via = ''; candidates = @() }
 
     # ① 手工指定
-    if ($Use -and (Test-Path $Use)) {
+    if ($Use -and (Test-Path -LiteralPath $Use -PathType Leaf)) {
         return @{ exe = (Resolve-Path -LiteralPath $Use).Path; via = 'manual'; candidates = @($Use) }
     }
 
-    # ② 上次成功的路径（0ms 命中）
-    if (-not $Refresh) {
-        $cache = Read-Cache
-        $hit = $null
-        if ($cache -and $cache.PSObject.Properties.Name -contains $toolId) { $hit = $cache.$toolId }
-        if ($hit -and $hit.exe -and (Test-Path $hit.exe)) {
-            return @{ exe = $hit.exe; via = ('cache:' + $hit.via); candidates = @($hit.exe) }
-        }
-    }
-
-    # ③ 八层发现（env / PATH / 常见目录 / 注册表 / 开始菜单 / Everything / 递归扫描 / 别名）
+    # ② 共用 Python 发现器，避免旧缓存绕过显式环境路径和目标架构。
     try {
-        $py = (Get-Command python -ErrorAction SilentlyContinue).Source
-        if ($py) {
-            $code = "import sys,json;sys.path.insert(0,r'$PyDir');import tool_autodiscover as A;"
-            $code += "r=A.discover(r'$toolId', use_registry=True);print(json.dumps(r))"
-            $raw = (& $py -c $code 2>$null | Select-Object -Last 1)
-            if ($raw) {
+        if ($PythonCommand) {
+            $discoveryArgs = @('-X', 'utf8', $DiscoveryScript, 'discover', $toolId)
+            if ($Target) { $discoveryArgs += @('--target', $Target) }
+            if ($Refresh) { $discoveryArgs += '--no-cache' }
+            foreach ($candidate in $exeCandidates) { $discoveryArgs += @('--exe-candidate', $candidate) }
+            $raw = (& $PythonCommand.Source @discoveryArgs 2>$null | Out-String)
+            if ($LASTEXITCODE -eq 0 -and $raw) {
                 $d = $raw | ConvertFrom-Json
-                if ($d.command) {
+                if ($d.available -and $d.command) {
                     return @{ exe = $d.command; via = $d.via; candidates = @($d.command) }
                 }
                 if ($d.layers_tried) { $result.candidates = @() }
+                return $result
             }
         }
     } catch { }
@@ -170,6 +161,38 @@ function Test-Port([int]$p, [int]$ms = 800) {
     } catch { return $false } finally { $client.Close() }
 }
 
+function Test-McpEndpoint($runtimeMode, [string]$exePath, [int]$probeTimeout = 8) {
+    $requestFile = $null
+    try {
+        if (-not $PythonCommand -or -not $runtimeMode.endpoint.url) {
+            return @{ ok = $false; stage = 'config'; error = '协议验证需要 Python 和 endpoint.url，端口监听不能替代握手' }
+        }
+        $headers = @{}
+        if ($runtimeMode.auth.header) {
+            if (-not $exePath -or -not $runtimeMode.auth.authJson) { throw '无法定位 MCP 认证文件' }
+            $authPath = $runtimeMode.auth.authJson.Replace('{exeDir}', (Split-Path -Parent $exePath))
+            $authData = Get-Content -LiteralPath $authPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $tokenKey = ($runtimeMode.auth.fromFile -split '#')[-1]
+            $token = $authData.$tokenKey
+            if ($token -isnot [string] -or -not $token) { throw 'MCP 认证文件缺少令牌' }
+            $headers[$runtimeMode.auth.header] = if ($token -match '^Bearer ') { $token } else { 'Bearer ' + $token }
+        }
+        $request = @{ url = $runtimeMode.endpoint.url; transport = $runtimeMode.endpoint.transport; headers = $headers; timeout = $probeTimeout }
+        $requestFile = [IO.Path]::GetTempFileName()
+        [IO.File]::WriteAllText($requestFile, ($request | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+        # PowerShell 5.1 can turn native stderr (including SDK logging) into a
+        # terminating error under Stop. The JSON result determines probe state.
+        $ErrorActionPreference = 'Continue'
+        $raw = & $PythonCommand.Source -X utf8 (Join-Path $ScriptDir 'lib\mcp_http.py') --request-file $requestFile 2>$null | Out-String
+        $ErrorActionPreference = 'Stop'
+        if (-not $raw) { throw 'MCP 验证器未返回结果' }
+        $result = $raw | ConvertFrom-Json
+        if ($result.ok -and $result.tools -le 0) { return @{ ok = $false; stage = 'tools'; error = '握手成功但服务未提供工具' } }
+        return $result
+    } catch { return @{ ok = $false; stage = 'handshake'; error = $_.Exception.Message } }
+    finally { if ($requestFile -and (Test-Path -LiteralPath $requestFile)) { Remove-Item -LiteralPath $requestFile -Force } }
+}
+
 $modes = $toolCfg.modes
 if ($Mode) {
     $modes = @($toolCfg.modes | Where-Object { $_.id -eq $Mode })
@@ -185,37 +208,90 @@ foreach ($m in $modes) {
         $tid = if ($m.toolId) { $m.toolId } else { $Tool }
         $res = Resolve-ToolExe $tid $m.fallbackExe
         $exe = $res.exe
-        $cmd = $m.command
-        if ($exe) {
-            $dir = Split-Path -Parent $exe
-            $cmd = $cmd.Replace('{exeDir}', $dir).Replace('{exeName}', (Split-Path -Leaf $exe))
-        }
-        $cmd = $cmd.Replace('{target}', $Target).Replace('{workDir}', (Join-Path $Root 'work')).Replace('{script}', 'ANALYZE_SCRIPT')
         if (-not $exe) {
             $tried += [pscustomobject]@{ mode = $m.id; stage = 'discover'; reason = '可执行文件未找到' }
             continue
         }
+        $hasArgv = $null -ne $m.argv
+        if ($hasArgv -and ($m.argv -isnot [array] -or @($m.argv | Where-Object { $_ -isnot [string] }).Count)) {
+            Out-Json @{ status = 'FAILED'; stage = 'config'; reason = '模式 argv 必须是字符串数组'; tool = $Tool; mode = $m.id }; exit 2
+        }
+        $toolArgs = @()
+        $missing = @()
+        $runDir = if ($WorkDir) { $WorkDir } else { Join-Path $Root ('work\' + $Tool + '-' + [guid]::NewGuid().ToString('N')) }
+        try {
+            $scriptPath = if ($Script -and $m.scriptKind -eq 'file') { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Script) } else { $Script }
+            $scriptDir = if ($scriptPath -and $m.scriptKind -eq 'file') { Split-Path -Parent $scriptPath } else { '' }
+            $scriptName = if ($scriptPath -and $m.scriptKind -eq 'file') { Split-Path -Leaf $scriptPath } else { '' }
+            foreach ($argument in $m.argv) {
+                foreach ($placeholder in [regex]::Matches($argument, '\{[A-Za-z_][A-Za-z0-9_]*\}')) {
+                    if ($placeholder.Value -notin @('{target}', '{workDir}', '{script}', '{scriptDir}', '{scriptName}')) {
+                        Out-Json @{ status = 'FAILED'; stage = 'config'; reason = ('未知模式占位符：' + $placeholder.Value); tool = $Tool; mode = $m.id }; exit 2
+                    }
+                }
+                if ($argument.Contains('{target}') -and (-not $Target -or -not (Test-Path -LiteralPath $Target -PathType Leaf))) { $missing += '-Target 需要现有文件' }
+                if ($argument.Contains('{script}') -or $argument.Contains('{scriptDir}') -or $argument.Contains('{scriptName}')) {
+                    if (-not $Script) { $missing += '-Script 未提供' }
+                    elseif ($m.scriptKind -eq 'file' -and -not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) { $missing += '-Script 需要现有脚本文件' }
+                }
+                $substitutions = @{ '{target}' = $Target; '{workDir}' = $runDir; '{script}' = $scriptPath; '{scriptDir}' = $scriptDir; '{scriptName}' = $scriptName }
+                $toolArgs += [regex]::Replace($argument, '\{[A-Za-z_][A-Za-z0-9_]*\}', { param($match) $substitutions[$match.Value] })
+            }
+        } catch { Out-Json @{ status = 'FAILED'; stage = 'parameters'; reason = $_.Exception.Message; tool = $Tool; mode = $m.id }; exit 2 }
         if ($Run) {
-            $out = & cmd /c $cmd 2>&1
-            Out-Json @{ status = 'RAN'; tool = $Tool; mode = $m.id; kind = 'cli'; via = $res.via; command = $cmd; exit = $LASTEXITCODE; output = (($out | Select-Object -Last 20) -join "`n") }
-            exit $LASTEXITCODE
+            if (-not $PythonCommand -or -not $hasArgv) {
+                Out-Json @{ status = 'FAILED'; stage = 'config'; reason = '执行需要 Python 和该模式的 argv 声明'; tool = $Tool; mode = $m.id }
+                exit 2
+            }
+            if ($missing.Count) {
+                Out-Json @{ status = 'FAILED'; stage = 'parameters'; reason = ($missing | Select-Object -Unique) -join '; '; tool = $Tool; mode = $m.id }
+                exit 2
+            }
+            $requestFile = $null
+            try {
+                New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+                $requestFile = [IO.Path]::GetTempFileName()
+                # -WorkDir (or the per-run generated work directory) is the
+                # execution context. toolArgs already contain absolute target
+                # and script paths, so changing cwd here cannot rebase inputs.
+                $request = @{ argv = @($exe) + $toolArgs; cwd = $runDir; timeout = $(if ($TimeoutSec -gt 0) { $TimeoutSec } else { 600 }) }
+                $request.context = @{ tool = $Tool; mode = $m.id; exe = $exe; workDir = $runDir; target = $Target }
+                [IO.File]::WriteAllText($requestFile, ($request | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+                & $PythonCommand.Source -X utf8 $DiscoveryScript execute --request-file $requestFile
+                $executionExit = $LASTEXITCODE
+            } catch {
+                Out-Json @{ status = 'FAILED'; stage = 'execution'; reason = $_.Exception.Message; tool = $Tool; mode = $m.id; exe = $exe; workDir = $runDir }
+                $executionExit = 3
+            } finally {
+                if ($requestFile -and (Test-Path -LiteralPath $requestFile)) { Remove-Item -LiteralPath $requestFile -Force }
+            }
+            exit $executionExit
         }
         Write-Cache $tid $exe $res.via
-        Out-Json @{ status = 'CLI_READY'; tool = $Tool; mode = $m.id; kind = 'cli'; via = $res.via; exe = $exe; command = $cmd; note = 'headless 通道：无需 GUI。加 -Run 直接执行。' }
+        Out-Json @{ status = 'CLI_READY'; tool = $Tool; mode = $m.id; kind = 'cli'; via = $res.via; exe = $exe; argv = @($exe) + $toolArgs; argv_declared = $hasArgv; workDir = $runDir; missing_inputs = @($missing | Select-Object -Unique); runtime_verified = $false; note = '已找到 CLI 路径，尚未运行；补齐 missing_inputs 后加 -Run 执行并检查结果。' }
         exit 0
     }
 
     # 带端点的通道
     $port = [int]$m.ready.port
-    if (Test-Port $port) {
-        Write-NextStep $Tool
-        Out-Json @{ status = 'ALREADY_READY'; tool = $Tool; mode = $m.id; port = $port; endpoint = $m.endpoint; auth = $m.auth; note = '服务已在跑；若本会话 MCP 仍不可用，在 TUI 执行 /mcp reconnect ' + $Tool }
-        exit 0
+    if ($port -lt 1 -or $port -gt 65535 -or -not $m.endpoint.url) {
+        $tried += [pscustomobject]@{ mode = $m.id; stage = 'config'; reason = '缺少有效端口或 MCP endpoint.url，无法验证控制通道' }
+        continue
     }
-
     $res = Resolve-ToolExe $m.start.toolId $m.start.exeCandidates
     $exe = $res.exe
-    if (-not $exe -or -not (Test-Path $exe)) {
+    if (Test-Port $port) {
+        $probe = Test-McpEndpoint $m $exe
+        if ($probe.ok) {
+            Write-NextStep $Tool
+            Out-Json @{ status = 'ALREADY_READY'; tool = $Tool; mode = $m.id; port = $port; endpoint = $m.endpoint; handshake = $probe; session_verified = $false; note = '独立 MCP 握手成功；当前宿主仍需核对本会话工具表' }
+            exit 0
+        }
+        $tried += [pscustomobject]@{ mode = $m.id; stage = 'handshake'; reason = $probe.error; port = $port }
+        continue
+    }
+
+    if (-not $exe -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) {
         $tried += [pscustomobject]@{ mode = $m.id; stage = 'discover'; reason = '可执行文件未找到' }
         continue   # 这条通道起不来，继续下一条
     }
@@ -250,9 +326,11 @@ foreach ($m in $modes) {
         try {
             Add-Type -AssemblyName System.Windows.Forms
             Start-Sleep -Seconds 4
-            try { $ws = New-Object -ComObject WScript.Shell; [void]$ws.AppActivate($procPid) } catch { }
-            Start-Sleep -Milliseconds 800
-            [System.Windows.Forms.SendKeys]::SendWait($m.postLaunchKeys)
+            $ws = New-Object -ComObject WScript.Shell
+            if ($ws.AppActivate($procPid)) {
+                Start-Sleep -Milliseconds 800
+                [System.Windows.Forms.SendKeys]::SendWait($m.postLaunchKeys)
+            }
         } catch { }
     }
 
@@ -260,22 +338,26 @@ foreach ($m in $modes) {
     if ($limit -le 0) { $limit = 120 }
     while ($sw.Elapsed.TotalSeconds -lt $limit) {
         if (Test-Port $port 500) {
-            Write-Cache $m.start.toolId $exe $res.via
-            Write-NextStep $Tool
-            Out-Json @{
-                status   = 'READY'; tool = $Tool; mode = $m.id; kind = $m.kind; exe = $exe; via = $res.via
-                target   = $Target; port = $port; seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
-                endpoint = $m.endpoint; auth = $m.auth; pid = $procPid
-                note     = 'MCP 工具在会话启动时注册；若本会话调不到，执行 /mcp reconnect ' + $Tool
+            $probe = Test-McpEndpoint $m $exe ([math]::Max(1, [math]::Min(8, [int]($limit - $sw.Elapsed.TotalSeconds))))
+            if ($probe.ok) {
+                Write-Cache $m.start.toolId $exe $res.via
+                Write-NextStep $Tool
+                Out-Json @{
+                    status   = 'READY'; tool = $Tool; mode = $m.id; kind = $m.kind; exe = $exe; via = $res.via
+                    target   = $Target; port = $port; seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+                    endpoint = $m.endpoint; pid = $procPid; handshake = $probe; session_verified = $false
+                    note     = '独立 MCP 握手成功；当前宿主仍需核对本会话工具表'
+                }
+                exit 0
             }
-            exit 0
         }
         Start-Sleep -Milliseconds 700
     }
     Out-Json @{
-        status = 'TIMEOUT'; stage = 'port'; tool = $Tool; mode = $m.id; exe = $exe; via = $res.via
+        status = 'TIMEOUT'; stage = 'handshake'; tool = $Tool; mode = $m.id; exe = $exe; via = $res.via
         port = $port; waitedSec = [math]::Round($sw.Elapsed.TotalSeconds, 1); pid = $procPid
-        hint = '进程起来了但端口没开：多半是 MCP 插件未加载（x64dbg 在 GUI 里按 Ctrl+Alt+M）、端口被占、或被安全软件拦。'
+        handshake = $probe
+        hint = '已启动进程，但未完成 MCP 协议握手；检查插件、认证、端口和协议配置。'
         next = '看窗口是否弹对话框；确认插件 MCP 是否勾选自动启动；必要时 -Use <另一个 exe> 换通道。'
     }
     exit 4
@@ -294,7 +376,7 @@ Out-Json @{
     next       = @(
         '手工指定路径：tool-run.ps1 -Tool ' + $Tool + ' -Use "<exe 的绝对路径>"',
         '设环境变量 SEEP_' + ($Tool.ToUpper() -replace '[^A-Z0-9]', '_') + '_PATH=<exe 路径>',
-        '若确实未安装：seep_tool_install(tool_id="' + $Tool + '") 或按 tool-capabilities.json 的下载地址装'
+        '若确实未安装：seep_ensure_tool(tool_id="' + $Tool + '")，或用 tool_autodiscover.py install 查看白名单方案'
     ) -join '；'
     hint       = '八层发现：环境变量→PATH→常见目录→注册表→开始菜单快捷方式→Everything 索引→递归扫描→别名'
 }

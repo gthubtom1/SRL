@@ -20,21 +20,28 @@
 #   ./setup/update.sh --no-pull
 # ==============================================================================
 
-set -u
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-AGENT_DIR="$HOME/.pi/agent"
+AGENT_DIR=""
+AGENT_ROOT_ARG=""
 VERSION_FILE="$ROOT/VERSION"
 CHANGELOG_FILE="$ROOT/docs/CHANGELOG.md"
-MCP_JSON="$AGENT_DIR/mcp.json"
+MCP_JSON=""
+PY=""
+for candidate in python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then PY="$candidate"; break; fi
+done
+[ -n "$PY" ] || { echo "❌ 未检测到可用 Python 3.11+" >&2; exit 1; }
+RUNTIME_BRIDGE="$ROOT/Tool/scripts/runtime-root.py"
 
 # 仓库地址解析（修复：原先硬编码 angusdevgo 原版仓库，导致 fork 用户“更新工作台”
 # 会去拉原版仓库、把本地优化覆盖/回退）。现在以当前工作副本的实际 origin 为准；
 # 仅在无 origin 时回退到环境变量 SEEP_REPO_URL；都没有则返回空。
 resolve_repo_url() {
     if [ -n "${SEEP_REPO_URL:-}" ]; then echo "$SEEP_REPO_URL"; return; fi
-    if [ -d "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
+    if [ -e "$ROOT/.git" ] && command -v git >/dev/null 2>&1; then
         git -C "$ROOT" remote get-url origin 2>/dev/null || true
     fi
 }
@@ -51,27 +58,67 @@ REPO_URL="$(resolve_repo_url)"
 GREEN="\033[1;32m"; RED="\033[1;31m"; YELLOW="\033[1;33m"
 CYAN="\033[1;36m"; WHITE="\033[1;37m"; GRAY="\033[0;37m"; RESET="\033[0m"
 
-DRY_RUN=0; NO_PULL=0; SKIP_VERIFY=0; STASHED=0; CHECK_ONLY=0
+DRY_RUN=0; NO_PULL=0; SKIP_VERIFY=0; SKIP_PACKAGES=0; SKIP_PYTHON=0
+STASHED=0; STASH_SHA=""; CHECK_ONLY=0
 WARNINGS=()
 
-for arg in "$@"; do
-    case "$arg" in
-        --dry-run)     DRY_RUN=1 ;;
-        --no-pull)     NO_PULL=1 ;;
-        --check)       CHECK_ONLY=1 ;;
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dry-run) DRY_RUN=1 ;;
+        --no-pull) NO_PULL=1 ;;
+        --check) CHECK_ONLY=1 ;;
         --skip-verify) SKIP_VERIFY=1 ;;
-        -h|--help)
-            echo "用法: $0 [--dry-run] [--no-pull] [--check] [--skip-verify]"
-            exit 0 ;;
-        *) echo "未知参数: $arg" >&2; exit 2 ;;
+        --skip-packages) SKIP_PACKAGES=1 ;;
+        --skip-python) SKIP_PYTHON=1 ;;
+        --agent-root)
+            if [ $# -lt 2 ] || [ -z "$2" ] || [[ "$2" == --* ]]; then
+                echo '--agent-root 需要路径参数' >&2; exit 2
+            fi
+            shift; AGENT_ROOT_ARG="$1" ;;
+        -h|--help) echo "用法: $0 [--agent-root PATH] [--dry-run] [--no-pull] [--skip-packages] [--skip-python] [--check] [--skip-verify]"; exit 0 ;;
+        *) echo "未知参数: $1" >&2; exit 2 ;;
     esac
+    shift
 done
+RESOLVE_ARGS=("$RUNTIME_BRIDGE" resolve)
+[ -n "$AGENT_ROOT_ARG" ] && RESOLVE_ARGS+=(--agent-root "$AGENT_ROOT_ARG")
+if ! RESOLVE_JSON="$($PY "${RESOLVE_ARGS[@]}")"; then echo "❌ Agent root 无效" >&2; exit 1; fi
+AGENT_DIR="$($PY -c 'import json,sys; print(json.loads(sys.argv[1])["agent_root"])' "$RESOLVE_JSON")" || exit 1
+MCP_JSON="$AGENT_DIR/mcp.json"
+export PI_CODING_AGENT_DIR="$AGENT_DIR"
 
-step()  { echo -e "\n${CYAN}>>> $1${RESET}"; }
-ok()    { echo -e "    ${GREEN}[OK]${RESET} $1"; }
-warn()  { echo -e "    ${YELLOW}[!!]${RESET} $1"; WARNINGS+=("$1"); }
-info()  { echo -e "    ${GRAY}[..]${RESET} $1"; }
-fail()  { echo -e "    ${RED}[FAIL]${RESET} $1"; }
+step()  { printf '\n%b>>> %s%b\n' "$CYAN" "$1" "$RESET"; }
+ok()    { printf '    %b[OK]%b %s\n' "$GREEN" "$RESET" "$1"; }
+warn()  { printf '    %b[!!]%b %s\n' "$YELLOW" "$RESET" "$1"; WARNINGS+=("$1"); }
+info()  { printf '    %b[..]%b %s\n' "$GRAY" "$RESET" "$1"; }
+fail()  { printf '    %b[FAIL]%b %s\n' "$RED" "$RESET" "$1"; }
+
+restore_update_stash() {
+    [ "$STASHED" = 1 ] || return 0
+    if [ -z "$STASH_SHA" ]; then
+        fail '自动 stash 已创建，但无法确认其提交号；未恢复任何本地改动'
+        return 1
+    fi
+    POP_REF=""
+    STASH_INDEX=0
+    while IFS= read -r listed_sha; do
+        if [ "$listed_sha" = "$STASH_SHA" ]; then POP_REF="stash@{$STASH_INDEX}"; break; fi
+        STASH_INDEX=$((STASH_INDEX + 1))
+    done < <(git -C "$ROOT" stash list --format='%H' 2>/dev/null)
+    if [ -z "$POP_REF" ]; then
+        fail "自动 stash ${STASH_SHA:0:12} 已不在 stash 列表；未继续更新"
+        return 1
+    fi
+    if git -C "$ROOT" stash pop "$POP_REF" 2>&1 | sed 's/^/    /'; then
+        STASHED=0
+        STASH_SHA=""
+        ok '拉取前暂存的本地改动已自动恢复'
+        return 0
+    fi
+    fail "本地改动恢复失败；stash ${STASH_SHA:0:12} 已明确保留"
+    info "请在干净工作区手动恢复: git -C \"$ROOT\" stash apply $STASH_SHA"
+    return 1
+}
 
 get_version() {
     if [ -f "$VERSION_FILE" ]; then
@@ -84,19 +131,34 @@ get_version() {
 # 用 python3 安全解析 mcp.json 的服务名（不存在则输出空）
 mcp_keys() {
     [ -f "$MCP_JSON" ] || return 0
-    local py=""
-    command -v python3 >/dev/null 2>&1 && py="python3"
-    [ -z "$py" ] && command -v python >/dev/null 2>&1 && py="python"
-    [ -z "$py" ] && return 0
-    "$py" - "$MCP_JSON" <<'PY' 2>/dev/null || true
-import json, sys, io
-raw = io.open(sys.argv[1], encoding="utf-8-sig").read()
+    "$PY" - "$MCP_JSON" <<'PY'
+import json, sys
 try:
-    d = json.loads(raw)
-except Exception:
-    sys.exit(0)
-keys = list((d.get("mcpServers") or {}).keys())
-print("\n".join(keys))
+    with open(sys.argv[1], encoding="utf-8-sig") as handle:
+        d = json.load(handle)
+    if not isinstance(d, dict) or not isinstance(d.get("mcpServers", {}), dict):
+        raise ValueError("mcpServers must be an object")
+    print("\n".join(d.get("mcpServers", {})))
+except (OSError, ValueError):
+    print("mcp.json 无效或不可读，原件保留", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
+protected_fingerprints() {
+    "$PY" - "$AGENT_DIR" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+try:
+    root = Path(sys.argv[1])
+    fingerprints = {}
+    for name in ("models.json", "auth.json", "lab-mode.flag"):
+        path = root / name
+        fingerprints[name] = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    print(json.dumps(fingerprints, sort_keys=True))
+except OSError:
+    print("无法读取受保护用户文件，停止完整性校验", file=sys.stderr)
+    sys.exit(1)
 PY
 }
 
@@ -125,7 +187,7 @@ if [ $CHECK_ONLY -eq 1 ]; then
     GIT_PROXY=()
     [ -n "$PROXY_PORT" ] && GIT_PROXY=("-c" "http.proxy=http://127.0.0.1:$PROXY_PORT" "-c" "https.proxy=http://127.0.0.1:$PROXY_PORT")
 
-    if [ -d "$ROOT/.git" ]; then
+    if [ -e "$ROOT/.git" ]; then
         REMOTE_LINE="$(git -C "$ROOT" "${GIT_PROXY[@]}" ls-remote origin refs/heads/main 2>/dev/null || true)"
         LOCAL_SHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
         if [ -n "$REMOTE_LINE" ] && [ -n "$LOCAL_SHA" ]; then
@@ -144,7 +206,8 @@ if [ $CHECK_ONLY -eq 1 ]; then
     # 通过 curl 探测 VERSION
     CURL_PROXY=()
     [ -n "$PROXY_PORT" ] && CURL_PROXY=("-x" "http://127.0.0.1:$PROXY_PORT")
-    R_VER="$(curl -sSL "${CURL_PROXY[@]}" --max-time 5 "$(raw_version_url "$REPO_URL")" 2>/dev/null | tr -d '[:space:]' || true)"
+    R_VER="$(curl -fsSL "${CURL_PROXY[@]}" --max-time 5 "$(raw_version_url "$REPO_URL")" 2>/dev/null | tr -d '[:space:]' || true)"
+    if [ -z "$R_VER" ]; then info "无法确认远程版本，当前版本为 v$OLD_VERSION"; exit 1; fi
     if [ -n "$R_VER" ] && [ "$R_VER" != "$OLD_VERSION" ]; then
         echo -e "  ${YELLOW}[UPDATE]${RESET} 检测到新版本 v$R_VER 发布！(当前本地版本: v$OLD_VERSION)"
         echo -e "  提示: 执行 ./setup/update.sh 即可一键更新。"
@@ -154,13 +217,14 @@ if [ $CHECK_ONLY -eq 1 ]; then
         exit 0
     fi
 fi
-IS_GIT=0; [ -d "$ROOT/.git" ] && IS_GIT=1
+IS_GIT=0; [ -e "$ROOT/.git" ] && IS_GIT=1
 
 echo -e "  当前版本    : v$OLD_VERSION"
 echo -e "  Git 仓库    : $([ "$IS_GIT" = 1 ] && echo '是（支持 git pull）' || echo '否（压缩包部署）')"
 echo -e "  运行模式    : $([ "$DRY_RUN" = 1 ] && echo 'DRY RUN（不修改任何文件）' || echo '正常更新')"
 
-BEFORE_KEYS="$(mcp_keys)"
+BEFORE_KEYS="$(mcp_keys)" || { fail "无法读取现有 MCP 配置，停止更新"; exit 1; }
+BEFORE_PROTECTED="$(protected_fingerprints)" || exit 1
 info "更新前 mcp.json 中的 MCP 服务: $(if [ -n "$BEFORE_KEYS" ]; then echo "$BEFORE_KEYS" | tr '\n' ' '; else echo '（无）'; fi)"
 info "受保护的用户自有数据: models.json, auth.json, lab-mode.flag"
 
@@ -181,27 +245,11 @@ step "1/6  拉取最新代码"
 if [ "$NO_PULL" = 1 ]; then
     info "已指定 --no-pull，跳过 git pull"
 elif [ "$IS_GIT" != 1 ]; then
-    if command -v git >/dev/null 2>&1 && [ -n "$REPO_URL" ]; then
-        info "检测到本机已安装 Git，正在将当前目录自动关联并初始化至远程仓库..."
-        info "使用仓库地址: $REPO_URL"
-        cd "$ROOT" || exit 1
-        git init >/dev/null 2>&1 || true
-        git remote add origin "$REPO_URL" >/dev/null 2>&1 || true
-        git remote set-url origin "$REPO_URL" >/dev/null 2>&1 || true
-        info "正在从远程仓库高速拉取最新代码..."
-        git fetch origin main >/dev/null 2>&1 || true
-        git reset --mixed origin/main >/dev/null 2>&1 || true
-        ok "已成功将当前工作台关联并更新至最新版本！"
-        IS_GIT=1
-    elif command -v git >/dev/null 2>&1; then
-        warn "当前目录不是 Git 仓库，且未探测到仓库地址（origin / SEEP_REPO_URL 均无）。"
-        info "为避免误拉到错误仓库覆盖本地改动，已跳过自动拉取。"
-        info "请先设置 origin（git remote add origin <你的仓库地址>），或用 --no-pull 配合手动压缩包覆盖。"
-    else
-        warn "当前目录不是 Git 仓库且未检测到 Git 命令，无法自动拉取。"
-        info "若需更新，可从 GitHub 仓库下载最新压缩包覆盖后重跑本脚本。"
-    fi
+    fail "当前目录是压缩包部署，尚未拉取新代码，更新已停止。"
+    info "请先下载新版本并合并到当前目录，再用相同 AgentRoot 加 --no-pull 同步；也可另行 git clone 后安装。"
+    exit 1
 else
+    command -v git >/dev/null 2>&1 || { fail "未找到 Git，无法拉取新代码"; exit 1; }
     PROXY_PORT="$(detect_proxy)"
     PROXY_ARGS=()
     if [ -n "$PROXY_PORT" ]; then
@@ -212,18 +260,36 @@ else
     fi
 
     cd "$ROOT" || exit 1
-    if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    DIRTY="$(git status --porcelain 2>/dev/null)" || { fail "无法检查 Git 工作区状态，停止更新"; exit 1; }
+    if [ -n "$DIRTY" ]; then
         warn "工作区存在本地改动，将先 stash 再拉取"
-        git stash push -u -m "seep-update-autostash-$(date +%Y%m%d-%H%M%S)" >/dev/null 2>&1 && STASHED=1
+        if git stash push -u -m "seep-update-autostash-$(date +%Y%m%d-%H%M%S)" >/dev/null 2>&1; then
+            STASHED=1
+            STASH_SHA="$(git rev-parse --verify refs/stash 2>/dev/null)" || {
+                if git stash pop 'stash@{0}' 2>&1 | sed 's/^/    /'; then
+                    STASHED=0
+                    STASH_SHA=""
+                    fail 'stash 提交号记录失败；本地改动已恢复，更新已取消'
+                else
+                    fail 'stash 提交号记录失败且自动恢复失败；stash@{0} 已保留'
+                fi
+                exit 1
+            }
+        else fail "本地改动保存失败，尚未拉取代码"; exit 1; fi
     fi
 
     if git "${PROXY_ARGS[@]}" pull --rebase origin main 2>&1 | sed 's/^/    /'; then
+        PULL_RC=0
+    else
+        PULL_RC=1
+    fi
+    restore_update_stash || exit 1
+    if [ "$PULL_RC" -eq 0 ]; then
         ok "代码已更新到最新版本"
     else
         fail "git pull 失败（可能是网络或代理问题）"
         info "可尝试：git -c http.proxy=http://127.0.0.1:<你的端口> pull --rebase origin main"
         info "或使用 --no-pull：先手动下载最新压缩包覆盖，再运行 update.sh --no-pull"
-        [ "$STASHED" = 1 ] && warn "本地改动仍保存在 git stash 中，可用 git stash pop 恢复"
         exit 1
     fi
 fi
@@ -246,45 +312,52 @@ fi
 
 # ------------------------------------------------------------------ 3. 同步
 step "3/6  执行幂等增量同步（自动备份 + 保护自定义配置）"
-
-if bash "$SCRIPT_DIR/install.sh"; then
+INSTALL_FAILED=0
+INSTALL_ARGS=(--agent-root "$AGENT_DIR")
+[ "$SKIP_PACKAGES" = 1 ] && INSTALL_ARGS+=(--skip-packages)
+[ "$SKIP_PYTHON" = 1 ] && INSTALL_ARGS+=(--skip-python)
+if bash "$SCRIPT_DIR/install.sh" "${INSTALL_ARGS[@]}"; then
     ok "增量同步完成"
 else
     warn "install.sh 返回非零，部分步骤可能未完成，请查看上方输出"
+    INSTALL_FAILED=1
 fi
 
 # ------------------------------------------------------------------ 4. 校验
 step "4/6  用户自有数据零丢失校验"
 
-AFTER_KEYS="$(mcp_keys)"
+AFTER_KEYS="$(mcp_keys)" || { fail "更新后的 MCP 配置无效"; INSTALL_FAILED=1; }
 LOST=""
 if [ -n "$BEFORE_KEYS" ]; then
     while IFS= read -r k; do
         [ -z "$k" ] && continue
-        echo "$AFTER_KEYS" | grep -qx "$k" || LOST="$LOST $k"
+        echo "$AFTER_KEYS" | grep -Fqx -- "$k" || LOST="$LOST $k"
     done <<< "$BEFORE_KEYS"
 fi
 
 if [ -n "$LOST" ]; then
+    INSTALL_FAILED=1
     fail "检测到自定义 MCP 服务丢失:$LOST"
     info "请从备份目录恢复：$AGENT_DIR/backup-*/mcp.json"
 else
     ok "mcp.json 中的 MCP 服务全部保留（共 $(if [ -n "$AFTER_KEYS" ]; then echo "$AFTER_KEYS" | wc -l | tr -d ' '; else echo 0; fi) 个）"
 fi
 
-if [ -f "$AGENT_DIR/models.json" ]; then
-    ok "models.json 存在且未被脚本写入（用户凭据安全）"
+if AFTER_PROTECTED="$(protected_fingerprints)" && [ "$BEFORE_PROTECTED" = "$AFTER_PROTECTED" ]; then
+    ok "models.json、auth.json、lab-mode.flag 的内容与存在状态均未变化"
 else
-    info "未发现 models.json（尚未配置模型凭据）"
+    fail "受保护用户文件的内容或存在状态发生变化，或无法完成校验"
+    INSTALL_FAILED=1
 fi
 
 # ------------------------------------------------------------------ 5. 自检
 if [ "$SKIP_VERIFY" = 0 ]; then
     step "5/6  官方基准自检"
-    if bash -c "cd \"$SCRIPT_DIR\" && python Tool/scripts/check.py --env"; then
+    if (cd "$ROOT" && "$PY" Tool/scripts/check.py --env); then
         ok "自检全部通过"
     else
         warn "自检存在未通过项，请查看上方红色标记"
+        INSTALL_FAILED=1
     fi
 else
     step "5/6  官方基准自检（已跳过 --skip-verify）"
@@ -294,38 +367,26 @@ fi
 step "6/6  更新完成报告"
 
 echo -e "\n${WHITE}================================================================================${RESET}"
-echo -e "  ${GREEN}Seep 工作台更新完成:  v$OLD_VERSION  ->  v$NEW_VERSION${RESET}"
+if [ "$INSTALL_FAILED" = 1 ]; then
+    echo -e "  ${YELLOW}Seep 工作台更新未完成，请处理上方失败后重试${RESET}"
+else
+    echo -e "  ${GREEN}Seep 工作台更新完成:  v$OLD_VERSION  ->  v$NEW_VERSION${RESET}"
+fi
 echo -e "${WHITE}================================================================================${RESET}"
 
 cat <<EOF
 
-  更新内容:
-    · 10 个逆向 Skill 已同步到最新
-    · 提示词 (SEEP.md / AGENTS.md) 与安全扩展已同步
-    · mcp.json 已增量合并（自定义 MCP 完整保留）
-    · 内置工具箱与知识库已校验
+  同步范围与结果见上方逐项输出；出现失败时请先处理失败项。
 
   下一步:
-    1) 完全关闭并重新打开 Agent 会话（Pi / Claude Code / DSH / OpenCode）
-       —— 这一步是必须的，新 Skill 与扩展需要重新加载
-    2) 在对话框中发送:  lab：
-       即可继续开工
+    1) 以相同 AgentRoot 重开 Pi 会话，确认技能、扩展与 MCP 实际加载。
+    2) 直接说明任务和材料；lab：是可选交互。其他宿主需单独验证。
 
   如需回滚:
     · 配置备份位于: $AGENT_DIR/backup-<时间戳>/
-    · 代码回滚:     git -C "$ROOT" log --oneline -10  然后 git reset --hard <commit>
+    · 代码版本:     git -C "$ROOT" log --oneline -10；先保留本地修改再选择恢复版本。
 
 EOF
 
-if [ "$STASHED" = 1 ]; then
-    echo -e "  ${YELLOW}[!!] 你之前的本地改动已自动 stash 保存，恢复命令:${RESET}"
-    echo -e "       git -C \"$ROOT\" stash pop\n"
-fi
-
-if [ "${#WARNINGS[@]}" -gt 0 ]; then
-    echo -e "  ${YELLOW}关注项:${RESET}"
-    for w in "${WARNINGS[@]}"; do echo -e "    ${YELLOW}-${RESET} $w"; done
-    echo
-fi
-
+if [ "$INSTALL_FAILED" = 1 ]; then exit 1; fi
 exit 0

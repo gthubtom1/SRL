@@ -1,6 +1,6 @@
-# 接自有授权平台（本地 HMAC / 在线票据）
+# 接自有授权平台（离线公钥验签 / 在线票据）
 - 触发词：自有授权、授权平台、卡密系统、到期时间、机器码、HMAC、在线票据、发卡、试用期、永久
-- 输入（用户提供）：`<已旁路产物>`、`<授权 API 基址>`、`<产品 ID>`、`<盐/公钥占位>`、`<机器码算法>`、`<功能位>`；范围由用户提供的 scope 决定。
+- 输入（用户提供）：`<可用基线副本>`、`<授权 API 基址>`、`<产品 ID>`、`<公钥/策略占位>`、`<机器码算法>`、`<功能位>`；范围由用户提供的 scope 决定。
 - 用到的能力（capability id）：`tool:ida` `tool:x64dbg` `repo:case_state` `repo:probe_api` `repo:tls_check` `repo:patch-verify` `repo:reverse-accept` `repo:web-check`
-- 步骤：1) `python Tool/skill/softseep/scripts/preflight-classify.py <TARGET> --hint`，定位启动、功能入口、到期检查三处挂载点；2) 本地 HMAC 模式：卡密 = HMAC-SHA256(机器码, 盐) 前 N 位，生成器与验签器落 `work/<case>/license/`，用 `python Tool/scripts/case_state.py claim --case work/<case> --id L1 --text "本地 HMAC 可复算"` 后 `prove --id L1 --evidence work/<case>/license/vectors.json`；3) 在线模式：`python Tool/skill/apkseep/scripts/probe_api.py --base <LICENSE_API> --path /verify --param <card> --header <product:...>`，票据字段（到期/机器码/功能位）写 `work/<case>/license/ticket.json`；4) `python Tool/skill/apkseep/scripts/tls_check.py <LICENSE_HOST> --json`，确认证书与 SNI；5) 挂载改动写 `work/<case>/patch.json`，`python Tool/skill/softseep/scripts/patch-verify.py --file <TARGET> --manifest work/<case>/patch.json --out work/<case>/out/<name>`；6) 五条验收：无卡密停授权页、有效卡密全开、到期拦截、换机器按策略、断网提示，逐条写 `acceptance/`，`python Tool/skill/softseep/scripts/reverse-accept.py --case <case>`；7) `python Tool/scripts/preflight.py --fast`。
-- 判据：vectors.json 三组 HMAC 与独立复算一致；ticket.json 含 expiry、hwid、features 且签名可验；patch-verify ok=true；五条验收各有原始输出；reverse-accept rc=0。｜不行就换：到期判断只看本地时钟 → 加在线复验或单调计数；换机器误判 → 放宽指纹组合并给明确提示
+- 步骤：1) 按主域确认当前目标、可用基线及实际挂载位置；静态判型工具不证明授权入口已定位。2) 如需查源工作区中的 `Tool/skill/_pending/03-license-hookup/SKILL.md`，只能由人工作为归档资料阅读；安装器不部署或索引该路径，安装后的智能体不得把它当可调用能力。设计原则是私钥仅发卡侧持有，客户端公钥验签完整产品/卡号/机器/到期/功能位载荷。3) 用临时合成密钥与卡片验证正常、篡改、过期、换机、回拨和坏编码，不输出密钥或真实卡密。4) 在线真实凭据由用户在宿主/服务端操作，不把 card 放命令行，不保存真实 ticket；仅将非敏感配置、合成向量与验签结果登记到本项目。5) 修改只在独立副本，记录原字节/回滚与实际挂载证据；按本次策略逐条验证无卡、有效、到期、换机、断网和受影响业务。6) 结果返回主域同一项目/版本/run；case 专项闸不能代替真实功能验收。
+- 判据：完整签名验证、字段篡改拒绝，签发秘密不进客户端；原件哈希未变，实际交付形态/功能与用户目标一致。纯离线可回滚存储不能保证可信时间/撤销，明确边界；需要在线时失败策略由用户要求决定。工作台维护完整运行 `python Tool/scripts/check.py --strict`，不以其通过代替客户授权服务验收。

@@ -62,6 +62,13 @@ Exit codes: 0 = every capability ok, 3 = at least one blocked, 2 = usage error,
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import ast
 import importlib.util
@@ -73,7 +80,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL_DIR = os.path.dirname(HERE)
-REPO_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
+REPO_ROOT = _seep_repo_root(__file__)
 
 # ---------------------------------------------------------------- exit codes
 # 0 success / 1 negative finding / 2 usage / 3 environment short of a capability

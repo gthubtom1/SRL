@@ -1,0 +1,1 @@
+{"ok": true, "patches": 2, "sha256_before": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30", "sha256_after": "bdcb074e9df12f05e27cbf23380dbde2dddce521b8dcb613c0288e69e07cac00", "out": "tmp/r13-replay/work/a.patched.exe"}

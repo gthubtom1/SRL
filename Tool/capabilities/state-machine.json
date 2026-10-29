@@ -1,6 +1,6 @@
 {
   "id": "state-machine",
-  "title": "会话状态机建模",
+  "title": "人工状态机边覆盖校验",
   "domain": "protocol-plugin",
   "triggers": [
     "状态机",
@@ -16,13 +16,13 @@
   ],
   "version": "1.0.0",
   "inputs": [
-    "pcap 或请求序列",
-    "状态转移假设"
+    "调用者编写或外部工具提取的状态边 JSON",
+    "可选 pcap/pcapng 摘要"
   ],
   "outputs": [
-    "状态机 JSON",
-    "合法跳转表",
-    "非法跳转样例"
+    "边覆盖率 JSON",
+    "未观测边与 LLM 候选边清单",
+    "人工复核提示"
   ],
   "scripts": [
     "Tool/skill/protocol-plugin/scripts/pcap-summary.py"
@@ -30,6 +30,8 @@
   "refs": [
     "Tool/skill/protocol-plugin/references/06-app-state-machine.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
+  "reserved": true,
+  "note": "pcap-summary.py --state-model 只校验调用者提供的 from/to/evidence_frame 形状、计算覆盖率并拆分 llm_unverified，不自动推断状态、不核验帧号或负例。状态建模与非法迁移实验仍需按 references/06-app-state-machine.md 人工完成。",
   "compose": []
 }

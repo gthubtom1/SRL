@@ -12,9 +12,9 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 > “看到可疑字符串”不是结论；结论必须带来源、时间、主体、动作与哈希。仅对自有或明确授权的镜像、设备、客户端操作。
 
 ## 阶段契约（与 softseep 一致，**先判再做**）
-> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→必问三件）。本文件不复制。
-  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
-- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
+- 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
+- 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
 ## 1. 范围与路由
 
@@ -32,7 +32,7 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 
 > 载体→域 的映射**只看一处**：`Tool/skill/seep-router/SKILL.md`（本文件不复写）。
 > 本域只补两句：iOS `cryptid=1` 要先解成明文再谈内容（思路同 `unpack-loop` 的 dump 闭环）；
-> 加固样本的解壳/dump/重建走 `unpack-loop`。
+> Windows PE 解壳才用 `unpack-loop`；iOS 保留本域的授权明文采集路线，Android 代码交 apkseep。
 - 恶意样本行为定性/家族归类 → `malware-analysis`；授权旁路/计费/功能解锁 → `01`–`05`。
 - 设备/账号/云资源清单由 `scope` 声明；在线反作弊对抗、注入/挂钩/改内存、反取证按对应授权任务执行。
 
@@ -218,7 +218,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 
 - **Android/授权旁路由邻域承担**：域归属看 router，License/计费/功能解锁在 `01`–`05`。
 - **采集范围由 `scope` 声明**：设备/账号/云资源清单由用户提供，清单内按任务执行；取证只读副本，只做可复算证据链（采集→校验→关联）。
-- **只读观测**：原件只读、副本分析、全程哈希；任何写操作都必须停并记录。
+- **只读观测**：原件只读、副本分析、全程哈希；禁止写原件；分析报告、时间线与副本产物可写入成果目录，记录来源与哈希。
 - **失败即停**：缺时区/主体/对象、哈希不一致、原件被写、加密未解、版本不匹配 → 报“未闭环”，不把 dump/解包成功当结论。
 - **机检≠结论**：脚本 PASS 只证明格式/哈希自洽；结论真伪、归因强度、证据链强度仍需人工复核。
 
@@ -226,4 +226,4 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 
 本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
 
-- `_pending/00-triage/SKILL.md` —— 先出取证对象画像
+- `Tool/skill/_pending/00-triage/SKILL.md` —— 先出取证对象画像

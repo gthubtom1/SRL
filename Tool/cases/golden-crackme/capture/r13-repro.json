@@ -1,0 +1,105 @@
+{
+  "schema": "seep.r13-case-repro/1",
+  "ok": true,
+  "case": "golden-crackme",
+  "results": [
+    {
+      "case": "golden-crackme",
+      "label": "original-wrong",
+      "argv": [
+        "Tool/cases/golden-crackme/target/a.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/golden-crackme/capture/r13-original-wrong.stdout.txt",
+        "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938",
+        "size": 6
+      },
+      "stderr": {
+        "path": "Tool/cases/golden-crackme/capture/r13-original-wrong.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/golden-crackme/target/a.exe": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/golden-crackme/target/a.exe": "8308abb81b7692e04262b0ce861fd0dfc155dbc791667b2436802b0a8a566f30"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      },
+      "stdin": "wrong\n"
+    },
+    {
+      "case": "golden-crackme",
+      "label": "patched-wrong",
+      "argv": [
+        "Tool/cases/golden-crackme/artifacts/a.patched.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/golden-crackme/capture/r13-patched-wrong.stdout.txt",
+        "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c",
+        "size": 6
+      },
+      "stderr": {
+        "path": "Tool/cases/golden-crackme/capture/r13-patched-wrong.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/golden-crackme/artifacts/a.patched.exe": "3ea3a26ac1d8cd65516b6253afa089b09fbe78cc6e95a89d2422289ac6e69d15"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/golden-crackme/artifacts/a.patched.exe": "3ea3a26ac1d8cd65516b6253afa089b09fbe78cc6e95a89d2422289ac6e69d15"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      },
+      "stdin": "wrong\n"
+    },
+    {
+      "case": "golden-crackme",
+      "label": "patched-trance",
+      "argv": [
+        "Tool/cases/golden-crackme/artifacts/a.patched.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/golden-crackme/capture/r13-patched-trance.stdout.txt",
+        "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c",
+        "size": 6
+      },
+      "stderr": {
+        "path": "Tool/cases/golden-crackme/capture/r13-patched-trance.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/golden-crackme/artifacts/a.patched.exe": "3ea3a26ac1d8cd65516b6253afa089b09fbe78cc6e95a89d2422289ac6e69d15"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/golden-crackme/artifacts/a.patched.exe": "3ea3a26ac1d8cd65516b6253afa089b09fbe78cc6e95a89d2422289ac6e69d15"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      },
+      "stdin": "trance\n"
+    }
+  ],
+  "all_rc_zero": true,
+  "all_watched_unmodified": true
+}

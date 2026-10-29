@@ -1,6 +1,6 @@
 {
   "id": "plugin04",
-  "domain": "plugin-targets",
+  "domain": "protocol-plugin",
   "route": "R25",
   "target_type": "Electron asar 现场打包教学夹具（main/preload/renderer + IPC）",
   "evidence_kind": "fixture",
@@ -40,20 +40,20 @@
     },
     {
       "path": "artifacts/repro/plugin-repro.json",
-      "sha256": "cbc2c376bc9850c7efc7e361be5199d39f3f503af937bc6255e989bd57cbcea9"
+      "sha256": "e402c7a8eff29afbdde78de4a895f7e43fd8fa8faaf48c1e83b4337bb20647db"
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "58d62d8b50581c94968f12c1d9eb67e28f70785ef64c51ae49095dd49022edbc"
+      "sha256": "16c1a2fb24a4f3cc4bc9dccbe4b5e2435ac1792d0ccf7bde612cebf93a9e0c56"
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "2f740bf0da6dd4b05a7bbb9e4b8d1181c68ee2e8ecf9aa4079e3d30e33c806dd"
+      "sha256": "babb02b29d331c2313dbe550c2442fbc0f403768c6c87ce9f1c34475bd564b11"
     }
   ],
   "lessons": [
-    "实际分析：python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json，rc=0；识别 asar 头、6 个文件、main.js/preload.js 入口。",
-    "复现：python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json，rc=0；解包并抽出 ipcMain/ipcRenderer/shell.openExternal/fetch 四条数据流。",
+    "实际分析：python Tool/skill/protocol-plugin/scripts/plugin-triage.py --path Tool/cases/plugin04/input/app.asar --json，rc=0；识别 asar 头、6 个文件、main.js/preload.js 入口。",
+    "复现：python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json，rc=0；解包并抽出 ipcMain/ipcRenderer/shell.openExternal/fetch 四条数据流。",
     "最小可改单元：main.js（4 处数据流命中，符号 createWindow）；preload.js 是 renderer 与主进程的桥，改返回值前先备份并留基线。",
     "边界：夹具由仓库脚本按 asar 头格式生成，不是真实 Electron 发行包；未运行 Electron、未验证 IPC 实际参数与远端响应。"
   ],
@@ -67,17 +67,19 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/_pending/plugin-targets/SKILL.md",
-    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
-    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/_pending/plugin-targets/references/electron-and-asar.md",
-    "Tool/config/plugin-targets-matrix.json",
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/skill/protocol-plugin/references/01-criteria.md",
+    "Tool/skill/protocol-plugin/references/02-failure-criteria.md",
+    "Tool/playbooks/plugin-analysis.md",
     "Tool/cases/plugin04/input/app.asar",
     "Tool/cases/plugin04/artifacts/repro/plugin-repro.json"
   ],
   "updated": "2026-10-21",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "evidence": "见 lessons 首条的『命令与 rc』",
+    "command": "python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin04/input/app.asar --out Tool/cases/plugin04/artifacts/repro --json",
+    "cwd": ".",
+    "rc": 0
   }
 }

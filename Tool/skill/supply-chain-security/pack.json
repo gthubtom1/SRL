@@ -42,6 +42,23 @@
     "supply-chain04",
     "supply-chain05"
   ],
+  "case_roles": {
+    "witness": [
+      "supply-chain01",
+      "supply-chain02",
+      "supply-chain03",
+      "supply-chain04",
+      "supply-chain05"
+    ],
+    "depth_gate": [
+      "supply-chain01",
+      "supply-chain02",
+      "supply-chain03",
+      "supply-chain04",
+      "supply-chain05"
+    ]
+  },
+  "depth_contract": {    "skill": "supply-chain-security",    "board": "supply-chain",    "matrix": "supply-chain-security-matrix.json",    "case_globs": [      "supply-chain*"    ],    "ext_scripts": [      "Tool/skill/supply-chain-security/scripts/sc-check.py"    ]  },
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/supply-chain05",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
@@ -71,6 +88,47 @@
   "invalidation": [
     "目标为单一二进制且无依赖声明（转 malware-analysis）"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": ["repository", "lockfile", "container image or Dockerfile", "CI workflow", "SBOM/provenance/signature artifact"],
+    "sample_completeness": {
+      "required": ["repository snapshot", "lock and manifest files", "image digest or provenance when image trust is assessed"],
+      "missing_means": "缺仓库、锁文件、镜像摘要、CI 配置或来源证明只是输入要求，不代表供应链安全结论已完成。"
+    },
+    "environment": {
+      "required": ["offline repository-analysis workspace", "registry or CI metadata snapshot when available", "authorized account/token only when the requested evidence requires it"],
+      "missing_means": "缺样本、账号、设备或网络元数据时只能报告可见依赖和缺失证据，不能补推可信性。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/supply-chain-security/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/supply-chain-security/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/supply-chain-security/SKILL.md",
+    "incremental": "Tool/skill/supply-chain-security/SKILL.md"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/supply-chain-security/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/supply-chain-security/scripts/witness.py",
     "why": "真跑 sbom-reach.py 对 Tool/cases/supply-chain04/input 的 package-lock.json + src：断言 inputs.lock、components_total、reachable.left-pad.entry_hit、unreachable，证明锁文件可达性真的产出结果"

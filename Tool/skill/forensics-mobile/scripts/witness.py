@@ -10,6 +10,13 @@ assertions turn the witness red even though the tool exits 0.
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import json
 import os
 import re
@@ -24,7 +31,7 @@ if sys.platform == "win32":
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+ROOT = _seep_repo_root(__file__)
 TARGET = "Tool/cases/forensics07/target/bgp-4byte-asn.pcap"
 TOOL = os.path.join(HERE, "forensics-check.py")
 

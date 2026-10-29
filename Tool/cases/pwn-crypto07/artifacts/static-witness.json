@@ -1,0 +1,199 @@
+{
+  "file": "D:\\Seep-Reverse-Lab\\Tool\\cases\\pwn-crypto07\\target\\dostackbufferoverflowgood.exe",
+  "size": 13312,
+  "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "kind": "PE",
+  "arch": "x86",
+  "bits": 32,
+  "entry": "0x1a48",
+  "protections": {
+    "NX": "Disabled",
+    "PIE": "Disabled",
+    "Canary": "Found (SecurityCookie)",
+    "RELRO": "N/A (PE 无 ELF RELRO)"
+  },
+  "sections": [
+    {
+      "name": ".text",
+      "va": "0x1000",
+      "vsize": 6237,
+      "rawsize": 6656,
+      "writable": false,
+      "executable": true
+    },
+    {
+      "name": ".rdata",
+      "va": "0x3000",
+      "vsize": 3226,
+      "rawsize": 3584,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".data",
+      "va": "0x4000",
+      "vsize": 4577,
+      "rawsize": 1024,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".gfids",
+      "va": "0x6000",
+      "vsize": 36,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".rsrc",
+      "va": "0x7000",
+      "vsize": 480,
+      "rawsize": 512,
+      "writable": false,
+      "executable": false
+    }
+  ],
+  "import_count": 65,
+  "dangerous_imports": [
+    {
+      "library": "VCRUNTIME140.dll",
+      "symbol": "memmove",
+      "category": "越界写",
+      "severity": "中"
+    }
+  ],
+  "format_string_risks": [
+    {
+      "string": "Hello %s!!!",
+      "tokens": [
+        "%s"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "WSAStartup failed: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "getaddrinfo failed: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "socket() failed with error: %ld",
+      "tokens": [
+        "%ld"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "bind() failed with error: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "listen() failed with error: %ld",
+      "tokens": [
+        "%ld"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "accept failed: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "recv() failed: %d.",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "Bytes received: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "send failed: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "Bytes sent: %d",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    }
+  ],
+  "next_routes": [
+    {
+      "route": "栈溢出 + shellcode",
+      "why": "导入不安全拷贝/输入函数；用 cyclic 找偏移，检查 canary 与 NX",
+      "first_steps": [
+        "cyclic 定位覆盖长度",
+        "有 canary 先泄漏/绕开",
+        "有 PIE 先泄漏代码/libc 基址；注意 16 字节对齐"
+      ],
+      "caveats": [
+        "Canary 存在：先泄漏或改走格式化/堆"
+      ]
+    }
+  ],
+  "notes": [
+    "load config 声明了 SecurityCookie（仅表示声明存在，不等于该函数编译时启用了 /GS）",
+    "PE 保护位为 DllCharacteristics 近似；IAT 可写性需看节权限与加载配置"
+  ],
+  "load_config": {
+    "rva": "0x31e0",
+    "dir_size": 64,
+    "cookie_offset": "0x3c",
+    "cookie_width": 4,
+    "dir_size_sufficient": true,
+    "file_offset": "0x1fe0",
+    "declared_size": 92,
+    "field_within_file": true,
+    "field_within_section": true,
+    "declared_size_sufficient": true,
+    "security_cookie": "0x8044018"
+  },
+  "_capture": {
+    "schema": "seep.pwn-static-witness-capture/1",
+    "command": "-X utf8 Tool\\skill\\pwn-crypto\\scripts\\pwn-check.py --file Tool\\cases\\pwn-crypto07\\target\\dostackbufferoverflowgood.exe --json",
+    "rc": 0,
+    "tool_path": "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+    "tool_sha256": "daea2bb4a8b1d7d3cdd0da592975f3ea3609e62a6401e38a7a932b05d469dc88",
+    "target_path": "Tool/cases/pwn-crypto07/target/dostackbufferoverflowgood.exe",
+    "target_sha256_before": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+    "target_sha256_after": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+    "target_unmodified": true,
+    "executed_target": false
+  }
+}

@@ -1,51 +1,115 @@
 {
- "id": "apkseep07",
- "domain": "apkseep",
- "target_type": "公开练习样本（OWASP mas-crackmes UnCrackable-Level2，Apache-2.0）：native 反调试 + root 检测",
- "evidence_kind": "real",
- "protection": [
-  "native-anti-debug(ptrace+fork)",
-  "root-detection(/system/xbin)",
-  "secret-not-in-plaintext"
- ],
- "authority": "shipped-artifact（官方发布的 APK 原件，sha256 固定）",
- "goal_level": "L2",
- "outcome": "success",
- "artifacts": [
-  {
-   "path": "capture/reverify-2026-10-24.log",
-   "sha256": "af3ba77ea4ac9d8aeb1746943a16539a5905a94d5f9f711d0e6052eb35951709"
+  "id": "apkseep07",
+  "domain": "apkseep",
+  "target_type": "公开练习样本（OWASP mas-crackmes UnCrackable-Level2，Apache-2.0）：native 反调试 + root 检测",
+  "evidence_kind": "public",
+  "protection": [
+    "native-anti-debug(ptrace+fork)",
+    "root-detection(/system/xbin)",
+    "secret-not-in-plaintext"
+  ],
+  "authority": "OWASP mas-crackmes 公开练习样本（Apache-2.0），案例内 APK 原件 sha256 固定；只做静态读取",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "capture/reverify-2026-10-29.log",
+      "sha256": "adb20fe322a0b893434a8321b888759e224c46bb69f69dae92ae9f5acce5414d",
+      "size": 1152
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "8491b9e63fdf67a12dbccd02818e62d781ee43bd88d41087a3bb9083ae8a6b00",
+      "size": 1108,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "eb65cee87fed8b9838b37671bbfa569045ed9d9d6d5fa2641331a4b3697ed507",
+      "size": 207,
+      "kind": "manifest"
+    }
+  ],
+  "repro": {
+    "status": "recorded",
+    "argv": [
+      "python",
+      "-B",
+      "Tool/cases/apkseep07/tools/reverify-structure.py"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "8491b9e63fdf67a12dbccd02818e62d781ee43bd88d41087a3bb9083ae8a6b00"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/cases/apkseep07/tools/reverify-structure.py"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "8491b9e63fdf67a12dbccd02818e62d781ee43bd88d41087a3bb9083ae8a6b00"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
+  },
+  "evidence_dir": ".",
+  "lessons": [
+    "2026-10-29 在仓库根目录执行 `python -B Tool/cases/apkseep07/tools/reverify-structure.py`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "本次实跑从案例内 APK 读取 414 个 entry、classes.dex=719560B、4 个 ABI 的 libfoo.so，并在前后复算目标 SHA-256=0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0。",
+    "root 标记在 dex 中计数 1、在合并 SO 字节中计数 0；secret 与 fish 片段在 dex/SO 中的计数均为 0。",
+    "outcome=partial：证据范围限于 APK 静态字节结构；运行期 secret 解析与商业整体加固判定需要设备侧动态证据。"
+  ],
+  "tags": [
+    "apk",
+    "native-anti-debug",
+    "root-detection",
+    "owasp",
+    "public",
+    "static-bytes"
+  ],
+  "refs": [
+    "Tool/cases/apkseep07/tools/reverify-structure.py",
+    "Tool/cases/apkseep07/capture/reverify-2026-10-29.log",
+    "Tool/skill/apkseep/scripts/doctor.py",
+    "Tool/skill/apkseep/references/01-criteria.md"
+  ],
+  "updated": "2026-10-29",
+  "target_files": [
+    {
+      "path": "target/UnCrackable-Level2.apk",
+      "sha256": "0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0",
+      "source": "github.com/OWASP/mas-crackmes Android/Level2/app/release/",
+      "size": 899134
+    }
+  ],
+  "acceptance_profile": "apk-target/1",
+  "target": {
+    "path": "target/UnCrackable-Level2.apk",
+    "sha256": "0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0",
+    "size": 899134,
+    "at": "2026-10-29",
+    "note": "OWASP mas-crackmes 公开练习样本；案例内原件与登记哈希一致"
   }
- ],
- "repro": {
-  "status": "recorded",
-  "evidence": "aapt dump badging + unzip 清点 + r2 ii libfoo.so + python 计数字符串；rc=0"
- },
- "evidence_dir": ".",
- "lessons": [
-  "命令：python Tool/skill/apkseep/scripts/doctor.py --capabilities --json；本案例只用 aapt/unzip/r2/python，rc=0",
-  "它不是商业加固壳：16 个壳特征全 0；保护是 native 反调试（ptrace+fork）+ root 检测 + 字符串隐藏",
-  "root 检测的明文线索在 **dex**（/system/xbin），不在 so —— 判据要两边都搜",
-  "secret 明文在 dex 与 so 里都不存在 → 只能运行期解出；这类样本静态只能拿到结构，拿不到答案",
-  "Level3/4 仓库只给源码（需 gradle 构建），本轮未做 —— 这是 apkseep 的真实能力边界"
- ],
- "tags": [
-  "apk",
-  "native-anti-debug",
-  "root-detection",
-  "owasp",
-  "real-target"
- ],
- "refs": [
-  "Tool/skill/apkseep/scripts/doctor.py",
-  "Tool/skill/apkseep/references/01-criteria.md"
- ],
- "updated": "2026-10-24",
- "target_files": [
-  {
-   "path": "target/UnCrackable-Level2.apk",
-   "sha256": "0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0",
-   "source": "github.com/OWASP/mas-crackmes Android/Level2/app/release/"
-  }
- ]
 }

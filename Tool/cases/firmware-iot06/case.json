@@ -1,7 +1,7 @@
 {
  "id": "firmware-iot06",
  "domain": "firmware-iot",
- "target_type": "真实固件镜像 ×3（binwalk 测试语料，BSD-2）：路由器容器 / squashfs v2 / cramfs",
+ "target_type": "真实固件测试语料：当前活动原件为 binwalk tests/inputs/cramfs.bin；历史 capture 另记录了 arcadyan.bin 与 squashfs_v2.bin 的失败/受限提取",
  "evidence_kind": "real",
  "protection": [],
  "authority": "shipped-artifact（公开镜像原件，sha256 固定）",
@@ -19,11 +19,114 @@
   {
    "path": "artifacts/tree-cramfs.txt",
    "sha256": "110ca87d485aa8ed8de78a01f533cc1d446165b47fae916cdd00c6d2b2ec66a5"
+  },
+  {
+   "path": "capture/r13-repro.json",
+   "sha256": "e364a6e20dfdc951523a02ebb5a8d981be80843922e6bc9dc0b6ed20eb05950f",
+   "size": 2954
+  },
+  {
+   "path": "capture/r13-fw-triage.stdout.txt",
+   "sha256": "b422bb4736f65b368d8fb225f1c25c73124e604bca7e2035e5c10fa521760911",
+   "size": 2579
+  },
+  {
+   "path": "capture/r13-fw-triage.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  {
+   "path": "capture/r13-fw-repro.stdout.txt",
+   "sha256": "c60e38d575fa0d26ba4a4e156988b29f701a13bbc85d94eaad25aabd8b00657c",
+   "size": 1033
+  },
+  {
+   "path": "capture/r13-fw-repro.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
   }
  ],
  "repro": {
   "status": "recorded",
-  "evidence": "fw-triage.py --file <img> --json；fw-repro.py --file <img> --out-dir <tmp> --json；rc=0"
+  "command": "python -B -X utf8 Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot06/target/cramfs.bin --json; python -B -X utf8 Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot06/target/cramfs.bin --out-dir tmp/r13-five/firmware-output --json",
+  "argv": [
+   "D:\\EXE\\python\\python.exe",
+   "-B",
+   "-X",
+   "utf8",
+   "Tool/skill/firmware-iot/scripts/fw-triage.py",
+   "--file",
+   "Tool/cases/firmware-iot06/target/cramfs.bin",
+   "--json"
+  ],
+  "cwd": ".",
+  "rc": 0,
+  "stdout": {
+   "path": "Tool/cases/firmware-iot06/capture/r13-fw-triage.stdout.txt",
+   "sha256": "b422bb4736f65b368d8fb225f1c25c73124e604bca7e2035e5c10fa521760911"
+  },
+  "stderr": {
+   "path": "Tool/cases/firmware-iot06/capture/r13-fw-triage.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "commands": [
+   {
+    "label": "fw-triage",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/skill/firmware-iot/scripts/fw-triage.py",
+     "--file",
+     "Tool/cases/firmware-iot06/target/cramfs.bin",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/firmware-iot06/capture/r13-fw-triage.stdout.txt",
+     "sha256": "b422bb4736f65b368d8fb225f1c25c73124e604bca7e2035e5c10fa521760911",
+     "size": 2579
+    },
+    "stderr": {
+     "path": "Tool/cases/firmware-iot06/capture/r13-fw-triage.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   },
+   {
+    "label": "fw-repro",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/skill/firmware-iot/scripts/fw-repro.py",
+     "--file",
+     "Tool/cases/firmware-iot06/target/cramfs.bin",
+     "--out-dir",
+     "tmp/r13-five/firmware-output",
+     "--json"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/firmware-iot06/capture/r13-fw-repro.stdout.txt",
+     "sha256": "c60e38d575fa0d26ba4a4e156988b29f701a13bbc85d94eaad25aabd8b00657c",
+     "size": 1033
+    },
+    "stderr": {
+     "path": "Tool/cases/firmware-iot06/capture/r13-fw-repro.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   }
+  ],
+  "target_sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
+  "evidence": "R13 在隔离 HOME/TEMP/AgentRoot 中实际执行 fw-triage 与 fw-repro，两者 rc=0；cramfs 被识别并成功提取 1 个条目，目标运行前后哈希一致。"
  },
  "evidence_dir": ".",
  "lessons": [
@@ -45,7 +148,7 @@
   "Tool/skill/firmware-iot/scripts/fw-repro.py",
   "Tool/skill/firmware-iot/references/01-criteria.md"
  ],
- "updated": "2026-10-24",
+ "updated": "2026-10-29",
  "target_files": [
   {
    "path": "target/cramfs.bin",
@@ -59,5 +162,10 @@
   "size": 4096,
   "at": "2026-10-26T15:34:58",
   "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
- }
+ },
+ "limitations": [
+  "当前活动 target 只保留 cramfs.bin；arcadyan.bin 与 squashfs_v2.bin 的旧提取结果没有原件随案例保留，未作为本轮重放证据。",
+  "cramfs 测试镜像只含 lsb-release，本轮只证明格式识别与单文件提取，不主张完整设备 rootfs、启动、服务存活或凭据可用。",
+  "历史 squashfs 提取受 dangerous-link 策略限制，只有少量非空文件；该限制保留在 capture/reverify-2026-10-24.log 与 facts.jsonl。"
+ ]
 }

@@ -1,66 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""mcp-bridge-x64dbg.py —— 把 x64dbg 的 HTTP MCP 包成 stdio MCP（根因修复）
+"""x64dbg 的 stdio → Streamable HTTP MCP 桥。
 
-## 为什么需要这个文件（2026-10-23 实测定位）
+宿主启动本脚本，桥按配置启动调试器，再转发初始化和工具调用。
+HTTP 会话标识和协商版本沿后续请求保留，通知没有 JSON-RPC 响应。
+桥支持请求与响应，不支持上游主动请求、订阅和列表变化通知；初始化不协商这些能力。
+上游不可达、鉴权失败、无效响应均返回错误，不伪造远端初始化成功。
+默认允许启动调试器；SEEP_GUI_NO_AUTOLAUNCH=1 禁止自动启动。
+--allow-gui-launch 显式覆盖此设置，--selftest 默认尊重环境设置。
+启动调试器本身不会向它传入待分析目标。
 
-现象：`tool-run.ps1 -Tool x64dbg` **1.3 秒就把 x64dbg 起成 READY**，端口 9094 在听，
-但**会话里永远拿不到 `mcp__x64dbg__*` 工具** —— 48 分钟那次会话只能手搓 `pydbg.py`。
-
-根因（两条一起才成立）：
-1. pi 只在**会话启动时**连接 mcp.json 里的 server。x64dbg 是唯一的 **http** 型 server
-   （其余 seep / ida / playwright / js-reverse 都是 stdio，由 pi 自己 spawn，启动时必定连上）。
-2. 会话启动那一刻 x64dbg 还没起 → 连接失败 → 工具**不进工具表**。
-   文档说的"断线会在下次调用时重连"只对**曾经连上过**的连接有效；工具不在表里，
-   就没有"下次调用"可言 → 死锁。
-
-实测证据（同一会话内）：
-  ALL_TOOLS 157 个，命名空间含 mcp__seep / mcp__ida / mcp__playwright / mcp__js_reverse，
-  **不含 mcp__x64dbg**，而此时 9094 是 Listen 状态。
-
-## 修法
-
-把 http 换成 stdio：pi 启动时 spawn 本脚本（像 seep 一样必定被连上），
-本脚本负责 **按需拉起 x64dbg 并转发** 所有 MCP 调用。
-
-链路：pi ──stdio──> 本脚本 ──http(9094)──> x64dbg 插件
-
-好处：
-- 工具在会话启动时就注册好，不再依赖"谁先起"的顺序；
-- x64dbg 没起时**不擅自动手**：返回一条"需要你确认"的结构化结果并打出 A/B/C 选项
-  （客户可能正在远程 / 终端 / 共享屏里干活，弹一个 GUI 就是事故）；
-- 默认**自动拉起**（这是"我们自己的工具"）；想禁止才设 `SEEP_GUI_NO_AUTOLAUNCH=1`
-  或启动参数 `--allow-gui-launch`（能力保留，不是删功能）；
-- 拉起失败时返回**明确的错误 + A/B/C 卡**，而不是让模型以为工具不存在。
-
-## A/B/C（`ensure_upstream()` 返回的 choices）
-
-    A  我（Agent）启动   → tool-run.ps1 -Tool x64dbg，会弹 x64dbg GUI
-    B  你（用户）双击    → 你开 x64dbg，然后 /mcp reconnect x64dbg
-    C  只做静态         → 不开 GUI，改用 radare2 / IDA 静态分析
-
-## 用法
-
-mcp.json 里把 x64dbg 改成 stdio：
-
-```json
-"x64dbg": {
-  "command": "python",
-  "args": ["<repo>/Tool/scripts/mcp-bridge-x64dbg.py"],
-  "description": "x64dbg 调试器（stdio 桥接 → 9094）。桥不会擅自拉起 GUI：需要时返回 A/B/C 确认卡。"
-}
-```
-
-## 自检
-
-    python Tool/scripts/mcp-bridge-x64dbg.py --selftest
-    期望：打印上游工具数（约 80）与 READY 状态，退出码 0。
+配置：python <仓库>/Tool/scripts/mcp-bridge-x64dbg.py
+自检：python <仓库>/Tool/scripts/mcp-bridge-x64dbg.py --selftest
 """
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import os
 import subprocess
@@ -68,6 +24,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from lib import mcp_http
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -75,6 +32,8 @@ TOOL_RUN = os.path.join(HERE, "tool-run.ps1")
 UPSTREAM = "http://127.0.0.1:9094/mcp"
 LAUNCH_TIMEOUT = 90          # 等 9094 起来的最长秒数
 HTTP_TIMEOUT = 60
+_SESSION_ID = None
+_PROTOCOL_VERSION = None
 
 
 def x64_dir() -> str:
@@ -125,7 +84,7 @@ def _auth_token() -> str:
     if not p:
         return ""
     try:
-        with open(p, encoding="utf-8") as f:
+        with open(p, encoding="utf-8-sig") as f:
             return str(json.load(f).get("AuthToken") or "")
     except Exception:
         return ""
@@ -151,7 +110,7 @@ def upstream_alive() -> bool:
 def launch_upstream() -> bool:
     """用 tool-run.ps1 拉起 x64dbg（它是唯一合法启动入口，1.3 秒 READY）。
 
-    ⚠ 会弹 GUI 窗口 —— 只能由 ensure_upstream() 在**用户明确授权后**调用。
+    是否启动由 ensure_upstream() 的显式参数和环境设置决定。
     """
     if not os.path.isfile(TOOL_RUN):
         log(f"缺 {TOOL_RUN}，无法拉起 x64dbg")
@@ -178,11 +137,7 @@ def launch_upstream() -> bool:
     return False
 
 
-# 自动拉起 GUI 的闸门：默认关。
-# 为什么：客户可能在远程桌面 / SSH / 共享屏 / 无人值守流水线里跑会话，
-# 桥静悄悄弹一个 x64dbg 窗口就是事故（而且 x64dbg 一开就接管调试端口）。
-# 保留能力：显式授权（环境变量或 --allow-gui-launch 参数）仍然可以自动拉起。
-ALLOW_ENV = "SEEP_ALLOW_GUI_AUTOLAUNCH"
+# 自动启动由 DISABLE_ENV 与显式参数控制。
 _TRUTHY = ("1", "true", "yes", "on", "y")
 
 
@@ -198,7 +153,6 @@ CONFIRM_CHOICES = [
 
 
 DISABLE_ENV = "SEEP_GUI_NO_AUTOLAUNCH"
-_FALSY = ("0", "false", "no", "off", "n")
 
 
 def autolaunch_allowed(explicit: bool | None = None) -> bool:
@@ -225,8 +179,8 @@ def confirm_card_text() -> str:
     for c in CONFIRM_CHOICES:
         lines.append("%s) %s —— %s" % (c["id"], c["label"], c["detail"]))
     lines.append(
-        "（选 A：设 %s=1 后重启会话，或让 Agent 跑 tool-run.ps1 -Tool x64dbg；"
-        "选 B：起来后 /mcp reconnect x64dbg；选 C：告诉我只做静态）" % ALLOW_ENV
+        "（选 A：移除禁止自动启动的环境设置，或使用 --allow-gui-launch；"
+        "选 B：启动后 /mcp reconnect x64dbg；选 C：只做静态）"
     )
     return "\n".join(lines)
 
@@ -235,7 +189,7 @@ def log_confirm_card() -> None:
     log("9094 未监听：按配置不自动拉起（%s=1）；如需自动拉起，去掉该环境变量即可" % DISABLE_ENV)
     for c in CONFIRM_CHOICES:
         log("  %s) %s —— %s" % (c["id"], c["label"], c["detail"]))
-    log("  授权自动拉起：环境变量 %s=1（或传 --allow-gui-launch / ensure_upstream(launch=True)）" % ALLOW_ENV)
+    log("  自动启动：移除禁止设置，或显式传 --allow-gui-launch / ensure_upstream(launch=True)")
 
 
 def ensure_upstream(launch: bool | None = None) -> dict:
@@ -282,42 +236,63 @@ def _post(payload: dict) -> tuple[int, str, dict]:
     tok = _auth_token()
     if tok:
         req.add_header("Authorization", f"Bearer {tok}")
+    if payload.get("method") != "initialize":
+        if _SESSION_ID:
+            req.add_header("Mcp-Session-Id", _SESSION_ID)
+        if _PROTOCOL_VERSION:
+            req.add_header("MCP-Protocol-Version", _PROTOCOL_VERSION)
     try:
         with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as r:
-            return r.status, r.headers.get("Content-Type", ""), {"raw": r.read()}
+            raw = mcp_http.read_response(r, payload.get("id"), HTTP_TIMEOUT)
+            return r.status, r.headers.get("Content-Type", ""), {"raw": raw, "headers": dict(r.headers)}
     except urllib.error.HTTPError as e:
         return e.code, e.headers.get("Content-Type", ""), {"raw": e.read()}
     except Exception as e:
         return 0, "", {"error": str(e)}
 
 
-def _parse_sse(raw: bytes) -> dict | None:
-    """streamable-http 可能回 SSE；取最后一条 data: 的 JSON。"""
-    text = raw.decode("utf-8", "replace")
-    out = None
-    for line in text.splitlines():
-        if line.startswith("data:"):
-            frag = line[5:].strip()
-            if not frag:
-                continue
-            try:
-                out = json.loads(frag)
-            except Exception:
-                continue
-    return out
-
-
 def forward(payload: dict) -> dict | None:
+    global _SESSION_ID, _PROTOCOL_VERSION
+    if payload.get("method") == "initialize":
+        _SESSION_ID, _PROTOCOL_VERSION = None, None
+        # This synchronous bridge cannot relay server-initiated requests. Do not
+        # advertise the downstream client's roots/sampling/elicitation support.
+        payload = {**payload, "params": {**(payload.get("params") or {}), "capabilities": {}}}
     status, ctype, info = _post(payload)
+    notification = payload.get("id") is None
+    if notification:
+        if "error" in info or not 200 <= status < 300:
+            log("上游未接受通知 " + str(payload.get("method")))
+        return None
     if "error" in info:
         return {"jsonrpc": "2.0", "id": payload.get("id"),
                 "error": {"code": -32000, "message": f"上游不可达：{info['error']}"}}
     raw = info.get("raw", b"")
-    if "text/event-stream" in (ctype or ""):
-        return _parse_sse(raw)
+    if not 200 <= status < 300:
+        if status == 404:
+            _SESSION_ID, _PROTOCOL_VERSION = None, None
+        return {"jsonrpc": "2.0", "id": payload.get("id"), "error": {
+            "code": -32000, "message": "上游 HTTP %s；检查鉴权或重新初始化连接" % status}}
     try:
-        return json.loads(raw.decode("utf-8", "replace"))
-    except Exception:
+        result = mcp_http.parse_rpc(raw, ctype, payload["id"])
+        if payload.get("method") == "initialize" and "result" in result:
+            init = result["result"]
+            if not isinstance(init, dict) or not isinstance(init.get("protocolVersion"), str):
+                raise ValueError("initialize 缺协议版本")
+            if (not isinstance(init.get("serverInfo"), dict)
+                    or not isinstance(init["serverInfo"].get("name"), str)
+                    or not isinstance(init["serverInfo"].get("version"), str)
+                    or not isinstance(init.get("capabilities"), dict)):
+                raise ValueError("initialize 缺服务身份或能力")
+            capabilities = {}
+            for name in ("tools", "prompts", "resources", "completions"):
+                if isinstance(init["capabilities"].get(name), dict):
+                    capabilities[name] = {}
+            result = {**result, "result": {**init, "capabilities": capabilities}}
+            _SESSION_ID = mcp_http.header_value(info.get("headers", {}), "mcp-session-id") or None
+            _PROTOCOL_VERSION = init["protocolVersion"]
+        return result
+    except (ValueError, TypeError, UnicodeError):
         return {"jsonrpc": "2.0", "id": payload.get("id"),
                 "error": {"code": -32000, "message": f"上游返回无法解析（status={status}）"}}
 
@@ -325,7 +300,8 @@ def forward(payload: dict) -> dict | None:
 # 需要转发到上游的方法；其余本地应答
 FORWARD_METHODS = {
     "initialize", "notifications/initialized", "tools/list", "tools/call",
-    "resources/list", "resources/read", "prompts/list", "ping",
+    "resources/list", "resources/read", "resources/templates/list",
+    "prompts/list", "prompts/get", "ping", "completion/complete", "notifications/cancelled",
 }
 
 
@@ -333,8 +309,8 @@ def serve(allow_launch: bool | None = None) -> int:
     st = ensure_upstream(allow_launch)
     upstream_ok = st["status"] in ("ready", "launched")
     if not upstream_ok:
-        log("上游不可用，仍以空工具集启动：任何 tools/call 都会回一条 A/B/C 确认卡（"
-            "模型会看到明确原因，而不是以为工具不存在）")
+        log("上游不可用：初始化与调用将返回明确错误；上游恢复后需重新连接。")
+    initialized = False
 
     for line in sys.stdin:
         line = line.strip()
@@ -342,42 +318,52 @@ def serve(allow_launch: bool | None = None) -> int:
             continue
         try:
             msg = json.loads(line)
-        except Exception:
+        except ValueError:
+            sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": None,
+                                         "error": {"code": -32700, "message": "Invalid JSON"}}) + "\n")
+            sys.stdout.flush()
+            continue
+        if (not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0"
+                or not isinstance(msg.get("method"), str)
+                or ("id" in msg and type(msg["id"]) not in (int, str))
+                or ("params" in msg and not isinstance(msg["params"], dict))):
+            sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": None,
+                                         "error": {"code": -32600, "message": "Invalid Request"}}) + "\n")
+            sys.stdout.flush()
             continue
         method = msg.get("method")
         mid = msg.get("id")
 
         # 通知类：无 id，不回包
         if mid is None:
-            if method in FORWARD_METHODS and upstream_ok:
+            if method in FORWARD_METHODS and upstream_ok and initialized:
                 forward(msg)
             continue
 
         if method == "initialize":
-            resp = forward(msg) if upstream_ok else None
-            if not resp or "error" in resp:
-                resp = {"jsonrpc": "2.0", "id": mid, "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "x64dbg-bridge", "version": "1.0"},
-                }}
+            if not upstream_ok:
+                st = ensure_upstream(allow_launch)
+                upstream_ok = st["status"] in ("ready", "launched")
+            resp = forward(msg) if upstream_ok else {"jsonrpc": "2.0", "id": mid, "error": {
+                "code": -32000, "message": st.get("message", "x64dbg 上游不可用；恢复后重新连接")}}
+            initialized = isinstance(resp, dict) and "result" in resp and "error" not in resp
             sys.stdout.write(json.dumps(resp) + "\n")
             sys.stdout.flush()
             continue
 
-        if not upstream_ok:
-            # 每次调用再探一次：用户可能刚双击开了 x64dbg（选项 B）
-            st = ensure_upstream(allow_launch)
-            upstream_ok = st["status"] in ("ready", "launched")
-            if not upstream_ok:
-                resp = {"jsonrpc": "2.0", "id": mid,
-                        "error": {"code": -32000, "message": confirm_card_text()}}
-                sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
-                sys.stdout.flush()
-                continue
+        if not initialized and method != "ping":
+            resp = {"jsonrpc": "2.0", "id": mid, "error": {
+                "code": -32000, "message": "尚未成功初始化；恢复服务后重新连接 MCP，不会自动重放调用"}}
+            sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
+            sys.stdout.flush()
+            continue
 
-        if method in FORWARD_METHODS:
+        if method == "ping":
+            resp = {"jsonrpc": "2.0", "id": mid, "result": {}}
+        elif method in FORWARD_METHODS:
             resp = forward(msg)
+            if _PROTOCOL_VERSION is None:
+                initialized = False
         else:
             resp = {"jsonrpc": "2.0", "id": mid,
                     "error": {"code": -32601, "message": f"bridge 不转发该方法：{method}"}}
@@ -395,9 +381,8 @@ def selftest(allow_launch: bool | None = None) -> int:
     alive = upstream_alive()
     print(f"探活：{'在听' if alive else '未监听'}")
     if not alive:
-        # 自检是用户**显式**发起的动作（python … --selftest），等同于选项 A 的确认；
-        # 仍然尊重显式 --allow-gui-launch / 环境变量，若都未给则默认按“已确认”处理。
-        granted = True if allow_launch is None else allow_launch
+        # 自检与服务使用同一环境设置；仅显式启动参数可以覆盖。
+        granted = autolaunch_allowed(allow_launch)
         print(f"自检属显式操作 → 按已确认处理（allow_launch={granted}）")
         st = ensure_upstream(granted)
         if st["status"] not in ("ready", "launched"):
@@ -410,6 +395,9 @@ def selftest(allow_launch: bool | None = None) -> int:
                     "params": {"protocolVersion": "2024-11-05", "capabilities": {},
                                "clientInfo": {"name": "bridge-selftest", "version": "1"}}})
     print(f"initialize：{'ok' if init and 'result' in init else 'FAIL ' + json.dumps(init, ensure_ascii=False)[:200]}")
+    if not init or "result" not in init:
+        return 1
+    forward({"jsonrpc": "2.0", "method": "notifications/initialized"})
     tl = forward({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
     tools = ((tl or {}).get("result") or {}).get("tools") or []
     print(f"tools/list：{len(tools)} 个工具")
@@ -424,11 +412,11 @@ def selftest(allow_launch: bool | None = None) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="x64dbg HTTP MCP → stdio MCP 桥（默认不自动拉起 GUI，需显式授权）")
+        description="x64dbg HTTP MCP → stdio MCP 桥（默认按需启动，环境设置可禁止）")
     ap.add_argument("--selftest", action="store_true", help="自检：探活 + initialize + tools/list")
     ap.add_argument("--allow-gui-launch", dest="allow_gui_launch", action="store_true",
                     default=None,
-                    help="用户明确授权后才自动拉起 x64dbg GUI（等价于设 %s=1）" % ALLOW_ENV)
+                    help="显式允许启动 x64dbg，覆盖 SEEP_GUI_NO_AUTOLAUNCH 设置")
     a = ap.parse_args()
     if a.selftest:
         return selftest(a.allow_gui_launch)

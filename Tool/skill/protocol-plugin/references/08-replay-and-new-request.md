@@ -2,7 +2,7 @@
 
 > 范围：已经有字段表（`05-binary-framing.md`）与会话模型（`06-app-state-machine.md`），
 > 要验证"新请求能被接受"。
-> 路由：插件/扩展目标由 `plugin-targets`（R25）承担；目标范围由 `scope` 声明（本节每一步都在授权清单内执行）。
+> 路由：插件/扩展目标按 `Tool/playbooks/plugin-analysis.md` 分析并按需组合本域协议方法；目标范围由 `scope` 声明（本节每一步都在授权清单内执行）。
 > 判定标准见 `01-criteria.md`；停手条件见 `02-failure-criteria.md`。
 
 ## 1. 三个台阶，缺一不可
@@ -18,7 +18,7 @@
 ## 2. T1：原样重放（先证明链路与会话）
 
 ```bash
-# HTTP 类：直接用原请求（保留 Host/UA/签名头顺序无关但值必须一致）
+# HTTP 类：示意请求；原样重放需按实际抓包补齐所有相关头、body 与会话材料
 curl -i -X POST 'http://127.0.0.1:18080/v1/login' \
   -H 'Content-Type: application/json' \
   --data @artifacts/body.json
@@ -34,13 +34,13 @@ print('rtt_ms', round((time.time()-t0)*1000, 1), 'resp_hex', data.hex())
 PY
 ```
 
-记录：发送字节、响应字节、RTT、连接是否保持、响应 `sha256`。
+单次 `recv` 仅是一个片段，按协议边界收齐后才能比较完整响应。记录：发送字节、响应字节、RTT、连接是否保持、响应 `sha256`。
 **原样重放也要记录**，因为它是后面所有差异比较的基线。
 
 ## 2.1 重放器骨架（新建连接 / 按帧收 / 心跳 / 断言）
 
 ```python
-# artifacts/replay.py —— 只改 HOST/PORT/header 偏移，其余不要改
+# artifacts/replay.py —— 示例骨架；必须实现 build_*、next_token、next_nonce 并按真实协议改断言和字段
 import hashlib, json, socket, threading, time
 HOST, PORT, TIMEOUT = "127.0.0.1", 9527, 3.0
 HEADER_LEN, LEN_OFF, LEN_SIZE, TAIL = 12, 6, 2, 4      # 按 schema.json 改
@@ -49,14 +49,16 @@ class Link:
     def __init__(self):
         self.s = socket.create_connection((HOST, PORT), timeout=TIMEOUT)
         self.buf, self.log = b"", []
+        self.send_lock = threading.Lock()
 
-    def _rec(self, note):
-        self.log.append({"dir": "C2S", "note": note, "len": len(note),
-                         "sha256": hashlib.sha256(note).hexdigest()[:16]})
+    def _rec(self, frame, note):
+        self.log.append({"dir": "C2S", "note": note, "len": len(frame),
+                         "sha256": hashlib.sha256(frame).hexdigest()[:16]})
 
     def send(self, frame, note=""):
-        self.s.sendall(frame)
-        self._rec(note.encode() or frame)
+        with self.send_lock:
+            self.s.sendall(frame)
+            self._rec(frame, note)
 
     def recv_frame(self):
         while True:
@@ -83,8 +85,6 @@ def heartbeat(link, every=15.0, stop=None):
 
 def run():
     link = Link()
-    stop = threading.Event()
-    threading.Thread(target=heartbeat, args=(link, 15.0, stop), daemon=True).start()
     try:
         link.send(build_hello(), "hello")
         resp = link.recv_frame()
@@ -95,7 +95,7 @@ def run():
         link.send(build_data(seq=1, payload={"temp": 22.0}), "data")
         print("data_ack_len", len(link.recv_frame()))
     finally:
-        stop.set(); link.close()
+        link.close()
         print(json.dumps(link.log, ensure_ascii=False, indent=2))
 
 if __name__ == "__main__":
@@ -107,9 +107,9 @@ if __name__ == "__main__":
 - **每次实验新建连接**：连接内重放会拿到被心跳/推送污染的响应。
 - **按帧收而不是按 recv 收**：`recv` 边界不是消息边界。
 - **每步有断言**：失败立即停，打印已缓冲字节，不用猜“卡在哪一步”。
-- **心跳单独线程**：主流程阻塞在 `recv` 时心跳不能停，否则 30 s 后被踢。
+- **心跳**：仅在确认协议需要时实现和启用；发送需同步并处理关闭时线程退出。
 
-通过长什么样（一次成功的最小输出）：
+下面只是输出格式示意，骨架中的协议函数尚未实现，不构成任何服务端实测：
 
 ```text
 data_ack_len 46
@@ -130,10 +130,9 @@ data_ack_len 46
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \
   --input artifacts/frames.bin --json
 
-# 只改 type/seq + 换业务载荷，长度与 CRC 自动重算
+# 只改业务载荷；长度与受支持的 CRC 自动重算
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \
   --input artifacts/frames.bin --rebuild --frame-index 2 \
-  --set type=4 --set seq=4 \
   --payload-text '{"temp":22.0,"status":"ok"}' \
   --out artifacts/new-frame.bin --json
 ```
@@ -181,15 +180,7 @@ def bump(seq):
     return (seq + 1) & 0xFFFFFFFF           # 回绕按协议位宽，不要默认 32 位
 ```
 
-自检：把“取材料→用材料”打成两步日志，确认每条请求的 nonce 都不相同：
-
-```bash
-python artifacts/replay.py > artifacts/run.json 2>&1; echo "rc=$?"
-python -c "import json;d=json.load(open('artifacts/run.json'));print('nonces',len({x.get('sha256') for x in d}))"
-```
-
-通过长什么样：`rc=0`，且日志里 C2S 每条 `sha256` 互不相同（说明 nonce/seq 真的在变）。
-若全部相同，说明你还在原样重放（T1），不是 T2/T3。
+自检：解析真实协议中的 nonce，分别记录获取来源和每次使用的脱敏哈希，按会话比较；整帧哈希不同不能证明 nonce 或 seq 变化。上述骨架既未实现材料获取，也未输出单一 JSON 文件。
 
 ## 4. 单变量矩阵（一次只改一个）
 
@@ -222,7 +213,7 @@ for v in "temp=22.0" "temp=99.9" "temp=-1" "temp=abc"; do
 done
 ```
 
-通过长什么样：4 个 `built` + 4 个 `rebuild.verify.crc_ok=true`。
+这些示例把数字也编码为 JSON 字符串，会改变类型；要比较数值时保留原类型并只改一个变量。4 个 `built` 与 `crc_ok=true` 只表示离线构造自洽。
 每个变体发一次（新建连接），把“预测/实际”填进 §3 的表：**接受集**与**拒绝集**都要能解释。
 
 注意：`--set` 改不了 `role=length` 的字段（构造器重算），想测长度负例看
@@ -311,7 +302,7 @@ print("pack_ok", not miss and ok_run and len(resp) >= 3)
 PY
 ```
 
-通过长什么样：`miss [] run_ok True responses 3` + `pack_ok True`。
+通过长什么样：`miss [] run_ok True responses 3` + `pack_ok True`。这里只检查文件和自述 rc，不检查响应内容、预测吻合或运行真实性。
 少于 3 份响应就不能写“重复 3 次稳定”（对应 `01-criteria.md` 采样量下限）。
 
 ## 8. 失败判据
@@ -324,7 +315,7 @@ PY
 
 ## 8.1 客户端复刻的等价性验收（差分测试）
 
-不要拿“我觉得一样”验收，拿两份归一化 trace 对比：
+不要拿“我觉得一样”验收，拿两份归一化 trace 对比。下面是伪命令：仓库没有 `trace-normalize.py`，需自行实现并验证归一化规则后才能运行：
 
 ```text
 # trace.jsonl，一行一步；原客户端与复刻客户端跑同一剧本
@@ -333,8 +324,8 @@ trace-normalize.py replica.log > artifacts/trace_replica.jsonl
 diff artifacts/trace_orig.jsonl artifacts/trace_replica.jsonl && echo "equivalent"
 ```
 
-归一化只允许抹掉：时间戳、nonce、随机 id、TCP 分片位置。**需要先确认**抹掉：字段名、枚举值、
-长度、校验、消息顺序。抹多了就是“把差异藏起来”，比不复刻更糟。
+归一化只能在核实后处理时间戳、nonce、随机 id、TCP 分片位置等确属可变的项目；字段名、枚举值、
+长度、校验及消息顺序等须保留并比较。抹多了会把差异藏起来。
 
 通过长什么样：
 

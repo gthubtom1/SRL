@@ -1,2 +1,5 @@
+0ea5f47caa07e60d8c4b261f40a2390a19898c1d73e70fdbe7fe5e5008f5bb9a  artifacts/r13-carved-0x3db9c.bin
 d0d785779648ce814b87b9c5fd87ed1bae4201dc456df164d02082f573e74339  artifacts/repro.json
 bcd25ad146e154260ffd48b4e24210314a9571dd729bc4cc4890219ac4749e91  artifacts/triage.json
+a944a59530af953fdb58cde79c29b2a4a3e9efd083f7bd413c602c5847c244b4  capture/r13-2026-10-29-command1.stdout.txt
+8cfe2afa8d90bb13fb9a705a4c210851991aa19de7c0db036145db1970d5bc94  capture/r13-2026-10-29-command2.stdout.txt

@@ -32,7 +32,8 @@
   "refs": [
     "Tool/skill/apkseep/references/account-gates.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
   "reserved": true,
+  "note": "当前实现仅位于 Tool/skill/_pending/signin-automation；安装器不部署、不索引该目录，因此安装态不能自动调用。现阶段只能由源码工作区人工运行并核对账号隔离、失效标记和轮转证据，迁移到正式 web-pentest 路由并完成真实会话负例前不得按完整能力编排。",
   "compose": []
 }

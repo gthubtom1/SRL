@@ -15,7 +15,7 @@
         "(?i)\\b(bios|uefi)\\b",
         "(?i)(?:设备树|\\bdts\\b|\\bdtb\\b|\\bu-boot\\b|\\bbootloader\\b)",
         "(?i)\\biot\\b",
-        "(?i)(?:\\b(?:wifi|wi-fi|802\\\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包|蹭网)",
+        "(?i)(?:\\b(?:wifi|wi-fi|802\\.11|wpa2?|wpa3|sae|eapol|pmkid|deauth|wps|evil\\s*twin|aircrack|hcxdumptool|bettercap|ble|bluetooth|gatt|zigbee|802\\.15\\.4|thread|z-wave|zwave|lorawan|sub-?\\bghz|nfc|rfid|krack)\\b|无线|蓝牙|射频|握手包|蹭网)",
         "(?i)(?:路由器|光猫|摄像头|监控头|电视盒子|机顶盒|智能门锁|智能音箱|物联网设备|nas|网关|热点).{0,16}(?:后门|弱口令|口令|密码|漏洞|被人看|被黑|入侵|固件|刷机|刷一?下|提取|解包|仿真|能不能打)|(?:蹭网|被蹭|盗用wifi|改wifi密码|桥接)"
       ],
       "priority": 230
@@ -41,6 +41,25 @@
     "firmware-iot05",
     "firmware-iot06"
   ],
+  "case_roles": {
+    "witness": [
+      "firmware-iot01",
+      "firmware-iot02",
+      "firmware-iot03",
+      "firmware-iot04",
+      "firmware-iot05",
+      "firmware-iot06"
+    ],
+    "depth_gate": [
+      "firmware-iot01",
+      "firmware-iot02",
+      "firmware-iot03",
+      "firmware-iot04",
+      "firmware-iot05",
+      "firmware-iot06"
+    ]
+  },
+  "depth_contract": {    "skill": "firmware-iot",    "board": "firmware-iot",    "matrix": "firmware-iot-matrix.json",    "case_globs": [      "firmware-iot*"    ],    "ext_scripts": [      "`fw-triage`（S4 已删：壳，真身在 firmware-iot/scripts/）"    ]  },
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/firmware-iot06",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
@@ -71,6 +90,47 @@
     "目标为通用 PC 软件（转 pwn-crypto / malware-analysis）",
     "无固件获取路径"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": ["firmware image", "filesystem dump", "UEFI/boot artifact", "UART/JTAG/SPI capture", "QEMU/FirmAE trace"],
+    "sample_completeness": {
+      "required": ["target firmware or dump", "partition/container metadata when available", "boot log for emulation claims"],
+      "missing_means": "缺固件、分区信息、日志或硬件采集只是输入要求，不代表硬件或仿真行为能力已完成。"
+    },
+    "environment": {
+      "required": ["offline firmware-analysis workspace", "QEMU/FirmAE inputs for emulation", "authorized device and UART/JTAG/SPI details only when requested"],
+      "missing_means": "缺设备、串口、调试探针、账号或网络条件时只能输出静态和结构性结论。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/firmware-iot/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/firmware-iot/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/firmware-iot/SKILL.md",
+    "incremental": "Tool/skill/firmware-iot/SKILL.md"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/firmware-iot/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/firmware-iot/scripts/witness.py",
     "why": "真跑 fw-triage.py 分析 Tool/cases/firmware-iot06/target/cramfs.bin：断言 containers 含 cramfs、entropy.overall、suggested_commands/verdict 非空，证明固件容器识别真的产出结果"

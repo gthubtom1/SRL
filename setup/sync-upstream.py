@@ -74,7 +74,8 @@ def load_sha_cache(cache_path: str) -> dict:
     if os.path.isfile(cache_path):
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
         except Exception:
             return {}
     return {}
@@ -82,19 +83,24 @@ def load_sha_cache(cache_path: str) -> dict:
 
 def save_sha_cache(cache_path: str, data: dict):
     """保存上游 commit SHA 缓存"""
-    with open(cache_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    fd, pending = tempfile.mkstemp(prefix=".upstream-shas-", dir=os.path.dirname(cache_path))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(pending, cache_path)
+    finally:
+        if os.path.exists(pending):
+            os.unlink(pending)
 
 
 def write_pr_body(out_path: str, target: str):
     """生成上游定点同步的 PR 说明 Markdown 正文"""
     body = f"""## 📦 上游定点同步公告 ({target})
 
-### 🛡️ 边界隔离保障
-- **专属纳入目录**: `Tool/upstream/{target}/`
-- **防外溢守卫 (Zero-Spillover Gate)**: ✅ 已执行严格绝对路径断言，无任何其他目录受到波及。
-- **本地定制保全**: `README.md` 与脱敏标识保留。
-- **单元测试**: `setup/test_sync_upstream.py` 100% 通过。
+### 同步与验证说明
+- 同步目录和保留规则以 `setup/upstream-rules.json` 为准。
+- 本文由模板生成，未执行同步或测试，也不证明文件变更范围。
+- 请检查同步日志、文件 Diff 和 CI 实际结果；本地可运行 `python -m unittest discover -s setup -p test_sync_upstream.py`。
 
 请维护者审阅文件 Diff 后合入 `main`。
 """
@@ -111,10 +117,10 @@ def assert_within_boundary(rel_dest_path: str, allowed_boundary: str, root_dir: 
     任何跳出上游指定目录的操作将被立即熔断阻断！
     """
     norm_dest = os.path.normpath(os.path.join(root_dir, rel_dest_path))
-    abs_dest = os.path.realpath(norm_dest)
+    abs_dest = os.path.normcase(os.path.realpath(norm_dest))
 
     norm_boundary = os.path.normpath(os.path.join(root_dir, allowed_boundary))
-    abs_boundary = os.path.realpath(norm_boundary)
+    abs_boundary = os.path.normcase(os.path.realpath(norm_boundary))
 
     # 允许目标就是边界目录本身，或者子目录/文件（必须带有路径分隔符）
     boundary_prefix = abs_boundary if abs_boundary.endswith(os.sep) else abs_boundary + os.sep
@@ -126,6 +132,28 @@ def assert_within_boundary(rel_dest_path: str, allowed_boundary: str, root_dir: 
             f"  Boundary    : {abs_boundary}\n"
             f"  Operation is strictly rejected to prevent cross-directory spillover."
         )
+
+
+def validate_sync_rule(rule: dict, root_dir: str):
+    """自动同步只可写入仓库内 Tool/upstream 的一个独立子目录。"""
+    if not isinstance(rule, dict):
+        raise ValueError("上游规则必须为对象")
+    if rule.get("sync") == "manual":
+        return
+    target = rule["target_dir"]
+    boundary = rule.get("allowed_boundary", target)
+    if not isinstance(target, str) or not isinstance(boundary, str):
+        raise ValueError("target_dir 和 allowed_boundary 必须为路径字符串")
+    if os.path.isabs(target) or os.path.isabs(boundary):
+        raise SpilloverSecurityViolation("自动同步目标必须为仓库相对路径")
+    root = os.path.normcase(os.path.realpath(root_dir))
+    owned = os.path.normcase(os.path.realpath(os.path.join(root_dir, "Tool/upstream")))
+    dest = os.path.normcase(os.path.realpath(os.path.join(root_dir, target)))
+    if os.path.commonpath([root, owned]) != root or owned == root:
+        raise SpilloverSecurityViolation("Tool/upstream 的物理路径不在工作台内")
+    assert_within_boundary(target, "Tool/upstream", root_dir)
+    if dest == owned or os.path.normpath(target) != os.path.normpath(boundary):
+        raise SpilloverSecurityViolation("每个自动同步源必须声明独立且相同的目标目录与边界")
 
 
 def matches_any_pattern(rel_path: str, patterns: List[str]) -> bool:
@@ -193,6 +221,10 @@ def sync_single_upstream(
     针对单一上游仓库执行定点隔离拉取与防外溢同步
     返回: (是否发生变更, 状态消息)
     """
+    validate_sync_rule(rule, root_dir)
+    if rule.get("sync") == "manual":
+        log_info(f"[{key}] 由本地维护，跳过自动同步")
+        return False, "MANUAL"
     repo = rule["repo"]
     branch = rule.get("branch", "main")
     target_dir = rule["target_dir"]
@@ -216,15 +248,13 @@ def sync_single_upstream(
         log_warn("未能直接获取远程 SHA，将尝试通过克隆拉取")
 
     if check_only:
+        if not remote_sha:
+            raise RuntimeError(f"无法查询上游 [{key}] 的远程版本，更新状态未知")
         if remote_sha and cached_sha and remote_sha == cached_sha:
-            log_ok("已是最新，无更新")
+            log_ok("已记录的远程版本无变化（未验证本地文件完整性）")
             return False, "UP_TO_DATE"
         log_warn("检测到上游有新提交可用！")
         return True, "UPDATE_AVAILABLE"
-
-    if remote_sha and cached_sha and remote_sha == cached_sha:
-        log_ok(f"[{key}] 当前本地代码与上游一致 (SHA: {remote_sha[:10]})")
-        return False, "ALREADY_CURRENT"
 
     # 2. 临时沙盒浅克隆
     temp_dir = tempfile.mkdtemp(prefix=f"seep-upstream-{key}-")
@@ -237,11 +267,15 @@ def sync_single_upstream(
 
         res = subprocess.run(clone_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=180)
         if res.returncode != 0:
-            log_fail(f"克隆上游仓库失败: {res.stderr.strip()}")
-            return False, f"CLONE_FAILED: {res.stderr.strip()}"
+            raise RuntimeError(f"克隆上游仓库失败: {res.stderr.strip()}")
+        cloned_sha = subprocess.run(
+            ["git", "-C", temp_dir, "rev-parse", "HEAD"], check=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15
+        ).stdout.strip()
 
         # 3. 遍历上游提取文件并实施「边界防外溢断言」与「本地保全」
         abs_target_dir = os.path.join(root_dir, target_dir)
+        assert_within_boundary(target_dir, allowed_boundary, root_dir)
         if not os.path.exists(abs_target_dir):
             if not dry_run:
                 os.makedirs(abs_target_dir, exist_ok=True)
@@ -254,6 +288,9 @@ def sync_single_upstream(
             # 过滤 .git 目录
             if ".git" in dirs:
                 dirs.remove(".git")
+            for name in dirs:
+                if os.path.islink(os.path.join(cur_root, name)):
+                    raise SpilloverSecurityViolation(f"上游目录链接不参与自动同步: {name}")
 
             for file_name in files:
                 abs_src_file = os.path.join(cur_root, file_name)
@@ -268,6 +305,8 @@ def sync_single_upstream(
                 if not matches_any_pattern(rel_to_temp, include_patterns):
                     skipped_count += 1
                     continue
+                if os.path.islink(abs_src_file):
+                    raise SpilloverSecurityViolation(f"上游文件链接不参与自动同步: {rel_to_temp}")
 
                 # 计算目标相对路径
                 rel_dest = os.path.join(target_dir, rel_to_temp).replace("\\", "/")
@@ -295,8 +334,8 @@ def sync_single_upstream(
         log_ok(f"[{key}] 隔离合并完毕: 同步写入 {copied_count} 文件, 保留本地 {preserved_count} 文件, 跳过 {skipped_count} 文件")
 
         # 4. 更新 SHA 记录
-        if remote_sha and not dry_run and sha_cache is not None:
-            sha_cache[key] = remote_sha
+        if not dry_run and sha_cache is not None:
+            sha_cache[key] = cloned_sha
 
         return True, "SYNC_SUCCESS"
 
@@ -336,6 +375,9 @@ def main():
         log_fail(f"加载规则文件失败: {e}")
         sys.exit(1)
 
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("upstreams", {}), dict):
+        log_fail("上游规则清单和 upstreams 必须为对象")
+        sys.exit(1)
     upstreams = manifest.get("upstreams", {})
     if not upstreams:
         log_warn("规则清单中未声明任何上游仓库配置。")
@@ -380,7 +422,11 @@ def main():
             sys.exit(1)
 
     if not args.dry_run and not args.check_only:
-        save_sha_cache(sha_cache_path, sha_cache)
+        try:
+            save_sha_cache(sha_cache_path, sha_cache)
+        except OSError as exc:
+            log_fail(f"保存同步版本记录失败: {exc}")
+            sys.exit(1)
 
     print("\n================================================================================")
     if args.check_only:
@@ -388,7 +434,7 @@ def main():
             print("  [*] 检查结论: 检测到上游仓库有新版本发布，可运行同步指令合并。")
             sys.exit(2)
         else:
-            print("  [+] 检查结论: 所有上游镜像均为最新版本，无需同步。")
+            print("  [+] 检查结论: 自动同步源的远程版本无变化；手动维护源已跳过，本地文件完整性未检查。")
             sys.exit(0)
     else:
         print(f"  [+] 结论: 上游隔离同步处理完成！ (变更状态: {'有更新并入' if any_updated else '保持现状'})")

@@ -1,67 +1,134 @@
 {
- "id": "apkseep09",
- "domain": "apkseep",
- "target_type": "公开教学靶场 APK（OWASP MASTG ovaa，仓库自带教学夹具）：单 classes.dex（2024 类 / 15912 方法），libovaa.so × 4 ABI，mainfest 无第三方壳类",
- "evidence_kind": "fixture",
- "protection": [
-  "未加固：整包 1 个 classes.dex（2636832B，header_size_matches=true），无第二 dex",
-  "native 面很小：libovaa.so 四个 ABI 合计 31340B，so_java_symbols=4，exports_JNI_OnLoad=false，imports_RegisterNatives=false"
- ],
- "authority": "local（仓库自带公开教学夹具；本案例不涉及任何授权/卡密面）",
- "goal_level": "L1",
- "outcome": "partial",
- "artifacts": [
-  {
-   "path": "artifacts/run.json",
-   "sha256": "d30f5f415d7eef20cf6d9a2f1fa6dd57c7464ac55485847742bc3b55ae155b25"
+  "id": "apkseep09",
+  "domain": "apkseep",
+  "target_type": "公开靶场 APK（OWASP MASTG ovaa）：单 classes.dex（2024 类 / 15912 方法），libovaa.so × 4 ABI",
+  "evidence_kind": "public",
+  "protection": [
+    "未加固：整包 1 个 classes.dex（2636832B，header_size_matches=true），无第二 dex",
+    "native 面很小：libovaa.so 四个 ABI 合计 31340B，so_java_symbols=4，exports_JNI_OnLoad=false，imports_RegisterNatives=false"
+  ],
+  "authority": "local（仓库自带公开教学夹具；本案例不涉及任何授权/卡密面）",
+  "goal_level": "L1",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "artifacts/run.json",
+      "sha256": "d30f5f415d7eef20cf6d9a2f1fa6dd57c7464ac55485847742bc3b55ae155b25",
+      "size": 4913
+    },
+    {
+      "path": "capture/reverify-2026-10-25.log",
+      "sha256": "e12051a5842dc46b88f8c7c095218289f25cfadb9dfe77f61d1a3bcc010b0ed9",
+      "size": 2677
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "9809cbfb968d5c3e19c1d80578cf652dd90896fbcc1c70ab82f1277eee2da0c6",
+      "size": 4766,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "90f2e8f850708c6fe627b21a2d52c0178af45a7938c6c5ea60158b8b2f7b249b",
+      "size": 292,
+      "kind": "manifest"
+    }
+  ],
+  "repro": {
+    "status": "recorded",
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/apkseep/scripts/java2c_probe.py",
+      "--apk",
+      "Tool/cases/apkseep09/target/ovaa.apk",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "9809cbfb968d5c3e19c1d80578cf652dd90896fbcc1c70ab82f1277eee2da0c6"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/apkseep/scripts/java2c_probe.py",
+          "--apk",
+          "Tool/cases/apkseep09/target/ovaa.apk",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "9809cbfb968d5c3e19c1d80578cf652dd90896fbcc1c70ab82f1277eee2da0c6"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   },
-  {
-   "path": "capture/reverify-2026-10-25.log",
-   "sha256": "e12051a5842dc46b88f8c7c095218289f25cfadb9dfe77f61d1a3bcc010b0ed9"
+  "evidence_dir": "artifacts",
+  "scope": {
+    "authorization": "local fixture（仓库自带公开教学靶场）",
+    "hosts": [],
+    "forbidden": [
+      "未在任何真实商业 APK 上执行",
+      "未连接任何设备"
+    ]
+  },
+  "lessons": [
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/apkseep/scripts/java2c_probe.py --apk Tool/cases/apkseep09/target/ovaa.apk --json`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "实跑输出：classes.dex 2024 类、15912 方法、native 声明 1 个、native_ratio=0.0001；libovaa.so 四个 ABI 合计 java_symbols=4；trivial_ratio=0.0397（593/14935）。",
+    "两条判据数字同时在场，Java2C/JNI sinking 的静态排除达到 Rung 0；案例结论的 confidence 保持 medium，因为 native 声明数与 Java_* 导出数不是 1:1。",
+    "outcome=partial：证据范围限于离线 APK/DEX/SO 静态结构；设备安装、启动、前台校验与重打包属于扩展验证面。"
+  ],
+  "tags": [
+    "apk",
+    "java2c-probe",
+    "jni-sinking",
+    "offline",
+    "public",
+    "reproducible",
+    "unhardened"
+  ],
+  "refs": [
+    "Tool/skill/apkseep/references/01-criteria.md",
+    "Tool/skill/apkseep/references/java2c-and-jni-sinking.md",
+    "Tool/skill/apkseep/scripts/java2c_probe.py",
+    "Tool/cases/apkseep09/target/ovaa.apk"
+  ],
+  "updated": "2026-10-29",
+  "target_files": [
+    {
+      "path": "target/ovaa.apk",
+      "sha256": "b57cb8abcea9e4e6b802a62f1ea69845941e33bae28d88cdd827e1cdbac1cf01",
+      "source": "Tool/samples/real/android-apks/ovaa.apk（仓库自带公开教学靶场，OWASP MASTG）",
+      "size": 1723521
+    }
+  ],
+  "acceptance_profile": "apk-target/1",
+  "target": {
+    "path": "target/ovaa.apk",
+    "sha256": "b57cb8abcea9e4e6b802a62f1ea69845941e33bae28d88cdd827e1cdbac1cf01",
+    "size": 1723521,
+    "at": "2026-10-29",
+    "note": "OWASP MASTG 公开教学样本；案例内原件与登记哈希一致"
   }
- ],
- "repro": {
-  "status": "recorded",
-  "evidence": "python Tool/skill/apkseep/scripts/java2c_probe.py --apk Tool/samples/real/android-apks/ovaa.apk --json；rc=0，输出见 artifacts/run.json"
- },
- "evidence_dir": "artifacts",
- "scope": {
-  "authorization": "local fixture（仓库自带公开教学靶场）",
-  "hosts": [],
-  "forbidden": [
-   "未在任何真实商业 APK 上执行",
-   "未连接任何设备"
-  ]
- },
- "lessons": [
-  "跑的是什么：`python Tool/skill/apkseep/scripts/java2c_probe.py --apk Tool/samples/real/android-apks/ovaa.apk --json`；rc=0",
-  "结果：classes.dex 2024 类 / 15912 方法 / native 声明 1 个（native_ratio=0.0001）；libovaa.so 四个 ABI 合计 so_java_symbols=4；trivial_ratio=0.0397（593/14935）",
-  "判据：对应 references/01-criteria.md §1『类是不是 Java2C / JNI sinking』那一行 —— 密度 0.01% 与真实 JNI 目标 0.03–0.04% 同量级，Java2C 排除成立；但 native 声明数 1 与 Java_* 导出数 4 不构成 1:1，故 confidence 只能是 medium（该行要求两组数字都在且对得上）。本案例只到 Rung 0。",
-  "边界：无设备在线 → 未做安装/启动/前台校验（Rung 3 未达成）；未重打包/签名/对齐（resources.arsc 与签名方案未触及）；本样本 dex 在盘上可读，没有内存镜像可判 stub%，所以也没走脱壳路线。",
-  "为什么这条案例这么浅：它存在的目的是把『判据能不能用一条离线命令跑出数字』变成可复算的，而不是补一条脱壳战绩。深的那两条见 apkseep07（native 反调试 + root 检测，静态边界）与 apkseep08（真商业 APK 的加固定性与 aapt/GBK 坑）。",
-  "复现：`python Tool/skill/apkseep/scripts/java2c_probe.py --apk Tool/samples/real/android-apks/ovaa.apk --json`（输出应与 artifacts/run.json 逐字节一致；脚本不含时间戳）"
- ],
- "tags": [
-  "fixture",
-  "apk",
-  "unhardened",
-  "java2c-probe",
-  "jni-sinking",
-  "offline",
-  "reproducible"
- ],
- "refs": [
-  "Tool/skill/apkseep/references/01-criteria.md",
-  "Tool/skill/apkseep/references/java2c-and-jni-sinking.md",
-  "Tool/skill/apkseep/scripts/java2c_probe.py",
-  "Tool/cases/apkseep09/target/ovaa.apk"
- ],
- "updated": "2026-10-25",
- "target_files": [
-  {
-   "path": "target/ovaa.apk",
-   "sha256": "b57cb8abcea9e4e6b802a62f1ea69845941e33bae28d88cdd827e1cdbac1cf01",
-   "source": "Tool/samples/real/android-apks/ovaa.apk（仓库自带公开教学靶场，OWASP MASTG）"
-  }
- ]
 }

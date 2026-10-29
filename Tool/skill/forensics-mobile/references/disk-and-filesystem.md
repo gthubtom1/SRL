@@ -107,11 +107,13 @@ python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/History.
 
 ```bash
 python Tool/skill/forensics-mobile/scripts/fs-timeline.py \
-  --input out/evtx.json --input out/registry.json --input out/history.json \
-  --input out/bodyfile.txt --out out/timeline.json
+  --input input/Security.evtx --input input/Explorer.hiv \
+  --input input/History.sqlite --out out/timeline.json
+fls -r -m / -o "$OFF" "$IMG" > out/bodyfile.txt
+mactime -b out/bodyfile.txt -d -z UTC > out/disk-timeline.csv
 ```
 
-注意：`fs-timeline.py` 接受原始 evtx/hive/sqlite/目录，不直接吃 bodyfile；bodyfile 用 `mactime -z UTC` 转 CSV 后再与 JSON 合并。合并规则：
+注意：`fs-timeline.py` 接受原始 evtx/hive/sqlite/目录，不直接吃 bodyfile，也不把前一次生成的 timeline JSON 当输入；bodyfile 用 `mactime -z UTC` 转 CSV 后再与 JSON 在独立合并步骤中对齐。合并规则：
 
 - 主键：`time_utc`；同一时间用 `source/object` 稳定排序。
 - 保留原值：设备时区、文件系统精度（FAT 2s、APFS 纳秒）、时钟偏差。
@@ -274,7 +276,7 @@ fsutil fsinfo volumeinfo C:     # 卷序列号，用于和 Prefetch 里的卷信
 | 7 | 已删恢复 | `fls -d` + `icat` | 内容 magic/哈希 |
 | 8 | 交叉 | 与 EVTX/USN/内存对齐 | 至少两源 |
 
-**最容易错的两步**：第 4 步 `-o` 用字节；第 8 步把文件 mtime 当“用户操作时间”（复制/安装也会改 mtime）。
+**最容易错的两步**：第 4 步 `-o` 使用 `mmls` 给出的 Start 扇区（不是字节偏移）；第 8 步把文件 mtime 当“用户操作时间”（复制/安装也会改 mtime）。
 
 ### 13.1 文件系统差异（判据别混用）
 

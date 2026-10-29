@@ -2,7 +2,7 @@
 
 > 范围：需要重建"握手 → 认证 → 业务 → 关闭"的会话型协议（私有 TCP/UDP、WebSocket、
 > 数据库线协议、工控轮询、MQTT 等）。
-> 路由：无状态单请求接口只看 `01-criteria.md`；插件加载链由 `plugin-targets`（R25）承担。
+> 路由：无状态单请求接口只看 `01-criteria.md`；插件加载链按 `Tool/playbooks/plugin-analysis.md` 分析。
 > 分帧见 `05-binary-framing.md`；重放与构造见 `08-replay-and-new-request.md`。
 
 ## 1. 先把会话切片
@@ -11,12 +11,12 @@
 # 1) 会话清单（谁和谁）
 tshark -r capture.pcapng -q -z conv,tcp
 
-# 2) 按流取帧级载荷（tshark 已处理重传/乱序）
+# 2) 按流取帧级载荷（仍须按方向和 TCP 序号处理重传/乱序）
 tshark -r capture.pcapng -Y "tcp.stream==3 && tcp.len>0" -T fields \
   -e frame.number -e frame.time_epoch -e ip.src -e tcp.srcport \
   -e ip.dst -e tcp.dstport -e tcp.seq -e tcp.len -e tcp.payload > stream3.tsv
 
-# 3) 无 tshark 时用标准库导出双向字节流
+# 3) 无 tshark 时按方向性五元组导出包载荷拼接
 python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
   --file capture.pcapng --json --extract artifacts/streams
 ```
@@ -101,16 +101,17 @@ python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
 
 输入形状：`{"illegal_transition_proof":"...","edges":[{"from","to","evidence_frame"}]}`。
 `evidence_frame` 为 `null`/`0` 即"未观测"；形状错误或文件缺失一律 rc=2（`ok:false`）。
+这些帧号和负例均为输入声明；脚本不验证帧是否存在或证明迁移，即使同时传 `--file` 也只附上抓包摘要。`claims_allowed` 恒为 false，实际结论须回到原始帧、消息语义和负例运行记录复核。
 
 判据字段（缺一整列不得写"状态机成立"）：
 
 | 字段 | 含义 | 成立线 |
 |---|---|---|
-| `observed_edges` | 有实测帧号的边数 | ≥1 条覆盖认证/订阅等关键迁移 |
+| `observed_edges` | 输入中填了正帧号的边数（未校验） | 逐条回原始样本确认迁移 |
 | `inferred_edges` | 候选边全集（含 LLM 推断） | 与观测边分列报数，不得合并 |
 | `edge_coverage` | 观测 / 推断 | **≥0.60** |
 | `llm_unverified` | LLM 给出但无帧号的边 | 必须为 0 才可写"已确认"，否则降"疑似" |
-| `illegal_transition_proof` | 非法迁移被拒的证据（帧号 + 行为） | 非空，负例见 §5 |
+| `illegal_transition_proof` | 输入中是否填写了负例说明（未校验） | 核对真实帧、行为和运行记录，负例见 §5 |
 
 出处：RFCLLM（arXiv 2609.13389，2026-09）、PSMBENCH（NeurIPS'25 / 2026）、
 USENIX Security 2026 对抗式 LLM 生成格式规范。LLM 只负责提假设，证伪永远靠帧。

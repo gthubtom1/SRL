@@ -34,12 +34,14 @@ Notes:
     apksigner is used for VERIFYING when present, with an explicit sdk range.
 """
 import argparse
+import contextlib
 import os
 import re
 import secrets
 import shutil
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 STORE_ONLY = ('AndroidManifest.xml', 'resources.arsc')
@@ -51,6 +53,24 @@ def log(msg):
 
 def run(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, text=True, errors='replace', **kw)
+
+
+def _path_key(path):
+    return os.path.normcase(os.path.realpath(os.path.abspath(path)))
+
+
+def reject_output_collisions(inputs, outputs):
+    """Refuse writes that would overwrite an input or another output."""
+    source_by_key = {_path_key(p): p for p in inputs}
+    seen = {}
+    for out in outputs:
+        key = _path_key(out)
+        if key in source_by_key:
+            raise SystemExit('error: output would overwrite source APK: %s' % out)
+        if key in seen:
+            raise SystemExit('error: two output members resolve to the same path: %s'
+                             % out)
+        seen[key] = out
 
 
 # ---------------------------------------------------------------------------
@@ -598,10 +618,9 @@ def resign_split_set(items, outdir, sign_one):
     member, not the set.
     """
     os.makedirs(outdir, exist_ok=True)
-    scratch = os.path.join(outdir, '.unsigned')
-    if os.path.isdir(scratch):
-        shutil.rmtree(scratch, ignore_errors=True)
-    os.makedirs(scratch, exist_ok=True)
+    # Never claim or remove a caller-owned `.unsigned` directory.  A unique
+    # sibling keeps concurrent/sets and a real input directory safe.
+    scratch = tempfile.mkdtemp(prefix='.repack-unsigned-', dir=outdir)
     outs = []
     for info in items:
         unsigned = os.path.join(scratch, info['name'])
@@ -763,6 +782,23 @@ def _deflate_raw(data):
     return c.compress(data) + c.flush()
 
 
+@contextlib.contextmanager
+def _atomic_zip_output(out_path):
+    """Publish a completed ZIP from a uniquely reserved sibling temporary file."""
+    target = os.path.abspath(out_path)
+    fd, scratch = tempfile.mkstemp(prefix='.repack-', suffix='.tmp',
+                                    dir=os.path.dirname(target))
+    try:
+        with os.fdopen(fd, 'wb') as out:
+            yield out
+        os.replace(scratch, target)
+    finally:
+        try:
+            os.unlink(scratch)
+        except FileNotFoundError:
+            pass
+
+
 def _write_aligned_zip(out_path, plan):
     """Write a zip whose STORED entries can be relied on for offset alignment.
 
@@ -779,9 +815,7 @@ def _write_aligned_zip(out_path, plan):
     order = []
     meta = {}
     offset = 0
-    scratch = out_path + '.tmp'
-
-    with open(scratch, 'wb') as out:
+    with _atomic_zip_output(out_path) as out:
         for name, info, data, keep_stored in plan:
             name_b = name.encode('utf-8')
             if keep_stored:
@@ -810,7 +844,10 @@ def _write_aligned_zip(out_path, plan):
                     extra = b'\xfe\xca' + struct.pack('<H', pad - 4) + b'\x00' * (pad - 4)
                     extralen = len(extra)
 
-            flags = getattr(info, 'flag_bits', 0)
+            # Local headers contain the real CRC/sizes and no data descriptor.
+            # Carrying bit 3 from an input created by a streaming ZIP writer would
+            # make readers wait for an 8/16/24-byte trailer that is not present.
+            flags = getattr(info, 'flag_bits', 0) & ~0x0008
             local_header_offset = offset          # the CD points at the HEADER
             out.write(_local_header(len(name_b), method, crc, len(payload),
                                     len(data), info.date_time, flags, extralen))
@@ -848,7 +885,6 @@ def _write_aligned_zip(out_path, plan):
         out.write(struct.pack('<IHHHHIIH', 0x06054B50, 0, 0, len(order), len(order),
                               cd_size, cd_start, 0))
 
-    shutil.move(scratch, out_path)
     return order
 
 
@@ -1047,6 +1083,29 @@ def verify_apk(apk, tools, signer_jar=None, expect_signed=True):
     ok = True
     sig_checks = 0  # real signature-verification tools that actually ran
 
+    # The package-manager storage/alignment gate is independent of signatures.
+    # It must affect the exit status even with --no-sign; previously the caller
+    # printed a failed gate and then returned OK.
+    try:
+        alignment_problems = check_alignment(apk)
+    except (OSError, zipfile.BadZipFile) as exc:
+        log('[verify:layout] cannot inspect ZIP layout: %s' % exc)
+        ok = False
+    else:
+        if alignment_problems:
+            log('[verify:layout] FAILED')
+            for problem in alignment_problems:
+                log('  - %s' % problem)
+            ok = False
+        else:
+            log('[verify:layout] resources.arsc and native libraries satisfy the '
+                'STORED/4-byte gate')
+
+    if not expect_signed:
+        log('[result] %s: unsigned layout %s'
+            % ('OK' if ok else 'CHECK-FAILED', 'passed' if ok else 'failed'))
+        return ok
+
     # 1) apksigner -- the authoritative check, but ONLY with an explicit sdk range.
     #
     # READ THIS BEFORE CONCLUDING THE SIGNATURE IS BROKEN:
@@ -1077,7 +1136,7 @@ def verify_apk(apk, tools, signer_jar=None, expect_signed=True):
         sig_checks += 1
         r = run([tools['java'], '-jar', signer_jar, '-a', apk, '-y'])
         log('[verify:signer] rc=%d\n%s' % (r.returncode, (r.stdout or '').strip()))
-        if r.returncode != 0 and 'DOES NOT VERIFY' in (r.stdout or ''):
+        if r.returncode != 0:
             ok = False
 
     # 3) jarsigner (v1 / JAR signature)
@@ -1086,8 +1145,9 @@ def verify_apk(apk, tools, signer_jar=None, expect_signed=True):
         r = run([tools['jarsigner'], '-verify', '-certs', apk])
         txt = ((r.stdout or '') + (r.stderr or '')).strip()
         log('[verify:jarsigner] rc=%d\n%s' % (r.returncode, txt[:2000]))
-        if 'jar verified' not in txt and 'verified' not in txt.lower():
-            log('[verify:jarsigner] note: not reported as verified (see output above)')
+        if r.returncode != 0 or 'jar verified' not in txt.lower():
+            log('[verify:jarsigner] FAILED: the tool did not report a verified JAR')
+            ok = False
 
     # 4) keytool cert dump
     if tools.get('keytool'):
@@ -1100,6 +1160,7 @@ def verify_apk(apk, tools, signer_jar=None, expect_signed=True):
         log('[verify:zipalign] rc=%d' % r.returncode)
         if r.returncode != 0:
             log((r.stdout or '').strip()[:1500])
+            ok = False
     else:
         log('[verify:zipalign] skipped: zipalign not on PATH')
 
@@ -1111,7 +1172,7 @@ def verify_apk(apk, tools, signer_jar=None, expect_signed=True):
     # A build nobody could verify is not a passing build. Saying OK here would
     # violate the first rule of this skill ("an APK is not done until it is
     # verified"): report UNVERIFIED and fail instead.
-    if expect_signed and sig_checks == 0:
+    if sig_checks == 0:
         log('[result] UNVERIFIED: no signature verification tool was available '
             '(apksigner / jarsigner / signer jar). This is NOT an OK result.')
         return False
@@ -1218,6 +1279,9 @@ def run_split_mode(args, tools):
         return 0
 
     if mode == 'merge':
+        if args.out:
+            reject_output_collisions([i['path'] for i in items],
+                                      [os.path.abspath(args.out)])
         return _split_merge(args, tools, base, others)
 
     outdir = args.split_out_dir or (os.path.abspath(args.out) if args.out else None)
@@ -1225,6 +1289,8 @@ def run_split_mode(args, tools):
         raise SystemExit('error: --split-mode resign needs --split-out-dir <dir> '
                          '(or --out, which is then treated as a directory).')
     outdir = os.path.abspath(outdir)
+    reject_output_collisions([i['path'] for i in items],
+                             [os.path.join(outdir, i['name']) for i in items])
     log('[resign] output directory: %s' % outdir)
     workdir = scratch_dir(args, os.path.join(outdir, '.work'))
     signer = None
@@ -1280,9 +1346,13 @@ def _split_merge(args, tools, base, others):
     folder = os.path.dirname(out)
     if folder:
         os.makedirs(folder, exist_ok=True)
-    unsigned = out + '.unsigned'
-    if os.path.exists(unsigned):
-        os.remove(unsigned)
+    # The intermediate name must not alias a caller's split input (for example
+    # an input literally named `merged.apk.unsigned`).  Reserve a unique sibling
+    # and leave the existing input path untouched.
+    fd, unsigned = tempfile.mkstemp(prefix=os.path.basename(out) + '.',
+                                    suffix='.unsigned', dir=folder or None)
+    os.close(fd)
+    os.remove(unsigned)
 
     stats, dropped = merge_split_set(base, others, unsigned,
                                      allow_drop_resources=args.drop_split_resources,
@@ -1311,7 +1381,7 @@ def _split_merge(args, tools, base, others):
         shutil.move(unsigned, out)
         log('[out] %s (%d bytes)' % (out, os.path.getsize(out)))
         log('[result] UNSIGNED (--no-sign): inspection only, not installable as-is')
-        return 0
+        return 0 if not problems else 2
 
     workdir = scratch_dir(args, folder or os.getcwd())
     signer = choose_signer(args, tools)
@@ -1605,6 +1675,7 @@ def main():
     out = os.path.abspath(args.out)
     if not os.path.exists(apk):
         raise SystemExit('missing apk: %s' % apk)
+    reject_output_collisions([apk], [out])
 
     # Default the scratch dir next to --out; never to a machine-specific path.
     workdir = scratch_dir(args, os.path.dirname(out))
@@ -1615,22 +1686,25 @@ def main():
         % (tools['java'], tools['keytool'], tools['apksigner'], tools['zipalign']))
     log('[repl] %s' % (', '.join('%s<-%s' % (k, v) for k, v in sorted(repl.items())) or '<none>'))
 
-    unsigned = os.path.join(workdir, 'unsigned.apk')
-    if os.path.exists(unsigned):
-        os.remove(unsigned)
-    build_unsigned(apk, repl, unsigned)
-    log('[zip] unsigned written: %d bytes' % os.path.getsize(unsigned))
-    for row in zip_report(unsigned):
-        log('[zip]   ' + row)
-
     signer = None
-    if args.no_sign:
-        shutil.copy2(unsigned, out)
-    else:
-        signer = choose_signer(args, tools)
-        log('[sign] route: %s' % signer['kind'])
-        ks, password = resolve_keystore(args, tools)
-        sign_one_artifact(unsigned, out, args, tools, signer, ks, password, workdir)
+    run_workdir = tempfile.mkdtemp(prefix='repack-', dir=workdir)
+    unsigned = os.path.join(run_workdir, 'unsigned.apk')
+    try:
+        build_unsigned(apk, repl, unsigned)
+        log('[zip] unsigned written: %d bytes' % os.path.getsize(unsigned))
+        for row in zip_report(unsigned):
+            log('[zip]   ' + row)
+
+        if args.no_sign:
+            shutil.copy2(unsigned, out)
+        else:
+            signer = choose_signer(args, tools)
+            log('[sign] route: %s' % signer['kind'])
+            ks, password = resolve_keystore(args, tools)
+            sign_one_artifact(unsigned, out, args, tools, signer, ks, password,
+                              run_workdir)
+    finally:
+        shutil.rmtree(run_workdir, ignore_errors=True)
 
     log('[out] %s (%d bytes)' % (out, os.path.getsize(out)))
     log('== zip layout of final apk')

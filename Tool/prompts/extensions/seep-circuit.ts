@@ -44,8 +44,9 @@
  *     模型连 `tool-acquire.py` 都跑不了 —— 熔断会变成死锁。这是本文件最关键的一处设计。
  *
  * ── 逃生口（重要）─────────────────────────────────────────────
- *   1. 白名单命令：input 里出现 tool-acquire.py / case_state.py / preflight.py 的一律放行
- *      —— 熔断的**唯一正确出路**必须始终可达。
+ *   1. 白名单命令：只有真实执行 tool-acquire.py / case_state.py / preflight.py 的
+ *      命令行才放行；notes / URL / 参数值里出现同名文本不算，`python -c` 间接引用也不算。
+ *      熔断的**唯一正确出路**必须始终可达，同时不能变成任意子串旁路。
  *   2. `/circuit`       看当前各 tool 的撞车次数与已熔断项
  *      `/circuit reset` 清空全部计数（人判断「这次是环境问题，不是能力问题」时用）
  *   3. SEEP_CIRCUIT_N=0 关闭熔断（只计数不拦），N=3 放宽到连撞 3 次。
@@ -67,6 +68,8 @@ const SIG_MAX = 80;
 const TOOL_MAX = 128;
 /** 每个 tool 记住的 signature 数上限：只留最近的几条。 */
 const SIG_PER_TOOL_MAX = 8;
+/** 等待 tool_result 的调用上限；tool_result 不一定回传 input，必须保留发起时的形状。 */
+const ACTIVE_CALL_MAX = 256;
 /** 本插件自己发出去的拦截文案标记：这类结果不能回头算作「又失败一次」。 */
 const OWN_MARK = "[seep-circuit] TOOL_BLOCKED";
 /** 调用签名上限（字符数）。比错误签名宽一点：命令串要能认出来。 */
@@ -76,7 +79,7 @@ const CALL_SIG_MAX = 120;
  * 白名单：照 reason 办的那几条命令必须永远能跑。
  * 否则 bash 一熔断，模型连查表命令都发不出去 = 死锁（比不拦更糟）。
  */
-const SANCTIONED = ["tool-acquire.py", "case_state.py", "preflight.py"];
+const SANCTIONED = new Set(["tool-acquire.py", "case_state.py", "preflight.py"]);
 
 /**
  * 永不熔断的「迭代型」工具：命中即放行、且**不计数**。
@@ -102,7 +105,7 @@ function isNeverBreak(tool: string): boolean {
 
 /* ────────────────────────────── 状态 ────────────────────────────── */
 /*
- * 全部在内存：tool → (调用签名 → { 连撞次数, 最近一次错误形状 })。
+ * 全部在内存：sessionId → (tool → (调用签名 → { 连撞次数, 最近一次错误形状 }))。
  * key 用**调用签名**（这次调用长什么形状），而不是整个工具名 ——
  * 这样「某个签名撞满」只会拦住同一类调用，其它 bash 命令不受牵连。
  * 错误形状只用于给 reason 说清「撞的是什么错」，不参与判定。
@@ -110,9 +113,76 @@ function isNeverBreak(tool: string): boolean {
  * 插入顺序即最近使用顺序，超上限时丢最老的 tool。
  */
 type StreakEntry = { count: number; errSig: string };
-const streaks = new Map<string, Map<string, StreakEntry>>();
-/** 已熔断的次数（只给 /circuit 展示用，不参与判定）。 */
-let tripped = 0;
+type ActiveCall = { tool: string; callSig: string; at: number };
+type SessionState = {
+	streaks: Map<string, Map<string, StreakEntry>>;
+	calls: Map<string, ActiveCall>;
+	tripped: number;
+};
+const sessionStates = new Map<string, SessionState>();
+
+function sessionIdOf(ctx: any): string {
+	// 真实 session id 是完整会话的身份，不能让工具执行期间的 cwd 变化把同一个
+	// 会话拆成两份状态；否则 tool_call 记在旧 cwd、tool_result 落在新 cwd，失败
+	// 形状永远结不上账。旧宿主没有 session id 时才退回 cwd 分区。
+	try {
+		const sid = ctx?.sessionManager?.getSessionId?.();
+		if (typeof sid === "string" && sid.trim()) return `id:${sid.trim()}`;
+	} catch {}
+	for (const value of [ctx?.sessionId, ctx?.session_id, ctx?.sessionID]) {
+		if (typeof value === "string" && value.trim()) return `id:${value.trim()}`;
+	}
+	let cwd = "";
+	try {
+		cwd = typeof ctx?.cwd === "string" && ctx.cwd ? pathResolve(ctx.cwd) : pathResolve(process.cwd());
+	} catch {
+		cwd = "unknown";
+	}
+	return `cwd:${cwd}`;
+}
+
+export function sessionPathKeyForTest(
+	value: string,
+	platform: NodeJS.Platform = process.platform,
+): string {
+	const normalized = String(value).replace(/\\/g, "/").replace(/\/+$/, "");
+	// Windows 路径大小写不敏感；POSIX 区分大小写，不能把 /tmp/A 与 /tmp/a 合并。
+	return platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function pathResolve(value: string): string {
+	return sessionPathKeyForTest(value);
+}
+
+function emptySessionState(): SessionState {
+	return {
+		streaks: new Map<string, Map<string, StreakEntry>>(),
+		calls: new Map<string, ActiveCall>(),
+		tripped: 0,
+	};
+}
+
+function stateFor(ctx: any): SessionState {
+	const id = sessionIdOf(ctx);
+	let state = sessionStates.get(id);
+	if (!state) {
+		state = emptySessionState();
+		sessionStates.set(id, state);
+	}
+	return state;
+}
+
+function rememberActiveCall(state: SessionState, id: string, tool: string, callSig: string): void {
+	if (!id) return;
+	// 删除再重插，使 Map 顺序保持 LRU；异常宿主重复使用 id 时也覆盖旧值。
+	state.calls.delete(id);
+	state.calls.set(id, { tool, callSig, at: Date.now() });
+	while (state.calls.size > ACTIVE_CALL_MAX) {
+		const first = state.calls.keys().next();
+		if (first.done) break;
+		state.calls.delete(first.value);
+	}
+}
 
 /** 阈值：环境变量可变，非法值退回默认（每次读，便于测试与临时放宽）。 */
 function threshold(): number {
@@ -127,23 +197,23 @@ function threshold(): number {
 	}
 }
 
-function toolBucket(tool: string): Map<string, StreakEntry> {
-	let b = streaks.get(tool);
+function toolBucket(state: SessionState, tool: string): Map<string, StreakEntry> {
+	let b = state.streaks.get(tool);
 	if (!b) {
 		b = new Map<string, StreakEntry>();
-		streaks.set(tool, b);
+		state.streaks.set(tool, b);
 	}
 	// 超上限：Map 的迭代顺序即插入顺序，删最老的 key 即可
-	while (streaks.size > TOOL_MAX) {
-		const first = streaks.keys().next();
+	while (state.streaks.size > TOOL_MAX) {
+		const first = state.streaks.keys().next();
 		if (first.done || first.value === tool) break;
-		streaks.delete(first.value);
+		state.streaks.delete(first.value);
 	}
 	return b;
 }
 
-function bumpStreak(tool: string, callSig: string, errSig: string): number {
-	const b = toolBucket(tool);
+function bumpStreak(state: SessionState, tool: string, callSig: string, errSig: string): number {
+	const b = toolBucket(state, tool);
 	const prev = b.get(callSig);
 	const next = (prev?.count ?? 0) + 1;
 	b.delete(callSig);
@@ -158,15 +228,15 @@ function bumpStreak(tool: string, callSig: string, errSig: string): number {
 }
 
 /** 该 tool 下**这一种调用形状**的连撞记录（没有 → null）。 */
-function entryFor(tool: string, callSig: string): StreakEntry | null {
-	const b = streaks.get(tool);
+function entryFor(state: SessionState, tool: string, callSig: string): StreakEntry | null {
+	const b = state.streaks.get(tool);
 	if (!b) return null;
 	return b.get(callSig) ?? null;
 }
 
 /** 该工具名下最高的连续失败（同分取最近的）。只给 /circuit 展示与「签名算不出来」时用。 */
-function worstStreak(tool: string): { sig: string; count: number; errSig: string } | null {
-	const b = streaks.get(tool);
+function worstStreak(state: SessionState, tool: string): { sig: string; count: number; errSig: string } | null {
+	const b = state.streaks.get(tool);
 	if (!b) return null;
 	let best: { sig: string; count: number; errSig: string } | null = null;
 	for (const [sig, e] of b) {
@@ -175,8 +245,8 @@ function worstStreak(tool: string): { sig: string; count: number; errSig: string
 	return best;
 }
 
-function clearTool(tool: string): void {
-	streaks.delete(tool);
+function clearTool(state: SessionState, tool: string): void {
+	state.streaks.delete(tool);
 }
 
 /* ────────────────────── 错误形状归一化 ────────────────────── */
@@ -324,24 +394,159 @@ export function isLegitBusinessExit(rc: number | null, output: string): boolean 
 	}
 }
 
-/** input 里是否出现「照 reason 办」的白名单命令。 */
+function commandSegments(command: string): string[] {
+	const out: string[] = [];
+	let current = "";
+	let quote = "";
+	let escaped = false;
+	for (const ch of String(command ?? "")) {
+		if (escaped) {
+			current += ch;
+			escaped = false;
+			continue;
+		}
+		if (ch === "\\" && quote !== "'") {
+			current += ch;
+			escaped = true;
+			continue;
+		}
+		if (quote) {
+			current += ch;
+			if (ch === quote) quote = "";
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			current += ch;
+			continue;
+		}
+		if (ch === ";" || ch === "&" || ch === "|" || ch === "\n" || ch === "\r") {
+			if (current.trim()) out.push(current.trim());
+			current = "";
+			continue;
+		}
+		current += ch;
+	}
+	if (current.trim()) out.push(current.trim());
+	return out;
+}
+
+function commandTokens(segment: string): string[] {
+	const out: string[] = [];
+	let current = "";
+	let quote = "";
+	let escaped = false;
+	for (const ch of String(segment ?? "")) {
+		if (escaped) {
+			current += ch;
+			escaped = false;
+			continue;
+		}
+		if (ch === "\\" && quote !== "'") {
+			// Windows 路径里的反斜杠属于值本身；只有反斜杠后紧跟引号时才当转义。
+			current += ch;
+			escaped = true;
+			continue;
+		}
+		if (quote) {
+			if (ch === quote) quote = "";
+			else current += ch;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			continue;
+		}
+		if (/\s/.test(ch)) {
+			if (current) {
+				out.push(current);
+				current = "";
+			}
+			continue;
+		}
+		current += ch;
+	}
+	if (current) out.push(current);
+	return out;
+}
+
+function basenameLower(value: string): string {
+	return String(value ?? "").replace(/^.*[\\/]/, "").replace(/\.exe$/i, "").toLowerCase();
+}
+
+function sanctionedScriptInSegment(segment: string): boolean {
+	const tokens = commandTokens(segment);
+	if (!tokens.length) return false;
+	let index = 0;
+	while (index < tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=.*/.test(tokens[index]) ||
+		["env", "command", "exec"].includes(basenameLower(tokens[index])))) index += 1;
+	if (index >= tokens.length) return false;
+
+	const head = basenameLower(tokens[index]);
+	const direct = tokens[index].replace(/^.*[\\/]/, "");
+	if (SANCTIONED.has(direct.toLowerCase())) return true;
+
+	if (["python", "python3", "py"].includes(head)) {
+		index += 1;
+		while (index < tokens.length) {
+			const token = tokens[index];
+			const low = token.toLowerCase();
+			if (low === "-c" || low === "-m") return false; // 内联/模块启动没有可验证脚本身份
+			if (low === "-w" || low === "-x") {
+				index += 2;
+				continue;
+			}
+			if (token.startsWith("-")) {
+				index += 1;
+				continue;
+			}
+			const script = token.replace(/^.*[\\/]/, "").toLowerCase();
+			return SANCTIONED.has(script);
+		}
+		return false;
+	}
+
+	if (["powershell", "pwsh"].includes(head)) {
+		const fileFlag = tokens.findIndex((value, i) => i > index &&
+			["-file", "/file"].includes(value.toLowerCase()));
+		if (fileFlag >= 0 && fileFlag + 1 < tokens.length) {
+			const script = tokens[fileFlag + 1].replace(/^.*[\\/]/, "").toLowerCase();
+			return SANCTIONED.has(script);
+		}
+		return false;
+	}
+
+	if (["bash", "sh"].includes(head)) {
+		const script = tokens[index + 1];
+		return !!script && SANCTIONED.has(script.replace(/^.*[\\/]/, "").toLowerCase());
+	}
+	return false;
+}
+
+/**
+ * 只从命令的真实可执行文件/脚本位置判断白名单。
+ * notes/URL/参数值里出现文件名，或 `python -c` / `-m` 间接引用，都不算出口。
+ */
 function isSanctioned(input: any): boolean {
 	try {
-		let hay = "";
-		if (typeof input === "string") hay = input;
-		else {
-			try {
-				hay = JSON.stringify(input ?? {});
-			} catch {
-				hay = "";
-			}
-		}
-		if (!hay) return false;
-		const low = hay.toLowerCase();
-		return SANCTIONED.some((k) => low.includes(k.toLowerCase()));
+		const command =
+			typeof input === "string"
+				? input
+				: typeof input?.command === "string"
+					? input.command
+					: typeof input?.cmd === "string"
+						? input.cmd
+						: "";
+		if (!command.trim()) return false;
+		const segments = commandSegments(command);
+		return segments.length > 0 && segments.every(sanctionedScriptInSegment);
 	} catch {
 		return false;
 	}
+}
+
+export function isSanctionedForTest(input: any): boolean {
+	return isSanctioned(input);
 }
 
 /* ─────────────────── 调用形状签名（熔断作用面）─────────────────── */
@@ -487,28 +692,31 @@ export default function seepCircuit(pi: ExtensionAPI) {
 	/* 1. 调用前：达阈值直接拦（返回 undefined = 不干预） */
 	pi.on("tool_call", async (event: any, ctx: any) => {
 		try {
+			const state = stateFor(ctx);
 			const tool = String(event?.toolName ?? "unknown");
 			// 迭代型工具（edit/write/read/grep/find/ls/todo）永不熔断：试错是它们的主路径
 			if (isNeverBreak(tool)) return;
 			// 白名单命令始终放行：熔断的出路必须可达，否则死锁
 			if (isSanctioned(event?.input)) return;
+			const callSig = callSignature(tool, event?.input);
+			const callId = String(event?.toolCallId ?? "").trim();
+			rememberActiveCall(state, callId, tool, callSig);
 			const n = threshold();
 			if (n <= 0) return; // 关闭熔断（只计数）
 			// ★ 只看**本次调用的形状**：一个签名撞满不该把整个 bash 禁掉
-			const callSig = callSignature(tool, event?.input);
 			if (callSig) {
-				const e = entryFor(tool, callSig);
+				const e = entryFor(state, tool, callSig);
 				if (!e || e.count < n) return; // 这个形状还没到阈值 → 其它命令照常可用
-				tripped += 1;
+				state.tripped += 1;
 				return {
 					block: true,
 					reason: buildReason(tool, callSig, e.errSig, e.count, e.count + 1, caseArgOf(ctx), false),
 				};
 			}
 			// 签名算不出来 → 退回旧行为（整工具判定），但 reason 里说明这是退回
-			const worst = worstStreak(tool);
+			const worst = worstStreak(state, tool);
 			if (!worst || worst.count < n) return;
-			tripped += 1;
+			state.tripped += 1;
 			return {
 				block: true,
 				reason: buildReason(tool, "(未识别)", worst.errSig, worst.count, worst.count + 1, caseArgOf(ctx), true),
@@ -520,16 +728,20 @@ export default function seepCircuit(pi: ExtensionAPI) {
 	});
 
 	/* 2. 结果后：更新计数（成功清零 / 失败按形状累加 / 自己的拦截不计） */
-	pi.on("tool_result", async (event: any) => {
+	pi.on("tool_result", async (event: any, ctx: any) => {
 		try {
-			const tool = String(event?.toolName ?? "unknown");
+			const state = stateFor(ctx);
+			const callId = String(event?.toolCallId ?? "").trim();
+			const tracked = callId ? state.calls.get(callId) : undefined;
+			const tool = String(event?.toolName || tracked?.tool || "unknown");
+			if (callId) state.calls.delete(callId);
 			// 迭代型工具不参与计数：既不累加，也不清零（它们的「成功」不代表外部工具修好了）
 			if (isNeverBreak(tool)) return;
 			const text = textOf(event);
 			if (!event?.isError) {
 				// 工具本身没坏 → 该工具名下所有形状的计数清零
 				// 白名单命令成功尤其要清零：照 reason 办完就该恢复可用，不能「修好了还被拦」
-				clearTool(tool);
+				clearTool(state, tool);
 				return;
 			}
 			if (isOwnBlock(text)) return; // 自己拦出来的不算「又失败一次」
@@ -537,18 +749,23 @@ export default function seepCircuit(pi: ExtensionAPI) {
 			//   这是设计好的结果；[NONE] / [FALLBACK] 同理。既不加计数，也不清零（它不是成功也不是失败）。
 			if (isLegitBusinessExit(exitCodeOf(event), text)) return;
 			// 计数记在**本次调用的形状**上（算不出来才退回一个固定 key，同时让 tool_call 走整工具判定）
-			const callSig = callSignature(tool, event?.input) || "(未识别)";
-			bumpStreak(tool, callSig, signatureOf(text));
+			const callSig = tracked?.callSig || callSignature(tool, event?.input) || "(未识别)";
+			bumpStreak(state, tool, callSig, signatureOf(text));
 		} catch {
 			/* 计数出错一律吞掉：不干预 */
 		}
 	});
 
 	/* 3. 会话开：清空计数（同一进程内换会话不继承上回的撞车记录） */
-	pi.on("session_start", async () => {
+	pi.on("session_start", async (_event: any, ctx: any) => {
 		try {
-			streaks.clear();
-			tripped = 0;
+			sessionStates.set(sessionIdOf(ctx), emptySessionState());
+		} catch {}
+	});
+
+	pi.on("session_shutdown", async (_event: any, ctx: any) => {
+		try {
+			sessionStates.delete(sessionIdOf(ctx));
 		} catch {}
 	});
 
@@ -558,12 +775,13 @@ export default function seepCircuit(pi: ExtensionAPI) {
 			description: "熔断状态：/circuit 查看，/circuit reset 清零（默认阈值见 SEEP_CIRCUIT_N）",
 			handler: async (args: string, ctx: any) => {
 				try {
+					const state = stateFor(ctx);
 					const n = threshold();
 					const lines: string[] = [
-						`[seep-circuit] 阈值 SEEP_CIRCUIT_N=${n}${n > 0 ? "" : "（关闭：只计数不拦）"} · 已拦 ${tripped} 次`,
+						`[seep-circuit] 阈值 SEEP_CIRCUIT_N=${n}${n > 0 ? "" : "（关闭：只计数不拦）"} · 已拦 ${state.tripped} 次`,
 					];
-					if (!streaks.size) lines.push("当前无失败记录。");
-					for (const [tool, b] of streaks) {
+					if (!state.streaks.size) lines.push("当前会话无失败记录。");
+					for (const [tool, b] of state.streaks) {
 						// 熔断作用面是**调用形状**，不是一个工具：单独标出哪些形状已到阈值
 						const detail = Array.from(b.entries())
 							.map(([sig, e]) =>
@@ -577,8 +795,7 @@ export default function seepCircuit(pi: ExtensionAPI) {
 					if (typeof say === "function") say.call((ctx as any).ui, lines.join("\n"));
 					else console.log(lines.join("\n"));
 					if (String(args ?? "").trim().toLowerCase() === "reset") {
-						streaks.clear();
-						tripped = 0;
+						sessionStates.set(sessionIdOf(ctx), emptySessionState());
 						const say2 = (ctx as any)?.ui?.notify ?? (ctx as any)?.ui?.showMessage;
 						if (typeof say2 === "function") say2.call((ctx as any).ui, "[seep-circuit] 计数已清零。");
 					}

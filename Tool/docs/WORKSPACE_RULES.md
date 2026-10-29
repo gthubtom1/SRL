@@ -18,13 +18,13 @@
 - 以上产物统一放在对应任务目录内，任务结束时整体归档或清理。
 
 ### 3. 命令执行上下文
-- 运行 PowerShell、Python、radare2、apktool 或编译器时，先 `cd <任务目录>`，派生产物就地留存。
+- 根据工具要求选择 cwd。文档中的 `python Tool/scripts/...` 和安装命令从仓库根执行，用户材料与输出使用明确项目路径；需要就地生成产物的分析工具在任务目录运行，平台脚本使用绝对路径。不要切到任务目录后继续套用仓库相对命令。
 
 ### 4. 根目录保留项
 - `Tool/`：全局工具链、通用脚本（`Tool/scripts/`）、技能与配方。
 - `setup/`、`MANUAL/`、`docs/`：安装、手册、审计记录。
 - 各任务独立目录（如 `Hills/`、`mumu/`、`xyplorer/`）。
-- `WORKSPACE_RULES.md`：本规范。
+- `Tool/docs/WORKSPACE_RULES.md`：本规范。
 
 ### 5. 与案例库的关系
 - 可复用的产物按 `Tool/cases/<case>/` 归档，结构见 `Tool/cases/_templates/`；

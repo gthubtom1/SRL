@@ -1,7 +1,7 @@
 {
   "id": "apk-unpack",
   "title": "APK 解包与重打包",
-  "domain": "reverse",
+  "domain": "apkseep",
   "triggers": [
     "APK 脱壳",
     "加固",

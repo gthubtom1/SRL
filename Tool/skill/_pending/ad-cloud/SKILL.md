@@ -3,6 +3,8 @@ name: ad-cloud
 description: "'内网怎么打/域内提权/云上 IAM 有没有问题 (BloodHound/ADCS/kerberos) —— 内网/AD/云原生：枚举、Kerberoasting/AS-REP、ADCS ESC、NTLM relay、委派。"
 ---
 
+> **路由范围**：本文件为按需子技能，不是第十领域，不宣称旧 R 编号已注册。按具体目标由九领域主域调用，证据返回同一项目。阴性结果可完成有界评估；不能强求发现漏洞或实际提权。真实凭据/私钥不读取、不提取、不试用；权限链用配置、审计元信息或合成 canary 验证。
+
 # 内网 / AD / 云原生作业规范
 
 本 skill 只处理**已授权**的内网与云环境评估。目标不是“讲全攻击”，而是每条路径都能回答：
@@ -60,7 +62,7 @@ aws sts get-caller-identity
 | Kerberos roast | TGS/AS-REP hash 破解出明文，或票据可直接复用；账号非机器号/krbtgt；有命令与指纹 | 有 TGS/AS-REP 但未破解；etype/账号状态未核对 |
 | ADCS | `certipy req` 得 pfx + `certipy auth` 出 TGT/ccache；ESC 条件逐条成立 | `find` 报 vulnerable/有 pfx，但无 Enroll、需审批、auth 未成功 |
 | 委派/RBCD | `getST` 返回服务票据且能访问目标；RBCD 写入成功并回读；有清理 | 只有 `TRUSTED_FOR_DELEGATION`/`AllowedToDelegateTo` 属性；无控主机/无票据 |
-| K8s RBAC/逃逸 | `auth can-i` yes + 实际只读动作成功；宿主 `id`/宿主文件读取；Secret 实际可用 | 有 create pods/get secrets 但被 PSA/Quota 拒绝，或 Secret 未验证 |
+| K8s RBAC/逃逸 | `auth can-i` yes + 实际只读动作成功；宿主 `id`/宿主文件读取；测试租户合成 canary 与权限决策对应 | 有 create pods/get secrets 但被 PSA/Quota 拒绝，或 Secret 未验证 |
 | 云凭据/IAM | `sts get-caller-identity` 成功；策略文本 + boundary/SCP 不拦 + 实际 API 成功；元数据取到临时凭据并验证 | 本地有 AK/SK 明文；策略文本 allow；元数据端点可达但未取到凭据 |
 | 遥测/主机基线 | 事件 ID + LogonType + 账号/来源 + 时间线一致；证书 EKU/私钥/票据计数可复现 | 单条 4672/4624；单机无 4768/4769；有证书但未 PKINIT |
 | 横向移动 | 目标侧有预期身份的 4688/7045/4698 或命令输出，源/目标/时间可复算；relay 需目标侧 4624 类型 3 + 4776 | 只有攻击端 SUCCEED/ReturnValue=0；目标拒绝/签名强制；无目标日志 |
@@ -118,7 +120,7 @@ aws sts get-caller-identity
 7. 把 `Action:*` 直接判“可提权” → 看 Deny/boundary/SCP/条件，文本 allow 只到 candidate。
 8. 把 ADCS pfx 写成“已拿域管 TGT” → 必须 `certipy auth` 成功。
 9. 把 Unconstrained 属性写成“已能读域控” → 要可控主机 + 高权 TGT。
-10. 把 `auth can-i get secrets` 的 yes 写成“已读所有 Secret” → 要实际读取并证明可用。
+10. 把 `auth can-i get secrets` 的 yes 写成“已读所有 Secret” → 核权限决策/数据流并用测试租户合成 canary 证明，不取真实 Secret。
 11. 把单条 4672/4624 写成“提权/横向成功” → 看 LogonType/账号/来源/时间线。
 12. 把单机无 Kerberos 事件写成“域内安全” → 先查域成员/审计/DC 日志。
 13. 在锁定预算内换工具重复试 → 预算按账号算，不是按工具算。
@@ -136,7 +138,7 @@ aws sts get-caller-identity
 
 - AD：`nxc`/`ldapsearch`/BloodHound；K8s：`kubectl auth can-i --list`/RBAC 导出；
   云：`sts get-caller-identity`/`list-*`；主机：Security 日志/证书/LSA 只读。
-- 完成判据：至少一条候选路径，且每条边能在原始属性/API/日志上复现。
+- 完成判据：候选路径每条边有原始属性/API/日志支持；未发现路径也可按已查范围完成并说明覆盖限制。
 - 失败：采集被拒/只有名称猜测 → 标 unknown，补权限或换面。
 
 ### 阶段 C：选最便宜路径做最小验证

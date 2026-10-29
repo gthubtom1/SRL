@@ -18,15 +18,25 @@
     python Tool/skill/softseep/scripts/intent-coverage.py --self-test
     python Tool/skill/softseep/scripts/intent-coverage.py --json > work/intent-coverage.json
 
-退出码：0 = 正常产出；2 = 配置/目录不可用（输出 ok=false 的 JSON）。
+退出码：0 = 全部探针覆盖；1 = 存在未覆盖/误命中缺口；
+        2 = 配置/目录不可用（输出 ok=false 的 JSON）。
 """
 from __future__ import annotations
+
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+from seep_runtime import self_test as _runtime_self_test
+
 
 import argparse
 import ast
 import json
 import re
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -64,7 +74,7 @@ CAP_ALIASES = {
     "repo:web-accept": ["验收"],
     "repo:patch-verify": ["补丁", "验收", "校验"],
     "repo:case-state": ["案例", "状态", "证据"],
-    "repo:check-budget": ["预算", "限速"],
+    "repo:budget": ["预算", "限速"],
     "repo:env-ledger": ["env", "环境变量", "账号"],
     "repo:fw-triage": ["固件", "分诊"],
     "repo:fw-repro": ["固件复现"],
@@ -104,13 +114,79 @@ GENERIC_COMBOS = [
     "tool:playwright",
     "repo:web-check",
     "repo:preflight-classify",
-    "repo:check-budget",
+    "repo:budget",
 ]
 
 
 def _load_json(path: Path):
     with path.open("r", encoding="utf-8-sig") as fh:
         return json.load(fh)
+
+
+def _formal_domains(root: Path) -> set:
+    """正式域来自有效 pack.json#id；历史/待迁移目录不能进入自动能力匹配。"""
+    formal = set()
+    skill_root = root / "Tool" / "skill"
+    if not skill_root.is_dir():
+        return formal
+    for path in sorted(skill_root.glob("*/pack.json")):
+        try:
+            data = _load_json(path)
+        except Exception:
+            continue
+        pid = data.get("id") if isinstance(data, dict) else None
+        if pid == path.parent.name and isinstance(data.get("depth_contract"), dict):
+            formal.add(pid)
+    return formal
+
+
+def _bare_capability_ids(root: Path) -> set:
+    """Collect capability ids that capability-gate accepts without a namespace."""
+    ids = set()
+
+    def add(item):
+        if not isinstance(item, dict):
+            return
+        cid = item.get("id") or item.get("capability")
+        if not isinstance(cid, str) or not cid:
+            return
+        if item.get("archived") is True or item.get("reserved") is True:
+            return
+        if item.get("maturity") not in ("usable", "battle-tested"):
+            return
+        ids.add(cid)
+
+    for path in sorted((root / "Tool" / "capabilities").glob("*.json")):
+        try:
+            data = _load_json(path)
+        except Exception:
+            continue
+        if isinstance(data, dict) and isinstance(data.get("id"), str):
+            add(data)
+            continue
+        entries = data
+        if isinstance(data, dict):
+            entries = (data.get("capabilities") or data.get("items")
+                       or data.get("tools") or [])
+        if not isinstance(entries, list):
+            continue
+        for item in entries:
+            add(item)
+    return ids
+
+
+CAPABILITY_TOKEN_RE = re.compile(
+    r"`([A-Za-z0-9_.-]+(?::[A-Za-z0-9_.-]+)?)`"
+)
+
+
+def _capability_tokens(text: str, bare_ids: set) -> list:
+    """Accept valid bare capability ids as well as namespaced references."""
+    tokens = CAPABILITY_TOKEN_RE.findall(text)
+    return [
+        token for token in tokens
+        if ":" in token or token in bare_ids
+    ]
 
 
 def _norm(text: str) -> str:
@@ -169,12 +245,14 @@ class Catalog:
         self.capabilities = {}
         self.sources = {}
         self.warnings = []
+        self.excluded_capabilities = []
 
     # ------------------------------------------------------------------
     # playbooks
     # ------------------------------------------------------------------
     def load_playbooks(self):
         pdir = self.root / "Tool" / "playbooks"
+        bare_capability_ids = _bare_capability_ids(self.root)
         files = []
         if pdir.is_dir():
             files = sorted(p for p in pdir.glob("*.md") if p.name.lower() not in {"readme.md", "index.md"})
@@ -192,7 +270,8 @@ class Catalog:
                     raw = stripped.split("触发词", 1)[1].lstrip("：: ")
                     triggers.extend(_split_triggers(raw))
                 if "capability id" in stripped.lower() or "用到的能力" in stripped:
-                    cap_ids.extend(re.findall(r"`([a-z]+:[a-z0-9_-]+)`", stripped))
+                    cap_ids.extend(_capability_tokens(
+                        stripped, bare_capability_ids))
             deduped = []
             seen = set()
             for item in triggers:
@@ -247,6 +326,7 @@ class Catalog:
         self._attach_playbook_trigger_inheritance()
         self._apply_aliases()
         self.sources["capability_count"] = len(self.capabilities)
+        self.sources["excluded_capabilities"] = self.excluded_capabilities
 
     def _add_cap(self, cid, title=None, source="", triggers=None, weight=4):
         # 能力层 SSOT（Tool/capabilities/*.json）用的是裸 id；这里不再要求命名空间。
@@ -273,6 +353,10 @@ class Catalog:
         self.sources["capabilities_dir"] = str(cdir.relative_to(self.root)) if cdir.is_dir() else ""
         if not cdir.is_dir():
             return
+        formal_domains = _formal_domains(self.root)
+        self.sources["formal_domains"] = sorted(formal_domains)
+        if not formal_domains:
+            self.warnings.append("没有可用正式域 pack.json；显式能力目录不会进入自动匹配")
         files = sorted(cdir.glob("*.json"))
         self.sources["capability_files"] = [str(p.relative_to(self.root)) for p in files]
         for path in files:
@@ -295,6 +379,22 @@ class Catalog:
                 if not isinstance(item, dict):
                     continue
                 cid = item.get("id") or item.get("capability")
+                reason = ""
+                if item.get("archived") is True:
+                    reason = "archived"
+                elif item.get("reserved") is True:
+                    reason = "reserved"
+                elif item.get("maturity") == "probe":
+                    reason = "probe"
+                elif item.get("domain") not in formal_domains:
+                    reason = "non-formal-domain:%s" % item.get("domain")
+                if reason:
+                    self.excluded_capabilities.append({
+                        "id": cid,
+                        "file": str(path.relative_to(self.root)),
+                        "reason": reason,
+                    })
+                    continue
                 title = item.get("title") or item.get("name") or cid
                 triggers = item.get("triggers") or item.get("keywords") or item.get("match") or []
                 if isinstance(triggers, str):
@@ -370,9 +470,15 @@ class Catalog:
 
     def _load_playbook_capability_ids(self):
         declared = set()
+        excluded_ids = {
+            row.get("id") for row in self.excluded_capabilities
+            if isinstance(row, dict) and isinstance(row.get("id"), str)
+        }
         for pb in self.playbooks.values():
             for cid in pb.get("capability_ids", []):
                 declared.add(cid)
+                if cid in excluded_ids:
+                    continue
                 self._add_cap(cid, cid, "playbook:" + pb["id"], [], weight=4)
         self.sources["declared_capability_ids"] = sorted(declared)
 
@@ -596,7 +702,74 @@ SELF_TEST_PROBES = [
 
 def run_self_test(catalog: Catalog):
     summary, results = evaluate(SELF_TEST_PROBES, catalog)
-    failed = [r for r in results if r["status"] != "covered"]
+    failed = [r["id"] for r in results if r["status"] != "covered"]
+    runtime_result = _runtime_self_test()
+    if not runtime_result.get("ok"):
+        failed.append("runtime-locator")
+
+    protocol = catalog.playbooks.get("protocol-replay") or {}
+    if not protocol.get("triggers"):
+        failed.append("protocol-replay:triggers")
+    if not protocol.get("capability_ids"):
+        failed.append("protocol-replay:capability-ids")
+
+    parsed_tokens = _capability_tokens(
+        "- 用到的能力（capability id）：`captcha-gap` `repo:case_state` "
+        "`unknown-bare-capability` `rootfs-emulate`",
+        {"captcha-gap"},
+    )
+    if parsed_tokens != ["captcha-gap", "repo:case_state"]:
+        failed.append("bare-capability-token-parser")
+    bare_ids = _bare_capability_ids(catalog.root)
+    if not {"captcha-gap", "captcha-angle"}.issubset(bare_ids):
+        failed.append("bare-capability-allowlist-omits-active")
+    if {"rootfs-emulate", "sign-recompute"} & bare_ids:
+        failed.append("bare-capability-allowlist-includes-non-auto")
+    captcha = catalog.playbooks.get("captcha-handling") or {}
+    if not {"captcha-gap", "captcha-angle"}.issubset(
+            set(captcha.get("capability_ids") or [])):
+        failed.append("captcha-handling:bare-capability-ids")
+
+    negative_ok = False
+    with tempfile.TemporaryDirectory(prefix="intent-coverage-selftest-") as tmp:
+        probes_path = Path(tmp) / "negative-probes.json"
+        probes_path.write_text(json.dumps({
+            "probes": [{
+                "id": "negative-gap",
+                "text": "完全没有匹配目标的口语描述",
+                "expect": "missing-playbook",
+                "forbid": [],
+            }],
+        }, ensure_ascii=False), encoding="utf-8")
+        negative_payload, negative_rc = build_payload(catalog.root, probes_path, catalog)
+        negative_ok = (negative_rc == 1 and negative_payload.get("ok") is False
+                       and bool(negative_payload.get("gaps")))
+    if not negative_ok:
+        failed.append("negative-gap-exit")
+
+    excluded = {row.get("id"): row.get("reason")
+                for row in catalog.excluded_capabilities
+                if isinstance(row, dict)}
+    if "ad-enum" in catalog.capabilities or "ad-enum" in excluded:
+        failed.append("archived-capability-filter")
+    if "rootfs-emulate" not in excluded or excluded.get("rootfs-emulate") != "reserved":
+        failed.append("reserved-capability-filter")
+    if "sign-recompute" not in excluded or excluded.get("sign-recompute") != "probe":
+        failed.append("probe-capability-filter")
+    for row in results:
+        for cid in row.get("combination", []):
+            cap = catalog.capabilities.get(cid) or {}
+            if cid.startswith("tool:") or cid.startswith("apk:") or cid.startswith("mcp:"):
+                continue
+            source = cap.get("source", "")
+            if source.startswith("Tool/capabilities/") and source.endswith(".json"):
+                try:
+                    raw = _load_json(catalog.root / source)
+                except Exception:
+                    continue
+                if raw.get("reserved") is True or raw.get("maturity") == "probe":
+                    failed.append("non-auto-combination:" + cid)
+
     payload = {
         "ok": not failed,
         "self_test": {
@@ -604,12 +777,27 @@ def run_self_test(catalog: Catalog):
             "failed": len(failed),
             "total": summary["total"],
         },
+        "runtime_locator": runtime_result,
+        "negative_gap_check": negative_ok,
+        "capability_filters": {
+            "archived": "ad-enum" not in catalog.capabilities,
+            "reserved": "rootfs-emulate" in excluded,
+            "probe": "sign-recompute" in excluded,
+        },
+        "bare_capability_ids": {
+            "captcha-gap": "captcha-gap" in set(
+                (catalog.playbooks.get("captcha-handling") or {}).get(
+                    "capability_ids") or []),
+            "captcha-angle": "captcha-angle" in set(
+                (catalog.playbooks.get("captcha-handling") or {}).get(
+                    "capability_ids") or []),
+        },
         "results": results,
     }
     if failed:
         payload["ok"] = False
         payload["blocked_at"] = "self-test"
-        payload["reason"] = "内置样本未全部命中期望落点: " + ", ".join(r["id"] for r in failed)
+        payload["reason"] = "自测失败: " + ", ".join(failed)
     return payload, (0 if not failed else 2)
 
 
@@ -650,8 +838,8 @@ def build_payload(root: Path, probes_path: Path, catalog: Catalog):
 
     summary, results = evaluate(probes, catalog)
     gaps = [r for r in results if r["status"] != "covered"]
-    return {
-        "ok": True,
+    payload = {
+        "ok": not gaps,
         "schema": SCHEMA,
         "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
         "root": str(root),
@@ -672,7 +860,11 @@ def build_payload(root: Path, probes_path: Path, catalog: Catalog):
         "results": results,
         "sources": catalog.sources,
         "warnings": catalog.warnings,
-    }, 0
+    }
+    if gaps:
+        payload["blocked_at"] = "intent-gaps"
+        payload["reason"] = "有 %d 条意图未落到期望配方/能力" % len(gaps)
+    return payload, (0 if not gaps else 1)
 
 
 def _print_human(payload):
@@ -692,11 +884,7 @@ def _print_human(payload):
 
 
 def _repo_root_path(p: Path) -> Path:
-    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/）。"""
-    for cand in [p.resolve().parent] + list(p.resolve().parents):
-        if (cand / "Tool" / "cases").is_dir():
-            return cand
-    return p.resolve().parents[2]
+    return Path(_seep_repo_root(__file__))
 
 
 def main(argv=None):

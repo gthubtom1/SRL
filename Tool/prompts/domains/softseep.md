@@ -1,7 +1,6 @@
 # 逆向域任务卡（24 张）
 
-> 源技能名严格取自 `Tool/config/taskcard-sources.json` 的 `domains.reverse` 列表（键名是历史遗留：
-> 本文件原属旧域 `reverse`，域已收口为 `softseep`，但 taskcard-sources.json 的键名尚未改）。
+> 源技能名严格取自 `Tool/config/taskcard-sources.json` 的 `domains.softseep` 列表。
 > 每张卡六段：触发词 / 前置 / 步骤 / 判据 / 失败判据 / reference。
 > 用法：先按触发词选卡，再读 reference；判据不成立就按失败判据换路。
 

@@ -180,18 +180,29 @@ def redact(sample: str) -> str:
         r"wpa[_-]?passphrase|psk)\s*[=:]\s*)(\S+)", text)
     if match:
         return match.group(1) + "<redacted>"
-    match = re.match(r"^((?:AKIA|ASIA)[0-9A-Z]{4})[0-9A-Z]{12}$", text)
+    match = re.search(r"\b((?:AKIA|ASIA)[0-9A-Z]{16})\b", text)
     if match:
-        return match.group(1) + "****************"
-    if text.lower().startswith("ssh-"):
-        return text.split()[0] + " <redacted>"
-    if text.startswith("Bearer "):
+        return "<redacted aws-access-key>"
+    if low.startswith("ssh-") or re.search(r"\bssh-(?:rsa|dss|ed25519)\s+", text, re.I):
+        return "<redacted ssh-public-key>"
+    if re.search(r"\bbearer\s+\S+", text, re.I):
         return "Bearer <redacted>"
-    parts = text.split(":")
-    if len(parts) >= 2 and (parts[1].startswith("$") or len(parts) >= 7):
-        tail = ":".join(parts[2:]) if len(parts) > 2 else ""
-        return parts[0] + ":<redacted>" + (":" + tail if tail else "")
-    return text[:48] + ("..." if len(text) > 48 else "")
+    # passwd/shadow-shaped records are useful only as a username plus the fact
+    # that the second field was present. Never echo the field itself.
+    identity = re.search(r"(?:^|\s)([A-Za-z0-9_.-]+):([^:\s]+):", text)
+    if identity and (identity.group(2).startswith("$") or text.count(":") >= 6):
+        return identity.group(1) + ":<redacted>"
+    # This function is only called after a credential regex matched. A miss in
+    # the specific formatters must therefore fail closed instead of returning
+    # an arbitrary 48-character prefix that can contain the secret.
+    return "<redacted credential clue>"
+
+
+def positive_int(value: str) -> int:
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return number
 
 
 def collect_clues(mm, size: int, max_scan: int, max_clues: int):
@@ -434,6 +445,9 @@ def self_test():
         assert all("<redacted>" in c["snippet"] for c in result["credential_clues"]
                    if c["type"] == "private-key")
         checks += 1
+        bearer = redact("header bearer abcdefghijklmnopqrstuvwxyz tail")
+        assert "abcdefghijklmnopqrstuvwxyz" not in bearer and "<redacted>" in bearer
+        checks += 1
 
         empty = os.path.join(tmp, "empty.bin")
         open(empty, "wb").close()
@@ -499,9 +513,9 @@ def main(argv=None):
         description="Offline firmware triage: magic/container, entropy, credential strings, extraction commands.")
     parser.add_argument("--file", help="firmware image to inspect (read-only)")
     parser.add_argument("--json", action="store_true", help="emit one JSON object")
-    parser.add_argument("--max-scan-mb", type=int, default=256,
+    parser.add_argument("--max-scan-mb", type=positive_int, default=256,
                         help="max MiB scanned for strings/magic (default 256)")
-    parser.add_argument("--max-clues", type=int, default=80,
+    parser.add_argument("--max-clues", type=positive_int, default=80,
                         help="max credential clues reported (default 80)")
     parser.add_argument("--out-dir", default="work/fw-triage",
                         help="directory used in suggested extraction commands")
@@ -543,7 +557,21 @@ def main(argv=None):
             print("[ERROR] NOT_A_REGULAR_FILE: %s" % args.file, file=sys.stderr)
         return 2
 
-    result, err = analyse(args.file, args.max_scan_mb, args.max_clues, args.out_dir)
+    try:
+        result, err = analyse(args.file, args.max_scan_mb, args.max_clues, args.out_dir)
+    except OSError as exc:
+        result, err = None, {
+            "ok": False, "blocked_at": "input",
+            "reason": "%s: %s" % (type(exc).__name__, exc),
+            "error": {"code": "FILE_UNREADABLE", "message": str(exc), "path": args.file},
+        }
+    except Exception as exc:  # noqa: BLE001 - CLI must never leak a traceback
+        result, err = None, {
+            "ok": False, "blocked_at": "internal",
+            "reason": "analysis failed: %s" % type(exc).__name__,
+            "error": {"code": "ANALYSIS_FAILED", "message": type(exc).__name__,
+                      "path": args.file},
+        }
     if err:
         print(json.dumps(err, ensure_ascii=False, indent=2))
         if not args.json:

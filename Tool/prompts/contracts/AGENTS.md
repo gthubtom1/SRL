@@ -1,41 +1,16 @@
-# AGENTS.md — 仓库根入口（bootstrap）
+# 仓库接入指针
 
-> **这是一张指路牌，不是协议全文。** Codex / DeepSeek Harness / OpenCode 在仓库根读到本文件后，
-> **必须先读完 `Tool/prompts/AGENTS.md`（协议全文）再动手**；Pi Agent 与 Claude Code 已由各自入口加载，可忽略本文件。
+本文件是其他宿主接入仓库时可使用的入口模板，不替代宿主规则或当前用户指令。安装器生成 MCP 配置，不代表已经把本文件部署为所有宿主的根指令。
 
-## 0. 你现在在哪
+- 介绍与使用：`README.md`。
+- 用户要求安装或修复时：先读 `Tool/docs/BOOTSTRAP.md`，由智能体检测环境、补齐缺项并验证。
+- 实际安装参数、更新、卸载：`MANUAL/DEPLOYMENT.md`。
+- 如何判断安装结果：`MANUAL/DEPLOYMENT-CHECKLIST.md`。
+- 通用执行约定：`Tool/prompts/AGENTS.md`；Pi 指针：`Tool/prompts/SEEP.md`。
+- 范围与当前验证：`REQUIREMENTS.md`、`docs/CURRENT-STATE.md`。恢复用户项目另读其自身状态。
 
-- 仓库：`Seep Reverse Lab`（逆向工程 / 客户端鉴权审计工作台，GPL-3.0）
-- 协议全文：**`Tool/prompts/AGENTS.md`**（Lab 环境开关 / 工具纪律 / 反退缩 / G-Auth / 提效路由）
-- pi 专属系统规则：`Tool/prompts/SEEP.md`（规则优先级 / 术语映射 / MCP 工具链）
-- 部署手册：`MANUAL/DEPLOYMENT.md`（含四栏校验看板格式）
-- 校验基准：`MANUAL/DEPLOYMENT-CHECKLIST.md`
-- 基线冻结与反臃肿预算：`MANUAL/BASELINE-FREEZE.md`
+所有仓库相对命令从仓库根执行；任务材料与输出使用明确的项目路径。自定义 AgentRoot 时将环境检查、诊断和安装指向同一目录。
 
-## 1. 三条铁律（读完全文前先记住这三条）
+分别报告文件部署、MCP 握手、宿主实际加载与具体任务结果。只有模型登录缺失时指导用户在宿主登录，不反复重装；`lab：` 是可选 Pi 交互，不是开始所有任务的要求。
 
-1. **凭据 / Token / Salt / 密钥不外泄** —— 发现即停、报告用户、不写入任何输出。
-2. **探测走能力表**：先 `tool-acquire.py --list` 读能力表，表外先联网查文档，仍不确定就问用户。
-3. **同一目标同类动态尝试（附加/注入/断点/改内存）最多 2 次**，第二次失败必须停下汇报，「再试一次」式循环视为返工。
-
-## 2. 用户说「部署」时怎么做
-
-```powershell
-# 若当前目录没有 setup/，说明还没拿到代码 —— 先克隆（见下），不要在空目录里硬跑
-git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
-cd Seep-Reverse-Lab
-powershell -ExecutionPolicy Bypass -File .\setup\install.ps1
-```
-
-- Linux / macOS：`./setup/install.sh`
-- **部署/更新后必须**跑 `python Tool/scripts/check.py --env`，并按 `MANUAL/DEPLOYMENT.md` 附录 A 输出四栏看板。
-- 完成后提醒用户：**完全重启 Agent 会话**，再发 `lab：`。
-
-## 3. 不要做的事
-
-- 不要搬动 `Tool/mcp/Tool/`（MCP 内部硬编码相对路径）。
-- 不要修改 `Tool/mcp/seep_mcp_server.py` 的路径常量。
-- 不要在仓库根堆放任务产物（用 `work/`，已 gitignore）。
-- 不要把本文件当协议全文；协议在 `Tool/prompts/AGENTS.md`。
-
-> 项目优化总纲与缺陷台账：`docs/PLAN-v8.md`（唯一事实源；换会话先读它）。
+不要沿用历史数量、看板或其他机器的已连接状态，不自动恢复取消的快捷指令和旧规划。用户用自然语言描述目标，主模型自行按需要组合技能、工具和知识。

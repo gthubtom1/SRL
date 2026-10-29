@@ -1,0 +1,3 @@
+[serve] D:\Seep-Reverse-Lab\Tool\cases\site-clone-drill01\artifacts\site -> http://127.0.0.1:54539
+[offline] / status=200 diff=0.015188 dom=0.9778
+{"pixel_overall": 0.015188, "pixel_overall_static": 0.0, "dom_overall": 0.9778, "external": 2, "verdict": "whitelist-only", "mocks": 1}

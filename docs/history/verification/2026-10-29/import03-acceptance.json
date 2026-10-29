@@ -1,0 +1,52 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "IMPORT-03",
+  "decision": "accepted_scoped",
+  "signer_role": "main-agent",
+  "independent_verifier_session": "01a17cc5-124d-74f6-8526-d93a1b066464",
+  "independent_report": "work/goal-recovery/import03-independent.md",
+  "independent_report_sha256": "2d6b187d9956cc73054d75df9800159e66fa1c49d21628f36ecc2639f0a516dc",
+  "objects": {
+    "Tool/scripts/skill-import.py": "40437206560b57bc5f0961aaa4f59192536471d8aaa7aedfe372bdb41fd1c8db",
+    "Tool/scripts/test_import_metadata.py": "22c4e508a78f54462ec16bd17d922fbd84d4210de801ab544cb356ffce478815",
+    "Tool/scripts/test_import_transactions.py": "0ab74b96872aa8e3c2dbb7044b9850cee5666c35e78f1c898da6787b267e793d",
+    "Tool/scripts/test_skill_import.py": "4406e8a7b9faf1080d19056a117ef997acc29dbb707084fe95f28f0ac014f648",
+    "Tool/docs/EXTEND.md": "935d091496b8abbc5e6b9f9519e2ea6981a334a0b5a08f6607d6a32d0e5205ad",
+    "Tool/scripts/gate.py": "0bdd324b8641634a340daa2c47ea005932306093776d4909df0c7f5ec273e93c",
+    "Tool/scripts/route.py": "7e4a4e4d15509daa027afc9daf038ad2ed35c469a7b71a3e34509aac6ab949e4",
+    "Tool/scripts/domain-gate.py": "de41a61329286bdfd6551723a042d9887785cc5b03c3829c0a9bf39cdd124be9"
+  },
+  "signature_basis": "Read-only independent CLI counterexamples and positive restoration controls; eight current object hashes equal the independently locked versions.",
+  "accepted_scope": [
+    "Subskill mapping schema, identity, entry, path, content hash and original byte-size validation; production and verify share the validator.",
+    "Structured refusals for the tested source-overlap, symlink, filesystem-root and missing-explicit-root cases, without mutation or traceback.",
+    "Tested read-only unexpected-error paths return failure without exposing exception values.",
+    "Same-parent concurrent imports preserve both readable references; tested rollback preserves earlier transactions; natural Windows rename failure does not fall back to copy-delete.",
+    "Repo/deployment byte equivalence and pointer reachability are reported separately from runtime loading and effective activation."
+  ],
+  "results": {
+    "metadata_tests": 17,
+    "transaction_tests": 24,
+    "legacy_import_tests": 34,
+    "old_counterexample_checks": [
+      6,
+      7
+    ],
+    "independent_assertions": [
+      74,
+      50,
+      29,
+      19,
+      10
+    ]
+  },
+  "limits": [
+    "No general approval of every extension-import requirement: tenth-domain integration, tool execution adapters, automatic recovery and Pi runtime loading remain incomplete.",
+    "Cross-volume availability and non-Windows behavior are not verified.",
+    "Existing non-directory deployment roots are reported as parent_not_deployed with hashes_equal=null; verify_scope wording is broader than the observed deployment availability.",
+    "Inner transaction exceptions still expose bounded exception text; uniform output credential protection remains a separate open requirement.",
+    "EXTEND.md does not yet describe every authoritative mapping field.",
+    "Read-only audit disclosed concurrent third-party bytecode-cache changes; eight source/criteria objects and deployed user skill content remained unchanged."
+  ],
+  "overall_goal_complete": false
+}

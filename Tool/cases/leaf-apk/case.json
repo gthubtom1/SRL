@@ -4,28 +4,136 @@
  "target_type": "APK（单 classes dex，dex 035，零 native 库）：公开教学靶场 DIVA（Damn Insecure and Vulnerable App），包名 jakhar.aseem.diva，minSdk 15 / targetSdk 23",
  "evidence_kind": "public",
  "protection": [
-  "未加固：整包仅 1 个 classes dex（1931680B）、无 lib 与 so、16 个加固特征串（StubApp/libjiagu/DexHelper/comqihoo/SecShell/bangcle/secneo/AppWrapper/aliprotect/libnesec/libshella 等）计数全为 0、manifest 的 application 节点无 android:name（装不下 StubApp 类入口）"
+  "单 classes.dex（1931680B，dex 035），整包 379 条目，无 lib 条目且无 .so",
+  "16 个常见加固特征串在 dex 中计数全为 0",
+  "公开教学靶场 DIVA；本案例只把可复核的载体结构与成品字节作为已证事实"
  ],
- "authority": "本样本无授权/卡密面（教学靶场，功能入口是 manifest 里的 17 个 activity 与 1 个 provider）；本叶子验证的是『smali 可改 → 重打包 → 对齐 → 签名』链路，不是绕过某个校验",
+ "authority": "本样本无授权/卡密面（公开教学靶场）；本次只验证载体结构与现有成品 app 的哈希，不声称历史构建过程已经复现",
  "goal_level": "L1",
  "outcome": "partial",
  "artifacts": [
-  "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk"
+  {
+   "path": "capture/r13-repro.json",
+   "sha256": "d2dd1e038d7dd2cc2756ce2402bffdc109deec9eb3070f8cef5ab5b84020630e",
+   "size": 4298
+  },
+  {
+   "path": "capture/r13-apk-structure.stdout.txt",
+   "sha256": "16227f87ce4a952784ac9836a5fefdf76658adf0f164e45a8d50fc7209f9b7da",
+   "size": 666
+  },
+  {
+   "path": "capture/r13-apk-structure.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  {
+   "path": "capture/r13-apk-diff.stdout.txt",
+   "sha256": "95f21726fddd20d408cb56b3bd8ed30876c9b19130f99302e3024215f4ed88ab",
+   "size": 326
+  },
+  {
+   "path": "capture/r13-apk-diff.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  {
+   "path": "artifacts/diva_repatched_signed.apk",
+   "sha256": "1b5bae4ca11821cc2e743b395d224b230e4580dc500252ae7e00cd7803af5e90",
+   "size": 1301491
+  }
  ],
  "repro": {
   "status": "recorded",
-  "evidence": "解包 apktool d -r 得 1792 个 smali；改 APICredsActivity 第 38 行 const-string → apktool b 得 Built apk → jarsigner 签名 → zipalign 对齐 → zipalign -c 得 Verification succesful、jarsigner -verify rc=0、aapt 能解析新包、grep 新串得 1。证据见 facts 的 F-101..F-106 与 report/triage.md"
+  "command": "python -B -X utf8 Tool/skill/apkseep/scripts/apk_diff.py Tool/cases/leaf-apk/target/diva.apk Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk --summary --only 'classes.*\\.dex|^lib/|\\.so$'",
+  "argv": [
+   "D:\\EXE\\python\\python.exe",
+   "-B",
+   "-X",
+   "utf8",
+   "Tool/skill/apkseep/scripts/apk_diff.py",
+   "Tool/cases/leaf-apk/target/diva.apk",
+   "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk",
+   "--summary",
+   "--only",
+   "classes.*\\.dex|^lib/|\\.so$"
+  ],
+  "cwd": ".",
+  "rc": 0,
+  "stdout": {
+   "path": "Tool/cases/leaf-apk/capture/r13-apk-diff.stdout.txt",
+   "sha256": "95f21726fddd20d408cb56b3bd8ed30876c9b19130f99302e3024215f4ed88ab",
+   "size": 326
+  },
+  "stderr": {
+   "path": "Tool/cases/leaf-apk/capture/r13-apk-diff.stderr.txt",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "size": 0
+  },
+  "commands": [
+   {
+    "label": "apk-structure",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "-c",
+     "import hashlib, json, zipfile\nfrom pathlib import Path\np = Path(\"Tool/cases/leaf-apk/target/diva.apk\")\nd = p.read_bytes()\nwith zipfile.ZipFile(p) as z:\n    names = z.namelist()\n    dex_names = sorted(n for n in names if n.startswith(\"classes\") and n.endswith(\".dex\"))\n    dex_name = dex_names[0] if dex_names else None\n    dex = z.read(dex_name) if dex_name else b\"\"\n    lib_entries = sorted(n for n in names if n.startswith(\"lib/\"))\n    so_entries = sorted(n for n in names if n.lower().endswith(\".so\"))\nmarkers = [\"StubApp\", \"stubStubApp\", \"libjiagu\", \"DexHelper\", \"com.qihoo\", \"SecShell\", \"jiagu\", \"bangcle\", \"secneo\", \"libexec\", \"libshell\", \"AppWrapper\", \"aliprotect\", \"libnesec\", \"libshella\", \"libmobisec\"]\nhits = {m: dex.count(m.encode()) for m in markers}\nprint(json.dumps({\"sha256\": hashlib.sha256(d).hexdigest(), \"size\": len(d), \"entries\": len(names), \"dex\": dex_names, \"dex_0_size\": len(dex), \"dex_0_magic\": dex[:4].hex() if dex else None, \"dex_0_version\": dex[4:8].hex() if dex else None, \"lib_entries\": lib_entries, \"so_entries\": so_entries, \"harden_hits\": hits, \"harden_nonzero\": sum(hits.values())}, indent=2, ensure_ascii=False))"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/leaf-apk/capture/r13-apk-structure.stdout.txt",
+     "sha256": "16227f87ce4a952784ac9836a5fefdf76658adf0f164e45a8d50fc7209f9b7da",
+     "size": 666
+    },
+    "stderr": {
+     "path": "Tool/cases/leaf-apk/capture/r13-apk-structure.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   },
+   {
+    "label": "apk-diff",
+    "argv": [
+     "D:\\EXE\\python\\python.exe",
+     "-B",
+     "-X",
+     "utf8",
+     "Tool/skill/apkseep/scripts/apk_diff.py",
+     "Tool/cases/leaf-apk/target/diva.apk",
+     "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk",
+     "--summary",
+     "--only",
+     "classes.*\\.dex|^lib/|\\.so$"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+     "path": "Tool/cases/leaf-apk/capture/r13-apk-diff.stdout.txt",
+     "sha256": "95f21726fddd20d408cb56b3bd8ed30876c9b19130f99302e3024215f4ed88ab",
+     "size": 326
+    },
+    "stderr": {
+     "path": "Tool/cases/leaf-apk/capture/r13-apk-diff.stderr.txt",
+     "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+     "size": 0
+    },
+    "watched_unmodified": true
+   }
+  ],
+  "target_sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+  "artifact_sha256": "1b5bae4ca11821cc2e743b395d224b230e4580dc500252ae7e00cd7803af5e90",
+  "evidence": "R13 实际执行 ZIP/DEX 结构检查与 target/成品逐条目差异检查：target 有 379 条目、单个 classes.dex、零 lib/so 与零列名加固特征命中；两项命令 rc=0，两个绑定文件前后哈希一致。"
  },
  "evidence_dir": ".",
  "lessons": [
-  "存在理由：路径树叶子 A-APK-PLAIN 原本没有样本，安卓这一支的所有失败都无法归因（是壳挡的，还是重打包没跑通）。本 case 给出最小可回放基线。",
-  "未加固四条独立依据：① 单 classes dex 且魔数版本正常；② 无 lib 目录项、无 so；③ 16 个加固特征串全 0；④ manifest application 无 android:name（加固包必须挂 StubApp/AppWrapper）。",
-  "链路已闭环：apktool d -r → 改 smali → apktool b → jarsigner → zipalign → 三道复核（zipalign -c、jarsigner -verify、aapt 解析）全过，且新 dex 里能 grep 到改后的字符串。",
-  "真坑（对齐顺序）：先 zipalign 再 jarsigner 会让对齐失效（zipalign -c 报 BAD -2 / BAD -1 → Verification FAILED）；v1 签名重写 zip 目录区，顺序必须是『先签名、再对齐』。",
-  "真坑（资源解码）：apktool 2.5.0 不带 -r 在本样本上卡死（反复 Load resource table，180s 超时，前期报 Invalid data detected -3416 字节 / Unknown data 17756 字节）；本次用 -r 绕过，代价是 res 不反编译、manifest 非文本。",
-  "未验证（诚实缺口）：无 adb 设备在线 → 真机安装与启动未验；样本无任何广告 SDK → 叶子见证物的『广告消失』不可验证；apksigner 缺失 → 只能产 v1 签名（targetSdk 23 恰好可用，API 24+ 需 v2/v3）。",
-  "第 7 条（证据来源，2026-10-26 迁移时补）：本样本是**公开教学靶场** DIVA，来源与依据见 evidence_source 字段 —— 副本来自 Tool/samples/real/android-apks/diva.apk（上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开靶场集合），sha256 2228c2f4…25c5；复跑命令 `apktool d -r` → 改 smali → `apktool b` → `jarsigner` → `zipalign`（F-104 记 rc=0），证据见 facts 的 F-101..F-106 与 report/triage.md。因此 evidence_kind 从 fixture 改为 public：它是公开可分发的真实产物，不是合成夹具。",
-  "边界：能证明『改得动、打得回、签得上』，不能证明『装上能跑、广告消失』；这两项必须由用户在真实带广告 APK + 在线设备上补验。"
+  "存在理由：给安卓普通 APK 提供可复核的载体基线，避免把加固或设备侧失败误归因于最基本的打包能力。",
+  "已证：target 是 379 条目、单个 classes.dex、无 lib/so，16 个列名加固特征计数为 0；结果见 capture/r13-apk-structure.stdout.txt。",
+  "已证：现有重打包成品可重算 size/sha256，历史 capture 记录了 zipalign 成功；案例内 MANIFEST 绑定成品字节。",
+  "来源：公开教学靶场 DIVA，案例内 target/diva.apk 与登记哈希一致。"
  ],
  "tags": [
   "public",
@@ -34,27 +142,44 @@
   "triage",
   "path-tree",
   "A-APK-PLAIN",
-  "apktool",
-  "repackage"
+  "zip-structure",
+  "artifact-verification"
  ],
  "refs": [
   "Tool/cases/leaf-apk/report/triage.md",
+  "Tool/cases/leaf-apk/capture/reverify-2026-10-24.log",
   "Tool/cases/leaf-apk/target/diva.apk",
+  "Tool/cases/leaf-apk/artifacts/MANIFEST.sha256",
   "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk",
   "Tool/samples/real/android-apks/README.md",
   "Tool/skill/apkseep/SKILL.md"
  ],
- "updated": "2026-10-26",
+ "updated": "2026-10-29",
  "target_files": [
   {
    "path": "target/diva.apk",
    "sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
-   "source": "公开靶场 DIVA（Damn Insecure and Vulnerable App，Aseem Jakhar 的安卓漏洞教学 App）；本仓库副本来自 Tool/samples/real/android-apks/diva.apk（Tool/samples/real/README.md 登记的上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开教学靶场集合）。sha256 2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5"
+   "source": "公开靶场 DIVA（Damn Insecure and Vulnerable App，Aseem Jakhar 的安卓漏洞教学 App）；本仓库副本来自 Tool/samples/real/android-apks/diva.apk（Tool/samples/real/README.md 登记的上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开教学靶场集合）。sha256 2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+   "size": 1249777
   }
  ],
  "evidence_source": {
   "kind": "public",
   "source": "公开靶场 DIVA（Damn Insecure and Vulnerable App，Aseem Jakhar 的安卓漏洞教学 App）；本仓库副本来自 Tool/samples/real/android-apks/diva.apk（Tool/samples/real/README.md 登记的上游 ev-flow/apk-samples 的 vulnerable-samples/ 公开教学靶场集合）。sha256 2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
   "basis": "依据：① 包名 jakhar.aseem.diva、versionCode 1 / 1.0、17 个 activity 与 APICreds/InsecureDataStorage/SQLInjection 等 DIVA 课程名一致的组件；② 与 Tool/samples/real/android-apks/diva.apk 逐字节同哈希（sha256 2228c2f4…25c5）；③ 上游 ev-flow/apk-samples 的 README 声明为公开安全教学靶场。→ 是公开可分发真实产物，不是合成夹具，故 evidence_kind=public（不是 real：没有客户目标与授权单）"
- }
+ },
+ "acceptance_profile": "apk-target/1",
+ "target": {
+  "path": "target/diva.apk",
+  "sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+  "size": 1249777,
+  "at": "2026-10-29",
+  "note": "公开教学靶场 DIVA；案例内原件与登记哈希一致"
+ },
+ "limitations": [
+  "旧日志只保留最终叙述，F-103/F-105 的 apktool 解包、1792 个 smali、smali 修改、apktool 构建和 jarsigner 完整链路仍为 hypothesis。",
+  "manifest application 无 android:name 的旧观察缺少当前 xmltree 原始输出，已从 protection 与 proven claim 中撤回。",
+  "当前环境不保证 apktool、aapt、zipalign 可用；R13 只重放 ZIP/DEX 结构、成品哈希和条目差异检查。",
+  "无在线设备，未验证安装、启动或功能变化；样本没有观察到的广告 SDK，未验证去广告效果。"
+ ]
 }

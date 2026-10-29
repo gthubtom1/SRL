@@ -19,11 +19,41 @@
     }
   },
   "source_sha256": {
-    "facts.jsonl": "39fffb85c9d86ce1013ddca8c68c8d06b723d90a05f41df8c10408cffb225184",
-    "artifacts/MANIFEST.sha256": "886ce41e8377e328b6370688370a6195d66d69c228c7f61ee95f591c07d6de69"
+    "artifacts/MANIFEST.sha256": "886ce41e8377e328b6370688370a6195d66d69c228c7f61ee95f591c07d6de69",
+    "facts.jsonl": "b557b874db1fac32ae247d7a3983c094d37ccd4c55653afac734306ac5eae006"
   },
   "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
   "limitations": [
     "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+  ],
+  "audit_corrections": [
+    {
+      "at": "2026-10-29T09:24:33.361845+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "已依据原始日志第54行将FW06-04条目数由353更正为401，日志明确记载条目401个其中非空4个；未新增目标执行。",
+      "previous_final": {
+        "claims": 7,
+        "proven": 7,
+        "strong": 7,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "39fffb85c9d86ce1013ddca8c68c8d06b723d90a05f41df8c10408cffb225184",
+        "artifacts/MANIFEST.sha256": "886ce41e8377e328b6370688370a6195d66d69c228c7f61ee95f591c07d6de69"
+      },
+      "new_final": {
+        "claims": 7,
+        "proven": 7,
+        "strong": 7,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "886ce41e8377e328b6370688370a6195d66d69c228c7f61ee95f591c07d6de69",
+        "facts.jsonl": "b557b874db1fac32ae247d7a3983c094d37ccd4c55653afac734306ac5eae006"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
   ]
 }

@@ -54,6 +54,36 @@
     "plugin06",
     "protocol05"
   ],
+  "case_roles": {
+    "witness": [
+      "protocol01",
+      "protocol02",
+      "protocol03",
+      "protocol04",
+      "plugin02",
+      "plugin03",
+      "plugin04",
+      "plugin05",
+      "plugin06",
+      "protocol05"
+    ],
+    "depth_gate": [
+      "protocol01",
+      "protocol02",
+      "protocol03",
+      "protocol04",
+      "protocol05"
+    ]
+  },
+  "depth_contract": {
+    "skill": "protocol-plugin",
+    "board": "protocol",
+    "matrix": "protocol-plugin-matrix.json",
+    "case_globs": [
+      "protocol*"
+    ],
+    "ext_scripts": []
+  },
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/protocol05",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
@@ -83,6 +113,47 @@
   "invalidation": [
     "协议为公开标准且已有库（直接复用，不必复刻）"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": ["pcap/pcapng", "HTTP transcript", "binary protocol frame", "protobuf/flatbuffers schema", "plugin/extension artifact"],
+    "sample_completeness": {
+      "required": ["representative request/response or capture", "client/plugin artifact", "message context and schema when available"],
+      "missing_means": "缺抓包、客户端、协议上下文或服务端回放条件只是输入要求，不代表协议复刻或插件兼容能力已完成。"
+    },
+    "environment": {
+      "required": ["authorized replay or local harness", "offline packet-analysis workspace", "test account and endpoint only when replay requires them"],
+      "missing_means": "缺样本、账号、设备、网络或服务端确认时只能分析格式和假设，不能声称互操作。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/protocol-plugin/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/protocol-plugin/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/protocol-plugin/SKILL.md",
+    "incremental": "Tool/skill/protocol-plugin/SKILL.md"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/protocol-plugin/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/protocol-plugin/scripts/witness.py",
     "why": "真跑 pcap-summary.py 分析 Tool/cases/protocol05/target/RADIUS.pcap：断言 packet_count/session_count>0、sessions 含 UDP/1812、sha256，证明 pcap 会话聚合真的产出结果"

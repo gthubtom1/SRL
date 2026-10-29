@@ -1,111 +1,57 @@
-# ARCHITECTURE —— 全局构造图（一张图看懂这个项目）
+# 当前架构与实现落点
 
-> 这份文件是"产品经理脑子里的那张图"。任何改动先对照它，回答三个问题：
-> ① 改的是哪一层？② 谁依赖它？③ 它的**派生需求**有没有一起处理？
+功能需求唯一来源为 [REQUIREMENTS.md](../REQUIREMENTS.md)，完成状态唯一来源为 [CURRENT-STATE.md](CURRENT-STATE.md)。本页描述代码职责，不新增产品要求或宣称所有路径已验收。
 
----
+## 1. 一次项目的主路径
 
-## 1. 分层（自上而下，箭头=依赖方向）
-
-```
-              ┌─────────────────────────────────────────────┐
-  用户层       │  说人话 / 可选 3 张快捷卡(/reverse 等)        │
-              └───────────────────┬─────────────────────────┘
-                                  ▼
-              ┌─────────────────────────────────────────────┐
-  选择层       │  10 个域 SKILL.md 的 name+description（常驻） │  ← 模型据此选域
-              │  选不准 → 问用户，不猜                        │
-              └───────────────────┬─────────────────────────┘
-                                  ▼
-              ┌─────────────────────────────────────────────┐
-  方法层       │  域 SKILL.md（≤600 行）+ references/         │  按需读
-              │  子技能池 Tool/skill/_pending/（17 个，不常驻）│
-              └───────────────────┬─────────────────────────┘
-                                  ▼
-              ┌─────────────────────────────────────────────┐
-  执行层       │  MCP(seep 20 工具) + 内置工具(radare2/jadx/…) │
-              │  + 本机工具（8 层探测 + 机器级缓存）           │
-              └───────────────────┬─────────────────────────┘
-                                  ▼
-              ┌─────────────────────────────────────────────┐
-  证据层       │  case.json / facts.jsonl / MANIFEST.sha256    │
-              │  / scope.md（范围契约）/ docs/verification/   │
-              └───────────────────┬─────────────────────────┘
-                                  ▼
-              ┌─────────────────────────────────────────────┐
-  校验层       │  python Tool/scripts/check.py（6 套件）       │
-              └─────────────────────────────────────────────┘
+```text
+用户自然语言 + 文件/目录/URL
+→ Agent 判断目标、保护、主辅领域、可达上限和缺失材料
+→ 读取 seep-router / 对应领域 SKILL / references，检索相关知识库
+→ project_workflow 建项目和路线，Manager 检查动作准入
+→ 实际 MCP / 已有脚本 / CLI / 必要 GUI
+→ 捕获原始输出，登记目标/版本/run/资产身份和证据
+→ 按明确判据验收，生成报告，结束或交接
+→ 需要时导出/重新导入，换版本后重新验证
 ```
 
-## 2. 组件清单（职责 / 入口 / 谁消费 / 状态）
+自然语言直接触发选域。额外域快捷命令已取消；本项目不生成命令卡。
 
-| 目录 | 职责 | 入口 | 谁消费 | 文件/行 | 状态 |
-| :-- | :-- | :-- | :-- | --: | :-: |
-| `Tool/skill/<域>/` | 10 个域的方法论 | `SKILL.md` | 模型按描述选中 | 155/31k | ✅ 核心 |
-| `Tool/skill/_pending/` | 17 个子技能（按需） | `INDEX.md` | 域 SKILL.md 指路 | 同上 | ✅ 库存 |
-| `Tool/scripts/` | 门禁/案例/工具脚本 | `check.py` 等 | CI、Agent | 23/11k | ✅ 核心 |
-| `Tool/config/` | 能力表/探针/陷阱/需求表 | 各脚本读 | 校验与路由 | 29/10k | ⚠️ 偏多（见 §5） |
-| `Tool/prompts/` | AGENTS/SEEP/扩展/任务卡 | 每轮注入 | pi 内核 | 12/4k | ✅ 核心 |
-| `Tool/mcp/` | seep MCP（20 工具）+ vendored 工具 | MCP stdio | Agent | 5/4.5k | ✅ 核心 |
-| `Tool/capabilities/` | 51 个能力矩阵 JSON | `domain_spec.py` | 域门禁 | 51/2k | ⚠️ 只被 1 个脚本读 |
-| `Tool/cases/` | 65 个案例 + 模板 | `case_state.py` | 见证/证据 | 65/5k | ✅ 核心 |
-| `Tool/samples/` | 132 个样本夹具 | 各案例引用 | 复跑 | 132/250k | ✅ 夹具 |
-| `Tool/playbooks/` | 26 个配方 | `playbook-check.py` | 域方法论 | 26/0.5k | ⚠️ 与 references 重叠 |
-| `MANUAL/` | 14 本战术手册 | 域 SKILL.md 指路 | Agent 按需 | 14/2.8k | ✅ 核心 |
-| `docs/` | 23 份项目文档 | 人读 | 人 | 23/5.6k | ⚠️ 有重复（见 §5） |
-| 根目录 | 安装/更新/自检入口 | `check.ps1`、`setup/` | 用户 | — | ⚠️ 两个自检入口（见 §5） |
+## 2. 核心模块
 
-## 3. 关键数据流（一次真实任务）
+| 位置 | 负责什么 | 关键边界 |
+|---|---|---|
+| `Tool/skill/seep-router/SKILL.md` | 判断、选域、上限和所缺材料 | 不替代各领域专业方法 |
+| `Tool/skill/*/pack.json` | 正式域身份、工具、证据与深度声明 | 名单由实现读取，不在文档重复维护另一套注册表 |
+| `Tool/skill/<域>/SKILL.md`、references、playbooks | 专业路线与具体判据 | 按当前信号选读，库存和候选不是已生效能力 |
+| `Tool/mcp/seep_mcp_server.py`、`seep_contract.py` | MCP 工具、参数/结果契约与共享校验 | 工具注册、连通、真实执行分别证明 |
+| `Tool/scripts/project_state.py` | project/version/run、材料、证据、验收和交接 | 检查登记见证完整性，不代替人判断原始输出的全部专业语义 |
+| `Tool/scripts/manager_state.py` | 规划、选择、等待、失败和换路，执行前准入 | 状态和证据绑定到当前 generation |
+| `Tool/scripts/project_workflow.py` | classify/start/act/status/close 与受控捕获 | `workflow-entry-only`，不是宿主所有工具的全局拦截器 |
+| `Tool/scripts/lib/typed_assets.py` | 文件、目录快照、URL描述身份 | URL描述不证明远端实际内容 |
+| `Tool/scripts/project_report.py` | 报告、结论账、引用、适用性及状态复查 | 弱/缺支持/跨run结论不自动升为已确认 |
+| `Tool/scripts/project_archive.py` | export/verify/import | 成员指纹、资源与路径边界，移位恢复不覆盖已有目的地 |
+| `Tool/skill/softseep/scripts/version-migrate.py` | 版本基线与定位结果 | 唯一定位仍需当前版本验收 |
+| `Tool/scripts/case_state.py` | 既有单案阶段、事实、复现与报告接口 | 旧case与新项目接口并存，不因结构不同而另造账本 |
+| `Tool/scripts/skill-import.py` | 扩展导入、核验与恢复报告 | 入库/部署/有效加载不同阶段分别核验 |
+| `setup/`、`Tool/scripts/lib/runtime_root.py` | 安装、更新、卸载、根定位和注册 | 当前部署为源码运行时注册；保留源码目录 |
 
-```
-用户说一句
-  → 模型按 description 选域（或用户打 /reverse）
-  → 读 域 SKILL.md（+ 需要的 references / 子技能）
-  → case_state.py init → 生成 case.json + facts.jsonl + scope.md
-  → 调 MCP 工具 / 本地工具（packer_detect、r2、jadx…）
-  → 结论落 facts.jsonl（claim/prove/refute），产物进 artifacts/ + MANIFEST
-  → 结案：case_state.py deliver --level M1..M4（未达上限要写原因）
-  → check.py 保证上述结构没被破坏
-```
+## 3. 提示词与部署
 
-## 4. 二次思考规则（这是之前一直缺的）
+`Tool/prompts/AGENTS.md` 是共享行为规则源，`Tool/prompts/SEEP.md` 提供资源指针。安装器把规则、技能和扩展部署到 agent 目录；项目开发的接续入口为当前需求与当前状态。
 
-> **每加一个能力，必须列出它的"派生需求"，一条都不能漏。**
+`Tool/prompts/extensions/` 的执行守卫不因文档清理而更改。项目级bootstrap模板位于 `Tool/prompts/contracts/AGENTS.md`，由各宿主的接入方式加载；当前仓库根没有另放一份AGENTS副本。个人设置、第三方 MCP、凭据文件和宿主管理块不由项目文档重写。新进程加载与磁盘一致性分别验证。
 
-模板（四条）：
+## 4. 检查和证据
 
-| 派生问题 | 要回答什么 |
-| :-- | :-- |
-| 输入从哪来 | 用户怎么提供（路径/链接/一句话）？他需要懂格式吗？ |
-| 谁来做判定 | 判定标准是什么？能不能量化？判定错了会怎样？ |
-| 落在哪里 | 目录、命名、是否常驻上下文？ |
-| 谁保证它没坏 | 哪条判据/测试会变红？ |
+- `Tool/scripts/check.py --runtime --json` 验当前实现与专项回归，包含安装文档入口检查；默认历史工程门禁仍保留。`--fast` 会跳过套件，不能替代完整验收。
+- `gate.py` 验证包与见证；`domain-gate.py` 消费领域注册、深度声明和 [当前领域契约](DOMAIN-CONTRACT.md)。
+- `preflight.py` 检查结构、入口、契约与部署一致性；它不能决定功能是否应该存在。
+- 案例/项目的原始证据留在各自工程中；本项目当前剩余问题只登记在 CURRENT-STATE。
+- 文件清单与预算使用 `Tool/scripts/lib/source_inventory.py`，原始文件闭包和第一方/第三方来源角色均可核验，阈值不因文档整理而改变。
 
-**已应用（四个例子）**：
+## 5. 扩展与维护
 
-| 能力 | 派生需求 → 处理 |
-| :-- | :-- |
-| **加技能** | ①用户只说"加这个" ②工具判域/子技能（行数+后缀+技法） ③落在 `skill/<名>` 或 `_pending/<名>` ④`check.py` 的「拖拽式技能」+「导入通道自测」 |
-| **加工具** | ①`tool-acquire.py --add <id> --exe` ②8 层探测判存在 ③只写 `~/.seep/tool-paths.json`（不进仓库） ④判据「缓存双写契约」 |
-| **加域** | ①丢 `~/.pi/agent/skills/<名>/SKILL.md` ②描述含用户原话+后缀 ③常驻（≈50 tokens） ④判据「拖拽式技能」；要进 gate 才补 `pack.json` |
-| **加案例** | ①`case_state.py init` ②自动生成 scope.md ③落 `Tool/cases/<名>` ④判据「新案范围契约」+ gate 6 道 |
+用户上手见 [工作台使用](../MANUAL/WORKBENCH-USAGE.md)，维护操作见 [工程扩展](../Tool/docs/EXTEND.md) 和 [手册索引](../MANUAL/README.md)。技术手册、知识库、案例和第三方说明是按需能力材料，不是本产品的功能待办来源。
 
-## 5. 决策表（保留 / 合并 / 删除 / 搁置）
-
-| 项 | 决策 | 理由 |
-| :-- | :-: | :-- |
-| `crt.json`（58KB 证书日志）、`mgmt.html`（671KB）、`oc.html`、`oc_main.js` | ❌ **删除** | 全部 0 引用，历史误提交的抓取残留，混在仓库根 |
-| 域命令卡（自动生成的 10 张） | ❌ 已删 | 几百个技能会变成几百条命令；模型按描述选域即可 |
-| `route.py` | 🔸 降级 | 只作测试工具，不再写进开工步骤 |
-| `Tool/config/*-matrix.json`（9 个） | 🔸 保留 | 被 `domain_spec.py` 读，是域门禁的输入 |
-| `Tool/playbooks/`（26 配方） | 🔸 搁置 | 与 references 有重叠；暂不合并，避免动内容 |
-| `README.md` / `README.zh.md` / `README.en.md`（1720 行） | 🔸 搁置 | 明显重复；合并需要内容工程，先记着 |
-| 根 `check.ps1`（60 项环境自检） vs `Tool/scripts/check.py`（6 套件） | 🔸 并存 | 前者=环境体检，后者=项目测试；文档里写明分工 |
-| `Tool/capabilities/`（51 个） | 🔸 保留 | 只有 1 个脚本读，但它承载"能力→证据"映射 |
-
-## 6. 阅读顺序（新人/新会话）
-
-1. 本文件（5 分钟，全貌）
-2. `docs/PRODUCT.md`（定位/主回路/风险表）
-3. `docs/NOW.md`（现在该做什么）
-4. 具体干活时：域 SKILL.md → references → 子技能
+已淘汰的产品规划、旧接力棒和“全绿”宣称删除；不再以归档副本维持另一套设计权威。

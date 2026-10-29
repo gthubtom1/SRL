@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""架构不变量（Architecture Invariants）—— 一张矩阵覆盖全部 9 个域。
+"""架构不变量（Architecture Invariants）—— 一张矩阵覆盖**全部正式域**（数量动态）。
 
 为什么要有这个（2026-10-25 用户决定）：
-    "真跑每个域"不可行，也不是成熟项目的做法。真正要保证的是**逻辑闭环**：
-    只要下面这些不变量在每个域都成立，那么"某个域在真实任务里接不上"这一类失败
-    在结构上就不可能发生。以后只在"违反不变量"时才动，不做总攻式重写。
+    "真跑每个域"不可行，也不是成熟项目的做法。真正要保证的是**逻辑闭环**。
+
+**口径修正（2026-10-27）**：不变量只证明「结构闭环」，**不能**证明「该域在真实任务里
+能接上」。可用性另有独立证据面（gate.py 的 real/public 见证、domain-gate 的脚本自检、
+部署哈希、领域行为验收）；任何一条不变量通过都不许被读成“域可用”。
 
 用法：
     python Tool/scripts/invariants.py            # 人读矩阵
@@ -32,13 +34,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SKILL = os.path.join(ROOT, "Tool", "skill")
 CFG = os.path.join(ROOT, "Tool", "config")
 
-# W6：矩阵的域清单/计数与 domain_spec.DOMAINS 对齐（客户可见 9 域）。
+# 域清单**唯一来源**：lib/domain_registry（pack.json#id，动态；不按“恰 9 目录”定义）。
 # 以前这里按磁盘扫 `Tool/skill/*/SKILL.md`，扫出 11 个——把判型层 seep-router 与
-# 横切层 unpack-loop 也算成“域”，与 domain-gate 的口径不一致。
+# 横切层 unpack-loop 也算成“域”。现在它们由 domain-aliases.json#cross_cutting 排除，
+# 即使将来出现 pack 也不会进正式域全集（route/registry 会显式报命名空间冲突）。
 sys.path.insert(0, os.path.join(ROOT, "Tool", "scripts", "lib"))
+import domain_registry as registry_mod  # noqa: E402
 from domain_spec import DOMAINS  # noqa: E402
+from runtime_root import RuntimeRootError, resolve_agent_root  # noqa: E402
 
-DOMAIN_COUNT = 9   # 客户可见域数（清单唯一来源：domain_spec.DOMAINS）
+_REGISTRY = registry_mod.load_registry(ROOT)
+# 兼容旧消费者（skill-import.py 用 getattr(inv, "DOMAIN_COUNT") 报缺口）：
+# **不是**阈值/期望值，只是“当前正式域个数”的派生视图（随 pack 变化，会一起变）。
+DOMAIN_COUNT = len(_REGISTRY.ids())
 
 INVARIANTS = {
     "I1": "入口唯一：判型只在一处（seep-router），域不自称总控",
@@ -54,17 +62,13 @@ INVARIANTS = {
 
 
 def _domains():
-    """客户可见域（唯一来源 domain_spec.DOMAINS，9 个）。
+    """正式域全集（唯一来源 lib/domain_registry，动态——不按“恰 9 个”定义）。
 
     seep-router（判型层）与 unpack-loop（横切层）不是客户可见域，不进矩阵；
     它们与各域的约束关系在 I1 / I9 里以“被引用”的方式检查。
-    缺 SKILL.md 的域**不剔除**，由 check() 直接判红（不允许静默消失）。
+    缺 SKILL.md / 缺 depth_contract 的域**不剔除**，由 check() 直接判红（不允许静默消失）。
     """
-    out = list(DOMAINS)
-    if len(out) != DOMAIN_COUNT:
-        sys.stderr.write("WARN: domain_spec.DOMAINS=%d != DOMAIN_COUNT=%d\n"
-                         % (len(out), DOMAIN_COUNT))
-    return out
+    return _REGISTRY.ids()
 
 
 def _pack(name):
@@ -72,7 +76,8 @@ def _pack(name):
     if not os.path.isfile(p):
         return None
     try:
-        return json.load(open(p, encoding="utf-8"))
+        with open(p, encoding="utf-8") as stream:
+            return json.load(stream)
     except Exception:  # noqa: BLE001
         return None
 
@@ -80,7 +85,8 @@ def _pack(name):
 def _skill_text(name):
     p = os.path.join(SKILL, name, "SKILL.md")
     try:
-        return open(p, encoding="utf-8", errors="replace").read()
+        with open(p, encoding="utf-8", errors="replace") as stream:
+            return stream.read()
     except Exception:  # noqa: BLE001
         return ""
 
@@ -88,8 +94,19 @@ def _skill_text(name):
 def check(name):
     """对单个域返回 {invariant_id: (ok, note)}。"""
     res = {}
+    # 结构注册（pack.json）与深度契约（depth_contract）是两件事：缺一个就明确报哪一个，
+    # 不把“没 pack”静默当成“横切层可接受”。横切/判型层不走 check()（见 _domains()）。
+    if _pack(name) is None:
+        return {i: (False, "缺 Tool/skill/%s/pack.json（pack.id 是正式域唯一身份）" % name)
+                for i in INVARIANTS}
+    if name not in _REGISTRY.packs:
+        return {i: (False, "pack 存在但未被载入器接受：%s" % "；".join(_REGISTRY.errors[:2]))
+                for i in INVARIANTS}
+    if _REGISTRY.depth(name) is None:
+        reasons = "；".join(_REGISTRY.packs[name].depth_errors[:2]) or "depth_contract 不合法"
+        return {i: (False, "缺/坏 depth_contract：%s" % reasons) for i in INVARIANTS}
     if not os.path.isfile(os.path.join(SKILL, name, "SKILL.md")):
-        # 域在 domain_spec 里但磁盘上没技能：全部判红，不静默跳过。
+        # 域在注册表里但磁盘上没技能：全部判红，不静默跳过。
         return {i: (False, "缺 Tool/skill/%s/SKILL.md" % name) for i in INVARIANTS}
     txt = _skill_text(name)
     pk = _pack(name)
@@ -110,7 +127,8 @@ def check(name):
     else:
         caps = {}
         try:
-            caps = json.load(open(os.path.join(CFG, "tool-capabilities.json"), encoding="utf-8"))
+            with open(os.path.join(CFG, "tool-capabilities.json"), encoding="utf-8") as stream:
+                caps = json.load(stream)
         except Exception:  # noqa: BLE001
             pass
         cap_ids = set((caps.get("tools") or {}).keys()) if isinstance(caps, dict) else set()
@@ -120,7 +138,8 @@ def check(name):
         for src in (os.path.join(ROOT, "Tool", "mcp", "seep_mcp_server.py"),
                     os.path.join(CFG, "tool-effects.json")):
             try:
-                raw = open(src, encoding="utf-8", errors="replace").read()
+                with open(src, encoding="utf-8", errors="replace") as stream:
+                    raw = stream.read()
             except Exception:  # noqa: BLE001
                 continue
             cap_ids |= set(re.findall(r'name="(seep_[a-z0-9_]+)"', raw))
@@ -191,25 +210,31 @@ def check(name):
         res["I7"] = (os.path.isfile(p1) or os.path.isfile(p2), base if (os.path.isfile(p1) or os.path.isfile(p2)) else "脚本不存在：%s" % base)
 
     # I8 部署等价
-    dep = os.path.join(os.path.expanduser("~"), ".pi", "agent", "skills", name)
-    if not os.path.isdir(dep):
-        res["I8"] = (False, "未部署")
+    try:
+        agent_root = resolve_agent_root()
+    except RuntimeRootError as exc:
+        res["I8"] = (False, "AgentRoot 无效：%s" % exc.code)
     else:
-        import hashlib
+        dep = os.path.join(str(agent_root), "skills", name)
+        if not os.path.isdir(dep):
+            res["I8"] = (False, "未部署（AgentRoot=%s）" % agent_root)
+        else:
+            import hashlib
 
-        def h(p):
-            b = open(p, "rb").read()
-            if b"\x00" not in b[:4096]:
-                b = b.replace(b"\r\n", b"\n")
-            return hashlib.sha256(b).hexdigest()
+            def h(p):
+                with open(p, "rb") as stream:
+                    b = stream.read()
+                if b"\x00" not in b[:4096]:
+                    b = b.replace(b"\r\n", b"\n")
+                return hashlib.sha256(b).hexdigest()
 
-        diffs = []
-        for rel in ("SKILL.md", "pack.json"):
-            src = os.path.join(SKILL, name, rel)
-            dst = os.path.join(dep, rel)
-            if os.path.isfile(src) and (not os.path.isfile(dst) or h(src) != h(dst)):
-                diffs.append(rel)
-        res["I8"] = (not diffs, "一致" if not diffs else "不一致：%s" % "、".join(diffs))
+            diffs = []
+            for rel in ("SKILL.md", "pack.json"):
+                src = os.path.join(SKILL, name, rel)
+                dst = os.path.join(dep, rel)
+                if os.path.isfile(src) and (not os.path.isfile(dst) or h(src) != h(dst)):
+                    diffs.append(rel)
+            res["I8"] = (not diffs, "一致" if not diffs else "不一致：%s" % "、".join(diffs))
     # I9 能力有路线
     if is_crosscut or is_router:
         res["I9"] = (True, "判型/横切层不适用")

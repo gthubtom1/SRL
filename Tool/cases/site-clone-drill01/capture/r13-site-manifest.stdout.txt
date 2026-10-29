@@ -1,0 +1,18 @@
+{
+ "files": 399,
+ "manifest": "artifacts/MANIFEST.sha256",
+ "sample": [
+  [
+   "artifacts/crawl/assets/_next/static/MF0PX5Om9anXYG9uRYEC-/_buildManifest.js",
+   "8ea25a6182ce282cb7bf376e5dc2fb9710a615955b69e1fdf207c146b718ba10"
+  ],
+  [
+   "artifacts/crawl/assets/_next/static/MF0PX5Om9anXYG9uRYEC-/_clientMiddlewareManifest.js",
+   "5483e3295dc35dfe29ea932efc85341c916f10ff78ff5b0e965e003710893a4a"
+  ],
+  [
+   "artifacts/crawl/assets/_next/static/MF0PX5Om9anXYG9uRYEC-/_ssgManifest.js",
+   "a0e2967bc8911cb03033228eb85013333208ecb07ccca426bdabc7699c342eaa"
+  ]
+ ]
+}

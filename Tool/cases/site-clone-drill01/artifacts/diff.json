@@ -10,405 +10,67 @@
  },
  "crawl": {
   "build_id": "MF0PX5Om9anXYG9uRYEC-",
-  "pages": 12,
+  "pages": 1,
   "routes_from_build_manifest": 12,
-  "assets_same_origin": 166,
-  "xhr_fetch": 13,
-  "data_interfaces": 12,
-  "blocked_by_policy": 60,
+  "assets_same_origin": 165,
+  "xhr_fetch": 2,
+  "data_interfaces": 1,
+  "blocked_by_policy": 4,
   "blocked_hosts": [
    "api.youtest.me",
    "pagead2.googlesyndication.com",
-   "static.cloudflareinsights.com",
-   "youtest.me"
+   "static.cloudflareinsights.com"
   ]
  },
  "pixel": {
-  "overall_diff_ratio": 0.011047,
+  "overall_diff_ratio": 0.015188,
   "overall_diff_ratio_static": 0.0,
   "threshold": 12,
   "pages": [
    {
-    "diff_ratio": 0.015039,
+    "diff_ratio": 0.015188,
     "diff_ratio_static": 0.0,
-    "diff_pixels": 15400,
+    "diff_pixels": 15553,
     "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 15400,
+    "diff_pixels_in_animated": 15553,
     "animated_mask_ratio": 0.042496,
     "animated_imgs": [
      "/static/assets/img/user/home/characters.webp"
     ],
-    "mean_abs": 1.1452,
+    "mean_abs": 1.1846,
     "threshold": 12,
     "route": "/"
-   },
-   {
-    "diff_ratio": 0.02544,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 26051,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 26051,
-    "animated_mask_ratio": 0.084386,
-    "animated_imgs": [
-     "/static/assets/img/user/scoreboard/bubu.webp"
-    ],
-    "mean_abs": 2.5465,
-    "threshold": 12,
-    "route": "/404"
-   },
-   {
-    "diff_ratio": 0.0,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 0,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 0,
-    "animated_mask_ratio": 0.0,
-    "animated_imgs": [],
-    "mean_abs": 0.0,
-    "threshold": 12,
-    "route": "/contact"
-   },
-   {
-    "diff_ratio": 0.015777,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 16156,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 16156,
-    "animated_mask_ratio": 0.042496,
-    "animated_imgs": [
-     "/static/assets/img/user/home/characters.webp"
-    ],
-    "mean_abs": 1.2591,
-    "threshold": 12,
-    "route": "/find"
-   },
-   {
-    "diff_ratio": 0.015777,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 16156,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 16156,
-    "animated_mask_ratio": 0.042496,
-    "animated_imgs": [
-     "/static/assets/img/user/home/characters.webp"
-    ],
-    "mean_abs": 1.2591,
-    "threshold": 12,
-    "route": "/player/completed"
-   },
-   {
-    "diff_ratio": 0.015777,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 16156,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 16156,
-    "animated_mask_ratio": 0.042496,
-    "animated_imgs": [
-     "/static/assets/img/user/home/characters.webp"
-    ],
-    "mean_abs": 1.2591,
-    "threshold": 12,
-    "route": "/player/name"
-   },
-   {
-    "diff_ratio": 0.015777,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 16156,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 16156,
-    "animated_mask_ratio": 0.042496,
-    "animated_imgs": [
-     "/static/assets/img/user/home/characters.webp"
-    ],
-    "mean_abs": 1.2591,
-    "threshold": 12,
-    "route": "/player/playing"
-   },
-   {
-    "diff_ratio": 0.000141,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 144,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 144,
-    "animated_mask_ratio": 0.018598,
-    "animated_imgs": [
-     "/static/assets/img/user/name/name-input-bubu-mascot.webp"
-    ],
-    "mean_abs": 0.0157,
-    "threshold": 12,
-    "route": "/user/creating"
-   },
-   {
-    "diff_ratio": 0.000488,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 500,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 500,
-    "animated_mask_ratio": 0.018598,
-    "animated_imgs": [
-     "/static/assets/img/user/name/name-input-bubu-mascot.webp"
-    ],
-    "mean_abs": 0.0251,
-    "threshold": 12,
-    "route": "/user/name"
-   },
-   {
-    "diff_ratio": 0.012569,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 12871,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 12871,
-    "animated_mask_ratio": 0.042496,
-    "animated_imgs": [
-     "/static/assets/img/user/home/characters.webp"
-    ],
-    "mean_abs": 0.8134,
-    "threshold": 12,
-    "route": "/user/scoreboard"
-   },
-   {
-    "diff_ratio": 0.015777,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 16156,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 16156,
-    "animated_mask_ratio": 0.042496,
-    "animated_imgs": [
-     "/static/assets/img/user/home/characters.webp"
-    ],
-    "mean_abs": 1.2591,
-    "threshold": 12,
-    "route": "/user/share"
-   },
-   {
-    "diff_ratio": 0.0,
-    "diff_ratio_static": 0.0,
-    "diff_pixels": 0,
-    "diff_pixels_static": 0,
-    "diff_pixels_in_animated": 0,
-    "animated_mask_ratio": 0.0,
-    "animated_imgs": [],
-    "mean_abs": 0.0,
-    "threshold": 12,
-    "route": "/user/scoreboard/answers"
    }
   ]
  },
  "dom": {
-  "overall_score": 0.9765,
+  "overall_score": 0.9778,
   "pages": [
    {
-    "node_sim": 0.9897,
+    "node_sim": 0.9536,
     "text_sim": 1.0,
-    "struct_sim": 0.9948,
-    "score": 0.9951,
+    "struct_sim": 0.9763,
+    "score": 0.9778,
     "nodes_recorded": 194,
-    "nodes_offline": 192,
+    "nodes_offline": 185,
     "text_len_recorded": 432,
     "text_len_offline": 432,
     "route": "/"
-   },
-   {
-    "node_sim": 0.9737,
-    "text_sim": 1.0,
-    "struct_sim": 0.9867,
-    "score": 0.9874,
-    "nodes_recorded": 76,
-    "nodes_offline": 74,
-    "text_len_recorded": 101,
-    "text_len_offline": 101,
-    "route": "/404"
-   },
-   {
-    "node_sim": 0.9871,
-    "text_sim": 1.0,
-    "struct_sim": 0.9935,
-    "score": 0.9939,
-    "nodes_recorded": 155,
-    "nodes_offline": 153,
-    "text_len_recorded": 928,
-    "text_len_offline": 928,
-    "route": "/contact"
-   },
-   {
-    "node_sim": 0.951,
-    "text_sim": 0.9545,
-    "struct_sim": 0.9548,
-    "score": 0.9535,
-    "nodes_recorded": 194,
-    "nodes_offline": 204,
-    "text_len_recorded": 432,
-    "text_len_offline": 478,
-    "route": "/find"
-   },
-   {
-    "node_sim": 0.9652,
-    "text_sim": 0.9545,
-    "struct_sim": 0.9418,
-    "score": 0.9532,
-    "nodes_recorded": 194,
-    "nodes_offline": 201,
-    "text_len_recorded": 432,
-    "text_len_offline": 478,
-    "route": "/player/completed"
-   },
-   {
-    "node_sim": 0.99,
-    "text_sim": 1.0,
-    "struct_sim": 0.995,
-    "score": 0.9953,
-    "nodes_recorded": 201,
-    "nodes_offline": 199,
-    "text_len_recorded": 478,
-    "text_len_offline": 478,
-    "route": "/player/name"
-   },
-   {
-    "node_sim": 0.9652,
-    "text_sim": 0.9545,
-    "struct_sim": 0.9468,
-    "score": 0.955,
-    "nodes_recorded": 194,
-    "nodes_offline": 201,
-    "text_len_recorded": 432,
-    "text_len_offline": 478,
-    "route": "/player/playing"
-   },
-   {
-    "node_sim": 0.9776,
-    "text_sim": 0.8889,
-    "struct_sim": 0.9283,
-    "score": 0.9293,
-    "nodes_recorded": 131,
-    "nodes_offline": 134,
-    "text_len_recorded": 34,
-    "text_len_offline": 50,
-    "route": "/user/creating"
-   },
-   {
-    "node_sim": 0.9389,
-    "text_sim": 1.0,
-    "struct_sim": 0.9685,
-    "score": 0.9707,
-    "nodes_recorded": 131,
-    "nodes_offline": 123,
-    "text_len_recorded": 34,
-    "text_len_offline": 34,
-    "route": "/user/name"
-   },
-   {
-    "node_sim": 0.9902,
-    "text_sim": 1.0,
-    "struct_sim": 0.9951,
-    "score": 0.9953,
-    "nodes_recorded": 204,
-    "nodes_offline": 202,
-    "text_len_recorded": 478,
-    "text_len_offline": 478,
-    "route": "/user/scoreboard"
-   },
-   {
-    "node_sim": 0.9902,
-    "text_sim": 1.0,
-    "struct_sim": 0.9951,
-    "score": 0.9954,
-    "nodes_recorded": 205,
-    "nodes_offline": 203,
-    "text_len_recorded": 478,
-    "text_len_offline": 478,
-    "route": "/user/share"
-   },
-   {
-    "node_sim": 0.9873,
-    "text_sim": 1.0,
-    "struct_sim": 0.9936,
-    "score": 0.9939,
-    "nodes_recorded": 157,
-    "nodes_offline": 155,
-    "text_len_recorded": 413,
-    "text_len_offline": 413,
-    "route": "/user/scoreboard/answers"
    }
   ]
  },
  "network": {
-  "local_base": "http://127.0.0.1:50455",
-  "replayed_mocks": 12,
+  "local_base": "http://127.0.0.1:54539",
+  "replayed_mocks": 1,
   "replayed": [
    {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
+    "url": "http://127.0.0.1:54539/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
     "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
     "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/?error=player_or_user_data_missing_completed_page"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/?error=no_user_data_player_name_page"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/?error=player_and_user_data_missing_playing_quiz"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?error=user_data_missing",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/user/creating/"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?error=user_data_missing",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/user/name?error=user_data_missing"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
-    "mock": "_replay/bodies/6df946c0-_next_data_MF0PX5Om9anXYG9uRYEC-_user_creating.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
-    "page": "http://127.0.0.1:50455/user/name?error=user_data_missing"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
-    "mock": "_replay/bodies/6df946c0-_next_data_MF0PX5Om9anXYG9uRYEC-_user_creating.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/creating.json",
-    "page": "http://127.0.0.1:50455/user/name/"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/?error=user_data_missing_scoreboard"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1",
-    "mock": "_replay/bodies/d9c21784-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json_no_redirect_1.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json?no_redirect=1",
-    "page": "http://127.0.0.1:50455/?error=user_data_not_found_share_page&no_redirect=1"
-   },
-   {
-    "url": "http://127.0.0.1:50455/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "mock": "_replay/bodies/487213c5-_next_data_MF0PX5Om9anXYG9uRYEC-_user_name.json",
-    "recorded_url": "https://block.youtest.me/_next/data/MF0PX5Om9anXYG9uRYEC-/user/name.json",
-    "page": "http://127.0.0.1:50455/?error=user_data_not_found_share_page&no_redirect=1"
+    "page": "http://127.0.0.1:54539/"
    }
   ],
-  "external_attempts_total": 28,
+  "external_attempts_total": 2,
   "external_hosts": [
    {
     "host": "api.youtest.me",
@@ -422,23 +84,13 @@
    },
    {
     "host": "pagead2.googlesyndication.com",
-    "count": 12,
+    "count": 1,
     "resource_types": {
-     "script": 12
+     "script": 1
     },
     "sample": "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5197146574619129",
     "classification": "policy-excluded-third-party",
     "reason": "\u5e7f\u544a/\u8ffd\u8e2a\uff1b\u6293\u53d6\u9636\u6bb5\u4e00\u5f8b abort\uff0c\u4e0d\u5c5e\u4e8e\u540c\u6e90\u526f\u672c"
-   },
-   {
-    "host": "youtest.me",
-    "count": 15,
-    "resource_types": {
-     "image": 15
-    },
-    "sample": "https://youtest.me/static/assets/promo/logo.webp",
-    "classification": "policy-excluded-cross-origin-brand-asset",
-    "reason": "\u6bcd\u54c1\u724c\u57df promo \u56fe\u7247\uff1b\u8fdd\u53cd\u540c\u6e90\u7ea6\u675f\uff0c\u672a\u6293\u53d6\uff0c\u79bb\u7ebf\u663e\u793a\u5360\u4f4d\uff08\u975e\u6838\u5fc3 UI\uff09"
    }
   ],
   "unexpected": [],
@@ -450,72 +102,6 @@
    "boundary": "recorded-snapshot",
    "reason": "\u9759\u6001\u5bfc\u51fa\u9875\u9762\uff1b\u6570\u636e\u6765\u81ea\u5f55\u5236 HTML/__NEXT_DATA__\uff08\u53ca\u56de\u653e\u7684 _next/data\uff09",
    "final_url": "https://block.youtest.me/"
-  },
-  {
-   "route": "/404",
-   "boundary": "recorded-snapshot",
-   "reason": "\u9759\u6001\u5bfc\u51fa\u9875\u9762\uff1b\u6570\u636e\u6765\u81ea\u5f55\u5236 HTML/__NEXT_DATA__\uff08\u53ca\u56de\u653e\u7684 _next/data\uff09",
-   "final_url": "https://block.youtest.me/404"
-  },
-  {
-   "route": "/contact",
-   "boundary": "recorded-snapshot",
-   "reason": "\u9759\u6001\u5bfc\u51fa\u9875\u9762\uff1b\u6570\u636e\u6765\u81ea\u5f55\u5236 HTML/__NEXT_DATA__\uff08\u53ca\u56de\u653e\u7684 _next/data\uff09",
-   "final_url": "https://block.youtest.me/contact"
-  },
-  {
-   "route": "/find",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /",
-   "final_url": "https://block.youtest.me/"
-  },
-  {
-   "route": "/player/completed",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /\uff08error=player_or_user_data_missing_completed_page\uff09",
-   "final_url": "https://block.youtest.me/?error=player_or_user_data_missing_completed_page"
-  },
-  {
-   "route": "/player/name",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /\uff08error=no_user_data_player_name_page\uff09",
-   "final_url": "https://block.youtest.me/?error=no_user_data_player_name_page"
-  },
-  {
-   "route": "/player/playing",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /\uff08error=player_and_user_data_missing_playing_quiz\uff09",
-   "final_url": "https://block.youtest.me/?error=player_and_user_data_missing_playing_quiz"
-  },
-  {
-   "route": "/user/creating",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /user/name\uff08error=user_data_missing\uff09",
-   "final_url": "https://block.youtest.me/user/name?error=user_data_missing"
-  },
-  {
-   "route": "/user/name",
-   "boundary": "recorded-snapshot",
-   "reason": "\u9759\u6001\u5bfc\u51fa\u9875\u9762\uff1b\u6570\u636e\u6765\u81ea\u5f55\u5236 HTML/__NEXT_DATA__\uff08\u53ca\u56de\u653e\u7684 _next/data\uff09",
-   "final_url": "https://block.youtest.me/user/name"
-  },
-  {
-   "route": "/user/scoreboard",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /\uff08error=user_data_missing_scoreboard\uff09",
-   "final_url": "https://block.youtest.me/?error=user_data_missing_scoreboard"
-  },
-  {
-   "route": "/user/share",
-   "boundary": "backend-required",
-   "reason": "\u8def\u7531\u5b88\u536b\u5728\u7f3a\u5c11 user/player \u4f1a\u8bdd\u65f6\u91cd\u5b9a\u5411\u5230 /\uff08error=user_data_not_found_share_page\uff09",
-   "final_url": "https://block.youtest.me/?error=user_data_not_found_share_page&no_redirect=1"
-  },
-  {
-   "route": "/user/scoreboard/answers",
-   "boundary": "recorded-snapshot",
-   "reason": "\u9759\u6001\u5bfc\u51fa\u9875\u9762\uff1b\u6570\u636e\u6765\u81ea\u5f55\u5236 HTML/__NEXT_DATA__\uff08\u53ca\u56de\u653e\u7684 _next/data\uff09",
-   "final_url": "https://block.youtest.me/user/scoreboard/answers"
   }
  ],
  "backend_required_features": [

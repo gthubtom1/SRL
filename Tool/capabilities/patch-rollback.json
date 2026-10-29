@@ -1,7 +1,7 @@
 {
   "id": "patch-rollback",
   "title": "补丁回滚与基线复验",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "补丁回滚",
     "基线复验",

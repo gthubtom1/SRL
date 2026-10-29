@@ -2,8 +2,17 @@
   "schemaVersion": "1.0",
   "description": "声明式『工具能力表』：告诉 AI『发现到某工具后，怎么控制它』。这是本插件唯一的仓库级知识来源——纯声明、可离线、随仓库分发。判断依据全部来自联网检索（GitHub README / 官方文档 / 已知 MCP 生态），绝不靠对二进制执行 -h/--help 现场试探（有些软件没有 -h，一探就崩或返回错误码）。表外未知工具：插件只报『路径已发现』，绝不假装能控制它。",
   "verified_at": "2026-10-20",
-  "sources_note": "capabilities 字段的每一项均于 2026-10-19 联网核实：mrexodia/ida-pro-mcp、HexRaysSA/ida-mcp、LaurieWired/GhidraMCP、radare2、horsicq/Detect-It-Easy、x64dbg、frida、tshark、jadx、apktool 官方仓库与文档。 ｜2026-10-20 追加：网络/侦察/渗透/抓包/.NET 类 CLI 工具与 GUI 工具（仅声明能力，路径由六层探测解析）。 ｜httpx 因与 Python httpx 库 CLI 同名、探测易拿错物，暂不登记；需要时显式用 PATH 中的 PD 版或改用 subfinder+curl。",
+  "sources_note": "这是工具能力声明，不能替代本机运行和 MCP 握手验证。上游入口与适用条件需随版本复核。2026-10-28：httpx 的安装及版本参数已按 ProjectDiscovery 官方文档和 runner/options.go 核对；发现时必须通过身份探针以排除 Python 同名 CLI。",
   "tools": {
+    "httpx": {
+      "display": "ProjectDiscovery httpx",
+      "exe_candidates": ["httpx"],
+      "identityProbe": "httpx",
+      "capabilities": {"cli": true, "headless": true, "gui": false, "mcp": false},
+      "control": {"headless_cmd": "httpx -l <urls.txt> -json -o <results.jsonl>"},
+      "install_hint": "go install github.com/projectdiscovery/httpx/cmd/httpx@latest；需要 Go。Python 的 httpx 包不能替代此工具。",
+      "sources": ["https://docs.projectdiscovery.io/opensource/httpx/install", "https://docs.projectdiscovery.io/opensource/httpx/usage", "https://github.com/projectdiscovery/httpx/blob/main/runner/options.go"]
+    },
     "ida": {
       "display": "IDA Pro",
       "exe_candidates": [
@@ -144,7 +153,7 @@
         "headless_cmd": "analyzeHeadless <proj_dir> <proj_name> -import <target> -postScript <DecompileScript.java> -deleteProject"
       },
       "install_hint": "下载 Ghidra 后把 analyzeHeadless 加入 PATH；或设 SEEP_GHIDRA_PATH。",
-      "notes": "Seep 的 seep_r2_decompile 已能真驱动 Ghidra headless。"
+      "notes": "Ghidra headless 通过独立运行模式调用，需要 Java、Ghidra 和分析脚本；seep_r2_decompile 当前使用 r2，不会自动切换到 Ghidra。"
     },
     "r2": {
       "display": "Radare2",
@@ -165,7 +174,7 @@
         "headless_cmd": "r2 -A -q -c '<command>' <target>"
       },
       "install_hint": "Seep 已内置 Radare2（Tool/mcp/Tool/safe/radare2）。",
-      "notes": "永远可用的兜底引擎。"
+      "notes": "本机路径、身份及所需插件仍须验证；包含目录不代表当前平台可以运行。"
     },
     "tshark": {
       "display": "TShark",
@@ -228,6 +237,48 @@
       },
       "install_hint": "下载 apktool.jar + 包装脚本。",
       "notes": "Seep 已内置 apktool 3.0.3。"
+    },
+    "rabin2": {
+      "display": "rabin2 (radare2 命令行信息提取器)",
+      "exe_candidates": [
+        "rabin2",
+        "rabin2.exe"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无独立 MCP；社区 r2mcp 只包 r2 交互外壳",
+        "headless": true,
+        "headless_detail": "rabin2 -I/-z/-zz/-Ij/-zj <target>：单次调用即退出，纯只读元数据/字符串提取",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "rabin2 -I <target>"
+      },
+      "install_hint": "随 Radare2 一起分发（同一 bin 目录）；仓库自带副本 Tool/mcp/Tool/safe/radare2/bin/rabin2.exe，系统装法见 r2 条目。装好后设 SEEP_RABIN2_PATH 或把 bin 加入 PATH。",
+      "notes": "与 r2 **分开登记**：rabin2 是只读信息提取器（-I/-z），r2 是可执行命令的交互外壳（-c）。虽然同一发行包，但两者是不同的可执行文件，seep_r2_info / seep_r2_strings / seep_auto_triage 直接调 rabin2；用 r2 的条目冒充 rabin2 会让『r2 装了但 rabin2 缺/被改名』查不出来。"
+    },
+    "java": {
+      "display": "Java Runtime (JRE/JDK)",
+      "exe_candidates": [
+        "java",
+        "java.exe"
+      ],
+      "arch_aware": false,
+      "capabilities": {
+        "mcp": false,
+        "mcp_detail": "无 MCP",
+        "headless": true,
+        "headless_detail": "java -version / java -jar <jar>：纯命令行运行时，jadx 与 apktool 的执行前提",
+        "gui": false,
+        "cli": true
+      },
+      "control": {
+        "headless_cmd": "java -version"
+      },
+      "install_hint": "装 JRE/JDK 17 LTS（winget 的 EclipseAdoptium.Temurin.17.JDK 或系统包管理器）；装好后 java 在 PATH 上，或设 JAVA_HOME=<JDK 根目录>。无需改仓库文件。",
+      "notes": "不是某个反编译器的私有依赖：jadx.bat 与 `java -jar apktool.jar` 都要先找到 java。登记为独立 id 才能让『jadx 在但机器没 JVM』这种真实故障有落点（apktool 的 verify 也只跑 apktool --version，起不来正是缺 Java 的表现）。"
     },
     "frida": {
       "display": "Frida",
@@ -691,7 +742,7 @@
         "cli": false
       },
       "control": {
-        "note": "资源编辑 GUI；批处理优先 r2/pefile（seep_pe_resources）"
+        "note": "资源编辑 GUI；需要批处理时可由智能体调用 r2 或编写 pefile 脚本，并验证产物。"
       }
     },
     "scyllahide": {

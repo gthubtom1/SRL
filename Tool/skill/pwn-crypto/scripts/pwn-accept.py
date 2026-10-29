@@ -28,6 +28,13 @@
 
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import glob
 import hashlib
@@ -75,10 +82,19 @@ CANARY_NO = re.compile(r"\bno[\s_-]*canary|canary\s*(?:absent|off|not[\s-]*found
 
 # ------------------------------------------------------------------ helpers
 def repo_root(explicit=None):
-    if explicit:
-        return os.path.abspath(explicit)
-    here = os.path.dirname(os.path.abspath(__file__))
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(here))))
+    if explicit is not None:
+        return os.path.realpath(os.path.abspath(os.path.expanduser(explicit)))
+    return os.path.realpath(os.path.abspath(_seep_repo_root(__file__)))
+
+
+def inside(base, target):
+    """Contain a resolved path, including symlink and junction targets."""
+    base = os.path.realpath(os.path.abspath(base))
+    target = os.path.realpath(os.path.abspath(target))
+    try:
+        return os.path.commonpath([base, target]) == base
+    except ValueError:
+        return False
 
 
 def read_json(path):
@@ -288,7 +304,8 @@ def check_fsop(case_dir, issues, facts):
 
 
 def check_case(case_dir, root):
-    case_dir = os.path.abspath(case_dir)
+    case_dir = os.path.realpath(os.path.abspath(case_dir))
+    root = os.path.realpath(os.path.abspath(root))
     result = {"case": os.path.basename(case_dir), "ok": False,
               "issues": [], "warnings": [], "facts": {}}
     issues, warnings, facts = result["issues"], result["warnings"], result["facts"]
@@ -300,6 +317,9 @@ def check_case(case_dir, root):
         case = read_json(cf)
     except Exception as exc:  # noqa: BLE001
         issues.append("case.json 解析失败: %s" % str(exc)[:60])
+        return result
+    if not isinstance(case, dict):
+        issues.append("case.json 顶层必须是 JSON object")
         return result
 
     miss = [k for k in CASE_FIELDS if k not in case]
@@ -357,8 +377,12 @@ def check_case(case_dir, root):
             continue
         ap = str(art.get("path") or "")
         want = str(art.get("sha256") or "").lower()
-        full = os.path.join(case_dir, ap)
-        if not ap or not os.path.isfile(full):
+        full = os.path.realpath(os.path.join(case_dir, ap))
+        if not ap or not inside(case_dir, full):
+            issues.append("产物路径逃逸案例目录 %s" % (ap[:48] or "<空>"))
+            hash_bad += 1
+            continue
+        if not os.path.isfile(full):
             issues.append("幻影产物 %s" % (ap[:48] or "<空>"))
             hash_bad += 1
             continue
@@ -387,9 +411,11 @@ def check_case(case_dir, root):
         if not rs:
             issues.append("refs 有空值")
             ref_bad += 1
-        elif "://" in rs or rs.startswith("<"):
-            continue
-        elif not os.path.isfile(os.path.join(root, rs)):
+        full = os.path.realpath(os.path.join(root, rs))
+        if "://" in rs or rs.startswith("<") or not inside(root, full):
+            issues.append("refs 逃逸仓库或不是本地文件 %s" % rs[:60])
+            ref_bad += 1
+        elif not os.path.isfile(full):
             issues.append("refs 幻影 %s" % rs[:60])
             ref_bad += 1
     facts["refs_ok"] = ref_bad == 0
@@ -449,6 +475,8 @@ def self_test():
         checks.append("claim/out folding")
 
         with tempfile.TemporaryDirectory() as tmp:
+            assert repo_root(tmp) == os.path.realpath(tmp)
+            checks.append("--root explicit path")
             os.makedirs(os.path.join(tmp, "Tool", "skill", "pwn-crypto", "references"))
             with open(os.path.join(tmp, "Tool", "skill", "pwn-crypto", "references",
                                    "01-criteria.md"), "w", encoding="utf-8") as fh:
@@ -459,6 +487,45 @@ def self_test():
             assert r["ok"], r["issues"]
             assert r["facts"]["protection_ok"] is True
             checks.append("good case passes")
+
+            escape = _mk_case(tmp, "pwn-crypto96", protection=[], prot_out=None)
+            outside = os.path.join(tmp, "outside-artifact.json")
+            _write(outside, {"title": "outside"})
+            case_path = os.path.join(escape, "case.json")
+            with open(case_path, encoding="utf-8") as fh:
+                escape_case = json.load(fh)
+            escape_case["artifacts"] = [
+                {"path": "../../../../outside-artifact.json", "sha256": sha256_file(outside)}]
+            _write(case_path, escape_case)
+            r = check_case(escape, tmp)
+            assert not r["ok"] and any("产物路径逃逸" in x for x in r["issues"]), r
+            checks.append("artifact containment")
+
+            import pathlib
+            with tempfile.NamedTemporaryFile(prefix="pwn-accept-ref-", suffix=".md",
+                                             dir=os.path.dirname(tmp), delete=False) as fh:
+                fh.write(b"outside\n")
+                outside_ref = fh.name
+            try:
+                escape_case["artifacts"] = [{
+                    "path": "artifacts/run.json",
+                    "sha256": sha256_file(os.path.join(escape, "artifacts", "run.json")),
+                }]
+                escape_case["refs"] = ["../" + pathlib.Path(outside_ref).name]
+                _write(case_path, escape_case)
+                r = check_case(escape, tmp)
+                assert not r["ok"] and any("refs 逃逸仓库" in x for x in r["issues"]), r
+                checks.append("ref containment")
+            finally:
+                try:
+                    os.unlink(outside_ref)
+                except OSError:
+                    pass
+
+            _write(case_path, [])
+            r = check_case(escape, tmp)
+            assert not r["ok"] and any("JSON object" in x for x in r["issues"]), r
+            checks.append("non-object JSON fail-closed")
 
             crlf = _mk_case(tmp, "pwn-crypto91", protection=["NX"],
                             prot_out={"NX": "Enabled"}, crlf_record=True)

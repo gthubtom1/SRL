@@ -19,7 +19,7 @@ description: 在使用 js-reverse-mcp 做前端 JavaScript 逆向时使用，适
 
 ## 当前环境默认工具映射
 
-本 skill 不假设存在裸工具名，而是默认绑定当前 OpenCode 环境里的 `js-reverse_*` 工具。
+先发现当前宿主 js-reverse 的真实工具名与 schema。下表 `js-reverse_*` 是方法别名，不保证 Pi/其他宿主前缀或参数相同；注册不等于浏览器已连接。运行时只采样合成输入/安全字段，不导出真实 Cookie、storage、Token、会话密钥或完整敏感请求。输出返回 web 主域的同一项目/版本/run。
 
 常用映射：
 

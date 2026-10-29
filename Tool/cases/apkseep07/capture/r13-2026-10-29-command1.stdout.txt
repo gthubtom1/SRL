@@ -1,0 +1,44 @@
+### target
+path=D:\Seep-Reverse-Lab\Tool\cases\apkseep07\target\UnCrackable-Level2.apk
+size=899134
+sha256=0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0
+### composition
+entries=414
+dex=classes.dex:719560
+so=lib/arm64-v8a/libfoo.so:14216,lib/armeabi-v7a/libfoo.so:9788,lib/x86/libfoo.so:13828,lib/x86_64/libfoo.so:14480
+### root-detection
+root_marker.dex=1
+root_marker.so=0
+status=PASS
+### secret
+secret.dex=0
+secret.so=0
+fish_fragment.dex=0
+fish_fragment.so=0
+status=PASS
+### shell-features
+feature.StubApp=0
+feature.libjiagu=0
+feature.DexHelper=0
+feature.com.qihoo=0
+feature.SecShell=0
+feature.bangcle=0
+feature.secneo=0
+feature.AppWrapper=0
+feature.aliprotect=0
+feature.libnesec=0
+feature.libshella=0
+feature.libmobisec=0
+feature.jiagu=0
+feature.libexec=0
+feature.libshell=0
+features.nonzero=0
+features.total_hits=0
+status=PASS
+### target-integrity
+target.sha256.before=0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0
+target.sha256.after=0e154f2acb99c88795849117ea178ad2d63cf1b608525b21973cd498e9a5d1a0
+target.unmodified=true
+### conclusion
+checks.failures=0
+status=PASS

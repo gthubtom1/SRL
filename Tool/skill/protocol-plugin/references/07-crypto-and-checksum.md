@@ -1,7 +1,7 @@
 # 07 加密段与校验 — 先证伪"像 AES"，再谈解明文
 
 > 范围：帧尾/帧头有校验字段、载荷熵高、长度按 8/16 对齐、可能有压缩或加密的私有协议。
-> 路由：TLS 握手本身的分析见 `tshark -Y tls` + `04-walkthrough`；插件装载链由 `plugin-targets` 承担。
+> 路由：TLS 握手本身的分析见 `tshark -Y tls` + `04-walkthrough`；插件装载链按 `Tool/playbooks/plugin-analysis.md` 分析。
 > 分帧见 `05-binary-framing.md`；重放见 `08-replay-and-new-request.md`。
 
 ## 1. 判断顺序（不要跳步）
@@ -35,7 +35,7 @@
 | 全 ASCII 且长度是 4 的倍数、结尾 `=` | base64 | 解码后看是否出现魔数/JSON |
 | 全 hex 字符 | hex 编码 | `bytes.fromhex` |
 | `%xx` 密集 | URL 编码 | `urllib.parse.unquote` |
-| 块长恒为 16 倍数，且最后一块有规律填充 | AES-CBC/ECB | 见 §3 |
+| 长度为 16 的倍数 | 分组模式候选 | 见 §3；填充只能在解密后检查 |
 | 长度与明文等长，无填充 | 流加密/CTR/异或 | 见 §3 |
 
 ```bash
@@ -102,7 +102,7 @@ chacha_sigma not found
 读法：命中 `tea_delta_le` → 优先按小端 XTEA 试；`aes_sbox` 命中但找不到 Rcon 可能是静态表被拆开/混淆。
 **没命中不等于没有**（常量可能被编码或运行时生成），只说明"这条线索断了"。
 
-## 2.2 重复异或：定周期 → 取密钥 → 回代
+## 2.2 重复异或：候选周期与已知明文
 
 ```bash
 python - <<'PY'
@@ -110,34 +110,26 @@ import pathlib
 data = pathlib.Path("artifacts/payload.bin").read_bytes()
 def score(k):
     blocks = [data[i:i+k] for i in range(0, min(len(data), k*10), k)]
+    blocks = [b for b in blocks if len(b) == k]
     if len(blocks) < 3:
-        return 1e9
-    ds = [sum(bin(a ^ b).count("1") for a, b in zip(blocks[i], blocks[i+1])) / k
-          for i in range(len(blocks) - 1)]
-    return sum(ds) / len(ds)          # 归一化汉明距离：越小越像同一密钥
+        return float("inf")
+    ds = [sum((a ^ b).bit_count() for a, b in zip(x, y)) / k
+          for x, y in zip(blocks, blocks[1:])]
+    return sum(ds) / len(ds)
 best = sorted(range(1, 41), key=score)[:3]
-print("best_keylens", best, "scores", [round(score(k), 2) for k in best])
-crib = b'{"type":"request"'           # 已知明文：从业务语义来的，不要瞎猜
-k = best[0]
-key = bytes(data[i] ^ crib[i] for i in range(min(k, len(crib))))
-plain = bytes(data[i] ^ key[i % k] for i in range(len(data)))
-print("key", key.hex(), "period_ok", all(key[i] == key[i % k] for i in range(len(key))))
-print("head", plain[:24])
-print("json_ok", plain[:1] == b"{")
+print("候选", best, "scores", [round(score(k), 2) for k in best])
+crib = b'{"type":"request"'
+for k in best:
+    if len(data) < k or len(crib) < k:
+        print("候选", k, "已知明文不足，不能推导完整周期")
+        continue
+    key = bytes(data[i] ^ crib[i] for i in range(k))
+    plain = bytes(b ^ key[i % k] for i, b in enumerate(data))
+    print("候选", k, "head", repr(plain[:40]))
 PY
 ```
 
-通过长什么样：
-
-```text
-best_keylens [8, 16, 24] scores [3.02, 3.11, 3.2]
-key 5a3c91e7b2048fd1 period_ok True
-head b'{"type":"request","temp'
-json_ok True
-```
-
-注意：`[8, 16, 24]` 是 8 的倍数，说明真实周期 8；选最小且能回代的那个。
-`json_ok False` 说明 crib 猜错或数据前面还有 nonce/压缩层——回去分层，不要硬解。
+分数及可读头部只提供候选；倍数关系不能独立证明周期。验证需检查完整结构、回代并用独立已知明文样本交叉验证；已知明文不够覆盖候选周期时不能声称得到完整密钥。
 
 ## 2.3 RC4：等长 + 无填充 + crib 回代
 
@@ -170,7 +162,7 @@ b'key12345' len_equal True head b'{"cmd":"ping"'
 00 11 22 33 44 55 66 77 len_equal True head b'\x04\x00\x00\x00...'
 ```
 
-判据：`head` 是 JSON/长度前缀/魔数 → 这是"确认"；全是随机字节 → 不是这个 key。
+判据：`head` 像 JSON/长度前缀/魔数只是线索；完整解析、已知明文回代和独立样本验证后才可提高置信度。
 RC4 的统计偏差（第二字节偏 0x00、首 256 字节 0x00 偏多）只能当"疑似"线索，不能单独定族。
 
 ## 2.4 AES/分组：块对齐、重复块、PKCS#7、模式
@@ -181,8 +173,6 @@ import pathlib
 ct = pathlib.Path("artifacts/payload.bin").read_bytes()
 blocks = [ct[i:i+16] for i in range(0, len(ct) - 15, 16)]
 print("len", len(ct), "mod16", len(ct) % 16, "blocks", len(blocks), "dup", len(blocks) - len(set(blocks)))
-last = ct[-1]
-print("pkcs7_tail_ok", 1 <= last <= 16 and ct[-last:] == bytes([last]) * last)
 print("first_block_hex", blocks[0].hex() if blocks else None)
 PY
 ```
@@ -191,16 +181,15 @@ PY
 
 ```text
 len 96 mod16 0 blocks 6 dup 2
-pkcs7_tail_ok True
 first_block_hex 3f9a1c07b8e2d451...
 ```
 
 判读：
 
-- `dup>=1` 且用相同明文块（如全 `A`）能复现 → ECB（`01-criteria.md` #14）。
-- `dup==0` + `pkcs7_tail_ok` + 首块每帧不同 → CBC，首 16 B 很可能是 IV。
+- `dup>=1` 且相同明文块能复现 → ECB 候选，需独立实验与回代。
+- `dup==0` 且首块每帧不同只能提示 CBC/IV 候选，不能定模式；PKCS#7 必须在解密明文尾检查，不能直接检查密文尾。
 - `dup==0` + `mod16!=0` + 长度与明文等长 → 流/CTR，找 8/12/16 B nonce。
-- `len % 16 == 0` 但末尾不像 padding → 可能是自定义填充或两轮加密，先别下结论。
+- `len % 16 == 0` 本身无法判断填充或加密轮数；有明文后再检查尾部。
 
 CTR nonce 重用的判定（两条密文异或等于两条明文异或）：
 
@@ -240,7 +229,7 @@ for k in (0, 15, 16, 31):
 
 - CBC：第 k 块损坏 + 下一块对应位翻转。
 - CTR/流：只影响对应明文位，长度不变。
-- 带 MAC/AEAD：整帧被拒（无法观察扩散），此时只能靠"密文长度是否 16 倍数"和"是否每帧带 tag"判断。
+- 带 MAC/AEAD：整帧被拒（无法观察扩散），长度与疑似 tag 只能提供候选，不能单独确定模式。
 
 ## 3.1 位翻转扩散实验（判 CBC/CTR 的硬证据）
 
@@ -265,7 +254,7 @@ changed_plain_offsets [16, 17, 18, ..., 31, 32]
 ```
 
 `diff` 只落在 `[16,32)` 且长度不变 → 更像 CTR/流；`diff` 跨两个块 → CBC。
-带 MAC/AEAD 时整帧被拒，观察不到扩散：改看"密文是否 16 倍数 + 每帧是否带 tag"，别硬做位翻转。
+带 MAC/AEAD 时整帧被拒，观察不到扩散：长度和疑似 tag 仅供提出候选，别将其当模式结论。
 
 ## 4. 校验和：先覆盖范围，再算法参数
 
@@ -312,34 +301,25 @@ reveng -w 32 -s 01020304 05060708 090a0b0c
 python -c "import crcmod; print(crcmod.predefined._crc_definitions[:3])" 2>/dev/null || echo "no crcmod"
 ```
 
-没有工具时的最小穷举（反射/非反射 + init 0/全 F + xorout 0/全 F，共 8 组）：
+没有工具时先用已知向量验证一个明确参数集；以下只实现反射式 CRC-16/MODBUS，不是通用 CRC 参数穷举：
 
 ```bash
-# 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
 python - <<'PY'
-import binascii
-msg, want = b"SPRX\x01\x01\x00\x24\x00\x00\x00\x01{}", 0x1234
-def crc16(data, poly=0xA001, init=0xFFFF, refin=True, xorout=0):
-    c = init
+def crc16_modbus(data):
+    c = 0xffff
     for x in data:
         c ^= x
         for _ in range(8):
-            c = (c >> 1) ^ poly if c & 1 else c >> 1
-    return (c ^ xorout) & 0xFFFF
-hits = []
-for init in (0x0000, 0xFFFF):
-    for xorout in (0x0000, 0xFFFF):
-        for poly in (0xA001, 0x8005, 0x1021, 0x3D65):
-            if crc16(msg, poly=poly, init=init, xorout=xorout) == want:
-                hits.append((hex(poly), hex(init), hex(xorout)))
-print("hits", hits, "unique", len(hits) == 1)
+            c = (c >> 1) ^ 0xa001 if c & 1 else c >> 1
+    return c & 0xffff
+result = crc16_modbus(b"123456789")
+print("crc", hex(result), "known_vector_ok", result == 0x4b37)
 PY
 ```
 
-通过长什么样：`hits [('0xa001', '0xffff', '0x0')] unique True`。
-`unique False` 说明样本太少（或覆盖范围错），继续收帧——不要挑一个"看起来对"的写进报告。
+`crc 0x4b37 known_vector_ok True` 只校验此实现；目标帧需另确定覆盖范围，并用多组独立样本和负例检验参数。
 
-## 5. 真实样本的校验复算（SPRX）
+## 5. 夹具的校验复算（SPRX）
 
 ```bash
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \

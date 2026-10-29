@@ -13,16 +13,107 @@
     },
     "final": {
       "claims": 6,
-      "proven": 6,
+      "proven": 4,
       "strong": 4,
       "verdict": "pass"
     }
   },
   "source_sha256": {
-    "facts.jsonl": "8b95c2d20f2cf39b5f024aff3c9aaa24f4dc90d17881257ce2e011d3af880509",
-    "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353"
+    "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353",
+    "capture/reverify-2026-10-24.log": "e0c683975dd5ca295d4272f7b14f166536f7d5a17eca6752cee8102dbbbd9fea",
+    "facts.jsonl": "94aa9ca39ce342abf33ea1d65964ad84779fcd1815ca50b48a1a5ef5d2c63570",
+    "report/triage.md": "12dbef3e6d42f32729311507b9170d8f16e840e50f5db4adab402a9c4c4462ef"
   },
-  "interpretation": "unzip/aapt/zipalign/jarsigner/adb 全量重测后声明 observed，背书 0 → 4；重建与签名破坏两项如实降为 inferred",
+  "interpretation": "本轮仅审计更正：F-103/F-105 的完整 claim 缺少构建过程和失败顺序对照的原始支持，撤销无据 derived 升档，降为 hypothesis/inferred/reported。由当前 facts 只读重算 claims/proven/strong=6/4/4；pass 仅是既有账本聚合结果。本轮没有新增目标实测，没有重跑 apktool、签名或对齐实验，不证明领域可用。旧 baseline 与限制保留。",
+  "audit_corrections": [
+    {
+      "at": "2026-10-27T01:58:51+00:00",
+      "kind": "evidence-integrity-correction",
+      "claims": [
+        "F-103",
+        "F-105"
+      ],
+      "previous_final": {
+        "claims": 6,
+        "proven": 6,
+        "strong": 6,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "93492d9ef2c90283ae6888b8ef23e691dde7c6ce75dc1abf7ab21f90a538b988",
+        "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353"
+      },
+      "previous_interpretation": "unzip/aapt/zipalign/jarsigner/adb 全量重测后声明 observed，背书 0 → 4；重建与签名破坏两项根据现有对照日志记为 derived，仍保留未独立重跑限制",
+      "reason": "现有日志第 26–35 行仅验证成品，不能支持 F-103/F-105 的完整历史过程。保留原 claim、证据和旧状态于 facts 的 evidence_audit；旧 strong=6 被本次更正推翻。",
+      "validation": "case_state.verify_case 只读现算计数；SHA256 从当前文件字节重算；G5/G6 与回归只验证证据账本契约，不是新的执行验证。verifier 字段为原有账本验证器引用。",
+      "new_target_measurements": false,
+      "target_executed": false
+    },
+    {
+      "at": "2026-10-29T08:12:41.369953+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "Full review updated case facts/report bytes; receipt must bind current content without claiming a new target run.",
+      "previous_final": {
+        "claims": 6,
+        "proven": 4,
+        "strong": 4,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "acc8c763afd12019edf47ae12370113d654632417d5ee6fb9e7d9d7b8030efb7",
+        "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353",
+        "capture/reverify-2026-10-24.log": "e0c683975dd5ca295d4272f7b14f166536f7d5a17eca6752cee8102dbbbd9fea",
+        "report/triage.md": "70faaad306cdb8d9a78f5d8b9cfdac72827e45ac2cdf4e2b79a12d158d8529d6"
+      },
+      "new_final": {
+        "claims": 6,
+        "proven": 4,
+        "strong": 4,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353",
+        "capture/reverify-2026-10-24.log": "e0c683975dd5ca295d4272f7b14f166536f7d5a17eca6752cee8102dbbbd9fea",
+        "facts.jsonl": "5fb0d858eb6faa46d860ced6d390a24476550e9d8866308a26d6b7f2bbc7fd77",
+        "report/triage.md": "12dbef3e6d42f32729311507b9170d8f16e840e50f5db4adab402a9c4c4462ef"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    },
+    {
+      "at": "2026-10-29T09:24:28.081800+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "仅将 facts.jsonl 的 7 行 CRLF 行尾规范化为 LF，保持行序与 JSON 语义不变，修复 git trailing-whitespace 误报；未新增目标执行。",
+      "previous_final": {
+        "claims": 6,
+        "proven": 4,
+        "strong": 4,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353",
+        "capture/reverify-2026-10-24.log": "e0c683975dd5ca295d4272f7b14f166536f7d5a17eca6752cee8102dbbbd9fea",
+        "facts.jsonl": "5fb0d858eb6faa46d860ced6d390a24476550e9d8866308a26d6b7f2bbc7fd77",
+        "report/triage.md": "12dbef3e6d42f32729311507b9170d8f16e840e50f5db4adab402a9c4c4462ef"
+      },
+      "new_final": {
+        "claims": 6,
+        "proven": 4,
+        "strong": 4,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "788bae3d4816878b688032a6e91349de8dfb9de40db779f14f1d378de9559353",
+        "capture/reverify-2026-10-24.log": "e0c683975dd5ca295d4272f7b14f166536f7d5a17eca6752cee8102dbbbd9fea",
+        "facts.jsonl": "94aa9ca39ce342abf33ea1d65964ad84779fcd1815ca50b48a1a5ef5d2c63570",
+        "report/triage.md": "12dbef3e6d42f32729311507b9170d8f16e840e50f5db4adab402a9c4c4462ef"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
+  ],
   "limitations": [
     "apktool 重建未重跑；zipalign→jarsigner 破坏对齐未重做实验"
   ]

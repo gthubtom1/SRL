@@ -206,7 +206,12 @@
   "tools": [
     "seep_case_read",
     "seep_kb_search",
-    "seep_gen_security_report"
+    "seep_gen_security_report",
+    "seep_r2_info",
+    "seep_r2_strings",
+    "seep_r2_disasm",
+    "seep_r2_decompile",
+    "seep_packer_detect"
   ],
   "cases": [
     "golden-crackme",
@@ -217,6 +222,39 @@
     "项目I",
     "案例-6.9换肤壳"
   ],
+  "case_roles": {
+    "witness": [
+      "golden-crackme",
+      "_p2fixture",
+      "案例-真实补丁a",
+      "项目A",
+      "项目B",
+      "项目I",
+      "案例-6.9换肤壳"
+    ],
+    "depth_gate": [
+      "案例-6.9换肤壳",
+      "案例-真实补丁a",
+      "项目A",
+      "项目B",
+      "项目I"
+    ]
+  },
+  "depth_contract": {
+    "skill": "softseep",
+    "board": "pe-reverse",
+    "matrix": "reverse-matrix.json",
+    "case_globs": [
+      "项目*",
+      "案例*"
+    ],
+    "ext_scripts": [
+      "Tool/skill/malware-analysis/scripts/driver-triage.py"
+    ],
+    "kb_line_max": 400,
+    "archive_cases": "Tool/cases/_archive",
+    "archive_kb": "Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse"
+  },
   "witness": {
     "cmd": "python Tool/scripts/case_state.py verify --case Tool/cases/golden-crackme",
     "expect": "exit0 + facts>=3 + artifacts/MANIFEST.sha256",
@@ -246,6 +284,48 @@
   "invalidation": [
     "目标已明确落到某个域包 → 以域包判据为准，本包只做阶段闸"
   ],
+  "project_lifecycle": {
+    "entry": "Tool/scripts/project_state.py",
+    "manager": "Tool/scripts/manager_state.py",
+    "handoff": "Tool/scripts/project_state.py",
+    "resume": "Tool/scripts/project_state.py",
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py"
+  },
+  "input_contract": {
+    "types": ["PE/ELF/Mach-O binary", "JS/WebAssembly/.NET/Java/Python artifact", "UI/resource files", "version pair", "authorized runtime evidence"],
+    "sample_completeness": {
+      "required": ["authorized target and hash", "baseline and candidate versions for version work", "runtime or UI evidence for behavior claims"],
+      "missing_means": "缺目标、版本对、账号、设备或运行材料只是输入要求，不代表逆向、补丁或交付能力已完成。"
+    },
+    "environment": {
+      "required": ["isolated analysis workspace", "matching host/runtime when execution is needed", "authorized credentials and test target only when required"],
+      "missing_means": "缺样本、账号、设备、网络或运行确认时只能保留分析、差异和未验证项。"
+    }
+  },
+  "failure_contract": {
+    "criteria": "Tool/skill/softseep/references/02-failure-criteria.md",
+    "block": "Tool/config/blockers.json",
+    "reroute": {
+      "manager": "Tool/scripts/manager_state.py",
+      "skill": "Tool/skill/softseep/SKILL.md"
+    }
+  },
+  "version_contract": {
+    "version": "Tool/scripts/project_state.py",
+    "run": "Tool/scripts/project_state.py",
+    "migration": "Tool/scripts/project_state.py",
+    "variant": "Tool/skill/softseep/SKILL.md",
+    "incremental": "Tool/skill/softseep/SKILL.md",
+    "reverse_migration": "Tool/skill/softseep/scripts/version-migrate.py"
+  },
+  "extension_contract": {
+    "entry": "Tool/scripts/skill-import.py",
+    "docs": "Tool/docs/EXTEND.md",
+    "pack": "Tool/skill/softseep/pack.json",
+    "parent_skill": "Tool/skill/softseep/SKILL.md"
+  },
   "witness_tool": {
     "cmd": "Tool/skill/softseep/scripts/witness.py",
     "why": "真跑 capability-gate.py --json（断言 covered=capabilities、dangling/cycles=0）+ preflight-classify.py 分析 Tool/cases/golden-crackme/target/a.exe（断言 magic_kind/format=pe、bitness=64、sections），证明能力层与判型都真的产出结果"

@@ -14,30 +14,8 @@ Quick reference for RE challenges. For detailed techniques, see supporting files
 
 ## Prerequisites
 
-**Python packages (all platforms):**
-```bash
-pip install frida-tools angr qiling uncompyle6 capstone lief z3-solver
-# For Python 3.9+ bytecode: build pycdc from source
-git clone https://github.com/zrax/pycdc && cd pycdc && cmake . && make
-```
-
-**Linux (apt):**
-```bash
-apt install gdb radare2 binutils strace ltrace apktool upx
-```
-
-**macOS (Homebrew):**
-```bash
-brew install gdb radare2 binutils apktool upx ghidra
-```
-
-**radare2 plugins:**
-```bash
-r2pm -ci r2ghidra   # Native Ghidra decompiler for radare2
-```
-
-**Manual install:**
-- pwndbg — Linux: [GitHub](https://github.com/pwndbg/pwndbg), macOS: `brew install pwndbg/tap/pwndbg-gdb`
+Use the current main domain and existing tool channels first. Acquire only the missing capability needed for this question through the formal tool path; do not install every optional package globally. References describe methods, not current-machine availability.
+Run/trace/emulate unknown targets only under the existing execution scope and isolation. Competition flag/password examples refer to synthetic challenge data; never read real credentials. Do not upload private targets to public decompilers without the user explicitly requesting that transfer.
 
 ## Additional Resources
 
@@ -60,13 +38,13 @@ r2pm -ci r2ghidra   # Native Ghidra decompiler for radare2
 
 ## When to Pivot
 
-- If you already understand the binary and now need heap, ROP, or kernel exploitation, switch to `/ctf-pwn`.
-- If the challenge is really about recovering deleted files, PCAP data, or disk artifacts, switch to `/ctf-forensics`.
-- If the target is a web app and you are only reversing a small client-side helper script, switch to `/ctf-web`.
-- If the binary implements a machine learning model and the challenge is about model attacks or adversarial inputs, switch to `/ctf-ai-ml`.
-- If the reversed binary's core logic is a cryptographic algorithm or math problem, switch to `/ctf-crypto`.
-- If the binary is a real malware sample with C2, packing, or evasion behavior, switch to `/ctf-malware`.
-- If the challenge is a toy VM, encoding puzzle, or pyjail rather than a real binary, switch to `/ctf-misc`.
+- If you already understand the binary and now need heap, ROP, or kernel exploitation, switch to `Tool/skill/pwn-crypto/SKILL.md`.
+- If the challenge is really about recovering deleted files, PCAP data, or disk artifacts, switch to `Tool/skill/forensics-mobile/SKILL.md`.
+- If the target is a web app and you are only reversing a small client-side helper script, switch to `Tool/skill/web-pentest/SKILL.md`.
+- If the binary implements a machine learning model and the challenge is about model attacks or adversarial inputs, switch to `Tool/skill/_pending/llm-security/SKILL.md`.
+- If the reversed binary's core logic is a cryptographic algorithm or math problem, switch to `Tool/skill/pwn-crypto/SKILL.md`.
+- If the binary is a real malware sample with C2, packing, or evasion behavior, switch to `Tool/skill/malware-analysis/SKILL.md`.
+- If the challenge is a toy VM, encoding puzzle, or pyjail rather than a real binary, switch to `Tool/skill/softseep/SKILL.md`.
 
 ## Problem-Solving Workflow
 
@@ -77,7 +55,7 @@ r2pm -ci r2ghidra   # Native Ghidra decompiler for radare2
 5. **Try Qiling** - emulate foreign-arch binaries or bypass heavy anti-debug without artifacts
 6. **Map control flow** before modifying execution
 7. **Automate manual processes** via scripting (r2pipe, Frida, angr, Python)
-8. **Validate assumptions** by comparing decompiler outputs (dogbolt.org for side-by-side)
+8. **Validate assumptions** by comparing decompiler outputs (prefer local channels; public upload requires explicit transfer authorization)
 
 ## Quick Wins (Try First!)
 

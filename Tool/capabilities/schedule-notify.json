@@ -33,8 +33,9 @@
   "refs": [
     "Tool/skill/apkseep/references/long-task-discipline.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
   "reserved": true,
+  "note": "当前实现仅位于 Tool/skill/_pending/signin-automation；安装器不部署、不索引该目录，因此安装态不能自动调用。现阶段只能由源码工作区人工生成并复核幂等、重试和通知模板，迁移到正式 web-pentest 路由并验证实际调度前不得按完整能力编排。",
   "compose": [
     "session-pool"
   ]

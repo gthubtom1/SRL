@@ -1,7 +1,7 @@
 {
   "id": "site-accept",
   "title": "站点复刻验收与后端边界标注",
-  "domain": "site-clone",
+  "domain": "web-pentest",
   "triggers": [
     "复刻验收",
     "PASS/PARTIAL/BLOCKED",
@@ -36,7 +36,9 @@
     "Tool/skill/_pending/site-clone/references/01-criteria.md",
     "Tool/skill/_pending/site-clone/references/07-auth-and-backend-boundary.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
+  "reserved": true,
+  "note": "源码实现位于 Tool/skill/_pending/site-clone；安装器有意不部署或索引 _pending 子技能。正式 web-pentest 路由目前只能人工引用源码夹具，完成迁移与已安装路径验证前不得作为自动验收工具。",
   "compose": [
     "site-crawl",
     "site-rebuild",

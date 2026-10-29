@@ -1,6 +1,6 @@
 {
   "id": "plugin05",
-  "domain": "plugin-targets",
+  "domain": "protocol-plugin",
   "route": "R25",
   "target_type": "VS Code VSIX 扩展现场打包教学夹具（extension/package.json + activationEvents + child_process）",
   "evidence_kind": "fixture",
@@ -43,20 +43,20 @@
     },
     {
       "path": "artifacts/repro/plugin-repro.json",
-      "sha256": "d30f970000ead2e21f6505bba4919303a5d55365aebf08076bc0d3760464f16d"
+      "sha256": "9bce9d727fb4c8e05217e1c3691c76025984a8754329e80caf5ce64c90d720fb"
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "c73e81e0418cf3f1a1633e077774dd87b6f2ccc9f7234195b0a9fa7087c4e626"
+      "sha256": "255a73e7928cbc36783c824ef21a54673e20991fa0fb0b6969d587d47efcd82a"
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "1f4891806f285c146a4323f2469a116b2bcc528ed29878dd057535696e270a84"
+      "sha256": "c5d797e8c8fc320d20df1c70b66bd969738690bed937aa66eeee72a0594c8356"
     }
   ],
   "lessons": [
-    "实际分析：python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json，rc=0；扩展名 .vsix 与 extension/package.json 双重识别为 VSIX，2 个激活事件。",
-    "复现：python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out Tool/cases/plugin05/artifacts/repro --json，rc=0；入口解析到 extension/extension.js（activate），并抽出 execFile 调用。",
+    "实际分析：python Tool/skill/protocol-plugin/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json，rc=0；扩展名 .vsix 与 extension/package.json 双重识别为 VSIX，2 个激活事件。",
+    "复现：python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out Tool/cases/plugin05/artifacts/repro --json，rc=0；入口解析到 extension/extension.js（activate），并抽出 execFile 调用。",
     "判据：激活事件 → 命令 → 关键文件/进程调用链完整；capabilities.untrustedWorkspaces.supported=false 说明受限工作区应禁用，但夹具未在真实 VS Code 中加载。",
     "边界：未签名、未安装、未执行；child_process 调用只做静态定位，未验证参数注入或工作区边界。"
   ],
@@ -70,17 +70,19 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/_pending/plugin-targets/SKILL.md",
-    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
-    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/_pending/plugin-targets/references/ide-plugins.md",
-    "Tool/config/plugin-targets-matrix.json",
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/skill/protocol-plugin/references/01-criteria.md",
+    "Tool/skill/protocol-plugin/references/02-failure-criteria.md",
+    "Tool/playbooks/plugin-analysis.md",
     "Tool/cases/plugin05/input/ext.vsix",
     "Tool/cases/plugin05/artifacts/repro/plugin-repro.json"
   ],
   "updated": "2026-10-21",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "evidence": "见 lessons 首条的『命令与 rc』",
+    "command": "python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out Tool/cases/plugin05/artifacts/repro --json",
+    "cwd": ".",
+    "rc": 0
   }
 }

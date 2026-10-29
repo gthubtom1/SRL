@@ -37,6 +37,13 @@ Exit codes:
 
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import glob
 import hashlib
@@ -387,7 +394,7 @@ def main(argv=None):
 
     if args.self_test:
         return self_test()
-    root = os.path.abspath(args.root) if args.root else str(Path(__file__).resolve().parents[4])
+    root = os.path.abspath(args.root) if args.root else _seep_repo_root(__file__)
     if not os.path.isdir(os.path.join(root, "Tool", "cases")):
         print(json.dumps({"ok": False, "blocked_at": "input",
                           "reason": "no Tool/cases under root: %s" % root},

@@ -1,0 +1,24 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "TYPED-ASSETS-PRIMITIVES",
+  "decision": "superseded",
+  "current_acceptance": false,
+  "review_date": "2026-10-29",
+  "reason": "Historical acceptance is not valid for the current working tree: locked objects changed or referenced evidence is unavailable. Original claims, hashes and reported results are preserved in the archive; this review does not renew independent acceptance.",
+  "historical_receipt": "docs/history/verification/2026-10-29/typed-assets-primitives-acceptance.json",
+  "historical_receipt_sha256": "d14eb1128db855de6c3718defa7e9ee3c42ec484a14c267018aad6c547a1155b",
+  "invalidation": {
+    "missing_references": [
+      "work/goal-recovery/typed-assets-boundary-independent.md",
+      "work/goal-recovery/typed-assets-independent.md",
+      "work/goal-recovery/typed-assets-repair.md"
+    ],
+    "changed_locked_objects": [
+      "Tool/scripts/lib/project_lock.py",
+      "Tool/scripts/lib/typed_assets.py",
+      "Tool/scripts/manager_state.py",
+      "Tool/scripts/test_typed_assets.py"
+    ]
+  },
+  "overall_goal_complete": false
+}

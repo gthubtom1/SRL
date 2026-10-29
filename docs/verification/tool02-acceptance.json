@@ -1,0 +1,26 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "TOOL-02",
+  "decision": "superseded",
+  "current_acceptance": false,
+  "review_date": "2026-10-29",
+  "reason": "Historical acceptance is not valid for the current working tree: locked objects changed or referenced evidence is unavailable. Original claims, hashes and reported results are preserved in the archive; this review does not renew independent acceptance.",
+  "historical_receipt": "docs/history/verification/2026-10-29/tool02-acceptance.json",
+  "historical_receipt_sha256": "c77e5acc7052406d2bcd82f4cbdf01a0b275a2767276f1a3559f18bbcd21a4cd",
+  "invalidation": {
+    "missing_references": [
+      "work/goal-recovery/tool02-independent.md"
+    ],
+    "changed_locked_objects": [
+      "Tool/config/mcp-tool-dependencies.json",
+      "Tool/mcp/seep_contract.py",
+      "Tool/mcp/seep_mcp_server.py",
+      "Tool/mcp/test_seep_mcp.py",
+      "Tool/scripts/manager_state.py",
+      "Tool/scripts/project_workflow.py",
+      "Tool/scripts/test_tool_dependencies.py",
+      "Tool/scripts/tool-contract-check.py"
+    ]
+  },
+  "overall_goal_complete": false
+}

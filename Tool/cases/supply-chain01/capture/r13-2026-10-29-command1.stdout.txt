@@ -1,0 +1,100 @@
+{
+  "schema": "seep.sc-check/1",
+  "tool": {
+    "name": "sc-check.py",
+    "version": "1.1.0",
+    "mode": "offline-static",
+    "safe": true,
+    "guarantees": [
+      "read-only",
+      "no network",
+      "no build",
+      "excludes node_modules/vendor/.git"
+    ]
+  },
+  "target": {
+    "path": "Tool",
+    "files_scanned": 1000,
+    "truncated": true
+  },
+  "ok": true,
+  "summary": {
+    "risks": {
+      "critical": 0,
+      "high": 1,
+      "medium": 0,
+      "low": 0,
+      "info": 0
+    },
+    "risks_total": 1,
+    "high_or_critical": 1,
+    "rule_hits_total": 0,
+    "ecosystems": [
+      "npm"
+    ]
+  },
+  "inventory": {
+    "manifests": [
+      {
+        "path": "cases/plugin04/artifacts/repro/unpack/package.json",
+        "ecosystem": "npm"
+      },
+      {
+        "path": "cases/plugin05/artifacts/repro/unpack/extension/package.json",
+        "ecosystem": "npm"
+      }
+    ],
+    "locks": [],
+    "dockerfiles": [],
+    "compose": [],
+    "workflows": [],
+    "gitlab": [],
+    "jenkins": [],
+    "npmrc": [],
+    "pipconf": [],
+    "nuget": [],
+    "dockerignore": []
+  },
+  "risks": [
+    {
+      "id": "SC-001",
+      "level": "high",
+      "category": "lockfile",
+      "file": "cases/plugin04/artifacts/repro/unpack/package.json",
+      "line": null,
+      "evidence": "1 个依赖，但同目录/祖先目录没有 package-lock.json / yarn.lock / pnpm-lock.yaml",
+      "why": "无锁文件时安装结果随 registry 漂移，无法复现 SBOM，也无法校验完整性。",
+      "fix": "提交锁文件并在 CI 中用 npm ci / yarn --frozen-lockfile / pnpm --frozen-lockfile。",
+      "confidence": "high"
+    }
+  ],
+  "rule_hits": [],
+  "degraded": [
+    {
+      "tool": "syft",
+      "fallback": "未安装：本次只做清单/锁文件盘点；SBOM 需人工用 syft/cdxgen 生成。"
+    },
+    {
+      "tool": "SCA",
+      "fallback": "osv-scanner/grype/trivy 均缺失：CVE 命中需人工到 OSV/GHSA 按版本比对，不能据此判洞。"
+    },
+    {
+      "tool": "cosign",
+      "fallback": "未安装：镜像签名/来源证明需人工用 cosign verify 或发布页校验。"
+    }
+  ],
+  "missing_tools": [
+    "syft",
+    "osv-scanner",
+    "grype",
+    "trivy",
+    "cosign",
+    "semgrep",
+    "docker"
+  ],
+  "limits": {
+    "max_files": 1000,
+    "max_depth": 8,
+    "note": "静态线索；可达 CVE、实际签名与镜像层需人工/外部工具复核。"
+  }
+}

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""check-budget.py —— 反臃肿预算自检（对应 MANUAL/BASELINE-FREEZE.md §7）
+"""budget.py —— 仓库文件与常驻提示词预算自检。
 
 一条命令回答："这个项目有没有在变臃肿？"
 退出码：0 = 全部在预算内；1 = 有超限项。
 
 用法：
-    python Tool/scripts/check-budget.py
-    python Tool/scripts/check-budget.py --json
+    python Tool/scripts/budget.py
+    python Tool/scripts/budget.py --json
 """
 
 from __future__ import annotations
@@ -17,15 +17,21 @@ import io
 import json
 import os
 import re
-import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # Tool/scripts -> Tool
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)   # 让 `from lib.source_inventory import …` 与本文件同目录运行一致
+
+
+def _server_source():
+    with io.open(os.path.join(ROOT, "mcp", "seep_mcp_server.py"), encoding="utf-8") as source:
+        return source.read()
 
 
 def count_tools():
-    src = io.open(os.path.join(ROOT, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+    src = _server_source()
     return len(re.findall(r"^@server\.tool\(\)", src, re.M))
 
 
@@ -47,56 +53,40 @@ def count_skills():
     return len(names)
 
 
-def first_party_files():
-    """引擎文件计数（2026-10-22 修正：只数 git 已跟踪文件）。
+def first_party_inventory():
+    """引擎文件清单（**唯一真相源**：`Tool/scripts/lib/source_inventory.py`）。
 
-    旧实现走 os.walk，会把 `.pytest_cache/`、`.pi/`、`evidence/` 这类运行时/
-    忽略目录也算进去，导致同一份代码在不同机器/不同 worktree 上得出不同数字
-    （实测漂移 820↔834），BASELINE 无法对账。现在优先用 `git ls-files`，
-    拿不到 git（导出包/浅环境）时回退到 walk，但跳过所有点目录。
+    历史（别再走回头路）：
+      · 2026-10-22 前用 os.walk，把 `.pytest_cache/`/`.pi/`/`evidence/` 算进去 → 实测漂移 820↔834；
+      · 之后改成「git ls-files + 12 条**子串** skip」，942 能对上账，但 #43 审计实测 13 条
+        真实源被误排（`.github/workflows/*.yml` 撞 `/work`、`docs/audits/*` 撞 `/audit`、
+        `setup/upstream-rules.json` 撞 `/upstream`、`Tool/skill/*/evidence/*` 撞 `/evidence/`）；
+      · 回退分支还把**绝对路径**丢进同一子串判定 —— 仓库装在含 work/cases/audit/evidence
+        的路径下会把 `Tool/` 整个剪掉，退化成 ~40 条静默绿。
+    ⇒ 计数、排除原因、gitless 校验全部收敛到 source_inventory，本函数只做转接。
+
+    返回 (count|None, inv)。None = 口径未验证（不准当数字用，也不准当绿）。
     """
-    skip = ("/upstream", "/node_modules", "/__pycache__", "/mcp/Tool",
-            "/破甲卡生成", "/cases", "/audit", "/work",
-            "/.git/", "/.pytest_cache/", "/.pi/", "/evidence/")
-    repo = os.path.dirname(ROOT)
-
     try:
-        out = subprocess.run(["git", "-C", repo, "ls-files", "-z"],
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                             timeout=60)
-        if out.returncode == 0 and out.stdout:
-            names = [p for p in out.stdout.decode("utf-8", "replace").split("\0") if p]
-            total = 0
-            for rel in names:
-                norm = "/" + rel.replace(os.sep, "/")
-                if any(s in norm for s in skip):
-                    continue
-                total += 1
-            return total
-    except Exception:
-        pass
-
-    total = 0
-    for dirpath, dirs, files in os.walk(ROOT):
-        norm = dirpath.replace(os.sep, "/")
-        dirs[:] = [d for d in dirs if not d.startswith(".")]
-        if any(s in norm for s in skip):
-            dirs[:] = []
-            continue
-        total += len(files)
-    for name in os.listdir(repo):
-        p = os.path.join(repo, name)
-        if os.path.isfile(p) and not name.startswith("."):
-            total += 1
-    for sub in ("setup", "MANUAL", "docs"):
-        d = os.path.join(repo, sub)
-        if os.path.isdir(d):
-            for dirpath, dirs, files in os.walk(d):
-                if "__pycache__" in dirpath:
-                    dirs[:] = []
-                    continue
-                total += len(files)
-    return total
+        from lib.source_inventory import inventory  # Tool/scripts/lib
+    except Exception:  # noqa: BLE001 —— 被当模块 copy 到别处时的兜底
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "seep_source_inventory", os.path.join(HERE, "lib", "source_inventory.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        inventory = mod.inventory
+    try:
+        inv = inventory(os.path.dirname(ROOT))
+    except Exception as exc:  # noqa: BLE001 —— 清单不可用 ≠ 计数为 0
+        return None, {"mode": "unverified", "mode_reason": "清单不可用：%s" % str(exc)[:160],
+                      "counts": {}, "errors": [str(exc)[:200]], "source_complete": False}
+    if inv.get("mode") == "unverified":
+        return None, inv
+    if not inv.get("source_complete", True):
+        # F1/F2：数字可以给（让人看到 raw），但**不得拿去判绿** —— 消费方拿到 None → UNKN/rc2。
+        return None, inv
+    return inv["counts"]["first_party"], inv
 
 
 def case_files():
@@ -117,6 +107,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     repo = os.path.dirname(ROOT)
+    _pf_count, _pf_inv = first_party_inventory()
     budget = [
         ("MCP 工具", count_tools(), 45),
         ("技能", count_skills(), None),   # 用户决定：技能数量不设上限
@@ -124,37 +115,83 @@ def main(argv=None):
                         if f.endswith((".ps1", ".sh", ".py"))]), 22),
         ("MANUAL 手册", len([f for f in os.listdir(os.path.join(repo, "MANUAL"))
                          if f.endswith(".md")]), 16),
-        ("MCP 主服务行数", len(io.open(os.path.join(ROOT, "mcp", "seep_mcp_server.py"),
-                                       encoding="utf-8").read().splitlines()), 3200),
+        ("MCP 主服务行数", len(_server_source().splitlines()), 3200),
         # 上限从 900 → 930（2026-10-25）：A+ 深度工作按"每域 ≥2000 行/篇均 ≥250"补内容，
         # 每轮会新增 2–4 篇 reference。深度是产品本身，不是膨胀；上限仍设死值，防止无节制加文件。
-        ("first-party 引擎文件", first_party_files(), 950),
-        ("案例库文件", case_files(), 1500),   # 证据库：58 个案例的真实输入/产物
+        ("first-party 引擎文件", _pf_count, 950),   # 950 是判据，本批不动；口径见 lib/source_inventory.py
+        ("案例库文件", case_files(), 1700),   # 证据库：66 个案例的真实输入/产物
     ]
 
     rows = []
     over = []
+    unknown = []
     for name, value, limit in budget:
         if limit is None:
             rows.append({"item": name, "value": value, "limit": None, "ok": True})
+            continue
+        if value is None:      # 口径未验证：既不算过，也不算超 —— 单独一档，不许静默变绿
+            rows.append({"item": name, "value": None, "limit": limit, "ok": False,
+                         "unverified": True})
+            unknown.append(name)
             continue
         ok = value <= limit
         rows.append({"item": name, "value": value, "limit": limit, "ok": ok})
         if not ok:
             over.append(name)
 
+    inv = {"policy": _pf_inv.get("policy"), "mode": _pf_inv.get("mode"),
+           "stable": _pf_inv.get("stable"), "counts": _pf_inv.get("counts") or {},
+           "mode_reason": _pf_inv.get("mode_reason") or "",
+           "source_complete": _pf_inv.get("source_complete"),
+           "manifest_source": _pf_inv.get("manifest_source") or "",
+           "missing_tracked": [e.get("path") for e in (_pf_inv.get("missing_tracked") or [])],
+           "deleted_staged": [e.get("path") for e in (_pf_inv.get("deleted_staged") or [])],
+           "unsupported": [e.get("path") for e in (_pf_inv.get("unsupported") or [])]}
+    _raw = (_pf_inv.get("counts") or {}).get("included")   # 实际存在数（可能与计入值不同）
+
     if args.json:
-        print(json.dumps({"ok": not over, "budget": rows}, indent=2, ensure_ascii=False))
+        print(json.dumps({"ok": not over and not unknown, "budget": rows,
+                          "source_inventory": inv}, indent=2, ensure_ascii=False))
     else:
         print("[budget] 反臃肿预算自检")
         for r in rows:
+            if r.get("unverified"):
+                print("  %-4s %-16s %5s / %d" % ("UNKN", r["item"], "?", r["limit"]))
+                continue
             mark = "OK  " if r["ok"] else "OVER"
             if r["limit"] is None:
                 print("  %-4s %-16s %5d / 无上限" % (mark, r["item"], r["value"]))
             else:
                 print("  %-4s %-16s %5d / %d" % (mark, r["item"], r["value"], r["limit"]))
-        print("  结论:", "全部在预算内" if not over else ("超限: " + ", ".join(over)))
-    return 0 if not over else 1
+        c = inv["counts"]
+        print("  口径: %s mode=%s stable=%s tracked=%s untracked=%s 排除=%s"
+              % (inv["policy"], inv["mode"], inv["stable"], c.get("tracked"),
+                 c.get("untracked"), c.get("excluded")))
+        if inv["missing_tracked"] or inv["unsupported"] or inv["source_complete"] is False:
+            # F1/F2：**必须点名**。否则删掉工作树里的 tracked 文件就能把 OVER 洗成 OK 而无人知晓。
+            print("  完整性: INCOMPLETE —— 实际存在=%s，不得当成完整清单" % (_raw,))
+            if inv["missing_tracked"]:
+                print("    missingTracked=%d: %s"
+                      % (len(inv["missing_tracked"]),
+                         ", ".join(inv["missing_tracked"][:5])))
+            if inv["unsupported"]:
+                print("    unsupported=%d (gitlink/嵌套 repo 未物化): %s"
+                      % (len(inv["unsupported"]), ", ".join(inv["unsupported"][:5])))
+        if inv["deleted_staged"]:
+            print("    stagedDeleted=%d（已从索引移除，不计为缺失）: %s"
+                  % (len(inv["deleted_staged"]),
+                     ", ".join(inv["deleted_staged"][:5])))
+        if unknown:
+            print("  未验证（%s）：%s —— 不计为通过"
+                  % (", ".join(unknown), inv["mode_reason"] or "无详情"))
+        print("  结论:", "全部在预算内" if not over and not unknown
+              else (("超限: " + ", ".join(over)) if over else "无法判定: " + ", ".join(unknown)))
+    # An unknown measurement makes the whole result undecidable.  It must
+    # retain rc=2 even when another independent row is already over limit;
+    # otherwise callers cannot distinguish "known over" from "incomplete".
+    if unknown:
+        return 2
+    return 1 if over else 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -192,8 +229,9 @@ import os
 import re
 import sys
 
-HOME = os.path.expanduser("~")
-AGENT_DIR = os.environ.get("PI_CODING_AGENT_DIR") or os.path.join(HOME, ".pi", "agent")
+from lib.runtime_root import resolve_agent_root
+
+AGENT_DIR = str(resolve_agent_root())
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 预算线（token）。不是硬科学，是"别把工作记忆挤没"的经验上限。
@@ -206,7 +244,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 #   所以改成两个独立口径：
 #     · 可控层（人设 + 纪律 + 索引 + 边界）→ 硬上限 3,500 token（这才是我们要瘦的）
 #     · 总量 = 可控层 + 宿主基座（不可控，只报告不判）
-#   依据：docs/PLAN-FINAL.md §预算；docs/RESEARCH-BASELINE.md
+#   依据：REQUIREMENTS.md 的预算/可维护性要求与本脚本的实测锚点
 MEASURED_ANCHOR = 29415
 CEILING_TOTAL = 13000            # 含宿主基座（只报告）
 CEILING_CONTROLLABLE = 3500      # 可控制层硬上限
@@ -336,7 +374,7 @@ def count_imperatives(text: str) -> int:
     return len([h for h in hits if len(h) > 8])
 
 
-def build(ceiling: int = CEILING_TOTAL, anchor: int = MEASURED_ANCHOR) -> dict:
+def build(ceiling: int = CEILING_CONTROLLABLE, anchor: int = MEASURED_ANCHOR) -> dict:
     rows = []
     pt, pp = persona_text()
     rows.append(layer("破甲人设卡（L3 风格层）", "persona", pp, pt,
@@ -377,9 +415,9 @@ def build(ceiling: int = CEILING_TOTAL, anchor: int = MEASURED_ANCHOR) -> dict:
     return {
         "total_tokens": total,
         "controllable_tokens": controllable,
-        "controllable_ceiling": CEILING_CONTROLLABLE,
+        "controllable_ceiling": ceiling,
         "ceiling": ceiling,
-        "over_by": max(0, controllable - CEILING_CONTROLLABLE),
+        "over_by": max(0, controllable - ceiling),
         "layers": rows,
         "skills": items,
         "rule_stats": rule_stats,
@@ -426,7 +464,7 @@ def render(d: dict) -> None:
     print("读法：")
     print("  · 只有「可控制小计」是我们的责任；宿主基座（默认提示词 + 工具声明）改不动，只报告。")
     print("  · 真正干活的技能（00-analysis 等）是按需加载的，不进这张表 —— 它们的问题是不被加载，不是太大。")
-    print("  · 唯一口径见 docs/PLAN-FINAL.md §预算；别处出现的数字一律以那里为准。")
+    print("  · 唯一口径见 REQUIREMENTS.md 的预算/可维护性要求与本脚本常量；别处出现的数字一律以这里为准。")
 
 
 def prompt_main() -> int:
@@ -437,11 +475,14 @@ def prompt_main() -> int:
             pass
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
-    ap.add_argument("--ceiling", type=int, default=CEILING_TOTAL)
+    ap.add_argument("--ceiling", type=int, default=CEILING_CONTROLLABLE,
+                    help="可控制层 token 上限（默认 3500；宿主基座只报告）")
     ap.add_argument("--anchor", type=int, default=MEASURED_ANCHOR,
                     help="实测首次调用的 input+cacheRead（用于反推宿主自带部分）")
     ap.add_argument("--diff", default=None, help="与另一次 --json 输出比较")
     a = ap.parse_args()
+    if a.ceiling <= 0:
+        ap.error("--ceiling must be positive")
 
     d = build(a.ceiling, a.anchor)
 

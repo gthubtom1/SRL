@@ -27,8 +27,7 @@
     "Tool/skill/web-pentest/scripts/captcha-gap.py"
   ],
   "refs": [
-    "Tool/playbooks/captcha-handling.md",
-    "Tool/skill/_pending/signin-automation/SKILL.md"
+    "Tool/playbooks/captcha-handling.md"
   ],
   "maturity": "usable",
   "compose": [

@@ -1,0 +1,42 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "PWN07-STATIC",
+  "decision": "superseded",
+  "current_acceptance": false,
+  "review_date": "2026-10-29",
+  "reason": "Historical acceptance is not valid for the current working tree: locked objects changed or referenced evidence is unavailable. Original claims, hashes and reported results are preserved in the archive; this review does not renew independent acceptance.",
+  "historical_receipt": "docs/history/verification/2026-10-29/pwn07-static-acceptance.json",
+  "historical_receipt_sha256": "8ecea8fc0cc603e5b946cf777fcc5c730602218d2ae395f08866147111db8d58",
+  "invalidation": {
+    "missing_references": [
+      "Tool/cases/pwn-crypto07/artifacts/negative-controls.json",
+      "Tool/cases/pwn-crypto07/capture/negative-controls-2026-10-27.log",
+      "Tool/cases/pwn-crypto07/capture/static-witness-2026-10-27.log",
+      "work/goal-recovery/pwn-attribution-repair.md",
+      "work/goal-recovery/pwn07-attribution-independent.md",
+      "work/goal-recovery/pwn07-independent.md",
+      "work/goal-recovery/pwn07-source-pin-independent.md"
+    ],
+    "changed_locked_objects": [
+      "Tool/cases/pwn-crypto07/README.md",
+      "Tool/cases/pwn-crypto07/artifacts/MANIFEST.sha256",
+      "Tool/cases/pwn-crypto07/artifacts/parser-boundary-tests.json",
+      "Tool/cases/pwn-crypto07/artifacts/static-witness.json",
+      "Tool/cases/pwn-crypto07/artifacts/witness-negative-controls.json",
+      "Tool/cases/pwn-crypto07/capture/upstream-verify-summary.json",
+      "Tool/cases/pwn-crypto07/case.json",
+      "Tool/cases/pwn-crypto07/facts.jsonl",
+      "Tool/cases/pwn-crypto07/tools/header-probe.py",
+      "Tool/cases/pwn-crypto07/tools/witness-negative-check.py",
+      "Tool/scripts/case_state.py",
+      "Tool/scripts/gate.py",
+      "Tool/scripts/route.py",
+      "Tool/skill/pwn-crypto/pack.json",
+      "Tool/skill/pwn-crypto/scripts/pwn-accept.py",
+      "Tool/skill/pwn-crypto/scripts/pwn-check.py",
+      "Tool/skill/pwn-crypto/scripts/witness.py",
+      "docs/verification/pwn-crypto07-2026-10-27.json"
+    ]
+  },
+  "overall_goal_complete": false
+}

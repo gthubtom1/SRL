@@ -30,6 +30,7 @@ PROBES = {
     "upx": (["--version"], r"(?i)upx", 30),
     "frida": (["--version"], r"^\d+\.\d+", 30),
     "python": (["--version"], r"(?i)python\s*3", 20),
+    "httpx": (["-version", "-no-color"], r"(?is)projectdiscovery\.io.*Current Version:\s*v?\d+\.\d+", 20),
 }
 
 
@@ -48,9 +49,9 @@ def _run(argv, timeout):
 
 def probe(tool_id, exe_path=None):
     """返回 {ok, tool, exe, why}。exe_path 为空时从 PATH/发现层找。"""
-    spec = PROBES.get(tool_id)
+    spec = PROBES.get({'r2': 'radare2'}.get(tool_id, tool_id))
     if not spec:
-        return {"ok": True, "tool": tool_id, "exe": exe_path or "",
+        return {"ok": None, "verified": False, "tool": tool_id, "exe": exe_path or "",
                 "why": "未配探针（不做身份断言，只报存在）"}
     args, pat, tmo = spec
     exe = exe_path or shutil.which(tool_id) or ""
@@ -61,14 +62,17 @@ def probe(tool_id, exe_path=None):
         argv = ["bash", exe] + argv[1:]
     out, rc = _run(argv, tmo)
     hit = re.search(pat, out or "", re.M)
-    if hit:
-        return {"ok": True, "tool": tool_id, "exe": exe, "why": "探针命中：%s" % hit.group(0)[:60]}
+    if hit and rc == 0:
+        return {"ok": True, "verified": True, "returncode": rc, "tool": tool_id, "exe": exe,
+                "why": "探针命中：%s" % hit.group(0)[:60]}
     why = "探针未命中（输出=%r）" % (out or "")[:160]
+    if rc != 0:
+        why = "探针退出码 %s；%s" % (rc, why)
     if tool_id == "rabin2" and "run script file before the file is opened" in (out or ""):
         why += " —— 这个 rabin2.exe 是 radare2.exe 改名（-I 被当成加载脚本）"
     if "<TIMEOUT" in (out or ""):
         why += " —— 进程不退出（多半进了交互模式，调用方会被卡死）"
-    return {"ok": False, "tool": tool_id, "exe": exe, "why": why}
+    return {"ok": False, "verified": False, "returncode": rc, "tool": tool_id, "exe": exe, "why": why}
 
 
 def probe_all(limit=None):

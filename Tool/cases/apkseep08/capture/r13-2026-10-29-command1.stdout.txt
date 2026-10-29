@@ -1,0 +1,37 @@
+{
+  "target": "target/release.apk",
+  "sha256": "4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b",
+  "sha256_after": "4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b",
+  "size": 100524601,
+  "entries": 1430,
+  "dex": [
+    {
+      "name": "classes.dex",
+      "size": 8409288
+    },
+    {
+      "name": "classes2.dex",
+      "size": 693132
+    },
+    {
+      "name": "classes3.dex",
+      "size": 7284152
+    },
+    {
+      "name": "classes4.dex",
+      "size": 8350300
+    },
+    {
+      "name": "classes5.dex",
+      "size": 5201300
+    },
+    {
+      "name": "classes6.dex",
+      "size": 8068
+    }
+  ],
+  "so_count": 52,
+  "target_unmodified": true,
+  "failures": [],
+  "status": "PASS"
+}

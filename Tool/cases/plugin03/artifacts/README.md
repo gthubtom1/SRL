@@ -12,8 +12,8 @@
 复跑（在仓库根）：
 
 ```bash
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin03/input/real-extension.zip --out /tmp/plugin03-repro --json
+python Tool/skill/protocol-plugin/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json
+python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin03/input/real-extension.zip --out /tmp/plugin03-repro --json
 ```
 
 解包目录未入库；`plugin-repro.py` 会按需重建。动态观测（浏览器加载、native host）未做，结论只到静态证据。

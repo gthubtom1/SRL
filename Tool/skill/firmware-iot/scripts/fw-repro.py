@@ -72,6 +72,7 @@ CRED_RULES = [
     ("password-assign", re.compile(r"(?i)\b(?:password|passwd|pwd|pass)\s*[=:]\s*\S{3,128}")),
     ("secret-assign", re.compile(r"(?i)\b(?:secret|token|api[_-]?key|access[_-]?key)\s*[=:]\s*\S{4,160}")),
     ("ssh-public", re.compile(r"\bssh-(?:rsa|dss|ed25519)\s+AAAA[0-9A-Za-z+/=]{20,}")),
+    ("bearer-token", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/-]{12,}")),
 ]
 
 SERVICE_RULES = [
@@ -291,6 +292,12 @@ def safe_join(dest, name):
     target = os.path.abspath(os.path.join(dest_abs, name))
     if target != dest_abs and not target.startswith(dest_abs + os.sep):
         raise ValueError("unsafe archive member: %s" % name)
+    rel = os.path.relpath(target, dest_abs)
+    cursor = dest_abs
+    for part in rel.split(os.sep):
+        cursor = os.path.join(cursor, part)
+        if os.path.islink(cursor):
+            raise ValueError("unsafe archive member traverses symlink: %s" % name)
     return target
 
 
@@ -332,15 +339,17 @@ def extract_tar(path, dest):
 def extract_stream(kind, src_path, dest):
     if kind == "gzip":
         with gzip.open(src_path, "rb") as src:
-            body = src.read(MAX_READ)
+            body = src.read(MAX_READ + 1)
     elif kind == "xz":
         with lzma.open(src_path, "rb") as src:
-            body = src.read(MAX_READ)
+            body = src.read(MAX_READ + 1)
     elif kind == "bzip2":
         with bz2.open(src_path, "rb") as src:
-            body = src.read(MAX_READ)
+            body = src.read(MAX_READ + 1)
     else:
         raise ValueError(kind)
+    if len(body) > MAX_READ:
+        raise ValueError("decompressed stream exceeds the %d-byte analysis limit" % MAX_READ)
     os.makedirs(dest, exist_ok=True)
     out = os.path.join(dest, kind + ".out")
     with open(out, "wb") as fh:
@@ -406,6 +415,7 @@ def written_tree(dest):
 
 
 def redact(text):
+    text = text.split("\n", 1)[0]
     low = text.lower()
     if "begin" in low and "private key" in low:
         return "-----BEGIN ... PRIVATE KEY----- <redacted>"
@@ -414,24 +424,38 @@ def redact(text):
     match = re.search(r"(?i)((?:password|passwd|pwd|pass|secret|token|api[_-]?key)\s*[=:]\s*)(\S+)", text)
     if match:
         return match.group(1) + "<redacted>"
-    if text.startswith("ssh-"):
-        return text.split()[0] + " <redacted>"
-    return text[:80] + ("..." if len(text) > 80 else "")
+    if re.search(r"\bbearer\s+\S+", text, re.I):
+        return "Bearer <redacted>"
+    if re.search(r"\bssh-(?:rsa|dss|ed25519)\s+", text, re.I):
+        return "<redacted ssh-public-key>"
+    identity = re.search(r"(?:^|\s)([A-Za-z0-9_.-]+):([^:\s]+):", text)
+    if identity and (identity.group(2).startswith("$") or text.count(":") >= 6):
+        return identity.group(1) + ":<redacted>"
+    # The caller reached this function only after a sensitive-data rule
+    # matched. Fail closed rather than echoing an arbitrary prefix.
+    return "<redacted credential clue>"
 
 
 def scan_tree(dest):
     report = {"dirs": 0, "files": 0, "bytes": 0, "key_files": [], "findings": [],
-              "top_dirs": [], "truncated": False}
+              "top_dirs": [], "truncated": False, "skipped_symlinks": 0}
     if not os.path.isdir(dest):
         return report
     seen = set()
     for dp, dn, fn in os.walk(dest):
         report["dirs"] += 1
+        for name in list(dn):
+            if os.path.islink(os.path.join(dp, name)):
+                report["skipped_symlinks"] += 1
+                dn.remove(name)
         rel_dir = os.path.relpath(dp, dest).replace(os.sep, "/")
         if rel_dir != "." and rel_dir.count("/") == 0 and rel_dir not in report["top_dirs"]:
             report["top_dirs"].append(rel_dir)
         for name in fn:
             full = os.path.join(dp, name)
+            if os.path.islink(full):
+                report["skipped_symlinks"] += 1
+                continue
             rel = os.path.relpath(full, dest).replace(os.sep, "/")
             report["files"] += 1
             try:
@@ -443,10 +467,8 @@ def scan_tree(dest):
                     report["key_files"].append({"kind": kind, "path": rel})
                     break
             try:
-                if os.path.getsize(full) > TEXT_LIMIT:
-                    body = open(full, "rb").read(TEXT_LIMIT)
-                else:
-                    body = open(full, "rb").read()
+                with open(full, "rb") as stream:
+                    body = stream.read(TEXT_LIMIT)
             except OSError:
                 continue
             text = body.decode("latin-1", "replace")
@@ -622,20 +644,25 @@ def self_test():
         ota = os.path.join(tmp, "ota.zip")
         with zipfile.ZipFile(ota, "w") as zf:
             zf.writestr("rootfs/etc/passwd", "root::0:0:root:/root:/bin/sh\n")
+            zf.writestr("rootfs/etc/shadow", "root:$6$salt$HASH_SECRET_VALUE:19000:0:99999:7:::\n")
             zf.writestr("rootfs/etc/init.d/rcS", "telnetd -l /bin/sh\n")
             zf.writestr("rootfs/etc/ssl/private/server.key",
                         "-----BEGIN RSA PRIVATE KEY-----\nMIIEsecret\n")
             zf.writestr("rootfs/www/cgi-bin/upgrade",
                         "#!/bin/sh\nsystem(\"tar -xzf $QUERY_STRING\")\n")
+            zf.writestr("rootfs/etc/api.conf", "Authorization: bearer BEARER_SECRET_VALUE_123\n")
         result = analyse(ota, os.path.join(tmp, "out-zip"))
         assert result["ok"] is True and result["primary"] == "zip"
         checks += 1
         assert result["extraction"]["status"] == "extracted"
         checks += 1
         kinds = {f["kind"] for f in result["rootfs"]["findings"]}
-        assert {"empty-password", "private-key", "telnetd", "cgi-system"} <= kinds, kinds
+        assert {"empty-password", "shadow-hash", "private-key", "telnetd", "cgi-system",
+                "bearer-token"} <= kinds, kinds
         checks += 1
-        assert not any("secret" in f["snippet"] for f in result["rootfs"]["findings"])
+        rendered = json.dumps(result["rootfs"]["findings"], ensure_ascii=False)
+        assert all(value not in rendered for value in
+                   ("MIIEsecret", "HASH_SECRET_VALUE", "BEARER_SECRET_VALUE_123"))
         checks += 1
 
         # 2) gzip payload hidden behind a vendor header: carve then extract
@@ -746,6 +773,11 @@ def main(argv=None):
         result = analyse(args.file, args.out_dir.replace("\\", "/"))
     except Blocked as exc:
         print(json.dumps({"ok": False, "blocked_at": exc.stage, "reason": exc.reason},
+                         ensure_ascii=False))
+        return 2
+    except Exception as exc:  # noqa: BLE001 - CLI must never leak a traceback
+        print(json.dumps({"ok": False, "blocked_at": "internal",
+                          "reason": "analysis failed: %s" % type(exc).__name__},
                          ensure_ascii=False))
         return 2
     if args.json:

@@ -1,123 +1,4 @@
-/**
- * answer-gate —— 首答闸 + 写入守卫（pi 扩展）
- *
- * ── 为什么需要这道闸（独立评审第 1 轮 P1-5 原话）──────────────────
- *   「首答四要素（判断 / 到哪一步 / 缺什么 / 大约多少功夫）只有 `case_state.py answer --check`
- *    这个自检命令，没有任何运行时保障；扩展里也没有任何东西在回复前校验它。」
- *
- *   这句话是准的：`answer --check` 只能校验「它被调用时传进去的那份 JSON」，
- *   它管不住「根本没被调用」。提示词里写一百遍「必须先给四要素」，
- *   模型只要直接调第一个分析工具，首答就被跳过了 —— 而首答被跳过，
- *   用户拿到的第一段话就是「我在跑 triage」，不是「这是什么、能做到哪、缺什么、要多久」。
- *   `case_state.py` 文件头的血案（第 20 秒报结论、3.5 小时后发现方向全错）就是这条链的下游。
- *
- *   所以这道闸把「自觉」换成「执行层」：
- *     **首答记录落地之前，分析类工具连发都发不出去。**
- *   反过来也必须成立，否则这道闸会变成新的缺陷：
- *     **读类工具（read/grep/find/ls/todo）与自检命令（answer / --help / preflight / check / gate / route）
- *      永远放行** —— 闸的出路必须始终可达，不能把人关在自己装的闸外面。
- *
- * ── 第 2 轮评审的三条批评（都已修）─────────────────────────────
- *   ① 「把只读分诊也拦了 → 首答反而只能靠猜」：**纯读取**的五个体检工具
- *      `seep_kb_search` / `seep_kb_read` / `seep_case_read` / `seep_tool_discover` / `seep_r2_info`
- *      **永远放行**（首答要靠它们取证）。名单写在 answer-contract.json 的 `gate.whitelist`（唯一来源）。
- *   ② 「不拦 rabin2 / python -c / curl → 闸有洞」：新增 `rabin2|objdump|readelf|strings|file`
- *      与 `curl|wget|ncat|nc`，以及解释器内联执行（`python -c` / `python - <<` / `powershell -c`，
- *      命令体里出现上述工具名或 socket/requests/http 才算）。`python Tool/scripts/*.py`、
- *      `python Tool/skill/*\/scripts/*.py --self-test`、`cat > x <<EOF` 写文件仍放行。
- *   ③ 「一份标记 4 小时对所有目标生效」：标记加 `case` + `target_sha256`，有效期收到
- *      `gate.ttl_minutes`（默认 60 分钟）；标记带 `case` 时，本次参数里的路径必须落在该案
- *      `case.json` 的 `target_files`/`target` 下，否则 block（「换了目标要重新给首答」）。
- *
- * ── 第 3 轮评审的两条（P0-4 / P0-3 部分，都已修）───────────────────
- *   ④ **P0-4「运行客户的目标程序」原来一个门都没有**：`answer-gate` 里没有 `launch-gui`，
- *      `cmd-guard.ts` 对 `Start-Process *.exe` 只是 warn，ack 也只在 `gate --stage` 时被检查。
- *      → 本轮加**第三道 handler「运行目标闸」**（见下面 `classifyRunTarget` / `shouldBlockRun`）：
- *        bash/powershell 命令里出现 `launch-gui.ps1` / `Start-Process` / 把 `.exe` 当程序执行 /
- *        `wine ` / `& "<盘符>…"` → **先看它是不是在跑本案目标**（用户 2026-10-26 口径）：
- *        只有路径落在本案 `target/` 或登记的目标文件上（`touchesCaseTarget`）才要
- *        `~/.seep/run-ack.json`（由 `case_state.py ack` 原子写，60 分钟内有效、绑本案目标）；
- *        启动我们自己的工具（x64dbg / IDA / r2 / `launch-gui.ps1` / `tool-run.ps1`）**静默放行**，
- *        不每步弹 A/B/C。拦在**命令文本层**：`launch-gui.ps1` 内部再拉子进程不用再拦一次。
- *   ⑤ **P0-3 部分「首答白名单 8 个永远放行 = 先分析再补首答」**：`seep_auto_triage` /
- *      `seep_packer_detect` / `seep_apk_info` 会**读目标里的内容**，属于「分析」→ 移出白名单；
- *      只留 5 个纯读取（`seep_r2_info` 只看架构/位数）。为了不让「首答只能靠猜」复活，
- *      block 文案里明写两条合法出路：先写首答再用 triage / 直接问用户要判断。
- *
- * ── 第 4 轮评审的四个 P0（都已修）───────────────────────────────
- *   ⑥ **首答通行证原来能由被约束方自己写**：写守卫把 `~/.seep/` 与 `~/.pi/agent/` 整体放行，
- *      模型可以自己写 `answer-pass.json` / `run-ack.json` / `current-case`，甚至改
- *      `cmd-guard.rules.json`（30 秒热加载）/ `answer-contract.json` / `AGENTS.md`。
- *      → 写守卫加**永久禁写名单**（`gate.never_writable` + 硬编码兜底 `NEVER_WRITABLE`），
- *        优先级高于任何允许根：`Tool/` 仍可写（框架要能改代码），但这八类凭证/规则/契约/提示词永久禁写。
- *   ⑦ **`--adhoc` 临时首答被当成通行证**：标记里的 `"adhoc": true` 现在直接判无效
- *      （`markerState` → `valid:false / reason:"adhoc-not-a-pass"`），必须绑案子重跑 `answer --check --case`。
- *   ⑧ **运行闸不看字母**：`ack --choice B`（「先别运行」）也会开闸。`runAckState` 只认 letter ∈ {A, C}，
- *      B 与其它字母一律 block。
- *   ⑩ **首答标记不看目标内容哈希**（第 5 轮评审 P1，审计点名）：`target_sha256` 原来只写不比较，
- *      同路径换文件仍算同一目标。现在 `targetMismatch` 会算当前文件哈希并与标记比对，
- *      不同即 block（"换了目标要重新给首答"）。
- *   ⑨ **只认 `seep_*`**：`mcp__x64dbg__*` / `mcp__ida__*` 等其它 MCP 工具可无首答直接开工。
- *      → 工具名以 `mcp__` 开头（任意服务）都算分析动作，**只有** `gate.whitelist` 里的 5 个
- *        （裸名或 `mcp__seep__seep_kb_search` 这种全名都认）放行；`gate.exec_tools`
- *        （当前 `seep_r2_cmd`）除首答外还要运行回执（**仅当它跑的是本案目标**，见 ④）。
- *
- * ── 它认什么凭证 ──────────────────────────────────────────────
- *   `~/.seep/answer-pass.json`（由 `case_state.py answer --check` **通过时**写入，失败不写）：
- *     {"schema":"seep.answer-pass/1","case":"<abs 或 ''>","target_sha256":"<登记的目标哈希或 ''>",
- *      "at":"<ISO8601>","contract_sha256":"<Tool/config/answer-contract.json 的 sha256>"}
- *   有效 = 文件存在 + schema 对 + **没有 `adhoc:true`** + contract_sha256 与**当前**契约一致
- *          + at 在 ttl_minutes 内。
- *   契约改了（四要素多一项 / ceiling 四句改了 / gate 块改了）→ 旧标记自动作废，必须重新过一遍首答。
- *   这些凭证（`answer-pass.json` / `run-ack.json` / `current-case`）**只许 `case_state.py` 写**：
- *   写守卫对它们永久禁写（见 `NEVER_WRITABLE`）。
- *
- * ── 只拦「分析类」，不拦别的 ───────────────────────────────────
- *   运行目标闸（第三道 handler，独立于首答闸）——
- *   分类（`classifyRunTarget`）：`launch-gui.ps1`、`Start-Process`、`wine `、`& "<盘>:/…"`、把 `.exe` 当程序跑（含 `gate.exec_tools`，当前 `seep_r2_cmd`）；
- *   再只看**跑的是不是客户样本**（`touchesCaseTarget`）：路径落在本案 `target/` 或登记的
- *         目标文件上才要一次回执；启动 x64dbg / IDA / r2 / 我们自己的脚本 → 静默放行；
- *   放行：`ls *.exe` / `find -name *.exe` / `grep \.exe README` 这类**只看文件名**的只读命令，
- *         以及 `case_state.py`/`preflight`/`check`/`gate`/`route` 这些不执行目标的工作台命令。
- *
- *   首答闸 ——
- *   拦：① 非白名单的 `seep_*` / **任意** `mcp__<server>__*`（codemode 下 seep 工具是 `mcp__seep__seep_*`；
- *          `mcp__x64dbg__*` / `mcp__ida__*` 等其它 MCP 服务同样算分析动作，第 4 轮 P0-3）
- *       ② bash/powershell 命令里出现：`Tool/skill/`（跑技能脚本；`--self-test` 除外）、
- *          `case_state.py (claim|prove|repro|deliver)`、`tool-run.ps1`、
- *          `radare2|r2|jadx|apktool|frida|x64dbg|ghidra`、`rabin2|objdump|readelf|strings|file`、
- *          `binwalk|7z|unzip|upx|tshark|xxd|nmap`（R7 P0-4：拆包/脱壳/抓包/十六进制/扫描）、
- *          `curl|wget|ncat|nc`、解释器内联执行（python -c / python - << / powershell -c …）
- *            注：命令按 `&& || ; | 换行` 切段，**引号内的分隔符不是分隔符**
- *            （`grep -rn "nmap|7z|xxd" Tool/` 是在搜这几个词，不是在跑它们）。
- *   不拦：read / grep / find / ls / todo；`case_state.py answer|init|--help`（init 只建案不分析，
- *         冷启动顺序必须能走通：`init`（不拦）→ `answer --check --case` → 再分析）、
- *         `Tool/scripts/{preflight,check,gate,route}.py`、白名单 seep_* 分诊；
- *         以及命中处所在的**只读程序段**（`grep -rn "frida" docs/` 是在读文档，不是在跑工具）。
- *
- * ── 写入守卫（第 2 轮评审新增要求）──────────────────────────────
- *   写类工具（write/edit/apply_patch…）只许写到：案件目录（`~/.seep/current-case`
- *   或标记里的 case）、仓库存放区 `work/` 与 `Tool/`、`~/.seep/`、`~/.pi/agent/`、系统临时目录；
- *   其余（桌面 / 系统目录 / 仓库根的自造文件）一律 block，文案给「要改仓库请明确说明」。
- *   **但凭证、闸规则、契约、提示词不受允许根保护**：`NEVER_WRITABLE`（`gate.never_writable`）
- *   里的路径永久禁写，优先级高于上面所有允许根（第 4 轮 P0-1/P0-5）。
- *   读类工具完全不受影响。
- *
- * ── 容错（硬约束）──────────────────────────────────────────────
- *   · 读不到标记文件 / 标记坏了 → **按缺失处理（block）**：fail-closed，不能靠删文件绕过闸。
- *   · 读不到 `Tool/config/answer-contract.json` → **只告警不 block**：
- *     一次工作台搬迁/半截落盘不该把整个会话锁死（闸降级成提示）。
- *   · 标记带 case 但读不到该案 case.json → **只告警不 block**（目标绑定降级为提示）。
- *   · **闸自己抛异常（R7 P1-6，已改）**：
- *       — 写守卫、运行目标闸 → **fail-closed（block）**：原来三处 `catch → return undefined`
- *         等于「守卫一崩就放行」，写凭证 / 拉起客户程序全部畅通。现在拦下并把原因告诉模型。
- *       — 首答闸 → 保持 fail-open（只 `console.warn` 一行）：它拦的是「还没说话」这件
- *         可补救的事，闸自己崩了再把人锁死等于不可用。这一条是**有意的不对称**，不是漏改。
- *   · 人工逃生：`/answer-gate` 看状态；`SEEP_ANSWER_GATE=0` 关闭（默认开，见文件尾说明；
- *     **只能由用户自己设**，Agent 不许自己设）。
- *
- * 中文注释、零新依赖、纯函数 `shouldBlock(...)` / `writeDecision(...)` 可单测（不碰磁盘）。
- */
+/** 当前案目标身份与数据边界诊断。授权由会话和宿主处理；历史首答和回执不构成全局授权。 */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createHash } from "node:crypto";
@@ -127,42 +8,10 @@ import * as path from "node:path";
 
 /* ────────────────────────────── 常量 ────────────────────────────── */
 
-/** 标记 schema：格式一变，旧标记一律当无效（宁可重做一次首答，也不认半截数据）。 */
-export const MARKER_SCHEMA = "seep.answer-pass/1";
+/** 历史不可覆盖禁写名单已退役；隐私读取保护另行保留。 */
+export const NEVER_WRITABLE: string[] = [];
 
-/** 运行回执 schema（`case_state.py ack` 成功时写 `~/.seep/run-ack.json`，P0-4）。 */
-export const RUN_ACK_SCHEMA = "seep.run-ack/1";
-
-/** 默认有效期 60 分钟（真正生效的值取自 answer-contract.json 的 `gate.ttl_minutes`）。 */
-export const TTL_MS = 60 * 60 * 1000;
-
-/**
- * 运行闸只认的两个字母：A=允许在本机运行，C=用户自己双击、你只观察。
- * B（先别运行）与任何其它字母一律不放行 —— 第 4 轮 P0：`ack --choice B` 原来也能开闸。
- */
-export const RUN_OK_LETTERS = new Set(["A", "C"]);
-
-/**
- * 永久禁写（第 4 轮 P0-1/P0-4）：闸的凭证、闸的规则、契约、提示词。
- * 优先级**高于**任何允许根（`Tool/`、`~/.seep/`、`~/.pi/agent/` 整体放行也压不住它）。
- * `gate.never_writable` 只能往里加，减不掉这里的硬编码兜底 —— 否则改一行配置就能把闸拆了。
- */
-export const NEVER_WRITABLE = [
-	"~/.seep/answer-pass.json",
-	"~/.seep/run-ack.json",
-	"~/.seep/current-case",
-	"~/.pi/agent/AGENTS.md",
-	"~/.pi/agent/SEEP.md",
-	"~/.pi/agent/extensions/**",
-	"~/.pi/agent/skills/**",
-	"~/.pi/agent/agents/**",
-	"**/cmd-guard.rules.json",
-	"**/answer-contract.json",
-	"**/AGENTS.md",
-	"**/SEEP.md",
-];
-
-/** 运行回执的默认有效期 60 分钟（真正生效的值取自 `gate.run_ack.ttl_minutes`）。 */
+/** 兼容旧配置形状；回执配置不裁决当前动作。 */
 export const RUN_ACK_TTL_MINUTES = 60;
 
 /** 运行目标闸的配置（`gate.run_ack`）。 */
@@ -175,24 +24,24 @@ export type RunAckConfig = {
 
 /** 闸的配置形状（answer-contract.json 的 `gate` 块是唯一来源）。 */
 export type GateConfig = {
-	/** 标记有效期（分钟）。 */
+	/** 历史配置，保留结构兼容。 */
 	ttlMinutes: number;
 	/** 永远放行的只读分诊工具（小写、不带 `mcp__seep__` 前缀）。 */
 	whitelist: string[];
-	/** 标记带 case 时是否绑定目标（参数里的路径必须落在该案登记的 target_files/target 下）。 */
+	/** 历史目标绑定配置，诊断不依赖此开关。 */
 	bindTarget: boolean;
 	/** 运行目标闸（P0-4）。 */
 	runAck: RunAckConfig;
-	/** 「可执行目标」工具（第 4 轮 P0-4）：除首答外还要运行回执（当前 `seep_r2_cmd`）。 */
+	/** 旧工具分类配置，仅作兼容。 */
 	execTools: string[];
-	/** 永久禁写的凭证/规则/契约/提示词（`never_writable`；只能加不能减，见 NEVER_WRITABLE）。 */
+	/** 旧禁写配置不再实施。 */
 	neverWritable: string[];
 };
 
 /** 读不到 / 读坏 `gate` 块时的兜底（与 answer-contract.json 保持同值，改一处要改两处）。 */
 export const DEFAULT_GATE: GateConfig = {
 	ttlMinutes: 60,
-	// 只留**纯读取**语义：跑分诊会用目标里的内容做判断，那已经是「分析」，要先给首答（第 3 轮 P0-3）
+	// 历史分类配置保留兼容，不裁决用户授权。
 	whitelist: ["seep_kb_search", "seep_kb_read", "seep_case_read", "seep_tool_discover", "seep_r2_info"],
 	bindTarget: true,
 	runAck: { ttlMinutes: RUN_ACK_TTL_MINUTES, requireCaseTarget: true },
@@ -200,42 +49,7 @@ export const DEFAULT_GATE: GateConfig = {
 	neverWritable: NEVER_WRITABLE.slice(),
 };
 
-/** 标记文件位置（`~/.seep/answer-pass.json`，与 case_state.py 的写入侧一致）。 */
-export function markerPath(): string {
-	return path.join(os.homedir(), ".seep", "answer-pass.json");
-}
-
-/** 运行回执位置（`~/.seep/run-ack.json`，由 `case_state.py ack` 原子写）。 */
-export function runAckPath(): string {
-	return path.join(os.homedir(), ".seep", "run-ack.json");
-}
-
-/** 读类工具名（自带只读语义）：永不拦。`todo` 也在这里 —— 建清单是首答之前的正当动作。 */
-/* ══════════════════════════════════════════════════════════════════════
- * ★★★ 定死锁（DO-NOT-RE-ADD）—— 任何后续评审/优化都不得推翻下列口径 ★★★
- *
- * 用户 2026-10-26 明确裁定（原话意）：
- *   "工具这东西它自动启动，不要问我，它该用就用。"
- *   "只有合理的时候才问我要授权，不是所有东西都要问我。"
- *   "它用 MCP、用技能、用工具，这些都是没有任何风险的。"
- *
- * 因此下列情形**永远不需要用户授权 / 回执 / A-B-C**：
- *   ① 启动或调用我们自己的工具：x64dbg / IDA / Ghidra / radare2(r2/rabin2) / jadx /
- *      apktool / frida / tshark / objdump / readelf / strings / binwalk / 7z / unzip / xxd / nmap
- *   ② 所有 MCP 工具（seep_* 与 mcp__*），含 seep_r2_cmd 这类"对目标跑分析命令"的
- *   ③ 工具链入口：tool-run.ps1、mcp-launch.py、launch-gui.ps1、tool-acquire.py、tool-readiness.py
- *   ④ 所有技能脚本（Tool/skill 下各域的 scripts 目录）
- *   ⑤ 装工具 / 联网 / 读案件目录 / 解包 / 反汇编 / dump / 调试
- *
- * 仍然需要一次用户回执的，**只有这一类**：
- *   ★ 执行「客户交给我们的、本案登记的目标样本本身」（路径落在本案 target/ 或 target_files）。
- *     因为那是不可逆的外部行为，不属于"用工具"。
- *
- * 若有人（包括未来的我或任何评审员）提议在这里重新加"用工具前要授权"，
- * 一律视为**违反本锁**：先让用户改这条注释，再改代码。
- * 机器检查：`python Tool/scripts/test_tool_autonomy.py`（18 条行为用例，接进 check.py）。
- * ══════════════════════════════════════════════════════════════════════ */
-
+/** 只读工具集合也用于保留个人隐私读取保护。 */
 const READONLY_TOOLS = new Set([
 	"read",
 	"grep",
@@ -359,7 +173,7 @@ const LAUNCHER_PROGS = new Set([
 const RUN_TRIGGERS: CmdPattern[] = [
 	// ★★★ DO-NOT-RE-ADD：这里不再列 launch-gui.ps1 / Start-Process / wine / & "D:/..." 等
 	//     "用工具"的动作 —— 启动我们自己的工具一律静默。
-	//     真正要回执的判定在 shouldBlockRun：唯一依据 touchesCaseTarget()（是否在跑本案目标样本）。
+	//     分类只用于描述动作，不裁决授权。
 ];
 
 /** `.exe` 作为 token 出现（前后是空白/引号/`-`/括号/`;|&` 这类边界）。 */
@@ -388,9 +202,6 @@ export function parseGate(raw: unknown): GateConfig {
 	const execTools = Array.isArray(g.exec_tools)
 		? g.exec_tools.filter((x): x is string => typeof x === "string").map((s) => s.trim().toLowerCase()).filter(Boolean)
 		: [];
-	const never = Array.isArray(g.never_writable)
-		? g.never_writable.filter((x): x is string => typeof x === "string").map((s) => s.trim()).filter(Boolean)
-		: [];
 	return {
 		ttlMinutes: Number.isFinite(ttl) && ttl > 0 ? ttl : DEFAULT_GATE.ttlMinutes,
 		whitelist: wl.length > 0 ? wl : DEFAULT_GATE.whitelist.slice(),
@@ -401,28 +212,9 @@ export function parseGate(raw: unknown): GateConfig {
 				typeof ra.require_case_target === "boolean" ? ra.require_case_target : DEFAULT_GATE.runAck.requireCaseTarget,
 		},
 		execTools: execTools.length > 0 ? execTools : DEFAULT_GATE.execTools.slice(),
-		// 契约里的 never_writable 只能**加**：硬编码的凭证/规则永远在名单里
-		neverWritable: mergeNeverWritable(never),
+		// 不执行历史不可覆盖禁写名单。
+		neverWritable: [],
 	};
-}
-
-/** 合并禁写名单：硬编码兜底 + 契约追加（去重、保序）。 */
-export function mergeNeverWritable(extra: string[]): string[] {
-	const out: string[] = [];
-	const seen = new Set<string>();
-	for (const p of [...NEVER_WRITABLE, ...extra]) {
-		// 归一化：结尾的 `/**` 与不带星号是同一棵树（`~/.pi/agent` vs `~/.pi/agent/**`）
-		const k = p.trim().replace(/\/\*\*$/, "").toLowerCase();
-		if (!k || seen.has(k)) continue;
-		seen.add(k);
-		out.push(p.trim());
-	}
-	return out;
-}
-
-/** 当前生效的永久禁写名单（契约只能加、不能减）。 */
-export function neverWritableList(gate: GateConfig = DEFAULT_GATE): string[] {
-	return mergeNeverWritable(Array.isArray(gate.neverWritable) ? gate.neverWritable : []);
 }
 
 /**
@@ -576,9 +368,9 @@ export function classifyTool(
 	if (isAnalysisToolName(lname)) {
 		// 第 2 轮批评①：只读分诊是首答的取证手段，永远放行（名单见 gate.whitelist）
 		if (isWhitelistedTool(lname, gate)) return { analysis: false, why: "" };
-		// 第 4 轮 P0-4：exec_tools 会**在本机跑**分析命令，首答之外还要运行回执（见 classifyRunTarget）
+		// 兼容旧分类字段；此分类不裁决授权。
 		if (gate.execTools.includes(bareToolName(lname))) {
-			return { analysis: true, why: "可执行分析工具 " + name + "（首答 + 运行回执都要求）" };
+			return { analysis: true, why: "可执行分析工具 " + name + "（工具动作）" };
 		}
 		return { analysis: true, why: "MCP 分析工具 " + name };
 	}
@@ -597,94 +389,13 @@ export function classifyTool(
 	return { analysis: false, why: "" };
 }
 
-/**
- * 标记有效性：文件存在 + schema 对 + **不是 adhoc** + contract_sha256 与当前契约一致 + at 在 ttl 内。
- * 契约哈希拿不到（空串）时由 shouldBlock 决定「只告警」——这里只报「无法判定」。
- *
- * 第 4 轮 P0-2：`--adhoc` 写的临时首答（标记里 `"adhoc": true`）**不得当通行证**：
- * 它没绑案子、没绑目标，拿它开工等于把「临时问一句」变成「跳过首答」。
- * 返回里同时给 `valid`（布尔）和 `reason`（机器可读码），`why` 是给人看的一句话。
- */
-export type MarkerState = { ok: boolean; valid: boolean; reason: string; why: string };
-
-export function markerState(
-	marker: unknown,
-	contractHash: string,
-	now: number,
-	ttlMs: number = TTL_MS,
-): MarkerState {
-	const m = asRecord(marker);
-	if (marker === null || marker === undefined || Object.keys(m).length === 0) {
-		return {
-			ok: false,
-			valid: false,
-			reason: "no-marker",
-			why: "没有首答记录（" + markerPath() + " 不存在或读不出）",
-		};
-	}
-	if (asText(m.schema) !== MARKER_SCHEMA) {
-		return {
-			ok: false,
-			valid: false,
-			reason: "bad-schema",
-			why: "标记格式不是 " + MARKER_SCHEMA + "（可能被手改坏了）",
-		};
-	}
-	// 第 4 轮 P0-2：adhoc 临时首答 = 无效凭证（字段在就判，不看值真假：`"adhoc":"x"` 也不认）
-	if (m.adhoc === true || m.adhoc === "true" || (typeof m.adhoc === "string" && m.adhoc.trim() !== "")) {
-		return {
-			ok: false,
-			valid: false,
-			reason: "adhoc-not-a-pass",
-			why: "临时首答不能当通行证，请绑案子重跑 `answer --check --case`（标记里写着 adhoc=true）",
-		};
-	}
-	const got = asText(m.contract_sha256).trim().toLowerCase();
-	if (!got) {
-		return { ok: false, valid: false, reason: "no-contract-sha", why: "标记里没有 contract_sha256" };
-	}
-	if (!contractHash) {
-		return {
-			ok: false,
-			valid: false,
-			reason: "no-contract-hash",
-			why: "拿不到当前 answer-contract.json 的哈希，无法比对",
-		};
-	}
-	if (got !== contractHash.trim().toLowerCase()) {
-		return {
-			ok: false,
-			valid: false,
-			reason: "contract-changed",
-			why: "首答契约已变（answer-contract.json 的 sha256 与标记不一致），上一份首答不再算数",
-		};
-	}
-	const atRaw = asText(m.at).trim();
-	const at = Date.parse(atRaw);
-	if (!Number.isFinite(at)) {
-		return {
-			ok: false,
-			valid: false,
-			reason: "bad-time",
-			why: "标记里的 at 不是合法时间（" + (atRaw || "空") + "）",
-		};
-	}
-	const age = now - at;
-	const ttl = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : TTL_MS;
-	if (age > ttl) {
-		const mins = Math.round(age / 60000);
-		return {
-			ok: false,
-			valid: false,
-			reason: "expired",
-			why: "首答记录已过期（" + mins + " 分钟前写的，闸只认 " + Math.round(ttl / 60000) + " 分钟内）",
-		};
-	}
-	return { ok: true, valid: true, reason: "ok", why: "" };
-}
-
 /** 某案登记过的目标（`case.json` 的 `target_files[].path` 与 `target`/`target_path`/`target_type`）。 */
-export type CaseTargets = { dir: string; paths: string[]; targetSha256: string };
+export type CaseTargets = {
+	dir: string;
+	paths: string[];
+	targetSha256: string;
+	files?: { path: string; sha256: string }[];
+};
 
 const PATHLIKE_EXT =
 	/\.(exe|dll|sys|apk|dex|so|elf|bin|img|iso|zip|7z|rar|tar|gz|xz|py|js|ts|json|md|txt|log|pcap|dmp|dat|jar|aar|crx|xpi|vhd|vmdk)$/i;
@@ -712,9 +423,16 @@ export function extractPaths(toolName: string, args: unknown): string[] {
 	const out: string[] = [];
 	if (lname === "bash" || lname === "powershell") {
 		const cmd = stripQuotedHeredoc(normalizeCmd(asText(a.command ?? a.cmd ?? "")));
-		for (const tok of cmd.split(/\s+/)) {
-			for (const part of tok.split("=")) {
-				if (part && looksLikePath(part)) out.push(cleanToken(part));
+		const tokens = cmd.match(/"[^"\n]*"|'[^'\n]*'|[^\s]+/g) || [];
+		for (const token of tokens) {
+			const inner = cleanToken(token);
+			// `--cmd "python helper.py --input ..."` 是嵌套命令，不是一个含空格的路径。
+			const parts = /^["']/.test(token) && /^(?:python(?:\d+(?:\.\d+)?)?|py|node)(?:\.exe)?\s/i.test(inner)
+				? (inner.match(/"[^"\n]*"|'[^'\n]*'|[^\s]+/g) || []) : [token];
+			for (const tok of parts) {
+				for (const part of tok.split("=")) {
+					if (part && looksLikePath(part)) out.push(cleanToken(part));
+				}
 			}
 		}
 	} else {
@@ -774,17 +492,10 @@ function under(child: string, parent: string): boolean {
 	return c === p || c.indexOf(p + "/") === 0;
 }
 
-/**
- * 第 2 轮批评③：标记带 case 时，本次参数里的路径必须落在该案登记的
- * `target_files`/`target` 下（或就在案件目录里），否则视为「换了目标」。
- * 返回 "" 表示不冲突（或无从判定：没有路径 / 没有 case / 没有 case.json）。
- */
+/** 当前案登记目标的内容哈希缓存。 */
 const _shaCache = new Map<string, { key: string; sha: string }>();
 
-/** 目标文件的内容哈希（带 size+mtime 缓存；读不了返回空串）。
- *  ★ 为什么需要它：第 4 轮评审 P1——标记里的 `target_sha256` 只被写、从不比较，
- *    于是"同一路径换掉文件内容"仍算同一个目标，旧首答继续有效。
- */
+/** 目标文件的内容哈希；读不了返回空串。 */
 export function fileSha256(p: string): string {
 	try {
 		const st = fs.statSync(p);
@@ -809,136 +520,58 @@ export function targetMismatch(
 	caseTargets: CaseTargets | null,
 ): string {
 	if (!caseTargets) return "";
-	const caseDir = asText(asRecord(marker).case).trim();
-	if (!caseDir) return "";
-	const paths = extractPaths(toolName, args);
-	if (paths.length === 0) return "";
-	const dir = path.resolve(caseDir);
+	const dir = path.resolve(caseTargets.dir);
 	const targets = caseTargets.paths.map((p) => path.resolve(dir, p));
-	const baseNames = new Set<string>();
-	for (const t of targets) {
-		const b = path.basename(cmpKey(t));
-		if (b) baseNames.add(b);
-	}
-	const hit = paths.some((p) => {
-		const abs = path.resolve(p);
-		if (under(abs, dir)) return true;
-		if (targets.some((t) => under(abs, t))) return true;
-		const b = path.basename(cmpKey(abs));
-		return b.length > 0 && baseNames.has(b);
-	});
-	// 内容哈希比对：路径对得上不等于"还是那个文件"。
-	const mt = asText(asRecord(marker).target_sha256).trim().toLowerCase();
-	if (mt.length >= 12) {
-		const files = paths.filter((p) => {
-			try {
-				return fs.statSync(p).isFile();
-			} catch {
-				return false;
-			}
-		});
-		if (files.length > 0) {
-			const anyMatch = files.some((p) => {
-				const h = fileSha256(p);
-				if (!h) return false;
-				if (h === mt) return true;
-				const n = Math.min(mt.length, h.length);
-				return mt.slice(0, n) === h.slice(0, n) && n >= 12;
-			});
-			if (!anyMatch) {
-				return (
-					"目标内容已变（与首答时登记的哈希不同：标记 " +
-					mt.slice(0, 12) +
-					"…）：同一个路径换了文件也要重新给首答"
-				);
+	// 核对登记目标本身，不能拿命令中的工具脚本/输出哈希冒充目标哈希。
+	// 即使目标只由 --case 间接引用，也可诊断内容是否与当前案登记一致。
+	const mt = (caseTargets.targetSha256 || caseTargets.files?.[0]?.sha256 || "").trim().toLowerCase();
+	const matches = (a: string, b: string) => {
+		const n = Math.min(a.length, b.length);
+		return n >= 12 && a.slice(0, n) === b.slice(0, n);
+	};
+	const files = caseTargets.files?.length
+		? caseTargets.files
+		: targets.slice(0, 1).map((p) => ({ path: p, sha256: caseTargets.targetSha256 || mt }));
+	if (mt.length >= 12 && files.length > 0) {
+		if (!matches(files[0].sha256.toLowerCase(), mt)) return "目标内容已变或登记已变，请核对当前案登记";
+		for (const file of files) {
+			const actual = fileSha256(path.resolve(dir, file.path));
+			if (!actual) return "登记目标不可读：请核对原件位置";
+			if (!matches(actual, file.sha256.toLowerCase())) {
+				return "目标内容已变（与当前案登记的哈希不同），请核对原件";
 			}
 		}
 	}
-	if (hit) return "";
-	return "本次参数里的路径（" + paths.slice(0, 2).join(" / ") + "）不在该案 case.json 的 target_files/target 下";
+	const explicit = asRecord(args);
+	for (const key of ["target", "target_path", "binary_path", "sample"]) {
+		const value = asText(explicit[key]).trim();
+		if (!value || !looksLikePath(value)) continue;
+		const abs = path.resolve(value);
+		if (!under(abs, dir) && !targets.some((target) => under(abs, target))) {
+			return "指定目标路径（" + value + "）不在当前案登记中，请核对目标身份";
+		}
+	}
+	const paths = extractPaths(toolName, args);
+	// 解释器后的脚本是执行工具；--out/--output 是产物位置。它们不能作为目标哈希候选。
+	// 逐个检查剩余输入，不能因同时带有一个正确目标就放过另一个未登记目标。
+	const support = new Set<string>();
+	const command = asText(asRecord(args).command ?? asRecord(args).cmd ?? "");
+	const token = '("[^"\\n]+"|\'[^\'\\n]+\'|[^\\s"\']+)';
+	const script = new RegExp('(?:^|[\\s"\';|&])(?:python(?:3(?:\\.\\d+)?)?|py|node)(?:\\.exe)?\\s+(?:(?:-B|-u|-X\\s+utf8)\\s+)*' + token, 'gi');
+	const output = new RegExp('(?:^|\\s)--(?:out|output)\\s+' + token, 'g');
+	for (const re of [script, output]) {
+		for (const match of command.matchAll(re)) {
+			const p = cleanToken(match[1]);
+			if (looksLikePath(p)) support.add(cmpKey(path.resolve(p)));
+		}
+	}
+	const foreign = paths.filter((p) => {
+		const abs = path.resolve(p);
+		return !under(abs, dir) && !targets.some((t) => under(abs, t) || cmpKey(abs) === cmpKey(path.dirname(t)))
+			&& !support.has(cmpKey(abs));
+	});
+	return foreign.length === 0 ? "" : "本次参数里的路径（" + foreign.slice(0, 2).join(" / ") + "）不在该案 case.json 的 target_files/target 下";
 }
-
-/** block 文案：必须是「照着抄就能过」的三步，并且说清这是闸不是报错。 */
-export function buildBlockReason(
-	toolName: string,
-	why: string,
-	markerWhy: string,
-	gate: GateConfig = DEFAULT_GATE,
-): string {
-	const mins = Math.round(gate.ttlMinutes);
-	return [
-		"[answer-gate] 已拦下：" + toolName + "（" + why + "）",
-		"",
-		"**这是一道闸，不是报错。** 它只要求一件事：在动分析工具之前，先把首答四要素说出来。",
-		"拦下原因：" + markerWhy,
-		"",
-		"冷启动顺序（三步走，第一步不会被拦）：`init`（不拦）→ `answer --check --case` → 再分析。",
-		"  还没有案件目录：python Tool/scripts/case_state.py init --case <案件目录> --target <目标文件>（不拦，随便跑）",
-		"",
-		"照着抄三步（第 1 步只是打印骨架，可以直接复制）：",
-		"",
-		"  1) python Tool/scripts/case_state.py answer --template",
-		"",
-		"  2) 按骨架填成一份 JSON（四要素：judgment 判断 / ceiling 到哪一步 / missing 缺什么 / effort 大约多少功夫；不需要任何授权字段），",
-		"     存成 a.json，例如：",
-		'        {"judgment":"PE32+，未见壳，关键在校验函数","ceiling":"只能看懂结构",',
-		'         "missing":["有没有卡密"],',
-		'         "effort":"1-2 小时；依据：未见壳、纯本地判定，读一遍导入表即可定性"}',
-		"",
-		"  3) python Tool/scripts/case_state.py answer --check --file a.json --case <本案目录>",
-		"",
-		"看到 [PASS] → 会自动写 " + markerPath() + "（" + mins + " 分钟内有效），把刚才那条命令原样重发即可。",
-		"看到 [缺] … → 按提示补，补完再跑第 3 步；不合格不会写标记。",
-		"",
-		"（ceiling 只认四句之一：只能看懂结构 / 能改到能用 / 能完全自己接管 / 现在做不了 —— 取自 answer-contract.json）",
-		"",
-		"**怕「首答只能靠猜」？两条路都合法（第 3 轮 P0-3）：**",
-		"",
-		"  · 要提前看结构，先跑 case_state.py answer --template 写首答，再用 triage：",
-		"    首答里的「判断」允许是一句带保留的话（例如「PE32+，看起来未加壳，关键在校验函数；待 triage 确认」），",
-		"    只要四要素齐、effort 带区间和依据。过了闸就能直接调 seep_auto_triage / seep_packer_detect / seep_apk_info。",
-		"  · 或者让用户直接给你判断：「这文件你从哪拿的？有卡密吗？双击过吗？报什么错？」",
-		"    把他说的话写进 judgment / missing，同样能过闸。",
-		"",
-		"永远放行的只有**纯读取**五个：" + gate.whitelist.join(" / ") + "（seep_r2_info 只看架构/位数）。",
-		"seep_auto_triage / seep_packer_detect / seep_apk_info 会读目标里的内容 —— 那是「分析」，请先给首答。",
-	].join("\n");
-}
-
-/** 「换了目标」的专用文案：不复用三步，而是明说要重新给首答。 */
-export function buildTargetBlockReason(toolName: string, why: string, mismatch: string, marker: unknown): string {
-	const m = asRecord(marker);
-	const mt = asText(m.target_sha256).trim();
-	return [
-		"[answer-gate] 已拦下：" + toolName + "（" + why + "）",
-		"",
-		"拦下原因：" + mismatch + "。",
-		"上一份首答绑的是另一个目标：case=" + (asText(m.case) || "（未指定）") +
-			(mt ? " · target_sha256=" + mt.slice(0, 12) + "…" : ""),
-		"",
-		"**换了目标要重新给首答。** 首答里的「判断 / 缺什么 / 多少功夫」是针对某个目标的，",
-		"换一个目标（另一份 exe/apk/固件）时那些结论不再成立，闸不让你拿旧首答去套新目标。",
-		"",
-		"照做（两步）：",
-		"  1) python Tool/scripts/case_state.py answer --template   （按新目标重写四要素，存成 a.json）",
-		"  2) python Tool/scripts/case_state.py answer --check --file a.json --case <新目标所在的案件目录>",
-		"",
-		"看到 [PASS] 后把刚才那条命令原样重发。",
-		"（如果只是想读旧目标的资料：seep_kb_search / seep_kb_read / seep_case_read / seep_tool_discover / seep_r2_info 永远放行；",
-		" seep_auto_triage / seep_packer_detect 会读目标内容，必须先给首答）",
-	].join("\n");
-}
-
-/**
- * 纯函数闸门（可单测，不碰磁盘）：
- *   toolName     工具名（`seep_auto_triage` / `bash` / `read` …）
- *   marker       已读出的标记对象（读不到传 null）
- *   contractHash 当前 answer-contract.json 的 sha256（读不到传 ""）
- *   now          epoch ms
- *   gate         answer-contract.json 的 `gate` 块（默认 DEFAULT_GATE）
- *   caseTargets  标记 case 的登记目标（bindTarget 打开时由调用方读盘传入，纯函数只做比较）
- * 返回 block=true 时 reason 即给模型看的完整文案。
- */
 
 /** 个人隐私区：读类工具（read/grep/find/ls）只在这些路径上直接拦下。
  *  ★ 为什么需要（R8 P1-5）："别乱翻我东西"原来只有提示词，读类工具不限目录。
@@ -972,35 +605,14 @@ export function sensitivePathHit(args: unknown): string {
 	return "";
 }
 
+/** 兼容原调用签名；目标诊断取调用方明确提供的当前案，不用旧首答。 */
 export function shouldBlock(
-	toolName: string,
-	args: unknown,
-	marker: unknown,
-	contractHash: string,
-	now: number,
-	gate: GateConfig = DEFAULT_GATE,
-	caseTargets: CaseTargets | null = null,
+ toolName: string, args: unknown, _marker: unknown, _contractHash: string, _now: number,
+ gate: GateConfig = DEFAULT_GATE, caseTargets: CaseTargets | null = null,
 ): { block: boolean; reason: string; analysis: boolean } {
-	const cls = classifyTool(toolName, args, gate);
-	if (!cls.analysis) return { block: false, reason: "", analysis: false };
-	// 读不到契约 → 只告警不拦：一次半截落盘不该把整个工作台锁死
-	if (!contractHash) {
-		return {
-			block: false,
-			reason: "[answer-gate][WARN] 读不到 Tool/config/answer-contract.json，本次放行（闸降级为提示）",
-			analysis: true,
-		};
-	}
-	const ttlMs = Math.round(gate.ttlMinutes * 60000);
-	const st = markerState(marker, contractHash, now, ttlMs);
-	if (!st.ok) return { block: true, reason: buildBlockReason(toolName, cls.why, st.why, gate), analysis: true };
-	if (gate.bindTarget) {
-		const mismatch = targetMismatch(toolName, args, marker, caseTargets);
-		if (mismatch) {
-			return { block: true, reason: buildTargetBlockReason(toolName, cls.why, mismatch, marker), analysis: true };
-		}
-	}
-	return { block: false, reason: "", analysis: true };
+ const cls = classifyTool(toolName, args, gate);
+ const reason = caseTargets ? targetMismatch(toolName, args, null, caseTargets) : "";
+ return { block: false, reason, analysis: cls.analysis };
 }
 
 /* ─────────────────── 运行目标闸（纯函数层，第 3 轮 P0-4）─────────────────── */
@@ -1008,7 +620,7 @@ export function shouldBlock(
 /**
  * 单段命令 → 是不是「要把目标拉起来跑」。
  * 关键区分：**看文件**（ls *.exe / find -name *.exe / grep .exe README）不拦，
- *           **执行文件**（./a.exe / Start-Process a.exe / cmd /c a.exe / wine a.exe）拦。
+ *           **执行文件**（./a.exe / Start-Process a.exe / cmd /c a.exe / wine a.exe）分类为运行。
  */
 export function classifyRunSegment(segment: string): { run: boolean; why: string } {
 	const seg = normalizeCmd(segment);
@@ -1048,12 +660,6 @@ export function classifyRunSegment(segment: string): { run: boolean; why: string
 export function classifyRunTarget(toolName: string, args: unknown, gate: GateConfig = DEFAULT_GATE): { run: boolean; why: string } {
 	const name = toolName.trim();
 	const lname = name.toLowerCase();
-	// 第 4 轮 P0-4：`gate.exec_tools`（当前 seep_r2_cmd）名字本身就是「在本机跑分析命令」→
-	// 除首答外还要运行回执；它不依赖命令文本，所以放在 bash 判定之前。
-	const bare = bareToolName(lname);
-	if (gate.execTools.includes(bare) || gate.execTools.includes(lname)) {
-		return { run: true, why: "可执行分析工具 " + name + "（会在本机对目标跑命令）" };
-	}
 	if (lname !== "bash" && lname !== "powershell") return { run: false, why: "" };
 	const a = asRecord(args);
 	const cmd = asText(a.command ?? a.cmd ?? "");
@@ -1066,234 +672,26 @@ export function classifyRunTarget(toolName: string, args: unknown, gate: GateCon
 	return { run: false, why: "" };
 }
 
-/**
- * 回执带 case 时，本次命令里的目标路径必须落在该案 case.json 的 `target_files`/`target` 下
- * （basename 匹配允许「cwd 下的相对路径」对上「案件目录里的登记路径」）。
- * 返回 "" = 不冲突。
- */
-export function runTargetMismatch(
-	toolName: string,
-	args: unknown,
-	caseDir: string,
-	caseTargets: CaseTargets | null,
-): string {
-	if (!caseDir) return "";
-	const paths = extractPaths(toolName, args);
-	if (paths.length === 0) return "";
-	const dir = path.resolve(caseDir);
-	const targets = (caseTargets?.paths ?? []).map((p) => path.resolve(dir, p));
-	const baseNames = new Set<string>();
-	for (const t of targets) {
-		const b = path.basename(cmpKey(t));
-		if (b) baseNames.add(b);
-	}
-	const hit = paths.some((p) => {
-		const abs = path.resolve(p);
-		if (under(abs, dir)) return true;
-		if (targets.some((t) => under(abs, t))) return true;
-		const b = path.basename(cmpKey(abs));
-		return b.length > 0 && baseNames.has(b);
-	});
-	if (hit) return "";
-	const tail =
-		targets.length === 0
-			? "（该案 case.json 没登记 target_files/target，闸只能按「路径在案件目录内」判定）"
-			: "";
-	return (
-		"本次命令里的目标（" + paths.slice(0, 2).join(" / ") + "）不在该案 case.json 登记的目标下" + tail
-	);
-}
-
-/**
- * 运行回执有效性：文件存在 + schema 对 + **letter ∈ {A, C}** + at 在 `gate.run_ack.ttl_minutes` 内
- * （+ `require_case_target` 打开且回执带 case 时，目标要落在该案 case.json 下）。
- *
- * 第 4 轮 P0-3：原来只看「有没有字母」—— `ack --choice B`（先别运行）也会开闸。
- * 现在 B 与任何其它字母一律 block；`reason` 给出机器可读码（`letter-b` / `letter-not-allowed`）。
- */
-export type RunAckState = { ok: boolean; why: string; mismatch: boolean; reason: string };
-
-export function runAckState(
-	runAck: unknown,
-	now: number,
-	cfg: RunAckConfig = DEFAULT_GATE.runAck,
-	toolName = "",
-	args: unknown = {},
-	caseTargets: CaseTargets | null = null,
-): RunAckState {
-	const a = asRecord(runAck);
-	if (runAck === null || runAck === undefined || Object.keys(a).length === 0) {
-		return {
-			ok: false,
-			why: "没有运行回执（" + runAckPath() + " 不存在或读不出）",
-			mismatch: false,
-			reason: "no-ack",
-		};
-	}
-	if (asText(a.schema) !== RUN_ACK_SCHEMA) {
-		return {
-			ok: false,
-			why: "回执格式不是 " + RUN_ACK_SCHEMA + "（可能被手改坏了）",
-			mismatch: false,
-			reason: "bad-schema",
-		};
-	}
-	const letter = asText(a.letter).trim().toUpperCase();
-	if (!letter) {
-		return {
-			ok: false,
-			why: "回执里没有 letter（用户选了哪个字母）",
-			mismatch: false,
-			reason: "no-letter",
-		};
-	}
-	if (!RUN_OK_LETTERS.has(letter)) {
-		if (letter === "B") {
-			return {
-				ok: false,
-				why: "用户在卡上选了 B（先别运行）：请改用静态分析或重新征求同意",
-				mismatch: false,
-				reason: "letter-b",
-			};
-		}
-		return {
-			ok: false,
-			why: "回执里 letter=" + letter + " 不在闸允许的 {A, C} 内（A 允许本机运行 / C 用户自己运行你观察）：视为未同意",
-			mismatch: false,
-			reason: "letter-not-allowed",
-		};
-	}
-	const atRaw = asText(a.at).trim();
-	const at = Date.parse(atRaw);
-	if (!Number.isFinite(at)) {
-		return {
-			ok: false,
-			why: "回执里的 at 不是合法时间（" + (atRaw || "空") + "）",
-			mismatch: false,
-			reason: "bad-time",
-		};
-	}
-	const mins = Number.isFinite(cfg.ttlMinutes) && cfg.ttlMinutes > 0 ? cfg.ttlMinutes : RUN_ACK_TTL_MINUTES;
-	const age = now - at;
-	if (age > mins * 60000) {
-		return {
-			ok: false,
-			why: "运行回执已过期（" + Math.round(age / 60000) + " 分钟前记的，闸只认 " + Math.round(mins) + " 分钟内）",
-			mismatch: false,
-			reason: "expired",
-		};
-	}
-	if (age < -5 * 60000) {
-		return { ok: false, why: "回执时间在过去之后（时钟不对，或文件被改），不认", mismatch: false, reason: "future" };
-	}
-	const caseDir = asText(a.case).trim();
-	if (!cfg.requireCaseTarget || !caseDir) return { ok: true, why: "", mismatch: false, reason: "ok" };
-	const bad = runTargetMismatch(toolName, args, caseDir, caseTargets);
-	if (bad) return { ok: false, why: bad, mismatch: true, reason: "target-mismatch" };
-	return { ok: true, why: "", mismatch: false, reason: "ok" };
-}
-
-/** 运行目标闸的 block 文案：三步必须能照抄（发卡 → ack → 重发）。 */
-export function buildRunBlockReason(
-	toolName: string,
-	why: string,
-	stateWhy: string,
-	cfg: RunAckConfig = DEFAULT_GATE.runAck,
-	caseHint = "",
-	runAck: unknown = null,
-): string {
-	const C = caseHint || "<C>";
-	const a = asRecord(runAck);
-	const mins = Math.round(Number.isFinite(cfg.ttlMinutes) && cfg.ttlMinutes > 0 ? cfg.ttlMinutes : RUN_ACK_TTL_MINUTES);
-	const prevCase = asText(a.case).trim();
-	return [
-		"[run-gate] 已拦下：" + toolName + "（这条命令会在本机把目标程序拉起来）",
-		"",
-		"拦下原因：" + why,
-		"回执状态：" + stateWhy,
-		...(prevCase ? ["上一张回执绑的是：case=" + prevCase] : []),
-		"",
-		"**这是一道闸，不是报错。** 在这台机器上运行客户的目标程序，必须先拿到用户明确的一句“可以”。",
-		"闸只认 " + runAckPath() + "（由 case_state.py ack 写入，" + mins + " 分钟内有效、且绑本案目标）。",
-		"字母只认 A（允许在本机运行）与 C（用户自己运行、你只观察）；B（先别运行）与其它字母一律不开闸。",
-		"",
-		"照着抄三步（" + C + " = 本案目录）：",
-		"",
-		"  1) 发一张卡问用户「允许在本机运行它吗」：",
-		"     python Tool/scripts/case_state.py ask --case " + C + " \\",
-		'       --stuck "允许我在本机运行目标程序吗（要拉起它）" \\',
-		'       --option "A 允许在本机运行（只跑目标，不改系统设置、不联网）" \\',
-		'       --option "B 先别运行，只做静态分析" \\',
-		'       --option "C 我自己双击运行，你只观察"',
-		"     把输出里那段【需要你选】**原样贴进对话**，然后停下等字母。",
-		"",
-		"  2) 用户回了字母之后，记录回执（成功会原子写 " + runAckPath() + "）：",
-		"     python Tool/scripts/case_state.py ack --case " + C + " --id <卡id> --choice <字母>",
-		"     （当前 CLI 的等价写法：python Tool/scripts/case_state.py ack --case " + C + " --ack <字母>）",
-		"",
-		"  3) 看到 [ACK] … 之后，把刚才那条命令**原样重新发一遍** —— 闸会自动放行。",
-		"",
-		"不想走这条路时的合法做法：",
-		"  · 只看文件清单/结构：ls / dir / find / grep（不执行）永远放行；",
-		"  · 让用户自己双击运行，你只拿他说看到什么（把结论写进首答的 missing / 下一步）。",
-	].join("\n");
-}
-
-/** 运行目标闸的纯函数判定（不碰磁盘；回执与 caseTargets 由调用方读）。 */
-
-/** 这条动作是不是在"跑客户交给我们的那份样本"？
- *  判据：命令/参数里出现的路径中，至少有一个落在本案 target 目录或登记的目标文件上。
- *  否则（例如启动 x64dbg、跑 r2、调我们自己的脚本）→ 不算，运行闸不介入。
- */
+/** 参数匹配登记目标，包括案外登记的绝对路径；不是执行动作判断。 */
 export function touchesCaseTarget(args: unknown, caseTargets: CaseTargets | null): boolean {
-	if (!caseTargets) return false;
-	const dir = path.resolve(caseTargets.dir || ".");
-	const targets = (caseTargets.paths || []).map((p) => path.resolve(dir, p));
-	const tdir = path.resolve(dir, "target");
-	for (const s of _allStrings(args)) {
-		for (const raw of [s]) {
-			const m = raw.match(/[A-Za-z]:[\\/][^\s"'|;&]+|(?:^|[\s"'(])((?:\.{0,2}[\\/])?[\w.\-]+[\\/][^\s"'|;&]+)/g) || [];
-			for (const piece of m) {
-				const cand = piece.replace(/^[\s"'(]+/, "").trim();
-				if (!cand) continue;
-				let abs: string;
-				try {
-					abs = path.resolve(cand);
-				} catch {
-					continue;
-				}
-				if (abs === path.resolve(dir) || abs.startsWith(dir + path.sep)) {
-					if (abs.startsWith(tdir + path.sep)) return true;
-					if (targets.some((t) => abs === t || abs.startsWith(t + path.sep))) return true;
-				}
-			}
-		}
-	}
-	return false;
+ if (!caseTargets) return false;
+ const dir = path.resolve(caseTargets.dir);
+ const targets = caseTargets.paths.map(p => path.resolve(dir, p));
+ const paths = [...extractPaths("bash", args), ...extractPaths("input", args)];
+ return paths.some(p => {
+  const abs = path.resolve(p);
+  return under(abs, path.resolve(dir, "target")) || targets.some(t => under(abs, t));
+ });
 }
 
+/** 兼容调用签名：旧回执不会决定当前动作。 */
 export function shouldBlockRun(
-	toolName: string,
-	args: unknown,
-	runAck: unknown,
-	now: number,
-	gate: GateConfig = DEFAULT_GATE,
-	caseTargets: CaseTargets | null = null,
-	caseHint = "",
+ toolName: string, args: unknown, _runAck: unknown, _now: number,
+ gate: GateConfig = DEFAULT_GATE, caseTargets: CaseTargets | null = null, _caseHint = "",
 ): { block: boolean; reason: string; run: boolean } {
-	const cls = classifyRunTarget(toolName, args, gate);
-	// ★★★ 唯一要回执的情形：**执行本案登记的目标样本**（按路径判定，不按工具名黑名单——那会误伤工具）。
-	if (!cls.run && !touchesCaseTarget(args, caseTargets)) return { block: false, reason: "", run: false };
-	// ★ 用户 2026-10-26 口径修正：**启动我们自己的工具不算"跑客户的目标"**。
-	//   x64dbg / IDA / launch-gui.ps1 / tool-run.ps1 / r2 / jadx 这些是"我们手里的家伙"，
-	//   它们由 Agent 自己拉起、自己连、自己用 —— 不该每一步都弹 A/B/C（那会把日常开发打断）。
-	//   只有"执行客户交给我们的那份样本（本案 target）"才要一次回执，因为那是不可逆的外部行为。
-	if (!touchesCaseTarget(args, caseTargets)) {
-		return { block: false, reason: "", run: true };
-	}
-	const st = runAckState(runAck, now, gate.runAck, toolName, args, caseTargets);
-	if (st.ok) return { block: false, reason: "", run: true };
-	return { block: true, reason: buildRunBlockReason(toolName, cls.why, st.why, gate.runAck, caseHint, runAck), run: true };
+ const run = classifyRunTarget(toolName, args, gate).run;
+ const reason = caseTargets ? targetMismatch(toolName, args, null, caseTargets) : "";
+ return { block: false, reason, run };
 }
 
 /* ─────────────────────────── 写入守卫（纯函数层） ─────────────────────────── */
@@ -1338,54 +736,6 @@ export function expandHome(p: string): string {
 	return s;
 }
 
-/**
- * 永久禁写判定（第 4 轮 P0-1/P0-4）：凭证 / 闸规则 / 契约 / 提示词。
- * 两种写法：
- *   · 双星斜杠前缀（两个星号 + 斜杠 + 文件名）→ 任意目录下的同名文件（AGENTS.md、cmd-guard.rules.json…）
- *   · 具体路径（可带 `~`，可选结尾 `/**`）→ 该路径本身及其子树。
- * 大小写不敏感（Windows 不区分；这几个名字也不会因大小写误伤别的文件）。
- */
-export function isNeverWritable(
-	rawPath: string,
-	patterns: string[] = NEVER_WRITABLE,
-): { hit: boolean; pattern: string } {
-	const abs = cmpKey(path.resolve(expandHome(rawPath))).toLowerCase();
-	if (!abs) return { hit: false, pattern: "" };
-	for (const raw of patterns) {
-		const p = (raw || "").trim();
-		if (!p) continue;
-		if (/^\*\*\//.test(p)) {
-			const suffix = p.slice(3).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
-			if (!suffix) continue;
-			if (abs === suffix || abs.endsWith("/" + suffix)) return { hit: true, pattern: p };
-			continue;
-		}
-		const s = p.endsWith("/**") ? p.slice(0, -3) : p;
-		const pat = cmpKey(path.resolve(expandHome(s))).toLowerCase();
-		if (!pat) continue;
-		if (abs === pat || abs.startsWith(pat + "/")) return { hit: true, pattern: p };
-	}
-	return { hit: false, pattern: "" };
-}
-
-/** 禁写的专用文案：说清楚「为什么」、「谁才能写」、「怎么让用户确认」。 */
-export function buildNeverWriteReason(raw: string, pattern: string): string {
-	return [
-		"[write-guard] 已拦下：写 " + raw + "（命中永久禁写规则 " + pattern + "）",
-		"",
-		"**闸的凭证与规则不允许由 Agent 写；要让用户确认，请出 A/B/C 卡。**",
-		"",
-		"永久禁写：" + NEVER_WRITABLE.join(" / ") + "。",
-		"这条优先级高于所有允许根（`Tool/` 可写也压不住它）：凭证只能由 `case_state.py answer/ack` 写，",
-		"契约/闸规则/提示词只能由用户在会话里明确确认后由人改。",
-		"",
-		"要让用户确认，请发一张 A/B/C 卡（不要在文件夹里“自己批准自己”）：",
-		"  python Tool/scripts/case_state.py ask --case <本案目录> \\",
-		'    --stuck "<你要用户确认什么>" \\',
-		'    --option "A <选了会怎样>" --option "B <选了会怎样>" --option "C <选了会怎样>"',
-	].join("\n");
-}
-
 /** 异常 → 一行可读文本（拿不到就写一句占位，绝不因为 err 本身再抛）。 */
 export function errText(err: unknown): string {
 	if (err instanceof Error) return (err.name || "Error") + ": " + (err.message || "");
@@ -1395,32 +745,6 @@ export function errText(err: unknown): string {
 	} catch {
 		return "（无法转成文本的异常）";
 	}
-}
-
-/**
- * 闸内部异常的**拦下文案**（R7 P1-6，fail-closed）。
- *
- * 为什么不能只「拦下不说话」：模型会把“被拦”当成自己的错误去反复重试。这里必须说清三件事：
- *   ① 是闸自己出错了（不是你的写法/目标有问题）；
- *   ② 为什么仍然拦（放行等于“只要把闸弄崩就能绕过”）；
- *   ③ 三条合法出路（看状态 / 校验扩展版本 / 换更简单的等价写法）。
- */
-export function buildGateErrorReason(gateName: string, toolName: string, err: unknown): string {
-	return [
-		"[" + gateName + "][INTERNAL] 已拦下：" + (toolName || "（未如工具名）"),
-		"闸自己出错了（fail-closed）：" + errText(err),
-		"",
-		"**这不是你的错误，也不代表目标或文件有问题 —— 是闸内部抛了异常，而闸出错时不放行。**",
-		"放行等于让「把闸弄崩」成为绕过闸的办法（凭证/规则可写、客户程序可直接拉起），所以这里按拦下处理。",
-		"",
-		"服着抄三步：",
-		"  1) 看闸状态：/answer-gate（打印契约哈希 / 首答标记 / 运行回执 / 禁写名单）",
-		"  2) 核对扩展版本：~/.pi/agent/extensions/answer-gate.ts 应与 Tool/prompts/extensions/answer-gate.ts 一致（不同步就重新拷一份）",
-		"  3) 换一条**等价的更简单写法**重试：写类 → 只写 work/ 或案件目录；运行类 → 先 ask 发卡 → 用户回字母 → ack",
-		"",
-		"三步都不通就停下：把上面这行异常原文整段贴给用户，由用户决定是不是临时关闸（SEEP_ANSWER_GATE=0）。",
-		"**Agent 不许自己设这个环境变量，也不许自己去改扩展文件来“修”它。**",
-	].join("\n");
 }
 
 /** 系统临时目录（含任何路径里的 /tmp/ 或 /temp/ 段：任意盘符下的 tmp 目录也算临时区）。 */
@@ -1440,28 +764,14 @@ function currentCaseDirs(): string[] {
 	} catch {
 		/* 没有就算了 */
 	}
-	try {
-		const c = asText(asRecord(readMarker()).case).trim();
-		if (c) out.push(c);
-	} catch {
-		/* 没有就算了 */
-	}
 	return out;
 }
 
-/**
- * 允许写的位置：案件目录、`work/`、`Tool/`、`~/.seep/`、`~/.pi/agent/`、系统临时目录。
- * 注意（第 4 轮 P0-1）：「允许写 `~/.seep/` / `~/.pi/agent/`」里的凭证与规则类文件
- * 被 NEVER_WRITABLE 压住 —— 允许根只管目录，禁写名单优先级更高。
- * 读类工具不经过这里。
- */
+/** 已知项目、案件及临时目录，用于写入范围提示。 */
 export function writeAllowRoots(cwd: string = process.cwd()): string[] {
 	const roots: string[] = tempRoots();
 	const repo = findRepoRoot(cwd);
 	const base = repo || path.resolve(cwd);
-	// ★ 2026-10-26 用户口径：**整个仓库就是工作区**。原来只放行 Tool/ 与 work/，
-	//   结果 Agent 连 setup/、README、check.ps1 都改不了（修自己的启动器都会被自己拦）。
-	//   现在放行整个 repo；仍然禁写的是"闸自己读的规则/凭证"（见 NEVER_WRITABLE）。
 	roots.push(base, path.join(base, "Tool"), path.join(base, "work"));
 	const home = os.homedir();
 	roots.push(path.join(home, ".seep"), path.join(home, ".pi", "agent"));
@@ -1469,79 +779,55 @@ export function writeAllowRoots(cwd: string = process.cwd()): string[] {
 	return roots;
 }
 
-export function buildWriteBlockReason(raw: string): string {
-	return [
-		"[write-guard] 已拦下：写 " + raw,
-		"",
-		"**放行的位置**：整个仓库（含 setup/、README、脚本）、案件目录、work/、~/.seep/、~/.pi/agent/、系统临时目录。",
-		"**仍然禁写**：闸自己读的规则与凭证（AGENTS.md / SEEP.md / cmd-guard.rules.json / answer-contract.json /",
-		"           ~/.seep 下的 answer-pass.json / run-ack.json / current-case，以及扩展与已部署技能目录）。",
-		"（凭证（answer-pass.json / run-ack.json / current-case）、cmd-guard.rules.json、answer-contract.json、",
-		" AGENTS.md、SEEP.md 在这些目录里也**永久禁写** —— 它们不是代码，是闸本身。）",
-		"",
-		"要改仓库本体（Tool/ 之外的文件）：先跟用户说清「改哪个文件、为什么改、影响什么」，得到确认再动。",
-		"读类工具（read/grep/find/ls）不受这条限制。",
-	].join("\n");
-}
-
-/**
- * 纯函数写入判定（三道判定，优先级从高到低）：
- *   1) 命中 NEVER_WRITABLE（凭证 / 闸规则 / 契约 / 提示词）→ block（不受允许根影响）
- *   2) 在临时目录或允许根下 → 放行
- *   3) 其余 → block（文案：要改仓库请明确说明）
- *   toolName 工具名（write/edit/apply_patch …）
- *   args     工具入参（取 path/file_path/…）
- *   roots    允许写的根（由 writeAllowRoots() 现算）
- *   temp     临时目录判定（可注入，便于单测）
- *   never    永久禁写名单（默认硬编码兜底 + 契约追加，可注入）
- */
+/** 写入范围仅作为提示；用户授权的维护不因历史名单被阻止。 */
 export function writeDecision(
-	toolName: string,
-	args: unknown,
-	roots: string[],
-	temp: (p: string) => boolean = isTempPath,
-	never: string[] = NEVER_WRITABLE,
+ toolName: string, args: unknown, roots: string[],
+ temp: (p: string) => boolean = isTempPath, _never: string[] = NEVER_WRITABLE,
 ): { block: boolean; reason: string; code: string } {
-	const lname = toolName.trim().toLowerCase();
-	if (!WRITE_TOOLS.has(lname)) return { block: false, reason: "", code: "not-write" };
-	const raw = writeTargetPath(args);
-	if (!raw) return { block: false, reason: "", code: "no-path" };
-	// 1) 永久禁写优先于一切允许根（这是第 4 轮 P0-1 的核心）
-	const nv = isNeverWritable(raw, never);
-	if (nv.hit) return { block: true, reason: buildNeverWriteReason(raw, nv.pattern), code: "never-writable" };
-	// 2) 允许根 / 临时区
-	const abs = path.resolve(expandHome(raw));
-	if (temp(abs) || roots.some((r) => under(abs, r))) return { block: false, reason: "", code: "allowed" };
-	// 3) 其余一律拦
-	return { block: true, reason: buildWriteBlockReason(raw), code: "outside-roots" };
+ const lname = toolName.trim().toLowerCase();
+ if (!WRITE_TOOLS.has(lname)) return { block: false, reason: "", code: "not-write" };
+ const raw = writeTargetPath(args);
+ if (!raw) return { block: false, reason: "", code: "no-path" };
+ const abs = path.resolve(expandHome(raw));
+ if (temp(abs) || roots.some(r => under(abs, r))) return { block: false, reason: "", code: "allowed" };
+ return { block: false, reason: "写入路径不在已知项目/案件范围：" + raw + "；请核对当前任务的数据边界。", code: "outside-roots" };
 }
 
 /* ───────────────────────────── 磁盘层 ───────────────────────────── */
 
-/** 读标记：任何异常（不存在 / 半截 JSON / 权限）都当「没有」→ 由调用方 block。 */
-export function readMarker(p = markerPath()): unknown {
+function existingDirectory(value: string): string {
 	try {
-		if (!fs.existsSync(p)) return null;
-		const txt = fs.readFileSync(p, "utf-8");
-		const obj: unknown = JSON.parse(txt);
-		return typeof obj === "object" && obj !== null ? obj : null;
-	} catch {
-		return null;
-	}
-}
-
-/** 读运行回执（`~/.seep/run-ack.json`）：与 readMarker 同一套容错（读不到 = null → block）。 */
-export function readRunAck(p = runAckPath()): unknown {
-	return readMarker(p);
-}
-
-/** 当前案件目录提示（`~/.seep/current-case`）：只用于把 block 文案里的 `<C>` 填成真实路径。 */
-export function currentCaseHint(): string {
-	try {
-		return fs.readFileSync(path.join(os.homedir(), ".seep", "current-case"), "utf-8").trim();
+		const resolved = path.resolve(value);
+		return fs.statSync(resolved).isDirectory() ? resolved : "";
 	} catch {
 		return "";
 	}
+}
+
+/**
+ * 当前案件目录：显式环境变量 → 本会话 cwd 下的 .seep-case → 机器级指针。
+ * 与 seep-events / seep-memory 使用同一优先级，避免同一进程并行跑两个项目时，
+ * 后启动的全局指针把另一个会话的目标诊断串过来。
+ */
+export function currentCaseHint(cwd: string = ""): string {
+	const candidates: string[] = [];
+	const explicit = (process.env.SEEP_CASE_DIR ?? "").trim();
+	if (explicit) candidates.push(explicit);
+	try {
+		candidates.push(path.resolve(cwd || process.cwd(), ".seep-case"));
+	} catch {}
+	try {
+		const pointer = fs.readFileSync(path.join(os.homedir(), ".seep", "current-case"), "utf-8")
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.find(Boolean);
+		if (pointer && path.isAbsolute(pointer)) candidates.push(pointer);
+	} catch {}
+	for (const candidate of candidates) {
+		const dir = existingDirectory(candidate);
+		if (dir) return dir;
+	}
+	return "";
 }
 
 /** 找仓库根的 Tool/config/answer-contract.json：环境变量 → cwd 逐级上溯 → 常见相对位置。 */
@@ -1646,6 +932,7 @@ export function readCaseTargets(caseDir: string): CaseTargets | null {
 		const cj = asRecord(raw);
 		const paths: string[] = [];
 		const shas: string[] = [];
+		const files: { path: string; sha256: string }[] = [];
 		const tfiles = cj.target_files;
 		if (Array.isArray(tfiles)) {
 			for (const it of tfiles) {
@@ -1654,14 +941,18 @@ export function readCaseTargets(caseDir: string): CaseTargets | null {
 				if (p) paths.push(p);
 				const s = asText(r.sha256).trim();
 				if (s) shas.push(s);
+				if (p && s) files.push({ path: p, sha256: s });
 			}
 		}
 		for (const k of ["target", "target_path", "target_type"]) {
 			// 注：case_state.py 的 case.json 骨架把目标路径写在 `target_type` 里（历史字段名），也得认
-			const v = asText(cj[k]).trim();
+			const value = cj[k];
+			const v = asText(typeof value === "object" && value ? asRecord(value).path : value).trim();
 			if (v && !/^https?:\/\//i.test(v)) paths.push(v);
+			const sha = asText(asRecord(value).sha256).trim();
+			if (v && sha && files.length === 0) files.push({ path: v, sha256: sha });
 		}
-		const data: CaseTargets = { dir, paths, targetSha256: shas.length > 0 ? shas[0] : "" };
+		const data: CaseTargets = { dir, paths, files, targetSha256: shas[0] || files[0]?.sha256 || "" };
 		caseCache = { file, mtimeMs: st.mtimeMs, data };
 		return data;
 	} catch {
@@ -1669,58 +960,30 @@ export function readCaseTargets(caseDir: string): CaseTargets | null {
 	}
 }
 
-/** 闸是否被人工关掉（默认开）。关掉只为「闸自己的 bug 把工作台锁死」这一种情形。 */
-function disabledByEnv(): boolean {
-	return (process.env.SEEP_ANSWER_GATE ?? "").trim() === "0";
-}
-
 /* ─────────────────────────── 扩展入口 ─────────────────────────── */
 
 export default function answerGate(pi: ExtensionAPI) {
-	/**
-	 * tool_call 是第一道也是唯一一道校验点：拦在「发出去之前」，
-	 * 而不是拦在「结果回来之后」（那时工具已经动过目标了，闸就没意义了）。
-	 */
-	pi.on("tool_call", (event: unknown) => {
-		try {
-			const e = asRecord(event);
-			const tool = asText(e.toolName ?? e.name);
-			const args = e.input ?? e.args;
-			const gate = gateConfig();
-			// 先分类：读类工具连标记文件都不读（不去碰磁盘，就不可能误伤它）
-			if (!classifyTool(tool, args, gate).analysis) return undefined;
-			const marker = readMarker();
-			const caseDir = asText(asRecord(marker).case).trim();
-			// 目标绑定要读该案 case.json：读不到只告警（降级为提示），不锁死人
-			const caseTargets = gate.bindTarget && caseDir ? readCaseTargets(caseDir) : null;
-			const v = shouldBlock(tool, args, marker, contractHash(), Date.now(), gate, caseTargets);
-			if (!v.block) {
-				if (v.reason) console.warn(v.reason);
-				if (gate.bindTarget && caseDir && !caseTargets) {
-					console.warn("[answer-gate][WARN] 读不到 " + caseDir + "/case.json → 本次不做目标绑定检查");
-				}
-				return undefined;
-			}
-			if (disabledByEnv()) {
-				console.warn("[answer-gate] SEEP_ANSWER_GATE=0 → 闸被人工关闭，本次放行：" + tool);
-				return undefined;
-			}
-			return { block: true, reason: v.reason };
-		} catch (err) {
-			// R7 P1-6：首答闸**保持 fail-open**（只告警 + 留一行日志）——
-			// 它拦的是「还没说话」这件可补的事；闸自己崩了再把人锁死，整个工作台就不可用了。
-			// 写守卫与运行目标闸不享受这个豁免（它们的错可能直接导致凭证被写 / 客户程序被拉起）。
-			console.warn("[answer-gate][WARN] 首答闸内部异常 → 本次放行（fail-open，R7 P1-6）：" + errText(err));
-			return undefined;
-		}
-	});
-
-	/**
-	 * 写入守卫（第 2 轮评审第 4 条）：第二个 tool_call handler。
-	 * 只对 write/edit 这类写工具生效 —— 读类工具完全不经过判定。
-	 */
-	
-	// ── 读守卫（R8 P1-5）：只拦"个人隐私区"，正常读目标/仓库/案件目录一律放行
+ // 同一当前案事实用于所有调用的非阻断诊断，不读取历史首答/运行回执。
+ pi.on("tool_call", (event: unknown, ctx: unknown) => {
+  try {
+   const e = asRecord(event), tool = asText(e.toolName ?? e.name), args = e.input ?? e.args;
+   const caseDir = currentCaseHint(asText(asRecord(ctx).cwd));
+   const targets = caseDir ? readCaseTargets(caseDir) : null;
+   const diagnostics: string[] = [];
+   if (caseDir && !targets) diagnostics.push("无法读取当前案登记：" + caseDir);
+   const v = shouldBlock(tool, args, null, "", Date.now(), gateConfig(), targets);
+   if (v.reason) diagnostics.push(v.reason);
+   const w = writeDecision(tool, args, writeAllowRoots());
+   if (w.reason) diagnostics.push(w.reason);
+   if (diagnostics.length) {
+    const message = "[case-context] " + diagnostics.join("；");
+    console.warn(message);
+    const ui = asRecord(asRecord(ctx).ui);
+    if (typeof ui.notify === "function") (ui.notify as (s: string) => void).call(ui, message);
+   }
+  } catch (err) { console.warn("[case-context] 诊断失败：" + errText(err)); }
+  return undefined;
+ });
 	pi.on("tool_call", (event: unknown) => {
 		try {
 			const e = asRecord(event);
@@ -1741,164 +1004,19 @@ export default function answerGate(pi: ExtensionAPI) {
 			return undefined;
 		}
 	});
-pi.on("tool_call", (event: unknown) => {
-		try {
-			const e = asRecord(event);
-			const tool = asText(e.toolName ?? e.name);
-			const args = e.input ?? e.args;
-			const gate = gateConfig();
-			const v = writeDecision(tool, args, writeAllowRoots(), isTempPath, neverWritableList(gate));
-			if (!v.block) return undefined;
-			if (disabledByEnv()) {
-				console.warn("[write-guard] SEEP_ANSWER_GATE=0 → 写入守卫被人工关闭，本次放行：" + tool);
-				return undefined;
-			}
-			return { block: true, reason: v.reason };
-		} catch (err) {
-			// R7 P1-6（fail-closed）：写守卫自己出错**不再放行** ——
-			// 放行等于“把写守卫弄崩”就是一条写凭证/改规则的捷径。拦下并把原因告诉模型。
-			console.warn("[write-guard][WARN] 内部异常 → fail-closed（R7 P1-6）：" + errText(err));
-			return { block: true, reason: buildGateErrorReason("write-guard", "write/edit", err) };
-		}
-	});
-
-	/**
-	 * 运行目标闸（第 3 轮评审 P0-4）：第三个 tool_call handler。
-	 *
-	 * 为什么单开一道：首答闸管的是「先说话再分析」，这道管的是「用户允许了才在本机运行」。
-	 * 两件事没有包含关系 —— 首答写得再全，也不等于用户同意在这台机器上双击客户的东西。
-	 *
-	 * 拦点选在**命令文本层**：`launch-gui.ps1` 自己内部会再拉子进程，所以不必去拦子进程。
-	 */
-	pi.on("tool_call", (event: unknown) => {
-		try {
-			const e = asRecord(event);
-			const tool = asText(e.toolName ?? e.name);
-			const args = e.input ?? e.args;
-			const gate = gateConfig();
-			// 先分类：不是「要运行目标」的命令，连回执文件都不读
-			// （exec_tools 如 seep_r2_cmd 也算「要运行」→ 必须在这里用同一份 gate 分类）
-			if (!classifyRunTarget(tool, args, gate).run) return undefined;
-			const ack = readRunAck();
-			const ackCase = asText(asRecord(ack).case).trim();
-			const caseTargets = ackCase ? readCaseTargets(ackCase) : null;
-			const hint = currentCaseHint() || ackCase;
-			const v = shouldBlockRun(tool, args, ack, Date.now(), gate, caseTargets, hint);
-			if (!v.block) {
-				if (gate.runAck.requireCaseTarget && ackCase && !caseTargets) {
-					console.warn("[run-gate][WARN] 读不到 " + ackCase + "/case.json → 本次不做目标绑定检查");
-				}
-				return undefined;
-			}
-			if (disabledByEnv()) {
-				console.warn("[run-gate] SEEP_ANSWER_GATE=0 → 闸被人工关闭，本次放行：" + tool);
-				return undefined;
-			}
-			return { block: true, reason: v.reason };
-		} catch (err) {
-			// R7 P1-6（fail-closed）：运行目标闸自己出错**不再放行** ——
-			// 放行等于「闸一崩就能在本机把客户的东西拉起来」，且没有任何回执记录。
-			console.warn("[run-gate][WARN] 内部异常 → fail-closed（R7 P1-6）：" + errText(err));
-			return { block: true, reason: buildGateErrorReason("run-gate", "run-target", err) };
-		}
-	});
-
-	/** `/answer-gate`：让人能看见闸的状态，而不是凭猜。 */
-	try {
-		pi.registerCommand?.("answer-gate", {
-			description: "看三道闸的状态：/answer-gate（首答标记 / 运行回执 / 写入白名单）",
-			handler: async (_args: string, ctx: unknown) => {
-				const lines: string[] = ["[answer-gate] 首答标记=" + markerPath()];
-				try {
-					const cfg = loadContract();
-					const file = findContract();
-					lines.push(
-						"  契约=" + (file || "（找不到，闸降级为提示）") + (cfg.hash ? " sha256=" + cfg.hash.slice(0, 12) + "…" : ""),
-					);
-					lines.push(
-						"  策略=TTL " + cfg.gate.ttlMinutes + " 分钟 · 白名单 " + cfg.gate.whitelist.length + " 个 · 目标绑定=" +
-							(cfg.gate.bindTarget ? "开" : "关") + " · adhoc=" + "一律无效",
-					);
-					lines.push(
-						"  永久禁写=" + neverWritableList(cfg.gate).join(" / "),
-					);
-					const marker = readMarker();
-					const st = markerState(marker, cfg.hash, Date.now(), Math.round(cfg.gate.ttlMinutes * 60000));
-					lines.push("  状态=" + (st.ok ? "有效（非白名单分析类工具放行）" : "无效 → 分析类工具会被拦：" + st.why));
-					const m = asRecord(marker);
-					if (st.ok) {
-						const caseDir = asText(m.case).trim();
-						const ct = caseDir ? readCaseTargets(caseDir) : null;
-						lines.push(
-							"  写入时间=" + asText(m.at) + " · case=" + (caseDir || "（未指定）") + " · target_sha256=" +
-								(asText(m.target_sha256) || "（未写入）"),
-						);
-						if (cfg.gate.bindTarget && caseDir) {
-							lines.push(
-								"  目标绑定=" +
-									(ct
-										? ct.paths.length > 0
-											? ct.paths.slice(0, 3).join(" / ")
-											: "（该案 case.json 没登记目标 → 不检查）"
-										: "（读不到 case.json → 本次不检查）"),
-							);
-						}
-					}
-					if (disabledByEnv()) lines.push("  ★ SEEP_ANSWER_GATE=0：闸已被人工关闭（默认开）");
-					lines.push(
-						"  过首答闸：python Tool/scripts/case_state.py answer --template → 填四要素 → answer --check --file a.json --case <本案目录>",
-					);
-					// ── 运行目标闸（P0-4）的状态 ──
-					lines.push("[run-gate] 运行回执=" + runAckPath());
-					const ack = readRunAck();
-					const ra = asRecord(ack);
-					const ackCase = asText(ra.case).trim();
-					const raSt = runAckState(
-						ack,
-						Date.now(),
-						cfg.gate.runAck,
-						"",
-						{},
-						ackCase ? readCaseTargets(ackCase) : null,
-					);
-					lines.push(
-						"  策略=TTL " + cfg.gate.runAck.ttlMinutes + " 分钟 · 绑目标=" +
-							(cfg.gate.runAck.requireCaseTarget ? "开" : "关") + " · 只认字母=" + Array.from(RUN_OK_LETTERS).join("/"),
-					);
-					lines.push(
-						"  可执行工具（首答+回执）=" + (cfg.gate.execTools.length > 0 ? cfg.gate.execTools.join(" / ") : "（无）"),
-					);
-					lines.push(
-						"  状态=" + (raSt.ok ? "有效（带本案目标的命令可以运行）" : "无效 → 运行目标的命令会被拦：" + raSt.why),
-					);
-					if (Object.keys(ra).length > 0) {
-						lines.push(
-							"  回执=" + asText(ra.letter) + " · at=" + asText(ra.at) + " · case=" + (ackCase || "（未指定）") +
-								" · target_sha256=" + (asText(ra.target_sha256).slice(0, 12) || "（未写入）"),
-						);
-					}
-					lines.push(
-						"  过运行闸：case_state.py ask --case <C>（问「允许在本机运行它吗」）→ 用户回字母 → case_state.py ack --case <C> --ack <字母>",
-					);
-				} catch {
-					lines.push("  状态=读取出错（不影响会话）");
-				}
-				const text = lines.join("\n");
-				try {
-					// 宿主 UI 形状未知：逐层窄化，拿不到就打印，不抛
-					const ui = asRecord(asRecord(ctx).ui);
-					const notify = ui.notify ?? ui.showMessage;
-					if (typeof notify === "function") {
-						(notify as (s: string) => void).call(ui, text);
-						return;
-					}
-				} catch {
-					/* 落到 console */
-				}
-				console.log(text);
-			},
-		});
-	} catch {
-		/* 老版本 pi 没有 registerCommand → 只是少一个查看命令，闸照常工作 */
-	}
+ try {
+  pi.registerCommand?.("answer-gate", {
+   description: "查看当前案上下文诊断状态",
+   handler: async (_args: string, ctx: unknown) => {
+    const dir = currentCaseHint(asText(asRecord(ctx).cwd));
+    const targets = dir ? readCaseTargets(dir) : null;
+    const message = "[case-context] 当前案=" + (dir || "未设置") +
+     (dir ? (targets ? "；登记目标=" + (targets.paths.join(" / ") || "无") : "；无法读取 case.json") : "") +
+     "；历史首答和运行回执不决定工具调用";
+    const ui = asRecord(asRecord(ctx).ui), notify = ui.notify ?? ui.showMessage;
+    if (typeof notify === "function") (notify as (s: string) => void).call(ui, message);
+    else console.log(message);
+   },
+  });
+ } catch (err) { console.warn("[case-context] 状态命令注册失败：" + errText(err)); }
 }

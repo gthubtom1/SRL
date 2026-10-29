@@ -203,7 +203,8 @@ def _pcapng_meta(raw):
 
 
 def zip_meta(path, max_items):
-    raw = open(path, "rb").read()
+    with open(path, "rb") as stream:
+        raw = stream.read()
     if raw.startswith(b"Cr24"):
         i = raw.find(b"PK\x03\x04")
         if i < 0:
@@ -338,7 +339,8 @@ def _filetime_iso(value):
 
 
 def evtx_meta(path, max_items=MAX_ITEMS):
-    raw = open(path, "rb").read(min(os.path.getsize(path), 64 * 1024 * 1024))
+    with open(path, "rb") as stream:
+        raw = stream.read(min(os.path.getsize(path), 64 * 1024 * 1024))
     if len(raw) < 4096 or raw[:8] != b"ElfFile\x00":
         return {"error": "not evtx"}
     chunks = struct.unpack_from("<H", raw, 0x2A)[0]

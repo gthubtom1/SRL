@@ -31,7 +31,9 @@ metadata:
 | 强制加载 | `/skill:doc-hygiene`（模型没有自动加载时用它） |
 
 > 触发分两层：**pi 层**按 `SKILL.md` 的 description 做语义匹配（启动时注入技能名与描述）；
-> **仓库层**由 `Tool/skill/<pack>/pack.json` 的 R37 关键词做判型（`master-route.ps1` 用）。两层都已配置，并各有探针。
+> 本技能为按需子技能，不宣称独立正式域或已部署 R37；当前主辅域由 router 与 pack 注册表判断。
+
+本技能不能从旧文档关键词自行创造需求；以当前用户决定为准。已授权删除无需再问；淘汰方案直接删除，不复制/归档到 work。仅确有保留价值且不与用户决定冲突的历史证据才归档。
 
 ## 1. 三个动作，三种判据
 
@@ -44,7 +46,7 @@ metadata:
 ## 2. 先跑审计（只读，不改任何文件）
 
 ```bash
-python scripts/doc-audit.py --root . \
+python Tool/skill/_pending/doc-hygiene/scripts/doc-audit.py --root . \
   --config .doc-hygiene.json \
   --report docs-audit.md            # 报告写到仓库外或 docs/ 都行
 ```
@@ -52,7 +54,7 @@ python scripts/doc-audit.py --root . \
 无配置也能跑（自动探测）：
 
 ```bash
-python scripts/doc-audit.py --root . --json | head -40
+python Tool/skill/_pending/doc-hygiene/scripts/doc-audit.py --root . --json | head -40
 ```
 
 输出七类发现：
@@ -125,11 +127,11 @@ python scripts/doc-audit.py --root . --json | head -40
 | 判定 | 依据 | 动作 |
 | :-- | :-- | :-- |
 | **仍需要** | 用户/需求文档里还能找到对应诉求；或它挡住某个已知场景 | 抄进**单一 backlog**（一个文件、带来源行号、带验收判据），原处删除或改成指针 |
-| **已完成** | 代码里已有实现 / 已有测试 / 已在 CHANGELOG 记录 | 把"待做"改成"已做 + 证据（文件/命令）"，或直接删掉这句 |
+| **已完成** | 当前实现与实际结果满足有效需求，具备可复查证据；文件/测试存在或旧 CHANGELOG 单独不足以证明 | 把"待做"改成"已做 + 证据（文件/命令）"，或直接删掉这句 |
 | **已放弃** | 与项目方向冲突、成本高于收益、外部条件不具备 | 写成一行「不做，原因：…」，留在原处或 backlog 的"不做"区 |
 | **待确认** | 无法从仓库判断（需要 owner 决策） | 标 `待确认` + 写明需要谁回答什么；**不许猜** |
 
-backlog 格式（建议 `BACKLOG.md`）：
+本工作台只维护 `docs/CURRENT-STATE.md`；其他项目沿用自身单一进度入口，格式示例：
 
 ```
 | id | 事项 | 来源 | 仍需要的理由 | 验收判据 | 优先级 |
@@ -138,7 +140,7 @@ backlog 格式（建议 `BACKLOG.md`）：
 
 **判定纪律**：
 - 一条遗留只能落一个分类；同时出现多个就拆成多条。
-- "待确认"超过两周没人回答 → 降级为"已放弃（无决策）"，写清原因。
+- 未回答不是放弃：保留待确认与影响，不能按经过时间代替用户决定。
 - backlog 里每条都必须有**验收判据**，否则它只是愿望。
 
 ## 6. 合并 / 归档 / 删除的判定

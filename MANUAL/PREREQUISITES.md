@@ -1,95 +1,44 @@
-# 前置依赖 (PREREQUISITES)
+# 安装前的环境确认
 
-> `install.ps1` 会尽量自动装，但以下**基础运行时**需要你先准备好。
+由智能体按 [安装入口](../Tool/docs/BOOTSTRAP.md) 检测和补齐环境；本页说明依赖范围，不是要求用户手工逐项操作。
 
----
+## 基础环境
 
-## 第 0 步：拿到仓库
+| 组件 | 本项目使用条件 | 检查方式 |
+|---|---|---|
+| 仓库 | 完整 `setup/`、`Tool/` 和 `VERSION`，使用期间保留源码目录 | 查看实际目录 |
+| Python | 3.11+，解释器和 pip 可运行；本轮回归使用当前本机解释器 | `python --version`、`python -m pip --version` |
+| Node.js / Pi | Pi 部署需要 Node.js 22.19+ 和可用 Pi 宿主 | `node --version`、`pi --version` |
+| PowerShell | Windows 脚本要求 5.1+ | 查看当前 PowerShell 版本 |
+| Bash | Shell 安装、更新和卸载入口 | `bash --version` |
+| Git | 获取源码和在线更新需要；ZIP 部署可使用离线同步方式 | `git --version` |
 
-```bash
-git clone https://github.com/gthubtom1/Seep-Reverse-Lab.git
-cd Seep-Reverse-Lab
-```
+Git 或 ZIP 都应来自用户指定的仓库版本。ZIP 用户更新时先保留旧目录和用户材料，在新目录部署并复核；不要用整目录覆盖代替更新。在线更新按实际 origin 处理，不切回上游仓库。
 
-- 没有 Git：GitHub → Code → Download ZIP → 解压（代价：`update.ps1` 不可用，只能手动覆盖升级）。
-- **不要在空目录里执行安装命令**：`install.ps1` 依赖仓库内的 `Tool/`、`setup/`。
+## 安装器处理的内容
 
----
+Windows `setup/install.ps1` 调用 `setup/install-python.ps1` 安装声明的 Python 依赖，调用 `setup/extract-deps.ps1` 处理仓库内已有离线包，再同步 Pi 配置和运行时注册。Pi 扩展包更新由 `setup/install-pi.ps1` 按参数调用宿主完成。
 
-## 必需
+Shell 入口安装声明的 Python 协议/扩展依赖、同步配置和技能，并检查宿主；不要据此推断它会安装 Pi 本体、全部扩展包或所有专业工具。具体动作和跳过参数以 [部署手册](DEPLOYMENT.md) 与脚本为准。
 
-| 组件 | 版本要求 | 检查命令 | 下载 |
-| :--- | :--- | :--- | :--- |
-| **Python** | **3.11+**（推荐 3.12/3.13） | `python --version` | https://www.python.org/downloads/ |
-| **Git** | 任意 | `git --version` | https://git-scm.com/download/win |
-| **PowerShell** | 5.1+（推荐 7.x） | `$PSVersionTable.PSVersion` | 系统自带 |
+## 按任务需要的工具
 
-> **Python 安装时务必勾选 "Add Python to PATH"**。
+Java、Android SDK/ADB、签名工具、Frida、反编译器、调试器、抓包工具和商业软件均按当前任务检测。工具发现和安装表分别见 `Tool/config/tool-capabilities.json`、`Tool/config/tool-install.json`；命中库条目时使用当前 Python 解释器导入验证，不能靠寻找同名命令判断库是否安装。
 
-## 建议
+缺 Java 时，JADX/Apktool 等动作可能受阻；缺 IDA 时，只能在确认所需功能有可用替代工具后换路。工具文件存在不等于所有能力可用，也不等于自动完成降级。
 
-| 组件 | 版本 | 用途 |
-| :--- | :--- | :--- |
-| **Node.js** | 18+ | playwright-mcp / js-reverse-mcp |
-| **7-Zip** | 任意 | 解压部分工具包 |
+## 网络与本人操作
 
----
+联网步骤可能包括 pip、Pi 扩展更新及外部工具下载。智能体应利用当前可用网络设置重试，避免永久修改全局代理或包源。离线参数只跳过对应步骤，不会凭空补齐依赖。
 
-## install.ps1 会自动装的部分
+模型登录、商业许可及设备访问由用户在相应宿主或软件内完成；不得复制真实凭据到仓库、日志或报告。
 
-| 组件 | 方式 |
-| :--- | :--- |
-| `mcp` Python 库 | `pip install "mcp>=1.20,<1.29"` |
-| `pytest` | `pip install pytest` |
-| `frida-tools` | `pip install frida-tools` |
-| radare2 / jadx / apktool | 从 GitHub 下载解压到 `Tool/mcp/Tool/safe/` |
-| playwright-mcp | `npm i @playwright/mcp` |
-| js-reverse-mcp | 源码 + `npm install && npm run build` |
-| ida-pro-mcp | `pip install ida-pro-mcp` |
-| pi 扩展包（11 个） | `pi update --extensions` |
+## 装后检查
 
----
-
-## 手动下载清单（脚本失败时用）
-
-若 `install-tools.ps1` 因网络问题失败，手动下载后放到对应位置：
-
-| 工具 | 下载地址 | 放到 |
-| :--- | :--- | :--- |
-| **jadx** | https://github.com/skylot/jadx/releases （`jadx-x.x.x.zip`） | `Tool/mcp/Tool/safe/jadx/` |
-| **radare2** | https://github.com/radareorg/radare2/releases （Windows zip） | `Tool/mcp/Tool/safe/radare2/` |
-| **apktool** | https://github.com/iBotPeaches/Apktool/releases （`apktool_x.x.x.jar`） | `Tool/mcp/Tool/safe/apktool/` |
-| **playwright-mcp** | `npm i -g @playwright/mcp` | 全局即可 |
-| **ida-pro-mcp** | https://github.com/mrexodia/ida-pro-mcp | `Tool/mcp/Tool/safe/ida-pro-mcp/` |
-
-### apktool 的 `.bat` 封装（手动装时需要）
-
-在 `Tool/mcp/Tool/safe/apktool/` 下新建 `apktool.bat`：
-
-```bat
-@echo off
-if "%JAVA_HOME%"=="" (set JAVA=java) else (set JAVA="%JAVA_HOME%\bin\java.exe")
-%JAVA% -jar -Duser.language=en "%~dp0apktool.jar" %*
-```
-
----
-
-## 网络问题排查
-
-| 现象 | 处理 |
-| :--- | :--- |
-| GitHub 下载超时 | 脚本会自动回退镜像 `ghproxy.net` / `gh-proxy.com` |
-| 全部镜像都失败 | 用上面的手动清单，或配置代理后重跑 `install-tools.ps1` |
-| `pip` 装不上 | 加国内源：`pip install -i https://pypi.tuna.tsinghua.edu.cn/simple <包名>` |
-| `npm` 装不上 | 换源：`npm config set registry https://registry.npmmirror.com` |
-
----
-
-## 装完自检
+从仓库根目录执行：
 
 ```powershell
-cd Desktop\Seep\setup
-powershell -ExecutionPolicy Bypass -File .\python Tool/scripts/check.py --env
+python Tool/scripts/env-check.py
 ```
 
-期望输出 `READY`（或列出待手工项）。
+按 JSON 的实际缺项继续修复。自定义 AgentRoot 和完整参数见 [部署手册](DEPLOYMENT.md)，成功标准见 [核对清单](DEPLOYMENT-CHECKLIST.md)。

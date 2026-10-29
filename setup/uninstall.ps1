@@ -5,12 +5,12 @@
   设计原则：**只移除工作台自己装的东西，绝不碰你的数据。**
 
   卸载范围（精准白名单，逐项可关）：
-    · ~/.pi/agent/skills/<工作台技能>      —— 仅工作台自带的 11 大技能
+    · ~/.pi/agent/skills/<工作台技能>      —— 当前启用的工作台技能
     · ~/.pi/agent/AGENTS.md / SEEP.md      —— 工作台写入的提示词（旧版为 SYSTEM.md，一并清理）
     · ~/.pi/agent/extensions/*.ts          —— 工作台扩展
     · ~/.pi/agent/mcp.json 中的工作台 MCP 条目（清单取 Tool/config/mcp-servers.json：seep / js-reverse / playwright / ida / x64dbg）
     · ~/.pi/agent/settings.json 中工作台加入的 packages
-    · ~/.pi/agent/lab-mode.flag            —— 实验环境标志
+    · ~/.pi/agent/lab-mode.flag            —— 仅在安装清单能证明归属时清理
 
   严格保护（永不删除）：
     · models.json / auth.json / sessions/ / logs/
@@ -27,7 +27,7 @@
     powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1 -DryRun
     powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1
     powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1 -Yes -KeepSkills
-    powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1 -Restore "$env:USERPROFILE\.pi\agent\backup-uninstall-20261011-120000"
+    powershell -ExecutionPolicy Bypass -File .\setup\uninstall.ps1 -Restore "<agent-root>\backup-uninstall-20261011-120000"
 #>
 [CmdletBinding()]
 param(
@@ -37,23 +37,28 @@ param(
     [switch]$KeepPrompts,     # 保留 AGENTS.md / SEEP.md / extensions
     [switch]$KeepMcp,         # 保留 mcp.json 中的工作台条目
     [switch]$KeepPackages,    # 保留 settings.json 中工作台加入的 packages
-    [switch]$KeepLabFlag,     # 保留 lab-mode.flag
+    [switch]$KeepLabFlag,     # 兼容旧参数；无法证明归属的 lab-mode.flag 始终保留
     [switch]$Purge,           # 同时清理 backup-* 备份目录与生成的配置
-    [string]$Restore = ''     # 从指定备份目录恢复，而非卸载
+    [string]$Restore = '',     # 从指定备份目录恢复，而非卸载
+    [string]$AgentRoot = ''    # 显式 Pi agent root
 )
 
 $ErrorActionPreference = 'Continue'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
+$env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONUTF8 = '1'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
-$AgentDir  = Join-Path $env:USERPROFILE '.pi\agent'
-$SkillsDir = Join-Path $AgentDir 'skills'
-$ExtDir    = Join-Path $AgentDir 'extensions'
-$McpJson   = Join-Path $AgentDir 'mcp.json'
-$SetJson   = Join-Path $AgentDir 'settings.json'
-$LabFlag   = Join-Path $AgentDir 'lab-mode.flag'
+$AgentDir  = $null
+$SkillsDir = $null
+$ExtDir    = $null
+$McpJson   = $null
+$SetJson   = $null
+$LabFlag   = $null
+$InstallManifest = $null
 
 $script:Removed = 0
 $script:Kept    = 0
@@ -64,6 +69,118 @@ function Write-Ok($m)    { Write-Host "    [OK] $m" -ForegroundColor Green }
 function Write-Warn2($m) { Write-Host "    [!!] $m" -ForegroundColor Yellow }
 function Write-Info($m)  { Write-Host "    [..] $m" -ForegroundColor Gray }
 function Write-Fail($m)  { Write-Host "    [FAIL] $m" -ForegroundColor Red }
+
+$runtimeBridge = Join-Path $Root 'Tool\scripts\runtime-root.py'
+$resolveArgs = @($runtimeBridge, 'resolve')
+if ($AgentRoot -ne '') { $resolveArgs += @('--agent-root', $AgentRoot) }
+$resolveOutput = @(& python @resolveArgs 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "AgentRoot 无效或 runtime helper 不可用: $($resolveOutput -join ' ')"
+    exit 1
+}
+try {
+    $resolvedAgent = (($resolveOutput -join "`n") | ConvertFrom-Json)
+    if (-not $resolvedAgent.ok -or [string]::IsNullOrWhiteSpace([string]$resolvedAgent.agent_root)) { throw 'resolver returned no agent root' }
+    $AgentDir = [System.IO.Path]::GetFullPath([string]$resolvedAgent.agent_root)
+} catch {
+    Write-Fail "AgentRoot 解析结果无效: $($_.Exception.Message)"
+    exit 1
+}
+$SkillsDir = Join-Path $AgentDir 'skills'
+$ExtDir    = Join-Path $AgentDir 'extensions'
+$McpJson   = Join-Path $AgentDir 'mcp.json'
+$SetJson   = Join-Path $AgentDir 'settings.json'
+$LabFlag   = Join-Path $AgentDir 'lab-mode.flag'
+$InstallManifest = Join-Path $AgentDir 'seep-install-manifest.json'
+
+$originPath = Join-Path $AgentDir 'seep-runtime.json'
+
+$ownershipScript = @'
+from pathlib import Path
+import hashlib
+import json
+import os
+import sys
+
+root = Path(sys.argv[1]).resolve()
+agent = Path(sys.argv[2]).resolve()
+manifest_path = Path(sys.argv[3])
+allowed = ("skills/", "prompts/", "agents/", "extensions/")
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def safe_rel(rel):
+    rel = str(rel).replace("\\", "/")
+    parts = Path(rel).parts
+    return (bool(rel) and not rel.startswith("/") and ".." not in parts
+            and any(rel.startswith(prefix) for prefix in allowed))
+
+def safe_target(base, rel):
+    if not safe_rel(rel):
+        return None
+    target = base / Path(rel)
+    try:
+        target.resolve(strict=False).relative_to(base.resolve())
+    except (OSError, ValueError):
+        return None
+    if any(part.is_symlink() for part in target.parents if part != base):
+        return None
+    return target
+
+owned = {}
+recognized = False
+created_paths = []
+try:
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    data = {}
+if (isinstance(data, dict) and data.get("schema") == "seep-agent-install/1"
+        and str(data.get("source_root", "")) == str(root)):
+    recognized = True
+    if isinstance(data.get("created_paths"), list):
+        created_paths = [p for p in data["created_paths"] if p == "agents/settings.json"]
+    files = data.get("managed_files")
+    if isinstance(files, dict):
+        for rel, recorded in files.items():
+            if not safe_rel(rel) or not isinstance(recorded, str):
+                continue
+            target = safe_target(agent, rel)
+            if target is None:
+                continue
+            try:
+                if target.is_file() and not target.is_symlink() and sha(target.read_bytes()) == recorded:
+                    owned[rel] = recorded
+            except OSError:
+                if target.is_file() and not target.is_symlink():
+                    # Keep an unreadable candidate only until backup. Deletion below
+                    # re-hashes the current file and aborts this item on any drift.
+                    owned[rel] = recorded
+
+print(json.dumps({
+    "ok": True,
+    "manifest_recognized": recognized,
+    "created_paths": sorted(set(created_paths)),
+    "files": dict(sorted(owned.items())),
+}, ensure_ascii=True))
+'@
+$ownershipRaw = @($ownershipScript | & python - $Root $AgentDir $InstallManifest 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "无法验证已安装资产，未修改任何内容: $($ownershipRaw -join ' ')"
+    exit 1
+}
+try {
+    $ownership = (($ownershipRaw -join "`n") | ConvertFrom-Json -ErrorAction Stop)
+} catch {
+    Write-Fail '安装资产所有权清单无法解析，未修改任何内容'
+    exit 1
+}
+$script:OwnedFiles = @{}
+if ($ownership.files) {
+    foreach ($p in $ownership.files.PSObject.Properties) { $script:OwnedFiles[$p.Name] = [string]$p.Value }
+}
+$script:ManifestRecognized = [bool]$ownership.manifest_recognized
+$script:ManifestCreatedPaths = @($ownership.created_paths)
 
 # ---------------------------------------------------------------------------
 # 读取 JSON（序数比较剥 BOM，避免 .NET 文化敏感比较误判）
@@ -80,6 +197,26 @@ function Read-JsonFile([string]$path) {
     }
 }
 
+function Get-FileSha256([string]$path) {
+    $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+    $hash = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($hash.ComputeHash($stream)) -replace '-', '').ToLowerInvariant()
+    } finally {
+        $hash.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Test-WorkbenchPrompt([string]$path) {
+    if (-not (Test-Path $path)) { return $false }
+    try {
+        $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
+        return ($text -match 'Seep Reverse Lab|seep-reverse-lab|SEEP 工作台')
+    } catch { return $false }
+}
+
 # ---------------------------------------------------------------------------
 # 工作台「自有资产」清单 —— 与 install-pi.ps1 严格对齐
 # ---------------------------------------------------------------------------
@@ -88,6 +225,7 @@ function Get-WorkbenchSkillNames {
     $src = Join-Path $Root 'Tool\skill'
     if (-not (Test-Path $src)) { return $names }
     foreach ($s in (Get-ChildItem $src -Directory -ErrorAction SilentlyContinue)) {
+        if ($s.Name.StartsWith('_')) { continue }
         if ($s.Name -eq 'safe-skills') {
             foreach ($sub in (Get-ChildItem $s.FullName -Directory -ErrorAction SilentlyContinue)) {
                 $names += $sub.Name
@@ -181,7 +319,8 @@ function Backup-Item([string]$src, [string]$backupRoot, [string]$label) {
         Copy-Item $src $dst -Recurse -Force -ErrorAction Stop
         Write-Info "已备份: $label"
     } catch {
-        Write-Warn2 "备份失败（不影响卸载）: $label"
+        Write-Fail "备份失败，停止卸载并保留原件: $label"
+        $script:Failed++
     }
 }
 
@@ -193,12 +332,13 @@ if ($Restore) {
     Write-Host "║   Seep 工作台 —— 从备份恢复                                   ║" -ForegroundColor Magenta
     Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
 
-    if (-not (Test-Path $Restore)) {
+    if (-not (Test-Path -LiteralPath $Restore -PathType Container)) {
         Write-Fail "备份目录不存在: $Restore"
         exit 1
     }
+    $Restore = (Get-Item -LiteralPath $Restore -ErrorAction Stop).FullName.TrimEnd('\', '/')
     Write-Step "1/2  扫描备份内容"
-    $items = @(Get-ChildItem $Restore -Recurse -Force -ErrorAction SilentlyContinue)
+    $items = @(Get-ChildItem -LiteralPath $Restore -Recurse -Force -ErrorAction Stop)
     Write-Info "备份目录: $Restore"
     Write-Info "条目数: $($items.Count)"
 
@@ -214,23 +354,37 @@ if ($Restore) {
         $dst = Join-Path $AgentDir $rel
         try {
             if ($i.PSIsContainer) {
-                if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
+                if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force -ErrorAction Stop | Out-Null }
             } else {
                 $p = Split-Path -Parent $dst
-                if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }
+                if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force -ErrorAction Stop | Out-Null }
                 Copy-Item $i.FullName $dst -Force -ErrorAction Stop
                 $restored++
             }
-        } catch { Write-Fail "恢复失败: $rel" }
+        } catch { Write-Fail "恢复失败: $rel"; $script:Failed++ }
     }
     Write-Ok "已恢复 $restored 个文件"
     Write-Info "请完全重启 Agent 会话后生效"
+    if ($script:Failed -gt 0) { exit 1 }
     exit 0
 }
 
 # ===========================================================================
 # 模式 B：卸载
 # ===========================================================================
+$validateArgs = @($runtimeBridge, 'validate', '--agent-root', $AgentDir, '--runtime-root', $Root)
+$validateOutput = @(& python @validateArgs 2>&1)
+if ($LASTEXITCODE -eq 0) {
+    Write-Info 'runtime 注册有效，并与当前 source root 一致'
+} else {
+    Write-Warn2 "runtime 注册缺失或损坏；将依据安装所有权清单和逐文件哈希执行安全清理: $($validateOutput -join ' ')"
+    if (-not $script:ManifestRecognized -and $script:OwnedFiles.Count -eq 0) {
+        Write-Warn2 '未找到可信安装清单；只处理配置中的明确工作台条目，无法证明所有权的文件全部保留'
+    }
+}
+
+& python (Join-Path $ScriptDir 'merge_agent_config.py') --root $Root --agent-dir $AgentDir --validate-configs-only
+if ($LASTEXITCODE -ne 0) { Write-Fail '配置无效，尚未移除任何项目'; exit 1 }
 Write-Host "`n╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
 Write-Host "║   Seep 逆向工程工作台 —— 一键卸载                             ║" -ForegroundColor Magenta
 Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
@@ -240,31 +394,36 @@ if ($DryRun) { Write-Warn2 'DRY-RUN 模式：只预览，不做任何修改' }
 Write-Step '1/5  盘点将要移除的内容'
 $plan = [ordered]@{}
 
-$skillNames = Get-WorkbenchSkillNames
+$managedFileHits = @($script:OwnedFiles.Keys | Sort-Object)
 $skillHits = @()
-if (-not $KeepSkills) {
-    foreach ($n in $skillNames) {
-        $p = Join-Path $SkillsDir $n
-        if (Test-Path $p) { $skillHits += $n }
+$taskHits = @()
+$agentHits = @()
+$extensionHits = @()
+foreach ($rel in $managedFileHits) {
+    if ($rel.StartsWith('skills/') -and -not $KeepSkills) {
+        $skillHits += (($rel -split '/')[1])
+    } elseif ($rel.StartsWith('prompts/') -and -not $KeepPrompts) {
+        $taskHits += $rel
+    } elseif ($rel.StartsWith('agents/') -and -not $KeepPrompts) {
+        $agentHits += $rel
+    } elseif ($rel.StartsWith('extensions/') -and -not $KeepPrompts) {
+        $extensionHits += $rel
     }
 }
+$skillHits = @($skillHits | Sort-Object -Unique)
 $plan['技能 (skills)'] = $skillHits
+$plan['任务卡 (prompts)'] = $taskHits
+$plan['子代理定义 (agents)'] = $agentHits
+$plan['安全扩展 (extensions)'] = $extensionHits
 
 $promptHits = @()
 if (-not $KeepPrompts) {
     foreach ($f in @('AGENTS.md', 'SEEP.md', 'SYSTEM.md')) {
-        if (Test-Path (Join-Path $AgentDir $f)) { $promptHits += $f }
-    }
-    if (Test-Path $ExtDir) {
-        $workbenchExts = Get-WorkbenchExtensionNames
-        # 同 Get-WorkbenchExtensionNames 的坑：-Include 不带 -Recurse 恒空。
-        # 这里索性按白名单名逐个 Test-Path：既不看用户自建文件，也不依赖通配符语义。
-        foreach ($n in $workbenchExts) {
-            if (Test-Path (Join-Path $ExtDir $n)) { $promptHits += "extensions/$n" }
-        }
+        $promptPath = Join-Path $AgentDir $f
+        if (Test-WorkbenchPrompt $promptPath) { $promptHits += $f }
     }
 }
-$plan['提示词与扩展'] = $promptHits
+$plan['提示词管理块'] = $promptHits
 
 $mcpCfg = Read-JsonFile $McpJson
 $mcpHits = @()
@@ -285,8 +444,28 @@ if ((-not $KeepPackages) -and $setCfg -and $setCfg.packages) {
 $plan['settings packages'] = $pkgHits
 
 $flagHits = @()
-if ((-not $KeepLabFlag) -and (Test-Path $LabFlag)) { $flagHits += 'lab-mode.flag' }
+# The current installer neither creates nor registers lab-mode.flag. A
+# pre-existing flag is therefore user state, not workbench ownership. Legacy
+# installs without explicit ownership metadata remain protected as well.
+if ((-not $KeepLabFlag) -and (Test-Path $LabFlag)) {
+    Write-Info '保留 lab-mode.flag：安装清单不能证明该文件由工作台创建'
+}
 $plan['实验环境标志'] = $flagHits
+
+$originHits = @()
+if (Test-Path $originPath) { $originHits += 'seep-runtime.json' }
+$plan['runtime registration'] = $originHits
+
+$manifestHits = @()
+if (Test-Path $InstallManifest) { $manifestHits += 'seep-install-manifest.json' }
+$plan['install ownership manifest'] = $manifestHits
+
+$agentSettingsHits = @()
+if ($script:ManifestCreatedPaths -contains 'agents/settings.json' -and
+    (Test-Path (Join-Path $AgentDir 'agents\settings.json'))) {
+    $agentSettingsHits += 'agents/settings.json'
+}
+$plan['agent settings ownership'] = $agentSettingsHits
 
 foreach ($k in $plan.Keys) {
     $v = $plan[$k]
@@ -307,6 +486,7 @@ if ($mcpCfg -and $mcpCfg.mcpServers) {
 }
 if ($userMcp.Count -gt 0) { Write-Ok "保留你自己的 MCP 条目: $($userMcp -join ', ')" }
 $userSkills = @()
+$skillNames = @(Get-WorkbenchSkillNames)
 if (Test-Path $SkillsDir) {
     foreach ($d in (Get-ChildItem $SkillsDir -Directory -ErrorAction SilentlyContinue)) {
         if ($skillNames -notcontains $d.Name) { $userSkills += $d.Name }
@@ -336,63 +516,84 @@ if (-not $Yes) {
 
 # ---------------------------------------------------------------- 4. 执行
 Write-Step '3/5  备份受影响文件'
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$stamp = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N')
 $backupRoot = Join-Path $AgentDir "backup-uninstall-$stamp"
 New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
 Write-Info "备份目录: $backupRoot"
 
-foreach ($n in $skillHits)   { Backup-Item (Join-Path $SkillsDir $n) $backupRoot "skills/$n" }
+$fileHitsToRemove = @($taskHits + $agentHits + $extensionHits)
+foreach ($rel in @($script:OwnedFiles.Keys)) {
+    if ($skillHits.Count -gt 0 -and $rel.StartsWith('skills/')) {
+        $fileHitsToRemove += $rel
+    }
+}
+foreach ($rel in @($fileHitsToRemove | Sort-Object -Unique)) {
+    Backup-Item (Join-Path $AgentDir ($rel -replace '/', '\')) $backupRoot $rel
+}
 foreach ($f in @('AGENTS.md', 'SEEP.md', 'SYSTEM.md')) {
     if ($promptHits -contains $f) { Backup-Item (Join-Path $AgentDir $f) $backupRoot $f }
-}
-# 任务卡（~/.pi/agent/prompts/）：只清工作台随包分发的那几张
-$srcTasks = Join-Path $Root 'Tool\prompts\tasks'
-if (-not $KeepPrompts -and (Test-Path $srcTasks)) {
-    foreach ($f in (Get-ChildItem $srcTasks -Filter '*.md' -ErrorAction SilentlyContinue)) {
-        $p = Join-Path (Join-Path $AgentDir 'prompts') $f.Name
-        if (Test-Path $p) { Backup-Item $p $backupRoot ("prompts/" + $f.Name) }
-    }
-}
-if (Test-Path $ExtDir) {
-    foreach ($h in @($promptHits | Where-Object { $_ -like 'extensions/*' })) {
-        $extName = $h -replace '^extensions/', ''
-        $extPath = Join-Path $ExtDir $extName
-        if (Test-Path $extPath) { Backup-Item $extPath $backupRoot "extensions/$extName" }
-    }
 }
 if ($mcpHits.Count -gt 0 -or $pkgHits.Count -gt 0) {
     Backup-Item $McpJson $backupRoot 'mcp.json'
     Backup-Item $SetJson $backupRoot 'settings.json'
 }
 if ($flagHits.Count -gt 0) { Backup-Item $LabFlag $backupRoot 'lab-mode.flag' }
+if ($originHits.Count -gt 0) { Backup-Item $originPath $backupRoot 'seep-runtime.json' }
+if ($manifestHits.Count -gt 0) { Backup-Item $InstallManifest $backupRoot 'seep-install-manifest.json' }
+if ($agentSettingsHits.Count -gt 0) {
+    Backup-Item (Join-Path $AgentDir 'agents\settings.json') $backupRoot 'agents/settings.json'
+}
 
 Write-Step '4/5  执行移除'
-foreach ($n in $skillHits) {
+if ($script:Failed -gt 0) { Write-Fail '备份未完整成功，尚未移除任何项目'; exit 1 }
+foreach ($rel in @($fileHitsToRemove | Sort-Object -Unique)) {
+    $p = Join-Path $AgentDir ($rel -replace '/', '\')
     try {
-        Remove-Item (Join-Path $SkillsDir $n) -Recurse -Force -ErrorAction Stop
-        Write-Ok "已移除技能: $n"; $script:Removed++
-    } catch { Write-Fail "移除技能失败: $n"; $script:Failed++ }
+        if (Test-Path $p) {
+            $expectedHash = [string]$script:OwnedFiles[$rel]
+            $actualHash = Get-FileSha256 $p
+            if ($actualHash -ne $expectedHash) {
+                Write-Warn2 "文件与安装清单哈希不一致，已保留: $rel"
+                continue
+            }
+            Remove-Item -LiteralPath $p -Force -ErrorAction Stop
+            Write-Ok "已移除: $rel"; $script:Removed++
+            if ($rel.StartsWith('skills/')) {
+                # Prune only ancestors of the file just removed. Sweeping all
+                # empty directories would also delete unrelated user skills.
+                $skillsRootFull = [System.IO.Path]::GetFullPath($SkillsDir).TrimEnd('\', '/')
+                $parentFull = [System.IO.Path]::GetFullPath((Split-Path -Parent $p))
+                $skillsPrefix = $skillsRootFull + [System.IO.Path]::DirectorySeparatorChar
+                while ($parentFull.StartsWith($skillsPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $parentInfo = Get-Item -LiteralPath $parentFull -Force -ErrorAction SilentlyContinue
+                    if (-not $parentInfo -or
+                        (($parentInfo.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) -or
+                        @(Get-ChildItem -LiteralPath $parentFull -Force -ErrorAction SilentlyContinue).Count -gt 0) {
+                        break
+                    }
+                    try { Remove-Item -LiteralPath $parentFull -Force -ErrorAction Stop }
+                    catch { break }
+                    $parentFull = [System.IO.Path]::GetDirectoryName($parentFull)
+                }
+            }
+        }
+    } catch { Write-Fail "移除失败: $rel ($($_.Exception.Message))"; $script:Failed++ }
 }
-foreach ($f in $promptHits) {
-    $p = Join-Path $AgentDir ($f -replace '/', '\')
+if ($promptHits -contains 'AGENTS.md' -or $promptHits -contains 'SEEP.md') {
     try {
-        Remove-Item $p -Force -ErrorAction Stop
-        Write-Ok "已移除: $f"; $script:Removed++
-    } catch { Write-Fail "移除失败: $f"; $script:Failed++ }
+        & python (Join-Path $ScriptDir 'merge_agent_config.py') --root $Root --agent-dir $AgentDir --remove-prompts-only
+        if ($LASTEXITCODE -ne 0) { throw 'managed prompt removal failed' }
+        Write-Ok '已移除工作台管理的提示词块（用户追加文本保留）'
+    } catch { Write-Fail "提示词块清理失败: $($_.Exception.Message)"; $script:Failed++ }
 }
 
 # MCP：外科手术式移除，保留用户其他条目
 if ($mcpHits.Count -gt 0) {
     try {
-        $cfg = Read-JsonFile $McpJson
-        $keep = [ordered]@{}
-        foreach ($p in $cfg.mcpServers.PSObject.Properties) {
-            if ($mcpHits -notcontains $p.Name) { $keep[$p.Name] = $p.Value }
-        }
-        $newObj = [PSCustomObject]@{ mcpServers = [PSCustomObject]$keep }
-        $json = $newObj | ConvertTo-Json -Depth 20
-        [System.IO.File]::WriteAllText($McpJson, $json, (New-Object System.Text.UTF8Encoding $false))
-        Write-Ok "已移除 MCP 条目: $($mcpHits -join ', ')（保留 $($keep.Keys.Count) 个）"
+        $removeArgs = @((Join-Path $ScriptDir 'merge_agent_config.py'), '--root', $Root, '--agent-dir', $AgentDir, '--remove-mcp') + @($mcpHits)
+        & python @removeArgs
+        if ($LASTEXITCODE -ne 0) { throw 'MCP configuration cleanup failed' }
+        Write-Ok "已移除 MCP 条目: $($mcpHits -join ', ')"
         $script:Removed += $mcpHits.Count
     } catch { Write-Fail "mcp.json 清理失败: $($_.Exception.Message)"; $script:Failed++ }
 }
@@ -400,15 +601,9 @@ if ($mcpHits.Count -gt 0) {
 # settings.json：只移除工作台加入的 packages
 if ($pkgHits.Count -gt 0) {
     try {
-        $cfg = Read-JsonFile $SetJson
-        $remain = @()
-        foreach ($pkg in @($cfg.packages)) {
-            if ($WorkbenchPackages -notcontains $pkg) { $remain += $pkg }
-        }
-        $cfg | Add-Member -NotePropertyName 'packages' -NotePropertyValue $remain -Force
-        $json = $cfg | ConvertTo-Json -Depth 20
-        [System.IO.File]::WriteAllText($SetJson, $json, (New-Object System.Text.UTF8Encoding $false))
-        Write-Ok "已从 settings.json 移除 $($pkgHits.Count) 个 packages（保留 $($remain.Count) 个）"
+        & python (Join-Path $ScriptDir 'merge_agent_config.py') --root $Root --agent-dir $AgentDir --remove-packages
+        if ($LASTEXITCODE -ne 0) { throw 'package configuration cleanup failed' }
+        Write-Ok "已从 settings.json 移除 $($pkgHits.Count) 个 packages"
         $script:Removed += $pkgHits.Count
     } catch { Write-Fail "settings.json 清理失败: $($_.Exception.Message)"; $script:Failed++ }
 }
@@ -420,6 +615,60 @@ if ($flagHits.Count -gt 0) {
     } catch { Write-Fail '移除 lab-mode.flag 失败'; $script:Failed++ }
 }
 
+if ($agentSettingsHits.Count -gt 0) {
+    $agentSettingsPath = Join-Path $AgentDir 'agents\settings.json'
+    if (Test-Path $agentSettingsPath) {
+        $agentSettingsScript = @'
+from pathlib import Path
+import json
+import os
+import sys
+import tempfile
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text(encoding="utf-8-sig"))
+if not isinstance(data, dict):
+    raise SystemExit(3)
+defaults = {"version": 1, "builtInEnabled": True, "maxConcurrent": 5}
+for key, value in defaults.items():
+    if data.get(key) == value:
+        data.pop(key, None)
+if data:
+    fd, temporary = tempfile.mkstemp(prefix=".seep-agent-settings-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+else:
+    path.unlink()
+'@
+        try {
+            $agentSettingsScript | & python - $agentSettingsPath
+            if ($LASTEXITCODE -ne 0) { throw 'managed agent settings cleanup failed' }
+            Write-Ok '已清理安装器创建的 agents/settings.json（用户字段保留）'
+            $script:Removed++
+        } catch { Write-Fail "agents/settings.json 清理失败: $($_.Exception.Message)"; $script:Failed++ }
+    }
+}
+
+if ($originHits.Count -gt 0 -and $script:Failed -eq 0) {
+    try {
+        Remove-Item $originPath -Force -ErrorAction Stop
+        Write-Ok '已移除 runtime 注册（source runtime 保留）'; $script:Removed++
+    } catch { Write-Fail '移除 runtime 注册失败'; $script:Failed++ }
+}
+if ($manifestHits.Count -gt 0 -and $script:Failed -eq 0) {
+    try {
+        Remove-Item $InstallManifest -Force -ErrorAction Stop
+        Write-Ok '已移除安装所有权清单'
+        $script:Removed++
+    } catch { Write-Fail '移除安装所有权清单失败'; $script:Failed++ }
+}
+
 # ---------------------------------------------------------------- 5. 可选深度清理
 if ($Purge) {
     Write-Step '5/5  深度清理 (-Purge)'
@@ -429,21 +678,7 @@ if ($Purge) {
         try { Remove-Item $b.FullName -Recurse -Force -ErrorAction Stop; $purged++ }
         catch { Write-Warn2 "无法删除: $($b.Name)" }
     }
-    foreach ($g in @('opencode.jsonc', 'setup\cordis.generated.yml',
-                     'Tool\scripts\compliance-relay\relay-config.json',
-                     '.seep')) {
-        $p = Join-Path $Root $g
-        if (Test-Path $p) {
-            try { Remove-Item $p -Recurse -Force -ErrorAction Stop; Write-Ok "已删除生成配置: $g"; $purged++ }
-            catch { Write-Warn2 "无法删除: $g" }
-        }
-    }
-    # 清理工具自动发现插件的本机用户级状态缓存 (~/.seep)
-    $userSeep = Join-Path $env:USERPROFILE '.seep'
-    if (Test-Path $userSeep) {
-        try { Remove-Item $userSeep -Recurse -Force -ErrorAction Stop; Write-Ok "已清理工具发现本机状态: ~/.seep"; $purged++ }
-        catch { Write-Warn2 "无法删除: $userSeep" }
-    }
+    Write-Info 'source runtime 与用户级状态均保留；Purge 只处理安装器在该 AgentRoot 下的旧备份'
     Write-Ok "深度清理完成，共 $purged 项（本次卸载备份已保留）"
 } else {
     Write-Step '5/5  深度清理'
@@ -452,7 +687,8 @@ if ($Purge) {
 
 # ---------------------------------------------------------------- 报告
 Write-Host "`n╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║   ✅ 卸载完成                                                 ║" -ForegroundColor Green
+if ($script:Failed -gt 0) { Write-Fail '卸载未完成，runtime 注册保留，关闭占用进程后重试' }
+else { Write-Host "║   卸载完成                                                    ║" -ForegroundColor Green }
 Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Ok "已移除: $($script:Removed) 项"
 if ($script:Failed -gt 0) { Write-Fail "失败: $($script:Failed) 项（多为文件被占用，关闭 Agent 后重试）" }
@@ -461,4 +697,5 @@ Write-Info "如需恢复: powershell -File .\setup\uninstall.ps1 -Restore `"$bac
 Write-Host ''
 Write-Info '工作台本体目录未删除。若确认不再需要，可手动删除整个工作台文件夹。'
 Write-Info '请完全重启 Agent 会话，使卸载生效。'
+if ($script:Failed -gt 0) { exit 1 }
 exit 0

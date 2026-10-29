@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "description": "反编译引擎降级链（声明式）。seep_r2_decompile 优先读本文件；缺失则用内置默认。未来加/换引擎只改这里，不改代码。",
+  "description": "参考引擎顺序，当前未接入 MCP 反编译入口。seep_r2_decompile 仅使用 r2；独立 IDA 等工具走已有工具入口。本表不表示后端已安装、可调用或自动切换，不要求完整 REA。",
   "chains": {
     "native": ["ida", "ghidra", "rea", "r2"],
     "dotnet": ["ida", "ghidra", "r2"],
@@ -9,8 +9,8 @@
   "engines": {
     "ida":    { "tier": 1, "kind": "commercial", "note": "IDA Pro (idat64)，最高精度，需授权" },
     "ghidra": { "tier": 2, "kind": "opensource", "note": "Ghidra analyzeHeadless" },
-    "rea":    { "tier": 2, "kind": "mcp",        "note": "REA (npx rea-agents)，Ghidra/Hopper 后端" },
-    "r2":     { "tier": 3, "kind": "bundled",    "note": "Radare2，随 Seep 内置，永远可用的兜底" },
+    "rea":    { "tier": 2, "kind": "reference",  "note": "仅作方法来源；未装配完整 REA 服务" },
+    "r2":     { "tier": 3, "kind": "bundled",    "note": "Radare2，实际可用性以工具发现和执行为准" },
     "jadx":   { "tier": 1, "kind": "bundled",    "note": "JADX，Android DEX/APK 反编译" }
   }
 }

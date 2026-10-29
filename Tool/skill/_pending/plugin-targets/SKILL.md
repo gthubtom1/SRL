@@ -6,12 +6,13 @@ compatibility: Windows/Linux/macOS；解包用 unzip/7z，asar 用 npx asar 或�
 metadata:
   version: "2.0.0"
   category: plugin-targets
-  routes: "R25"
   hard_gates: "入口可指认 / 权限或扩展点可解释 / 数据流可追 / 最小可改单元可验证"
   references: "references/01-criteria.md, references/02-failure-criteria.md, references/03-model-pitfalls.md, references/04-walkthrough-chrome-extension.md, references/browser-extension.md, references/ide-plugins.md, references/electron-and-asar.md, references/unity-and-mods.md, references/desktop-plugins.md"
 ---
 
-# plugin-targets — 插件 / 扩展 / Mod（R25）
+> **路由范围**：本文件为按需子技能，不是第十领域，不宣称旧 R 编号已注册。按具体目标由九领域主域调用，证据返回同一项目。阴性结果可完成有界评估；不能强求发现漏洞或实际提权。真实凭据/私钥不读取、不提取、不试用；权限链用配置、审计元信息或合成 canary 验证。
+
+# plugin-targets — 插件 / 扩展 / Mod（按需子技能）
 
 > 只回答一件事：**这个插件从哪进入宿主、拿到什么权限/扩展点、读了什么数据、把数据送到哪、最小可改单元是什么。**
 > 不把“解包成功”当完成，也不把“看到 manifest/权限”当分析。只对自有或明确授权的插件/宿主操作。
@@ -92,7 +93,7 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path plugin.
 | 改包后拒绝加载 | 签名/白名单/完整性 | 停；记录校验层；转静态/更新链 |
 | 触发反作弊/EDR/企业策略 | 环境风险 | 立即停；记录环境；换离线副本 |
 
-**停止规则**：同一路径两次失败就换观测层；缺环不升格；签名/白名单/版本失败两次即停；反作弊/EDR 立即停；协议拿不到明文/帧边界交 R24。
+**停止规则**：同一路径两次失败就换观测层；缺环不升格；签名/白名单/版本失败两次即停；反作弊/EDR 立即停；协议拿不到明文/帧边界交 protocol-plugin。
 
 ## 6. 模型常见失误（≥8 条）
 
@@ -147,7 +148,7 @@ jq '{permissions,optional_permissions,host_permissions,background,content_script
 
 ### 阶段 D：数据流与最小单元
 
-完成判据：至少一条“输入 → 插件 → 输出”有代码证据；`minimal_unit.path/symbols` 可指认；有 baseline 与回退方式；协议部分单独标注交 R24。
+完成判据：至少一条“输入 → 插件 → 输出”有代码证据；`minimal_unit.path/symbols` 可指认；有 baseline 与回退方式；协议部分单独标注交 protocol-plugin。
 
 ### 阶段 E：动态/签名/更新（可选）
 

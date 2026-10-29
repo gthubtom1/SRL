@@ -40,6 +40,9 @@ import io
 import json
 import os
 import sys
+import tempfile
+import uuid
+from pathlib import Path
 
 # install-pi.ps1 与 install.sh 必须保持一致的包清单
 WORKBENCH_PACKAGES = [
@@ -71,15 +74,20 @@ def log(msg: str) -> None:
 
 
 def read_json(path: str):
-    """读 JSON：兼容 UTF-8 BOM，坏文件返回 None（调用方决定是否重建）。"""
+    """兼容 UTF-8 BOM；缺文件返回 None，坏文件报错并保留。"""
     if not os.path.isfile(path):
+        if os.path.lexists(path):
+            raise ValueError("configuration path is not a file: " + os.path.basename(path))
         return None
     try:
-        raw = io.open(path, "r", encoding="utf-8-sig").read()
+        with io.open(path, "r", encoding="utf-8-sig") as handle:
+            raw = handle.read()
         data = json.loads(raw)
-        return data if isinstance(data, dict) else None
-    except Exception:
-        return None
+        if not isinstance(data, dict):
+            raise ValueError("expected JSON object")
+        return data
+    except Exception as exc:
+        raise ValueError("invalid JSON; original preserved: " + os.path.basename(path)) from exc
 
 
 def prune_backups(path: str, keep: int = BACKUP_KEEP) -> None:
@@ -100,10 +108,11 @@ def prune_backups(path: str, keep: int = BACKUP_KEEP) -> None:
 def backup(path: str) -> str:
     if not os.path.isfile(path):
         return ""
-    stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    stamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f") + "-" + uuid.uuid4().hex
     dst = path + ".bak-" + stamp
     try:
-        io.open(dst, "wb").write(io.open(path, "rb").read())
+        with io.open(path, "rb") as source, io.open(dst, "xb") as target:
+            target.write(source.read())
         prune_backups(path, BACKUP_KEEP)
         return dst
     except Exception:
@@ -114,7 +123,14 @@ def write_json(path: str, data: dict) -> None:
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     text = json.dumps(data, indent=2, ensure_ascii=False)
     # UTF-8 无 BOM：Node / Pi 的 JSON.parse 对 BOM 敏感
-    io.open(path, "w", encoding="utf-8", newline="\n").write(text + "\n")
+    fd, pending = tempfile.mkstemp(prefix=".seep-config-", dir=os.path.dirname(os.path.abspath(path)))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text + "\n")
+        os.replace(pending, path)
+    finally:
+        if os.path.exists(pending):
+            os.unlink(pending)
 
 
 def posix(path: str) -> str:
@@ -130,24 +146,28 @@ def build_mcp_entries(root: str, existing: dict, allow_ida: bool) -> dict:
     entries = {}
 
     cfg_path = os.path.join(root, "Tool", "config", "mcp-servers.json")
-    servers = {}
-    try:
-        with open(cfg_path, encoding="utf-8") as f:
-            servers = (json.load(f) or {}).get("servers", {})
-    except Exception:
-        log("  [!!] 读不到 Tool/config/mcp-servers.json，跳过 MCP 注册")
+    with open(cfg_path, encoding="utf-8-sig") as f:
+        manifest = json.load(f)
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("servers"), dict):
+        raise ValueError("Tool/config/mcp-servers.json 必须包含 servers 对象")
+    servers = manifest["servers"]
+
+    def expand(value):
+        if isinstance(value, str):
+            return value.replace("{ROOT_POSIX}", root_posix)
+        if isinstance(value, list):
+            return [expand(item) for item in value]
+        if isinstance(value, dict):
+            return {key: expand(item) for key, item in value.items()}
+        return value
 
     for name, entry in servers.items():
         if not isinstance(entry, dict):
-            continue
+            raise ValueError("MCP 条目必须是对象: " + name)
         if entry.get("onlyIfMissing") and existing.get(name):
             log("  mcp: 保留用户已有条目 %s" % name)
             continue
-        text = json.dumps(entry, ensure_ascii=False).replace("{ROOT_POSIX}", root_posix)
-        try:
-            entries[name] = json.loads(text)
-        except Exception:
-            log("  [!!] mcp 条目 %s 模板解析失败，跳过" % name)
+        entries[name] = expand(entry)
 
     # IDA：只有真探测到（环境变量显式给出，或用户已配置）才生成；
     # 否则不生成 —— 绝不把 "<IDA_PYTHON>" 这种占位符写进可执行配置。
@@ -178,9 +198,9 @@ def ia_path_ok(p: str) -> bool:
 def merge_mcp_json(args) -> int:
     dst = os.path.join(args.agent_dir, "mcp.json")
     cfg = read_json(dst) or {}
-    servers = cfg.get("mcpServers")
+    servers = cfg.get("mcpServers", {})
     if not isinstance(servers, dict):
-        servers = {}
+        raise ValueError("mcpServers 必须为对象；原配置保留")
     before = set(servers.keys())
 
     new_entries = build_mcp_entries(args.root, servers, allow_ida=not args.no_ida)
@@ -211,6 +231,8 @@ def merge_mcp_json(args) -> int:
         return 0
 
     bak = backup(dst)
+    if os.path.isfile(dst) and not bak:
+        raise OSError("configuration backup failed; original preserved")
     if bak:
         log("    已备份: %s" % bak)
     write_json(dst, cfg)
@@ -221,12 +243,12 @@ def merge_mcp_json(args) -> int:
 def merge_settings_json(args) -> int:
     dst = os.path.join(args.agent_dir, "settings.json")
     cfg = read_json(dst) or {}
-    pkgs = cfg.get("packages")
+    pkgs = cfg.get("packages", [])
     if not isinstance(pkgs, list):
-        pkgs = []
+        raise ValueError("packages 必须为数组；原配置保留")
     added = [p for p in WORKBENCH_PACKAGES if p not in pkgs]
-    retired = [p for p in pkgs if p in RETIRED_PACKAGES]
-    merged = [p for p in pkgs if p not in RETIRED_PACKAGES] + added
+    retired = [p for p in pkgs if isinstance(p, str) and p in RETIRED_PACKAGES]
+    merged = [p for p in pkgs if not (isinstance(p, str) and p in RETIRED_PACKAGES)] + added
 
     log("  settings.json 目标: %s" % dst)
     log("    packages: 原有 %d，新增 %d，退役剔除 %d，合计 %d" % (len(pkgs), len(added), len(retired), len(merged)))
@@ -235,7 +257,8 @@ def merge_settings_json(args) -> int:
     cfg["packages"] = merged
 
     # 重试档位默认值（仅缺失时写入，不覆盖用户已调过的档）：pi 默认 3 次，长任务易被 502/429 打断
-    if "retry" not in cfg:
+    retry_missing = "retry" not in cfg
+    if retry_missing:
         cfg["retry"] = {
             "enabled": True,
             "maxRetries": 10,
@@ -248,14 +271,112 @@ def merge_settings_json(args) -> int:
     if args.dry_run or args.print_only:
         log("  [DRY-RUN] 未写入 settings.json")
         return 0
-    if not added and not retired and os.path.isfile(dst):
+    if not added and not retired and not retry_missing and os.path.isfile(dst):
         log("    [OK] 已是最新，未改动文件")
         return 0
     bak = backup(dst)
     if bak:
         log("    已备份: %s" % bak)
+    if os.path.isfile(dst) and not bak:
+        raise OSError("settings backup failed; original preserved")
     write_json(dst, cfg)
     log("    [OK] 已写入")
+    return 0
+
+
+def merge_prompts(args) -> int:
+    """Update only the bounded source block; retain host/user additions."""
+    begin, end = "<!-- seep:managed:begin -->", "<!-- seep:managed:end -->"
+    for name in ("AGENTS.md", "SEEP.md"):
+        source = Path(args.root, "Tool/prompts", name).read_text(encoding="utf-8-sig")
+        dst = Path(args.agent_dir, name)
+        existing = dst.read_text(encoding="utf-8-sig") if dst.exists() else ""
+        block = begin + "\n" + source.rstrip() + "\n" + end
+        if begin in existing or end in existing:
+            if existing.count(begin) != 1 or existing.count(end) != 1 or existing.index(begin) > existing.index(end):
+                raise ValueError("invalid managed prompt boundary: " + name)
+            start, finish = existing.index(begin), existing.index(end) + len(end)
+            merged = existing[:start] + ("" if args.remove_prompts_only else block) + existing[finish:]
+        elif existing.startswith(source.rstrip()):
+            merged = ("" if args.remove_prompts_only else block) + existing[len(source.rstrip()):]
+        elif existing.startswith(("# AGENTS.md — 跨 Agent 通用作战协议", "# SEEP —— 层间裁决与指针")):
+            raise ValueError("unmarked modified Seep prompt; preserve and reconcile before updating: " + name)
+        else:
+            merged = existing if args.remove_prompts_only else existing.rstrip() + ("\n\n" if existing.strip() else "") + block + "\n"
+        if merged == existing or args.dry_run or args.print_only:
+            continue
+        if dst.exists() and not backup(str(dst)):
+            raise OSError("prompt backup failed: " + name)
+        if args.remove_prompts_only and not merged.strip():
+            dst.unlink()
+            continue
+        fd, temp = tempfile.mkstemp(prefix=".seep-prompt-", dir=args.agent_dir)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(merged)
+            os.replace(temp, dst)
+        finally:
+            if os.path.exists(temp):
+                os.unlink(temp)
+        log("  [OK] prompt source updated; user/host text retained: " + name)
+    return 0
+
+
+def merge_agent_settings(args) -> int:
+    """Create defaults once; validate and normalize legacy BOM without changing values."""
+    dst = os.path.join(args.agent_dir, "agents", "settings.json")
+    cfg = read_json(dst)
+    if cfg is None:
+        cfg = {"version": 1, "builtInEnabled": True, "maxConcurrent": 5}
+    elif not Path(dst).read_bytes().startswith(b"\xef\xbb\xbf"):
+        return 0
+    if args.dry_run or args.print_only:
+        return 0
+    if os.path.isfile(dst) and not backup(dst):
+        raise OSError("agent settings backup failed; original preserved")
+    write_json(dst, cfg)
+    log("  [OK] agents/settings.json 已验证并写入 UTF-8 无 BOM")
+    return 0
+
+
+def validate_configs(args) -> None:
+    """Check deployment inputs without creating directories or changing assets."""
+    for name, key, expected in (("mcp.json", "mcpServers", dict),
+                                ("settings.json", "packages", list),
+                                ("agents/settings.json", None, None)):
+        cfg = read_json(os.path.join(args.agent_dir, name))
+        if cfg is not None and key is not None and key in cfg and not isinstance(cfg[key], expected):
+            raise ValueError(f"{name}: {key} 类型错误；原配置保留")
+    existing = read_json(os.path.join(args.agent_dir, "mcp.json")) or {}
+    build_mcp_entries(args.root, existing.get("mcpServers", {}), allow_ida=not args.no_ida)
+
+
+def remove_config_entries(args) -> int:
+    """Uninstall only selected entries, using the same lossless atomic JSON writer."""
+    validate_configs(args)
+    targets = []
+    if args.remove_mcp:
+        targets.append(("mcp.json", "mcpServers"))
+    if args.remove_packages:
+        targets.append(("settings.json", "packages"))
+    for name, key in targets:
+        dst = os.path.join(args.agent_dir, name)
+        cfg = read_json(dst)
+        if cfg is None:
+            continue
+        if key == "mcpServers":
+            old = cfg.get(key, {})
+            cfg[key] = {name: entry for name, entry in old.items() if name not in args.remove_mcp}
+        else:
+            old = cfg.get(key, [])
+            removed = set(WORKBENCH_PACKAGES) | RETIRED_PACKAGES
+            cfg[key] = [item for item in old if not (isinstance(item, str) and item in removed)]
+        if cfg[key] == old or args.dry_run or args.print_only:
+            continue
+        if not backup(dst):
+            raise OSError("configuration backup failed; original preserved: " + name)
+        write_json(dst, cfg)
+        log("  [OK] 已清理选定配置，用户字段保留: " + name)
     return 0
 
 
@@ -266,21 +387,54 @@ def main(argv) -> int:
     ap.add_argument("--dry-run", action="store_true", help="只预览，不改任何文件")
     ap.add_argument("--print", dest="print_only", action="store_true", help="只打印将生成的配置")
     ap.add_argument("--no-ida", action="store_true", help="强制不生成 ida 条目")
+    ap.add_argument("--prompts-only", action="store_true")
+    ap.add_argument("--remove-prompts-only", action="store_true")
+    ap.add_argument("--agents-only", action="store_true")
+    ap.add_argument("--validate-only", action="store_true", help="安装前只校验配置与提示词，不写文件")
+    ap.add_argument("--validate-configs-only", action="store_true", help="卸载前只校验配置，不写文件")
+    ap.add_argument("--remove-mcp", nargs="+", default=[], metavar="NAME")
+    ap.add_argument("--remove-packages", action="store_true")
     args = ap.parse_args(argv)
+    actions = (args.prompts_only, args.remove_prompts_only, args.agents_only,
+               args.validate_only, args.validate_configs_only,
+               bool(args.remove_mcp or args.remove_packages))
+    if sum(actions) > 1:
+        ap.error("action flags cannot be combined (except --remove-mcp with --remove-packages)")
 
     args.root = os.path.abspath(os.path.expanduser(args.root))
     args.agent_dir = os.path.abspath(os.path.expanduser(args.agent_dir))
-    os.makedirs(args.agent_dir, exist_ok=True)
+    try:
+        if args.validate_configs_only:
+            validate_configs(args)
+            return 0
+        if args.remove_mcp or args.remove_packages:
+            return remove_config_entries(args)
+        if args.validate_only:
+            args.dry_run = True
+            validate_configs(args)
+            merge_prompts(args)
+            log("  [OK] 安装输入校验通过（未写入）")
+            return 0
+        if not args.dry_run and not args.print_only:
+            os.makedirs(args.agent_dir, exist_ok=True)
+        if args.prompts_only or args.remove_prompts_only:
+            return merge_prompts(args)
+        if args.agents_only:
+            return merge_agent_settings(args)
 
-    log("  === Agent 配置增量合并（跨平台）===")
-    rc = merge_mcp_json(args)
-    if rc != 0:
-        return rc
-    rc = merge_settings_json(args)
-    if rc != 0:
-        return rc
-    log("  === 合并完成 ===")
-    return 0
+        validate_configs(args)
+        log("  === Agent 配置增量合并（跨平台）===")
+        rc = merge_mcp_json(args)
+        if rc != 0:
+            return rc
+        rc = merge_settings_json(args)
+        if rc != 0:
+            return rc
+        log("  === 合并完成 ===")
+        return 0
+    except (OSError, ValueError) as exc:
+        log("  [FAIL] 配置合并未完成: " + str(exc))
+        return 1
 
 
 if __name__ == "__main__":

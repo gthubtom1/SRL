@@ -22,6 +22,13 @@
 """
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import datetime as _dt
 import hashlib
@@ -39,7 +46,7 @@ if sys.platform == "win32":
         pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(HERE))))
+ROOT = _seep_repo_root(__file__)
 CASE_FIELDS = ("id", "domain", "target_type", "evidence_kind", "protection",
                "authority", "goal_level", "outcome", "artifacts", "lessons",
                "refs", "updated")
@@ -86,7 +93,9 @@ def parse_iso(value):
 
 def inside(base, target):
     try:
-        return os.path.commonpath([os.path.abspath(base), os.path.abspath(target)]) == os.path.abspath(base)
+        base = os.path.realpath(os.path.abspath(base))
+        target = os.path.realpath(os.path.abspath(target))
+        return os.path.commonpath([base, target]) == base
     except ValueError:
         return False
 
@@ -102,7 +111,7 @@ def check_case(case_dir, domain="forensics-mobile"):
             failures.append(message)
         return bool(cond)
 
-    case_dir = os.path.abspath(case_dir)
+    case_dir = os.path.realpath(os.path.abspath(case_dir))
     case_json = os.path.join(case_dir, "case.json")
     if not os.path.isfile(case_json):
         raise AcceptError("input", "缺少 case.json：%s" % case_json)
@@ -111,6 +120,11 @@ def check_case(case_dir, domain="forensics-mobile"):
             case = json.load(fh)
     except (OSError, ValueError) as exc:
         raise AcceptError("parse", "case.json 读取失败：%s" % exc)
+    if not isinstance(case, dict):
+        failures.append("case.json 顶层必须是 JSON object")
+        return {"ok": False, "case": os.path.basename(case_dir), "domain": domain,
+                "checks": checks, "failures": failures, "warnings": warnings,
+                "artifacts": 0, "findings": 0}
 
     missing = [k for k in CASE_FIELDS if k not in case]
     ok(not missing, "case.json 缺字段：%s" % ",".join(missing))
@@ -148,7 +162,7 @@ def check_case(case_dir, domain="forensics-mobile"):
         ok(bool(rel), "artifact 缺 path")
         if not rel:
             continue
-        full = os.path.join(case_dir, rel)
+        full = os.path.realpath(os.path.join(case_dir, rel))
         if not inside(case_dir, full):
             ok(False, "artifact 路径逃逸案例目录：%s" % rel)
             continue
@@ -187,9 +201,13 @@ def check_case(case_dir, domain="forensics-mobile"):
            "finding#%d confidence=%r 非 observed/inferred/unverified" % (i, f.get("confidence")))
         for ref in f.get("evidence_refs") or []:
             if not isinstance(ref, str) or "://" in ref:
+                ok(False, "finding#%d evidence_ref 不是本地证据路径：%s" % (i, ref))
                 continue
-            candidates = [os.path.join(case_dir, ref), os.path.join(ROOT, ref)]
-            ok(any(os.path.isfile(c) for c in candidates), "finding#%d evidence_ref 幻影：%s" % (i, ref))
+            c_case = os.path.realpath(os.path.join(case_dir, ref))
+            c_root = os.path.realpath(os.path.join(ROOT, ref))
+            valid = (inside(case_dir, c_case) and os.path.isfile(c_case)) or \
+                    (inside(ROOT, c_root) and os.path.isfile(c_root))
+            ok(valid, "finding#%d evidence_ref 幻影或逃逸：%s" % (i, ref))
 
     lessons = case.get("lessons") or []
     ok(bool(lessons), "lessons 为空")
@@ -204,9 +222,11 @@ def check_case(case_dir, domain="forensics-mobile"):
     refs = case.get("refs") or []
     ok(bool(refs), "refs 为空")
     for ref in refs:
-        if not isinstance(ref, str) or "://" in ref:
+        if not isinstance(ref, str) or "://" in ref or ref.startswith("<"):
+            ok(False, "refs 不是本地仓库文件：%s" % (ref,))
             continue
-        ok(os.path.isfile(os.path.join(ROOT, ref)), "refs 幻影：%s" % ref)
+        full = os.path.realpath(os.path.join(ROOT, ref))
+        ok(inside(ROOT, full) and os.path.isfile(full), "refs 幻影或逃逸：%s" % ref)
 
     ok(os.path.isdir(os.path.join(case_dir, "input")), "缺 input/ 目录")
 
@@ -227,7 +247,8 @@ def check_case(case_dir, domain="forensics-mobile"):
 
     def _events(path):
         try:
-            d = json.load(open(path, encoding="utf-8"))
+            with open(path, encoding="utf-8") as stream:
+                d = json.load(stream)
         except Exception:  # noqa: BLE001
             return None
         if not isinstance(d, dict):
@@ -252,7 +273,8 @@ def check_case(case_dir, domain="forensics-mobile"):
     tlf = os.path.join(case_dir, "artifacts", "timeline.json")
     if os.path.isfile(tlf):
         try:
-            tl2 = json.load(open(tlf, encoding="utf-8"))
+            with open(tlf, encoding="utf-8") as stream:
+                tl2 = json.load(stream)
             evs2 = tl2.get("events") or []
             times2 = {str(e.get("time_utc")) for e in evs2}
             if evs2:
@@ -332,6 +354,59 @@ def self_test():
                 json.dump(case, fh, ensure_ascii=False)
             result = check_case(case_dir)
             assert result["ok"] is True, result
+            checks += 1
+
+            # 符号链接产物不得借 realpath 落到案例目录外。
+            outside = os.path.join(tmp, "outside.bin")
+            with open(outside, "wb") as fh:
+                fh.write(b"outside\n")
+            link = os.path.join(case_dir, "escape-link")
+            try:
+                os.symlink(outside, link)
+            except OSError:
+                link = None
+            if link:
+                boundary = json.loads(json.dumps(case))
+                boundary["artifacts"] = [{"path": "escape-link", "sha256": sha256_file(outside)}]
+                with open(os.path.join(case_dir, "case.json"), "w", encoding="utf-8") as fh:
+                    json.dump(boundary, fh, ensure_ascii=False)
+                escaped = check_case(case_dir)
+                assert not escaped["ok"] and any("逃逸" in x for x in escaped["failures"]), escaped
+                checks += 1
+
+            # evidence_ref 与顶层 refs 也必须保持在各自根目录内。
+            boundary = json.loads(json.dumps(case))
+            boundary["findings"][0]["evidence_refs"] = ["../outside.bin"]
+            with open(os.path.join(case_dir, "case.json"), "w", encoding="utf-8") as fh:
+                json.dump(boundary, fh, ensure_ascii=False)
+            escaped = check_case(case_dir)
+            assert not escaped["ok"] and any("evidence_ref" in x for x in escaped["failures"]), escaped
+            checks += 1
+
+            original_root = globals()["ROOT"]
+            outside_ref = os.path.join(os.path.dirname(tmp), os.path.basename(tmp) + "-outside-ref.md")
+            try:
+                with open(outside_ref, "w", encoding="utf-8") as fh:
+                    fh.write("outside ref\n")
+                globals()["ROOT"] = tmp
+                boundary["findings"][0]["evidence_refs"] = ["input/sample.bin"]
+                boundary["refs"] = ["../" + os.path.basename(outside_ref)]
+                with open(os.path.join(case_dir, "case.json"), "w", encoding="utf-8") as fh:
+                    json.dump(boundary, fh, ensure_ascii=False)
+                escaped = check_case(case_dir)
+                assert not escaped["ok"] and any("refs 幻影或逃逸" in x for x in escaped["failures"]), escaped
+                checks += 1
+            finally:
+                globals()["ROOT"] = original_root
+                try:
+                    os.unlink(outside_ref)
+                except OSError:
+                    pass
+
+            with open(os.path.join(case_dir, "case.json"), "w", encoding="utf-8") as fh:
+                json.dump([], fh)
+            non_object = check_case(case_dir)
+            assert not non_object["ok"] and any("JSON object" in x for x in non_object["failures"]), non_object
             checks += 1
 
             # 篡改哈希必须被抓到

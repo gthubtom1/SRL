@@ -13,17 +13,47 @@
     },
     "final": {
       "claims": 14,
-      "proven": 13,
-      "strong": 13,
+      "proven": 12,
+      "strong": 12,
       "verdict": "pass"
     }
   },
   "source_sha256": {
-    "facts.jsonl": "b7883bc461c05f489ec78d5104c409ce2eec085da4fac616983bde135d56b430",
-    "artifacts/MANIFEST.sha256": "96095347ee560db409e38c3e742abec64e4ad4ccd7591c81e98a84f29169d785"
+    "artifacts/MANIFEST.sha256": "96095347ee560db409e38c3e742abec64e4ad4ccd7591c81e98a84f29169d785",
+    "facts.jsonl": "61d3882a4a1db412bf0d6b15418a4ae5242ed1dcd9f569245021a44937d0a982"
   },
   "interpretation": "逐条重跑 r2/tool-acquire 后显式声明 observed+shipped-artifact，背书从 0 → 13；顺带 refute 了一条错版本号",
   "limitations": [
     "未运行目标（宿主机启动纪律），行为层结论仍 inferred"
+  ],
+  "audit_corrections": [
+    {
+      "at": "2026-10-29T09:24:28.148496+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "按 capture/reverify-2026-10-24.log:54-57 原始 F-007 段纠正：日志只记录字符串地址，未记录 axt/xref；撤回无代码引用/死常量的 proven 认证。",
+      "previous_final": {
+        "claims": 14,
+        "proven": 13,
+        "strong": 13,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "30d19dbfe8dd75c9cbc84d9f6754e8485913744b2b9088fc28565eb8be8740db",
+        "artifacts/MANIFEST.sha256": "96095347ee560db409e38c3e742abec64e4ad4ccd7591c81e98a84f29169d785"
+      },
+      "new_final": {
+        "claims": 14,
+        "proven": 12,
+        "strong": 12,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "96095347ee560db409e38c3e742abec64e4ad4ccd7591c81e98a84f29169d785",
+        "facts.jsonl": "61d3882a4a1db412bf0d6b15418a4ae5242ed1dcd9f569245021a44937d0a982"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
   ]
 }

@@ -10,12 +10,11 @@
 它干什么：
     · 逐个读 mcp.json 的 server，判断是 http 还是 stdio；
     · http：`--quick` 只测端口（0.1s）；默认发 JSON-RPC initialize + tools/list，报工具数；
-    · stdio：检查 command 是否存在（不真起，避免拖慢）；
+    · stdio：默认启动独立探针并握手，读取全部工具分页，关闭探针进程；--quick 只查命令存在。
     · 失败的给出**可执行的恢复命令**，`--fix` 还会按 tool-runtimes.json 自动把宿主拉起来再复验；
-    · `--session`：判定「哪些服务必须 /mcp reconnect 或重启会话才会注册工具」。
-      关键事实：stdio 服务（seep / ida / js-reverse / playwright）随会话启动；
-      x64dbg 走 streamable HTTP（9094），若宿主是在**本会话启动之后**才起来的，
-      本轮 pi 不会注册 `mcp__x64dbg__*`，必须 `/mcp reconnect x64dbg` 或重启会话。
+    · `--session`：根据配置和启动时间提供重连建议，不声称已读取当前宿主工具表。
+      x64dbg 默认走 stdio 桥接；可选直接 HTTP 配置才使用端口与启动时间检查。
+      默认握手可能按服务配置启动软件或下载 npx 包；只需静态诊断时使用 --quick。
 
 用法：
     python Tool/scripts/mcp-doctor.py                 # 全量体检
@@ -29,27 +28,61 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import ipaddress
 import json
 import os
 import socket
 import subprocess
 import sys
 import time
+from lib import mcp_http
+from lib.runtime_root import resolve_agent_root
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_MCP = os.path.expanduser(os.path.join("~", ".pi", "agent", "mcp.json"))
 RUNTIMES = os.path.join(ROOT, "Tool", "config", "tool-runtimes.json")
 TOOL_RUN = os.path.join(ROOT, "Tool", "scripts", "tool-run.ps1")
 FIX_TIMEOUT = 150          # tool-run.ps1 自带 90s 就绪轮询；留足余量
 SESSION_ENV = "PI_SESSION_FILE"
 
 
+def default_mcp_path():
+    """The selected AgentRoot's mcp.json, resolved dynamically for isolation."""
+    return str(resolve_agent_root() / "mcp.json")
+
+
+def transport_of(cfg):
+    """Resolve a configured transport without guessing an unknown value."""
+    if not isinstance(cfg, dict):
+        return "invalid"
+    raw = cfg.get("transport")
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        if cfg.get("url"):
+            return "http"
+        if cfg.get("command"):
+            return "stdio"
+        return "invalid"
+    if not isinstance(raw, str):
+        return "invalid"
+    name = raw.strip().lower()
+    if name in ("http", "streamable-http", "sse"):
+        return "http"
+    if name == "stdio":
+        return "stdio"
+    return "invalid"
+
+
 def _load_servers(path):
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding="utf-8-sig") as f:
         data = json.load(f)
-    return data.get("mcpServers") or data
+    if not isinstance(data, dict):
+        raise ValueError("MCP 配置必须是对象")
+    servers = data.get("mcpServers", data)
+    if not isinstance(servers, dict) or any(not isinstance(v, dict) for v in servers.values()):
+        raise ValueError("mcpServers 及每个服务条目必须是对象")
+    return servers
 
 
 def _port_open(host, port, timeout=0.6):
@@ -58,34 +91,6 @@ def _port_open(host, port, timeout=0.6):
             return True
     except OSError:
         return False
-
-
-def _resolve_header(value):
-    """mcp.json 支持 `!命令` 形式的动态值（x64dbg 的 token 就是这么拿的）。"""
-    if isinstance(value, str) and value.startswith("!"):
-        try:
-            out = subprocess.run(value[1:], shell=True, capture_output=True, text=True, timeout=25)
-            return (out.stdout or "").strip()
-        except Exception:
-            return ""
-    return value
-
-
-def _parse_body(raw, ctype):
-    """兼容 application/json 与 text/event-stream（streamable HTTP 会返回 SSE）。"""
-    if "text/event-stream" in (ctype or "").lower():
-        for line in raw.splitlines():
-            line = line.strip()
-            if line.startswith("data:"):
-                try:
-                    return json.loads(line[5:].strip())
-                except Exception:
-                    continue
-        return None
-    try:
-        return json.loads(raw)
-    except Exception:
-        return None
 
 
 def _post(url, headers, payload, session_id=None, timeout=8):
@@ -98,63 +103,95 @@ def _post(url, headers, payload, session_id=None, timeout=8):
         h["Mcp-Session-Id"] = session_id
     req = urllib.request.Request(url, data=body, headers=h, method="POST")
     with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw = r.read().decode("utf-8", "replace")
+        raw = mcp_http.read_response(r, payload.get("id"), timeout)
         return r.status, dict(r.headers), raw
+
+
+def _http_endpoint(url):
+    if not isinstance(url, str):
+        raise ValueError("url 必须是 HTTP(S) 地址字符串")
+    u = urlparse(url)
+    if u.scheme not in ("http", "https") or not u.hostname:
+        raise ValueError("url 必须是 HTTP(S) 地址")
+    port = u.port if u.port is not None else (443 if u.scheme == "https" else 80)
+    if not 1 <= port <= 65535:
+        raise ValueError("url 端口必须在 1..65535 之间")
+    return u.hostname, port
+
+
+def _loopback_host(host):
+    if host.lower().rstrip('.') == 'localhost':
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def probe_http(cfg, quick=False):
     url = cfg.get("url") or ""
-    u = urlparse(url)
-    host, port = u.hostname or "127.0.0.1", u.port or (443 if u.scheme == "https" else 80)
+    try:
+        host, port = _http_endpoint(url)
+    except (TypeError, ValueError) as exc:
+        return {"ok": False, "stage": "config", "error": str(exc)}
     if not _port_open(host, port):
         return {"ok": False, "stage": "port",
                 "error": f"{host}:{port} 未监听（宿主进程没起 / MCP 插件没加载 / 端口被占）"}
     if quick:
         return {"ok": True, "stage": "port", "tools": None}
 
-    headers = {k: _resolve_header(v) for k, v in (cfg.get("headers") or {}).items()}
-    init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {"protocolVersion": "2025-06-18", "capabilities": {},
-                       "clientInfo": {"name": "seep-mcp-doctor", "version": "1.0"}}}
     try:
-        status, rh, raw = _post(url, headers, init)
-    except Exception as e:
-        return {"ok": False, "stage": "initialize",
-                "error": f"initialize 失败：{type(e).__name__}: {e} （多半是 token 过期或 Authorization 无效）"}
-    msg = _parse_body(raw, rh.get("Content-Type", ""))
-    if isinstance(msg, dict) and msg.get("error"):
-        return {"ok": False, "stage": "initialize", "error": f"服务端返回错误：{msg['error']}"}
-    session = rh.get("Mcp-Session-Id") or rh.get("mcp-session-id")
+        timeout = cfg.get("timeout", 8)
+        if (isinstance(timeout, bool) or not isinstance(timeout, (int, float))
+                or not 0 < timeout <= 60):
+            raise mcp_http.McpProbeError("config", "timeout 必须在 0 到 60 秒之间")
+        headers = mcp_http.config_headers(cfg)
+        transport = str(cfg.get("transport") or "http").strip().lower()
+        if transport == "sse":
+            result = mcp_http.probe_endpoint(cfg)
+            if not result.get("ok"):
+                return {"ok": False, "stage": result.get("stage", "transport"),
+                        "error": result.get("error", "HTTP 握手失败")}
+            return {"ok": True, "stage": "tools", "tools": result["tools"]}
 
-    # notifications/initialized（部分实现要求）
-    try:
-        _post(url, headers, {"jsonrpc": "2.0", "method": "notifications/initialized"}, session)
-    except Exception:
-        pass
+        deadline = time.monotonic() + timeout
 
-    try:
-        _, rh2, raw2 = _post(url, headers,
-                             {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, session)
-        msg2 = _parse_body(raw2, rh2.get("Content-Type", ""))
-        if isinstance(msg2, dict) and isinstance(msg2.get("result"), dict):
-            n = len(msg2["result"].get("tools") or [])
-            return {"ok": True, "stage": "tools", "tools": n}
-        return {"ok": False, "stage": "initialize", "tools": None,
-                "error": "initialize 通了但 tools/list 没解析出结果"}
-    except Exception as e:
-        return {"ok": False, "stage": "tools", "error": f"tools/list 失败：{type(e).__name__}: {e}"}
+        def post(payload, negotiated, session):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("MCP handshake deadline exceeded")
+            return _post(cfg.get("url"), negotiated, payload, session, timeout=remaining)
+
+        result = mcp_http.handshake(
+            post, headers, {"name": "seep-mcp-doctor", "version": "1.0"})
+        return {"ok": True, "stage": "tools", "tools": len(result["tools"])}
+    except mcp_http.McpProbeError as exc:
+        return {"ok": False, "stage": exc.stage, "error": str(exc)}
+    except Exception as exc:
+        return {"ok": False, "stage": "transport", "error": "HTTP 握手失败: " + type(exc).__name__}
 
 
 def probe_stdio(cfg, _quick=False):
     cmd = cfg.get("command") or ""
-    if not cmd:
+    if not isinstance(cmd, str) or not cmd:
         return {"ok": False, "stage": "config", "error": "既没有 url 也没有 command"}
     from shutil import which
     hit = which(cmd) or (cmd if os.path.isfile(cmd) else "")
     if not hit:
         return {"ok": False, "stage": "spawn", "error": f"命令不存在：{cmd}"}
-    return {"ok": False, "stage": "offline", "tools": None,
-            "error": "stdio 服务：只验证了可执行文件存在（真正拉起由 pi 负责）"}
+    if _quick:
+        return {"ok": False, "stage": "offline", "tools": None,
+                "error": "仅检查到命令存在，未执行 stdio 握手；当前会话是否已注册未知"}
+    path = os.path.join(ROOT, "Tool", "skill", "softseep", "scripts", "mcp-handshake.py")
+    try:
+        spec = importlib.util.spec_from_file_location("seep_doctor_handshake", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        result = module.handshake_stdio(cfg)
+        return {"ok": True, "stage": "tools", "tools": result["toolsCount"]}
+    except Exception as exc:
+        return {"ok": False, "stage": "handshake", "tools": None,
+                "error": "stdio 握手失败: " + str(exc)[:300]}
 
 
 def _runtime_tools():
@@ -257,8 +294,15 @@ def _try_fix(name, cfg=None):
     返回结构化 dict：attempted / status / stage / reason / next / summary。
     永不抛异常 —— 修不好也必须把原因说清楚（静默失败是血案源头）。
     """
+    explicit_cfg = cfg is not None
     cfg = cfg or {}
     detail = {"attempted": False, "tool": name}
+    transport = transport_of(cfg)
+    if explicit_cfg and transport == "invalid":
+        detail.update(status="FAILED", stage="config",
+                      reason="未知或缺失的 MCP transport；拒绝猜测为 stdio/http")
+        detail["summary"] = _fix_summary(detail)
+        return detail
     if name not in _runtime_tools():
         detail.update(status="SKIPPED", stage="config",
                       reason="tool-runtimes.json 里没有该工具，无法自动拉起")
@@ -268,9 +312,16 @@ def _try_fix(name, cfg=None):
     url = cfg.get("url") or ""
     host, port = "", None
     if url:
-        u = urlparse(url)
-        host = u.hostname or "127.0.0.1"
-        port = u.port or (443 if u.scheme == "https" else 80)
+        try:
+            host, port = _http_endpoint(url)
+        except (TypeError, ValueError) as exc:
+            detail.update(status="FAILED", stage="config", reason=str(exc))
+            detail["summary"] = _fix_summary(detail)
+            return detail
+        if not _loopback_host(host):
+            detail.update(status="SKIPPED", stage="config", reason="远端服务需在对应主机恢复，不能启动本机工具代替")
+            detail["summary"] = _fix_summary(detail)
+            return detail
         if _port_open(host, port):
             detail.update(status="ALREADY_READY", stage="port", port=port,
                           reason="端口已监听，无需拉起",)
@@ -324,6 +375,10 @@ def _try_fix(name, cfg=None):
         detail.update(status="FAILED", stage="spawn", port=port,
                       reason="tool-run.ps1 没有返回可解析的 JSON",
                       raw=(out.stdout or out.stderr or "").strip()[-400:])
+    if out.returncode != 0:
+        detail.update(status="FAILED", stage="spawn", returncode=out.returncode,
+                      reason="tool-run.ps1 退出失败，不能认定宿主恢复成功",
+                      raw=(out.stderr or out.stdout or "").strip()[-400:])
     detail["attempted"] = True
     detail.setdefault("seconds", round(time.time() - started, 1))
     detail["summary"] = _fix_summary(detail)
@@ -333,8 +388,13 @@ def _try_fix(name, cfg=None):
 def recovery(name, cfg, res):
     stage = res.get("stage")
     if cfg.get("url"):
-        port = urlparse(cfg["url"]).port
+        try:
+            host, port = _http_endpoint(cfg["url"])
+        except (TypeError, ValueError):
+            return "修正 mcp.json 的 HTTP(S) URL 与端口后重跑体检"
         if stage == "port":
+            if not _loopback_host(host):
+                return "在远端主机检查服务、端口与网络，恢复后重跑体检"
             return (f"powershell -File Tool/scripts/tool-run.ps1 -Tool {name}"
                     f"   # 或手工启动宿主后重跑本脚本；端口 {port}")
         if stage in ("initialize", "tools"):
@@ -343,7 +403,7 @@ def recovery(name, cfg, res):
 
 
 def _session_judge(name, cfg, session_start):
-    """判定单个服务「本会话是否已经注册工具」以及需要什么动作。"""
+    """提供连接与启动顺序线索；当前宿主注册表仍需在宿主内核验。"""
     row = {"server": name, "transport": "stdio", "needs_reconnect": False,
            "status": "stdio", "port": None, "pid": None,
            "process_start": None, "detail": "", "next": ""}
@@ -352,31 +412,40 @@ def _session_judge(name, cfg, session_start):
         row["next"] = "无需操作（需要时在 mcp.json 里启用）"
         return row
 
+    transport = transport_of(cfg)
+    if transport == "invalid":
+        row.update(transport="invalid", status="config_error",
+                   detail="未知或缺失的 MCP transport；拒绝猜测为 stdio/http",
+                   next="修正 mcp.json 的 transport/url/command 后重跑")
+        return row
+
     url = cfg.get("url") or ""
-    if not url:
-        row["transport"] = cfg.get("transport") or "stdio"
-        chk = probe_stdio(cfg)
-        if chk["ok"]:
-            row["status"] = "stdio"
-            row["detail"] = "stdio 服务随会话启动，本轮应已注册（无需 /mcp reconnect）"
-            row["next"] = "无需操作；若工具缺失，查 pi 的 MCP 启动日志 / 重装依赖"
-        else:
-            row.update(status="stdio_unavailable", detail=chk.get("error") or "命令不可用")
-            row["next"] = "先装依赖（npx / python 模块），再重启会话"
+    if transport == "stdio":
+        row["transport"] = "stdio"
+        chk = probe_stdio(cfg, True)
+        row.update(status="stdio_unverified" if chk["stage"] == "offline" else "stdio_unavailable",
+                   detail=chk.get("error") or "命令不可用")
+        row["next"] = ("查看当前宿主的 MCP 工具表；缺工具时执行 /mcp reconnect " + name
+                       if chk["stage"] == "offline" else "先装依赖，再重连服务")
         return row
 
     row["transport"] = cfg.get("transport") or ("sse" if url.rstrip("/").endswith("/sse") else "http")
-    u = urlparse(url)
-    host = u.hostname or "127.0.0.1"
-    port = u.port or (443 if u.scheme == "https" else 80)
+    try:
+        host, port = _http_endpoint(url)
+    except (TypeError, ValueError) as exc:
+        row.update(status="config_error", detail=str(exc), next="修正 mcp.json 的 URL 后重跑")
+        return row
     row["port"] = port
     if not _port_open(host, port):
         row.update(status="host_down", needs_reconnect=True,
-                   detail="%s:%s 未监听 → 本轮没有 mcp__%s__* 工具" % (host, port, name))
-        row["next"] = ("powershell -File Tool/scripts/tool-run.ps1 -Tool %s"
-                       " ; 然后在 TUI 执行 /mcp reconnect %s" % (name, name))
+                   detail="%s:%s 当前无法连接；工具注册状态需在宿主核验" % (host, port))
+        row["next"] = ("恢复对应服务后，在 TUI 执行 /mcp reconnect " + name)
         return row
 
+    if not _loopback_host(host):
+        row.update(status="registration_unverified", detail="远端端口可连接；本机进程信息无法证明远端服务或会话注册状态",
+                   next="查看当前宿主的 MCP 工具表；缺工具时执行 /mcp reconnect " + name)
+        return row
     pid = _listening_pid(port)
     pstart = _process_start(pid)
     row["pid"] = pid
@@ -385,12 +454,12 @@ def _session_judge(name, cfg, session_start):
         delta = pstart - session_start
         if delta > 1:
             row.update(status="started_after_session", needs_reconnect=True,
-                       detail="宿主在本会话启动后 %.0fs 才起来 → 本轮 pi 不会注册 mcp__%s__*"
+                       detail="宿主在本会话启动后 %.0fs 才起来；需核对 mcp__%s__* 并重连"
                               % (delta, name))
             row["next"] = "/mcp reconnect %s（或重启会话）" % name
         else:
-            row["status"] = "registered"
-            row["detail"] = ("宿主早于本会话启动（pid=%s，已运行 %.0fs）→ 会话启动时应已注册"
+            row["status"] = "registration_unverified"
+            row["detail"] = ("宿主早于本会话启动（pid=%s，已运行 %.0fs）；当前会话的工具注册尚未核验"
                              % (pid or "?", session_start - pstart))
             row["next"] = "若 mcp__%s__* 仍不存在，再 /mcp reconnect %s" % (name, name)
         return row
@@ -445,13 +514,13 @@ def _run_session(args, servers):
     if must:
         print(f"结论：{len(must)} 个服务必须 /mcp reconnect 或重启会话：{', '.join(must)}")
     else:
-        print("结论：无需重启会话（stdio 随会话；http 宿主在会话启动前已在线）")
+        print("结论：未发现启动顺序导致的重连需求；工具是否注册需核对当前宿主工具表。")
     return 0
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--file", default=DEFAULT_MCP)
+    ap.add_argument("--file", default=default_mcp_path())
     ap.add_argument("--quick", action="store_true", help="只测端口，不发 JSON-RPC")
     ap.add_argument("--session", action="store_true",
                     help="判定哪些服务必须 /mcp reconnect 或重启会话才会注册工具")
@@ -462,7 +531,11 @@ def main():
     if not os.path.isfile(args.file):
         print(f"[ERR] 找不到 {args.file}")
         return 1
-    servers = _load_servers(args.file)
+    try:
+        servers = _load_servers(args.file)
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"ok": False, "stage": "config", "error": str(exc)}, ensure_ascii=False))
+        return 1
     if args.session:
         return _run_session(args, servers)
 
@@ -470,15 +543,27 @@ def main():
 
     for name, cfg in servers.items():
         if cfg.get("enabled") is False:
-            rows.append({"server": name, "ok": True, "stage": "disabled", "tools": None})
+            rows.append({"server": name, "ok": True, "stage": "disabled", "tools": None,
+                         "detail": "已禁用，未探测"})
             continue
         cfg = dict(cfg)
-        res = probe_http(cfg, args.quick) if cfg.get("url") else probe_stdio(cfg, args.quick)
+        transport = transport_of(cfg)
+        if transport == "invalid":
+            res = {"ok": False, "stage": "config",
+                   "error": "未知或缺失的 MCP transport；拒绝猜测为 stdio/http"}
+        elif transport == "http" and not cfg.get("url"):
+            res = {"ok": False, "stage": "config",
+                   "error": "transport=%s 但缺 url 字段" % cfg.get("transport")}
+        elif transport == "stdio" and not cfg.get("command"):
+            res = {"ok": False, "stage": "config",
+                   "error": "transport=stdio 但缺 command 字段"}
+        else:
+            res = probe_http(cfg, args.quick) if transport == "http" else probe_stdio(cfg, args.quick)
         fixed = None
         if not res["ok"] and args.fix:
             fixed = _try_fix(name, cfg)
-            if cfg.get("url"):
-                res = probe_http(cfg, args.quick)
+            if transport != "invalid":
+                res = probe_http(cfg, args.quick) if transport == "http" else probe_stdio(cfg, args.quick)
         row = {"server": name, "ok": res["ok"], "stage": res["stage"],
                "tools": res.get("tools"), "detail": res.get("error") or ""}
         if not res["ok"]:

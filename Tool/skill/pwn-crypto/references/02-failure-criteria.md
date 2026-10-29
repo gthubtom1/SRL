@@ -56,7 +56,7 @@
 |---|---|---|---|
 | 1 | 统一编译选项 | `gcc -O0 -fno-stack-protector -no-pie -o chall chall.c` | `readelf -hW` 的 `Type: EXEC`，`GNU_STACK` 无 E |
 | 2 | 两源对齐偏移 | `pwn-repro.py --objdump d.txt --func vuln --probe-log p.txt` | `"consistent": true, "offset": 88` |
-| 3 | 动态 cyclic | `pwn-repro.py --cyclic 300 --find 0x6161616c` | `{"offset": 76, "found": true}` 之类 |
+| 3 | 动态 cyclic | `pwn-repro.py --cyclic 300 --find 0x6161616c` | `cyclic.find.offset == 44`，且 `ok=true` |
 | 4 | gdb 复核 | `gdb -q ./chall -ex 'b *vuln+40' -ex 'x/8gx $rsp'` | `$rsp` 附近能看到 payload 的 cyclic |
 | 5 | 换控制对象 | `readelf -rW ./chall \| head`、`nm -D libc.so.6 \| grep hook` | 有可写函数指针；hook 存在/不存在都要记录 |
 
@@ -199,7 +199,7 @@ miss = [p for p in need if not pathlib.Path(p).is_file()]
 runs = list(pathlib.Path("runs").glob("*")) if pathlib.Path("runs").is_dir() else []
 print("miss", miss, "runs", len(runs))
 print("handoff_ok", not miss and len(runs) >= 10)
-sys.exit(2 if miss else 0)
+sys.exit(2 if miss or len(runs) < 10 else 0)
 PY
 ```
 

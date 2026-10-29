@@ -6,9 +6,11 @@ metadata:
   next: "00-analysis"
 ---
 
+> **适用范围**：本技能是主域按需调用的方法，不是每项任务的必经阶段。沿用 router 的当前项目/版本/run；只做用户目标需要的部分。阶段编号/prev/next 是相关方法索引，不授权扩大任务。静态分析不强制改包、旁路、换品牌、接授权或重建后端。专门成品路径的硬闸仍按原判据验收，不以删步骤冒称成品完成。
+
 # 00a · 快筛（S0）：20 分钟出「目标画像卡」
 
-> **工具获取**：本阶段要用的工具先跑 `python Tool/scripts/tool-acquire.py --tool <id> --start`（L0 探活 → L1 启动 → L2 连上 → L3 装 → L4 求助）。**L4 必须发 ASK 卡**，不许静默改用手搓脚本；手搓要用 `Tool/prompts/contracts/_archived/TOOL-LADDER.md` §2 的判据并在 decisions.md 留痕。
+> **工具获取**：先核当前专用工具及等价通道；必要时 `python Tool/scripts/tool-acquire.py --tool <id> --start --json`。注册/启动不等于目标已验证；缺不可替代能力才问 A/B/C。临时脚本须说明已有能力为何无法回答当前问题及验证方法，不能为缺可替代工具强制停工。
 
 
 > **陷阱库**：`Tool/prompts/contracts/_archived/TRAP-LIBRARY.md`（14 条实测坑，按「信号」自查，命中才用 —— 提示不是规则）。

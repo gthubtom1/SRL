@@ -1,7 +1,7 @@
 {
   "id": "ipc-audit",
   "title": "IPC/组件暴露审计",
-  "domain": "plugin-targets",
+  "domain": "apkseep",
   "triggers": [
     "IPC",
     "组件暴露",
@@ -29,7 +29,7 @@
     "Tool/skill/apkseep/scripts/svc_scan.py"
   ],
   "refs": [
-    "Tool/skill/apkseep/references/native-and-so.md"
+    "Tool/skill/apkseep/references/recon.md"
   ],
   "maturity": "probe",
   "note": "待补导出组件枚举脚本，当前用 manifest 解析 + adb shell dumpsys 手工完成；svc_scan.py 只判 svc 直调可见性",

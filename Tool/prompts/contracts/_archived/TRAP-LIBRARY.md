@@ -36,7 +36,7 @@
 - **为什么**：校验在壳 stub 里、执行早于解密，磁盘上任何一位改动都会先被它拦掉；"解密后才存在"的业务段在 dump 里才有，所以这个串在 dump 里搜不到反而是它在壳里的证据。
 - **必做**：`cp 原件 副本` → 只改 1 字节（如 `DllCharacteristics` 或某节末尾 1 字节）→ 各启动一次做对照；若副本被打掉、原件正常 → 判定"文件面被哈希监视"，路线切 **内存**（内存补丁 / dump 后改内存 / 运行期 hook），并在 `case/decisions.md` 写一条「放弃磁盘补丁 + 依据」。
 - **负例**：原件一字不改、连启动两次都正常 → 排除"启动方式/父进程"这个解释；dump 件能跑且里面搜 `File corrupted` 为 0 → 排除"这串是业务提示"。
-- **来源**：aimbot 案（`Tool/cases/aimbot/case.json` 的 `lessons` 与 `protection` 字段；`docs/history/X-EXECUTION-MODEL-v2.md`）
+- **来源**：aimbot 案（`Tool/cases/aimbot/case.json` 的 `lessons` 与 `protection` 字段；`Tool/docs/EXECUTION.md`）
 
 ### T02 · dump 件保留运行时基址
 
@@ -76,7 +76,7 @@
 - **为什么**：FastMCP 把 `arg_model` 的全部字段按默认值 dump 下来，别名层只 `pop` **非空**别名 → 空串别名照样漏进原函数签名。
 - **必做**：改完别名层必须跑**真调用探针**：`python Tool/skill/softseep/scripts/mcp-param-contract.py`，它的 `[6]` 就是拿非主参数名真调 5 个代表工具，回包出现 `unexpected keyword argument` / `Field required` 即判红。
 - **负例**：只查 schema（`--no-runtime`）→ 全绿；再跑带 runtime 的版本 → 报错工具数 > 0。两次结果不同就证明"schema 齐"不等于"能调"，只查 schema 是假阳性。
-- **来源**：`Tool/skill/softseep/scripts/mcp-param-contract.py:18–22`（判据 [6] 与 P1-8 记录）、实现见 `:72`；`docs/PLAN-SUMMARY.md:38–40`
+- **来源**：`Tool/skill/softseep/scripts/mcp-param-contract.py:18–22`（判据 [6] 与 P1-8 记录）、实现见 `:72`；当前接口与本条所列案例（旧过程记录已删除）
 
 ### T07 · 端口在听 ≠ 工具在表里
 
@@ -108,7 +108,7 @@
 - **为什么**：v1 签名会重写 zip 目录区与条目偏移，把前面做好的对齐挪歪，于是对齐校验从"通过"变成 BAD。
 - **必做**：顺序写死 `apktool b → jarsigner → zipalign`；收尾必须三条判据都过：`jarsigner -verify` rc=0、`zipalign -c -v 4` 输出 `Verification succesful`、`aapt dump badging` 能解析（证明 zip/manifest 没改坏）。
 - **负例**：同一 APK、同一工具链只调换顺序（签名→对齐）后 `zipalign -c` 变 `Verification succesful`；先对齐后签名的产物复现 BAD。两次对照才算钉住因果。
-- **来源**：`Tool/cases/leaf-apk/report/triage.md:46`；`docs/PLAN-SUMMARY.md:19`
+- **来源**：`Tool/cases/leaf-apk/report/triage.md:46`；本条所列案例（旧过程记录已删除）
 
 ### T11 · apktool 不带 `-r` 在部分样本上卡死
 
@@ -116,7 +116,7 @@
 - **为什么**：资源表解码在某类畸形 / 加密 res 上死循环，而反编译 dex 本身并不需要它。
 - **必做**：先 `apktool d -r` 拿 smali 旁路验证链路，并在报告里**写明代价**：res / manifest 不解码（manifest 改用 `aapt dump xmltree` 读）；确认需要改 res 时才回头单独处理资源表，不要一开始就等它。
 - **负例**：`apktool d -r` 在 60s 内退出且 `smali/` 下有类文件 → 证明卡点在资源解码，不是"这个 APK 解不开"。
-- **来源**：`docs/PLAN-SUMMARY.md:19`；`Tool/cases/leaf-apk/report/triage.md:69`
+- **来源**：本条所列案例（旧过程记录已删除）；`Tool/cases/leaf-apk/report/triage.md:69`
 
 ### T12 · `npx` 在 Git-Bash PATH 上是无扩展名 shim
 

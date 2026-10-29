@@ -1,0 +1,32 @@
+{
+  "sha256": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+  "size": 1249777,
+  "entries": 379,
+  "dex": [
+    "classes.dex"
+  ],
+  "dex_0_size": 1931680,
+  "dex_0_magic": "6465780a",
+  "dex_0_version": "30333500",
+  "lib_entries": [],
+  "so_entries": [],
+  "harden_hits": {
+    "StubApp": 0,
+    "stubStubApp": 0,
+    "libjiagu": 0,
+    "DexHelper": 0,
+    "com.qihoo": 0,
+    "SecShell": 0,
+    "jiagu": 0,
+    "bangcle": 0,
+    "secneo": 0,
+    "libexec": 0,
+    "libshell": 0,
+    "AppWrapper": 0,
+    "aliprotect": 0,
+    "libnesec": 0,
+    "libshella": 0,
+    "libmobisec": 0
+  },
+  "harden_nonzero": 0
+}

@@ -3,7 +3,7 @@
 """domain-gate.py —— 领域深度门禁（九件套 2.0 的可执行版）。
 
 它回答一个问题：**这个域现在能不能独立打一场？**
-判据全部来自 `docs/history/X-DOMAIN-SPEC-v2.md` + `Tool/scripts/lib/domain_spec.py`：
+判据全部来自 `docs/DOMAIN-CONTRACT.md` + `Tool/scripts/lib/domain_spec.py`：
 
     [1] 篇幅   SKILL ≤600 / ref 60–400 / KB 50–200
     [2] 必备篇 01-criteria / 02-failure-criteria / 03-model-pitfalls / 04-walkthrough-*
@@ -30,6 +30,7 @@ import glob
 import hashlib
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -46,10 +47,39 @@ TOOL = os.path.join(ROOT, "Tool")
 KBROOT = os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb")
 sys.path.insert(0, os.path.join(HERE, "lib"))
 
+import domain_registry as registry_mod  # noqa: E402  单向：registry 不 import 本脚本
+from case_execution import assess as assess_case_execution  # noqa: E402
+from deploy_assets import compare_trees as compare_deploy_trees  # noqa: E402
+from runtime_root import RuntimeRootError, resolve_agent_root  # noqa: E402
+from typed_assets import TypedAssetError, _project_path  # noqa: E402
 from domain_spec import (  # noqa: E402
-    CASE_FIELDS, DOMAINS, FIXTURE_WORDS, LIMITS, REQUIRED_REFS, ROUTING_TESTS,
-    fixture_words_in,
+    CASE_FIELDS, DOMAINS, DOMAIN_LOAD_ERRORS, FIXTURE_WORDS, LIMITS, REQUIRED_REFS,
+    ROUTING_TESTS, fixture_words_in,
 )
+
+# 正式域全集与逐域深度契约的唯一来源：pack.json#id + pack#depth_contract。
+# DOMAINS 只是 domain_spec 里的兼容视图（内容同样取 pack），不再保存域清单。
+_REGISTRY = None
+FORMAL_DOMAINS = []
+DEPTH = {}
+DOMAINS = {}
+
+
+def _use_root(root):
+    """显式切换仓库根（测试/fixture 用）。默认结构 = 本文件所在仓库，不改全局真相源。"""
+    global ROOT, TOOL, KBROOT, _REGISTRY, FORMAL_DOMAINS, DEPTH, DOMAINS
+    ROOT = os.path.abspath(root)
+    TOOL = os.path.join(ROOT, "Tool")
+    KBROOT = os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb")
+    _REGISTRY = registry_mod.load_registry(ROOT)
+    FORMAL_DOMAINS = _REGISTRY.ids()
+    DEPTH = {d: (_REGISTRY.depth(d) or {}) for d in FORMAL_DOMAINS}
+    # 逐域 spec = depth_contract（skill/board/matrix/case_globs/ext_scripts/...）。
+    DOMAINS = _REGISTRY.as_domains()
+    return _REGISTRY
+
+
+_use_root(ROOT)
 
 TEXT_EXT = {".md", ".py", ".ps1", ".sh", ".json", ".yml", ".yaml", ".txt"}
 # 数量上限放宽的可见标记：凡取消上限的检查，detail 末尾必须带这句，避免「静默放宽」。
@@ -66,6 +96,19 @@ def add(section, name, ok, detail=""):
     results.append({"domain": section, "name": name, "ok": bool(ok), "detail": detail})
 
 
+def _register_load_errors():
+    """注册表级错误（坏 pack / id 不符 / 命名空间冲突 / 缺 depth）→ 显式 UNCOVERED。
+
+    绝不允许“载入器报错、域从集合里消失、门禁却全绿”。错误一条条显示，指向具体域。
+    """
+    for problem in _REGISTRY.errors:
+        mark_uncovered("全局", "域注册表：%s" % problem)
+    for problem in DOMAIN_LOAD_ERRORS:
+        mark_uncovered("全局", "domain_spec 载入：%s" % problem)
+    for domain, reasons in sorted(_REGISTRY.incomplete().items()):
+        mark_uncovered(domain, "depth/schema/材料不完整：%s" % "；".join(reasons))
+
+
 def mark_uncovered(dom, reason):
     """登记一条「未覆盖」：缺件或无法自检 → 不算 PASS，也不静默跳过。"""
     reason = str(reason).strip()
@@ -79,6 +122,26 @@ def mark_uncovered(dom, reason):
 def rj(p):
     with open(p, encoding="utf-8-sig") as f:
         return json.load(f)
+
+
+def read_text_file(p, encoding="utf-8", errors="replace"):
+    with open(p, encoding=encoding, errors=errors) as f:
+        return f.read()
+
+
+def write_bytes_file(p, data):
+    with open(p, "wb") as f:
+        f.write(data)
+
+
+def write_text_file(p, data, newline=None):
+    with open(p, "w", encoding="utf-8", newline=newline) as f:
+        f.write(data)
+
+
+def write_json_file(p, data):
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(data, f)
 
 
 def lines(p):
@@ -98,7 +161,8 @@ def sha256(p):
 def _norm_sha(p):
     """文本文件按 LF 归一后取哈希：避免 CRLF/LF 工作树造成部署假红（R5 P1-1）。"""
     if os.path.splitext(p)[1].lower() in (".md", ".py", ".json", ".txt", ".yml", ".yaml"):
-        raw = open(p, "rb").read().replace(bytes([13, 10]), bytes([10]))
+        with open(p, "rb") as stream:
+            raw = stream.read().replace(bytes([13, 10]), bytes([10]))
         return hashlib.sha256(raw).hexdigest()
     return sha256(p)
 
@@ -116,6 +180,20 @@ def rel(p):
             return str(p).replace(os.sep, "/")[-120:]
         except Exception:
             return "<unprintable>"
+
+
+def _local_path(root, relative, label="local_path", within=None):
+    """Resolve a nonempty project-relative path without crossing links or ``..``."""
+    if not isinstance(relative, str) or not relative.strip() or "\0" in relative:
+        raise TypedAssetError("%s 必须是非空相对路径" % label)
+    path = _project_path(Path(root), relative, label=label)
+    if within is not None:
+        boundary = _project_path(Path(root), within, label=label + " boundary")
+        try:
+            path.relative_to(boundary)
+        except ValueError as exc:
+            raise TypedAssetError("%s 越出允许目录：%s" % (label, relative[:64])) from exc
+    return path
 
 
 # ---------------------------------------------------------------- [1][2] refs
@@ -210,6 +288,19 @@ def check_skill(dom, spec):
 
 
 # ---------------------------------------------------------------- [3] scripts
+def _self_test_conclusion(output):
+    """Read a final JSON object, allowing progress lines before that conclusion."""
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"(?m)^[ \t]*[\{\[]", output):
+        try:
+            value, end = decoder.raw_decode(output, match.end() - 1)
+        except ValueError:
+            continue
+        if not output[end:].strip():
+            return isinstance(value, dict) and value.get("ok") is True
+    return False
+
+
 def check_scripts(dom, spec):
     d = os.path.join(TOOL, "skill", spec["skill"], "scripts")
     found = sorted(glob.glob(os.path.join(d, "*.py"))) if os.path.isdir(d) else []
@@ -217,6 +308,7 @@ def check_scripts(dom, spec):
         p = os.path.join(ROOT, e)
         if os.path.isfile(p):
             found.append(p)
+    found = list({os.path.normcase(os.path.abspath(p)): p for p in found}.values())
     # 放宽（2026-10 收口）：脚本数量**只判下限**，上限（LIMITS["scripts_max"]）不再判红。
     # 少了仍然红（缺件不许被放宽掩盖）；多了只报数字，不判缺陷。
     if len(found) < LIMITS["scripts_min"]:
@@ -230,7 +322,7 @@ def check_scripts(dom, spec):
     for p in found:
         for flag, need_ok in (("--help", True), ("--self-test", True)):
             try:
-                r = subprocess.run([sys.executable, p, flag], capture_output=True,
+                r = subprocess.run([sys.executable, "-B", p, flag], capture_output=True,
                                    text=True, encoding="utf-8", errors="replace",
                                    timeout=120, cwd=ROOT)
             except Exception as e:  # noqa: BLE001
@@ -238,8 +330,8 @@ def check_scripts(dom, spec):
                 continue
             if r.returncode != 0:
                 bad.append("%s %s rc=%d" % (os.path.basename(p), flag, r.returncode))
-            elif flag == "--self-test" and '"ok"' not in (r.stdout or ""):
-                bad.append("%s --self-test 无 JSON 结论" % os.path.basename(p))
+            elif flag == "--self-test" and not _self_test_conclusion(r.stdout or ""):
+                bad.append("%s --self-test 缺少 ok=true 的最终 JSON 对象" % os.path.basename(p))
     add(dom, "脚本 --help / --self-test", not bad,
         ("；".join(bad) if bad else "%d 个脚本全部 rc=0（数量下限 %d）" % (
             len(found), LIMITS["scripts_min"])) + LIMIT_RELAX_NOTE)
@@ -247,6 +339,88 @@ def check_scripts(dom, spec):
         # --help / --self-test 不绿 = 这个域的脚本无法自检（不是“跑过了”）。
         mark_uncovered(dom, "脚本无法自检：%s%s" % (
             "；".join(bad[:3]), "…等 %d 项" % len(bad) if len(bad) > 3 else ""))
+
+
+APK_ACCEPTANCE_CASES = ("leaf-apk", "apkseep07", "apkseep08", "apkseep09")
+
+
+def _run_case_state(case_dir, command):
+    script = os.path.join(TOOL, "scripts", "case_state.py")
+    argv = [sys.executable, "-B", script, command, "--case", case_dir]
+    if command == "verify":
+        argv.append("--json")
+    # Run target-origin verification from outside the repository root.  This
+    # catches accidental cwd-dependent path resolution instead of hiding it in
+    # the normal gate launch directory.
+    cwd = TOOL if command == "verify-origin" else ROOT
+    return subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", timeout=300, cwd=cwd)
+
+
+def check_apk_acceptance(dom):
+    """Bind the four shipped APK evidence cases to semantic + origin checks."""
+    bad, checked = [], []
+    for name in APK_ACCEPTANCE_CASES:
+        case_dir = os.path.join(TOOL, "cases", name)
+        case_file = os.path.join(case_dir, "case.json")
+        if not os.path.isfile(case_file):
+            bad.append("%s(缺案例)" % name)
+            continue
+        try:
+            meta = rj(case_file)
+        except Exception as exc:  # noqa: BLE001
+            bad.append("%s(case.json 坏:%s)" % (name, str(exc)[:40]))
+            continue
+        if meta.get("acceptance_profile") != "apk-target/1":
+            bad.append("%s(未声明 acceptance_profile=apk-target/1)" % name)
+        target = meta.get("target")
+        if not isinstance(target, dict) or not all(
+                target.get(key) not in (None, "") for key in ("path", "sha256", "size")):
+            bad.append("%s(target path/sha256/size 不完整)" % name)
+        entries = meta.get("target_files")
+        if not isinstance(entries, list) or not entries:
+            bad.append("%s(target_files 为空)" % name)
+        registered = []
+        if isinstance(target, dict):
+            registered.append(("target", target))
+        if isinstance(entries, list):
+            registered.extend(("target_files[%d]" % index, item)
+                              for index, item in enumerate(entries)
+                              if isinstance(item, dict))
+        for source, item in registered:
+            raw = str(item.get("path") or "").strip()
+            try:
+                resolved = _local_path(
+                    case_dir, raw, "%s.%s.path" % (name, source),
+                    within="target",
+                )
+            except (OSError, TypedAssetError) as exc:
+                bad.append("%s(%s.path 必须是案例内相对路径：%s)"
+                           % (name, source, str(exc)[:100]))
+                continue
+            if not resolved.is_file():
+                bad.append("%s(%s.path 指向不存在文件)" % (name, source))
+
+        verify = _run_case_state(case_dir, "verify")
+        if verify.returncode != 0:
+            tail = ((verify.stdout or "") + (verify.stderr or "")).strip().splitlines()
+            bad.append("%s(case verify rc=%d:%s)"
+                       % (name, verify.returncode, tail[-1][:100] if tail else ""))
+        origin = _run_case_state(case_dir, "verify-origin")
+        if origin.returncode != 0:
+            tail = ((origin.stdout or "") + (origin.stderr or "")).strip().splitlines()
+            bad.append("%s(verify-origin rc=%d:%s)"
+                       % (name, origin.returncode, tail[-1][:100] if tail else ""))
+        checked.append(name)
+
+    ok = not bad and checked == list(APK_ACCEPTANCE_CASES)
+    add(dom, "APK 原件绑定与证据语义", ok,
+        "；".join(bad[:6]) if bad else
+        "%d 个案例通过 case verify + verify-origin（cwd 独立性由测试覆盖）"
+        % len(checked))
+    if not ok:
+        mark_uncovered(dom, "APK 验收失败：%s" % (
+            "；".join(bad[:3]) if bad else "案例集合不完整"))
 
 
 # ---------------------------------------------------------------- [4] cases
@@ -264,7 +438,6 @@ def check_cases(dom, spec):
             mark_uncovered(dom, "缺案例（Tool/cases/%s 命中 %d 个，要求 %d–%d）" % (
                 "|".join(spec["case_globs"]), len(dirs), LIMITS["cases_min"], cmax))
     real = 0
-    recorded_real = 0
     for cd in dirs:
         cf = os.path.join(cd, "case.json")
         if not os.path.isfile(cf):
@@ -292,19 +465,14 @@ def check_cases(dom, spec):
             bad.append("%s(fixture 但 target_type 未标夹具)" % os.path.basename(cd))
         if kind in ("real", "public") and is_fix:
             bad.append("%s(%s 却标成夹具)" % (os.path.basename(cd), kind))
-        if kind in ("real", "public", "self-built"):
+        execution = assess_case_execution(c)
+        if execution["defects"]:
+            bad.extend(
+                "%s(%s)" % (os.path.basename(cd), defect)
+                for defect in execution["defects"]
+            )
+        elif execution["execution_bound"]:
             real += 1
-            rp = c.get("repro") or {}
-            if rp.get("status") == "recorded" or ("rc=" in "\n".join(c.get("lessons") or [])):
-                recorded_real += 1
-        # 单域模式也要能抓到「伪 real」：real/public 但既没命令/rc、也没标 not-recorded。
-        if c.get("evidence_kind") in ("real", "public"):
-            _txt = "\n".join(c.get("lessons") or [])
-            _rp = c.get("repro") or {}
-            _has_cmd = bool(re.search(r"rc\s*=\s*\d", _txt)) or bool(
-                re.search(r"(python|powershell|bash|\.py|\.ps1|tshark|gcc)", _txt))
-            if (not _has_cmd) and _rp.get("status") != "not-recorded":
-                bad.append(os.path.basename(cd) + "(real 但无命令/rc 且未标 not-recorded)")
         # 交叉一致性（审计 P0）：case.json 里写到的 input 必须存在；
         # target_type 声称的样本类型必须有对应扩展名；run.json 与 timeline.json 的事件数必须一致。
         blob = json.dumps(c, ensure_ascii=False)
@@ -397,26 +565,69 @@ def check_cases(dom, spec):
             bad.append(os.path.basename(cd) + "(outcome=planned 不许入库)")
         if not (c.get("lessons") or []):
             bad.append(os.path.basename(cd) + "(lessons 为空)")
-        # 产物必须是确定性的：JSON artifact 不允许写非空 generated_at（R5 P1-2）。
-        for art in c.get("artifacts") or []:
-            ap = art.get("path") or ""
-            if ap.endswith(".json"):
+        # 案例内路径先做词法与链接边界校验，再读取/复算。路径越界不能靠
+        # “哈希恰好正确”洗白。
+        listed = set()
+        for index, art in enumerate(c.get("artifacts") or []):
+            raw_path = (art.get("path") if isinstance(art, dict)
+                        else str(art or "")) or ""
+            try:
+                full = _local_path(
+                    cd, raw_path, "artifacts[%d].path" % index,
+                )
+            except (OSError, TypedAssetError) as exc:
+                bad.append("%s(产物路径越界/无效 %r：%s)" % (
+                    os.path.basename(cd), raw_path[:40], str(exc)[:80]))
+                continue
+            normalized = full.relative_to(Path(cd)).as_posix()
+            listed.add(normalized)
+            want = str(art.get("sha256") or "").lower() if isinstance(art, dict) else ""
+            if not full.is_file():
+                bad.append("%s(幻影产物 %s)" % (os.path.basename(cd), normalized))
+                continue
+            if len(want) != 64:
+                bad.append("%s(%s 缺 sha256)" % (os.path.basename(cd), normalized))
+            elif sha256(full) != want:
+                bad.append("%s(%s sha256 不符，重算=%s)" % (
+                    os.path.basename(cd), normalized, sha256(full)[:12]))
+            # JSON artifact 必须确定：非空 generated_at 会让复跑漂移。
+            if full.suffix.lower() == ".json":
                 try:
-                    _d = rj(os.path.join(cd, ap))
+                    document = rj(full)
                 except Exception:  # noqa: BLE001
-                    _d = {}
-                if isinstance(_d, dict) and _d.get("generated_at"):
-                    bad.append("%s(%s 含非空 generated_at，复跑会漂)" % (os.path.basename(cd), ap))
-        listed = {(a.get("path") or "").replace("\\", "/") for a in (c.get("artifacts") or [])}
-        adir = os.path.join(cd, "artifacts")
+                    document = {}
+                if isinstance(document, dict) and document.get("generated_at"):
+                    bad.append("%s(%s 含非空 generated_at，复跑会漂)" % (
+                        os.path.basename(cd), normalized))
+
+        adir = Path(cd, "artifacts")
         manifest = {}
-        mf = os.path.join(adir, "MANIFEST.sha256")
-        if os.path.isfile(mf):
-            for ln in open(mf, encoding="utf-8", errors="replace").read().splitlines():
+        mf = adir / "MANIFEST.sha256"
+        if mf.is_file():
+            for ln in lines(mf):
                 parts = ln.split(None, 1)
                 if len(parts) == 2:
-                    manifest[parts[1].strip()] = parts[0].lower()
-        if os.path.isdir(adir):
+                    digest, raw_path = parts[0].lower(), parts[1].strip()
+                    try:
+                        manifest_file = _local_path(
+                            cd, raw_path, "MANIFEST.sha256 entry",
+                        )
+                    except (OSError, TypedAssetError) as exc:
+                        bad.append("%s(MANIFEST 路径越界/无效 %r：%s)" % (
+                            os.path.basename(cd), raw_path[:40], str(exc)[:80]))
+                        continue
+                    normalized = manifest_file.relative_to(Path(cd)).as_posix()
+                    manifest[normalized] = digest
+                    if not manifest_file.is_file():
+                        bad.append("%s(MANIFEST 指向幻影 %s)" % (
+                            os.path.basename(cd), normalized))
+                    elif not re.fullmatch(r"[0-9a-f]{64}", digest):
+                        bad.append("%s(MANIFEST 哈希格式错误 %s)" % (
+                            os.path.basename(cd), normalized))
+                    elif sha256(manifest_file) != digest:
+                        bad.append("%s(MANIFEST 哈希不符 %s)" % (
+                            os.path.basename(cd), normalized))
+        if adir.is_dir():
             for dp, dn, fn in os.walk(adir):
                 for f in sorted(fn):
                     fp = os.path.join(dp, f)
@@ -428,24 +639,18 @@ def check_cases(dom, spec):
                     if manifest.get(relp) == sha256(fp):
                         continue
                     bad.append("%s(%s 未登记且不在 MANIFEST)" % (os.path.basename(cd), relp))
-        for art in c.get("artifacts") or []:
-            ap = art.get("path") or ""
-            want = (art.get("sha256") or "").lower()
-            full = os.path.join(cd, ap)
-            if not ap or not os.path.isfile(full):
-                bad.append("%s(幻影产物 %s)" % (os.path.basename(cd), ap[:40]))
-                continue
-            if len(want) != 64:
-                bad.append("%s(%s 缺 sha256)" % (os.path.basename(cd), ap[:30]))
-            elif sha256(full) != want:
-                bad.append("%s(%s sha256 不符，重算=%s)" % (
-                    os.path.basename(cd), ap[:30], sha256(full)[:12]))
         for r in c.get("refs") or []:
             if isinstance(r, str) and "://" not in r:
-                if not os.path.isfile(os.path.join(ROOT, r)):
+                try:
+                    ref_path = _local_path(ROOT, r, "refs")
+                except (OSError, TypedAssetError) as exc:
+                    bad.append("%s(refs 路径越界/无效 %r：%s)" % (
+                        os.path.basename(cd), r[:40], str(exc)[:80]))
+                    continue
+                if not ref_path.is_file():
                     bad.append("%s(refs 幻影 %s)" % (os.path.basename(cd), r[:40]))
     if real < 1:
-        bad.append("没有任何 evidence_kind=real/public 的案例（每域至少 1 个真实产物见证）")
+        bad.append("没有任何执行绑定的 real/public 案例（not-recorded 与文字描述不计见证）")
     # 验收脚本接入（域级一次跑完，不做逐案例调用）：
     # 各域 accept 的接口不统一（有的 --case 收目录名、有的收路径，且内部还有
     # 「本域至少 3-5 个案例」的聚合断言），逐案例调用会把接口差异误报成验收失败。
@@ -487,11 +692,11 @@ def check_cases(dom, spec):
                                                    "：" + "；".join(tail) if tail else ""))
         except Exception as e:  # noqa: BLE001
             bad.append("accept 异常:%s" % str(e)[:50])
-    if real >= 1 and recorded_real < 1:
-        bad.append("没有『有命令+rc』的 real 案例（real 不许全部是 not-recorded 历史归档）")
     add(dom, "案例字段/真跑/sha256 复算", not bad,
         "；".join(bad[:6]) + ("…" if len(bad) > 6 else "") if bad
         else "%d 个案例（real %d），hash 复算一致" % (len(dirs), real))
+    if dom == "apkseep":
+        check_apk_acceptance(dom)
 
 
 # ---------------------------------------------------------------- [5] KB
@@ -584,7 +789,7 @@ def check_cards(dom, spec=None):
     if spec:
         rdir = os.path.join(TOOL, "skill", spec["skill"], "references")
         if os.path.isdir(rdir):
-            corpus = "\n".join(open(x, encoding="utf-8", errors="replace").read()
+            corpus = "\n".join(read_text_file(x)
                                 for x in sorted(glob.glob(os.path.join(rdir, "*.md")))).lower()
     seen = set()
     for b in blocks:
@@ -652,7 +857,7 @@ def check_links():
             if any(s in r for s in SKIP_TEXT) or any(r.endswith(x) for x in DERIVED):
                 continue
             try:
-                corpus[r] = open(p, encoding="utf-8", errors="replace").read()
+                corpus[r] = read_text_file(p)
             except Exception:  # noqa: BLE001
                 continue
     # 相对 Markdown 链接（`[...](sub/x.md)`）解析成仓库相对路径，等价于路径级引用：
@@ -714,7 +919,7 @@ def check_md_links():
                     continue
                 p = os.path.join(dp, f)
                 try:
-                    txt = open(p, encoding="utf-8", errors="replace").read()
+                    txt = read_text_file(p)
                 except Exception:  # noqa: BLE001
                     continue
                 for m in LINK_RE.finditer(txt):
@@ -736,30 +941,24 @@ def check_repro_and_templates():
     bad = []
     for cf in sorted(glob.glob(os.path.join(ROOT, "Tool", "cases", "*", "case.json"))):
         c = rj(cf)
-        kind = c.get("evidence_kind")
-        txt = "\n".join(c.get("lessons") or [])
-        repro = c.get("repro") or {}
-        # public 与 real 同一条判据（未放宽）：lessons 里必须能指到命令/rc，
-        # 否则必须是 not-recorded + reason。public 不是"免检档"。
-        if kind in ("real", "public"):
-            recorded = ("rc=" in txt) or ("python " in txt) or ("命令" in txt)
-            if not recorded and repro.get("status") != "not-recorded":
-                bad.append("%s(%s 但无命令/rc 且未标 not-recorded)"
-                           % (os.path.basename(os.path.dirname(cf)), kind))
-            if repro.get("status") == "not-recorded" and not repro.get("reason"):
-                bad.append("%s(not-recorded 缺 reason)" % os.path.basename(os.path.dirname(cf)))
+        execution = assess_case_execution(c)
+        if execution["defects"]:
+            bad.extend(
+                "%s(%s)" % (os.path.basename(os.path.dirname(cf)), defect)
+                for defect in execution["defects"]
+            )
     tdir = os.path.join(ROOT, "Tool", "cases", "_templates")
     tpls = sorted(glob.glob(os.path.join(tdir, "*.json")))
     tpl_names = {os.path.basename(t)[:-5] for t in tpls}
-    # W6：模板集必须与 domain_spec.DOMAINS 同源。只比总数会丢信息（看不出是哪个域缺），
+    # W6：模板集必须与正式域全集（pack id，动态）同源。只比总数会丢信息（看不出是哪个域缺），
     # 所以按域名逐个对；断言本身没放宽（仍然必须一一对应）。
-    missing_tpl = [d for d in DOMAINS if d not in tpl_names]
-    extra_tpl = sorted(tpl_names - set(DOMAINS))
+    missing_tpl = [d for d in FORMAL_DOMAINS if d not in tpl_names]
+    extra_tpl = sorted(tpl_names - set(FORMAL_DOMAINS))
     for d in missing_tpl:
         mark_uncovered(d, "缺案例模板 Tool/cases/_templates/%s.json" % d)
-    if len(tpls) != len(DOMAINS) or missing_tpl or extra_tpl:
+    if len(tpls) != len(FORMAL_DOMAINS) or missing_tpl or extra_tpl:
         bad.append("模板 %d 份 / 域 %d 个%s%s" % (
-            len(tpls), len(DOMAINS),
+            len(tpls), len(FORMAL_DOMAINS),
             "；缺模板：" + ",".join(missing_tpl) if missing_tpl else "",
             "；多余模板（域已迁出）：" + ",".join(extra_tpl) if extra_tpl else ""))
     for t in tpls:
@@ -775,9 +974,15 @@ def check_repro_and_templates():
             bad.append("%s(outcome=%r)" % (os.path.basename(t), d.get("outcome")))
         for r in d.get("refs") or []:
             if isinstance(r, str) and "://" not in r and not r.startswith("<"):
-                if not os.path.isfile(os.path.join(ROOT, r)):
+                try:
+                    ref_path = _local_path(ROOT, r, "template refs")
+                except (OSError, TypedAssetError) as exc:
+                    bad.append("%s(refs 路径越界/无效 %r：%s)" % (
+                        os.path.basename(t), r[:40], str(exc)[:80]))
+                    continue
+                if not ref_path.is_file():
                     bad.append("%s(refs 幻影 %s)" % (os.path.basename(t), r[:40]))
-    add("全局", "真实案例证据链 + 模板份数与 DOMAINS 同源", not bad,
+    add("全局", "真实案例证据链 + 模板份数与正式域同源", not bad,
         "；".join(bad[:5]) if bad else "real 案例证据链可追溯，%d 份模板与 CASE_FIELDS 同源" % len(glob.glob(os.path.join(ROOT, "Tool", "cases", "_templates", "*.json"))))
 
 
@@ -804,7 +1009,7 @@ def check_criteria_backing(dom, spec):
     if not os.path.isfile(ref):
         add(dom, "判据字段脚本背书（≥1）", False, "缺 01-criteria.md")
         return
-    txt = open(ref, encoding="utf-8", errors="replace").read()
+    txt = read_text_file(ref)
     # 2026-10-25：A+ 深度补齐后，判据文件里的反引号标识符大涨（含 `curl`/`null` 这类命令片段），
     # 若仍要求"每个标识符都有脚本背书"，白名单会无限膨胀、且失去意义。
     # 现在的口径：**至少 1 个字段被脚本真实背书**（防"全凭人填"），其余覆盖情况只报数字，不判红。
@@ -812,7 +1017,7 @@ def check_criteria_backing(dom, spec):
     src = ""
     sd = os.path.join(TOOL, "skill", spec["skill"], "scripts")
     for f in sorted(glob.glob(os.path.join(sd, "*.py"))):
-        src += open(f, encoding="utf-8", errors="replace").read()
+        src += read_text_file(f)
     backed = [f for f in fields if f.split(".")[-1] in src]
     allow_path = os.path.join(TOOL, "config", "criteria-inferred", dom + ".json")
     allowed = {}
@@ -833,11 +1038,11 @@ def check_2026_presence(dom, spec):
     """2026 基线：该域 reference 或 KB 板至少要有一处 2026 内容（防止知识库整体过期）。"""
     hits = []
     for f in glob.glob(os.path.join(TOOL, "skill", spec["skill"], "references", "*.md")):
-        if "2026" in open(f, encoding="utf-8", errors="replace").read():
+        if "2026" in read_text_file(f):
             hits.append(os.path.basename(f))
     board = os.path.join(KBROOT, spec["board"])
     for f in glob.glob(os.path.join(board, "**", "*.md"), recursive=True):
-        if "2026" in open(f, encoding="utf-8", errors="replace").read():
+        if "2026" in read_text_file(f):
             hits.append("kb:" + os.path.basename(f))
     add(dom, "2026 基线内容在场", bool(hits), "命中 %d 处（例：%s）" % (len(hits), ", ".join(hits[:2]) or "-"))
 
@@ -850,11 +1055,16 @@ def _case_errors(cd):
     except Exception:  # noqa: BLE001
         return ["case-json"]
     blob = json.dumps(c, ensure_ascii=False)
-    for art in c.get("artifacts") or []:
-        fp = os.path.join(cd, art.get("path", ""))
+    for index, art in enumerate(c.get("artifacts") or []):
+        raw = art.get("path", "") if isinstance(art, dict) else str(art or "")
+        try:
+            fp = _local_path(cd, raw, "artifacts[%d].path" % index)
+        except (OSError, TypedAssetError):
+            errs.append("path-escape")
+            continue
         if not os.path.isfile(fp):
             errs.append("phantom")
-        elif sha256(fp) != str(art.get("sha256")).lower():
+        elif not isinstance(art, dict) or sha256(fp) != str(art.get("sha256") or "").lower():
             errs.append("sha256")
     tlf = os.path.join(cd, "artifacts", "timeline.json")
     if os.path.isfile(tlf):
@@ -881,14 +1091,10 @@ def _case_errors(cd):
             else:
                 continue
             break
-    # public = 公开可分发的**真实产物**，与 real 同待遇：没有命令/rc 就不许自称真产物。
-    if c.get("evidence_kind") in ("real", "public"):
-        txt = "\n".join(c.get("lessons") or [])
-        rp = c.get("repro") or {}
-        _has_cmd = bool(re.search(r"rc\s*=\s*\d", txt)) or bool(
-            re.search(r"(python|powershell|bash|\.py|\.ps1|tshark|gcc)", txt))
-        if (not _has_cmd) and rp.get("status") != "not-recorded":
-            errs.append("fake-real")
+    # public/real 只认结构化 command + returncode + hashed artifact。
+    execution = assess_case_execution(c)
+    if execution["defects"]:
+        errs.append("fake-real")
     return errs
 
 
@@ -901,17 +1107,17 @@ def check_mutation_test():
         d = os.path.join(tmp, "c")
         os.makedirs(os.path.join(d, "input"), exist_ok=True)
         os.makedirs(os.path.join(d, "artifacts"), exist_ok=True)
-        open(os.path.join(d, "input", "a.bin"), "wb").write(b"x")
+        write_bytes_file(os.path.join(d, "input", "a.bin"), b"x")
         art = os.path.join(d, "artifacts", "run.json")
-        open(art, "w", encoding="utf-8", newline="\n").write('{"ok": true}\n')
-        h = hashlib.sha256(open(art, "rb").read()).hexdigest()
+        write_text_file(art, '{"ok": true}\n', newline="\n")
+        h = sha256(art)
         case = {"id": "mut", "domain": "web-pentest", "target_type": "fixture 夹具",
                 "evidence_kind": "fixture", "protection": [], "authority": "local",
                 "goal_level": "L1", "outcome": "partial",
                 "artifacts": [{"path": "artifacts/run.json", "sha256": h}],
                 "lessons": ["cmd: python x.py; rc=0"], "refs": [], "updated": "2026-10-22"}
         mutate(d, case, art, h)
-        json.dump(case, open(os.path.join(d, "case.json"), "w", encoding="utf-8"))
+        write_json_file(os.path.join(d, "case.json"), case)
 
     def noop(d, c, art, h):
         pass
@@ -921,10 +1127,10 @@ def check_mutation_test():
 
     def mut_tf(d, c, art, h):
         c["timeframe"] = {"start": "2026-10-21T00:00:00Z", "end": "2026-10-21T00:01:00Z"}
-        json.dump({"ok": True, "events": [{"time_utc": "2026-10-21T00:05:00Z",
-                                           "kind": "evtx-record", "action": "x",
-                                           "actor": "a", "object": "o"}]},
-                  open(os.path.join(d, "artifacts", "timeline.json"), "w", encoding="utf-8"))
+        write_json_file(os.path.join(d, "artifacts", "timeline.json"),
+                        {"ok": True, "events": [{"time_utc": "2026-10-21T00:05:00Z",
+                                                 "kind": "evtx-record", "action": "x",
+                                                 "actor": "a", "object": "o"}]})
 
     def mut_ro(d, c, art, h):
         c["lessons"] = ["均只读封存；json"]
@@ -954,92 +1160,108 @@ def check_mutation_test():
 
 # ---------------------------------------------------------------- [9] routing
 def _match_route(routes, priority, text, fallback=None):
-    """与 master-route.ps1 完全同语义：priority 顺序取第一个命中的域。
+    """Project the first matching route for playbook-parity checks.
 
-    三条语义必须与执行器一致（2026-10-21 审计 P0 的教训：门禁和执行器各一套语义 =
-    门禁绿、运行时红）：
-      1. 只有 mustAll、没有 must 的规则**有效**（从真起判）；
-      2. exclude 命中即本条规则失效；
-      3. fallback（R0）不参与竞争，只有全不命中时才用它。
+    The domain gate itself must use :func:`routing_failures` with the complete
+    resolved set.  ``route-playbook-parity.py`` still needs the primary route
+    for its diagnostic output, so keep that projection behind a compatibility
+    helper instead of letting callers mistake it for classification authority.
     """
     for rid in priority:
         if fallback and rid == fallback:
             continue
-        r = routes.get(rid) or {}
-        for kw in r.get("keywords") or []:
-            must = kw.get("must")
-            alls = kw.get("mustAll") or []
-            if not must and not alls:
+        route = routes.get(rid) or {}
+        for keyword in route.get("keywords") or []:
+            must = keyword.get("must")
+            all_must = keyword.get("mustAll") or []
+            if not must and not all_must:
                 continue
-            ok = bool(re.search(must, text)) if must else True
-            if ok and alls:
-                ok = all(re.search(a, text) for a in alls)
-            if ok and kw.get("exclude") and re.search(kw["exclude"], text):
-                ok = False
-            if ok:
-                return rid, (r.get("skill") or "")
+            matched = bool(re.search(must, text)) if must else True
+            if matched and all_must:
+                matched = all(re.search(pattern, text) for pattern in all_must)
+            exclude = keyword.get("exclude")
+            if matched and exclude and re.search(exclude, text):
+                matched = False
+            if matched:
+                return rid, str(route.get("skill") or "")
     if fallback:
-        return fallback, ((routes.get(fallback) or {}).get("skill") or "")
+        return fallback, str((routes.get(fallback) or {}).get("skill") or "")
     return None, ""
 
 
+def routing_failures(test, domains):
+    """Judge one routing case against the complete deduplicated domain list."""
+    domains = list(domains or [])
+    bad = []
+    expected = list(test.get("expect_any") or [])
+    if not expected:
+        if domains:
+            bad.append("『%s』→ %s（期望：判不出领域 UNCLASSIFIED）"
+                       % (str(test.get("text") or "")[:24], "/".join(domains)))
+    elif not domains or domains[0] not in expected:
+        bad.append("『%s』→ %s（主域期望 %s）"
+                   % (str(test.get("text") or "")[:24],
+                      "/".join(domains) or "(空)", "/".join(expected)))
 
-def _pack_routes():
-    """从 pack.json 现算路由（S3：routing.json 已删，唯一事实源是包）。"""
-    import route as route_mod          # 同目录
-    res = route_mod.check()
-    routes, prio = {}, []
-    for i, (_p, pid, label, must) in enumerate(res.get("rows") or []):
-        rid = "P%02d" % i
-        routes[rid] = {"label": label, "skill": pid,
-                       "keywords": [{"must": m} for m in must]}
-        prio.append(rid)
-    # ★ 曾经这里硬编码 "R0 → softseep" 兜底，于是执行器已经改成 UNCLASSIFIED 之后，
-    #   门禁仍按"什么都落到 softseep"判——第五份域名单，也是"未识别永远绿"的根源。
-    #   现在没有兜底：未命中就是未命中，由 check_routing 显式要求 UNCLASSIFIED。
-    return routes, prio, None
+    if "expect_aux" in test:
+        expected_aux = list(test.get("expect_aux") or [])
+        actual_aux = domains[1:]
+        if actual_aux != expected_aux:
+            bad.append("『%s』→ %s（辅助域期望 %s）"
+                       % (str(test.get("text") or "")[:24],
+                          "/".join(domains) or "(空)",
+                          "/".join(expected_aux) or "(空)"))
+    elif len(domains) > 1:
+        bad.append("『%s』命中多个领域但未登记 expect_aux：%s"
+                   % (str(test.get("text") or "")[:20], "/".join(domains)))
+
+    if "expect_ambiguity" in test and bool(test["expect_ambiguity"]) != (len(domains) > 1):
+        bad.append("『%s』→ %s（歧义期望 %s，实际 %s）"
+                   % (str(test.get("text") or "")[:24], "/".join(domains) or "(空)",
+                      bool(test["expect_ambiguity"]), len(domains) > 1))
+
+    forbidden = [domain for domain in domains if domain in set(test.get("forbid") or [])]
+    if forbidden:
+        bad.append("『%s』误命中 %s（完整命中 %s）"
+                   % (str(test.get("text") or "")[:20], "/".join(forbidden),
+                      "/".join(domains)))
+    return bad
 
 
 def check_routing():
     try:
-        routes, prio, fallback = _pack_routes()
+        import route as route_mod
+        skill_dir = os.path.join(TOOL, "skill")
+        config = route_mod.check(skill_dir)
+        if config.get("problems"):
+            raise ValueError("；".join(config["problems"]))
     except Exception as e:  # noqa: BLE001
         add("全局", "路由串味测试集", False, "pack.json 路由坏:" + str(e)[:40])
         return
     bad = []
     for t in ROUTING_TESTS:
-        rid, skill = _match_route(routes, prio, t["text"], fallback)
-        # S3：路由目标可能带归档前缀，归一化成「逻辑技能名」再比
-        norm = skill.replace("\\", "/")
-        for pre in ("_pending/safe-skills/", "_pending/"):
-            if norm.startswith(pre):
-                norm = norm[len(pre):]
-        got = (norm.split("/")[0] if norm else (rid or "None"))
-        expect = t.get("expect_any") or []
-        if not expect:
-            # 空期望 = 必须判不出来（UNCLASSIFIED）。不许再被任何兜底域假装命中。
-            if got not in ("None", "UNCLASSIFIED", ""):
-                bad.append("『%s』→ %s（期望：判不出领域 UNCLASSIFIED）" % (t["text"][:24], got))
+        try:
+            _hits, domains = route_mod.resolved_domains(t["text"], skill_dir)
+        except Exception as e:  # noqa: BLE001
+            bad.append("『%s』路由执行失败：%s"
+                       % (str(t.get("text") or "")[:24], str(e)[:60]))
             continue
-        if got not in expect:
-            bad.append("『%s』→ %s（期望 %s）" % (t["text"][:24], got, "/".join(expect)))
-        if got in (t.get("forbid") or []):
-            bad.append("『%s』误命中 %s" % (t["text"][:20], got))
+        bad.extend(routing_failures(t, domains))
     add("全局", "路由串味测试集（%d 条）" % len(ROUTING_TESTS), not bad,
-        "；".join(bad) if bad else "全部命中期望域，无跨域误命中")
+        "；".join(bad[:8]) if bad else "完整命中集合满足主域、辅助域、歧义与禁止域约束")
 
 
 # ---------------------------------------------------------------- [10] 清理
 def check_cleanup():
     bad = []
-    # 根目录 md allowlist（DOMAIN-SPEC §11）：人读入口 + 宿主直接读取的 agent 契约。
-    # 契约（DOMAIN-SPEC §11）：根目录只允许 README*/ROADMAP + 需求与审查提示词（人读入口）。
+    # 根目录 md allowlist（DOMAIN-CONTRACT §清理）：人读入口 + 宿主直接读取的 agent 契约。
+    # 契约（DOMAIN-CONTRACT §清理）：根目录只允许 README*/ROADMAP + 需求与审查提示词（人读入口）。
     # REVIEW-PROMPT-INDEPENDENT.md = 交给外部模型做独立审查的提示词（正式交付物）。
     # 过程文档→work/plans，提示词→Tool/prompts/sources，agent 契约→Tool/prompts/contracts。
     # KPI.md 是 BLUEPRINT §6 规定的根级台账（唯一 KPI 表），不是过程文档：
     # 它的存在本身就是「新增必须先有一行 KPI 前后对比」这条刹车。
     # REQUIREMENTS.md = 客户需求（白话）+ 产品解读，是"接手必读"的第一份，属人读入口。
-    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md", "KPI.md", "REQUIREMENTS.md", "PM-SPEC.md", "REVIEW-PROMPT.md", "REVIEW-PROMPT-INDEPENDENT.md"}
+    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md", "KPI.md", "REQUIREMENTS.md", "REVIEW-PROMPT.md", "REVIEW-PROMPT-INDEPENDENT.md"}
     for f in sorted(glob.glob(os.path.join(ROOT, "*.md"))):
         b = os.path.basename(f)
         if b.startswith("优化方案"):
@@ -1092,51 +1314,63 @@ def _all_skills():
     return out
 
 
-def check_deploy(only=None):
-    agent = os.path.join(os.path.expanduser("~"), ".pi", "agent", "skills")
-    if not os.path.isdir(agent):
-        add("全局", "部署哈希一致", False, "未找到 ~/.pi/agent/skills（先跑 setup/install-pi.ps1）")
+def check_deploy(only=None, agent_root=None):
+    try:
+        agent = Path(resolve_agent_root(agent_root, env=os.environ), "skills")
+    except RuntimeRootError as exc:
+        add("全局", "部署哈希一致", False,
+            "AgentRoot 无效（显式参数、PI_CODING_AGENT_DIR、PI_AGENT_DIR 或 HOME）：%s"
+            % exc.detail)
         return
-    bad = []
-    for dom, spec in DOMAINS.items():
-        if only and dom != only:
-            continue
-        if spec.get("archived"):      # S3：归档域不参与部署（本来就不部署）
-            continue
-        src = os.path.join(TOOL, "skill", spec["skill"])
-        dst = os.path.join(agent, spec["skill"])
-        if not os.path.isdir(dst):
-            bad.append("%s(未部署)" % spec["skill"])
-            continue
-        for dp, dn, fn in os.walk(src):
-            dn[:] = [x for x in dn if x not in ("__pycache__",)]
-            for f in fn:
-                if os.path.splitext(f)[1].lower() not in (".md", ".py", ".json"):
-                    continue
-                s = os.path.join(dp, f)
-                t = os.path.join(dst, os.path.relpath(s, src))
-                if not os.path.isfile(t):
-                    bad.append("%s(缺 %s)" % (spec["skill"], os.path.relpath(s, src)))
-                elif _norm_sha(s) != _norm_sha(t):
-                    bad.append("%s(%s 哈希不一致)" % (spec["skill"], os.path.relpath(s, src)))
-    # 覆盖 11 域之外的技能（doc-hygiene / binary-diff / safe-skills 子技能等）：
-    # 换机器只跑 install 而漏部署某个技能时，这里会直接报「未部署」。
-    covered = {os.path.basename(str(spec["skill"]).rstrip("/")) for spec in DOMAINS.values()}
-    extra = []
-    for name, rel in _all_skills():
-        if name in covered:
-            continue
-        src = os.path.join(TOOL, "skill", rel, "SKILL.md")
-        dst = os.path.join(agent, name, "SKILL.md")
-        if not os.path.isfile(dst):
-            extra.append("%s(未部署)" % name)
-        elif _norm_sha(src) != _norm_sha(dst):
-            extra.append("%s(SKILL.md 哈希不一致)" % name)
-    bad += extra
+    if not agent.is_dir():
+        add("全局", "部署哈希一致", False,
+            "未找到 AgentRoot/skills：%s（先运行安装入口）" % agent)
+        return
+    all_skills = _all_skills()
+    if only:
+        spec = DOMAINS.get(only) or {}
+        selected = [(os.path.basename(str(spec.get("skill") or "")).strip("/"),
+                     str(spec.get("skill") or ""))]
+        selected = [(name, rel_path) for name, rel_path in selected if name and rel_path]
+    else:
+        archived = {
+            str(spec.get("skill")) for spec in DOMAINS.values()
+            if spec.get("archived")
+        }
+        selected = [
+            (name, rel_path) for name, rel_path in all_skills
+            if rel_path not in archived
+        ]
 
-    add("全局", "部署哈希一致（仓库 ↔ ~/.pi/agent/skills）", not bad,
-        "；".join(bad[:6]) + ("…" if len(bad) > 6 else "") if bad
-        else ("%d 域 + %d 个其余技能 哈希一致" % (len(DOMAINS), len(_all_skills()) - len(covered))))
+    source_map = {
+        name: Path(TOOL, "skill", *rel_path.split("/"))
+        for name, rel_path in selected
+    }
+    deployed_map = {
+        path.name: path for path in agent.iterdir()
+        if path.is_dir() and path.name not in {".", ".."}
+    } if agent.is_dir() else {}
+    bad = []
+    missing = sorted(set(source_map) - set(deployed_map))
+    extra = sorted(set(deployed_map) - set(source_map))
+    if missing:
+        bad.append("未部署目录:" + ",".join(missing[:4]))
+    if extra:
+        bad.append("部署残留目录:" + ",".join(extra[:4]))
+    for name in sorted(set(source_map) & set(deployed_map)):
+        differences = compare_deploy_trees(source_map[name], deployed_map[name])
+        for key, label in (
+                ("missing", "缺资产"), ("extra", "残留资产"),
+                ("drift", "哈希不一致"), ("errors", "无法核验")):
+            paths = differences.get(key) or []
+            if paths:
+                bad.append("%s(%s：%s)" % (
+                    name, label, ",".join(str(path) for path in paths[:4])
+                    + ("…" if len(paths) > 4 else "")))
+
+    add("全局", "部署哈希一致（递归资产：仓库 ↔ AgentRoot/skills）", not bad,
+        "；".join(bad[:8]) + ("…" if len(bad) > 8 else "") if bad
+        else "%d 个技能的全部可部署资产递归哈希一致" % len(source_map))
 
 
 
@@ -1158,20 +1392,24 @@ def check_case_index():
 
 # ---------------------------------------------------------------- main
 def check_spec():
-    """契约漂移：SPEC 文档行数/条数与 domain_spec.py 是否明显不一致。"""
-    p = os.path.join(ROOT, "docs", "history", "X-DOMAIN-SPEC-v2.md")
+    """契约漂移：DOMAIN-CONTRACT 文档的关键阈值/域清单与公共实现是否明显不一致。"""
+    p = os.path.join(ROOT, "docs", "DOMAIN-CONTRACT.md")
     bad = []
     if not os.path.isfile(p):
-        bad.append("缺 docs/history/X-DOMAIN-SPEC-v2.md")
+        bad.append("缺 docs/DOMAIN-CONTRACT.md")
     else:
         t = "\n".join(lines(p))
         for k in ("600", "400", "6–10", "20–30"):
             if k not in t:
-                bad.append("SPEC 缺关键数字 " + k)
-    for dom in DOMAINS:
-        if dom not in (open(p, encoding="utf-8", errors="replace").read() if os.path.isfile(p) else ""):
-            bad.append("SPEC 未提及域 " + dom)
-    add("全局", "契约未漂移（SPEC ↔ domain_spec.py）", not bad, "；".join(bad) if bad else ("%d 域覆盖" % len(DOMAINS)))
+                bad.append("DOMAIN-CONTRACT 缺关键数字 " + k)
+    spec_text = "\n".join(lines(p)) if os.path.isfile(p) else ""
+    for dom in FORMAL_DOMAINS:
+        if dom not in spec_text:
+            bad.append("DOMAIN-CONTRACT 未提及域 " + dom)
+    if DOMAIN_LOAD_ERRORS:
+        bad.append("domain_spec 载入错误：" + "；".join(DOMAIN_LOAD_ERRORS[:3]))
+    add("全局", "契约未漂移（DOMAIN-CONTRACT ↔ 公共 LIMITS/pack depth_contract）", not bad,
+        "；".join(bad) if bad else ("%d 域覆盖（域清单来自 pack.json#id）" % len(FORMAL_DOMAINS)))
 
 
 def main():
@@ -1185,7 +1423,12 @@ def main():
     ap.add_argument("--spec", action="store_true")
     ap.add_argument("--mutation-test", action="store_true")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--root", default="", help="仓库根（默认本仓库；fixture 用显式根）")
+    ap.add_argument("--agent-root", default="",
+                    help="部署 AgentRoot（默认按 PI_CODING_AGENT_DIR、PI_AGENT_DIR、HOME 解析）")
     a = ap.parse_args()
+    if a.root:
+        _use_root(a.root)
     only = a.domain[0] if a.domain else None
     if a.mutation_test:
         check_mutation_test()
@@ -1198,8 +1441,9 @@ def main():
     if a.domain:
         unknown = [d for d in a.domain if d not in DOMAINS]
         if unknown:
-            print("[FAIL] 未知域：%s（可用：%s）" % (",".join(unknown), ",".join(DOMAINS)))
+            print("[FAIL] 未知域：%s（可用：%s）" % (",".join(unknown), ",".join(FORMAL_DOMAINS)))
             return 2
+    _register_load_errors()
     if a.all or a.domain or a.spec:
         check_spec()
     if a.all or a.domain:
@@ -1210,15 +1454,24 @@ def main():
                 mark_uncovered(dom, "缺技能目录 Tool/skill/%s" % spec.get("skill"))
                 add(dom, "技能目录", False, "缺失 Tool/skill/" + str(spec.get("skill")))
                 continue
-            check_skill(dom, spec)
-            check_refs(dom, spec)
-            check_scripts(dom, spec)
-            check_cases(dom, spec)
-            check_kb(dom, spec)
-            check_matrix(dom, spec)
-            check_cards(dom, spec)
-            check_criteria_backing(dom, spec)
-            check_2026_presence(dom, spec)
+            # 缺 depth_contract 字段/材料的新域**不许**把门禁打崩（KeyError），也不许静默
+            # 跳过：逐域 try 兜底 → 显式 UNCOVERED + FAIL 行，其余域照常检查。
+            try:
+                check_skill(dom, spec)
+                check_refs(dom, spec)
+                check_scripts(dom, spec)
+                check_cases(dom, spec)
+                check_kb(dom, spec)
+                check_matrix(dom, spec)
+                check_cards(dom, spec)
+                check_criteria_backing(dom, spec)
+                check_2026_presence(dom, spec)
+            except Exception as exc:  # noqa: BLE001
+                mark_uncovered(dom, "深度检查中断（domain=%s，%s: %s）"
+                               % (dom, type(exc).__name__, str(exc)[:120]))
+                add(dom, "深度检查中断（缺字段/材料，不计 PASS）", False,
+                    "%s: %s；spec=%s" % (type(exc).__name__, str(exc)[:120],
+                                         ",".join(sorted(spec))))
     if a.all or a.links:
         check_links()
         check_md_links()
@@ -1231,7 +1484,7 @@ def main():
     if a.all or a.cleanup:
         check_cleanup()
     if a.all or a.deploy:
-        check_deploy(only)
+        check_deploy(only, a.agent_root or None)
     fails = [r for r in results if not r["ok"]]
     # W6：全绿 = 无 FAIL **且**无 UNCOVERED。缺件/无法自检不允许被当成通过。
     green = (not fails) and (not uncovered)

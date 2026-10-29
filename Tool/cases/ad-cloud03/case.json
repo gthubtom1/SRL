@@ -10,20 +10,27 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "719ca63f6c296c29305fdee76043b1d86067931fd3c7dfe087571e21058bd75f"
+      "sha256": "719ca63f6c296c29305fdee76043b1d86067931fd3c7dfe087571e21058bd75f",
+      "size": 2297
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "8878bec7bf2093fd246f4548a897000c30723a8c161b3106ce9ef3731b536b0d"
+      "sha256": "722eed479e6332e09bcad522d5e0e2de5a73293bd1736ec1954e50af1e4e0d16",
+      "size": 194,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "bbff1a75114e87a835a152f5d6dda55d290152b231f3468d83484f8ea2d5134b",
+      "size": 2321,
+      "kind": "stdout"
     }
   ],
   "lessons": [
-    "本次跑到：在授权本机执行 `MSYS_NO_PATHCONV=1 wevtutil qe Security '/q:*[System[(EventID=4624 or EventID=4625 or EventID=4672 or EventID=4768 or EventID=4769 or EventID=4648)]]' /f:xml /c:100 /rd:true > /tmp/sec2.xml`（rc=0），再执行 `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --extract-evtx-xml /tmp/sec2.xml --out input/security-events.json`（rc=0，脱敏）与 `python Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind windows-events --input input/security-events.json --json > artifacts/run.json`（rc=0）。",
-    "结果：100 条真实事件，4624=50、4672=50，LogonType 全为 5（服务登录），4768/4769/4776/4625 均为 0；判定 blocked（没有 Kerberos 遥测），唯一 finding 是 4672 特殊权限分配（medium），不能据此写成域内提权。",
-    "边界：本机 `Win32_ComputerSystem.PartOfDomain=False`（WORKGROUP），没有域账号、DC、证书模板或云凭据；单机 Security 日志的缺失不能证明域内没有攻击，只能证明这台主机没有相应遥测。",
-    "下一步：若是域主机，先确认 Kerberos 审计与 `Microsoft-Windows-Kerberos/Operational` 是否开启，再在授权范围内从 DC 导出 Security 日志做 4768/4769/4625/4672 关联；本机则把 4672 服务登录当作基线而不是结论。",
-    "失败判据：把 4672 直接写成提权、把无 4768/4769 写成‘域内安全’、把服务登录类型 5 当成交互登录，都是误判；事件日志缺失时先查审计策略与日志断档。",
-    "R4 修复：ad-repro 实现 EventRecordID 连续性判据（record_id_gaps / telemetry_untrusted + record-id-continuity check）；本案例 100 条事件 record_id 连续（gaps=0），故「未见 Kerberos/NTLM」的结论在该片段内可信，但仍不可外推到全量日志。 artifacts/run.json 已重生成，哈希重算。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/_pending/ad-cloud/scripts/ad-repro.py --kind windows-events --input Tool/cases/ad-cloud03/input/security-events.json --json`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "实跑处理 100 条脱敏事件：4624=50、4672=50，LogonType=5；4768/4769/4770/4771、4776、4798 均为 0，record-id 连续性 gaps=0，verdict=blocked。",
+    "证据范围限于当前 100 条单机 Security 快照与服务登录基线；Kerberos 遥测、域账号、DC、证书模板和云凭据属于扩展证据。",
+    "outcome=partial：当前 finding 只支持 4672 特殊权限分配为 medium 基线项。"
   ],
   "tags": [
     "windows",
@@ -40,9 +47,59 @@
     "Tool/skill/_pending/ad-cloud/scripts/ad-repro.py",
     "Tool/config/ad-cloud-matrix.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/_pending/ad-cloud/scripts/ad-repro.py",
+      "--kind",
+      "windows-events",
+      "--input",
+      "Tool/cases/ad-cloud03/input/security-events.json",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "bbff1a75114e87a835a152f5d6dda55d290152b231f3468d83484f8ea2d5134b"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/_pending/ad-cloud/scripts/ad-repro.py",
+          "--kind",
+          "windows-events",
+          "--input",
+          "Tool/cases/ad-cloud03/input/security-events.json",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "bbff1a75114e87a835a152f5d6dda55d290152b231f3468d83484f8ea2d5134b"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

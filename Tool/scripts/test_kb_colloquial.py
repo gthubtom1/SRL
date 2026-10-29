@@ -125,7 +125,9 @@ def main():
 
     mod = load_server()
     kb_dir = getattr(mod, "KB_DIR", "")
-    syn_path = getattr(mod, "_KB_SYN_PATH", "")
+    # The shared contract owns the loader; its private constants are not server exports.
+    # Check the actual source asset, then exercise the real imported loader and queries.
+    syn_path = os.path.join(ROOT, "Tool", "config", "kb-synonyms.json")
     if not kb_dir or not os.path.isdir(kb_dir):
         print("[FAIL] 服务端 KB_DIR 不可用：%r" % kb_dir)
         return 1

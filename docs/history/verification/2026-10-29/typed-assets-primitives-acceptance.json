@@ -1,0 +1,38 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "TYPED-ASSETS-PRIMITIVES",
+  "decision": "accepted_scoped",
+  "signer_role": "main-agent",
+  "independent_verifier_session": "01a17d14-6b04-74f6-8526-d947018a56fc",
+  "objects": {
+    "Tool/scripts/lib/typed_assets.py": "5d5c8c54439c4b2aff05d098640f7b68ea7cefbce950b8232a175292d46af111",
+    "Tool/scripts/test_typed_assets.py": "7716b8e9a804d60fe4ee858e983953a25725a6c51cf6f0e874b43148d8b78ca7",
+    "Tool/scripts/lib/project_lock.py": "b9f5e64eb295f6ffb930b33d057c0647099f509de0939b6c306b7e8c8a45dfb4",
+    "Tool/scripts/manager_state.py": "6149c3593b870265f166574b8a76ac5d890c6267490863484d83e49fac4d840f",
+    "work/goal-recovery/typed-assets-repair.md": "9e385af765a896f5a94ec31c06443cb5833ee2107f549194d56439997d1f0a52"
+  },
+  "independent_reports": {
+    "work/goal-recovery/typed-assets-independent.md": "d5731b631c07a2e4bcbcebad8b804757a97e2018eaf8ae4193d8e24e08d443aa",
+    "work/goal-recovery/typed-assets-boundary-independent.md": "7040c24bd4c4aa5662f89c1ec0afb88ed6734ea8ec0b9ef89c074a978d523619"
+  },
+  "scope": [
+    "File raw-byte identity, deterministic directory snapshots, static URL descriptors and explicit asset selection.",
+    "Tamper/restore, path escape, symlink/junction refusal, bounded input and failure controls on small synthetic fixtures.",
+    "Filesystem-root requests rejected before filesystem access; source/final-slot overlap refused before directory creation; legitimate sibling snapshots remain supported."
+  ],
+  "results": {
+    "regression_tests": 27,
+    "original_tests_rechecked": 24,
+    "skipped": 0,
+    "root_scanner_calls": 0,
+    "url_socket_calls": 0
+  },
+  "limitations": [
+    "Not connected to project_state, Manager, workflow or report input dispatch.",
+    "URL descriptor identity does not verify remote content or network behavior.",
+    "No domain inference, large-scale performance, volume remapping or complete concurrent filesystem/ABA proof.",
+    "Platform observations are from the current Windows host; other operating systems are not accepted by this record."
+  ],
+  "overall_goal_complete": false,
+  "goal42_complete": false
+}

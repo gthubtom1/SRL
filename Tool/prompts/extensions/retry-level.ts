@@ -12,7 +12,9 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as fs from "node:fs";
+import { homedir } from "node:os";
 import * as path from "node:path";
+import { randomBytes } from "node:crypto";
 
 type Level = { key: string; label: string; enabled: boolean; maxRetries: number };
 
@@ -43,25 +45,116 @@ const HOPELESS_PATTERNS: RegExp[] = [
 ];
 
 export default function retryLevelExtension(pi: ExtensionAPI) {
-	const homeDir = process.env.USERPROFILE || process.env.HOME || "";
-	const settingsPath = path.join(homeDir, ".pi", "agent", "settings.json");
+	const configuredAgentDir = process.env.PI_CODING_AGENT_DIR?.trim();
+	let homeDir = "";
+	try {
+		homeDir = homedir();
+	} catch {}
+	homeDir ||= process.env.USERPROFILE?.trim() || process.env.HOME?.trim() || "";
+	const agentDir = configuredAgentDir
+		? path.resolve(configuredAgentDir)
+		: homeDir
+			? path.join(homeDir, ".pi", "agent")
+			: path.resolve(".pi", "agent");
+	const settingsPath = path.join(agentDir, "settings.json");
 
-	function readSettings(): Record<string, any> {
+	function readSettings(): Record<string, any> | null {
 		try {
-			if (fs.existsSync(settingsPath)) {
-				return JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-			}
-		} catch {}
-		return {};
+			const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+			const object = (value: any) => value !== null && typeof value === "object" && !Array.isArray(value);
+			if (!object(settings) || (settings.retry !== undefined && !object(settings.retry)) ||
+				(settings.retry?.provider !== undefined && !object(settings.retry.provider))) return null;
+			return settings;
+		} catch (err: any) {
+			return err?.code === "ENOENT" ? {} : null;
+		}
 	}
 
 	function writeSettings(settings: Record<string, any>): boolean {
+		const dir = path.dirname(settingsPath);
+		const suffix = `${process.pid}.${randomBytes(8).toString("hex")}`;
+		const tempPath = `${settingsPath}.${suffix}.tmp`;
+		const backupPath = `${settingsPath}.${suffix}.bak`;
+		const displacedPath = `${settingsPath}.${suffix}.old`;
+		let fd: number | undefined;
+		let backupMade = false;
+		let originalDisplaced = false;
+		let candidatePublished = false;
 		try {
-			const dir = path.dirname(settingsPath);
 			if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-			fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+			const payload = JSON.stringify(settings, null, 2);
+
+			// 候选文件先写同目录临时文件并 fsync，不能直接截断正式 settings.json。
+			fd = fs.openSync(tempPath, "wx");
+			fs.writeFileSync(fd, payload, { encoding: "utf-8" });
+			fs.fsyncSync(fd);
+			fs.closeSync(fd);
+			fd = undefined;
+			JSON.parse(fs.readFileSync(tempPath, "utf-8"));
+
+			// 保留一份已 fsync 的原文件，若替换后的回读校验失败可原子恢复。
+			if (fs.existsSync(settingsPath)) {
+				const original = fs.readFileSync(settingsPath, "utf-8");
+				fd = fs.openSync(backupPath, "wx");
+				fs.writeFileSync(fd, original, { encoding: "utf-8" });
+				fs.fsyncSync(fd);
+				fs.closeSync(fd);
+				fd = undefined;
+				backupMade = true;
+			}
+
+			try {
+				// POSIX 通常可一次 replace；Windows 对已存在目标可能返回 EEXIST/EPERM。
+				fs.renameSync(tempPath, settingsPath);
+				candidatePublished = true;
+			} catch {
+				if (!fs.existsSync(settingsPath)) throw new Error("settings destination disappeared");
+				fs.renameSync(settingsPath, displacedPath);
+				originalDisplaced = true;
+				fs.renameSync(tempPath, settingsPath);
+				candidatePublished = true;
+			}
+			const readBack = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+			if (JSON.stringify(readBack) !== JSON.stringify(settings)) {
+				throw new Error("settings read-back mismatch");
+			}
+			if (backupMade) {
+				try { fs.unlinkSync(backupPath); } catch {}
+			}
+			if (originalDisplaced) {
+				try { fs.unlinkSync(displacedPath); } catch {}
+			}
 			return true;
-		} catch {
+		} catch (error) {
+			if (process.env.SEEP_DEBUG_RETRY) {
+				console.error("[retry-level] settings atomic update failed:", error);
+			}
+			if (fd !== undefined) {
+				try { fs.closeSync(fd); } catch {}
+			}
+
+			// 回读失败时 settingsPath 仍可能是刚发布的坏候选；Windows 不允许 rename
+			// 覆盖它。先移走坏候选，再把 fsync 过的旧文件放回原位。
+			const recoveryPath = originalDisplaced && fs.existsSync(displacedPath)
+				? displacedPath
+				: backupMade && fs.existsSync(backupPath)
+					? backupPath
+					: undefined;
+			let recovered = true;
+			if (originalDisplaced || candidatePublished) {
+				try {
+					if (candidatePublished && fs.existsSync(settingsPath)) fs.unlinkSync(settingsPath);
+					if (recoveryPath) fs.renameSync(recoveryPath, settingsPath);
+				} catch {
+					recovered = false;
+				}
+			}
+			try { fs.unlinkSync(tempPath); } catch {}
+			// 恢复未完成时保留任一份旧文件，供用户手工恢复；绝不能在失败路径丢旧数据。
+			if (recovered) {
+				try { fs.unlinkSync(backupPath); } catch {}
+				try { fs.unlinkSync(displacedPath); } catch {}
+			}
 			return false;
 		}
 	}
@@ -81,6 +174,7 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 
 	function apply(level: Level): { ok: boolean; message: string } {
 		const settings = readSettings();
+		if (!settings) return { ok: false, message: `读取 settings.json 失败或格式无效，未写入（路径：${settingsPath}）` };
 		settings.retry = settings.retry || {};
 		settings.retry.enabled = level.enabled;
 		settings.retry.maxRetries = level.maxRetries;
@@ -123,6 +217,10 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 			const arg = args.trim();
 			const lower = arg.toLowerCase();
 			const settings = readSettings();
+			if (!settings) {
+				ctx.ui.notify(`读取 settings.json 失败或格式无效，未修改（路径：${settingsPath}）`, "error");
+				return;
+			}
 			const current = currentLevel(settings);
 
 			let target: Level | undefined;
@@ -155,34 +253,44 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 			}
 
 			const { ok, message } = apply(target);
-			ctx.ui.setStatus("command:/retry", statusText(target));
+			if (ok) ctx.ui.setStatus("command:/retry", statusText(target));
 			ctx.ui.notify(message, ok ? "info" : "error");
-			await ctx.reload();
+			if (ok) await ctx.reload();
 		},
 	});
 
 	// pi 自己会重试它判定为"可重试"的错误，但它的判据是关键词白名单，
 	// 认不出"配额要等 3 小时才恢复"这类等下去也没用的错。这里兜底。
 	pi.on("agent_end", async (event, ctx) => {
-		const last = event.messages[event.messages.length - 1] as any;
+		const messages = Array.isArray(event?.messages) ? event.messages : [];
+		const last = [...messages].reverse().find((message: any) =>
+			message && typeof message === "object" && message.role === "assistant"
+		) as any;
 		if (!last || last.stopReason !== "error" || !last.errorMessage) return;
 		const text = String(last.errorMessage);
 		if (!HOPELESS_PATTERNS.some((re) => re.test(text))) return;
 
-		const current = currentLevel(readSettings());
+		const settings = readSettings();
+		if (!settings) {
+			ctx.ui.notify(`检测到无法自动恢复的错误，但无法读取重试设置（路径：${settingsPath}）。`, "warning");
+			return;
+		}
+		const current = currentLevel(settings);
 		if (current.maxRetries < 100) return; // 只在"无限"档时插手，普通档位不管
 
+		// agent_end 使用 ExtensionContext，不提供 command-only 的 reload()。
+		// 先中止当前运行，避免宿主继续安排重试；设置留给下次重载生效。
+		ctx.abort();
 		const { ok, message } = apply(LEVELS[1]);
-		ctx.ui.setStatus("command:/retry", statusText(LEVELS[1]));
+		if (ok) ctx.ui.setStatus("command:/retry", statusText(LEVELS[1]));
 		ctx.ui.notify(
-			`${ok ? "这类错误重试没意义" : "检测到无望的错误，但没能写入设置"}：重试已降回 3 次。${message}\n详情：${text.slice(0, 160)}`,
+			`${ok ? "检测到无法自动恢复的错误，已请求停止当前重试；3 次设置将在重载后生效。" : "检测到无法自动恢复的错误，已请求停止当前重试，但未能保存设置。"}${message}\n详情：${text.slice(0, 160)}`,
 			"warning",
 		);
-		await ctx.reload();
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
-		const level = currentLevel(readSettings());
-		ctx.ui.setStatus("command:/retry", statusText(level));
+		const settings = readSettings();
+		ctx.ui.setStatus("command:/retry", settings ? statusText(currentLevel(settings)) : "重试: 未知（设置不可读）");
 	});
 }

@@ -1,10 +1,21 @@
 {
   "schema": "seep.playbook-domains/1",
-  "note": "配方 -> 归属域技能目录（用于路由↔配方一致性门禁）。一个配方可跨多个域。",
+  "formal_domains": [
+    "apkseep",
+    "firmware-iot",
+    "forensics-mobile",
+    "malware-analysis",
+    "protocol-plugin",
+    "pwn-crypto",
+    "softseep",
+    "supply-chain-security",
+    "web-pentest"
+  ],
+  "note": "formal_domains 是当前 pack 域声明，map 只允许使用这九个正式域。历史域、别名与待迁移子技能分别见 Tool/config/domain-aliases.json；pending_skill_map 仅说明配方可调用的待迁移实现，不把它们声明成正式路由域。一个配方可跨多个正式域。",
   "map": {
     "anti-cheat-forensics": [
-      "reverse",
-      "forensics-mobile"
+      "forensics-mobile",
+      "softseep"
     ],
     "apk-ad-removal": [
       "apkseep"
@@ -13,15 +24,13 @@
       "apkseep"
     ],
     "app-daily-task": [
-      "signin-automation"
+      "web-pentest"
     ],
     "backend-rebuild": [
-      "05-backend-rebuild",
       "web-pentest",
-      "site-clone"
+      "softseep"
     ],
     "captcha-handling": [
-      "signin-automation",
       "web-pentest"
     ],
     "firmware-emulate": [
@@ -34,43 +43,40 @@
       "forensics-mobile"
     ],
     "license-bypass-deliver": [
-      "01-gate-bypass",
-      "client-license-validation-bypass",
-      "reverse"
+      "softseep"
     ],
     "license-hookup": [
-      "03-license-hookup"
+      "softseep"
     ],
     "malware-triage": [
       "malware-analysis"
     ],
     "multi-account-runner": [
-      "signin-automation"
+      "web-pentest"
     ],
     "plugin-analysis": [
-      "plugin-targets"
+      "protocol-plugin"
     ],
     "protocol-replay": [
       "protocol-plugin"
     ],
     "qinglong-signin": [
-      "signin-automation"
+      "web-pentest"
     ],
     "reverse-survey": [
-      "reverse"
+      "softseep"
     ],
     "site-clone-1to1": [
-      "site-clone"
+      "web-pentest"
     ],
     "supply-chain-audit": [
       "supply-chain-security"
     ],
     "ui-rebrand": [
-      "02-ui-rebrand"
+      "softseep"
     ],
     "version-migrate": [
-      "04-version-migrate",
-      "version-migration"
+      "softseep"
     ],
     "web-api-sign-reverse": [
       "web-pentest"
@@ -79,7 +85,36 @@
       "forensics-mobile"
     ],
     "osint-recon": [
+      "softseep",
       "web-pentest"
+    ]
+  },
+  "pending_skill_map": {
+    "app-daily-task": [
+      "signin-automation"
+    ],
+    "captcha-handling": [
+      "signin-automation"
+    ],
+    "license-bypass-deliver": [
+      "01-gate-bypass",
+      "client-license-validation-bypass"
+    ],
+    "license-hookup": [
+      "03-license-hookup"
+    ],
+    "multi-account-runner": [
+      "signin-automation"
+    ],
+    "qinglong-signin": [
+      "signin-automation"
+    ],
+    "ui-rebrand": [
+      "02-ui-rebrand"
+    ],
+    "version-migrate": [
+      "04-version-migrate",
+      "version-migration"
     ]
   }
 }

@@ -10,19 +10,27 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "aeff77e4e58667eb1c575c5a6270414a6ea78321236625aa47e992ef119a2759"
+      "sha256": "aeff77e4e58667eb1c575c5a6270414a6ea78321236625aa47e992ef119a2759",
+      "size": 1584
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "cab2547b8cb8f6fbcc786c817ea6ef4aab57f8ae76ba7828b464ddb41a3ea099"
+      "sha256": "35ba3fd43ae70c66db08324b44961dfd9044f97a13e9d7dfa3970c28666bee07",
+      "size": 194,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "4b9178cd3c3b248df75d92c7f0af3f5f5423e856f11588a4c7e2f8d7a75a87fb",
+      "size": 1629,
+      "kind": "stdout"
     }
   ],
   "lessons": [
-    "本次跑到：python Tool/skill/supply-chain-security/scripts/sc-check.py --path setup/ --out Tool/cases/supply-chain02/artifacts/run.json，rc=0；files_scanned=23、truncated=false，0 条风险。",
-    "结论：该目录没有 npm/Python 清单、锁文件、Dockerfile 或 workflow，因此本次静态规则集零命中；这只证明输入面为空，不证明安装脚本安全。",
-    "卡点：没有 registry 镜像 digest、SBOM、attestation 或 cosign 数据；脚本内的下载/执行行为需要人工逐行审阅。",
-    "下一步：对 setup/*.ps1 做危险动词与网络下载审阅；若要评镜像，记录 repo@sha256:<digest> 后生成 SBOM、跑 cosign verify 并核对 identity/issuer/Rekor。",
-    "边界：只读扫描，不 push、不覆盖 tag、不运行不可信镜像；零 finding 不能替代镜像与 provenance 证据。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/supply-chain-security/scripts/sc-check.py --path setup`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "实跑扫描 24 个文件、truncated=false、risks_total=0；inventory 中 manifests、locks、Dockerfile、workflow 等适用面均为空。",
+    "证据范围限于离线静态规则集与当前 setup/ 文件面；安装脚本网络/执行行为、registry 镜像、SBOM、attestation 与签名数据属于扩展审计面。",
+    "outcome=partial：零 finding 只对应当前规则集，不替代供应链来源与运行行为证据。"
   ],
   "refs": [
     "Tool/skill/supply-chain-security/SKILL.md",
@@ -34,9 +42,53 @@
     "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/02-image-and-provenance.md",
     "Tool/config/supply-chain-security-matrix.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/supply-chain-security/scripts/sc-check.py",
+      "--path",
+      "setup"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "4b9178cd3c3b248df75d92c7f0af3f5f5423e856f11588a4c7e2f8d7a75a87fb"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/supply-chain-security/scripts/sc-check.py",
+          "--path",
+          "setup"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "4b9178cd3c3b248df75d92c7f0af3f5f5423e856f11588a4c7e2f8d7a75a87fb"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

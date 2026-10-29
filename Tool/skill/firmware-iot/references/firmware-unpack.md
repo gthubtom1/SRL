@@ -130,16 +130,20 @@ mkdir -p "$OUT/initramfs" && cd "$OUT/initramfs" && cpio -idmv < ../initramfs.cp
 
 ```bash
 ROOT="$OUT/rootfs"
-grep -RInE 'root:|admin:|password|passwd|shadow' "$ROOT/etc" 2>/dev/null | head -60
-cat "$ROOT/etc/passwd" "$ROOT/etc/shadow" 2>/dev/null
+# 账号只读取用户名/UID/shell 等非秘密元数据；不读取下一条字段。
+awk -F: '$3==0{print "uid0",$1}' "$ROOT/etc/passwd" 2>/dev/null
+awk -F: '$7!~/(nologin|false)$/{print "shell",$1,$7}' "$ROOT/etc/passwd" 2>/dev/null
+# 证书/密钥/NVRAM 口令只列候选路径，不打开或输出内容。
 find "$ROOT" -type f \( -name '*.pem' -o -name '*.key' -o -name 'id_rsa*' -o -name 'authorized_keys' \) -print
-cat "$ROOT/etc/inittab" 2>/dev/null
+sed -n '1,160p' "$ROOT/etc/inittab" 2>/dev/null
 find "$ROOT/etc" -maxdepth 3 -type f \( -name 'rcS' -o -name 'S*' -o -name '*.service' \) -print | head -40
-grep -RInE 'telnetd|dropbear|httpd|uhttpd|goahead|lighttpd|nvram|system\(|popen\(' "$ROOT" 2>/dev/null | head -80
+grep -RInE 'telnetd|dropbear|httpd|uhttpd|goahead|lighttpd|nvram|system\(|popen\(' \
+  "$ROOT/etc" "$ROOT/www" "$ROOT/usr" 2>/dev/null | head -80
 file "$ROOT/bin/busybox" "$ROOT"/bin/* 2>/dev/null | head -30
 ```
 
-判据：能写出“开机脚本 → 启动的服务 → 运行用户 → 外部入口 → 可控参数”的链路；敏感项有文件:行号定位。
+判据：能写出“开机脚本 → 启动的服务 → 运行用户 → 外部入口 → 可控参数”的链路；
+敏感候选只保留路径、类别和调用链，行为验证使用合成账号/密钥/canary，不读取真实秘密值。
 
 ## 6. 加密 / 非标格式判断
 
@@ -199,7 +203,7 @@ nc -vz 127.0.0.1 <PORT>
 ## 8. 交付清单
 
 - `orig.sha256`、原始镜像、解包目录、工具版本。
-- 文件系统审计清单（文件:行号、脱敏值、用途）+ 仿真启动脚本与验证请求。
+- 文件系统审计清单（文件:行号、敏感候选类别/用途，不含真实秘密值）+ 仿真启动脚本与验证请求。
 - J1/J2/J3 证据：串口日志、shell 会话、HTTP 响应、PoC 与复现步骤；失败日志与降级说明。
 
 ## 9. 端到端走查：从 `.bin` 到可审计 rootfs（时间盒版）

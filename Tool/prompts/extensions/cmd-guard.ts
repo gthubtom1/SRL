@@ -44,6 +44,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 /* ────────────────────────────── 配置 ────────────────────────────── */
 
@@ -84,7 +86,7 @@ interface GuardConfig {
 	skillRoot: string | null;
 }
 
-const HERE = __dirname;
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 interface DenyRule {
 	/** 稳定标识，用于统计与 /guard 展示 */
@@ -163,7 +165,7 @@ const BUILTIN_DENY: DenyRule[] = [
 			"  ① 进程内 hook（Frida hook WinHttpSendRequest/WinHttpReceiveResponse，最隐蔽，不装驱动）\n" +
 			"  ② 回环代理 + 只对该进程生效的重定向（mitmproxy 监听 127.0.0.1 + 目标进程内改 URL/代理参数）\n" +
 			"  ③ 只读查现状：`Get-NetIPAddress` / `netsh winhttp show proxy` / `net-rollback.py verify`\n" +
-			"确实要改：先 `python Tool/scripts/net-rollback.py snapshot`，再走临时放行口令的用户回执三步（ask → 用户回 A/C → ack → 重发，见 /guard 或 rules.json 的 _allow说明）。",
+			"确实要改：先 `python Tool/scripts/net-rollback.py snapshot`，再走临时放行口令的用户回执三步（ask → 用户回 A → ack → 重发；回 C 就换安全做法，见 /guard 或 rules.json 的 _allow说明）。",
 	},
 	{
 		id: "net-iface-write",
@@ -327,13 +329,11 @@ function findSkillRoot(configured: string | null): string | null {
 	const candidates: string[] = [];
 	if (configured) candidates.push(configured);
 
-	// 1) 显式环境变量
-	for (const k of ["RELAB_SKILL_ROOT", "REVERSE_SKILL_ROOT", "CMD_GUARD_SKILL_ROOT"]) {
-		const v = process.env[k];
-		if (v) candidates.push(v);
-	}
+	// 1) 显式环境变量。只保留本扩展自己的名字，避免从旧项目继承错误的包根。
+	const explicitRoot = process.env.CMD_GUARD_SKILL_ROOT;
+	if (explicitRoot) candidates.push(explicitRoot);
 
-	// 2) 本文件就躺在技能包里 → 从 __dirname 往上数（kernel/extensions/pi/ → 根）
+	// 2) 本文件就躺在技能包里 → 从 import.meta.url 所在目录往上数到包根
 	//    这是最可靠的一条：只要整包 clone 下来就成立，不依赖任何环境变量。
 	let dir = HERE;
 	for (let i = 0; i < 5; i++) {
@@ -343,17 +343,14 @@ function findSkillRoot(configured: string | null): string | null {
 		dir = up;
 	}
 
-	// 3) 习惯位置（换盘用环境变量覆盖即可）
-	candidates.push("C:/relab2", "C:/relab", "D:/relab2");
-	// 3) 习惯位置。换盘 / 换机器用环境变量覆盖即可，不要往这里堆历史路径 ——
+	// 3) 这里不再探测任何历史绝对路径。换盘 / 换机器用环境变量覆盖即可 ——
 	//    那是「不许猜路径」纪律要治的病：探一个谁也说不清在哪的目录，
 	//    探到了说不清是哪台机器的，探不到又看不出原因。
-	//    确实装在别处 → 设 RELAB_SKILL_ROOT，或在 rules.json 写 skillRoot / toolChainPaths。
-	candidates.push("C:/relab2", "C:/relab", "D:/relab2");
+	//    确实装在别处 → 设 CMD_GUARD_SKILL_ROOT，或在 rules.json 写 skillRoot / toolChainPaths。
 	const seen = new Set<string>();
 	for (const c of candidates) {
 		const abs = path.resolve(c);
-		const key = abs.toLowerCase();
+		const key = process.platform === "win32" ? abs.toLowerCase() : abs;
 		if (seen.has(key)) continue;
 		seen.add(key);
 		if (looksLikeRoot(abs)) return abs;
@@ -439,7 +436,7 @@ function mtimeOf(p: string): string {
 function loadConfig(force = false): void {
 	const now = Date.now();
 	const rp = rulesPath();
-	const stamp = `${mtimeOf(rp)}:${process.env.RELAB_SKILL_ROOT || ""}`;
+	const stamp = `${mtimeOf(rp)}:${process.env.CMD_GUARD_SKILL_ROOT || ""}`;
 	// 30 秒节流：文件没变就别反复读盘；但 /guard reload 走 force
 	if (!force && stamp === loadedStamp && now - loadedAt < 30_000) return;
 	loadedStamp = stamp;
@@ -451,7 +448,7 @@ function loadConfig(force = false): void {
 		if (fileExists(rp)) {
 			const raw = JSON.parse(fs.readFileSync(rp, "utf-8")) as Record<string, unknown>;
 			for (const k of Object.keys(DEFAULTS) as (keyof GuardConfig)[]) {
-				if (raw[k] !== undefined) (config as Record<string, unknown>)[k] = raw[k];
+				if (raw[k] !== undefined) (config as unknown as Record<string, unknown>)[k] = raw[k];
 			}
 			// 兼容老 rules.json：indexPaths 也当成文档来源
 			const legacy = raw.indexPaths;
@@ -647,22 +644,43 @@ function head(cmd: string, n = 72): string {
 	return one.length > n ? one.slice(0, n) + "…" : one;
 }
 
-/** 给 ssh/scp 补连接超时 + 心跳，bash 侧再断掉交互提示。 */
+/** 给 SSH 系客户端补连接超时 + 心跳，bash 侧再断掉交互提示。 */
 function hardenSsh(cmd: string, shell: "bash" | "powershell"): { cmd: string; injected: string[] } {
 	const injected: string[] = [];
 	// 只在「真命令位置」注入，否则 echo "ssh is old" 会被改写（这个坑踩过）
-	const SEG = /(^|[\n;|&(]\s*)((?:[\w.]+=\S+\s+)*)((?:ssh|scp|sftp|rsync))\b/gi;
-	const already = /ConnectTimeout/i.test(cmd);
-	let touched = false;
+	const SEG =
+		/(^|[\n;|&(]\s*)((?:[\w.]+=\S+\s+)*(?:(?:sudo|doas|nohup|command|exec)\s+)*)((?:ssh|scp|sftp))\b/gi;
+	let sshChanged = false;
+	let rsyncChanged = false;
 
-	let out = cmd.replace(SEG, (m, lead: string, envPrefix: string, word: string) => {
-		touched = true;
-		if (already) return m;
-		return lead + envPrefix + word + " -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3";
-	});
-	if (touched && !already) injected.push("ssh/scp: ConnectTimeout=15 + ServerAlive 心跳");
+	const tailOfSegment = (whole: string, offset: number, matched: string): string =>
+		whole.slice(offset + matched.length).split(/&&|\|\||[;\n|]/, 1)[0] || "";
 
-	const hasRealSsh = /(^|[\n;|&(]\s*)((?:[\w.]+=\S+\s+)*)(?:ssh)\b/i.test(cmd);
+	let out = cmd.replace(
+		SEG,
+		(m: string, lead: string, envPrefix: string, word: string, offset: number, whole: string) => {
+			// 逐段判断：`ssh -o ConnectTimeout=5 a; ssh b` 不能因为第一段已有配置，
+			// 就放过第二段无限等待的 ssh。
+			if (/(?:^|\s)-o\s*ConnectTimeout(?:=|\s)/i.test(tailOfSegment(whole, offset, m))) return m;
+			sshChanged = true;
+			return lead + envPrefix + word + " -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3";
+		},
+	);
+
+	// rsync 不接受 SSH 的 `-o`；它的有界参数是 `--timeout`。
+	out = out.replace(
+		/(^|[\n;|&(]\s*)((?:[\w.]+=\S+\s+)*(?:(?:sudo|doas|nohup|command|exec)\s+)*)(rsync)\b/gi,
+		(m: string, lead: string, envPrefix: string, word: string, offset: number, whole: string) => {
+			if (/(?:^|\s)--timeout(?:=|\s+)/i.test(tailOfSegment(whole, offset, m))) return m;
+			rsyncChanged = true;
+			return lead + envPrefix + word + " --timeout=15";
+		},
+	);
+	if (sshChanged) injected.push("ssh/scp/sftp: 缺失的 ConnectTimeout=15 + ServerAlive 心跳已补齐");
+	if (rsyncChanged) injected.push("rsync: 缺失的 --timeout=15 已补齐");
+
+	const hasRealSsh =
+		/(^|[\n;|&(]\s*)((?:[\w.]+=\S+\s+)*(?:(?:sudo|doas|nohup|command|exec)\s+)*)(?:ssh)\b/i.test(cmd);
 	if (shell === "bash" && hasRealSsh && !/<\s*\//.test(out)) {
 		out = out + " < /dev/null";
 		injected.push("ssh: </dev/null 断交互");
@@ -678,19 +696,19 @@ function hardenSsh(cmd: string, shell: "bash" | "powershell"): { cmd: string; in
  * （网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/HKLM/分区）的钥匙挂在 Agent 身上。
  *
  * 现在：口令只是「申请」。放不放行看 `~/.seep/run-ack.json`（用户回执，由
- * `case_state.py ack` 写入，60 分钟内有效，letter 只能是 A 或 C）。
- * 读不到 / JSON 坏 / 过期 / 字母不对 / 时钟在未来 —— 一律按无效处理（fail-closed）：
+ * `case_state.py ack` 写入，60 分钟内有效，只有 A 表示用户允许）。
+ * 读不到 / JSON 坏 / 过期 / 字母是 C 或其他值 / 时钟在未来 —— 一律按无效处理（fail-closed）：
  * 宁可拦错一条命令，不可放错一条。
  *
- * 为什么是文件而不是配置项：文件是「用户真的在对话里回了 A/C」的产物；
+ * 为什么是文件而不是配置项：文件是「用户真的在对话里回了 A」的产物；
  * 配置项（rules.json）Agent 自己能改，等于没有。
  */
 
 export const RUN_ACK_SCHEMA = "seep.run-ack/1";
 /** 回执照有效期（分钟）。过期就当作没有 —— 一次性放行不该留成长期后门。 */
 export const RUN_ACK_TTL_MIN = 60;
-/** 只认这两个字母：A = 允许就按这条命令做，C = 不允许，换安全做法。 */
-const RUN_ACK_LETTERS = ["A", "C"];
+/** 只有 A 是放行回执；C 是拒绝，必须换安全做法。 */
+const RUN_ACK_ALLOW_LETTERS = ["A"];
 /** at 最多允许超前这么多毫秒（本机时钟抖动）；再往前就是时钟不可信。 */
 const RUN_ACK_CLOCK_SKEW_MS = 120_000;
 
@@ -700,6 +718,8 @@ export interface RunAck {
 	target_sha256: string;
 	letter: string;
 	at: string;
+	/** The command the user saw when choosing A; C means refuse and take another path. */
+	challenge: string;
 }
 
 /** 回执来源：raw = 解析出的 JSON（读不到就是 null）；error = 读/解析失败原因。 */
@@ -718,6 +738,7 @@ export interface AckVerdict {
 	letter: string;
 	at: string;
 	case: string;
+	challenge: string;
 	ageMinutes: number;
 }
 
@@ -730,31 +751,38 @@ export function runAckPath(home?: string): string {
  * 三步拿到回执。**整段不含口令原文** —— 拦下来的文案不能教人复制口令自助放行
  * （第 5 轮评审：旧文案正是这么教的）。口令留在 rules.json 的 allow 段。
  */
-const ACK_STEPS =
+const ackSteps = (challenge: string) =>
 	"三步拿到回执（缺一不可）：\n" +
 	'  ① 发卡：python Tool/scripts/case_state.py ask --case <case> --stuck "这条命令要临时放行系统级拦截，允许吗" --option "A 允许，就按这条命令做" --option "C 不允许，换安全做法"\n' +
-	"  ② 把 ask 打印的卡片**原样贴进对话**；用户回 A 或 C 之后：python Tool/scripts/case_state.py ack --case <case> --ack <A|C>\n" +
-	"     （ack 会写 ~/.seep/run-ack.json，60 分钟内有效；只有 A / C 算数）\n" +
-	"  ③ 重发同一条命令：回执在有效期内会被放行，结果里会标注 letter。";
+	"  ② 把 ask 打印的卡片**原样贴进对话**；用户回 A 或 C 之后：\n" +
+	`     python Tool/scripts/case_state.py ack --case <case> --ack A --challenge ${challenge}\n` +
+		"     （仅当用户明确回 A；回 C 表示拒绝，直接换安全做法，不要生成放行回执）\n" +
+		"     （A 回执会绑定这条命令的 SHA-256，60 分钟内有效）\n" +
+	"  ③ 原样重发同一条命令：命令内容变化后，旧回执自动失效。";
 
 const ACK_NO_FORGERY =
 	"（**不要**自己写 ~/.seep/run-ack.json —— 那是伪造用户回执。守卫是 fail-closed 的：\n" +
-	"读不到 / JSON 坏了 / 过期 / letter 不是 A·C，一律不放行。）";
+	"读不到 / JSON 坏了 / 过期 / letter 不是 A，一律不放行。）";
+
+/** Stable challenge shown to the user and bound into the stop-gap receipt. */
+export function commandChallenge(cmd: string): string {
+	return createHash("sha256").update(cmd, "utf8").digest("hex");
+}
 
 /** 纯函数：判定一份回执是否有效。nowMs 显式传入，方便测「61 分钟前」。 */
-export function validateAck(raw: unknown, nowMs: number): AckVerdict {
+export function validateAck(raw: unknown, nowMs: number, expectedChallenge = ""): AckVerdict {
 	if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-		return { valid: false, why: "没有回执文件内容（缺失或空）", letter: "", at: "", case: "", ageMinutes: -1 };
+		return { valid: false, why: "没有回执文件内容（缺失或空）", letter: "", at: "", case: "", challenge: "", ageMinutes: -1 };
 	}
 	const r = raw as Record<string, unknown>;
-	const no = (why: string): AckVerdict => ({ valid: false, why, letter: "", at: "", case: "", ageMinutes: -1 });
+	const no = (why: string): AckVerdict => ({ valid: false, why, letter: "", at: "", case: "", challenge: "", ageMinutes: -1 });
 	const schema = String(r.schema ?? "").trim();
 	if (schema !== RUN_ACK_SCHEMA) {
 		return no(`schema 不是 ${RUN_ACK_SCHEMA}（实际 ${JSON.stringify(schema)}）`);
 	}
 	const letter = String(r.letter ?? "").trim().toUpperCase();
-	if (!RUN_ACK_LETTERS.includes(letter)) {
-		return no(`letter=${JSON.stringify(r.letter ?? null)} 不是 A/C（用户没有同意临时放行）`);
+	if (!RUN_ACK_ALLOW_LETTERS.includes(letter)) {
+		return no(`letter=${JSON.stringify(r.letter ?? null)} 不是 A（用户没有同意临时放行）`);
 	}
 	const casePath = String(r.case ?? "").trim();
 	if (!casePath) {
@@ -762,6 +790,13 @@ export function validateAck(raw: unknown, nowMs: number): AckVerdict {
 	}
 	if (typeof r.target_sha256 !== "string") {
 		return no("target_sha256 字段缺失或不是字符串（回执不完整）");
+	}
+	const challenge = typeof r.challenge === "string" ? r.challenge.trim().toLowerCase() : "";
+	if (!/^[0-9a-f]{64}$/.test(challenge)) {
+		return no("challenge 缺失或格式无效：回执没有绑定到具体命令");
+	}
+	if (expectedChallenge && challenge !== expectedChallenge) {
+		return no("回执绑定的是另一条命令；命令内容变化后必须重新确认");
 	}
 	const atRaw = String(r.at ?? "").trim();
 	const atMs = atRaw ? Date.parse(atRaw) : Number.NaN;
@@ -781,6 +816,7 @@ export function validateAck(raw: unknown, nowMs: number): AckVerdict {
 		letter,
 		at: atRaw,
 		case: casePath,
+		challenge,
 		ageMinutes: Math.max(0, Math.floor(ageMs / 60_000)),
 	};
 }
@@ -842,12 +878,83 @@ export interface CommandDecision {
 	notes: string[];
 }
 
+function existingDirectory(value: string): string {
+	try {
+		const absolute = path.resolve(value);
+		return fs.statSync(absolute).isDirectory() ? absolute : "";
+	} catch {
+		return "";
+	}
+}
+
+/**
+ * 当前案件的绝对目录。回执里的 case 必须和它一致，避免同一命令的 A 回执
+ * 在并行案件中复用；没有案件时返回空串，调用方应 fail-closed。
+ */
+export function resolveActiveCaseDir(cwd: string = process.cwd()): string {
+	const explicit = process.env.SEEP_CASE_DIR?.trim();
+	if (explicit) {
+		const found = existingDirectory(explicit);
+		if (found) return found;
+	}
+	const local = existingDirectory(path.join(cwd || process.cwd(), ".seep-case"));
+	if (local) return local;
+	try {
+		const ptr = path.join(os.homedir(), ".seep", "current-case");
+		if (fs.existsSync(ptr)) {
+			const target = fs.readFileSync(ptr, "utf-8")
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.find(Boolean);
+			if (target && path.isAbsolute(target)) {
+				const found = existingDirectory(target);
+				if (found) return found;
+			}
+		}
+	} catch {}
+	return "";
+}
+
+function canonicalCaseDir(value: string): string {
+	let absolute = path.resolve(value);
+	try {
+		absolute = fs.realpathSync.native(absolute);
+	} catch {
+		try {
+			absolute = fs.realpathSync(absolute);
+		} catch {}
+	}
+	return normalizedGuardPath(absolute);
+}
+
+function ackForCommand(
+	src: AckSource | null,
+	nowMs: number,
+	challenge: string,
+	caseDir: string | null,
+): AckVerdict | null {
+	if (!src) return null;
+	const verdict = validateAck(src.raw, nowMs, challenge);
+	if (!verdict.valid || caseDir === null) return verdict;
+	if (!caseDir) {
+		return { ...verdict, valid: false, why: "未识别当前案件；回执不能脱离案件使用" };
+	}
+	if (canonicalCaseDir(verdict.case) !== canonicalCaseDir(caseDir)) {
+		return {
+			...verdict,
+			valid: false,
+			why: `回执绑定的是另一案件（${verdict.case}），当前案件是 ${path.resolve(caseDir)}`,
+		};
+	}
+	return verdict;
+}
+
 /**
  * ★ 判定纯函数（无 IO、无全局状态）：喂 (命令, 配置, 回执来源) 得到唯一结论。
  *
  * 口令命中时只有两种结局：
  *   · 回执有效     → allow，note 里写「本次放行基于用户回执（letter=X）」
- *   · 回执无效/缺失 → block，文案给三步（发卡 → 用户回 A/C → ack → 重发）
+ *   · 回执无效/缺失 → block，文案给三步（发卡 → 用户回 A → ack → 重发；C 表示拒绝）
  * 口令没命中时跑禁手表（heredoc / 只读查看器豁免与旧行为一致）。
  */
 export function decideCommand(
@@ -855,12 +962,18 @@ export function decideCommand(
 	cfg: GuardConfig,
 	src: AckSource | null,
 	nowMs: number = Date.now(),
+	caseDir: string | null = null,
 ): CommandDecision {
+	const challenge = commandChallenge(cmd);
+	// 普通禁手也可以由用户针对“这一条完整命令”回 A；回执必须与当前命令
+	// 的 SHA-256 一致。这样 GUI / 盘根扫描在后续分支里也使用同一份授权，
+	// 不需要 Agent 先知道并拼入 allow 口令，否则普通禁手的回执闭环不可达。
+	const directAck = ackForCommand(src, nowMs, challenge, caseDir);
 	const token = skipTokenHit(cmd, cfg);
 	if (token) {
-		const ack: AckVerdict = src
-			? validateAck(src.raw, nowMs)
-			: { valid: false, why: "没有回执（未读到 ~/.seep/run-ack.json）", letter: "", at: "", case: "", ageMinutes: -1 };
+		const ack: AckVerdict = directAck
+			? directAck
+			: { valid: false, why: "没有回执（未读到 ~/.seep/run-ack.json）", letter: "", at: "", case: "", challenge: "", ageMinutes: -1 };
 		if (!ack.valid) {
 			const why = src && src.error ? src.error : ack.why;
 			return {
@@ -871,7 +984,7 @@ export function decideCommand(
 					"这个口令会整条跳过系统级禁手（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/注册表/分区）。\n" +
 					"它只能由**用户**决定，不能由 Agent 自助放行 —— 而现在没有有效回执。\n" +
 					`回执判定：${why}\n\n` +
-					ACK_STEPS +
+					ackSteps(challenge) +
 					"\n\n要么换等价的安全做法（按拦你的那条 hint），要么走完上面三步再重发。\n" +
 					ACK_NO_FORGERY +
 					"\n（如果这条命令其实没命中任何禁手，直接去掉口令按普通命令重发就行。）",
@@ -884,7 +997,7 @@ export function decideCommand(
 			verdict: "allow",
 			reason: "",
 			note:
-				`本次放行基于用户回执（letter=${ack.letter}；回执时间 ${ack.at}，约 ${ack.ageMinutes} 分钟前；case=${ack.case}）。` +
+				`本次放行基于用户回执（letter=${ack.letter}；回执时间 ${ack.at}，约 ${ack.ageMinutes} 分钟前；case=${ack.case}；challenge=${ack.challenge}）。` +
 				"一次性放行，别把口令当默认做法。",
 			notes: [],
 		};
@@ -921,10 +1034,28 @@ export function decideCommand(
 			rule.hint;
 		if (rule.severity === "block") {
 			if (cfg.enforce) {
+				if (directAck?.valid) {
+					notes.push(`【用户回执放行】${rule.label}`);
+					return {
+						skip: { requested: false, granted: true, ack: directAck },
+						verdict: "allow",
+						reason: "",
+						note:
+							`本次放行基于用户回执（letter=${directAck.letter}；回执时间 ${directAck.at}，` +
+							`约 ${directAck.ageMinutes} 分钟前；case=${directAck.case}；challenge=${directAck.challenge}）。` +
+							"回执只绑定这条完整命令，命令一改就必须重新确认。",
+						notes,
+					};
+				}
+				const why = src && src.error ? src.error : directAck?.why || "没有有效回执";
 				return {
 					skip: { requested: false, granted: false, ack: null },
 					verdict: "block",
-					reason: body + "\n\n确实非要这么做 → 只能要用户回执：\n" + ACK_STEPS,
+					reason:
+						body +
+						`\n\n回执判定：${why}\n` +
+						"确实非要这么做 → 只能要用户对下面这条完整命令回 A：\n" +
+						ackSteps(challenge),
 					note: "",
 					notes,
 				};
@@ -934,7 +1065,18 @@ export function decideCommand(
 		}
 		notes.push(body);
 	}
-	return { skip: { requested: false, granted: false, ack: null }, verdict: "allow", reason: "", note: "", notes };
+	return {
+		skip: { requested: false, granted: Boolean(directAck?.valid), ack: directAck?.valid ? directAck : null },
+		verdict: "allow",
+		reason: "",
+		note:
+			directAck?.valid
+				? `本次放行基于用户回执（letter=${directAck.letter}；回执时间 ${directAck.at}，` +
+					`约 ${directAck.ageMinutes} 分钟前；case=${directAck.case}；challenge=${directAck.challenge}）。` +
+					"回执只绑定这条完整命令，命令一改就必须重新确认。"
+				: "",
+		notes,
+	};
 }
 
 /** 供测试/巡检用：返回当前生效的配置（含内置禁手表 + rules.json 追加项）。 */
@@ -965,15 +1107,60 @@ interface HistoryEntry {
 
 type TextContent = { type: "text"; text: string };
 
-const running = new Map<string, CallRecord>();
-const history: HistoryEntry[] = [];
-const blocked: { at: string; cmd: string; reason: string }[] = [];
-let stats = { guarded: 0, injected: 0, blocked: 0 };
-let ticker: ReturnType<typeof setInterval> | null = null;
-let enabled = true;
+interface GuardSessionState {
+	running: Map<string, CallRecord>;
+	history: HistoryEntry[];
+	blocked: { at: string; cmd: string; reason: string }[];
+	stats: { guarded: number; injected: number; blocked: number };
+	hostCtx: any;
+	enabled: boolean;
+}
 
-/** 最近一次事件回调带来的 ctx —— 用来访问 ui（ExtensionAPI 本身没有 ui） */
-let hostCtx: any = null;
+const guardSessions = new Map<string, GuardSessionState>();
+let ticker: ReturnType<typeof setInterval> | null = null;
+
+function normalizedGuardPath(value: string): string {
+	const normalized = String(value).replace(/\\/g, "/").replace(/\/+$/, "");
+	return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+/** Pi 会话主键；旧宿主没有 session id 时以 cwd 兜底，至少不跨项目串状态。 */
+function guardSessionKey(ctx: any): string {
+	try {
+		const sid = ctx?.sessionManager?.getSessionId?.();
+		if (typeof sid === "string" && sid.trim()) return `id:${sid.trim()}`;
+	} catch {}
+	for (const value of [ctx?.sessionId, ctx?.session_id, ctx?.sessionID]) {
+		if (typeof value === "string" && value.trim()) return `id:${value.trim()}`;
+	}
+	let cwd = process.cwd();
+	try {
+		if (typeof ctx?.cwd === "string" && ctx.cwd) cwd = ctx.cwd;
+	} catch {}
+	return `cwd:${normalizedGuardPath(cwd)}`;
+}
+
+function newGuardSession(): GuardSessionState {
+	return {
+		running: new Map<string, CallRecord>(),
+		history: [],
+		blocked: [],
+		stats: { guarded: 0, injected: 0, blocked: 0 },
+		hostCtx: null,
+		enabled: true,
+	};
+}
+
+function guardSession(ctx: any): GuardSessionState {
+	const key = guardSessionKey(ctx);
+	let state = guardSessions.get(key);
+	if (!state) {
+		state = newGuardSession();
+		guardSessions.set(key, state);
+	}
+	if (ctx) state.hostCtx = ctx;
+	return state;
+}
 
 function fmtSec(ms: number): string {
 	const s = Math.floor(ms / 1000);
@@ -987,34 +1174,42 @@ function stopTicker(): void {
 	}
 }
 
-function renderStatus(): void {
-	const ui = hostCtx?.ui;
+function renderStatus(state: GuardSessionState): void {
+	const ui = state.hostCtx?.ui;
 	if (!ui?.setStatus) return;
 	// One short line, never the command text: a status bar is not a log, and the
 	// long form pushed the composer around on a phone. The key carries a command
 	// so pi-web renders the cell as a button — one click opens /stall, which has
 	// the full report (what is running, for how long, what was blocked).
-	if (!running.size) {
+	if (!state.running.size) {
 		const parts: string[] = [];
-		if (stats.guarded) parts.push(`守${stats.guarded}`);
-		if (stats.blocked) parts.push(`拦${stats.blocked}`);
+		if (state.stats.guarded) parts.push(`守${state.stats.guarded}`);
+		if (state.stats.blocked) parts.push(`拦${state.stats.blocked}`);
 		ui.setStatus("command:/stall", parts.length ? `⛨ ${parts.join(" ")}` : undefined);
 		return;
 	}
 	let longest = 0;
-	for (const r of running.values()) longest = Math.max(longest, Date.now() - r.startedAt);
-	ui.setStatus("command:/stall", `⛨ 运行中 ${running.size} · ${fmtSec(longest)}`);
+	for (const r of state.running.values()) longest = Math.max(longest, Date.now() - r.startedAt);
+	ui.setStatus("command:/stall", `⛨ 运行中 ${state.running.size} · ${fmtSec(longest)}`);
+}
+
+function renderAllStatuses(): void {
+	for (const state of guardSessions.values()) renderStatus(state);
 }
 
 function ensureTicker(): void {
 	if (ticker) return;
 	ticker = setInterval(() => {
-		if (!running.size) {
+		let anyRunning = false;
+		for (const state of guardSessions.values()) {
+			if (state.running.size) anyRunning = true;
+		}
+		if (!anyRunning) {
 			stopTicker();
-			renderStatus();
+			renderAllStatuses();
 			return;
 		}
-		renderStatus();
+		renderAllStatuses();
 	}, 1000);
 	if (typeof ticker.unref === "function") ticker.unref();
 }
@@ -1023,7 +1218,6 @@ function ensureTicker(): void {
 
 export default function cmdGuard(pi: any): void {
 	if (process.env.CMD_GUARD === "0") {
-		enabled = false;
 		return;
 	}
 
@@ -1040,25 +1234,21 @@ export default function cmdGuard(pi: any): void {
 			`${config.blockRootScan ? " · 盘根扫描=拦截" : " · ★blockRootScan=false，盘根扫描只抬 timeout"}`,
 	);
 
-	// ── 上下文捕获：ExtensionAPI 没有 ui，ui 在 handler 的第二个参数上 ──
-	const remember = (ctx: any): void => {
-		if (ctx) hostCtx = ctx;
-	};
-
 	pi.on("session_start", (_e: unknown, ctx: any) => {
-		remember(ctx);
+		guardSessions.set(guardSessionKey(ctx), newGuardSession());
+		guardSession(ctx);
 		if (!guiTable.size || rulesSource.includes("★")) {
 			ctx?.ui?.notify?.(
 				`cmd-guard 降级中：${rulesSource}\n` +
-					`GUI 拦截只剩内置兜底表。设 RELAB_SKILL_ROOT 指向技能包根，或在 cmd-guard.rules.json 写 toolChainPaths。`,
+					`GUI 拦截只剩内置兜底表。设 CMD_GUARD_SKILL_ROOT 指向技能包根，或在 cmd-guard.rules.json 写 skillRoot / toolChainPaths。`,
 				"warning",
 			);
 		}
 	});
 
 	pi.on("tool_call", (event: any, ctx: any) => {
-		remember(ctx);
-		if (!enabled) return;
+		const session = guardSession(ctx);
+		if (!session.enabled) return;
 		const name = event.toolName;
 		// ★ 弹窗式问人一律拦下（2026-10-23 用户明确要求，已强调多次）。
 		//   理由：① 选项只能 2–4 个、每项 ≤60 字，四要素长卡塞不进去；
@@ -1090,18 +1280,26 @@ export default function cmdGuard(pi: any): void {
 		   旧行为：`allow` 命中就 `return` —— Agent 往命令里加个字符串就绕过全部系统级禁手，
 		   而且拦截文案还在教它这么加。现在口令只是「申请」，放不放行看 ~/.seep/run-ack.json。 */
 		const skipRequested = skipTokenHit(cmd, config) !== null;
-		const decision = decideCommand(cmd, config, skipRequested ? readAckSource() : null);
+		// 普通禁手没有 allow 口令，但同样要能由用户对精确命令回 A。读取是
+		// fail-closed 的纯本地小文件；缺失/损坏只会阻止放行，不影响普通命令。
+		const decision = decideCommand(
+			cmd,
+			config,
+			readAckSource(),
+			Date.now(),
+			resolveActiveCaseDir(ctx?.cwd),
+		);
 		const skipGranted = decision.skip.granted;
 		if (decision.verdict === "block") {
-			blocked.push({
+			session.blocked.push({
 				at: new Date().toISOString().slice(11, 19),
 				cmd: head(cmd, 100),
 				reason: head(decision.skip.requested ? "口令无有效用户回执" : decision.reason, 100),
 			});
-			stats.blocked++;
+			session.stats.blocked++;
 			ctx?.ui?.notify?.(
 				decision.skip.requested
-					? "cmd-guard 拦下：临时放行口令缺用户回执（走 ask → 用户回 A/C → ack → 重发）"
+					? "cmd-guard 拦下：临时放行口令缺用户回执（走 ask → 用户回 A → ack → 重发；C 表示拒绝）"
 					: "cmd-guard 拦下：系统级禁手",
 				"warning",
 			);
@@ -1125,9 +1323,14 @@ export default function cmdGuard(pi: any): void {
 					`无值再按 TOOL-CHAIN.md 的四级递进（env → PATH → _map.json 别名 → 递归兜底）。\n` +
 					`确实只能用 GUI 时：宿主有界面控制能力（computer-use 等）就开界面会话，别在 bash 里同步等；` +
 					`这条被拦下了：要么换等价的安全做法（上面的 CLI 替代），` +
-					`要么走「临时放行口令」的用户回执三步（ask → 用户回 A/C → ack → 重发）后再来一次。`;
-				blocked.push({ at: new Date().toISOString().slice(11, 19), cmd: head(cmd, 100), reason: head(reason, 100) });
-				stats.blocked++;
+					`要么让用户对这条完整命令回 A 后再重发；回 C 就换安全做法。\n\n` +
+					ackSteps(commandChallenge(cmd));
+				session.blocked.push({
+					at: new Date().toISOString().slice(11, 19),
+					cmd: head(cmd, 100),
+					reason: head(reason, 100),
+				});
+				session.stats.blocked++;
 				if (config.enforce) {
 					ctx?.ui?.notify?.(`cmd-guard 拦下 ${hit[0]}：改用 ${hit[1].slice(0, 60)}`, "warning");
 					return { block: true, reason };
@@ -1145,9 +1348,14 @@ export default function cmdGuard(pi: any): void {
 					`这类命令会扫满整盘、几十秒到几分钟不返回；命令阻塞期间模型不在运行，物理上无法自愈。\n` +
 					`改用：已知路径常量（项目内 TOOL_DIR / 配置里的绝对路径）→ \`where.exe <id>\` / \`Get-Command <id>\` → 工具发现器。\n` +
 					`确实要扫：把范围缩到具体目录（\`find <dir> -maxdepth N\`）。` +
-					`非要扫盘根：要么换等价的安全做法，要么走「临时放行口令」的用户回执三步（ask → 用户回 A/C → ack → 重发）后再来一次（记得显式传 timeout）。`;
-				blocked.push({ at: new Date().toISOString().slice(11, 19), cmd: head(cmd, 100), reason: head(reason, 100) });
-				stats.blocked++;
+					`非要扫盘根：要么换等价的安全做法，要么让用户对这条完整命令回 A 后再重发（记得显式传 timeout）；回 C 就换安全做法。\n\n` +
+					ackSteps(commandChallenge(cmd));
+				session.blocked.push({
+					at: new Date().toISOString().slice(11, 19),
+					cmd: head(cmd, 100),
+					reason: head(reason, 100),
+				});
+				session.stats.blocked++;
 				if (config.enforce) {
 					ctx?.ui?.notify?.("cmd-guard 拦下盘根递归扫描：改用具体目录或工具发现器", "warning");
 					return { block: true, reason };
@@ -1205,10 +1413,10 @@ export default function cmdGuard(pi: any): void {
 			);
 		}
 
-		stats.guarded++;
-		stats.injected += injected.length;
+		session.stats.guarded++;
+		session.stats.injected += injected.length;
 
-		running.set(event.toolCallId, {
+		session.running.set(event.toolCallId, {
 			command: cmd,
 			shell,
 			startedAt: Date.now(),
@@ -1218,25 +1426,23 @@ export default function cmdGuard(pi: any): void {
 			ownTimeout: typeof event.input.timeout === "number" ? event.input.timeout : null,
 		});
 		ensureTicker();
-		renderStatus();
+		renderStatus(session);
 		return;
 	});
 
 	/* 有输出就刷新静默计时 */
 	pi.on("tool_execution_update", (event: any, ctx: any) => {
-		remember(ctx);
-		const r = running.get(event.toolCallId);
+		const r = guardSession(ctx).running.get(event.toolCallId);
 		if (r) r.lastOutputAt = Date.now();
 	});
 
 	/* 结束：记账 + 把提示回灌给模型，让它自己改 */
 	pi.on("tool_result", (event: any, ctx: any) => {
-		remember(ctx);
-		const r = running.get(event.toolCallId);
+		const session = guardSession(ctx);
+		const r = session.running.get(event.toolCallId);
 		if (!r) return;
-		running.delete(event.toolCallId);
-		if (!running.size) stopTicker();
-		renderStatus();
+		session.running.delete(event.toolCallId);
+		renderStatus(session);
 
 		const secs = Math.round((Date.now() - r.startedAt) / 1000);
 		const verdict = event.isError ? "失败" : "完成";
@@ -1262,17 +1468,17 @@ export default function cmdGuard(pi: any): void {
 			askNote = null;
 		}
 
-		history.unshift({
+		session.history.unshift({
 			at: new Date().toISOString().slice(11, 19),
 			toolName: r.shell,
 			head: head(r.command, 60),
 			seconds: secs,
 			verdict,
 		});
-		if (history.length > 20) history.length = 20;
+		if (session.history.length > 20) session.history.length = 20;
 
 		if (secs >= config.stallSeconds) {
-			history[0].verdict += "（已过卡死阈值）";
+			session.history[0].verdict += "（已过卡死阈值）";
 		}
 
 		if (r.notes.length) {
@@ -1303,26 +1509,36 @@ export default function cmdGuard(pi: any): void {
 	});
 
 	pi.on("agent_end", (_e: unknown, ctx: any) => {
-		remember(ctx);
-		running.clear();
-		stopTicker();
-		renderStatus();
+		const session = guardSession(ctx);
+		session.running.clear();
+		renderStatus(session);
+		let anyRunning = false;
+		for (const candidate of guardSessions.values()) {
+			if (candidate.running.size) anyRunning = true;
+		}
+		if (!anyRunning) stopTicker();
 	});
 
-	pi.on("session_shutdown", () => {
-		stopTicker();
+	pi.on("session_shutdown", (_event: unknown, ctx: any) => {
+		const key = guardSessionKey(ctx);
+		const session = guardSessions.get(key);
+		if (session?.hostCtx?.ui?.setStatus) {
+			session.hostCtx.ui.setStatus("command:/stall", undefined);
+		}
+		guardSessions.delete(key);
+		if (!guardSessions.size) stopTicker();
 	});
 
 	/* ── /stall ── */
 	pi.registerCommand("stall", {
 		description: "命令执行健康报告：当前在跑什么、卡多久、注入了什么、被拦过什么",
 		handler: async (_arg: string, ctx: any) => {
-			remember(ctx);
+			const session = guardSession(ctx);
 			loadConfig(true);
 			const L: string[] = [];
 			L.push("⛨ cmd-guard 状态");
-			L.push(running.size ? "── 正在执行 ──" : "── 当前无命令在执行 ──");
-			for (const r of running.values()) {
+			L.push(session.running.size ? "── 正在执行 ──" : "── 当前无命令在执行 ──");
+			for (const r of session.running.values()) {
 				const total = Date.now() - r.startedAt;
 				const silent = Date.now() - r.lastOutputAt;
 				L.push(
@@ -1333,19 +1549,21 @@ export default function cmdGuard(pi: any): void {
 				if (r.injected.length) L.push(`    已注入：${r.injected.join("；")}`);
 			}
 			L.push(
-				`── 本会话 ──  守卫 ${stats.guarded} 次，注入 ${stats.injected} 条，拦下 ${stats.blocked} 次`,
+				`── 本会话 ──  守卫 ${session.stats.guarded} 次，注入 ${session.stats.injected} 条，拦下 ${session.stats.blocked} 次`,
 			);
 			L.push(
 				`  卡死阈值 ${config.stallSeconds}s / 静默阈值 ${config.noOutputStallSeconds}s / 默认 timeout ${config.defaultTimeout}s`,
 			);
 			L.push(`  GUI 规则 ${[...guiTable.values()].filter((v) => v !== null).length} 条，规则源=${rulesSource}`);
-			if (blocked.length) {
+			if (session.blocked.length) {
 				L.push("── 被拦下 ──");
-				for (const b of blocked.slice(0, 5)) L.push(`  ${b.at}  ${b.cmd}\n    ${b.reason}`);
+				for (const b of session.blocked.slice(0, 5)) L.push(`  ${b.at}  ${b.cmd}\n    ${b.reason}`);
 			}
-			if (history.length) {
+			if (session.history.length) {
 				L.push("── 最近执行 ──");
-				for (const h of history.slice(0, 8)) L.push(`  ${h.at}  ${String(h.seconds).padStart(5)}s  ${h.verdict}  ${h.toolName}  ${h.head}`);
+				for (const h of session.history.slice(0, 8)) {
+					L.push(`  ${h.at}  ${String(h.seconds).padStart(5)}s  ${h.verdict}  ${h.toolName}  ${h.head}`);
+				}
 			}
 			L.push("── 处置处方 ──");
 			L.push("  卡在 ssh/scp   → 对方是否在等输入？IP 是否写错？先 `ssh -n -o ConnectTimeout=5 <ip> echo ok` 单验连通。");
@@ -1354,7 +1572,7 @@ export default function cmdGuard(pi: any): void {
 			L.push("  卡在 find/grep  → 递归范围太大，收窄到子目录或加 `-maxdepth`。");
 			L.push("  卡在 npx/npm    → 首次拉包或版本解析，加 timeout 并看包管理器缓存锁。");
 			L.push("  计时器在涨 + token 不动 = 卡在命令（不在推理）→ 中断换路线，发「继续」；这种中断不会自愈。");
-			ctx?.ui?.notify?.(L.join("\n"), running.size ? "warning" : "info");
+			ctx?.ui?.notify?.(L.join("\n"), session.running.size ? "warning" : "info");
 		},
 	});
 
@@ -1362,10 +1580,10 @@ export default function cmdGuard(pi: any): void {
 	pi.registerCommand("guard", {
 		description: "命令守卫开关：/guard off 关掉注入与拦截，/guard on 恢复，/guard reload 重读文档，/guard rules 看派生出的 GUI 名单，/guard ack 看临时放行口令的回执状态",
 		handler: async (arg: string, ctx: any) => {
-			remember(ctx);
+			const session = guardSession(ctx);
 			const a = (arg || "").trim().toLowerCase();
-			if (a === "off") enabled = false;
-			else if (a === "on") enabled = true;
+			if (a === "off") session.enabled = false;
+			else if (a === "on") session.enabled = true;
 			else if (a === "reload") {
 				loadConfig(true);
 				loadedStamp = "0";
@@ -1376,10 +1594,10 @@ export default function cmdGuard(pi: any): void {
 				ctx?.ui?.notify?.(
 					`临时放行口令回执（${src.path}）\n` +
 						(v.valid
-							? `有效：letter=${v.letter}；${v.at}（约 ${v.ageMinutes} 分钟前）；case=${v.case}\n` +
+							? `有效：letter=${v.letter}；${v.at}（约 ${v.ageMinutes} 分钟前）；case=${v.case}；challenge=${v.challenge}\n` +
 								`有效期 ${RUN_ACK_TTL_MIN} 分钟，过期后口令重新变回「只拦不放」。`
 							: `无效：${src.error || v.why}\n` +
-								`拿回执：case_state.py ask → 用户回 A/C → case_state.py ack → 重发命令。`),
+								`拿回执：case_state.py ask → 用户回 A → case_state.py ack --ack A → 重发命令；回 C 就换安全做法。`),
 					v.valid ? "info" : "warning",
 				);
 				return;
@@ -1393,12 +1611,12 @@ export default function cmdGuard(pi: any): void {
 			const src = readAckSource();
 			const ackV = validateAck(src.raw, Date.now());
 			const msg =
-				`cmd-guard ${enabled ? "启用" : "停用"}｜GUI 规则 ${[...guiTable.values()].filter((v) => v !== null).length} 条` +
+				`cmd-guard ${session.enabled ? "启用" : "停用"}｜GUI 规则 ${[...guiTable.values()].filter((v) => v !== null).length} 条` +
 				`（规则源=${rulesSource}）｜timeout ${config.probeTimeout}/${config.analysisTimeout || config.defaultTimeout}/${config.heavyTimeout}s` +
 				`｜卡死阈值 ${config.stallSeconds}s｜enforce=${config.enforce} blockGui=${config.blockGui} blockRootScan=${config.blockRootScan}` +
 				`｜口令回执=${ackV.valid ? `有效(letter=${ackV.letter}，${ackV.ageMinutes} 分钟前)` : "无（口令只拦不放）"}` +
 				`｜规则文件 ${fileExists(rulesPath()) ? rulesPath() : "（未建，用内置默认）"}`;
-			ctx?.ui?.notify?.(msg, enabled ? "info" : "warning");
+			ctx?.ui?.notify?.(msg, session.enabled ? "info" : "warning");
 		},
 	});
 }

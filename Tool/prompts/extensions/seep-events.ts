@@ -28,7 +28,9 @@
  *   3. ~/.seep/current-case —— 该文件**内容是一行绝对路径**（case_state.py init 写的机器级指针），
  *      不是目录。血案：以前只认 1/2 两个候选，而 `case_state.py` 把当前案写在 3 上，
  *      于是“开了案子、账却是空的”—— 自动事件账全程空转（第 4 轮评审 P1-4）。
- * 三个候选都不存在（或指针文件读不到/内容不是目录） → **静默跳过**：不创建目录、不报错、
+ * `<cwd>/.seep-case` 必须优先于机器级指针，否则同一进程里的并行会话会把 A 的工具事件
+ * 写进 B 的案件账。三个候选都不存在（或指针文件读不到/内容不是目录） → **静默跳过**：
+ * 不创建目录、不报错、
  * 不打扰（没开案子的普通会话不该被记账）。
  *
  * ── risk 的语义（重要，别读错）────────────────────────────────
@@ -69,33 +71,39 @@ const PENDING_MAX = 256;
  */
 const FLUSH_MS = 5 * 60 * 1000;
 
-/** tool_call 里允许摘录的字段：路径 / 命令 / 查询词，都不含文件正文。 */
+/**
+ * tool_call 里只允许落少量结构化标识。命令行、脚本、代码、查询词和业务参数
+ * 一律只记字符数：它们可能直接包含请求体、脚本正文或客户数据。
+ */
 const SAFE_INPUT_KEYS = [
-	"command",
-	"script",
-	"code",
-	"file_path",
-	"filePath",
-	"path",
-	"target",
-	"pattern",
-	"query",
-	"url",
-	"glob",
-	"description",
 	"action",
-	"name",
-	"host",
-	"port",
-	"case",
-	"args",
 	"id",
 	"level",
 	"status",
 ];
 
-/** 只记长度、绝不记正文的字段（写文件 / 打补丁类工具的正文）。 */
+/** 只记长度、绝不记正文的字段：命令、脚本、查询词、业务参数与写文件正文。 */
 const CONTENT_INPUT_KEYS = [
+	"file_path",
+	"filePath",
+	"path",
+	"glob",
+	"name",
+	"host",
+	"port",
+	"case",
+	"command",
+	"cmd",
+	"script",
+	"code",
+	"args",
+	"input",
+	"query",
+	"url",
+	"target",
+	"pattern",
+	"description",
+	"payload",
 	"content",
 	"text",
 	"oldText",
@@ -107,7 +115,6 @@ const CONTENT_INPUT_KEYS = [
 	"patch",
 	"diff",
 	"bytes",
-	"payload",
 ];
 
 type Risk = "block" | "warn" | null;
@@ -272,9 +279,23 @@ function cwdOf(ctx: any, fallback: string): string {
 	return fallback;
 }
 
+/** 会话主键：优先使用 Pi 的 SessionManager，测试/旧宿主再回退到常见字段。 */
+function sessionIdOf(ctx: any, cwd: string): string {
+	try {
+		const sid = ctx?.sessionManager?.getSessionId?.();
+		if (typeof sid === "string" && sid.trim()) return sid.trim();
+	} catch {}
+	for (const value of [ctx?.sessionId, ctx?.session_id, ctx?.sessionID]) {
+		if (typeof value === "string" && value.trim()) return value.trim();
+	}
+	// 没有会话 ID 的旧宿主只能按 cwd 分区；同一 cwd 下无法安全区分时就宁可合并，
+	// 也不能跨到另一 cwd 的案件账。
+	return `cwd:${path.resolve(cwd || process.cwd())}`;
+}
+
 /** 案例目录不存在 → 整个扩展空转（不创建、不报错）。 */
-function caseExists(cwd: string): boolean {
-	return isDir(caseDirOf(cwd));
+function caseExists(dir: string): boolean {
+	return isDir(dir);
 }
 
 /**
@@ -303,6 +324,8 @@ function enqueue(task: () => Promise<void>): void {
 }
 
 interface EventRow {
+	session_id: string;
+	cwd: string;
 	tool: string;
 	ok: boolean;
 	durMs: number;
@@ -310,22 +333,24 @@ interface EventRow {
 	summary: string;
 }
 
-function record(cwd: string, row: EventRow): void {
+function record(caseDir: string, row: EventRow): void {
 	enqueue(async () => {
 		try {
-			if (!caseExists(cwd)) return;
+			if (!caseExists(caseDir)) return;
 			const line = JSON.stringify({
 				ts: new Date().toISOString(),
 				kind: "event",
 				event: "tool",
 				eid: nextEid(),
+				session_id: row.session_id,
+				cwd: row.cwd,
 				tool: row.tool,
 				ok: row.ok,
 				durMs: row.durMs,
 				risk: row.risk,
 				summary: clip(row.summary, MAX_SUMMARY),
 			});
-			await fs.promises.appendFile(path.join(caseDirOf(cwd), "facts.jsonl"), line + "\n", "utf-8");
+			await fs.promises.appendFile(path.join(caseDir, "facts.jsonl"), line + "\n", "utf-8");
 		} catch {
 			/* 静默 */
 		}
@@ -345,7 +370,7 @@ function summarizeToolInput(name: string, input: any): string {
 			}
 			for (const k of CONTENT_INPUT_KEYS) {
 				const v = (input as Record<string, unknown>)[k];
-				if (typeof v === "string") parts.push(`${k}:${v.length}c(正文不入账)`);
+				if (typeof v === "string") parts.push(`${k}:${v.length}c(值不入账)`);
 			}
 		}
 	} catch {}
@@ -373,14 +398,21 @@ function assessRisk(name: string, input: any): Risk {
 /* ────────────────────── 未结账补账 ────────────────────── */
 
 interface Pending {
+	sessionId: string;
+	cwd: string;
+	caseDir: string;
 	start: number;
 	risk: Risk;
 	summary: string;
 	tool: string;
 }
 
-/** toolCallId → 已开始但还没拿到结果的调用 */
+/** (sessionId, toolCallId) → 已开始但还没拿到结果的调用 */
 const pending = new Map<string, Pending>();
+
+function pendingKey(sessionId: string, toolCallId: string): string {
+	return `${sessionId}\u0000${toolCallId}`;
+}
 
 function keepPendingBounded(): void {
 	try {
@@ -396,13 +428,16 @@ function keepPendingBounded(): void {
  * 把「开了但没等到结果」的调用按 ok=false 结账。
  * @param all true = 会话已结束（agent_end / shutdown），全部结账；false = 只结超过 FLUSH_MS 的
  */
-function flushPending(cwd: string, all: boolean): void {
+function flushPending(sessionId: string, all: boolean): void {
 	try {
 		const now = Date.now();
 		for (const [id, p] of Array.from(pending.entries())) {
+			if (p.sessionId !== sessionId) continue;
 			if (!all && now - p.start < FLUSH_MS) continue;
 			pending.delete(id);
-			record(cwd, {
+			record(p.caseDir, {
+				session_id: p.sessionId,
+				cwd: p.cwd,
 				tool: p.tool,
 				ok: false,
 				durMs: Math.max(1, now - p.start),
@@ -416,19 +451,30 @@ function flushPending(cwd: string, all: boolean): void {
 /* ─────────────────────────── 扩展入口 ─────────────────────────── */
 
 export default function seepEvents(pi: ExtensionAPI) {
-	/** 最近一次看到的 cwd：给 turn_end / agent_end 这类不带 cwd 的钩子兜底 */
-	let lastCwd = "";
+	/** 按会话记录最近 cwd，给 turn_end / agent_end 这类钩子兜底。 */
+	const lastCwdBySession = new Map<string, string>();
+
+	function contextOf(ctx: any): { sessionId: string; cwd: string } {
+		const fallbackSession = sessionIdOf(ctx, "");
+		const cwd = cwdOf(ctx, lastCwdBySession.get(fallbackSession) || process.cwd());
+		const sessionId = sessionIdOf(ctx, cwd);
+		lastCwdBySession.set(sessionId, cwd);
+		return { sessionId, cwd };
+	}
 
 	/* 1. 工具开始：只登记 pending，不落盘（此时还不知道 ok / 耗时） */
 	pi.on("tool_call", async (event: any, ctx: any) => {
 		try {
-			const cwd = cwdOf(ctx, lastCwd || process.cwd());
-			lastCwd = cwd;
-			if (!caseExists(cwd)) return;
-			flushPending(cwd, false);
+			const { sessionId, cwd } = contextOf(ctx);
+			const caseDir = caseDirOf(cwd);
+			if (!caseExists(caseDir)) return;
+			flushPending(sessionId, false);
 			const id = String(event?.toolCallId ?? "") || `no-id-${nextEid()}`;
 			const tool = String(event?.toolName ?? "unknown");
-			pending.set(id, {
+			pending.set(pendingKey(sessionId, id), {
+				sessionId,
+				cwd,
+				caseDir,
 				start: Date.now(),
 				risk: assessRisk(tool, event?.input),
 				summary: summarizeToolInput(tool, event?.input),
@@ -441,15 +487,20 @@ export default function seepEvents(pi: ExtensionAPI) {
 	/* 2. 工具结束：结账一行（ok / durMs / risk / summary 都齐了） */
 	pi.on("tool_result", async (event: any, ctx: any) => {
 		try {
-			const cwd = cwdOf(ctx, lastCwd || process.cwd());
-			lastCwd = cwd;
-			if (!caseExists(cwd)) return;
-			flushPending(cwd, false);
+			const { sessionId, cwd } = contextOf(ctx);
 			const id = String(event?.toolCallId ?? "");
-			const p = id ? pending.get(id) : undefined;
-			if (id && p) pending.delete(id);
-			const tool = String(event?.toolName ?? p?.tool ?? "unknown");
-			record(cwd, {
+			const key = id ? pendingKey(sessionId, id) : "";
+			const p = key ? pending.get(key) : undefined;
+			if (key && p) pending.delete(key);
+			// 先摘掉本次结果，再补结其它已超时调用。否则超过 FLUSH_MS 的长工具
+			// 会先被补记成 ok=false，随后又记一条成功，形成重复账。
+			flushPending(sessionId, false);
+			const caseDir = p?.caseDir ?? caseDirOf(cwd);
+			if (!caseExists(caseDir)) return;
+			const tool = String(event?.toolName || p?.tool || "unknown");
+			record(caseDir, {
+				session_id: p?.sessionId ?? sessionId,
+				cwd: p?.cwd ?? cwd,
 				tool,
 				ok: !event?.isError,
 				durMs: p ? Math.max(1, Date.now() - p.start) : 0,
@@ -462,28 +513,24 @@ export default function seepEvents(pi: ExtensionAPI) {
 	/* 3. 每轮结束：顺手补掉超时未结账的调用（不主动写别的） */
 	pi.on("turn_end", async (_event: any, ctx: any) => {
 		try {
-			const cwd = cwdOf(ctx, lastCwd || process.cwd());
-			lastCwd = cwd;
-			if (!caseExists(cwd)) return;
-			flushPending(cwd, false);
+			const { sessionId } = contextOf(ctx);
+			flushPending(sessionId, false);
 		} catch {}
 	});
 
 	/* 4. 会话结束：所有没等到结果的调用按 ok=false 结账（不会有结果了） */
 	pi.on("agent_end", async (_event: any, ctx: any) => {
 		try {
-			const cwd = cwdOf(ctx, lastCwd || process.cwd());
-			lastCwd = cwd;
-			if (!caseExists(cwd)) return;
-			flushPending(cwd, true);
+			const { sessionId } = contextOf(ctx);
+			flushPending(sessionId, true);
 		} catch {}
 	});
 
 	pi.on("session_shutdown", async (_event: any, ctx: any) => {
 		try {
-			const cwd = cwdOf(ctx, lastCwd || process.cwd());
-			if (!caseExists(cwd)) return;
-			flushPending(cwd, true);
+			const { sessionId } = contextOf(ctx);
+			flushPending(sessionId, true);
+			lastCwdBySession.delete(sessionId);
 		} catch {}
 	});
 }

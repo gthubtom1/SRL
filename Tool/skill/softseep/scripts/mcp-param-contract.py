@@ -32,6 +32,13 @@
 
 from __future__ import annotations
 
+# Shared locator for both source skills and installed copies.
+from pathlib import Path as _RuntimePath
+import sys as _runtime_sys
+_runtime_sys.path.insert(0, str(_RuntimePath(__file__).resolve().parents[2] / 'softseep' / 'scripts'))
+from seep_runtime import repo_root as _seep_repo_root
+
+
 import argparse
 import asyncio
 import glob
@@ -54,16 +61,7 @@ for _s in (sys.stdout, sys.stderr):
         pass
 
 def _repo_root(start):
-    """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
-    d = os.path.abspath(start)
-    for _ in range(8):
-        if os.path.isdir(os.path.join(d, "Tool", "cases")):
-            return d
-        nd = os.path.dirname(d)
-        if nd == d:
-            break
-        d = nd
-    return os.path.abspath(os.path.join(start, "..", "..", "..", ".."))
+    return _seep_repo_root(__file__)
 
 
 ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))

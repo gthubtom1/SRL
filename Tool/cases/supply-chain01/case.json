@@ -10,21 +10,27 @@
   "artifacts": [
     {
       "path": "artifacts/run.json",
-      "sha256": "14452e67a69f9075b8d2d83619719784c4ee558549a64b98d14d4ec035934bca"
+      "sha256": "14452e67a69f9075b8d2d83619719784c4ee558549a64b98d14d4ec035934bca",
+      "size": 4782
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "7750bbb992e9acecbb3b166dd4293a9c5dbfaac5f9c85bdd43989a2553f93073"
+      "sha256": "7a6f75b0eb6b484070f7a5908bb81988d1c93782f4b2644b056d715f53df7690",
+      "size": 194,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "0810dd76b4ce85d5b7c476eab0e8251fdd548cee59912f3bf7d727ada86ffa78",
+      "size": 2427,
+      "kind": "stdout"
     }
   ],
   "lessons": [
-    "跑的是什么：`python Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool/ --max-files 1000 --out Tool/cases/supply-chain01/artifacts/run.json`，rc=0；target.files_scanned=1000、target.truncated=true（扫描被截断）、summary.risks_total=7（全部 medium，0 high/critical）。",
-    "更正（R2 审计）：旧 lessons 声称含 dependency-confusion / version-range，实跑与 artifact 都只有 ci-action-pin / ci-permissions；inventory.locks 也从 `[]` 变为 1 条（供 supply-chain04 案例使用的 package-lock.json）。本条已按本次实跑结果重写，哈希重算。",
-    "覆盖边界：files_scanned 被 `--max-files 1000` 截断（truncated=true），7 条风险只代表这 1000 个文件的 ci-* 规则命中，不能外推为「Tool/ 全量无风险」；要全量结论必须提高 --max-files 或按子目录分批跑并合并。",
-    "结果分布：ci-action-pin 与 ci-permissions 为主，另有 dependency-confusion/version-range；syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失，degraded 已写入产物。",
-    "卡点：只覆盖 Tool/ 前 1000 个文件（truncated=true），未做 registry 实际映射、锁文件 resolved/integrity 全量核对和 CVE 查询。",
-    "下一步：按目录分片全量重跑；把 Actions 固定到 40 位 commit SHA 并补最小 permissions；为私有 scope 明确 registry；再用 syft/osv-scanner 补 SBOM/CVE。",
-    "判据：依赖混淆必须 registry 映射 + 锁文件 resolved/integrity 三者一致；truncated 结果只能写“未覆盖”，不能写“无风险”。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/supply-chain-security/scripts/sc-check.py --path Tool --max-files 1000`，真实 rc=1；原始 JSON stdout 与空 stderr 已登记并绑定 SHA-256。",
+    "本条快照扫描 1000 个文件且 truncated=true，识别 1 个 high SC-001：cases/plugin04/artifacts/repro/unpack/package.json 有依赖，而同目录及祖先目录的 npm lockfile 面为空。",
+    "输出另列出 plugin05 的 package.json；本轮 rule_hits_total=0，degraded 明示 syft/osv-scanner/grype/trivy/cosign/semgrep/docker 缺失。",
+    "outcome=partial：证据范围限于截断后的静态文件快照和当前规则集；完整仓库结论需要分片扫描与 registry/SBOM/CVE/来源证明数据。"
   ],
   "refs": [
     "Tool/skill/supply-chain-security/SKILL.md",
@@ -36,9 +42,57 @@
     "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/01-dependency-confusion.md",
     "Tool/config/supply-chain-security-matrix.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/supply-chain-security/scripts/sc-check.py",
+      "--path",
+      "Tool",
+      "--max-files",
+      "1000"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 1,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "0810dd76b4ce85d5b7c476eab0e8251fdd548cee59912f3bf7d727ada86ffa78"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/supply-chain-security/scripts/sc-check.py",
+          "--path",
+          "Tool",
+          "--max-files",
+          "1000"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 1,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "0810dd76b4ce85d5b7c476eab0e8251fdd548cee59912f3bf7d727ada86ffa78"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

@@ -1,0 +1,22 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "MUTATION-ISOLATION-01",
+  "decision": "superseded",
+  "current_acceptance": false,
+  "review_date": "2026-10-29",
+  "reason": "Historical acceptance is not valid for the current working tree: locked objects changed or referenced evidence is unavailable. Original claims, hashes and reported results are preserved in the archive; this review does not renew independent acceptance.",
+  "historical_receipt": "docs/history/verification/2026-10-29/mutation-isolation-acceptance.json",
+  "historical_receipt_sha256": "03522d4c366d913c9c5842b37fa091f580498f1f293405cdbf904e2e83c737f2",
+  "invalidation": {
+    "missing_references": [
+      "work/goal-recovery/mutation-independent-acceptance.md"
+    ],
+    "changed_locked_objects": [
+      "Tool/scripts/gate.py",
+      "Tool/scripts/mutation.py",
+      "Tool/scripts/preflight.py",
+      "Tool/scripts/test_mutation_isolation.py"
+    ]
+  },
+  "overall_goal_complete": false
+}

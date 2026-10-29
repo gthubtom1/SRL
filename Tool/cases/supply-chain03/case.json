@@ -10,28 +10,37 @@
   "artifacts": [
     {
       "path": "artifacts/ci.json",
-      "sha256": "c68a5bad3029be14ec463f1b9223a044ad24d2dd228e1159282b3f60ce352857"
+      "sha256": "c68a5bad3029be14ec463f1b9223a044ad24d2dd228e1159282b3f60ce352857",
+      "size": 2288
     },
     {
       "path": "artifacts/sc.json",
-      "sha256": "0699184a074d8578de0007df3c9cc8aa2fb0707f06ec470431070345453a4778"
+      "sha256": "0699184a074d8578de0007df3c9cc8aa2fb0707f06ec470431070345453a4778",
+      "size": 1595
     },
     {
       "path": "artifacts/target.json",
-      "sha256": "d949a917a9f2b5782b4a3d8297924a69a6b89e8c88f0293e3119d6e2d535396d"
+      "sha256": "d949a917a9f2b5782b4a3d8297924a69a6b89e8c88f0293e3119d6e2d535396d",
+      "size": 340
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "067e6a1b85e7dd8d79248c5f85e3f38acd91e5077d8f034329de7cbb6604f8a3"
+      "sha256": "72e417b846b8d5bf470167c5f7176b76067a4d3ba79394938c748de89fac72ec",
+      "size": 365,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "06e9982004e02833ce3d043616a6e1f3c8373d11b303193b88825324b9e6058d",
+      "size": 2306,
+      "kind": "stdout"
     }
   ],
   "lessons": [
-    "本次跑到：python Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows --out Tool/cases/supply-chain03/artifacts/ci.json，rc=0；workflows_total=1，findings=2（均 medium action-unpinned，L29/L34）。",
-    "对象：真实 workflow sha256=fe7894d5f9e134f7cf6deaacc3caabeb5aeb92edb6fb0412825166a1b321aed3，repo_commit=57a3bd1ecf5d9945fe14f1a5c7c5c9db58cf1fc6；sc-check.py 对同目录另跑一次 rc=0，输出见 artifacts/sc.json。",
-    "确认的风险链：顶层 permissions 为 contents: write + pull-requests: write，但触发器仅 schedule/workflow_dispatch（受保护分支上下文），因此不构成“不可信 PR 拿写 token”的利用链；确认项是 action tag 可移动。",
-    "边界：只做静态缩进扫描，未验证 GitHub 仓库默认 token 设置、环境保护规则与 secrets 实际作用域；reusable workflow/动态生成权限需人工补看。",
-    "下一步：把 actions/checkout 与 actions/setup-python 固定到 40 位 commit SHA；把写权限下移到 PR 创建 job；用动作 SHA 更新走 Dependabot。",
-    "更正（R2 审计）：01-criteria §4.4 明确「action 未 pin → 疑似」，本案例命中 2 条 unpinned（checkout@v4/setup-python@v5），故 outcome 由 confirmed 降为 partial；只有同时具备「可被投毒的具体触发路径 + 攻击者可控输入」才升 confirmed。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/supply-chain-security/scripts/ci-perm-audit.py --path .github/workflows/upstream-sync.yml`，rc=0；原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "输出 workflows_total=1、findings=2，均为 medium action-unpinned：actions/checkout@v4（L29）与 actions/setup-python@v5（L34）；触发器为 schedule 与 workflow_dispatch。",
+    "证据范围限于 workflow 静态缩进与文件内容；仓库 token 设置、环境保护规则、secrets 作用域和 action 上游内容属于平台侧扩展证据。",
+    "outcome=partial：当前确认项是 action tag 可移动；不可信 PR 到写 token 的利用链需要额外触发路径与攻击者可控输入。"
   ],
   "refs": [
     "Tool/skill/supply-chain-security/SKILL.md",
@@ -43,9 +52,53 @@
     "Tool/mcp/Tool/reverselab/kb/supply-chain/techniques/04-ci-permission-audit.md",
     "Tool/config/supply-chain-security-matrix.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/supply-chain-security/scripts/ci-perm-audit.py",
+      "--path",
+      ".github/workflows/upstream-sync.yml"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "06e9982004e02833ce3d043616a6e1f3c8373d11b303193b88825324b9e6058d"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/supply-chain-security/scripts/ci-perm-audit.py",
+          "--path",
+          ".github/workflows/upstream-sync.yml"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "06e9982004e02833ce3d043616a6e1f3c8373d11b303193b88825324b9e6058d"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

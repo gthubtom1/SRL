@@ -67,19 +67,25 @@ function Get-ToolPath {
         }
     }
 
-    # Attempt auto-bootstrap for frida tools
-    $bootstrapScript = Join-Path $PSScriptRoot '..\..\scripts\bootstrap-reverse.ps1'
-    if (($Name -in @('frida', 'frida-ps', 'frida-ls-devices')) -and (Test-Path -LiteralPath $bootstrapScript)) {
-        Write-Host "INFO: $Name not found, attempting auto-bootstrap (pip install frida-tools)..." -ForegroundColor Yellow
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $bootstrapScript -Capability @('frida') -SkipRefresh
-        $cmd = Get-Command $Name -ErrorAction SilentlyContinue
-        if ($cmd) {
-            Write-Host "INFO: $Name bootstrapped successfully." -ForegroundColor Green
-            return $cmd.Source
+    $acquireScript = Join-Path $PSScriptRoot '..\tool-acquire.py'
+    if (Test-Path -LiteralPath $acquireScript) {
+        $output = @(& python $acquireScript --tool frida --install --json)
+        if ($LASTEXITCODE -ne 0) { throw "Frida acquisition failed: $($output -join [Environment]::NewLine)" }
+        $result = ($output -join [Environment]::NewLine) | ConvertFrom-Json
+        if ($result.verdict -ne 'USABLE' -or $result.identity.ok -ne $true) {
+            throw 'Frida acquisition did not verify the CLI identity.'
         }
-        foreach ($candidate in Get-PythonScriptCandidates -ExecutableName ($Name + '.exe')) {
-            if (Test-Path -LiteralPath $candidate) {
-                return $candidate
+        $cliSteps = @($result.steps | Where-Object {
+            $_.PSObject.Properties['kind'] -and $_.kind -eq 'cli' -and
+            $_.PSObject.Properties['ok'] -and $_.ok -and
+            $_.PSObject.Properties['exe'] -and $_.exe
+        })
+        if ($cliSteps.Count -gt 0) {
+            $executable = [string]$cliSteps[-1].exe
+            if ($Name -eq 'frida' -and (Test-Path -LiteralPath $executable -PathType Leaf)) { return $executable }
+            foreach ($extension in @('.exe', '.cmd', '.bat', '')) {
+                $candidate = Join-Path (Split-Path -Parent $executable) ($Name + $extension)
+                if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
             }
         }
     }
@@ -87,19 +93,9 @@ function Get-ToolPath {
     throw "Missing required CLI tool: $Name — install with: pip install frida-tools"
 }
 
-$fridaLsDevices = Get-ToolPath -Name 'frida-ls-devices'
-$fridaPs = Get-ToolPath -Name 'frida-ps'
-$frida = Get-ToolPath -Name 'frida'
-$python = Get-Command python -ErrorAction SilentlyContinue
-
-if (-not $python) {
-    throw 'Missing required CLI tool: python'
-}
-
-$pythonExe = $python.Source
-
 if ($ListDevices) {
-    & $pythonExe -c "import frida; [print(f'{d.id}`t{d.type}`t{d.name}') for d in frida.enumerate_devices()]"
+    $fridaLsDevices = Get-ToolPath -Name 'frida-ls-devices'
+    & $fridaLsDevices
     exit $LASTEXITCODE
 }
 
@@ -111,6 +107,7 @@ if ([string]::IsNullOrWhiteSpace($target) -and -not $ListProcesses) {
 $deviceFlag = if ($Usb) { '-U' } else { '-H' }
 
 if ($ListProcesses) {
+    $fridaPs = Get-ToolPath -Name 'frida-ps'
     $processArgs = @()
     if ($Usb) {
         $processArgs += '-U'
@@ -122,9 +119,11 @@ if ($ListProcesses) {
     exit $LASTEXITCODE
 }
 
-if (-not (Test-Path -LiteralPath $ScriptPath)) {
+if ([string]::IsNullOrWhiteSpace($ScriptPath) -or -not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) {
     throw "Frida script not found: $ScriptPath"
 }
+
+$frida = Get-ToolPath -Name 'frida'
 
 $fridaArgs = @($deviceFlag)
 if (-not $Usb) {
@@ -138,8 +137,8 @@ if ($Spawn) {
 $fridaArgs += $target
 $fridaArgs += '-l'
 $fridaArgs += $ScriptPath
-if (-not $Pause) {
-    $fridaArgs += '--no-pause'
+if ($Spawn -and $Pause) {
+    $fridaArgs += '--pause'
 }
 
 & $frida @fridaArgs

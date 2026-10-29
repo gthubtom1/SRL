@@ -3,7 +3,7 @@
     "seep": {
       "command": "python",
       "args": [
-        "<SEEP_ROOT>\\Tool\\mcp\\seep_mcp_server.py"
+        "<SEEP_ROOT>/Tool/mcp/seep_mcp_server.py"
       ],
       "env": {
         "PYTHONIOENCODING": "utf-8"
@@ -11,15 +11,14 @@
       "transport": "stdio"
     },
     "ida": {
-      "command": "<IDA_PYTHON>",
+      "command": "python",
       "args": [
-        "<IDA_ROOT>\\Lib\\site-packages\\ida_pro_mcp\\server.py"
+        "<SEEP_ROOT>/Tool/scripts/mcp-launch.py", "--server", "ida"
       ],
       "env": {
         "PYTHONIOENCODING": "utf-8"
       },
       "transport": "stdio",
-      "lifecycle": "eager",
       "requestTimeoutMs": 180000
     },
     "playwright": {
@@ -27,13 +26,10 @@
       "args": [
         "-y",
         "@playwright/mcp@latest",
-        "--extension"
+        "--headless"
       ],
-      "env": {
-        "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "<YOUR_PLAYWRIGHT_TOKEN>"
-      },
       "transport": "stdio",
-      "lifecycle": "eager"
+      "lifecycle": "lazy"
     },
     "js-reverse": {
       "command": "npx",
@@ -43,8 +39,13 @@
       ],
       "transport": "stdio",
       "lifecycle": "lazy"
+    },
+    "x64dbg": {
+      "command": "python",
+      "args": ["<SEEP_ROOT>/Tool/scripts/mcp-launch.py", "--server", "x64dbg"],
+      "transport": "stdio"
     }
   },
-  "_comment_optional": "reverselab 自带 3 个 MCP（可选注册）：ReverseLabToolsMCP / JSHookLocal / GhidraMCP，源码见 share/mcp/Tool/reverselab/tools/skills/mcp/",
-  "_comment_downloads": "各 MCP 依赖的工具来源见 share/docs/DOWNLOADS.md"
+  "_comment": "展示模板：<SEEP_ROOT> 需要替换。AI 安装应调用 setup/merge_agent_config.py --root <仓库根> --agent-dir <选定Agent目录>，从 Tool/config/mcp-servers.json 增量生成并保留用户配置。",
+  "_comment_optional": "IDA/x64dbg 需要对应软件和插件；条目存在不代表已握手。依赖来源见 Tool/docs/DOWNLOADS.md。"
 }

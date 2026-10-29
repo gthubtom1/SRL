@@ -1,0 +1,44 @@
+{
+  "tool": "fw-repro",
+  "version": "1.0.0",
+  "generated_at": null,
+  "file": "Tool/cases/firmware-iot06/target/cramfs.bin",
+  "ok": true,
+  "out_dir": "tmp/r13-five/firmware-output",
+  "size": 4096,
+  "sha256": "1e75d47c5c759bfb964011a4530ce353bcf7fe2377eb59b32b773445dbad4216",
+  "analysed_bytes": 4096,
+  "truncated": false,
+  "formats": [
+    {
+      "type": "cramfs",
+      "offset": 0,
+      "note": "CramFS superblock"
+    }
+  ],
+  "primary": "cramfs",
+  "extraction": {
+    "status": "extracted",
+    "dest": "tmp/r13-five/firmware-output",
+    "attempts": [
+      {
+        "tool": "7z",
+        "rc": 0,
+        "stderr": ""
+      }
+    ],
+    "members": 1,
+    "blocked": []
+  },
+  "rootfs": {
+    "dirs": 1,
+    "files": 1,
+    "bytes": 104,
+    "key_files": [],
+    "findings": [],
+    "top_dirs": [],
+    "truncated": false,
+    "skipped_symlinks": 0
+  },
+  "verdict": "rootfs extracted; no credential/service clue matched -- inspect init scripts and web root manually."
+}

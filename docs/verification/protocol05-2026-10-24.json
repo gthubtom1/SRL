@@ -1,7 +1,7 @@
 {
   "schema": "seep.verification/1",
   "case": "protocol05",
-  "date": "2026-10-24",
+  "date": "2026-10-29",
   "problem": "该案例为本轮为真实目标新建，此前无事实账（baseline = 空账）",
   "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/protocol05",
   "cohorts": {
@@ -12,18 +12,49 @@
       "verdict": "unknown"
     },
     "final": {
-      "claims": 7,
+      "claims": 8,
       "proven": 7,
       "strong": 7,
       "verdict": "pass"
     }
   },
   "source_sha256": {
-    "facts.jsonl": "fb98d09af2160e6b5057eebd23f7127e3bee95213ebe5d4bbba9c0b082c721c5",
-    "artifacts/MANIFEST.sha256": "2155232253d4b6993854392d3e6c19779f4c1a0cc26a3f8bbd7c1514f5af4f70"
+    "artifacts/MANIFEST.sha256": "2155232253d4b6993854392d3e6c19779f4c1a0cc26a3f8bbd7c1514f5af4f70",
+    "facts.jsonl": "70393a2dd2705b223387f2ea90254c3a78ea82ecb1fc755f728ae0e7bd755475"
   },
-  "interpretation": "建立案件 → 逐条实测登记为 observed，背书从 0 起算",
+  "interpretation": "对照原始 reverify 日志完成字节更正：旧 PR05-01 的 703B/452bef76 已 refuted，新增 PR05-01-R1 绑定当前原件 775B/9cd173ba…；其余 6 条 claim 保持 observed/derived，最终为 8 条记录、7 条 proven/strong。",
   "limitations": [
-    "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations"
+    "仅覆盖本文件列出的结论；未验证部分见 case.json 的 limitations",
+    "本次只对照既有原始日志和当前字节更正事实，没有联网、执行目标或新增目标测量；旧 PR05-01 行保留为 refuted 审计记录。"
+  ],
+  "audit_corrections": [
+    {
+      "at": "2026-10-29T09:22:26.315107+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "对照原始 reverify 日志更正 PR05-01：原 703B/452bef76 被 refute，新事实绑定 775B/9cd173ba；旧 claim 保留为历史",
+      "previous_final": {
+        "claims": 7,
+        "proven": 7,
+        "strong": 7,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "fb98d09af2160e6b5057eebd23f7127e3bee95213ebe5d4bbba9c0b082c721c5",
+        "artifacts/MANIFEST.sha256": "2155232253d4b6993854392d3e6c19779f4c1a0cc26a3f8bbd7c1514f5af4f70"
+      },
+      "new_final": {
+        "claims": 8,
+        "proven": 7,
+        "strong": 7,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "2155232253d4b6993854392d3e6c19779f4c1a0cc26a3f8bbd7c1514f5af4f70",
+        "facts.jsonl": "70393a2dd2705b223387f2ea90254c3a78ea82ecb1fc755f728ae0e7bd755475"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
   ]
 }

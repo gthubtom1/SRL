@@ -1,6 +1,6 @@
 # 报告模板总览
 
-> 10 个域各一份，复制到 `work/<case>/report.md` 后填写。只写有证据的结论：
+> 9 个正式域各一份，复制到 `work/<case>/report.md` 后填写。只写有证据的结论：
 > `confirmed`（判据全中且可复跑）/ `candidate`（线索或环境不足）/ `blocked`（失败判据命中）。
 > 单份模板 ≤90 行（五段固定 + 各域技术表）；不要把“疑似”写成“确认”。
 
@@ -59,13 +59,12 @@ work/<case>/
 | web-pentest | `web-pentest.md` | 3/3 对照、越权唯一标记、缓存键歧义 |
 | pwn-crypto | `pwn-crypto.md` | 偏移/保护位、密码回代、崩溃可复现 |
 | firmware-iot | `firmware-iot.md` | 容器偏移/rootfs、J1/J2/J3、升级签名 |
-| ad-cloud | `ad-cloud.md` | ACL/属性复现、证书+TGT、RBAC 绑定 |
 | protocol-plugin | `protocol-plugin.md` | 帧长/CRC、状态机边覆盖、重放响应 |
-| plugin-targets | `plugin-targets.md` | manifest/入口、update_url、asar integrity |
 | forensics-mobile | `forensics-mobile.md` | 四要素、哈希复算、多源时间线 |
 | malware-analysis | `malware-analysis.md` | 静态高≠恶意、IOC 可复现、行为证据 |
 | supply-chain-security | `supply-chain-security.md` | SBOM 触达、CI 权限/pin、resolved/integrity |
-| reverse | `reverse.md` | 入口/符号、OEP/IAT、状态字+UI 三重证据 |
+| apkseep | `apkseep.md` | APK 身份、壳/层归属、补丁最小性、安装后闭环 |
+| softseep | `softseep.md` | 入口/符号、OEP/IAT、状态字+UI 三重证据 |
 
 ## 9 交付前自检
 

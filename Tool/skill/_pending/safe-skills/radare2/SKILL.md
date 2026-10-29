@@ -17,7 +17,7 @@ description: |
 - 需要命令行反汇编、看函数、看字符串、看导入导出、查交叉引用、做 patch
 - 需要写 `radare2` 批处理命令、`-c` 自动化命令、或 `r2pipe` 脚本
 
-如果用户明确要 GUI 逆向、Hex-Rays 风格伪代码、或 IDA 工作流，优先考虑 `ida-reverse`。如果是网页 JS 逆向，优先考虑 `reverse-engineering`。
+如果用户明确要 GUI 逆向、Hex-Rays 风格伪代码、或 IDA 工作流，优先考虑 `ida-reverse`。如果是网页 JS 逆向，优先考虑 `Tool/skill/web-pentest/SKILL.md` 与其 JS 子技能。
 
 ## 先做环境确认
 
@@ -58,13 +58,13 @@ Windows 常见可执行文件：
 调用方式：
 
 ```powershell
-powershell -File "<WORKSPACE>\\Tool\\skills\radare2\scripts\recon.ps1" -TargetPath "C:\path\to\sample.exe"
+powershell -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/radare2\scripts\recon.ps1" -TargetPath "C:\path\to\sample.exe"
 ```
 
 如果需要附带 `r2` 自动分析：
 
 ```powershell
-powershell -File "<WORKSPACE>\\Tool\\skills\radare2\scripts\recon.ps1" -TargetPath "C:\path\to\sample.exe" -RunAnalysis
+powershell -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/radare2\scripts\recon.ps1" -TargetPath "C:\path\to\sample.exe" -RunAnalysis
 ```
 
 ### `references/cheatsheet.md`
@@ -115,7 +115,7 @@ ERROR: Cannot find ...\share\format\dll\*.sdb
 优先直接运行内置脚本：
 
 ```powershell
-powershell -File "<WORKSPACE>\\Tool\\skills\radare2\scripts\recon.ps1" -TargetPath "sample.exe"
+powershell -File "<WORKSPACE>/Tool/skill/_pending/safe-skills/radare2\scripts\recon.ps1" -TargetPath "sample.exe"
 ```
 
 如果只需要手动最小命令，则使用：
@@ -189,7 +189,7 @@ pxa          # 更友好的十六进制视图
 仅当用户明确要求修改文件时使用：
 
 ```powershell
-r2 -w sample.exe
+r2 -w sample.work.exe
 ```
 
 进入后例如：
@@ -198,16 +198,16 @@ r2 -w sample.exe
 s 0x401000
 wa nop
 wa jmp 0x401050
-wq
+q
 ```
 
 常见写操作：
 
 - `wa <asm>`：写汇编
 - `wx <hex>`：写原始字节
-- `wq`：写入并退出
+- `q`：退出；直接写模式的修改已写入副本，不能把退出当提交/回滚
 
-修改前最好先备份原文件。如果用户没提备份，至少提醒一次。
+修改前创建独立工作副本并核原件哈希；原件始终只读。当前写模式与缓存设置须先确认，不能把 q 当恢复原件。
 
 ## 工作流 6：非交互自动化
 
@@ -348,7 +348,7 @@ rax2 -s hello
 - 不要把 `radare2` 当成只有 `aaa` 一个命令的工具
 - 不要在未说明风险时直接写模式打开用户文件
 - 不要在还没做基础侦察前就下结论
-- 不要把网页 JS 逆向误导到这个 skill；那是 `reverse-engineering` 的范围
+- 不要把网页 JS 逆向误导到这个 skill；那是 `Tool/skill/web-pentest/SKILL.md` 与其 JS 子技能 的范围
 
 ## 参考资料
 

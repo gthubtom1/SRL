@@ -5,7 +5,7 @@
 ## 怎么用
 
 1. 先把用户给的 scope、账号、样本、网址、凭据占位写进 `work/<case>/scope.md`。
-2. 用触发词在下面索引里找配方；命中多个时按“输入面”选最窄的一个。
+2. 用触发词在下面索引里找主配方；按实际输入与依赖串接其他配方、领域技能和工具，记录每步的输入输出。
 3. 按配方步骤跑命令，把每次 rc、JSON 字段、证据路径写回案例。
 4. 没有匹配 playbook 时，用 capability 组合现场写一个（≤120 行），不新增域。
 
@@ -19,10 +19,13 @@
 | `apk` | `Tool/skill/apkseep/scripts/capabilities.py` 的 `CAPABILITIES` 键 | `apk:static_dex`、`apk:repack_signed` |
 | `repo` | `Tool/scripts/` 或 `Tool/skill/<domain>/scripts/` 下的脚本名 | `repo:case_state`、`repo:preflight` |
 | `mcp` | `Tool/config/mcp-servers.json` 的 `servers.<id>` | `mcp:playwright`、`mcp:js-reverse` |
+| `probe` | `Tool/capabilities/<id>.json` 的 `scripts`、`maturity` 与 `note` | `probe:site-crawl`、`probe:sign-recompute` |
 
 `repo:apk-decode` 是带子目录的别名，指向 `Tool/scripts/apk/decode.ps1`；其余 `repo:` id 默认等于脚本 stem。
 
 同一个配方只列真正会用到的能力；步骤里出现的脚本必须能在仓库内找到。
+
+`probe` 表示待验证的能力线索；先读能力文件确认实现范围与安装可用性。`reserved: true` 或脚本位于 `_pending/` 时，按说明人工使用源码，不计为已安装的自动能力。索引中的触发覆盖率只证明配方匹配。
 
 ## 索引（24 个）
 
@@ -32,7 +35,7 @@
 | :-- | :-- | :-- |
 | [qinglong-signin](qinglong-signin.md) | 青龙、签到、cron、env、通知 | `repo:case_state` `repo:pcap-summary` `tool:fiddler` `tool:tshark` |
 | [app-daily-task](app-daily-task.md) | APP 每日任务、积分、签到、重放 | `apk:frida_dynamic` `apk:repack_signed` `repo:run_probe` |
-| [multi-account-runner](multi-account-runner.md) | 多账号、池、限速、幂等、批量 | `repo:env-ledger` `repo:check-budget` `repo:case_state` |
+| [multi-account-runner](multi-account-runner.md) | 多账号、池、限速、幂等、批量 | `repo:env-ledger` `repo:budget` `repo:case_state` |
 | [captcha-handling](captcha-handling.md) | 验证码、OCR、滑块、人工 | `repo:temp_ocr` `repo:run_probe` `tool:frida` |
 
 ### Web / 站点 / 后端
@@ -40,7 +43,7 @@
 | 配方 | 触发词 | 核心能力 |
 | :-- | :-- | :-- |
 | [osint-recon](osint-recon.md) | 情报收集、资产测绘、子域枚举、ASN、源站、代码泄露、人员画像 | `repo:kb-query` `repo:web-check` `repo:case_state` `tool:subfinder` `tool:httpx` |
-| [site-clone-1to1](site-clone-1to1.md) | 1:1 复刻、crawl、像素 diff、DOM diff | `tool:katana` `tool:ffuf` `repo:web-check` |
+| [site-clone-1to1](site-clone-1to1.md) | 1:1 复刻、crawl、像素 diff、DOM diff | `probe:site-crawl` `probe:site-rebuild` `probe:visual-diff` `probe:site-accept` |
 | [web-api-sign-reverse](web-api-sign-reverse.md) | Web 签名、补环境、复算、重放 | `repo:web-check` `repo:web-repro` `repo:kb-query` |
 | [backend-rebuild](backend-rebuild.md) | 后端复刻、API 面、协议、切换 | `repo:pcap-summary` `repo:proto-repro` `repo:web-accept` |
 | [protocol-replay](protocol-replay.md) | 私有协议、分帧、状态机、构造请求 | `repo:proto-repro` `repo:pcap-summary` `tool:tshark` |
@@ -51,8 +54,8 @@
 | :-- | :-- | :-- |
 | [license-bypass-deliver](license-bypass-deliver.md) | 授权旁路、补丁、代理 DLL、注入 | `tool:ida` `tool:x64dbg` `repo:patch-verify` |
 | [ui-rebrand](ui-rebrand.md) | UI 改版、去品牌、换文案、换图标 | `tool:resourcehacker` `apk:static_apktool` `repo:patch-verify` |
-| [license-hookup](license-hookup.md) | 自有授权、本地 HMAC、在线票据 | `repo:probe_api` `repo:tls_check` `repo:patch-verify` |
-| [version-migrate](version-migrate.md) | 追版、AOB 滑窗、跨版本 | `repo:migrate` `repo:patch-verify` `tool:ida` |
+| [license-hookup](license-hookup.md) | 自有授权、离线公钥验签、在线票据 | `repo:probe_api` `repo:tls_check` `repo:patch-verify` |
+| [version-migrate](version-migrate.md) | 追版、AOB 滑窗、跨版本 | `repo:case_state` `repo:patch-verify` `tool:ida` |
 
 ### APK / 固件
 

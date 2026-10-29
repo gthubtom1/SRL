@@ -18,15 +18,31 @@
   "artifacts": [
     {
       "path": "artifacts/triage.json",
-      "sha256": "63a48c3b196fecd09038469fd9a47c38927d2842546262adfcdfa468bcff7ea5"
+      "sha256": "63a48c3b196fecd09038469fd9a47c38927d2842546262adfcdfa468bcff7ea5",
+      "size": 6306
     },
     {
       "path": "artifacts/repro.json",
-      "sha256": "47b18c3f608f35a1af2b8b763d04965de59359118000e3be2f4da8cf0651ff1d"
+      "sha256": "47b18c3f608f35a1af2b8b763d04965de59359118000e3be2f4da8cf0651ff1d",
+      "size": 2513
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "7e46f36ee5b618e4fa7bf0fa0817df50b05e7fd50d8aba5f218f9208096fea98"
+      "sha256": "de75aafad1a7535b6d47c2ac379488660cb992158284276dd4c2654b0a90c3e4",
+      "size": 393,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "a552019595b18fed052cb277e6b812fb0c3ad5437d2b0800ef19714ade844a80",
+      "size": 6330,
+      "kind": "stdout"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command2.stdout.txt",
+      "sha256": "cb50d2a83f78500d8770e82fe5815f27e5f4109b3b01680524af22cf1c478136",
+      "size": 2577,
+      "kind": "stdout"
     }
   ],
   "interfaces": {
@@ -54,12 +70,10 @@
     "notes": "未执行：UEFI PE 不是可启动 rootfs；未读取固件卷或 Secure Boot 变量。"
   },
   "lessons": [
-    "跑的是 python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json > artifacts/triage.json，rc=0；随后 fw-repro.py --out-dir work/fw-case04 --json > artifacts/repro.json，rc=0。",
-    "真实识别：sha256=820a15d9...，1346960 字节；PE32+ x86-64，subsystem=16（Windows boot application, UEFI-era），9 个节，.text 熵 6.491，整体熵 6.489。",
-    "误报处理：triage 在 10818/24253/40228/96461 等处报 gzip，并在 18587 报 JFFS2；fw-repro 把 PE 定为主格式，抽取状态记为 not-applicable，避免把压缩资源当固件容器。",
-    "卡点：只有单个 PE 文件，没有固件卷（FV）、没有 db/dbx/KEK/PK 变量导出，也没有 ESP 全量；无法验证 Secure Boot 策略或启动链完整性。",
-    "下一步：在授权主机上导出 UEFI 变量与固件卷（chipsec/uefi-firmware-parser），核对 dbx 是否覆盖该 boot app 的哈希，再做签名链验证。",
-    "边界：PE 节熵和字符串只能说明镜像形态；不等于启动链可信，也不构成 J1/J2/J3。"
+    "2026-10-29 在仓库根目录依次执行 `python -B Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --json`（rc=0）和 `python -B Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot04/input/SecConfig.efi --out-dir tmp/r13-replay/work/firmware-iot04 --json`（rc=0）；两条命令的原始 stdout/stderr 均已登记并绑定 SHA-256。",
+    "实跑识别 sha256=820a15d9746c2877484f203f1d4678001d9a60173b3bfd6bf05884d41bba623e、大小 1346960B、PE32+ x86-64、subsystem=16（Windows boot application, UEFI-era）、9 个节。",
+    "fw-repro 将 PE 定为主格式，抽取状态为 not-applicable；gzip 与 JFFS2 命中保留为候选。",
+    "outcome=partial：证据覆盖单个 PE 镜像形态；Secure Boot 策略和启动链完整性需要 FV、db/dbx/KEK/PK 变量与签名链作为扩展证据。"
   ],
   "tags": [
     "real-firmware",
@@ -76,9 +90,77 @@
     "Tool/skill/firmware-iot/references/05-uefi-and-secure-boot.md",
     "Tool/config/firmware-iot-matrix.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/firmware-iot/scripts/fw-triage.py",
+      "--file",
+      "Tool/cases/firmware-iot04/input/SecConfig.efi",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "a552019595b18fed052cb277e6b812fb0c3ad5437d2b0800ef19714ade844a80"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/firmware-iot/scripts/fw-triage.py",
+          "--file",
+          "Tool/cases/firmware-iot04/input/SecConfig.efi",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "a552019595b18fed052cb277e6b812fb0c3ad5437d2b0800ef19714ade844a80"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/firmware-iot/scripts/fw-repro.py",
+          "--file",
+          "Tool/cases/firmware-iot04/input/SecConfig.efi",
+          "--out-dir",
+          "tmp/r13-replay/work/firmware-iot04",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command2.stdout.txt",
+          "sha256": "cb50d2a83f78500d8770e82fe5815f27e5f4109b3b01680524af22cf1c478136"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command2.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

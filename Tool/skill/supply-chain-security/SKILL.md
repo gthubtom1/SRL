@@ -15,9 +15,9 @@ metadata:
 > SCA 告警 ≠ 漏洞；构建成功 ≠ 可信构建；tag ≠ digest。仅对自有或明确授权的仓库/镜像/流水线操作。
 
 ## 阶段契约（与 softseep 一致，**先判再做**）
-> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→必问三件）。本文件不复制。
-  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
-- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
+- 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
+- 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
 ## 1. 范围与路由（边界）
 
@@ -34,7 +34,7 @@ metadata:
 - 仓库/镜像/流水线清单由 `scope` 声明；投毒、抢注、发布测试包、改生产 CI 按单独授权单执行。
 - CVE 武器化、漏洞利用开发；只做版本/可达性/补丁差异/影响面。
 - 应用层漏洞 → `web-pentest`；APK/固件逆向 → `apkseep`/`firmware-iot`；
-  容器逃逸/云原生 → `ad-cloud`；恶意样本动态分析 → `malware-analysis`。
+  容器逃逸/云原生方法按源码读取 `Tool/skill/_pending/ad-cloud/SKILL.md`（归档参考，未作为宿主技能部署）；恶意样本动态分析 → `malware-analysis`。
 - 许可证/法务合规结论；本技能只列组件、声明与证据。
 
 ## 配方（照这个跑）
@@ -56,7 +56,7 @@ metadata:
 ## 2. 前置检查（三件）
 
 1. **对象**：`git rev-parse HEAD`、镜像 `RepoDigests`/`crane digest`、锁文件 sha256；工作区是否干净。
-2. **授权**：仓库/镜像/CI 账号归属；只读优先；联网查 registry 需单独授权。
+2. **授权**：仓库/镜像/CI 账号归属；只读优先；任务必要的公开 registry 只读查询按已有范围执行；不向外部发送私有包正文或凭据。
 3. **判据**：本次回答“能否被利用”还是“是否符合基线”；两者证据形态不同。
 
 ```bash
@@ -79,7 +79,7 @@ docker image inspect <image> --format '{{.Id}} {{.RepoDigests}}'
 | 安装脚本 | 每条安装期命令有来源/必要性；下载有 hash | 有 `postinstall` 未读内容 | manifest 原文 + URL + hash |
 | CI 权限 | 显式最小 permissions；写权限只在发布 job | 顶层 `write-all` 但触发器受控 | `ci.json` 的 permissions + 行号 |
 | CI 触发 | 不可信触发不接触 secrets/写 token；不 checkout PR head | 只命中 `pull_request_target` 关键字 | triggers/checkout_refs/secrets_refs |
-| CI 凭据面 | 变量名与 secrets 名单交集 + 一次独立只读校验 rc=0（或 runner/OIDC/cache 任一提取面判据成立） | 只有 `***` 掩码/只有高熵串/token 有效但无 job | `ci.json` + run id + 变量名 + 指纹 + 校验 rc |
+| CI 凭据面 | 不可信输入→job 权限/secret 引用→可达 sink 的代码与配置链；必要时用合成 canary 证明 | 只有变量名/掩码/高熵串，不能写真实凭据已泄露或可用 | `ci.json` + run id + 变量名/授权决策 + canary 结果；不提取或验证真实凭据 |
 | 制品来源 | digest 一致 + 签名 identity/issuer 匹配 + attestation subject 一致 | 只有签名 rc=0 或只有 tag | cosign 输出 + Rekor + attestation |
 
 完整表（24 行，含误报风险）：`references/01-criteria.md`。
@@ -90,7 +90,7 @@ docker image inspect <image> --format '{{.Id}} {{.RepoDigests}}'
 - 只有 tag 没有 digest；SBOM 对不上 commit/digest。
 - 锁文件缺 integrity 却宣称“可复现构建”。
 - 只凭 `pull_request_target` 关键字命中，未核对 checkout 内容、job 权限与 secrets 作用域。
-- 只看到 secrets 变量名/`***` 掩码，或只有 runner/OIDC token “有效”，就写“凭据可用”（缺一次独立只读校验）。
+- 只看到 secrets 变量名/`***` 掩码，或只有 runner/OIDC token “有效”，就写“凭据可用”（缺授权数据流/合成 canary 证据）；不为补证读取或试用真实 token。
 - 只看到私有 scope 名，未验证 registry 的实际解析结果。
 - 签名/来源未验证，或用“能构建”代替“可信构建”。
 - 扫描 `truncated=true`、`degraded[]` 非空、`missing_tools` 含 SCA/签名工具，却写“无风险”。
@@ -224,10 +224,10 @@ cosign verify-attestation <image> --type slsaprovenance
 ## 11. 硬判据（交付前自检）
 
 - [ ] 对象钉到 commit/digest/锁文件 sha256，工具与版本可复现。
-- [ ] SBOM 覆盖直接+传递依赖，能追到锁文件；差异有解释。
+- [ ] 要求 SBOM 时覆盖直接+传递依赖并解释差异；仅指定小范围代码审查不强制另造 SBOM。
 - [ ] 高危告警有可达性结论与证据；不可达有原因。
-- [ ] 依赖/CI/镜像至少一条真实风险链，且给最小修复。
-- [ ] 签名/来源/权限有证据，未把“能构建”当“可信构建”。
+- [ ] 风险链有证据与最小修复；未确认风险可按已查范围完成，保留负结果、unknown 与覆盖限制，不能为了验收编造风险。
+- [ ] 本次涉及的签名/来源/权限有证据；未验证部分写明，未把“能构建”当“可信构建”。
 - [ ] 未推送恶意包、未改生产流水线、未外泄凭据、未越权扫描。
 
 > 边界：不投毒、不抢注、不 CVE 武器化、不代法务下结论；只做自有/授权对象的证据链。
@@ -236,4 +236,4 @@ cosign verify-attestation <image> --type slsaprovenance
 
 本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
 
-- `_pending/doc-hygiene/SKILL.md` —— 审计报告与文档治理
+- `Tool/skill/_pending/doc-hygiene/SKILL.md` —— 审计报告与文档治理

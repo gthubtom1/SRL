@@ -72,7 +72,8 @@ U-Boot> tftpboot 0x81000000 dump.bin
 
 ### 2.2 UART 登录判据
 
-- 有账号密码：先试固件里找到的默认/硬编码凭据（`/etc/passwd`、`/etc/shadow`、NVRAM 默认值）。
+- 有账号密码：只使用用户提供的自有测试凭据或明确公开的实验室默认值；不读取
+  `/etc/shadow`、NVRAM/云端凭据或真实私钥来补登录条件。
 - 无密码提示：可能直接是 root shell，记录提示符与 `id` 输出。
 - 登录后先只读采集：`cat /proc/cpuinfo`、`cat /proc/mtd`、`mount`、`ps w`、`netstat -lntp`。
 - 判据：拿到交互 shell，并能执行 `id`/`uname -a`；这才是 J1 成立。
@@ -178,23 +179,23 @@ sigrok-cli -d <driver>:conn=/dev/ttyACM0 --config samplerate=1m \
 
 ```bash
 # 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
-python Tool/scripts/tool-acquire.py --radio-only --json                  # ≤10s，不需要 --target
-python Tool/scripts/tool-acquire.py --radio-only --out work/<case>/radio.json
-python Tool/scripts/tool-acquire.py --self-test                          # 离线自检：只测判定/解析函数，无硬件访问
+python Tool/scripts/tool-acquire.py --tool <radio_tool_id> --json        # 逐项能力探针，不需要 --target
+python Tool/scripts/tool-acquire.py --list --json                        # 先列出声明的工具 id
+python Tool/scripts/tool-acquire.py --selftest                           # 离线自检：只测判定/解析函数，无硬件访问
 ```
 
 探针只做能力枚举：**不进入 monitor mode、不调用主动扫描、不发送任何射频、不改网卡状态**，
-缺命令/缺权限/超时都返回结构化 `blocked`，不抛裸栈。结果挂在探针矩阵的
-`probes[name=radio]` 里（与 baseline/external/network 同一份 JSON）。
+缺命令/缺权限/超时都应返回结构化 `blocked`，不抛裸栈。当前 `tool-acquire.py`
+按工具 id 返回独立 JSON；若 `--list` 中没有射频工具 id，就把这项能力记成
+`blocked_at=tool-missing` 的配置缺口，不能伪造一次“radio 探针”。
 
 | 字段 | 含义 |
 | :-- | :-- |
-| `wifi` | `{present, monitor_capable, iface, adapters}`；`monitor_capable=false/true/null` 三态，`null` = 未判定（不是不支持） |
-| `bluetooth` | `{present, adapters, stack}`；`present` 只认适配器/控制器，枚举器与服务设备不算 |
-| `subghz` | SDR / sub-GHz / 802.15.4 / BLE sniffer 的 USB VID:PID 命中（RTL-SDR `0bda:2838`、HackRF `1d50:6089`、CC2531 `0451:16a8`、nRF52 `1915:520f` 等） |
-| `nfc` | Proxmark3 `9ac4:4b8f`、ACR122U `072f:2200`、PN533 `04cc:2533` 等读卡器命中 |
+| 工具结果 | 以 `tool-acquire --tool <id> --json` 的 `status/evidence/blocked_at` 为准；不同工具 id 的解析字段可能不同 |
+| `present` | 只表示对应适配器/控制器在场，不表示 monitor、注入或发射能力已经验证 |
+| `VID:PID` | 只作硬件线索；必须结合工具身份探针与现场设备名复核 |
 | `blocked_at` / `reason` | 卡在哪一步 + 人话原因（见下表） |
-| `read_only` | 恒为 `true`：本探针不做任何模式切换或发射 |
+| 只读边界 | 探针不进入 monitor mode、不主动扫描、不发送射频、不改网卡状态 |
 
 `blocked_at` 取值与处置：
 
@@ -213,7 +214,7 @@ python Tool/scripts/tool-acquire.py --self-test                          # 离�
 两条使用纪律：
 
 1. **枚举到 ≠ 能打**：`present=true` 只说明接口在场。BLE 能不能注入、网卡能不能注入、NFC 能不能克隆，都要另做验证（见各节判据）。
-2. **结论要带 `radio.json`**：报告里写清网卡型号/`iface`/`monitor_capable`/`blocked_at`，否则别人复跑不出来。
+2. **结论要带原始探针 JSON 或只读枚举输出**：写清网卡型号/`iface`/能力状态/`blocked_at`，否则别人复跑不出来。
 
 ### 0. 判据总表（先看这张，再决定动不动硬件）
 
@@ -396,5 +397,4 @@ cmp -s spi-1.bin spi-2.bin && echo backup-consistent || echo DO-NOT-WRITE
 
 | 检查 | 通过 | 不通过 |
 | --- | --- | --- |
-| 串口 | 日志可读，出现提示符/login | 乱码 → 电压/波特率/交叉 |
-| JTAG | `scan_chain` 有 IDCODE | 无 → VREF/速率/引脚 |
+| 串口 / JTAG | 串口日志可读并出现提示符/login；`scan_chain` 返回 IDCODE | 串口乱码→电压/波特率/交叉；无 IDCODE→VREF/速率/引脚 |

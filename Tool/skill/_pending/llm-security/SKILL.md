@@ -9,6 +9,8 @@ metadata:
   hard_gates: "授权与隔离 / 可复现输入 / 行为差异有证据 / 影响面可界定"
 ---
 
+> **路由范围**：本文件为按需子技能，不是第十领域，不宣称旧 R 编号已注册。按具体目标由九领域主域调用，证据返回同一项目。阴性结果可完成有界评估；不能强求发现漏洞或实际提权。真实凭据/私钥不读取、不提取、不试用；权限链用配置、审计元信息或合成 canary 验证。
+
 # llm-security — LLM / AI Agent 安全
 
 > 只回答一件事：**一段不可信内容能否让模型/Agent 做出超出预期的动作，证据是什么，边界在哪。**
@@ -29,7 +31,7 @@ metadata:
 - 纯 Web/API 漏洞（SQLi/XSS/SSRF 打应用层）→ **R20 / web-pentest**。
 - 二进制逆向、脱壳 → `ida-reverse`、`unpack-loop`；固件/IoT → `firmware-iot`。
 - 模型/包/依赖投毒的全供应链面 → `supply-chain-security`。
-- 路由：R31（llm-security）；`Tool/skill/<pack>/pack.json` 为单一事实源。
+- 路由：web/供应链等主域按目标读取本子技能；正式领域以 pack 注册表为准。
 
 ### 前置（三件）
 
@@ -274,7 +276,7 @@ python Tool/skill/_pending/llm-security/scripts/probe-agent.py --fixture work/<t
 ## 12. 验收清单
 
 - [ ] 授权范围、隔离环境、模型版本、系统提示哈希齐全。
-- [ ] 至少一条“输入→行为差异→工具/数据影响”的可复现链（含 `call_id`/JSON-RPC 帧）。
+- [ ] 成立的影响链有可复现输入/行为差异/受控 sink；未成立时保留负例和覆盖，不强求攻击成功。
 - [ ] 直接与间接注入各测过（三条间接向量；不涉及的写明覆盖范围）。
 - [ ] 工具权限/审批/MCP 供应链有清单与风险结论。
 - [ ] `probe-agent.py --self-test` rc=0；`--fixture` 结论与人工判定一致或已说明差异。

@@ -17,7 +17,7 @@
     python Tool/scripts/preflight.py            # 全量（含 verify.ps1，约 2 分钟）
     python Tool/scripts/preflight.py --fast     # 跳过 verify.ps1（约 20 秒）
     python Tool/scripts/preflight.py --json     # 机器可读
-退出码：0 = 全绿；1 = 有 FAIL
+退出码：0 = 无失败或提示；1 = 有 FAIL；2 = 无 FAIL 但有提示/豁免/未验证项
 """
 from __future__ import annotations
 
@@ -42,11 +42,13 @@ if sys.platform == "win32":
         pass
 
 EXCLUDE_DIRS = {".git", "node_modules", ".next", "__pycache__", ".venv"}
-SKIP_REF_DIRS = ("work", "Tool/mcp/Tool/safe", "Tool/upstream", "Tool/mcp/Tool/reverselab",
+SKIP_REF_DIRS = ("tmp", "work", "Tool/mcp/Tool/safe", "Tool/upstream", "Tool/mcp/Tool/reverselab",
                  "破甲卡生成", "Tool/cases", "docs/audit")
 TEXT_EXT = {".md", ".ps1", ".sh", ".py", ".json", ".jsonc", ".yml", ".ts", ".mjs"}
 
 results = []   # (section, name, ok, detail[, level])
+
+_SOURCE_FIRST_PARTY_CACHE = None   # 一次 preflight 只采一次 first-party 快照
 
 ALLOW_PATH = os.path.join(TOOL, "scripts", "preflight-allow.json")
 
@@ -66,6 +68,29 @@ def load_allow():
         return {}
 
 
+def read_text_file(path, encoding="utf-8", errors="strict"):
+    with open(path, encoding=encoding, errors=errors) as stream:
+        return stream.read()
+
+
+def read_binary_file(path):
+    with open(path, "rb") as stream:
+        return stream.read()
+
+
+def load_json_file(path, *, encoding="utf-8"):
+    """Parse a JSON file without leaking its handle when the caller only needs data."""
+    return json.loads(read_text_file(path, encoding=encoding))
+
+
+def agent_root_path():
+    """Resolve the active deployment root without writing to the user profile."""
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    from lib.runtime_root import resolve_agent_root  # noqa: PLC0415
+    return resolve_agent_root(env=os.environ)
+
+
 def add(section, name, ok, detail="", level=None):
     """登记一条检查结果。
 
@@ -73,7 +98,7 @@ def add(section, name, ok, detail="", level=None):
     ★ 为什么需要它：有些项确实**不绿**但并不属于交付能力（例如仓库卫生、
       文档承诺了但未实现的生成器）。以前只能硬写成 PASS 或写成 FAIL，
       前者是假绿、后者让真 FAIL 淹在噪声里。WARN/INFO 一律 ok=True，
-      因此**不影响退出码**，只是打印时用 [WARN]/[INFO] 标出来。
+      它们不计为 FAIL；main 会将提示/豁免/未验证与无提示通过区分，返回 2。
     """
     rec = {"section": section, "name": name, "ok": bool(ok), "detail": detail}
     if level:
@@ -117,7 +142,7 @@ def check_dangling():
         if "/_archived/" in _pn or _pn.startswith("Tool/prompts/agents/_archived/"):
             continue
         try:
-            text = open(os.path.join(ROOT, p), encoding="utf-8", errors="replace").read()
+            text = read_text_file(os.path.join(ROOT, p), errors="replace")
         except Exception:
             continue
         text = text.replace("%20", " ")          # 徽章 URL 里的 %20 会被误当成"空格+数字"
@@ -148,7 +173,7 @@ def check_dangling():
 def actual_numbers():
     tools = len(re.findall(
         r"^@server\.tool\(\)",
-        open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read(),
+        read_text_file(os.path.join(TOOL, "mcp", "seep_mcp_server.py")),
         re.M))
     kb = sum(1 for dp, dn, fn in os.walk(os.path.join(TOOL, "mcp", "Tool", "reverselab", "kb"))
              for f in fn if f.endswith(".md"))
@@ -162,6 +187,70 @@ def actual_numbers():
         if os.path.isfile(os.path.join(sd, n, "SKILL.md")):
             skills += 1
     return {"tools": tools, "kb": kb, "manual": manual, "skills": skills}
+
+
+def _load_source_inventory():
+    """加载**共享**清单模块（唯一计数真相源）；拿不到返回 None（不得回退到本地 walk）。"""
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    try:
+        from lib import source_inventory  # noqa: PLC0415
+        return source_inventory
+    except Exception as _exc:  # noqa: BLE001
+        try:
+            import importlib.util
+            sp = os.path.join(HERE, "lib", "source_inventory.py")
+            spec = importlib.util.spec_from_file_location("seep_source_inventory", sp)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod
+        except Exception:  # noqa: BLE001
+            return None
+
+
+def source_first_party():
+    """(snapshot|None, limit|None, rc, 说明)。**不跑子进程、不解析文本**——直接问共享函数。
+
+    rc 语义（与 preflight 其它项一致）：0 = 计数可用且未超；1 = 已超限（项目真超，不是工具坏）；
+    2 = 信息不全/未验证（不得当绿）。
+
+    ★ 进程内缓存：一次 preflight 只采一次快照。并发任务在写盘时，两处各采一次会出现
+      「表格对账 1007 / 功能项 1009」这种自相矛盾；同一份报告必须同一个快照。
+    """
+    global _SOURCE_FIRST_PARTY_CACHE
+    if _SOURCE_FIRST_PARTY_CACHE is not None:
+        return _SOURCE_FIRST_PARTY_CACHE
+    _SOURCE_FIRST_PARTY_CACHE = _source_first_party_uncached()
+    return _SOURCE_FIRST_PARTY_CACHE
+
+
+def _source_first_party_uncached():
+    limit = 950
+    mod = _load_source_inventory()
+    if mod is None:
+        return None, limit, 2, "加载 lib/source_inventory.py 失败（不允许回退到本地 walk）"
+    try:
+        inv = mod.inventory(ROOT)
+    except Exception as _exc:  # noqa: BLE001 —— 清单不可用 ≠ 数字为 0
+        return None, limit, 2, "清单不可用：%s" % str(_exc)[:160]
+    if inv.get("mode") == "unverified":
+        return None, limit, 2, "未验证：%s" % (inv.get("mode_reason") or "无原因")
+    c = inv["counts"]
+    n = int(c["first_party"])
+    note = ("first_party=%s thirdparty_input=%s raw_included=%s policy=%s mode=%s stable=%s tracked=%s untracked=%s 排除=%s"
+            % (c.get("first_party"), c.get("thirdparty_input"), c.get("included"),
+               inv.get("policy"), inv.get("mode"), inv.get("stable"),
+               c.get("tracked"), c.get("untracked"), c.get("excluded")))
+    # F1/F2：**完整性**独立于数字。缺 tracked / 未物化 gitlink ⇒ INCOMPLETE，不得判绿。
+    if not inv.get("source_complete", True):
+        miss = [e.get("path") for e in (inv.get("missing_tracked") or [])]
+        uns = [e.get("path") for e in (inv.get("unsupported") or [])]
+        detail = "；".join([x for x in (
+            ("missingTracked=%d %s" % (len(miss), ", ".join(miss[:3]))) if miss else "",
+            ("unsupported=%d %s" % (len(uns), ", ".join(uns[:3]))) if uns else "") if x])
+        return None, limit, 2, ("INCOMPLETE：实际存在=%d，但 %s —— 不得当成完整清单"
+                               % (n, detail)) + "；" + note
+    return n, limit, (0 if n <= limit else 1), note
 
 
 def check_numbers(fast):
@@ -183,7 +272,7 @@ def check_numbers(fast):
         if not os.path.isfile(fp):
             continue
         try:
-            text = open(fp, encoding="utf-8", errors="replace").read().replace("%20", " ")
+            text = read_text_file(fp, errors="replace").replace("%20", " ")
         except Exception:
             continue
         for pat, key in pats:
@@ -191,18 +280,42 @@ def check_numbers(fast):
                 n = int(m.group(1))
                 if n != a[key]:
                     claims.append("%s: %s 写 %d，实际 %d" % (p, key, n, a[key]))
-    # BASELINE-FREEZE 的 first-party 文件数必须等于 check-budget 实测（防口径漂移）
+    # BASELINE-FREEZE 的 first-party 数字必须与**共享清单**实测一致（防口径漂移）。
+    # ★ 2026-10-27 #43：#7 表格里的「当前值」改为**本次 snapshot 记录**，读取走
+    #   `lib/source_inventory.py`（与 budget.py 同一个函数），不再各自算一遍。
+    #   写死一个恒绿数字是禁止项（REQUIREMENTS.md 的基线规则）；所以这里只允许两种写法：
+    #   (a) 表格里留 `1007（snapshot 2026-10-27）` 之类带日期的观测值；
+    #   (b) 完全不写当前值 → 该项只对账「上限」而不假装知道实际值，标 INFO。
     bf = os.path.join(ROOT, "MANUAL", "BASELINE-FREEZE.md")
-    cb = os.path.join(TOOL, "scripts", "budget.py")
-    if os.path.isfile(bf) and os.path.isfile(cb):
+    if os.path.isfile(bf):
         try:
-            btxt = open(bf, encoding="utf-8", errors="replace").read()
-            mb = re.search(r"first-party[^|]*\|\s*(\d+)\s*\|", btxt)
-            _rc, bout = run([sys.executable, cb], timeout=120)
-            mc = re.search(r"first-party[^0-9]*(\d+)\s*/", bout)
-            if mb and mc and int(mb.group(1)) != int(mc.group(1)):
-                claims.append("BASELINE-FREEZE: first-party 写 %s，实测 %s"
-                              % (mb.group(1), mc.group(1)))
+            btxt = read_text_file(bf, errors="replace")
+            mb = re.search(r"first-party[^|]*\|([^|]*)\|\s*\**\s*(\d+)\s*\**\s*\|", btxt)
+            _snap, _limit, _rc2, _bout = source_first_party()
+            if mb:
+                claim_cell = mb.group(1)
+                mc = re.search(r"(\d+)", claim_cell)
+                _snapshot_marked = "snapshot" in claim_cell.lower()
+                if mc and _snap is not None and not _snapshot_marked \
+                        and int(mc.group(1)) != int(_snap):
+                    # 写死的“当前值”一旦与实算不符 = 口径漂移（必须对账）
+                    claims.append("BASELINE-FREEZE: first-party 写 %s，实测 snapshot %s"
+                                  % (mc.group(1), _snap))
+                elif _snap is None:
+                    # 清单未验证：既不能当绿，也不能假装知道实际值。
+                    add("2 数字", "BASELINE first-party 当前值", True,
+                        "WARN 未验证（%s）：本项不可判定" % (_bout or "无原因"),
+                        level="WARN")
+                elif _snapshot_marked or mc is None:
+                    # 只声明了一个**带日期的观测快照**（或根本不声明）：本项只报告不判错，
+                    # 以免“上次快照数”变成又一个要去追的假绿基线（REQUIREMENTS.md 的基线规则）。
+                    add("2 数字", "BASELINE first-party 当前值", True,
+                        "声明为 snapshot（不追写实时值）：claim=%s 实测=%s" % (
+                            (mc.group(1) if mc else "未声明"), _snap),
+                        level="INFO")
+                if int(mb.group(2)) != _limit:
+                    claims.append("BASELINE-FREEZE: first-party 上限写 %s，预算表阈值 %s"
+                                  % (mb.group(2), _limit))
         except Exception as _exc:  # noqa: BLE001
             claims.append("BASELINE 对账失败: %s" % str(_exc)[:40])
 
@@ -223,7 +336,7 @@ def check_numbers(fast):
                 continue
             fp_ = os.path.join(root_, f_)
             try:
-                t_ = open(fp_, encoding="utf-8", errors="replace").read()
+                t_ = read_text_file(fp_, errors="replace")
             except Exception:
                 continue
             rel_ = os.path.relpath(fp_, ROOT).replace(os.sep, "/")
@@ -233,12 +346,12 @@ def check_numbers(fast):
 
     # 版本身份：README×3 的 Release 徽章必须等于 VERSION
     try:
-        ver_ = open(os.path.join(ROOT, "VERSION"), encoding="utf-8").read().strip()
+        ver_ = read_text_file(os.path.join(ROOT, "VERSION")).strip()
         for rf in ("README.md", "README.zh.md", "README.en.md"):
             rp_ = os.path.join(ROOT, rf)
             if not os.path.isfile(rp_):
                 continue
-            rt_ = open(rp_, encoding="utf-8", errors="replace").read()
+            rt_ = read_text_file(rp_, errors="replace")
             for mm in re.finditer(r"Release-v(\d+\.\d+\.\d+)", rt_):
                 if mm.group(1) != ver_:
                     claims.append("%s: Release 徽章写 v%s，VERSION 是 %s"
@@ -273,11 +386,10 @@ def run(cmd, timeout=600):
 
 def check_functional(fast):
     py = sys.executable
-    # ★ 预算必须用真口径：无参版 budget.py 永远 rc=0，会把「可控制小计超 3.3 倍、
-    #   强制语句 65 > 崩塌线 45」报成「全部在预算内」（PLAN-OPTIMIZATION §0 F2）。
-    #   带 --prompt --ceiling 8000 才会按锚点判超支并非 0 退出。
+    # 仓库文件预算与常驻提示词预算分开；这里沿用可控制层默认 3500，
+    # 宿主基座只报告。豁免仍由下方的显式配置与硬上限决定。
     _rc, _bout = run([py, os.path.join(TOOL, "scripts", "budget.py"),
-                      "--prompt", "--ceiling", "8000"])
+                      "--prompt"])
 
     def _pick(pred):
         for _ln in (_bout or "").splitlines():
@@ -311,13 +423,13 @@ def check_functional(fast):
                 break
     _sep = chr(10)
     if _rc == 0:
-        add("4 功能", "budget（--prompt --ceiling 8000）", True,
+        add("4 功能", "budget（--prompt，可控制层默认 3500）", True,
             _sep.join(_key) if _key else "在预算内")
     elif _w and _total is not None and _total <= int(_w.get("hard_cap") or 0):
-        # 不得因“已豁免”就只说“没事”：数字仍必须点名，并标出它仍在恶化。
+        # 豁免仍需报告实测数字；没有历史对比时不声称“仍在恶化”。
         _worse = ""
         if _mand is not None:
-            _worse = _sep + ("[已豁免但仍在恶化：可控制层 %d > 3500、强制语句 %d > 43]"
+            _worse = _sep + ("[已豁免：可控制层 %d；同时生效强制语句 %d 条]"
                              % (_total, _mand))
         add("4 功能",
             "budget（已豁免：用户明确不以此止损；硬上限 %d）" % int(_w["hard_cap"]),
@@ -329,8 +441,27 @@ def check_functional(fast):
         _extra = ""
         if _w and _total is not None:
             _extra = _sep + ("（豁免存在但总量 %s 超硬上限 %s → 仍判红）" % (_total, int(_w["hard_cap"])))
-        add("4 功能", "budget（--prompt --ceiling 8000，超预算即 FAIL）", False,
+        add("4 功能", "budget（--prompt，可控制层超预算即 FAIL）", False,
             ("rc=%d" % _rc) + (_sep + _sep.join(_key) if _key else _sep + "（输出里没有小计/崩塌行）") + _extra)
+
+    # ★ 2026-10-27 #43：仓库反臃肿预算（first-party 文件数）单独一项，**与提示词预算无关**。
+    #   以前 preflight 只跟 budget.py 的 stdout 对账，budget.py 自己有两个真相源（budget 与
+    #   preflight 各算一遍）。现在两边都叫 `source_first_party()` / `inventory()`。
+    #   口径区分（要紧）：
+    #     rc=0 → 计数可用且未超 → PASS
+    #     rc=1 → **项目真的超 950** → 仍计为 FAIL（不许假绿）
+    #     rc=2 → 信息不全/未验证 → **FAIL**（不是静默 PASS；详情里写清为何）
+    #   另：本仓自身 OVER 不影响其它测试能力；功能用例请用 `--json` 的 counts 区分。
+    _sp_n, _sp_limit, _sp_rc, _sp_note = source_first_party()
+    if _sp_n is None:
+        add("4 功能", "反臃肿预算（first-party 文件）", False,
+            "rc=2 未验证：%s —— 不计为通过" % _sp_note)
+    elif _sp_n <= _sp_limit:
+        add("4 功能", "反臃肿预算（first-party 文件）", True,
+            "%d / %d · %s" % (_sp_n, _sp_limit, _sp_note))
+    else:
+        add("4 功能", "反臃肿预算（first-party 文件，超限即 FAIL）", False,
+            "%d / %d 超 %d · %s" % (_sp_n, _sp_limit, _sp_n - _sp_limit, _sp_note))
 
     items = [
         ("routing-coherence", [py, os.path.join(TOOL, "scripts", "route.py"), "--check"]),
@@ -379,11 +510,22 @@ def check_assets():
         r = subprocess.run([sys.executable, os.path.join(TOOL, "scripts", "route.py"),
                             "--check", "--json"], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=120)
-        j = json.loads((r.stdout or "{}").strip() or "{}")
-        bad = j.get("problems") or []
-        add("5 资产", "路由自洽（pack.json 唯一事实源，0 死路由）", not bad,
-            f"packs={j.get('packs')} routes={j.get('routes')} dead={j.get('dead')}"
-            if not bad else "；".join(bad)[:160])
+        j = json.loads(r.stdout)
+        if not isinstance(j, dict):
+            raise ValueError("route check result is not an object")
+        bad = j.get("problems")
+        valid = (isinstance(bad, list)
+                 and all(type(j.get(key)) is int and j[key] > 0
+                         for key in ("packs", "routes"))
+                 and type(j.get("dead")) is int and j["dead"] == 0)
+        ok = r.returncode == 0 and valid and not bad
+        detail = (f"rc={r.returncode} packs={j.get('packs')} "
+                  f"routes={j.get('routes')} dead={j.get('dead')}")
+        if not valid:
+            detail += "；路由检查结果缺件或字段无效"
+        if isinstance(bad, list) and bad:
+            detail += "；" + "；".join(str(item) for item in bad)[:160]
+        add("5 资产", "路由自洽（pack.json 唯一事实源，0 死路由）", ok, detail)
     except Exception as e:
         add("5 资产", "路由自洽（pack.json）", False, str(e)[:80])
 
@@ -499,7 +641,7 @@ def check_portable():
         if _is_gitignored(rel):
             continue
         try:
-            text = open(fp, encoding="utf-8", errors="replace").read()
+            text = read_text_file(fp, errors="replace")
         except Exception:
             continue
         for m in DRIVE_RE.finditer(text):
@@ -537,7 +679,7 @@ def check_ps_encoding():
                 if not f.lower().endswith(".ps1"):
                     continue
                 fp = os.path.join(dp, f)
-                raw = open(fp, "rb").read()
+                raw = read_binary_file(fp)
                 if any(b > 127 for b in raw) and not raw.startswith(b"\xef\xbb\xbf"):
                     bad_bom.append(os.path.relpath(fp, ROOT).replace(os.sep, "/"))
     if bad_bom:
@@ -572,14 +714,18 @@ def check_ps_encoding():
         out = subprocess.run([ps, "-NoProfile", "-Command", cmd], capture_output=True, text=True,
                              encoding="utf-8", errors="replace", timeout=180)
         msg = (out.stdout or "").strip()
-        add("6 可移植", "ps1 编码可被 PS5.1 解析", not msg, msg[:160] or "全部 .ps1 解析通过")
+        detail = msg[:160] or "全部 .ps1 解析通过"
+        if out.returncode != 0:
+            detail = "解析器退出 rc=%d；检查未完成" % out.returncode
+        add("6 可移植", "ps1 编码可被 PS5.1 解析", out.returncode == 0 and not msg, detail)
     except Exception as e:
         # ★ P1-3：解析器起不来/超时也不等于通过。只降为 WARN 并标注“跳过（未验证）”。
         add("6 可移植", "ps1 编码可被 PS5.1 解析", True,
             "跳过（未验证）：解析检查异常：" + str(e)[:60], level="WARN")
 
 
-def _mcp_stdio_handshake(path, timeout=120):
+def _mcp_stdio_handshake(path=None, timeout=120, *, command=None, args=None,
+                         env=None, cwd=None, required_tools=()):
     """对 MCP stdio 服务做一次**真实握手**：spawn → initialize → tools/list。
 
     为什么必须有这一步（2026-10-26 第 2 轮评审 P0）：`mcp-doctor` 对 stdio 服务只验
@@ -598,11 +744,13 @@ def _mcp_stdio_handshake(path, timeout=120):
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
     ]
     payload = ("\n".join(json.dumps(r) for r in reqs) + "\n").encode("utf-8")
-    env = dict(os.environ)
-    env["PYTHONIOENCODING"] = "utf-8"
+    child_env = dict(os.environ)
+    child_env["PYTHONIOENCODING"] = "utf-8"
+    child_env.update(env or {})
+    argv = [command, *(args or [])] if command else [sys.executable, path]
     try:
-        p = subprocess.Popen([sys.executable, path], stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, env=child_env, cwd=cwd)
     except Exception as e:  # noqa: BLE001
         return False, 0, "spawn", "起进程失败：%s" % str(e)[:150]
     try:
@@ -614,7 +762,10 @@ def _mcp_stdio_handshake(path, timeout=120):
         except Exception:  # noqa: BLE001
             pass
         return False, 0, "timeout", "握手超时 %ds（服务未应答 initialize）" % timeout
+    if p.returncode != 0:
+        return False, 0, "exit", "服务握手进程退出 rc=%s" % p.returncode
     got_init = False
+    tools = None
     for line in (out or b"").decode("utf-8", "replace").splitlines():
         line = line.strip()
         if not line.startswith("{"):
@@ -623,11 +774,21 @@ def _mcp_stdio_handshake(path, timeout=120):
             d = json.loads(line)
         except ValueError:
             continue
-        if d.get("id") == 1 and "result" in d:
+        if not isinstance(d, dict):
+            continue
+        if d.get("id") == 1 and isinstance(d.get("result"), dict):
             got_init = True
         res = d.get("result")
         if d.get("id") == 2 and isinstance(res, dict) and isinstance(res.get("tools"), list):
-            return True, len(res["tools"]), "tools", ""
+            tools = res.get("tools") or []
+    if got_init and tools is not None:
+        if not tools:
+            return False, 0, "tools", "tools/list 返回空工具列表"
+        names = {t.get("name") for t in tools if isinstance(t, dict)}
+        missing = sorted(set(required_tools) - names)
+        if missing:
+            return False, len(tools), "identity", "配置服务缺少 Seep 工具：" + ", ".join(missing)
+        return True, len(tools), "tools", ""
     stage = "tools/list" if got_init else "initialize"
     tail = (((err or b"").decode("utf-8", "replace").strip().splitlines() or [""])[-1])[:200]
     return False, 0, stage, ("stderr 末行：%s" % tail) if tail else "服务无任何响应行"
@@ -648,14 +809,17 @@ def check_newtools():
     doc = os.path.join(TOOL, "scripts", "mcp-doctor.py")
     ok, note = False, "文件缺失"
     if os.path.isfile(doc):
+        doctor_args = [py, doc, "--file", os.path.join(str(agent_root_path()), "mcp.json")]
         try:
-            r = subprocess.run([py, doc, "--quick", "--json"], capture_output=True, text=True,
+            r = subprocess.run(doctor_args + ["--quick", "--json"], capture_output=True, text=True,
                                encoding="utf-8", errors="replace", timeout=90)
             body = (r.stdout or "").strip()
             if body.startswith("{"):
                 import json as _json
-                _json.loads(body)
-                ok, note = True, f"rc={r.returncode}（0/1 均属正常）"
+                data = _json.loads(body)
+                ok = (r.returncode in (0, 1) and isinstance(data, dict)
+                      and isinstance(data.get("servers"), list))
+                note = f"rc={r.returncode}（要求 0/1 及 servers 数组）"
             else:
                 note = f"输出不是 JSON：{(r.stderr or body)[:120]}"
         except Exception as e:
@@ -668,8 +832,9 @@ def check_newtools():
     #    （它是本仓库的交付物，它连不上就等于「随仓库发的 MCP 全废」）。
     hs_ok, hs_note, stage_fail = [], [], []
     if os.path.isfile(doc):
+        doctor_args = [py, doc, "--file", os.path.join(str(agent_root_path()), "mcp.json")]
         try:
-            r = subprocess.run([py, doc, "--json"], capture_output=True, text=True,
+            r = subprocess.run(doctor_args + ["--json"], capture_output=True, text=True,
                                encoding="utf-8", errors="replace", timeout=180)
             body = (r.stdout or "")
             if "{" in body:
@@ -750,21 +915,19 @@ def check_newtools():
                                encoding="utf-8", errors="replace", timeout=90)
             import json as _json
             j = _json.loads((r.stdout or "{}").strip() or "{}")
-            ok4 = bool(j.get("ok"))
+            ok4 = r.returncode == 0 and j.get("ok") is True
             info = j.get("info") or {}
             note4 = (f"工具 {info.get('tools')}（基线 {info.get('baseline')}），标记 {info.get('marks')}"
-                     if ok4 else "；".join(j.get("problems") or ["未通过"]))
+                     if ok4 else "rc=%d；%s" % (r.returncode, "；".join(j.get("problems") or ["未通过"])))
         except Exception as e:
             note4 = str(e)[:120]
     add("7 新脚本", "mcp-guard 只增不删闸可运行", ok4, note4)
 
     # ④bis G7 工具登记（BLUEPRINT D1）：登记表条目数必须等于工具数；缺一条 server 起不来。
     try:
-        import json as _j
-        effects = _j.load(open(os.path.join(TOOL, "config", "tool-effects.json"),
-                               encoding="utf-8")).get("tools") or {}
-        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"),
-                   encoding="utf-8").read()
+        effects = load_json_file(
+            os.path.join(TOOL, "config", "tool-effects.json")).get("tools") or {}
+        src = read_text_file(os.path.join(TOOL, "mcp", "seep_mcp_server.py"))
         n_tool = len(re.findall(r"^def seep_\w+\(", src, re.M))
         fields = {"mutates_target", "writes_filesystem", "executes_foreign_code",
                   "touches_network", "may_discard_data"}
@@ -858,29 +1021,108 @@ def check_domain_depth():
     if not os.path.isfile(gate):
         add("11 深度", "全域深度契约（domain-gate.py）", False, "缺 Tool/scripts/domain-gate.py")
         return
-    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    env = dict(
+        os.environ,
+        PYTHONIOENCODING="utf-8",
+        PYTHONDONTWRITEBYTECODE="1",
+    )
     try:
-        r = subprocess.run([sys.executable, gate, "--all", "--json"], capture_output=True,
-                           text=True, encoding="utf-8", errors="replace", timeout=600, env=env)
-        data = json.loads(r.stdout)
-    except Exception as e:  # noqa: BLE001
-        add("11 深度", "全域深度契约（domain-gate.py）", False, "运行失败:" + str(e)[:80])
+        r = subprocess.run(
+            [sys.executable, "-B", gate, "--all", "--json"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=900, env=env,
+        )
+    except Exception as exc:  # noqa: BLE001
+        add("11 深度", "domain-gate 子进程退出码与总判定", False,
+            "运行失败:%s" % str(exc)[:100])
+        add("11 深度", "domain-gate 结果覆盖（全部领域/类别）", False,
+            "子进程没有产出可核验结果")
         return
-    rows = data.get("results") or []
+    parse_error = ""
+    try:
+        data = json.loads(r.stdout)
+    except Exception as exc:  # noqa: BLE001
+        data = {}
+        parse_error = "stdout 不是单一 JSON：%s" % str(exc)[:100]
+    if not isinstance(data, dict):
+        data = {}
+        parse_error = parse_error or "stdout JSON 顶层不是对象"
+
+    protocol_bad = []
+    if r.returncode != 0:
+        protocol_bad.append("rc=%d（必须为 0）" % r.returncode)
+    if parse_error:
+        protocol_bad.append(parse_error)
+    if data.get("green") is not True:
+        protocol_bad.append("green=%r（必须显式为 true）" % (data.get("green"),))
+    fails = data.get("fails")
+    if type(fails) is not int or fails != 0:
+        protocol_bad.append("fails=%r（必须为整数 0）" % (fails,))
+    uncovered = data.get("uncovered")
+    if not isinstance(uncovered, list) or uncovered:
+        protocol_bad.append("uncovered=%r（必须为空数组）" % (uncovered,))
+    rows = data.get("results")
+    if not isinstance(rows, list) or not rows:
+        protocol_bad.append("results 必须是非空数组")
+        rows = []
+    malformed_rows = [
+        index for index, row in enumerate(rows, 1)
+        if not isinstance(row, dict)
+        or not isinstance(row.get("domain"), str) or not row.get("domain").strip()
+        or not isinstance(row.get("name"), str) or not row.get("name").strip()
+        or row.get("ok") is not True
+        or not isinstance(row.get("detail"), str)
+    ]
+    if malformed_rows:
+        protocol_bad.append("results 含非 true/字段缺失行：%s" %
+                            ",".join(map(str, malformed_rows[:6])))
+
+    pack_ids = sorted(
+        os.path.basename(os.path.dirname(path))
+        for path in glob.glob(os.path.join(TOOL, "skill", "*", "pack.json"))
+        if not os.path.basename(os.path.dirname(path)).startswith(("_", "."))
+    )
+    present_domains = {
+        row.get("domain") for row in rows
+        if isinstance(row, dict) and isinstance(row.get("domain"), str)
+    }
+    missing_domains = sorted(set(pack_ids) - present_domains)
+    if not pack_ids:
+        protocol_bad.append("没有从 pack.json 识别出任何正式领域")
+    elif missing_domains:
+        protocol_bad.append("结果漏掉领域：%s" % ",".join(missing_domains))
+
+    detail = "；".join(protocol_bad[:5]) if protocol_bad else (
+        "rc=0、green=true、fails=0、uncovered=[]、%d 条 results 全为 ok=true"
+        % len(rows))
+    add("11 深度", "domain-gate 子进程退出码与总判定", not protocol_bad, detail)
+
     buckets = {
         "全域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）":
-            [x for x in rows if x["domain"] not in ("全局",)],
-        "链接图无孤儿": [x for x in rows if "链接图" in x["name"]],
-        "路由串味测试集": [x for x in rows if "串味" in x["name"]],
-        "仓库清理 + 部署哈希": [x for x in rows if "清理" in x["name"] or "部署" in x["name"]],
+            [x for x in rows if x.get("domain") not in ("全局",)],
+        "链接图无孤儿": [x for x in rows if "链接图" in x.get("name", "")],
+        "路由串味测试集": [x for x in rows if "串味" in x.get("name", "")],
+        "仓库清理 + 部署哈希": [
+            x for x in rows
+            if "清理" in x.get("name", "") or "部署" in x.get("name", "")
+        ],
         "路由片段合入 SSOT + 案例索引同源":
-            [x for x in rows if "合入 SSOT" in x["name"] or "案例索引" in x["name"]],
+            [x for x in rows
+             if "合入 SSOT" in x.get("name", "") or "案例索引" in x.get("name", "")],
     }
     for label, rs in buckets.items():
-        bad = [x for x in rs if not x["ok"]]
-        detail = "；".join((x["domain"] + ":" + x["name"] + "(" + x["detail"][:60] + ")")
-                          for x in bad[:4]) if bad else "%d 条子断言全绿" % len(rs)
-        add("11 深度", label, (not bad) and bool(rs), detail)
+        bad = list(protocol_bad)
+        bad.extend(
+            "%s:%s(%s)" % (
+                row.get("domain", "?"), row.get("name", "?"),
+                str(row.get("detail") or "")[:60],
+            )
+            for row in rs if row.get("ok") is not True
+        )
+        if not rs and not protocol_bad:
+            bad.append("该类别没有任何结果（漏检不能当通过）")
+        add("11 深度", label, not bad,
+            "；".join(bad[:4]) if bad else "%d 条子断言全绿" % len(rs))
 
 
 def check_v123_deliverables():
@@ -889,7 +1131,7 @@ def check_v123_deliverables():
     bad, kinds = [], {}
     for cf in glob.glob(os.path.join(ROOT, "Tool", "cases", "*", "case.json")):
         try:
-            c = json.load(open(cf, encoding="utf-8"))
+            c = load_json_file(cf)
         except Exception:
             bad.append(os.path.basename(cf) + "(bad json)")
             continue
@@ -912,7 +1154,7 @@ def check_v123_deliverables():
           + glob.glob(os.path.join(ROOT, "Tool", "docs", "*.json"))
           + glob.glob(os.path.join(ROOT, "Tool", "config", "*.json"))):
         try:
-            d = json.load(open(f, encoding="utf-8"))
+            d = load_json_file(f)
         except Exception:
             continue
         if isinstance(d, dict) and d.get("generated_at") and d["generated_at"] != "1970-01-01T00:00:00Z":
@@ -930,8 +1172,8 @@ def check_v123_deliverables():
 
     cards = 0
     for f in glob.glob(os.path.join(TOOL, "prompts", "domains", "*.md")):
-        t = open(f, encoding="utf-8", errors="replace").read()
-        cards += len(re.findall("- 步骤：[^\n]*rc\s*=\s*0", t))
+        t = read_text_file(f, errors="replace")
+        cards += len(re.findall(r"- 步骤：[^\n]*rc\s*=\s*0", t))
     add("12 v1.23", "剧本卡 >=50 张", cards >= 50, "%d" % cards)
 
     allow = glob.glob(os.path.join(TOOL, "config", "criteria-inferred", "*.json"))
@@ -981,7 +1223,7 @@ def check_playbook_wiring():
     dead = []
     for sk in sorted(glob.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"))):
         dom = os.path.basename(os.path.dirname(sk))
-        text = _io.open(sk, encoding="utf-8", errors="replace").read()
+        text = read_text_file(sk, errors="replace")
         for name in sorted(set(ref_re.findall(text))):
             pointed.setdefault(name, []).append(dom)
             if not os.path.isfile(os.path.join(pb_dir, name + ".md")):
@@ -1077,10 +1319,10 @@ def check_mcp_contract():
 
 
 def check_skill_route():
-    """技能路由探针：30 条大白话必须落到对的技能（防 \\b 与 CJK 交界类静默误路由）。"""
+    """技能路由探针：全部口吻必须满足主域、辅助域、歧义和禁止域契约。"""
     sp = os.path.join(TOOL, "skill", "softseep", "scripts", "skill-route-probe.py")
     if not os.path.isfile(sp):
-        add("15 路由探针", "30 条大白话 → 技能命中", False, "skill-route-probe.py(missing)")
+        add("15 路由探针", "全量口吻 → 主/辅域契约", False, "skill-route-probe.py(missing)")
         return
     rc, out = run([sys.executable, sp, "--json"], timeout=600)
     data = {}
@@ -1093,14 +1335,14 @@ def check_skill_route():
         data = {}
     ok = rc == 0 and data.get("ok") is True
     if ok:
-        detail = "%d 条探针全部命中（或本机无 PowerShell 已跳过）" % data.get("probes", 0)
+        detail = "%d 条探针全部满足主域、辅助域、歧义与禁止域约束" % data.get("probes", 0)
     else:
         fs = data.get("fails") or []
         detail = "%d/%d 失败：%s" % (
             len(fs), data.get("probes", 0),
             "; ".join("%s→%s" % (f.get("id"), f.get("skill")) for f in fs[:3])) if fs \
             else "rc=%d ok=%r" % (rc, data.get("ok"))
-    add("15 路由探针", "30 条大白话 → 技能命中", ok, detail)
+    add("15 路由探针", "全量口吻 → 主/辅域契约", ok, detail)
 
 
 def check_race_e2e():
@@ -1181,14 +1423,14 @@ def check_language():
                 if any(s in rel for s in skip) or rel.startswith("docs/audit/") or rel.startswith("docs/history/"):
                     continue
                 try:
-                    t = open(fp, encoding="utf-8", errors="replace").read()
+                    t = read_text_file(fp, errors="replace")
                 except OSError:
                     continue
                 n = len(pat.findall(t))
                 if n:
                     hits.append("%s(%d)" % (rel, n))
     for f in glob.glob(os.path.join(ROOT, "README*.md")):
-        t = open(f, encoding="utf-8", errors="replace").read()
+        t = read_text_file(f, errors="replace")
         n = len(pat.findall(t))
         if n:
             hits.append("%s(%d)" % (os.path.basename(f), n))
@@ -1209,7 +1451,7 @@ def check_language():
             files_ += [os.path.join(dp, f) for f in fn if f.endswith(".md")]
     for fp in files_:
         try:
-            t = open(fp, encoding="utf-8", errors="replace").read()
+            t = read_text_file(fp, errors="replace")
         except Exception:
             continue
         relp = os.path.relpath(fp, ROOT).replace(os.sep, "/")
@@ -1257,7 +1499,7 @@ def check_side_effect_undo():
                 if not f.endswith(".md"):
                     continue
                 fp = os.path.join(dp, f)
-                lines = open(fp, encoding="utf-8", errors="replace").read().split("\n")
+                lines = read_text_file(fp, errors="replace").split("\n")
                 for i, ln in enumerate(lines):
                     if ln.strip().startswith(("#", ">", "|")):
                         continue
@@ -1268,7 +1510,7 @@ def check_side_effect_undo():
         fp = os.path.join(ROOT, f)
         if not os.path.isfile(fp):
             continue
-        lines = open(fp, encoding="utf-8", errors="replace").read().split("\n")
+        lines = read_text_file(fp, errors="replace").split("\n")
         for i, ln in enumerate(lines):
             if ln.strip().startswith(("#", ">", "|")):
                 continue
@@ -1292,7 +1534,7 @@ def check_trap_bait():
         add("14 MCP 契约", "对抗陷阱对撞（D2）", False, "缺 Tool/config/traps.json")
         return
     try:
-        traps = json.load(open(tp, encoding="utf-8")).get("traps") or []
+        traps = load_json_file(tp).get("traps") or []
     except Exception as e:  # noqa: BLE001
         add("14 MCP 契约", "对抗陷阱对撞（D2）", False, "traps.json 解析失败：%s" % str(e)[:60])
         return
@@ -1311,7 +1553,7 @@ def check_trap_bait():
             collide.append("%s(正则非法)" % t.get("id"))
             continue
         for p in docs:
-            for i, line in enumerate(open(p, encoding="utf-8", errors="replace").read().split("\n")):
+            for i, line in enumerate(read_text_file(p, errors="replace").split("\n")):
                 if polarity.search(line) or line.lstrip().startswith("#"):
                     continue
                 if rx.search(line):
@@ -1320,7 +1562,7 @@ def check_trap_bait():
     rules = []
     cgf = os.path.join(TOOL, "prompts", "extensions", "cmd-guard.ts")
     if os.path.isfile(cgf):
-        for m in _re.finditer(r're:\s*"((?:[^"\\]|\\.)*)"', open(cgf, encoding="utf-8").read()):
+        for m in _re.finditer(r're:\s*"((?:[^"\\]|\\.)*)"', read_text_file(cgf)):
             try:
                 rules.append(_re.compile(m.group(1).replace("\\\\", "\\"), _re.I))
             except _re.error:
@@ -1328,7 +1570,7 @@ def check_trap_bait():
     ef = os.path.join(TOOL, "prompts", "extensions", "cmd-guard.rules.json")
     _bad_rules = []
     if os.path.isfile(ef):
-        for r in (json.load(open(ef, encoding="utf-8")).get("denyRules") or []):
+        for r in (load_json_file(ef).get("denyRules") or []):
             try:
                 rules.append(_re.compile(r["re"], _re.I))
             except _re.error as e:  # 不许静默跳过：正则写坏 = 这条禁手失效
@@ -1366,14 +1608,14 @@ def check_tool_cache_contract():
     la = os.path.join(TOOL, "scripts", "mcp-launch.py")
     bad = []
     try:
-        a = open(ad, encoding="utf-8").read()
+        a = read_text_file(ad)
         if 'd[tid] = {"exe"' not in a:
             bad.append("autodiscover 未双写顶层 <id>.exe")
     except Exception as e:  # noqa: BLE001
         bad.append("autodiscover 读失败 %s" % e)
     for p, name in ((br, "bridge-x64dbg"), (la, "mcp-launch")):
         try:
-            t = open(p, encoding="utf-8").read()
+            t = read_text_file(p)
             if 'raw.get("tools")' not in t:
                 bad.append("%s 未兼容 tools{} 新结构" % name)
         except Exception as e:  # noqa: BLE001
@@ -1383,7 +1625,7 @@ def check_tool_cache_contract():
 
     # 判壳输出的可执行性契约：散文路线没人照着做（实测：模型拿到 route 仍去 capstone 反汇编密文）
     try:
-        srv = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        srv = read_text_file(os.path.join(TOOL, "mcp", "seep_mcp_server.py"))
         need = ('result["next_actions"]', 'result["forbidden_next"]', 'result["warning"]')
         missing = [n for n in need if n not in srv]
         add("14 MCP 契约", "判壳输出可执行（next_actions / forbidden_next / warning 齐备）",
@@ -1399,12 +1641,11 @@ def check_need_ask_contract():
     为什么合成一条：这条规则的本质只有一句「该问就要问」，
     拆成两条检查（表结构 / 代码接线）只会增加维护面，不增加信号。
     """
-    import json as _j
     bad = []
     n = 0
     try:
-        tab = _j.load(open(os.path.join(TOOL, "config", "user-inputs.json"),
-                           encoding="utf-8")).get("asks") or []
+        tab = load_json_file(
+            os.path.join(TOOL, "config", "user-inputs.json")).get("asks") or []
         for x in tab:
             n += 1
             for k in ("id", "title", "question", "why", "if_yes", "if_no"):
@@ -1415,7 +1656,7 @@ def check_need_ask_contract():
     except Exception as e:  # noqa: BLE001
         bad.append("需求表读失败 %s" % e)
     try:
-        srv = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        srv = read_text_file(os.path.join(TOOL, "mcp", "seep_mcp_server.py"))
         for x in ("_detect_needs(", "need_from_user", "_case_for(", "SEEP_AUTOCASE"):
             if x not in srv:
                 bad.append("MCP 未接线 %s" % x)
@@ -1445,11 +1686,68 @@ def check_case_contract_files():
         bad.append("init 跑不起来 %s" % str(e)[:60])
     finally:
         _sh.rmtree(tmp, ignore_errors=True)
-    for doc in ("docs/PRODUCT.md", "docs/LESSONS.md"):
+    for doc in ("REQUIREMENTS.md", "docs/LESSONS.md"):
         if not os.path.isfile(os.path.join(ROOT, doc)):
             bad.append("缺 %s" % doc)
-    add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 产品与教训文档在位",
-        not bad, "；".join(bad[:3]) if bad else "init 三件套齐；PRODUCT/LESSONS 在位")
+    add("2 单一事实源", "新案范围契约（init 产出 case.json/facts/scope.md）+ 需求与教训文档在位",
+        not bad, "；".join(bad[:3]) if bad else "init 三件套齐；REQUIREMENTS/LESSONS 在位")
+
+
+def check_document_cutover():
+    """文档清理接线：旧契约/产品入口与已知计划副本不得回流，新会话只指向现行入口。
+
+    这是只读的轻量检查，不负责删除文件，也不把历史目录整体当成错误：只钉住本轮
+    明确撤下的入口路径和计划副本。README 面向用户与代装智能体，指向实际安装和
+    MCP 排障入口；开发接续入口保留需求/状态指针，不能引入已退役入口。
+    """
+    retired = (
+        "PM-SPEC.md",
+        "docs/PRODUCT.md",
+        "docs/NOW.md",
+        "docs/PROJECT-OPTIMIZATION-PLAN.md",
+        "docs/PLAN-v8.md",
+        "docs/history/X-DOMAIN-SPEC-v2.md",
+        "work/plans/优化方案.md",
+        "work/plans/优化方案-2.0.md",
+        "work/plans/优化方案-3.0.md",
+    )
+    residue = [p for p in retired if os.path.exists(os.path.join(ROOT, p.replace("/", os.sep)))]
+    pointer_files = (
+        "README.md",
+        "README.zh.md",
+        "README.en.md",
+        "Tool/prompts/AGENTS.md",
+        "Tool/prompts/SEEP.md",
+        "Tool/prompts/contracts/AGENTS.md",
+        "docs/HANDOFF.md",
+    )
+    old_tokens = ("PM-SPEC.md", "PRODUCT.md", "NOW.md", "PROJECT-OPTIMIZATION-PLAN.md",
+                  "PLAN-v8.md", "X-DOMAIN-SPEC-v2.md", "X-EXECUTION-MODEL-v2.md")
+    bad = ["残留：" + p for p in residue]
+    for rel in pointer_files:
+        path = os.path.join(ROOT, rel.replace("/", os.sep))
+        if not os.path.isfile(path):
+            bad.append("入口缺失：" + rel)
+            continue
+        try:
+            text = read_text_file(path, errors="replace")
+        except OSError as exc:
+            bad.append("入口不可读：%s(%s)" % (rel, str(exc)[:60]))
+            continue
+        if rel.startswith("README"):
+            for target in ("Tool/docs/BOOTSTRAP.md", "Tool/docs/MCP-SETUP.md"):
+                if "](" + target + ")" not in text or not os.path.isfile(os.path.join(ROOT, target)):
+                    bad.append("%s 缺少有效入口链接 %s" % (rel, target))
+        elif "REQUIREMENTS.md" not in text or "CURRENT-STATE.md" not in text:
+            bad.append("%s 未同时指向 REQUIREMENTS.md 与 CURRENT-STATE.md" % rel)
+        for token in old_tokens:
+            if token in text:
+                bad.append("%s 仍含旧入口 %s" % (rel, token))
+    add("2 单一事实源", "文档清理切换（旧入口无残留，安装与开发接续链接有效）",
+        not bad, "；".join(bad[:8]) if bad else
+        "旧入口与已知计划副本均无残留；README 安装/排障与开发接续指针已核对")
+
+
 
 
 def check_mcp_name_consistency():
@@ -1459,18 +1757,84 @@ def check_mcp_name_consistency():
     这两个工具**不存在**（真实工具只有 20 个）→ 模型照着提示调用 → 失败 → 重试 → 白忙。
     判据：`"seep_xxx"` 引号名 与 `def seep_xxx(` 的并集，必须全部出现在 tool-effects.json 里。
     """
-    import json as _j
     import re as _re
     try:
-        eff = _j.load(open(os.path.join(TOOL, "config", "tool-effects.json"), encoding="utf-8"))
+        eff = load_json_file(os.path.join(TOOL, "config", "tool-effects.json"))
         eff = set((eff.get("tools") or eff).keys())
-        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        src = read_text_file(os.path.join(TOOL, "mcp", "seep_mcp_server.py"))
         defs = set(_re.findall(r"^def (seep_[a-z0-9_]+)\(", src, _re.M))
         missing = sorted(defs - eff)
         add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", not missing,
             "未登记: " + ", ".join(missing[:5]) if missing else "%d 个工具全部有登记" % len(defs))
     except Exception as e:  # noqa: BLE001
         add("14 MCP 契约", "工具名一致（server 里提到的 seep_* 都真实存在且有副作用登记）", False, str(e)[:80])
+
+
+
+
+def _load_install_ownership(agent):
+    """Load the installer ownership manifest used to distinguish ours from user assets."""
+    manifest_path = os.path.join(agent, "seep-install-manifest.json")
+    try:
+        raw = read_binary_file(manifest_path)
+    except FileNotFoundError as exc:
+        raise ValueError("缺 seep-install-manifest.json，无法区分受管资产与用户自定义资产") from exc
+    except OSError as exc:
+        raise ValueError("seep-install-manifest.json 不可读：%s" % exc) from exc
+    try:
+        doc = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("seep-install-manifest.json 解析失败：%s" % exc) from exc
+    if not isinstance(doc, dict):
+        raise ValueError("seep-install-manifest.json 必须是对象")
+    if doc.get("schema") != "seep-agent-install/1":
+        raise ValueError("seep-install-manifest.json schema 不受支持：%r" % doc.get("schema"))
+    if doc.get("runtime_id") != "seep-reverse-lab/softseep":
+        raise ValueError("seep-install-manifest.json runtime_id 不匹配")
+    if doc.get("status") != "complete":
+        raise ValueError("seep-install-manifest.json 状态不是 complete：%r" % doc.get("status"))
+    declared_root = doc.get("source_root")
+    if not isinstance(declared_root, str) or not declared_root.strip():
+        raise ValueError("seep-install-manifest.json 缺 source_root")
+    try:
+        ownership_root = os.path.normcase(os.path.realpath(os.path.abspath(declared_root)))
+        current_root = os.path.normcase(os.path.realpath(os.path.abspath(ROOT)))
+    except (OSError, ValueError) as exc:
+        raise ValueError("seep-install-manifest.json source_root 无效：%s" % exc) from exc
+    if ownership_root != current_root:
+        raise ValueError("seep-install-manifest.json source_root 与当前仓库不一致")
+    managed = doc.get("managed_files")
+    if not isinstance(managed, dict):
+        raise ValueError("seep-install-manifest.json 缺 managed_files 对象")
+    allowed = ("skills/", "prompts/", "agents/", "extensions/")
+    normalized = {}
+    for rel, digest in managed.items():
+        if not isinstance(rel, str) or not isinstance(digest, str):
+            raise ValueError("seep-install-manifest.json managed_files 含非字符串条目")
+        rel = rel.replace("\\", "/")
+        if (not rel or rel.startswith("/") or ".." in rel.split("/")
+                or not rel.startswith(allowed)):
+            raise ValueError("seep-install-manifest.json 含越界 managed_files 路径：%r" % rel)
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", digest):
+            raise ValueError("seep-install-manifest.json managed_files 哈希无效：%s" % rel)
+        normalized[rel] = digest.lower()
+    return normalized
+
+
+def _managed_file_current(agent, managed, rel):
+    """True only when the deployed bytes still match the installer-owned hash."""
+    expected = managed.get(rel)
+    if not expected:
+        return False
+    path = os.path.join(agent, *rel.split("/"))
+    try:
+        if not os.path.isfile(path) or os.path.islink(path):
+            return False
+        import hashlib as _hl
+        with open(path, "rb") as handle:
+            return _hl.sha256(handle.read()).hexdigest() == expected
+    except OSError:
+        return False
 
 
 def check_deploy_bidirectional():
@@ -1482,10 +1846,17 @@ def check_deploy_bidirectional():
 
     判据：每类都要求 `缺(未部署)` 与 `多(残留)` 都为空；哈希不一致也算。
     """
-    import hashlib as _h
     import glob as _g
+    from lib.deploy_assets import compare_trees
 
-    def _diff(src_glob, dst_dir, label, ext=""):
+    agent = os.path.abspath(str(agent_root_path()))
+    try:
+        managed = _load_install_ownership(agent)
+    except ValueError as exc:
+        add("2 单一事实源", "部署面所有权核验", False, str(exc))
+        return
+
+    def _diff(src_glob, dst_dir, label, managed_prefix, ext=""):
         src = {}
         for p in _g.glob(src_glob):
             src[os.path.basename(p)] = p
@@ -1495,46 +1866,90 @@ def check_deploy_bidirectional():
                 dst[os.path.basename(p)] = p
         missing = sorted(set(src) - set(dst))
         extra = sorted(set(dst) - set(src))
+        managed_extra = []
+        user_extra = []
+        for k in extra:
+            (managed_extra if _managed_file_current(
+                agent, managed, managed_prefix + k) else user_extra).append(k)
         drift = []
+        unverified = []
+        errors = []
         for k in sorted(set(src) & set(dst)):
+            rel = managed_prefix + k
+            if not _managed_file_current(agent, managed, rel):
+                unverified.append(k)
+                continue
             try:
                 if _file_sig(src[k]) != _file_sig(dst[k]):
                     drift.append(k)
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001
+                errors.append("%s(%s)" % (k, type(exc).__name__))
         bad = []
+        warning = []
         if missing:
             bad.append("未部署:" + ",".join(missing[:3]))
-        if extra:
-            bad.append("残留:" + ",".join(extra[:3]))
+        if managed_extra:
+            bad.append("受管残留:" + ",".join(managed_extra[:3]))
+        if user_extra:
+            warning.append("用户自有保留:" + ",".join(user_extra[:3]))
         if drift:
             bad.append("不一致:" + ",".join(drift[:3]))
-        return label, bad
+        if unverified:
+            warning.append("同名覆盖未验证:" + ",".join(unverified[:3]))
+        if errors:
+            bad.append("无法核验:" + ",".join(errors[:3]))
+        return label, bad, warning
 
-    home = os.path.expanduser("~")
-    agent = os.path.join(home, ".pi", "agent")
-    # 技能按**目录名**比对（文件都是 SKILL.md，按 basename 比会错）
-    src_sk = {os.path.basename(d): os.path.join(d, "SKILL.md")
-              for d in _g.glob(os.path.join(TOOL, "skill", "*"))
-              if os.path.isfile(os.path.join(d, "SKILL.md"))}
-    dst_sk = {}
+    # 技能按完整部署树比对。旧实现只看 SKILL.md，脚本/引用/JS/Java/txt
+    # 漂移或部署侧残留全部不可见。
+    src_sk = {}
+    skill_root = os.path.join(TOOL, "skill")
+    for directory in sorted(_g.glob(os.path.join(skill_root, "*"))):
+        name = os.path.basename(directory)
+        if not name.startswith(("_", ".")) and os.path.isfile(
+                os.path.join(directory, "SKILL.md")):
+            src_sk[name] = directory
+    safe_root = os.path.join(skill_root, "safe-skills")
+    if os.path.isdir(safe_root):
+        for directory in sorted(_g.glob(os.path.join(safe_root, "*"))):
+            name = os.path.basename(directory)
+            if os.path.isfile(os.path.join(directory, "SKILL.md")):
+                src_sk[name] = directory
     sk_dir = os.path.join(agent, "skills")
-    if os.path.isdir(sk_dir):
-        for d in os.listdir(sk_dir):
-            fp = os.path.join(sk_dir, d, "SKILL.md")
-            if os.path.isfile(fp):
-                dst_sk[d] = fp
+    dst_sk = {
+        name: os.path.join(sk_dir, name)
+        for name in (os.listdir(sk_dir) if os.path.isdir(sk_dir) else [])
+        if os.path.isdir(os.path.join(sk_dir, name))
+    }
     sk_bad = []
+    sk_warning = []
     _m = sorted(set(src_sk) - set(dst_sk))
     _e = sorted(set(dst_sk) - set(src_sk))
     if _m:
-        sk_bad.append("未部署:" + ",".join(_m[:3]))
-    if _e:
-        sk_bad.append("残留:" + ",".join(_e[:3]))
-    _d = [k for k in set(src_sk) & set(dst_sk)
-          if _file_sig(src_sk[k]) != _file_sig(dst_sk[k])]
-    if _d:
-        sk_bad.append("不一致:" + ",".join(sorted(_d)[:3]))
+        sk_bad.append("未部署目录:" + ",".join(_m[:3]))
+    managed_skill_leftovers = []
+    user_skill_dirs = []
+    for name in _e:
+        prefix = "skills/%s/" % name
+        if any(rel.startswith(prefix) and _managed_file_current(agent, managed, rel)
+               for rel in managed):
+            managed_skill_leftovers.append(name)
+        else:
+            user_skill_dirs.append(name)
+    if managed_skill_leftovers:
+        sk_bad.append("受管残留目录:" + ",".join(managed_skill_leftovers[:3]))
+    if user_skill_dirs:
+        sk_warning.append("用户自有目录:" + ",".join(user_skill_dirs[:3]))
+    for name in sorted(set(src_sk) & set(dst_sk)):
+        if not _managed_file_current(agent, managed, "skills/%s/SKILL.md" % name):
+            sk_warning.append("%s:同名覆盖未验证" % name)
+            continue
+        diff = compare_trees(src_sk[name], dst_sk[name])
+        for key, label in (("missing", "未部署"), ("extra", "多出"),
+                           ("drift", "不一致"), ("errors", "无法核验")):
+            if diff.get(key):
+                sk_bad.append("%s:%s(%s)" % (
+                    name, label, ",".join(diff[key][:3])))
 
     def _top_prompts():
         """AGENTS.md / SEEP.md：模型实际读的两份顶层提示词。
@@ -1543,6 +1958,13 @@ def check_deploy_bidirectional():
           顶层 AGENTS.md 改了没部署，这条检查仍绿（而模型读的是部署那份）。
         """
         bad = []
+        def _owned_prompt(text):
+            begin, end = "<!-- seep:managed:begin -->", "<!-- seep:managed:end -->"
+            if begin not in text and end not in text:
+                return text
+            if text.count(begin) != 1 or text.count(end) != 1 or text.index(begin) > text.index(end):
+                raise ValueError("invalid managed prompt boundary")
+            return text[text.index(begin) + len(begin):text.index(end)]
         def _strip_host_blocks(t):
             """去掉宿主自己追加的托管块（magpie / pi 自动生成）。
 
@@ -1573,9 +1995,11 @@ def check_deploy_bidirectional():
                 bad.append("未部署:" + name)
                 continue
             try:
-                a = _strip_host_blocks(io.open(src, encoding="utf-8", errors="replace").read())
-                b = _strip_host_blocks(io.open(dst, encoding="utf-8", errors="replace").read())
-                if a.strip() != b.strip():
+                with io.open(src, encoding="utf-8", errors="replace") as handle:
+                    a = _strip_host_blocks(handle.read())
+                with io.open(dst, encoding="utf-8", errors="replace") as handle:
+                    b = _strip_host_blocks(handle.read())
+                if _owned_prompt(a).strip() != _owned_prompt(b).strip():
                     bad.append("不一致:" + name)
             except Exception as e:  # noqa: BLE001
                 # ★ 不许吞：吞掉异常 = 这条检查恒绿 = 假绿（2026-10-26 审计实测踩过：
@@ -1584,24 +2008,24 @@ def check_deploy_bidirectional():
         return "顶层提示词", bad
 
     rows = [
-        ("技能", sk_bad),
-        ("顶层提示词", _top_prompts()[1]),
-        _diff(os.path.join(TOOL, "prompts", "tasks", "[!_R]*.md"), os.path.join(agent, "prompts"), "提示词", ".md"),
-        _diff(os.path.join(TOOL, "prompts", "extensions", "*.ts"), os.path.join(agent, "extensions"), "扩展", ".ts"),
+        ("技能", sk_bad, sk_warning),
+        ("顶层提示词", _top_prompts()[1], []),
+        _diff(os.path.join(TOOL, "prompts", "tasks", "[!_R]*.md"),
+              os.path.join(agent, "prompts"), "提示词", "prompts/", ".md"),
+        _diff(os.path.join(TOOL, "prompts", "extensions", "*.ts"),
+              os.path.join(agent, "extensions"), "扩展", "extensions/", ".ts"),
     ]
-    bad_all = ["%s(%s)" % (k, "；".join(v)) for k, v in rows if v]
-    # 技能是目录级：上面的 glob 只比 SKILL.md，额外比"部署侧多出来的目录"
-    extra_dirs = []
-    sdir = os.path.join(agent, "skills")
-    if os.path.isdir(sdir):
-        for d in os.listdir(sdir):
-            if not os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md")):
-                extra_dirs.append(d)
-    if extra_dirs:
-        bad_all.append("技能残留目录:" + ",".join(extra_dirs[:4]))
-
-    add("2 单一事实源", "部署面双向一致（源↔部署：技能/顶层提示词/任务卡/扩展）", not bad_all,
-        "；".join(bad_all)[:260] if bad_all else "4 类产物：无未部署、无残留、哈希一致")
+    bad_all = ["%s(%s)" % (k, "；".join(v)) for k, v, _w in rows if v]
+    warn_all = ["%s(%s)" % (k, "；".join(w)) for k, _v, w in rows if w]
+    if bad_all:
+        add("2 单一事实源", "部署面双向一致（技能/顶层提示词/任务卡/扩展）", False,
+            "；".join(bad_all + warn_all)[:320])
+    elif warn_all:
+        add("2 单一事实源", "部署面双向一致（用户资产保留，所有权未验证）", True,
+            "；".join(warn_all)[:320], level="WARN")
+    else:
+        add("2 单一事实源", "部署面双向一致（技能/顶层提示词/任务卡/扩展）", True,
+            "4 类产物：无未部署、无受管残留、哈希一致")
 
 
 def check_prompt_residue():
@@ -1612,65 +2036,40 @@ def check_prompt_residue():
     根因：安装脚本只复制、不清理。已加清理逻辑，这条判据守住它。
     """
     import glob as _g
+    agent = os.path.abspath(str(agent_root_path()))
+    try:
+        managed = _load_install_ownership(agent)
+    except ValueError as exc:
+        add("2 单一事实源", "提示词所有权核验", False, str(exc))
+        return
     src = os.path.join(TOOL, "prompts", "tasks")
-    dst = os.path.expanduser("~/.pi/agent/prompts")
+    dst = os.path.join(agent, "prompts")
     src_names = {os.path.basename(p) for p in _g.glob(os.path.join(src, "*.md"))
                  if os.path.basename(p).upper() != "README.MD"}
     if not os.path.isdir(dst):
         add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", True, "未部署提示词目录")
         return
-    leftover = sorted(os.path.basename(p) for p in _g.glob(os.path.join(dst, "*.md"))
-                      if os.path.basename(p) not in src_names)
-    add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", not leftover,
-        ("残留: " + "、".join(x[:-3] for x in leftover[:6])) if leftover
-        else "部署目录与仓库一致（%d 张）" % len(src_names))
-
-
-def check_depth_aplus():
-    """A+ 深度三条门槛（棘轮）：每域行数 ≥2000、篇均 ≥250、每篇有命令。
-
-    基准来自三个同类仓库实测（yaklang 单主题 2,518 行；zhaoxuya 的 reverse-engineering 25 篇/11,327 行）。
-    现状 0/10 达标 → 用**棘轮**：不许任何域比基线更差；同时报告达标数与最薄的域，方便按序推进。
-    """
-    import glob as _g
-    import json as _j
-    try:
-        base = _j.load(open(os.path.join(TOOL, "config", "depth-baseline.json"), encoding="utf-8"))
-    except Exception:
-        base = {}
-    cfg = base.get("aplus") or {}
-    min_lines = int(cfg.get("min_lines", 2000))
-    min_avg = int(cfg.get("min_avg", 250))
-    prev = base.get("per_domain") or {}
-    regress, aplus, thin = [], 0, []
-    for d in sorted(_g.glob(os.path.join(TOOL, "skill", "*"))):
-        name = os.path.basename(d)
-        if name == "_pending":
+    managed_leftover = []
+    user_leftover = []
+    for path in sorted(_g.glob(os.path.join(dst, "*.md"))):
+        name = os.path.basename(path)
+        if name in src_names:
             continue
-        refs = _g.glob(os.path.join(d, "references", "*.md"))
-        if not refs:
-            continue
-        lines = 0
-        cmd_refs = 0
-        for r in refs:
-            t = open(r, encoding="utf-8", errors="replace").read()
-            lines += t.count(chr(10))
-            if "```" in t:
-                cmd_refs += 1
-        avg = lines / len(refs)
-        thin.append((lines, name))
-        p = prev.get(name) or {}
-        if p:
-            if lines < int(p.get("lines", 0)) or cmd_refs < int(p.get("cmd_refs", 0)):
-                regress.append("%s(%d→%d 行 / 命令 %d→%d)"
-                               % (name, p.get("lines"), lines, p.get("cmd_refs"), cmd_refs))
-        if lines >= min_lines and avg >= min_avg and cmd_refs == len(refs):
-            aplus += 1
-    thin.sort()
-    add("2 单一事实源", "A+ 深度棘轮（每域 ≥%d 行 / 篇均 ≥%d / 每篇有命令；当前达标 %d）"
-        % (min_lines, min_avg, aplus), not regress,
-        ("退步：" + "；".join(regress[:3])) if regress
-        else "无退步；达标 %d/10；最薄：%s" % (aplus, "、".join("%s(%d 行)" % (n, l) for l, n in thin[:3])))
+        rel = "prompts/" + name
+        (managed_leftover if _managed_file_current(agent, managed, rel)
+         else user_leftover).append(name)
+    if managed_leftover:
+        detail = "受管残留: " + "、".join(x[:-3] for x in managed_leftover[:6])
+        if user_leftover:
+            detail += "；用户自有保留: " + "、".join(x[:-3] for x in user_leftover[:6])
+        add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", False, detail)
+    elif user_leftover:
+        add("2 单一事实源", "提示词残留（用户自有任务保留）", True,
+            "用户自有保留且所有权未验证: " + "、".join(x[:-3] for x in user_leftover[:6]),
+            level="WARN")
+    else:
+        add("2 单一事实源", "提示词残留（部署目录 ⊆ 仓库 tasks）", True,
+            "部署目录与仓库一致（%d 张）" % len(src_names))
 
 
 def check_reference_depth():
@@ -1691,7 +2090,7 @@ def check_reference_depth():
     n_ref = 0
     for ref in _g.glob(os.path.join(TOOL, "skill", "*", "references", "*.md")):
         base = os.path.basename(ref)
-        t = open(ref, encoding="utf-8", errors="replace").read()
+        t = read_text_file(ref, errors="replace")
         lines = t.count(chr(10))
         if lines < 60 or any(k in base for k in SKIP):
             continue
@@ -1700,7 +2099,7 @@ def check_reference_depth():
             thin.append(base)
     # 棘轮：只许变好。历史页面暂不强制（否则要一次改 118 篇），但**不许变得更差**。
     try:
-        base = json.load(open(os.path.join(TOOL, "config", "depth-baseline.json"), encoding="utf-8"))
+        base = load_json_file(os.path.join(TOOL, "config", "depth-baseline.json"))
     except Exception:
         base = {}
     limit = int(base.get("refs_without_cmd", 10 ** 9))
@@ -1713,7 +2112,7 @@ def check_reference_depth():
     if not os.path.isfile(m):
         add("2 单一事实源", "反调试矩阵（≥30 条 × 五字段）", False, "缺 anti-debug-matrix.md")
         return
-    t = open(m, encoding="utf-8", errors="replace").read()
+    t = read_text_file(m, errors="replace")
     items = len(_re.findall(r"^\|\s*(AD|AV)-\d+", t, _re.M))
     need = ("Trigger", "Observation", "Inference", "Action", "Constraint")
     miss = [w for w in need if w not in t]
@@ -1736,7 +2135,7 @@ def check_reference_index():
     for sk in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
         name = os.path.basename(os.path.dirname(sk))
         try:
-            t = open(sk, encoding="utf-8", errors="replace").read()
+            t = read_text_file(sk, errors="replace")
         except Exception:
             continue
         for ref in _g.glob(os.path.join(os.path.dirname(sk), "references", "*.md")):
@@ -1761,10 +2160,10 @@ def check_doc_commands():
         add("2 单一事实源", "文档命令参数存在（argparse 校验）", False, "缺 doc_commands.py: %s" % e)
         return
     texts = []
-    for rel in ("Tool/prompts/AGENTS.md", "README.md", "REQUIREMENTS.md", "PM-SPEC.md"):
+    for rel in ("Tool/prompts/AGENTS.md", "README.md", "REQUIREMENTS.md"):
         p = os.path.join(ROOT, rel)
         if os.path.isfile(p):
-            texts.append(open(p, encoding="utf-8", errors="replace").read())
+            texts.append(read_text_file(p, errors="replace"))
     ok, why = _dc.check_doc_commands(chr(10).join(texts), ROOT)
     add("2 单一事实源", "文档命令参数存在（argparse 校验）", ok, why)
 
@@ -1819,7 +2218,7 @@ def check_single_orchestrator():
         if name == "seep-router":
             continue
         map_lines = []
-        for i, line in enumerate(open(p, encoding="utf-8", errors="replace"), 1):
+        for i, line in enumerate(read_text_file(p, errors="replace").splitlines(), 1):
             if "seep-router" in line:
                 continue          # 指针行允许
             for w in words:
@@ -1878,7 +2277,8 @@ def check_five_contracts():
             _f.write(b"five-contract")
         _run(["init", "--case", _t3, "--target", _tgt], timeout=120)
         _p = _tgt.replace(chr(92), "/")
-        _cmd3 = 'python -c "import sys;sys.stdout.write(open(%r).read())"' % _p
+        _cmd3 = ('python -c "import pathlib,sys;'
+                 'sys.stdout.write(pathlib.Path(%r).read_text())"' % _p)
         rc, out = _run(["repro", "--case", _t3, "--id", "E-001",
                         "--cmd", _cmd3, "--expect", "five-contract"], timeout=180)
         if "E2" not in out:
@@ -1906,7 +2306,7 @@ def check_five_contracts():
     import glob as _g
     tpl = _g.glob(os.path.join(TOOL, "prompts", "reports", "*.md"))
     miss = [os.path.basename(t) for t in tpl
-            if os.path.basename(t) != "README.md" and "客户视角五段" not in open(t, encoding="utf-8", errors="replace").read()]
+            if os.path.basename(t) != "README.md" and "客户视角五段" not in read_text_file(t, errors="replace")]
     if miss:
         bad.append("模板缺客户五段:" + ",".join(miss[:3]))
 
@@ -1935,7 +2335,7 @@ def check_level_authority():
     cs = os.path.join(TOOL, "scripts", "case_state.py")
     bad, allowed = [], []
     try:
-        lv = json.load(open(lp, encoding="utf-8"))
+        lv = load_json_file(lp)
     except Exception as e:  # noqa: BLE001
         add("2 单一事实源", NAME, False, "levels.json 读不出：%s" % str(e)[:60])
         return
@@ -1950,7 +2350,7 @@ def check_level_authority():
 
     # ① 首答契约的四句必须与 levels.json 逐字一致
     try:
-        ce = [str(x) for x in (json.load(open(ap, encoding="utf-8"))
+        ce = [str(x) for x in (load_json_file(ap)
                                .get("ceiling_sentences") or [])]
     except Exception as e:  # noqa: BLE001
         ce = []
@@ -1970,7 +2370,7 @@ def check_level_authority():
     for p in sorted(glob.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"))):
         rel = os.path.relpath(p, ROOT).replace(os.sep, "/")
         try:
-            body = open(p, encoding="utf-8", errors="replace").read().splitlines()
+            body = read_text_file(p, errors="replace").splitlines()
         except OSError:
             no_sec.append(rel)
             continue
@@ -2111,15 +2511,15 @@ def check_fact_drift():
     为什么（2026-10-24 用户追问"为什么改一个坏一个"）：盘出来同一事实被
     48（案例数）/59（路由数）/26（域数）/19（工具数）个文件重复写过。
     改一份 → N-1 份变旧 → 下一个审计再发现 → 看起来"永远修不完"。
-    这条判据只查**活跃文档**（README×2 / NOW / PRODUCT / ARCHITECTURE + 技能正文），
+    这条判据只查**当前入口文档**（README×2 / REQUIREMENTS / CURRENT-STATE + 技能正文），
     出现 `N 个工具 / N 个域 / N 个案例` 且与实测不符即红。
     """
     import glob as _g
     import re as _re
     try:
         tools = len(_re.findall(r"^def seep_[a-z0-9_]+\(",
-                                open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"),
-                                     encoding="utf-8").read(), _re.M))
+                                read_text_file(
+                                    os.path.join(TOOL, "mcp", "seep_mcp_server.py")), _re.M))
         # 口径：`域` = 有 pack.json 的域包（9）；`技能` = 所有 SKILL.md 目录（10，含总控）
         doms = len(_g.glob(os.path.join(TOOL, "skill", "*", "pack.json")))
         skills = len([d for d in _g.glob(os.path.join(TOOL, "skill", "*"))
@@ -2135,14 +2535,14 @@ def check_fact_drift():
         routes = len([l for l in (_r.stdout or "").splitlines() if l.strip()])
         actual = {"工具": tools, "案例": cases, "条 路由": routes, "个 域包": doms}
         targets = [os.path.join(ROOT, p) for p in
-                   ("README.md", "README.zh.md", "docs/NOW.md", "docs/PRODUCT.md", "docs/ARCHITECTURE.md")]
+                   ("README.md", "README.zh.md", "REQUIREMENTS.md", "docs/ARCHITECTURE.md", "docs/CURRENT-STATE.md")]
         targets += _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md"), recursive=True)
         skip_words = ("假设", "例如", "比如", "如果", "若", "最多", "可达", "上限", "目标")
         bad = []
         for f in targets:
             if not os.path.isfile(f):
                 continue
-            for ln, line in enumerate(open(f, encoding="utf-8", errors="replace"), 1):
+            for ln, line in enumerate(read_text_file(f, errors="replace").splitlines(), 1):
                 if any(w in line for w in skip_words):
                     continue
                 for name, n in actual.items():
@@ -2170,7 +2570,7 @@ def check_subskill_wiring():
     linked, dangling = {}, []
     for p in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
         dom = os.path.basename(os.path.dirname(p))
-        t = open(p, encoding="utf-8", errors="replace").read()
+        t = read_text_file(p, errors="replace")
         for name in set(_re.findall(r"_pending/([A-Za-z0-9_.-]+)/SKILL\.md", t)):
             linked.setdefault(name, set()).add(dom)
             if name not in pend:
@@ -2207,7 +2607,7 @@ def check_dropin_skills():
     这条判据检查**实际被加载的技能目录**（~/.pi/agent/skills），所以它就是用户拖拽后的体检。
     """
     import re as _re
-    base = os.path.expanduser("~/.pi/agent/skills")
+    base = os.path.join(str(agent_root_path()), "skills")
     if not os.path.isdir(base):
         add("2 单一事实源", "拖拽式技能（SKILL.md 合法即生效）", False, "未部署技能目录")
         return
@@ -2218,7 +2618,7 @@ def check_dropin_skills():
             if os.path.isdir(os.path.join(base, d)):
                 bad.append("%s(无 SKILL.md)" % d)
             continue
-        t = open(f, encoding="utf-8", errors="replace").read()
+        t = read_text_file(f, errors="replace")
         nm = _re.search(r"^name:\s*(\S+)", t, _re.M)
         de = _re.search(r"^description:\s*(.+)$", t, _re.M)
         if not nm or not de:
@@ -2264,7 +2664,7 @@ def check_legacy_capability_domains():
     hit, names = [], set()
     for f in _glob.glob(os.path.join(TOOL, "capabilities", "*.json")):
         try:
-            d = json.load(open(f, encoding="utf-8"))
+            d = load_json_file(f)
         except Exception:
             continue
         dom = str(d.get("domain") or "")
@@ -2297,7 +2697,7 @@ def check_mandatory_asks_ssot():
     sk_p = os.path.join(TOOL, "skill", "seep-router", "SKILL.md")
     ag_p = os.path.join(TOOL, "prompts", "AGENTS.md")
     try:
-        asks = (json.load(open(cfg_p, encoding="utf-8")).get("asks") or [])
+        asks = (load_json_file(cfg_p).get("asks") or [])
     except Exception as e:  # noqa: BLE001
         add("2 单一事实源", "必问三件同源（配置 ↔ 技能 ↔ 纪律）", False,
             "user-inputs.json 读不出：%s" % str(e)[:60])
@@ -2307,8 +2707,8 @@ def check_mandatory_asks_ssot():
             "user-inputs.json 里没有 asks（三问是首答缺什么的最小集，不能为空）")
         return
     try:
-        sk = open(sk_p, encoding="utf-8").read()
-        ag = open(ag_p, encoding="utf-8").read()
+        sk = read_text_file(sk_p)
+        ag = read_text_file(ag_p)
     except Exception as e:  # noqa: BLE001
         add("2 单一事实源", "必问三件同源（配置 ↔ 技能 ↔ 纪律）", False,
             "读不到技能/纪律正文：%s" % str(e)[:60])
@@ -2329,32 +2729,6 @@ def check_mandatory_asks_ssot():
         "；".join(bad) if bad else "%d 问在三处都在（身份词比对，不要求逐字相同）" % len(asks))
 
 
-def check_domain_commands():
-    """命令卡是**从技能派生**的：每个生效技能都要有卡，且卡内容必须是最新生成结果。
-
-    设计（2026-10-24，约定优于配置）：加技能 = 丢一个 `Tool/skill/<名>/SKILL.md`，
-    跑 install（会自动 gen-commands）→ 得到 `/名` 命令。**不再手写卡片、不再改配置**。
-    这条判据守两件事：① 有技能没卡（漏生成）② 手动改过生成的卡（漂移）。
-
-    ★ 2026-10（W3）：本函数原来在 `check_route_first_contract` 前后**各定义一份**、
-      而且两份都**从未被 main() 调用**（死代码 = 永远不可能红也永远不可能绿）。
-      现在：只留一份（两份原文完全相同，取第一份位置，逻辑取实际跑得完的那套）、
-      由 main() 调一次。
-      并诚实化：`gen-commands.py` **本来就不存在**（文档承诺了但没实现，见
-      docs/PLAN-OPTIMIZATION.md「已知不修」），以前打 FAIL 只是在数一条永远不会修的债；
-      现报 INFO、不计 FAIL。它真出现后自动按原判据跑（存在才可能红）。
-    """
-    gen = os.path.join(TOOL, "scripts", "gen-commands.py")
-    if not os.path.isfile(gen):
-        add("2 单一事实源", "命令卡由技能派生（无手写漂移）", True,
-            "文档承诺的命令卡生成器未实现（缺 Tool/scripts/gen-commands.py；"
-            "见 docs/PLAN-OPTIMIZATION.md 已知不修）", level="INFO")
-        return
-    rc, out = run([sys.executable, gen, "--check"], timeout=120)
-    n_skill = len([d for d in os.listdir(os.path.join(TOOL, "skill"))
-                   if os.path.isfile(os.path.join(TOOL, "skill", d, "SKILL.md"))])
-    add("2 单一事实源", "命令卡由技能派生（%d 个技能 → 自动生成，无手写漂移）" % n_skill, rc == 0,
-        (out or "").strip().splitlines()[-1][:120] if out else "gen-commands --check rc=%d" % rc)
 
 
 def check_route_first_contract():
@@ -2371,11 +2745,62 @@ def check_route_first_contract():
         add("2 单一事实源", "入口契约（说话即入口；命令承诺必须真注册）", False, "缺 entry_contract.py: %s" % e)
         return
     try:
-        t = open(os.path.join(TOOL, "prompts", "AGENTS.md"), encoding="utf-8", errors="replace").read()
+        t = read_text_file(os.path.join(TOOL, "prompts", "AGENTS.md"), errors="replace")
         ok, why = _ec.check(t, os.path.join(TOOL, "prompts", "extensions"))
     except Exception as e:  # noqa: BLE001
         ok, why = False, str(e)[:100]
     add("2 单一事实源", "入口契约（说话即入口；命令承诺必须真注册）", ok, why)
+
+
+def _trigger_route_failures(probe, hits, domains):
+    """Judge every concrete route, including auxiliary and forbidden domains."""
+    order = [(hit["pack"], bool(hit.get("fallback"))) for hit in hits]
+    domains = [str(domain) for domain in (domains or []) if str(domain)]
+    if "expect_route" in probe:
+        want = probe["expect_route"]
+    else:
+        want = probe.get("expect_skill")
+    if want is None:
+        return []
+
+    bad = []
+    primary = domains[0] if domains else ""
+    if want == "":
+        if domains:
+            bad.append("应判不出领域，实际完整命中 %s" % "/".join(domains))
+    elif isinstance(want, list):
+        allowed = [str(item) for item in want]
+        if primary not in allowed:
+            bad.append("主域 %s 不在允许集合 %s"
+                       % (primary or "(空)", "/".join(allowed) or "(空)"))
+    elif isinstance(want, str):
+        if primary != want:
+            bad.append("主域 %s ≠ 期望 %s" % (primary or "(空)", want))
+    else:
+        bad.append("expect_route 必须是字符串或字符串数组")
+
+    if "expect_aux" in probe:
+        expected_aux = [str(item) for item in (probe.get("expect_aux") or [])]
+        if domains[1:] != expected_aux:
+            bad.append("辅助域 %s ≠ 期望 %s"
+                       % ("/".join(domains[1:]) or "(空)",
+                          "/".join(expected_aux) or "(空)"))
+
+    if "expect_ambiguity" in probe:
+        actual = len(domains) > 1
+        if bool(probe["expect_ambiguity"]) != actual:
+            bad.append("歧义=%s ≠ 期望 %s"
+                       % (actual, bool(probe["expect_ambiguity"])))
+
+    forbidden = set(str(item) for item in (probe.get("forbid") or []))
+    hit_forbidden = [domain for domain in domains if domain in forbidden]
+    if hit_forbidden:
+        bad.append("误命中禁止域 %s（完整命中 %s）"
+                   % ("/".join(hit_forbidden), "/".join(domains)))
+
+    if want != "" and order and order[0][1]:
+        bad.append("第一位仍是兜底域")
+    return bad
 
 
 def check_trigger_matrix():
@@ -2386,18 +2811,17 @@ def check_trigger_matrix():
     根因是**没有一张跨层探针表**。这一条就是那张表：
     任何一层对一句"用户真实说法"失配，就红，并点名是哪一层。
     """
-    import json as _j
     import re as _re
     p = os.path.join(TOOL, "config", "trigger-probes.json")
     try:
-        probes = _j.load(open(p, encoding="utf-8")).get("probes") or []
+        probes = load_json_file(p).get("probes") or []
     except Exception as e:  # noqa: BLE001
         add("2 单一事实源", "触发面探针矩阵（用户原话 → 技能/路由/KB）", False, "探针表读失败 %s" % e)
         return
 
     descs = {}
-    dep = set(os.listdir(os.path.expanduser("~/.pi/agent/skills"))) if os.path.isdir(
-        os.path.expanduser("~/.pi/agent/skills")) else set()
+    deployed_skills = os.path.join(str(agent_root_path()), "skills")
+    dep = set(os.listdir(deployed_skills)) if os.path.isdir(deployed_skills) else set()
     # 顶层 9 包 + 归档区（归档的只有**部署了**才算可见，否则模型看不到 = 等于不存在）
     cand = [(d, os.path.join(TOOL, "skill", d, "SKILL.md")) for d in os.listdir(os.path.join(TOOL, "skill"))]
     cand += [(d, os.path.join(TOOL, "skill", "_pending", d, "SKILL.md"))
@@ -2407,7 +2831,7 @@ def check_trigger_matrix():
             continue
         if "_pending" in f and d not in dep:
             continue   # 归档且未部署 → 不进候选（探针若期望它会命中"技能缺失"）
-        m = _re.search(r"^description:\s*(.+)$", open(f, encoding="utf-8").read(), _re.M)
+        m = _re.search(r"^description:\s*(.+)$", read_text_file(f), _re.M)
         descs[d] = (m.group(1) if m else "").lower()
 
     # 命中判据：只认**实词**二元组（虚词二元组会把"帮我/这个"撞成假命中 —— 实测过，
@@ -2465,10 +2889,14 @@ def check_trigger_matrix():
         import route as _route_mod      # 判据唯一来源；本文件不重写任何正则
         for x in probes:
             ph = x.get("phrase") or ""
-            hits = _route_mod.resolve(ph)
+            hits, domains = _route_mod.resolved_domains(ph)
             order = [(h["pack"], bool(h.get("fallback"))) for h in hits]
             hits_order[ph] = order
             seq = " > ".join(p for p, _f in order) or "(空)"
+            failures = _trigger_route_failures(x, hits, domains)
+            if failures:
+                bad_route.append("%s：%s(%s)" % (ph, seq, "；".join(failures)))
+                continue
             if "expect_route" in x:
                 want = x["expect_route"]
             else:
@@ -2481,7 +2909,7 @@ def check_trigger_matrix():
                     bad_route.append("%s→%s(应判不出，命中顺序见右)" % (ph, seq))
                 continue
             if isinstance(want, list):
-                top = concrete[0]["pack"] if concrete else ""
+                top = domains[0] if domains else ""
                 if top not in want:
                     bad_route.append("%s→%s(期望第一位在 %s)" % (ph, seq, "/".join(want)))
                 continue
@@ -2555,13 +2983,13 @@ def check_cross_layer():
 
     # ① 技能里的调用式引用（mcp__seep__x 或 `seep_x(`）必须在服务端有定义
     try:
-        src = open(os.path.join(TOOL, "mcp", "seep_mcp_server.py"), encoding="utf-8").read()
+        src = read_text_file(os.path.join(TOOL, "mcp", "seep_mcp_server.py"))
         srv = set(_re2.findall(r"^def (seep_[a-z0-9_]+)\(", src, _re2.M))
         files = _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")) + \
             _g.glob(os.path.join(TOOL, "skill", "*", "references", "*.md"))
         bad, nref = [], 0
         for f in files:
-            t = open(f, encoding="utf-8", errors="replace").read()
+            t = read_text_file(f, errors="replace")
             for c in set(_re2.findall(r"mcp__seep__(\w+)", t)) | \
                     set(_re2.findall(r"`(seep_[a-z0-9_]+)\(", t)):
                 nref += 1
@@ -2578,7 +3006,7 @@ def check_cross_layer():
     try:
         for rp in _g.glob(os.path.join(ROOT, "docs", "verification", "*.json")):
             try:
-                d = json.load(open(rp, encoding="utf-8"))
+                d = load_json_file(rp)
             except Exception:
                 continue
             if not isinstance(d, dict):
@@ -2594,7 +3022,7 @@ def check_cross_layer():
                     bad_r.append("%s→缺 %s" % (os.path.basename(rp), rel))
                     continue
                 n_r += 1
-                if _h.sha256(open(fp, "rb").read()).hexdigest() != want:
+                if _h.sha256(read_binary_file(fp)).hexdigest() != want:
                     bad_r.append("%s→%s" % (os.path.basename(rp), rel))
         add("2 单一事实源", "回执未漂移（source 哈希仍匹配，回执不替改过的代码作证）",
             not bad_r, "；".join(bad_r[:4]) if bad_r else "%d 条回执 source 已比对" % n_r)
@@ -2620,7 +3048,17 @@ def check_handoff_fresh():
     if not os.path.isfile(f):
         add("13 措辞", _name, True, "缺 docs/HANDOFF.md（%s）" % _note, level="WARN")
         return
-    txt = open(f, encoding="utf-8", errors="replace").read()
+    txt = read_text_file(f, errors="replace")
+    # Current requirements keep progress only in CURRENT-STATE. A forwarding
+    # handoff has no Git snapshot to refresh; verify both actual link targets.
+    if "本页只作接续入口" in txt and "## §1 状态块" not in txt:
+        targets = (("../REQUIREMENTS.md", os.path.join(ROOT, "REQUIREMENTS.md")),
+                   ("CURRENT-STATE.md", os.path.join(ROOT, "docs", "CURRENT-STATE.md")))
+        missing = [link for link, path in targets if "](" + link + ")" not in txt or not os.path.isfile(path)]
+        add("13 措辞", _name, not missing,
+            "接续转发链接缺失或目标不存在：" + "、".join(missing) if missing else
+            "接续入口链接有效；唯一当前进度为 CURRENT-STATE，无重复快照")
+        return
     m = _re.search(r"handoff:HEAD=([0-9a-f]{7,40})", txt)
     if not m:
         add("13 措辞", _name, True,
@@ -2657,7 +3095,8 @@ def _file_sig(p):
     直接比 sha256 会在换机器 / git checkout 后无故变红 —— 这不是真差异。
     """
     import hashlib as _hl
-    b = open(p, "rb").read()
+    with open(p, "rb") as handle:
+        b = handle.read()
     if b"\x00" not in b[:4096]:
         b = b.replace(b"\r\n", b"\n")
     return _hl.sha256(b).hexdigest()
@@ -2672,7 +3111,7 @@ def check_extension_deploy():
     """
     import hashlib as _h
     src = os.path.join(TOOL, "prompts", "extensions")
-    dst = os.path.join(os.path.expanduser("~"), ".pi", "agent", "extensions")
+    dst = os.path.join(str(agent_root_path()), "extensions")
     if not os.path.isdir(src):
         add("13 措辞", "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）", False, "缺 Tool/prompts/extensions")
         return
@@ -2690,8 +3129,8 @@ def check_extension_deploy():
         if not os.path.isfile(b):
             bad.append(f + "(未部署)")
             continue
-        ha = _h.sha256(open(a, "rb").read()).hexdigest()
-        hb = _h.sha256(open(b, "rb").read()).hexdigest()
+        ha = _h.sha256(read_binary_file(a)).hexdigest()
+        hb = _h.sha256(read_binary_file(b)).hexdigest()
         if ha != hb:
             bad.append(f + "(哈希不一致)")
     add("13 措辞", "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）", not bad,
@@ -2734,7 +3173,7 @@ def check_tool_ladder():
         if not os.path.isfile(fp):
             absent.append(name)          # 找不到文件 = 红，不再静默跳过
             continue
-        body = open(fp, encoding="utf-8", errors="replace").read()
+        body = read_text_file(fp, errors="replace")
         if "tool-acquire.py" not in body:
             missing.append(name)
     bad_stage = absent + missing
@@ -2759,7 +3198,7 @@ def check_unpack_pointer():
         dom = os.path.basename(os.path.dirname(d))
         if dom in ("_pending", "unpack-loop"):
             continue
-        t = io.open(d, encoding="utf-8", errors="replace").read()
+        t = read_text_file(d, errors="replace")
         if not _re.search(r"脱壳|加壳|加固", t):
             continue
         need += 1
@@ -2770,7 +3209,7 @@ def check_unpack_pointer():
     for dom in ("softseep", "apkseep", "malware-analysis"):
         f = os.path.join(TOOL, "skill", dom, "SKILL.md")
         if os.path.isfile(f):
-            t = io.open(f, encoding="utf-8", errors="replace").read()
+            t = read_text_file(f, errors="replace")
             if "unpack-loop" not in t:
                 fails.append("载体域 %s 没指向 unpack-loop" % dom)
     add("2 单一事实源", "脱壳指针（%d 个声明脱壳能力的域都指向 unpack-loop）" % need, not fails,
@@ -2795,15 +3234,42 @@ def check_entry_reachable():
     import io as _io
 
     # --- 入口语料：模型真会读的那几份（别把整个仓库当语料，否则永远绿）---
-    entry_files = [os.path.join(TOOL, "prompts", "AGENTS.md"),
-                   os.path.join(TOOL, "prompts", "SEEP.md"),
-                   os.path.join(ROOT, "MANUAL", "README.md")]
-    entry_files += sorted(glob.glob(os.path.join(TOOL, "docs", "**", "*.md"), recursive=True))
-    present = [p for p in entry_files if os.path.isfile(p)]
-    corpus = ""
+    seed_files = [os.path.join(TOOL, "prompts", "AGENTS.md"),
+                  os.path.join(TOOL, "prompts", "SEEP.md"),
+                  os.path.join(ROOT, "MANUAL", "README.md")]
+    seed_files += sorted(glob.glob(os.path.join(TOOL, "docs", "**", "*.md"), recursive=True))
+    present = [p for p in seed_files if os.path.isfile(p)]
+    seed_corpus = ""
     for p in present:
         try:
-            corpus += "\n" + _io.open(p, encoding="utf-8", errors="replace").read()
+            seed_corpus += "\n" + read_text_file(p, errors="replace")
+        except Exception:  # noqa: BLE001
+            continue
+    seed_corpus = seed_corpus.replace("\\", "/")
+
+    # 两个目录索引是入口的下一跳。只把它们加入语料还不够：索引本身必须
+    # 能从种子入口沿路径文本到达，否则模型仍不知道目录存在。
+    index_entries = [("Tool/playbooks/README.md",
+                      os.path.join(TOOL, "playbooks", "README.md")),
+                     ("Tool/skill/_pending/INDEX.md",
+                      os.path.join(TOOL, "skill", "_pending", "INDEX.md"))]
+    unreachable_indexes = []
+    for rel, path in index_entries:
+        if not os.path.isfile(path):
+            unreachable_indexes.append(rel + "（缺失）")
+        elif rel not in seed_corpus:
+            unreachable_indexes.append(rel)
+    add("19 入口可达", "资产索引可从顶层入口到达（playbooks/_pending）",
+        not unreachable_indexes,
+        ("%d 个索引不可达：%s" % (len(unreachable_indexes), "、".join(unreachable_indexes))
+         if unreachable_indexes else "两个资产索引均被顶层入口直接点名"))
+
+    index_present = [path for _rel, path in index_entries if os.path.isfile(path)]
+    present += index_present
+    corpus = seed_corpus
+    for p in index_present:
+        try:
+            corpus += "\n" + read_text_file(p, errors="replace").replace("\\", "/")
         except Exception:  # noqa: BLE001
             continue
 
@@ -2815,7 +3281,7 @@ def check_entry_reachable():
     idx_txt = ""
     if os.path.isfile(mr):
         try:
-            idx_txt = _io.open(mr, encoding="utf-8", errors="replace").read()
+            idx_txt = read_text_file(mr, errors="replace")
         except Exception:  # noqa: BLE001
             idx_txt = ""
     orphan_manual = [m for m in manuals if m != "README.md" and m not in idx_txt]
@@ -2854,7 +3320,7 @@ def check_entry_reachable():
          "%d 处资产均被 %s 等 %d 份入口文件点到" % (len(targets), corpus_names, len(present))))
     if not targets:
         add("19 入口可达", "代码资产目录清单非空", False, "没扫到任何待检资产（检查本身失效）")
-    return manual_ok and not missing
+    return manual_ok and not unreachable_indexes and not missing
 
 
 def check_tool_identity():
@@ -2874,10 +3340,17 @@ def check_tool_identity():
     doc = os.path.join(TOOL, "docs", "tool-index.md")
     claimed = set()
     if os.path.isfile(doc):
-        for line in _io.open(doc, encoding="utf-8", errors="replace"):
-            m = _re.match(r"\|\s*`([A-Za-z0-9_.-]+)`\s*\|\s*([^|]+?)\s*\|", line)
-            if m and not m.group(2).startswith("否"):
-                claimed.add(m.group(1))
+        with _io.open(doc, encoding="utf-8", errors="replace") as stream:
+            for line in stream:
+                m = _re.match(r"\|\s*`([A-Za-z0-9_.-]+)`\s*\|\s*([^|]+?)\s*\|", line)
+                if m and not m.group(2).startswith("否"):
+                    claimed.add(m.group(1))
+    if not claimed:
+        add("2 单一事实源",
+            "工具身份声明（目录未保存本机就绪快照）", True,
+            "tool-index 不宣称本机就绪；实际发现与行为验证由 tool-readiness 单独执行",
+            level="INFO")
+        return []
     try:
         _sys.path.insert(0, os.path.join(TOOL, "scripts", "lib"))
         import tool_identity as _TI
@@ -2914,18 +3387,12 @@ def check_tool_identity():
             fails.append("文档称 `%s` 就位，但行为探针失败（%s）：%s"
                          % (tid, r["exe"], r["why"][:150]))
 
-    # ★ 2026-10-26 第 2 轮评审 P0：`checked == 0` 以前是**静默绿**。
-    #   循环里每个 tid 都 `continue`（没探到 exe），于是 checked=0、fails 为空 → PASS。
-    #   换机器 / 什么都没装时，这条检查反而最绿，而它正是"这台机器有没有工具"的唯一证据。
-    #   现在：一个都没探到 = FAIL（不是"跳过"）。detail 必须说清是哪种 zero。
+    # 静态目录不再保存本机就绪快照；若它确实声明了工具，就必须能解析到
+    # 真实 exe 并通过行为探针，不能让"写了但找不到"静默通过。
     if checked == 0:
-        if claimed:
-            detail = ("文档声称就位的工具一个都没探到（换机器/未安装？）：tool-index.md 标了 %d 个"
-                      "「是」（%s），tool-acquire 一个 exe 路径都没解析出来。"
-                      % (len(claimed), "、".join(sorted(claimed)[:6])))
-        else:
-            detail = ("tool-index.md 一个声称就位的工具都没有（claimed=0），无法证明任何工具就位"
-                      "（换机器/文档被改成「否」？）")
+        detail = ("文档声称就位的工具一个都没探到（换机器/未安装？）：tool-index.md 标了 %d 个"
+                  "「是」（%s），tool-acquire 一个 exe 路径都没解析出来。"
+                  % (len(claimed), "、".join(sorted(claimed)[:6])))
         add("2 单一事实源",
             "工具身份自检（0 个工具通过行为探针）", False,
             detail + "（修法：装真工具，或把 tool-index 该行改成「否（BROKEN：原因）」并写明原因）")
@@ -2947,9 +3414,16 @@ def check_agents_deploy():
     import glob as _g
     import io as _io
     import re as _re
+    agent = os.path.abspath(str(agent_root_path()))
+    try:
+        managed = _load_install_ownership(agent)
+    except ValueError as exc:
+        add("2 单一事实源", "子代理所有权核验", False, str(exc))
+        return [str(exc)]
     src_dir = os.path.join(TOOL, "prompts", "agents")
-    dst_dir = os.path.join(os.path.expanduser("~"), ".pi", "agent", "agents")
+    dst_dir = os.path.join(agent, "agents")
     fails = []
+    warnings = []
     if not os.path.isdir(src_dir):
         add("2 单一事实源", "子代理定义（仓库 ↔ 部署）", False, "仓库缺 Tool/prompts/agents/")
         return ["仓库缺 Tool/prompts/agents/"]
@@ -2962,8 +3436,16 @@ def check_agents_deploy():
     extra = sorted(dst - src)
     if miss:
         fails.append("未部署：" + "、".join(x[:-3] for x in miss))
-    if extra:
-        fails.append("残留（仓库已无）：" + "、".join(x[:-3] for x in extra) + "（跑 install 会移到 backup-retired-agents）")
+    managed_leftover = []
+    user_extra = []
+    for name in extra:
+        rel = "agents/" + name
+        (managed_leftover if _managed_file_current(agent, managed, rel)
+         else user_extra).append(name)
+    if managed_leftover:
+        fails.append("受管遗留（仓库已无）：" + "、".join(x[:-3] for x in managed_leftover))
+    if user_extra:
+        warnings.append("用户自有保留:" + "、".join(x[:-3] for x in user_extra))
     drift = []
 
     def _agent_core(p):
@@ -2973,22 +3455,31 @@ def check_agents_deploy():
           重排键序、去掉 display_name），那是宿主归一化，不是“规则没部署”；
           用整文件哈希会把宿主行为当成故障。真正要盯的是：角色职责改了吗？
         """
-        t = _io.open(p, encoding="utf-8", errors="replace").read()
+        t = read_text_file(p, errors="replace")
         tools = (_re.search(r"(?m)^tools:\s*(.+)$", t) or [None, ""])[1]
         tools = ",".join(sorted(x.strip() for x in tools.split(",") if x.strip()))
         m = _re.search(r"(?ms)^systemPrompt:\s*(.+?)(?=\n^[A-Za-z_]+:|\Z)", t)
         body = _re.sub(r"\s+", "", m.group(1) if m else t.split("---")[-1])
         return tools, body
 
+    unverified = []
     for f in sorted(src & dst):
-        if _agent_core(os.path.join(src_dir, f)) != _agent_core(os.path.join(dst_dir, f)):
-            drift.append(f[:-3])
+        if not _managed_file_current(agent, managed, "agents/" + f):
+            unverified.append(f[:-3])
+            continue
+        try:
+            if _agent_core(os.path.join(src_dir, f)) != _agent_core(os.path.join(dst_dir, f)):
+                drift.append(f[:-3])
+        except OSError as exc:
+            fails.append("无法核验：%s(%s)" % (f[:-3], type(exc).__name__))
     if drift:
         fails.append("哈希不一致：" + "、".join(drift))
+    if unverified:
+        warnings.append("同名覆盖未验证:" + "、".join(unverified))
     # 同义重复：工具集 + 首段提示词指纹相同
     sigs = {}
     for f in sorted(src):
-        t = _io.open(os.path.join(src_dir, f), encoding="utf-8", errors="replace").read()
+        t = read_text_file(os.path.join(src_dir, f), errors="replace")
         tools = (_re.search(r"(?m)^tools:\s*(.+)$", t) or [None, ""])[1]
         tools = ",".join(sorted(x.strip() for x in tools.split(",") if x.strip()))
         body = _re.sub(r"\s+", "", t.split("---")[-1])[:400]
@@ -2996,8 +3487,15 @@ def check_agents_deploy():
     for (tools, _b), names in sigs.items():
         if len(names) > 1:
             fails.append("同义重复角色：" + "、".join(names) + "（工具集与提示词几乎相同）")
-    add("2 单一事实源",
-        "子代理定义（%d 个角色：仓库=部署，无同义重复）" % len(src), not fails, "；".join(fails))
+    if fails:
+        add("2 单一事实源", "子代理定义（%d 个角色）" % len(src), False,
+            "；".join(fails + warnings))
+    elif warnings:
+        add("2 单一事实源", "子代理定义（用户覆盖未验证）", True,
+            "；".join(warnings), level="WARN")
+    else:
+        add("2 单一事实源",
+            "子代理定义（%d 个角色：受管定义一致，无同义重复）" % len(src), True, "")
     return fails
 
 
@@ -3015,13 +3513,13 @@ def check_subagent_config():
     import glob as _g
     import io as _io
     import re as _re
-    dst_dir = os.path.join(os.path.expanduser("~"), ".pi", "agent", "agents")
+    dst_dir = os.path.join(str(agent_root_path()), "agents")
     fails = []
     cfg = os.path.join(dst_dir, "settings.json")
     if not os.path.isfile(cfg):
         fails.append("缺 agents/settings.json（内置子代理无配置）")
     else:
-        raw = _io.open(cfg, "rb").read()
+        raw = read_binary_file(cfg)
         if raw.startswith(b"\xef\xbb\xbf"):
             fails.append("agents/settings.json 带 UTF-8 BOM（pi-web 的 JSON.parse 必失败，开关会静默变 OFF）")
         else:
@@ -3035,7 +3533,7 @@ def check_subagent_config():
                 fails.append("agents/settings.json 解析失败：%s" % e)
     for p in sorted(_g.glob(os.path.join(dst_dir, "*.md"))):
         try:
-            txt = _io.open(p, encoding="utf-8-sig").read()
+            txt = read_text_file(p, encoding="utf-8-sig")
         except OSError as e:
             fails.append("%s 读不了：%s" % (os.path.basename(p), e))
             continue
@@ -3089,7 +3587,6 @@ def main():
     check_dropin_skills()
     check_legacy_capability_domains()
     check_mandatory_asks_ssot()
-    check_domain_commands()          # W3：以前两份重复定义且零调用，现在只此一处调用
     check_skill_import()
     check_subskill_wiring()
     check_unpack_pointer()
@@ -3105,11 +3602,14 @@ def main():
     check_doc_commands()
     check_reference_index()
     check_reference_depth()
-    check_depth_aplus()
+    # REQUIREMENTS §1/§5: document length is not evidence of professional ability.
+    # Reference/action checks remain below; domain-gate and task witnesses verify
+    # declarations and results. Do not restore the retired line-count ratchet.
     check_prompt_residue()
     check_deploy_bidirectional()
     check_mcp_name_consistency()
     check_case_contract_files()
+    check_document_cutover()
     check_tool_ladder()
     check_functional(args.fast)
 
@@ -3134,16 +3634,22 @@ def main():
                 print(f"\n[{cur}]")
             mark = r.get("level") or ("PASS" if r["ok"] else "FAIL")
             print(f"  [{mark}] {r['name']}" + (f"  — {r['detail']}" if r["detail"] else ""))
-        print(f"\n结果: {len(results) - len(fails)}/{len(results)} 通过"
-              + (f"（含 {len(notes)} 条 WARN/INFO"
-                 + (f"，含 {len(waived)} 条已豁免项" if waived else "")
-                 + "，不影响退出码）" if notes else "")
+        verified = sum(1 for r in results if r["ok"] and not r.get("level"))
+        print(f"\n结果: {verified}/{len(results)} 可验证项通过"
+              + (f"（另有 {len(notes)} 条 WARN/INFO"
+                 + (f"，其中 {len(waived)} 条已豁免" if waived else "")
+                 + "；这些不计为验证通过）" if notes else "")
               + ("" if not fails else "  ← 有 FAIL，先修再推"))
         if skipped:
             print("  其中 %d 条为「跳过（未验证）」：%s"
                   % (len(skipped), "、".join("%s/%s" % (r["section"], r["name"]) for r in skipped)))
             print("  ↑ 这些项本机没真跑（缺工具/解析失败）：计入“通过”但**不是证据**，别当成已验证。")
-    return 0 if not fails else 1
+    if fails:
+        return 1
+    if notes:
+        # WARN/INFO/跳过表示本次检查并未完全验证；不把它折算成成功退出。
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

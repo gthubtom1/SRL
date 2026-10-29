@@ -1,0 +1,54 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "TOOL-02",
+  "decision": "accepted_scoped",
+  "signer_role": "main-agent",
+  "independent_verifier_session": "01a17c8a-999d-74f6-8526-d9349682f83f",
+  "independent_report": "work/goal-recovery/tool02-independent.md",
+  "independent_report_sha256": "44863272a799eadbec508adba1443cdbd88a1b5c5993b239496125f9268f641b",
+  "objects": {
+    "Tool/mcp/seep_mcp_server.py": "27e45434696c2579528bdcc12c2ba0caafd875e1b342b201e8b49d3b496b5e27",
+    "Tool/mcp/seep_contract.py": "337b1175af150c48a43ae560735cea9d50bb5a0f62e96b77ad9430292c185690",
+    "Tool/scripts/tool-contract-check.py": "8162d036fbbed3294091216e7ab4fb572af7994ec92a83613ab1d1028e7dc996",
+    "Tool/config/mcp-tool-dependencies.json": "00b72116206c76d7a802908ef9f86a40f87289ba5982ae1093945cfb44b9ce35",
+    "Tool/scripts/test_tool_dependencies.py": "f7c03c5cd78de48a1f2a7a521f78b148b7c19a20c2bcd7eaadfb79e58232e42f",
+    "Tool/scripts/project_workflow.py": "eae4fac723409ea90be00cc3d1ab201d2afefcf806601107a4f2648d454a48ad",
+    "Tool/scripts/manager_state.py": "6149c3593b870265f166574b8a76ac5d890c6267490863484d83e49fac4d840f",
+    "Tool/mcp/test_pcap_contract.py": "c21bab044ff321aefd8b3b2e9ae86f3fffda88ea97bddd6631be812b0db1b940",
+    "Tool/mcp/test_readonly_parameters.py": "5b41c2436326404aeecaa7f133682e4562422aeef15bb5e9b0b7c958a05aa233",
+    "Tool/mcp/test_seep_mcp.py": "e4c0a97c73bae9672164c9d29f1da8a189a18e9a97daf132a2c674b187a57e2e"
+  },
+  "signature_basis": "Independent read-only behavior probes; current object hashes match the independently locked versions.",
+  "accepted_scope": [
+    "Bounded AST dependency/helper evidence with relocated line hints, not runtime control-flow proof.",
+    "Pure workflow result classification: no-result and partial are not promoted to succeeded; original tool exit codes remain available.",
+    "Public integer parameter validation and rejection of synthetic credential patterns without value disclosure.",
+    "Fresh MCP stdio initialize, twenty listed schemas, selected safe calls and normal shutdown.",
+    "Offline pcap extraction contract and real tshark parsing of the existing public BGP sample, including empty/error/partial/budget behavior.",
+    "Two recorded failed tool outcomes trigger Manager replanning despite an outer archival-command returncode of zero."
+  ],
+  "results": {
+    "dependency_tests": 53,
+    "pcap_contract_tests": 31,
+    "readonly_parameter_tests": 18,
+    "smoke_checks": 12,
+    "independent_assertions": 245,
+    "skipped": 0,
+    "fresh_listed_tools": 20
+  },
+  "host_equivalence": {
+    "state": "not_established",
+    "observed_behavior_differs": true,
+    "root_cause": "unknown",
+    "service_restarted": false,
+    "evidence": "work/goal-recovery/host-mcp-freshness.json"
+  },
+  "limits": [
+    "Not all twenty tool functions were behaviorally exercised.",
+    "No full stateful workflow, nine-domain, cross-machine or deployment acceptance is granted.",
+    "The -n/no-live-capture invocation was verified; packet-level absence of network activity was not measured.",
+    "Linux locking and power-loss recovery were not tested.",
+    "Changed sources or dependencies require impact review and relevant independent revalidation."
+  ],
+  "overall_goal_complete": false
+}

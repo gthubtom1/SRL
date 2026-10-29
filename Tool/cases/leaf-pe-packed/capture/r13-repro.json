@@ -1,0 +1,153 @@
+{
+  "ok": true,
+  "schema": "seep.r13-case-repro/1",
+  "case": "leaf-pe-packed",
+  "results": [
+    {
+      "label": "leaf-pe-structure",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/cases/leaf-pe-packed/capture/_r13_leaf_replay.py",
+        "--inspect-only"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "capture/r13-leaf-pe-structure.stdout.txt",
+        "sha256": "dee6a750f66e0c0045163f6bb56f053f05bb87f6a56f7bba8380905c07326637"
+      },
+      "stderr": {
+        "path": "capture/r13-leaf-pe-structure.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_unmodified": true
+    },
+    {
+      "label": "leaf-packed-trance",
+      "argv": [
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "capture/r13-leaf-packed-trance.stdout.txt",
+        "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c"
+      },
+      "stderr": {
+        "path": "capture/r13-leaf-packed-trance.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_unmodified": true,
+      "stdin": "trance\n"
+    },
+    {
+      "label": "leaf-packed-wrong",
+      "argv": [
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "capture/r13-leaf-packed-wrong.stdout.txt",
+        "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938"
+      },
+      "stderr": {
+        "path": "capture/r13-leaf-packed-wrong.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_unmodified": true,
+      "stdin": "wrong\n"
+    },
+    {
+      "label": "leaf-unpacked-wrong",
+      "argv": [
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "capture/r13-leaf-unpacked-wrong.stdout.txt",
+        "sha256": "765489fd1b16cabfd78a744ff35dbeccd0d050fb1bff907dca6e1eafa8d44938"
+      },
+      "stderr": {
+        "path": "capture/r13-leaf-unpacked-wrong.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_unmodified": true,
+      "stdin": "wrong\n"
+    },
+    {
+      "label": "leaf-patched-wrong",
+      "argv": [
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "capture/r13-leaf-patched-wrong.stdout.txt",
+        "sha256": "d938fa189912f8776c3deb31a6bec42f403f57b9c8e3ed936bdb076caf6bd61c"
+      },
+      "stderr": {
+        "path": "capture/r13-leaf-patched-wrong.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-pe-packed/target/a_upx.exe": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+        "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+        "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06"
+      },
+      "watched_unmodified": true,
+      "stdin": "wrong\n"
+    }
+  ],
+  "all_rc_zero": true,
+  "all_watched_unmodified": true
+}

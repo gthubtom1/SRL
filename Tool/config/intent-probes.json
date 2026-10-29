@@ -1,11 +1,12 @@
 {
   "schemaVersion": "1.0",
-  "description": "93 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、逆向测绘、固件、取证、协议、供应链、插件、反作弊，以及 D 轮审计的 93 条极端场景（小程序/鸿蒙/OTA/BLE/Modbus/Cloudflare/容器/SaaS/多运行时/套壳/电视车机/iOS/Unity/驱动兼容）。每条只描述用户会怎么说，不写实现细节。",
+  "description": "94 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、逆向测绘、OSINT 资产测绘、固件、取证、协议、供应链、插件、反作弊，以及 D 轮审计的极端场景（小程序/鸿蒙/OTA/BLE/Modbus/Cloudflare/容器/SaaS/多运行时/套壳/电视车机/iOS/Unity/驱动兼容）。每条只描述用户会怎么说，不写实现细节。",
   "families": {
     "account": 10,
     "web-clone": 8,
     "client-license": 8,
     "reverse-survey": 6,
+    "osint": 1,
     "firmware": 5,
     "forensics": 5,
     "protocol": 6,
@@ -583,6 +584,12 @@
       "id": "fwemu-03",
       "text": "IoT 固件 rehosting 缺 NVRAM 设备节点",
       "expect": "firmware-emulate",
+      "forbid": []
+    },
+    {
+      "id": "osint-01",
+      "text": "给我做目标域名的 OSINT 资产测绘，梳理子域枚举、证书透明日志和 GitHub 泄露",
+      "expect": "osint-recon",
       "forbid": []
     }
   ]

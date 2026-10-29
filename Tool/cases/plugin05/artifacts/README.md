@@ -11,8 +11,8 @@
 复跑（在仓库根）：
 
 ```bash
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out /tmp/plugin05-repro --json
+python Tool/skill/protocol-plugin/scripts/plugin-triage.py --path Tool/cases/plugin05/input/ext.vsix --json
+python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin05/input/ext.vsix --out /tmp/plugin05-repro --json
 ```
 
 未签名、未安装、未执行；`child_process` 只做静态定位。

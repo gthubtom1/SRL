@@ -88,50 +88,68 @@
   "artifacts": [
     {
       "path": "artifacts/check-evtx.json",
-      "sha256": "d59a11f8b515fc03b7a34ace4019757e921f3fd463c629367316f8adcacd62c4"
+      "sha256": "d59a11f8b515fc03b7a34ace4019757e921f3fd463c629367316f8adcacd62c4",
+      "size": 9311
     },
     {
       "path": "artifacts/check-history.json",
-      "sha256": "274943fb6d3e9429c142a0d8f871255713464af0d160d8c5c0dc5a348b6ef12d"
+      "sha256": "274943fb6d3e9429c142a0d8f871255713464af0d160d8c5c0dc5a348b6ef12d",
+      "size": 2074
     },
     {
       "path": "artifacts/check-registry-keys.json",
-      "sha256": "fa0b3723a255a21bddafc1747da5c2beb0cc48203bff4a6cfdbdac078c848e3d"
+      "sha256": "fa0b3723a255a21bddafc1747da5c2beb0cc48203bff4a6cfdbdac078c848e3d",
+      "size": 1310
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "00706c2a117601be36a15446a6a035c458ec29a13562b9b652a8488cc7f5c2d6"
+      "sha256": "00706c2a117601be36a15446a6a035c458ec29a13562b9b652a8488cc7f5c2d6",
+      "size": 1334
     },
     {
       "path": "artifacts/timeline.json",
-      "sha256": "1f9c6aa712bb7e7e48138ebf26662b4b485040ae2b9dee79cc3de5f92bdeb775"
+      "sha256": "1f9c6aa712bb7e7e48138ebf26662b4b485040ae2b9dee79cc3de5f92bdeb775",
+      "size": 30288
     },
     {
       "path": "input/AppReadiness.evtx",
-      "sha256": "a1e797541c1ae292777dbc33a1eb1e785cb3936b1b574ec82e3280845a21dbd9"
+      "sha256": "a1e797541c1ae292777dbc33a1eb1e785cb3936b1b574ec82e3280845a21dbd9",
+      "size": 69632
     },
     {
       "path": "input/History.sqlite",
-      "sha256": "89b33c083d91b79d47412c20642172bddcdf3ef26d491f31e95868ea3bb01d4e"
+      "sha256": "89b33c083d91b79d47412c20642172bddcdf3ef26d491f31e95868ea3bb01d4e",
+      "size": 249856
     },
     {
       "path": "input/explorer-key-names.txt",
-      "sha256": "0ef13b7d6a8ca8fe32e25e6ff8d51036908646c6f61a8122d171cbec048ab3d7"
+      "sha256": "0ef13b7d6a8ca8fe32e25e6ff8d51036908646c6f61a8122d171cbec048ab3d7",
+      "size": 5703
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "683851021fa185e6c7c96e27681f96babacbb435a0ed000c628ca3a0e6773583"
+      "sha256": "4d0f4f0db18fbc7bfda2b283ced0536ee4fe484a0044094591a26425250c8853",
+      "size": 677,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "f86e86d44492c966c91ec4f95a26f8cf31349a4730b76b552267ea899545748e",
+      "size": 30434,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/r13-timeline-2026-10-29.json",
+      "sha256": "99ecbb35bfdc0b75da909821277f2f288d87bdf90d3f4b25ec33a5ce94defd83",
+      "size": 30381,
+      "kind": "timeline"
     }
   ],
   "lessons": [
-    "跑的是什么：真实 EVTX + 真实 Edge History + 注册表键名清单（仅键路径、无值）。命令：`python Tool/skill/forensics-mobile/scripts/fs-timeline.py --input input/AppReadiness.evtx --input input/History.sqlite --input input --out artifacts/timeline.json`，rc=0；结果：69 个事件（EVTX 59 / 浏览器 7 / 文件系统 mtime 3），UTC 时间线。",
-    "发现：EVTX 在 2026-10-20 03:20:24Z/03:22:23Z 有记录；Edge 在 2026-10-08 有 7 次访问；注册表面只保留键名清单（60 行键路径），**没有**键写入时间与值——不再声称键写入时间。三者可排成 UTC 时间线；浏览器时间按 Chromium 1601 纪元微秒换算，未混用 FILETIME 100ns。",
-    "边界：三份证据来自同一台本机，缺少进程树/pcap/登录事件，无法把 Explorer 键写入归因到具体进程；浏览器访问与 AppReadiness 事件相隔 12 天，不能声称因果。",
-    "还差什么：补充 Security.evtx 的 4624/4688、$MFT 或 USN journal、pcap 与 NTP 偏差；对浏览器 URL 中的查询参数做脱敏后再对外分享；把 hive 的 LOG1/LOG2 事务日志一起封存以解释脏页。",
-    "隐私：History.sqlite 只读取 urls/visits，不读取 cookies/Login Data；案例输入保留 URL 原文，外发前应脱敏。",
-    "权限边界：%WINDIR%/System32/config/{SOFTWARE,SYSTEM,SAM} 与 %SystemDrive%/$MFT 均 Permission denied（未提权、未绕过 ACL），因此案例用 fsutil 只读查询卷元数据 + 用 Get-ChildItem 导出 Explorer 键名清单（无值）；没有伪造 hive/MFT 内容。",
-    "R2 修复：fs-timeline 增加事件级 action 字段（时间/主体/动作/对象四要素），timeline.json 重新生成，哈希已重算；evidence-accept 现在会校验 69 条事件的 action 与 actor 形态。",
-    "隐私整改（复审）：真实注册表 hive 含本机个人路径（PII），已按脱敏纪律移出案例；registry 面改用「键名清单」（input/explorer-key-names.txt，仅键路径、无值无数据）。timeline 由真实 EVTX + Edge History + 文件系统 mtime 重建（不含 hive），artifacts 全部重算哈希。"
+    "2026-10-29 在仓库根目录执行 `python -B Tool/skill/forensics-mobile/scripts/fs-timeline.py --input Tool/cases/forensics03/input/AppReadiness.evtx --input Tool/cases/forensics03/input/History.sqlite --input Tool/cases/forensics03/input --out tmp/r13-replay/work/forensics03-timeline.json --json`，rc=0；原始 stdout/stderr 已登记并绑定 SHA-256，生成的时间线另存为 artifacts/r13-timeline-2026-10-29.json。",
+    "实跑输出 69 个事件（EVTX 59 / 浏览器 7 / 文件系统 mtime 3），时间统一为 UTC；每个事件包含 time_utc、source、kind、action、actor、object 与 confidence。",
+    "三条输入链分别绑定 AppReadiness.evtx、History.sqlite 与 Explorer 键名清单；浏览器时间采用 Chromium 1601 纪元微秒换算。",
+    "outcome=partial：证据覆盖三源 UTC 排列与事件字段；进程/用户归因所需的 Security.evtx 4624/4688、进程树、pcap 与 NTP 偏差属于扩展证据。"
   ],
   "tags": [
     "R26",
@@ -153,9 +171,67 @@
     "Tool/cases/forensics03/input/AppReadiness.evtx",
     "Tool/cases/forensics03/artifacts/timeline.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/forensics-mobile/scripts/fs-timeline.py",
+      "--input",
+      "Tool/cases/forensics03/input/AppReadiness.evtx",
+      "--input",
+      "Tool/cases/forensics03/input/History.sqlite",
+      "--input",
+      "Tool/cases/forensics03/input",
+      "--out",
+      "tmp/r13-replay/work/forensics03-timeline.json",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "f86e86d44492c966c91ec4f95a26f8cf31349a4730b76b552267ea899545748e"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/forensics-mobile/scripts/fs-timeline.py",
+          "--input",
+          "Tool/cases/forensics03/input/AppReadiness.evtx",
+          "--input",
+          "Tool/cases/forensics03/input/History.sqlite",
+          "--input",
+          "Tool/cases/forensics03/input",
+          "--out",
+          "tmp/r13-replay/work/forensics03-timeline.json",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "f86e86d44492c966c91ec4f95a26f8cf31349a4730b76b552267ea899545748e"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

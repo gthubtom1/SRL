@@ -10,43 +10,88 @@
   "artifacts": [
     {
       "path": "artifacts/diff.json",
-      "sha256": "13c452682982da46ffe9d1b907f8c87898f7527136929327228410b047c442c8"
+      "sha256": "c4806c28105ac225586d4725fb7d6ef32398172f27e65520dcab64c1eb6568b9",
+      "size": 4091
     },
     {
       "path": "artifacts/crawl/network.json",
-      "sha256": "f6435f417314f614329b3239af9faef31070cb68a16065157eec27c426bbff00"
+      "sha256": "f6435f417314f614329b3239af9faef31070cb68a16065157eec27c426bbff00",
+      "size": 48122
     },
     {
       "path": "artifacts/crawl/har.json",
-      "sha256": "20d3853ad5e86eac0c395e2f623e0443bf7d469489a78bcc892793e16407ba07"
+      "sha256": "20d3853ad5e86eac0c395e2f623e0443bf7d469489a78bcc892793e16407ba07",
+      "size": 19866
     },
     {
       "path": "artifacts/crawl/routes.json",
-      "sha256": "cfb48b4142a25f90b4d63537f0a3d6c2a19c26da998275edd28b3f400bcee9c6"
+      "sha256": "cfb48b4142a25f90b4d63537f0a3d6c2a19c26da998275edd28b3f400bcee9c6",
+      "size": 901
     },
     {
       "path": "artifacts/rebuild-report.json",
-      "sha256": "5e8d2cc84a00c57ea95761fcc3ebe49655c0c8078dc09995931383265dd5732e"
+      "sha256": "96809157b1ba948d109478977769dc4519bc0bb8e1f0452acdae0e064121abd8",
+      "size": 757
     },
     {
       "path": "artifacts/site/_replay/mocks.json",
-      "sha256": "4f7bbc75740d97e2e6f5c055af45af2c9b76162be324e69dfbb6f62f1d5b9b77"
+      "sha256": "0102a826b55e0360a112ec92c8f908883990bedebb2a8e5d2d1069c0c8dde1e7",
+      "size": 352
     },
     {
       "path": "artifacts/site/index.html",
-      "sha256": "31d6a31e96e85fe1fa171a0b18ecb01c1b5e35a32cb2e7cdeb89c53e7e24e927"
+      "sha256": "31d6a31e96e85fe1fa171a0b18ecb01c1b5e35a32cb2e7cdeb89c53e7e24e927",
+      "size": 5794
     },
     {
       "path": "artifacts/crawl/shots/index.png",
-      "sha256": "88fa311828261d57cfd7325956466176d033035d61f5b47f3b659e3a8c8f0401"
+      "sha256": "88fa311828261d57cfd7325956466176d033035d61f5b47f3b659e3a8c8f0401",
+      "size": 252800
     },
     {
       "path": "artifacts/offline/shots/index.png",
-      "sha256": "b9e5a83b6a4f645ed8a4540db28724d1718c068c84f694732524682da6698c64"
+      "sha256": "b9e5a83b6a4f645ed8a4540db28724d1718c068c84f694732524682da6698c64",
+      "size": 253708
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "a5b0193e73633454e1ff9e294186b62bc412d152415e22ae99f895f910332f9f"
+      "sha256": "3ea6a5f7c5d2ba08247f99e82c1beb12ae692b3173bdece062fc596eda210b99",
+      "size": 48470
+    },
+    {
+      "path": "capture/r13-repro.json",
+      "sha256": "cf4ddb4d4966ee3126e2b7df7d42368a26450428b5791a5236fb462c2a5baa52",
+      "size": 311056
+    },
+    {
+      "path": "capture/r13-site-rebuild.stdout.txt",
+      "sha256": "85b7009169ef396d1bb055f121aa2f56c54d23fdb6917026a9d951a8ab52e0bc",
+      "size": 71
+    },
+    {
+      "path": "capture/r13-site-rebuild.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/r13-site-replay-diff.stdout.txt",
+      "sha256": "776cc387c0a2c1d67cb27280ba99446b5360f23599cc56899f674caf968bd548",
+      "size": 286
+    },
+    {
+      "path": "capture/r13-site-replay-diff.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "capture/r13-site-manifest.stdout.txt",
+      "sha256": "7c75d8bc2c28f59dcd804422c3dee68f5d149c13f4bb07910c5e3f7413e84c87",
+      "size": 586
+    },
+    {
+      "path": "capture/r13-site-manifest.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
     }
   ],
   "lessons": [
@@ -73,9 +118,98 @@
   "refs": [
     "README.md"
   ],
-  "updated": "2026-10-22",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条：四条脚本命令均 rc=0，preflight --fast rc=0；产物 sha256 见 artifacts/MANIFEST.sha256"
-  }
+    "command": "python scripts/rebuild.py; python scripts/replay_diff.py; python scripts/manifest.py --json",
+    "argv": [
+      "D:\\EXE\\python\\python.exe",
+      "-B",
+      "-X",
+      "utf8",
+      "scripts/replay_diff.py"
+    ],
+    "cwd": ".",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-site-replay-diff.stdout.txt",
+      "sha256": "776cc387c0a2c1d67cb27280ba99446b5360f23599cc56899f674caf968bd548"
+    },
+    "stderr": {
+      "path": "capture/r13-site-replay-diff.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "label": "site-rebuild",
+        "argv": [
+          "D:\\EXE\\python\\python.exe",
+          "-B",
+          "-X",
+          "utf8",
+          "scripts/rebuild.py"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-site-rebuild.stdout.txt",
+          "sha256": "85b7009169ef396d1bb055f121aa2f56c54d23fdb6917026a9d951a8ab52e0bc"
+        },
+        "stderr": {
+          "path": "capture/r13-site-rebuild.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": false
+      },
+      {
+        "label": "site-replay-diff",
+        "argv": [
+          "D:\\EXE\\python\\python.exe",
+          "-B",
+          "-X",
+          "utf8",
+          "scripts/replay_diff.py"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-site-replay-diff.stdout.txt",
+          "sha256": "776cc387c0a2c1d67cb27280ba99446b5360f23599cc56899f674caf968bd548"
+        },
+        "stderr": {
+          "path": "capture/r13-site-replay-diff.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": false
+      },
+      {
+        "label": "site-manifest",
+        "argv": [
+          "D:\\EXE\\python\\python.exe",
+          "-B",
+          "-X",
+          "utf8",
+          "scripts/manifest.py",
+          "--json"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-site-manifest.stdout.txt",
+          "sha256": "7c75d8bc2c28f59dcd804422c3dee68f5d149c13f4bb07910c5e3f7413e84c87"
+        },
+        "stderr": {
+          "path": "capture/r13-site-manifest.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "watched_unmodified": false
+      }
+    ],
+    "evidence": "R13 从案例内 crawl 快照离线重建并重放：rebuild rc=0（1 页、165 资产、dangling=0），replay_diff rc=0（静态像素差 0.0、DOM 0.9778、2 次白名单外联、unexpected=0），manifest rc=0（399 个 artifacts 文件）。"
+  },
+  "limitations": [
+    "R13 未重新访问线上站点，也未重跑 crawl.py；本轮验证的是现存 crawl 快照到离线重建/回放/差异报告的链路。",
+    "当前 routes.json 只有根路由的实际 crawl 记录；buildManifest 虽列出 12 条候选路由，但另外 11 条的本轮页面抓取、截图和 DOM 记录不在当前快照中。",
+    "当前可重放范围为根页离线副本与 1 个 _next/data mock；需要会话后端的页面仍不在本轮证据范围内。"
+  ]
 }

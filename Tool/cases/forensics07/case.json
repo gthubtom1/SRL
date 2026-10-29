@@ -1,97 +1,227 @@
 {
- "id": "forensics07",
- "domain": "forensics-mobile",
- "target_type": "真实抓包（tcpdump 测试集，BSD）：BGP-4 with 4-byte ASN，91 帧 / 12 会话",
- "evidence_kind": "real",
- "protection": [],
- "authority": "shipped-artifact（公开抓包原件，sha256 固定，帧数双算）",
- "goal_level": "L2",
- "outcome": "success",
- "artifacts": [
-  {
-   "path": "capture/reverify-2026-10-24.log",
-   "sha256": "df7391989388dba4757567f964d43557362a4c0cab1001687117a3266e8174c2"
-  }
- ],
- "repro": {
-  "status": "recorded",
-  "evidence": "pcap-summary.py --json + tshark -z io,phs/endpoints + BGP 字段导出；帧数双算一致；rc=0"
- },
- "evidence_dir": ".",
- "lessons": [
-  "命令：python Tool/skill/protocol-plugin/scripts/pcap-summary.py --file bgp-4byte-asn.pcap --json；rc=0",
-  "取证四要素必须落在具体字段上（time_epoch / ip.src / bgp.type / nlri_prefix），不能写散文",
-  "帧数要用两个实现互算：我方 packet_count vs tshark 帧数，一致才敢写进结论",
-  "链路层链路类型与时间戳来源要分开记：抓包时间是采集机时钟，不等于事件真实时间"
- ],
- "tags": [
-  "forensics",
-  "pcap",
-  "timeline",
-  "bgp",
-  "real-target"
- ],
- "refs": [
-  "Tool/skill/forensics-mobile/scripts/fs-timeline.py",
-  "Tool/skill/forensics-mobile/references/01-criteria.md"
- ],
- "updated": "2026-10-24",
- "acquisition": {
-  "method": "公开语料取件（git clone --depth 1 --filter=blob:none --sparse，只取 tests/）",
-  "tool": "git + pcap-summary.py + tshark 4.4",
-  "collected_at": "2026-10-24T07:52:00Z",
-  "timezone": "UTC",
-  "clock_skew": "未校正：抓包时间来自采集机时钟，只能证相对顺序；本轮未做 NTP 偏差测量"
- },
- "timeframe": {
-  "start": "2014-03-18T19:12:03Z",
-  "end": "2014-03-18T19:12:24Z",
-  "clock_skew": "未校正（±1s 粗估，依据 BGP KEEPALIVE 30s 周期性未做拟合）"
- },
- "findings": [
-  {
-   "time_utc": "2014-03-18T19:12:03Z",
-   "actor": "10.0.0.1",
-   "action": "向对端发起 BGP 会话并宣告路由（OPEN/UPDATE）",
-   "object": "10.0.0.100:179（BGP peer）",
-   "confidence": "observed",
-   "evidence_refs": [
-    "capture/reverify-2026-10-24.log"
-   ]
+  "id": "forensics07",
+  "domain": "forensics-mobile",
+  "target_type": "真实抓包（tcpdump 测试集，BSD）：BGP-4 with 4-byte ASN，91 帧 / 12 会话",
+  "evidence_kind": "real",
+  "protection": [],
+  "authority": "shipped-artifact（公开抓包原件，sha256 固定，帧数双算）",
+  "goal_level": "L2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "capture/reverify-2026-10-24.log",
+      "sha256": "df7391989388dba4757567f964d43557362a4c0cab1001687117a3266e8174c2",
+      "size": 9661
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "e69173774d55b044745b5ac51bff022fdf4ca853bce4d7e7d6c506e8e9f0f08d",
+      "size": 4182,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/MANIFEST.sha256",
+      "sha256": "0701b5f9f5a65ca9ed55c5b00ab139383698bbdf2a005422f450c31a49960f15",
+      "size": 629,
+      "kind": "manifest"
+    },
+    {
+      "path": "artifacts/repro-E-903-run1.log",
+      "sha256": "8db50859cad6ae07c4ca7f39c9875fd43ca278278f2c8e055afaa13014c2308e",
+      "size": 6553,
+      "kind": "historical-replay"
+    },
+    {
+      "path": "artifacts/repro-E-903-run2.log",
+      "sha256": "2d9a7c9903c75a0d4060f28fcd93169882ea343b40316b2818d37e0f240ae73f",
+      "size": 6553,
+      "kind": "historical-replay"
+    },
+    {
+      "path": "capture/review-2026-10-29-bgp-fields.stdout.txt",
+      "sha256": "7ef511bd5848761cf9e3cd071896d3914a8326857079d4e11a4baadda5f97dcc",
+      "size": 1421,
+      "kind": "stdout"
+    },
+    {
+      "path": "capture/review-2026-10-29-bgp-fields.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "kind": "stderr"
+    }
+  ],
+  "repro": {
+    "status": "recorded",
+    "argv": [
+      "tshark",
+      "-r",
+      "Tool/cases/forensics07/target/bgp-4byte-asn.pcap",
+      "-T",
+      "fields",
+      "-e",
+      "frame.number",
+      "-e",
+      "frame.time_epoch",
+      "-e",
+      "frame.protocols"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "e69173774d55b044745b5ac51bff022fdf4ca853bce4d7e7d6c506e8e9f0f08d"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "tshark",
+          "-r",
+          "Tool/cases/forensics07/target/bgp-4byte-asn.pcap",
+          "-T",
+          "fields",
+          "-e",
+          "frame.number",
+          "-e",
+          "frame.time_epoch",
+          "-e",
+          "frame.protocols"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "e69173774d55b044745b5ac51bff022fdf4ca853bce4d7e7d6c506e8e9f0f08d"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "argv": [
+          "tshark",
+          "-n",
+          "-r",
+          "Tool/cases/forensics07/target/bgp-4byte-asn.pcap",
+          "-Y",
+          "bgp",
+          "-T",
+          "fields",
+          "-e",
+          "frame.number",
+          "-e",
+          "frame.time_epoch",
+          "-e",
+          "ip.src",
+          "-e",
+          "ip.dst",
+          "-e",
+          "bgp.type"
+        ],
+        "cwd": ".",
+        "rc": 0,
+        "environment": {
+          "HOME": "D:/Seep-Reverse-Lab/tmp/full-review-20261028/forensics07-isolated-home",
+          "USERPROFILE": "D:/Seep-Reverse-Lab/tmp/full-review-20261028/forensics07-isolated-home",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "stdout": {
+          "path": "capture/review-2026-10-29-bgp-fields.stdout.txt",
+          "sha256": "7ef511bd5848761cf9e3cd071896d3914a8326857079d4e11a4baadda5f97dcc"
+        },
+        "stderr": {
+          "path": "capture/review-2026-10-29-bgp-fields.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   },
-  {
-   "time_utc": "2014-03-18T19:12:24Z",
-   "actor": "10.0.0.100",
-   "action": "回 KEEPALIVE 维持会话",
-   "object": "10.0.0.1:179",
-   "confidence": "observed",
-   "evidence_refs": [
-    "capture/reverify-2026-10-24.log"
-   ]
+  "evidence_dir": ".",
+  "lessons": [
+    "2026-10-29 在仓库根目录执行 `tshark -r Tool/cases/forensics07/target/bgp-4byte-asn.pcap -T fields -e frame.number -e frame.time_epoch -e frame.protocols`，rc=0；输入对象为案例内 target/bgp-4byte-asn.pcap（不在 input/ 路径），原始 stdout/stderr 已按 capture/r13-2026-10-29-command1.* 登记并绑定 SHA-256。",
+    "实跑逐帧输出 91 帧，字段包含 frame.number、frame.time_epoch 与 frame.protocols；可观察 eth/ip/tcp/bgp 协议链与抓包时间戳。",
+    "outcome=partial：证据覆盖 PCAP 帧数、时间戳和协议链；4-byte ASN 的完整业务语义与端到端行为结论需要专门字段解析和业务上下文。",
+    "2026-10-29 语义复核：旧日志第3节实际为 tshark 字段错误，未输出四要素；此前 2014 年和 10.0.0.* 端点无证据支持。现以 tshark 有效字段实际输出修正时间窗与三个帧级观测；保留旧日志，旧 FM07-05 标记 refuted。"
+  ],
+  "tags": [
+    "forensics",
+    "pcap",
+    "timeline",
+    "bgp",
+    "real-target"
+  ],
+  "refs": [
+    "Tool/skill/forensics-mobile/scripts/fs-timeline.py",
+    "Tool/skill/forensics-mobile/references/01-criteria.md"
+  ],
+  "updated": "2026-10-29",
+  "acquisition": {
+    "method": "公开语料取件（git clone --depth 1 --filter=blob:none --sparse，只取 tests/）",
+    "tool": "git + pcap-summary.py + tshark 4.4",
+    "collected_at": "2026-10-24T07:52:00Z",
+    "timezone": "UTC",
+    "clock_skew": "未校正：抓包时间来自采集机时钟，只能证相对顺序；本轮未做 NTP 偏差测量"
   },
-  {
-   "time_utc": "2014-03-18T19:12:24Z",
-   "actor": "10.0.0.1",
-   "action": "在 20.701s 窗口内共发 91 帧 / 12 条会话（端点与协议分层见日志）",
-   "object": "抓包窗口内的全部流量",
-   "confidence": "observed",
-   "evidence_refs": [
-    "capture/reverify-2026-10-24.log"
-   ]
+  "timeframe": {
+    "start": "2019-04-11T17:16:39.743518Z",
+    "end": "2019-04-11T17:17:00.444552Z",
+    "clock_skew": "未校正；此处仅记录 PCAP 采集时间戳，不是业务真实发生时刻。"
+  },
+  "findings": [
+    {
+      "time_utc": "2019-04-11T17:16:39.744246Z",
+      "actor": "1.0.2.2",
+      "object": "1.0.2.1",
+      "action": "tshark 从帧 6 解码出 BGP type=1；未据此推定完整会话状态或路由宣告语义。",
+      "confidence": "observed",
+      "evidence_refs": [
+        "capture/review-2026-10-29-bgp-fields.stdout.txt"
+      ]
+    },
+    {
+      "time_utc": "2019-04-11T17:16:44.005420Z",
+      "actor": "1.0.4.2",
+      "object": "1.0.4.1",
+      "action": "tshark 从帧 48 解码出 BGP type=4；未据此推定完整会话状态或路由宣告语义。",
+      "confidence": "observed",
+      "evidence_refs": [
+        "capture/review-2026-10-29-bgp-fields.stdout.txt"
+      ]
+    },
+    {
+      "time_utc": "2019-04-11T17:17:00.407659Z",
+      "actor": "1.0.0.2",
+      "object": "1.0.0.1",
+      "action": "tshark 从帧 85 解码出 BGP type=3；未据此推定完整会话状态或路由宣告语义。",
+      "confidence": "observed",
+      "evidence_refs": [
+        "capture/review-2026-10-29-bgp-fields.stdout.txt"
+      ]
+    }
+  ],
+  "target_files": [
+    {
+      "path": "target/bgp-4byte-asn.pcap",
+      "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
+      "source": "github.com/the-tcpdump-group/tcpdump tests/bgp-4byte-asn.pcap（BSD）"
+    }
+  ],
+  "target": {
+    "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics07\\target\\bgp-4byte-asn.pcap",
+    "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
+    "size": 8717,
+    "at": "2026-10-26T15:34:58",
+    "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
   }
- ],
- "target_files": [
-  {
-   "path": "target/bgp-4byte-asn.pcap",
-   "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
-   "source": "github.com/the-tcpdump-group/tcpdump tests/bgp-4byte-asn.pcap（BSD）"
-  }
- ],
- "target": {
-  "path": "D:\\Seep-Reverse-Lab\\Tool\\cases\\forensics07\\target\\bgp-4byte-asn.pcap",
-  "sha256": "7213b5ff5940d6240e221eca3cf4d7b92bc0955408f406f2a061e2fa500cd9c9",
-  "size": 8717,
-  "at": "2026-10-26T15:34:58",
-  "note": "由 target_files[0] 登记的指纹块（repro 目标绑定用；init 对新案写同形字段）"
- }
 }

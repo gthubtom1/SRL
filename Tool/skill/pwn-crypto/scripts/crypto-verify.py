@@ -234,11 +234,26 @@ def do_mt(data):
     if len(outputs) != 624:
         return {"ok": False, "blocked_at": "mt",
                 "reason": "需要 624 个 32-bit 输出，实际 %d" % len(outputs)}, 2
+    raw_expected = data.get("next")
+    if raw_expected is None or raw_expected == []:
+        return {"ok": False, "blocked_at": "mt",
+                "reason": "需要 next 中至少一个真实后续输出用于回代"}, 2
+    try:
+        expected = [int(x) for x in raw_expected]
+        predict = int(data.get("predict", max(8, len(expected))))
+    except (TypeError, ValueError) as exc:
+        return {"ok": False, "blocked_at": "mt",
+                "reason": "next/predict 字段非法: %s" % exc}, 2
+    if not expected:
+        return {"ok": False, "blocked_at": "mt",
+                "reason": "next 为空，不能证明状态克隆"}, 2
+    if predict < 1:
+        return {"ok": False, "blocked_at": "mt",
+                "reason": "predict 必须 >= 1"}, 2
     state = [MT19937.untemper(int(x)) for x in outputs]
     gen = MT19937(state)
-    predicted = [gen.next_u32() for _ in range(int(data.get("predict", 8)))]
-    expected = [int(x) for x in (data.get("next") or [])]
-    ok = (not expected) or predicted[:len(expected)] == expected
+    predicted = [gen.next_u32() for _ in range(max(predict, len(expected)))]
+    ok = predicted[:len(expected)] == expected
     out = {"mode": "mt19937", "state_cloned": True, "predicted": predicted,
            "expected": expected, "verified": ok}
     return out, 0 if ok else 1
@@ -375,6 +390,9 @@ def self_test():
     nxt = [py.getrandbits(32) for _ in range(8)]
     r = do_mt({"outputs": outs, "next": nxt, "predict": 8})[0]
     checks.append(("mt19937-clone", r["verified"]))
+    r, rc = do_mt({"outputs": outs})
+    checks.append(("mt19937-requires-next",
+                   rc == 2 and r.get("blocked_at") == "mt" and not r.get("verified", False)))
     # 5/6) AES-ECB 块关系与 CBC 位翻转（有 pycryptodome 才跑）
     if HAVE_AES:
         key = bytes(range(16))

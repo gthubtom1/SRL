@@ -1,7 +1,9 @@
 # 上游同步与差分（UPSTREAM）
 
+> 以下历史快照不定义当前能力或待办。当前范围以 REQUIREMENTS 为准，状态只记 CURRENT-STATE；当前为九个正式领域及两个跨域技能。REA 选择性吸收，不要求完整服务；上游新工具不自动全部搬入。不得直接覆盖脏树或据旧命令提交。
+
 > **原版**：`angusdevgo/Seep-Reverse-Lab`（git remote 名 `upstream`，本仓 `origin` = `gthubtom1/Seep-Reverse-Lab`）
-> **原则**：**只做单文件 cherry-pick**（整仓 merge 走 fork 同步流程）。先内容差分 → 按 FORK-DELTA §四 五问逐条评估 → 只 cherry-pick 单文件 → 跑门禁。
+> **原则**：先比对内容，再按本文 §2 五问逐条评估，选择具体改动并运行相关检查。不要覆盖用户已有工作。
 > 原因：两仓历史可能不共享祖先（浅克隆/重建过），merge 会把两套历史拧在一起，回滚成本极高。
 
 ## 0. 一次性配置（已做，换机器要重做）
@@ -15,7 +17,7 @@ git fetch upstream main --deepen=200
 
 ```bash
 git fetch upstream main --deepen=200
-（该脚本 S4 已删，见下方替代路径） --print      # 输出计数 + 前 40 条
+# 按具体需求使用 git diff --stat / git diff；旧自动差分脚本已删除
 # 报告落在 work/upstream-delta/delta-<时间>.json（gitignore）
 ```
 
@@ -28,7 +30,7 @@ git fetch upstream main --deepen=200
 | 两边都有但内容不同 | 82 | **唯一需要逐条评估的部分**（多为我们改过的 SKILL/配置） |
 | 两边相同 | 273 | 无需处理 |
 
-## 2. 五问评估表（FORK-DELTA §四，逐文件过）
+## 2. 五问评估表（逐文件核对）
 
 对 `both_changed` / `only_upstream` 里的每个**能力相关**文件：
 
@@ -54,16 +56,16 @@ git commit -m "sync(upstream): <文件>（五问通过）"
 
 | 类别 | 原因 |
 | :-- | :-- |
-| 过程文档（`优化方案*.md`） | 已移出仓库到 `work/plans/`，上游仍保留 |
+| 过程文档（`优化方案*.md`） | 已从本工作区删除，不保存work副本；上游内容不作为本产品当前需求 |
 | `Tool/cases/项目C|D` 现场工件 | 含真实目标产物，按脱敏纪律归档在 `_archive/` |
-| 旧版 9 技能结构 | 本仓已扩到 24 技能 + 11 域，结构不可逆 |
+| 旧版 9 技能结构 | 历史库存计数；当前正式领域与部署名单以现有 pack 和实际加载为准 |
 | CRLF 记录的历史哈希 | 本仓已改为按字节保存（`.gitattributes -text`），上游仍是旧口径 |
 
 ## 5. 触发条件与负责人
 
 - **触发**：每季度一次；或上游发布新版本 / 新增工具 / 修了安全问题时立即。
-- **负责人**：主分支维护者（唯一可改 `routing.json` / `domain-gate.py` / `docs/history/X-DOMAIN-SPEC-v2.md` 的角色）。
-- **验收**：`preflight.py` 全绿 + `domain-gate --all` 全绿 + 双平台 verify 65/0；差异写进 `docs/AUDIT.md`。
+- **负责人**：主分支维护者（唯一可改 `routing.json` / `domain-gate.py` / `docs/DOMAIN-CONTRACT.md` 的角色）。
+- **验收**：`python Tool/scripts/check.py --runtime --json` 与相关专项检查；变动涉及的部署平台分别实测，不沿用旧双平台计数；差异写进 `docs/AUDIT.md`。
 
 ---
 
@@ -80,7 +82,7 @@ git commit -m "sync(upstream): <文件>（五问通过）"
 | `license: MIT` 自声明 | ~136 | frontmatter 有 `license: MIT`（`revision_date` 是自造未来日期，落地时改实际摄入日） | 可改写吸收，保留 MIT 声明 |
 | `offensive-*`（来源 SnailSploit/offensive-checklist） | 79 | 文末 `Source: https://github.com/SnailSploit/offensive-checklist/...`，**无 license 行** | 按 UNKNOWN 处理：只读后**重写判据**，不原文复制、不进 MIT 树 |
 | 课程转录（windows-boundaries / -mitigations / crash-analysis / basic-exploitation / fuzzing-course / vuln-classes） | 6（56,306 行） | 正文署名 `@Pwn3rzs Telegram channel`，属付费课程转帖 | **不收**（版权 + 与 pwn-crypto / kb/pe-reverse 重叠 + 单文件超篇幅 2–15 倍） |
-| 7 个脚本 | 7 | 全无 `--help` / `--self-test` / 结构化失败 | 只作参考实现，吸收必须按 `docs/history/X-DOMAIN-SPEC-v2.md` §3 重写入口 |
+| 7 个脚本 | 7 | 全无 `--help` / `--self-test` / 结构化失败 | 只作参考实现，吸收必须按 `docs/DOMAIN-CONTRACT.md` §3 重写入口 |
 
 ### 6.2 已吸收（重写为本仓契约，非复制）
 

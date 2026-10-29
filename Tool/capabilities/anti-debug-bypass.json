@@ -1,7 +1,7 @@
 {
   "id": "anti-debug-bypass",
   "title": "反调试绕过",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "反调试",
     "反调试绕过",

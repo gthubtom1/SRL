@@ -169,7 +169,7 @@ def run(args):
         pat = cyclic(args.cyclic)
         result["cyclic"] = {"length": len(pat), "prefix": pat[:32].decode("latin-1")}
         if args.find is not None:
-            off = cyclic_find(args.find, cyclic(max(args.cyclic, 0x10000)))
+            off = cyclic_find(args.find, pat)
             result["cyclic"]["find"] = {"value": "0x%x" % args.find, "offset": off}
             if off < 0:
                 result["ok"] = False
@@ -228,6 +228,8 @@ def self_test():
     checks.append(("cyclic-known", cyclic(8) == b"aaaabaaa"))
     checks.append(("find-known", cyclic_find(int.from_bytes(cyclic(8)[3:7], "little"),
                                              cyclic(256)) == 3))
+    outside = int.from_bytes(cyclic(64)[40:44], "little")
+    checks.append(("find-requested-boundary", cyclic_find(outside, cyclic(8)) < 0))
     try:
         offset_from_probe("no address here")
         checks.append(("failure-shape", False))
@@ -250,6 +252,7 @@ def main():
     ap.add_argument("--pattern-length", type=int, default=4096, help="cyclic 模式长度")
     ap.add_argument("--cyclic", type=int, help="生成指定长度的 cyclic 模式")
     ap.add_argument("--find", type=lambda s: int(s, 0), help="在 cyclic 模式中定位该值")
+    ap.add_argument("--json", action="store_true", help="兼容标志；本脚本始终输出 JSON")
     ap.add_argument("--self-test", action="store_true", help="内置样本自检（离线）")
     args = ap.parse_args()
     if args.self_test:

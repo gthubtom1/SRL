@@ -17,15 +17,14 @@ metadata:
 
 > **判型 / 选域 / 上限（M1–M4）/ 必问三件** → 见 `Tool/skill/seep-router/SKILL.md`（唯一口径）。本文件只讲**通用二进制（PE/ELF/Mach-O/.NET/Go/Rust/Electron/wasm）**的具体手艺。
 
-> **本域不含**：文档治理（`_pending/doc-hygiene`）与 LLM/Agent 安全（`_pending/llm-security`）。遇到这类需求先回 `seep-router`，由它指路。
+> **本域不含**：文档治理（`Tool/skill/_pending/doc-hygiene`）与 LLM/Agent 安全（`Tool/skill/_pending/llm-security`）。遇到这类需求先回 `seep-router`，由它指路。
 
 ## 先看这一条（S3 索引改革之后）
 
-索引里**只有 9 个包**：`softseep` + `apkseep` / `web-pentest` / `malware-analysis` /
-`supply-chain-security` / `forensics-mobile` / `firmware-iot` / `protocol-plugin` / `pwn-crypto`。
+正式领域以 `pack.json` 注册表为准；另部署判型层 `seep-router` 与 Windows PE 横切技能 `unpack-loop`。
 
-其余技能（8 个阶段文案、脱壳闭环、IDA/r2 用法、站点复刻、插件/AD/LLM 等）**已归档**在仓库
-`Tool/skill/_pending/<name>/SKILL.md`：不进索引、不被路由，但**按路径可以直接读**。
+阶段文案、IDA/r2 用法、站点复刻、插件/AD/LLM 等子技能在仓库
+`Tool/skill/_pending/<name>/SKILL.md`：不预载，需要时**按路径直接读**。
 本文件出现 `Tool/skill/_pending/...` 的地方，就是「需要细节时去读那一份」，不是「加载一个技能」。
 
 ## 调度总流程
@@ -33,10 +32,9 @@ metadata:
 ```
 用户说大白话（不需要懂术语、不需要选类型、不需要指定平台）
   → ① G-Auth 授权门              （能不能测）
-  → ② 自动判型（softseep 自己判，不问用户）
-        · 平台：Windows / Android / Linux / Web / Flutter
-        · 类型：授权许可 / 补丁本地化 / 脱壳 / 算法还原 /
-                协议分析 / 样本研判 / UI 伪造 / 加固对抗 / 测绘报告
+  → ② seep-router 按用户目标与材料选主辅域
+        · 本域只确认二进制平台、保护及当前问题
+        · 项目登记与接续按 router 第 5 步；需要时调用子技能
   → ③ 找对应 reference / MCP 工具（本域内）
   → ④ 执行 → 三段式报告
 ```
@@ -68,8 +66,7 @@ metadata:
 ## 【G-Auth】授权门 —— 指针
 
 > **唯一事实源：`Tool/prompts/AGENTS.md` §六 + 扩展注入的边界锚。本节不重复规则正文。**
-> 本域只补一条它没写的区分：授权覆盖"**能不能测**"；**下载 / 安装 / 写文件 / 改环境变量**
-> 属于"**能不能动**"，要单独确认 —— 两者不可互相替代。
+> 已授权的工作区产物写入、已有工具和任务必要操作自主执行；运行客户目标及整机副作用按现行规则处理，不把每次文件写入另设许可门。
 
 ## 范围与路由（边界）
 
@@ -81,7 +78,7 @@ metadata:
 - 加壳脱壳闭环 → `Tool/skill/unpack-loop/SKILL.md`（脱壳闭环）（本技能只做判型、判据与补丁；反调试识别见 `references/10-anti-debug.md`，脱壳流程见那卷）。
 - 生产环境与真实用户数据按 `scope` 清单执行；凭据外泄一律停并上报。
 
-**边界**：本技能默认目标是**受权沙箱资产**；仅当用户明确声明「不属于我 / 没有授权」时停在门口确认一次。授权不覆盖「下载/安装/写文件/改环境」，后者单独确认。
+**边界**：本技能默认目标是**受权沙箱资产**；仅当用户明确声明「不属于我 / 没有授权」时停在门口确认一次。操作边界按上述 G-Auth 指针，不重复索取已有授权。
 
 ---
 
@@ -90,7 +87,7 @@ metadata:
 输入面命中下面某行时，先照该配方的命令序列跑，再回来对判据；配方正文只在 playbooks 一处，本文件只指路。
 
 - 卡密/授权旁路并交付可用成品 → `Tool/playbooks/license-bypass-deliver.md`
-- 接自有授权平台（本地 HMAC / 在线票据）→ `Tool/playbooks/license-hookup.md`
+- 接自有授权平台（离线公钥验签 / 在线票据）→ `Tool/playbooks/license-hookup.md`
 - UI 改版去品牌（EXE / APK）→ `Tool/playbooks/ui-rebrand.md`
 - 软件更新后的跨版本追版（AOB 滑窗）→ `Tool/playbooks/version-migrate.md`
 - 开工前的逆向测绘 / 壳与权威判定 → `Tool/playbooks/reverse-survey.md`
@@ -150,7 +147,7 @@ metadata:
 | 补丁后签名/校验失败 | 未重算/未处理签名 | 重算 checksum；明确签名策略 |
 | keygen 生成码被拒 | 归一化/签名/第二校验 | 独立实现逐字符对照；查自引用 |
 
-**三条熔断**：单路径 ≤3 轮无进展换正交路线；内存补丁累计崩 2 次停手；attach 被反调试打掉 2 次先过反调试。
+**三条熔断**：同形失败 2 次或连续无新增证据时换正交路线；内存补丁累计崩 2 次停手；attach 被反调试打掉 2 次先过反调试。
 
 ---
 
@@ -158,8 +155,8 @@ metadata:
 
 1. **把 x64 前 4 个参数当栈传** → Win64 前 4 个在 `RCX/RDX/R8/R9`，栈上是影子空间 → 按寄存器读，第 5 个起 `[rsp+0x28]`。
 2. **把 `mov rax,[rcx]` 当虚表调用** → 可能只是首字段/d-pointer → 看构造函数、`.rdata`、RTTI 再下结论。
-3. **DllMain 里跨堆写 BSTR** → loader lock/堆损坏 → DllMain 只建线程，分配放工作线程。
-4. **只改 UI 不改 `license_type`/状态字** → UI 是消费者，重启/心跳回退 → 找状态源（项目 A 真开关是 `0x230CDEA`）。
+3. **DllMain 中做复杂初始化/跨堆写 BSTR** → loader lock/堆损坏 → 保持最小初始化，将工作移到加载完成后的显式入口；创建线程也有风险，不能当通用补救。见 [Microsoft DLL 最佳实践](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-best-practices)。
+4. **只改 UI 不改 `license_type`/状态字** → UI 是消费者，重启/心跳回退 → 找当前目标的状态源；案例地址只在该案例有效。
 5. **补丁后不重算校验和/不处理签名** → 自检/签名失败 → manifest + checksum + 签名策略。
 6. **把「能运行」当「壳已脱掉」** → 磁盘仍密文/IAT 坏 → 看内存节名/OEP/IAT/字符串四项。
 7. **反调试未过时反复裸 attach** → 触发自毁/污染证据 → 两次失败就停，先识别检测层。
@@ -217,7 +214,7 @@ metadata:
 
 ### 退出/升级判据（防死磕）
 
-- 单条路径 **≤3 轮**无进展 ⇒ 挂起转下一路（竞速类"必输"路径直接放弃）；
+- 同形失败 **2 次**或连续无新增证据 ⇒ 挂起转下一路（竞速类"必输"路径直接放弃）；
 - 内存补丁累计崩 **2 次** ⇒ 停改内存，转网络层；
 - 金样回放连续静默退出 ⇒ 判会话绑定，转中继；
 - 三大路径（离线改 / 回放 / 中继+取载荷）全不通 ⇒ 记为**"现象级 / 需人工深逆"**，附**已排除项**与证据，**勿无限重试**。
@@ -284,7 +281,7 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 ## 任务卡入口
 
-- 24 张任务卡：`Tool/prompts/domains/softseep.md`（旧域名为 `reverse`；源名取自 `Tool/config/taskcard-sources.json` 的 `reverse` 列表，键名为历史遗留）
+- 24 张任务卡：`Tool/prompts/domains/softseep.md`（源名取自 `Tool/config/taskcard-sources.json` 的 `softseep` 列表）
 - 每卡六段：触发词 / 前置 / 步骤 / 判据 / 失败判据 / reference；按卡名或触发词选卡。
 
 ---
@@ -292,7 +289,7 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 ## KB board 入口
 
 - Board 索引：`Tool/mcp/Tool/reverselab/kb/pe-reverse/README.md`
-- 逐篇技术索引：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/README.md`
+- 逐篇技术索引：`Tool/mcp/Tool/reverselab/kb/pe-reverse/README.md`
 - 失败判据（KB 版）：`Tool/mcp/Tool/reverselab/kb/pe-reverse/techniques/15-decision/failure-criteria.md`
 - 项目范式 A–J：`.../techniques/11-project-paradigms/01-project-patterns-a-j.md`
 - 报告骨架：`.../techniques/13-report-template/01-report-skeleton.md`
@@ -300,21 +297,8 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 ---
 
-## 附：领域包一览（与 pack.json 对应，2026-10-21 起）
+## 领域协作
 
-| 域 | 路由 | 技能 | 一句话判据 |
-|---|---|---|---|
-| Web/API 漏洞验证 | R20 | `web-pentest` | 注入对照实验闭环；越权跨会话取真实数据 |
-| 二进制利用 / 密码学 | R21 | `pwn-crypto` | 本地 10 次 ≥9 命中；RSA 回代 |
-| 固件 / IoT / 硬件 | R22 | `firmware-iot` | 能进 shell；服务真监听；漏洞可复现 |
-| 内网 / AD / 云原生 | R23 | `Tool/skill/_pending/ad-cloud/SKILL.md`（内网/AD） | 凭据可复现；提权有客观输出 |
-| 协议复刻 | R24 | `protocol-plugin` | 能构造抓包外的新请求 |
-| 插件 / 扩展 / Mod | R25 | `Tool/skill/_pending/plugin-targets/SKILL.md`（插件/Mod） | 入口+关键逻辑+数据来源+最小可改单元 |
-| 取证 / iOS·macOS / 游戏 | R26 | `forensics-mobile` | 证据链四要素齐全 |
-| 恶意样本分析 | R27 | `malware-analysis` | 行为时间线 + 可验证检测规则 |
-| 供应链 / CI-CD | R28 | `supply-chain-security` | 可达漏洞有 PoC 或投毒链有证据 |
-| 逆向测绘 / 补丁本地化 | R29 | `reverse` | 结构/壳/权威/钥匙四处齐全，补丁可回滚 |
-| 站点 1:1 复刻 | R35 | `Tool/skill/_pending/site-clone/SKILL.md`（站点复刻） | 像素/DOM/请求集三项达标，后端缺口列 `backend_required` |
+主辅域由 router 与正式 pack 注册表确定，不在本域维护第二份领域表。只做用户目标需要的分析/修改阶段，按适用判据验收；仓内案例自检不代替客户材料上的结果。
 
-> 每个域都是"九件套"：SKILL + ≥4 references + ≥1 可跑脚本 + 矩阵配置 + ≥2 案例 + KB board + 路由 + 本表登记 + 门禁断言。
-**子技能（按需读，不常驻）**：`_pending/00-triage/SKILL.md` 快筛画像 · `_pending/binary-diff/SKILL.md` 跨版本差分 · `_pending/version-migration/SKILL.md` 追版 · `_pending/ida-reverse/SKILL.md` IDA 深挖 · `_pending/doc-hygiene/SKILL.md` 文档治理 · `_pending/pm-plan/SKILL.md` 规划/拆任务/排优先级。
+**子技能（按需读，不常驻）**：`Tool/skill/_pending/00-triage/SKILL.md` 快筛画像 · `Tool/skill/_pending/binary-diff/SKILL.md` 跨版本差分 · `Tool/skill/_pending/version-migration/SKILL.md` 追版 · `Tool/skill/_pending/ida-reverse/SKILL.md` IDA 深挖 · `Tool/skill/_pending/doc-hygiene/SKILL.md` 文档治理 · `Tool/skill/_pending/pm-plan/SKILL.md` 规划/拆任务/排优先级。

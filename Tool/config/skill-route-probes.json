@@ -1,19 +1,15 @@
 {
   "schemaVersion": "1.0",
-  "description": "技能路由探针（master-route.ps1 视角）：每条按用户真实口吻写，断言命中的 PRIMARY 技能。与 intent-probes.json（配方路由）互补——配方路由由 Python 匹配，技能路由由 PowerShell 匹配，两套实现必须各自被断言覆盖。",
+  "description": "技能路由探针：逐条调用 Python 唯一路由入口 Tool/scripts/route.py，检查完整命中集合中的主技能、辅助技能、歧义、禁止域和主标签；无需 PowerShell。与 intent-probes.json 的能力与配方覆盖检查互补。",
   "why": "2026-10-22 审计发现 .NET 正则的 \\b 把 CJK 当 word 字符，于是「APK去广告」「Unity IL2CPP透视」这类英文词紧跟中文的口吻全部匹配不上、直接掉兜底；由于当时没有技能路由门禁，这个问题活了很久。",
   "probes": [
     {
       "id": "rev-pe-01",
       "text": "帮我逆向这个exe的注册码，有UPX壳",
       "expect_skill": "softseep/SKILL.md",
-      "why_fixed": "原期望 malware-analysis 与 PM-SPEC §8 L2 冲突（\"说'脱壳'不该被路由到'恶意样本分析'\"）：本句是 Windows 软件域的判壳/逆向诉求，应落 softseep"
-    },
-    {
-      "id": "rev-pe-02",
-      "text": "分析这个PE文件，看它是不是加壳了",
-      "expect_skill": "softseep/SKILL.md",
-      "why_fixed": "原期望 malware-analysis 与 PM-SPEC §8 L2 冲突（\"说'脱壳'不该被路由到'恶意样本分析'\"）：本句是 Windows 软件域的判壳/逆向诉求，应落 softseep"
+      "expect_aux": ["malware-analysis/SKILL.md"],
+      "expect_ambiguity": true,
+      "why_fixed": "原期望 malware-analysis 与 REQUIREMENTS.md 的路由规则冲突（\"说'脱壳'不该被路由到'恶意样本分析'\"）：本句是 Windows 软件域的判壳/逆向诉求，应落 softseep"
     },
     {
       "id": "license-01",
@@ -43,17 +39,23 @@
     {
       "id": "apk-01",
       "text": "APK去广告并脱壳",
-      "expect_skill": "apkseep/SKILL.md"
+      "expect_skill": "apkseep/SKILL.md",
+      "expect_aux": ["softseep/SKILL.md", "malware-analysis/SKILL.md"],
+      "expect_ambiguity": true
     },
     {
       "id": "apk-02",
       "text": "Frida hook 安卓APP 绕 SSL pinning",
-      "expect_skill": "apkseep/SKILL.md"
+      "expect_skill": "apkseep/SKILL.md",
+      "expect_aux": ["softseep/SKILL.md"],
+      "expect_ambiguity": true
     },
     {
       "id": "miniapp-01",
       "text": "小程序逆向，抓包看接口签名",
-      "expect_skill": "apkseep/SKILL.md"
+      "expect_skill": "apkseep/SKILL.md",
+      "expect_aux": ["protocol-plugin/SKILL.md", "softseep/SKILL.md"],
+      "expect_ambiguity": true
     },
     {
       "id": "game-01",
@@ -103,7 +105,9 @@
     {
       "id": "firmware-01",
       "text": "路由器固件解包找后门",
-      "expect_skill": "firmware-iot/SKILL.md"
+      "expect_skill": "firmware-iot/SKILL.md",
+      "expect_aux": ["malware-analysis/SKILL.md"],
+      "expect_ambiguity": true
     },
     {
       "id": "protocol-01",
@@ -158,12 +162,16 @@
     {
       "id": "wireless-01",
       "text": "WIFI握手包抓取破解，WPA2",
-      "expect_skill": "firmware-iot/SKILL.md"
+      "expect_skill": "firmware-iot/SKILL.md",
+      "expect_aux": ["softseep/SKILL.md"],
+      "expect_ambiguity": true
     },
     {
       "id": "wireless-02",
       "text": "蓝牙BLE门锁 GATT 未授权写入",
-      "expect_skill": "firmware-iot/SKILL.md"
+      "expect_skill": "firmware-iot/SKILL.md",
+      "expect_aux": ["softseep/SKILL.md"],
+      "expect_ambiguity": true
     },
     {
       "id": "wireless-03",

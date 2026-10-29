@@ -1,6 +1,6 @@
 {
   "id": "plugin03",
-  "domain": "plugin-targets",
+  "domain": "protocol-plugin",
   "route": "R25",
   "target_type": "本机已安装的 Chrome MV3 扩展（Quicker 1.2.4，扩展 ID klggb…，只截取入口/权限相关文件）",
   "evidence_kind": "real",
@@ -51,22 +51,22 @@
     },
     {
       "path": "artifacts/repro/plugin-repro.json",
-      "sha256": "1a42a15e85c8cd380e6695174019caa9f6aeeda3ff30b4f7804d7755c2c9b4c1"
+      "sha256": "1b2a00d245e0016d7d74585e9eb2c4f621feb3aa09ac4247342c1c83c9c89957"
     },
     {
       "path": "artifacts/run.json",
-      "sha256": "5e9bf39a07c0e062a8afe8d4a6d6f00e98bc69b86095684b7e5fce2f2736e81c"
+      "sha256": "a23b7b5e480a721c2e4c793f87348c63144ad68a3db67cfb5d30d2c0e26d8748"
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "e0d06f074f7fc84c99e8325fdb5bb5fae90310630c80507a3231a8b64607dfe0"
+      "sha256": "5cdb19fbce3fdce255240126da34f9954305e27b64e1d6875d5a1db675aee9f5"
     }
   ],
   "lessons": [
-    "实际分析：python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json，rc=0；识别 ZIP 浏览器扩展包，6 个文件，MV3 / Quicker 1.2.4（native host 名 com.getquicker.chromeagent）。",
+    "实际分析：python Tool/skill/protocol-plugin/scripts/plugin-triage.py --path Tool/cases/plugin03/input/real-extension.zip --json，rc=0；识别 ZIP 浏览器扩展包，6 个文件，MV3 / Quicker 1.2.4（native host 名 com.getquicker.chromeagent）。",
     "权限面：nativeMessaging/debugger 为 critical，scripting/userScripts 为 high，host_permissions=<all_urls>；plugin-repro.py 对 12/13 个声明权限找到代码证据，sidePanel 在截取子集中未出现（unexplained-static，不是恶意结论）。",
     "数据流：content/content.js → chrome.runtime.sendMessage → background/background.js；background 中 connectNative(chrome.runtime.connectNative)、chrome.debugger、fetch/XHR、chrome.cookies 均可指到文件与行号；最小可改单元=background/background.js（14 处数据流命中）。",
-    "边界：只做静态子集分析，未加载浏览器、未连接 native host、未验证远端；高权限不等于滥用，需结合动态消息与 host 侧样本。",
+    "边界：本案例范围限于静态子集分析；浏览器加载、native host 连接和远端行为属于独立动态验证阶段；高权限不等于滥用，需结合动态消息与 host 侧样本。",
     "来源可追溯：artifacts/provenance.json 记录 6 个原始文件的来源路径、字节数与 sha256；输入包内容未修改，仅截取子集。",
     "R3 修复：用当前版本工具重生成产物（plugin03 的权限证据已剔除 manifest.json 自证；malware01 的 iocs 不再把 5.1.0.0 当公网 IP，ips=0 / filtered=8），哈希已重算。"
   ],
@@ -80,12 +80,10 @@
     "partial"
   ],
   "refs": [
-    "Tool/skill/_pending/plugin-targets/SKILL.md",
-    "Tool/skill/_pending/plugin-targets/references/01-criteria.md",
-    "Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md",
-    "Tool/skill/_pending/plugin-targets/references/04-walkthrough-chrome-extension.md",
-    "Tool/skill/_pending/plugin-targets/references/browser-extension.md",
-    "Tool/config/plugin-targets-matrix.json",
+    "Tool/skill/protocol-plugin/SKILL.md",
+    "Tool/skill/protocol-plugin/references/01-criteria.md",
+    "Tool/skill/protocol-plugin/references/02-failure-criteria.md",
+    "Tool/playbooks/plugin-analysis.md",
     "Tool/cases/plugin03/input/real-extension.zip",
     "Tool/cases/plugin03/artifacts/provenance.json",
     "Tool/cases/plugin03/artifacts/repro/plugin-repro.json"
@@ -93,6 +91,9 @@
   "updated": "2026-10-21",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "evidence": "见 lessons 首条的『命令与 rc』",
+    "command": "python Tool/skill/protocol-plugin/scripts/plugin-repro.py --path Tool/cases/plugin03/input/real-extension.zip --out Tool/cases/plugin03/artifacts/repro --json",
+    "cwd": ".",
+    "rc": 0
   }
 }

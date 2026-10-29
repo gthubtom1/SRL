@@ -1,7 +1,7 @@
 {
   "id": "site-crawl",
   "title": "站点爬取与路由枚举",
-  "domain": "site-clone",
+  "domain": "web-pentest",
   "triggers": [
     "整站抓取",
     "路由枚举",
@@ -39,7 +39,9 @@
     "Tool/skill/_pending/site-clone/references/01-criteria.md",
     "Tool/config/site-clone-matrix.json"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
+  "reserved": true,
+  "note": "源码实现位于 Tool/skill/_pending/site-clone；安装器有意不部署或索引 _pending 子技能。正式 web-pentest 路由目前只能人工引用源码夹具，完成迁移与已安装路径验证前不得作为自动爬取工具。",
   "compose": [
     "site-rebuild",
     "visual-diff"

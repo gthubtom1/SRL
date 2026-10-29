@@ -1,7 +1,18 @@
 {
   "schemaVersion": 1,
+  "formal_domains": [
+    "apkseep",
+    "firmware-iot",
+    "forensics-mobile",
+    "malware-analysis",
+    "protocol-plugin",
+    "pwn-crypto",
+    "softseep",
+    "supply-chain-security",
+    "web-pentest"
+  ],
   "upstream": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
-  "note": "每域任务卡的源技能名（真实存在，818 技能库内）；plugin-targets 上游无直系插件技能，取同族最近邻并在卡内标注『借』。",
+  "note": "九个正式域的任务卡来源。apkseep 和 softseep 的任务卡只在各自技能正文内维护；历史域 reverse、ad-cloud、plugin-targets 不在此文件中暴露。",
   "domains": {
     "web-pentest": [
       "exploiting-sql-injection-with-sqlmap",
@@ -81,32 +92,6 @@
       "implementing-usb-device-control-policy",
       "implementing-ot-network-traffic-analysis-with-nozomi"
     ],
-    "ad-cloud": [
-      "performing-active-directory-bloodhound-analysis",
-      "exploiting-active-directory-with-bloodhound",
-      "relaying-ntlm-for-adcs-esc8",
-      "exploiting-active-directory-certificate-services-esc1",
-      "coercing-authentication-with-coercer-petitpotam",
-      "analyzing-active-directory-acl-abuse",
-      "executing-active-directory-attack-simulation",
-      "detecting-dcsync-attack-in-active-directory",
-      "conducting-domain-persistence-with-dcsync",
-      "configuring-active-directory-tiered-model",
-      "deploying-active-directory-honeytokens",
-      "performing-aws-privilege-escalation-assessment",
-      "enumerating-cloud-with-cloudfox",
-      "detecting-aws-iam-privilege-escalation",
-      "securing-aws-iam-permissions",
-      "performing-gcp-penetration-testing-with-gcpbucketbrute",
-      "managing-cloud-identity-with-okta",
-      "auditing-azure-active-directory-configuration",
-      "performing-kubernetes-penetration-testing",
-      "auditing-kubernetes-rbac-privilege-escalation",
-      "escaping-containers-to-host",
-      "detecting-privilege-escalation-in-kubernetes-pods",
-      "performing-kubernetes-etcd-security-assessment",
-      "performing-kubernetes-cis-benchmark-with-kube-bench"
-    ],
     "protocol-plugin": [
       "performing-network-traffic-analysis-with-tshark",
       "performing-network-packet-capture-analysis",
@@ -132,32 +117,6 @@
       "analyzing-network-covert-channels-in-malware",
       "performing-bluetooth-security-assessment",
       "performing-s7comm-protocol-security-analysis"
-    ],
-    "plugin-targets": [
-      "analyzing-browser-forensics-with-hindsight",
-      "extracting-browser-history-artifacts",
-      "implementing-browser-isolation-for-zero-trust",
-      "performing-thick-client-application-penetration-test",
-      "conducting-mobile-app-penetration-test",
-      "deobfuscating-javascript-malware",
-      "analyzing-malicious-url-with-urlscan",
-      "performing-web-application-vulnerability-triage",
-      "performing-mobile-app-certificate-pinning-bypass",
-      "implementing-mobile-application-management",
-      "auditing-mcp-servers-for-tool-poisoning",
-      "performing-dynamic-analysis-of-android-app",
-      "performing-android-app-static-analysis-with-mobsf",
-      "reverse-engineering-ios-app-with-frida",
-      "reverse-engineering-dotnet-malware-with-dnspy",
-      "analyzing-linux-elf-malware",
-      "implementing-code-signing-for-artifacts",
-      "implementing-devsecops-security-scanning",
-      "testing-api-security-with-owasp-top-10",
-      "performing-web-application-penetration-test",
-      "detecting-shadow-api-endpoints",
-      "implementing-api-schema-validation-security",
-      "hunting-for-webshell-activity",
-      "analyzing-docker-container-forensics"
     ],
     "forensics-mobile": [
       "performing-memory-forensics-with-volatility3-plugins",
@@ -237,7 +196,7 @@
       "managing-third-party-vendor-risk",
       "auditing-terraform-infrastructure-for-security"
     ],
-    "reverse": [
+    "softseep": [
       "reverse-engineering-malware-with-ghidra",
       "reverse-engineering-rust-malware",
       "reverse-engineering-dotnet-malware-with-dnspy",
@@ -262,6 +221,7 @@
       "analyzing-prefetch-files-for-execution-history",
       "building-patch-tuesday-response-process",
       "implementing-patch-management-workflow"
-    ]
+    ],
+    "apkseep": []
   }
 }

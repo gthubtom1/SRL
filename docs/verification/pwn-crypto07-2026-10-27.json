@@ -1,0 +1,216 @@
+{
+  "schema": "seep.verification/1",
+  "case": "pwn-crypto07",
+  "date": "2026-10-27",
+  "problem": "该案例最初按『原版 pwn-check 的 Canary=Not found』建账 8 条 proven；主 Agent 审阅指出 PW07-04 的推理有误（lc_size=64 < 0x48 不能推出没有 SecurityCookie），且多条 claim 的 evidence 指向案例外的 work/ 目录。本轮重建：修 pwn-check 的 load-config 位宽/最小结构边界、把来源与探针证据搬进案例、重写 facts 与回执。旧 8/8/8 结论作废，不得并入记录。",
+  "verifier": "python Tool/scripts/case_state.py verify --case Tool/cases/pwn-crypto07",
+  "cohorts": {
+    "baseline": {
+      "claims": 0,
+      "proven": 0,
+      "strong": 0,
+      "verdict": "unknown"
+    },
+    "final": {
+      "claims": 9,
+      "proven": 9,
+      "strong": 9,
+      "verdict": "pass"
+    }
+  },
+  "source_sha256": {
+    "artifacts/MANIFEST.sha256": "fe3a7da782382a5d0b172d0b8972fe26f4213271126614739240cd61cef3b492",
+    "case.json": "613367910034209a01649b8ba83ea45314d3e8243e102050d0d5d4e3f5f79739",
+    "facts.jsonl": "af62e5657d2b46fd80d4c6f8f6993d2df802b4f957f5979ba9291275941a502d",
+    "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+  },
+  "interpretation": "R1 小修后由当前 facts 现算 claims/proven/strong=9/9/9（8 observed + 1 derived）。本轮只收窄 PW07-02 的署名范围（全名→GitHub 账号 justinsteven）并修两处 u32 注释笔误，没有新增实测、没有改许可结论、没有为过门提升任何其他 claim 的状态或证据。状态/置信度/权威未变（proven/observed/shipped-artifact），因为许可与时间线部分确实由案例内字节支持。",
+  "integration_pending": {
+    "applies": true,
+    "why": "Case/parser/pack/witness merged and initial static/attribution independent checks completed; source pin correction still needs independent revalidation.",
+    "verified_after_merge": [
+      "work/goal-recovery/pwn07-independent.md",
+      "work/goal-recovery/pwn07-attribution-independent.md"
+    ],
+    "unverified_after_merge": [
+      "New source pins and derived receipt need independent revalidation",
+      "Full release checks, global documentation counts, deployment/runtime equivalence"
+    ]
+  },
+  "limitations": [
+    "只有静态见证：目标 exe 未被本流程启动/加载/调试，可达性、偏移、EIP 控制、SEH 链、DEP 绕过、拿 shell 全部未验证",
+    "Canary=Found 只表示 load config 声明了 SecurityCookie（指针落在 image 内），不证明具体函数启用 /GS 或运行期校验",
+    "protections 是 DllCharacteristics + 导入/load-config 近似，不是加载后页权限",
+    "dangerous_imports 是符号名白名单命中的下界（WS2_32 的 10 项序号导入无法还原成 recv/send/closesocket）",
+    "goal_level=L1 / outcome=partial：不主张 PWN 域全功能、全 Goal 或可利用性",
+    "pwn-crypto06 仍为 self-built（历史事实未改）；本案例只新增 public cohort，不替 06 升档",
+    "target.path 写成仓库相对路径；case_state.verify-origin 只在该字符串于当前 cwd 可解析时通过",
+    "R1 后仍未补：作者全名没有随案证据（本轮不联网取证）；witness --check-tool 不是沙箱；Canary 非空不等于 GS；cwd 需 repoRoot"
+  ],
+  "observed_at_utc": "2026-10-27T09:14:51",
+  "superseded": {
+    "at_utc": "2026-10-27T09:14:51Z",
+    "why": "主 Agent 退回：PW07-04 推理错误 + 证据闭包不足 + 时间戳硬编码 + 静态记录表述过宽",
+    "previous_final": {
+      "claims": 8,
+      "proven": 8,
+      "strong": 8,
+      "verdict": "pass"
+    },
+    "previous_key_facts": {
+      "protections": "Canary=Not found（原版解析器误判）",
+      "evidence": "PW07-01/04/05/07 的 evidence 指向 work/goal-recovery/pwn-public-candidate/ 下的日志",
+      "timestamps": "created 全部硬编码 2026-10-27T00:00:00"
+    },
+    "invalidated_claims": [
+      "PW07-04（旧版推理不成立）"
+    ],
+    "kept": [
+      "PW07-02 许可与署名",
+      "PW07-03 头部结构",
+      "PW07-05 导入面",
+      "PW07-06 路线（已按新输出更新 caveat）"
+    ],
+    "new_evidence_files": [
+      "capture/upstream-verify-summary.json",
+      "capture/upstream-download-manifest.json",
+      "capture/upstream-git-transport-verify.json",
+      "capture/http-meta-exe.json",
+      "capture/http-meta-readme.json",
+      "artifacts/header-probe.json",
+      "artifacts/import-surface.json",
+      "artifacts/parser-boundary-tests.json",
+      "artifacts/witness-negative-controls.json"
+    ],
+    "target_executed": false,
+    "target_bytes_changed": false
+  },
+  "audit_corrections": [
+    {
+      "at": "2026-10-27T10:16:43Z",
+      "kind": "attribution-scope-correction",
+      "claims": [
+        "PW07-02"
+      ],
+      "basis": "REVIEW-04-DECISIONS.md 第 1 条 / pwn07-independent.md R-1",
+      "previous_final": {
+        "claims": 9,
+        "proven": 9,
+        "strong": 9,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "6d7cf79ac2fb970107a62a041a082b6e540a35fdbf48631e6dc0ad8ab3a6de99",
+        "artifacts/MANIFEST.sha256": "c007130b803ecd10432880195f13322c31c9276846cd7ce5343c24ec9b7daec8",
+        "case.json": "47936a3e50e0f44d695ccd45356056ddee20065e0828bd336b8fd80ac6c7d5b3",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "reason": "PW07-02 的署名写成了作者全名 Justin Steven，但案例内唯一署名来源（upstream-README.md，逐字节等同上游 blob）只含 GitHub 账号 justinsteven，不含全名。按『复合主张须由随案 evidence 支持』把署名精确收窄为账号；全名保留在 evidence_audit 作历史，不主张全名错误。同时修正 README/解析器注释里 u32 取值的笔误（应为小端低 32 位，不是高 32 位）。",
+      "new_final": {
+        "claims": 9,
+        "proven": 9,
+        "strong": 9,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "facts.jsonl": "425be431e5c1d4409bd1e277c459224239f96900b242b1d1e11cfb790479f2b9",
+        "artifacts/MANIFEST.sha256": "c007130b803ecd10432880195f13322c31c9276846cd7ce5343c24ec9b7daec8",
+        "case.json": "5bea99b34ec9150ba75904d46f77185a3d3b5b3c28444b382ca06815493235c9",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "counts_recomputed_by": "case_state.verify_case (read-only) + sha256 of case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    },
+    {
+      "at": "2026-10-27T11:49:06.025761+00:00",
+      "kind": "pin-existing-upstream-source-texts",
+      "basis": "pwn07-attribution-independent.md R1-G1; main review",
+      "previous_source_sha256": {
+        "facts.jsonl": "425be431e5c1d4409bd1e277c459224239f96900b242b1d1e11cfb790479f2b9",
+        "artifacts/MANIFEST.sha256": "c007130b803ecd10432880195f13322c31c9276846cd7ce5343c24ec9b7daec8",
+        "case.json": "5bea99b34ec9150ba75904d46f77185a3d3b5b3c28444b382ca06815493235c9",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "added_manifest_entries": [
+        {
+          "path": "upstream-README.md",
+          "sha256": "8082f94941e198bb194efc67c8874f74b883773ff198c24a6441cdd10153e4b4",
+          "basis": "Existing captured upstream README SHA256"
+        },
+        {
+          "path": "LICENSE-APACHE-2.0.txt",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "basis": "Git blob SHA1 independently verified before this correction: 8dada3edaf50dbc082c9a125058f25def75e625a"
+        }
+      ],
+      "raw_source_files_changed": false,
+      "facts_changed": false,
+      "new_target_measurements": false
+    },
+    {
+      "at": "2026-10-29T08:12:42.489195+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "Full review changed case metadata, manifest, and ledger bytes; receipt must bind current content without claiming a new target run.",
+      "previous_final": {
+        "claims": 9,
+        "proven": 9,
+        "strong": 9,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "facts.jsonl": "425be431e5c1d4409bd1e277c459224239f96900b242b1d1e11cfb790479f2b9",
+        "artifacts/MANIFEST.sha256": "6d55451a6fbe96ee6e7279656d6acbfb770659a1593b3d1919c7200544600cfd",
+        "case.json": "5bea99b34ec9150ba75904d46f77185a3d3b5b3c28444b382ca06815493235c9",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "new_final": {
+        "claims": 9,
+        "proven": 9,
+        "strong": 9,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "fe3a7da782382a5d0b172d0b8972fe26f4213271126614739240cd61cef3b492",
+        "case.json": "b3626e1294696e37d8184d3ef4549a296f4e911f5e3eb6c7f3f752cd344e8565",
+        "facts.jsonl": "af62e5657d2b46fd80d4c6f8f6993d2df802b4f957f5979ba9291275941a502d",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    },
+    {
+      "at": "2026-10-29T09:16:30.386143+00:00",
+      "kind": "receipt-byte-refresh",
+      "reason": "R13 case evidence refresh: bind structured public witness/static execution evidence and refreshed artifact hashes; no target execution or new measurement during receipt refresh.",
+      "previous_final": {
+        "claims": 9,
+        "proven": 9,
+        "strong": 9,
+        "verdict": "pass"
+      },
+      "previous_source_sha256": {
+        "artifacts/MANIFEST.sha256": "fe3a7da782382a5d0b172d0b8972fe26f4213271126614739240cd61cef3b492",
+        "case.json": "b3626e1294696e37d8184d3ef4549a296f4e911f5e3eb6c7f3f752cd344e8565",
+        "facts.jsonl": "af62e5657d2b46fd80d4c6f8f6993d2df802b4f957f5979ba9291275941a502d",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "new_final": {
+        "claims": 9,
+        "proven": 9,
+        "strong": 9,
+        "verdict": "pass"
+      },
+      "new_source_sha256": {
+        "artifacts/MANIFEST.sha256": "fe3a7da782382a5d0b172d0b8972fe26f4213271126614739240cd61cef3b492",
+        "case.json": "613367910034209a01649b8ba83ea45314d3e8243e102050d0d5d4e3f5f79739",
+        "facts.jsonl": "af62e5657d2b46fd80d4c6f8f6993d2df802b4f957f5979ba9291275941a502d",
+        "target/dostackbufferoverflowgood.exe": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a"
+      },
+      "validation": "case_state.verify_case recomputed the claim cohort; SHA-256 was recomputed from current case bytes",
+      "new_target_measurements": false,
+      "target_executed": false
+    }
+  ]
+}

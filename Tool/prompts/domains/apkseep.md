@@ -1,9 +1,7 @@
 # apkseep 任务卡（28 张）
 
-> 本域的卡不是从外部技能名导入的：`Tool/config/taskcard-sources.json` 里**没有** `apkseep` 条目
-> （该文件的 domains 只覆盖 web-pentest / pwn-crypto / firmware-iot / ad-cloud / protocol-plugin /
-> plugin-targets / forensics-mobile / malware-analysis / supply-chain-security / reverse）。
-> 所以这 28 张卡是**从本域自己的正文逐条搬运**的：每张卡的触发词/前置/步骤/判据/失败判据都能在
+> `apkseep` 是九个正式域之一，但本域的 28 张卡不从外部技能名导入；它们**从本域自己的正文逐条搬运**，
+> 因此 `Tool/config/taskcard-sources.json` 中的 `domains.apkseep` 保持空列表。每张卡的触发词/前置/步骤/判据/失败判据都能在
 > `reference` 指到的那个文件里找到原句，没有新增方法论。
 >
 > 用法：按触发词选卡 → 照步骤跑 → 用判据/失败判据决定继续或改走

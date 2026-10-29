@@ -1,7 +1,7 @@
 {
   "id": "native-hook",
   "title": "Native 层 Hook 与注入",
-  "domain": "reverse",
+  "domain": "softseep",
   "triggers": [
     "Native Hook",
     "frida hook",

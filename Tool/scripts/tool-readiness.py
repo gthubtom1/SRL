@@ -12,7 +12,7 @@
 判据（铁律，别改回去）：
     · **文件存在 ≠ READY**。必须真跑一次自检（rabin2 -v / jadx --version / apktool --version /
       tshark -v）并拿到**匹配期望正则**的输出；GUI-only 的 ida/x64dbg 没有 --version，
-      就用解析 PE 头（MZ/PE/machine）当自检，仍然不许只判"文件在"。
+      PE 头只能核验格式/架构，状态仍为 FOUND_NO_VERIFY，启动与 MCP 连接需另验。
       历史教训：`Tool/scripts/lib/tool_identity.py` 记着"rabin2.exe 其实是 radare2.exe 改名"
       把一条命令卡死 900 秒 —— 所以 r2 的 expect 必须打出 'rabin2 <版本>'。
     · 探测来源按 tool-runtimes.json 的 `probe` 字段：环境变量 → PATH → 仓库内置副本
@@ -46,6 +46,8 @@ import subprocess
 import sys
 import time
 import unicodedata
+
+from lib import process_tree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOL = os.path.dirname(HERE)                          # Tool/
@@ -241,18 +243,20 @@ def _pe_info(path):
     """PE 头自检：MZ → e_lfanew → 'PE\\0\\0' → machine。给没有 --version 的 GUI 工具用。"""
     try:
         with open(path, "rb") as f:
-            head = f.read(0x400)
-        size = os.path.getsize(path)
+            head = f.read(0x40)
+            size = os.fstat(f.fileno()).st_size
+            lfanew = int.from_bytes(head[0x3C:0x40], 'little')
+            if len(head) < 0x40 or lfanew < 0x40 or lfanew + 6 > size:
+                return {'ok': False, 'why': 'e_lfanew 越界（疑似截断/伪造）'}
+            f.seek(lfanew)
+            pe = f.read(6)
     except OSError as e:
         return {"ok": False, "why": "读不到文件：%s" % e}
     if head[:2] != b"MZ":
         return {"ok": False, "why": "不是 PE（无 MZ 头）"}
-    lfanew = int.from_bytes(head[0x3C:0x40], "little")
-    if lfanew <= 0 or lfanew + 6 > len(head):
-        return {"ok": False, "why": "e_lfanew 越界（疑似截断/伪造）"}
-    if head[lfanew:lfanew + 4] != b"PE\0\0":
+    if pe[:4] != b"PE\0\0":
         return {"ok": False, "why": "不是 PE（无 PE\\0\\0 签名）"}
-    machine = int.from_bytes(head[lfanew + 4:lfanew + 6], "little")
+    machine = int.from_bytes(pe[4:6], "little")
     return {"ok": True, "machine": MACHINES.get(machine, "0x%04X" % machine), "size": size}
 
 
@@ -279,19 +283,13 @@ def verify(spec, exe, timeout_override=None):
         line = "PE %s · %s · %s" % (info["machine"], size_txt, os.path.basename(exe))
         if inform:
             line += "（依赖 %d/%d）" % (len(sib), len(inform))
-        return {"ok": True, "line": line, "exe": exe, "why": "PE 头自检通过"}
+        return {"ok": True, "runtime_verified": False, "line": line, "exe": exe,
+                "why": "PE 格式和架构通过；尚未验证工具启动、授权、依赖和 MCP 连接"}
 
     args = [str(a) for a in (spec.get("args") or [])]
+    # Probe each discovered candidate itself. Substituting another executable
+    # would attribute that program's result and provenance to this candidate.
     target = exe
-    want_exe = spec.get("exe")
-    if want_exe:
-        cand = os.path.join(os.path.dirname(exe), want_exe)
-        if os.path.isfile(cand):
-            target = cand
-        else:
-            w = shutil.which(want_exe)
-            if w:
-                target = w
     argv = [target] + args
     # .bat/.cmd 必须走 cmd /c：CreateProcess 直接跑批处理会静默失败（实测 rc=1、输出空）
     if os.name == "nt" and target.lower().endswith((".bat", ".cmd")):
@@ -299,10 +297,10 @@ def verify(spec, exe, timeout_override=None):
 
     t0 = time.time()
     try:
-        p = subprocess.run(argv, cwd=os.path.dirname(target) or None,
-                           capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=tmo, stdin=subprocess.DEVNULL,
-                           env=CHILD_ENV)
+        p = process_tree.run(argv, cwd=os.path.dirname(target) or None,
+                             capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=tmo, stdin=subprocess.DEVNULL,
+                             env=CHILD_ENV)
         out = (p.stdout or "") + ("\n" if (p.stdout and p.stderr) else "") + (p.stderr or "")
         rc = p.returncode
     except subprocess.TimeoutExpired:
@@ -353,14 +351,14 @@ def identity(tid, spec, exe):
             sys.path.insert(0, LIB)
         import tool_identity  # noqa: PLC0415 —— 可选依赖，缺了不影响主判据
         r = tool_identity.probe(want, os.path.abspath(exe))
-        return {"ok": bool(r.get("ok")), "why": (r.get("why") or "").strip()[:90]}
+        return {"ok": r.get("ok"), "why": (r.get("why") or "").strip()[:90]}
     except Exception as e:  # noqa: BLE001
         return {"ok": None, "why": "行为探针不可用：%s" % str(e)[:60]}
 
 
 # ---------------------------------------------------------------- 安装计划
-def install_plan(spec):
-    """从 install 字段取「一条可执行命令」+ 条件标注。只读配置，绝不执行。"""
+def install_plan(spec, tid=None):
+    """Use the executable allowlist; keep manual prerequisites explicit."""
     ins = spec.get("install") or {}
     primary = ins.get("primary") or {}
     cmd = (primary.get("cmd") or "").strip()
@@ -381,6 +379,31 @@ def install_plan(spec):
         tags.append("需 %s" % r)
     if ins.get("license"):
         tags.append("需商业授权")
+    if tid:
+        sys.path.insert(0, os.path.join(TOOL, 'mcp'))
+        import tool_autodiscover
+        config_error = ''
+        try:
+            # The shared reader falls back to an empty catalog on JSON errors.
+            # Read strictly here so a manual hint cannot conceal a broken catalog.
+            with open(tool_autodiscover._INSTALL_FILE, encoding='utf-8-sig') as handle:
+                catalog = json.load(handle)
+            tool_autodiscover._install_methods(catalog, tool_autodiscover.normalize_tool_id(tid))
+        except (OSError, ValueError, TypeError) as exc:
+            config_error = '安装配置无效: ' + str(exc)
+        if config_error:
+            return {'cmd': '', 'via': 'manual', 'note': primary.get('note') or '',
+                    'tags': tags, 'pathHint': ins.get('pathHint', ''), 'alternatives': [],
+                    'auto_allowed': False, 'config_error': config_error}
+        shared = tool_autodiscover.install_plan(tid)
+        if shared.get('has_plan') and shared.get('auto_allowed'):
+            return {'cmd': f'python Tool/scripts/tool-acquire.py --tool {tid} --install --json',
+                    'via': shared.get('method', ''), 'note': shared.get('note', ''),
+                    'tags': tags, 'pathHint': ins.get('pathHint', ''), 'alternatives': [],
+                    'auto_allowed': shared.get('auto_allowed', False)}
+        return {'cmd': '', 'via': 'manual', 'note': shared.get('note') or primary.get('note') or shared.get('reason', ''),
+                'tags': tags, 'pathHint': ins.get('pathHint', ''), 'alternatives': [],
+                'auto_allowed': False}
     return {
         "cmd": cmd,
         "via": primary.get("via") or "",
@@ -398,14 +421,16 @@ def inspect(tid, spec, do_verify=True, budget=8.0, verify_timeout=None):
     """返回一行结果：工具 / 状态 / 在哪 / 自检首行 / 安装计划。"""
     row = {"id": tid, "display": DISPLAY.get(tid, tid), "status": "MISSING",
            "path": "", "via": "", "viaDetail": "", "selftest": "", "why": "",
-           "install": install_plan(spec), "candidates": 0, "problems": []}
+           "install": install_plan(spec, tid), "candidates": 0, "problems": []}
     pexec, vexec = spec.get("probe") or {}, spec.get("verify") or {}
     if not pexec:
         row["problems"].append("%s: tool-runtimes.json 缺 probe 字段" % tid)
     if not vexec:
         row["problems"].append("%s: tool-runtimes.json 缺 verify 字段" % tid)
-    if not row["install"]["cmd"]:
-        row["problems"].append("%s: tool-runtimes.json 缺 install 可执行命令" % tid)
+    if row['install'].get('config_error'):
+        row['problems'].append('%s: %s' % (tid, row['install']['config_error']))
+    if not row["install"]["cmd"] and not row['install']['note']:
+        row["problems"].append("%s: 缺 install 获取方法或人工安装说明" % tid)
 
     hits, truncated = probe(pexec, budget=budget)
     row["candidates"] = len(hits)
@@ -423,17 +448,21 @@ def inspect(tid, spec, do_verify=True, budget=8.0, verify_timeout=None):
         return row
 
     fails = []
-    for h in hits[:3]:
+    # Probe every candidate in discovery order.  A valid install can follow
+    # several same-named or stale copies; silently stopping after three made a
+    # usable fourth candidate look unverified.
+    for h in hits:
         v = verify(vexec, h["path"], timeout_override=verify_timeout)
         if not v.get("ok"):
             fails.append({"path": h["path"], "why": v.get("why"), "line": v.get("line")})
             continue
         idr = identity(tid, vexec, v.get("exe") or h["path"])
-        if idr and idr.get("ok") is False:
+        if idr and idr.get("ok") is not True:
             fails.append({"path": h["path"], "line": v.get("line"),
                           "why": "版本对但行为探针不过：%s" % idr.get("why")})
             continue
-        row.update(status="READY", path=h["path"], via=h["via"], viaDetail=h["viaDetail"],
+        row.update(status="FOUND_NO_VERIFY" if v.get('runtime_verified') is False else "READY",
+                   path=v.get('exe') or h["path"], via=h["via"], viaDetail=h["viaDetail"],
                    selftest=v.get("line") or "", why=v.get("why") or "")
         if idr and idr.get("ok"):
             row["selftest"] = "%s（行为✔）" % row["selftest"]
@@ -457,11 +486,11 @@ def print_table(rows):
             where = "%s: %s" % (via_label.get(r["via"], r["via"] or "?"), _rel(r["path"]))
         if r["status"] == "MISSING":
             hint = ("[%s] %s" % ("/".join(r["install"]["tags"]), r["install"]["cmd"])
-                    if r["install"]["cmd"] else "无安装计划（配置缺 install 字段）")
+                    if r["install"]["cmd"] else r['install']['note'])
         elif r["status"] == "READY":
             hint = "—（已就绪，可直接调）"
         else:
-            hint = "已找到但自检不过 → 见下方说明"
+            hint = "已找到，运行能力待核验 → 见下方说明"
         cells.append([r["display"], r["status"], where, r["selftest"], hint])
 
     widths = [max([_width(h)] + [_width(c[i]) for c in cells]) for i, h in enumerate(head)]
@@ -480,18 +509,18 @@ def print_table(rows):
         lines.append("| " + " | ".join(out) + " |")
     print("\n".join(lines))
     print("状态说明：READY=探测到且自检通过（真跑过一次，拿到期望输出）；"
-          "FOUND_NO_VERIFY=找到了但自检失败；MISSING=PATH/仓库副本/常见目录都没探测到")
+          "FOUND_NO_VERIFY=找到了但运行能力未通过验证；MISSING=PATH/仓库副本/常见目录都没探测到")
 
 
 def print_plans(rows):
     miss = [r for r in rows if r["status"] == "MISSING"]
     bad = [r for r in rows if r["status"] == "FOUND_NO_VERIFY"]
     if bad:
-        print("\n找到但自检不过（FOUND_NO_VERIFY —— 文件在，不代表能用）：")
+        print("\n找到但运行能力未验证（FOUND_NO_VERIFY）：")
         for r in bad:
             print("  · %-9s %s" % (r["display"], _rel(r["path"])))
             print("    %s" % (r["why"] or ""))
-            print("    修：先手动跑一次自检命令看真实输出；不行就删掉这份副本，按安装计划重装")
+            print("    按上述原因复验启动、依赖或连接；确认安装损坏后再修复。")
     if not miss:
         return
     print("\n安装计划（只生成、不执行；复制到 PowerShell 即可，本轮不联网不装任何东西）：")
@@ -501,7 +530,7 @@ def print_plans(rows):
         if ins["cmd"]:
             print("    命令：%s" % ins["cmd"])
         else:
-            print("    命令：✗ 缺 install 字段 —— 这正是 check.py 会判红的情况")
+            print("    自动安装：无当前平台的白名单方法，按下面的来源和说明处理")
         if ins["note"]:
             print("    说明：%s" % ins["note"])
         if ins["pathHint"]:
@@ -528,9 +557,13 @@ def main():
     try:
         with open(RUNTIMES, encoding="utf-8") as f:
             cfg = json.load(f)
-        tools_cfg = cfg.get("tools") or {}
+        if not isinstance(cfg, dict) or not isinstance(cfg.get('tools'), dict):
+            raise ValueError('配置及 tools 必须是对象')
+        tools_cfg = cfg['tools']
     except Exception as e:  # noqa: BLE001
-        print("读不到 %s：%s" % (RUNTIMES, e))
+        reason = "读不到 %s：%s" % (RUNTIMES, e)
+        print(json.dumps({'ok': False, 'problems': [reason], 'tools': []}, ensure_ascii=False)
+              if a.json else reason)
         return 1
 
     rows = []
@@ -554,11 +587,11 @@ def main():
         if r["status"] not in STATUSES:
             problems.append("%s: 状态 %r 非法（只允许 %s）" % (r["id"], r["status"],
                                                           "/".join(STATUSES)))
-        if (r["status"] == "MISSING" and not r["install"]["cmd"]
+        if (r["status"] == "MISSING" and not (r["install"]["cmd"] or r['install']['note'])
                 and r["id"] not in missing_install_cfg):
             problems.append("%s: MISSING 但没有安装命令（不能只说『去装吧』）" % r["id"])
     miss = [r for r in rows if r["status"] == "MISSING"]
-    if miss and len(miss) == len(rows) and not any(r["install"]["cmd"] for r in miss):
+    if miss and len(miss) == len(rows) and not any(r["install"]["cmd"] or r['install']['note'] for r in miss):
         problems.append("6 个全 MISSING 且没有任何安装计划 —— 探测器等于摆设")
 
     counts = {s: sum(1 for r in rows if r["status"] == s) for s in STATUSES}
@@ -576,6 +609,7 @@ def main():
                        "via": r["via"],
                        "selftest": r["selftest"], "why": r["why"],
                        "install_cmd": r["install"]["cmd"],
+                        "install_note": r['install']['note'],
                        "install_tags": r["install"]["tags"]} for r in rows],
         }, ensure_ascii=False, indent=2))
         return 0 if ok else 1

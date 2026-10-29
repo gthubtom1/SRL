@@ -1,0 +1,68 @@
+{
+  "schema": "seep.pwn-witness-negative-controls/1",
+  "case": "pwn-crypto07",
+  "witness": "sandbox:Tool/skill/pwn-crypto/scripts/witness.py",
+  "witness_sha256": "dbdb401915bbe77a4a21620c0f368d708c4c3b6bb34d58c7a713237ea60663a0",
+  "pwn_check_used": "sandbox:Tool/skill/pwn-crypto/scripts/pwn-check.py",
+  "pwn_check_sha256": "daea2bb4a8b1d7d3cdd0da592975f3ea3609e62a6401e38a7a932b05d469dc88",
+  "runtime_fixture": "copied Tool/scripts/lib + softseep runtime markers",
+  "host_isolation": {
+    "HOME": "<sandbox>/runtime/.isolated-home",
+    "APPDATA": "<sandbox>/runtime/.isolated-home/AppData/Roaming",
+    "LOCALAPPDATA": "<sandbox>/runtime/.isolated-home/AppData/Local",
+    "PI_CODING_AGENT_DIR": "<sandbox>/runtime/.isolated-agent"
+  },
+  "target_sha256_before": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "target_sha256_after": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "target_unmodified": true,
+  "criterion": "witness exits 0 only when pwn-check's reported sha256 equals the sha256 registered in the case's own case.json target_files[]",
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": []
+  },
+  "controls": [
+    {
+      "name": "P1 default target (manifest hash matches)",
+      "expect_rc": 0,
+      "rc": 0,
+      "ok": true,
+      "artifact_kind": "public",
+      "stdout": "[witness] pwn-crypto ok: kind=PE arch=x86 NX=Disabled PIE=Disabled Canary=Found (SecurityCookie) sections=5 dangerous=1 routes=1 artifact_kind=public sha256=d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a\n{\"ok\": true, \"domain\": \"pwn-crypto\", \"witness\": \"public\", \"artifact_kind\": \"public\", \"sha256\": \"d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a\", \"manifest_sha256\": \"d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a\"}\n",
+      "stderr": ""
+    },
+    {
+      "name": "N1 swapped target (other real case binary)",
+      "expect_rc": 1,
+      "rc": 1,
+      "ok": true,
+      "stdout": "[witness] pwn-crypto FAIL: sha256 与 case.json 登记的制品不一致：期望 d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a，实得 5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e\n",
+      "stderr": ""
+    },
+    {
+      "name": "N2 target byte drift (hash mismatch)",
+      "expect_rc": 1,
+      "rc": 1,
+      "ok": true,
+      "stdout": "[witness] pwn-crypto FAIL: sha256 与 case.json 登记的制品不一致：期望 d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a，实得 2ff8a5aa6bacf259836ee8d7b506b5fa662aa677922a4fe769c60c70096be3cf\n",
+      "stderr": ""
+    },
+    {
+      "name": "N3 empty file (structured parse reject)",
+      "expect_rc": 1,
+      "rc": 1,
+      "ok": true,
+      "stdout": "[witness] pwn-crypto FAIL: pwn-check rc=2: {\"ok\": false, \"blocked_at\": \"parse\", \"reason\": \"解析失败: 既不是 PE(MZ) 也不是 ELF\"}\n\n",
+      "stderr": ""
+    },
+    {
+      "name": "N4 case.json manifest sha256 tampered",
+      "expect_rc": "non-zero",
+      "rc": 2,
+      "ok": true,
+      "stdout": "[witness] pwn-crypto FAIL: sha256 与 case.json 登记的制品不一致：期望 0000000000000000000000000000000000000000000000000000000000000000，实得 d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a\n{\"ok\": false, \"domain\": \"pwn-crypto\", \"witness\": \"failed\"}\n",
+      "stderr": ""
+    }
+  ],
+  "note": "负例在临时目录里复制输入构造；目标原字节未改，也从未被执行。"
+}

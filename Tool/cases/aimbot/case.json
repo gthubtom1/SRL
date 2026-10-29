@@ -1,51 +1,48 @@
 {
- "id": "aimbot",
- "domain": "reverse",
- "target_type": "Windows PE64（Qt + ImGui + ONNX）AI 辅助，卡密授权 + 自定义壳",
- "evidence_kind": "real",
- "protection": [
-  "custom-packer(.ace0, 节 RawSize=0)",
-  "integrity-selfcheck(File corrupted)",
-  "antidebug(DllCharacteristics + GetAdaptersInfo 机器码)",
-  "window-title-randomization"
- ],
- "authority": "用户提供样本与卡密，沙箱白盒审计",
- "goal_level": "M2",
- "outcome": "partial",
- "artifacts": [
-  {
-   "path": "capture/reverify-2026-10-24.log",
-   "sha256": "9d068eb56cb7cd305f6836d88feee6e550b5e4375fbefa2540218053f1bd0512"
-  }
- ],
- "repro": {
-  "status": "in-progress",
-  "evidence": "facts.jsonl 尚空；首轮未交付，仅留下 dump/ 与 decomp.txt"
- },
- "evidence_dir": ".",
- "lessons": [
-  "命令：r2 -q -c iI -c iS D:/Project/ai自瞄/AGameCrash64.exe（只读结构测绘）；rc=0；目标为外部路径，仓库内不存副本（target_files 为空是有意的）",
-  "2026-10-23 首轮（会话 01a1685a）：48 分钟 / 167 次工具调用 / cacheRead 1705 万，facts 0 条、自然语言汇报 1 条、交付物 0 个。",
-  "事故：为接管授权服务端，给 DHCP 网卡挂 /32 别名 IP + netsh winhttp set proxy，导致整机断网（用户自行恢复）。",
-  "关键发现：改磁盘字节即触发 File corrupted（壳 stub 层完整性自检）；该字符串在 dump 镜像里 ASCII/UTF-16 均 0 命中，说明校验在解密之前。",
-  "关键发现：dump 保留运行时 ImageBase 0x7ff65e140000，而全流程按 0x140000000 算 VA，导致 Ghidra 连续 7 次 no function。",
-  "协议面：149.88.73.239 /api/client /login /heartbeat，UA NetworkVerify/1.0，字段 card_code/device_id/app_key，响应 code/message/data/remaining_minutes/expire_time/heartbeat_interval/announcement。",
-  "复盘与新流程：work/audit/2026-10-23_aimbot会话流程审计与Seep短板.md、docs/EXECUTION-MODEL-v2.md"
- ],
- "tags": [
-  "license",
-  "cardkey",
-  "pe",
-  "qt",
-  "imgui",
-  "onnx",
-  "packed",
-  "integrity-check"
- ],
- "refs": [
-  "Tool/skill/_pending/01-gate-bypass/SKILL.md",
-  "Tool/skill/unpack-loop/SKILL.md",
-  "docs/EXECUTION-MODEL-v2.md"
- ],
- "updated": "2026-10-23"
+  "id": "aimbot",
+  "domain": "reverse",
+  "target_type": "Windows PE64（Qt + ImGui + ONNX）AI 辅助，卡密授权 + 自定义壳",
+  "evidence_kind": "real",
+  "protection": [
+    "custom-packer(.ace0, 节 RawSize=0)",
+    "integrity-selfcheck(File corrupted)",
+    "antidebug(DllCharacteristics + GetAdaptersInfo 机器码)",
+    "window-title-randomization"
+  ],
+  "authority": "用户提供样本与卡密，沙箱白盒审计",
+  "goal_level": "M2",
+  "outcome": "partial",
+  "artifacts": [
+    {
+      "path": "capture/reverify-2026-10-24.log",
+      "sha256": "9d068eb56cb7cd305f6836d88feee6e550b5e4375fbefa2540218053f1bd0512"
+    }
+  ],
+  "repro": {
+    "status": "not-recorded",
+    "reason": "案例目录没有目标二进制、可重放 argv、整数 rc，也没有该次命令的原始 stdout/stderr；历史 r2 文本与外部路径记录不得作为执行见证。"
+  },
+  "evidence_dir": ".",
+  "lessons": [
+    "历史记录描述了 r2 只读结构测绘和外部路径 D:/Project/ai自瞄/AGameCrash64.exe，但案例目录内没有该目标副本、当时的完整 argv、整数 rc 或原始 stdout/stderr。",
+    "2026-10-23 首轮留下的是会话统计与事后发现：48 分钟、167 次工具调用、facts 0 条、交付物 0 个。",
+    "历史记录中的 DHCP 网卡 /32 别名与 WinHTTP 代理操作导致整机断网；该事故记录作为流程教训保留。",
+    "历史结论提到壳层完整性自检、运行时 ImageBase 0x7ff65e140000 与授权协议字段；这些文字未与当前案例内可重放输出绑定，因此不升级为 recorded 证据。"
+  ],
+  "tags": [
+    "license",
+    "cardkey",
+    "pe",
+    "qt",
+    "imgui",
+    "onnx",
+    "packed",
+    "integrity-check"
+  ],
+  "refs": [
+    "Tool/skill/_pending/01-gate-bypass/SKILL.md",
+    "Tool/skill/unpack-loop/SKILL.md",
+    "docs/EXECUTION-MODEL-v2.md"
+  ],
+  "updated": "2026-10-29"
 }

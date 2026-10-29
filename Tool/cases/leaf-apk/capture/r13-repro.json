@@ -1,0 +1,87 @@
+{
+  "schema": "seep.r13-case-repro/1",
+  "ok": true,
+  "case": "leaf-apk",
+  "results": [
+    {
+      "case": "leaf-apk",
+      "label": "apk-structure",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "-c",
+        "import hashlib, json, zipfile\nfrom pathlib import Path\np = Path(\"Tool/cases/leaf-apk/target/diva.apk\")\nd = p.read_bytes()\nwith zipfile.ZipFile(p) as z:\n    names = z.namelist()\n    dex_names = sorted(n for n in names if n.startswith(\"classes\") and n.endswith(\".dex\"))\n    dex_name = dex_names[0] if dex_names else None\n    dex = z.read(dex_name) if dex_name else b\"\"\n    lib_entries = sorted(n for n in names if n.startswith(\"lib/\"))\n    so_entries = sorted(n for n in names if n.lower().endswith(\".so\"))\nmarkers = [\"StubApp\", \"stubStubApp\", \"libjiagu\", \"DexHelper\", \"com.qihoo\", \"SecShell\", \"jiagu\", \"bangcle\", \"secneo\", \"libexec\", \"libshell\", \"AppWrapper\", \"aliprotect\", \"libnesec\", \"libshella\", \"libmobisec\"]\nhits = {m: dex.count(m.encode()) for m in markers}\nprint(json.dumps({\"sha256\": hashlib.sha256(d).hexdigest(), \"size\": len(d), \"entries\": len(names), \"dex\": dex_names, \"dex_0_size\": len(dex), \"dex_0_magic\": dex[:4].hex() if dex else None, \"dex_0_version\": dex[4:8].hex() if dex else None, \"lib_entries\": lib_entries, \"so_entries\": so_entries, \"harden_hits\": hits, \"harden_nonzero\": sum(hits.values())}, indent=2, ensure_ascii=False))"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/leaf-apk/capture/r13-apk-structure.stdout.txt",
+        "sha256": "16227f87ce4a952784ac9836a5fefdf76658adf0f164e45a8d50fc7209f9b7da",
+        "size": 666
+      },
+      "stderr": {
+        "path": "Tool/cases/leaf-apk/capture/r13-apk-structure.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-apk/target/diva.apk": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-apk/target/diva.apk": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    },
+    {
+      "case": "leaf-apk",
+      "label": "apk-diff",
+      "argv": [
+        "D:\\EXE\\python\\python.exe",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/skill/apkseep/scripts/apk_diff.py",
+        "Tool/cases/leaf-apk/target/diva.apk",
+        "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk",
+        "--summary",
+        "--only",
+        "classes.*\\.dex|^lib/|\\.so$"
+      ],
+      "cwd": ".",
+      "rc": 0,
+      "stdout": {
+        "path": "Tool/cases/leaf-apk/capture/r13-apk-diff.stdout.txt",
+        "sha256": "95f21726fddd20d408cb56b3bd8ed30876c9b19130f99302e3024215f4ed88ab",
+        "size": 326
+      },
+      "stderr": {
+        "path": "Tool/cases/leaf-apk/capture/r13-apk-diff.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 0
+      },
+      "watched_sha256_before": {
+        "Tool/cases/leaf-apk/target/diva.apk": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+        "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk": "1b5bae4ca11821cc2e743b395d224b230e4580dc500252ae7e00cd7803af5e90"
+      },
+      "watched_sha256_after": {
+        "Tool/cases/leaf-apk/target/diva.apk": "2228c2f40f8b0c7cd9194844b80f09b75a1cbd5534cd35131cf31e09aaaf25c5",
+        "Tool/cases/leaf-apk/artifacts/diva_repatched_signed.apk": "1b5bae4ca11821cc2e743b395d224b230e4580dc500252ae7e00cd7803af5e90"
+      },
+      "watched_unmodified": true,
+      "environment": {
+        "HOME": "tmp/r13-five/isolated/home",
+        "TEMP": "tmp/r13-five/isolated/temp",
+        "PI_CODING_AGENT_DIR": "tmp/r13-five/isolated/agent"
+      }
+    }
+  ],
+  "all_rc_zero": true,
+  "all_watched_unmodified": true
+}

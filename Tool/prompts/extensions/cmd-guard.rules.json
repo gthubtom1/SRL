@@ -1,6 +1,6 @@
 {
   "_说明": "cmd-guard 规则。改完 30 秒内自动生效，或 /guard reload 立即生效。",
-  "_技能包根": "留空(null) = 自动探测。探测顺序：环境变量 RELAB_SKILL_ROOT / REVERSE_SKILL_ROOT → 本文件往上找含 TOOL-CHAIN.md 的目录 → C:/relab2、C:/relab。换机不用改这里。",
+  "_技能包根": "留空(null) = 自动探测。探测顺序：CMD_GUARD_SKILL_ROOT → 本文件所在目录及其上级中含 TOOL-CHAIN.md 的目录。不会猜测历史绝对路径；换机不需要改这里。",
   "skillRoot": null,
   "_文档来源": "额外再从这些 Markdown 派生 GUI 名单（`` `a.exe`→`b` `` 或表格行）。默认已含 <技能包根>/TOOL-CHAIN.md、skillpack/skills/TOOLS.md、skillpack/skills/SKILL.md。写绝对路径才生效；不存在就跳过。",
   "toolChainPaths": [],
@@ -22,16 +22,16 @@
   "_blockRootScan说明": "true = 物理拦下盘根递归扫描（find / · dir /s C:\\）。只抬 timeout 不够：180s 仍是 3 分钟空转。",
   "_blockGui说明": "本机是分析机，IDA/x64dbg GUI 是正当手段（见 AGENTS §四点五.4 的通道优先级）→ 关闭 GUI 拦截；GUI 卡死风险由 timeout 兜底。",
   "hardenSsh": true,
-  "_hardenSsh说明": "给真命令位置上的 ssh/scp/sftp/rsync 补 -o ConnectTimeout=15 与心跳，bash 侧再补 </dev/null 断交互提示。",
+  "_hardenSsh说明": "给真命令位置上的 ssh/scp/sftp 补 -o ConnectTimeout=15 与心跳，给 rsync 补 --timeout=15；bash 侧对 ssh 再补 </dev/null 断交互提示。",
   "_guiBinaries说明": "手工补充/覆盖。值 = 给模型的替代提示语；值写 null 或空串 = 明确不拦这一条。优先级最高，会覆盖 TOOL-CHAIN.md 的派生结果。索引不存在的工具、或者要把某个工具从拦改成不拦，都写这里。",
   "guiBinaries": {},
-  "_allow说明": "临时放行口令（就是下面 allow 数组里那一个字符串 —— 这里刻意不复述原文，免得被复制粘贴当万能钥匙）。第 5 轮评审 P0：口令命中不再等于放行，只是一个「申请」，必须有 ~/.seep/run-ack.json 里的用户回执（60 分钟内、letter 只能是 A 或 C）才真的放行；无回执 / 过期 / JSON 坏 / 字母不对 一律拦下并给出三步。回执由 `python Tool/scripts/case_state.py ack` 写，Agent 不许自己造；看现状用 `/guard ack`。",
+  "_allow说明": "临时放行口令（就是下面 allow 数组里那一个字符串 —— 这里刻意不复述原文，免得被复制粘贴当万能钥匙）。口令只是一个「申请」；普通禁手、GUI 和盘根扫描也可以直接请求用户对完整命令回 A，不必把口令写进命令。两种路径都要求 ~/.seep/run-ack.json 中 letter=A、command SHA-256 一致、case 为当前案件，且不超过 60 分钟；C 是拒绝。无回执 / 过期 / JSON 坏 / 字母不是 A / 跨案件一律拦下。回执由 `python Tool/scripts/case_state.py ack --ack A --challenge <SHA-256>` 写，Agent 不许自己造；看现状用 `/guard ack`。",
   "_allowRequiresAck说明": "标注字段：true = allow 段里的口令必须配用户回执才放行。引擎**不读**这个字段（要求写死在 cmd-guard.ts 的 decideCommand 里），改这里不会放宽。",
   "allowRequiresAck": true,
   "allow": [
     "cmd-guard-skip"
   ],
-  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再走口令回执三步（ask → 用户回 A/C → ack → 重发）。\n\n**第 4 轮（解释器内联 + 系统动作变体）新增 17 条 block**：`interp-*` 6 条只匹配**解释器命令体**（`python -c` / `python - <<` / `powershell -c` 之后 `[^\\n;&|]{0,60}` 内出现 `-c`/`<<` 才算，`python Tool/scripts/*.py` 这类脚本路径永不命中）；`sys-*` 10 条 + `fs-bash-read-userprofile` 1 条按命令行文本匹配，与解释器无关。解释器内联的 argv 形态（`subprocess.run(['netsh','winhttp',...])`）没有命令字样子串，必须靠 `interp-subprocess-sysop` 这类「看代码」的规则兜。**已知误伤形态**：① 文档/JSON 里正常写出禁手字面量（非 heredoc、非 grep 段）会被拦（或从 heredoc/ grep 段里读就不会）—— 真要放过就走口令回执三步（ask → 用户回 A/C → ack → 重发）；② `python -c` 之后 60 字符内另有一个 `-c`（如 `... ; grep -c`）理论上可能误判，实际还要同时出现危险 token 才会命中；③ `icacls <路径>` 只读列出不拦，带任何开关（`/grant` `/reset` …）都拦；④ `python - <<PY` 形式：命中位置在 `<<` 之前（规则从解释器 token 起匹配），所以不受 heredoc「数据区豁免」影响 —— 这是刻意为之，因为 heredoc 体确实会被执行。",
+  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再由用户对完整命令回 A（ask → 用户回 A → `ack --challenge <SHA-256>` → 原样重发；回 C 就换安全做法）。回执必须同时绑定命令和当前案件。\n\n**第 4 轮（解释器内联 + 系统动作变体）新增 17 条 block**：`interp-*` 6 条只匹配**解释器命令体**（`python -c` / `python - <<` / `powershell -c` 之后 `[^\\n;&|]{0,60}` 内出现 `-c`/`<<` 才算，`python Tool/scripts/*.py` 这类脚本路径永不命中）；`sys-*` 10 条 + `fs-bash-read-userprofile` 1 条按命令行文本匹配，与解释器无关。解释器内联的 argv 形态（`subprocess.run(['netsh','winhttp',...])`）没有命令字样子串，必须靠 `interp-subprocess-sysop` 这类「看代码」的规则兜。**已知误伤形态**：① 文档/JSON 里正常写出禁手字面量（非 heredoc、非 grep 段）会被拦（或从 heredoc/ grep 段里读就不会）—— 真要放过需用户对完整命令回 A 并绑定当前案件（回 C 就换安全做法）；② `python -c` 之后 60 字符内另有一个 `-c`（如 `... ; grep -c`）理论上可能误判，实际还要同时出现危险 token 才会命中；③ `icacls <路径>` 只读列出不拦，带任何开关（`/grant` `/reset` …）都拦；④ `python - <<PY` 形式：命中位置在 `<<` 之前（规则从解释器 token 起匹配），所以不受 heredoc「数据区豁免」影响 —— 这是刻意为之，因为 heredoc 体确实会被执行。",
   "denyRules": [
     {
       "id": "sys-driver-install",
@@ -101,7 +101,7 @@
       "severity": "block",
       "re": "\\breg(\\.exe)?\\s+(add|delete|import)\\b[^\\n]*\\bHKLM\\b|\\bNew-Item(Property)?\\b[^\\n]*HKLM:|Set-ItemProperty\\b[^\\n]*HKLM:",
       "label": "改 HKLM（全局注册表）",
-      "hint": "写 HKLM 影响所有用户/整机行为。目标程序的配置一般只需 HKCU（用户级）；确实要写就先导出备份，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "写 HKLM 影响所有用户/整机行为。目标程序的配置一般只需 HKCU（用户级）；确实要写就先导出备份，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "sys-reg-hkcu-write",
@@ -136,7 +136,7 @@
       "severity": "block",
       "re": "(wevtutil(\\.exe)?\\s+(cl|clear-log)\\b|Clear-EventLog|Remove-EventLog)",
       "label": "清空/删除系统事件日志",
-      "hint": "清空事件日志 = 销毁取证基线，同时抹掉用户机器的审计痕迹。\n要「看得清」应该是过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security'}`，或先 `wevtutil epl Security out.evtx` 导出再分析。\n确实要清（例如自己的实验机）先导出备份，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "清空事件日志 = 销毁取证基线，同时抹掉用户机器的审计痕迹。\n要「看得清」应该是过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security'}`，或先 `wevtutil epl Security out.evtx` 导出再分析。\n确实要清（例如自己的实验机）先导出备份，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "fs-rm-rf-outside",
@@ -144,7 +144,7 @@
       "why": "`rm -rf` 删到 `work/`、`/tmp`、`%TEMP%` 之外的路径时，删的是**用户的文件**，且不经回收站、没有回滚；递归删错一次就不可逆（第 2 轮评审：原来 rules.json 一条递归删除规则都没有）。",
       "re": "\\brm\\s+(?:-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*|-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*|-r[a-zA-Z]*\\s+-f[a-zA-Z]*|-f[a-zA-Z]*\\s+-r[a-zA-Z]*)(?:\\s+-{1,2}[a-zA-Z][a-zA-Z-]*)*\\s+(?!(?:\\./)?work/|/tmp/|/var/tmp/|%TEMP%|\\$TMPDIR|\\$env:TEMP|\\$\\{?TMP\\}?)\\S*[\\\\/~]\\S*",
       "label": "递归删除仓库外路径（rm -rf <含 / 或 ~ 或盘符>）",
-      "hint": "改用什么：① 先把目标复制进 `work/_trash/<时间戳>/`（`cp -r <目标> work/_trash/`），确认无用再删**副本**；② 临时产物一律先落在 `work/` 或 `%TEMP%`，那里允许 `rm -rf`；③ 确实要删仓库外的东西 → 先把清单贴给用户确认，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 先把目标复制进 `work/_trash/<时间戳>/`（`cp -r <目标> work/_trash/`），确认无用再删**副本**；② 临时产物一律先落在 `work/` 或 `%TEMP%`，那里允许 `rm -rf`；③ 确实要删仓库外的东西 → 先把清单贴给用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "fs-windows-del-recursive",
@@ -152,7 +152,7 @@
       "why": "cmd 的 `del /s` / `del /q` / `rd /s` / `rmdir /s` 静默递归、不经回收站，且目标可由通配符展开 —— 一个 `*` 就打掉整个目录（第 2 轮评审：原来完全没有 cmd 形态的删除规则）。",
       "re": "\\b(?:del|erase|rd|rmdir)\\s+(?:/[a-zA-Z]\\s+)*/[sq]\\b",
       "label": "cmd 递归/静默删除（del /s、del /q、rd /s、rmdir /s）",
-      "hint": "改用什么：① 备份：`robocopy <目标> work\\_trash\\<时间戳> /E`（或 `xcopy /E /I`）；② 只删单个文件用 `del <完整文件路径>`（不带 `/s`、`/q`）；③ 目录在 `work/` 下时用 PowerShell `Remove-Item <work 下路径> -Recurse`；④ 确实要清 → 先让用户确认，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 备份：`robocopy <目标> work\\_trash\\<时间戳> /E`（或 `xcopy /E /I`）；② 只删单个文件用 `del <完整文件路径>`（不带 `/s`、`/q`）；③ 目录在 `work/` 下时用 PowerShell `Remove-Item <work 下路径> -Recurse`；④ 确实要清 → 先让用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "fs-ps-remove-recurse",
@@ -160,7 +160,7 @@
       "why": "PowerShell `Remove-Item -Recurse` 指到 `work/`、`$env:TEMP` 之外 = 删用户数据，不经回收站，中途失败会留半删状态（第 2 轮评审）。",
       "re": "\\bRemove-Item\\b(?:(?!work/|\\./work/|\\$env:TEMP|\\$env:TMP|%TEMP%|-WhatIf)[^\\n;&|])*-Recurse\\b(?:(?!work/|\\./work/|\\$env:TEMP|\\$env:TMP|%TEMP%|-WhatIf)[^\\n;&|])*(?=$|[\\n;&|])",
       "label": "PowerShell 递归删除非临时区（Remove-Item -Recurse）",
-      "hint": "改用什么：① `Copy-Item -Recurse <目标> work/_trash/<名>` 先留底；② `Remove-Item <目标> -Recurse -WhatIf` 先看会删什么；③ 只删 `work/`、`$env:TEMP` 下的临时产物时可以正常递归；④ 仓库外目标 → 让用户确认 + 走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① `Copy-Item -Recurse <目标> work/_trash/<名>` 先留底；② `Remove-Item <目标> -Recurse -WhatIf` 先看会删什么；③ 只删 `work/`、`$env:TEMP` 下的临时产物时可以正常递归；④ 仓库外目标 → 让用户确认 + 走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "git-clean-xdf",
@@ -168,7 +168,7 @@
       "why": "`git clean -xdf` 会删掉 work/ 下**未跟踪的成果**（报告 / 证据 / 抓包 / 补丁）以及 ignored 产物：不经回收站、Git 里没有副本可恢复，两天的工作可能一条命令就没了（R7 评审 P1-2：原来只是 warn，等于放行）。",
       "re": "\\bgit\\s+clean\\s+-[a-zA-Z]*x[a-zA-Z]*d|\\bgit\\s+clean\\s+-[a-zA-Z]*d[a-zA-Z]*x",
       "label": "git clean -xdf（会删掉 work/ 下未跟踪的成果（报告/证据））",
-      "hint": "改用什么：① 先 `git clean -nd` 只看清单；② 要保住工作区就先 `git stash -u`，或把成果复制到 `work/_trash/<时间戳>/`（`cp -r work/<成果> work/_trash/$(date +%Y%m%d-%H%M)/`）；③ 只清构建产物用 `git clean -nd -e <要留的路径>`，或删除具体产物目录。确实要清 → 先列清单给用户确认，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 先 `git clean -nd` 只看清单；② 要保住工作区就先 `git stash -u`，或把成果复制到 `work/_trash/<时间戳>/`（`cp -r work/<成果> work/_trash/$(date +%Y%m%d-%H%M)/`）；③ 只清构建产物用 `git clean -nd -e <要留的路径>`，或删除具体产物目录。确实要清 → 先列清单给用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "git-checkout-dot",
@@ -192,7 +192,7 @@
       "why": "`python -c` 里的 `os.remove`/`os.unlink` 等价于 `rm`：直接删用户文件、不进回收站、无 diff 无日志（第 4 轮评审实测：这条在 rules.json 零命中）。写成 `python -c` 只是把删除动作藏进引号里，副作用层级和 `rm -f` 完全一样（L4 不可逆）。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?os\\.(?:remove|unlink|rmdir|removedirs)\\s*\\(",
       "label": "解释器内联删文件（python -c … os.remove / os.unlink / os.rmdir）",
-      "hint": "改用什么：① 先留底 `cp -r <目标> work/_trash/<时间戳>/`，再删**副本**；② 需要批量清理就用 `python Tool/scripts/<自己的脚本>.py`（脚本进版本库、路径参数显式），不要用 `-c` 内联；③ 目标在仓库外/用户目录 → 先让用户确认，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 先留底 `cp -r <目标> work/_trash/<时间戳>/`，再删**副本**；② 需要批量清理就用 `python Tool/scripts/<自己的脚本>.py`（脚本进版本库、路径参数显式），不要用 `-c` 内联；③ 目标在仓库外/用户目录 → 先让用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "interp-shutil-wipe",
@@ -200,7 +200,7 @@
       "why": "`shutil.rmtree('C:/Users/me/Documents')` 一次删掉整棵用户目录树，且 `shutil.move` 还会**覆盖**目标同名文件。内联形态绕过所有 shell 层删除规则（第 4 轮评审实测零命中）。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?(?:shutil\\.(?:rmtree|move|rmdir)\\s*\\(|os\\.(?:rename|replace)\\s*\\(|\\.unlink\\s*\\()",
       "label": "解释器内联递归删目录/移动覆盖（python -c … shutil.rmtree / shutil.move）",
-      "hint": "改用什么：① `shutil.copytree(<目标>, 'work/_trash/<时间戳>')` 先复制留底，再删副本；② 真要清理就写成仓库内脚本（可 review、可回滚）；③ 目标含用户文件 → 先列清单给用户确认 + 走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① `shutil.copytree(<目标>, 'work/_trash/<时间戳>')` 先复制留底，再删副本；② 真要清理就写成仓库内脚本（可 review、可回滚）；③ 目标含用户文件 → 先列清单给用户确认 + 走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "interp-winreg-write",
@@ -216,7 +216,7 @@
       "why": "评审实测：`python -c \"import subprocess; subprocess.run(['netsh','winhttp','set','proxy','x'])\"` 在旧规则里零命中 —— 因为规则匹配的是**命令行**，而这串是**引号里的 argv**。argv 形式（`['netsh','winhttp',...]`）连 `netsh winhttp set proxy` 的字样子串都没有，只有拆开的元素。破坏力等同直接敲那条命令：整机代理/网卡/引导/服务/计划任务/卷影（L3/L4）。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py|pwsh|powershell(?:\\.exe)?)\\b[^\\n;&|]{0,80}?(?:-c\\b|-command\\b|<<)[\\s\\S]{0,200}?(?:subprocess|os\\.system|os\\.popen|os\\.exec\\w*)[\\s\\S]{0,200}?(?:netsh|bcdedit|schtasks|wmic|wevtutil|vssadmin|diskpart|takeown|icacls|certutil|\\breg(?:\\.exe)?\\W{1,4}(?:add|delete|import)|\\bsc(?:\\.exe)?\\W{1,4}(?:create|config|start|delete)|\\broute\\W{1,4}(?:add|delete|change))",
       "label": "解释器内联拉起系统工具（python -c … subprocess.run(['netsh'…])）",
-      "hint": "改用什么：① 只读查现状：`netsh winhttp show proxy`、`sc query <名>`、`bcdedit /enum`（都不拦）；② 要观察网络就进程内 hook 或回环代理，不要 argv 调 netsh；③ 确实必要 → 先 `python Tool/scripts/net-rollback.py snapshot`，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 只读查现状：`netsh winhttp show proxy`、`sc query <名>`、`bcdedit /enum`（都不拦）；② 要观察网络就进程内 hook 或回环代理，不要 argv 调 netsh；③ 确实必要 → 先 `python Tool/scripts/net-rollback.py snapshot`，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "interp-ctypes-memwrite",
@@ -232,7 +232,7 @@
       "why": "内联重放 = 用用户的真实 IP 对第三方服务器发请求（可能是重放攻击、可能是打目标服务端）。属**需确认**动作：① 出网痕迹留在用户机器上；② 请求可能带真实凭据/设备指纹；③ 一旦打的是生产服务，后果不可撤回（L3）。回环地址（127.0.0.1 / localhost）不拦 —— 本地抓包/自建服务是正当手段。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)(?=[\\s\\S]{0,400}?https?://(?!127\\.0\\.0\\.1|localhost|0\\.0\\.0\\.0|\\[::1\\]))[\\s\\S]{0,300}?(?:requests\\.(?:get|post|put|patch|delete|request)|urllib\\.request|urlopen|http\\.client|aiohttp)",
       "label": "解释器内联发网络请求（python -c … requests/urllib 打非回环地址）",
-      "hint": "改用什么：① 抓包重放用 mitmproxy 的 replay（`mitmproxy -p 8080` 后 `replay.client`），报文留在 `work/`；② 只想看请求内容：目标进程内 hook `WinHttpSendRequest`/`SSL_write`，不发真实请求；③ 确实要出网 → 先把 URL、方法、body 摘要贴给用户确认，再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 抓包重放用 mitmproxy 的 replay（`mitmproxy -p 8080` 后 `replay.client`），报文留在 `work/`；② 只想看请求内容：目标进程内 hook `WinHttpSendRequest`/`SSL_write`，不发真实请求；③ 确实要出网 → 先把 URL、方法、body 摘要贴给用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "sys-netsh-winhttp-write",
@@ -248,7 +248,7 @@
       "why": "`netsh interface set interface \"Ethernet\" disable` 会直接掐断用户正在上网的网卡；`ipv4 add address` 会打乱源地址选择（本仓库历史上真的断过网）。只读查询（`show`）不拦。",
       "re": "\\bnetsh(?:\\.exe)?\\s+(?:int|interface)\\b[^\\n;&|]{0,60}?\\b(?:set|add|delete|reset|enable|disable)\\b",
       "label": "改网卡/接口状态（netsh interface set|add|disable …）",
-      "hint": "改用什么：① 只读现状：`netsh interface show interface`、`ipconfig /all`；② 要复现断网/慢网就在 VM 快照里做；③ 必须改 → 先 `python Tool/scripts/net-rollback.py snapshot` 再走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 只读现状：`netsh interface show interface`、`ipconfig /all`；② 要复现断网/慢网就在 VM 快照里做；③ 必须改 → 先 `python Tool/scripts/net-rollback.py snapshot` 再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "sys-route-write",
@@ -296,7 +296,7 @@
       "why": "清日志同时销毁两样东西：用户机器的审计痕迹（不可逆，L4）和**你自己的取证基线**（排查崩溃/蓝屏时全靠它）。",
       "re": "\\bwevtutil(?:\\.exe)?\\s+(?:cl|clear-log)\\b",
       "label": "清空系统事件日志（wevtutil cl）",
-      "hint": "改用什么：① 导出再分析：`wevtutil epl Security work/security.evtx`（不拦）；② 过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=...}`；③ 自己的实验机确实要清 → 先 epl 备份 + 走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 导出再分析：`wevtutil epl Security work/security.evtx`（不拦）；② 过滤查询：`Get-WinEvent -FilterHashtable @{LogName='Security';StartTime=...}`；③ 自己的实验机确实要清 → 先 epl 备份 + 走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "sys-disk-format-wipe",
@@ -304,7 +304,7 @@
       "why": "这三条都直接落在**磁盘**上：`format` 抹卷、`diskpart clean` 抹分区表、`cipher /w` 反复覆写空闲区（删掉的东西永远找不回来）。L4，一律不做。",
       "re": "(?:^|[\\s;&|(])(?:diskpart(?:\\.exe)?\\b|format(?:\\.com)?\\s+(?:[a-zA-Z]:|/fs:|/q\\b|/y\\b)|cipher(?:\\.exe)?\\b[\\s\\S]{0,40}?/w\\b)",
       "label": "分区/格式化/擦盘（diskpart、format X:、cipher /w）",
-      "hint": "改用什么：① 只读看布局：`Get-Disk`、`Get-Volume`、`Get-Partition`（不拦）；② 要干净的测试盘 → 让用户插一块专用盘/用 VM 虚拟盘；③ 只能你自己动手时先让用户确认盘符并走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 只读看布局：`Get-Disk`、`Get-Volume`、`Get-Partition`（不拦）；② 要干净的测试盘 → 让用户插一块专用盘/用 VM 虚拟盘；③ 只能你自己动手时先让用户确认盘符并走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "sys-owner-takeover",
@@ -320,7 +320,7 @@
       "why": "评审第 3 条：读工具的边界问题本层改不了，但**用 bash 去读**这一步能挡 —— 用户目录里的 `passwords.txt`、`.ssh/id_rsa`、浏览器 Cookies 一旦被读出来就进了会话上下文（不可撤回的泄漏）。`%TEMP%` / `work/` / 仓库内路径不放行拦截（`AppData\\Local\\Temp` 已排除）。",
       "re": "(?:^|[\\s;&|(])(?:cat|type|more|less|head|tail|strings|grep|egrep|rg|findstr|awk|sed|Get-Content|gc|Select-String|cp|copy|xcopy|robocopy|tar|zip|ls|dir)(?:\\.exe)?\\s+[^\\n;&|]{0,160}?(?:[A-Za-z]:[\\\\/])?(?:Users|home)[\\\\/][^\\\\/\\s']+[\\\\/](?:Documents|Desktop|Downloads|Pictures|Videos|Music|OneDrive|\\.ssh|\\.aws|\\.gnupg|AppData[\\\\/](?:Roaming|Local)[\\\\/](?!Temp))",
       "label": "用 bash 读/拷用户私有目录（Documents / Desktop / Downloads / .ssh / AppData）",
-      "hint": "改用什么：① 只处理仓库内样本：`work/samples/…`、`Tool/…`；② 用户自己的文件 → 请用户把文件复制到 `work/inputs/` 并说明用途，再读那一份；③ 确实必须就地读 → 先说明读哪个文件、为什么，让用户确认后走口令回执三步（ask → 用户回 A/C → ack → 重发）。"
+      "hint": "改用什么：① 只处理仓库内样本：`work/samples/…`、`Tool/…`；② 用户自己的文件 → 请用户把文件复制到 `work/inputs/` 并说明用途，再读那一份；③ 确实必须就地读 → 先说明读哪个文件、为什么，让用户确认后走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     }
     ],
   "_disableDeny说明": "按 id 关掉某条内置禁手。内置 id: net-ip-alias / net-iface-write / net-winhttp-write / net-dns-write / net-route-write / net-winsock-reset / launch-start-process / launch-cmd-start / launch-subprocess。只有「本机就是一次性靶机、且已 snapshot」时才关。",

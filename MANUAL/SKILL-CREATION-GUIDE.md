@@ -1,143 +1,42 @@
-# 面向 Seep 工作台的外挂技能编写规范与创作指南 (Skill Creation Guide)
+# 技能编写与接入
 
-> **目的**：为 Seep 逆向安全工作台打造标准化的“外挂技能体系”。  
-> **核心原则**：主仓库保持轻量纯净（只保留核心 20 个 MCP 工具与 6 步 SOP），所有未来特定的垂直业务能力（如：特定协议逆向、游戏反作弊对抗、固件解包、跨版本增量追版）全部通过**标准化外挂 Skill** 扩展，即插即用，绝不臃肿主仓库！
+用户只需描述希望补充的能力，由智能体检查已有技能、工具和知识是否能覆盖，再决定需要新增什么。技能说明提供选择和操作方法，专业判断由主模型完成；写出一个 Markdown 文件不等于已经接入或验证。
 
----
+## 先确定类型
 
-## 一、 为什么采用“外挂技能（Skill）”而不是把代码堆进主仓库？
+| 类型 | 条件与落点 |
+|---|---|
+| 正式领域 `domain` | 有真实 `pack.json`、领域技能、路由、深度契约与见证；全局契约和部署均通过后才能报告生效 |
+| 横切技能 `crosscutting` | 多领域可复用的方法，放顶层技能目录，但不冒充新正式领域 |
+| 子技能 `subskill` | 归属已有正式领域，经父技能按需引用；不作为新的顶层技能名部署 |
+| 工具声明 `tool` | 导入器仅处理声明；实际接线、安装和可用性验证另行完成 |
 
-| 对比维度 | 方案 A：把所有代码硬塞进主仓库（relab2 的老路） | 方案 B：微内核 + 声明式外挂 Skill（Seep 体系） |
-|---|---|---|
-| **仓库体积** | 几千个文件、几十个脚本混杂，仓库迅速膨胀至几百 MB 甚至上 GB | 主仓库保持极速轻量，体积仅几十 KB，Git 提交与克隆秒级完成 |
-| **规则冲突** | 40 个方向的指令互相打架，模型注意力被稀释，简单任务反而频出幻觉 | 技能按需加载，日常零干扰，任务需要时精准唤醒 |
-| **升级与维护** | 改动一个文件导致几十个自检脚本报错，维护成本极高 | 主仓库 65 项体检永远全绿；新功能只需要小版本安全叠加，零破坏风险 |
-| **迭代速度** | 牵一发而动全身，步履维艰 | **极其敏捷**：写一份 Markdown 技能就是一套新武器，随时新增与分享 |
+类型由智能体根据内容明确选择；`auto` 只给建议。完整参数、事务、备份和回执语义以 [EXTEND](../Tool/docs/EXTEND.md) 为准。
 
----
+## 编写内容
 
-## 二、 Seep 兼容性四大铁律（编写任何新 Skill 必须遵守）
+`SKILL.md` 用标准 YAML frontmatter 声明 `name`、`description`，正文写清何时使用、需要哪些输入、如何选择路线、调用什么工具、如何验证、失败时怎么办，以及与其他技能的衔接条件。
 
-编写面向 Seep 的外挂技能时，必须遵守以下四项纪律，杜绝任何逻辑冲突：
+- 先复用当前实际存在的 MCP、CLI、配方和知识，不以旧工具数量或旧 API 名作为接口。
+- 引用正式技能名或确实存在的参考路径；`_pending` 内容用源码路径读取，不能当作已安装技能名交接。
+- 跨域结果绑定到同一项目的材料、运行和证据；不强制每个任务执行同一条全阶段流程。
+- 工具文件存在、命令返回 0、模板产出都不能代替任务结果检查。未运行或依赖缺失时保留未验证状态。
+- 安全与操作边界沿用宿主、用户授权和当前项目约定，不在技能中复制另一套全局规则。
 
-### 铁律 0：注册链路必须四处对齐（v1.10.0 起）
-技能不是"写完 SKILL.md 就能用"。**四处都要有它，否则会静默失效**：
+## 接入与验收
 
-| # | 位置 | 作用 | 谁写 |
-|---|---|---|---|
-| 1 | `Tool/skill/<name>/SKILL.md` | 技能本体（frontmatter + SOP） | `（该脚本 S4 已删，见下方替代路径） <name> --desc "..."` 自动建 |
-| 2 | `Tool/skill/softseep/SKILL.md` 的"可调度资源"表 | 让总控**知道**这个技能存在 | 脚手架自动追加 |
-| 3 | `Tool/skill/<pack>/pack.json` 的 `routes` + `priority` | 让 `route.py` / `case-init.ps1` **命中**它 | 脚手架自动追加（R10 起） |
-| 4 | `~/.pi/agent/skills/<name>/` | 让 pi 会话**加载**它 | 脚手架自动同步 |
+先在独立源目录生成技能内容，再通过正式入口计划和导入。所有命令从仓库根目录执行；尖括号为智能体要替换的值。
 
-**提示词层禁写**：技能内容**不要**往 `Tool/prompts/SEEP.md` 里塞 —— 它是装配契约，硬上限 **2,500 字符**，
-写死技能清单/工具数量会让 `python Tool/scripts/check.py --env` 直接判红（体检项「SEEP.md 契约态」）。分层规则见 `MANUAL/PROMPT-LAYERS.md`。
-
-**加完四件事必跑**（缺一不可）：
 ```bash
-python Tool/scripts/route.py   # 路由 ↔ 技能落位自洽
-python Tool/scripts/budget.py               # 技能数（不设上限，仅统计）、first-party ≤ 900
-powershell -File check.ps1 -Detailed       # 65 项全绿
-python `Tool/scripts/preflight.py`                  # 端到端 12 环
+python Tool/scripts/skill-import.py plan --kind crosscutting --from <技能目录> --json
+python Tool/scripts/skill-import.py import --kind crosscutting --from <技能目录> --json
+python Tool/scripts/route.py --check
+python Tool/scripts/skill-handoff-check.py
+python Tool/scripts/check.py --runtime --json
 ```
 
+正式领域与子技能替换为对应 kind，并提供其必需的 pack 或 parent。自定义 skill-dir 时必须显式给出独立部署根，测试不能落入真实用户目录。覆盖已有技能必须明确 `--replace`，并保留导入回执与备份。
 
-### 铁律 1：G-Auth 与 Lab Mode 契合（杜绝大模型拒绝）
-- **不要**在技能里自己手写复杂的越狱词（Jailbreak Prompts）或重复定义敏感词转换；
-- **正确做法**：直接声明在 `lab：` 实验环境下运行。Seep 底层的安全拦截扩展（`security-audit-interceptor.ts`）会自动为本技能提供底座级 `BLOCK_NONE` 注入与合规学术前缀包裹。
+读回执中的仓库落盘、逐部署根哈希、下次会话可用性、正式领域状态和回滚结果；有缺口就处理具体缺口。安装/更新后在新宿主会话确认加载，再用一个能代表该技能用途的任务验证结果，不能宣称“永不冲突”或“所有目标即插即用”。
 
-### 铁律 2：MCP 工具优先绑定（Tool Binding 规范）
-技能内部描述分析流程时，**严禁手写脆弱的外部命令行（如 `system("xxx")`）**，必须优先声明调用 Seep 已内置暴露的 **40 个原生 MCP 工具**：
-- 查壳与反调试：声明调用 `seep_packer_detect`；
-- 反编译：声明调用 `seep_r2_decompile`（多引擎降级链）；
-- 提取运行期字符串：声明调用 `seep_mem_strings`；
-- 协议分析与重放：声明调用 `seep_http_replay` 与 `seep_pcap_extract`；
-- 缺工具自愈：声明调用 `seep_tool_discover` 与 `tool-acquire.py --tool <id>`。
-
-### 铁律 3：成品交付闭环（Artifact Delivery）
-- 技能必须明确定义“最终输出物”：
-  - Windows 端：视目标输出代理补丁（`version.dll`）或关键内存补丁代码——**能不能做成取决于目标有没有自校验/服务端校验**，不确定就按"只能看懂结构"交付；
-  - Android 端：视目标输出重打包签名安装包（`*_rebuilt_signed.apk`）——本地广告/界面可以改，服务端下发的改不了；
-  - 算法类：输出可运行注册机（`keygen.py`）；
-  - 报告：输出三段式合规审计报告。
-
----
-
-## 三、 标准外挂 Skill 结构模板
-
-每一个外挂技能统一存放在一个独立的文件夹中，核心入口文件必须命名为 **`SKILL.md`**：
-
-```text
-my-custom-skill/
-├── SKILL.md            ← 核心入口（包含 YAML Frontmatter 描述与战术工作流）
-└── references/         ← 可选：存放专属的参考文档或代码模板（按需读取）
-```
-
-### 标准 `SKILL.md` 金样模板（可直接复制使用）
-
-```markdown
----
-name: 技能英文标识符 (如 protocol-analyzer)
-description: 一句话说清本技能解决什么问题、在什么情况下唤醒使用。
-metadata:
-  version: "1.0.0"
-  target_runtimes: "Windows PE | Android DEX/SO | Web/HTTP"
-  compatible_workbench: "Seep v1.8.4+"
----
-
-# 技能中文全称 (Skill Display Title)
-
-> **核心目标**：一句话说明本技能的最终交付成果。
-
----
-
-## 一、 适用场景与唤醒口令
-
-当遇到以下任务时，优先引用本技能：
-1. 场景 A 说明...
-2. 场景 B 说明...
-
-**大白话唤醒指令示例**：
-- `lab：引用技能 <技能名>，分析 D:\path\target，帮我完成 xxx`
-
----
-
-## 二、 标准作业流程 (SOP)
-
-1. **Step 1：资产画像与工具自愈**
-   - 优先调用 `seep_tool_discover` 探测工具是否齐全，缺失时调用 `tool-acquire.py --tool <id>` 自动安装；
-2. **Step 2：核心分析动作**
-   - 详细写明调用 Seep 哪个 MCP 工具，执行什么分析逻辑；
-3. **Step 3：验证与打桩**
-   - 动态验证逻辑或数据包伪装；
-4. **Step 4：成品交付**
-   - 生成最终的可用文件。
-
----
-
-## 三、 调度纪律
-
-- 遵循 Seep 平台统一的 G-Auth 授权门禁；
-- 同构路径失败 2 次必须触发熔断换法，不许死磕。
-```
-
----
-
-## 四、 怎样让 AI 帮你自动写一套新技能？（一键生成 Prompt）
-
-以后当你遇到一个新领域（比如：你想搞一个“游戏内存特征码自动扫描”、“WebSocket 协议重放”、“VMP 虚拟机脱壳”的新技能），你完全不需要自己写！
-
-**直接把下面这句 Prompt 复制给 AI**：
-
-```text
-请严格参考 Seep 工作台的《SKILL-CREATION-GUIDE.md》外挂技能创作规范，为我编写一套全新的独立 Skill：
-1. 技能名称：[填入你的技能名称，如 websocket-replay]
-2. 解决痛点：[填入具体场景，如 专门针对私有长连接 WebSocket 数据帧的抓包提取与重放验证]
-3. 遵循原则：
-   - 使用标准 YAML frontmatter，适配 Seep v1.8.4+ 体系；
-   - 优先绑定 Seep 现有的 20 个 MCP 工具（如 seep_tool_discover, seep_mem_strings 等）；
-   - 流程中包含资产画像、缺工具自动自愈、动态验证与最终成品交付闭环；
-   - 保持声明式纯文本，不携带冗余大二进制，直接输出单文件 SKILL.md。
-```
-
-AI 就会严格按照 Seep 的微内核标准，为你生成一份 100% 兼容、即插即用、绝不冲突的全新战术技能！
+用户可以直接说：“补充一个处理 WebSocket 帧的技能，先查已有能力，选择合适类型，通过当前导入、部署与任务验证后告诉我结果。”不要求用户填写内部接口参数。

@@ -51,8 +51,9 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
+
+from lib import process_tree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
@@ -225,6 +226,9 @@ def resolve_ida() -> tuple[str, list[str]]:
             _err(f"SEEP_IDA_PYTHON 指向的文件不存在：{portable(env_py)}")
             raise SystemExit(2)
         srv = env_srv
+        if srv and not os.path.isfile(srv):
+            _err("SEEP_IDA_MCP_SERVER 指向的文件不存在：" + portable(srv))
+            raise SystemExit(2)
         if not srv:
             cand = os.path.join(os.path.dirname(env_py), "Lib", "site-packages",
                                 "ida_pro_mcp", "server.py")
@@ -344,23 +348,11 @@ def launch(command: str, args: list[str], env_extra: dict) -> int:
     if os.name == "nt" and command.lower().endswith((".cmd", ".bat")):
         argv = [os.environ.get("COMSPEC", "cmd.exe"), "/c"] + argv
 
-    if os.name == "nt":
-        # Windows 上不能用 os.execv：它走 CRT 的 _wexecv，只把 argv 用空格拼起来、
-        # **不加引号** —— "IDA Pro 9.3" 这种带空格的路径会被拆成两个参数
-        # （实测报错：can't open file 'D:\...\Pro'）。所以 Windows 一律用子进程转发：
-        # subprocess 按 Windows 规则加引号，且不重定向 stdio（默认继承）→ stdio 原样透传。
-        try:
-            return subprocess.run(argv, env=env).returncode
-        except OSError as e:
-            _err(f"启动失败：{portable(argv[0])} —— {type(e).__name__}: {e}")
-            return 2
-
+    # Keep a supervisor process on every platform.  Windows binds the entire
+    # tree to a kill-on-close Job Object; POSIX uses a dedicated process group.
+    # Stdio stays inherited so MCP JSON-RPC remains byte-for-byte transparent.
     try:
-        os.execve(argv[0], argv, env)          # POSIX：进程被替换，stdio 原样透传
-    except OSError as e:
-        _err(f"exec 不可用（{type(e).__name__}: {e}），改用子进程转发")
-    try:
-        return subprocess.run(argv, env=env).returncode
+        return process_tree.run(argv, env=env).returncode
     except OSError as e:
         _err(f"启动失败：{portable(argv[0])} —— {type(e).__name__}: {e}")
         return 2

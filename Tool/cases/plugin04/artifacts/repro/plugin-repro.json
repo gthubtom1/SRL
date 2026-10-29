@@ -112,7 +112,7 @@
   ],
   "next_probe": [
     "按 main/preload/renderer 三层复核 IPC channel 与校验点",
-    "对远端 URL 做离线域名/证书/更新链核对；协议复刻转 protocol-plugin",
+    "对远端 URL 做离线域名/证书/更新链核对；二进制协议复算交同域 proto-repro.py",
     "最小可改单元改动前先备份，一次只改一个变量并留基线"
   ]
 }

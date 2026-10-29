@@ -35,7 +35,7 @@ description: "'多账号自动签到/登录自动化/验证码和滑块 (.py/.js
 
 ### 1.3 三条硬边界
 
-1. 凭据只以占位或掩码出现（`session-pool.py` 只打印 `ab***yz(len=N)`），明文不进日志与提交。
+1. Agent 材料只含合成占位账号；真实凭据/会话由用户在宿主操作，不读取后再打码。accounts 示例不是生产凭据存储方案。
 2. 所有原语默认 **offline**：`session-pool` / `schedule-notify` / `captcha-branch` / `tls-fingerprint`
    的 `self_check.network_requests` 恒为 0，真正发请求由调用方按 scope 执行。
 3. 速率与并发是输入：先按 §6 的参数表落一份 `opsec.json`，再由 runner 读取；不在脚本里写死。
@@ -52,7 +52,7 @@ python Tool/skill/_pending/signin-automation/scripts/session-pool.py \
 
 - 每个账号一行：`status ∈ {ok,expired,blocked}`、`invalidate`、`next_action`。
 - **隔离面**：一个账号 = 一个浏览器 profile（独立 user-data-dir）+ 一个出口 IP + 一份 device_id。
-  两个账号共用 profile 或共用出口，等于把两个号绑在同一设备指纹上。
+  profile 不能混用；是否需独立出口由平台/网络实测决定，共享 IP 本身不能证明同设备或封禁。
 - 完成判据：`pool.json.pool.ok >= 1`，`rotation_order` 非空，`invalidated` 里的号不再重试。
 
 ### 2.2 节奏与预算
@@ -77,9 +77,11 @@ curl -sS --max-time 20 https://httpbin.org/headers -o work/<case>/h2-headers.jso
 
 - 记录：UA、`sec-ch-ua*`、Accept-Encoding、时区、语言、屏幕、`hardwareConcurrency`、
   JA3/JA4、HTTP/2 伪头顺序。
-- 完成判据：`fp-client.json` 里 JA4 与所选 `impersonate` 档位同族；同一 profile 连测两次 JA3/JA4 不变。
+- 完成判据：`fp-client.json` 里 JA4 与所选 `impersonate` 档位同族；结合浏览器版本、TLS 扩展随机化与代理终止判断变化；不能要求 JA3 永远不变或只凭同值证明真人。
 
-## 3. 判据表（五条，全部可机检）
+## 3. 离线启发式检查（不能代替真实平台结果）
+
+该脚本检查声明字段与旧特征规则；固定 JA3/H2/profile 规则并非所有浏览器版本的事实。不能为迎合脚本伪造字段，也不改期望制造通过；解释字段规则与当前版本的差异，实际任务用平台可观测结果及副作用去重验收。--help 成功只证明命令入口，离线计划不是任务已执行，通知发送需用户明确要求。
 
 > 机检入口：`python Tool/skill/_pending/signin-automation/scripts/opsec-check.py --session work/<case>/session.json`
 > 输出 `verdicts.*.pass` 五项；`ok=false` 时 `blocked_at` 指出卡在哪一条。
@@ -103,9 +105,9 @@ curl -sS --max-time 20 https://httpbin.org/headers -o work/<case>/h2-headers.jso
 
 | 现象 | 判定 | 改走哪条 | 代价 |
 | :-- | :-- | :-- | :-- |
-| 连续窗口内出现 429 | 节奏触发（`blocked_at=rate-limit`） | `max_rps` 砍半 + 改串行 + 间隔换对数正态；仍 429 换出口/改时段 | 当日进度损失；换出口要重登，device_id 可能被判新设备 |
+| 连续窗口内出现 429 | 节奏触发（`blocked_at=rate-limit`） | 按 Retry-After/平台限额退避，降低并发；仍被限则等待/人工，不默认换 IP 继续 | 当日进度损失；换出口要重登，device_id 可能被判新设备 |
 | 出现滑块/点选/旋转挑战 | 行为或指纹被识别 | 先跑 `captcha-branch.py` 定分支：图形→`ocr`、滑块→`interactive`、无感 200→`manual` | 每条 1–5 分钟；滑块轨迹被训练过的站仍会二次挑战 |
-| 账号被标记 blocked / 登录直接 403 风控页 | 该号已进黑名单 | 停该号，冷却（默认 1800s）后换 device_id 重登；连续两次 blocked 转人工 | 该号当日作废；重新养号成本最高 |
+| 账号被标记 blocked / 登录直接 403 风控页 | 该号已进黑名单 | 停该号并等待平台恢复/人工核验，不通过换 device_id 或出口继续 | 该号当日作废；重新养号成本最高 |
 | 登录成功但立刻掉线（下一个请求 401/302 回登录页） | 会话无效：cookie 未绑定成功或被服务端即时失效 | 回抓登录链，检查是否漏了设备校验/二次校验接口；补 `device_id` 再试 | 每次 3–10 分钟；可能是强绑定，需放弃 HTTP 侧改浏览器侧 |
 | 设备指纹不匹配（UA 与 JA4 不同族、时区与出口 IP 不符） | 指纹面自相矛盾 | 固定一个 profile（浏览器族 + 时区 + 语言 + 出口），只改一个变量重测 | 每轮 2–5 分钟；跨时区代理需要重新对齐 locale/时区 |
 | 同一会话出现多种 JA3/JA4 | 有多条客户端/代理在混用 | 关掉代理侧 TLS 终止，`impersonate` 档位写死 | 需要改代理链路；短时无法收敛时降级为“网络层不确定” |
@@ -138,7 +140,7 @@ python Tool/skill/_pending/signin-automation/scripts/schedule-notify.py \
   --json-out work/<case>/plan.json
 ```
 
-- 幂等键 = `sha1(date|account|task)[:16]`：同一天、同账号、同任务只产生一次副作用。
+- 幂等键 = `sha1(date|account|task)[:16]`：这里只生成稳定键；调用方还需原子去重/持久化执行结果及异常恢复，单有键不能保证副作用恰好一次。
 - 重试上限 0–5（默认 2），超过即转人工；退避序列写在计划里。
 - 通知载荷三种渠道模板：telegram / dingtalk / wecom（只生成 URL 与 body 骨架，不发请求）。
 - 判据：重复执行时 `idempotency_key` 相同且 `duplicate_submits=0`。
@@ -201,7 +203,7 @@ python Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py \
 - Go 侧同族档位（uTLS）：`HelloChrome_Auto` / `HelloFirefox_Auto` / `HelloSafari_Auto` / `HelloIOS_Auto` /
   `HelloAndroid_11_OkHttp`；选型规则与 curl_cffi 一致——UA 写哪个族就用哪个 `Hello*`，混用等于自报“UA 伪造”。
 - 执行侧复算：`tshark -i <iface> -f 'tcp port 443' -Y 'tls.handshake.type==1' -T fields -e tls.handshake.ja3`，
-  或读只读回显端点 `tls.peet.ws/api/all` 的 `tls.ja3/ja4`；两次抓包必须同值。
+  或读只读回显端点 `tls.peet.ws/api/all` 的 `tls.ja3/ja4`；按版本/配置解释变化；扩展随机化可改变 JA3，同值也不证明未被检测。
 - HTTP/2 侧：`SETTINGS_INITIAL_WINDOW_SIZE`（Chrome 6291456 / Firefox 131072）、
   `MAX_CONCURRENT_STREAMS`（Chrome 1000 / Firefox 125）、`MAX_HEADER_LIST_SIZE` 262144 必须与声称浏览器一致。
 - 判据落地：`opsec-check.py` 的 `verdicts.tls_match` 与 `verdicts.h2_order_match` 同时为 true。
@@ -218,7 +220,7 @@ python Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py \
 | 代理池 | 粘性 | 一号一出口，会话内不变 | 会话中途换 IP = 设备指纹与出口不符 |
 | 代理池 | 轮换触发 | 429 连续 2 次 / 出口 RTT > 3s / 该号 blocked | 每次轮换都要重登，代价记在失败判据表 |
 | 浏览器启动 | 自动化特征 | `--disable-blink-features=AutomationControlled`，并确认 `navigator.webdriver === false` | 只加旗标不改 JS 也能被查；启动后要回显一次 |
-| 浏览器启动 | 指纹 seed | 每号固定 `--fingerprint=<seed>`（同号复访用同 seed） | 换 seed = 新设备，会触发“新设备验证” |
+| 浏览器启动 | 指纹 seed | 仅当前浏览器明确支持时使用其配置；标准 Chromium 不保证 `--fingerprint` 参数有效 | 换 seed = 新设备，会触发“新设备验证” |
 | 浏览器启动 | 字体 | 装目标平台字体（emoji / CJK / Windows 字体），`fonts_hash` 落盘 | 缺字体导致 Canvas 哈希与声称系统不符 |
 | 对齐 | 时区 | IANA 时区 = 出口 IP 所在时区 | 时区与 IP 不符是 Akamai/Cloudflare 的高权重信号 |
 | 对齐 | 语言 | `Accept-Language` 与 `navigator.language(s)` 一致（如 `zh-CN,zh;q=0.9`） | 只改 header 不改 `navigator.languages` 会自相矛盾 |
@@ -231,7 +233,7 @@ python Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py \
 2. 只比 UA 就说“指纹一致” → JA4、`fonts_hash`、WebRTC 出口、屏幕尺寸任一漂移都算不一致。
 3. 用固定 `time.sleep(2)` 当“人味” → 间隔方差≈0 是最好抓的机器特征；改对数正态 + 长停顿。
 4. 用总平均 rps 判断限速 → 风控看的是突发窗口；必须按滑动窗口算 `max_window_rps`。
-5. 看到 429 就立刻重试 → 等于把“被限速”升级成“被封号”；先退避再换出口。
+5. 看到 429 就立刻重试 → 等于把“被限速”升级成“被封号”；先按平台要求退避，必要时等待/人工。
 6. 同一 profile 目录跑两个账号 → 服务端看到同一设备两个身份，直接关联封禁。
 7. 手拼 `sec-ch-ua` / 自定义头序以为能改 H2 指纹 → 伪头顺序由库决定；换档位而不是拼字符串。
 8. 滑块/旋转低置信度也提交 → 一次错答会把该号拉进“可疑”池；`< 0.35` 一律换图或转人工。
@@ -253,7 +255,7 @@ python Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py \
 
 ```bash
 python Tool/skill/_pending/signin-automation/scripts/opsec-check.py --session work/<case>/session.json \
-  --out work/<case>/opsec.json          # rc=0 或 3 才算过；rc=2 按 next_action 改走
+  --out work/<case>/opsec.json          # rc=3 保留警告；rc=2 记录失败与恢复条件
 python Tool/skill/web-pentest/scripts/captcha-gap.py --help >/dev/null && echo ok-gap
 python Tool/skill/web-pentest/scripts/captcha-angle.py --help >/dev/null && echo ok-angle
 python Tool/scripts/preflight.py --fast

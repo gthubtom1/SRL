@@ -1,8 +1,8 @@
 ---
 name: unpack-loop
-description: "这个软件加壳了怎么脱/脱壳/dump 内存/OEP 怎么找/反调试怎么过/IAT 怎么修 (.exe/.dll/.sys/.apk/.so，UPX/ASPack/VMProtect/Themida/ACE 等商业壳与自研壳)。加壳软件脱壳与内存转储闭环：壳识别 → 反调试对抗 → OEP 定位 → dump → IAT 修复 → 复验。"
+description: "这个软件加壳了怎么脱/脱壳/dump 内存/OEP 怎么找/反调试怎么过/IAT 怎么修 (.exe/.dll/.sys，UPX/ASPack/VMProtect/Themida/ACE 等商业壳与自研壳)。加壳软件脱壳与内存转储闭环：壳识别 → 反调试对抗 → OEP 定位 → dump → IAT 修复 → 复验。"
 license: MIT
-compatibility: Windows 10/11 x64（主力）；Linux ELF 加壳可走 pe-sieve 替代路线。依赖 seep MCP + 可选 x64dbg / pe-sieve / Scylla / ScyllaHide / Frida。
+compatibility: Windows 10/11 x64 的 PE；Android DEX/SO 由 apkseep，ELF/Mach-O 由 softseep 承担，pe-sieve 解析的是 Windows PE，不能解析 ELF。依赖 seep MCP + 可选 x64dbg / pe-sieve / Scylla / ScyllaHide / Frida。
 metadata:
   version: "1.1.0"
   category: unpacking
@@ -11,12 +11,10 @@ metadata:
 
 # unpack-loop — 脱壳与内存转储闭环
 
-> **本技能只回答一件事**：这个目标**能不能脱、该怎么脱、脱完能不能继续做鉴权审计**。
+> **本技能只回答一件事**：这个目标**能不能脱、该怎么脱、脱完能否回答主域当前问题**。
 > 它**不是**一条必须走完的流水线 —— 壳的种类决定路线，硬走会浪费时间、甚至把靶机搞崩。
 >
-> **值与不值由阶段零定**：本技能只给"能不能脱"的技术判断 + 证据；
-> "值不值得做、做到什么程度"由 `00-analysis` 的 `verdict` / plan 决定（可赢 / 部分可赢 / 不可赢），
-> 本技能不替阶段零下结论。
+> 主域按用户目标决定是否需要脱壳及交付形式；本技能返回技术判断、材料身份与证据到同一项目。授权成品任务需要旧方法时按源码路径读取 `Tool/skill/_pending/00-analysis/SKILL.md`，它仅是可选参考。
 
 ---
 
@@ -33,7 +31,7 @@ metadata:
 
 - **只能看懂结构**：`判出了壳的类型与反调试面（哪一类壳、哪些检测点），但 dump 点没找对、导入表还是坏的`
 - **能改到能用**：`OEP 找对、dump 件的头/区段/导入表都修回来了，一启动就退的问题没了，关键判定点能改能验证`
-- **能完全自己接管**：`这套壳以后你自己能重复：修完的导入表能列全、相邻功能仍正常，换个同壳样本用同一手法照样成`
+- **能完全自己接管**：`这套壳以后你自己能重复：修完的导入表能列全、相邻功能仍正常，当前样本的复现步骤与适用边界清楚；换样本须重新验证`
 - **卡点通常是**：`VMProtect/Themida 虚拟化 + 完整性校验壳——下个软件断点就把校验字节改了、进程自毁，只能转运行期路线拿结论`
 
 > 依据：本文件 §二 路线 A（七步流水线 + 完成判据）/ §三 路线 B（只能运行期）/ §四 常见壳差异对待
@@ -48,7 +46,7 @@ metadata:
 4. **先快照后动手**：VM 快照 + 目标目录备份；**单变量**（一次只改一处）。
 5. **联网优先隔离**：发现外连先用 `seep_pcap_extract` 看端点，避免"一启动就上报"。
 6. **完整性校验壳禁用 int3，先试硬件断点**：软件断点会把 `0xCC` 写进被校验的字节 → CRC/哈希失败 → 页守卫自毁。**首选 DR0–DR3 硬件断点**；若目标又检测 DR 寄存器，再转外部 `ReadProcessMemory` / Intel PT / 补丁校验函数。详见 `references/anti-debug.md`。
-7. **仪器不可用不是停工理由**：x64dbg 被检测、Frida 被掐、进程内读解密页触发 guard，都不等于"不能做"。转**外部读内存**（`dump-restore.py dump`）、**网络层**（抓包/代理/回放）、**静态 + 行为**观测。探针矩阵必须写明"为什么不能"，不许静默跳过。
+7. **先检查可替代观测面**：x64dbg 被检测、Frida 被掐、进程内读解密页触发 guard，都不等于"不能做"。转**外部读内存**（`dump-restore.py dump`）、**网络层**（抓包/代理/回放）、**静态 + 行为**观测。探针记录必须写明"为什么不能"；替代路线也缺必要能力时诚实报告 blocked，不无限换路。
 8. **失败两次换手法**：同一种绕过/断点/注入方式第二次失败，就换一类手法；参数微调式硬试视为重复同一条路径。
 
 ---
@@ -88,9 +86,9 @@ metadata:
 | **B 只能运行期** | 虚拟机壳 / 反调试过强 / dump 后不可重建 | **放弃完整脱壳**，改内存补丁 / API Hook / 行为观察 |
 | **C 建议放弃** | 壳+联网权威+关键逻辑全在云端 | 转协议层（`seep_pcap_extract` + `seep_http_replay`）或直接给结论 |
 
-> **裁定权归 `00-analysis`**：本技能只回答"**能不能脱、脱了有没有用**"。Q3（权威在哪）与 C 路线（建议放弃）
-> 是**给阶段零裁定的输入**，不是本技能自己下的结论；"值不值得继续做成品"由 `case_state.py verdict` 定
-> （可赢 / 部分可赢 / 不可赢）。阶段零未出裁定时，本技能只输出 A/B/C 的技术判断 + 证据。
+> **主模型按用户目标作出继续或停止的判断**：本技能返回“能不能脱、脱了有没有用”的技术结论。
+> Q3 与 A/B/C 路线都是主域决策的证据；需要专业单案判据时再使用 `case_state.py verdict`。
+> 不要求其他任务先经过授权成品的阶段零。
 
 > **先判脱壳价值**：鉴权判定在云端时，脱壳再完美也拿不到结论 —— 这是最常见的时间黑洞。
 
@@ -104,12 +102,12 @@ metadata:
 > 步骤间有**回退边**，受"两阶段熔断"约束。探针矩阵先行：
 >
 > ```bash
-> python Tool/scripts/tool-acquire.py --tool ida --target <target> --json --out work/<task>/probe.json
+> python Tool/scripts/tool-acquire.py --tool ida --json > work/<task>/tool-probe.json
 > ```
 
 | # | 步骤 | 一句话 | 核心判据 |
 |---|---|---|---|
-| 1 | 壳指纹 | 判壳名/家族/入口节/CLR | 能说出壳名 + 入口节 + 是否 CLR |
+| 1 | 壳指纹 | 壳候选/入口节/CLR | 已知家族附依据；证据不足写未知，不能从高熵或节名独断壳名 |
 | 2 | 仪器验证 | 哪些调试/注入/外部读/抓包真能用 | 至少 1 种非 baseline 仪器可用，且知道"为什么另一种不能用" |
 | 3 | OEP 定位 | 找到原程序入口 | OEP 在原镜像节内，后续不跳回 dispatcher |
 | 4 | dump | 从内存取镜像 | dump 能被 IDA / `pe-info` 打开，节表合理 |
@@ -120,7 +118,7 @@ metadata:
 ### 2.1 步骤 1：壳指纹
 
 - 动作：`seep_packer_detect` + `seep_r2_info`（入口段、节名、熵）+ `python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info <target>`。
-- **完成判据**：能说出壳名/家族 + 入口所在节 + 是否 CLR + 是否有 TLS/异常目录/高熵节。
+- **完成判据**：记录有依据的壳候选或未知 + 入口所在节 + CLR/TLS/异常目录/高熵节；不编造家族名。
 - 失败升级：判不出 → `seep_r2_cmd(cmd="iR")` 找内嵌载荷（有些"壳"其实是资源里的第二个 PE）；仍判不出 → 按"自定义壳"处理，直接进步骤 2 用行为判定。
 - 卡点：`pe-info` 只是静态提示，不能替代 `seep_packer_detect` 的判壳结论。
 
@@ -128,18 +126,17 @@ metadata:
 
 - 动作：
   ```bash
-  python Tool/scripts/tool-acquire.py --tool ida --target <target> --json
-  # 只做 baseline + external 的快速检查：
-  python Tool/scripts/tool-acquire.py --tool ida --target <target> --quick --json
+  python Tool/scripts/tool-acquire.py --tool ida --json
+  python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info <target>
   ```
-  记录每个探针：`ok | partial | blocked | killed` + evidence + note；把可用仪器写进 `case_state.py instrument`。
+  上述命令仅验证工具就绪/静态 PE，不会验证目标反调试。获得当前目标运行许可后才分别做基线与所需仪器对照，记录 `ok | partial | blocked | killed`、证据和原因；需要单案账时用 `case_state.py instrument`。
 - **完成判据**：至少 1 种非 baseline 仪器可用（`ok/partial`）；并且明确写出：
   - 目标是否能裸启动、存活多久、退出码/窗口；
   - x64dbg 是否被检测/自毁；
   - Frida spawn/attach 是否被杀、是否导致"静默不联网"；
   - 外部句柄/读内存是否可用；
   - 是否有出站、抓包工具是否可用。
-- 失败升级：全部被阻断 → **不是停工**。转外部观测（`external` / Procmon / ETW）与网络层（`network` / 代理 / `seep_pcap_extract`）；仍不能 → 路线 B。
+- 失败升级：注入被阻断时检查外部观测/网络层；仍无必要观测能力则报告缺口，不能把路线 B 当必然成功。
 - 卡点：DLL 不能直接启动，baseline 会明确报"需要宿主进程"；这不是脚本失败，是设计内卡点。
 
 ### 2.3 步骤 3：OEP 定位
@@ -225,7 +222,7 @@ metadata:
 | 资源/内嵌载荷 | `seep_r2_cmd(cmd="iR")` | 真正的功能体可能不在主 PE |
 | 外部读 + 网络层 | `dump-restore.py dump` / 代理 / 回放 | 不注入也能拿到关键数据/协议 |
 
-**完成判据**：能给出"特权判定点 + 可复现的绕过方式（哪怕是运行期）"—— 这已经够交付。
+**完成判据**：对主域问题给出有证据的运行期结果及限制；运行期观察/补丁不能冒充可独立运行的脱壳产物，也不自动扩展为授权旁路。
 
 ---
 
@@ -246,9 +243,9 @@ metadata:
 
 | 需求 | 调用 | 缺了怎么办 |
 |---|---|---|
-| 判壳/反调试 | `seep_packer_detect` | 内置，永远可用 |
-| 段/熵/架构 | `seep_r2_info` / `dump-restore.py pe-info` | 内置/纯标准库 |
-| 仪器矩阵 | `probe_matrix.py --target <t> --json` | 纯标准库；缺工具会报 `blocked` + 原因 |
+| 判壳/反调试 | `seep_packer_detect` | 注册不代表依赖就绪；失败时用静态 PE 线索，结论保留未知 |
+| 段/熵/架构 | `seep_r2_info` / `dump-restore.py pe-info` | 前者需 r2；后者为标准库 PE 初检 |
+| 仪器对照 | 当前目标基线与调试/注入/外部观测分别记录 | `tool-acquire.py --tool <id> --json` 仅证明工具状态，不代替对照 |
 | 内存 dump | `dump-restore.py dump --pid N --out F` 或 `pe-sieve /pid N /dmode 3 /out D` | 外部 RPM 优先；pe-sieve 可 `seep_ensure_tool("pe-sieve")` |
 | PE 重建 | `dump-restore.py rebuild --dump F --out G` | 纯标准库；清壳节为启发式 |
 | IAT 现状 | `dump-restore.py iat --dump F` | 纯标准库；修复仍需 Scylla 人工 |
@@ -256,10 +253,10 @@ metadata:
 | IAT 修复 | Scylla（外部） | 表外工具：只报路径 + 联网查文档，**不 `-h` 试探** |
 | 反反调试 | ScyllaHide / TitanHide | 同上 |
 | 解码字符串 | `floss` | 已进能力表（headless） |
-| 资源载荷 | `seep_r2_cmd(cmd="iR")` | 内置 |
+| 资源载荷 | `seep_r2_cmd(cmd="iR")` | 需 r2；资源枚举不等于载荷已导出 |
 | 活体字符串 | `seep_mem_strings` | 内置（Windows） |
-| 反编译 | `seep_r2_decompile` | 内置（r2 保底） |
-| 抓包/回放 | `seep_pcap_extract` / `seep_http_replay` | 内置；`Tool/scripts/tool-acquire.py --sweep`（工具探活） 的 `network` 先看工具是否可用 |
+| 反编译 | `seep_r2_decompile` | 需 r2 及相应反编译后端；不可用时仅给反汇编/静态范围 |
+| 抓包/回放 | `seep_pcap_extract` / `seep_http_replay` | 分别核对解析/重放依赖与范围；工具探活不证明已抓到目标流量 |
 
 ---
 
@@ -275,8 +272,7 @@ metadata:
 | 注入/挂钩 | 模块枚举找 `frida-agent`、inline hook 扫描、线程/堆/RWX 扫描 | 不注入/外部观测；改模块名；TitanHide；恢复 prologue |
 | 环境 | VM 特征、用户名/机器名黑名单、驱动/反作弊、进程黑名单 | 换裸机/改环境；外部/网络层；不在反作弊机器上硬碰 |
 
-**完成判据（写死）**：在 `ExitProcess` / `exit` / `RtlExitUserProcess` / `NtTerminateProcess` 下断，
-**未提前命中 = 没有漏检**；若进程消失但所有出口断点都没命中，说明还有直接 syscall/内核杀进程等路径没覆盖，不算通过。
+**退出断点只是一种观测**：未命中不能证明没有反调试或静默失败。结合当前目标基线、功能、网络与退出行为判断；进程消失且断点未命中时，退出路径仍未覆盖。
 
 ---
 
@@ -315,15 +311,15 @@ metadata:
 
 ## 八、与其他技能的关系
 
-- 判型入口仍是 `softseep`（本技能由它的「脱壳/解包」类型分发进来）；
+- 判型入口为 `seep-router`，Windows PE 由主域按需要调用本技能；
 - Android 侧壳/加固走 `apkseep`（DEX 脱壳、VMP 差分），本技能只管 **Windows PE**；
-- 脱壳完成后读 `references/../softseep/references/license-validation.md` 做鉴权审计；
-- "值不值得做"回到 `00-analysis` 的 verdict/plan，本技能不越权下结论。
+- 完成后将 dump/重建身份、步骤与未知返回主域；仅当前目标涉及许可时读 `Tool/skill/softseep/references/license-validation.md`；
+- 当前项目目标与适用验收决定继续或停止，归档参考按需读取。
 
 ## 什么时候停（判废条件）
 
 - 壳判定证据不足 2 条（只有熵高 / 只有畸形节名）→ 不算判出壳，回 `seep-router` 重判
 - 反调试两击不清（同类检测连续两次命中且无法绕过）→ 停，报告"卡在 AD-x"，不上硬件层
-- 需要内核驱动 / 反作弊 / 硬件断点（L3 副作用）而用户没明确同意 → 停，先问
+- 安装内核驱动/修改整机反作弊配置按现行系统副作用边界处理；进程内 DR0–DR3 硬件断点属于调试动作，按已有目标运行/调试许可执行，不能误列为装驱动
 - dump 出来的镜像 IAT 无法解析（导入表全 0 且无 Scylla 可用）→ 上限只到 M1（结构说明）
 - 同一 dump 路线两次失败 → 换路线（OEP 法 ↔ 内存扫描），第三次仍失败即判废

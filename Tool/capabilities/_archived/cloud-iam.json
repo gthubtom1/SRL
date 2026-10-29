@@ -1,0 +1,42 @@
+{
+  "id": "cloud-iam",
+  "title": "云 IAM 权限评估",
+  "domain": "ad-cloud",
+  "archived": true,
+  "archive_reason": "ad-cloud 已从正式九域迁出；仅保留历史能力定义与证据引用。",
+  "triggers": [
+    "云 IAM",
+    "IAM 权限",
+    "AK/SK",
+    "AccessKey",
+    "云原生权限",
+    "元数据服务",
+    "角色信任",
+    "最小权限"
+  ],
+  "aliases": [
+    "cloud-iam",
+    "iam",
+    "云权限"
+  ],
+  "version": "1.0.0",
+  "inputs": [
+    "云账号/角色",
+    "策略文档"
+  ],
+  "outputs": [
+    "权限矩阵",
+    "危险动作清单"
+  ],
+  "scripts": [
+    "Tool/skill/_pending/ad-cloud/scripts/cloud-iam-eval.py"
+  ],
+  "refs": [
+    "Tool/skill/_pending/ad-cloud/references/cloud-native.md"
+  ],
+  "maturity": "usable",
+  "reserved": true,
+  "compose": [
+    "k8s-enum"
+  ]
+}

@@ -1,27 +1,19 @@
-# AUDIT —— 审查档案索引（历史，**非现状**）
+# 当前核对记录
 
-> 本文件曾经是"多轮审查台账（R1–R8）"的正文。为了不让冷启动的读者把旧数字当现状，
-> **正文已整体移入 `docs/history/`**，这里只保留索引与阅读指引。
->
-> **当前状态看这里**：`README.md` 顶部「现状卡」→ `docs/history/FORK-BRIEF.md` → `docs/RELEASE-1.26.1.md`
-> **要跑门禁**：`python Tool/scripts/preflight.py`（应为 45/45）
-> **外部审查（只读）**：`docs/AUDIT-REQUEST.md` + `docs/AUDIT-REPORT-TEMPLATE.md`
+本页记录本次文档清理的事实，不保留旧多轮审计的完成宣称，不作为产品待办入口。剩余问题只维护在 [CURRENT-STATE](CURRENT-STATE.md)。以下R1–R4是本次核对类别，不是虚构的四轮验收。
 
-## 历史档案
+## R1 需求依据
 
-| 文件 | 内容 |
-| :-- | :-- |
-| [history/AUDIT-2026-10-21.md](history/AUDIT-2026-10-21.md) | 2026-10-21 终审台账（P0/P1 逐条 + 终审留痕） |
-| [history/audit/A.md](history/audit/A.md) | 审计 A：一致性 |
-| [history/audit/B.md](history/audit/B.md) | 审计 B：领域深度 |
-| [history/audit/C.md](history/audit/C.md) | 审计 C：可跑性 |
-| [history/audit/D.md](history/audit/D.md) | 审计 D：架构 |
-| [history/audit/E.md](history/audit/E.md) | 审计 E：上下文遗漏 |
-| [history/audit/CLOSURE.md](history/audit/CLOSURE.md) | 上述审计的逐条闭环记录 |
-| [history/HANDOFF-2026-10-19.md](history/HANDOFF-2026-10-19.md) | 2026-10-19 交接记录 |
-| [history/OPTIMIZATION-2.0.md](history/OPTIMIZATION-2.0.md) | v1.25 之后的优化清单（旧语态） |
+证据：用户明确取消域快捷指令，要求淘汰文档彻底删除、不在work备份。处置：需求融合到REQUIREMENTS；旧检查不能创造需求。
 
-## 为什么保留而不是删掉
+## R2 淘汰副本
 
-这些文件记录的是「当时为什么这么判」——出现回归时是唯一的对照物（例如"这条当时判为 P1 已修，为什么又出现"）。
-但它们的**数字与结论都停留在当时**，因此：只作追溯，不作判据；引用时注明"历史"。
+证据：旧产品/规划/接续文档与work内整仓测试副本重复，存在多套“唯一方案”。处置：已永久删除明确淘汰的文件，删除回执仅保留路径/hash，不保留正文。
+
+## R3 当前实现
+
+证据：当前源码的完整检查、具体反例统一见 [CURRENT-STATE](CURRENT-STATE.md)。判定：本页不保存易过期的测试计数；中断的41/42记录不作为验收。
+
+## R4 接续入口
+
+证据：接续入口为 REQUIREMENTS.md 与 [CURRENT-STATE](CURRENT-STATE.md)，部署/新进程验证结果只维护在当前状态。处置：Pi 的永久禁写规则不接受对话授权；源规则通过可信维护环境和正式部署同步，不关闭或绕过守卫。

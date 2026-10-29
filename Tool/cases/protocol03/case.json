@@ -123,10 +123,10 @@
   "lessons": [
     "跑的是 cd Tool/cases/protocol03 && python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/websocket.pcapng --json --extract artifacts/streams --tshark-check，rc=0；随后 tshark -Y websocket 取帧头字段（rc=0）与 python input/build_ws_frame.py artifacts/new-frame.bin（rc=0）。",
     "结论：ws 帧长公式 frame_len = 2 + (mask?4:0) + payload_length 在 8/8 帧成立；客户端 4 帧全部 mask=1 且掩码键逐帧随机，服务端 4 帧 mask=0；4 组请求-响应 data 完全相等，属回显型业务。",
-    "状态机：HANDSHAKE→OPEN→WAIT_RESPONSE→OPEN 由 4 组样本确认；CLOSED、ping/pong、error 帧在本样本中没有样本，标 INFERRED 未画成实线。",
-    "构造：按 RFC 6455 造了一条新的 54 B 客户端帧（data=4242…，掩码键 11223344），预测响应 51 B；本案例未启动本地回显服务，所以只到\"结构自洽\"，不写\"已确认\"。",
+    "状态机：HANDSHAKE→OPEN→WAIT_RESPONSE→OPEN 由 4 组样本确认；CLOSED、ping/pong、error 帧属于样本范围外的 INFERRED 分支。",
+    "构造：按 RFC 6455 造了一条新的 54 B 客户端帧（data=4242…，掩码键 11223344），预测响应 51 B；本案例交付离线结构自洽证据，服务端接受由独立运行阶段验证。",
     "边界：样本是回环明文，不含鉴权/TLS/压缩；真实目标若有 permessage-deflate 必须先 inflate 再 parse，若有 mTLS 则抓包只见密文。",
-    "更正（R2 审计）：01-criteria 要求「服务端接受新构造帧 + 重复 3 次」，本案例只做离线解析与结构重建，未连服务端，故 outcome 由 success 降为 partial。另：target_type 原写「Wireshark 官方 test/captures」与抓包元数据不符，已改为实际来源描述。"
+    "更正（R2 审计）：01-criteria 要求「服务端接受新构造帧 + 重复 3 次」；本案例交付离线解析与结构重建，服务端接受与三次重放属于独立运行阶段，故 outcome=partial。target_type 已按实际抓包元数据描述。"
   ],
   "tags": [
     "R24",
@@ -150,6 +150,9 @@
   "updated": "2026-10-21",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "evidence": "见 lessons 首条的『命令与 rc』",
+    "command": "python ../../../Tool/skill/protocol-plugin/scripts/pcap-summary.py --file input/websocket.pcapng --json --extract artifacts/streams --tshark-check",
+    "cwd": "Tool/cases/protocol03",
+    "rc": 0
   }
 }

@@ -162,7 +162,7 @@ def xor(a, b):
 # P[i] = D(C[i]) xor C[i-1]；想让 P[i] 翻转 delta，就改 C[i-1]。
 ct = bytearray(ct); i = 2   # 目标块号（1 起）；第一块改 IV
 delta = xor(b"user", b"admin")
-ct[(i-1)*16:i*16] = xor(bytes(ct[(i-1)*16:i*16]), delta.ljust(16, b"\x00"))
+ct[(i-2)*16:(i-1)*16] = xor(bytes(ct[(i-2)*16:(i-1)*16]), delta.ljust(16, b"\x00"))
 # 第一块：iv = xor(iv, delta)
 ```
 
@@ -176,14 +176,24 @@ def oracle(ct: bytes) -> bool:
     """返回 True 表示 padding 合法（服务端/本地解密器的侧信道）。"""
     ...
 
-def recover_block(ct: bytes, prev: bytes, block: int) -> bytes:
+def recover_block(previous: bytes, target: bytes) -> bytes:
+    """previous 是 IV/C[i-1]，target 是要恢复的 16 字节 C[i]。"""
+    if len(previous) != 16 or len(target) != 16:
+        raise ValueError("previous/target 都必须是 16 字节")
     known = bytearray(16)
+    if oracle(previous + target):
+        raise RuntimeError("基线密文已有合法 padding；先构造无效 probe，避免猜测歧义")
     for pos in range(15, -1, -1):
         pad = 16 - pos
+        def probe_for(guess: int) -> bytes:
+            probe = bytearray(previous)
+            for k in range(pos + 1, 16):
+                probe[k] = previous[k] ^ known[k] ^ pad
+            probe[pos] = previous[pos] ^ guess ^ pad
+            return bytes(probe) + target
         for guess in range(256):
-            probe = bytearray(ct)
-            probe[(block - 1) * 16 + pos] = prev[pos] ^ guess ^ pad
-            if oracle(bytes(probe)):
+            candidate = probe_for(guess)
+            if oracle(candidate):
                 known[pos] = guess
                 break
         else:
@@ -192,7 +202,7 @@ def recover_block(ct: bytes, prev: bytes, block: int) -> bytes:
 ```
 
 判据：恢复出的最后一块以 `0x01..0x10` 结尾（padding 合法），且整段明文可解析；
-查询次数 `≤ 256 * 16` 每块。超过说明 oracle 有噪声或块索引错。
+基线必须没有合法 padding；这样控制后续字节后，每字节最多 256 次猜测，每块上界为 `256 * 16` 次查询。超过说明 oracle 有噪声或块索引错。
 
 失败先查：是否 MAC-then-encrypt（先验 MAC 会掩盖 padding）、是否改错了 `C[i-1]`、
 是否第一块（第一块要改 IV）。

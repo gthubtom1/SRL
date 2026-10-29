@@ -8,7 +8,7 @@ set "PYTHONIOENCODING=utf-8"
 rem Check python
 where python >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Python not found in PATH. Please install Python 3.10+ >&2
+    echo [ERROR] Python not found in PATH. Please install Python 3.11+ >&2
     exit /b 1
 )
 

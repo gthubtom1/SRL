@@ -1,0 +1,11 @@
+{
+  "name": "lab-electron-plugin",
+  "version": "0.3.0",
+  "main": "main.js",
+  "dependencies": {
+    "left-pad": "1.3.0"
+  },
+  "build": {
+    "preload": "preload.js"
+  }
+}

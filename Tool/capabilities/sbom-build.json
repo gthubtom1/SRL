@@ -1,6 +1,6 @@
 {
   "id": "sbom-build",
-  "title": "SBOM 生成",
+  "title": "SBOM 对账与可达性分析（生成需外部工具）",
   "domain": "supply-chain-security",
   "triggers": [
     "SBOM",
@@ -18,12 +18,14 @@
   ],
   "version": "1.0.0",
   "inputs": [
-    "源码树或镜像",
-    "包管理器清单"
+    "已有 CycloneDX/SPDX SBOM",
+    "锁文件、pip freeze 或包管理器清单",
+    "源码根"
   ],
   "outputs": [
-    "CycloneDX/SPDX JSON",
-    "组件清单"
+    "组件可达性 JSON",
+    "SBOM/锁文件差异",
+    "扫描边界与未验证项"
   ],
   "scripts": [
     "Tool/skill/supply-chain-security/scripts/sbom-reach.py"
@@ -32,6 +34,8 @@
     "Tool/skill/supply-chain-security/references/sbom-sca.md",
     "Tool/skill/supply-chain-security/references/image-and-provenance.md"
   ],
-  "maturity": "usable",
+  "maturity": "probe",
+  "reserved": true,
+  "note": "sbom-reach.py 只消费已有 CycloneDX/SPDX、锁文件或 pip freeze 做源码触达分析；生成 SBOM 需按 references/sbom-sca.md 调用 syft/cdxgen 等外部工具。旧定义把生成 SCA 与可达性分析混为一条自动能力，现已降为 probe。",
   "compose": []
 }

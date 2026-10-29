@@ -1,10 +1,11 @@
 # 02 失败判据表 — 看到什么就停、停在哪、改走哪条
 
 > 范围：协议复刻过程中判断"这条路是不是死了"，以及死了之后换哪条。
-> 路由：插件装载链由 `plugin-targets`（R25）承担；算法还原由 `ida-reverse` 承担。
+> 路由：插件装载链按 `Tool/playbooks/plugin-analysis.md` 分析；算法还原组合 `softseep` / `unpack-loop`。
 > 判据表见 `01-criteria.md`；流程见 `../SKILL.md`。
 >
 > 本表的"停"不是放弃，而是**换观测层**：网络层抓不到 → 进程内取明文 → 静态反推格式。
+> `--extract` 仅按方向性五元组及抓包顺序拼载荷，并非 TCP 重组；先按连接、方向、序号处理乱序、重传、重叠和缺口，无法核实则保留限制，不能据此声称分帧可靠。
 > 每条都给代价（时间/风险），避免在一条死路上烧掉整场。
 
 ## 0. 判定口径
@@ -21,10 +22,10 @@
 |---|---|---|---|
 | 连续 2 次抓包，`data.data`/`tcp.len` 全为 0 | 抓包点选错（网卡/命名空间/容器 veth）或流量走代理/加密 | 换网卡枚举 `tshark -D`；容器内抓 `eth0` 而非宿主；必要时 `SSLKEYLOGFILE` | 低：10 分钟，重抓即可 |
 | 只有 TLS 记录层，无应用层明文 | 无 keylog / pinning / mTLS | 先设 `SSLKEYLOGFILE`（NSS 客户端有效）→ 代理装 CA → 进程内 hook `SSL_write/SSL_read` → 静态反推 | 中：代理可能触发 pinning；hook 需调试权限 |
-| 抓到明文但协议分层显示为 `data` | dissector 不认识该协议（私有协议常态） | 不要等 dissector；用 `pcap-summary.py --extract` 取字节流 + `proto-repro.py` 自建字段表 | 低：本域脚本就是为此设计 |
+| 抓到明文但协议分层显示为 `data` | dissector 不认识该协议（私有协议常态） | 用 `--extract` 查包载荷，核实单连接单向 TCP 重组后再用字段表分帧 | 低：本域脚本可辅助离线分析 |
 | 3 帧以上仍定不下长度字段覆盖范围 | 样本太单一（同长度/同类型）或字段根本不含长度 | 主动制造不同长度的帧（换业务/长昵称/大文件）再拟合；仍不行则按定界符或 type 定长处理 | 中：构造流量可能触发风控，只在靶场做 |
 | 改长度/校验后服务端**无任何响应**（不是报错） | 服务端丢弃半包等超时，或 TCP 层就被中间件拦 | 先确认包到达服务端（对端 ACK/抓包点在服务端侧）；再看是否有心跳/超时；按"静默丢弃"记录为负例 | 中：容易误判成网络问题，需两端抓包 |
-| 能原样重放，改 1 个业务字段就被拒 | 签名/nonce/时间窗/设备指纹/风控 | 定位签名覆盖范围（逐字段回显实验）→ 找客户端签名函数 → 无法复现就只报"部分复刻" | 高：签名常在 JS/SO 里，需转 js-reverse/ida-reverse |
+| 能原样重放，改 1 个业务字段就被拒 | 签名/nonce/时间窗/设备指纹/风控 | 定位签名覆盖范围（逐字段回显实验）→ 找客户端签名函数 → 无法复现就只报"部分复刻" | 高：签名常在 JS/SO 里，需组合 `softseep` / `unpack-loop` |
 | 重放成功但响应体与基线不同（且无法解释） | 会话被踢、余额/库存等状态已变、AB 实验、时间相关字段 | 先做"同请求 3 次"基线方差统计；用新会话重放；记录可变字段清单 | 低：多数是状态问题，不是协议问题 |
 | 请求带一次性 token，第二次即 401 | 防重放窗口/一次性 nonce | 找 token 下发接口，把"取 token→发请求"串成两步流程；不能自动化就降级为人工演示 | 中：多一步状态，脚本要重写 |
 | WebSocket 消息 JSON 解析失败 / 半截 | 消息跨 TCP 段、permessage-deflate、控制帧穿插 | 按 FIN/opcode/长度重组；检查 `Sec-WebSocket-Extensions`；先 inflate 再 parse | 低：解析器问题，重写重组逻辑 |
@@ -42,7 +43,7 @@
 | 替代路线 | 何时用 | 入口 |
 |---|---|---|
 | 进程内取明文 | 网络层加密且拿不到 keylog | `frida-trace -m SSL_write -m SSL_read`、LD_PRELOAD、调试器断点 |
-| 静态反推格式 | 客户端可执行文件在手，协议序列化逻辑清晰 | `ida-reverse` / `softseep`：定位序列化函数、字段写入顺序、长度/校验计算 |
+| 静态反推格式 | 客户端可执行文件在手，协议序列化逻辑清晰 | `softseep` / `unpack-loop`：定位序列化函数、字段写入顺序、长度/校验计算 |
 | 只做"可见面"报告 | 授权/时间不够，无法闭环 | 交付：会话表 + 字段表（标疑似）+ 状态图（标 INFERRED）+ 卡点清单 |
 
 ## 3. 代价记账（写进报告）
@@ -50,7 +51,7 @@
 ```text
 已花：抓包 2 轮（10 min） / 分帧 1 轮（30 min） / 重放 3 次
 卡在：签名覆盖范围（字段 f7 改动即 401）
-改走：客户端 JS 取签名函数（js-reverse）
+改走：客户端 JS/SO 取签名函数（`softseep` / `unpack-loop`）
 风险：目标为生产环境，已停止重放，未触发封禁
 ```
 
@@ -77,16 +78,17 @@
 
 ```bash
 python - <<'PY'
-import json, pathlib
+import json, pathlib, sys
 s = json.loads(pathlib.Path("artifacts/stop.json").read_text(encoding="utf-8"))
 need = ["blocked_at", "tried", "next_route", "stopped"]
 miss = [k for k in need if not s.get(k)]
 print("miss", miss, "tried", len(s.get("tried") or []))
 print("ledger_ok", not miss and s.get("stopped") is True)
+sys.exit(0 if not miss and s.get("stopped") is True else 2)
 PY
 ```
 
-通过长什么样：`miss [] tried 6` + `ledger_ok True`。
+通过长什么样：`miss [] tried 3` + `ledger_ok True`（列表有三项，`attempts` 才是 6）。
 写不出 `next_route` 的停手等于“放弃”，下一人接手要重走全部死路——这是本域最贵的浪费。
 
 ## 3.2 事故回流（lessons：现象 → 根因 → 正确动作 → 代价）
@@ -116,7 +118,7 @@ PY
 | 业务字段改变后服务端回通用错误帧 | 字段值超出枚举，不是"签名失败" | 换成同枚举内的另一个值再试 |
 | 抓包只有 SYN/ACK 没有载荷 | 客户端在等 DNS/代理/证书 | `tshark -Y 'dns \|\| tls'` 看前置握手 |
 | 响应被拆成两次 recv | TCP 分段，不是两条消息 | 按长度前缀缓冲到整帧 |
-| `tshark` 把协议识别成 `data` | 私有协议常见，不是“没抓到” | 用 `--extract` 取字节流自建字段表 |
+| `tshark` 把协议识别成 `data` | 私有协议常见，不是“没抓到” | 查包载荷并核实重组，之后自建字段表 |
 | 重放偶发成功、偶发失败 | 服务端多实例/灰度/时间窗 | 记录 10 次响应的 sha256 与实例特征 |
 
 这六条的共同点：**失败信号出现在应用层，根因在网络/状态/环境**。归因顺序仍是
@@ -146,7 +148,7 @@ retrans_frames 0
 pkts 18 sess 2 payload 736
 ```
 
-判读：`tls_frames 0` 且 `websocket 8` → 明文可分帧；`tls_frames > 0` 且应用层为 0 →
+`sessions` 默认最多列出前 20 个方向，因此上述 payload 求和并非必然是全捕获总量。判读：`tls_frames 0` 且 `websocket 8` → 有明文候选，仍须验证 TCP 重组和帧边界；`tls_frames > 0` 且应用层为 0 →
 直接转 §3.5 升级观测层，不要在抓包上继续耗。`retrans_frames` 远大于帧数 → 先解决抓包点/镜像口。
 
 ## 3.5 升级观测层：怎么确认“升级真的生效”
@@ -179,8 +181,8 @@ pkts 18 sess 2 payload 736
 
 ```text
 stop.json                # blocked_at / tried / next_route / stopped
-artifacts/streams/*.bin  # 方向性字节流（可分帧的原始证据）
-artifacts/frames.jsonl   # 已解出的帧（含 skipped/trailing）
+artifacts/streams/*.bin  # 包顺序方向载荷；另存经核实的单向重组流及缺口说明
+artifacts/frames.jsonl   # 包级记录，载荷最多 4096 字节，并非应用消息帧表
 artifacts/claims.json    # 每条结论 + 命令 + rc + 证据
 artifacts/stop.md        # 一页：卡在哪、试过什么、下一步建议
 ```
@@ -194,18 +196,18 @@ miss = [p for p in need if not pathlib.Path(p).is_file()]
 card = json.loads(pathlib.Path("artifacts/claims.json").read_text(encoding="utf-8")) if not miss else {}
 bad = [c.get("id") for c in card.get("claims", []) if c.get("rc") != 0]
 print("miss", miss, "bad_claims", bad)
-sys.exit(2 if miss else 0)
+sys.exit(2 if miss or bad else 0)
 PY
 ```
 
-通过长什么样：`miss [] bad_claims []`、rc=0。
+通过长什么样：`miss [] bad_claims []`、rc=0；这里只核文件和声明的 rc，不能验证命令确实执行或结论成立。
 
 ## 3.8 一页速查（if → then）
 
 | if（现象） | then（动作） |
 |---|---|
 | 抓包无应用层字节 | 换抓包点 → keylog → 进程内 hook → 静态反推 |
-| 应用层是 `data` | 用 `--extract` 自己分帧，不等 dissector |
+| 应用层是 `data` | 核实单向重组后自己分帧，不等 dissector |
 | 3 帧定不下长度 | 制造不同长度样本；仍不行按定界符/定长处理 |
 | 改长度/校验无响应 | 确认包到达服务端；按"静默丢弃"记负例 |
 | 能重放，改字段即拒 | 定位签名/nonce 覆盖范围；不行写"部分复刻" |

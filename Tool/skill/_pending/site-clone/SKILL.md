@@ -43,7 +43,7 @@ description: "'把这个网站 1:1 复刻下来/离线副本 (.html/.js/URL) —
 
 三条工程约束（与判据同等重要）：
 
-- **只 GET**：抓取与重建阶段必须 POST/PUT/DELETE/PATCH；浏览器页面自身发出的非 GET 请求在 crawl 中直接 abort 并计数。
+- **只 GET**：抓取与重建阶段禁止 POST/PUT/DELETE/PATCH；浏览器页面自身发出的非 GET 请求在 crawl 中直接 abort 并计数。
 - **≤2 rps**：页面导航和资产下载统一限速；浏览器子资源由页面自然加载，但爬虫主动请求必须限速。
 - **确定性**：`site-graph.json` / `rebuild.json` / `diff.json` 不写 `generated_at`；排序固定；截图使用固定 viewport/DPR 与 `animations="disabled"`。
 
@@ -68,7 +68,7 @@ description: "'把这个网站 1:1 复刻下来/离线副本 (.html/.js/URL) —
 
 ```bash
 mkdir -p Tool/cases/site-clone01/input
-printf '%s\n' 'target=https://block.youtest.me/' 'authorization=written scope' > Tool/cases/site-clone01/input/scope.txt
+printf '%s\n' 'target=https://target.example.invalid/' 'authorization=written scope' > Tool/cases/site-clone01/input/scope.txt
 ```
 
 完成判据：scope 文件包含 target、授权人/工单、允许 host、速率、禁止动作；Cloudflare/WAF 目标写明可能拦截。
@@ -77,9 +77,9 @@ printf '%s\n' 'target=https://block.youtest.me/' 'authorization=written scope' >
 
 ```bash
 python Tool/skill/_pending/site-clone/scripts/site-crawl.py \
-  --url https://block.youtest.me/ \
+  --url https://target.example.invalid/ \
   --out Tool/cases/site-clone01/artifacts/crawl \
-  --max-pages 20 --max-depth 3 --rps 2 --allow-host api.youtest.me
+  --max-pages 20 --max-depth 3 --rps 2 --allow-host api.example.invalid
 ```
 
 - 同源 GET；非 GET abort；离源请求 abort 并记入 `external[]`。
@@ -94,7 +94,7 @@ python Tool/skill/_pending/site-clone/scripts/site-crawl.py \
 ```bash
 python Tool/skill/_pending/site-clone/scripts/site-rebuild.py \
   --crawl Tool/cases/site-clone01/artifacts/crawl \
-  --out Tool/cases/site-clone01/artifacts/rebuild --rps 20
+  --out Tool/cases/site-clone01/artifacts/rebuild --rps 2
 ```
 
 - 下载同源资产到 `site/`，保留原路径；离源资源改写到 `/__external__/blocked.*` 或数据 URI。
@@ -179,11 +179,7 @@ python Tool/skill/_pending/site-clone/scripts/site-accept.py --self-test
 | wget `--mirror` | 静态 HTML/资源递归下载、限速、robots | 不执行 JS；SPA 渲染、登录态、XHR 数据拿不到 | GNU Wget Manual, https://www.gnu.org/software/wget/manual/wget.html |
 | HTTrack | 整站静态镜像、链接改写、断点续传 | 同上；依赖服务器直出 HTML | HTTrack docs, https://www.httrack.com/html/index.html |
 | Playwright `page.route` | 拦截/fulfill 请求，HAR 回放，离线 mock | 不是后端；写操作/实时状态仍需真实服务 | Playwright Mock APIs, https://playwright.dev/docs/mock ；page.route, https://playwright.dev/docs/api/class-page#page-route |
-| Chrome DevTools HAR | 录制请求/响应，导出 `.har` | 只含录制窗口；登录态/Cookie 需另行授权 | Chrome DevTools Network reference, https://developer.chrome.com/docs/devtools/network/reference/#save-as-har |
-| webEmbedding | 用 Playwright 抓 DOM/样式/资产/网络，优先复用、必要时重建 | 社区工具，无稳定官方规范；复杂动画仍需人工 | 2026 社区工具清单（名称/能力由用户提供；未见官方规范） |
-| playwright-archaeologist | 导出站点地图、表单、API map | 同上；语义/业务规则仍需人工 | 2026 社区工具清单（名称/能力由用户提供） |
-| clone-space-mcp | 离线保留动画/交互快照 | 同上；后端状态不可复制 | 2026 社区工具清单（名称/能力由用户提供） |
-| tabapi | 录制会话 → API/OpenAPI 描述 | 同上；只覆盖录制到的请求 | 2026 社区工具清单（名称/能力由用户提供） |
+| Chrome DevTools HAR | 录制请求/响应，导出 `.har` | 只含录制窗口；仅合成测试会话，不能将真实 Cookie/Token/私密正文写入 HAR | Chrome DevTools Network reference, https://developer.chrome.com/docs/devtools/network/reference/#save-as-har |
 
 结论（2026 现状）：
 
@@ -191,7 +187,9 @@ python Tool/skill/_pending/site-clone/scripts/site-accept.py --self-test
 - **SPA/Next.js**：必须用 Playwright 渲染后抓 DOM，并把 `_next/data`/API 录成 HAR，用 `page.route` 回放。
 - **登录态/后端逻辑**：工具只能录制，不能复制；正确做法是标 `backend-required`，给真实后端接口清单，不伪造成功。
 
-## 8. 案例与 KB
+## 8. 历史案例与 KB
+
+以下 PASS 是历史记录的适用范围，不能当当前源码或完整业务 1:1 已验收。静态冻结含 backend-required 仅证明静态副本；要求真实后端的任务仍为 PARTIAL。无五个交互的静态目标按其目标验收，不能凑无关操作或冒称通过完整交互判据。
 
 - `Tool/cases/site-clone01`：真实 `block.youtest.me`（Next.js + Cloudflare），12 路由、141 资产、7 API，PASS（静态冻结），9 条 backend-required。
 - `Tool/cases/site-clone02`：真实 `example.com`（静态单页），1 路由，像素 0.0、DOM 1.0，PASS。

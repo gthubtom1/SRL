@@ -1,0 +1,336 @@
+{
+  "ok": true,
+  "packed": {
+    "path": "Tool/cases/leaf-pe-packed/target/a_upx.exe",
+    "size": 41494,
+    "sha256": "856d4ac6d5bf7e3ed91653219f223d46595197f30187b6adc91dcd8587a8fc71",
+    "machine": "0x8664",
+    "optional_magic": "0x20b",
+    "image_base": "0x140000000",
+    "subsystem": 3,
+    "checksum": "0x0",
+    "entry_rva": "0x14fc0",
+    "entry_section": "UPX1",
+    "sections": [
+      {
+        "name": "UPX0",
+        "virtual_size": 73728,
+        "virtual_address": 4096,
+        "raw_size": 0,
+        "raw_pointer": 512,
+        "entropy": 0.0
+      },
+      {
+        "name": "UPX1",
+        "virtual_size": 12288,
+        "virtual_address": 77824,
+        "raw_size": 9216,
+        "raw_pointer": 512,
+        "entropy": 7.63813
+      },
+      {
+        "name": "UPX2",
+        "virtual_size": 4096,
+        "virtual_address": 90112,
+        "raw_size": 1024,
+        "raw_pointer": 9728,
+        "entropy": 3.560452
+      }
+    ],
+    "upx_magic_offsets": [
+      "0x205"
+    ],
+    "contains_PASS": -1,
+    "contains_trance": -1
+  },
+  "unpacked": {
+    "path": "Tool/cases/leaf-pe-packed/unpacked/a_unpacked.exe",
+    "size": 53782,
+    "sha256": "c413f974f3c0a62156231cf1082be90ac9db94f63b60a0e7949759a4fddf8b5b",
+    "machine": "0x8664",
+    "optional_magic": "0x20b",
+    "image_base": "0x140000000",
+    "subsystem": 3,
+    "checksum": "0x0",
+    "entry_rva": "0x13f0",
+    "entry_section": ".text",
+    "sections": [
+      {
+        "name": ".text",
+        "virtual_size": 6336,
+        "virtual_address": 4096,
+        "raw_size": 6656,
+        "raw_pointer": 1536,
+        "entropy": 5.834292
+      },
+      {
+        "name": ".data",
+        "virtual_size": 176,
+        "virtual_address": 12288,
+        "raw_size": 512,
+        "raw_pointer": 8192,
+        "entropy": 0.614235
+      },
+      {
+        "name": ".rdata",
+        "virtual_size": 1528,
+        "virtual_address": 16384,
+        "raw_size": 1536,
+        "raw_pointer": 8704,
+        "entropy": 4.200291
+      },
+      {
+        "name": ".pdata",
+        "virtual_size": 564,
+        "virtual_address": 20480,
+        "raw_size": 1024,
+        "raw_pointer": 10240,
+        "entropy": 2.379962
+      },
+      {
+        "name": ".xdata",
+        "virtual_size": 444,
+        "virtual_address": 24576,
+        "raw_size": 512,
+        "raw_pointer": 11264,
+        "entropy": 3.535236
+      },
+      {
+        "name": ".bss",
+        "virtual_size": 384,
+        "virtual_address": 28672,
+        "raw_size": 0,
+        "raw_pointer": 0,
+        "entropy": 0.0
+      },
+      {
+        "name": ".idata",
+        "virtual_size": 2148,
+        "virtual_address": 32768,
+        "raw_size": 2560,
+        "raw_pointer": 11776,
+        "entropy": 3.248803
+      },
+      {
+        "name": ".tls",
+        "virtual_size": 16,
+        "virtual_address": 36864,
+        "raw_size": 512,
+        "raw_pointer": 14336,
+        "entropy": -0.0
+      },
+      {
+        "name": ".reloc",
+        "virtual_size": 100,
+        "virtual_address": 40960,
+        "raw_size": 512,
+        "raw_pointer": 14848,
+        "entropy": 1.27937
+      },
+      {
+        "name": "/4",
+        "virtual_size": 80,
+        "virtual_address": 45056,
+        "raw_size": 512,
+        "raw_pointer": 15360,
+        "entropy": 0.236539
+      },
+      {
+        "name": "/19",
+        "virtual_size": 4518,
+        "virtual_address": 49152,
+        "raw_size": 4608,
+        "raw_pointer": 15872,
+        "entropy": 5.196604
+      },
+      {
+        "name": "/31",
+        "virtual_size": 181,
+        "virtual_address": 57344,
+        "raw_size": 512,
+        "raw_pointer": 20480,
+        "entropy": 2.210728
+      },
+      {
+        "name": "/45",
+        "virtual_size": 164,
+        "virtual_address": 61440,
+        "raw_size": 512,
+        "raw_pointer": 20992,
+        "entropy": 1.489198
+      },
+      {
+        "name": "/57",
+        "virtual_size": 72,
+        "virtual_address": 65536,
+        "raw_size": 512,
+        "raw_pointer": 21504,
+        "entropy": 0.703088
+      },
+      {
+        "name": "/70",
+        "virtual_size": 163,
+        "virtual_address": 69632,
+        "raw_size": 512,
+        "raw_pointer": 22016,
+        "entropy": 2.481342
+      },
+      {
+        "name": "/81",
+        "virtual_size": 504,
+        "virtual_address": 73728,
+        "raw_size": 512,
+        "raw_pointer": 22528,
+        "entropy": 4.898533
+      }
+    ],
+    "upx_magic_offsets": [],
+    "contains_PASS": 8714,
+    "contains_trance": 8707
+  },
+  "patched": {
+    "path": "Tool/cases/leaf-pe-packed/artifacts/a_upx.patched.exe",
+    "size": 53782,
+    "sha256": "c3d36b868a9131751174151039ab7f80472d063da282244b785d99168f17ff06",
+    "machine": "0x8664",
+    "optional_magic": "0x20b",
+    "image_base": "0x140000000",
+    "subsystem": 3,
+    "checksum": "0x0",
+    "entry_rva": "0x13f0",
+    "entry_section": ".text",
+    "sections": [
+      {
+        "name": ".text",
+        "virtual_size": 6336,
+        "virtual_address": 4096,
+        "raw_size": 6656,
+        "raw_pointer": 1536,
+        "entropy": 5.834367
+      },
+      {
+        "name": ".data",
+        "virtual_size": 176,
+        "virtual_address": 12288,
+        "raw_size": 512,
+        "raw_pointer": 8192,
+        "entropy": 0.614235
+      },
+      {
+        "name": ".rdata",
+        "virtual_size": 1528,
+        "virtual_address": 16384,
+        "raw_size": 1536,
+        "raw_pointer": 8704,
+        "entropy": 4.200291
+      },
+      {
+        "name": ".pdata",
+        "virtual_size": 564,
+        "virtual_address": 20480,
+        "raw_size": 1024,
+        "raw_pointer": 10240,
+        "entropy": 2.379962
+      },
+      {
+        "name": ".xdata",
+        "virtual_size": 444,
+        "virtual_address": 24576,
+        "raw_size": 512,
+        "raw_pointer": 11264,
+        "entropy": 3.535236
+      },
+      {
+        "name": ".bss",
+        "virtual_size": 384,
+        "virtual_address": 28672,
+        "raw_size": 0,
+        "raw_pointer": 0,
+        "entropy": 0.0
+      },
+      {
+        "name": ".idata",
+        "virtual_size": 2148,
+        "virtual_address": 32768,
+        "raw_size": 2560,
+        "raw_pointer": 11776,
+        "entropy": 3.248803
+      },
+      {
+        "name": ".tls",
+        "virtual_size": 16,
+        "virtual_address": 36864,
+        "raw_size": 512,
+        "raw_pointer": 14336,
+        "entropy": -0.0
+      },
+      {
+        "name": ".reloc",
+        "virtual_size": 100,
+        "virtual_address": 40960,
+        "raw_size": 512,
+        "raw_pointer": 14848,
+        "entropy": 1.27937
+      },
+      {
+        "name": "/4",
+        "virtual_size": 80,
+        "virtual_address": 45056,
+        "raw_size": 512,
+        "raw_pointer": 15360,
+        "entropy": 0.236539
+      },
+      {
+        "name": "/19",
+        "virtual_size": 4518,
+        "virtual_address": 49152,
+        "raw_size": 4608,
+        "raw_pointer": 15872,
+        "entropy": 5.196604
+      },
+      {
+        "name": "/31",
+        "virtual_size": 181,
+        "virtual_address": 57344,
+        "raw_size": 512,
+        "raw_pointer": 20480,
+        "entropy": 2.210728
+      },
+      {
+        "name": "/45",
+        "virtual_size": 164,
+        "virtual_address": 61440,
+        "raw_size": 512,
+        "raw_pointer": 20992,
+        "entropy": 1.489198
+      },
+      {
+        "name": "/57",
+        "virtual_size": 72,
+        "virtual_address": 65536,
+        "raw_size": 512,
+        "raw_pointer": 21504,
+        "entropy": 0.703088
+      },
+      {
+        "name": "/70",
+        "virtual_size": 163,
+        "virtual_address": 69632,
+        "raw_size": 512,
+        "raw_pointer": 22016,
+        "entropy": 2.481342
+      },
+      {
+        "name": "/81",
+        "virtual_size": 504,
+        "virtual_address": 73728,
+        "raw_size": 512,
+        "raw_pointer": 22528,
+        "entropy": 4.898533
+      }
+    ],
+    "upx_magic_offsets": [],
+    "contains_PASS": 8714,
+    "contains_trance": 8707
+  }
+}

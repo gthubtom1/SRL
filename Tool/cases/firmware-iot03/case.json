@@ -16,15 +16,37 @@
   "artifacts": [
     {
       "path": "artifacts/triage.json",
-      "sha256": "bcd25ad146e154260ffd48b4e24210314a9571dd729bc4cc4890219ac4749e91"
+      "sha256": "bcd25ad146e154260ffd48b4e24210314a9571dd729bc4cc4890219ac4749e91",
+      "size": 3393
     },
     {
       "path": "artifacts/repro.json",
-      "sha256": "d0d785779648ce814b87b9c5fd87ed1bae4201dc456df164d02082f573e74339"
+      "sha256": "d0d785779648ce814b87b9c5fd87ed1bae4201dc456df164d02082f573e74339",
+      "size": 1674
     },
     {
       "path": "artifacts/MANIFEST.sha256",
-      "sha256": "368efcb448fb228c35c56e60fb750944a2b066de76c389e1674d7876c975f041"
+      "sha256": "1a6d75b24745662d10a9759ad993d3144dde87fdc8aa007c2a527a2365e27935",
+      "size": 492,
+      "kind": "manifest"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "a944a59530af953fdb58cde79c29b2a4a3e9efd083f7bd413c602c5847c244b4",
+      "size": 3417,
+      "kind": "stdout"
+    },
+    {
+      "path": "capture/r13-2026-10-29-command2.stdout.txt",
+      "sha256": "8cfe2afa8d90bb13fb9a705a4c210851991aa19de7c0db036145db1970d5bc94",
+      "size": 1758,
+      "kind": "stdout"
+    },
+    {
+      "path": "artifacts/r13-carved-0x3db9c.bin",
+      "sha256": "0ea5f47caa07e60d8c4b261f40a2390a19898c1d73e70fdbe7fe5e5008f5bb9a",
+      "size": 153432,
+      "kind": "extracted-artifact"
     }
   ],
   "interfaces": {
@@ -52,12 +74,10 @@
     "notes": "未执行：Broadcom Wi-Fi 固件是裸 blob，不含 rootfs/kernel，无法用 qemu 起服务。"
   },
   "lessons": [
-    "跑的是 python Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json > artifacts/triage.json，rc=0；随后 fw-repro.py 同输入 --out-dir work/fw-case03 --json > artifacts/repro.json，rc=0。",
-    "真实识别：sha256=3dc1138c...，406260 字节，整体熵 7.055；fw-repro 在 offset 252828/252980/253132/254156 命中 BRCM 标签，尾部得到 Version 6.10.225.19、FWID 01-97a5222f、PDT 2015-08-07。",
-    "误报处理：triage 另报 offset 291825 的 JFFS2 弱签名和 offset 318183 的 bzip2；fw-repro 按 strong/weak 分层把 BRCM 定为主格式，未把弱签名当 rootfs。",
-    "卡点：这是 vendor firmware blob，没有 SquashFS/UBI/rootfs，也没有 UART/JTAG 实物，J1/J2/J3 均未达成；只有固件身份与版本可确认。",
-    "下一步：若拿到含 BRCM 头的整片 SPI dump，先用固件内长度字段切段，再对 ucode/CLM 段分别做熵与字符串比对；不要用 binwalk -e 递归提取。",
-    "边界：固件版本串可以证明镜像身份，但不能证明设备在跑同一版本；需要真机只读读取或厂商签名清单交叉验证。"
+    "2026-10-29 在仓库根目录依次执行 `python -B Tool/skill/firmware-iot/scripts/fw-triage.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --json`（rc=0）和 `python -B Tool/skill/firmware-iot/scripts/fw-repro.py --file Tool/cases/firmware-iot03/input/43341b0rtecdc.bin --out-dir tmp/r13-replay/work/firmware-iot03 --json`（rc=0）；两条命令的原始 stdout/stderr 均已登记并绑定 SHA-256。",
+    "实跑识别 sha256=3dc1138c4795caeada1f66937516a7411c0b24f50c51336f208fad7963455a3f、大小 406260B、整体熵 7.055；fw-repro 在 offset 252828/252980/253132/254156 命中 BRCM 标签。",
+    "尾部元数据为 Version 6.10.225.19、FWID 01-97a5222f、PDT 2015-08-07；JFFS2 弱签名与 bzip2 流保留为候选，BRCM 为主格式。",
+    "outcome=partial：证据覆盖固件身份、标签与版本元数据；J1/J2/J3 所需的根文件系统、真机接口或完整 SPI dump 属于扩展验证面。"
   ],
   "tags": [
     "real-firmware",
@@ -73,9 +93,77 @@
     "Tool/skill/firmware-iot/references/06-container-carving-and-entropy.md",
     "Tool/config/firmware-iot-matrix.json"
   ],
-  "updated": "2026-10-21",
+  "updated": "2026-10-29",
   "repro": {
     "status": "recorded",
-    "evidence": "见 lessons 首条的『命令与 rc』"
+    "argv": [
+      "python",
+      "-B",
+      "Tool/skill/firmware-iot/scripts/fw-triage.py",
+      "--file",
+      "Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+      "--json"
+    ],
+    "cwd": "D:/Seep-Reverse-Lab",
+    "rc": 0,
+    "stdout": {
+      "path": "capture/r13-2026-10-29-command1.stdout.txt",
+      "sha256": "a944a59530af953fdb58cde79c29b2a4a3e9efd083f7bd413c602c5847c244b4"
+    },
+    "stderr": {
+      "path": "capture/r13-2026-10-29-command1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "commands": [
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/firmware-iot/scripts/fw-triage.py",
+          "--file",
+          "Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command1.stdout.txt",
+          "sha256": "a944a59530af953fdb58cde79c29b2a4a3e9efd083f7bd413c602c5847c244b4"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command1.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      {
+        "argv": [
+          "python",
+          "-B",
+          "Tool/skill/firmware-iot/scripts/fw-repro.py",
+          "--file",
+          "Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+          "--out-dir",
+          "tmp/r13-replay/work/firmware-iot03",
+          "--json"
+        ],
+        "cwd": "D:/Seep-Reverse-Lab",
+        "rc": 0,
+        "stdout": {
+          "path": "capture/r13-2026-10-29-command2.stdout.txt",
+          "sha256": "8cfe2afa8d90bb13fb9a705a4c210851991aa19de7c0db036145db1970d5bc94"
+        },
+        "stderr": {
+          "path": "capture/r13-2026-10-29-command2.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    ],
+    "environment": {
+      "HOME": "D:/Seep-Reverse-Lab/tmp/r13-replay/home",
+      "TEMP": "D:/Seep-Reverse-Lab/tmp/r13-replay/temp",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    },
+    "evidence": "2026-10-29 离线只读复跑真实完成；每条命令的 argv、cwd、整数 rc、stdout/stderr 哈希和案例内原始输出均已登记。"
   }
 }

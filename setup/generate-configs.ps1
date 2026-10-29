@@ -13,6 +13,68 @@ param(
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+$ErrorActionPreference = 'Stop'
+
+function Merge-Defaults($Existing, $Defaults) {
+    foreach ($property in $Defaults.PSObject.Properties) {
+        $old = $Existing.PSObject.Properties[$property.Name]
+        if ($null -eq $old) {
+            $Existing | Add-Member -NotePropertyName $property.Name -NotePropertyValue $property.Value
+        } elseif ($property.Value -is [PSCustomObject] -and $old.Value -is [PSCustomObject]) {
+            Merge-Defaults $old.Value $property.Value
+        }
+    }
+}
+
+function Write-MergedConfig([string]$Path, [string]$DefaultsText) {
+    $defaults = $DefaultsText | ConvertFrom-Json
+    $raw = ''
+    $merged = $defaults
+    if (Test-Path -LiteralPath $Path) {
+        $raw = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8)
+        # Keep quoted strings intact while accepting JSONC comments/trailing commas.
+        $tokens = '"(?:\\.|[^"\\])*"|/\*[\s\S]*?\*/|//[^\r\n]*'
+        $plain = [regex]::Replace($raw, $tokens, [System.Text.RegularExpressions.MatchEvaluator]{
+            param($m)
+            if ($m.Value.StartsWith('"')) { return $m.Value }
+            return ' '
+        })
+        $plain = [regex]::Replace($plain, '"(?:\\.|[^"\\])*"|,\s*(?=[}\]])', [System.Text.RegularExpressions.MatchEvaluator]{
+            param($m)
+            if ($m.Value.StartsWith('"')) { return $m.Value }
+            return ''
+        })
+        $merged = $plain | ConvertFrom-Json -ErrorAction Stop
+        if ($merged -isnot [PSCustomObject]) { throw '配置必须是 JSON 对象，原文件保留' }
+        Merge-Defaults $merged $defaults
+    }
+    # Refresh only a recognized Seep server path, retaining custom server fields.
+    foreach ($container in @($merged.mcpServers, $merged.mcp)) {
+        if ($container -and $container.seep) {
+            foreach ($field in @('args', 'command')) {
+                $value = $container.seep.$field
+                if ($value -is [array]) {
+                    $container.seep.$field = @($value | ForEach-Object {
+                        if ([string]$_ -match '(^|[/\\])seep_mcp_server\.py$') { $McpServerPy } else { $_ }
+                    })
+                }
+            }
+        }
+    }
+    $text = ($merged | ConvertTo-Json -Depth 100) + "`n"
+    if ($raw.Trim() -eq $text.Trim()) { return }
+    if (Test-Path -LiteralPath $Path) {
+        Copy-Item -LiteralPath $Path -Destination ($Path + '.bak-' + [guid]::NewGuid().ToString('N')) -ErrorAction Stop
+    }
+    $temp = $Path + '.tmp-' + [guid]::NewGuid().ToString('N')
+    try {
+        [System.IO.File]::WriteAllText($temp, $text, (New-Object System.Text.UTF8Encoding $false))
+        Move-Item -LiteralPath $temp -Destination $Path -Force -ErrorAction Stop
+    } finally {
+        if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force }
+    }
+    Write-Host "  [OK] 已增量合并（原文件已备份）: $Path" -ForegroundColor Green
+}
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
@@ -68,18 +130,7 @@ $claudeMcpJson = @"
 "@
 $claudeDest = Join-Path $Root '.mcp.json'
 if (-not $PrintOnly) {
-    $sameAsExisting = $false
-    if (Test-Path $claudeDest) {
-        $existing = [System.IO.File]::ReadAllText($claudeDest, [System.Text.Encoding]::UTF8)
-        if ($existing.Length -gt 0 -and [int]$existing[0] -eq 0xFEFF) { $existing = $existing.Substring(1) }
-        $sameAsExisting = ($existing.Trim() -eq $claudeMcpJson.Trim())
-    }
-    if ($sameAsExisting) {
-        Write-Host "  [√] 无需更新（内容已一致）: $claudeDest" -ForegroundColor Green
-    } else {
-        [System.IO.File]::WriteAllText($claudeDest, $claudeMcpJson, (New-Object System.Text.UTF8Encoding $false))
-        Write-Host "  [√] 已更新: $claudeDest" -ForegroundColor Green
-    }
+    Write-MergedConfig $claudeDest $claudeMcpJson
 }
 
 # -----------------------------------------------------------------------------
@@ -106,8 +157,7 @@ $openCodeJsonc = @"
 "@
 $openCodeDest = Join-Path $Root 'opencode.jsonc'
 if (-not $PrintOnly) {
-    [System.IO.File]::WriteAllText($openCodeDest, $openCodeJsonc, (New-Object System.Text.UTF8Encoding $false))
-    Write-Host "  [√] 已更新: $openCodeDest (符合 OpenCode 官方 mcp 顶层与数组 command 标准)" -ForegroundColor Green
+    Write-MergedConfig $openCodeDest $openCodeJsonc
 }
 
 # -----------------------------------------------------------------------------
@@ -146,3 +196,4 @@ Write-Host "  🎉 所有 Agent 配置文件生成完毕！" -ForegroundColor Gr
 Write-Host "  - OpenCode: 直接启动 opencode，自动识别根目录 opencode.jsonc" -ForegroundColor White
 Write-Host "  - DSH: 可执行 dsh web --patch `"$NormalizedRoot/setup/cordis.generated.yml`"" -ForegroundColor White
 Write-Host "================================================================================" -ForegroundColor Cyan
+exit 0

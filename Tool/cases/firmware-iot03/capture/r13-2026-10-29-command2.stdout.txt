@@ -1,0 +1,77 @@
+{
+  "tool": "fw-repro",
+  "version": "1.0.0",
+  "generated_at": null,
+  "file": "Tool/cases/firmware-iot03/input/43341b0rtecdc.bin",
+  "ok": true,
+  "out_dir": "tmp/r13-replay/work/firmware-iot03",
+  "size": 406260,
+  "sha256": "3dc1138c4795caeada1f66937516a7411c0b24f50c51336f208fad7963455a3f",
+  "analysed_bytes": 406260,
+  "truncated": false,
+  "formats": [
+    {
+      "type": "jffs2",
+      "offset": 291825,
+      "note": "JFFS2 node 0x1985 BE (weak signature)"
+    },
+    {
+      "type": "bzip2",
+      "offset": 318183,
+      "note": "bzip2 stream"
+    },
+    {
+      "type": "brcm",
+      "offset": 252828,
+      "note": "Broadcom firmware tag"
+    }
+  ],
+  "primary": "brcm",
+  "brcm": {
+    "kind": "brcm",
+    "tag_offsets": [
+      252828,
+      252980,
+      253132,
+      254156
+    ],
+    "tail_meta": {
+      "version": "6.10.225.19",
+      "fwid": "01-97a5222f",
+      "date": "2015-08-07 00:30:31",
+      "pdt": "Ucode Ver: 764.1115 FWID: 01-97a5222f"
+    },
+    "header_dwords": [
+      0,
+      1317,
+      1101,
+      1101,
+      1101,
+      1101,
+      1101,
+      1101
+    ]
+  },
+  "carved": {
+    "path": "tmp/r13-replay/work/firmware-iot03\\carved-0x3db9c.bin",
+    "sha256": "0ea5f47caa07e60d8c4b261f40a2390a19898c1d73e70fdbe7fe5e5008f5bb9a",
+    "size": 153432
+  },
+  "extraction": {
+    "status": "not-applicable",
+    "dest": "tmp/r13-replay/work/firmware-iot03",
+    "attempts": [],
+    "members": 0,
+    "blocked": []
+  },
+  "rootfs": {
+    "dirs": 0,
+    "files": 0,
+    "bytes": 0,
+    "key_files": [],
+    "findings": [],
+    "top_dirs": [],
+    "truncated": false
+  },
+  "verdict": "vendor firmware blob (Broadcom BRCM tags): segment/entropy analysis only; no filesystem and no service evidence, so J1/J2/J3 stay open."
+}

@@ -222,7 +222,7 @@
       "capability": "emulation-and-frida-rpc",
       "group": "runtime",
       "status": "partial",
-      "route_measured": true,
+      "route_measured": false,
       "strength": "inferred",
       "benchmark_rows": [],
       "evidence": ["references/emulation-and-rpc.md", "scripts/frida_rpc_serve.py", "scripts/rpc_template.js"],
@@ -353,7 +353,7 @@
     {
       "capability": "membership-paywall-gate-client-enforceability-decision",
       "group": "deliverable",
-      "status": "ok",
+      "status": "partial",
       "route_measured": false,
       "strength": "inferred",
       "benchmark_rows": [],

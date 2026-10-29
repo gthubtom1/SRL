@@ -1,0 +1,54 @@
+{
+  "schema": "seep.pwn-negative-controls/2",
+  "case": "pwn-crypto07",
+  "observed_at_utc": "2026-10-27T09:18:29Z",
+  "tool_sha256": "a29a29f91fc9839f711d97db3c806df2ae9fd2b9ab9e832567c109fa2b063fdc",
+  "target_sha256_before": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "target_sha256_after": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+  "target_unmodified": true,
+  "executed_target": false,
+  "criterion": "structured parse rejection (ok:false + blocked_at=parse, rc=2)",
+  "controls": [
+    {
+      "name": "empty",
+      "fixture_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "fixture_size": 0,
+      "rc": 2,
+      "ok": false,
+      "blocked_at": "parse",
+      "reason": "解析失败: 既不是 PE(MZ) 也不是 ELF"
+    },
+    {
+      "name": "corrupt-no-mz",
+      "fixture_sha256": "1b88693a20aff2fcf930b33188145be7d3e96347ad251303be16ff5bc91a51da",
+      "fixture_size": 13312,
+      "rc": 2,
+      "ok": false,
+      "blocked_at": "parse",
+      "reason": "解析失败: 既不是 PE(MZ) 也不是 ELF"
+    },
+    {
+      "name": "corrupt-pe-signature",
+      "fixture_sha256": "b44fe14beb54253d07d06d2da825d4abdb92c925269236c2c1096a4453fcdb22",
+      "fixture_size": 13312,
+      "rc": 2,
+      "ok": false,
+      "blocked_at": "parse",
+      "reason": "解析失败: e_lfanew 处没有 PE 签名"
+    },
+    {
+      "name": "corrupt-truncated-header",
+      "fixture_sha256": "d987e864991cc62c5307d7be74b16dd86a78f6dc2e64cc9a3ff19e2e81162b26",
+      "fixture_size": 128,
+      "rc": 2,
+      "ok": false,
+      "blocked_at": "parse",
+      "reason": "解析失败: e_lfanew 处没有 PE 签名"
+    }
+  ],
+  "swapped_target": {
+    "sha256": "5fd2ea51e2524dd66234bc734c905212234088174237effd72305beb497c737e",
+    "pwn_check_rc": 0
+  },
+  "raw_log": "capture/negative-controls-2026-10-27.log"
+}

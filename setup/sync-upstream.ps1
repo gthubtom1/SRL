@@ -22,6 +22,7 @@ param(
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
+$env:PYTHONIOENCODING = 'utf-8'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir
@@ -30,7 +31,7 @@ $PyEngine  = Join-Path $ScriptDir 'sync-upstream.py'
 # 探测 Python
 $pythonCmd = 'python'
 try {
-    $ver = & python --version 2>&1
+    & python -c 'import sys; sys.exit(sys.version_info < (3, 11))'
     if ($LASTEXITCODE -ne 0) { throw "python not found" }
 } catch {
     if (Test-Path "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe") {
@@ -59,9 +60,9 @@ if ($engineExit -ne 0 -and -not $CheckOnly) {
 }
 
 if (-not $DryRun -and -not $CheckOnly -and -not $SkipVerify) {
-    Write-Host "`n>>> 正在运行工作台格式规范化与基准自检..." -ForegroundColor Cyan
-    & $pythonCmd (Join-Path $ScriptDir 'clean-format.py')
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $ScriptDir 'python Tool/scripts/check.py --env')
+    Write-Host "`n>>> 正在运行工作台环境自检..." -ForegroundColor Cyan
+    & $pythonCmd (Join-Path $Root 'Tool/scripts/check.py') --env
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 exit $engineExit

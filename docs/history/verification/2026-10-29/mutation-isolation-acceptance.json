@@ -1,0 +1,40 @@
+{
+  "schema": "seep.engineering-acceptance/1",
+  "batch_id": "MUTATION-ISOLATION-01",
+  "decision": "accepted_scoped",
+  "decision_date": "2026-10-27",
+  "signer_role": "main-agent",
+  "implementation_session": "01a17bbd-85d8-74f6-8526-d90d598e8779",
+  "independent_verifier_session": "01a17c13-f990-74f6-8526-d917e697cf59",
+  "implementation_and_acceptance_separated": true,
+  "independent_report": "work/goal-recovery/mutation-independent-acceptance.md",
+  "snapshot": "work/goal-recovery/independent-probes/mutation-hashes-final.json",
+  "objects": {
+    "Tool/scripts/mutation.py": "fb35c2d7c1f33c941f2d111388fdc80fe320c39b82b456048a54398585b0dbaa",
+    "Tool/scripts/test_mutation_isolation.py": "02d373e0d7e2af61c9ca858a2535015533381eae8f8b91e468a2b8f920a4580b",
+    "Tool/scripts/preflight.py": "dd1280c743040ce573178d9eaf2eb841540286dec8891b000252b0f0698db755",
+    "Tool/scripts/gate.py": "0bdd324b8641634a340daa2c47ea005932306093776d4909df0c7f5ec273e93c"
+  },
+  "accepted_scope": [
+    "The existing six mutations m1-m6 use temporary repository and agent-root fixtures rather than changing the real repository or user prompt files.",
+    "Each mutation changes the intended fixture bytes and is detected by newly introduced matching FAIL reasons relative to an independently measured baseline.",
+    "An already-red baseline, missing checker or ineffective mutation is not counted as a detected mutation.",
+    "The locked implementation, selected protected files and selected user directories had identical start/end hashes or listings during independent verification."
+  ],
+  "independent_results": {
+    "mutation_suite": {"returncode": 0, "caught": 6, "total": 6, "noise": 0},
+    "isolation_tests": {"returncode": 0, "tests": 17, "skipped": 0},
+    "stable_protected_or_dependency_files": 31,
+    "stable_directory_listings": 10,
+    "stable_selected_user_directories": 4
+  },
+  "explicit_limits": [
+    "This is not an operating-system sandbox. Arbitrary code, direct absolute-path writes or code bypassing the fixture API are outside the accepted scope.",
+    "The direct-open symlink counterexample is recorded. It is unreachable through the reviewed m1-m6 paths and is not accepted as a general confinement guarantee.",
+    "The Python-side write audit was incomplete and returned UNVERIFIED. It does not prove all native-process writes or all user directories were observed.",
+    "SIGKILL may leave temporary fixtures. POSIX paths and all 28 checker implementations were not independently verified.",
+    "Changed checker dependencies or additional mutations require impact review and relevant independent revalidation.",
+    "This decision does not accept nine-domain behavior, deployment equivalence, a full release or the overall Goal."
+  ],
+  "overall_goal_complete": false
+}

@@ -128,10 +128,10 @@
 ### 16 JWT none/签名剥离（源：performing-jwt-none-algorithm-attack）
 - 触发词：JWT none、签名剥离、alg=none
 - 前置：授权测试环境；抓到一枚有效 token。
-- 步骤：1) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --file Tool/samples/real/crackerjack/a.exe --json` → rc=0，期望：`"NX": "Enabled"`、`"PIE": "Enabled (DYNAMIC_BASE/ASLR)"`；2) `python Tool/skill/pwn-crypto/scripts/pwn-check.py --self-test` → rc=0，期望：`"ok": true`；3) `python Tool/skill/pwn-crypto/scripts/pwn-repro.py --self-test` → rc=0，期望：`"ok": true`
+- 步骤：1) 按 `Tool/skill/web-pentest/references/06-auth-and-api.md` §3.2 原样解码 header/payload，记录 `alg`、`kid`、`aud` 与请求身份；2) 仅替换 header 为 `{"alg":"none","typ":"JWT"}` 并保留原 payload、构造空签名，向同一授权接口重放；3) 同时重放未修改 token 和无 token 请求作正/负对照，各保存完整请求、响应与 rc。
 - 判据：伪造 token 得 200 且响应体含受保护资源；无 token 得 401（证明鉴权分支确实在跑）；两请求 curl rc=0。
 - 失败判据：返回 401/403 → 结论“已修复”，写清服务端是否解析 `alg`；只在前端解码成功、服务端拒收不算成立。
-- reference：Tool/skill/pwn-crypto/references/01-criteria.md
+- reference：Tool/skill/web-pentest/references/06-auth-and-api.md
 
 ### 17 JWT 测试矩阵（弱密钥/过期/声明）（源：testing-jwt-token-security）
 - 触发词：JWT 测试、弱密钥、过期、aud/iss、kid

@@ -1,0 +1,7 @@
+[witness-neg] witness=witness.py sha256=dbdb401915bbe77a
+  PASS P1 default target (manifest hash matches)            rc=0 (expect 0)
+  PASS N1 swapped target (other real case binary)           rc=1 (expect 1)
+  PASS N2 target byte drift (hash mismatch)                 rc=1 (expect 1)
+  PASS N3 empty file (structured parse reject)              rc=1 (expect 1)
+  PASS N4 case.json manifest sha256 tampered                rc=2 (expect non-zero)
+[witness-neg] 5/5 PASS

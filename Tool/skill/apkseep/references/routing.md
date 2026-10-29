@@ -205,8 +205,9 @@ _60 row(s) below the header._
 | `scripts/scan_leaks.py` | Scan a repository for target identity before it is published: bundle ids in manifest/`pm`/`ps` contexts, serial-shaped tokens, PATs, inline appkey assignments, literal endpoints, host user paths. Built-in do-not-anonymize exemptions, context-bearing findings, `--show-exempt` prints why a hit was suppressed, `--fail-on strong\|any`, exit 0/1/2 with a `RESULT=` token |
 | `scripts/svc_scan.py` | Name the syscall behind an inline `svc` and the segment it sits in — which decides whether a libc-level hook can observe the call at all. `--context` shows neighbours, because a byte scan also matches data |
 | `scripts/anti_detect_probe.js` | Observer-only probe (patches nothing): path/loader/thread/kill hooks with **caller module + offset**, an environment self-report (`TracerPid`, frida-named mappings), and live streaming so a sub-second target still yields evidence |
+| `scripts/witness.py` | Run `java2c_probe.py` against the registered public APK and require nonempty dex/classification metrics before treating the apkseep toolchain as operational; `--self-test` emits the machine-checkable witness conclusion |
 
-_54 row(s) below the header._
+_55 row(s) below the header._
 
 ## How to use these two tables (and what not to do with them)
 

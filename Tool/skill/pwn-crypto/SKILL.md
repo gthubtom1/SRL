@@ -13,16 +13,16 @@ metadata:
 # pwn-crypto — 二进制利用与密码学攻击
 
 > 本技能只做**可验证的利用/求解**：从保护位推出打法，从泄漏推出地址，从一次成功推到稳定复现，
-> 从密码学假设推到回代等式。纯静态算法还原交 `ida-reverse`/`reverse-engineering`；
+> 从密码学假设推到回代等式。纯静态算法还原交 `softseep`；
 > Android 目标交 `apkseep`；Web/API 逻辑交 `web-pentest`。
 >
 > 机检入口：`python Tool/scripts/domain-gate.py --domain pwn-crypto`；
 > 真实案例：`Tool/cases/pwn-crypto01`–`05`；知识库：`Tool/mcp/Tool/reverselab/kb/pwn-crypto/`。
 
 ## 阶段契约（与 softseep 一致，**先判再做**）
-> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→必问三件）。本文件不复制。
-  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
-- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
+- 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
+- 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
 ## 1. 范围与路由（边界）
 
@@ -35,7 +35,7 @@ metadata:
 **相邻域与路由**
 
 - 目标清单由 `scope` 声明；真实生产凭据/证书只留指纹；持久化/横向移动/DoS 按单独授权单执行；
-- 纯静态算法还原、协议测绘（交 `reverse-engineering`/`ida-reverse`）；
+- 纯静态算法还原交 `softseep`，协议测绘按需组合 `protocol-plugin`；
 - APK/DEX/SO、Frida/脱壳/重打包（交 `apkseep`；解壳闭环在 `unpack-loop`）；
 - Web/API/JWT 业务逻辑（交 `web-pentest` 或对应 Web 技能）；
 - 智能合约（EVM）由外部审计流程承担：本域提供字节码静态分析与数学回代，链上运行时与交易证据在该流程侧；DApp API 面交 `web-pentest`；
@@ -70,7 +70,7 @@ metadata:
 sha256sum ./chall ./libc.so.6 2>/dev/null | tee evidence/SHA256SUMS
 file ./chall
 readelf -hW ./chall | sed -n '1,12p'
-ldd ./chall
+readelf -dW ./chall | grep NEEDED  # 静态查看依赖声明；不以 ldd 探测未知程序
 ```
 
 现场编译的样本要记录：`gcc --version`、`-O0/-fno-stack-protector/-no-pie`、
@@ -91,18 +91,18 @@ readelf -dW ./chall | grep -E 'BIND_NOW|RPATH|RUNPATH|NEEDED'
 `pwn-check.py` 输出四项：`NX` / `PIE` / `Canary` / `RELRO`（PE 为 `N/A (PE 无 ELF RELRO)`），
 外加危险导入、format 串风险与 `next_routes`。它只给“疑似”，不证明可利用性。
 
-**完成判据**：四项保护位都有结论 + 至少一个输入面/危险导入线索；`sha256` 已记录。
+**二进制利用任务的完成判据**：保护位与输入面/危险导入结论有证据，未知保留；纯密码学参数任务无需 ELF 保护位或危险导入。
 
 ### 2.3 运行面：调试器、libc、沙箱
 
 ```bash
 gdb --version | head -1
 python -c "import pwn, Crypto; print('pwntools/pycryptodome ok')" 2>/dev/null || true
-seccomp-tools dump ./chall 2>/dev/null || echo "no seccomp-tools -> strace -f"
+# seccomp-tools dump / strace 会执行目标，仅在已获运行许可的隔离环境使用
 cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 ```
 
-- 需要固定基址时用 `setarch "$(uname -m)" -R ./chall`，并在报告中注明“关闭 ASLR”；
+- 下列命令会运行目标，须在已有运行许可与隔离环境内执行。需要固定基址时用 `setarch "$(uname -m)" -R ./chall`，并在报告中注明“关闭 ASLR”；
 - 远程只信远程泄漏，不把本地偏移当远程地址；
 - 工具缺失先查能力表（`python Tool/scripts/tool-acquire.py` / `Tool/mcp/tool_autodiscover.py`），不要反复安装。
 
@@ -284,12 +284,12 @@ python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 
 ## 11. 验收与回报
 
-- **本地稳定性**：同一脚本在全新进程/新连接连续 ≥10 次，成功 ≥9 次；贴命令、rc、成功计数。
-- **远程命中**：拿到 shell/flag；贴 `id`、`cat flag`、目标路径、会话时间与完整 transcript。
+- **利用链的本地稳定性**：同一脚本在全新进程/新连接连续 ≥10 次，成功 ≥9 次；贴命令、rc、成功计数。
+- **目标要求远程利用时**：只报告已实测的 shell/flag/受控 marker，附非敏感证据；纯静态分析、离线密码学或本地任务不要求远端或 root。
 - **密码学**：`pow(m,e,n)==c`、逐块/逐位比对；贴参数、明文来源与脚本输出。
 - **证据留存**：`sha256`、保护位、libc 版本/内核/ASLR 状态、工具版本、失败路线。
-- **停止条件**：同一路径 3 轮无进展 → 换路线；同类动态尝试 2 次失败 → 停下汇报。
-- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 本域 10 条断言全绿（实测 10/10）；
+- **停止条件**：同形失败 2 次或连续无新增证据 → 重判并换路线；确定性密码学按回代/反例验收，不套 10 次利用稳定性统计。
+- **机检**：`python Tool/scripts/domain-gate.py --domain pwn-crypto` 仅校验工作台能力/仓内案例，不能代替当前任务验收；
   案例级再跑 `pwn-accept.py --root . --json`（字段/哈希/真跑/refs/保护位一致性）。
 
 > 边界再强调：本技能只用于授权实验室资产；不伪造“稳定 9/10”，不隐藏失败，
@@ -299,4 +299,4 @@ python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 
 本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
 
-- `_pending/00-triage/SKILL.md` —— 先出二进制保护与靶场画像
+- `Tool/skill/_pending/00-triage/SKILL.md` —— 先出二进制保护与靶场画像

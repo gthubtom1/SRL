@@ -1,8 +1,8 @@
 # 01 判据表 — 什么算"协议复刻成功"
 
 > 范围：TCP/UDP/HTTP/WebSocket/私有二进制协议的**离线复刻**与授权环境重放。
-> 路由：插件/扩展装载链由 `plugin-targets`（R25）承担；纯前端 JS 签名由 js-reverse 承担；
-> 纯算法还原由 `ida-reverse` 承担。总流程见 `../SKILL.md`，失败判据见 `02-failure-criteria.md`。
+> 路由：插件/扩展装载链按 `Tool/playbooks/plugin-analysis.md` 分析；纯前端 JS 签名组合 `softseep`；
+> 纯算法还原组合 `softseep` / `unpack-loop`。总流程见 `../SKILL.md`，失败判据见 `02-failure-criteria.md`。
 >
 > 本表每一行都给出**可机检判据**：能用脚本/命令算出真假，而不是"看起来像"。
 > 判据分「确认」与「疑似」两档；只有确认档能写进结论文档。
@@ -22,12 +22,12 @@
 
 | 场景 | 输入面 | 判据（可机检） | 证据形态 | 误报风险 |
 |---|---|---|---|---|
-| 帧边界可确定 | 重组后的单向字节流（`--extract` 的 `.bin`） | 相邻帧 `start/end` 首尾相接无重叠；`sum(frame_len) == len(stream) - trailing`；解析器对同一流重复运行输出一致 | `frames.jsonl` 的 offset/frame_len + `proto-repro.py --input` 的 `stats.consumed` | 把 payload 里的假 magic 当帧头（需滑动重同步 + 计数 `skipped_bytes`） |
+| 帧边界可确定 | 经重组的单向字节流 | 相邻消息帧的偏移与长度可对齐，解析结果可复跑 | `proto-repro.py` 的 `frames[].offset/frame_len`、`stats` 及原始字节 | `--extract` 是包载荷按捕获顺序拼接，未重组；`frames.jsonl` 每行是包而非消息帧 |
 | 长度字段语义闭合 | ≥3 条不同长度的帧 | 用 `len_field = a*payload + b` 拟合，`a/b` 唯一；能预测**未见帧**的 `frame_len`，误差 0 | 字段表 + 3 帧实测表（偏移/长度/端序） | 长度含头/含尾/含自身三种假设都能拟合小样本；必须靠"改长度→服务端行为"区分 |
 | 校验算法可复算 | 每帧的原文 + 末尾校验字段 | `proto-repro.py` 报 `crc_ok=true`；改 1 字节载荷后同一帧 `crc_ok=false`；算法/初值/覆盖范围可写成一个函数 | 校验字段 want/got 十六进制 + 覆盖范围（header+payload） | 简单和/异或/Adler32 也能"碰巧"匹配 3 帧；样本 <5 帧时不要把 CRC32 写死 |
 | 帧被服务端接受 | 本地/授权服务端 | 新构造帧得到与预测一致的响应（同一业务码/同一状态迁移），重复 3 次稳定 | 发送字节 hex + 响应字节 hex + RTT | 服务端"回了包"不等于"接受了业务"（可能是通用错误帧） |
 | 状态迁移可解释 | 消息序列（含握手/认证/业务/关闭） | 每条边有 ≥1 条样本；非法迁移（跳过认证、错 seq）有实际拒绝证据；`state_before/event/state_after` 三元组可回指帧号 | `frames.jsonl` + 状态图 + 拒绝样本 | 把"没观测到"当成"协议拒绝"；重连/心跳被误当业务消息 |
-| 状态机成立 | 观测边集 + 非法迁移负例（`edges.json`） | `edge_coverage ≥0.60`（`observed_edges/inferred_edges`）；`llm_unverified == 0`；每条观测边有 `evidence_frame`；`illegal_transition_proof` 非空且指到帧号 | `pcap-summary.py --state-model edges.json --json` 的 `verdict=state_machine_established` + 状态图 | LLM 推断边被当实线计入（见 `06-app-state-machine.md` §3.1）；把"未观测"当"协议拒绝" |
+| 状态机成立 | 观测边集 + 非法迁移负例（`edges.json`） | 每条边回指真实样本，预测新序列并核对实际拒绝证据 | 原始帧、状态图及负例运行记录；脚本的帧号统计只供整理 | 输入的帧号和负例文本未经过脚本验证，不能单凭覆盖率确认 |
 | 状态机不成立 | 同上（同一份边集） | `edge_coverage <0.60` 或 `llm_unverified >0` 或 `illegal_transition_proof` 为空；非法迁移全部"无响应"；此时只能写"部分建模（覆盖率 X%）" | 同上（`verdict=state_machine_not_established`） | 用虚线边凑覆盖率；把心跳/重连刷成业务边把分母做小 |
 | 同输入同输出 | 原样重放的请求 | 同请求重复 3 次，响应体哈希/关键字段一致；允许变化项（时间戳/nonce）能逐项解释 | 3 次响应的 sha256 与差异字段 diff | 负载均衡/多实例/时间窗导致"每次都不同"，误判为协议不可复刻 |
 | 认证材料可复现 | token/cookie/nonce/时间戳/签名 | 能指出材料来源（哪一帧哪个字段）、有效期、绑定维度（IP/UA/设备）、是否一次性 | 材料字段表 + 过期/复用实验记录 | 把"能原样重放"当成"能续期"；token 可能只是会话表 key |
@@ -44,17 +44,17 @@
 
 | 判据 | 最小样本 | 机检字段 | 样本不足时唯一可写的措辞 |
 |---|---|---|---|
-| 帧边界可确定 | ≥3 帧且 ≥2 种 payload 长度 | `stats.frames`、`consumed+trailing==bytes` | 疑似：单帧自洽 |
+| 帧边界可确定 | ≥3 帧且 ≥2 种 payload 长度 | `frame_count`、每帧偏移与长度、`skipped_bytes` | 疑似：单帧自洽 |
 | 长度字段语义 | ≥3 帧、≥2 种长度、1 个改长度负例 | 拟合唯一 + 负例行为 | 疑似：含头/含尾未区分 |
 | 校验算法 | ≥5 帧 + 1 个改字节负例 | 全部 `crc_ok=true` 且负例 `false` | 疑似：样本内自洽 |
 | 状态迁移 | 关键边各 ≥1 条 + 1 个非法迁移 | `evidence_frame` 非空 | 疑似：边靠先验 |
-| 状态机成立 | `edge_coverage≥0.60`、`llm_unverified==0` | `verdict=state_machine_established` | 部分建模（覆盖率 x%） |
+| 状态机成立 | 每条边有实际样本、非法迁移有真实拒绝证据 | 帧和运行记录经复核；脚本统计是未验证声明 | 部分建模（声明的覆盖率 x%） |
 | 同输入同输出 | 同一请求 3 次 | 3 份响应 sha256 + 可变项清单 | 未确认：只跑过 1 次 |
 | 构造新请求 | 单变量改动 3 次 | 预测 vs 实际 3/3 | 部分复刻：可重放 |
 | 认证材料可复现 | 1 次过期 + 1 次复用实验 | 材料来源字段 + 有效期 | 疑似：一次性未验证 |
 | 证据可复跑 | 1 台干净机器（无本机绝对路径） | `run.json` 的 `cmd`/`rc` | 未交付 |
 
-机检采样量（纯标准库，不依赖 tshark）：
+下例仅统计包载荷长度，不能当成应用消息帧采样量；需先完成单向重组和消息分帧再统计：
 
 ```bash
 # 【占位符】把 <...> 换成你的真实路径/端口/参数后再执行
@@ -187,7 +187,7 @@ python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
 
 # 2) 分帧 + 校验复算 + 重建新帧（字段表驱动）
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \
-  --input artifacts/streams/s00_127.0.0.1_44380-127.0.0.1_8080.bin --json
+  --input <匹配字段表的单方向帧文件> --json
 
 # 3) 重建一条新请求并自校验
 python Tool/skill/protocol-plugin/scripts/proto-repro.py --input frames.bin \
@@ -198,8 +198,7 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py --input frames.bin \
 python Tool/skill/protocol-plugin/scripts/proto-accept.py --json
 ```
 
-判据落地方式：`proto-repro.py` 输出的 `stats.errors` 为空 + 每帧 `crc_ok=true` +
-`rebuild.verify.crc_ok=true`，才允许在报告里写"分帧与校验已确认"。
+判据落地方式：结合样本数量、跳过字节、字段表与改字节负例复核；脚本自洽只证明按所选 schema 解析和复算，不能单独确认真实协议。
 
 ## 3. 常见"假确认"与降档规则
 
@@ -224,7 +223,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --json
 
 ## 5. 边界
 
-- 本表只覆盖"协议字节与状态"；插件入口、权限面、asar/VSIX 装载链 → `plugin-targets`（R25）。
+- 本表只覆盖"协议字节与状态"；插件入口、权限面、asar/VSIX 装载链按 `Tool/playbooks/plugin-analysis.md`，原生载荷组合 `softseep`。
 - 本表不覆盖漏洞利用：确认了协议能力之后要不要打、打到什么程度，由授权范围决定。
 - 生产流量默认只读；重放只在本地/授权靶场；高频重放视同拒绝服务。
 - 所有"确认"必须能指回 `capture#frame` / `frames.jsonl#id` / `artifacts/run.json` 的某一行。

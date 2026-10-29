@@ -1,187 +1,40 @@
-# MANUAL — 官方部署资产全景核验基准清单 (Deployment Checklist & Verification Manifest)
+# 安装结果核对
 
-> **版本**：随 `VERSION`（当前 1.26.1）；本节数字以 `setup/verify.*` 实跑为准  
-> **适用范围**：Pi Agent / Claude Code / DeepSeek Harness / Codex / OpenCode  
-> **核心用途**：部署资产核验的**基准清单**。注意：代码层的事实源是 `setup/verify.*` 与 `Tool/scripts/preflight.py` 的**实跑输出**；
-> 本清单必须与它们双向对齐（本清单每条 → verify 有对应项；verify 每项 → 本清单有说明）。发现不一致时以实跑为准。  
-> 明确声明每个组件的 **官方期望物理路径、文件数、入口文件、可用性验证命令、三态健康标准与降级处置方案**。  
-> 部署完成后，Agent 与用户以此清单做双向比对；**与实跑冲突时以 `setup/verify.*` 输出为准**（本清单不是代码事实源）。
+本页说明如何解读实测结果，不保存另一套固定文件数或“全绿”示例。安装步骤见 [部署手册](DEPLOYMENT.md)，智能体起点见 [BOOTSTRAP](../Tool/docs/BOOTSTRAP.md)。
 
----
+## 分开核对五件事
 
-## 一、 判定模型标准 (Three-State Classification)
-
-本核验清单采用清晰的三态判定逻辑，杜绝模糊与信息黑盒：
-
-| 状态标识 | 语义 | 说明与影响 |
+| 层次 | 证据 | 能说明什么 |
 |---|---|---|
-| 🟢 **`[READY]` 完备就绪** | 部署成功且可用 | 文件/依赖全部在位，可执行代码与语法解析 100% 正常。 |
-| 🟡 **`[DEGRADED]` 合规降级 / 可选未配** | 可选扩展未装，已降级承接 | 属于外部商业软件（如 IDA Pro）或可选按需工具（如 Playwright 无头浏览器）。**核心逆向主链路不受影响**，系统已自动启用免费/内置替代方案（如 Radare2 套件）。 |
-| 🔴 **`[MISSING]` 阻断性缺失** | 核心组件缺失或异常 | 核心文件丢失或基础运行库（如 Python MCP 协议）未装，将导致部分核心流水线不可用。必须按修复指引处理。 |
+| 文件与注册 | 当前 AgentRoot 的技能/扩展内容、受管提示词和 `seep-runtime.json` | 已同步到哪里、注册指向哪个源码根 |
+| 环境 | `python Tool/scripts/env-check.py` 的退出码和 JSON | 当前 Pi 安装环境检查是否通过、具体缺项 |
+| 服务连接 | 最终配置启动后的 initialize/tools/list 或实际工具调用 | 被测试服务能响应，不能外推其他 MCP |
+| 新会话加载 | 新宿主进程实际发现的技能、扩展和工具 | 新配置已加载；仅复制文件不能证明 |
+| 专业任务 | 对当前输入的原始输出、证据和验收 | 这次任务实际做到哪里；不由安装检查替代 |
 
----
+`env-check.py` 当前会比较受管技能与扩展内容，检查最终 MCP command/args/env/cwd，并真实握手 Seep。外部可选 MCP 主要做静态配置检查。宿主模型配置状态通过宿主接口检查，不读取真实凭据存储。
 
-## 二、 官方部署资产核验基准表 (Baseline Manifests)
+## 从实现取清单
 
-### 1. 🛠️ 技能系统基准表 (Skills System - 11 大组件)
+| 内容 | 来源 |
+|---|---|
+| 顶层技能 | `Tool/skill/*/SKILL.md`；以下划线开头的参考区不部署为顶层技能 |
+| 正式领域 | 对应 `pack.json` 的 id 与领域契约 |
+| Pi 扩展 | `Tool/prompts/extensions/` |
+| 受管提示词 | `Tool/prompts/AGENTS.md` 与 `Tool/prompts/SEEP.md` 的安装/合并规则 |
+| MCP 配置 | `Tool/config/mcp-servers.json` 与最终 AgentRoot 中的 `mcp.json` |
+| Seep 工具接口 | `Tool/mcp/seep_mcp_server.py`，实际数量以握手结果为准 |
+| 外部工具能力与安装 | `Tool/config/tool-capabilities.json`、`tool-runtimes.json`、`tool-install.json` |
 
-目标安装路径以 Pi Agent 规范为例（`~/.pi/agent/skills/`，Windows 下为 `$env:USERPROFILE\.pi\agent\skills\`）：
+当前仓库登记 9 个正式领域、11 个顶层技能、20 项 Seep MCP 工具。这些是当前实现清单，不能复制成另一台机器已经加载的数量。
 
-| # | 技能名称 (ID) | 宿主安装目标路径 | 官方期望文件/目录数 | 核心入口标识文件 | 可用性判据与验证命令 | 状态判定与指引 |
-|---|---|---|---|---|---|---|
-| **S1** | **`softseep`** ⭐总控 | `~/.pi/agent/skills/softseep/` | `SKILL.md` + 10 篇 `references/`（共 15 项） | `SKILL.md`<br>`references/license-validation.md` | 检查 10 篇 references 齐全，G0-G6 门控完整 | 🟢 **核心**。缺失则总控瘫痪。修复：`powershell setup\install-pi.ps1` |
-| **S2** | **`apkseep`** | `~/.pi/agent/skills/apkseep/` | `SKILL.md` + 54 篇 references（含子目录共 61 篇）+ 57 个 scripts（共 123 文件） | `SKILL.md`<br>`scripts/doctor.py` | 运行 `python scripts/doctor.py` 无报错 | 🟢 **核心**。安卓全链路专精。修复：重跑 `install-pi.ps1` |
-| **S3** | **`ida-reverse`** | `~/.pi/agent/skills/ida-reverse/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 IDA 13337 端口自动唤醒规约 | 🟢 **核心**。IDA 自动化调度器。修复：重跑 `install-pi.ps1` |
-| **S4** | **`client-license-validation-bypass`** | `~/.pi/agent/skills/client-license-validation-bypass/` | `SKILL.md` (≥1 项) | `SKILL.md` | 包含 CWE-602 战术树与补丁/算号决策 | 🟢 **核心**。授权审计战术库。修复：重跑 `install-pi.ps1` |
-| **S5** | **`version-migration`** | `~/.pi/agent/skills/version-migration/` | `SKILL.md` (≥1 项) | `SKILL.md` | 跨版本追版与 AOB 特征迁移流程在位 | 🟢 **核心**。追版专用。修复：重跑 `install-pi.ps1` |
-| **S6** | **`reverse-engineering`** (safe) | `~/.pi/agent/skills/reverse-engineering/` | `SKILL.md` + references（实为 15 文件） | `SKILL.md` | 通用逆向基准规则在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/reverse-engineering` |
-| **S7** | **`apk-reverse`** (safe) | `~/.pi/agent/skills/apk-reverse/` | `SKILL.md` + 参考（实为 8 文件） | `SKILL.md` | DEX 微创修补与门禁规范在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/apk-reverse` |
-| **S8** | **`radare2`** (safe) | `~/.pi/agent/skills/radare2/` | `SKILL.md` + 管道字典（实为 3 文件） | `SKILL.md` | R2 命令行打桩字典在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/radare2` |
-| **S9** | **`mcp-js-reverse-playbook`** (safe) | `~/.pi/agent/skills/mcp-js-reverse-playbook/` | `SKILL.md` + 案例（实为 13 文件） | `SKILL.md` | Web/JS 逆向分析基准在位 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/mcp-js-reverse-playbook` |
-| **S10** | **`ida-assistant`** (safe) | `~/.pi/agent/skills/ida-assistant/` | `SKILL.md` + `scripts/start.ps1` / `open.ps1` | `SKILL.md` | IDA MCP HTTP 服务管理与二进制打开辅助可用 | 🟢 战术包。修复：复制 `Tool/skill/_pending/safe-skills/ida-assistant` |
-| **S11** | **`unpack-loop`** | `~/.pi/agent/skills/unpack-loop/` | `SKILL.md` (≥1 项) | `SKILL.md` | 含「判据驱动 / 三路线 / 两次熔断」的脱壳闭环 | 🟢 **核心**。加壳目标必用。修复：重跑 `install-pi.ps1` |
+## 结果表述
 
----
+- 已通过：写明实际运行了什么、返回值和验证范围。
+- 已部署但未就绪：例如文件同步成功但宿主模型尚未登录；列出缺项及本人操作。
+- 可选项未验证：例如只检查了 IDA 或浏览器服务的配置，没有实际连接；不写成已经自动降级。
+- 失败：保留错误和已完成阶段，修复后重验。WARN、跳过和未执行保留原意。
 
-### 2. 🔌 MCP 服务引擎配置基准表 (MCP Engine - 4 大服务)
+给用户简要汇报仓库/版本、宿主/AgentRoot、已部署内容、通过的检查、未就绪项及下一步即可；表中填写本次结果，不预填 Connected 或 READY。
 
-MCP 配置文件所在位置：
-- **Pi Agent**：`~/.pi/agent/mcp.json`
-- **Claude Code**：项目根目录 `.mcp.json`
-- **DeepSeek Harness**：`cordis.generated.yml` / 用户 profile
-- **Codex / OpenCode**：项目根目录 `opencode.jsonc`
-
-| # | 服务标识 | 驱动命令 / 核心脚本 | 预期暴露出工具数 | 连通性测试命令 | 缺失/未配时的表现与降级路径 |
-|---|---|---|---|---|---|
-| **M1** | **`seep`** ⭐自研核心 | `python <SEEP_ROOT>/Tool/mcp/seep_mcp_server.py` | **40 项** | `python Tool/mcp/test_seep_mcp.py` 语法解析与测试通过 | 🔴 **阻断项**。若缺失无法调用 R2/JADX/Apktool/KB。修复：运行 `powershell setup\install.ps1` |
-| **M2** | **`ida`** 外部商业 | `<IDA_PYTHON> .../ida_pro_mcp/server.py` | ~100 项起（随 ida-pro-mcp 版本变化，以运行时 tools/list 为准） | 探测 `127.0.0.1:13337` 端口或 IDA 进程 | 🟡 **可选降级**。未装或无授权时自动降级为内置 Radare2 无头分析套件，主干链路 100% 可用。指引详见 `MANUAL/IDA-PRO.md` |
-| **M3** | **`js-reverse`** | `npx -y js-reverse-mcp` | 23 项（本包实测 v4.0.5，以运行时为准） | `npx -y js-reverse-mcp --version` | 🟡 **按需组件**。未安装 Node 时仅 Web 逆向受限，原生二进制不受影响。修复：安装 Node.js 18+ |
-| **M4** | **`playwright`** | `npx -y @playwright/mcp@latest --headless` | 以运行时 tools/list 为准（随 @playwright/mcp 版本变化） | `npx -y @playwright/mcp@latest --version` | 🟡 **按需组件**。**无需 token**（`--headless`）；首次运行需联网拉包，离线时无头浏览器受限，原生逆向不受影响。 |
-
-> **附加断言（不计入 65 项核心项）**：`python Tool/scripts/check-extension-conflicts.py` —— 校验已装 pi 扩展未与 pi 内置
-> （`replaceable`：`codemode` / `tool-search` / `mcp`）抢名。有冲突时退码 1，说明该扩展会顶掉内置并导致 `[Extension issues]`。
-> 详细背景见 `Tool/docs/MCP-SETUP.md` §三。
-
----
-
-### 3. 🧠 提示词系统、扩展与状态机基准表
-
-| # | 组件名称 | 宿主安装目标路径 | 核心校验特征与关键词 | 功用与影响 |
-|---|---|---|---|---|
-| **P1** | **`SEEP.md`** | `~/.pi/agent/SEEP.md` | 包含 `Lab Mode Protocol`、思维重定向、反退缩十项 | Pi Agent 专用系统指令 |
-| **P2** | **`AGENTS.md`** | `~/.pi/agent/AGENTS.md`<br>`Tool/prompts/contracts/AGENTS.md`（源） | 跨 Agent 通用无状态执行规范 | Codex / DSH / OpenCode 作战协议 |
-| **P3** | **`Tool/prompts/contracts/CLAUDE.md`** | 项目根 `Tool/prompts/contracts/CLAUDE.md` | 包含 Claude Code 项目级规范与自动化部署规约 | Claude Code 项目指令 |
-| **P4** | **`security-audit-interceptor.ts`** | `~/.pi/agent/extensions/` | 包含 `BLOCK_NONE` 底座注入与 `SENSITIVE_WORD_MAP` 字典 | 核心防模型拒绝与敏感词自动转译引擎 |
-| **P5** | **`lab-mode.flag`** | `~/.pi/agent/lab-mode.flag` | 输入 `lab：` 自动写入，输入 `退出实验` 自动删除 | 物理状态机标志文件（跨模型长文本持久化） |
-
----
-
-### 4. 🔧 物理内置工具箱基准表 (Native Tools in `Tool/mcp/Tool/safe/`)
-
-| # | 工具名称 | 所在相对目录 | 预期体积/构建版本 | 核心执行文件 | 验证测试命令 |
-|---|---|---|---|---|---|
-| **T1** | **`radare2`** | `Tool/mcp/Tool/safe/radare2/` | v5.9.8 全套 (~38MB；版本以 `--version` 为准) | `bin/radare2.exe`<br>`bin/rabin2.exe` | `.\Tool\mcp\Tool\safe\radare2\bin\rabin2.exe -v` |
-| **T2** | **`jadx`** | `Tool/mcp/Tool/safe/jadx/` | v1.5.6 纯净优化版 (~75MB) | `bin/jadx.bat`<br>`lib/jadx-1.5.6-all.jar` | `.\Tool\mcp\Tool\safe\jadx\bin\jadx.bat --version` |
-| **T3** | **`apktool`** | `Tool/mcp/Tool/safe/apktool/` | v2.11.0 (~24MB；版本以 `--version` 为准) | `apktool.jar`<br>`apktool.bat` | 需 Java 17 支持。运行 `apktool.bat -version` |
-| **T4** | **`hook-mcp`** | `Tool/mcp/Tool/safe/hook-mcp/` | 模板库目录 | `templates/frida/`<br>`templates/lspilot/` | 检查模板文件是否存在 |
-| **T5** | **`js-reverse-mcp`** | `Tool/mcp/Tool/safe/js-reverse-mcp/` | 需完成解压 | `node_modules/` 目录存在 | 检查目录或运行 `setup\extract-deps.ps1` |
-| **T6** | **`playwright-mcp`** | `Tool/mcp/Tool/safe/playwright-mcp/` | 需完成解压 | `node_modules/` 目录存在 | 检查目录或运行 `setup\extract-deps.ps1` |
-
----
-
-### 5. 📚 实战知识库与战术手册基准表 (KB & Manuals)
-
-| # | 模块名 | 所在相对目录 | 官方预期数量 | 作用与覆盖面 |
-|---|---|---|---|---|
-| **K1** | **战术实战笔记 (KB)**（冻结基线：新增知识走案例与配方，不再往 KB 堆文档） | `Tool/mcp/Tool/reverselab/kb/` | **≥289 篇** Markdown 文件 | `ctf-website`、`pe-reverse`、`apk-reverse`、`windows`、`general` 全量攻防笔记 |
-| **K2** | **攻击网图谱 (Boards)** | `Tool/mcp/Tool/reverselab/boards/` | 多平台拓扑文件 | 信号到战术文档的拓扑路由关系 |
-| **K3** | **脱敏实战案例库** | `Tool/cases/` | **14 个项目工程**（项目 A ~ N，含 `_archive/` 归档）+ 2 个复刻演练（site-clone01–03 / drill01） | 覆盖单进程、多进程、VM、.NET算号、RSA、Java/install4j 双层鉴权、.NET VM 混淆加固等架构 |
-| **K4** | **上游开源完整镜像** | `Tool/upstream/` | **3 大开源项目** | `apk-reverse`、`open-tgtylab`、`open-reverselab` 完整单测与镜像 |
-| **K5** | **MANUAL 专项手册** | `MANUAL/` | **15 份**（14 份手册 + 1 份索引） | 全量清单与「什么时候读」见 [`MANUAL/README.md`](README.md)；核心仍是 `DEPLOYMENT` (部署)、`DEPLOYMENT-CHECKLIST` (基准清单)、`CROSS-PLATFORM` (跨平台)、`COMPLIANCE-RELAY` (合规中继与防拒)、`ANTI-DEBUG` (反调试)、`UNPACKING` (脱壳)、`POC-VALIDATION` (PoC自愈)、`IDA-PRO` (IDA接入) |
-
----
-
-### 6. 🌐 合规转译中继基准表 (Compliance Relay · 网络层防拒)
-
-| # | 组件 | 所在相对路径 | 官方期望 | 校验方式 | 状态判定 |
-|---|---|---|---|---|---|
-| **R1** | **中继主程序** | `Tool/scripts/compliance-relay/relay.py` | 纯标准库实现，支持三协议 | `python relay.py` 可正常监听 | 🟢 **可选增强**。未使用时不影响主链路。 |
-| **R2** | **规则提取器** | `Tool/scripts/compliance-relay/extract-rules.py` | 从 TS 源单向提取 | `python extract-rules.py --check` 退出码 0 | 🟢 核心。规则表与 TS 源必须同步 |
-| **R3** | **规则表** | `Tool/scripts/compliance-relay/sensitive-rules.json` | ≥30 条规则 | 与 TS 源逐字节一致 | 🟢 生成物，禁手工编辑 |
-| **R4** | **上下文守卫白名单** | `Tool/scripts/compliance-relay/guard-prefixes.json` | 三协议各自的白名单 | 文件存在且含三个协议键 | 🟢 核心。防止污染 Agent 自身上下文 |
-| **R5** | **单元测试套件** | `Tool/scripts/compliance-relay/tests/test_relay.py` | 84 项测试 | `python -m unittest discover -s tests` 全绿 | 🟢 核心 |
-| **R6** | **本机运行配置** | `Tool/scripts/compliance-relay/relay-config.json` | 首次运行自动生成 | 文件存在（**已 gitignore，不入库**） | 🟡 运行时生成，含本机 token |
-
-> **零落盘纪律**：中继绝不写入请求体 / 响应体 / 鉴权头，日志只输出命中条数。
-> **默认关闭**：手动运行 `python relay.py`，不注册服务、不随系统启动。
-> **覆盖协议**：`openai-completions`（Pi Agent 主力）/ `anthropic-messages`（Claude Code）/ `openai-responses`（Codex）。
-
----
-
-
-### 7. 🔒 脱敏与个人隐私基准表 (Desensitization Baseline)
-
-> **硬红线**：个人隐私与运行凭据必须零残留。发布前由 `python Tool/scripts/check.py --env` 第 9 节强制门禁校验。
-
-| # | 检查项 | 官方期望 | 判定方式 | 状态判定 |
-|---|---|---|---|---|
-| **D1** | **个人绝对路径零残留** | 无 `C:\Users\<真实用户名>` 等本机路径 | 全深度递归扫描（排除第三方依赖与上游镜像） | 🔴 **阻断项**。命中即阻断发布 |
-| **D2** | **个人身份标识零残留** | 无个人昵称 / 品牌名 / 私有邮箱 | 同上 | 🔴 **阻断项** |
-| **D3** | **私有服务地址零残留** | 无个人中转站域名 / 私有服务器 IP | 同上 | 🔴 **阻断项** |
-| **D4** | **运行凭据零入库** | `relay-config.json`（含 token）、`opencode.jsonc`、`cordis.generated.yml` 均未被 git 追踪 | `git ls-files` 比对 | 🔴 **阻断项**。含本机绝对路径或访问令牌 |
-| **D5** | **真实密钥 / Salt 零残留** | 无真实产品 Salt、Token、私钥字面值 | 人工复核 + 通用形态扫描 | 🔴 **阻断项** |
-| **D6** | **目标产品名脱敏** | 叙述性提及一律泛化为「项目A ~ 项目N」或「同类商业软件」 | 关键词扫描 | 🟡 **可选**。**功能性标识符例外**：注册表路径 / API 域名 / 代码符号若删除即导致 PoC 无法复现，则经案例 README 明确声明后可保留原文 |
-
-> **功能性标识符例外说明**：部分案例（如项目N 的注册表路径与 API 域名、项目A 的代码符号）已在各自 README 中声明
-> “保留原文 / 删除后无法复现，属功能性必需”。此类例外属**有意决策**，不计入隐私泄露。
-
----
-
-### 7bis. ⚙️ 运维脚本基准表 (Ops Scripts · 两平台各 1 条 verify 项)
-
-| 脚本 | 作用 | 门禁项（python Tool/scripts/check.py --env / python Tool/scripts/check.py --env 同名） |
-|---|---|---|
-| `Tool/scripts/preflight.py` | 唯一代码门禁（编码/八层发现/路由/新脚本/可移植/悬空引用） | `preflight` 自检项（在 preflight 内自跑） |
-| `Tool/scripts/case_state.py` | 案子事实账 / 深度门 / 裁定 / `gate` / `deliver` | `案子闸可执行 (case_state.py init + gate)` |
-| `（`migrate` 已不存在：按上面的替代路径走）` | 跨版本追版引擎（AOB 对齐） | `追版引擎可执行 (patch-verify.py)` |
-| `Tool/scripts/mcp-doctor.py` | MCP 运行时验连 + 自愈 | `MCP 验连可执行 (mcp-doctor.py)` |
-| `Tool/skill/softseep/scripts/mcp-guard.py` | 上游 MCP「只增不删」闸 | `mcp-guard 只增不删闸可运行`（在 preflight） |
-
-> 换机器 clone 后，这五项任一缺失或腐坏，`verify` / `preflight` 会直接变红 —— 这是审计 D1 要求的"新脚本必须进两平台门禁"。
-
-## 三、 Agent 部署后的自检校对与格式化输出协议
-
-当 Agent（或用户运行 `python Tool/scripts/check.py --env`）完成部署后，**必须以此清单为蓝本，在对话框中输出四栏格式化校对表格**：
-
-```markdown
-### 📊 Seep 工作台部署产物与官方基准校对报告
-
-#### 1. 🛠️ 技能系统 (Skills - 示例 5 行，实际 11 项)
-| 技能名 | 目标物理路径 | 期望文件数 | 实际文件数 | 状态 | 备注/指引 |
-|---|---|---|---|---|---|
-| softseep | ~/.pi/agent/skills/softseep/ | ≥15 (含10 refs) | 15 | 🟢 READY | 总控调度器已就绪 |
-| apkseep | ~/.pi/agent/skills/apkseep/ | ≥123 (含 refs/scripts) | 123 | 🟢 READY | 安卓全链路就绪 |
-| ida-reverse | ~/.pi/agent/skills/ida-reverse/ | ≥1 | 1 | 🟢 READY | IDA 自动化联动就绪 |
-| client-license-bypass | ~/.pi/agent/skills/client-license-validation-bypass/ | ≥1 | 1 | 🟢 READY | 许可破解战术树就绪 |
-| safe-skills (5组) | ~/.pi/agent/skills/<name>/ | ≥42 | 42 | 🟢 READY | 通用战术包就绪 |
-
-#### 2. 🔌 MCP 服务引擎 (4项)
-| 服务名 | 配置文件载体 | 期望工具数 | 实际状态 | 状态判定 | 降级/处置说明 |
-|---|---|---|---|---|---|
-| seep (自研) | ~/.pi/agent/mcp.json | 20 工具 | Connected (40) | 🟢 READY | 核心二进制/安卓/知识库能力完备 |
-| ida (商业) | ~/.pi/agent/mcp.json | ~100+ 工具（随版本） | 未监听 (13337) | 🟡 DEGRADED | 已自动降级为内置 Radare2，主链路 100% 可用 |
-| js-reverse | ~/.pi/agent/mcp.json | 23 工具 | 可用 (npx) | 🟢 READY | JS 逆向引擎就绪 |
-| playwright | ~/.pi/agent/mcp.json | 以运行时为准 | 无需 Token（`--headless`） | 🟡 DEGRADED | 懒连接（lazy），首次调用前不建连；不影响二进制逆向 |
-
-#### 3. 🔧 运行时与内置工具箱 (Native Tools)
-| 工具 | 预期版本/文件 | 实际状态 | 状态 | 说明 |
-|---|---|---|---|---|
-| Radare2 | v5.9.8 (radare2.exe；以 `--version` 为准) | 物理就绪 | 🟢 READY | 二进制反编译/反汇编引擎正常 |
-| Jadx | v1.5.6 (jadx.bat) | 物理就绪 | 🟢 READY | Java 源码反编译引擎正常 |
-| Apktool | v2.11.0 (apktool.jar；以 `--version` 为准) | 物理就绪 | 🟢 READY | 资源解包与重打包正常 |
-| 攻防知识库 | ≥289 篇笔记 | 物理就绪 (412 篇) | 🟢 READY | seep_kb_* 检索后端就绪 |
-
-#### 4. 🚀 总结与开工建议
-- **系统评估**：核心组件与 11 大技能 100% 部署成功，工作台处于 **[READY / 完备就绪]** 状态；
-- **操作指令**：请退出并重启当前终端与 Agent 会话，在对话框中输入 **`lab：`** 开启白盒测试！
-```
+运行实现与回归统一使用 `python Tool/scripts/check.py --runtime --json`。检查项数量可以随实现增减；具体业务完成仍需当前项目证据。发布前敏感信息检查是 `python Tool/scripts/pre-upload-check.py`，不属于环境检查的虚构“第九节”。

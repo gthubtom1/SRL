@@ -1,0 +1,93 @@
+{
+  "schema": "seep.pwn-upstream-verify/1",
+  "purpose": "上游公开制品来源核验摘要：本文件记录 GitHub REST 与 Git HTTPS 两条独立传输路径的已解析结果。原始响应体和裸 Git 仓不随案例分发；这里只保留不可变的 blob 身份、关键响应头和原始采集摘要的 sha256。",
+  "repo": "justinsteven/dostackbufferoverflowgood",
+  "upstream_head": "f67b555a5d9da766516094bbd0c8a680e7afc248",
+  "auth": "none (public API, no token, no cookies, no credential lookup)",
+  "path_a_github_rest_blob_api": {
+    "transport": "HTTPS GET https://api.github.com/repos/justinsteven/dostackbufferoverflowgood/git/blobs/<sha>",
+    "status": 200,
+    "reason": "OK",
+    "request_url": "https://api.github.com/repos/justinsteven/dostackbufferoverflowgood/git/blobs/043b2d38b1ce46efd1bfc26b282ae627f3c59459",
+    "http_version": "HTTP/1.1",
+    "response_bytes": 18656,
+    "headers_subset": {
+      "date": "Tue, 27 Oct 2026 07:55:00 GMT",
+      "content-type": "application/json; charset=utf-8",
+      "etag": "W/\"1a274906ec2e029c01b448188e04d553ee119584b1745b5e8541b16d5b361109\"",
+      "x-github-api-version-selected": "2022-11-28",
+      "x-ratelimit-remaining": "37",
+      "transfer-encoding": "chunked"
+    },
+    "objects": {
+      "dostackbufferoverflowgood.exe": {
+        "git_blob_sha1": "043b2d38b1ce46efd1bfc26b282ae627f3c59459",
+        "api_reported_size": 13312,
+        "decoded_size": 13312,
+        "base64_canonical": true,
+        "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+        "git_sha1_matches_api": true
+      },
+      "README.md": {
+        "git_blob_sha1": "2b14a9bfd6cbc62e2cb687ff22f0279bc6deaa2d",
+        "api_reported_size": 4180,
+        "decoded_size": 4180,
+        "base64_canonical": true,
+        "sha256": "8082f94941e198bb194efc67c8874f74b883773ff198c24a6441cdd10153e4b4",
+        "git_sha1_matches_api": true
+      }
+    },
+    "readme_http_status": {
+      "status": 200,
+      "reason": "OK",
+      "request_url": "https://api.github.com/repos/justinsteven/dostackbufferoverflowgood/git/blobs/2b14a9bfd6cbc62e2cb687ff22f0279bc6deaa2d"
+    },
+    "all_verified": true
+  },
+  "path_b_git_over_https_object_transport": {
+    "transport": "git over https (smart protocol v2)",
+    "checkout": false,
+    "hooks_run": false,
+    "compile": false,
+    "target_executed": false,
+    "ls_remote_rc": 0,
+    "ls_remote_heads": [
+      "f67b555a5d9da766516094bbd0c8a680e7afc248\trefs/heads/master",
+      "dbbb211867aac6f67759115071ba2c75a21239ea\trefs/heads/python3"
+    ],
+    "clone_rc": 0,
+    "head_commit": "f67b555a5d9da766516094bbd0c8a680e7afc248",
+    "head_commit_rc": 0,
+    "objects": {
+      "dostackbufferoverflowgood.exe": {
+        "cat_file_rc": 0,
+        "byte_len_via_git_object": 13312,
+        "recomputed_git_blob_sha1": "043b2d38b1ce46efd1bfc26b282ae627f3c59459",
+        "sha1_matches_pin": true,
+        "sha256": "d298c229234aed475233b175c1f6db2667776854cc87e5a4d82eb9f216a3fe3a",
+        "byte_identical_to_api_download": true
+      },
+      "README.md": {
+        "cat_file_rc": 0,
+        "byte_len_via_git_object": 4180,
+        "recomputed_git_blob_sha1": "2b14a9bfd6cbc62e2cb687ff22f0279bc6deaa2d",
+        "sha1_matches_pin": true,
+        "sha256": "8082f94941e198bb194efc67c8874f74b883773ff198c24a6441cdd10153e4b4",
+        "byte_identical_to_api_download": true
+      }
+    },
+    "all_verified": true
+  },
+  "cross_check": "路径 A 与路径 B 取回的 exe/README 字节完全相同，且 Git blob SHA1、size、SHA256 三者与决策文档固定的 pin 一致；两条路径互不依赖（一条 REST、一条 Git 智能协议）。",
+  "non_shipped_capture_digests": {
+    "github_rest_exe_response": "031af5ed69d591869cf22aeb8f6fc2f701087fad13b9d4b688902bcd10c42bb5",
+    "github_rest_readme_response": "9911b2c9c699d7405bab0c1c6f7697d4dce261027b65de5bfc0b148277bcd952",
+    "github_rest_exe_headers": "54ada2b940b6b0a876fbd3fd93dcdc66da34ca7ed0c0989fb634b1565b84c433",
+    "github_rest_readme_headers": "ccca234bdcf9775dd7b88e2b9a5a18b7f7899bdd800947e6b8f99050e7543b3e",
+    "git_transport_log": "7666eaa362692adc4a35e4642c1a95d8e3808e6fcce9cd35fc7d4e4c3f62e55d"
+  },
+  "notes": [
+    "本摘要只记录来源可核性；不构成任何漏洞/可利用性结论。",
+    "上游制品从未被执行：本流程只做 HTTP/Git 取字节与本地哈希。"
+  ]
+}

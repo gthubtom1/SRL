@@ -1,0 +1,605 @@
+{
+  "schema": "seep.mcp-tool-dependencies/1",
+  "description": "seep MCP 20 个 @server.tool() 的真实运行依赖声明。每条都从 Tool/mcp/seep_mcp_server.py 的实现读出（不用别的工具名猜测兜底、不声明尚未实现的能力）。本文件只描述『要什么』；『本机能不能跑』与『在线握手』由 checker 明确标 not_checked。",
+  "evidence": {
+    "source_file": "Tool/mcp/seep_mcp_server.py",
+    "policy": [
+      "external_tool 的 id 必须复用 Tool/config/tool-runtimes.json#tools 或 Tool/config/tool-capabilities.json#tools 里的稳定 id",
+      "python_lib 必须在 Tool/config/tool-install.json#installable 有登记；缺登记 = registry_gap，不能当 pass",
+      "配置了 MCP server / 注册了方法 都不等于 CLI 运行依赖满足（本文件不参与该判定）",
+      "只声明实现里真的调用到的依赖；函数存在但未被调用的能力（如 _ghidra_decompile）不声明",
+      "source.line 只是可推导定位（checker 按 AST def 行重定位）；真理 = 函数名 + 文件 + 实现（含已审 helper 链）里真实使用该依赖"
+    ],
+    "not_verified": [
+      "local_availability: 本机可执行性 —— 静态检查不证明能执行，--probe 也只做只读发现（found != verified）",
+      "online_handshake: 离线不启动 MCP，握手一律 not_checked"
+    ],
+    "evidence_via": "当依赖的使用点在已审 helper 链里时，requires 项可用 evidence_via{helper,module,symbol} 声明跳转；module 只允许白名单（Tool/mcp/seep_contract.py、Tool/mcp/tool_autodiscover.py、Tool/mcp/seep_apk_contract.py），symbol 必须在 module 的 AST 字面量里真实出现，helper 必须被实现以同一 import 绑定真实调用。内置模块与外部程序会继续核对 helper 自身有界调用链中的实际引用/执行，不做全文件字符串 contains 自证。"
+  },
+  "dependency_kinds": {
+    "builtin_module": "Python 标准库模块：只需要解释器，无需外部 CLI",
+    "python_lib": "第三方 Python 包：必须在本文件声明，并在 tool-install.json#installable 登记",
+    "external_tool": "外部可执行工具：id 必须命中 tool-runtimes/tool-capabilities 的稳定 id，否则 registry_gap",
+    "repo_asset": "仓库内文件（jar / 启动脚本等），实现按绝对路径直接调用",
+    "repo_dir": "仓库内目录（知识库根 / 案例库根）",
+    "repo_module": "仓库内 Python 模块，实现用 importlib 按路径加载",
+    "os_cli": "操作系统自带命令：必须登记在 os_cli_allowlist，未登记的 os_cli 直接 fail-closed"
+  },
+  "os_cli_allowlist": {
+    "tasklist": "Windows 进程表；_resolve_pid 在参数是进程名/镜像路径时调用",
+    "ps": "POSIX 进程表；_resolve_pid 同上"
+  },
+  "tools": {
+    "seep_r2_info": {
+      "source": {
+        "function": "seep_r2_info",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 406
+      },
+      "evidence": "AST: 调用 _run_cmd([RABIN2_EXE, '-I', target])；RABIN2_EXE 由模块级 _resolve_binary('rabin2') 决定（内置副本优先，PATH 兜底）",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "rabin2"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "rabin2 在 tool-runtimes/tool-capabilities 里都没有条目（r2 条目只覆盖 radare2/r2.exe），不许用 r2 名字兜底"
+      ]
+    },
+    "seep_r2_cmd": {
+      "source": {
+        "function": "seep_r2_cmd",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 441
+      },
+      "evidence": "AST: 调用 _run_cmd([R2_EXE, '-q', '-e', 'scr.color=0', '-c', full_cmd, target])；写命令语法由 seep_contract.r2_readonly_command_check 拒绝，不构成对目标文件的写依赖",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "r2"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "写命令在 M:366 _r2_write_tokens 处被拒，不构成对目标文件的写依赖"
+      ]
+    },
+    "seep_r2_strings": {
+      "source": {
+        "function": "seep_r2_strings",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 482
+      },
+      "evidence": "AST: 调用 _run_capture([RABIN2_EXE, '-z'|'-zz', target])，由已审 _run_capture helper 执行 subprocess.run",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "rabin2"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "同 seep_r2_info：rabin2 无独立注册条目"
+      ]
+    },
+    "seep_r2_disasm": {
+      "source": {
+        "function": "seep_r2_disasm",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 547
+      },
+      "evidence": "AST: 三条 r2 分支都调用 _run_cmd([R2_EXE, '-q', ..., target])",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "r2"
+          }
+        ],
+        "any_of": []
+      }
+    },
+    "seep_r2_decompile": {
+      "source": {
+        "function": "seep_r2_decompile",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 644
+      },
+      "evidence": "AST: 调用 _run_cmd([R2_EXE, '-q', ..., '-c', 'aaa; pdc @ <target>', target])",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "r2"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "M:1977 _ghidra_decompile 只有定义、无调用点，因此不声明 ghidra/ida：声明未接线的能力等于对未来能力胡写",
+        "engine-tiers/ida/ghidra 属降级链配置，不是本工具当前的真实运行依赖"
+      ]
+    },
+    "seep_apk_info": {
+      "source": {
+        "function": "seep_apk_info",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 724
+      },
+      "evidence": "AST: zipfile.ZipFile + re.findall 解析 AndroidManifest；docstring 明确「免 Java 环境」",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "builtin_module",
+            "id": "zipfile",
+            "evidence_via": {
+              "helper": "_inspect_apk",
+              "module": "Tool/mcp/seep_apk_contract.py",
+              "symbol": "zipfile"
+            }
+          },
+          {
+            "kind": "builtin_module",
+            "id": "re",
+            "evidence_via": {
+              "helper": "_inspect_apk",
+              "module": "Tool/mcp/seep_apk_contract.py",
+              "symbol": "re"
+            }
+          },
+          {
+            "kind": "builtin_module",
+            "id": "json"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "纯 builtin：不需要 java/jadx/apktool 任何一个"
+      ]
+    },
+    "seep_apk_decompile": {
+      "source": {
+        "function": "seep_apk_decompile",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 743
+      },
+      "evidence": "AST: _find_java() 为 None 直接报错；cmd=[JADX_BAT,'-d',out]（JADX_BAT 由模块级 _resolve_jadx() 指向内置 Tool/mcp/Tool/safe/jadx/bin/jadx.bat）；_run_cmd(cmd)",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "jadx",
+            "evidence_via": {
+              "helper": "_run_jadx",
+              "module": "Tool/mcp/seep_apk_contract.py",
+              "symbol": "jadx"
+            }
+          },
+          {
+            "kind": "repo_asset",
+            "path": "Tool/mcp/Tool/safe/jadx/bin/jadx.bat"
+          },
+          {
+            "kind": "external_tool",
+            "id": "java"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "java 在 tool-runtimes/tool-capabilities 里都没有条目（JADX 的 verify 只跑 jadx --version）；缺 Java 时 jadx 起不来，必须显式登记"
+      ]
+    },
+    "seep_apk_unpack": {
+      "source": {
+        "function": "seep_apk_unpack",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 782
+      },
+      "evidence": "AST: _find_java()；_run_capture([java_path, '-jar', APKTOOL_JAR, 'd', '-f', ...])；APKTOOL_JAR 由模块级常量指向内置 apktool.jar",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_asset",
+            "path": "Tool/mcp/Tool/safe/apktool/apktool.jar"
+          },
+          {
+            "kind": "external_tool",
+            "id": "java"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "实现走 java -jar apktool.jar，不调 apktool 命令；因此只依赖内置 jar 与本机 java"
+      ]
+    },
+    "seep_apk_smali_search": {
+      "source": {
+        "function": "seep_apk_smali_search",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 882
+      },
+      "evidence": "AST: re.compile + os.walk 读 smali/java/xml 文本；无子进程",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "builtin_module",
+            "id": "re"
+          },
+          {
+            "kind": "builtin_module",
+            "id": "os"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "纯 builtin：作用于已解包的目录，不依赖 jadx/apktool"
+      ]
+    },
+    "seep_kb_search": {
+      "source": {
+        "function": "seep_kb_search",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 966
+      },
+      "evidence": "AST: glob.glob(search_root/**/*.md)；KB_LOCAL_DIR 覆盖层；别名表经 _kb_load_synonyms()（seep_contract.kb_load_synonyms，字面量 'kb-synonyms.json'）加载；无子进程",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "builtin_module",
+            "id": "glob"
+          },
+          {
+            "kind": "builtin_module",
+            "id": "re"
+          },
+          {
+            "kind": "repo_dir",
+            "path": "Tool/mcp/Tool/reverselab/kb"
+          },
+          {
+            "kind": "repo_asset",
+            "path": "Tool/config/kb-synonyms.json",
+            "evidence_via": {
+              "helper": "_kb_load_synonyms",
+              "module": "Tool/mcp/seep_contract.py",
+              "symbol": "kb-synonyms.json"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "optional": [
+        {
+          "kind": "repo_dir",
+          "path": "Tool/mcp/kb_local",
+          "why": "本地覆盖层，缺失时只少一层召回"
+        }
+      ]
+    },
+    "seep_kb_read": {
+      "source": {
+        "function": "seep_kb_read",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 1272
+      },
+      "evidence": "AST: 目标路径拼 KB_DIR / KB_LOCAL_DIR；_kb_article_paths() 扫 KB；_kb_search_paths() → seep_kb_search → _kb_load_synonyms()（'kb-synonyms.json'）；读取文件正文",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_dir",
+            "path": "Tool/mcp/Tool/reverselab/kb"
+          },
+          {
+            "kind": "repo_asset",
+            "path": "Tool/config/kb-synonyms.json",
+            "evidence_via": {
+              "helper": "_kb_load_synonyms",
+              "module": "Tool/mcp/seep_contract.py",
+              "symbol": "kb-synonyms.json"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "optional": [
+        {
+          "kind": "repo_dir",
+          "path": "Tool/mcp/kb_local",
+          "why": "kb_local/ 前缀的文章走本地覆盖层"
+        }
+      ]
+    },
+    "seep_auto_triage": {
+      "source": {
+        "function": "seep_auto_triage",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 1676
+      },
+      "evidence": "AST: os.path.exists(RABIN2_EXE) 后 _run_cmd([RABIN2_EXE, '-Ij'|'-zj', target])；_attached_for → _case_for → _domain_for → _route_module() 按 Tool/scripts/route.py 加载；_case_state_module() 按 Tool/scripts/case_state.py 加载；_hash_file 用 hashlib",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "rabin2"
+          },
+          {
+            "kind": "builtin_module",
+            "id": "hashlib"
+          },
+          {
+            "kind": "repo_module",
+            "path": "Tool/scripts/case_state.py"
+          },
+          {
+            "kind": "repo_module",
+            "path": "Tool/scripts/route.py",
+            "evidence_via": {
+              "helper": "_route_module",
+              "module": "Tool/scripts/route.py",
+              "symbol": "route.py"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "optional": [
+        {
+          "kind": "repo_asset",
+          "path": "Tool/config/user-inputs.json",
+          "why": "M:1366-1378 _needs_table 读 Tool/config/user-inputs.json；缺失时退化为空表"
+        }
+      ],
+      "notes": [
+        "rabin2 缺失时本工具会走 no_evidence 拒答分支——那不是依赖满足，是能力降级"
+      ]
+    },
+    "seep_gen_security_report": {
+      "source": {
+        "function": "seep_gen_security_report",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 1811
+      },
+      "evidence": "AST: 调用 seep_contract 成员 missing_report_fields / _strong_claim_ids / build_report_md（`from seep_contract import`，模块文件即 Tool/mcp/seep_contract.py）；datetime.datetime.now().astimezone() 生成本地时间戳",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_module",
+            "path": "Tool/mcp/seep_contract.py",
+            "evidence_via": {
+              "helper": "build_report_md",
+              "module": "Tool/mcp/seep_contract.py",
+              "symbol": "seep_contract.py"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "optional": [
+        {
+          "kind": "repo_dir",
+          "path": "Tool/cases",
+          "why": "case_dir 参数缺省时用案例库定位 facts.jsonl"
+        }
+      ]
+    },
+    "seep_ensure_tool": {
+      "source": {
+        "function": "seep_ensure_tool",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 2112
+      },
+      "evidence": "AST: _autodiscover()（Tool/mcp/tool_autodiscover.py）→ discover/install_plan/propose_install；安装白名单在插件里读 Tool/config/tool-install.json",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_module",
+            "path": "Tool/mcp/tool_autodiscover.py"
+          },
+          {
+            "kind": "repo_asset",
+            "path": "Tool/config/tool-install.json",
+            "evidence_via": {
+              "helper": "_autodiscover",
+              "module": "Tool/mcp/tool_autodiscover.py",
+              "symbol": "tool-install.json"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "allow_install=True 时 propose_install 会真的下载安装（联网+写本机）；静态契约只判声明与注册，不判网络",
+        "tool-effects.json 里本工具 touches_network=false，与本注释不一致 —— 属 effects 归属，本轮不改"
+      ]
+    },
+    "seep_mem_strings": {
+      "source": {
+        "function": "seep_mem_strings",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 2361
+      },
+      "evidence": "AST: import ctypes + ctypes.WinDLL 做 ReadProcessMemory；进程表命令在模块级 _resolve_pid（参数非数字时跑 tasklist(win32)/ps(POSIX)），经 _pid_alias 装饰器接到本工具入口",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "builtin_module",
+            "id": "ctypes"
+          }
+        ],
+        "any_of": [
+          {
+            "kind": "os_cli",
+            "id": "tasklist"
+          },
+          {
+            "kind": "os_cli",
+            "id": "ps"
+          }
+        ]
+      },
+      "platforms": [
+        "win32"
+      ],
+      "notes": [
+        "M:2096 非 win32 直接返回错误；进程表命令只在传进程名时用到，所以放在 any_of（平台二选一）"
+      ]
+    },
+    "seep_pcap_extract": {
+      "source": {
+        "function": "seep_pcap_extract",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 2491
+      },
+      "evidence": "AST: shutil.which('tshark') 与候选路径扫描（tshark.exe/tshark.EXE）；subprocess.run([tshark, '-n', '-r', bound_path] + 固定 '-Y/-T/-e' 参数, capture_output=True, timeout=120) —— 每条调用都固定 -n（禁名称解析）与绑定后的绝对路径；rc/stdout/stderr 由 seep_contract.pcap_execution 分开记录，状态由 pcap_status 推导（不走 stderr 拼接）",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "external_tool",
+            "id": "tshark"
+          },
+          {
+            "kind": "builtin_module",
+            "id": "subprocess"
+          },
+          {
+            "kind": "repo_module",
+            "path": "Tool/mcp/seep_contract.py",
+            "evidence_via": {
+              "helper": "_pcap_params",
+              "module": "Tool/mcp/seep_contract.py",
+              "symbol": "seep_contract.py"
+            }
+          }
+        ],
+        "any_of": []
+      }
+    },
+    "seep_packer_detect": {
+      "source": {
+        "function": "seep_packer_detect",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 2661
+      },
+      "evidence": "AST: import pefile 解析节表/数据目录；_read_pe_imports 用 pefile 读导入表（失败返回 None 而非空表）",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "python_lib",
+            "id": "pefile"
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "pefile 未安装时 status=unknown + 明确 fix，不是『没壳』"
+      ]
+    },
+    "seep_http_replay": {
+      "source": {
+        "function": "seep_http_replay",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 2901
+      },
+      "evidence": "AST: from curl_cffi import requests；降级路径 import requests as req；两者都没有则返回 [ERROR]",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "builtin_module",
+            "id": "json"
+          }
+        ],
+        "any_of": [
+          {
+            "kind": "python_lib",
+            "id": "curl_cffi"
+          },
+          {
+            "kind": "python_lib",
+            "id": "requests"
+          }
+        ]
+      },
+      "notes": [
+        "requests 降级路径在 tool-install.json#installable 未登记 —— 保留为 any_of 备选并如实报 not_checked，不算注册通过"
+      ]
+    },
+    "seep_tool_discover": {
+      "source": {
+        "function": "seep_tool_discover",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 3129
+      },
+      "evidence": "AST: _autodiscover()（Tool/mcp/tool_autodiscover.py）→ tad.discover / tad.record；插件在 tool_autodiscover._CAP_FILE 读 Tool/config/tool-capabilities.json",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_module",
+            "path": "Tool/mcp/tool_autodiscover.py"
+          },
+          {
+            "kind": "repo_asset",
+            "path": "Tool/config/tool-capabilities.json",
+            "evidence_via": {
+              "helper": "_autodiscover",
+              "module": "Tool/mcp/tool_autodiscover.py",
+              "symbol": "tool-capabilities.json"
+            }
+          }
+        ],
+        "any_of": []
+      }
+    },
+    "seep_case_read": {
+      "source": {
+        "function": "seep_case_read",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 3163
+      },
+      "evidence": "AST: 从 Tool/mcp/seep_case_library.py 导入并调用 _read_case；该 helper 扫 Tool/cases/*/case.json，解析 json，并读取 facts.jsonl / README",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_module",
+            "path": "Tool/mcp/seep_case_library.py",
+            "evidence_via": {
+              "helper": "_read_case",
+              "module": "Tool/mcp/seep_case_library.py",
+              "symbol": "seep_case_library.py"
+            }
+          },
+          {
+            "kind": "repo_dir",
+            "path": "Tool/cases",
+            "evidence_via": {
+              "helper": "_read_case",
+              "module": "Tool/mcp/seep_case_library.py",
+              "symbol": "cases"
+            }
+          },
+          {
+            "kind": "builtin_module",
+            "id": "json",
+            "evidence_via": {
+              "helper": "_read_case",
+              "module": "Tool/mcp/seep_case_library.py",
+              "symbol": "json"
+            }
+          }
+        ],
+        "any_of": []
+      }
+    }
+  }
+}

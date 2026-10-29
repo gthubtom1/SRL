@@ -2,7 +2,7 @@
 name: protocol-plugin
 description: "逆向这个协议/这个封包怎么构造/私有协议/私有加密/重放请求/写个插件或 Mod/模拟客户端登录。要求同输入同输出、能构造服务端接受的新请求、状态机可闭环。 (.pcap/.pcapng/.proto/封包/二进制报文)"
 license: MIT
-compatibility: Windows 10/11、Linux、macOS；依赖可选的 tshark / mitmproxy / scapy；缺失时用标准库 pcap 解析与原始 socket 重放降级。
+compatibility: Windows 10/11、Linux、macOS；tshark 等工具按需发现；标准库脚本支持离线抓包解析和帧构造，通用 socket 重放按当前目标选择工具并在获得授权后执行。
 metadata:
   version: "2.0.0"
   category: protocol-plugin
@@ -16,9 +16,9 @@ metadata:
 > 先取证再推断；每个结论必须能回放到某条包、某个字段、某次运行。**不猜密钥，不猜字段，不猜状态。**
 
 ## 阶段契约（与 softseep 一致，**先判再做**）
-> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→必问三件）。本文件不复制。
-  **停下来给 A/B/C 卡**，写明：几步、我在监控什么、我保证不动什么、我拿到什么。
-- 空目录/首次开工由 **Agent 自己** `case_state.py init`，不要求用户敲命令。
+> **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
+- 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
+- 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
 ## 0. 范围与路由（边界）
 
@@ -33,14 +33,16 @@ metadata:
 
 | 目标 | 由谁承担 |
 |---|---|
-| 插件 / 浏览器扩展 / IDE 插件 / Electron asar / 游戏 Mod 的包型、入口、权限面、加载链 | **`plugin-targets`（R25）** |
-| 网页前端 JS 签名、补环境、浏览器调试 | `mcp-js-reverse-playbook` |
-| 纯 PE/ELF 壳、反调试、算法还原 | `unpack-loop` / `softseep` / `ida-reverse` |
+| 插件 / 浏览器扩展 / IDE 插件 / Electron asar / 游戏 Mod 的包型、入口、权限面、加载链 | 本域按 `Tool/playbooks/plugin-analysis.md` 分析；原生载荷按需组合 `softseep` |
+| 网页前端 JS 签名、补环境、浏览器调试 | `softseep`，按 `Tool/playbooks/web-api-sign-reverse.md` 加载方法 |
+| HTTP API 安全验证、请求与响应对照 | `web-pentest`；抓包字节和协议边界交本域，证据归同一项目 |
+| 纯 PE/ELF 壳、反调试、算法还原 | `unpack-loop` / `softseep` |
 | 固件提取与仿真（拿到字节后再回来） | `firmware-iot` |
 | 恶意样本家族判定与 C2 归因 | `malware-analysis` |
 
-> **插件类目标转 plugin-targets（R25）**：本域只接收插件里的**协议字节**，不重复其包型/入口/
-> 权限面方法。需要同时碰两者时，先由 plugin-targets 定位插件入口与载荷，再把协议部分交回本域。
+> 插件类目标先按插件分析配方定位包型、入口、权限面与载荷，再按需组合本域的协议方法；
+> 涉及原生二进制时组合 `softseep`，证据仍归同一项目。插件包初筛、解包、入口/权限/
+> 数据流证据与最小可改单元由本域已经部署的 `plugin-triage.py` / `plugin-repro.py` 产出。
 
 ## 配方（照这个跑）
 
@@ -66,14 +68,18 @@ metadata:
 ## 1. 前置检查（3 件）
 
 1. **授权与范围**：目标端点、账号、允许的动作（只读/重放/构造）、速率上限。
-2. **观测能力**：抓包点（网卡/回环/代理/容器 veth）、是否 TLS、能否设 `SSLKEYLOGFILE`。
-3. **工具**：`tshark -v`、`python --version`；缺 tshark 时确认 `pcap-summary.py --self-test` 可跑（纯标准库）。
+2. **观测能力**：抓包点（网卡/回环/代理/容器 veth）、是否 TLS、能否用不含真实凭据的测试会话取证；不自动导出真实会话密钥或 Cookie/Token，无法安全取明文时保留该限制。
+3. **工具**：`python --version`；按需运行 `python Tool/scripts/tool-acquire.py --tool tshark --json` 发现及复验工具。缺失时按其获取提示接入并重探；仅做受支持的离线解析可用标准库脚本降级，不能把降级当完整 TCP 重组。
+本域脚本只从当前进程的 `PATH` 查找 tshark；若获取工具已发现但脚本仍报缺失，先把已验证的可执行文件所在目录加入该进程的 `PATH`，再重跑目标命令。
 
 ```bash
 tshark -v | head -1
 python Tool/skill/protocol-plugin/scripts/pcap-summary.py --self-test
 python Tool/skill/protocol-plugin/scripts/proto-repro.py --self-test
 python Tool/skill/protocol-plugin/scripts/proto-accept.py --self-test
+python Tool/skill/protocol-plugin/scripts/plugin-triage.py --self-test
+python Tool/skill/protocol-plugin/scripts/plugin-repro.py --self-test
+python Tool/skill/protocol-plugin/scripts/plugin-accept.py --self-test
 ```
 
 三条纪律：**抓包先于推断**、**重放先于重写**、**两次失败即换观测层**。
@@ -131,7 +137,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --self-test
 ### 阶段 A：取证与分诊
 
 ```bash
-# A1 会话 + 方向性字节流 + 明文片段（无需 tshark）
+# A1 会话 + 方向性包载荷 + 明文片段（无需 tshark）
 python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
   --file capture.pcapng --json --extract artifacts/streams --tshark-check
 
@@ -140,14 +146,13 @@ tshark -r capture.pcapng -q -z io,phs
 tshark -r capture.pcapng -q -z conv,tcp
 ```
 
-**完成判据**：能写出"主协议层 / 会话数 / 每方向字节数 / 是否 TLS / 抓包点"；
-`conv,tcp` 帧数之和等于 `io,phs` 的 frame 数；`--extract` 产出 `s*.bin` + `frames.jsonl`。
+**完成判据**：能写出已观察到的协议层 / 方向性五元组 / 每方向字节数 / TLS 与抓包点的已知情况；`--extract` 产出 `s*.bin` + `frames.jsonl`。五元组可能跨连接复用；按抓包顺序拼接且不去重、不重排，不能替代单向 TCP 流重组。`conv,tcp` 只计 TCP，不能要求其总数等于包含其他协议的全部帧数。
 
 ### 阶段 B：分帧与字段
 
 ```bash
 # B1 用内置 SPRX 字段表解析；其他协议先 --emit-schema 改表
-python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/streams/s00_*.bin --json
+python Tool/skill/protocol-plugin/scripts/proto-repro.py --input <单方向实际文件路径> --json
 ```
 
 判定顺序：定界符 → 长度前缀 → 固定头+type 定长 → TLV。每层 ≥3 帧验证，
@@ -167,14 +172,14 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py --input artifacts/strea
 **完成判据**：给定新消息序列能预测下一合法状态；非法迁移有实际拒绝证据。
 
 详见 `references/06-app-state-machine.md`。
+`--state-model` 只统计输入中声称的帧号与负例，既不验证帧号，也不判断迁移语义；即使附带 `--file` 也不能单独证明状态机成立。
 
 ### 阶段 D：重放与构造（T1 → T2 → T3）
 
 ```bash
-# T2 单变量构造：长度与校验由构造器重算
+# 构造一个新载荷：长度与校验由构造器重算，再与基线对照
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \
   --input artifacts/frames.bin --rebuild --frame-index 2 \
-  --set type=4 --set seq=4 \
   --payload-text '{"temp":22.0,"status":"ok"}' \
   --out artifacts/new-frame.bin --json
 ```
@@ -185,7 +190,7 @@ python Tool/skill/protocol-plugin/scripts/proto-repro.py \
 | T2 单变量构造 | 响应符合预测，重复 3 次稳定；`rebuild.verify.crc_ok=true` |
 | T3 状态闭链 | 握手→认证→业务→关闭全程自动，错误帧被正确处理 |
 
-**完成判据**：至少 T2；能写清"预测项 vs 实际"的逐项 diff。详见 `references/08-replay-and-new-request.md`。
+**构造新请求任务的完成判据**：至少 T2；能写清"预测项 vs 实际"的逐项 diff。仅分帧/字段分析按其静态证据验收，不冒称已复刻或强制重放。详见 `references/08-replay-and-new-request.md`。
 
 ### 阶段 E：验收与交付
 
@@ -194,7 +199,7 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --json
 python Tool/scripts/domain-gate.py --domain protocol-plugin
 ```
 
-**完成判据**：`proto-accept.py` 全 PASS（案例 sha256/字段/`lessons` 的 rc）；本域门禁全绿。
+**完成判据**：当前项目的实际证据满足用户目标，能逐项回指并复验；`proto-accept.py` 仅检查案例元数据、文件哈希与记录格式，其 PASS 不证明命令真实运行、服务端接受或协议复刻。本域门禁/示例案例结果仅作辅助检查。
 交付物：`capture.pcapng`、`frames.jsonl`、`schema.json`、`run.json`（cmd/rc/stdout）、
 `responses/`、`diff.md`、卡点清单。
 
@@ -211,10 +216,10 @@ python Tool/scripts/domain-gate.py --domain protocol-plugin
 | `references/07-crypto-and-checksum.md` | 加密段与校验：压缩/编码/加密区分、CRC 参数、取明文 | 熵高/校验对不上 |
 | `references/08-replay-and-new-request.md` | 重放与新请求构造：T1/T2/T3、单变量矩阵、差异归因 | 要证明"能构造" |
 
-## 7. 脚本用法（3 个脚本 + 1 个兼容入口）
+## 7. 脚本用法（6 个脚本）
 
 ```bash
-# 1) pcap-summary.py：会话聚合 / 方向性字节流导出 / 明文片段（纯标准库，可无 tshark）
+# 1) pcap-summary.py：会话聚合 / 方向性包载荷导出 / 明文片段（纯标准库，可无 tshark）
 python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
   --file capture.pcapng --json --extract artifacts/streams --tshark-check
 
@@ -222,12 +227,23 @@ python Tool/skill/protocol-plugin/scripts/pcap-summary.py \
 python Tool/skill/protocol-plugin/scripts/proto-repro.py \
   --input artifacts/frames.bin --rebuild --frame-index 0 --set seq=9 \
   --payload-text '{"k":1}' --out artifacts/new.bin --json
-#    从 pcap 取某条流：--pcap capture.pcapng --stream 3（缺 tshark 时 blocked_at=tool-missing）
+#    从 pcap 取某条流：--pcap capture.pcapng --stream 3 --direction forward（缺 tshark 时 blocked_at=tool-missing）
 #    导出/复用字段表：--emit-schema artifacts/schema.json
 
 # 3) proto-accept.py：本域案例判据复算 + 路由词边界自检
 python Tool/skill/protocol-plugin/scripts/proto-accept.py --json
 python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
+
+# 4) plugin-triage.py：容器/入口/权限面/可疑 API/远程 URL 初筛
+python Tool/skill/protocol-plugin/scripts/plugin-triage.py \
+  --path extension.crx --json
+
+# 5) plugin-repro.py：只读解包 + 权限/数据流证据 + 最小可改单元
+python Tool/skill/protocol-plugin/scripts/plugin-repro.py \
+  --path extension.crx --out work/plugin-repro --json
+
+# 6) plugin-accept.py：plugin02..plugin06 的字段、哈希与权限代码证据复算
+python Tool/skill/protocol-plugin/scripts/plugin-accept.py --root . --json
 ```
 
 | 脚本 | 输入 | 输出 | 退出码 |
@@ -235,9 +251,14 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 | `pcap-summary.py` | pcap/pcapng | 会话 JSON / `s*.bin` / `frames.jsonl` | 0 成功或降级；2 解析失败 |
 | `proto-repro.py` | 帧文件 / pcap(tshark) / schema | 帧表、校验结论、重建字节 | 0 成功；2 失败（`blocked_at`） |
 | `proto-accept.py` | 案例目录 / 路由片段 | 判据复算结果 | 0 全过；2 有 FAIL |
+| `plugin-triage.py` | CRX/VSIX/ASAR/ZIP/目录 | 入口、权限面、可疑 API、远程 URL | 0 成功；2 容器错误 |
+| `plugin-repro.py` | 插件包或解压目录 | 解包、权限/数据流证据、最小可改单元 | 0 成功；2 容器/解析错误 |
+| `plugin-accept.py` | `Tool/cases/plugin*` | 字段、哈希、recorded 与权限证据 | 0 全过；2 有 FAIL |
 
-三个脚本都支持 `--self-test`（离线、rc=0、输出含 `"ok"`）与 `--help`（rc=0）。
-兼容入口：``Tool/skill/protocol-plugin/scripts/pcap-summary.py`` 转发到 skill 版（Windows 上可能丢子进程退出码，以 skill 版为准）。
+六个脚本都支持 `--self-test`（离线、rc=0、输出含 `"ok"`）与 `--help`（rc=0）。
+`--pcap` 必须指定 `--stream` 和 `--direction`：forward 是 SYN 发起方到对端，reverse 是反向。脚本按 TCP 序号重组、核对重叠和缺口，要求捕获唯一的起始 SYN、对端 SYN/ACK 和所选方向的 FIN；捕获不足、冲突、RST 或超过上限时结构化失败，不进入分帧。捕获区间完整也不证明对端收到数据或服务端接受；需其他重组方法时独立核实后用 `--input`。
+
+HTTP 交接可使用已连接的 MCP `seep_pcap_extract(pcap_path, mode="http")` 获取请求候选；缺 tshark 时按返回提示获取并复验。授权范围内的 `seep_http_replay(url, method, headers, cookies, body)` 发出 HTTP 请求，将真实响应和预测交给 `web-pentest` 复核；它不是 WebSocket 或任意二进制流重放器，HTTP 状态码本身也不等于业务接受。
 
 ## 8. 任务卡与 KB 入口
 
@@ -247,11 +268,12 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
   —— 逐篇索引 7 篇 technique，含 `failure-criteria.md`。
 - 矩阵（13 个协议族，含 match/criteria/fail/pitfalls）：`Tool/config/protocol-plugin-matrix.json`。
 - 路由片段：`Tool/skill/protocol-plugin/pack.json`
-  —— `keywords` 与 SSOT 逐字一致（保证可合入）；词边界收紧版在 `boundary_policy`
-  （含 `forbid`: spider/bios/principal/zipalign/scaffold），由 `proto-accept.py --routing-check`
-  机检；合入 SSOT 由协调器跑 `route.py --write`（本域不直接改 pack.json）。
-- 案例：`Tool/cases/protocol01`（HTTP 夹具）、`protocol02`（SPRX 夹具）、
-  `protocol03`（真实 ws pcap）、`protocol04`（现场回环抓包）。
+  —— `routes` 声明本域匹配；`proto-accept.py --routing-check` 用脚本内置样例检查协议规则的部分边界，不等于实际路由全量验证。
+- 案例：协议案例 `Tool/cases/protocol01`（HTTP 夹具）、`protocol02`（SPRX 夹具）、
+  `protocol03`（真实 ws pcap）、`protocol04`（现场回环抓包）、`protocol05`（RADIUS 夹具）；
+  插件案例 `Tool/cases/plugin02` 至 `plugin06` 按 `Tool/playbooks/plugin-analysis.md` 定位包型、
+  入口、权限面和加载链，字节/状态机证据再回到本域。所有案例都是夹具或受控回放，
+  不能替代当前目标的服务端互操作与宿主版本验证。
 
 ## 9. 交付格式（建议）
 
@@ -268,8 +290,8 @@ python Tool/skill/protocol-plugin/scripts/proto-accept.py --routing-check
 
 **最后一条**：报告里每个"已确认"都要能指回证据；指不回去的，写"推断"，不要写成结论。
 
-## 子技能（按需读，不常驻）
+## 跨域组合（按需加载，不常驻）
 
-本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
-
-- `_pending/plugin-targets/SKILL.md` —— 目标是浏览器扩展/IDE 插件/Mod
+- 浏览器扩展、IDE 插件、Electron asar 或游戏 Mod：使用 `Tool/playbooks/plugin-analysis.md` 定位包型、入口、权限面和加载链；原生载荷组合 `softseep`。
+- 前端签名、补环境或本地算法：组合 `softseep` 与 `Tool/playbooks/web-api-sign-reverse.md`。
+- HTTP/API 授权与响应差异：组合 `web-pentest`；抓包字节、分帧和状态机证据归本域。

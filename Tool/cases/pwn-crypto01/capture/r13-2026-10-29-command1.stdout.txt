@@ -1,0 +1,228 @@
+{
+  "file": "D:\\Seep-Reverse-Lab\\Tool\\cases\\项目A\\v2\\dist\\version.dll",
+  "size": 257024,
+  "sha256": "cc428f85e55ef12d53302696c6f76d74aa364e0d3214da3a0b36bdb128cb8391",
+  "kind": "PE",
+  "arch": "x86_64",
+  "bits": 64,
+  "entry": "0x1330",
+  "protections": {
+    "NX": "Enabled",
+    "PIE": "Enabled (DYNAMIC_BASE/ASLR)",
+    "Canary": "Not found",
+    "RELRO": "N/A (PE 无 ELF RELRO)"
+  },
+  "sections": [
+    {
+      "name": ".text",
+      "va": "0x1000",
+      "vsize": 203952,
+      "rawsize": 204288,
+      "writable": false,
+      "executable": true
+    },
+    {
+      "name": ".data",
+      "va": "0x33000",
+      "vsize": 2384,
+      "rawsize": 2560,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".rdata",
+      "va": "0x34000",
+      "vsize": 28664,
+      "rawsize": 28672,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".pdata",
+      "va": "0x3b000",
+      "vsize": 4584,
+      "rawsize": 4608,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".xdata",
+      "va": "0x3d000",
+      "vsize": 9364,
+      "rawsize": 9728,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".bss",
+      "va": "0x40000",
+      "vsize": 384,
+      "rawsize": 0,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".edata",
+      "va": "0x41000",
+      "vsize": 573,
+      "rawsize": 1024,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".idata",
+      "va": "0x42000",
+      "vsize": 3288,
+      "rawsize": 3584,
+      "writable": false,
+      "executable": false
+    },
+    {
+      "name": ".tls",
+      "va": "0x43000",
+      "vsize": 16,
+      "rawsize": 512,
+      "writable": true,
+      "executable": false
+    },
+    {
+      "name": ".reloc",
+      "va": "0x44000",
+      "vsize": 632,
+      "rawsize": 1024,
+      "writable": false,
+      "executable": false
+    }
+  ],
+  "import_count": 85,
+  "dangerous_imports": [
+    {
+      "library": "kernel32.dll",
+      "symbol": "VirtualProtect",
+      "category": "内存权限",
+      "severity": "中"
+    },
+    {
+      "library": "msvcrt.dll",
+      "symbol": "calloc",
+      "category": "堆",
+      "severity": "中"
+    },
+    {
+      "library": "msvcrt.dll",
+      "symbol": "free",
+      "category": "堆",
+      "severity": "中"
+    },
+    {
+      "library": "msvcrt.dll",
+      "symbol": "realloc",
+      "category": "堆",
+      "severity": "中"
+    },
+    {
+      "library": "msvcrt.dll",
+      "symbol": "vfprintf",
+      "category": "格式化字符串",
+      "severity": "中"
+    },
+    {
+      "library": "ntdll.dll",
+      "symbol": "memcpy",
+      "category": "越界写",
+      "severity": "中"
+    },
+    {
+      "library": "ntdll.dll",
+      "symbol": "memmove",
+      "category": "越界写",
+      "severity": "中"
+    }
+  ],
+  "format_string_risks": [
+    {
+      "string": "Address %p has no image-section",
+      "tokens": [
+        "%p"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "  VirtualQuery failed for %d bytes at address %p",
+      "tokens": [
+        "%d",
+        "%p"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "%d bit pseudo relocation at %p out of range, targeting %p, yielding the value %p.",
+      "tokens": [
+        "%d",
+        "%p"
+      ],
+      "severity": "medium",
+      "why": "含 %s/%p，可读任意地址/栈；目标导入了格式化函数"
+    },
+    {
+      "string": "  VirtualProtect failed with code 0x%x",
+      "tokens": [
+        "%x"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "  Unknown pseudo relocation protocol version %d.",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    },
+    {
+      "string": "  Unknown pseudo relocation bit size %d.",
+      "tokens": [
+        "%d"
+      ],
+      "severity": "low",
+      "why": "单个常见格式符，需确认是否用户可控"
+    }
+  ],
+  "next_routes": [
+    {
+      "route": "格式化字符串",
+      "why": "发现 %n/%s/%p 模板且存在格式化函数；先定位参数序号，再泄漏或写 GOT/返回地址",
+      "first_steps": [
+        "发送 AAAA.%p... 找偏移",
+        "Partial RELRO/GOT 可写则优先 GOT",
+        "64 位地址含 NUL 时放末尾并用 %hhn"
+      ],
+      "caveats": [
+        "NX 开启：不要指望栈上 shellcode，走 ROP/ORW"
+      ]
+    },
+    {
+      "route": "栈溢出 + ROP",
+      "why": "导入不安全拷贝/输入函数；用 cyclic 找偏移，检查 canary 与 NX",
+      "first_steps": [
+        "cyclic 定位覆盖长度",
+        "有 canary 先泄漏/绕开",
+        "有 PIE 先泄漏代码/libc 基址；注意 16 字节对齐"
+      ]
+    }
+  ],
+  "notes": [
+    "DllCharacteristics 其它标志: HIGH_ENTROPY_VA",
+    "PE 保护位为 DllCharacteristics 近似；IAT 可写性需看节权限与加载配置"
+  ],
+  "load_config": {
+    "rva": "0x0",
+    "dir_size": 0,
+    "cookie_offset": "0x58",
+    "cookie_width": 8,
+    "dir_size_sufficient": false
+  }
+}

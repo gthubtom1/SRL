@@ -4,39 +4,175 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
 
 jobs:
-  gates:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: preflight (full)
-        run: python Tool/scripts/preflight.py
-      - name: domain gate
-        run: python Tool/scripts/domain-gate.py --all
-      - name: routing coherence
-        run: python Tool/scripts/route.py
-      - name: playbook commands
-        run: python Tool/skill/softseep/scripts/playbook-check.py
-      - name: capability dag
-        run: python Tool/skill/softseep/scripts/capability-gate.py --json
-      - name: intent coverage
-        run: python Tool/skill/softseep/scripts/intent-coverage.py --json
-      - name: route-playbook parity
-        run: python Tool/skill/softseep/scripts/route-playbook-parity.py --json
-      - name: case index
-        run: python Tool/scripts/case_state.py index --check
   gates-linux:
+    name: Linux / install + runtime + MCP
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SEEP_CI_HOME: ${{ runner.temp }}/seep-home
+      SEEP_CI_TEMP: ${{ runner.temp }}/seep-tmp
+      PI_CODING_AGENT_DIR: ${{ runner.temp }}/seep-agent
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: verify.sh
-        run: bash setup/verify.sh
-      - name: domain gate
-        run: python3 Tool/scripts/domain-gate.py --all
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+      - name: Python test dependencies
+        run: python -m pip install "mcp>=1.20,<1.29" pefile curl-cffi zstandard requests
+      - name: Create isolated home, temp and AgentRoot
+        run: |
+          mkdir -p "$SEEP_CI_HOME" "$SEEP_CI_TEMP" "$PI_CODING_AGENT_DIR"
+          {
+            echo "HOME=$SEEP_CI_HOME"
+            echo "USERPROFILE=$SEEP_CI_HOME"
+            echo "TMPDIR=$SEEP_CI_TEMP"
+            echo "TEMP=$SEEP_CI_TEMP"
+            echo "TMP=$SEEP_CI_TEMP"
+          } >> "$GITHUB_ENV"
+      - name: Install through shell entry
+        id: install
+        continue-on-error: true
+        run: bash setup/install.sh --agent-root "$PI_CODING_AGENT_DIR" --skip-packages
+      - name: Static install and source preflight
+        id: preflight
+        continue-on-error: true
+        run: python -B -X utf8 Tool/scripts/preflight.py --fast
+      - name: Runtime regressions and real aggregate gates
+        id: runtime
+        continue-on-error: true
+        run: python -B -X utf8 Tool/scripts/check.py --runtime --strict --json
+      - name: MCP contract and smoke tests
+        id: mcp
+        continue-on-error: true
+        run: |
+          python -B -X utf8 Tool/mcp/test_seep_mcp.py
+          python -B -X utf8 Tool/mcp/test_ext_assets.py
+          python -B -X utf8 Tool/mcp/test_pcap_contract.py
+          python -B -X utf8 Tool/mcp/test_apk_contract.py
+          python -B -X utf8 Tool/mcp/test_readonly_parameters.py
+      - name: Workflow path portability
+        id: portability
+        continue-on-error: true
+        run: git diff --check
+      - name: Enforce all gate outcomes
+        if: always()
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+          MCP_OUTCOME: ${{ steps.mcp.outcome }}
+          PORTABILITY_OUTCOME: ${{ steps.portability.outcome }}
+        run: |
+          failed=()
+          for item in \
+            "install:$INSTALL_OUTCOME" \
+            "preflight:$PREFLIGHT_OUTCOME" \
+            "runtime:$RUNTIME_OUTCOME" \
+            "mcp:$MCP_OUTCOME" \
+            "portability:$PORTABILITY_OUTCOME"
+          do
+            case "$item" in
+              *:success) ;;
+              *) failed+=("$item") ;;
+            esac
+          done
+          if ((${#failed[@]})); then
+            printf 'failed gates: %s\n' "${failed[*]}"
+            exit 1
+          fi
+
+  gates-windows:
+    name: Windows / install + runtime + MCP
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      SEEP_CI_HOME: ${{ runner.temp }}/seep-home
+      SEEP_CI_TEMP: ${{ runner.temp }}/seep-tmp
+      PI_CODING_AGENT_DIR: ${{ runner.temp }}/seep-agent
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+      - name: Python test dependencies
+        run: python -m pip install "mcp>=1.20,<1.29" pefile curl-cffi zstandard requests
+      - name: Create isolated home, temp and AgentRoot
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:SEEP_CI_HOME,$env:SEEP_CI_TEMP,$env:PI_CODING_AGENT_DIR | Out-Null
+          @(
+            "HOME=$env:SEEP_CI_HOME",
+            "USERPROFILE=$env:SEEP_CI_HOME",
+            "TEMP=$env:SEEP_CI_TEMP",
+            "TMP=$env:SEEP_CI_TEMP",
+            "PI_CODING_AGENT_DIR=$env:PI_CODING_AGENT_DIR"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Install through PowerShell entry
+        id: install
+        continue-on-error: true
+        run: ./setup/install-pi.ps1 -AgentRoot $env:PI_CODING_AGENT_DIR -SkipPackages
+      - name: Static install and source preflight
+        id: preflight
+        continue-on-error: true
+        run: python -B -X utf8 Tool/scripts/preflight.py --fast
+      - name: Runtime regressions and real aggregate gates
+        id: runtime
+        continue-on-error: true
+        run: python -B -X utf8 Tool/scripts/check.py --runtime --strict --json
+      - name: MCP contract and smoke tests
+        id: mcp
+        continue-on-error: true
+        run: |
+          python -B -X utf8 Tool/mcp/test_seep_mcp.py
+          python -B -X utf8 Tool/mcp/test_ext_assets.py
+          python -B -X utf8 Tool/mcp/test_pcap_contract.py
+          python -B -X utf8 Tool/mcp/test_apk_contract.py
+          python -B -X utf8 Tool/mcp/test_readonly_parameters.py
+      - name: Workflow path portability
+        id: portability
+        continue-on-error: true
+        run: git diff --check
+      - name: Enforce all gate outcomes
+        if: always()
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
+          MCP_OUTCOME: ${{ steps.mcp.outcome }}
+          PORTABILITY_OUTCOME: ${{ steps.portability.outcome }}
+        run: |
+          $checks = [ordered]@{
+            install = $env:INSTALL_OUTCOME
+            preflight = $env:PREFLIGHT_OUTCOME
+            runtime = $env:RUNTIME_OUTCOME
+            mcp = $env:MCP_OUTCOME
+            portability = $env:PORTABILITY_OUTCOME
+          }
+          $failed = @($checks.GetEnumerator() | Where-Object { $_.Value -ne "success" })
+          if ($failed.Count -gt 0) {
+            $details = $failed | ForEach-Object { "$($_.Key):$($_.Value)" }
+            Write-Error ("failed gates: " + ($details -join ", "))
+            exit 1
+          }
