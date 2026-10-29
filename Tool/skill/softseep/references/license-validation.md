@@ -44,7 +44,7 @@ G6 复验（结论可按记录复跑，否则标"未验证"）。
 | 可执行格式 | PE(§2.1) | Mach-O(`otool`/`nm`/`class-dump`) | ELF(`readelf`/`nm`) |
 | 代码签名/公证 | Authenticode | `codesign -dvvv` + notarization | 无强制,GPG/自签常见 |
 | 注入/hook | DLL 注入、Detours、Frida | `DYLD_INSERT_LIBRARIES`、Frida | `LD_PRELOAD`、`ptrace`、Frida |
-| 端点接管 | `netsh add address`/hosts(§5.3) | `/etc/hosts`、`pf` RDR | `/etc/hosts`、`iptables/nft DNAT` |
+| 端点接管 | 目标进程支持的代理参数或局部 hook (§5.3) | 目标进程参数或局部 hook | 目标进程环境或局部 hook |
 | 内存读取 | `OpenProcess`+`ReadProcessMemory` | `task_for_pid`+`vm_read`(需 SIP 关/授权) | `/proc/<pid>/mem`、`process_vm_readv` |
 | 许可存储 | 注册表/`%APPDATA%`/ADS | `~/Library`、plist、Keychain | `~/.config`、`~/.local`、`/etc` |
 | 驱动/GUI 观测 | UIAutomation | AXUIElement/Accessibility | AT-SPI、`xdotool` |
@@ -96,9 +96,8 @@ PE 头+节表纯 struct 解析 → 熵剖面定密文段 → 明文导入名/字
 
 ## 3. 动态观测
 
-### 3.0 写入判死归因(任何内存改写之前,20 秒)
-后果: 无此步会把"补丁值非法"误判为"有反内存自保护"(案例白烧 3 轮)。
-做法: 定位它自己的一处无害串(已保存卡密/窗口标题),改 1 字符 → 等 4s → 存活则回改再等 4s。存活 ⇒ 无自保护,后续崩溃一律先归因"值非法/改坏相邻结构"。
+### 3.0 单变量归因（任何内存改写之前）
+先记录未修改基线、对象类型/边界与生命周期。只在已获准且理解语义的非敏感位置做可回滚的单点实验；一次存活不能排除自保护，崩溃也不能单独证明完整性检查。案例中的 4 秒观察与补丁次数不是通用判据。
 
 ### 3.1 控制台客户端(stdin 驱动 + stdout 预言机)
 - 必须重定向输入,否则卡在交互提示(常弹 `请输入(Y/N)` 等 ~60s 超时——**这才是"启动后 ~60s 才联网"的真因**,勿误读为"自退"):
@@ -131,15 +130,8 @@ UI Automation 枚举 Edit/Button/CheckBox 的 Name/Value,`ValuePattern.SetValue`
 ### 4.3 配置块解密时间线(决定一切时序)
 配置(IP/URL/模板)常**在一个极短窗口内一次性成型**(案例 21 份副本落在同一 **13ms** 内)。⇒ "轮询→命中→补丁"几乎**必输**(materialize→connect 只隔微秒),冻结(`SuspendThread`)**也切不开**该窗口。要么放弃竞速(转 §5.3),要么在中继层做(§8.5)。
 
-### 4.4 抓包与 TLS 剥离
-明文 HTTP 直接监听;HTTPS 先试系统代理+自签 CA(mitmproxy);抓不到即转 §4.1 内存取证。
-**证书固定绕过(按运行时选点)**:
-- **原生/OpenSSL**: Frida hook `SSL_CTX_set_verify` 强制 `SSL_VERIFY_NONE`,或 hook `X509_verify_cert` 返回 1;BoringSSL 同理。
-- **Schannel(Windows)**: hook `CertVerifyCertificateChainPolicy` 令 `dwError=0`。
-- **.NET**: hook/patch `ServerCertificateValidationCallback`/`RemoteCertificateValidationCallback` 恒返 true;或环境层信任自签 CA。
-- **JVM**: 替换 `X509TrustManager.checkServerTrusted` 为空实现(Frida `frida-java-bridge` 或字节码改写);处理 `TrustManagerFactory` 自定义 pinning。
-- **Electron/Node**: `NODE_TLS_REJECT_UNAUTHORIZED=0` 或 hook `tls.checkServerIdentity`。
-- 兜底: 无法 hook 时用 `SSLKEYLOGFILE` 导出会话密钥,Wireshark 解密仅供分析(不改流量)。
+### 4.4 TLS 观测条件
+优先使用合成会话与已存在的进程级安全观测通道；客户端 pinning、mTLS 和服务端授权分别核。真实 Cookie/Token、会话密钥、Key/Salt/私钥不读取、不导出、不进日志；由用户侧完成凭据操作并返回安全结果。不得为抓包更改系统代理/信任根。缺少安全明文面时交元数据与限制，不能默认导出 SSLKEYLOGFILE 或全量网络缓冲区。
 
 ---
 
@@ -156,45 +148,24 @@ UI Automation 枚举 Edit/Button/CheckBox 的 Name/Value,`ValuePattern.SetValue`
 | 请求模板 | `GET /verify … Host: <ip>:<port>` | 无效(只改 Host) |
 | host:port / URL 常量 / 裸字段 | `<ip>:<port>`、`http://…`、单独 `<ip>` | 无效 |
 | 二进制 `sockaddr_in` | `02 00 <port> <ip>` | 无效 |
-| **多副本组合 2~3 处** | 以上混打 | **有效**(案例两次成功) |
-上限: 命中 **2~3 处** 安全;一次打 **13~24 处** 进程必崩(含已释放/复用堆块被写坏)。角色错打无效、全量打崩。
+| **案例中多副本组合 2~3 处** | 以上混打 | **仅该案两次观察有效** |
+补丁数量没有通用安全阈值；先核每个对象的边界、生命周期和引用链，保留单点控制。案例的 2~3/13~24 次数不外推。
 
-### 5.3 接管假服务端：**只对目标进程生效**（不许改整机网络）
+### 5.3 接管假服务端：限定目标进程
 
-> **红线（2026-10-23 血案后的修订）**：给网卡挂 /32 别名（命令略） 抢回环、
-> 写系统 `hosts`、`netsh winhttp set proxy` 都属于**整机生效**的系统级改动 ——
-> 假服务单一死，用户整机断网。**cmd-guard 已对这类命令 block**。本节原来的写法已废弃。
+仅选择目标本身支持的进程启动参数/环境，或已经核实的局部 hook，把合成测试流量指向回环限定的监听器。核 TLS、请求关联、权限和回滚；这些通道本身也须符合当前 scope。
 
-按副作用从小到大，三档，**优先用 ①**：
-
-| 档 | 做法 | 副作用范围 |
-| :-- | :-- | :-- |
-| **① 进程内重定向（首选）** | Frida hook `getaddrinfo` / `WinHttpOpen` 的代理参数 / `connect`，把目标域名指到 `127.0.0.1:<port>` | 只有这一次进程；进程退出即恢复 |
-| **② 进程启动参数** | 目标支持时用 `--proxy http://127.0.0.1:<port>` 或环境变量（`HTTP_PROXY` 仅对该进程） | 只有该进程 |
-| **③ VM 网络** | 整个目标丢进 VM，在 VM 里随便改（含 hosts/NAT） | 只有 VM |
-
-> **① 档的反制**：目标若做**证书 pinning**，只改解析不够，TLS 握手仍失败 —— 需同时 hook
-> `X509_verify_cert` / `SecTrustEvaluate` / 自研公钥哈希比对。② ③ 同理：换层级解决"落到哪"，不是"信任链怎么过"。
-
-> **唯一例外**：用户明确说"一次性靶机，随便改" → 按 `AGENTS.md` §五之三发 **ASK 卡**（四要素缺一不可：
-> 几步 / 我监控什么 / 我保证不动什么 / 我拿到什么，含 `net-rollback.py snapshot` 与还原命令），**命令由用户执行**。
-
-**禁止**：改宿主网卡 IP / 路由 / DNS / WinHTTP 全局代理 / 系统 hosts。
-**收尾**：① ② 不需要收尾（进程结束即复原）；③ 关 VM 即复原。
-
-- 抢回环的**副作用**（仅在你真的在 VM 里做时适用）：抢到后你自己也够不到真服务器，
-  只能拒绝服务或纯中继，做不到"边转发边伪造"。这条是**风险说明**，不是操作建议。
-- 先查端口占用：`Get-NetTCPConnection -LocalPort <p> -State Listen`（只读，不拦）。
+不提供修改整机 IP、路由、DNS、hosts、全局代理、信任根、时钟、驱动或服务的执行步骤；VM 也不是自动例外。没有局部通道时交静态结果与所缺环境。端点可达不代表 TLS/授权成立，中继也不能创造服务端能力。
 
 ### 5.4 本地监听器陷阱
-绑前查占用(`Get-NetTCPConnection -LocalPort <p> -State Listen`)。Windows `SO_REUSEADDR` **允许同端口双绑** ⇒ 旧实例不退会让请求落到旧实例/别的进程。旧进程持日志句柄会让 `Remove-Item` **静默失败**(会看到两条 start 混写同一日志)⇒ 每轮独立日志名。**绑 `0.0.0.0` 而非 `127.0.0.1`**,才能让任意 `127/8`(含被接管的 C2 IP)命中。每次请求落盘 JSONL(方法/路径/全部头/体 hex)。
+监听器只绑定获准的回环地址，记录实例身份与端口占用；不要用 SO_REUSEADDR 掩盖旧实例冲突。每轮独立安全日志，只记录允许的字段/长度/结果；不得落盘全部头/体或秘密。任务结束关闭本轮监听与 hook，核进程外状态未改变。
 
 ---
 
 ## 6. 握手与响应判定
 
 > **工具接入（先抓包再看、再重放）**：
-> - **抓包/看包**：`seep_pcap_extract(pcap, mode='summary'|'http'|'payload')` → 直接拿端点、HTTP 请求/响应、指定端口 TCP 载荷。
+> - **抓包/看包**：`seep_pcap_extract(pcap_path="<安全测试抓包绝对路径>", mode='summary')` → 直接拿端点、HTTP 请求/响应、指定端口 TCP 载荷。
 > - **构造/重放/伪造回包**：`seep_http_replay(url, method, headers, cookies, body, impersonate='chrome', session_file=...)`
 >   → curl_cffi TLS 指纹伪装（绕基础反爬）+ Cookie 会话保持；支持任意方法/头/体。
 >   **典型用法**：先从 pcap 拿到金样请求 → 用 http_replay 原样重放 → 改字段（卡密/令牌）验证响应变化。
@@ -242,7 +213,7 @@ content-length: <恒定>   content-type: application/json
 ### 7.1 离线签名/许可绕过要点
 - 判验签是否真执行: patch 掉验签调用看是否仍可用(很多客户端"验了不看返回")。
 - 非对称签名不可伪造时,改攻验签**逻辑**(返回值 patch、比较跳转反转)或替换内置公钥为自控密钥后重签许可。
-- 时间试用: 冻结/回拨系统时钟、清本地时间戳存储、hook 时间 API。
+- 时间试用：只读核时间源/偏差，必要时在合成夹具或目标进程局部测试时钟；不回拨/冻结系统时钟，不以修改用户材料作为默认实验。
 
 **公钥替换重签(签名不可伪造时的正解,五步)**:
 1. 定位内置公钥: 静态搜 PEM 头 `-----BEGIN PUBLIC KEY-----`、DER 序列 `30 82`、或 RSA 模数常量;托管/JVM/JS 常为明文资源。
@@ -279,8 +250,8 @@ WebSocket/裸 TCP 同理:按帧透传,勿改握手。
 ## 9. 取载荷 Payload Carving(性价比最高的一路)
 
 - **适用**: 加载器只做校验、真功能由服务器下发 DLL/驱动/脚本/资源;或下载端点可被接管(§5/§8.5)。
-- **判据**: 真响应 `content-length` 与实际 blob 比对;PE 场景 blob 头 `MZ` 且 `e_lfanew` 指向 `PE\0\0`;**导出表为空 + 仅导入基础运行库(如 kernel32)** ⇒ 无自校验、不联网 ⇒ "功能与校验分离"成立。其它格式同理判其是否自带校验/回连逻辑。
-- **手法**: ① 内存定点扫 committed readable 区域找 `MZ`+PE(或对应魔数),命中即落盘(本体+0x60000 余量);② 对下载端点做 verbatim 中继(§8.5)直接抓响应体。
+- **判据**：响应/映像边界与格式自洽只是提取成功。导出表为空或基础导入少不能证明无自校验/回连；必须核动态解析、初始化、配置、验证路径与实际功能，独立运行另验。
+- **手法**：只读取已确认、获准且不含秘密的代码/载荷范围，记录区域来源、地址映射、长度和哈希；不得固定加余量扩读内存。敏感真实会话的中继/转储不作为 Agent 采集通道。
 - **交付**: 载荷 SHA256/MD5、导入导出清单、字符串表、行为参数(如注入目标进程名,响应 `a` 字段)。
 - **厂商利用点**: 逆向载荷得 hook 点/偏移 ⇒ 完整性与行为检测。行为特征比指纹稳(换载荷即换指纹): 进程内**无模块记录的私有可执行内存**、命名文件映射加载、`SetThreadContext` 改写线程上下文。
 
@@ -309,10 +280,10 @@ WebSocket/裸 TCP 同理:按帧透传,勿改握手。
 | 校验点定位 | Frida/API Monitor/ETW hook `getaddrinfo/connect/Crypt*/时间API` |
 | 端点内存取证 | `OpenProcess`+`VirtualQueryEx`+`ReadProcessMemory` 扫 ASCII/IP/`sockaddr_in` |
 | 连接观测 | P/Invoke `GetExtendedTcpTable` 轮询(≥120s) 或 netstat 重定向 |
-| 抓包/TLS | mitmproxy + 自签 CA;固定时 Frida/SSLKEYLOGFILE |
+| 抓包/TLS | 合成测试会话或用户侧安全结果；不导出真实 keylog/凭据，不改系统信任根 |
 | 控制台驱动 | `cmd /c "x.exe" < yes.txt > out.txt 2>&1` |
 | GUI 驱动 | PowerShell UIAutomation;Electron 用 DevTools/远程调试端口 |
-| 端点接管 | 等长合法值替换 / `netsh … add address 1 <ip> 255.255.255.255` / hosts / DNAT |
+| 端点接管 | 已核目标进程参数/环境或局部 hook；无局部通道时报告阻断 |
 | 本地握手 | python `http.server`/裸 socket + JSONL 落盘;或 verbatim 中继(§8.5) |
 | 取载荷 | 内存定点扫魔数(`MZ`+`e_lfanew`)命中即落盘(§9) |
 | 块差异分析 | cryptography ECB + XOR;JWT 用 `alg`/弱密钥爆破 |
@@ -354,12 +325,8 @@ WebSocket/裸 TCP 同理:按帧透传,勿改握手。
 **指纹与产物清单**: 目标 SHA256/编译时间/签名状态;载荷 SHA256·MD5+导入导出表+字符串表+行为参数(如注入目标);端点(IP:port/URL/协议);捕获的金样/中继 blob 路径。
 
 **环境清理总清单(收尾必做,防残留)**:
-- 删接管地址: `netsh interface ipv4 delete address 1 <c2_ip>`;
-- 还原 hosts / 撤 `iptables/pf` DNAT 规则;
-- 结束本地监听器与提权子进程,释放端口;
-- 移除注入/补丁 DLL,恢复被改的本地许可/注册表/时间戳;
-- 撤销临时信任的自签 CA,清 `SSLKEYLOGFILE`;
-- 归档证据后清理临时载荷副本与内存转储(按留存要求)。
+- 结束本轮监听器与子进程、卸除本轮局部 hook/补丁，核对目标副本回滚；不通过系统网络/驱动/时钟修改进行收尾。
+- 用户材料按约定留存；真实凭据从未进入 Agent，不以事后删除或打码替代采集边界。
 
 ---
 
@@ -384,7 +351,7 @@ WebSocket/裸 TCP 同理:按帧透传,勿改握手。
 - **类型**: 无签名 >20MB 原生加载器,节表被伪造,全密文载荷运行期自解密,手工解析导入。控制台子系统,stdin 驱动。
 - **权威**: 服务器审核;硬编码 IP 直连(DNS 无痕),配置块 13ms 内一次性成型。
 - **握手**: 见 §6.1 样例;`uk` 头明文卡密,`vt/vs/xt` 构成会话绑定(G4 命中)。
-- **结论**: 本地**无法伪造成立**(会话绑定),但端点**可被接管并中继**(§5.3 netsh 抢回环 + §8.5 verbatim 中继);真功能在服务器下发 DLL,该 DLL 导出为空、仅导入 kernel32 ⇒ **取载荷即用**(§9)为最高性价比路径。注入目标仅按进程名鉴权(`ping.exe` 改名 `game.exe` 即被注入)。
+- **案例解释的限制**：中继成功只能证明该案上游参与的链路可用，不证明本地可伪造。载荷空导出/基础导入也不证明可独立使用；需重新核初始化、授权与功能。历史网络改动方法不作为当前执行指引，案例事实不能推广为当前环境可用能力。
 - **交付**: 结论分级 + 证据路径 + 载荷指纹 + §10 防护清单(明文卡密上行、注入目标弱鉴权、功能与校验分离为三大要害)。
 
 **通过长什么样**：本页给的是方法/边界，没有固定期望输出；执行后按末尾「这一篇算用对了」逐条自检，任何一条不成立就说明这一步没做对。

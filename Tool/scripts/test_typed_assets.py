@@ -687,12 +687,16 @@ class IdentityConsistencyTests(Base):
         record = self.file_record()
         real = ta.digest
         def change_after_hash(path):
+            before = path.stat()
             result = real(path)
-            path.write_bytes(b"modified")
+            path.write_bytes(b"modified")  # same length as original
+            # Reproduce a coarse/delayed filesystem timestamp deterministically.
+            os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
             return result
         with patch.object(ta, "digest", change_after_hash):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(ta.ConcurrentChange):
                 ta.verify_target(self.root, record)
+        self.assertEqual((self.root / record["local_path"]).read_bytes(), b"modified")
 
     def test_snapshot_selection_revalidates_untrusted_shape_and_duplicate_ids(self):
         record = dict(self.file_record(), asset_id="main")

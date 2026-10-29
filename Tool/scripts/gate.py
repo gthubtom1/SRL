@@ -11,6 +11,9 @@
                       authority 必须是非空字符串，evidence 必须是非空字符串数组；其余声明字段
                       按“存在且非空”检查，不静默跳过）；整包 0 条 observed/derived 证据 → 红
                       （hypothesis/refuted 是历史，不为 pass 背书，也不因缺字段把整包判红）
+                      受检集是 pack.cases（G2 要求等于 case_roles.witness），不是目录库存；
+                      每个声明见证必须有含 claim 的事实账，depth_gate 由 domain-gate 消费。
+                      已声明见证不按类别/缺账本自动排除。
   G6 verification-receipt / G4b target-asset（回执可核、真输入资产）
 
 摘要的读法（第 4 轮评审 P1-2，别把两件事读成一件）：
@@ -529,8 +532,11 @@ def g2_schema(pack, witness_root=None):
         for c in ec.get("pass_forbids_confidence") if isinstance(ec.get("pass_forbids_confidence"), list) else []:
             if c not in CONFIDENCE:
                 bad.append("pass_forbids_confidence 里有非法值：%s" % c)
-    _tool_info, tool_errors = _witness_tool_contract(pack, witness_root=witness_root)
+    tool_info, tool_errors = _witness_tool_contract(pack, witness_root=witness_root)
     bad.extend(tool_errors)
+    if (tool_info.get("case") and isinstance(pack.get("cases"), list)
+            and tool_info["case"] not in pack["cases"]):
+        bad.append("witness --case 必须属于 cases/case_roles.witness 受检集")
     return bad
 
 
@@ -647,7 +653,15 @@ def g4_witness(pack, run=True):
 
 
 def g5_evidence(pack):
+    """Check every declared witness, including fixtures and historical cases.
+
+    cases == case_roles.witness is enforced by G2, domain-contract-check and
+    the registry. Neither witness.cmd's single case, depth_gate membership,
+    evidence_kind nor ledger presence can narrow this set implicitly. Report
+    the complete attempted/unreadable set even when judge truncates reasons.
+    """
     bad, total_claims, strong = [], 0, 0
+    checked_cases, unreadable_cases = [], []
     contract = pack.get("evidence_contract")
     fields = ("authority_allow", "pass_forbids_confidence", "required_fields")
     if not isinstance(contract, dict) or any(
@@ -662,13 +676,17 @@ def g5_evidence(pack):
     if not isinstance(cases, list) or not cases:
         return ["cases 必须是非空案例数组"], {"claims": 0, "strong": 0}
     for cname in cases:
+        checked_cases.append(cname)
         try:
             cdir = _case_dir(cname)
             claims = _claims(cdir)
         except (OSError, ValueError, TypedAssetError) as exc:
+            unreadable_cases.append(cname)
             bad.append("%s 事实账无法核验：%s" % (cname, exc))
             continue
         total_claims += len(claims)
+        if not claims:
+            bad.append("%s 事实账无有效 claim（声明见证不能用空账本背书）" % cname)
         for f in claims:
             conf = str(f.get("confidence") or "").strip().lower()
             auth = str(f.get("authority") or "").strip().lower()
@@ -710,7 +728,9 @@ def g5_evidence(pack):
         bad.append("本包所有案例 facts 为空：0 条 claim（unknown 不得计 pass）")
     elif strong == 0:
         bad.append("本包 0 条 observed/derived 证据（%d 条 claim 全是 unknown/inferred）" % total_claims)
-    return bad, {"claims": total_claims, "strong": strong}
+    return bad, {"claims": total_claims, "strong": strong,
+                 "case_source": "pack.cases", "checked_cases": checked_cases,
+                 "unreadable_cases": unreadable_cases}
 
 
 

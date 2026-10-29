@@ -23,7 +23,7 @@
 |---|---|---|
 | `Tool/skill/seep-router/SKILL.md` | 判断、选域、上限和所缺材料 | 不替代各领域专业方法 |
 | `Tool/skill/*/pack.json` | 正式域身份、工具、证据与深度声明 | 名单由实现读取，不在文档重复维护另一套注册表 |
-| `Tool/skill/<域>/SKILL.md`、references、playbooks | 专业路线与具体判据 | 按当前信号选读，库存和候选不是已生效能力 |
+| `Tool/skill/<域>/SKILL.md`、`subskills/`、references、playbooks | 父域导航、专业方法和具体判据 | 子技能随父域保持目录结构部署；跨域返回同一project/version/run，库存不是已验收能力 |
 | `Tool/mcp/seep_mcp_server.py`、`seep_contract.py` | MCP 工具、参数/结果契约与共享校验 | 工具注册、连通、真实执行分别证明 |
 | `Tool/scripts/project_state.py` | project/version/run、材料、证据、验收和交接 | 检查登记见证完整性，不代替人判断原始输出的全部专业语义 |
 | `Tool/scripts/manager_state.py` | 规划、选择、等待、失败和换路，执行前准入 | 状态和证据绑定到当前 generation |
@@ -33,10 +33,12 @@
 | `Tool/scripts/project_archive.py` | export/verify/import | 成员指纹、资源与路径边界，移位恢复不覆盖已有目的地 |
 | `Tool/skill/softseep/scripts/version-migrate.py` | 版本基线与定位结果 | 唯一定位仍需当前版本验收 |
 | `Tool/scripts/case_state.py` | 既有单案阶段、事实、复现与报告接口 | 旧case与新项目接口并存，不因结构不同而另造账本 |
-| `Tool/scripts/skill-import.py` | 扩展导入、核验与恢复报告 | 入库/部署/有效加载不同阶段分别核验 |
+| `Tool/scripts/skill-import.py` | 域内身份定位、导入、部署、核验与事务恢复 | 父域＋名称定位；源码/部署同为subskills，不将按需子技能冒充顶层自动选中 |
 | `setup/`、`Tool/scripts/lib/runtime_root.py` | 安装、更新、卸载、根定位和注册 | 当前部署为源码运行时注册；保留源码目录 |
 
 ## 3. 提示词与部署
+
+输入扩展保留原始任务、路径、代码、URL、JSON、附件和历史正文；lab只控制工作偏好与独立检索别名事件。`input-normalize.json`不再含全文改写输出；中继只作请求/响应字节透传，不改变任务或拒答后改写重发。输入控制语法、提示词边界装配、HTTP协议处理分别验证。
 
 `Tool/prompts/AGENTS.md` 是共享行为规则源，`Tool/prompts/SEEP.md` 提供资源指针。安装器把规则、技能和扩展部署到 agent 目录；项目开发的接续入口为当前需求与当前状态。
 
@@ -46,7 +48,7 @@
 
 - `Tool/scripts/check.py --runtime --json` 验当前实现与专项回归，包含安装文档入口检查；默认历史工程门禁仍保留。`--fast` 会跳过套件，不能替代完整验收。
 - `gate.py` 验证包与见证；`domain-gate.py` 消费领域注册、深度声明和 [当前领域契约](DOMAIN-CONTRACT.md)。
-- `preflight.py` 检查结构、入口、契约与部署一致性；它不能决定功能是否应该存在。
+- `preflight.py` 检查结构、入口、契约与部署一致性；它不能决定功能是否应该存在。措辞检查识别无依据的整类任务禁令，不能把格式/版本适用条件、证据上限或系统副作用边界当成禁令；对应正反例保留。
 - 案例/项目的原始证据留在各自工程中；本项目当前剩余问题只登记在 CURRENT-STATE。
 - 文件清单与预算使用 `Tool/scripts/lib/source_inventory.py`，原始文件闭包和第一方/第三方来源角色均可核验，阈值不因文档整理而改变。
 

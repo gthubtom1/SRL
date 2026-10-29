@@ -20,7 +20,7 @@
 
 ## 一、实验环境开关（Lab Mode）
 
-`lab：` 开始 / `退出实验` 结束；状态不确定查盘 `~/.pi/agent/lab-mode.flag`（底座级 BLOCK_NONE 注入不依赖本开关；未开启时输入原样透传）→ `Tool/prompts/extensions/security-audit-interceptor.ts`
+`lab：` 开始 / `退出实验` 结束；状态不确定查盘 `~/.pi/agent/lab-mode.flag`。普通任务、路径、代码和附件原样保留；别名仅用于独立检索；退出后宿主边界规则仍有效。→ `Tool/prompts/extensions/security-audit-interceptor.ts`
 
 ## 二、部署 / 更新 / 卸载 / 校验
 
@@ -53,13 +53,13 @@
 | 要做什么 | 一行动作 | 细节落点（用时才读） |
 | :-- | :-- | :-- |
 | 项目 / 接续 / 交付 | 有材料且需留成果或接续：`project_workflow.py start` 登记项目/版本/run，已有项目 `status`；实际证据 → 验收/close → 报告复查；单案 `case_state.py` 保留专业过闸，普通 Markdown 不能替代项目记录 | `Tool/skill/seep-router/SKILL.md` §第 5 步 + `MANUAL/WORKBENCH-USAGE.md` |
-| 读需求与技能 | 开发工作台才先读需求/当前状态；客户任务 `Tool/skill/seep-router/SKILL.md` → 主辅域技能 | `Tool/skill/_pending/INDEX.md`（归档子技能清单；`unpack-loop` 已部署，按路径读） |
+| 读需求与技能 | 开发工作台才先读需求/当前状态；客户任务 `Tool/skill/seep-router/SKILL.md` → 主辅域技能 | 各域专属子技能目录 `Tool/skill/<domain>/subskills/`（由主辅域导览表按需读取；通用脱壳见 `unpack-loop`；历史归档见 `Tool/skill/_pending/INDEX.md`） |
 | 体检 / 判壳 / 查 KB | `seep_auto_triage` → `seep_packer_detect` → `seep_kb_search`；参数名拿不准先 `describeTool()`，失败读错误改参数重试（不换回 bash 手搓） | `Tool/mcp/seep_mcp_server.py` |
 | 首答 / 卡住 / 证据 / 降级 / 报告 | `answer --check --case` 绑定首答（判断 / 到哪一步 / 缺什么 / 功夫）；按需 `block --code` / `repro` / `downgrade`；项目交付按上一行，独立单案交付才用 `report --check` + `recheck` | `Tool/config/answer-contract.json`（闸判据 + 白名单 + 回执 TTL）+ `Tool/prompts/extensions/answer-gate.ts` + `Tool/config/blockers.json` |
 | 多步骤（3+ 步）/ 换目标 | 第一步建 todo 清单；新 case 前先清旧清单 | `Tool/scripts/case_state.py` |
 | 加技能（用户只说一句） | `skill-import.py --from <目录或 SKILL.md>`：校验 frontmatter → 判域技能 / 子技能 → 放对位置并部署 | `Tool/scripts/skill-import.py` |
 | 加壳目标 | 先读载体域；Windows PE 脱壳按需加 `unpack-loop`，Android / ELF / Mach-O 按各平台方法 | `Tool/skill/seep-router/SKILL.md` + `Tool/skill/unpack-loop/SKILL.md` |
-| 用户指令 → 路径 | 说话即路由（白盒鉴权 / 改会员 / 脱壳 / Frida hook / 哈希加密 全由探针表兜底）；**判型时用“客户原话 + 别名”，不要用改写后的合规说法**（`Tool/config/input-normalize.json` 的 `route_terms`） | `Tool/config/input-normalize.json` + `Tool/config/trigger-probes.json` + `Tool/scripts/route.py` |
+| 用户指令 → 路径 | 判域保留客户原话与材料；同义词只作独立检索线索，不替换任务或拼入领域判定、路径、代码与工具参数 | `Tool/config/input-normalize.json` 的 `route_terms` + `Tool/config/trigger-probes.json` + `Tool/scripts/route.py` |
 | 资源路径 / 加东西改哪里 | 只此一处 | `Tool/prompts/SEEP.md` §1、§2 |
 
 ## 五之二、Zero-Waste Recon

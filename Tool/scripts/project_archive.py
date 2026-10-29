@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import os
+import secrets
 import shutil
 import stat
 import subprocess
@@ -40,6 +41,14 @@ DEFAULT_LIMITS = {
     "max_compression_ratio": 200,
 }
 TEMP_PREFIXES = (".seep-archive-", ".seep-project-", ".seep-copy-")
+STAGING_PREFIX = ".seep-archive-staging-"
+# This importer and its Core subprocesses use ordinary Win32 paths.  Keep a
+# conservative policy even on hosts with long paths enabled; this is not a
+# claim of native/extended-path support. Limits exclude the terminating NUL.
+WINDOWS_PATH_POLICY = os.name == "nt"
+WINDOWS_FILE_UNITS = 259
+WINDOWS_DIRECTORY_UNITS = 247  # legacy CreateDirectory: MAX_PATH - 12, minus NUL
+WINDOWS_COMPONENT_UNITS = 255
 SENSITIVE_EXTENSIONS = {".pem", ".key", ".p12", ".pfx", ".jks", ".kdb"}
 SENSITIVE_NAMES = {
     ".env", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", "credentials",
@@ -50,6 +59,64 @@ SENSITIVE_NAMES = {
 
 class ArchiveError(Exception):
     """Expected, structured refusal; the message never contains file contents."""
+
+
+class ArchivePathError(ArchiveError):
+    """A destination cannot fit the importer's ordinary Windows path budget."""
+
+    def __init__(self, role: str, metric: str, actual: int, maximum: int,
+                 member: str | None = None):
+        super().__init__(
+            "Windows 普通路径限制：%s 的 %s 为 %d，当前导入器上限为 %d；"
+            "请在更短的已有普通父目录（如 C:\\s）下，用同一归档导入到不存在的目标。"
+            "此限制不代表完整原生长路径支持。" % (role, metric, actual, maximum))
+        self.details = {"platform": "win32", "policy": "conservative_legacy_win32",
+                        "native_long_path_support": False, "role": role,
+                        "metric": metric, "actual": actual, "maximum": maximum,
+                        "unit": "UTF-16 code units excluding NUL"}
+        if member is not None:
+            self.details["member"] = member
+
+
+def _windows_units(value: str) -> int:
+    return len(value.encode("utf-16-le", errors="surrogatepass")) // 2
+
+
+def _check_import_path(path: Path, role: str, *, directory: bool = False,
+                       member: str | None = None) -> None:
+    if not WINDOWS_PATH_POLICY:
+        return
+    maximum = WINDOWS_DIRECTORY_UNITS if directory else WINDOWS_FILE_UNITS
+    units = _windows_units(str(path))
+    if units > maximum:
+        raise ArchivePathError(role, "directory_path" if directory else "file_path",
+                               units, maximum, member)
+    for component in path.parts[1:]:  # the drive/UNC anchor is not a component
+        units = _windows_units(component)
+        if units > WINDOWS_COMPONENT_UNITS:
+            raise ArchivePathError(role, "component", units, WINDOWS_COMPONENT_UNITS, member)
+
+
+def _check_import_layout(root: Path, role: str, manifest: dict | None = None) -> None:
+    """Check both the published tree and staging, including implicit parents.
+
+    Core resume writes handoff.json through a .seep-project- temporary (the
+    supported CPython runtime uses eight random suffix characters) and takes a
+    root lock. These writes must fit before a staging directory is created.
+    """
+    if not WINDOWS_PATH_POLICY:
+        return
+    _check_import_path(root, role, directory=True)
+    for name in (".project.lock", "handoff.json", ".seep-project-" + "x" * 8):
+        _check_import_path(root / name, role + "_core")
+    if manifest is None:
+        return
+    for relative in manifest.get("directories", []):
+        _check_import_path(root / PurePosixPath(relative), role, directory=True, member=relative)
+    for row in manifest["files"]:
+        path = root / PurePosixPath(row["path"])
+        _check_import_path(path, role, member=row["path"])
+        _check_import_path(path.parent, role, directory=True, member=row["path"])
 
 
 def _now() -> str:
@@ -552,10 +619,10 @@ def _extract_to_staging(archive: Path, staging: Path, manifest: dict,
         for row in manifest["files"]:
             info = bundle.getinfo(row["path"])
             destination = staging.joinpath(*PurePosixPath(row["path"]).parts)
-            destination.parent.mkdir(parents=True, exist_ok=True)
             digest = hashlib.sha256()
             size = 0
             try:
+                destination.parent.mkdir(parents=True, exist_ok=True)
                 with bundle.open(info, "r") as source, destination.open("xb") as target:
                     for block in iter(lambda: source.read(1 << 20), b""):
                         size += len(block)
@@ -622,6 +689,8 @@ def _validate_staging(staging: Path, manifest: dict) -> dict:
 def import_archive(archive_arg: str, project_arg: str, args: argparse.Namespace) -> dict:
     archive = Path(os.path.abspath(str(archive_arg)))
     destination = Path(os.path.abspath(str(project_arg)))
+    _check_import_layout(destination, "destination")
+    _check_import_path(destination.parent / ".project.lock", "parent_lock")
     _reject_linked_path(destination)
     limits = _limits(args)
     if not destination.parent.exists() or not destination.parent.is_dir():
@@ -629,6 +698,11 @@ def import_archive(archive_arg: str, project_arg: str, args: argparse.Namespace)
     if destination.parent.is_symlink() or _is_reparse(destination.parent):
         raise ArchiveError("导入目标父目录不是普通目录")
     manifest, _infos = _read_and_validate_zip(archive, limits)
+    # Plan an exact, random sibling name before any lock/staging write. mkdir
+    # below claims it exclusively; a collision is a refusal, never a reuse.
+    staging = destination.parent / (STAGING_PREFIX + secrets.token_hex(4))
+    _check_import_layout(destination, "destination", manifest)
+    _check_import_layout(staging, "staging", manifest)
     validation = None
     published = False
     # The existing project lock is used on the destination parent so cooperating
@@ -637,8 +711,7 @@ def import_archive(archive_arg: str, project_arg: str, args: argparse.Namespace)
     with project_lock(destination.parent):
         if destination.exists():
             raise ArchiveError("导入目标已存在，拒绝覆盖")
-        staging = Path(tempfile.mkdtemp(prefix=".seep-archive-staging-",
-                                        dir=str(destination.parent)))
+        staging.mkdir(mode=0o700)  # exclusive, with mkdtemp's private permissions
         try:
             _extract_to_staging(archive, staging, manifest, limits)
             validation = _validate_staging(staging, manifest)
@@ -702,6 +775,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "import":
             return _emit(import_archive(args.archive, args.project, args))
         return _emit(verify_archive(args.archive, args))
+    except ArchivePathError as exc:
+        return _refuse("archive_path_preflight", str(exc), error_code="path_limit",
+                       path_limit=exc.details,
+                       recovery={"action": "retry_same_archive_in_shorter_directory",
+                                 "example_destination": "C:\\s\\restored",
+                                 "requires_existing_plain_parent": True,
+                                 "requires_absent_destination": True})
     except ArchiveError as exc:
         return _refuse("archive", str(exc))
     except (OSError, ValueError, zipfile.BadZipFile) as exc:

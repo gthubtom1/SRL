@@ -1402,10 +1402,20 @@ def check_doc_hygiene():
     add("16 文档", "文档治理审计（doc-audit）", ok, detail)
 
 
+def task_prohibition_hits(text):
+    """Find blanket task bans while allowing technical preconditions and host boundaries."""
+    pattern = re.compile(
+        r"(?:仅限|只限)(?:教学|教育|学习|防御|演示)"
+        r"|(?:禁止用于|不得用于|禁止\s*(?:操作|使用|测试|访问))"
+        r"(?:攻击|破解|逆向|渗透|实战|商业|绕过)"
+        r"|(?:不碰|不测试|不提供|不允许|不产出|不做)(?:任何)?"
+        r"(?:逆向|破解|渗透|攻击|绕过|注册机|补丁|成品)(?=[。；，\s]|$)"
+    )
+    return pattern.findall(text)
+
+
 def check_language():
-    """措辞 lint：任务禁令一律不留在技能/提示词/文档里（scope 由用户声明）。"""
-    import re as _re
-    pat = _re.compile(r"不碰|禁止用于|仅限|不得用于|不允许|不提供|不适用|超出范围|不产出|不做成品|禁止\s*(?:操作|使用|测试|访问)")
+    """Applicability/evidence limits are required facts, not invented task bans."""
     roots = [os.path.join(TOOL, "skill"), os.path.join(TOOL, "prompts"),
              os.path.join(ROOT, "docs"), os.path.join(ROOT, "MANUAL"),
              os.path.join(TOOL, "docs"), os.path.join(TOOL, "playbooks"),
@@ -1426,12 +1436,12 @@ def check_language():
                     t = read_text_file(fp, errors="replace")
                 except OSError:
                     continue
-                n = len(pat.findall(t))
+                n = len(task_prohibition_hits(t))
                 if n:
                     hits.append("%s(%d)" % (rel, n))
     for f in glob.glob(os.path.join(ROOT, "README*.md")):
         t = read_text_file(f, errors="replace")
-        n = len(pat.findall(t))
+        n = len(task_prohibition_hits(t))
         if n:
             hits.append("%s(%d)" % (os.path.basename(f), n))
     stale, badcmd = [], []
@@ -1469,7 +1479,7 @@ def check_language():
     if badcmd:
         hits = list(hits) + ["%s(文档命令脚本不存在)" % x for x in badcmd[:4]]
 
-    add("13 措辞", "无任务禁令措辞（scope 由用户声明）", not hits,
+    add("13 措辞", "无无依据的整类任务禁令（保留技术条件与宿主边界）", not hits,
         "%d 个文件：%s" % (len(hits), "；".join(hits[:6])) if hits else "0 命中")
 
 

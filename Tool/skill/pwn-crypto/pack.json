@@ -31,21 +31,11 @@
     "seep_mem_strings"
   ],
   "cases": [
-    "pwn-crypto01",
-    "pwn-crypto02",
-    "pwn-crypto03",
-    "pwn-crypto04",
-    "pwn-crypto05",
     "pwn-crypto06",
     "pwn-crypto07"
   ],
   "case_roles": {
     "witness": [
-      "pwn-crypto01",
-      "pwn-crypto02",
-      "pwn-crypto03",
-      "pwn-crypto04",
-      "pwn-crypto05",
       "pwn-crypto06",
       "pwn-crypto07"
     ],
@@ -90,7 +80,7 @@
   ],
   "invalidation": [
     "目标为纯 Web 应用（转 web-pentest）",
-    "目标为加壳样本（先 malware-analysis 脱壳）"
+    "目标带保护时先由对应载体域核对保护与可分析范围；需要判恶时再交malware-analysis，不能把脱壳统一当作恶意分析"
   ],
   "project_lifecycle": {
     "entry": "Tool/scripts/project_state.py",

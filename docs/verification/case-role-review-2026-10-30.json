@@ -1,0 +1,2016 @@
+{
+  "schema": "seep.case-role-review/1",
+  "review_date": "2026-10-30",
+  "basis": [
+    "REQUIREMENTS.md D02: 当前输入必须有明确身份、来源和适用范围。",
+    "REQUIREMENTS.md D06: 命令、原始输出和结论必须绑定目标身份；目录库存或历史报告不等于当前见证。",
+    "主 agent 已逐案复核并授权纠正这 48 个案例的角色声明；本次再次核对 case.json 与目录元数据。前 47 条缺账本；aimbot 有账本但缺绑定原件，按相同 D02/D06 输入身份原则移出。"
+  ],
+  "scope": "一次性案例角色复核记录。context-only 是本记录的用途决定，不是 pack 新角色；cases 仍与 case_roles.witness 相同。G5 不按账本存在性过滤已声明见证。",
+  "method": {
+    "read": "案例 case.json、pack.json 与本地目录元数据；额外核对 aimbot 原账本及登记产物的摘要以确认保留。不读取目标内容或凭据，不运行客户目标。",
+    "target_directory_file_count": "递归计数各案例 target/ 下现存文件；不以此推断原件真实性或身份。",
+    "sensitive_values_copied": false
+  },
+  "summary": {
+    "declared_witnesses_before": 59,
+    "declared_witnesses_after": 11,
+    "context_only_decisions": 48,
+    "context_only_missing_ledger": 47,
+    "context_only_with_ledger_but_no_bound_original": 1,
+    "evidence_kind_counts": {
+      "fixture": 18,
+      "real": 23,
+      "self-built": 3,
+      "historical": 4
+    },
+    "reviewed_cases_in_unchanged_depth_set": 37,
+    "reviewed_cases_outside_original_depth_set": 11,
+    "depth_gate_and_case_globs_unchanged": true,
+    "case_files_and_evidence_kind_unchanged": true
+  },
+  "depth_scope_note": "48 个案例中 37 个仍被原 depth_gate/case_globs 覆盖；其余 11 个（含 aimbot）原本不属于该深度集合，未借本次纠正新增或删除深度成员，不宣称这 11 个已由 domain-gate 覆盖。",
+  "outside_original_depth_set": [
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin02"
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin03"
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin04"
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin05"
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin06"
+    },
+    {
+      "domain": "softseep",
+      "id": "_p2fixture"
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone01"
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone02"
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone03"
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone-drill01"
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "aimbot"
+    }
+  ],
+  "retained_declared_witnesses": [
+    {
+      "domain": "apkseep",
+      "id": "leaf-apk",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "apkseep",
+      "id": "apkseep08",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "firmware-iot",
+      "id": "firmware-iot06",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "id": "forensics07",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "leaf-pe-packed",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "protocol05",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto06",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto07",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "softseep",
+      "id": "golden-crackme",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "supply-chain-security",
+      "id": "supply-chain05",
+      "target_files_registered": true,
+      "target_directory_file_count": 1,
+      "facts_jsonl_present": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "web-pentest06",
+      "target_files_registered": true,
+      "target_directory_file_count": 2,
+      "facts_jsonl_present": true
+    }
+  ],
+  "retained_identity_exceptions": [],
+  "domains": [
+    {
+      "domain": "apkseep",
+      "pack": "Tool/skill/apkseep/pack.json",
+      "cases_before": [
+        "leaf-apk",
+        "apkseep08"
+      ],
+      "cases_after": [
+        "leaf-apk",
+        "apkseep08"
+      ],
+      "case_roles_witness_before": [
+        "leaf-apk",
+        "apkseep08"
+      ],
+      "case_roles_witness_after": [
+        "leaf-apk",
+        "apkseep08"
+      ],
+      "depth_gate_before": [
+        "apkseep07",
+        "apkseep08",
+        "apkseep09"
+      ],
+      "depth_gate_after": [
+        "apkseep07",
+        "apkseep08",
+        "apkseep09"
+      ],
+      "case_globs_before": [
+        "apkseep*"
+      ],
+      "case_globs_after": [
+        "apkseep*"
+      ],
+      "unrelated_fields_sha256_before": "a43123f3a37d947f9d79a3fe158bfb7619dd489b7fa20ede7b6c0109b7a0c5d0",
+      "unrelated_fields_sha256_after": "a43123f3a37d947f9d79a3fe158bfb7619dd489b7fa20ede7b6c0109b7a0c5d0",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "firmware-iot",
+      "pack": "Tool/skill/firmware-iot/pack.json",
+      "cases_before": [
+        "firmware-iot01",
+        "firmware-iot02",
+        "firmware-iot03",
+        "firmware-iot04",
+        "firmware-iot05",
+        "firmware-iot06"
+      ],
+      "cases_after": [
+        "firmware-iot06"
+      ],
+      "case_roles_witness_before": [
+        "firmware-iot01",
+        "firmware-iot02",
+        "firmware-iot03",
+        "firmware-iot04",
+        "firmware-iot05",
+        "firmware-iot06"
+      ],
+      "case_roles_witness_after": [
+        "firmware-iot06"
+      ],
+      "depth_gate_before": [
+        "firmware-iot01",
+        "firmware-iot02",
+        "firmware-iot03",
+        "firmware-iot04",
+        "firmware-iot05",
+        "firmware-iot06"
+      ],
+      "depth_gate_after": [
+        "firmware-iot01",
+        "firmware-iot02",
+        "firmware-iot03",
+        "firmware-iot04",
+        "firmware-iot05",
+        "firmware-iot06"
+      ],
+      "case_globs_before": [
+        "firmware-iot*"
+      ],
+      "case_globs_after": [
+        "firmware-iot*"
+      ],
+      "unrelated_fields_sha256_before": "03f2304997f0a3549cf7cc3850dfbd3a73e83f50b6c829c8ad0c28f15a55e731",
+      "unrelated_fields_sha256_after": "03f2304997f0a3549cf7cc3850dfbd3a73e83f50b6c829c8ad0c28f15a55e731",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "pack": "Tool/skill/forensics-mobile/pack.json",
+      "cases_before": [
+        "forensics01",
+        "forensics02",
+        "forensics03",
+        "forensics04",
+        "forensics06",
+        "forensics07"
+      ],
+      "cases_after": [
+        "forensics07"
+      ],
+      "case_roles_witness_before": [
+        "forensics01",
+        "forensics02",
+        "forensics03",
+        "forensics04",
+        "forensics06",
+        "forensics07"
+      ],
+      "case_roles_witness_after": [
+        "forensics07"
+      ],
+      "depth_gate_before": [
+        "forensics01",
+        "forensics02",
+        "forensics03",
+        "forensics04",
+        "forensics06",
+        "forensics07"
+      ],
+      "depth_gate_after": [
+        "forensics01",
+        "forensics02",
+        "forensics03",
+        "forensics04",
+        "forensics06",
+        "forensics07"
+      ],
+      "case_globs_before": [
+        "forensics*"
+      ],
+      "case_globs_after": [
+        "forensics*"
+      ],
+      "unrelated_fields_sha256_before": "0e2ed41fceda529127a38711461369d3e250d2829e495c136b66505d155b25db",
+      "unrelated_fields_sha256_after": "0e2ed41fceda529127a38711461369d3e250d2829e495c136b66505d155b25db",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "malware-analysis",
+      "pack": "Tool/skill/malware-analysis/pack.json",
+      "cases_before": [
+        "malware-analysis01",
+        "malware-analysis02",
+        "malware-analysis03",
+        "malware-analysis04",
+        "leaf-pe-packed",
+        "aimbot"
+      ],
+      "cases_after": [
+        "leaf-pe-packed"
+      ],
+      "case_roles_witness_before": [
+        "malware-analysis01",
+        "malware-analysis02",
+        "malware-analysis03",
+        "malware-analysis04",
+        "leaf-pe-packed",
+        "aimbot"
+      ],
+      "case_roles_witness_after": [
+        "leaf-pe-packed"
+      ],
+      "depth_gate_before": [
+        "malware-analysis01",
+        "malware-analysis02",
+        "malware-analysis03",
+        "malware-analysis04"
+      ],
+      "depth_gate_after": [
+        "malware-analysis01",
+        "malware-analysis02",
+        "malware-analysis03",
+        "malware-analysis04"
+      ],
+      "case_globs_before": [
+        "malware-analysis*"
+      ],
+      "case_globs_after": [
+        "malware-analysis*"
+      ],
+      "unrelated_fields_sha256_before": "b0327bb27062f5abf84a724fa6cac6c29056a7990e9f9eb0da7ca242b5916973",
+      "unrelated_fields_sha256_after": "b0327bb27062f5abf84a724fa6cac6c29056a7990e9f9eb0da7ca242b5916973",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "pack": "Tool/skill/protocol-plugin/pack.json",
+      "cases_before": [
+        "protocol01",
+        "protocol02",
+        "protocol03",
+        "protocol04",
+        "plugin02",
+        "plugin03",
+        "plugin04",
+        "plugin05",
+        "plugin06",
+        "protocol05"
+      ],
+      "cases_after": [
+        "protocol05"
+      ],
+      "case_roles_witness_before": [
+        "protocol01",
+        "protocol02",
+        "protocol03",
+        "protocol04",
+        "plugin02",
+        "plugin03",
+        "plugin04",
+        "plugin05",
+        "plugin06",
+        "protocol05"
+      ],
+      "case_roles_witness_after": [
+        "protocol05"
+      ],
+      "depth_gate_before": [
+        "protocol01",
+        "protocol02",
+        "protocol03",
+        "protocol04",
+        "protocol05"
+      ],
+      "depth_gate_after": [
+        "protocol01",
+        "protocol02",
+        "protocol03",
+        "protocol04",
+        "protocol05"
+      ],
+      "case_globs_before": [
+        "protocol*"
+      ],
+      "case_globs_after": [
+        "protocol*"
+      ],
+      "unrelated_fields_sha256_before": "1fad1ac92fe14ce5125120b22fead05ffdebebb2672577475c7908e4ce19e6b8",
+      "unrelated_fields_sha256_after": "1fad1ac92fe14ce5125120b22fead05ffdebebb2672577475c7908e4ce19e6b8",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "pack": "Tool/skill/pwn-crypto/pack.json",
+      "cases_before": [
+        "pwn-crypto01",
+        "pwn-crypto02",
+        "pwn-crypto03",
+        "pwn-crypto04",
+        "pwn-crypto05",
+        "pwn-crypto06",
+        "pwn-crypto07"
+      ],
+      "cases_after": [
+        "pwn-crypto06",
+        "pwn-crypto07"
+      ],
+      "case_roles_witness_before": [
+        "pwn-crypto01",
+        "pwn-crypto02",
+        "pwn-crypto03",
+        "pwn-crypto04",
+        "pwn-crypto05",
+        "pwn-crypto06",
+        "pwn-crypto07"
+      ],
+      "case_roles_witness_after": [
+        "pwn-crypto06",
+        "pwn-crypto07"
+      ],
+      "depth_gate_before": [
+        "pwn-crypto01",
+        "pwn-crypto02",
+        "pwn-crypto03",
+        "pwn-crypto04",
+        "pwn-crypto05",
+        "pwn-crypto06",
+        "pwn-crypto07"
+      ],
+      "depth_gate_after": [
+        "pwn-crypto01",
+        "pwn-crypto02",
+        "pwn-crypto03",
+        "pwn-crypto04",
+        "pwn-crypto05",
+        "pwn-crypto06",
+        "pwn-crypto07"
+      ],
+      "case_globs_before": [
+        "pwn-crypto*"
+      ],
+      "case_globs_after": [
+        "pwn-crypto*"
+      ],
+      "unrelated_fields_sha256_before": "c6494684850c02a34902d76fea28bf3bf5ad66726e4176dbd41b85c5ce09220b",
+      "unrelated_fields_sha256_after": "c6494684850c02a34902d76fea28bf3bf5ad66726e4176dbd41b85c5ce09220b",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "softseep",
+      "pack": "Tool/skill/softseep/pack.json",
+      "cases_before": [
+        "golden-crackme",
+        "_p2fixture",
+        "案例-真实补丁a",
+        "项目A",
+        "项目B",
+        "项目I",
+        "案例-6.9换肤壳"
+      ],
+      "cases_after": [
+        "golden-crackme"
+      ],
+      "case_roles_witness_before": [
+        "golden-crackme",
+        "_p2fixture",
+        "案例-真实补丁a",
+        "项目A",
+        "项目B",
+        "项目I",
+        "案例-6.9换肤壳"
+      ],
+      "case_roles_witness_after": [
+        "golden-crackme"
+      ],
+      "depth_gate_before": [
+        "案例-6.9换肤壳",
+        "案例-真实补丁a",
+        "项目A",
+        "项目B",
+        "项目I"
+      ],
+      "depth_gate_after": [
+        "案例-6.9换肤壳",
+        "案例-真实补丁a",
+        "项目A",
+        "项目B",
+        "项目I"
+      ],
+      "case_globs_before": [
+        "项目*",
+        "案例*"
+      ],
+      "case_globs_after": [
+        "项目*",
+        "案例*"
+      ],
+      "unrelated_fields_sha256_before": "35238fe07ccc438bb3c8953ff86c6add83126ceaff8145c7e69ec8fed198f540",
+      "unrelated_fields_sha256_after": "35238fe07ccc438bb3c8953ff86c6add83126ceaff8145c7e69ec8fed198f540",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "supply-chain-security",
+      "pack": "Tool/skill/supply-chain-security/pack.json",
+      "cases_before": [
+        "supply-chain01",
+        "supply-chain02",
+        "supply-chain03",
+        "supply-chain04",
+        "supply-chain05"
+      ],
+      "cases_after": [
+        "supply-chain05"
+      ],
+      "case_roles_witness_before": [
+        "supply-chain01",
+        "supply-chain02",
+        "supply-chain03",
+        "supply-chain04",
+        "supply-chain05"
+      ],
+      "case_roles_witness_after": [
+        "supply-chain05"
+      ],
+      "depth_gate_before": [
+        "supply-chain01",
+        "supply-chain02",
+        "supply-chain03",
+        "supply-chain04",
+        "supply-chain05"
+      ],
+      "depth_gate_after": [
+        "supply-chain01",
+        "supply-chain02",
+        "supply-chain03",
+        "supply-chain04",
+        "supply-chain05"
+      ],
+      "case_globs_before": [
+        "supply-chain*"
+      ],
+      "case_globs_after": [
+        "supply-chain*"
+      ],
+      "unrelated_fields_sha256_before": "52c3ec8df3ccfa146921f4ba6cc78c9373868a2c926608e2571217de89c13acd",
+      "unrelated_fields_sha256_after": "52c3ec8df3ccfa146921f4ba6cc78c9373868a2c926608e2571217de89c13acd",
+      "only_cases_and_witness_changed": true
+    },
+    {
+      "domain": "web-pentest",
+      "pack": "Tool/skill/web-pentest/pack.json",
+      "cases_before": [
+        "web-pentest01",
+        "web-pentest02",
+        "web-pentest03",
+        "web-pentest04",
+        "web-pentest05",
+        "site-clone01",
+        "site-clone02",
+        "site-clone03",
+        "site-clone-drill01",
+        "web-pentest06"
+      ],
+      "cases_after": [
+        "web-pentest06"
+      ],
+      "case_roles_witness_before": [
+        "web-pentest01",
+        "web-pentest02",
+        "web-pentest03",
+        "web-pentest04",
+        "web-pentest05",
+        "site-clone01",
+        "site-clone02",
+        "site-clone03",
+        "site-clone-drill01",
+        "web-pentest06"
+      ],
+      "case_roles_witness_after": [
+        "web-pentest06"
+      ],
+      "depth_gate_before": [
+        "web-pentest01",
+        "web-pentest02",
+        "web-pentest03",
+        "web-pentest04",
+        "web-pentest05",
+        "web-pentest06"
+      ],
+      "depth_gate_after": [
+        "web-pentest01",
+        "web-pentest02",
+        "web-pentest03",
+        "web-pentest04",
+        "web-pentest05",
+        "web-pentest06"
+      ],
+      "case_globs_before": [
+        "web-pentest*"
+      ],
+      "case_globs_after": [
+        "web-pentest*"
+      ],
+      "unrelated_fields_sha256_before": "97dc038118c630f0739c615f4364df5dcd5fd829d454914187833cde87b3d316",
+      "unrelated_fields_sha256_after": "97dc038118c630f0739c615f4364df5dcd5fd829d454914187833cde87b3d316",
+      "only_cases_and_witness_changed": true
+    }
+  ],
+  "cases": [
+    {
+      "domain": "firmware-iot",
+      "id": "firmware-iot01",
+      "target_type": "非固件二进制（夹具：PE32+ DLL）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "24d5bba887fc94441ee5ad3ac0ca839cc1a6f19377a31630df7bcbee87cfb0e5",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "firmware-iot",
+      "id": "firmware-iot02",
+      "target_type": "非固件二进制（夹具：PE32 EXE）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "2e1f825a23fa59c54c8771052353ee6d5ce3ca5a9ba9d07dbfa5aac95ce64124",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "firmware-iot",
+      "id": "firmware-iot03",
+      "target_type": "真实 Broadcom BCM43341 Wi-Fi 固件镜像（Windows DriverStore 中的 rtecdc.bin）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "1aa2b822be8f10976788e93af35fd73f8e2ff89b8b6600e00ecc14b0eb70fe12",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "firmware-iot",
+      "id": "firmware-iot04",
+      "target_type": "真实 Windows UEFI 启动应用 SecConfig.efi（PE32+，本机 System32）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "1aff4882836a030a9ed05691d946c246855dfbe36619c382b3e795cb721e8529",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "firmware-iot",
+      "id": "firmware-iot05",
+      "target_type": "夹具：合成 OTA 固件包（ZIP 内含 rootfs、init 脚本与 CGI）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "39a6937e300c3b546ce8209e2eac8f29fb59eb10aa27c527699cadbc4175ab2b",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "firmware-iot*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "id": "forensics01",
+      "target_type": "本地 pcap 抓包取证样本（单次 HTTP 登录会话，教学夹具）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "c9b60e8c3a055f8bbb2c3141447873caa51c4eadfa8d610bd12375cbfb14ceae",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "id": "forensics02",
+      "target_type": "本地应用日志取证样本（UTC 时间戳 + 可疑外联/执行记录，教学夹具）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "6bebe89ed8429fa9a45b84d5d787eb07b7a6041f7283961801b9398693411194",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "id": "forensics03",
+      "target_type": "真实 Windows 取证：AppReadiness EVTX + Edge History + 注册表键名清单（不含原始注册表文件与值）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "2e608ce0322fdbb84be5cf7e67a41d26ac3f607f295d2ae9bb5f2c345a634598",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "id": "forensics04",
+      "target_type": "iOS .ipa 与 Keychain/plist/SQLite 教学夹具（自建，无真实账号数据）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "ddc2e5d28d6ea595b3c2a1c4ae62f34e993d72803653bedc36b43c3ca68426b6",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "forensics-mobile",
+      "id": "forensics06",
+      "target_type": "真实 Windows 启动时间线：Microsoft-Windows-Kernel-Boot/Operational EVTX 只读副本（无用户名）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "087a9167e421670f042985a3859c2c73b44272999a1c1eca83a24f4fe3aa4bef",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "forensics*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "malware-analysis01",
+      "target_type": "Windows 11 系统自带 PE（C:/Windows/System32/notepad.exe，良性对照）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "151e068e2a7796f51939e622715dd7450c61bbff8726925443775f7281bb0634",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "malware-analysis02",
+      "target_type": "PE32 第三方 keygenme 样本（maxxor KeygenMe V7，含注入 API 与外部域名）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "448d13e1737e4e6f5b709c54ec0b755890a3e3767942d664b187e35d6f83188f",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "malware-analysis03",
+      "target_type": "PE32 合成 UPX 壳夹具（UPX0/UPX1 节名 + 内嵌 PE overlay）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "ed398074a8c05e72f4b0bca8d08848dffe73386d70e07a239be636a3f7d56d98",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "malware-analysis04",
+      "target_type": "OOXML 宏文档夹具（现场生成 .docm，含 AutoOpen 宏文本）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "d277c0f14710e657d626e409afb6f61a1002f607bea3cb60d4a83f6199ee656b",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "malware-analysis*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "protocol01",
+      "target_type": "本地夹具 pcap：HTTP/1.1 登录与会话请求（GET /login + Bearer + Set-Cookie，3 包 / 628 B，手工构造）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "66042323dcfbe69640ce09fdc37dcf8116ff0f2c27def91f786b62cf63f5d881",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "protocol02",
+      "target_type": "本地夹具二进制帧：magic SPRX + u16 长度前缀 + CRC32（3 帧 / 141 B，手工构造）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "1f6c6d354966c24ec83fe76ed5b061620d2c7e3fb919a79312ed503d4da7a389",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "protocol03",
+      "target_type": "真实 WebSocket 抓包（dumpcap 4.1.0 / Linux 回环 / Go-http-client；来源清单见 input/README.md）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "c7cbe21154cb666a9d4f5b5b25f95964e5a9ec38f6f607ac46c199f4b5f0d403",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "protocol04",
+      "target_type": "本机回环现场抓包（tshark + 本地 Python 回显服务）：HTTP/1.1 三条请求 / 三个 TCP 会话，含 Bearer 头与 Set-Cookie",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "1d71cb9276bfddaa58f44f85c3d83a768695bdbf4637105ae3d9bdab2f4c07b0",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "protocol*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin02",
+      "target_type": "Chrome/Edge MV3 扩展 ZIP（含 nativeMessaging 与可疑远程 URL，本地构造夹具样本）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "46cda0d7ecef8332b35f6266ae1961ad8059be5dd9299397b454320ef2e2e98e",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin03",
+      "target_type": "本机已安装的 Chrome MV3 扩展（Quicker 1.2.4，扩展 ID klggb…，只截取入口/权限相关文件）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "53f148ea7295cee5d0478a9d2dc3434f0d79d3815c070be79f45627124d74a11",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin04",
+      "target_type": "Electron asar 现场打包教学夹具（main/preload/renderer + IPC）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "c13eb919ce737b372233fe97fed3bd1f7f8eae17ae858ad9bd5436e5dc3c7df7",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin05",
+      "target_type": "VS Code VSIX 扩展现场打包教学夹具（extension/package.json + activationEvents + child_process）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "a60ec8261f64622ae8f95269cda10f4ec2190659a56ef37c245c802d2327ec75",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "protocol-plugin",
+      "id": "plugin06",
+      "target_type": "本机已安装的 Chrome MV3 扩展（Tampermonkey 5.5.1，userscript 管理器；只截取入口/权限/签名相关文件）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "51ad431759ef7766004d7c6b56c507a722ad8dc52859512f2b403490085699d6",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto01",
+      "target_type": "PE32+ / DLL",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "551b326f663467db5e602e216930722eb6db14e7cf8c74314c157521f6645bff",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto02",
+      "target_type": "PE32+ / EXE",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "1d2181d2dc9418ab2976ab69bb979448d225fda0311b697d50b7ca310f025e13",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto03",
+      "target_type": "自建靶：现场 gcc 编译的 PE32+（真实产物，非手写数据）",
+      "evidence_kind": "self-built",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "eb435b64d8f56f618ff1d17db11da8ddcc26e04f7e5575237b50ba0db848d2fd",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto04",
+      "target_type": "自建靶：现场生成的 RSA/广播/HMAC/MT19937/ECB/CBC 数学用例（真实算法实现）",
+      "evidence_kind": "self-built",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "308e9d6a6dbd882f890845404ac23b4fcc245bb7a2b33931590c371d51d5b8b3",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "pwn-crypto",
+      "id": "pwn-crypto05",
+      "target_type": "自建靶：现场编译的 PE32+ 格式化串样本（真实产物）",
+      "evidence_kind": "self-built",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "56037645ea2eda04655cc7515528d1c096bcf4e19f88674d6d8a79fde51c8d71",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "pwn-crypto*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "softseep",
+      "id": "_p2fixture",
+      "target_type": "纯离线假目标（python 脚本，读 card_code 环境变量后打印 OK/DENY，无网络、无文件写入）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": true,
+      "target_directory_file_count": 2,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "3474608ad108f9b99bf3a0eb60d3bcee04d44194ea56a0e21d8ce89d0176838e",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "softseep",
+      "id": "案例-真实补丁a",
+      "target_type": "真实第三方 crackme（MIT，crackerjack a.exe，PE32+ x64）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "7c80a396f8864ef97e856153d389ea428782c0c85528ed8c8314565b9717faeb",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "案例*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "案例*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "softseep",
+      "id": "项目A",
+      "target_type": "PE32+ x64",
+      "evidence_kind": "historical",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "2cf16dbfce313a7ea8a27c6d5ec0b6b4bf191737552926e0360d6a5e56d3056e",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "项目*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "项目*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "softseep",
+      "id": "项目B",
+      "target_type": "PE32+ x64",
+      "evidence_kind": "historical",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "f03fb83bfcfe65c6c734d86ee0993488be515dc241c2adbfb4c640c620631e33",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "项目*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "项目*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "softseep",
+      "id": "项目I",
+      "target_type": "PE32+ x64 (DLL)",
+      "evidence_kind": "historical",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "8d6373fba7531ed93985413832bbf3da1f9dfb5a59d03d43e1c7758178ad712f",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "项目*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "项目*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "softseep",
+      "id": "案例-6.9换肤壳",
+      "target_type": "PE32+ x64",
+      "evidence_kind": "historical",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "993533f82c32e971d2eec67f47f040d92e8616d2f08567db8b4da5bed9f0f502",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "案例*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "案例*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "supply-chain-security",
+      "id": "supply-chain01",
+      "target_type": "本仓库 Tool/ 工具目录（真实本地文件，只读静态扫描）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "f60f9c6f1aae6287cb996b9cdd0ae77cb3b8c4c3533b19ec78591fd41d27ee43",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "supply-chain-security",
+      "id": "supply-chain02",
+      "target_type": "本仓库 setup/ 安装与同步脚本目录（真实本地文件，只读静态扫描）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "4d7c8c269f29e0557ef4cebfd09fff954b990fb1fb77dd1bd0ae52a87913a675",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "supply-chain-security",
+      "id": "supply-chain03",
+      "target_type": "本仓库真实 GitHub Actions workflow（.github/workflows/upstream-sync.yml）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "e1a55344336c75a895ef8017db1ac3128095988388cd4e16e22b06e31e688cc7",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "supply-chain-security",
+      "id": "supply-chain04",
+      "target_type": "手写供应链可达性夹具（锁文件/freeze/SBOM + 最小源码树）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "6884b7fa5a16597a72202bb9e2f53ae8038c46ecc8c0b35e32dab86984b8db40",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "supply-chain*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "web-pentest01",
+      "target_type": "本地静态页（教学夹具，python http.server）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "9db049bec4bb1b0d9e9fb95c170cd2b308321da0590e7e47fba08e625e2a7f32",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "web-pentest02",
+      "target_type": "本地静态页（教学夹具，SPA 软 404 变体）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "97009b55ac167df555d5c7ec8d0e24032d205f36d6f831651170aa92eadb141f",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "web-pentest03",
+      "target_type": "本机 127.0.0.1:30141 已在监听的 Next.js 服务（真实进程，只读基线）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "cd778bb615337f28a1f4de0e89081f8e9481893deea0dd355d2b81dbbff44930",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "web-pentest04",
+      "target_type": "本机 127.0.0.1:8765 已在监听的 python http.server（真实进程，目录列表）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "78eb51f0e5b387015556a2eafba5b366d68b14564a89fe35c7c34eb172cce5eb",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "web-pentest05",
+      "target_type": "本机 127.0.0.1:57991 现场 Flask 3.1 服务（自写 app.py，回环只读验证）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "044948149fd68e5eaef47539ffb0effe8b22bb737785a22e5eed70cc65675b56",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": true,
+        "matched_case_globs": [
+          "web-pentest*"
+        ]
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone01",
+      "target_type": "真实 Next.js 静态导出站点 block.youtest.me（Cloudflare 前置，用户书面授权）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "08849d4073dbdbf6730092f6ab2d1ef0fa96520a31e42b1df176b16cd3aab35f",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone02",
+      "target_type": "公开静态单页 https://example.com（IANA Example Domain）",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "6942df0828dcff44955f5670f76c9df389429a6ce01dc5087613940e27b4ebbd",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone03",
+      "target_type": "本地两页 HTML/CSS/SVG 夹具（python http.server 回环，site-clone 验收夹具）",
+      "evidence_kind": "fixture",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "02fab731ccdd9989c86572a2ef6734881ce7041d21498661f69fccbc2e318d79",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "web-pentest",
+      "id": "site-clone-drill01",
+      "target_type": "Next.js 静态导出站点（SSR shell + Cloudflare Pages）：https://block.youtest.me",
+      "evidence_kind": "real",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": true,
+      "case_json_sha256": "fb87462511acde1d637bc2c0d79b7298a605a1a1b31c0f62ee0879d1f60d66a5",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: case.json 未登记 target_files，无法绑定并复查当前输入身份；现存目标目录文件不替代身份登记。保留来源类别及历史/方法/负例材料，不再作为当前 pass 见证。缺账本同时记录，但不作为消费者自动过滤规则。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    },
+    {
+      "domain": "malware-analysis",
+      "id": "aimbot",
+      "target_type": "Windows PE64（Qt + ImGui + ONNX）AI 辅助，卡密授权 + 自定义壳",
+      "evidence_kind": "real",
+      "goal_level": "M2",
+      "target_files_registered": false,
+      "target_files_field_present": false,
+      "target_directory_exists": false,
+      "target_directory_file_count": 0,
+      "facts_jsonl_missing": false,
+      "facts_jsonl_sha256": "853a8177dc0f04374a50bdaa7430041f58fc5b9ae7f5b665ba4eb9f216fea32c",
+      "case_json_sha256": "599c860d9d4cd34daa29ab61d987644612b7f5384b50f9aa790272e09edea3c3",
+      "decision": "context-only",
+      "reason": "REQUIREMENTS D02/D06: 有账本但缺绑定原件，与其余 47 条缺账本不同。case.json 未登记 target_files，target/ 无原件；goal_level 仍为 M2，账本和历史报告不能替代可复查的当前目标身份。主 agent 已核实并授权移出当前 cases/witness；原事实账、来源类别、目标类型及产物全部保留，不补事实、不改门槛。",
+      "original_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "depth_configuration_preserved": true,
+      "current_depth_membership": {
+        "declared_in_depth_gate": false,
+        "matched_case_globs": []
+      },
+      "case_directory_preserved": true,
+      "evidence_kind_preserved": true
+    }
+  ],
+  "validation": {
+    "gate_all": {
+      "command": "python -B Tool/scripts/gate.py --all --json",
+      "exit_code": 0,
+      "packs_pass": 9,
+      "packs_fail": 0,
+      "g5_checked_declared_witnesses": 11,
+      "g5_unreadable_cases": []
+    },
+    "domain_contract": {
+      "command": "python -B Tool/scripts/domain-contract-check.py --strict --json",
+      "exit_code": 0,
+      "verdict": "CLEAN",
+      "case_drift_domains": []
+    },
+    "tests": [
+      {
+        "command": "python -B Tool/scripts/test_evidence_contract.py",
+        "exit_code": 0,
+        "tests_passed": 25
+      },
+      {
+        "command": "python -B Tool/scripts/test_gate_integrity.py",
+        "exit_code": 0,
+        "tests_passed": 19
+      },
+      {
+        "command": "python -B Tool/scripts/test_domain_gate_integrity.py",
+        "exit_code": 0,
+        "tests_passed": 10
+      }
+    ],
+    "existing_pack_schema_checks_passed": 19,
+    "existing_gate_failclosed_checks_passed": 2,
+    "full_repository_suite_run": false,
+    "domain_gate_all_run": false,
+    "depth_coverage_evidence": "domain-contract 的实际 glob 命中集合与原 depth_gate 一致；未将此静态受检集核对冒充完整 domain-gate --all 验收。"
+  },
+  "limitations": [
+    "角色修正不改变证据来源类别、不补造事实、不删负例、不放宽门禁判据。",
+    "门禁通过仅证明当前声明和所执行范围，不代表未来所有目标可用。"
+  ]
+}

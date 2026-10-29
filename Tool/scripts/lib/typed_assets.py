@@ -325,8 +325,12 @@ def file_identity(project_root: Path, local_path: str) -> dict:
     if not stat.S_ISREG(st.st_mode):
         raise FileNotFoundError("missing local file: %s" % local_path)
     sha = digest(path)
+    # Size/mtime can stay equal for a same-length rewrite (including Windows
+    # timestamp publication delays). Re-read the bytes before accepting the
+    # measured identity; metadata alone must not certify the earlier digest.
+    confirmed_sha = digest(path)
     after = os.lstat(path)
-    if after.st_size != st.st_size or after.st_mtime_ns != st.st_mtime_ns \
+    if confirmed_sha != sha or after.st_size != st.st_size or after.st_mtime_ns != st.st_mtime_ns \
             or (after.st_dev, after.st_ino) != (st.st_dev, st.st_ino):
         raise ConcurrentChange("file changed while hashing: %s" % local_path)
     return {"schema": ASSET_SCHEMA, "kind": "file", "algorithm": FILE_ALGO,

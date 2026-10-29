@@ -113,9 +113,7 @@ extraction is invisible** — a dex with three quarters of its bodies removed re
 
 Two consequences the metric's name hides:
 
-- **`stub%` high is dispositive; `stub%` low is not evidence of anything.** A low
-  reading is compatible with a genuine dex, a fully nop-wiped skeleton, and a
-  `throw`-stubbed skeleton alike.
+- **高 `stub%` 是候选信号，不是通用充分判据。** 正常代码也可包含大量简单方法，必须结合调用路径、同构建对照与具体方法体。低读数不能证明完整：真实 DEX、nop 骨架、throw 骨架都可能低。
 - **Read `emptied%`, not `stub%`, for the skeleton call.** `emptied%` unions the
   `return*`-stub and the nop-wiped classes, which is what lifts the nop-filled
   skeleton from 0.0 % to 100 %. A `throw`-stubbed skeleton still reads low; for that
@@ -165,18 +163,8 @@ live extraction shell):
 1. **Dump the whole image.** Class definitions, field and method signatures, string
    tables — the skeleton is complete even when every body is a stub. This is the
    ordinary `recon.md` dump; it gives you the address map for step 3.
-2. **Actively invoke every method.** Walk the dumped class list reflectively and call
-   each method (dummy arguments; most will throw, which is fine — the point is that
-   the *shell* decrypts and installs the body as the method is entered). Hook inside
-   ART at the interpreter's entry so that, as each method begins executing, the
-   method's `code_item` — now holding the decrypted body — is written to disk,
-   tagged with its `method_idx`. These per-method records are the "bin" files of a
-   FART dump.
-3. **Splice the bodies back into the skeleton.** For each record, overwrite the
-   stub body in the whole-dex image at the offset the skeleton gives you, fix the
-   header (`scripts/dexutil.py` `fix_dex_header` — signature first, checksum last),
-   and **accept nothing until jadx or baksmali parses the result** and the method
-   count matches the skeleton. "It assembled" is not "it repaired".
+2. **有界触发已理解的方法。** 先用正常功能路径触发；需要主动调用时只选择参数、线程、初始化与副作用均已核实的白名单，记录 method_idx 与触发条件。禁止反射执行全部类/构造器/方法；抛异常不证明没有副作用。在版本匹配的 ART 入口观测目标方法的真实 code_item，未触发方法保留缺失，不用“全遍历”凑覆盖。
+3. **Splice with verified layout.** 绑定 dex 哈希、method_idx、code_item 全长和原位置；重建器处理大小变化、异常处理器与所有偏移，不能默认原地覆盖总是安全。对受支持的传统 DEX 使用 `scripts/dexutil.py` 修 header（signature 后 checksum），保留实际版本。JADX/baksmali 解析、方法数与关键方法语义/指令验证均需核实；解析与数量相等不证明逻辑完整。
 
 ## The code_item length trap
 

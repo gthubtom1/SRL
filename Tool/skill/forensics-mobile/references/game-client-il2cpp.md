@@ -42,8 +42,8 @@ Il2CppDumper GameAssembly.dll global-metadata.dat out/
 ls out/   # dump.cs、il2cpp.h、script.json、stringliteral.json、DummyDll/
 ```
 
-- `global-metadata.dat` 头：`0xFAB11BAF` + 版本号；版本必须与 `GameAssembly`/`UnityFramework` 的 Unity 版本匹配。
-- `dump.cs` 给类型/方法/字段；`script.json` 给函数地址；`stringliteral.json` 给字面量；`il2cpp.h` 给 IDA/Ghidra 结构。
+- `global-metadata.dat` 标准头：`0xFAB11BAF` + 格式版本；同一版本整数可能对应多个布局。先确认 metadata 与 native 二进制来自同一构建，再按当前工具版本/分支支持表与实际解析诊断核验；不固定 24–29，也不把 Unity 版本与 metadata 版本当一一对应。
+- `dump.cs`/DummyDll 提供重建类型、字段和方法签名，通常没有原始 C# 方法体；native 方法语义仍需分析二进制。`script.json`、字符串与结构输出的字段/布局以当前工具版本为准。
 - 地址落地：在 IDA/Ghidra 里按 `script.json` 的 `Address`/`RVA` 跳转，核对函数边界与调用约定。
 - 更新后偏移会漂移：必须记录客户端版本、哈希、Unity 版本、工具版本；旧 `dump.cs` 不能直接套新包。
 
@@ -68,13 +68,16 @@ AssetStudioModCLI data.unity3d -o export/
 ## 5. 运行时只读观测（离线/授权）
 
 ```javascript
-// Frida：只读枚举模块与内存扫描，不写、不挂钩、不注入
-Process.enumerateModules().filter(m => /GameAssembly|UnityFramework/.test(m.name))
-Memory.scan(Module.findBaseAddress('GameAssembly.dll').add(0x123456), 0x100, '41 42 43 44')
+// Frida 进程内观测会注入 agent；只在已有许可的离线测试环境使用。
+const mod = Process.findModuleByName('GameAssembly.dll');
+if (mod !== null) {
+    const address = mod.base.add(0x123456); // 合成示例，必须换为同构建已核 RVA
+    // 读取前核范围、权限与非敏感性；这里不输出内存内容。
+}
 ```
 
 - 离线优先：对自有进程做 minidump/`gcore`，按模块基址 + 偏移定位字段；记录模块哈希与偏移来源。
-- 在线只读：只枚举模块/读已知特征（金币数、等级、token 前缀），**不写、不挂钩、不注入**；能外部抓包就不 attach。
+- 离线测试环境只读：仅观测已知非敏感字段；真实 Token/Key/Salt/私钥及其前缀不读取、不输出。Frida 需要注入 agent，不能宣称“未注入”；若任务要求完全不注入则选择已有外部安全观测通道。
 - 字段链路：服务器下发（pcap）→ 客户端解析（dump.cs/方法）→ 内存偏移（模块+offset）→ UI/上报（日志/抓包）。
 - 偏移会随版本/平台/编译变化；必须写“客户端版本 + 模块哈希 + 偏移 + 验证时间”。
 
@@ -111,7 +114,7 @@ Memory.scan(Module.findBaseAddress('GameAssembly.dll').add(0x123456), 0x100, '41
 ## 9. 边界
 
 - 只做取证与关系说明：产物是检测点、设备状态与行为证据。
-- 不注入、不挂钩、不改内存、不加载驱动；动态验证只在离线副本/授权测试服。
+- 默认不挂钩、不改内存、不加载驱动；动态验证只在获准离线环境。需要 Frida 的 agent 注入时单独说明，不能把它称为无注入；在线反作弊环境只做外部观测。
 - 不传播游戏资源/密钥/账号数据；报告脱敏。
 - 版本/哈希/偏移三件套必须一起写；缺一不可复现。
 

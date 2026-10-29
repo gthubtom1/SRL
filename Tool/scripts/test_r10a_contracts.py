@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -40,6 +41,40 @@ def command_scripts(command, base):
         path = Path(token)
         scripts.append(path if path.is_absolute() else base / path)
     return [path.resolve() for path in scripts]
+
+
+@contextlib.contextmanager
+def protocol_root_fixture():
+    """An isolated role split in both directions, with replay-free case data."""
+    with tempfile.TemporaryDirectory(prefix="r10a-proto-") as tmp:
+        root = Path(tmp) / "repo"
+        pack_dir = root / "Tool" / "skill" / "protocol-plugin"
+        pack_dir.mkdir(parents=True)
+        (pack_dir / "SKILL.md").write_text("# fixture\n", encoding="utf-8")
+        pack = json.loads((ROOT / "Tool" / "skill" / "protocol-plugin" / "pack.json")
+                          .read_text(encoding="utf-8-sig"))
+        pack["cases"] = ["protocol02", "protocol03"]
+        pack["case_roles"] = {"witness": list(pack["cases"]),
+                              "depth_gate": ["protocol01", "protocol02"]}
+        pack["depth_contract"]["case_globs"] = ["protocol0[12]"]
+        for name in ("protocol01", "protocol02", "protocol03", "plugin99"):
+            case_dir = root / "Tool" / "cases" / name
+            case_dir.mkdir(parents=True)
+            artifact = b"recorded offline result\n"
+            (case_dir / "result.txt").write_bytes(artifact)
+            case = {
+                "id": name, "domain": "protocol-plugin", "target_type": "教学夹具",
+                "evidence_kind": "fixture", "protection": [], "authority": "local",
+                "goal_level": "L1", "outcome": "partial", "updated": "2026-10-30",
+                "artifacts": [{"path": "result.txt",
+                               "sha256": hashlib.sha256(artifact).hexdigest()}],
+                "lessons": ["python offline.py rc=0；仅记录方法结果"],
+                "refs": ["Tool/skill/protocol-plugin/SKILL.md"],
+            }
+            (case_dir / "case.json").write_text(json.dumps(case), encoding="utf-8")
+        pack_path = pack_dir / "pack.json"
+        pack_path.write_text(json.dumps(pack), encoding="utf-8")
+        yield root, pack, pack_path
 
 
 class R10AContracts(unittest.TestCase):
@@ -152,17 +187,9 @@ class R10AContracts(unittest.TestCase):
                                   str(caught.exception))
 
     def test_proto_accept_bad_routes_fail_closed_in_isolated_root(self):
-        with tempfile.TemporaryDirectory(prefix="r10a-proto-") as tmp:
-            fake_root = Path(tmp) / "repo"
-            (fake_root / "Tool" / "cases").mkdir(parents=True)
-            pack_dir = fake_root / "Tool" / "skill" / "protocol-plugin"
-            pack_dir.mkdir(parents=True)
-            pack = json.loads(
-                (ROOT / "Tool" / "skill" / "protocol-plugin" / "pack.json")
-                .read_text(encoding="utf-8"))
+        with protocol_root_fixture() as (fake_root, pack, pack_path):
             pack["routes"] = "bad-string"
-            (pack_dir / "pack.json").write_text(
-                json.dumps(pack), encoding="utf-8")
+            pack_path.write_text(json.dumps(pack), encoding="utf-8")
             proc = child([
                 PROTOCOL / "proto-accept.py", "--root", fake_root,
                 "--routing-check", "--json",
@@ -173,6 +200,123 @@ class R10AContracts(unittest.TestCase):
         self.assertEqual(result["blocked_at"], "accept")
         self.assertIn("pack.json.routes", result["reason"])
         self.assertNotIn('"source": "builtin"', proc.stdout)
+
+    def test_proto_accept_roles_are_independent_and_old_cases_stay_limited(self):
+        with protocol_root_fixture() as (root, pack, _pack_path):
+            for flags in ([], ["--routing-check"],
+                          ["--case", root / "Tool/cases/protocol01",
+                           "--case", root / "Tool/cases/plugin99"]):
+                with self.subTest(flags=flags):
+                    proc = child([PROTOCOL / "proto-accept.py", "--root", root,
+                                  "--json", *flags])
+                    self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+                    result = json.loads(proc.stdout)
+                    self.assertTrue(result["ok"])
+                    self.assertEqual(result["declared_cases"], pack["cases"])
+                    self.assertEqual(result["case_roles"], pack["case_roles"])
+                    self.assertIn("有限复算", result["scope"])
+                    if "--case" in flags:
+                        self.assertEqual([r["roles"] for r in result["cases"]],
+                                         [["depth_gate"], []])
+                    elif "--routing-check" in flags:
+                        self.assertNotIn("cases", result)
+                    else:
+                        self.assertEqual([r["case"] for r in result["cases"]],
+                                         pack["cases"])
+                        self.assertEqual([r["roles"] for r in result["cases"]],
+                                         [["witness", "depth_gate"], ["witness"]])
+
+    def test_proto_accept_rejects_invalid_case_role_contracts(self):
+        mutations = [
+            ("cases type", ("cases",), "protocol02", "cases"),
+            ("cases empty", ("cases",), [], "cases"),
+            ("cases duplicate", ("cases",), ["protocol02", "protocol02"], "重复"),
+            ("cases traversal", ("cases",), ["../protocol02"], "目录名"),
+            ("roles type", ("case_roles",), [], "case_roles"),
+            ("roles missing", ("case_roles",), {"witness": ["protocol02"]}, "case_roles"),
+            ("roles unknown", ("case_roles", "inventory"), ["plugin99"], "case_roles"),
+            ("witness mismatch", ("case_roles", "witness"), ["protocol02"], "witness"),
+            ("witness empty", ("case_roles", "witness"), [], "witness"),
+            ("witness duplicate", ("case_roles", "witness"),
+             ["protocol02", "protocol02"], "重复"),
+            ("depth type", ("case_roles", "depth_gate"), "protocol01", "depth_gate"),
+            ("depth empty", ("case_roles", "depth_gate"), [], "depth_gate"),
+            ("depth nonstring", ("case_roles", "depth_gate"), [1], "depth_gate"),
+            ("depth duplicate", ("case_roles", "depth_gate"),
+             ["protocol01", "protocol01"], "重复"),
+            ("depth traversal", ("case_roles", "depth_gate"), ["../protocol01"], "目录名"),
+            ("depth backslash", ("case_roles", "depth_gate"), ["..\\protocol01"], "目录名"),
+            ("depth omits glob", ("case_roles", "depth_gate"), ["protocol02"], "实际命中"),
+            ("depth outside glob", ("case_roles", "depth_gate"),
+             ["protocol01", "protocol02", "protocol03"], "实际命中"),
+            ("depth missing dir", ("case_roles", "depth_gate"), ["protocol99"], "目录缺失"),
+            ("glob empty", ("depth_contract", "case_globs"), [], "case_globs"),
+            ("glob traversal", ("depth_contract", "case_globs"), ["../*"], "case_globs"),
+            ("glob drift", ("depth_contract", "case_globs"), ["protocol*"], "实际命中"),
+            ("wrong pack id", ("id",), "web-pentest", "domain pack"),
+        ]
+        for label, keys, value, message in mutations:
+            with self.subTest(label=label), protocol_root_fixture() as (root, pack, path):
+                target = pack
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = value
+                path.write_text(json.dumps(pack), encoding="utf-8")
+                proc = child([PROTOCOL / "proto-accept.py", "--root", root,
+                              "--routing-check", "--json"])
+                self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+                result = json.loads(proc.stdout)
+                self.assertFalse(result["ok"])
+                self.assertIn(message, result["reason"])
+
+    def test_proto_accept_rejects_fake_cases_and_wrong_role_ownership(self):
+        for name in ("protocol01", "protocol03"):
+            for fault in ("missing directory", "missing case.json", "wrong domain", "wrong id"):
+                with self.subTest(name=name, fault=fault), \
+                     protocol_root_fixture() as (root, _pack, _path):
+                    case_dir = root / "Tool/cases" / name
+                    case_path = case_dir / "case.json"
+                    if fault == "missing directory":
+                        case_dir.rename(case_dir.with_name("moved-" + name))
+                    elif fault == "missing case.json":
+                        case_path.unlink()
+                    else:
+                        case = json.loads(case_path.read_text(encoding="utf-8"))
+                        case["domain" if fault == "wrong domain" else "id"] = "web-pentest"
+                        case_path.write_text(json.dumps(case), encoding="utf-8")
+                    proc = child([PROTOCOL / "proto-accept.py", "--root", root,
+                                  "--routing-check", "--json"])
+                    self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+                    result = json.loads(proc.stdout)
+                    self.assertFalse(result["ok"])
+                    self.assertIn(name, result["reason"])
+        with protocol_root_fixture() as (root, pack, path):
+            pack["cases"] = pack["case_roles"]["witness"] = ["invented-witness"]
+            path.write_text(json.dumps(pack), encoding="utf-8")
+            proc = child([PROTOCOL / "proto-accept.py", "--root", root, "--json"])
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            self.assertIn("invented-witness", json.loads(proc.stdout)["reason"])
+
+    def test_proto_accept_still_rejects_bad_artifacts_and_explicit_wrong_domain(self):
+        for name in ("protocol02", "protocol01", "plugin99"):
+            with self.subTest(name=name), protocol_root_fixture() as (root, _pack, _path):
+                case_dir = root / "Tool/cases" / name
+                (case_dir / "result.txt").write_bytes(b"tampered\n")
+                flags = [] if name == "protocol02" else ["--case", case_dir]
+                proc = child([PROTOCOL / "proto-accept.py", "--root", root,
+                              "--json", *flags])
+                self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+                self.assertIn("sha256 不符", " ".join(json.loads(proc.stdout)["problems"]))
+        with protocol_root_fixture() as (root, _pack, _path):
+            case_dir = root / "Tool/cases/plugin99"
+            path = case_dir / "case.json"
+            case = json.loads(path.read_text(encoding="utf-8"))
+            case["domain"] = "web-pentest"
+            path.write_text(json.dumps(case), encoding="utf-8")
+            proc = child([PROTOCOL / "proto-accept.py", "--root", root,
+                          "--case", case_dir, "--json"])
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            self.assertIn("不是 protocol-plugin", " ".join(json.loads(proc.stdout)["problems"]))
 
     def test_plugin_cases_are_active_protocol_domain_and_accept_passes(self):
         expected = ("plugin02", "plugin03", "plugin04", "plugin05", "plugin06")
@@ -209,8 +353,28 @@ class R10AContracts(unittest.TestCase):
         result = json.loads(proc.stdout)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertTrue(result["ok"])
-        self.assertEqual(result["case_count"], 10)
+        pack = json.loads((ROOT / "Tool/skill/protocol-plugin/pack.json")
+                          .read_text(encoding="utf-8-sig"))
+        self.assertEqual(pack["cases"], ["protocol05"])
+        self.assertEqual(pack["cases"], pack["case_roles"]["witness"])
+        self.assertEqual(result["declared_cases"], pack["cases"])
+        self.assertEqual(result["case_count"], len(pack["cases"]))
+        self.assertEqual([row["case"] for row in result["cases"]], pack["cases"])
         self.assertTrue(all(row["ok"] for row in result["cases"]))
+        self.assertEqual(result["case_roles"], pack["case_roles"])
+
+        # Historical protocol/plugin methods remain eligible for local checks;
+        # selecting them never extends the pack's current witness declaration.
+        old_methods = ["protocol01", "protocol02", "protocol03", "protocol04", *expected]
+        flags = [part for name in old_methods
+                 for part in ("--case", ROOT / "Tool/cases" / name)]
+        proc = child([PROTOCOL / "proto-accept.py", "--json", *flags])
+        limited = json.loads(proc.stdout)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(limited["declared_cases"], pack["cases"])
+        self.assertEqual(limited["case_count"], len(old_methods))
+        self.assertTrue(all(row["ok"] for row in limited["cases"]))
+        self.assertTrue(all("witness" not in row["roles"] for row in limited["cases"]))
 
         proc = child([PROTOCOL / "plugin-accept.py", "--root", ROOT, "--json"])
         plugin_result = json.loads(proc.stdout)

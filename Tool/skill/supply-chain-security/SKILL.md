@@ -19,6 +19,8 @@ metadata:
 - 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
 - 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
+- 子技能可调用辅域，锁文件/制品/代码位置、原始安全输出与结果归同一 project/version/run；不能因工具或指南库存扩大成熟度。真实凭据/Token/Key/Salt/私钥不进入 Agent，认证与私有源操作由用户侧完成。
+
 ## 1. 范围与路由（边界）
 
 **本域输入面**
@@ -34,7 +36,7 @@ metadata:
 - 仓库/镜像/流水线清单由 `scope` 声明；投毒、抢注、发布测试包、改生产 CI 按单独授权单执行。
 - CVE 武器化、漏洞利用开发；只做版本/可达性/补丁差异/影响面。
 - 应用层漏洞 → `web-pentest`；APK/固件逆向 → `apkseep`/`firmware-iot`；
-  容器逃逸/云原生方法按源码读取 `Tool/skill/_pending/ad-cloud/SKILL.md`（归档参考，未作为宿主技能部署）；恶意样本动态分析 → `malware-analysis`。
+  AD/云身份权限方法按需读 `Tool/skill/pwn-crypto/subskills/ad-cloud/SKILL.md`，只说明已有方法入口，环境与效果另验；恶意样本动态分析 → `malware-analysis`。
 - 许可证/法务合规结论；本技能只列组件、声明与证据。
 
 ## 配方（照这个跑）
@@ -72,8 +74,8 @@ docker image inspect <image> --format '{{.Id}} {{.RepoDigests}}'
 
 | 类别 | 确认（可机检） | 疑似（缺一条） | 证据形态 |
 | :-- | :-- | :-- | :-- |
-| 锁文件 | 锁文件与 manifest 同源；条目有 integrity；resolved 指向受控源；CI 冻结安装 | 有锁文件但缺 integrity / CI 用 `npm install` | 锁文件 sha256 + 条目 + CI 命令 |
-| SBOM | subject 对 commit/digest；组件能追到锁文件；直接+传递覆盖 | SBOM 存在但过期/组件差 >20% | SBOM + `missing_from_sbom[]` |
+| 锁文件 | 与 manifest 同源；按生态核版本身份、受控源、可得校验及冻结解析；缺项说明 | 只有锁文件，未核实际解析与条件依赖 | 锁文件身份 + 生态/来源/命令 |
+| SBOM | subject 对 commit/工作树/digest 与平台；组件/关系可追到锁或制品，直接/传递及构建条件有覆盖说明 | 文件存在但对象/时间/生态覆盖不明 | SBOM + 差异与未覆盖项 |
 | SCA 可达 | 入口→传递→sink 调用链，或运行时加载；不可达有原因 | 只有版本范围命中 | `reach.json` + 代码行 + 运行时依赖树 |
 | 依赖混淆 | scope 有 registry 映射；resolved 与映射一致；公共同名不可解析 | 只看到私有 scope/内部包名 | `.npmrc`/`pip.conf`/`nuget.config` + 锁文件 |
 | 安装脚本 | 每条安装期命令有来源/必要性；下载有 hash | 有 `postinstall` 未读内容 | manifest 原文 + URL + hash |
@@ -235,4 +237,8 @@ cosign verify-attestation <image> --type slsaprovenance
 ## 子技能（按需读，不常驻）
 
 本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
-当前由主域 SOP 统一覆盖，保留标准槽位供后续细分子技能敏捷挂载。
+
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **ci-cd-security** | 持续集成与部署（CI/CD）流程安全审计、构建管道注入排查与不可变构建验证 | 需要审查 GitHub Actions / GitLab CI 配置文件安全性、排查构建期命令注入或凭据泄露风险 | `subskills/ci-cd-security/SKILL.md` |
+| **sbom-audit** | 软件物料清单（SBOM）跨语言解析、依赖混淆与投毒组件排查 | 需要审计开源或商业项目的第三方依赖安全、排查依赖混淆（Dependency Confusion）与供应链投毒 | `subskills/sbom-audit/SKILL.md` |

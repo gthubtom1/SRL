@@ -95,6 +95,9 @@ ALLOW = {
         "不在文件里构成完整形态），必须是假值才能证明检测会红",
     "Tool/skill/_pending/ad-cloud/scripts/ad-accept.py":
         "自测：故意在 artifact 里写一行假 token，证明「凭据红线」会红；值本身是占位 JWT",
+    "Tool/skill/pwn-crypto/subskills/ad-cloud/scripts/ad-accept.py":
+        "域内迁移副本：与已审查 _pending/ad-cloud/scripts/ad-accept.py 字节相同；"
+        "命中位于 self_test 的合成凭据负例，不是真实账号或服务凭据",
     "Tool/capabilities/osint-secret-scan.json":
         "能力声明（文件名含 secret，内容是扫描能力描述，无凭据值）",
     "Tool/cases/ad-cloud01/input/kubeconfig.yaml":

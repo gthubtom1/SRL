@@ -1,92 +1,56 @@
 ---
-name: version-migration
-description: "'追版/新版适配旧报告 (.exe) —— 跨版本增量追版：旧报告/补丁/Hook 快速适配新版。"
+name: multiver-aob
+description: "跨版本特征候选、原/补丁双态唯一性与语义复核；区分唯一、缺失、歧义和需人工处理。"
 metadata:
-  version: "1.0.0"
-  target_runtimes: "Windows PE (x86/x64) | Android DEX/SO"
-  compatible_workbench: "Seep v1.8.4+"
+  version: "1.1.0"
+  target_runtimes: "当前脚本为文件字节候选；PE 地址映射与其他格式另核"
 ---
 
-> **定位说明**：本技能是「追版算法」的细节卷（AOB 双态特征码 / 差分辅助）。
-> 完整生命周期（版本账、UI 与授权迁移、七步流水线、兜底三重、验收）见 **`04-version-migrate`**，
-> 版本账与 AOB 对齐引擎为 `Tool/skill/softseep/scripts/version-migrate.py`。
+# 跨版本 AOB 与补丁迁移
 
-# 客户端跨版本增量追版与特征迁移技能 (Version Migration & Differential Adaptation)
+输入是旧/新版本原件及哈希、旧位点的语义/原字节/改后字节、同模块/架构证据。主域仍是 softseep；Android DEX/SO 可由 apkseep 协作，但脚本不自动理解其指令/签名/重包规则。项目账、接续与当前版本绑定见 [router](../../../seep-router/SKILL.md)，迁移配方见 `Tool/playbooks/version-migrate.md`，不调用旧裸阶段名。
 
-> **核心使命**：杜绝从零重复逆向！将旧版本已沉淀的分析报告、AOB 特征码、补丁源码作为新版候选，核对语义与原字节并实际回归后再交付。
+深度资料优先 [AOB 与签名](../exe-reverse/references/aob-and-signatures.md)、[版本差分](../exe-reverse/references/pe-diff-and-versions.md)、[补丁工程](../../references/09-patch-engineering.md)；复杂函数匹配读 [binary-diff](../binary-diff/SKILL.md)。
 
----
+## 当前工具入口
 
-## 一、 适用场景与触发口令
-
-当遇到以下情况时，直接引用本技能：
-1. **目标软件发布了新版本**：此前已成功分析并制作过旧版补丁（例如从 v6.8 升级到 v6.9，或者从 v1.2 升级到 v1.3）；
-2. **符号与偏移发生代码漂移**：新版本重新编译后，旧的内存地址（RVA）或文件偏移（File Offset）失效；
-3. **保护机制局部微调**：新版仅更新了部分判定函数或加了壳，但核心业务逻辑骨架未变。
-
-**大白话唤醒指令示例**：
-- `lab：引用技能 version-migration，旧版本工程在 <旧版工程目录>，新版程序是 <新版安装包路径>，帮我追版做成新补丁`
-- `lab：软件更新了，用 version-migration 帮我对齐旧版 reports/ 里的特征码，生成 6.9 版本的 version.dll`
-
----
-
-## 二、 自动化追版四步工作流
+先核连接与实际 schema。Seep MCP 参数形态是：
 
 ```text
-第 1 步：读旧账 (Asset Carving)
-        读取旧工程的分析报告 (reports/*.md) 与补丁源码 (version_proxy.c / patch.bin)
-        提取出旧版的关键特征码 (AOB)、判定位点上下文、导出转发函数表
-          │
-          ▼
-第 2 步：新版资产画像与壳侦察 (Pre-flight Triage)
-        调用 seep_packer_detect 检查新版是否更换了壳层
-        调用 seep_r2_cmd(cmd="iR") 检查新版是否将核心载荷转移至资源节
-          │
-          ▼
-第 3 步：特征拓扑差值对齐与滑窗搜索 (Signature Migration)
-        提取旧版位点前后 16~32 字节的操作码模板（通配重定位操作数）
-        在新版反汇编流中执行滑窗匹配，锁定新版目标位点的真实 RVA
-          │
-          ▼
-第 4 步：重写补丁并编译成品 (Recompile & Verify)
-        将计算出的新版 SectionDelta 与 RVA 更新至补丁工程源码
-        一键编译出适配新版的可运行 version.dll 或重打包 APK 成品！
+seep_packer_detect(binary_path="<新版原件绝对路径>")
+seep_r2_cmd(binary_path="<新版原件绝对路径>", command="iR", analyze=false)
+seep_r2_decompile(binary_path="<新版原件绝对路径>", target="<已核函数地址>")
 ```
 
----
+没有 `cmd=` 参数。资源枚举不能证明内嵌载荷已导出；伪代码不直接证明补丁语义。缺 MCP 时使用已核可用的 radare2 CLI 或其他现有 headless 通道，不把工具名当宿主技能。
 
-## 三、 核心技术标准与实现规则
+域版本账引擎为 `Tool/skill/softseep/scripts/version-migrate.py`，子命令/字段先 `--help`。本目录还提供 [流水线脚本](scripts/09_multiversion_extend.py) 与 [旧案例配置](scripts/config_6v.example.json)。该脚本只有配置文件位置参数，**没有 argparse 的 `--help`**：不传参数会输出模块用法并退出 2；传 `--help` 会把它当文件名。不要把失败包装成支持帮助。
 
-### 1. 资产继承：旧工程应该读取哪些文件？
-在旧工程目录下，优先提取以下三类黄金资产：
-- **`reports/*_security_assessment_report.md`**：获取旧版本的漏洞分支成因、汇编模式与判定函数签名；
-- **`src/version_proxy.c` 或 `patch.c`**：获取原本打桩的补丁字节（如 `b0 01 c3`）与依赖的系统转发库（`.def`）；
-- **`notes/` 或 `docs/`**：获取历史踩坑记录（例如哪些函数是 STL 容器绝对不能盲目打桩）。
+将配置放在当前项目工作目录，核内容后再运行（脚本只读输入文件并生成表，不运行目标，也不产出 DLL/APK）：
 
-### 2. AOB 双态特征码迁移算法（规避重编译漂移）
-软件重新编译后，跳转指令的目标地址和全局变量指针会变，但**操作码的主体拓扑序列保持恒定**：
-- **旧版原始机器码**：
-  ```hex
-  85 C0 74 12 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 83 F8 01 75 08
-  ```
-  将所有 32 位相对偏移操作数（`E8/E9` 调用的偏移、`48 8D 0D` 的 RIP 相对寻址）使用通配符 `??` 掩码处理；
-- **新版滑窗匹配**：
-  在主模块代码段（`.text`）执行内存滑窗扫描，若仅命中唯一候选点，即确认为新版本目标位点。
+```bash
+python Tool/skill/softseep/subskills/multiver-aob/scripts/09_multiversion_extend.py work/migration/config.json
+```
 
-### 3. 多引擎差分辅助（当特征码微调时）
-若新版本编译器优化导致特征码不完全一致：
-1. 调用 `seep_r2_decompile` 提取新版对应函数的 C 伪代码；
-2. 比对函数内部的常量字符串（如 `VIP`、`Expire`、`Status`）；
-3. 通过字符串的交叉引用（Xrefs）定向定位新函数候选，耗时与准确性以当前结果为准。
+`samples_dir` 相对于配置文件目录解析。versions 各有唯一 tag 与 file；points 指定 id/name、各版本的**文件偏移** offsets、expected/patch 十六进制和 optional，未知偏移为 null。至少有一个已验证锚点；所有版本都缺失的 optional 点当前可能触发异常，不能当已支持跳过。旧案例配置依赖仓外样本，不能直接当当前项目输入。
 
----
+脚本输出到配置所在目录的 `final_table_multiver.json` 和 `aob_table_multiver.cs`，会覆盖同名文件，应使用独立 run 目录。缺失必需点退出 1，双态唯一性失败退出 2，0 仅表示其内部检查通过。模糊定位路径需要 numpy；脚本无稳定结构化错误契约，保留 stderr。
 
-## 四、 交付产物规范
+## 候选与证据门槛
 
-追版完成后，智能体必须交付完整闭环：
-1. **《跨版本特征对齐与迁移差异说明书》**：
-   - 标注：旧版本位点 RVA vs 新版本位点 RVA；
-   - 标注：新版代码段增量变化说明。
-2. **新版本成品补丁**：
-   - 编译好的免落盘 `version.dll`（或其他代理库）；
-   - 用户只需将其扔入新版软件目录，双击启动即可直接验证！
+脚本用汉明距离、锚点及期望字节搜索产生候选，再比较共同稳定区；其输出特征是连续十六进制字节，不能当支持任意 `??` 的通配引擎。通配重定位/分支操作数的设计属于另一条签名方法，要由相应扫描工具验证。
+
+预先检查 offset 不越界、expected/patch 非空且等长、位点不重叠、原件当前字节与 expected 一致。当前脚本在原字节不符时会打印告警，不能指望返回码一定因此失败；未验证的已知 offset 也可能污染双态构造。看到告警必须拒收，即使最后 rc=0。
+
+双态 1/1 只证明这些文件中原始/改后模式分别唯一，不证明候选函数语义相同。脚本的汉明最优候选不完整保留并列候选，因此还需独立扫描全部候选、核指令边界/调用点/控制流。唯一期望字节、相近地址、相同字符串都不足以单独确认。
+
+## 正反例与追版结果
+
+- 唯一：模式唯一且原字节、函数语义、地址映射与独立证据一致，才进入副本补丁验证。
+- 缺失：可能删除、内联、保护变化或构建不同，记录未找到，不盲用旧 RVA。
+- 歧义：重复模式/同距离候选需人工语义消歧，不能取第一个。
+- 需人工：未知保护、架构/运行时变化或原字节不符，转重分析，不扩大窗口硬凑匹配。
+
+正例：新版位移不均匀，候选经指令/调用链确认，副本字节回读、回滚及目标功能回归均成立。反例：全文件仅一次短 AOB 却落在资源数据中，或 rc=0 同时有原字节告警，均拒绝迁移结论。重编译可能改变整个拓扑，不承诺共同稳定区始终存在。
+
+交付差异表、候选/反证、工具诊断、原件/产物身份及验证结果。修改成品还需实际启动与约定功能/邻接功能回归，表文件生成或编译成功不证明可用。同形失败两次换语义/差分路线；辅域输出和新证据归当前 project/version/run，旧报告保留旧身份，不混作当前完成见证。

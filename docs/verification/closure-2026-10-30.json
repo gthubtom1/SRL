@@ -1,0 +1,1276 @@
+{
+  "schema": "seep.closure-verification/1",
+  "date": "2026-10-30",
+  "version": "1.27.0",
+  "scope": "Windows local worktree, current implementation/regressions, bounded nine-domain tasks, formal user+isolated deployment, real pi-web embedded Pi 1.2.0 model sessions",
+  "status": "verified-local-baseline-with-preserved-advisories",
+  "runtime_check": {
+    "mode": "runtime",
+    "exit_code": 0,
+    "ok": true,
+    "summary": {
+      "pass": 95,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "seconds": 1067.781,
+    "command": [
+      "python",
+      "Tool/scripts/check.py",
+      "--runtime",
+      "--json"
+    ],
+    "raw": "tmp/final-closure-20261030/validation-runtime/1-check.stdout.log",
+    "raw_sha256": "ac8c51244f6eb2566310fa212cde1830d2e97a0c6e98058c3dfa45850b7aeeb4",
+    "suites": [
+      {
+        "name": "route",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.061
+      },
+      {
+        "name": "skill-handoff-links",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.138
+      },
+      {
+        "name": "doc-install-entries",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.69
+      },
+      {
+        "name": "tool-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.243
+      },
+      {
+        "name": "domain-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.08
+      },
+      {
+        "name": "domain-adapter",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.082
+      },
+      {
+        "name": "skill-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.338
+      },
+      {
+        "name": "route-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.977
+      },
+      {
+        "name": "rewrite-parity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 28.244
+      },
+      {
+        "name": "relay-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 52.972,
+        "test_count": 24
+      },
+      {
+        "name": "pre-upload",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 7.165
+      },
+      {
+        "name": "invariants",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.077
+      },
+      {
+        "name": "unit",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.829
+      },
+      {
+        "name": "e2e",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 21.915
+      },
+      {
+        "name": "capability-compose",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.153
+      },
+      {
+        "name": "acceptance-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 26.811,
+        "test_count": 18
+      },
+      {
+        "name": "acceptance-presence",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 9.077,
+        "test_count": 11
+      },
+      {
+        "name": "apk-core-chain",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.866,
+        "test_count": 20
+      },
+      {
+        "name": "archive-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 8.698,
+        "test_count": 4
+      },
+      {
+        "name": "budget-prompt",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.932,
+        "test_count": 1
+      },
+      {
+        "name": "case-evidence",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.374,
+        "test_count": 17
+      },
+      {
+        "name": "case-ledger",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.717,
+        "test_count": 12
+      },
+      {
+        "name": "case-legacy",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.179,
+        "test_count": 12
+      },
+      {
+        "name": "case-lifecycle",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.075,
+        "test_count": 24
+      },
+      {
+        "name": "case-readers",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.294,
+        "test_count": 8
+      },
+      {
+        "name": "case-repro",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 10.139,
+        "test_count": 18
+      },
+      {
+        "name": "closure-consistency",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 40.393,
+        "test_count": 28
+      },
+      {
+        "name": "domain-adapter-check",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.1,
+        "test_count": 1
+      },
+      {
+        "name": "domain-gate-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.777,
+        "test_count": 10
+      },
+      {
+        "name": "domain-registry",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.726,
+        "test_count": 28
+      },
+      {
+        "name": "domain-task-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 52.774,
+        "test_count": 8
+      },
+      {
+        "name": "env-readiness",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.932,
+        "test_count": 7
+      },
+      {
+        "name": "evidence-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.504,
+        "test_count": 25
+      },
+      {
+        "name": "frida-wrapper",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.908,
+        "test_count": 4
+      },
+      {
+        "name": "gate-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.186,
+        "test_count": 19
+      },
+      {
+        "name": "gates",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.608
+      },
+      {
+        "name": "import-metadata",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 16.249,
+        "test_count": 20
+      },
+      {
+        "name": "import-transactions",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 25.159,
+        "test_count": 80
+      },
+      {
+        "name": "kb-colloquial",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.346
+      },
+      {
+        "name": "manager-integration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.113,
+        "test_count": 28
+      },
+      {
+        "name": "manifest-summary",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.333,
+        "test_count": 1
+      },
+      {
+        "name": "mcp-execution",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.107,
+        "test_count": 16
+      },
+      {
+        "name": "mcp-lifecycle",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.11,
+        "test_count": 35
+      },
+      {
+        "name": "mutation-isolation",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 208.788,
+        "test_count": 18
+      },
+      {
+        "name": "net-rollback",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.668,
+        "test_count": 16
+      },
+      {
+        "name": "pending-chain-health",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 6.707,
+        "test_count": 6
+      },
+      {
+        "name": "preflight-language",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.052,
+        "test_count": 2
+      },
+      {
+        "name": "preflight-ownership",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.125,
+        "test_count": 6
+      },
+      {
+        "name": "preflight-root",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.162,
+        "test_count": 12
+      },
+      {
+        "name": "process-tree",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 7.712,
+        "test_count": 7
+      },
+      {
+        "name": "project-acceptance",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 36.362,
+        "test_count": 30
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 34.685,
+        "test_count": 18
+      },
+      {
+        "name": "project-integration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 20.496,
+        "test_count": 20
+      },
+      {
+        "name": "project-ledger-identity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 11.691,
+        "test_count": 8
+      },
+      {
+        "name": "project-report",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 38.582,
+        "test_count": 18
+      },
+      {
+        "name": "project-transaction",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.598,
+        "test_count": 12
+      },
+      {
+        "name": "project-typed-inputs",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 7.895,
+        "test_count": 6
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 61.867,
+        "test_count": 49
+      },
+      {
+        "name": "project-write-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 28.981,
+        "test_count": 14
+      },
+      {
+        "name": "prompt-extensions",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.513,
+        "test_count": 15
+      },
+      {
+        "name": "protocol-domain-chain",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.768,
+        "test_count": 22
+      },
+      {
+        "name": "r10-firmware-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.088,
+        "test_count": 7
+      },
+      {
+        "name": "r10a-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.596,
+        "test_count": 11
+      },
+      {
+        "name": "r12-gate-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.388,
+        "test_count": 7
+      },
+      {
+        "name": "read-guard",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.466
+      },
+      {
+        "name": "report-claim-ledger",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 6.393,
+        "test_count": 6
+      },
+      {
+        "name": "report-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 19.82,
+        "test_count": 9
+      },
+      {
+        "name": "route-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.015,
+        "test_count": 10
+      },
+      {
+        "name": "run-acceptance-history",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 26.057,
+        "test_count": 14
+      },
+      {
+        "name": "run-failure-state",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 21.049,
+        "test_count": 9
+      },
+      {
+        "name": "runtime-install-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 52.054,
+        "test_count": 42
+      },
+      {
+        "name": "runtime-registration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.38,
+        "test_count": 30
+      },
+      {
+        "name": "runtime-root",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.458,
+        "test_count": 17
+      },
+      {
+        "name": "runtime-shell-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 56.113,
+        "test_count": 25
+      },
+      {
+        "name": "skill-deployment",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.492,
+        "test_count": 4
+      },
+      {
+        "name": "skill-handoffs",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.064,
+        "test_count": 4
+      },
+      {
+        "name": "skill-import",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 7.558,
+        "test_count": 46
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 10.56,
+        "test_count": 53
+      },
+      {
+        "name": "terminal-history",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 21.545,
+        "test_count": 15
+      },
+      {
+        "name": "tool-autonomy",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.471
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.783,
+        "test_count": 63
+      },
+      {
+        "name": "tool-discovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.102,
+        "test_count": 5
+      },
+      {
+        "name": "tool-install-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.827,
+        "test_count": 23
+      },
+      {
+        "name": "tool-installation",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 14.331,
+        "test_count": 65
+      },
+      {
+        "name": "typed-assets",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.389,
+        "test_count": 33
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.775,
+        "test_count": 7
+      },
+      {
+        "name": "version-migrate-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.285,
+        "test_count": 2
+      },
+      {
+        "name": "clean-format",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.091,
+        "test_count": 2
+      },
+      {
+        "name": "merge-agent-config",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.555,
+        "test_count": 12
+      },
+      {
+        "name": "sync-upstream",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.342,
+        "test_count": 16
+      },
+      {
+        "name": "seep-mcp",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.866
+      },
+      {
+        "name": "ext-assets",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.442,
+        "test_count": 18
+      },
+      {
+        "name": "pcap-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.573,
+        "test_count": 31
+      },
+      {
+        "name": "readonly-parameters",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.768,
+        "test_count": 18
+      },
+      {
+        "name": "apk-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.933,
+        "test_count": 14
+      }
+    ]
+  },
+  "legacy_check": {
+    "mode": "full",
+    "exit_code": 2,
+    "ok": false,
+    "summary": {
+      "pass": 51,
+      "warn": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "seconds": 795.11,
+    "command": [
+      "python",
+      "Tool/scripts/check.py",
+      "--json"
+    ],
+    "raw": "tmp/final-closure-20261030/validation-legacy/1-check.stdout.log",
+    "raw_sha256": "8e0bd9f0677a9b69ff3f84d0fbdca70768d9458949080bf4cc348d5cfe530719",
+    "suites": [
+      {
+        "name": "lint",
+        "status": "WARN",
+        "returncode": 2,
+        "seconds": 61.418
+      },
+      {
+        "name": "tool-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.246
+      },
+      {
+        "name": "domain-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.077
+      },
+      {
+        "name": "domain-adapter",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.075
+      },
+      {
+        "name": "skill-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.326
+      },
+      {
+        "name": "kb-colloquial",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.02
+      },
+      {
+        "name": "route-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.959
+      },
+      {
+        "name": "rewrite-parity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 31.793
+      },
+      {
+        "name": "relay-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 44.654,
+        "test_count": 24
+      },
+      {
+        "name": "mcp-smoke",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.882
+      },
+      {
+        "name": "mcp-ext-assets",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.435,
+        "test_count": 18
+      },
+      {
+        "name": "project-lifecycle",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.002
+      },
+      {
+        "name": "manager-state",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.178
+      },
+      {
+        "name": "evidence-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.602,
+        "test_count": 25
+      },
+      {
+        "name": "runtime-registration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.488,
+        "test_count": 30
+      },
+      {
+        "name": "runtime-root",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.5,
+        "test_count": 17
+      },
+      {
+        "name": "env-readiness",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.927,
+        "test_count": 7
+      },
+      {
+        "name": "config-merge",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.559,
+        "test_count": 12
+      },
+      {
+        "name": "upstream-sync",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.516,
+        "test_count": 16
+      },
+      {
+        "name": "source-format",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.095,
+        "test_count": 2
+      },
+      {
+        "name": "tool-discovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.153,
+        "test_count": 5
+      },
+      {
+        "name": "skill-deployment",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.711,
+        "test_count": 4
+      },
+      {
+        "name": "skill-handoffs",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.126
+      },
+      {
+        "name": "skill-handoff-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.064,
+        "test_count": 4
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.911,
+        "test_count": 63
+      },
+      {
+        "name": "manager-integration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.926,
+        "test_count": 28
+      },
+      {
+        "name": "project-integration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 18.499,
+        "test_count": 20
+      },
+      {
+        "name": "project-acceptance",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 36.679,
+        "test_count": 30
+      },
+      {
+        "name": "project-acceptance-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 28.323,
+        "test_count": 18
+      },
+      {
+        "name": "acceptance-presence",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 9.192,
+        "test_count": 11
+      },
+      {
+        "name": "run-acceptance-history",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 28.21,
+        "test_count": 14
+      },
+      {
+        "name": "terminal-history",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 23.409,
+        "test_count": 15
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 57.114,
+        "test_count": 49
+      },
+      {
+        "name": "typed-assets",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.389,
+        "test_count": 33
+      },
+      {
+        "name": "project-typed-inputs",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 6.791,
+        "test_count": 6
+      },
+      {
+        "name": "project-report",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 34.502,
+        "test_count": 18
+      },
+      {
+        "name": "report-claim-ledger",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 6.685,
+        "test_count": 6
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 32.057,
+        "test_count": 18
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.84,
+        "test_count": 7
+      },
+      {
+        "name": "runtime-install-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 53.172,
+        "test_count": 42
+      },
+      {
+        "name": "runtime-shell-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 58.783,
+        "test_count": 25
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 11.811,
+        "test_count": 53
+      },
+      {
+        "name": "tool-autonomy",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.52
+      },
+      {
+        "name": "read-guard",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.536
+      },
+      {
+        "name": "pre-upload",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 7.916
+      },
+      {
+        "name": "tool-readiness",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 5.701
+      },
+      {
+        "name": "invariants",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.093
+      },
+      {
+        "name": "gate-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.577
+      },
+      {
+        "name": "unit",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.134
+      },
+      {
+        "name": "e2e",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 23.178
+      },
+      {
+        "name": "kb-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.946
+      },
+      {
+        "name": "mutation",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 177.351
+      }
+    ]
+  },
+  "legacy_advisories": [
+    "preflight preserves unowned same-name user agent definitions; it does not claim project ownership or overwrite them",
+    "existing user-accepted controllable prompt soft-budget exception is reported; no threshold was raised"
+  ],
+  "environment_check": {
+    "installed": true,
+    "missing": [],
+    "raw": "tmp/final-closure-20261030/validation-postflight/1-env-check.stdout.log"
+  },
+  "postflight_advisories": {
+    "warn": [
+      "[WARN] 子代理定义（用户覆盖未验证）  — 同名覆盖未验证:seep-forensics、seep-stage、seep-verify",
+      "[WARN] budget（已豁免：用户明确不以此止损；硬上限 16000）  — WARN 可控制小计 10869 > 3500，但 user 于 2026-10-25 决定豁免"
+    ],
+    "fail": []
+  },
+  "domain_tasks": {
+    "tests_run": 8,
+    "passed_tests": 8,
+    "failures": 0,
+    "errors": 0,
+    "skips": [],
+    "domains": 9,
+    "scope": "Nine bounded domains across eight tasks; synthetic chains explicitly identified; no target execution",
+    "blocked_chains": [
+      "same-sample malware traffic/memory behavior",
+      "real firmware device Web service",
+      "Android runtime/bypass",
+      "real release signature/CVE/build provenance"
+    ],
+    "raw": "tmp/final-closure-20261030/domain-delivery/latest-results.json"
+  },
+  "real_host": {
+    "status": "passed",
+    "version": "1.27.0",
+    "pid": 23264,
+    "elapsed_ms": 33058,
+    "acceptance": {
+      "originalInputUnchanged": true,
+      "agentsOriginalInContext": true,
+      "seepAssemblyObserved": true,
+      "managedExtensionExecuted": true,
+      "requiredReadsSucceeded": true,
+      "parentBeforeChild": true,
+      "observedTaskFacts": true,
+      "noToolErrors": true,
+      "extensionErrorsAbsent": true,
+      "modelCompleted": true
+    },
+    "hashes": {
+      "fileCount": 458,
+      "aggregateBefore": "13a7eb6b77af095ab5c469bc8b444137087031be6c4741f7dc7f62b9eae366ac",
+      "aggregateAfter": "13a7eb6b77af095ab5c469bc8b444137087031be6c4741f7dc7f62b9eae366ac",
+      "manifestBefore": "99cd742b0ff65048f3368bce5ba3d044b48d67f744b1bfe894fd9275abb457d5",
+      "manifestAfter": "99cd742b0ff65048f3368bce5ba3d044b48d67f744b1bfe894fd9275abb457d5",
+      "manifestMatchesFrozenPrecheck": true,
+      "managedFilesUnchanged": true,
+      "manifestUnchanged": true,
+      "publicConfigUnchanged": true,
+      "probeScriptUnchanged": true
+    },
+    "raw": "tmp/final-closure-20261030/host-probe/final-run-1793298872403-23264/frozen-summary.json"
+  },
+  "real_mcp_model": {
+    "pass": true,
+    "service_source_sha256": "6530a3e7ad32a7e61eb53b165f0f737a32b99c9fa4f0b6230b6b77edd4ca4258",
+    "raw": "tmp/final-closure-20261030/host-probe/current-source-mcp-1793295991491.json"
+  },
+  "model_driven_core": {
+    "status": "passed",
+    "temporary_adapter": true,
+    "prebuilt_project": false,
+    "elapsed_ms": 114570,
+    "automatic_retry": false,
+    "tool_order": [
+      {
+        "number": 1,
+        "operation": "discover",
+        "ok": true
+      },
+      {
+        "number": 2,
+        "operation": "start",
+        "ok": true
+      },
+      {
+        "number": 3,
+        "operation": "register_aux",
+        "ok": true
+      },
+      {
+        "number": 4,
+        "operation": "act",
+        "action": "apk.info",
+        "ok": true
+      },
+      {
+        "number": 5,
+        "operation": "act",
+        "action": "r2.info",
+        "ok": true
+      },
+      {
+        "number": 6,
+        "operation": "verify_accept",
+        "ok": true
+      },
+      {
+        "number": 7,
+        "operation": "finish",
+        "ok": true
+      },
+      {
+        "number": 8,
+        "operation": "report",
+        "ok": true
+      },
+      {
+        "number": 9,
+        "operation": "resume_show",
+        "ok": true
+      }
+    ],
+    "model_observations": {
+      "apk_abi": "x86_64",
+      "apk_dex_count": 3,
+      "apk_native_count": 1,
+      "apk_package": "org.example.hostprobe.p44733",
+      "so_arch": "x86",
+      "so_bits": 64,
+      "so_format": "ELF64"
+    },
+    "observations_hidden_from_task": true,
+    "semantic_assertions": {
+      "real_raw_outputs_bound": true,
+      "independent_zip_matches_tool": true,
+      "independent_elf_header_matches_tool": true,
+      "primary_auxiliary_identity_correct": true,
+      "auxiliary_matches_apk_member": true,
+      "model_values_equal_observed_facts": true
+    },
+    "negative_controls": {
+      "wrong_observation_rejected": true,
+      "missing_evidence_rejected": true
+    },
+    "completion": {
+      "projectId": "model-core-probe",
+      "versionId": "probe-1",
+      "runId": "run-model-core",
+      "status": "completed",
+      "closureSealSha256": "3f63993c6cf0a052bafa070eeed2ee56ca9606ed039f01bd2755e8ff70771ca1",
+      "acceptanceSha256": "4379113140c8b05663f38ef7ac0c35689ffa8a2a9db26cf6902c6d35ebafed44",
+      "registeredEvidenceCount": 4,
+      "claimConfirmedIds": [
+        "apk-observed",
+        "native-observed"
+      ],
+      "claimUnknownIds": []
+    },
+    "fresh_process": {
+      "adapterPid": 11624,
+      "coreResumeOk": true,
+      "completedRuns": [
+        "run-model-core"
+      ],
+      "acceptanceComplete": true,
+      "stateHealth": "ok",
+      "stateErrors": [],
+      "closureErrors": [],
+      "reportShowOk": true,
+      "fresh": true,
+      "stale": [],
+      "currentFinalComplete": true
+    },
+    "source_unchanged": true,
+    "deployment_unchanged": true,
+    "raw": "tmp/final-closure-20261030/host-probe/core-run-1793302364622/core-summary.json",
+    "report": "tmp/final-closure-20261030/host-probe/core-run-1793302364622/project/reports/model-static-final/report.md",
+    "limitations": [
+      "Bounded static synthetic container metadata and inert ELF identity only.",
+      "Core stores structural+recorded_witness evidence; semantic checks are performed by this temporary independent verification wrapper.",
+      "The APK is not installable validation and ET_REL native object is not claimed to be a loadable shared library.",
+      "No customer sample or target process was executed.",
+      "Legacy case-context diagnostic messages remained unchanged and non-blocking; the separately registered Core project is the tested lifecycle."
+    ]
+  },
+  "independent_review": {
+    "status": "PASS-bounded-contracts",
+    "session": "01a188af-a054-72c3-88e6-e55ef1bd8030",
+    "importer_sha256": "747d02583d3ff93d296223b9c9e9d79f40d977b33af38dfab04d1389ccd13ce1",
+    "verified": [
+      "original input/attachments and relay byte fidelity",
+      "canonical skill deployment and legacy/user-content protection",
+      "C7 identity/content/link snapshots",
+      "C8 parent manifests and real four-column navigation",
+      "four synchronous rollback exits",
+      "eight retention-failure probes",
+      "two recreated-staging probes"
+    ],
+    "known_gaps": [],
+    "limits": "safe conflict refusal proves preservation, not successful deployment or automatic resolution"
+  },
+  "role_review": {
+    "context_only": 48,
+    "current_witnesses": 11,
+    "original_depth_sets_preserved": true,
+    "raw": "docs/verification/case-role-review-2026-10-30.json"
+  },
+  "source_freeze": {
+    "at": "2026-10-30T03:06:25.957508",
+    "files": 133,
+    "drift_before_report_generation": []
+  },
+  "source_sha256": {
+    "VERSION": "7ef1ea58fece676ff7345f6edac427e671daf20f0d7499ef2e42ada241d4fe24",
+    "Tool/scripts/skill-import.py": "747d02583d3ff93d296223b9c9e9d79f40d977b33af38dfab04d1389ccd13ce1",
+    "Tool/scripts/project_archive.py": "b26c41d5f525f115ea165984b8b537989fe5172657c1bb03c094406b7e85d613",
+    "Tool/scripts/lib/typed_assets.py": "ecdf7630bbc09f3364d64b79b070cccf33932b770ac7a9cbb561ce58941d9d3f",
+    "Tool/scripts/check.py": "d24ddc9cc43de749e5846b9f5fdd7a5fa2dd42bcef4aa62f80cea47df1348226",
+    "Tool/scripts/skill-handoff-check.py": "6f15843c8805694ad704099e148d7ac6a2b52215538b2f63beae6512fd0721bb",
+    "Tool/prompts/AGENTS.md": "59e828cb3194329fa895aa49f561783a98b6e90d2c6557fdc06544f3fdaa5987",
+    "Tool/prompts/extensions/security-audit-interceptor.ts": "5ef4b1b808b0e34ec8f5ab9164517b6a08893a6dd600f784662b36f0598d4177",
+    "Tool/scripts/compliance-relay/relay.py": "ace80395bdd2d19df3279796f33a9d60c6444c4719f249e87f1b54b5d9d9a6a5",
+    "Tool/config/input-normalize.json": "139b7b90ac1901d72c62bb82e19ddfe1a900c8fd770472cc3903316bd5c3822f",
+    "Tool/config/mcp-tool-dependencies.json": "c03646ac0ff1688924336342da28924fc7e7e9000ea250b2431d59d008e74101",
+    "Tool/scripts/lib/domain_spec.py": "c0199c336109bf0789291b56aae7b807a5c4020df47798a8f90ad12e8e24be63",
+    "Tool/skill/protocol-plugin/scripts/proto-accept.py": "14a999396570dda2ae0d5ad9f59b5b9b38707e765587b5642a6b7484b4c4163a"
+  },
+  "retained_evidence": "All intermediate failures and initial user work backup are retained under tmp/final-closure-20261030; they are not product requirements or future worklists.",
+  "not_verified": [
+    "native Linux/macOS installation",
+    "all commercial packers or virtualized protections",
+    "Android/iOS hardware runtime and specific customer target execution",
+    "same-sample malware dynamic behavior without supplied trace/memory",
+    "all real firmware services or signed release/SBOM provider chains",
+    "unlimited target success or equivalence to all REA providers"
+  ],
+  "git_state": "verified local working tree; no remote publication"
+}

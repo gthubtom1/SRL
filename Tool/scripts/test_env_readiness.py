@@ -16,6 +16,8 @@ spec = importlib.util.spec_from_file_location("env_readiness", HERE / "env-check
 E = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(E)
 
+from lib.runtime_root import make_registration
+
 
 class EnvironmentReadinessTests(unittest.TestCase):
     def test_agent_root_alias_and_priority_match_installer(self):
@@ -92,7 +94,14 @@ class EnvironmentReadinessTests(unittest.TestCase):
                 (source / "prompts" / n).write_text("managed prompt", encoding="utf-8")
             (agent / "mcp.json").write_text(json.dumps({"mcpServers": {
                 "seep": {"command": sys.executable, "args": []}}}), encoding="utf-8")
+            # Register the read-only source checkout in this temporary AgentRoot;
+            # deployed payloads and all registration mutations stay in the fixture.
+            origin = agent / "seep-runtime.json"
+            registration = make_registration(E.ROOT, agent_root=agent)
+            registered_bytes = json.dumps(registration).encode("utf-8")
+            origin.write_bytes(registered_bytes)
             with patch.object(E, "TOOL", str(source)), patch.object(E, "agent_dir", return_value=str(agent)), \
+                 patch.dict(os.environ, {"SEEP_RUNTIME_ROOT": E.ROOT}), \
                  patch.object(E, "_mcp_service_probe", return_value={"available": True}), \
                  patch.object(E, "_model_credential_probe", return_value={"configured": True}), \
                  patch("shutil.which", return_value=sys.executable), \
@@ -102,6 +111,28 @@ class EnvironmentReadinessTests(unittest.TestCase):
                 self.assertIn("example", r["checks"]["skills"]["missing"])
                 import shutil
                 shutil.copytree(source / "skill/example", agent / "skills/example", dirs_exist_ok=True)
+                self.assertTrue(E.check()["installed"])
+                bad_hash = json.loads(registered_bytes)
+                entry = next(iter(bad_hash["entry_sha256"]))
+                bad_hash["entry_sha256"][entry] = "0" * 64
+                for label, payload, code in (
+                    ("missing", None, "runtime_missing"),
+                    ("malformed-json", b"{broken", "runtime_mismatch"),
+                    ("invalid-shape", b"[]", "runtime_mismatch"),
+                    ("hash-drift", json.dumps(bad_hash).encode("utf-8"), "runtime_mismatch"),
+                ):
+                    with self.subTest(registration=label):
+                        if payload is None:
+                            origin.unlink()
+                        else:
+                            origin.write_bytes(payload)
+                        rejected = E.check()
+                        self.assertFalse(rejected["installed"], rejected)
+                        runtime = rejected["checks"]["runtime_registration"]
+                        self.assertFalse(runtime["ok"], runtime)
+                        self.assertEqual(runtime["code"], code, runtime)
+                        self.assertEqual(len(rejected["missing"]), 1, rejected)
+                origin.write_bytes(registered_bytes)
                 self.assertTrue(E.check()["installed"])
                 (agent / "AGENTS.md").write_text("outdated rules", encoding="utf-8")
                 self.assertFalse(E.check()["installed"])

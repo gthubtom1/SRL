@@ -28,6 +28,7 @@ metadata:
 | **ida-reverse** | IDA Pro 无缝协同、反编译伪代码提取、交叉引用分析 | 复杂控制流平坦化、函数级深入语义分析 | `subskills/ida-reverse/SKILL.md` |
 | **binary-diff** | 跨版本二进制差分比对、函数匹配、符号迁移 | 补丁分析、版本差异定位 | `subskills/binary-diff/SKILL.md` |
 | **license-bypass**| 客户端授权逻辑识别、卡密弹窗跳过、本地凭据状态定位 | 绕过注册框、去除试用期锁定 | `subskills/license-bypass/SKILL.md` |
+| **unpack-pe** | Windows PE 判壳脱壳、OEP 唯一定位、转储与 IAT 修复 | UPX/ASPack/加密壳识别、内存转储、修复损坏导出/导入表 | subskills/unpack-pe/SKILL.md |
 
 ## 调度总流程
 
@@ -53,8 +54,8 @@ metadata:
 
 命中 L3/L4 **不是甩一句"规则禁止"**，按序答：① 说清工程后果（整机副作用 + 回滚代价）→
 ② 给同目的的低层做法（进程内 hook / 进程级参数 / 整机丢 VM）→ ③ 给能到哪一级（M1–M3）→
-④ 只有用户明确"一次性靶机随便改"才发 ASK 卡（四要素 + 快照，命令由用户执行）。
-**不给"怎么改系统才不出事"的操作路径** —— 那是把绕法教一遍。
+④ 当前路线确需系统改动时保留静态结果，说明所缺环境与用户侧条件。
+**不给系统改动的执行路径**；现有进程级通道需核实际副作用和当前 scope。
 细则：`AGENTS.md` §四点五 第 9 条；接管假服务端三档见 `references/license-validation.md` §5.3。
 
 **三条铁律**：
@@ -123,7 +124,7 @@ metadata:
 | :--- | :--- | :--- |
 | 授权权威 | 断网/联网对照 + 签名/会话令牌证据；本地状态字或服务端签名至少一条闭环 | 只看到本地许可文件/只看到网络请求 |
 | 补丁生效 | 回读目标 RVA 字节 = 补丁值；目标行为变化；进程存活 ≥2 个心跳周期 | 只看到注入器返回 0 / 只看到日志「成功」 |
-| 壳是否脱掉 | 内存出现原节名/明文导入；OEP 落原 `.text`；IAT 可解析；dump 哈希记录 | 目标能运行 / 磁盘节熵下降但 IAT 坏 |
+| 壳是否脱掉 | 候选入口的控制流/初始化与恢复代码语义对应；导入、映射及剩余壳依赖已核，dump 来源可追；独立运行另验功能 | 只有原节名、固定 prologue、可反汇编或目标能启动 |
 | 算法还原 | 独立实现 N≥10 组输入输出一致；客户端接受新生成值、拒绝错误值 | 同源 Generate/Verify 互验通过；只测一组 |
 | 结构/符号 | PE/ELF/Mach-O 头与节/段自洽；PDB GUID/Age 匹配；RTTI/vtable 有构造函数证据 | 只有 `sub_xxx` + 一条字符串；FLIRT 低置信命中 |
 | 动态观测/反调试 | 基线 vs 仪器行为差异可复现；改一个检测点后目标继续且无二次检测 | 只 attach 一次成功/失败；只改一个 API 返回值 |
@@ -160,7 +161,7 @@ metadata:
 3. **DllMain 中做复杂初始化/跨堆写 BSTR** → loader lock/堆损坏 → 保持最小初始化，将工作移到加载完成后的显式入口；创建线程也有风险，不能当通用补救。见 [Microsoft DLL 最佳实践](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-best-practices)。
 4. **只改 UI 不改 `license_type`/状态字** → UI 是消费者，重启/心跳回退 → 找当前目标的状态源；案例地址只在该案例有效。
 5. **补丁后不重算校验和/不处理签名** → 自检/签名失败 → manifest + checksum + 签名策略。
-6. **把「能运行」当「壳已脱掉」** → 磁盘仍密文/IAT 坏 → 看内存节名/OEP/IAT/字符串四项。
+6. **把「能运行」当「壳已脱掉」** → 仍可能依赖壳/动态导入 → 按 `subskills/unpack-pe/SKILL.md` 核控制流、映射、导入与剩余依赖；节名/序言不是必要判据。
 7. **反调试未过时反复裸 attach** → 触发自毁/污染证据 → 两次失败就停，先识别检测层。
 8. **`jmp rel32` 少算 5 字节 / `call [rip+x]` 按当前指令算** → 跳飞 → `disp = target - (addr + insn_len)`。
 9. **用绝对 VA 写补丁忽略 ASLR** → 换次启动就崩 → 文件用 RVA/偏移，内存用 `base + RVA`。
@@ -301,6 +302,6 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 ## 领域协作
 
-主辅域由 router 与正式 pack 注册表确定，不在本域维护第二份领域表。只做用户目标需要的分析/修改阶段，按适用判据验收；仓内案例自检不代替客户材料上的结果。
+主辅域由 router 与正式 pack 注册表提供候选，Agent 按目标裁定；物理目录不是调用禁区。子技能可借辅域，资产身份、原始安全输出、已证/未知与结果返回同一 project/version/run。只做当前目标需要的阶段；方法存在、工具就绪和真实任务见证分别报告，不以子技能库存提升成熟度。真实凭据/Token/Key/Salt/私钥由用户操作，不进入 Agent；参考中的秘密提取或系统改动不作为当前执行指引。
 
 **子技能（按需读，不常驻）**：见正文顶部【子技能导航表】，按需读取 `subskills/exe-reverse`、`subskills/multiver-aob`、`subskills/ida-reverse`、`subskills/binary-diff`、`subskills/license-bypass`。

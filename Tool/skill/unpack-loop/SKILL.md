@@ -119,7 +119,7 @@ metadata:
 
 - 动作：`seep_packer_detect` + `seep_r2_info`（入口段、节名、熵）+ `python Tool/skill/malware-analysis/scripts/dump-restore.py pe-info <target>`。
 - **完成判据**：记录有依据的壳候选或未知 + 入口所在节 + CLR/TLS/异常目录/高熵节；不编造家族名。
-- 失败升级：判不出 → `seep_r2_cmd(cmd="iR")` 找内嵌载荷（有些"壳"其实是资源里的第二个 PE）；仍判不出 → 按"自定义壳"处理，直接进步骤 2 用行为判定。
+- 失败升级：判不出 → `seep_r2_cmd(binary_path="<当前目标绝对路径>", command="iR", analyze=false)` 找内嵌载荷（有些"壳"其实是资源里的第二个 PE）；仍判不出 → 按"自定义壳"处理，直接进步骤 2 用行为判定。
 - 卡点：`pe-info` 只是静态提示，不能替代 `seep_packer_detect` 的判壳结论。
 
 ### 2.2 步骤 2：仪器验证（先于任何断点/注入）
@@ -189,7 +189,7 @@ metadata:
   ```bash
   python Tool/skill/malware-analysis/scripts/dump-restore.py iat --dump work/<task>/rebuilt.exe
   ```
-  未解析项用 Scylla（x86/x64）自动搜索 + 手工补；必要时按 `seep_r2_cmd(cmd="afl")` 的 `sym.imp.*` 交叉核对。
+  未解析项用 Scylla（x86/x64）自动搜索 + 手工补；必要时按 `seep_r2_cmd(binary_path="<当前目标绝对路径>", command="afl", analyze=true)` 的 `sym.imp.*` 交叉核对。
 - **完成判据**：
   - `iat` 输出未解析 = 0；
   - Scylla 里 unresolved = 0，导入表能保存；
@@ -219,7 +219,7 @@ metadata:
 | 内存补丁 | x64dbg 直接改内存 / `seep_mem_strings` 定位字符串 | 验证"改这一处能否放行" |
 | API Hook | Frida / 代理 DLL | 拦截鉴权函数返回值 |
 | 行为观察 | `seep_mem_strings` + `seep_pcap_extract` | 授权判定发生在哪一层 |
-| 资源/内嵌载荷 | `seep_r2_cmd(cmd="iR")` | 真正的功能体可能不在主 PE |
+| 资源/内嵌载荷 | `seep_r2_cmd(binary_path="<当前目标绝对路径>", command="iR", analyze=false)` | 真正的功能体可能不在主 PE |
 | 外部读 + 网络层 | `dump-restore.py dump` / 代理 / 回放 | 不注入也能拿到关键数据/协议 |
 
 **完成判据**：对主域问题给出有证据的运行期结果及限制；运行期观察/补丁不能冒充可独立运行的脱壳产物，也不自动扩展为授权旁路。
@@ -253,7 +253,7 @@ metadata:
 | IAT 修复 | Scylla（外部） | 表外工具：只报路径 + 联网查文档，**不 `-h` 试探** |
 | 反反调试 | ScyllaHide / TitanHide | 同上 |
 | 解码字符串 | `floss` | 已进能力表（headless） |
-| 资源载荷 | `seep_r2_cmd(cmd="iR")` | 需 r2；资源枚举不等于载荷已导出 |
+| 资源载荷 | `seep_r2_cmd(binary_path="<当前目标绝对路径>", command="iR", analyze=false)` | 需 r2；资源枚举不等于载荷已导出 |
 | 活体字符串 | `seep_mem_strings` | 内置（Windows） |
 | 反编译 | `seep_r2_decompile` | 需 r2 及相应反编译后端；不可用时仅给反汇编/静态范围 |
 | 抓包/回放 | `seep_pcap_extract` / `seep_http_replay` | 分别核对解析/重放依赖与范围；工具探活不证明已抓到目标流量 |

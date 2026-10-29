@@ -190,6 +190,7 @@ class ProcessTreeRunTests(unittest.TestCase):
                 ],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 timeout=10,
                 env=dict(
                     os.environ,
@@ -257,6 +258,7 @@ class ProcessTreeRunTests(unittest.TestCase):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
                 creationflags=(
                     subprocess.CREATE_NEW_PROCESS_GROUP
                     | getattr(subprocess, "CREATE_NO_WINDOW", 0)

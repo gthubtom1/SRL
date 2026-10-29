@@ -179,6 +179,48 @@ class PreflightOwnershipTests(unittest.TestCase):
             self.assertFalse(agents["ok"], agents)
             self.assertIn("受管遗留", agents["detail"])
 
+    def test_prompt_residue_requires_current_owned_bytes(self):
+        """同一退役卡只在本项目 manifest 登记且哈希仍匹配时 FAIL。"""
+        with tempfile.TemporaryDirectory(prefix="seep-preflight-own-prompt-") as td:
+            source, tool, agent = self._paths(td)
+            managed = self._canonical(source, agent)
+            rel = "prompts/zz-mutation.md"
+            card = write(agent / rel, "---\ndescription: x\n---\n")
+            installed_hash = sha(card)
+            self.assertFalse((tool / "prompts/tasks/zz-mutation.md").exists())
+            p1, p2, p3 = self._patch(source, tool, agent)
+            with p1, p2, p3:
+                for label in ("managed", "unmanaged", "user-edited"):
+                    with self.subTest(label=label):
+                        entries = dict(managed)
+                        if label != "unmanaged":
+                            entries[rel] = installed_hash
+                        if label == "user-edited":
+                            write(card, "User edited prompt: preserve these bytes.\n")
+                        self._manifest(source, agent, entries)
+                        manifest_path = agent / "seep-install-manifest.json"
+                        before = {path: sha(path) for path in (card, manifest_path)}
+                        loaded = preflight._load_install_ownership(str(agent))
+                        self.assertEqual(
+                            preflight._managed_file_current(str(agent), loaded, rel),
+                            label == "managed",
+                        )
+                        for checker in (preflight.check_prompt_residue,
+                                        preflight.check_deploy_bidirectional):
+                            preflight.results.clear()
+                            checker()
+                            result = preflight.results[-1]
+                            self.assertEqual(result["ok"], label != "managed", result)
+                            self.assertIn("zz-mutation", result["detail"])
+                            if label == "managed":
+                                self.assertIn("受管残留", result["detail"])
+                                self.assertIsNone(result.get("level"), result)
+                            else:
+                                self.assertEqual(result.get("level"), "WARN", result)
+                                self.assertIn("用户自有", result["detail"])
+                            self.assertEqual(before, {path: sha(path) for path in before},
+                                             "核验不应删除或改写提示词及所有权记录")
+
     def test_managed_drift_and_missing_source_assets_fail(self):
         with tempfile.TemporaryDirectory(prefix="seep-preflight-own-drift-") as td:
             source, tool, agent = self._paths(td)

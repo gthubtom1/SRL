@@ -25,7 +25,8 @@ from pathlib import Path
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from lib.runtime_root import RuntimeRootError, resolve_agent_root
+from lib.runtime_root import (RuntimeRootError, read_runtime_origin,
+                              resolve_agent_root, resolve_runtime_root)
 
 def _repo_root(start):
     """仓库根：向上找含 Tool/cases 的目录（S4 后位于 Tool/skill/<pack>/scripts/，固定层数会算错）。"""
@@ -302,6 +303,29 @@ def _model_credential_probe(ad=None):
     return out
 
 
+def _runtime_registration_probe(ad):
+    """Verify this AgentRoot's registration without ambient/source fallbacks."""
+    try:
+        origin = read_runtime_origin(ad)
+        if origin is None:
+            raise RuntimeRootError("runtime_missing", "AgentRoot 缺少 seep-runtime.json 注册")
+        # Passing neither script_path nor source_candidate is intentional: a
+        # checkout or SEEP_RUNTIME_ROOT must not conceal a broken installation.
+        runtime = resolve_runtime_root(agent_root=ad, env={})
+        if Path(runtime["runtime_root"]).resolve() != Path(ROOT).resolve():
+            raise RuntimeRootError("runtime_mismatch", "注册源码与当前检查仓库不一致")
+        if origin["entry_sha256"] != runtime["entry_sha256"]:
+            raise RuntimeRootError("runtime_mismatch", "注册源码身份哈希不完整或不一致")
+        if origin["runtime_version"] != runtime["runtime_version"]:
+            raise RuntimeRootError("runtime_mismatch", "注册源码版本不一致")
+        return runtime
+    except RuntimeRootError as exc:
+        return exc.as_dict()
+    except (OSError, ValueError):
+        return {"ok": False, "code": "runtime_mismatch",
+                "detail": "AgentRoot runtime 注册无法核验"}
+
+
 def check():
     ad = agent_dir()
     repo_ver = ""
@@ -320,6 +344,12 @@ def check():
         "next_actions": [],
         "installed": False,
     }
+
+    runtime = _runtime_registration_probe(ad)
+    res["checks"]["runtime_registration"] = runtime
+    if not runtime["ok"]:
+        res["missing"].append("运行时注册不可用（%s）：%s" % (
+            runtime["code"], runtime.get("detail", "")))
 
     # Configuration files alone do not provide an executable conversation host.
     import shutil

@@ -8,7 +8,7 @@
 
 - **正式域**：`Tool/skill/<domain>/pack.json` 的 `id`，当前 9 个。只有正式域进入正式路由、`domain_spec` 和领域适配器；新增正式域必须有 pack，不得只在矩阵里写名字。
 - **横切技能**：例如 `seep-router`、`unpack-loop`。它们可以被多个正式域复用，但不是客户可见的独立域，也不计入正式域数量。
-- **域内专属子技能**：`Tool/skill/<domain>/subskills/<name>/`。它们是归属于具体正式领域的细分专业技能，由父领域的【子技能导航表】按需相对引用；不作为顶层独立技能部署，零预载、零上下文污染。旧 `_pending` 全局归档模式已彻底废弃。
+- **域内专属子技能**：`Tool/skill/<domain>/subskills/<name>/`。它们是归属于具体正式领域的细分专业技能，由父领域的【子技能导航表】按需相对引用；随父域部署并按需读取，不作为额外顶层入口。旧 `_pending` 仅保留有明确身份的历史参考，不接受新的活跃子技能。
 
 旧名字放在 `aliases`，必须同时写 `alias_to` 和 `status`。保留旧配方、矩阵、任务卡和案例内容是兼容策略；保留不等于 alias 成为正式域。修改域索引后运行：
 
@@ -77,113 +77,76 @@ python Tool/scripts/domain-contract-check.py --strict
 
 ## 3. 加一个「技能」（单入口 `skill-import.py`）
 
-唯一入口是 `Tool/scripts/skill-import.py`：**用户只说一句"加这个"**，判型建议、落位、备份、
-部署、核验、回执都由它完成；用户不需要填技术表。旧调用方式仍然可用。
+用户只需说希望增加什么能力；Agent先检查已有方法，再选择类型、父域和部署根。正式入口负责计划、验证、同卷事务、父引用、部署、核验与回滚；用户不填写内部规划字段。
+
+| 类型 | 条件与源码落点 | 生效口径 |
+|---|---|---|
+| `domain` | 合法`pack.json`、`id`等于目录名，真实路由/深度/见证契约；`Tool/skill/<name>/` | 全局契约、部署、宿主发现和实际任务分别验证 |
+| `crosscutting` | 显式的多域共用方法；顶层技能目录 | 已部署可发现，不成为额外业务领域 |
+| `subskill` | 必须指定真实父域；`Tool/skill/<parent>/subskills/<name>/` | 由父技能按需读取，不是顶层自动选中 |
+| `tool` | 工具manifest | 只处理声明，实际注册/安装/执行另走工具入口 |
+
+所有命令从仓库根运行。以下由Agent填入真实路径；`<skills-root>`为选定AgentRoot下的`skills`目录：
 
 ```bash
-# 旧入口（兼容）：无 pack 时不再靠关键词自封正式域，会如实报 needs_classification(rc=2)
-python Tool/scripts/skill-import.py --from <目录或 SKILL.md> [--name N] [--dry-run]
-python Tool/scripts/skill-import.py --selftest
-
-# 单入口：kind 由 Agent 显式选择（auto 只给建议，不落盘）
-python Tool/scripts/skill-import.py import --kind auto|domain|crosscutting|subskill|tool \
-    --from <路径> [--name N] [--parent <真实域名>] [--pack <pack.json>] [--tool-id T] \
-    [--skill-dir Tool/skill] [--deploy-root <skills 根> ...] [--no-deploy] [--replace] [--dry-run] [--json]
-
-# 内部阶段（诊断/复验，可分步）+ 只读恢复报告
-python Tool/scripts/skill-import.py plan|stage|validate|deploy|verify ...
-python Tool/scripts/skill-import.py status --skill-dir Tool/skill [--deploy-root <根>] [--name N] [--json]
+python Tool/scripts/skill-import.py plan --kind subskill --parent softseep --from <source> --deploy-root <skills-root> --json
+python Tool/scripts/skill-import.py import --kind subskill --parent softseep --from <source> --deploy-root <skills-root> --json
+python Tool/scripts/skill-import.py verify --name <child> --parent softseep --deploy-root <skills-root> --json
+python Tool/scripts/skill-import.py status --name <child> --parent softseep --deploy-root <skills-root> --json
 ```
 
-**判型口径（建议 ≠ 身份）**：关键词/后缀/技法（A/B/C 三选二）只产出 `kind_suggestion`；
+`auto`只提供判型建议。覆盖已有内容必须显式`--replace`；独立部署使用`deploy --name <child> --parent <domain> --deploy-root <skills-root>`，替换同样需要`--replace`。`verify/status/deploy`省略父域时只接受唯一身份，同名跨父域返回`skill_ambiguous`；不会用旧`_pending`副本抢占当前子技能。
 
-| kind | 判据 | 落点 | 能否 `effective=true` |
-|---|---|---|---|
-| `domain` | **必须**有 `pack.json`，`id == 目录名`，且过真实 `gate.g2_schema` + `route.check`（死路由/坏正则/重复优先级/SKILL.md 在场） | `Tool/skill/<name>/` | 还要路由可发现 + 部署 hash 一致 + **全局领域契约与部署验证通过** |
-| `crosscutting` | 显式声明（或已在 `domain-aliases.json#cross_cutting`） | `Tool/skill/<name>/` | 只代表"已部署可达"，不是客户可见正式域 |
-| `subskill` | **必须** `--parent <真实 pack 域>`，父 SKILL.md 锚点唯一 | `Tool/skill/<parent>/subskills/<name>/` | 永不：不部署成顶层独立技能、不自动全局选中（进入父域后**按需**引导读取） |
-| `tool` | `--from` 是 tool manifest | 无（只声明） | 永不：只报 `declared` / `registered` / `not_available` |
+### 源码与部署保持同一结构
 
-**事务顺序**：`plan → 多资源锁 → journal(intent) → stage(同卷) → validate → commit(备份+改名) → 父引用 → deploy(逐 root 同卷) → verify → receipt`。
+源码、完整安装和增量导入均采用：
 
-三条硬规则（IMPORT-02 修的就是它们）：
+```text
+<skill-root>/<parent>/
+  SKILL.md
+  subskills/<child>/SKILL.md
+  subskills/<child>/references/...
+  subskills/<child>/scripts/...
+```
 
-1. **改名失败即放弃**：`staging`/`backup` 只做同卷 `os.replace`/`os.rename`，**失败直接拒（rc=5）**，
-   绝不退回“逐文件复制再删源”（那会把旧目录拆成两半）。所以 staging 与 backup 一律与被改目标同卷：
-   仓库侧在 `<skill-dir>/.import-{staging,backup}/`，**每个部署根在自己的** `<root>/.import-{staging,backup}/`
-   ——不跨盘把旧部署搬回仓库备份。
-2. **journal 先 intent、后 done**：回滚按**磁盘事实**逐项检查（源/目标各自在不在），报
-   `rolled_back` / `rollback_partial` + 可复查位置；旧内容真的丢了就如实报 `rolled_back=false`，不谎报 true。
-3. **多资源锁**：按**规范化目标路径全局排序**同时持有 skill 锁 / 仓库父目录锁 / 父 SKILL.md 锁 /
-   每个部署父目录+dest 锁（跨进程 `O_CREAT|O_EXCL`，有界等待，不是进程内线程锁）；
-   不同子技能同父域并发导入不丢引用，回滚不覆盖另一个已提交事务。
+父导航引用`subskills/<child>/SKILL.md`，按父技能目录解析；子技能自己的资源按子技能目录解析。当前Pi加载器发现父`SKILL.md`后不继续向下发现全局技能，因此嵌套子技能可保留原名，不再生成`GUIDE.md`或第二份映射副本。其他宿主须验证其发现规则，不能据文件复制推断加载。
 
-覆盖已有技能必须显式 `--replace`（实现是“先备份再改名”，绝不 `rmtree` 旧目录后 `copy`）。
-回滚后备份保留在 `<skill-dir>/.import-backup/<name>-<ts>/`（父 SKILL.md 原件在 `_parent/` 下）可复查。
+父域尚未部署时只报告`pending=true`，不偷偷整块部署父域。旧`references/imported-subskills`只有在映射、哈希与受管文件身份都可核验时才通过事务移入备份；额外用户文件、坏清单或内容漂移会拒绝迁移并保留原件。
 
-**子技能引用写在模型真正读得到的地方**（两处都要，缺一就是“写了没人读”）：
+### 事务与失败保护
 
-| 侧 | 写在哪 | 那一行长什么样 | 为什么 |
-|---|---|---|---|
-| 仓库 | `Tool/skill/<parent>/SKILL.md` 顶部导航表 | ``| <child> | <功能> | <特征> | subskills/<child>/SKILL.md |`` | 统一标准化三要素表格，按**父技能目录**相对解析 |
-| 部署 | `<root>/<parent>/SKILL.md` | `` - `references/imported-subskills/<child>/GUIDE.md` —— 何时读 `` | 模型只读部署根，仓库那行它看不到 |
+`plan → 排序持有多资源锁 → journal intent → 同卷stage → validate → commit → 父引用 → 逐root deploy → verify → receipt`。同卷改名失败不降级为拆散目录复制；journal先记intent再记done。回滚依据磁盘事实报告`rolled_back`或`rollback_partial`，不能覆盖并发事务已提交的父引用。
 
-部署侧把子技能本体复制到 `<root>/<parent>/references/imported-subskills/<child>/`（连同相对资产），
-入口 `SKILL.md` 改名为 `GUIDE.md` ——**这样它不会被当成新的全局技能被自动选中**；
-同目录 `import-map.json` 记录路径映射与逐文件 hash。父域未部署到该 root 时如实报
-`deploy_pending=true` 并明说“按需可达尚未建立”，**不自动把父域整块搬过去**，也不把
-`pending` 说成已可达。
+源码和每个部署根各自保留备份。子技能合法变更在同一锁和事务内更新已导入父域的manifest；修改前先核旧清单，只接纳本次父导航和指定子树的增量，拒绝借导入重签其他漂移。已有四列导航表就在表内新增或更新一行，保留无表父技能的唯一锚点兼容。
 
-**部署根边界（先拒后写，拒之前零写）**：`plan`/`import`/`deploy`/`verify`/`status` 共用同一套解析——
-给了 `--deploy-root` 就逐个校验；自定义 `--skill-dir` 且**没给**根时直接 `deploy_root_required`（不写真实 `~/.pi`）；
-部署根与 `--skill-dir` / 仓库根 / 源目录重叠或互为祖先、是符号链接/junction → `deploy_root_overlap` /
-`deploy_root_symlink`。`verify`/`status` 没给根时不兜底真实用户根（只核仓库侧并标 `verify_scope=repo_only`）。
+中断恢复同时核对文件系统对象身份、原始字节与成员/类型/空目录快照；发现后续提交或用户改动时先拒绝撤销并保留现场，`recovery_review`给Agent只读核对命令。回撤过的发布内容保留到同卷备份，通过`retained_staging`报告；安全拒绝不等于部署完成。自定义`--skill-dir`必须显式指定独立部署根；源码、源目录、部署根互相重叠或经过不允许的链接时先拒后写。`verify/status`没有部署根时仅核仓库侧并说明范围，不兜底写真实用户目录。
 
-**回执分开报，不许合并读**：`files_imported`（仓库落盘文件数）/ `deployed`（每个 root 的路径 + `hashes_equal` +
-`pending`）/ `available_next_session`（下次会话能不能加载）/ `formal_domain_active`（算不算正式域）/
-`rollback`（逐项磁盘事实）/ `recovery`（残留锁/staging/journal + `pending_manual`）。
+### 怎样读回执
 
-**verify 按 kind 分开判**：`domain`/`crosscutting` 核 manifest（含“多出来的文件”）+ 路由 + 每个 root 逐文件 hash；
-`subskill` **不**做顶层部署等价（它本来就不在 `<root>/<name>`），而是核**父入口能否解析到真实文档**
-（仓库 `../_pending/…`、部署 `references/imported-subskills/…/GUIDE.md`）+ 映射 hash；
-引用丢了/部署副本被改 → `rc=5 verify_failed`，不会给绿。尚未部署但合法时状态是 `pending_subskill`
-（如实说“不生效、不自动选中”），不宣称已可达。
+- `files_imported`：仓库落盘数量；不代表任务成功。
+- `entry_reachable`：仓库父入口可解析到子技能。
+- `deployed[].status=ok`与`hashes_equal=true`：该部署根文件和引用可达；`pending=true`表示父域未部署。
+- 子技能仍为`effective=false`、`available_next_session=false`、`effective_status=pending_subskill`：这些字段表示它不作为顶层技能自动选中，不能误读为父域永远无法按需读取。
+- `formal_domain_active`只适用于正式域契约；导入器不伪造见证或替工具完成安装。
+- `rollback/recovery`按实际锁、journal、staging与备份报告；不自动删除疑似活锁。
 
-**退出码**：`0` 成功 · `2` 判型未定或用法错误 · `3` 能力缺口（tool 模式只声明）·
-`4` 策略拒绝（无 pack / 父域不存在 / 路径逃逸 / 部署根不合法 / 并发锁 / 目标已存在）·
-`5` 写了盘但 verify 失败（已回滚，或如实报 `rollback_partial`）。
+旧`--from`兼容入口与`--selftest`仍保留，不能绕过类型和身份契约。退出码以实际CLI为准：判型/参数未定、能力缺口、策略拒绝、写入后核验失败分别报告；非零不当作生效。
 
-**中断后怎么办（`status` 只读）**：`python Tool/scripts/skill-import.py status --skill-dir Tool/skill --json`
-列出残留 `.lock`（含 pid/ts/角色/被保护路径）、`.import-staging/*`（含 `journals/*.jsonl` 的动作阶段）、
-`.import-backup/*`；有残留就 `pending_manual=true`，并给“确认 pid 已退出后人工删锁”的指引。
-**本批不自动恢复、不自动删疑似活锁、也不删用户目录里的任何东西**。
+### 验证
 
-**本入口不做什么**（不假装修好）：
+```bash
+python Tool/scripts/route.py --check
+python Tool/scripts/skill-handoff-check.py
+python Tool/scripts/domain-contract-check.py --json
+python -m unittest discover -s Tool/scripts -p 'test*import*.py' -v
+python Tool/scripts/check.py --runtime --json
+```
 
-- 不写 `Tool/config/domain-aliases.json#formal_domains` —— 新域落盘后 `domain-contract-check.py` 会报
-  `formal_domains 缺少 pack id`，这是**想要的**红灯（人来确认，不由导入器自封）。
-- 不生成/回填 witness、`witness_tool`、案例、`case_roles`、能力矩阵；也不实跑 witness
-  （回执 `witness_ran=false`），缺声明的 pack 直接被真实 `g2_schema` 拒。
-- 不替新域补齐深度契约、领域别名分类或案例模板。正式集合已由 pack 注册表载入，不需要维护旧的五处固定名单；仍须查看 `registered_pending_contracts` 的实际结果，补齐模板、别名和领域契约后复验。缺项时 `formal_domain_active=false`，不能把落盘当作正式生效。
-- `--kind tool` 只 `validate` manifest 并报 `staged`/`not_available`：**不写**
-  `tool-capabilities.json` / `tool-runtimes.json` / `tool-effects.json`，不下载、不安装、不运行。
-  这是 `capability_gap 待 adapter`，不是"工具扩展完成"。
-
-**接线四处**（能被选中的前提）：
-
-| # | 位置 | 谁负责 |
-|---|---|---|
-| 1 | `Tool/skill/<name>/SKILL.md` | 本脚本 |
-| 2 | `Tool/skill/_pending/<name>/` + 父 `SKILL.md` 的 `../_pending/<name>/SKILL.md` 引用行 | 本脚本（幂等插一行，带备份） |
-| 3 | `Tool/skill/<name>/pack.json` 的 `routes` + `priority` | **人/Agent**（真实 pack，不给就拒） |
-| 4 | `~/.pi/agent/skills/<name>/`（或显式 `--deploy-root`） | 本脚本（**该 root 本地同卷**备份 + 改名 + hash 核验） |
-| 5 | 子技能的部署侧：`<root>/<parent>/references/imported-subskills/<name>/` + 父部署 SKILL.md 的引用行 | 本脚本（父域已部署时才建；否则报 `deploy_pending`） |
-
-契约核对：`python Tool/scripts/route.py --check`、`python Tool/scripts/skill-handoff-check.py`、`python Tool/scripts/domain-contract-check.py --json`；统一回归：`python Tool/scripts/check.py --runtime --json`。导入专项回归包含判型、事务、并发、回滚、根目录边界与部署漂移。
+专项覆盖正常导入、替换、同名不同父域、并发、缺文件、篡改、父域未部署、跨root失败回滚、旧受管副本迁移与中断恢复。安装后再增量导入、重复安装、独立verify和新进程读取需要一起验证；最终再用代表性任务检查方法是否有用。
 
 ## 3bis. 组合已有方法
 
-任务阶段由主模型根据用户目标与证据决定，不要求所有项目走完整改造链。正式领域间用实际技能入口衔接；专项参考从 `Tool/skill/_pending/INDEX.md` 按源码路径读取，不以 `00-analysis` 等归档目录名调用已安装技能。跨版本追版的实际入口为 `Tool/skill/softseep/scripts/version-migrate.py`，方法见 [MIGRATION](MIGRATION.md)。
+任务阶段由主模型根据用户目标与证据决定，不要求所有项目走完整改造链。正式领域间用实际技能入口衔接；各域专属子技能从 `Tool/skill/<domain>/subskills/` 按需读取，专项历史参考可从 `Tool/skill/_pending/INDEX.md` 按源码路径追溯，不以 `00-analysis` 等归档目录名调用已安装技能。跨版本追版的实际入口为 `Tool/skill/softseep/scripts/version-migrate.py`，方法见 [MIGRATION](MIGRATION.md)。
 
 ## 4. 改「提示词层 / 纪律」
 

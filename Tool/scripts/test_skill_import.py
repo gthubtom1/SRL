@@ -24,6 +24,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -94,6 +95,14 @@ def read_text(path, **kwargs):
         return stream.read()
 
 
+def softseep_navigation_fixture():
+    """Copy the current product's four-column index, omitting unrelated prose."""
+    text = read_text(os.path.join(TOOL, "skill", "softseep", "SKILL.md"))
+    start = text.index("## 🧭 本领域专业子技能导航")
+    end = text.index("\n## 调度总流程", start)
+    return text[start:end] + "\n\n## 调度总流程\n\n隔离夹具正文。\n"
+
+
 class ImportCase(unittest.TestCase):
     """公共装置：临时 repo（Tool/skill + Tool/cases/_templates）+ 临时 agent roots。"""
 
@@ -131,10 +140,10 @@ class ImportCase(unittest.TestCase):
                      root=None):
         d = os.path.join(root or self.skill_dir, name)
         os.makedirs(d, exist_ok=True)
-        children = "".join("- `_pending/%s/SKILL.md` —— 已有子技能\n" % c for c in anchor_children)
+        children = "".join("- `subskills/%s/SKILL.md` —— 已有子技能\n" % c for c in anchor_children)
         text = ("---\nname: %s\ndescription: \"%s：怎么用/帮我看看\"\n---\n\n%s\n\n"
                 "## 子技能（按需读，不常驻）\n\n"
-                "本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：\n\n"
+                "本域相关子技能放在 `subskills/`（不占常驻上下文，需要时再读）：\n\n"
                 "%s" % (name, l1, body, children))
         write_text(os.path.join(d, "SKILL.md"), text, newline="\n")
         pack = json.loads(json.dumps(PACK_TMPL))
@@ -380,14 +389,14 @@ class TestCrosscuttingAndSubskill(ImportCase):
         before = read_text(pp)
         rec = self.impl.run_import(self.opts(src=src, kind="subskill", parent=self.parent))
         self.assertEqual(rec["rc"], 0, rec)
-        self.assertEqual(rec["dest"], os.path.join(self.skill_dir, "_pending", "zz-child"))
+        self.assertEqual(rec["dest"], os.path.join(self.skill_dir, self.parent, "subskills", "zz-child"))
         self.assertTrue(rec["entry_reachable"])
         patch = rec["parent_patch"]
         self.assertTrue(patch["changed"])
         self.assertTrue(os.path.isfile(patch["backup"]))
         after = read_text(pp)
         self.assertEqual(len(after.splitlines()), len(before.splitlines()) + 1)
-        self.assertEqual(after.count("_pending/zz-child/SKILL.md"), 1)
+        self.assertEqual(after.count("subskills/zz-child/SKILL.md"), 1)
         # 只多一行，别的字符不动
         self.assertEqual(after.replace(patch["inserted"] + "\n", "").rstrip("\n"),
                          before.rstrip("\n"))
@@ -396,7 +405,7 @@ class TestCrosscuttingAndSubskill(ImportCase):
                                              replace=True))
         self.assertEqual(rec2["rc"], 0, rec2)
         self.assertTrue(rec2["parent_patch"].get("idempotent"))
-        self.assertEqual(read_text(pp).count("_pending/zz-child/SKILL.md"), 1)
+        self.assertEqual(read_text(pp).count("subskills/zz-child/SKILL.md"), 1)
 
     def test_subskill_missing_parent_refused_untouched(self):
         src = self._make_skill("zz-orphan")
@@ -481,7 +490,8 @@ class TestReplaceAndRollback(ImportCase):
         self.assertEqual(r0["rc"], 0, r0)
         root1 = os.path.join(self.roots[0], "zz-f2")
         root2 = os.path.join(self.roots[1], "zz-f2")
-        r1_before, r2_before = self.impl.hash_tree(root1), self.impl.hash_tree(root2)
+        r1_before, r2_before = snapshot(root1), snapshot(root2)
+        repo_before = snapshot(os.path.join(self.skill_dir, "zz-f2"))
         new_src = self._make_skill("zz-f2", desc="部署两处 v2 (.exe)", body="## 2\n新内容\n")
         rec = self.impl.run_import(self.opts(src=new_src, kind="crosscutting", replace=True),
                                   faults={"deploy.swap.1": True})
@@ -492,18 +502,39 @@ class TestReplaceAndRollback(ImportCase):
         self.assertFalse(rec["available_next_session"])
         self.assertEqual(rec["deployed"], [])
         self.assertEqual(rec["files_imported"], 0)
-        self.assertEqual(self.impl.hash_tree(root1), r1_before)
-        self.assertEqual(self.impl.hash_tree(root2), r2_before)
-        self.assertFalse(rec.get("backup_kept", False), rec.get("backups"))
+        self.assertEqual(snapshot(root1), r1_before)
+        self.assertEqual(snapshot(root2), r2_before)
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, "zz-f2")), repo_before)
+        self.assertTrue(rec["backup_kept"], rec.get("backups"))
+        self.assertEqual(set(rec["backups"]), {"retained_staging"})
+        backups = rec["backups"]["retained_staging"]
+        self.assertEqual(len(backups), 3, rec)
+        self.assertEqual(set(backups), {item["backup"] for item in rec["retained_staging"]})
+        manifest_hashes = set()
+        for backup in backups:
+            copied = snapshot(backup)
+            manifest_hashes.add(copied.pop(self.impl.MANIFEST_NAME))
+            self.assertEqual(copied, snapshot(new_src))
+            manifest = json.loads(read_text(os.path.join(backup, self.impl.MANIFEST_NAME)))
+            self.assertEqual(manifest["schema"], self.impl.MANIFEST_SCHEMA)
+            self.assertEqual(manifest["name"], "zz-f2")
+            self.assertEqual(manifest["kind"], "crosscutting")
+            self.assertEqual(manifest["files"], self.impl.hash_tree(new_src))
+        self.assertEqual(len(manifest_hashes), 1, "三份保留副本必须属于同一次 v2 导入")
+        for root in [self.skill_dir] + self.roots:
+            self.assertEqual(sum(self.impl._within(backup, os.path.join(root, self.impl.BACKUP_NAME))
+                                 for backup in backups), 1)
 
-    def test_verify_hash_drift_rolls_back_repo_and_deploy(self):
+    def test_verify_hash_drift_preserves_post_publish_edits_and_rejects_completion(self):
         src = self._make_skill("zz-f3", desc="verify 漂移 (.exe)")
         dest = os.path.join(self.skill_dir, "zz-f3")
-        before = snapshot(self.skill_dir)
-        # 在 deploy 之后、verify 之前改一个字节 → verify 必须红（rc=5）并回滚
+        # Published content changed outside the transaction: verify must fail and
+        # the stronger C7 contract forbids deleting that write during undo.
+        published = {}
         orig = self.impl._verify
 
         def tampered(plan, receipt, skill_dir, faults):
+            published["deploy"] = [snapshot(os.path.join(root, "zz-f3")) for root in self.roots]
             p = os.path.join(plan["target"], "SKILL.md")
             with open(p, "rb") as stream:
                 data = stream.read()
@@ -521,11 +552,12 @@ class TestReplaceAndRollback(ImportCase):
             self.impl._verify = orig
         self.assertEqual(rec["rc"], 5, rec)
         self.assertEqual(rec["refusal"]["code"], "manifest_drift")
-        self.assertTrue(rec["rolled_back"], rec["rollback"])
-        self.assertFalse(os.path.exists(dest))
-        self.assertEqual(snapshot(self.skill_dir), before)
-        for r in self.roots:
-            self.assertFalse(os.path.exists(os.path.join(r, "zz-f3")))
+        self.assertFalse(rec["rolled_back"], rec["rollback"])
+        self.assertTrue(rec["rollback_partial"], rec["rollback"])
+        self.assertFalse(rec["effective"])
+        self.assertTrue(rec["recovery"]["pending_manual"])
+        self.assertIn("TAMPERED", read_text(os.path.join(dest, "SKILL.md")))
+        self.assertEqual([snapshot(os.path.join(root, "zz-f3")) for root in self.roots], published["deploy"])
 
     def test_fault_during_repo_copy_leaves_nothing(self):
         src = self._make_skill("zz-f4", desc="copy 中断 (.exe)")
@@ -544,7 +576,7 @@ class TestReplaceAndRollback(ImportCase):
                                    faults={"parent.patch": True})
         self.assertEqual(rec["rc"], 5, rec)
         self.assertEqual(read_text(pp, newline=""), before_text)
-        self.assertFalse(os.path.exists(os.path.join(self.skill_dir, "_pending", "zz-f5")))
+        self.assertFalse(os.path.exists(os.path.join(self.skill_dir, self.parent, "subskills", "zz-f5")))
 
 
 # ================================================================ 6. 拒绝面
@@ -760,6 +792,250 @@ class TestVerifyCommand(ImportCase):
         self.assertEqual(rc, 5, buf.getvalue())
         self.assertIn("部署 hash 漂移", buf.getvalue())
         self.assertIn("漂移 SKILL.md", buf.getvalue())
+
+
+class TestCanonicalLifecycle(ImportCase):
+    """Actual CLI coverage of canonical identity, reinstall and negative paths."""
+
+    def invoke(self, command, name, parent="", *extra):
+        args = [command, "--name", name, "--skill-dir", self.skill_dir,
+                "--deploy-root", self.roots[0], "--json"]
+        if parent:
+            args.extend(["--parent", parent])
+        rc, out = self.cli(*(args + list(extra)))
+        self.assertNotIn("Traceback", out)
+        return rc, json.loads(out)
+
+    def seed_child(self, name="zz-life", parent=None):
+        parent = parent or self.parent
+        if not os.path.exists(os.path.join(self.roots[0], parent)):
+            shutil.copytree(os.path.join(self.skill_dir, parent), os.path.join(self.roots[0], parent))
+        src = self._make_skill(name)
+        rc, out = self.cli("import", "--kind", "subskill", "--parent", parent,
+                           "--from", src, "--skill-dir", self.skill_dir,
+                           "--deploy-root", self.roots[0], "--json")
+        self.assertEqual(rc, 0, out)
+        return src, os.path.join(self.skill_dir, parent, "subskills", name)
+
+    def test_import_replace_verify_and_recursive_reinstall_are_equivalent(self):
+        src, child = self.seed_child()
+        for suffix in ("v1", "v2"):
+            write_text(os.path.join(src, "SKILL.md"),
+                       "---\nname: zz-life\ndescription: fixture\n---\n" + suffix + "\n")
+            rc, out = self.cli("import", "--kind", "subskill", "--parent", self.parent,
+                               "--from", src, "--skill-dir", self.skill_dir,
+                               "--deploy-root", self.roots[0], "--replace", "--json")
+            self.assertEqual(rc, 0, out)
+            self.assertEqual(self.invoke("verify", "zz-life")[0], 0)
+        deployed = os.path.join(self.roots[0], self.parent)
+        self.assertEqual(snapshot(deployed), snapshot(os.path.join(self.skill_dir, self.parent)))
+        shutil.rmtree(deployed)
+        shutil.copytree(os.path.join(self.skill_dir, self.parent), deployed)
+        self.assertEqual(self.invoke("verify", "zz-life")[0], 0)
+        fresh = subprocess.run([sys.executable, "-B", "-X", "utf8", "-c",
+                                "from pathlib import Path; print(Path(__import__('sys').argv[1]).read_text(encoding='utf-8'))",
+                                os.path.join(deployed, "subskills", "zz-life", "SKILL.md")],
+                               capture_output=True, text=True, encoding="utf-8", timeout=20)
+        self.assertEqual(fresh.returncode, 0, fresh.stderr)
+        self.assertIn("v2", fresh.stdout)
+        self.assertTrue(os.path.isfile(os.path.join(child, "SKILL.md")))
+
+    def test_deploy_subcommand_uses_parent_scope_and_requires_replace(self):
+        _, child = self.seed_child()
+        target = os.path.join(self.roots[0], self.parent, "subskills", "zz-life")
+        before = snapshot(target)
+        rc, rec = self.invoke("deploy", "zz-life", self.parent)
+        self.assertEqual(rc, 4, rec)
+        self.assertEqual(rec["refusal"]["code"], "target_exists")
+        self.assertEqual(snapshot(target), before)
+        shutil.rmtree(target)
+        rc, rec = self.invoke("deploy", "zz-life", self.parent)
+        self.assertEqual(rc, 0, rec)
+        self.assertFalse(rec["available_next_session"])
+        self.assertEqual(snapshot(child), snapshot(target))
+        self.assertEqual(self.invoke("verify", "zz-life", self.parent)[0], 0)
+
+    def test_same_name_in_two_parents_requires_explicit_identity(self):
+        self.seed_child()
+        other = "zz-other"
+        self._make_domain(other, "other domain", 9061)
+        self.seed_child(parent=other)
+        before = snapshot(self.tmp)
+        for command in ("verify", "deploy", "status"):
+            rc, rec = self.invoke(command, "zz-life")
+            self.assertEqual(rc, 4, rec)
+            self.assertEqual(rec["refusal"]["code"], "skill_ambiguous")
+        self.assertEqual(snapshot(self.tmp), before)
+        for parent in (self.parent, other):
+            self.assertEqual(self.invoke("verify", "zz-life", parent)[0], 0)
+            rc, rec = self.invoke("status", "zz-life", parent)
+            self.assertEqual(rc, 0, rec)
+            self.assertEqual(rec["dest"], os.path.join(self.skill_dir, parent, "subskills", "zz-life"))
+
+    def test_wrong_parent_and_missing_source_are_rejected(self):
+        _, child = self.seed_child()
+        other = "zz-other"
+        self._make_domain(other, "other domain", 9061)
+        for command in ("verify", "deploy", "status"):
+            rc, rec = self.invoke(command, "zz-life", other)
+            self.assertEqual(rc, 4, rec)
+            self.assertEqual(rec["refusal"]["code"], "skill_missing")
+        shutil.rmtree(child)
+        rc, rec = self.invoke("verify", "zz-life", self.parent)
+        self.assertEqual(rc, 4, rec)
+        self.assertFalse(rec["effective"])
+
+    def test_pending_copy_and_stale_navigation_never_override_canonical_child(self):
+        src, child = self.seed_child()
+        old = os.path.join(self.skill_dir, "_pending", "zz-life")
+        os.makedirs(old)
+        write_text(os.path.join(old, "SKILL.md"), "OLD PENDING\n")
+        pp = os.path.join(self.skill_dir, self.parent, "SKILL.md")
+        write_text(pp, read_text(pp).replace("subskills/zz-life/SKILL.md", "../_pending/zz-life/SKILL.md"))
+        rc, rec = self.invoke("verify", "zz-life")
+        self.assertEqual(rc, 5, rec)
+        self.assertEqual(rec["dest"], child)
+        rc, out = self.cli("import", "--kind", "subskill", "--parent", self.parent,
+                           "--from", src, "--skill-dir", self.skill_dir,
+                           "--deploy-root", self.roots[0], "--replace", "--json")
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("../_pending/zz-life", read_text(pp))
+        self.assertEqual(read_text(os.path.join(old, "SKILL.md")), "OLD PENDING\n")
+        self.assertEqual(self.invoke("verify", "zz-life")[0], 0)
+
+    def test_manifest_parent_tamper_and_missing_deployed_parent_ref_fail(self):
+        _, child = self.seed_child()
+        manifest = os.path.join(child, "import-manifest.json")
+        original = read_text(manifest, newline="")
+        obj = json.loads(original)
+        obj["parent"] = "zz-forged"
+        write_text(manifest, json.dumps(obj), newline="")
+        for command in ("verify", "deploy"):
+            rc, rec = self.invoke(command, "zz-life", self.parent, "--replace")
+            self.assertEqual(rc, 5, rec)
+        write_text(manifest, original, newline="")
+        parent_file = os.path.join(self.roots[0], self.parent, "SKILL.md")
+        original = read_text(parent_file, newline="")
+        write_text(parent_file, original.replace("subskills/zz-life/SKILL.md", "subskills/missing/SKILL.md"), newline="")
+        rc, rec = self.invoke("verify", "zz-life")
+        self.assertEqual(rc, 5, rec)
+        write_text(parent_file, original, newline="")
+        self.assertEqual(self.invoke("verify", "zz-life")[0], 0)
+
+    def test_missing_deployed_parent_stays_pending_in_deploy_and_verify(self):
+        self.seed_child()
+        shutil.rmtree(os.path.join(self.roots[0], self.parent))
+        before = snapshot(self.roots[0])
+        for command in ("deploy", "verify"):
+            rc, rec = self.invoke(command, "zz-life", self.parent)
+            self.assertEqual(rc, 0, rec)
+            self.assertTrue(rec["deployed"][0]["pending"])
+            self.assertFalse(rec["available_next_session"])
+            self.assertFalse(rec["effective"])
+        self.assertEqual(snapshot(self.roots[0]), before)
+
+
+class TestTableNavigation(ImportCase):
+    def setUp(self):
+        super().setUp()
+        parent_file = os.path.join(self.skill_dir, self.parent, "SKILL.md")
+        prefix = read_text(parent_file).split("## 子技能", 1)[0]
+        self.original = prefix + softseep_navigation_fixture()
+        write_text(parent_file, self.original, newline="")
+        # Existing paths are inert fixture files, never copied customer material.
+        for child in set(re.findall(r"subskills/([\w.-]+)/SKILL\.md", self.original)):
+            directory = os.path.join(self.skill_dir, self.parent, "subskills", child)
+            os.makedirs(directory, exist_ok=True)
+            write_text(os.path.join(directory, "SKILL.md"),
+                       "---\nname: %s\ndescription: fixture\n---\nINERT\n" % child, newline="")
+        for root in self.roots:
+            shutil.copytree(os.path.join(self.skill_dir, self.parent), os.path.join(root, self.parent))
+
+    def import_table_child(self, name, desc, entry, replace=False, display=None):
+        source = self._make_skill(name, desc=desc)
+        if display:
+            path = os.path.join(source, "SKILL.md")
+            write_text(path, read_text(path).replace("name: " + name, "name: " + display), newline="")
+        args = ["import", "--from", source, "--name", name, "--kind", "subskill",
+                "--parent", self.parent, "--entry", entry, "--skill-dir", self.skill_dir,
+                "--deploy-root", self.roots[0], "--deploy-root", self.roots[1], "--json"]
+        if replace:
+            args.append("--replace")
+        rc, out = self.cli(*args)
+        return rc, json.loads(out)
+
+    def test_real_softseep_table_adds_and_updates_one_escaped_row(self):
+        name = "zz-table-child"
+        for replace, description in ((False, "功能 | `代码`"), (True, "更新 | 功能")):
+            rc, rec = self.import_table_child(name, description, "遇到 A | B\r\n下一行", replace,
+                                               display="名称 | 显示")
+            self.assertEqual(rc, 0, rec)
+            parent_file = os.path.join(self.skill_dir, self.parent, "SKILL.md")
+            text = read_text(parent_file, newline="")
+            rows = [line for line in text.splitlines() if "subskills/%s/SKILL.md" % name in line]
+            self.assertEqual(len(rows), 1, text)
+            self.assertTrue(rows[0].startswith("| "), rows)
+            self.assertEqual(rows[0].count("|"), 5, rows)
+            self.assertIn("名称 &#124; 显示", rows[0])
+            self.assertIn("遇到 A &#124; B 下一行", rows[0])
+            self.assertNotIn("\r", rows[0])
+            self.assertEqual(text.replace(rows[0] + "\n", ""), self.original)
+            for root in self.roots:
+                self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)),
+                                 snapshot(os.path.join(root, self.parent)))
+            rc, rec = self.import_table_child(name, description, "遇到 A | B\r\n下一行", True,
+                                               display="名称 | 显示")
+            self.assertEqual(rc, 0, rec)
+            self.assertTrue(rec["parent_patch"]["idempotent"])
+            self.assertEqual(read_text(parent_file, newline=""), text)
+
+    def test_existing_raw_path_row_is_updated_in_place(self):
+        name = "unpack-pe"  # Current softseep's row intentionally has no backticks.
+        rc, out = self.cli("verify", "--name", name, "--parent", self.parent,
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json")
+        self.assertEqual(rc, 0, out)
+        original_row = next(line for line in self.original.splitlines() if "subskills/unpack-pe/SKILL.md" in line)
+        rc, rec = self.import_table_child(name, "新功能 | 说明", "触发\n多行", True)
+        self.assertEqual(rc, 0, rec)
+        result = read_text(os.path.join(self.skill_dir, self.parent, "SKILL.md"), newline="")
+        row = next(line for line in result.splitlines() if "subskills/unpack-pe/SKILL.md" in line)
+        self.assertIn("新功能 &#124; 说明", row)
+        self.assertIn("触发 多行", row)
+        self.assertEqual(result, self.original.replace(original_row, row))
+        for root in self.roots:
+            self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)), snapshot(os.path.join(root, self.parent)))
+
+    def test_old_misplaced_bullet_moves_into_the_existing_table(self):
+        name = "zz-misplaced"
+        broken = self.original.replace("\n\n| 技能名称", "\n- `subskills/%s/SKILL.md` —— old\n\n| 技能名称" % name, 1)
+        for directory in [self.skill_dir] + self.roots:
+            write_text(os.path.join(directory, self.parent, "SKILL.md"), broken, newline="")
+        rc, rec = self.import_table_child(name, "功能", "触发")
+        self.assertEqual(rc, 0, rec)
+        text = read_text(os.path.join(self.skill_dir, self.parent, "SKILL.md"), newline="")
+        rows = [line for line in text.splitlines() if "subskills/%s/SKILL.md" % name in line]
+        self.assertEqual(len(rows), 1, text)
+        self.assertTrue(rows[0].startswith("| "))
+        self.assertEqual(text.replace(rows[0] + "\n", ""), self.original)
+
+    def test_table_preserves_crlf_and_damaged_table_is_not_bypassed(self):
+        for directory in [self.skill_dir] + self.roots:
+            write_text(os.path.join(directory, self.parent, "SKILL.md"),
+                       self.original.replace("\n", "\r\n"), newline="")
+        rc, rec = self.import_table_child("zz-crlf-table", "功能", "触发")
+        self.assertEqual(rc, 0, rec)
+        for directory in [self.skill_dir] + self.roots:
+            with open(os.path.join(directory, self.parent, "SKILL.md"), "rb") as stream:
+                raw = stream.read()
+            self.assertNotIn(b"\n", raw.replace(b"\r\n", b""))
+        parent_file = os.path.join(self.skill_dir, self.parent, "SKILL.md")
+        text = read_text(parent_file, newline="").replace("| :--- | :--- | :--- | :--- |", "| --- | --- |")
+        write_text(parent_file, text, newline="")
+        before = snapshot(os.path.join(self.skill_dir, self.parent))
+        rc, rec = self.import_table_child("zz-bad-table", "功能", "触发")
+        self.assertEqual(rc, 4, rec)
+        self.assertEqual(rec["refusal"]["code"], "parent_navigation_table")
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)), before)
 
 
 if __name__ == "__main__":

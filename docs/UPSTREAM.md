@@ -1,110 +1,58 @@
-# 上游同步与差分（UPSTREAM）
+# 上游比较与增量维护
 
-> 以下历史快照不定义当前能力或待办。当前范围以 REQUIREMENTS 为准，状态只记 CURRENT-STATE；当前为九个正式领域及两个跨域技能。REA 选择性吸收，不要求完整服务；上游新工具不自动全部搬入。不得直接覆盖脏树或据旧命令提交。
+直接上游为 [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab)。其他参考来源、固定研究提交、许可证与本地落点见 [PROVENANCE](../Tool/docs/PROVENANCE.md)。`morluto/rea`与Open-ReverseLab是两个项目，比较时不得混用。
 
-> **原版**：`angusdevgo/Seep-Reverse-Lab`（git remote 名 `upstream`，本仓 `origin` = `gthubtom1/Seep-Reverse-Lab`）
-> **原则**：先比对内容，再按本文 §2 五问逐条评估，选择具体改动并运行相关检查。不要覆盖用户已有工作。
-> 原因：两仓历史可能不共享祖先（浅克隆/重建过），merge 会把两套历史拧在一起，回滚成本极高。
+产品范围以 [REQUIREMENTS](../REQUIREMENTS.md) 为准，当前进度和阻断只记 [CURRENT-STATE](CURRENT-STATE.md)。上游出现新能力不自动成为本项目待办；过往库存数字、阶段计划和旧门禁结果不决定新增需求。
 
-## 0. 一次性配置（已做，换机器要重做）
+## 1. 获取差异
 
-```bash
-git remote add upstream https://github.com/angusdevgo/Seep-Reverse-Lab.git
-git fetch upstream main --deepen=200
-```
-
-## 1. 季度差分（10 分钟）
+从仓库根运行只读检查，先确认现有改动：
 
 ```bash
-git fetch upstream main --deepen=200
-# 按具体需求使用 git diff --stat / git diff；旧自动差分脚本已删除
-# 报告落在 work/upstream-delta/delta-<时间>.json（gitignore）
+git status --short
+git remote -v
+git fetch upstream main
+git log --oneline HEAD..upstream/main
+git diff --stat HEAD upstream/main
 ```
 
-当前快照（2026-10-22，`upstream/main` = `dc95a90`，浅历史 100 层）：
+如果remote尚未配置，确认目标后增补；不要覆盖已有remote。历史不共享祖先时按文件比较，不盲目merge。下载、比较与本地集成分别记录，fetch成功不代表已融合。
 
-| 类别 | 数量 | 含义 |
-| :-- | --: | :-- |
-| 仅上游有 | 140 | 多为 `Tool/cases/项目C|D/*` 的现场工件；本仓已归档到 `Tool/cases/_archive/` 或有意删除 |
-| 仅本仓有 | 1015 | 九件套 2.0、11 域、KB 2026、门禁、脚本等增量 |
-| 两边都有但内容不同 | 82 | **唯一需要逐条评估的部分**（多为我们改过的 SKILL/配置） |
-| 两边相同 | 273 | 无需处理 |
+## 2. 每项改动回答六个问题
 
-## 2. 五问评估表（逐文件核对）
+1. 用户当前任务或已确认需求缺少什么？现有技能、KB、MCP或脚本能否完成？
+2. 上游具体哪段方法或代码填补这个缺口，固定提交和原文件是什么？
+3. 本地应归哪个正式域或横切方法？跨域依赖是否返回同一项目、版本和run？
+4. 工具版本、参数、运行平台和副作用与本地是否一致？上游示例是否仍需校正？
+5. 来源与许可如何保留，现有用户材料和受管部署如何保护、回滚？
+6. 用什么正例、反例、实际任务结果证明接线有效？文件存在、退出0或数量增长都不够。
 
-对 `both_changed` / `only_upstream` 里的每个**能力相关**文件：
+只有新增价值明确才修改。相同主题可融合不同方法，重复内容不必复制；原资料深度足够时优先修导航与引用。
 
-1. 它解决的是**我们已有能力**还是**新能力**？（已有 → 先看我们是否更好，不重复引入）
-2. 它是否带**可复现判据**（命令/字段/失败判据）？（没有 → 只进 KB 候选，不进 SKILL）
-3. 它是否触碰**共享文件**（routing/gate/spec/README）？（是 → 只在主分支改）
-4. 它会不会**引入回归**（依赖旧路径、旧工具名、CRLF 漂移）？（会 → 先跑 `preflight --fast`）
-5. 它的**回滚方式**是否明确（单文件 cherry-pick / 删除即可）？
+## 3. 本地适配
 
-## 3. 合并动作（单文件，不 merge）
+保持九域作为顶层业务方向。专业子技能由父域导航引导到`Tool/skill/<domain>/subskills/<name>/`，工具和MCP继续使用现有能力、通道与配置入口。全局项目、证据、报告和归档体系不因引入外部方法另起一套。
+
+外部文件先比较后适配，不能在脏工作树上直接`git checkout upstream/main -- <file>`覆盖。若选用代码，保留来源和必要许可材料；若只参考方法，明确记为参考，不写成完整代码接入或实测能力。
+
+导入与部署使用 [EXTEND](../Tool/docs/EXTEND.md) 的当前入口。子技能加入后需要验证父引用、相对资源、部署副本、独立verify及新会话读取；不要求用户手填内部技术字段。
+
+## 4. 检查与结果
+
+运行受影响专项，再执行完整当前回归：
 
 ```bash
-git checkout upstream/main -- <单个文件>        # 只取一个文件
-python Tool/scripts/preflight.py --fast          # 悬空引用/篇幅/路由/清理
-python Tool/scripts/domain-gate.py --domain <受影响域>
-git commit -m "sync(upstream): <文件>（五问通过）"
+python Tool/scripts/route.py --check
+python Tool/scripts/skill-handoff-check.py
+python Tool/scripts/check.py --runtime --json
 ```
 
-> 若上游改的是 `Tool/skill/**/SKILL.md` 或 `routing.json`：**不要直接 checkout**，按我们的契约重写对应章节，
-> 再跑对应域门禁。上游内容只作输入，不作事实来源。
+涉及安装或宿主行为时，使用明确隔离AgentRoot验证文件、运行时注册、initialize/tools/list、实际调用和任务。当前宿主是否重载单独确认；其他平台没有实测就保留未验证。
 
-## 4. 我们主动不回同步的内容（有意分歧）
+有效旧工程检查的失败必须查明；确属过期判据时根据当前需求修正并保留拒绝坏输入的负例。不能自动更新阈值或快照迎合当前实现。
 
-| 类别 | 原因 |
-| :-- | :-- |
-| 过程文档（`优化方案*.md`） | 已从本工作区删除，不保存work副本；上游内容不作为本产品当前需求 |
-| `Tool/cases/项目C|D` 现场工件 | 含真实目标产物，按脱敏纪律归档在 `_archive/` |
-| 旧版 9 技能结构 | 历史库存计数；当前正式领域与部署名单以现有 pack 和实际加载为准 |
-| CRLF 记录的历史哈希 | 本仓已改为按字节保存（`.gitattributes -text`），上游仍是旧口径 |
+最后将当前结果更新到CURRENT-STATE。稳定方法进入对应技能、reference或KB；单个案例事实留在案例。旧方案被替代后删除活跃开发指引，不搬到work保存另一套规范。
 
-## 5. 触发条件与负责人
+## 5. 后续维护节奏
 
-- **触发**：每季度一次；或上游发布新版本 / 新增工具 / 修了安全问题时立即。
-- **负责人**：主分支维护者（唯一可改 `routing.json` / `domain-gate.py` / `docs/DOMAIN-CONTRACT.md` 的角色）。
-- **验收**：`python Tool/scripts/check.py --runtime --json` 与相关专项检查；变动涉及的部署平台分别实测，不沿用旧双平台计数；差异写进 `docs/AUDIT.md`。
-
----
-
-## 6. 第二个上游：Pentest-Skills-Merged（许可分层，按档吸收）
-
-> 位置：用户桌面目录 `Pentest-Skills-Merged`（不在本仓树内，不进版本库）。
-> 规模：236 个 `SKILL.md` / 258 篇 md / 153,390 行 / 6.9 MB / 7 个脚本。
-> 结构：三套互不兼容模板（recon 137 / hunt 39 / offensive 79），**0 处**「失败判据」独立小节。
-
-### 6.1 许可分层（决定「能不能抄」）
-
-| 层 | 数量 | 依据 | 处置 |
-| :-- | --: | :-- | :-- |
-| `license: MIT` 自声明 | ~136 | frontmatter 有 `license: MIT`（`revision_date` 是自造未来日期，落地时改实际摄入日） | 可改写吸收，保留 MIT 声明 |
-| `offensive-*`（来源 SnailSploit/offensive-checklist） | 79 | 文末 `Source: https://github.com/SnailSploit/offensive-checklist/...`，**无 license 行** | 按 UNKNOWN 处理：只读后**重写判据**，不原文复制、不进 MIT 树 |
-| 课程转录（windows-boundaries / -mitigations / crash-analysis / basic-exploitation / fuzzing-course / vuln-classes） | 6（56,306 行） | 正文署名 `@Pwn3rzs Telegram channel`，属付费课程转帖 | **不收**（版权 + 与 pwn-crypto / kb/pe-reverse 重叠 + 单文件超篇幅 2–15 倍） |
-| 7 个脚本 | 7 | 全无 `--help` / `--self-test` / 结构化失败 | 只作参考实现，吸收必须按 `docs/DOMAIN-CONTRACT.md` §3 重写入口 |
-
-### 6.2 已吸收（重写为本仓契约，非复制）
-
-| 来源 | 落地 | 形态 |
-| :-- | :-- | :-- |
-| `triage-validation` + `recon-scope-triage` + `hunt-race-condition` | `Tool/skill/web-pentest/references/09-ownership-and-timing-proof.md` | 重写为「归属判据表 / 软 404 基线 / 竞态账本读回 / 失败判据表」 |
-| 无线 14 篇（wifi / wpa2 / wpa3 / wpa-ent / wps / deauth / krack / evil-twin / ble / classic / z-wave / zigbee / lorawan / wifi-recon） | `Tool/skill/firmware-iot/references/hardware-interfaces.md` 的「无线与近场」章 | 重写为判据表 + 失败判据表 + 模型失误；路由挂 R22 |
-| `osint-methodology` + `offensive-osint` 的工序 | `Tool/playbooks/osint-recon.md` + 路由 R36 | 重写为可跑命令序列（先被动、再存活、后代码/人员面），判据可机检 |
-| `offensive-*` 79 篇（UNKNOWN 许可） | `Tool/mcp/Tool/reverselab/kb/_archive/pentest-checklist/README.md` + `NOT-ABSORBED.md` | 只建索引（79 行表 + 一句话价值 + 建议动作 + 复核命令），正文**不进树**；需要具体命令时按篇重写 |
-
-### 6.3 待吸收（已分档，按需再取）
-
-| 档 | 内容 | 前置条件 |
-| :-- | :-- | :-- |
-| 只摘片段 | `hunt-http-smuggling` 的 2026 适配矩阵 / `hunt-cache-poison` 的 Gate 0 / `hunt-oauth\|saml\|jwt` 的断言攻击表 / `offensive-lateral-movement\|data-exfiltration` 的通道可行性判据 | 每处 ≤1 张表，并入现有 reference，不得挤压 6–10 篇上限 |
-| 独立新域 | 无线近场（若要升域） | 需 9 件套 + `domain_spec.py` / `routing` / `DOMAIN-SPEC-v2.md` 三处契约变更；当前以 R22 + 单章承载，够用不升域 |
-| 不收 | 课程转录 6 篇、`hunt-misc` / `security-arsenal` / `wstg-web-pentest`（泛清单）、`offensive-c2-frameworks`（与本仓「可复现判据 + 取证」定位正交） | — |
-
-### 6.4 吸收纪律（与 §2 五问并列）
-
-1. **判据优先**：目标库里没有「失败判据表」就**不能整篇吸收**，必须先重写成表。
-2. **篇幅上限**：reference 60–400 行、SKILL ≤600、KB 50–200；超了先压，不靠拆文件绕过。
-3. **不增文件数**：域的 reference 已到 10 篇上限时，并入现有篇章，不新建第 11 篇。
-4. **路由必须接线**：新能力必须同时加 `routing.json` 关键词 + `Tool/config/skill-route-probes.json` 探针，否则等于没接。
-5. **来源可追**：每篇重写文件在 note 或表头标来源目录名（不复制原文），便于复核。
+以具体任务缺口、已复现缺陷、上游重要变更和依赖兼容性为触发。每次只处理相关落点，保留用户材料、来源与复查办法，不周期性重新铺开全项目架构。预计工夫取决于实际差异，不能保证所有上游更新都能在固定十分钟内完成。

@@ -823,7 +823,8 @@ class CliEntryPointTests(unittest.TestCase):
         self.assertEqual(payload["evidence_level"], "structural")
         self.assertIs(payload["runtime_verified"], False)
         self.assertEqual(done.returncode, 0 if payload["ok"] is True else 1)
-        # 真实仓库的已知缺口（java / rabin2）必须还在，不许为了让套件变绿而消失
+        # Registry repairs may close these historical gaps. Any remaining gap
+        # must come from the actual declarations, not a guessed runtime verdict.
         self.assertTrue({g["id"] for g in payload["registry_gaps"]} <= {"java", "rabin2"})
 
     def test_probe_cli_does_not_spawn_software(self):

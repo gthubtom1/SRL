@@ -25,6 +25,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,7 @@ import tempfile
 import time
 import unittest
 from unittest import mock
+from test_skill_import import softseep_navigation_fixture
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOOL = os.path.dirname(HERE)
@@ -123,10 +125,10 @@ class TxnCase(unittest.TestCase):
     def _make_domain(self, name, l1, priority, anchor_children=(), body="", root=None):
         d = os.path.join(root or self.skill_dir, name)
         os.makedirs(d, exist_ok=True)
-        children = "".join("- `_pending/%s/SKILL.md` —— 已有子技能\n" % c for c in anchor_children)
+        children = "".join("- `subskills/%s/SKILL.md` —— 已有子技能\n" % c for c in anchor_children)
         text = ("---\nname: %s\ndescription: \"%s：怎么用/帮我看看\"\n---\n\n%s\n\n"
                 "## 子技能（按需读，不常驻）\n\n"
-                "本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：\n\n"
+                "本域相关子技能放在 `subskills/`（不占常驻上下文，需要时再读）：\n\n"
                 "%s" % (name, l1, body, children))
         with io.open(os.path.join(d, "SKILL.md"), "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
@@ -384,7 +386,9 @@ class TestNoCopyDeleteFallback(TxnCase):
         for item in rec["rollback"]:
             self.assertIn("ok", item)
             self.assertIn("applied", item)   # intent 是否真的执行过（不猜）
-        self.assertFalse(rec.get("backup_kept"))
+        self.assertTrue(rec["backup_kept"], rec.get("backups"))
+        self.assertEqual(set(rec["backups"]), {"retained_staging"})
+        self.assertTrue(all(os.path.isdir(p) for p in rec["backups"]["retained_staging"]))
 
     def test_rollback_partial_when_old_content_vanishes(self):
         """旧内容被外部弄丢时不得谎报 rolled_back=true：必须 partial + 指向可复查位置。"""
@@ -566,16 +570,16 @@ class TestMultiResourceLocking(TxnCase):
         with io.open(pp, encoding="utf-8", newline="") as f:
             text = f.read()
         for k in kids:
-            self.assertEqual(text.count("../_pending/%s/SKILL.md" % k), 1, (k, text[-800:]))
-            target = os.path.normpath(os.path.join(os.path.dirname(pp), "..", "_pending", k,
+            self.assertEqual(text.count("subskills/%s/SKILL.md" % k), 1, (k, text[-800:]))
+            target = os.path.normpath(os.path.join(os.path.dirname(pp), "subskills", k,
                                                    "SKILL.md"))
             self.assertTrue(os.path.isfile(target), target)
-        # 部署侧：4 条引用都在，且指向真实 GUIDE.md（不给 deployment 丢引用）
+        # 部署侧：4 条引用都指向同形子技能，逐条可达。
         dp = os.path.join(self.roots[0], self.parent, "SKILL.md")
         with io.open(dp, encoding="utf-8", newline="") as f:
             dtext = f.read()
         for k in kids:
-            rel = "references/imported-subskills/%s/GUIDE.md" % k
+            rel = "subskills/%s/SKILL.md" % k
             self.assertEqual(dtext.count(rel), 1, (k, dtext[-800:]))
             self.assertTrue(os.path.isfile(os.path.join(os.path.dirname(dp),
                                                         rel.replace("/", os.sep))))
@@ -614,20 +618,18 @@ class TestMultiResourceLocking(TxnCase):
         with io.open(os.path.join(self.skill_dir, self.parent, "SKILL.md"),
                      encoding="utf-8", newline="") as f:
             text = f.read()
-        self.assertEqual(text.count("../_pending/zz-keep-a/SKILL.md"), 1, text[-600:])
+        self.assertEqual(text.count("subskills/zz-keep-a/SKILL.md"), 1, text[-600:])
         # C 被锁挡在写盘之前：它不该有任何引用（也没有半写）
-        self.assertEqual(text.count("../_pending/zz-keep-c/SKILL.md"), 0, text[-600:])
-        self.assertEqual(text.count("../_pending/zz-keep-b/SKILL.md"), 0, text[-600:])
-        self.assertFalse(os.path.exists(os.path.join(self.skill_dir, "_pending", "zz-keep-c")))
+        self.assertEqual(text.count("subskills/zz-keep-c/SKILL.md"), 0, text[-600:])
+        self.assertEqual(text.count("subskills/zz-keep-b/SKILL.md"), 0, text[-600:])
+        self.assertFalse(os.path.exists(os.path.join(self.skill_dir, self.parent, "subskills", "zz-keep-c")))
         self.assertTrue(rec_b["rolled_back"], rec_b.get("rollback"))
 
     def test_rollback_does_not_clobber_another_committed_transaction(self):
-        """回滚只撤自己那一行：**另一事务**在本事务写完后提交的引用必须原样留着。
+        """另一事务在发布后改写父导航：整笔旧撤销必须在写入前拒绝。
 
-        构造：先有已提交的 A；本事务 B 写完仓库父引用/部署副本后，另一事务 C 在自己的锁窗口
-        内把 C 的 `_pending/` 与父引用写下并提交；然后 B 在部署侧失败回滚。
-        要求：A、C 的引用都在，B 的引用被撤掉；回滚如实报 partial（父文件被别人改过，
-        不能谎报"整份还原"）。
+        A、C 的已提交引用和子树必须原样保留；B 已发布内容也保留供审查，
+        不再对被改写的父文件做局部撤行。更强的 C7 内容所有权要求禁止部分撤销。
         """
         a = self._make_skill("zz-keep-a", desc="已提交 A (.yar)")
         b = self._make_skill("zz-keep-b", desc="将失败 B (.yar)")
@@ -636,15 +638,15 @@ class TestMultiResourceLocking(TxnCase):
         # 部署侧父域先就位，让本事务会走"部署侧可读"分支
         self._deploy_parent_into(self.roots[0])
         pp = os.path.join(self.skill_dir, self.parent, "SKILL.md")
-        c_line = "- `../_pending/zz-keep-c/SKILL.md` —— 另一事务已提交" + chr(10)
+        c_line = "- `subskills/zz-keep-c/SKILL.md` —— 另一事务已提交" + chr(10)
         orig = self.impl._deploy_subskill
         state = {}
 
         def saboteur(plan, root, idx, repo_child, journal, faults):
             out = orig(plan, root, idx, repo_child, journal, faults)
             if "patched" not in state:
-                # 模拟另一事务（在它自己的锁窗口内）真的提交：落 _pending + 写父引用
-                cdir = os.path.join(self.skill_dir, "_pending", "zz-keep-c")
+                # 模拟另一事务在自己的锁窗口内提交子技能和父引用。
+                cdir = os.path.join(self.skill_dir, self.parent, "subskills", "zz-keep-c")
                 os.makedirs(cdir, exist_ok=True)
                 with io.open(os.path.join(cdir, "SKILL.md"), "w", encoding="utf-8",
                              newline="\n") as f:
@@ -655,6 +657,8 @@ class TestMultiResourceLocking(TxnCase):
                 with io.open(pp, "w", encoding="utf-8", newline="") as f:
                     f.write(text + c_line)
                 state["patched"] = True
+                state["repo"] = snapshot(os.path.join(self.skill_dir, self.parent))
+                state["deploy"] = snapshot(os.path.join(self.roots[0], self.parent))
             raise self.impl.Refuse(5, "injected_after_parent", "模拟部署阶段失败")
             return out
 
@@ -667,20 +671,15 @@ class TestMultiResourceLocking(TxnCase):
         self.assertEqual(rec_b["rc"], 5, rec_b.get("why"))
         with io.open(pp, encoding="utf-8", newline="") as f:
             text = f.read()
-        # 已提交的 A 与 C 的引用必须都在；失败事务 B 的引用必须被撤掉
-        self.assertEqual(text.count("../_pending/zz-keep-a/SKILL.md"), 1, text[-600:])
-        self.assertEqual(text.count("../_pending/zz-keep-c/SKILL.md"), 1, text[-600:])
-        self.assertEqual(text.count("../_pending/zz-keep-b/SKILL.md"), 0, text[-600:])
-        # B 的子技能目录/部署副本不应残留
-        self.assertFalse(os.path.exists(os.path.join(self.skill_dir, "_pending", "zz-keep-b")))
-        self.assertFalse(os.path.exists(os.path.join(
-            self.roots[0], self.parent, "references", "imported-subskills", "zz-keep-b")))
-        # 这条回滚必然是部分回滚（父文件已被别人改过），必须如实报，不能谎报整份还原
+        self.assertEqual(text.count("subskills/zz-keep-a/SKILL.md"), 1, text[-600:])
+        self.assertEqual(text.count("subskills/zz-keep-c/SKILL.md"), 1, text[-600:])
+        self.assertEqual(text.count("subskills/zz-keep-b/SKILL.md"), 1, text[-600:])
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)), state["repo"])
+        self.assertEqual(snapshot(os.path.join(self.roots[0], self.parent)), state["deploy"])
         self.assertTrue(rec_b["rollback_partial"], rec_b.get("rollback"))
-        patch = [r for r in rec_b["rollback"] if r["op"] == "patch"
-                 and r["role"] == "repo-parent"]
-        self.assertTrue(patch and any("仅撤掉本事务" in (r.get("why") or "") for r in patch),
-                        rec_b.get("rollback"))
+        self.assertFalse(rec_b["rolled_back"], rec_b.get("rollback"))
+        self.assertTrue(rec_b["recovery"]["pending_manual"])
+        self.assertTrue(all(r["op"] == "identity_guard" for r in rec_b["rollback"]))
 
     def test_lock_contention_is_reported_with_owner_metadata(self):
         """被占用时报 locked + 属主公开元数据（pid/ts/role），不静默、不硬闯。"""
@@ -704,7 +703,7 @@ class TestMultiResourceLocking(TxnCase):
 # ================================================================ 3. 父引用真实可达（R3/R7b）
 class TestParentReachability(TxnCase):
     def test_repo_ref_is_relative_to_skill_dir_not_repo_cwd(self):
-        """仓库父引用必须是 `../_pending/<child>/SKILL.md`，按**父技能目录**可解析。"""
+        """仓库父引用是 subskills/<child>/SKILL.md，按父技能目录解析。"""
         src = self._make_skill("zz-rr", desc="可达 (.yar)")
         rec = self.run_import(src=src, kind="subskill", parent=self.parent, deploy_roots=[],
                               deploy=False)
@@ -712,23 +711,22 @@ class TestParentReachability(TxnCase):
         pp = os.path.join(self.skill_dir, self.parent, "SKILL.md")
         with io.open(pp, encoding="utf-8", newline="") as f:
             text = f.read()
-        self.assertIn("`../_pending/zz-rr/SKILL.md`", text)
-        resolved = os.path.normpath(os.path.join(self.skill_dir, self.parent, "..", "_pending",
+        self.assertIn("`subskills/zz-rr/SKILL.md`", text)
+        resolved = os.path.normpath(os.path.join(self.skill_dir, self.parent, "subskills",
                                                 "zz-rr", "SKILL.md"))
         self.assertTrue(os.path.isfile(resolved), resolved)
         self.assertTrue(rec["entry_reachable"])
 
     def test_deployed_parent_points_at_real_document(self):
-        """部署侧：子技能复制到 references/imported-subskills/<child>/，入口改名 GUIDE.md。"""
+        """部署侧原样复制到 subskills/<child>/，入口仍叫 SKILL.md。"""
         self._deploy_parent_into(self.roots[0])
         src = self._make_skill("zz-dp", desc="部署可达 (.yar)", extra={"references/a.md": "A\n"})
         rec = self.run_import(src=src, kind="subskill", parent=self.parent,
                               deploy_roots=[self.roots[0]])
         self.assertEqual(rec["rc"], 0, rec)
-        base = os.path.join(self.roots[0], self.parent, "references", "imported-subskills", "zz-dp")
-        self.assertTrue(os.path.isfile(os.path.join(base, "GUIDE.md")))
-        self.assertFalse(os.path.exists(os.path.join(base, "SKILL.md")),
-                         "入口文档不能叫 SKILL.md（否则会被当成新的全局技能）")
+        base = os.path.join(self.roots[0], self.parent, "subskills", "zz-dp")
+        self.assertTrue(os.path.isfile(os.path.join(base, "SKILL.md")))
+        self.assertFalse(os.path.exists(os.path.join(base, "GUIDE.md")))
         self.assertTrue(os.path.isfile(os.path.join(base, "references", "a.md")),
                         "相对资产必须一起复制")
         # 不能被当成顶层技能被自动选中
@@ -736,13 +734,10 @@ class TestParentReachability(TxnCase):
         dp = os.path.join(self.roots[0], self.parent, "SKILL.md")
         with io.open(dp, encoding="utf-8") as f:
             deployed_parent = f.read()
-        self.assertIn("references/imported-subskills/zz-dp/GUIDE.md", deployed_parent)
-        # manifest 记录路径映射与 hash
-        with io.open(os.path.join(base, self.impl.IMPORT_MAP_NAME), encoding="utf-8") as f:
-            mp = json.load(f)
-        self.assertEqual(mp["mapping"], {"SKILL.md": "GUIDE.md"})
-        self.assertIn("GUIDE.md", mp["files"])
-        self.assertTrue(mp["files"]["GUIDE.md"])
+        self.assertIn("subskills/zz-dp/SKILL.md", deployed_parent)
+        self.assertEqual(snapshot(base), snapshot(os.path.join(
+            self.skill_dir, self.parent, "subskills", "zz-dp")))
+        self.assertFalse(os.path.exists(os.path.join(base, self.impl.IMPORT_MAP_NAME)))
 
     def test_parent_not_deployed_reports_pending_not_reachable(self):
         """父域没部署到该 root → 如实报 pending，不宣称可达、也不自动搬父域。"""
@@ -778,8 +773,8 @@ class TestParentReachability(TxnCase):
         rec = self.run_import(src=src, kind="subskill", parent=self.parent,
                               deploy_roots=[self.roots[0]])
         self.assertEqual(rec["rc"], 0, rec)
-        guide = os.path.join(self.roots[0], self.parent, "references", "imported-subskills",
-                             "zz-vd", "GUIDE.md")
+        guide = os.path.join(self.roots[0], self.parent, "subskills",
+                             "zz-vd", "SKILL.md")
         with io.open(guide, "a", encoding="utf-8") as f:
             f.write("\nTAMPERED\n")
         rc, v = self.quiet_json(self.impl.cmd_verify,
@@ -1220,7 +1215,19 @@ class TestDomainOwnRoute(TxnCase):
         self.assertEqual(rec["rc"], 5, rec)
         self.assertEqual(rec["refusal"]["code"], "route_self_miss")
         self.assertTrue(rec["rolled_back"], rec.get("rollback"))
-        self.assertEqual(snapshot(self.skill_dir), before)
+        # Active skills return exactly to the old state. Only explicitly reported
+        # retained publication copies may remain under the existing backup area.
+        want = dict(before)
+        for item in rec["retained_staging"]:
+            backup = item["backup"]
+            copied = snapshot(backup)
+            copied.pop(MANIFEST)
+            self.assertEqual(copied, snapshot(src))
+            if self.impl._within(backup, self.skill_dir):
+                prefix = os.path.relpath(backup, self.skill_dir).replace(os.sep, "/") + "/"
+                want.update({prefix + rel: sha for rel, sha in snapshot(backup).items()})
+        self.assertEqual(snapshot(self.skill_dir), want)
+        self.assertFalse(os.path.exists(os.path.join(self.skill_dir, name)))
         self.assertFalse(any(os.path.exists(os.path.join(r, name)) for r in self.roots))
 
     def test_verify_rejects_forged_manifest_after_l1_no_longer_hits_self(self):
@@ -1563,6 +1570,626 @@ class TestGapDeclaration(TxnCase):
         self.assertTrue(rec["capability_gap"])
         self.assertFalse(rec["formal_domain_active"])
         self.assertFalse(rec["effective"])
+
+
+class TestCanonicalTransactions(TxnCase):
+    def test_c7_later_parent_commit_survives_stale_child_recovery(self):
+        self._deploy_parent_into(self.roots[0])
+        name = "zz-c7-child"
+        src = self._make_skill(name)
+        args = ["import", "--from", src, "--name", name, "--kind", "subskill",
+                "--parent", self.parent, "--skill-dir", self.skill_dir,
+                "--deploy-root", self.roots[0], "--json"]
+        rc, out = self.cli(*args, env_extra={"SEEP_IMPORT_CRASH_POINT": "deploy.between.0"})
+        self.assertEqual(rc, 87, out)
+        rc, out = self.cli("deploy", "--name", self.parent, "--replace",
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json")
+        self.assertEqual(rc, 0, out)
+        self.assertTrue(json.loads(out)["effective"])
+        rc, out = self.cli("verify", "--name", self.parent, "--skill-dir", self.skill_dir,
+                           "--deploy-root", self.roots[0], "--json")
+        self.assertEqual(rc, 0, out)
+        committed_repo = snapshot(os.path.join(self.skill_dir, self.parent))
+        committed_deploy = snapshot(os.path.join(self.roots[0], self.parent))
+        rc, out = self.cli("deploy", "--name", name, "--parent", self.parent,
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0],
+                           "--replace", "--json")
+        rec = json.loads(out)
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)), committed_repo)
+        self.assertEqual(snapshot(os.path.join(self.roots[0], self.parent)), committed_deploy)
+        self.assertEqual(rc, 5, out)
+        self.assertTrue(rec["recovery"]["pending_manual"], rec)
+        self.assertFalse(rec["recovery"]["auto_recoverable"], rec)
+        self.assertNotEqual(rec["refusal"]["code"], "entry_missing")
+        review = rec["refusal"]["recovery_review"]
+        self.assertFalse(review["automatic_resolution"])
+        self.assertTrue(review["protected_paths"])
+        for command in review["read_only_commands"]:
+            checked = subprocess.run(command, capture_output=True, text=True,
+                                     encoding="utf-8", timeout=30)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)), committed_repo)
+        self.assertEqual(snapshot(os.path.join(self.roots[0], self.parent)), committed_deploy)
+
+    def test_c7_same_inode_child_edits_are_preserved_before_any_recovery_write(self):
+        self._deploy_parent_into(self.roots[0])
+        cases = [(side, operation, retry_kind) for side in ("repo", "deploy")
+                 for operation in ("add", "edit") for retry_kind in ("import", "deploy")]
+        for i, (side, operation, retry_kind) in enumerate(cases):
+            with self.subTest(side=side, operation=operation, retry_kind=retry_kind):
+                name = "zz-c7-user-%d" % i
+                src = self._make_skill(name)
+                args = ["import", "--from", src, "--kind", "subskill", "--parent", self.parent,
+                        "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json"]
+                rc, out = self.cli(*args, env_extra={"SEEP_IMPORT_CRASH_POINT": "deploy.between.0"})
+                self.assertEqual(rc, 87, out)
+                base = self.skill_dir if side == "repo" else self.roots[0]
+                child = os.path.join(base, self.parent, "subskills", name)
+                identity = self.impl._file_identity(child)
+                file = os.path.join(child, "user-added.txt" if operation == "add" else "SKILL.md")
+                file_identity = self.impl._file_identity(file)
+                if operation == "add":
+                    with io.open(file, "w", encoding="utf-8") as stream:
+                        stream.write("USER LATER CONTENT\n")
+                else:
+                    with open(file, "r+b") as stream:
+                        stream.seek(-1, os.SEEK_END)
+                        stream.write(b"X")
+                    self.assertEqual(self.impl._file_identity(file), file_identity)
+                self.assertEqual(self.impl._file_identity(child), identity)
+                before = [snapshot(os.path.join(root, self.parent))
+                          for root in (self.skill_dir, self.roots[0])]
+                if retry_kind == "import":
+                    rc, out = self.cli(*args, "--replace")
+                else:
+                    rc, out = self.cli("deploy", "--name", name, "--parent", self.parent,
+                                       "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0],
+                                       "--replace", "--json")
+                rec = json.loads(out)
+                self.assertEqual([snapshot(os.path.join(root, self.parent))
+                                  for root in (self.skill_dir, self.roots[0])], before)
+                self.assertEqual(rc, 5, out)
+                self.assertTrue(rec["recovery"]["pending_manual"])
+                self.assertFalse(rec["recovery"]["auto_recoverable"])
+
+    def test_c7_new_links_are_conflicts_without_hashing_their_targets(self):
+        self._deploy_parent_into(self.roots[0])
+        outside = os.path.join(self.tmp, "outside-importer")
+        os.makedirs(outside)
+        target = os.path.join(outside, "unread.txt")
+        with io.open(target, "w", encoding="utf-8") as stream:
+            stream.write("SYNTHETIC UNREAD TARGET\n")
+        for i, point in enumerate(("deploy.between.0", "verify.after")):
+            with self.subTest(point=point):
+                name = "zz-c7-link-%d" % i
+                source = self._make_skill(name)
+                rc, out = self.cli("import", "--from", source, "--kind", "subskill",
+                                   "--parent", self.parent, "--skill-dir", self.skill_dir,
+                                   "--deploy-root", self.roots[0], "--json",
+                                   env_extra={"SEEP_IMPORT_CRASH_POINT": point})
+                self.assertEqual(rc, 87, out)
+                link = os.path.join(self.roots[0], self.parent, "subskills", name, "new-link.txt")
+                try:
+                    os.symlink(target, link)
+                except OSError as exc:
+                    self.skipTest("本机不能创建符号链接：%s" % exc)
+                reads = []
+                originals = {key: getattr(self.impl, key) for key in ("_bytes_sha", "_norm_sha")}
+
+                def guarded(key):
+                    def reader(path):
+                        if self.impl._within(path, outside):
+                            reads.append(path)
+                            raise AssertionError("禁止读取新增链接目标")
+                        return originals[key](path)
+                    return reader
+
+                with mock.patch.object(self.impl, "_bytes_sha", side_effect=guarded("_bytes_sha")):
+                    with mock.patch.object(self.impl, "_norm_sha", side_effect=guarded("_norm_sha")):
+                        rc, rec = self.quiet_json(self.impl.cmd_deploy,
+                            **self.opts(name=name, parent=self.parent, replace=True, deploy_roots=[self.roots[0]]))
+                self.assertEqual(reads, [])
+                self.assertEqual(rc, 5, rec)
+                self.assertTrue(rec["recovery"]["pending_manual"])
+                self.assertTrue(os.path.lexists(link))
+                self.assertTrue(os.path.isfile(os.path.join(self.skill_dir, self.parent, "subskills", name, "SKILL.md")))
+
+    def test_c7_sync_rollback_retains_writes_between_undo_and_cleanup(self):
+        self._deploy_parent_into(self.roots[0])
+        name = "zz-sync-after-undo"
+        source = self._make_skill(name)
+        before = [snapshot(os.path.join(root, self.parent)) for root in (self.skill_dir, self.roots[0])]
+        original = self.impl._rollback
+        injected = []
+
+        def late_writer(journal, receipt):
+            result = original(journal, receipt)
+            for entry in journal or []:
+                if entry.get("op") == "intent" and entry.get("role") == "repo-new":
+                    staging = entry["src"]
+                    if os.path.isdir(staging):
+                        path = os.path.join(staging, "user-after-undo.txt")
+                        with io.open(path, "w", encoding="utf-8") as stream:
+                            stream.write("USER AFTER SYNCHRONOUS UNDO\n")
+                        injected.append(path)
+            return result
+
+        with mock.patch.object(self.impl, "_rollback", side_effect=late_writer):
+            rec = self.run_import(src=source, kind="subskill", parent=self.parent,
+                                  deploy_roots=[self.roots[0]], faults={"deploy.between.0": True})
+        self.assertEqual(rec["rc"], 5, rec)
+        self.assertTrue(injected)
+        self.assertTrue(rec["rolled_back"], rec["rollback"])
+        self.assertFalse(rec["rollback_partial"], rec["rollback"])
+        self.assertEqual([snapshot(os.path.join(root, self.parent)) for root in (self.skill_dir, self.roots[0])], before)
+        retained = rec.get("retained_staging") or []
+        kept = [os.path.join(item["backup"], "user-after-undo.txt") for item in retained]
+        self.assertEqual(sum(os.path.isfile(path) for path in kept), 1, rec)
+        self.assertFalse(rec["effective"])
+        self.assertFalse(rec["recovery"]["pending_manual"])
+
+    def test_c7_sync_retention_is_shared_by_refuse_and_deploy_errors(self):
+        for mode in ("import-refuse", "deploy-error"):
+            with self.subTest(mode=mode):
+                name = "zz-sync-" + mode
+                source = self._make_skill(name) if mode == "import-refuse" else self._seed_skill(name)
+                original_rollback, original_fault = self.impl._rollback, self.impl._fault
+                injected = []
+
+                def late_writer(journal, receipt):
+                    result = original_rollback(journal, receipt)
+                    for entry in journal or []:
+                        if (entry.get("op") == "intent" and entry.get("action") == "move"
+                                and str(entry.get("role") or "").startswith(("repo-new", "deploy-new"))
+                                and os.path.isdir(entry["src"])):
+                            file = os.path.join(entry["src"], "user-sync.txt")
+                            with io.open(file, "w", encoding="utf-8") as stream:
+                                stream.write("USER SYNCHRONOUS CONTENT\n")
+                            injected.append(file)
+                    return result
+
+                def refuse_verify(*args):
+                    raise self.impl.Refuse(5, "synthetic_verify_refusal", "同步拒绝负例")
+
+                def deploy_fault(faults, point):
+                    if point == "deploy.between.0":
+                        raise RuntimeError("synchronous deploy failure")
+                    return original_fault(faults, point)
+
+                with mock.patch.object(self.impl, "_rollback", side_effect=late_writer):
+                    if mode == "import-refuse":
+                        with mock.patch.object(self.impl, "_verify", side_effect=refuse_verify):
+                            rec = self.run_import(src=source, kind="crosscutting", deploy_roots=[self.roots[0]])
+                    else:
+                        with mock.patch.object(self.impl, "_fault", side_effect=deploy_fault):
+                            rc, rec = self.quiet_json(self.impl.cmd_deploy,
+                                **self.opts(name=name, deploy_roots=[self.roots[0]]))
+                self.assertEqual(rec["rc"], 5, rec)
+                self.assertTrue(rec["rolled_back"], rec["rollback"])
+                self.assertFalse(rec["effective"])
+                self.assertFalse(os.path.exists(os.path.join(self.roots[0], name)))
+                candidates = [os.path.join(item["backup"], "user-sync.txt") for item in rec["retained_staging"]]
+                self.assertEqual(sum(os.path.isfile(file) for file in candidates), len(injected), rec)
+                self.assertEqual(len(injected), 2 if mode == "import-refuse" else 1)
+
+    def test_c7_sync_retention_failures_preserve_all_copies_and_journal(self):
+        for mode in ("first-rename", "second-rename", "record"):
+            with self.subTest(mode=mode):
+                source = self._make_skill("zz-retention-" + mode)
+                original_rollback, original_move = self.impl._rollback, self.impl._move
+                original_record = self.impl.Journal.record
+                injected, moves = [], []
+
+                def late_writer(journal, receipt):
+                    result = original_rollback(journal, receipt)
+                    for entry in journal or []:
+                        if (entry.get("op") == "intent" and entry.get("action") == "move"
+                                and str(entry.get("role") or "").startswith(("repo-new", "deploy-new"))
+                                and os.path.isdir(entry["src"])):
+                            file = os.path.join(entry["src"], "user-retention.txt")
+                            with io.open(file, "w", encoding="utf-8") as stream:
+                                stream.write("USER MUST SURVIVE RETENTION FAILURE\n")
+                            injected.append(file)
+                    return result
+
+                def fail_move(src, dst, **kw):
+                    if kw.get("role") == "retained-published-tree":
+                        moves.append(src)
+                        if mode == "first-rename" or (mode == "second-rename" and len(moves) == 2):
+                            raise self.impl.Refuse(5, "synthetic_retention_failure", "保留改名失败")
+                    return original_move(src, dst, **kw)
+
+                def fail_record(journal, op, **kw):
+                    if mode == "record" and op == "recovery_retention_intent":
+                        raise self.impl.Refuse(5, "journal_persist_failed", "保留记录持久化失败")
+                    return original_record(journal, op, **kw)
+
+                with mock.patch.object(self.impl, "_rollback", side_effect=late_writer):
+                    with mock.patch.object(self.impl, "_move", side_effect=fail_move):
+                        with mock.patch.object(self.impl.Journal, "record", new=fail_record):
+                            rec = self.run_import(src=source, kind="crosscutting", deploy_roots=[self.roots[0]],
+                                                  faults={"deploy.between.0": True})
+                self.assertEqual(rec["rc"], 5, rec)
+                self.assertTrue(rec["retention_pending"], rec)
+                self.assertTrue(rec["recovery_required"], rec)
+                self.assertTrue(rec["recovery"]["pending_manual"], rec)
+                self.assertTrue(rec["recovery"]["journals"], rec)
+                copies = injected + [os.path.join(item["backup"], "user-retention.txt")
+                                     for item in rec.get("retained_staging") or []]
+                self.assertEqual(len(injected), 2)
+                self.assertEqual(sum(os.path.isfile(file) for file in copies), 2, rec)
+
+    def test_c7_cleanup_never_deletes_a_recreated_published_staging_path(self):
+        source = self._make_skill("zz-recreated-staging")
+        original_move = self.impl._move
+        recreated = []
+
+        def recreate_after_retention(src, dst, **kw):
+            result = original_move(src, dst, **kw)
+            if kw.get("role") == "retained-published-tree":
+                os.makedirs(src)
+                file = os.path.join(src, "user-after-retention.txt")
+                with io.open(file, "w", encoding="utf-8") as stream:
+                    stream.write("USER AFTER ATOMIC RETENTION\n")
+                recreated.append(file)
+            return result
+
+        with mock.patch.object(self.impl, "_move", side_effect=recreate_after_retention):
+            rec = self.run_import(src=source, kind="crosscutting", deploy_roots=[self.roots[0]],
+                                  faults={"deploy.between.0": True})
+        self.assertEqual(rec["rc"], 5, rec)
+        self.assertTrue(rec["retention_pending"], rec)
+        self.assertTrue(rec["recovery"]["pending_manual"], rec)
+        self.assertEqual(len(recreated), 2)
+        self.assertTrue(all(os.path.isfile(file) for file in recreated), rec)
+
+    def test_c7_recovery_retains_writes_between_undo_and_cleanup(self):
+        self._deploy_parent_into(self.roots[0])
+        name = "zz-retain-after-check"
+        source = self._make_skill(name)
+        rc, out = self.cli("import", "--from", source, "--kind", "subskill", "--parent", self.parent,
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json",
+                           env_extra={"SEEP_IMPORT_CRASH_POINT": "deploy.between.0"})
+        self.assertEqual(rc, 87, out)
+        original = self.impl._rollback
+
+        def late_writer(journal, receipt):
+            result = original(journal, receipt)
+            for entry in journal or []:
+                if entry.get("op") == "intent" and entry.get("role") == "repo-new":
+                    staging = entry["src"]
+                    if os.path.isdir(staging):
+                        with io.open(os.path.join(staging, "user-after-check.txt"), "w", encoding="utf-8") as stream:
+                            stream.write("USER WRITE AFTER PREFLIGHT\n")
+            return result
+
+        with mock.patch.object(self.impl, "_rollback", side_effect=late_writer):
+            rec = self.run_import(src=source, kind="subskill", parent=self.parent,
+                                  replace=True, deploy_roots=[self.roots[0]])
+        self.assertEqual(rec["rc"], 0, rec)
+        retained = rec["auto_recovered"][0]["retained_staging"]
+        kept = [os.path.join(item["backup"], "user-after-check.txt") for item in retained]
+        self.assertEqual(sum(os.path.isfile(path) for path in kept), 1, retained)
+
+    def test_c7_missing_snapshot_in_old_journal_refuses_before_undo(self):
+        self._deploy_parent_into(self.roots[0])
+        source = self._make_skill("zz-old-snapshot")
+        rc, out = self.cli("import", "--from", source, "--kind", "subskill", "--parent", self.parent,
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json",
+                           env_extra={"SEEP_IMPORT_CRASH_POINT": "deploy.between.0"})
+        self.assertEqual(rc, 87, out)
+        report = self.impl._recovery_report(self.skill_dir, [self.roots[0]], "zz-old-snapshot")
+        journal = report["journals"][0]["path"]
+        entries, _ = self.impl._read_journal_entries(journal)
+        for entry in entries:
+            entry.pop("source_snapshot", None)
+        with io.open(journal, "w", encoding="utf-8", newline="") as stream:
+            for entry in entries:
+                stream.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        before = [snapshot(os.path.join(root, self.parent)) for root in [self.skill_dir, self.roots[0]]]
+        rc, out = self.cli("deploy", "--name", "zz-old-snapshot", "--parent", self.parent,
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--replace", "--json")
+        self.assertEqual(rc, 5, out)
+        self.assertTrue(json.loads(out)["recovery"]["pending_manual"])
+        self.assertEqual([snapshot(os.path.join(root, self.parent)) for root in [self.skill_dir, self.roots[0]]], before)
+
+    def _import_managed_parent(self, parent="zz-c8-managed", priority=9074):
+        src = self._make_domain(parent, "trigger-" + parent, priority,
+                                root=os.path.join(self.tmp, "managed-sources"))
+        rec = self.run_import(src=src, kind="domain", name=parent)
+        self.assertEqual(rec["rc"], 0, rec)
+        return parent
+
+    def test_c8_metadata_fault_matrix_restores_all_parent_trees(self):
+        parent = self._import_managed_parent()
+        source = self._make_skill("zz-metadata-fault")
+        directories = [os.path.join(self.skill_dir, parent)] + [os.path.join(r, parent) for r in self.roots]
+        before = [snapshot(d) for d in directories]
+        for point in ("parent.manifest", "parent.manifest.write.after", "parent.manifest.after",
+                      "deploy.parent.manifest.0", "deploy.parent.manifest.0.write.after",
+                      "deploy.parent.manifest.0.after", "deploy.parent.manifest.1.write.after"):
+            with self.subTest(point=point):
+                rec = self.run_import(src=source, kind="subskill", parent=parent, faults={point: True})
+                self.assertEqual(rec["rc"], 5, rec)
+                self.assertTrue(rec["rolled_back"], rec["rollback"])
+                self.assertFalse(rec["rollback_partial"], rec["rollback"])
+                self.assertEqual([snapshot(d) for d in directories], before)
+
+    def test_c8_real_metadata_write_crash_recovers_then_imports(self):
+        parent = self._import_managed_parent()
+        source = self._make_skill("zz-metadata-crash")
+        for point in ("parent.manifest.write.after", "deploy.parent.manifest.0.write.after"):
+            with self.subTest(point=point):
+                source = self._make_skill("zz-metadata-crash", body=point + "\n")
+                args = ["import", "--from", source, "--kind", "subskill", "--parent", parent,
+                        "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0],
+                        "--deploy-root", self.roots[1], "--replace", "--json"]
+                rc, out = self.cli(*args, env_extra={"SEEP_IMPORT_CRASH_POINT": point})
+                self.assertEqual(rc, 87, out)
+                rc, out = self.cli(*args)
+                rec = json.loads(out)
+                self.assertEqual(rc, 0, out)
+                self.assertEqual(rec["auto_recovered"][0]["action"], "rollback")
+                self.assertFalse(rec["recovery"]["pending_manual"])
+                for root in self.roots:
+                    rc, out = self.cli("verify", "--name", parent, "--skill-dir", self.skill_dir,
+                                       "--deploy-root", root, "--json")
+                    self.assertEqual(rc, 0, out)
+
+    def test_c8_source_and_deploy_tamper_cannot_be_laundered_by_child_import(self):
+        cases = [(side, rel) for side in ("repo", "deploy")
+                 for rel in ("SKILL.md", "scripts/witness.py", "user-extra.txt",
+                             "subskills/zz-prior/SKILL.md")]
+        for i, (side, rel) in enumerate(cases):
+            with self.subTest(side=side, rel=rel):
+                parent = self._import_managed_parent("zz-c8-neg-%d" % i, 9080 + i)
+                first = self.run_import(src=self._make_skill("zz-prior"), kind="subskill", parent=parent)
+                self.assertEqual(first["rc"], 0, first)
+                directory = os.path.join(self.skill_dir if side == "repo" else self.roots[0], parent)
+                with io.open(os.path.join(directory, rel), "a", encoding="utf-8") as stream:
+                    stream.write("\nREAL EXTERNAL CHANGE\n")
+                directories = [os.path.join(self.skill_dir, parent)] + [os.path.join(r, parent) for r in self.roots]
+                before = [snapshot(d) for d in directories]
+                rec = self.run_import(src=self._make_skill("zz-next"), kind="subskill", parent=parent)
+                self.assertEqual(rec["rc"], 5, rec)
+                self.assertEqual(rec["refusal"]["code"], "parent_manifest_drift")
+                self.assertEqual([snapshot(d) for d in directories], before)
+
+    def test_c8_change_after_parent_validation_is_not_signed(self):
+        parent = self._import_managed_parent()
+        directory = os.path.join(self.skill_dir, parent)
+        manifest_file = os.path.join(directory, MANIFEST)
+        with open(manifest_file, "rb") as stream:
+            before = stream.read()
+        witness = os.path.join(directory, "scripts", "witness.py")
+        original = self.impl._patch_parent
+
+        def mutate_after_navigation(plan, journal, faults, backup_dir):
+            result = original(plan, journal, faults, backup_dir)
+            with io.open(witness, "a", encoding="utf-8") as stream:
+                stream.write("\n# TAMPER BETWEEN CHECK AND SIGN\n")
+            return result
+
+        with mock.patch.object(self.impl, "_patch_parent", side_effect=mutate_after_navigation):
+            rec = self.run_import(src=self._make_skill("zz-check-sign"), kind="subskill", parent=parent)
+        self.assertEqual(rec["rc"], 5, rec)
+        self.assertEqual(rec["refusal"]["code"], "parent_manifest_drift")
+        self.assertFalse(os.path.exists(os.path.join(directory, "subskills", "zz-check-sign")))
+        with open(manifest_file, "rb") as stream:
+            self.assertEqual(stream.read(), before)
+        with io.open(witness, encoding="utf-8") as stream:
+            self.assertIn("TAMPER BETWEEN CHECK AND SIGN", stream.read())
+        rc, out = self.cli("verify", "--name", parent, "--skill-dir", self.skill_dir,
+                           "--deploy-root", self.roots[0], "--json")
+        self.assertEqual(rc, 5, out)
+
+    def test_c8_nodeploy_then_child_deploy_preserves_parent_manifests(self):
+        parent = self._import_managed_parent()
+        rec = self.run_import(src=self._make_skill("zz-later-deploy"), kind="subskill", parent=parent,
+                              deploy=False, deploy_roots=[])
+        self.assertEqual(rec["rc"], 0, rec)
+        for root in self.roots:
+            rc, out = self.cli("deploy", "--name", "zz-later-deploy", "--parent", parent,
+                               "--skill-dir", self.skill_dir, "--deploy-root", root, "--json")
+            self.assertEqual(rc, 0, out)
+            self.assertEqual(snapshot(os.path.join(self.skill_dir, parent)), snapshot(os.path.join(root, parent)))
+            rc, out = self.cli("verify", "--name", parent, "--skill-dir", self.skill_dir,
+                               "--deploy-root", root, "--json")
+            self.assertEqual(rc, 0, out)
+
+    def test_c8_imported_parent_manifest_tracks_child_without_resigning_tamper(self):
+        parent = "zz-managed-parent"
+        src_parent = self._make_domain(parent, "managed domain", 9073,
+                                        root=os.path.join(self.tmp, "external-parent"))
+        rec = self.run_import(src=src_parent, kind="domain", name=parent)
+        self.assertEqual(rec["rc"], 0, rec)
+        src = self._make_skill("zz-c8-child")
+        rec = self.run_import(src=src, kind="subskill", parent=parent)
+        self.assertEqual(rec["rc"], 0, rec)
+        for root in self.roots:
+            rc, out = self.cli("verify", "--name", parent, "--skill-dir", self.skill_dir,
+                               "--deploy-root", root, "--json")
+            self.assertEqual(rc, 0, out)
+        rc, out = self.cli("deploy", "--name", parent, "--skill-dir", self.skill_dir,
+                           "--deploy-root", self.roots[0], "--replace", "--json")
+        self.assertEqual(rc, 0, out)
+        witness = os.path.join(self.skill_dir, parent, "scripts", "witness.py")
+        with io.open(witness, "a", encoding="utf-8") as stream:
+            stream.write("\n# REAL TAMPER\n")
+        before = snapshot(os.path.join(self.skill_dir, parent))
+        bad = self.run_import(src=self._make_skill("zz-c8-extra"), kind="subskill", parent=parent)
+        self.assertEqual(bad["rc"], 5, bad)
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, parent)), before)
+        rc, out = self.cli("verify", "--name", parent, "--skill-dir", self.skill_dir,
+                           "--deploy-root", self.roots[0], "--json")
+        self.assertEqual(rc, 5, out)
+
+    def test_scoped_status_reports_interrupted_import_before_child_exists(self):
+        name = "zz-status-parent"
+        src = self._make_skill(name)
+        args = ["import", "--from", src, "--name", name, "--kind", "subskill",
+                "--parent", self.parent, "--skill-dir", self.skill_dir,
+                "--deploy-root", self.roots[0], "--json"]
+        rc, out = self.cli(*args, env_extra={"SEEP_IMPORT_CRASH_POINT": "stage.copy.after"})
+        self.assertEqual(rc, 87, out)
+        before = snapshot(self.tmp)
+        rc, out = self.cli("status", "--name", name, "--parent", self.parent,
+                           "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json")
+        rec = json.loads(out)
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(rec["dest"], os.path.join(self.skill_dir, self.parent, "subskills", name))
+        self.assertTrue(rec["recovery"]["auto_recoverable"])
+        self.assertEqual(snapshot(self.tmp), before)
+        rc, out = self.cli(*args)
+        rec = json.loads(out)
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(rec["auto_recovered"][0]["action"], "rollback")
+
+    def test_subskill_second_root_failure_restores_both_trees_and_navigation(self):
+        for root in self.roots:
+            self._deploy_parent_into(root)
+        src = self._make_skill("zz-sub-rollback", body="OLD CHILD\n")
+        first = self.run_import(src=src, kind="subskill", parent=self.parent)
+        self.assertEqual(first["rc"], 0, first)
+        before_repo = snapshot(os.path.join(self.skill_dir, self.parent))
+        before_roots = [snapshot(os.path.join(root, self.parent)) for root in self.roots]
+        src = self._make_skill("zz-sub-rollback", body="NEW CHILD\n")
+        rec = self.run_import(src=src, kind="subskill", parent=self.parent, replace=True,
+                              faults={"deploy.swap.1": True})
+        self.assertEqual(rec["rc"], 5, rec)
+        self.assertTrue(rec["rolled_back"], rec["rollback"])
+        self.assertFalse(rec["available_next_session"])
+        self.assertEqual(snapshot(os.path.join(self.skill_dir, self.parent)), before_repo)
+        self.assertEqual([snapshot(os.path.join(root, self.parent)) for root in self.roots], before_roots)
+
+    def test_concurrent_same_child_name_in_different_parents_remains_scoped(self):
+        other = "zz-second"
+        self._make_domain(other, "second domain", 9065)
+        for parent in (self.parent, other):
+            shutil.copytree(os.path.join(self.skill_dir, parent), os.path.join(self.roots[0], parent))
+        sources = [self._make_skill("zz-scope-a", body="PARENT A\n"),
+                   self._make_skill("zz-scope-b", body="PARENT B\n")]
+        procs = []
+        for parent, source in zip((self.parent, other), sources):
+            procs.append(subprocess.Popen(
+                [sys.executable, "-B", "-X", "utf8", SCRIPT, "import", "--kind", "subskill",
+                 "--parent", parent, "--from", source, "--name", "zz-same",
+                 "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8"))
+        for proc in procs:
+            out, err = proc.communicate(timeout=60)
+            self.assertEqual(proc.returncode, 0, out + err)
+        for parent, expected in ((self.parent, "PARENT A"), (other, "PARENT B")):
+            source = os.path.join(self.skill_dir, parent, "subskills", "zz-same")
+            target = os.path.join(self.roots[0], parent, "subskills", "zz-same")
+            self.assertEqual(snapshot(source), snapshot(target))
+            with io.open(os.path.join(target, "SKILL.md"), encoding="utf-8") as stream:
+                self.assertIn(expected, stream.read())
+            rc, out = self.cli("verify", "--name", "zz-same", "--parent", parent,
+                               "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0], "--json")
+            self.assertEqual(rc, 0, out)
+
+    def test_whole_parent_deploy_and_child_import_share_a_lock(self):
+        src = self._make_skill("zz-domain-child-lock")
+        child = self.impl.plan_import(self.opts(src=src, kind="subskill", parent=self.parent))
+        parent = dict(kind="domain", name=self.parent,
+                      target=os.path.join(self.skill_dir, self.parent),
+                      parent=None, skill_dir=self.skill_dir, deploy_roots=self.roots)
+        child_keys = {s["lock_path"] for s in self.impl._lock_specs(child)}
+        parent_keys = {s["lock_path"] for s in self.impl._lock_specs(parent)}
+        shared = child_keys & parent_keys
+        self.assertGreaterEqual(len(shared), 3)  # repository parent and both deployed parents
+        held = self.impl._acquire_locks(self.impl._lock_specs(parent))
+        try:
+            rec = self.run_import(src=src, kind="subskill", parent=self.parent)
+        finally:
+            self.impl._release_locks(held)
+        self.assertEqual(rec["rc"], 4, rec)
+        self.assertEqual(rec["refusal"]["code"], "locked")
+        self.assertFalse(os.path.exists(child["target"]))
+
+
+class TestTableTransactions(TxnCase):
+    def setUp(self):
+        super().setUp()
+        self.table_parent = "zz-signed-table"
+        source = self._make_domain(self.table_parent, "table fixture", 9112,
+                                   root=os.path.join(self.tmp, "table-source"))
+        file = os.path.join(source, "SKILL.md")
+        with io.open(file, encoding="utf-8") as stream:
+            prefix = stream.read().split("## 子技能", 1)[0]
+        navigation = softseep_navigation_fixture()
+        with io.open(file, "w", encoding="utf-8", newline="") as stream:
+            stream.write(prefix + navigation)
+        for child in set(re.findall(r"subskills/([\w.-]+)/SKILL\.md", navigation)):
+            directory = os.path.join(source, "subskills", child)
+            os.makedirs(directory)
+            with io.open(os.path.join(directory, "SKILL.md"), "w", encoding="utf-8", newline="") as stream:
+                stream.write("---\nname: %s\ndescription: inert fixture\n---\nINERT\n" % child)
+        rec = self.run_import(src=source, kind="domain", name=self.table_parent)
+        self.assertEqual(rec["rc"], 0, rec)
+
+    def assert_tables_and_manifests(self, names):
+        source = os.path.join(self.skill_dir, self.table_parent)
+        for root in self.roots:
+            self.assertEqual(snapshot(source), snapshot(os.path.join(root, self.table_parent)))
+            rc, out = self.cli("verify", "--name", self.table_parent, "--skill-dir", self.skill_dir,
+                               "--deploy-root", root, "--json")
+            self.assertEqual(rc, 0, out)
+        with io.open(os.path.join(source, "SKILL.md"), encoding="utf-8") as stream:
+            text = stream.read()
+        self.assertEqual(text.count("| 技能名称 |"), 1)
+        for name in names:
+            rows = [line for line in text.splitlines() if "subskills/%s/SKILL.md" % name in line]
+            self.assertEqual(len(rows), 1, text)
+            self.assertTrue(rows[0].startswith("|"), rows)
+            self.assertEqual(rows[0].count("|"), 5, rows)
+
+    def test_concurrent_real_table_imports_keep_rows_and_parent_manifests(self):
+        names = ["zz-table-race-%d" % i for i in range(3)]
+        procs = []
+        for name in names:
+            source = self._make_skill(name, desc="功能 | " + name)
+            procs.append(subprocess.Popen(
+                [sys.executable, "-B", "-X", "utf8", SCRIPT, "import", "--from", source,
+                 "--kind", "subskill", "--parent", self.table_parent, "--entry", "触发 | 条件\n后续",
+                 "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0],
+                 "--deploy-root", self.roots[1], "--json"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8"))
+        for proc in procs:
+            out, err = proc.communicate(timeout=60)
+            self.assertEqual(proc.returncode, 0, out + err)
+        self.assert_tables_and_manifests(names)
+
+    def test_table_new_and_existing_row_failures_restore_whole_parent_trees(self):
+        directories = [os.path.join(root, self.table_parent) for root in [self.skill_dir] + self.roots]
+        before = [snapshot(d) for d in directories]
+        for name in ("zz-table-new", "unpack-pe"):
+            for point in ("parent.patch.write.after", "parent.manifest.write.after",
+                          "deploy.parent.patch.1.write.after", "deploy.parent.manifest.1.write.after"):
+                with self.subTest(name=name, point=point):
+                    rec = self.run_import(src=self._make_skill(name, desc="新描述 | 说明"),
+                                          kind="subskill", parent=self.table_parent, replace=True,
+                                          entry="新触发\n换行", faults={point: True})
+                    self.assertEqual(rec["rc"], 5, rec)
+                    self.assertTrue(rec["rolled_back"], rec["rollback"])
+                    self.assertEqual([snapshot(d) for d in directories], before)
+
+    def test_table_atomic_row_write_crash_recovers_with_retained_staging(self):
+        name = "zz-table-crash"
+        source = self._make_skill(name)
+        args = ["import", "--from", source, "--kind", "subskill", "--parent", self.table_parent,
+                "--skill-dir", self.skill_dir, "--deploy-root", self.roots[0],
+                "--deploy-root", self.roots[1], "--json"]
+        rc, out = self.cli(*args, env_extra={"SEEP_IMPORT_CRASH_POINT": "parent.patch.write.after"})
+        self.assertEqual(rc, 87, out)
+        rc, out = self.cli(*args)
+        self.assertEqual(rc, 0, out)
+        rec = json.loads(out)
+        retained = rec["auto_recovered"][0]["retained_staging"]
+        self.assertTrue(retained, rec)
+        self.assertTrue(all(os.path.isdir(item["backup"]) for item in retained))
+        self.assert_tables_and_manifests([name])
 
 
 if __name__ == "__main__":

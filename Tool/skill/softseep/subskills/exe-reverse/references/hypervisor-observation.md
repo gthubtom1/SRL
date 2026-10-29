@@ -221,12 +221,7 @@ Any missing link ends the route.
    operating system you are currently running inside: the running system is not one of your
    partitions. Choosing this API for guest introspection is a design error that costs days,
    which is why it is named here with its actual scope.
-6. **A different debugging route if the target is the hypervisor itself.** Microsoft documents a
-   hypervisor debug type alongside kernel, boot and loader debugging, enabled through the boot
-   configuration (the network debugging documentation lists `bcdedit /set hypervisordebug on` with revert command / 还原: `bcdedit /set hypervisordebug off`,
-   and states that when hypervisor and kernel debugging are both enabled the hypervisor port is
-   one above the kernel debug port). That is a documented way to debug the hypervisor, not a
-   general instrumentation interface.
+6. **A different debugging route if the target is the hypervisor itself.** Hypervisor debugging is a separate platform prerequisite, not a general instrumentation interface. This guide does not change boot/debug policy or load drivers; use an already prepared environment or report the missing condition with static evidence.
 
 ## The practical decision
 

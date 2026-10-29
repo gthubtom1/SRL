@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-seep - AI-Native Reverse Engineering & Security Analysis MCP Server
-整合 Radare2 跨架构二进制逆向、JADX/Apktool/Smali 安卓逆向、
-动态 Hook 生成以及 ReverseLab 183+ 攻防知识库与 CTF 战术模板。
+"""Seep MCP：二进制与Android工具、Hook模板及可检索知识库。
+能力就绪与任务成功分别由实际调用及结果验证。
 """
 
 import os
@@ -26,9 +24,7 @@ try:
 except ImportError:
     from mcp.server.fastmcp import FastMCP as MCPServer
 
-# ---------------------------------------------------------------------------
-# 基础路径定义与环境初始化
-# ---------------------------------------------------------------------------
+# 基础路径与环境；资源按当前脚本位置解析。
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TOOL_DIR = os.path.join(BASE_DIR, "Tool")
 SAFE_DIR = os.path.join(TOOL_DIR, "safe")
@@ -74,13 +70,8 @@ if os.path.isdir(R2_BIN_DIR) and R2_BIN_DIR not in os.environ.get("PATH", ""):
     os.environ["PATH"] = R2_BIN_DIR + os.pathsep + os.environ.get("PATH", "")
 
 
-# ---------------------------------------------------------------------------
-# 路径参数别名层（2026-10-22 审计 P0：target_path / binary_path 命名不一致曾让模型
-# 在 184 次调用里改用 bash 手搓 strings/pefile）。
-# 契约：所有吃「一个文件/目录路径」的工具都同时接受 binary_path / target_path /
-# apk_path / file_path / sample_path / artifact_path / pcap_path / dir_path 任一别名，
-# 值互通、schema 里全部可见。
-# ---------------------------------------------------------------------------
+# 路径别名公开在schema中，运行时归一为工具的主参数。
+# 别名表与包装器共同消费，避免调用者依赖隐藏参数。
 _PATH_ALIAS_NAMES = (
     "binary_path", "target_path", "apk_path", "file_path",
     "sample_path", "artifact_path", "pcap_path", "dir_path",
@@ -97,22 +88,13 @@ def _has_value(v) -> bool:
 
 
 def _alias_layer(fn, primary, names, coerce, hint):
-    """通用参数别名层：schema 里暴露全部别名，运行期归一到主参数。
-
-    **踩过的坑（P1-8，P0 真 bug）**：FastMCP 的 arg_model 会把 schema 里全部字段
-    按默认值一起 dump 下来，所以别名总会以 `""` / `None` 的形态出现在 kwargs 里。
-    旧实现只 pop「非空」别名 —— 空串别名原样漏进被包函数，被 Python 判成
-    TypeError: unexpected keyword argument 'target_path'，**连正确传主参数名都必挂**。
-    所以这里**无条件弹出全部别名**，只把第一个非空值归一成主参数。
-    """
+    """暴露并归一路径别名；无条件移除空别名，兼容FastMCP默认字段dump。"""
     import functools as _ft
     import inspect as _inspect
 
     sig = _inspect.signature(fn)
     extras = [a for a in names if a not in sig.parameters]
-    # 全局转 keyword-only：主参数改成可选后，后面的必填位置参数（如 smali_search 的
-    # pattern）会触发 "non-default argument follows default argument"；keyword-only
-    # 允许「有默认值在前、无默认值在后」，且 MCP 客户端本来就按名字传参。
+    # MCP按名字传参；keyword-only允许可选主路径排在其他必填参数前。
     params = [_inspect.Parameter(
         n, _inspect.Parameter.KEYWORD_ONLY,
         default=(None if n == primary and p.default is _inspect.Parameter.empty else p.default),
@@ -148,7 +130,7 @@ def _alias_layer(fn, primary, names, coerce, hint):
         (fn.__doc__ or "")
         + f"\n\n{hint}参数：{' / '.join([primary] + extras)} 等价，任选其一。"
     )
-    # 供门禁自检：运行时真的挂了别名层（而不是只把别名写进 schema）
+    # 运行时与schema都使用这份别名契约。
     wrapper.__seep_alias_primary__ = primary
     wrapper.__seep_alias_names__ = (primary,) + tuple(extras)
     return wrapper

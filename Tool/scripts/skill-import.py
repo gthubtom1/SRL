@@ -11,7 +11,7 @@
     ② 判型**只给建议**（A/B/C 三选二）；正式身份不靠关键词：
        - 正式域 = `pack.json` 的 `id` == 目录名，且过真实 `gate.g2_schema` / 路由契约校验；
        - 横切技能 = 显式 `--kind crosscutting`（或已在 domain-aliases.json#cross_cutting）；
-       - 子技能 = 显式 `--parent <真实域名>`，落 `_pending/`，**自动**在父 SKILL.md 插入幂等的一行引用；
+       - 子技能 = 显式 `--parent <真实域名>`，落 `<parent>/subskills/<child>/`，自动补父导航；
        - 工具 = 只声明不安装（validate manifest），不写本轮不拥有的 tool catalogs。
     ③ 事务落位：plan → 多资源锁 → journal(intent) → stage(同卷) → validate → commit(备份+改名)
        → 父引用 → deploy(逐 root 同卷备份+改名) → verify(hash/manifest/路由/父入口) → 回执；
@@ -26,9 +26,9 @@ IMPORT-02 修的四条硬边界（导入事务修复记录）：
     · **journal 先 intent 后 done**：回滚按磁盘事实检查，报 `rolled_back` / `rollback_partial` + 可复查位置。
     · **多资源锁**：按规范化目标路径全局排序，同时持有 skill 锁 / 父目录锁 / 父文件锁 / dest 锁；
       跨进程 O_CREAT|O_EXCL（不是进程内 thread 锁），有界等待，绝不自动删疑似活锁。
-    · **父引用必须真可达**：仓库父 SKILL.md 写 `../_pending/<child>/SKILL.md`（相对**父技能目录**解析，
-      不依赖 repo cwd）；部署侧把子技能复制到 `<root>/<parent>/references/imported-subskills/<child>/`，
-      入口 SKILL.md 映射为 GUIDE.md（不会被当成新的全局技能），父部署 SKILL.md 指向该真实相对文档。
+    · **父引用必须真可达**：源码与部署都使用 `<parent>/subskills/<child>/SKILL.md`，
+      父 SKILL.md 引用 `subskills/<child>/SKILL.md`；与完整安装的递归复制形态一致。
+      旧映射只用于核验受管副本身份后事务迁移，不写新的 GUIDE 副本。
     · **唯一 roots 解析/边界**：plan/import/deploy/verify/status 共用 `_resolve_deploy_roots`；
       自定义 --skill-dir 且无显式 --deploy-root 时不读写真实用户根；根与 source/skill-dir/repo
       重叠、互为祖先、是 symlink/junction 一律先拒，拒之前零写。
@@ -111,9 +111,10 @@ PARENT_ANCHOR = "本域相关子技能放在"
 # 兼容口径：匹配 _pending 与专属 subskills
 PENDING_LINK_RE = re.compile(r"(?:_pending|subskills)/([A-Za-z0-9_.-]+)/SKILL\.md")
 # 部署侧引用（父部署 SKILL.md → 复制进来的子技能入口文档）
-DEPLOY_REF_RE = re.compile(r"references/imported-subskills/([A-Za-z0-9_.-]+)/GUIDE\.md")
+DEPLOY_REF_RE = re.compile(r"subskills/([A-Za-z0-9_.-]+)/SKILL\.md")
+LEGACY_DEPLOY_REF_TMPL = "references/imported-subskills/%s/GUIDE.md"
 REPO_REF_TMPL = "subskills/%s/SKILL.md"
-DEPLOY_REF_TMPL = "references/imported-subskills/%s/GUIDE.md"
+DEPLOY_REF_TMPL = REPO_REF_TMPL
 REF_BULLET_RE = re.compile(r"^\s*-\s+`[^`]*(?:_pending|subskills|imported-subskills)/[^`]+`")
 
 # 部署侧 import-map.json 的**权威**字段（IMPORT-03 / R-NEW-1）：
@@ -216,13 +217,11 @@ def _effect_status(kind, name, dest, dry, deploy=True):
     本函数保留给旧调用方与 `--selftest`（语义不变：不生效就得说出来）。
     """
     if kind == "subskill":
-        why = ("判为子技能（不常驻）：它只在 %s/，不会部署到 ~/.pi/agent/skills/，"
-               "模型按需读、不会自动选中它" % ("Tool/skill/_pending/" + name))
+        why = ("子技能由父域按需读取：%s；部署后也不会成为独立的顶层入口"
+               % ("Tool/skill/<parent>/subskills/" + name))
         acts = [
-            "把它改写成域技能（frontmatter 的 description 写用户会说的原话 + 文件后缀，正文补齐覆盖面/技法面），"
-            "再重跑本脚本落到 Tool/skill/%s/" % name,
-            "或者把它并进所属域的 SKILL.md：在那些域里加一行「需要时读 _pending/%s/SKILL.md」" % name,
-            "改完跑 python Tool/scripts/check.py --fast 验证（确认它真的进了加载名单）",
+            "用 --kind subskill --parent <真实域名> 导入并建立父导航",
+            "显式给 --deploy-root 部署后，再用 verify 复核父引用和子技能内容",
         ]
         return False, why, acts
     if dry:
@@ -327,9 +326,14 @@ def tree_diff(want, got):
 def hash_tree(d):
     """{相对路径: norm_sha}：部署等价判据（同名同 hash，逐文件）。"""
     out = {}
+    if _path_has_link(d):
+        raise Refuse(5, "hash_path_link", "哈希路径包含链接/reparse，拒绝读取目标")
     if not os.path.isdir(d):
         return out
     for dp, dn, fn in os.walk(d):
+        for name in dn + fn:
+            if _is_link(os.path.join(dp, name)):
+                raise Refuse(5, "hash_path_link", "哈希子树包含链接/reparse，拒绝读取目标")
         dn[:] = sorted(x for x in dn if x not in ("__pycache__",))
         for f in sorted(fn):
             p = os.path.join(dp, f)
@@ -409,6 +413,8 @@ def _is_link(p):
     try:
         if os.path.islink(p):
             return True
+        if getattr(os.lstat(p), "st_file_attributes", 0) & 0x400:
+            return True  # FILE_ATTRIBUTE_REPARSE_POINT, including unknown tags.
         isj = getattr(os.path, "isjunction", None)
         if isj is not None and isj(p):
             return True
@@ -1060,19 +1066,34 @@ def _lock_specs(plan):
         add(skill_dir, "parentdir:%s" % _norm(os.path.dirname(target)),
             "repo-parent-dir", os.path.dirname(target))
         add(skill_dir, "dest:%s" % _norm(target), "repo-dest", target)
+    if target and plan.get("kind") != "subskill":
+        parent_file = os.path.join(target, "SKILL.md")
+        add(skill_dir, "file:%s" % _norm(parent_file), "repo-skill-file", parent_file)
     if info.get("skill_md"):
         add(skill_dir, "file:%s" % _norm(info["skill_md"]), "repo-parent-file", info["skill_md"])
+    metadata_dir = (os.path.dirname(info["skill_md"]) if info.get("skill_md") else target)
+    if metadata_dir:
+        metadata = os.path.join(metadata_dir, MANIFEST_NAME)
+        add(skill_dir, "file:%s" % _norm(metadata), "repo-parent-manifest", metadata)
     for i, root in enumerate(plan.get("deploy_roots") or []):
+        domain = info.get("domain") or name
+        metadata = os.path.join(root, domain, MANIFEST_NAME)
+        add(root, "file:%s" % _norm(metadata), "deploy-parent-manifest:%d" % i, metadata)
         if plan.get("kind") == "subskill" and info.get("domain"):
             proot = os.path.join(root, info["domain"])
             add(root, "parentdir:%s" % _norm(proot), "deploy-parent-dir:%d" % i, proot)
             add(root, "file:%s" % _norm(os.path.join(proot, "SKILL.md")),
                 "deploy-parent-file:%d" % i, os.path.join(proot, "SKILL.md"))
-            add(root, "dest:%s" % _norm(os.path.join(proot, "references", "imported-subskills", name)),
-                "deploy-subskill-dest:%d" % i,
-                os.path.join(proot, "references", "imported-subskills", name))
+            for relative in (os.path.join("subskills", name),
+                             os.path.join("references", "imported-subskills", name)):
+                dest = os.path.join(proot, relative)
+                add(root, "dest:%s" % _norm(dest),
+                    "deploy-subskill-dest:%d:%s" % (i, relative), dest)
         else:
             add(root, "parentdir:%s" % _norm(root), "deploy-parent-dir:%d" % i, root)
+            parent_file = os.path.join(root, name, "SKILL.md")
+            add(root, "file:%s" % _norm(parent_file),
+                "deploy-skill-file:%d" % i, parent_file)
             add(root, "dest:%s" % _norm(os.path.join(root, name)), "deploy-dest:%d" % i,
                 os.path.join(root, name))
     return specs
@@ -1319,11 +1340,52 @@ def _jid(journal):
 
 
 def _cleanup_staging(rec, journal=None, roots=None):
-    """Delete only this transaction's staging/empty backup dirs; return real failures."""
+    """Retain every returned published tree before any staging deletion.
+
+    Shared by synchronous import/deploy failure and stale-journal recovery. An
+    ownership conflict leaves the entire scene untouched for review.
+    """
+    if (rec or {}).get("rollback_partial"):
+        return []
     dirs = [e.get("dir") for e in (journal or []) if e.get("op") == "staging"]
     dirs += list((rec or {}).pop("_staging_dirs", []) or [])
     errors = []
+    try:
+        _retain_published_staging(
+            getattr(journal, "path", None) or (rec or {}).get("_journal_path"),
+            journal or [], roots or [], rec,
+            recorder=journal.record if hasattr(journal, "record") else None)
+    except (Refuse, OSError) as exc:
+        errors.append(exc.message if isinstance(exc, Refuse) else str(exc)[:160])
+        rec["retention_pending"] = True
+        rec["recovery_required"] = True
+        return errors  # Never fall through to rmtree after retention failed.
+    for entry in journal or []:
+        if entry.get("op") != "patch_prepared" or not entry.get("tmp"):
+            continue
+        tmp = entry["tmp"]
+        if os.path.lexists(tmp):
+            if _file_identity(tmp) != entry.get("file_identity"):
+                errors.append("原子写临时对象身份改变，保留：%s" % tmp)
+            else:
+                try:
+                    os.remove(tmp)
+                except OSError as exc:
+                    errors.append("%s: %s" % (tmp, str(exc)[:120]))
+    published_staging = {
+        _norm(entry["src"]) for entry in journal or []
+        if entry.get("op") == "intent" and entry.get("action") == "move"
+        and entry.get("src")
+        and (str(entry.get("role") or "").startswith("repo-new")
+             or str(entry.get("role") or "").startswith("deploy-new"))
+    }
     for d in sorted(set(dirs)):
+        if d and _norm(d) in published_staging:
+            if os.path.lexists(d):
+                errors.append("已发布 staging 保留后路径再次出现，保留新对象：%s" % d)
+                rec["retention_pending"] = True
+                rec["recovery_required"] = True
+            continue  # Never rmtree a path that has held published content.
         if d and os.path.isdir(d):
             try:
                 shutil.rmtree(d)
@@ -1403,7 +1465,7 @@ def _decide_kind(opts, ctx):
                      "正式域：补齐真实 pack.json（id==目录名、routes/witness/evidence_contract 真实）"
                      "后用 --kind domain --pack <pack.json> 显式选择；缺 witness/案例就如实报缺口，不许伪造",
                      "横切技能：--kind crosscutting（可被多域复用，不是客户可见正式域）",
-                     "子技能：--kind subskill --parent <真实域名>（落 _pending/ 并自动补父域引用）",
+                     "子技能：--kind subskill --parent <真实域名>（落父域 subskills/ 并自动补导航）",
                      "工具：--kind tool --from <manifest.json>（只声明，不安装、不宣称可用）",
                  ])
 
@@ -1547,7 +1609,7 @@ def plan_import(opts):
         plan["target"] = os.path.join(skill_dir, name)
     _check_self_copy(src_dir, plan["target"])
     if kind == "subskill":
-        # 子技能可选部署（复制到父域 references/imported-subskills/）；没给根就是 repo-only，不兜底
+        # 子技能可选部署到相同父域 subskills/；没给根就是 repo-only，不兜底。
         roots, warns = _resolve_deploy_roots(opts, kind, src_dir=src_dir, allow_empty=True)
         plan["deploy_roots"] = roots
         plan["warnings"].extend(warns)
@@ -1664,10 +1726,59 @@ def _ref_name_of(line):
     return ""
 
 
-def _insert_parent_line(text, name, line_text, anchor):
-    """在父 SKILL.md 的**唯一锚点**后的子技能列表里插入/排序一行（其余字符不动）。
+def _navigation_cell(value):
+    """Render one text cell without introducing Markdown rows, columns or code spans."""
+    import html
+    text = html.escape(" ".join(str(value or "").split()), quote=False)
+    return text.replace("|", "&#124;").replace("`", "&#96;").replace("*", "&#42;")
 
-    返回 (new_text, line_no, mode, inserted_with_newline)。
+
+def _navigation_row(plan):
+    meta = plan.get("meta") or {}
+    description = meta.get("description") or "按需读取的子技能"
+    cells = [_navigation_cell(meta.get("name") or plan["name"]),
+             _navigation_cell(description), _navigation_cell(plan.get("entry") or description),
+             "`%s`" % (REPO_REF_TMPL % plan["name"])]
+    return "| **%s** | %s | %s | %s |" % tuple(cells)
+
+
+def _table_cells(line):
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return []
+    return [cell.strip() for cell in re.split(r"(?<!\\)\|", stripped[1:-1])]
+
+
+def _navigation_table(lines, anchor_index):
+    """Find the existing name/purpose/trigger/path table in this anchor's section."""
+    tables = []
+    for i in range(anchor_index + 1, len(lines)):
+        if re.match(r"^#{1,6}\s", lines[i]):
+            break
+        cells = _table_cells(lines[i])
+        if (len(cells) != 4 or not ("名称" in cells[0] or "技能" in cells[0])
+                or not ("功能" in cells[1] or "解决" in cells[1])
+                or not ("触发" in cells[2] or "场景" in cells[2] or "适用" in cells[2])
+                or "路径" not in cells[3]):
+            continue
+        separator = _table_cells(lines[i + 1]) if i + 1 < len(lines) else []
+        if len(separator) != 4 or not all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator):
+            raise Refuse(4, "parent_navigation_table", "现有子技能导航表分隔行损坏，拒绝另建导航")
+        end = i + 2
+        while end < len(lines) and lines[end].lstrip().startswith("|"):
+            if len(_table_cells(lines[end])) != 4:
+                raise Refuse(4, "parent_navigation_table", "现有子技能导航表不是四列，拒绝写坏表格")
+            end += 1
+        tables.append((i, i + 2, end))
+    if len(tables) > 1:
+        raise Refuse(4, "parent_navigation_table", "锚点内存在多个子技能导航表，拒绝猜选")
+    return tables[0] if tables else None
+
+
+def _insert_parent_line(text, name, line_text, anchor, table_row=None):
+    """Upsert into the existing four-column index; otherwise use the legacy anchor list.
+
+    Returns (new_text, line_number, mode, inserted_line_for_safe_undo).
     """
     lines = text.splitlines(True)
     idx = [i for i, ln in enumerate(lines) if anchor in ln]
@@ -1675,6 +1786,32 @@ def _insert_parent_line(text, name, line_text, anchor):
         raise Refuse(4, "parent_anchor", "锚点出现 %d 次：%s" % (len(idx), anchor))
     i = idx[0]
     nl = "\r\n" if "\r\n" in text else "\n"
+    table = _navigation_table(lines, i)
+    if table:
+        header, start, end = table
+        row = (table_row or "| **%s** | %s | 按需读取 | `%s` |" %
+               (_navigation_cell(name), _navigation_cell(line_text), REPO_REF_TMPL % name)) + nl
+        matches = [n for n in range(start, end) if _ref_name_of(_table_cells(lines[n])[3]) == name]
+        if len(matches) > 1:
+            raise Refuse(4, "parent_navigation_table", "同一子技能在现有导航表重复，拒绝猜选")
+        if matches:
+            position = matches[0]
+            lines[position] = row
+            mode, inserted = "table-update", ""
+        else:
+            position = end
+            lines.insert(position, row)
+            mode, inserted = "table-insert", row
+        # Remove only this child's old importer bullet from the same navigation
+        # section, including the old bug's placement between anchor and header.
+        section_end = next((n for n in range(i + 1, len(lines))
+                            if re.match(r"^#{1,6}\s", lines[n])), len(lines))
+        stale = [n for n in range(i + 1, section_end)
+                 if _is_ref_bullet(lines[n]) and _ref_name_of(lines[n]) == name]
+        if stale:
+            lines = [line for n, line in enumerate(lines) if n not in stale]
+            inserted = ""  # A multi-line migration must undo from its whole-file backup.
+        return "".join(lines), position + 1, mode, inserted
     new_line = line_text.replace("\r\n", "\n").replace("\n", nl).rstrip("\r\n") + nl
     j = i + 1
     while j < len(lines) and not lines[j].strip():
@@ -1739,13 +1876,15 @@ def _fsync_path(path):
         raise failure
 
 
-def _atomic_write_text(path, text):
+def _atomic_write_text(path, text, prepared=None):
     """同目录临时文件 + os.replace：父 SKILL.md 不做截断式重写（并发读到半写的窗口）。"""
     d = os.path.dirname(os.path.abspath(path))
     tmp = os.path.join(d, ".%s.seep-tmp-%d-%d"
                        % (os.path.basename(path), os.getpid(), time.time_ns()))
     try:
         _write_text_durable(tmp, text)
+        if prepared:
+            prepared(tmp)
         os.replace(tmp, path)
     except BaseException as exc:
         cleanup = ""
@@ -1817,18 +1956,158 @@ def _stage(plan, journal, faults):
     _fault(faults, "stage.manifest")
     manifest = {"schema": MANIFEST_SCHEMA, "name": name, "kind": plan["kind"],
                 "files": hash_tree(staging)}
+    if plan["kind"] == "subskill":
+        manifest["parent"] = plan["parent"]["domain"]
     with io.open(os.path.join(staging, MANIFEST_NAME), "w", encoding="utf-8", newline="\n") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2, sort_keys=True)
         f.write("\n")
     plan["_staging"] = staging
+    plan["_expected_child_tree"] = hash_tree(staging)
     return {"staging": staging, "pack_injected": pack_injected,
             "staged_files": len(manifest["files"]), "manifest": manifest}
 
 
+def _path_has_link(path):
+    ancestors = []
+    current = os.path.abspath(path)
+    while True:
+        ancestors.append(current)
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    # Check ancestors first, so metadata and content lookup never traverse a link.
+    return any(_is_link(entry) for entry in reversed(ancestors))
+
+
+def _object_snapshot(path, expected=None):
+    """Inventory names/types first. Unknown members or links never get hashed."""
+    if _path_has_link(path):
+        return {".": {"type": "link"}}
+    if not os.path.lexists(path):
+        return None
+    try:
+        result = {".": {"type": "directory" if os.path.isdir(path) else "file"}}
+        if result["."]["type"] == "directory":
+            for directory, dirs, files in os.walk(path, followlinks=False):
+                for name in sorted(dirs + files):
+                    entry = os.path.join(directory, name)
+                    rel = os.path.relpath(entry, path).replace(os.sep, "/")
+                    if _is_link(entry):
+                        result[rel] = {"type": "link"}
+                        if name in dirs:
+                            dirs.remove(name)
+                    else:
+                        result[rel] = {"type": "directory" if os.path.isdir(entry) else "file"}
+        if expected is not None:
+            types = {rel: {"type": value.get("type")} for rel, value in expected.items()}
+            if result != types:
+                return result  # An unknown member/type already proves conflict.
+        if any(value["type"] == "link" for value in result.values()):
+            return result
+        for rel, value in result.items():
+            if value["type"] == "file":
+                file = path if rel == "." else os.path.join(path, rel)
+                if _path_has_link(file):
+                    value["type"] = "link"
+                    return result
+                value["sha256"] = _bytes_sha(file)
+        return result
+    except OSError:
+        return None
+
+
+def _file_identity(path):
+    """Local same-volume object generation; copy/replace must not inherit ownership."""
+    if _path_has_link(path):
+        return None
+    try:
+        stat = os.lstat(path)
+    except OSError:
+        return None
+    if not stat.st_ino:
+        return None
+    result = {"device": stat.st_dev, "file_id": stat.st_ino}
+    birth = getattr(stat, "st_birthtime_ns", None)
+    if birth is not None:
+        result["birth_ns"] = birth
+    return result
+
+
+def _rollback_identity_problems(entries):
+    """Preflight the whole undo before changing anything, including repo reads
+    adopted by a later whole-parent commit. A replacement at any undo destination
+    invalidates this journal's ownership of the entire transaction write set.
+    """
+    problems = []
+    done = {e.get("id"): e for e in entries if e.get("op") == "done"}
+    prepared = {e.get("id"): e for e in entries if e.get("op") == "patch_prepared"}
+    identities, origins = {}, {}
+    for entry in entries:
+        if entry.get("op") == "intent" and entry.get("action") == "move":
+            for path in (entry.get("src"), entry.get("dst")):
+                if path:
+                    identities[_norm(path)] = _file_identity(path)
+                    origins[_norm(path)] = path if _path_has_link(path) or os.path.lexists(path) else None
+    for entry in reversed(entries):
+        if entry.get("op") != "intent":
+            continue
+        if entry.get("action") == "move":
+            src, dst = entry.get("src"), entry.get("dst")
+            expected = entry.get("source_identity")
+            expected_content = entry.get("source_snapshot")
+            source = identities.get(_norm(src))
+            dest = identities.get(_norm(dst))
+            source_present = origins.get(_norm(src)) is not None
+            dest_present = origins.get(_norm(dst)) is not None
+            if not expected or not isinstance(expected_content, dict) or not expected_content:
+                problems.append("move 缺对象身份/内容快照，不能按路径存在性自动回滚：%s" % entry.get("role"))
+            elif dest_present and not source_present:
+                if dest != expected:
+                    problems.append("move 对象已被后续事务替换：%s" % entry.get("role"))
+                if _object_snapshot(origins[_norm(dst)], expected_content) != expected_content:
+                    problems.append("move 子树快照漂移（内容/成员改变），保留后写入：%s" % entry.get("role"))
+                identities[_norm(src)], identities[_norm(dst)] = dest, None
+                origins[_norm(src)], origins[_norm(dst)] = origins[_norm(dst)], None
+            elif source_present and not dest_present:
+                if source != expected:
+                    problems.append("move 原位对象身份已改变：%s" % entry.get("role"))
+                if _object_snapshot(origins[_norm(src)], expected_content) != expected_content:
+                    problems.append("move 原位内容/成员已改变：%s" % entry.get("role"))
+            elif (source_present and dest_present and entry.get("id") not in done
+                  and source == expected and dest != expected
+                  and _object_snapshot(origins[_norm(src)], expected_content) == expected_content):
+                # A failed rename can meet a pre-existing occupied destination.
+                # The original source's identity+bytes prove intent never applied.
+                continue
+            else:
+                problems.append("move 对象位置不可判定，禁止部分撤销：%s" % entry.get("role"))
+        elif entry.get("action") == "patch":
+            current = _file_identity(entry.get("file"))
+            before = entry.get("before_identity")
+            after = (done.get(entry.get("id")) or prepared.get(entry.get("id")) or {}).get("file_identity")
+            if current and before and current not in (before, after):
+                problems.append("patch 对象已被后续事务替换：%s" % entry.get("role"))
+            file = entry.get("file")
+            if file and _path_has_link(file):
+                problems.append("patch 路径出现链接/reparse，拒绝读取目标：%s" % entry.get("role"))
+            elif file and os.path.isfile(file) and _bytes_sha(file) not in (
+                    entry.get("before_sha"), entry.get("after_sha")):
+                problems.append("patch 内容已被后写入，整个旧事务禁止撤销：%s" % entry.get("role"))
+    return problems
+
+
 def _move_tracked(journal, src, dst, role, faults=None, fault_point=None):
-    """登记 intent → 改名 → 登记 done（回滚只按事实判定）。"""
+    """登记 intent（含对象身份）→ 同卷改名 → done。"""
     jid = _jid(journal)
-    _jrec(journal, "intent", id=jid, action="move", role=role, src=src, dst=dst)
+    identity = _file_identity(src)
+    if not identity:
+        raise Refuse(5, "identity_unavailable", "不能证明改名源对象身份，拒绝开始写入")
+    snapshot = _object_snapshot(src)
+    if not snapshot or any(value.get("type") == "link" for value in snapshot.values()):
+        raise Refuse(5, "snapshot_unavailable", "改名源内容不可安全快照，拒绝写入")
+    _jrec(journal, "intent", id=jid, action="move", role=role, src=src, dst=dst,
+          source_identity=identity, source_snapshot=snapshot)
     if fault_point:
         _fault(faults, fault_point)
     how = _move(src, dst, journal=journal, role=role, faults=faults)
@@ -1870,37 +2149,124 @@ def _commit(plan, staging, skill_dir, journal, faults):
             "backup_path": backup_path, "replaced": bool(backup_path)}
 
 
+def _parent_metadata_snapshot(directory, parent):
+    """Validate the old signed inventory before authorizing a bounded child delta."""
+    path = os.path.join(directory, MANIFEST_NAME)
+    if _path_has_link(path):
+        raise Refuse(5, "parent_manifest_drift", "父清单路径出现链接/reparse，拒绝读取目标")
+    if not os.path.isfile(path):
+        return None  # Built-in domains need no newly invented parent manifest.
+    manifest = _load_json(path)
+    problems = _validate_repo_manifest(manifest, parent, "domain")
+    now = hash_tree(directory)
+    now.pop(MANIFEST_NAME, None)
+    declared = manifest.get("files") if isinstance(manifest, dict) else None
+    problems += tree_diff(declared if isinstance(declared, dict) else {}, now)
+    if problems:
+        raise Refuse(5, "parent_manifest_drift", "父域已有漂移，拒绝用子技能变更重签",
+                     problems=problems[:8])
+    return {"directory": directory, "file": path, "manifest": manifest,
+            "manifest_sha": _bytes_sha(path),
+            "skill_sha": _bytes_sha(os.path.join(directory, "SKILL.md"))}
+
+
+def _update_parent_metadata(plan, snapshot, patch, journal, faults, point, backup_dir):
+    if not snapshot:
+        return None
+    directory, file = snapshot["directory"], snapshot["file"]
+    if _bytes_sha(file) != snapshot["manifest_sha"]:
+        raise Refuse(5, "parent_manifest_drift", "父清单在事务期间改变，拒绝覆盖")
+    expected = dict(snapshot["manifest"]["files"])
+    prefix = "subskills/%s/" % plan["name"]
+    expected = {rel: sha for rel, sha in expected.items() if not rel.startswith(prefix)}
+    expected.update({prefix + rel: sha for rel, sha in plan["_expected_child_tree"].items()})
+    if patch and patch.get("changed"):
+        parent_file = os.path.join(directory, "SKILL.md")
+        if _bytes_sha(parent_file) != patch["after_sha"]:
+            raise Refuse(5, "parent_manifest_drift", "父导航在本事务写入后被改动")
+        expected["SKILL.md"] = patch["after_hash"]
+    now = hash_tree(directory)
+    now.pop(MANIFEST_NAME, None)
+    diff = tree_diff(expected, now)
+    if diff:
+        raise Refuse(5, "parent_manifest_drift", "父树存在本次导航/child以外的变化，拒绝重签",
+                     problems=diff[:8])
+    manifest = dict(snapshot["manifest"], files=expected)
+    text = json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    if _read_text(file) == text:
+        return {"file": file, "changed": False}
+    backup = os.path.join(backup_dir, "parent-metadata", MANIFEST_NAME)
+    jid = _jid(journal)
+    _jrec(journal, "intent", id=jid, action="patch", role=point, file=file, backup=backup,
+          before_identity=_file_identity(file), before_sha=snapshot["manifest_sha"],
+          after_sha=_bytes_sha_text(text), inserted="")
+    os.makedirs(os.path.dirname(backup), exist_ok=True)
+    _atomic_copy(file, backup)
+    _fault(faults, point)
+    _atomic_write_text(file, text, prepared=lambda tmp: _jrec(
+        journal, "patch_prepared", id=jid, file_identity=_file_identity(tmp), tmp=tmp))
+    _fault(faults, point + ".write.after")
+    if _bytes_sha(file) != _bytes_sha_text(text):
+        raise Refuse(5, "parent_manifest_write", "父清单原子写后校验失败")
+    _jrec(journal, "done", id=jid, file_identity=_file_identity(file))
+    _fault(faults, point + ".after")
+    return {"file": file, "changed": True, "backup": backup,
+            "before_sha": snapshot["manifest_sha"], "after_sha": _bytes_sha_text(text)}
+
+
 def _patch_file(journal, file, name, line_text, anchor, faults, fault_point, backup_path,
-                role, ref_resolver):
+                role, ref_resolver, expected_before=None, table_row=None):
     """父 SKILL.md 的幂等插入：备份 → (原子) 写 → 读回复核；journal 先 intent 后 done。"""
     text = _read_text(file)
-    if ref_resolver(text):
+    if expected_before and _bytes_sha_text(text) != expected_before:
+        raise Refuse(5, "parent_manifest_drift", "父导航不再匹配已验证的旧清单")
+    new_text = text
+    # Rewrite only this child's old navigation. A stale _pending link must never
+    # satisfy idempotence merely because its basename matches the new child.
+    legacy_refs = {"../_pending/%s/SKILL.md" % name, "_pending/%s/SKILL.md" % name,
+                   "Tool/skill/_pending/%s/SKILL.md" % name, LEGACY_DEPLOY_REF_TMPL % name}
+    for ref in re.findall(r"`([^`]+)`", text):
+        if ref in legacy_refs:
+            new_text = new_text.replace("`%s`" % ref, "`%s`" % (REPO_REF_TMPL % name))
+    anchor_positions = [i for i, line in enumerate(new_text.splitlines(True)) if anchor in line]
+    table = (_navigation_table(new_text.splitlines(True), anchor_positions[0])
+             if len(anchor_positions) == 1 else None)
+    if table:
+        new_text, line_no, mode, inserted = _insert_parent_line(
+            new_text, name, line_text, anchor, table_row=table_row)
+    elif new_text == text and ref_resolver(text):
         return {"file": file, "changed": False, "idempotent": True,
                 "note": "父 SKILL.md 已引用该子技能，本次不改（幂等）"}
-    new_text, line_no, mode, inserted = _insert_parent_line(text, name, line_text, anchor)
+    elif new_text != text:
+        line_no, mode, inserted = 0, "canonicalize-reference", ""
+    else:
+        new_text, line_no, mode, inserted = _insert_parent_line(text, name, line_text, anchor)
     if new_text == text:
         return {"file": file, "changed": False, "idempotent": True, "mode": mode}
     before_sha = _bytes_sha(file)
     jid = _jid(journal)
     _jrec(journal, "intent", id=jid, action="patch", role=role, file=file, backup=backup_path,
+          before_identity=_file_identity(file),
           before_sha=before_sha, after_sha=_bytes_sha_text(new_text), inserted=inserted)
     os.makedirs(os.path.dirname(backup_path), exist_ok=True)
     _atomic_copy(file, backup_path)
     _fault(faults, fault_point)
-    _atomic_write_text(file, new_text)
+    _atomic_write_text(file, new_text, prepared=lambda tmp: _jrec(
+        journal, "patch_prepared", id=jid, file_identity=_file_identity(tmp), tmp=tmp))
     _fault(faults, fault_point + ".write.after")
     written = _read_text(file)
     if written != new_text:
         raise Refuse(5, "parent_write", "父 SKILL.md 写入后内容不一致：%s" % file)
-    _jrec(journal, "done", id=jid)
+    _jrec(journal, "done", id=jid, file_identity=_file_identity(file))
     _fault(faults, fault_point + ".after")
     return {"file": file, "changed": True, "idempotent": False, "line": line_no,
             "anchor": anchor, "inserted": inserted.rstrip("\r\n"), "backup": backup_path,
-            "mode": mode, "ref": line_text}
+            "mode": mode, "ref": line_text, "after_sha": _bytes_sha_text(new_text),
+            "after_hash": _norm_sha(file)}
 
 
 def _patch_parent(plan, journal, faults, backup_dir):
-    """仓库父 SKILL.md：写 `../_pending/<child>/SKILL.md`（相对**父技能目录**解析）。"""
+    """仓库父 SKILL.md：相对父目录引用 subskills/<child>/SKILL.md。"""
     info = plan.get("parent")
     if not info:
         return None
@@ -1910,11 +2276,13 @@ def _patch_parent(plan, journal, faults, backup_dir):
     pbackup = os.path.join(backup_dir, "_parent", info["domain"], "SKILL.md")
     return _patch_file(journal, info["skill_md"], name, line_text, info["anchor"],
                        faults, "parent.patch", pbackup, "repo-parent",
-                       lambda t: name in PENDING_LINK_RE.findall(t))
+                       lambda t: _has_child_ref(t, info["skill_md"], plan["target"], name),
+                       expected_before=(plan.get("_parent_snapshot") or {}).get("skill_sha"),
+                       table_row=_navigation_row(plan))
 
 
-def _patch_deployed_parent(plan, journal, faults, root, idx, backup_dir):
-    """部署父 SKILL.md：写 `references/imported-subskills/<child>/GUIDE.md`（真实相对文档）。"""
+def _patch_deployed_parent(plan, journal, faults, root, idx, backup_dir, snapshot=None):
+    """部署父 SKILL.md：使用与源码相同的子技能相对引用。"""
     info = plan.get("parent")
     if not info:
         return None
@@ -1928,7 +2296,9 @@ def _patch_deployed_parent(plan, journal, faults, root, idx, backup_dir):
     pbackup = os.path.join(backup_dir, "_parent", "deploy-%d" % idx, "SKILL.md")
     return _patch_file(journal, dparent, name, line_text, info["anchor"],
                        faults, "deploy.parent.patch.%d" % idx, pbackup, "deploy-parent:%d" % idx,
-                       lambda t: name in DEPLOY_REF_RE.findall(t))
+                       lambda t: _has_child_ref(t, dparent,
+                           os.path.join(root, info["domain"], "subskills", name), name),
+                       expected_before=(snapshot or {}).get("skill_sha"), table_row=_navigation_row(plan))
 
 
 def _deploy_one(plan, root, idx, repo_target, backup_dir, journal, faults):
@@ -1944,7 +2314,7 @@ def _deploy_one(plan, root, idx, repo_target, backup_dir, journal, faults):
         shutil.rmtree(staging, ignore_errors=True)
         raise
     _fault(faults, "deploy.copy.after.%d" % idx)
-    target = os.path.join(root, name)
+    target = plan.get("_deploy_target") or os.path.join(root, name)
     backup_path = None
     if os.path.lexists(target):
         bdir = os.path.join(root, BACKUP_NAME, "%s-%s" % (name, _ts()))
@@ -1959,66 +2329,70 @@ def _deploy_one(plan, root, idx, repo_target, backup_dir, journal, faults):
             "files": len(hash_tree(target))}
 
 
-def _deploy_subskill(plan, root, idx, repo_child, journal, faults):
-    """子技能部署：<root>/<parent>/references/imported-subskills/<child>/（入口 SKILL.md → GUIDE.md）。
+def _retire_legacy_deploy(plan, root, idx, journal, faults):
+    """Move a proven managed legacy copy to a same-volume transaction backup."""
+    name, parent = plan["name"], plan["parent"]["domain"]
+    legacy = os.path.join(root, parent, "references", "imported-subskills", name)
+    if not os.path.lexists(legacy):
+        return None
+    if _is_link(legacy):
+        raise Refuse(4, "deploy_path_symlink", "旧部署目录是符号链接/junction")
+    _check_source_tree(legacy)
+    try:
+        sub = _load_json(os.path.join(legacy, IMPORT_MAP_NAME))
+        manifest = _load_json(os.path.join(legacy, MANIFEST_NAME))
+        problems = _validate_sub_map(sub, name, parent, None, legacy)[0]
+        problems += _validate_repo_manifest(
+            manifest, name, "subskill", parent if "parent" in manifest else None)
+        now = hash_tree(legacy)
+        now.pop(IMPORT_MAP_NAME, None)
+        problems += tree_diff(sub.get("files") or {}, now)
+        original = dict(now)
+        original["SKILL.md"] = original.pop("GUIDE.md", "")
+        original.pop(MANIFEST_NAME, None)
+        problems += tree_diff(manifest.get("files") or {}, original)
+    except (OSError, ValueError, TypeError, AttributeError):
+        problems = ["旧副本身份或清单不可核验"]
+    if problems:
+        raise Refuse(5, "legacy_deploy_conflict",
+                     "旧部署不能证明属于本项目，保留原件并拒绝新增活跃入口",
+                     problems=problems[:6])
+    backup = os.path.join(root, BACKUP_NAME, "%s-%s" % (name, _ts()), "legacy-" + name)
+    _mkdir_tracked(journal, os.path.dirname(backup), "legacy-backup-dir:%d" % idx)
+    _move_tracked(journal, legacy, backup, "legacy-old:%d" % idx, faults)
+    _fault(faults, "deploy.legacy.after.%d" % idx)
+    return backup
 
-    为什么这么放（IMPORT-02 R3/裁定 3）：
-      · 模型只读部署根，仓库里那行它读不到 → 必须把子技能本体复制到部署面；
-      · 不能被当成"新的全局技能" → 不放 <root>/<child>，入口文档改名 GUIDE.md；
-      · 父部署 SKILL.md 指向 `references/imported-subskills/<child>/GUIDE.md`，按**父技能目录**可解析；
-      · 父域没部署到该 root 时如实报 pending（不自动把父域搬过去）。
-    """
+
+def _deploy_subskill(plan, root, idx, repo_child, journal, faults):
+    """Copy the child unchanged to <root>/<parent>/subskills/<child>."""
     info = plan.get("parent") or {}
-    name = plan["name"]
-    parent = info.get("domain")
+    name, parent = plan["name"], info.get("domain")
     proot = os.path.join(root, parent) if parent else None
     base = {"root": root, "role": "subskill", "parent": parent}
-    if not parent or not os.path.isdir(proot) or not os.path.isfile(os.path.join(proot, "SKILL.md")):
+    if not parent or not os.path.isfile(os.path.join(proot, "SKILL.md")):
         return dict(base, deployed=False, pending=True, path=None,
                     why="父域未部署到该 root（不自动部署父域）：部署侧入口 pending，不宣称可达")
-    refs_parent = os.path.join(proot, "references", "imported-subskills")
-    target = os.path.join(refs_parent, name)
-    _mkdir_tracked(journal, refs_parent, "deploy-parent-refs-dir:%d" % idx)
-    staging = os.path.join(_lock_dir(root), "%s-%s" % (name, _ts()))
-    os.makedirs(os.path.dirname(staging), exist_ok=True)
-    _jrec(journal, "staging", dir=staging)
-    _fault(faults, "deploy.copy.%d" % idx)
-    try:
-        shutil.copytree(repo_child, staging, ignore=COPY_IGNORE)
-        entry_src = os.path.join(staging, "SKILL.md")
-        if os.path.isfile(entry_src):
-            os.replace(entry_src, os.path.join(staging, "GUIDE.md"))
-        files = hash_tree(staging)
-        sub_manifest = {"schema": SUBSCHEMA_MAP, "child": name, "parent": parent,
-                        "mapping": {SUB_MAP_ENTRY_SRC: SUB_MAP_ENTRY_DST}, "files": files,
-                        "entry": DEPLOY_REF_TMPL % name,
-                        "note": "部署侧副本：入口改名 GUIDE.md，避免被当成新的全局技能被自动选中"}
-        with io.open(os.path.join(staging, IMPORT_MAP_NAME), "w", encoding="utf-8",
-                     newline="\n") as f:
-            json.dump(sub_manifest, f, ensure_ascii=False, indent=2, sort_keys=True)
-            f.write("\n")
-        # 生产与 verify 共用**同一份** map schema/语义校验：写下去的 map 必须自己能过
-        with io.open(os.path.join(staging, IMPORT_MAP_NAME), encoding="utf-8") as stream:
-            probs = _validate_sub_map(
-                json.load(stream), name, parent, repo_child, staging)[0]
-        if probs:
-            raise Refuse(5, "map_contract", "部署侧 map 自检不过：%s" % "；".join(probs[:4]))
-        _fault(faults, "deploy.copy.after.%d" % idx)
-    except Exception:
-        shutil.rmtree(staging, ignore_errors=True)
-        raise
-    backup_path = None
-    if os.path.lexists(target):
-        bdir = os.path.join(root, BACKUP_NAME, "%s-%s" % (name, _ts()))
-        _mkdir_tracked(journal, bdir, "deploy-backup-dir:%d" % idx)
-        backup_path = os.path.join(bdir, name)
-        _move_tracked(journal, target, backup_path, "deploy-old:%d" % idx, faults)
-    _move_tracked(journal, staging, target, "deploy-new:%d" % idx, faults)
-    patch = _patch_deployed_parent(plan, journal, faults, root, idx,
-                                   os.path.join(root, BACKUP_NAME, "%s-%s" % (name, _ts())))
-    return dict(base, deployed=True, pending=False, path=target, files=len(files),
-                mapping={SUB_MAP_ENTRY_SRC: SUB_MAP_ENTRY_DST}, entry=DEPLOY_REF_TMPL % name,
-                hashes=files, backup=backup_path, parent_patch=patch)
+    # Reject link traversal before touching a deployed parent or its children.
+    for directory in (proot, os.path.join(proot, "subskills"),
+                      os.path.join(proot, "references"),
+                      os.path.join(proot, "references", "imported-subskills")):
+        if _is_link(directory):
+            raise Refuse(4, "deploy_path_symlink", "部署父路径是符号链接/junction")
+    snapshot = _parent_metadata_snapshot(proot, parent)
+    legacy_backup = _retire_legacy_deploy(plan, root, idx, journal, faults)
+    target = os.path.join(proot, "subskills", name)
+    _mkdir_tracked(journal, os.path.dirname(target), "deploy-parent-refs-dir:%d" % idx)
+    child_plan = dict(plan, _deploy_target=target)
+    deployed = _deploy_one(child_plan, root, idx, repo_child, None, journal, faults)
+    metadata_backup = os.path.join(root, BACKUP_NAME, "%s-%s" % (name, _ts()))
+    patch = _patch_deployed_parent(plan, journal, faults, root, idx, metadata_backup, snapshot)
+    metadata = _update_parent_metadata(plan, snapshot, patch, journal, faults,
+                                       "deploy.parent.manifest.%d" % idx, metadata_backup)
+    return dict(base, deployed=True, pending=False, path=target,
+                files=deployed["files"], entry=DEPLOY_REF_TMPL % name,
+                backup=deployed["backup"], legacy_backup=legacy_backup, parent_patch=patch,
+                parent_metadata=metadata)
 
 
 # ============================================================ 入口可达性（真实解析，不是字符串 contains）
@@ -2029,7 +2403,11 @@ def _resolve_refs(text, base_file, name, regex):
     for line in text.splitlines():
         if not regex.search(line):
             continue
-        for ref in re.findall(r"`([^`]+)`", line):
+        refs = re.findall(r"`([^`]+)`", line)
+        cells = _table_cells(line)
+        if len(cells) == 4:
+            refs.append(cells[3].strip("`"))
+        for ref in refs:
             if not regex.search(ref):
                 continue
             if name and not regex.search(ref).group(1) == name:
@@ -2040,42 +2418,84 @@ def _resolve_refs(text, base_file, name, regex):
     return out
 
 
+def _has_child_ref(text, parent_file, child_dir, name):
+    expected = _norm(os.path.join(child_dir, "SKILL.md"))
+    return any(_norm(p) == expected for p in
+               _resolve_refs(text, parent_file, name, DEPLOY_REF_RE))
+
+
 def _entry_reachable(plan):
-    """仓库父引用核验：那一行必须能按**父技能目录**解析到真实文件。"""
     info = plan.get("parent")
     if not info:
         return None
     try:
-        t = _read_text(info["skill_md"])
-    except Exception:  # noqa: BLE001
+        return _has_child_ref(_read_text(info["skill_md"]), info["skill_md"],
+                              plan["target"], plan["name"])
+    except OSError:
         return False
-    if plan["name"] not in PENDING_LINK_RE.findall(t):
-        return False
-    return bool(_resolve_refs(t, info["skill_md"], plan["name"], PENDING_LINK_RE))
 
 
-def _repo_parent_entries(skill_dir, name):
-    """扫所有域 SKILL.md，找出真正能按技能目录解析到 `_pending/<name>/SKILL.md` 的域。"""
+def _repo_parent_entries(skill_dir, name, parent=None):
+    """Resolve navigation only to each formal parent's canonical child."""
     linked, dangling = [], []
-    child = os.path.join(skill_dir, "_pending", name, "SKILL.md")
-    for d in sorted(os.listdir(skill_dir)) if os.path.isdir(skill_dir) else []:
-        if d.startswith(".") or d == "_pending":
+    packs, _ = scan_packs(skill_dir)
+    for pack in packs:
+        domain = pack["id"]
+        if parent and domain != parent:
             continue
-        pp = os.path.join(skill_dir, d, "SKILL.md")
+        pp = os.path.join(skill_dir, domain, "SKILL.md")
+        child = os.path.join(skill_dir, domain, "subskills", name)
         if not os.path.isfile(pp):
             continue
-        try:
-            t = _read_text(pp)
-        except OSError:
-            continue
-        if name not in PENDING_LINK_RE.findall(t):
-            continue
-        resolved = _resolve_refs(t, pp, name, PENDING_LINK_RE)
-        if any(os.path.normcase(p) == os.path.normcase(child) for p in resolved):
-            linked.append(d)
-        else:
-            dangling.append({"domain": d, "resolved": resolved})
+        text = _read_text(pp)
+        if _has_child_ref(text, pp, child, name):
+            linked.append(domain)
+        elif name in PENDING_LINK_RE.findall(text):
+            dangling.append({"domain": domain, "resolved": []})
     return linked, dangling
+
+
+def _resolve_existing(opts):
+    """One identity resolver for deploy/verify/status; _pending is never a candidate."""
+    name = opts.get("name") or ""
+    valid, why = _valid_name(name)
+    if not valid:
+        raise Refuse(4, "bad_name", why)
+    skill_dir = opts["skill_dir"]
+    parent = opts.get("parent") or ""
+    packs, _ = scan_packs(skill_dir)
+    ids = {p["id"] for p in packs}
+    candidates = []
+    if parent:
+        valid, why = _valid_name(parent)
+        if not valid or parent not in ids:
+            raise Refuse(4, "parent_missing", "父域不是真实 pack 域")
+        path = os.path.join(skill_dir, parent, "subskills", name)
+        if os.path.isdir(path):
+            candidates.append(("subskill", path, parent))
+    else:
+        path = os.path.join(skill_dir, name)
+        if os.path.isdir(path):
+            candidates.append(("domain" if name in ids else "crosscutting", path, None))
+        for domain in sorted(ids):
+            path = os.path.join(skill_dir, domain, "subskills", name)
+            if os.path.isdir(path):
+                candidates.append(("subskill", path, domain))
+    if not candidates:
+        raise Refuse(4, "skill_missing", "找不到该身份的技能；旧 _pending 副本不是活跃入口")
+    if len(candidates) > 1:
+        raise Refuse(4, "skill_ambiguous", "同名技能存在多个身份，请显式 --parent <域>",
+                     candidates=[{"kind": k, "parent": p} for k, _, p in candidates])
+    kind, target, parent = candidates[0]
+    if _path_has_link(target):
+        raise Refuse(4, "skill_path_symlink", "技能入口或祖先目录是符号链接/junction/reparse")
+    _check_source_tree(target)
+    info = ({"domain": parent, "skill_md": os.path.join(skill_dir, parent, "SKILL.md"),
+             "anchor": PARENT_ANCHOR, "repo_ref": REPO_REF_TMPL % name,
+             "deploy_ref": DEPLOY_REF_TMPL % name} if parent else None)
+    return {"kind": kind, "name": name, "target": target, "parent": info,
+            "skill_dir": skill_dir, "meta": parse(_read_text(os.path.join(target, "SKILL.md"))),
+            "entry": ""}
 
 
 def _map_rel_problem(rel, forbid):
@@ -2116,8 +2536,8 @@ def _validate_sub_map(sub, name, parent, repo_child, deploy_dir):
         problems.append("child 声明与目录名不一致")
     if sub.get("parent") != parent:
         problems.append("parent 声明与部署父域不一致")
-    if sub.get("entry") != DEPLOY_REF_TMPL % name:
-        problems.append("entry 声明不是 %s" % (DEPLOY_REF_TMPL % name))
+    if sub.get("entry") != LEGACY_DEPLOY_REF_TMPL % name:
+        problems.append("entry 声明不是 %s" % (LEGACY_DEPLOY_REF_TMPL % name))
 
     mapping = sub.get("mapping")
     if not isinstance(mapping, dict) or not mapping:
@@ -2163,7 +2583,9 @@ def _validate_sub_map(sub, name, parent, repo_child, deploy_dir):
 
     # 映射后的文件必须**真的存在**，且 path 映射后 size/hash 与声明一致（不是"GUIDE 在就算"）
     for src_rel, dst_rel in sorted(mapping.items()):
-        if not isinstance(dst_rel, str):
+        if (not isinstance(dst_rel, str)
+                or _map_rel_problem(dst_rel, {SUB_MAP_ENTRY_SRC, IMPORT_MAP_NAME})
+                or _map_rel_problem(src_rel, {IMPORT_MAP_NAME})):
             continue
         target = os.path.join(deploy_dir, dst_rel.replace("/", os.sep))
         if not os.path.isfile(target):
@@ -2176,6 +2598,8 @@ def _validate_sub_map(sub, name, parent, repo_child, deploy_dir):
         real = _norm_sha(target)
         if real != declared:
             problems.append("映射目标 %r 的 hash 与 map 声明不一致" % dst_rel)
+        if repo_child is None:
+            continue  # Legacy ownership read: its own inventory is checked by caller.
         src_file = os.path.join(repo_child, src_rel.replace("/", os.sep))
         if not os.path.isfile(src_file):
             problems.append("仓库侧源 %r 不存在" % src_rel)
@@ -2189,81 +2613,61 @@ def _validate_sub_map(sub, name, parent, repo_child, deploy_dir):
     mapped = mapping.get(SUB_MAP_ENTRY_SRC)
     entry_file = (os.path.join(deploy_dir, mapped.replace("/", os.sep))
                   if isinstance(mapped, str) and mapped else None)
-    if entry_file and not os.path.isfile(entry_file):
+    if entry_file and (_map_rel_problem(mapped, set()) or not os.path.isfile(entry_file)):
         entry_file = None
     return (problems, entry_file, mapping)
 
 
 def _verify_subskill_deploy(plan_or_name, skill_dir, root, idx, parent=None):
-    """部署侧核验：父部署 SKILL.md 的引用行 + 复制进来的文档/映射 hash。只读。"""
+    """Read canonical navigation and compare the complete, unchanged child tree."""
     name = plan_or_name["name"] if isinstance(plan_or_name, dict) else plan_or_name
     parent = parent or ((plan_or_name.get("parent") or {}).get("domain")
                         if isinstance(plan_or_name, dict) else None)
-    rep = {"root": root, "role": "subskill", "parent": parent,
-           "path": os.path.join(root, parent, "references", "imported-subskills", name)
-           if parent else None}
+    target = os.path.join(root, parent, "subskills", name) if parent else None
+    rep = {"root": root, "role": "subskill", "parent": parent, "path": target,
+           "pending": False, "hashes_equal": False, "entry_reachable": False}
     dparent = os.path.join(root, parent, "SKILL.md") if parent else None
     if not dparent or not os.path.isfile(dparent):
         rep.update(status="parent_not_deployed", pending=True, hashes_equal=None,
-                   entry_reachable=False,
-                   why="父域未部署到该 root：按需可达尚未建立（pending，不是失败）")
+                   why="父域未部署到该 root：按需可达尚未建立（pending）")
         return rep
+    legacy = os.path.join(root, parent, "references", "imported-subskills", name)
+    problems = []
+    rep["parent_metadata"] = {}
+    for label, directory in (("repo", os.path.join(skill_dir, parent)),
+                             ("deploy", os.path.join(root, parent))):
+        try:
+            snapshot = _parent_metadata_snapshot(directory, parent)
+            if snapshot:
+                rep["parent_metadata"][label] = {"file": snapshot["file"],
+                                                  "sha256": snapshot["manifest_sha"]}
+        except Refuse as exc:
+            problems.append("%s 父清单漂移：%s" % (label, exc.message))
+    if os.path.lexists(legacy):
+        problems.append("存在旧部署副本；须通过持锁事务核验身份并迁移")
     text = _read_text(dparent)
-    if name not in DEPLOY_REF_RE.findall(text):
-        rep.update(status="parent_ref_missing", pending=False, hashes_equal=False,
-                   entry_reachable=False,
-                   why="部署父 SKILL.md 没有指向 references/imported-subskills/%s/GUIDE.md 的行" % name)
-        return rep
-    resolved = _resolve_refs(text, dparent, name, DEPLOY_REF_RE)
-    rep["entry_reachable"] = bool(resolved)
-    rep["entry_file"] = resolved[0] if resolved else None
-    mp = os.path.join(rep["path"], IMPORT_MAP_NAME)
-    if not os.path.isfile(mp):
-        rep.update(status="map_missing", pending=False, hashes_equal=False,
-                   why="缺部署侧映射清单 %s" % IMPORT_MAP_NAME)
-        return rep
-    sub = None
-    try:
-        sub = _load_json(mp)
-    except Exception:  # noqa: BLE001
-        # 不回显原始 JSON 片段（可能带路径/凭据形状内容），只报"读不了"
-        rep.update(status="map_unreadable", pending=False, hashes_equal=False,
-                   why="部署侧映射清单不是合法 JSON")
-        return rep
-    now = hash_tree(rep["path"])
-    now.pop(IMPORT_MAP_NAME, None)
-    declared_files = sub.get("files") if isinstance(sub, dict) else None
-    want = dict(declared_files) if isinstance(declared_files, dict) else {}
+    rep["entry_reachable"] = _has_child_ref(text, dparent, target, name)
+    rep["entry_file"] = os.path.join(target, "SKILL.md") if rep["entry_reachable"] else None
+    if not rep["entry_reachable"]:
+        problems.append("部署父引用缺失或未指向权威 subskills 入口")
+    repo_child = os.path.join(skill_dir, parent, "subskills", name)
+    want, now = hash_tree(repo_child), hash_tree(target)
     diff = tree_diff(want, now)
-    rep["mapping"] = (sub.get("mapping") if isinstance(sub, dict) else {}) or {}
-    rep["files"] = len(now)
-    rep["diff"] = diff[:6]
-    # 入口文档必须与仓库子技能 SKILL.md 同 hash（且按 map 的 mapping 解析，不硬编码 GUIDE）
-    repo_child = os.path.join(skill_dir, "_pending", name)
-    repo_skill = os.path.join(repo_child, SUB_MAP_ENTRY_SRC)
-    problems, entry_file, _mapping = _validate_sub_map(sub, name, parent, repo_child, rep["path"])
-    rep["map_problems"] = problems[:8]
-    mapped_target = entry_file
-    entry_equal = None
-    if mapped_target and os.path.isfile(repo_skill):
-        # 只有映射解析出的文件**就是**父引用那个文件时，入口 hash 才有意义
-        same_file = bool(resolved) and os.path.normcase(os.path.abspath(mapped_target)) in \
-            {os.path.normcase(os.path.abspath(p)) for p in resolved}
-        entry_equal = (_norm_sha(repo_skill) == _norm_sha(mapped_target)) and same_file
-        if resolved and not same_file:
-            problems.append("map 映射的目标不是父 SKILL.md 引用的那个文件")
-            rep["map_problems"] = problems[:8]
-    rep["entry_hash_equal"] = entry_equal
-    ok = bool(resolved) and not diff and entry_equal is not False and not problems
-    rep["hashes_equal"] = ok
-    rep["status"] = "ok" if ok else "drift"
-    rep["why"] = ("部署父 SKILL.md 的相对引用可解析、map 身份/入口/映射与 hash 一致" if ok else
-                  "部署侧不一致：%s" % ("；".join((diff + problems)[:4])
-                                        or "引用不可解析/入口 hash 不同"))
+    # Preserve byte-size drift rejection, including LF/CRLF changes hidden by norm_sha.
+    for rel in sorted(set(want) & set(now)):
+        if os.path.getsize(os.path.join(repo_child, rel)) != os.path.getsize(os.path.join(target, rel)):
+            problems.append("字节数不同：%s" % rel)
+    rep.update(files=len(now), diff=diff[:6], map_problems=problems[:8],
+               entry_hash_equal=bool(want.get("SKILL.md") and
+                                     want.get("SKILL.md") == now.get("SKILL.md")))
+    ok = bool(want) and not diff and not problems
+    rep.update(hashes_equal=ok, status="ok" if ok else "drift",
+               why="父引用与域内子技能整树一致" if ok else "部署侧不一致：%s" %
+                   "；".join((diff + problems)[:6]))
     return rep
 
 
-def _validate_repo_manifest(manifest, name, kind):
+def _validate_repo_manifest(manifest, name, kind, parent=None):
     """仓库侧 import-manifest.json 的身份字段也是**契约**：schema/name/kind 被改不得仍绿。
 
     与 `_validate_sub_map` 同一口径：生产写的值就是这里要求的值；_verify 与 cmd_verify 共用。
@@ -2277,8 +2681,18 @@ def _validate_repo_manifest(manifest, name, kind):
         problems.append("name 声明与技能名不一致")
     if manifest.get("kind") != kind:
         problems.append("kind 声明与实际类型 %s 不一致" % kind)
-    if not isinstance(manifest.get("files"), dict) or not manifest.get("files"):
+    if parent is not None and manifest.get("parent") != parent:
+        problems.append("parent 声明与父域身份不一致")
+    files = manifest.get("files")
+    if not isinstance(files, dict) or not files:
         problems.append("files 不是非空对象")
+    else:
+        for rel, sha in files.items():
+            why = _map_rel_problem(rel, {MANIFEST_NAME, IMPORT_MAP_NAME})
+            if why or not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{64}", sha):
+                problems.append("files 路径/hash 非法：%r" % rel)
+        if "SKILL.md" not in files:
+            problems.append("files 缺 SKILL.md 入口")
     return problems
 
 
@@ -2292,7 +2706,8 @@ def _verify(plan, receipt, skill_dir, faults):
     if not os.path.isfile(mf_path):
         raise Refuse(5, "manifest_missing", "commit 后缺 %s（回执不可核）" % MANIFEST_NAME)
     manifest = _load_json(mf_path)
-    mproblems = _validate_repo_manifest(manifest, name, kind)
+    mproblems = _validate_repo_manifest(manifest, name, kind,
+                                       (plan.get("parent") or {}).get("domain"))
     if mproblems:
         raise Refuse(5, "manifest_contract",
                      "%s 身份/字段与契约不符：%s" % (MANIFEST_NAME, "；".join(mproblems[:4])))
@@ -2351,7 +2766,7 @@ def _verify(plan, receipt, skill_dir, faults):
         for i, root in enumerate(plan.get("deploy_roots") or []):
             d = _verify_subskill_deploy(plan, skill_dir, root, i)
             dep.append(d)
-            if d.get("status") == "drift":
+            if not d.get("pending") and d.get("status") != "ok":
                 raise Refuse(5, "subskill_deploy_drift",
                              "部署侧子技能不一致：root[%d] %s（%s）"
                              % (i, d.get("path"), d.get("why")))
@@ -2402,6 +2817,18 @@ def _rollback(journal, receipt):
 
     顺序：删除新建 → 备份改名回来 → 父 SKILL.md 还原 → 清理本事务新建的空目录。
     """
+    identity_problems = _rollback_identity_problems(list(journal or []))
+    if identity_problems:
+        protected = sorted({entry[key] for entry in journal or [] if entry.get("op") == "intent"
+                            for key in ("src", "dst", "file", "backup") if entry.get(key)})
+        receipt.update(rollback=[{"op": "identity_guard", "ok": False,
+                                  "why": problem, "applied": False,
+                                  "path": protected[0] if protected else None,
+                                  "protected_paths": protected}
+                                 for problem in identity_problems],
+                       rolled_back=False, rollback_partial=True,
+                       rollback_note="对象身份冲突：整个旧事务禁止撤销，保留 journal/备份供复查")
+        return receipt["rollback"]
     entries = [e for e in (journal or []) if e.get("op") in ("intent", "done")]
     done = {e.get("id") for e in entries if e.get("op") == "done"}
     reports = []
@@ -2423,6 +2850,10 @@ def _rollback(journal, receipt):
                 if not rep["applied"]:
                     if hs and not hd:
                         why = "intent 未生效（源未动、目标未生成）"
+                    elif (hs and hd and _file_identity(src) == e.get("source_identity")
+                          and _file_identity(dst) != e.get("source_identity")
+                          and _object_snapshot(src, e.get("source_snapshot")) == e.get("source_snapshot")):
+                        why = "intent 未生效：原源身份/字节未变；保留预先占位的目标"
                     elif hd and not hs:
                         _move(dst, src, role=e.get("role"))
                         ok = os.path.exists(src) and not os.path.exists(dst)
@@ -2512,6 +2943,8 @@ def _rollback(journal, receipt):
 # ============================================================ 只读恢复报告 / status
 def _read_journal_entries(path):
     """Parse durable journal lines. Only an incomplete final write may be ignored."""
+    if _path_has_link(path):
+        raise Refuse(5, "journal_unreadable", "journal 路径包含链接/reparse，拒绝读取目标")
     try:
         with io.open(path, encoding="utf-8", errors="replace") as stream:
             raw = stream.read()
@@ -2587,6 +3020,9 @@ def _journal_disk_facts(entries):
 
 def _verified_disk_problems(entries):
     """Prove that the verified journal still describes the current disk state."""
+    ownership_problems = _rollback_identity_problems(entries)
+    if ownership_problems:
+        return ownership_problems
     done = {e.get("id") for e in entries if e.get("op") == "done"}
     problems = []
     for entry in entries:
@@ -2675,7 +3111,9 @@ def _verified_snapshot_payload(plan, receipt):
 
 def _rollback_disk_problems(entries):
     """Read-only prediction of rollback states that cannot safely be automated."""
-    problems = []
+    problems = _rollback_identity_problems(entries)
+    if problems:
+        return problems  # Do not inspect/hash patch targets after an ownership conflict.
     move_entries = [
         e for e in entries if e.get("op") == "intent" and e.get("action") == "move"]
     state = {}
@@ -2703,6 +3141,12 @@ def _rollback_disk_problems(entries):
             src, dst, role = entry.get("src"), entry.get("dst"), entry.get("role")
             src_exists = exists(src)
             dst_exists = exists(dst)
+            if (src_exists and dst_exists
+                    and not any(done.get("op") == "done" and done.get("id") == entry.get("id") for done in entries)
+                    and _file_identity(src) == entry.get("source_identity")
+                    and _file_identity(dst) != entry.get("source_identity")
+                    and _object_snapshot(src, entry.get("source_snapshot")) == entry.get("source_snapshot")):
+                continue
             if src_exists == dst_exists:
                 problems.append(
                     "move 状态不可判定：%s（src_exists=%s, dst_exists=%s）"
@@ -2769,6 +3213,7 @@ def _journal_tail(path, n=12):
         "disk_facts": facts,
         "disk_problems": disk_problems[:12],
         "recovery_action": recovery_action,
+        "recovery_review": _recovery_review(entries, path, []) if disk_problems else None,
         "auto_recoverable": not disk_problems,
         "ignored_incomplete_tail_lines": malformed,
     }
@@ -2783,6 +3228,82 @@ def _remove_journal_file(path):
         raise Refuse(5, "journal_remove_failed",
                      "自动恢复已完成，但无法清理 journal：%s（%s）"
                      % (path, str(exc)[:120]))
+
+
+def _recovery_review(entries, path, roots):
+    """Executable read-only handoff for an Agent, never instructions to edit a journal."""
+    base = entries[0]
+    skill_dir, name, parent = base.get("skill_dir"), base.get("name"), base.get("parent")
+    scope = ["--skill-dir", skill_dir, "--json"]
+    for root in roots or base.get("deploy_roots") or []:
+        scope += ["--deploy-root", root]
+    child_scope = ["--parent", parent] if parent else []
+    script = os.path.abspath(__file__)
+    commands = [[sys.executable, "-B", "-X", "utf8", script, command,
+                 "--name", name, *child_scope, *scope] for command in ("status", "verify")]
+    if parent:
+        commands.append([sys.executable, "-B", "-X", "utf8", script, "verify",
+                         "--name", parent, *scope])
+    return {"journal": path, "read_only_commands": commands,
+            "protected_paths": sorted({entry[key] for entry in entries
+                                       if entry.get("op") in ("intent", "recovery_retention_intent", "recovery_retention_done")
+                                       for key in ("src", "dst", "file", "backup")
+                                       if entry.get(key)}),
+            "steps": ["Agent 执行 read_only_commands，核对当前父/子版本、hash、冲突对象和备份",
+                      "保留当前已提交树与旧 journal；不要反复重试旧事务或手改 journal",
+                      "Agent 根据核验结果给出当前版本/备份的逐文件差异和保留方案；"
+                      "当前导入器不自动退役冲突 journal，保留证据供维护者审查，用户无需编辑内部文件"],
+            "automatic_resolution": False}
+
+
+def _retain_published_staging(path, entries, roots, receipt, recorder=None):
+    """An undo returns published trees to staging. Retain them atomically instead
+    of deleting them: external writers do not honor importer locks and may write
+    after preflight. The existing backup area is the reviewable destination.
+    """
+    if not any(e.get("op") == "intent" and e.get("action") == "move"
+               and (str(e.get("role") or "").startswith("repo-new")
+                    or str(e.get("role") or "").startswith("deploy-new")) for e in entries):
+        return []
+    retained = receipt.setdefault("retained_staging", [])
+    for entry in list(entries):
+        source = entry.get("dir") if entry.get("op") == "staging" else None
+        if not source or not os.path.lexists(source):
+            continue
+        if _path_has_link(source):
+            raise Refuse(5, "recovery_retention_conflict", "恢复 staging 出现链接，保留现场")
+        owners = [root for root in roots if _within(source, root)]
+        if not owners:
+            raise Refuse(5, "recovery_retention_conflict", "恢复 staging 不属于已持锁根，保留现场")
+        root = max(owners, key=len)
+        directory = os.path.join(root, BACKUP_NAME, "recovered-%s" % _ts())
+        if _path_has_link(os.path.dirname(directory)):
+            raise Refuse(5, "recovery_retention_conflict", "恢复备份父路径出现链接，保留现场")
+        os.makedirs(directory)
+        target = os.path.join(directory, os.path.basename(source))
+
+        def record(op):
+            if recorder is not None:
+                return recorder(op, src=source, dst=target)
+            if not path:
+                raise Refuse(5, "retention_journal_missing", "保留已发布内容需要持久 journal；停止清理")
+            body = json.dumps({"op": op, "src": source, "dst": target},
+                              ensure_ascii=False, sort_keys=True) + "\n"
+            try:
+                with io.open(path, "a", encoding="utf-8", newline="") as stream:
+                    if stream.write(body) != len(body):
+                        raise OSError("short recovery retention record")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except OSError as exc:
+                raise Refuse(5, "recovery_retention_persist_failed", "恢复保留记录未持久化；停止清理") from exc
+
+        record("recovery_retention_intent")
+        _move(source, target, role="retained-published-tree")
+        retained.append({"source": source, "backup": target, "kept_by_design": True})
+        receipt.setdefault("backups", {}).setdefault("retained_staging", []).append(target)
+        record("recovery_retention_done")
+    return retained
 
 
 def _recover_one_transaction(path, skill_dir, roots, expected_name=None):
@@ -2819,6 +3340,13 @@ def _recover_one_transaction(path, skill_dir, roots, expected_name=None):
         action = "roll_forward"
         rollback = []
     else:
+        disk_problems = _rollback_disk_problems(entries)
+        if disk_problems:
+            review = _recovery_review(entries, path, all_roots)
+            raise Refuse(5, "automatic_recovery_disk_mismatch",
+                         "旧事务恢复身份/磁盘状态冲突；在任何撤销前停止",
+                         journal=path, disk_problems=disk_problems[:12],
+                         recovery_review=review, next_actions=review["steps"])
         rec = {}
         _rollback(entries, rec)
         if rec.get("rollback_partial"):
@@ -2827,7 +3355,8 @@ def _recover_one_transaction(path, skill_dir, roots, expected_name=None):
                          journal=path, rollback=rec.get("rollback") or [])
         action = "rollback"
         rollback = rec.get("rollback") or []
-    cleanup_errors = _cleanup_staging(rec, entries, all_roots)
+    rec["_journal_path"] = path
+    cleanup_errors = _cleanup_staging(rec, entries, [skill_dir] + all_roots)
     if cleanup_errors:
         raise Refuse(5, "automatic_recovery_cleanup_failed",
                      "上次事务已恢复，但 staging/空备份目录清理失败：%s"
@@ -2840,6 +3369,7 @@ def _recover_one_transaction(path, skill_dir, roots, expected_name=None):
         "phase": phase,
         "effective_stage": _effective_journal_stage(entries, phase),
         "rollback": rollback,
+        "retained_staging": rec.get("retained_staging") or [],
         "ignored_incomplete_tail_lines": malformed,
         "cleaned": True,
     }
@@ -2970,6 +3500,28 @@ def cmd_status(opts):
     skill_dir = os.path.abspath(opts.get("skill_dir") or SKILL_DIR)
     roots, warnings = _resolve_deploy_roots(_merge(opts, deploy=True), "status", allow_empty=True)
     rep = _recovery_report(skill_dir, roots, name=name)
+    identity = None
+    if name:
+        try:
+            identity = _resolve_existing(opts)
+        except Refuse as r:
+            # A killed import can temporarily have no committed child. Honor an
+            # explicit parent only when the durable journal proves that identity.
+            if r.code != "skill_missing":
+                raise
+            parent = opts.get("parent") or ""
+            if parent:
+                matching = False
+                for item in rep["journals"]:
+                    entries, _ = _read_journal_entries(item["path"])
+                    if (entries and entries[0].get("name") == name
+                            and entries[0].get("parent") == parent):
+                        matching = True
+                        break
+                if not matching:
+                    raise
+                identity = {"kind": "subskill", "parent": {"domain": parent},
+                            "target": os.path.join(skill_dir, parent, "subskills", name)}
     rec = {"schema": SCHEMA, "rc": 0, "stage": "status", "kind": "status", "name": name,
            "written": False, "effective": False, "available_next_session": False,
            "formal_domain_active": False, "deployed": [], "files_imported": 0,
@@ -2979,6 +3531,10 @@ def cmd_status(opts):
                    ("可自动恢复残留：下一次同名 import 会在持锁后处理"
                     if rep["auto_recoverable"] else "无残留锁/staging/journal")),
            "to_take_effect": rep["actions"]}
+    if identity:
+        rec["dest"] = identity["target"]
+        rec["parent"] = (identity.get("parent") or {}).get("domain")
+        rec["skill_kind"] = identity["kind"]
     rec["effective_status"] = ("recovery_pending_manual" if rep["pending_manual"] else
                                ("recovery_auto_pending" if rep["auto_recoverable"] else "clean"))
     _emit(rec, opts)
@@ -2995,7 +3551,7 @@ def _receipt_status(plan, receipt):
             "adapter/安装/探活属另一批授权面；本次不宣称工具可用",
         ]
     if kind == "subskill":
-        # 语义声明：子技能落 _pending/（不部署成顶层技能、不进路由）；父 SKILL.md 已受控引用。
+        # 子技能位于父域 subskills/；磁盘可达与当前宿主加载分开报告。
         # ★ 「通过 parent 按需可达」≠「全局 auto 选中」：available_next_session 恒 false。
         sideways = [d for d in (receipt.get("deployed") or [])
                     if d.get("role") == "subskill" and d.get("hashes_equal")]
@@ -3004,8 +3560,8 @@ def _receipt_status(plan, receipt):
             "跑 python Tool/scripts/check.py --fast 复核子技能衔接",
         ]
         if sideways:
-            acts.insert(0, "部署侧已按需可达：<root>/<parent>/references/imported-subskills/<child>/"
-                           "（入口文档 GUIDE.md），父部署 SKILL.md 写相对引用；这仍不是全局自动选中")
+            acts.insert(0, "部署侧已按需可达：<root>/<parent>/subskills/<child>/SKILL.md，"
+                           "父部署 SKILL.md 写相对引用；这仍不是全局自动选中")
         elif receipt.get("deploy_pending"):
             acts.insert(0, "部署侧还没建立（父域未部署到该 root）：pending，不宣称模型可读")
         else:
@@ -3035,6 +3591,7 @@ def _receipt_base(plan):
         "schema": SCHEMA,
         "kind": plan["kind"],
         "name": plan["name"],
+        "parent": (plan.get("parent") or {}).get("domain"),
         "dest": plan.get("target") or "",
         "src": plan.get("src") or "",
         "kind_why": plan.get("kind_why") or "",
@@ -3150,6 +3707,9 @@ def run_import(opts, faults=None):
             prefixes=recovery_prefixes)
         if recovered:
             rec["auto_recovered"] = recovered
+        if plan["kind"] == "subskill":
+            plan["_parent_snapshot"] = _parent_metadata_snapshot(
+                os.path.dirname(plan["parent"]["skill_md"]), plan["parent"]["domain"])
         if not plan.get("replace"):
             # Preflight every destination after stale recovery, before creating a
             # journal or staging tree.  The repository target and deployment roots
@@ -3161,7 +3721,7 @@ def run_import(opts, faults=None):
                     parent = (plan.get("parent") or {}).get("domain")
                     if parent:
                         targets.append(os.path.join(
-                            root, parent, "references", "imported-subskills", plan["name"]))
+                            root, parent, "subskills", plan["name"]))
                 else:
                     targets.append(os.path.join(root, plan["name"]))
             occupied = [path for path in targets if os.path.lexists(path)]
@@ -3175,6 +3735,7 @@ def run_import(opts, faults=None):
         journal = Journal(os.path.join(_lock_dir(skill_dir), JOURNAL_DIR,
                                       "%s-%s.jsonl" % (plan["name"], _ts())),
                           base={"name": plan["name"], "kind": plan["kind"],
+                                "parent": (plan.get("parent") or {}).get("domain"),
                                 "skill_dir": skill_dir,
                                 "deploy_roots": list(plan.get("deploy_roots") or [])})
         rec["journal"] = journal.path
@@ -3216,6 +3777,9 @@ def run_import(opts, faults=None):
             rec["parent_patch"] = _patch_parent(plan, journal, faults, backup_dir) or {}
             if rec["parent_patch"].get("changed"):
                 rec["backups"]["parent"] = rec["parent_patch"].get("backup")
+            rec["parent_metadata"] = _update_parent_metadata(
+                plan, plan.get("_parent_snapshot"), rec["parent_patch"], journal, faults,
+                "parent.manifest", backup_dir)
         # ---- deploy（逐 root；每个 root 本地同卷备份）----
         _jrec(journal, "phase", phase="deploy")
         for i, root in enumerate(plan.get("deploy_roots") or []):
@@ -3225,10 +3789,13 @@ def run_import(opts, faults=None):
                          "parent": d.get("parent"), "files": d.get("files", 0),
                          "hashes_equal": None, "pending": bool(d.get("pending")),
                          "backup": d.get("backup"), "entry": d.get("entry"),
+                         "parent_metadata": d.get("parent_metadata"),
                          "why": d.get("why") or ""}
                 if d.get("deployed"):
                     entry["hashes_equal"] = True
                     rec["backups"].setdefault("deploy", []).append(d.get("backup"))
+                    if d.get("legacy_backup"):
+                        rec["backups"].setdefault("legacy", []).append(d["legacy_backup"])
                 elif d.get("pending"):
                     rec["deploy_pending"] = True
                 rec["deployed"].append(entry)
@@ -3426,7 +3993,9 @@ def _finish(rec, plan):
         d.get("hashes_equal") for d in rec["deployed"] if not d.get("pending"))
     rec["available_next_session"] = bool(deployed_ok and plan["kind"] in ("domain", "crosscutting"))
     rec["available_next_session_note"] = (
-        "已部署且 hash 一致：下次会话会被加载（子技能不部署成顶层技能，故恒 false）"
+        "子技能通过父导航按需读取，不注册顶层入口，本字段恒 false；当前会话加载未验证"
+        if plan["kind"] == "subskill" else
+        "已部署且 hash 一致：下次会话可发现；当前会话加载未验证"
         if rec["available_next_session"] else
         "未部署/未通过 hash 核验：下次会话选不中它")
     rec.setdefault("why", {
@@ -3434,7 +4003,7 @@ def _finish(rec, plan):
         "domain_registered_pending_contracts": "新域已落位并路由可发现，但全局硬编码契约未登记 → 不算生效",
         "crosscutting_deployed": "横切技能已部署且 hash 一致（不是正式域）",
         "crosscutting_staged": "横切技能只在仓库，未部署",
-        "pending_subskill": "子技能在 _pending/，父 SKILL.md 已按技能目录相对路径引用；不部署成顶层技能、不自动选中",
+        "pending_subskill": "子技能在父域 subskills/，父 SKILL.md 已按技能目录相对路径引用；不部署成顶层技能、不自动选中",
         "declared_not_available": "工具只声明，未登记未安装",
         "dry_run": "dry-run，零写盘",
     }.get(status, ""))
@@ -3480,6 +4049,7 @@ def cmd_stage(opts):
         journal = Journal(os.path.join(_lock_dir(plan["skill_dir"]), JOURNAL_DIR,
                                       "%s-%s.jsonl" % (plan["name"], _ts())),
                           base={"name": plan["name"], "kind": plan["kind"],
+                                "parent": (plan.get("parent") or {}).get("domain"),
                                 "skill_dir": plan["skill_dir"]})
         _jrec(journal, "phase", phase="stage")
         st = _stage(plan, journal, {})
@@ -3532,12 +4102,12 @@ def cmd_deploy(opts):
                "effective": False, "why": why}
         _emit(rec, opts)
         return 4
-    src = os.path.join(opts["skill_dir"], name)
-    if not os.path.isdir(src):
-        rec = {"schema": SCHEMA, "rc": 4, "stage": "plan", "written": False,
-               "effective": False, "why": "仓库里没有该技能：%s" % src}
-        _emit(rec, opts)
-        return 4
+    try:
+        identity = _resolve_existing(opts)
+    except Refuse as r:
+        _emit(_refusal_receipt(opts, r), opts)
+        return r.rc
+    src = identity["target"]
     try:
         roots, warnings = _resolve_deploy_roots(_merge(opts, deploy=True), "deploy", src_dir=src,
                                                allow_empty=False)
@@ -3545,8 +4115,7 @@ def cmd_deploy(opts):
         rec = _refusal_receipt(opts, r)
         _emit(rec, opts)
         return rec["rc"]
-    plan = {"kind": "crosscutting", "name": name, "target": src, "skill_dir": opts["skill_dir"],
-            "deploy_roots": roots, "parent": None, "warnings": list(warnings)}
+    plan = dict(identity, deploy_roots=roots, warnings=list(warnings))
     journal = None
     locks = []
     rec = {"schema": SCHEMA, "rc": 0, "kind": "deploy", "name": name, "stage": "deploy",
@@ -3567,9 +4136,27 @@ def cmd_deploy(opts):
             opts["skill_dir"], roots, name, locks, prefixes=recovery_prefixes)
         if recovered:
             rec["auto_recovered"] = recovered
+        if plan["kind"] == "subskill":
+            _parent_metadata_snapshot(os.path.dirname(plan["parent"]["skill_md"]),
+                                      plan["parent"]["domain"])
+        manifest_file = os.path.join(src, MANIFEST_NAME)
+        if os.path.isfile(manifest_file):
+            manifest = _load_json(manifest_file)
+            problems = _validate_repo_manifest(manifest, name, plan["kind"],
+                                               (plan.get("parent") or {}).get("domain"))
+            now = hash_tree(src)
+            now.pop(MANIFEST_NAME, None)
+            declared = manifest.get("files") if isinstance(manifest, dict) else None
+            problems += tree_diff(declared if isinstance(declared, dict) else {}, now)
+            if problems:
+                raise Refuse(5, "manifest_drift", "部署源身份或清单漂移", problems=problems[:6])
         if not opts.get("replace"):
-            occupied = [os.path.join(root, name) for root in roots
-                        if os.path.lexists(os.path.join(root, name))]
+            def destination(root):
+                if plan["kind"] == "subskill":
+                    return os.path.join(root, plan["parent"]["domain"], "subskills", name)
+                return os.path.join(root, name)
+            occupied = [destination(root) for root in roots
+                        if os.path.lexists(destination(root))]
             if occupied:
                 raise Refuse(
                     4, "target_exists",
@@ -3580,25 +4167,38 @@ def cmd_deploy(opts):
         journal = Journal(os.path.join(_lock_dir(opts["skill_dir"]), JOURNAL_DIR,
                                       "deploy-%s-%s.jsonl" % (name, _ts())),
                           base={"name": name, "kind": "deploy",
+                                "parent": (plan.get("parent") or {}).get("domain"),
                                 "skill_dir": opts["skill_dir"],
                                 "deploy_roots": list(roots)})
         rec["journal"] = journal.path
         repo_hashes = hash_tree(src)
+        plan["_expected_child_tree"] = repo_hashes
         _jrec(journal, "phase", phase="deploy_started")
         _jrec(journal, "phase", phase="prepare")
         for i, root in enumerate(roots):
             _jrec(journal, "phase", phase="commit_started", root=root)
             rec["commit_started"] = True
-            d = _deploy_one(plan, root, i, src, None, journal, {})
-            same = hash_tree(d["path"]) == repo_hashes
-            rec["deployed"].append({"root": d["root"], "path": d["path"], "files": d["files"],
-                                    "hashes_equal": same, "backup": d["backup"]})
-            rec["backups"].setdefault("deploy", []).append(d["backup"])
+            if plan["kind"] == "subskill":
+                if not _entry_reachable(plan):
+                    raise Refuse(5, "entry_missing", "仓库父引用缺失；先修复权威导航")
+                d = _deploy_subskill(plan, root, i, src, journal, {})
+                checked = _verify_subskill_deploy(plan, opts["skill_dir"], root, i)
+                if not checked.get("pending") and checked.get("status") != "ok":
+                    raise Refuse(5, "subskill_deploy_drift", checked["why"])
+                rec["deployed"].append(checked)
+            else:
+                d = _deploy_one(plan, root, i, src, None, journal, {})
+                same = hash_tree(d["path"]) == repo_hashes
+                rec["deployed"].append({"root": d["root"], "path": d["path"], "files": d["files"],
+                                        "hashes_equal": same, "backup": d["backup"]})
+            rec["backups"].setdefault("deploy", []).append(d.get("backup"))
+            if d.get("legacy_backup"):
+                rec["backups"].setdefault("legacy", []).append(d["legacy_backup"])
             _fault({}, "deploy.between.%d" % i)
         _jrec(journal, "phase", phase="deploy_done")
         rec["stage"] = "verify"
         _jrec(journal, "phase", phase="verify")
-        if not all(d["hashes_equal"] for d in rec["deployed"]):
+        if not all(d.get("hashes_equal") or d.get("pending") for d in rec["deployed"]):
             raise Refuse(5, "verify_hash_drift", "部署与仓库 hash 不一致")
         _jrec(journal, "verified_snapshot", **_verified_snapshot_payload(plan, rec))
         _jrec(journal, "phase", phase="verified")
@@ -3609,6 +4209,18 @@ def cmd_deploy(opts):
                             for p in (rec.get("backups") or {}).get("deploy", []))),
                     "why": "按显式 deploy-root 部署，逐文件 hash 与仓库一致（每个 root 本地同卷备份）",
                     "to_take_effect": ["下次会话验证是否出现在技能列表"]})
+        if plan["kind"] == "subskill":
+            rec["parent"] = plan["parent"]["domain"]
+            rec["dest"] = src
+            rec["entry_reachable"] = _entry_reachable(plan)
+            rec["deploy_pending"] = any(d.get("pending") for d in rec["deployed"])
+            status, effective, actions = _receipt_status(plan, rec)
+            rec.update(effective_status=status, effective=effective,
+                       available_next_session=False, to_take_effect=actions,
+                       written=any(not d.get("pending") for d in rec["deployed"]),
+                       why="子技能部署侧按需可达，当前会话加载尚未验证"
+                           if any(d.get("hashes_equal") for d in rec["deployed"])
+                           else "父域未部署到指定 root：子技能部署 pending")
     except Refuse as r:
         rec["rc"] = r.rc
         rec["refusal"] = r.as_dict()
@@ -3673,26 +4285,13 @@ def cmd_verify(opts):
     """只读核验一个已落位技能：按 kind 分别判（subskill 不按顶层部署比较）。不写盘。"""
     name = opts["name"]
     skill_dir = os.path.abspath(opts.get("skill_dir") or SKILL_DIR)
-    packs, _ = scan_packs(skill_dir)
-    kind = "domain" if any(p["id"] == name for p in packs) else ""
-    target = os.path.join(skill_dir, name)
-    parent = None
-    if kind == "domain" and not os.path.isdir(target):
-        kind = ""
-    if not kind:
-        child = os.path.join(skill_dir, "_pending", name)
-        if os.path.isdir(child):
-            kind, target = "subskill", child
-            linked, _dangling = _repo_parent_entries(skill_dir, name)
-            parent = linked[0] if linked else None
-        elif os.path.isdir(target):
-            kind = "crosscutting"
-    if not kind:
-        rec = {"schema": SCHEMA, "rc": 4, "stage": "verify", "name": name,
-               "why": "找不到该技能：%s/%s 或 _pending/%s" % (skill_dir, name, name),
-               "effective": False, "written": False}
-        _emit(rec, opts)
-        return 4
+    try:
+        identity = _resolve_existing(opts)
+    except Refuse as r:
+        _emit(_refusal_receipt(opts, r, stage="verify"), opts)
+        return r.rc
+    kind, target = identity["kind"], identity["target"]
+    parent = (identity.get("parent") or {}).get("domain")
     try:
         roots, warnings = _resolve_deploy_roots(_merge(opts, deploy=True), "verify",
                                                allow_empty=True)
@@ -3743,9 +4342,10 @@ def cmd_verify(opts):
         except Exception:  # noqa: BLE001
             manifest = {}
             drift_all.append("manifest 读不了（不是合法 JSON）")
-        drift_all.extend(_validate_repo_manifest(manifest, name, kind))
+        drift_all.extend(_validate_repo_manifest(manifest, name, kind, parent))
         now = hash_tree(target)
-        want = dict(manifest.get("files") or {})
+        raw_files = manifest.get("files") if isinstance(manifest, dict) else None
+        want = dict(raw_files) if isinstance(raw_files, dict) else {}
         for rel in sorted(want):
             if rel == MANIFEST_NAME:
                 continue
@@ -3756,8 +4356,15 @@ def cmd_verify(opts):
         for rel in sorted(set(now) - set(want) - {MANIFEST_NAME}):
             drift_all.append("多 %s（不在 manifest）" % rel)
 
+    elif kind == "subskill":
+        # Built-in children may have no import manifest; imported children must
+        # retain theirs. Deployment equivalence still checks the complete tree.
+        if any(os.path.isfile(os.path.join(root, parent, "subskills", name, MANIFEST_NAME))
+               for root in roots):
+            drift_all.append("仓库缺导入 manifest")
+
     if kind == "subskill":
-        linked, dangling = _repo_parent_entries(skill_dir, name)
+        linked, dangling = _repo_parent_entries(skill_dir, name, parent)
         ok_domains = [d for d in linked if not any(x["domain"] == d for x in dangling)]
         rec["repo_parent_entries"] = {"linked": ok_domains, "dangling": dangling,
                                       "all_linked": linked}
@@ -3770,22 +4377,21 @@ def cmd_verify(opts):
                 d["domain"] = dom
                 dep.append(d)
         rec["deployed"] = dep
-        drift_sub = [d for d in dep if d.get("status") == "drift"]
+        drift_sub = [d for d in dep if not d.get("pending") and d.get("status") != "ok"]
         wired = [d for d in dep if d.get("status") == "ok"]
         rec["deploy_reachable"] = bool(wired)
         if not ok_domains:
             rec.update({"rc": 5, "effective_status": "verify_failed",
-                        "why": "子技能在 _pending/ 但没有任何域 SKILL.md 用可解析的相对路径引用它"
-                               "（模型读不到内容）",
+                        "why": "子技能在父域 subskills/ 但父 SKILL.md 缺可解析的权威相对引用",
                         "to_take_effect": ["用 import --kind subskill --parent <域> 重跑，或手工补 "
-                                          "`../_pending/%s/SKILL.md` 一行" % name]})
+                                          "`subskills/%s/SKILL.md` 一行" % name]})
         elif drift_sub or drift_all:
             rec.update({"rc": 5, "effective_status": "verify_failed",
                         "why": "核验不通过：%s" % "；".join(
                             drift_all[:4] + [d.get("why", "") for d in drift_sub][:3])})
         else:
             rec["effective_status"] = "pending_subskill"
-            rec["why"] = ("子技能在 _pending/，父 SKILL.md（%s）引用可按技能目录解析；"
+            rec["why"] = ("子技能在父域 subskills/，父 SKILL.md（%s）引用可按技能目录解析；"
                           "部署侧%s——仍不会被全局自动选中"
                           % (", ".join(ok_domains) or "-",
                              "按需可达（%d 个 root）" % len(wired) if wired
@@ -3990,8 +4596,8 @@ def selftest():
         assert not _download_markers(os.path.join(repo, "skill"))
         ok += 1
         # ⑥ 判为子技能 / dry-run 时，“未生效”必须能说出来（R6 P1-7）
-        eff, eff_why, eff_acts = _effect_status("subskill", "zz-small", "Tool/skill/_pending/zz-small", False)
-        assert eff is False and "不会" in eff_why and len(eff_acts) == 3, (eff, eff_why, eff_acts)
+        eff, eff_why, eff_acts = _effect_status("subskill", "zz-small", "Tool/skill/<parent>/subskills/zz-small", False)
+        assert eff is False and "不会" in eff_why and eff_acts, (eff, eff_why, eff_acts)
         eff2, _, acts2 = _effect_status("domain", "zz-big", "Tool/skill/zz-big", True)
         assert eff2 is False and len(acts2) == 3, (eff2, acts2)
         eff3, _, _ = _effect_status("domain", "zz-big", "Tool/skill/zz-big", False, True)

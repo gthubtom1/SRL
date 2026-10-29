@@ -2,7 +2,7 @@
 name: firmware-iot
 description: "分析这个固件/路由器/摄像头/NAS 的固件，解包看文件系统，有没有后门/硬编码口令/命令注入/签名校验缺陷；能不能仿真跑起来 (.bin/.img/.trx/.squashfs/.ubi，UART/JTAG/SPI，QEMU/FirmAE)。"
 license: MIT
-compatibility: Linux 主机优先（binwalk/ubireader/unsquashfs/QEMU 原生）；Windows 可经 WSL2 或 Tool/scripts/tool-run.ps1 启动外部工具。硬件侧需 USB-TTL、逻辑分析仪、SPI 编程器/夹子，电压匹配 1.8V/3.3V。
+compatibility: Linux 工具路线须在已验证的隔离环境使用；Windows/WSL2/外部工具均需逐项核验，不默认就绪。硬件侧须实际设备、测量仪器与匹配 IO 电平，不能由目录/配置存在推断可用。
 metadata:
   version: "2.0.0"
   category: firmware-iot
@@ -21,6 +21,8 @@ metadata:
 > **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
 - 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
 - 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
+
+- 子技能可调用 softseep/web-pentest/protocol-plugin 等辅域，派生资产来源和安全输出回同一 project/version/run；方法、工具就绪、仿真与真机验证分别记录。真实凭据/Token/Key/Salt/私钥由用户侧操作；不提供系统网络/时钟/驱动改动执行路径。
 
 ## 一、范围与路由（边界）
 
@@ -71,7 +73,7 @@ UART/JTAG/SPI 焊盘、启动链、固件加密/签名迹象。
 | 类别 | 确认（可写进结论） | 疑似（只能写线索） | 证据形态 |
 |---|---|---|---|
 | 固件身份 | SHA256 稳定；strong 容器/厂商标签 + 版本/FWID 自洽 | 只有文件名/型号字符串 | 哈希、偏移、版本串、`fw-repro` JSON |
-| 解包完整 | 目录树含 `/etc`+`/bin`(或 `/usr/bin`)+`/lib`；busybox/init 架构自洽 | 只切出 kernel/DTB/单个 PE；目录“看起来有东西” | `unsquashfs -ll`/`ubireader` 日志、目录树、`file` 输出 |
+| 解包完整 | 按容器/卷结构、声明边界、提取日志和文件/区域清单核验；Linux/RTOS/UEFI 分支分别验收 | 只有签名/几个目录，截断或未解区域未解释 | 分区/卷表、CRC/提取日志、子资产哈希、架构 |
 | 账号可用（内部档位 J1，对外说「能进后台，验证了弱口令」） | 用户提供的测试口令或合成 canary 完成一次登录，会话输出 `id` | 只有账号名/hash/字符串，没有登录入口 | 登录会话/串口录屏 + 测试账号来源 |
 | 服务可用（内部档位 J2，对外说「服务确实在跑，能拿到真实业务响应」） | 端口监听 + 进程 + **真实业务响应** 同一时刻 | 进程在但端口不通/502/只有静态页 | `ss -lntp` + `ps` + `curl -i` 原文 |
 | 漏洞复现（内部档位 J3，对外说「漏洞能稳定复现（同一输入两次一致）」） | 同一输入重复 ≥2 次一致；有请求/响应/日志/崩溃现场 | 字符串/版本猜测；“仿真里可能” | PoC + 两次运行日志 + 版本/配置 |
@@ -79,7 +81,7 @@ UART/JTAG/SPI 焊盘、启动链、固件加密/签名迹象。
 > **对客户只说三句话，不要报 J1/J2/J3**：J1 →「能进后台，验证了弱口令」；J2 →「服务确实在跑，能拿到真实业务响应」；J3 →「漏洞能稳定复现（同一输入两次一致）」。
 | 凭据/密钥 | 证书公钥元数据/信任配置与验证路径对应；签名验证仅用合成测试密钥，不读取真实私钥 | 只有 `.pem/.key` 文件或示例占位符 | `openssl` 指纹 + 用途 + 验证命令 |
 | UEFI/Secure Boot | FV 可解析 + 变量可读 + 签名链/度量链能验证 | 只有单个 `.efi` 或节熵 | `fw-repro` PE 段、变量二进制、event log |
-| 硬件接口 | UART 落到 shell/改 bootargs；JTAG 读回与 SPI dump 哈希一致 | 有焊盘但无输出/IDCODE | 串口日志、IDCODE、两次读取 SHA256 |
+| 硬件接口 | 电平/波形/方向与稳定可读记录互证；转储任务另核已获准非敏感范围与重复读取一致性 | 有焊盘/高电平/提示符，尚未证接口或读取范围 | 测量记录、过滤后的串口日志、镜像结构与哈希 |
 
 **判据分级**（报告必须写等级）：
 
@@ -92,7 +94,7 @@ UART/JTAG/SPI 焊盘、启动链、固件加密/签名迹象。
 
 | 现象 | 判定 | 改走哪条 |
 |---|---|---|
-| 只有容器魔术，没有完整 `/etc`+`/bin`+`/lib` | 解包未完成 | 算厂商头真实偏移；换 `sasquatch`/`ubireader`/`jefferson`/`7z` |
+| Linux 文件系统预期存在但提取缺件/结构不完整 | 该分支解包未完成 | 核容器边界/擦除块与提取器；RTOS/UEFI 不套 Linux 目录判据 |
 | 全盘高熵、无 strong 魔术 | 可能加密/厂商容器 | 找解密点/U-Boot 解密；转 UART/JTAG 在线读 |
 | 只有 shadow hash、无登录入口 | 凭据未验证 | 只记录账户存在/x/锁定等元数据；不读取 hash，转接口或串口路线，不写“弱口令” |
 | `passwd` 第二字段 `x` / shadow `!` | 不是空口令/被锁定 | 只核安全账户元数据/锁定状态与认证路径；不读取 shadow/NVRAM/云凭据或私钥内容 |
@@ -138,7 +140,7 @@ python Tool/skill/firmware-iot/scripts/fw-triage.py --file "$OUT/orig.bin" --jso
 ```bash
 python Tool/skill/firmware-iot/scripts/fw-repro.py --file "$OUT/orig.bin" \
   --out-dir "$OUT/repro" --json > "$OUT/repro.json"
-binwalk -e --run-as=root -C "$OUT/ext" "$OUT/orig.bin"
+binwalk "$OUT/orig.bin"  # 签名扫描；提取参数按当前版本帮助核实，使用隔离非特权环境
 unsquashfs -d "$OUT/rootfs" -f "$OUT/ext/part.bin"        # SquashFS
 ubireader_extract_files -o "$OUT/ubi-root" "$OUT/ubi.ubi"  # UBI
 ```
@@ -164,15 +166,7 @@ grep -RInE 'system\(|popen\(|execve\(' "$ROOT/www" "$ROOT/usr/lib/lua" 2>/dev/nu
 
 ### 阶段 4：仿真或真机验证
 
-```bash
-# qemu-user（单程序）
-sudo chroot "$ROOT" /usr/bin/qemu-mipsel-static /bin/sh -c 'id'
-# qemu-system（整机，示意；参数按镜像调整）
-qemu-system-mipsel -M malta -kernel vmlinux -hda rootfs.img \
-  -append "root=/dev/sda console=ttyS0" -nographic
-# 服务验证（J2）
-ss -lntp; ps w | grep -E 'httpd|uhttpd|cgi'; curl -i http://127.0.0.1:80/
-```
+动态路线按 `subskills/emulation-qemu/SKILL.md` 核已存在隔离环境、ABI/loader 与运行确认后制定当前镜像启动参数；不直接照抄特权 chroot 或通用 machine 启动命令。业务验证需同一实例的进程、监听与非敏感请求响应，不以 shell/id 输出替代服务验收。
 
 完成判据：J1 有 shell 会话；J2 端口+进程+真实业务响应；J3 可重复 PoC。
 失败判据：内核 panic/根挂载失败/架构错；服务启动即退出 → 补桩或转真机只读；
@@ -281,11 +275,16 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 - **不是 PE 算法题**：桌面 PE/.NET/普通 ELF 走 `softseep`；UEFI 组件只做固件判据。
 - **不是纯 Web**：只测云端 API/前端时走 Web 技能；本技能的网络验证仅围绕设备自身服务。
 - **硬件接入范围由 `scope` 声明**：设备清单由用户提供，清单内按任务执行；闪存写入按授权单。
-- **“解包即成功”是误判**：有 shell/服务/漏洞证据才算完成，否则只算侦察。
+- **按当前目标验收**：结构/提取任务可按覆盖与完整性完成；声称服务、硬件或漏洞可用时才要求相应动态证据。
 - 硬件操作先备份、先量电压、先共地；写操作只在授权且可恢复的设备上做。
 - 所有结论标明 E0–E3 与 J1/J2/J3；未验证项写“未验证”，不臆造。
 
 ## 子技能（按需读，不常驻）
 
 本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
-当前由主域 SOP 统一覆盖，保留标准槽位供后续细分子技能敏捷挂载。
+
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **hardware-uart** | IoT 硬件调试接口引脚判别、TTL 串口交互、Bootloader 中断与终端接管 | 分析具备物理实物的硬件设备、寻找 UART/TTL 调试焊盘、获取 U-Boot 交互 Shell 或导出闪存 | `subskills/hardware-uart/SKILL.md` |
+| **firmware-extract** | IoT 固件解构、压缩文件系统还原、U-Boot 头部解析与裸机基地址探测 | 需要从路由器/摄像头/智能硬件 ROM 镜像中解包 rootfs、提取启动脚本或定位 RTOS 固件基地址 | `subskills/firmware-extract/SKILL.md` |
+| **emulation-qemu** | IoT 嵌入式固件跨架构仿真、QEMU 用户态/系统态环境搭建与 GDB 远端动态调试 | 在已核验隔离环境中分析 MIPS/ARM/AArch64；无平台/设备模型时保留阻断 | `subskills/emulation-qemu/SKILL.md` |

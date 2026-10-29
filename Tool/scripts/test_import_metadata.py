@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""test_import_metadata.py —— IMPORT-03（R-NEW-1/R-NEW-2）专项回归。
+"""test_import_metadata.py —— 子技能清单、旧映射迁移与只读拒执回归。
 
-为什么单独一个文件（`test_skill_import.py` 34 条、`test_import_transactions.py` 24 条保持原样）：
-    R-NEW-1 是**部署侧 import-map.json 的权威字段被篡改后 verify 仍绿**（"GUIDE.md 在就算可达"），
-    R-NEW-2 是 `status`/`recovery-report` 对非法根**裸抛 Refuse**（traceback、rc=1、无机读 refusal）。
-    两者都不是事务/并发问题，而是"判据面/协议面"，所以单独一组真实 CLI 负例钉住。
-
-钉住的语义：
-  · `import-map.json` 的 `schema/child/parent/entry/mapping/files` 是**权威契约**，生产
-    （_deploy_subskill 写盘自检）与 verify（_verify_subskill_deploy）**共用同一个**
-    `_validate_sub_map`；相对路径必须规范化（拒绝对/穿越/空段/多对一/未知入口），
-    映射后的文件 hash 必须与 `files` 声明**和**仓库侧源同时一致。
-  · 每个负例都跟"还原回原字节后 verify=0"的正对照（防恒红）。
-  · 所有子命令（含 status/recovery-report）走同一个顶层 Refuse → 机读 refusal + 对应 rc，
-    无 traceback、零写；正常 status 仍 rc=0 且只读。
-
-硬边界：只写 `tempfile.mkdtemp()` 的临时 repo/部署根；真实 `Tool/skill` 与 `~/.pi/agent/skills`
-逐文件 sha256 前后比对。不联网、不安装、不 commit、不改 HOME。
+新导入与完整安装同形：父域 subskills/<child>/SKILL.md，不产生 import-map.json。
+旧映射夹具只用于验证身份核验和迁移：schema/child/parent/entry/mapping/files、
+路径逃逸、多对一、缺件、内容/hash/字节数、未知用户文件的负例全部保留。
+有身份的旧副本经同卷备份后退出活跃目录；坏映射拒绝并保留原件。
+每个篡改负例均还原原字节，再验证迁移和 canonical verify 成功，防止恒红。
+所有写入仅限临时 repo/部署根；不联网、不执行技能代码、不部署真实 AgentRoot。
 
 跑法：python -B -X utf8 Tool/scripts/test_import_metadata.py
 """
@@ -125,12 +115,15 @@ class _Lab(unittest.TestCase):
                       "--from", self.src, "--skill-dir", self.skill_dir,
                       "--deploy-root", self.root, "--json")
         self.assertEqual(rc, 0, out[-800:])
-        self.base = os.path.join(self.root, self.parent, "references", "imported-subskills",
-                                 self.child)
-        self.mp = os.path.join(self.base, MAP)
+        self.base = os.path.join(self.root, self.parent, "subskills", self.child)
+        self.legacy = os.path.join(self.root, self.parent, "references", "imported-subskills",
+                                   self.child)
+        self.mp = os.path.join(self.legacy, MAP)
+        self._make_legacy()
         with open(self.mp, "rb") as fh:
             self.map_raw = fh.read()
         self.map_obj = json.loads(self.map_raw.decode("utf-8"))
+        shutil.rmtree(self.legacy)
 
     def tearDown(self):
         self.env_guard.stop()
@@ -167,17 +160,42 @@ class _Lab(unittest.TestCase):
             f.write("A\n")
         return d
 
+    def _make_legacy(self):
+        """Construct historical data only: production no longer writes a map."""
+        if os.path.exists(self.legacy):
+            shutil.rmtree(self.legacy)
+        shutil.copytree(self.base, self.legacy)
+        os.replace(os.path.join(self.legacy, "SKILL.md"), os.path.join(self.legacy, "GUIDE.md"))
+        hashes = snapshot(self.legacy)
+        obj = {"schema": "seep.skill-import.subskill-map/1", "child": self.child,
+               "parent": self.parent, "entry": GUIDE_REF % self.child,
+               "mapping": {"SKILL.md": "GUIDE.md"}, "files": hashes}
+        with io.open(self.mp, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(obj, stream, ensure_ascii=False, indent=2, sort_keys=True)
+            stream.write("\n")
+
     def verify(self):
+        # Map negatives now exercise identity-checked legacy migration through the
+        # real CLI. Canonical verify itself stays read-only and never trusts a map.
+        if os.path.exists(self.legacy):
+            rc, out = cli("deploy", "--name", self.child, "--parent", self.parent,
+                          "--skill-dir", self.skill_dir, "--deploy-root", self.root,
+                          "--replace", "--json")
+            if rc:
+                return rc, receipt(out) or {}, out
         rc, out = cli("verify", "--name", self.child, "--skill-dir", self.skill_dir,
                       "--deploy-root", self.root, "--json")
         return rc, (receipt(out) or {}), out
 
     def write_map(self, obj):
+        if not os.path.isdir(self.legacy):
+            self._make_legacy()
         with io.open(self.mp, "w", encoding="utf-8", newline="\n") as f:
             json.dump(obj, f, ensure_ascii=False, indent=2, sort_keys=True)
             f.write("\n")
 
     def restore_map(self):
+        self._make_legacy()
         with open(self.mp, "wb") as f:
             f.write(self.map_raw)
 
@@ -188,11 +206,10 @@ class _Lab(unittest.TestCase):
         self.write_map(obj)
         rc, rec, out = self.verify()
         self.assertEqual(rc, 5, "%s：篡改后 verify 仍 rc=%s（%s）" % (label, rc, rec.get("why")))
-        self.assertEqual(rec.get("effective_status"), "verify_failed", label)
+        self.assertEqual(rec.get("effective_status"), "failed", label)
         self.assertNotIn("Traceback", out, label)
-        dep = (rec.get("deployed") or [{}])[0]
-        self.assertTrue(dep.get("map_problems") or dep.get("diff"),
-                        "%s：回执必须说清是 map 契约/漂移问题：%s" % (label, dep))
+        problems = (rec.get("refusal") or {}).get("problems") or []
+        self.assertTrue(problems, "%s：必须给出旧映射身份/清单冲突：%s" % (label, rec))
         self.restore_map()
         rc2, rec2, _ = self.verify()
         self.assertEqual(rc2, 0, "%s：还原后仍 rc=%s（恒红）：%s" % (label, rc2, rec2.get("why")))
@@ -230,10 +247,9 @@ class MetaCase(_Lab):
             rc, rec, out = self.verify()
             self.assertEqual(rc, 5, "OTHER.md 真实存在仍不得当成入口：%s" % rec.get("why"))
             self.assertNotIn("Traceback", out)
-            dep = (rec.get("deployed") or [{}])[0]
+            problems = (rec.get("refusal") or {}).get("problems") or []
             self.assertTrue(any("mapping" in p or "映射" in p or "entry" in p
-                                for p in (dep.get("map_problems") or [])),
-                            dep.get("map_problems"))
+                                for p in problems), problems)
         finally:
             os.remove(other)
         self.restore_map()
@@ -299,7 +315,7 @@ class MetaCase(_Lab):
 
     def test_repo_manifest_identity_fields_are_contract(self):
         """仓库侧 import-manifest.json 的 schema/name/kind 也是契约：篡改不得 rc=0。"""
-        mf = os.path.join(self.skill_dir, "_pending", self.child, "import-manifest.json")
+        mf = os.path.join(self.skill_dir, self.parent, "subskills", self.child, "import-manifest.json")
         with open(mf, "rb") as fh:
             raw = fh.read()
         obj = json.loads(raw.decode("utf-8"))
@@ -322,8 +338,8 @@ class MetaCase(_Lab):
             self.assertEqual(rc2, 0, "%s：还原后仍 rc=%s（%s）" % (label, rc2, rec2.get("why")))
 
     def test_deployed_entry_content_drift_still_caught(self):
-        """内容漂移（不是声明）仍在判：改 GUIDE.md 一个字节 → rc=5，还原 → 0。"""
-        guide = os.path.join(self.base, "GUIDE.md")
+        """内容漂移仍在判：改部署 SKILL.md 一个字节 → rc=5，还原 → 0。"""
+        guide = os.path.join(self.base, "SKILL.md")
         with open(guide, "rb") as fh:
             raw = fh.read()
         try:
@@ -340,7 +356,7 @@ class MetaCase(_Lab):
 
     def test_deployed_entry_size_drift_with_same_norm_hash(self):
         """hash 口径按 LF 归一：CRLF 冒充会让 size 变而 hash 不变 → 必须靠 size 抓住。"""
-        guide = os.path.join(self.base, "GUIDE.md")
+        guide = os.path.join(self.base, "SKILL.md")
         with open(guide, "rb") as fh:
             raw = fh.read()
         try:
@@ -360,16 +376,16 @@ class MetaCase(_Lab):
         self.assertEqual(rc2, 0, rec2.get("why"))
 
     def test_production_and_verify_share_one_map_validator(self):
-        """生产写盘自检与 verify 必须**共用**同一个函数（不是各自近似实现）。"""
+        """旧映射仅由迁移读取；新生产路径不再写第二份入口。"""
         with io.open(SCRIPT, encoding="utf-8") as f:
             src = f.read()
         self.assertEqual(src.count("def _validate_sub_map("), 1,
                          "map 契约校验必须只有一份实现（生产/verify 共用）")
         calls = [ln for ln in src.splitlines()
                  if "_validate_sub_map(" in ln and "def " not in ln]
-        self.assertEqual(len(calls), 2,
-                         "应当恰好两处调用：_deploy_subskill 自检 + _verify_subskill_deploy；"
-                         "实际：%s" % calls)
+        self.assertEqual(len(calls), 1,
+                         "旧映射只允许在受管副本迁移时读取，不在新部署中产生")
+        self._make_legacy()
         # 导入成功后，磁盘上的 map 自己也要能过这一份校验（自洽，不是两套口径）
         sys.path.insert(0, HERE)
         import importlib.util
@@ -378,8 +394,8 @@ class MetaCase(_Lab):
         spec.loader.exec_module(impl)
         self.assertEqual(
             impl._validate_sub_map(self.map_obj, self.child, self.parent,
-                                   os.path.join(self.skill_dir, "_pending", self.child),
-                                   self.base)[0], [])
+                                   os.path.join(self.skill_dir, self.parent, "subskills", self.child),
+                                   self.legacy)[0], [])
         # schema/字段常量就是契约本身（不是随手字符串）
         self.assertEqual(sorted(impl.SUB_MAP_FIELDS),
                          sorted(["schema", "child", "parent", "entry", "mapping", "files"]))
@@ -501,6 +517,56 @@ class RefusalCase(_Lab):
         self.assertFalse(rec.get("effective"))
         self.assertNotIn("boom", json.dumps(rec, ensure_ascii=False),
                          "unknown 回执不回显异常原文")
+
+
+class LegacyMigrationCase(_Lab):
+    def test_owned_legacy_copy_is_retired_and_navigation_is_canonical(self):
+        self._make_legacy()
+        parent_file = os.path.join(self.root, self.parent, "SKILL.md")
+        with io.open(parent_file, encoding="utf-8") as stream:
+            text = stream.read()
+        with io.open(parent_file, "w", encoding="utf-8", newline="\n") as stream:
+            stream.write(text.replace("subskills/%s/SKILL.md" % self.child, GUIDE_REF % self.child))
+        rc, out = cli("deploy", "--name", self.child, "--parent", self.parent,
+                      "--skill-dir", self.skill_dir, "--deploy-root", self.root, "--replace", "--json")
+        rec = receipt(out) or {}
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(os.path.exists(self.legacy))
+        kept = rec["backups"]["legacy"]
+        self.assertTrue(all(os.path.isfile(os.path.join(p, MAP)) for p in kept))
+        with io.open(parent_file, encoding="utf-8") as stream:
+            result = stream.read()
+        self.assertNotIn(GUIDE_REF % self.child, result)
+        self.assertIn("subskills/%s/SKILL.md" % self.child, result)
+        self.assertEqual(snapshot(self.base), snapshot(os.path.join(
+            self.skill_dir, self.parent, "subskills", self.child)))
+        self.assertEqual(self.verify()[0], 0)
+
+    def test_unknown_legacy_user_files_are_preserved_and_block_deploy(self):
+        self._make_legacy()
+        with io.open(os.path.join(self.legacy, "user-note.txt"), "w", encoding="utf-8") as stream:
+            stream.write("USER CONTENT\n")
+        before = snapshot(os.path.join(self.root, self.parent))
+        rc, out = cli("deploy", "--name", self.child, "--parent", self.parent,
+                      "--skill-dir", self.skill_dir, "--deploy-root", self.root, "--replace", "--json")
+        self.assertEqual(rc, 5, out)
+        self.assertEqual((receipt(out) or {})["refusal"]["code"], "legacy_deploy_conflict")
+        self.assertEqual(snapshot(os.path.join(self.root, self.parent)), before)
+
+    def test_process_death_after_legacy_move_recovers_before_retry(self):
+        self._make_legacy()
+        args = ["deploy", "--name", self.child, "--parent", self.parent,
+                "--skill-dir", self.skill_dir, "--deploy-root", self.root, "--replace", "--json"]
+        with mock.patch.dict(os.environ, {"SEEP_IMPORT_CRASH_POINT": "deploy.legacy.after.0"}):
+            rc, out = cli(*args)
+        self.assertEqual(rc, 87, out)
+        rc, out = cli(*args)
+        rec = receipt(out) or {}
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(rec["auto_recovered"][0]["action"], "rollback")
+        self.assertFalse(os.path.exists(self.legacy))
+        self.assertFalse(rec["recovery"]["pending_manual"])
+        self.assertEqual(self.verify()[0], 0)
 
 
 if __name__ == "__main__":

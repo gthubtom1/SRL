@@ -14,6 +14,6 @@
 | 当前回归 | `python Tool/scripts/check.py --runtime --json` |
 | 扩展技能、工具或领域 | [EXTEND](EXTEND.md) |
 
-`Tool/scripts/` 提供公共 CLI；领域脚本在 `Tool/skill/<领域>/scripts/`。`Tool/playbooks/` 是按需配方，`Tool/skill/_pending/` 是按源码路径读取的参考。不要将参考目录的旧名字当成已安装技能，也不要将某个客户案例的注入方式设为全局流程。
+`Tool/scripts/` 提供公共 CLI；各领域专业子技能在 `Tool/skill/<领域>/subskills/`（由对应领域引导表按需读取）。`Tool/playbooks/` 是按需配方，`Tool/skill/_pending/` 是历史归档区。不要将历史归档名字当成已安装顶层技能，也不要将某个客户案例的注入方式设为全局流程。
 
 MCP 登记和接口数量不能证明工具已安装或某任务可完成。先检查本机能力、保留原始输出，再验收当前结果。各专业领域的具体方法和边界以对应技能为准。

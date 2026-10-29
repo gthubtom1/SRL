@@ -289,17 +289,17 @@ EM_GETLINECOUNT = 3          ← “渲染了三行”变成确定事实
    - `tools/ui/openabout.ps1` —— `WM_COMMAND` 自动触发对话框
    - `tools/ui/menumap.ps1` —— 菜单命令 ID 递归枚举
 9. **案例证据归档**：`Tool/cases/项目A/`（其余同构，目录名脱敏为 `项目A`…`项目N`），每个目录自带 `case.json` 与产物；报告引用用仓库根相对路径，不用本机绝对路径。
-10. **许可/激活/卡密校验模型全量手册**：`references/06-license-validation.md`
+10. **许可/激活校验手册**：`references/license-validation.md`
     - §1 运行时×模型×协议×平台四维分类（含 Win/mac/Linux 能力对照）
     - §2 静态解剖（PE 壳 · .NET 四堆手解 · Electron/JVM/Py 速解 · 商用保护壳/License SDK 指纹表）
-    - §5 端点接管（等长合法值规则 · 副本角色表与 2~3 处上限 · `netsh` 提权回环接管）
+    - §5 目标进程级端点与单变量验证（案例补丁次数不作阈值；无系统网络改动步骤）
     - §6 握手与响应判定（字段角色拆法 · 会话绑定三判据）
     - §7.1 公钥替换重签五步法
     - §8 金样回放 / §8.5 透明中继（五要点）
     - §9 取载荷 Payload Carving
     - §10 厂商侧防护清单（8 条，可直接交甲方）
     - §12 陷阱日志（15 条，单条即坑）
-    - §13 交付模板 + 环境清理总清单（删接管地址 / 还原 hosts / 撤 DNAT / 清自签 CA）
+    - §13 交付与本轮进程/副本回滚，不更改系统网络、时钟、驱动或信任根
 11. **项目范式与复现路径**：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/11-project-paradigms/01-project-patterns-a-j.md`（A–J 十型）与 `02-project-decision-and-stats.md`（决策/统计/复现路径）。
 12. **报告骨架**：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/13-report-template/01-report-skeleton.md`。
 13. **UI 可判定验收**：`Tool/mcp/Tool/reverselab/kb/_archive/pe-reverse/techniques/14-ui-verification/01-ui-acceptance.md`。

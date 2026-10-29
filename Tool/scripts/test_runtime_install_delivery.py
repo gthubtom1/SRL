@@ -143,6 +143,9 @@ class RuntimeInstallDeliveryTests(unittest.TestCase):
 
     def test_repeat_install_updates_owned_tasks_and_agents(self):
         wb = build_workbench(self.base)
+        child = wb / "Tool/skill/softseep/subskills/child/SKILL.md"
+        child.parent.mkdir(parents=True)
+        child.write_text("# child fixture\n", encoding="utf-8")
         agent = self.base / "agent"
         first = self.install(wb, agent)
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
@@ -150,6 +153,7 @@ class RuntimeInstallDeliveryTests(unittest.TestCase):
         role = wb / "Tool/prompts/agents/fixture-agent.md"
         task.write_text("UPDATED task @SEEP_ROOT@\n", encoding="utf-8")
         role.write_text("UPDATED role\n", encoding="utf-8")
+        child.write_text("# UPDATED child fixture\n", encoding="utf-8")
         second = self.install(wb, agent)
         self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
         self.assertEqual((agent / "prompts/fixture.md").read_text(encoding="utf-8"),
@@ -157,8 +161,12 @@ class RuntimeInstallDeliveryTests(unittest.TestCase):
         self.assertEqual((agent / "agents/fixture-agent.md").read_text(encoding="utf-8"),
                          "UPDATED role\n")
         manifest = json.loads((agent / "seep-install-manifest.json").read_text(encoding="utf-8"))
-        for relative in ("prompts/fixture.md", "agents/fixture-agent.md"):
+        for relative in ("prompts/fixture.md", "agents/fixture-agent.md",
+                         "skills/softseep/subskills/child/SKILL.md"):
             self.assertEqual(manifest["managed_files"][relative], digest(agent / relative))
+        self.assertEqual((agent / "skills/softseep/subskills/child/SKILL.md").read_bytes(),
+                         child.read_bytes())
+        self.assertFalse((agent / "skills/child").exists())
 
     def test_repeat_install_preserves_user_edits_to_owned_tasks_and_agents(self):
         wb = build_workbench(self.base)
@@ -581,17 +589,94 @@ class RuntimeInstallDeliveryTests(unittest.TestCase):
         good = "USER PREFIX\n" + path.read_text(encoding="utf-8") + "\nUSER SUFFIX\n"
         def check(text):
             path.write_text(text, encoding="utf-8")
-            with patch.object(pf, "TOOL", str(wb / "Tool")), patch.object(pf, "results", []), \
+            with patch.object(pf, "ROOT", str(wb)), patch.object(pf, "TOOL", str(wb / "Tool")), \
+                 patch.object(pf, "results", []), \
                  patch.dict(os.environ, {"PI_CODING_AGENT_DIR": str(agent)}):
                 pf.check_deploy_bidirectional()
                 return list(pf.results)
-        self.assertTrue(all(x["ok"] for x in check(good)))
+        baseline = check(good)
+        self.assertTrue(baseline and all(x["ok"] for x in baseline), baseline)
         stale = good.replace("Seep Reverse Lab fixture agents", "stale source")
         self.assertTrue(any(not x["ok"] and "AGENTS.md" in x["detail"] for x in check(stale)))
         broken = good + "<!-- seep:managed:begin -->"
         self.assertTrue(any(not x["ok"] for x in check(broken)))
         legacy = (wb / "Tool/prompts/AGENTS.md").read_text(encoding="utf-8") + "\n<!-- magpie:begin -->\nhost text\n<!-- magpie:end -->\n"
         self.assertTrue(all(x["ok"] for x in check(legacy)))
+
+    def test_duplicate_managed_prompt_blocks_are_reported_without_rewriting(self):
+        wb = build_workbench(self.base)
+        agent = self.base / "agent"
+        self.assertEqual(self.install(wb, agent).returncode, 0)
+        path = agent / "AGENTS.md"
+        host_block = "\n<!-- magpie:begin -->\nHOST KEEP\n<!-- magpie:end -->\n"
+        original = path.read_text(encoding="utf-8") + host_block
+        path.write_text(original, encoding="utf-8")
+        self.assertEqual(self.install(wb, agent).returncode, 0)
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+        duplicate = original + path.read_text(encoding="utf-8")
+        path.write_text(duplicate, encoding="utf-8")
+        before = {p.relative_to(agent): p.read_bytes() for p in agent.rglob("*") if p.is_file()}
+        result = self.install(wb, agent)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("invalid managed prompt boundary: AGENTS.md", result.stdout + result.stderr)
+        self.assertEqual(before, {p.relative_to(agent): p.read_bytes()
+                                  for p in agent.rglob("*") if p.is_file()})
+
+    def test_env_check_requires_same_agent_registration_and_source_identity(self):
+        import importlib.util
+        from types import SimpleNamespace
+        spec = importlib.util.spec_from_file_location("delivery_registration_check", ROOT / "Tool/scripts/env-check.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        wb = build_workbench(self.base)
+        agent = self.base / "agent"
+        self.assertEqual(self.install(wb, agent).returncode, 0)
+        (agent / "mcp.json").write_text(json.dumps({"mcpServers": {
+            "seep": {"command": sys.executable, "args": []}}}), encoding="utf-8")
+        origin = agent / "seep-runtime.json"
+        original = origin.read_bytes()
+        registration = json.loads(original)
+        with patch.object(module, "ROOT", str(wb)), patch.object(module, "TOOL", str(wb / "Tool")), \
+             patch.dict(os.environ, {"PI_CODING_AGENT_DIR": str(agent), "SEEP_RUNTIME_ROOT": str(wb)}), \
+             patch.object(module, "_mcp_service_probe", return_value={"available": True}), \
+             patch.object(module, "_model_credential_probe", return_value={"configured": True}), \
+             patch("shutil.which", return_value=sys.executable), \
+             patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="v22.19.0")):
+            good = module.check()
+            self.assertTrue(good["installed"], good)
+            self.assertEqual(good["checks"]["runtime_registration"]["source_kind"], "registration")
+            with patch.object(module, "_model_credential_probe", return_value={
+                    "configured": False, "detail": "isolated host requires login"}):
+                unauthenticated = module.check()
+                self.assertFalse(unauthenticated["installed"])
+                self.assertEqual(len(unauthenticated["missing"]), 1, unauthenticated)
+                self.assertIn("宿主认证未就绪", unauthenticated["missing"][0])
+                self.assertIn(module.MODEL_CRED_ACTION, unauthenticated["next_actions"])
+            other = build_workbench(self.base / "other-source")
+            bad_hash = json.loads(original)
+            bad_hash["entry_sha256"]["Tool/skill/softseep/pack.json"] = "0" * 64
+            for label, payload in (
+                ("invalid-json", b"{broken"), ("invalid-shape", b"[]"),
+                ("hash-drift", json.dumps(bad_hash).encode()),
+                ("missing-hashes", json.dumps(dict(registration, entry_sha256={})).encode()),
+                ("other-source", json.dumps(dict(registration, source_root=str(other))).encode()),
+                ("missing-source", json.dumps(dict(registration, source_root=str(self.base / "absent"))).encode()),
+            ):
+                with self.subTest(label=label):
+                    origin.write_bytes(payload)
+                    result = module.check()
+                    self.assertFalse(result["installed"], result)
+                    self.assertFalse(result["checks"]["runtime_registration"]["ok"])
+            origin.unlink()
+            self.assertFalse(module.check()["installed"])
+            origin.write_bytes(original)
+            # The valid ambient root/source checkout cannot lend its registration
+            # to a different AgentRoot that has no registration of its own.
+            with patch.object(module, "agent_dir", return_value=str(self.base / "other-agent")):
+                self.assertFalse(module.check()["checks"]["runtime_registration"]["ok"])
+            source = wb / "Tool/scripts/lib/project_lock.py"
+            source.write_text(source.read_text(encoding="utf-8") + "\n# changed source\n", encoding="utf-8")
+            self.assertFalse(module.check()["installed"])
 
     def test_start_uses_custom_root_and_never_creates_default_agent(self):
         wb = build_workbench(self.base)

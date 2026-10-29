@@ -4,16 +4,17 @@
 
 用途
 ----
-1. **案例复算**：按 pack.json 的 `cases[]` 扫 protocol/plugin 案例，逐条复算本域硬判据——
-   必填字段、`evidence_kind` 与 `target_type` 自洽、`artifacts[].sha256` 真实、
-   `refs` 不幻影、`lessons[0]` 写清"跑的是什么/命令/rc"、`outcome != planned`。
+1. **案例复算**：缺省按 pack.json 的 `cases[] == case_roles.witness` 复算当前见证的
+   本地字段、产物哈希、refs、命令/rc 与 outcome；这不替代完整见证证据门禁。
+   `case_roles.depth_gate` 独立按 `depth_contract.case_globs` 核对集合、目录和领域归属，
+   不要求它是 witness 子集。`--case` 也可有限复算本域旧方法案例，不增加当前见证。
 2. **路由边界**：读 `Tool/skill/protocol-plugin/pack.json`，
    用其中的词边界规则跑 `boundary_tests`，确认不抢 web 的 spider、firmware 的 bios，
    也不会误吃无关的构建脚手架词。
 
 用法
 ----
-    python proto-accept.py                      # 扫全量本域案例
+    python proto-accept.py                      # 有限复算当前声明见证
     python proto-accept.py --case ../cases/protocol03
     python proto-accept.py --routing-check
     python proto-accept.py --self-test
@@ -35,6 +36,7 @@ from seep_runtime import repo_root as _seep_repo_root
 
 
 import argparse
+import glob
 import hashlib
 import json
 import os
@@ -51,6 +53,9 @@ if sys.platform == "win32":
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 ROOT = _seep_repo_root(__file__)
+sys.path.insert(0, os.path.join(ROOT, "Tool", "scripts"))
+from lib import domain_registry
+
 CASES = os.path.join(ROOT, "Tool", "cases")
 # S3：路由片段目录已删，路由只活在 pack.json 的 routes 里
 FRAGMENT = os.path.join(ROOT, "Tool", "skill", "protocol-plugin", "pack.json")
@@ -130,34 +135,63 @@ def _within(path, parent):
         return False
 
 
-def pack_cases(root):
-    path = os.path.join(root, "Tool", "skill", "protocol-plugin", "pack.json")
-    if not os.path.isfile(path):
-        raise RuntimeError("缺少 domain pack: %s" % path)
-    data = load(path)
-    cases = data.get("cases") if isinstance(data, dict) else None
-    if not isinstance(cases, list) or not cases:
-        raise RuntimeError("pack.json 未声明非空 cases[]")
-    out = []
-    for i, name in enumerate(cases):
+def _case_names(values, label):
+    if not isinstance(values, list) or not values:
+        raise RuntimeError("pack.json %s 必须是非空字符串数组" % label)
+    for i, name in enumerate(values):
         if not isinstance(name, str) or not name.strip():
-            raise RuntimeError("pack.json cases[%d] 不是非空字符串" % i)
-        name = name.strip()
-        if os.path.basename(name) != name or name in (".", ".."):
-            raise RuntimeError("pack.json cases[%d] 越界或不是目录名: %r" % (i, name))
-        out.append(name)
-    if len(set(out)) != len(out):
-        raise RuntimeError("pack.json cases[] 含重复项")
-    roles = data.get("case_roles") if isinstance(data.get("case_roles"), dict) else {}
-    for role in ("witness", "depth_gate"):
-        values = roles.get(role, [])
-        if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
-            raise RuntimeError("pack.json case_roles.%s 必须是字符串数组" % role)
-        unknown = sorted(set(values) - set(out))
-        if unknown:
-            raise RuntimeError("pack.json case_roles.%s 引用未声明案例: %s"
-                               % (role, ",".join(unknown)))
-    return out
+            raise RuntimeError("pack.json %s[%d] 不是非空字符串" % (label, i))
+        if (name != name.strip() or name in (".", "..") or
+                any(ch in name for ch in ("/", "\\", ":", "\x00", "\n", "\r"))):
+            raise RuntimeError("pack.json %s[%d] 越界或不是目录名: %r" % (label, i, name))
+    if len(set(values)) != len(values):
+        raise RuntimeError("pack.json %s 含重复项" % label)
+    return list(values)
+
+
+def pack_case_roles(root):
+    """独立校验见证与深度角色；库存和 glob 命中不提升为当前见证。"""
+    registry = domain_registry.load_registry(root)
+    pack = registry.get("protocol-plugin")
+    if pack is None:
+        raise RuntimeError("缺少或损坏 protocol-plugin domain pack")
+    status = registry.status("protocol-plugin")
+    if not status["registered"] or status["alias_conflict"]:
+        raise RuntimeError("protocol-plugin pack 身份无效: %s" % status["incomplete"])
+    if not pack.depth:
+        raise RuntimeError("pack.json depth_contract 无效: %s" % pack.depth_errors)
+    declared = _case_names(pack.raw.get("cases"), "cases[]")
+    roles = registry.case_roles("protocol-plugin")
+    if set(roles) != {"witness", "depth_gate"}:
+        raise RuntimeError("pack.json case_roles 必须恰含 witness/depth_gate")
+    roles = {role: _case_names(roles[role], "case_roles.%s" % role)
+             for role in ("witness", "depth_gate")}
+    if not status["case_roles_valid"] or roles["witness"] != declared:
+        raise RuntimeError("pack.json case_roles.witness 必须与 cases 一致")
+
+    cases_root = os.path.join(root, "Tool", "cases")
+    for name in sorted(set(roles["witness"] + roles["depth_gate"])):
+        path = os.path.join(cases_root, name)
+        if not _within(path, cases_root) or not os.path.isdir(path):
+            raise RuntimeError("角色案例目录缺失或越出 Tool/cases: %s" % name)
+        case = load(os.path.join(path, "case.json"))
+        if not isinstance(case, dict) or case.get("id") != name:
+            raise RuntimeError("角色案例 case.json id 与目录名不一致: %s" % name)
+        if case.get("domain") != pack.id:
+            raise RuntimeError("角色案例 %s domain=%r 不是 %s"
+                               % (name, case.get("domain"), pack.id))
+
+    actual = set()
+    for pattern in pack.depth["case_globs"]:
+        for path in glob.glob(os.path.join(cases_root, pattern)):
+            if not os.path.isdir(path):
+                continue
+            if not _within(path, cases_root):
+                raise RuntimeError("case_globs 命中越出 Tool/cases 的目录")
+            actual.add(os.path.basename(os.path.normpath(path)))
+    if set(roles["depth_gate"]) != actual:
+        raise RuntimeError("pack.json case_roles.depth_gate 与 depth_contract.case_globs 实际命中不一致")
+    return roles
 
 
 # ------------------------------------------------------------------ cases
@@ -453,7 +487,7 @@ def main(argv=None):
         description="protocol-plugin 域验收：案例 sha256/字段复算 + 路由词边界自检",
         epilog="退出码：0 全过；2 有 FAIL（JSON ok:false）。")
     ap.add_argument("--case", action="append", default=[],
-                    help="指定案例目录（可重复）；缺省按 pack.json cases[]")
+                    help="有限复算本域案例目录（可重复）；缺省按 pack.json cases[] 当前见证")
     ap.add_argument("--root", default="", help="仓库根（默认由 __file__ 推导）")
     ap.add_argument("--routing-check", action="store_true",
                     help="只跑路由片段 boundary_tests")
@@ -468,8 +502,11 @@ def main(argv=None):
     out = {"ok": True}
     try:
         root = repo_root(args.root or None)
-        declared = pack_cases(root)
+        roles = pack_case_roles(root)
+        declared = roles["witness"]
         out["declared_cases"] = declared
+        out["case_roles"] = roles
+        out["scope"] = "有限复算；不替代当前见证的完整证据门禁"
         if args.routing_check or not args.case:
             boundary = load_boundary(root)
             rows, problems = run_routing(boundary)
@@ -486,6 +523,9 @@ def main(argv=None):
             if not dirs:
                 raise RuntimeError("pack.json 没有声明任何可用案例")
             results, case_problems = run_cases(dirs, root)
+            for result in results:
+                result["roles"] = [role for role, names in roles.items()
+                                   if result["case"] in names]
             out["cases"] = results
             problems += case_problems
             out["case_count"] = len(results)

@@ -340,15 +340,27 @@ def m3(fx):
         f.write("<!-- 本文件是总控 Orchestrator -->\n" + s)
 
 
-# 4. 往 fixture agent-root 的 prompts 放假提示词 → 提示词残留必须红
-#    ★ 写的是 fixture home，不是真实 ~/.pi；旧版这里写的是用户目录。
+# 4. 往 fixture agent-root 放本项目受管的退役提示词 → 提示词残留必须红
+#    ★ manifest 绑定 fixture 源根与当前内容哈希；无受管身份的用户卡应保留，不算残留。
 @implant("m4", ["Tool/scripts/preflight.py", "--fast"], ["提示词残留", "zz-mutation"])
 def m4(fx):
     d = fx.home_path(".pi", "agent", "prompts")
     os.makedirs(d, exist_ok=True)
     fp = fx.home_path(".pi", "agent", "prompts", "zz-mutation.md")
+    if os.path.exists(fx.path("Tool/prompts/tasks/zz-mutation.md")):
+        raise IsolationError("m4 退役卡仍在 fixture 源 tasks 中，不能验证残留")
     with open(fp, "w", encoding="utf-8", newline="\n") as f:
         f.write("---\ndescription: x\n---\n")
+    manifest = {
+        "schema": "seep-agent-install/1",
+        "runtime_id": "seep-reverse-lab/softseep",
+        "source_root": os.path.realpath(fx.root),
+        "status": "complete",
+        "managed_files": {"prompts/zz-mutation.md": _sha256_file(fp)},
+    }
+    with open(fx.home_path(".pi", "agent", "seep-install-manifest.json"),
+              "w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
 
 
 # 5. 给 pack.json 加未知字段 → G2 必须红

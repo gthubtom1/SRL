@@ -299,7 +299,7 @@ static bool PatchIatByName(uintptr_t base, const char* dll, const char* fn,
 
 > 用户态补丁的「等长 + 回滚」在这里不够：签名、PatchGuard、重定位任一环都能把补丁变成蓝屏。
 
-- **签名与 DSE**：改 `.sys` 字节即破坏 Authenticode；DSE（`g_CiOptions`/`ci.dll`）会拒绝加载被改驱动。测试签名需 `bcdedit /set testsigning on` 并重启（桌面水印），只用于实验机；正式驱动走 WHQL/EV。
+- **签名与 DSE**：修改 `.sys` 会破坏其签名/代码完整性条件；静态分析与用户提供的签名/加载日志可用于核验。当前指南不更改启动/测试签名策略、不安装或加载驱动；动态条件缺失时明确受阻，不能以改系统安全设置补验收。
 - **PatchGuard**：周期校验 SSDT/IDT/GDT 与关键 `nt!` 结构，改内核代码或 SSDT hook 常在数分钟后 `0x109 CRITICAL_STRUCTURE_CORRUPTION`；优先 `ObRegisterCallbacks`/`Ps*NotifyRoutine` 等受支持回调。
 - **改页属性**：内核代码页只读；用 `MmProtectMdlSystemAddress`（配合 `MmCreateMdl`/`MmMapLockedPagesSpecifyCache`）临时放开写，改完立刻恢复，避免长期 W^X。
 - **重定位**：内核映像也有 `.reloc`；写绝对地址必须补 `IMAGE_REL_BASED_DIR64`（type 10）项，否则随机基址下跳飞；取址用 `MmGetSystemRoutineAddress`/`RtlPcToFileHeader`，不硬编码 VA。

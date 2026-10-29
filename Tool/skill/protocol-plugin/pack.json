@@ -43,28 +43,10 @@
     "seep_r2_disasm"
   ],
   "cases": [
-    "protocol01",
-    "protocol02",
-    "protocol03",
-    "protocol04",
-    "plugin02",
-    "plugin03",
-    "plugin04",
-    "plugin05",
-    "plugin06",
     "protocol05"
   ],
   "case_roles": {
     "witness": [
-      "protocol01",
-      "protocol02",
-      "protocol03",
-      "protocol04",
-      "plugin02",
-      "plugin03",
-      "plugin04",
-      "plugin05",
-      "plugin06",
       "protocol05"
     ],
     "depth_gate": [

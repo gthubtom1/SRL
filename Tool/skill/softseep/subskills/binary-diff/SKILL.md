@@ -22,7 +22,7 @@ metadata:
 | 有补丁前后，找漏洞 | **补丁差分**：对齐 → 变更函数 → 反推 bug class → PoC | 差异报告、PoC、修复前后对比 |
 | 两个不同样本聚类 | 相似度/聚类 | 函数/字符串/导入相似矩阵 |
 
-**边界**：从零逆向走 `ida-reverse`/`radare2`；完整利用链走 `pwn-crypto`；客户端授权旁路走 `01`–`05`。本技能只做差分与迁移。
+**边界**：从零逆向读 `Tool/skill/softseep/subskills/ida-reverse/SKILL.md`，或使用已核实的 radare2 CLI 工具（不是宿主技能名）；完整利用链走 `pwn-crypto`；客户端许可审计读 `Tool/skill/softseep/subskills/license-bypass/SKILL.md`。本技能只做差分与迁移，输入与结果归同一 project/version/run。
 
 ## 1. 钉住版本与基线
 

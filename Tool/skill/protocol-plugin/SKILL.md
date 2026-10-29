@@ -20,6 +20,8 @@ metadata:
 - 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
 - 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
+- 子技能可按需调用辅域，派生资产、流/地址位置、原始安全输出与结果归同一 project/version/run；导航是方法入口，不代表所有协议/平台已验证。
+
 ## 0. 范围与路由（边界）
 
 **本域输入面**
@@ -130,7 +132,7 @@ python Tool/skill/protocol-plugin/scripts/plugin-accept.py --self-test
 10. **忽略心跳/超时/重连** → 重放被踢后误判"协议不可复刻"。
 11. **把 tshark 解析结果当事实** → dissector 是启发式；结论必须回原始字节。
 12. **抓包/重放污染基线** → 代理改写后的流量不能当原始基线。
-13. **报告贴真实 token/内网地址** → 证据卫生事故；脱敏为 `<redacted:sha256:…>`。
+13. **报告贴真实 token/秘密** → 不应先采集后打码/散列；真实凭据由用户操作，Agent 仅接收安全字段或合成会话，保留省略范围与复查限制。
 
 ## 5. 流程（每阶段有完成判据）
 
@@ -258,7 +260,7 @@ python Tool/skill/protocol-plugin/scripts/plugin-accept.py --root . --json
 六个脚本都支持 `--self-test`（离线、rc=0、输出含 `"ok"`）与 `--help`（rc=0）。
 `--pcap` 必须指定 `--stream` 和 `--direction`：forward 是 SYN 发起方到对端，reverse 是反向。脚本按 TCP 序号重组、核对重叠和缺口，要求捕获唯一的起始 SYN、对端 SYN/ACK 和所选方向的 FIN；捕获不足、冲突、RST 或超过上限时结构化失败，不进入分帧。捕获区间完整也不证明对端收到数据或服务端接受；需其他重组方法时独立核实后用 `--input`。
 
-HTTP 交接可使用已连接的 MCP `seep_pcap_extract(pcap_path, mode="http")` 获取请求候选；缺 tshark 时按返回提示获取并复验。授权范围内的 `seep_http_replay(url, method, headers, cookies, body)` 发出 HTTP 请求，将真实响应和预测交给 `web-pentest` 复核；它不是 WebSocket 或任意二进制流重放器，HTTP 状态码本身也不等于业务接受。
+HTTP 交接可使用已连接且实际 schema 已核的 MCP `seep_pcap_extract(pcap_path="<安全测试抓包绝对路径>", mode="http")` 获取不含真实秘密的请求候选；工具会返回敏感字段时不得输入真实会话。缺 tshark 按诊断获取并复验。`seep_http_replay` 的 headers/cookies 是 JSON 字符串，body 是字符串，具体以当前 tools/list 为准；仅在当前 scope 内对安全测试会话使用，不传真实凭据。它不是 WebSocket/任意二进制重放器，HTTP 状态码也不证明业务接受。
 
 ## 8. 任务卡与 KB 入口
 
@@ -296,7 +298,9 @@ HTTP 交接可使用已连接的 MCP `seep_pcap_extract(pcap_path, mode="http")`
 
 | 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
 | :--- | :--- | :--- | :--- |
+| **protobuf-reverse** | 私有二进制协议、gRPC 与 Google Protobuf 无源码逆向解析与 Schema 重构 | 需要从网络抓包或二进制内存中还原 Protobuf 数据流、重构缺少 .proto 文件的结构体定义 | `subskills/protobuf-reverse/SKILL.md` |
 | **plugin-targets** | 浏览器扩展（Chrome/Firefox MV2/MV3）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity BepInEx 目标分析 | 插件/扩展包审计、权限面与加载链定位 | `subskills/plugin-targets/SKILL.md` |
+| **packet-dissect** | 网络私有协议逆向、二进制封包解构与 Wireshark Lua 解析器 (Dissector) 自动生成 | 面对私有二进制 TCP/UDP 封包、需要解构协议头部字段、时序心跳并生成可视化解析插件 | `subskills/packet-dissect/SKILL.md` |
 
 ## 跨域组合（按需加载，不常驻）
 

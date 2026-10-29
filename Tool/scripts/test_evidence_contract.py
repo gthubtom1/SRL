@@ -60,7 +60,10 @@ class EvidenceContractTests(unittest.TestCase):
             with self.subTest(package=name):
                 bad, info = self.judge(contract)
                 self.assertEqual(bad, [])
-                self.assertEqual(info, {"claims": 1, "strong": 1})
+                self.assertEqual((info["claims"], info["strong"]), (1, 1))
+                self.assertEqual(info["case_source"], "pack.cases")
+                self.assertEqual(info["checked_cases"], [self.case.name])
+                self.assertEqual(info["unreadable_cases"], [])
 
     def test_proven_inferred_is_rejected_even_with_another_strong_claim(self):
         weak = dict(self.good, id="C-002", confidence="inferred")
@@ -152,7 +155,165 @@ class EvidenceContractTests(unittest.TestCase):
             with self.subTest(package=name):
                 bad, info = self.judge(contract)
                 self.assertEqual(bad, [])
-                self.assertEqual(info, {"claims": 3, "strong": 1})
+                self.assertEqual((info["claims"], info["strong"]), (3, 1))
+
+    def test_current_packages_check_every_declared_witness(self):
+        checked_count = 0
+        for path in sorted((ROOT / "Tool" / "skill").glob("*/pack.json")):
+            pack = json.loads(path.read_text(encoding="utf-8"))
+            with self.subTest(domain=pack["id"]):
+                self.assertEqual(pack["cases"], pack["case_roles"]["witness"])
+                bad, info = gate.g5_evidence(pack)
+                self.assertEqual(bad, [])
+                self.assertEqual(info["checked_cases"], pack["cases"])
+                self.assertEqual(info["unreadable_cases"], [])
+                checked_count += len(info["checked_cases"])
+                for name in pack["cases"]:
+                    metadata = json.loads((ROOT / "Tool" / "cases" / name /
+                                           "case.json").read_text(encoding="utf-8"))
+                    self.assertTrue(metadata.get("target_files"), name)
+        self.assertEqual(checked_count, 11)
+
+    def test_role_review_distinguishes_aimbot_ledger_from_47_missing_ledgers(self):
+        review = json.loads((ROOT / "docs" / "verification" /
+                             "case-role-review-2026-10-30.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(review["cases"]), 48)
+        self.assertEqual(len(review["retained_declared_witnesses"]), 11)
+        self.assertEqual(review["retained_identity_exceptions"], [])
+        self.assertEqual(sum(r["facts_jsonl_missing"] for r in review["cases"]), 47)
+        record = next(r for r in review["cases"] if r["id"] == "aimbot")
+        self.assertEqual(record["decision"], "context-only")
+        self.assertFalse(record["facts_jsonl_missing"])
+        self.assertFalse(record["target_files_registered"])
+        self.assertEqual(record["target_directory_file_count"], 0)
+        self.assertEqual(record["goal_level"], "M2")
+        self.assertEqual(record["original_depth_membership"], {
+            "declared_in_depth_gate": False, "matched_case_globs": [],
+        })
+        self.assertEqual(record["current_depth_membership"], record["original_depth_membership"])
+        case = ROOT / "Tool" / "cases" / "aimbot"
+        for name, field in (("case.json", "case_json_sha256"),
+                            ("facts.jsonl", "facts_jsonl_sha256")):
+            self.assertEqual(hashlib.sha256((case / name).read_bytes()).hexdigest(), record[field])
+        pack = json.loads((ROOT / "Tool" / "skill" / "malware-analysis" /
+                           "pack.json").read_text(encoding="utf-8"))
+        self.assertNotIn("aimbot", pack["cases"])
+        self.assertNotIn("aimbot", pack["case_roles"]["witness"])
+
+    def test_context_review_does_not_exempt_redeclared_missing_ledger_witness(self):
+        review = json.loads((ROOT / "docs" / "verification" /
+                             "case-role-review-2026-10-30.json").read_text(encoding="utf-8"))
+        for domain, name in (("firmware-iot", "firmware-iot01"),
+                             ("softseep", "项目A"), ("protocol-plugin", "plugin03")):
+            with self.subTest(domain=domain, case=name):
+                record = next(r for r in review["cases"] if r["domain"] == domain and r["id"] == name)
+                self.assertEqual(record["decision"], "context-only")
+                pack = json.loads((ROOT / "Tool" / "skill" / domain / "pack.json").read_text(encoding="utf-8"))
+                self.assertNotIn(name, pack["cases"])
+                self.assertEqual(gate.g5_evidence(pack)[0], [])
+                # A historical review is never an exemption for an explicit declaration.
+                pack["cases"].append(name)
+                pack["case_roles"]["witness"].append(name)
+                bad, info = gate.g5_evidence(pack)
+                self.assertTrue(any(name in r and "事实账无法核验" in r for r in bad), bad)
+                self.assertEqual(info["checked_cases"], pack["cases"])
+                self.assertIn(name, info["unreadable_cases"])
+
+    def test_declared_witness_missing_ledger_fails_regardless_of_identity(self):
+        self.write_facts([self.good])
+        other = Path(self.tmp.name) / "additional-witness"
+        other.mkdir()
+        (other / "artifacts").mkdir()
+        (other / "artifacts" / "run.json").write_text('{"ok": true}\n', encoding="utf-8")
+        pack = {
+            "cases": [self.case.name, other.name],
+            "case_roles": {"witness": [self.case.name, other.name], "depth_gate": [other.name]},
+            "witness": {"cmd": "python verify.py --case Tool/cases/" + self.case.name},
+            "evidence_contract": self.contracts[0][1],
+        }
+        for kind in ("historical", "fixture", "self-built", "public", "real"):
+            for outcome in ("partial", "confirmed"):
+                with self.subTest(evidence_kind=kind, outcome=outcome):
+                    (other / "case.json").write_text(json.dumps({
+                        "evidence_kind": kind, "outcome": outcome,
+                        "artifacts": ["artifacts/run.json"],
+                    }), encoding="utf-8")
+                    with patch.object(gate, "CASES_DIR", self.tmp.name):
+                        bad, info = gate.g5_evidence(pack)
+                    self.assertTrue(any(other.name in r and "事实账无法核验" in r for r in bad), bad)
+                    self.assertEqual(info["checked_cases"], pack["cases"])
+                    self.assertEqual(info["unreadable_cases"], [other.name])
+                    self.assertEqual((info["claims"], info["strong"]), (1, 1))
+
+    def test_depth_only_and_undeclared_inventory_are_not_g5_witnesses(self):
+        self.write_facts([self.good])
+        other = Path(self.tmp.name) / "depth-only-history"
+        other.mkdir()
+        (other / "case.json").write_text('{"evidence_kind": "historical"}', encoding="utf-8")
+        inventory = Path(self.tmp.name) / "undeclared-inventory"
+        inventory.mkdir()
+        # A corrupt, undeclared ledger must not be consumed through directory inventory.
+        (inventory / "facts.jsonl").write_text('{broken\n', encoding="utf-8")
+        pack = {"cases": [self.case.name],
+                "case_roles": {"witness": [self.case.name], "depth_gate": [other.name]},
+                "evidence_contract": self.contracts[0][1]}
+        with patch.object(gate, "CASES_DIR", self.tmp.name):
+            bad, info = gate.g5_evidence(pack)
+        self.assertEqual(bad, [])
+        self.assertEqual(info["checked_cases"], [self.case.name])
+        self.assertEqual(info["unreadable_cases"], [])
+
+    def test_empty_or_corrupt_additional_witness_cannot_hide_beside_good_witness(self):
+        self.write_facts([self.good])
+        other = Path(self.tmp.name) / "additional-witness"
+        other.mkdir()
+        pack = {"cases": [self.case.name, other.name],
+                "evidence_contract": self.contracts[0][1]}
+        for text in ("", '\n', '{"kind":"state","state":{}}\n', '{broken\n'):
+            with self.subTest(ledger=text):
+                (other / "facts.jsonl").write_text(text, encoding="utf-8")
+                with patch.object(gate, "CASES_DIR", self.tmp.name):
+                    bad, info = gate.g5_evidence(pack)
+                self.assertTrue(any(other.name in r and "事实账" in r for r in bad), bad)
+                self.assertEqual(info["checked_cases"], pack["cases"])
+                self.assertEqual((info["claims"], info["strong"]), (1, 1))
+
+    def test_additional_declared_witness_still_checks_each_proven_claim(self):
+        other = Path(self.tmp.name) / "additional-witness"
+        other.mkdir()
+        (other / "capture").mkdir()
+        (other / "capture" / "review.log").write_bytes(b"second witness evidence\n")
+        pack = {"cases": [self.case.name, other.name],
+                "case_roles": {"witness": [self.case.name, other.name], "depth_gate": [other.name]},
+                "evidence_contract": self.contracts[0][1]}
+        self.write_facts([self.good])
+        mutations = [dict(self.good), dict(self.good, claim=" "),
+                     dict(self.good, evidence=["capture/missing.log"]),
+                     dict(self.good, confidence="inferred"), dict(self.good, authority="reported")]
+        for index, claim in enumerate(mutations):
+            with self.subTest(claim=claim):
+                (other / "facts.jsonl").write_text(json.dumps(claim) + '\n', encoding="utf-8")
+                with patch.object(gate, "CASES_DIR", self.tmp.name):
+                    bad, info = gate.g5_evidence(pack)
+                self.assertEqual(not bad, index == 0, bad)
+                if index:
+                    self.assertTrue(any(other.name in r for r in bad), bad)
+                self.assertEqual(info["checked_cases"], pack["cases"])
+
+    def test_g2_requires_command_witness_to_belong_to_declared_witness_set(self):
+        pack = json.loads((ROOT / "Tool" / "skill" / "apkseep" / "pack.json").read_text(encoding="utf-8"))
+        self.assertEqual(gate.g2_schema(pack), [])
+        # Keep a valid declared witness but remove leaf-apk, still used by witness.cmd.
+        pack["cases"] = ["apkseep08"]
+        pack["case_roles"]["witness"] = ["apkseep08"]
+        bad = gate.g2_schema(pack)
+        self.assertTrue(any("witness --case 必须属于" in r for r in bad), bad)
+
+    def test_g2_does_not_allow_roles_to_silently_narrow_declared_witnesses(self):
+        pack = json.loads((ROOT / "Tool" / "skill" / "apkseep" / "pack.json").read_text(encoding="utf-8"))
+        pack["case_roles"]["witness"] = ["leaf-apk"]
+        bad = gate.g2_schema(pack)
+        self.assertTrue(any("case_roles.witness 必须与 cases 一致" in r for r in bad), bad)
 
     def test_g2_rejects_null_or_invalid_required_fields(self):
         base = json.loads((ROOT / "Tool" / "skill" / "apkseep" / "pack.json").read_text(encoding="utf-8"))
@@ -171,7 +332,7 @@ class EvidenceContractTests(unittest.TestCase):
             with self.subTest(package=name):
                 bad, info = self.judge(contract)
                 self.assertEqual(bad, [])
-                self.assertEqual(info, {"claims": 2, "strong": 1})
+                self.assertEqual((info["claims"], info["strong"]), (2, 1))
         self.assertEqual(gate._case_cohort(str(self.case)), {"claims": 2, "proven": 1, "strong": 1})
         self.assertEqual(case_state.verify_case(str(self.case))["strong"], 1)
         self.write_facts([dict(self.good, status="hypothesis")])

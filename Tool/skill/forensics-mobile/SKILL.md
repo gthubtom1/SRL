@@ -16,6 +16,8 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 - 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
 - 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
 
+- 子技能可调用辅域，证据与派生资产返回同一 project/version/run。Unity 的类型/地址方法可跨平台引用 `Tool/skill/apkseep/subskills/il2cpp-dump/SKILL.md`；取证域负责来源/时间/关系，native 语义可请 softseep。方法存在不代表设备与工具已就绪。真实凭据/Token/Key/Salt/私钥不采集、不输出、不落盘；认证/解密由用户侧完成，仅返回安全结果。
+
 ## 1. 范围与路由
 
 **本域输入面**
@@ -33,7 +35,7 @@ metadata: {version: "2.0.0", category: forensics-mobile, hard_gates: "授权与�
 > 载体→域 的映射**只看一处**：`Tool/skill/seep-router/SKILL.md`（本文件不复写）。
 > 本域只补两句：iOS `cryptid=1` 要先解成明文再谈内容（思路同 `unpack-loop` 的 dump 闭环）；
 > Windows PE 解壳才用 `unpack-loop`；iOS 保留本域的授权明文采集路线，Android 代码交 apkseep。
-- 恶意样本行为定性/家族归类 → `malware-analysis`；授权旁路/计费/功能解锁 → `01`–`05`。
+- 恶意样本行为定性/家族归类 → `malware-analysis`；客户端许可/功能修改 → `Tool/skill/softseep/subskills/license-bypass/SKILL.md`，Android 包修改 → `apkseep`。
 - 设备/账号/云资源清单由 `scope` 声明；在线反作弊对抗、注入/挂钩/改内存、反取证按对应授权任务执行。
 
 ## 配方（照这个跑）
@@ -216,7 +218,7 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 
 ## 11. 边界
 
-- **Android/授权旁路由邻域承担**：域归属看 router，License/计费/功能解锁在 `01`–`05`。
+- **Android/许可修改由邻域协作**：主域按用户目标决定；Android 代码/重包读 `Tool/skill/apkseep/SKILL.md`，许可审计读 `Tool/skill/softseep/subskills/license-bypass/SKILL.md`，不调用旧数字阶段名。
 - **采集范围由 `scope` 声明**：设备/账号/云资源清单由用户提供，清单内按任务执行；取证只读副本，只做可复算证据链（采集→校验→关联）。
 - **只读观测**：原件只读、副本分析、全程哈希；禁止写原件；分析报告、时间线与副本产物可写入成果目录，记录来源与哈希。
 - **失败即停**：缺时区/主体/对象、哈希不一致、原件被写、加密未解、版本不匹配 → 报“未闭环”，不把 dump/解包成功当结论。
@@ -225,4 +227,9 @@ python Tool/skill/forensics-mobile/scripts/evidence-accept.py --self-test
 ## 子技能（按需读，不常驻）
 
 本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
-当前由主域 SOP 统一覆盖，保留标准槽位供后续细分子技能敏捷挂载。
+
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **artifact-triage** | 移动终端运行时痕迹提取、沙箱元数据差分比对与行为时间线重建 | 需要全面取证移动端应用的行为痕迹、敏感信息持久化位置或重建恶意操作时间线 | `subskills/artifact-triage/SKILL.md` |
+| **db-decrypt** | 加密数据库版本/参数与用户侧解密结果核对、WAL 一致性和损坏边界 | 用户需验证 SQLite/SQLCipher/WCDB 副本；真实 Key/Salt 留在用户侧，只接收安全结果 | `subskills/db-decrypt/SKILL.md` |
+| **ios-decrypt** | iOS Mach-O 加密范围与受控设备明文采集、偏移映射及解析验证 | 具备兼容设备与采集权限时验证代码范围；缺条件时只交结构/加密范围报告 | `subskills/ios-decrypt/SKILL.md` |

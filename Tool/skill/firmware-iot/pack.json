@@ -34,20 +34,10 @@
     "seep_tool_discover"
   ],
   "cases": [
-    "firmware-iot01",
-    "firmware-iot02",
-    "firmware-iot03",
-    "firmware-iot04",
-    "firmware-iot05",
     "firmware-iot06"
   ],
   "case_roles": {
     "witness": [
-      "firmware-iot01",
-      "firmware-iot02",
-      "firmware-iot03",
-      "firmware-iot04",
-      "firmware-iot05",
       "firmware-iot06"
     ],
     "depth_gate": [

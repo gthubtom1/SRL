@@ -17,7 +17,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = ROOT / "Tool/scripts/project_archive.py"
@@ -119,6 +119,106 @@ class ArchiveFixture(unittest.TestCase):
 
     def import_bundle(self, bundle: Path, destination: Path, *extra) -> tuple[int, dict, str]:
         return invoke(ARCHIVE, "import", "--archive", bundle, "--project", destination, *extra)
+
+    @unittest.skipUnless(os.name == "nt", "real Windows ordinary-path import regression")
+    def test_windows_deep_import_refuses_before_writes_and_same_archive_recovers(self):
+        import project_archive as A
+        project = self.make_project("path-budget")
+        relative = "notes/" + "a" * 35 + "/" + "b" * 35 + "/probe.bin"
+        note = project / relative
+        note.parent.mkdir(parents=True)
+        note.write_bytes(b"same archive, same member bytes\n")
+        bundle = self.export(project)
+        archive_before = bundle.read_bytes()
+        for label, parent_length, expected_role in (("final", 175, "destination"),
+                                                     ("temporary", 140, "staging")):
+            with self.subTest(label=label):
+                parent = self.base / label
+                parent.mkdir()
+                while len(str(parent)) < parent_length:
+                    parent /= "d" * max(1, min(32, parent_length - len(str(parent)) - 1))
+                    parent.mkdir()
+                destination = parent / "r"
+                if label == "temporary":
+                    # Final file AND its deepest directory fit. Only the random
+                    # sibling staging name pushes this exact archive over budget.
+                    with zipfile.ZipFile(bundle) as archive:
+                        manifest = json.loads(archive.read("archive.json"))
+                    for row in manifest["files"]:
+                        self.assertLessEqual(len(str(destination / row["path"])), 259)
+                        self.assertLessEqual(len(str((destination / row["path"]).parent)), 247)
+                    for directory in manifest["directories"]:
+                        self.assertLessEqual(len(str(destination / directory)), 247)
+                before = list(parent.iterdir())
+                code, payload, _ = self.import_bundle(bundle, destination)
+                self.assert_refused(code, payload, destination)
+                self.assertEqual(payload["blocked_at"], "archive_path_preflight")
+                self.assertEqual(payload["error_code"], "path_limit")
+                details = payload["path_limit"]
+                self.assertEqual(details["role"], expected_role, payload)
+                self.assertGreater(details["actual"], details["maximum"])
+                self.assertEqual(details["unit"], "UTF-16 code units excluding NUL")
+                self.assertFalse(details["native_long_path_support"])
+                self.assertIn("更短", payload["reason"])
+                self.assertEqual(payload["recovery"]["action"],
+                                 "retry_same_archive_in_shorter_directory")
+                # Includes the parent lock: refusal occurs before any write.
+                self.assertEqual(list(parent.iterdir()), before)
+        destination = self.base / "short"
+        code, payload, _ = self.import_bundle(bundle, destination)
+        self.assertEqual(code, 0, payload)
+        self.assertTrue(payload["ok"])
+        self.assertEqual((destination / relative).read_bytes(), note.read_bytes())
+        self.assertEqual(bundle.read_bytes(), archive_before)
+        self.state(destination, "resume")
+        self.report(destination, "status")
+        # An unusably long root is rejected even if its parent cannot be stat'ed.
+        impossible = self.base / ("x" * 220) / "restored"
+        code, payload, _ = self.import_bundle(bundle, impossible)
+        self.assert_refused(code, payload, impossible)
+        self.assertEqual(payload["error_code"], "path_limit")
+        self.assertFalse(list(self.base.glob(A.STAGING_PREFIX + "*")))
+
+    def test_windows_budget_boundaries_unicode_and_implicit_parents(self):
+        import project_archive as A
+        from unittest.mock import patch
+        # Pure paths exercise the Windows policy on every host without asking
+        # another platform's filesystem to emulate Windows.
+        with patch.object(A, "WINDOWS_PATH_POLICY", True):
+            root = PureWindowsPath("C:/")
+            file_at_limit = root / ("a" * 128) / ("b" * 127)
+            self.assertEqual(len(str(file_at_limit)), 259)
+            A._check_import_path(file_at_limit, "destination")
+            with self.assertRaises(A.ArchivePathError) as caught:
+                A._check_import_path(PureWindowsPath(str(file_at_limit) + "x"), "destination")
+            self.assertEqual(caught.exception.details["maximum"], 259)
+            directory_at_limit = root / ("a" * 244)
+            A._check_import_path(directory_at_limit, "destination", directory=True)
+            with self.assertRaises(A.ArchivePathError):
+                A._check_import_path(PureWindowsPath(str(directory_at_limit) + "x"),
+                                     "destination", directory=True)
+            # Non-BMP characters count as two UTF-16 code units.
+            unicode_file = root / ("a" * 128) / ("\U0001f9ea" * 64)
+            self.assertLess(len(str(unicode_file)), 259)
+            with self.assertRaises(A.ArchivePathError) as caught:
+                A._check_import_path(unicode_file, "destination")
+            self.assertEqual(caught.exception.details["actual"], 260)
+            with self.assertRaises(A.ArchivePathError) as caught:
+                A._check_import_path(root / ("x" * 256), "destination")
+            self.assertEqual(caught.exception.details["metric"], "component")
+            # The file fits but its implicit directory exceeds CreateDirectory's
+            # legacy budget, even without a directories entry in the manifest.
+            relative = "a" * 243 + "/f"
+            manifest = {"directories": [], "files": [{"path": relative}]}
+            with self.assertRaises(A.ArchivePathError) as caught:
+                A._check_import_layout(PureWindowsPath("C:/r"), "staging", manifest)
+            self.assertEqual(caught.exception.details["metric"], "directory_path")
+            self.assertEqual(caught.exception.details["member"], relative)
+            manifest = {"directories": ["a" * 243], "files": []}
+            with self.assertRaises(A.ArchivePathError):
+                A._check_import_layout(PureWindowsPath("C:/r"), "staging", manifest)
+        with patch.object(A, "WINDOWS_PATH_POLICY", False):
+            A._check_import_layout(PureWindowsPath("C:/r"), "destination", manifest)
 
     def test_directory_snapshot_members_survive_relocation(self):
         source = self.base / "input-tree"

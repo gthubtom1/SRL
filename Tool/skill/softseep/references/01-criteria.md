@@ -43,7 +43,7 @@
 | 网络授权：会话绑定 | 登录/心跳请求与响应 | 多次会话令牌均不同；服务端回填时间戳；响应体随会话变化但长度恒定 → 会话绑定。三项均不命中才可尝试金样回放 | JSONL 请求/响应、令牌差异表、重放结果 | 把随机 nonce 当会话绑定；把 CDN 缓存当服务端签名 |
 | 补丁工程：等长与重定位 | 原指令、补丁指令、模块基址 | 补丁长度 ≤ 原指令槽；`jmp rel32` 目标在 ±2GB；`call [rip+disp32]` 的 disp 按**下一条指令**计算；ASLR 开启时不得写绝对 VA | 反汇编前后对照、重定位表、基址记录 | 用绝对地址写死；`rel32` 少算 5 字节；跨节跳转超过 rel32 可达范围 |
 | 注入：模块与线程 | 目标进程、注入器日志 | 目标进程模块列表出现注入模块；`CreateRemoteThread`/`QueueUserAPC` 返回成功；模块入口被执行（日志/断点）；目标未崩溃 | 模块列表、线程起始地址、日志、进程存活 | 只看到注入器返回 0；DLL 依赖缺失导致 DllMain 失败；位数不匹配 |
-| 驱动/内核：加载与通信 | `.sys`、服务控制、设备对象 | `sc create`/`StartService` 返回 0；`\Device\...` 可打开；IOCTL 返回预期 `STATUS`；`DbgView` 有加载日志；签名/测试签名状态明确 | 服务状态、设备路径、IOCTL 返回码、DbgView 日志 | 未开测试签名；驱动签名被吊销；只验证加载不验证通信 |
+| 驱动/内核：结构与既有运行证据 | `.sys`、用户提供的设备/日志 | 静态入口/dispatch/IOCTL 数据流与来源明确的既有日志互证；当前指南不执行安装/加载驱动或改签名策略 | 文件哈希、代码位置、已提供的设备/返回码/日志 | 静态可读不证明加载/通信；缺动态条件保留未验证 |
 | ARM64：调用约定与栈帧 | ARM64 二进制/进程 | 前 8 个整数参数在 X0–X7，第 9 个起入栈；返回地址在 LR(X30)；帧指针 X29；`stp x29,x30,[sp,#-N]!` 识别栈帧；`blr xN` 为间接调用 | 反汇编、寄存器快照、栈回溯 | 套用 x64 RCX/RDX；把 `x8` 当返回地址；忽略 PAC/BTI |
 | macOS Mach-O：加载与签名 | Mach-O/`.app` | `MH_MAGIC_64`/`FAT_CIGAM`；`LC_SEGMENT_64`、`LC_MAIN`、`LC_CODE_SIGNATURE` 可解析；`codesign -dvvv` 显示签名链；`otool -L` 列出依赖 | Mach-O 头 JSON、`codesign` 输出、依赖列表 | 把 fat binary 当单架构；忽略 hardened runtime |
 | ELF：动态链接与入口 | ELF 文件 | `\x7fELF`；`e_entry` 落在可执行段；`.dynamic` 含 `DT_NEEDED`；`readelf -h/-S/-d` 可解析；PIE 时记录基址 | ELF 头、段表、依赖、基址 | 把静态链接当动态；忽略 RELRO/PIE |

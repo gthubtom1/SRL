@@ -40,6 +40,7 @@ mistakes that destroy an APK while looking completely healthy.
 > **域契约**（判型→裁定+M1–M4→按上限执行→停手问）：见 `Tool/skill/seep-router/SKILL.md`（唯一口径：判型→选域→上限 M1–M4→按当前路线核缺件）。本文件不复制。
 - 项目登记、证据、验收与接续按 router 第 5 步；`case_state.py` 仅用于需要专业过闸的单案。
 - 只执行当前目标需要的阶段；缺不可替代输入才问 A/B/C，已有授权不重复询问。参考与配方不能扩大用户目标；示例案例通过只证明工具自检，不能代替当前项目验收。
+- 子技能可调用辅域；输入、派生文件、已证/未知与输出归同一 project/version/run。方法参考中的秘密采集与系统改动不作为当前执行指引：真实凭据/Token/Key/Salt/私钥由用户操作，不进入 Agent；不改系统网络、时钟或驱动。
 
 ## 配方（照这个跑）
 
@@ -172,7 +173,9 @@ snapshot dump you must obtain elsewhere and naming the front end matters · extr
 stops at the VMP boundary · a Stalker trace is not guaranteed on every device · a kernel-side answer
 requires a module this skill only scaffolds.
 
-**Not covered — say so rather than improvise:** Unity / IL2CPP · React Native / Hermes / Cordova ·
+**Unity/IL2CPP 的条件式补充路线**：本域提供 `subskills/il2cpp-dump/SKILL.md` 进行同构建类型/地址映射，可调用 softseep 与 forensics-mobile 的深度参考；工具/设备与版本支持须逐案核实，不能从导航存在推断恢复原始 C# 逻辑或全平台已验证。下列旧覆盖记录描述既有工具包的验证范围，不排除按该子技能做有边界的分析。
+
+**Not covered — say so rather than improvise:** automatic original Unity/IL2CPP method-body recovery · React Native / Hermes / Cordova ·
 iOS · defeating a server-side authority · an off-the-shelf unpacker or an anti-detection arms race ·
 building and shipping a kernel module. Reasons and evidence boundaries are in
 `references/coverage-and-limits.md`; **silence in that record is not support.**
@@ -473,7 +476,10 @@ the run record is not in front of you.
 
 | 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
 | :--- | :--- | :--- | :--- |
+| **frida-hook** | Android 移动端动态插桩、Java/Native 双层 Hook、SSL Pinning 绕过与反反调试对抗 | 需要动态观察内存参数、函数调用栈追踪、绕过客户端双向证书绑定或对抗反调试检测 | `subskills/frida-hook/SKILL.md` |
+| **dex-unpack** | Android APK 加固识别、运行时内存 DEX 转储、抽取壳主动调用还原与 DEX 文件头对齐修复 | 遇到 360/腾讯乐固/爱加密/梆梆等加固保护、DEX 加密抽取、需要转储内存中已解密的纯净 DEX | `subskills/dex-unpack/SKILL.md` |
 | **lsposed-modern** | Modern libxposed (API 100/101) 架构骨架生成、BaseDexClassLoader 动态 ClassLoader 挂钩 | Android 14/15+ 环境、Vector/LSPosed_mod、加壳或分包延迟加载类拦截 | `subskills/lsposed-modern/SKILL.md` |
+| **il2cpp-dump** | Unity IL2CPP 逆向分析、内存 global-metadata 抓取、符号复原与 IDA/Ghidra 脚本生成 | 遇到 Unity IL2CPP 编译应用、C# 业务符号被剥离或 global-metadata 被加密保护 | `subskills/il2cpp-dump/SKILL.md` |
 
 ## 失败判据 — 停手条件与"改走哪一条"的入口
 
@@ -521,7 +527,8 @@ does not ship · §Not covered），一句话口径在本文 §Coverage，逐条
   UI 配置 · 分片 APK 的统一签名与合并。
 - **有依赖、不随本技能提供**：Dart AOT 需要你自己拿到 snapshot dump（`dart_pool_strings.py` 说**文件**偏移、
   `pp.txt`/`dart_pprefs.py` 说 **pool** 偏移，两者不是常量差）。
-- **不覆盖**：Unity / IL2CPP 逻辑恢复 · React Native / Hermes 与 Cordova 内部 · iOS 与 `.ipa` ·
+- **条件式方法，不冒充已验证覆盖**：IL2CPP 类型/地址路线见 `subskills/il2cpp-dump/SKILL.md`；原始 C# 方法体恢复不在默认承诺内。
+- **不覆盖**：React Native / Hermes 与 Cordova 内部 · iOS 与 `.ipa` ·
   击穿服务端权威 · 开箱即用脱壳器与反检测军备竞赛 · 内核模块开发 · 每台设备都能跑的 Stalker trace。
 - **判据表本身**在 `references/01-criteria.md`；**一次完整的判定链走法**在
   `references/04-walkthrough-dump-to-deliverable.md`。

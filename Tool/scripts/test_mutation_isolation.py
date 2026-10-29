@@ -13,7 +13,7 @@
      且子进程 `expanduser("~")` 指向 fixture home（hook 生效）
   T5 并发无碰撞：两/三个植入并行跑，各自 fixture 互不影响，判定互不串台
   T6 故障被真实 checker 抓到：`preflight.py --fast`（真脚本、真临时仓库）对
-     "总控"植入必须**新增** FAIL 并命中判据；不是 mock
+     "总控"植入核验基线 delta；受管退役提示词必须新增目标 FAIL，不允许 unverified
   T7 不可判定 ≠ pass：checker 跑不起来时状态必须是 unverified/missed，退出码非 0
 
 只在 `TemporaryDirectory` / `mkdtemp` 里写；真实仓库与真实 `~/.pi` 只读。
@@ -50,6 +50,10 @@ class TempRepo(unittest.TestCase):
     """最小临时仓库：只放本套件真正需要的几个文件（不拷 390MB 真实树）。"""
 
     def setUp(self):
+        # 最小仓库与真实仓库用同一 checker 路径，不能复用另一测试的基线。
+        baseline_cache = patch.object(mut, "_baselines", {})
+        baseline_cache.start()
+        self.addCleanup(baseline_cache.stop)
         self.tmp = tempfile.mkdtemp(prefix="seep-mutiso-")
         self.repo = os.path.join(self.tmp, "repo")
         os.makedirs(os.path.join(self.repo, "Tool", "skill", "apkseep"))
@@ -131,9 +135,20 @@ class T3Sentinel(TempRepo):
         before = sorted(os.listdir(sentinel)), _hash_file(os.path.join(sentinel, "keep.txt"))
         fx = mut.Fixture([], "t3")
         try:
-            mut.m4(fx)  # 写的是 fixture 的 .pi/agent/prompts
-            self.assertTrue(os.path.isdir(fx.home_path(".pi", "agent", "prompts")))
+            mut.m4(fx)  # 写的是 fixture 的 .pi/agent/prompts 与所有权 manifest
+            card = fx.home_path(".pi", "agent", "prompts", "zz-mutation.md")
+            with open(fx.home_path(".pi", "agent", "seep-install-manifest.json"),
+                      encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            self.assertEqual(manifest["schema"], "seep-agent-install/1")
+            self.assertEqual(manifest["runtime_id"], "seep-reverse-lab/softseep")
+            self.assertEqual(manifest["status"], "complete")
+            self.assertEqual(manifest["source_root"], os.path.realpath(fx.root))
+            self.assertEqual(manifest["managed_files"],
+                             {"prompts/zz-mutation.md": _hash_file(card)})
+            self.assertFalse(os.path.exists(fx.path("Tool/prompts/tasks/zz-mutation.md")))
             self.assertFalse(os.path.exists(os.path.join(sentinel, "zz-mutation.md")))
+            self.assertFalse(os.path.exists(os.path.join(sentinel, "seep-install-manifest.json")))
         finally:
             fx.clean()
         after = sorted(os.listdir(sentinel)), _hash_file(os.path.join(sentinel, "keep.txt"))
@@ -268,6 +283,16 @@ class T6RealCheckerCatches(TempRepo):
             self.assertIn(rec["status"], ("unverified",))
             self.assertFalse(rec["caught"])
             self.assertTrue(rec["notes"], "不可判定必须给出原因，不能沉默")
+
+    def test_real_preflight_catches_managed_prompt_implant(self):
+        """m4 必须由真实提示词残留判据抓到，所有权错误或其它 FAIL 不能顶替。"""
+        imp = next(x for x in mut.IMPLANTS if x["id"] == "m4")
+        rec = mut.run_one(imp, mut.repo_manifest())
+        self.assertEqual(rec["status"], "caught", rec)
+        self.assertTrue(rec["caught"], rec)
+        self.assertEqual(rec["rc"], 1, rec)
+        self.assertTrue(any("提示词残留" in line and "受管残留: zz-mutation" in line
+                            for line in rec["hits"]), rec)
 
     def test_baseline_prevents_false_positive(self):
         """同一 checker 的基线 FAIL 不会被算成"抓到植入"。"""

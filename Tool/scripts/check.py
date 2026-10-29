@@ -65,7 +65,10 @@ SUITES = [
     ("route-tests", ["Tool/skill/softseep/scripts/skill-route-probe.py", "--json"], True,
      "路由探针：技能路由在中文边界上的行为"),
     ("rewrite-parity", ["Tool/scripts/rewrite-route-parity.py", "--json"], True,
-     "改写同域：客户原话被安全词表改写后仍落原域（词表从 .ts 现读，不做 Python 抄本）"),
+     "原始输入经真实扩展、中继与路由后保持正文、附件和完整主辅域集合"),
+    ("relay-tests", ["-m", "unittest", "discover", "-s",
+                     "Tool/scripts/compliance-relay/tests", "-v"], True,
+     "HTTP中继原字节、一次转发、错误传播与资源关闭"),
     ("mcp-smoke",   ["Tool/mcp/test_seep_mcp.py"], True,
      "当前 MCP 服务入口与基础工具真实烟测（缺关键环境返回未验证）"),
     ("mcp-ext-assets", ["Tool/mcp/test_ext_assets.py"], True,
@@ -98,7 +101,7 @@ SUITES = [
     ("skill-handoff-tests", ["Tool/scripts/test_skill_handoffs.py"], True,
      "缺失交接目标与旧技能名不能误报通过"),
     ("tool-dependencies", ["Tool/scripts/test_tool_dependencies.py"], True,
-     "工具依赖声明：20 个 @server.tool() 的 all_of/any_of 逐项有来源、registry_gap/L0 不被布尔掩盖"),
+     "工具依赖声明：MCP工具的all_of/any_of逐项有来源，registry_gap与未就绪状态不被布尔掩盖"),
     ("manager-integration", ["Tool/scripts/test_manager_integration.py"], True,
      "Manager 集成：敏感事件拒绝、跨进程锁、generation 隔离、证据哈希绑定、check-action（合成项目内）"),
     ("project-integration", ["Tool/scripts/test_project_integration.py"], True,
@@ -142,7 +145,7 @@ SUITES = [
     ("tool-readiness", ["Tool/scripts/tool-readiness.py"], True,
      "六工具就绪表：探测/安装计划/自检机制可用（不要求本机 6 个都 READY）"),
     ("invariants",  ["Tool/scripts/invariants.py", "--check"], True,
-     "架构不变量：11 域 × 9 条（入口唯一/能力可达/交接闭包/证据同构/等级唯一/失败可表达/见证可跑/部署等价/能力有路线）"),
+     "按当前正式域验证入口、能力、交接、证据、等级、失败、见证、部署与路线"),
     ("gate-tests",  ["Tool/scripts/test_gates.py"], True,
      "闸的行为测试：首答闸 9 + 运行回执闸 6 + 写守卫 4 + cmd-guard 8 + 熔断合法出口 2（node 真跑 TS 纯函数；缺 node 直接 FAIL）"),
     ("unit",        ["Tool/scripts/gate.py", "--all"], True,
@@ -165,7 +168,7 @@ def runtime_suites():
     """
     required = {
         "tool-contract", "domain-contract", "domain-adapter", "skill-tests",
-        "route-tests", "pre-upload", "invariants", "unit", "e2e",
+        "route-tests", "rewrite-parity", "relay-tests", "pre-upload", "invariants", "unit", "e2e",
     }
     suites = [
         ("route", ["Tool/scripts/route.py", "--check"], True, "领域路由"),

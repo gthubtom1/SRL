@@ -35,7 +35,8 @@ metadata:
 **相邻域与路由**
 
 - 目标清单由 `scope` 声明；真实生产凭据/证书只留指纹；持久化/横向移动/DoS 按单独授权单执行；
-- 纯静态算法还原交 `softseep`，协议测绘按需组合 `protocol-plugin`；
+- 纯静态算法还原可交 `softseep`，Android 载体可请 `apkseep` 提供实现位置；密码学问题仍可由本域主导。需要时组合 `protocol-plugin`，不按材料后缀强制更换主域；
+- AD/云身份权限方法见 `Tool/skill/pwn-crypto/subskills/ad-cloud/SKILL.md`，这是既有按需子技能，不是新增正式域或全能力验收；历史参考中的秘密采集与系统对时不属于当前执行指引。真实凭据由用户操作，Agent 仅核安全配置/授权决策和合成 canary，不读取 Token/Key/Salt/私钥；
 - APK/DEX/SO、Frida/脱壳/重打包（交 `apkseep`；解壳闭环在 `unpack-loop`）；
 - Web/API/JWT 业务逻辑（交 `web-pentest` 或对应 Web 技能）；
 - 智能合约（EVM）由外部审计流程承担：本域提供字节码静态分析与数学回代，链上运行时与交易证据在该流程侧；DApp API 面交 `web-pentest`；
@@ -120,7 +121,7 @@ cat /proc/sys/kernel/randomize_va_space 2>/dev/null || true
 | 3 | 堆 tcache/UAF/IO | `malloc` 返回受控 target；重叠 chunk 可见；触发不 abort；2.32+ safe-linking 编码正确 | 只泄漏堆地址；只看到 malloc/free 导入 |
 | 4 | 整数 / off-by-one | 证明回绕/越界一个对象；写入长度 > 分配；出现堆破坏状态码（如 `0xC0000374`） | 只算出 `count*size` 会回绕，程序未越界 |
 | 5 | seccomp / ORW | BPF 读全；`openat/read/write` 序列与白名单一致；stdout 含 flag | 只看到 `seccomp` 字符串或导入 |
-| 6 | 密码学（RSA/分组/PRNG） | `pow(m,e,n)==c`；广播每组回代 + `m^e<M`；ECB 重复块；CBC `before^after==xor`；MT 下 N 个逐位一致 | `iroot` 得到可打印字节但未回代；只看到“像随机” |
+| 6 | 密码学（RSA/分组/PRNG） | 精确整数根及每组 RSA 回代；模式前提+受控输入输出；PRNG 留出段逐位预测；详见 `subskills/crypto-attack/SKILL.md` | 只见重复块/高熵；仅模回代而根不精确；可打印但无结构/前提 |
 | 7 | 稳定性 / 交付 | 全新进程/连接 10 次≥9；远程有 flag/root 证据；失败路线已记录 | 一次成功、gdb 下成功、本地关 ASLR 成功 |
 | 8 | TOCTOU / 文件竞态 | 同一用户可控路径 ≥2 次解析；竞态 win/rounds 可统计（如 win=7/200）+ post-use 原语可复算（读到 root 文件/写入 root 路径回读/更高权限 `id`） | 只有静态候选；崩溃但无对象替换；目标用 fd 操作（`O_NOFOLLOW`/`mkstemp`） |
 
@@ -295,10 +296,13 @@ python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 > 边界再强调：本技能只用于授权实验室资产；不伪造“稳定 9/10”，不隐藏失败，
 > 不把本地关 ASLR 的结果当远程结论，不把 PE 当 ELF 套保护位术语。
 
+- 主域/子技能可组合辅域，资产、参数前提、原始安全输出、反证与结果回同一 project/version/run；子技能库存不提升成熟度。
+
 ## 子技能（按需读，不常驻）
 
 本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
 
 | 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
 | :--- | :--- | :--- | :--- |
-| **ad-cloud** | 域内枚举与 BloodHound、Kerberoasting/AS-REP、ADCS ESC1-17、NTLM relay 认证利用 | 内网渗透、活动目录、云凭据与权限提升 | `subskills/ad-cloud/SKILL.md` |
+| **crypto-attack** | 现代应用弱密码学漏洞挖掘、加密模式缺陷分析与算法还原 | 需要逆向分析程序中的自定义加解密、识别常见分组密码模式缺陷（ECB/Padding Oracle）或伪随机数漏洞 | `subskills/crypto-attack/SKILL.md` |
+| **ad-cloud** | 既有 AD/云身份与权限链方法、遥测/合成 canary 对照 | 明确属于当前 scope 的身份权限问题；真实认证由用户操作，工具与环境另核 | `subskills/ad-cloud/SKILL.md` |

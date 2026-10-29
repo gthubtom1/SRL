@@ -56,6 +56,39 @@ class HandoffTests(unittest.TestCase):
             result = H.check(root)
             self.assertFalse(result["ok"])
             self.assertIn("歧义", result["problems"][0]["reason"])
+    def test_nested_navigation_and_child_resource_are_checked(self):
+        with tempfile.TemporaryDirectory(prefix="seep-handoff-nested-") as td:
+            root = Path(td)
+            parent = root / "Tool/skill/active/SKILL.md"
+            child = parent.parent / "subskills/method/SKILL.md"
+            helper = child.parent / "scripts/probe.py"
+            helper.parent.mkdir(parents=True)
+            parent.write_text("读取 `subskills/method/SKILL.md`", encoding="utf-8")
+            child.write_text("运行 [辅助脚本](scripts/probe.py)", encoding="utf-8")
+            helper.write_text("print('fixture')", encoding="utf-8")
+            result = H.check(root)
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(result["skills"], 1)
+            self.assertEqual(result["subskills"], 1)
+            helper.unlink()
+            result = H.check(root)
+            self.assertFalse(result["ok"])
+            self.assertTrue(any(Path(p["file"]).as_posix().endswith("method/SKILL.md")
+                                for p in result["problems"]))
+            child.unlink()
+            self.assertFalse(H.check(root)["ok"])
+
+    def test_relative_escape_is_rejected_and_templates_are_not_files(self):
+        with tempfile.TemporaryDirectory(prefix="seep-handoff-escape-") as td:
+            root = Path(td)
+            skill = root / "Tool/skill/active/SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("例 `scripts/<target>.py`、`references/*.md`", encoding="utf-8")
+            self.assertTrue(H.check(root)["ok"])
+            skill.write_text("读取 `../../../../outside.md`", encoding="utf-8")
+            result = H.check(root)
+            self.assertFalse(result["ok"])
+            self.assertIn("越出", result["problems"][0]["reason"])
 
 
 if __name__ == "__main__":

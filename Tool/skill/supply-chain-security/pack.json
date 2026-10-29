@@ -36,18 +36,10 @@
     "seep_kb_read"
   ],
   "cases": [
-    "supply-chain01",
-    "supply-chain02",
-    "supply-chain03",
-    "supply-chain04",
     "supply-chain05"
   ],
   "case_roles": {
     "witness": [
-      "supply-chain01",
-      "supply-chain02",
-      "supply-chain03",
-      "supply-chain04",
       "supply-chain05"
     ],
     "depth_gate": [

@@ -84,5 +84,5 @@
 
 ## 交叉引用
 
-- 打法：`Tool/skill/_pending/00-analysis/SKILL.md`
+- 主域／辅域方法：填写本次实际使用的技能、子技能及参考路径；按目标选用，不预设PE或授权分析路线。
 - 上一份模板：`Tool/prompts/templates/triage.md`

@@ -45,7 +45,7 @@ python Tool/scripts/env-check.py
 | MANUAL 手册 | 执行检查 | 16 |
 | MCP 主服务行数 | 执行检查 | 3200 |
 | first-party 引擎文件 | 执行检查 | 1150 |
-| 案例库文件 | 执行检查 | 1500 |
+| 案例库文件 | 执行检查 | 1700 |
 
 ```bash
 python Tool/scripts/budget.py --json

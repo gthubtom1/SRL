@@ -1,7 +1,7 @@
 {
   "schema": "seep.pack/1",
   "id": "softseep",
-  "l1": "任何逆向/白盒/许可/脱壳/UI 二开任务的阶段通用二进制：判型、阶段闸、交付分级；无更具体匹配时兜底。",
+  "l1": "通用软件与二进制逆向：PE/ELF/Mach-O、托管运行时、JS/wasm、脱壳、算法与补丁；按目标需要调用辅域。",
   "routes": [
     {
       "label": "LLM / Agent 协议安全（MCP/A2A）",
@@ -71,7 +71,7 @@
     {
       "label": "逆向工程 / PE 二进制 / 补丁与脱壳",
       "must": [
-        "(?is)^(?!.*(?:(?<![a-z0-9])(?:dump|oep|scylla)(?![a-z0-9])|pe-sieve|内存转储|转储)).*(?:(?<![a-z0-9])(?:pe32\\+?|mz|dll|exe|sys|clr|rva|iat|ida)(?![a-z0-9])|e_lfanew|tls\\s*callback|bsjb|节表|导入表|导出表|x64dbg|ghidra|radare2|rizin|frida|windbg|pe-bear|ilspy|dnspy|脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|trampoline|code\\s*cave|hook\\s*(?:api|函数|dll|表|inline|detour|导入)|wasm|wasm2c|wabt|eac|easyanticheat|battleye|vanguard|反作弊|授权锁|ultralock|hvci|kdp|vmprotect|themida|winlicense|upx|aspack|mpress|enigma)"
+        "(?is)^(?!.*(?:(?<![a-z0-9])(?:dump|oep|scylla)(?![a-z0-9])|pe-sieve|内存转储|转储)).*(?:(?<![a-z0-9])(?:pe32\\+?|mz|dll|exe|sys|clr|rva|iat|ida)(?![a-z0-9])|e_lfanew|tls\\s*callback|bsjb|gameassembly|(?:windows|\\bpc\\b).{0,20}(?:unity|il2cpp)|(?:unity|il2cpp).{0,20}(?:windows|\\bpc\\b)|节表|导入表|导出表|x64dbg|ghidra|radare2|rizin|frida|windbg|pe-bear|ilspy|dnspy|脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|trampoline|code\\s*cave|hook\\s*(?:api|函数|dll|表|inline|detour|导入)|wasm|wasm2c|wabt|eac|easyanticheat|battleye|vanguard|反作弊|授权锁|ultralock|hvci|kdp|vmprotect|themida|winlicense|upx|aspack|mpress|enigma)"
       ],
       "priority": 155
     },
@@ -214,23 +214,11 @@
     "seep_packer_detect"
   ],
   "cases": [
-    "golden-crackme",
-    "_p2fixture",
-    "案例-真实补丁a",
-    "项目A",
-    "项目B",
-    "项目I",
-    "案例-6.9换肤壳"
+    "golden-crackme"
   ],
   "case_roles": {
     "witness": [
-      "golden-crackme",
-      "_p2fixture",
-      "案例-真实补丁a",
-      "项目A",
-      "项目B",
-      "项目I",
-      "案例-6.9换肤壳"
+      "golden-crackme"
     ],
     "depth_gate": [
       "案例-6.9换肤壳",
@@ -278,11 +266,11 @@
     ]
   },
   "limitations": [
-    "本身不是领域能力：只做阶段契约与交付判定，领域细节必须落到 8 个域包之一",
-    "无证据时拒绝出报告（S2）"
+    "通用二进制域的方法依赖载体、保护与当前工具；不能把单个PE见证推广到全部运行时",
+    "静态观察不证明动态行为、补丁可用或原始源码恢复；报告需分别写明已证、推断与未知"
   ],
   "invalidation": [
-    "目标已明确落到某个域包 → 以域包判据为准，本包只做阶段闸"
+    "用户目标由其他领域主导时作为辅域解释二进制或算法，结果回到同一项目；不以通用阶段闸取代主域判据"
   ],
   "project_lifecycle": {
     "entry": "Tool/scripts/project_state.py",

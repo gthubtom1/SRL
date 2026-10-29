@@ -64,7 +64,7 @@ ROLE_THIRD = "thirdparty_input"
 EXCLUDE_ROOTS = (
     ("Tool/upstream", "vendor: 上游仓库整树（F6 上游隔离边界）"),
     ("Tool/mcp/Tool", "vendor: 随包第三方工具树（F1 冻结骨架）"),
-    ("Tool/cases", "data: 案例库，独立预算 1500"),
+    ("Tool/cases", "data: 案例库，预算由 budget.py 独立核验"),
     ("Tool/work", "runtime: 工作区产物"),
     ("Tool/audit", "runtime: 审计产物"),
     ("tmp", "runtime: 仓库根临时产物（不计入引擎预算）"),

@@ -10,7 +10,7 @@ metadata:
   references: "references/01-criteria.md, references/02-failure-criteria.md, references/03-model-pitfalls.md, references/04-walkthrough-chrome-extension.md, references/browser-extension.md, references/ide-plugins.md, references/electron-and-asar.md, references/unity-and-mods.md, references/desktop-plugins.md"
 ---
 
-> **路由范围**：本文件为按需子技能，不是第十领域，不宣称旧 R 编号已注册。按具体目标由九领域主域调用，证据返回同一项目。阴性结果可完成有界评估；不能强求发现漏洞或实际提权。真实凭据/私钥不读取、不提取、不试用；权限链用配置、审计元信息或合成 canary 验证。
+> **路由范围**：本文件为按需子技能，不是第十领域，不宣称旧 R 编号已注册。按具体目标由九领域主域调用，证据返回同一 project/version/run。阴性结果可完成有界评估；不能强求发现漏洞或实际提权。真实凭据/私钥不读取、不提取、不试用；权限链用配置、审计元信息或合成 canary 验证。
 
 # plugin-targets — 插件 / 扩展 / Mod（按需子技能）
 
@@ -21,7 +21,7 @@ metadata:
 
 | 本域输入面 | 相邻域（由谁承担） |
 |---|---|
-| 浏览器扩展 `.crx`/`.xpi`/商店安装目录（MV2/MV3） | 普通网页 JS 签名/补环境 → `mcp-js-reverse-playbook` |
+| 浏览器扩展 `.crx`/`.xpi`/商店安装目录（MV2/MV3） | 普通网页 JS 签名/补环境 → `Tool/skill/softseep/SKILL.md`，配方 `Tool/playbooks/web-api-sign-reverse.md` |
 | VS Code/Cursor `.vsix`、JetBrains `.jar` | 纯协议/抓包/分帧/状态机/重放 → `protocol-plugin`（R24） |
 | Electron `app.asar`/`resources/app`、preload、`.node`/`.jsc` | APK 壳/重打包/Xposed 模块深拆 → `apkseep` |
 | Unity BepInEx/MelonLoader（Mono/IL2CPP）、Harmony patch | PE 壳/反调试/驱动二进制深挖 → `unpack-loop`/`softseep` |

@@ -9,8 +9,9 @@ import re
 def check(root=None):
     root = Path(root or Path(__file__).resolve().parents[2])
     skills = root / "Tool/skill"
-    active = sorted(p for p in skills.glob("*/SKILL.md") if not p.parent.name.startswith("_"))
-    deployed = {p.parent.name for p in active}
+    parents = sorted(p for p in skills.glob("*/SKILL.md") if not p.parent.name.startswith("_"))
+    active = sorted({p for parent in parents for p in parent.parent.rglob("SKILL.md")})
+    deployed = {p.parent.name for p in parents}
     archived = {p.parent.name for p in (skills / "_pending").rglob("SKILL.md")} - deployed
     archived_by_prefix = {}
     for name in archived:
@@ -19,7 +20,10 @@ def check(root=None):
     problems, references, archive_refs, short_archive_refs = [], 0, 0, 0
     for skill in active:
         for line_no, line in enumerate(skill.read_text(encoding="utf-8-sig").splitlines(), 1):
-            for span in re.findall(r"`([^`\n]+)`", line):
+            spans = re.findall(r"`([^`\n]+)`", line)
+            linked = re.findall(r"\[[^\]]+\]\(([^\s)]+)(?:\s+\"[^\"]*\")?\)", line)
+            spans += linked
+            for span in spans:
                 if span in archived and re.search(r"交|技能|→|转|读|裁定|承担", line):
                     problems.append({"file": str(skill.relative_to(root)), "line": line_no,
                                      "target": span, "reason": "旧技能未部署；使用正式技能名或完整源码路径"})
@@ -29,6 +33,26 @@ def check(root=None):
                     if not (root / target).is_file():
                         problems.append({"file": str(skill.relative_to(root)), "line": line_no,
                                          "target": target, "reason": "源码交接目标不存在"})
+                # Resolve domain navigation and each child's own resources from
+                # the document directory, not from cwd or the repository root.
+                # Command examples and templated paths are not file declarations.
+                relative = span.split("#", 1)[0]
+                is_local_link = (span in linked and not span.startswith("Tool/")
+                                 and not re.match(r"^(?:[a-zA-Z][\w+.-]*:|#)", span))
+                if ((is_local_link or re.match(r"^(?:subskills/|references/|scripts/|\.\./|\./)", relative))
+                        and not re.search(r"[\s<>*{}|]", relative)
+                        and Path(relative).suffix in (".md", ".py", ".json", ".ps1", ".sh", ".js")):
+                    references += 1
+                    candidate = (skill.parent / relative).resolve()
+                    try:
+                        candidate.relative_to(root.resolve())
+                    except ValueError:
+                        reason = "相对交接目标越出项目根"
+                    else:
+                        reason = "相对交接目标不存在" if not candidate.is_file() else ""
+                    if reason:
+                        problems.append({"file": str(skill.relative_to(root)), "line": line_no,
+                                         "target": span, "reason": reason})
                 if span.startswith("_pending/"):
                     problems.append({"file": str(skill.relative_to(root)), "line": line_no,
                                      "target": span, "reason": "归档参考需使用 Tool/skill/_pending 完整源码路径"})
@@ -48,7 +72,8 @@ def check(root=None):
                             "target": span,
                             "reason": "两位归档简写有歧义：" + ",".join(matches),
                         })
-    return {"ok": not problems, "skills": len(active), "source_references": references,
+    return {"ok": not problems, "skills": len(parents),
+            "subskills": len(active) - len(parents), "source_references": references,
             "archived_source_references": archive_refs,
             "archived_short_references": short_archive_refs, "problems": problems}
 

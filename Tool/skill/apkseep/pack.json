@@ -82,7 +82,7 @@
   ],
   "invalidation": [
     "目标不是 Android 载体",
-    "需要脱壳且脱壳失败两次 → 转 malware-analysis"
+    "需要脱壳且同形状失败两次 → 重新判断保护、工具与环境，换路线或说明阻断；仅判恶目标转malware-analysis主导"
   ],
   "project_lifecycle": {
     "entry": "Tool/scripts/project_state.py",
