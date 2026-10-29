@@ -344,6 +344,22 @@
         "15-decision/failure-criteria.md"
       ],
       "priority": 9
+    },
+    {
+      "id": "multiversion-signature",
+      "signals": [
+        "多版本特征码",
+        "特征码收窄",
+        "共同稳定区",
+        "数据段漂移",
+        "滑动汉明距离",
+        "signature narrowing",
+        "padding drift"
+      ],
+      "files": [
+        "10-license-keygen/10-multiversion-signature-narrowing.md"
+      ],
+      "priority": 10
     }
   ]
 }

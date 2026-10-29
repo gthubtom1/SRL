@@ -287,6 +287,5 @@ python Tool/skill/firmware-iot/scripts/fw-accept.py --self-test
 
 ## 子技能（按需读，不常驻）
 
-本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
-
-- `Tool/skill/_pending/00-triage/SKILL.md` —— 先出固件/设备画像
+本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
+当前由主域 SOP 统一覆盖，保留标准槽位供后续细分子技能敏捷挂载。

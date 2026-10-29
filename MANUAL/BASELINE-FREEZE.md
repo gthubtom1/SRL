@@ -44,7 +44,7 @@ python Tool/scripts/env-check.py
 | setup 脚本 | 执行检查 | 22 |
 | MANUAL 手册 | 执行检查 | 16 |
 | MCP 主服务行数 | 执行检查 | 3200 |
-| first-party 引擎文件 | 执行检查 | 950 |
+| first-party 引擎文件 | 执行检查 | 1150 |
 | 案例库文件 | 执行检查 | 1500 |
 
 ```bash

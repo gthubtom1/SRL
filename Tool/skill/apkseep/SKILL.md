@@ -469,9 +469,11 @@ the run record is not in front of you.
 
 ## 子技能（按需读，不常驻）
 
-本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
 
-- `Tool/skill/_pending/00-triage/SKILL.md` —— 先出 APK 画像
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **lsposed-modern** | Modern libxposed (API 100/101) 架构骨架生成、BaseDexClassLoader 动态 ClassLoader 挂钩 | Android 14/15+ 环境、Vector/LSPosed_mod、加壳或分包延迟加载类拦截 | `subskills/lsposed-modern/SKILL.md` |
 
 ## 失败判据 — 停手条件与"改走哪一条"的入口
 

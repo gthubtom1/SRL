@@ -17,15 +17,17 @@ metadata:
 
 > **判型 / 选域 / 上限（M1–M4）/ 必问三件** → 见 `Tool/skill/seep-router/SKILL.md`（唯一口径）。本文件只讲**通用二进制（PE/ELF/Mach-O/.NET/Go/Rust/Electron/wasm）**的具体手艺。
 
-> **本域不含**：文档治理（`Tool/skill/_pending/doc-hygiene`）与 LLM/Agent 安全（`Tool/skill/_pending/llm-security`）。遇到这类需求先回 `seep-router`，由它指路。
+## 🧭 本领域专业子技能导航（Sub-Skills Index）
 
-## 先看这一条（S3 索引改革之后）
+本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）。当任务具备以下特征时，按路径加载对应子技能：
 
-正式领域以 `pack.json` 注册表为准；另部署判型层 `seep-router` 与 Windows PE 横切技能 `unpack-loop`。
-
-阶段文案、IDA/r2 用法、站点复刻、插件/AD/LLM 等子技能在仓库
-`Tool/skill/_pending/<name>/SKILL.md`：不预载，需要时**按路径直接读**。
-本文件出现 `Tool/skill/_pending/...` 的地方，就是「需要细节时去读那一份」，不是「加载一个技能」。
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **exe-reverse** | Windows PE 深度分析、节区重排、IAT 修复、特征码滑窗扫描、补丁回读断言 | 分析 `.exe`/`.dll`、遇反分析代码、需要精准补丁断言 | `subskills/exe-reverse/SKILL.md` |
+| **multiver-aob** | 多版本 AOB 共同稳定区自动计算、汉明距离定位、双态唯一性 1/1 强校验 | 软件升级导致代码非均匀漂移、需要输出跨版本特征码 | `subskills/multiver-aob/SKILL.md` |
+| **ida-reverse** | IDA Pro 无缝协同、反编译伪代码提取、交叉引用分析 | 复杂控制流平坦化、函数级深入语义分析 | `subskills/ida-reverse/SKILL.md` |
+| **binary-diff** | 跨版本二进制差分比对、函数匹配、符号迁移 | 补丁分析、版本差异定位 | `subskills/binary-diff/SKILL.md` |
+| **license-bypass**| 客户端授权逻辑识别、卡密弹窗跳过、本地凭据状态定位 | 绕过注册框、去除试用期锁定 | `subskills/license-bypass/SKILL.md` |
 
 ## 调度总流程
 
@@ -200,7 +202,7 @@ metadata:
 ### 七道门（G0–G6）
 
 > **只在这一处定义**：`Tool/skill/softseep/references/license-validation.md` §0「执行顺序门」。
-> 本文件不再复制表格（上一版两份逐字重复，已合并）。做授权/卡密类目标时按 R2 → `Tool/skill/_pending/01-gate-bypass/SKILL.md`（阶段① 授权旁路），
+> 本文件不再复制表格（上一版两份逐字重复，已合并）。做授权/卡密类目标时按 R2 → `subskills/license-bypass/SKILL.md`（阶段① 授权旁路），
 > 由它在需要时加载该参考卷。
 
 ### 门 → 决策树映射
@@ -301,4 +303,4 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 
 主辅域由 router 与正式 pack 注册表确定，不在本域维护第二份领域表。只做用户目标需要的分析/修改阶段，按适用判据验收；仓内案例自检不代替客户材料上的结果。
 
-**子技能（按需读，不常驻）**：`Tool/skill/_pending/00-triage/SKILL.md` 快筛画像 · `Tool/skill/_pending/binary-diff/SKILL.md` 跨版本差分 · `Tool/skill/_pending/version-migration/SKILL.md` 追版 · `Tool/skill/_pending/ida-reverse/SKILL.md` IDA 深挖 · `Tool/skill/_pending/doc-hygiene/SKILL.md` 文档治理 · `Tool/skill/_pending/pm-plan/SKILL.md` 规划/拆任务/排优先级。
+**子技能（按需读，不常驻）**：见正文顶部【子技能导航表】，按需读取 `subskills/exe-reverse`、`subskills/multiver-aob`、`subskills/ida-reverse`、`subskills/binary-diff`、`subskills/license-bypass`。

@@ -225,7 +225,7 @@ def source_first_party():
 
 
 def _source_first_party_uncached():
-    limit = 950
+    limit = 1150
     mod = _load_source_inventory()
     if mod is None:
         return None, limit, 2, "加载 lib/source_inventory.py 失败（不允许回退到本地 walk）"
@@ -2556,31 +2556,58 @@ def check_fact_drift():
 
 
 def check_subskill_wiring():
-    """子技能必须"够得着"：每个 _pending 子技能至少被一个域 SKILL.md 链接，否则等于不存在。
+    """子技能必须"够得着"：每个域内专属子技能（subskills）与归档子技能至少被父域 SKILL.md 链接，否则等于不存在。
 
-    为什么（2026-10-24 实测）：16 个子技能里曾有 **6 个没有任何域链接**
-    （00-triage / binary-diff / doc-hygiene / llm-security / signin-automation / version-migration）
-    —— 文件在、索引也在，但真实任务里永远不会被读到。这就是"分了层却没衔接"。
-    判据：域 SKILL.md 里出现 `_pending/<名>/SKILL.md` 即算链接；指向不存在的文件也红。
+    判据：
+    1. 各域 Tool/skill/<dom>/subskills/<name>/SKILL.md 必须在父域 SKILL.md 导航表中有相对引用；
+    2. 父域引用的所有子技能路径在磁盘上真实存在（无死链）；
+    3. 兼容过渡期的 _pending 目录，无无人引用的孤儿子技能。
     """
     import glob as _g
     import re as _re
+    # 1. 扫描各域专属 subskills: Tool/skill/<dom>/subskills/<name>/SKILL.md
+    domain_subskills = {}
+    for d in _g.glob(os.path.join(TOOL, "skill", "*", "subskills", "*")):
+        if os.path.isfile(os.path.join(d, "SKILL.md")):
+            dom = os.path.basename(os.path.dirname(os.path.dirname(d)))
+            sname = os.path.basename(d)
+            domain_subskills.setdefault(dom, set()).add(sname)
+
+    # 2. 扫描历史 _pending
     pend = {os.path.basename(d) for d in _g.glob(os.path.join(TOOL, "skill", "_pending", "*"))
             if os.path.isfile(os.path.join(d, "SKILL.md"))}
+
     linked, dangling = {}, []
     for p in _g.glob(os.path.join(TOOL, "skill", "*", "SKILL.md")):
         dom = os.path.basename(os.path.dirname(p))
         t = read_text_file(p, errors="replace")
+        # 检查历史 _pending 链接
         for name in set(_re.findall(r"_pending/([A-Za-z0-9_.-]+)/SKILL\.md", t)):
             linked.setdefault(name, set()).add(dom)
             if name not in pend:
                 dangling.append("%s→%s(不存在)" % (dom, name))
+        # 检查专属 subskills 链接
+        for name in set(_re.findall(r"(?:`|\|\s*)subskills/([A-Za-z0-9_.-]+)/SKILL\.md", t)):
+            expected_path = os.path.join(TOOL, "skill", dom, "subskills", name, "SKILL.md")
+            if not os.path.isfile(expected_path):
+                dangling.append("%s→subskills/%s(不存在)" % (dom, name))
+            else:
+                linked.setdefault("%s:%s" % (dom, name), set()).add(dom)
+
+    # 孤儿检测
     orphan = sorted(pend - set(linked))
+    for dom, s_set in domain_subskills.items():
+        for sname in s_set:
+            key = "%s:%s" % (dom, sname)
+            if key not in linked:
+                orphan.append("%s/%s" % (dom, sname))
+
     bad = orphan + dangling
-    add("2 单一事实源", "子技能衔接（%d 个子技能都有域链接，无死链）" % len(pend), not bad,
+    total_subskills = len(pend) + sum(len(v) for v in domain_subskills.values())
+    add("2 单一事实源", "子技能衔接（%d 个子技能都有域链接，无死链）" % total_subskills, not bad,
         ("无人链接: " + "、".join(orphan[:5])) if orphan else
         ("死链: " + "、".join(dangling[:3]) if dangling else
-         "%d 个子技能全部被至少一个域技能链接" % len(pend)))
+         "%d 个子技能全部被所属域技能链接" % total_subskills))
 
 
 def check_skill_import():

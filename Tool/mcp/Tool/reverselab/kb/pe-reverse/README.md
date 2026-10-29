@@ -12,6 +12,7 @@
 - [01-pe-unpack-dump.md](techniques/05-crypto-unpack/01-pe-unpack-dump.md)
 - [01-code-patching.md](techniques/08-patch/01-code-patching.md)
 - [02-validation-function-location.md](techniques/10-license-keygen/02-validation-function-location.md)
+- [10-multiversion-signature-narrowing.md](techniques/10-license-keygen/10-multiversion-signature-narrowing.md)
 - [failure-criteria.md](techniques/15-decision/failure-criteria.md)
 - [attack-network.md](techniques/attack-network.md)
 

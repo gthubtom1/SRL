@@ -290,6 +290,14 @@ HTTP 交接可使用已连接的 MCP `seep_pcap_extract(pcap_path, mode="http")`
 
 **最后一条**：报告里每个"已确认"都要能指回证据；指不回去的，写"推断"，不要写成结论。
 
+## 🧭 本领域专业子技能导航（Sub-Skills Index）
+
+本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
+
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **plugin-targets** | 浏览器扩展（Chrome/Firefox MV2/MV3）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity BepInEx 目标分析 | 插件/扩展包审计、权限面与加载链定位 | `subskills/plugin-targets/SKILL.md` |
+
 ## 跨域组合（按需加载，不常驻）
 
 - 浏览器扩展、IDE 插件、Electron asar 或游戏 Mod：使用 `Tool/playbooks/plugin-analysis.md` 定位包型、入口、权限面和加载链；原生载荷组合 `softseep`。

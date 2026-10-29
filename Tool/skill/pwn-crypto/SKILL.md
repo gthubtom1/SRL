@@ -297,6 +297,8 @@ python Tool/skill/pwn-crypto/scripts/pwn-accept.py --self-test
 
 ## 子技能（按需读，不常驻）
 
-本域相关子技能放在 `Tool/skill/_pending/`（不占常驻上下文，需要时再读）：
+本域相关子技能放在 `subskills/` 目录中（按需读取，零预载）：
 
-- `Tool/skill/_pending/00-triage/SKILL.md` —— 先出二进制保护与靶场画像
+| 技能名称 | 核心功能与解决的问题 | 触发场景 / 适用特征 | 所属相对路径 |
+| :--- | :--- | :--- | :--- |
+| **ad-cloud** | 域内枚举与 BloodHound、Kerberoasting/AS-REP、ADCS ESC1-17、NTLM relay 认证利用 | 内网渗透、活动目录、云凭据与权限提升 | `subskills/ad-cloud/SKILL.md` |

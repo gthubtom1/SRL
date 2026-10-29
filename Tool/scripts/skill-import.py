@@ -108,13 +108,13 @@ NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{1,40}")
 RESERVED_NAMES = {"_pending", STAGING_NAME, BACKUP_NAME, "."}
 # 父 SKILL.md 里**唯一**允许被插入子技能行的锚点（9 个域都有这一行）
 PARENT_ANCHOR = "本域相关子技能放在"
-# 兼容口径：`_pending/<child>/SKILL.md` 是 `../_pending/<child>/SKILL.md` 的子串
-PENDING_LINK_RE = re.compile(r"_pending/([A-Za-z0-9_.-]+)/SKILL\.md")
+# 兼容口径：匹配 _pending 与专属 subskills
+PENDING_LINK_RE = re.compile(r"(?:_pending|subskills)/([A-Za-z0-9_.-]+)/SKILL\.md")
 # 部署侧引用（父部署 SKILL.md → 复制进来的子技能入口文档）
 DEPLOY_REF_RE = re.compile(r"references/imported-subskills/([A-Za-z0-9_.-]+)/GUIDE\.md")
-REPO_REF_TMPL = "../_pending/%s/SKILL.md"
+REPO_REF_TMPL = "subskills/%s/SKILL.md"
 DEPLOY_REF_TMPL = "references/imported-subskills/%s/GUIDE.md"
-REF_BULLET_RE = re.compile(r"^\s*-\s+`[^`]*(?:_pending|imported-subskills)/[^`]+`")
+REF_BULLET_RE = re.compile(r"^\s*-\s+`[^`]*(?:_pending|subskills|imported-subskills)/[^`]+`")
 
 # 部署侧 import-map.json 的**权威**字段（IMPORT-03 / R-NEW-1）：
 # 这些都是身份/入口/映射声明，必须参与核验，不能只抄进回执。
@@ -1538,7 +1538,7 @@ def plan_import(opts):
         plan["parent"] = {"domain": parent, "skill_md": pp, "anchor": PARENT_ANCHOR,
                           "repo_ref": REPO_REF_TMPL % name,
                           "deploy_ref": DEPLOY_REF_TMPL % name}
-        plan["target"] = os.path.join(skill_dir, "_pending", name)
+        plan["target"] = os.path.join(skill_dir, parent, "subskills", name)
     else:  # domain
         if pack is None:
             raise Refuse(4, "why_not_domain",

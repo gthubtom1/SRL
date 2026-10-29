@@ -8,7 +8,7 @@
 
 - **正式域**：`Tool/skill/<domain>/pack.json` 的 `id`，当前 9 个。只有正式域进入正式路由、`domain_spec` 和领域适配器；新增正式域必须有 pack，不得只在矩阵里写名字。
 - **横切技能**：例如 `seep-router`、`unpack-loop`。它们可以被多个正式域复用，但不是客户可见的独立域，也不计入正式域数量。
-- **pending 子技能**：`Tool/skill/_pending/` 下按 `pending_patterns` 发现的技能。它们是候选或历史资产，不代表已接入路由、部署或行为能力。
+- **域内专属子技能**：`Tool/skill/<domain>/subskills/<name>/`。它们是归属于具体正式领域的细分专业技能，由父领域的【子技能导航表】按需相对引用；不作为顶层独立技能部署，零预载、零上下文污染。旧 `_pending` 全局归档模式已彻底废弃。
 
 旧名字放在 `aliases`，必须同时写 `alias_to` 和 `status`。保留旧配方、矩阵、任务卡和案例内容是兼容策略；保留不等于 alias 成为正式域。修改域索引后运行：
 
@@ -101,7 +101,7 @@ python Tool/scripts/skill-import.py status --skill-dir Tool/skill [--deploy-root
 |---|---|---|---|
 | `domain` | **必须**有 `pack.json`，`id == 目录名`，且过真实 `gate.g2_schema` + `route.check`（死路由/坏正则/重复优先级/SKILL.md 在场） | `Tool/skill/<name>/` | 还要路由可发现 + 部署 hash 一致 + **全局领域契约与部署验证通过** |
 | `crosscutting` | 显式声明（或已在 `domain-aliases.json#cross_cutting`） | `Tool/skill/<name>/` | 只代表"已部署可达"，不是客户可见正式域 |
-| `subskill` | **必须** `--parent <真实 pack 域>`，父 SKILL.md 锚点唯一 | `Tool/skill/_pending/<name>/` | 永不：不部署成顶层技能、不自动选中（父域**按需**可达 ≠ 全局选中） |
+| `subskill` | **必须** `--parent <真实 pack 域>`，父 SKILL.md 锚点唯一 | `Tool/skill/<parent>/subskills/<name>/` | 永不：不部署成顶层独立技能、不自动全局选中（进入父域后**按需**引导读取） |
 | `tool` | `--from` 是 tool manifest | 无（只声明） | 永不：只报 `declared` / `registered` / `not_available` |
 
 **事务顺序**：`plan → 多资源锁 → journal(intent) → stage(同卷) → validate → commit(备份+改名) → 父引用 → deploy(逐 root 同卷) → verify → receipt`。
@@ -125,7 +125,7 @@ python Tool/scripts/skill-import.py status --skill-dir Tool/skill [--deploy-root
 
 | 侧 | 写在哪 | 那一行长什么样 | 为什么 |
 |---|---|---|---|
-| 仓库 | `Tool/skill/<parent>/SKILL.md` | `` - `../_pending/<child>/SKILL.md` —— 何时读 `` | 按**父技能目录**相对解析（pi 口径），不依赖 repo cwd |
+| 仓库 | `Tool/skill/<parent>/SKILL.md` 顶部导航表 | ``| <child> | <功能> | <特征> | subskills/<child>/SKILL.md |`` | 统一标准化三要素表格，按**父技能目录**相对解析 |
 | 部署 | `<root>/<parent>/SKILL.md` | `` - `references/imported-subskills/<child>/GUIDE.md` —— 何时读 `` | 模型只读部署根，仓库那行它看不到 |
 
 部署侧把子技能本体复制到 `<root>/<parent>/references/imported-subskills/<child>/`（连同相对资产），
