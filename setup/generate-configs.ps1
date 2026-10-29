@@ -55,7 +55,7 @@ function Write-MergedConfig([string]$Path, [string]$DefaultsText) {
                 $value = $container.seep.$field
                 if ($value -is [array]) {
                     $container.seep.$field = @($value | ForEach-Object {
-                        if ([string]$_ -match '(^|[/\\])seep_mcp_server\.py$') { $McpServerPy } else { $_ }
+                        if ([string]$_ -match '(^|[/\\])seep_mcp_server\.py$') { if ($Path -like '*.mcp.json') { 'Tool/mcp/seep_mcp_server.py' } else { $McpServerPy } } else { $_ }
                     })
                 }
             }
