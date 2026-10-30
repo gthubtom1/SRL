@@ -73,6 +73,10 @@ SUITES = [
      "当前 MCP 服务入口与基础工具真实烟测（缺关键环境返回未验证）"),
     ("mcp-ext-assets", ["Tool/mcp/test_ext_assets.py"], True,
      "当前扩展 MCP 工具注册、发现隔离、参数拒绝与凭据脱敏"),
+    ("security-boundaries", ["Tool/mcp/test_security_boundaries.py"], True,
+     "MCP 文件、进程、证据与 HTTP 会话边界回归"),
+    ("workflow-gates", [".github/tests/test_workflow_gates.py"], True,
+     "GitHub workflow 失败传播、最终汇总和草稿 PR 行为回归"),
     ("project-lifecycle", ["Tool/scripts/project_state.py", "--self-test"], True,
      "长期项目生命周期：project/version/run/migration/handoff 自测"),
     ("manager-state", ["Tool/scripts/manager_state.py", "--self-test"], True,
@@ -177,16 +181,12 @@ def runtime_suites():
         *[s for s in SUITES if s[0] in required],
         ("capability-compose", ["Tool/skill/softseep/scripts/capability-gate.py", "--json"], True, "能力组合与成熟度声明"),
     ]
+    # Discover first-party test files by location so a new regression cannot
+    # silently stay outside the aggregate runtime gate.
     tests = sorted(Path(ROOT, "Tool/scripts").glob("test_*.py"))
     tests += sorted(Path(ROOT, "setup").glob("test_*.py"))
-    tests += [Path(ROOT, p) for p in (
-        "Tool/mcp/test_seep_mcp.py",
-        "Tool/mcp/test_ext_assets.py",
-        "Tool/mcp/test_pcap_contract.py",
-        "Tool/mcp/test_readonly_parameters.py",
-        "Tool/mcp/test_apk_contract.py",
-        "Tool/mcp/test_audit_boundaries.py",
-    )]
+    tests += sorted(Path(ROOT, ".github/tests").glob("test_*.py"))
+    tests += sorted(Path(ROOT, "Tool/mcp").glob("test_*.py"))
     suites.extend((p.stem.removeprefix("test_").replace("_", "-"),
                    [p.relative_to(ROOT).as_posix()], True, "当前实现专项回归") for p in tests)
     return suites

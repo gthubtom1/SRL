@@ -334,9 +334,9 @@ depth --case $C --level D7 --result na   --note "本样本无静默失败面（�
 
 ```bash
 export PYTHONUTF8=1 PYTHONIOENCODING=utf-8
-CS="python D:/Seep-Reverse-Lab/Tool/scripts/case_state.py"
-C="D:/tmp/b-audit/case1"
-rm -rf "D:/tmp/b-audit"; mkdir -p "D:/tmp/b-audit"
+CS="python Tool/scripts/case_state.py"
+C="work/.stage0-audit/case1"
+rm -rf "work/.stage0-audit"; mkdir -p "work/.stage0-audit"
 
 $CS init   --case "$C" --target sample.exe                                   # rc 0
 $CS claim  --case "$C" --id C01 --text "权威在服务端" --status proven \

@@ -308,6 +308,9 @@
     "audit-boundaries": [
       "Tool/mcp/test_audit_boundaries.py"
     ],
+    "security-boundaries": [
+      "Tool/mcp/test_security_boundaries.py"
+    ],
     "mutation-isolation": [
       "Tool/scripts/test_mutation_isolation.py"
     ],
@@ -318,7 +321,8 @@
   "excluded": {
     "unit": "Complete all-pack witness acceptance includes the user-supplied, gitignored apkseep08/target/release.apk. Keep gate.py --all unchanged for local full acceptance.",
     "e2e": "Complete domain depth acceptance verifies apkseep08 private APK and all declared depth cases. Keep domain-gate.py --all and its case set unchanged.",
-    "historical-plugin-acceptance": "Historical plugin run records bind their original absolute working directory. This unchanged acceptance belongs to the original recorded local environment; public protocol counterexamples remain included in r10a-contracts."
+    "historical-plugin-acceptance": "Historical plugin run records bind their original absolute working directory. This unchanged acceptance belongs to the original recorded local environment; public protocol counterexamples remain included in r10a-contracts.",
+    "workflow-gates": "The gates workflow runs this regression as a dedicated step before the public suite runner, so the public manifest excludes a duplicate execution."
   },
   "outside_runtime": {
     "preflight": "preflight.py --fast still runs complete domain depth acceptance and requires the private apkseep08 APK. It remains a local full acceptance command; not a public CI result."

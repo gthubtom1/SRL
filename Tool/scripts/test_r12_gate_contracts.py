@@ -39,6 +39,22 @@ DOC_COMMANDS_SPEC.loader.exec_module(doc_commands)
 
 
 class RuntimeGateContractTests(unittest.TestCase):
+    def test_runtime_discovers_every_first_party_python_test_file(self):
+        suites = {name: argv for name, argv, _fast, _why in check.runtime_suites()}
+        discovered = {argv[0].replace("\\", "/") for argv in suites.values()}
+        expected = set()
+        for relative in ("Tool/scripts", "setup", ".github/tests", "Tool/mcp"):
+            expected.update(
+                path.relative_to(ROOT).as_posix()
+                for path in sorted((ROOT / relative).glob("test_*.py"))
+            )
+        self.assertEqual(expected - discovered, set())
+        self.assertIn("relay-tests", suites)
+        self.assertGreaterEqual(
+            len(list((ROOT / "Tool/scripts/compliance-relay/tests").glob("test_*.py"))),
+            1,
+        )
+
     def test_runtime_explicitly_contains_real_aggregate_and_quality_gates(self):
         suites = {name: argv for name, argv, _fast, _why in check.runtime_suites()}
         self.assertEqual(suites["unit"], ["Tool/scripts/gate.py", "--all"])

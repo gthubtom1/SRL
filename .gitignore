@@ -124,6 +124,8 @@ docs/audit/ANALYSIS-*.md
 
 # 本地运行期产物（审计/调试残留，不进版本库）
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
 Hook.log
 IDAHook.log
 evidence/
