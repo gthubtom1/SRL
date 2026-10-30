@@ -310,6 +310,9 @@
     ],
     "mutation-isolation": [
       "Tool/scripts/test_mutation_isolation.py"
+    ],
+    "capability-helpers": [
+      "Tool/scripts/test_capability_helpers.py"
     ]
   },
   "excluded": {

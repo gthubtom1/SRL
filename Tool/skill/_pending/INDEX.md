@@ -1,29 +1,30 @@
-# _pending 归档技能索引（17 个，按需读，不常驻）
+# _pending 历史参考与工程兼容入口
 
-> 这些技能**不部署、不预载**，模型不会自动发现。需要时按路径 `read`：`Tool/skill/_pending/<名>/SKILL.md`。
-> 所属域会在它的 SKILL.md 里指路（判据「子技能衔接」保证没有孤儿）。
+当前正式调用层次是 `seep-router` → 九个父领域 → `<父域>/subskills/<子技能>/SKILL.md`。`unpack-loop` 是跨域方法，`references/`、`scripts/` 是各技能的资源。
 
-| 名字 | 行数 | 一句话 |
-| :-- | --: | :-- |
-| `00-analysis` | 350 | 【00｜阶段零·分析透彻出可复现报告】在动任何交付物之前，把目标彻底摸清：结构、壳、运行期行为、授权权威在哪、钥匙在哪、能不能赢。产出一份每 |
-| `00-triage` | 92 | 【00a｜快筛·20 分钟内出目标画像卡】只静态：载体/保护/授权权威/改动面/检测器/交付壁垒，产出 report/triage.md + |
-| `01-gate-bypass` | 159 | 【01｜第一阶段·旁路卡密出可用成品】把任意软件（PE/APK/游戏辅助等）的卡密授权旁路掉，让它能正常进入原版主界面（或游戏内菜单）并且全 |
-| `02-ui-rebrand` | 136 | 【02｜第二阶段·改 UI 与去品牌】在 01 阶段已经能用的产物上做二开：清点页面/控件/文案/图标，替换成自己的品牌与视觉，移除原作者联 |
-| `03-license-hookup` | 159 | 【03｜第三阶段·接自己的授权平台】把产物接到你自有的授权系统：卡密校验、到期时间、机器码绑定、功能位控制，支持本地离线（公钥验签）与在线（ |
-| `04-version-migrate` | 137 | 【04｜第四阶段·跨版本追版】原作者更新了版本时用。读旧版版本账（manifest.json）里的位点特征码，在新版二进制里滑窗对齐，同时迁 |
-| `05-backend-rebuild` | 228 | 【05｜阶段五·后端复刻（仅 T2/T3 触发）】客户端依赖的不只是授权，还有业务 API / 服务端能力 / 远程下发的脚本容器时，把后端 |
-| `ad-cloud` | 240 | 【内网/AD/云原生】域内枚举与 BloodHound、Kerberoasting/AS-REP、ADCS ESC1-17、NTLM rel |
-| `binary-diff` | 151 | 【二进制差分/补丁分析】跨版本符号迁移、函数匹配（BinDiff/Diaphora/ghidriff）、AOB 签名迁移、补丁差分与 N-d |
-| `doc-hygiene` | 198 | 【文档治理】整理/清理文档、文档太乱太旧、过期数字、重复入口、遗留盘点（TODO/待补）、交接、换模型接手；tidy up docs、cle |
-| `ida-reverse` | 100 | 当用户要求“使用IDA Pro进行逆向分析”、分析指定可执行文件/库、反编译函数或通过 IDA Pro 分析目标时触发此技能。能够全自动唤醒 |
-| `llm-security` | 287 | 【LLM / AI Agent 安全】对 LLM 应用、RAG、Agent、MCP 工具链与提示词/技能包做授权安全评估：直接/间接提示注入 |
-| `plugin-targets` | 214 | 【插件/扩展/Mod】浏览器扩展（MV2/MV3）、IDE 插件（VSIX/JetBrains）、Electron asar、Unity B |
-| `pm-plan` | 57 | 帮我规划一下/拆任务/定优先级/评审这个设计/接下来做什么 (.md/.json 项目文档)。把模糊需求拆成可验收任务：目标→约束→任务(依 |
-| `signin-automation` | 264 | 账号任务自动化的六个原语：会话池（多账号隔离）、定时通知（cron/幂等/重试上限）、验证码三分支、滑块缺口、旋转角度、TLS 指纹。附带  |
-| `site-clone` | 223 | 【网站 1:1 复刻】授权+同源白名单+≤2 rps 下用 Playwright 抓路由/资产/API 与 DOM 快照做离线副本，按 6  |
-| `version-migration` | 92 | 客户端跨版本增量追版与特征迁移专项技能。当目标软件更新（如 6.8 升级至 6.9）、曾经逆向过的旧版本已有分析报告/补丁/Hook 脚本， |
+本目录保留历史方法、来源材料和仍被工程检查/旧案例调用的兼容文件，**不是等待全部启用的任务清单，也不作为现役顶层技能部署或预载**。读取归档不等于该能力已经接入或验收；执行现有任务优先使用下面列出的正式入口。不要整目录复制到宿主，也不要在未核对引用前删除它。
 
-## 按需调用与正式扩展
+## 已有正式替代入口
 
-上表为方法索引，行数/摘要不是当前能力证明。领域技能按目标读取对应子技能，结果回同一项目。子技能不因放在这里就自动预载，不直接复制到宿主技能目录。
-确有新增扩展需求时沿用 `Tool/scripts/skill-import.py --help`、真实 parent pack 注册及正式安装/回滚流程；不自动将所有子技能恢复成独立技能或命令卡。离线授权方法为公钥签名验签，不是客户端 HMAC 自签。
+| 历史目录 | 当前正式入口 |
+|---|---|
+| `ad-cloud` | `Tool/skill/pwn-crypto/subskills/ad-cloud/SKILL.md` |
+| `binary-diff` | `Tool/skill/softseep/subskills/binary-diff/SKILL.md` |
+| `ida-reverse` | `Tool/skill/softseep/subskills/ida-reverse/SKILL.md` |
+| `plugin-targets` | `Tool/skill/protocol-plugin/subskills/plugin-targets/SKILL.md` |
+| `signin-automation` | `Tool/skill/web-pentest/subskills/signin-automation/SKILL.md` |
+| `site-clone` | `Tool/skill/web-pentest/subskills/site-clone/SKILL.md` |
+
+## 其他保留材料
+
+| 位置 | 保留用途及当前使用方式 |
+|---|---|
+| `00-analysis`、`00-triage`、`01-gate-bypass`、`02-ui-rebrand`、`03-license-hookup`、`04-version-migrate`、`05-backend-rebuild` | 旧阶段方法与案例参考；现役任务从 router 和所属父域出发，按需要读取对应 playbook，不恢复旧域快捷命令 |
+| `version-migration` | 旧追版参考；当前执行入口为 `Tool/skill/softseep/scripts/version-migrate.py` |
+| `doc-hygiene` | 工程文档检查仍调用其中脚本，保留路径兼容；不是新增业务领域 |
+| `llm-security`、`pm-plan` | 保留专项方法参考，不自动宣称已形成当前环境的完整任务链 |
+| `safe-skills/` | 保留上游/历史方法来源；按实际适用范围读取，当前 Android/Native 等任务仍由正式父域组织 |
+
+归档文本可能保留过时路径、旧说明和当时结论。历史事实不改写成新验收结果；与当前用户要求、REQUIREMENTS 或现役技能冲突时，以当前入口和实际证据为准。
+
+新增技能先在独立源目录准备，通过 `Tool/scripts/skill-import.py` 以真实父域身份导入，再核验父导航、部署和限定任务。三层结构的完成依据是入口和调用关系一致，不是这个目录必须为空。

@@ -1,0 +1,10 @@
+{
+  "files": {
+    "SKILL.md": "a53ead46ac16d917d7457a4976fe865748a274d57ab635396952c3182fea6d4f",
+    "scripts/w2s_check.py": "85f6be9c437f7038b0efd3cac63a7c99a61f44d61be86439abc66cfd296c555a"
+  },
+  "kind": "subskill",
+  "name": "game-rendering",
+  "parent": "softseep",
+  "schema": "seep.skill-import.manifest/1"
+}

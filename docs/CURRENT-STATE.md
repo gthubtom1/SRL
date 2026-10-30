@@ -1,5 +1,7 @@
 # 当前状态
 
+**当前源码版本为 1.29.0 能力增量候选。** 新增五个域内子技能与离线助手，专项和接入检查见 [本次交付说明](verification/capability-integration-2026-10-30.md)。本轮没有重跑完整当前回归和工程总检；下述 1.28.1 的 101/98 套结果仅属于上一基线，不能用于宣称本次增量已完整验收。当前界面加载仍需重载确认。
+
 本页是当前基线、完成状态和使用边界的唯一入口。有效需求见 [REQUIREMENTS](../REQUIREMENTS.md)，职责见 [ARCHITECTURE](ARCHITECTURE.md)。本轮证据见 [1.28.1 独立审查回执](verification/final-audit-2026-10-30.md)及[结构化结果](verification/final-audit-2026-10-30.json)；此前证据见 [1.28.0](verification/persona-rewind-2026-10-30.md)和 [1.27.0](verification/closure-2026-10-30.md)。旧报告不是新待办来源。
 
 ## 当前基线

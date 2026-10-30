@@ -1,0 +1,10 @@
+{
+  "files": {
+    "SKILL.md": "9c0e5251002accf67c999ab680f2b371c096757541acdd0996e13598a4de724d",
+    "scripts/snapshot_candidates.py": "b1c072ebb0381b48e5eaed554f56c9fa63f3d91048cc168c9160a3018a570f1e"
+  },
+  "kind": "subskill",
+  "name": "game-runtime",
+  "parent": "softseep",
+  "schema": "seep.skill-import.manifest/1"
+}

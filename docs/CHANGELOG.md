@@ -2,6 +2,14 @@
 
 本文件只记录已发生的实现变更；有效范围见 [REQUIREMENTS](../REQUIREMENTS.md)，最新验收与适用边界见 [CURRENT-STATE](CURRENT-STATE.md)。1.28.1 的独立审查与验证见 [本轮回执](verification/final-audit-2026-10-30.md)，未向远端发布。1.28.0 配套插件见 [原回执](verification/persona-rewind-2026-10-30.md)，1.27.0 基线见 [2026-10-30验收](verification/closure-2026-10-30.md)。
 
+## 1.29.0 能力增量候选
+
+- 在现有父域下正式导入 asset-discovery、oauth-oidc、source-review、game-runtime、game-rendering，父域导航按需读取，正式领域仍为九个。
+- 提供离线 Nmap 结果范围归一化、去敏 OAuth 配置关系检查、Python AST 数据流候选、同构建快照候选偏移、World-to-Screen 几何核对；均有合成正反例及错误参数不回显检查。
+- 补充现有 GraphQL/WebSocket、云有限策略、内存解析交接和批处理恢复方法；保留未实测边界。
+- 澄清 `_pending` 的历史与工程兼容用途，列出已有正式替代入口；保留旧案例和脚本引用。
+- 本次只完成增量专项与接入验证，没有把新增方法宣称为全部平台/真实目标任务完成，也未将上一版本全量结果当作新版本全量结果。
+
 ## 1.28.1 独立审查与边界修复
 
 - 技能导入的默认部署根执行完整路径校验；恢复日志绑定仓库、技能及其操作范围，拒绝跨仓撤销、无关技能清理和越界恢复，保留冲突现场。

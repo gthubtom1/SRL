@@ -29,6 +29,8 @@ metadata:
 | **binary-diff** | 跨版本二进制差分比对、函数匹配、符号迁移 | 补丁分析、版本差异定位 | `subskills/binary-diff/SKILL.md` |
 | **license-bypass**| 客户端授权逻辑识别、卡密弹窗跳过、本地凭据状态定位 | 绕过注册框、去除试用期锁定 | `subskills/license-bypass/SKILL.md` |
 | **unpack-pe** | Windows PE 判壳脱壳、OEP 唯一定位、转储与 IAT 修复 | UPX/ASPack/加密壳识别、内存转储、修复损坏导出/导入表 | subskills/unpack-pe/SKILL.md |
+| **game-runtime** | 游戏运行时状态定位与启停恢复交付；比较同构建受控内存快照，组合现有 AOB、差分、补丁及 IL2CPP 方法，区分离线候选与真实效果。 | 游戏运行时状态定位与启停恢复交付；比较同构建受控内存快照，组合现有 AOB、差分、补丁及 IL2CPP 方法，区分离线候选与真实效果。 | `subskills/game-runtime/SKILL.md` |
+| **game-rendering** | 核对游戏 World-to-Screen 矩阵、坐标与画面的关系，规划 Overlay 窗口和图形资源的启停恢复；用于投影错位、分辨率变化和渲染生命周期排查。 | 核对游戏 World-to-Screen 矩阵、坐标与画面的关系，规划 Overlay 窗口和图形资源的启停恢复；用于投影错位、分辨率变化和渲染生命周期排查。 | `subskills/game-rendering/SKILL.md` |
 
 ## 调度总流程
 

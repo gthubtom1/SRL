@@ -43,6 +43,12 @@ Agent 可分析安全副本、复算有限策略模型与合成夹具，必要�
 
 报告记录：结论类别与范围、资产/策略版本、执行者/命令形态或工具通道、时间/关联标识、非秘密原输出、反证、缺项与复查办法。只给建议，不执行线上策略修复或清理已有系统对象。工具失败、证据缺失和未执行保持原意。
 
+## 云 / 容器实际任务路线
+
+IAM 输入为平台、策略快照与附加层、主体别名、精确 action/resource 和条件上下文；按 [cloud-native](references/cloud-native.md) 的有限模型先复算，再与用户侧同主体/资源/时点的非秘密授权结果配对。K8s 输入为版本、namespace、subject、binding/rules 与 verb/resource/subresource/name；按 [k8s-and-container](references/k8s-and-container.md) 对齐决策、admission 和已有业务效果，不创建工作负载补证据。镜像来源/digest/构建链转供应链域，运行时授权留本技能。
+
+每条结果输出“配置事实 → 有限模型结果 → 用户侧授权决策 → 已观察业务效果”四列；缺项写 unknown，不把后列由前列补齐。正反例至少比较 canary 与范围外资源、allow 与显式 deny/缺条件；namespace 错位不能用另一 namespace 的成功顶替。恢复时携带同一 project/version/run、策略/绑定快照身份、工具版本、命令、安全输出、缺层和待测项；策略已变则重新核对，不沿用旧 allow。没有用户侧授权见证时只交有限模型评估。
+
 ## 参考与工具
 
 | 文件 | 当前职责 |

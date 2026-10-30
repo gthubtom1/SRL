@@ -6,6 +6,16 @@
 
 `Tool/skill/forensics-mobile/scripts/forensics-check.py` 只做类型/哈希/文件时间与有限前缀标记初检，`hints` 是标记偏移，`extractables` 是后续清单，不是进程、模块、句柄或注入页解析。下文实体结论须由匹配格式、符号和插件的实际解析器取得。所有命令先核本机版本及插件 `--help`；minidump/core/完整物理镜像不能混用链路。真实内存可能含凭据，若工具不能在读取前限制到安全区域，仅接用户侧筛选的安全输出，不先全量 dump 再脱敏。
 
+## 当前工具路线、采集与恢复
+
+先用 `python Tool/skill/forensics-mobile/scripts/forensics-check.py --help` 核初检参数；`--self-test` 包含伪内存标记反例，只证明初检不会凭字符串产生实体。实体路线先运行本机 `vol --help`，从实际列表选 Windows info/pslist/psscan/dlllist/netscan 等插件，再核插件帮助；离线符号缺失时停止该层，不隐式下载，不安装工具或拿近似构建替代。MemProcFS 未发现时写通道缺失，不写已交叉验证。
+
+用户侧安全采集应提供镜像格式/大小/采集时段/OS build/符号身份/工具版本、所用插件、退出码与安全实体表。允许输出 PID、PPID、进程创建时间、模块基址/路径别名、连接五元组和状态；命令行、环境、内存页与 registry 内容可能含秘密，不要求全量导出。没有可在采集前限定字段的通道时仅接预筛选安全输出。
+
+正例：同一镜像的进程列表与扫描输出可按 PID+创建时间关联，模块属于该实体，再与独立 EVTX/磁盘时间线对齐；确认解析出的实体与关联范围。反例：伪造 KDBG/PID 字符串、缺符号、截断镜像、pslist 空表或同 PID 不同创建时间均不能证明进程存在/隐藏/不存在。pslist 与 psscan 同源，不算独立行为证据。
+
+交付初检/实体解析/行为推断三层，逐层附原始安全输出、支持和反证。缺符号保存缺失标识、插件错误及未完成项，状态保持 blocked；恢复核同一 project/version/run 的镜像哈希和符号身份，变更镜像另开当前运行，不能混接旧实体。安全日志可交现有 `Tool/skill/forensics-mobile/scripts/fs-timeline.py`（先核 `--help`）；恶意判断交 `Tool/skill/malware-analysis/SKILL.md`，不由字符串初检代替。
+
 ## 1. 采集与封存
 
 内存是第一优先级：断电/重启会丢失进程、连接、未落盘文件、注入页。
