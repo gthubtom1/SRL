@@ -47,6 +47,11 @@
       "violations": 0
     },
     "runtime_gt": {
+      "final_pass": 104,
+      "final_warn": 0,
+      "final_fail": 0,
+      "final_skip": 0,
+      "final_exit": 0,
       "initial_pass": 102,
       "initial_deployment_hash_fail": 2,
       "post_deploy_retest_pass": 2,
@@ -64,7 +69,7 @@
       "agent_root_valid": true
     },
     "document_commands": {
-      "files": 70,
+      "files": 71,
       "examples": 60,
       "errors": 0
     },
