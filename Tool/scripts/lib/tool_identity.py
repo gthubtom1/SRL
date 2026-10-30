@@ -20,6 +20,9 @@ import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lib import process_tree
+
 # 探针：工具 id → (额外参数, 期望正则, 超时秒)
 # 夹具一律用"本机必然存在的文件"，避免依赖被分析样本。
 PROBES = {
@@ -31,12 +34,15 @@ PROBES = {
     "frida": (["--version"], r"^\d+\.\d+", 30),
     "python": (["--version"], r"(?i)python\s*3", 20),
     "httpx": (["-version", "-no-color"], r"(?is)projectdiscovery\.io.*Current Version:\s*v?\d+\.\d+", 20),
+    # Version-only exits before any target processing, scan or template update.
+    "nmap": (["--version"], r"(?im)^Nmap version \d+\.\d+\S*\s+\(\s*https?://nmap\.org\s*\)", 20),
+    "nuclei": (["-version"], r"(?im)^(?:\[[A-Z]+\]\s*)?Nuclei Engine Version:\s*v?\d+\.\d+(?:\.\d+)?\b", 20),
 }
 
 
 def _run(argv, timeout):
     try:
-        p = subprocess.run(argv, capture_output=True, text=True, errors="replace",
+        p = process_tree.run(argv, capture_output=True, text=True, errors="replace",
                            timeout=timeout, stdin=subprocess.DEVNULL)
         return (p.stdout or "") + (p.stderr or ""), p.returncode
     except subprocess.TimeoutExpired:
@@ -44,7 +50,7 @@ def _run(argv, timeout):
     except FileNotFoundError:
         return "<NOT FOUND>", -2
     except Exception as e:  # noqa: BLE001
-        return "<ERR %s>" % e, -3
+        return "<ERR %s>" % type(e).__name__, -3
 
 
 def probe(tool_id, exe_path=None):
@@ -61,11 +67,13 @@ def probe(tool_id, exe_path=None):
     if os.name == "nt" and not exe.lower().endswith((".exe", ".bat", ".cmd")):
         argv = ["bash", exe] + argv[1:]
     out, rc = _run(argv, tmo)
-    hit = re.search(pat, out or "", re.M)
+    # Nuclei's version logger may emit ANSI colors on stderr.
+    plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", out or "")
+    hit = re.search(pat, plain, re.M)
     if hit and rc == 0:
         return {"ok": True, "verified": True, "returncode": rc, "tool": tool_id, "exe": exe,
                 "why": "探针命中：%s" % hit.group(0)[:60]}
-    why = "探针未命中（输出=%r）" % (out or "")[:160]
+    why = "探针未命中（原始输出不回显，避免泄漏子进程或环境中的凭据）"
     if rc != 0:
         why = "探针退出码 %s；%s" % (rc, why)
     if tool_id == "rabin2" and "run script file before the file is opened" in (out or ""):

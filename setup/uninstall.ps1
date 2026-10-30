@@ -335,41 +335,11 @@ if ($Restore) {
     Write-Host "║   Seep 工作台 —— 从备份恢复                                   ║" -ForegroundColor Magenta
     Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
 
-    if (-not (Test-Path -LiteralPath $Restore -PathType Container)) {
-        Write-Fail "备份目录不存在: $Restore"
-        exit 1
-    }
-    $Restore = (Get-Item -LiteralPath $Restore -ErrorAction Stop).FullName.TrimEnd('\', '/')
-    Write-Step "1/2  扫描备份内容"
-    $items = @(Get-ChildItem -LiteralPath $Restore -Recurse -Force -ErrorAction Stop)
-    Write-Info "备份目录: $Restore"
-    Write-Info "条目数: $($items.Count)"
-
-    Write-Step "2/2  恢复"
-    if ($DryRun) {
-        foreach ($i in $items) { Write-Info "将恢复: $($i.FullName.Substring($Restore.Length).TrimStart('\'))" }
-        Write-Warn2 '-DryRun 模式，未做任何修改'
-        exit 0
-    }
-    $restored = 0
-    foreach ($i in $items) {
-        $rel = $i.FullName.Substring($Restore.Length).TrimStart('\')
-        $dst = Join-Path $AgentDir $rel
-        try {
-            if ($i.PSIsContainer) {
-                if (-not (Test-Path $dst)) { New-Item -ItemType Directory -Path $dst -Force -ErrorAction Stop | Out-Null }
-            } else {
-                $p = Split-Path -Parent $dst
-                if (-not (Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force -ErrorAction Stop | Out-Null }
-                Copy-Item $i.FullName $dst -Force -ErrorAction Stop
-                $restored++
-            }
-        } catch { Write-Fail "恢复失败: $rel"; $script:Failed++ }
-    }
-    Write-Ok "已恢复 $restored 个文件"
-    Write-Info "请完全重启 Agent 会话后生效"
-    if ($script:Failed -gt 0) { exit 1 }
-    exit 0
+    $restoreArgs = @((Join-Path $ScriptDir 'merge_agent_config.py'), '--root', $Root,
+                     '--agent-dir', $AgentDir, '--restore-backup', $Restore)
+    if ($DryRun) { $restoreArgs += '--dry-run' }
+    & python @restoreArgs
+    exit $LASTEXITCODE
 }
 
 # ===========================================================================

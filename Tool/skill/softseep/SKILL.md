@@ -294,6 +294,9 @@ python Tool/skill/softseep/scripts/patch-verify.py --file app.exe --manifest pat
 - Board 索引：`Tool/mcp/Tool/reverselab/kb/pe-reverse/README.md`
 - 逐篇技术索引：`Tool/mcp/Tool/reverselab/kb/pe-reverse/README.md`
 - 失败判据（KB 版）：`Tool/mcp/Tool/reverselab/kb/pe-reverse/techniques/15-decision/failure-criteria.md`
+- 内存数值/指针链、ESP/W2S/Overlay：按目标读 `Tool/mcp/Tool/reverselab/kb/general/techniques/cheating/01-memory-hacking.md` 或 `Tool/mcp/Tool/reverselab/kb/general/techniques/cheating/03-esp-wallhack-rendering.md`；先分客户端/服务端权威，再核当前工具、地址生命周期、功能与恢复证据，不照搬其中系统级路线。
+- Unreal 平台交接：`Tool/mcp/Tool/reverselab/kb/apk-reverse/techniques/02-native/03-ue4-offset-hunting.md` 是 UE4 移动端参考，Android 由 apkseep 主导；不能据此宣布 PC/UE5 全版本已验证。
+- ELF/JVM 运行时线索：`Tool/mcp/Tool/reverselab/kb/re_pattern_elf-analysis.md`、`Tool/mcp/Tool/reverselab/kb/re_pattern_languages-compiled.md`；先核架构/构建及实际工具，资料存在不代表完整 ELF 重建或 JAR 重包运行已验收。
 - 项目范式 A–J：`.../techniques/11-project-paradigms/01-project-patterns-a-j.md`
 - 报告骨架：`.../techniques/13-report-template/01-report-skeleton.md`
 - UI 验收：`.../techniques/14-ui-verification/01-ui-acceptance.md`

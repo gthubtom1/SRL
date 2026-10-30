@@ -22,7 +22,7 @@
     "lib/inject.ts": "b418c85ccd1b38013744516da41474ec4f7d34faa76d5fa73cad510f55a8b752",
     "lib/personas.ts": "5d5d7e8b36d1636983d5808edbc627f6f13c9502997c4dfb4db9f034fed09ddd",
     "lib/pi-api.ts": "3b9ecf243e5683277385c1a3e7983bb7205512ad425088cad641ffbb73ceee82",
-    "lib/rewind-targets.ts": "516004bc3d48914f50a41e8218049d33e7b952897426abf00d3f3a80aa62e40b",
+    "lib/rewind-targets.ts": "9595f02d7d09c11b0d841c333374acdefc9ed5c108f0569fb167dd6d767f1826",
     "lib/session-state.ts": "5e10d142659b4df49caabaa5e8a2c51bd665ed4e80fa2490557b07642ae4c863",
     "LICENSE": "eb8f136f6ea8c474205493ce95e2559c72aa4deb3bb23ce7c09ad4b969be4b8d",
     "package.json": "ec851227e87b7517823fd8603066abe35a070b6f2e2083be88894eff65a28dca"
@@ -87,6 +87,12 @@
       "id": "host-transcript-helper-peer",
       "why": "Every-turn uses the installed SDK transcript replay helper instead of duplicating the prompt or tool replay algorithm.",
       "what": "Declare host-provided @earendil-works/pi-ai as a peer dependency; no bundled runtime or remote extension."
+    },
+    {
+      "file": "lib/rewind-targets.ts",
+      "id": "confirm-all-discarded-tool-work",
+      "why": "Rewinding a plain earlier turn also removes later turns whose tool side effects remain on disk.",
+      "what": "Carry later tool-work flags backwards across rewind candidates, requiring confirmation for every discarded tool turn. Final plain reply undo and raw draft text stay unchanged."
     }
   ]
 }

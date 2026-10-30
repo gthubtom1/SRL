@@ -250,6 +250,35 @@ class MergeConfigTests(unittest.TestCase):
                 self.assertIn('invalid managed prompt boundary: SEEP.md', result.stdout)
                 self.assertEqual({p.name: p.read_bytes() for p in self.agent.iterdir()}, before)
 
+    def test_prompt_publish_failure_restores_other_prompt_package_and_ownership(self):
+        for name in ('AGENTS.md', 'SEEP.md'):
+            (self.root / 'Tool/prompts' / name).write_text('original source', encoding='utf-8')
+        installed = self.cli('--prompts-only')
+        self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+        for name in ('AGENTS.md', 'SEEP.md'):
+            with (self.agent / name).open('ab') as handle:
+                handle.write(b'\r\nUSER TAIL\r\n')
+            (self.root / 'Tool/prompts' / name).write_text('updated source', encoding='utf-8')
+        license_path = self.root / M.PERSONA_PACKAGE_SOURCE_DIR / 'LICENSE'
+        license_path.write_bytes(license_path.read_bytes() + b'\nupdated')
+        for action in ('--prompts-only', '--remove-prompts-only'):
+            with self.subTest(action=action):
+                before = self.live_snapshot()
+                actual = M.os.replace
+                failed = False
+                def fail_second_prompt(src, dst):
+                    nonlocal failed
+                    if Path(dst) == self.agent / 'SEEP.md' and not failed:
+                        failed = True
+                        raise OSError('synthetic second prompt publish failure')
+                    return actual(src, dst)
+                with mock.patch.object(M.os, 'replace', side_effect=fail_second_prompt):
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        rc = M.main(['--root', str(self.root), '--agent-dir', str(self.agent), action])
+                self.assertTrue(failed, 'must exercise a failure after the first prompt changes')
+                self.assertEqual(rc, 1)
+                self.assertEqual(self.live_snapshot(), before)
+
     def test_uninstall_atomic_failure_preserves_original(self):
         self.agent.mkdir()
         path = self.agent / 'settings.json'

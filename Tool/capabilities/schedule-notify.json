@@ -28,14 +28,14 @@
     "通知载荷模板"
   ],
   "scripts": [
-    "Tool/skill/_pending/signin-automation/scripts/schedule-notify.py"
+    "Tool/skill/web-pentest/subskills/signin-automation/scripts/schedule-notify.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/long-task-discipline.md"
   ],
   "maturity": "probe",
   "reserved": true,
-  "note": "当前实现仅位于 Tool/skill/_pending/signin-automation；安装器不部署、不索引该目录，因此安装态不能自动调用。现阶段只能由源码工作区人工生成并复核幂等、重试和通知模板，迁移到正式 web-pentest 路由并验证实际调度前不得按完整能力编排。",
+  "note": "现役入口位于 Tool/skill/web-pentest/subskills/signin-automation/，随web-pentest父域递归部署到 <AgentRoot>/skills/web-pentest/subskills/signin-automation/；Tool/路径相对已注册源码根。部署文件、当前宿主加载与运行依赖须分别核验。maturity=probe、reserved=true保留，表示尚未开放自动编排，不表示脚本仍未部署。只生成cron计划、幂等键、重试策略和通知载荷模板，不执行定时任务、不发送通知。本次路径修正不提升历史证据或验证等级；真实凭据留在用户侧，仅使用安全输入/结果。",
   "compose": [
     "session-pool"
   ]

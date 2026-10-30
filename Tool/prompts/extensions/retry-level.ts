@@ -51,8 +51,15 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 		homeDir = homedir();
 	} catch {}
 	homeDir ||= process.env.USERPROFILE?.trim() || process.env.HOME?.trim() || "";
-	const agentDir = configuredAgentDir
-		? path.resolve(configuredAgentDir)
+	// Match Pi's tilde expansion without depending on an optional package:
+	// this extension can also be deployed alone or retained after uninstall.
+	const configuredRoot = configuredAgentDir === "~"
+		? homeDir
+		: configuredAgentDir?.startsWith("~/") || configuredAgentDir?.startsWith("~\\")
+			? path.join(homeDir, configuredAgentDir.slice(2))
+			: configuredAgentDir;
+	const agentDir = configuredRoot
+		? path.resolve(configuredRoot)
 		: homeDir
 			? path.join(homeDir, ".pi", "agent")
 			: path.resolve(".pi", "agent");

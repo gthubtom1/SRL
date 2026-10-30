@@ -42,7 +42,7 @@ import seep_mcp_server as S
 
 class AxmlManifestContract(unittest.TestCase):
     def test_real_binary_manifest_is_parsed_as_structured_facts(self):
-        apk = os.path.join(ROOT, "Tool", "cases", "apkseep09", "target", "ovaa.apk")
+        apk = os.path.join(ROOT, "Tool", "samples", "real", "android-apks", "ovaa.apk")
         with zipfile.ZipFile(apk) as archive:
             manifest = C.parse_manifest(archive.read("AndroidManifest.xml"))
         self.assertEqual(manifest["status"], "ok", manifest)

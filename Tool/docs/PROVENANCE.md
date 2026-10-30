@@ -19,12 +19,12 @@ AgentRoot按安装参数和环境解析，不固定为某台机器目录。当�
 
 ## 2. 直接上游与保留的第三方来源
 
-以下来源记录在旧文档改写时被误删；本次保留其来源职责，修正过期库存和运行宣称。
+来源身份与当前同步地址分别记录；二者不同不能静默视为同一个上游。
 
 | 来源 | 仓库 | 许可证来源 | 本地位置与用途 |
 |---|---|---|---|
 | 工作台直接上游 | [angusdevgo/Seep-Reverse-Lab](https://github.com/angusdevgo/Seep-Reverse-Lab) | 以对应提交的LICENSE及引入文件声明为准 | git upstream；选择性吸收PE方法、跨版本AOB和Modern LSPosed，不覆盖二开提示词与状态底座 |
-| apk-reverse | [newliver666/apk-reverse](https://github.com/newliver666/apk-reverse) | 本地镜像MIT声明 | `Tool/upstream/apk-reverse/`；Android方法、DEX补丁、测试与参考，实际适配位于`Tool/skill/apkseep/` |
+| apk-reverse | 保留镜像 README 标注 [newliver666/apk-reverse](https://github.com/newliver666/apk-reverse)；当前同步规则指向 [Jvust2/apk-reverse-Jvust](https://github.com/Jvust2/apk-reverse-Jvust) | 本地镜像 [MIT LICENSE](../upstream/apk-reverse/LICENSE) | `Tool/upstream/apk-reverse/`；Android方法、DEX补丁、测试与参考，实际适配位于`Tool/skill/apkseep/`。同步会保留本地 README，故其来源徽标不能证明当前同步地址或镜像提交来源 |
 | Open-tgtylab | [GeniusHu-tgty/Open-tgtylab](https://github.com/GeniusHu-tgty/Open-tgtylab) | 本地镜像GPL-3.0声明 | `Tool/upstream/open-tgtylab/`；历史实验方法和信号检索参考，不作为当前执行纪律来源 |
 | Open-ReverseLab | [LING71671/open-reverselab](https://github.com/LING71671/open-reverselab) | 本地镜像GPL-3.0声明 | `Tool/upstream/open-reverselab/`和`Tool/mcp/Tool/reverselab/`；KB、boards和工具参考，和morluto/rea是不同项目 |
 | pi-cmd-guard | [gthubtom1/agent-plugins](https://github.com/gthubtom1/agent-plugins/tree/main/plugins/pi/cmd-guard) | MIT | `Tool/prompts/extensions/cmd-guard.ts`、规则JSON与TOOL-CHAIN；vendored后按本仓边界适配 |
@@ -44,6 +44,20 @@ AgentRoot按安装参数和环境解析，不固定为某台机器目录。当�
 上一轮候选曾停用 `every-turn`，该降级方案已被上述合载实现替代，不是最终行为。兼容验收脚本为 `setup/test_persona_rewind_sdk.mjs`：使用合成卡、临时持久会话及本地合成模型传输，覆盖两种加载顺序、两种模式、切换、关闭、工具续轮、压缩、回退和重新打开；不读取真实用户人设、auth/models，也不发送远程模型请求。具体版本、计数与部署状态见 [当前状态](../../docs/CURRENT-STATE.md)。
 
 上游镜像中的测试、专业资料和原始来源说明仍有复查价值；保留镜像不代表所有内容进入正式路由或已在当前机器运行。具体引入提交见git历史和`setup/.upstream-shas.json`；手动维护来源按`setup/upstream-rules.json`处理。
+
+根 [LICENSE](../../LICENSE) 是 GNU GPL 第 3 版文本；不据此给随包第三方组件重新许可。以下是可在本地核对的独立许可证入口，分发时应随组件保留原版权、LICENSE 和适用的 NOTICE；它们不授予商业软件、目标样本或外部服务的使用许可。
+
+| 随包组件 | 本地许可证与版本依据 |
+|---|---|
+| IDA Pro MCP | [MIT LICENSE](../mcp/Tool/safe/ida-pro-mcp/LICENSE)，版本见其 `pyproject.toml`；该许可不包含 IDA Pro 商业软件许可 |
+| JS Reverse MCP | [Apache-2.0 LICENSE](../mcp/Tool/safe/js-reverse-mcp/LICENSE)，版本与仓库地址见其 `package.json` |
+| Playwright MCP | [Apache-2.0 LICENSE](../mcp/Tool/safe/playwright-mcp/LICENSE)，版本与仓库地址见其 `package.json` |
+| JADX | [Apache-2.0 LICENSE](../mcp/Tool/safe/jadx/LICENSE) |
+| radare2 5.9.8 | [GPL COPYING](../mcp/Tool/safe/radare2/COPYING)、[LGPL COPYING.LESSER](../mcp/Tool/safe/radare2/COPYING.LESSER) 与[固定提交来源](../mcp/Tool/safe/radare2/PROVENANCE.md)；主体 mostly LGPLv3，插件与第三方分别保留原许可，不给整包统一改标 |
+| pi-seep-ext 子集 | [MIT LICENSE](../prompts/packages/pi-seep-ext/LICENSE)，固定来源及逐文件适配见同目录 `UPSTREAM.json` |
+| exe-reverse 子技能 | [MIT LICENSE](../skill/softseep/subskills/exe-reverse/LICENSE) |
+
+这张表仅列已核对入口，不是整仓第三方许可清单或再分发审查通过证明。其他随包二进制、压缩依赖和公开样本仍需按各自发行包与案例来源核实；不能用本仓 GPL 或上述 MCP 包许可替代它们。
 
 ## 3. 2026-10-30指定来源复核
 

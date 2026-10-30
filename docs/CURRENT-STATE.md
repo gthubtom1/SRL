@@ -1,5 +1,7 @@
 # 当前状态
 
+1.28.1 独立审查补丁正在最终验证，尚不替代下述 1.28.0 已提交基线；本轮范围和验证见 [独立审查回执](verification/final-audit-2026-10-30.md)。最终结果与正式部署核对完成后更新本页，不用各组专项结果代替完整验收。
+
 本页是工作台当前基线与验证边界的唯一入口。有效范围见 [REQUIREMENTS](../REQUIREMENTS.md)，模块职责见 [ARCHITECTURE](ARCHITECTURE.md)。1.28.0收尾见[本轮回执](verification/persona-rewind-2026-10-30.md)与[结构化结果](verification/persona-rewind-2026-10-30.json)；1.27.0主体工程证据见[原回执](verification/closure-2026-10-30.md)。旧方案与中间失败记录不作为新的功能待办。
 
 ## 当前基线

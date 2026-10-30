@@ -8,10 +8,13 @@ behaved like the requested tool in an isolated read-only probe".
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
-import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+from lib import process_tree
 
 
 def _tool_identity_module():
@@ -26,7 +29,11 @@ def _tool_identity_module():
 
 
 def verify_tool(tool_id: str, command: str, apktool_jar: str = "") -> dict:
-    """Run one read-only behavioral probe and return a fail-closed verdict."""
+    """Probe the discovered command itself; a bundled JAR cannot vouch for it.
+
+    apktool_jar remains accepted for caller compatibility. Launcher identity is
+    always checked by executing command, never an unrelated java/JAR pair.
+    """
     tid = str(tool_id or "").strip().lower()
     exe = os.path.abspath(command) if command and os.path.isfile(command) else ""
     if not exe:
@@ -38,60 +45,34 @@ def verify_tool(tool_id: str, command: str, apktool_jar: str = "") -> dict:
             "why": "未找到可执行文件",
         }
 
-    if tid == "apktool" and apktool_jar:
-        java = "java"
-        argv = [java, "-jar", os.path.abspath(apktool_jar), "--version"]
-        try:
-            proc = subprocess.run(
-                argv, capture_output=True, text=True, encoding="utf-8",
-                errors="replace", timeout=60, stdin=subprocess.DEVNULL,
-            )
-            output = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
-            verified = proc.returncode == 0 and bool(re.search(r"(?m)^\d+\.\d+", output))
-            return {
-                "verified": verified,
-                "verdict": "ready" if verified else "found_no_verify",
-                "tool_id": tid,
-                "command": exe,
-                "probe_command": argv,
-                "returncode": proc.returncode,
-                "why": ("java + apktool.jar 行为探针通过" if verified
-                        else "java + apktool.jar 探针未通过：%r" % output[:160]),
-            }
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "verified": False, "verdict": "found_no_verify",
-                "tool_id": tid, "command": exe,
-                "why": "java + apktool.jar 探针失败：%s: %s"
-                       % (type(exc).__name__, exc),
-            }
-
     if tid == "r2":
         argv = [
             exe, "-q", "-e", "scr.color=0", "-c", "iIj", sys.executable,
         ]
         try:
-            proc = subprocess.run(
+            proc = process_tree.run(
                 argv, capture_output=True, text=True, encoding="utf-8",
                 errors="replace", timeout=30, stdin=subprocess.DEVNULL,
             )
-            output = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
-            verified = (proc.returncode == 0
-                        and bool(re.search(r'"arch"\s*:', output)))
+            try:
+                info = json.loads(proc.stdout or "")
+            except (TypeError, ValueError):
+                info = None
+            verified = (proc.returncode == 0 and isinstance(info, dict)
+                        and isinstance(info.get("arch"), str) and bool(info["arch"].strip()))
             return {
                 "verified": verified,
                 "verdict": "ready" if verified else "found_no_verify",
                 "tool_id": tid, "command": exe, "probe_command": argv,
                 "returncode": proc.returncode,
                 "why": ("radare2 实际分析探针通过" if verified
-                        else "radare2 实际分析探针未通过：%r" % output[:160]),
+                        else "radare2 实际分析探针未通过（输出不回显）"),
             }
         except Exception as exc:  # noqa: BLE001
             return {
                 "verified": False, "verdict": "found_no_verify",
                 "tool_id": tid, "command": exe,
-                "why": "radare2 实际分析探针失败：%s: %s"
-                       % (type(exc).__name__, exc),
+                "why": "radare2 实际分析探针失败：%s" % type(exc).__name__,
             }
 
     try:
@@ -121,7 +102,7 @@ def verify_tool(tool_id: str, command: str, apktool_jar: str = "") -> dict:
             "verdict": "found_no_verify",
             "tool_id": tid,
             "command": exe,
-            "why": "行为探针不可用：%s: %s" % (type(exc).__name__, exc),
+            "why": "行为探针不可用：%s" % type(exc).__name__,
         }
 
 

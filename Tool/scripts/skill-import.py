@@ -608,10 +608,11 @@ def _resolve_deploy_roots(opts, kind, src_dir=None, allow_empty=False):
                          "自定义 --skill-dir 时必须显式 --deploy-root（否则只写仓库：加 --no-deploy）",
                          hint="--no-deploy 或 --deploy-root <skills 根>")
         default_root = _default_deploy_root()
-        return [default_root], [
+        given = [default_root]
+        warnings.append(
             "未给 --deploy-root：按当前 AgentRoot 写默认根 %s（自定义 skill-dir 时不再这样兜底）"
             % default_root
-        ]
+        )
     repo = _repo_root_for(skill_dir)
     out, seen = [], set()
     for r in given:
@@ -1099,6 +1100,127 @@ def _lock_specs(plan):
     return specs
 
 
+def _validate_recovery_scope(entries, skill_dir, path, expected_name=None):
+    """Bind durable recovery to its repository before locks, reads or rollback."""
+    base = entries[0]
+
+    def refuse():
+        raise Refuse(5, "journal_scope_mismatch",
+                     "事务 journal 的仓库身份或操作路径越界；保留现场，不自动恢复",
+                     journal=path)
+
+    recorded = base.get("skill_dir")
+    if (not isinstance(recorded, str) or "\x00" in recorded or not os.path.isabs(recorded)
+            or _norm(recorded) != _norm(skill_dir)):
+        refuse()
+    if expected_name and base.get("name") != expected_name:
+        raise Refuse(5, "journal_identity_mismatch", "journal 技能名与待恢复身份不一致", journal=path)
+    declared = base.get("deploy_roots", [])
+    if not isinstance(declared, list):
+        refuse()
+    roots = [os.path.abspath(skill_dir)]
+    for root in declared:
+        if not isinstance(root, str) or "\x00" in root or not os.path.isabs(root):
+            refuse()
+        try:
+            roots.append(_validate_deploy_root(root, skill_dir))
+        except Refuse:
+            refuse()
+
+    def check_path(value):
+        if (not isinstance(value, str) or "\x00" in value or not os.path.isabs(value)
+                or not any(_within(value, root) for root in roots)):
+            refuse()
+
+    name, parent, kind = base.get("name"), base.get("parent"), base.get("kind")
+    if (not isinstance(name, str) or not _valid_name(name)[0]
+            or kind not in ("domain", "crosscutting", "subskill", "deploy")):
+        refuse()
+    subskill = kind == "subskill" or (kind == "deploy" and parent is not None)
+    if subskill and (not isinstance(parent, str) or not _valid_name(parent)[0]):
+        refuse()
+    targets = [os.path.join(root, parent, "subskills", name) if subskill
+               else os.path.join(root, name) for root in roots]
+    parent_files = [os.path.join(root, parent, filename) for root in roots
+                    for filename in ("SKILL.md", MANIFEST_NAME)] if subskill else []
+    legacy = [os.path.join(root, parent, "references", "imported-subskills", name)
+              for root in roots[1:]] if subskill else []
+    stamp = r"\d{8}-\d{6}-\d+(?:-\d+)?"
+
+    def slot(value, folder, nested=False):
+        for root in roots:
+            base_dir = os.path.join(root, folder)
+            if not _within(value, base_dir):
+                continue
+            relative = os.path.relpath(os.path.abspath(value), base_dir).replace(os.sep, "/")
+            head, separator, _tail = relative.partition("/")
+            if re.fullmatch(re.escape(name) + "-" + stamp, head) and (nested or not separator):
+                return True
+        return False
+
+    def matches(value, candidates):
+        return any(_norm(value) == _norm(candidate) for candidate in candidates)
+
+    staging = {entry.get("dir") for entry in entries if entry.get("op") == "staging"
+               and isinstance(entry.get("dir"), str)}
+
+    for entry in entries:
+        for key in ("name", "kind", "parent", "skill_dir", "deploy_roots"):
+            if key in entry and entry[key] != base.get(key):
+                refuse()
+        for key in ("src", "dst", "file", "backup", "dir", "tmp", "target"):
+            if entry.get(key) is not None:
+                check_path(entry[key])
+        op, action = entry.get("op"), entry.get("action")
+        if op == "staging" and not slot(entry.get("dir", ""), STAGING_NAME):
+            refuse()
+        if op == "intent":
+            if action == "move":
+                for key in ("src", "dst"):
+                    value = entry.get(key, "")
+                    if not (matches(value, targets + legacy) or slot(value, STAGING_NAME)
+                            or slot(value, BACKUP_NAME, nested=True)):
+                        refuse()
+            elif action == "patch":
+                if (not matches(entry.get("file", ""), parent_files)
+                        or not slot(entry.get("backup", ""), BACKUP_NAME, nested=True)):
+                    refuse()
+            elif action == "mkdir":
+                if not (matches(entry.get("dst", ""), [os.path.dirname(t) for t in targets])
+                        or slot(entry.get("dst", ""), BACKUP_NAME)):
+                    refuse()
+            else:
+                refuse()
+        if op == "patch_prepared":
+            temporary = entry.get("tmp", "")
+            if not any(_norm(os.path.dirname(temporary)) == _norm(os.path.dirname(file))
+                       and re.fullmatch(r"\." + re.escape(os.path.basename(file))
+                                        + r"\.seep-tmp-\d+-\d+", os.path.basename(temporary))
+                       for file in parent_files):
+                refuse()
+        if op in ("recovery_retention_intent", "recovery_retention_done"):
+            source, destination = entry.get("src", ""), entry.get("dst", "")
+            if source not in staging or not any(
+                    _norm(os.path.dirname(os.path.dirname(destination))) == _norm(os.path.join(root, BACKUP_NAME))
+                    and re.fullmatch("recovered-" + stamp, os.path.basename(os.path.dirname(destination)))
+                    and os.path.basename(destination) == os.path.basename(source)
+                    for root in roots if _within(source, root)):
+                refuse()
+        if entry.get("op") == "verified_snapshot":
+            if not matches(entry.get("target", ""), targets[:1]):
+                refuse()
+            deployments = entry.get("deploy")
+            if not isinstance(deployments, list):
+                refuse()
+            for item in deployments:
+                if not isinstance(item, dict):
+                    refuse()
+                if item.get("path") is not None:
+                    check_path(item["path"])
+                    if not matches(item["path"], targets[1:]):
+                        refuse()
+
+
 def _recovery_lock_specs(skill_dir, base_specs, name, prefixes):
     """Add lock coverage for resources named by durable journals from earlier roots."""
     jdir = os.path.join(_lock_dir(skill_dir), JOURNAL_DIR)
@@ -1132,10 +1254,7 @@ def _recovery_lock_specs(skill_dir, base_specs, name, prefixes):
 
     for path in paths:
         entries, _malformed = _read_journal_entries(path)
-        if str(entries[0].get("name") or "") != name:
-            raise Refuse(5, "journal_identity_mismatch",
-                         "journal 文件名与事务声明的技能名不一致，拒绝预占错误资源锁：%s"
-                         % path, journal=path)
+        _validate_recovery_scope(entries, skill_dir, path, expected_name=name)
         base = entries[0]
         journal_roots = [
             str(root) for root in (base.get("deploy_roots") or [])
@@ -3308,10 +3427,7 @@ def _retain_published_staging(path, entries, roots, receipt, recorder=None):
 
 def _recover_one_transaction(path, skill_dir, roots, expected_name=None):
     entries, malformed = _read_journal_entries(path)
-    if expected_name and str(entries[0].get("name") or "") != expected_name:
-        raise Refuse(5, "journal_identity_mismatch",
-                     "journal 文件名与该事务声明的技能名不一致，拒绝误恢复：%s" % path,
-                     journal=path)
+    _validate_recovery_scope(entries, skill_dir, path, expected_name=expected_name)
     phase = _journal_phase(entries)
     base = dict(entries[0])
     journal_roots = [

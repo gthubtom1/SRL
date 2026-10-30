@@ -39,7 +39,7 @@ export interface RewindCandidate {
   text: string;
   /** First line of the message, shortened for a dialog row. */
   preview: string;
-  /** The turn did tool work after it: rewinding drops that too, so confirm first. */
+  /** Tool work follows this message, including later turns that rewind drops. */
   hasToolWork: boolean;
 }
 
@@ -98,6 +98,14 @@ export function listRewindCandidates(entries: readonly EntryLike[]): RewindCandi
     if (current && isToolWork(entry)) current.hasToolWork = true;
   }
 
+  // Navigation removes every later turn as well as the selected one. Carry
+  // tool work backwards so selecting an earlier plain turn cannot bypass the
+  // confirmation for side effects produced by a later turn.
+  let laterToolWork = false;
+  for (let index = candidates.length - 1; index >= 0; index--) {
+    laterToolWork ||= candidates[index].hasToolWork;
+    candidates[index].hasToolWork = laterToolWork;
+  }
   return candidates;
 }
 

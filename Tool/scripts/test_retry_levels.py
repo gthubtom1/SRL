@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -20,11 +21,18 @@ HARNESS = r'''
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import {syncBuiltinESMExports} from "node:module";
 import {pathToFileURL} from "node:url";
 
 const [extension, scenario] = process.argv.slice(2);
-const settingsPath = path.join(process.env.PI_CODING_AGENT_DIR, "settings.json");
+const fixtureAgent = process.env.PI_CODING_AGENT_DIR;
+const settingsPath = path.join(fixtureAgent, "settings.json");
+if (scenario === "tilde-root") {
+  // Keep both the configured root and the homedir fallback inside this fixture.
+  os.homedir = () => path.dirname(fixtureAgent);
+  process.env.PI_CODING_AGENT_DIR = "~/" + path.basename(fixtureAgent);
+}
 const initial = {
   theme: "preserve", custom: {nested: ["keep", 42]},
   retry: {enabled: false, maxRetries: 3, custom: "keep-retry",
@@ -90,7 +98,7 @@ async function unchanged(arg, expectNotice) {
   assert.equal(notices.length, previousNotices + (expectNotice ? 1 : 0));
   if (expectNotice) assert.equal(notices.at(-1).level, "warning");
 }
-if (scenario === "direct3-off") {
+if (scenario === "direct3-off" || scenario === "tilde-root") {
   await changed("3", true);
   await changed("off", false);
   await changed("3", true);
@@ -110,7 +118,7 @@ console.log(`PASS ${scenario}`);
 
 
 class RetryLevels(unittest.TestCase):
-    def run_scenario(self, scenario):
+    def run_scenario(self, scenario, *, standalone=False):
         node = shutil.which("node")
         self.assertIsNotNone(node, "Node with --experimental-strip-types is required")
         with tempfile.TemporaryDirectory(prefix="seep-retry-levels-") as folder:
@@ -119,11 +127,16 @@ class RetryLevels(unittest.TestCase):
             agent_dir.mkdir()
             script = fixture / "retry-levels.mjs"
             script.write_text(HARNESS, encoding="utf-8")
+            extension = EXTENSION
+            if standalone:
+                extension = agent_dir / "extensions/retry-level.ts"
+                extension.parent.mkdir()
+                shutil.copy2(EXTENSION, extension)
             env = dict(os.environ, PI_CODING_AGENT_DIR=str(agent_dir), NODE_NO_WARNINGS="1")
             # Do not inherit host preload hooks into this isolated Node process.
             env.pop("NODE_OPTIONS", None)
             result = subprocess.run(
-                [node, "--experimental-strip-types", str(script), str(EXTENSION), scenario],
+                [node, "--experimental-strip-types", str(script), str(extension), scenario],
                 cwd=fixture, env=env, capture_output=True, text=True,
                 encoding="utf-8", errors="replace", timeout=30,
             )
@@ -138,6 +151,71 @@ class RetryLevels(unittest.TestCase):
 
     def test_invalid_arguments_preserve_settings_without_reload(self):
         self.run_scenario("invalid")
+
+    def test_tilde_agent_root_updates_the_selected_settings(self):
+        self.run_scenario("tilde-root")
+
+    def test_standalone_delivery_needs_no_companion_package(self):
+        self.run_scenario("tilde-root", standalone=True)
+
+    def assert_retry_retained_after_package_uninstall(self, platform):
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from Tool.scripts import test_runtime_install_delivery as ps
+        from Tool.scripts import test_runtime_shell_delivery as sh
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "Node with --experimental-strip-types is required")
+        with tempfile.TemporaryDirectory(prefix="seep-retained-retry-") as folder:
+            base = Path(folder)
+            agent = base / "agent"
+            env = ps.isolated_environment(base)
+            env.update(PI_CODING_AGENT_DIR=str(agent), NODE_NO_WARNINGS="1")
+            env.pop("NODE_OPTIONS", None)
+            wb = (ps.build_workbench if platform == "powershell" else sh.build_fixture)(base)
+            source = wb / "Tool/prompts/extensions/retry-level.ts"
+            source.parent.mkdir()
+            shutil.copy2(EXTENSION, source)
+            if platform == "powershell":
+                installed = ps.run_ps(wb / "setup/install-pi.ps1", "-AgentRoot", str(agent),
+                                      "-SkipPackages", env=env)
+                self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+                removed = ps.run_ps(wb / "setup/uninstall.ps1", "-AgentRoot", str(agent),
+                                    "-Yes", "-KeepPrompts", env=env)
+            else:
+                installed = sh.run_bash(wb / "setup/install.sh", "--agent-root", str(agent),
+                                        "--skip-packages", "--skip-python", env=env)
+                self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+                removed = sh.run_bash(wb / "setup/uninstall.sh", "--agent-root", str(agent),
+                                      "--yes", "--keep-prompts", env=env)
+            self.assertEqual(removed.returncode, 0, removed.stdout + removed.stderr)
+            delivered = agent / "extensions/retry-level.ts"
+            self.assertTrue(delivered.is_file())
+            self.assertFalse((agent / "packages/pi-seep-ext").exists())
+            script = base / "retained-retry.mjs"
+            script.write_text(r'''
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {pathToFileURL} from "node:url";
+const {default: factory} = await import(pathToFileURL(process.argv[2]));
+let retry, reloads=0;
+factory({on(){},registerCommand(name, command){if(name==="retry")retry=command;}});
+await retry.handler("3",{hasUI:true,ui:{notify(){},setStatus(){}},reload:async()=>{reloads++;}});
+const settings=JSON.parse(fs.readFileSync(path.join(process.env.PI_CODING_AGENT_DIR,"settings.json"),"utf8"));
+assert.equal(settings.retry.enabled,true);
+assert.equal(settings.retry.maxRetries,3);
+assert.equal(reloads,1);
+''', encoding="utf-8")
+            result = subprocess.run([node, "--experimental-strip-types",
+                                     str(script), str(delivered)], cwd=base, env=env,
+                                    capture_output=True, text=True, encoding="utf-8", timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_powershell_package_uninstall_keeps_independent_retry_working(self):
+        self.assert_retry_retained_after_package_uninstall("powershell")
+
+    def test_bash_package_uninstall_keeps_independent_retry_working(self):
+        self.assert_retry_retained_after_package_uninstall("bash")
 
 
 if __name__ == "__main__":

@@ -1219,7 +1219,7 @@ def cmd_act(a) -> int:
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", a.action)
     stamp = utc_slug()
     evidence_id = "ev-%s-%s-%s" % (slug, stamp, uuid.uuid4().hex[:6])
-    raw_name = "raw-%s-%s.out" % (slug, stamp)
+    raw_name = "raw-%s.out" % evidence_id
     raw_path = capture_dir / raw_name
     raw_text = (result["stdout"] or "") + (("\n[stderr]\n" + result["stderr"])
                                            if result["stderr"] else "")
@@ -1287,6 +1287,7 @@ def cmd_act(a) -> int:
                   "--target-sha256", str(version.get("sha256")),
                   "--path", rel_evidence, "--sha256", fingerprint["sha256"],
                   "--size", str(fingerprint["size"]), "--source", rel_evidence,
+                  "--raw-output", raw_path.relative_to(root).as_posix(),
                   "--how", "project_workflow.py %s (method=%s)" % (a.action, result["method"]),
                   "--recorded-by", "workflow-entry"]
     if input_asset is not None:

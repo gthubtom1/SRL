@@ -191,7 +191,7 @@ def probe_stdio(cfg, _quick=False):
         return {"ok": True, "stage": "tools", "tools": result["toolsCount"]}
     except Exception as exc:
         return {"ok": False, "stage": "handshake", "tools": None,
-                "error": "stdio 握手失败: " + str(exc)[:300]}
+                "error": "stdio 握手失败: " + type(exc).__name__}
 
 
 def _runtime_tools():

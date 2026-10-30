@@ -120,6 +120,46 @@ class ArchiveFixture(unittest.TestCase):
     def import_bundle(self, bundle: Path, destination: Path, *extra) -> tuple[int, dict, str]:
         return invoke(ARCHIVE, "import", "--archive", bundle, "--project", destination, *extra)
 
+    def test_workflow_raw_output_binding_survives_archive_relocation(self):
+        workflow = ROOT / "Tool/scripts/project_workflow.py"
+        project = self.base / "workflow-project"
+        target = self.base / "workflow-target.bin"
+        target.write_bytes(b"synthetic workflow archive target\n")
+        code, started, _ = invoke(workflow, "start", "--project", project, "--target", target,
+            "--quote", "inspect software structure", "--primary-domain", "softseep",
+            "--route-id", "R1", "--p", "0.5", "--hours", "1h", "--fail", "parser error",
+            "--evidence-goal", "fingerprint", "--json")
+        self.assertEqual(code, 0, started)
+        code, action, _ = invoke(workflow, "act", "--project", project,
+                                 "--action", "meta.fingerprint", "--json")
+        self.assertEqual(code, 0, action)
+        code, closed, _ = invoke(workflow, "close", "--project", project, "--version", "1.0",
+            "--run", started["run"], "--define", "ac:structural fixture",
+            "--accept", "ac=pass:" + action["evidence_id"], "--verifier", "fixture reader",
+            "--how", "synthetic structural check", "--finish", "completed", "--json")
+        self.assertEqual(code, 0, closed)
+        self.report(project, "generate", "--report-id", "raw-final", "--version", "1.0",
+                    "--run-id", started["run"], "--kind", "final")
+        record_ref = "versions/1.0/evidence/%s.json" % action["evidence_id"]
+        binding = read_json(project / record_ref)["raw_output"]
+        original = (project / binding["local_path"]).read_bytes()
+        bundle = self.export(project)
+        project.rename(self.base / "moved-original")
+        target.unlink()
+        imported = self.base / "restored-workflow"
+        code, result, _ = self.import_bundle(bundle, imported)
+        self.assertEqual(code, 0, result)
+        self.assertEqual(read_json(imported / record_ref)["raw_output"], binding)
+        self.assertTrue(self.state(imported, "resume")["handoff"]["acceptance_complete"])
+        raw = imported / binding["local_path"]
+        self.assertEqual(raw.read_bytes(), original)
+        raw.write_bytes(b"tampered imported raw output\n")
+        code, result, _ = invoke(STATE, "resume", "--project", imported)
+        self.assertEqual(code, 2, result)
+        self.assertFalse(result["handoff"]["acceptance_complete"])
+        raw.write_bytes(original)
+        self.assertTrue(self.state(imported, "resume")["handoff"]["acceptance_complete"])
+
     @unittest.skipUnless(os.name == "nt", "real Windows ordinary-path import regression")
     def test_windows_deep_import_refuses_before_writes_and_same_archive_recovers(self):
         import project_archive as A

@@ -19,6 +19,9 @@ import tempfile
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from lib import process_tree as _process_tree
+
 try:
     from mcp.server.mcpserver import MCPServer
 except ImportError:
@@ -208,7 +211,7 @@ def _run_capture(
     mistaken for successful data.
     """
     try:
-        proc = subprocess.run(
+        proc = _process_tree.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -216,7 +219,8 @@ def _run_capture(
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=timeout
+            timeout=timeout,
+            stdin=subprocess.DEVNULL,
         )
         return {
             "ok": proc.returncode == 0,
@@ -1610,7 +1614,7 @@ def _detect_needs(blob: bytes = b"", extra_text: str = "", case_dir: str = "") -
         try:
             for a, n in zip(asks[:2], out[:2]):
                 opts = list(n.get("options") or [])
-                subprocess.run([sys.executable, os.path.join(_SEEP_ROOT, "Tool", "scripts", "case_state.py"),
+                _process_tree.run([sys.executable, os.path.join(_SEEP_ROOT, "Tool", "scripts", "case_state.py"),
                                 "ask", "--case", case_dir, "--stuck", str(a.get("question"))[:120]]
                                + [x for o in opts for x in ("--option", o)],
                                capture_output=True, text=True, encoding="utf-8",
@@ -2269,7 +2273,7 @@ def _ghidra_decompile(binary_path: str, target: str, output_mode: str = "fold") 
     code = None
     try:
         try:
-            subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+            _process_tree.run(cmd, capture_output=True, text=True, encoding="utf-8",
                            errors="replace", timeout=300, env=env)
         except Exception:
             return None
@@ -2522,7 +2526,7 @@ def seep_pcap_extract(pcap_path: str, host_filter: str = "", mode: str = "summar
         # 不接受调用方给 argv/shell/目标：tshark 路径只来自本函数的解析结果。
         argv = [tshark, "-n", "-r", bound_path] + list(extra_args)
         try:
-            proc = subprocess.run(argv, capture_output=True, text=True,
+            proc = _process_tree.run(argv, capture_output=True, text=True,
                                   encoding="utf-8", errors="replace", timeout=120)
         except subprocess.TimeoutExpired:  # 超时与 rc≠0 都不当空数据
             record = _pcap_execution(argv, timeout=True, error="TimeoutExpired")
@@ -3008,7 +3012,7 @@ def seep_http_replay(
         resp_status, resp_headers, resp_text = r.status_code, dict(r.headers), r.text
         set_cookies = dict(r.cookies.get_dict())
     except Exception as exc:
-        msg = (f"[ERROR]: 请求失败: {type(exc).__name__}: {exc}；"
+        msg = (f"[ERROR]: 请求失败: {type(exc).__name__}；"
                "未自动重发。请求可能已经送达，请先核对服务端结果再决定是否重试。")
         return _scrub_text(msg, _known_secrets([ck], [hdr], url))
 
@@ -3035,7 +3039,8 @@ def seep_http_replay(
             saved_note = f"请求已完成，但会话快照写入失败: {type(exc).__name__}: {exc}"
 
     # 输出：所有凭据值 → [REDACTED]（保留键名与条数，便于判断有没有登录态）
-    body_preview = _scrub_text(resp_text[:2000], secrets)
+    # Scrub before cutting: otherwise a value spanning the boundary leaks its prefix.
+    body_preview = _scrub_text(resp_text, secrets)[:2000]
     out = {
         "ok": write_ok,
         "status": "complete" if write_ok else "partial",

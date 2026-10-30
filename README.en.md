@@ -15,7 +15,7 @@ Give your agent the repository URL or local directory and say:
 ## Prerequisites
 
 - The Windows installer requires Python 3.11+ runnable as `python`. The Linux/macOS installer tries executable `python3` and then `python`, with the same Python version requirement.
-- A normal Pi deployment also requires Node.js and the Pi host. The installer checks that the commands are available; the minimum Node.js version comes from the current Pi host and its dependencies.
+- A normal Pi deployment also requires Node.js and the Pi host. The current environment check requires Node.js 22.19.0+; the chosen Pi host and its dependencies may impose additional version requirements.
 - `-SkipPackages` on Windows and `--skip-packages` on Linux/macOS skip bundled offline dependency extraction and package/host-dependent checks or installation. This can prepare configuration first. It does not relax the Python 3.11+ requirement or prove overall readiness; the full installer's final environment check can still fail because Node.js, Pi or sign-in is missing.
 - AgentRoot resolution is explicit argument, then `PI_CODING_AGENT_DIR`, then `PI_AGENT_DIR`, then `.pi/agent` under the user directory. Use the same AgentRoot for installation, update, uninstallation and later checks.
 
@@ -53,7 +53,7 @@ python Tool/scripts/check.py --runtime --json
 
 `env-check.py` returns JSON by default and checks deployed files, Pi configuration, and the Seep MCP initialize/tools-list identity. `check.py --runtime --json` validates the current runtime implementation and regressions. For a custom AgentRoot, set `PI_CODING_AGENT_DIR` or use an explicitly supported script argument.
 
-Open a new host session after install or update and confirm that skills, extensions and MCP entries actually load. Model sign-in happens inside the host and remains a user action. A present configuration, a successful handshake, host loading, a real tool call and an accepted customer task are separate observations; success at one level does not imply the next.
+After install or update, use the host's `/reload` command or restart the host completely, then confirm that skills, extensions and MCP entries actually load. A long-running host can reuse old modules across new sessions, so opening a new session alone does not establish that updated code was loaded. Model sign-in happens inside the host and remains a user action. A present configuration, a successful handshake, host loading, a real tool call and an accepted customer task are separate observations; success at one level does not imply the next.
 
 ## Daily use
 
@@ -69,8 +69,12 @@ When an account, device, commercial license or other user action is required, th
 - External MCP servers, commercial software, browser automation, hardware and specialist actions are verified separately. A configuration entry or registered tool does not prove that a service is connected, or that every domain and tool has passed end-to-end acceptance.
 - `_pending` is a reference area read by source path, not a deployed top-level skill name.
 
-Keep the source checkout available because the installed runtime registration points to it. If the repository moves, redeploy, refresh the configuration and `seep-runtime.json`, and verify in a new host session.
+Keep the source checkout available because the installed runtime registration points to it. If the repository moves, redeploy, refresh the configuration and `seep-runtime.json`, and reload or restart the host before verification.
 
 For MCP failures, [MCP-SETUP](Tool/docs/MCP-SETUP.md) distinguishes a quick port or executable check from a full handshake and a real tool call. `mcp-doctor.py --quick` does not establish a JSON-RPC session; the default full diagnostic does, and may start configured programs. Future skills, tools and domains are documented in the [extension guide](Tool/docs/EXTEND.md).
 
-Source attribution and licensing: [LICENSE](LICENSE), [PROVENANCE](Tool/docs/PROVENANCE.md), [UPSTREAM](docs/UPSTREAM.md). The [Chinese entry](README.zh.md) and [Chinese README](README.md) are also available.
+Maintenance and issue reporting: [CONTRIBUTING](CONTRIBUTING.md), [SECURITY](SECURITY.md), [manual index](MANUAL/README.md). Read [current state](docs/CURRENT-STATE.md) for the baseline and verification limits, and [REQUIREMENTS](REQUIREMENTS.md) for scope.
+
+GitHub CI verifies the explicit [public source scope](.github/public-suites.json). Complete domain acceptance also requires a user-supplied APK that is not distributed with a clone. Authorized maintainers must prepare the original by its recorded hash locally and run the unchanged complete checks; public CI success does not establish complete domain acceptance.
+
+The root [LICENSE](LICENSE) contains GNU GPL version 3. Third-party components retain their own licenses and copyright notices; the root license does not relicense every bundled component. Source attribution and component licensing: [PROVENANCE](Tool/docs/PROVENANCE.md), [UPSTREAM](docs/UPSTREAM.md). The [Chinese entry](README.zh.md) and [Chinese README](README.md) are also available.

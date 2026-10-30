@@ -17,7 +17,7 @@
 ```bash
 file target.crx
 xxd -g1 -l 64 target.crx
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path target.crx --json
 sha256sum target.crx
 ```
 

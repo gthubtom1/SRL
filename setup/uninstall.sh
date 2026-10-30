@@ -245,35 +245,10 @@ if [ -n "$RESTORE" ]; then
     echo -e "${MAGENTA}║   Seep 工作台 —— 从备份恢复                                   ║${RESET}"
     echo -e "${MAGENTA}╚══════════════════════════════════════════════════════════════╝${RESET}"
 
-    if [ ! -d "$RESTORE" ]; then fail "备份目录不存在: $RESTORE"; exit 1; fi
-
-    step "1/2  扫描备份内容"
-    info "备份目录: $RESTORE"
-    COUNT=$(find "$RESTORE" -type f 2>/dev/null | wc -l | tr -d ' ')
-    info "文件数: $COUNT"
-
-    step "2/2  恢复"
-    if [ "$DRY_RUN" = "1" ]; then
-        while IFS= read -r f; do
-            [ -z "$f" ] && continue
-            info "将恢复: ${f#$RESTORE/}"
-        done < <(find "$RESTORE" -type f 2>/dev/null)
-        warn '--dry-run 模式，未做任何修改'
-        exit 0
-    fi
-    RESTORED=0
-    while IFS= read -r f; do
-        [ -z "$f" ] && continue
-        rel="${f#$RESTORE/}"
-        dst="$AGENT_DIR/$rel"
-        mkdir -p "$(dirname "$dst")"
-        if cp "$f" "$dst" 2>/dev/null; then RESTORED=$((RESTORED+1));
-        else fail "恢复失败: $rel"; FAILED=$((FAILED+1)); fi
-    done < <(find "$RESTORE" -type f 2>/dev/null)
-    ok "已恢复 $RESTORED 个文件"
-    info "请完全重启 Agent 会话后生效"
-    [ "$FAILED" -eq 0 ] || exit 1
-    exit 0
+    RESTORE_ARGS=(--root "$ROOT" --agent-dir "$AGENT_DIR" --restore-backup "$RESTORE")
+    [ "$DRY_RUN" = "1" ] && RESTORE_ARGS+=(--dry-run)
+    "$PY" "$SCRIPT_DIR/merge_agent_config.py" "${RESTORE_ARGS[@]}"
+    exit $?
 fi
 
 OWNED_RELS=()

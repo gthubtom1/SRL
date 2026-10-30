@@ -20,7 +20,7 @@ find . -maxdepth 4 \( -iname 'BepInEx' -o -iname 'MelonLoader' -o -iname 'doorst
   -o -iname 'LogOutput.log' -o -iname 'Latest.log' \) -print
 file GameAssembly.dll Assembly-CSharp.dll 2>/dev/null
 sha256sum winhttp.dll doorstop_config.ini 2>/dev/null
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path . --json   # unity 字段
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path . --json   # unity 字段
 ```
 
 **判据**：能说出加载器、注入方式、插件目录、日志路径与运行时（Mono/IL2CPP），五项齐全。
@@ -29,7 +29,7 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path . --js
 
 ```bash
 find BepInEx/plugins MelonLoader/Mods -maxdepth 2 -type f | sort
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path . --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path . --out work/repro --json
 ```
 
 - BepInEx：插件类继承 `BaseUnityPlugin`，`[BepInPlugin(guid, name, version)]` 给身份；`Awake()`/`Start()`/`Update()` 是入口；`[BepInDependency]` 决定加载顺序。

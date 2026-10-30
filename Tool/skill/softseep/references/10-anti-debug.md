@@ -88,19 +88,18 @@ cmp dword ptr [rax+0x74], 0   ; ForceFlags
 | Class | 名称 | 用途 | 典型检测 |
 | ---: | :--- | :--- | :--- |
 | 0 | `ProcessBasicInformation` | 父进程/PEB 地址 | 父进程检查、PEB 读 |
-| 1 | `ProcessDebugPort` | 调试端口 | 非 0 = 被调试 |
-| 2 | `ProcessDebugObjectHandle` | 调试对象 | 非 0 = 被调试 |
-| 3 | `ProcessDebugFlags` | 调试标志 | 0 = 被调试（注意语义反） |
-| 7 | `ProcessDebugImageFileHandle`? | 图像文件 | 少见 |
-| 0x1E | `ProcessDebugObjectHandle`（部分定义） | 调试对象 | 与 2 类似 |
-| 0x1F | `ProcessDebugFlags`（部分定义） | 调试标志 | 与 3 类似 |
-| 0x24 | `ProcessHandleTracing` | 句柄追踪 | 反调试/反注入 |
-| 0x28 | `ProcessTelemetryIdInformation` | 遥测 | 少见 |
-| 0x3E | `ProcessMitigationPolicy`? | 缓解策略 | 检测调试/注入 |
+| 7 (0x07) | `ProcessDebugPort` | 指针宽度的调试端口值 | 查询成功后非 0 表示调试端口存在（常见为全 1） |
+| 30 (0x1E) | `ProcessDebugObjectHandle` | 调试对象句柄 | 查询成功且句柄有效才是调试对象证据；未调试时常返回 `STATUS_PORT_NOT_SET` (0xC0000353) |
+| 31 (0x1F) | `ProcessDebugFlags` | `ULONG` 调试标志 | 查询成功后 0 表示调试信号；非 0（常为 1）是常见未调试值，语义与前两项相反；这是输出值，不是 NTSTATUS |
+| 32 (0x20) | `ProcessHandleTracing` | 句柄追踪 | 不与上述三类调试输出混用 |
 
 **识别：** 导入 `NtQueryInformationProcess`，或动态解析；调用后比较返回 `NTSTATUS` 与输出缓冲区。
 
-**对抗：** hook `NtQueryInformationProcess`，按 class 返回「未调试」值；或 patch 调用后的比较。注意 class 3 的语义：`DebugFlags=0` 表示被调试，返回 1 才是「未调试」。
+**返回语义：** 函数返回的是 `NTSTATUS`，不是调试端口/句柄/flags 本身。先核状态、输出类型与长度，再解释输出缓冲区；查询失败时缓冲区可能未写，预填 0 不能证明「未调试」。class 1/2/3 分别为 `ProcessQuotaLimits`/`ProcessIoCounters`/`ProcessVmCounters`，不能用于上述调试查询。
+
+**对抗：** 在已获准的副本调试中按实际 class 和状态处理，或核调用后的分支。不能统一把返回寄存器清零：`NTSTATUS=0` 仅表示成功，且 `ProcessDebugFlags(0x1F)` 的输出 0 反而是调试信号。单项输出不能证明所有调试检测均已避开。
+
+**反例核对：** class 7 返回 `STATUS_INFO_LENGTH_MISMATCH`，输出仍为预填 0 → 查询失败，结论未知；class 0x1F 成功并输出 0 → 调试信号；class 0x1E 返回 `STATUS_PORT_NOT_SET` → 未获得调试对象，不能解释成「NTSTATUS 非零所以被调试」。
 
 **二次检测风险：** 高。可能同时查 `DebugPort`/`DebugObjectHandle`/`DebugFlags` 三个 class，只 hook 一个会漏；也可能直接 syscall 绕过用户态 hook。
 
@@ -109,6 +108,8 @@ cmp dword ptr [rax+0x74], 0   ; ForceFlags
 ## 6. `CheckRemoteDebuggerPresent`
 
 **识别特征：** 导入 `CheckRemoteDebuggerPresent`，第二参数输出 `BOOL`；常与 `IsDebuggerPresent` 成对出现。
+
+函数返回非 0 只表示查询成功；成功后第二参数输出非 0 才表示检测到调试器。函数失败时输出未知，不能把预填 0 当未调试证据。
 
 **对抗：** hook 函数把输出置 0；或 patch 比较分支。
 

@@ -1,0 +1,320 @@
+{
+  "scope": "public-source-verification",
+  "included": {
+    "route": [
+      "Tool/scripts/route.py",
+      "--check"
+    ],
+    "skill-handoff-links": [
+      "Tool/scripts/skill-handoff-check.py"
+    ],
+    "doc-install-entries": [
+      "Tool/scripts/lib/doc_commands.py",
+      "--json"
+    ],
+    "tool-contract": [
+      "Tool/scripts/tool-contract-check.py",
+      "--json"
+    ],
+    "domain-contract": [
+      "Tool/scripts/domain-contract-check.py",
+      "--strict",
+      "--json"
+    ],
+    "domain-adapter": [
+      "Tool/scripts/domain-adapter-check.py",
+      "--strict"
+    ],
+    "skill-tests": [
+      "Tool/skill/softseep/scripts/intent-coverage.py",
+      "--json"
+    ],
+    "route-tests": [
+      "Tool/skill/softseep/scripts/skill-route-probe.py",
+      "--json"
+    ],
+    "rewrite-parity": [
+      "Tool/scripts/rewrite-route-parity.py",
+      "--json"
+    ],
+    "relay-tests": [
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "Tool/scripts/compliance-relay/tests",
+      "-v"
+    ],
+    "pre-upload": [
+      "Tool/scripts/pre-upload-check.py"
+    ],
+    "invariants": [
+      "Tool/scripts/invariants.py",
+      "--check"
+    ],
+    "capability-compose": [
+      "Tool/skill/softseep/scripts/capability-gate.py",
+      "--json"
+    ],
+    "acceptance-integrity": [
+      "Tool/scripts/test_acceptance_integrity.py"
+    ],
+    "acceptance-presence": [
+      "Tool/scripts/test_acceptance_presence.py"
+    ],
+    "apk-core-chain": [
+      "Tool/scripts/test_apk_core_chain.py"
+    ],
+    "archive-recovery": [
+      "Tool/scripts/test_archive_recovery.py"
+    ],
+    "budget-prompt": [
+      "Tool/scripts/test_budget_prompt.py"
+    ],
+    "case-evidence": [
+      "Tool/scripts/test_case_evidence.py"
+    ],
+    "case-ledger": [
+      "Tool/scripts/test_case_ledger.py"
+    ],
+    "case-legacy": [
+      "Tool/scripts/test_case_legacy.py"
+    ],
+    "case-lifecycle": [
+      "Tool/scripts/test_case_lifecycle.py"
+    ],
+    "case-readers": [
+      "Tool/scripts/test_case_readers.py"
+    ],
+    "case-repro": [
+      "Tool/scripts/test_case_repro.py"
+    ],
+    "closure-consistency": [
+      "Tool/scripts/test_closure_consistency.py"
+    ],
+    "domain-adapter-check": [
+      "Tool/scripts/test_domain_adapter_check.py"
+    ],
+    "domain-gate-integrity": [
+      "Tool/scripts/test_domain_gate_integrity.py"
+    ],
+    "domain-registry": [
+      "Tool/scripts/test_domain_registry.py"
+    ],
+    "domain-task-delivery": [
+      "Tool/scripts/test_domain_task_delivery.py"
+    ],
+    "env-readiness": [
+      "Tool/scripts/test_env_readiness.py"
+    ],
+    "evidence-contract": [
+      "Tool/scripts/test_evidence_contract.py"
+    ],
+    "frida-wrapper": [
+      "Tool/scripts/test_frida_wrapper.py"
+    ],
+    "gate-integrity": [
+      "Tool/scripts/test_gate_integrity.py"
+    ],
+    "gates": [
+      "Tool/scripts/test_gates.py"
+    ],
+    "import-metadata": [
+      "Tool/scripts/test_import_metadata.py"
+    ],
+    "import-transactions": [
+      "Tool/scripts/test_import_transactions.py"
+    ],
+    "kb-colloquial": [
+      "Tool/scripts/test_kb_colloquial.py"
+    ],
+    "manager-integration": [
+      "Tool/scripts/test_manager_integration.py"
+    ],
+    "manifest-summary": [
+      "Tool/scripts/test_manifest_summary.py"
+    ],
+    "mcp-execution": [
+      "Tool/scripts/test_mcp_execution.py"
+    ],
+    "mcp-lifecycle": [
+      "Tool/scripts/test_mcp_lifecycle.py"
+    ],
+    "net-rollback": [
+      "Tool/scripts/test_net_rollback.py"
+    ],
+    "pending-chain-health": [
+      "Tool/scripts/test_pending_chain_health.py"
+    ],
+    "preflight-language": [
+      "Tool/scripts/test_preflight_language.py"
+    ],
+    "preflight-ownership": [
+      "Tool/scripts/test_preflight_ownership.py"
+    ],
+    "preflight-root": [
+      "Tool/scripts/test_preflight_root.py"
+    ],
+    "process-tree": [
+      "Tool/scripts/test_process_tree.py"
+    ],
+    "project-acceptance": [
+      "Tool/scripts/test_project_acceptance.py"
+    ],
+    "project-archive": [
+      "Tool/scripts/test_project_archive.py"
+    ],
+    "project-integration": [
+      "Tool/scripts/test_project_integration.py"
+    ],
+    "project-ledger-identity": [
+      "Tool/scripts/test_project_ledger_identity.py"
+    ],
+    "project-report": [
+      "Tool/scripts/test_project_report.py"
+    ],
+    "project-transaction": [
+      "Tool/scripts/test_project_transaction.py"
+    ],
+    "project-typed-inputs": [
+      "Tool/scripts/test_project_typed_inputs.py"
+    ],
+    "project-workflow": [
+      "Tool/scripts/test_project_workflow.py"
+    ],
+    "project-write-recovery": [
+      "Tool/scripts/test_project_write_recovery.py"
+    ],
+    "prompt-extensions": [
+      "Tool/scripts/test_prompt_extensions.py"
+    ],
+    "protocol-domain-chain": [
+      "Tool/scripts/test_protocol_domain_chain.py"
+    ],
+    "r10-firmware-contracts": [
+      "Tool/scripts/test_r10_firmware_contracts.py"
+    ],
+    "r10a-contracts": [
+      "Tool/scripts/test_r10a_contracts.py"
+    ],
+    "r12-gate-contracts": [
+      "Tool/scripts/test_r12_gate_contracts.py"
+    ],
+    "read-guard": [
+      "Tool/scripts/test_read_guard.py"
+    ],
+    "report-claim-ledger": [
+      "Tool/scripts/test_report_claim_ledger.py"
+    ],
+    "report-recovery": [
+      "Tool/scripts/test_report_recovery.py"
+    ],
+    "retry-levels": [
+      "Tool/scripts/test_retry_levels.py"
+    ],
+    "route-integrity": [
+      "Tool/scripts/test_route_integrity.py"
+    ],
+    "run-acceptance-history": [
+      "Tool/scripts/test_run_acceptance_history.py"
+    ],
+    "run-failure-state": [
+      "Tool/scripts/test_run_failure_state.py"
+    ],
+    "runtime-install-delivery": [
+      "Tool/scripts/test_runtime_install_delivery.py"
+    ],
+    "runtime-registration": [
+      "Tool/scripts/test_runtime_registration.py"
+    ],
+    "runtime-root": [
+      "Tool/scripts/test_runtime_root.py"
+    ],
+    "runtime-shell-delivery": [
+      "Tool/scripts/test_runtime_shell_delivery.py"
+    ],
+    "skill-deployment": [
+      "Tool/scripts/test_skill_deployment.py"
+    ],
+    "skill-handoffs": [
+      "Tool/scripts/test_skill_handoffs.py"
+    ],
+    "skill-import": [
+      "Tool/scripts/test_skill_import.py"
+    ],
+    "source-inventory": [
+      "Tool/scripts/test_source_inventory.py"
+    ],
+    "terminal-history": [
+      "Tool/scripts/test_terminal_history.py"
+    ],
+    "tool-autonomy": [
+      "Tool/scripts/test_tool_autonomy.py"
+    ],
+    "tool-dependencies": [
+      "Tool/scripts/test_tool_dependencies.py"
+    ],
+    "tool-discovery": [
+      "Tool/scripts/test_tool_discovery.py"
+    ],
+    "tool-install-recovery": [
+      "Tool/scripts/test_tool_install_recovery.py"
+    ],
+    "tool-installation": [
+      "Tool/scripts/test_tool_installation.py"
+    ],
+    "tool-probe-audit": [
+      "Tool/scripts/test_tool_probe_audit.py"
+    ],
+    "typed-assets": [
+      "Tool/scripts/test_typed_assets.py"
+    ],
+    "version-migrate-delivery": [
+      "Tool/scripts/test_version_migrate_delivery.py"
+    ],
+    "version-migrate-recovery": [
+      "Tool/scripts/test_version_migrate_recovery.py"
+    ],
+    "clean-format": [
+      "setup/test_clean_format.py"
+    ],
+    "merge-agent-config": [
+      "setup/test_merge_agent_config.py"
+    ],
+    "restore-boundaries": [
+      "setup/test_restore_boundaries.py"
+    ],
+    "rewind-boundaries": [
+      "setup/test_rewind_boundaries.py"
+    ],
+    "sync-upstream": [
+      "setup/test_sync_upstream.py"
+    ],
+    "seep-mcp": [
+      "Tool/mcp/test_seep_mcp.py"
+    ],
+    "ext-assets": [
+      "Tool/mcp/test_ext_assets.py"
+    ],
+    "pcap-contract": [
+      "Tool/mcp/test_pcap_contract.py"
+    ],
+    "readonly-parameters": [
+      "Tool/mcp/test_readonly_parameters.py"
+    ],
+    "apk-contract": [
+      "Tool/mcp/test_apk_contract.py"
+    ],
+    "audit-boundaries": [
+      "Tool/mcp/test_audit_boundaries.py"
+    ]
+  },
+  "excluded": {
+    "unit": "Complete all-pack witness acceptance includes the user-supplied, gitignored apkseep08/target/release.apk. Keep gate.py --all unchanged for local full acceptance.",
+    "e2e": "Complete domain depth acceptance verifies apkseep08 private APK and all declared depth cases. Keep domain-gate.py --all and its case set unchanged.",
+    "mutation-isolation": "Its real managed-prompt mutation test invokes complete preflight.py --fast on a repository snapshot; that baseline transitively requires the private APK. Other mutation/unit negative controls remain in their public suites."
+  },
+  "outside_runtime": {
+    "preflight": "preflight.py --fast still runs complete domain depth acceptance and requires the private apkseep08 APK. It remains a local full acceptance command; not a public CI result."
+  }
+}

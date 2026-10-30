@@ -108,8 +108,8 @@ def _pcap_mcp_path(td: str) -> bool:
     with open(pcap, "wb") as fh:
         fh.write(struct.pack("<IHHIIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1))
     calls = []
-    real_run = subprocess.run
-    subprocess.run = lambda argv, **kw: (
+    real_run = S._process_tree.run
+    S._process_tree.run = lambda argv, **kw: (
         calls.append(list(argv)),
         _Proc(0, "10.0.0.1:1 <-> 10.0.0.2:80 5 3 1200 800 1.5\n", "warn\n"))[1]
     try:
@@ -124,7 +124,7 @@ def _pcap_mcp_path(td: str) -> bool:
             return good, json.loads(bad_text), bad_text, list(calls)
         good, bad, bad_text, inject_calls = asyncio.run(go())
     finally:
-        subprocess.run = real_run
+        S._process_tree.run = real_run
     check("pcap status is ok with pinned argv",
           good.get("status") == "ok" and good.get("no_network") is True, str(good)[:120])
     check("pcap data rows exclude stderr warnings",

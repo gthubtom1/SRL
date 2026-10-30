@@ -70,7 +70,7 @@
 |---|---|
 | **识别特征** | 导入：`NtQueryInformationProcess`、`ZwQueryInformationProcess`；字符串 `ProcessDebugPort`、`ProcessDebugObjectHandle`、`ProcessDebugFlags`；常量 `7`、`0x1E`、`0x1F`；常见封装 `CheckRemoteDebuggerPresent`。 |
 | **探测点** | `ntdll!NtQueryInformationProcess` 入口；调用前第二个参数（InformationClass）；返回后的 `ProcessDebugPort` 输出缓冲区。 |
-| **绕过手法** | Hook `NtQueryInformationProcess`：class 7 返回 `0`/`-1` 视语义、class `0x1E` 返回 `STATUS_PORT_NOT_SET`、class `0x1F` 返回非 0；ScyllaHide 勾选对应项；若目标直接 syscall，则需 patch syscall stub 或内核层。 |
+| **返回与处置** | 函数返回 `NTSTATUS`，查询值在输出缓冲区。class 7 查询成功后输出 0 表示未获得调试端口，非 0（常为全 1，即指针宽度的 -1）是调试信号；class `0x1E` 无调试对象时常返回 `STATUS_PORT_NOT_SET`，不是有效句柄；class `0x1F` 查询成功后输出 0 是调试信号、非 0 语义相反。查询失败不能把预填 0 当结果。副本中的处置须同时保持状态/输出/长度一致，直接 syscall 不受普通 API hook 覆盖。 |
 | **失败判据** | 断点命中后输出仍是"被调试"值；进程在第一次查询后退出；hook 后目标检测 ntdll 前 5 字节被改（见 4.2）。 |
 | **工具** | x64dbg + ScyllaHide；Frida；API Monitor；`tool-acquire.py --sweep` 的 `x64dbg/frida-attach`。 |
 | **误判风险** | .NET/CLR、崩溃上报、性能工具也调用该 API；只看导入不能定罪，必须看 InformationClass 和返回值用法。 |
@@ -326,7 +326,7 @@
 
 | 阶段 | 完成判据 |
 |---|---|
-| OEP | 落在原镜像的节内；后续执行不跳回壳 dispatcher；能看到正常编译器序言与导入引用 |
+| OEP | 记录 VA/RVA 与到达路径，控制流从解包转入目标初始化/业务；代码语义及导入依赖可解释，无未处理的壳依赖；固定序言不是门槛，独立运行另验重建结果（见 `oep-locate.md`） |
 | dump | 文件能被 IDA/`dump-restore.py pe-info` 打开；节表合理；不是全 0/全 `0xCC` |
 | PE 重建 | `SizeOfImage`/`SizeOfHeaders`/`PointerToRawData`/`SizeOfRawData` 自洽；壳节已清且 OEP 不在其中 |
 | IAT | `dump-restore.py iat` 显示未解析 = 0；Scylla 里 unresolved = 0 |

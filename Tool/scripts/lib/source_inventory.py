@@ -572,6 +572,10 @@ def _enumerate_present(root):
 def verify_manifest(manifest, root, hashes=True):
     """校验导出 manifest。始终核对字节摘要；hashes 参数仅为兼容旧调用保留。"""
     root = os.path.realpath(root)
+    top = git_toplevel(root)
+    if top is not None and top != root:
+        raise SourceInventoryError(
+            "root 不是 git 顶层（疑似父 repo 误用）：root=%s toplevel=%s" % (root, top))
     if isinstance(manifest, (str, os.PathLike)):
         try:
             with open(os.fspath(manifest), encoding="utf-8") as f:

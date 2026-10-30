@@ -442,13 +442,13 @@ class PcapEntryParameters(unittest.TestCase):
         with open(self.pcap, "wb") as fh:
             fh.write(struct.pack("<IHHIIII", 0xA1B2C3D4, 2, 4, 0, 0, 65535, 1))
         self.recorded = []
-        self._real_run = S.subprocess.run
+        self._real_run = S._process_tree.run
         self._real_which = S.shutil.which
         S.shutil.which = lambda name: "/usr/bin/tshark" if name == "tshark" else None
-        S.subprocess.run = self._spy
+        S._process_tree.run = self._spy
 
     def tearDown(self):
-        S.subprocess.run = self._real_run
+        S._process_tree.run = self._real_run
         S.shutil.which = self._real_which
 
     def _spy(self, argv, **_kwargs):

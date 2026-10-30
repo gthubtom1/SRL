@@ -13,10 +13,10 @@
 | AD-1 | 启动即退出、无输出 | 退出码非 0、时间 <1s | 极可能在 EP/TLS 做环境检测 | 先下 TLS callback 断点，再看 EP | 也可能是缺依赖 DLL（先看是否 `0xc0000135`） |
 | AD-2 | 打了 `IsDebuggerPresent` 一处仍崩 | 还有其他检测点 | 单点 patch 不够 | 搜 PEB 访问（`fs:[30h]`/`gs:[60h]`）与 `NtGlobalFlag` | 有的样本根本没调这个 API |
 | AD-3 | 断 `IsDebuggerPresent` 从未命中 | 但行为仍像检测到调试器 | 可能直接读 PEB，不走 API | 在 PEB.BeingDebugged 处下内存读断点 | 也可能用 `CheckRemoteDebuggerPresent` |
-| AD-4 | 堆相关异常 | `NtGlobalFlag` 含 0x70 相关位 | 堆调试标志被用作检测 | 读 PEB+0xBC（x86）/0xBC（x64 视版本）核对 | 32/64 位偏移不同，先确认位数 |
-| AD-5 | `CheckRemoteDebuggerPresent` 返回 1 | 但进程看起来没被调 | 可能被 hook 或反着用 | 追该 API 的返回值消费点 | 某些加固壳会伪造返回值反向判断 |
+| AD-4 | 堆相关异常 | `NtGlobalFlag` 含 0x70 相关位 | 堆调试标志被用作检测 | 常见 PEB 偏移为 x86 +0x68、x64 +0xBC；按目标位数/符号核对 | 偏移及堆布局须核版本，标志不单独证明调试状态 |
+| AD-5 | `CheckRemoteDebuggerPresent` 返回非 0 | API 查询成功，尚不能判断是否被调试 | 函数返回与输出 BOOL 是两件事 | 成功后读取第二参数输出，非 0 才是调试信号；失败时输出未知 | 还须追消费分支；不能把函数成功值当调试标志 |
 | AD-6 | 断 Win32 API 不命中 | Native API 仍被调用 | 走 `Nt*`/`Zw*` 直连 | 断 `ntdll` 层：`NtQueryInformationProcess` 的三类信息 | 序号导入/直接 syscall 会绕过断点 |
-| AD-7 | `NtQueryInformationProcess` 命中 | InfoClass = ProcessDebugPort / DebugObjectHandle / DebugFlags | 经典三段检测 | 分别看返回值：非 0/句柄有效/flags=0 都表示被调试 | 不同 Windows 版本对这三个的支持不同 |
+| AD-7 | `NtQueryInformationProcess` 命中 | InfoClass = ProcessDebugPort(7) / DebugObjectHandle(0x1E) / DebugFlags(0x1F) | 可能为三类调试查询 | 先看 NTSTATUS 与长度，再读输出：端口非 0/有效句柄/flags=0 是信号；PORT_NOT_SET 不等于有效句柄 | 查询失败时输出未知；NTSTATUS 非零不能直接解释为被调试，详见 `anti-debug.md` §2.1 |
 
 ## 二、异常与 SEH/VEH
 

@@ -195,7 +195,7 @@ what distinguishes "I found the owner" from "my probe fires on everything".
 |---|---|---|---|
 | Flutter (AOT) | `libapp.so` | locate a string in the pool, then the code site that references it (`dart-aot.md`) | hours; needs a snapshot dump front end |
 | React Native | `index.android.bundle` (JS, often minified) | string search in the bundle, then the module that owns it | minutes to an hour; bundle is text |
-| Unity / IL2CPP | `libil2cpp.so` + `global-metadata.dat` | runtime identification only — the recovery route is out of scope here | open-ended; do not improvise |
+| Unity / IL2CPP | `libil2cpp.so` + `global-metadata.dat` | runtime identification here; conditional same-build type/address mapping in `../subskills/il2cpp-dump/SKILL.md` | verify inputs, tool/version and device; original C# body recovery is not promised |
 | Cordova / hybrid | `assets/www/` | read the JS directly | minutes |
 | Xamarin | `assemblies/*.dll` | standard .NET tooling on the assemblies | depends on obfuscation |
 
@@ -231,7 +231,7 @@ Run these in order; each one either ends the question or makes the next one chea
    Zero hits while the screen is visible: continue.
 6. **Name the layer and the tool** before touching anything else. If the layer is the runtime's own
    bytecode, the next file is `dart-aot.md` (Dart) or the bundle itself (RN); if it is Unity/IL2CPP,
-   write the boundary and stop.
+   read `../subskills/il2cpp-dump/SKILL.md` for the conditional type/address route and record what is actually verified; original C# body recovery remains outside the default promise.
 
 Two rules for the sequence: do not skip step 5 because "it is obviously Flutter" (the obviously-wrong
 case is exactly the one that costs a day), and do not run step 6 without a written sentence — the layer

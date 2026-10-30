@@ -49,6 +49,7 @@ def _url_secrets(url: str) -> list[str]:
     found = []
     if "@" in parsed.netloc:
         userinfo = parsed.netloc.rsplit("@", 1)[0]
+        found.append(userinfo.split(":", 1)[0])
         if ":" in userinfo:
             found.append(userinfo.split(":", 1)[1])
     for key, value in parse_qsl(parsed.query, keep_blank_values=True):
@@ -98,7 +99,8 @@ def _redact_url(url: str, secrets=()) -> str:
             pairs.append(quote(str(key), safe="") + "="
                          + quote(_scrub_text(value, secrets), safe=""))
     return urlunsplit(
-        (parsed.scheme, netloc, parsed.path, "&".join(pairs), parsed.fragment))
+        (parsed.scheme, netloc, _scrub_text(parsed.path, secrets), "&".join(pairs),
+         _scrub_text(parsed.fragment, secrets)))
 
 
 def _secret_variants(value: str) -> list[str]:
@@ -118,6 +120,30 @@ def _header_secret_variants(value: str) -> list[str]:
     return variants
 
 
+def _cookie_header_secrets(value: str, set_cookie: bool = False) -> list[str]:
+    """Collect individual Cookie/Set-Cookie values, including quoted values.
+
+    A cookie jar can omit intermediate redirect cookies; the raw header remains
+    a source of credentials even when no jar entry was returned.
+    """
+    from http.cookies import SimpleCookie
+    found = []
+    parsed = SimpleCookie()
+    try:
+        parsed.load(value)
+        found.extend(morsel.value for morsel in parsed.values())
+    except Exception:
+        pass
+    # Be conservative with nonstandard or combined headers a jar cannot parse.
+    attributes = {'path', 'domain', 'expires', 'max-age', 'samesite', 'secure',
+                  'httponly', 'partitioned', 'priority', 'version', 'comment'}
+    for match in re.finditer(
+            r'(?:^|[;,])\s*([^\s=;,]+)\s*=\s*("[^"\r\n]*"|[^;,\s]+)', value):
+        if not set_cookie or match.group(1).lower() not in attributes:
+            found.append(match.group(2).strip('"'))
+    return [variant for item in found for variant in _secret_variants(item)]
+
+
 def known_secrets(cookie_maps=(), header_maps=(), url: str = "") -> list[str]:
     found = []
     for cookie_map in cookie_maps:
@@ -132,6 +158,8 @@ def known_secrets(cookie_maps=(), header_maps=(), url: str = "") -> list[str]:
         for key, value in header_map.items():
             if _CRED_KEY_RE.search(str(key)) and isinstance(value, str):
                 found.extend(_header_secret_variants(value))
+                if str(key).lower() in ("cookie", "set-cookie"):
+                    found.extend(_cookie_header_secrets(value, str(key).lower() == "set-cookie"))
     for value in _url_secrets(url):
         found.extend(_secret_variants(value))
     return sorted(set(found), key=len, reverse=True)

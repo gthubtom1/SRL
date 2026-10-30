@@ -479,7 +479,7 @@ the run record is not in front of you.
 | **frida-hook** | Android 移动端动态插桩、Java/Native 双层 Hook、SSL Pinning 绕过与反反调试对抗 | 需要动态观察内存参数、函数调用栈追踪、绕过客户端双向证书绑定或对抗反调试检测 | `subskills/frida-hook/SKILL.md` |
 | **dex-unpack** | Android APK 加固识别、运行时内存 DEX 转储、抽取壳主动调用还原与 DEX 文件头对齐修复 | 遇到 360/腾讯乐固/爱加密/梆梆等加固保护、DEX 加密抽取、需要转储内存中已解密的纯净 DEX | `subskills/dex-unpack/SKILL.md` |
 | **lsposed-modern** | Modern libxposed (API 100/101) 架构骨架生成、BaseDexClassLoader 动态 ClassLoader 挂钩 | Android 14/15+ 环境、Vector/LSPosed_mod、加壳或分包延迟加载类拦截 | `subskills/lsposed-modern/SKILL.md` |
-| **il2cpp-dump** | Unity IL2CPP 逆向分析、内存 global-metadata 抓取、符号复原与 IDA/Ghidra 脚本生成 | 遇到 Unity IL2CPP 编译应用、C# 业务符号被剥离或 global-metadata 被加密保护 | `subskills/il2cpp-dump/SKILL.md` |
+| **il2cpp-dump** | 同构建 metadata/二进制配对、工具支持核验、类型与地址映射；不把 dump.cs 当原始方法体 | Unity IL2CPP 的类型/地址问题，设备、采集与版本支持须逐案核实 | `subskills/il2cpp-dump/SKILL.md` |
 
 ## 失败判据 — 停手条件与"改走哪一条"的入口
 

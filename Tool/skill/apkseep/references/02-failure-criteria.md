@@ -52,8 +52,8 @@
 
 | 缺口 | 本技能给到哪 | 现在该转到哪 |
 |---|---|---|
-| Unity / IL2CPP 逻辑恢复 | 只到运行时识别 | 无本域路线；在报告里写成"不覆盖"，不要硬套 `dart-aot.md` |
-| React Native / Hermes、Cordova | 运行时识别 + "找字符串再找引用" | 同上；不要外推 IL2CPP/Flutter 的配方 |
+| Unity / IL2CPP 原始 C# 方法体恢复 | 不作自动恢复承诺；现有条件式类型/地址方法须逐目标核验 | `../subskills/il2cpp-dump/SKILL.md`；缺同构建二进制/metadata、工具版本或设备时列缺件，不硬套 `dart-aot.md` |
+| React Native / Hermes、Cordova | 运行时识别 + "找字符串再找引用" | 内部逻辑超出已证范围时写边界；不要外推 IL2CPP/Flutter 的配方 |
 | iOS / `.ipa` | 无 | 本域全部指令只对 Android 成立 |
 | 服务端执行的授权 | `server-api.md` 判定归属 | 写成残余项，不要继续加补丁 |
 | Dart AOT snapshot dump | 未随附 resolver；两个偏移空间不是常量差 | 明确写出你用的是哪个前端（aotopsy / blutter），两者对同一二进制报的 Dart 版本标签不同 |

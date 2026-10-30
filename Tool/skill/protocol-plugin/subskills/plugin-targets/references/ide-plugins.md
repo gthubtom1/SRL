@@ -17,8 +17,8 @@
 ```bash
 file ext.vsix
 unzip -l ext.vsix | head -40
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path ext.vsix --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path ext.vsix --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path ext.vsix --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path ext.vsix --out work/repro --json
 sha256sum ext.vsix
 ```
 
@@ -71,7 +71,7 @@ grep -RInE "child_process|execFile|spawn|https?://|download|writeFile|workspace\
 ```bash
 unzip -l plugin.jar | head -40
 unzip -p plugin.jar META-INF/plugin.xml
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path plugin.jar --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path plugin.jar --out work/repro --json
 ```
 
 `plugin.xml` 关键节点：

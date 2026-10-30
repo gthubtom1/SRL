@@ -185,6 +185,7 @@ def runtime_suites():
         "Tool/mcp/test_pcap_contract.py",
         "Tool/mcp/test_readonly_parameters.py",
         "Tool/mcp/test_apk_contract.py",
+        "Tool/mcp/test_audit_boundaries.py",
     )]
     suites.extend((p.stem.removeprefix("test_").replace("_", "-"),
                    [p.relative_to(ROOT).as_posix()], True, "当前实现专项回归") for p in tests)

@@ -295,7 +295,7 @@ def extractables(kind, fmt, path):
     table = {
         "memory": ["进程树/命令行/PID/PPID", "网络连接与监听端口", "已加载模块与未签名 DLL",
                    "可执行私有内存页/injected pages", "注册表 hive/服务/持久化项",
-                   "明文凭据线索（脱敏后）", "崩溃转储与 strings/carve 结果"],
+                   "采集端先排除真实凭据，仅接安全区域/结果", "崩溃转储与 strings/carve 结果"],
         "pcap": ["TCP/UDP 会话五元组与字节数", "HTTP 请求/响应与导出对象",
                  "DNS/TLS SNI", "凭据/Token 线索（脱敏）", "明文片段与文件 carve",
                  "时间范围与丢包/截断说明"],
@@ -486,7 +486,9 @@ def analyze(path, do_hash=True, max_items=MAX_ITEMS):
     elif ident["kind"] == "directory":
         meta = dir_meta(path, max_items, do_hash)
     elif ident["kind"] == "memory":
-        meta = {"hints": find_strings(path, [b"KDBG", b"Volatility", b"Windows", b"Linux version", b"Darwin Kernel"])}
+        # Marker offsets are triage hints, never parsed kernel/process objects.
+        meta = {"hints": find_strings(path, [b"KDBG", b"Volatility", b"Windows", b"Linux version", b"Darwin Kernel"]),
+                "entity_parsing": "not-performed", "hint_scan_limit_bytes": 32 * 1024 * 1024}
     elif ident["kind"] == "asar":
         head = read_head(path, 64)
         meta = {"header_hex": head[:16].hex(), "asar_header_size": int.from_bytes(head[4:8], "little") if len(head) >= 8 else None}
@@ -514,8 +516,12 @@ def analyze(path, do_hash=True, max_items=MAX_ITEMS):
     }
     if ident["kind"] == "data":
         result["conclusion"] = "类型未确认：先 file/strings/entropy，再决定是否进入内存/磁盘/包分析"
-    if ident["kind"] == "memory" and not meta.get("hints"):
-        result["conclusion"] = "未命中常见内存特征：可能是加密/压缩/不完整镜像，先取采集记录与符号"
+    if ident["kind"] == "memory":
+        result["conclusion"] = (
+            "仅内存初检：hints 是有限前缀中的标记偏移，未解析进程/模块/句柄/注入页；"
+            "extractables 是后续采集清单，不是已提取实体。需匹配格式/符号的实际解析工具。")
+        if not meta.get("hints"):
+            result["conclusion"] += " 未命中常见标记不能证明镜像无进程、已加密或损坏。"
     return result
 
 
@@ -647,13 +653,32 @@ def self_test():
             assert analyze(unknown)["type"] == "data"
             checks += 1
 
+            # A marker in arbitrary bytes must not masquerade as a kernel object.
+            memory = os.path.join(tmp, "marker-only.dmp")
+            with open(memory, "wb") as fh:
+                fh.write(b"not a memory image: Windows KDBG fake-process.exe PID=4242")
+            mres = analyze(memory)
+            assert mres["type"] == "memory" and mres["confidence"] == "inferred"
+            assert "KDBG" in mres["meta"]["hints"]
+            assert mres["meta"]["entity_parsing"] == "not-performed"
+            assert not any(k in mres["meta"] for k in ("processes", "modules", "handles", "injected_pages"))
+            checks += 1
+            # No marker in the scanned prefix says nothing about absent entities.
+            with open(memory, "wb") as fh:
+                fh.write(b"\x00" * 64)
+            mres = analyze(memory)
+            assert not mres["meta"]["hints"]
+            assert mres["meta"]["entity_parsing"] == "not-performed"
+            assert "不能证明" in mres["conclusion"]
+            checks += 1
+
             try:
                 analyze(os.path.join(tmp, "missing.bin"))
                 raise AssertionError("missing file must raise CheckError")
             except CheckError:
                 checks += 1
         print(json.dumps({"ok": True, "checks": checks,
-                          "note": "offline self-test: pcap/zip/sqlite/evtx/regf/unity/il2cpp/plist/dir/unknown/missing"},
+                          "note": "offline self-test: pcap/zip/sqlite/evtx/regf/unity/il2cpp/plist/dir/unknown/memory-triage/missing"},
                          ensure_ascii=False))
         return 0
     except Exception as exc:  # noqa: BLE001

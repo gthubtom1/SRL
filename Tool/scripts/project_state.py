@@ -874,11 +874,41 @@ def _evidence_path(root: Path, record: dict) -> Path:
         current = asset_binding(root, record.get("version_id"), binding.get("asset_id"))
         if current != binding:
             raise ValueError("evidence input asset identity changed")
-    path = project_file(root, record.get("local_path", ""))
-    _require_inside(root, path, "evidence")
-    if path.is_symlink():
-        raise ValueError("evidence 不允许 symlink：%s" % record.get("local_path"))
-    return verify_file(root, record)
+    path = _evidence_origin_path(root, record.get("local_path", ""), record.get("version_id"),
+                                 record.get("run_id"), "evidence")
+    verify_file(root, record)
+    # source is provenance (the origin may move after a local copy). A raw
+    # output explicitly bound by the producer is part of the durable evidence.
+    raw = record.get("raw_output")
+    if record.get("recorded_by") == "workflow-entry":
+        # Existing captures already declare these bytes. Recheck them too when
+        # reading a project created before raw_output became an indexed field.
+        with path.open("rb") as stream:
+            payload = stream.read((4 << 20) + 1)
+        if len(payload) > 4 << 20:
+            raise ValueError("workflow capture exceeds resource limit")
+        capture = json.loads(payload)
+        if not isinstance(capture, dict) or capture.get("schema") != "seep-workflow-capture/1":
+            raise ValueError("workflow capture schema invalid")
+        name = capture.get("raw_capture")
+        if not isinstance(name, str) or name in ("", ".", "..") \
+                or any(ch in name for ch in ("/", "\\", ":")):
+            raise ValueError("workflow raw capture must be a sibling filename")
+        declared = {"local_path": (path.parent / name).relative_to(root).as_posix(),
+                    "sha256": capture.get("raw_sha256"), "size": capture.get("raw_size")}
+        if raw is not None and raw != declared:
+            raise ValueError("workflow raw capture disagrees with evidence binding")
+        raw = declared
+    if raw is not None or "raw_output" in record:
+        if not isinstance(raw, dict) or set(raw) != {"local_path", "sha256", "size"}:
+            raise ValueError("evidence raw_output binding invalid")
+        raw_path = _evidence_origin_path(root, raw["local_path"], record.get("version_id"),
+                                         record.get("run_id"), "raw output")
+        checked = T.file_identity(root, raw_path.relative_to(root).as_posix())
+        if checked["sha256"] != raw["sha256"] or type(raw["size"]) is not int \
+                or checked["size"] != raw["size"]:
+            raise ValueError("evidence raw output fingerprint mismatch")
+    return path
 
 
 def asset_binding(root: Path, version_id: str, asset_id: str) -> dict:
@@ -907,6 +937,20 @@ def _require_relative_source(root: Path, value: str, label: str) -> Path:
         raise ValueError("%s 不允许 symlink：%s" % (label, ref))
     if not path.is_file():
         raise FileNotFoundError("%s 文件不存在（只读已有文件）：%s" % (label, ref))
+    return path
+
+
+def _evidence_origin_path(root: Path, value: str, version_id: str, run_id: str,
+                          label: str) -> Path:
+    """A shared output is legal; an explicit foreign version/run is not."""
+    path = _require_relative_source(root, value, label)
+    parts = path.relative_to(root).parts
+    if len(parts) >= 2 and parts[0].casefold() == "versions":
+        if os.path.normcase(parts[1]) != os.path.normcase(str(version_id)):
+            raise ValueError("evidence/source belongs to another version")
+        if len(parts) >= 4 and parts[2].casefold() == "runs" \
+                and os.path.normcase(parts[3]) != os.path.normcase(str(run_id)):
+            raise ValueError("evidence/source belongs to another run")
     return path
 
 
@@ -950,8 +994,14 @@ def cmd_evidence(a) -> int:
         verify_target(root, version)
         input_asset = (asset_binding(root, a.version, a.input_asset)
                        if getattr(a, "input_asset", "") else None)
-        source = _require_relative_source(root, a.path, "evidence path")
-        _require_relative_source(root, a.source, "source")
+        source = _evidence_origin_path(root, a.path, a.version, a.run_id, "evidence path")
+        _evidence_origin_path(root, a.source, a.version, a.run_id, "source")
+        raw_output = None
+        if getattr(a, "raw_output", ""):
+            raw_path = _evidence_origin_path(root, a.raw_output, a.version, a.run_id, "raw output")
+            measured = T.file_identity(root, raw_path.relative_to(root).as_posix())
+            raw_output = {"local_path": measured["local_path"],
+                          "sha256": measured["sha256"], "size": measured["size"]}
         # Domain tools commonly call raw command captures run.json. Only the
         # root/reserved lifecycle locations make that name project bookkeeping.
         parts = source.relative_to(root).parts
@@ -993,9 +1043,11 @@ def cmd_evidence(a) -> int:
                 return fail("evidence", "evidence_id 已绑定其他 run/version；不可覆盖：%s" % evidence_id)
             if old.get("input_asset") != input_asset:
                 return fail("evidence", "evidence_id 已绑定不同输入资产")
+            if old.get("raw_output") != raw_output:
+                return fail("evidence", "evidence_id 已绑定不同原始输出")
             _evidence_path(root, old)
             if not indexed or any(indexed[0].get(k) != old.get(k) for k in
-                                  ("sha256", "size", "target_sha256", "run_id", "local_path", "kind")):
+                                  ("sha256", "size", "target_sha256", "run_id", "local_path", "kind", "raw_output")):
                 raise ValueError("已有 evidence 登记与 manifest 索引不一致")
             print(json.dumps({"ok": True, "idempotent": True, "evidence": old,
                               "proof_level": PROOF_LEVEL}, ensure_ascii=False))
@@ -1012,10 +1064,14 @@ def cmd_evidence(a) -> int:
             record["how"] = "unspecified"
         if input_asset is not None:
             record["input_asset"] = input_asset
+        if raw_output is not None:
+            record["raw_output"] = raw_output
         ledger.append({"evidence_id": evidence_id, "kind": record["kind"],
                        "run_id": a.run_id, "sha256": sha, "size": size,
                        "local_path": stored, "target_sha256": target_sha,
                        "created_at": record["created_at"]})
+        if raw_output is not None:
+            ledger[-1]["raw_output"] = raw_output
         manifest["evidence"] = ledger
         with metadata_transaction(root, [record_path, manifest_path, root / "facts.jsonl", root / "handoff.json"]):
             atomic_json(record_path, record)
@@ -1644,6 +1700,8 @@ def _evidence_index_problems(root: Path, version_id: str) -> list[str]:
             if any(record.get(k) != entry.get(k) for k in ("sha256", "size", "local_path",
                                                           "target_sha256", "run_id")):
                 problems.append("manifest 证据索引与登记记录不一致：%s" % evidence_id)
+            if record.get("raw_output") != entry.get("raw_output"):
+                problems.append("manifest 原始输出索引与登记记录不一致：%s" % evidence_id)
         for evidence_id in sorted(set(records) - set(indexed)):
             problems.append("证据已登记但未进入 manifest 索引：%s" % evidence_id)
     return problems
@@ -2266,6 +2324,24 @@ def _validate_version(root: Path, version_id: str, project_id: str) -> dict:
     if "local_path" in data and data.get("local_path") is not None \
             and data.get("local_path") != relative_ref(data["local_path"]):
         raise ValueError("版本 local_path 必须是相对路径：%s" % version_id)
+    asset_ids = data.get("asset_ids", [])
+    auxiliary = data.get("auxiliary_asset_ids", [])
+    for label, values in (("asset_ids", asset_ids), ("auxiliary_asset_ids", auxiliary)):
+        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+            raise ValueError("版本 %s 必须是资产 ID 列表" % label)
+        if len(set(values)) != len(values):
+            raise ValueError("版本 %s 包含重复资产 ID" % label)
+        for value in values:
+            require_id(value, label)
+    primary = data.get("primary_asset_id")
+    if primary and (not isinstance(primary, str) or primary not in asset_ids):
+        raise ValueError("版本 primary_asset_id 不在资产列表中")
+    if any(value not in asset_ids or value == primary for value in auxiliary):
+        raise ValueError("版本 auxiliary_asset_ids 与资产列表/主资产不一致")
+    # Enumerating existing asset.json files cannot detect a deleted descriptor.
+    # Follow the version's declared references as well, without reading origins.
+    for asset_id in asset_ids:
+        target_identity_fields(_asset_record(root, asset_id))
     return data
 
 
@@ -3492,6 +3568,7 @@ def main() -> int:
     p = sub.add_parser("event"); p.add_argument("--project", required=True); p.add_argument("--type", required=True); p.add_argument("--message", required=True); p.add_argument("--version", default=""); p.add_argument("--run", default="")
     p = sub.add_parser("evidence"); p.add_argument("--project", required=True); p.add_argument("--version", required=True); p.add_argument("--run-id", required=True); p.add_argument("--kind", default="evidence"); p.add_argument("--evidence-id", required=True); p.add_argument("--target-sha256", required=True); p.add_argument("--path", required=True); p.add_argument("--sha256", required=True); p.add_argument("--size", required=True); p.add_argument("--source", default=""); p.add_argument("--how", default=""); p.add_argument("--recorded-by", default="agent")
     p.add_argument("--input-asset", default="", help="已登记的本版本工具输入资产 ID")
+    p.add_argument("--raw-output", default="", help="必须随证据保留的项目内原始输出文件")
     p = sub.add_parser("acceptance-define"); p.add_argument("--project", required=True); p.add_argument("--version", required=True); p.add_argument("--item", action="append", default=[]); p.add_argument("--note", default="")
     p = sub.add_parser("acceptance-record"); p.add_argument("--project", required=True); p.add_argument("--version", required=True); p.add_argument("--item-id", required=True); p.add_argument("--result", required=True); p.add_argument("--evidence-ids", default=""); p.add_argument("--verifier", default=""); p.add_argument("--how", default=""); p.add_argument("--run", default="")
     p = sub.add_parser("migration"); p.add_argument("--project", required=True); p.add_argument("--source", required=True); p.add_argument("--target", required=True); p.add_argument("--migration-id", default=""); p.add_argument("--align", default=""); p.add_argument("--status", default="partial", choices=list(MIGRATION_STATUSES)); p.add_argument("--note", default="")

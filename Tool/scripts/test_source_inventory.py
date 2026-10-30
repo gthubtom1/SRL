@@ -968,6 +968,39 @@ class InventoryBoundaryTests(unittest.TestCase):
         self.root = self.fx.init(tracked=["Tool/src/engine.py"])
         self.addCleanup(self.fx.clean)
 
+    def _subtree_manifest(self):
+        # All paths and hashes match this subtree: rejection must depend on its
+        # repository identity, not stale bytes or an unrelated extraSource error.
+        manifest = si.build_manifest(self.root)
+        prefix = "Tool/src/"
+        manifest["files"] = [dict(entry, path=entry["path"][len(prefix):])
+                             for entry in manifest["files"] if entry["path"].startswith(prefix)]
+        count = len(manifest["files"])
+        manifest["counts"].update(included=count, tracked=count, untracked=0, excluded=0,
+                                  first_party=count, thirdparty_input=0,
+                                  by_role={si.ROLE_FIRST: count, si.ROLE_THIRD: 0})
+        manifest["excluded"] = []
+        path = os.path.join(self.fx.tmp, "subtree.manifest.json")
+        with open(path, "w", encoding="utf-8") as stream:
+            json.dump(manifest, stream)
+        return os.path.join(self.root, "Tool", "src"), manifest, path
+
+    def test_explicit_manifest_rejects_parent_repository_subtree(self):
+        nested, manifest, path = self._subtree_manifest()
+        for supplied in (manifest, path):
+            with self.subTest(input_type=type(supplied).__name__):
+                with self.assertRaisesRegex(si.SourceInventoryError, "顶层"):
+                    si.verify_manifest(supplied, nested)
+
+    def test_cli_explicit_manifest_rejects_parent_repository_subtree(self):
+        nested, _manifest, path = self._subtree_manifest()
+        result = subprocess.run(
+            [sys.executable, "-B", MODULE_PATH, "--root", nested,
+             "--verify-manifest", path, "--json"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+        self.assertEqual(result.returncode, 1, result.stdout.decode("utf-8", "replace"))
+        self.assertIn("顶层", result.stderr.decode("utf-8", "replace"))
+
     def _link_outside_source(self):
         source_dir = os.path.join(self.root, "Tool", "src")
         outside = os.path.join(self.fx.tmp, "outside")

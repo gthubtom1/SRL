@@ -885,6 +885,37 @@ class TestRootsBoundary(TxnCase):
                     self.impl._opts(skill_dir=self.skill_dir), "crosscutting")
             self.assertEqual(resolved3[0], [os.path.join(self.fake_home, ".pi", "agent", "skills")])
 
+    def test_default_deploy_root_rejects_repo_and_source_overlap_before_write(self):
+        for label in ("repo", "source"):
+            src = self._make_skill("zz-default-" + label)
+            agent_root = self.repo if label == "repo" else src
+            with self.subTest(agent_root=agent_root):
+                before = self._sentinel()
+                with mock.patch.object(self.impl, "SKILL_DIR", self.skill_dir), \
+                        mock.patch.dict(os.environ, {"PI_CODING_AGENT_DIR": agent_root}):
+                    rec = self.impl.run_import(self.impl._opts(
+                        src=src, kind="crosscutting", skill_dir=self.skill_dir))
+                self.assertEqual(rec["rc"], 4, rec)
+                self.assertEqual(rec["refusal"]["code"], "deploy_root_overlap")
+                self.assertEqual(self._sentinel(), before, "default root refusal must not write")
+
+    def test_default_deploy_root_rejects_link_before_planning(self):
+        agent_root = os.path.join(self.tmp, "linked-agent")
+        os.makedirs(agent_root)
+        link = os.path.join(agent_root, "skills")
+        try:
+            os.symlink(self.roots[0], link, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest("cannot create directory symlink: %s" % exc)
+        before = self._sentinel()
+        with mock.patch.object(self.impl, "SKILL_DIR", self.skill_dir), \
+                mock.patch.dict(os.environ, {"PI_CODING_AGENT_DIR": agent_root}):
+            with self.assertRaises(self.impl.Refuse) as caught:
+                self.impl._resolve_deploy_roots(
+                    self.impl._opts(skill_dir=self.skill_dir), "crosscutting")
+        self.assertEqual(caught.exception.code, "deploy_root_symlink")
+        self.assertEqual(self._sentinel(), before)
+
     def test_agent_root_environment_is_honored_before_fresh_module_load(self):
         code = (
             "import importlib.util, json;"
@@ -1263,6 +1294,69 @@ class TestDomainOwnRoute(TxnCase):
 
 # ================================================================ 4d. real process death
 class TestProcessCrashRecovery(TxnCase):
+    def test_recovery_cannot_clean_unrelated_skill_as_staging(self):
+        name = "zz-owned-journal"
+        src = self._make_skill(name)
+        victim = os.path.join(self.skill_dir, "zz-unrelated-victim")
+        os.makedirs(victim)
+        with io.open(os.path.join(victim, "SKILL.md"), "w", encoding="utf-8") as stream:
+            stream.write("unrelated user skill\n")
+        journal_path = os.path.join(self.skill_dir, self.impl.STAGING_NAME,
+                                    self.impl.JOURNAL_DIR, name + "-20261030-000000-1.jsonl")
+        journal = self.impl.Journal(journal_path, base={
+            "name": name, "kind": "crosscutting", "parent": None,
+            "skill_dir": self.skill_dir, "deploy_roots": self.roots})
+        journal.record("phase", phase="stage")
+        journal.record("staging", dir=victim)
+        journal.close()
+        before = snapshot(self.tmp)
+        rec = self.run_import(src=src, name=name, kind="crosscutting")
+        self.assertEqual(rec["rc"], 5, rec.get("why"))
+        self.assertEqual(rec["refusal"]["code"], "journal_scope_mismatch")
+        self.assertTrue(os.path.isfile(os.path.join(victim, "SKILL.md")))
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_recovery_rejects_intent_outside_declared_roots_before_write(self):
+        name = "zz-outside-journal"
+        src = self._make_skill(name)
+        external = os.path.join(self.tmp, "unrelated-empty-directory")
+        os.makedirs(external)
+        journal_path = os.path.join(self.skill_dir, self.impl.STAGING_NAME,
+                                    self.impl.JOURNAL_DIR, name + "-20261030-000000-1.jsonl")
+        journal = self.impl.Journal(journal_path, base={
+            "name": name, "kind": "crosscutting", "parent": None,
+            "skill_dir": self.skill_dir, "deploy_roots": self.roots})
+        journal.record("phase", phase="stage")
+        journal.record("intent", id="op1", action="mkdir", dst=external, role="staging")
+        journal.record("done", id="op1")
+        journal.close()
+        before = snapshot(self.tmp)
+        rec = self.run_import(src=src, name=name, kind="crosscutting")
+        self.assertEqual(rec["rc"], 5, rec.get("why"))
+        self.assertEqual(rec["refusal"]["code"], "journal_scope_mismatch")
+        self.assertTrue(os.path.isdir(external), "recovery cannot remove an unrelated directory")
+        self.assertEqual(snapshot(self.tmp), before)
+
+    def test_copied_journal_cannot_recover_a_different_repository(self):
+        name = "zz-foreign-journal"
+        src = self._make_skill(name)
+        rc, out = self._run_cli_import(src, name, crash_point="deploy.between.0")
+        self.assertEqual(rc, 87, out)
+        original_jdir = os.path.join(self.skill_dir, self.impl.STAGING_NAME, self.impl.JOURNAL_DIR)
+        journal_name = next(n for n in os.listdir(original_jdir) if n.startswith(name + "-"))
+        other_skills = os.path.join(self.tmp, "other-repo", "Tool", "skill")
+        other_jdir = os.path.join(other_skills, self.impl.STAGING_NAME, self.impl.JOURNAL_DIR)
+        os.makedirs(other_jdir)
+        shutil.copy2(os.path.join(original_jdir, journal_name), os.path.join(other_jdir, journal_name))
+        before = snapshot(self.tmp)
+        rec = self.impl.run_import(self.opts(
+            src=src, name=name, kind="crosscutting", skill_dir=other_skills))
+        self.assertTrue(os.path.isfile(os.path.join(self.skill_dir, name, "SKILL.md")),
+                        "recovery in another repository must not remove the original skill")
+        self.assertEqual(rec["rc"], 5, rec.get("why"))
+        self.assertEqual(rec["refusal"]["code"], "journal_scope_mismatch")
+        self.assertEqual(snapshot(self.tmp), before, "foreign journal must not touch either repository")
+
     def _run_cli_import(self, src, name, kind="crosscutting", replace=False,
                         crash_point="", parent=""):
         args = ["import", "--from", src, "--name", name, "--kind", kind,

@@ -17,8 +17,8 @@
 ```bash
 file app.asar
 xxd -g1 -l 64 app.asar
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
 sha256sum app.asar
 ```
 
@@ -184,8 +184,8 @@ strings -n 8 main.jsc | grep -E 'v8::internal::Script|bytenode|V8 version' | hea
 IPC 验收看“谁能调用 → 参数是否校验 → 落到哪个 sink”，不看 channel 名字是否可疑。
 
 ```bash
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin04 --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path app.asar --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-accept.py --root . --case Tool/cases/plugin04 --json
 grep -RInE 'ipcMain\.(handle|on)|ipcRenderer\.(invoke|send)|contextBridge|openExternal' work/repro/unpack --include='*.js'
 grep -RInE 'nodeIntegration|contextIsolation|sandbox|webPreferences|preload' work/repro/unpack --include='*.js'
 ```

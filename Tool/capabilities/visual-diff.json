@@ -30,15 +30,15 @@
     "backend_required[]"
   ],
   "scripts": [
-    "Tool/skill/_pending/site-clone/scripts/site-diff.py"
+    "Tool/skill/web-pentest/subskills/site-clone/scripts/site-diff.py"
   ],
   "refs": [
-    "Tool/skill/_pending/site-clone/SKILL.md",
-    "Tool/skill/_pending/site-clone/references/01-criteria.md",
-    "Tool/skill/_pending/site-clone/references/02-failure-criteria.md"
+    "Tool/skill/web-pentest/subskills/site-clone/SKILL.md",
+    "Tool/skill/web-pentest/subskills/site-clone/references/01-criteria.md",
+    "Tool/skill/web-pentest/subskills/site-clone/references/02-failure-criteria.md"
   ],
   "maturity": "probe",
   "reserved": true,
-  "note": "源码实现位于 Tool/skill/_pending/site-clone；安装器有意不部署或索引 _pending 子技能。正式 web-pentest 路由目前只能人工引用源码夹具，完成迁移与已安装路径验证前不得作为自动视觉/DOM/网络差分工具。",
+  "note": "现役入口位于 Tool/skill/web-pentest/subskills/site-clone/，随web-pentest父域递归部署到 <AgentRoot>/skills/web-pentest/subskills/site-clone/；Tool/路径相对已注册源码根。部署文件、当前宿主加载与运行依赖须分别核验。maturity=probe、reserved=true保留，表示尚未开放自动编排，不表示脚本仍未部署。按实际截图/DOM/请求记录计算差异；截图依赖、viewport/DPR与基线须匹配，不能用缺图或退出码0代替视觉验收。本次路径修正不提升历史证据或验证等级；真实凭据留在用户侧，仅使用安全输入/结果。",
   "compose": []
 }

@@ -114,16 +114,17 @@ class AcceptanceChain(unittest.TestCase):
         return path
 
     def register(self, version="1.1", run="run-1", evidence_id="ev-1", path=None,
-                 sha=None, size=None, kind="evidence", source=None, target=None):
+                 sha=None, size=None, kind="evidence", source=None, target=None, raw_output=None):
         path = path or self.witness()
         relative = path.relative_to(self.project).as_posix()
+        extra = ["--raw-output", raw_output.relative_to(self.project).as_posix()] if raw_output else []
         return self.p("evidence", "--version", version, "--run-id", run, "--kind", kind,
                       "--evidence-id", evidence_id,
                       "--target-sha256", target or self.target_sha(version),
                       "--path", relative, "--sha256", sha or digest(path.read_bytes()),
                       "--size", path.stat().st_size if size is None else size,
                       "--source", source or relative, "--how", "synthetic check",
-                      "--recorded-by", "test")
+                      "--recorded-by", "test", *extra)
 
     def define(self, version="1.1", items=("probe:synthetic probe executed",)):
         args = ["--version", version]
@@ -408,6 +409,54 @@ class AcceptanceChain(unittest.TestCase):
         self.rejected(self.record(evidence_ids="ev-a", run="run-b"))
         run_a = self.ok(self.complete(run="run-a"))["run"]
         self.assertEqual(run_a["closure"]["target_sha256"], self.new_sha)
+
+    def test_foreign_run_capture_cannot_be_relabelled_as_current_run_evidence(self):
+        self.ok(self.start_run(run="run-a"))
+        self.ok(self.start_run(run="run-b"))
+        self.ok(self.define())
+        foreign = self.project / "versions/1.1/runs/run-a/capture/probe.log"
+        foreign.write_bytes(b"output produced in run-a\n")
+        own = self.project / "versions/1.1/runs/run-b/capture/probe.log"
+        own.write_bytes(b"output produced in run-b\n")
+        before = (self.project / "versions/1.1/manifest.json").read_bytes()
+        candidates = [(foreign, None, None), (own, foreign.relative_to(self.project).as_posix(), None),
+                      (own, None, foreign)]
+        if os.name == "nt":
+            upper = foreign.relative_to(self.project).as_posix().upper()
+            candidates.extend(((self.project / upper, None, None), (own, upper, None)))
+        for path, source, raw_output in candidates:
+            with self.subTest(source=source, raw_output=raw_output):
+                self.rejected(self.register(run="run-b", evidence_id="ev-borrowed",
+                                            path=path, source=source, raw_output=raw_output))
+                self.assertFalse((self.project / "versions/1.1/evidence/ev-borrowed.json").exists())
+                self.assertEqual((self.project / "versions/1.1/manifest.json").read_bytes(), before)
+        self.rejected(self.record(evidence_ids="ev-borrowed", run="run-b"))
+        self.rejected(self.complete(run="run-b"))
+        self.assertEqual(read(self.project / "versions/1.1/runs/run-b/run.json")["status"], "active")
+        self.ok(self.register(run="run-b", evidence_id="ev-own", path=own))
+        self.ok(self.record(evidence_ids="ev-own", run="run-b"))
+        self.ok(self.complete(run="run-b"))
+
+    def test_separate_raw_output_drift_blocks_completion_and_resume(self):
+        self.ok(self.start_run())
+        self.ok(self.define())
+        witness = self.witness()
+        raw = self.witness("raw.out", b"synthetic full raw output\n")
+        original = raw.read_bytes()
+        self.ok(self.register(path=witness, raw_output=raw))
+        self.ok(self.record(evidence_ids="ev-1"))
+        active = (self.project / "versions/1.1/runs/run-1/run.json").read_bytes()
+        raw.write_bytes(b"different output\n")
+        self.rejected(self.complete())
+        self.assertEqual((self.project / "versions/1.1/runs/run-1/run.json").read_bytes(), active)
+        self.assertFalse(self.rejected(self.p("resume"))["handoff"]["acceptance_complete"])
+        raw.write_bytes(original)
+        self.ok(self.complete())
+        self.ok(self.p("resume"))
+        raw.unlink()
+        self.assertFalse(self.rejected(self.p("resume"))["handoff"]["acceptance_complete"])
+        raw.write_bytes(original)
+        self.ok(self.p("resume"))
 
     # ---- tampering after completion -----------------------------------
     def test_tampered_evidence_after_completion_becomes_stale_blocked(self):

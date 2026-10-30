@@ -102,7 +102,7 @@ class PcapContractBase(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.pcap = os.path.join(self.tmp.name, "empty.pcap")
         _empty_pcap(self.pcap)
-        self._real_run = subprocess.run
+        self._real_run = S._process_tree.run
         self._real_which = S.shutil.which
         self._real_isfile = os.path.isfile
         self.spy = None
@@ -111,13 +111,13 @@ class PcapContractBase(unittest.TestCase):
         self.addCleanup(self._restore)
 
     def _restore(self):
-        subprocess.run = self._real_run
+        S._process_tree.run = self._real_run
         S.shutil.which = self._real_which
         os.path.isfile = self._real_isfile
 
     def install(self, responses):
         self.spy = CallSpy(responses)
-        subprocess.run = self.spy
+        S._process_tree.run = self.spy
         return self.spy
 
     def call(self, **kwargs):
@@ -308,18 +308,19 @@ class ExecutionsKeepStreamsSeparate(PcapContractBase):
         real_pf = os.environ.pop("ProgramFiles", None)
         S.shutil.which = lambda name: None
         S._tool_roots = lambda: []
+        # Hide only discovery candidates, preserving the real capture-file check.
+        # The negative control must also run on hosts with system TShark installed.
+        os.path.isfile = lambda path: False if os.path.basename(os.fspath(path)).lower() in (
+            "tshark", "tshark.exe") else self._real_isfile(path)
         try:
             out, payload = self.call(pcap_path=self.pcap, mode="summary")
         finally:
             S.shutil.which, S._tool_roots = real_which, real_roots
+            os.path.isfile = self._real_isfile
             if real_pf is not None:
                 os.environ["ProgramFiles"] = real_pf
-        # 本机可能真的装了 tshark（/usr/bin 候选），两种结局都必须结构化
-        if payload.get("ok"):
-            self.skipTest("UNVERIFIED: 本机 /usr/bin 里有 tshark，无法构造缺工具场景")
-        if payload.get("error") != "tshark_missing":
-            self.skipTest("UNVERIFIED: 本机走候选路径找到了 tshark（%s）"
-                          % payload.get("status"))
+        self.assertIs(payload.get("ok"), False)
+        self.assertEqual(payload.get("error"), "tshark_missing")
         self.assertIs(payload["has_result"], False)
         self.assertEqual(payload["executions"], [], "缺工具时不得起进程")
         self.assertEqual(self.spy.calls, [], "缺工具时不得起进程")

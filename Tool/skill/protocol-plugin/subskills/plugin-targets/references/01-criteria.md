@@ -36,10 +36,10 @@
 
 ```bash
 # 结构 + 权限面 + 可疑 API
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path target.crx --json
 
 # 解包 + 入口/权限证据 + 最小可改单元
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path target.crx --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path target.crx --out work/repro --json
 
 # 浏览器扩展关键字段
 jq '{manifest_version,permissions,host_permissions,background,content_scripts,
@@ -49,10 +49,10 @@ jq '{manifest_version,permissions,host_permissions,background,content_scripts,
 jq '{main,activationEvents,contributes,capabilities,engines}' work/repro/extension/package.json
 
 # asar
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path app.asar --json
 
 # 域验收：字段/哈希/real+recorded/refs + 权限代码证据
-python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-accept.py --root . --json
 ```
 
 ## 3. 判据分级
@@ -88,27 +88,27 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-accept.py --root . --js
 
 | 上游技能 | 本域任务卡 | 落点 reference | 一句话判据 |
 |---|---|---|---|
-| `analyzing-browser-forensics-with-hindsight` | 浏览器扩展安装面与历史痕迹取证（借）（源：analyzing-browser-forensics-with-hindsight） | `Tool/skill/_pending/plugin-targets/references/browser-extension.md` | 容器/版本/来源/哈希四项齐全；`manifest_version`、`background`、`content_scr… |
-| `extracting-browser-history-artifacts` | 扩展权限面与浏览数据触达清点（借）（源：extracting-browser-history-artifacts） | `Tool/skill/_pending/plugin-targets/references/01-criteria.md` | 高危权限至少一条 `status=observed`；不能解释的单列 `unexplained-static`；无“权限… |
-| `implementing-browser-isolation-for-zero-trust` | 扩展隔离世界与宿主边界验证（借）（源：implementing-browser-isolation-for-zero-trust） | `Tool/skill/_pending/plugin-targets/references/browser-extension.md` | 能说清每段代码在哪个世界、`window` 是谁的、跨世界通信方式；消息有 `source/origin` 校验 |
-| `performing-thick-client-application-penetration-test` | Electron 客户端 asar 入口与 IPC 面（借）（源：performing-thick-client-application-penetration-test） | `Tool/skill/_pending/plugin-targets/references/electron-and-asar.md` | `main`/`preload` 文件存在；至少一条 IPC 链有 file/line；`webPreferences`… |
-| `conducting-mobile-app-penetration-test` | LSPosed/Xposed 模块入口与作用域核对（借）（源：conducting-mobile-app-penetration-test） | `Tool/skill/_pending/plugin-targets/references/01-criteria.md` | hook 目标类/方法→参数/返回值→可观察效果可画；作用域明确；模块可禁用回退 |
-| `deobfuscating-javascript-malware` | 扩展/asar 内混淆 JS 的入口还原（借）（源：deobfuscating-javascript-malware） | `Tool/skill/_pending/plugin-targets/references/electron-and-asar.md` | 入口文件可读；至少一个消息/网络/存储调用能指到行号；混淆不冒充加密 |
-| `analyzing-malicious-url-with-urlscan` | 扩展远端 URL 与更新源核对（借）（源：analyzing-malicious-url-with-urlscan） | `Tool/skill/_pending/plugin-targets/references/browser-extension.md` | URL/方法/字段/是否带 Cookie/token 可指认；更新链“谁能推送”明确 |
-| `performing-web-application-vulnerability-triage` | 扩展注入面与页面消息校验（借）（源：performing-web-application-vulnerability-triage） | `Tool/skill/_pending/plugin-targets/references/browser-extension.md` | 任意页面可驱动的条件齐备（注入范围+外部连接+无校验）才写“可被外部触发” |
-| `performing-mobile-app-certificate-pinning-bypass` | Native host 通信面与证书边界（借）（源：performing-mobile-app-certificate-pinning-bypass） | `Tool/skill/_pending/plugin-targets/references/04-walkthrough-chrome-extension.md` | 扩展 ID ↔ allowed_origins ↔ host 可执行文件 ↔ 调用点四项能对上 |
-| `implementing-mobile-application-management` | 企业策略下的插件白名单与旁加载（借）（源：implementing-mobile-application-management） | `Tool/skill/_pending/plugin-targets/references/ide-plugins.md` | 安装来源、签名者、更新通道、卸载残留四项齐全；策略阻止加载时能指出是哪一层 |
-| `auditing-mcp-servers-for-tool-poisoning` | 插件命令/工具注册面的权限审计（借）（源：auditing-mcp-servers-for-tool-poisoning） | `Tool/skill/_pending/plugin-targets/references/ide-plugins.md` | 每个命令/扩展点有实现入口；参数校验与副作用明确；无“注册即执行”的误判 |
-| `performing-dynamic-analysis-of-android-app` | Xposed 模块动态观测边界（借）（源：performing-dynamic-analysis-of-android-app） | `Tool/skill/_pending/plugin-targets/references/02-failure-criteria.md` | hook 命中日志 + 单变量行为差异 + 回退恢复三者齐全 |
-| `performing-android-app-static-analysis-with-mobsf` | 扩展/插件清单静态解析（借）（源：performing-android-app-static-analysis-with-mobsf） | `Tool/skill/_pending/plugin-targets/references/01-criteria.md` | 清单字段可解析；入口 exists=true；高危权限有证据或明确未闭环 |
-| `reverse-engineering-ios-app-with-frida` | Unity/Electron 运行时 hook 观测边界（借）（源：reverse-engineering-ios-app-with-frida） | `Tool/skill/_pending/plugin-targets/references/electron-and-asar.md` | 命中点可指认；单变量差异可重复；回退后基线恢复 |
-| `reverse-engineering-dotnet-malware-with-dnspy` | BepInEx/MelonLoader DLL 反编译入口（借）（源：reverse-engineering-dotnet-malware-with-dnspy） | `Tool/skill/_pending/plugin-targets/references/unity-and-mods.md` | 插件类→初始化方法→patch 目标→字段/返回值→可观察效果可画 |
-| `analyzing-linux-elf-malware` | Electron 原生模块与驱动 ELF 接口面（借）（源：analyzing-linux-elf-malware） | `Tool/skill/_pending/plugin-targets/references/electron-and-asar.md` | JS↔原生边界（函数名/参数/返回）能对上；版本/架构匹配；驱动加载链明确 |
-| `implementing-code-signing-for-artifacts` | VSIX/扩展签名与更新链核验（借）（源：implementing-code-signing-for-artifacts） | `Tool/skill/_pending/plugin-targets/references/ide-plugins.md` | 安装来源、签名者、更新通道、卸载残留四项齐全；改动触发哪层校验可说明 |
-| `implementing-devsecops-security-scanning` | 插件包静态扫描流水线（借）（源：implementing-devsecops-security-scanning） | `Tool/skill/_pending/plugin-targets/references/01-criteria.md` | 每个包有哈希/容器/入口/权限结论；失败包有 `blocked_at`；结果可复算 |
-| `testing-api-security-with-owasp-top-10` | 扩展消息 API 的输入校验（借）（源：testing-api-security-with-owasp-top-10） | `Tool/skill/_pending/plugin-targets/references/browser-extension.md` | 至少一个可控字段→sink 的路径有代码证据；校验缺失点可指认 |
-| `performing-web-application-penetration-test` | 浏览器扩展攻击面穿透测试（借）（源：performing-web-application-penetration-test） | `Tool/skill/_pending/plugin-targets/references/04-walkthrough-chrome-extension.md` | 入口+权限+数据流+最小单元四件齐全；改动有 baseline 与回退 |
-| `detecting-shadow-api-endpoints` | 扩展内隐藏端点/更新源发现（借）（源：detecting-shadow-api-endpoints） | `Tool/skill/_pending/plugin-targets/references/browser-extension.md` | 端点有调用点或配置来源；是否带凭据/用户数据可指认；更新链归属明确 |
-| `implementing-api-schema-validation-security` | IPC/消息 schema 校验（借）（源：implementing-api-schema-validation-security） | `Tool/skill/_pending/plugin-targets/references/electron-and-asar.md` | 每个 channel 有发送方/接收方/参数/副作用；校验缺失点可指认 |
-| `hunting-for-webshell-activity` | 插件写入型后门与更新链排查（借）（源：hunting-for-webshell-activity） | `Tool/skill/_pending/plugin-targets/references/desktop-plugins.md` | 写入点→持久化→更新来源三段可指认；签名/白名单层明确 |
-| `analyzing-docker-container-forensics` | 容器内 Electron/插件目录取证（借）（源：analyzing-docker-container-forensics） | `Tool/skill/_pending/plugin-targets/references/electron-and-asar.md` | 包哈希、容器、入口、权限/插件清单可指认；镜像 digest 与路径可追溯 |
+| `analyzing-browser-forensics-with-hindsight` | 浏览器扩展安装面与历史痕迹取证（借）（源：analyzing-browser-forensics-with-hindsight） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/browser-extension.md` | 容器/版本/来源/哈希四项齐全；`manifest_version`、`background`、`content_scr… |
+| `extracting-browser-history-artifacts` | 扩展权限面与浏览数据触达清点（借）（源：extracting-browser-history-artifacts） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/01-criteria.md` | 高危权限至少一条 `status=observed`；不能解释的单列 `unexplained-static`；无“权限… |
+| `implementing-browser-isolation-for-zero-trust` | 扩展隔离世界与宿主边界验证（借）（源：implementing-browser-isolation-for-zero-trust） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/browser-extension.md` | 能说清每段代码在哪个世界、`window` 是谁的、跨世界通信方式；消息有 `source/origin` 校验 |
+| `performing-thick-client-application-penetration-test` | Electron 客户端 asar 入口与 IPC 面（借）（源：performing-thick-client-application-penetration-test） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/electron-and-asar.md` | `main`/`preload` 文件存在；至少一条 IPC 链有 file/line；`webPreferences`… |
+| `conducting-mobile-app-penetration-test` | LSPosed/Xposed 模块入口与作用域核对（借）（源：conducting-mobile-app-penetration-test） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/01-criteria.md` | hook 目标类/方法→参数/返回值→可观察效果可画；作用域明确；模块可禁用回退 |
+| `deobfuscating-javascript-malware` | 扩展/asar 内混淆 JS 的入口还原（借）（源：deobfuscating-javascript-malware） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/electron-and-asar.md` | 入口文件可读；至少一个消息/网络/存储调用能指到行号；混淆不冒充加密 |
+| `analyzing-malicious-url-with-urlscan` | 扩展远端 URL 与更新源核对（借）（源：analyzing-malicious-url-with-urlscan） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/browser-extension.md` | URL/方法/字段/是否带 Cookie/token 可指认；更新链“谁能推送”明确 |
+| `performing-web-application-vulnerability-triage` | 扩展注入面与页面消息校验（借）（源：performing-web-application-vulnerability-triage） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/browser-extension.md` | 任意页面可驱动的条件齐备（注入范围+外部连接+无校验）才写“可被外部触发” |
+| `performing-mobile-app-certificate-pinning-bypass` | Native host 通信面与证书边界（借）（源：performing-mobile-app-certificate-pinning-bypass） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/04-walkthrough-chrome-extension.md` | 扩展 ID ↔ allowed_origins ↔ host 可执行文件 ↔ 调用点四项能对上 |
+| `implementing-mobile-application-management` | 企业策略下的插件白名单与旁加载（借）（源：implementing-mobile-application-management） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/ide-plugins.md` | 安装来源、签名者、更新通道、卸载残留四项齐全；策略阻止加载时能指出是哪一层 |
+| `auditing-mcp-servers-for-tool-poisoning` | 插件命令/工具注册面的权限审计（借）（源：auditing-mcp-servers-for-tool-poisoning） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/ide-plugins.md` | 每个命令/扩展点有实现入口；参数校验与副作用明确；无“注册即执行”的误判 |
+| `performing-dynamic-analysis-of-android-app` | Xposed 模块动态观测边界（借）（源：performing-dynamic-analysis-of-android-app） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/02-failure-criteria.md` | hook 命中日志 + 单变量行为差异 + 回退恢复三者齐全 |
+| `performing-android-app-static-analysis-with-mobsf` | 扩展/插件清单静态解析（借）（源：performing-android-app-static-analysis-with-mobsf） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/01-criteria.md` | 清单字段可解析；入口 exists=true；高危权限有证据或明确未闭环 |
+| `reverse-engineering-ios-app-with-frida` | Unity/Electron 运行时 hook 观测边界（借）（源：reverse-engineering-ios-app-with-frida） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/electron-and-asar.md` | 命中点可指认；单变量差异可重复；回退后基线恢复 |
+| `reverse-engineering-dotnet-malware-with-dnspy` | BepInEx/MelonLoader DLL 反编译入口（借）（源：reverse-engineering-dotnet-malware-with-dnspy） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/unity-and-mods.md` | 插件类→初始化方法→patch 目标→字段/返回值→可观察效果可画 |
+| `analyzing-linux-elf-malware` | Electron 原生模块与驱动 ELF 接口面（借）（源：analyzing-linux-elf-malware） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/electron-and-asar.md` | JS↔原生边界（函数名/参数/返回）能对上；版本/架构匹配；驱动加载链明确 |
+| `implementing-code-signing-for-artifacts` | VSIX/扩展签名与更新链核验（借）（源：implementing-code-signing-for-artifacts） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/ide-plugins.md` | 安装来源、签名者、更新通道、卸载残留四项齐全；改动触发哪层校验可说明 |
+| `implementing-devsecops-security-scanning` | 插件包静态扫描流水线（借）（源：implementing-devsecops-security-scanning） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/01-criteria.md` | 每个包有哈希/容器/入口/权限结论；失败包有 `blocked_at`；结果可复算 |
+| `testing-api-security-with-owasp-top-10` | 扩展消息 API 的输入校验（借）（源：testing-api-security-with-owasp-top-10） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/browser-extension.md` | 至少一个可控字段→sink 的路径有代码证据；校验缺失点可指认 |
+| `performing-web-application-penetration-test` | 浏览器扩展攻击面穿透测试（借）（源：performing-web-application-penetration-test） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/04-walkthrough-chrome-extension.md` | 入口+权限+数据流+最小单元四件齐全；改动有 baseline 与回退 |
+| `detecting-shadow-api-endpoints` | 扩展内隐藏端点/更新源发现（借）（源：detecting-shadow-api-endpoints） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/browser-extension.md` | 端点有调用点或配置来源；是否带凭据/用户数据可指认；更新链归属明确 |
+| `implementing-api-schema-validation-security` | IPC/消息 schema 校验（借）（源：implementing-api-schema-validation-security） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/electron-and-asar.md` | 每个 channel 有发送方/接收方/参数/副作用；校验缺失点可指认 |
+| `hunting-for-webshell-activity` | 插件写入型后门与更新链排查（借）（源：hunting-for-webshell-activity） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/desktop-plugins.md` | 写入点→持久化→更新来源三段可指认；签名/白名单层明确 |
+| `analyzing-docker-container-forensics` | 容器内 Electron/插件目录取证（借）（源：analyzing-docker-container-forensics） | `Tool/skill/protocol-plugin/subskills/plugin-targets/references/electron-and-asar.md` | 包哈希、容器、入口、权限/插件清单可指认；镜像 digest 与路径可追溯 |

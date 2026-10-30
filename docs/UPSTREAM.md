@@ -6,6 +6,10 @@
 
 ## 1. 获取差异
 
+本仓的 `.github/workflows/upstream-sync.yml` 每周检查 `setup/upstream-rules.json` 中三个自动同步源，并可手动选择目标；直接上游 Seep 的比较仍由维护者执行。`reverselab-kb` 是手动维护源，不会自动覆盖 MCP 内置 KB。
+
+注意来源差异：apk-reverse 镜像 README 标注 `newliver666/apk-reverse`，当前同步规则实际使用 `Jvust2/apk-reverse-Jvust`，且 README 在保留列表内。维护时必须同时核对规则地址、实际提交和保留说明，不以旧 README 证明同步来源；详情见 [PROVENANCE](../Tool/docs/PROVENANCE.md)。
+
 从仓库根运行只读检查，先确认现有改动：
 
 ```bash
@@ -17,6 +21,10 @@ git diff --stat HEAD upstream/main
 ```
 
 如果remote尚未配置，确认目标后增补；不要覆盖已有remote。历史不共享祖先时按文件比较，不盲目merge。下载、比较与本地集成分别记录，fetch成功不代表已融合。
+
+同步脚本的 `--check-only` 只比较远端提交与缓存：`0` 表示自动源未发现新提交（手动源跳过），`2` 表示发现更新，查询失败返回非零；它不检查本地镜像完整性。普通同步只在目标目录中按规则复制和保留文件，不等于将上游删除操作完整镜像到本地。使用 `--dry-run` 也会访问远端并克隆临时副本。
+
+GitHub 同步流程以 `main` 为基线，先跑同步边界单测，再检查每次变更的路径范围，推送到独立分支并创建草稿 PR。写权限仅授予同步 job，执行受仓库 Actions 的令牌/PR 设置约束。`GITHUB_TOKEN` 创建的推送或 PR 通常不会触发 `gates`；维护者应在 Actions → gates → Run workflow 中选择对应 PR 分支运行，审阅实际结果后再转为可审阅并合入。同步流程没有执行完整回归，不代表第三方内容已适配。
 
 ## 2. 每项改动回答六个问题
 

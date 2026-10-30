@@ -19,11 +19,15 @@ import os
 import re
 import struct
 import subprocess
+import sys
 import tempfile
 import time
 import xml.etree.ElementTree as ET
 import zipfile
 from typing import Any
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
+from lib import process_tree
 
 ANDROID_NS = "http://schemas.android.com/apk/res/android"
 
@@ -65,14 +69,14 @@ def run_command(command: list[str], cwd: str | None = None,
     """Run a command while preserving rc/stdout/stderr as separate facts."""
     started = time.monotonic()
     effective = list(command)
+    run = process_tree.run
     if (os.name == "nt" and effective
             and effective[0].lower().endswith((".bat", ".cmd"))):
-        effective = [
-            os.environ.get("COMSPEC", "cmd.exe"),
-            "/d", "/s", "/c", subprocess.list2cmdline(effective),
-        ]
+        # Reuse the batch boundary that quotes via environment expansion;
+        # list2cmdline alone does not escape cmd's &, %, ! or redirections.
+        from tool_autodiscover import _run_tool_process as run
     try:
-        proc = subprocess.run(
+        proc = run(
             effective,
             cwd=cwd,
             capture_output=True,
@@ -80,6 +84,7 @@ def run_command(command: list[str], cwd: str | None = None,
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            stdin=subprocess.DEVNULL,
             check=False,
         )
         return {
@@ -105,7 +110,7 @@ def run_command(command: list[str], cwd: str | None = None,
             "timed_out": True,
             "duration_seconds": round(time.monotonic() - started, 3),
         }
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         return {
             "returncode": None,
             "stdout": "",

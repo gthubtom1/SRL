@@ -61,13 +61,15 @@ dependency yourself.
 
 ## Not covered — say so rather than improvise
 
-Unity / IL2CPP logic recovery · React Native, Hermes bytecode and Cordova internals · iOS of any kind ·
+Automatic original Unity / IL2CPP C# method-body recovery · React Native, Hermes bytecode and Cordova internals · iOS of any kind ·
 defeating a server-side authority · an off-the-shelf unpacker · an anti-detection arms race · building
 and shipping a kernel module · a Stalker trace guaranteed on every device.
 
 Each has a reason and, where one exists, an evidence boundary — in `references/coverage-and-limits.md`.
 **Silence in that record is not support**, and a route that is only "documented" is not a route that
 was measured.
+
+当前条件式类型/地址映射入口为 `../../subskills/il2cpp-dump/SKILL.md`，不升级本页的历史任务证据；仍须核同构建输入、工具支持及实际结果，不把 dump.cs 当原始方法体。
 
 ## Split reference index
 

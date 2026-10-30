@@ -26,15 +26,15 @@
     "blocked_at + next_action"
   ],
   "scripts": [
-    "Tool/skill/_pending/signin-automation/scripts/opsec-check.py"
+    "Tool/skill/web-pentest/subskills/signin-automation/scripts/opsec-check.py"
   ],
   "refs": [
-    "Tool/skill/_pending/signin-automation/SKILL.md",
-    "Tool/skill/_pending/signin-automation/references/01-fingerprint-and-pacing.md"
+    "Tool/skill/web-pentest/subskills/signin-automation/SKILL.md",
+    "Tool/skill/web-pentest/subskills/signin-automation/references/01-fingerprint-and-pacing.md"
   ],
   "maturity": "probe",
   "reserved": true,
-  "note": "当前实现仅位于 Tool/skill/_pending/signin-automation；安装器不部署、不索引该目录，因此安装态不能自动调用。现阶段只能由源码工作区人工运行并检查 session/limits 证据，迁移到正式 web-pentest 路由并完成隔离 AgentRoot 验测前不得按完整能力编排。",
+  "note": "现役入口位于 Tool/skill/web-pentest/subskills/signin-automation/，随web-pentest父域递归部署到 <AgentRoot>/skills/web-pentest/subskills/signin-automation/；Tool/路径相对已注册源码根。部署文件、当前宿主加载与运行依赖须分别核验。maturity=probe、reserved=true保留，表示尚未开放自动编排，不表示脚本仍未部署。只复核提供的安全会话/limits记录，输出判据不能替代真实会话及目标侧观察。本次路径修正不提升历史证据或验证等级；真实凭据留在用户侧，仅使用安全输入/结果。",
   "compose": [
     "session-pool",
     "tls-fingerprint"

@@ -46,6 +46,30 @@ class TypedInputCLI(unittest.TestCase):
     def state(self, project: Path, *args):
         return cli(STATE, *args, "--project", project)
 
+    def test_missing_referenced_auxiliary_descriptor_blocks_resume_and_export(self):
+        primary = self.base / "main.bin"
+        auxiliary = self.base / "auxiliary.bin"
+        primary.write_bytes(b"primary material")
+        auxiliary.write_bytes(b"auxiliary material")
+        project = self.base / "missing-asset"
+        self.assertEqual(self.state(project, "init", "--project-id", "missing-asset",
+                                    "--target", primary)[0], 0)
+        self.assertEqual(self.state(project, "asset", "--asset-id", "aux-material", "--target", auxiliary,
+                                    "--version", "1.0", "--role", "auxiliary")[0], 0)
+        descriptor = project / "assets/aux-material/asset.json"
+        original = descriptor.read_bytes()
+        descriptor.unlink()
+        rc, result, text = self.state(project, "resume")
+        self.assertEqual(rc, 2, text)
+        self.assertEqual(result["handoff"]["state_health"], "blocked")
+        bundle = self.base / "incomplete.zip"
+        rc, _, text = cli(ARCHIVE, "export", "--project", project, "--out", bundle)
+        self.assertEqual(rc, 2, text)
+        self.assertFalse(bundle.exists())
+        descriptor.write_bytes(original)
+        self.assertEqual(self.state(project, "resume")[0], 0)
+        self.assertEqual(cli(ARCHIVE, "export", "--project", project, "--out", bundle)[0], 0)
+
     def test_refused_replacements_preserve_registered_materials(self):
         for kind in ("file", "directory"):
             with self.subTest(kind=kind):

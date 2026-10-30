@@ -4,6 +4,8 @@
 > 前置：有采集记录的内存样本、授权设备、磁盘/流量/日志交叉证据；内存单独不足以做恶意定性。
 > 目标：把易失证据变成可复述的进程/网络/模块/注册表时间线，并明确哪些是 `observed`、哪些只是 `inferred`。
 
+`Tool/skill/forensics-mobile/scripts/forensics-check.py` 只做类型/哈希/文件时间与有限前缀标记初检，`hints` 是标记偏移，`extractables` 是后续清单，不是进程、模块、句柄或注入页解析。下文实体结论须由匹配格式、符号和插件的实际解析器取得。所有命令先核本机版本及插件 `--help`；minidump/core/完整物理镜像不能混用链路。真实内存可能含凭据，若工具不能在读取前限制到安全区域，仅接用户侧筛选的安全输出，不先全量 dump 再脱敏。
+
 ## 1. 采集与封存
 
 内存是第一优先级：断电/重启会丢失进程、连接、未落盘文件、注入页。
@@ -30,7 +32,7 @@ python3 vol.py -f mem.raw windows.psscan.PsScan
 
 判据：
 
-- `banners` 能给出 NT build/version；`windows.info` 的 `SystemTime` 与采集记录不差得离谱。
+- Windows 以实际支持的 `windows.info`、layer/符号信息核系统构建、架构与采集时间；`banners` 主要用于 Linux/macOS 内核 banner，不保证返回 Windows NT build。
 - `pslist` 与 `psscan` 都能跑；两者 PID 差集是“隐藏/已退出”的候选，不是定罪。
 - 符号缺失时先定 build，再取对应 ISF；不要拿相近版本硬跑。
 
@@ -73,7 +75,7 @@ python3 vol.py -f mem.raw windows.netstat.NetStat > out/netstat.txt
 ```bash
 python3 vol.py -f mem.raw windows.malfind.Malfind > out/malfind.txt
 python3 vol.py -f mem.raw windows.hollowprocesses.HollowProcesses
-python3 vol.py -f mem.raw windows.dumpfiles.DumpFiles --pid 4242 --dump-dir out/dump
+python3 vol.py -f mem.raw -o out/dump windows.dumpfiles.DumpFiles --pid 4242
 ```
 
 判据：
@@ -152,50 +154,19 @@ ss -lntp; ss -tnp state established                           # 套接字 → pi
 
 **失败判据**：`auditctl -l` 为空 → 写“无审计面”（`blocked_at: audit-off`），不写“没执行”；`auid=unset` 却写成具体用户 → 降为 `inferred`；日志只在 `/run` 且已重启 → 标“不跨重启”；`/proc` 与 `ss` 的 pid 不一致（namespace 视角差异）→ 写“命名空间不同视图”，不写“套接字归属不明”。
 
-## 10. MemProcFS 5.19 / Volatility 3 v2.27（2026 工具基线）
+## 10. MemProcFS / Volatility 3 的版本与交叉核验
 
-**为什么单列**：Win11 26H2 改了内核结构，旧版工具的堆与事件日志假设直接失效；先定工具版本，再谈结论。
+本参考不把未经当前环境核实的发行版本、系统支持表或插件名当作工具基线。记录实际程序版本、帮助输出、镜像格式、系统构建与符号来源；按帮助列出的插件/虚拟文件路径选择实体解析。命令形态与版本差异见 `Tool/skill/malware-analysis/subskills/memory-forensics/SKILL.md`。
 
-```bash
-# MemProcFS v5.19（2026-10-05）：只挂载，不写镜像
-memprocfs.exe -device mem.raw -mount M:\mnt
-memprocfs -device mem.raw -mount /mnt/mem      # Linux/macOS
-ls /mnt/mem/sys/eventlog /mnt/mem/sys/proc/cpu
-```
+MemProcFS 的设备、挂载位置与取证输出参数按当前程序帮助核验，挂载动作只在获准测试环境进行，不执行或写入镜像内文件。Volatility 的输出目录属于全局选项，置于插件名之前；`windows.heap`、`windows.eventlog`、`windows.hollowprocesses` 等名称不能假定每版都提供，未列出就记不支持并选择现有替代，不把命令失败归因于目标保护。
 
-- v5.19 支持 **Windows 11 26H2**，并修复 **24H2+ 堆恢复**（此前 `-mount` 后进程堆/伪句柄常为空）。
-- 新增 `/sys/eventlog`：从内存直接恢复事件日志（未落盘的 EVTX），含 channel/EventId/RecordId/time。
-- 新增 `/sys/proc/cpu`：每进程 CPU 时间/线程数，用于“进程是否真在跑”的旁证。
-- 挂载目录当只读：不写入、不执行其中文件；产物落 `-forensic` 目录。
-
-**Volatility 3 v2.27（2026-01）**：与 MemProcFS 做 `plugin_parity`——同一镜像上两工具的进程/连接/hive 交集才算 `observed`。
-
-```bash
-python3 vol.py -f mem.raw windows.pslist.PsList
-python3 vol.py -f mem.raw windows.netscan.NetScan
-python3 vol.py -f mem.raw windows.heap.Heap              # 对应 heap_recovered
-python3 vol.py -f mem.raw windows.registry.hivelist.HiveList
-python3 vol.py -f mem.raw windows.eventlog.EventLog      # 与 /sys/eventlog 交叉
-```
-
-判据字段（逐项写 observed/inferred）：
-
-| 字段 | 含义 | 来源 |
+| 需要回答的问题 | 必须记录的实际证据 | 不足时如何报告 |
 |---|---|---|
-| `eventlog_from_mem` | 内存恢复的日志条数/首末时间 | `/sys/eventlog`、`windows.eventlog` |
-| `heap_recovered` | 堆是否成功恢复（bool + 原因） | MemProcFS 5.19、`windows.heap` |
-| `hive_from_mem` | 内存 hive 键/值可遍历 | `windows.registry.hivelist`、`/sys/registry` |
-| `proc_cpu_from_mem` | 进程 CPU 时间/线程数可读 | `/sys/proc/cpu` |
-| `plugin_parity` | 两工具关键字段一致率 | MemProcFS vs V3 交叉 |
+| 进程/模块/句柄归属 | 实际插件、PID/创建时间、模块映射、句柄表及镜像哈希 | 插件或格式不支持则未知，不用初检字符串补字段 |
+| 内存日志/hive/堆 | 当前工具实际支持的路径/插件与解析输出 | 未支持、缺页与解析失败分开，不要求虚构同名字段 |
+| 两工具差异 | 同镜像、时刻、对象身份与关键字段的交集/差集 | 差集保留并解释；单一解析器的直接观察不因未跑第二工具而自动消失 |
 
-**失败判据**：
-
-- `heap_recovered=false`（堆空/解析异常）→ 改用 V3 `windows.heap`；仍空只做 `psscan`/`malfind` 池扫描，不写“目标反堆取证”。
-- **26H2 dump 在 MemProcFS <5.19 上崩溃或挂载为空** → 升到 5.19 重跑；旧版输出不得写“镜像损坏/结构异常”。
-- `/sys/eventlog` 空但磁盘 EVTX 有记录 → 写“内存侧无该日志”，不写“日志被清除”；两源都空才谈清除。
-- `plugin_parity` 关键对象（PID/CreateTime/五元组）不一致 → 只采交集，差集标 `unverified`。
-
-出处：MemProcFS releases（2026-10-05，v5.19）；Volatility Timeline（2026-01，v2.27）。
+空输出不能证明无实体或日志已清除；差异可能来自采集时刻、符号、残留对象或解析覆盖。无匹配符号/插件时停止深度结论，列出可恢复条件；只有已证支持条件不满足时才建议具体版本适配，不按未经核实的版本号强制升级。
 
 ## 11. 失败判据
 
@@ -219,7 +190,7 @@ python3 vol.py -f mem.raw windows.eventlog.EventLog      # 与 /sys/eventlog 交
 | 步 | 动作 | 命令 | 门禁 |
 | :-: | --- | --- | --- |
 | 1 | 哈希/大小/采集记录 | `sha256sum mem.raw` | 哈希 + 时间 + 主机名 |
-| 2 | 定版本 | `banners.Banners` | build/架构可读 |
+| 2 | 定版本 | Windows 用实际 `windows.info`；Linux/macOS 依格式核 banner/符号 | build/架构可读 |
 | 3 | 进程 | `pslist` + `psscan` | 两者都能跑 |
 | 4 | 差集 | `comm`/`jq` 比 PID | 每个差集有解释 |
 | 5 | 命令行/用户 | `cmdline` + `getsids` | 主体可指认 |

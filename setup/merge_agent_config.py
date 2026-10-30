@@ -42,6 +42,7 @@ import os
 import sys
 import hashlib
 import re
+import shutil
 import tempfile
 import uuid
 from pathlib import Path
@@ -450,7 +451,55 @@ def _write_package_bytes(path: Path, data: bytes):
             os.unlink(pending)
 
 
-def _apply_package_plan(args, plan, finalize=None):
+def restore_agent_backup(args) -> int:
+    """Validate the entire restore tree before any destination is changed."""
+    if not args.restore_backup.strip():
+        raise ValueError("backup directory must not be empty")
+    source = Path(os.path.abspath(os.path.expanduser(args.restore_backup)))
+    agent = Path(args.agent_dir)
+    _checked_path(source.parent, source.name, directory=True)
+    _checked_path(agent.parent, agent.name, directory=True)
+    if not source.is_dir() or source == agent:
+        raise ValueError("backup must be a directory distinct from the agent root")
+    directories, files = [], []
+    def walk_error(error):
+        raise error
+    # Walk top-down so linked directories are rejected before descending into
+    # them. Windows junctions are not necessarily reported as symlinks.
+    for current, dirnames, filenames in os.walk(source, followlinks=False, onerror=walk_error):
+        for name in sorted(dirnames):
+            rel = (Path(current) / name).relative_to(source).as_posix()
+            _checked_path(source, rel, directory=True)
+            directories.append(_checked_path(agent, rel, directory=True))
+        for name in sorted(filenames):
+            rel = (Path(current) / name).relative_to(source).as_posix()
+            original = _checked_path(source, rel)
+            files.append((original, _checked_path(agent, rel)))
+    if args.dry_run or args.print_only:
+        log("  [DRY-RUN] restore validated: %d files; no changes" % len(files))
+        return 0
+    agent.mkdir(parents=True, exist_ok=True)
+    for directory in directories:
+        directory.mkdir(parents=True, exist_ok=True)
+    for original, destination in files:
+        # Revalidate immediately before reading/copying; never follow a linked
+        # destination and never truncate the live file on a failed copy.
+        rel = original.relative_to(source).as_posix()
+        _checked_path(source, rel)
+        _checked_path(agent, rel)
+        fd, pending = tempfile.mkstemp(prefix=".seep-restore-", dir=destination.parent)
+        os.close(fd)
+        try:
+            shutil.copy2(original, pending)
+            os.replace(pending, destination)
+        finally:
+            if os.path.exists(pending):
+                os.unlink(pending)
+    log("  [OK] restored %d files; restart Agent to reload" % len(files))
+    return 0
+
+
+def _apply_package_plan(args, plan, finalize=None, *, publish_manifest=True):
     """Bounded package/config publication using the existing install manifest."""
     target, manifest_path, manifest, changes = plan
     if args.dry_run or args.print_only:
@@ -459,7 +508,7 @@ def _apply_package_plan(args, plan, finalize=None):
             finalize()
         return 0
     manifest_bytes = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    if ((not manifest_path.exists() and not getattr(args, "_removing_package", False))
+    if publish_manifest and ((not manifest_path.exists() and not getattr(args, "_removing_package", False))
             or (manifest_path.exists() and manifest_path.read_bytes() != manifest_bytes)):
         changes[manifest_path] = manifest_bytes
     snapshots = dict.fromkeys([*changes, *(Path(args.agent_dir, name) for name in
@@ -573,9 +622,10 @@ def merge_prompts(args) -> int:
     begin, end = "<!-- seep:managed:begin -->", "<!-- seep:managed:end -->"
     planned = []
     for name in ("AGENTS.md", "SEEP.md"):
-        source = Path(args.root, "Tool/prompts", name).read_text(encoding="utf-8-sig")
-        dst = Path(args.agent_dir, name)
-        existing = dst.read_text(encoding="utf-8-sig") if dst.exists() else ""
+        source_path = _checked_path(Path(args.root), "Tool/prompts/" + name)
+        dst = _checked_path(Path(args.agent_dir), name)
+        source = source_path.read_text(encoding="utf-8-sig")
+        existing = dst.read_bytes().decode("utf-8-sig") if dst.exists() else ""
         block = begin + "\n" + source.rstrip() + "\n" + end
         markers = re.findall(r"<!--\s*seep:managed\b", existing)
         if markers:
@@ -591,27 +641,19 @@ def merge_prompts(args) -> int:
         else:
             merged = existing if args.remove_prompts_only else existing.rstrip() + ("\n\n" if existing.strip() else "") + block + "\n"
         planned.append((name, dst, existing, merged))
-    # Validate both prompts before changing either one, including direct callers.
+    # Publish prompts and their local dependency package together. A late prompt
+    # or package failure must restore every earlier write and its ownership.
+    if args.remove_prompts_only:
+        manifest_path, manifest = _package_manifest(args)
+        target = _checked_path(Path(args.agent_dir), PERSONA_PACKAGE_TARGET_DIR, directory=True)
+        plan = (target, manifest_path, manifest, {})
+    else:
+        plan = _package_plan(args)
     for name, dst, existing, merged in planned:
-        if merged == existing or args.dry_run or args.print_only:
+        if merged == existing:
             continue
-        if dst.exists() and not backup(str(dst)):
-            raise OSError("prompt backup failed: " + name)
-        if args.remove_prompts_only and not merged.strip():
-            dst.unlink()
-            continue
-        fd, temp = tempfile.mkstemp(prefix=".seep-prompt-", dir=args.agent_dir)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-                handle.write(merged)
-            os.replace(temp, dst)
-        finally:
-            if os.path.exists(temp):
-                os.unlink(temp)
-        log("  [OK] prompt source updated; user/host text retained: " + name)
-    if not args.remove_prompts_only:
-        deploy_persona_package(args)
-    return 0
+        plan[3][dst] = None if args.remove_prompts_only and not merged.strip() else merged.encode("utf-8")
+    return _apply_package_plan(args, plan, publish_manifest=not args.remove_prompts_only)
 
 
 def merge_agent_settings(args) -> int:
@@ -703,16 +745,19 @@ def main(argv) -> int:
     ap.add_argument("--validate-configs-only", action="store_true", help="卸载前只校验配置，不写文件")
     ap.add_argument("--remove-mcp", nargs="+", default=[], metavar="NAME")
     ap.add_argument("--remove-packages", action="store_true")
+    ap.add_argument("--restore-backup", metavar="DIRECTORY", help="校验路径后恢复指定备份")
     args = ap.parse_args(argv)
     actions = (args.persona_rewind_only, args.prompts_only, args.remove_prompts_only, args.agents_only,
                args.validate_only, args.validate_configs_only,
-               bool(args.remove_mcp or args.remove_packages))
+               bool(args.remove_mcp or args.remove_packages), args.restore_backup is not None)
     if sum(actions) > 1:
         ap.error("action flags cannot be combined (except --remove-mcp with --remove-packages)")
 
     args.root = os.path.abspath(os.path.expanduser(args.root))
     args.agent_dir = os.path.abspath(os.path.expanduser(args.agent_dir))
     try:
+        if args.restore_backup is not None:
+            return restore_agent_backup(args)
         if args.persona_rewind_only:
             return deploy_persona_package(args, lambda: merge_settings_json(args, pair_only=True))
         if args.validate_configs_only:

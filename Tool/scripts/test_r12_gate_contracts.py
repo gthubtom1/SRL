@@ -75,11 +75,13 @@ class RuntimeGateContractTests(unittest.TestCase):
         for token in (
                 "runs-on: ubuntu-latest",
                 "runs-on: windows-latest",
-                "setup/install.sh --agent-root",
-                "setup/install-pi.ps1 -AgentRoot",
+                ".github/scripts/check_ci_install.py",
+                "@earendil-works/pi-coding-agent@1.4.0",
+                "node setup/test_persona_rewind_sdk.mjs",
                 "PI_CODING_AGENT_DIR",
-                "Tool/scripts/check.py --runtime --strict --json",
-                "Tool/scripts/preflight.py --fast",
+                ".github/scripts/check_public_source.py --list",
+                ".github/scripts/check_public_source.py",
+                "public source verification",
                 "Tool/mcp/test_seep_mcp.py",
                 "Tool/mcp/test_apk_contract.py",
                 "timeout-minutes: 45",
@@ -88,6 +90,53 @@ class RuntimeGateContractTests(unittest.TestCase):
         ):
             self.assertIn(token, workflow)
         self.assertGreaterEqual(workflow.count("continue-on-error: true"), 10)
+
+    def test_public_scope_is_explicit_and_full_runtime_keeps_private_gates(self):
+        spec = importlib.util.spec_from_file_location("public_ci", ROOT / ".github/scripts/check_public_source.py")
+        ci = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ci)
+        manifest = json.loads((ROOT / ".github/public-suites.json").read_text(encoding="utf-8"))
+        ci.inventory(manifest, check.runtime_suites())
+        self.assertIn("domain-task-delivery", manifest["included"])
+        self.assertIn("unit", manifest["excluded"])
+        self.assertIn("e2e", manifest["excluded"])
+        self.assertIn("preflight", manifest["outside_runtime"])
+        self.assertTrue({"unit", "e2e"}.issubset({s[0] for s in check.runtime_suites()}))
+        with self.assertRaises(ValueError):
+            ci.inventory(manifest, check.runtime_suites() + [("new-unreviewed", ["new.py"], True, "new")])
+        bad = json.loads(json.dumps(manifest))
+        bad["excluded"]["unit"] = ""
+        with self.assertRaises(ValueError):
+            ci.inventory(bad, check.runtime_suites())
+
+    def test_ci_install_requires_only_explicit_auth_rejection(self):
+        spec = importlib.util.spec_from_file_location("ci_install", ROOT / ".github/scripts/check_ci_install.py")
+        ci = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ci)
+        result = {
+            "installed": False, "missing": ["宿主认证未就绪：synthetic not signed in"],
+            "checks": {
+                "pi": True, "node": True, "runtime_registration": {"ok": True},
+                "mcp": {"service": {"available": True}},
+                "model_credential": {"configured": False, "stage": "host-auth-check", "detail": "synthetic not signed in"},
+            },
+        }
+        ci.validate_results(1, 1, result)
+        ci.validate_results(0, 1, result, windows=True)
+        for path in ("pi", "node", "runtime_registration", "mcp"):
+            bad = json.loads(json.dumps(result))
+            bad["checks"][path] = False if path in ("pi", "node") else {}
+            with self.subTest(missing=path), self.assertRaises(ValueError):
+                ci.validate_results(1, 1, bad)
+        for mutation in (
+            {"missing": result["missing"] + ["damaged skill"]},
+            {"missing": []}, {"installed": True},
+        ):
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                ci.validate_results(1, 1, dict(result, **mutation))
+        for install_code, ready_code in ((0, 1), (1, 0), (2, 1), (1, 2)):
+            with self.subTest(codes=(install_code, ready_code)), self.assertRaises(ValueError):
+                ci.validate_results(install_code, ready_code, result)
 
 
 class FailClosedContractTests(unittest.TestCase):

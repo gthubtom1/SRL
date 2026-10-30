@@ -41,8 +41,8 @@ metadata:
 
 ```bash
 sha256sum plugin.crx
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path plugin.crx --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path plugin.crx --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path plugin.crx --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path plugin.crx --out work/repro --json
 ```
 
 ## 3. 判型表
@@ -124,7 +124,7 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path plugin.
 
 ```bash
 sha256sum target > SHA256SUMS
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path target --json
 ```
 
 完成判据：`container` 明确；清单可解析；入口清单存在；原包只读。
@@ -132,7 +132,7 @@ python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target
 ### 阶段 B：解包与入口
 
 ```bash
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path target --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path target --out work/repro --json
 ```
 
 完成判据：`entrypoints` 至少一个 `exists=true`；后台/内容脚本/main/preload/插件 DLL 可指认；`unpacked` 路径可复跑。
@@ -176,18 +176,18 @@ jq '{permissions,optional_permissions,host_permissions,background,content_script
 
 ```bash
 # 结构 + 权限面 + 可疑 API + 远程 URL（只读，不解包落盘）
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx --json
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path app.asar --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path target.crx --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path app.asar --json
 
 # 解包 + 入口/权限证据 + 数据流 + 最小可改单元
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --path target.vsix --out work/repro --json
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --path target.vsix --out work/repro --json
 
 # 离线自检（无外网/无真实目标）
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --self-test
-python Tool/skill/_pending/plugin-targets/scripts/plugin-repro.py --self-test
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --self-test
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-repro.py --self-test
 
 # 兼容入口（转发到 skill 脚本）
-python Tool/skill/_pending/plugin-targets/scripts/plugin-triage.py --path target.crx
+python Tool/skill/protocol-plugin/subskills/plugin-targets/scripts/plugin-triage.py --path target.crx
 ```
 
 退出码：0 成功；2 结构化失败（`{"ok": false, "blocked_at": "...", "reason": "..."}`）。脚本不执行包内代码、不联网。

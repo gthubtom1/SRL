@@ -139,16 +139,18 @@ try {
       settingsManager: sdk.SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: false }, cacheWarming: "off" }) });
     sessions.add(session);
     const notices = [], statuses = new Map(), errors = [];
-    let choose = () => undefined, confirmation = false, draft;
+    let choose = () => undefined, confirmation = false, confirmationCount = 0, draft;
     const ui = { notify: (text, level) => notices.push({ text: String(text), level }),
       setEditorText: (text) => { draft = text; }, setStatus: (key, value) => statuses.set(key, value), setWidget() {},
-      select: async (title, options) => choose(title, options), confirm: async () => confirmation };
+      select: async (title, options) => choose(title, options),
+      confirm: async () => { confirmationCount++; return confirmation; } };
     await session.bindExtensions({ mode: "rpc", uiContext: ui,
       commandContextActions: { navigateTree: (id, options) => session.navigateTree(id, options) } });
     const runner = session.extensionRunner;
     runner.onError((e) => errors.push(e));
     assert.deepEqual(runner.getCommandDiagnostics(), []);
     return { session, sm, runner, notices, statuses, errors, draft: () => draft,
+      confirmations: () => confirmationCount,
       choose: (fn) => { choose = fn; }, confirm: (yes) => { confirmation = yes; },
       dispose: () => { session.dispose(); sessions.delete(session); } };
   }
@@ -269,6 +271,36 @@ try {
       const resumed = await harness(order, false, sessionFile);
       await request(resumed, "off", `${label}/${mode}/off-after-reopen`);
       resumed.dispose();
+
+      // An earlier plain turn also drops tool work in subsequent turns. The
+      // real command, dialog and SDK navigation must all honor that boundary.
+      const cross = await harness(order, true);
+      const anchorBeforeTurns = cross.sm.getLeafId();
+      const originalQuestion = "  C:\\folder with spaces\\sample.bin\r\nhttps://example.invalid/a?q=%2F\n<personality>literal</personality>  ";
+      const firstQuestion = cross.sm.appendMessage({ role: "user", content: originalQuestion, timestamp: 20 });
+      cross.sm.appendMessage(reply());
+      cross.sm.appendMessage({ role: "user", content: "later operation", timestamp: 21 });
+      cross.sm.appendMessage(reply([{ type: "toolCall", id: "later-probe", name: "synthetic_probe", arguments: {} }]));
+      cross.sm.appendMessage({ role: "toolResult", toolCallId: "later-probe", toolName: "synthetic_probe",
+        content: [{ type: "text", text: literal }, image], timestamp: 22 });
+      cross.sm.appendMessage({ role: "user", content: "final plain turn", timestamp: 23 });
+      cross.sm.appendMessage(reply());
+      const branchBeforeCancel = structuredClone(cross.sm.getBranch());
+      const draftBeforeCancel = cross.draft();
+      cross.choose((_title, options) => options.at(-1)); cross.confirm(false);
+      await cross.session.prompt("/rewind");
+      assert.equal(cross.confirmations(), 1, "earlier plain turn must confirm later tool work");
+      assert.deepEqual(cross.sm.getBranch(), branchBeforeCancel, "cancelled rewind must preserve complete branch and attachments");
+      assert.equal(cross.draft(), draftBeforeCancel, "cancelled rewind must preserve the draft");
+      cross.confirm(true);
+      await cross.session.prompt("/rewind");
+      assert.equal(cross.confirmations(), 2);
+      assert.equal(cross.sm.getLeafId(), anchorBeforeTurns);
+      assert.equal(cross.draft(), originalQuestion, "restored draft must preserve paths, URL, literal tags and whitespace");
+      assert.equal(cross.sm.getEntry(firstQuestion).message.content, originalQuestion, "original session material must remain intact");
+      assert.deepEqual(cross.errors, []);
+      cross.dispose();
+      record(`${label}/${mode}/rewind-earlier-plain-turn-confirms-later-tools`);
     }
     settings("cached", "missing-default");
     fs.writeFileSync(join(project, "PERSONALITY.md"), "SYNTH_LEGACY_PERSONALITY");

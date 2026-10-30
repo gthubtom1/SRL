@@ -582,6 +582,83 @@ class WorkflowEntry(unittest.TestCase):
         self.wf_ok("act", "--project", str(self.project), "--action", "meta.fingerprint")
 
     # ---- 9. real capture -> evidence -> attempt chain -------------------
+    def test_repeated_action_in_one_second_preserves_each_raw_capture(self):
+        import project_workflow as W
+        from unittest.mock import patch
+        self.start(target=self.apk)
+        results = [dict(method="fixture-readonly", argv=["fixture"], params={}, rc=0,
+                        timeout=False, stdout='{"ok":true,"probe":%d}' % index,
+                        stderr="", tool_ok=True, tool_payload_ok=True,
+                        tool_has_result=True, tool_status="ok") for index in (1, 2)]
+        captures = []
+        with patch.object(W, "utc_slug", return_value="fixed-second"), \
+                patch.object(W, "run_action", side_effect=results):
+            for index in range(2):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    rc = W.main(["act", "--project", str(self.project),
+                                 "--action", "meta.fingerprint", "--json"])
+                self.assertEqual(rc, 0, output.getvalue())
+                result = json.loads(output.getvalue())
+                path = self.project / result["capture"]
+                capture = json.loads(path.read_text(encoding="utf-8"))
+                raw = path.with_name(capture["raw_capture"])
+                captures.append((raw, raw.read_bytes()))
+        self.assertNotEqual(captures[0][0], captures[1][0])
+        for raw, original in captures:
+            self.assertEqual(raw.read_bytes(), original)
+        self.wf_ok("status", "--project", self.project)
+
+    def test_raw_output_tamper_or_loss_blocks_close_and_resume(self):
+        started = self.start(target=self.apk)
+        payload = self.wf_ok("act", "--project", str(self.project), "--action", "meta.fingerprint")
+        capture_path = self.project / payload["capture"]
+        capture = json.loads(capture_path.read_text(encoding="utf-8"))
+        raw = capture_path.with_name(capture["raw_capture"])
+        original = raw.read_bytes()
+        raw.write_bytes(b"different raw execution output\n")
+        rc, refused, text, _ = self.wf("close", "--project", self.project,
+            "--version", "1.0", "--run", started["run"], "--define", "ac:fixture capture",
+            "--accept", "ac=pass:" + payload["evidence_id"],
+            "--verifier", "fixture reader", "--how", "synthetic read-only check",
+            "--finish", "completed")
+        self.assertEqual(rc, 2, text)
+        self.assertFalse(refused["ok"])
+        run_path = self.project / "versions/1.0/runs" / started["run"] / "run.json"
+        self.assertEqual(json.loads(run_path.read_text(encoding="utf-8"))["status"], "active")
+        raw.write_bytes(original)
+        self.wf_ok("close", "--project", self.project, "--version", "1.0",
+            "--run", started["run"], "--accept", "ac=pass:" + payload["evidence_id"],
+            "--verifier", "fixture reader", "--how", "synthetic read-only check",
+            "--finish", "completed")
+        self.wf_ok("status", "--project", self.project)
+        raw.unlink()
+        rc, status, text, _ = self.wf("status", "--project", self.project)
+        self.assertEqual(rc, 2, text)
+        self.assertFalse(status["ok"])
+        raw.write_bytes(original)
+        self.wf_ok("status", "--project", self.project)
+
+    def test_legacy_capture_still_rechecks_raw_output_without_new_index_fields(self):
+        self.start(target=self.apk)
+        payload = self.wf_ok("act", "--project", str(self.project), "--action", "meta.fingerprint")
+        evidence_path = self.project / "versions/1.0/evidence" / (payload["evidence_id"] + ".json")
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+        evidence.pop("raw_output", None)
+        evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+        manifest_path = self.project / "versions/1.0/manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for entry in manifest["evidence"]:
+            entry.pop("raw_output", None)
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self.wf_ok("status", "--project", self.project)
+        capture_path = self.project / payload["capture"]
+        capture = json.loads(capture_path.read_text(encoding="utf-8"))
+        capture_path.with_name(capture["raw_capture"]).unlink()
+        rc, status, text, _ = self.wf("status", "--project", self.project)
+        self.assertEqual(rc, 2, text)
+        self.assertFalse(status["ok"])
+
     def test_real_capture_chain_binds_evidence_and_attempt(self):
         started = self.start(target=self.apk)
         run_id = started["run"]
@@ -1658,7 +1735,7 @@ class WorkflowEntry(unittest.TestCase):
         """partial 走**真实** workflow 分类 + 真实 capture/evidence/attempt 链。
 
         用真实 `seep_pcap_extract`（只读本地合成 pcap，不联网、不 spawn 真 tshark），
-        只把 `subprocess.run` 换成“第 1 次 rc=0、第 2 次 rc=1”的 spy；summary 模式因此
+        只把 `_process_tree.run` 换成“第 1 次 rc=0、第 2 次 rc=1”的 spy；summary 模式因此
         产生 status=partial。子进程边界用 in-process 的 `child_main`（同样的受控信封 +
         同样的 `_action_result`/capture/evidence/attempt 代码），因此断言的是真实链路：
         executed=true、has_result=true（真有已解析 data）、outcome≠succeeded、
@@ -1716,16 +1793,14 @@ class WorkflowEntry(unittest.TestCase):
             return {"rc": rc, "timeout": False, "stdout": out, "stderr": "",
                     "elapsed_s": 0.0, "payload": payload}
 
-        class FakeSubprocess(object):
-            """只替换 MCP 模块看到的那份 subprocess（不动全局模块，否则会干扰 run_cli）。"""
-
-            TimeoutExpired = subprocess.TimeoutExpired
+        class FakeProcessTree(object):
+            """Replace the MCP execution boundary without changing global subprocess."""
 
             def __init__(self, runner):
                 self.run = runner
 
-        real_subprocess = module.subprocess
-        module.subprocess = FakeSubprocess(fake_run)
+        real_process_tree = module._process_tree
+        module._process_tree = FakeProcessTree(fake_run)
         module.shutil.which = lambda name: "/usr/bin/tshark" if name == "tshark" else None
         W.load_mcp = lambda: FakeMCP()
         W._spawn_child = inprocess_spawn
@@ -1737,7 +1812,7 @@ class WorkflowEntry(unittest.TestCase):
                               json.dumps({"mode": "summary", "max_rows": 10}), "--json"])
             text = buf.getvalue()
         finally:
-            module.subprocess = real_subprocess
+            module._process_tree = real_process_tree
             module.shutil.which = real_which
             W._spawn_child = real_spawn
             W.load_mcp = real_loader

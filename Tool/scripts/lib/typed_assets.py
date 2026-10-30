@@ -228,7 +228,12 @@ def _walk(root: Path, limits: DirectoryLimits) -> list:
         if depth > limits.max_depth:
             raise LimitExceeded("max_depth exceeded at %r" % (prefix or "."))
         with os.scandir(directory) as scan:
-            items = sorted(scan, key=lambda item: item.name)
+            items = []
+            for item in scan:
+                items.append(item)
+                if len(entries) + len(items) > limits.max_entries:
+                    raise LimitExceeded("max_entries exceeded (%d)" % limits.max_entries)
+            items.sort(key=lambda item: item.name)
         for item in items:
             name = item.name
             if name in (".", "..") or any(ch in name for ch in (":", "\\", "\x00")):
@@ -469,8 +474,12 @@ def _load_manifest(path: Path) -> dict:
     size = path.stat().st_size
     if size > MAX_MANIFEST_BYTES:
         raise TypedAssetError("snapshot manifest too large (%d bytes)" % size)
+    with path.open("rb") as stream:
+        payload = stream.read(MAX_MANIFEST_BYTES + 1)
+    if len(payload) > MAX_MANIFEST_BYTES:
+        raise TypedAssetError("snapshot manifest too large (actual read exceeds limit)")
     try:
-        value = json.loads(path.read_bytes().decode("utf-8"))
+        value = json.loads(payload.decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
         raise TypedAssetError("snapshot manifest is not valid UTF-8 JSON") from None
     if not isinstance(value, dict):

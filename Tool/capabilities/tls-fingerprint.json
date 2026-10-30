@@ -26,14 +26,14 @@
     "头序与 H2 开关"
   ],
   "scripts": [
-    "Tool/skill/_pending/signin-automation/scripts/tls-fingerprint.py"
+    "Tool/skill/web-pentest/subskills/signin-automation/scripts/tls-fingerprint.py"
   ],
   "refs": [
     "Tool/skill/apkseep/references/tls-and-cert.md"
   ],
   "maturity": "probe",
   "reserved": true,
-  "note": "当前实现仅位于 Tool/skill/_pending/signin-automation；安装器不部署、不索引该目录，因此安装态不能自动调用。现阶段只能由源码工作区人工生成并对照请求计划，迁移到正式 pwn-crypto 路由并完成目标侧 JA3/JA4 与头序负例前不得按完整能力编排。",
+  "note": "现役入口位于 Tool/skill/web-pentest/subskills/signin-automation/，随web-pentest父域递归部署到 <AgentRoot>/skills/web-pentest/subskills/signin-automation/；Tool/路径相对已注册源码根。部署文件、当前宿主加载与运行依赖须分别核验。maturity=probe、reserved=true保留，表示尚未开放自动编排，不表示脚本仍未部署。只生成请求计划/客户端档位，不代表目标侧JA3/JA4及头序已匹配；pwn-crypto等主域可借用此web-pentest子技能，结果回同一project/version/run。本次路径修正不提升历史证据或验证等级；真实凭据留在用户侧，仅使用安全输入/结果。",
   "compose": [
     "traffic-capture",
     "tls-decrypt"

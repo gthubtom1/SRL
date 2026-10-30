@@ -16,18 +16,21 @@ env:
 
 jobs:
   gates-linux:
-    name: Linux / install + runtime + MCP
+    name: Linux / public source verification
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       SEEP_CI_HOME: ${{ runner.temp }}/seep-home
       SEEP_CI_TEMP: ${{ runner.temp }}/seep-tmp
       PI_CODING_AGENT_DIR: ${{ runner.temp }}/seep-agent
+      SEEP_CI_SDK: ${{ runner.temp }}/seep-sdk
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -35,7 +38,21 @@ jobs:
         with:
           node-version: "22.19.0"
       - name: Python test dependencies
-        run: python -m pip install "mcp>=1.20,<1.29" pefile curl-cffi zstandard requests
+        run: python -m pip install "mcp>=1.20,<1.29" pefile curl-cffi zstandard requests "PyYAML==6.0.3"
+      - name: Native Linux tools used by task regressions
+        run: |
+          sudo apt-get update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tshark p7zip-full binutils
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/radare2_5.9.8_amd64.deb" https://github.com/radareorg/radare2/releases/download/5.9.8/radare2_5.9.8_amd64.deb
+          echo "6c6dec5f769d7b7ac35c9d5ebf850be66c4650874dfb4319d3ede26d20ae5c39  $RUNNER_TEMP/radare2_5.9.8_amd64.deb" | sha256sum --check --strict
+          sudo apt-get install -y "$RUNNER_TEMP/radare2_5.9.8_amd64.deb"
+          radare2 -v
+          tshark --version
+          command -v 7z
+      - name: Workflow failure propagation regressions
+        id: workflow
+        continue-on-error: true
+        run: python -B -X utf8 .github/tests/test_workflow_gates.py
       - name: Create isolated home, temp and AgentRoot
         run: |
           mkdir -p "$SEEP_CI_HOME" "$SEEP_CI_TEMP" "$PI_CODING_AGENT_DIR"
@@ -46,27 +63,48 @@ jobs:
             echo "TEMP=$SEEP_CI_TEMP"
             echo "TMP=$SEEP_CI_TEMP"
           } >> "$GITHUB_ENV"
-      - name: Install through shell entry
+      - name: Prepare pinned Pi SDK without user credentials
+        run: |
+          npm install --prefix "$SEEP_CI_SDK" --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org "@earendil-works/pi-coding-agent@1.4.0"
+          echo "$SEEP_CI_SDK/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Install through shell entry and verify unauthenticated rejection
         id: install
         continue-on-error: true
-        run: bash setup/install.sh --agent-root "$PI_CODING_AGENT_DIR" --skip-packages
-      - name: Static install and source preflight
+        run: python -B -X utf8 .github/scripts/check_ci_install.py
+      - name: Real Pi SDK offline persona and rewind acceptance
+        id: sdk
+        continue-on-error: true
+        run: node setup/test_persona_rewind_sdk.mjs "$SEEP_CI_SDK/node_modules/@earendil-works/pi-coding-agent"
+      - name: Public suite inventory and material boundary
         id: preflight
         continue-on-error: true
-        run: python -B -X utf8 Tool/scripts/preflight.py --fast
-      - name: Runtime regressions and real aggregate gates
+        run: python -B -X utf8 .github/scripts/check_public_source.py --list
+      - name: Public source regressions (complete local acceptance is separate)
         id: runtime
         continue-on-error: true
-        run: python -B -X utf8 Tool/scripts/check.py --runtime --strict --json
-      - name: MCP contract and smoke tests
+        run: python -B -X utf8 .github/scripts/check_public_source.py
+      # Keep native commands in separate steps: pwsh only propagates the last
+      # native exit code, so a later success must never hide an earlier failure.
+      - name: MCP smoke tests
         id: mcp
         continue-on-error: true
-        run: |
-          python -B -X utf8 Tool/mcp/test_seep_mcp.py
-          python -B -X utf8 Tool/mcp/test_ext_assets.py
-          python -B -X utf8 Tool/mcp/test_pcap_contract.py
-          python -B -X utf8 Tool/mcp/test_apk_contract.py
-          python -B -X utf8 Tool/mcp/test_readonly_parameters.py
+        run: python -B -X utf8 Tool/mcp/test_seep_mcp.py
+      - name: MCP extension assets
+        id: mcp_assets
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_ext_assets.py
+      - name: MCP PCAP contract
+        id: mcp_pcap
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_pcap_contract.py
+      - name: MCP APK contract
+        id: mcp_apk
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_apk_contract.py
+      - name: MCP readonly parameters
+        id: mcp_readonly
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_readonly_parameters.py
       - name: Workflow path portability
         id: portability
         continue-on-error: true
@@ -74,18 +112,30 @@ jobs:
       - name: Enforce all gate outcomes
         if: always()
         env:
+          WORKFLOW_OUTCOME: ${{ steps.workflow.outcome }}
           INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          SDK_OUTCOME: ${{ steps.sdk.outcome }}
           PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
           RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
           MCP_OUTCOME: ${{ steps.mcp.outcome }}
+          MCP_ASSETS_OUTCOME: ${{ steps.mcp_assets.outcome }}
+          MCP_PCAP_OUTCOME: ${{ steps.mcp_pcap.outcome }}
+          MCP_APK_OUTCOME: ${{ steps.mcp_apk.outcome }}
+          MCP_READONLY_OUTCOME: ${{ steps.mcp_readonly.outcome }}
           PORTABILITY_OUTCOME: ${{ steps.portability.outcome }}
         run: |
           failed=()
           for item in \
+            "workflow:$WORKFLOW_OUTCOME" \
             "install:$INSTALL_OUTCOME" \
+            "sdk:$SDK_OUTCOME" \
             "preflight:$PREFLIGHT_OUTCOME" \
             "runtime:$RUNTIME_OUTCOME" \
             "mcp:$MCP_OUTCOME" \
+            "mcp_assets:$MCP_ASSETS_OUTCOME" \
+            "mcp_pcap:$MCP_PCAP_OUTCOME" \
+            "mcp_apk:$MCP_APK_OUTCOME" \
+            "mcp_readonly:$MCP_READONLY_OUTCOME" \
             "portability:$PORTABILITY_OUTCOME"
           do
             case "$item" in
@@ -99,18 +149,21 @@ jobs:
           fi
 
   gates-windows:
-    name: Windows / install + runtime + MCP
+    name: Windows / public source verification
     runs-on: windows-latest
     timeout-minutes: 45
     env:
       SEEP_CI_HOME: ${{ runner.temp }}/seep-home
       SEEP_CI_TEMP: ${{ runner.temp }}/seep-tmp
       PI_CODING_AGENT_DIR: ${{ runner.temp }}/seep-agent
+      SEEP_CI_SDK: ${{ runner.temp }}/seep-sdk
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -118,7 +171,26 @@ jobs:
         with:
           node-version: "22.19.0"
       - name: Python test dependencies
-        run: python -m pip install "mcp>=1.20,<1.29" pefile curl-cffi zstandard requests
+        run: python -m pip install "mcp>=1.20,<1.29" pefile curl-cffi zstandard requests "PyYAML==6.0.3"
+      - name: Official TShark for offline PCAP regressions (no capture drivers)
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'Wireshark-4.4.10-x64.exe'
+          Invoke-WebRequest -Uri 'https://www.wireshark.org/download/win64/all-versions/Wireshark-4.4.10-x64.exe' -OutFile $installer
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Wireshark Foundation') {
+            throw 'Official Wireshark installer signature or publisher did not verify'
+          }
+          # Official v4.4.10 NSIS explicitly skips Npcap and USBPcap in silent mode.
+          $installation = Start-Process -FilePath $installer -ArgumentList '/S' -WindowStyle Hidden -Wait -PassThru
+          if ($installation.ExitCode -ne 0) { throw "Wireshark installer failed: $($installation.ExitCode)" }
+          $tsharkDirectory = Join-Path $env:ProgramFiles 'Wireshark'
+          & (Join-Path $tsharkDirectory 'tshark.exe') --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tsharkDirectory | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Workflow failure propagation regressions
+        id: workflow
+        continue-on-error: true
+        run: python -B -X utf8 .github/tests/test_workflow_gates.py
       - name: Create isolated home, temp and AgentRoot
         run: |
           New-Item -ItemType Directory -Force -Path $env:SEEP_CI_HOME,$env:SEEP_CI_TEMP,$env:PI_CODING_AGENT_DIR | Out-Null
@@ -129,27 +201,47 @@ jobs:
             "TMP=$env:SEEP_CI_TEMP",
             "PI_CODING_AGENT_DIR=$env:PI_CODING_AGENT_DIR"
           ) | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-      - name: Install through PowerShell entry
+      - name: Prepare pinned Pi SDK without user credentials
+        run: |
+          npm install --prefix $env:SEEP_CI_SDK --ignore-scripts --no-audit --no-fund --registry https://registry.npmjs.org "@earendil-works/pi-coding-agent@1.4.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "$env:SEEP_CI_SDK/node_modules/.bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Install through PowerShell entry and verify unauthenticated rejection
         id: install
         continue-on-error: true
-        run: ./setup/install-pi.ps1 -AgentRoot $env:PI_CODING_AGENT_DIR -SkipPackages
-      - name: Static install and source preflight
+        run: python -B -X utf8 .github/scripts/check_ci_install.py
+      - name: Real Pi SDK offline persona and rewind acceptance
+        id: sdk
+        continue-on-error: true
+        run: node setup/test_persona_rewind_sdk.mjs "$env:SEEP_CI_SDK/node_modules/@earendil-works/pi-coding-agent"
+      - name: Public suite inventory and material boundary
         id: preflight
         continue-on-error: true
-        run: python -B -X utf8 Tool/scripts/preflight.py --fast
-      - name: Runtime regressions and real aggregate gates
+        run: python -B -X utf8 .github/scripts/check_public_source.py --list
+      - name: Public source regressions (complete local acceptance is separate)
         id: runtime
         continue-on-error: true
-        run: python -B -X utf8 Tool/scripts/check.py --runtime --strict --json
-      - name: MCP contract and smoke tests
+        run: python -B -X utf8 .github/scripts/check_public_source.py
+      - name: MCP smoke tests
         id: mcp
         continue-on-error: true
-        run: |
-          python -B -X utf8 Tool/mcp/test_seep_mcp.py
-          python -B -X utf8 Tool/mcp/test_ext_assets.py
-          python -B -X utf8 Tool/mcp/test_pcap_contract.py
-          python -B -X utf8 Tool/mcp/test_apk_contract.py
-          python -B -X utf8 Tool/mcp/test_readonly_parameters.py
+        run: python -B -X utf8 Tool/mcp/test_seep_mcp.py
+      - name: MCP extension assets
+        id: mcp_assets
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_ext_assets.py
+      - name: MCP PCAP contract
+        id: mcp_pcap
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_pcap_contract.py
+      - name: MCP APK contract
+        id: mcp_apk
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_apk_contract.py
+      - name: MCP readonly parameters
+        id: mcp_readonly
+        continue-on-error: true
+        run: python -B -X utf8 Tool/mcp/test_readonly_parameters.py
       - name: Workflow path portability
         id: portability
         continue-on-error: true
@@ -157,17 +249,29 @@ jobs:
       - name: Enforce all gate outcomes
         if: always()
         env:
+          WORKFLOW_OUTCOME: ${{ steps.workflow.outcome }}
           INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          SDK_OUTCOME: ${{ steps.sdk.outcome }}
           PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
           RUNTIME_OUTCOME: ${{ steps.runtime.outcome }}
           MCP_OUTCOME: ${{ steps.mcp.outcome }}
+          MCP_ASSETS_OUTCOME: ${{ steps.mcp_assets.outcome }}
+          MCP_PCAP_OUTCOME: ${{ steps.mcp_pcap.outcome }}
+          MCP_APK_OUTCOME: ${{ steps.mcp_apk.outcome }}
+          MCP_READONLY_OUTCOME: ${{ steps.mcp_readonly.outcome }}
           PORTABILITY_OUTCOME: ${{ steps.portability.outcome }}
         run: |
           $checks = [ordered]@{
+            workflow = $env:WORKFLOW_OUTCOME
             install = $env:INSTALL_OUTCOME
+            sdk = $env:SDK_OUTCOME
             preflight = $env:PREFLIGHT_OUTCOME
             runtime = $env:RUNTIME_OUTCOME
             mcp = $env:MCP_OUTCOME
+            mcp_assets = $env:MCP_ASSETS_OUTCOME
+            mcp_pcap = $env:MCP_PCAP_OUTCOME
+            mcp_apk = $env:MCP_APK_OUTCOME
+            mcp_readonly = $env:MCP_READONLY_OUTCOME
             portability = $env:PORTABILITY_OUTCOME
           }
           $failed = @($checks.GetEnumerator() | Where-Object { $_.Value -ne "success" })

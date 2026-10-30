@@ -37,6 +37,9 @@
 | [技能编写](SKILL-CREATION-GUIDE.md) | 写技能并走正式导入与部署检查 |
 | [从目标到成果](ZERO-TO-HERO-WORKFLOW.md) | 了解专业任务可提供什么材料、如何描述目标 |
 | [扩展接口](../Tool/docs/EXTEND.md) | 增补技能、工具、MCP 或领域 |
+| [维护与贡献](../CONTRIBUTING.md) | 复现问题、专项验证、CI 与提交变更 |
+| [安全报告](../SECURITY.md) | 通过当前仓库可用的私密入口报告安全问题 |
+| [上游维护](../docs/UPSTREAM.md) | 核对来源、同步范围和适配结果 |
 
 ## 五、工具与参考目录
 

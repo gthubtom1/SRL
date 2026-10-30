@@ -46,6 +46,29 @@ class ProjectTransactionTests(unittest.TestCase):
         self.assertFalse(T.pending(self.root))
         self.assertFalse(T.recover(self.root))
 
+    def test_file_ancestor_conflict_is_refused_before_publishing_journal(self):
+        before = self.snapshot()
+        for refs in (["new", "new/child.json"], ["new/child.json", "new"],
+                     ["Node", "node/child.json"], [T.JOURNAL + "/child.json"]):
+            with self.subTest(refs=refs):
+                with self.assertRaises(ValueError):
+                    with T.file_transaction(self.root, refs):
+                        self.fail("an impossible file write set must never be entered")
+                self.assertEqual(self.snapshot(), before)
+
+    def test_conflicting_journal_file_topology_is_rejected_before_any_restore(self):
+        data = T._snapshot(self.root, ["old.json"])
+        image = dict(data["files"][0])
+        data["files"] += [dict(image, path="new"), dict(image, path="new/child.json")]
+        (self.root / T.JOURNAL).write_text(json.dumps(data), encoding="utf-8")
+        self.old.write_bytes(b"interrupted write")
+        before = self.snapshot()
+        with mock.patch.object(T, "_replace", wraps=T._replace) as restore:
+            with self.assertRaises(ValueError):
+                T.recover(self.root)
+            restore.assert_not_called()
+        self.assertEqual(self.snapshot(), before)
+
     def test_hard_exit_pending_blocks_readers_and_next_writer_restores_exact_before_image(self):
         before = self.snapshot()
         code = """import os, sys

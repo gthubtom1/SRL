@@ -1,5 +1,7 @@
 # Evidence summary — what is proven, how strongly, and where to look
 
+本页为既有验证快照；后增的 `../subskills/il2cpp-dump/SKILL.md` 提供条件式类型/地址映射方法，不改写下表当时 blocked/unverified 的事实，也不代表原始 C# 方法体恢复已经验证。当前任务须另留同构建输入、工具/设备与输出证据。
+
 Load this when a claim's strength decides whether you trust it, and the command that produced it is
 not in front of you. It is the condensation that travels with the skill: `npx skills add` installs
 `skills/apkseep/` only, so the run records, the tool verdicts and the public-target benchmark

@@ -283,6 +283,40 @@ class DirectoryTamperTests(Base):
 
 
 class DirectoryEscapeAndLimitsTests(Base):
+    def test_entry_limit_stops_enumeration_before_materializing_unbounded_listing(self):
+        self.tree()
+        real_scandir = os.scandir
+        yielded = []
+
+        class BoundedScan:
+            def __enter__(inner):
+                inner.scan = real_scandir(self.src)
+                return inner
+
+            def __exit__(inner, *args):
+                inner.scan.close()
+
+            def __iter__(inner):
+                for entry in inner.scan:
+                    yielded.append(entry.name)
+                    if len(yielded) > 2:
+                        raise AssertionError("directory was enumerated past max_entries + 1")
+                    yield entry
+
+        with patch.object(ta.os, "scandir", return_value=BoundedScan()):
+            with self.assertRaises(ta.LimitExceeded):
+                ta.directory_identity(self.src, ta.DirectoryLimits(max_entries=1))
+        self.assertEqual(len(yielded), 2)
+
+    def test_manifest_actual_read_is_bounded_even_when_size_precheck_is_stale(self):
+        manifest = self.root / "manifest-fixture.json"
+        manifest.write_bytes(b"{}" + b" " * 30)
+        from types import SimpleNamespace
+        with patch.object(ta, "MAX_MANIFEST_BYTES", 16), \
+                patch.object(Path, "stat", return_value=SimpleNamespace(st_size=2)):
+            with self.assertRaisesRegex(ta.TypedAssetError, "too large"):
+                ta._load_manifest(manifest)
+
     def test_symlink_escape_is_rejected_without_following(self):
         outside = self.base / "outside-secret.txt"
         outside.write_bytes(b"OUTSIDE\n")

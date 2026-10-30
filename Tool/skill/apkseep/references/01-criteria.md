@@ -126,7 +126,7 @@ python Tool/skill/apkseep/scripts/apk_diff.py before.apk after.apk --summary
 
 （来源：`references/coverage-and-limits.md` §Not covered、§Dependencies this skill does not ship）
 
-- **Unity / IL2CPP 逻辑恢复**：`framework-runtimes.md` 只负责识别运行时与证明 dex 不是战场，没有 IL2CPP 版的 `dart-aot.md`。
+- **自动恢复 Unity / IL2CPP 原始 C# 方法体**不在本表承诺内；`framework-runtimes.md` 负责识别运行时，类型/地址映射可按 `../subskills/il2cpp-dump/SKILL.md` 的条件式方法核验。新增方法不改变历史验证记录，不能硬套 Dart 路线。
 - **React Native / Hermes 字节码、Cordova 内部**：只到运行时识别 + "找字符串再找谁引用它"。
 - **iOS / `.ipa`**：本域所有设备/签名/打包指令都是 Android。
 - **击穿服务端权威**：`server-api.md` 判定**谁拥有这个门**，不含如何绕过服务端执行的授权。

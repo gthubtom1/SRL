@@ -14,6 +14,8 @@ what was and was not exercised. Load it when a claim's strength decides whether 
 
 ## Strength labels
 
+本页下述记录是当时工具包与案例的验证快照。当前已增加 [IL2CPP 条件式方法](../subskills/il2cpp-dump/SKILL.md)，可按同构建二进制与 metadata 做类型/地址映射；方法存在不升级历史证据，也不承诺自动恢复原始 C# 方法体。工具/设备、版本适配、映射正确性及运行行为仍须对当前目标分别验证。
+
 - **observed** — a command was run and its output is recorded in the evidence record condensed in `references/evidence-summary.md` §Where the full record lives.
 - **inferred** — follows from documented mechanism or from a neighbouring measurement; the step
   itself was not executed.

@@ -72,12 +72,22 @@ def _replace(path: Path, payload: bytes) -> None:
             os.unlink(temporary)
 
 
+def _check_file_topology(refs: list[str]) -> None:
+    """Every file destination must be a leaf, including the journal and lock."""
+    names = {ref.casefold() for ref in refs} | {JOURNAL.casefold(), ".project.lock"}
+    for ref in refs:
+        parts = ref.casefold().split("/")
+        if any("/".join(parts[:index]) in names for index in range(1, len(parts))):
+            raise ValueError("transaction file destination conflicts with a parent file")
+
+
 def _snapshot(root: Path, refs: list[str], directories: list[str] | None = None) -> dict:
     if not refs or len(refs) > MAX_FILES or any(not isinstance(ref, str) for ref in refs):
         raise ValueError("invalid transaction write set")
     names = {ref.casefold() for ref in refs}
     if len(names) != len(refs) or JOURNAL.casefold() in names:
         raise ValueError("duplicate/reserved transaction destination")
+    _check_file_topology(refs)
     if directories is not None and not isinstance(directories, list):
         raise ValueError("invalid transaction directory write set")
     declared = list(directories or [])
@@ -164,6 +174,7 @@ def _load(root: Path) -> tuple[list, list]:
         if target.exists() and not target.is_file():
             raise ValueError("transaction restore destination is not a file")
         files.append((target, payload))
+    _check_file_topology([row["path"] for row in rows])
     if len(directories) > MAX_DIRECTORIES:
         raise ValueError("invalid transaction directory count")
     declared = data.get("directory_paths", [])
