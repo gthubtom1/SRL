@@ -1,19 +1,19 @@
 {
   "version": "1.29.0",
-  "status": "stable-baseline-validated",
+  "status": "stable-baseline-validated-and-whole-repo-reviewed",
   "full_regression_rerun": true,
   "stable_validation_baseline": "1.29.0",
-  "validated_source_commit": "0af9d4a2c3acea64f92c66fda614272f15b21dfd",
+  "validated_source_commit": "ad047cba53772386a02c33064f13723b0564025a",
   "final_validation": {
     "runtime": {
-      "pass": 102,
+      "pass": 104,
       "warn": 0,
       "fail": 0,
       "skip": 0,
       "exit": 0
     },
     "engineering": {
-      "pass": 51,
+      "pass": 53,
       "warn": 1,
       "fail": 0,
       "skip": 0,
@@ -26,6 +26,24 @@
     "frozen_tracked_files": 7254,
     "frozen_source_mismatches": 0,
     "deployment_skill_hash_match": true
+  },
+  "whole_repo_review": {
+    "first_party_files": 1137,
+    "tracked_files": 7254,
+    "test_files": 92,
+    "runtime_suites": 104,
+    "python_files_parsed": 360,
+    "json_files_parsed": 163,
+    "powershell_files_parsed": 31,
+    "shell_files_parsed": 6,
+    "javascript_files_parsed": 8,
+    "parse_errors": 0,
+    "missed_suites_found": [
+      "Tool/mcp/test_security_boundaries.py",
+      ".github/tests/test_workflow_gates.py"
+    ],
+    "fix_commit": "ad047cba53772386a02c33064f13723b0564025a",
+    "scope": "All first-party files received inventory and static structural review; core and domain call paths use the full runtime/domain/test matrix. Vendored code follows provenance, checksum and call-surface review rather than a claim of line-by-line manual reading."
   },
   "formal_domains": 9,
   "active_subskills": 35,
