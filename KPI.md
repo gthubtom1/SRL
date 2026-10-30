@@ -2,8 +2,7 @@
 
 本表保留过去记录，不代表本轮重新复现、当前机器就绪或所有任务都可交付。最新检查见 [当前状态](docs/CURRENT-STATE.md)，安装只走 [BOOTSTRAP](Tool/docs/BOOTSTRAP.md)。
 
-> 规则：**填不出改善 → 不加任何东西**。`结果` 只能是 delivered / upper-bound / fail；
-> `unknown` 一律记 fail。证据列写 MANIFEST 文件数 / facts 条数 / unknown 数。
+> 历史填表口径（仅用于解释下表）：当时限定 `结果` 为 delivered / upper-bound / fail，并曾要求 `unknown` 一律记 fail、填不出改善就不新增。该口径不作为现行需求或验收规则。当前按 [REQUIREMENTS](REQUIREMENTS.md) 区分观察、推导、假设、未知和被推翻的结论；未知如实保留，缺少必需证据时按对应验收判据处理。历史结果与证据计数原样保留。
 
 | 日期 | 目标 | pack | 结果 | 证据 | 常驻 tok | 墙钟分 | ASK 次数 | 复现命令 |
 | :-- | :-- | :-- | :-- | :-- | --: | --: | --: | :-- |
@@ -12,7 +11,6 @@
 | 2026-10-24 | leaf-apk（diva.apk，未加固）witness 回放：6 条 claim 重测 | apkseep | **delivered** | MANIFEST 3 文件 / facts 6 条 / 背书 4（observed）/ 排除 2（inferred：apktool 重建、zipalign→jarsigner 破坏实验）| 12,689 | ~15 | 0 | `python Tool/scripts/gate.py --pack apkseep` |
 | 2026-10-24 | **真实目标**：OWASP Juice Shop（GitHub 公开仓库，固定 commit 717f5ef）供应链审计 | supply-chain-security | **delivered** | MANIFEST 2 文件 / facts 8 条 / 背书 8（observed）/ 排除 0；high 10 / medium 29 | 12,689 | ~12 | 0 | `python Tool/scripts/gate.py --pack supply-chain-security` |
 | 2026-10-24 | **真实靶场**：Damn Vulnerable C Program（GitHub 公开，固定 commit 8dcbd20）本地编译 PE 静态定级 | pwn-crypto | **delivered** | MANIFEST 2 文件 / facts 9 条 / 背书 9（observed 8 + derived 1）/ 排除 0 | 12,689 | ~15 | 0 | `python Tool/scripts/gate.py --pack pwn-crypto` |
-
 | 2026-10-24 | **真实抓包**：tcpdump 官方测试集 RADIUS.pcap（BSD） | protocol-plugin | **delivered** | MANIFEST 2 文件 / facts 7 条 / 背书 7 | 12,689 | ~10 | 0 | `python Tool/scripts/gate.py --pack protocol-plugin` |
 | 2026-10-24 | **真实抓包**：tcpdump 官方测试集 bgp-4byte-asn.pcap（BSD，91 帧） | forensics-mobile | **delivered** | MANIFEST 1 文件 / facts 6 条 / 背书 6 | 12,689 | ~8 | 0 | `python Tool/scripts/gate.py --pack forensics-mobile` |
 | 2026-10-24 | **真实固件**：binwalk 测试语料 ×3（arcadyan / squashfs v2 / cramfs） | firmware-iot | **upper-bound** | facts 7 条 / 背书 7；提取未产出可用 rootfs（7z dangerous-link） | 12,689 | ~20 | 0 | `python Tool/scripts/gate.py --pack firmware-iot` |
@@ -26,7 +24,7 @@
 
 ## 回放抓出的错（这是回放唯一不可替代的价值）
 
-| case | 原 claim | 本轮实测 | 处置 |
+| case | 原 claim | 当时回放实测 | 处置 |
 | :-- | :-- | :-- | :-- |
 | leaf-pe-packed F-106 | 打包件 `aflc` = 3 个函数 | **2 个** | refute + 新增 F-115 |
 | leaf-pe-packed F-110 | upx 5.2.1 还原后与原件「一致」 | 本机 3.91w 还原成功但 **166 字节不同** | refute + 新增 F-116 |

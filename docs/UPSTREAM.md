@@ -10,12 +10,22 @@
 
 注意来源差异：apk-reverse 镜像 README 标注 `newliver666/apk-reverse`，当前同步规则实际使用 `Jvust2/apk-reverse-Jvust`，且 README 在保留列表内。维护时必须同时核对规则地址、实际提交和保留说明，不以旧 README 证明同步来源；详情见 [PROVENANCE](../Tool/docs/PROVENANCE.md)。
 
-从仓库根运行只读检查，先确认现有改动：
+从仓库根先确认现有改动与 remote 配置；以下命令只查看本地状态：
 
 ```bash
 git status --short
 git remote -v
+```
+
+需要刷新远端比较基线时，再执行 fetch。它会访问远端并写入本地 Git 对象、远端跟踪引用及 `FETCH_HEAD`，不属于只读检查；未获取上游时，后续比较只反映已有的本地引用。
+
+```bash
 git fetch upstream main
+```
+
+随后只读比较：
+
+```bash
 git log --oneline HEAD..upstream/main
 git diff --stat HEAD upstream/main
 ```
