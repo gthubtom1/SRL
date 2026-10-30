@@ -1,14 +1,17 @@
 # 变更说明
 
-本文件只记录已发生的实现变更；有效范围见 [REQUIREMENTS](../REQUIREMENTS.md)，最新验收与适用边界见 [CURRENT-STATE](CURRENT-STATE.md)。1.28.1 的独立审查与验证见 [本轮回执](verification/final-audit-2026-10-30.md)，未向远端发布。1.28.0 配套插件见 [原回执](verification/persona-rewind-2026-10-30.md)，1.27.0 基线见 [2026-10-30验收](verification/closure-2026-10-30.md)。
+本文件只记录已发生的实现变更；有效范围见 [REQUIREMENTS](../REQUIREMENTS.md)，最新验收与适用边界见 [CURRENT-STATE](CURRENT-STATE.md)。1.29.0 的完整交付与验证见[本轮能力融合回执](verification/capability-integration-2026-10-30.md)；1.28.1、1.28.0 和 1.27.0 的历史证据继续保留。
 
-## 1.29.0 能力增量候选
+## 1.29.0 能力增量稳定基线
 
 - 在现有父域下正式导入 asset-discovery、oauth-oidc、source-review、game-runtime、game-rendering，父域导航按需读取，正式领域仍为九个。
 - 提供离线 Nmap 结果范围归一化、去敏 OAuth 配置关系检查、Python AST 数据流候选、同构建快照候选偏移、World-to-Screen 几何核对；均有合成正反例及错误参数不回显检查。
 - 补充现有 GraphQL/WebSocket、云有限策略、内存解析交接和批处理恢复方法；保留未实测边界。
 - 澄清 `_pending` 的历史与工程兼容用途，列出已有正式替代入口；保留旧案例和脚本引用。
-- 本次只完成增量专项与接入验证，没有把新增方法宣称为全部平台/真实目标任务完成，也未将上一版本全量结果当作新版本全量结果。
+- 修复 Python 源码审查对下标/属性赋值目标的错误数据流清空；新增负例覆盖 `records[q]`、`q.value` 和嵌套解构。
+- 完成 1.29.0 当前实现全量回归：**102/102 PASS**；工程总检 52 套结果为 **51 PASS、1 保留WARN、0 FAIL/SKIP**；九域端到端 **92/92**。
+- 清理仓库和实际 AgentRoot 中的旧技能导入备份，部署哈希恢复一致；真实部署为 `installed=true`、`missing=[]`。当前 Pi 会话仍须 `/reload` 或完整重启。
+- 本次未把新增方法宣称为全部平台、真实服务端、设备或引擎任务完成；这些边界继续按具体材料维护。
 
 ## 1.28.1 独立审查与边界修复
 
