@@ -1,6 +1,6 @@
 # UI 改版、去品牌与追版基线
 
-- 触发：UI 改版、换品牌、去作者、去联系方式、换图标、换文案、关于页。
+- 触发词：UI 改版、换品牌、去作者、去联系方式、换图标、换文案、关于页。
 - 输入：`<target.exe/apk/asar>`、品牌名、图标与配色、要替换的页面/组件、保留功能和验收清单。第一版运行适配只承诺 PE/Windows 与 APK；其他 UI 栈可以改版，但必须明确是否已有追版适配器。
 - 能力：`tool:resourcehacker`、`tool:imhex`、`tool:pe-bear`、`apk:static_apktool`、`apk:repack_signed`、`repo:case_state`、`repo:preflight-classify`、`repo:patch-verify`、`repo:reverse-accept`、`repo:install_test`。
 

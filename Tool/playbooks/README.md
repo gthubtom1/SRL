@@ -55,7 +55,7 @@
 | [license-bypass-deliver](license-bypass-deliver.md) | 授权旁路、补丁、代理 DLL、注入 | `tool:ida` `tool:x64dbg` `repo:patch-verify` |
 | [ui-rebrand](ui-rebrand.md) | UI 改版、去品牌、换文案、换图标 | `tool:resourcehacker` `apk:static_apktool` `repo:patch-verify` |
 | [license-hookup](license-hookup.md) | 自有授权、离线公钥验签、在线票据 | `repo:probe_api` `repo:tls_check` `repo:patch-verify` |
-| [version-migrate](version-migrate.md) | 追版、AOB 滑窗、跨版本 | `repo:case_state` `repo:patch-verify` `tool:ida` |
+| [version-migrate](version-migrate.md) | 软件更新跟随、复用定制 UI、三方差异、AOB/资源重定位 | `repo:case_state` `repo:patch-verify` `repo:reverse-accept` `tool:ida` |
 
 ### APK / 固件
 

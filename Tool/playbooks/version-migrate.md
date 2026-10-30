@@ -1,6 +1,6 @@
 # 定制分支跟随更新
 
-- 触发示例：软件更新了，跟随更新；新版出来了，跟随我们的定制版；保留我们的 UI，更新到新版；把上一版补丁适配到新版；读取上次逆向记录，适配这个新版。
+- 触发词：软件更新了，跟随更新、新版出来了，跟随我们的定制版、保留我们的 UI，更新到新版、把上一版补丁适配到新版、把上一版的补丁适配到新版、读取上次逆向记录，适配这个新版、新版路径是
 - 输入：新版本文件或明确路径；新版本号可已知，也可先登记为 `pending` 并在指纹记录后填写。旧项目、旧原版、旧定制成品、补丁账、UI 清单和构建记录应优先从当前项目自动读取。
 - 范围：第一版只承诺 PE/Windows 与 APK。Electron/asar、Unity/AssetBundle、Web、.NET/Java 等载体必须显式说明“尚无专用适配器”，不能套用 PE/APK 的结论冒充已验证。
 - 能力：`repo:case_state`、`repo:patch-verify`、`repo:reverse-accept`、`repo:preflight-classify`、`tool:ida`、`tool:x64dbg`、`tool:r2`、`apk:static_apktool`、`apk:repack_signed`、`repo:install_test`，以及按变化调用的 `binary-diff`、`unpack-loop`、`ui-rebrand`、协议和授权相关技能。

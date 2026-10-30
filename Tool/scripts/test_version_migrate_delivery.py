@@ -201,7 +201,14 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
         (case / "ui/assets").mkdir(parents=True)
         (case / "ui/screens").mkdir(parents=True)
         (case / "ui-inventory.json").write_text(
-            '{"components": ["main-shell"]}\n', encoding="utf-8"
+            json.dumps({
+                "schema": "seep-ui-inventory/1",
+                "pages": [{"id": "main-shell"}],
+                "components": [],
+                "brand_assets": [],
+                "unknowns": [],
+            }) + "\n",
+            encoding="utf-8",
         )
         (case / "ui/assets/main-background.png").write_bytes(b"png custom")
         (case / "ui/assets/logo.svg").write_bytes(b"<svg>logo</svg>")
@@ -258,6 +265,11 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
             "--id", "main-shell", "--stack", "win32",
             "--apply-method", "overlay",
             "--inventory", "ui-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
         )
         proc = run_cli(REAL_SCRIPT, *args)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -277,6 +289,11 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
             "--id", "escaped", "--stack", "win32",
             "--apply-method", "overlay",
             "--inventory", "../outside-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
         )
         self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
         self.assertEqual(output_json(proc)["blocked_at"], "ui-file")
@@ -291,7 +308,11 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
             "--id", "missing-asset", "--stack", "win32",
             "--apply-method", "resource_replace",
             "--inventory", "ui-inventory.json",
+            "--anchor-type", "resource", "--anchor", "RCDATA#102",
             "--asset", "ui/assets/missing.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
         )
         self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
         reason = output_json(proc)["reason"]
@@ -313,6 +334,54 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
         self.assertEqual(output_json(proc)["blocked_at"], "ui-apply-method")
         self.assertEqual(manifest.read_bytes(), before)
 
+    def test_add_ui_rejects_incomplete_machine_baseline_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        base = (
+            "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "incomplete", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--inventory", "ui-inventory.json",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        cases = (
+            (base[:-2], "ui-acceptance"),
+            (base[:17] + base[19:], "ui-asset"),
+            (base[:21] + base[23:], "ui-screenshot"),
+        )
+        for args, blocked_at in cases:
+            with self.subTest(blocked_at=blocked_at):
+                proc = run_cli(REAL_SCRIPT, *args)
+                self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+                self.assertEqual(output_json(proc)["blocked_at"], blocked_at)
+                self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_invalid_inventory_schema_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        (case / "ui-inventory.json").write_text('{"pages": []}\n', encoding="utf-8")
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "bad-inventory", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--inventory", "ui-inventory.json",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertEqual(output_json(proc)["blocked_at"], "ui-file")
+        self.assertIn("inventory schema", output_json(proc)["reason"])
+        self.assertEqual(manifest.read_bytes(), before)
+
     def test_add_ui_rejects_symlink_asset_without_changing_manifest(self):
         case, _ = self.ui_fixture()
         outside = self.base / "outside-ui.png"
@@ -329,7 +398,11 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
             "--id", "linked-asset", "--stack", "win32",
             "--apply-method", "overlay",
             "--inventory", "ui-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
             "--asset", "ui/assets/outside-link.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
         )
         self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
         self.assertIn("符号链接", output_json(proc)["reason"])

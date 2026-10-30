@@ -626,7 +626,7 @@
     },
     {
       "id": "ver-follow-06",
-      "text": "新版路径是 D:\\releases\\custom-app.exe",
+      "text": "新版路径是刚拖进来的新版文件",
       "expect": "version-migrate",
       "forbid": []
     },

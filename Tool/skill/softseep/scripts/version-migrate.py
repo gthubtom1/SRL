@@ -153,6 +153,16 @@ SCHEMA = "seep-reverse-baseline/1"
 LEGACY_SCHEMA = "seep-migration/1"
 HEX = re.compile(r"^[0-9a-fA-F]{2}$")
 UI_APPLY_METHODS = ("overlay", "resource_replace", "code_patch", "server_content")
+UI_STACKS = (
+    "win32", "qt", "custom-draw", "electron", "web", "android-native",
+    "android-webview", "flutter", "unity", "il2cpp", "other",
+)
+UI_ANCHOR_TYPES = (
+    "window-class", "window-title", "process-name", "resource",
+    "container-entry", "file-key", "layout-id", "activity", "route",
+    "api-field", "symbol", "aob", "other",
+)
+UI_INVENTORY_SCHEMA = "seep-ui-inventory/1"
 
 
 def sha256_file(path: str) -> str:
@@ -271,11 +281,44 @@ def project_regular_file(root: Path, value: str, label: str) -> dict:
     path = project_file(root, reference)
     if not path.is_file():
         raise FileNotFoundError("%s 文件不存在：%s" % (label, relative.as_posix()))
-    size = path.stat().st_size
-    digest = sha256_file(str(path))
-    if path.stat().st_size != size:
+    with path.open("rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("%s 必须是普通文件" % label)
+        digest = hashlib.sha256()
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(block)
+        after = os.fstat(stream.fileno())
+    if (before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns
+            or before.st_dev != after.st_dev or before.st_ino != after.st_ino):
         raise ValueError("%s 文件在登记时发生变化" % label)
-    return {"path": relative.as_posix(), "sha256": digest, "size": size}
+    return {"path": relative.as_posix(), "sha256": digest.hexdigest(),
+            "size": after.st_size}
+
+
+def project_ui_inventory(root: Path, value: str) -> dict:
+    """Validate the machine-readable inventory referenced by one UI record."""
+    record = project_regular_file(root, value, "inventory")
+    relative = PurePosixPath(record["path"])
+    if relative.suffix.casefold() != ".json":
+        raise ValueError("inventory 必须是 .json 文件")
+    try:
+        inventory = json.loads((root.joinpath(*relative.parts)).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ValueError("inventory 不是有效 UTF-8 JSON：%s" % exc)
+    if not isinstance(inventory, dict) or inventory.get("schema") != UI_INVENTORY_SCHEMA:
+        raise ValueError("inventory schema 必须是 %s" % UI_INVENTORY_SCHEMA)
+    pages = inventory.get("pages")
+    components = inventory.get("components")
+    if (not isinstance(pages, list) or not isinstance(components, list)
+            or not all(isinstance(item, dict) for item in (*pages, *components))):
+        raise ValueError("inventory pages/components 必须是对象数组")
+    if not pages and not components:
+        raise ValueError("inventory 至少要登记一个 page 或 component")
+    for field in ("brand_assets", "unknowns"):
+        if not isinstance(inventory.get(field), list):
+            raise ValueError("inventory %s 必须是数组" % field)
+    return record
 
 
 def baseline_file(case: str, manifest: dict) -> Path:
@@ -467,12 +510,14 @@ def cmd_add_ui(args) -> int:
         return fail("ui-apply-method", "apply_method 必须是：%s" %
                     "|".join(UI_APPLY_METHODS))
     stack = str(args.stack or "").strip()
-    if not stack or "\x00" in stack:
-        return fail("ui", "stack 不能为空")
+    if stack not in UI_STACKS:
+        return fail("ui-stack", "stack 必须是：%s" % "|".join(UI_STACKS))
     anchor_type = str(args.anchor_type or "").strip()
     anchor = str(args.anchor or "").strip()
-    if bool(anchor_type) != bool(anchor):
-        return fail("ui-anchor", "anchor-type 与 anchor 必须同时提供或同时留空")
+    if not anchor_type or not anchor:
+        return fail("ui-anchor", "必须同时提供 anchor-type 与 anchor")
+    if anchor_type not in UI_ANCHOR_TYPES:
+        return fail("ui-anchor-type", "anchor-type 必须是：%s" % "|".join(UI_ANCHOR_TYPES))
     if "\x00" in anchor_type or "\x00" in anchor:
         return fail("ui-anchor", "anchor 不能包含空字符")
 
@@ -492,8 +537,14 @@ def cmd_add_ui(args) -> int:
         item = require_id(str(value or "").strip())
         if item not in acceptance:
             acceptance.append(item)
+    if not acceptance:
+        return fail("ui-acceptance", "至少要登记一个 acceptance id")
+    if not args.asset:
+        return fail("ui-asset", "至少要登记一个自定义 UI asset")
+    if not args.screenshot_upstream or not args.screenshot_custom:
+        return fail("ui-screenshot", "上游和定制 UI 截图都必须登记")
     try:
-        inventory = project_regular_file(root, args.inventory, "inventory")
+        inventory = project_ui_inventory(root, args.inventory)
         assets = [project_regular_file(root, value, "asset") for value in args.asset or []]
         screenshots_upstream = [
             project_regular_file(root, value, "upstream screenshot")
