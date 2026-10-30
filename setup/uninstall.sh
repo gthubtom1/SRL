@@ -117,6 +117,10 @@ WORKBENCH_PACKAGES=(
     "npm:@juicesharp/rpiv-ask-user-question" "npm:pi-playwright" "npm:pi-goal-x"
 )
 
+PERSONA_PACKAGE_SOURCE="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["source"])' "$SCRIPT_DIR/pi-persona-rewind.package.json")"
+PERSONA_PACKAGE_SOURCE="${PERSONA_PACKAGE_SOURCE%$'\r'}"
+WORKBENCH_PACKAGES+=("$PERSONA_PACKAGE_SOURCE")
+
 # 用 Python 做 JSON 读写（零新依赖，仅标准库）
 # 注意：Windows 下 Python 默认把 \n 转成 \r\n，会让读出的键名带尾随 \r，
 # 因此所有 helper 都强制以 LF 输出，并在 bash 侧再防御性剥离一次。
@@ -137,7 +141,10 @@ v = d.get(k)
 if isinstance(v, dict):
     for name in v: sys.stdout.write(str(name) + '\n')
 elif isinstance(v, list):
-    for item in v: sys.stdout.write(str(item) + '\n')
+    for item in v:
+        if isinstance(item, dict) and item.get('source') == './packages/pi-seep-ext':
+            item = item['source']
+        sys.stdout.write(str(item) + '\n')
 PY
 }
 
@@ -303,6 +310,11 @@ fi
 "$PY" "$SCRIPT_DIR/merge_agent_config.py" --root "$ROOT" --agent-dir "$AGENT_DIR" --validate-configs-only || {
     fail '配置无效，尚未移除任何项目'; exit 1;
 }
+if [ "$KEEP_PROMPTS" = "0" ]; then
+    "$PY" "$SCRIPT_DIR/merge_agent_config.py" --root "$ROOT" --agent-dir "$AGENT_DIR" --remove-prompts-only --dry-run || {
+        fail '提示词边界无效，尚未移除任何项目'; exit 1;
+    }
+fi
 echo -e "\n${MAGENTA}╔══════════════════════════════════════════════════════════════╗${RESET}"
 echo -e "${MAGENTA}║   Seep 逆向工程工作台 —— 一键卸载                             ║${RESET}"
 echo -e "${MAGENTA}╚══════════════════════════════════════════════════════════════╝${RESET}"
@@ -350,7 +362,7 @@ fi
 PROMPT_HITS=()
 if [ "$KEEP_PROMPTS" = "0" ]; then
     for f in AGENTS.md SEEP.md SYSTEM.md; do
-        if [ -f "$AGENT_DIR/$f" ] && grep -Eiq 'Seep Reverse Lab|seep-reverse-lab|SEEP 工作台' "$AGENT_DIR/$f" 2>/dev/null; then
+        if [ -f "$AGENT_DIR/$f" ] && grep -Eiq '<!--[[:space:]]*seep:managed:|Seep Reverse Lab|seep-reverse-lab|SEEP 工作台' "$AGENT_DIR/$f" 2>/dev/null; then
             PROMPT_HITS+=("$f")
         fi
     done
@@ -375,6 +387,11 @@ if [ "$KEEP_PACKAGES" = "0" ] && [ -f "$SET_JSON" ]; then
         done
     done < <(json_keys "$SET_JSON" packages)
 fi
+if [ "$KEEP_PACKAGES" = "0" ] && [ -d "$AGENT_DIR/packages/pi-seep-ext" ]; then
+    if ! printf '%s\n' "${PKG_HITS[@]:-}" | grep -Fxq "$PERSONA_PACKAGE_SOURCE"; then
+        PKG_HITS+=("$PERSONA_PACKAGE_SOURCE")
+    fi
+fi
 
 FLAG_HITS=()
 if [ -f "$LAB_FLAG" ]; then
@@ -383,7 +400,7 @@ fi
 ORIGIN_HITS=()
 [ -f "$ORIGIN_JSON" ] && ORIGIN_HITS+=("seep-runtime.json")
 MANIFEST_HITS=()
-[ -f "$INSTALL_MANIFEST" ] && MANIFEST_HITS+=("seep-install-manifest.json")
+[ -f "$INSTALL_MANIFEST" ] && [ "$KEEP_PACKAGES" = "0" ] && MANIFEST_HITS+=("seep-install-manifest.json")
 AGENT_SETTINGS_HITS=()
 if [ "$MANIFEST_RECOGNIZED" -eq 1 ] && [ -f "$AGENT_DIR/agents/settings.json" ]; then
     for created in "${MANIFEST_CREATED_PATHS[@]:-}"; do

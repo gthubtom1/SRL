@@ -1,0 +1,23 @@
+{
+  "_说明": "工作台随仓库分发的原包 persona/rewind 声明。source 是相对 settings.json（即 AgentRoot）的本地包路径；安装时由 merge_agent_config.py 把 Tool/prompts/packages/pi-seep-ext 同步到该目录。",
+  "source": "./packages/pi-seep-ext",
+  "upstream": {
+    "repository": "https://github.com/gthubtom1/agent-plugins",
+    "commit": "2742f417d4dcf275a9a57bdf654af4a53ff25ddf",
+    "subdirectory": "plugins/pi/pi-seep-ext",
+    "version": "0.3.1",
+    "license": "MIT"
+  },
+  "extensions": [
+    "extensions/persona.ts",
+    "extensions/rewind.ts"
+  ],
+  "excluded": [
+    "extensions/remote.ts"
+  ],
+  "commands": [
+    "persona",
+    "rewind",
+    "undo-reply"
+  ]
+}

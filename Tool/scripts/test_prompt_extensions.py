@@ -841,5 +841,55 @@ failure="write-partial"; r=await input("lab："); assert.match(r.text,/开启失
             self.assertEqual(result.returncode, 0, result.stderr)
 
 
+    @unittest.skipUnless(shutil.which("node"), "Node is required for persona settings tests")
+    def test_persona_settings_write_failures_preserve_saved_values(self):
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as folder:
+            script = Path(folder) / "persona-settings.mjs"
+            script.write_text(r'''
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {syncBuiltinESMExports} from "node:module";
+import {pathToFileURL} from "node:url";
+const agent=process.argv[3], file=path.join(agent,"personas.json");
+const realWrite=fs.writeFileSync, realRename=fs.renameSync;
+let failure="";
+fs.writeFileSync=(p,...args)=>{
+  if(failure==="write" && String(p).startsWith(file+".")) throw Object.assign(Error("injected write"),{code:"EIO"});
+  return realWrite(p,...args);
+};
+fs.renameSync=(a,b)=>{
+  if(failure==="rename" && String(b)===file) throw Object.assign(Error("injected rename"),{code:"EACCES"});
+  return realRename(a,b);
+};
+syncBuiltinESMExports();
+const m=await import(pathToFileURL(process.argv[2]).href);
+const original=JSON.stringify({mode:"cached",defaultId:"alpha",showBadge:false,futureKey:{preserve:true}});
+realWrite(file,original);
+for(const stage of ["write","rename"]){
+  failure=stage;
+  assert.throws(()=>m.writeSettings({mode:"every-turn",showBadge:true},agent),/injected/);
+  assert.equal(fs.readFileSync(file,"utf8"),original);
+  assert.deepEqual(fs.readdirSync(agent).filter(name=>name.endsWith(".tmp")),[]);
+}
+failure="";
+const saved=m.writeSettings({mode:"every-turn"},agent);
+assert.equal(saved.mode,"every-turn");
+assert.deepEqual(JSON.parse(fs.readFileSync(file,"utf8")).futureKey,{preserve:true});
+for(const malformed of ["{broken","null","[]"]){
+  realWrite(file,malformed);
+  assert.throws(()=>m.writeSettings({showBadge:true},agent));
+  assert.equal(fs.readFileSync(file,"utf8"),malformed);
+}
+''', encoding="utf-8")
+            result = subprocess.run([
+                shutil.which("node"), "--experimental-strip-types", str(script),
+                str(ROOT / "Tool/prompts/packages/pi-seep-ext/lib/personas.ts"), folder,
+            ], cwd=ROOT, env=dict(os.environ, NODE_NO_WARNINGS="1"), capture_output=True,
+               text=True, encoding="utf-8", errors="replace")
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -104,6 +107,130 @@ class PreflightOwnershipTests(unittest.TestCase):
             managed[rel] = sha(dest)
         self._manifest(source, agent, managed)
         return managed
+
+    def _package(self, source, agent, managed):
+        """Copy the frozen producer and real package into this source fixture."""
+        repository = HERE.parents[1]
+        setup = source / 'setup'
+        setup.mkdir(exist_ok=True)
+        for name in ('merge_agent_config.py', 'pi-persona-rewind.package.json'):
+            shutil.copy2(repository / 'setup' / name, setup / name)
+        package = source / 'Tool/prompts/packages/pi-seep-ext'
+        shutil.copytree(repository / 'Tool/prompts/packages/pi-seep-ext', package,
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        deployed = agent / 'packages/pi-seep-ext'
+        shutil.copytree(package, deployed)
+        managed = dict(managed)
+        for path in deployed.rglob('*'):
+            if path.is_file():
+                managed[path.relative_to(agent).as_posix()] = sha(path)
+        self._manifest(source, agent, managed)
+        return managed
+
+    def _ownership_results(self, source, tool, agent):
+        p1, p2, p3 = self._patch(source, tool, agent)
+        results = []
+        with p1, p2, p3:
+            for checker in (preflight.check_deploy_bidirectional,
+                            preflight.check_prompt_residue, preflight.check_agents_deploy):
+                preflight.results.clear()
+                checker()
+                results.extend(preflight.results)
+        return results
+
+    def test_package_records_pass_all_three_ownership_consumers(self):
+        with tempfile.TemporaryDirectory(prefix='seep-preflight-package-') as td:
+            source, tool, agent = self._paths(td)
+            managed = self._package(source, agent, self._canonical(source, agent))
+            self.assertIn('packages/pi-seep-ext/LICENSE', managed)
+            results = self._ownership_results(source, tool, agent)
+            self.assertEqual(len(results), 3)
+            self.assertTrue(all(row['ok'] and row.get('level') != 'WARN' for row in results), results)
+
+    def test_package_bytes_and_source_must_both_match_recorded_hash(self):
+        with tempfile.TemporaryDirectory(prefix='seep-preflight-package-hash-') as td:
+            source, tool, agent = self._paths(td)
+            managed = self._package(source, agent, self._canonical(source, agent))
+            rel = 'packages/pi-seep-ext/LICENSE'
+            deployed = agent / rel
+            original = deployed.read_bytes()
+            src = source / 'Tool/prompts/packages/pi-seep-ext/LICENSE'
+            for kind in ('deployed-edit', 'forged-record', 'source-drift', 'missing-deployed'):
+                with self.subTest(kind=kind):
+                    entries = dict(managed)
+                    deployed.write_bytes(original)
+                    src.write_bytes(original)
+                    if kind == 'source-drift':
+                        src.write_bytes(original + b'\nnew source')
+                    elif kind == 'missing-deployed':
+                        deployed.unlink()
+                    else:
+                        deployed.write_bytes(original + b'\nuser edit')
+                        if kind == 'forged-record':
+                            entries[rel] = sha(deployed)
+                    self._manifest(source, agent, entries)
+                    before = {p.relative_to(agent).as_posix(): sha(p)
+                              for p in agent.rglob('*') if p.is_file()}
+                    results = self._ownership_results(source, tool, agent)
+                    self.assertEqual(len(results), 3)
+                    self.assertTrue(all(not row['ok'] and 'package ownership' in row['detail']
+                                        for row in results), results)
+                    if kind in ('forged-record', 'source-drift'):
+                        self.assertTrue(all('source hash mismatch' in row['detail'] for row in results), results)
+                    self.assertEqual(before, {p.relative_to(agent).as_posix(): sha(p)
+                                              for p in agent.rglob('*') if p.is_file()})
+
+    def test_package_escapes_other_packages_and_unmanaged_files_are_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='seep-preflight-package-path-') as td:
+            source, tool, agent = self._paths(td)
+            managed = self._package(source, agent, self._canonical(source, agent))
+            for rel in ('packages/other/LICENSE', 'packages/pi-seep-ext-other/LICENSE',
+                        'packages/pi-seep-ext/../../outside.ts',
+                        'packages/pi-seep-ext//LICENSE', 'packages/pi-seep-ext/./LICENSE',
+                        'packages/pi-seep-ext/LICENSE:stream',
+                        'packages/pi-seep-ext/USER-NOTES.md',
+                        'packages/pi-seep-ext/extensions/remote.ts'):
+                with self.subTest(path=rel):
+                    self._manifest(source, agent, dict(managed, **{rel: '0' * 64}))
+                    results = self._ownership_results(source, tool, agent)
+                    self.assertEqual(len(results), 3)
+                    self.assertTrue(all(not row['ok'] for row in results), results)
+
+    def test_package_target_junction_does_not_borrow_outside_bytes(self):
+        if os.name != 'nt':
+            self.skipTest('Windows junction check')
+        with tempfile.TemporaryDirectory(prefix='seep-preflight-package-link-') as td:
+            source, tool, agent = self._paths(td)
+            self._package(source, agent, self._canonical(source, agent))
+            directory = agent / 'packages/pi-seep-ext/lib'
+            outside = Path(td) / 'outside'
+            shutil.move(str(directory), str(outside))
+            linked = subprocess.run(['cmd', '/d', '/c', 'mklink', '/J', str(directory), str(outside)],
+                                    capture_output=True, timeout=10)
+            self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+            before = {p.name: sha(p) for p in outside.iterdir() if p.is_file()}
+            try:
+                results = self._ownership_results(source, tool, agent)
+                self.assertTrue(all(not row['ok'] and 'linked deployment path' in row['detail']
+                                    for row in results), results)
+                self.assertEqual(before, {p.name: sha(p) for p in outside.iterdir() if p.is_file()})
+            finally:
+                directory.rmdir()
+
+    def test_valid_package_does_not_claim_same_name_user_agent(self):
+        with tempfile.TemporaryDirectory(prefix='seep-preflight-package-user-') as td:
+            source, tool, agent = self._paths(td)
+            managed = self._package(source, agent, self._canonical(source, agent))
+            managed.pop('agents/managed.md')
+            custom = write(agent / 'agents/managed.md', agent_text('user override'))
+            self._manifest(source, agent, managed)
+            before = sha(custom)
+            results = self._ownership_results(source, tool, agent)
+            self.assertTrue(all(row['ok'] for row in results), results)
+            agents = results[-1]
+            self.assertEqual(agents.get('level'), 'WARN', agents)
+            self.assertIn('同名覆盖未验证', agents['detail'])
+            self.assertEqual(sha(custom), before)
 
     def test_unknown_user_assets_are_preserved_and_reported_not_failed(self):
         with tempfile.TemporaryDirectory(prefix="seep-preflight-own-user-") as td:

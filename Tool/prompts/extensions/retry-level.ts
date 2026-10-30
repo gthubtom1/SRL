@@ -201,7 +201,7 @@ export default function retryLevelExtension(pi: ExtensionAPI) {
 		const a = arg.trim().toLowerCase();
 		if (a === "off" || a === "0" || a === "no" || a === "false") return LEVELS[0];
 		if (a === "on" || a === "infinite" || a === "max" || a === "inf") return LEVELS[LEVELS.length - 1];
-		if (/^\d+$/.test(a)) return LEVELS.find((l) => l.maxRetries === parseInt(a, 10));
+		if (/^\d+$/.test(a)) return LEVELS.find((l) => l.enabled && l.maxRetries === parseInt(a, 10));
 		return undefined;
 	}
 

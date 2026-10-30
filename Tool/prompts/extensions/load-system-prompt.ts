@@ -21,6 +21,9 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
+import { resolveAgentDir } from "../packages/pi-seep-ext/lib/agent-dir.ts";
+import { patchSystemSections, renderSection } from "../packages/pi-seep-ext/lib/inject.ts";
+import { resolvePersonaSelection } from "../packages/pi-seep-ext/lib/session-state.ts";
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -259,6 +262,51 @@ function promptSessionKey(ctx: ExtensionContext | ExtensionCommandContext): stri
 	}
 }
 
+/** 目录人设插件（pi-seep-ext persona / 旧实现 pi-web:persona）写下的会话条目类型。
+ *  两种类型同义：都表示「这个对话里已经显式选过人设（含显式选『无』）」。 */
+const PERSONA_ENTRY_TYPES = new Set(["pi-seep-ext:persona", "pi-web:persona"]);
+
+interface PersonaEntryLike {
+	type?: string;
+	customType?: string;
+	data?: unknown;
+}
+
+/** 会话条目（只在能读到 sessionManager 时；读不到就当没有显式选择，保持旧行为）。 */
+function sessionEntriesFor(ctx: ExtensionContext | ExtensionCommandContext): PersonaEntryLike[] {
+	try {
+		const manager = (ctx as unknown as { sessionManager?: { getEntries?(): PersonaEntryLike[] } }).sessionManager;
+		const entries = manager && typeof manager.getEntries === "function" ? manager.getEntries() : [];
+		return Array.isArray(entries) ? entries : [];
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * 本对话是否已经有显式人设选择。
+ *
+ * 有的话，人设内容由目录人设插件决定，PERSONALITY.md 不能再插一杠子：
+ * 否则用户在弹窗里选「无人设」后，旧人设卡会被这里补回来（UI 说没有、模型里还在）。
+ */
+function hasDirectoryPersonaChoice(ctx: ExtensionContext | ExtensionCommandContext): boolean {
+	return resolvePersonaSelection(resolveAgentDir(), sessionEntriesFor(ctx)) !== undefined;
+}
+
+/** /prompt-status 的一行：本对话当前的人设选择归属（供用户对照 UI）。 */
+function describePersonaChoice(ctx: ExtensionContext | ExtensionCommandContext): string {
+	const entries = sessionEntriesFor(ctx).filter(
+		(entry) => entry?.type === "custom" && PERSONA_ENTRY_TYPES.has(String(entry?.customType ?? "")),
+	);
+	if (entries.length === 0) {
+		const selection = resolvePersonaSelection(resolveAgentDir(), sessionEntriesFor(ctx));
+		return selection ? `默认目录人设「${selection}」（覆盖 PERSONALITY.md）` : "本对话未选过（人设内容由 PERSONALITY.md 提供）";
+	}
+	const last = entries[entries.length - 1];
+	const id = (last?.data as { personaId?: unknown } | undefined)?.personaId;
+	return typeof id === "string" && id ? `本对话已选「${id}」（覆盖 PERSONALITY.md）` : "本对话显式选择「无人设」（PERSONALITY.md 不挂载）";
+}
+
 /**
  * 同一个 Pi 进程可能并行承载多个项目会话。提示词资产必须跟随会话，不能由最后
  * 一个 before_agent_start 覆盖所有 context_with_system 调用。
@@ -309,11 +357,14 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 			formatAsset("人设卡 (personality)", s.personality),
 			formatAsset("通用规则 (generic-rules)", s.rules),
 			formatAsset("逆向专精 (seep-reverse-lab)", s.system),
+			`目录人设 (personas/*.md): ${describePersonaChoice(ctx)}`,
 			`边界锚 (seep-boundary): [always-on] ${BOUNDARY_ANCHOR.length} 字符 · 装配末尾 + 请求期兜底`,
 			"=====================================",
 		];
-		console.log("\n" + lines.join("\n"));
-		ctx.ui.notify("提示词与人设卡状态已输出至控制台", "info");
+		const msg = lines.join("\n");
+		console.log("\n" + msg);
+		// 会话在 pi-web 里跑时没有可看的控制台，状态必须回到界面
+		ctx.ui.notify(msg, "info");
 	};
 
 	pi.registerCommand("rules-reload", { description: "强制重新从磁盘加载 PERSONALITY/RULES/SEEP", handler: handleReload });
@@ -336,22 +387,23 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 		}
 
 		// 1. 挂载人设层 (sections["personality"])
-		const p = manager.getPersonality();
-		if (p && p.content) {
-			systemPromptOptions.sections["personality"] = p.content;
+		//    ★ 本对话已有显式人设选择（/persona 选过、或选过「无人设」）时一律不碰：
+		//      否则选「无人设」会被 PERSONALITY.md 补回来，选中的卡片也会被这里覆盖。
+		if (!hasDirectoryPersonaChoice(ctx)) {
+			const p = manager.getPersonality();
+			if (p?.content) systemPromptOptions.sections["personality"] = p.content;
+			else delete systemPromptOptions.sections["personality"];
 		}
 
 		// 2. 挂载通用规则层 (sections["generic-rules"])
 		const r = manager.getRules();
-		if (r && r.content) {
-			systemPromptOptions.sections["generic-rules"] = r.content;
-		}
+		if (r?.content) systemPromptOptions.sections["generic-rules"] = r.content;
+		else delete systemPromptOptions.sections["generic-rules"];
 
 		// 3. 挂载逆向专精层 (sections["seep-reverse-lab"])
 		const s = manager.getSystem();
-		if (s && s.content) {
-			systemPromptOptions.sections["seep-reverse-lab"] = s.content;
-		}
+		if (s?.content) systemPromptOptions.sections["seep-reverse-lab"] = s.content;
+		else delete systemPromptOptions.sections["seep-reverse-lab"];
 
 		// 4. 边界锚：必须最后挂（自定义 section 按插入顺序渲染，实测位于 seep-reverse-lab 之后）
 		systemPromptOptions.sections["seep-boundary"] = BOUNDARY_ANCHOR;
@@ -363,34 +415,19 @@ export default function promptAndPersonalityEnhancer(pi: ExtensionAPI) {
 	// 5.3 核心生命周期：context_with_system (会话粘性补偿，杜绝长对话人设丢失)
 	pi.on("context_with_system", (event, ctx: ExtensionContext) => {
 		if (!Array.isArray(event?.messages)) return;
-		const head = event.messages[0];
-		if (head && head.role === "system") {
-			head.sections = head.sections ?? {};
-			if (!head.sections || typeof head.sections !== "object" || Array.isArray(head.sections)) {
-				head.sections = {};
-			}
-			const manager = managerFor(ctx);
-
-			const p = manager.getPersonality();
-			if (p && !head.sections["personality"]) {
-				head.sections["personality"] = p.content;
-			}
-
-			const r = manager.getRules();
-			if (r && !head.sections["generic-rules"]) {
-				head.sections["generic-rules"] = r.content;
-			}
-
-			const s = manager.getSystem();
-			if (s && !head.sections["seep-reverse-lab"]) {
-				head.sections["seep-reverse-lab"] = s.content;
-			}
-
-			// 边界锚同样复挂：长对话压缩 / 会话续接后，锚必须还在
-			if (!head.sections["seep-boundary"]) {
-				head.sections["seep-boundary"] = BOUNDARY_ANCHOR;
-			}
-		}
+		if (event.messages[0]?.role !== "system") return;
+		// Refresh at every provider call, including tool continuations. Transcript
+		// sections are rendered strings, unlike raw before_agent_start options.
+		const manager = managerFor(ctx, true);
+		const desired: Record<string, string | null> = {
+			"generic-rules": manager.getRules()?.content ?? null,
+			"seep-reverse-lab": manager.getSystem()?.content ?? null,
+			"seep-boundary": BOUNDARY_ANCHOR,
+		};
+		if (!hasDirectoryPersonaChoice(ctx)) desired.personality = manager.getPersonality()?.content ?? null;
+		patchSystemSections(event.messages, Object.fromEntries(
+			Object.entries(desired).map(([name, text]) => [name, text ? renderSection(name, text) : null]),
+		));
 	});
 
 	// 5.4 上下文压缩守护

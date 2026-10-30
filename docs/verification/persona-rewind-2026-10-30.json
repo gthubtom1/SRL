@@ -1,0 +1,203 @@
+{
+  "schema": "seep.plugin-closure/1",
+  "date": "2026-10-30",
+  "version": "1.28.0",
+  "status": "verified-local-baseline-with-preserved-advisories",
+  "baseline_commit": "fb25bafb173e4b43efad6ffe0803a4a7f18ca5f9",
+  "scope": "Current Windows Piweb0.12.2 embeddedSDK1.2.0; isolated installedSDK1.4.0; PowerShell and GitBash lifecycle. Reuse unchanged 1.27.0 core/domain/input evidence.",
+  "subagent_model": "magpie/codex/gpt-6.1-sol",
+  "engineering": {
+    "exit_code": 2,
+    "summary": {
+      "pass": 51,
+      "warn": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "source_unchanged_during_recheck": true,
+    "full_run_passes_retained": 48,
+    "failed_suites_rechecked": 4,
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/engineering-consolidated.json",
+      "sha256": "5f7fdd19a64b1afdcc1b67e019cd052445899a9b89905c010cb5017120cbbcd4"
+    },
+    "original_full_run": {
+      "path": "tmp/plugin-final-audit-20261030/engineering-final/1-check.stdout.log",
+      "sha256": "7a22ea4050c0b85ef37eebec452bf9bbc77b411f7fb6987e82c6a8f9ee8cea22"
+    },
+    "targeted_recheck": {
+      "path": "tmp/plugin-final-audit-20261030/engineering-recheck/1-recheck_selected.stdout.log",
+      "sha256": "dd64cb5631b11c45383409c770931498ee0d0a4666c87fa01672fbca5fadfbaa"
+    },
+    "non_pass": [
+      {
+        "name": "lint",
+        "status": "WARN",
+        "summary": "存在 WARN/未验证项：结果: 79/83 可验证项通过（另有 4 条 WARN/INFO，其中 1 条已豁免；这些不计为验证通过）"
+      }
+    ]
+  },
+  "reused_baseline": {
+    "key_source_hashes_unchanged": 12,
+    "raw_records_present": 6,
+    "runtime_summary": {
+      "pass": 95,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "fresh_full_runtime_run_claimed": false,
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/reused-baseline.json",
+      "sha256": "36cd226d8fe89fa93a64f006a4577da9c76154894db586952f543ce88bbd14c1"
+    }
+  },
+  "installer_scoped": {
+    "initial_tests": 43,
+    "prompt_boundary_followup_tests": 7,
+    "ownership_consumer_tests": 13,
+    "ownership_consumer": {
+      "path": "tmp/plugin-final-audit-20261030/install-recovery/preflight-package/receipt.json",
+      "sha256": "f1db6b928ead94fed5dfa3e13e9c260434822da7c7cd14061c99d995db0bc6ac"
+    },
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/install-recovery/summary.json",
+      "sha256": "1e31fa0fdb28eb7950f1f3510e420284979693ad522a35903792736f8a5c988f"
+    },
+    "followup": {
+      "path": "tmp/plugin-final-audit-20261030/install-recovery/prompt-boundary/receipt.json",
+      "sha256": "8220cdb0dd68402a6dc228f33697c979882a5c1292258dcc6e7e7fe932dc3ad4"
+    }
+  },
+  "independent_installer": {
+    "prior_criteria_proven": 5,
+    "prompt_identification_I1": "PROVEN fixed",
+    "remaining_blockers": 0,
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/install-independent/i1-recheck/receipt.json",
+      "sha256": "33d57eaf90a4f5b1d4820c09de68ab667295ae3a29daf50d375edc0e25875d0a"
+    }
+  },
+  "persona_sdk": [
+    {
+      "sdk": "1.2.0",
+      "checks": 57,
+      "result": "PASS",
+      "evidence": {
+        "path": "tmp/plugin-final-audit-20261030/persona-compat/integrated/sdk-1.2.0-results.json",
+        "sha256": "4ae16054dd120dc81e780ee595bfbf3eca6205708cc2e5d31a49c419a02ba2d8"
+      }
+    },
+    {
+      "sdk": "1.4.0",
+      "checks": 57,
+      "result": "PASS",
+      "evidence": {
+        "path": "tmp/plugin-final-audit-20261030/persona-compat/integrated/sdk-1.4.0-results.json",
+        "sha256": "5d368a651d8bc3f76e64d2d6a8ea032bd52eaa9cf7603340d210c9c95033328c"
+      }
+    }
+  ],
+  "prompt_extension_tests": {
+    "passed": 16,
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/persona-compat/prompt-extensions.log",
+      "sha256": "f0df49c2ede22b048021242c040e1964256856843277fa1492501fd7dd9d20b7"
+    }
+  },
+  "retry": {
+    "sdk_command_checks": 41,
+    "automated_regression_tests": 3,
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/retry-level/after.json",
+      "sha256": "33db4045646fe74650ba4a694ba20ff0a4f21dcb1b796ab9ee6832f54a4718e5"
+    },
+    "regression": "Tool/scripts/test_retry_levels.py"
+  },
+  "deployment": {
+    "formal_entry": "setup/install-pi.ps1 -SkipPackages -AgentRoot <actual root>",
+    "returncode": 0,
+    "vendor_files": 11,
+    "settings_unchanged": true,
+    "card_metadata_unchanged": true,
+    "private_card_contents_read": false,
+    "backup": "C:\\Users\\toti\\.pi\\agent\\backup-plugin-candidate-20261030-105406",
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/formal-deploy/result.json",
+      "sha256": "0e1516932007e755068dbf31cd96ed454a1ff7cd8292f68b9aef96ce743e41d7"
+    }
+  },
+  "environment": {
+    "installed": true,
+    "missing": [],
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/postdeploy-final/1-env-check.stdout.log",
+      "sha256": "c56a3f34b3630ad801a7d7ca3f7f477ef123e0239b44aaebc504f745b33271af"
+    }
+  },
+  "live_ui": {
+    "slash_commands": [
+      "persona",
+      "rewind",
+      "undo-reply"
+    ],
+    "mode_choices": [
+      "cached",
+      "every-turn"
+    ],
+    "persona_picker_cancelled": true,
+    "audit_session_removed": true,
+    "old_active_session_reloaded": false,
+    "new_conversation_alone_proves_fresh_code": false,
+    "required_user_action": "After this response, run /reload in the existing conversation.",
+    "evidence": {
+      "path": "tmp/plugin-final-audit-20261030/live-ui-final.json",
+      "sha256": "6603854897fe01f189bd1c87d7a14c43ed166537257b2d2511f2cfe714b2bf9c"
+    }
+  },
+  "temporary_fixture_archives": {
+    "path": "tmp/plugin-final-audit-20261030/install-independent/snapshot-archives.json",
+    "sha256": "b5785a3959038454d0bf2d10e427b7707d7b4ff8721b9940c5578ffcb0b78975"
+  },
+  "product_sha256": {
+    "Tool/prompts/extensions/load-system-prompt.ts": "a5c87c3b63f2858aa7218f66d195f5357f00a80841ec6c660d4ca2e5d6610458",
+    "Tool/prompts/extensions/retry-level.ts": "1e63c6991a02f424ef46e993b68122d1fe3483534638379f0acc656815c04240",
+    "Tool/prompts/packages/pi-seep-ext/LICENSE": "eb8f136f6ea8c474205493ce95e2559c72aa4deb3bb23ce7c09ad4b969be4b8d",
+    "Tool/prompts/packages/pi-seep-ext/UPSTREAM.json": "795c91a18741604c9205682ce6bca0b600ff3f0708830ed6609cad7758038ef0",
+    "Tool/prompts/packages/pi-seep-ext/extensions/persona.ts": "fd271c391da610bbaa5b8dc6a2e592a67d107c0f22b3317302daa1f2101cc2b6",
+    "Tool/prompts/packages/pi-seep-ext/extensions/rewind.ts": "01e0c609ebb2a99c27b1da6ceda0e7f3c8dc2e0d436b3c15fd8f0ca1b2355c80",
+    "Tool/prompts/packages/pi-seep-ext/lib/agent-dir.ts": "88a6df20d1194d2100c12ccfd4c7a62a392ca7730ece5eb0cd8df6064b443896",
+    "Tool/prompts/packages/pi-seep-ext/lib/inject.ts": "b418c85ccd1b38013744516da41474ec4f7d34faa76d5fa73cad510f55a8b752",
+    "Tool/prompts/packages/pi-seep-ext/lib/personas.ts": "5d5d7e8b36d1636983d5808edbc627f6f13c9502997c4dfb4db9f034fed09ddd",
+    "Tool/prompts/packages/pi-seep-ext/lib/pi-api.ts": "3b9ecf243e5683277385c1a3e7983bb7205512ad425088cad641ffbb73ceee82",
+    "Tool/prompts/packages/pi-seep-ext/lib/rewind-targets.ts": "516004bc3d48914f50a41e8218049d33e7b952897426abf00d3f3a80aa62e40b",
+    "Tool/prompts/packages/pi-seep-ext/lib/session-state.ts": "5e10d142659b4df49caabaa5e8a2c51bd665ed4e80fa2490557b07642ae4c863",
+    "Tool/prompts/packages/pi-seep-ext/package.json": "ec851227e87b7517823fd8603066abe35a070b6f2e2083be88894eff65a28dca",
+    "Tool/scripts/preflight.py": "62f4669bfcc8591962eed8682d99dff9ea6cc0b6f9e1d71b11a9fe1e95114871",
+    "Tool/scripts/test_preflight_ownership.py": "b393582b8746e1da7f4c9fce8ed0cd2c34af0f2dbe86714903e89517623aeaaf",
+    "Tool/scripts/test_prompt_extensions.py": "f081be298280b13c3cb9065a4cc7ce6301781f10c4a52cac8b32456d7d92dca7",
+    "Tool/scripts/test_retry_levels.py": "f96211eb55e0aff940f0701c35a4e2390f8998cf5ab4c60f8a862cae22803cdc",
+    "Tool/scripts/test_runtime_install_delivery.py": "d9bfdb55a1513a99ba8716e07ac2c63f78dcd9529d57d0fa03932837bf3a77ad",
+    "Tool/scripts/test_runtime_shell_delivery.py": "2afb36333e74c60c361b644f1cf6a09371b4bc03f77cd118ebac5d6720dbcf60",
+    "VERSION": "229394bb3bac6e15d186324b7cbc90560803df8d7ee438a584118c4821b44e93",
+    "setup/install-pi.ps1": "2c148d25582635780f79caba42667f8a7acdf89e2192317e471926934f74c8fd",
+    "setup/install.sh": "102befb32d953a272cd3e638df7d2739a62bc95e783bec11d5a234b1455e9e32",
+    "setup/merge_agent_config.py": "bbe05935d6d0d955573402c75433f0268c48554cfb24ce59f4b18d836964a716",
+    "setup/pi-persona-rewind.package.json": "186783e06eb2144dc2d0b7fa3e87d560597dbec9ac70905e9f7709ccb8ed089f",
+    "setup/test_merge_agent_config.py": "5ae5c2c83f1e94faf7a741484d4293ee182092c0fa6b86d1fd9ada09a3e707c0",
+    "setup/test_persona_rewind_sdk.mjs": "2cf2742a60a01945f3dd642a93d4c53d7914d80ecde6e26f88b41fc6b9c5911c",
+    "setup/uninstall.ps1": "5742d9670fd5ab4a5a1546d567526aa2e2d6c5cb43ff430df74aaf4b70ee8d48",
+    "setup/uninstall.sh": "356a7c098d88ef0bc7e593a94bfef5b53c1324726558d598b11099ae637da6e9"
+  },
+  "not_claimed": [
+    "Native Linux/macOS acceptance",
+    "arbitrary third-party opaque forceSystemPrompt compatibility",
+    "provider cache billing or model persona compliance",
+    "all unknown professional targets succeed"
+  ],
+  "maintenance": "Known blockers closed, scoped checks and formal engineering acceptance recorded. Continue with specific small fixes/skills/upstream adaptation; do not reopen resolved baseline audits.",
+  "git_state": {
+    "delivery": "local commit containing this receipt; identify through repository Git history",
+    "remote_push": false
+  }
+}

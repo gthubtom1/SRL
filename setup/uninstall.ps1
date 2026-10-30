@@ -213,7 +213,7 @@ function Test-WorkbenchPrompt([string]$path) {
     if (-not (Test-Path $path)) { return $false }
     try {
         $text = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
-        return ($text -match 'Seep Reverse Lab|seep-reverse-lab|SEEP 工作台')
+        return ($text -match '<!--\s*seep:managed\b|Seep Reverse Lab|seep-reverse-lab|SEEP 工作台')
     } catch { return $false }
 }
 
@@ -304,6 +304,9 @@ $WorkbenchPackages = @(
     'npm:@juicesharp/rpiv-ask-user-question', 'npm:pi-playwright', 'npm:pi-goal-x'
 )
 
+$PersonaPackageSource = (Read-JsonFile (Join-Path $ScriptDir 'pi-persona-rewind.package.json')).source
+$WorkbenchPackages += $PersonaPackageSource
+
 # 只有参数中确实指向工作台组件时，才认定该 MCP 条目归工作台所有
 # （实现见上方 Test-McpEntryIsOurs：清单名 + 路径/组件标记双重判据）
 
@@ -385,6 +388,10 @@ if ($LASTEXITCODE -eq 0) {
 
 & python (Join-Path $ScriptDir 'merge_agent_config.py') --root $Root --agent-dir $AgentDir --validate-configs-only
 if ($LASTEXITCODE -ne 0) { Write-Fail '配置无效，尚未移除任何项目'; exit 1 }
+if (-not $KeepPrompts) {
+    & python (Join-Path $ScriptDir 'merge_agent_config.py') --root $Root --agent-dir $AgentDir --remove-prompts-only --dry-run
+    if ($LASTEXITCODE -ne 0) { Write-Fail '提示词边界无效，尚未移除任何项目'; exit 1 }
+}
 Write-Host "`n╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
 Write-Host "║   Seep 逆向工程工作台 —— 一键卸载                             ║" -ForegroundColor Magenta
 Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
@@ -438,9 +445,14 @@ $setCfg = Read-JsonFile $SetJson
 $pkgHits = @()
 if ((-not $KeepPackages) -and $setCfg -and $setCfg.packages) {
     foreach ($pkg in @($setCfg.packages)) {
-        if ($WorkbenchPackages -contains $pkg) { $pkgHits += $pkg }
+        $source = if ($pkg -is [string]) { $pkg } else { $pkg.source }
+        if (($pkg -is [string] -and $WorkbenchPackages -contains $pkg) -or $source -eq $PersonaPackageSource) {
+            $pkgHits += $source
+        }
     }
 }
+if (-not $KeepPackages -and (Test-Path (Join-Path $AgentDir 'packages/pi-seep-ext')) -and
+    $pkgHits -notcontains $PersonaPackageSource) { $pkgHits += $PersonaPackageSource }
 $plan['settings packages'] = $pkgHits
 
 $flagHits = @()
@@ -457,7 +469,7 @@ if (Test-Path $originPath) { $originHits += 'seep-runtime.json' }
 $plan['runtime registration'] = $originHits
 
 $manifestHits = @()
-if (Test-Path $InstallManifest) { $manifestHits += 'seep-install-manifest.json' }
+if ((Test-Path $InstallManifest) -and -not $KeepPackages) { $manifestHits += 'seep-install-manifest.json' }
 $plan['install ownership manifest'] = $manifestHits
 
 $agentSettingsHits = @()

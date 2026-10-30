@@ -1,0 +1,15 @@
+{
+  "name": "pi-seep-ext-persona-rewind",
+  "version": "0.3.1",
+  "private": true,
+  "description": "Vendored subset of gthubtom1/agent-plugins pi-seep-ext: directory personas (/persona) and turn rewind (/rewind, /undo-reply).",
+  "license": "MIT",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions/persona.ts", "./extensions/rewind.ts"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

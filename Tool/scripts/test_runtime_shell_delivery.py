@@ -30,6 +30,7 @@ REAL_BRIDGE = ROOT / "Tool/scripts/runtime-root.py"
 REAL_MIGRATE = ROOT / "Tool/skill/softseep/scripts/version-migrate.py"
 REAL_PACK = ROOT / "Tool/skill/softseep/pack.json"
 REAL_MERGE = ROOT / "setup/merge_agent_config.py"
+REAL_PERSONA_PKG = ROOT / "Tool/prompts/packages/pi-seep-ext"
 
 
 def sha(path: Path) -> str:
@@ -106,6 +107,10 @@ def build_fixture(base: Path) -> Path:
     (wb / "Tool/skill/softseep/SKILL.md").write_text("# SoftSeep fixture\n", encoding="utf-8")
     copy_file(ROOT / "VERSION", wb / "VERSION")
     copy_file(REAL_MERGE, wb / "setup/merge_agent_config.py")
+    copy_file(REAL_SETUP / "pi-persona-rewind.package.json", wb / "setup/pi-persona-rewind.package.json")
+    # 安装器会把这个目录同步进 AgentRoot/packages；夹具必须带上，否则合并阶段会正确拒绝。
+    shutil.copytree(REAL_PERSONA_PKG, wb / "Tool/prompts/packages/pi-seep-ext",
+                    ignore=shutil.ignore_patterns("__pycache__"))
     for name in ("install.sh", "update.sh", "uninstall.sh"):
         copy_file(REAL_SETUP / name, wb / "setup" / name)
     (wb / "Tool/scripts/check.py").write_text("print('task-local check ok')\n", encoding="utf-8")
@@ -133,6 +138,152 @@ class ShellRuntimeDeliveryTests(unittest.TestCase):
         shim.write_text('#!/usr/bin/env bash\n' + body, encoding='utf-8', newline='\n')
         shim.chmod(0o755)
         return {**os.environ, 'PATH': str(shim.parent) + os.pathsep + os.environ['PATH']}
+
+    def _assert_real_prompt_uninstall(self, *, keep_packages):
+        wb = build_fixture(self.base)
+        for name in ('AGENTS.md', 'SEEP.md'):
+            copy_file(ROOT / 'Tool/prompts' / name, wb / 'Tool/prompts' / name)
+        agent = self.base / 'real prompt agent'
+        installed = run_bash(wb / 'setup/install.sh', '--agent-root', str(agent),
+                             '--skip-packages', '--skip-python')
+        self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+        prefix, tail = 'USER PREFIX 中文\n', '\nUSER TAIL 中文\n'
+        for name in ('AGENTS.md', 'SEEP.md'):
+            path = agent / name
+            block = path.read_text(encoding='utf-8').rstrip('\n')
+            self.assertIn((wb / 'Tool/prompts' / name).read_text(encoding='utf-8').rstrip(), block)
+            path.write_text(prefix + block + tail, encoding='utf-8')
+        protected = {p.relative_to(agent).as_posix(): p.read_bytes() for p in agent.rglob('*')
+                     if p.is_file() and (p.is_relative_to(agent / 'packages/pi-seep-ext')
+                                        or p.name in ('settings.json', 'seep-install-manifest.json')
+                                        and p.parent == agent)}
+        flags = ('--keep-packages',) if keep_packages else ()
+        removed = run_bash(wb / 'setup/uninstall.sh', '--agent-root', str(agent), '--yes', *flags)
+        self.assertEqual(removed.returncode, 0, removed.stdout + removed.stderr)
+        for name in ('AGENTS.md', 'SEEP.md'):
+            self.assertEqual((agent / name).read_text(encoding='utf-8'), prefix + tail)
+        if keep_packages:
+            for rel, data in protected.items():
+                self.assertEqual((agent / rel).read_bytes(), data, rel)
+        else:
+            self.assertFalse((agent / 'packages/pi-seep-ext').exists())
+
+    def test_uninstall_real_prompt_sources_removes_only_managed_blocks(self):
+        self._assert_real_prompt_uninstall(keep_packages=False)
+
+    def test_uninstall_real_prompt_sources_with_keep_packages(self):
+        self._assert_real_prompt_uninstall(keep_packages=True)
+
+    def test_uninstall_bad_real_prompt_boundaries_rejects_before_any_changes(self):
+        wb = build_fixture(self.base)
+        for name in ('AGENTS.md', 'SEEP.md'):
+            copy_file(ROOT / 'Tool/prompts' / name, wb / 'Tool/prompts' / name)
+        agent = self.base / 'bad real prompt agent'
+        installed = run_bash(wb / 'setup/install.sh', '--agent-root', str(agent),
+                             '--skip-packages', '--skip-python')
+        self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+        begin, end = '<!-- seep:managed:begin -->', '<!-- seep:managed:end -->'
+        source = (wb / 'Tool/prompts/SEEP.md').read_text(encoding='utf-8')
+        block = begin + '\n' + source + '\n' + end
+        bad_blocks = (block + block, begin + source, source + end,
+                      end + source + begin, '<!-- seep:managed:broken -->' + source + end,
+                      block + '<!-- seep:managed:broken -->')
+        for path in (agent / 'AGENTS.md', agent / 'SEEP.md'):
+            path.write_text(path.read_text(encoding='utf-8') + '\nUSER TAIL 中文\n', encoding='utf-8')
+        def snapshot():
+            return {p.relative_to(agent).as_posix(): p.read_bytes() if p.is_file() else None
+                    for p in agent.rglob('*')}
+        for index, bad in enumerate(bad_blocks):
+            for keep in (False, True):
+                with self.subTest(boundary=index, keep_packages=keep):
+                    (agent / 'SEEP.md').write_text(bad + '\nUSER TAIL 中文\n', encoding='utf-8')
+                    before = snapshot()
+                    flags = ('--keep-packages',) if keep else ()
+                    removed = run_bash(wb / 'setup/uninstall.sh', '--agent-root', str(agent), '--yes', *flags)
+                    self.assertNotEqual(removed.returncode, 0, removed.stdout + removed.stderr)
+                    self.assertIn('invalid managed prompt boundary: SEEP.md', removed.stdout + removed.stderr)
+                    self.assertNotIn('卸载完成', removed.stdout)
+                    self.assertNotIn('系统已是干净状态', removed.stdout)
+                    self.assertEqual(snapshot(), before)
+
+    def test_plugin_recovery_and_owned_uninstall(self):
+        import ctypes
+        wb = build_fixture(self.base)
+        agent = self.base / 'plugin agent'
+        source = wb / 'Tool/prompts/packages/pi-seep-ext'
+        def install():
+            return run_bash(wb / 'setup/install.sh', '--agent-root', str(agent),
+                            '--skip-packages', '--skip-python')
+        dependency = source / 'lib/agent-dir.ts'
+        saved = dependency.read_bytes()
+        dependency.unlink()
+        failed = install()
+        self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+        self.assertFalse(agent.exists())
+        dependency.write_bytes(saved)
+        first = install()
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        target = agent / 'packages/pi-seep-ext'
+        before = {p.relative_to(target).as_posix(): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+        manifest = json.loads((agent / 'seep-install-manifest.json').read_text())
+        for rel, data in before.items():
+            self.assertEqual(manifest['managed_files']['packages/pi-seep-ext/' + rel],
+                             hashlib.sha256(data).hexdigest())
+        notes = target / 'USER-NOTES.md'
+        notes.write_bytes(b'USER DATA')
+        originals = {name: (source / name).read_bytes() for name in ('LICENSE', 'UPSTREAM.json')}
+        for name, data in originals.items():
+            (source / name).write_bytes(data + b'\n')
+        create = ctypes.windll.kernel32.CreateFileW
+        create.restype = ctypes.c_void_p
+        create.argtypes = (ctypes.c_wchar_p, ctypes.c_ulong, ctypes.c_ulong,
+                           ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p)
+        handle = create(str(target / 'UPSTREAM.json'), 0x80000000, 0x1, None, 3, 0, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+        try:
+            failed = install()
+        finally:
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(handle))
+            for name, data in originals.items():
+                (source / name).write_bytes(data)
+        self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+        self.assertIn('originals restored and verified', failed.stdout)
+        for rel, data in before.items():
+            self.assertEqual((target / rel).read_bytes(), data)
+        self.assertTrue(list(target.parent.glob('pi-seep-ext.bak-*')))
+        repeated = install()
+        self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+        kept = run_bash(wb / 'setup/uninstall.sh', '--agent-root', str(agent), '--yes', '--keep-packages')
+        self.assertEqual(kept.returncode, 0, kept.stdout + kept.stderr)
+        self.assertTrue((target / 'extensions/persona.ts').is_file())
+        retained = json.loads((agent / 'seep-install-manifest.json').read_text())
+        for rel in before:
+            key = 'packages/pi-seep-ext/' + rel
+            self.assertEqual(retained['managed_files'][key], manifest['managed_files'][key])
+        settings = agent / 'settings.json'
+        local = {'source': './packages/pi-seep-ext', 'extensions': [], 'autoload': False}
+        custom = {'source': 'npm:custom', 'extensions': []}
+        settings.write_text(json.dumps({'packages': [local, custom]}), encoding='utf-8')
+        handle = create(str(target / 'UPSTREAM.json'), 0x80000000, 0x1, None, 3, 0, None)
+        self.assertNotEqual(handle, ctypes.c_void_p(-1).value)
+        try:
+            failed = run_bash(wb / 'setup/uninstall.sh', '--agent-root', str(agent), '--yes',
+                              '--keep-prompts', '--keep-skills', '--keep-mcp')
+        finally:
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(handle))
+        self.assertNotEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+        self.assertEqual(json.loads(settings.read_text())['packages'], [local, custom])
+        for rel, data in before.items():
+            self.assertEqual((target / rel).read_bytes(), data)
+        edited = target / 'extensions/persona.ts'
+        edited.write_bytes(b'USER EDIT')
+        removed = run_bash(wb / 'setup/uninstall.sh', '--agent-root', str(agent), '--yes',
+                           '--keep-prompts', '--keep-skills', '--keep-mcp')
+        self.assertEqual(removed.returncode, 0, removed.stdout + removed.stderr)
+        self.assertEqual(json.loads(settings.read_text())['packages'], [custom])
+        self.assertEqual(notes.read_bytes(), b'USER DATA')
+        self.assertEqual(edited.read_bytes(), b'USER EDIT')
+        self.assertFalse((target / 'extensions/rewind.ts').exists())
 
     def test_uninstall_preserves_preexisting_lab_flag_without_ownership_proof(self):
         wb = build_fixture(self.base)
@@ -337,6 +488,9 @@ class ShellRuntimeDeliveryTests(unittest.TestCase):
     def test_repeat_install_updates_owned_tasks_and_agents(self):
         wb = build_fixture(self.base)
         agent = self.base / "agent"
+        agent.mkdir()
+        custom_package = {"source": "npm:synthetic-user", "extensions": []}
+        (agent / "settings.json").write_text(json.dumps({"packages": [custom_package]}), encoding="utf-8")
         installed = run_bash(wb / "setup/install.sh", "--agent-root", str(agent),
                              "--skip-packages", "--skip-python")
         self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
@@ -348,6 +502,14 @@ class ShellRuntimeDeliveryTests(unittest.TestCase):
         repeated = run_bash(wb / "setup/install.sh", "--agent-root", str(agent),
                             "--skip-packages", "--skip-python")
         self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+        packages = json.loads((agent / "settings.json").read_text(encoding="utf-8"))["packages"]
+        pair = json.loads((wb / "setup/pi-persona-rewind.package.json").read_text(encoding="utf-8"))
+        self.assertEqual(packages.count(pair["source"]), 1)
+        self.assertIn(custom_package, packages)
+        deployed = agent / "packages/pi-seep-ext"
+        self.assertTrue((deployed / "extensions/persona.ts").is_file())
+        self.assertTrue((deployed / "extensions/rewind.ts").is_file())
+        self.assertFalse((deployed / "extensions/remote.ts").exists())
 
         self.assertEqual((agent / "prompts/fixture.md").read_text(encoding="utf-8"),
                          "UPDATED task " + wb.resolve().as_posix() + "\n")

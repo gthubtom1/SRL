@@ -156,6 +156,47 @@ python Tool/scripts/check.py --runtime --json
 | pi 装配契约 / 层间裁决 | `Tool/prompts/SEEP.md` | **≤2500 字符，只放指针**；门禁会查 |
 | 人格 / 风格 | `~/.pi/agent/personas/*.md` | **不入仓库**，用户自管 |
 
+原 `/persona`、`/rewind`、`/undo-reply` 来自 `gthubtom1/agent-plugins` 的 `pi-seep-ext`。本仓在 `Tool/prompts/packages/pi-seep-ext/` 保留上游两扩展及其依赖，并适配工作台的提示词装配和设置保存（来源与改动见 [PROVENANCE](PROVENANCE.md)）。安装器把它同步到 `<AgentRoot>/packages/pi-seep-ext`，在 `settings.json` 的 `packages` 中声明 `./packages/pi-seep-ext`，受管文件哈希记录在现有 `seep-install-manifest.json`。
+
+用相对路径而不是 git source 的原因：
+- 兼容改动必须随包分发，git source 只能取上游原文；
+- 相对路径从 `settings.json` 所在目录解析，仓库在 D:、AgentRoot 在 C: 这类跨盘符情况也不会失效；
+- 不依赖任何临时 clone 目录，卸载后不留悬空声明。
+
+只补这一对插件（PowerShell，从仓库根执行，`$targetAgentRoot` 换成实际 AgentRoot）：
+
+```powershell
+python setup/merge_agent_config.py --root . --agent-dir $targetAgentRoot --persona-rewind-only
+if ($LASTEXITCODE -ne 0) { throw '配置合并失败，停止安装' }
+```
+
+合并前先核验完整包、本地导入依赖、路径、配置和所有权。只更新受管且哈希未漂移的文件；未知或被修改的冲突文件保留并报错。包文件、配置和所有权记录共同保存；失败时恢复原位置并核验，恢复未完成则返回非零并保留备份证据。同 source 的声明不重复添加，不改 MCP、retry 档位或用户人设卡。
+
+`cached` 保留 SDK 的系统提示词增量；`every-turn` 在每次模型请求时重放完整系统提示词和当前人设，包括工具续轮。两种模式都保留 SEEP、规则、边界与项目上下文。人设选择跟随对话，注入模式是全局设置；选择「无人设」后，回退、压缩或重新打开该会话也不会复活旧人设。
+
+完整安装/更新走 `setup/install-pi.ps1`（或 `setup/install.sh`）的正式入口，它同样会同步这个包；`-SkipPackages` / `--skip-packages` 只是跳过 npm 包安装，不影响本包的同步。
+
+**加载与生效分开看**：文件和配置到位不等于运行中的模块已更新。升级后在待使用的会话执行 `/reload`；本轮实测，同一个长期运行的 Piweb 进程中新建会话也可能复用旧模块，仅看到命令不能证明已加载最终代码。完整重启宿主也会重新加载。其他已开着的会话仍需各自重载。验收要点：
+
+1. 命令列表出现 `/persona`、`/rewind`、`/undo-reply`，且没有重复项；
+2. `/persona` 列出 `无人设` + `personas/*.md` 里的每个文件 + `⚙ 注入模式`；Esc 不改任何选择；
+3. 选一个后状态栏变成 `🧑‍🎤 人设：<名字>`，再选「无人设」后提示词里不再有它，也不会被 `PERSONALITY.md` 补回；
+4. `/undo-reply` 只把最后一条纯文本回复移出上下文并把问题放回输入框；带工具调用时会先确认，**文件与命令的副作用不会撤销**。
+
+专项复验：
+
+```powershell
+python -m unittest setup.test_merge_agent_config
+python -m unittest Tool.scripts.test_runtime_install_delivery
+node setup/test_persona_rewind_sdk.mjs '<pi-coding-agent 包目录>'
+```
+
+SDK 检查在临时 AgentRoot 里跑真实安装器和真实 loader，用合成卡与临时会话，结束后清理临时目录；不碰真实用户会话、真实人设卡与 auth/models。
+
+卸载使用正式入口的包清理选项。`merge_agent_config.py --root . --agent-dir <AgentRoot> --remove-packages` 会清理工作台声明的全部配套包条目（不只这一对），同时只删除 persona/rewind 副本中受管哈希仍吻合的文件；用户自建、修改或归属不明的内容留在原位。需保留其他包时，不要用该全量选项。完整卸载的 `KeepPackages`／`--keep-packages` 同时保留包声明和相应所有权。
+
+出现部署冲突时保留现场与备份，按已登记哈希确定来源后处理；不得为消除报错而把未知文件补签为受管。旧候选若没有所有权记录，先核对其来源和内容，再按具体迁移记录备份与重新部署。
+
 ---
 
 ## 4bis. 域快捷指令已取消

@@ -183,7 +183,7 @@ root = Path(sys.argv[1]).resolve()
 agent = Path(sys.argv[2]).resolve()
 manifest_path = Path(sys.argv[3])
 status = sys.argv[4]
-allowed = ("skills/", "prompts/", "agents/", "extensions/")
+allowed = ("skills/", "prompts/", "agents/", "extensions/", "packages/pi-seep-ext/")
 cache_dirs = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 
 def sha(data):

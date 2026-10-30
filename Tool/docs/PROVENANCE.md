@@ -29,6 +29,19 @@ AgentRoot按安装参数和环境解析，不固定为某台机器目录。当�
 | Open-ReverseLab | [LING71671/open-reverselab](https://github.com/LING71671/open-reverselab) | 本地镜像GPL-3.0声明 | `Tool/upstream/open-reverselab/`和`Tool/mcp/Tool/reverselab/`；KB、boards和工具参考，和morluto/rea是不同项目 |
 | pi-cmd-guard | [gthubtom1/agent-plugins](https://github.com/gthubtom1/agent-plugins/tree/main/plugins/pi/cmd-guard) | MIT | `Tool/prompts/extensions/cmd-guard.ts`、规则JSON与TOOL-CHAIN；vendored后按本仓边界适配 |
 | retry-level | [gthubtom1/agent-plugins](https://github.com/gthubtom1/agent-plugins/tree/main/plugins/pi/retry-level) | MIT | `Tool/prompts/extensions/retry-level.ts`；宿主重试设置与显示，须按当前Pi接口验证 |
+| pi-seep-ext 0.3.1：persona / rewind | [固定提交 2742f417d4dcf275a9a57bdf654af4a53ff25ddf](https://github.com/gthubtom1/agent-plugins/tree/2742f417d4dcf275a9a57bdf654af4a53ff25ddf/plugins/pi/pi-seep-ext) | 根 `LICENSE`：MIT，Copyright (c) 2026 gthubtom1 | `Tool/prompts/packages/pi-seep-ext/`（原两扩展 + 其 `lib/` 依赖），安装时同步到 `<AgentRoot>/packages/pi-seep-ext` |
+
+这个包基于上游固定提交保留目录人设、每会话选择、状态栏和官方 `navigateTree` 回退实现。工作台副本补充提示词合载与设置保存的兼容处理；`remote.ts` 不分发，根 manifest 的 cmd-guard、retry-level、prompt-compat 不重复加载。原始指纹、当前副本指纹及逐文件改动理由统一记录在 `Tool/prompts/packages/pi-seep-ext/UPSTREAM.json`；`rewind.ts` 保持上游原文。
+
+| 兼容处理 | 最终行为 |
+|---|---|
+| 系统提示词与正文分开处理 | 只修改具名系统 section，不删除或替换用户、助手、工具结果中的标签示例、代码、附件 |
+| `cached` 与 `every-turn` | 两种模式均保留；cached 使用 SDK 系统提示词增量，every-turn 在模型请求阶段使用宿主的重放接口生成完整系统检查点，保留工具声明、SEEP、规则与项目上下文 |
+| 人设优先级 | 本对话显式选择（含关闭）优先，其次是可用目录默认人设，最后才是 `PERSONALITY.md`；回退不恢复已经关闭的旧选择 |
+| 规则和热更新 | `generic-rules` 由 `load-system-prompt` 统一管理，保留项目级优先；文件修改或移除在后续请求生效 |
+| 配置保存 | 模式切换和徽标设置原子保存、未知字段保留；坏配置和写入失败返回错误，取消不写入，不假报成功 |
+
+上一轮候选曾停用 `every-turn`，该降级方案已被上述合载实现替代，不是最终行为。兼容验收脚本为 `setup/test_persona_rewind_sdk.mjs`：使用合成卡、临时持久会话及本地合成模型传输，覆盖两种加载顺序、两种模式、切换、关闭、工具续轮、压缩、回退和重新打开；不读取真实用户人设、auth/models，也不发送远程模型请求。具体版本、计数与部署状态见 [当前状态](../../docs/CURRENT-STATE.md)。
 
 上游镜像中的测试、专业资料和原始来源说明仍有复查价值；保留镜像不代表所有内容进入正式路由或已在当前机器运行。具体引入提交见git历史和`setup/.upstream-shas.json`；手动维护来源按`setup/upstream-rules.json`处理。
 

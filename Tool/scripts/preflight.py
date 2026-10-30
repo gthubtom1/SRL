@@ -1816,7 +1816,7 @@ def _load_install_ownership(agent):
     managed = doc.get("managed_files")
     if not isinstance(managed, dict):
         raise ValueError("seep-install-manifest.json 缺 managed_files 对象")
-    allowed = ("skills/", "prompts/", "agents/", "extensions/")
+    allowed = ("skills/", "prompts/", "agents/", "extensions/", "packages/pi-seep-ext/")
     normalized = {}
     for rel, digest in managed.items():
         if not isinstance(rel, str) or not isinstance(digest, str):
@@ -1828,7 +1828,42 @@ def _load_install_ownership(agent):
         if not re.fullmatch(r"[0-9a-fA-F]{64}", digest):
             raise ValueError("seep-install-manifest.json managed_files 哈希无效：%s" % rel)
         normalized[rel] = digest.lower()
+    _validate_package_ownership(agent, normalized)
     return normalized
+
+
+def _validate_package_ownership(agent, managed):
+    """Validate only the shipped package, using the frozen installer's file policy."""
+    prefix = "packages/pi-seep-ext/"
+    entries = {rel: digest for rel, digest in managed.items() if rel.startswith(prefix)}
+    if not entries:
+        return
+    import hashlib
+    import importlib.util
+    from pathlib import Path
+
+    try:
+        # Reuse the producer's metadata/dependency whitelist and link/path guard;
+        # preflight must not grow a second, broader packages/** ownership policy.
+        script = Path(ROOT, "setup", "merge_agent_config.py")
+        spec = importlib.util.spec_from_file_location("preflight_package_policy", script)
+        policy = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(policy)
+        if (policy.PERSONA_PACKAGE_TARGET_DIR != "packages/pi-seep-ext"
+                or policy.PERSONA_PACKAGE_SOURCE_DIR != "Tool/prompts/packages/pi-seep-ext"):
+            raise ValueError("installer package paths do not match the supported package")
+        source = Path(ROOT, policy.PERSONA_PACKAGE_SOURCE_DIR)
+        files = {prefix + rel: Path(path) for rel, path in policy._persona_package_files(str(source))}
+        for rel, recorded in entries.items():
+            if rel not in files:
+                raise ValueError("not an installer-managed package file: " + rel)
+            target = policy._checked_path(Path(agent), rel)
+            if hashlib.sha256(target.read_bytes()).hexdigest() != recorded:
+                raise ValueError("deployed package hash mismatch: " + rel)
+            if hashlib.sha256(files[rel].read_bytes()).hexdigest() != recorded:
+                raise ValueError("package source hash mismatch: " + rel)
+    except (OSError, ValueError, ImportError) as exc:
+        raise ValueError("seep-install-manifest.json package ownership: " + str(exc)) from exc
 
 
 def _managed_file_current(agent, managed, rel):

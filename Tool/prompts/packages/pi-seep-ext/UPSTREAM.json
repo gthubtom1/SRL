@@ -1,0 +1,92 @@
+{
+  "repository": "https://github.com/gthubtom1/agent-plugins",
+  "commit": "2742f417d4dcf275a9a57bdf654af4a53ff25ddf",
+  "subdirectory": "plugins/pi/pi-seep-ext",
+  "version": "0.3.1",
+  "license": "MIT",
+  "upstreamSha256": {
+    "extensions/persona.ts": "8c74931e3d333635fa74634037245c074f76e09666829322e00c603fda8f2052",
+    "extensions/rewind.ts": "01e0c609ebb2a99c27b1da6ceda0e7f3c8dc2e0d436b3c15fd8f0ca1b2355c80",
+    "lib/agent-dir.ts": "88a6df20d1194d2100c12ccfd4c7a62a392ca7730ece5eb0cd8df6064b443896",
+    "lib/inject.ts": "b4e93fa6de61964d897cd9fa4e7a44648fb0df4deff6afcb5f4008a032d0eb05",
+    "lib/personas.ts": "b7af4dce3bb79eaebc0f7acf518175a4cfcacb2e7bee393083d2825a0ec5cd2d",
+    "lib/pi-api.ts": "dfda0ba4b0a5e5122c96c9358a1f918b31cce433d54ba4eca38823d0e15b23ec",
+    "lib/rewind-targets.ts": "516004bc3d48914f50a41e8218049d33e7b952897426abf00d3f3a80aa62e40b",
+    "lib/session-state.ts": "24fbc0baec407f3f957d5180c0bafa8ac65d3a7946bb532096bf790c743d1d93",
+    "LICENSE": "eb8f136f6ea8c474205493ce95e2559c72aa4deb3bb23ce7c09ad4b969be4b8d"
+  },
+  "workbenchSha256": {
+    "extensions/persona.ts": "fd271c391da610bbaa5b8dc6a2e592a67d107c0f22b3317302daa1f2101cc2b6",
+    "extensions/rewind.ts": "01e0c609ebb2a99c27b1da6ceda0e7f3c8dc2e0d436b3c15fd8f0ca1b2355c80",
+    "lib/agent-dir.ts": "88a6df20d1194d2100c12ccfd4c7a62a392ca7730ece5eb0cd8df6064b443896",
+    "lib/inject.ts": "b418c85ccd1b38013744516da41474ec4f7d34faa76d5fa73cad510f55a8b752",
+    "lib/personas.ts": "5d5d7e8b36d1636983d5808edbc627f6f13c9502997c4dfb4db9f034fed09ddd",
+    "lib/pi-api.ts": "3b9ecf243e5683277385c1a3e7983bb7205512ad425088cad641ffbb73ceee82",
+    "lib/rewind-targets.ts": "516004bc3d48914f50a41e8218049d33e7b952897426abf00d3f3a80aa62e40b",
+    "lib/session-state.ts": "5e10d142659b4df49caabaa5e8a2c51bd665ed4e80fa2490557b07642ae4c863",
+    "LICENSE": "eb8f136f6ea8c474205493ce95e2559c72aa4deb3bb23ce7c09ad4b969be4b8d",
+    "package.json": "ec851227e87b7517823fd8603066abe35a070b6f2e2083be88894eff65a28dca"
+  },
+  "vendoredFiles": [
+    "LICENSE",
+    "UPSTREAM.json",
+    "extensions/persona.ts",
+    "extensions/rewind.ts",
+    "lib/agent-dir.ts",
+    "lib/inject.ts",
+    "lib/personas.ts",
+    "lib/pi-api.ts",
+    "lib/rewind-targets.ts",
+    "lib/session-state.ts",
+    "package.json"
+  ],
+  "notVendored": [
+    "extensions/remote.ts",
+    "scripts/",
+    "test/ (contains remote-specific tests; persona/rewind acceptance is in setup/test_persona_rewind_sdk.mjs)"
+  ],
+  "patches": [
+    {
+      "file": "extensions/persona.ts",
+      "id": "structured-cached-and-every-turn",
+      "why": "Upstream early forceSystemPrompt freezes the prompt before later extensions add SEEP, boundaries and project context.",
+      "what": "Both modes assemble raw personality sections through before_agent_start. Cached preserves SDK transcript deltas. Every-turn uses the host pi-ai getCurrentSystemMessage at each provider call to replay the full current prompt and tools into a leading system checkpoint. No forceSystemPrompt and no conversation-text scrubbing."
+    },
+    {
+      "file": "lib/inject.ts",
+      "id": "named-section-repair-only",
+      "why": "Regex scrubbing removes literal user, assistant and tool material; rewriting only the first system message can be overridden by later deltas.",
+      "what": "Remove the scrubbing helpers. Repair only named system sections at the last system delta when the effective value differs. Raw options and rendered transcript sections are kept distinct."
+    },
+    {
+      "file": "extensions/persona.ts",
+      "id": "rules-ownership-released",
+      "why": "The workbench load-system-prompt owns generic-rules and applies project priority.",
+      "what": "Persona never writes or deletes generic-rules."
+    },
+    {
+      "file": "lib/session-state.ts",
+      "id": "shared-persona-precedence",
+      "why": "Explicit off must suppress legacy PERSONALITY.md; a usable directory default must win in either load order. Rewind must keep the latest conversation choice.",
+      "what": "Share explicit/default/legacy selection resolution with load-system-prompt. Read all append-only session entries. Correct comments that claimed rewind restored earlier choices."
+    },
+    {
+      "file": "lib/personas.ts",
+      "id": "atomic-settings-errors-propagate",
+      "why": "Upstream swallowed write failures and returned unsaved effective values; malformed JSON could be overwritten.",
+      "what": "Merge unknown keys, reject malformed existing settings, write an exclusive temporary file and rename atomically, clean temporary files, and propagate errors. Persona commands notify success only after saving; cancellations change nothing."
+    },
+    {
+      "file": "Tool/prompts/extensions/load-system-prompt.ts",
+      "id": "directory-precedence-and-live-legacy-refresh",
+      "why": "Only-if-absent legacy mounting freezes old content; context sections are already rendered and later system deltas can override a first-message repair.",
+      "what": "Use shared directory selection precedence. Refresh assets and reconcile owned rendered sections at each request, including updates and removal. Keep RULES project .pi > project > user priority, SEEP and boundary sections."
+    },
+    {
+      "file": "package.json",
+      "id": "host-transcript-helper-peer",
+      "why": "Every-turn uses the installed SDK transcript replay helper instead of duplicating the prompt or tool replay algorithm.",
+      "what": "Declare host-provided @earendil-works/pi-ai as a peer dependency; no bundled runtime or remote extension."
+    }
+  ]
+}
