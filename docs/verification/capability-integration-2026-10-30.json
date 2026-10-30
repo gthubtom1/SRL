@@ -1,0 +1,268 @@
+{
+  "version": "1.29.0",
+  "status": "capability-candidate-specialized-checks-passed",
+  "full_regression_rerun": false,
+  "stable_validation_baseline": "1.28.1",
+  "formal_domains": 9,
+  "active_subskills": 35,
+  "archived_skill_entries": 22,
+  "subagent_model": "codex/gpt-6.1-sol",
+  "subagents": 6,
+  "checks": [
+    {
+      "check": "handoffs",
+      "exit": 0
+    },
+    {
+      "check": "routes",
+      "exit": 0
+    },
+    {
+      "check": "domains",
+      "exit": 0
+    },
+    {
+      "check": "adapters",
+      "exit": 0
+    },
+    {
+      "check": "tools",
+      "exit": 0
+    },
+    {
+      "check": "public-inventory",
+      "exit": 0
+    },
+    {
+      "check": "docs",
+      "exit": 0
+    }
+  ],
+  "deployment": [
+    {
+      "skill": "asset-discovery",
+      "exit": 0,
+      "repo_reachable": true,
+      "deploy_reachable": true
+    },
+    {
+      "skill": "oauth-oidc",
+      "exit": 0,
+      "repo_reachable": true,
+      "deploy_reachable": true
+    },
+    {
+      "skill": "source-review",
+      "exit": 0,
+      "repo_reachable": true,
+      "deploy_reachable": true
+    },
+    {
+      "skill": "game-runtime",
+      "exit": 0,
+      "repo_reachable": true,
+      "deploy_reachable": true
+    },
+    {
+      "skill": "game-rendering",
+      "exit": 0,
+      "repo_reachable": true,
+      "deploy_reachable": true
+    }
+  ],
+  "environment": {
+    "installed": true,
+    "missing": []
+  },
+  "scope": "Five bounded offline helpers and domain workflows; no live target, device, engine, hosted CI, or UI acceptance asserted.",
+  "logs": [
+    {
+      "path": "tmp/capability-integration-20261030/actual-environment.json",
+      "sha256": "e24e70c15e677a7bb717f7dde5c5d10bb56a71d882de9b36302d54eb5efabed0"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/actual-install.log",
+      "sha256": "a4ea500573aa1a45c4fd1c2a968dc603c45fba7e2434859261165cdcea241cb9"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/adapters.log",
+      "sha256": "32e736c90e1c77f4f19a017414bdde330998cf46b0c9ce7159185019c7ea0142"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/asset-discovery-canonical-import.json",
+      "sha256": "fbee321f13d844057f28db64c8e83e4988424b759770c696c45d98ae344f169e"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/asset-discovery-deployed.json",
+      "sha256": "2376230f499d31e49e13ef9359c5630d733113a83960fb54214e00f2ed5f2244"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/asset-discovery-final-import.json",
+      "sha256": "965354c7bde8d3f1b1ef32a5b19847a9f1eda79453cd29b3bf48f4d7d205e11c"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/asset-discovery-import.json",
+      "sha256": "fa5830cc52593078e7c330e5c7b818fbd7fdfb07dd4b010772d0577706721cbe"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/asset-discovery-reimport.json",
+      "sha256": "101f8a430262e23fb614500a88571f07205d255b9ec5f474cbbe2505dff3c1ab"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/asset-discovery-self-test.log",
+      "sha256": "243f894d143abc18605612646366b06a1121ebc7f80f0603112d624a6802e1ca"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/checks.json",
+      "sha256": "8ee7840bad7795cf475914d24da95f1174036fbc95ed239064f0dab4aebdf890"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/deployment-verification.json",
+      "sha256": "8573d6dbc0dc6a9bfe1b65c0abe94640c41918946eeca4ed0fe4869c086d8d5e"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/docs.log",
+      "sha256": "5e3f42cd4203dc9789f261aaf773a67222175c7bf2d2063fcada5b23b1833ab2"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/domains.log",
+      "sha256": "b51a3b01a95cfa3c2824d34af3e1bd18684ee4ae693be901df4517f503bd9e71"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/final-handoffs.json",
+      "sha256": "4d203987819ed892f3f0fabd855e6295a49a31513360a5b7b0afa53bc8d852ec"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/final-source-scan.json",
+      "sha256": "7f9e9dfa24c0996bf1acb53f930e703a042aaea8fa6fff6c9f451baff7fe6607"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/fixture-relocation.json",
+      "sha256": "d755733cd087965869a6cb927a0f0855939f2dbf4fe929d8f5db07d47b9ac3c6"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-rendering-canonical-import.json",
+      "sha256": "e073bee898d7942de9d2916ffac2cc540d80aa129a9590984e4ae1c570c7c997"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-rendering-deployed.json",
+      "sha256": "d6b333450ba83261cc79432b46bcc38a01b548df6af388909db720de4047f2b7"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-rendering-final-import.json",
+      "sha256": "312abb6cd063b5a87f48ee9dd026e0d92fb9df2c9fb0cf89b48c0d1f5d6c4482"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-rendering-import.json",
+      "sha256": "a1e366fe873dd89deb0351cdc775a168843ddf5bf958fb5472f991bbe1c19464"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-rendering-self-test.log",
+      "sha256": "171e49671b2e73a4933f2dde53e69a394d1e2c14c890233743caf8dc0548a51d"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-runtime-canonical-import.json",
+      "sha256": "5c4b0121b7462ee1073103eddc8037ab82d84d5997a3b7c8b9ce720ee4583b64"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-runtime-deployed.json",
+      "sha256": "09d6d280531796f8166a9053d6dd529f4eb8f6f023a269f5cf2b2611f1b99b59"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-runtime-final-import.json",
+      "sha256": "41432202f38f0436cb7a0088a68a6001e51d89d6309a375c4ae0804ecf4144fd"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-runtime-import.json",
+      "sha256": "98d2c7fef7df2f45dd0d40639312342ce0e50c15e6773e978111401eff1d095b"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/game-runtime-self-test.log",
+      "sha256": "2b92654e0ffafee10c31d104af864c359821e7da453483ff47d435e0bb94e668"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/handoffs.json",
+      "sha256": "f5ea30373ed5fc49a6d162f2d145af0c5fb322afbfb0210f423788321f433ef5"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/handoffs.log",
+      "sha256": "f5ea30373ed5fc49a6d162f2d145af0c5fb322afbfb0210f423788321f433ef5"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/helper-regressions.log",
+      "sha256": "be3358e6833cbdebc6a17ae46369bb5996fd26bbe1dff2d85c6a076160771778"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/imports.json",
+      "sha256": "a89486497fbef1fad848d1d7447b0d1e49010efdf95d5bbcb880ff2244aa1e2f"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/isolated-install.log",
+      "sha256": "5c58ea6abaf51d526d8cde89f85b8d8afc1577ff474268c49c37dc01d2a4249c"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/main-handoffs.json",
+      "sha256": "4d203987819ed892f3f0fabd855e6295a49a31513360a5b7b0afa53bc8d852ec"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/main-helper-regressions.log",
+      "sha256": "536a081e6573662142faf08eedb07215ad3e7dd488d887ba051bf7274d79fc60"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/oauth-oidc-canonical-import.json",
+      "sha256": "39d57c1b086c2f15466a62263ac78f1305cdfb68fed06699088f45a16ed8cf9c"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/oauth-oidc-deployed.json",
+      "sha256": "434240e9b820afa54e483f7910b90d2382beedb9933e52976c67e075321c0ef5"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/oauth-oidc-import.json",
+      "sha256": "c205675d9cc9e334e15ca47718bba22d90094027ad1797f90e5110d478d71e5c"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/oauth-oidc-self-test.log",
+      "sha256": "1be66c662796a6a6db54480f6016c7ce87b3b6a7e936a7934ae4dcdca5bfe921"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/pre-upload.json",
+      "sha256": "0abec713269d2b19e07afb14102ae86e499c96c636def2f5cd46ff0380f1d9ef"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/public-inventory.log",
+      "sha256": "edd6cf8f1ad7bc2e0ead2ea6708cc8b6704a7cbbbf0064e5edda041a6fda4517"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/routes.log",
+      "sha256": "da043a6dceaa274e3086a706def8957031ea31f16d637d8c55108ab4d916fb8a"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/self-tests.json",
+      "sha256": "bf4bac81f0d7ad8b57ecd44caa256ef080552141fe9f3e5ae104edda44d3b64b"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/source-review-canonical-import.json",
+      "sha256": "00ca6e3510eaf98a1aeff9fa054a607996589ec5a3bf1ef39f72944303caf09a"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/source-review-deployed.json",
+      "sha256": "53181344ace3e8f965595020c38eb7f29578f4af719c014a8150dded2177bcc4"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/source-review-final-import.json",
+      "sha256": "514e3e2b3635d18cafe5765dbd33bcafaaab08296f56e54f9d7264b6453b42c0"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/source-review-import.json",
+      "sha256": "a415475c456207bb2ecae3447e282ad92041743f31b0b224d0d0b13de15dd7ff"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/source-review-self-test.log",
+      "sha256": "b5bb1e760639f9cd36b79e470cad4b05427fa98fe0a0d15e5f92566e0836b73d"
+    },
+    {
+      "path": "tmp/capability-integration-20261030/tools.log",
+      "sha256": "0ed8ef0fce52f8563227d448b749d7e417ed7d2db78c41b50717340ca1781822"
+    }
+  ]
+}
