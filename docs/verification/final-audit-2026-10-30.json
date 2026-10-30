@@ -1,0 +1,3940 @@
+{
+  "schema": "seep.independent-audit/1",
+  "date": "2026-10-30",
+  "version": "1.28.1",
+  "baseline_commit": "0d2d756a7aea25c5a9953bcd02cb3ab07fe6d093",
+  "initial_implementation_commit": "fc7f2278c5e7dd59435af86aff060e71fbd18e87",
+  "final_implementation_commit": "9366b725a5f67bb1762c1d9a081f992255d6d789",
+  "subagent_model": "codex/gpt-6.1-sol",
+  "subagent_count": 6,
+  "status": "verified-local-baseline-with-preserved-advisories",
+  "runtime": {
+    "full_rerun_after_fixes": false,
+    "initial_summary": {
+      "pass": 96,
+      "warn": 0,
+      "fail": 4,
+      "skip": 0
+    },
+    "initial_evidence": {
+      "path": "tmp/final-audit-20261030-codex/runtime.json",
+      "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+    },
+    "final_summary": {
+      "pass": 101,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "suites": [
+      {
+        "name": "route",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.061,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/route.py",
+          "--check"
+        ],
+        "summary": "[PASS] 路由自洽：0 条死路由",
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "skill-handoff-links",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.163,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/skill-handoff-check.py"
+        ],
+        "summary": "\"ok\": true,",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "doc-install-entries",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.703,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/lib/doc_commands.py",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "tool-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.256,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/tool-contract-check.py",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "domain-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.081,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/domain-contract-check.py",
+          "--strict",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "domain-adapter",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.086,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/domain-adapter-check.py",
+          "--strict"
+        ],
+        "summary": "verdict: PASS (default report-only; --strict returns 2 for gaps)",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "skill-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.393,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/skill/softseep/scripts/intent-coverage.py",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "route-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.334,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/skill/softseep/scripts/skill-route-probe.py",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "rewrite-parity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 14.238,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/rewrite-route-parity.py",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "relay-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 19.604,
+        "timeout_seconds": 600,
+        "command": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "Tool/scripts/compliance-relay/tests",
+          "-v"
+        ],
+        "summary": "OK",
+        "test_count": 24,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "pre-upload",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 9.978,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "summary": "结果: 可以上传 —— 会进 git 的敏感文件 0 条 / 内容级命中 0 条（本机仅提醒 5 组，打包交付前仍要排除）",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "invariants",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.085,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/invariants.py",
+          "--check"
+        ],
+        "summary": "结论：全部不变量成立（9 域一次覆盖）",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "unit",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.312,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/gate.py",
+          "--all"
+        ],
+        "summary": "[GATE] 9 个包：结构 pass 9 / fail 0（unknown 记为 fail，不计 pass）",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "e2e",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 24.772,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/domain-gate.py",
+          "--all"
+        ],
+        "summary": "结果: 92/92 通过",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "capability-compose",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.159,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/skill/softseep/scripts/capability-gate.py",
+          "--json"
+        ],
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "acceptance-integrity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 39.206,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_acceptance_integrity.py"
+        ],
+        "summary": "OK",
+        "test_count": 18,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "acceptance-presence",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 12.491,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_acceptance_presence.py"
+        ],
+        "summary": "OK",
+        "test_count": 11,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "apk-core-chain",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.891,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_apk_core_chain.py"
+        ],
+        "summary": "OK",
+        "test_count": 20,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "archive-recovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 11.756,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_archive_recovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 4,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "budget-prompt",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.911,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_budget_prompt.py"
+        ],
+        "summary": "OK",
+        "test_count": 1,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "case-evidence",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.378,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_case_evidence.py"
+        ],
+        "summary": "OK",
+        "test_count": 17,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "case-ledger",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.726,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_case_ledger.py"
+        ],
+        "summary": "OK",
+        "test_count": 12,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "case-legacy",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.199,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_case_legacy.py"
+        ],
+        "summary": "OK",
+        "test_count": 12,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "case-lifecycle",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.145,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_case_lifecycle.py"
+        ],
+        "summary": "OK",
+        "test_count": 24,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "case-readers",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.306,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_case_readers.py"
+        ],
+        "summary": "OK",
+        "test_count": 8,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "case-repro",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 11.445,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_case_repro.py"
+        ],
+        "summary": "OK",
+        "test_count": 18,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "closure-consistency",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 54.221,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_closure_consistency.py"
+        ],
+        "summary": "OK",
+        "test_count": 28,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "domain-adapter-check",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.079,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_domain_adapter_check.py"
+        ],
+        "summary": "OK",
+        "test_count": 1,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "domain-gate-integrity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.805,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_domain_gate_integrity.py"
+        ],
+        "summary": "OK",
+        "test_count": 10,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "domain-registry",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_domain_registry.py"
+        ],
+        "test_count": 29,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_domain_registry.log",
+          "sha256": "7482dae4072fcfe11a180bf32ae31a0503e67c53d9635860d8ed2133dd53c0b5"
+        }
+      },
+      {
+        "name": "domain-task-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 78.475,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_domain_task_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 8,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "env-readiness",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.04,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_env_readiness.py"
+        ],
+        "summary": "OK",
+        "test_count": 7,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "evidence-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.801,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_evidence_contract.py"
+        ],
+        "summary": "OK",
+        "test_count": 25,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "frida-wrapper",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.12,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_frida_wrapper.py"
+        ],
+        "summary": "OK",
+        "test_count": 4,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "gate-integrity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.233,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_gate_integrity.py"
+        ],
+        "summary": "OK",
+        "test_count": 19,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "gates",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.59,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_gates.py"
+        ],
+        "summary": "[OK] 行为与期望一致（上下文 16 + 运行上下文 6 + 写入范围 4 + cmd-guard 9 + 熔断出口 7）",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "historical-plugin-acceptance",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_historical_plugin_acceptance.py"
+        ],
+        "test_count": 1,
+        "evidence_source": "final-original-location-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/historical-plugin-final.log",
+          "sha256": "f1e0ee63e9b7471133b2cd92f89169a47e7982c67c0f7c26302357cc2b0df39c"
+        }
+      },
+      {
+        "name": "import-metadata",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 17.21,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_import_metadata.py"
+        ],
+        "summary": "OK",
+        "test_count": 20,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "import-transactions",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 27.466,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_import_transactions.py"
+        ],
+        "summary": "OK",
+        "test_count": 85,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "kb-colloquial",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.704,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_kb_colloquial.py"
+        ],
+        "summary": "结果: 命中 12/12（门槛 >=10/12）；扩展 6/6；空结果近邻 PASS",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "manager-integration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.418,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_manager_integration.py"
+        ],
+        "summary": "OK",
+        "test_count": 28,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "manifest-summary",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.367,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_manifest_summary.py"
+        ],
+        "summary": "OK",
+        "test_count": 1,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "mcp-execution",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.115,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_mcp_execution.py"
+        ],
+        "summary": "OK",
+        "test_count": 16,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "mcp-lifecycle",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.072,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_mcp_lifecycle.py"
+        ],
+        "summary": "OK",
+        "test_count": 35,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "mutation-isolation",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_mutation_isolation.py"
+        ],
+        "test_count": 19,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_mutation_isolation.log",
+          "sha256": "bf3cce1cb86da7d020716b4de9cd3dc97f87bbb8e048085541f7d95ce2731e74"
+        }
+      },
+      {
+        "name": "net-rollback",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.885,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_net_rollback.py"
+        ],
+        "summary": "OK",
+        "test_count": 16,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "pending-chain-health",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 9.899,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_pending_chain_health.py"
+        ],
+        "summary": "OK",
+        "test_count": 6,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "preflight-language",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.054,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_preflight_language.py"
+        ],
+        "summary": "OK",
+        "test_count": 2,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "preflight-ownership",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.064,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_preflight_ownership.py"
+        ],
+        "summary": "OK",
+        "test_count": 11,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "preflight-root",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.148,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_preflight_root.py"
+        ],
+        "summary": "OK",
+        "test_count": 12,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "process-tree",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 7.776,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_process_tree.py"
+        ],
+        "summary": "OK",
+        "test_count": 7,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "project-acceptance",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 53.551,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_acceptance.py"
+        ],
+        "summary": "OK",
+        "test_count": 32,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 48.1,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_archive.py"
+        ],
+        "summary": "OK",
+        "test_count": 19,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "project-integration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 24.121,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_integration.py"
+        ],
+        "summary": "OK",
+        "test_count": 20,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "project-ledger-identity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 15.296,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_ledger_identity.py"
+        ],
+        "summary": "OK",
+        "test_count": 8,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "project-report",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 46.235,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_report.py"
+        ],
+        "summary": "OK",
+        "test_count": 18,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "project-transaction",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.575,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_transaction.py"
+        ],
+        "summary": "OK",
+        "test_count": 14,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "project-typed-inputs",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 11.323,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_typed_inputs.py"
+        ],
+        "summary": "OK",
+        "test_count": 7,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 88.356,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_workflow.py"
+        ],
+        "summary": "OK",
+        "test_count": 52,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "project-write-recovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 39.108,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_write_recovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 14,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "prompt-extensions",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.851,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_prompt_extensions.py"
+        ],
+        "summary": "OK",
+        "test_count": 16,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "protocol-domain-chain",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.134,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_protocol_domain_chain.py"
+        ],
+        "summary": "OK",
+        "test_count": 22,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "r10-firmware-contracts",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.132,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_r10_firmware_contracts.py"
+        ],
+        "summary": "OK",
+        "test_count": 7,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "r10a-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_r10a_contracts.py"
+        ],
+        "test_count": 10,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_r10a_contracts.log",
+          "sha256": "479c0409c48ba6a094ee60862da5e894ef8947b66d0a4de3e1fdaa8ba2ad95e7"
+        }
+      },
+      {
+        "name": "r12-gate-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_r12_gate_contracts.py"
+        ],
+        "test_count": 9,
+        "evidence_source": "final-targeted-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/r12-final.log",
+          "sha256": "86862caf1c797629d5600626c2b67dc3a373b0962b2751876f21da53a9409106"
+        }
+      },
+      {
+        "name": "read-guard",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.552,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_read_guard.py"
+        ],
+        "summary": "[OK] 读守卫：7/7 通过（隐私区拦、正常路径放行）",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "report-claim-ledger",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 9.017,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_report_claim_ledger.py"
+        ],
+        "summary": "OK",
+        "test_count": 6,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "report-recovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 28.672,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_report_recovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 9,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "retry-levels",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 5.923,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_retry_levels.py"
+        ],
+        "summary": "OK",
+        "test_count": 7,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "route-integrity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.254,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_route_integrity.py"
+        ],
+        "summary": "OK",
+        "test_count": 10,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "run-acceptance-history",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 38.292,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_run_acceptance_history.py"
+        ],
+        "summary": "OK",
+        "test_count": 14,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "run-failure-state",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 32.543,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_run_failure_state.py"
+        ],
+        "summary": "OK",
+        "test_count": 9,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "runtime-install-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_runtime_install_delivery.py"
+        ],
+        "test_count": 48,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_runtime_install_delivery.log",
+          "sha256": "32b1894ce0a2cf863711c4d34c266423cc68e004d3f6da30480b5cb10a17a9f7"
+        }
+      },
+      {
+        "name": "runtime-registration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.711,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_registration.py"
+        ],
+        "summary": "OK",
+        "test_count": 30,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "runtime-root",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.568,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_root.py"
+        ],
+        "summary": "OK",
+        "test_count": 17,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "runtime-shell-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 109.943,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_shell_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 29,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "skill-deployment",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 5.309,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_skill_deployment.py"
+        ],
+        "summary": "OK",
+        "test_count": 4,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "skill-handoffs",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.07,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_skill_handoffs.py"
+        ],
+        "summary": "OK",
+        "test_count": 4,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "skill-import",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 9.473,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_skill_import.py"
+        ],
+        "summary": "OK",
+        "test_count": 46,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 17.874,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_source_inventory.py"
+        ],
+        "summary": "OK",
+        "test_count": 55,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "terminal-history",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 31.121,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_terminal_history.py"
+        ],
+        "summary": "OK",
+        "test_count": 15,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "tool-autonomy",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.547,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_autonomy.py"
+        ],
+        "summary": "[OK] 工具自治：21 条全过 —— 工具静默、旧回执不裁决、隐私读取仍拦截",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.111,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_dependencies.py"
+        ],
+        "summary": "OK",
+        "test_count": 63,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "tool-discovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.47,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_discovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 5,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "tool-install-recovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.034,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_install_recovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 23,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "tool-installation",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 14.719,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_installation.py"
+        ],
+        "summary": "OK",
+        "test_count": 65,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "tool-probe-audit",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.269,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_probe_audit.py"
+        ],
+        "summary": "OK",
+        "test_count": 13,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "typed-assets",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.742,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_typed_assets.py"
+        ],
+        "summary": "OK",
+        "test_count": 35,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.155,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_version_migrate_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 7,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "version-migrate-recovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.528,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_version_migrate_recovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 2,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "clean-format",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.101,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_clean_format.py"
+        ],
+        "summary": "OK",
+        "test_count": 2,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "merge-agent-config",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.993,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_merge_agent_config.py"
+        ],
+        "summary": "OK",
+        "test_count": 32,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "restore-boundaries",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.454,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_restore_boundaries.py"
+        ],
+        "summary": "OK",
+        "test_count": 5,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "rewind-boundaries",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.129,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_rewind_boundaries.py"
+        ],
+        "summary": "OK",
+        "test_count": 1,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "sync-upstream",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.994,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_sync_upstream.py"
+        ],
+        "summary": "OK",
+        "test_count": 16,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "seep-mcp",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.173,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_seep_mcp.py"
+        ],
+        "summary": "ALL CURRENT MCP SMOKE TESTS PASSED",
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "ext-assets",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.741,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_ext_assets.py"
+        ],
+        "summary": "OK",
+        "test_count": 18,
+        "evidence_source": "final-complete-engineering-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/engineering.json",
+          "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+        }
+      },
+      {
+        "name": "pcap-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.636,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_pcap_contract.py"
+        ],
+        "summary": "OK",
+        "test_count": 31,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "readonly-parameters",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.841,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_readonly_parameters.py"
+        ],
+        "summary": "OK",
+        "test_count": 18,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "apk-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.011,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_apk_contract.py"
+        ],
+        "summary": "OK",
+        "test_count": 14,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      },
+      {
+        "name": "audit-boundaries",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.108,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_audit_boundaries.py"
+        ],
+        "summary": "OK",
+        "test_count": 6,
+        "evidence_source": "unchanged-scope-initial-complete-runtime",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/runtime.json",
+          "sha256": "ecc14715f5c723f9d677c88ebaecb9efaa2c783d2d7cfb938eee2527de41e093"
+        }
+      }
+    ],
+    "basis": "Complete initial runtime plus complete final engineering and affected/new suite rechecks; retained passes are not described as a second full runtime execution."
+  },
+  "engineering": {
+    "complete_run_on_final_code": true,
+    "summary": {
+      "pass": 51,
+      "warn": 1,
+      "fail": 0,
+      "skip": 0
+    },
+    "exit_code": 2,
+    "suites": [
+      {
+        "name": "lint",
+        "status": "WARN",
+        "ok": false,
+        "accepted": true,
+        "returncode": 2,
+        "seconds": 70.779,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/preflight.py",
+          "--fast"
+        ],
+        "summary": "存在 WARN/未验证项：结果: 79/83 可验证项通过（另有 4 条 WARN/INFO，其中 1 条已豁免；这些不计为验证通过）"
+      },
+      {
+        "name": "tool-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.256,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/tool-contract-check.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "domain-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.081,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/domain-contract-check.py",
+          "--strict",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "domain-adapter",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.086,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/domain-adapter-check.py",
+          "--strict"
+        ],
+        "summary": "verdict: PASS (default report-only; --strict returns 2 for gaps)"
+      },
+      {
+        "name": "skill-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.393,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/skill/softseep/scripts/intent-coverage.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "kb-colloquial",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.704,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_kb_colloquial.py"
+        ],
+        "summary": "结果: 命中 12/12（门槛 >=10/12）；扩展 6/6；空结果近邻 PASS"
+      },
+      {
+        "name": "route-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.334,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/skill/softseep/scripts/skill-route-probe.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "rewrite-parity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 14.238,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/rewrite-route-parity.py",
+          "--json"
+        ],
+        "summary": "ok=True"
+      },
+      {
+        "name": "relay-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 19.604,
+        "timeout_seconds": 600,
+        "command": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "Tool/scripts/compliance-relay/tests",
+          "-v"
+        ],
+        "summary": "OK",
+        "test_count": 24
+      },
+      {
+        "name": "mcp-smoke",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.173,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_seep_mcp.py"
+        ],
+        "summary": "ALL CURRENT MCP SMOKE TESTS PASSED"
+      },
+      {
+        "name": "mcp-ext-assets",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.741,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/mcp/test_ext_assets.py"
+        ],
+        "summary": "OK",
+        "test_count": 18
+      },
+      {
+        "name": "project-lifecycle",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.181,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/project_state.py",
+          "--self-test"
+        ],
+        "summary": "{\"ok\": true, \"checks\": 46, \"conclusion\": \"project state self-test passed\"}"
+      },
+      {
+        "name": "manager-state",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.238,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/manager_state.py",
+          "--self-test"
+        ],
+        "summary": "{\"ok\": true, \"checks\": 14, \"conclusion\": \"manager state self-test passed\"}"
+      },
+      {
+        "name": "evidence-contract",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.801,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_evidence_contract.py"
+        ],
+        "summary": "OK",
+        "test_count": 25
+      },
+      {
+        "name": "runtime-registration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.711,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_registration.py"
+        ],
+        "summary": "OK",
+        "test_count": 30
+      },
+      {
+        "name": "runtime-root",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.568,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_root.py"
+        ],
+        "summary": "OK",
+        "test_count": 17
+      },
+      {
+        "name": "env-readiness",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.04,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_env_readiness.py"
+        ],
+        "summary": "OK",
+        "test_count": 7
+      },
+      {
+        "name": "config-merge",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.993,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_merge_agent_config.py"
+        ],
+        "summary": "OK",
+        "test_count": 32
+      },
+      {
+        "name": "upstream-sync",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.994,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_sync_upstream.py"
+        ],
+        "summary": "OK",
+        "test_count": 16
+      },
+      {
+        "name": "source-format",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.101,
+        "timeout_seconds": 600,
+        "command": [
+          "setup/test_clean_format.py"
+        ],
+        "summary": "OK",
+        "test_count": 2
+      },
+      {
+        "name": "tool-discovery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 1.47,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_discovery.py"
+        ],
+        "summary": "OK",
+        "test_count": 5
+      },
+      {
+        "name": "skill-deployment",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 5.309,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_skill_deployment.py"
+        ],
+        "summary": "OK",
+        "test_count": 4
+      },
+      {
+        "name": "skill-handoffs",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.163,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/skill-handoff-check.py"
+        ],
+        "summary": "\"ok\": true,"
+      },
+      {
+        "name": "skill-handoff-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.07,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_skill_handoffs.py"
+        ],
+        "summary": "OK",
+        "test_count": 4
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.111,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_dependencies.py"
+        ],
+        "summary": "OK",
+        "test_count": 63
+      },
+      {
+        "name": "manager-integration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.418,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_manager_integration.py"
+        ],
+        "summary": "OK",
+        "test_count": 28
+      },
+      {
+        "name": "project-integration",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 24.121,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_integration.py"
+        ],
+        "summary": "OK",
+        "test_count": 20
+      },
+      {
+        "name": "project-acceptance",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 53.551,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_acceptance.py"
+        ],
+        "summary": "OK",
+        "test_count": 32
+      },
+      {
+        "name": "project-acceptance-integrity",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 39.206,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_acceptance_integrity.py"
+        ],
+        "summary": "OK",
+        "test_count": 18
+      },
+      {
+        "name": "acceptance-presence",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 12.491,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_acceptance_presence.py"
+        ],
+        "summary": "OK",
+        "test_count": 11
+      },
+      {
+        "name": "run-acceptance-history",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 38.292,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_run_acceptance_history.py"
+        ],
+        "summary": "OK",
+        "test_count": 14
+      },
+      {
+        "name": "terminal-history",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 31.121,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_terminal_history.py"
+        ],
+        "summary": "OK",
+        "test_count": 15
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 88.356,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_workflow.py"
+        ],
+        "summary": "OK",
+        "test_count": 52
+      },
+      {
+        "name": "typed-assets",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.742,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_typed_assets.py"
+        ],
+        "summary": "OK",
+        "test_count": 35
+      },
+      {
+        "name": "project-typed-inputs",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 11.323,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_typed_inputs.py"
+        ],
+        "summary": "OK",
+        "test_count": 7
+      },
+      {
+        "name": "project-report",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 46.235,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_report.py"
+        ],
+        "summary": "OK",
+        "test_count": 18
+      },
+      {
+        "name": "report-claim-ledger",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 9.017,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_report_claim_ledger.py"
+        ],
+        "summary": "OK",
+        "test_count": 6
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 48.1,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_project_archive.py"
+        ],
+        "summary": "OK",
+        "test_count": 19
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 3.155,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_version_migrate_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 7
+      },
+      {
+        "name": "runtime-install-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 88.783,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_install_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 48
+      },
+      {
+        "name": "runtime-shell-delivery",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 109.943,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_runtime_shell_delivery.py"
+        ],
+        "summary": "OK",
+        "test_count": 29
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 17.874,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_source_inventory.py"
+        ],
+        "summary": "OK",
+        "test_count": 55
+      },
+      {
+        "name": "tool-autonomy",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.547,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_tool_autonomy.py"
+        ],
+        "summary": "[OK] 工具自治：21 条全过 —— 工具静默、旧回执不裁决、隐私读取仍拦截"
+      },
+      {
+        "name": "read-guard",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.552,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_read_guard.py"
+        ],
+        "summary": "[OK] 读守卫：7/7 通过（隐私区拦、正常路径放行）"
+      },
+      {
+        "name": "pre-upload",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 9.978,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "summary": "结果: 可以上传 —— 会进 git 的敏感文件 0 条 / 内容级命中 0 条（本机仅提醒 5 组，打包交付前仍要排除）"
+      },
+      {
+        "name": "tool-readiness",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 7.218,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/tool-readiness.py"
+        ],
+        "summary": "结果: 6/6 行 | READY 4 / FOUND_NO_VERIFY 2 / MISSING 0 | 探测机制 OK"
+      },
+      {
+        "name": "invariants",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.085,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/invariants.py",
+          "--check"
+        ],
+        "summary": "结论：全部不变量成立（9 域一次覆盖）"
+      },
+      {
+        "name": "gate-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 0.59,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/test_gates.py"
+        ],
+        "summary": "[OK] 行为与期望一致（上下文 16 + 运行上下文 6 + 写入范围 4 + cmd-guard 9 + 熔断出口 7）"
+      },
+      {
+        "name": "unit",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 4.312,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/gate.py",
+          "--all"
+        ],
+        "summary": "[GATE] 9 个包：结构 pass 9 / fail 0（unknown 记为 fail，不计 pass）"
+      },
+      {
+        "name": "e2e",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 24.772,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/domain-gate.py",
+          "--all"
+        ],
+        "summary": "结果: 92/92 通过"
+      },
+      {
+        "name": "kb-tests",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 2.001,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/kb_acceptance.py"
+        ],
+        "summary": "结果: 9/9 通过"
+      },
+      {
+        "name": "mutation",
+        "status": "PASS",
+        "ok": true,
+        "accepted": true,
+        "returncode": 0,
+        "seconds": 189.045,
+        "timeout_seconds": 600,
+        "command": [
+          "Tool/scripts/mutation.py"
+        ],
+        "summary": "结果: 6/6 变异被抓"
+      }
+    ],
+    "evidence": {
+      "path": "tmp/final-audit-20261030-codex/engineering.json",
+      "sha256": "fa396a21cee3da603abbc8cc1049f80d0ecb1779ffd9e51bb3e7de5f795f8ecb"
+    },
+    "source_integrity": {
+      "path": "tmp/final-audit-20261030-codex/engineering-source-integrity.json",
+      "sha256": "aacc31630f68f3b4fc3139066354603e12d2649a5c8cba549ae5e47c1edbbedf"
+    }
+  },
+  "public_source": {
+    "full_acceptance": false,
+    "full_rerun_after_fixes": false,
+    "initial_summary": {
+      "pass": 95,
+      "warn": 0,
+      "fail": 2,
+      "skip": 0
+    },
+    "final_summary": {
+      "pass": 98,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "excluded": {
+      "unit": "Complete all-pack witness acceptance includes the user-supplied, gitignored apkseep08/target/release.apk. Keep gate.py --all unchanged for local full acceptance.",
+      "e2e": "Complete domain depth acceptance verifies apkseep08 private APK and all declared depth cases. Keep domain-gate.py --all and its case set unchanged.",
+      "historical-plugin-acceptance": "Historical plugin run records bind their original absolute working directory. This unchanged acceptance belongs to the original recorded local environment; public protocol counterexamples remain included in r10a-contracts."
+    },
+    "private_apk_present": false,
+    "suites": [
+      {
+        "name": "route",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.068,
+        "summary": "[PASS] 路由自洽：0 条死路由",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "skill-handoff-links",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.142,
+        "summary": "\"ok\": true,",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "doc-install-entries",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.766,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.255,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "domain-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.086,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "domain-adapter",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.089,
+        "summary": "verdict: PASS (default report-only; --strict returns 2 for gaps)",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "skill-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.342,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "route-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.326,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "rewrite-parity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 20.751,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "relay-tests",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 34.932,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "pre-upload",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 5.428,
+        "summary": "结果: 可以上传 —— 会进 git 的敏感文件 0 条 / 内容级命中 0 条（本机仅提醒 1 组，打包交付前仍要排除）",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "invariants",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.089,
+        "summary": "结论：全部不变量成立（9 域一次覆盖）",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "capability-compose",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.167,
+        "summary": "ok=True",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "acceptance-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 39.787,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "acceptance-presence",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 13.186,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "apk-core-chain",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.061,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "archive-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 13.165,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "budget-prompt",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.952,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "case-evidence",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.469,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "case-ledger",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.935,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "case-legacy",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.5,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "case-lifecycle",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.484,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "case-readers",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.509,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "case-repro",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 12.98,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "closure-consistency",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 57.558,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "domain-adapter-check",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.09,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "domain-gate-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.882,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "domain-registry",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_domain_registry.py"
+        ],
+        "test_count": 29,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_domain_registry.log",
+          "sha256": "7482dae4072fcfe11a180bf32ae31a0503e67c53d9635860d8ed2133dd53c0b5"
+        }
+      },
+      {
+        "name": "domain-task-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 81.988,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "env-readiness",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.927,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "evidence-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 16.079,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "frida-wrapper",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.934,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "gate-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.286,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "gates",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.643,
+        "summary": "[OK] 行为与期望一致（上下文 16 + 运行上下文 6 + 写入范围 4 + cmd-guard 9 + 熔断出口 7）",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "import-metadata",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 19.649,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "import-transactions",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 30.033,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "kb-colloquial",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.42,
+        "summary": "结果: 命中 12/12（门槛 >=10/12）；扩展 6/6；空结果近邻 PASS",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "manager-integration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.192,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "manifest-summary",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.353,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "mcp-execution",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.172,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "mcp-lifecycle",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.227,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "net-rollback",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.76,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "pending-chain-health",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 11.234,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "preflight-language",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.11,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "preflight-ownership",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.14,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "preflight-root",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.198,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "process-tree",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 7.797,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-acceptance",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 57.066,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 52.446,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-integration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 24.821,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-ledger-identity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 16.726,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-report",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 50.077,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-transaction",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.574,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-typed-inputs",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 12.167,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 92.692,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "project-write-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 39.266,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "prompt-extensions",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.117,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "protocol-domain-chain",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.936,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "r10-firmware-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.125,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "r10a-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_r10a_contracts.py"
+        ],
+        "test_count": 10,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_r10a_contracts.log",
+          "sha256": "479c0409c48ba6a094ee60862da5e894ef8947b66d0a4de3e1fdaa8ba2ad95e7"
+        }
+      },
+      {
+        "name": "r12-gate-contracts",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_r12_gate_contracts.py"
+        ],
+        "test_count": 9,
+        "evidence_source": "final-targeted-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/r12-final.log",
+          "sha256": "86862caf1c797629d5600626c2b67dc3a373b0962b2751876f21da53a9409106"
+        }
+      },
+      {
+        "name": "read-guard",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.702,
+        "summary": "[OK] 读守卫：7/7 通过（隐私区拦、正常路径放行）",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "report-claim-ledger",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 10.114,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "report-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 30.626,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "retry-levels",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 6.142,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "route-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.351,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "run-acceptance-history",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 41.282,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "run-failure-state",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 33.394,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "runtime-install-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_runtime_install_delivery.py"
+        ],
+        "test_count": 48,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_runtime_install_delivery.log",
+          "sha256": "32b1894ce0a2cf863711c4d34c266423cc68e004d3f6da30480b5cb10a17a9f7"
+        }
+      },
+      {
+        "name": "runtime-registration",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.773,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "runtime-root",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.505,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "runtime-shell-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 109.07,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "skill-deployment",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 5.296,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "skill-handoffs",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.092,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "skill-import",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 10.159,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 19.235,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "terminal-history",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 32.887,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-autonomy",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.536,
+        "summary": "[OK] 工具自治：21 条全过 —— 工具静默、旧回执不裁决、隐私读取仍拦截",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.037,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-discovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.373,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-install-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.358,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-installation",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 15.419,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "tool-probe-audit",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.259,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "typed-assets",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.925,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.349,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "version-migrate-recovery",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.681,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "clean-format",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.11,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "merge-agent-config",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 5.072,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "restore-boundaries",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.058,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "rewind-boundaries",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.133,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "sync-upstream",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 2.089,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "seep-mcp",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.075,
+        "summary": "ALL CURRENT MCP SMOKE TESTS PASSED",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "ext-assets",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 1.717,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "pcap-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.763,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "readonly-parameters",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 0.993,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "apk-contract",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 4.359,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "audit-boundaries",
+        "status": "PASS",
+        "returncode": 0,
+        "seconds": 3.183,
+        "summary": "OK",
+        "evidence_source": "unchanged-scope-initial-complete-public-run",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-initial.json",
+          "sha256": "c3b28b1394f6775d59a0fa3e14c8aca7f8e81af837b03b45de76ed3397f77dd1"
+        }
+      },
+      {
+        "name": "mutation-isolation",
+        "status": "PASS",
+        "returncode": 0,
+        "command": [
+          "Tool/scripts/test_mutation_isolation.py"
+        ],
+        "test_count": 19,
+        "evidence_source": "final-public-checkout-recheck",
+        "evidence": {
+          "path": "tmp/final-audit-20261030-codex/public-rechecks/test_mutation_isolation.log",
+          "sha256": "bf3cce1cb86da7d020716b4de9cd3dc97f87bbb8e048085541f7d95ce2731e74"
+        }
+      }
+    ],
+    "hosted_github_ci_executed": false
+  },
+  "real_sdk": [
+    {
+      "result": "PASS",
+      "sdkVersion": "1.2.0",
+      "checks": 61,
+      "networkCalls": 0,
+      "forbiddenReads": [],
+      "evidence": {
+        "path": "tmp/final-audit-20261030-codex/sdk-1.2.0.log",
+        "sha256": "f5fd29f6f9336ca5e31970198954e9ef5d29a0cd3c644dd470e0403e3f44673f"
+      }
+    },
+    {
+      "result": "PASS",
+      "sdkVersion": "1.4.0",
+      "checks": 61,
+      "networkCalls": 0,
+      "forbiddenReads": [],
+      "evidence": {
+        "path": "tmp/final-audit-20261030-codex/sdk-1.4.0.log",
+        "sha256": "e9ef9c52d00ae72de6c36f8d5cb695fccfab1cab91ab688d40c4656f625ea31a"
+      }
+    }
+  ],
+  "deployment": {
+    "installed": true,
+    "missing": [],
+    "user_configuration_unchanged": {
+      "settings.json": true,
+      "mcp.json": true
+    },
+    "persona_metadata_unchanged": true,
+    "prompts_unchanged": true
+  },
+  "history": {
+    "case_files_changed": false,
+    "historical_assertions_preserved_ast": true
+  },
+  "ui": {
+    "verified_this_audit": false,
+    "reason": "Computer Use stopped because the current browser URL could not be confidently determined; no UI action was taken."
+  },
+  "boundaries": [
+    "Windows, PowerShell and Git Bash; not native Linux/macOS acceptance",
+    "Existing running Pi sessions need reload to replace cached modules",
+    "No customer target execution, credential disclosure or remote push"
+  ],
+  "final_document_checks": {
+    "commands": {
+      "ok": true,
+      "path": "tmp/final-audit-20261030-codex/doc-commands-final.json",
+      "sha256": "5e3f42cd4203dc9789f261aaf773a67222175c7bf2d2063fcada5b23b1833ab2"
+    },
+    "governance": {
+      "ok": true,
+      "path": "tmp/final-audit-20261030-codex/doc-audit-final.json",
+      "sha256": "25f1e4ff3a8b498ee194574d1a31390c23a40c955ade8c62fc998afb152c6804"
+    },
+    "pre_upload": {
+      "ok": true,
+      "path": "tmp/final-audit-20261030-codex/pre-upload-final.json",
+      "sha256": "52aad2e020aa6802cfb8fe38c19cf8aeece7fcf5bc02f4cde19e7b7488fd296b"
+    }
+  }
+}
