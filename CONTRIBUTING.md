@@ -21,7 +21,7 @@ git diff --check
 
 GitHub 的 `gates` 分别在 Linux 和 Windows 运行**公开源码复验**，覆盖隔离部署、公开材料专项、真实 SDK 与 MCP；它不是完整领域验收。公开套件的逐项命令及排除原因见 [.github/public-suites.json](.github/public-suites.json)，用 `python .github/scripts/check_public_source.py --list` 查看。runner 复用 `check.runtime_suites/run_one` 与超时；新增未分类套件或命令变更会失败，不会静默漏测。套件内的非零、WARN 或跳过仍返回非零，排除项另列为范围外，不记作 PASS 或 SKIP。
 
-`unit`、`e2e` 及调用完整 preflight 的 `mutation-isolation` 不在公开范围：原完整验收依赖用户提供、gitignored 的 `Tool/cases/apkseep08/target/release.apk`。`preflight.py --fast` 同样包含完整领域检查。不得上传该客户 APK、伪造证据或缩减原 witness/depth 集合。维护者在获授权的独立本机 worktree 按登记哈希准备原件后，仍运行原完整 `check.py --runtime --strict --json` 和 `preflight.py --fast`；缺原件时原门禁继续失败。公开 CI 与本机完整验收分别报告，前者不能推出后者。
+`unit`、`e2e` 不在公开范围：原完整验收依赖用户提供、gitignored 的 `Tool/cases/apkseep08/target/release.apk` 及其他历史案例材料。`historical-plugin-acceptance` 单独验证记录了原仓绝对执行目录的历史案例，保留全部原断言；其余 10 项协议/脱敏反例仍在公开的 `r10a-contracts` 中。故障注入已隔离外层 AgentRoot，`mutation-isolation` 纳入公开范围。`preflight.py --fast` 仍包含完整领域检查。不得上传客户 APK、改写历史产物、伪造证据或缩减原 witness/depth 集合。维护者在材料与历史执行目录均匹配的获授权本机运行原完整 `check.py --runtime --strict --json` 和 `preflight.py --fast`；缺件或路径不匹配继续失败。公开 CI 与本机完整验收分别报告，前者不能推出后者。
 
 所有延后处理的步骤都由最终汇总检查原始 outcome。工作流本身的失败传播可用 `python .github/tests/test_workflow_gates.py` 复查，需要 `PyYAML==6.0.3` 和对应 shell。CI 通过不替代真实宿主加载、设备或客户任务验收。
 

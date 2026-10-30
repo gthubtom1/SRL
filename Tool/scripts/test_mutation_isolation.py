@@ -389,6 +389,30 @@ class T8RealRepoUntouched(unittest.TestCase):
                 self.assertRegex(h, r"^[0-9a-f]{64}$")
 
 
+class AgentRootFixtureIsolationTests(TempRepo):
+    def test_checker_uses_fixture_despite_explicit_outer_roots(self):
+        fx = mut.Fixture(["Tool/scripts/lib/runtime_root.py"], "explicit-agent")
+        try:
+            with open(fx.path("probe.py"), "w", encoding="utf-8") as stream:
+                stream.write("import os,sys,json\n"
+                             "sys.path.insert(0, os.path.join(os.getcwd(), 'Tool', 'scripts', 'lib'))\n"
+                             "from runtime_root import resolve_agent_root\n"
+                             "print(json.dumps({'agent': str(resolve_agent_root()), 'runtime': os.environ.get('SEEP_RUNTIME_ROOT')}))\n")
+            hook = mut.write_hook(os.path.join(fx.tmp, "hook"))
+            with patch.dict(os.environ, {"PI_CODING_AGENT_DIR": "SENTINEL-outer-agent",
+                                         "PI_AGENT_DIR": "SENTINEL-fallback-agent",
+                                         "SEEP_RUNTIME_ROOT": "SENTINEL-outer-runtime"}):
+                rc, output = mut.run_in(fx, hook, ["probe.py"])
+                self.assertEqual(rc, 0, output)
+                resolved = json.loads(output)
+                self.assertEqual(os.path.normcase(resolved["agent"]),
+                                 os.path.normcase(fx.home_path(".pi", "agent")))
+                self.assertEqual(resolved["runtime"], fx.root)
+                self.assertEqual(os.environ["PI_CODING_AGENT_DIR"], "SENTINEL-outer-agent")
+        finally:
+            fx.clean()
+
+
 if __name__ == "__main__":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")

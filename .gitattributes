@@ -1,6 +1,16 @@
 # 顺序很重要：gitattributes 里**后匹配的规则生效**，所以通用规则必须写在前面
 * text=auto eol=lf
 
+# Windows cmd.exe entrypoints require CRLF; later evidence/vendor -text rules still win.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Retained upstream source trees keep their previous LF checkout policy.
+Tool/upstream/**/*.bat text=auto eol=lf
+Tool/upstream/**/*.cmd text=auto eol=lf
+Tool/mcp/Tool/reverselab/**/*.bat text=auto eol=lf
+Tool/mcp/Tool/reverselab/**/*.cmd text=auto eol=lf
+
 # 证据与二进制必须字节稳定：禁止任何换行转换（否则 sha256 在重新检出/换机器后必变）
 Tool/cases/**         -text
 Tool/mcp/Tool/safe/** -text

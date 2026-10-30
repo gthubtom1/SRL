@@ -199,9 +199,12 @@ def write_hook(hookdir):
 
 
 def child_env(fx, hookdir):
-    """子进程 env：继承当前 env，但 HOME 类**不动**；额外只注入 task-specific 变量。"""
+    """Keep HOME unchanged; bind application roots to this test fixture."""
     env = dict(os.environ)
     env["SEEP_ISO_HOME"] = fx.home
+    env["PI_CODING_AGENT_DIR"] = fx.home_path(".pi", "agent")
+    env["PI_AGENT_DIR"] = fx.home_path(".pi", "agent")
+    env["SEEP_RUNTIME_ROOT"] = fx.root
     old = env.get("PYTHONPATH") or ""
     env["PYTHONPATH"] = hookdir + ((os.pathsep + old) if old else "")
     env["PYTHONIOENCODING"] = "utf-8"

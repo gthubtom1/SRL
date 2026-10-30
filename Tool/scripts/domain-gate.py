@@ -1255,13 +1255,13 @@ def check_routing():
 def check_cleanup():
     bad = []
     # 根目录 md allowlist（DOMAIN-CONTRACT §清理）：人读入口 + 宿主直接读取的 agent 契约。
-    # 契约（DOMAIN-CONTRACT §清理）：根目录只允许 README*/ROADMAP + 需求与审查提示词（人读入口）。
+    # 契约（DOMAIN-CONTRACT §清理）：根目录允许 README*/ROADMAP、需求/审查提示词及贡献/安全说明等正式人读入口。
     # REVIEW-PROMPT-INDEPENDENT.md = 交给外部模型做独立审查的提示词（正式交付物）。
     # 过程文档→work/plans，提示词→Tool/prompts/sources，agent 契约→Tool/prompts/contracts。
     # KPI.md 是 BLUEPRINT §6 规定的根级台账（唯一 KPI 表），不是过程文档：
     # 它的存在本身就是「新增必须先有一行 KPI 前后对比」这条刹车。
     # REQUIREMENTS.md = 客户需求（白话）+ 产品解读，是"接手必读"的第一份，属人读入口。
-    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md", "KPI.md", "REQUIREMENTS.md", "REVIEW-PROMPT.md", "REVIEW-PROMPT-INDEPENDENT.md"}
+    allow_root = {"README.md", "README.zh.md", "README.en.md", "ROADMAP.md", "KPI.md", "REQUIREMENTS.md", "REVIEW-PROMPT.md", "REVIEW-PROMPT-INDEPENDENT.md", "CONTRIBUTING.md", "SECURITY.md"}
     for f in sorted(glob.glob(os.path.join(ROOT, "*.md"))):
         b = os.path.basename(f)
         if b.startswith("优化方案"):

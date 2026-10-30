@@ -663,5 +663,32 @@ class TenthDomainTransactionTest(unittest.TestCase):
         self.assertEqual(registry_mod.load_registry(self.repo).ids(), ["zz-base"])
 
 
+class CleanupDocumentationTests(unittest.TestCase):
+    def test_public_maintenance_docs_do_not_allow_process_notes(self):
+        gate = _load(os.path.join(HERE, "domain-gate.py"), "domain_gate_public_docs")
+        with tempfile.TemporaryDirectory(prefix="seep-public-docs-") as directory:
+            os.makedirs(os.path.join(directory, "docs"))
+            for name in ("ROADMAP.md", "CONTRIBUTING.md", "SECURITY.md"):
+                with io.open(os.path.join(directory, name), "w", encoding="utf-8") as stream:
+                    stream.write("# Public maintenance entry\n")
+            with io.open(os.path.join(directory, "docs", "AUDIT.md"), "w", encoding="utf-8") as stream:
+                stream.write("# 历史索引\nhistory/\n")
+            rows = []
+            gate.ROOT = directory
+            gate.add = lambda *args: rows.append(args)
+            gate.check_cleanup()
+            self.assertTrue(rows[-1][2], rows[-1][3])
+            for name in ("优化方案.md", "scratch-notes.md"):
+                with self.subTest(name=name):
+                    path = os.path.join(directory, name)
+                    with io.open(path, "w", encoding="utf-8") as stream:
+                        stream.write("# Temporary process notes\n")
+                    rows.clear()
+                    gate.check_cleanup()
+                    self.assertFalse(rows[-1][2], rows[-1][3])
+                    self.assertIn(name, rows[-1][3])
+                    os.unlink(path)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

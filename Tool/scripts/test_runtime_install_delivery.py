@@ -689,6 +689,47 @@ class RuntimeInstallDeliveryTests(unittest.TestCase):
             self.assertEqual(selected.read_bytes(), bad)
             self.assertEqual(default_config.read_bytes(), before_default)
 
+    def test_fresh_checkout_uses_crlf_for_launchers_and_preserves_binary_paths(self):
+        source = self.base / "attributes-source"
+        checkout = self.base / "attributes-checkout"
+        source.mkdir()
+        copy_file(ROOT / ".gitattributes", source / ".gitattributes")
+        launchers = ("start.bat", "setup/pi-web-lan.cmd")
+        for rel in launchers:
+            target = source / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((ROOT / rel).read_bytes().replace(b"\r\n", b"\n"))
+        # The extension-specific rule must not override later -text rules.
+        raw = b"synthetic evidence\nkeep CRLF too\r\n\x00\xff"
+        protected = ("Tool/cases/line-endings/witness.cmd",
+                     "Tool/mcp/Tool/safe/vendor/witness.bat")
+        for rel in protected:
+            target = source / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw)
+        upstream = ("Tool/upstream/example/launcher.bat",
+                    "Tool/mcp/Tool/reverselab/tools/launcher.cmd")
+        for rel in upstream:
+            target = source / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"upstream LF source\n")
+        for args in (("init", "-b", "main"), ("add", "."),
+                     ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                      "commit", "-m", "synthetic line-ending fixture")):
+            subprocess.run(["git", "-c", "core.autocrlf=false", "-C", str(source), *args],
+                           check=True, capture_output=True, timeout=20)
+        subprocess.run(["git", "-c", "core.autocrlf=false", "clone", "--no-hardlinks",
+                        str(source), str(checkout)], check=True, capture_output=True, timeout=20)
+        for rel in launchers:
+            data = (checkout / rel).read_bytes()
+            self.assertIn(b"\r\n", data, rel)
+            self.assertNotIn(b"\n", data.replace(b"\r\n", b""), rel)
+            self.assertEqual(data.replace(b"\r\n", b"\n"), (source / rel).read_bytes())
+        for rel in protected:
+            self.assertEqual((checkout / rel).read_bytes(), raw, rel)
+        for rel in upstream:
+            self.assertEqual((checkout / rel).read_bytes(), b"upstream LF source\n", rel)
+
     def test_pi_web_launcher_starts_host_and_preserves_child_status(self):
         wb = build_workbench(self.base)
         copy_file(REAL_SETUP / "pi-web-lan.cmd", wb / "setup/pi-web-lan.cmd")

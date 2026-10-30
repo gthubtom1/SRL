@@ -31,6 +31,8 @@
 
 ## 检查方式
 
+根目录的 `CONTRIBUTING.md` 和 `SECURITY.md` 是面向使用者及维护者的正式入口，属于文档清单；临时优化方案和未登记过程文档仍会被拒绝。历史案例中记录的绝对执行目录是当次证据的一部分，不能为了新 checkout 通过而改写或自动解释为当前副本；这类历史验收在其原记录环境中执行，公开源码复验分别标明范围。
+
 ```text
 python Tool/scripts/domain-gate.py --spec
 python Tool/scripts/domain-gate.py --all
