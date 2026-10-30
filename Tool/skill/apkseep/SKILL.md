@@ -53,6 +53,7 @@ mistakes that destroy an APK while looking completely healthy.
 - Unity 游戏 il2cpp / global-metadata / AssetBundle → `Tool/playbooks/game-client-il2cpp.md`
 - 私有协议、蓝牙/BLE 报文重放与构造新帧 → `Tool/playbooks/protocol-replay.md`
 - APK 内 UI 改版、换品牌与图标 → `Tool/playbooks/ui-rebrand.md`
+- APK/AAB 定制版跟随上游新版，复用上一版补丁与 UI → `Tool/playbooks/version-migrate.md`；可直接说“APK 更新了，跟随我们的定制版”或“保留我们的 UI，更新到新版”。
 
 ## 上限怎么说（对客户）
 

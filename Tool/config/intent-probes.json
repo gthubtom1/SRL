@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "description": "94 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、逆向测绘、OSINT 资产测绘、固件、取证、协议、供应链、插件、反作弊，以及 D 轮审计的极端场景（小程序/鸿蒙/OTA/BLE/Modbus/Cloudflare/容器/SaaS/多运行时/套壳/电视车机/iOS/Unity/驱动兼容）。每条只描述用户会怎么说，不写实现细节。",
+  "description": "106 条真实口吻意图探针：覆盖账号自动化、站点复刻、客户端交付、定制版追版及其路由负例、逆向测绘、OSINT 资产测绘、固件、取证、协议、供应链、插件、反作弊，以及 D 轮审计的极端场景（小程序/鸿蒙/OTA/BLE/Modbus/Cloudflare/容器/SaaS/多运行时/套壳/电视车机/iOS/Unity/驱动兼容）。每条只描述用户会怎么说，不写实现细节。",
   "families": {
     "account": 10,
     "web-clone": 8,
@@ -25,7 +25,9 @@
     "tv-car": 2,
     "ios-unity": 3,
     "driver": 2,
-    "apk-extreme": 2
+    "apk-extreme": 2,
+    "version-follow": 9,
+    "route-negative": 3
   },
   "probes": [
     {
@@ -591,6 +593,84 @@
       "text": "给我做目标域名的 OSINT 资产测绘，梳理子域枚举、证书透明日志和 GitHub 泄露",
       "expect": "osint-recon",
       "forbid": []
+    },
+    {
+      "id": "ver-follow-01",
+      "text": "软件更新了，跟随更新",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-02",
+      "text": "新版出来了，跟随我们的定制版",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-03",
+      "text": "把上一版的补丁适配到新版",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-04",
+      "text": "保留我们的 UI，更新到新版",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-05",
+      "text": "读取上次逆向记录，适配这个新版",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-06",
+      "text": "新版路径是 D:\\releases\\custom-app.exe",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-07",
+      "text": "APK 更新了，跟随我们的定制版",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-08",
+      "text": "AAB 新版出来了，保留我们的 UI，跟随更新",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "ver-follow-09",
+      "text": "Android 应用更新了，把上一版补丁适配到新版",
+      "expect": "version-migrate",
+      "forbid": []
+    },
+    {
+      "id": "route-neg-01",
+      "text": "更新项目依赖锁文件，重新生成 SBOM",
+      "expect": "supply-chain-audit",
+      "forbid": [
+        "version-migrate"
+      ]
+    },
+    {
+      "id": "route-neg-02",
+      "text": "更新项目交接文档和验收报告",
+      "expect": "reverse-survey",
+      "forbid": [
+        "version-migrate"
+      ]
+    },
+    {
+      "id": "route-neg-03",
+      "text": "操作系统更新后的兼容层部署",
+      "expect": "reverse-survey",
+      "forbid": [
+        "version-migrate"
+      ]
     }
   ]
 }
