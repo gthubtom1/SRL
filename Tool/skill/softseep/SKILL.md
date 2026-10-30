@@ -94,7 +94,7 @@ metadata:
 - 卡密/授权旁路并交付可用成品 → `Tool/playbooks/license-bypass-deliver.md`
 - 接自有授权平台（离线公钥验签 / 在线票据）→ `Tool/playbooks/license-hookup.md`
 - UI 改版去品牌（EXE / APK）→ `Tool/playbooks/ui-rebrand.md`
-- 软件更新后的跨版本追版（AOB 滑窗）→ `Tool/playbooks/version-migrate.md`
+- 软件更新后的定制版追版（沿用上一版改动与 UI，再做 AOB/差分适配）→ `Tool/playbooks/version-migrate.md`；直接说“软件更新了，跟随更新”“保留我们的 UI，更新到新版”“把上一版的补丁适配到新版”即可。
 - 开工前的逆向测绘 / 壳与权威判定 → `Tool/playbooks/reverse-survey.md`
 - 反作弊驱动的兼容性分析（驱动侧）→ `Tool/playbooks/anti-cheat-forensics.md`
 - 固件仿真里的环境副作用记账 → `Tool/playbooks/firmware-emulate.md`

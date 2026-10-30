@@ -16,6 +16,7 @@ import route
 PROBE_PATH = Path(route.__file__).parents[1] / 'skill/softseep/scripts/skill-route-probe.py'
 ROUTER_SKILL = Path(route.__file__).parents[1] / 'skill/seep-router/SKILL.md'
 WEB_SKILL = Path(route.__file__).parents[1] / 'skill/web-pentest/SKILL.md'
+CONFIG_DIR = Path(route.__file__).parents[1] / 'config'
 spec = importlib.util.spec_from_file_location('route_probe', PROBE_PATH)
 probe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(probe)
@@ -169,6 +170,37 @@ class RouteIntegrityTests(unittest.TestCase):
                 _hits, domains = route.resolved_domains(text)
                 self.assertTrue(domains, text)
                 self.assertEqual(domains[0], expected)
+
+    def test_custom_branch_follow_routes_are_precise_and_apk_aware(self):
+        domains_config = json.loads(
+            (CONFIG_DIR / 'playbook-domains.json').read_text(encoding='utf-8-sig'))
+        self.assertEqual(domains_config['map']['version-migrate'],
+                         ['softseep', 'apkseep'])
+
+        probes = json.loads(
+            (CONFIG_DIR / 'intent-probes.json').read_text(encoding='utf-8-sig'))['probes']
+        positive = [p for p in probes if p['id'].startswith('ver-follow-')]
+        negative = [p for p in probes if p['id'].startswith('route-neg-')]
+        self.assertEqual(len(positive), 9)
+        self.assertEqual(len(negative), 3)
+
+        migration_packs = set(domains_config['map']['version-migrate'])
+        apk_follow_ids = {'ver-follow-07', 'ver-follow-08', 'ver-follow-09'}
+        for row in positive:
+            with self.subTest(id=row['id']):
+                hits = route.resolve(row['text'])
+                migration_hits = [h for h in hits if '追版' in h['label']]
+                self.assertTrue(migration_hits, hits)
+                hit_packs = {h['pack'] for h in migration_hits}
+                self.assertTrue(hit_packs)
+                self.assertLessEqual(hit_packs, migration_packs)
+                if row['id'] in apk_follow_ids:
+                    self.assertIn('apkseep', hit_packs)
+
+        for row in negative:
+            with self.subTest(id=row['id']):
+                hits = route.resolve(row['text'])
+                self.assertFalse(any('追版' in h['label'] for h in hits), hits)
 
     def probe_main(self, *args):
         output = io.StringIO()

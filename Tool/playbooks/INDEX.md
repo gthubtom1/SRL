@@ -1,12 +1,12 @@
 # 意图 → 配方 / 能力 索引
 
-> 本文件与 `intent-coverage.py --json` 的结果同步；探针在 `Tool/config/intent-probes.json`，共 94。
+> 本文件与 `intent-coverage.py --json` 的结果同步；探针在 `Tool/config/intent-probes.json`，共 106。
 > 活动配方来自 `Tool/playbooks/*.md`，共 24；没有意图探针的配方仍会列出。
 > 覆盖口径：触发词命中期望配方即算 covered；未命中按缺口列出，并给 2–3 个 capability 组合。
 
 - 活动配方：**24**
-- 总数：**94**
-- 已覆盖：**94**
+- 总数：**106**
+- 已覆盖：**106**
 - 缺口：**0**
 - 覆盖率：**100.00%**
 - 跨域误命中：**0**
@@ -206,7 +206,7 @@
 | 在青龙里用浏览器把网页签到流程跑一遍，顺手抓请求 | `qinglong-signin` | covered |
 | 小程序每天自动签到，抓包看签到接口 | `qinglong-signin` | covered |
 
-### `reverse-survey`（10 条）
+### `reverse-survey`（12 条）
 
 配方能力面：`tool:diec` `tool:capa` `tool:floss` `tool:ida` `tool:r2` `repo:case_state` `repo:preflight-classify` `repo:pwn-check` `repo:driver-triage` `repo:kb-query` `repo:reverse-accept`
 
@@ -222,6 +222,8 @@
 | Go 静态编译程序怎么恢复符号和函数名 | `reverse-survey` | covered |
 | Rust 写的程序逆向，怎么找授权点 | `reverse-survey` | covered |
 | 驱动兼容层怎么写，让老驱动在新系统跑 | `reverse-survey` | covered |
+| 更新项目交接文档和验收报告 | `reverse-survey` | covered |
+| 操作系统更新后的兼容层部署 | `reverse-survey` | covered |
 
 ### `site-clone-1to1`（8 条）
 
@@ -238,7 +240,7 @@
 | 整站克隆前先侦察原站接口和静态资源路径 | `site-clone-1to1` | covered |
 | SaaS 控制台 1:1 复刻，断网也能用 | `site-clone-1to1` | covered |
 
-### `supply-chain-audit`（6 条）
+### `supply-chain-audit`（7 条）
 
 配方能力面：`tool:nuclei` `repo:case_state` `repo:sc-check` `probe:sbom-build` `repo:sbom-reach` `repo:ci-perm-audit` `repo:sc-accept` `repo:kb-query`
 
@@ -250,6 +252,7 @@
 | GitHub Actions 的 pull_request_target，先审 CI 权限和 action pin | `supply-chain-audit` | covered |
 | Docker 镜像抠服务，把二进制和配置提出来 | `supply-chain-audit` | covered |
 | 从容器镜像里把服务抠出来单独跑 | `supply-chain-audit` | covered |
+| 更新项目依赖锁文件，重新生成 SBOM | `supply-chain-audit` | covered |
 
 ### `ui-rebrand`（1 条）
 
@@ -259,13 +262,22 @@
 | :-- | :-- | :-- |
 | UI 改版：去掉弹窗，标题换成自己的 | `ui-rebrand` | covered |
 
-### `version-migrate`（1 条）
+### `version-migrate`（10 条）
 
 配方能力面：`tool:ida` `tool:x64dbg` `tool:r2` `repo:case_state` `repo:patch-verify` `repo:reverse-accept`
 
 | 意图 | playbook | 状态 |
 | :-- | :-- | :-- |
 | 软件更新了，新版本追一下 | `version-migrate` | covered |
+| 软件更新了，跟随更新 | `version-migrate` | covered |
+| 新版出来了，跟随我们的定制版 | `version-migrate` | covered |
+| 把上一版的补丁适配到新版 | `version-migrate` | covered |
+| 保留我们的 UI，更新到新版 | `version-migrate` | covered |
+| 读取上次逆向记录，适配这个新版 | `version-migrate` | covered |
+| 新版路径是刚拖进来的新版文件 | `version-migrate` | covered |
+| APK 更新了，跟随我们的定制版 | `version-migrate` | covered |
+| AAB 新版出来了，保留我们的 UI，跟随更新 | `version-migrate` | covered |
+| Android 应用更新了，把上一版补丁适配到新版 | `version-migrate` | covered |
 
 ### `web-api-sign-reverse`（1 条）
 

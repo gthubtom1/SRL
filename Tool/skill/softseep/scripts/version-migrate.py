@@ -16,12 +16,13 @@ import importlib.util
 import json
 import os
 import re
+import stat
 import struct
 import sys
 import uuid
 import tempfile
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 class _BootstrapError(Exception):
@@ -151,6 +152,17 @@ if _BOOTSTRAP_ERROR:
 SCHEMA = "seep-reverse-baseline/1"
 LEGACY_SCHEMA = "seep-migration/1"
 HEX = re.compile(r"^[0-9a-fA-F]{2}$")
+UI_APPLY_METHODS = ("overlay", "resource_replace", "code_patch", "server_content")
+UI_STACKS = (
+    "win32", "qt", "custom-draw", "electron", "web", "android-native",
+    "android-webview", "flutter", "unity", "il2cpp", "other",
+)
+UI_ANCHOR_TYPES = (
+    "window-class", "window-title", "process-name", "resource",
+    "container-entry", "file-key", "layout-id", "activity", "route",
+    "api-field", "symbol", "aob", "other",
+)
+UI_INVENTORY_SCHEMA = "seep-ui-inventory/1"
 
 
 def sha256_file(path: str) -> str:
@@ -243,6 +255,70 @@ def read_bound_binary(path: Path, record: dict) -> bytes:
     if len(data) != record["size"] or hashlib.sha256(data).hexdigest() != record["sha256"]:
         raise ValueError("binary fingerprint mismatch: %s" % path)
     return data
+
+
+def project_regular_file(root: Path, value: str, label: str) -> dict:
+    """Describe one ordinary file without admitting absolute/linked paths."""
+    text = str(value or "").strip()
+    if not text or "\x00" in text:
+        raise ValueError("%s 路径为空或无效" % label)
+    reference = text.replace("\\", "/")
+    relative = PurePosixPath(reference)
+    if relative.is_absolute() or ".." in relative.parts or ":" in reference:
+        raise ValueError("%s 必须使用项目内相对路径" % label)
+    path = root.joinpath(*relative.parts)
+    current = path
+    while True:
+        if current.is_symlink() or (
+            current.exists()
+            and getattr(current.lstat(), "st_file_attributes", 0)
+            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 1024)
+        ):
+            raise ValueError("%s 不能引用符号链接或重解析点" % label)
+        if current == root or current.parent == current:
+            break
+        current = current.parent
+    path = project_file(root, reference)
+    if not path.is_file():
+        raise FileNotFoundError("%s 文件不存在：%s" % (label, relative.as_posix()))
+    with path.open("rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("%s 必须是普通文件" % label)
+        digest = hashlib.sha256()
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(block)
+        after = os.fstat(stream.fileno())
+    if (before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns
+            or before.st_dev != after.st_dev or before.st_ino != after.st_ino):
+        raise ValueError("%s 文件在登记时发生变化" % label)
+    return {"path": relative.as_posix(), "sha256": digest.hexdigest(),
+            "size": after.st_size}
+
+
+def project_ui_inventory(root: Path, value: str) -> dict:
+    """Validate the machine-readable inventory referenced by one UI record."""
+    record = project_regular_file(root, value, "inventory")
+    relative = PurePosixPath(record["path"])
+    if relative.suffix.casefold() != ".json":
+        raise ValueError("inventory 必须是 .json 文件")
+    try:
+        inventory = json.loads((root.joinpath(*relative.parts)).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ValueError("inventory 不是有效 UTF-8 JSON：%s" % exc)
+    if not isinstance(inventory, dict) or inventory.get("schema") != UI_INVENTORY_SCHEMA:
+        raise ValueError("inventory schema 必须是 %s" % UI_INVENTORY_SCHEMA)
+    pages = inventory.get("pages")
+    components = inventory.get("components")
+    if (not isinstance(pages, list) or not isinstance(components, list)
+            or not all(isinstance(item, dict) for item in (*pages, *components))):
+        raise ValueError("inventory pages/components 必须是对象数组")
+    if not pages and not components:
+        raise ValueError("inventory 至少要登记一个 page 或 component")
+    for field in ("brand_assets", "unknowns"):
+        if not isinstance(inventory.get(field), list):
+            raise ValueError("inventory %s 必须是数组" % field)
+    return record
 
 
 def baseline_file(case: str, manifest: dict) -> Path:
@@ -424,6 +500,95 @@ def cmd_add_site(args) -> int:
     return 0
 
 
+@project_locked("case", recover=True)
+def cmd_add_ui(args) -> int:
+    """Record a custom UI delivery without applying or modifying it."""
+    path, manifest = load_manifest(args.case, args.version)
+    root = Path(args.case).resolve()
+    ui_id = require_id(args.id)
+    if args.apply_method not in UI_APPLY_METHODS:
+        return fail("ui-apply-method", "apply_method 必须是：%s" %
+                    "|".join(UI_APPLY_METHODS))
+    stack = str(args.stack or "").strip()
+    if stack not in UI_STACKS:
+        return fail("ui-stack", "stack 必须是：%s" % "|".join(UI_STACKS))
+    anchor_type = str(args.anchor_type or "").strip()
+    anchor = str(args.anchor or "").strip()
+    if not anchor_type or not anchor:
+        return fail("ui-anchor", "必须同时提供 anchor-type 与 anchor")
+    if anchor_type not in UI_ANCHOR_TYPES:
+        return fail("ui-anchor-type", "anchor-type 必须是：%s" % "|".join(UI_ANCHOR_TYPES))
+    if "\x00" in anchor_type or "\x00" in anchor:
+        return fail("ui-anchor", "anchor 不能包含空字符")
+
+    records = manifest.get("ui")
+    if records is None:
+        records = manifest["ui"] = []
+    if not isinstance(records, list) or any(not isinstance(item, dict) for item in records):
+        return fail("ui-schema", "reverse baseline ui 必须是对象数组")
+    existing_ids = [require_id(item.get("id")) for item in records]
+    if len(set(existing_ids)) != len(existing_ids):
+        return fail("ui-schema", "reverse baseline ui id 已损坏或重复")
+    if ui_id in existing_ids:
+        return fail("ui-exists", "UI id 已存在：%s" % ui_id)
+
+    acceptance = []
+    for value in args.acceptance or []:
+        item = require_id(str(value or "").strip())
+        if item not in acceptance:
+            acceptance.append(item)
+    if not acceptance:
+        return fail("ui-acceptance", "至少要登记一个 acceptance id")
+    if not args.asset:
+        return fail("ui-asset", "至少要登记一个自定义 UI asset")
+    if not args.screenshot_upstream or not args.screenshot_custom:
+        return fail("ui-screenshot", "上游和定制 UI 截图都必须登记")
+    try:
+        inventory = project_ui_inventory(root, args.inventory)
+        assets = [project_regular_file(root, value, "asset") for value in args.asset or []]
+        screenshots_upstream = [
+            project_regular_file(root, value, "upstream screenshot")
+            for value in args.screenshot_upstream or []
+        ]
+        screenshots_custom = [
+            project_regular_file(root, value, "custom screenshot")
+            for value in args.screenshot_custom or []
+        ]
+    except (OSError, ValueError) as exc:
+        return fail("ui-file", str(exc))
+
+    record = {
+        "id": ui_id,
+        "stack": stack,
+        "apply_method": args.apply_method,
+        "anchor_type": anchor_type,
+        "anchor": anchor,
+        "inventory": inventory,
+        "assets": assets,
+        "screenshots": {
+            "upstream": screenshots_upstream,
+            "custom": screenshots_custom,
+        },
+        "acceptance": acceptance,
+        "meaning": "recorded_custom_ui_only_not_applied",
+    }
+    records.append(record)
+    destination = version_file(args.case, args.version, "reverse-baseline.json")
+    if manifest.get("schema") != SCHEMA:
+        return fail("ui-schema", "add-ui 仅写入 seep-reverse-baseline/1；请先升级旧基线")
+    try:
+        with file_transaction(
+            root, [destination.relative_to(root).as_posix()]
+        ):
+            save_json(str(destination), manifest)
+    except Exception:
+        records.pop()
+        raise
+    print(json.dumps({"ok": True, "manifest": str(destination), "ui": record},
+                     ensure_ascii=False))
+    return 0
+
+
 def cmd_fingerprint(args) -> int:
     try:
         print(json.dumps({"ok": True, **fingerprint(args.file)}, ensure_ascii=False, indent=2))
@@ -576,6 +741,7 @@ def main() -> int:
     p = sub.add_parser("fingerprint"); p.add_argument("--file", required=True)
     p = sub.add_parser("init"); p.add_argument("--case", required=True); p.add_argument("--version", required=True); p.add_argument("--file", required=True); p.add_argument("--parent", default=""); p.add_argument("--force", action="store_true")
     p = sub.add_parser("add-site"); p.add_argument("--case", required=True); p.add_argument("--version", required=True); p.add_argument("--file", required=True); p.add_argument("--id", required=True); p.add_argument("--sem", required=True); p.add_argument("--kind", default="code"); p.add_argument("--aob", default=""); p.add_argument("--offset", default=""); p.add_argument("--original", default=""); p.add_argument("--new", default=""); p.add_argument("--window", type=int, default=24)
+    p = sub.add_parser("add-ui"); p.add_argument("--case", required=True); p.add_argument("--version", required=True); p.add_argument("--id", required=True); p.add_argument("--stack", required=True); p.add_argument("--apply-method", required=True); p.add_argument("--inventory", required=True); p.add_argument("--anchor-type", default=""); p.add_argument("--anchor", default=""); p.add_argument("--asset", action="append", default=[]); p.add_argument("--screenshot-upstream", action="append", default=[]); p.add_argument("--screenshot-custom", action="append", default=[]); p.add_argument("--acceptance", action="append", default=[])
     p = sub.add_parser("align"); p.add_argument("--case", required=True); p.add_argument("--old", required=True); p.add_argument("--new", required=True); p.add_argument("--new-version", required=True)
     p = sub.add_parser("report"); p.add_argument("--case", required=True); p.add_argument("--old", required=True); p.add_argument("--new-version", required=True)
     ap.add_argument("--self-test", action="store_true")
@@ -587,6 +753,7 @@ def main() -> int:
         if args.cmd == "fingerprint": return cmd_fingerprint(args)
         if args.cmd == "init": return cmd_init(args)
         if args.cmd == "add-site": return cmd_add_site(args)
+        if args.cmd == "add-ui": return cmd_add_ui(args)
         if args.cmd == "align": return cmd_align(args)
         if args.cmd == "report": return cmd_report(args)
         ap.print_help(); return 4

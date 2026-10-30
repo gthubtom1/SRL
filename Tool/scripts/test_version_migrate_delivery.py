@@ -192,6 +192,222 @@ class VersionMigrateDeliveryTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         return case, old, new
 
+    def ui_fixture(self):
+        case = self.base / "case-ui"
+        source = self.base / "ui-target.bin"
+        source.write_bytes(b"MZ synthetic ui target")
+        proc = init_version(case, "1.0", source)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        (case / "ui/assets").mkdir(parents=True)
+        (case / "ui/screens").mkdir(parents=True)
+        (case / "ui-inventory.json").write_text(
+            json.dumps({
+                "schema": "seep-ui-inventory/1",
+                "pages": [{"id": "main-shell"}],
+                "components": [],
+                "brand_assets": [],
+                "unknowns": [],
+            }) + "\n",
+            encoding="utf-8",
+        )
+        (case / "ui/assets/main-background.png").write_bytes(b"png custom")
+        (case / "ui/assets/logo.svg").write_bytes(b"<svg>logo</svg>")
+        (case / "ui/screens/upstream.png").write_bytes(b"upstream screenshot")
+        (case / "ui/screens/custom.png").write_bytes(b"custom screenshot")
+        return case, source
+
+    def test_add_ui_records_validated_custom_delivery_without_applying_it(self):
+        case, _ = self.ui_fixture()
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before_target = (case / "versions/1.0/reverse-target/ui-target.bin").read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "main-shell", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--inventory", "ui-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--asset", "ui/assets/main-background.png",
+            "--asset", "ui/assets/logo.svg",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout", "--acceptance", "navigation",
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        self.assertEqual(data["schema"], "seep-reverse-baseline/1")
+        self.assertEqual(len(data["ui"]), 1)
+        ui = data["ui"][0]
+        self.assertEqual(ui["id"], "main-shell")
+        self.assertEqual(ui["apply_method"], "overlay")
+        self.assertEqual(ui["inventory"], {
+            "path": "ui-inventory.json",
+            "sha256": sha256(case / "ui-inventory.json"),
+            "size": (case / "ui-inventory.json").stat().st_size,
+        })
+        self.assertEqual([item["path"] for item in ui["assets"]], [
+            "ui/assets/main-background.png", "ui/assets/logo.svg",
+        ])
+        self.assertEqual(ui["screenshots"]["upstream"][0]["path"],
+                         "ui/screens/upstream.png")
+        self.assertEqual(ui["screenshots"]["custom"][0]["path"],
+                         "ui/screens/custom.png")
+        self.assertEqual(ui["acceptance"], ["main-layout", "navigation"])
+        self.assertEqual(ui["meaning"], "recorded_custom_ui_only_not_applied")
+        self.assertEqual(
+            (case / "versions/1.0/reverse-target/ui-target.bin").read_bytes(),
+            before_target,
+        )
+
+    def test_add_ui_rejects_duplicate_id_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        args = (
+            "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "main-shell", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--inventory", "ui-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        proc = run_cli(REAL_SCRIPT, *args)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        duplicate = run_cli(REAL_SCRIPT, *args)
+        self.assertEqual(duplicate.returncode, 2, duplicate.stdout + duplicate.stderr)
+        self.assertEqual(output_json(duplicate)["blocked_at"], "ui-exists")
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_path_escape_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "escaped", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--inventory", "../outside-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertEqual(output_json(proc)["blocked_at"], "ui-file")
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_missing_file_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "missing-asset", "--stack", "win32",
+            "--apply-method", "resource_replace",
+            "--inventory", "ui-inventory.json",
+            "--anchor-type", "resource", "--anchor", "RCDATA#102",
+            "--asset", "ui/assets/missing.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        reason = output_json(proc)["reason"]
+        self.assertIn("asset", reason)
+        self.assertIn("不存在", reason)
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_invalid_apply_method_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "invalid-method", "--stack", "win32",
+            "--apply-method", "rewrite_everything",
+            "--inventory", "ui-inventory.json",
+        )
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertEqual(output_json(proc)["blocked_at"], "ui-apply-method")
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_incomplete_machine_baseline_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        base = (
+            "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "incomplete", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--inventory", "ui-inventory.json",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        cases = (
+            (base[:-2], "ui-acceptance"),
+            (base[:17] + base[19:], "ui-asset"),
+            (base[:21] + base[23:], "ui-screenshot"),
+        )
+        for args, blocked_at in cases:
+            with self.subTest(blocked_at=blocked_at):
+                proc = run_cli(REAL_SCRIPT, *args)
+                self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+                self.assertEqual(output_json(proc)["blocked_at"], blocked_at)
+                self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_invalid_inventory_schema_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        (case / "ui-inventory.json").write_text('{"pages": []}\n', encoding="utf-8")
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "bad-inventory", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--inventory", "ui-inventory.json",
+            "--asset", "ui/assets/main-background.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertEqual(output_json(proc)["blocked_at"], "ui-file")
+        self.assertIn("inventory schema", output_json(proc)["reason"])
+        self.assertEqual(manifest.read_bytes(), before)
+
+    def test_add_ui_rejects_symlink_asset_without_changing_manifest(self):
+        case, _ = self.ui_fixture()
+        outside = self.base / "outside-ui.png"
+        outside.write_bytes(b"outside")
+        link = case / "ui/assets/outside-link.png"
+        try:
+            link.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            self.skipTest("host cannot create symlinks; UI boundary unverified")
+        manifest = case / "versions/1.0/reverse-baseline.json"
+        before = manifest.read_bytes()
+        proc = run_cli(
+            REAL_SCRIPT, "add-ui", "--case", str(case), "--version", "1.0",
+            "--id", "linked-asset", "--stack", "win32",
+            "--apply-method", "overlay",
+            "--inventory", "ui-inventory.json",
+            "--anchor-type", "window-class", "--anchor", "ExampleMainWindow",
+            "--asset", "ui/assets/outside-link.png",
+            "--screenshot-upstream", "ui/screens/upstream.png",
+            "--screenshot-custom", "ui/screens/custom.png",
+            "--acceptance", "main-layout",
+        )
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertIn("符号链接", output_json(proc)["reason"])
+        self.assertEqual(manifest.read_bytes(), before)
+
     def test_alignment_and_report_refuse_project_paths_through_external_links(self):
         case, old, new = self.alignment_fixture()
         outside = self.base / "outside"

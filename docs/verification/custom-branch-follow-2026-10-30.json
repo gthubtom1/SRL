@@ -1,0 +1,87 @@
+{
+  "version": "1.30.0",
+  "status": "custom-branch-follow-validated",
+  "stable_rollback": {
+    "tag": "baseline-v1.29.0-20261030",
+    "commit": "bec1b3dbd200015d499b2e48cf6b7e1c256b532d"
+  },
+  "scope": {
+    "formal_domains": 9,
+    "new_domains": 0,
+    "supported_carriers": [
+      "PE/Windows",
+      "APK"
+    ],
+    "schema": "seep-reverse-baseline/1",
+    "ui_inventory_schema": "seep-ui-inventory/1"
+  },
+  "entry_examples": [
+    "软件更新了，跟随更新",
+    "新版出来了，跟随我们的定制版",
+    "保留我们的 UI，更新到新版",
+    "把上一版的补丁适配到新版",
+    "新版路径是刚拖进来的新版文件"
+  ],
+  "verification": {
+    "ui_ledger_delivery": {
+      "pass": 15,
+      "fail": 0
+    },
+    "route_integrity": {
+      "pass": 11,
+      "fail": 0
+    },
+    "intent_probes": {
+      "total": 106,
+      "covered": 106,
+      "uncovered": 0,
+      "violations": 0
+    },
+    "end_to_end": {
+      "pass": 92,
+      "total": 92
+    },
+    "architecture_invariants": {
+      "domains": 9,
+      "checks_per_domain": 9,
+      "violations": 0
+    },
+    "runtime_gt": {
+      "final_pass": 104,
+      "final_warn": 0,
+      "final_fail": 0,
+      "final_skip": 0,
+      "final_exit": 0,
+      "initial_pass": 102,
+      "initial_deployment_hash_fail": 2,
+      "post_deploy_retest_pass": 2,
+      "unresolved_fail": 0
+    },
+    "engineering_gt": {
+      "initial_pass": 53,
+      "initial_portability_fail": 1,
+      "post_fix_preflight_fail": 0,
+      "post_fix_preflight_unverified": 0,
+      "retained_warn_info": 5
+    },
+    "runtime_registration": {
+      "version": "1.30.0",
+      "agent_root_valid": true
+    },
+    "document_commands": {
+      "files": 71,
+      "examples": 60,
+      "errors": 0
+    },
+    "pre_upload": {
+      "sensitive_files": 0,
+      "content_credential_hits": 0
+    }
+  },
+  "limits": [
+    "Synthetic fixtures verify ledger behavior and rejection paths; no real customer target was followed across versions in this change.",
+    "UI records are validated but never applied automatically.",
+    "Other carriers remain specific-skill work until a dedicated adapter and real regression evidence exist.",
+    "The current Pi session must reload or restart before asserting host-loaded behavior."
+  ]
+}

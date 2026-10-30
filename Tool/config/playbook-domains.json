@@ -76,7 +76,8 @@
       "softseep"
     ],
     "version-migrate": [
-      "softseep"
+      "softseep",
+      "apkseep"
     ],
     "web-api-sign-reverse": [
       "web-pentest"
