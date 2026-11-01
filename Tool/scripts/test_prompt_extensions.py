@@ -72,6 +72,24 @@ await hooks['seep-events'].tool_call({toolCallId:'shared-b',toolName:'read',inpu
 await hooks['seep-events'].tool_result({toolCallId:'shared-b',toolName:'read',isError:false},shared);
 await new Promise(r=>setTimeout(r,100));
 assert.equal(fs.existsSync(path.join(a,'facts.jsonl')),false);
+// A project-local explicit file also works in a long-lived host: no parent
+// environment edit, restart, fabricated case, or global pointer change.
+const localBinding=path.join(b,'.seep-case');
+fs.writeFileSync(localBinding,a+'\n');
+for(const name of Object.keys(modules)){
+ const mod=modules[name],fn=mod.resolveCaseDirForTest||mod.currentCaseHint||mod.resolveActiveCaseDir;
+ assert.equal(fn(b),a,name+' must honor the project-local explicit binding');
+}
+await hooks['seep-memory'].before_agent_start(event,ctx);
+assert.match(event.systemPromptOptions.sections['seep-memory-map'],/PROJECT_A_ONLY/);
+fs.writeFileSync(localBinding,'relative-or-broken');
+await hooks['seep-memory'].before_agent_start(event,ctx);
+assert.equal(event.systemPromptOptions.sections['seep-memory-map'],undefined);
+for(const name of Object.keys(modules)){
+ const mod=modules[name],fn=mod.resolveCaseDirForTest||mod.currentCaseHint||mod.resolveActiveCaseDir;
+ assert.equal(fn(b),'',name+' must not fall back from an invalid local binding');
+}
+fs.unlinkSync(localBinding);
 // Explicit cross-directory restoration remains available and visible.
 process.env.SEEP_CASE_DIR=a;
 await hooks['seep-memory'].before_agent_start(event,ctx);
