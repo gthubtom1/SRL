@@ -120,6 +120,15 @@ class RouteIntegrityTests(unittest.TestCase):
         self.assertEqual(result['primary_candidate'], 'softseep')
         self.assertIn('protocol-plugin', result['aux_candidates'])
 
+    def test_survey_probe_preserves_navigation_without_forcing_professional_routing(self):
+        rows = json.loads((CONFIG_DIR / 'trigger-probes.json').read_text(encoding='utf-8-sig'))['probes']
+        row = next(p for p in rows if p['id'] == 'soft-01')
+        self.assertEqual(row['expect_route'], '')
+        self.assertEqual(row['expect_skill'], 'softseep')
+        self.assertTrue(row['desc_check'])
+        self.assertTrue(row['expect_kb'])
+        self.assertEqual(route.resolved_domains(row['phrase'])[1], [])
+
     def test_cli_returns_all_hits_unless_the_caller_sets_a_limit(self):
         raw = json.loads(self.pack.read_text(encoding='utf-8'))
         raw['routes'] = [
