@@ -328,7 +328,7 @@ function missingCaseMessage(caseDirectory: string): string {
 	return (
 		`未找到案例目录：${caseDirectory}\n` +
 		`把 SEEP_CASE_DIR 指向 <case>（例如 $env:SEEP_CASE_DIR="D:/work/项目J"），` +
-		`或在当前目录建 .seep-case/。没有案例目录时本插件不记录任何东西。`
+		`或在当前项目建 .seep-case/，跨目录恢复可用 .seep-case 文件写入已核对的单行绝对目录。没有有效绑定时本插件不记录。`
 	);
 }
 

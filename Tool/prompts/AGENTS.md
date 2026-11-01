@@ -60,7 +60,7 @@
 | 读需求与技能 | 开发工作台才先读需求/当前状态；客户任务 `Tool/skill/seep-router/SKILL.md` → 主辅域技能 | 各域专属子技能目录 `Tool/skill/<domain>/subskills/`（由主辅域导览表按需读取；通用脱壳见 `unpack-loop`；历史归档见 `Tool/skill/_pending/INDEX.md`） |
 | 能力 / 方法 / 工具 | `seep_capability_discover` → 读选中方法；按问题查 KB、选分诊/判壳或其他工具，不固定所有任务跑同一链。执行前核当前宿主真实 schema，错误按具体原因恢复 | `Tool/mcp/seep_mcp_server.py` + `Tool/scripts/route.py --discover` |
 | 首答 / 卡住 / 证据 / 降级 / 报告 | `answer --check --case` 绑定首答（判断 / 到哪一步 / 缺什么 / 功夫）；按需 `block --code` / `repro` / `downgrade`；项目交付按上一行，独立单案交付才用 `report --check` + `recheck` | `Tool/config/answer-contract.json`（闸判据 + 白名单 + 回执 TTL）+ `Tool/prompts/extensions/answer-gate.ts` + `Tool/config/blockers.json` |
-| 多步骤（3+ 步）/ 换目标 | 第一步建 todo 清单；新 case 前先清旧清单 | `Tool/scripts/case_state.py` |
+| 多步骤（3+ 步）/ 换目标 | 第一步建 todo 清单；换目标先核项目身份/当前案例绑定，再清旧清单。跨目录案例的局部绑定由 Agent 按执行手册处理，不要求用户改宿主环境 | `Tool/scripts/case_state.py` + `Tool/docs/EXECUTION.md` §5 |
 | 加技能（用户只说一句） | `skill-import.py --from <目录或 SKILL.md>`：校验 frontmatter → 判域技能 / 子技能 → 放对位置并部署 | `Tool/scripts/skill-import.py` |
 | 加壳目标 | 先读载体域；Windows PE 脱壳按需加 `unpack-loop`，Android / ELF / Mach-O 按各平台方法 | `Tool/skill/seep-router/SKILL.md` + `Tool/skill/unpack-loop/SKILL.md` |
 | 用户指令 → 路径 | 判域保留客户原话与材料；同义词只作独立检索线索，不替换任务或拼入领域判定、路径、代码与工具参数 | `Tool/config/input-normalize.json` 的 `route_terms` + `Tool/config/trigger-probes.json` + `Tool/scripts/route.py` |
