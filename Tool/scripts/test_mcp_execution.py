@@ -236,5 +236,37 @@ class McpRegistrationTests(unittest.TestCase):
         self.assertEqual(secondary.read_bytes(), b'{broken secondary')
 
 
+class ParameterProbeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        path = ROOT / 'Tool/skill/softseep/scripts/mcp-param-contract.py'
+        spec = importlib.util.spec_from_file_location('execution_param_contract', path)
+        cls.contract = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.contract)
+
+    def probe(self, alias_answer, ref_answer=None):
+        async def call_tool(name, args):
+            return alias_answer if 'target_path' in args else (alias_answer if ref_answer is None else ref_answer)
+        module = SimpleNamespace(server=SimpleNamespace(_tool_manager=SimpleNamespace(call_tool=call_tool)))
+        tools = [{'name': 'seep_apk_info', 'props': ['target_path', 'apk_path']}]
+        return self.contract.run_runtime_probes(module, tools, 'fixture.bin')[0]
+
+    def test_business_missing_evidence_is_not_missing_parameter(self):
+        answer = json.dumps({'status': 'ok', 'why': '\u7f3a\u5c11\u4e1a\u52a1\u8bc1\u636e'}, ensure_ascii=False)
+        self.assertEqual(self.probe(answer)['status'], 'pass')
+
+    def test_actual_parameter_rejections_still_fail_even_if_both_routes_agree(self):
+        for answer in ("TypeError: got an unexpected keyword argument 'target_path'",
+                       'Field required', 'Validation error',
+                       '[ERROR] seep_apk_info \u7f3a\u5c11\u8def\u5f84\u53c2\u6570',
+                       '[ERROR] seep_mem_strings \u7f3a\u5c11\u8fdb\u7a0b\u53c2\u6570'):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.probe(answer)['status'], 'fail')
+
+    def test_different_alias_and_primary_results_still_fail(self):
+        self.assertEqual(self.probe('alias lost', 'real target')['status'], 'fail')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

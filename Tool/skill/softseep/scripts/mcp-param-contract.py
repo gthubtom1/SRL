@@ -95,7 +95,7 @@ RUNTIME_PROBES = (
 # 两类回答都算「别名被拒」：Python 层的 unexpected keyword，或 pydantic 层的
 # validation error / Field required（说明别名压根没进 schema）。
 REJECT_MARKERS = ("unexpected keyword argument", "field required", "validation error",
-                  "缺少")  # 最后一个是别名层自己的「缺少参数」文案（它也是参数被打丢的症状）
+                  "缺少路径参数", "缺少进程参数")  # 匹配别名层的缺参文案，不拒绝正常业务结果中的「缺少证据」。
 PROBE_FILE_CANDIDATES = (
     os.path.join(TOOL, "samples", "real", "crackerjack", "a.exe"),
 )
