@@ -21,6 +21,7 @@ from typing import Optional, List, Dict, Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from lib import process_tree as _process_tree
+from lib.capability_discovery import discover as _discover_capabilities
 
 try:
     from mcp.server.mcpserver import MCPServer
@@ -187,12 +188,15 @@ def _pid_alias(fn, primary: str = "pid"):
 # ---------------------------------------------------------------------------
 server = MCPServer(
     "seep",
-    instructions="""seep 是一个专为安全分析师与 AI Agent 设计的全能逆向工程与 CTF 战术 MCP Server。
+    instructions="""seep 是跨宿主工作台的专业工具与知识入口，普通开发也可按当前问题借用。
+选择专业方法、查已有资源或受阻换路时，先 seep_capability_discover；读取选中方法，
+按需 seep_kb_search -> seep_kb_read，再核对当前宿主的真实工具 schema 执行与验证。
+资源归属不是任务准入；发现不执行目标，注册不证明本机就绪，输出不等于验收。
 能力包含：
 1. 二进制分析与逆向 (Radare2 / Rabin2 / Radiff2 / Rasm2)
 2. Android APK / DEX 反编译、解包与 Smali 检索 (JADX, Apktool)
 3. 动态 Hook 插件自动生成 (Frida JS, LSPilot / BeanShell)
-4. ReverseLab 183+ 逆向与 Web/PE/CVE 攻防战术知识库检索与即用 Payload
+4. ReverseLab 专业方法、判据与知识库检索
 """
 )
 
@@ -1252,6 +1256,24 @@ def _kb_search_paths(query: str, n: int = 3):
         return []
     return [h.get("path", "") for h in (data if isinstance(data, list) else [])
             if isinstance(h, dict) and h.get("path") and h.get("matched_terms")]
+
+
+@server.tool()
+def seep_capability_discover(query: str, limit: int = 5) -> Dict[str, Any]:
+    """只读发现当前问题可借用的技能、子技能、配方、能力及准确引用。
+
+    日常开发也可跨域借用。选专业方法、查已有工具或受阻换路时先用；
+    再读取返回方法，按需 seep_kb_search -> seep_kb_read，核真实工具 schema。
+    本工具不执行目标、不安装、不创建案件；声明不代表本机就绪或任务成功。
+
+    Args:
+        query: 当前需要回答的问题，不传凭据或完整会话（最多2000字符）
+        limit: 首屏资源数（1..20），其余通过总数和继续入口可见
+    """
+    result = _discover_capabilities(str(Path(__file__).resolve().parents[2]), query, limit)
+    if result["status"] == "invalid_parameter":
+        raise ValueError(result["error"])
+    return result
 
 
 @server.tool()
@@ -2898,7 +2920,7 @@ def seep_http_replay(
 
     为什么用它：普通 requests 的 TLS 指纹会被反爬/风控识别。本工具优先用 curl_cffi
     伪装 Chrome/Safari/Edge 的 TLS 指纹（绕过基础反爬），并支持 `session_file` 会话快照。
-    ★ 凭据不落盘 / 不进输出（REQUIREMENTS.md 三）：`session_file` 只写
+    ★ 证据面不回显凭据值（REQUIREMENTS.md 六）：`session_file` 只写
       时间/方法/URL/头名/状态码这类非凭据信息；回包里的 cookie 值一律 `[REDACTED]`
       （保留键名与条数 + `cookies_redacted: true`）。会话保持靠本次调用的内存 cookie 参数。
 
@@ -2913,7 +2935,7 @@ def seep_http_replay(
         impersonate: TLS 指纹伪装目标 chrome/safari/edge/ff（仅 curl_cffi 生效）
         session_file: 若给出，只允许在 `SEEP_HTTP_SESSION_ROOT`（默认 `<workspace>/http-sessions`）
             下写 **.json 非凭据**会话快照（时间/方法/URL/头名/状态码）；
-            Cookie、Authorization 等凭据**永不落盘**（REQUIREMENTS.md 三）。
+            Cookie、Authorization 等凭据值**不进证据面**（要留存请放凭据仓 `cred-store.py`）。
             会话保持请在同一次调用里传 cookies（内存），不要从磁盘读回凭据。
         timeout: 超时秒数
     """
@@ -3031,7 +3053,7 @@ def seep_http_replay(
             _assert_redacted(snapshot, secrets, "session_file")
             _atomic_write_text(session_path, blob + "\n")
             saved_note = (f"非凭据会话快照已写入 {session_path}"
-                          f"（cookie {len(ck)} 个 / set-cookie 名 {len(set_cookies)} 个已脱敏，值不落盘）")
+                          f"（cookie {len(ck)} 个 / set-cookie 名 {len(set_cookies)} 个已脱敏，值不进证据面）")
         except RedactionFailure:
             raise                      # 脱敏失败必须让调用失败（不得降级成提示）
         except OSError as exc:

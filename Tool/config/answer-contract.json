@@ -1,6 +1,6 @@
 {
   "schema": "seep.answer/1",
-  "_说明": "首答契约。required 四项（判断 / 到哪一步 / 缺什么 / 大约多少功夫）缺一即不合格；asks 每条必须给 A/B/C（Q-SEC 例外 A/B）且每项带 consequence。对应 REQUIREMENTS.md 二.1 的五问：第 1–3 问映射到 judgment，第 3 问「能做到哪一步」映射到 ceiling，第 4 问「大概要花多少功夫」映射到 effort，第 5 问「需要我提供什么」映射到 missing。",
+  "_说明": "专业调查的首答记录契约；不是普通开发或工具执行的前置许可。只在确实需要询问时使用 asks。required 四项（判断 / 到哪一步 / 缺什么 / 大约多少功夫）缺一即不合格；asks 每条必须给 A/B/C（Q-SEC 例外 A/B）且每项带 consequence。对应 REQUIREMENTS.md 二.1 的五问：第 1–3 问映射到 judgment，第 3 问「能做到哪一步」映射到 ceiling，第 4 问「大概要花多少功夫」映射到 effort，第 5 问「需要我提供什么」映射到 missing。",
   "required": [
     {
       "key": "judgment",
@@ -32,7 +32,7 @@
     {
       "key": "next",
       "label": "你要做的",
-      "hint": "一句话，只回一个字母"
+      "hint": "仅确需用户输入时说明最少动作及恢复点；无缺口则由 Agent 继续"
     }
   ],
   "ask_rules": {

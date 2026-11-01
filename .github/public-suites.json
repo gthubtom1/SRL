@@ -316,9 +316,13 @@
     ],
     "capability-helpers": [
       "Tool/scripts/test_capability_helpers.py"
+    ],
+    "capability-discovery": [
+      "Tool/scripts/test_capability_discovery.py"
     ]
   },
   "excluded": {
+    "workbench-autonomy": "Includes real Windows shell launch, CIM identity, .NET fixture and psutil cleanup checks. Run locally on Windows; the full runtime inventory retains this suite. Portable retry/session behavior is also exercised by prompt-extensions.",
     "unit": "Complete all-pack witness acceptance includes the user-supplied, gitignored apkseep08/target/release.apk. Keep gate.py --all unchanged for local full acceptance.",
     "e2e": "Complete domain depth acceptance verifies apkseep08 private APK and all declared depth cases. Keep domain-gate.py --all and its case set unchanged.",
     "historical-plugin-acceptance": "Historical plugin run records bind their original absolute working directory. This unchanged acceptance belongs to the original recorded local environment; public protocol counterexamples remain included in r10a-contracts.",

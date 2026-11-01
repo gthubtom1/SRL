@@ -6,6 +6,7 @@
 |---|---|
 | 安装、修复和验证 | [BOOTSTRAP](../Tool/docs/BOOTSTRAP.md)、[部署手册](../MANUAL/DEPLOYMENT.md)、[安装核对](../MANUAL/DEPLOYMENT-CHECKLIST.md) |
 | 用户日常使用 | [工作台使用](../MANUAL/WORKBENCH-USAGE.md)、[快速开始](QUICKSTART.md) |
+| 能力引用优化的已采纳设计 | [跨宿主能力链路方案](audits/CAPABILITY-DISCOVERY-PLAN-2026-11-01.md)，实际接口以工作台使用与当前状态为准 |
 | 功能范围 | [当前需求](../REQUIREMENTS.md)，当前用户指令优先 |
 | 当前验证与适用范围 | [CURRENT-STATE](CURRENT-STATE.md) |
 | 定位实现 | [架构](ARCHITECTURE.md)、[领域契约](DOMAIN-CONTRACT.md) |

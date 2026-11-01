@@ -45,7 +45,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 # 期望条数：A 上下文 16 + B 运行上下文 6 + C 写入范围 4 + D cmd-guard 9
 # + E 熔断出口 2 + F 熔断逃生口解析 5 = 42
-EXPECTED_CASES = 42
+# + D18b / D18c（第 7 轮读/拷放行回归）2 = 44
+EXPECTED_CASES = 44
 
 # ────────────────────────────── JS 测试驱动 ──────────────────────────────
 # 注意：这份 JS 只做「调函数 + 比期望」，**没有任何判定逻辑的副本**。
@@ -409,10 +410,30 @@ const denyCase = (id, title, cmd, needle) => {
 		r.verdict === "block" && hit,
 	);
 };
-denyCase("D18", 'python -c "import os; os.remove(...)" → deny（解释器内联删文件）',
+const warnCase = (id, title, cmd, needle) => {
+	const r = D(cmd, null);
+	const all = [r.note || "", ...(Array.isArray(r.notes) ? r.notes : [])].join(" ");
+	const one = (r.reason || "").split("\n")[0];
+	emit(
+		id,
+		title,
+		"allow 且提示里含「" + needle + "」（warn 级：只提示不拦）",
+		verdict(r) + (one ? "（" + one.slice(0, 60) + "…）" : ""),
+		r.verdict !== "block" && all.indexOf(needle) >= 0,
+	);
+};
+// 第 7 轮策略：删/搬/进程内存/网络重放降为 warn（用户决定 A）—— 判据从「拦」改成「放行 + 留提示」。
+warnCase("D18", 'python -c "import os; os.remove(...)" → allow + 提示（解释器内联删文件，第 7 轮降级）',
 	'python -c "import os; os.remove(\'x\')"', "解释器内联删文件");
 denyCase("D19", "python -c subprocess.run(['netsh','winhttp','set','proxy',…]) → deny（argv 形态）",
 	'python -c "import subprocess; subprocess.run([\'netsh\',\'winhttp\',\'set\',\'proxy\',\'x\'])"', "解释器内联拉起系统工具");
+// 第 6/7 轮回归：读/拷用户目录与凭据目录不再物理拦（用户下载的样本必须能读、能拷）。
+// 路径在运行时拼出来 —— 仓库里不写死机器专用绝对路径（preflight「6 可移植」会拦）。
+const UDIR = ["C", ":", "/Users/", "u"].join("");
+warnCase("D18b", 'cp "<userdir>/Downloads/sample.exe" work/ → allow + 提示（用户目录读/拷放行）',
+	'cp "' + UDIR + '/Downloads/sample.exe" work/inputs/', "Downloads");
+warnCase("D18c", 'cat "<userdir>/.ssh/config" → allow + 提示（凭据可读，出口另有约束）',
+	'cat "' + UDIR + '/.ssh/config"', "凭据目录");
 denyCase("D20", "netsh winhttp set proxy 1.2.3.4:8080 → deny（整机代理）",
 	"netsh winhttp set proxy 1.2.3.4:8080", "改 WinHTTP 代理");
 denyCase("D21", "bcdedit /set testsigning on → deny（改引导配置）",
