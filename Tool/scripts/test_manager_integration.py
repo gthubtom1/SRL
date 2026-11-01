@@ -769,6 +769,27 @@ class ManagerIntegration(unittest.TestCase):
         self.assertEqual(second["payload"]["attempt"]["attempt_id"], state["attempts"][1]["attempt_id"])
         self.denied(self.action)
 
+    def test_manager_new_evidence_never_resets_runtime_risk_state(self):
+        from lib.runtime_risk import RiskError, RiskStore
+        for event in ("rate_limited", "outcome_unknown"):
+            with self.subTest(event=event):
+                store = RiskStore(Path(self.temp.name) / ("risk-" + event))
+                url, subject = "https://composition-fixture.invalid/action", "fixture-account"
+                scope = store.grant(url, subject, max_attempts=2)["scope_id"]
+                operation = store.reserve(url, "fixture-fingerprint", scope, subject, required=True)
+                store.begin(operation, "fixture-fingerprint")
+                store.finish(operation, event, time.time() + 3600 if event == "rate_limited" else None)
+                before = store.status(url, subject, scope)
+                self.attempt(outcome="succeeded")
+                self.review(assessment="new_evidence")
+                self.assertTrue(self.action()["allowed"])
+                self.assertEqual(before, store.status(url, subject, scope))
+                self.assertEqual(1, before["scope"]["used"])
+                self.assertEqual(event == "outcome_unknown", bool(before["unresolved_operations"]))
+                with self.assertRaisesRegex(RiskError, "subject_paused"):
+                    store.reserve(url, "must-not-dispatch", scope, subject, required=True)
+                self.assertEqual(before, store.status(url, subject, scope))
+
     def test_cli_reviews_bind_existing_id_without_creating_successes(self):
         for _ in range(2):
             code, output = self.cli("attempt", "--project", self.root, "--route-id", "a", "--failed",
