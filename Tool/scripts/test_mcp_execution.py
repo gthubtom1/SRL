@@ -25,6 +25,40 @@ def response():
 
 
 class McpExecutionTests(unittest.TestCase):
+    def test_original_main_tool_names_and_parameter_names_remain_available(self):
+        import asyncio
+        # Frozen from main@8c6c268c; additive schemas do not prove identical
+        # effects. In particular, sensitive HTTP calls now require a scope.
+        original = {
+            'seep_r2_info': ['binary_path'],
+            'seep_r2_cmd': ['binary_path', 'command', 'analyze'],
+            'seep_r2_strings': ['binary_path', 'filter_text', 'all_sections', 'limit'],
+            'seep_r2_disasm': ['binary_path', 'target', 'lines', 'output_mode', 'limit_tokens'],
+            'seep_r2_decompile': ['binary_path', 'target', 'output_mode', 'limit_tokens'],
+            'seep_apk_info': ['apk_path'],
+            'seep_apk_decompile': ['apk_path', 'output_dir', 'deobfuscate'],
+            'seep_apk_unpack': ['apk_path', 'output_dir', 'no_src'],
+            'seep_apk_smali_search': ['directory', 'pattern', 'case_sensitive', 'limit'],
+            'seep_kb_search': ['query', 'category', 'limit'],
+            'seep_kb_read': ['article_path', 'max_chars'],
+            'seep_auto_triage': ['target_path', 'task_name'],
+            'seep_gen_security_report': ['task_name', 'target_name', 'vuln_type', 'branch_location',
+                                         'description', 'poc_summary', 'defense_recommendation',
+                                         'disasm_snippet', 'case_dir'],
+            'seep_ensure_tool': ['tool_id', 'allow_install'],
+            'seep_mem_strings': ['pid', 'pattern', 'min_len', 'max_hits', 'encoding'],
+            'seep_pcap_extract': ['pcap_path', 'host_filter', 'mode', 'port', 'max_rows'],
+            'seep_packer_detect': ['binary_path'],
+            'seep_http_replay': ['url', 'method', 'headers', 'cookies', 'body', 'impersonate', 'session_file', 'timeout'],
+            'seep_tool_discover': ['tool_id', 'target', 'record_state'],
+            'seep_case_read': ['case_id'],
+        }
+        tools = {t.name: t for t in asyncio.run(server.server.list_tools())}
+        for name, parameters in original.items():
+            with self.subTest(tool=name):
+                self.assertIn(name, tools)
+                self.assertLessEqual(set(parameters), set(tools[name].inputSchema['properties']))
+
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix="seep-dispatch-risk-")
         self.addCleanup(temp.cleanup)

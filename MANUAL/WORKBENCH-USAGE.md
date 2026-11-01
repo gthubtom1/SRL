@@ -63,6 +63,10 @@ python Tool/scripts/project_state.py resume --project work/restored-project
 
 ## 扩展和环境检查
 
+Pi 的能力使用短提醒复用既有 `load-system-prompt.ts`：每次模型请求的独立 `seep-capability-guide` 系统段指向同一发现入口，提醒读选中方法再执行验证，不改用户原话、附件、工具结果或增加一轮对话。普通开发不强制归域/建案，无匹配继续；样本说明不是执行许可，系统守卫和远端试验预算不变。
+
+已有 `/prompt-status` 可查看提醒是否开启；运行宿主进程设置 `SEEP_CAPABILITY_GUIDANCE=0` 可关闭，再用原部署/重载流程生效。重复请求不不断追加提醒，压缩或后续系统 delta 后按请求补回；它只保证受支持装配路径上的文字，不保证模型调用。`budget.py --prompt` 单列其开销；活动旧扩展未同步时不会冒报已启用。Codex/Claude 等继续用共同规则与 MCP/CLI，不需要这段 Pi 扩展。
+
 新增技能或工具沿用[扩展入口](../Tool/docs/EXTEND.md)，通过合同检查后再使用。发现技能、登记工具、实际工具可用以及任务验收通过是不同状态；只完成导入不能冒称任务已成功。
 
 安装与宿主配置见[部署手册](DEPLOYMENT.md)。已有 Python/Node 环境中，可以只同步 Pi 配置并指定目录：

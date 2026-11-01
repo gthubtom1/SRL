@@ -355,6 +355,18 @@ def boundary_text() -> tuple[str, str]:
     return (m.group(0) if m else ""), "(approx from SEEP.md)"
 
 
+def capability_guide_text() -> tuple[str, str]:
+    """Measure the selected deployment; an old installed loader has no new guide."""
+    if os.environ.get("SEEP_CAPABILITY_GUIDANCE") == "0":
+        return "", "(disabled: SEEP_CAPABILITY_GUIDANCE=0)"
+    for path in (os.path.join(AGENT_DIR, "extensions", "load-system-prompt.ts"),
+                 os.path.join(REPO, "Tool", "prompts", "extensions", "load-system-prompt.ts")):
+        if os.path.isfile(path):
+            match = re.search(r"CAPABILITY_GUIDE\s*=\s*`([\s\S]*?)`", read(path))
+            return (match.group(1) if match else ""), path
+    return "", "(not installed)"
+
+
 def base_prompt_estimate(others: int, anchor: int) -> int:
     """宿主自带部分（默认提示词 + 工具声明 + 包装）。
 
@@ -389,6 +401,10 @@ def build(ceiling: int = CEILING_CONTROLLABLE, anchor: int = MEASURED_ANCHOR) ->
 
     bt, bp = boundary_text()
     rows.append(layer("seep-boundary（边界锚）", "boundary", bp, bt, "凭据去向/授权门/沙箱契约；小且不可省"))
+
+    gt, gp = capability_guide_text()
+    rows.append(layer("seep-capability-guide（能力使用提醒）", "rules", gp, gt,
+                      "短系统段；按问题发现和读取资源，不自动执行或保证模型采用"))
 
     si, items = skills_index()
     rows.append(layer(f"技能索引（{len(items)} 个技能，只有 name+description）", "skills_index",
