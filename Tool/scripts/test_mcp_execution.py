@@ -259,8 +259,8 @@ class ParameterProbeTests(unittest.TestCase):
     def test_actual_parameter_rejections_still_fail_even_if_both_routes_agree(self):
         for answer in ("TypeError: got an unexpected keyword argument 'target_path'",
                        'Field required', 'Validation error',
-                       '[ERROR] seep_apk_info \u7f3a\u5c11\u8def\u5f84\u53c2\u6570',
-                       '[ERROR] seep_mem_strings \u7f3a\u5c11\u8fdb\u7a0b\u53c2\u6570'):
+                       server._path_alias(lambda binary_path: 'unreachable')(),
+                       server._pid_alias(lambda pid: 'unreachable')()):
             with self.subTest(answer=answer):
                 self.assertEqual(self.probe(answer)['status'], 'fail')
 
