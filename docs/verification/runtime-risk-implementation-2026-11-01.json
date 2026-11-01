@@ -1343,5 +1343,721 @@
       ],
       "note": "Performed after integration documentation/receipt edits; production code stays at fc2b71cf. These are not another all-green engineering aggregate."
     }
+  },
+  "compatibility_followup": {
+    "schema": "seep.compatibility-and-pi-guidance/1",
+    "verified_at": "2026-11-01T22:06:32+08:00",
+    "status": "fresh_complete_runtime_has_no_added_failures_release_blockers_retained_not_actively_deployed",
+    "source_commit": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+    "scope": "Original main compatibility plus optional bounded Pi reminder; no host-specific replacement for shared CLI/MCP core",
+    "original_main_compatibility": {
+      "source_commit": "3bf3fcbb",
+      "base_main": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "unchanged_core_modules": [
+        {
+          "path": "Tool/scripts/project_state.py",
+          "base_blob_sha256": "473de95d52fc3b64ddcc88d468712dd5e5b7e91acbb2fbb499a0ef8c96ac39de",
+          "worktree_sha256": "473de95d52fc3b64ddcc88d468712dd5e5b7e91acbb2fbb499a0ef8c96ac39de",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/manager_state.py",
+          "base_blob_sha256": "c9b741701cacb4f01be22ddc47b9e37cc12d2bbfe3f27dc51d6e2cc3a9aa1d73",
+          "worktree_sha256": "c9b741701cacb4f01be22ddc47b9e37cc12d2bbfe3f27dc51d6e2cc3a9aa1d73",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/project_report.py",
+          "base_blob_sha256": "d3cb0051b206a1cfd0e20a4843161ed24d01853fc0f93cf0d98b87cb49b47ebb",
+          "worktree_sha256": "d3cb0051b206a1cfd0e20a4843161ed24d01853fc0f93cf0d98b87cb49b47ebb",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/project_archive.py",
+          "base_blob_sha256": "b26c41d5f525f115ea165984b8b537989fe5172657c1bb03c094406b7e85d613",
+          "worktree_sha256": "b26c41d5f525f115ea165984b8b537989fe5172657c1bb03c094406b7e85d613",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/lib/project_transaction.py",
+          "base_blob_sha256": "ac696d80bf2a5c2dc3ebe304309886db223c168471b86252a357c0d83e513c80",
+          "worktree_sha256": "ac696d80bf2a5c2dc3ebe304309886db223c168471b86252a357c0d83e513c80",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/lib/project_lock.py",
+          "base_blob_sha256": "f9bf8aef21900406f10a1baa31d2e445f30ed39d43e8ad32a88669b6e9c700bf",
+          "worktree_sha256": "f9bf8aef21900406f10a1baa31d2e445f30ed39d43e8ad32a88669b6e9c700bf",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/skill/softseep/scripts/version-migrate.py",
+          "base_blob_sha256": "9df55491bc1c409c762c1c48a0f107572650b53a738e7d30ade22f3e06e2e4a7",
+          "worktree_sha256": "9df55491bc1c409c762c1c48a0f107572650b53a738e7d30ade22f3e06e2e4a7",
+          "lf_normalized_identical": true
+        }
+      ],
+      "original_mcp_tools": [
+        "seep_r2_info",
+        "seep_r2_cmd",
+        "seep_r2_strings",
+        "seep_r2_disasm",
+        "seep_r2_decompile",
+        "seep_apk_info",
+        "seep_apk_decompile",
+        "seep_apk_unpack",
+        "seep_apk_smali_search",
+        "seep_kb_search",
+        "seep_kb_read",
+        "seep_auto_triage",
+        "seep_gen_security_report",
+        "seep_ensure_tool",
+        "seep_mem_strings",
+        "seep_pcap_extract",
+        "seep_packer_detect",
+        "seep_http_replay",
+        "seep_tool_discover",
+        "seep_case_read"
+      ],
+      "new_first_party_files_from_base": [
+        {
+          "path": "Tool/mcp/seep_http_guard.py",
+          "size": 9011,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/playbooks/risk-aware-analysis.md",
+          "size": 8749,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/cred-store.py",
+          "size": 19956,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/capability_discovery.py",
+          "size": 23354,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/runtime_diagnostics.py",
+          "size": 5546,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/runtime_flow.py",
+          "size": 4562,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/runtime_risk.py",
+          "size": 19168,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/runtime-flow.py",
+          "size": 1121,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/runtime-risk.py",
+          "size": 1864,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_capability_discovery.py",
+          "size": 19633,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_runtime_flow.py",
+          "size": 4023,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_runtime_risk.py",
+          "size": 31607,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_workbench_autonomy.py",
+          "size": 11706,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/WORKBENCH-AUTONOMY-PROPOSAL.md",
+          "size": 44883,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/CAPABILITY-DISCOVERY-PLAN-2026-11-01.md",
+          "size": 50848,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-COMMUNITY-CASES-2026-11-01.md",
+          "size": 20775,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md",
+          "size": 13391,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md",
+          "size": 47346,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-SOURCES-2026-11-01.md",
+          "size": 8296,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/risk-aware-analysis-acceptance-2026-11-01.json",
+          "size": 58576,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/autonomy-behavior-2026-11-01.json",
+          "size": 6719,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/autonomy-behavior-2026-11-01.md",
+          "size": 7151,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/capability-discovery-2026-11-01.json",
+          "size": 10351,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/risk-aware-analysis-design-2026-11-01.json",
+          "size": 4425,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/runtime-risk-implementation-2026-11-01.json",
+          "size": 49364,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/runtime-risk-implementation-2026-11-01.md",
+          "size": 25577,
+          "role": "first_party",
+          "tracked": true
+        }
+      ],
+      "growth_groups": {
+        "implementation_recipe_tests": 13,
+        "design_sources_verification": 13
+      },
+      "this_phase_added_files": 0,
+      "file_budget": {
+        "actual": 1165,
+        "current_limit": 1150,
+        "current_result": "FAIL",
+        "proposed_fixed_limit": 1180,
+        "proposal_approved": false,
+        "threshold_changed": false
+      },
+      "retired_interfaces_not_restored": true
+    },
+    "reminder": {
+      "section": "seep-capability-guide",
+      "chars": 193,
+      "static_token_estimate": 137,
+      "file": "Tool/prompts/extensions/load-system-prompt.ts",
+      "off_switch": "SEEP_CAPABILITY_GUIDANCE=0 in host startup environment",
+      "new_plugins_or_tools_registered": 0,
+      "new_files_this_phase": 0,
+      "changes_user_or_tool_messages": false,
+      "automatically_executes_tools_or_samples": false,
+      "requests_additional_model_turns": false,
+      "existing_status_command": "prompt-status",
+      "runtime_scope": "supported structured prompt hooks; request-local context transforms preserve input transcript; normal host system-state recording remains owned by Pi",
+      "guarantees_model_compliance": false
+    },
+    "complete_runtime": {
+      "source_commit": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+      "returncode": 1,
+      "seconds": 1328.56,
+      "suite_count": 108,
+      "summary": {
+        "pass": 105,
+        "warn": 0,
+        "fail": 3,
+        "skip": 0
+      },
+      "failures": [
+        {
+          "name": "invariants",
+          "returncode": 1
+        },
+        {
+          "name": "e2e",
+          "returncode": 1
+        },
+        {
+          "name": "historical-plugin-acceptance",
+          "returncode": 1
+        }
+      ],
+      "main_unchanged": true,
+      "log": "tmp/capability-reminder/full-runtime.json",
+      "log_sha256": "a15e7db5496828714983192349b1273a9430d77e4f8b0692a09c97b72263c0a1",
+      "fresh_frozen_run": true,
+      "borrowed_previous_full_results": false
+    },
+    "key_runtime_suites": [
+      {
+        "name": "budget-prompt",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 2
+      },
+      {
+        "name": "capability-discovery",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 34
+      },
+      {
+        "name": "domain-task-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 8
+      },
+      {
+        "name": "mcp-execution",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 20
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 19
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 52
+      },
+      {
+        "name": "prompt-extensions",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 17
+      },
+      {
+        "name": "route-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 13
+      },
+      {
+        "name": "runtime-flow",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 3
+      },
+      {
+        "name": "runtime-risk",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 61
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 55
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 63
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 15
+      },
+      {
+        "name": "workbench-autonomy",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 7
+      }
+    ],
+    "sdk_source_probe": {
+      "sdk_version": "1.4.0",
+      "loaded_extensions": 3,
+      "sdk_loader": true,
+      "sdk_runner": true,
+      "guide_chars": 193,
+      "effective_reminder_count": 1,
+      "history_unchanged": true,
+      "disabled_removed": true,
+      "model_call_performed": false
+    },
+    "sdk_deployed_probe": {
+      "sdk_version": "1.4.0",
+      "loaded_extensions": 3,
+      "sdk_loader": true,
+      "sdk_runner": true,
+      "guide_chars": 193,
+      "effective_reminder_count": 1,
+      "history_unchanged": true,
+      "disabled_removed": true,
+      "model_call_performed": false
+    },
+    "isolated_deployment": {
+      "source_commit": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+      "checks": [
+        {
+          "name": "isolated-install",
+          "command": [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "D:\\srl-v\\setup\\install-pi.ps1",
+            "-SkipPackages",
+            "-AgentRoot",
+            "D:\\srl-integration-validation-20261101\\agent"
+          ],
+          "returncode": 0,
+          "seconds": 2.31,
+          "log": "tmp/capability-reminder/isolated-install.log",
+          "sha256": "82259de4b53157b681a69fcbced1bb17b332da900d6a24f14d41ba028dfd1cbb"
+        },
+        {
+          "name": "sdk-source",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/test_prompt_extensions.py",
+            "--pi-sdk",
+            "C:\\Users\\toti\\.pi\\agent\\install\\releases\\1.4.0\\node_modules\\@earendil-works\\pi-coding-agent"
+          ],
+          "returncode": 0,
+          "seconds": 0.91,
+          "log": "tmp/capability-reminder/sdk-source.log",
+          "sha256": "f6abe25f30859048bd4e5aba99a35dfd3f6a03fac2e970a8eaf1eb75a8272317"
+        },
+        {
+          "name": "sdk-deployed",
+          "command": [
+            "node",
+            "--experimental-strip-types",
+            "D:\\srl-v\\tmp\\capability-reminder\\deployed-sdk-smoke.mjs",
+            "C:\\Users\\toti\\.pi\\agent\\install\\releases\\1.4.0\\node_modules\\@earendil-works\\pi-coding-agent"
+          ],
+          "returncode": 0,
+          "seconds": 0.75,
+          "log": "tmp/capability-reminder/sdk-deployed.log",
+          "sha256": "288d52305360ad93a2ae12129c6adad951dba1fa2dbff371b72c3ba25ad6640f"
+        },
+        {
+          "name": "budget-enabled",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/budget.py",
+            "--prompt",
+            "--json"
+          ],
+          "returncode": 1,
+          "seconds": 0.07,
+          "log": "tmp/capability-reminder/budget-enabled.log",
+          "sha256": "8c2184c8ec9c5ca6c6a080c78d8e753c208acc8415f8865dbc6109735832b358"
+        },
+        {
+          "name": "budget-disabled",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/budget.py",
+            "--prompt",
+            "--json"
+          ],
+          "returncode": 1,
+          "seconds": 0.07,
+          "log": "tmp/capability-reminder/budget-disabled.log",
+          "sha256": "e800c48ed0285ff58711a90bb6e72eaf7472407d47ff084feccb5b8efc10d837"
+        },
+        {
+          "name": "isolated-invariants",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/invariants.py",
+            "--check"
+          ],
+          "returncode": 0,
+          "seconds": 0.09,
+          "log": "tmp/capability-reminder/isolated-invariants.log",
+          "sha256": "9546d9b207c007b78555dac418a8d2434468629c82596cd6e83a5d97897e4331"
+        },
+        {
+          "name": "source-file-budget",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 1,
+          "seconds": 0.59,
+          "log": "tmp/capability-reminder/source-file-budget.log",
+          "sha256": "ce8fdbf0a6dbc8ff17abf12ed89be1a17106220411d96cf4be9b72d15e757f09"
+        },
+        {
+          "name": "configured-mcp",
+          "command_record": "three-line-integration/isolated-deployment-status.json, with current isolated AgentRoot",
+          "returncode": 0,
+          "seconds": 1.51,
+          "log": "tmp/capability-reminder/configured-mcp.log",
+          "sha256": "5108164ca33969913955b8c78aefb5671a81655d580b4cf7b75237642e79b05e"
+        }
+      ],
+      "guide": {
+        "layer": "seep-capability-guide（能力使用提醒）",
+        "kind": "rules",
+        "path": "D:\\srl-integration-validation-20261101\\agent\\extensions\\load-system-prompt.ts",
+        "bytes": 429,
+        "chars": 193,
+        "tokens": 137,
+        "note": "短系统段；按问题发现和读取资源，不自动执行或保证模型采用"
+      },
+      "controllable_delta_when_disabled": 137,
+      "active_host_deployed": false,
+      "actual_model_selection_verified": false
+    },
+    "preflight": {
+      "returncode": 1,
+      "fails": 11,
+      "notes": 3,
+      "waived": 1,
+      "unverified": 0,
+      "failure_rows": [
+        {
+          "section": "11 深度",
+          "name": "domain-gate 子进程退出码与总判定",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "全域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "链接图无孤儿",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由串味测试集",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "仓库清理 + 部署哈希",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由片段合入 SSOT + 案例索引同源",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "13 措辞",
+          "name": "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）",
+          "ok": false,
+          "detail": "answer-gate.ts(哈希不一致)；cmd-guard.ts(哈希不一致)；load-system-prompt.ts(哈希不一致)；seep-circuit.ts(哈希不一致)"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "子代理所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "提示词所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "部署面所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "4 功能",
+          "name": "反臃肿预算（first-party 文件，超限即 FAIL）",
+          "ok": false,
+          "detail": "1165 / 1150 超 15 · first_party=1165 thirdparty_input=101 raw_included=1266 policy=seep.source_inventory/2 mode=git stable=True tracked=1266 untracked=0 排除=6016"
+        }
+      ]
+    },
+    "auxiliary_engineering_checks": [
+      {
+        "name": "preflight",
+        "command": [
+          "python",
+          "Tool/scripts/preflight.py",
+          "--fast",
+          "--json"
+        ],
+        "returncode": 1,
+        "seconds": 68.07,
+        "log": "tmp/capability-reminder/preflight.log",
+        "sha256": "a929ff1d8331a39615c95ec7622df4d70a37ddd42c7d0f7f24c34406b4a52089"
+      },
+      {
+        "name": "pre-upload",
+        "command": [
+          "python",
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "returncode": 1,
+        "seconds": 11.34,
+        "log": "tmp/capability-reminder/pre-upload.log",
+        "sha256": "0485bfadc4efbf29cfd8b121f4f500747fab98b5ea5b5a00c4ed984ef26ee350"
+      }
+    ],
+    "pre_upload_after_complete": {
+      "returncode": 0,
+      "log": "tmp/capability-reminder/pre-upload-after-complete.log",
+      "sha256": "034ac045358225d2a88fdb0118631477524f8bd4396becb462cb15388bf738c8",
+      "previous_concurrent_scan_failed": true,
+      "previous_failure_scope": "active isolated mutation fixtures; no source/scanner/allowlist changes before rerun"
+    },
+    "transient_scan_note": "The auxiliary scan ran while mutation fixtures existed under tmp/it and reported 7 sensitive paths / 43 content hits in those active fixture copies. The failure is retained; no scanner/source/ALLOW changes were made. The full runtime cleaned its own fixtures; the identical scan then passed with zero hits.",
+    "prompt_budget_note": "Raw default ceiling checks remain nonzero: selected isolated AgentRoot is 6552 enabled / 6415 disabled versus 3500. The bounded guide contributes 137 estimated tokens; no token waiver or hard cap was changed and no file-budget waiver was inferred.",
+    "main_preservation": {
+      "head": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "original_dirty_or_untracked_files": 22,
+      "raw_bytes_and_status_unchanged": true,
+      "before_log": "tmp/capability-reminder/main-before.json",
+      "after_log": "tmp/capability-reminder/main-after.json",
+      "after_sha256": "6cd4c60c4026d90604185168df58108781351f502536398209b2af894946783c",
+      "main_merged": false,
+      "active_host_deployed_or_reloaded": false
+    },
+    "code_fingerprints": [
+      {
+        "path": "Tool/prompts/extensions/load-system-prompt.ts",
+        "sha256": "18ca9210d832dae13ec8e7eee437ff8c618b8406ca2046ba36c6ac20f4c19ae8"
+      },
+      {
+        "path": "Tool/scripts/budget.py",
+        "sha256": "aabf3257dddff0ba949a21d116bbca20c41f046e28c8529425c6b75f1b0a53ab"
+      },
+      {
+        "path": "Tool/scripts/test_budget_prompt.py",
+        "sha256": "2b66936f94222d4011909dc6397548628bbdb8a333ec27060952262862c27d14"
+      },
+      {
+        "path": "Tool/scripts/test_prompt_extensions.py",
+        "sha256": "27e4517d5b4b99a9b007d8c781f1dd4766283a878607b432e235e2c529ec2cd4"
+      },
+      {
+        "path": "Tool/scripts/test_mcp_execution.py",
+        "sha256": "c9935b7b1dbc3868d87b0e84c562e91e7437177ebfc9111cb0aac18eb14dc609"
+      }
+    ],
+    "validation_root": "D:\\srl-v",
+    "sdk_smoke_reproduction": [
+      "python",
+      "Tool/scripts/test_prompt_extensions.py",
+      "--pi-sdk",
+      "<installed pi-coding-agent package directory>"
+    ],
+    "remaining_acceptance": [
+      "explicit source file budget decision or meaningful consolidation",
+      "safe main promotion preserving original modifications",
+      "formal consistent-source deployment and MCP restart/loading verification",
+      "fresh real model task with observed resource use; no proof from prompt assembly alone"
+    ],
+    "delivery_document_checks": {
+      "validation_root": "C:\\Users\\toti\\.codex\\worktrees\\capability-discovery-plan\\Seep-Reverse-Lab",
+      "checks": [
+        {
+          "name": "final-docs",
+          "command": [
+            "python",
+            "Tool/scripts/lib/doc_commands.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "log": "tmp/capability-reminder/final-docs.log",
+          "sha256": "bbd7df361c887769f44c949c822d02741e8f35985563534676f3360ab44c220f"
+        },
+        {
+          "name": "final-pre-upload",
+          "command": [
+            "python",
+            "Tool/scripts/pre-upload-check.py"
+          ],
+          "returncode": 0,
+          "log": "tmp/capability-reminder/final-pre-upload.log",
+          "sha256": "74694c1768cd98148dcc8607fd1bbf41c1384995b6dec51e52dfdae3f9cdcaab"
+        },
+        {
+          "name": "final-file-budget",
+          "command": [
+            "python",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 1,
+          "log": "tmp/capability-reminder/final-file-budget.log",
+          "sha256": "c22dff64e1247bdb76be358fd5c2f4efd61fbf3e057452521d5e44c0054df500"
+        }
+      ],
+      "source_code_changed_after_frozen_run": false
+    }
   }
 }
