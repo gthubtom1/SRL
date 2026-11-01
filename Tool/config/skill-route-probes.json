@@ -247,6 +247,15 @@
       "id": "dev-negative-unit-test",
       "text": "帮我给这个 Python 函数补单元测试",
       "expect_skill": ""
+    },
+    {
+      "id": "compat-apk-survey",
+      "text": "帮我看看这个安卓 APK 有没有加固",
+      "expect_skill": "apkseep/SKILL.md",
+      "expect_aux": [
+        "softseep/SKILL.md"
+      ],
+      "expect_ambiguity": true
     }
   ]
 }
