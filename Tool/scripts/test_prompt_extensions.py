@@ -90,6 +90,24 @@ for(const name of Object.keys(modules)){
  assert.equal(fn(b),'',name+' must not fall back from an invalid local binding');
 }
 fs.unlinkSync(localBinding);
+// Modern projects own a schema-checked facts ledger. Legacy case logging
+// must not append its incompatible events there, even with an explicit hint.
+const modern=path.join(fixture,'modern-project');fs.mkdirSync(modern);
+fs.writeFileSync(path.join(modern,'project.json'),JSON.stringify({schema:'seep-project/1',project_id:'modern'}));
+const modernFacts=path.join(modern,'facts.jsonl'),modernBefore='CORE_LEDGER_SENTINEL\n';fs.writeFileSync(modernFacts,modernBefore);
+fs.writeFileSync(localBinding,modern+'\n');
+for(const name of Object.keys(modules)){
+ const mod=modules[name],fn=mod.resolveCaseDirForTest||mod.currentCaseHint||mod.resolveActiveCaseDir;
+ assert.equal(fn(b),'',name+' must not treat a Core project as a legacy case');
+}
+await hooks['seep-memory'].input({text:'DO_NOT_CORRUPT_CORE'},ctx);
+await hooks['seep-events'].tool_call({toolCallId:'core-call',toolName:'read',input:{path:'core'}},ctx);
+await hooks['seep-events'].tool_result({toolCallId:'core-call',toolName:'read',isError:false},ctx);
+await new Promise(r=>setTimeout(r,100));
+assert.equal(fs.readFileSync(modernFacts,'utf8'),modernBefore);
+process.env.SEEP_CASE_DIR=modern;
+assert.equal(modules['seep-memory'].resolveCaseDirForTest(b),'');delete process.env.SEEP_CASE_DIR;
+fs.unlinkSync(localBinding);
 // Explicit cross-directory restoration remains available and visible.
 process.env.SEEP_CASE_DIR=a;
 await hooks['seep-memory'].before_agent_start(event,ctx);

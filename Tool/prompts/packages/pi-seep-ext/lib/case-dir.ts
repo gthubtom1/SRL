@@ -5,7 +5,16 @@ import * as path from "node:path";
 function directory(value: string): string {
   try {
     const absolute = path.resolve(value);
-    return fs.statSync(absolute).isDirectory() ? absolute : "";
+    if (!fs.statSync(absolute).isDirectory()) return "";
+    const projectFile = path.join(absolute, "project.json");
+    if (fs.existsSync(projectFile)) {
+      if (fs.statSync(projectFile).size > 65536) return "";
+      const project = JSON.parse(fs.readFileSync(projectFile, "utf8"));
+      // Core projects own a different facts schema and transaction/lock API.
+      // Legacy automatic case events must never be appended to that ledger.
+      if (typeof project?.schema === "string" && project.schema.startsWith("seep-project/")) return "";
+    }
+    return absolute;
   } catch {
     return "";
   }
