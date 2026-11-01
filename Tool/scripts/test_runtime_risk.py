@@ -251,6 +251,37 @@ class StateTests(Isolated):
             self.store.resume(self.url, "", "evidence-test")
         self.assertTrue(self.store.status(self.url)["paused"])
 
+    def test_repeated_pause_preserves_existing_cooldown(self):
+        scope = self.scope()
+        op = self.store.reserve(self.url, "f", scope, "account-fixture")
+        self.store.begin(op, "f")
+        deadline = time.time() + 3600
+        self.store.finish(op, "rate_limited", deadline)
+        self.store.pause(self.url, "account-fixture")
+        self.assertEqual(self.store.status(self.url, "account-fixture")["retry_not_before"], deadline)
+        with self.assertRaisesRegex(RiskError, "cooldown"):
+            self.store.resume(self.url, "account-fixture", "evidence-test")
+
+    def test_cross_origin_pause_cannot_shorten_shared_subject_cooldown(self):
+        op = self.store.reserve(self.url, "f", self.scope(), "account-fixture")
+        self.store.begin(op, "f")
+        deadline = time.time() + 3600
+        self.store.finish(op, "rate_limited", deadline)
+        other = "https://another.invalid/"
+        self.store.pause(other, "account-fixture")
+        self.assertEqual(self.store.status(other, "account-fixture")["retry_not_before"], deadline)
+        with self.assertRaisesRegex(RiskError, "cooldown"):
+            self.store.resume(other, "account-fixture", "evidence-test")
+
+    def test_pause_deadline_only_extends_until_explicit_resume(self):
+        subjects = self.store.subjects(self.url, "account-fixture")
+        deadline = time.time() + 3600
+        for incoming, expected in ((deadline, deadline), (deadline - 60, deadline),
+                                   (deadline + 60, deadline + 60)):
+            with self.store.tx() as db:
+                self.store._pause(db, subjects, "rate_limited", incoming)
+            self.assertEqual(self.store.status(self.url, "account-fixture")["retry_not_before"], expected)
+
     def test_clock_rollback_and_missing_key_fail_closed(self):
         with patch("lib.runtime_risk.time.time", return_value=time.time() - 100):
             with self.assertRaisesRegex(RiskError, "clock"):

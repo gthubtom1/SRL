@@ -260,10 +260,12 @@ class RiskStore:
                     "reasons": sorted(set(r["reason"] for r in states if r["reason"]))}
 
     def _pause(self, db, subjects, reason, retry_at=None):
-        self._states(db, subjects)
-        for sid in subjects:
+        for state in self._states(db, subjects):
+            # A new observation may extend a cooldown, never erase or shorten it.
+            deadlines = [d for d in (state["retry_at"], retry_at) if d is not None]
+            deadline = max(deadlines) if deadlines else None
             db.execute("UPDATE subjects SET reason=?, epoch=epoch+1, since=?, retry_at=? WHERE id=?",
-                       (reason, time.time(), retry_at, sid))
+                       (reason, time.time(), deadline, state["id"]))
 
     def status(self, url, subject_ref="", scope_id=""):
         with self.tx() as db:
