@@ -125,6 +125,25 @@ class PortableCautions(unittest.TestCase):
         handoff = P.write_handoff(self.root)
         self.assertEqual(handoff["state_health"], "blocked")
         self.assertTrue(handoff["runtime_cautions"]["errors"])
+        self.assertEqual(handoff["runtime_cautions"]["open"][0]["caution_id"], "risk-a")
+
+    def test_rewritten_record_and_raw_cannot_bypass_manifest_on_resolution(self):
+        self.event()
+        followup = self.evidence.with_name("followup.txt")
+        followup.write_text("Original review observation\n", encoding="utf-8")
+        self.register_evidence("ev-2", "run-1", followup)
+        before = (self.root / "facts.jsonl").read_bytes()
+        record_path = self.root / "versions/1.0/evidence/ev-2.json"
+        record = P.load_json(record_path)
+        followup.write_text("Changed review observation\n", encoding="utf-8")
+        record.update(P.file_fingerprint(followup))
+        P.atomic_json(record_path, record)
+        self.event({"caution_id": "risk-a", "reason": "Claimed reviewed", "evidence_ids": ["ev-2"]},
+                   kind="runtime_caution_resolved", expected=2)
+        self.assertEqual(before, (self.root / "facts.jsonl").read_bytes())
+        view = M.build_handoff(self.root)["runtime_cautions"]
+        self.assertEqual(view["open"][0]["caution_id"], "risk-a")
+        self.assertTrue(view["errors"])
 
     def test_archive_import_keeps_warning_and_requires_coordination_recheck(self):
         self.event()

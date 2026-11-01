@@ -51,7 +51,7 @@
 
 `Tool/prompts/extensions/` 的执行守卫不因文档清理而更改。项目级bootstrap模板位于 `Tool/prompts/contracts/AGENTS.md`，由各宿主的接入方式加载；当前仓库根没有另放一份AGENTS副本。个人设置、第三方 MCP、凭据文件和宿主管理块不由项目文档重写。新进程加载与磁盘一致性分别验证。
 
-Pi四个案例消费者复用 `Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts`，机器级current-case只有在真实路径属于当前cwd时可自动采用；跨目录用明确绑定，无本地案的普通开发不继承他案记忆。`Tool/playbooks/evidence-led-investigation.md` 是按需专业查证入口，不引入新的调度器、搜索MCP或人物角色常驻层。
+Pi四个案例消费者复用 `Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts`，机器级current-case只有在真实目录就是当前cwd时可自动采用；仅为其后代不算绑定；跨目录用明确绑定，无本地案的普通开发不继承他案记忆。`Tool/playbooks/evidence-led-investigation.md` 是按需专业查证入口，不引入新的调度器、搜索MCP或人物角色常驻层。
 
 ## 4. 检查和证据
 

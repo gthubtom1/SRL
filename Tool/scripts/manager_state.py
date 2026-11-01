@@ -436,10 +436,15 @@ def decision_quality(state: dict) -> dict:
     rid = state.get("selected_route_id")
     attempts = [a for a in state["attempts"] if a.get("route_id") == rid]
     reviewed = sum("progress" in a for a in attempts)
+    pending_tail = 0
+    for attempt in reversed(attempts):
+        if "progress" in attempt:
+            break
+        pending_tail += 1
     return {"scope": "manager-recorded-reviews-only", "route_id": rid,
             "context": state["routes"].get(rid, {}).get("decision"),
             "reviewed_attempts": reviewed, "unreviewed_attempts": len(attempts) - reviewed,
-            "review_recommended": len(attempts) - reviewed >= 2,
+            "unreviewed_tail": pending_tail, "review_recommended": pending_tail >= 2,
             "stagnant_reviews": stagnant_reviews(attempts, rid),
             "assessment_source": "caller-declared", "semantic_verification": False,
             "grants_scope": False, "globally_enforced": False}
@@ -1103,7 +1108,7 @@ def _build_handoff_locked(root: Path) -> dict:
     if state.get("waiting") and state["waiting"].get("status") == "WAIT_USER":
         status = "blocked"
         actions = ["等待用户从 %s 中选择并执行 answer" % ", ".join(state["waiting"].get("options", {}))]
-    elif decision_quality(state)["review_recommended"]:
+    elif not state.get("replan_required") and decision_quality(state)["review_recommended"]:
         actions = ["多次尝试尚未复核：先读原输出并用原 attempt_id review；缺技术事实时查已有方法或外部资料，不把成功码当进展"] + actions
     handoff = {
         "schema": HANDOFF_SCHEMA,

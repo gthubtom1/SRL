@@ -25,7 +25,7 @@
  * case 目录解析顺序（依次探，取第一个**真实存在**的目录）：
  *   1. 环境变量 SEEP_CASE_DIR
  *   2. <cwd>/.seep-case
- *   3. ~/.seep/current-case 仅在真实路径属于当前 cwd 时采用。
+ *   3. ~/.seep/current-case 仅在真实目录就是当前 cwd 时采用。
  * 显式跨目录恢复使用 SEEP_CASE_DIR；无绑定的普通任务不记录到别人的案件。
  * 解析与记忆、首答、命令守卫共用同一模块，不创建不存在的目录。
  *

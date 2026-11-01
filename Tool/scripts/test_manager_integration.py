@@ -57,6 +57,16 @@ class ManagerIntegration(unittest.TestCase):
         self.assertTrue(self.action()["review_recommended"])
         handoff = M.build_handoff(self.root)
         self.assertIn("review", handoff["next_actions"][0])
+        self.review(assessment="new_evidence")
+        quality = M.decision_quality(self.state())
+        self.assertEqual(quality["unreviewed_attempts"], 3)
+        self.assertEqual(quality["unreviewed_tail"], 0)
+        self.assertFalse(quality["review_recommended"])
+        self.assertNotIn("多次尝试尚未复核", M.build_handoff(self.root)["next_actions"][0])
+        self.attempt(outcome="succeeded")
+        self.assertFalse(M.decision_quality(self.state())["review_recommended"])
+        self.attempt(outcome="succeeded")
+        self.assertTrue(M.decision_quality(self.state())["review_recommended"])
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="manager-integration-")

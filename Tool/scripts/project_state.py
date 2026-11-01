@@ -311,8 +311,7 @@ def write_event(root: Path, event_type: str, message: str, version: str = "", ru
         events, errors = read_fact_log(root)
         if errors:
             raise ValueError("cannot append caution to a corrupt fact log")
-        projected = RC.project(events + [event], project.get("current_version_id"),
-                               lambda e, ids: _caution_binding(root, e, ids))
+        projected = runtime_cautions(root, events + [event])
         if projected["errors"]:
             raise ValueError("runtime caution references or transition invalid")
     append_jsonl(project_file(root, "facts.jsonl"), event)
@@ -3147,11 +3146,18 @@ def _write_gate_failure(stage: str, conflicts: list[str]) -> int:
                 % "; ".join(conflicts))
 
 
-def _caution_binding(root: Path, event: dict, evidence_ids: list[str]) -> dict:
+def _caution_binding(root: Path, event: dict, evidence_ids: list[str], checked_indexes: set | None = None) -> dict:
     project = require_project(root)
     version, run = event["version_id"], event["run_id"]
     source = _validate_version(root, version, project["project_id"])
     _run_record(root, version, run)
+    # Reuse the independent registry witness, not just a mutable record/raw
+    # pair. Rewriting both must not manufacture a valid caution resolution.
+    if checked_indexes is None or version not in checked_indexes:
+        if _evidence_index_problems(root, version):
+            raise ValueError("caution evidence registry is inconsistent")
+        if checked_indexes is not None:
+            checked_indexes.add(version)
     for ident in evidence_ids:
         record = load_json(project_file(root, "versions/%s/evidence/%s.json" % (version, ident)))
         if (record.get("schema") != EVIDENCE_SCHEMA or record.get("project_id") != project["project_id"]
@@ -3171,8 +3177,9 @@ def runtime_cautions(root: Path, events: list[dict] | None = None) -> dict:
         if errors:
             return {"open": [], "errors": errors, "external_coordination": "not_checked",
                     "globally_enforced": False, "automatic_resume": False}
+    checked_indexes: set[str] = set()
     return RC.project(events, require_project(root).get("current_version_id"),
-                      lambda e, ids: _caution_binding(root, e, ids))
+                      lambda e, ids: _caution_binding(root, e, ids, checked_indexes))
 
 
 def write_handoff(root: Path, *, persist: bool = True) -> dict:

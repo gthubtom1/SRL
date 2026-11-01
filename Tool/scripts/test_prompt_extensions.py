@@ -63,6 +63,15 @@ await hooks['seep-events'].tool_result({toolCallId:'b-call',toolName:'read',isEr
 await new Promise(r=>setTimeout(r,150));
 assert.equal(fs.existsSync(path.join(a,'facts.jsonl')),false);
 assert.equal(fs.existsSync(path.join(b,'.seep-case')),false);
+// A common workspace containing both projects is still not a case binding.
+const shared={...ctx,cwd:fixture};
+await hooks['seep-memory'].before_agent_start(event,shared);
+assert.equal(event.systemPromptOptions.sections['seep-memory-map'],undefined);
+await hooks['seep-memory'].input({text:'SHARED_ROOT_B_ONLY_INPUT'},shared);
+await hooks['seep-events'].tool_call({toolCallId:'shared-b',toolName:'read',input:{path:'project-b'}},shared);
+await hooks['seep-events'].tool_result({toolCallId:'shared-b',toolName:'read',isError:false},shared);
+await new Promise(r=>setTimeout(r,100));
+assert.equal(fs.existsSync(path.join(a,'facts.jsonl')),false);
 // Explicit cross-directory restoration remains available and visible.
 process.env.SEEP_CASE_DIR=a;
 await hooks['seep-memory'].before_agent_start(event,ctx);
@@ -109,7 +118,7 @@ fs.readFileSync=(p,...args) => String(p).endsWith(path.join(".seep","run-ack.jso
 syncBuiltinESMExports();
 const m=await import(pathToFileURL(process.argv[2]).href), handlers=[];
 m.default({on:(name,fn)=>{if(name==="tool_call")handlers.push(fn)},registerCommand:()=>{}});
-const notices=[]; const ctx={ui:{notify:s=>notices.push(String(s))}};
+const notices=[]; const ctx={cwd:a,ui:{notify:s=>notices.push(String(s))}};
 const check=(name,input)=>handlers.map(h=>h({toolName:name,input},ctx)).filter(r=>r?.block);
 const targets=m.readCaseTargets(a), gate=m.gateConfig(), cmd={command:`"${inside.replaceAll("\\","/")}"`}, externalCmd={command:`"${external.replaceAll("\\","/")}"`};
 const defects=[];
@@ -726,7 +735,8 @@ delete process.env.SEEP_CASE_DIR;
 const owned=path.join(workspace,"cases","owned");
 fs.mkdirSync(owned,{recursive:true});
 fs.writeFileSync(ptr,owned+"\n");
-assert.equal(path.resolve(mod.resolveCaseDirForTest(workspace)),path.resolve(owned));
+assert.equal(mod.resolveCaseDirForTest(workspace),"", "a descendant is not a binding");
+assert.equal(path.resolve(mod.resolveCaseDirForTest(owned)),path.resolve(owned));
 
 // A local case always wins over the machine-wide pointer.
 const local=path.join(workspace,".seep-case");

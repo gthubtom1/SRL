@@ -25,10 +25,10 @@ export function resolveCaseDirectory(cwd: string = process.cwd()): string {
     if (!pointer || !path.isAbsolute(pointer)) return "";
     const candidate = directory(pointer);
     if (!candidate) return "";
-    // Resolve links before testing ownership; a lexical child can escape cwd.
+    // A workspace may contain many projects. Mere containment is not a
+    // binding; only being in the case itself can adopt the legacy pointer.
     const relative = path.relative(fs.realpathSync(workspace), fs.realpathSync(candidate));
-    return relative === "" || (!path.isAbsolute(relative) && relative !== ".." &&
-      !relative.startsWith(".." + path.sep)) ? candidate : "";
+    return relative === "" ? candidate : "";
   } catch {
     return "";
   }

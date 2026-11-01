@@ -21,7 +21,7 @@
  * @@FACT/@@TRAP/@@GATE/@@DEAD 标记，避免同一次工具调用在 facts.jsonl 落两行。
  *
  * case 目录：
- *   process.env.SEEP_CASE_DIR → <cwd>/.seep-case → 当前 cwd 内的机器指针候选
+ *   process.env.SEEP_CASE_DIR → <cwd>/.seep-case → 与当前 cwd 相同的机器指针候选
  *   **目录不存在就静默跳过**（没开案子的普通会话不该被这个扩展打扰）。
  *
  * 隐私红线（硬约束，不是建议）：
