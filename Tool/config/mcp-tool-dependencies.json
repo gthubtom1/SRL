@@ -34,7 +34,7 @@
       "source": {
         "function": "seep_r2_info",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 396
+        "line": 399
       },
       "evidence": "AST: 调用 _run_cmd([RABIN2_EXE, '-I', target])；RABIN2_EXE 由模块级 _resolve_binary('rabin2') 决定（内置副本优先，PATH 兜底）",
       "requires": {
@@ -54,7 +54,7 @@
       "source": {
         "function": "seep_r2_cmd",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 431
+        "line": 434
       },
       "evidence": "AST: 调用 _run_cmd([R2_EXE, '-q', '-e', 'scr.color=0', '-c', full_cmd, target])；写命令语法由 seep_contract.r2_readonly_command_check 拒绝，不构成对目标文件的写依赖",
       "requires": {
@@ -74,7 +74,7 @@
       "source": {
         "function": "seep_r2_strings",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 472
+        "line": 475
       },
       "evidence": "AST: 调用 _run_capture([RABIN2_EXE, '-z'|'-zz', target])，由已审 _run_capture helper 执行 process_tree.run",
       "requires": {
@@ -94,7 +94,7 @@
       "source": {
         "function": "seep_r2_disasm",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 537
+        "line": 540
       },
       "evidence": "AST: 三条 r2 分支都调用 _run_cmd([R2_EXE, '-q', ..., target])",
       "requires": {
@@ -111,7 +111,7 @@
       "source": {
         "function": "seep_r2_decompile",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 634
+        "line": 637
       },
       "evidence": "AST: 调用 _run_cmd([R2_EXE, '-q', ..., '-c', 'aaa; pdc @ <target>', target])",
       "requires": {
@@ -132,7 +132,7 @@
       "source": {
         "function": "seep_apk_info",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 714
+        "line": 717
       },
       "evidence": "AST: zipfile.ZipFile + re.findall 解析 AndroidManifest；docstring 明确「免 Java 环境」",
       "requires": {
@@ -170,7 +170,7 @@
       "source": {
         "function": "seep_apk_decompile",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 733
+        "line": 736
       },
       "evidence": "AST: _find_java() 为 None 直接报错；cmd=[JADX_BAT,'-d',out]（JADX_BAT 由模块级 _resolve_jadx() 指向内置 Tool/mcp/Tool/safe/jadx/bin/jadx.bat）；_run_cmd(cmd)",
       "requires": {
@@ -203,7 +203,7 @@
       "source": {
         "function": "seep_apk_unpack",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 772
+        "line": 775
       },
       "evidence": "AST: _find_java()；_run_capture([java_path, '-jar', APKTOOL_JAR, 'd', '-f', ...])；APKTOOL_JAR 由模块级常量指向内置 apktool.jar",
       "requires": {
@@ -227,7 +227,7 @@
       "source": {
         "function": "seep_apk_smali_search",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 872
+        "line": 875
       },
       "evidence": "AST: re.compile + os.walk 读 smali/java/xml 文本；无子进程",
       "requires": {
@@ -251,7 +251,7 @@
       "source": {
         "function": "seep_kb_search",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 956
+        "line": 959
       },
       "evidence": "AST: glob.glob(search_root/**/*.md)；KB_LOCAL_DIR 覆盖层；别名表经 _kb_load_synonyms()（seep_contract.kb_load_synonyms，字面量 'kb-synonyms.json'）加载；无子进程",
       "requires": {
@@ -292,7 +292,7 @@
       "source": {
         "function": "seep_kb_read",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 1280
+        "line": 1312
       },
       "evidence": "AST: 目标路径拼 KB_DIR / KB_LOCAL_DIR；_kb_article_paths() 扫 KB；_kb_search_paths() → seep_kb_search → _kb_load_synonyms()（'kb-synonyms.json'）；读取文件正文",
       "requires": {
@@ -325,7 +325,7 @@
       "source": {
         "function": "seep_auto_triage",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 1684
+        "line": 1716
       },
       "evidence": "AST: os.path.exists(RABIN2_EXE) 后 _run_cmd([RABIN2_EXE, '-Ij'|'-zj', target])；_attached_for → _case_for → _domain_for → _route_module() 按 Tool/scripts/route.py 加载；_case_state_module() 按 Tool/scripts/case_state.py 加载；_hash_file 用 hashlib",
       "requires": {
@@ -369,7 +369,7 @@
       "source": {
         "function": "seep_gen_security_report",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 1819
+        "line": 1851
       },
       "evidence": "AST: 调用 seep_contract 成员 missing_report_fields / _strong_claim_ids / build_report_md（`from seep_contract import`，模块文件即 Tool/mcp/seep_contract.py）；datetime.datetime.now().astimezone() 生成本地时间戳",
       "requires": {
@@ -398,7 +398,7 @@
       "source": {
         "function": "seep_ensure_tool",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2120
+        "line": 2152
       },
       "evidence": "AST: _autodiscover()（Tool/mcp/tool_autodiscover.py）→ discover/install_plan/propose_install；安装白名单在插件里读 Tool/config/tool-install.json",
       "requires": {
@@ -428,7 +428,7 @@
       "source": {
         "function": "seep_mem_strings",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2369
+        "line": 2401
       },
       "evidence": "AST: import ctypes + ctypes.WinDLL 做 ReadProcessMemory；进程表命令在模块级 _resolve_pid（参数非数字时跑 tasklist(win32)/ps(POSIX)），经 _pid_alias 装饰器接到本工具入口",
       "requires": {
@@ -460,7 +460,7 @@
       "source": {
         "function": "seep_pcap_extract",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2499
+        "line": 2531
       },
       "evidence": "AST: shutil.which('tshark') 与候选路径扫描（tshark.exe/tshark.EXE）；process_tree.run([tshark, '-n', '-r', bound_path] + 固定 '-Y/-T/-e' 参数, capture_output=True, timeout=120) —— 每条调用都固定 -n（禁名称解析）与绑定后的绝对路径；rc/stdout/stderr 由 seep_contract.pcap_execution 分开记录，状态由 pcap_status 推导（不走 stderr 拼接）",
       "requires": {
@@ -490,7 +490,7 @@
       "source": {
         "function": "seep_packer_detect",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2669
+        "line": 2701
       },
       "evidence": "AST: import pefile 解析节表/数据目录；_read_pe_imports 用 pefile 读导入表（失败返回 None 而非空表）",
       "requires": {
@@ -510,7 +510,7 @@
       "source": {
         "function": "seep_http_replay",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2909
+        "line": 2941
       },
       "evidence": "AST: from curl_cffi import requests；降级路径 import requests as req；两者都没有则返回 [ERROR]",
       "requires": {
@@ -518,6 +518,15 @@
           {
             "kind": "builtin_module",
             "id": "json"
+          },
+          {
+            "kind": "repo_module",
+            "path": "Tool/mcp/seep_http_guard.py",
+            "evidence_via": {
+              "helper": "_prepare_http",
+              "module": "Tool/mcp/seep_http_guard.py",
+              "symbol": "seep_http_guard.py"
+            }
           }
         ],
         "any_of": [
@@ -539,7 +548,7 @@
       "source": {
         "function": "seep_tool_discover",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 3138
+        "line": 3109
       },
       "evidence": "AST: _autodiscover()（Tool/mcp/tool_autodiscover.py）→ tad.discover / tad.record；插件在 tool_autodiscover._CAP_FILE 读 Tool/config/tool-capabilities.json",
       "requires": {
@@ -565,7 +574,7 @@
       "source": {
         "function": "seep_case_read",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 3172
+        "line": 3143
       },
       "evidence": "AST: 从 Tool/mcp/seep_case_library.py 导入并调用 _read_case；该 helper 扫 Tool/cases/*/case.json，解析 json，并读取 facts.jsonl / README",
       "requires": {
@@ -605,7 +614,7 @@
       "source": {
         "function": "seep_capability_discover",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 1262
+        "line": 1294
       },
       "evidence": "Calls the imported discover helper; shared CLI/MCP implementation reads only bounded Seep resource metadata. No tool, target, provider, installation or model execution.",
       "requires": {
@@ -624,6 +633,56 @@
       },
       "notes": [
         "Resource references, declared eligibility, runtime readiness and task acceptance are separate; the helper uses the canonical domain registry."
+      ]
+    },
+    "seep_runtime_diagnose": {
+      "source": {
+        "function": "seep_runtime_diagnose",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 1265
+      },
+      "evidence": "Calls the imported host-neutral helper; no target execution or transport.",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_module",
+            "path": "Tool/scripts/lib/runtime_diagnostics.py",
+            "evidence_via": {
+              "helper": "_runtime_diagnose",
+              "module": "Tool/scripts/lib/runtime_diagnostics.py",
+              "symbol": "runtime_diagnostics.py"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "Caller observations and declared task scope are not independent evidence or authorization proof."
+      ]
+    },
+    "seep_runtime_risk": {
+      "source": {
+        "function": "seep_runtime_risk",
+        "file": "Tool/mcp/seep_mcp_server.py",
+        "line": 1277
+      },
+      "evidence": "Calls the imported host-neutral helper; no target execution or transport.",
+      "requires": {
+        "all_of": [
+          {
+            "kind": "repo_module",
+            "path": "Tool/scripts/lib/runtime_risk.py",
+            "evidence_via": {
+              "helper": "_runtime_risk_state",
+              "module": "Tool/scripts/lib/runtime_risk.py",
+              "symbol": "runtime_risk.py"
+            }
+          }
+        ],
+        "any_of": []
+      },
+      "notes": [
+        "Caller observations and declared task scope are not independent evidence or authorization proof."
       ]
     }
   }

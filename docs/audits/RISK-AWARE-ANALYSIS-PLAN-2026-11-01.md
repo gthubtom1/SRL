@@ -2,7 +2,7 @@
 
 > 日期：2026-11-01，Asia/Shanghai。
 > 所属：第三个对话；分支 `codex/risk-aware-analysis-plan`，独立 worktree。
-> 状态：设计交付，未实现运行控制、未部署、未合并。用户要求的方向与本报告的具体设计建议分开判断。
+> 状态：历史设计依据。用户后续已要求实施，现有运行实现及范围见[实现回执](../verification/runtime-risk-implementation-2026-11-01.md)；不据此把全部设计或真实目标能力升级为已验证。未部署活动宿主、未合并主干。
 > 基线：`8c6c268cfe9fa973c93c3c34b5267be56aeda968`。另两分支只读参照，不复制其未提交文件。
 > 本文不是新的项目状态源或万能管理器；正式需求见 [REQUIREMENTS](../../REQUIREMENTS.md)，完成状态见 [CURRENT-STATE](../CURRENT-STATE.md)。
 

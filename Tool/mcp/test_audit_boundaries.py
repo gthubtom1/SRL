@@ -17,12 +17,20 @@ import seep_apk_contract as A
 
 
 class HttpOutputAudit(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="seep-http-audit-risk-")
+        self.addCleanup(temp.cleanup)
+        env = patch.dict(os.environ, {"SEEP_RISK_ROOT": temp.name})
+        env.start()
+        self.addCleanup(env.stop)
+
     def replay(self, text, response_headers=None, **kwargs):
         response = SimpleNamespace(status_code=200, headers=response_headers or {}, text=text,
                                    cookies=SimpleNamespace(get_dict=lambda: {}))
         client = SimpleNamespace(request=lambda *a, **k: response)
+        scope = S.seep_runtime_risk("grant", "http://fixture.invalid", "audit-fixture")["scope_id"]
         with patch.dict(sys.modules, {'curl_cffi': SimpleNamespace(requests=client)}):
-            return S.seep_http_replay('http://fixture.invalid', **kwargs)
+            return S.seep_http_replay('http://fixture.invalid', risk_scope=scope, risk_subject="audit-fixture", **kwargs)
 
     def test_cookie_header_values_are_scrubbed_when_echoed_individually(self):
         raw = self.replay('echo FIXTURE_COOKIE_A FIXTURE_COOKIE_B',
@@ -39,9 +47,11 @@ class HttpOutputAudit(unittest.TestCase):
     def test_error_does_not_echo_url_userinfo(self):
         def fail(*a, **k):
             raise ConnectionError('failed http://FIXTURE_USER:FIXTURE_PASS@fixture.invalid')
+        scope = S.seep_runtime_risk("grant", "http://fixture.invalid", "audit-fixture")["scope_id"]
         with patch.dict(sys.modules, {'curl_cffi': SimpleNamespace(
                 requests=SimpleNamespace(request=fail))}):
-            raw = S.seep_http_replay('http://FIXTURE_USER:FIXTURE_PASS@fixture.invalid')
+            raw = S.seep_http_replay('http://FIXTURE_USER:FIXTURE_PASS@fixture.invalid',
+                                     risk_scope=scope, risk_subject="audit-fixture")
         self.assertNotIn('FIXTURE_USER', raw)
         self.assertNotIn('FIXTURE_PASS', raw)
 

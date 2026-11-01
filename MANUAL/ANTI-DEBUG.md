@@ -1,20 +1,20 @@
 # MANUAL — 反调试对抗与强反调试绕过 (Anti-Debug Bypass SOP)
 
 > 本文件是当 Agent 在 G0/G1 阶段检测到目标存在**反调试或强对抗机制**时的标准化处置手册。
-> 覆盖 Windows 用户态全量反调试技法、通用补丁模板与代理 DLL 框架接入指引。
+> 包含历史用户态机制与模板，不是任意版本通用脚本或全量覆盖保证；执行前核架构、调用语义、目标证据和回归。
 >
-> 读取顺序：先通过 `seep_auto_triage` 识别壳类型 → 与本文档对比签名 → 选择对应打桩策略。
+> 先按 `Tool/playbooks/risk-aware-analysis.md` 区分暂停/崩溃/工具故障/子进程交接，再按当前问题查域技能和 KB。静态线索不证明检测已触发；历史模板不得自动批量套用。
 
 ---
 
 ## 一、 快速诊断表：常见反调试信号 → 处置路由
 
-| 检测到的信号 | 最可能机制 | 首选处置策略 |
+| 候选线索（需核实触发证据） | 可能机制 | 确认后参考方法，不是自动动作 |
 |---|---|---|
 | `IsDebuggerPresent` 出现在导入表 | PEB.BeingDebugged | NOP / 硬编码返回 0 |
 | `NtQueryInformationProcess` + 0x7 | ProcessDebugPort | Syscall Stub 替换 |
 | `CheckRemoteDebuggerPresent` | 同上 | Hook 返回 FALSE |
-| `GetTickCount` / `QueryPerformanceCounter` 频繁调用 | 时序反调试 | 钩子固定返回值 |
+| `GetTickCount` / `QueryPerformanceCounter` 频繁调用 | 时序检查候选，也可能是正常计时 | 先取调用与时序证据，不能默认固定时钟破坏业务 |
 | `CreateToolhelp32Snapshot` + 进程名比对 | 调试器进程名检测 | Hook 过滤快照列表 |
 | `OutputDebugString` 后检测错误码 | ODS 陷阱 | 无操作（正常运行不受影响） |
 | `NtSetInformationThread` 0x11 | ThreadHideFromDebugger | Hook 丢弃该调用 |
@@ -85,6 +85,8 @@ Interceptor.attach(NtSIT, {
 
 ## 三、 时序反调试 —— 高频坑（修复固定返回值）
 
+以下为历史示意，不是默认修复：固定/伪造进程时钟可能破坏超时、动画、协议时间窗和心跳。先核具体调用与影响，只在明确隔离副本中验证局部方法，不能把它当通用反调试开关。
+
 调试状态下，`GetTickCount` / `QueryPerformanceCounter` 的推进速度远慢于正常运行，常被用来识别单步调试。
 
 ```javascript
@@ -129,23 +131,23 @@ Interceptor.attach(Process32Next, {
 
 ---
 
-## 五、 内核级反调试对抗（Ring0 / 驱动层）
+## 五、 内核层信号与环境边界
 
 > **适用场景**：游戏反作弊（ACE/EAC/BattlEye）、强保护商业软件、带 Ring0 驱动的许可校验模块。
-> **注意**：内核对抗超出 Agent 全自动范畴，以下为指导性 SOP，需结合 WinDbg + 内核调试器手工处理。
+> 内核信号不授权修改用户主机驱动、引导、签名或安全策略，也不因为用户态失败就自动升级。按已有环境范围选取可验证的低影响观察，必要时保留环境缺口。
 
 ### G0 阶段主动识别信号：
 - `triage` 输出中存在 `.sys` 驱动签名或服务注册（HKLM\SYSTEM\CurrentControlSet\Services）
 - 导入表出现 `NtLoadDriver`、`ZwCreateSection` 等内核接口
 - 运行时观察到 `ObRegisterCallbacks` / `PsSetCreateProcessNotifyRoutine` 回调注册
 
-### 处置策略（按难度升序）：
+### 处置选择（不是系统改动授权）：
 | 方案 | 适用条件 | 操作要点 |
 |---|---|---|
-| **Kernel Patch Guard 绕过** | 测试用 VM / Hyper-V | 关闭 Driver Signature Enforcement，加载调试补丁驱动 |
-| **VirtualBox + DKOM** | 沙箱分析 | 修改 `EPROCESS.DebugPort = NULL` 绕过内核调试器检测 |
-| **全量内存 Dump + 用户态重放** | 驱动已运行 | 在内核加载完毕后 dump 进程内存，在用户态 Loader 中重放 |
-| **Emulation (Unidbg/QEMU)** | 需脱离真实 OS | 在模拟环境中重跑关键算法，完全规避内核对抗 |
+| **静态/已有证据** | 当前问题可离线回答 | 继续结构、算法与日志分析，不新增运行和设备绑定 |
+| **已明确实验环境** | 实际环境身份与范围均已确认 | 只用已允许的观察能力；VM 名称或快照不代替范围 |
+| **局部离线仿真** | 关键函数和依赖可建模 | 只证明模拟范围，不声称完整设备/服务端已复刻 |
+| **环境缺口** | 所需观察无法低影响完成 | 保留证据与具体缺项，继续可做工作，不转交用户代改系统 |
 
 ---
 
@@ -185,6 +187,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpvReserved) {
 
 | 情形 | 触发条件 | 处置 |
 |---|---|---|
-| 用户态 Hook 无效（程序仍检测到调试器）| 同构打桩 2 次失败 | 停止，升级为内核层分析 |
-| 内核层方案部署失败 | 同构 2 次失败 | 停止，改用 Emulation（Unidbg/QEMU）路线 |
+| 用户态 Hook 无效（原因尚待确认）| 同构打桩 2 次失败 | 核工具/版本/证据，选择正交路线；不自动升级系统影响 |
+| 当前环境无法提供观察 | 缺少匹配环境或工具链 | 保留缺口，转已有静态/离线方法；不反复部署或自动改系统 |
 | Emulation 行为无法覆盖 | 无法还原算法 | 输出"该目标超出当前工具链全自动范畴"，转人工分析 |

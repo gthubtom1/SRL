@@ -68,6 +68,8 @@
 
 ## 五之二、Zero-Waste Recon
 
+目标/工具异常、网站拒绝或准备重复联网试验时，先区分实例与运行/请求阶段，按需用 `seep_runtime_diagnose`；已有范围内仍自主操作。受控 HTTP 沿用稳定主体和共享范围，不因换会话、修代码或超时补次数；暂停相关远端动作后继续离线工作。→ `Tool/playbooks/risk-aware-analysis.md`
+
 信号（JWT / 壳 / 混淆 / native / 加密）→ 查 KB → 读匹配技术文件 → 对照当前宿主工具与能力表选路。KB 的工具名、路径、版本、案例和改进建议只作方法参考，不等于当前已安装、已验证或新待办；按实际 schema/连通结果使用已有等价能力，资源限制按返回的 continuation 处理。主域按需调用辅域技能，辅助材料先登记再绑定证据。知识库根固定 `Tool/mcp/Tool/reverselab/kb`，优先 `seep_kb_search` → `seep_kb_read` 返回的真实路径。
 
 ## 五之三、人机协作：三档执行（AUTO / ASK / DENY）

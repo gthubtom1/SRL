@@ -1,5 +1,5 @@
 {
-  "count": 21,
+  "count": 23,
   "tools": [
     "seep_r2_info",
     "seep_r2_cmd",
@@ -21,7 +21,9 @@
     "seep_http_replay",
     "seep_tool_discover",
     "seep_case_read",
-    "seep_capability_discover"
+    "seep_capability_discover",
+    "seep_runtime_diagnose",
+    "seep_runtime_risk"
   ],
   "note": "seep_mcp_server.py 的扩展基线：只许在此之上追加，不许删改既有工具",
   "reductions": [

@@ -21,6 +21,8 @@ metadata:
 
 # APK Reverse Engineering & Patching
 
+Attach/crash/root/network anomalies: distinguish target state, tool failure and request phase before escalating. Use `Tool/playbooks/risk-aware-analysis.md` with existing detection references; calibrate on the same ABI/runtime, preserve real-account budgets, and continue unaffected offline work. GUI/input stays autonomous within the existing task scope.
+
 For modification tasks, reach a **verified, installable, still-working artifact** — and avoid the whole class of
 mistakes that destroy an APK while looking completely healthy.
 

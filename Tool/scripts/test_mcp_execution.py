@@ -25,6 +25,13 @@ def response():
 
 
 class McpExecutionTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="seep-dispatch-risk-")
+        self.addCleanup(temp.cleanup)
+        env = mock.patch.dict(os.environ, {"SEEP_RISK_ROOT": temp.name})
+        env.start()
+        self.addCleanup(env.stop)
+
     def test_r2_modes_preserve_errors_before_filtering_or_headers(self):
         with tempfile.TemporaryDirectory() as td:
             binary = Path(td) / 'sample.bin'
@@ -100,19 +107,23 @@ class McpExecutionTests(unittest.TestCase):
             raise ConnectionError('response lost after server processed POST')
 
         fallback = mock.Mock(return_value=response())
+        scope = server.seep_runtime_risk("grant", url, "delivery-fixture")["scope_id"]
         with mock.patch.dict(sys.modules, {
                 'curl_cffi': SimpleNamespace(requests=SimpleNamespace(request=delivered_then_failed)),
                 'requests': SimpleNamespace(request=fallback)}):
-            result = server.seep_http_replay(url, method='POST', body='one update')
+            result = server.seep_http_replay(url, method='POST', body='one update',
+                                             risk_scope=scope, risk_subject="delivery-fixture")
         self.assertIn('ERROR', result)
         self.assertEqual(seen, [b'one update'])
         fallback.assert_not_called()
 
     def test_fallback_is_allowed_when_preferred_backend_is_not_installed(self):
         fallback = mock.Mock(return_value=response())
+        scope = server.seep_runtime_risk("grant", "http://fixture.invalid", "delivery-fixture")["scope_id"]
         with mock.patch.dict(sys.modules, {'curl_cffi': None,
                                           'requests': SimpleNamespace(request=fallback)}):
-            result = json.loads(server.seep_http_replay('http://fixture.invalid', method='DELETE', body='delete me'))
+            result = json.loads(server.seep_http_replay('http://fixture.invalid', method='DELETE', body='delete me',
+                                                       risk_scope=scope, risk_subject="delivery-fixture"))
         self.assertEqual(result['status'], 200)
         self.assertEqual(fallback.call_args.kwargs.get('data'), 'delete me')
 
