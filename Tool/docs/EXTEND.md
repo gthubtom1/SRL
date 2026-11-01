@@ -28,7 +28,7 @@ python Tool/scripts/domain-contract-check.py --strict
 
 ## 0. 先记住三条铁律
 
-1. **通道优先级**：工具自带 MCP > CLI/headless > GUI > 人工。**能用 headless 就绝不开 GUI**。
+1. **按问题选通道**：能回答同一问题时优先稳定 MCP/CLI；真实界面行为仍用浏览器/桌面/设备控制。GUI 不等于人工，不能因有 headless 就省略必要页面验收。
 2. **单一事实源**：每类东西只有一处配置。**不要在提示词里写工具数量、不要把路径写死。**
 3. **按结果验收**：先跑相关契约，再跑 `python Tool/scripts/check.py --runtime --json`，部署与实际加载单独验证；WARN、跳过和缺项如实保留。
 

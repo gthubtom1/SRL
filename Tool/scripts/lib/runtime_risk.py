@@ -254,7 +254,12 @@ class RiskStore:
             phase = "outcome_unknown" if event == "outcome_unknown" else "completed"
             db.execute("UPDATE operations SET phase=?, updated=? WHERE id=?", (phase, time.time(), operation_id))
             if event != "none":
-                self._pause(db, json.loads(op["subjects"]), event, retry_at)
+                subjects = json.loads(op["subjects"])
+                # A confirmed account restriction belongs to that stable
+                # identity, not every unrelated account at the same service.
+                # Unknown outcomes, rate limits and unscoped events stay broad.
+                affected = subjects[1:] if event == "account_restricted" and len(subjects) > 1 else subjects
+                self._pause(db, affected, event, retry_at)
             states = self._states(db, json.loads(op["subjects"]))
             return {"paused": any(r["reason"] for r in states),
                     "reasons": sorted(set(r["reason"] for r in states if r["reason"]))}

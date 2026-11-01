@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 
 /* ────────────────────────────── 常量 ────────────────────────────── */
 
@@ -761,19 +762,6 @@ export function isTempPath(p: string): boolean {
 	return /(^|\/)(tmp|temp)(\/|$)/i.test(n);
 }
 
-/** `~/.seep/current-case` 里记的当前案目录（case_state.py init 写的机器级指针）。 */
-function currentCaseDirs(): string[] {
-	const out: string[] = [];
-	try {
-		const p = path.join(os.homedir(), ".seep", "current-case");
-		const txt = fs.readFileSync(p, "utf-8").trim();
-		if (txt) out.push(txt);
-	} catch {
-		/* 没有就算了 */
-	}
-	return out;
-}
-
 /** 已知项目、案件及临时目录，用于写入范围提示。 */
 export function writeAllowRoots(cwd: string = process.cwd()): string[] {
 	const roots: string[] = tempRoots();
@@ -782,7 +770,8 @@ export function writeAllowRoots(cwd: string = process.cwd()): string[] {
 	roots.push(base, path.join(base, "Tool"), path.join(base, "work"));
 	const home = os.homedir();
 	roots.push(path.join(home, ".seep"), path.join(home, ".pi", "agent"));
-	for (const c of currentCaseDirs()) roots.push(c);
+	const activeCase = resolveCaseDirectory(cwd);
+	if (activeCase) roots.push(activeCase);
 	return roots;
 }
 
@@ -802,39 +791,8 @@ export function writeDecision(
 
 /* ───────────────────────────── 磁盘层 ───────────────────────────── */
 
-function existingDirectory(value: string): string {
-	try {
-		const resolved = path.resolve(value);
-		return fs.statSync(resolved).isDirectory() ? resolved : "";
-	} catch {
-		return "";
-	}
-}
-
-/**
- * 当前案件目录：显式环境变量 → 本会话 cwd 下的 .seep-case → 机器级指针。
- * 与 seep-events / seep-memory 使用同一优先级，避免同一进程并行跑两个项目时，
- * 后启动的全局指针把另一个会话的目标诊断串过来。
- */
 export function currentCaseHint(cwd: string = ""): string {
-	const candidates: string[] = [];
-	const explicit = (process.env.SEEP_CASE_DIR ?? "").trim();
-	if (explicit) candidates.push(explicit);
-	try {
-		candidates.push(path.resolve(cwd || process.cwd(), ".seep-case"));
-	} catch {}
-	try {
-		const pointer = fs.readFileSync(path.join(os.homedir(), ".seep", "current-case"), "utf-8")
-			.split(/\r?\n/)
-			.map((line) => line.trim())
-			.find(Boolean);
-		if (pointer && path.isAbsolute(pointer)) candidates.push(pointer);
-	} catch {}
-	for (const candidate of candidates) {
-		const dir = existingDirectory(candidate);
-		if (dir) return dir;
-	}
-	return "";
+	return resolveCaseDirectory(cwd || process.cwd());
 }
 
 /** 找仓库根的 Tool/config/answer-contract.json：环境变量 → cwd 逐级上溯 → 常见相对位置。 */

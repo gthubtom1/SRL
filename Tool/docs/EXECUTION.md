@@ -54,3 +54,33 @@
 跨域时，`project_workflow.py start --primary-domain <域> --aux-domain <辅域>` 登记主辅领域。先用 `project_state.py asset --project <项目> --version <版本> --asset-id <ID> --role auxiliary --target <文件>` 登记辅助材料，再用 `project_workflow.py act --project <项目> --action <只读动作> --asset-id <ID>` 选择该版本已登记的文件；省略 ID 才使用主目标。工具输入绑定、执行前后指纹和证据复查使用同一资产身份，不能在 `--args-json` 覆盖目标路径。`kb.search`、`kb.read` 是九领域共享的知识入口，仍经过 effects、参数和项目状态检查。
 
 开发本工作台的新会话和压缩接续只读 REQUIREMENTS 与 [CURRENT-STATE](../../docs/CURRENT-STATE.md)，再定位相关实现；恢复客户项目时读取该项目自身状态，不从产品历史计划推断下一步。
+
+技术未知、版本矛盾或重复无新证据时，按 [查证与最小实验](../playbooks/evidence-led-investigation.md) 使用现有方法并按需主动查外部资料，不等用户提醒。该配方不强制普通开发建案，也不靠人物语气替代专业证据。
+
+## 5. 项目风险提示的持久化与恢复
+
+账号、设备、目标或环境相关的风险提示由 Agent 自己记到现有项目，用户不填风险JSON。只根据静态线索时用 suspected，实际观察用 observed；记录不能代替证据语义判断。先通过现有 evidence 入口将非敏感观察绑定到来源 project/version/run，再用原 `project_state.py event --project <项目> --type runtime_caution --version <来源版本> --run <来源运行> --message <JSON>` 登记。message 字段为：
+
+```json
+{
+  "caution_id": "launch-risk-1",
+  "scope": "identity",
+  "subject_ref": "credential-store/account-a",
+  "assessment": "suspected",
+  "reason": "已有静态材料显示启动可能触发远端设备绑定，尚未实测",
+  "affected_actions": ["启动原目标", "认证或激活"],
+  "resume_when": "核对旧实例和远端结果，确认当前环境与已有范围，再查询共享风险状态",
+  "safe_next": "继续离线检查导入和已有日志",
+  "evidence_ids": ["ev-static-observation"]
+}
+```
+
+`scope` 为 identity（稳定主体必填）、target（当前目标事实）或 environment（环境适用条件）；subject_ref 仅非秘密稳定引用，不写真实账号、卡密或访问URL。caution_id 在项目内不可复用。来源版本/run和证据须真实存在且匹配，引用文件哈希仍须通过；证据篡改使接续健康状态失败，警告不会因此消失。
+
+`project_state.py handoff/resume` 和 Manager handoff 均展示 `runtime_cautions`，workflow status 的项目健康也保留它。换run不清警告；跨版本身份风险仍保留，旧target警告标明需重新评估，不当成新目标已证事实。只暂停 affected_actions，其他离线工作继续，不把整个项目变为 WAIT_USER。
+
+有复核证据后用同一event入口、type=`runtime_caution_resolved`，message仅含 `caution_id`、`reason`、`evidence_ids`；来源版本/run填写本次复核的真实归属。追加解除事件只解指定提示，不删历史、不清其他警告，**不调用 runtime-risk resume、不返还次数**。实际远端恢复仍走原共享风险接口和判据。
+
+facts随原项目归档携带，不复制用户级预算库或identity.key。`external_coordination`始终明确未核对：换机器后空库不等于没有过去的尝试；恢复远端动作前须核对旧执行链、主体、额度和范围，必要时只继续离线。提示记录不是全宿主拦截器，不能声称所有curl、浏览器、设备或目标后台都已受控。
+
+Pi案例记忆只自动采用当前cwd的本地案或归属于cwd的机器指针候选；跨目录恢复用明确的 `SEEP_CASE_DIR`。未绑定的普通目录不读写另一个项目的记忆，插件不会自动创建案件。普通未建项目任务在已有接续文件保留相同必要信息；不为风险笔记强制建立完整专业案件。

@@ -439,6 +439,7 @@ def decision_quality(state: dict) -> dict:
     return {"scope": "manager-recorded-reviews-only", "route_id": rid,
             "context": state["routes"].get(rid, {}).get("decision"),
             "reviewed_attempts": reviewed, "unreviewed_attempts": len(attempts) - reviewed,
+            "review_recommended": len(attempts) - reviewed >= 2,
             "stagnant_reviews": stagnant_reviews(attempts, rid),
             "assessment_source": "caller-declared", "semantic_verification": False,
             "grants_scope": False, "globally_enforced": False}
@@ -948,6 +949,7 @@ def check_action(root: Path, refs: dict, route_id: str, target_sha256: str, gene
         if actual != target_sha256 or actual != state["target_sha256"]:
             raise ManagerError("action target hash stale")
         return {"ok": True, "allowed": True, "status": state["status"], "references": refs,
+                "review_recommended": decision_quality(state)["review_recommended"],
                 "generation_id": generation_id, "route_id": route_id, "target_sha256": actual,
                 "ledger_head": events[-1]["event_id"], "checked_at": now(),
                 "scope": "manager-snapshot-only", "host_wiring_required": True,
@@ -1101,6 +1103,8 @@ def _build_handoff_locked(root: Path) -> dict:
     if state.get("waiting") and state["waiting"].get("status") == "WAIT_USER":
         status = "blocked"
         actions = ["等待用户从 %s 中选择并执行 answer" % ", ".join(state["waiting"].get("options", {}))]
+    elif decision_quality(state)["review_recommended"]:
+        actions = ["多次尝试尚未复核：先读原输出并用原 attempt_id review；缺技术事实时查已有方法或外部资料，不把成功码当进展"] + actions
     handoff = {
         "schema": HANDOFF_SCHEMA,
         "project": refs,
@@ -1115,6 +1119,10 @@ def _build_handoff_locked(root: Path) -> dict:
         "outcome_scope": "recorded-evidence-only",
         "updated_at": now(),
     }
+    cautions = project_reader.runtime_cautions(root)
+    handoff["runtime_cautions"] = cautions
+    if cautions["open"] or cautions["errors"]:
+        handoff["next_actions"] = ["先核对项目 runtime_cautions；仅暂停相关动作，离线可继续；不自动恢复远端额度"] + actions
     atomic_json(root / HANDOFF_NAME, handoff)
     return handoff
 

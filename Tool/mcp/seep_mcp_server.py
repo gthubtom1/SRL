@@ -193,7 +193,7 @@ server = MCPServer(
     instructions="""seep 是跨宿主工作台的专业工具与知识入口，普通开发也可按当前问题借用。
 选择专业方法、查已有资源或受阻换路时，先 seep_capability_discover；读取选中方法，
 按需 seep_kb_search -> seep_kb_read，再核对当前宿主的真实工具 schema 执行与验证。
-资源归属不是任务准入；发现不执行目标，注册不证明本机就绪，输出不等于验收。
+资源归属不是任务准入；发现不执行目标，注册不证明本机就绪，输出不等于验收；未知或无进展时按 Tool/playbooks/evidence-led-investigation.md 主动查证和复核，项目风险看 handoff.runtime_cautions，不自动解除远端暂停。
 能力包含：
 1. 二进制分析与逆向 (Radare2 / Rabin2 / Radiff2 / Rasm2)
 2. Android APK / DEX 反编译、解包与 Smali 检索 (JADX, Apktool)

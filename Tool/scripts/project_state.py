@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 
 from lib.project_lock import atomic_copy, project_file, project_lock, project_locked, verify_file
 from lib import typed_assets as T
+from lib import runtime_cautions as RC
 
 PROJECT_SCHEMA = "seep-project/1"
 ASSET_SCHEMA = "seep-asset/1"
@@ -306,6 +307,14 @@ def write_event(root: Path, event_type: str, message: str, version: str = "", ru
         if key not in event:
             event[key] = value
     _validate_fact(event, project["project_id"])
+    if event_type in RC.TYPES:
+        events, errors = read_fact_log(root)
+        if errors:
+            raise ValueError("cannot append caution to a corrupt fact log")
+        projected = RC.project(events + [event], project.get("current_version_id"),
+                               lambda e, ids: _caution_binding(root, e, ids))
+        if projected["errors"]:
+            raise ValueError("runtime caution references or transition invalid")
     append_jsonl(project_file(root, "facts.jsonl"), event)
     return event
 
@@ -2573,6 +2582,8 @@ def _validate_fact(value: dict, project_id: str) -> None:
         raise ValueError("event type must be a nonempty string")
     if not isinstance(value.get("message"), str):
         raise ValueError("event message must be a string")
+    if value["type"] in RC.TYPES:
+        RC.payload(value)
     for key in ("version_id", "run_id", "migration_id", "revision_id"):
         if value.get(key) is not None:
             if not isinstance(value[key], str):
@@ -3136,6 +3147,34 @@ def _write_gate_failure(stage: str, conflicts: list[str]) -> int:
                 % "; ".join(conflicts))
 
 
+def _caution_binding(root: Path, event: dict, evidence_ids: list[str]) -> dict:
+    project = require_project(root)
+    version, run = event["version_id"], event["run_id"]
+    source = _validate_version(root, version, project["project_id"])
+    _run_record(root, version, run)
+    for ident in evidence_ids:
+        record = load_json(project_file(root, "versions/%s/evidence/%s.json" % (version, ident)))
+        if (record.get("schema") != EVIDENCE_SCHEMA or record.get("project_id") != project["project_id"]
+                or record.get("version_id") != version or record.get("run_id") != run
+                or record.get("evidence_id") != ident
+                or (source.get("sha256") and record.get("target_sha256") != source["sha256"])):
+            raise ValueError("caution evidence identity mismatch")
+        _evidence_path(root, record)
+    return {"project_id": project["project_id"], "version_id": version, "run_id": run,
+            "target_sha256": source.get("sha256"), "identity_scope": source.get("identity_scope")}
+
+
+def runtime_cautions(root: Path, events: list[dict] | None = None) -> dict:
+    if events is None:
+        # Legacy Manager-only projects may predate the project fact log.
+        events, errors = read_fact_log(root) if (root / "facts.jsonl").exists() else ([], [])
+        if errors:
+            return {"open": [], "errors": errors, "external_coordination": "not_checked",
+                    "globally_enforced": False, "automatic_resume": False}
+    return RC.project(events, require_project(root).get("current_version_id"),
+                      lambda e, ids: _caution_binding(root, e, ids))
+
+
 def write_handoff(root: Path, *, persist: bool = True) -> dict:
     project = require_project(root)
     versions = []
@@ -3237,8 +3276,11 @@ def write_handoff(root: Path, *, persist: bool = True) -> dict:
     closed_migrations = [x for x in migrations if x.get("status") == "completed"]
     closure_errors, closure_legacy = _audit_ledger(root, project, versions, runs,
                                                    migrations, migration_copies)
-    errors = errors + evidence_errors + acceptance_errors + closure_errors
+    cautions = runtime_cautions(root, events)
+    errors = errors + evidence_errors + acceptance_errors + closure_errors + cautions["errors"]
     next_actions = []
+    if cautions["open"]:
+        next_actions.append("先读 runtime_cautions：受影响动作保持暂停并核对旧协调状态；继续无关离线工作，不自动恢复或补额度")
     if asset_errors or evidence_errors:
         next_actions.append("恢复本地资产、目标及证据文件，并核验 SHA256 后重新 resume")
     if acceptance_errors:
@@ -3341,6 +3383,7 @@ def write_handoff(root: Path, *, persist: bool = True) -> dict:
         "proof_level": PROOF_LEVEL,
         "proof_limits": list(PROOF_LIMITS),
         "next_actions": next_actions,
+        "runtime_cautions": cautions,
         "event_count": len(events),
         "updated_at": now()
     }

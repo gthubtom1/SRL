@@ -2,7 +2,11 @@
 
 功能需求唯一来源为 [REQUIREMENTS.md](../REQUIREMENTS.md)，完成状态唯一来源为 [CURRENT-STATE.md](CURRENT-STATE.md)。本页描述代码职责，不新增产品要求或宣称所有路径已验收。
 
-## 1. 一次项目的主路径
+## 1. 主次与按需路径
+
+优先顺序是用户结果/范围与原件保护 → 当前证据/实际影响 → 专业方法和真实工具 → 接续/验收 → 可选宿主增强与表达风格。四线不是四个平级总控：发现回答去哪找，自主执行回答谁来做，风险控制回答哪些试验可继续，决策复核回答是否减少了未知；都服务于任务结果。
+
+普通开发的小修改直接读改测；专业未知才借用技能/KB/外部资料，风险影响到实际动作才按原边界暂停相关通道。下列完整项目路径仅用于需要长期状态、版本/证据和交付的任务，不是所有工具调用的强制链：
 
 ```text
 用户自然语言 + 文件/目录/URL
@@ -29,6 +33,7 @@
 | `Tool/mcp/seep_mcp_server.py`、`seep_contract.py` | MCP 工具、参数/结果契约与共享校验 | 工具注册、连通、真实执行分别证明 |
 | `Tool/scripts/project_state.py` | project/version/run、材料、证据、验收和交接 | 检查登记见证完整性，不代替人判断原始输出的全部专业语义 |
 | `Tool/scripts/manager_state.py` | 规划、选择、等待、失败和换路，执行前准入 | 状态和证据绑定到当前 generation |
+| `Tool/scripts/lib/runtime_cautions.py` | 从原项目facts投影风险提示与引用式解除，接续可恢复 | 不建第二账本，不查询/恢复外部预算；来源run不是失效时间 |
 | `Tool/scripts/project_workflow.py` | classify/start/act/status/close 与受控捕获 | `workflow-entry-only`，不是宿主所有工具的全局拦截器 |
 | `Tool/scripts/lib/typed_assets.py` | 文件、目录快照、URL描述身份 | URL描述不证明远端实际内容 |
 | `Tool/scripts/project_report.py` | 报告、结论账、引用、适用性及状态复查 | 弱/缺支持/跨run结论不自动升为已确认 |
@@ -45,6 +50,8 @@
 `Tool/prompts/AGENTS.md` 是共享行为规则源，`Tool/prompts/SEEP.md` 提供资源指针。安装器把规则、技能和扩展部署到 agent 目录；项目开发的接续入口为当前需求与当前状态。
 
 `Tool/prompts/extensions/` 的执行守卫不因文档清理而更改。项目级bootstrap模板位于 `Tool/prompts/contracts/AGENTS.md`，由各宿主的接入方式加载；当前仓库根没有另放一份AGENTS副本。个人设置、第三方 MCP、凭据文件和宿主管理块不由项目文档重写。新进程加载与磁盘一致性分别验证。
+
+Pi四个案例消费者复用 `Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts`，机器级current-case只有在真实路径属于当前cwd时可自动采用；跨目录用明确绑定，无本地案的普通开发不继承他案记忆。`Tool/playbooks/evidence-led-investigation.md` 是按需专业查证入口，不引入新的调度器、搜索MCP或人物角色常驻层。
 
 ## 4. 检查和证据
 

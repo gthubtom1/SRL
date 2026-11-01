@@ -44,6 +44,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -884,41 +885,8 @@ export interface CommandDecision {
 	notes: string[];
 }
 
-function existingDirectory(value: string): string {
-	try {
-		const absolute = path.resolve(value);
-		return fs.statSync(absolute).isDirectory() ? absolute : "";
-	} catch {
-		return "";
-	}
-}
-
-/**
- * 当前案件的绝对目录。回执里的 case 必须和它一致，避免同一命令的 A 回执
- * 在并行案件中复用；没有案件时返回空串，调用方应 fail-closed。
- */
 export function resolveActiveCaseDir(cwd: string = process.cwd()): string {
-	const explicit = process.env.SEEP_CASE_DIR?.trim();
-	if (explicit) {
-		const found = existingDirectory(explicit);
-		if (found) return found;
-	}
-	const local = existingDirectory(path.join(cwd || process.cwd(), ".seep-case"));
-	if (local) return local;
-	try {
-		const ptr = path.join(os.homedir(), ".seep", "current-case");
-		if (fs.existsSync(ptr)) {
-			const target = fs.readFileSync(ptr, "utf-8")
-				.split(/\r?\n/)
-				.map((line) => line.trim())
-				.find(Boolean);
-			if (target && path.isAbsolute(target)) {
-				const found = existingDirectory(target);
-				if (found) return found;
-			}
-		}
-	} catch {}
-	return "";
+	return resolveCaseDirectory(cwd);
 }
 
 function canonicalCaseDir(value: string): string {

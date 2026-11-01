@@ -2,7 +2,9 @@
 
 Seep Reverse Lab supplies an AI agent with skills, tools, knowledge, project state and evidence records for reverse-engineering work. Describe the goal and provide the material; the main model chooses a route, combines capabilities across domains and checks its results against observed evidence.
 
-The workbench provides capabilities, contracts and execution interfaces. The model decides when to use a skill, how to combine domains and whether a conclusion is supported. For example, an Android task can combine binary and SO analysis, while a web task can combine HTTP, protocol and JavaScript methods.
+The workbench provides capabilities, contracts and execution interfaces. The nine domains organize professional methods; ordinary development can borrow a method without opening a case. Small edits remain direct edit-and-test tasks. The model decides when to use a skill, how to combine domains and whether a conclusion is supported.
+
+Discovery finds existing methods, autonomy handles in-scope execution, runtime risk bounds cooperating experiments, and decision reviews distinguish tool success from new evidence. Unknowns, conflicting versions or repeated lack of progress call for targeted research and a discriminating test, not blind retries. See the [investigation recipe](Tool/playbooks/evidence-led-investigation.md). These mechanisms do not promise expert judgment or success on every target.
 
 ## Let your agent install it
 
@@ -11,6 +13,8 @@ Give your agent the repository URL or local directory and say:
 > Install and verify this workbench. Start with `Tool/docs/BOOTSTRAP.md`. Treat the current source, script parameters, command output and exit codes as facts about this machine; do not treat historical documents or another machine's completion record as current status. Inspect the system and Agent host, reuse available components, install what is missing and verify with the same AgentRoot. Report what passed, what remains unavailable, and which sign-in, license, device or external-service actions require me.
 
 [BOOTSTRAP](Tool/docs/BOOTSTRAP.md) is the agent-facing installation entry. It documents prerequisites, Windows and Linux/macOS commands, custom AgentRoots, the exact scope of `SkipPackages`, and post-install checks. Users do not need to select internal skill names or fill planning fields by hand.
+
+Identify the host first. AgentRoot and the installation commands below describe Pi. Other hosts use BOOTSTRAP section 0 to connect the common MCP/CLI and load the shared method instructions; Pi is not a prerequisite. Configuration, host loading and real task behavior require separate verification.
 
 ## Prerequisites
 
