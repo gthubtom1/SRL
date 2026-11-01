@@ -3146,18 +3146,21 @@ def _write_gate_failure(stage: str, conflicts: list[str]) -> int:
                 % "; ".join(conflicts))
 
 
-def _caution_binding(root: Path, event: dict, evidence_ids: list[str], checked_indexes: set | None = None) -> dict:
+def _caution_binding(root: Path, event: dict, evidence_ids: list[str], checked_indexes: dict | None = None) -> dict:
     project = require_project(root)
     version, run = event["version_id"], event["run_id"]
     source = _validate_version(root, version, project["project_id"])
     _run_record(root, version, run)
     # Reuse the independent registry witness, not just a mutable record/raw
     # pair. Rewriting both must not manufacture a valid caution resolution.
-    if checked_indexes is None or version not in checked_indexes:
-        if _evidence_index_problems(root, version):
-            raise ValueError("caution evidence registry is inconsistent")
-        if checked_indexes is not None:
-            checked_indexes.add(version)
+    if checked_indexes is None:
+        consistent = not _evidence_index_problems(root, version)
+    else:
+        if version not in checked_indexes:
+            checked_indexes[version] = not _evidence_index_problems(root, version)
+        consistent = checked_indexes[version]
+    if not consistent:
+        raise ValueError("caution evidence registry is inconsistent")
     for ident in evidence_ids:
         record = load_json(project_file(root, "versions/%s/evidence/%s.json" % (version, ident)))
         if (record.get("schema") != EVIDENCE_SCHEMA or record.get("project_id") != project["project_id"]
@@ -3177,7 +3180,7 @@ def runtime_cautions(root: Path, events: list[dict] | None = None) -> dict:
         if errors:
             return {"open": [], "errors": errors, "external_coordination": "not_checked",
                     "globally_enforced": False, "automatic_resume": False}
-    checked_indexes: set[str] = set()
+    checked_indexes: dict[str, bool] = {}
     return RC.project(events, require_project(root).get("current_version_id"),
                       lambda e, ids: _caution_binding(root, e, ids, checked_indexes))
 

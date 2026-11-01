@@ -145,6 +145,22 @@ class PortableCautions(unittest.TestCase):
         self.assertEqual(view["open"][0]["caution_id"], "risk-a")
         self.assertTrue(view["errors"])
 
+    def test_projection_checks_each_version_index_once_even_when_corrupt(self):
+        for ident in ("risk-a", "risk-b", "risk-c"):
+            self.event(dict(self.notice, caution_id=ident))
+        original = P._evidence_index_problems
+        with patch.object(P, "_evidence_index_problems", wraps=original) as scan:
+            view = P.runtime_cautions(self.root)
+            self.assertEqual(scan.call_count, 1)
+            self.assertTrue(all(x["evidence_status"] == "verified" for x in view["open"]))
+        self.evidence.write_text("changed evidence\n", encoding="utf-8")
+        with patch.object(P, "_evidence_index_problems", wraps=original) as scan:
+            view = P.runtime_cautions(self.root)
+            self.assertEqual(scan.call_count, 1)
+            self.assertEqual(len(view["errors"]), 3)
+            self.assertEqual(len(view["open"]), 3)
+            self.assertTrue(all(x["evidence_status"] == "unverified" for x in view["open"]))
+
     def test_archive_import_keeps_warning_and_requires_coordination_recheck(self):
         self.event()
         archive = self.base / "portable.zip"
