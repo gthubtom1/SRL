@@ -67,7 +67,8 @@ def main():
         return 1
     tmp = tempfile.mkdtemp(prefix="toolauto-")
     try:
-        cmd = '"%s" tsc "%s" --outDir "%s" --target es2022 --module es2022 --moduleResolution node --skipLibCheck' % (npx, TS, tmp)
+        prompt_root = os.path.join(ROOT, "Tool", "prompts")
+        cmd = '"%s" tsc "%s" --outDir "%s" --rootDir "%s" --rewriteRelativeImportExtensions --target es2022 --module es2022 --moduleResolution bundler --skipLibCheck' % (npx, TS, tmp, prompt_root)
         cp = subprocess.run(cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
         bad = [ln for ln in (cp.stdout or "").splitlines() if "error TS1" in ln]
         if bad:
@@ -75,7 +76,7 @@ def main():
             for ln in bad[:5]:
                 print("   " + ln.strip())
             return 1
-        js = os.path.join(tmp, "answer-gate.js")
+        js = os.path.join(tmp, "extensions", "answer-gate.js")
         if not os.path.isfile(js):
             print("[FAIL] 没产出 answer-gate.js")
             return 1
