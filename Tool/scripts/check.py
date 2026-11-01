@@ -64,6 +64,8 @@ SUITES = [
      "口语检索：12 条大白话能否落到真实文章（别名表 + CJK 2-gram，门槛 >=10/12）"),
     ("route-tests", ["Tool/skill/softseep/scripts/skill-route-probe.py", "--json"], True,
      "路由探针：技能路由在中文边界上的行为"),
+    ("capability-discovery", ["Tool/scripts/test_capability_discovery.py"], True,
+     "跨宿主只读能力发现：准确引用、资格、CLI/MCP同核、普通开发与九域方法"),
     ("rewrite-parity", ["Tool/scripts/rewrite-route-parity.py", "--json"], True,
      "原始输入经真实扩展、中继与路由后保持正文、附件和完整主辅域集合"),
     ("relay-tests", ["-m", "unittest", "discover", "-s",

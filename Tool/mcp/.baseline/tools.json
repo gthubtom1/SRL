@@ -1,5 +1,5 @@
 {
-  "count": 20,
+  "count": 21,
   "tools": [
     "seep_r2_info",
     "seep_r2_cmd",
@@ -20,7 +20,8 @@
     "seep_packer_detect",
     "seep_http_replay",
     "seep_tool_discover",
-    "seep_case_read"
+    "seep_case_read",
+    "seep_capability_discover"
   ],
   "note": "seep_mcp_server.py 的扩展基线：只许在此之上追加，不许删改既有工具",
   "reductions": [
@@ -49,6 +50,15 @@
         "seep_tool_state",
         "seep_web_recon"
       ]
+    }
+  ],
+  "additions": [
+    {
+      "date": "2026-11-01",
+      "tools": [
+        "seep_capability_discover"
+      ],
+      "reason": "User-approved host-neutral capability discovery; real stdio registration, schema, result/error and CLI parity tested. Source API baseline only; no historical machine handshake is rewritten."
     }
   ]
 }

@@ -7,6 +7,7 @@
 - 实际安装参数、更新、卸载：`MANUAL/DEPLOYMENT.md`。
 - 如何判断安装结果：`MANUAL/DEPLOYMENT-CHECKLIST.md`。
 - 通用执行约定：`Tool/prompts/AGENTS.md`；Pi 指针：`Tool/prompts/SEEP.md`。
+- 当前问题找现有能力：`seep_capability_discover`；无该 MCP 时用 `python Tool/scripts/route.py --discover "当前问题" --json`。沿返回资源读实际方法、查 KB、核 schema 和结果；普通开发可借用专业方法，不强制归域建案。能力规则只在通用执行约定维护，不在宿主模板复制。
 - 范围与当前验证：`REQUIREMENTS.md`、`docs/CURRENT-STATE.md`。恢复用户项目另读其自身状态。
 
 所有仓库相对命令从仓库根执行；任务材料与输出使用明确的项目路径。自定义 AgentRoot 时将环境检查、诊断和安装指向同一目录。

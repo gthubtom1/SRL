@@ -303,6 +303,8 @@ def main():
     ap.add_argument("--index", action="store_true", help="列出全部路由（priority<TAB>pack<TAB>label）")
     ap.add_argument("--check", action="store_true", help="死路由 / 坏正则 / 坏优先级 → rc=1")
     ap.add_argument("--resolve", default="", help="按一段自然语言匹配路由")
+    ap.add_argument("--discover", default="", metavar="QUESTION",
+                    help="只读发现当前问题可借用的方法与资源（不要求整个任务归入九域）")
     ap.add_argument("--limit", type=_positive_limit, default=None,
                     help="只显示前 N 条命中（默认显示全部）")
     ap.add_argument("--json", action="store_true")
@@ -311,6 +313,25 @@ def main():
     ap.add_argument("--skill-dir", default="", help="覆盖 Tool/skill 根（测试用）")
     a = ap.parse_args()
     sd = a.skill_dir or None
+
+    if a.discover:
+        if a.resolve or a.check or a.index:
+            ap.error("--discover cannot be combined with --resolve/--check/--index")
+        from lib.capability_discovery import discover
+        result = discover(_repo_of(sd or SKILL_DIR), a.discover,
+                          a.limit if a.limit is not None else 5)
+        if a.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print("[DISCOVERY] " + result["status"])
+            for item in result["resources"]:
+                print("%s: %s -> %s" % (item["kind"], item["title"], item["path"]))
+            for warning in result["warnings"]:
+                print("[WARN] %s: %s" % (warning["code"], warning["source"]))
+            if result.get("error"):
+                print(result["error"])
+        return (2 if result["status"] in ("invalid_parameter", "partial") else
+                1 if not result["ok"] else 0)
 
     try:
         hits = resolve(a.resolve, sd, limit=a.limit) if a.resolve else []

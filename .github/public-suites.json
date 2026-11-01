@@ -316,6 +316,9 @@
     ],
     "capability-helpers": [
       "Tool/scripts/test_capability_helpers.py"
+    ],
+    "capability-discovery": [
+      "Tool/scripts/test_capability_discovery.py"
     ]
   },
   "excluded": {

@@ -1241,15 +1241,12 @@ def check_playbook_wiring():
 
 
 def _tool_count_baseline():
-    """工具数基线：从 `Tool/config/packs.baseline.json` 取 seep 服务的登记工具数。
+    """Accepted source surface, not a historical machine handshake snapshot.
 
-    ★ 历史 bug（PLAN-OPTIMIZATION §0 F10）：基线原先只认 gate-counts.json（该文件**从未存在**），
-      该文件不存在 → mcp-param-contract 的基线比对整段跳过（baseline=None 即不比对），
-      而 preflight 依旧打印「工具数基线」PASS —— 削掉一半工具也看不出来。
-    现在：`mcp_handshake.servers.seep.toolsCount`（或该条目的 `toolNames` 条数）。
-    读不到返回 None；调用方必须判 FAIL（「无法证明」不等于「没问题」）。
+    Missing, duplicate or inconsistent declarations remain a failure. Updating
+    this explicit baseline requires an accepted API change, not a live recount.
     """
-    p = os.path.join(TOOL, "config", "packs.baseline.json")
+    p = os.path.join(TOOL, "mcp", ".baseline", "tools.json")
     try:
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
@@ -1257,17 +1254,10 @@ def _tool_count_baseline():
         return None
     if not isinstance(d, dict):
         return None
-    srv = ((((d.get("mcp_handshake") or {}).get("servers")) or {}).get("seep")) or {}
-    n = srv.get("toolsCount")
-    if isinstance(n, int) and n > 0:
-        return n
-    names = srv.get("toolNames")
-    if isinstance(names, list) and names:
-        return len(names)
-    for k in ("mcp_seep_tools", "seep_tool_count", "tool_count", "tools"):
-        n = d.get(k)
-        if isinstance(n, int) and n > 0:
-            return n
+    names, count = d.get("tools"), d.get("count")
+    if (isinstance(names, list) and names and all(isinstance(n, str) and n for n in names)
+            and len(set(names)) == len(names) and type(count) is int and count == len(names)):
+        return count
     return None
 
 
@@ -1296,15 +1286,13 @@ def check_mcp_contract():
         detail = "%d 个工具 / %d 个吃路径，全部支持 binary_path↔target_path 别名" % (
             data.get("tool_count", 0), data.get("path_tool_count", 0))
 
-    # 工具数基线**在 preflight 自己这边对**：mcp-param-contract 的 _resolve_baseline
-    # 读不到 gate-counts.json 就返回 None（不比对），下面这段把「没比对」变成 FAIL。
+    # Both consumers use the accepted source catalog; a missing comparison fails.
     base_n = _tool_count_baseline()
     measured = data.get("tool_count")
     suffix = "" if ok else "；另有：" + detail
     if base_n is None:
         add("14 MCP 契约", "路径参数别名 + 工具数基线", False,
-            "基线缺失，无法证明工具数没被削减（应能读到 Tool/config/packs.baseline.json 的 "
-            "mcp_handshake.servers.seep.toolsCount）" + suffix)
+            "基线缺失/不一致，无法证明工具面完整（应能核对 Tool/mcp/.baseline/tools.json）" + suffix)
         return
     if not isinstance(measured, int):
         add("14 MCP 契约", "路径参数别名 + 工具数基线", False,
