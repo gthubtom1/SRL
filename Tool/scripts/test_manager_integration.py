@@ -30,6 +30,19 @@ def route(rid="a", strategy="capture"):
             "evidence_goal": strategy + " output"}
 
 
+def decision():
+    return {"question": "Is the available output relevant to the requested behavior?",
+            "supports": "Controlled inputs change the relevant output",
+            "refutes": "Only unrelated maintenance data changes",
+            "alternative": "Inspect existing offline observations before collecting more",
+            "cost_limit": "Two experiments, then reconsider the evidence goal",
+            "impact": "Synthetic local fixture only; no remote identity is used"}
+
+
+def progress(assessment="no_new_evidence"):
+    return {"assessment": assessment, "reason": "Review the relevant output against the evidence goal"}
+
+
 class ManagerIntegration(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="manager-integration-")
@@ -540,7 +553,16 @@ class ManagerIntegration(unittest.TestCase):
         self.denied(lambda: M.transition(self.root, "intake", payload, refs))
 
     def test_two_real_processes_accept_at_most_one_failure_at_threshold(self):
-        self.attempt()
+        self.concurrent_attempt_threshold()
+
+    def test_two_real_processes_accept_at_most_one_stagnant_review_at_threshold(self):
+        self.concurrent_attempt_threshold(progress_review=True)
+
+    def concurrent_attempt_threshold(self, progress_review=False):
+        if progress_review:
+            self.attempt(outcome="succeeded", progress=progress())
+        else:
+            self.attempt()
         gate = Path(self.temp.name) / "gate"
         workers = []
         with M.manager_lock(self.root):
@@ -548,7 +570,8 @@ class ManagerIntegration(unittest.TestCase):
                 for index in range(2):
                     ready = Path(self.temp.name) / ("worker-%d" % index)
                     workers.append((subprocess.Popen([sys.executable, "-B", "-X", "utf8", str(Path(__file__).resolve()),
-                        "--attempt-worker", str(self.root), str(ready), str(gate)],
+                        "--progress-worker" if progress_review else "--attempt-worker",
+                        str(self.root), str(ready), str(gate)],
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8"), ready))
                 wait_until(lambda: all(ready.exists() for _, ready in workers))
                 gate.touch()
@@ -580,6 +603,169 @@ class ManagerIntegration(unittest.TestCase):
         self.assertEqual(len(events), len({e["event_id"] for e in events}))
         self.assertEqual(2, sum(e["event_type"] == "attempt" for e in events))
         self.denied(self.attempt)
+
+    def test_legacy_successes_remain_unreviewed_and_do_not_block(self):
+        for _ in range(3):
+            self.attempt(outcome="succeeded")
+        quality = self.state()["decision_quality"]
+        self.assertEqual(0, quality["reviewed_attempts"])
+        self.assertEqual(3, quality["unreviewed_attempts"])
+        self.assertFalse(self.state()["replan_required"])
+        self.assertTrue(self.action()["allowed"])
+
+    def test_tool_success_does_not_clear_semantic_stagnation(self):
+        self.attempt(outcome="succeeded", progress=progress())
+        self.attempt(outcome="succeeded")
+        _, state = self.attempt(outcome="succeeded", progress=progress("inconclusive"))
+        self.assertTrue(state["replan_required"])
+        self.assertEqual(2, state["decision_quality"]["stagnant_reviews"])
+        self.denied(self.action)
+        self.denied(lambda: self.attempt(outcome="succeeded", progress=progress("new_evidence")))
+        self.assertFalse(M.build_handoff(self.root)["globally_enforced"])
+
+    def test_new_evidence_including_refutation_resets_only_progress_streak(self):
+        self.attempt(outcome="succeeded", progress=progress())
+        self.attempt(outcome="succeeded", progress={"assessment": "new_evidence",
+                     "reason": "The controlled negative disproves the original hypothesis"})
+        self.attempt(outcome="succeeded", progress=progress("inconclusive"))
+        self.assertFalse(self.state()["replan_required"])
+        self.assertEqual(1, self.state()["decision_quality"]["stagnant_reviews"])
+        self.assertTrue(self.action()["allowed"])
+
+    def test_other_routes_do_not_erase_stagnation(self):
+        M.transition(self.root, "plan", {"route": route("b", "static")}, self.refs)
+        self.attempt(outcome="succeeded", progress=progress())
+        M.transition(self.root, "choose", {"route_id": "b"}, self.refs)
+        self.attempt(route_id="b", outcome="succeeded", progress=progress("new_evidence"))
+        M.transition(self.root, "choose", {"route_id": "a"}, self.refs)
+        self.attempt(outcome="succeeded", progress=progress())
+        self.assertTrue(self.state()["replan_required"])
+
+    def test_new_learning_does_not_disable_existing_tool_failure_boundary(self):
+        self.attempt(progress=progress("new_evidence"))
+        self.attempt(progress=progress("new_evidence"))
+        self.assertTrue(self.state()["replan_required"])
+        self.assertEqual(0, self.state()["decision_quality"]["stagnant_reviews"])
+        self.denied(self.action)
+
+    def test_stagnation_requires_real_replan_not_a_renamed_route(self):
+        self.attempt(outcome="succeeded", progress=progress())
+        self.attempt(outcome="succeeded", progress=progress())
+        self.denied(lambda: M.transition(self.root, "replan", {"reason": "rename only",
+                    "new_route_id": "b", "route": dict(route("b"), decision=decision())}, self.refs))
+        _, state = M.transition(self.root, "replan", {"reason": "Use existing offline evidence",
+                    "new_route_id": "b", "route": route("b", "offline comparison")}, self.refs)
+        self.assertFalse(state["replan_required"])
+        self.assertEqual(0, state["decision_quality"]["stagnant_reviews"])
+        self.assertTrue(self.action(route_id="b")["allowed"])
+
+    def test_decision_context_is_optional_bounded_and_not_authorization(self):
+        declared = dict(route("b", "offline"), decision=decision())
+        M.transition(self.root, "plan", {"route": declared}, self.refs)
+        M.transition(self.root, "choose", {"route_id": "b"}, self.refs)
+        quality = M.build_handoff(self.root)["state"]["decision_quality"]
+        self.assertEqual(decision(), quality["context"])
+        self.assertEqual("caller-declared", quality["assessment_source"])
+        self.assertFalse(quality["semantic_verification"])
+        self.assertFalse(quality["grants_scope"])
+        self.assertFalse(quality["globally_enforced"])
+
+    def test_malformed_decisions_and_reviews_never_write_ledger(self):
+        bad_decisions = [None, [], {}, dict(decision(), extra="x"),
+                         dict(decision(), question=True), dict(decision(), impact=" "),
+                         dict(decision(), question="x" * 1001),
+                         dict(decision(), supports=decision()["refutes"])]
+        for value in bad_decisions:
+            with self.subTest(decision=value):
+                self.denied(lambda: M.transition(self.root, "plan",
+                            {"route": dict(route("b"), decision=value)}, self.refs))
+        for value in (None, [], {}, {"assessment": "new_evidence"},
+                      dict(progress(), extra="x"), dict(progress(), assessment=True),
+                      dict(progress(), assessment="complete"), dict(progress(), reason=""),
+                      dict(progress(), reason="x" * 1001)):
+            with self.subTest(progress=value):
+                self.denied(lambda: self.attempt(outcome="succeeded", progress=value))
+
+    def test_review_still_requires_current_real_evidence(self):
+        self.denied(lambda: self.attempt(outcome="succeeded", progress=progress("new_evidence"),
+                                        evidence_refs=[]))
+        self.denied(lambda: self.attempt(outcome="succeeded", progress=progress("new_evidence"),
+                                        evidence_refs=["versions/1.0/runs/run-1/missing.log"]))
+        self.attempt(outcome="succeeded", progress=progress())
+        (self.root / self.evidence).write_text("changed since capture", encoding="utf-8")
+        self.denied(self.action)
+
+    def test_decision_and_review_sensitive_values_are_not_echoed(self):
+        secret = "Bearer <TOKEN>"
+        self.denied(lambda: M.transition(self.root, "plan",
+                    {"route": dict(route("b"), decision=dict(decision(), impact=secret))}, self.refs))
+        before = self.ledger()
+        code, output = self.cli("attempt", "--project", self.root, "--route-id", "a",
+                     "--result", "synthetic", "--evidence", self.evidence,
+                     "--progress", "new_evidence", "--progress-reason", secret)
+        self.assertEqual(2, code)
+        self.assertNotIn(secret, json.dumps(output))
+        self.assertEqual(before, self.ledger())
+
+    def test_cli_decision_and_review_roundtrip_and_incomplete_pairs(self):
+        code, output = self.cli("plan", "--project", self.root, "--route-json",
+                               json.dumps(dict(route("b", "offline"), decision=decision())))
+        self.assertEqual(0, code, output)
+        self.cli("choose", "--project", self.root, "--route-id", "b")
+        common = ["attempt", "--project", self.root, "--route-id", "b", "--result", "synthetic",
+                  "--evidence", self.evidence]
+        for extra in (["--progress", "inconclusive"], ["--progress-reason", "no assessment"]):
+            before = self.ledger()
+            code, output = self.cli(*common, *extra)
+            self.assertEqual(2, code, output)
+            self.assertEqual(before, self.ledger())
+        for kind in ("no_new_evidence", "inconclusive"):
+            code, output = self.cli(*common, "--progress", kind, "--progress-reason", "No relevant change")
+            self.assertEqual(0, code, output)
+        handoff = M.build_handoff(self.root)
+        self.assertTrue(handoff["blocked"])
+        self.assertEqual(2, handoff["state"]["decision_quality"]["reviewed_attempts"])
+        self.assertEqual(handoff["state"]["decision_quality"],
+                         M.replay(M.read_events(self.root))["decision_quality"])
+
+    def test_replay_rejects_invalid_new_contracts(self):
+        self.attempt(outcome="succeeded", progress=progress())
+        events = M.read_events(self.root)
+        events[-1]["payload"]["attempt"]["progress"]["assessment"] = "automatic-success"
+        with self.assertRaises(M.ManagerError):
+            M.replay(events)
+        events = M.read_events(self.root)
+        events[1]["payload"]["route"]["decision"] = {"question": "missing context"}
+        with self.assertRaises(M.ManagerError):
+            M.replay(events)
+
+    def test_cli_rejects_duplicate_nested_decision_keys(self):
+        raw = json.dumps(dict(route("b", "offline"), decision=decision()))
+        raw = raw.replace('"question":', '"question":"first value", "question":', 1)
+        before = self.ledger()
+        code, output = self.cli("plan", "--project", self.root, "--route-json", raw)
+        self.assertEqual(2, code, output)
+        self.assertEqual(before, self.ledger())
+
+    def test_nine_domains_and_development_share_only_explicit_review_policy(self):
+        domains = ["softseep", "apkseep", "web-pentest", "firmware-iot", "protocol-plugin",
+                   "pwn-crypto", "forensics-mobile", "malware-analysis", "supply-chain-security",
+                   "development"]
+        for domain in domains:
+            with self.subTest(domain=domain):
+                root = Path(self.temp.name) / domain
+                M._make_project(root)
+                refs = M.validate_refs(root, "demo", "1.0", "run-1")
+                M.transition(root, "intake", dict(self.intake, primary_domain=domain), refs)
+                M.transition(root, "plan", {"route": dict(route(), decision=decision())}, refs)
+                M.transition(root, "choose", {"route_id": "a"}, refs)
+                (root / self.evidence).write_text("synthetic domain observation", encoding="utf-8")
+                for _ in range(2):
+                    _, state = M.transition(root, "attempt", {"attempt": {"route_id": "a",
+                        "outcome": "succeeded", "result": "Output exists but question is unresolved",
+                        "evidence_refs": [self.evidence], "progress": progress()}}, refs)
+                self.assertTrue(state["replan_required"])
+                self.assertEqual(domain, state["user_input"]["primary_domain"])
 
     def test_lifecycle_lock_delays_manager_and_closed_run_is_rechecked(self):
         from lib.project_lock import project_lock
@@ -673,15 +859,20 @@ def wait_until(predicate):
         time.sleep(.01)
 
 
-def worker(root, ready, gate):
+def worker(root, ready, gate, progress_review=False):
     Path(ready).touch()
     wait_until(lambda: Path(gate).exists())
     Path(ready + ".enter").touch()
-    return M.main(["attempt", "--project", root, "--route-id", "a", "--failed", "--result",
-                   "synthetic concurrent error", "--evidence", "versions/1.0/runs/run-1/output.log", "--json"])
+    extra = (["--progress", "no_new_evidence", "--progress-reason", "No relevant new observation"]
+             if progress_review else ["--failed"])
+    return M.main(["attempt", "--project", root, "--route-id", "a", "--result",
+                   "synthetic concurrent result", "--evidence", "versions/1.0/runs/run-1/output.log",
+                   *extra, "--json"])
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--attempt-worker":
         raise SystemExit(worker(*sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "--progress-worker":
+        raise SystemExit(worker(*sys.argv[2:], progress_review=True))
     unittest.main(verbosity=2)

@@ -1,6 +1,6 @@
 # 异常诊断与有界试验：先判断，再取证，不盲重试
 
-- 触发词：目标闪退、工具崩溃、调试暂停、paused、首次异常、attach 失败、反调试、抓包异常、反爬、403、429、挑战页、请求 pending、卡密、设备绑定、登录重试、结果未知。
+- 触发词：目标闪退、工具崩溃、调试暂停、paused、首次异常、attach 失败、反调试、抓包异常、反爬、403、429、挑战页、请求 pending、卡密、设备绑定、登录重试、结果未知、重复无进展、工具成功但目标未推进、决策复核。
 - 用到的能力：`repo:runtime-risk` `repo:runtime-flow`；按问题继续使用已有域技能、KB 和真实工具，不另造工具库存。
 - MCP 入口：`seep_runtime_diagnose`、`seep_runtime_risk`、`seep_http_replay`，核实际 schema 后调用。
 - 输入：已有任务范围、材料、工具/目标实例和最小观察事实；普通开发不强制建案、lab 或填写风险表。
@@ -90,3 +90,17 @@ Retry-After 到期不自动请求；没有 429 不意味着可加速；本地回
 硬约束覆盖已接线的单机 HTTP 适配器及上述可选启动流程；不是所有 curl/Python、浏览器、Frida、调试器或目标心跳的全局拦截器。没有新增桌面输入/Android 后端，没有修改第三方 JS 工具、安装驱动或部署当前宿主。
 
 实际回归：`python Tool/scripts/test_runtime_risk.py`，使用自建本地服务、假身份、独立状态和多进程，验证真实发送、丢失返回、并发、重定向、暂停及证据失败；不拿正式卡密测阈值。诊断测试不冒充真实强保护目标或 GUI 端到端验收。
+
+## 7. 专业决策复核：工具成功后仍要看问题是否推进
+
+此节适用于九域及按需借用其方法的普通开发，不只适用于反调试或风控。存在路线取舍、较高代价或重复空转时，由 Agent 明确用户目标、本步未知、支持/反对当前解释的可观察结果、低成本替代、时间/资源停止条件，以及本地和远端实际影响；不要求用户填内部表，不把所有小修复变成案件。
+
+已有 Manager 项目的 `plan/replan --route-json` 可在原 route 中带可选 `decision` 对象，六个非空字符串键为 `question`、`supports`、`refutes`、`alternative`、`cost_limit`、`impact`，每项最多 1000 字。它们是计划依据和影响说明，不是新授权、实际消费计量或成功率保证。支持与反证必须能区分，未知事实保留未知。
+
+`Tool/scripts/manager_state.py attempt` 在原有真实 `--evidence` 上可加 `--progress <new_evidence|no_new_evidence|inconclusive>` 和 `--progress-reason <依据>`，两者一起提供。API 使用可选 `progress={assessment,reason}`，reason 非空且最多 1000 字。新增证据包括反例推翻假设；产物数量、返回码 0 和哈希变化不自动证明新知识。不要把含秘密的原始内容写进说明。
+
+同一路线连续两次显式复核为 `no_new_evidence` 或 `inconclusive`，复用已有 `replan_required`，经 Manager check-action 的后续动作先换路；未复核成功不算语义进展，也不清零。`new_evidence` 复核重置专业停滞，但不解除原工具失败条件、外部额度、冷却或未知操作。不能只换路线 ID；仍需实质改变既有策略/失败判据/证据目标。
+
+不带新字段的历史路线与自动捕获保持兼容。handoff 的 `state.decision_quality` 区分已复核、未复核和停滞次数，固定标明调用者声明、未自动验证语义、未授予范围和非全局执行保护。普通开发有新诊断的编译修复/测试迭代可以继续，不机械要求用户接手。
+
+该功能只处理 Manager 已登记的复核，不会自动审阅项目 workflow 的原始输出或替浏览器/调试器接线。专业复核记录仍须指向当前 run 的真实证据；它不等于 project 验收通过，也不能绕过 runtime-risk。跨领域场景与接续背景见 `docs/audits/DECISION-QUALITY-PLAN-2026-11-01.md`；合成状态/CLI/并发回归在 `Tool/scripts/test_manager_integration.py`，不作为真实 Agent 选路改善的证明。
