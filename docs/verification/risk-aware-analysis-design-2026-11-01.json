@@ -1,0 +1,126 @@
+{
+  "schema": "seep.risk-aware-analysis.design-verification/1",
+  "status": "design_checks_passed_runtime_not_implemented",
+  "verified_at": "2026-11-01T17:56:50+08:00",
+  "timezone": "Asia/Shanghai",
+  "branch": "codex/risk-aware-analysis-plan",
+  "base_commit": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+  "scope": "Documentation and acceptance-design consistency only; no runtime protection verification.",
+  "checks": [
+    {
+      "name": "acceptance-design integrity",
+      "ok": true,
+      "design_requirements": 14,
+      "planned_cases": 56,
+      "covered_requirement_ids": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14"
+      ],
+      "runtime_cases_executed": 0,
+      "source_ids": 31,
+      "assertions": [
+        "unique IDs",
+        "known requirement/source references",
+        "all design requirements covered",
+        "all runtime results null and planned_not_executed",
+        "evidence requirements present",
+        "real assets excluded"
+      ]
+    },
+    {
+      "name": "new design Markdown and references",
+      "ok": true,
+      "local_links_checked": 24,
+      "assertions": [
+        "UTF-8 without replacement characters",
+        "balanced fences",
+        "no duplicate new-document headings",
+        "no trailing whitespace",
+        "local links exist",
+        "known source IDs"
+      ]
+    },
+    {
+      "name": "existing maintained-document checker",
+      "command": "python Tool/scripts/lib/doc_commands.py --json",
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "files": 74,
+        "command_examples": 60,
+        "errors": []
+      }
+    },
+    {
+      "name": "git diff whitespace check",
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "REQUIREMENTS.md",
+      "sha256": "b6e5ef616b8c58b32099cbfb3a96707dae30f63d7729c913ddb0ae6899d7e520",
+      "bytes": 11841,
+      "lines": 97
+    },
+    {
+      "path": "docs/CURRENT-STATE.md",
+      "sha256": "970112975096a01418d39e3b63c8a6a0fdfa8e86a8e50c097982585b6edcd311",
+      "bytes": 8300,
+      "lines": 71
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md",
+      "sha256": "659ae37eb45345e038c7c0ec5c9b54aa5547562fdd64ed57120e7132f9fe236e",
+      "bytes": 42177,
+      "lines": 566
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md",
+      "sha256": "0f4c9e16889f6068a01f34863ad5e8be90eb3177a25e1d3cffde3bde7c3358b6",
+      "bytes": 12097,
+      "lines": 162
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-SOURCES-2026-11-01.md",
+      "sha256": "008815d64422af4cce75adf451e6427674308b73cbbfb4105c350de228bee472",
+      "bytes": 8296,
+      "lines": 56
+    },
+    {
+      "path": "docs/audits/risk-aware-analysis-acceptance-2026-11-01.json",
+      "sha256": "2ebc8102c39b2121668209e68dbdb033e2def68855375919d2fd685f686338ee",
+      "bytes": 41972,
+      "lines": 1658
+    }
+  ],
+  "not_performed": [
+    "runtime risk implementation",
+    "customer sample execution",
+    "real credentials or production requests",
+    "host network or driver changes",
+    "full project runtime suite",
+    "active host deployment",
+    "branch merge"
+  ],
+  "known_integration_fact": {
+    "autonomy_tip": "4d229016ea1b71147521270596bcccf64f75fb2f",
+    "capability_tip": "9c8a2e800d874e8625774b791ff9cdbb26e0d426",
+    "autonomy_was_ancestor_of_capability_at_inspection": true,
+    "must_recheck_at_integration": true
+  },
+  "artifact_hash_scope": "Raw repository-normalized LF file bytes; receipt itself is not self-hashed."
+}
