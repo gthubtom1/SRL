@@ -3044,5 +3044,283 @@
       ],
       "production_and_test_code_changed_after_full_run": false
     }
+  },
+  "main_promotion": {
+    "recorded_at": "2026-11-02T00:03:51.826699+08:00",
+    "authorization": "User explicitly confirmed protected main promotion and managed deployment; no silent interruption of running sessions.",
+    "promotion": {
+      "recorded_at": "2026-11-01T23:52:41.830757+08:00",
+      "main_head": "aba0e5abf2fde0bb36b84031c4a310c7b48fcf52",
+      "source_tree": "2af5f44d27cee7811a56a693f73b2d95aee0d83b",
+      "integration_tree": "2af5f44d27cee7811a56a693f73b2d95aee0d83b",
+      "source_identical_to_integration": true,
+      "commits": {
+        "493ccc90": "493ccc90313433c719fd19b162c889c7b4cd6996",
+        "3dcffaa1": "3dcffaa126a0d5c730b06ff6734256800c79fa7d",
+        "aba0e5ab": "aba0e5abf2fde0bb36b84031c4a310c7b48fcf52",
+        "83d53eb7": "83d53eb76bf0ba0ef7b2c97848099aa767eceb20",
+        "7510bcfa": "7510bcfa46b34d116a26c90f24b2f75ab9c6bf48",
+        "76c1b821": "76c1b821926faf07d94a68e552195b080b17bc89",
+        "71c4c6e5": "71c4c6e57a9630dcccdef41f22a4092c3f5f47b0",
+        "4d229016": "4d229016ea1b71147521270596bcccf64f75fb2f",
+        "3595f90a": "3595f90a1e3730bac2d0b04722e4542055e61c59"
+      },
+      "parents": {
+        "493ccc90": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+        "3dcffaa1": "493ccc90313433c719fd19b162c889c7b4cd6996 ba3ebb62bc3dadec043bad105b493e4bde94202c",
+        "aba0e5ab": "3dcffaa126a0d5c730b06ff6734256800c79fa7d 83d53eb76bf0ba0ef7b2c97848099aa767eceb20"
+      },
+      "ancestry_in_main": {
+        "493ccc90": true,
+        "3dcffaa1": true,
+        "aba0e5ab": true,
+        "83d53eb7": true,
+        "7510bcfa": true,
+        "76c1b821": true,
+        "71c4c6e5": true,
+        "4d229016": true,
+        "3595f90a": true
+      },
+      "original_file_backup": "D:\\Seep-main-preservation-20261101-233336",
+      "original_snapshot_files": 22,
+      "forced_overwrite": false,
+      "stash_used": false,
+      "old_host_restarted": false
+    },
+    "runtime_validation": {
+      "frozen_source_commit": "aba0e5abf2fde0bb36b84031c4a310c7b48fcf52",
+      "source_commit": "aba0e5abf2fde0bb36b84031c4a310c7b48fcf52",
+      "returncode": 0,
+      "seconds": 1366.93,
+      "finished_at": "2026-11-01T23:58:36.770789+08:00",
+      "summary": {
+        "pass": 108,
+        "warn": 0,
+        "fail": 0,
+        "skip": 0
+      },
+      "receipts": [
+        {
+          "path": "tmp/main-promotion/full-runtime.json",
+          "sha256": "a39dccb416df1b9d8ecd4fed5487e9d9fc8f75d087cba94157771897f50d896c"
+        },
+        {
+          "path": "tmp/main-promotion/full-runtime.stderr.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    "active_deployment": {
+      "installer": {
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "setup/install-pi.ps1",
+          "-SkipPackages",
+          "-AgentRoot",
+          "C:\\Users\\toti\\.pi\\agent"
+        ],
+        "returncode": 0,
+        "source_commit": "aba0e5abf2fde0bb36b84031c4a310c7b48fcf52",
+        "source_root": "D:\\Seep-Reverse-Lab",
+        "agent_root": "C:\\Users\\toti\\.pi\\agent",
+        "automatic_restart": false
+      },
+      "fresh_runtime": {
+        "agent_root": "C:\\Users\\toti\\.pi\\agent",
+        "source_root": "D:\\Seep-Reverse-Lab",
+        "managed_assets": 482,
+        "hash_errors": [],
+        "fresh_mcp_tools": 23,
+        "discovery_and_diagnosis": true,
+        "registered_manager_reviewed_attempts": 1,
+        "ledger_unchanged": true,
+        "model_call_performed": false,
+        "old_host_restarted": false,
+        "probe_correction": "Reviewed count is in state.decision_quality, not directly in state; initial harness KeyError corrected without production changes."
+      },
+      "environment_check": {
+        "returncode": 0,
+        "installed": true,
+        "missing": []
+      },
+      "fresh_pi_rpc": {
+        "returncode": 0,
+        "fresh_process": true,
+        "global_agent_root_loaded": "C:\\Users\\toti\\.pi\\agent",
+        "mode": "rpc",
+        "startup_network_disabled": true,
+        "mcp_disabled_for_host_probe": true,
+        "prompt_status_registered": true,
+        "capability_guide_on_chars": 193,
+        "message_count": 0,
+        "is_streaming": false,
+        "model_call_performed": false,
+        "old_piweb_restarted": false
+      },
+      "fresh_sdk": {
+        "command": [
+          "python",
+          "Tool/scripts/test_prompt_extensions.py",
+          "--pi-sdk",
+          "C:\\Users\\toti\\.pi\\agent\\install\\releases\\1.4.0\\node_modules\\@earendil-works\\pi-coding-agent"
+        ],
+        "returncode": 0,
+        "seconds": 0.86
+      }
+    },
+    "engineering_checks": [
+      {
+        "name": "preflight-final",
+        "command": [
+          "python",
+          "Tool/scripts/preflight.py",
+          "--fast",
+          "--json"
+        ],
+        "returncode": 2,
+        "seconds": 64.31,
+        "log": "D:\\Seep-Reverse-Lab\\tmp\\main-promotion\\preflight-final.log",
+        "sha256": "a9aaaa8176e5c9d09530b0d59cb715dd4b62b8cb4a9d6c9f5036a00c12bbc746",
+        "result": {
+          "fails": 0,
+          "notes": 4,
+          "waived": 1,
+          "unverified": 0
+        }
+      },
+      {
+        "name": "docs",
+        "command": [
+          "python",
+          "Tool/scripts/lib/doc_commands.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "seconds": 0.74,
+        "log": "D:\\Seep-Reverse-Lab\\tmp\\main-promotion\\docs.log",
+        "sha256": "e847b72c453583a0ddbeaad5ad54754ee240fa4ccb3230a12887dd82dea08a6e"
+      },
+      {
+        "name": "upload",
+        "command": [
+          "python",
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "returncode": 0,
+        "seconds": 10.1,
+        "log": "D:\\Seep-Reverse-Lab\\tmp\\main-promotion\\upload.log",
+        "sha256": "ded85e7ac371c11250c5855cbeca136ce3abf75564daa063e6f28d46ceaf27d4"
+      },
+      {
+        "name": "budget-final",
+        "command": [
+          "python",
+          "Tool/scripts/budget.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "seconds": 0.52,
+        "log": "D:\\Seep-Reverse-Lab\\tmp\\main-promotion\\budget-final.log",
+        "sha256": "c4e279b426daf8ff5997e5585ccb0b658adde70124ef65df2028ba2be8ccb527"
+      }
+    ],
+    "preflight": {
+      "fails": 0,
+      "notes": 4,
+      "waived": 1,
+      "unverified": 0,
+      "nonzero_warning_status_preserved": true,
+      "prompt_budget_estimate": 11673,
+      "default_prompt_limit": 3500,
+      "existing_waiver_hard_limit": 16000,
+      "preserved_agent_overrides": [
+        "seep-forensics",
+        "seep-stage",
+        "seep-verify"
+      ]
+    },
+    "budget": {
+      "first_party": 1166,
+      "fixed_first_party_limit": 1180,
+      "mcp_tools": 23,
+      "mcp_tool_limit": 45,
+      "mcp_main_lines": 3198,
+      "mcp_main_line_limit": 3200,
+      "case_files_local": 1657,
+      "case_file_limit": 1700,
+      "classification_changed": false
+    },
+    "legacy_aliases": {
+      "source_revision": "5ac288ac55106c4d9afe276d28eb8e65aa78930e",
+      "source_path": "Tool/config/input-normalize.json",
+      "raw_sha256": "e43a1afc9c14748944726660caa17d63deca11deab754001d1b8a9c8f3f03ec3",
+      "agent_relative_paths": [
+        "extensions/input-normalize.json",
+        "input-normalize.json"
+      ],
+      "exact_stock_bytes": true,
+      "retired": false,
+      "reason": "The session repeatedly resumed between brief idle snapshots; no stable maintenance window. Both stock files remain unchanged in place.",
+      "per_process_override_probe": {
+        "returncode": 0,
+        "override_scope": "fresh child only",
+        "alias_source": "D:\\Seep-Reverse-Lab\\Tool\\config\\input-normalize.json",
+        "alias_warning_present": false,
+        "model_call_performed": false,
+        "active_piweb_environment_changed": false
+      },
+      "followup_attempts": [
+        {
+          "phase": "initial",
+          "result": "active task guard stopped before file moves"
+        },
+        {
+          "phase": "brief idle",
+          "result": "cross-volume Python rename rejected before moving the first file; backup destination directories created only"
+        },
+        {
+          "phase": "native single-file move retry",
+          "result": "task resumed; pre-move guard stopped before any file moves"
+        }
+      ],
+      "automatic_retries_stopped": true
+    },
+    "host_last_observed": {
+      "checked_at": "2026-11-02T00:05:44.841943+08:00",
+      "state": {
+        "sessionListVersion": 458,
+        "runningSessionIds": [
+          "01a197da-f5a8-76c7-93fd-d87d8ec38809"
+        ],
+        "awaitingInputSessionIds": [],
+        "completionNotificationSuppressedSessionIds": [
+          "01a197da-f5a8-76c7-93fd-d87d8ec38809"
+        ],
+        "subagentsActiveSessionIds": [
+          "01a19555-c136-76c7-93fd-d876e0931707"
+        ],
+        "sessionUiStateRevision": 47
+      }
+    },
+    "old_piweb_restarted": false,
+    "old_mcp_restarted": false,
+    "old_session_new_version_loading_verified": false,
+    "model_call_performed": false,
+    "real_target_success_verified": false,
+    "all_execution_channels_controlled": false,
+    "production_and_test_code_changed_after_full_run": false,
+    "documentation_only_finalization": true,
+    "validation_logs_local_not_distributed": true,
+    "auxiliary_harness_notes": [
+      "Initial summary printing used Windows GBK and failed after preflight completed; log was preserved.",
+      "Merged stderr included a library warning before JSON; final wrapper captured stdout and stderr separately. No validator or expectation was changed."
+    ],
+    "maintenance_window_required": true,
+    "all_checks_exit_zero": false
   }
 }
