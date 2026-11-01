@@ -15,6 +15,7 @@ from lib.capability_discovery import discover, _Catalog, _description, _score, _
 
 ROOT = Path(__file__).resolve().parents[2]
 KB_FIXTURE = "Tool/mcp/Tool/reverselab/kb/" + "oauth.md"
+CONFIG_FIXTURE = "Tool/config/" + "oauth.json"
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -137,12 +138,12 @@ class DiscoveryTests(unittest.TestCase):
         self.assertTrue(any(w["code"] == "unresolved_reference" for w in result["warnings"]))
 
     def test_json_reference_is_not_misread_as_javascript(self):
-        self.write("Tool/config/oauth.json", {})
-        self.write(self.oauth, "# OAuth PKCE\n`Tool/config/oauth.json`\n")
+        self.write(CONFIG_FIXTURE, {})
+        self.write(self.oauth, "# OAuth PKCE\n`" + CONFIG_FIXTURE + "`\n")
         result = self.query()
         self.assertEqual(result["status"], "matches")
         links = next(r for r in result["resources"] if r["kind"] == "subskill")["links"]
-        self.assertTrue(any(l.get("path") == "Tool/config/oauth.json" and l["present"]
+        self.assertTrue(any(l.get("path") == CONFIG_FIXTURE and l["present"]
                             and l["kind"] == "configuration" for l in links))
 
     def test_software_registry_is_not_a_method(self):
