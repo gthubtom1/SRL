@@ -76,6 +76,12 @@ class ManagerIntegration(unittest.TestCase):
         attempt.update(changes)
         return M.transition(self.root, "attempt", {"attempt": attempt}, self.refs)
 
+    def review(self, attempt_id=None, assessment="no_new_evidence"):
+        if attempt_id is None:
+            attempt_id = self.state()["attempts"][-1]["attempt_id"]
+        return M.transition(self.root, "review", {"attempt_id": attempt_id,
+                            "progress": progress(assessment)}, self.refs)
+
     def denied(self, callback):
         before = self.ledger()
         with self.assertRaises(M.ManagerError):
@@ -747,6 +753,197 @@ class ManagerIntegration(unittest.TestCase):
         self.assertEqual(2, code, output)
         self.assertEqual(before, self.ledger())
 
+    def test_posthoc_review_preserves_actual_attempts_and_failure_streak(self):
+        first, _ = self.attempt()
+        _, state = self.review(assessment="new_evidence")
+        self.assertEqual(1, len(state["attempts"]))
+        self.assertEqual("failed", state["attempts"][0]["outcome"])
+        second, state = self.attempt()
+        self.assertTrue(state["replan_required"])
+        reason = state["replan_reason"]
+        _, state = self.review(assessment="new_evidence")
+        self.assertTrue(state["replan_required"])
+        self.assertEqual(reason, state["replan_reason"])
+        self.assertEqual(["failed", "failed"], [a["outcome"] for a in state["attempts"]])
+        self.assertEqual(first["payload"]["attempt"]["evidence"], state["attempts"][0]["evidence"])
+        self.assertEqual(second["payload"]["attempt"]["attempt_id"], state["attempts"][1]["attempt_id"])
+        self.denied(self.action)
+
+    def test_cli_reviews_bind_existing_id_without_creating_successes(self):
+        for _ in range(2):
+            code, output = self.cli("attempt", "--project", self.root, "--route-id", "a", "--failed",
+                           "--result", "Actual operation failed", "--evidence", self.evidence)
+            self.assertEqual(0, code, output)
+            attempt_id = output["state"]["attempts"][-1]["attempt_id"]
+            code, output = self.cli("review", "--project", self.root, "--attempt-id",
+                           attempt_id, "--progress", "new_evidence",
+                           "--progress-reason", "New diagnostic; operation still failed")
+            self.assertEqual(0, code, output)
+        state = self.state()
+        self.assertEqual(2, len(state["attempts"]))
+        self.assertTrue(state["replan_required"])
+        self.assertEqual(2, sum(e["event_type"] == "review" for e in M.read_events(self.root)))
+
+    def test_posthoc_stagnation_uses_one_immutable_review_per_attempt(self):
+        self.attempt(outcome="succeeded")
+        self.review()
+        self.denied(lambda: self.review(assessment="new_evidence"))
+        self.attempt(outcome="succeeded")
+        _, state = self.review(assessment="inconclusive")
+        self.assertEqual(2, len(state["attempts"]))
+        self.assertEqual(2, state["decision_quality"]["stagnant_reviews"])
+        self.assertTrue(state["replan_required"])
+        self.denied(lambda: self.review(assessment="new_evidence"))
+        self.denied(self.action)
+        self.assertEqual(state["decision_quality"], M.build_handoff(self.root)["state"]["decision_quality"])
+
+    def test_posthoc_new_evidence_resets_only_professional_stagnation(self):
+        self.attempt(outcome="succeeded", progress=progress())
+        self.attempt(outcome="succeeded")
+        self.review(assessment="new_evidence")
+        self.attempt(outcome="succeeded", progress=progress("inconclusive"))
+        self.assertEqual(1, self.state()["decision_quality"]["stagnant_reviews"])
+        self.assertFalse(self.state()["replan_required"])
+
+    def test_review_rejects_unknown_stale_or_already_reviewed_attempts(self):
+        self.denied(lambda: self.review("unknown"))
+        first, _ = self.attempt(outcome="succeeded")
+        first_id = first["payload"]["attempt"]["attempt_id"]
+        self.attempt(outcome="succeeded")
+        self.denied(lambda: self.review(first_id))
+        M.transition(self.root, "plan", {"route": route("b", "offline")}, self.refs)
+        M.transition(self.root, "choose", {"route_id": "b"}, self.refs)
+        self.denied(self.review)
+        M.transition(self.root, "choose", {"route_id": "a"}, self.refs)
+        self.review()
+        self.denied(self.review)
+        self.attempt(outcome="succeeded", progress=progress("new_evidence"))
+        self.denied(self.review)
+
+    def test_review_cannot_change_outcome_or_use_bad_schema_or_secrets(self):
+        event, _ = self.attempt(outcome="succeeded")
+        payload = {"attempt_id": event["payload"]["attempt"]["attempt_id"], "progress": progress()}
+        for bad in (dict(payload, outcome="succeeded"), dict(payload, evidence_refs=[self.evidence]),
+                    dict(payload, attempt_id=True), dict(payload, progress={}),
+                    dict(payload, progress=dict(progress(), reason="Bearer <TOKEN>"))):
+            with self.subTest(payload=bad):
+                self.denied(lambda: M.transition(self.root, "review", bad, self.refs))
+        self.wait()
+        self.denied(self.review)
+
+    def test_review_revalidates_evidence_run_and_generation(self):
+        event, _ = self.attempt(outcome="succeeded")
+        original_id = event["payload"]["attempt"]["attempt_id"]
+        old = (self.root / self.evidence).read_bytes()
+        (self.root / self.evidence).write_bytes(b"changed evidence")
+        self.denied(self.review)
+        (self.root / self.evidence).write_bytes(old)
+        run_path = self.root / "versions/1.0/runs/run-1/run.json"
+        run = json.loads(run_path.read_text(encoding="utf-8"))
+        M.atomic_json(run_path, dict(run, status="blocked"))
+        self.denied(self.review)
+        M.atomic_json(run_path, run)
+        refs = self.new_run()
+        M.transition(self.root, "intake", dict(self.intake, new_generation=True,
+                     generation_reason="different synthetic run"), refs)
+        self.denied(lambda: M.transition(self.root, "review", {"attempt_id": original_id,
+                                    "progress": progress()}, refs))
+
+    def test_attempt_ids_are_unique_and_legacy_events_have_stable_handles(self):
+        event, _ = self.attempt(outcome="succeeded", attempt_id="fixed-attempt")
+        self.denied(lambda: self.attempt(outcome="succeeded", attempt_id="fixed-attempt"))
+        events = M.read_events(self.root)
+        events[-1]["payload"]["attempt"].pop("attempt_id")
+        state = M.replay(events)
+        legacy_id = events[-1]["event_id"]
+        self.assertEqual(legacy_id, state["attempts"][-1]["attempt_id"])
+        events.append({"event_id": "review-legacy", "event_type": "review", "created_at": M.now(),
+                       "references": self.refs, "payload": {"attempt_id": legacy_id, "progress": progress()}})
+        self.assertEqual(1, M.replay(events)["decision_quality"]["reviewed_attempts"])
+        events = M.read_events(self.root)
+        duplicate = copy.deepcopy(events[-1]); duplicate["event_id"] = "different-event"
+        with self.assertRaises(M.ManagerError):
+            M.replay(events + [duplicate])
+
+    def test_replay_rejects_duplicate_or_out_of_order_review_events(self):
+        self.attempt(outcome="succeeded")
+        self.review()
+        events = M.read_events(self.root)
+        duplicate = copy.deepcopy(events[-1]); duplicate["event_id"] = "different-review"
+        with self.assertRaises(M.ManagerError):
+            M.replay(events + [duplicate])
+        self.attempt(outcome="succeeded")
+        events = M.read_events(self.root)
+        late_review = copy.deepcopy(events[-2]); late_review["event_id"] = "late-review"
+        events.pop(-2)
+        with self.assertRaises(M.ManagerError):
+            M.replay(events + [late_review])
+
+    def test_replan_route_json_only_and_all_id_mismatches(self):
+        self.attempt(outcome="succeeded", progress=progress())
+        self.attempt(outcome="succeeded", progress=progress())
+        common = ["replan", "--project", self.root, "--reason", "Offline comparison", "--new-route-id", "b"]
+        for extra in (["--route-json", json.dumps(route("c", "offline"))],
+                      ["--route-id", "b", "--route-json", json.dumps(route("c", "offline"))],
+                      ["--route-id", "c", "--route-json", json.dumps(route("b", "offline"))]):
+            before = self.ledger()
+            code, output = self.cli(*common, *extra)
+            self.assertEqual(2, code, output)
+            self.assertEqual(before, self.ledger())
+        definition = dict(route("b", "offline"), decision=decision())
+        code, output = self.cli(*common, "--route-json", json.dumps(definition))
+        self.assertEqual(0, code, output)
+        self.assertEqual(decision(), output["state"]["routes"]["b"]["decision"])
+        self.assertTrue(self.action(route_id="b")["allowed"])
+
+    def test_replay_scans_history_for_summary_only_not_per_attempt(self):
+        prefix = M.read_events(self.root)
+        for with_reviews in (False, True):
+            events = list(prefix)
+            for i in range(8000):
+                attempt = {"route_id": "a", "outcome": "succeeded", "result": "synthetic success"}
+                if with_reviews:
+                    attempt["progress"] = progress("new_evidence")
+                events.append({"event_id": "attempt-%d" % i, "event_type": "attempt", "created_at": M.now(),
+                               "references": self.refs, "payload": {"attempt": attempt}})
+            with mock.patch.object(M, "stagnant_reviews", wraps=M.stagnant_reviews) as scan:
+                state = M.replay(events)
+            self.assertEqual(1, scan.call_count)
+            self.assertEqual(8000, len(state["attempts"]))
+            self.assertEqual(8000 if with_reviews else 0, state["decision_quality"]["reviewed_attempts"])
+            self.assertFalse(state["replan_required"])
+
+    def test_two_processes_cannot_review_the_same_attempt_twice(self):
+        event, _ = self.attempt(outcome="succeeded")
+        aid = event["payload"]["attempt"]["attempt_id"]
+        gate = Path(self.temp.name) / "review-gate"
+        workers = []
+        try:
+            with M.manager_lock(self.root):
+                for index in range(2):
+                    ready = Path(self.temp.name) / ("review-worker-%d" % index)
+                    workers.append((subprocess.Popen([sys.executable, "-B", "-X", "utf8",
+                        str(Path(__file__).resolve()), "--review-worker", str(self.root), str(ready),
+                        str(gate), aid], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        text=True, encoding="utf-8"), ready))
+                wait_until(lambda: all(ready.exists() for _, ready in workers))
+                gate.touch()
+                wait_until(lambda: all(Path(str(ready) + ".enter").exists() for _, ready in workers))
+            codes = []
+            for process, _ in workers:
+                output, error = process.communicate(timeout=20)
+                self.assertFalse(error, error)
+                self.assertEqual(process.returncode == 0, json.loads(output)["ok"])
+                codes.append(process.returncode)
+            self.assertEqual([0, 2], sorted(codes))
+        finally:
+            for process, _ in workers:
+                if process.poll() is None:
+                    process.kill(); process.communicate()
+        self.assertEqual(1, len(self.state()["attempts"]))
+        self.assertEqual(1, self.state()["decision_quality"]["reviewed_attempts"])
+        self.assertEqual(1, sum(e["event_type"] == "review" for e in M.read_events(self.root)))
+
     def test_nine_domains_and_development_share_only_explicit_review_policy(self):
         domains = ["softseep", "apkseep", "web-pentest", "firmware-iot", "protocol-plugin",
                    "pwn-crypto", "forensics-mobile", "malware-analysis", "supply-chain-security",
@@ -870,9 +1067,19 @@ def worker(root, ready, gate, progress_review=False):
                    *extra, "--json"])
 
 
+def review_worker(root, ready, gate, attempt_id):
+    Path(ready).touch()
+    wait_until(lambda: Path(gate).exists())
+    Path(ready + ".enter").touch()
+    return M.main(["review", "--project", root, "--attempt-id", attempt_id,
+                   "--progress", "no_new_evidence", "--progress-reason", "No relevant new observation", "--json"])
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--attempt-worker":
         raise SystemExit(worker(*sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "--progress-worker":
         raise SystemExit(worker(*sys.argv[2:], progress_review=True))
+    if len(sys.argv) > 1 and sys.argv[1] == "--review-worker":
+        raise SystemExit(review_worker(*sys.argv[2:]))
     unittest.main(verbosity=2)

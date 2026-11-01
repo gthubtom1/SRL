@@ -99,8 +99,12 @@ Retry-After 到期不自动请求；没有 429 不意味着可加速；本地回
 
 `Tool/scripts/manager_state.py attempt` 在原有真实 `--evidence` 上可加 `--progress <new_evidence|no_new_evidence|inconclusive>` 和 `--progress-reason <依据>`，两者一起提供。API 使用可选 `progress={assessment,reason}`，reason 非空且最多 1000 字。新增证据包括反例推翻假设；产物数量、返回码 0 和哈希变化不自动证明新知识。不要把含秘密的原始内容写进说明。
 
+**自动捕获后的事后复核用 `review`，不能再造一条默认成功的 attempt。** 从当前状态 `attempts[-1].attempt_id` 取原尝试身份，调用 `Tool/scripts/manager_state.py review --project <项目目录> --attempt-id <原ID> --progress <评价> --progress-reason <依据> --json`；API 记录 `review` 事件，payload 只有 `attempt_id`、`progress`。复核引用原尝试的证据、目标、generation/run，不新增执行次数或改变原工具结果。无 ID 的旧记录以其原事件 ID 提供稳定句柄。
+
+只允许补充当前所选路线最新、尚未复核的一次尝试；不能覆盖已有评价、迟补旧尝试来重排进展，也不能跨路线/运行/版本引用。原证据变动、运行关闭或 WAIT_USER 时拒绝。工具失败已要求换路时可以补充复核留痕，但不解除既有阻断；新证据只能重置专业停滞，不能清除实际失败。新 review 事件不被旧运行时识别，回退前不能把旧读者当等价执行器。
+
 同一路线连续两次显式复核为 `no_new_evidence` 或 `inconclusive`，复用已有 `replan_required`，经 Manager check-action 的后续动作先换路；未复核成功不算语义进展，也不清零。`new_evidence` 复核重置专业停滞，但不解除原工具失败条件、外部额度、冷却或未知操作。不能只换路线 ID；仍需实质改变既有策略/失败判据/证据目标。
 
 不带新字段的历史路线与自动捕获保持兼容。handoff 的 `state.decision_quality` 区分已复核、未复核和停滞次数，固定标明调用者声明、未自动验证语义、未授予范围和非全局执行保护。普通开发有新诊断的编译修复/测试迭代可以继续，不机械要求用户接手。
 
-该功能只处理 Manager 已登记的复核，不会自动审阅项目 workflow 的原始输出或替浏览器/调试器接线。专业复核记录仍须指向当前 run 的真实证据；它不等于 project 验收通过，也不能绕过 runtime-risk。跨领域场景与接续背景见 `docs/audits/DECISION-QUALITY-PLAN-2026-11-01.md`；合成状态/CLI/并发回归在 `Tool/scripts/test_manager_integration.py`，不作为真实 Agent 选路改善的证明。
+该功能只处理 Manager 已登记的复核，不会自动审阅项目 workflow 的原始输出或替浏览器/调试器接线。workflow 已登记结果时由 Agent 读结果后用 review 关联原 ID，而非重复登记执行。专业复核记录仍须指向当前 run 的真实证据；它不等于 project 验收通过，也不能绕过 runtime-risk。跨领域场景与接续背景见 `docs/audits/DECISION-QUALITY-PLAN-2026-11-01.md`；合成状态/CLI/并发回归在 `Tool/scripts/test_manager_integration.py`，不作为真实 Agent 选路改善的证明。
