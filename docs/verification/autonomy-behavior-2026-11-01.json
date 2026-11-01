@@ -1,0 +1,226 @@
+{
+  "schema": "seep.autonomy-implementation/1",
+  "date": "2026-11-01",
+  "objective": "Reduce unnecessary manual delegation of authorized startup, routine technical actions and repair/retest; not tool/skill reference repair or APK analysis.",
+  "branch": "codex/workbench-autonomy",
+  "base_snapshot": "ba3ebb62",
+  "status": "implementation_self_tests_only",
+  "deployed": false,
+  "merged": false,
+  "independent_acceptance": false,
+  "full_runtime_verified": false,
+  "checks": [
+    {
+      "name": "workbench-autonomy",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_workbench_autonomy.py"
+      ],
+      "returncode": 0,
+      "status": "PASS",
+      "test_count": 7,
+      "source": "Final exec transcript after adding existing-instance argument-conflict case"
+    },
+    {
+      "name": "prompt-extensions",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_prompt_extensions.py"
+      ],
+      "returncode": 0,
+      "seconds": 1.83,
+      "log": "work/autonomy-verification/prompt-extensions.log",
+      "status": "PASS"
+    },
+    {
+      "name": "gate-behavior",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_gates.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.66,
+      "log": "work/autonomy-verification/gate-behavior.log",
+      "status": "PASS"
+    },
+    {
+      "name": "read-guard",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_read_guard.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.58,
+      "log": "work/autonomy-verification/read-guard.log",
+      "status": "PASS"
+    },
+    {
+      "name": "tool-autonomy",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_tool_autonomy.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.61,
+      "log": "work/autonomy-verification/tool-autonomy.log",
+      "status": "PASS"
+    },
+    {
+      "name": "retry-levels",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_retry_levels.py"
+      ],
+      "returncode": 0,
+      "seconds": 6.91,
+      "log": "work/autonomy-verification/retry-levels.log",
+      "status": "PASS"
+    },
+    {
+      "name": "runtime-gate-contracts",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_r12_gate_contracts.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.41,
+      "log": "work/autonomy-verification/runtime-gate-contracts.log",
+      "status": "PASS"
+    },
+    {
+      "name": "domain-registry",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_domain_registry.py"
+      ],
+      "returncode": 0,
+      "seconds": 0.89,
+      "log": "work/autonomy-verification/domain-registry.log",
+      "status": "PASS"
+    },
+    {
+      "name": "route",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/route.py",
+        "--check"
+      ],
+      "returncode": 0,
+      "seconds": 0.06,
+      "log": "work/autonomy-verification/route.log",
+      "status": "PASS"
+    },
+    {
+      "name": "doc-commands",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/lib/doc_commands.py",
+        "--json"
+      ],
+      "returncode": 0,
+      "seconds": 0.88,
+      "log": "work/autonomy-verification/doc-commands.log",
+      "status": "PASS"
+    },
+    {
+      "name": "prompt-budget",
+      "argv": [
+        "python",
+        "-B",
+        "-X",
+        "utf8",
+        "Tool/scripts/test_budget_prompt.py"
+      ],
+      "returncode": 0,
+      "seconds": 1.03,
+      "log": "work/autonomy-verification/prompt-budget.log",
+      "status": "PASS"
+    }
+  ],
+  "additional_checks": [
+    {
+      "name": "isolated-runtime-install-delivery",
+      "returncode": 0,
+      "tests": 48
+    },
+    {
+      "name": "preflight-fast",
+      "returncode": 1,
+      "status": "FAIL",
+      "limitations": [
+        "untracked private APK absent",
+        "active installation root and extension hashes differ",
+        "packer path-alias check failed"
+      ]
+    },
+    {
+      "name": "bounded-domain-delivery-default-path",
+      "returncode": 1,
+      "tests": 8,
+      "passed": 7,
+      "reason": "Existing Windows archive path limit in long worktree artifact path"
+    },
+    {
+      "name": "bounded-domain-delivery-short-artifact-path",
+      "returncode": 0,
+      "tests": 8,
+      "passed": 8,
+      "test_source_sha256": "610142800dd0215f96ad55b9a078bc966858f361a6e1aef9856c42604cc3b317",
+      "scope": "Earlier extra offline regression only; same assertions, only OUT changed in memory; no sample execution"
+    }
+  ],
+  "file_sha256": {
+    "Tool/config/answer-contract.json": "6b716d46cd2b03f80166609d7f55a91b93c1f38f1c817472ac5aa890daa73cff",
+    "Tool/config/blockers.json": "1fb4ce60520396baf84adbd900c21b1e1f4243472d8a79cb67392a2b23b903ba",
+    "Tool/config/user-inputs.json": "cada9ac9fb73f2df95f8da04bd04f8557963f460a376f21473007c9fb6eb9c42",
+    "Tool/docs/AUTONOMY.md": "680d0a7fc8fe4b45af052c18c9cd0a618a8ef05d731a84837de6f2447467cec7",
+    "Tool/docs/EXECUTION.md": "6feb122773870dd16f2adc7a799158daa6d4c260ed1564709cc19f1bfee0038a",
+    "Tool/prompts/AGENTS.md": "7cc1b237d6db31ae0588059bb4ea135290b4461388ed1f2f5a85452dd504553f",
+    "Tool/prompts/contracts/AGENT-OPERATING-SPEC.md": "2df3377c7305d1eb8ee39984142841418a9a5d8730ec9c7400476554bad67d6f",
+    "Tool/prompts/extensions/cmd-guard.ts": "64f663f2b6df9c1fa34b5f8e62bae5d8deccbbde509079d52e15c867232c6174",
+    "Tool/prompts/extensions/load-system-prompt.ts": "baedf279d3518e422bfd4eb013a32c7776088c8d51e48d3eb066717665125679",
+    "Tool/prompts/extensions/seep-circuit.ts": "0b8e902e965390afa44d9e71ae47c8ff243eda6c406cd9f0980299ced175f9bc",
+    "Tool/scripts/check.py": "898180a40e82d31763de6612adb02e3b7a4373e5969d0334c37aec26f5d5492b",
+    "Tool/scripts/launch-gui.ps1": "9f5df3c0748847ada0ac0a09f2d03f7cd486f50a0f864b01d04235c9035513cc",
+    "Tool/scripts/test_prompt_extensions.py": "f8888f8b3c276516da14d263e3e6374ec66263ec73964408d2c85e9556a66ac5",
+    "Tool/scripts/test_workbench_autonomy.py": "8b3b4a17486106c228d94b4fb88adc18ddb22810496543c3dddab976a688373d"
+  },
+  "not_proven": [
+    "desktop screenshot/click backend",
+    "Android runtime control",
+    "protected-target compatibility",
+    "active PIWeb loaded state",
+    "all-platform or full-workbench acceptance"
+  ],
+  "fingerprint_normalization": "CRLF converted to LF; otherwise unchanged source bytes"
+}
