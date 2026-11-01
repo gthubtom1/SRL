@@ -261,7 +261,10 @@
         "S20"
       ],
       "execution_status": "planned_not_executed",
-      "runtime_result": null
+      "runtime_result": null,
+      "local_reference_ids": [
+        "L03"
+      ]
     },
     {
       "id": "A07",
@@ -1653,6 +1656,574 @@
       ],
       "execution_status": "planned_not_executed",
       "runtime_result": null
+    },
+    {
+      "id": "A57",
+      "requirement_ids": [
+        "R03",
+        "R09"
+      ],
+      "environment": "synthetic_debugger",
+      "title": "paused 与 crash 分离",
+      "preconditions": [
+        "自建程序在首次异常暂停",
+        "目标 PID 仍存活"
+      ],
+      "action": "读取实际调试状态并选择后续观察",
+      "expected": [
+        "记录 paused 和原因",
+        "不声称目标崩溃或确认反调试",
+        "不无理由重启"
+      ],
+      "evidence_required": [
+        "调试事件",
+        "实例存活",
+        "诊断输出"
+      ],
+      "source_ids": [
+        "S01",
+        "S03"
+      ],
+      "community_case_ids": [
+        "C01",
+        "C02"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null,
+      "local_reference_ids": [
+        "L04"
+      ]
+    },
+    {
+      "id": "A58",
+      "requirement_ids": [
+        "R03",
+        "R09"
+      ],
+      "environment": "synthetic_debugger",
+      "title": "分析工具自身退出",
+      "preconditions": [
+        "自建工具故意崩溃",
+        "目标继续正常运行"
+      ],
+      "action": "归因异常主体",
+      "expected": [
+        "准确标记工具退出",
+        "不把目标判为反调试成功",
+        "不叠加隐藏工具"
+      ],
+      "evidence_required": [
+        "两进程状态",
+        "工具 crash 证据",
+        "动作轨迹"
+      ],
+      "source_ids": [
+        "S15",
+        "S16"
+      ],
+      "community_case_ids": [
+        "C03",
+        "C08"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null,
+      "local_reference_ids": [
+        "L04"
+      ]
+    },
+    {
+      "id": "A59",
+      "requirement_ids": [
+        "R03"
+      ],
+      "environment": "synthetic_toolchain",
+      "title": "插件组合的最小校准",
+      "preconditions": [
+        "同一无害样本仅在一个测试插件配置下失败"
+      ],
+      "action": "比较有证据的单变量配置",
+      "expected": [
+        "将插件/兼容性保留为原因",
+        "不改宿主系统",
+        "版本变更需条件和回退"
+      ],
+      "evidence_required": [
+        "配置与版本",
+        "对照结果",
+        "系统未改检查"
+      ],
+      "source_ids": [
+        "S16",
+        "S17"
+      ],
+      "community_case_ids": [
+        "C03",
+        "C04",
+        "C05"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    },
+    {
+      "id": "A60",
+      "requirement_ids": [
+        "R03",
+        "R02"
+      ],
+      "environment": "synthetic_android",
+      "title": "校准样本匹配运行时",
+      "preconditions": [
+        "native 自建样本可观察",
+        "Java/ART 自建样本控制链故意失败"
+      ],
+      "action": "判断目标 App 的失败能否归因保护",
+      "expected": [
+        "不从 native 成功外推 ART 正常",
+        "先诊断匹配链路",
+        "不使用正式账号补测"
+      ],
+      "evidence_required": [
+        "运行时分类",
+        "同类控制样本",
+        "工具原始错误"
+      ],
+      "source_ids": [
+        "S16"
+      ],
+      "community_case_ids": [
+        "C04",
+        "C06"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    },
+    {
+      "id": "A61",
+      "requirement_ids": [
+        "R03"
+      ],
+      "environment": "synthetic_debugger",
+      "title": "异常处理不是全局一键配置",
+      "preconditions": [
+        "自建程序含正常可处理异常和确实异常两种事件"
+      ],
+      "action": "诊断调试暂停",
+      "expected": [
+        "按事件保留应用处理语义与证据",
+        "不一概吞所有异常",
+        "真正故障不被隐藏"
+      ],
+      "evidence_required": [
+        "事件代码",
+        "处理前后行为",
+        "故障仍可观察"
+      ],
+      "source_ids": [
+        "S01",
+        "S03"
+      ],
+      "community_case_ids": [
+        "C01",
+        "C02"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    },
+    {
+      "id": "A62",
+      "requirement_ids": [
+        "R06",
+        "R07",
+        "R09"
+      ],
+      "environment": "synthetic_web",
+      "title": "断点前请求不能等待完整响应",
+      "preconditions": [
+        "自建网页停在发送前断点",
+        "此时响应尚不存在"
+      ],
+      "action": "请求导出完整响应",
+      "expected": [
+        "有界返回不可用及阶段",
+        "不无限等待",
+        "不自动恢复页面或另发请求"
+      ],
+      "evidence_required": [
+        "断点状态",
+        "有界耗时",
+        "零发送计数"
+      ],
+      "source_ids": [
+        "S07",
+        "S09"
+      ],
+      "community_case_ids": [
+        "C01"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null,
+      "local_reference_ids": [
+        "L01"
+      ]
+    },
+    {
+      "id": "A63",
+      "requirement_ids": [
+        "R06",
+        "R07"
+      ],
+      "environment": "synthetic_web",
+      "title": "已发送 pending 不是未发送",
+      "preconditions": [
+        "假服务已收到请求但延迟回包",
+        "浏览器保持运行"
+      ],
+      "action": "查看请求并考虑重试",
+      "expected": [
+        "标记 sent_pending",
+        "不退名额、不重发",
+        "响应完成后才导出完整结果"
+      ],
+      "evidence_required": [
+        "服务端接收",
+        "客户端阶段",
+        "导出字段",
+        "请求总数"
+      ],
+      "source_ids": [
+        "S07",
+        "S09"
+      ],
+      "community_case_ids": [
+        "C13"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null,
+      "local_reference_ids": [
+        "L01"
+      ]
+    },
+    {
+      "id": "A64",
+      "requirement_ids": [
+        "R03",
+        "R11"
+      ],
+      "environment": "synthetic_evidence",
+      "title": "抓到了不相关的函数数据",
+      "preconditions": [
+        "两合成子系统分别产生通信和资源数据",
+        "采样只命中前者"
+      ],
+      "action": "验证资源分析进展",
+      "expected": [
+        "拒绝将通信数据当资源解密成功",
+        "更正旧结论并保留原证据",
+        "重新选相关观察点"
+      ],
+      "evidence_required": [
+        "数据来源",
+        "业务格式断言",
+        "更正记录"
+      ],
+      "source_ids": [
+        "S03",
+        "S22"
+      ],
+      "community_case_ids": [
+        "C10"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    },
+    {
+      "id": "A65",
+      "requirement_ids": [
+        "R07"
+      ],
+      "environment": "synthetic_web",
+      "title": "临时 Cookie 可用不等于完整方案",
+      "preconditions": [
+        "合成会话 Cookie 有效期很短",
+        "复制可暂时完成一次读取"
+      ],
+      "action": "评估协议复现成果",
+      "expected": [
+        "分开临时复用、会话生成、续期和业务验收",
+        "不反复生产登录补材料"
+      ],
+      "evidence_required": [
+        "过期前后对照",
+        "会话来源",
+        "成果范围声明"
+      ],
+      "source_ids": [
+        "S05",
+        "S07"
+      ],
+      "community_case_ids": [
+        "C12",
+        "C13",
+        "C14"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null,
+      "local_reference_ids": [
+        "L02"
+      ]
+    },
+    {
+      "id": "A66",
+      "requirement_ids": [
+        "R03"
+      ],
+      "environment": "synthetic_binary",
+      "title": "反常参数先按 flag 和 ABI 解释",
+      "preconditions": [
+        "自建函数用文档允许 flag 接受地址参数"
+      ],
+      "action": "解释反编译输出",
+      "expected": [
+        "不把合法参数语义叫高级保护",
+        "核实际 flag/架构",
+        "整体故障仍可未知"
+      ],
+      "evidence_required": [
+        "参数记录",
+        "文档语义",
+        "候选解释变更"
+      ],
+      "source_ids": [
+        "S02",
+        "S03"
+      ],
+      "community_case_ids": [
+        "C15"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    },
+    {
+      "id": "A67",
+      "requirement_ids": [
+        "R11",
+        "R02"
+      ],
+      "environment": "synthetic_research",
+      "title": "受限帖子与个人经验不升权",
+      "preconditions": [
+        "研究输入含隐藏正文、只有标题、个人成功自述和未解决评论"
+      ],
+      "action": "生成可复用方法候选",
+      "expected": [
+        "来源访问与结果强度分开",
+        "无正文不编造解决方案",
+        "不自动下载附件或安装推荐工具"
+      ],
+      "evidence_required": [
+        "研究分级",
+        "候选方法前提",
+        "零附件执行"
+      ],
+      "source_ids": [
+        "S19",
+        "S22"
+      ],
+      "community_case_ids": [
+        "C09",
+        "C16",
+        "C17",
+        "C18",
+        "C19"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    },
+    {
+      "id": "A68",
+      "requirement_ids": [
+        "R03",
+        "R11"
+      ],
+      "environment": "synthetic_research",
+      "title": "后续更正与反证优先于早期回答",
+      "preconditions": [
+        "同一合成讨论先声称成功后更正归因",
+        "另一回答假设被环境反证"
+      ],
+      "action": "整理下一步方法",
+      "expected": [
+        "保留被推翻结论",
+        "不以高声望或成功标题替代证据",
+        "后续选路使用新事实"
+      ],
+      "evidence_required": [
+        "讨论时间线",
+        "来源身份",
+        "结论账",
+        "选路依据"
+      ],
+      "source_ids": [
+        "S03",
+        "S22"
+      ],
+      "community_case_ids": [
+        "C10",
+        "C20"
+      ],
+      "execution_status": "planned_not_executed",
+      "runtime_result": null
+    }
+  ],
+  "community_casebook": "RISK-AWARE-ANALYSIS-COMMUNITY-CASES-2026-11-01.md",
+  "community_research": {
+    "date": "2026-11-01",
+    "content_retrieval": "public_search_and_page_reader",
+    "browser_attempts": "Google, Bing, Chinese forum and GitHub navigation failed; no successful direct browser reading claimed.",
+    "all_community_methods_reproduced_locally": false,
+    "entries": [
+      {
+        "id": "C01",
+        "url": "https://github.com/x64dbg/x64dbg/issues/2840",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "maintainer_explanation_closed_issue"
+      },
+      {
+        "id": "C02",
+        "url": "https://reverseengineering.stackexchange.com/questions/29663/is-that-message-mean-the-program-has-an-anti-debugger",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "explanation_not_target_solution_verified"
+      },
+      {
+        "id": "C03",
+        "url": "https://github.com/x64dbg/ScyllaHide/issues/172",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "minimal_reproducer_and_linked_changes_issue_open"
+      },
+      {
+        "id": "C04",
+        "url": "https://github.com/frida/frida/issues/3715",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "maintainer_could_not_reproduce_on_other_environment"
+      },
+      {
+        "id": "C05",
+        "url": "https://github.com/frida/frida/issues/2481",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "open_issue_conflicting_personal_suggestions"
+      },
+      {
+        "id": "C06",
+        "url": "https://github.com/frida/frida/issues/2829",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "problem_report_without_verified_resolution"
+      },
+      {
+        "id": "C07",
+        "url": "https://reverseengineering.stackexchange.com/questions/32750/how-can-i-debug-if-the-program-closes-directly",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_success_claim_with_high_system_impact_dependencies"
+      },
+      {
+        "id": "C08",
+        "url": "https://reverseengineering.stackexchange.com/questions/27068/program-prevents-x64dbg-from-starting-or-kills-it-if-its-already-running-what/27070",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_reports_suggestions_did_not_work"
+      },
+      {
+        "id": "C09",
+        "url": "https://www.52xuejishu.com/forum-post/1491.html",
+        "access": "restricted_body_public_comments_only",
+        "outcome_strength": "tool_recommendation_no_verified_resolution"
+      },
+      {
+        "id": "C10",
+        "url": "https://live2dhub.com/t/topic/4749",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_updates_and_corrects_earlier_capture_attribution"
+      },
+      {
+        "id": "C11",
+        "url": "https://github.com/mitmproxy/mitmproxy/issues/4885",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "maintainer_links_elsewhere_closed_not_proof_user_fixed"
+      },
+      {
+        "id": "C12",
+        "url": "https://stackoverflow.com/questions/74446830/how-to-fix-403-forbidden-errors-with-python-requests-even-with-user-agent-head",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "different_environment_reports_not_universal_fix"
+      },
+      {
+        "id": "C13",
+        "url": "https://stackoverflow.com/questions/73699915/can-access-websites-api-via-browser-but-not-python-requests-cookie-not-working",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "temporary_cookie_success_no_final_answer"
+      },
+      {
+        "id": "C14",
+        "url": "https://discourse.mitmproxy.org/t/mitmproxy-dosent-see-android-connections-on-transparent-mode/486",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_corrects_cause_to_certificate_pinning"
+      },
+      {
+        "id": "C15",
+        "url": "https://reverseengineering.stackexchange.com/questions/31483/weird-anti-debugging-mechanism",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_corrects_api_misunderstanding_overall_unresolved"
+      },
+      {
+        "id": "C16",
+        "url": "https://www.52hb.com/thread-58899-1-1.html",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_success_claim_includes_unexplained_trial_and_exit_regression"
+      },
+      {
+        "id": "C17",
+        "url": "https://cn.v2ex.com/t/1206133",
+        "access": "question_visible_replies_not_obtained",
+        "outcome_strength": "not_evidence_of_solution"
+      },
+      {
+        "id": "C18",
+        "url": "https://bbs.kanxue.com/thread-282858.htm?style=1",
+        "access": "security_verification_page_only",
+        "outcome_strength": "not_evidence_of_solution"
+      },
+      {
+        "id": "C19",
+        "url": "https://mdr.skyeye.qianxin.com/forum/question/1071",
+        "access": "search_excerpt_only_body_fetch_timeout",
+        "outcome_strength": "not_evidence_of_solution"
+      },
+      {
+        "id": "C20",
+        "url": "https://reverseengineering.stackexchange.com/questions/25668/gdbserver-on-qemu-not-honoring-follow-fork-mode-child/25683",
+        "access": "relevant_body_and_visible_discussion",
+        "outcome_strength": "author_rebuts_one_suggested_cause_no_confirmed_resolution"
+      }
+    ]
+  },
+  "local_references": [
+    {
+      "id": "L01",
+      "path": "Tool/mcp/Tool/safe/js-reverse-mcp/docs/pending-request-hang-root-cause.md",
+      "status": "analysis_design_not_runtime_verification"
+    },
+    {
+      "id": "L02",
+      "path": "Tool/mcp/Tool/safe/js-reverse-mcp/docs/site-state-and-cookie-analysis-plan.md",
+      "status": "proposal_not_runtime_verification"
+    },
+    {
+      "id": "L03",
+      "path": "Tool/capabilities/anti-debug-bypass.json",
+      "status": "declaration_reserved_not_invocable_proof"
+    },
+    {
+      "id": "L04",
+      "path": "Tool/skill/softseep/references/02-failure-criteria.md",
+      "status": "existing_method_reference_not_target_evidence"
     }
   ]
 }
