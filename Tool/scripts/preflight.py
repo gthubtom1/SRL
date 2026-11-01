@@ -225,7 +225,7 @@ def source_first_party():
 
 
 def _source_first_party_uncached():
-    limit = 1150
+    limit = 1180
     mod = _load_source_inventory()
     if mod is None:
         return None, limit, 2, "加载 lib/source_inventory.py 失败（不允许回退到本地 walk）"

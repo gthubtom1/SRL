@@ -501,6 +501,24 @@ class CompletenessTests(unittest.TestCase):
             rc = self.budget.main(["--json"])
         return rc, json.loads(buf.getvalue())
 
+    def test_approved_fixed_budget_boundary_matches_preflight(self):
+        spec = importlib.util.spec_from_file_location("budget_boundary_preflight", os.path.join(HERE, "preflight.py"))
+        preflight = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(preflight)
+        for count, expected_rc in ((1179, 0), (1180, 0), (1181, 1)):
+            inv = {"mode": "git", "source_complete": True,
+                   "counts": {"included": count, "first_party": count}}
+            with self.subTest(count=count), \
+                    mock.patch.object(self.budget, "first_party_inventory", return_value=(count, inv)), \
+                    mock.patch.object(preflight, "_load_source_inventory",
+                                      return_value=mock.Mock(inventory=mock.Mock(return_value=inv))):
+                rc, doc = self._budget_json()
+                row = next(r for r in doc["budget"] if r["item"] == "first-party 引擎文件")
+                self.assertEqual((row["value"], row["limit"], row["ok"]), (count, 1180, expected_rc == 0))
+                self.assertEqual(rc, expected_rc)
+                measured, limit, check_rc, _note = preflight._source_first_party_uncached()
+                self.assertEqual((measured, limit, check_rc), (count, 1180, expected_rc))
+
     @unittest.skipUnless(GIT, "缺 git")
     def test_missing_tracked_makes_incomplete_and_blockers_green(self):
         fx = Fixture("missing")
@@ -1217,7 +1235,7 @@ class BudgetConsumerTests(unittest.TestCase):
     def test_real_count_is_live_and_reported(self):
         rc, doc = self._run()
         row = [r for r in doc["budget"] if r["item"] == "first-party 引擎文件"][0]
-        self.assertEqual(row["limit"], 1150, "阈值放宽为 1150 提供演进空间")
+        self.assertEqual(row["limit"], 1180, "用户 2026-11-01 明确批准固定上限 1180，不随计数自动增长")
         self.assertEqual(doc["source_inventory"]["mode"], "git")
         self.assertIn("policy", doc["source_inventory"])
         # F1/F2 新增字段必须存在（三态可区分）

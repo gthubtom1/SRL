@@ -2059,5 +2059,174 @@
       ],
       "source_code_changed_after_frozen_run": false
     }
+  },
+  "budget_approval_followup": {
+    "schema": "seep.approved-source-budget/1",
+    "recorded_at": "2026-11-01T22:20:18+08:00",
+    "decision_by": "user",
+    "decision": "explicit one-time fixed file limit increase from 1150 to 1180",
+    "previous_limit": 1150,
+    "approved_limit": 1180,
+    "actual_first_party": 1165,
+    "budget_result": {
+      "ok": true,
+      "budget": [
+        {
+          "item": "MCP 工具",
+          "value": 23,
+          "limit": 45,
+          "ok": true
+        },
+        {
+          "item": "技能",
+          "value": 11,
+          "limit": null,
+          "ok": true
+        },
+        {
+          "item": "setup 脚本",
+          "value": 22,
+          "limit": 22,
+          "ok": true
+        },
+        {
+          "item": "MANUAL 手册",
+          "value": 16,
+          "limit": 16,
+          "ok": true
+        },
+        {
+          "item": "MCP 主服务行数",
+          "value": 3198,
+          "limit": 3200,
+          "ok": true
+        },
+        {
+          "item": "first-party 引擎文件",
+          "value": 1165,
+          "limit": 1180,
+          "ok": true
+        },
+        {
+          "item": "案例库文件",
+          "value": 1652,
+          "limit": 1700,
+          "ok": true
+        }
+      ],
+      "source_inventory": {
+        "policy": "seep.source_inventory/2",
+        "mode": "git",
+        "stable": true,
+        "counts": {
+          "included": 1266,
+          "tracked": 1266,
+          "untracked": 0,
+          "excluded": 6016,
+          "missing": 0,
+          "unsupported": 0,
+          "first_party": 1165,
+          "thirdparty_input": 101,
+          "deleted_staged": 0,
+          "by_role": {
+            "first_party": 1165,
+            "thirdparty_input": 101
+          }
+        },
+        "mode_reason": "",
+        "source_complete": true,
+        "manifest_source": "",
+        "missing_tracked": [],
+        "deleted_staged": [],
+        "unsupported": []
+      }
+    },
+    "source_classification_changed": false,
+    "risk_or_acceptance_criteria_relaxed": false,
+    "base_commit": "9d0e942f8f80c92d44410523903f004c6427a4a1",
+    "verification": {
+      "source_inventory_tests": {
+        "returncode": 0,
+        "test_count": 56,
+        "log": "tmp/budget-approval/source-inventory-tests-final.log",
+        "sha256": "3f675eb8f1905a5799bdc730850724e018fadcd846ff74dee042a44bdf5047b8"
+      },
+      "actual_preflight_budget": {
+        "value": 1165,
+        "limit": 1180,
+        "returncode": 0
+      },
+      "initial_failure": "old fixed-policy assertion still expected 1150; changed only after explicit user approval; over-limit and incomplete checks retained"
+    },
+    "initial_checks_retained": [
+      {
+        "name": "source-inventory-tests",
+        "returncode": 1,
+        "log": "tmp/budget-approval/source-inventory-tests.log",
+        "sha256": "af8e7823005c6144c30ef7a049e34efa9b93454be78e98bcaede8d0bbdfc2ad9"
+      },
+      {
+        "name": "prompt-budget-tests",
+        "returncode": 0,
+        "log": "tmp/budget-approval/prompt-budget-tests.log",
+        "sha256": "2cec53ed8498e1f94a4b7a5fd03b169f914ddc1274fd7d2c1fbba570a29f847f"
+      },
+      {
+        "name": "budget",
+        "returncode": 0,
+        "log": "tmp/budget-approval/budget.log",
+        "sha256": "3c2f1e4233719d03c439c9af63d9ff71c7a50f69661630efabb9fdbd3685bd7f"
+      },
+      {
+        "name": "docs",
+        "returncode": 0,
+        "log": "tmp/budget-approval/docs.log",
+        "sha256": "bbd7df361c887769f44c949c822d02741e8f35985563534676f3360ab44c220f"
+      },
+      {
+        "name": "pre-upload",
+        "returncode": 0,
+        "log": "tmp/budget-approval/pre-upload.log",
+        "sha256": "f40a5bb509396c81b62b621acd83defd40c12ad6cf325bd6b8cfb9129995e7d8"
+      }
+    ],
+    "code_fingerprints": [
+      {
+        "path": "Tool/scripts/budget.py",
+        "sha256": "37c5e982fc81164952dc8d470627d225873a9925676e53de72aee5562b8617d2"
+      },
+      {
+        "path": "Tool/scripts/preflight.py",
+        "sha256": "a8b0877fdd9b9f93ae5b82ec9d24fb74fc7007bdbcd6ec6f88e99681dbd1bab0"
+      },
+      {
+        "path": "Tool/scripts/test_source_inventory.py",
+        "sha256": "17962821d888125c7f4391d14ceb8c044d376a2c4e4dda37f6b9d1135b32b9cb"
+      },
+      {
+        "path": "MANUAL/BASELINE-FREEZE.md",
+        "sha256": "4ecf758fba35c153426632470458b9d558d846725d6cb86af71deab9f9481a6b"
+      }
+    ],
+    "coordination": {
+      "main_hold_reason": "fourth work line still in progress; wait for stable committed handoff",
+      "observed_related_branches": [
+        "codex/decision-quality-20261101",
+        "codex/decision-quality-followup-20261101"
+      ],
+      "observed_head": "3bf3fcbb",
+      "uncommitted_changes_observed_in": "codex/decision-quality-followup-20261101",
+      "other_worktrees_modified": false,
+      "instructions_sent_to_other_chats": false,
+      "automatic_monitor_created": false,
+      "merge_policy": "integrate stable fourth-line commits into existing integration branch; review semantic overlaps and rerun combined regressions before main/deployment"
+    },
+    "main_preservation": {
+      "head": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "original_22_files_and_status_unchanged": true,
+      "main_merged": false,
+      "active_host_deployed": false
+    },
+    "historical_receipts_note": "Earlier 1150 failure snapshots and unapproved proposals remain historical evidence; this explicit user approval supersedes current policy only, not their recorded results."
   }
 }
