@@ -1,5 +1,16 @@
 # 当前状态
 
+## 2026-11-01 独立分支：减少不必要人工代操作
+
+用户确认本轮目标是修正 Agent 总把启动、点击和普通技术步骤交给用户的行为，适用于九域和日常开发；工具/技能引用修复由另一对话负责。本批在 `codex/workbench-autonomy` 的独立 worktree 实施，不部署到活动宿主，不改九域技能或工具引用注册表。
+
+- 公共提示、询问模板与操作手册统一沿用已有范围，取消默认用户双击和无依据重复确认；普通开发不强制逆向案件流程。
+- 熔断按完整输入身份区分；成功改代码后可重测，失败编辑不解除计数，旧异步结果不恢复过期计数，系统影响守卫保留。
+- Windows 启动器默认自动 shell 启动，按完整映像路径、PID/创建时间观察；多实例需准确选择，显式人工模式立即返回，进程/窗口/功能结果分开。
+- 仅上述实现完成本批自测；尚未接入通用桌面截图/点击后端，不宣称已解决任意软件所有人工操作。完整预检未通过：worktree 缺未跟踪 APK、部署根不同，另有工具别名检查失败；不在本批追修。
+
+具体回归、基线提交与合并边界见 [本批回执与合并说明](verification/autonomy-behavior-2026-11-01.md)。以下 1.30.0 基线记录仍保留，不表示本分支已发布或部署。
+
 **当前源码版本为 1.30.0，已完成定制分支跟随更新并保持既有稳定基线。** 2026-10-30 增加“软件更新后复用旧补丁、我方定制 UI、构建和验收记录”的追版闭环；没有新增正式域、固定阶段链或第二套项目状态模型。完整范围及残余边界见[本轮交付说明](verification/custom-branch-follow-2026-10-30.md)。当前 Pi 界面仍需重载后确认，不把文件部署等同于宿主已加载。
 
 本页是当前基线、完成状态和使用边界的唯一入口。有效需求见 [REQUIREMENTS](../REQUIREMENTS.md)，职责见 [ARCHITECTURE](ARCHITECTURE.md)。本轮证据见[1.30.0 定制分支跟随更新回执](verification/custom-branch-follow-2026-10-30.md)及[结构化结果](verification/custom-branch-follow-2026-10-30.json)；1.29.0 的九域能力融合证据继续保留在[上一轮回执](verification/capability-integration-2026-10-30.md)。此前报告不作为新的待办来源。
@@ -15,6 +26,34 @@
 候选提供方法、类型化引用、原有资格与限制，区分工具软件、MCP 服务、方法及脚本；reserved/probe、静态注册和历史案例不证明当前执行或成功。修复 React/EAC、泛分析及会员订阅的误分类。源码工具面基线明确追加新接口，历史机器握手快照未改写。
 
 分支专项已验证真实 stdio MCP 的 schema、正常/错误调用及 CLI 同核；完整回归和合并核对仍在进行。工作树预检已有历史材料缺失、部署指向主目录等失败，不降低判据；尚未重载用户 Pi Web，也未证明任意宿主模型必然遵循。具体结果随本轮验证更新。
+
+## 2026-10-31 边界锚口径调整（凭据去向）
+
+用户要求：凭据 / Token 在日常开发里必须能用，红线改成“放指定地方”而不是“不准落盘”。改动：
+
+- 边界锚第 1 条（`Tool/prompts/extensions/load-system-prompt.ts`）与请求期兜底（`security-audit-interceptor.ts`）：从“发现即停、不写入任何输出、不落盘”改为“可读、可用、可落盘，落盘只进凭据仓；三个出口恒禁（git 跟踪文件 / 报告交付产物 / 客户可见材料）；正文引用 `<CRED:case/name>`”。
+- 新增 `Tool/scripts/cred-store.py`：凭据仓 `~/.seep/secrets/<case>/`（仓库外，0600/icacls），`put/ls/get/path/env/purge/check/self-test`。manifest 只存指纹，不存值；`check` 拿真实值反扫已跟踪文件、case 账本、work 报告与审计证据，只报“文件:行 + 名字”。
+- 同步口径：`AGENTS.md` §〇-4、`SEEP.md` §0/§1、`REQUIREMENTS.md` §6、`MANUAL/PROMPT-LAYERS.md`（T7 判据）、`Tool/docs/AUTONOMY.md` §2.2、MCP 证据面文案；`.gitignore` 加 `work/**/secrets/`。
+- 证据面脱敏保留（`seep_http_security` / `session_file`）：那是防“值顺着证据漏进报告”，不是禁止使用。
+
+验证：新增 `cred-store` 套件（`self-test` 14/14，含“命中只报名字不回显值”“仓根在仓库内拒绝写入”）；`check.py --fast` 为 **36 PASS / 1 WARN（既有 4 条 WARN/INFO，非本轮引入）/ 0 FAIL**，跳过 18 套为 `--fast` 定义，不代表全量通过。扩展与提示词已用 `setup/install-pi.ps1 -SkipPackages` 部署，锚文本实测 522 字符（旧 368）。全量 `check.py` 与宿主重载后的人工复核未做。
+
+## 2026-10-31 守卫边界收窄（读/拷放行，只拦改系统）
+
+用户反馈：下载目录里的文件被拦到“读不到、也不让拷进来”，而真实诉求从一开始就只是**别改我的系统**（历史事故：逆向时被改了网卡）。彻查后确认是三个独立拦截点叠在一起，逐条改：
+
+| 拦截点 | 旧行为 | 现行为 |
+| :-- | :-- | :-- |
+| `cmd-guard.rules.json` `fs-bash-read-userprofile` | block：`Downloads` / `Desktop` / `Documents` 与 `.ssh` / `AppData` 同一条正则 | 拆两条：`fs-bash-read-secrets`（凭据载荷）+ `fs-bash-read-userdirs`（用户目录），**均为 warn**（读/拷放行 + 留来源提示） |
+| `answer-gate.ts` `read-guard` | block：`read`/`grep`/`find`/`ls` 命中路径名即拦，`credentials`/`passwords` 这类普通文件名也在名单 | 改为 **notify 不拦**；名单删掉普通文件名词，只留真实凭据载荷（`.ssh` / `.aws` / 浏览器 cookie 库 / 私钥） |
+| `interp-os-delete` / `interp-shutil-wipe` / `interp-ctypes-memwrite` / `interp-net-replay` | block | **warn**（用户决定 A）：删/搬文件、进程内存写（L1 本就允许）、协议重放都属正常工作，与 `AGENTS.md` §〇-2 的层级判定对齐 |
+| `blockRootScan` | true：`dir /s C:\\` / `find /` 物理拦 | **false**：只把 timeout 抬到 `scanTimeout`，不再阻断 |
+| `ask_user_question` | 硬拦（只许对话里 A/B/C） | **放行**：宿主弹窗每道题自带「Type something.」自由输入，选项不够可手打；`AGENTS.md` §〇-6 同步改为“两种都行” |
+| `disableDeny` | 只对 `cmd-guard.ts` 内置表生效，rules.json 的 39 条按 id 关不掉 | 对全部规则生效（含 rules.json），关掉的 id 会打一行 `console.info` |
+
+保留不变（用户要的就是这部分）：网卡 / IP / DNS / 路由 / WinHTTP / 防火墙 / 驱动 / 服务 / BCD / 固件 / 计划任务 / 系统信任根 / HKLM / 系统 hosts / 清日志 / 分区格式化 / 删卷影，以及删用户数据的 `rm -rf` 出 `work/`、`del /s`、`Remove-Item -Recurse` 出 `work/`、`git clean -xdf`。
+
+验证：`test_gates.py` **44/44 PASS**（含新增 D18 / D18b / D18c：删文件降级为提示、用户目录读拷放行、凭据目录可读）；node 直调 `decideCommand` 实测 `dir /s C:\`、`find /`、`python -c os.remove`、`requests.post(https://…)`、`ctypes WriteProcessMemory` → allow + note，`netsh winhttp set proxy`、`bcdedit /set` → 仍 BLOCK。`rules.json` 30 秒热加载；`cmd-guard.ts` / `answer-gate.ts` 需宿主重载后生效（未重启前旧逻辑仍在跑）。
 
 ## 既有基线完成项
 

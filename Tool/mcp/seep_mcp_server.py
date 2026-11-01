@@ -2920,7 +2920,7 @@ def seep_http_replay(
 
     为什么用它：普通 requests 的 TLS 指纹会被反爬/风控识别。本工具优先用 curl_cffi
     伪装 Chrome/Safari/Edge 的 TLS 指纹（绕过基础反爬），并支持 `session_file` 会话快照。
-    ★ 凭据不落盘 / 不进输出（REQUIREMENTS.md 三）：`session_file` 只写
+    ★ 证据面不回显凭据值（REQUIREMENTS.md 六）：`session_file` 只写
       时间/方法/URL/头名/状态码这类非凭据信息；回包里的 cookie 值一律 `[REDACTED]`
       （保留键名与条数 + `cookies_redacted: true`）。会话保持靠本次调用的内存 cookie 参数。
 
@@ -2935,7 +2935,7 @@ def seep_http_replay(
         impersonate: TLS 指纹伪装目标 chrome/safari/edge/ff（仅 curl_cffi 生效）
         session_file: 若给出，只允许在 `SEEP_HTTP_SESSION_ROOT`（默认 `<workspace>/http-sessions`）
             下写 **.json 非凭据**会话快照（时间/方法/URL/头名/状态码）；
-            Cookie、Authorization 等凭据**永不落盘**（REQUIREMENTS.md 三）。
+            Cookie、Authorization 等凭据值**不进证据面**（要留存请放凭据仓 `cred-store.py`）。
             会话保持请在同一次调用里传 cookies（内存），不要从磁盘读回凭据。
         timeout: 超时秒数
     """
@@ -3053,7 +3053,7 @@ def seep_http_replay(
             _assert_redacted(snapshot, secrets, "session_file")
             _atomic_write_text(session_path, blob + "\n")
             saved_note = (f"非凭据会话快照已写入 {session_path}"
-                          f"（cookie {len(ck)} 个 / set-cookie 名 {len(set_cookies)} 个已脱敏，值不落盘）")
+                          f"（cookie {len(ck)} 个 / set-cookie 名 {len(set_cookies)} 个已脱敏，值不进证据面）")
         except RedactionFailure:
             raise                      # 脱敏失败必须让调用失败（不得降级成提示）
         except OSError as exc:

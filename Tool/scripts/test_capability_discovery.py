@@ -92,9 +92,8 @@ class DiscoveryTests(unittest.TestCase):
         (self.root / "Tool/scripts/validate.py").unlink()
         self.assertFalse(self.capability(self.query())["declared_auto_composable"])
 
-    def test_compose_missing_cycle_and_reserved_child_are_not_composable(self):
-        for child in (None, {**self.cap, "id": "child", "compose": ["callback"]},
-                      {**self.cap, "id": "child", "reserved": True}):
+    def test_compose_missing_or_cyclic_is_reported(self):
+        for child in (None, {**self.cap, "id": "child", "compose": ["callback"]}):
             with self.subTest(child=child):
                 self.write("Tool/capabilities/callback.json", {**self.cap, "compose": ["child"]})
                 if child:
@@ -102,6 +101,13 @@ class DiscoveryTests(unittest.TestCase):
                 result = self.query()
                 item = next(r for r in result["resources"] if r["id"] == "capability:callback")
                 self.assertFalse(item["declared_auto_composable"])
+
+    def test_compose_is_not_a_mandatory_task_chain(self):
+        self.write("Tool/capabilities/callback.json", {**self.cap, "compose": ["child"]})
+        self.write("Tool/capabilities/child.json", {**self.cap, "id": "child", "reserved": True})
+        resources = {r["id"]: r for r in self.query()["resources"]}
+        self.assertTrue(resources["capability:callback"]["declared_auto_composable"])
+        self.assertFalse(resources["capability:child"]["declared_auto_composable"])
 
     def test_owner_does_not_force_script_directory(self):
         self.assertTrue(self.capability(self.query())["declared_auto_composable"])
@@ -129,6 +135,15 @@ class DiscoveryTests(unittest.TestCase):
         result = self.query()
         self.assertEqual(result["status"], "partial")
         self.assertTrue(any(w["code"] == "unresolved_reference" for w in result["warnings"]))
+
+    def test_json_reference_is_not_misread_as_javascript(self):
+        self.write("Tool/config/oauth.json", {})
+        self.write(self.oauth, "# OAuth PKCE\n`Tool/config/oauth.json`\n")
+        result = self.query()
+        self.assertEqual(result["status"], "matches")
+        links = next(r for r in result["resources"] if r["kind"] == "subskill")["links"]
+        self.assertTrue(any(l.get("path") == "Tool/config/oauth.json" and l["present"]
+                            and l["kind"] == "configuration" for l in links))
 
     def test_software_registry_is_not_a_method(self):
         self.write(self.oauth, "# OAuth PKCE\n`tool:ida`\n")

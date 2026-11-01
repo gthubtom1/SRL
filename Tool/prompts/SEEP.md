@@ -10,7 +10,7 @@
 
 | 顺序 | 层 | 载体 | 管什么 |
 | :--: | :-- | :-- | :-- |
-| **1** | 边界锚 | 扩展注入（`seep-boundary`） | 凭据红线 / 授权门 / 沙箱契约 |
+| **1** | 边界锚 | 扩展注入（`seep-boundary`） | 凭据去向 / 授权门 / 沙箱契约 |
 | 2 | 宿主纪律 | `AGENTS.md` | 执行分档 / 判型 / 启动 / 网络 / 节律 |
 | 3 | 能力 | `Tool/skill/*/pack.json`（路由）、`tool-capabilities.json`、`Tool/skill/*/SKILL.md` | 判型路由 / 工具能力 / 战术 |
 | 4 | 风格人格 | `personas/*.md` | 语气 / 称谓 / 输出格式 |
@@ -25,6 +25,7 @@
 | :-- | :-- |
 | 判型与分发（唯一入口） | `Tool/skill/seep-router/SKILL.md` |
 | 当前需求与接续 | `REQUIREMENTS.md`（需求与取消项）→ `docs/CURRENT-STATE.md`（唯一当前进度与剩余工作） |
+| 凭据 / Token / Cookie 放哪 | `python Tool/scripts/cred-store.py put/ls/get/check/purge`；值只进凭据仓 `~/.seep/secrets/<case>/`，正文写 `<CRED:case/name>` | `Tool/scripts/cred-store.py` |
 | 智能体安装与修复 | `Tool/docs/BOOTSTRAP.md` |
 | 路由单一事实源 | `Tool/skill/*/pack.json`（现算入口 `Tool/scripts/route.py`） |
 | 工具能力 / 降级 / 安装 | `Tool/config/tool-capabilities.json` + `python Tool/scripts/mcp-doctor.py` |

@@ -25,7 +25,7 @@ _GENERIC = {"python", "javascript", "typescript", "react", "test", "tests",
 _STOP = {"帮我", "一下", "这个", "我们", "项目", "功能", "开发", "实现", "测试",
          "怎么", "如何", "需要", "一个", "进行", "分析", "问题", "检查", "当前",
          "程序", "软件", "文件", "相关", "使用", "方法", "代码", "可以", "是否"}
-_PATH = re.compile(r"Tool/[A-Za-z0-9_./\-\u3400-\u9fff]+\.(?:md|py|ps1|js|ts|sh|json)")
+_PATH = re.compile(r"Tool/[A-Za-z0-9_./\-\u3400-\u9fff]+\.(?:jsonc|json|ps1|md|py|js|ts|sh)(?![A-Za-z0-9])")
 _LINK = re.compile(r"\[[^\]\n]*\]\(([^)\s]+)\)")
 
 
@@ -76,6 +76,7 @@ class _Catalog:
     def __init__(self, root):
         self.root = Path(root).resolve()
         self.warnings = []
+        self.omitted_warnings = 0
         self.fingerprints = []
         self.files = 0
         self.bytes = 0
@@ -88,8 +89,11 @@ class _Catalog:
 
     def warn(self, code, path):
         item = {"code": code, "source": str(path)[:240]}
-        if item not in self.warnings and len(self.warnings) < 40:
-            self.warnings.append(item)
+        if item not in self.warnings:
+            if len(self.warnings) < 40:
+                self.warnings.append(item)
+            else:
+                self.omitted_warnings += 1
 
     def path(self, value):
         value = str(value).replace("\\", "/")
@@ -145,7 +149,10 @@ class _Catalog:
 
     def children(self, relative):
         folder = self.path(relative)
-        if folder is None or not folder.is_dir():
+        if folder is None:
+            self.warn("outside_source_root", relative)
+            return []
+        if not folder.is_dir():
             return []
         result = []
         try:
@@ -186,6 +193,7 @@ class _Catalog:
                 continue
             kind = ("kb_article" if "/reverselab/kb/" in path else
                     "skill" if path.endswith("SKILL.md") else
+                    "configuration" if path.endswith((".json", ".jsonc")) else
                     "reference" if path.endswith(".md") else "script")
             out.append(self.link(kind, path))
         for namespace, name in sorted(set(re.findall(
@@ -305,19 +313,22 @@ class _Catalog:
         records = {r["id"].split(":", 1)[1]: r for r in self.records if r["kind"] == "capability"}
         memo = {}
 
-        def eligible(name, trail):
+        def valid_graph(name, trail):
             if name in memo:
                 return memo[name]
             if name not in records or name in trail or len(trail) >= 64:
                 self.warn("invalid_compose", "capability:" + name)
                 return False
             record = records[name]
-            children = [eligible(child, trail + (name,)) for child in record["compose"]]
-            memo[name] = record["declared_auto_composable"] and all(children)
+            children = [valid_graph(child, trail + (name,)) for child in record["compose"]]
+            # Compose is a related-capability graph, not mandatory execution.
+            # A reserved neighbour must not disable a valid standalone method.
+            memo[name] = all(children)
             return memo[name]
 
         for name, record in records.items():
-            record["declared_auto_composable"] = eligible(name, ())
+            graph_ok = valid_graph(name, ())
+            record["declared_auto_composable"] = record["declared_auto_composable"] and graph_ok
 
     def reference(self, item):
         if item["kind"] != "typed_reference":
@@ -428,7 +439,7 @@ def discover(root, query, limit=5):
                             "No target code, scripts, case payloads or sample binaries were executed or read."],
             "validation_resources": [catalog.link("sample_catalog", "Tool/samples/README.md",
                                                   role="only_for_toolchain_or_method_validation_not_target_evidence")] if selected else []}
-    result["omitted_warning_count"] = 0
+    result["omitted_warning_count"] = catalog.omitted_warnings
     while len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > MAX_OUTPUT_BYTES:
         if result["resources"]:
             result["resources"].pop()

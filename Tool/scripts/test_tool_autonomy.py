@@ -50,8 +50,12 @@ const r4 = shouldBlockRun("bash", { command: "powershell -File Tool/scripts/tool
 out.push(["autonomy", "启动我们自己的工具 → 放行", false, r4.block]);
 const handlers = [];
 answerGate({ on: (name, fn) => { if (name === "tool_call") handlers.push(fn); }, registerCommand: () => {} });
-const sensitive = handlers.map((fn) => fn({ toolName: "read", input: { path: "/home/test/.ssh/id_rsa" } }, { ui: { notify: () => {} } })).find((r) => r?.block);
-out.push(["boundary", "个人隐私凭据读取 → 仍拦截", true, Boolean(sensitive)]);
+// 第 7 轮：读凭据载荷改成「只提示、不拦」—— 边界锚 §1 允许读，
+// 恒禁的是三个出口（git 跟踪文件 / 报告 / 客户材料）。这里锁的是「不拦 + 有提示」。
+const notices = [];
+const sensitive = handlers.map((fn) => fn({ toolName: "read", input: { path: "/home/test/.ssh/id_rsa" } }, { ui: { notify: (m) => notices.push(String(m)) } })).find((r) => r?.block);
+out.push(["boundary", "个人隐私凭据读取 → 不拦（只提示）", false, Boolean(sensitive)]);
+out.push(["boundary", "个人隐私凭据读取 → 留提示", true, notices.some((m) => m.includes("read-guard"))]);
 console.log(JSON.stringify(out));
 """
 
@@ -102,10 +106,10 @@ def main():
             print("  [%s] %-38s 期望=%s 实际=%s" % ("PASS" if ok else "FAIL", desc, want, got))
             if not ok:
                 fails.append(desc)
-        if fails or len(rows) != len(CASES) + 5:
+        if fails or len(rows) != len(CASES) + 6:  # +5 自治/回执行 + +1 隐私读取提示行（第 7 轮）
             print("[FAIL] 工具自治：%d 条不符（%s）" % (len(fails), "；".join(fails[:6])))
             return 1
-        print("[OK] 工具自治：%d 条全过 —— 工具静默、旧回执不裁决、隐私读取仍拦截" % len(rows))
+        print("[OK] 工具自治：%d 条全过 —— 工具静默、旧回执不裁决、隐私读取只提示不拦" % len(rows))
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

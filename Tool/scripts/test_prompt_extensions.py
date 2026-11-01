@@ -86,7 +86,9 @@ fs.writeFileSync(external,"changed"); notices.length=0;
 const pure=m.shouldBlockRun("bash",externalCmd,null,Date.now(),gate,targets);
 if(pure.block || !pure.reason.includes("目标内容已变")) defects.push("pure current-case drift missing");
 if(check("bash",externalCmd).length || !notices.some(s=>s.includes("目标内容已变"))) defects.push("callback current-case drift missing");
-if(!check("read",{path:path.join(root,".ssh","id_rsa")}).length) defects.push("credential read protection removed");
+notices.length=0;
+if(check("read",{path:path.join(root,".ssh","id_rsa")}).length) defects.push("credential read unexpectedly blocked");
+if(!notices.some(s=>s.includes("read-guard"))) defects.push("credential output-boundary reminder missing");
 assert.deepEqual(defects,[]);
 ''', encoding="utf-8")
             env = dict(os.environ, SEEP_ANSWER_GATE="1", NODE_NO_WARNINGS="1")
