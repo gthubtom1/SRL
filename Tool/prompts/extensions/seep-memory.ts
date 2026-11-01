@@ -21,7 +21,7 @@
  * @@FACT/@@TRAP/@@GATE/@@DEAD 标记，避免同一次工具调用在 facts.jsonl 落两行。
  *
  * case 目录：
- *   process.env.SEEP_CASE_DIR → <cwd>/.seep-case → ~/.seep/current-case
+ *   process.env.SEEP_CASE_DIR → <cwd>/.seep-case → 与当前 cwd 相同的机器指针候选
  *   **目录不存在就静默跳过**（没开案子的普通会话不该被这个扩展打扰）。
  *
  * 隐私红线（硬约束，不是建议）：
@@ -42,6 +42,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -74,47 +75,7 @@ const MARKERS: { prefix: string; file: string; kind: string }[] = [
 /* ────────────────────────────── 路径 ────────────────────────────── */
 
 function caseDir(cwd: string): string {
-	// 解析顺序：
-	//   ① SEEP_CASE_DIR（显式）
-	//   ② <当前会话 cwd>/.seep-case
-	//   ③ ~/.seep/current-case 指针（跨目录兼容）
-	// cwd 本地案必须优先于全局指针，否则并行会话会串账。
-	if (process.env.SEEP_CASE_DIR) {
-		try {
-			const explicit = path.resolve(process.env.SEEP_CASE_DIR.trim());
-			if (caseExists(explicit)) return explicit;
-		} catch {
-			/* fallthrough */
-		}
-	}
-	try {
-		const local = path.resolve(cwd || process.cwd(), ".seep-case");
-		if (caseExists(local)) return local;
-	} catch {
-		/* fallthrough */
-	}
-	try {
-		const home = os.homedir();
-		const ptr = home ? path.join(home, ".seep", "current-case") : "";
-		if (ptr && fs.existsSync(ptr)) {
-			const target = fs.readFileSync(ptr, "utf-8")
-				.split(/\r?\n/)
-				.map((line) => line.trim())
-				.find(Boolean);
-			// 指针必须是绝对目录；相对值会跟随当前 cwd 漂移，不能静默接受。
-			if (target && path.isAbsolute(target)) {
-				const absolute = path.resolve(target);
-				if (caseExists(absolute)) return absolute;
-			}
-		}
-	} catch {
-		/* fallthrough */
-	}
-	try {
-		return path.resolve(cwd || process.cwd(), ".seep-case");
-	} catch {
-		return path.resolve(".seep-case");
-	}
+	return resolveCaseDirectory(cwd);
 }
 
 function memoryDir(dir: string): string {
@@ -465,6 +426,8 @@ export default function seepMemory(pi: ExtensionAPI) {
 	 */
 	pi.on("before_agent_start", async (event: any, ctx: any) => {
 		try {
+			const opts = event?.systemPromptOptions;
+			if (opts?.sections) delete opts.sections[SECTION_KEY];
 			const { caseDirectory } = contextOf(ctx);
 			if (!caseExists(caseDirectory)) return {};
 			const raw = await readText(memFile(caseDirectory, "map.md"));
@@ -472,7 +435,7 @@ export default function seepMemory(pi: ExtensionAPI) {
 			// 硬上限 1.5KB：header + body + footer 全部算在内。
 			const header = `[Seep 记忆地图 · 插件自动注入 · 只读]\n`;
 			const footer =
-				`\n[来源 <case>/memory/map.md。需要细节时用 /map /facts /traps；` +
+				`\n[来源 ${memFile(caseDirectory, "map.md")}。仅为当前案接续数据；需要细节时用 /map /facts /traps；` +
 				`不要假设这里没写的结论已经验证过。]`;
 			const budget =
 				MAP_INJECT_BYTES -
@@ -481,7 +444,6 @@ export default function seepMemory(pi: ExtensionAPI) {
 				2; // 两个换行
 			const body = capForPrompt(raw, budget, MAP_MAX_LINES);
 			if (!body.trim()) return {};
-			const opts = event?.systemPromptOptions;
 			if (!opts) return {};
 			opts.sections = opts.sections ?? {};
 			opts.sections[SECTION_KEY] = `${header}${body}${footer}`;

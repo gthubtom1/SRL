@@ -236,6 +236,36 @@ class StateTests(Isolated):
         self.store.pause(self.url, "account-fixture")
         self.assertTrue(self.store.status("https://another.invalid", "account-fixture")["paused"])
 
+    def test_known_account_restriction_does_not_pause_unrelated_account(self):
+        scope = self.scope(2)
+        op = self.store.reserve(self.url, "f", scope, "account-fixture")
+        self.store.begin(op, "f")
+        self.store.finish(op, "account_restricted")
+        self.assertTrue(self.store.status(self.url, "account-fixture")["paused"])
+        self.assertTrue(self.store.status("https://another.invalid", "account-fixture")["paused"])
+        self.assertFalse(self.store.status(self.url, "unrelated-account")["paused"])
+        other = self.store.grant(self.url, "unrelated-account", 1)["scope_id"]
+        second = self.store.reserve(self.url, "g", other, "unrelated-account")
+        self.store.begin(second, "g")
+        self.store.finish(second)
+        self.assertEqual(self.store.status(self.url, "account-fixture", scope)["scope"]["used"], 1)
+
+    def test_unknown_identity_and_origin_events_keep_conservative_pause(self):
+        for event in ("account_restricted", "rate_limited", "outcome_unknown"):
+            with self.subTest(event=event), tempfile.TemporaryDirectory() as folder:
+                store = RiskStore(folder)
+                op = store.reserve(self.url, "f")
+                store.begin(op, "f")
+                store.finish(op, event)
+                self.assertTrue(store.status(self.url, "other-account")["paused"])
+
+    def test_same_origin_inflight_mutual_exclusion_still_applies(self):
+        first = self.scope(2)
+        second = self.store.grant(self.url, "other-account", 1)["scope_id"]
+        self.store.reserve(self.url, "f", first, "account-fixture")
+        with self.assertRaisesRegex(RiskError, "unresolved"):
+            self.store.reserve(self.url, "g", second, "other-account")
+
     def test_expired_scope_never_dispatches(self):
         scope = self.scope()
         with self.store.tx() as db:

@@ -66,7 +66,7 @@ const SEEP_PROMPT_FILE = "SEEP.md";
 
 /** Small host adapter, not another workflow or a grant to execute sample content. */
 export const CAPABILITY_GUIDE = `选专业方法、遇到技术未知或卡住时，先按当前宿主 schema 用 seep_capability_discover；不可用则按登记源码根用 Tool/scripts/route.py --discover。
-读取选中的技能、KB/配方与样本说明，再用真实 MCP/工具执行验证；按问题借用，不必全用。普通开发不强制归域或建案，无匹配正常继续；已有范围内自主操作，守卫与远端试验预算不变。`;
+读取选中的技能、KB/配方与样本说明，再用真实 MCP/工具执行验证；按问题借用，不必全用。无新证据先复核路线，必要时定向查外部资料、核出处与版本，不上传私密材料。普通开发不强制归域或建案，无匹配正常继续；已有范围内自主操作，守卫与远端试验预算不变。`;
 
 function capabilityGuide(): string | null {
 	return process.env.SEEP_CAPABILITY_GUIDANCE === "0" ? null : CAPABILITY_GUIDE;

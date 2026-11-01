@@ -25,13 +25,9 @@
  * case 目录解析顺序（依次探，取第一个**真实存在**的目录）：
  *   1. 环境变量 SEEP_CASE_DIR
  *   2. <cwd>/.seep-case
- *   3. ~/.seep/current-case —— 该文件**内容是一行绝对路径**（case_state.py init 写的机器级指针），
- *      不是目录。血案：以前只认 1/2 两个候选，而 `case_state.py` 把当前案写在 3 上，
- *      于是“开了案子、账却是空的”—— 自动事件账全程空转（第 4 轮评审 P1-4）。
- * `<cwd>/.seep-case` 必须优先于机器级指针，否则同一进程里的并行会话会把 A 的工具事件
- * 写进 B 的案件账。三个候选都不存在（或指针文件读不到/内容不是目录） → **静默跳过**：
- * 不创建目录、不报错、
- * 不打扰（没开案子的普通会话不该被记账）。
+ *   3. ~/.seep/current-case 仅在真实目录就是当前 cwd 时采用。
+ * 显式跨目录恢复使用 SEEP_CASE_DIR；无绑定的普通任务不记录到别人的案件。
+ * 解析与记忆、首答、命令守卫共用同一模块，不创建不存在的目录。
  *
  * ── risk 的语义（重要，别读错）────────────────────────────────
  *   risk 是「这条动作按本地规则表的等级」，**不等于它真的被拦了**。
@@ -56,6 +52,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /* ────────────────────────────── 常量 ────────────────────────────── */
@@ -199,76 +196,12 @@ function redact(s: string): string {
 	return out;
 }
 
-/** 机器级“当前案”指针文件：`~/.seep/current-case`，内容是一行绝对路径。 */
-function currentCasePointer(): string {
-	try {
-		const home =
-			(process.env.HOME || process.env.USERPROFILE || "").trim() ||
-			(() => {
-				try {
-					return os.homedir();
-				} catch {
-					return "";
-				}
-			})();
-		return home ? path.join(home, ".seep", "current-case") : "";
-	} catch {
-		return "";
-	}
-}
-
-/** 指针文件内容 → 绝对路径（只取第一行；读不到/空内容返回 ""）。 */
-function caseDirFromPointer(): string {
-	try {
-		const f = currentCasePointer();
-		if (!f) return "";
-		const line = fs
-			.readFileSync(f, "utf-8")
-			.split(/\r?\n/)
-			.map((s) => s.trim())
-			.find((s) => s.length > 0);
-		if (!line) return "";
-		// 文件内容是绝对路径；相对路径 = 坏指针，不当真（否则会跟着 cwd 漂）
-		if (!path.isAbsolute(line)) return "";
-		return path.resolve(line);
-	} catch {
-		return "";
-	}
-}
-
 function isDir(d: string): boolean {
-	try {
-		return !!d && fs.existsSync(d) && fs.statSync(d).isDirectory();
-	} catch {
-		return false;
-	}
+	try { return !!d && fs.statSync(d).isDirectory(); } catch { return false; }
 }
 
-/**
- * 候选顺序：SEEP_CASE_DIR → <cwd>/.seep-case → ~/.seep/current-case。
- * 返回第一个**真实存在**的目录；都不存在时返回主候选（不存在的路径），让 caseExists() 判 false。
- */
 function caseDirOf(cwd: string): string {
-	const cands: string[] = [];
-	try {
-		const raw = process.env.SEEP_CASE_DIR;
-		if (raw && raw.trim()) cands.push(path.resolve(raw.trim()));
-	} catch {}
-	try {
-		cands.push(path.resolve(cwd || process.cwd(), ".seep-case"));
-	} catch {}
-	try {
-		const pointed = caseDirFromPointer();
-		if (pointed) cands.push(pointed);
-	} catch {}
-	for (const c of cands) {
-		if (isDir(c)) return c;
-	}
-	try {
-		return cands[0] || path.resolve(".seep-case");
-	} catch {
-		return ".seep-case";
-	}
+	return resolveCaseDirectory(cwd);
 }
 
 function cwdOf(ctx: any, fallback: string): string {

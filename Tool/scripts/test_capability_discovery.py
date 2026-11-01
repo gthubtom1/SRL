@@ -295,6 +295,14 @@ class ShippedDiscoveryTests(unittest.TestCase):
                 self.assertTrue(any(r["domain"] == domain for r in result["resources"]), result)
                 self.assertFalse(result["execution_performed"])
 
+    def test_unknown_research_and_no_progress_reach_existing_investigation_recipe(self):
+        for query in ("技术未知 版本差异 查资料", "网上资料 反复空转 没有新证据", "换会话忘记警告 环境风险"):
+            with self.subTest(query=query):
+                result = discover(ROOT, query, 10)
+                self.assertTrue(any(r["path"] == "Tool/playbooks/evidence-led-investigation.md"
+                                    for r in result["resources"]), result)
+                self.assertFalse(result["execution_performed"])
+
     def test_mcp_and_cli_share_core_without_pi(self):
         # Import under an isolated home; never load a Pi extension or real user state.
         with tempfile.TemporaryDirectory(prefix="seep-discovery-home-") as home:

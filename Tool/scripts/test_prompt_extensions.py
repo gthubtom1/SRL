@@ -29,6 +29,67 @@ def case_output(summary=None):
 
 
 class RunnerContract(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("node"), "Node is required")
+    def test_foreign_case_neither_injects_nor_receives_an_unbound_sessions_events(self):
+        script = r'''
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {syncBuiltinESMExports} from 'node:module';
+import {pathToFileURL} from 'node:url';
+const root=process.cwd(), fixture=process.argv[2], home=path.join(fixture,'home');
+const a=path.join(fixture,'project-a'), b=path.join(fixture,'project-b');
+fs.mkdirSync(path.join(home,'.seep'),{recursive:true});
+fs.mkdirSync(path.join(a,'memory'),{recursive:true});fs.mkdirSync(b);
+fs.writeFileSync(path.join(a,'memory','map.md'),'PROJECT_A_ONLY: restricted; do not launch A');
+fs.writeFileSync(path.join(home,'.seep','current-case'),a);
+os.homedir=()=>home;syncBuiltinESMExports();delete process.env.SEEP_CASE_DIR;
+const modules={};const hooks={};
+for(const name of ['seep-memory','seep-events','answer-gate','cmd-guard']){
+ const mod=await import(pathToFileURL(path.join(root,'Tool/prompts/extensions',name+'.ts')));
+ modules[name]=mod;const h={};mod.default({on:(n,fn)=>h[n]=fn,registerCommand:()=>{}});hooks[name]=h;
+ const fn=mod.resolveCaseDirForTest||mod.currentCaseHint||mod.resolveActiveCaseDir;
+ assert.equal(fn(b),'',name+' must not adopt the foreign pointer');
+}
+const ctx={cwd:b,sessionManager:{getSessionId:()=> 'unbound-b'},ui:{notify(){},setStatus(){}}};
+const event={systemPromptOptions:{sections:{'seep-memory-map':'STALE',unrelated:'keep'}}};
+await hooks['seep-memory'].before_agent_start(event,ctx);
+assert.equal(event.systemPromptOptions.sections['seep-memory-map'],undefined);
+assert.equal(event.systemPromptOptions.sections.unrelated,'keep');
+await hooks['seep-memory'].input({text:'B_ONLY_INPUT'},ctx);
+await hooks['seep-events'].tool_call({toolCallId:'b-call',toolName:'read',input:{path:'b'}},ctx);
+await hooks['seep-events'].tool_result({toolCallId:'b-call',toolName:'read',isError:false},ctx);
+await new Promise(r=>setTimeout(r,150));
+assert.equal(fs.existsSync(path.join(a,'facts.jsonl')),false);
+assert.equal(fs.existsSync(path.join(b,'.seep-case')),false);
+// A common workspace containing both projects is still not a case binding.
+const shared={...ctx,cwd:fixture};
+await hooks['seep-memory'].before_agent_start(event,shared);
+assert.equal(event.systemPromptOptions.sections['seep-memory-map'],undefined);
+await hooks['seep-memory'].input({text:'SHARED_ROOT_B_ONLY_INPUT'},shared);
+await hooks['seep-events'].tool_call({toolCallId:'shared-b',toolName:'read',input:{path:'project-b'}},shared);
+await hooks['seep-events'].tool_result({toolCallId:'shared-b',toolName:'read',isError:false},shared);
+await new Promise(r=>setTimeout(r,100));
+assert.equal(fs.existsSync(path.join(a,'facts.jsonl')),false);
+// Explicit cross-directory restoration remains available and visible.
+process.env.SEEP_CASE_DIR=a;
+await hooks['seep-memory'].before_agent_start(event,ctx);
+assert.match(event.systemPromptOptions.sections['seep-memory-map'],/PROJECT_A_ONLY/);
+assert.ok(event.systemPromptOptions.sections['seep-memory-map'].includes(path.join(a,'memory','map.md')));
+delete process.env.SEEP_CASE_DIR;
+await hooks['seep-memory'].before_agent_start(event,ctx);
+assert.equal(event.systemPromptOptions.sections['seep-memory-map'],undefined);
+console.log('foreign case rejected; explicit restoration and section clearing passed');
+'''
+        with tempfile.TemporaryDirectory(prefix="seep-case-binding-") as folder:
+            probe = Path(folder) / "probe.mjs"
+            probe.write_text(script, encoding="utf-8")
+            run = subprocess.run([shutil.which("node"), "--experimental-strip-types", str(probe), folder],
+                                 cwd=ROOT, env=dict(os.environ, NODE_NO_WARNINGS="1"), capture_output=True,
+                                 text=True, encoding="utf-8", errors="replace", timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
     @unittest.skipUnless(shutil.which("node"), "Node is required for callback test")
     def test_authorized_operations_use_current_case_without_ack(self):
         SCRATCH.mkdir(parents=True, exist_ok=True)
@@ -57,7 +118,7 @@ fs.readFileSync=(p,...args) => String(p).endsWith(path.join(".seep","run-ack.jso
 syncBuiltinESMExports();
 const m=await import(pathToFileURL(process.argv[2]).href), handlers=[];
 m.default({on:(name,fn)=>{if(name==="tool_call")handlers.push(fn)},registerCommand:()=>{}});
-const notices=[]; const ctx={ui:{notify:s=>notices.push(String(s))}};
+const notices=[]; const ctx={cwd:a,ui:{notify:s=>notices.push(String(s))}};
 const check=(name,input)=>handlers.map(h=>h({toolName:name,input},ctx)).filter(r=>r?.block);
 const targets=m.readCaseTargets(a), gate=m.gateConfig(), cmd={command:`"${inside.replaceAll("\\","/")}"`}, externalCmd={command:`"${external.replaceAll("\\","/")}"`};
 const defects=[];
@@ -657,15 +718,25 @@ const mod=await import(pathToFileURL(process.argv[2]).href);
 const fallback=path.join(workspace,".seep-case");
 fs.writeFileSync(ptr,"relative-case\n");
 assert.notEqual(path.resolve(mod.resolveCaseDirForTest(workspace)),path.resolve(target));
-assert.equal(path.resolve(mod.resolveCaseDirForTest(workspace)),path.resolve(fallback));
+assert.equal(mod.resolveCaseDirForTest(workspace),"");
 
 const regular=path.join(fixture,"not-a-directory");
 fs.writeFileSync(regular,"file");
 fs.writeFileSync(ptr,regular+"\n");
-assert.equal(path.resolve(mod.resolveCaseDirForTest(workspace)),path.resolve(fallback));
+assert.equal(mod.resolveCaseDirForTest(workspace),"");
 
 fs.writeFileSync(ptr,target+"\n");
+assert.equal(mod.resolveCaseDirForTest(workspace),"", "foreign machine pointer is not a project binding");
+process.env.SEEP_CASE_DIR=target;
 assert.equal(path.resolve(mod.resolveCaseDirForTest(workspace)),path.resolve(target));
+process.env.SEEP_CASE_DIR=path.join(fixture,"missing");
+assert.equal(mod.resolveCaseDirForTest(workspace),"");
+delete process.env.SEEP_CASE_DIR;
+const owned=path.join(workspace,"cases","owned");
+fs.mkdirSync(owned,{recursive:true});
+fs.writeFileSync(ptr,owned+"\n");
+assert.equal(mod.resolveCaseDirForTest(workspace),"", "a descendant is not a binding");
+assert.equal(path.resolve(mod.resolveCaseDirForTest(owned)),path.resolve(owned));
 
 // A local case always wins over the machine-wide pointer.
 const local=path.join(workspace,".seep-case");

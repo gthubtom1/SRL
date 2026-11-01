@@ -44,6 +44,30 @@ def progress(assessment="no_new_evidence"):
 
 
 class ManagerIntegration(unittest.TestCase):
+    def test_unreviewed_success_recommends_review_without_inventing_progress_or_blocking(self):
+        for _ in range(4):
+            self.attempt(outcome="succeeded")
+        state = self.state()
+        self.assertFalse(state["replan_required"])
+        quality = M.decision_quality(state)
+        self.assertEqual(quality["unreviewed_attempts"], 4)
+        self.assertTrue(quality["review_recommended"])
+        self.assertFalse(quality["semantic_verification"])
+        self.assertTrue(self.action()["allowed"])
+        self.assertTrue(self.action()["review_recommended"])
+        handoff = M.build_handoff(self.root)
+        self.assertIn("review", handoff["next_actions"][0])
+        self.review(assessment="new_evidence")
+        quality = M.decision_quality(self.state())
+        self.assertEqual(quality["unreviewed_attempts"], 3)
+        self.assertEqual(quality["unreviewed_tail"], 0)
+        self.assertFalse(quality["review_recommended"])
+        self.assertNotIn("多次尝试尚未复核", M.build_handoff(self.root)["next_actions"][0])
+        self.attempt(outcome="succeeded")
+        self.assertFalse(M.decision_quality(self.state())["review_recommended"])
+        self.attempt(outcome="succeeded")
+        self.assertTrue(M.decision_quality(self.state())["review_recommended"])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="manager-integration-")
         self.addCleanup(self.temp.cleanup)

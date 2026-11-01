@@ -1577,6 +1577,7 @@ def cmd_status(a) -> int:
         core = P.write_handoff(root, persist=False)
         project["core_health"] = {"state_health": core.get("state_health"),
                                   "state_errors": core.get("state_errors") or [],
+                                  "runtime_cautions": core.get("runtime_cautions"),
                                   "report": core.get("report")}
         if core.get("state_errors"):
             project["blocked"] = True
@@ -1621,6 +1622,9 @@ def cmd_status(a) -> int:
                    "next_actions": list(manager.get("next_actions") or [])
                    + list(project.get("reasons") and ["核对项目证据/目标"] or [])
                    + ["继续 act 或在 close 里显式给验收证据"]})
+    cautions = (project.get("core_health") or {}).get("runtime_cautions") or {}
+    if cautions.get("open") or cautions.get("errors"):
+        result["next_actions"].insert(0, "先核对 project.core_health.runtime_cautions；仅暂停相关动作，继续安全离线工作")
     result["scope_note"] = SCOPE_NOTE
     return emit(result, a.json, "[%s] project=%s / manager=%s"
                 % ("OK" if result["ok"] else "BLOCKED",

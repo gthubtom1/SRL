@@ -56,7 +56,7 @@ Agent 在用户已有范围内用 `seep_runtime_risk` 自行办理内部字段�
 1. `action="grant"`：提供 `url`、`subject_ref`、`max_attempts`、`lifetime_seconds`，取得 `scope_id`；主体是不含值的稳定凭据仓/账号/设备引用。
 2. 重放时传 `risk_scope=scope_id`、`risk_subject=subject_ref`。不为每次重试新造范围，不换别名或状态根清次数。
 3. 同时读 `status`、`completion_status`、`runtime_risk` 和业务输出，不能只看 HTTP 200。
-4. 429、明确挑战/账号/设备/环境拒绝、401/403、5xx 或未知结果暂停相关主体。`access_rejected` / `server_error` 不等于已封号，需查实际来源和业务语义；诊断建议不能解除已存暂停。
+4. 429、明确挑战/账号/设备/环境拒绝、401/403、5xx 或未知结果暂停相关主体。明确 `account_restricted` 且有稳定主体时只持续暂停该主体，跨origin仍共享；不把同站其他账号视为已受限。origin在途互斥、限流和未知结果仍保守保护；缺主体或范围不明不自动缩小。`access_rejected` / `server_error` 不等于已封号，需查实际来源和业务语义；诊断建议不能解除已存暂停。历史较宽暂停不被新版自动清除。
 
 预算按 origin + 稳定主体绑定，发送前原子预占，同 origin 或主体的未解决操作互斥。状态跨工作树/会话共享，成功、失败、超时和核对均不自动退次数。
 
@@ -107,4 +107,4 @@ Retry-After 到期不自动请求；没有 429 不意味着可加速；本地回
 
 不带新字段的历史路线与自动捕获保持兼容。handoff 的 `state.decision_quality` 区分已复核、未复核和停滞次数，固定标明调用者声明、未自动验证语义、未授予范围和非全局执行保护。普通开发有新诊断的编译修复/测试迭代可以继续，不机械要求用户接手。
 
-该功能只处理 Manager 已登记的复核，不会自动审阅项目 workflow 的原始输出或替浏览器/调试器接线。workflow 已登记结果时由 Agent 读结果后用 review 关联原 ID，而非重复登记执行。专业复核记录仍须指向当前 run 的真实证据；它不等于 project 验收通过，也不能绕过 runtime-risk。跨领域场景与接续背景见 `docs/audits/DECISION-QUALITY-PLAN-2026-11-01.md`；合成状态/CLI/并发回归在 `Tool/scripts/test_manager_integration.py`，不作为真实 Agent 选路改善的证明。
+该功能只处理 Manager 已登记的复核，不会自动审阅项目 workflow 的原始输出或替浏览器/调试器接线。workflow 已登记结果时由 Agent 读结果后用 review 关联原 ID，而非重复登记执行。专业复核记录仍须指向当前 run 的真实证据；它不等于 project 验收通过，也不能绕过 runtime-risk。技术未知与外部查证按 `Tool/playbooks/evidence-led-investigation.md`，项目风险接续按 `Tool/docs/EXECUTION.md`；合成状态/CLI/并发回归在 `Tool/scripts/test_manager_integration.py`，不作为真实 Agent 选路改善的证明。

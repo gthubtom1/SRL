@@ -2,6 +2,19 @@
 
 本页是“帮我装好这个项目”的起点。你应当读写当前仓库源码、脚本参数、帮助文本和实际命令输出；根目录或 `docs/`、`MANUAL/` 中的历史开发记录不能证明本机当前状态，也不能覆盖当前代码行为。
 
+## 0. 先识别宿主，不默认安装 Pi
+
+用户把工作台交给哪个宿主，就先检查它当前的工具/指令加载机制。共同核心是源码里的 MCP/CLI、技能、KB 与项目接口，不需要先装 Pi。下文 AgentRoot 安装流程是 **Pi 路径**，不能在 Codex/Claude 等宿主里因 env-check 不通过而反复安装 Pi。
+
+其他支持本地 stdio MCP 的宿主按两条链接入，不能只连其中一条：
+
+1. **工具链**：已有 Python 3.11+ 与本项目依赖可导入后，登记 command 为该解释器的实际绝对路径、args 为源码根下 `Tool/mcp/seep_mcp_server.py` 的绝对路径，env含 `PYTHONIOENCODING=utf-8`。读取现有宿主配置，只合并 Seep 条目，不覆盖别的服务、登录或用户选项。`setup/generate-configs.ps1` 已有 Claude/OpenCode/DSH 配置生成；它不等于任意宿主全自动安装。
+2. **方法链**：让该宿主真实加载 `Tool/prompts/AGENTS.md` 的共享约定和源码路径导航。可参考 `Tool/prompts/contracts/AGENTS.md` 或 `CLAUDE.md` 模板，在用户项目原有指令文件增补一个指向已确认源码根的短段，而不是替换原文件或把全部技能正文常驻。普通开发按需发现/读取，专业子技能由父导航进入；不用复制 Pi TS 扩展。
+
+Codex 可通过其 `mcp add` CLI 或现有 config.toml 的 mcp_servers 配置登记本地服务；AGENTS.md 是另一条指令加载链。具体参数先核所装版本帮助，不往未知格式配置里追加字符串。官方机制见 [MCP](https://developers.openai.com/codex/mcp/) 与 [AGENTS.md](https://developers.openai.com/codex/guides/agents-md/)。Claude等宿主按其当前机制合并配置与指令，不把仓库内某个模板存在当成实际加载成功。
+
+接入后新进程实际 initialize/tools/list，调用发现、读取一份选中方法，再做无害任务观察资源读取、实际执行和结果验证；同样核普通小修改不会被要求建案。CLI后备从已确认源码根运行，不必伪造 Pi 的运行时注册。注册数、脚本测试和 Pi 探针都不能证明其他宿主行为等价。无法从当前宿主核对的项目保留未验证，已有本机部署或配置文件不要为“统一”而覆盖。
+
 ## 1. 确定根目录和 AgentRoot
 
 先确认仓库根目录包含 `setup/`、`Tool/` 和 `VERSION`。后续命令都从这个目录执行。

@@ -322,6 +322,9 @@
     ],
     "runtime-risk": [
       "Tool/scripts/test_runtime_risk.py"
+    ],
+    "runtime-cautions": [
+      "Tool/scripts/test_runtime_cautions.py"
     ]
   },
   "excluded": {
