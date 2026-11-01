@@ -75,6 +75,8 @@ SUITES = [
      "当前扩展 MCP 工具注册、发现隔离、参数拒绝与凭据脱敏"),
     ("security-boundaries", ["Tool/mcp/test_security_boundaries.py"], True,
      "MCP 文件、进程、证据与 HTTP 会话边界回归"),
+    ("cred-store", ["Tool/scripts/cred-store.py", "self-test"], True,
+     "凭据仓：落盘位置、指纹不入值、泄漏检测与收尾清理"),
     ("workflow-gates", [".github/tests/test_workflow_gates.py"], True,
      "GitHub workflow 失败传播、最终汇总和草稿 PR 行为回归"),
     ("project-lifecycle", ["Tool/scripts/project_state.py", "--self-test"], True,

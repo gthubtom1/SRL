@@ -229,8 +229,8 @@ def http_session_snapshot(
         },
         "note": (
             "本文件只存非凭据会话快照（时间/方法/URL/头名/状态码）；"
-            "Cookie、Authorization、X-Api-Key 等值一律不落盘。"
-            "会话保持请在同一次调用里传 cookies（内存），不要指望从磁盘读回凭据。"),
+            "Cookie、Authorization、X-Api-Key 等值不进证据面（要留存请放凭据仓）。"
+            "会话保持请在同一次调用里传 cookies（内存），或先用 cred-store.py 存好再 --from 读取。"),
     }
 
 

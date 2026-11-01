@@ -573,12 +573,19 @@ export function targetMismatch(
 	return foreign.length === 0 ? "" : "本次参数里的路径（" + foreign.slice(0, 2).join(" / ") + "）不在该案 case.json 的 target_files/target 下";
 }
 
-/** 个人隐私区：读类工具（read/grep/find/ls）只在这些路径上直接拦下。
- *  ★ 为什么需要（R8 P1-5）："别乱翻我东西"原来只有提示词，读类工具不限目录。
- *  用"窄黑名单"而不是白名单：白名单会误伤客户放在任意目录的目标文件。
+/** 凭据载荷区：读类工具（read/grep/find/ls）命中时**只提示、不拦**。
+ *
+ *  ★ 第 7 轮修正（用户反馈「我下载的文件都读不到」）：
+ *   旧版把这一条做成 block，直接与本项目自己的边界锚冲突 ——
+ *   边界锚第 1 条写的是「凭据 / Token / Salt / 私钥：可读、可用」，
+ *   出口限制在「git 跟踪文件 / 报告 / 客户可见材料」三个方向，不在读的一侧。
+ *   旧正则还认了 `credentials` / `passwords` 这类**普通文件名词**，
+ *   结果用户自己下载的账号导出、字典、凭据清单全被当成隐私区拦掉（实测 /tmp/credentials.txt 也被拦）。
+ *   现在：读一律放行，只留一条 note（"读过凭据载荷"）便于事后自查。
+ *   真正要挡的是「改系统」，那部分在 cmd-guard 的 sys-* / net-* 禁手里。
  */
 const SENSITIVE_PATH_RE =
-	/(^|[\\/])(\.ssh|\.aws|\.gnupg|\.netrc|\.git-credentials|\.config[\\/]gh|Cookies|Login Data|keychain|credentials|passwords?|id_rsa|id_ed25519|Web Data|Local State)([\\/.]|$)/i;
+	/(^|[\\/])(\.ssh|\.aws|\.gnupg|\.netrc|\.git-credentials|\.config[\\/]gh|Cookies|Login Data|keychain|id_rsa|id_ed25519|id_ecdsa|id_dsa|Web Data|Local State)([\\/.]|$)/i;
 
 function _allStrings(v: unknown, out: string[] = [], depth = 0): string[] {
 	if (depth > 6 || out.length > 400) return out;
@@ -984,7 +991,7 @@ export default function answerGate(pi: ExtensionAPI) {
   } catch (err) { console.warn("[case-context] 诊断失败：" + errText(err)); }
   return undefined;
  });
-	pi.on("tool_call", (event: unknown) => {
+	pi.on("tool_call", (event: unknown, ctx: unknown) => {
 		try {
 			const e = asRecord(event);
 			const tool = asText(e.toolName ?? e.name);
@@ -992,14 +999,14 @@ export default function answerGate(pi: ExtensionAPI) {
 			if (!READONLY_TOOLS.has(base) && !READONLY_TOOLS.has(tool)) return undefined;
 			const hit = sensitivePathHit(e.input ?? e.args);
 			if (!hit) return undefined;
-			console.warn("[read-guard] 已拦下个人隐私区路径：" + hit);
-			return {
-				block: true,
-				reason:
-					"[read-guard] 已拦下：这条路径属于个人隐私区（" + hit + "）。\n" +
-					"分析只需要三类路径：目标文件、案件目录（work/ 或 Tool/cases/<案>/）、工具安装目录。\n" +
-					"如果确实需要看它，请让用户把文件复制到案件目录后再继续。",
-			};
+			// 只提示、不拦：读凭据载荷是允许的（边界锚 §1），拦的是三个出口。
+			const message =
+				"[read-guard] 注意：读过凭据载荷（" + hit + "）。允许读；\n" +
+				"但值不要写进 git 跟踪文件 / 报告 / 客户可见材料，落盘只进凭据仓 ~/.seep/secrets/<case>/。";
+			console.warn(message);
+			const ui = asRecord(asRecord(ctx).ui);
+			if (typeof ui.notify === "function") (ui.notify as (s: string) => void).call(ui, message);
+			return undefined;
 		} catch {
 			return undefined;
 		}

@@ -472,6 +472,13 @@ function loadConfig(force = false): void {
 		const clean: DenyRule[] = [];
 		for (const r of extra as unknown as DenyRule[]) {
 			if (!r || typeof r !== "object") continue;
+			const id = String((r as DenyRule).id || "");
+			// disableDeny 对 rules.json 里自己的规则同样生效 —— 旧版只管内置表，
+			// 结果要关一条 rules.json 规则只能删条目，改回来时无处可循。
+			if (id && disabled.has(id)) {
+				console.info(`[cmd-guard] disableDeny 已关闭规则：${id}`);
+				continue;
+			}
 			const re = String((r as DenyRule).re || "");
 			if (!re) continue;
 			try {
@@ -481,7 +488,7 @@ function loadConfig(force = false): void {
 				continue;
 			}
 			clean.push({
-				id: String((r as DenyRule).id || `custom-${clean.length}`),
+				id: id || `custom-${clean.length}`,
 				re,
 				label: String((r as DenyRule).label || re),
 				severity: (r as DenyRule).severity === "warn" ? "warn" : "block",
@@ -1250,25 +1257,12 @@ export default function cmdGuard(pi: any): void {
 		const session = guardSession(ctx);
 		if (!session.enabled) return;
 		const name = event.toolName;
-		// ★ 弹窗式问人一律拦下（2026-10-23 用户明确要求，已强调多次）。
-		//   理由：① 选项只能 2–4 个、每项 ≤60 字，四要素长卡塞不进去；
-		//         ② 它把「等人」变成一次工具往返，给上下文塞结构化噪声；
-		//         ③ 用户要的是“对话框里列 A/B/C/D，我回一个字母”。
-		if (name === "ask_user_question") {
-			const reason =
-				`[cmd-guard] 已拦下：弹窗式问人（ask_user_question）不用于本项目。\n` +
-				`改用对话内 A/B/C：先把卡落盘并列出选项，然后把下面这段**原样贴进对话**：\n\n` +
-				`  【需要你选】<一句话：卡在哪>\n` +
-				`    A  …\n` +
-				`    B  …\n` +
-				`    C  …\n` +
-				`  直接回 A / B / C\n\n` +
-				`落盘与回执：\n` +
-				`  python Tool/scripts/case_state.py ask --case <case> --stuck "..." --option "A ..." --option "B ..." --option "C ..."\n` +
-				`  python Tool/scripts/case_state.py ack --case <case> --ack A\n\n` +
-				`（ask 会打印可直接粘贴的卡片；等待态写在 state.awaiting_human）`;
-			return { block: true, reason };
-		}
+		/* ★ 弹窗式问人（ask_user_question）：第 7 轮起**不再拦**。
+		 *   旧版按 2026-10-23 的需求一刀切拦掉，理由是「选项只能 2–4 个、四要素长卡塞不下、多一次往返」。
+		 *   实测这个理由不成立：宿主的 ask_user_question 每道题都会自动追加一行「Type something.」，
+		 *   用户可直接手打第五个答案；拦掉的代价是用户永远看不到选择框（手机上尤其难受）。
+		 *   现在两种都可用，Agent 按场合选（规则见 AGENTS §〇-6）；要强制回退成只许对话 A/B/C，
+		 *   在 rules.json 的 disableDeny 之外另加一条 ask-block 规则即可。*/
 		if (name !== "bash" && name !== "powershell") return;
 		const shell: "bash" | "powershell" = name === "bash" ? "bash" : "powershell";
 		let cmd = String(event.input?.command ?? "");
