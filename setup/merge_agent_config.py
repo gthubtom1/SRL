@@ -318,7 +318,9 @@ def merge_settings_json(args, *, pair_only: bool = False) -> int:
     return 0
 
 
-PERSONA_PACKAGE_FILES = ("package.json", "LICENSE", "UPSTREAM.json")
+# The global Seep extensions also consume this local package helper; directory
+# enumeration alone cannot detect its absence before publishing an install.
+PERSONA_PACKAGE_FILES = ("package.json", "LICENSE", "UPSTREAM.json", "lib/case-dir.ts")
 
 
 def _checked_path(base: Path, relative: str, *, directory: bool = False) -> Path:

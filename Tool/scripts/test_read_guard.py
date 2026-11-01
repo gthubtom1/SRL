@@ -4,9 +4,9 @@
 
 为什么单独一个文件：`test_gates.py` 的用例表是固定条数（EXPECTED_CASES），
 塞新用例要改计数常量、容易掩盖"有测试没跑到"。这里独立成一个套件，
-只验证一件事：读类工具在"个人隐私区"路径上会被拦、在正常路径上不会被拦。
+只验证一件事：敏感载荷路径能被识别以提醒出口边界，普通路径不误报；不表示阻断读取。
 
-判据来源：REQUIREMENTS.md 三（"别乱翻我东西"）。
+判据来源：REQUIREMENTS.md 第6节，凭据可读可用，出口与落盘受约束。
 做法：用 `npx tsc` 把 `answer-gate.ts` 编译到临时目录，再用 node 调 `sensitivePathHit`。
 缺 node / 编译失败 → rc=1（**不许 skip 成 PASS**）。
 """
@@ -42,7 +42,8 @@ def main() -> int:
     tmp = tempfile.mkdtemp(prefix="readguard-")
     try:
         # Windows 上 npx 是 .cmd，必须经 shell 才能起（否则 CreateProcess 直接 FileNotFound）
-        cmd = '"%s" tsc "%s" --outDir "%s" --target es2022 --module es2022 --moduleResolution node --skipLibCheck' % (npx, TS, tmp)
+        prompt_root = os.path.join(ROOT, "Tool", "prompts")
+        cmd = '"%s" tsc "%s" --outDir "%s" --rootDir "%s" --rewriteRelativeImportExtensions --target es2022 --module es2022 --moduleResolution bundler --skipLibCheck' % (npx, TS, tmp, prompt_root)
         cp = subprocess.run(cmd, shell=True, capture_output=True, text=True,
                             encoding="utf-8", errors="replace", timeout=300)
         bad = [ln for ln in (cp.stdout or "").splitlines() if "error TS1" in ln]
@@ -51,7 +52,7 @@ def main() -> int:
             for ln in bad[:5]:
                 print("   " + ln.strip())
             return 1
-        js = os.path.join(tmp, "answer-gate.js")
+        js = os.path.join(tmp, "extensions", "answer-gate.js")
         if not os.path.isfile(js):
             print("[FAIL] 没产出 answer-gate.js（编译目标异常）")
             return 1
@@ -78,7 +79,7 @@ def main() -> int:
         if fails or len(rows) != len(CASES):
             print("[FAIL] 读守卫：%d/%d 通过（期望 %d 条）" % (len(rows) - len(fails), len(rows), len(CASES)))
             return 1
-        print("[OK] 读守卫：%d/%d 通过（隐私区拦、正常路径放行）" % (len(rows), len(CASES)))
+        print("[OK] 读守卫：%d/%d 通过（敏感载荷识别、普通路径不误报）" % (len(rows), len(CASES)))
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

@@ -25,7 +25,8 @@
     "lib/rewind-targets.ts": "9595f02d7d09c11b0d841c333374acdefc9ed5c108f0569fb167dd6d767f1826",
     "lib/session-state.ts": "5e10d142659b4df49caabaa5e8a2c51bd665ed4e80fa2490557b07642ae4c863",
     "LICENSE": "eb8f136f6ea8c474205493ce95e2559c72aa4deb3bb23ce7c09ad4b969be4b8d",
-    "package.json": "ec851227e87b7517823fd8603066abe35a070b6f2e2083be88894eff65a28dca"
+    "package.json": "ec851227e87b7517823fd8603066abe35a070b6f2e2083be88894eff65a28dca",
+    "lib/case-dir.ts": "04da0a68b73be03bc01812f3200bd5d813c27f78f9f2b0a89ad7fd7470060c59"
   },
   "vendoredFiles": [
     "LICENSE",
@@ -93,6 +94,13 @@
       "id": "confirm-all-discarded-tool-work",
       "why": "Rewinding a plain earlier turn also removes later turns whose tool side effects remain on disk.",
       "what": "Carry later tool-work flags backwards across rewind candidates, requiring confirmation for every discarded tool turn. Final plain reply undo and raw draft text stay unchanged."
+    }
+  ],
+  "localAdditions": [
+    {
+      "file": "lib/case-dir.ts",
+      "origin": "first-party Seep adapter, not present in the pinned upstream",
+      "purpose": "Shared explicit/cwd-bound case resolution for global Seep extensions; package installer requires its presence before any publication."
     }
   ]
 }

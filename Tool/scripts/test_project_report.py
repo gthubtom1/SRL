@@ -634,10 +634,8 @@ class ReportHandoffWiring(ReportChain):
         (tree / "lib").mkdir(parents=True)
         for name in ("project_state.py", "project_report.py", "manager_state.py"):
             shutil.copy2(ROOT / "Tool/scripts" / name, tree / name)
-        for name in ("__init__.py", "project_lock.py", "project_transaction.py", "typed_assets.py"):
-            source = ROOT / "Tool/scripts/lib" / name
-            if source.is_file():
-                shutil.copy2(source, tree / "lib" / name)
+        shutil.copytree(ROOT / "Tool/scripts/lib", tree / "lib", dirs_exist_ok=True,
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
         (tree / "lib" / "__init__.py").touch()
         return tree
 
