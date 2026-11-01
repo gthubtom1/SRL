@@ -136,6 +136,29 @@ class WorkflowEntry(unittest.TestCase):
     def capture_dir(self, run_id):
         return self.project / "versions" / "1.0" / "runs" / run_id / "capture"
 
+    def test_existing_workflow_attempts_can_be_reviewed_without_double_counting(self):
+        import manager_state as M
+        started = self.start(target=self.apk)
+        for index in range(2):
+            self.wf_ok("act", "--project", self.project, "--action", "apk.info")
+            before = M.current_context(self.project)[1]
+            attempt = before["attempts"][-1]
+            self.assertNotIn("progress", attempt)
+            rc, output, text, error = run_cli(MANAGER, ["review", "--project", self.project,
+                "--attempt-id", attempt["attempt_id"], "--progress", "no_new_evidence",
+                "--progress-reason", "Parser works but the business question remains unresolved", "--json"])
+            self.assertEqual(0, rc, (text, error))
+            after = output["state"]
+            self.assertEqual(index + 1, len(after["attempts"]))
+            self.assertEqual(attempt["outcome"], after["attempts"][-1]["outcome"])
+            self.assertEqual(attempt["evidence"], after["attempts"][-1]["evidence"])
+        self.assertTrue(after["replan_required"])
+        captures = snapshot(self.capture_dir(started["run"]))
+        rc, output, text, error = self.wf("act", "--project", self.project, "--action", "apk.info")
+        self.assertNotEqual(0, rc, text)
+        self.assertEqual(captures, snapshot(self.capture_dir(started["run"])))
+        self.assertEqual(2, len(M.current_context(self.project)[1]["attempts"]))
+
     def test_invalid_start_parameters_leave_no_project_and_allow_retry(self):
         common = ["--route-id", "R1", "--p", "0.4", "--hours", "1h",
                   "--fail", "parse error", "--evidence-goal", "metadata"]

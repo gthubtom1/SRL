@@ -39,6 +39,8 @@ LOCK_NAME = ".project.lock"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HANDOFF_NAME = "manager-handoff.json"
 ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+DECISION_FIELDS = frozenset(("question", "supports", "refutes", "alternative", "cost_limit", "impact"))
+PROGRESS_ASSESSMENTS = frozenset(("new_evidence", "no_new_evidence", "inconclusive"))
 SENSITIVE_KEY_RE = re.compile(
     r"(?:password|passwd|pwd|token|secret|api[_-]?key|authorization|cookie|"
     r"credential|private[_-]?key|client[_-]?secret|refresh[_-]?token|bearer)", re.I)
@@ -202,6 +204,19 @@ def _append_event(root: Path, event_type: str, payload: dict, refs: dict) -> dic
     return event
 
 
+def _bounded_text_object(value: Any, fields: frozenset, label: str) -> None:
+    if not isinstance(value, dict) or set(value) != fields:
+        raise ManagerError("manager invalid " + label + " fields")
+    if any(not isinstance(v, str) or not v.strip() or len(v) > 1000 for v in value.values()):
+        raise ManagerError("manager invalid " + label + " text")
+
+
+def _progress_shape(value: Any) -> None:
+    _bounded_text_object(value, frozenset(("assessment", "reason")), "progress")
+    if value["assessment"] not in PROGRESS_ASSESSMENTS:
+        raise ManagerError("manager progress assessment invalid")
+
+
 def _payload_shape(kind: str, payload: dict) -> None:
     """Validate stored/request shapes without re-resolving historical sources."""
     if not isinstance(payload, dict):
@@ -227,6 +242,10 @@ def _payload_shape(kind: str, payload: dict) -> None:
         for key in ("estimated_hours", "fail_criteria", "evidence_goal"):
             text(key, value)
         strings("needs", value)
+        if "decision" in value:
+            _bounded_text_object(value["decision"], DECISION_FIELDS, "decision")
+            if value["decision"]["supports"].strip() == value["decision"]["refutes"].strip():
+                raise ManagerError("manager decision requires distinguishable observations")
     def optional_text(key, data=payload):
         value = data.get(key)
         if value is not None and (not isinstance(value, str) or not value.strip()):
@@ -283,8 +302,13 @@ def _payload_shape(kind: str, payload: dict) -> None:
         for key in ("route_id", "outcome", "result"):
             text(key, attempt)
         require_id(attempt["route_id"], "route_id")
+        if "attempt_id" in attempt:
+            text("attempt_id", attempt)
+            require_id(attempt["attempt_id"], "attempt_id")
         if attempt["outcome"] not in {"succeeded", "success", "failed", "fail", "blocked", "partial"}:
             raise ManagerError("manager attempt outcome invalid")
+        if "progress" in attempt:
+            _progress_shape(attempt["progress"])
         for key in ("evidence", "evidence_refs"):
             if key in attempt and not isinstance(attempt[key], list):
                 raise ManagerError("manager attempt evidence must be a list")
@@ -296,6 +320,12 @@ def _payload_shape(kind: str, payload: dict) -> None:
                 not isinstance(attempt["capability_sources"], list)
                 or any(not isinstance(item, dict) for item in attempt["capability_sources"])):
             raise ManagerError("manager attempt capability_sources invalid")
+    elif kind == "review":
+        if set(payload) != {"attempt_id", "progress"}:
+            raise ManagerError("manager review fields invalid")
+        text("attempt_id")
+        require_id(payload["attempt_id"], "attempt_id")
+        _progress_shape(payload["progress"])
     elif kind == "replan":
         text("reason")
         text("new_route_id")
@@ -388,8 +418,56 @@ def _failed_attempt(attempt: dict) -> bool:
     return str(attempt.get("outcome") or "").lower() in {"failed", "fail", "blocked"}
 
 
+def stagnant_reviews(attempts: list[dict], route_id: str | None) -> int:
+    count = 0
+    for attempt in reversed(attempts):
+        if attempt.get("route_id") != route_id:
+            continue
+        review = attempt.get("progress")
+        if review is None:
+            continue  # Tool success without a review is not semantic progress.
+        if review["assessment"] == "new_evidence":
+            break
+        count += 1
+    return count
+
+
+def decision_quality(state: dict) -> dict:
+    rid = state.get("selected_route_id")
+    attempts = [a for a in state["attempts"] if a.get("route_id") == rid]
+    reviewed = sum("progress" in a for a in attempts)
+    return {"scope": "manager-recorded-reviews-only", "route_id": rid,
+            "context": state["routes"].get(rid, {}).get("decision"),
+            "reviewed_attempts": reviewed, "unreviewed_attempts": len(attempts) - reviewed,
+            "stagnant_reviews": stagnant_reviews(attempts, rid),
+            "assessment_source": "caller-declared", "semantic_verification": False,
+            "grants_scope": False, "globally_enforced": False}
+
+
+def _review_target(attempt: dict | None, attempt_id: str, route_id: str | None,
+                   latest_id: str | None) -> dict:
+    if (attempt is None or attempt.get("route_id") != route_id
+            or attempt.get("attempt_id") != attempt_id or attempt_id != latest_id):
+        raise ManagerError("review requires the latest attempt of the selected route in this generation")
+    if "progress" in attempt:
+        raise ManagerError("attempt already reviewed; review is immutable")
+    return attempt
+
+
+def _record_progress(state: dict, attempt: dict, review: dict, streaks: dict) -> None:
+    attempt["progress"] = dict(review)
+    rid = attempt["route_id"]
+    streaks[rid] = 0 if review["assessment"] == "new_evidence" else streaks.get(rid, 0) + 1
+    if streaks[rid] >= 2 and not state["replan_required"]:
+        state["replan_required"] = True
+        state["replan_reason"] = "路线 %s 连续专业复核无进展，先改变实验问题或路线" % rid
+        state["status"], state["phase"] = "blocked", "replan"
+        state["next_actions"] = ["先 replan；工具成功不等于专业问题获得新证据"]
+
+
 def replay(events: list[dict]) -> dict:
     state = default_state()
+    attempts_by_id, latest_by_route, review_streaks = {}, {}, {}
     for index, event in enumerate(events):
         t = event["event_type"]
         p = event["payload"]
@@ -410,6 +488,7 @@ def replay(events: list[dict]) -> dict:
             # Every accepted intake starts an isolated generation. Legacy intakes
             # are isolated too; their unbound evidence will subsequently be stale.
             state = default_state()
+            attempts_by_id, latest_by_route, review_streaks = {}, {}, {}
             state["generation_id"] = generation_id or event["event_id"]
             state["target_sha256"] = p.get("target_sha256")
             state["target_kind"] = p.get("target_kind")
@@ -481,7 +560,13 @@ def replay(events: list[dict]) -> dict:
                     raise ManagerError("manager replay attempt route is not selected")
                 if state.get("replan_required"):
                     raise ManagerError("manager replay attempt precedes required replan")
+                # Legacy API records have no attempt_id; the immutable event id is their stable handle.
+                attempt.setdefault("attempt_id", event["event_id"])
+                if attempt["attempt_id"] in attempts_by_id:
+                    raise ManagerError("manager duplicate attempt id")
                 state["attempts"].append(attempt)
+                attempts_by_id[attempt["attempt_id"]] = attempt
+                latest_by_route[attempt["route_id"]] = attempt["attempt_id"]
                 if _failed_attempt(attempt):
                     failures = 0
                     for old in reversed(state["attempts"]):
@@ -501,6 +586,15 @@ def replay(events: list[dict]) -> dict:
                 else:
                     state["status"], state["phase"] = "active", "attempt"
                     state["next_actions"] = ["检查结果与证据，决定继续、等待或换路"]
+                if "progress" in attempt:
+                    _record_progress(state, attempt, attempt["progress"], review_streaks)
+            elif t == "review":
+                attempt = _review_target(attempts_by_id.get(p["attempt_id"]), p["attempt_id"],
+                                         state["selected_route_id"],
+                                         latest_by_route.get(state["selected_route_id"]))
+                if not state["replan_required"]:
+                    state["phase"] = "review"
+                _record_progress(state, attempt, p["progress"], review_streaks)
             elif t == "replan":
                 new_id = p["new_route_id"]
                 if new_id == state.get("selected_route_id") or any(
@@ -526,6 +620,7 @@ def replay(events: list[dict]) -> dict:
 
 
 def derive_status(state: dict) -> dict:
+    state["decision_quality"] = decision_quality(state)
     if (state.get("waiting") or {}).get("status") == "WAIT_USER":
         state["status"] = "blocked"
         state["next_actions"] = ["等待用户选择后执行 answer"]
@@ -864,7 +959,7 @@ def transition(root: Path, event_type: str, payload: dict, refs: dict) -> tuple[
     _references_shape(refs)
     _payload_shape(event_type, payload)
     payload, refs = copy.deepcopy(payload), dict(refs)
-    if event_type not in {"intake", "plan", "choose", "wait", "answer", "attempt", "replan"}:
+    if event_type not in {"intake", "plan", "choose", "wait", "answer", "attempt", "review", "replan"}:
         raise ManagerError("unsupported event type")
     with manager_lock(root):
         events, state = current_context(root)
@@ -904,7 +999,7 @@ def transition(root: Path, event_type: str, payload: dict, refs: dict) -> tuple[
                 if payload["choice"] not in waiting.get("options", {}):
                     raise ManagerError("用户选择不在选项中")
             else:
-                require_ready(root, state, allow_replan=event_type == "replan")
+                require_ready(root, state, allow_replan=event_type in {"replan", "review"})
                 if target_identity(root, refs) != state["target_sha256"]:
                     raise ManagerError("target identity stale")
             if event_type == "plan":
@@ -932,6 +1027,9 @@ def transition(root: Path, event_type: str, payload: dict, refs: dict) -> tuple[
                     raise ManagerError("attempt outcome invalid")
                 if not str(attempt.get("result") or "").strip() or not attempt.get("evidence_refs"):
                     raise ManagerError("attempt requires result and real evidence; failures require an error file too")
+                attempt.setdefault("attempt_id", "ATT-" + uuid.uuid4().hex[:12])
+                if any(a["attempt_id"] == attempt["attempt_id"] for a in state["attempts"]):
+                    raise ManagerError("manager duplicate attempt id")
                 attempt["evidence"] = [evidence_record(root, state, ref) for ref in attempt["evidence_refs"]]
                 attempt["capability_sources"] = capability_sources(attempt)
                 attempt["references"] = dict(refs)
@@ -939,6 +1037,13 @@ def transition(root: Path, event_type: str, payload: dict, refs: dict) -> tuple[
                 attempt["target_sha256"] = state["target_sha256"]
                 attempt["outcome_scope"] = "recorded-evidence-only"
                 attempt["project_pass"] = False
+            elif event_type == "review":
+                if target_identity(root, refs, active_run=True) != state["target_sha256"]:
+                    raise ManagerError("review target stale")
+                latest = next((a for a in reversed(state["attempts"])
+                               if a["route_id"] == state["selected_route_id"]), None)
+                _review_target(latest, payload["attempt_id"], state["selected_route_id"],
+                               latest.get("attempt_id") if latest else None)
             elif event_type == "replan":
                 if not str(payload.get("reason") or "").strip():
                     raise ManagerError("replan 必须写换路原因")
@@ -1041,16 +1146,18 @@ def cmd_intake(a) -> int:
                 "[OK] intake 已登记：%s / %s" % (refs["project_id"], refs["version_id"]))
 
 
-def route_from_args(a) -> dict:
+def route_from_args(a, strict_id: bool = False) -> dict:
     if a.route_json:
         try:
-            route = json.loads(a.route_json)
+            route = json.loads(a.route_json, object_pairs_hook=_unique_object)
         except json.JSONDecodeError as exc:
             raise ManagerError("--route-json 不是合法 JSON：%s" % exc)
         if not isinstance(route, dict):
             raise ManagerError("--route-json 顶层必须是对象")
     else:
         route = {}
+    if strict_id and a.route_id and route.get("route_id") and a.route_id != route["route_id"]:
+        raise ManagerError("route JSON and explicit route_id disagree")
     route.update({"route_id": a.route_id or route.get("route_id", ""),
                   "success_rate": a.success_rate if a.success_rate is not None else route.get("success_rate"),
                   "estimated_hours": a.estimated_hours or route.get("estimated_hours", ""),
@@ -1126,6 +1233,8 @@ def cmd_attempt(a) -> int:
                "skills": parse_items(a.skill), "mcps": parse_items(a.mcp), "tools": parse_items(a.tool),
                "outcome": outcome, "result": a.result.strip(), "evidence_refs": parse_items(a.evidence),
                "created_at": now()}
+    if a.progress or a.progress_reason:
+        attempt["progress"] = {"assessment": a.progress, "reason": a.progress_reason}
     if not attempt["result"]:
         raise ManagerError("attempt 必须填写 result")
     event, new_state = transition(root, "attempt", {"attempt": attempt}, state["references"])
@@ -1135,12 +1244,22 @@ def cmd_attempt(a) -> int:
     return emit({"ok": True, "event": event, "state": new_state}, a.json, human)
 
 
+def cmd_review(a) -> int:
+    root = project_root(a.project)
+    _, state = current_context(root)
+    payload = {"attempt_id": a.attempt_id,
+               "progress": {"assessment": a.progress, "reason": a.progress_reason}}
+    event, new_state = transition(root, "review", payload, state["references"])
+    return emit({"ok": True, "event": event, "state": new_state}, a.json,
+                "[OK] 已复核原尝试；未新增执行、未改变工具结果")
+
+
 def cmd_replan(a) -> int:
     root = project_root(a.project)
     events, state = current_context(root)
     require_ready(root, state, allow_replan=True)
     new_id = require_id(a.new_route_id, "new_route_id")
-    route = route_from_args(a) if a.route_id else None
+    route = route_from_args(a, strict_id=True) if a.route_id or a.route_json else None
     if route and route["route_id"] != new_id:
         raise ManagerError("新路线定义的 route_id 必须等于 new_route_id")
     payload = {"reason": a.reason.strip(), "new_route_id": new_id, "route": route}
@@ -1287,7 +1406,13 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--project", required=True); p.add_argument("--route-id", required=True); p.add_argument("--skill", "--skills", action="append", default=[])
     p.add_argument("--mcp", "--mcps", action="append", default=[]); p.add_argument("--tool", "--tools", action="append", default=[])
     p.add_argument("--status", choices=["succeeded", "success", "failed", "blocked", "partial"], default="succeeded")
+    p.add_argument("--progress", choices=sorted(PROGRESS_ASSESSMENTS), default="", help="可选专业复核，不等同工具返回码")
+    p.add_argument("--progress-reason", default="", help="复核依据；与 --progress 一起提供，不含凭据")
     p.add_argument("--failed", action="store_true"); p.add_argument("--result", required=True); p.add_argument("--evidence", "--evidence-ref", dest="evidence", action="append", default=[]); add_common(p)
+    p = sub.add_parser("review", help="为已有尝试补一次专业复核；不新增执行或重置失败计数")
+    p.add_argument("--project", required=True); p.add_argument("--attempt-id", required=True)
+    p.add_argument("--progress", choices=sorted(PROGRESS_ASSESSMENTS), required=True)
+    p.add_argument("--progress-reason", required=True); add_common(p)
     p = sub.add_parser("replan", help="登记换路原因和新路线")
     p.add_argument("--project", required=True); p.add_argument("--reason", required=True); p.add_argument("--new-route-id", required=True)
     p.add_argument("--route-id", default="", help="新路线尚未 plan 时，附带完整路线定义")
@@ -1322,6 +1447,7 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "wait": return cmd_wait(a)
         if a.cmd == "answer": return cmd_answer(a)
         if a.cmd == "attempt": return cmd_attempt(a)
+        if a.cmd == "review": return cmd_review(a)
         if a.cmd == "replan": return cmd_replan(a)
         if a.cmd == "check-action": return cmd_check_action(a)
         if a.cmd == "handoff": return cmd_handoff(a)
