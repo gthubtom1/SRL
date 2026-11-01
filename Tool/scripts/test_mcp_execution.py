@@ -25,6 +25,47 @@ def response():
 
 
 class McpExecutionTests(unittest.TestCase):
+    def test_original_main_tool_names_and_parameter_names_remain_available(self):
+        import asyncio
+        # Frozen from main@8c6c268c; additive schemas do not prove identical
+        # effects. In particular, sensitive HTTP calls now require a scope.
+        original = {
+            'seep_r2_info': ['binary_path'],
+            'seep_r2_cmd': ['binary_path', 'command', 'analyze'],
+            'seep_r2_strings': ['binary_path', 'filter_text', 'all_sections', 'limit'],
+            'seep_r2_disasm': ['binary_path', 'target', 'lines', 'output_mode', 'limit_tokens'],
+            'seep_r2_decompile': ['binary_path', 'target', 'output_mode', 'limit_tokens'],
+            'seep_apk_info': ['apk_path'],
+            'seep_apk_decompile': ['apk_path', 'output_dir', 'deobfuscate'],
+            'seep_apk_unpack': ['apk_path', 'output_dir', 'no_src'],
+            'seep_apk_smali_search': ['directory', 'pattern', 'case_sensitive', 'limit'],
+            'seep_kb_search': ['query', 'category', 'limit'],
+            'seep_kb_read': ['article_path', 'max_chars'],
+            'seep_auto_triage': ['target_path', 'task_name'],
+            'seep_gen_security_report': ['task_name', 'target_name', 'vuln_type', 'branch_location',
+                                         'description', 'poc_summary', 'defense_recommendation',
+                                         'disasm_snippet', 'case_dir'],
+            'seep_ensure_tool': ['tool_id', 'allow_install'],
+            'seep_mem_strings': ['pid', 'pattern', 'min_len', 'max_hits', 'encoding'],
+            'seep_pcap_extract': ['pcap_path', 'host_filter', 'mode', 'port', 'max_rows'],
+            'seep_packer_detect': ['binary_path'],
+            'seep_http_replay': ['url', 'method', 'headers', 'cookies', 'body', 'impersonate', 'session_file', 'timeout'],
+            'seep_tool_discover': ['tool_id', 'target', 'record_state'],
+            'seep_case_read': ['case_id'],
+        }
+        tools = {t.name: t for t in asyncio.run(server.server.list_tools())}
+        for name, parameters in original.items():
+            with self.subTest(tool=name):
+                self.assertIn(name, tools)
+                self.assertLessEqual(set(parameters), set(tools[name].inputSchema['properties']))
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="seep-dispatch-risk-")
+        self.addCleanup(temp.cleanup)
+        env = mock.patch.dict(os.environ, {"SEEP_RISK_ROOT": temp.name})
+        env.start()
+        self.addCleanup(env.stop)
+
     def test_r2_modes_preserve_errors_before_filtering_or_headers(self):
         with tempfile.TemporaryDirectory() as td:
             binary = Path(td) / 'sample.bin'
@@ -100,19 +141,23 @@ class McpExecutionTests(unittest.TestCase):
             raise ConnectionError('response lost after server processed POST')
 
         fallback = mock.Mock(return_value=response())
+        scope = server.seep_runtime_risk("grant", url, "delivery-fixture")["scope_id"]
         with mock.patch.dict(sys.modules, {
                 'curl_cffi': SimpleNamespace(requests=SimpleNamespace(request=delivered_then_failed)),
                 'requests': SimpleNamespace(request=fallback)}):
-            result = server.seep_http_replay(url, method='POST', body='one update')
+            result = server.seep_http_replay(url, method='POST', body='one update',
+                                             risk_scope=scope, risk_subject="delivery-fixture")
         self.assertIn('ERROR', result)
         self.assertEqual(seen, [b'one update'])
         fallback.assert_not_called()
 
     def test_fallback_is_allowed_when_preferred_backend_is_not_installed(self):
         fallback = mock.Mock(return_value=response())
+        scope = server.seep_runtime_risk("grant", "http://fixture.invalid", "delivery-fixture")["scope_id"]
         with mock.patch.dict(sys.modules, {'curl_cffi': None,
                                           'requests': SimpleNamespace(request=fallback)}):
-            result = json.loads(server.seep_http_replay('http://fixture.invalid', method='DELETE', body='delete me'))
+            result = json.loads(server.seep_http_replay('http://fixture.invalid', method='DELETE', body='delete me',
+                                                       risk_scope=scope, risk_subject="delivery-fixture"))
         self.assertEqual(result['status'], 200)
         self.assertEqual(fallback.call_args.kwargs.get('data'), 'delete me')
 
@@ -223,6 +268,38 @@ class McpRegistrationTests(unittest.TestCase):
         self.assertFalse(result['registered'], result)
         self.assertEqual(self.path.read_bytes(), before)
         self.assertEqual(secondary.read_bytes(), b'{broken secondary')
+
+
+class ParameterProbeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        path = ROOT / 'Tool/skill/softseep/scripts/mcp-param-contract.py'
+        spec = importlib.util.spec_from_file_location('execution_param_contract', path)
+        cls.contract = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.contract)
+
+    def probe(self, alias_answer, ref_answer=None):
+        async def call_tool(name, args):
+            return alias_answer if 'target_path' in args else (alias_answer if ref_answer is None else ref_answer)
+        module = SimpleNamespace(server=SimpleNamespace(_tool_manager=SimpleNamespace(call_tool=call_tool)))
+        tools = [{'name': 'seep_apk_info', 'props': ['target_path', 'apk_path']}]
+        return self.contract.run_runtime_probes(module, tools, 'fixture.bin')[0]
+
+    def test_business_missing_evidence_is_not_missing_parameter(self):
+        answer = json.dumps({'status': 'ok', 'why': '\u7f3a\u5c11\u4e1a\u52a1\u8bc1\u636e'}, ensure_ascii=False)
+        self.assertEqual(self.probe(answer)['status'], 'pass')
+
+    def test_actual_parameter_rejections_still_fail_even_if_both_routes_agree(self):
+        for answer in ("TypeError: got an unexpected keyword argument 'target_path'",
+                       'Field required', 'Validation error',
+                       server._path_alias(lambda binary_path: 'unreachable')(),
+                       server._pid_alias(lambda pid: 'unreachable')()):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.probe(answer)['status'], 'fail')
+
+    def test_different_alias_and_primary_results_still_fail(self):
+        self.assertEqual(self.probe('alias lost', 'real target')['status'], 'fail')
 
 
 if __name__ == '__main__':

@@ -343,7 +343,9 @@ class HttpRedactionContract(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="seep-http-redaction-") as temp:
             session = os.path.join(temp, "session.json")
             url = base + "/check?token=" + self.URL_SECRET
-            with patch.dict(os.environ, {"SEEP_HTTP_SESSION_ROOT": temp}):
+            with patch.dict(os.environ, {"SEEP_HTTP_SESSION_ROOT": temp,
+                                         "SEEP_RISK_ROOT": os.path.join(temp, "risk")}):
+                scope = S.seep_runtime_risk("grant", base, "redaction-fixture")["scope_id"]
                 text = S.seep_http_replay(
                     url=url,
                     method="GET",
@@ -352,6 +354,8 @@ class HttpRedactionContract(unittest.TestCase):
                     impersonate="none",
                     session_file=session,
                     timeout=10,
+                    risk_scope=scope,
+                    risk_subject="redaction-fixture",
                 )
             payload = json.loads(text)
             self.assertEqual(payload.get("status"), 200, text[:300])

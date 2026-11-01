@@ -7,7 +7,9 @@
       "id": "rev-pe-01",
       "text": "帮我逆向这个exe的注册码，有UPX壳",
       "expect_skill": "softseep/SKILL.md",
-      "expect_aux": ["malware-analysis/SKILL.md"],
+      "expect_aux": [
+        "malware-analysis/SKILL.md"
+      ],
       "expect_ambiguity": true,
       "why_fixed": "原期望 malware-analysis 与 REQUIREMENTS.md 的路由规则冲突（\"说'脱壳'不该被路由到'恶意样本分析'\"）：本句是 Windows 软件域的判壳/逆向诉求，应落 softseep"
     },
@@ -40,21 +42,29 @@
       "id": "apk-01",
       "text": "APK去广告并脱壳",
       "expect_skill": "apkseep/SKILL.md",
-      "expect_aux": ["softseep/SKILL.md", "malware-analysis/SKILL.md"],
+      "expect_aux": [
+        "softseep/SKILL.md",
+        "malware-analysis/SKILL.md"
+      ],
       "expect_ambiguity": true
     },
     {
       "id": "apk-02",
       "text": "Frida hook 安卓APP 绕 SSL pinning",
       "expect_skill": "apkseep/SKILL.md",
-      "expect_aux": ["softseep/SKILL.md"],
+      "expect_aux": [
+        "softseep/SKILL.md"
+      ],
       "expect_ambiguity": true
     },
     {
       "id": "miniapp-01",
       "text": "小程序逆向，抓包看接口签名",
       "expect_skill": "apkseep/SKILL.md",
-      "expect_aux": ["protocol-plugin/SKILL.md", "softseep/SKILL.md"],
+      "expect_aux": [
+        "protocol-plugin/SKILL.md",
+        "softseep/SKILL.md"
+      ],
       "expect_ambiguity": true
     },
     {
@@ -80,12 +90,14 @@
     {
       "id": "privesc-01",
       "text": "提权 linux suid 找可利用的二进制",
-      "expect_skill": "", "why_unclassified": "内网/提权不属于客户可见的 9 个域；以前靠兜底落到 softseep 是假绿"
+      "expect_skill": "",
+      "why_unclassified": "内网/提权不属于客户可见的 9 个域；以前靠兜底落到 softseep 是假绿"
     },
     {
       "id": "privesc-02",
       "text": "Windows UAC 绕过拿到管理员",
-      "expect_skill": "", "why_unclassified": "内网/提权不属于客户可见的 9 个域；以前靠兜底落到 softseep 是假绿"
+      "expect_skill": "",
+      "why_unclassified": "内网/提权不属于客户可见的 9 个域；以前靠兜底落到 softseep 是假绿"
     },
     {
       "id": "osint-01",
@@ -106,7 +118,9 @@
       "id": "firmware-01",
       "text": "路由器固件解包找后门",
       "expect_skill": "firmware-iot/SKILL.md",
-      "expect_aux": ["malware-analysis/SKILL.md"],
+      "expect_aux": [
+        "malware-analysis/SKILL.md"
+      ],
       "expect_ambiguity": true
     },
     {
@@ -147,7 +161,8 @@
     {
       "id": "ad-01",
       "text": "内网渗透，域控横向",
-      "expect_skill": "", "why_unclassified": "内网/提权不属于客户可见的 9 个域；以前靠兜底落到 softseep 是假绿"
+      "expect_skill": "",
+      "why_unclassified": "内网/提权不属于客户可见的 9 个域；以前靠兜底落到 softseep 是假绿"
     },
     {
       "id": "pwn-01",
@@ -163,14 +178,18 @@
       "id": "wireless-01",
       "text": "WIFI握手包抓取破解，WPA2",
       "expect_skill": "firmware-iot/SKILL.md",
-      "expect_aux": ["softseep/SKILL.md"],
+      "expect_aux": [
+        "softseep/SKILL.md"
+      ],
       "expect_ambiguity": true
     },
     {
       "id": "wireless-02",
       "text": "蓝牙BLE门锁 GATT 未授权写入",
       "expect_skill": "firmware-iot/SKILL.md",
-      "expect_aux": ["softseep/SKILL.md"],
+      "expect_aux": [
+        "softseep/SKILL.md"
+      ],
       "expect_ambiguity": true
     },
     {
@@ -207,6 +226,36 @@
       "id": "bindiff-02",
       "text": "用 Diaphora 做特征码迁移，定位 N-day",
       "expect_skill": "softseep/SKILL.md"
+    },
+    {
+      "id": "dev-negative-react",
+      "text": "帮我分析一下这个 React 项目的页面为什么白屏",
+      "expect_skill": "",
+      "forbid": [
+        "softseep/SKILL.md"
+      ]
+    },
+    {
+      "id": "dev-negative-subscription",
+      "text": "给我的网站增加一个会员订阅页面",
+      "expect_skill": "",
+      "forbid": [
+        "softseep/SKILL.md"
+      ]
+    },
+    {
+      "id": "dev-negative-unit-test",
+      "text": "帮我给这个 Python 函数补单元测试",
+      "expect_skill": ""
+    },
+    {
+      "id": "compat-apk-survey",
+      "text": "帮我看看这个安卓 APK 有没有加固",
+      "expect_skill": "apkseep/SKILL.md",
+      "expect_aux": [
+        "softseep/SKILL.md"
+      ],
+      "expect_ambiguity": true
     }
   ]
 }

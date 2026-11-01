@@ -1,0 +1,140 @@
+{
+  "schema": "seep.risk-aware-analysis.design-verification/1",
+  "status": "design_checks_passed_runtime_not_implemented",
+  "verified_at": "2026-11-01T18:47:44+08:00",
+  "timezone": "Asia/Shanghai",
+  "branch": "codex/risk-aware-analysis-plan",
+  "base_commit": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+  "scope": "Documentation and acceptance-design consistency only; no runtime protection verification.",
+  "checks": [
+    {
+      "name": "acceptance-design integrity",
+      "ok": true,
+      "design_requirements": 14,
+      "planned_cases": 68,
+      "covered_requirement_ids": [
+        "R01",
+        "R02",
+        "R03",
+        "R04",
+        "R05",
+        "R06",
+        "R07",
+        "R08",
+        "R09",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14"
+      ],
+      "runtime_cases_executed": 0,
+      "source_ids": 31,
+      "assertions": [
+        "unique IDs",
+        "known requirement/source references",
+        "all design requirements covered",
+        "all runtime results null and planned_not_executed",
+        "evidence requirements present",
+        "real assets excluded",
+        "community IDs match casebook",
+        "community access limits explicit",
+        "local references exist"
+      ],
+      "community_entries": 20,
+      "community_relevant_content_obtained": 16,
+      "community_limited_entries": 4,
+      "local_reference_ids": 4
+    },
+    {
+      "name": "new design Markdown and references",
+      "ok": true,
+      "local_links_checked": 27,
+      "assertions": [
+        "UTF-8 without replacement characters",
+        "balanced fences",
+        "no duplicate new-document headings",
+        "no trailing whitespace",
+        "local links exist",
+        "known source IDs"
+      ]
+    },
+    {
+      "name": "existing maintained-document checker",
+      "command": "python Tool/scripts/lib/doc_commands.py --json",
+      "exit_code": 0,
+      "result": {
+        "ok": true,
+        "files": 75,
+        "command_examples": 60,
+        "errors": []
+      }
+    },
+    {
+      "name": "git diff whitespace check",
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "REQUIREMENTS.md",
+      "sha256": "08a0821be7f7dca4713159943f320be865c177c6e09b4c0150080fa6422c5bb3",
+      "bytes": 12276,
+      "lines": 99
+    },
+    {
+      "path": "docs/CURRENT-STATE.md",
+      "sha256": "3ff4b339dc9bf54311e82fd5b6792cf331a0c35314ae9889e9a49117be415165",
+      "bytes": 8803,
+      "lines": 72
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md",
+      "sha256": "5013ff8968eb1018cf1d046c612c4fb989b072a49911ad441487ad9abf7440e8",
+      "bytes": 47213,
+      "lines": 612
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md",
+      "sha256": "55a3b42bfacdb4fdc121c521fce65e6ffc02cd01e7cda3396772935fc7637fd9",
+      "bytes": 12929,
+      "lines": 164
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-SOURCES-2026-11-01.md",
+      "sha256": "008815d64422af4cce75adf451e6427674308b73cbbfb4105c350de228bee472",
+      "bytes": 8296,
+      "lines": 56
+    },
+    {
+      "path": "docs/audits/risk-aware-analysis-acceptance-2026-11-01.json",
+      "sha256": "275f881e8857b6519768a5f475a4cba6c52196d64981ac7b17d3eb709b4e7488",
+      "bytes": 58576,
+      "lines": 2229
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-COMMUNITY-CASES-2026-11-01.md",
+      "sha256": "b717497277cb6ca7a756c7fbd4952962d2b757b1b59d5f774b973e6d5e746a02",
+      "bytes": 20775,
+      "lines": 277
+    }
+  ],
+  "not_performed": [
+    "runtime risk implementation",
+    "customer sample execution",
+    "real credentials or production requests",
+    "host network or driver changes",
+    "full project runtime suite",
+    "active host deployment",
+    "branch merge"
+  ],
+  "known_integration_fact": {
+    "autonomy_tip": "4d229016ea1b71147521270596bcccf64f75fb2f",
+    "capability_tip": "9c8a2e800d874e8625774b791ff9cdbb26e0d426",
+    "autonomy_was_ancestor_of_capability_at_inspection": true,
+    "must_recheck_at_integration": true
+  },
+  "artifact_hash_scope": "Raw repository-normalized LF file bytes; receipt itself is not self-hashed.",
+  "research_access_note": "Direct browser navigation failed; forum and issue facts are from the public search/page reader. Restricted bodies and unread linked answers are not claimed as obtained."
+}

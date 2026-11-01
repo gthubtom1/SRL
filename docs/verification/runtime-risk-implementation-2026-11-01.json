@@ -1,0 +1,3048 @@
+{
+  "schema": "seep.runtime-risk.implementation-verification/1",
+  "status": "implemented_and_scoped_runtime_tests_passed_not_deployed",
+  "date": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "verified_at": "2026-11-01T20:39:20+08:00",
+  "branch": "codex/risk-aware-analysis-plan",
+  "implementation_base": "6f2e7a91f68864bdd6eefb0d272857228eecf7ce",
+  "included_dependencies": {
+    "capability_discovery": "71c4c6e57a9630dcccdef41f22a4092c3f5f47b0",
+    "autonomy": "4d229016ea1b71147521270596bcccf64f75fb2f"
+  },
+  "acceptance": {
+    "runtime_risk": "58/58 passed",
+    "windows_flow": "3/3 passed",
+    "related_targeted_regressions": "passed",
+    "complete_final_engineering_pass": false,
+    "source_file_budget_pass": false,
+    "active_deployment_performed": false,
+    "main_branch_merged": false
+  },
+  "runtime_versions": {
+    "python": "3.12.0",
+    "mcp": "1.28.1",
+    "requests": "2.32.3",
+    "curl_cffi": "0.16.3"
+  },
+  "coverage": {
+    "http": "cooperating adapter dispatch, single host and stable state/subject identity",
+    "windows_flow": "optional new-launch flow only; retained operation; no packet or arbitrary GUI control",
+    "diagnosis": "caller-supplied structured observations, not independently verified",
+    "scope_and_evidence": "caller declarations with syntax/binding checks, not independent authorization/evidence verification",
+    "not_covered": [
+      "arbitrary external HTTP/CLI/MCP",
+      "browser subresources and Service Worker",
+      "Frida/debugger/Android controllers",
+      "target background heartbeats",
+      "cross-host state",
+      "manual database/root rollback or inconsistent identity aliases"
+    ]
+  },
+  "final_code_unchanged_during_verification": true,
+  "release_checks": [
+    {
+      "name": "http-execution-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_mcp_execution.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.17,
+      "test_count": 16,
+      "log": "work/runtime-risk-verification/http-execution-release.log",
+      "log_sha256": "9bd72a3af6dc8683831d5b9dd8a613e6c3fde691150bf060acc3cdc1248f87d0"
+    },
+    {
+      "name": "http-output-release",
+      "command": [
+        "python",
+        "Tool/mcp/test_audit_boundaries.py"
+      ],
+      "exit_code": 0,
+      "seconds": 3.2,
+      "test_count": 6,
+      "log": "work/runtime-risk-verification/http-output-release.log",
+      "log_sha256": "6a03e0a7173dc3ba6dbe4a47a16cf1c781f3415536f4300c3de6a71c65a52c4b"
+    },
+    {
+      "name": "ext-assets-release",
+      "command": [
+        "python",
+        "Tool/mcp/test_ext_assets.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.59,
+      "test_count": 18,
+      "log": "work/runtime-risk-verification/ext-assets-release.log",
+      "log_sha256": "ffc015e7a8d47e812e4c8aab7a5e45c59d8b00f80970139cfe4b31c4f3897845"
+    },
+    {
+      "name": "security-release",
+      "command": [
+        "python",
+        "Tool/mcp/test_security_boundaries.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.62,
+      "test_count": 15,
+      "log": "work/runtime-risk-verification/security-release.log",
+      "log_sha256": "681383f9e7cf73ea25e542cf4813536ce2ad3e758033eddc854ba586b28810c1"
+    },
+    {
+      "name": "discovery-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_capability_discovery.py"
+      ],
+      "exit_code": 0,
+      "seconds": 4.95,
+      "test_count": 34,
+      "log": "work/runtime-risk-verification/discovery-release.log",
+      "log_sha256": "8f75b1a6a0830bc7fc52e9dad29aa648cc0c57eec1f9c7c57a813fd9ee11ee02"
+    },
+    {
+      "name": "autonomy-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_workbench_autonomy.py"
+      ],
+      "exit_code": 0,
+      "seconds": 3.83,
+      "test_count": 7,
+      "log": "work/runtime-risk-verification/autonomy-release.log",
+      "log_sha256": "3cc310cea8e438f84d011307e28e465524507173ec9d7c99d2aca291f7aede35"
+    },
+    {
+      "name": "gates-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_gates.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.64,
+      "test_count": null,
+      "log": "work/runtime-risk-verification/gates-release.log",
+      "log_sha256": "a53613e4f7b2627dbfad3a336e512ec459988ebc64f4f661bf57b358e687d70e"
+    },
+    {
+      "name": "prompt-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_prompt_extensions.py"
+      ],
+      "exit_code": 0,
+      "seconds": 1.69,
+      "test_count": 16,
+      "log": "work/runtime-risk-verification/prompt-release.log",
+      "log_sha256": "ba8d39746ff4243167bb7cb570ee7e2a54d0e76dfc1de64f1acb8fd0ea53c96d"
+    },
+    {
+      "name": "dependency-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_tool_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 2.23,
+      "test_count": 63,
+      "log": "work/runtime-risk-verification/dependency-release.log",
+      "log_sha256": "a569389f34f068345525b58a6b74dd7a62764c9e1a16890fb745ce16524e15a9"
+    },
+    {
+      "name": "contract-release",
+      "command": [
+        "python",
+        "Tool/scripts/tool-contract-check.py",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.28,
+      "test_count": null,
+      "log": "work/runtime-risk-verification/contract-release.log",
+      "log_sha256": "76b0a0dd4694268a0f0f2ab674a6731a8a11bf9490225fa59602f243544f3bfd"
+    },
+    {
+      "name": "runtime-risk-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_runtime_risk.py"
+      ],
+      "exit_code": 0,
+      "seconds": 13.38,
+      "test_count": 58,
+      "skipped_count": 0,
+      "log": "work/runtime-risk-verification/runtime-risk-release.log",
+      "log_sha256": "2c79362b4b0e7c6d45a5e1c28ccf30cf21fbcbb3bed3b7aa11dd64f0ab01f348"
+    },
+    {
+      "name": "runtime-flow-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_runtime_flow.py"
+      ],
+      "exit_code": 0,
+      "seconds": 2.89,
+      "test_count": 3,
+      "skipped_count": 0,
+      "log": "work/runtime-risk-verification/runtime-flow-release.log",
+      "log_sha256": "1672b13cd2885183ef8064b8261aef151ceaee6873a1c0bf0db8d25b9b21c1bf"
+    },
+    {
+      "name": "gate-contract-release",
+      "command": [
+        "python",
+        "Tool/scripts/test_r12_gate_contracts.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.41,
+      "test_count": 10,
+      "skipped_count": 0,
+      "log": "work/runtime-risk-verification/gate-contract-release.log",
+      "log_sha256": "50836e5dfe524be090abfa8d0558bde54f42d60ce38206e854c82ab48538d1f0"
+    },
+    {
+      "name": "docs-release",
+      "command": [
+        "python",
+        "Tool/scripts/lib/doc_commands.py",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.77,
+      "test_count": null,
+      "skipped_count": 0,
+      "log": "work/runtime-risk-verification/docs-release.log",
+      "log_sha256": "809ee32609be41d8b3365f458e05652820726856fe45783f44e8034f72435bc4"
+    },
+    {
+      "name": "budget-release",
+      "command": [
+        "python",
+        "Tool/scripts/budget.py",
+        "--json"
+      ],
+      "exit_code": 1,
+      "seconds": 0.61,
+      "test_count": null,
+      "skipped_count": 0,
+      "log": "work/runtime-risk-verification/budget-release.log",
+      "log_sha256": "08445d0d571379319cc280ef3f2bd74fba102b9917ffe1e48bdd1c309c559899"
+    },
+    {
+      "name": "pre-upload-release",
+      "command": [
+        "python",
+        "Tool/scripts/pre-upload-check.py",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 6.23,
+      "test_count": null,
+      "skipped_count": 0,
+      "log": "work/runtime-risk-verification/pre-upload-release.log",
+      "log_sha256": "680f82b90872caff446eb26078c7dae60ab523d20b99c2559994e4da868ea85d"
+    }
+  ],
+  "integration_fixes_retested": [
+    {
+      "name": "kb-colloquial-fixed",
+      "command": [
+        "python",
+        "Tool/scripts/test_kb_colloquial.py"
+      ],
+      "exit_code": 0,
+      "seconds": 3.58,
+      "test_count": null,
+      "log": "work/runtime-risk-verification/kb-colloquial-fixed.log",
+      "log_sha256": "2e3db437da1b18953dd3319b0b9377ff83da4bc8207c61b8fa3a8fd2d89e4dd1"
+    },
+    {
+      "name": "tool-dependencies-fixed",
+      "command": [
+        "python",
+        "Tool/scripts/test_tool_dependencies.py"
+      ],
+      "exit_code": 0,
+      "seconds": 2.12,
+      "test_count": 63,
+      "log": "work/runtime-risk-verification/tool-dependencies-fixed.log",
+      "log_sha256": "9b83211d78c61bf185482d817c3f59d607bb7604e45cd411ebf59ad7eefb7337"
+    },
+    {
+      "name": "capability-compose-fixed",
+      "command": [
+        "python",
+        "Tool/skill/softseep/scripts/capability-gate.py",
+        "--json"
+      ],
+      "exit_code": 0,
+      "seconds": 0.17,
+      "test_count": null,
+      "log": "work/runtime-risk-verification/capability-compose-fixed.log",
+      "log_sha256": "ed1a6a06d5179bad6c2210a07a4ca0896c41ed25e3f23fade8bea1cbd994d609"
+    },
+    {
+      "name": "unit-fixed",
+      "command": [
+        "python",
+        "Tool/scripts/gate.py",
+        "--all"
+      ],
+      "exit_code": 0,
+      "seconds": 4.22,
+      "test_count": null,
+      "log": "work/runtime-risk-verification/unit-fixed.log",
+      "log_sha256": "2b0c1f9e39bc81ba3f394077e8cef3d0044a49083f9ff23d0c6c5712c112a39c"
+    },
+    {
+      "name": "project-workflow-fixed",
+      "command": [
+        "python",
+        "Tool/scripts/test_project_workflow.py"
+      ],
+      "exit_code": 0,
+      "seconds": 65.48,
+      "test_count": 52,
+      "log": "work/runtime-risk-verification/project-workflow-fixed.log",
+      "log_sha256": "ef9151a5fc6b736f2c20193185b55b521a8e5ef846d09b770963ca4cf26ac57f"
+    }
+  ],
+  "short_fixture_retests": {
+    "harness_code": "\nimport sys,os,tempfile,unittest,importlib\nfrom pathlib import Path\nroot,short,name=map(str,sys.argv[1:])\nsys.path.insert(0,str(Path(root)/'Tool/scripts'))\nsys.path.insert(0,str(Path(root)/'Tool/mcp'))\ntempfile.tempdir=short\nm=importlib.import_module(name)\nif hasattr(m,'TMP_ROOT'):m.TMP_ROOT=Path(short)\nif hasattr(m,'F'):\n m.F.TMP_ROOT=Path(short)\n m.F.ENV=dict(m.F.ENV,TEMP=short,TMP=short,TMPDIR=short)\nif hasattr(m,'OUT'):m.OUT=Path(short)/'domain-delivery'\nresult=unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromModule(m))\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+    "results": [
+      {
+        "name": "test_archive_recovery",
+        "exit_code": 0,
+        "seconds": 9.2,
+        "test_count": 4,
+        "source_sha256": "4a3d9379a65d6bde8cdfd7e852b0d679d38e166e155f9ebca44bcb441e9ae9dd",
+        "source_modified_for_retest": false,
+        "fixture_override": "short same-volume temporary/artifact directory; ROOT, implementation, limits and assertions unchanged",
+        "log": "work/runtime-risk-verification/test_archive_recovery-short-fixture.log",
+        "log_sha256": "2f1aee1b4b349a597225884a01474942f5b188541d37115fb50e1014ce2a707e"
+      },
+      {
+        "name": "test_runtime_install_delivery",
+        "exit_code": 0,
+        "seconds": 84.25,
+        "test_count": 48,
+        "source_sha256": "51fa457d105997781956731510a917dc6b32a6d92b0260259ff8cfbd27b5ceb3",
+        "source_modified_for_retest": false,
+        "fixture_override": "short same-volume temporary/artifact directory; ROOT, implementation, limits and assertions unchanged",
+        "log": "work/runtime-risk-verification/test_runtime_install_delivery-short-fixture.log",
+        "log_sha256": "e20a98be3bcf7cf0ed62305b3b962b0e8bb5e9ade252263936183a3d82511cd8"
+      },
+      {
+        "name": "test_domain_task_delivery",
+        "exit_code": 0,
+        "seconds": 69.64,
+        "test_count": 8,
+        "source_sha256": "610142800dd0215f96ad55b9a078bc966858f361a6e1aef9856c42604cc3b317",
+        "source_modified_for_retest": false,
+        "fixture_override": "short same-volume temporary/artifact directory; ROOT, implementation, limits and assertions unchanged",
+        "log": "work/runtime-risk-verification/test_domain_task_delivery-short-fixture.log",
+        "log_sha256": "edef0fd7c926cd8de71bc48a5617b1a9207e2f40424996b8f2c5f1d109adf9b0"
+      },
+      {
+        "name": "test_tool_installation",
+        "exit_code": 0,
+        "seconds": 16.73,
+        "test_count": 65,
+        "source_sha256": "df4fa1ded53b7270c069069af386696a963e99f49f1fa0484feed8c3365a71ab",
+        "source_modified_for_retest": false,
+        "fixture_override": "short same-volume temporary/artifact directory; ROOT, implementation, limits and assertions unchanged",
+        "log": "work/runtime-risk-verification/test_tool_installation-short-fixture.log",
+        "log_sha256": "fa3fc658f82eebdafa6d57a0996eeba8700cedeb7451605f362f8b76f7f8b1ab"
+      },
+      {
+        "name": "test_pcap_contract",
+        "exit_code": 0,
+        "seconds": 0.61,
+        "test_count": 31,
+        "source_sha256": "b300307ba3c02b052121e25f5789a927524d63a1e932c2d99967e3bbaa733f6d",
+        "source_modified_for_retest": false,
+        "fixture_override": "short same-volume temporary/artifact directory; ROOT, implementation, limits and assertions unchanged",
+        "log": "work/runtime-risk-verification/test_pcap_contract-short-fixture.log",
+        "log_sha256": "d531f733fa77beb80e66c770ea364b8d98c815242e2e9a8918c10089292ad664"
+      },
+      {
+        "name": "test_readonly_parameters",
+        "exit_code": 0,
+        "seconds": 0.91,
+        "test_count": 18,
+        "source_sha256": "94452c5313514e1a58d403500ce29e1dd06937186b13f0a785e5e76b0abc01c8",
+        "source_modified_for_retest": false,
+        "fixture_override": "short same-volume temporary/artifact directory; ROOT, implementation, limits and assertions unchanged",
+        "log": "work/runtime-risk-verification/test_readonly_parameters-short-fixture.log",
+        "log_sha256": "5a4fff73e316c52ef7d9a74219e01ad8d9fffe5edb50a8379718dc87d7328321"
+      }
+    ]
+  },
+  "initial_full_runtime": {
+    "command": "python Tool/scripts/check.py --runtime --json",
+    "exit_code": 1,
+    "summary": {
+      "pass": 93,
+      "warn": 0,
+      "fail": 14,
+      "skip": 0
+    },
+    "scope": "Development-time aggregate, not a passing final aggregate",
+    "failed_suites": [
+      "invariants",
+      "unit",
+      "e2e",
+      "capability-compose",
+      "archive-recovery",
+      "domain-task-delivery",
+      "historical-plugin-acceptance",
+      "kb-colloquial",
+      "project-workflow",
+      "runtime-install-delivery",
+      "tool-dependencies",
+      "tool-installation",
+      "pcap-contract",
+      "readonly-parameters"
+    ],
+    "raw_log": "work/runtime-risk-verification/full-runtime.log",
+    "raw_log_sha256": "df9585b85c04aef2c84a6a2002a0000ce1be44b259691038f405e2b551e67532"
+  },
+  "remaining_engineering_items": [
+    {
+      "code": "source_file_budget",
+      "baseline_6f2e7a91": 1154,
+      "final": 1165,
+      "limit_unchanged": 1150,
+      "counts_policy": "existing source_inventory classification with validated third-party input roles"
+    },
+    {
+      "code": "domain_depth_not_passed",
+      "exit_code": 1,
+      "summary": "88/93; missing APK materials, original historical cwd and active deployment hash mismatch",
+      "log": "work/runtime-risk-verification/domain-final.log"
+    },
+    {
+      "code": "active_deployment_not_changed",
+      "reason": "final integration and managed deployment/loading verification still required"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": ".github/public-suites.json",
+      "sha256": "0cc1ad03925c44301a26ad980bd7c8d6325c93362cb05476086efbc7c32320f1",
+      "bytes": 9740
+    },
+    {
+      "path": "MANUAL/ANTI-DEBUG.md",
+      "sha256": "a1c75cc79197680fffe48138a85f86036a1c9ffd1ad47b0d06d00dae6a1701ce",
+      "bytes": 8243
+    },
+    {
+      "path": "REQUIREMENTS.md",
+      "sha256": "608e71393c727029e8a677501fb6e66fda30ee8460356a420e59c84d15df70f6",
+      "bytes": 15012
+    },
+    {
+      "path": "Tool/config/mcp-tool-dependencies.json",
+      "sha256": "553b7f669037020ff7bde6dc127f887480e60f5393abd318fc754e703b90a9fa",
+      "bytes": 23651
+    },
+    {
+      "path": "Tool/config/tool-effects.json",
+      "sha256": "f61b198ac51bd4fb653763688c131e2e0d7398608eed626d217c017060128c3c",
+      "bytes": 6394
+    },
+    {
+      "path": "Tool/docs/EXECUTION.md",
+      "sha256": "ef785271697aaeea85ece6d5e334d50796a8d17325f61729607bfb9b0153b0fa",
+      "bytes": 5748
+    },
+    {
+      "path": "Tool/mcp/.baseline/tools.json",
+      "sha256": "66e8dcc5bf6632c3bda81f81ae2ce881ea1fb4dc8e758bc026c2f635ffab7bfe",
+      "bytes": 1777
+    },
+    {
+      "path": "Tool/mcp/seep_http_guard.py",
+      "sha256": "08768790eac7d0bc447f61e2dac6722670be0325d2f8bfe6917ddbdaea882ba7",
+      "bytes": 9011
+    },
+    {
+      "path": "Tool/mcp/seep_http_security.py",
+      "sha256": "c293a20d0900a9d95ed6ef8c1c861a1da21c0cb5388b015f22fddb2cab5351a4",
+      "bytes": 12336
+    },
+    {
+      "path": "Tool/mcp/seep_mcp_server.py",
+      "sha256": "42eae10ec5d55e764c4854c075148d2a0cca60972f7d8bd683c16d889e1a4d6a",
+      "bytes": 156370
+    },
+    {
+      "path": "Tool/mcp/test_audit_boundaries.py",
+      "sha256": "0c0b2703a19061fcc99795025dbe5c8c73f6b0401170e5a07e467d3bb705f95a",
+      "bytes": 4731
+    },
+    {
+      "path": "Tool/mcp/test_ext_assets.py",
+      "sha256": "c4e3399a537b7219d5eb044c88582e940cd86927322296b2d9f42f4cf90c0382",
+      "bytes": 18028
+    },
+    {
+      "path": "Tool/playbooks/README.md",
+      "sha256": "8f7bfe751ad005b18292123035c00c47b5b4a5374e4f15ae64da8e02e58b5810",
+      "bytes": 6967
+    },
+    {
+      "path": "Tool/playbooks/risk-aware-analysis.md",
+      "sha256": "8e020f66c0daac27d208d15a25d2af15da0b886bcc4e723ffa06f03a717b61f5",
+      "bytes": 8528
+    },
+    {
+      "path": "Tool/prompts/AGENTS.md",
+      "sha256": "080f2780d0139b6f5e60e01a60396e3dd6776bbc3c18e1e98b397e8788880092",
+      "bytes": 13830
+    },
+    {
+      "path": "Tool/scripts/check.py",
+      "sha256": "e58e8326a7d7b5b55136d3183318dafac078466419964107cf377beb38956a03",
+      "bytes": 31068
+    },
+    {
+      "path": "Tool/scripts/lib/runtime_diagnostics.py",
+      "sha256": "55f3ac2c8a05aa98ac101ce88c39f516397ad734da438e20d73fa12a2a1519d1",
+      "bytes": 5546
+    },
+    {
+      "path": "Tool/scripts/lib/runtime_flow.py",
+      "sha256": "c65c153268deb9cddf7b2a0199c8d784f7c6b6fc658d7569c1d5c6a7e78d20c8",
+      "bytes": 4562
+    },
+    {
+      "path": "Tool/scripts/lib/runtime_risk.py",
+      "sha256": "43c1e8b666eeed6b41b3c1526198c3f3102deaa3fe7ca55d80f0715c8f29e4c0",
+      "bytes": 18948
+    },
+    {
+      "path": "Tool/scripts/runtime-flow.py",
+      "sha256": "b37d1a11f0770e4bdc2d433c2ac352403fea92def8a4654518280fb23de527ba",
+      "bytes": 1121
+    },
+    {
+      "path": "Tool/scripts/runtime-risk.py",
+      "sha256": "84941d7aca2b7722ed64ce3d6943f9f2f23627f2221662f2118545af463864d6",
+      "bytes": 1864
+    },
+    {
+      "path": "Tool/scripts/test_mcp_execution.py",
+      "sha256": "4e321f6469403b57fc7ea39966e31af8c56de2ff77accfdf5754e48be4c45284",
+      "bytes": 12651
+    },
+    {
+      "path": "Tool/scripts/test_runtime_flow.py",
+      "sha256": "39b070c87eb072c578c956a33a3d35dc1eec92424ddbb24acd0d512f0cc2439b",
+      "bytes": 4023
+    },
+    {
+      "path": "Tool/scripts/test_runtime_risk.py",
+      "sha256": "3de02120f3135639901b2e0f9eb09af09c866878dcb080e2aa83013965a22dd5",
+      "bytes": 29856
+    },
+    {
+      "path": "Tool/skill/apkseep/SKILL.md",
+      "sha256": "a4b5d51c9d7c42075b11365093084ded5e10742c381c6f0e2d5ca2278c76b602",
+      "bytes": 62082
+    },
+    {
+      "path": "Tool/skill/protocol-plugin/SKILL.md",
+      "sha256": "f4f2c455fe9290eca230c52f14bd7f08b319809a336d194350b83f549870b75c",
+      "bytes": 21965
+    },
+    {
+      "path": "Tool/skill/softseep/SKILL.md",
+      "sha256": "70e059d8373d52f8e2b56021f0b03d7313f4b34e7a8ed8d7fbc6d4a5e8c5ffb2",
+      "bytes": 23770
+    },
+    {
+      "path": "Tool/skill/softseep/references/02-failure-criteria.md",
+      "sha256": "80409f0e1248616f240c3fc31904615dfc823c117d57b7a0af55361f61685584",
+      "bytes": 8707
+    },
+    {
+      "path": "Tool/skill/web-pentest/SKILL.md",
+      "sha256": "472947ba90273b1a9affe57e53a51b9dbb63fc71cad56763db58ce6bed8393bf",
+      "bytes": 28797
+    },
+    {
+      "path": "Tool/skill/web-pentest/references/02-failure-criteria.md",
+      "sha256": "24d90fd6c65c53941a1973e28c9bff718355d521bc7533b4e2677358a889d9ae",
+      "bytes": 15080
+    },
+    {
+      "path": "Tool/skill/web-pentest/references/03-model-pitfalls.md",
+      "sha256": "844368db743ba9e74074f3f83874dcd6a39a4aa4e93e7a4dbeb4b8ccebff1ee0",
+      "bytes": 18516
+    },
+    {
+      "path": "docs/CURRENT-STATE.md",
+      "sha256": "221f5a1b2cf9e13d74a424fb7550dcae2636e962ec823839f3b19ecec19dba6c",
+      "bytes": 18399
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md",
+      "sha256": "c79a680e18bc144c61ddcfaa86af10795f547e7a387e4a40d8fbef1a1f3b499a",
+      "bytes": 13391
+    },
+    {
+      "path": "docs/audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md",
+      "sha256": "ae71bef557631261ca0003ddf762a1565648af4512932c260381666acaa59e00",
+      "bytes": 47346
+    },
+    {
+      "path": "docs/verification/runtime-risk-implementation-2026-11-01.md",
+      "sha256": "d3bab29972b634abf6963f8c04c32341595707580b2a8ad6b6986e60e76e4406",
+      "bytes": 11006
+    }
+  ],
+  "receipt_is_not_self_hashed": true,
+  "safety": {
+    "real_customer_targets_run": false,
+    "real_credentials_used": false,
+    "production_services_tested": false,
+    "host_network_or_drivers_changed": false,
+    "test_sources_or_assertions_relaxed": false,
+    "budget_limits_or_source_classification_changed": false
+  },
+  "historical_receipt_scope": {
+    "commit": "76c1b821926faf07d94a68e552195b080b17bc89",
+    "git_blob_sha256": "29edc734818677e08541915e13221361ec34fb526bc7174ee5200d86e3090672",
+    "note": "Original acceptance, checks and artifact fingerprints above remain the risk branch delivery snapshot, not current file hashes. Integration results are below."
+  },
+  "integration_followup": {
+    "schema": "seep.three-line-integration-verification/1",
+    "verified_at": "2026-11-01T21:24:33+08:00",
+    "status": "source_integrated_scoped_regressions_passed_engineering_gates_failed_not_actively_deployed",
+    "branch": "codex/capability-discovery-plan",
+    "tested_code_commit": "fc2b71cfee8de0a07e9fd84f2a4093bfba8343fb",
+    "ancestry": {
+      "method": "fast-forward; no duplicate cherry-picks",
+      "verified_ancestors": [
+        "76c1b821926faf07d94a68e552195b080b17bc89",
+        "71c4c6e57a9630dcccdef41f22a4092c3f5f47b0",
+        "4d229016ea1b71147521270596bcccf64f75fb2f"
+      ]
+    },
+    "fixes": [
+      {
+        "commit": "5ce2df8e",
+        "change": "preserve or extend cooldown across repeated pauses and shared subjects",
+        "new_regressions": 3
+      },
+      {
+        "commits": [
+          "1e73ec38",
+          "4de8b93f"
+        ],
+        "change": "narrow missing-argument markers, retaining negatives generated by actual alias wrappers",
+        "new_regressions": 3
+      },
+      {
+        "commit": "fc2b71cf",
+        "change": "explicit no-domain assertion for generic survey while retaining skill/KB checks; fix 25-recipe index header",
+        "new_regressions": 1
+      }
+    ],
+    "complete_runtime": {
+      "head": "5ce2df8e3e0482c53fc93053ea29075ff8fe55f1",
+      "returncode": 1,
+      "seconds": 1373.01,
+      "TEMP": "D:\\srl-v\\tmp\\it",
+      "command": [
+        "python",
+        "Tool/scripts/check.py",
+        "--runtime",
+        "--json"
+      ],
+      "summary": {
+        "pass": 105,
+        "warn": 0,
+        "fail": 3,
+        "skip": 0
+      },
+      "suite_count": 108,
+      "log": "tmp/three-line-integration/full-runtime.json",
+      "log_sha256": "a15174ce58227354cfa5a4c81d7bc99dccdaa97646ab2256bcdc24557a2eda94",
+      "failures": [
+        {
+          "name": "invariants",
+          "returncode": 1
+        },
+        {
+          "name": "e2e",
+          "returncode": 1
+        },
+        {
+          "name": "historical-plugin-acceptance",
+          "returncode": 1
+        }
+      ],
+      "provenance": "One frozen complete run at 5ce2df8e; later parameter/navigation fixes are separately retested. Not a final all-green aggregate."
+    },
+    "final_targeted_checks": [
+      {
+        "name": "release-risk",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_runtime_risk.py"
+        ],
+        "returncode": 0,
+        "test_count": 61,
+        "seconds": 13.32,
+        "log": "tmp/three-line-integration/release-risk.log",
+        "log_sha256": "e218c95f9a6be0f4e3ca9190bbca9d44f6ca65ca3ccbc8eee410370968ba8847"
+      },
+      {
+        "name": "release-flow",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_runtime_flow.py"
+        ],
+        "returncode": 0,
+        "test_count": 3,
+        "seconds": 2.88,
+        "log": "tmp/three-line-integration/release-flow.log",
+        "log_sha256": "7574216018f0713f27ced4ac6df417ad6167f33832c85e927df6eadd00c4ec9e"
+      },
+      {
+        "name": "release-discovery",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_capability_discovery.py"
+        ],
+        "returncode": 0,
+        "test_count": 34,
+        "seconds": 4.35,
+        "log": "tmp/three-line-integration/release-discovery.log",
+        "log_sha256": "f8c58300d335e84d399755c284a0268f74a01c591a833f132d8d57bfccfb0675"
+      },
+      {
+        "name": "release-route",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_route_integrity.py"
+        ],
+        "returncode": 0,
+        "test_count": 13,
+        "seconds": 1.1,
+        "log": "tmp/three-line-integration/release-route.log",
+        "log_sha256": "8cc51b50081e5d884b8b5b09d34c5d1895b716147780b7bfd60337c97f9018f1"
+      },
+      {
+        "name": "release-autonomy",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_workbench_autonomy.py"
+        ],
+        "returncode": 0,
+        "test_count": 7,
+        "seconds": 3.85,
+        "log": "tmp/three-line-integration/release-autonomy.log",
+        "log_sha256": "306068fa01f9e33d5ca23c4749b254fda396e25d310ea828bcd5252be1273172"
+      },
+      {
+        "name": "release-tool-autonomy",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_tool_autonomy.py"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 0.5,
+        "log": "tmp/three-line-integration/release-tool-autonomy.log",
+        "log_sha256": "350a940e635da87ed222d3ee70e41dfe85106d32626e7738f9552a2e63100142"
+      },
+      {
+        "name": "release-dependencies",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_tool_dependencies.py"
+        ],
+        "returncode": 0,
+        "test_count": 63,
+        "seconds": 2.03,
+        "log": "tmp/three-line-integration/release-dependencies.log",
+        "log_sha256": "18fc4e9c9d08c27b40a1d88908ad147dee3bf1e3cfa06c0db84194938cb7dc8c"
+      },
+      {
+        "name": "release-http-execution",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_mcp_execution.py"
+        ],
+        "returncode": 0,
+        "test_count": 19,
+        "seconds": 1.24,
+        "log": "tmp/three-line-integration/release-http-execution.log",
+        "log_sha256": "7f213cca7998d855bd1ef53e623e6ec49e6b533a9ec987895aa3bacaf3f0c700"
+      },
+      {
+        "name": "release-http-output",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/mcp/test_audit_boundaries.py"
+        ],
+        "returncode": 0,
+        "test_count": 6,
+        "seconds": 3.14,
+        "log": "tmp/three-line-integration/release-http-output.log",
+        "log_sha256": "3132b07cd46ee8b4c90ddd67650f8ff106c9b663880474ffab73e685caceba65"
+      },
+      {
+        "name": "release-security",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/mcp/test_security_boundaries.py"
+        ],
+        "returncode": 0,
+        "test_count": 15,
+        "seconds": 0.58,
+        "log": "tmp/three-line-integration/release-security.log",
+        "log_sha256": "e115febd044da88d32cb2882db47c86c6c7e10d535056a4bf67071231892a21e"
+      },
+      {
+        "name": "release-mcp-contract",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/skill/softseep/scripts/mcp-param-contract.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 2.23,
+        "log": "tmp/three-line-integration/release-mcp-contract.log",
+        "log_sha256": "889068ce9b08d82cd0476930592a4d92fd0748bcdfdc8b9807ad788abc6b74d1"
+      },
+      {
+        "name": "release-project-workflow",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/test_project_workflow.py"
+        ],
+        "returncode": 0,
+        "test_count": 52,
+        "seconds": 62.55,
+        "log": "tmp/three-line-integration/release-project-workflow.log",
+        "log_sha256": "4fccb64fcc12ad3c2e79dc22b83ad07e12e5031ef41c73765340705609d9cd3f"
+      },
+      {
+        "name": "release-route-probes",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/skill/softseep/scripts/skill-route-probe.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 2.45,
+        "log": "tmp/three-line-integration/release-route-probes.log",
+        "log_sha256": "f08661ea0b31815f06cd28041b3406cdf9139077413f7117aecdf6f5b67e6031"
+      },
+      {
+        "name": "release-playbook",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/skill/softseep/scripts/playbook-check.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 1.92,
+        "log": "tmp/three-line-integration/release-playbook.log",
+        "log_sha256": "9ff75c6e2c0a4eb86888356f6795ef033ea5595ccf1d4351bed060c9fe7c7c8b"
+      },
+      {
+        "name": "release-domain",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/domain-gate.py",
+          "--all",
+          "--json"
+        ],
+        "returncode": 1,
+        "test_count": null,
+        "seconds": 23.43,
+        "log": "tmp/three-line-integration/release-domain.log",
+        "log_sha256": "117b3f164d86562178b113a44c258cb6a555ab78fd5d7116c4b3f30bc93025b4"
+      },
+      {
+        "name": "release-preflight",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/preflight.py",
+          "--fast",
+          "--json"
+        ],
+        "returncode": 1,
+        "test_count": null,
+        "seconds": 71.27,
+        "log": "tmp/three-line-integration/release-preflight.log",
+        "log_sha256": "823ad13476ac36ea13c3b275e9817639337affe2771c60ab4a527a8eca9ca391"
+      },
+      {
+        "name": "release-budget",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/budget.py",
+          "--json"
+        ],
+        "returncode": 1,
+        "test_count": null,
+        "seconds": 0.5,
+        "log": "tmp/three-line-integration/release-budget.log",
+        "log_sha256": "ce8fdbf0a6dbc8ff17abf12ed89be1a17106220411d96cf4be9b72d15e757f09"
+      },
+      {
+        "name": "release-pre-upload",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 6.1,
+        "log": "tmp/three-line-integration/release-pre-upload.log",
+        "log_sha256": "facbe576d34239b120cccad6682b257746f3cee13c210da1e8a867418657270b"
+      },
+      {
+        "name": "release-isolated-config-install",
+        "command": [
+          "powershell",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "D:\\srl-v\\setup\\install-pi.ps1",
+          "-SkipPackages",
+          "-AgentRoot",
+          "D:\\srl-integration-validation-20261101\\agent"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 2.04,
+        "log": "tmp/three-line-integration/release-isolated-config-install.log",
+        "log_sha256": "36f15b27ff7b0c2d6804b561f93529c88fe9e9793243f8a0f19af305b8bb3ed2"
+      },
+      {
+        "name": "release-isolated-invariants",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/scripts/invariants.py",
+          "--check"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 0.08,
+        "log": "tmp/three-line-integration/release-isolated-invariants.log",
+        "log_sha256": "9546d9b207c007b78555dac418a8d2434468629c82596cd6e83a5d97897e4331"
+      },
+      {
+        "name": "release-isolated-mcp-contract",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "Tool/skill/softseep/scripts/mcp-param-contract.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 2.44,
+        "log": "tmp/three-line-integration/release-isolated-mcp-contract.log",
+        "log_sha256": "889068ce9b08d82cd0476930592a4d92fd0748bcdfdc8b9807ad788abc6b74d1"
+      },
+      {
+        "name": "release-isolated-configured-stdio",
+        "command": [
+          "D:\\EXE\\python\\python.exe",
+          "-c",
+          "<inline configured-stdio probe; full command retained in status log>",
+          "D:\\srl-integration-validation-20261101\\agent\\mcp.json"
+        ],
+        "returncode": 0,
+        "test_count": null,
+        "seconds": 1.23,
+        "log": "tmp/three-line-integration/release-isolated-configured-stdio.log",
+        "log_sha256": "93af2d932e893928252104b315c02d6401438130519f04168d2aec89b5b60b34",
+        "inline_probe_sha256": "a43a0900efac9ced5cb167f838e71cbcdce0d21eee8c7db54c0d37a6eba27ae1"
+      }
+    ],
+    "final_preflight": {
+      "returncode": 1,
+      "fails": 11,
+      "notes": 3,
+      "waived": 1,
+      "unverified": 0,
+      "failure_rows": [
+        {
+          "section": "11 深度",
+          "name": "domain-gate 子进程退出码与总判定",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "全域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "链接图无孤儿",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由串味测试集",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "仓库清理 + 部署哈希",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由片段合入 SSOT + 案例索引同源",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "13 措辞",
+          "name": "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）",
+          "ok": false,
+          "detail": "answer-gate.ts(哈希不一致)；cmd-guard.ts(哈希不一致)；load-system-prompt.ts(哈希不一致)；seep-circuit.ts(哈希不一致)"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "子代理所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "提示词所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "部署面所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "4 功能",
+          "name": "反臃肿预算（first-party 文件，超限即 FAIL）",
+          "ok": false,
+          "detail": "1165 / 1150 超 15 · first_party=1165 thirdparty_input=101 raw_included=1266 policy=seep.source_inventory/2 mode=git stable=True tracked=1266 untracked=0 排除=6016"
+        }
+      ],
+      "note": "Six rows conservatively propagate the same domain-gate failure; do not count them as six independent routing/link bugs. Existing prompt-budget waiver does not waive source files."
+    },
+    "final_domain": {
+      "passed": 90,
+      "total": 92,
+      "failures": [
+        {
+          "domain": "protocol-plugin",
+          "name": "案例字段/真跑/sha256 复算",
+          "ok": false,
+          "detail": "plugin-accept.py(域级验收 rc=2)"
+        },
+        {
+          "domain": "全局",
+          "name": "部署哈希一致（递归资产：仓库 ↔ AgentRoot/skills）",
+          "ok": false,
+          "detail": "apkseep(哈希不一致：SKILL.md,references/patch-audit.md,scripts/dexutil.py)；firmware-iot(哈希不一致：SKILL.md)；forensics-mobile(哈希不一致：SKILL.md,pack.json,scripts/evidence-accept.py)；malware-analysis(哈希不一致：SKILL.md,references/01-criteria.md)；protocol-plugin(哈希不一致：SKILL.md,references/04-walkthrough-websocket-replay.md,references/05-binary-framing.md,references/07-crypto-and-checksum.md)；pwn-crypto(哈希不一致：SKILL.md)；seep-router(哈希不一致：SKILL.md)；softseep(哈希不一致：SKILL.md,pack.json,references/02-failure-criteria.md,scripts/mcp-param-contract.py…)…"
+        }
+      ]
+    },
+    "budget_decision": {
+      "decision": "retain_1150_and_block_main_and_formal_release",
+      "measurement": {
+        "ok": false,
+        "budget": [
+          {
+            "item": "MCP 工具",
+            "value": 23,
+            "limit": 45,
+            "ok": true
+          },
+          {
+            "item": "技能",
+            "value": 11,
+            "limit": null,
+            "ok": true
+          },
+          {
+            "item": "setup 脚本",
+            "value": 22,
+            "limit": 22,
+            "ok": true
+          },
+          {
+            "item": "MANUAL 手册",
+            "value": 16,
+            "limit": 16,
+            "ok": true
+          },
+          {
+            "item": "MCP 主服务行数",
+            "value": 3198,
+            "limit": 3200,
+            "ok": true
+          },
+          {
+            "item": "first-party 引擎文件",
+            "value": 1165,
+            "limit": 1150,
+            "ok": false
+          },
+          {
+            "item": "案例库文件",
+            "value": 1654,
+            "limit": 1700,
+            "ok": true
+          }
+        ],
+        "source_inventory": {
+          "policy": "seep.source_inventory/2",
+          "mode": "git",
+          "stable": true,
+          "counts": {
+            "included": 1266,
+            "tracked": 1266,
+            "untracked": 0,
+            "excluded": 6016,
+            "missing": 0,
+            "unsupported": 0,
+            "first_party": 1165,
+            "thirdparty_input": 101,
+            "deleted_staged": 0,
+            "by_role": {
+              "first_party": 1165,
+              "thirdparty_input": 101
+            }
+          },
+          "mode_reason": "",
+          "source_complete": true,
+          "manifest_source": "",
+          "missing_tracked": [],
+          "deleted_staged": [],
+          "unsupported": []
+        }
+      },
+      "source_classification_changed": false,
+      "limits_changed": false,
+      "files_hidden_or_removed_to_pass": false
+    },
+    "historical_evidence_recheck": {
+      "original_root": "D:\\Seep-Reverse-Lab",
+      "command": [
+        "python",
+        "Tool/skill/protocol-plugin/scripts/plugin-accept.py",
+        "--root",
+        "D:\\Seep-Reverse-Lab",
+        "--json"
+      ],
+      "ok": true,
+      "case_count": 5,
+      "log": "tmp/three-line-integration/historical-original-cwd.json",
+      "log_sha256": "9d54b9d0d70544e09d7c40b33863c8543d6ffc12f577c997806cd47eb8d7b6df",
+      "copied_root_acceptance_claimed": false
+    },
+    "deployment_artifact_scan": {
+      "initial_failure_log": "tmp/three-line-integration/final-pre-upload.log",
+      "initial_failure_sha256": "aa6b0b69f850947bed26bc0da6ea6473e68df59abd8d2033de25a8c34cf4c6a4",
+      "flagged_locations": 14,
+      "all_exact_copies_of_existing_source": true,
+      "source_copy_map": [
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/firmware-iot/references/03-model-pitfalls.md",
+          "source": "Tool/skill/firmware-iot/references/03-model-pitfalls.md",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/firmware-iot/scripts/fw-repro.py",
+          "source": "Tool/skill/firmware-iot/scripts/fw-repro.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/firmware-iot/scripts/fw-repro.py",
+          "source": "Tool/skill/firmware-iot/scripts/fw-repro.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/firmware-iot/scripts/fw-triage.py",
+          "source": "Tool/skill/firmware-iot/scripts/fw-triage.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/firmware-iot/scripts/fw-triage.py",
+          "source": "Tool/skill/firmware-iot/scripts/fw-triage.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/pwn-crypto/subskills/ad-cloud/scripts/ad-accept.py",
+          "source": "Tool/skill/pwn-crypto/subskills/ad-cloud/scripts/ad-accept.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        },
+        {
+          "copy": "tmp/three-line-integration/isolated/agent/skills/web-pentest/scripts/osint-secret-scan.py",
+          "source": "Tool/skill/web-pentest/scripts/osint-secret-scan.py",
+          "identical_to_source": true
+        }
+      ],
+      "moved_from": "D:\\srl-v\\tmp\\three-line-integration\\isolated",
+      "moved_to": "D:\\srl-integration-validation-20261101",
+      "all_artifacts_preserved": true,
+      "scanner_or_allowlist_changed": false,
+      "source_file_budget_affected": false,
+      "final_pre_upload_returncode": 0
+    },
+    "deployment_layers": {
+      "isolated_agent_root": "D:\\srl-integration-validation-20261101\\agent",
+      "managed_config_install_passed": true,
+      "isolated_invariants_passed": true,
+      "configured_stdio_tool_count": 23,
+      "configured_discovery_and_diagnosis_passed": true,
+      "active_host_deployed": false,
+      "host_model_session_loaded": false,
+      "real_customer_task_verified": false,
+      "not_covered": [
+        "all browser/CLI/external MCP dispatches",
+        "Frida/debugger/Android controllers",
+        "target background heartbeats",
+        "cross-machine state"
+      ]
+    },
+    "main_preservation": {
+      "head": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "dirty_or_untracked_files": 22,
+      "raw_bytes_and_status_unchanged": true,
+      "snapshot_log": "tmp/three-line-integration/main-final.json",
+      "snapshot_sha256": "6cd4c60c4026d90604185168df58108781351f502536398209b2af894946783c",
+      "lf_normalized_baseline": "ba3ebb62",
+      "all_22_match_baseline": true,
+      "main_merged": false,
+      "reset_stash_clean_or_overwrite_performed": false
+    },
+    "validation_worktree": "D:\\srl-v",
+    "raw_status_log": "tmp/three-line-integration/release-followups-status.json",
+    "raw_status_sha256": "d5d0f1a41b4b56904cf1f3e75c7b81f3d16bf07a0ff65309d186b1fba99687fe",
+    "tested_code_artifacts": [
+      {
+        "path": "Tool/scripts/lib/runtime_risk.py",
+        "sha256": "3207b46108243303b09fd0b1f7cc990ce14c2a8d186d2de796dec5cdf83f73f9"
+      },
+      {
+        "path": "Tool/scripts/test_runtime_risk.py",
+        "sha256": "2717f8232b580ff037c685c60e2842c2c89a72f2da759ac1e49b7cc6ec25e07b"
+      },
+      {
+        "path": "Tool/scripts/test_route_integrity.py",
+        "sha256": "b7452b1f49b27b0c123ddbd28f8caeb0067ee2a39ec9fbc0da495d8c265e3adf"
+      },
+      {
+        "path": "Tool/scripts/test_mcp_execution.py",
+        "sha256": "8b7784806287603fbd56227020c16eb07699c39b15d74678255107bd7182df15"
+      },
+      {
+        "path": "Tool/skill/softseep/scripts/mcp-param-contract.py",
+        "sha256": "53db3fee79e9dca01f4d40f4c1d4021eb1d6549ea646d3bd746a7d58cc3d4319"
+      },
+      {
+        "path": "Tool/config/trigger-probes.json",
+        "sha256": "ae83a5f82974886db1e6087ee16d96b242a260f089876ec6acbdbc74d2daa744"
+      },
+      {
+        "path": "Tool/playbooks/README.md",
+        "sha256": "8fd9ce587b02d3b6dfddf13b113a9d50ed760cd5b8ba82908a520d5af97df8d1"
+      },
+      {
+        "path": "Tool/playbooks/risk-aware-analysis.md",
+        "sha256": "3c173eb8352ee631dd1a8678fb13c5adbcd4bacf896a727a2491b58ce480cb65"
+      },
+      {
+        "path": "Tool/mcp/seep_mcp_server.py",
+        "sha256": "42eae10ec5d55e764c4854c075148d2a0cca60972f7d8bd683c16d889e1a4d6a"
+      },
+      {
+        "path": "Tool/config/mcp-tool-dependencies.json",
+        "sha256": "553b7f669037020ff7bde6dc127f887480e60f5393abd318fc754e703b90a9fa"
+      }
+    ],
+    "scope_note": "Metadata discovery, method reading, actual tool execution, deployment, model selection and task success remain separate. CLI/MCP share core; no Pi-specific core requirement.",
+    "delivery_document_validation": {
+      "document_files": 79,
+      "command_examples": 62,
+      "errors": 0,
+      "docs_returncode": 0,
+      "pre_upload_returncode": 0,
+      "budget_returncode": 1,
+      "logs": [
+        {
+          "path": "tmp/three-line-integration-final/delivery-docs.log",
+          "sha256": "bbd7df361c887769f44c949c822d02741e8f35985563534676f3360ab44c220f"
+        },
+        {
+          "path": "tmp/three-line-integration-final/delivery-pre-upload.log",
+          "sha256": "6983cb27fbe0afc84e72bceb169b5bda79b443a5321588df32e031d068d35694"
+        },
+        {
+          "path": "tmp/three-line-integration-final/delivery-budget.log",
+          "sha256": "c22dff64e1247bdb76be358fd5c2f4efd61fbf3e057452521d5e44c0054df500"
+        }
+      ],
+      "note": "Performed after integration documentation/receipt edits; production code stays at fc2b71cf. These are not another all-green engineering aggregate."
+    }
+  },
+  "compatibility_followup": {
+    "schema": "seep.compatibility-and-pi-guidance/1",
+    "verified_at": "2026-11-01T22:06:32+08:00",
+    "status": "fresh_complete_runtime_has_no_added_failures_release_blockers_retained_not_actively_deployed",
+    "source_commit": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+    "scope": "Original main compatibility plus optional bounded Pi reminder; no host-specific replacement for shared CLI/MCP core",
+    "original_main_compatibility": {
+      "source_commit": "3bf3fcbb",
+      "base_main": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "unchanged_core_modules": [
+        {
+          "path": "Tool/scripts/project_state.py",
+          "base_blob_sha256": "473de95d52fc3b64ddcc88d468712dd5e5b7e91acbb2fbb499a0ef8c96ac39de",
+          "worktree_sha256": "473de95d52fc3b64ddcc88d468712dd5e5b7e91acbb2fbb499a0ef8c96ac39de",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/manager_state.py",
+          "base_blob_sha256": "c9b741701cacb4f01be22ddc47b9e37cc12d2bbfe3f27dc51d6e2cc3a9aa1d73",
+          "worktree_sha256": "c9b741701cacb4f01be22ddc47b9e37cc12d2bbfe3f27dc51d6e2cc3a9aa1d73",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/project_report.py",
+          "base_blob_sha256": "d3cb0051b206a1cfd0e20a4843161ed24d01853fc0f93cf0d98b87cb49b47ebb",
+          "worktree_sha256": "d3cb0051b206a1cfd0e20a4843161ed24d01853fc0f93cf0d98b87cb49b47ebb",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/project_archive.py",
+          "base_blob_sha256": "b26c41d5f525f115ea165984b8b537989fe5172657c1bb03c094406b7e85d613",
+          "worktree_sha256": "b26c41d5f525f115ea165984b8b537989fe5172657c1bb03c094406b7e85d613",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/lib/project_transaction.py",
+          "base_blob_sha256": "ac696d80bf2a5c2dc3ebe304309886db223c168471b86252a357c0d83e513c80",
+          "worktree_sha256": "ac696d80bf2a5c2dc3ebe304309886db223c168471b86252a357c0d83e513c80",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/scripts/lib/project_lock.py",
+          "base_blob_sha256": "f9bf8aef21900406f10a1baa31d2e445f30ed39d43e8ad32a88669b6e9c700bf",
+          "worktree_sha256": "f9bf8aef21900406f10a1baa31d2e445f30ed39d43e8ad32a88669b6e9c700bf",
+          "lf_normalized_identical": true
+        },
+        {
+          "path": "Tool/skill/softseep/scripts/version-migrate.py",
+          "base_blob_sha256": "9df55491bc1c409c762c1c48a0f107572650b53a738e7d30ade22f3e06e2e4a7",
+          "worktree_sha256": "9df55491bc1c409c762c1c48a0f107572650b53a738e7d30ade22f3e06e2e4a7",
+          "lf_normalized_identical": true
+        }
+      ],
+      "original_mcp_tools": [
+        "seep_r2_info",
+        "seep_r2_cmd",
+        "seep_r2_strings",
+        "seep_r2_disasm",
+        "seep_r2_decompile",
+        "seep_apk_info",
+        "seep_apk_decompile",
+        "seep_apk_unpack",
+        "seep_apk_smali_search",
+        "seep_kb_search",
+        "seep_kb_read",
+        "seep_auto_triage",
+        "seep_gen_security_report",
+        "seep_ensure_tool",
+        "seep_mem_strings",
+        "seep_pcap_extract",
+        "seep_packer_detect",
+        "seep_http_replay",
+        "seep_tool_discover",
+        "seep_case_read"
+      ],
+      "new_first_party_files_from_base": [
+        {
+          "path": "Tool/mcp/seep_http_guard.py",
+          "size": 9011,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/playbooks/risk-aware-analysis.md",
+          "size": 8749,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/cred-store.py",
+          "size": 19956,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/capability_discovery.py",
+          "size": 23354,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/runtime_diagnostics.py",
+          "size": 5546,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/runtime_flow.py",
+          "size": 4562,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/lib/runtime_risk.py",
+          "size": 19168,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/runtime-flow.py",
+          "size": 1121,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/runtime-risk.py",
+          "size": 1864,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_capability_discovery.py",
+          "size": 19633,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_runtime_flow.py",
+          "size": 4023,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_runtime_risk.py",
+          "size": 31607,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "Tool/scripts/test_workbench_autonomy.py",
+          "size": 11706,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/WORKBENCH-AUTONOMY-PROPOSAL.md",
+          "size": 44883,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/CAPABILITY-DISCOVERY-PLAN-2026-11-01.md",
+          "size": 50848,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-COMMUNITY-CASES-2026-11-01.md",
+          "size": 20775,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md",
+          "size": 13391,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md",
+          "size": 47346,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/RISK-AWARE-ANALYSIS-SOURCES-2026-11-01.md",
+          "size": 8296,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/audits/risk-aware-analysis-acceptance-2026-11-01.json",
+          "size": 58576,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/autonomy-behavior-2026-11-01.json",
+          "size": 6719,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/autonomy-behavior-2026-11-01.md",
+          "size": 7151,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/capability-discovery-2026-11-01.json",
+          "size": 10351,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/risk-aware-analysis-design-2026-11-01.json",
+          "size": 4425,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/runtime-risk-implementation-2026-11-01.json",
+          "size": 49364,
+          "role": "first_party",
+          "tracked": true
+        },
+        {
+          "path": "docs/verification/runtime-risk-implementation-2026-11-01.md",
+          "size": 25577,
+          "role": "first_party",
+          "tracked": true
+        }
+      ],
+      "growth_groups": {
+        "implementation_recipe_tests": 13,
+        "design_sources_verification": 13
+      },
+      "this_phase_added_files": 0,
+      "file_budget": {
+        "actual": 1165,
+        "current_limit": 1150,
+        "current_result": "FAIL",
+        "proposed_fixed_limit": 1180,
+        "proposal_approved": false,
+        "threshold_changed": false
+      },
+      "retired_interfaces_not_restored": true
+    },
+    "reminder": {
+      "section": "seep-capability-guide",
+      "chars": 193,
+      "static_token_estimate": 137,
+      "file": "Tool/prompts/extensions/load-system-prompt.ts",
+      "off_switch": "SEEP_CAPABILITY_GUIDANCE=0 in host startup environment",
+      "new_plugins_or_tools_registered": 0,
+      "new_files_this_phase": 0,
+      "changes_user_or_tool_messages": false,
+      "automatically_executes_tools_or_samples": false,
+      "requests_additional_model_turns": false,
+      "existing_status_command": "prompt-status",
+      "runtime_scope": "supported structured prompt hooks; request-local context transforms preserve input transcript; normal host system-state recording remains owned by Pi",
+      "guarantees_model_compliance": false
+    },
+    "complete_runtime": {
+      "source_commit": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+      "returncode": 1,
+      "seconds": 1328.56,
+      "suite_count": 108,
+      "summary": {
+        "pass": 105,
+        "warn": 0,
+        "fail": 3,
+        "skip": 0
+      },
+      "failures": [
+        {
+          "name": "invariants",
+          "returncode": 1
+        },
+        {
+          "name": "e2e",
+          "returncode": 1
+        },
+        {
+          "name": "historical-plugin-acceptance",
+          "returncode": 1
+        }
+      ],
+      "main_unchanged": true,
+      "log": "tmp/capability-reminder/full-runtime.json",
+      "log_sha256": "a15e7db5496828714983192349b1273a9430d77e4f8b0692a09c97b72263c0a1",
+      "fresh_frozen_run": true,
+      "borrowed_previous_full_results": false
+    },
+    "key_runtime_suites": [
+      {
+        "name": "budget-prompt",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 2
+      },
+      {
+        "name": "capability-discovery",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 34
+      },
+      {
+        "name": "domain-task-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 8
+      },
+      {
+        "name": "mcp-execution",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 20
+      },
+      {
+        "name": "project-archive",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 19
+      },
+      {
+        "name": "project-workflow",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 52
+      },
+      {
+        "name": "prompt-extensions",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 17
+      },
+      {
+        "name": "route-integrity",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 13
+      },
+      {
+        "name": "runtime-flow",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 3
+      },
+      {
+        "name": "runtime-risk",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 61
+      },
+      {
+        "name": "source-inventory",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 55
+      },
+      {
+        "name": "tool-dependencies",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 63
+      },
+      {
+        "name": "version-migrate-delivery",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 15
+      },
+      {
+        "name": "workbench-autonomy",
+        "status": "PASS",
+        "returncode": 0,
+        "test_count": 7
+      }
+    ],
+    "sdk_source_probe": {
+      "sdk_version": "1.4.0",
+      "loaded_extensions": 3,
+      "sdk_loader": true,
+      "sdk_runner": true,
+      "guide_chars": 193,
+      "effective_reminder_count": 1,
+      "history_unchanged": true,
+      "disabled_removed": true,
+      "model_call_performed": false
+    },
+    "sdk_deployed_probe": {
+      "sdk_version": "1.4.0",
+      "loaded_extensions": 3,
+      "sdk_loader": true,
+      "sdk_runner": true,
+      "guide_chars": 193,
+      "effective_reminder_count": 1,
+      "history_unchanged": true,
+      "disabled_removed": true,
+      "model_call_performed": false
+    },
+    "isolated_deployment": {
+      "source_commit": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+      "checks": [
+        {
+          "name": "isolated-install",
+          "command": [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "D:\\srl-v\\setup\\install-pi.ps1",
+            "-SkipPackages",
+            "-AgentRoot",
+            "D:\\srl-integration-validation-20261101\\agent"
+          ],
+          "returncode": 0,
+          "seconds": 2.31,
+          "log": "tmp/capability-reminder/isolated-install.log",
+          "sha256": "82259de4b53157b681a69fcbced1bb17b332da900d6a24f14d41ba028dfd1cbb"
+        },
+        {
+          "name": "sdk-source",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/test_prompt_extensions.py",
+            "--pi-sdk",
+            "C:\\Users\\toti\\.pi\\agent\\install\\releases\\1.4.0\\node_modules\\@earendil-works\\pi-coding-agent"
+          ],
+          "returncode": 0,
+          "seconds": 0.91,
+          "log": "tmp/capability-reminder/sdk-source.log",
+          "sha256": "f6abe25f30859048bd4e5aba99a35dfd3f6a03fac2e970a8eaf1eb75a8272317"
+        },
+        {
+          "name": "sdk-deployed",
+          "command": [
+            "node",
+            "--experimental-strip-types",
+            "D:\\srl-v\\tmp\\capability-reminder\\deployed-sdk-smoke.mjs",
+            "C:\\Users\\toti\\.pi\\agent\\install\\releases\\1.4.0\\node_modules\\@earendil-works\\pi-coding-agent"
+          ],
+          "returncode": 0,
+          "seconds": 0.75,
+          "log": "tmp/capability-reminder/sdk-deployed.log",
+          "sha256": "288d52305360ad93a2ae12129c6adad951dba1fa2dbff371b72c3ba25ad6640f"
+        },
+        {
+          "name": "budget-enabled",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/budget.py",
+            "--prompt",
+            "--json"
+          ],
+          "returncode": 1,
+          "seconds": 0.07,
+          "log": "tmp/capability-reminder/budget-enabled.log",
+          "sha256": "8c2184c8ec9c5ca6c6a080c78d8e753c208acc8415f8865dbc6109735832b358"
+        },
+        {
+          "name": "budget-disabled",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/budget.py",
+            "--prompt",
+            "--json"
+          ],
+          "returncode": 1,
+          "seconds": 0.07,
+          "log": "tmp/capability-reminder/budget-disabled.log",
+          "sha256": "e800c48ed0285ff58711a90bb6e72eaf7472407d47ff084feccb5b8efc10d837"
+        },
+        {
+          "name": "isolated-invariants",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/invariants.py",
+            "--check"
+          ],
+          "returncode": 0,
+          "seconds": 0.09,
+          "log": "tmp/capability-reminder/isolated-invariants.log",
+          "sha256": "9546d9b207c007b78555dac418a8d2434468629c82596cd6e83a5d97897e4331"
+        },
+        {
+          "name": "source-file-budget",
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 1,
+          "seconds": 0.59,
+          "log": "tmp/capability-reminder/source-file-budget.log",
+          "sha256": "ce8fdbf0a6dbc8ff17abf12ed89be1a17106220411d96cf4be9b72d15e757f09"
+        },
+        {
+          "name": "configured-mcp",
+          "command_record": "three-line-integration/isolated-deployment-status.json, with current isolated AgentRoot",
+          "returncode": 0,
+          "seconds": 1.51,
+          "log": "tmp/capability-reminder/configured-mcp.log",
+          "sha256": "5108164ca33969913955b8c78aefb5671a81655d580b4cf7b75237642e79b05e"
+        }
+      ],
+      "guide": {
+        "layer": "seep-capability-guide（能力使用提醒）",
+        "kind": "rules",
+        "path": "D:\\srl-integration-validation-20261101\\agent\\extensions\\load-system-prompt.ts",
+        "bytes": 429,
+        "chars": 193,
+        "tokens": 137,
+        "note": "短系统段；按问题发现和读取资源，不自动执行或保证模型采用"
+      },
+      "controllable_delta_when_disabled": 137,
+      "active_host_deployed": false,
+      "actual_model_selection_verified": false
+    },
+    "preflight": {
+      "returncode": 1,
+      "fails": 11,
+      "notes": 3,
+      "waived": 1,
+      "unverified": 0,
+      "failure_rows": [
+        {
+          "section": "11 深度",
+          "name": "domain-gate 子进程退出码与总判定",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "全域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "链接图无孤儿",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由串味测试集",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "仓库清理 + 部署哈希",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由片段合入 SSOT + 案例索引同源",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "13 措辞",
+          "name": "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）",
+          "ok": false,
+          "detail": "answer-gate.ts(哈希不一致)；cmd-guard.ts(哈希不一致)；load-system-prompt.ts(哈希不一致)；seep-circuit.ts(哈希不一致)"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "子代理所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "提示词所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "部署面所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "4 功能",
+          "name": "反臃肿预算（first-party 文件，超限即 FAIL）",
+          "ok": false,
+          "detail": "1165 / 1150 超 15 · first_party=1165 thirdparty_input=101 raw_included=1266 policy=seep.source_inventory/2 mode=git stable=True tracked=1266 untracked=0 排除=6016"
+        }
+      ]
+    },
+    "auxiliary_engineering_checks": [
+      {
+        "name": "preflight",
+        "command": [
+          "python",
+          "Tool/scripts/preflight.py",
+          "--fast",
+          "--json"
+        ],
+        "returncode": 1,
+        "seconds": 68.07,
+        "log": "tmp/capability-reminder/preflight.log",
+        "sha256": "a929ff1d8331a39615c95ec7622df4d70a37ddd42c7d0f7f24c34406b4a52089"
+      },
+      {
+        "name": "pre-upload",
+        "command": [
+          "python",
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "returncode": 1,
+        "seconds": 11.34,
+        "log": "tmp/capability-reminder/pre-upload.log",
+        "sha256": "0485bfadc4efbf29cfd8b121f4f500747fab98b5ea5b5a00c4ed984ef26ee350"
+      }
+    ],
+    "pre_upload_after_complete": {
+      "returncode": 0,
+      "log": "tmp/capability-reminder/pre-upload-after-complete.log",
+      "sha256": "034ac045358225d2a88fdb0118631477524f8bd4396becb462cb15388bf738c8",
+      "previous_concurrent_scan_failed": true,
+      "previous_failure_scope": "active isolated mutation fixtures; no source/scanner/allowlist changes before rerun"
+    },
+    "transient_scan_note": "The auxiliary scan ran while mutation fixtures existed under tmp/it and reported 7 sensitive paths / 43 content hits in those active fixture copies. The failure is retained; no scanner/source/ALLOW changes were made. The full runtime cleaned its own fixtures; the identical scan then passed with zero hits.",
+    "prompt_budget_note": "Raw default ceiling checks remain nonzero: selected isolated AgentRoot is 6552 enabled / 6415 disabled versus 3500. The bounded guide contributes 137 estimated tokens; no token waiver or hard cap was changed and no file-budget waiver was inferred.",
+    "main_preservation": {
+      "head": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "original_dirty_or_untracked_files": 22,
+      "raw_bytes_and_status_unchanged": true,
+      "before_log": "tmp/capability-reminder/main-before.json",
+      "after_log": "tmp/capability-reminder/main-after.json",
+      "after_sha256": "6cd4c60c4026d90604185168df58108781351f502536398209b2af894946783c",
+      "main_merged": false,
+      "active_host_deployed_or_reloaded": false
+    },
+    "code_fingerprints": [
+      {
+        "path": "Tool/prompts/extensions/load-system-prompt.ts",
+        "sha256": "18ca9210d832dae13ec8e7eee437ff8c618b8406ca2046ba36c6ac20f4c19ae8"
+      },
+      {
+        "path": "Tool/scripts/budget.py",
+        "sha256": "aabf3257dddff0ba949a21d116bbca20c41f046e28c8529425c6b75f1b0a53ab"
+      },
+      {
+        "path": "Tool/scripts/test_budget_prompt.py",
+        "sha256": "2b66936f94222d4011909dc6397548628bbdb8a333ec27060952262862c27d14"
+      },
+      {
+        "path": "Tool/scripts/test_prompt_extensions.py",
+        "sha256": "27e4517d5b4b99a9b007d8c781f1dd4766283a878607b432e235e2c529ec2cd4"
+      },
+      {
+        "path": "Tool/scripts/test_mcp_execution.py",
+        "sha256": "c9935b7b1dbc3868d87b0e84c562e91e7437177ebfc9111cb0aac18eb14dc609"
+      }
+    ],
+    "validation_root": "D:\\srl-v",
+    "sdk_smoke_reproduction": [
+      "python",
+      "Tool/scripts/test_prompt_extensions.py",
+      "--pi-sdk",
+      "<installed pi-coding-agent package directory>"
+    ],
+    "remaining_acceptance": [
+      "explicit source file budget decision or meaningful consolidation",
+      "safe main promotion preserving original modifications",
+      "formal consistent-source deployment and MCP restart/loading verification",
+      "fresh real model task with observed resource use; no proof from prompt assembly alone"
+    ],
+    "delivery_document_checks": {
+      "validation_root": "C:\\Users\\toti\\.codex\\worktrees\\capability-discovery-plan\\Seep-Reverse-Lab",
+      "checks": [
+        {
+          "name": "final-docs",
+          "command": [
+            "python",
+            "Tool/scripts/lib/doc_commands.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "log": "tmp/capability-reminder/final-docs.log",
+          "sha256": "bbd7df361c887769f44c949c822d02741e8f35985563534676f3360ab44c220f"
+        },
+        {
+          "name": "final-pre-upload",
+          "command": [
+            "python",
+            "Tool/scripts/pre-upload-check.py"
+          ],
+          "returncode": 0,
+          "log": "tmp/capability-reminder/final-pre-upload.log",
+          "sha256": "74694c1768cd98148dcc8607fd1bbf41c1384995b6dec51e52dfdae3f9cdcaab"
+        },
+        {
+          "name": "final-file-budget",
+          "command": [
+            "python",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 1,
+          "log": "tmp/capability-reminder/final-file-budget.log",
+          "sha256": "c22dff64e1247bdb76be358fd5c2f4efd61fbf3e057452521d5e44c0054df500"
+        }
+      ],
+      "source_code_changed_after_frozen_run": false
+    }
+  },
+  "budget_approval_followup": {
+    "schema": "seep.approved-source-budget/1",
+    "recorded_at": "2026-11-01T22:20:18+08:00",
+    "decision_by": "user",
+    "decision": "explicit one-time fixed file limit increase from 1150 to 1180",
+    "previous_limit": 1150,
+    "approved_limit": 1180,
+    "actual_first_party": 1165,
+    "budget_result": {
+      "ok": true,
+      "budget": [
+        {
+          "item": "MCP 工具",
+          "value": 23,
+          "limit": 45,
+          "ok": true
+        },
+        {
+          "item": "技能",
+          "value": 11,
+          "limit": null,
+          "ok": true
+        },
+        {
+          "item": "setup 脚本",
+          "value": 22,
+          "limit": 22,
+          "ok": true
+        },
+        {
+          "item": "MANUAL 手册",
+          "value": 16,
+          "limit": 16,
+          "ok": true
+        },
+        {
+          "item": "MCP 主服务行数",
+          "value": 3198,
+          "limit": 3200,
+          "ok": true
+        },
+        {
+          "item": "first-party 引擎文件",
+          "value": 1165,
+          "limit": 1180,
+          "ok": true
+        },
+        {
+          "item": "案例库文件",
+          "value": 1652,
+          "limit": 1700,
+          "ok": true
+        }
+      ],
+      "source_inventory": {
+        "policy": "seep.source_inventory/2",
+        "mode": "git",
+        "stable": true,
+        "counts": {
+          "included": 1266,
+          "tracked": 1266,
+          "untracked": 0,
+          "excluded": 6016,
+          "missing": 0,
+          "unsupported": 0,
+          "first_party": 1165,
+          "thirdparty_input": 101,
+          "deleted_staged": 0,
+          "by_role": {
+            "first_party": 1165,
+            "thirdparty_input": 101
+          }
+        },
+        "mode_reason": "",
+        "source_complete": true,
+        "manifest_source": "",
+        "missing_tracked": [],
+        "deleted_staged": [],
+        "unsupported": []
+      }
+    },
+    "source_classification_changed": false,
+    "risk_or_acceptance_criteria_relaxed": false,
+    "base_commit": "9d0e942f8f80c92d44410523903f004c6427a4a1",
+    "verification": {
+      "source_inventory_tests": {
+        "returncode": 0,
+        "test_count": 56,
+        "log": "tmp/budget-approval/source-inventory-tests-final.log",
+        "sha256": "3f675eb8f1905a5799bdc730850724e018fadcd846ff74dee042a44bdf5047b8"
+      },
+      "actual_preflight_budget": {
+        "value": 1165,
+        "limit": 1180,
+        "returncode": 0
+      },
+      "initial_failure": "old fixed-policy assertion still expected 1150; changed only after explicit user approval; over-limit and incomplete checks retained"
+    },
+    "initial_checks_retained": [
+      {
+        "name": "source-inventory-tests",
+        "returncode": 1,
+        "log": "tmp/budget-approval/source-inventory-tests.log",
+        "sha256": "af8e7823005c6144c30ef7a049e34efa9b93454be78e98bcaede8d0bbdfc2ad9"
+      },
+      {
+        "name": "prompt-budget-tests",
+        "returncode": 0,
+        "log": "tmp/budget-approval/prompt-budget-tests.log",
+        "sha256": "2cec53ed8498e1f94a4b7a5fd03b169f914ddc1274fd7d2c1fbba570a29f847f"
+      },
+      {
+        "name": "budget",
+        "returncode": 0,
+        "log": "tmp/budget-approval/budget.log",
+        "sha256": "3c2f1e4233719d03c439c9af63d9ff71c7a50f69661630efabb9fdbd3685bd7f"
+      },
+      {
+        "name": "docs",
+        "returncode": 0,
+        "log": "tmp/budget-approval/docs.log",
+        "sha256": "bbd7df361c887769f44c949c822d02741e8f35985563534676f3360ab44c220f"
+      },
+      {
+        "name": "pre-upload",
+        "returncode": 0,
+        "log": "tmp/budget-approval/pre-upload.log",
+        "sha256": "f40a5bb509396c81b62b621acd83defd40c12ad6cf325bd6b8cfb9129995e7d8"
+      }
+    ],
+    "code_fingerprints": [
+      {
+        "path": "Tool/scripts/budget.py",
+        "sha256": "37c5e982fc81164952dc8d470627d225873a9925676e53de72aee5562b8617d2"
+      },
+      {
+        "path": "Tool/scripts/preflight.py",
+        "sha256": "a8b0877fdd9b9f93ae5b82ec9d24fb74fc7007bdbcd6ec6f88e99681dbd1bab0"
+      },
+      {
+        "path": "Tool/scripts/test_source_inventory.py",
+        "sha256": "17962821d888125c7f4391d14ceb8c044d376a2c4e4dda37f6b9d1135b32b9cb"
+      },
+      {
+        "path": "MANUAL/BASELINE-FREEZE.md",
+        "sha256": "4ecf758fba35c153426632470458b9d558d846725d6cb86af71deab9f9481a6b"
+      }
+    ],
+    "coordination": {
+      "main_hold_reason": "fourth work line still in progress; wait for stable committed handoff",
+      "observed_related_branches": [
+        "codex/decision-quality-20261101",
+        "codex/decision-quality-followup-20261101"
+      ],
+      "observed_head": "3bf3fcbb",
+      "uncommitted_changes_observed_in": "codex/decision-quality-followup-20261101",
+      "other_worktrees_modified": false,
+      "instructions_sent_to_other_chats": false,
+      "automatic_monitor_created": false,
+      "merge_policy": "integrate stable fourth-line commits into existing integration branch; review semantic overlaps and rerun combined regressions before main/deployment"
+    },
+    "main_preservation": {
+      "head": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "original_22_files_and_status_unchanged": true,
+      "main_merged": false,
+      "active_host_deployed": false
+    },
+    "historical_receipts_note": "Earlier 1150 failure snapshots and unapproved proposals remain historical evidence; this explicit user approval supersedes current policy only, not their recorded results."
+  },
+  "fourth_line_integration": {
+    "schema": "seep.four-line-integration/1",
+    "recorded_at": "2026-11-01T23:22:33+08:00",
+    "status": "integrated_and_retested_known_environment_failures_retained_main_not_promoted",
+    "integration_branch": "codex/capability-discovery-plan",
+    "merge_commit": "fddfe756a1bb8e1a79d4fe6d4c3e420b10d62c0e",
+    "merge_parents": [
+      "ad95517f3d68af21fa83d518973ddd3fc60f2717",
+      "7510bcfa46b34d116a26c90f24b2f75ab9c6bf48"
+    ],
+    "fourth_commits": [
+      "3595f90a1e3730bac2d0b04722e4542055e61c59",
+      "7510bcfa46b34d116a26c90f24b2f75ab9c6bf48"
+    ],
+    "common_dependency": "3bf3fcbb99405937221004a6dd1d62e9be93bb51",
+    "test_followup_commit": "46ca54511b2a697c8d84ba0b81431cd2b2277c99",
+    "test_followup_scope": "one Manager integration test with two risk-state subcases; no production logic changes",
+    "documentation_clarification_commit": "54a886c0f01d767b0f8eea448b4d214bb829c5e7",
+    "conflicts": {
+      "files": [
+        "REQUIREMENTS.md",
+        "docs/CURRENT-STATE.md"
+      ],
+      "resolution": "preserved both sets of added decisions/history, no whole-file ours/theirs; latest handoff appended",
+      "merge_stage_proof": {
+        "common_base": "3bf3fcbb",
+        "merge_commit": "fddfe756a1bb8e1a79d4fe6d4c3e420b10d62c0e",
+        "merge_parents": [
+          "ad95517f",
+          "7510bcfa"
+        ],
+        "preserved_doc_blocks": [
+          {
+            "file": "REQUIREMENTS.md",
+            "source_commit": "ad95517f",
+            "all_added_blocks_preserved": true,
+            "block_count": 1
+          },
+          {
+            "file": "REQUIREMENTS.md",
+            "source_commit": "7510bcfa",
+            "all_added_blocks_preserved": true,
+            "block_count": 1
+          },
+          {
+            "file": "docs/CURRENT-STATE.md",
+            "source_commit": "ad95517f",
+            "all_added_blocks_preserved": true,
+            "block_count": 1
+          },
+          {
+            "file": "docs/CURRENT-STATE.md",
+            "source_commit": "7510bcfa",
+            "all_added_blocks_preserved": true,
+            "block_count": 1
+          }
+        ],
+        "preserved_earlier_core_modules": [
+          "Tool/scripts/lib/runtime_risk.py",
+          "Tool/scripts/lib/runtime_diagnostics.py",
+          "Tool/scripts/lib/runtime_flow.py",
+          "Tool/scripts/lib/capability_discovery.py",
+          "Tool/prompts/extensions/load-system-prompt.ts",
+          "Tool/prompts/extensions/seep-circuit.ts",
+          "Tool/prompts/extensions/cmd-guard.ts",
+          "Tool/mcp/seep_mcp_server.py",
+          "Tool/scripts/budget.py",
+          "Tool/scripts/preflight.py"
+        ],
+        "manager_production_source_matches_fourth_commit": true,
+        "added_followup": "46ca5451 integration-only regression for manager/risk separation",
+        "source_worktree": "C:\\Users\\toti\\.codex\\worktrees\\capability-discovery-plan\\Seep-Reverse-Lab"
+      },
+      "later_wording_clarification": "Original main baseline was 20 interfaces; current surface is 23 tools. Disambiguated wording, not the fact checker or historical counts."
+    },
+    "targeted_checks": {
+      "source_commit": "46ca54511b2a697c8d84ba0b81431cd2b2277c99",
+      "checks": [
+        {
+          "name": "manager",
+          "command": [
+            "python",
+            "Tool/scripts/test_manager_integration.py"
+          ],
+          "returncode": 0,
+          "test_count": 56,
+          "seconds": 6.79,
+          "log": "tmp/four-line-integration/manager.log",
+          "sha256": "e5c40a1223a2d7ed7a74bb8039ab74f50fa71b0fc3ed8676426e245e72c0c0b5"
+        },
+        {
+          "name": "workflow",
+          "command": [
+            "python",
+            "Tool/scripts/test_project_workflow.py"
+          ],
+          "returncode": 0,
+          "test_count": 53,
+          "seconds": 76.17,
+          "log": "tmp/four-line-integration/workflow.log",
+          "sha256": "75975db272d532f2dd3ba4f706ea3430aac646de7f004c6beaafd22d4a63069d"
+        },
+        {
+          "name": "manager-selftest",
+          "command": [
+            "python",
+            "Tool/scripts/manager_state.py",
+            "--self-test"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 0.19,
+          "log": "tmp/four-line-integration/manager-selftest.log",
+          "sha256": "35f1bd0a35246edc59f45d2c2eeaaca13293054217ac584da2309b398db88749"
+        },
+        {
+          "name": "project",
+          "command": [
+            "python",
+            "Tool/scripts/test_project_integration.py"
+          ],
+          "returncode": 0,
+          "test_count": 20,
+          "seconds": 20.64,
+          "log": "tmp/four-line-integration/project.log",
+          "sha256": "f55d0dfc7de398beefb2b61ad17937718c5b7834e1a2ba65a038a0dfb7e10d2c"
+        },
+        {
+          "name": "report",
+          "command": [
+            "python",
+            "Tool/scripts/test_project_report.py"
+          ],
+          "returncode": 0,
+          "test_count": 18,
+          "seconds": 40.24,
+          "log": "tmp/four-line-integration/report.log",
+          "sha256": "90bb4d9818b856a1c17d8ef322cb656c766b1268223b40f1a5d2726af0778add"
+        },
+        {
+          "name": "mcp-execution",
+          "command": [
+            "python",
+            "Tool/scripts/test_mcp_execution.py"
+          ],
+          "returncode": 0,
+          "test_count": 20,
+          "seconds": 1.32,
+          "log": "tmp/four-line-integration/mcp-execution.log",
+          "sha256": "f523294635b0a49cc3f904d45d865183570ab1a706de9b88fc1a303c90894286"
+        },
+        {
+          "name": "risk",
+          "command": [
+            "python",
+            "Tool/scripts/test_runtime_risk.py"
+          ],
+          "returncode": 0,
+          "test_count": 61,
+          "seconds": 13.61,
+          "log": "tmp/four-line-integration/risk.log",
+          "sha256": "51a20343919dd36e05fcbd864791ad7fa876e9354b0c62c0c8c500d7d8eee7dc"
+        },
+        {
+          "name": "tool-autonomy",
+          "command": [
+            "python",
+            "Tool/scripts/test_tool_autonomy.py"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 0.55,
+          "log": "tmp/four-line-integration/tool-autonomy.log",
+          "sha256": "350a940e635da87ed222d3ee70e41dfe85106d32626e7738f9552a2e63100142"
+        },
+        {
+          "name": "discovery",
+          "command": [
+            "python",
+            "Tool/scripts/test_capability_discovery.py"
+          ],
+          "returncode": 0,
+          "test_count": 34,
+          "seconds": 5.07,
+          "log": "tmp/four-line-integration/discovery.log",
+          "sha256": "5642de4e979e13ea10ad120636c17b44949979935c79a9e4055a1adb8df21a97"
+        },
+        {
+          "name": "route",
+          "command": [
+            "python",
+            "Tool/scripts/test_route_integrity.py"
+          ],
+          "returncode": 0,
+          "test_count": 13,
+          "seconds": 1.3,
+          "log": "tmp/four-line-integration/route.log",
+          "sha256": "d588d4f2e75f56d143cc13566a4e6258805ee3abd7a6947bc5e0d1ba975fc319"
+        },
+        {
+          "name": "autonomy",
+          "command": [
+            "python",
+            "Tool/scripts/test_workbench_autonomy.py"
+          ],
+          "returncode": 0,
+          "test_count": 7,
+          "seconds": 4.59,
+          "log": "tmp/four-line-integration/autonomy.log",
+          "sha256": "2bfa968ca22739a765ed042f0ed249381af2fe311b89926ffa30a48a25f0cf36"
+        },
+        {
+          "name": "flow",
+          "command": [
+            "python",
+            "Tool/scripts/test_runtime_flow.py"
+          ],
+          "returncode": 0,
+          "test_count": 3,
+          "seconds": 3.46,
+          "log": "tmp/four-line-integration/flow.log",
+          "sha256": "f4cf3d4f628dd89aa9cf01be007b8f08c6b0ba6e65bf3b8a1fd2e9908f6a2671"
+        },
+        {
+          "name": "prompt",
+          "command": [
+            "python",
+            "Tool/scripts/test_prompt_extensions.py"
+          ],
+          "returncode": 0,
+          "test_count": 17,
+          "seconds": 1.88,
+          "log": "tmp/four-line-integration/prompt.log",
+          "sha256": "6c01021a603a07e29f5b2cbd753631c7561c9909cf9d70fd096298a75580e1a2"
+        },
+        {
+          "name": "prompt-budget",
+          "command": [
+            "python",
+            "Tool/scripts/test_budget_prompt.py"
+          ],
+          "returncode": 0,
+          "test_count": 2,
+          "seconds": 1.16,
+          "log": "tmp/four-line-integration/prompt-budget.log",
+          "sha256": "d31135ecf0f1e2dc552f6f77a4cdcd82891728de230dde218a3c22ac3bd0df24"
+        },
+        {
+          "name": "source-inventory",
+          "command": [
+            "python",
+            "Tool/scripts/test_source_inventory.py"
+          ],
+          "returncode": 0,
+          "test_count": 56,
+          "seconds": 20.93,
+          "log": "tmp/four-line-integration/source-inventory.log",
+          "sha256": "87973274efa11ccbd8a64a391e9a76bed63ef8433ffe9d6c718a5a6b81ace248"
+        },
+        {
+          "name": "route-probes",
+          "command": [
+            "python",
+            "Tool/skill/softseep/scripts/skill-route-probe.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 2.58,
+          "log": "tmp/four-line-integration/route-probes.log",
+          "sha256": "f08661ea0b31815f06cd28041b3406cdf9139077413f7117aecdf6f5b67e6031"
+        },
+        {
+          "name": "dependencies",
+          "command": [
+            "python",
+            "Tool/scripts/test_tool_dependencies.py"
+          ],
+          "returncode": 0,
+          "test_count": 63,
+          "seconds": 2.56,
+          "log": "tmp/four-line-integration/dependencies.log",
+          "sha256": "5fe6fd291da7881028f8e30e3d37b70d0085fbc31ae2a04c6916c14c3f7ce1ba"
+        },
+        {
+          "name": "mcp-contract",
+          "command": [
+            "python",
+            "Tool/skill/softseep/scripts/mcp-param-contract.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 2.86,
+          "log": "tmp/four-line-integration/mcp-contract.log",
+          "sha256": "889068ce9b08d82cd0476930592a4d92fd0748bcdfdc8b9807ad788abc6b74d1"
+        },
+        {
+          "name": "docs",
+          "command": [
+            "python",
+            "Tool/scripts/lib/doc_commands.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 0.83,
+          "log": "tmp/four-line-integration/docs.log",
+          "sha256": "5591319a40c13332640b9197988885c21109c2468c3088bf06b96ad60f78415a"
+        },
+        {
+          "name": "budget",
+          "command": [
+            "python",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 0.6,
+          "log": "tmp/four-line-integration/budget.log",
+          "sha256": "8ccdcdab674ae9738b939754e0905876488587e16ec719342def418e58fff91e"
+        },
+        {
+          "name": "sdk",
+          "command": [
+            "python",
+            "Tool/scripts/test_prompt_extensions.py",
+            "--pi-sdk",
+            "C:\\Users\\toti\\.pi\\agent\\install\\releases\\1.4.0\\node_modules\\@earendil-works\\pi-coding-agent"
+          ],
+          "returncode": 0,
+          "test_count": null,
+          "seconds": 1.04,
+          "log": "tmp/four-line-integration/sdk.log",
+          "sha256": "f6abe25f30859048bd4e5aba99a35dfd3f6a03fac2e970a8eaf1eb75a8272317"
+        }
+      ]
+    },
+    "complete_runtime": {
+      "source_commit": "46ca54511b2a697c8d84ba0b81431cd2b2277c99",
+      "returncode": 1,
+      "seconds": 1420.49,
+      "suite_count": 108,
+      "summary": {
+        "pass": 105,
+        "warn": 0,
+        "fail": 3,
+        "skip": 0
+      },
+      "failures": [
+        {
+          "name": "invariants",
+          "returncode": 1
+        },
+        {
+          "name": "e2e",
+          "returncode": 1
+        },
+        {
+          "name": "historical-plugin-acceptance",
+          "returncode": 1
+        }
+      ],
+      "main_unchanged": true,
+      "apk_hashes": {
+        "apkseep08/target/release.apk": "4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b",
+        "apkseep09/target/ovaa.apk": "b57cb8abcea9e4e6b802a62f1ea69845941e33bae28d88cdd827e1cdbac1cf01"
+      },
+      "command": [
+        "python",
+        "Tool/scripts/check.py",
+        "--runtime",
+        "--json"
+      ],
+      "log": "tmp/four-line-integration/full-runtime.json",
+      "sha256": "709578e96cb933c02733b09ac206a35a759d78589988517c731eefa28964b40c",
+      "frozen_source_unchanged": true,
+      "borrowed_old_results": false
+    },
+    "initial_post_runtime_engineering": [
+      {
+        "name": "preflight",
+        "command": [
+          "python",
+          "Tool/scripts/preflight.py",
+          "--fast",
+          "--json"
+        ],
+        "returncode": 1,
+        "seconds": 80.04,
+        "log": "tmp/four-line-integration/preflight.log",
+        "sha256": "cff41c577aa319d7095f85bfe5be85a6765ef909f83d3fe0226fd4d3be7bae6f"
+      },
+      {
+        "name": "pre-upload",
+        "command": [
+          "python",
+          "Tool/scripts/pre-upload-check.py"
+        ],
+        "returncode": 0,
+        "seconds": 6.78,
+        "log": "tmp/four-line-integration/pre-upload.log",
+        "sha256": "9778ad9835adff751ffbefa69057ae866eb5f6e5464617ca38764cd7757036ee"
+      },
+      {
+        "name": "budget-final",
+        "command": [
+          "python",
+          "Tool/scripts/budget.py",
+          "--json"
+        ],
+        "returncode": 0,
+        "seconds": 0.52,
+        "log": "tmp/four-line-integration/budget-final.log",
+        "sha256": "8ccdcdab674ae9738b939754e0905876488587e16ec719342def418e58fff91e"
+      }
+    ],
+    "final_preflight": {
+      "source_code_commit": "46ca54511b2a697c8d84ba0b81431cd2b2277c99",
+      "documentation_commit": "54a886c0f01d767b0f8eea448b4d214bb829c5e7",
+      "command": [
+        "python",
+        "Tool/scripts/preflight.py",
+        "--fast",
+        "--json"
+      ],
+      "returncode": 1,
+      "seconds": 73.62,
+      "fails": 10,
+      "notes": 3,
+      "waived": 1,
+      "unverified": 0,
+      "failure_rows": [
+        {
+          "section": "11 深度",
+          "name": "domain-gate 子进程退出码与总判定",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "全域深度（SKILL/refs/脚本/案例/KB/矩阵/任务卡）",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "链接图无孤儿",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由串味测试集",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "仓库清理 + 部署哈希",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "11 深度",
+          "name": "路由片段合入 SSOT + 案例索引同源",
+          "ok": false,
+          "detail": "rc=1（必须为 0）；green=False（必须显式为 true）；fails=2（必须为整数 0）；results 含非 true/字段缺失行：42,92"
+        },
+        {
+          "section": "13 措辞",
+          "name": "扩展部署一致（仓库 ↔ ~/.pi/agent/extensions）",
+          "ok": false,
+          "detail": "answer-gate.ts(哈希不一致)；cmd-guard.ts(哈希不一致)；load-system-prompt.ts(哈希不一致)；seep-circuit.ts(哈希不一致)"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "子代理所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "提示词所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "部署面所有权核验",
+          "ok": false,
+          "detail": "seep-install-manifest.json source_root 与当前仓库不一致"
+        }
+      ],
+      "log": "tmp/four-line-integration/preflight-doc-clarified.log",
+      "sha256": "c341806b36031aff8850bc19bc5d559e3fd50e37c31253e6bb3604d4d5b68565"
+    },
+    "budget": {
+      "ok": true,
+      "budget": [
+        {
+          "item": "MCP 工具",
+          "value": 23,
+          "limit": 45,
+          "ok": true
+        },
+        {
+          "item": "技能",
+          "value": 11,
+          "limit": null,
+          "ok": true
+        },
+        {
+          "item": "setup 脚本",
+          "value": 22,
+          "limit": 22,
+          "ok": true
+        },
+        {
+          "item": "MANUAL 手册",
+          "value": 16,
+          "limit": 16,
+          "ok": true
+        },
+        {
+          "item": "MCP 主服务行数",
+          "value": 3198,
+          "limit": 3200,
+          "ok": true
+        },
+        {
+          "item": "first-party 引擎文件",
+          "value": 1166,
+          "limit": 1180,
+          "ok": true
+        },
+        {
+          "item": "案例库文件",
+          "value": 1654,
+          "limit": 1700,
+          "ok": true
+        }
+      ],
+      "source_inventory": {
+        "policy": "seep.source_inventory/2",
+        "mode": "git",
+        "stable": true,
+        "counts": {
+          "included": 1267,
+          "tracked": 1267,
+          "untracked": 0,
+          "excluded": 6016,
+          "missing": 0,
+          "unsupported": 0,
+          "first_party": 1166,
+          "thirdparty_input": 101,
+          "deleted_staged": 0,
+          "by_role": {
+            "first_party": 1166,
+            "thirdparty_input": 101
+          }
+        },
+        "mode_reason": "",
+        "source_complete": true,
+        "manifest_source": "",
+        "missing_tracked": [],
+        "deleted_staged": [],
+        "unsupported": []
+      }
+    },
+    "upload": {
+      "returncode": 0,
+      "sensitive_paths": 0,
+      "content_hits": 0,
+      "log": "tmp/four-line-integration/pre-upload.log",
+      "sha256": "9778ad9835adff751ffbefa69057ae866eb5f6e5464617ca38764cd7757036ee"
+    },
+    "legacy_reader_negative_check": {
+      "negative_check_passed": true,
+      "legacy_commit": "3bf3fcbb",
+      "legacy_reader_rejected": true,
+      "error": "manager event type invalid",
+      "ledger_bytes_unchanged": true,
+      "new_reader_still_accepts": true,
+      "legacy_source_sha256": "c9b741701cacb4f01be22ddc47b9e37cc12d2bbfe3f27dc51d6e2cc3a9aa1d73"
+    },
+    "decision_resource_reachability": [
+      {
+        "query": "工具成功但目标未推进",
+        "recipe": "Tool/playbooks/risk-aware-analysis.md",
+        "manager_cli_linked": true
+      },
+      {
+        "query": "重复无进展",
+        "recipe": "Tool/playbooks/risk-aware-analysis.md",
+        "manager_cli_linked": true
+      },
+      {
+        "query": "决策复核",
+        "recipe": "Tool/playbooks/risk-aware-analysis.md",
+        "manager_cli_linked": true
+      }
+    ],
+    "isolated_config_and_runtime_checks": {
+      "source_commit": "46ca54511b2a697c8d84ba0b81431cd2b2277c99",
+      "agent_root": "D:\\srl-integration-validation-20261101\\agent",
+      "checks": [
+        {
+          "name": "isolated-install",
+          "returncode": 0,
+          "command": [
+            "powershell",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            "D:\\srl-v\\setup\\install-pi.ps1",
+            "-SkipPackages",
+            "-AgentRoot",
+            "D:\\srl-integration-validation-20261101\\agent"
+          ],
+          "seconds": 2.84,
+          "log": "tmp/four-line-integration/isolated-install.log",
+          "sha256": "43ce0b13ceed8736d37722ad10be3b9b609a780384ca5b841a91c1d5985f71da"
+        },
+        {
+          "name": "isolated-invariants",
+          "returncode": 0,
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/scripts/invariants.py",
+            "--check"
+          ],
+          "seconds": 0.1,
+          "log": "tmp/four-line-integration/isolated-invariants.log",
+          "sha256": "9546d9b207c007b78555dac418a8d2434468629c82596cd6e83a5d97897e4331"
+        },
+        {
+          "name": "isolated-configured-stdio",
+          "returncode": 0,
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "-c",
+            "<configured-stdio probe; full command retained in isolated-status.json>",
+            "D:\\srl-integration-validation-20261101\\agent\\mcp.json"
+          ],
+          "seconds": 1.38,
+          "log": "tmp/four-line-integration/isolated-configured-stdio.log",
+          "sha256": "fdde8e95099c3a035fec818039052c65bcf1e7b5cbdf0f02a6ffb220bb750af4",
+          "inline_probe_sha256": "a43a0900efac9ced5cb167f838e71cbcdce0d21eee8c7db54c0d37a6eba27ae1"
+        },
+        {
+          "name": "registered-manager-review-reader",
+          "returncode": 0,
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "D:\\srl-v\\Tool\\scripts\\manager_state.py",
+            "handoff",
+            "--project",
+            "D:\\tmp\\manager-integration-pqkarap6\\project",
+            "--json"
+          ],
+          "seconds": 0.08,
+          "log": "tmp/four-line-integration/registered-manager-review-reader.log",
+          "sha256": "76ef53d95d2a4ac6d9a933ecf1b6e652d03ddefb0ced9d625ed154c332c0bb72"
+        },
+        {
+          "name": "historical-original-root",
+          "returncode": 0,
+          "command": [
+            "D:\\EXE\\python\\python.exe",
+            "Tool/skill/protocol-plugin/scripts/plugin-accept.py",
+            "--root",
+            "D:\\Seep-Reverse-Lab",
+            "--json"
+          ],
+          "seconds": 0.06,
+          "log": "tmp/four-line-integration/historical-original-root.log",
+          "sha256": "9d54b9d0d70544e09d7c40b33863c8543d6ffc12f577c997806cd47eb8d7b6df"
+        }
+      ],
+      "active_deployment_changed": false,
+      "host_model_loaded": false,
+      "real_agent_decision_quality_verified": false
+    },
+    "code_fingerprints": [
+      {
+        "path": "Tool/scripts/manager_state.py",
+        "sha256": "47a15c025bcd63fbf680ba42963a67a139ecbb5f1c981847d013bc3243fd8512"
+      },
+      {
+        "path": "Tool/scripts/test_manager_integration.py",
+        "sha256": "833dddbc07283e9598f5dfdbd902bd3f1d9745dcfb17ba0c5e03a1d2f2b39f7a"
+      },
+      {
+        "path": "Tool/scripts/test_project_workflow.py",
+        "sha256": "b618457f30eae1898404a254b49edd694ead14d91a6392adbb0e75bfc2d97f16"
+      },
+      {
+        "path": "Tool/playbooks/risk-aware-analysis.md",
+        "sha256": "5bf1b5b9b1a2f737208ed33c332e8b1a426df45d197c331b5b558df0c2e59856"
+      },
+      {
+        "path": "Tool/skill/seep-router/SKILL.md",
+        "sha256": "32b25d1774ce85200d5f6d5676bb187354c14d93b98ac4d4a36fc66035d10e53"
+      },
+      {
+        "path": "Tool/prompts/extensions/load-system-prompt.ts",
+        "sha256": "18ca9210d832dae13ec8e7eee437ff8c618b8406ca2046ba36c6ac20f4c19ae8"
+      },
+      {
+        "path": "Tool/scripts/lib/runtime_risk.py",
+        "sha256": "3207b46108243303b09fd0b1f7cc990ce14c2a8d186d2de796dec5cdf83f73f9"
+      },
+      {
+        "path": "Tool/scripts/lib/capability_discovery.py",
+        "sha256": "6e926734b2083f06e6bf0d9c4e776289dcc37d3fdb16d7d277adf09d16e4883a"
+      },
+      {
+        "path": "Tool/scripts/budget.py",
+        "sha256": "37c5e982fc81164952dc8d470627d225873a9925676e53de72aee5562b8617d2"
+      },
+      {
+        "path": "Tool/scripts/preflight.py",
+        "sha256": "a8b0877fdd9b9f93ae5b82ec9d24fb74fc7007bdbcd6ec6f88e99681dbd1bab0"
+      },
+      {
+        "path": "Tool/scripts/test_source_inventory.py",
+        "sha256": "17962821d888125c7f4391d14ceb8c044d376a2c4e4dda37f6b9d1135b32b9cb"
+      },
+      {
+        "path": "Tool/mcp/seep_mcp_server.py",
+        "sha256": "42eae10ec5d55e764c4854c075148d2a0cca60972f7d8bd683c16d889e1a4d6a"
+      }
+    ],
+    "validation_worktree": "D:\\srl-v",
+    "main_preservation": {
+      "head": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+      "dirty_or_untracked_files": 22,
+      "status_and_raw_bytes_unchanged": true,
+      "before_log": "tmp/four-line-integration/main-before.json",
+      "after_log": "tmp/four-line-integration/main-after.json",
+      "after_sha256": "6cd4c60c4026d90604185168df58108781351f502536398209b2af894946783c",
+      "stash_reset_forced_overwrite_or_main_merge": false
+    },
+    "fourth_worktree_unchanged_clean": true,
+    "readiness": {
+      "source_integration_complete": true,
+      "budget_passed": true,
+      "new_runtime_regression_failures_found": false,
+      "engineering_all_green": false,
+      "direct_main_promotion_performed": false,
+      "requires_user_confirmed_protection_plan": true,
+      "blocking_conditions": [
+        "main retains 22 original uncommitted/untracked files",
+        "copied-root historical case validation and active deployment equality remain FAIL",
+        "active host/new model task validation not performed"
+      ],
+      "proposed_next_stage": [
+        "reinspect and preserve raw main files/diff/untracked list outside repository",
+        "with confirmation, commit original main changes as a separate preservation commit; no stash/reset",
+        "normal integration merge with per-conflict review; no force overwrite",
+        "rerun original-root historical and combined engineering acceptance",
+        "confirmed consistent managed deployment and fresh MCP/runtime loading; schedule around active tasks",
+        "new session verifies actual resource use and task results; preserve review ledgers on rollback"
+      ]
+    },
+    "coverage_limits": {
+      "semantic_expert_judgment_proven": false,
+      "model_natural_language_adoption_verified": false,
+      "all_browser_cli_frida_android_heartbeats_controlled": false,
+      "active_host_updated_or_restarted": false,
+      "customer_software_executed_or_live_credentials_used": false,
+      "review_ledger_lossless_downgrade_to_old_runtime": false
+    },
+    "final_document_checks": {
+      "source_root": "C:\\Users\\toti\\.codex\\worktrees\\capability-discovery-plan\\Seep-Reverse-Lab",
+      "checks": [
+        {
+          "name": "delivery-docs",
+          "command": [
+            "python",
+            "Tool/scripts/lib/doc_commands.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "log": "tmp/four-line-integration/delivery-docs.log",
+          "sha256": "5591319a40c13332640b9197988885c21109c2468c3088bf06b96ad60f78415a"
+        },
+        {
+          "name": "delivery-upload",
+          "command": [
+            "python",
+            "Tool/scripts/pre-upload-check.py"
+          ],
+          "returncode": 0,
+          "log": "tmp/four-line-integration/delivery-upload.log",
+          "sha256": "fc3b9a0ba9cf5e261959cec6963e2504215424da6e9c7bf921c298ae514542eb"
+        },
+        {
+          "name": "delivery-budget",
+          "command": [
+            "python",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "log": "tmp/four-line-integration/delivery-budget.log",
+          "sha256": "942de9a28306ffa37308db9bee6b2a7b973f6373ff4a340514f1d0269c9367d6"
+        }
+      ],
+      "production_and_test_code_changed_after_full_run": false
+    }
+  }
+}

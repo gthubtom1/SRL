@@ -96,6 +96,19 @@ class RouteIntegrityTests(unittest.TestCase):
         self.assertEqual(result['aux_candidates'], ['auxiliary'])
         self.assertTrue(result['requires_main_agent_decision'])
 
+    def test_contextual_survey_requires_a_concrete_peer_not_another_weak_route(self):
+        raw = json.loads(self.pack.read_text(encoding='utf-8'))
+        raw['routes'][0]['requires_peer_match'] = True
+        self.pack.write_text(json.dumps(raw), encoding='utf-8')
+        self.assertEqual(route.resolve('mixed', str(self.skills)), [])
+        self.add_pack('auxiliary', [{'label': 'concrete', 'must': ['mixed'], 'priority': 200}])
+        self.assertEqual({h['pack'] for h in route.resolve('mixed', str(self.skills))},
+                         {'primary', 'auxiliary'})
+        raw['routes'][0]['requires_peer_match'] = 'true'
+        self.pack.write_text(json.dumps(raw), encoding='utf-8')
+        with self.assertRaises(route.RouteConfigError):
+            route.resolve('mixed', str(self.skills))
+
     def test_shipped_wireless_capture_and_web_protocol_inputs(self):
         for text, expected in (('IEEE 802.11', 'firmware-iot'),
                                ('IEEE 802.15.4', 'firmware-iot'),
@@ -106,6 +119,15 @@ class RouteIntegrityTests(unittest.TestCase):
         result = workflow.classify('前端 JS 签名算法还原，并分析抓包中的 HTTP 请求协议')
         self.assertEqual(result['primary_candidate'], 'softseep')
         self.assertIn('protocol-plugin', result['aux_candidates'])
+
+    def test_survey_probe_preserves_navigation_without_forcing_professional_routing(self):
+        rows = json.loads((CONFIG_DIR / 'trigger-probes.json').read_text(encoding='utf-8-sig'))['probes']
+        row = next(p for p in rows if p['id'] == 'soft-01')
+        self.assertEqual(row['expect_route'], '')
+        self.assertEqual(row['expect_skill'], 'softseep')
+        self.assertTrue(row['desc_check'])
+        self.assertTrue(row['expect_kb'])
+        self.assertEqual(route.resolved_domains(row['phrase'])[1], [])
 
     def test_cli_returns_all_hits_unless_the_caller_sets_a_limit(self):
         raw = json.loads(self.pack.read_text(encoding='utf-8'))

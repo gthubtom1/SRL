@@ -12,6 +12,32 @@ SCRIPT = Path(__file__).with_name("budget.py")
 
 
 class PromptBudgetTests(unittest.TestCase):
+    def test_reminder_budget_tracks_selected_loader_and_disable_switch(self):
+        with tempfile.TemporaryDirectory() as td:
+            agent = Path(td) / 'agent'
+            extensions = agent / 'extensions'
+            extensions.mkdir(parents=True)
+            loader = extensions / 'load-system-prompt.ts'
+            env = dict(os.environ, PI_CODING_AGENT_DIR=str(agent),
+                       HOME=td, USERPROFILE=td, PYTHONIOENCODING='utf-8')
+            env.pop('SEEP_CAPABILITY_GUIDANCE', None)
+            for source, switch, enabled in (("// old installed loader", None, False),
+                                            ('export const CAPABILITY_GUIDE = `fixture reminder`;', None, True),
+                                            ('export const CAPABILITY_GUIDE = `fixture reminder`;', '0', False)):
+                loader.write_text(source, encoding='utf-8')
+                if switch is None:
+                    env.pop('SEEP_CAPABILITY_GUIDANCE', None)
+                else:
+                    env['SEEP_CAPABILITY_GUIDANCE'] = switch
+                run = subprocess.run([sys.executable, '-X', 'utf8', str(SCRIPT), '--prompt', '--json'],
+                                     env=env, capture_output=True, text=True, encoding='utf-8', timeout=20)
+                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                row = next(r for r in json.loads(run.stdout)['layers']
+                           if r['layer'].startswith('seep-capability-guide'))
+                self.assertEqual(row['tokens'] > 0, enabled)
+                if switch is None:
+                    self.assertEqual(Path(row['path']), loader)
+
     def test_selected_agent_root_and_custom_ceiling(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

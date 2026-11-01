@@ -11,6 +11,8 @@ metadata:
 
 # softseep — 通用二进制域（PE / ELF / Mach-O / .NET / Go / Rust / Electron / wasm）
 
+工具启动后目标/工具异常，先区分暂停、崩溃、正常退出与进程交接，核匹配运行时的工具自测；不要见闪退就叠隐藏插件。实际诊断与有界试验 → `Tool/playbooks/risk-aware-analysis.md`；本地修复可重测，不清外部资产次数。
+
 > **本文件是「通用二进制」这一个域的手艺**（不是域入口）。判型/选域/上限在 `seep-router`；本文件只讲 PE/ELF/Mach-O（含 .NET/Go/Rust/Electron/wasm）具体怎么做。
 
 ---
@@ -243,7 +245,7 @@ metadata:
 
 | 手册 | 触发条件 | 核心内容 |
 | :--- | :--- | :--- |
-| `MANUAL/ANTI-DEBUG.md` | G0/G1 检测到 `IsDebuggerPresent`、`NtQueryInformationProcess`、驱动级检测、时序反调试等信号 | 全量反调试绕过字典、代理 DLL 打桩框架、内核层 SOP 与两击熔断规则 |
+| `MANUAL/ANTI-DEBUG.md` | 调试/时序/完整性等候选信号 | 历史机制参考与适用条件；先诊断取证，失败不自动升级内核或主机影响 |
 | `MANUAL/UNPACKING.md` | G0/G1 检测到 `MPRESS/UPX/Themida/.vmp` 节名，或 `seep_auto_triage` 熵值 > 7.2 | 壳类型速查表、OEP 定位三策略、Scylla 内存 Dump 全流程、VMP 动态 trace 路线 |
 | `MANUAL/POC-VALIDATION.md` | G4/G5 生成 PoC 后（Frida 脚本 / Smali 补丁 / 代理 DLL）必读 | 三阶段闭环验证模型、Frida 自愈映射表、Smali/DLL 本地加载器、断网铁证流程 |
 | `MANUAL/IDA-PRO.md` | 用户询问 IDA Pro 接入或 ida MCP 无法启动时 | IDA 安装配置、install-ida.ps1、Radare2 降级路线 |

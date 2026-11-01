@@ -118,7 +118,7 @@ def main(argv=None):
         ("MCP 主服务行数", len(_server_source().splitlines()), 3200),
         # 上限从 900 → 930（2026-10-25）：A+ 深度工作按"每域 ≥2000 行/篇均 ≥250"补内容，
         # 每轮会新增 2–4 篇 reference。深度是产品本身，不是膨胀；上限仍设死值，防止无节制加文件。
-        ("first-party 引擎文件", _pf_count, 1150),   # 1150 放宽为域内专属子技能与上游经验提供充足演进空间；口径见 lib/source_inventory.py
+        ("first-party 引擎文件", _pf_count, 1180),   # 用户 2026-11-01 批准三线必要增长；固定上限，不追随计数。口径不变。
         ("案例库文件", case_files(), 1700),   # 证据库：66 个案例的真实输入/产物
     ]
 
@@ -355,6 +355,18 @@ def boundary_text() -> tuple[str, str]:
     return (m.group(0) if m else ""), "(approx from SEEP.md)"
 
 
+def capability_guide_text() -> tuple[str, str]:
+    """Measure the selected deployment; an old installed loader has no new guide."""
+    if os.environ.get("SEEP_CAPABILITY_GUIDANCE") == "0":
+        return "", "(disabled: SEEP_CAPABILITY_GUIDANCE=0)"
+    for path in (os.path.join(AGENT_DIR, "extensions", "load-system-prompt.ts"),
+                 os.path.join(REPO, "Tool", "prompts", "extensions", "load-system-prompt.ts")):
+        if os.path.isfile(path):
+            match = re.search(r"CAPABILITY_GUIDE\s*=\s*`([\s\S]*?)`", read(path))
+            return (match.group(1) if match else ""), path
+    return "", "(not installed)"
+
+
 def base_prompt_estimate(others: int, anchor: int) -> int:
     """宿主自带部分（默认提示词 + 工具声明 + 包装）。
 
@@ -389,6 +401,10 @@ def build(ceiling: int = CEILING_CONTROLLABLE, anchor: int = MEASURED_ANCHOR) ->
 
     bt, bp = boundary_text()
     rows.append(layer("seep-boundary（边界锚）", "boundary", bp, bt, "凭据去向/授权门/沙箱契约；小且不可省"))
+
+    gt, gp = capability_guide_text()
+    rows.append(layer("seep-capability-guide（能力使用提醒）", "rules", gp, gt,
+                      "短系统段；按问题发现和读取资源，不自动执行或保证模型采用"))
 
     si, items = skills_index()
     rows.append(layer(f"技能索引（{len(items)} 个技能，只有 name+description）", "skills_index",

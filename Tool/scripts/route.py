@@ -44,7 +44,7 @@ PACK_KEYS = {"schema", "id", "l1", "routes", "stages", "tools", "cases", "witnes
 # 而不是让 g2 在 legacy pack 上直接红（也会挡住“先把域导进来再补契约”的正常流程）。
 OPTIONAL_KEYS = {"depth_contract"}
 ROUTE_KEYS = {"label", "must", "priority",
-              "fallback"}       # 兜底路由显式标记（W5）：命中它≠判型成功
+              "fallback", "requires_peer_match"}
 ROUTE_REQUIRED = {"label", "must", "priority"}   # fallback 可选：只有兜底那条要写
 
 UNCLASSIFIED = "[UNCLASSIFIED] 判不出领域，请先问用户一句话"
@@ -185,6 +185,8 @@ def load_packs(skill_dir=None):
                 problems.append("%s routes[%d]：priority 必须是整数" % (dirname, i))
             if "fallback" in r and not isinstance(r.get("fallback"), bool):
                 problems.append("%s routes[%d]：fallback 必须是 true/false" % (dirname, i))
+            if "requires_peer_match" in r and not isinstance(r["requires_peer_match"], bool):
+                problems.append("%s routes[%d]：requires_peer_match 必须是 true/false" % (dirname, i))
             if not isinstance(r.get("label"), str) or not r["label"].strip():
                 problems.append("%s routes[%d]：label 不能为空" % (dirname, i))
             if len(problems) == before:
@@ -258,6 +260,8 @@ def resolve(text, skill_dir=None, limit=None):
     """
     packs = trusted_packs(skill_dir)
     fb = fallback_keys(packs)
+    contextual = {(p["id"], r["label"]) for p in packs for r in p["routes"]
+                  if r.get("requires_peer_match")}
     text = str(text or "")
     hits = []
     for prio, pid, label, must in flat_routes(packs):
@@ -269,6 +273,10 @@ def resolve(text, skill_dir=None, limit=None):
                     break
             except re.error:
                 continue
+    # Generic survey wording may assist any concrete domain, but cannot create
+    # a professional classification by itself (e.g. ordinary development).
+    if not any((h["pack"], h["label"]) not in contextual and not h["fallback"] for h in hits):
+        hits = [h for h in hits if (h["pack"], h["label"]) not in contextual]
     hits.sort(key=lambda x: -x["priority"])
     return hits if limit is None else hits[:limit]
 
@@ -303,6 +311,8 @@ def main():
     ap.add_argument("--index", action="store_true", help="列出全部路由（priority<TAB>pack<TAB>label）")
     ap.add_argument("--check", action="store_true", help="死路由 / 坏正则 / 坏优先级 → rc=1")
     ap.add_argument("--resolve", default="", help="按一段自然语言匹配路由")
+    ap.add_argument("--discover", default="", metavar="QUESTION",
+                    help="只读发现当前问题可借用的方法与资源（不要求整个任务归入九域）")
     ap.add_argument("--limit", type=_positive_limit, default=None,
                     help="只显示前 N 条命中（默认显示全部）")
     ap.add_argument("--json", action="store_true")
@@ -311,6 +321,25 @@ def main():
     ap.add_argument("--skill-dir", default="", help="覆盖 Tool/skill 根（测试用）")
     a = ap.parse_args()
     sd = a.skill_dir or None
+
+    if a.discover:
+        if a.resolve or a.check or a.index:
+            ap.error("--discover cannot be combined with --resolve/--check/--index")
+        from lib.capability_discovery import discover
+        result = discover(_repo_of(sd or SKILL_DIR), a.discover,
+                          a.limit if a.limit is not None else 5)
+        if a.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            print("[DISCOVERY] " + result["status"])
+            for item in result["resources"]:
+                print("%s: %s -> %s" % (item["kind"], item["title"], item["path"]))
+            for warning in result["warnings"]:
+                print("[WARN] %s: %s" % (warning["code"], warning["source"]))
+            if result.get("error"):
+                print(result["error"])
+        return (2 if result["status"] in ("invalid_parameter", "partial") else
+                1 if not result["ok"] else 0)
 
     try:
         hits = resolve(a.resolve, sd, limit=a.limit) if a.resolve else []

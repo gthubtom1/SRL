@@ -71,7 +71,7 @@
     {
       "label": "逆向工程 / PE 二进制 / 补丁与脱壳",
       "must": [
-        "(?is)^(?!.*(?:(?<![a-z0-9])(?:dump|oep|scylla)(?![a-z0-9])|pe-sieve|内存转储|转储)).*(?:(?<![a-z0-9])(?:pe32\\+?|mz|dll|exe|sys|clr|rva|iat|ida)(?![a-z0-9])|e_lfanew|tls\\s*callback|bsjb|gameassembly|(?:windows|\\bpc\\b).{0,20}(?:unity|il2cpp)|(?:unity|il2cpp).{0,20}(?:windows|\\bpc\\b)|节表|导入表|导出表|x64dbg|ghidra|radare2|rizin|frida|windbg|pe-bear|ilspy|dnspy|脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|trampoline|code\\s*cave|hook\\s*(?:api|函数|dll|表|inline|detour|导入)|wasm|wasm2c|wabt|eac|easyanticheat|battleye|vanguard|反作弊|授权锁|ultralock|hvci|kdp|vmprotect|themida|winlicense|upx|aspack|mpress|enigma)"
+        "(?is)^(?!.*(?:(?<![a-z0-9])(?:dump|oep|scylla)(?![a-z0-9])|pe-sieve|内存转储|转储)).*(?:(?<![a-z0-9])(?:pe32\\+?|mz|dll|exe|sys|clr|rva|iat|ida)(?![a-z0-9])|e_lfanew|tls\\s*callback|bsjb|gameassembly|(?:windows|\\bpc\\b).{0,20}(?:unity|il2cpp)|(?:unity|il2cpp).{0,20}(?:windows|\\bpc\\b)|节表|导入表|导出表|x64dbg|ghidra|radare2|rizin|frida|windbg|pe-bear|ilspy|dnspy|脱壳|加壳|反虚拟机|本地化补丁|算法还原|特征码|代码洞|trampoline|code\\s*cave|hook\\s*(?:api|函数|dll|表|inline|detour|导入)|wasm|wasm2c|wabt|(?<![a-z0-9])eac(?![a-z0-9])|easyanticheat|battleye|vanguard|反作弊|授权锁|ultralock|hvci|kdp|vmprotect|themida|winlicense|upx|aspack|mpress|enigma)"
       ],
       "priority": 155
     },
@@ -113,7 +113,8 @@
         "(?i)(先.{0,4}分析|分析(一下|透彻|清楚)|出.{0,3}报告|摸清|摸透|评估.{0,4}(可行性|难度)|能不能赢|授权面.{0,4}(在哪|怎么))",
         "(?i)(?:先|帮我|给我|麻烦).{0,4}(?:看看|看一下|瞧瞧|搞清楚|弄明白|判断|确认|摸一下).{0,8}(?:这个|这东西|啥|什么|能不能|值不值得|靠不靠谱)"
       ],
-      "priority": 80
+      "priority": 80,
+      "requires_peer_match": true
     },
     {
       "label": "阶段①a 快筛（20 分钟出画像卡）",
@@ -134,7 +135,7 @@
     {
       "label": "授权 / 许可 / 卡密审计（经阶段一执行）",
       "must": [
-        "(?i)授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|\\btrial\\b|keygen|激活(?!函数)|凭据|校验串",
+        "(?is)^(?=.*(?:审计|未授权|越权|校验|许可|注册|试用|绑定|机器码|激活|卡密|绕过|旁路|破解|逆向|到期|过期|授权平台|licen[cs]e|keygen)).*?(?:授权|卡密|注册机|licen[cs]e|会员|订阅|vip|试用|\\btrial\\b|keygen|激活(?!函数)|凭据|校验串)",
         "(?i)(?:要钱|要收费|要买|要付费|得买|不便宜|多少钱|收费的|白嫖|不花钱|免费能?用|能不能免费用|授权码|注册码|序列号|卡密|激活码|试用|试用期|试用结束|过期了|到期了|只能看不能用|功能锁着|功能是灰的|付费才能用)",
         "(?i)(?:解锁|开锁|打开).{0,6}(?:功能|会员|特权|高级|专业|pro|付费|vip)|(?:功能|会员|特权|高级版|专业版).{0,6}(?:解锁|打开|开启|可用|变成可用)"
       ],
@@ -284,13 +285,27 @@
     "migration": "Tool/scripts/project_state.py"
   },
   "input_contract": {
-    "types": ["PE/ELF/Mach-O binary", "JS/WebAssembly/.NET/Java/Python artifact", "UI/resource files", "version pair", "authorized runtime evidence"],
+    "types": [
+      "PE/ELF/Mach-O binary",
+      "JS/WebAssembly/.NET/Java/Python artifact",
+      "UI/resource files",
+      "version pair",
+      "authorized runtime evidence"
+    ],
     "sample_completeness": {
-      "required": ["authorized target and hash", "baseline and candidate versions for version work", "runtime or UI evidence for behavior claims"],
+      "required": [
+        "authorized target and hash",
+        "baseline and candidate versions for version work",
+        "runtime or UI evidence for behavior claims"
+      ],
       "missing_means": "缺目标、版本对、账号、设备或运行材料只是输入要求，不代表逆向、补丁或交付能力已完成。"
     },
     "environment": {
-      "required": ["isolated analysis workspace", "matching host/runtime when execution is needed", "authorized credentials and test target only when required"],
+      "required": [
+        "isolated analysis workspace",
+        "matching host/runtime when execution is needed",
+        "authorized credentials and test target only when required"
+      ],
       "missing_means": "缺样本、账号、设备、网络或运行确认时只能保留分析、差异和未验证项。"
     }
   },

@@ -1,0 +1,258 @@
+{
+  "schema": "seep.capability-discovery-verification/1",
+  "date": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "implementation_commit": "82146a81",
+  "autonomy_commit": "4d229016",
+  "merge_commit": "9c8a2e80",
+  "verified_final_code_commit": "25cae554af688412375ce8e829ff2efa2ff37c79",
+  "core_scope": "Host-neutral bounded metadata discovery, typed references, CLI/MCP shared implementation and general skill guidance. No new host plugin or execution manager.",
+  "initial_combined_runtime": {
+    "command": [
+      "python",
+      "Tool/scripts/check.py",
+      "--runtime"
+    ],
+    "completed": true,
+    "returncode": 1,
+    "suite_count": 106,
+    "pass_count": 96,
+    "fail_count": 10,
+    "warning_count": 0,
+    "log_sha256": "f3cf8e7172ebcfc451cb5d78f315ec0a0ccb309f40449f14cccaeaab2be688dd",
+    "log": "tmp/capability-runtime-complete.log",
+    "provenance": "Started on merged code 9c8a2e80 in the long C: worktree. A route-declaration compatibility fix was applied after its failed suite; final routing/discovery/workflow were rerun on commit 25cae554. This is not a claim of one all-green final full run.",
+    "failures": [
+      {
+        "suite": "invariants",
+        "seconds": 0.1,
+        "summary": "结论：1 处违反"
+      },
+      {
+        "suite": "e2e",
+        "seconds": 33.7,
+        "summary": "结果: 87/93 通过；UNCOVERED 1 域：apkseep（不计 PASS）  ← 有 FAIL"
+      },
+      {
+        "suite": "archive-recovery",
+        "seconds": 6.2,
+        "summary": "AssertionError: 2 != 0 : {'ok': False, 'blocked_at': 'archive_path_preflight', 'reason': 'Windows 普通路径限制：stagi"
+      },
+      {
+        "suite": "domain-task-delivery",
+        "seconds": 52.0,
+        "summary": "{\"ok\": false, \"blocked_at\": \"asset\", \"reason\": \"FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\\\"
+      },
+      {
+        "suite": "historical-plugin-acceptance",
+        "seconds": 0.3,
+        "summary": "\"ok\": false,"
+      },
+      {
+        "suite": "project-workflow",
+        "seconds": 69.8,
+        "summary": "test_wrong_refs_and_generation_are_refused_by_the_gate_before_execution (__main__.WorkflowEntry.test_wrong_ref"
+      },
+      {
+        "suite": "runtime-install-delivery",
+        "seconds": 92.7,
+        "summary": "[OK] agent settings ownership : 1 项 -> agents/settings.json"
+      },
+      {
+        "suite": "tool-installation",
+        "seconds": 24.4,
+        "summary": "test_unrelated_http_listener_cannot_report_ready (__main__.WindowsRunnerDiscoveryTests.test_unrelated_http_lis"
+      },
+      {
+        "suite": "pcap-contract",
+        "seconds": 0.6,
+        "summary": "接线后：零结果与部分结果都不能成为完整成功。 ... ok"
+      },
+      {
+        "suite": "readonly-parameters",
+        "seconds": 0.9,
+        "summary": "test_integer_and_enum_parameters_are_checked_at_the_entry (__main__.R2TargetGrammar.test_integer_and_enum_para"
+      }
+    ]
+  },
+  "short_path_followups": {
+    "status": "finished",
+    "source_commit": "ba4d3b51",
+    "root": "D:\\srl-v",
+    "results": [
+      {
+        "script": "Tool/scripts/test_capability_discovery.py",
+        "returncode": 0,
+        "seconds": 5.516,
+        "test_count": 33,
+        "log": "tmp/short-test_capability_discovery.log",
+        "sha256": "780b35bd91d73e282f9c51b2744d6724e53158277c067f025f48bf53950338ed"
+      },
+      {
+        "script": "Tool/scripts/test_archive_recovery.py",
+        "returncode": 0,
+        "seconds": 13.657,
+        "test_count": 4,
+        "log": "tmp/short-test_archive_recovery.log",
+        "sha256": "406ebfab691a1adb4df98c808bd4406f403c327f0a09420f553c0c8350ec90de"
+      },
+      {
+        "script": "Tool/scripts/test_tool_installation.py",
+        "returncode": 0,
+        "seconds": 14.906,
+        "test_count": 65,
+        "log": "tmp/short-test_tool_installation.log",
+        "sha256": "7e2acbe490161fbd5b5a54cc3c5f46d2baf71636283278d1c3507b3367c16c6f"
+      },
+      {
+        "script": "Tool/mcp/test_pcap_contract.py",
+        "returncode": 0,
+        "seconds": 0.719,
+        "test_count": 31,
+        "log": "tmp/short-test_pcap_contract.log",
+        "sha256": "83a1c7dba8212a8912037c5da9f8f021908edcaa6166b08bb4b9fc6ff9854ddf"
+      },
+      {
+        "script": "Tool/mcp/test_readonly_parameters.py",
+        "returncode": 0,
+        "seconds": 0.968,
+        "test_count": 18,
+        "log": "tmp/short-test_readonly_parameters.log",
+        "sha256": "ceb6727e3ae7d7ca3544039c783b5275d71459e5dd4323e9d4a84136bae9766f"
+      },
+      {
+        "script": "Tool/scripts/test_runtime_install_delivery.py",
+        "returncode": 0,
+        "seconds": 93.125,
+        "test_count": 48,
+        "log": "tmp/short-test_runtime_install_delivery.log",
+        "sha256": "0110e440b46aaade1f90774a9eced46fe0845c6233038d9a80b4be1c14c83c08"
+      },
+      {
+        "script": "Tool/scripts/test_project_workflow.py",
+        "returncode": 0,
+        "seconds": 75.719,
+        "test_count": 52,
+        "log": "tmp/short-test_project_workflow.log",
+        "sha256": "52d9bf47f2280c1fa958f37c261809cf72479b5459bc8a52c2fdbf1020af64c9"
+      },
+      {
+        "script": "Tool/scripts/test_domain_task_delivery.py",
+        "returncode": 0,
+        "seconds": 74.734,
+        "test_count": 8,
+        "log": "tmp/short-test_domain_task_delivery.log",
+        "sha256": "c6ea3f2313de9ea74f5609e3589bf24e19ab18db57392757fa9237cdcaf287db"
+      }
+    ]
+  },
+  "final_code_followups": {
+    "status": "finished",
+    "source_commit": "25cae554af688412375ce8e829ff2efa2ff37c79",
+    "results": [
+      {
+        "command": [
+          "Tool/scripts/test_route_integrity.py"
+        ],
+        "returncode": 0,
+        "seconds": 1.454,
+        "test_count": 12,
+        "log": "tmp/final-test_route_integrity.log",
+        "sha256": "f2febb5e0e275d1f93951674bff0d5341765c9f7a41e3745c3d669c0b2a56e53"
+      },
+      {
+        "command": [
+          "Tool/scripts/test_capability_discovery.py"
+        ],
+        "returncode": 0,
+        "seconds": 5.625,
+        "test_count": 34,
+        "log": "tmp/final-test_capability_discovery.log",
+        "sha256": "13d6332f3697ca2b6c2fbc8656c50ab54d04a223e609690e58becc2826bfd84a"
+      },
+      {
+        "command": [
+          "Tool/scripts/domain-gate.py",
+          "--all"
+        ],
+        "returncode": 1,
+        "seconds": 27.219,
+        "test_count": null,
+        "log": "tmp/final-domain-gate.log",
+        "sha256": "381eed13aa75c284ff451f0feb6239ba2ce384906abe10c80d35e13541bd1c75"
+      },
+      {
+        "command": [
+          "Tool/scripts/test_project_workflow.py"
+        ],
+        "returncode": 0,
+        "seconds": 71.39,
+        "test_count": 52,
+        "log": "tmp/final-test_project_workflow.log",
+        "sha256": "c9e2ddcbddba8541b60b65c8a939fb5828557964d367ab35fb9c5b6f53542d05"
+      }
+    ]
+  },
+  "route_probes": {
+    "passed": 42,
+    "failed": 0
+  },
+  "domain_route_matrix": {
+    "cases": 67,
+    "failed": 0,
+    "verified_by": "subtests inside test_capability_discovery.py"
+  },
+  "final_domain_gate": {
+    "returncode": 1,
+    "pass_count": 90,
+    "check_count": 92,
+    "remaining_failure_lines": [
+      "[FAIL] 案例字段/真跑/sha256 复算  — plugin-accept.py(域级验收 rc=2)",
+      "[FAIL] 部署哈希一致（递归资产：仓库 ↔ AgentRoot/skills）  — apkseep(哈希不一致：references/patch-audit.md,scripts/dexutil.py)；firmware-iot(哈希不一致：SKILL.md)；forensics-mobile(哈希不一致：SKILL.md,pack.json,scripts/evidence-accept.py)；malware-analysis(哈希不一致：SKILL.md,references/01-criteria.md)；protocol-plugin(哈希不一致：SKILL.md,references/04-walkthrough-websocket-replay.md,references/05-binary-framing.md,references/07-crypto-and-checksum.md)；pwn-crypto(哈希不一致：SKILL.md)；seep-router(哈希不一致：SKILL.md)；softseep(哈希不一致：pack.json,scripts/mcp-param-contract.py,scripts/patch-verify.py)…"
+    ],
+    "interpretation": "Historical plugin command cwd remains tied to the original repository; installed skills have not been synchronized to this verification tree. No historical evidence or deployment threshold was rewritten."
+  },
+  "fixture_preparation": {
+    "purpose": "Restore existing test inputs omitted by Git ignore, not analyze or execute customer software",
+    "identities_verified_before_and_after_copy": [
+      {
+        "case": "apkseep08",
+        "path": "target/release.apk",
+        "sha256": "4e74b5208a59709a74ae507163080a209c30dc6922500b9dc5eeb3c384e94b3b"
+      },
+      {
+        "case": "apkseep09",
+        "path": "target/ovaa.apk",
+        "sha256": "b57cb8abcea9e4e6b802a62f1ea69845941e33bae28d88cdd827e1cdbac1cf01"
+      }
+    ],
+    "files_not_committed": true,
+    "targets_executed": false
+  },
+  "not_verified": [
+    "Live Pi Web reload and natural-language tool selection",
+    "Fresh Codex/Claude model-session selection of the new method",
+    "Global deployment equivalence after applying the combined branch",
+    "Universal compliance by arbitrary models or complete observation of arbitrary shell wrappers"
+  ],
+  "deployment": {
+    "user_agent_configs_changed": false,
+    "live_sessions_reloaded": false,
+    "main_worktree_overwritten": false,
+    "combined_branch": "codex/capability-discovery-plan"
+  },
+  "acceptance": "Core implementation and focused followups pass; repository-wide deployment/historical acceptance is not all green.",
+  "final_fixture_followup": {
+    "description": "Synthetic JSON path is composed in the test fixture, not a false live repository reference. No production behavior changed after 25cae554.",
+    "script": "Tool/scripts/test_capability_discovery.py",
+    "returncode": 0,
+    "test_count": 34,
+    "log_sha256": "af6121a52f635dbf7b77d63e2bb039b6282c0f21c5a3d7e5e7a049c5318e4453"
+  },
+  "pre_upload": {
+    "returncode": 0,
+    "tracked_sensitive_files": 0,
+    "content_credential_hits": 0,
+    "log_sha256": "bb946e496714c037176a3f63fb1673327acb52778f22182ce0485031fe0ab98d"
+  }
+}

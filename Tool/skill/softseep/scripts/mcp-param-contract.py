@@ -14,7 +14,7 @@
   [2] 路径主参数不得出现在 required 里（否则「只传别名」会被 schema 直接拒绝）
   [3] 不得有以 `_` 开头的工具泄漏进注册表（辅助函数误挂 @server.tool 的典型症状）
   [4] 每个工具必须有非空 description（模型靠它选工具）
-  [5] 工具总数与 Tool/config/tool-capabilities.json 记录的基线一致（防静默丢失）
+  [5] 工具总数与 Tool/mcp/.baseline/tools.json 的已接纳工具面一致（不是历史握手数）
   [6] **真调用探针**：对 5 个代表工具用「非主参数名」各真调一次（只读、无害），
       回包不得出现 unexpected keyword argument / Field required。
       —— 2026-10-24 P1-8：只有 [1]–[5] 时本门禁报全绿，而运行时 17 个吃路径的
@@ -95,7 +95,7 @@ RUNTIME_PROBES = (
 # 两类回答都算「别名被拒」：Python 层的 unexpected keyword，或 pydantic 层的
 # validation error / Field required（说明别名压根没进 schema）。
 REJECT_MARKERS = ("unexpected keyword argument", "field required", "validation error",
-                  "缺少")  # 最后一个是别名层自己的「缺少参数」文案（它也是参数被打丢的症状）
+                  "缺少路径参数", "缺少目标进程参数")  # 匹配别名层的缺参文案，不拒绝正常业务结果中的「缺少证据」。
 PROBE_FILE_CANDIDATES = (
     os.path.join(TOOL, "samples", "real", "crackerjack", "a.exe"),
 )
@@ -247,37 +247,16 @@ def check(tools, baseline=None, probes=None):
 
 
 def _resolve_baseline():
-    """工具数基线：唯一来源 Tool/config/packs.baseline.json 的
-    mcp_handshake.servers.seep.toolsCount（退化到 toolNames 条数）。
-
-    历史（外部评审 F10）：曾经读 Tool/config/gate-counts.json，该文件后来被删，函数就
-    return None，而 main() 的 "if baseline is not None" 把整段比对静默跳过 —— 于是 40→20 的
-    工具削减既没人发现、门禁还打印「工具数基线一致」。现在基线缺失时显式 WARN，
-    不再假装比对过。
-    """
-    pb = os.path.join(TOOL, "config", "packs.baseline.json")
-    if os.path.isfile(pb):
-        try:
-            d = json.load(open(pb, encoding="utf-8"))
-            srv = ((d.get("mcp_handshake") or {}).get("servers") or {}).get("seep") or {}
-            n = srv.get("toolsCount")
-            if isinstance(n, int) and n > 0:
-                return n
-            names = srv.get("toolNames")
-            if isinstance(names, list) and names:
-                return len(names)
-        except Exception as exc:  # noqa: BLE001
-            print("[WARN] packs.baseline.json 读不出工具数基线：%s" % exc)
-    gc = os.path.join(TOOL, "config", "gate-counts.json")
-    if os.path.isfile(gc):
-        try:
-            d = json.load(open(gc, encoding="utf-8"))
-            for k in ("mcp_seep_tools", "seep_tools", "tools"):
-                n = d.get(k)
-                if isinstance(n, int) and n > 0:
-                    return n
-        except Exception:  # noqa: BLE001
-            pass
+    """Read the accepted source catalog without rewriting observed handshakes."""
+    try:
+        with open(os.path.join(TOOL, "mcp", ".baseline", "tools.json"), encoding="utf-8") as handle:
+            data = json.load(handle)
+        names, count = data.get("tools"), data.get("count")
+        if (isinstance(names, list) and names and all(isinstance(n, str) and n for n in names)
+                and len(set(names)) == len(names) and type(count) is int and count == len(names)):
+            return count
+    except (OSError, ValueError, AttributeError):
+        pass
     return None
 
 
@@ -349,7 +328,7 @@ def main() -> int:
 
     baseline = None if args.no_baseline else _resolve_baseline()
     if baseline is None and not args.no_baseline:
-        print("[WARN] 工具数基线缺失（packs.baseline.json 里没有 mcp_handshake.servers.seep.toolsCount）"
+        print("[WARN] 工具面基线缺失/不一致（Tool/mcp/.baseline/tools.json）"
               "—— 本次没有比对工具数，不代表没被削减")
     result = check(tools, baseline, probes)
 

@@ -22,6 +22,8 @@
 | 位置 | 负责什么 | 关键边界 |
 |---|---|---|
 | `Tool/skill/seep-router/SKILL.md` | 判断、选域、上限和所缺材料 | 不替代各领域专业方法 |
+| `Tool/scripts/lib/capability_discovery.py` | 当前问题的只读资源关联、准确引用、资格和诊断 | CLI/MCP 同核，无宿主依赖；不执行、不调模型、不建项目，归属不限制借用 |
+| `route.py --discover`、`seep_capability_discover` | 同一发现核心的 CLI/MCP 薄入口 | 无匹配正常继续；静态注册、候选和样本不代表当前就绪或任务成功 |
 | `Tool/skill/*/pack.json` | 正式域身份、工具、证据与深度声明 | 名单由实现读取，不在文档重复维护另一套注册表 |
 | `Tool/skill/<域>/SKILL.md`、`subskills/`、references、playbooks | 父域导航、专业方法和具体判据 | 子技能随父域保持目录结构部署；跨域返回同一project/version/run，库存不是已验收能力 |
 | `Tool/mcp/seep_mcp_server.py`、`seep_contract.py` | MCP 工具、参数/结果契约与共享校验 | 工具注册、连通、真实执行分别证明 |

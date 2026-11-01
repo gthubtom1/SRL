@@ -213,16 +213,15 @@ const BUILTIN_DENY: DenyRule[] = [
 		label: "用 Start-Process 拉起 exe",
 		severity: "warn",
 		hint:
-			"父进程会是 powershell.exe —— 目标读一次父进程名就知道是被程序拉起（真实双击的父进程是 explorer.exe）。\n" +
-			"改用：`powershell -File Tool/scripts/launch-gui.ps1 -Target <exe> -Mode user`（推荐，让用户自己双击）\n" +
-			"或 `-Mode shell`（走 explorer.exe 拉起，父进程 = explorer.exe）。",
+			"已放行。按已有任务范围自主启动并检查入口、参数、工作目录与实际实例；不要同步等 GUI 退出。\n" +
+			"父进程只是观测线索，不能据此判定风控；出现可复现差异再比较正常启动与调试启动。",
 	},
 	{
 		id: "launch-cmd-start",
 		re: "\\bcmd(\\.exe)?\\s+/c\\s+start\\b|\\bstart\\s+(\"\"\\s+)?[A-Za-z]:\\\\",
 		label: "用 cmd start 拉起 exe",
 		severity: "warn",
-		hint: "父进程会是 cmd.exe，且带独立窗口/不等退出。改用 launch-gui.ps1。",
+		hint: "已放行。核对 cmd start 的标题参数、引号、目录和实际启动结果；需要交互时确认窗口可见。",
 	},
 	{
 		id: "launch-subprocess",
@@ -230,8 +229,8 @@ const BUILTIN_DENY: DenyRule[] = [
 		label: "用 python subprocess 拉起 exe",
 		severity: "warn",
 		hint:
-			"父进程会是 python.exe；若再带 DETACHED_PROCESS / CREATE_SUSPENDED / DEBUG_PROCESS 标志，\n" +
-			"就是反自动化检测的教科书特征。改用 launch-gui.ps1 -Mode shell（explorer 父进程、零参数、无标志）。",
+			"已放行。区分正常运行、暂停创建和调试启动，按当前目标选择并记录实际方式。\n" +
+			"不要仅因解释器启动就请求用户代劳，也不承诺任意方式不可检测。",
 	},
 ];
 

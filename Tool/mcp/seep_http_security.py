@@ -11,7 +11,7 @@ REDACTED = "[REDACTED]"
 
 _CRED_KEY_RE = re.compile(
     r"cookie|authorization|auth|api[-_]?key|apikey|access[-_]?key|private[-_]?key|key|token|"
-    r"secret|passw|passwd|pwd|session|jwt|bearer|credential|signature|ticket|nonce|csrf|xsrf|sid",
+    r"secret|passw|passwd|pwd|session|jwt|bearer|credential|signature|ticket|nonce|csrf|xsrf|sid|license|card|activation|otp|mfa|卡密|密码|验证码",
     re.IGNORECASE)
 
 _CRED_META_KEYS = {
@@ -53,7 +53,7 @@ def _url_secrets(url: str) -> list[str]:
         if ":" in userinfo:
             found.append(userinfo.split(":", 1)[1])
     for key, value in parse_qsl(parsed.query, keep_blank_values=True):
-        if value and _CRED_KEY_RE.search(str(key)):
+        if value and (_CRED_KEY_RE.search(str(key)) or key.lower() == "code"):
             found.append(value)
     return [value for value in found if value]
 
@@ -93,7 +93,7 @@ def _redact_url(url: str, secrets=()) -> str:
         netloc = REDACTED + "@" + netloc.rsplit("@", 1)[1]
     pairs = []
     for key, value in parse_qsl(parsed.query, keep_blank_values=True):
-        if _CRED_KEY_RE.search(key):
+        if _CRED_KEY_RE.search(key) or key.lower() == "code":
             pairs.append(quote(str(key), safe="") + "=" + REDACTED)
         else:
             pairs.append(quote(str(key), safe="") + "="
@@ -144,7 +144,46 @@ def _cookie_header_secrets(value: str, set_cookie: bool = False) -> list[str]:
     return [variant for item in found for variant in _secret_variants(item)]
 
 
-def known_secrets(cookie_maps=(), header_maps=(), url: str = "") -> list[str]:
+def _payload_secret_values(text: str, opaque_is_secret: bool = False) -> list[str]:
+    """Collect bounded JSON/form credential fields without changing wire bytes."""
+    import json
+    from urllib.parse import parse_qsl
+    if not text:
+        return []
+    if not isinstance(text, str) or len(text) > 1024 * 1024:
+        raise RedactionFailure("payload too large to inspect safely")
+    try:
+        if len(text.encode("utf-8")) > 1024 * 1024:
+            raise RedactionFailure("payload too large to inspect safely")
+    except UnicodeError:
+        raise RedactionFailure("payload encoding invalid") from None
+    sensitive = re.compile(_CRED_KEY_RE.pattern + r"|license|card|activation|卡密|密码|账号", re.I)
+    try:
+        value = json.loads(text)
+    except RecursionError:
+        raise RedactionFailure("payload nesting too deep") from None
+    except ValueError:
+        try:
+            return [v for k, v in parse_qsl(text, max_num_fields=2048) if sensitive.search(k)] + ([text] if opaque_is_secret else [])
+        except ValueError:
+            raise RedactionFailure("payload field count too large") from None
+    stack, found, visited = [(value, False)], [], 0
+    while stack:
+        node, private = stack.pop()
+        visited += 1
+        if visited > 4096:
+            raise RedactionFailure("payload node count too large")
+        if isinstance(node, dict):
+            stack.extend((v, private or bool(sensitive.search(str(k)))) for k, v in node.items())
+        elif isinstance(node, list):
+            stack.extend((v, private) for v in node)
+        elif (private or (opaque_is_secret and isinstance(node, str) and len(node) >= 8)) and isinstance(node, (str, int, float)) and type(node) is not bool:
+            found.append(str(node))
+    return found
+
+
+def known_secrets(cookie_maps=(), header_maps=(), url: str = "", body: str = "",
+                  opaque_body_is_secret: bool = False) -> list[str]:
     found = []
     for cookie_map in cookie_maps:
         if not isinstance(cookie_map, dict):
@@ -161,6 +200,8 @@ def known_secrets(cookie_maps=(), header_maps=(), url: str = "") -> list[str]:
                 if str(key).lower() in ("cookie", "set-cookie"):
                     found.extend(_cookie_header_secrets(value, str(key).lower() == "set-cookie"))
     for value in _url_secrets(url):
+        found.extend(_secret_variants(value))
+    for value in _payload_secret_values(body, opaque_body_is_secret):
         found.extend(_secret_variants(value))
     return sorted(set(found), key=len, reverse=True)
 

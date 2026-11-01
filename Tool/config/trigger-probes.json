@@ -18,7 +18,9 @@
       "phrase": "初步分析一下这个软件",
       "expect_skill": "softseep",
       "expect_kb": "脱壳 OEP dump",
-      "desc_check": true
+      "desc_check": true,
+      "expect_route": "",
+      "note": "泛分析词不独立强制归域；技能描述与知识库可达仍分别检查。"
     },
     {
       "id": "soft-02",

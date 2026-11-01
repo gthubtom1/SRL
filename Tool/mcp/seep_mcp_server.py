@@ -21,6 +21,9 @@ from typing import Optional, List, Dict, Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from lib import process_tree as _process_tree
+from lib.capability_discovery import discover as _discover_capabilities
+from lib.runtime_diagnostics import diagnose_json as _runtime_diagnose
+from lib.runtime_risk import state_action as _runtime_risk_state, RiskError
 
 try:
     from mcp.server.mcpserver import MCPServer
@@ -187,12 +190,15 @@ def _pid_alias(fn, primary: str = "pid"):
 # ---------------------------------------------------------------------------
 server = MCPServer(
     "seep",
-    instructions="""seep 是一个专为安全分析师与 AI Agent 设计的全能逆向工程与 CTF 战术 MCP Server。
+    instructions="""seep 是跨宿主工作台的专业工具与知识入口，普通开发也可按当前问题借用。
+选择专业方法、查已有资源或受阻换路时，先 seep_capability_discover；读取选中方法，
+按需 seep_kb_search -> seep_kb_read，再核对当前宿主的真实工具 schema 执行与验证。
+资源归属不是任务准入；发现不执行目标，注册不证明本机就绪，输出不等于验收。
 能力包含：
 1. 二进制分析与逆向 (Radare2 / Rabin2 / Radiff2 / Rasm2)
 2. Android APK / DEX 反编译、解包与 Smali 检索 (JADX, Apktool)
 3. 动态 Hook 插件自动生成 (Frida JS, LSPilot / BeanShell)
-4. ReverseLab 183+ 逆向与 Web/PE/CVE 攻防战术知识库检索与即用 Payload
+4. ReverseLab 专业方法、判据与知识库检索
 """
 )
 
@@ -293,6 +299,7 @@ def _clean_r2_output(text: str) -> str:
 # 拆的理由：主服务单文件 ≤3200 行（BASELINE-FREEZE §7）；该模块不注册工具、不 import 主服务，
 # 但**有 IO 与可变缓存**（详见 seep_contract.py 顶部，不再谎称"纯函数/无 IO"）。
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from seep_http_guard import prepare as _prepare_http, failure as _risk_failure, publish_result as _publish_http
 from seep_contract import (  # noqa: E402
     RESULT_BUDGET_CHARS, budget_gate as _budget_gate, build_report_md,
     case_evidence_dir as _case_evidence_dir, empty_output as _empty_output,
@@ -1252,6 +1259,53 @@ def _kb_search_paths(query: str, n: int = 3):
         return []
     return [h.get("path", "") for h in (data if isinstance(data, list) else [])
             if isinstance(h, dict) and h.get("path") and h.get("matched_terms")]
+
+
+@server.tool()
+def seep_runtime_diagnose(facts_json: str = "{}") -> Dict[str, Any]:
+    """诊断暂停/闪退/工具故障、请求阶段和挑战页；输入仅结构化观察，不执行目标。
+
+    事实字段及可选值见 Tool/playbooks/risk-aware-analysis.md；不把传入观察冒充已验证原因。
+    """
+    try:
+        return _runtime_diagnose(facts_json)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid_observation_fields"}
+
+
+@server.tool()
+def seep_runtime_risk(action: str = "status", url: str = "", subject_ref: str = "",
+                      scope_id: str = "", max_attempts: int = 1, lifetime_seconds: int = 900,
+                      operation_id: str = "", evidence_ref: str = "") -> Dict[str, Any]:
+    """查询/登记既有范围(grant)/显式追加(extend)/暂停/核对(resolve)/恢复共享状态。
+
+    subject_ref 为稳定、不含凭据值的身份引用。grant 不是授权证明，沿用用户已有范围；
+    grant 重复调用只返回原范围；extend/resume/resolve 需证据引用，不退次数。
+    extend 只用于明确新增的范围决策，不是自动重试；只覆盖接线的单机适配器。
+    """
+    try:
+        return _runtime_risk_state(action, url, subject_ref, scope_id, max_attempts,
+                                   lifetime_seconds, operation_id, evidence_ref)
+    except (ValueError, OSError) as exc:
+        return {"ok": False, "error": str(exc) if isinstance(exc, RiskError) else "risk_state_unavailable"}
+
+
+@server.tool()
+def seep_capability_discover(query: str, limit: int = 5) -> Dict[str, Any]:
+    """只读发现当前问题可借用的技能、子技能、配方、能力及准确引用。
+
+    日常开发也可跨域借用。选专业方法、查已有工具或受阻换路时先用；
+    再读取返回方法，按需 seep_kb_search -> seep_kb_read，核真实工具 schema。
+    本工具不执行目标、不安装、不创建案件；声明不代表本机就绪或任务成功。
+
+    Args:
+        query: 当前需要回答的问题，不传凭据或完整会话（最多2000字符）
+        limit: 首屏资源数（1..20），其余通过总数和继续入口可见
+    """
+    result = _discover_capabilities(str(Path(__file__).resolve().parents[2]), query, limit)
+    if result["status"] == "invalid_parameter":
+        raise ValueError(result["error"])
+    return result
 
 
 @server.tool()
@@ -2893,17 +2947,13 @@ def seep_http_replay(
     impersonate: str = "chrome",
     session_file: str = "",
     timeout: int = 30,
+    risk_scope: str = "",
+    risk_subject: str = "",
 ) -> str:
-    """协议请求构造与重放（最强的协议层能力）：TLS 指纹伪装 + Cookie 会话管理 + 任意方法/头/体。
+    """单次有界 HTTP 重放、证据脱敏及跨调用共享止损；不自动重试或跟随重定向。
 
-    为什么用它：普通 requests 的 TLS 指纹会被反爬/风控识别。本工具优先用 curl_cffi
-    伪装 Chrome/Safari/Edge 的 TLS 指纹（绕过基础反爬），并支持 `session_file` 会话快照。
-    ★ 证据面不回显凭据值（REQUIREMENTS.md 六）：`session_file` 只写
-      时间/方法/URL/头名/状态码这类非凭据信息；回包里的 cookie 值一律 `[REDACTED]`
-      （保留键名与条数 + `cookies_redacted: true`）。会话保持靠本次调用的内存 cookie 参数。
-
-    若本机无 curl_cffi，自动降级到 requests（仍可用，只是 TLS 指纹不伪装）。
-
+    优先 curl_cffi，未安装时在发送前选择 requests；TLS 配置不证明真实浏览器或能通过挑战。
+    凭据按既有凭据仓使用，输出/会话快照只留脱敏证据；实际调用方式见 risk-aware-analysis 配方。
     Args:
         url: 目标 URL
         method: GET/POST/PUT/DELETE/PATCH/HEAD/OPTIONS
@@ -2916,6 +2966,8 @@ def seep_http_replay(
             Cookie、Authorization 等凭据值**不进证据面**（要留存请放凭据仓 `cred-store.py`）。
             会话保持请在同一次调用里传 cookies（内存），不要从磁盘读回凭据。
         timeout: 超时秒数
+        risk_scope: 状态工具登记的已有范围 ID；凭据、写请求、敏感操作必须提供。
+        risk_subject: 不含凭据值的稳定账号/设备身份引用；换会话/工具沿用，不得重置额度。
     """
     if not isinstance(method, str) or not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]{1,32}", method):
         return "[ERROR]: method 必须是有效 HTTP 方法名称"
@@ -2965,25 +3017,6 @@ def seep_http_replay(
                     "seep_http_replay",
                     "既有 session_file 不是当前 v2 会话快照；为防止误覆盖任意文件，拒绝写入。")
 
-    # 会话快照：v2 只含非凭据信息；v1（旧版裸 cookie 字典）只在内存里兼容读入，**绝不回写**
-    session_read_note = ""
-    if session_path and os.path.isfile(session_path):
-        try:
-            with open(session_path, "r", encoding="utf-8") as f:
-                saved = json.load(f)
-        except (OSError, ValueError) as exc:
-            saved = None
-            session_read_note = f"会话快照读取失败(已忽略，不影响本次请求): {type(exc).__name__}"
-        if isinstance(saved, dict) and saved.get("schema") != _HTTP_SESSION_SCHEMA:
-            # 旧版文件：只在内存里用，凭据不回写（不落盘、不回显）
-            legacy_ck = {str(k): v for k, v in saved.items() if isinstance(v, str)}
-            if legacy_ck:
-                merged = dict(legacy_ck)
-                merged.update(ck)
-                ck = merged
-                session_read_note = (f"旧版会话文件中的 {len(legacy_ck)} 个 cookie 仅本次内存使用；"
-                                     "新版快照不再落盘凭据")
-
     backend = ""
     resp_status = None
     resp_headers = {}
@@ -3002,73 +3035,33 @@ def seep_http_replay(
         except ImportError:
             return "[ERROR]: 缺少 HTTP 后端；安装 curl_cffi 或 requests 后重试"
         backend, use_impersonation = "requests(降级，无TLS伪装；curl_cffi未安装)", False
-    kwargs = {"timeout": timeout, "headers": hdr, "cookies": ck}
+    kwargs = {"timeout": timeout, "headers": hdr, "cookies": ck, "allow_redirects": False}
     if use_impersonation and impersonate and impersonate != "none":
         kwargs["impersonate"] = impersonate
     if body:
         kwargs["data"] = body
+    permit = None
+    try:
+        permit = _prepare_http(url, method, hdr, ck, body, risk_scope, risk_subject)
+        permit.begin()
+    except (RiskError, OSError) as exc:
+        return _risk_failure(str(exc) if isinstance(exc, RiskError) else "risk_state_unavailable", permit)
     try:
         r = http_client.request(method, url, **kwargs)
         resp_status, resp_headers, resp_text = r.status_code, dict(r.headers), r.text
         set_cookies = dict(r.cookies.get_dict())
     except Exception as exc:
-        msg = (f"[ERROR]: 请求失败: {type(exc).__name__}；"
-               "未自动重发。请求可能已经送达，请先核对服务端结果再决定是否重试。")
-        return _scrub_text(msg, _known_secrets([ck], [hdr], url))
-
-    # 本次已知的真实凭据值：只在内存里流转，用来「清洗 + 断言」，绝不进载荷
-    secrets = _known_secrets([ck, set_cookies], [hdr, resp_headers], url)
-
-    # 写会话快照：只写非凭据字段（P3 白名单）
-    saved_note = ""
-    write_ok = True
-    if session_path:
         try:
-            snapshot = _http_session_snapshot(method, url, resp_status, hdr, resp_headers,
-                                              list(set_cookies), len(body), secrets)
-            blob = json.dumps(snapshot, ensure_ascii=False, indent=2)
-            # P2：先断言再落盘（顺序不能反）；不通过就抛，绝不写盘
-            _assert_redacted(snapshot, secrets, "session_file")
-            _atomic_write_text(session_path, blob + "\n")
-            saved_note = (f"非凭据会话快照已写入 {session_path}"
-                          f"（cookie {len(ck)} 个 / set-cookie 名 {len(set_cookies)} 个已脱敏，值不进证据面）")
-        except RedactionFailure:
-            raise                      # 脱敏失败必须让调用失败（不得降级成提示）
-        except OSError as exc:
-            write_ok = False
-            saved_note = f"请求已完成，但会话快照写入失败: {type(exc).__name__}: {exc}"
+            permit.unknown()
+        except (RiskError, OSError):
+            pass  # The unresolved dispatch is retained even if recording failed.
+        return _risk_failure("outcome_unknown_no_automatic_retry", permit)
 
-    # 输出：所有凭据值 → [REDACTED]（保留键名与条数，便于判断有没有登录态）
-    # Scrub before cutting: otherwise a value spanning the boundary leaks its prefix.
-    body_preview = _scrub_text(resp_text, secrets)[:2000]
-    out = {
-        "ok": write_ok,
-        "status": "complete" if write_ok else "partial",
-        "backend": backend,
-        "request": {"method": method, "url": _redact_url(url, secrets),
-                    "headers": _redact_map(hdr, secrets),
-                    "cookies": _redact_cookie_map(ck),
-                    "body_len": len(body)},
-        "status": resp_status,
-        "response_headers": _redact_map(resp_headers, secrets),
-        "set_cookies": _redact_cookie_map(set_cookies),
-        "cookies_redacted": True,
-        "cookie_counts": {"request": len(ck), "response_set": len(set_cookies)},
-        "body_preview": body_preview,
-        "body_len": len(resp_text),
-    }
-    if not write_ok:
-        out["error"] = "session_write_failed"
-        out["network_request_completed"] = True
-        out["snapshot_written"] = False
-    elif session_path:
-        out["snapshot_written"] = True
-    notes = [n for n in (session_read_note, saved_note) if n]
-    if notes:
-        out["session"] = "；".join(notes)
-    # P2：出厂前再断言一次（这一行是“凭据不进输出”的机检闸门）
-    _assert_redacted(out, secrets, "http_replay_output")
-    return json.dumps(out, indent=2, ensure_ascii=False)
+    permit.observe(resp_status, resp_headers, resp_text)
+
+    return _publish_http(permit, method, url, hdr, ck, body, backend, resp_status,
+                         resp_headers, resp_text, set_cookies, session_path,
+                         _atomic_write_text, _assert_redacted)
 
 
 # ---------------------------------------------------------------------------
