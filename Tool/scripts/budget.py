@@ -388,7 +388,7 @@ def build(ceiling: int = CEILING_CONTROLLABLE, anchor: int = MEASURED_ANCHOR) ->
     rows.append(layer("SEEP.md（层间裁决）", "rules", "SEEP.md", sp, "四层裁决 + 指针，体量合理"))
 
     bt, bp = boundary_text()
-    rows.append(layer("seep-boundary（边界锚）", "boundary", bp, bt, "凭据红线/授权门/沙箱契约；小且不可省"))
+    rows.append(layer("seep-boundary（边界锚）", "boundary", bp, bt, "凭据去向/授权门/沙箱契约；小且不可省"))
 
     si, items = skills_index()
     rows.append(layer(f"技能索引（{len(items)} 个技能，只有 name+description）", "skills_index",

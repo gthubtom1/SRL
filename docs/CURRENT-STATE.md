@@ -8,6 +8,34 @@
 
 2026-10-30，开发、验证、部署和发布检查已收尾，代码维护基线为 **1.30.0**。1.29.0 稳定回退标签为 `baseline-v1.29.0-20261030`，对应提交 `bec1b3dbd200015d499b2e48cf6b7e1c256b532d`。正式技能导入通道已同步 `softseep`、`apkseep`，运行时注册已从新的源码根校验；后续按明确缺陷、技能、依赖兼容和上游适配做小版本维护。
 
+## 2026-10-31 边界锚口径调整（凭据去向）
+
+用户要求：凭据 / Token 在日常开发里必须能用，红线改成“放指定地方”而不是“不准落盘”。改动：
+
+- 边界锚第 1 条（`Tool/prompts/extensions/load-system-prompt.ts`）与请求期兜底（`security-audit-interceptor.ts`）：从“发现即停、不写入任何输出、不落盘”改为“可读、可用、可落盘，落盘只进凭据仓；三个出口恒禁（git 跟踪文件 / 报告交付产物 / 客户可见材料）；正文引用 `<CRED:case/name>`”。
+- 新增 `Tool/scripts/cred-store.py`：凭据仓 `~/.seep/secrets/<case>/`（仓库外，0600/icacls），`put/ls/get/path/env/purge/check/self-test`。manifest 只存指纹，不存值；`check` 拿真实值反扫已跟踪文件、case 账本、work 报告与审计证据，只报“文件:行 + 名字”。
+- 同步口径：`AGENTS.md` §〇-4、`SEEP.md` §0/§1、`REQUIREMENTS.md` §6、`MANUAL/PROMPT-LAYERS.md`（T7 判据）、`Tool/docs/AUTONOMY.md` §2.2、MCP 证据面文案；`.gitignore` 加 `work/**/secrets/`。
+- 证据面脱敏保留（`seep_http_security` / `session_file`）：那是防“值顺着证据漏进报告”，不是禁止使用。
+
+验证：新增 `cred-store` 套件（`self-test` 14/14，含“命中只报名字不回显值”“仓根在仓库内拒绝写入”）；`check.py --fast` 为 **36 PASS / 1 WARN（既有 4 条 WARN/INFO，非本轮引入）/ 0 FAIL**，跳过 18 套为 `--fast` 定义，不代表全量通过。扩展与提示词已用 `setup/install-pi.ps1 -SkipPackages` 部署，锚文本实测 522 字符（旧 368）。全量 `check.py` 与宿主重载后的人工复核未做。
+
+## 2026-10-31 守卫边界收窄（读/拷放行，只拦改系统）
+
+用户反馈：下载目录里的文件被拦到“读不到、也不让拷进来”，而真实诉求从一开始就只是**别改我的系统**（历史事故：逆向时被改了网卡）。彻查后确认是三个独立拦截点叠在一起，逐条改：
+
+| 拦截点 | 旧行为 | 现行为 |
+| :-- | :-- | :-- |
+| `cmd-guard.rules.json` `fs-bash-read-userprofile` | block：`Downloads` / `Desktop` / `Documents` 与 `.ssh` / `AppData` 同一条正则 | 拆两条：`fs-bash-read-secrets`（凭据载荷）+ `fs-bash-read-userdirs`（用户目录），**均为 warn**（读/拷放行 + 留来源提示） |
+| `answer-gate.ts` `read-guard` | block：`read`/`grep`/`find`/`ls` 命中路径名即拦，`credentials`/`passwords` 这类普通文件名也在名单 | 改为 **notify 不拦**；名单删掉普通文件名词，只留真实凭据载荷（`.ssh` / `.aws` / 浏览器 cookie 库 / 私钥） |
+| `interp-os-delete` / `interp-shutil-wipe` / `interp-ctypes-memwrite` / `interp-net-replay` | block | **warn**（用户决定 A）：删/搬文件、进程内存写（L1 本就允许）、协议重放都属正常工作，与 `AGENTS.md` §〇-2 的层级判定对齐 |
+| `blockRootScan` | true：`dir /s C:\\` / `find /` 物理拦 | **false**：只把 timeout 抬到 `scanTimeout`，不再阻断 |
+| `ask_user_question` | 硬拦（只许对话里 A/B/C） | **放行**：宿主弹窗每道题自带「Type something.」自由输入，选项不够可手打；`AGENTS.md` §〇-6 同步改为“两种都行” |
+| `disableDeny` | 只对 `cmd-guard.ts` 内置表生效，rules.json 的 39 条按 id 关不掉 | 对全部规则生效（含 rules.json），关掉的 id 会打一行 `console.info` |
+
+保留不变（用户要的就是这部分）：网卡 / IP / DNS / 路由 / WinHTTP / 防火墙 / 驱动 / 服务 / BCD / 固件 / 计划任务 / 系统信任根 / HKLM / 系统 hosts / 清日志 / 分区格式化 / 删卷影，以及删用户数据的 `rm -rf` 出 `work/`、`del /s`、`Remove-Item -Recurse` 出 `work/`、`git clean -xdf`。
+
+验证：`test_gates.py` **44/44 PASS**（含新增 D18 / D18b / D18c：删文件降级为提示、用户目录读拷放行、凭据目录可读）；node 直调 `decideCommand` 实测 `dir /s C:\`、`find /`、`python -c os.remove`、`requests.post(https://…)`、`ctypes WriteProcessMemory` → allow + note，`netsh winhttp set proxy`、`bcdedit /set` → 仍 BLOCK。`rules.json` 30 秒热加载；`cmd-guard.ts` / `answer-gate.ts` 需宿主重载后生效（未重启前旧逻辑仍在跑）。
+
 ## 本轮完成
 
 - `version-migrate` 从 AOB 追版扩展为“找回旧项目 → 比较旧上游/新上游/我方定制 → 优先复用 UI 与资源 → 按需调用 AOB、差分、脱壳、协议和授权技能 → 重建、回归、写回账本”的固定生命周期；具体技术路线仍由目标材料决定。

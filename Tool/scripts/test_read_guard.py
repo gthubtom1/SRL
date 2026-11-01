@@ -23,8 +23,11 @@ TS = os.path.join(ROOT, "Tool", "prompts", "extensions", "answer-gate.ts")
 CASES = [
     ("~/.ssh/id_rsa", True),
     ("C:" + "/Users/me/AppData/Local/Google/Chrome/User Data/Default/Login Data", True),
-    ("C:" + "/Users/me/Documents/passwords.txt", True),
+    # 第 7 轮：`passwords.txt` 这类**普通文件名**不再拦（它和 .ssh 里的私钥不是一回事）；
+    # 拦的是凭据载荷目录本身（下面几条）。
+    ("C:" + "/Users/me/Documents/passwords.txt", False),
     ("~/.aws/credentials", True),
+    ("~/.gnupg/secring.gpg", True),
     ("D:" + "/work/case/artifacts/run.log", False),
     ("Tool/cases/golden-crackme/target/a.exe", False),
     ("grep -rn frida Tool/", False),

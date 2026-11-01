@@ -18,8 +18,8 @@
   "enforce": true,
   "_enforce说明": "false = 只记账不阻断。想先观察守卫判得准不准时用它，出问题再打开。",
   "blockGui": false,
-  "blockRootScan": true,
-  "_blockRootScan说明": "true = 物理拦下盘根递归扫描（find / · dir /s C:\\）。只抬 timeout 不够：180s 仍是 3 分钟空转。",
+  "blockRootScan": false,
+  "_blockRootScan说明": "false = 只抬 timeout 不物理拦（第 7 轮用户要求放宽）。盘根递归仍会自动把 timeout 抬到 scanTimeout（180s）并在结果里回一句提示；真要连扫描都不许，把它改回 true。拦不住的代价是可能空转几分钟，收益是 `dir /s C:\\`、`find /` 这类全盘查找不再被硬挡。",
   "_blockGui说明": "本机是分析机，IDA/x64dbg GUI 是正当手段（见 AGENTS §四点五.4 的通道优先级）→ 关闭 GUI 拦截；GUI 卡死风险由 timeout 兜底。",
   "hardenSsh": true,
   "_hardenSsh说明": "给真命令位置上的 ssh/scp/sftp 补 -o ConnectTimeout=15 与心跳，给 rsync 补 --timeout=15；bash 侧对 ssh 再补 </dev/null 断交互提示。",
@@ -31,7 +31,7 @@
   "allow": [
     "cmd-guard-skip"
   ],
-  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再由用户对完整命令回 A（ask → 用户回 A → `ack --challenge <SHA-256>` → 原样重发；回 C 就换安全做法）。回执必须同时绑定命令和当前案件。\n\n**第 4 轮（解释器内联 + 系统动作变体）新增 17 条 block**：`interp-*` 6 条只匹配**解释器命令体**（`python -c` / `python - <<` / `powershell -c` 之后 `[^\\n;&|]{0,60}` 内出现 `-c`/`<<` 才算，`python Tool/scripts/*.py` 这类脚本路径永不命中）；`sys-*` 10 条 + `fs-bash-read-userprofile` 1 条按命令行文本匹配，与解释器无关。解释器内联的 argv 形态（`subprocess.run(['netsh','winhttp',...])`）没有命令字样子串，必须靠 `interp-subprocess-sysop` 这类「看代码」的规则兜。**已知误伤形态**：① 文档/JSON 里正常写出禁手字面量（非 heredoc、非 grep 段）会被拦（或从 heredoc/ grep 段里读就不会）—— 真要放过需用户对完整命令回 A 并绑定当前案件（回 C 就换安全做法）；② `python -c` 之后 60 字符内另有一个 `-c`（如 `... ; grep -c`）理论上可能误判，实际还要同时出现危险 token 才会命中；③ `icacls <路径>` 只读列出不拦，带任何开关（`/grant` `/reset` …）都拦；④ `python - <<PY` 形式：命中位置在 `<<` 之前（规则从解释器 token 起匹配），所以不受 heredoc「数据区豁免」影响 —— 这是刻意为之，因为 heredoc 体确实会被执行。",
+  "_denyRules说明": "**这些正则只是执行层兜底**，判据本体是 `AGENTS.md` §四点五 第 9 条「副作用层级」：L0 目标文件 / L1 进程内存可写；L2 用户级先备还原；L3 系统级（网卡/路由/DNS/全局代理/驱动/服务/引导/防火墙/策略/计划任务/系统信任根/HKLM/系统 hosts）与 L4 破坏性（分区/格式化/删卷影/清日志）一律不做。**没命中不等于允许** —— 新模式先按层级判，再决定要不要追加正则。放行方式：先 `python Tool/scripts/net-rollback.py snapshot`（仅网络类），再由用户对完整命令回 A（ask → 用户回 A → `ack --challenge <SHA-256>` → 原样重发；回 C 就换安全做法）。回执必须同时绑定命令和当前案件。\n\n**第 4 轮（解释器内联 + 系统动作变体）新增 17 条 block**：`interp-*` 6 条只匹配**解释器命令体**（`python -c` / `python - <<` / `powershell -c` 之后 `[^\\n;&|]{0,60}` 内出现 `-c`/`<<` 才算，`python Tool/scripts/*.py` 这类脚本路径永不命中）；`sys-*` 10 条 + `fs-bash-read-*` 2 条（secrets 拦 / userdirs 记）按命令行文本匹配，与解释器无关。解释器内联的 argv 形态（`subprocess.run(['netsh','winhttp',...])`）没有命令字样子串，必须靠 `interp-subprocess-sysop` 这类「看代码」的规则兜。**已知误伤形态**：① 文档/JSON 里正常写出禁手字面量（非 heredoc、非 grep 段）会被拦（或从 heredoc/ grep 段里读就不会）—— 真要放过需用户对完整命令回 A 并绑定当前案件（回 C 就换安全做法）；② `python -c` 之后 60 字符内另有一个 `-c`（如 `... ; grep -c`）理论上可能误判，实际还要同时出现危险 token 才会命中；③ `icacls <路径>` 只读列出不拦，带任何开关（`/grant` `/reset` …）都拦；④ `python - <<PY` 形式：命中位置在 `<<` 之前（规则从解释器 token 起匹配），所以不受 heredoc「数据区豁免」影响 —— 这是刻意为之，因为 heredoc 体确实会被执行。",
   "denyRules": [
     {
       "id": "sys-driver-install",
@@ -188,16 +188,16 @@
     },
     {
       "id": "interp-os-delete",
-      "severity": "block",
-      "why": "`python -c` 里的 `os.remove`/`os.unlink` 等价于 `rm`：直接删用户文件、不进回收站、无 diff 无日志（第 4 轮评审实测：这条在 rules.json 零命中）。写成 `python -c` 只是把删除动作藏进引号里，副作用层级和 `rm -f` 完全一样（L4 不可逆）。",
+      "severity": "warn",
+      "why": "第 7 轮（用户决定 A）：正常文件操作不再物理拦。`python -c` 里删**仓库外**用户文件仍是坏习惯，但 shell 侧 `rm`/`del`/`Remove-Item` 已各自有拦，且 `work/` 侧本来就该允许 —— 同一条纪律两种判法会让人摸不清边界。这里降为 warn：照做，但按 hint 先留底。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?os\\.(?:remove|unlink|rmdir|removedirs)\\s*\\(",
       "label": "解释器内联删文件（python -c … os.remove / os.unlink / os.rmdir）",
       "hint": "改用什么：① 先留底 `cp -r <目标> work/_trash/<时间戳>/`，再删**副本**；② 需要批量清理就用 `python Tool/scripts/<自己的脚本>.py`（脚本进版本库、路径参数显式），不要用 `-c` 内联；③ 目标在仓库外/用户目录 → 先让用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
     },
     {
       "id": "interp-shutil-wipe",
-      "severity": "block",
-      "why": "`shutil.rmtree('C:/Users/me/Documents')` 一次删掉整棵用户目录树，且 `shutil.move` 还会**覆盖**目标同名文件。内联形态绕过所有 shell 层删除规则（第 4 轮评审实测零命中）。",
+      "severity": "warn",
+      "why": "第 7 轮（用户决定 A）：`shutil.move` / `os.rename` 只是搬文件，不是清空目录 —— 把搬样本和 `rmtree` 放在同一条 block 里属于误伤。降为 warn，照做并提示先留底。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?(?:shutil\\.(?:rmtree|move|rmdir)\\s*\\(|os\\.(?:rename|replace)\\s*\\(|\\.unlink\\s*\\()",
       "label": "解释器内联递归删目录/移动覆盖（python -c … shutil.rmtree / shutil.move）",
       "hint": "改用什么：① `shutil.copytree(<目标>, 'work/_trash/<时间戳>')` 先复制留底，再删副本；② 真要清理就写成仓库内脚本（可 review、可回滚）；③ 目标含用户文件 → 先列清单给用户确认 + 走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
@@ -220,16 +220,16 @@
     },
     {
       "id": "interp-ctypes-memwrite",
-      "severity": "block",
-      "why": "`ctypes.windll.kernel32.WriteProcessMemory(...)` 是**直接改另一个进程的内存**（L1），也是注入器的最小骨架：OpenProcess → VirtualAllocEx → WriteProcessMemory → CreateRemoteThread。它在解释器里跑，任何 shell 层规则都看不见。",
+      "severity": "warn",
+      "why": "第 7 轮（用户决定 A，且与 AGENTS §〇-2 对齐）：L1「进程内存可写」是**允许**的，进程内补丁 / 注入本来就要写内存；本条原为 block，等于用形态（`python -c` + ctypes）否掉了层级（L1）。降为 warn：照做，别落到用户原件上。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)[\\s\\S]{0,300}?ctypes\\.(?:windll|WinDLL|cdll|CDLL)[\\s\\S]{0,120}?kernel32[\\s\\S]{0,200}?(?:WriteProcessMemory|NtWriteVirtualMemory|VirtualAllocEx|VirtualProtectEx|CreateRemoteThread|OpenProcess|VirtualAlloc)",
       "label": "解释器内联调 Win32 写别的进程内存（ctypes.windll.kernel32 + WriteProcessMemory/CreateRemoteThread）",
       "hint": "改用什么：① 要读/改目标进程内存，走调试器通道（x64dbg MCP / Frida）：`Tool/scripts/mcp-bridge-x64dbg.py`、Frida `Process.enumerateModules()`/`Memory.read`；② 这些通道有 undo 语义（可 remove breakpoint、可 detach），ctypes 裸写没有；③ 目的若是 patch 校验，先落盘补丁脚本进 `work/`。"
     },
     {
       "id": "interp-net-replay",
-      "severity": "block",
-      "why": "内联重放 = 用用户的真实 IP 对第三方服务器发请求（可能是重放攻击、可能是打目标服务端）。属**需确认**动作：① 出网痕迹留在用户机器上；② 请求可能带真实凭据/设备指纹；③ 一旦打的是生产服务，后果不可撤回（L3）。回环地址（127.0.0.1 / localhost）不拦 —— 本地抓包/自建服务是正当手段。",
+      "severity": "warn",
+      "why": "第 7 轮（用户决定 A）：协议重放 / 接口测试是本职（protocol-plugin、web-pentest 都要打对方 API），打非回环地址本身**不是**改本机网络配置。降为 warn：照做，只提示流量去向可追溯。",
       "re": "\\b(?:python[0-9.]*|pythonw|pypy[0-9.]*|py)\\b[^\\n;&|]{0,60}?(?:-c\\b|<<)(?=[\\s\\S]{0,400}?https?://(?!127\\.0\\.0\\.1|localhost|0\\.0\\.0\\.0|\\[::1\\]))[\\s\\S]{0,300}?(?:requests\\.(?:get|post|put|patch|delete|request)|urllib\\.request|urlopen|http\\.client|aiohttp)",
       "label": "解释器内联发网络请求（python -c … requests/urllib 打非回环地址）",
       "hint": "改用什么：① 抓包重放用 mitmproxy 的 replay（`mitmproxy -p 8080` 后 `replay.client`），报文留在 `work/`；② 只想看请求内容：目标进程内 hook `WinHttpSendRequest`/`SSL_write`，不发真实请求；③ 确实要出网 → 先把 URL、方法、body 摘要贴给用户确认，再走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
@@ -315,14 +315,22 @@
       "hint": "改用什么：① 只读看权限：`icacls <路径>`（不带开关，不拦）、`Get-Acl <路径>`；② 目标文件被占用/只读 → 复制到 `work/` 再改副本；③ 确实要动系统文件权限 → VM 快照 + 让用户确认。"
     },
     {
-      "id": "fs-bash-read-userprofile",
-      "severity": "block",
-      "why": "评审第 3 条：读工具的边界问题本层改不了，但**用 bash 去读**这一步能挡 —— 用户目录里的 `passwords.txt`、`.ssh/id_rsa`、浏览器 Cookies 一旦被读出来就进了会话上下文（不可撤回的泄漏）。`%TEMP%` / `work/` / 仓库内路径不放行拦截（`AppData\\Local\\Temp` 已排除）。",
-      "re": "(?:^|[\\s;&|(])(?:cat|type|more|less|head|tail|strings|grep|egrep|rg|findstr|awk|sed|Get-Content|gc|Select-String|cp|copy|xcopy|robocopy|tar|zip|ls|dir)(?:\\.exe)?\\s+[^\\n;&|]{0,160}?(?:[A-Za-z]:[\\\\/])?(?:Users|home)[\\\\/][^\\\\/\\s']+[\\\\/](?:Documents|Desktop|Downloads|Pictures|Videos|Music|OneDrive|\\.ssh|\\.aws|\\.gnupg|AppData[\\\\/](?:Roaming|Local)[\\\\/](?!Temp))",
-      "label": "用 bash 读/拷用户私有目录（Documents / Desktop / Downloads / .ssh / AppData）",
-      "hint": "改用什么：① 只处理仓库内样本：`work/samples/…`、`Tool/…`；② 用户自己的文件 → 请用户把文件复制到 `work/inputs/` 并说明用途，再读那一份；③ 确实必须就地读 → 先说明读哪个文件、为什么，让用户确认后走口令回执三步（ask → 用户回 A → ack → 重发；回 C 换安全做法）。"
+      "id": "fs-bash-read-secrets",
+      "severity": "warn",
+      "why": "第 7 轮（用户反馈「我下载的文件读不到、也拷不进来」）：读凭据载荷本身是**允许**的—— 边界锚第 1 条写明「凭据 / Token / Salt / 私钥：可读、可用」，出口限制在「git 跟踪文件 / 报告 / 客户可见材料」三个方向，不在读的一侧。这里降为 warn：照读，但要留一句提示。真正要拦的是「改系统」（sys-* / net-*）与「删用户数据」（fs-rm-* / del /s 等）。",
+      "re": "(?:^|[\\s;&|(])(?:cat|type|more|less|head|tail|strings|grep|egrep|rg|findstr|awk|sed|Get-Content|gc|Select-String|cp|copy|xcopy|robocopy|tar|zip|ls|dir)(?:\\.exe)?\\s+[^\\n;&|]{0,160}?(?:[A-Za-z]:[\\\\/])?(?:Users|home)[\\\\/][^\\\\/\\s']+[\\\\/](?:\\.ssh|\\.aws|\\.gnupg|\\.pki|\\.config[\\\\/]gcloud|AppData[\\\\/](?:Roaming|Local)[\\\\/](?!Temp))",
+      "label": "用 bash 读/拷凭据目录（.ssh / .aws / .gnupg / .pki / AppData 配置目录）",
+      "hint": "允许读/拷。照这个做法：① 值不要写进 git 跟踪文件 / 报告 / 客户可见材料，需要落盘就进凭据仓 `python Tool/scripts/cred-store.py put <case/name>`；② 正文引用写 `<CRED:case/name>`，不写值；③ 要复用的凭据从凭据仓取，不要每次去翻 .ssh。"
+    },
+    {
+      "id": "fs-bash-read-userdirs",
+      "severity": "warn",
+      "why": "第 6 轮：上一版把 Downloads / Desktop / Documents 和 .ssh 放在同一条 block 里，导致用户自己下载的样本「读不到、也拷不进来」—— 用户目录里的普通文件是**输入**，不是系统状态；读它、复制到 `work/inputs/` 不改任何东西（L0）。这里降为 warn：照做，但要留来源。危险的是**就地改/删**和**读凭据**，分别由 fs-* / 删除类规则和 fs-bash-read-secrets 管。",
+      "re": "(?:^|[\\s;&|(])(?:cat|type|more|less|head|tail|strings|grep|egrep|rg|findstr|awk|sed|Get-Content|gc|Select-String|cp|copy|xcopy|robocopy|tar|zip|ls|dir)(?:\\.exe)?\\s+[^\\n;&|]{0,160}?(?:[A-Za-z]:[\\\\/])?(?:Users|home)[\\\\/][^\\\\/\\s']+[\\\\/](?:Documents|Desktop|Downloads|Pictures|Videos|Music|OneDrive)",
+      "label": "用 bash 读/拷用户目录（Downloads / Desktop / Documents / OneDrive …）：允许，留来源",
+      "hint": "允许读、允许复制。照这个做法：① 复制到 `work/inputs/<同类名>/`，不要就地改、不要就地删；② 在 facts / 案件记录里写一行来源（原始绝对路径 + 大小 + `sha256sum`）；③ 只读用 `read` 工具或 `cp` 都行，别用 `mv`（会动用户原件）。"
     }
-    ],
-  "_disableDeny说明": "按 id 关掉某条内置禁手。内置 id: net-ip-alias / net-iface-write / net-winhttp-write / net-dns-write / net-route-write / net-winsock-reset / launch-start-process / launch-cmd-start / launch-subprocess。只有「本机就是一次性靶机、且已 snapshot」时才关。",
+  ],
+  "_disableDeny说明": "按 id 关掉某条禁手 —— **内置表（net-* / launch-*）和 rules.json 自己的 39 条都受它管**（第 7 轮修：旧版只对内置表生效，想关一条 rules.json 规则只能删条目）。例：\"disableDeny\": [\"interp-net-replay\", \"fs-bash-read-secrets\"]。只有「本机就是一次性靶机、且已 snapshot」时才关系统级那几条。",
   "disableDeny": []
 }
