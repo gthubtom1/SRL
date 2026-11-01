@@ -228,6 +228,17 @@ class DiscoveryTests(unittest.TestCase):
 
 
 class ShippedDiscoveryTests(unittest.TestCase):
+    def test_shipped_domain_crosstalk_matrix_keeps_primary_and_auxiliary_domains(self):
+        path = ROOT / "Tool/scripts/domain-gate.py"
+        spec = importlib.util.spec_from_file_location("discovery_domain_gate", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        import route
+        for case in module.ROUTING_TESTS:
+            with self.subTest(text=case["text"]):
+                _hits, domains = route.resolved_domains(case["text"])
+                self.assertEqual(module.routing_failures(case, domains), [])
+
     def test_discovered_oauth_method_has_a_working_offline_validation_path(self):
         result = discover(ROOT, "OAuth PKCE 回调 身份绑定", 5)
         method = next(r for r in result["resources"] if r["path"].endswith("oauth-oidc/SKILL.md"))
