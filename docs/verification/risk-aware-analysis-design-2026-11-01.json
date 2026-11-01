@@ -1,7 +1,7 @@
 {
   "schema": "seep.risk-aware-analysis.design-verification/1",
   "status": "design_checks_passed_runtime_not_implemented",
-  "verified_at": "2026-11-01T17:56:50+08:00",
+  "verified_at": "2026-11-01T17:58:55+08:00",
   "timezone": "Asia/Shanghai",
   "branch": "codex/risk-aware-analysis-plan",
   "base_commit": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
@@ -78,20 +78,20 @@
     },
     {
       "path": "docs/CURRENT-STATE.md",
-      "sha256": "970112975096a01418d39e3b63c8a6a0fdfa8e86a8e50c097982585b6edcd311",
-      "bytes": 8300,
+      "sha256": "8f08eed84553355463425bb67add550e4d541fcd9caf99f8a781691b3113cd3f",
+      "bytes": 8354,
       "lines": 71
     },
     {
       "path": "docs/audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md",
-      "sha256": "659ae37eb45345e038c7c0ec5c9b54aa5547562fdd64ed57120e7132f9fe236e",
-      "bytes": 42177,
-      "lines": 566
+      "sha256": "168ed69a4bc8bb667524ee71cebdbb3187ae083d798672bf4ac6cac87e78a21e",
+      "bytes": 42557,
+      "lines": 568
     },
     {
       "path": "docs/audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md",
-      "sha256": "0f4c9e16889f6068a01f34863ad5e8be90eb3177a25e1d3cffde3bde7c3358b6",
-      "bytes": 12097,
+      "sha256": "6781be807209f7fa12c0d36baa2bac272fc510e3757227a0a021125955660184",
+      "bytes": 12508,
       "lines": 162
     },
     {

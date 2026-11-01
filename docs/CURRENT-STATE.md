@@ -13,7 +13,7 @@
 - 已提供 31 项资料入口、14 项设计目标/56 个待实施验收场景和三分支对接/合并交接。核对时能力发现分支 `9c8a2e80` 已包含自主执行分支 `4d229016`；最终集成须重新确认 ancestry。
 - 本轮仅设计交付，未实现风险执行体，未运行客户样本/提交真实凭据，未部署、未合并；文档/结构检查不能替代运行验收或完整工程检查。
 
-入口：[详细方案](audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md)、[对接交接](audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md)、[设计校验回执](verification/risk-aware-analysis-design-2026-11-01.json)。后续按用户决定在集成基线上分批实施，不把设计清单自动记成已完成能力。
+入口：[详细方案](audits/RISK-AWARE-ANALYSIS-PLAN-2026-11-01.md)、[对接交接](audits/RISK-AWARE-ANALYSIS-INTEGRATION-2026-11-01.md)、[设计校验回执](verification/risk-aware-analysis-design-2026-11-01.json)。后续运行优化继续在自己的实施分支分批完成，三条线完成后由新对话最终合并；本轮设计完成不等于运行优化完成。
 
 ## 当前基线
 
