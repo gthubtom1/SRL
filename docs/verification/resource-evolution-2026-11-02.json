@@ -309,6 +309,7 @@
     "actual_user_agent_root_updated": false,
     "piweb_restarted": false,
     "github_pushed": false,
+    "github_pushed_scope": "Snapshot at implementation verification; later authorized publication is checked by live origin/main SHA, not this historical flag.",
     "previous_published_baseline": "80cf3c647f7ea1523946822c65d6ea0e7be4dd22",
     "source_backed_runtime_note": "Existing user runtime points to main, so a newly started CLI/MCP may read new source; extension copies and registration have not been synchronized."
   },
@@ -367,6 +368,62 @@
         "gui-mcp-before.stderr.log": "0dbaa8ba029b87dffb0333231ffbaa45e8ae16f10ae32f5ca3ac9b80589c2afd",
         "gui-mcp-after.stderr.log": "c45cbd3b7c496415be8e1339cf7028fa6280d0a19e9459ecf8e7612fa03d5914"
       }
+    }
+  },
+  "documentation_closeout": {
+    "date": "2026-11-02",
+    "branch_commit": "212bfe485d02c62a13721153bca6285bc5789f36",
+    "merge_commit": "60e18222e62fb6bf4e701246a21a8c0e8f02fc5d",
+    "scope": "five existing documentation files: user examples, navigation, historical lessons and contribution cleanup policy",
+    "production_or_test_changes": false,
+    "production_freeze_hashes_reverified": true,
+    "no_new_files_or_budget_policy_changes": true,
+    "no_cases_evidence_backups_or_other_worktrees_deleted": true,
+    "checks": [
+      {
+        "name": "docs",
+        "returncode": 0,
+        "seconds": 0.81
+      },
+      {
+        "name": "budget",
+        "returncode": 0,
+        "seconds": 0.56
+      },
+      {
+        "name": "preflight",
+        "returncode": 2,
+        "seconds": 88.61,
+        "fails": 0,
+        "notes": 3,
+        "waived": 1,
+        "unverified": 0
+      },
+      {
+        "name": "upload",
+        "returncode": 0,
+        "seconds": 16.45
+      }
+    ],
+    "pending_history_scan": {
+      "base": "80cf3c647f7ea1523946822c65d6ea0e7be4dd22",
+      "head": "60e18222e62fb6bf4e701246a21a8c0e8f02fc5d",
+      "text_blobs_scanned": 52,
+      "blocked": [],
+      "oversize_unscanned": [],
+      "policy": "existing upload rules without new exceptions"
+    },
+    "github_target_confirmed_by_user": "origin/main at github.com/gthubtom1/SRL",
+    "push_outcome": "verify live remote SHA after normal non-force push; not inferred from preparation",
+    "local_log_sha256": {
+      "budget.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "budget.stdout.log": "489d89d8613dca26f0c07c27bd429331884e6195622d903d01d197c0ff6fef9b",
+      "docs.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "docs.stdout.log": "8cf73536c2e969e4142ef7dde475ac9434038a9625d99d0af8bf7c566f51bc69",
+      "preflight.stderr.log": "7213bba3a55330bfbdbfe8ce47e34d25e5c4621eebad2fd81dd83e54caaa46bf",
+      "preflight.stdout.log": "b87917ba942f6fc36ffd8634e40b413cd4f605235d93cb1f923089437fd975de",
+      "upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "upload.stdout.log": "ef9af31dda0f00b624f7836d378f57411538050b907d0b7801dd9ab324612525"
     }
   }
 }
