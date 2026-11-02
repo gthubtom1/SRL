@@ -1,20 +1,22 @@
 {
   "schema": "seep.workbench-quality-verification/1",
   "record_date": "2026-11-02",
-  "source_commit": "9c0a2ac8bd387995fcb623610a3d120e2911a092",
-  "reviewed_commit": "599d27e4a3d25dc58e1e23398e85fd54b4e73bf8",
+  "source_commit": "634ae0af9b03cf0c38ea5b41fa241a52064e704e",
+  "reviewed_commit": "5ef716c59796f77f471de5775841bddddbcc0245",
   "reviewed_tree_equal": true,
   "production_sha256": {
     "Tool/scripts/project_state.py": "ce0718ab115a27df1339a16abab5260f422038de0226bb9e35bad085db8285fb",
     "Tool/scripts/manager_state.py": "7f8834696710bb2928c932b82b5c13f78f97d68d2a17d97f26e8373124ce8940",
     "Tool/scripts/lib/runtime_cautions.py": "b483f13d6acba5cb792e52d3689b5b9ecbc527fce237caeb8276f9c267276269",
     "Tool/scripts/lib/runtime_risk.py": "b44be22d41202e046de59ed12b53e1a5d29e39905308f5f5031c7520cc1b41d5",
-    "Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts": "5d868bcef41a59d76213a31ed471ccf3b8464edc2b57664ab4d644989cbde2f6",
-    "Tool/prompts/extensions/load-system-prompt.ts": "66f9b03afbc664b76b3042d75de83deb3cfe2ab46c626f28d5da28c487f182d5",
-    "setup/merge_agent_config.py": "f86c2082e4f40c426d5173c29d19757d14475f428c6446887290931714c7be47"
+    "Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts": "62b75904de6798cf0041a29404fd19867e9cafef19026307ee622c827ef4ccb5",
+    "Tool/prompts/extensions/load-system-prompt.ts": "d4ef5dc5d311820c80580f9409ea9c5df9078758cd3d00ccf8b21fe4e60d8b91",
+    "setup/merge_agent_config.py": "f86c2082e4f40c426d5173c29d19757d14475f428c6446887290931714c7be47",
+    "Tool/prompts/extensions/seep-events.ts": "2bfa9cae4ad7ff815ce24a023db455583456a9621074d5599d21d504bb4a8f83",
+    "Tool/prompts/extensions/seep-memory.ts": "996eb7de96028fe84a0bc8585efdf17b82ea61186dc37ea29e476e46ae1d0cd0"
   },
   "full_runtime": {
-    "command": "python Tool/scripts/check.py --runtime --json",
+    "command": "python -B Tool/scripts/check.py --runtime --json",
     "summary": {
       "pass": 109,
       "warn": 0,
@@ -22,54 +24,52 @@
       "skip": 0
     },
     "returncode": 0,
-    "seconds": 1294.6,
-    "finished_at": "2026-11-02T02:22:54.633039+08:00",
+    "seconds": 1306.84,
+    "finished_at": "2026-11-02T12:46:02.468564+08:00",
     "original_source_path": true,
     "isolated_agent_root": true
   },
   "cold_deployment": {
-    "source_commit": "9c0a2ac8bd387995fcb623610a3d120e2911a092",
+    "source_commit": "634ae0af9b03cf0c38ea5b41fa241a52064e704e",
     "managed_files": 486,
     "hash_errors": [],
+    "sdk_probe_returncode": 0,
+    "active_agent_root_updated": false,
+    "active_piweb_restarted": false,
+    "pi_model_api_called": false,
     "sdk_version": "1.4.0",
     "installed_extensions_loaded": 10,
+    "extension_errors": 0,
     "guide_chars": 229,
-    "local_case_binding_loaded": true,
-    "invalid_or_core_binding_map_not_injected": true,
-    "fresh_stdio_tools": 23,
-    "new_recipe_discovered": true,
-    "diagnosis_called": true,
-    "active_agent_root_updated": false,
-    "pi_model_api_called": false
+    "project_local_binding_loaded": true,
+    "invalid_binding_cleared_old_map": true,
+    "core_project_map_not_injected": true,
+    "global_pointer_or_parent_environment_changed": false
   },
   "independent_review": {
     "parent_context_inherited": false,
-    "brief": "Detailed plain-language user goals; no prescribed implementation answers.",
-    "stages": [
-      {
-        "commit": "665b18a2",
-        "assertions": 39,
-        "scope": "case isolation, manifest witnesses, failed-index caching, review suffix and workflow"
-      },
-      {
-        "commit": "ded4e83a",
-        "assertions": 33,
-        "scope": "installation dependency closure; original behavior suites also rerun"
-      },
-      {
-        "commit": "ab4d1816",
-        "assertions": 29,
-        "scope": "explicit project-local binding and isolation"
-      },
-      {
-        "commit": "599d27e4",
-        "hook_assertions": 15,
-        "real_core_integrity_api_assertions": 8,
-        "scope": "legacy hooks cannot corrupt Core facts; Core APIs and legacy restoration preserved"
-      }
-    ],
-    "counts_are_separate_stages_not_additive": true,
-    "earlier_rejections_retained": true
+    "brief": "Detailed plain-language user goals, no supplied implementation checklist. Findings independently reproduced.",
+    "initial_main_commit": "37ec512dbbce7fce0b93d230e3886511d8787f1f",
+    "findings": {
+      "P1": 1,
+      "P2": 2
+    },
+    "first_fix_commit": "ebde033dea1e1619e12e2375a2ee03a69e2c47c2",
+    "first_fix_rejected_for_real_async_write_window": true,
+    "final_fix_commit": "5ef716c59796f77f471de5775841bddddbcc0245",
+    "final_verdict": "fixed_within_three_findings_and_reproduced_related_boundaries",
+    "lifecycle_assertions": 37,
+    "prompt_root_assertions": 30,
+    "current_document_links": 8,
+    "real_libuv_stress_paths": 2,
+    "stress_safe_refusal_preserves_legacy_events": true,
+    "core_first_initialization_and_handoff_pass": true,
+    "transaction_marker_guard_verified": true,
+    "main_merge_tree_equal_to_reviewed": true,
+    "main_merge_tree": "b7326ffdc6121aac7118d0d17a071cc7bdc673a6",
+    "main_expected_changed_files": 8,
+    "no_tracked_mutations_during_independent_review": true,
+    "not_general_expert_or_all_host_proof": true
   },
   "ordinary_development": {
     "parent_context_inherited": false,
@@ -116,42 +116,23 @@
     "checks": [
       {
         "name": "final-budget",
-        "command": [
-          "python",
-          "Tool/scripts/budget.py",
-          "--json"
-        ],
         "returncode": 0,
-        "seconds": 0.47
+        "seconds": 0.5
       },
       {
         "name": "final-doc-commands",
-        "command": [
-          "python",
-          "Tool/scripts/lib/doc_commands.py",
-          "--json"
-        ],
         "returncode": 0,
-        "seconds": 0.72
+        "seconds": 0.69
       },
       {
         "name": "final-source-inventory",
-        "command": [
-          "python",
-          "Tool/scripts/test_source_inventory.py"
-        ],
         "returncode": 0,
-        "seconds": 17.2
+        "seconds": 17.08
       },
       {
         "name": "final-preflight",
-        "command": [
-          "python",
-          "Tool/scripts/preflight.py",
-          "--json"
-        ],
         "returncode": 2,
-        "seconds": 58.12,
+        "seconds": 57.08,
         "fails": 0,
         "notes": 3,
         "waived": 1,
@@ -159,13 +140,8 @@
       },
       {
         "name": "final-upload",
-        "command": [
-          "python",
-          "Tool/scripts/pre-upload-check.py",
-          "--json"
-        ],
         "returncode": 0,
-        "seconds": 10.72
+        "seconds": 10.86
       }
     ],
     "budget": {
@@ -277,9 +253,6 @@
         "level": "WARN"
       }
     ],
-    "preflight_prompt_estimated_tokens": 6687,
-    "preflight_prompt_soft_limit": 3500,
-    "preflight_prompt_existing_waiver_hard_limit": 16000,
     "preflight_returncode_is_not_clean_release_pass": true,
     "stdout_and_stderr_kept_separate": true
   },
@@ -303,28 +276,51 @@
   ],
   "local_evidence": {
     "distributed_with_source": false,
-    "directory": "tmp/quality-final",
+    "directory": "tmp/final-review-fixes",
     "sha256": {
-      "full-runtime.json": "b11f835094686da7039def85a7f1960c876e194028ab1a4fbf0fd1e3d61fdd7f",
-      "full-status.json": "75f51e7131bfff42bc00e1b4abbd46a88379ab3e45f6f64cb3af1b1b0d1e3572",
-      "source-freeze.json": "c31ceb7a726f5e135e7b2e57b21971bd78f28066b55ecf742b5a7b5a788a47e4",
-      "final-code-cold-status.json": "b0e2ac3f9c111b38ee3f83d466f18047e59c2af7d5422643dc994cb14e4435e2",
-      "final-code-installed-sdk.log": "80fbf1aac0a6bd730bc2df1e2cf51dfbd656f0c5b4a4f5fb3ae80b0466c0a79b",
-      "final-code-fresh-mcp.log": "bcf3df09f8d0b8fa0eafae252a791caf313930567c4e20de52867ccd5e4d24b2",
-      "ordinary-behavior-receipt.json": "ccaa3fdad8a39c875ef15304153423ecda4d2b185eea88fa943a8635065a498a",
-      "ordinary-behavior-parent-verify.log": "2dda5a7117b2ecf421418455b4f344d1f1e127664d815c02ebfea600d2fb3943",
-      "cache-cleanup-status.json": "b8626cd8eac2effe851a3dac10b29da20066602eceb3cf7038e04c35fe206f50",
-      "final-document-checks.json": "2822ce7e28ee4e53d2c09dcdf9709cb2c164451517d103e0b51a6349180676c3",
+      "source-freeze.json": "fec98818526e8ee79894186f9bdefc51e36a5fc0df135d48cc0e688e3679eb6e",
+      "full-runtime.json": "59e58f58bc32469b687dab06495d6fbd9f6d69e13cb2a9b870abebea490c9a2b",
+      "full-runtime.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full-status.json": "6380eb8b9e2fcfcfed16912084f4c35fe3e71944e5201a0aafb59ad61f149eb6",
+      "cold-status.json": "97d5ad12d39e4fd122a75d714740728a617be54c936cedc2b1de01e77de61164",
+      "installed-sdk.stdout.log": "80fbf1aac0a6bd730bc2df1e2cf51dfbd656f0c5b4a4f5fb3ae80b0466c0a79b",
+      "installed-sdk.stderr.log": "26abd2e0c0ca9059f6ae0dc8237085d7449b73dcf5455aebbf2943c2ff3c24b2",
+      "isolated-install.stdout.log": "e11927b01f3a74d5db4997b5defed0c073a76da615926a89540c35bc05e658d9",
+      "isolated-install.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "final-document-checks.json": "32c7842b80dc6ec69cc1de054247da3c22791491c1a9a31a5c83a1d014fce1c5",
       "final-budget.stdout.log": "c961e2e58e7746ee93bda1e0fe127ecd2dd38045844b4d9ea8a514ebf0ea3898",
       "final-budget.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "final-doc-commands.stdout.log": "bc5bfa53e325099565a425293f28a8f4b894a1fb36c9a652f48888cd203c91b1",
       "final-doc-commands.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "final-source-inventory.stdout.log": "67810c6fab9394a738da74b4421bd2410a297050b87f5089098dc9aef245685b",
-      "final-source-inventory.stderr.log": "dff7c66200093bf0e064dee73cf06f8f9219f27030e33fef2eb7b1b2a72d2b09",
-      "final-preflight.stdout.log": "52c1ac723d5666c862de4d3991213e2901a4b603efffb4f77aeb05c6cd57e837",
+      "final-source-inventory.stderr.log": "e0ca223e752944546d87a5785758e6b0f507ae50242a442a51fb3ff6a1ec0f0a",
+      "final-preflight.stdout.log": "1e0a5244b6602d62ef1a657a981c40ca3de398bfba2c7db1cd60fefbf77453ec",
       "final-preflight.stderr.log": "7213bba3a55330bfbdbfe8ce47e34d25e5c4621eebad2fd81dd83e54caaa46bf",
-      "final-upload.stdout.log": "02ade2dd76632ee75c6cc102cbe04eaf3a7320b40f7a7ebea0ce6717bfb2ab48",
+      "final-upload.stdout.log": "ded1ff9cc49d16238280503837df27523445973dfec9469f8f353beed4461dff",
       "final-upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "branch_targeted": {
+      "location": "codex/final-main-review-fixes-20261102:tmp/final-review-fixes",
+      "distributed_with_source": false,
+      "sha256": {
+        "before.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "before.stderr.log": "2809c680db007e3587a341f585c4d7a417f424e23eb4b75ff2075c56cd8d09e5",
+        "before-async.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "before-async.stderr.log": "2c42dcbe22e4ac420bc9fa4a4ae185d962c0cd695bdf951584c109bf632cb69e",
+        "after-async.stderr.log": "2bd6266a33850e558afd944443f4d54238bd03f8ff71d518ea89395c86a994a7",
+        "final-targeted-status.json": "99cac4ab7b69d2070628ba62929c13a53a917c40dd78a548e54d0b2080f280df"
+      }
+    },
+    "independent": {
+      "location": "system temporary directory: seep-independent-reverify2-fc2d243528f6481d889b5b411c934bbb",
+      "distributed_with_source": false,
+      "sha256": {
+        "docs-result.json": "00e0f1f31fbc6b50a534a4e402b4a5c0cb44ded009df353d4f99a3ef278b23bf",
+        "lifecycle-result.json": "130a22ab95ea19b973a9a91e81df525a2d9208b9b2e56cb874ea42983b4c3bd5",
+        "prompt-roots-result.json": "9b535bf08782466608ad0b9cbcd99011d0957d7fafc4f11c307bb507bed1452a",
+        "stress-audit-result.json": "e5cbac6735b4d2f3c9e3b508d5caf6ff0ee2970111928e90370cb258e543fc8c",
+        "transaction-result.json": "007c15e08a119b664887e1ca5c085637163afc8b3714ba1311168114a369f3e8"
+      }
     }
   },
   "four_line_ancestry": {
@@ -347,6 +343,424 @@
     "decision_review_fixes": {
       "commit": "7510bcfa46b34d116a26c90f24b2f75ab9c6bf48",
       "ancestor_of_final_source": true
+    }
+  },
+  "changed_files_sha256": {
+    "Tool/prompts/extensions/load-system-prompt.ts": "d4ef5dc5d311820c80580f9409ea9c5df9078758cd3d00ccf8b21fe4e60d8b91",
+    "Tool/prompts/extensions/seep-events.ts": "2bfa9cae4ad7ff815ce24a023db455583456a9621074d5599d21d504bb4a8f83",
+    "Tool/prompts/extensions/seep-memory.ts": "996eb7de96028fe84a0bc8585efdf17b82ea61186dc37ea29e476e46ae1d0cd0",
+    "Tool/prompts/packages/pi-seep-ext/UPSTREAM.json": "48320e8777f4de3a9c32e71fee99b6d2a9e13c1ff5ace13e4ef62a540bea3ed6",
+    "Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts": "62b75904de6798cf0041a29404fd19867e9cafef19026307ee622c827ef4ccb5",
+    "Tool/prompts/sources/逆向分析报告提示词.md": "734eb403974db0661d0688b221faa45419162c75726f0774abe8cca33b8c17e9",
+    "Tool/prompts/sources/逆向开工提示词-短版.md": "52c57d4f02fe9810775db5e65529eb0baf6ca8a70a43aea557c97dac1f9bbf3f",
+    "Tool/scripts/test_prompt_extensions.py": "71d3864253a697d5c7ab78fa1ecd3227524c9537d51b726b17772b8d5c47c46c"
+  },
+  "targeted_tests": [
+    {
+      "name": "prompt-extensions",
+      "returncode": 0,
+      "seconds": 9.19
+    },
+    {
+      "name": "tool-autonomy",
+      "returncode": 0,
+      "seconds": 0.53
+    },
+    {
+      "name": "read-guard",
+      "returncode": 0,
+      "seconds": 0.55
+    },
+    {
+      "name": "gate-harness",
+      "returncode": 0,
+      "seconds": 0.56
+    },
+    {
+      "name": "installer",
+      "returncode": 0,
+      "seconds": 4.81
+    },
+    {
+      "name": "runtime-root",
+      "returncode": 0,
+      "seconds": 0.53
+    },
+    {
+      "name": "environment-readiness",
+      "returncode": 0,
+      "seconds": 1.03
+    },
+    {
+      "name": "prompt-budget",
+      "returncode": 0,
+      "seconds": 1.06
+    },
+    {
+      "name": "install-document-entries",
+      "returncode": 0,
+      "seconds": 0.73
+    },
+    {
+      "name": "source-sdk",
+      "returncode": 0,
+      "seconds": 0.98
+    }
+  ],
+  "before_fix_failures": {
+    "three_test_methods_failed_before_fixes": true,
+    "async_stress_regression_failed_on_first_fix": true
+  },
+  "previous_snapshot": {
+    "schema": "seep.workbench-quality-verification/1",
+    "record_date": "2026-11-02",
+    "source_commit": "9c0a2ac8bd387995fcb623610a3d120e2911a092",
+    "reviewed_commit": "599d27e4a3d25dc58e1e23398e85fd54b4e73bf8",
+    "reviewed_tree_equal": true,
+    "production_sha256": {
+      "Tool/scripts/project_state.py": "ce0718ab115a27df1339a16abab5260f422038de0226bb9e35bad085db8285fb",
+      "Tool/scripts/manager_state.py": "7f8834696710bb2928c932b82b5c13f78f97d68d2a17d97f26e8373124ce8940",
+      "Tool/scripts/lib/runtime_cautions.py": "b483f13d6acba5cb792e52d3689b5b9ecbc527fce237caeb8276f9c267276269",
+      "Tool/scripts/lib/runtime_risk.py": "b44be22d41202e046de59ed12b53e1a5d29e39905308f5f5031c7520cc1b41d5",
+      "Tool/prompts/packages/pi-seep-ext/lib/case-dir.ts": "5d868bcef41a59d76213a31ed471ccf3b8464edc2b57664ab4d644989cbde2f6",
+      "Tool/prompts/extensions/load-system-prompt.ts": "66f9b03afbc664b76b3042d75de83deb3cfe2ab46c626f28d5da28c487f182d5",
+      "setup/merge_agent_config.py": "f86c2082e4f40c426d5173c29d19757d14475f428c6446887290931714c7be47"
+    },
+    "full_runtime": {
+      "command": "python Tool/scripts/check.py --runtime --json",
+      "summary": {
+        "pass": 109,
+        "warn": 0,
+        "fail": 0,
+        "skip": 0
+      },
+      "returncode": 0,
+      "seconds": 1294.6,
+      "finished_at": "2026-11-02T02:22:54.633039+08:00",
+      "original_source_path": true,
+      "isolated_agent_root": true
+    },
+    "cold_deployment": {
+      "source_commit": "9c0a2ac8bd387995fcb623610a3d120e2911a092",
+      "managed_files": 486,
+      "hash_errors": [],
+      "sdk_version": "1.4.0",
+      "installed_extensions_loaded": 10,
+      "guide_chars": 229,
+      "local_case_binding_loaded": true,
+      "invalid_or_core_binding_map_not_injected": true,
+      "fresh_stdio_tools": 23,
+      "new_recipe_discovered": true,
+      "diagnosis_called": true,
+      "active_agent_root_updated": false,
+      "pi_model_api_called": false
+    },
+    "independent_review": {
+      "parent_context_inherited": false,
+      "brief": "Detailed plain-language user goals; no prescribed implementation answers.",
+      "stages": [
+        {
+          "commit": "665b18a2",
+          "assertions": 39,
+          "scope": "case isolation, manifest witnesses, failed-index caching, review suffix and workflow"
+        },
+        {
+          "commit": "ded4e83a",
+          "assertions": 33,
+          "scope": "installation dependency closure; original behavior suites also rerun"
+        },
+        {
+          "commit": "ab4d1816",
+          "assertions": 29,
+          "scope": "explicit project-local binding and isolation"
+        },
+        {
+          "commit": "599d27e4",
+          "hook_assertions": 15,
+          "real_core_integrity_api_assertions": 8,
+          "scope": "legacy hooks cannot corrupt Core facts; Core APIs and legacy restoration preserved"
+        }
+      ],
+      "counts_are_separate_stages_not_additive": true,
+      "earlier_rejections_retained": true
+    },
+    "ordinary_development": {
+      "parent_context_inherited": false,
+      "workbench_source_commit": "a3c16b89026d61f11215f40b6ee009e05d85b12d",
+      "tests": 10,
+      "parent_rerun_returncode": 0,
+      "used": [
+        "shared instructions",
+        "CLI capability discovery after no matching MCP",
+        "OAuth/OIDC subskill"
+      ],
+      "case_or_manager_created": false,
+      "kb_or_web_required": false,
+      "scope": "one offline Codex task; not real identity-provider, nine-domain or all-host proof"
+    },
+    "previous_full_runs": [
+      {
+        "commit": "d34121c4",
+        "pass": 103,
+        "fail": 6,
+        "context": "copied diagnostic root: four dependency-closure defects and two historical cwd constraints"
+      },
+      {
+        "commit": "a3c16b89",
+        "pass": 105,
+        "fail": 4,
+        "context": "original root: dependency-closure defects, subsequently fixed"
+      },
+      {
+        "commit": "f467c4b3",
+        "pass": 109,
+        "fail": 0,
+        "context": "before local binding"
+      },
+      {
+        "commit": "6c63ad49",
+        "pass": 109,
+        "fail": 0,
+        "context": "before Core format guard"
+      }
+    ],
+    "final_document_checks": {
+      "status": "completed_with_existing_preflight_notes",
+      "checks": [
+        {
+          "name": "final-budget",
+          "command": [
+            "python",
+            "Tool/scripts/budget.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "seconds": 0.47
+        },
+        {
+          "name": "final-doc-commands",
+          "command": [
+            "python",
+            "Tool/scripts/lib/doc_commands.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "seconds": 0.72
+        },
+        {
+          "name": "final-source-inventory",
+          "command": [
+            "python",
+            "Tool/scripts/test_source_inventory.py"
+          ],
+          "returncode": 0,
+          "seconds": 17.2
+        },
+        {
+          "name": "final-preflight",
+          "command": [
+            "python",
+            "Tool/scripts/preflight.py",
+            "--json"
+          ],
+          "returncode": 2,
+          "seconds": 58.12,
+          "fails": 0,
+          "notes": 3,
+          "waived": 1,
+          "unverified": 0
+        },
+        {
+          "name": "final-upload",
+          "command": [
+            "python",
+            "Tool/scripts/pre-upload-check.py",
+            "--json"
+          ],
+          "returncode": 0,
+          "seconds": 10.72
+        }
+      ],
+      "budget": {
+        "ok": true,
+        "budget": [
+          {
+            "item": "MCP 工具",
+            "value": 23,
+            "limit": 45,
+            "ok": true
+          },
+          {
+            "item": "技能",
+            "value": 11,
+            "limit": null,
+            "ok": true
+          },
+          {
+            "item": "setup 脚本",
+            "value": 22,
+            "limit": 22,
+            "ok": true
+          },
+          {
+            "item": "MANUAL 手册",
+            "value": 16,
+            "limit": 16,
+            "ok": true
+          },
+          {
+            "item": "MCP 主服务行数",
+            "value": 3198,
+            "limit": 3200,
+            "ok": true
+          },
+          {
+            "item": "first-party 引擎文件",
+            "value": 1168,
+            "limit": 1180,
+            "ok": true
+          },
+          {
+            "item": "案例库文件",
+            "value": 1657,
+            "limit": 1700,
+            "ok": true
+          }
+        ],
+        "source_inventory": {
+          "policy": "seep.source_inventory/2",
+          "mode": "git",
+          "stable": true,
+          "counts": {
+            "included": 1269,
+            "tracked": 1269,
+            "untracked": 0,
+            "excluded": 6016,
+            "missing": 0,
+            "unsupported": 0,
+            "first_party": 1168,
+            "thirdparty_input": 101,
+            "deleted_staged": 0,
+            "by_role": {
+              "first_party": 1168,
+              "thirdparty_input": 101
+            }
+          },
+          "mode_reason": "",
+          "source_complete": true,
+          "manifest_source": "",
+          "missing_tracked": [],
+          "deleted_staged": [],
+          "unsupported": []
+        }
+      },
+      "install_document_commands": {
+        "ok": true,
+        "files": 77,
+        "command_examples": 63,
+        "errors": []
+      },
+      "source_inventory_regression_tests": 56,
+      "preflight": {
+        "fails": 0,
+        "notes": 3,
+        "waived": 1,
+        "unverified": 0
+      },
+      "preflight_note_details": [
+        {
+          "section": "2 数字",
+          "name": "BASELINE first-party 当前值",
+          "ok": true,
+          "detail": "声明为 snapshot（不追写实时值）：claim=未声明 实测=1168",
+          "level": "INFO"
+        },
+        {
+          "section": "2 单一事实源",
+          "name": "工具身份声明（目录未保存本机就绪快照）",
+          "ok": true,
+          "detail": "tool-index 不宣称本机就绪；实际发现与行为验证由 tool-readiness 单独执行",
+          "level": "INFO"
+        },
+        {
+          "section": "4 功能",
+          "name": "budget（已豁免：用户明确不以此止损；硬上限 16000）",
+          "ok": true,
+          "detail": "WARN 可控制小计 6687 > 3500，但 user 于 2026-10-25 决定豁免\n[已豁免：可控制层 6687；同时生效强制语句 8 条]\n可控制小计（人设+纪律+索引+边界）                                          6687           预算 3500  超 3187",
+          "level": "WARN"
+        }
+      ],
+      "preflight_prompt_estimated_tokens": 6687,
+      "preflight_prompt_soft_limit": 3500,
+      "preflight_prompt_existing_waiver_hard_limit": 16000,
+      "preflight_returncode_is_not_clean_release_pass": true,
+      "stdout_and_stderr_kept_separate": true
+    },
+    "cleanup": {
+      "checked_at": "2026-11-02T01:30:37.389333+08:00",
+      "removed_cache_files": 0,
+      "status": "not_executed_environment_policy_rejected_cleanup_commands",
+      "recursive_and_flat_cleanup_attempts_refused_before_execution": true,
+      "no_further_workaround_attempted": true,
+      "obsolete_tracked_plans_deleted": 4,
+      "active_user_data_or_vendor_dependencies_deleted": false,
+      "validation_evidence_retained": true
+    },
+    "limitations": [
+      "Actual user AgentRoot not updated or active Pi Web restarted in this round.",
+      "SDK-load and MCP probes are separate, not same-host model end-to-end success.",
+      "Raw strict TypeScript compilation has missing SDK/Node declarations; not claimed green.",
+      "Nine-domain depth and real-task success are not established by structural suites.",
+      "Hard execution protection covers cooperating HTTP and optional bounded Windows launch, not all channels.",
+      "Prompts and MCP availability do not guarantee model adoption or expert judgment."
+    ],
+    "local_evidence": {
+      "distributed_with_source": false,
+      "directory": "tmp/quality-final",
+      "sha256": {
+        "full-runtime.json": "b11f835094686da7039def85a7f1960c876e194028ab1a4fbf0fd1e3d61fdd7f",
+        "full-status.json": "75f51e7131bfff42bc00e1b4abbd46a88379ab3e45f6f64cb3af1b1b0d1e3572",
+        "source-freeze.json": "c31ceb7a726f5e135e7b2e57b21971bd78f28066b55ecf742b5a7b5a788a47e4",
+        "final-code-cold-status.json": "b0e2ac3f9c111b38ee3f83d466f18047e59c2af7d5422643dc994cb14e4435e2",
+        "final-code-installed-sdk.log": "80fbf1aac0a6bd730bc2df1e2cf51dfbd656f0c5b4a4f5fb3ae80b0466c0a79b",
+        "final-code-fresh-mcp.log": "bcf3df09f8d0b8fa0eafae252a791caf313930567c4e20de52867ccd5e4d24b2",
+        "ordinary-behavior-receipt.json": "ccaa3fdad8a39c875ef15304153423ecda4d2b185eea88fa943a8635065a498a",
+        "ordinary-behavior-parent-verify.log": "2dda5a7117b2ecf421418455b4f344d1f1e127664d815c02ebfea600d2fb3943",
+        "cache-cleanup-status.json": "b8626cd8eac2effe851a3dac10b29da20066602eceb3cf7038e04c35fe206f50",
+        "final-document-checks.json": "2822ce7e28ee4e53d2c09dcdf9709cb2c164451517d103e0b51a6349180676c3",
+        "final-budget.stdout.log": "c961e2e58e7746ee93bda1e0fe127ecd2dd38045844b4d9ea8a514ebf0ea3898",
+        "final-budget.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "final-doc-commands.stdout.log": "bc5bfa53e325099565a425293f28a8f4b894a1fb36c9a652f48888cd203c91b1",
+        "final-doc-commands.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "final-source-inventory.stdout.log": "67810c6fab9394a738da74b4421bd2410a297050b87f5089098dc9aef245685b",
+        "final-source-inventory.stderr.log": "dff7c66200093bf0e064dee73cf06f8f9219f27030e33fef2eb7b1b2a72d2b09",
+        "final-preflight.stdout.log": "52c1ac723d5666c862de4d3991213e2901a4b603efffb4f77aeb05c6cd57e837",
+        "final-preflight.stderr.log": "7213bba3a55330bfbdbfe8ce47e34d25e5c4621eebad2fd81dd83e54caaa46bf",
+        "final-upload.stdout.log": "02ade2dd76632ee75c6cc102cbe04eaf3a7320b40f7a7ebea0ce6717bfb2ab48",
+        "final-upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    "four_line_ancestry": {
+      "discovery": {
+        "commit": "71c4c6e57a9630dcccdef41f22a4092c3f5f47b0",
+        "ancestor_of_final_source": true
+      },
+      "autonomy": {
+        "commit": "4d229016ea1b71147521270596bcccf64f75fb2f",
+        "ancestor_of_final_source": true
+      },
+      "runtime_risk": {
+        "commit": "76c1b821926faf07d94a68e552195b080b17bc89",
+        "ancestor_of_final_source": true
+      },
+      "decision_context": {
+        "commit": "3595f90a1e3730bac2d0b04722e4542055e61c59",
+        "ancestor_of_final_source": true
+      },
+      "decision_review_fixes": {
+        "commit": "7510bcfa46b34d116a26c90f24b2f75ab9c6bf48",
+        "ancestor_of_final_source": true
+      }
     }
   }
 }
