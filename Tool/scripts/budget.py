@@ -20,6 +20,7 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+FIRST_PARTY_LIMIT = 1180  # Fixed approved policy; shared by admission and reporting.
 ROOT = os.path.dirname(HERE)  # Tool/scripts -> Tool
 if HERE not in sys.path:
     sys.path.insert(0, HERE)   # 让 `from lib.source_inventory import …` 与本文件同目录运行一致
@@ -118,7 +119,7 @@ def main(argv=None):
         ("MCP 主服务行数", len(_server_source().splitlines()), 3200),
         # 上限从 900 → 930（2026-10-25）：A+ 深度工作按"每域 ≥2000 行/篇均 ≥250"补内容，
         # 每轮会新增 2–4 篇 reference。深度是产品本身，不是膨胀；上限仍设死值，防止无节制加文件。
-        ("first-party 引擎文件", _pf_count, 1180),   # 用户 2026-11-01 批准三线必要增长；固定上限，不追随计数。口径不变。
+        ("first-party 引擎文件", _pf_count, FIRST_PARTY_LIMIT),   # 固定上限与来源口径不变。
         ("案例库文件", case_files(), 1700),   # 证据库：66 个案例的真实输入/产物
     ]
 

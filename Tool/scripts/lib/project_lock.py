@@ -69,7 +69,8 @@ def atomic_copy(source: Path, destination: Path, sha256: str, size: int) -> None
 
 
 @contextlib.contextmanager
-def project_lock(root: Path, timeout: float = 20, *, recover: bool = False):
+def project_lock(root: Path, timeout: float = 20, *, recover: bool = False, allow_pending: bool = False):
+    """allow_pending only holds the lock for independently validated recovery."""
     root = root.resolve()
     key = os.path.normcase(str(root))
     with _GUARD:
@@ -115,10 +116,11 @@ def project_lock(root: Path, timeout: float = 20, *, recover: bool = False):
             try:
                 journal = root / ".project-transaction.json"
                 if journal.exists() or journal.is_symlink():
-                    if not recover:
+                    if not recover and not allow_pending:
                         raise ValueError("interrupted project transaction; retry the interrupted command, or report generate/register, to recover")
-                    from .project_transaction import recover as restore_transaction
-                    restore_transaction(root)
+                    if recover:
+                        from .project_transaction import recover as restore_transaction
+                        restore_transaction(root)
                 yield
             finally:
                 held.remove(key)

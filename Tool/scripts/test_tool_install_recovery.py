@@ -17,6 +17,7 @@ import zipfile
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'mcp'))
 import tool_autodiscover as discovery
 from lib import tool_identity
+from lib.resource_sources import require_enabled
 
 spec = importlib.util.spec_from_file_location('readiness_recovery', Path(__file__).with_name('tool-readiness.py'))
 readiness = importlib.util.module_from_spec(spec)
@@ -36,7 +37,9 @@ class InstallCatalogIsolationTests(unittest.TestCase):
         function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                         and node.name == 'seep_ensure_tool')
         function.decorator_list = []
-        namespace = {'json': json, '_autodiscover': lambda: discovery, '_TOOL_INSTALL_HINTS': {}}
+        namespace = {'json': json, '_autodiscover': lambda: discovery, '_TOOL_INSTALL_HINTS': {},
+                     '_require_resource_enabled': require_enabled, 'Path': Path,
+                     'BASE_DIR': str(server_path.parent)}
         exec(compile(ast.Module(body=[function], type_ignores=[]), str(server_path), 'exec'), namespace)
         ensure = namespace['seep_ensure_tool']
         for content in cases:

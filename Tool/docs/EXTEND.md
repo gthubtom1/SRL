@@ -2,6 +2,8 @@
 
 复用现有入口进行增量维护。接入后核对契约、部署与实际任务，不以文件增加或安装退出码证明能力完成。所有相对命令从仓库根目录执行。
 
+整理项目经验、知识增补与资源来源维护先读 [资源维护配方](../playbooks/resource-maintenance.md)。`Tool/config/resource-sources.json`提供受限来源导航，个人源只读显式`SEEP_RESOURCE_CONFIG`；它不复制工具/文章清单、不自动扫描宿主私密配置。独立工具/MCP声明也可被发现，实际安装/握手仍按原入口验证。知识使用`resource-maintain.py`比较计划、受限写入和读回；技能继续用下文skill-import，二者不另建项目账本或自动推送Git。
+
 ## 0.1 领域命名空间（先分清再接线）
 
 正式领域由 `Tool/scripts/lib/domain_registry.py` 从 pack 载入，别名与横切分类在 `Tool/config/domain-aliases.json`。入口分为：

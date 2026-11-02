@@ -722,7 +722,8 @@ class WindowsRunnerDiscoveryTests(unittest.TestCase):
         source = Path(__file__).resolve().parents[2]
         for name in ('Tool/scripts/tool-run.ps1', 'Tool/mcp/tool_autodiscover.py',
                      'Tool/scripts/lib/project_lock.py', 'Tool/scripts/lib/mcp_http.py',
-                     'Tool/scripts/lib/runtime_root.py', 'Tool/scripts/lib/process_tree.py'):
+                     'Tool/scripts/lib/runtime_root.py', 'Tool/scripts/lib/process_tree.py',
+                     'Tool/scripts/lib/resource_sources.py'):
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source / name, dest)

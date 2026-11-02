@@ -22,6 +22,7 @@ from typing import Optional, List, Dict, Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from lib import process_tree as _process_tree
 from lib.capability_discovery import discover as _discover_capabilities
+from lib.resource_sources import knowledge_entries as _knowledge_entries, knowledge_path as _knowledge_path, read_document as _read_knowledge_document, require_enabled as _require_resource_enabled
 from lib.runtime_diagnostics import diagnose_json as _runtime_diagnose
 from lib.runtime_risk import state_action as _runtime_risk_state, RiskError
 
@@ -193,7 +194,7 @@ server = MCPServer(
     instructions="""seep 是跨宿主工作台的专业工具与知识入口，普通开发也可按当前问题借用。
 选择专业方法、查已有资源或受阻换路时，先 seep_capability_discover；读取选中方法，
 按需 seep_kb_search -> seep_kb_read，再核对当前宿主的真实工具 schema 执行与验证。
-资源归属不是任务准入；发现不执行目标，注册不证明本机就绪，输出不等于验收；未知或无进展时按 Tool/playbooks/evidence-led-investigation.md 主动查证和复核，项目风险看 handoff.runtime_cautions，不自动解除远端暂停。
+资源归属不是任务准入；发现不执行目标，注册不证明本机就绪，输出不等于验收；未知时按 Tool/playbooks/evidence-led-investigation.md 查证，经验增补按 Tool/playbooks/resource-maintenance.md；项目风险看 handoff.runtime_cautions，不自动解除远端暂停。
 能力包含：
 1. 二进制分析与逆向 (Radare2 / Rabin2 / Radiff2 / Rasm2)
 2. Android APK / DEX 反编译、解包与 Smali 检索 (JADX, Apktool)
@@ -975,23 +976,12 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
     limit, err = _int_in_range("seep_kb_search", "limit", limit, 1, 200)
     if err:
         return err
-    if category:
-        candidate = _kb_join(KB_DIR, category)
-        # 真实边界：分类目录必须在 KB 根内，且 symlink 指到外部同样拒绝（不读根外内容）
-        if not _kb_within(candidate, KB_DIR) or not os.path.isdir(candidate):
-            return _invalid_param("seep_kb_search",
-                                  "category 必须指向 KB 根内已存在的目录")
-        search_root = candidate
-    else:
-        search_root = KB_DIR
-    md_files = glob.glob(os.path.join(search_root, "**", "*.md"), recursive=True)
-    md_files = [p for p in md_files if _kb_within(p, search_root)]
-    # === SEEP-EXT: kb_local BEGIN === 本地覆盖层（Tool/mcp/kb_local/，不属于 vendored 上游）
-    _KB_LOCAL = KB_LOCAL_DIR
-    if os.path.isdir(_KB_LOCAL):
-        md_files += [p for p in glob.glob(os.path.join(_KB_LOCAL, "**", "*.md"), recursive=True)
-                     if _kb_within(p, _KB_LOCAL)]
-    # === SEEP-EXT: kb_local END ===
+    try:
+        entries = _kb_source_entries(category)
+    except (ValueError, OSError):
+        return _invalid_param("seep_kb_search", "知识来源或分类不可用；请核对资源来源配置")
+    md_files = [row[1] for row in entries]
+    article_refs = {row[1]: row[0] for row in entries}
 
     # ---- 权重与阈值（集中在此；调参不必动算法）----
     _KB_SINGLE_WEIGHT, _KB_TITLE_BOOST, _KB_PATH_BOOST = 0.2, 6, 4   # 单字 / 标题行 / 路径
@@ -1024,10 +1014,7 @@ def seep_kb_search(query: str, category: Optional[str] = None, limit: int = 10) 
         try:
             with open(fpath, "r", encoding="utf-8", errors="ignore") as fh:
                 content = fh.read()
-            _rel = os.path.relpath(fpath, KB_DIR).replace("\\", "/")
-            # 本地覆盖层：统一成 kb_local/<相对路径>，避免同一文件被两次打分产出两条 hit
-            if fpath.startswith(_KB_LOCAL + os.sep):
-                _rel = "kb_local/" + os.path.relpath(fpath, _KB_LOCAL).replace(os.sep, "/")
+            _rel = article_refs[fpath]
             if _rel in _kb_low:
                 continue
             _low = content.lower()
@@ -1223,27 +1210,22 @@ def _byte_len(text: str) -> int:
     return len(str(text).encode("utf-8", "replace"))
 
 
+def _kb_source_entries(category=None):
+    return _knowledge_entries(Path(BASE_DIR).parents[1], KB_DIR, KB_LOCAL_DIR, category)
+
+
 def _kb_article_paths():
     """KB 内全部文章的相对路径（含 kb_local/<相对路径>），供 kb_read 模糊解析用。
 
     两个根都做 realpath 边界过滤：KB 目录里的 symlink 若指向根外（例如 work/、用户目录），
     它的文章不会进清单，模糊解析就不可能把它带出来。
     """
-    out = []
-    for root, prefix in ((KB_DIR, ""), (KB_LOCAL_DIR, "kb_local/")):
-        if os.path.isdir(root):
-            out += [prefix + os.path.relpath(p, root).replace(os.sep, "/")
-                    for p in glob.glob(os.path.join(root, "**", "*.md"), recursive=True)
-                    if _kb_within(p, root)]
-    return out
+    return [row[0] for row in _kb_source_entries()]
 
 
 def _kb_path_from_rel(rel: str) -> str:
     """相对路径 → 绝对路径（kb_local/ 前缀路由到本地覆盖层；只按段拼接）。"""
-    rel = (rel or "").replace("\\", "/")
-    if rel.startswith("kb_local/"):
-        return _kb_join(KB_LOCAL_DIR, rel[len("kb_local/"):])
-    return _kb_join(KB_DIR, rel)
+    return _knowledge_path(Path(BASE_DIR).parents[1], rel, KB_DIR, KB_LOCAL_DIR)
 
 
 def _kb_search_paths(query: str, n: int = 3):
@@ -1326,15 +1308,12 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
     if err:
         return err
 
-    # 本地覆盖层：kb_local/ 前缀走 Tool/mcp/kb_local/
     _given = (article_path or "").replace("\\", "/").strip()
-    target = _kb_join(KB_LOCAL_DIR, _given[len("kb_local/"):]) \
-        if _given.startswith("kb_local/") else _kb_join(KB_DIR, _given)
+    try:
+        target = _kb_path_from_rel(_given)
+    except (ValueError, OSError):
+        return _invalid_param("seep_kb_read", "知识引用越界、停用或来源不可用")
     note = ""
-    # 真实边界（含 symlink）：不在对应根内一律当“不存在”，不读、也不回显内容。
-    if os.path.isfile(target) and not _kb_within(
-            target, KB_LOCAL_DIR if _given.startswith("kb_local/") else KB_DIR):
-        return _invalid_param("seep_kb_read", "article_path 越出 KB 根（symlink 也不允许）")
     if not os.path.isfile(target):
         # 模糊解析：① 目录/目录片段 → 列清单；② 路径片段/后缀（容忍少写目录、少写 .md）；
         # ③ 大白话 → 走检索（别名展开 + 2-gram）定位到 top1，并在正文前注明实际读的是哪篇。
@@ -1357,6 +1336,9 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
             if _guessed:
                 _cands, _others = _guessed[:1], _guessed[1:]
         elif len(_cands) > 1:
+            source_ids = {row[2] for row in _kb_source_entries() if row[0] in _cands}
+            if len(source_ids) > 1:
+                return _invalid_param("seep_kb_read", "跨来源文章歧义，请使用完整 article_path：" + " / ".join(_cands[:5]))
             # 同名多份（常见于 _archive/ 归档副本）：优先非归档里路径最短的那篇
             _cands.sort(key=lambda r: (r.startswith("_archive/"), len(r)))
             _others = _cands[1:]
@@ -1364,23 +1346,25 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
         if not _cands:
             return ("[ERROR]: Article not found: %s。KB 里既没有字面相近的文章，检索也没有足够交集——"
                     "先 seep_kb_search(\"<你的问题原话>\") 拿路径，再读。" % article_path)
-        target = _kb_path_from_rel(_cands[0])
-        if not _kb_within(target, KB_LOCAL_DIR if _cands[0].startswith("kb_local/")
-                          else KB_DIR):
-            return _invalid_param("seep_kb_read", "article_path 越出 KB 根（symlink 也不允许）")
+        try:
+            target = _kb_path_from_rel(_cands[0])
+        except (ValueError, OSError):
+            return _invalid_param("seep_kb_read", "知识引用已变化或越界")
         note = "[提示] 无精确同名文件，已按路径片段/检索自动定位到：%s\n\n" % _cands[0]
         if _others:
             note += "[其他候选] %s\n\n" % "；".join(_others[:3])
-    with open(target, "r", encoding="utf-8", errors="replace") as fh:
-        text = fh.read()
-        if len(text) > max_chars:
-            # 超预算仍返回结构化 JSON（note 塞进 artifact_hint，不破坏 json.loads）
-            _hint = "全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
-                len(text), _byte_len(text))
-            return _resource_constraint(
-                "seep_kb_read", text, "把 max_chars 调到 ≥ %d 再读全文" % len(text),
-                artifact_hint=(note.strip() + "；" + _hint) if note else _hint)
-        return note + text
+    try:
+        text = _read_knowledge_document(target).decode("utf-8-sig", errors="replace")
+    except (ValueError, OSError):
+        return _invalid_param("seep_kb_read", "知识文档不可读或超过读取预算")
+    if len(text) > max_chars:
+        # 超预算仍返回结构化 JSON（note 塞进 artifact_hint，不破坏 json.loads）
+        _hint = "全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
+            len(text), _byte_len(text))
+        return _resource_constraint(
+            "seep_kb_read", text, "把 max_chars 调到 ≥ %d 再读全文" % len(text),
+            artifact_hint=(note.strip() + "；" + _hint) if note else _hint)
+    return note + text
 
 # ---------------------------------------------------------------------------
 # 5. 战术助手与安全评估增强工具 (Task Isolation, Triage, Report & IDA Bridge)
@@ -2169,6 +2153,12 @@ def seep_ensure_tool(tool_id: str, allow_install: bool = True) -> str:
     """
     tad = _autodiscover()
     tid = tool_id.strip().lower()
+    if tad is not None and hasattr(tad, "normalize_tool_id"):
+        tid = tad.normalize_tool_id(tid)
+    try:
+        _require_resource_enabled(Path(BASE_DIR).parents[1], "tool_software", tid)
+    except (ValueError, OSError):
+        return json.dumps({"ok": False, "available": False, "status": "disabled_or_policy_unavailable", "install_attempted": False})
     policy = ("缺就装（默认 allow_install=True；只要探测不装时传 allow_install=False）"
               if allow_install else "只探测不装（本次显式 allow_install=False）")
 

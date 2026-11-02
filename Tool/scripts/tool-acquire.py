@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 from lib import mcp_http
+from lib.resource_sources import require_enabled, SourceError
 import subprocess
 import sys
 
@@ -94,6 +95,13 @@ def l0(tool_id: str, rt: dict, cap: dict) -> dict:
     failed_mcp = None
     discovery = None
     for mcp_mode in (m for m in modes if (m.get('endpoint') or {}).get('url')):
+        try:
+            require_enabled(REPO, "mcp_server", tool_id)
+            require_enabled(REPO, "mcp_server", mcp_mode.get("server_id", tool_id))
+        except (ValueError, OSError):
+            failed_mcp = {"level": "L0", "kind": "mcp", "ok": False,
+                          "detail": "MCP channel disabled or resource policy unavailable", "disabled": True}
+            continue
         ep = mcp_mode.get("endpoint") or {}
         url = ep.get("url") or ""
         auth = (mcp_mode.get("auth") or {})
@@ -213,6 +221,15 @@ def _assess_available(tool_id, steps, at):
 
 def acquire(tool_id: str, allow_start: bool, allow_install: bool = False) -> dict:
     try:
+        module = _discovery_module()
+        tid = module.normalize_tool_id(tool_id) if hasattr(module, "normalize_tool_id") else tool_id.strip().lower()
+        require_enabled(REPO, "tool_software", tid)
+    except (ValueError, OSError) as exc:
+        disabled = isinstance(exc, SourceError) and str(exc) == "resource_disabled"
+        return {"tool": tool_id, "verdict": "DISABLED" if disabled else "CONFIG_ERROR", "at": "resource_policy",
+                "steps": [], "session_verified": False, "runtime_verified": False,
+                "next": "Respect the explicit resource policy; select an enabled alternative or correct the source configuration."}
+    try:
         runtimes = load_json(RUNTIMES, strict=True).get('tools')
         caps = load_json(CAPS, strict=True).get('tools')
         if not isinstance(runtimes, dict) or not isinstance(caps, dict):
@@ -246,7 +263,8 @@ def acquire(tool_id: str, allow_start: bool, allow_install: bool = False) -> dic
         return {"tool": tool_id, "verdict": "NEED_START", "at": "L0", "steps": steps,
                 "next": f"python Tool/scripts/tool-acquire.py --tool {tool_id} --start"}
 
-    s1 = l1_start(tool_id) if allow_start else {'level': 'L1', 'ok': False, 'detail': '本次未请求启动'}
+    start_enabled = allow_start and not s0.get("disabled")
+    s1 = l1_start(tool_id) if start_enabled else {'level': 'L1', 'ok': False, 'detail': '本次未请求启动或MCP通道已停用'}
     if allow_start:
         steps.append(s1)
     if s1['ok']:

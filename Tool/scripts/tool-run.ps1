@@ -95,6 +95,20 @@ if ($ListModes) {
 }
 
 if (-not $Tool) { Out-Json @{ status = 'FAILED'; stage = 'config'; reason = '需要 -Tool <id> 或 -ListModes' }; exit 2 }
+function Test-ResourceEnabled([string]$Id, [switch]$Mcp) {
+    if (-not $PythonCommand) { return $false }
+    $policyArgs = @('-X', 'utf8', $DiscoveryScript, 'resource-policy', $Id)
+    if ($Mcp) { $policyArgs += '--mcp' }
+    try {
+        $policy = (& $PythonCommand.Source @policyArgs 2>$null | Out-String)
+        if ($LASTEXITCODE -ne 0) { return $false }
+        return (($policy | ConvertFrom-Json).allowed -eq $true)
+    } catch { return $false }
+}
+if (-not (Test-ResourceEnabled $Tool)) {
+    Out-Json @{ status='DISABLED'; stage='resource_policy'; reason='Tool disabled or source policy unavailable'; tool=$Tool }
+    exit 2
+}
 if ($Use -and -not (Test-Path -LiteralPath $Use -PathType Leaf)) {
     Out-Json @{ status = 'FAILED'; stage = 'discover'; reason = '-Use 必须指向现有文件'; path = $Use }
     exit 2
@@ -203,6 +217,10 @@ $tried = @()
 
 # ---------------------------------------------------------------- 逐个通道尝试
 foreach ($m in $modes) {
+    if (($m.kind -like 'mcp-*' -or $m.endpoint.url) -and -not (Test-ResourceEnabled $Tool -Mcp)) {
+        $tried += [pscustomobject]@{ mode=$m.id; stage='resource_policy'; reason='MCP channel disabled' }
+        continue
+    }
     # CLI 通道：只解析并打印命令（-Run 才真执行）
     if ($m.kind -eq 'cli') {
         $tid = if ($m.toolId) { $m.toolId } else { $Tool }

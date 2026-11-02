@@ -176,3 +176,7 @@ prn
 
 # 分析工作区的回收站（删除前的暂存，不入库）
 work/_trash/
+
+# Knowledge maintenance reuses the project lock/transaction implementation.
+/Tool/mcp/kb_local/**/.project.lock
+/Tool/mcp/kb_local/**/.project-transaction.json

@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from . import domain_registry
+from .resource_sources import Sources, SourceError, article_reference, metadata, read_document, resource_key
 
 SCHEMA = "seep.capability-discovery/1"
 MAX_FILE_BYTES = 256 * 1024
@@ -86,6 +87,8 @@ class _Catalog:
         self.servers = {}
         self.packs = {}
         self.repo_aliases = {}
+        self.disabled = set()
+        self.source_view = []
 
     def warn(self, code, path):
         item = {"code": code, "source": str(path)[:240]}
@@ -291,13 +294,6 @@ class _Catalog:
                                  "declared_auto_composable": eligible,
                                  "compose": obj["compose"]})
         self.qualify_compositions()
-        self.tools = self.load_json("Tool/config/tool-capabilities.json", optional=True).get("tools", {})
-        self.servers = self.load_json("Tool/config/mcp-servers.json", optional=True).get("servers", {})
-        self.repo_aliases = self.load_json("Tool/config/playbook-capability-aliases.json", optional=True).get("repo", {})
-        for name in ("tools", "servers", "repo_aliases"):
-            if not isinstance(getattr(self, name), dict):
-                self.warn("invalid_catalog_shape", name)
-                setattr(self, name, {})
         source = self.read("Tool/mcp/seep_mcp_server.py", optional=True)
         if source:
             try:
@@ -308,6 +304,64 @@ class _Catalog:
                                         and d.func.attr == "tool" for d in n.decorator_list)}
             except SyntaxError:
                 self.warn("invalid_tool_source", "Tool/mcp/seep_mcp_server.py")
+
+    def load_resources(self):
+        """Index declarations as candidates, not installed or connected tools."""
+        self.tools = self.load_json("Tool/config/tool-capabilities.json", optional=True).get("tools", {})
+        self.servers = self.load_json("Tool/config/mcp-servers.json", optional=True).get("servers", {})
+        self.repo_aliases = self.load_json("Tool/config/playbook-capability-aliases.json", optional=True).get("repo", {})
+        for name in ("tools", "servers", "repo_aliases"):
+            if not isinstance(getattr(self, name), dict):
+                self.warn("invalid_catalog_shape", name)
+                setattr(self, name, {})
+        for kind, table, file, label in (
+                ("tool_software", self.tools, "Tool/config/tool-capabilities.json", "display"),
+                ("mcp_server", self.servers, "Tool/config/mcp-servers.json", "description")):
+            for name, obj in table.items():
+                if not isinstance(name, str) or not isinstance(obj, dict):
+                    self.warn("invalid_resource_declaration", file)
+                    continue
+                title = str(obj.get(label) or name)[:160]
+                description = str(obj.get("description") or obj.get("sources_note") or "")[:700]
+                self.records.append({"id": kind + ":" + name, "kind": kind, "domain": None,
+                    "path": file, "title": title, "description": description,
+                    "search": name + " " + title + " " + description,
+                    "links": [self.link("configuration", file)], "method_tools": []})
+        try:
+            sources = Sources(self.root)
+            self.disabled = sources.disabled
+            self.source_view = sources.view()
+            for item in self.source_view:
+                if item["visibility"] == "private" and item["enabled"] and not item["present"]:
+                    self.warn("explicit_resource_source_unavailable", item["id"])
+            self.fingerprints.append(("resource-sources", sources.revision))
+            if not any(r["id"] == "core-skills" and r["enabled"] for r in sources.rows):
+                self.records = [r for r in self.records if r["kind"] not in {"skill", "subskill", "crosscutting"}]
+            for kind in ("knowledge", "skill"):
+                for source, rel, path, ident in sources.documents(kind):
+                    if kind == "skill" and source["id"] == "core-skills":
+                        continue  # Existing pack loader owns formal identities.
+                    text = read_document(path).decode("utf-8-sig")
+                    self.files += 1
+                    self.bytes += len(text.encode("utf-8"))
+                    if self.files > MAX_FILES or self.bytes > MAX_READ_BYTES:
+                        raise SourceError("resource_constraint")
+                    self.fingerprints.append((ident, hashlib.sha256(text.encode()).hexdigest()))
+                    meta = metadata(text) or {}
+                    if meta.get("maturity") == "retired":
+                        continue
+                    title = str(meta.get("title") or _title(text, Path(rel).stem))[:160]
+                    description = str(meta.get("summary") or _description(text))[:1200]
+                    tags = meta.get("tags", [])
+                    self.records.append({"id": ident, "kind": "kb_article" if kind == "knowledge" else "external_skill",
+                        "domain": None, "path": article_reference(source["id"], rel) if kind == "knowledge" else ident,
+                        "title": title, "description": description,
+                        "search": title + " " + description + " " + str(tags), "links": [], "method_tools": [],
+                        "resource_source": {"id": source["id"], "visibility": source["visibility"]},
+                        "read_reference": ident, "maturity": meta.get("maturity", "unclassified")})
+        except (SourceError, OSError, UnicodeError, TypeError) as exc:
+            self.warn("resource_sources_invalid", str(exc) if isinstance(exc, SourceError) else "unreadable_resource_source")
+        self.records = [r for r in self.records if resource_key(r["id"]) not in self.disabled]
 
     def qualify_compositions(self):
         records = {r["id"].split(":", 1)[1]: r for r in self.records if r["kind"] == "capability"}
@@ -337,10 +391,12 @@ class _Catalog:
         if namespace == "tool":
             return {**item, "kind": "tool_software", "declared": name in self.tools,
                     "source": "Tool/config/tool-capabilities.json#tools." + name,
+                    "enabled": resource_key("tool_software:" + name) not in self.disabled,
                     "runtime_status": "not_checked", "invocable_method": False}
         if namespace == "mcp":
             return {**item, "kind": "mcp_server", "declared": name in self.servers,
                     "source": "Tool/config/mcp-servers.json#servers." + name,
+                    "enabled": resource_key("mcp_server:" + name) not in self.disabled,
                     "runtime_status": "not_checked", "invocable_method": False}
         if namespace in ("probe", "reserved"):
             return {**item, **self.link("capability_reference", "Tool/capabilities/" + name + ".json"),
@@ -375,6 +431,18 @@ class _Catalog:
                     "applicability": "candidate_requires_method_review",
                     "links": [self.reference(l) for l in record["links"][:8]],
                     "omitted_links": max(0, len(record["links"]) - 8)})
+        if record["kind"] in {"tool_software", "mcp_server"}:
+            out.update(runtime_status="not_checked", invocable_method=False,
+                       applicability="declaration_requires_actual_host_readiness_check")
+            out["readiness_check"] = ({"tool": "seep_tool_discover", "tool_id": record["id"].split(":", 1)[1], "record_state": False}
+                                     if record["kind"] == "tool_software" else
+                                     "Inspect the current host's actual tools/list and service handshake; do not read credentials into discovery.")
+        if "resource_source" in record:
+            out.update(resource_source=record["resource_source"], read_reference=record["read_reference"],
+                       maturity=record["maturity"],
+                       read_cli="Tool/scripts/resource-maintain.py read --resource <read_reference>")
+            if record["kind"] == "kb_article":
+                out["read_mcp"] = {"tool": "seep_kb_read", "article_path": record["path"]}
         if record["kind"] == "capability":
             out.update({k: record[k] for k in ("maturity", "reserved", "declared_auto_composable", "compose")})
             out["limitations"] = ["Declaration only; action admission, tool readiness and target evidence remain separate."]
@@ -410,10 +478,15 @@ def discover(root, query, limit=5):
     if not catalog.path("Tool/skill") or not (catalog.root / "Tool/skill").is_dir():
         return {**base, "status": "invalid_source", "error": "Seep source root has no Tool/skill directory"}
     catalog.load()
+    catalog.load_resources()
     scored = []
     terms = _terms(query)
     for record in catalog.records:
         score, matched = _score(record["search"], terms)
+        if (record["kind"] == "kb_article" and 2 <= len(query.strip()) <= 40
+                and re.search(r"[\u3400-\u9fff]", query) and query.strip().lower() in record["title"].lower()):
+            score += 8
+            matched = [*matched, "title_fragment"]
         if score:
             scored.append((score, record, matched))
     scored.sort(key=lambda item: (-item[0], item[1]["id"]))
@@ -429,6 +502,7 @@ def discover(root, query, limit=5):
             "resources": selected, "warnings": catalog.warnings, "source_revision": revision,
             "total_matches": len(scored), "omitted_count": len(scored) - len(selected),
             "read_stats": {"files": catalog.files, "bytes": catalog.bytes},
+            "resource_sources": catalog.source_view,
             "next": ["Read the selected method and its prerequisites before choosing an operation.",
                      "For a professional unknown, use seep_kb_search(query=...) then seep_kb_read(article_path=...).",
                      "Inspect the host's actual tool schema; source registration is not runtime readiness.",
