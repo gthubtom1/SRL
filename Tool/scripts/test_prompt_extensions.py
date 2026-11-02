@@ -30,6 +30,131 @@ def case_output(summary=None):
 
 class RunnerContract(unittest.TestCase):
     @unittest.skipUnless(shutil.which("node"), "Node is required")
+    def test_inflight_and_queued_legacy_events_recheck_core_identity(self):
+        script = r'''
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {pathToFileURL} from 'node:url';
+const [root,fixture,python]=process.argv.slice(2);
+delete process.env.SEEP_CASE_DIR;
+const events=await import(pathToFileURL(path.join(root,'Tool/prompts/extensions/seep-events.ts')));
+const memory=await import(pathToFileURL(path.join(root,'Tool/prompts/extensions/seep-memory.ts')));
+const register=mod=>{const h={};mod.default({on:(n,fn)=>h[n]=fn,registerCommand:()=>{}});return h;};
+const hooks=register(events), mem=register(memory);
+const target=path.join(fixture,'inert.bin');fs.writeFileSync(target,'SYNTHETIC INPUT; NEVER EXECUTE');
+const cli=(dir,args)=>{
+ const p=spawnSync(python,['-B',path.join(root,'Tool/scripts/project_state.py'),...args,'--project',dir],
+   {encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8',PYTHONDONTWRITEBYTECODE:'1'}});
+ assert.equal(p.status,0,p.stdout+p.stderr);return JSON.parse(p.stdout);
+};
+for(const mode of ['tool_result','agent_end','turn_end','session_shutdown','memory_queue']){
+ const workspace=path.join(fixture,mode),dir=path.join(workspace,'.seep-case');
+ fs.mkdirSync(dir,{recursive:true});
+ const ctx={cwd:workspace,sessionId:mode};
+ const call={toolCallId:mode,toolName:'bash',input:{command:'project_state.py init'}};
+ let queued=[];
+ if(mode==='memory_queue'){
+  // Do not yield: the directory changes before the queued callbacks run.
+  queued=[mem.input({text:'QUEUED_INPUT'},ctx),
+    mem.turn_end({message:{role:'assistant',content:'@@FACT queued fact\n@@TRAP queued trap'}},ctx)];
+ }else await hooks.tool_call(call,ctx);
+ cli(dir,['init','--project-id',mode,'--target',target]);
+ const facts=path.join(dir,'facts.jsonl'),before=fs.readFileSync(facts);
+ cli(dir,['handoff']);
+ if(mode==='tool_result') await hooks.tool_result({...call,isError:false},ctx);
+ else if(mode==='memory_queue') await Promise.all(queued);
+ else if(mode==='turn_end'){
+  const now=Date.now;try{Date.now=()=>now()+3600000;await hooks.turn_end({},ctx);}finally{Date.now=now;}
+ }else await hooks[mode]({},ctx);
+ await new Promise(r=>setTimeout(r,100));
+ assert.deepEqual(fs.readFileSync(facts),before,mode+' must not append a legacy event to Core');
+ assert.equal(fs.existsSync(path.join(dir,'memory')),false,mode+' must not create legacy memory');
+ assert.equal(cli(dir,['handoff']).handoff.state_health,'ok');
+ cli(dir,['event','--type','review-note','--message','Core API remains available']);
+ assert.equal(cli(dir,['handoff']).handoff.state_health,'ok');
+}
+// The same loaded extension must still record ordinary legacy case events.
+const cwd=path.join(fixture,'legacy'),dir=path.join(cwd,'.seep-case');fs.mkdirSync(dir,{recursive:true});
+const ctx={cwd,sessionId:'legacy'};
+await hooks.tool_call({toolCallId:'legacy',toolName:'read'},ctx);
+await hooks.tool_result({toolCallId:'legacy',toolName:'read',isError:false},ctx);
+await mem.input({text:'legacy input'},ctx);
+await new Promise(r=>setTimeout(r,100));
+const rows=fs.readFileSync(path.join(dir,'facts.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+assert.equal(rows.length,2);assert.ok(rows.some(r=>r.event==='tool'));assert.ok(rows.some(r=>r.event==='user'));
+console.log('Core transitions, queued memory, timeout/shutdown flushes and legacy compatibility passed');
+'''
+        with tempfile.TemporaryDirectory(prefix="seep-core-transition-") as folder:
+            probe = Path(folder) / "probe.mjs"
+            probe.write_text(script, encoding="utf-8")
+            run = subprocess.run([shutil.which("node"), "--experimental-strip-types", str(probe),
+                                  str(ROOT), folder, sys.executable], cwd=ROOT,
+                                 env=dict(os.environ, NODE_NO_WARNINGS="1", PYTHONDONTWRITEBYTECODE="1"),
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    @unittest.skipUnless(shutil.which("node"), "Node is required")
+    def test_prompt_assets_share_expanded_agent_root_and_keep_project_priority(self):
+        script = r'''
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {syncBuiltinESMExports} from 'node:module';
+import {pathToFileURL} from 'node:url';
+const [root,fixture]=process.argv.slice(2),home=path.join(fixture,'home');
+fs.mkdirSync(home);os.homedir=()=>home;syncBuiltinESMExports();
+const agent=path.join(home,'custom-agent'),cwd=path.join(fixture,'workspace');
+fs.mkdirSync(agent);fs.mkdirSync(cwd);fs.mkdirSync(path.join(home,'.pi','agent'),{recursive:true});
+const files={'SEEP.md':'seep-reverse-lab','RULES.md':'generic-rules','PERSONALITY.md':'personality'};
+for(const file of Object.keys(files)){
+ fs.writeFileSync(path.join(agent,file),'CUSTOM_'+file);
+ fs.writeFileSync(path.join(home,file),'HOME_'+file);
+ fs.writeFileSync(path.join(home,'.pi','agent',file),'DEFAULT_'+file);
+}
+const mod=await import(pathToFileURL(path.join(root,'Tool/prompts/extensions/load-system-prompt.ts')));
+const h={};mod.default({on:(n,fn)=>h[n]=fn,registerCommand:()=>{}});
+let seq=0;
+async function check(value,prefix){
+ process.env.PI_CODING_AGENT_DIR=value;
+ const event={systemPromptOptions:{sections:{unrelated:'keep'}}};
+ await h.before_agent_start(event,{cwd,sessionId:'root-'+(++seq)});
+ for(const [file,section] of Object.entries(files)) assert.equal(event.systemPromptOptions.sections[section],prefix+file,section+' with '+value);
+ assert.equal(event.systemPromptOptions.sections.unrelated,'keep');
+}
+await check(agent,'CUSTOM_');await check('~/custom-agent','CUSTOM_');
+await check('~\\custom-agent','CUSTOM_');await check('~','HOME_');
+fs.mkdirSync(path.join(cwd,'.pi'));
+fs.writeFileSync(path.join(cwd,'.pi','RULES.md'),'PROJECT_RULES.md');
+process.env.PI_CODING_AGENT_DIR='~/custom-agent';
+const event={systemPromptOptions:{sections:{}}};
+await h.before_agent_start(event,{cwd,sessionId:'project-override'});
+assert.equal(event.systemPromptOptions.sections['generic-rules'],'PROJECT_RULES.md');
+assert.equal(event.systemPromptOptions.sections['seep-reverse-lab'],'CUSTOM_SEEP.md');
+console.log('absolute and tilde AgentRoot assets agree; project priority remains intact');
+'''
+        with tempfile.TemporaryDirectory(prefix="seep-prompt-root-") as folder:
+            probe = Path(folder) / "probe.mjs"
+            probe.write_text(script, encoding="utf-8")
+            run = subprocess.run([shutil.which("node"), "--experimental-strip-types", str(probe),
+                                  str(ROOT), folder], cwd=ROOT, env=dict(os.environ, NODE_NO_WARNINGS="1"),
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_retired_copy_paste_prompts_are_not_current_execution_instructions(self):
+        for name in ("逆向开工提示词-短版.md", "逆向分析报告提示词.md"):
+            with self.subTest(name=name):
+                text = (ROOT / "Tool/prompts/sources" / name).read_text(encoding="utf-8")
+                self.assertIn("已停用", text)
+                self.assertIn("不要复制", text)
+                self.assertIn("risk-aware-analysis.md", text)
+                self.assertNotIn("```", text)
+                self.assertNotIn("00-analysis/SKILL.md", text)
+                self.assertNotIn("report/facts.jsonl", text)
+
+    @unittest.skipUnless(shutil.which("node"), "Node is required")
     def test_foreign_case_neither_injects_nor_receives_an_unbound_sessions_events(self):
         script = r'''
 import assert from 'node:assert/strict';

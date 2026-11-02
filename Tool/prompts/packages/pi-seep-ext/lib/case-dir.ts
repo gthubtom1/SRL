@@ -20,6 +20,11 @@ function directory(value: string): string {
   }
 }
 
+/** Recheck saved/queued paths: a tool may have initialized Core since binding. */
+export function isLegacyCaseDirectory(value: string): boolean {
+  return !!value && !!directory(value);
+}
+
 /** A machine pointer is a candidate, not a binding to every new session. */
 export function resolveCaseDirectory(cwd: string = process.cwd()): string {
   const explicit = process.env.SEEP_CASE_DIR?.trim();

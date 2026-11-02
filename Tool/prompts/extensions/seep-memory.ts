@@ -42,7 +42,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
+import { isLegacyCaseDirectory, resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -139,11 +139,7 @@ function sessionIdOf(ctx: any, cwd: string): string {
 
 /** 案例目录不存在 → 整个扩展空转（不创建、不报错）。 */
 function caseExists(dir: string): boolean {
-	try {
-		return fs.existsSync(dir) && fs.statSync(dir).isDirectory();
-	} catch {
-		return false;
-	}
+	return isLegacyCaseDirectory(dir);
 }
 
 /** 自检钩子：不启动 Pi 也能验证 case 目录选择顺序与指针校验。 */
@@ -186,6 +182,7 @@ async function ensureMemoryDir(dir: string): Promise<boolean> {
 async function appendLine(caseDirectory: string, file: string, line: string): Promise<void> {
 	if (!(await ensureMemoryDir(caseDirectory))) return;
 	try {
+		if (!caseExists(caseDirectory)) return;
 		await fs.promises.appendFile(file, line.endsWith("\n") ? line : line + "\n", "utf-8");
 	} catch {
 		/* 静默：写不进去不影响会话 */
@@ -431,7 +428,7 @@ export default function seepMemory(pi: ExtensionAPI) {
 			const { caseDirectory } = contextOf(ctx);
 			if (!caseExists(caseDirectory)) return {};
 			const raw = await readText(memFile(caseDirectory, "map.md"));
-			if (!raw.trim()) return {};
+			if (!raw.trim() || !caseExists(caseDirectory)) return {};
 			// 硬上限 1.5KB：header + body + footer 全部算在内。
 			const header = `[Seep 记忆地图 · 插件自动注入 · 只读]\n`;
 			const footer =

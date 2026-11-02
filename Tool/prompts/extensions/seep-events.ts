@@ -52,7 +52,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
+import { isLegacyCaseDirectory, resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /* ────────────────────────────── 常量 ────────────────────────────── */
@@ -196,10 +196,6 @@ function redact(s: string): string {
 	return out;
 }
 
-function isDir(d: string): boolean {
-	try { return !!d && fs.statSync(d).isDirectory(); } catch { return false; }
-}
-
 function caseDirOf(cwd: string): string {
 	return resolveCaseDirectory(cwd);
 }
@@ -228,7 +224,7 @@ function sessionIdOf(ctx: any, cwd: string): string {
 
 /** 案例目录不存在 → 整个扩展空转（不创建、不报错）。 */
 function caseExists(dir: string): boolean {
-	return isDir(dir);
+	return isLegacyCaseDirectory(dir);
 }
 
 /**

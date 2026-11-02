@@ -153,8 +153,8 @@ function loadAsset(cwd: string, fileName: string): LoadedFileAsset | null {
 	const home = homedir();
 	const userDirs: string[] = [];
 
-	if (process.env.PI_CODING_AGENT_DIR) {
-		userDirs.push(resolve(process.env.PI_CODING_AGENT_DIR));
+	if (process.env.PI_CODING_AGENT_DIR?.trim()) {
+		userDirs.push(resolve(resolveAgentDir()));
 	}
 	userDirs.push(join(home, ".pi", "agent"));
 
