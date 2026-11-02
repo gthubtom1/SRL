@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 import uuid
 
 from .resource_sources import (Sources, SourceError, META_PREFIX, META_SCHEMA, MAX_FILE,
-                               contained, linked, metadata, article_reference, relative, read_document)
+                               contained, linked, metadata, article_reference, relative, read_document, document_path)
 from .project_lock import project_lock
 from .project_transaction import file_transaction, _replace, _load, recover as recover_transaction, pending
 from .source_inventory import inventory
@@ -68,10 +68,10 @@ def read_resource(repo, ident):
     source_id, rel = tail.split("/", 1)
     sources = Sources(repo)
     source = sources.get(source_id)
-    if source["kind"] != kind or ident in sources.disabled:
+    if source["kind"] != kind or sources.is_disabled(ident):
         raise SourceError("resource_reference_disabled")
-    path = contained(source["root"], rel)
-    if not path.is_file() or path.stat().st_size > MAX_FILE or not rel.endswith(".md"):
+    path = document_path(source, rel)
+    if not path.is_file() or path.stat().st_size > MAX_FILE:
         raise SourceError("resource_unavailable_or_oversized")
     raw = read_document(path)
     return {"resource_id": ident, "visibility": source["visibility"], "sha256": digest(raw),
@@ -211,7 +211,7 @@ def prepare(repo, request):
     for query in queries:
         _text(query, 200)
     target_id = "knowledge:" + source["id"] + "/" + rel
-    if target_id in sources.disabled:
+    if sources.is_disabled(target_id):
         raise SourceError("knowledge_target_disabled")
     if path.is_file():
         previous = path.read_text(encoding="utf-8-sig")

@@ -34,6 +34,10 @@ class SourceError(ValueError):
     pass
 
 
+def resource_key(value):
+    return os.path.normcase(value)
+
+
 def linked(path: Path) -> bool:
     try:
         info = path.lstat()
@@ -137,8 +141,26 @@ class Sources:
         if len(set(roots)) != len(roots):
             raise SourceError("resource_duplicate_root")
         self.rows = rows
+        self.disabled = {self.canonical_id(value) for value in self.disabled}
         self.revision = hashlib.sha256(json.dumps([self.config_hashes, sorted(self.disabled),
             [(r["id"], str(r["root"]), r["enabled"]) for r in rows]], sort_keys=True).encode()).hexdigest()
+
+    def canonical_id(self, ident):
+        kind, _, tail = ident.partition(":")
+        if kind in {"knowledge", "skill"} and "/" in tail:
+            source_id, rel = tail.split("/", 1)
+            row = next((r for r in self.rows if r["id"] == source_id), None)
+            if row:
+                try:
+                    path = contained(row["root"], rel).resolve()
+                    rel = path.relative_to(row["root"].resolve()).as_posix()
+                    return resource_key(kind + ":" + source_id + "/" + rel)
+                except (SourceError, OSError, ValueError):
+                    pass
+        return resource_key(ident)
+
+    def is_disabled(self, ident):
+        return bool(self.disabled) and self.canonical_id(ident) in self.disabled
 
     def _entry(self, obj, private):
         fields = {"id", "kind", "path", "enabled", "writable", "visibility"}
@@ -197,7 +219,7 @@ class Sources:
                 dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in _SKIP
                                  and not linked(Path(parent) / d))
                 for name in sorted(files):
-                    if name.startswith(".") or not name.endswith(".md") or kind == "skill" and name != "SKILL.md":
+                    if name.startswith(".") or not name.lower().endswith(".md") or kind == "skill" and name != "SKILL.md":
                         continue
                     path = Path(parent) / name
                     if linked(path):
@@ -205,7 +227,7 @@ class Sources:
                     rel = path.relative_to(folder).as_posix()
                     path = contained(folder, rel)
                     ident = kind + ":" + row["id"] + "/" + rel
-                    if ident in self.disabled:
+                    if self.is_disabled(ident):
                         continue
                     current = path.stat().st_size
                     count += 1
@@ -233,6 +255,26 @@ def read_document(path):
     if len(raw) > MAX_FILE:
         raise SourceError("resource_file_budget_exceeded")
     return raw
+
+
+def document_path(source, rel, *, allow_directory=False):
+    relative(rel)
+    if any(part.startswith(".") or part in _SKIP for part in rel.split("/")):
+        raise SourceError("resource_not_an_eligible_document")
+    path = contained(source["root"], rel)
+    if path.is_file():
+        if path.suffix.lower() != ".md" or path.stat().st_size > MAX_FILE:
+            raise SourceError("resource_not_an_eligible_document")
+    elif not allow_directory or path.exists() and not path.is_dir():
+        raise SourceError("resource_document_unavailable")
+    return path
+
+
+def require_enabled(repo, kind, name):
+    if kind not in {"tool_software", "mcp_server"} or not isinstance(name, str) or not 1 <= len(name) <= 160:
+        raise SourceError("resource_policy_identifier_invalid")
+    if Sources(repo).is_disabled(kind + ":" + name):
+        raise SourceError("resource_disabled")
 
 
 def article_reference(source_id, rel):
@@ -290,6 +332,6 @@ def knowledge_path(repo, reference, builtin=None, local=None):
     else:
         ident, rel = "builtin-kb", reference
     row = sources.get(ident)
-    if row["kind"] != "knowledge" or "knowledge:" + ident + "/" + rel in sources.disabled:
+    if row["kind"] != "knowledge" or sources.is_disabled("knowledge:" + ident + "/" + rel):
         raise SourceError("knowledge_reference_disabled")
-    return str(contained(row["root"], rel))
+    return str(document_path(row, rel, allow_directory=True))

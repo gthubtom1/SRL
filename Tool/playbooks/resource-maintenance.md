@@ -21,6 +21,8 @@
 
 来源包含id/kind/path/enabled/writable/visibility。kind只选skill或knowledge；新增个人skill只是可读取方法，不伪装成正式域或宿主已安装技能。默认KB仍可用旧article_path，外部KB用`sources/<来源id>/<相对文章>`区分，同名不覆盖。
 
+停用检查按宿主文件身份规范化，Windows大小写/文件别名不能绕过；准确知识读取也只接受同一来源内合格、非隐藏、有界Markdown，不能借知识入口读取旁置.env/配置文件。工具停用同时接入Seep的ensure、获取/安装与MCP注册链，不自动装回；这不是操作系统级禁用，不声称能拦住宿主外任意shell、已有第三方服务或手工运行。
+
 从源码根读取当前视图和方法：
 
 ```bash

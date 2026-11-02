@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 from lib import mcp_http
+from lib.resource_sources import require_enabled, SourceError
 import subprocess
 import sys
 
@@ -212,6 +213,15 @@ def _assess_available(tool_id, steps, at):
 
 
 def acquire(tool_id: str, allow_start: bool, allow_install: bool = False) -> dict:
+    try:
+        module = _discovery_module()
+        tid = module.normalize_tool_id(tool_id) if hasattr(module, "normalize_tool_id") else tool_id.strip().lower()
+        require_enabled(REPO, "tool_software", tid)
+    except (ValueError, OSError) as exc:
+        disabled = isinstance(exc, SourceError) and str(exc) == "resource_disabled"
+        return {"tool": tool_id, "verdict": "DISABLED" if disabled else "CONFIG_ERROR", "at": "resource_policy",
+                "steps": [], "session_verified": False, "runtime_verified": False,
+                "next": "Respect the explicit resource policy; select an enabled alternative or correct the source configuration."}
     try:
         runtimes = load_json(RUNTIMES, strict=True).get('tools')
         caps = load_json(CAPS, strict=True).get('tools')

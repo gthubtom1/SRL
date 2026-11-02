@@ -48,6 +48,7 @@ sys.path.insert(0, os.path.join(_TOOL_DIR, "scripts"))
 from lib import process_tree
 from lib.project_lock import project_lock
 from lib.runtime_root import resolve_agent_root
+from lib.resource_sources import require_enabled, SourceError
 
 # 本机状态（绝不入库）
 LOCAL_STATE_DIR = os.path.expanduser(os.path.join("~", ".seep"))
@@ -311,6 +312,23 @@ def normalize_tool_id(tool_id):
     """第 6 层别名映射：把口语/变体名规范化为能力表里的 tool_id。"""
     tid = (tool_id or "").strip().lower()
     return _ALIAS_MAP.get(tid, tid)
+
+
+def resource_gate(tool_id, server_name=None):
+    """Selection policy for cooperating discovery/acquisition entry points."""
+    tid = normalize_tool_id(tool_id)
+    try:
+        require_enabled(os.path.dirname(_TOOL_DIR), "tool_software", tid)
+        if server_name is not None:
+            require_enabled(os.path.dirname(_TOOL_DIR), "mcp_server", tid)
+            require_enabled(os.path.dirname(_TOOL_DIR), "mcp_server", server_name)
+    except (ValueError, OSError) as exc:
+        disabled = isinstance(exc, SourceError) and str(exc) == "resource_disabled"
+        return {"tool_id": tid, "status": "disabled" if disabled else "resource_policy_unavailable",
+                "available": False, "has_plan": False, "auto_allowed": False, "executed": False,
+                "registered": False, "reason": "resource_disabled" if disabled else "resource_policy_unavailable",
+                "layers_tried": [], "via": "resource_policy", "command": ""}
+    return None
 
 
 def _exe_candidates(tool_id, arch=None):
@@ -674,6 +692,9 @@ def discover(tool_id, target=None, use_registry=True, use_cache=True, exe_candid
     """
     raw = (tool_id or "").strip()
     tid = normalize_tool_id(raw)
+    denied = resource_gate(tid)
+    if denied:
+        return denied
     install_table = _install_table()
     config_error = (install_table.get("_config_error")
                     if isinstance(install_table, dict) else "安装清单根对象必须是对象")
@@ -964,6 +985,9 @@ def register_mcp(tool_id, apply=False, server_name=None):
     """
     tid = normalize_tool_id(tool_id)
     name = server_name or tid
+    denied = resource_gate(tid, name)
+    if denied:
+        return denied
     entry = _mcp_entry_for(tid)
     primary_path = _agent_mcp_json_path()
     
@@ -1459,6 +1483,9 @@ def install_plan(tool_id):
     支持多途径自适应：系统无 winget 时自动无缝降级为 portable_zip（绿色直下免安装）。
     """
     tid = normalize_tool_id(tool_id)
+    denied = resource_gate(tid)
+    if denied:
+        return denied
     try:
         table = _install_table()
         if not isinstance(table, dict):
@@ -1522,6 +1549,9 @@ def install_plan(tool_id):
 def propose_install(tool_id, execute=False):
     """Execute allowed installation methods, then report the actual discovery result."""
     tid = normalize_tool_id(tool_id)
+    denied = resource_gate(tid)
+    if denied:
+        return denied
     # An interrupted portable transaction must be handled even when the next
     # selected method is non-portable or the current install catalog changed.
     if execute:
@@ -1643,6 +1673,9 @@ def plan_control(tool_id, target=None, apply_mcp=False):
 
     返回 control_plan，含 discovery / how_to_control / fallbacks / next_action。
     """
+    denied = resource_gate(tool_id)
+    if denied:
+        return {**denied, "how_to_control": {"mode": "disabled"}, "fallbacks": []}
     disc = discover(tool_id, target=target)
     cap = research_control(tool_id)
     tid = disc["tool_id"]

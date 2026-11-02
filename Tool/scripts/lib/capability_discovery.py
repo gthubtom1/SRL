@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from . import domain_registry
-from .resource_sources import Sources, SourceError, article_reference, metadata, read_document
+from .resource_sources import Sources, SourceError, article_reference, metadata, read_document, resource_key
 
 SCHEMA = "seep.capability-discovery/1"
 MAX_FILE_BYTES = 256 * 1024
@@ -361,7 +361,7 @@ class _Catalog:
                         "read_reference": ident, "maturity": meta.get("maturity", "unclassified")})
         except (SourceError, OSError, UnicodeError, TypeError) as exc:
             self.warn("resource_sources_invalid", str(exc) if isinstance(exc, SourceError) else "unreadable_resource_source")
-        self.records = [r for r in self.records if r["id"] not in self.disabled]
+        self.records = [r for r in self.records if resource_key(r["id"]) not in self.disabled]
 
     def qualify_compositions(self):
         records = {r["id"].split(":", 1)[1]: r for r in self.records if r["kind"] == "capability"}
@@ -391,12 +391,12 @@ class _Catalog:
         if namespace == "tool":
             return {**item, "kind": "tool_software", "declared": name in self.tools,
                     "source": "Tool/config/tool-capabilities.json#tools." + name,
-                    "enabled": "tool_software:" + name not in self.disabled,
+                    "enabled": resource_key("tool_software:" + name) not in self.disabled,
                     "runtime_status": "not_checked", "invocable_method": False}
         if namespace == "mcp":
             return {**item, "kind": "mcp_server", "declared": name in self.servers,
                     "source": "Tool/config/mcp-servers.json#servers." + name,
-                    "enabled": "mcp_server:" + name not in self.disabled,
+                    "enabled": resource_key("mcp_server:" + name) not in self.disabled,
                     "runtime_status": "not_checked", "invocable_method": False}
         if namespace in ("probe", "reserved"):
             return {**item, **self.link("capability_reference", "Tool/capabilities/" + name + ".json"),

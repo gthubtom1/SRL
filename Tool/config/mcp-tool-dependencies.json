@@ -339,7 +339,7 @@
       "source": {
         "function": "seep_auto_triage",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 1698
+        "line": 1700
       },
       "evidence": "AST: os.path.exists(RABIN2_EXE) 后 _run_cmd([RABIN2_EXE, '-Ij'|'-zj', target])；_attached_for → _case_for → _domain_for → _route_module() 按 Tool/scripts/route.py 加载；_case_state_module() 按 Tool/scripts/case_state.py 加载；_hash_file 用 hashlib",
       "requires": {
@@ -383,7 +383,7 @@
       "source": {
         "function": "seep_gen_security_report",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 1833
+        "line": 1835
       },
       "evidence": "AST: 调用 seep_contract 成员 missing_report_fields / _strong_claim_ids / build_report_md（`from seep_contract import`，模块文件即 Tool/mcp/seep_contract.py）；datetime.datetime.now().astimezone() 生成本地时间戳",
       "requires": {
@@ -412,7 +412,7 @@
       "source": {
         "function": "seep_ensure_tool",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2134
+        "line": 2136
       },
       "evidence": "AST: _autodiscover()（Tool/mcp/tool_autodiscover.py）→ discover/install_plan/propose_install；安装白名单在插件里读 Tool/config/tool-install.json",
       "requires": {
@@ -429,6 +429,15 @@
               "module": "Tool/mcp/tool_autodiscover.py",
               "symbol": "tool-install.json"
             }
+          },
+          {
+            "kind": "repo_module",
+            "path": "Tool/scripts/lib/resource_sources.py",
+            "evidence_via": {
+              "helper": "_require_resource_enabled",
+              "module": "Tool/scripts/lib/resource_sources.py",
+              "symbol": "resource_sources.py"
+            }
           }
         ],
         "any_of": []
@@ -442,7 +451,7 @@
       "source": {
         "function": "seep_mem_strings",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2383
+        "line": 2391
       },
       "evidence": "AST: import ctypes + ctypes.WinDLL 做 ReadProcessMemory；进程表命令在模块级 _resolve_pid（参数非数字时跑 tasklist(win32)/ps(POSIX)），经 _pid_alias 装饰器接到本工具入口",
       "requires": {
@@ -474,7 +483,7 @@
       "source": {
         "function": "seep_pcap_extract",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2513
+        "line": 2521
       },
       "evidence": "AST: shutil.which('tshark') 与候选路径扫描（tshark.exe/tshark.EXE）；process_tree.run([tshark, '-n', '-r', bound_path] + 固定 '-Y/-T/-e' 参数, capture_output=True, timeout=120) —— 每条调用都固定 -n（禁名称解析）与绑定后的绝对路径；rc/stdout/stderr 由 seep_contract.pcap_execution 分开记录，状态由 pcap_status 推导（不走 stderr 拼接）",
       "requires": {
@@ -504,7 +513,7 @@
       "source": {
         "function": "seep_packer_detect",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2683
+        "line": 2691
       },
       "evidence": "AST: import pefile 解析节表/数据目录；_read_pe_imports 用 pefile 读导入表（失败返回 None 而非空表）",
       "requires": {
@@ -524,7 +533,7 @@
       "source": {
         "function": "seep_http_replay",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 2923
+        "line": 2931
       },
       "evidence": "AST: from curl_cffi import requests；降级路径 import requests as req；两者都没有则返回 [ERROR]",
       "requires": {
@@ -562,7 +571,7 @@
       "source": {
         "function": "seep_tool_discover",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 3091
+        "line": 3099
       },
       "evidence": "AST: _autodiscover()（Tool/mcp/tool_autodiscover.py）→ tad.discover / tad.record；插件在 tool_autodiscover._CAP_FILE 读 Tool/config/tool-capabilities.json",
       "requires": {
@@ -588,7 +597,7 @@
       "source": {
         "function": "seep_case_read",
         "file": "Tool/mcp/seep_mcp_server.py",
-        "line": 3125
+        "line": 3133
       },
       "evidence": "AST: 从 Tool/mcp/seep_case_library.py 导入并调用 _read_case；该 helper 扫 Tool/cases/*/case.json，解析 json，并读取 facts.jsonl / README",
       "requires": {

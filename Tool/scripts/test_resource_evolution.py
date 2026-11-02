@@ -417,6 +417,65 @@ M.apply(pathlib.Path(sys.argv[2]),json.loads(pathlib.Path(sys.argv[3]).read_text
         self.assertTrue(self.create(request)["query_verified"])
         self.assertTrue(discover(self.repo, "脱壳")["resources"])
 
+    def server(self):
+        spec = importlib.util.spec_from_file_location("resource_review_mcp", ROOT / "Tool/mcp/seep_mcp_server.py")
+        module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        return module
+
+    def test_mcp_cannot_read_hidden_nonmarkdown_or_oversized_side_files(self):
+        folder = self.base / "private-notes";folder.mkdir()
+        for name in (".env", "auth.json", ".hidden.md"):
+            (folder / name).write_text("SYNTHETIC_PRIVATE_SENTINEL", encoding="utf-8")
+        (folder / "huge.md").write_text("OVERSIZE_SENTINEL" + "汉" * 100000, encoding="utf-8")
+        self.local([{"id": "personal", "kind": "knowledge", "path": str(folder), "enabled": True,
+                     "writable": False, "visibility": "private"}])
+        server = self.server()
+        for name in (".env", "auth.json", ".hidden.md", "huge.md"):
+            with self.subTest(name=name):
+                result = server.seep_kb_read("sources/personal/" + name, max_chars=200000)
+                self.assertNotIn("SYNTHETIC_PRIVATE_SENTINEL", result)
+                self.assertNotIn("OVERSIZE_SENTINEL", result)
+                with self.assertRaises(SourceError): M.read_resource(self.repo, "knowledge:personal/" + name)
+
+    @unittest.skipUnless(os.name == "nt", "Windows path identity")
+    def test_disabled_file_case_alias_rejected_by_cli_mcp_and_write_plan(self):
+        folder = self.base / "private-notes";folder.mkdir()
+        path = folder / "note.md";path.write_text("# Private note\nSYNTHETIC_DISABLED_SENTINEL\n", encoding="utf-8")
+        self.local([{"id": "personal", "kind": "knowledge", "path": str(folder), "enabled": True,
+                     "writable": True, "visibility": "private"}], disabled=["knowledge:personal/note.md"])
+        with self.assertRaises(SourceError): M.read_resource(self.repo, "knowledge:personal/NOTE.md")
+        self.assertNotIn("SYNTHETIC_DISABLED_SENTINEL", self.server().seep_kb_read("sources/personal/NOTE.md"))
+        with self.assertRaises(SourceError):
+            M.prepare(self.repo, self.request(source_id="personal", path="NOTE.md", expected_sha256=M.digest(path.read_bytes())))
+
+    def test_disabled_tool_blocks_default_ensure_before_installer_dispatch(self):
+        import types
+        self.local(disabled=["tool_software:sentinel"])
+        calls = []
+        stub = types.SimpleNamespace(discover=lambda *a, **k: {"available": False},
+                                     install_plan=lambda *a, **k: {"has_plan": True, "auto_allowed": True},
+                                     propose_install=lambda *a, **k: calls.append((a, k)) or {"executed": False})
+        server = self.server()
+        with patch.object(server, "_autodiscover", return_value=stub):
+            result = json.loads(server.seep_ensure_tool("sentinel"))
+        self.assertEqual(calls, [], result)
+        self.assertFalse(result.get("available"))
+        self.assertIn("disabled", result.get("status", ""))
+
+    def test_disabled_tool_blocks_install_plan_execute_register_and_acquire(self):
+        self.local(disabled=["tool_software:sentinel"])
+        spec = importlib.util.spec_from_file_location("resource_review_discoverer", ROOT / "Tool/mcp/tool_autodiscover.py")
+        module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with patch.object(module, "_install_table", side_effect=AssertionError("disabled tool reached install catalog")), \
+             patch.object(module, "_mcp_entry_for", side_effect=AssertionError("disabled tool reached MCP registration")):
+            self.assertEqual(module.install_plan("sentinel")["status"], "disabled")
+            self.assertEqual(module.propose_install("sentinel", execute=True)["status"], "disabled")
+            self.assertEqual(module.register_mcp("sentinel", apply=True)["status"], "disabled")
+        spec = importlib.util.spec_from_file_location("resource_review_acquire", ROOT / "Tool/scripts/tool-acquire.py")
+        acquire = importlib.util.module_from_spec(spec);spec.loader.exec_module(acquire)
+        with patch.object(acquire, "l0", side_effect=AssertionError("disabled tool reached probe/start")):
+            self.assertEqual(acquire.acquire("sentinel", True, True)["verdict"], "DISABLED")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

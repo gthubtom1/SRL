@@ -22,7 +22,7 @@ from typing import Optional, List, Dict, Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from lib import process_tree as _process_tree
 from lib.capability_discovery import discover as _discover_capabilities
-from lib.resource_sources import knowledge_entries as _knowledge_entries, knowledge_path as _knowledge_path
+from lib.resource_sources import knowledge_entries as _knowledge_entries, knowledge_path as _knowledge_path, read_document as _read_knowledge_document, require_enabled as _require_resource_enabled
 from lib.runtime_diagnostics import diagnose_json as _runtime_diagnose
 from lib.runtime_risk import state_action as _runtime_risk_state, RiskError
 
@@ -1353,16 +1353,18 @@ def seep_kb_read(article_path: str, max_chars: int = 6000) -> str:
         note = "[提示] 无精确同名文件，已按路径片段/检索自动定位到：%s\n\n" % _cands[0]
         if _others:
             note += "[其他候选] %s\n\n" % "；".join(_others[:3])
-    with open(target, "r", encoding="utf-8", errors="replace") as fh:
-        text = fh.read()
-        if len(text) > max_chars:
-            # 超预算仍返回结构化 JSON（note 塞进 artifact_hint，不破坏 json.loads）
-            _hint = "全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
-                len(text), _byte_len(text))
-            return _resource_constraint(
-                "seep_kb_read", text, "把 max_chars 调到 ≥ %d 再读全文" % len(text),
-                artifact_hint=(note.strip() + "；" + _hint) if note else _hint)
-        return note + text
+    try:
+        text = _read_knowledge_document(target).decode("utf-8-sig", errors="replace")
+    except (ValueError, OSError):
+        return _invalid_param("seep_kb_read", "知识文档不可读或超过读取预算")
+    if len(text) > max_chars:
+        # 超预算仍返回结构化 JSON（note 塞进 artifact_hint，不破坏 json.loads）
+        _hint = "全文长度 %d 字符（%d 字节）；本次未返回任何片段，避免把半篇当全篇" % (
+            len(text), _byte_len(text))
+        return _resource_constraint(
+            "seep_kb_read", text, "把 max_chars 调到 ≥ %d 再读全文" % len(text),
+            artifact_hint=(note.strip() + "；" + _hint) if note else _hint)
+    return note + text
 
 # ---------------------------------------------------------------------------
 # 5. 战术助手与安全评估增强工具 (Task Isolation, Triage, Report & IDA Bridge)
@@ -2151,6 +2153,12 @@ def seep_ensure_tool(tool_id: str, allow_install: bool = True) -> str:
     """
     tad = _autodiscover()
     tid = tool_id.strip().lower()
+    if tad is not None and hasattr(tad, "normalize_tool_id"):
+        tid = tad.normalize_tool_id(tid)
+    try:
+        _require_resource_enabled(Path(BASE_DIR).parents[1], "tool_software", tid)
+    except (ValueError, OSError):
+        return json.dumps({"ok": False, "available": False, "status": "disabled_or_policy_unavailable", "install_attempted": False})
     policy = ("缺就装（默认 allow_install=True；只要探测不装时传 allow_install=False）"
               if allow_install else "只探测不装（本次显式 allow_install=False）")
 
