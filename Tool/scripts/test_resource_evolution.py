@@ -535,6 +535,30 @@ M.apply(pathlib.Path(sys.argv[2]),json.loads(pathlib.Path(sys.argv[3]).read_text
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertEqual(json.loads(result.stdout)["stage"], "resource_policy")
 
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell runner")
+    def test_formal_gui_mcp_mode_respects_disabled_service(self):
+        import shutil
+        import socket
+        self.local(disabled=["mcp_server:ida"])
+        fixture = self.base / "gui-runner"
+        for name in ("Tool/scripts/tool-run.ps1", "Tool/mcp/tool_autodiscover.py", "Tool/scripts/lib/resource_sources.py",
+                     "Tool/scripts/lib/project_lock.py", "Tool/scripts/lib/runtime_root.py", "Tool/scripts/lib/process_tree.py"):
+            path = fixture / name;path.parent.mkdir(parents=True, exist_ok=True);shutil.copy2(ROOT / name, path)
+        declared = json.loads((ROOT / "Tool/config/tool-runtimes.json").read_text(encoding="utf-8"))
+        mode = copy.deepcopy(next(m for m in declared["tools"]["ida"]["modes"] if m["id"] == "gui-mcp"))
+        self.assertEqual(mode["kind"], "gui")
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0));listener.listen();listener.settimeout(.2)
+            port = listener.getsockname()[1]
+            mode["ready"]["port"] = port;mode["endpoint"]["url"] = "http://127.0.0.1:%d/mcp" % port
+            config = fixture / "Tool/config";config.mkdir()
+            (config / "tool-runtimes.json").write_text(json.dumps({"tools": {"ida": {"modes": [mode]}}}), encoding="utf-8")
+            result = subprocess.run(["powershell", "-NoProfile", "-File", str(fixture / "Tool/scripts/tool-run.ps1"),
+                                     "-Tool", "ida", "-Mode", "gui-mcp", "-Use", sys.executable],
+                                    capture_output=True, text=True, encoding="utf-8", timeout=20)
+            self.assertEqual(json.loads(result.stdout)["stage"], "resource_policy", result.stdout + result.stderr)
+            with self.assertRaises(socket.timeout): listener.accept()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

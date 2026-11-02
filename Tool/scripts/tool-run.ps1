@@ -217,7 +217,7 @@ $tried = @()
 
 # ---------------------------------------------------------------- 逐个通道尝试
 foreach ($m in $modes) {
-    if ($m.kind -like 'mcp-*' -and -not (Test-ResourceEnabled $Tool -Mcp)) {
+    if (($m.kind -like 'mcp-*' -or $m.endpoint.url) -and -not (Test-ResourceEnabled $Tool -Mcp)) {
         $tried += [pscustomobject]@{ mode=$m.id; stage='resource_policy'; reason='MCP channel disabled' }
         continue
     }
