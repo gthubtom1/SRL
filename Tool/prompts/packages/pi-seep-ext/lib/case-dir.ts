@@ -6,6 +6,7 @@ function directory(value: string): string {
   try {
     const absolute = path.resolve(value);
     if (!fs.statSync(absolute).isDirectory()) return "";
+    if (fs.existsSync(path.join(absolute, ".project-transaction.json"))) return "";
     const projectFile = path.join(absolute, "project.json");
     if (fs.existsSync(projectFile)) {
       if (fs.statSync(projectFile).size > 65536) return "";
@@ -17,6 +18,27 @@ function directory(value: string): string {
     return absolute;
   } catch {
     return "";
+  }
+}
+
+/** Recheck saved/queued paths: a tool may have initialized Core since binding. */
+export function isLegacyCaseDirectory(value: string): boolean {
+  return !!value && !!directory(value);
+}
+
+/** Pin the file before rechecking: Core publishes facts by atomic replacement. */
+export function appendLegacyCaseLine(value: string, relative: string, line: string): void {
+  if (!isLegacyCaseDirectory(value)) return;
+  const target = path.resolve(value, relative);
+  const local = path.relative(path.resolve(value), target);
+  if (!local || path.isAbsolute(local) || local.split(path.sep).includes("..")) return;
+  const fd = fs.openSync(target, "a");
+  try {
+    // No libuv open/write can run later against newly published Core facts.
+    // If Core replaces the path, this descriptor still owns the old file.
+    if (isLegacyCaseDirectory(value)) fs.writeSync(fd, line.endsWith("\n") ? line : line + "\n");
+  } finally {
+    fs.closeSync(fd);
   }
 }
 
