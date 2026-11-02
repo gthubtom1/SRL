@@ -306,12 +306,13 @@
     "preflight_exit2_not_clean_release_pass": true
   },
   "publication": {
-    "actual_user_agent_root_updated": false,
+    "actual_user_agent_root_updated": true,
     "piweb_restarted": false,
     "github_pushed": false,
     "github_pushed_scope": "Snapshot at implementation verification; later authorized publication is checked by live origin/main SHA, not this historical flag.",
     "previous_published_baseline": "80cf3c647f7ea1523946822c65d6ea0e7be4dd22",
-    "source_backed_runtime_note": "Existing user runtime points to main, so a newly started CLI/MCP may read new source; extension copies and registration have not been synchronized."
+    "source_backed_runtime_note": "Current user runtime registration, managed extensions and SDK/MCP probes verified after shutdown; Pi Web UI awaits manual startup.",
+    "actual_deployed_from_commit": "63a8270a5d69a320462159e3376a27934a24a078"
   },
   "limits": [
     "Only explicit Markdown sources are supported, not arbitrary filesystem or all formats.",
@@ -424,6 +425,225 @@
       "preflight.stdout.log": "b87917ba942f6fc36ffd8634e40b413cd4f605235d93cb1f923089437fd975de",
       "upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "upload.stdout.log": "ef9af31dda0f00b624f7836d378f57411538050b907d0b7801dd9ab324612525"
+    }
+  },
+  "portable_installation_closeout": {
+    "date": "2026-11-02",
+    "documentation_commit": "584642b98685fadae43173eca8454684925eff11",
+    "merge_commit": "63a8270a5d69a320462159e3376a27934a24a078",
+    "cold_installation": {
+      "source_commit": "cffadae572cca95a9e6169ff3a458185d28fa162",
+      "fresh_tracked_export": true,
+      "install_exit": 1,
+      "env_exit": 1,
+      "installed": false,
+      "missing": [
+        "宿主认证未就绪：请先在宿主中选择模型并登录；未读取凭据文件"
+      ],
+      "managed_files": 486,
+      "actual_user_agent_updated": false,
+      "dependencies_reused_not_fresh_os_install": true,
+      "managed_hash_errors": [],
+      "sdk": {
+        "sdk_version": "1.4.0",
+        "installed_extensions_loaded": 10,
+        "extension_errors": 0,
+        "guide_chars": 261,
+        "project_local_binding_loaded": true,
+        "invalid_binding_cleared_old_map": true,
+        "core_project_map_not_injected": true,
+        "global_pointer_or_parent_environment_changed": false,
+        "pi_model_api_called": false,
+        "active_piweb_restarted": false
+      },
+      "mcp": {
+        "configured_stdio_tools": 23,
+        "maintenance_recipe_discovered": true,
+        "diagnosis_called": true,
+        "risk_status_called_without_network": true,
+        "kb_search_and_read": true
+      },
+      "no_earlier_worktrees_or_untracked_files_required": true,
+      "scope": "fresh tracked source export and empty AgentRoot with existing machine Python/Node/SDK dependencies; not a new OS or all-host task proof",
+      "resource_source_view": [
+        {
+          "id": "core-skills",
+          "kind": "skill",
+          "enabled": true,
+          "writable": false,
+          "visibility": "shared",
+          "present": true
+        },
+        {
+          "id": "builtin-kb",
+          "kind": "knowledge",
+          "enabled": true,
+          "writable": false,
+          "visibility": "shared",
+          "present": true
+        },
+        {
+          "id": "local-kb",
+          "kind": "knowledge",
+          "enabled": true,
+          "writable": true,
+          "visibility": "shared",
+          "present": true
+        }
+      ],
+      "fixture_directory_name": "Seep-portable-check-20261102-170744"
+    },
+    "actual_deployment": {
+      "source_commit": "63a8270a5d69a320462159e3376a27934a24a078",
+      "managed_files": 483,
+      "hash_errors": [],
+      "protected_user_files_unchanged": true,
+      "custom_mcp_entries_unchanged": [
+        "github",
+        "web-search"
+      ],
+      "env_installed": true,
+      "sdk": {
+        "sdk_version": "1.4.0",
+        "installed_extensions_loaded": 10,
+        "extension_errors": 0,
+        "guide_chars": 261,
+        "project_local_binding_loaded": true,
+        "invalid_binding_cleared_old_map": true,
+        "core_project_map_not_injected": true,
+        "global_pointer_or_parent_environment_changed": false,
+        "pi_model_api_called": false,
+        "active_piweb_restarted": false
+      },
+      "mcp": {
+        "configured_stdio_tools": 23,
+        "resource_maintenance_discovered": true,
+        "diagnosis_called": true,
+        "kb_searched_and_read": true,
+        "model_api_called": false,
+        "customer_target_called": false
+      },
+      "actual_user_agent_updated": true,
+      "piweb_ui_restarted": false,
+      "all110_suite_production_hashes_unchanged": true,
+      "backup_directory_name": "Seep-deploy-backup-20261102-171230"
+    },
+    "configuration_regression_tests": 32,
+    "runtime_installation_delivery_tests": 48,
+    "production_and_tests_match110_suite_freeze": true,
+    "host_ui_and_model_task_are_not_sdk_or_mcp_probe": true,
+    "user_will_restart_piweb_manually": true,
+    "source_and_private_config_or_credentials_not_automatically_migrated": true,
+    "local_evidence": {
+      "directory": "tmp/portable-deploy-final",
+      "distributed_with_source": false,
+      "sha256": {
+        "cold-location.json": "2e2cf68a303ee480b0896916b7bf0ad63f1f6489472ee947b1baff728c9a05fd",
+        "cold-complete.json": "88b1c5f6f9d08b87a4c5abdbc61cbb933d7e5aeaa1652be859c869e74198b6bb",
+        "actual-complete.json": "7c42dd92b0776fab5ed151a7bd34748138e99fbebc1fe71710485f3e30e3f9a4",
+        "actual-env.json": "084ab3cfaa477233978be2184485571148222c4bcaddbbaa8bb11e6386a8a840",
+        "actual-env.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "actual-install.stdout.log": "1fd7a53ce00eab66f1c3bf6ed972b33f05daa766b3371cdea9cd13bae7a4705a",
+        "actual-install.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "actual-sdk.stdout.log": "30249fe7d60404acd45b415fc4721936f1baef0c85f5c168b2f8c2792cbfc9d4",
+        "actual-sdk.stderr.log": "42e24bab1c40e48c8ebe6fafcf30546eb71f3113f9302aac84d363dbb84614ca",
+        "actual-mcp.stdout.log": "71c7f17f7a691e8d8dc1070ff8ee263328823a11262591cccb83972484552b35",
+        "actual-mcp.stderr.log": "c988ac42df309cbfab54aacc42aaa4094eeaedbc1ec6787534f07e026f28152d",
+        "actual-sources.json": "d3b65800dcd91d04e96780743fbbbb3cadcf1a4fd0c7afe323a5155b8e3808f9",
+        "final-docs.json": "8cf73536c2e969e4142ef7dde475ac9434038a9625d99d0af8bf7c566f51bc69",
+        "final-budget.json": "489d89d8613dca26f0c07c27bd429331884e6195622d903d01d197c0ff6fef9b",
+        "final-upload.json": "9574b6eb6af822a18a1b1fc8ac2cb1ed32313a7b9473086b1d4cfed952700cab"
+      },
+      "branch_tests_sha256": {
+        "config.stderr.log": "efa62314a25b13f12f59346be9594ad42af2eac4b72547caa02952d704b58260",
+        "install-delivery.stderr.log": "52a46f22af3ac40fba783abd919c616d615b1ea49b4fa43ba9097cbaa690b600",
+        "docs.json": "8cf73536c2e969e4142ef7dde475ac9434038a9625d99d0af8bf7c566f51bc69"
+      }
+    },
+    "final-docs": {
+      "ok": true,
+      "files": 78,
+      "command_examples": 64,
+      "errors": []
+    },
+    "final-budget": {
+      "ok": true,
+      "budget": [
+        {
+          "item": "MCP 工具",
+          "value": 23,
+          "limit": 45,
+          "ok": true
+        },
+        {
+          "item": "技能",
+          "value": 11,
+          "limit": null,
+          "ok": true
+        },
+        {
+          "item": "setup 脚本",
+          "value": 22,
+          "limit": 22,
+          "ok": true
+        },
+        {
+          "item": "MANUAL 手册",
+          "value": 16,
+          "limit": 16,
+          "ok": true
+        },
+        {
+          "item": "MCP 主服务行数",
+          "value": 3188,
+          "limit": 3200,
+          "ok": true
+        },
+        {
+          "item": "first-party 引擎文件",
+          "value": 1176,
+          "limit": 1180,
+          "ok": true
+        },
+        {
+          "item": "案例库文件",
+          "value": 1657,
+          "limit": 1700,
+          "ok": true
+        }
+      ],
+      "source_inventory": {
+        "policy": "seep.source_inventory/2",
+        "mode": "git",
+        "stable": true,
+        "counts": {
+          "included": 1277,
+          "tracked": 1277,
+          "untracked": 0,
+          "excluded": 6016,
+          "missing": 0,
+          "unsupported": 0,
+          "first_party": 1176,
+          "thirdparty_input": 101,
+          "deleted_staged": 0,
+          "by_role": {
+            "first_party": 1176,
+            "thirdparty_input": 101
+          }
+        },
+        "mode_reason": "",
+        "source_complete": true,
+        "manifest_source": "",
+        "missing_tracked": [],
+        "deleted_staged": [],
+        "unsupported": []
+      }
+    },
+    "final-upload": {
+      "ok": true,
+      "rc": 0,
+      "tracked_sensitive": 0,
+      "content_hits": 0
     }
   }
 }
