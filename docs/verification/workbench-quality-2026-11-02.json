@@ -267,7 +267,7 @@
     "validation_evidence_retained": true
   },
   "limitations": [
-    "Actual user AgentRoot not updated or active Pi Web restarted in this round.",
+    "Actual user AgentRoot updated after shutdown and verified; Pi Web UI has not been reopened in this round.",
     "SDK-load and MCP probes are separate, not same-host model end-to-end success.",
     "Raw strict TypeScript compilation has missing SDK/Node declarations; not claimed green.",
     "Nine-domain depth and real-task success are not established by structural suites.",
@@ -297,7 +297,17 @@
       "final-preflight.stdout.log": "1e0a5244b6602d62ef1a657a981c40ca3de398bfba2c7db1cd60fefbf77453ec",
       "final-preflight.stderr.log": "7213bba3a55330bfbdbfe8ce47e34d25e5c4621eebad2fd81dd83e54caaa46bf",
       "final-upload.stdout.log": "ded1ff9cc49d16238280503837df27523445973dfec9469f8f353beed4461dff",
-      "final-upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      "final-upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "actual-deploy-status.json": "e019de34fdcc706b7d1834519690121ab44b4f1e805d60cc6dce2dd87c1c6e82",
+      "actual-env-check.json": "072a4b71f8721b77a5366e803379d34053dde208c515da096df888ff99cc0844",
+      "actual-env-check.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "actual-sdk.stdout.log": "80fbf1aac0a6bd730bc2df1e2cf51dfbd656f0c5b4a4f5fb3ae80b0466c0a79b",
+      "actual-sdk.stderr.log": "42e24bab1c40e48c8ebe6fafcf30546eb71f3113f9302aac84d363dbb84614ca",
+      "actual-install.stdout.log": "3828e47fee0c608cf0ae4b3f2019ab285794c05d5bb48bdef6af087acb27618e",
+      "actual-install.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pending-history-upload-scan.json": "acb418ee81a2ca6f41a1cbfee5ecc8cefddccbbf58fc635f1c8afe5640efde64",
+      "actual-pre-push-upload.json": "5b602da2b4499e44e02b93185f1596749c579b6a5ce7d69ec8d22278eb876a3f",
+      "actual-pre-push-upload-clean.json": "63e89ebb4629d4ab7e588fd676f808541090123d397cc2c5a8382bae15b65153"
     },
     "branch_targeted": {
       "location": "codex/final-main-review-fixes-20261102:tmp/final-review-fixes",
@@ -762,5 +772,65 @@
         "ancestor_of_final_source": true
       }
     }
+  },
+  "actual_deployment": {
+    "source_commit": "aaea36a3b187830176ba2b0d8a4de5477163c899",
+    "managed_files": 483,
+    "hash_errors": [],
+    "protected_files_unchanged": true,
+    "custom_mcp_entries_retained": [
+      "github",
+      "web-search"
+    ],
+    "retired_default_files": 2,
+    "env_check_installed": true,
+    "sdk": {
+      "sdk_version": "1.4.0",
+      "installed_extensions_loaded": 10,
+      "extension_errors": 0,
+      "guide_chars": 229,
+      "project_local_binding_loaded": true,
+      "invalid_binding_cleared_old_map": true,
+      "core_project_map_not_injected": true,
+      "global_pointer_or_parent_environment_changed": false,
+      "pi_model_api_called": false,
+      "active_piweb_restarted": false
+    },
+    "piweb_reopened": false,
+    "backup_directory_name": "Seep-deploy-backup-20261102-132947",
+    "backup_file_count": 490,
+    "unmanaged_existing_agents_retained": [
+      "seep-forensics.md",
+      "seep-stage.md",
+      "seep-verify.md"
+    ],
+    "normalization_migration": "two exact historical stock schema/1 files moved to backup, not deleted or claimed as managed",
+    "piweb_processes_and_port_stopped_before_mutation": true,
+    "same_host_model_or_customer_task_verified": false,
+    "upload_check": {
+      "initial_local_preview_blocked": true,
+      "preview_was_untracked_and_ignored": true,
+      "relocated_outside_repository_without_deletion": true,
+      "no_exceptions_or_rules_changed": true,
+      "rerun_returncode": 0,
+      "never_committed_or_uploaded": true
+    },
+    "documentation_check": {
+      "files": 77,
+      "command_examples": 64,
+      "errors": []
+    }
+  },
+  "pending_publication_scan": {
+    "base": "8c6c268cfe9fa973c93c3c34b5267be56aeda968",
+    "head": "aaea36a3b187830176ba2b0d8a4de5477163c899",
+    "commits": 46,
+    "text_blobs_scanned": 287,
+    "binary_or_nontext": 0,
+    "oversize_text_not_scanned": [],
+    "blocked": [],
+    "waived_content_hits": 0,
+    "rules": "existing pre-upload-check rules and existing exceptions; no changes",
+    "scope": "new reachable blob contents against current origin/main; pattern scan is not a guarantee that no sensitive data exists"
   }
 }
