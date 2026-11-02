@@ -1704,14 +1704,15 @@ def plan_control(tool_id, target=None, apply_mcp=False):
     ctrl = cap.get("control", {}) if cap.get("known") else {}
 
     # 1) 已注册 MCP
-    if _mcp_already_registered(tid):
+    mcp_enabled = resource_gate(tid, tid) is None
+    if mcp_enabled and _mcp_already_registered(tid):
         plan["how_to_control"] = {"mode": "mcp_registered", "connection_verified": False,
                                   "detail": "已发现 MCP 配置；需核对当前宿主工具表并握手，配置存在不代表服务已连接。"}
         plan["next_action"] = "先运行 MCP 握手/体检并核对宿主工具表；连接后调用，缺失时重新加载 MCP。"
         return plan
 
     # 2) 可现注册 MCP
-    if caps.get("mcp") and _mcp_entry_for(tid):
+    if mcp_enabled and caps.get("mcp") and _mcp_entry_for(tid):
         reg = register_mcp(tid, apply=apply_mcp)
         plan["how_to_control"] = {"mode": "mcp_register",
                                   "detail": "能力表显示该工具支持 MCP，可注册后使用。",
@@ -1848,8 +1849,14 @@ def _cli(argv):
     i = sub.add_parser("install", help="半自动安装（--execute 真装）")
     i.add_argument("tool"); i.add_argument("--execute", action="store_true")
     sub.add_parser("state", help="查看本机发现状态")
+    gate = sub.add_parser("resource-policy", help="只检查显式启停，不探测或启动")
+    gate.add_argument("tool"); gate.add_argument("--mcp", action="store_true")
     args = ap.parse_args(argv)
 
+    if args.cmd == "resource-policy":
+        denied = resource_gate(args.tool, normalize_tool_id(args.tool) if args.mcp else None)
+        print(json.dumps(denied or {"allowed": True}))
+        return 2 if denied else 0
     if args.cmd == "discover":
         out = discover(args.tool, target=args.target, use_cache=not args.no_cache,
                        exe_candidates=args.exe_candidate)
@@ -1869,6 +1876,9 @@ def _cli(argv):
                 raise ValueError('context 必须是对象')
             context = {key: value for key, value in raw_context.items()
                        if key in ('tool', 'mode', 'exe', 'workDir', 'target') and isinstance(value, str)}
+            if context.get("tool") and resource_gate(context["tool"]):
+                print(json.dumps({"status": "DISABLED", "stage": "resource_policy", "executed": False}))
+                return 2
             if request.get('cwd') is not None and not isinstance(request['cwd'], str):
                 raise ValueError('cwd 必须是目录字符串')
             timeout = request.get('timeout', 600)

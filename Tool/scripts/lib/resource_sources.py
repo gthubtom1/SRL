@@ -160,7 +160,15 @@ class Sources:
         return resource_key(ident)
 
     def is_disabled(self, ident):
-        return bool(self.disabled) and self.canonical_id(ident) in self.disabled
+        if not self.disabled:
+            return False
+        key = self.canonical_id(ident)
+        if key in self.disabled:
+            return True
+        for denied in self.disabled:
+            if denied.startswith((resource_key("knowledge:"), resource_key("skill:"))) and key.startswith(denied.rstrip("/\\") + ("\\" if os.name == "nt" else "/")):
+                return True
+        return False
 
     def _entry(self, obj, private):
         fields = {"id", "kind", "path", "enabled", "writable", "visibility"}
@@ -262,6 +270,10 @@ def document_path(source, rel, *, allow_directory=False):
     if any(part.startswith(".") or part in _SKIP for part in rel.split("/")):
         raise SourceError("resource_not_an_eligible_document")
     path = contained(source["root"], rel)
+    actual = path.resolve().relative_to(source["root"].resolve()).as_posix()
+    if any(part.startswith(".") or resource_key(part) in {resource_key(v) for v in _SKIP}
+           for part in actual.split("/")):
+        raise SourceError("resource_not_an_eligible_document")
     if path.is_file():
         if path.suffix.lower() != ".md" or path.stat().st_size > MAX_FILE:
             raise SourceError("resource_not_an_eligible_document")

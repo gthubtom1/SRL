@@ -476,6 +476,65 @@ M.apply(pathlib.Path(sys.argv[2]),json.loads(pathlib.Path(sys.argv[3]).read_text
         with patch.object(acquire, "l0", side_effect=AssertionError("disabled tool reached probe/start")):
             self.assertEqual(acquire.acquire("sentinel", True, True)["verdict"], "DISABLED")
 
+    @unittest.skipUnless(os.name == "nt", "Windows path identity")
+    def test_excluded_folder_case_alias_is_not_a_knowledge_resource(self):
+        folder = self.base / "notes";(folder / "_archive").mkdir(parents=True)
+        (folder / "_archive/sample.md").write_text("SYNTHETIC_EXCLUDED_SENTINEL", encoding="utf-8")
+        self.local([{"id": "personal", "kind": "knowledge", "path": str(folder), "enabled": True,
+                     "writable": False, "visibility": "private"}])
+        for spelling in ("_archive", "_ARCHIVE"):
+            with self.subTest(spelling=spelling), self.assertRaises(SourceError):
+                M.read_resource(self.repo, "knowledge:personal/" + spelling + "/sample.md")
+            self.assertNotIn("SYNTHETIC_EXCLUDED_SENTINEL", self.server().seep_kb_read("sources/personal/" + spelling + "/sample.md"))
+
+    def test_disabled_mcp_channel_skipped_but_cli_alternative_preserved(self):
+        self.local(disabled=["mcp_server:sentinel"])
+        spec = importlib.util.spec_from_file_location("mcp_disabled_acquire", ROOT / "Tool/scripts/tool-acquire.py")
+        acquire = importlib.util.module_from_spec(spec);spec.loader.exec_module(acquire)
+        runtime = {"modes": [{"endpoint": {"url": "http://127.0.0.1:1/mcp"}}]}
+        caps = {"capabilities": {"mcp": True, "cli": True}}
+        with patch.object(acquire, "mcp_probe", side_effect=AssertionError("disabled MCP probed")), \
+             patch.object(acquire, "autodiscover", return_value={"available": True, "command": sys.executable}):
+            result = acquire.l0("sentinel", runtime, caps)
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["kind"], "cli")
+        spec = importlib.util.spec_from_file_location("mcp_disabled_control", ROOT / "Tool/mcp/tool_autodiscover.py")
+        module = importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        with patch.object(module, "discover", return_value={"available": True, "tool_id": "sentinel", "command": sys.executable}), \
+             patch.object(module, "research_control", return_value={"known": True, "capabilities": {"mcp": True, "headless": True}, "control": {"headless_cmd": "synthetic --read"}}), \
+             patch.object(module, "_mcp_already_registered", side_effect=AssertionError("disabled MCP selected")):
+            result = module.plan_control("sentinel")
+        self.assertEqual(result["how_to_control"]["mode"], "headless")
+
+    def test_mcp_only_disabled_acquisition_does_not_start_service(self):
+        self.local(disabled=["mcp_server:sentinel"])
+        spec = importlib.util.spec_from_file_location("mcp_only_disabled_acquire", ROOT / "Tool/scripts/tool-acquire.py")
+        acquire = importlib.util.module_from_spec(spec);spec.loader.exec_module(acquire)
+        runtime = {"tools": {"sentinel": {"modes": [{"endpoint": {"url": "http://127.0.0.1:1/mcp"}}]}}}
+        caps = {"tools": {"sentinel": {"capabilities": {"mcp": True}}}}
+        with patch.object(acquire, "load_json", side_effect=[runtime, caps]), \
+             patch.object(acquire, "mcp_probe", side_effect=AssertionError("disabled service probed")), \
+             patch.object(acquire, "l1_start", side_effect=AssertionError("disabled service started")), \
+             patch.object(acquire, "l3_install", return_value={"plan": {}, "auto": False}):
+            result = acquire.acquire("sentinel", True, False)
+        self.assertNotEqual(result["verdict"], "USABLE")
+
+    @unittest.skipUnless(os.name == "nt", "Windows PowerShell runner")
+    def test_explicit_tool_runner_path_cannot_bypass_disabled_tool(self):
+        self.local(disabled=["tool_software:fixture"])
+        fixture = self.base / "runner"
+        import shutil
+        for name in ("Tool/scripts/tool-run.ps1", "Tool/mcp/tool_autodiscover.py", "Tool/scripts/lib/resource_sources.py",
+                     "Tool/scripts/lib/project_lock.py", "Tool/scripts/lib/runtime_root.py", "Tool/scripts/lib/process_tree.py"):
+            path = fixture / name;path.parent.mkdir(parents=True, exist_ok=True);shutil.copy2(ROOT / name, path)
+        config = fixture / "Tool/config";config.mkdir()
+        (config / "tool-runtimes.json").write_text(json.dumps({"tools": {"fixture": {"modes": [{"id": "cli", "kind": "cli"}]}}}))
+        result = subprocess.run(["powershell", "-NoProfile", "-File", str(fixture / "Tool/scripts/tool-run.ps1"),
+                                 "-Tool", "fixture", "-Use", sys.executable, "-Run"], capture_output=True,
+                                text=True, encoding="utf-8", timeout=20)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout)["stage"], "resource_policy")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
