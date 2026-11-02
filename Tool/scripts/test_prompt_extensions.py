@@ -36,6 +36,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
+import {pbkdf2} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 const [root,fixture,python]=process.argv.slice(2);
 delete process.env.SEEP_CASE_DIR;
@@ -75,6 +76,30 @@ for(const mode of ['tool_result','agent_end','turn_end','session_shutdown','memo
  cli(dir,['event','--type','review-note','--message','Core API remains available']);
  assert.equal(cli(dir,['handoff']).handoff.state_health,'ok');
 }
+// A real libuv queue must not move a legacy append past Core publication.
+for(const mode of ['async_tool','async_memory']){
+ const cwd=path.join(fixture,mode),dir=path.join(cwd,'.seep-case');fs.mkdirSync(dir,{recursive:true});
+ const ctx={cwd,sessionId:mode};
+ await hooks.tool_call({toolCallId:mode,toolName:'read'},ctx);
+ const work=Array.from({length:4},()=>new Promise((resolve,reject)=>
+   pbkdf2('synthetic','fixture',1200000,32,'sha256',(error,value)=>error?reject(error):resolve(value))));
+ if(mode==='async_tool') await hooks.tool_result({toolCallId:mode,toolName:'read',isError:false},ctx);
+ else await mem.input({text:'queued by libuv'},ctx);
+ await Promise.resolve();await Promise.resolve();
+ const init=spawnSync(python,['-B',path.join(root,'Tool/scripts/project_state.py'),'init',
+   '--project',dir,'--project-id',mode,'--target',target],
+   {encoding:'utf8',env:{...process.env,PYTHONIOENCODING:'utf-8',PYTHONDONTWRITEBYTECODE:'1'}});
+ await Promise.all(work);await new Promise(r=>setTimeout(r,100));
+ if(init.status===0){
+  assert.equal(cli(dir,['handoff']).handoff.state_health,'ok',mode+' must not corrupt published Core facts');
+  const rows=fs.readFileSync(path.join(dir,'facts.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+  assert.ok(rows.every(row=>row.schema),mode+' must contain only Core facts');
+ }else{
+  assert.equal(init.status,2,init.stdout+init.stderr);
+  assert.match(init.stdout,/scope\/facts|existing output/);
+  assert.equal(fs.existsSync(path.join(dir,'project.json')),false,'legacy write won: init must refuse safely');
+ }
+}
 // The same loaded extension must still record ordinary legacy case events.
 const cwd=path.join(fixture,'legacy'),dir=path.join(cwd,'.seep-case');fs.mkdirSync(dir,{recursive:true});
 const ctx={cwd,sessionId:'legacy'};
@@ -91,7 +116,8 @@ console.log('Core transitions, queued memory, timeout/shutdown flushes and legac
             probe.write_text(script, encoding="utf-8")
             run = subprocess.run([shutil.which("node"), "--experimental-strip-types", str(probe),
                                   str(ROOT), folder, sys.executable], cwd=ROOT,
-                                 env=dict(os.environ, NODE_NO_WARNINGS="1", PYTHONDONTWRITEBYTECODE="1"),
+                                 env=dict(os.environ, NODE_NO_WARNINGS="1", PYTHONDONTWRITEBYTECODE="1",
+                                          UV_THREADPOOL_SIZE="1"),
                                  capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
 

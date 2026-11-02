@@ -42,7 +42,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { isLegacyCaseDirectory, resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
+import { appendLegacyCaseLine, isLegacyCaseDirectory, resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import type {
 	ExtensionAPI,
 	ExtensionCommandContext,
@@ -172,7 +172,7 @@ function enqueue(task: () => Promise<void>): void {
 async function ensureMemoryDir(dir: string): Promise<boolean> {
 	if (!caseExists(dir)) return false;
 	try {
-		await fs.promises.mkdir(memoryDir(dir), { recursive: true });
+		fs.mkdirSync(memoryDir(dir), { recursive: true });
 		return true;
 	} catch {
 		return false;
@@ -183,7 +183,7 @@ async function appendLine(caseDirectory: string, file: string, line: string): Pr
 	if (!(await ensureMemoryDir(caseDirectory))) return;
 	try {
 		if (!caseExists(caseDirectory)) return;
-		await fs.promises.appendFile(file, line.endsWith("\n") ? line : line + "\n", "utf-8");
+		appendLegacyCaseLine(caseDirectory, path.relative(caseDirectory, file), line);
 	} catch {
 		/* 静默：写不进去不影响会话 */
 	}
@@ -193,7 +193,7 @@ async function appendLine(caseDirectory: string, file: string, line: string): Pr
 async function appendLedger(caseDirectory: string, obj: Record<string, unknown>): Promise<void> {
 	if (!caseExists(caseDirectory)) return;
 	try {
-		await fs.promises.appendFile(ledgerFile(caseDirectory), JSON.stringify(obj) + "\n", "utf-8");
+		appendLegacyCaseLine(caseDirectory, "facts.jsonl", JSON.stringify(obj));
 	} catch {
 		/* 静默 */
 	}

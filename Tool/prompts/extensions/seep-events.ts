@@ -52,7 +52,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { isLegacyCaseDirectory, resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
+import { appendLegacyCaseLine, isLegacyCaseDirectory, resolveCaseDirectory } from "../packages/pi-seep-ext/lib/case-dir.ts";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 /* ────────────────────────────── 常量 ────────────────────────────── */
@@ -279,7 +279,7 @@ function record(caseDir: string, row: EventRow): void {
 				risk: row.risk,
 				summary: clip(row.summary, MAX_SUMMARY),
 			});
-			await fs.promises.appendFile(path.join(caseDir, "facts.jsonl"), line + "\n", "utf-8");
+			appendLegacyCaseLine(caseDir, "facts.jsonl", line);
 		} catch {
 			/* 静默 */
 		}
