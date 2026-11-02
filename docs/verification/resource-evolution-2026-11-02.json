@@ -1,0 +1,372 @@
+{
+  "schema": "seep.resource-evolution-verification/1",
+  "date": "2026-11-02",
+  "source_commit": "e0989890a8d2039eeca44ceaf3bca6b4dbc1b507",
+  "independently_reviewed_commit": "d5fdc7a1e2b1f88697b97cbe25b4e7c6e44f29fd",
+  "production_and_tests_equal_to_reviewed": true,
+  "post_review_integration_changes": [
+    ".github/public-suites.json",
+    "Tool/playbooks/resource-maintenance.md"
+  ],
+  "production_and_test_sha256": {
+    ".github/public-suites.json": "13d2018fe5e9aea2f82fc433b49a4d1844bcbcb4b4a32dd31043543e0d0fc5e9",
+    ".gitignore": "db65d76f47ff0e30728bcb7e62a3098ce02a3651cb7941cd5bfb510e71be5564",
+    "Tool/config/mcp-tool-dependencies.json": "fa629c7014b8258b5cd144ece74c2a068fe2fadba74792ba84f0aa815faa8d22",
+    "Tool/config/resource-sources.json": "8c9a8ba71bbafeba364b0503f896bd5fb576a9bcf4d2973d9432d843bdd324a1",
+    "Tool/docs/EXTEND.md": "bb3da84cbbbc91ab66e95732df1f353c44e508784d9232cc149bfae63b29466e",
+    "Tool/mcp/kb_local/README.md": "b07e912a77ee6f5b5c8250dcc6c596cf0b12bc9331705a100535d756f1d6c518",
+    "Tool/mcp/seep_mcp_server.py": "8e19391fd0ec59ab9cf1f1de62047824e1e7fc61802cd81334d5f1c308e6383b",
+    "Tool/mcp/tool_autodiscover.py": "9c1e5c5b2de70136549b93825cd59e576895d6e7cc5bc9c5aa58d03053ab0677",
+    "Tool/playbooks/README.md": "7cca55bc6ed47c73f1ffea9cfcb10766caa76a5a0a5e3d5cc78965c24e325f6e",
+    "Tool/playbooks/resource-maintenance.md": "2886a943a601da7b4578062fbe0bf733b649fa7e09c8aa4fecb780aeb8d80c2e",
+    "Tool/prompts/AGENTS.md": "0d252bbc1d1d7ebf76d002b1f7a51f777de197db647490f47947813bb5eec365",
+    "Tool/prompts/extensions/load-system-prompt.ts": "549732cb01a55bce687e16d6bfe9678d61f51e37af96f2c819cea95b85fdbc26",
+    "Tool/scripts/budget.py": "464986e7439fdf7aea86dd9a445d31832e78922c35bc9f81647c6764a6e4f9b3",
+    "Tool/scripts/lib/capability_discovery.py": "a0aa068b8d63fd9b09d0505bdfe8891828660c48376b24dd5d9978facc531472",
+    "Tool/scripts/lib/project_lock.py": "2c974b9c407c7b88b468c4fc1f74cfeea8a84875c0626d9a3cfc2794d2c6685b",
+    "Tool/scripts/lib/resource_maintenance.py": "ecab52c73224a2515040814d417bb8f5411c2e211056868d139a6e93bcb5121c",
+    "Tool/scripts/lib/resource_sources.py": "290ca2bb59c5bc8a3153994a14dc41943a191ae04f27977c4fd263b885b5ec87",
+    "Tool/scripts/resource-maintain.py": "8e5df48a97f2048677f9af837a4b84f7819d0a7413530f1991d856d0f6bb3af3",
+    "Tool/scripts/test_resource_evolution.py": "2f1372e69085b9a18a4223de9df1b381acd7146f025513d87acef7b916beaa58",
+    "Tool/scripts/test_tool_install_recovery.py": "b0219dd913b0e0cb60f15e441eff7bab3d051236fe04a45efcc7bd9b7372f3c9",
+    "Tool/scripts/test_tool_installation.py": "6d89eb0df5ceb9fbb1e9938a812e374fe99550a012ff490688bc2cbe8c1a03e8",
+    "Tool/scripts/tool-acquire.py": "fc026f77de5b31b96108cdda419ab627f4d256e4ef1012465ec53cab6149ce4f",
+    "Tool/scripts/tool-run.ps1": "729812075926b99d9678f4f312c2ad370736be40f9c859fb3e9f3735f72537ec",
+    "Tool/skill/seep-router/SKILL.md": "ee0892a31a0fa252b91b9fd06a05ec123c0e2d9a46d75953bdc617813e0e2bc5"
+  },
+  "merge_commits": [
+    "34ef188723fe4340c91e1de1f6a8c30cd3f84238",
+    "e0989890a8d2039eeca44ceaf3bca6b4dbc1b507"
+  ],
+  "merge_conflicts": false,
+  "full_runtime": {
+    "command": "python -B Tool/scripts/check.py --runtime --json",
+    "summary": {
+      "pass": 110,
+      "warn": 0,
+      "fail": 0,
+      "skip": 0
+    },
+    "source_commit": "e0989890a8d2039eeca44ceaf3bca6b4dbc1b507",
+    "returncode": 0,
+    "seconds": 1528.61,
+    "finished_at": "2026-11-02T16:34:55.121957+08:00",
+    "original_repository_path": true,
+    "isolated_agent_root": true
+  },
+  "previous_full_runtime": {
+    "source_commit": "34ef188723fe4340c91e1de1f6a8c30cd3f84238",
+    "summary": {
+      "pass": 106,
+      "warn": 0,
+      "fail": 4,
+      "skip": 0
+    },
+    "failing_suites": [
+      "unit",
+      "e2e",
+      "capability-compose",
+      "r12-gate-contracts"
+    ],
+    "causes": [
+      "recipe capability namespace line contained bare MCP methods",
+      "new runtime test missing from explicit public inventory"
+    ],
+    "fix": "typed references with methods in a separate description; include new regression in public suites; original assertions preserved"
+  },
+  "independent_review": {
+    "fork_context": "none",
+    "brief": "plain-language product goals, no implementation answer checklist",
+    "initial_findings": [
+      "non-document private side files reachable by KB read",
+      "Windows alias bypass of disabled file",
+      "disabled tool could still reach automatic installation"
+    ],
+    "followup_counterexamples": [
+      "excluded-directory case alias",
+      "disabled registered MCP selected by acquisition/control",
+      "GUI-hosted MCP endpoint not recognized by mode kind"
+    ],
+    "final_scope_verdict": "reported defects and related reproduced boundaries fixed",
+    "final_specialist_tests": 45,
+    "no_implementation_or_test_edits_by_reviewer": true,
+    "no_customer_targets_or_credentials": true,
+    "main_tree_equality_checked": true,
+    "two_file_integration_fix_reviewed": true,
+    "not_universal_semantic_or_host_proof": true
+  },
+  "targeted_regressions": {
+    "resource_evolution_tests": 45,
+    "capability_discovery_tests": 35,
+    "tool_installation_tests": 65,
+    "tool_install_recovery_tests": 23,
+    "tool_dependency_tests": 63,
+    "prompt_extension_tests": 21,
+    "project_transaction_tests": 14,
+    "other_cross_checks": "source inventory, skill import transactions, installation, mutation isolation, project report, runtime risk/cautions, KB acceptance, typed recipe and public inventory contracts"
+  },
+  "cold_deployment": {
+    "source_commit": "34ef188723fe4340c91e1de1f6a8c30cd3f84238",
+    "managed_files": 486,
+    "hash_errors": [],
+    "source_sdk_returncode": 0,
+    "env_check_returncode": 1,
+    "active_agent_root_updated": false,
+    "model_task_called": false,
+    "fresh_agent_root": "D:\\srl-evolution-final-20261102\\agent",
+    "prior_validation_root_with_other_owner_refused_without_overwrite": true
+  },
+  "installed_sdk": {
+    "sdk_version": "1.4.0",
+    "installed_extensions_loaded": 10,
+    "extension_errors": 0,
+    "guide_chars": 261,
+    "project_local_binding_loaded": true,
+    "invalid_binding_cleared_old_map": true,
+    "core_project_map_not_injected": true,
+    "global_pointer_or_parent_environment_changed": false,
+    "pi_model_api_called": false,
+    "active_piweb_restarted": false
+  },
+  "isolated_environment": {
+    "returncode": 1,
+    "installed": false,
+    "only_missing": "model authentication in a fresh isolated AgentRoot; no real credentials copied",
+    "host_or_model_task": false
+  },
+  "behavior": {
+    "source_commit_at_maintenance": "627cca2ee6ce4a80c55375ecdc4687ef70e9361f",
+    "source_commit_at_reuse": "d5fdc7a1e2b1f88697b97cbe25b4e7c6e44f29fd",
+    "maintenance_agent_no_parent_context": true,
+    "reuse_agent_no_parent_context": true,
+    "updated_existing_not_duplicate": true,
+    "private_source": true,
+    "automatic_publication": false,
+    "same_article_sha256": "8f20c7b529a850dfcb22077fca318c2fc5d7f5a7b525c443595f95446bda71dc",
+    "mcp_tools_observed": 23,
+    "maintenance_actual_stdio_discover_search_read": true,
+    "reuse_tests": 6,
+    "reuse_parent_rerun_exit": 0,
+    "counterexample_before_fix_reported": true,
+    "proof_scope": "one offline synthetic maintenance then one fresh Codex development task; not long-term/all-host/nine-domain proof",
+    "local_fixture": "D:\\tmp\\seep-experience-behavior-9261xy5n",
+    "sha256": {
+      "knowledge/callback-binding.md": "8f20c7b529a850dfcb22077fca318c2fc5d7f5a7b525c443595f95446bda71dc",
+      "project/callback.py": "358fce79a144ee99d62c1dd214831f2ca0352d7d90c36bd3fa0175f06b62c8bc",
+      "project/verify.py": "adcb64051789842b11ed7a4e570c00dbc779d5af2fefb61c39e773a0639d7f88",
+      "project/verification.json": "40a688388209a94ddf6c32011402ef56a24dc2d369bc6615a568c068045da5d8",
+      "followup-project/callback.py": "feea16b7338a898238239d7aa8aa47d94b8b7bf98144dbc9e8afac95a9b5a96c",
+      "followup-project/test_callback.py": "ca31c3798187c2d2d80e4625d7b25c23288cad7023548228d3b97d21dc8a79dd",
+      "maintenance/RESULT.md": "3654094bf1ecb688604e4dae2824d9309578ba31adfb76d6d455b27177e1f4f3",
+      "maintenance/apply.json": "ff9a0bb61951ae1f074f5098bd2ede1cfb8b980512934f4c35f60e3831777e53",
+      "maintenance/mcp-after.json": "a1ae27315176a74afe459ab7c495f08e3cf4b4844f86d0619c65fd1e75619e3c",
+      "maintenance/project-verification.json": "13b9d744c98cb9d798e647ab5137cff456188ecf2cc1bb9f5bb5ed39b93202c5"
+    }
+  },
+  "final_document_checks": {
+    "status": "completed_with_existing_preflight_notes",
+    "checks": [
+      {
+        "name": "final-docs",
+        "returncode": 0,
+        "seconds": 0.75
+      },
+      {
+        "name": "final-inventory",
+        "returncode": 0,
+        "seconds": 26.31
+      },
+      {
+        "name": "final-preflight",
+        "returncode": 2,
+        "seconds": 94.94,
+        "fails": 0,
+        "notes": 3,
+        "waived": 1,
+        "unverified": 0
+      },
+      {
+        "name": "final-upload",
+        "returncode": 0,
+        "seconds": 15.06
+      }
+    ],
+    "budget": {
+      "ok": true,
+      "budget": [
+        {
+          "item": "MCP 工具",
+          "value": 23,
+          "limit": 45,
+          "ok": true
+        },
+        {
+          "item": "技能",
+          "value": 11,
+          "limit": null,
+          "ok": true
+        },
+        {
+          "item": "setup 脚本",
+          "value": 22,
+          "limit": 22,
+          "ok": true
+        },
+        {
+          "item": "MANUAL 手册",
+          "value": 16,
+          "limit": 16,
+          "ok": true
+        },
+        {
+          "item": "MCP 主服务行数",
+          "value": 3188,
+          "limit": 3200,
+          "ok": true
+        },
+        {
+          "item": "first-party 引擎文件",
+          "value": 1176,
+          "limit": 1180,
+          "ok": true
+        },
+        {
+          "item": "案例库文件",
+          "value": 1657,
+          "limit": 1700,
+          "ok": true
+        }
+      ],
+      "source_inventory": {
+        "policy": "seep.source_inventory/2",
+        "mode": "git",
+        "stable": true,
+        "counts": {
+          "included": 1277,
+          "tracked": 1277,
+          "untracked": 0,
+          "excluded": 6016,
+          "missing": 0,
+          "unsupported": 0,
+          "first_party": 1176,
+          "thirdparty_input": 101,
+          "deleted_staged": 0,
+          "by_role": {
+            "first_party": 1176,
+            "thirdparty_input": 101
+          }
+        },
+        "mode_reason": "",
+        "source_complete": true,
+        "manifest_source": "",
+        "missing_tracked": [],
+        "deleted_staged": [],
+        "unsupported": []
+      }
+    },
+    "documents": {
+      "ok": true,
+      "files": 78,
+      "command_examples": 64,
+      "errors": []
+    },
+    "source_inventory_boundary_tests": 56,
+    "preflight": {
+      "fails": 0,
+      "notes": 3,
+      "waived": 1,
+      "unverified": 0
+    },
+    "note_details": [
+      {
+        "section": "2 数字",
+        "name": "BASELINE first-party 当前值",
+        "ok": true,
+        "detail": "声明为 snapshot（不追写实时值）：claim=未声明 实测=1176",
+        "level": "INFO"
+      },
+      {
+        "section": "2 单一事实源",
+        "name": "工具身份声明（目录未保存本机就绪快照）",
+        "ok": true,
+        "detail": "tool-index 不宣称本机就绪；实际发现与行为验证由 tool-readiness 单独执行",
+        "level": "INFO"
+      },
+      {
+        "section": "4 功能",
+        "name": "budget（已豁免：用户明确不以此止损；硬上限 16000）",
+        "ok": true,
+        "detail": "WARN 可控制小计 6856 > 3500，但 user 于 2026-10-25 决定豁免\n[已豁免：可控制层 6856；同时生效强制语句 8 条]\n可控制小计（人设+纪律+索引+边界）                                          6856           预算 3500  超 3356",
+        "level": "WARN"
+      }
+    ],
+    "prompt_tokens_estimate": 6856,
+    "prompt_soft_limit": 3500,
+    "existing_waiver_hard_limit": 16000,
+    "preflight_exit2_not_clean_release_pass": true
+  },
+  "publication": {
+    "actual_user_agent_root_updated": false,
+    "piweb_restarted": false,
+    "github_pushed": false,
+    "previous_published_baseline": "80cf3c647f7ea1523946822c65d6ea0e7be4dd22",
+    "source_backed_runtime_note": "Existing user runtime points to main, so a newly started CLI/MCP may read new source; extension copies and registration have not been synchronized."
+  },
+  "limits": [
+    "Only explicit Markdown sources are supported, not arbitrary filesystem or all formats.",
+    "Similarity and metadata do not verify semantic novelty or professional correctness.",
+    "Tool/service disabling covers cooperating Seep paths, not arbitrary shells or third-party host services.",
+    "No automatic web research daemon, training, core-policy modification or public release.",
+    "Fixed first-party1180 and original classification remain; capacity growth needs explicit policy, not silent exemptions.",
+    "Two synthetic Codex tasks are not all-host/nine-domain/long-term learning proof.",
+    "Strict TypeScript declaration limitations from the existing environment remain."
+  ],
+  "local_evidence": {
+    "distributed_with_source": false,
+    "directory": "tmp/resource-evolution-final",
+    "sha256": {
+      "source-freeze.json": "6bfec05cfda9449ac310f4f55a2a00bb2c11d0303a8a6125241a61a5be151df2",
+      "full-runtime.json": "7409b61cd096979844ca3c4025ef6610ee3d7b161946fde5b8e2584ea55fd238",
+      "full-runtime.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "full-status.json": "e7c35c60191d00ea9d3ebadf066dd83f271d0f2dfffc16ffdb131ebbcbb91b86",
+      "attempt-34ef1887-full-runtime.json": "961de3d258b6180db6450a5ea72cff0528b9bde0b848aadf9075f3ac2970c094",
+      "attempt-34ef1887-full-status.json": "f7518271a4a0102690fcbc068429397e0e82582e87a4837f3216594c9384e66e",
+      "cold-status.json": "61a5057852115add614cef99a3ac69d9e128cdce57f0859df8733c816ff7885e",
+      "fresh-install.stdout.log": "f9283056ab3c3570a648a82c94c92b28217be85da66e2e23ab4eed25da774e28",
+      "fresh-install.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "isolated-install.stdout.log": "20ded4caa07fab6d46d05d1f5bf0f2568a070b3e5a0a6d1d0cc50e03e9215575",
+      "isolated-install.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source-sdk.stdout.log": "82fc29c4abc1ed484bfe147caf8532dcfc72b453d7422eaa8659db2eb63bbecf",
+      "installed-sdk.stdout.log": "30249fe7d60404acd45b415fc4721936f1baef0c85f5c168b2f8c2792cbfc9d4",
+      "installed-sdk.stderr.log": "26abd2e0c0ca9059f6ae0dc8237085d7449b73dcf5455aebbf2943c2ff3c24b2",
+      "env-check.json": "efbfe7851fc6a52b52fbc149e63b9ef9e346b7f0bfe4f3ae1b98894dc426c368",
+      "behavior-receipt.json": "8ed8e3533aa092f04eaa8544f5cf3df1002b11653b4aeb5e34561aaaa7029412",
+      "reuse-parent-verify.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "reuse-parent-verify.stderr.log": "99ab6aa47de10586f5a6d96bbf47b7ce3b672be7511ea0aacc8211102d9f3914",
+      "final-budget.json": "489d89d8613dca26f0c07c27bd429331884e6195622d903d01d197c0ff6fef9b",
+      "final-document-status.json": "701d96ba8279b299fa2c625e377c1fd06c43f7bc39726fd9f113a1028ad62bf9",
+      "final-docs.stdout.log": "8cf73536c2e969e4142ef7dde475ac9434038a9625d99d0af8bf7c566f51bc69",
+      "final-docs.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "final-inventory.stdout.log": "67810c6fab9394a738da74b4421bd2410a297050b87f5089098dc9aef245685b",
+      "final-inventory.stderr.log": "c449e024fc3567551cc5510a924181be1590712dcd496978c09633470e9c5a7d",
+      "final-preflight.stdout.log": "d0dca4878f8df12a03b87aea40247667b80ce38bc86f19c6f08c29bc02bbc2ee",
+      "final-preflight.stderr.log": "7213bba3a55330bfbdbfe8ce47e34d25e5c4621eebad2fd81dd83e54caaa46bf",
+      "final-upload.stdout.log": "453c886010319a335a6b4dd804f849ab9525f51184cb4c19e99fb714cda79b8a",
+      "final-upload.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "branch_evidence": {
+      "directory": "codex/resource-evolution-20261102:tmp/resource-evolution",
+      "sha256": {
+        "targeted-status.json": "9d1a21e089cf0d9e59fcd294197030263cfde09813b1e43beb7bf62d48cc3b23",
+        "targeted-final-status.json": "a911ee273f7a1e94bacdb2316881cce2cdb02418142099dad18e1ff6315f3a67",
+        "cross-status.json": "fa6b9649e5ef1358785f6b57b27f1564864ffcd73b0e263383e769b25b41a8b3",
+        "review-cross-status.json": "18f6ea3191cd71e3ef8426f6dd4f6a9d9e59a4d0097ee60e87f013cf5ccc4768",
+        "second-review-status.json": "786c8eba99ad4bffe50f84bf80bc7a074dddf865aa77a25ce82dfdc919f7de87",
+        "third-review-status.json": "d5144b97e9529f04365695e38c9cbba814f02f024efd0fd37f40fe73b4ac02f8",
+        "review-before.stderr.log": "961f6bf6c25caac576bca550aa66047f0709686144a8edcd0d183a5bb59d0736",
+        "gui-mcp-before.stderr.log": "0dbaa8ba029b87dffb0333231ffbaa45e8ae16f10ae32f5ca3ac9b80589c2afd",
+        "gui-mcp-after.stderr.log": "c45cbd3b7c496415be8e1339cf7028fa6280d0a19e9459ecf8e7612fa03d5914"
+      }
+    }
+  }
+}

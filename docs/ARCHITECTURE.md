@@ -27,6 +27,8 @@
 |---|---|---|
 | `Tool/skill/seep-router/SKILL.md` | 判断、选域、上限和所缺材料 | 不替代各领域专业方法 |
 | `Tool/scripts/lib/capability_discovery.py` | 当前问题的只读资源关联、准确引用、资格和诊断 | CLI/MCP 同核，无宿主依赖；不执行、不调模型、不建项目，归属不限制借用 |
+| `Tool/config/resource-sources.json`、`Tool/scripts/lib/resource_sources.py` | 受限来源导航、逻辑身份、启停及文档资格 | 个人来源显式指定，配置不是库存副本；共同知识路径与停用核验，不扫描凭据或整机 |
+| `Tool/scripts/resource-maintain.py`、`Tool/scripts/lib/resource_maintenance.py` | 知识比较计划、受限写入、备份/恢复和查询读回 | 复用锁/事务与预算，不建账本，不自动发布；专业新颖性/语义仍由调用者判断，技能复用原导入器 |
 | `route.py --discover`、`seep_capability_discover` | 同一发现核心的 CLI/MCP 薄入口 | 无匹配正常继续；静态注册、候选和样本不代表当前就绪或任务成功 |
 | `Tool/skill/*/pack.json` | 正式域身份、工具、证据与深度声明 | 名单由实现读取，不在文档重复维护另一套注册表 |
 | `Tool/skill/<域>/SKILL.md`、`subskills/`、references、playbooks | 父域导航、专业方法和具体判据 | 子技能随父域保持目录结构部署；跨域返回同一project/version/run，库存不是已验收能力 |

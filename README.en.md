@@ -6,6 +6,8 @@ The workbench provides capabilities, contracts and execution interfaces. The nin
 
 Discovery finds existing methods, autonomy handles in-scope execution, runtime risk bounds cooperating experiments, and decision reviews distinguish tool success from new evidence. Unknowns, conflicting versions or repeated lack of progress call for targeted research and a discriminating test, not blind retries. See the [investigation recipe](Tool/playbooks/evidence-led-investigation.md). These mechanisms do not promise expert judgment or success on every target.
 
+Requested knowledge maintenance compares existing material before updating or adding it, retains scope and provenance, and verifies retrieval and readback. Explicit personal sources and disabled resources are supported; skill installation reuses the existing importer. No automatic core modification or public release. See [resource maintenance](Tool/playbooks/resource-maintenance.md) and [current status](docs/CURRENT-STATE.md) for verification and deployment boundaries.
+
 ## Let your agent install it
 
 Give your agent the repository URL or local directory and say:
