@@ -1,0 +1,9 @@
+{
+  "schema": "seep.resource-sources/1",
+  "sources": [
+    {"id": "core-skills", "kind": "skill", "path": "Tool/skill", "enabled": true, "writable": false, "visibility": "shared"},
+    {"id": "builtin-kb", "kind": "knowledge", "path": "Tool/mcp/Tool/reverselab/kb", "enabled": true, "writable": false, "visibility": "shared"},
+    {"id": "local-kb", "kind": "knowledge", "path": "Tool/mcp/kb_local", "enabled": true, "writable": true, "visibility": "shared"}
+  ],
+  "disabled_resources": []
+}
