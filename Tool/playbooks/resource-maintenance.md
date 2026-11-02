@@ -1,7 +1,8 @@
 # 资源维护：先比较，再积累，保存后读回
 
 - 触发词：整理项目经验、沉淀知识、补充知识库、增加技能、资料重复、更新旧方法、自进化、资源增删、换电脑、个人知识库。
-- 用到的能力：`repo:resource-maintain` `repo:skill-import` `repo:route`；既有 `seep_capability_discover`、`seep_kb_search`、`seep_kb_read` 与宿主普通文件/研究工具。
+- 用到的能力：`repo:resource-maintain` `repo:skill-import` `repo:route` `mcp:seep`。
+- 实际方法：既有 `seep_capability_discover`、`seep_kb_search`、`seep_kb_read` 与宿主普通文件/研究工具，先核真实 schema。
 - 输入：明确维护范围、当前项目实际证据或公开来源、准备保留的方法与适用条件。
 - 输出：不变/更新/新建/退役的依据、当前资源引用、读回/查询验证、必要备份与未验证项；不是另一套项目账本。
 

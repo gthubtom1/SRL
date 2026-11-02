@@ -320,6 +320,9 @@
     "capability-discovery": [
       "Tool/scripts/test_capability_discovery.py"
     ],
+    "resource-evolution": [
+      "Tool/scripts/test_resource_evolution.py"
+    ],
     "runtime-risk": [
       "Tool/scripts/test_runtime_risk.py"
     ],
